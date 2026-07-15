@@ -1,0 +1,125 @@
+/*
+ * 프리패스 ERP v4 — 디자인 토큰 SSOT.
+ * jpkerp6에서 검증한 토큰 계약(--text-main·--brand·--font-mono·--radius …)을 그대로 유지하되
+ * 색은 프리패스 CI(네이비 #1B2A4A · 스카이 #9EC5F3)로. UI 원자(components/ui)가 전부 이 토큰만 참조.
+ */
+:root {
+  /* Typography — 본문 Pretendard 통일(숫자는 tabular-nums). 워드마크만 Exo 2(별도). */
+  --font: 'Pretendard Variable', Pretendard, 'Apple SD Gothic Neo', 'Segoe UI', sans-serif;
+  --font-mono: 'Pretendard Variable', Pretendard, 'Apple SD Gothic Neo', 'Segoe UI', sans-serif;
+  --font-size: 12px;
+
+  --text-xs: 10px; --text-sm: 11px; --text-base: 12px; --text-md: 13px;
+  --text-lg: 14px; --text-xl: 16px; --text-2xl: 18px;
+  --fw-normal: 400; --fw-medium: 500; --fw-semibold: 600; --fw-bold: 700;
+  --line-height: 1.5;
+
+  /* Neutral palette */
+  --bg-page: #fafafa;   --bg-card: #ffffff;    --bg-header: #f4f4f5;
+  --bg-sunken: #f4f4f5; --bg-hover: #e9e9eb;   --bg-selected: #eff6ff;
+  --bg-stripe: #f9f9fa; --bg-elevated: #ffffff; --bg-disabled: #f4f4f5;
+
+  /* Text hierarchy */
+  --text-main: #18181b;   --text-sub: #52525b;   --text-weak: #a1a1aa;
+  --text-muted: #d4d4d8;  --text-inverse: #ffffff; --text-link: #2563eb;
+
+  /* Borders */
+  --border: #e4e4e7;  --border-soft: #f4f4f5;  --border-strong: #d4d4d8;  --border-focus: #1B2A4A;
+
+  /* Brand — 프리패스 네이비 + 스카이 */
+  --brand: #1B2A4A;   --brand-h: #0F1B35;   --brand-bg: #eef2f7;   --brand-soft: #f8fafc;
+  --sky: #9EC5F3;     --sky-bg: #eef5fe;
+  --focus-ring: rgba(27, 42, 74, 0.18);
+
+  /* Accent palette (soft bg + saturated text) */
+  --red-bg: #fef2f2;    --red-text: #b91c1c;    --red-border: #fecaca;
+  --orange-bg: #fff7ed; --orange-text: #c2410c; --orange-border: #fed7aa;
+  --amber-bg: #fefce8;  --amber-text: #a16207;  --amber-border: #fef08a;
+  --green-bg: #f0fdf4;  --green-text: #15803d;  --green-border: #bbf7d0;
+  --blue-bg: #eff6ff;   --blue-text: #1d4ed8;   --blue-border: #bfdbfe;
+  --indigo-bg: #eef2ff; --indigo-text: #4338ca; --indigo-border: #c7d2fe;
+  --purple-bg: #faf5ff; --purple-text: #7e22ce; --purple-border: #e9d5ff;
+  --zinc-bg: #f4f4f5;   --zinc-text: #52525b;   --zinc-border: #e4e4e7;
+
+  /* Alert aliases — tailwind.config 브릿지 */
+  --alert-red-bg: var(--red-bg);       --alert-red-text: var(--red-text);       --alert-red-border: var(--red-border);
+  --alert-orange-bg: var(--orange-bg); --alert-orange-text: var(--orange-text); --alert-orange-border: var(--orange-border);
+  --alert-green-bg: var(--green-bg);   --alert-green-text: var(--green-text);   --alert-green-border: var(--green-border);
+  --alert-blue-bg: var(--blue-bg);     --alert-blue-text: var(--blue-text);     --alert-blue-border: var(--blue-border);
+
+  /* Sizing — 4px 미세 라운드 통일 */
+  --radius-sm: 3px; --radius: 4px; --radius-md: 6px; --radius-lg: 8px; --radius-pill: 999px;
+  --row-height: 30px; --input-height: 26px; --button-height: 26px;
+  --topbar-h: 48px; --bottombar-h: 42px;
+
+  --z-dropdown: 100; --z-modal: 1000; --z-toast: 2000;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+  --shadow: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.03);
+  --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -1px rgba(0,0,0,0.04);
+  --shadow-lg: 0 10px 24px -4px rgba(0,0,0,0.10), 0 4px 8px -2px rgba(0,0,0,0.04);
+}
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0;
+  font-family: var(--font);
+  font-size: var(--font-size);
+  line-height: var(--line-height);
+  color: var(--text-main);
+  background: var(--bg-page);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+a { color: inherit; }
+button, input, select, textarea { font-family: inherit; }
+
+/* 처리 필요 표시(위험 섹션) — ui의 Sec/ObjCard가 참조 */
+.attn-dot {
+  display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--red-text);
+  box-shadow: 0 0 0 0 rgba(185, 28, 28, 0.5);
+  animation: attn-pulse 1.8s ease-out infinite;
+}
+@keyframes attn-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(185, 28, 28, 0.45); }
+  70% { box-shadow: 0 0 0 5px rgba(185, 28, 28, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(185, 28, 28, 0); }
+}
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: #d4d4d8; border-radius: 999px; border: 2px solid var(--bg-page); }
+::-webkit-scrollbar-thumb:hover { background: #a1a1aa; }
+
+/* ── 모바일·웹 한 벌 셸 ── 웹=상단 내비 / 모바일(≤760)=하단 탭바 ── */
+.fp-topnav { display: flex; gap: 2px; align-items: center; }
+.fp-bottomnav { display: none; }
+.fp-fab { display: none; }
+
+@media (max-width: 760px) {
+  .fp-topnav { display: none; }               /* 모바일: 상단 내비 숨김 */
+  .fp-main-pad { padding-bottom: 64px; }        /* 하단 탭바 자리 */
+  .fp-bottomnav {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 45;
+    display: flex; align-items: stretch; height: 56px;
+    background: #fff; border-top: 1px solid var(--border);
+    padding-bottom: env(safe-area-inset-bottom);
+    box-shadow: 0 -2px 12px rgba(15, 23, 42, 0.06);
+  }
+  .fp-fab { display: flex; }
+}
+.fp-bottomnav-tab {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 600; text-decoration: none; color: var(--text-sub);
+}
+.fp-bottomnav-tab[data-on="true"] { color: var(--brand); font-weight: 800; box-shadow: inset 0 2px 0 0 var(--brand); }
+
+/* ── 파인더: 웹=좌측 사이드바 필터 / 모바일=숨김(필터 버튼) ── 각지게(저 radius) ── */
+.fp-finder { display: grid; grid-template-columns: 264px 1fr; gap: 0; align-items: start; }
+.fp-sidebar { position: sticky; top: var(--topbar-h); height: calc(100vh - var(--topbar-h)); overflow-y: auto; border-right: 1px solid var(--border); background: #fff; }
+.fp-filter-btn { display: none; }
+@media (max-width: 860px) {
+  .fp-finder { grid-template-columns: 1fr; }
+  .fp-sidebar { display: none; }
+  .fp-sidebar.is-open { display: block; position: fixed; inset: var(--topbar-h) 0 0 0; z-index: 60; background: #fff; overflow-y: auto; padding: 12px 16px 80px; max-height: none; }
+  .fp-filter-btn { display: inline-flex; }
+}

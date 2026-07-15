@@ -1,0 +1,52 @@
+rules_version = '2';
+// [초안] 회사·역할 격리 — 프리패스erp v1~v3 반복된 최대 약점(Rules 미배포, 클라이언트 필터 의존) 해소용.
+// 배포 전 필수: Firebase Auth 커스텀클레임(role, company, agent_code, provider_company_code) 세팅 + 에뮬레이터 테스트.
+// 원칙: 로그인+같은 회사만 read. 하드삭제 전면 금지(소프트삭제 _deleted만). 정산 금액은 관리자만. 감사로그 append-only.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function claim(k) { return request.auth.token[k]; }
+    function myCompany(doc) { return doc.companyId == claim('company'); }
+    function isAdmin() { return signedIn() && claim('role') == 'admin'; }
+
+    // 매물 — 관리자 전체, 공급사는 자기 회사 매물만 write
+    match /product/{id} {
+      allow read: if signedIn() && myCompany(resource.data);
+      allow create, update: if isAdmin()
+        || (signedIn() && myCompany(request.resource.data) && claim('role') == 'provider' && request.resource.data.provider_company_code == claim('provider_company_code'));
+      allow delete: if false;
+    }
+    // 계약 — 관리자 전체, 영업자=자기 계약, 공급사=자기 매물 계약(응답)
+    match /contract/{id} {
+      allow read: if signedIn() && myCompany(resource.data);
+      allow create, update: if isAdmin()
+        || (signedIn() && myCompany(request.resource.data) && claim('role') == 'agent' && request.resource.data.agent_code == claim('agent_code'))
+        || (signedIn() && myCompany(request.resource.data) && claim('role') == 'provider' && request.resource.data.provider_company_code == claim('provider_company_code'));
+      allow delete: if false;
+    }
+    // 정산 — 금액 변경은 관리자만(공급사 임의 상향 방지)
+    match /settlement/{id} {
+      allow read: if signedIn() && myCompany(resource.data);
+      allow create, update: if isAdmin() && myCompany(request.resource.data);
+      allow delete: if false;
+    }
+    // 감사로그 — append-only, 수정·삭제 금지
+    match /audit_log/{id} {
+      allow read: if isAdmin() && myCompany(resource.data);
+      allow create: if signedIn() && myCompany(request.resource.data);
+      allow update, delete: if false;
+    }
+    // 정책·공급사·사용자 — 관리자만 write, 같은 회사 read
+    match /{col}/{id} {
+      allow read: if signedIn() && myCompany(resource.data) && (col == 'policy' || col == 'partner' || col == 'user');
+      allow create, update: if isAdmin() && myCompany(request.resource.data) && (col == 'policy' || col == 'partner' || col == 'user');
+      allow delete: if false;
+    }
+    // 방·메시지·견적·고객 — 로그인 + 같은 회사면 write(거래 참여자)
+    match /{col}/{id} {
+      allow read: if signedIn() && myCompany(resource.data) && (col == 'room' || col == 'message' || col == 'quote' || col == 'customer');
+      allow create, update: if signedIn() && myCompany(request.resource.data) && (col == 'room' || col == 'message' || col == 'quote' || col == 'customer');
+      allow delete: if false;
+    }
+  }
+}
