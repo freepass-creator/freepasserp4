@@ -62,6 +62,14 @@ export function normModel(model: unknown, maker: unknown, sub: unknown): string 
   if (!nm || nm === norm(mk)) nm = norm(stripMaker(String(sub ?? ''), mk)); // 모델=제조사만 → sub로
   return nm;
 }
+// 세부모델에서 모델명만 추출(제조사·세대접두·세대코드 제거) — P3(모델↔세부 충돌 시 세부 우선) 락용.
+function modelFromSub(sub: unknown, maker: unknown, codes: Set<string>): string {
+  let s = stripMaker(String(sub ?? ''), String(maker ?? ''));
+  for (const t of s.match(/[A-Za-z]{1,3}\d{1,3}[A-Za-z]?|[A-Za-z]{2,4}/g) || []) if (codes.has(t.toUpperCase())) s = s.replace(t, '');
+  let nm = norm(s);
+  for (const g of GEN_PREF) if (nm.startsWith(g) && nm.length > g.length) { nm = nm.slice(g.length); break; }
+  return nm;
+}
 // ── 세대코드 추출 ── sub_model 에 박힌 마스터 세대코드(NQ5·W214·CN7·KA4)를 직접 잡아 세대 확정.
 let _genCache: { entries: MasterEntry[]; codes: Set<string> } | null = null;
 const genCodes = (entries: MasterEntry[]): Set<string> => {
@@ -108,6 +116,7 @@ const sim = (a: string, b: string): number => {
 export function snapToMaster(p: EntityRecord, entries: MasterEntry[]): SnapResult | null {
   const maker = norm(p.maker), model = norm(p.model), sub = norm(p.sub_model), year = carYear(p);
   if (!maker && !model && !sub) return null;
+  if (!model && !sub) return null; // P4(사용자 정책): 제조사만 있고 모델·세부 공란 = 매칭 안 함(미분류로 사람이 채움)
 
   // ── 1단계: 제조사 잠금 ── (아반떼→현대). 그룹 별칭으로 제네시스↔현대·르노 표기흔들림 흡수. 불명이면 전체.
   const mg = maker ? makerGroup(maker) : [];
@@ -118,18 +127,20 @@ export function snapToMaster(p: EntityRecord, entries: MasterEntry[]): SnapResul
 
   // ── 2단계: 모델 하드 잠금 ── 풀 안 distinct 모델 중 매물 model/sub_model 과 최적 1개로 고정.
   //   "아반떼면 아반떼 안에서만" — 이후 세대·variant·트림은 이 모델 밖으로 못 나감(교차오염 차단).
-  const pmodel = normModel(p.model, p.maker, p.sub_model);   // 제조사·세대 접두 벗긴 모델신호
+  const codes = genCodes(entries);
+  const pmodel = normModel(p.model, p.maker, p.sub_model);      // 제조사·세대 접두 벗긴 모델신호(모델칸)
+  const subModel = modelFromSub(p.sub_model, p.maker, codes);   // 세부에서 뽑은 모델명(P3: 모델↔세부 충돌 시 우선)
   let lockedModel: string | null = null, modelSim = 0;
   for (const em of new Set(pool.map((e) => e.model))) {
     const nem = norm(em);
-    let s = Math.max(sim(pmodel, em), sub ? sim(String(p.sub_model), em) : 0);
+    // P3(사용자 정책): 세부모델 우선(full) > 모델칸(0.9) > 전체sub유사(0.85). 베뉴(모델)vs카니발(세부)→카니발
+    let s = Math.max(sim(subModel, em), sim(pmodel, em) * 0.9, sub ? sim(String(p.sub_model), em) * 0.85 : 0);
     if (nem && sub.includes(nem)) s += 0.02 * nem.length;   // 구체성 우선 — sub에 전체 모델명 포함 시 더 긴 모델(A6 e-트론 > A6)
     if (s > modelSim) { modelSim = s; lockedModel = em; }
   }
   const locked = (lockedModel && modelSim > 0.4) ? pool.filter((e) => e.model === lockedModel) : pool;
 
   // ── 3단계: 세대 좁히기 ── 잠긴 모델 안에서 세부명·트림·세대코드·연식·파워트레인 종합.
-  const codes = genCodes(entries);
   const pgen = extractGen(p.sub_model, codes);   // sub에 명시된 세대코드(NQ5·W214)
   const ord = ordinalGen(p.sub_model) || ordinalGen(p.trim_name);   // "3세대" 서수
   const orderList = lockedModel ? (genOrder(entries).get(lockedModel) || []) : [];
@@ -139,14 +150,15 @@ export function snapToMaster(p: EntityRecord, entries: MasterEntry[]): SnapResul
     let s = 0;
     if (sub) s += sim(String(p.sub_model), e.sub_model) * 2.2 + sim(String(p.sub_model), e.title || '') * 0.5;
     if (p.trim_name) s += sim(String(p.trim_name), e.sub_model) * 1.0;              // 트림의 세대신호(뉴라이즈→페이스리프트)
-    if (pgen && String(e.gen_code).toUpperCase() === pgen) s += 5;                  // 세대코드 명시 = 지배적(NQ5→NQ5)
-    if (targetGen && e.gen_code === targetGen) s += 5;                              // "N세대" 서수 → 연대순 N번째 세대(더뉴 K5 3세대→DL3)
+    const genLock = (pgen && String(e.gen_code).toUpperCase() === pgen) || (targetGen && e.gen_code === targetGen);
+    if (genLock) s += 5;                                                            // 세대코드 명시(NQ5) 또는 "N세대" 서수 = 지배적
     const ys = Number(e.year_start) || 0, ye = /\d{4}/.test(String(e.year_end)) ? Number(e.year_end) : 9999;
-    if (year && ys) {
+    // P2(사용자 정책): 세대가 확정(genLock)되면 연식 무시(연식칸 오기 잦음). 아니면 연식으로 세대 좁힘.
+    if (year && ys && !genLock) {
       if (year >= ys && year <= ye) s += 3;                                    // 연식이 세대 범위 안 = 강가점
       else if (year >= ys - 1 && year <= ye + 1) s += 1.2;                     // 경계 ±1
       else s -= Math.min(3, (year < ys ? ys - year : year - ye) * 0.6);        // 벗어난 세대 배제
-    }
+    } else if (year && ys && genLock && year >= ys && year <= ye) s += 1;      // 세대확정+연식도 맞으면 소폭 보강
     if (pfuel && e.variants?.length) {                                             // 파워트레인으로 세대 제약(하이브리드=KA4 전용 등)
       const fuels = new Set(e.variants.map((v) => normFuel(v.fuel)));
       if (fuels.has(pfuel)) s += 0.8;
@@ -175,9 +187,15 @@ export function snapToMaster(p: EntityRecord, entries: MasterEntry[]): SnapResul
   const trimSrc = variant?.trims?.length ? variant.trims : (e.trims || []);
   if (p.trim_name && trimSrc.length) { const t = trimSrc.map((x) => ({ x, ts: sim(String(p.trim_name), x) })).sort((a, b) => b.ts - a.ts)[0]; if (t && t.ts >= 0.35) trim = t.x; }
 
-  // 확신도 = 모델락 강도 × 세대 확정도. 모델을 못 잠갔으면(modelSim 낮음) 저신뢰 = 사람 검토. (구체성 보너스로 1 초과 가능 → 캡)
+  // P1(사용자 정책): 세부모델 우선하되, 트림이 잠긴 모델과 "다른 모델"을 강하게 가리키면 저신뢰(사람 검토).
+  //   예: 세부=K5인데 트림="K7 프리미어..." → K5로 두되 검토표시.
+  let trimConflict = false;
+  if (p.trim_name && lockedModel) {
+    for (const om of new Set(pool.map((x) => x.model))) { if (norm(om) !== norm(lockedModel) && sim(String(p.trim_name), om) >= 0.75) { trimConflict = true; break; } }
+  }
+  // 확신도 = 모델락 강도 × 세대 확정도. 모델 못 잠갔거나 트림충돌이면 저신뢰. (구체성 보너스로 1 초과 가능 → 캡)
   const ms = Math.min(modelSim, 1);
-  const confidence: SnapResult['confidence'] = (ms >= 0.7 && best.s >= 3) ? 'high' : (ms >= 0.45 && best.s >= 0.5) ? 'medium' : 'low';
+  const confidence: SnapResult['confidence'] = trimConflict ? 'low' : (ms >= 0.7 && best.s >= 3) ? 'high' : (ms >= 0.45 && best.s >= 0.5) ? 'medium' : 'low';
   return {
     maker: e.maker, model: e.model, sub_model: e.sub_model, gen_code: e.gen_code,
     year_start: e.year_start, year_end: e.year_end,
