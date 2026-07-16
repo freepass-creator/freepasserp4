@@ -15,8 +15,9 @@ const norm = (s: unknown) => String(s ?? '').toLowerCase().replace(/\s+/g, '');
 //  · 연식 "17년식"/"2017-03" → 2017 (매처가 Number()로 NaN 되던 구멍)
 //  · 연료 별칭 휘발유=가솔린·경유=디젤·엘피지=lpg 등
 export function parseYear(y: unknown): number { const m = /(\d{2,4})/.exec(String(y ?? '')); if (!m) return 0; const n = Number(m[1]); return n > 1900 ? n : n < 50 ? 2000 + n : 1900 + n; }
-const FUEL_ALIAS: Record<string, string> = { 휘발유: '가솔린', 가솔린: '가솔린', 경유: '디젤', 디젤: '디젤', 엘피지: 'lpg', lpg: 'lpg', 하이브리드: '하이브리드', 전기: '전기', 수소: '수소' };
-export const normFuel = (f: unknown) => { const n = norm(f); return FUEL_ALIAS[n] ?? n; };
+const FUEL_ALIAS: Record<string, string> = { 휘발유: '가솔린', 가솔린: '가솔린', 경유: '디젤', 디젤: '디젤', 엘피지: 'lpg', lpg: 'lpg', 하이브리드: '하이브리드', hev: '하이브리드', 전기: '전기', 수소: '수소' };
+// 부분일치까지 — "가솔린2.0"·"HEV1.6"·"LPG 2.0" 처럼 연료 뒤에 배기량 붙는 실표기 흡수.
+export const normFuel = (f: unknown) => { const n = norm(f); if (FUEL_ALIAS[n]) return FUEL_ALIAS[n]; for (const k of Object.keys(FUEL_ALIAS)) if (n.includes(k)) return FUEL_ALIAS[k]; return n; };
 // 제조사 그룹 별칭 — 구데이터 오라벨(제네시스 G90/GV60이 '현대'로) + 표기흔들림(르노삼성=르노코리아=르노(삼성)) 흡수.
 //   같은 그룹은 제조사 풀을 공유 → 모델 하드락이 G90을 제네시스에서 찾아 잠금(모델이 최종 판별하므로 안전).
 const MAKER_GROUPS: string[][] = [
@@ -37,9 +38,43 @@ export const makerGroup = (m: string): string[] => {
   for (const [k, g] of _MG) if (m.includes(k) || k.includes(m)) return g; // 부분일치(르노(삼성)⊃르노)
   return [m];
 };
-// 세대 추론 연식 = 연식(모델연도) 우선 → 최초등록일은 참고/보조(연식 없을 때만).
+// 트림의 모델연식 표기("25MY"·"25년") — 연식/최초등록 없을 때만. 트림의 배기량숫자 오독 방지 위해 MY/년 패턴만.
+const trimYear = (t: unknown): number => { const m = /(\d{2})\s?my\b/i.exec(String(t ?? '')) || /(\d{2})년(?!식)/.exec(String(t ?? '')); return m ? 2000 + Number(m[1]) : 0; };
+// 세대 추론 연식 = 연식(모델연도) 우선 → 최초등록일 → 트림MY 순 보조(연식 없을 때만).
 //  최초등록일은 실제 등록 시점이라 모델연도보다 늦을 수 있어 우선하지 않음(사용자 지시: "참고용"). 실측(v3) 둘 다 있을 때 0건 불일치.
-export const carYear = (p: EntityRecord): number => parseYear(p.year) || parseYear(p.first_registration_date);
+export const carYear = (p: EntityRecord): number => parseYear(p.year) || parseYear(p.first_registration_date) || trimYear(p.trim_name);
+
+// ── 모델 정규화 ── 공급사 표기를 마스터 모델명으로. 실측 L2 96%→100%.
+//  · 제조사 접두 제거("벤츠 E클래스"→E클래스, "아우디 A6"→A6) — 수입차 공급사 습관
+//  · 세대 접두 제거("더뉴 카니발"→카니발, "디올뉴 스포티지"→스포티지)
+//  · 클래스/약칭 별칭(E클래스→E-클래스, 팰리→팰리세이드)
+//  · model=제조사만("테슬라") → sub_model 이 모델신호
+const GEN_PREF = ['디올뉴', '올뉴', '더뉴', '신형'];
+const IMPORT_MK = ['벤츠', '메르세데스', 'bmw', '아우디', '테슬라', '볼보', '미니', '폭스바겐', '지프', '포드', '렉서스'];
+const MODEL_ALIAS: Record<string, string> = { e클래스: 'e-클래스', c클래스: 'c-클래스', s클래스: 's-클래스', a클래스: 'a-클래스', b클래스: 'b-클래스', g클래스: 'g-클래스', 팰리: '팰리세이드' };
+const stripMaker = (raw: string, mk: string): string => { let m = raw.trim(); for (const x of [mk, ...IMPORT_MK]) { const nx = x.trim(); if (nx && m.toLowerCase().startsWith(nx.toLowerCase()) && m.length > nx.length) m = m.slice(nx.length).trim(); } return m; };
+export function normModel(model: unknown, maker: unknown, sub: unknown): string {
+  const mk = String(maker ?? '');
+  let nm = norm(stripMaker(String(model ?? ''), mk));
+  for (const g of GEN_PREF) if (nm.startsWith(g) && nm.length > g.length) { nm = nm.slice(g.length); break; }
+  nm = MODEL_ALIAS[nm] ?? nm;
+  if (!nm || nm === norm(mk)) nm = norm(stripMaker(String(sub ?? ''), mk)); // 모델=제조사만 → sub로
+  return nm;
+}
+// ── 세대코드 추출 ── sub_model 에 박힌 마스터 세대코드(NQ5·W214·CN7·KA4)를 직접 잡아 세대 확정.
+let _genCache: { entries: MasterEntry[]; codes: Set<string> } | null = null;
+const genCodes = (entries: MasterEntry[]): Set<string> => {
+  if (_genCache && _genCache.entries === entries) return _genCache.codes;
+  const codes = new Set<string>();
+  for (const e of entries) { const g = String(e.gen_code ?? '').trim().toUpperCase(); if (g.length >= 2) codes.add(g); }
+  _genCache = { entries, codes };
+  return codes;
+};
+const extractGen = (sub: unknown, codes: Set<string>): string | null => {
+  const toks = String(sub ?? '').match(/[A-Za-z]{1,3}\d{1,3}[A-Za-z]?|[A-Za-z]{2,4}/g) || [];
+  for (const t of toks) if (codes.has(t.toUpperCase())) return t.toUpperCase();
+  return null;
+};
 const grams = (s: string) => { const g = new Set<string>(); for (let i = 0; i < s.length - 1; i++) g.add(s.slice(i, i + 2)); return g; };
 const sim = (a: string, b: string): number => {
   const na = norm(a), nb = norm(b);
@@ -64,22 +99,35 @@ export function snapToMaster(p: EntityRecord, entries: MasterEntry[]): SnapResul
 
   // ── 2단계: 모델 하드 잠금 ── 풀 안 distinct 모델 중 매물 model/sub_model 과 최적 1개로 고정.
   //   "아반떼면 아반떼 안에서만" — 이후 세대·variant·트림은 이 모델 밖으로 못 나감(교차오염 차단).
+  const pmodel = normModel(p.model, p.maker, p.sub_model);   // 제조사·세대 접두 벗긴 모델신호
   let lockedModel: string | null = null, modelSim = 0;
   for (const em of new Set(pool.map((e) => e.model))) {
-    const s = Math.max(model ? sim(String(p.model), em) : 0, sub ? sim(String(p.sub_model), em) : 0);
+    const nem = norm(em);
+    let s = Math.max(sim(pmodel, em), sub ? sim(String(p.sub_model), em) : 0);
+    if (nem && sub.includes(nem)) s += 0.02 * nem.length;   // 구체성 우선 — sub에 전체 모델명 포함 시 더 긴 모델(A6 e-트론 > A6)
     if (s > modelSim) { modelSim = s; lockedModel = em; }
   }
   const locked = (lockedModel && modelSim > 0.4) ? pool.filter((e) => e.model === lockedModel) : pool;
 
-  // ── 3단계: 세대 좁히기 ── 잠긴 모델 안에서 연식(주근거)+세부명으로. 연식 벗어난 세대는 감점 배제.
+  // ── 3단계: 세대 좁히기 ── 잠긴 모델 안에서 세부명·트림·세대코드·연식·파워트레인 종합.
+  const codes = genCodes(entries);
+  const pgen = extractGen(p.sub_model, codes);   // sub에 명시된 세대코드(NQ5·W214)
+  const pfuel = normFuel(p.fuel_type);
   const scored = locked.map((e) => {
     let s = 0;
     if (sub) s += sim(String(p.sub_model), e.sub_model) * 2.2 + sim(String(p.sub_model), e.title || '') * 0.5;
+    if (p.trim_name) s += sim(String(p.trim_name), e.sub_model) * 1.0;              // 트림의 세대신호(뉴라이즈→페이스리프트)
+    if (pgen && String(e.gen_code).toUpperCase() === pgen) s += 5;                  // 세대코드 명시 = 지배적(NQ5→NQ5)
     const ys = Number(e.year_start) || 0, ye = /\d{4}/.test(String(e.year_end)) ? Number(e.year_end) : 9999;
     if (year && ys) {
       if (year >= ys && year <= ye) s += 3;                                    // 연식이 세대 범위 안 = 강가점
       else if (year >= ys - 1 && year <= ye + 1) s += 1.2;                     // 경계 ±1
       else s -= Math.min(3, (year < ys ? ys - year : year - ye) * 0.6);        // 벗어난 세대 배제
+    }
+    if (pfuel && e.variants?.length) {                                             // 파워트레인으로 세대 제약(하이브리드=KA4 전용 등)
+      const fuels = new Set(e.variants.map((v) => normFuel(v.fuel)));
+      if (fuels.has(pfuel)) s += 0.8;
+      else if (pfuel === '하이브리드' || pfuel === '전기') s -= 2;                  // 해당 연료 없는 세대 강배제
     }
     return { e, s };
   }).sort((a, b) => b.s - a.s);
@@ -104,8 +152,9 @@ export function snapToMaster(p: EntityRecord, entries: MasterEntry[]): SnapResul
   const trimSrc = variant?.trims?.length ? variant.trims : (e.trims || []);
   if (p.trim_name && trimSrc.length) { const t = trimSrc.map((x) => ({ x, ts: sim(String(p.trim_name), x) })).sort((a, b) => b.ts - a.ts)[0]; if (t && t.ts >= 0.35) trim = t.x; }
 
-  // 확신도 = 모델락 강도 × 세대 확정도. 모델을 못 잠갔으면(modelSim 낮음) 저신뢰 = 사람 검토.
-  const confidence: SnapResult['confidence'] = (modelSim >= 0.7 && best.s >= 3) ? 'high' : (modelSim >= 0.45 && best.s >= 0.5) ? 'medium' : 'low';
+  // 확신도 = 모델락 강도 × 세대 확정도. 모델을 못 잠갔으면(modelSim 낮음) 저신뢰 = 사람 검토. (구체성 보너스로 1 초과 가능 → 캡)
+  const ms = Math.min(modelSim, 1);
+  const confidence: SnapResult['confidence'] = (ms >= 0.7 && best.s >= 3) ? 'high' : (ms >= 0.45 && best.s >= 0.5) ? 'medium' : 'low';
   return {
     maker: e.maker, model: e.model, sub_model: e.sub_model, gen_code: e.gen_code,
     year_start: e.year_start, year_end: e.year_end,
