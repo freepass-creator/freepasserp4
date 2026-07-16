@@ -245,32 +245,30 @@ export default function Inventory() {
   );
   const syncPane = (
     <>
-      <PaneHead title="공급사 소스 연동" />
-      <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <div style={{ fontSize: 12, fontWeight: 800, color: C.ink }}>차종 마스터 재구현</div>
-        <Btn size="sm" onClick={reconcileAll} disabled={reconBusy}>{reconBusy ? '재구현 중…' : '전체 매물 차종 재구현'}</Btn>
-        <div style={{ fontSize: 11, color: C.faint, lineHeight: 1.5 }}>전 매물을 차종마스터 계단트리(제조사→모델→세대→파워트레인→트림)에 재스냅 → 표기 통일·연식/세대 보정. 결과는 항상 실존 조합, 저신뢰는 검토 표시.</div>
-        <div style={{ height: 1, background: C.line2, margin: '4px 0' }} />
-        <div style={{ fontSize: 12, fontWeight: 800, color: C.ink }}>종합표 (구글시트 붙여넣기)</div>
-        <Btn size="sm" onClick={copyJonghap}>종합표 TSV 복사</Btn>
-        <div style={{ fontSize: 11, color: C.faint, lineHeight: 1.5 }}>전 매물+정책을 종합탭 42컬럼 TSV로 복사 → 구글시트 종합탭에 붙여넣기.</div>
-        <div style={{ height: 1, background: C.line2, margin: '4px 0' }} />
-        <div style={{ fontSize: 12, fontWeight: 800, color: C.ink }}>구글시트 연동</div>
-        <input value={sheetUrl} onChange={(e) => setSheetUrl(e.target.value)} placeholder="https://docs.google.com/spreadsheets/…" style={inp} />
-        <Btn size="sm" onClick={saveLink}>링크 저장</Btn>
-        <div style={{ fontSize: 11, color: C.faint, lineHeight: 1.5 }}>매핑(컬럼 대응)을 공급사에 저장 → 코드 수정 없이 렌트사 추가. 자동 불러오기는 배포 후.</div>
-        <div style={{ height: 1, background: C.line2, margin: '4px 0' }} />
-        <div style={{ fontSize: 12, fontWeight: 800, color: C.ink }}>엑셀·시트 붙여넣기</div>
-        <textarea value={paste} onChange={(e) => setPaste(e.target.value)} placeholder={'첫 줄 = 헤더(탭 구분)\n차량번호\t제조사\t모델\t연식\t연료\t주행\t색상\t상태'} rows={7} style={{ ...inp, fontFamily: 'var(--font-mono)', resize: 'vertical' }} />
-        <Btn size="sm" onClick={importPaste}>불러오기 · 반영</Btn>
-        <div style={{ fontSize: 11, color: C.faint, lineHeight: 1.5 }}>헤더명 자동매핑(차량번호·제조사·모델·연식·연료·주행·색상·차종·상태). 5단계 규격화·가격맵은 후속.</div>
+      <PaneHead title="공급사 업로드" />
+      <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {/* 히어로 = 원버튼: 매물 전체 불러와 차종마스터 자동 정합 */}
+        <div style={{ border: `1px solid ${C.line}`, borderRadius: 6, background: '#f8fbff', padding: 12 }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: C.brand, marginBottom: 3 }}>매물 전체 불러오기</div>
+          <div style={{ fontSize: 11, color: C.faint, lineHeight: 1.5, marginBottom: 9 }}>공급사 매물을 전부 끌어와 차종마스터 계단트리(제조사→모델→세대→파워트레인→트림)로 자동 정합. 결과는 항상 실존 조합, 저신뢰만 검토 표시.</div>
+          <Btn onClick={reconcileAll} disabled={reconBusy}>{reconBusy ? '불러오는 중…' : '전체 불러와 차종 정합'}</Btn>
+        </div>
+        {/* 보조 도구(작게) */}
+        <div style={{ fontSize: 11.5, fontWeight: 700, color: C.mute, marginTop: 2 }}>보조 도구</div>
+        <Btn size="sm" variant="ghost" onClick={copyJonghap}>종합표 TSV 복사</Btn>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+          <input value={sheetUrl} onChange={(e) => setSheetUrl(e.target.value)} placeholder="구글시트 URL" style={{ ...inp, marginTop: 0, flex: 1, minWidth: 0 }} />
+          <Btn size="sm" variant="ghost" onClick={saveLink}>저장</Btn>
+        </div>
+        <textarea value={paste} onChange={(e) => setPaste(e.target.value)} placeholder={'엑셀/시트 붙여넣기 — 첫 줄=헤더(탭)\n차량번호\t제조사\t모델\t연식\t연료'} rows={5} style={{ ...inp, marginTop: 0, fontFamily: 'var(--font-mono)', resize: 'vertical' }} />
+        <Btn size="sm" variant="ghost" onClick={importPaste}>붙여넣기 반영</Btn>
       </div>
     </>
   );
 
   const panes: WorkPane[] = [
     { key: 'edit', title: '매물 편집', node: editPane },
-    { key: 'sync', title: '공급사 업로드', node: syncPane },
+    { key: 'sync', title: '공급사 업로드', node: syncPane, width: 360 },
   ];
   return <WorkPage title="재고" listCount={rows ? rows.length : ''} list={rows === null ? <div style={{ padding: 24, color: C.faint }}>불러오는 중…</div> : listEl} panes={panes} selected={!!sel} onBack={clearSel}
     search={{ value: q, onChange: setQ, placeholder: '차량·차번·제조사·상태' }} actions={<Btn size="sm" onClick={newP}>매물 등록</Btn>} />;

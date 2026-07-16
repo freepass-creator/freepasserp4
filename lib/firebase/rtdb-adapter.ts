@@ -16,6 +16,9 @@ import type { StoreAdapter, SaveResult } from '../store';
 
 type Rec = Record<string, any>;
 
+// RTDB update()/set()는 값에 undefined 있으면 throw. 저장 직전 undefined 키 제거(applySnap의 미매칭 variant/trim 등 방어).
+const stripUndef = (o: Rec): Rec => { const r: Rec = {}; for (const [k, v] of Object.entries(o)) if (v !== undefined) r[k] = v; return r; };
+
 // v4 엔티티키 → v3 RTDB 노드명
 const NODE: Record<string, string> = {
   product: 'products', policy: 'policies', partner: 'partners', user: 'users',
@@ -136,7 +139,7 @@ export class RtdbAdapter implements StoreAdapter {
       let key = naturalKey(entity, rec as Rec);
       if (key && seen.has(key)) { duplicates++; continue; }
       if (!key) key = `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-      const stored: Rec = { ...rec, companyId: co, _key: key, createdAt: new Date().toISOString(), createdBy: 'rtdb' };
+      const stored: Rec = stripUndef({ ...rec, companyId: co, _key: key, createdAt: new Date().toISOString(), createdBy: 'rtdb' });
       await dbUpdate(ref(this.db(), `${OVERLAY}/${node}/${key}`), stored);
       this.writeAudit(entity, co, key, 'create', null, stored);
       seen.add(key); saved++;
@@ -147,7 +150,7 @@ export class RtdbAdapter implements StoreAdapter {
   async update(entity: string, co: string, key: string, patch: EntityRecord): Promise<void> {
     const node = NODE[entity] || entity;
     const before = await this.get(entity, co, key);
-    const p: Rec = { ...patch, _key: key, updatedAt: new Date().toISOString() };
+    const p: Rec = stripUndef({ ...patch, _key: key, updatedAt: new Date().toISOString() });
     await dbUpdate(ref(this.db(), `${OVERLAY}/${node}/${key}`), p);
     this.writeAudit(entity, co, key, (patch as Rec)._deleted ? 'delete' : 'update', before, { ...(before || {}), ...p });
   }
