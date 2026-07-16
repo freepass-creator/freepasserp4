@@ -192,53 +192,66 @@ export default function Inventory() {
             <Btn variant="ghost" size="sm" onClick={pasteForm} disabled={!clip}>붙여넣기</Btn>
             {dirty && <span style={{ color: '#9a3412' }}>● 미저장</span>}
           </div>
-          {/* 상태·구분·정책 = 매물 분류(맨 위). 2열 정렬 — 외로운 긴 줄 없이 관련끼리 가로로. */}
-          <div>
-            <div style={secTitle}>상태 · 구분 · 정책</div>
-            {FG(['vehicle_status', 'product_type'])}
-            <div style={{ display: 'grid', gridTemplateColumns: mobile ? '1fr' : '1fr 1fr', gap: 9, marginTop: 9 }}>
-              <label style={{ fontSize: 11.5, color: C.mute }}>무보증 가능
-                <select value={String(form.deposit_free || '')} onChange={(e) => onChange('deposit_free', e.target.value)} style={{ ...inp, marginTop: 3, background: form.deposit_free ? '#fff' : '#fff7ed' }}>
-                  <option value="">—</option><option value="예">예</option><option value="아니오">아니오</option>
-                </select>
-              </label>
-              <label style={{ fontSize: 11.5, color: C.mute }}>정책 연결
-                <select value={String(form.policy_code || '')} onChange={(e) => onChange('policy_code', e.target.value)} style={{ ...inp, marginTop: 3 }}>
-                  <option value="">— 정책 선택 —</option>
-                  {policies.filter((pl) => !form.provider_company_code || String(pl.provider_company_code) === String(form.provider_company_code)).map((pl) => (
-                    <option key={String(pl.policy_code)} value={String(pl.policy_code)}>{String(pl.policy_name || pl.policy_code)} ({String(pl.policy_code)})</option>
-                  ))}
-                </select>
-              </label>
+          {/* 좌 = 불변(한번 입력하고 끝: 차종·제원) | 우 = 변동(대여료·사진·주행·정책·상태) */}
+          <div style={{ display: 'grid', gridTemplateColumns: mobile ? '1fr' : 'minmax(0,1fr) minmax(0,1fr)', gap: 18, alignItems: 'start' }}>
+            {/* ── 좌: 고정 정보 ── */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>
+              <div style={{ fontSize: 11, fontWeight: 800, color: C.faint, letterSpacing: 0.3 }}>고정 정보 · 한번 입력</div>
+              {/* 신원 = 차종마스터 자동채움 + 보정 */}
+              <VehicleMasterPicker onPick={(v) => { setForm((f) => ({ ...f, ...v })); setDirty(true); }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: -4 }}>
+                {(form.gen_year_start || form._snap_confidence) ? (
+                  <span style={{ fontSize: 11, color: C.mute }}>
+                    {form.gen_year_start ? `생산 ${form.gen_year_start}~${form.gen_year_end}` : ''}
+                    {form._snap_confidence ? `${form.gen_year_start ? ' · ' : ''}매칭 ${form._snap_confidence}` : ''}
+                  </span>
+                ) : null}
+                <span style={{ flex: 1 }} />
+                <Btn variant="ghost" size="sm" onClick={normalizeVehicle}>차종 정규화 (마스터 매칭)</Btn>
+              </div>
+              {Section('신원 (차종)', ['car_number', 'maker', 'model', 'sub_model', 'variant', 'trim_name', 'vehicle_class'])}
+              {Section('제원 · 스펙', ['year', 'fuel_type', 'engine_cc', 'seats', 'drive_type', 'transmission', 'usage', 'ext_color', 'int_color', 'first_registration_date'])}
+              {Section('선택옵션', ['options'], 1)}
+              {getRole() === 'admin' && Section('원가 · 이력 · 등록증', ['vehicle_price', 'location', 'vin', 'vehicle_age_expiry_date', 'cert_car_name', 'type_number', 'engine_type', 'partner_memo'])}
+            </div>
+            {/* ── 우: 변동 정보 ── */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>
+              <div style={{ fontSize: 11, fontWeight: 800, color: C.faint, letterSpacing: 0.3 }}>사진 · 등록증 · 변동 정보</div>
+              {/* 사진 · 등록증 업로드(우측 상단) */}
+              <div><div style={secTitle}>사진</div><PhotoUpload photos={form.photos} onChange={(ps) => { setForm((f) => ({ ...f, photos: ps })); setDirty(true); }} /></div>
+              {/* 자동차등록증 OCR(로컬 GPU) — 올리면 좌측 고정정보 빈 칸 자동채움 */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, border: `1px solid ${C.line}`, borderRadius: 4, background: '#f8fbff', padding: '8px 10px' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12, fontWeight: 800, color: C.brand }}>자동차등록증</div>
+                  <div style={{ fontSize: 10.5, color: C.faint }}>등록증 올리면 차번·차대·연료·배기량·인승·용도·최초등록 자동채움(좌측 빈 칸만)</div>
+                </div>
+                <input ref={ocrRef} type="file" accept="image/*" onChange={(e) => runOcr(e.target.files)} style={{ display: 'none' }} />
+                <Btn size="sm" onClick={() => ocrRef.current?.click()} disabled={ocrBusy}>{ocrBusy ? '인식 중…' : '등록증 올리기'}</Btn>
+              </div>
+              {/* 상태·구분·정책 */}
+              <div>
+                <div style={secTitle}>상태 · 구분 · 정책</div>
+                {FG(['vehicle_status', 'product_type'])}
+                <div style={{ display: 'grid', gridTemplateColumns: mobile ? '1fr' : '1fr 1fr', gap: 9, marginTop: 9 }}>
+                  <label style={{ fontSize: 11.5, color: C.mute }}>무보증 가능
+                    <select value={String(form.deposit_free || '')} onChange={(e) => onChange('deposit_free', e.target.value)} style={{ ...inp, marginTop: 3, background: form.deposit_free ? '#fff' : '#fff7ed' }}>
+                      <option value="">—</option><option value="예">예</option><option value="아니오">아니오</option>
+                    </select>
+                  </label>
+                  <label style={{ fontSize: 11.5, color: C.mute }}>정책 연결
+                    <select value={String(form.policy_code || '')} onChange={(e) => onChange('policy_code', e.target.value)} style={{ ...inp, marginTop: 3 }}>
+                      <option value="">— 정책 선택 —</option>
+                      {policies.filter((pl) => !form.provider_company_code || String(pl.provider_company_code) === String(form.provider_company_code)).map((pl) => (
+                        <option key={String(pl.policy_code)} value={String(pl.policy_code)}>{String(pl.policy_name || pl.policy_code)} ({String(pl.policy_code)})</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              </div>
+              {Section('주행거리', ['mileage'], 1)}
+              <div><div style={secTitle}>대여료</div><PriceMatrix price={form.price} onChange={(p) => { setForm((f) => ({ ...f, price: p })); setDirty(true); }} /></div>
             </div>
           </div>
-          {/* 자동차등록증 OCR(로컬 GPU) — 빈 칸 자동채움 */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, border: `1px solid ${C.line}`, borderRadius: 4, background: '#f8fbff', padding: '8px 10px' }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 12, fontWeight: 800, color: C.brand }}>자동차등록증 OCR</div>
-              <div style={{ fontSize: 10.5, color: C.faint }}>등록증 사진 → 차번·차대·연료·배기량·인승·용도·최초등록 자동채움(빈 칸만)</div>
-            </div>
-            <input ref={ocrRef} type="file" accept="image/*" onChange={(e) => runOcr(e.target.files)} style={{ display: 'none' }} />
-            <Btn size="sm" onClick={() => ocrRef.current?.click()} disabled={ocrBusy}>{ocrBusy ? '인식 중…' : '등록증 올리기'}</Btn>
-          </div>
-          {/* 신원 = 차종마스터 자동채움 + 보정 */}
-          <VehicleMasterPicker onPick={(v) => { setForm((f) => ({ ...f, ...v })); setDirty(true); }} />
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: -4 }}>
-            {(form.gen_year_start || form._snap_confidence) ? (
-              <span style={{ fontSize: 11, color: C.mute }}>
-                {form.gen_year_start ? `생산 ${form.gen_year_start}~${form.gen_year_end}` : ''}
-                {form._snap_confidence ? `${form.gen_year_start ? ' · ' : ''}매칭 ${form._snap_confidence}` : ''}
-              </span>
-            ) : null}
-            <span style={{ flex: 1 }} />
-            <Btn variant="ghost" size="sm" onClick={normalizeVehicle}>차종 정규화 (마스터 매칭)</Btn>
-          </div>
-          {Section('신원 (차종)', ['car_number', 'maker', 'model', 'sub_model', 'variant', 'trim_name', 'vehicle_class'])}
-          {Section('제원 · 스펙', ['year', 'fuel_type', 'engine_cc', 'seats', 'drive_type', 'transmission', 'mileage', 'usage', 'ext_color', 'int_color', 'first_registration_date'])}
-          {Section('선택옵션', ['options'], 1)}
-          <PriceMatrix price={form.price} onChange={(p) => { setForm((f) => ({ ...f, price: p })); setDirty(true); }} />
-          <PhotoUpload photos={form.photos} onChange={(ps) => { setForm((f) => ({ ...f, photos: ps })); setDirty(true); }} />
-          {getRole() === 'admin' && Section('원가 · 이력 · 등록증', ['vehicle_price', 'location', 'vin', 'vehicle_age_expiry_date', 'cert_car_name', 'type_number', 'engine_type', 'partner_memo'])}
         </> : <div style={{ color: C.faint, fontSize: 12.5 }}>매물을 선택하세요.</div>}
       </div>
     </>
