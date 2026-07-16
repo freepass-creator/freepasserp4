@@ -6,13 +6,15 @@ import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { vehicleName, priceList, creditDisplay, policyOf } from '@/lib/domain/product';
-import { won, C } from '@/components/ui';
+import { useProductPhotos } from '@/components/use-product-photos';
+import { won, C, Loading } from '@/components/ui';
 
 // 손님 대면 견적서(화이트라벨). 영업자가 링크로 전달. ERP 크롬 없이 깔끔한 제안 산출물.
 export default function Quote() {
   const { code } = useParams<{ code: string }>();
   const [p, setP] = useState<EntityRecord | null | undefined>(undefined);
   const [agent, setAgent] = useState<EntityRecord | null>(null);
+  const [main, setMain] = useState(0);
   const co = getCompanyId();
   useEffect(() => { (async () => {
     await seedIfEmpty(co);
@@ -21,8 +23,11 @@ export default function Quote() {
     if (a) { if (typeof window !== 'undefined') localStorage.setItem('fp4_attr', a); const users = await getStore().list('user', co); setAgent(users.find((u) => String(u.user_code) === a) || null); }
     setP(await getStore().get('product', co, decodeURIComponent(String(code))));
   })(); /* eslint-disable-next-line */ }, [code]);
+  // 손님 공개 화면 = 화이트라벨. 탭 제목을 차량명으로(플랫폼 브랜드 노출 차단).
+  useEffect(() => { if (p) document.title = `${vehicleName(p)} · 렌터카 견적`; }, [p]);
+  const photos = useProductPhotos((p ?? {}) as EntityRecord); // 드라이브 폴더 포함 해석(hook은 조건부 반환 전에 호출)
 
-  if (p === undefined) return <div style={{ padding: 40, color: C.faint }}>불러오는 중…</div>;
+  if (p === undefined) return <Loading />;
   if (!p) return <div style={{ padding: 40 }}>견적을 찾을 수 없습니다.</div>;
 
   const prices = priceList(p);
@@ -41,7 +46,21 @@ export default function Quote() {
       <h1 style={{ fontSize: 23, fontWeight: 800, letterSpacing: '-0.02em', margin: '4px 0 2px' }}>{vehicleName(p)}</h1>
       <div style={{ fontSize: 13, color: C.mute }}>{[p.year && `${p.year}년`, p.fuel_type, p.mileage && `${Number(p.mileage).toLocaleString()}km`, creditDisplay(p)].filter(Boolean).join(' · ')}</div>
 
-      <div style={{ aspectRatio: '16 / 9', background: '#eef1f5', borderRadius: 4, marginTop: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.faint, fontSize: 13 }}>사진</div>
+      {(() => { const mi = Math.min(main, Math.max(0, photos.length - 1));
+        return photos.length ? (
+          <div style={{ marginTop: 14 }}>
+            <div style={{ aspectRatio: '16 / 9', background: '#eef1f5', borderRadius: 6, overflow: 'hidden' }}>
+              <img src={photos[mi]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            </div>
+            {photos.length > 1 && (
+              <div style={{ display: 'flex', gap: 6, marginTop: 6, overflowX: 'auto' }}>
+                {photos.map((ph, i) => <button key={i} onClick={() => setMain(i)} aria-label={`사진 ${i + 1}`} style={{ flex: '0 0 auto', width: 72, height: 46, borderRadius: 4, overflow: 'hidden', border: `2px solid ${i === mi ? C.brand : 'transparent'}`, padding: 0, cursor: 'pointer', background: '#eef1f5' }}><img src={ph} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /></button>)}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div style={{ aspectRatio: '16 / 9', background: '#eef1f5', borderRadius: 6, marginTop: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.faint, fontSize: 13 }}>사진 준비중</div>
+        ); })()}
 
       <div style={{ marginTop: 18, fontSize: 13, fontWeight: 800 }}>기간별 대여료</div>
       <div style={{ marginTop: 8, border: `1px solid ${C.line}`, borderRadius: 4, overflow: 'hidden' }}>

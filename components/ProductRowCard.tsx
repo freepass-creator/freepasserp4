@@ -2,44 +2,61 @@
 import Link from 'next/link';
 import type { CSSProperties } from 'react';
 import { type EntityRecord } from '@/lib/intake/entities';
-import { vehicleName, creditDisplay, vehicleTone, noDeposit, minAge, shortExperience } from '@/lib/domain/product';
+import { useIsMobile } from '@/lib/use-mobile';
+import { useFirstPhoto } from '@/components/use-product-photos';
 import { C } from '@/components/ui';
-import { PeriodPrices } from '@/components/PeriodPrices';
+import { badges, Identity, SpecLine, OptionChips, PriceRows, CarGlyph, specLine, productOptions } from '@/components/product-card-atoms';
 
-// 리스트 뷰 원자 = 가로로 긴 카드(썸네일 좌 + 신원/스펙 + 우측 대여료). 각지게(radius 4).
-const TAG: Record<string, [string, string]> = { green: ['#15803d', '#d9f3e1'], amber: ['#9a5b00', '#fbebc4'], blue: ['#1d4ed8', '#dbe7fd'], red: ['#c02418', '#fdd7d1'], teal: ['#0e7490', '#d0eef5'], purple: ['#7c3aed', '#eadffd'], gray: ['#475569', '#eef1f5'] };
-function tag(tone: string): CSSProperties {
-  const c = TAG[tone] || TAG.gray;
-  return { fontSize: 10.5, fontWeight: 700, padding: '1px 6px', borderRadius: 4, color: c[0], background: c[1], whiteSpace: 'nowrap', flex: '0 0 auto' };
-}
-function CarGlyph() {
-  return <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#c4ccd8" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M5 13l1.6-4.2A2 2 0 0 1 8.5 7.5h7A2 2 0 0 1 17.4 8.8L19 13" /><path d="M3 13h18v3.5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V13z" /><circle cx="7.5" cy="17.5" r="1.5" /><circle cx="16.5" cy="17.5" r="1.5" /></svg>;
-}
+// 리스트 뷰 = 가로형 카드+엑셀 하이브리드. 세로카드와 같은 공용 원자(연장선 디자인).
+// 원자 구성은 모바일·데스크톱 동일, 표현만 상이:
+//  · 데스크톱 = 가로 길이를 활용 → 윗단[사진|신원·뱃지|가격] + 아랫단 전폭 가로띠[스펙 · 옵션 주우욱]
+//  · 모바일 = 좁으니 세로 스택[사진+신원·뱃지 / 스펙 / 옵션 / 가격]
+export function ProductRowCard({ p }: { p: EntityRecord; period?: number }) {
+  const mobile = useIsMobile();
+  const photo = useFirstPhoto(p);
+  const href = `/m/${encodeURIComponent(String(p.product_code))}`;
+  const cardStyle = { border: `1px solid ${C.line}`, borderRadius: 6, background: '#fff', padding: 10, textDecoration: 'none', color: 'inherit', boxShadow: '0 1px 2px rgba(15,23,42,0.05)' } as CSSProperties;
+  const photoBox = (w: number, h: number | 'stretch') => (
+    <div style={{ width: w, flex: `0 0 ${w}px`, ...(h === 'stretch' ? { alignSelf: 'stretch', minHeight: 66 } : { height: h }), borderRadius: 4, background: '#eef1f5', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      {photo ? <img src={photo} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <CarGlyph />}
+    </div>
+  );
+  const badgeRow = <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>{badges(p)}</div>;
+  const spec = specLine(p);
+  const hasDetail = !!spec || productOptions(p).length > 0;
 
-export function ProductRowCard({ p, period }: { p: EntityRecord; period: number }) {
-  const st = String(p.vehicle_status || '');
-  const cd = creditDisplay(p);
-  const photo = p.photo ? String(p.photo) : '';
-  const spec = [p.car_number, p.year && `${p.year}년`, p.mileage && `${Number(p.mileage).toLocaleString()}km`, p.fuel_type, p.vehicle_class].filter(Boolean).join(' · ');
-  return (
-    <Link href={`/m/${encodeURIComponent(String(p.product_code))}`}
-      style={{ display: 'flex', gap: 12, alignItems: 'center', border: `1px solid ${C.line}`, borderRadius: 4, background: '#fff', padding: 10, textDecoration: 'none', color: 'inherit', boxShadow: '0 1px 2px rgba(15,23,42,0.05)' }}>
-      <div style={{ width: 116, height: 80, flex: '0 0 116px', borderRadius: 4, background: '#eef1f5', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        {photo ? <img src={photo} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <CarGlyph />}
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-          <span style={tag(vehicleTone(st))}>{st}</span>
-          <span style={tag(cd === '소득무관' ? 'green' : 'amber')}>{cd}</span>
-          {noDeposit(p) && <span style={tag('blue')}>무보증</span>}
-          {minAge(p) > 0 && minAge(p) <= 21 && <span style={tag('teal')}>만{minAge(p)}세</span>}
-          {shortExperience(p) && <span style={tag('purple')}>경력무관</span>}
-          <span style={{ fontSize: 14.5, fontWeight: 700, color: C.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{vehicleName(p)}</span>
+  // 모바일 = 세로 스택. 좁으니 원자를 위→아래로.
+  if (mobile) {
+    return (
+      <Link href={href} style={{ display: 'block', ...cardStyle }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+          <div style={{ display: 'flex', gap: 10 }}>
+            {photoBox(88, 62)}
+            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 5 }}><Identity p={p} size={13.5} />{badgeRow}</div>
+          </div>
+          <SpecLine p={p} />
+          <OptionChips p={p} />
+          <div style={{ paddingTop: 8, borderTop: `1px solid ${C.line2}` }}><PriceRows p={p} wrap align="flex-start" limit={3} /></div>
         </div>
-        <div style={{ fontSize: 12, color: C.faint, marginTop: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{spec}</div>
-      </div>
-      <div style={{ flex: '0 0 190px', width: 190 }}>
-        <PeriodPrices p={p} />
+      </Link>
+    );
+  }
+
+  // 데스크톱(웹) = 가로 폭 활용. [사진] [신원 1줄 / 뱃지 / 가격 옆으로 쭉 / 스펙·옵션].
+  // 가격 = "개월 대여료 보증" 한 단위를 옆으로 쭉 나열(있는 기간 다, 1~60개월도 wrap으로 흡수).
+  return (
+    <Link href={href} style={{ display: 'flex', gap: 12, alignItems: 'stretch', ...cardStyle }}>
+      {photoBox(116, 'stretch')}
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6, justifyContent: 'center' }}>
+        <Identity p={p} size={14} inline />
+        {badgeRow}
+        <PriceRows p={p} wrap />
+        {hasDetail && (
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
+            {spec && <span style={{ fontSize: 11, color: C.faint, lineHeight: 1.5 }}>{spec}</span>}
+            <OptionChips p={p} />
+          </div>
+        )}
       </div>
     </Link>
   );
