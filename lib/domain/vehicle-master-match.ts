@@ -15,17 +15,18 @@ const norm = (s: unknown) => String(s ?? '').toLowerCase().replace(/\s+/g, '');
 //  · 연식 "17년식"/"2017-03" → 2017 (매처가 Number()로 NaN 되던 구멍)
 //  · 연료 별칭 휘발유=가솔린·경유=디젤·엘피지=lpg 등
 export function parseYear(y: unknown): number { const m = /(\d{2,4})/.exec(String(y ?? '')); if (!m) return 0; const n = Number(m[1]); return n > 1900 ? n : n < 50 ? 2000 + n : 1900 + n; }
-const FUEL_ALIAS: Record<string, string> = { 휘발유: '가솔린', 가솔린: '가솔린', 경유: '디젤', 디젤: '디젤', 엘피지: 'lpg', lpg: 'lpg', 하이브리드: '하이브리드', hev: '하이브리드', 전기: '전기', 수소: '수소' };
+const FUEL_ALIAS: Record<string, string> = { 휘발유: '가솔린', 가솔린: '가솔린', 경유: '디젤', 디젤: '디젤', 엘피지: 'lpg', lpg: 'lpg', 하이브리드: '하이브리드', hev: '하이브리드', 전기: '전기', ev: '전기', 수소: '수소' };
 // 부분일치까지 — "가솔린2.0"·"HEV1.6"·"LPG 2.0" 처럼 연료 뒤에 배기량 붙는 실표기 흡수.
 export const normFuel = (f: unknown) => { const n = norm(f); if (FUEL_ALIAS[n]) return FUEL_ALIAS[n]; for (const k of Object.keys(FUEL_ALIAS)) if (n.includes(k)) return FUEL_ALIAS[k]; return n; };
 // 제조사 그룹 별칭 — 구데이터 오라벨(제네시스 G90/GV60이 '현대'로) + 표기흔들림(르노삼성=르노코리아=르노(삼성)) 흡수.
 //   같은 그룹은 제조사 풀을 공유 → 모델 하드락이 G90을 제네시스에서 찾아 잠금(모델이 최종 판별하므로 안전).
 const MAKER_GROUPS: string[][] = [
-  ['현대', '제네시스'],
+  ['현대', '제네시스', '제네사스'],                                        // 제네사스=오타
   ['르노', '르노코리아', '르노삼성', '르노(삼성)', '삼성'],
-  ['쉐보레', 'gm', '한국지엠', '지엠', '지엠대우', '대우'],
+  ['쉐보레', '쉐보래', 'gm', 'gm대우', '한국지엠', '지엠', '지엠대우', '대우'],   // 쉐보래=오타·GM대우
   ['벤츠', '메르세데스', '메르세데스벤츠', '메르세데스-벤츠'],
   ['kg모빌리티', '쌍용', '케이지모빌리티', 'kgm', '쌍용자동차'],
+  ['도요타', '토요타'],                                                     // 토요타=표기변형
 ];
 const _MG: Map<string, string[]> = (() => {
   const m = new Map<string, string[]>();
@@ -51,7 +52,7 @@ export const carYear = (p: EntityRecord): number => parseYear(p.year) || parseYe
 //  · model=제조사만("테슬라") → sub_model 이 모델신호
 const GEN_PREF = ['디올뉴', '올뉴', '더뉴', '신형'];
 const IMPORT_MK = ['벤츠', '메르세데스', 'bmw', '아우디', '테슬라', '볼보', '미니', '폭스바겐', '지프', '포드', '렉서스'];
-const MODEL_ALIAS: Record<string, string> = { e클래스: 'e-클래스', c클래스: 'c-클래스', s클래스: 's-클래스', a클래스: 'a-클래스', b클래스: 'b-클래스', g클래스: 'g-클래스', 팰리: '팰리세이드' };
+const MODEL_ALIAS: Record<string, string> = { e클래스: 'e-클래스', c클래스: 'c-클래스', s클래스: 's-클래스', a클래스: 'a-클래스', b클래스: 'b-클래스', g클래스: 'g-클래스', 팰리: '팰리세이드', 아반데: '아반떼', 그랜져: '그랜저', 소나타: '쏘나타', 펠리세이드: '팰리세이드' };
 const stripMaker = (raw: string, mk: string): string => { let m = raw.trim(); for (const x of [mk, ...IMPORT_MK]) { const nx = x.trim(); if (nx && m.toLowerCase().startsWith(nx.toLowerCase()) && m.length > nx.length) m = m.slice(nx.length).trim(); } return m; };
 export function normModel(model: unknown, maker: unknown, sub: unknown): string {
   const mk = String(maker ?? '');
@@ -175,8 +176,16 @@ export function snapToMaster(p: EntityRecord, entries: MasterEntry[]): SnapResul
  */
 export function applySnap(rec: EntityRecord, res: SnapResult): EntityRecord {
   const keep = (nodeVal: string | undefined, raw: unknown) => (nodeVal != null && nodeVal !== '' ? nodeVal : String(raw ?? '') || '');
+  // 원본 보존(최초 1회만) — 직접입력값을 영구 스냅샷. "직접입력 vs 변환" 나중에 확인 가능(사용자 지시).
+  const rawVehicle = (rec._raw_vehicle && typeof rec._raw_vehicle === 'object') ? rec._raw_vehicle : {
+    maker: rec.maker ?? '', model: rec.model ?? '', sub_model: rec.sub_model ?? '', variant: rec.variant ?? '',
+    trim_name: rec.trim_name ?? '', fuel_type: rec.fuel_type ?? '', engine_cc: rec.engine_cc ?? '', vehicle_class: rec.vehicle_class ?? '',
+  };
   const next: EntityRecord = {
     ...rec,
+    _raw_vehicle: rawVehicle,          // 직접입력 원본(영구 보존)
+    _snapped: true,                    // 변환됨 표시 — 직접입력과 구분
+    _snap_confidence: res.confidence,
     maker: res.maker, model: res.model, sub_model: res.sub_model, catalog_id: res.gen_code,
     gen_year_start: res.year_start ?? rec.gen_year_start, gen_year_end: res.year_end ?? rec.gen_year_end, // 세대 생산 시작~종료(차량 연식과 별개)
     variant: res.variant || rec.variant,
@@ -185,7 +194,6 @@ export function applySnap(rec: EntityRecord, res: SnapResult): EntityRecord {
     engine_cc: keep(res.engine_cc, rec.engine_cc),
     seats: keep(res.seats, rec.seats),
     drive_type: keep(res.drive_type, rec.drive_type),
-    _snap_confidence: res.confidence,
   };
   next.vehicle_class = classifyVehicleClass(next) || String(rec.vehicle_class ?? ''); // 차종 SSOT 재분류(쏘렌토=중형 SUV)
   return next;
@@ -215,6 +223,7 @@ export function reconcileToMaster(products: EntityRecord[], entries: MasterEntry
       variant: applied.variant, trim_name: applied.trim_name,
       fuel_type: applied.fuel_type, engine_cc: applied.engine_cc, seats: applied.seats, drive_type: applied.drive_type,
       vehicle_class: applied.vehicle_class, _snap_confidence: res.confidence,
+      _raw_vehicle: applied._raw_vehicle, _snapped: true,   // 원본 보존 + 변환 표시(직접입력과 구분)
     };
     patches.push({ key, patch, confidence: res.confidence });
   }
