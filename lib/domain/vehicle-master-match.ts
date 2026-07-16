@@ -21,7 +21,7 @@ export const normFuel = (f: unknown) => { const n = norm(f); if (FUEL_ALIAS[n]) 
 // 제조사 그룹 별칭 — 구데이터 오라벨(제네시스 G90/GV60이 '현대'로) + 표기흔들림(르노삼성=르노코리아=르노(삼성)) 흡수.
 //   같은 그룹은 제조사 풀을 공유 → 모델 하드락이 G90을 제네시스에서 찾아 잠금(모델이 최종 판별하므로 안전).
 const MAKER_GROUPS: string[][] = [
-  ['현대', '제네시스', '제네사스'],                                        // 제네사스=오타
+  ['현대', '기아', '제네시스', '제네사스'],                                  // 현대·기아·제네시스 상시혼동(카니발=기아·EV6=기아·G80=제네시스). 모델락이 갈라줌
   ['르노', '르노코리아', '르노삼성', '르노(삼성)', '삼성'],
   ['쉐보레', '쉐보래', 'gm', 'gm대우', '한국지엠', '지엠', '지엠대우', '대우'],   // 쉐보래=오타·GM대우
   ['벤츠', '메르세데스', '메르세데스벤츠', '메르세데스-벤츠'],
@@ -76,6 +76,24 @@ const extractGen = (sub: unknown, codes: Set<string>): string | null => {
   for (const t of toks) if (codes.has(t.toUpperCase())) return t.toUpperCase();
   return null;
 };
+// ── "N세대" 서수 매핑 ── 공급사가 "더 뉴 K5 3세대"처럼 서수로 적으면 세대코드(DL3)를 못 읽던 구멍.
+//   모델별 세대코드를 연대순(year_start)으로 나열 → N세대 = N번째 세대코드.
+let _ordCache: { entries: MasterEntry[]; order: Map<string, string[]> } | null = null;
+const genOrder = (entries: MasterEntry[]): Map<string, string[]> => {
+  if (_ordCache && _ordCache.entries === entries) return _ordCache.order;
+  const firstYear = new Map<string, Map<string, number>>();
+  for (const e of entries) {
+    const g = e.gen_code, ys = Number(e.year_start);
+    if (!g || !Number.isFinite(ys)) continue;
+    let mm = firstYear.get(e.model); if (!mm) { mm = new Map(); firstYear.set(e.model, mm); }
+    const prev = mm.get(g); if (prev == null || ys < prev) mm.set(g, ys);
+  }
+  const order = new Map<string, string[]>();
+  for (const [model, gm] of firstYear) order.set(model, [...gm.entries()].sort((a, b) => a[1] - b[1]).map(([g]) => g));
+  _ordCache = { entries, order };
+  return order;
+};
+const ordinalGen = (text: unknown): number => { const m = /([1-9])\s*세대/.exec(String(text ?? '')); return m ? Number(m[1]) : 0; };
 const grams = (s: string) => { const g = new Set<string>(); for (let i = 0; i < s.length - 1; i++) g.add(s.slice(i, i + 2)); return g; };
 const sim = (a: string, b: string): number => {
   const na = norm(a), nb = norm(b);
@@ -113,12 +131,16 @@ export function snapToMaster(p: EntityRecord, entries: MasterEntry[]): SnapResul
   // ── 3단계: 세대 좁히기 ── 잠긴 모델 안에서 세부명·트림·세대코드·연식·파워트레인 종합.
   const codes = genCodes(entries);
   const pgen = extractGen(p.sub_model, codes);   // sub에 명시된 세대코드(NQ5·W214)
+  const ord = ordinalGen(p.sub_model) || ordinalGen(p.trim_name);   // "3세대" 서수
+  const orderList = lockedModel ? (genOrder(entries).get(lockedModel) || []) : [];
+  const targetGen = (ord >= 1 && ord <= orderList.length) ? orderList[ord - 1] : null; // N세대 → 연대순 N번째
   const pfuel = normFuel(p.fuel_type);
   const scored = locked.map((e) => {
     let s = 0;
     if (sub) s += sim(String(p.sub_model), e.sub_model) * 2.2 + sim(String(p.sub_model), e.title || '') * 0.5;
     if (p.trim_name) s += sim(String(p.trim_name), e.sub_model) * 1.0;              // 트림의 세대신호(뉴라이즈→페이스리프트)
     if (pgen && String(e.gen_code).toUpperCase() === pgen) s += 5;                  // 세대코드 명시 = 지배적(NQ5→NQ5)
+    if (targetGen && e.gen_code === targetGen) s += 5;                              // "N세대" 서수 → 연대순 N번째 세대(더뉴 K5 3세대→DL3)
     const ys = Number(e.year_start) || 0, ye = /\d{4}/.test(String(e.year_end)) ? Number(e.year_end) : 9999;
     if (year && ys) {
       if (year >= ys && year <= ye) s += 3;                                    // 연식이 세대 범위 안 = 강가점
