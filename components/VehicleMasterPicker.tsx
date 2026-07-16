@@ -15,7 +15,15 @@ export function VehicleMasterPicker({ onPick }: { onPick: (v: VehiclePick) => vo
   const [maker, setMaker] = useState(''); const [model, setModel] = useState(''); const [smId, setSmId] = useState(''); const [vIdx, setVIdx] = useState(-1); const [trim, setTrim] = useState('');
   useEffect(() => { fetch('/data/vehicle-master.json').then((r) => r.json()).then((d) => setEntries(d.entries as Entry[])).catch(() => setEntries([])); }, []);
 
-  const makers = useMemo(() => (entries ? Array.from(new Set(entries.map((e) => e.maker))) : []), [entries]);
+  // 제조사 = 국산/수입 구분(마스터 origin). 국산 먼저. 같은 제조사 혼재 시 국산 우선.
+  const makerGroups = useMemo(() => {
+    if (!entries) return [] as { origin: string; makers: string[] }[];
+    const isDom = new Map<string, boolean>();
+    for (const e of entries) isDom.set(e.maker, (isDom.get(e.maker) || false) || e.origin === '국산');
+    const dom: string[] = [], imp: string[] = [];
+    for (const [m, d] of isDom) (d ? dom : imp).push(m);
+    return [{ origin: '국산', makers: dom }, { origin: '수입', makers: imp }];
+  }, [entries]);
   const models = useMemo(() => (entries && maker ? Array.from(new Set(entries.filter((e) => e.maker === maker).map((e) => e.model))) : []), [entries, maker]);
   const subs = useMemo(() => (entries && maker && model ? entries.filter((e) => e.maker === maker && e.model === model) : []), [entries, maker, model]);
   const sub = subs.find((e) => e.id === smId) || null;
@@ -36,9 +44,9 @@ export function VehicleMasterPicker({ onPick }: { onPick: (v: VehiclePick) => vo
   return (
     <div style={{ border: `1px solid ${C.line}`, borderRadius: 4, background: '#f8fbff', padding: '10px 12px' }}>
       <div style={{ fontSize: 12, fontWeight: 800, color: C.brand, marginBottom: 7 }}>차종 마스터에서 채우기 {entries === null && <span style={{ color: C.faint, fontWeight: 400 }}>· 불러오는 중…</span>}</div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(104px, 1fr))', gap: 6 }}>
         <select style={sel} value={maker} onChange={(e) => { setMaker(e.target.value); setModel(''); setSmId(''); setVIdx(-1); setTrim(''); }}>
-          <option value="">제조사</option>{makers.map((m) => <option key={m} value={m}>{m}</option>)}
+          <option value="">제조사</option>{makerGroups.map((g) => g.makers.length ? <optgroup key={g.origin} label={`── ${g.origin} ──`}>{g.makers.map((m) => <option key={m} value={m}>{m}</option>)}</optgroup> : null)}
         </select>
         <select style={sel} value={model} disabled={!maker} onChange={(e) => { setModel(e.target.value); setSmId(''); setVIdx(-1); setTrim(''); }}>
           <option value="">모델</option>{models.map((m) => <option key={m} value={m}>{m}</option>)}

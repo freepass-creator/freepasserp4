@@ -151,6 +151,27 @@ export class RtdbAdapter implements StoreAdapter {
     await dbUpdate(ref(this.db(), `${OVERLAY}/${node}/${key}`), p);
     this.writeAudit(entity, co, key, (patch as Rec)._deleted ? 'delete' : 'update', before, { ...(before || {}), ...p });
   }
+
+  // 다건 부분갱신 = v4 오버레이에 단일 멀티패스 write(청크). 일괄 차종 재구현용 — per-record get() 회피(O(n²)→O(n)).
+  async bulkPatch(entity: string, co: string, patches: { key: string; patch: EntityRecord }[]): Promise<number> {
+    if (!patches.length) return 0;
+    const node = NODE[entity] || entity;
+    const now = new Date().toISOString();
+    const CHUNK = 150;
+    let done = 0;
+    for (let i = 0; i < patches.length; i += CHUNK) {
+      const multi: Rec = {};
+      for (const { key, patch } of patches.slice(i, i + CHUNK)) {
+        for (const [k, v] of Object.entries(patch)) if (v !== undefined) multi[`${key}/${k}`] = v; // RTDB update는 undefined 거부
+        multi[`${key}/_key`] = key;
+        multi[`${key}/updatedAt`] = now;
+      }
+      await dbUpdate(ref(this.db(), `${OVERLAY}/${node}`), multi);
+      done += Math.min(CHUNK, patches.length - i);
+    }
+    this.writeAudit(entity, co, `bulk:${done}`, 'update', null, { count: done } as EntityRecord);
+    return done;
+  }
   async remove(entity: string, co: string, key: string, reason = ''): Promise<void> {
     await this.update(entity, co, key, { _deleted: true, deletedAt: new Date().toISOString(), deletedReason: reason });
   }

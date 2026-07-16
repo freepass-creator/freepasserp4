@@ -7,7 +7,9 @@
  */
 import { ENTITIES, type EntityRecord } from './intake/entities';
 import { currentActor } from './session';
+import { getSession } from './auth-session';
 import { getFirebaseApp, firebaseReady } from './firebase/client';
+import { RtdbAdapter } from './firebase/rtdb-adapter';
 import { COMPANIES, ALL_COMPANIES } from './companies';
 
 export type SaveResult = { saved: number; duplicates: number; backend: string };
@@ -18,6 +20,7 @@ export interface StoreAdapter {
   list(entityKey: string, companyId: string): Promise<EntityRecord[]>;
   get(entityKey: string, companyId: string, key: string): Promise<EntityRecord | null>;
   update(entityKey: string, companyId: string, key: string, patch: EntityRecord): Promise<void>;
+  bulkPatch(entityKey: string, companyId: string, patches: { key: string; patch: EntityRecord }[]): Promise<number>; // 다건 부분갱신(멀티패스) — 일괄 차종 재구현 등
   remove(entityKey: string, companyId: string, key: string, reason?: string): Promise<void>;   // #6 소프트삭제
   listDeleted(entityKey: string, companyId: string): Promise<EntityRecord[]>;
   restore(entityKey: string, companyId: string, key: string): Promise<void>;
@@ -59,6 +62,16 @@ class LocalAdapter implements StoreAdapter {
     const arr = this.read(entityKey, companyId);
     const i = arr.findIndex((r) => String(r._key) === key);
     if (i >= 0) { const before = arr[i]; arr[i] = { ...arr[i], ...patch, updatedAt: new Date().toISOString() }; localStorage.setItem(this.k(entityKey, companyId), JSON.stringify(arr)); this.logAudit(entityKey, companyId, key, 'update', before, arr[i]); }
+  }
+  async bulkPatch(entityKey: string, companyId: string, patches: { key: string; patch: EntityRecord }[]) {
+    const arr = this.read(entityKey, companyId);
+    const idx = new Map(arr.map((r, i) => [String(r._key), i]));
+    const now = new Date().toISOString();
+    let n = 0;
+    for (const { key, patch } of patches) { const i = idx.get(key); if (i == null) continue; arr[i] = { ...arr[i], ...patch, updatedAt: now }; n++; }
+    localStorage.setItem(this.k(entityKey, companyId), JSON.stringify(arr));
+    this.logAudit(entityKey, companyId, `bulk:${n}`, 'update', null, { count: n } as EntityRecord);
+    return n;
   }
   async save(entityKey: string, companyId: string, records: EntityRecord[]) {
     const existing = this.read(entityKey, companyId);
@@ -138,6 +151,18 @@ class FirestoreAdapter implements StoreAdapter {
     const db = getFirestore(getFirebaseApp()!);
     await setDoc(doc(db, entityKey, `${companyId}__${key}`), { ...patch, updatedAt: new Date().toISOString() }, { merge: true });
   }
+  async bulkPatch(entityKey: string, companyId: string, patches: { key: string; patch: EntityRecord }[]): Promise<number> {
+    const { getFirestore, doc, writeBatch } = await import('firebase/firestore');
+    const db = getFirestore(getFirebaseApp()!);
+    const now = new Date().toISOString();
+    let n = 0, batch = writeBatch(db), inB = 0;
+    for (const { key, patch } of patches) {
+      batch.set(doc(db, entityKey, `${companyId}__${key}`), { ...patch, updatedAt: now }, { merge: true });
+      n++; if (++inB >= 400) { await batch.commit(); batch = writeBatch(db); inB = 0; }
+    }
+    if (inB) await batch.commit();
+    return n;
+  }
   async remove(entityKey: string, companyId: string, key: string, reason = ''): Promise<void> {
     await this.update(entityKey, companyId, key, { deletedAt: new Date().toISOString(), deletedReason: reason });
   }
@@ -203,6 +228,10 @@ class DispatchStore implements StoreAdapter {
     if (!this.all(companyId)) { const r = await this.base.update(entityKey, companyId, key, patch); _invalidate(entityKey); return r; }
     const c = await this.ownerOf(entityKey, key); if (c) await this.base.update(entityKey, c, key, patch); _invalidate(entityKey);
   }
+  async bulkPatch(entityKey: string, companyId: string, patches: { key: string; patch: EntityRecord }[]) {
+    if (this.all(companyId)) throw new Error('전체 합본에서는 대상 회사를 먼저 선택하세요.');
+    const n = await this.base.bulkPatch(entityKey, companyId, patches); _invalidate(entityKey); return n;
+  }
   async remove(entityKey: string, companyId: string, key: string, reason = '') {
     if (!this.all(companyId)) { const r = await this.base.remove(entityKey, companyId, key, reason); _invalidate(entityKey); return r; }
     const c = await this.ownerOf(entityKey, key); if (c) await this.base.remove(entityKey, c, key, reason); _invalidate(entityKey);
@@ -214,10 +243,14 @@ class DispatchStore implements StoreAdapter {
 }
 
 export function getStore(): StoreAdapter {
-  // 데이터 백엔드는 명시 opt-in(NEXT_PUBLIC_DATA_BACKEND=firestore)일 때만 원격.
-  // Firebase Auth 설정(NEXT_PUBLIC_FIREBASE_*)이 있어도 데이터는 기본 Local 유지 —
-  // freepasserp3 는 RTDB 라 Firestore 로 붙으면 빈 데이터. RTDB 브리지는 후속(RtdbAdapter).
+  // 데이터 백엔드 opt-in(NEXT_PUBLIC_DATA_BACKEND). 기본 Local(seed).
+  //   · rtdb  = freepasserp3 라이브 RTDB 브리지(v3 실데이터 반영). RTDB는 인증 게이트라
+  //             로그인 세션 있을 때만 — 둘러보기/게스트는 Local seed(데모).
+  //   · firestore = v4 전용 Firestore.
   const backend = process.env.NEXT_PUBLIC_DATA_BACKEND;
-  const base = backend === 'firestore' && firebaseReady() ? new FirestoreAdapter() : new LocalAdapter();
+  let base: StoreAdapter;
+  if (backend === 'rtdb' && firebaseReady() && getSession()) base = new RtdbAdapter();
+  else if (backend === 'firestore' && firebaseReady()) base = new FirestoreAdapter();
+  else base = new LocalAdapter();
   return new DispatchStore(base);
 }
