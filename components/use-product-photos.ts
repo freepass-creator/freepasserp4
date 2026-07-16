@@ -13,13 +13,14 @@ export function useProductPhotos(p: EntityRecord, size = 1280): string[] {
   useEffect(() => {
     let alive = true;
     setExtra([]);
-    if (!immediate.length && scrapableSources(p).length) {
-      resolveServerPhotos(p, size).then((urls) => { if (alive) setExtra(urls); });
-    }
+    // 사진링크(드라이브폴더·모던렌트카·오플) 있으면 서버해석 — 직접사진과 "같이" 보이게(사용자 지시).
+    if (scrapableSources(p).length) resolveServerPhotos(p, size).then((urls) => { if (alive) setExtra(urls); });
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code, link, size]);
-  return immediate.length ? immediate : extra;
+  // 직접 업로드 + 링크해석 합쳐서 표시(dedup).
+  const seen = new Set<string>();
+  return [...immediate, ...extra].filter((u) => { if (seen.has(u)) return false; seen.add(u); return true; });
 }
 
 export function useFirstPhoto(p: EntityRecord, size = 480): string {
