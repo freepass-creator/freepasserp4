@@ -29,6 +29,12 @@ const OVERLAY = 'v4'; // 쓰기 격리 루트
 //  계약·정산·감사는 v4 네이티브(오버레이만) — 새 생태계는 v3 레거시 계약/정산을 끌어오지 않는다(사용자 결정).
 const BRIDGE_FROM_V3 = new Set(['product', 'policy', 'partner', 'user', 'room', 'message']);
 
+// 카슝(=빌린카) 불러온 매물은 v4에서 제외 — 사용자 결정. 빌린카 = 공급사 RP021 / PT-0024(35대).
+//  브리지 read 단에서 걸러 v4 목록·상세서 안 보이게(v3 원본은 무변경).
+const KASHUNG_PROVIDERS = new Set(['RP021', 'PT-0024']);
+const isKashungProduct = (r: Rec): boolean =>
+  KASHUNG_PROVIDERS.has(String(r.provider_company_code)) || KASHUNG_PROVIDERS.has(String(r.partner_code));
+
 function naturalKey(entity: string, rec: Rec): string {
   const e = ENTITIES[entity];
   if (!e) return String(rec._key ?? '');
@@ -54,11 +60,13 @@ function toV4(entity: string, childKey: string, rec: Rec, co: string, joinMap?: 
     case 'product': {
       const code = rec.product_code || childKey;
       const policy = rec._policy || (rec.policy_code && joinMap ? joinMap[rec.policy_code] : undefined);
+      // photo_link(Drive폴더·모던렌트카)는 scrapable — photo에 넣으면 /api/img 415 + 썸네일 영구 공백.
+      // photo_link는 ...base 로 유지 → useProductPhotos → /api/extract-photos 경로.
       return {
         ...base, _key: String(code), product_code: code, product_uid: rec.product_uid || childKey,
         _policy: policy,
         photos: rec.photos || rec.image_urls || rec.images || rec.doc_images,
-        photo: rec.photo || rec.image_url || rec.photo_link || (Array.isArray(rec.photos) ? rec.photos[0] : undefined),
+        photo: rec.photo || rec.image_url || (Array.isArray(rec.photos) ? rec.photos[0] : undefined),
       } as EntityRecord;
     }
     case 'policy': { const c = rec.policy_code || childKey; return { ...base, _key: String(c), policy_code: c } as EntityRecord; }
@@ -122,13 +130,15 @@ export class RtdbAdapter implements StoreAdapter {
   }
 
   async list(entity: string, co: string): Promise<EntityRecord[]> {
-    return (await this.merged(entity, co)).filter((r) => !r._deleted && !r.deletedAt);
+    const rows = (await this.merged(entity, co)).filter((r) => !r._deleted && !r.deletedAt);
+    return entity === 'product' ? rows.filter((r) => !isKashungProduct(r as Rec)) : rows; // 카슝(빌린카) 제외
   }
   async listDeleted(entity: string, co: string): Promise<EntityRecord[]> {
     return (await this.merged(entity, co)).filter((r) => r._deleted || r.deletedAt);
   }
   async get(entity: string, co: string, key: string): Promise<EntityRecord | null> {
-    return (await this.merged(entity, co)).find((r) => String(r._key) === key && !r._deleted && !r.deletedAt) || null;
+    const r = (await this.merged(entity, co)).find((r) => String(r._key) === key && !r._deleted && !r.deletedAt) || null;
+    return (r && entity === 'product' && isKashungProduct(r as Rec)) ? null : r; // 카슝(빌린카)은 직접링크로도 숨김
   }
 
   async save(entity: string, co: string, records: EntityRecord[]): Promise<SaveResult> {
