@@ -11,6 +11,7 @@
 import { ref, get, update as dbUpdate } from 'firebase/database';
 import { getRtdb } from './client';
 import { ENTITIES, type EntityRecord } from '../intake/entities';
+import { carYear } from '@/lib/domain/vehicle-master-match';
 import { currentActor } from '../session';
 import type { StoreAdapter, SaveResult } from '../store';
 
@@ -34,6 +35,13 @@ const BRIDGE_FROM_V3 = new Set(['product', 'policy', 'partner', 'user', 'room', 
 const KASHUNG_PROVIDERS = new Set(['RP021', 'PT-0024']);
 const isKashungProduct = (r: Rec): boolean =>
   KASHUNG_PROVIDERS.has(String(r.provider_company_code)) || KASHUNG_PROVIDERS.has(String(r.partner_code));
+
+// 만 10년 이상 노후차는 취급 안 함(사용자 룰) — 연식/최초등록 기준 나이. 매년 자동 노후차 제외. 연식불명은 유지.
+const MAX_AGE = 10;
+const isTooOld = (r: Rec): boolean => { const y = carYear(r as EntityRecord); return y > 0 && (new Date().getFullYear() - y) >= MAX_AGE; };
+
+// v4 매물에서 제외할 것 종합(카슝 + 10년 이상).
+const isExcludedProduct = (r: Rec): boolean => isKashungProduct(r) || isTooOld(r);
 
 function naturalKey(entity: string, rec: Rec): string {
   const e = ENTITIES[entity];
@@ -131,14 +139,14 @@ export class RtdbAdapter implements StoreAdapter {
 
   async list(entity: string, co: string): Promise<EntityRecord[]> {
     const rows = (await this.merged(entity, co)).filter((r) => !r._deleted && !r.deletedAt);
-    return entity === 'product' ? rows.filter((r) => !isKashungProduct(r as Rec)) : rows; // 카슝(빌린카) 제외
+    return entity === 'product' ? rows.filter((r) => !isExcludedProduct(r as Rec)) : rows; // 카슝(빌린카)·10년이상 제외
   }
   async listDeleted(entity: string, co: string): Promise<EntityRecord[]> {
     return (await this.merged(entity, co)).filter((r) => r._deleted || r.deletedAt);
   }
   async get(entity: string, co: string, key: string): Promise<EntityRecord | null> {
     const r = (await this.merged(entity, co)).find((r) => String(r._key) === key && !r._deleted && !r.deletedAt) || null;
-    return (r && entity === 'product' && isKashungProduct(r as Rec)) ? null : r; // 카슝(빌린카)은 직접링크로도 숨김
+    return (r && entity === 'product' && isExcludedProduct(r as Rec)) ? null : r; // 카슝·10년이상은 직접링크로도 숨김
   }
 
   async save(entity: string, co: string, records: EntityRecord[]): Promise<SaveResult> {
