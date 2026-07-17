@@ -30,6 +30,17 @@ export const HEADER_ALIASES: Record<string, string> = {
   메모: 'partner_memo', 비고: 'partner_memo', 특이사항: 'partner_memo',
 };
 
+// 매핑 대상 표준 필드(에디터 드롭다운). 라벨=한글, key=매물 필드.
+export const IMPORT_FIELDS: { key: string; label: string }[] = [
+  { key: 'car_number', label: '차량번호' }, { key: 'maker', label: '제조사' }, { key: 'model', label: '모델' },
+  { key: 'sub_model', label: '세부모델' }, { key: 'trim_name', label: '트림' }, { key: 'year', label: '연식' },
+  { key: 'first_registration_date', label: '최초등록일' }, { key: 'fuel_type', label: '연료' }, { key: 'engine_cc', label: '배기량' },
+  { key: 'mileage', label: '주행거리' }, { key: 'ext_color', label: '외장색' }, { key: 'int_color', label: '내장색' },
+  { key: 'seats', label: '인승' }, { key: 'transmission', label: '변속기' }, { key: 'vehicle_class', label: '차종' },
+  { key: 'vehicle_status', label: '상태' }, { key: 'product_type', label: '구분' }, { key: 'photo_link', label: '사진링크' },
+  { key: 'options', label: '옵션' }, { key: 'partner_memo', label: '메모' },
+];
+
 const norm = (s: unknown) => String(s ?? '').trim().toLowerCase().replace(/\s+/g, '');
 
 /** 헤더 자동매핑 — 정확일치 → 정규화일치 → 부분일치. 반환 = {표준필드: 컬럼인덱스}(첫 매칭 우선). */
