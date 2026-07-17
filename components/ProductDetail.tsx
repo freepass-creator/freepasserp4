@@ -6,7 +6,10 @@ import { useProductPhotos } from '@/components/use-product-photos';
 import { getRole } from '@/lib/domain/deal';
 import { won, C } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
+import { useDragScroll } from '@/lib/use-drag-scroll';
 import { badges, Plate, idParts } from '@/components/product-card-atoms';
+import { FavHeart } from '@/components/FavHeart';
+import { ReportButton } from '@/components/ReportButton';
 
 // 매물 상세 = 공통 원자(사진 갤러리·라이트박스 · 전기간 요금표 · 정책 섹션). 모바일=단일컬럼 반응형.
 // /m 전체페이지 + 소통·계약 우패널이 같이 씀(새로 만들지 않고 이 원자를 끌어다 씀).
@@ -14,6 +17,7 @@ export function ProductDetail({ p, audience }: { p: EntityRecord; audience?: Aud
   const [lb, setLb] = useState<number | null>(null);
   const [main, setMain] = useState(0);
   const photos = useProductPhotos(p);
+  const thumbs = useDragScroll();
   useEffect(() => { setMain(0); }, [p.product_code]);
   const mainIdx = Math.min(main, Math.max(0, photos.length - 1));
   const aud: Audience = audience || (getRole() === 'admin' ? 'admin' : 'agent');
@@ -30,33 +34,44 @@ export function ProductDetail({ p, audience }: { p: EntityRecord; audience?: Aud
 
   return (
     <div>
-      {/* 헤더 = 카드와 같은 신원 언어: 제조사·세부모델(주) + 파워트레인·세부트림(연장) / 번호판칩 + 뱃지 */}
+      {/* 헤더 = 카드와 같은 신원 언어. 찜은 카드와 동일하게 사진 좌측 하단. */}
       <div style={{ marginBottom: 11 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
           <h1 style={{ fontSize: 19, fontWeight: 800, letterSpacing: '-0.02em', margin: 0, lineHeight: 1.25 }}>{idMain}</h1>
           {idExt && <span style={{ fontSize: 14, fontWeight: 500, color: C.mute }}>{idExt}</span>}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 8 }}><Plate p={p} />{badges(p)}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 8 }}><Plate p={p} />{badges(p)}{aud !== 'customer' && <span style={{ marginLeft: 'auto' }}><ReportButton p={p} compact /></span>}</div>
       </div>
 
       {photos.length ? (
         <div>
           <div onClick={() => setLb(mainIdx)} style={{ position: 'relative', aspectRatio: '16 / 10', background: '#eef1f5', borderRadius: 6, overflow: 'hidden', cursor: 'zoom-in' }}>
             <img src={photos[mainIdx]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <span style={{ position: 'absolute', left: 8, bottom: 8, zIndex: 2 }}><FavHeart p={p} onPhoto /></span>
             <span style={{ position: 'absolute', right: 8, bottom: 8, background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 3, fontFamily: 'var(--font-mono)' }}>{mainIdx + 1} / {photos.length}</span>
           </div>
           {photos.length > 1 && (
-            <div style={{ display: 'flex', gap: 6, marginTop: 6, overflowX: 'auto', paddingBottom: 2 }}>
+            <div
+              ref={thumbs.ref}
+              onPointerDown={thumbs.onPointerDown}
+              onPointerMove={thumbs.onPointerMove}
+              onPointerUp={thumbs.onPointerUp}
+              onPointerCancel={thumbs.onPointerUp}
+              style={{ display: 'flex', gap: 6, marginTop: 6, overflowX: 'auto', paddingBottom: 2, cursor: 'grab', touchAction: 'pan-y', userSelect: 'none', WebkitOverflowScrolling: 'touch' }}
+            >
               {photos.map((ph, i) => (
-                <button key={i} onClick={() => setMain(i)} aria-label={`사진 ${i + 1}`} style={{ flex: '0 0 auto', width: 74, height: 48, borderRadius: 4, overflow: 'hidden', border: `2px solid ${i === mainIdx ? C.brand : 'transparent'}`, padding: 0, cursor: 'pointer', background: '#eef1f5' }}>
-                  <img src={ph} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <button key={i} onClick={() => { if (thumbs.consumeClick()) return; setMain(i); }} aria-label={`사진 ${i + 1}`} style={{ flex: '0 0 auto', width: 74, height: 48, borderRadius: 4, overflow: 'hidden', border: `2px solid ${i === mainIdx ? C.brand : 'transparent'}`, padding: 0, cursor: 'inherit', background: '#eef1f5', pointerEvents: 'auto' }}>
+                  <img src={ph} alt="" draggable={false} style={{ width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none' }} />
                 </button>
               ))}
             </div>
           )}
         </div>
       ) : (
-        <div style={{ aspectRatio: '16 / 10', background: '#eef1f5', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.faint, fontSize: 12.5 }}>사진 준비중</div>
+        <div style={{ position: 'relative', aspectRatio: '16 / 10', background: '#eef1f5', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.faint, fontSize: 12.5 }}>
+          사진 준비중
+          <span style={{ position: 'absolute', left: 8, bottom: 8 }}><FavHeart p={p} onPhoto /></span>
+        </div>
       )}
 
       {(() => { const firstSub = secs.findIndex((x) => x.tier === 'sub'); return secs.map((sec, si) => (
