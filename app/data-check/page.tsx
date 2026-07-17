@@ -33,11 +33,11 @@ export default function DataCheck() {
     <main style={{ maxWidth: 820, margin: '0 auto', padding: '18px 16px 44px' }}>
       <div style={{ fontSize: 12, color: C.mute, letterSpacing: '0.04em' }}>매물 관리</div>
       <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em', margin: '4px 0 4px' }}>데이터 점검</h1>
-      <div style={{ fontSize: 13, color: C.mute, marginBottom: 16 }}>{rows.length}매물 자동 스캔 · 이상 {groups.length}종 · 표시 {totalHits}건{openReports.length ? ` · 영업자 수정요청 ${openReports.length}` : ''}</div>
+      <div style={{ fontSize: 13, color: C.mute, marginBottom: 16 }}>{rows.length}매물 자동 스캔 · 이상 {groups.length}종 · 표시 {totalHits}건{openReports.length ? ` · 영업자 확인요청 ${openReports.length}` : ''}</div>
 
       {openReports.length > 0 && (
         <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 13, fontWeight: 800, color: '#9a3412', marginBottom: 6 }}>⚑ 영업자 수정 요청 {openReports.length}건</div>
+          <div style={{ fontSize: 13, fontWeight: 800, color: '#9a3412', marginBottom: 6 }}>⚑ 영업자 확인 요청 {openReports.length}건</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {openReports.map((r) => {
               const p = byCode.get(String(r.product_code));
