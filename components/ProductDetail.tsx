@@ -40,7 +40,7 @@ export function ProductDetail({ p, audience }: { p: EntityRecord; audience?: Aud
           <h1 style={{ fontSize: 19, fontWeight: 800, letterSpacing: '-0.02em', margin: 0, lineHeight: 1.25 }}>{idMain}</h1>
           {idExt && <span style={{ fontSize: 14, fontWeight: 500, color: C.mute }}>{idExt}</span>}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 8 }}><Plate p={p} />{badges(p)}{aud !== 'customer' && <span style={{ marginLeft: 'auto' }}><ReportButton p={p} compact /></span>}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 8 }}><Plate p={p} />{badges(p)}</div>
       </div>
 
       {photos.length ? (
@@ -148,6 +148,14 @@ export function ProductDetail({ p, audience }: { p: EntityRecord; audience?: Aud
           </div>
         </Fragment>
       )); })()}
+
+      {/* 하단 = 다 본 뒤 이상하면 검수 요청(영업자/관리자만, 고객화면 제외) */}
+      {aud !== 'customer' && (
+        <div style={{ marginTop: 18, paddingTop: 12, borderTop: `1px solid ${C.line2}`, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 12, color: C.faint }}>사진·정보가 이상한가요?</span>
+          <ReportButton p={p} />
+        </div>
+      )}
 
       {lb !== null && photos.length > 0 && (
         <div onClick={() => setLb(null)} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(0,0,0,0.92)', overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: '48px 12px' }}>
