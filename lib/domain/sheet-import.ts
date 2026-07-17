@@ -46,6 +46,14 @@ export function autoMapHeaders(headers: string[]): MappingProfile {
   return map;
 }
 
+/** 클라이언트: 구글시트 URL → 표(table). /api/sheet 경유(CORS 회피). 실패 시 throw(사유 포함). */
+export async function fetchSheetTable(url: string, gid?: string): Promise<string[][]> {
+  const r = await fetch(`/api/sheet?url=${encodeURIComponent(url)}${gid ? `&gid=${encodeURIComponent(gid)}` : ''}`);
+  const d = await r.json().catch(() => ({ ok: false, error: '응답 파싱 실패' }));
+  if (!d.ok) throw new Error(d.error || `시트 로드 실패 (${r.status})`);
+  return parseDelimited(String(d.csv || ''));
+}
+
 /** CSV/TSV 파서 — 따옴표 안 콤마·개행 처리. 빈 행 제거. */
 export function parseDelimited(text: string, delim = ','): string[][] {
   const rows: string[][] = [];

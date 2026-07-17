@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
-import { getStore } from '@/lib/store';
+import { getStore, peekList } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
 import { ENTITIES, type EntityRecord, type Field } from '@/lib/intake/entities';
@@ -16,30 +16,26 @@ import { snapToMaster, applySnap, reconcileToMaster, type MasterEntry } from '@/
 import { VehicleMasterPicker } from '@/components/VehicleMasterPicker';
 import { PhotoUpload } from '@/components/PhotoUpload';
 import { useResolvedLinkPhotos } from '@/components/use-product-photos';
+import { SheetSync } from '@/components/SheetSync';
 import { PriceMatrix } from '@/components/PriceMatrix';
 
 // 재고관리 = [매물 목록 | 매물 편집 | 공급사 소스 연동]. 파인더와 같은 데이터의 "편집 렌즈". 공급사=자기 매물만.
 // 공급사 업로드: 구글시트 URL 저장(배포 후 자동 fetch) + 엑셀/시트 붙여넣기(헤더 자동매핑→반영).
-const HMAP: Record<string, string> = { '차량번호': 'car_number', '차번': 'car_number', '제조사': 'maker', '메이커': 'maker', '모델': 'model', '세부모델': 'sub_model', '트림': 'trim_name', '연식': 'year', '연료': 'fuel_type', '주행': 'mileage', '주행거리': 'mileage', '색상': 'ext_color', '외장색': 'ext_color', '내장색': 'int_color', '차종': 'vehicle_class', '상태': 'vehicle_status', '구분': 'product_type', '인승': 'seats', '배기량': 'engine_cc' };
-const mapHeader = (h: string): string => { const t = h.trim(); if (HMAP[t]) return HMAP[t]; const k = Object.keys(HMAP).find((kk) => t.includes(kk)); return k ? HMAP[k] : ''; };
 
 export default function Inventory() {
   const co = getCompanyId();
   const router = useRouter();
-  const [rows, setRows] = useState<EntityRecord[] | null>(null);
+  const [rows, setRows] = useState<EntityRecord[] | null>(() => peekList('product', co));
   const [sel, setSel] = useState<string | null>(null);
   const [form, setForm] = useState<EntityRecord>({});
   const [dirty, setDirty] = useState(false);
-  const [sheetUrl, setSheetUrl] = useState('');
-  const [paste, setPaste] = useState('');
   const [q, setQ] = useState('');
   const [policies, setPolicies] = useState<EntityRecord[]>([]);
 
-  const myProvider = () => (getRole() === 'provider' ? actor('provider').code : String(form.provider_company_code || 'sup_jeil'));
   const load = async (r: Role) => { const all = await getStore().list('product', co); const mine = r === 'provider' ? all.filter((p) => String(p.provider_company_code) === actor('provider').code) : all; setRows(mine); return mine; };
   const selectP = (p: EntityRecord) => { setSel(String(p.product_code)); setForm({ ...p }); setDirty(false); };
   const clearSel = () => { setSel(null); setForm({}); setDirty(false); };
-  useEffect(() => { (async () => { await seedIfEmpty(co); const r = getRole(); if (r !== 'admin' && r !== 'provider') { router.replace('/'); return; } setSheetUrl(typeof window !== 'undefined' ? localStorage.getItem('fp4_sheet_' + r) || '' : ''); setPolicies(await getStore().list('policy', co)); const all = await load(r); if (all.length) selectP(all[0]); })(); /* eslint-disable-next-line */ }, []);
+  useEffect(() => { (async () => { await seedIfEmpty(co); const r = getRole(); if (r !== 'admin' && r !== 'provider') { router.replace('/'); return; } setPolicies(await getStore().list('policy', co)); const all = await load(r); if (all.length) selectP(all[0]); })(); /* eslint-disable-next-line */ }, []);
   useEffect(() => { const on = (e: Event) => { (async () => { const all = await load((e as CustomEvent).detail as Role); clearSel(); if (all.length) selectP(all[0]); })(); }; window.addEventListener('fp:role', on); return () => window.removeEventListener('fp:role', on); /* eslint-disable-next-line */ }, []);
 
   const [clip, setClip] = useState<EntityRecord | null>(null);
@@ -120,40 +116,11 @@ export default function Inventory() {
     finally { setOcrBusy(false); if (ocrRef.current) ocrRef.current.value = ''; }
   };
   const newP = () => { const c = newId('product'); setSel(c); setForm({ product_code: c, vehicle_status: '상품화중', product_type: '재렌트', provider_company_code: getRole() === 'provider' ? actor('provider').code : '' }); setDirty(true); };
-  const saveLink = () => { if (typeof window !== 'undefined') localStorage.setItem('fp4_sheet_' + getRole(), sheetUrl); toast('시트 링크 저장됨 (자동 불러오기는 배포 후)', 'ok'); };
   const copyJonghap = async () => {
     const [prods, pols] = await Promise.all([getStore().list('product', co), getStore().list('policy', co)]);
     const { tsv, count } = buildJonghapTsv(prods, pols);
     await navigator.clipboard?.writeText(tsv).catch(() => {});
     toast(`종합표 ${count}행 복사됨 — 구글시트 종합탭에 붙여넣기`, 'ok');
-  };
-  const importPaste = async () => {
-    const lines = paste.trim().split(/\r?\n/).filter(Boolean);
-    if (lines.length < 2) { toast('헤더 행 + 데이터 행이 필요합니다', 'error'); return; }
-    const cols = lines[0].split('\t').map(mapHeader);
-    const pv = myProvider();
-    const all = await getStore().list('product', co);
-    const existByCar = new Map(all.filter((p) => p.car_number).map((p) => [norm(p.car_number), String(p.product_code)]));
-    const recs: EntityRecord[] = [];
-    let skipped = 0;
-    for (let i = 1; i < lines.length; i++) {
-      const cells = lines[i].split('\t');
-      const rec: EntityRecord = {};
-      cols.forEach((f, ci) => { if (f && cells[ci] != null && cells[ci].trim() !== '') rec[f] = cells[ci].trim(); });
-      if (!rec.car_number) continue;
-      rec.provider_company_code = pv;
-      rec.product_code = `EXT-${pv}-${rec.car_number}`;
-      const exist = existByCar.get(norm(rec.car_number));
-      if (exist && exist !== rec.product_code) { skipped++; continue; } // 다른 상품에 이미 있는 차번 → 중복 방지
-      if (!rec.vehicle_status) rec.vehicle_status = '출고가능';
-      if (!rec.product_type) rec.product_type = '재렌트';
-      recs.push(rec);
-    }
-    if (!recs.length) { toast(skipped ? `모두 중복 차번(${skipped}건) — 반영 없음` : '불러올 행이 없습니다 (차량번호 컬럼 필요)', 'error'); return; }
-    await getStore().save('product', co, recs);
-    for (const r of recs) await getStore().update('product', co, String(r.product_code), r);
-    setPaste(''); await load(getRole());
-    toast(`${recs.length}건 반영${skipped ? ` · 중복 차번 ${skipped}건 제외` : ''}`, 'ok');
   };
 
   const shown = (rows || []).filter((p) => !q || [vehicleName(p), p.car_number, p.maker, p.model, p.sub_model, p.vehicle_status, p.provider_company_code].join(' ').toLowerCase().includes(q.toLowerCase()));
@@ -178,12 +145,14 @@ export default function Inventory() {
   const grp = (keys: string[]): Field[] => keys.map((k) => byKey[k]).filter(Boolean) as Field[];
   const FG = (keys: string[], cols = 2) => <FormGrid fields={grp(keys)} form={form} onChange={onChange} cols={cols} />;
   const Section = (title: string, keys: string[], cols = 2) => <div><SectionLabel>{title}</SectionLabel>{FG(keys, cols)}</div>;
-  const editPane = (
+  const saveBtn = <Btn size="sm" onClick={save} disabled={!dirty}>저장</Btn>;
+  // 매물편집 = 독립 패널 2개(고정/변동)로 분할 — 각각 단일 패널이라 모바일 슬라이딩탭으로 하나씩 관리. 웹은 둘 다 flex(동일 비율).
+  const fixedPane = (
     <>
-      <PaneHead title="매물 편집" right={<Btn size="sm" onClick={save} disabled={!dirty}>저장</Btn>} />
+      <PaneHead title="고정 정보 · 한번 입력" right={saveBtn} />
       <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 12 }}>
         {sel ? <>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: C.faint }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: C.faint, flexWrap: 'wrap' }}>
             <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: C.mute }}>{String(form.product_code)}</span>
             <span>{String(form.provider_company_code || '')}</span>
             <span style={{ flex: 1 }} />
@@ -192,69 +161,67 @@ export default function Inventory() {
             <Btn variant="ghost" size="sm" onClick={pasteForm} disabled={!clip}>붙여넣기</Btn>
             {dirty && <span style={{ color: C.warn }}>● 미저장</span>}
           </div>
-          {/* 좌 = 고정(차종·제원) | 우 = 변동(대여료·사진·주행·정책·상태). 기본 2열, 좁으면 1열 스택. */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 18, alignItems: 'start' }}>
-            {/* ── 좌: 고정 정보 ── */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>
-              <div style={{ fontSize: 11, fontWeight: 800, color: C.faint, letterSpacing: 0.3 }}>고정 정보 · 한번 입력</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, border: `1px solid ${C.line}`, borderRadius: 4, background: '#f8fbff', padding: '8px 10px' }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 12, fontWeight: 800, color: C.brand }}>자동차등록증</div>
-                  <div style={{ fontSize: 10.5, color: C.faint }}>등록증 올리면 차번·차대·연료·배기량·인승·용도·최초등록 자동채움(빈 칸만)</div>
-                </div>
-                <input ref={ocrRef} type="file" accept="image/*" onChange={(e) => runOcr(e.target.files)} style={{ display: 'none' }} />
-                <Btn size="sm" onClick={() => ocrRef.current?.click()} disabled={ocrBusy}>{ocrBusy ? '인식 중…' : '등록증 올리기'}</Btn>
-              </div>
-              <VehicleMasterPicker onPick={(v) => { setForm((f) => ({ ...f, ...v })); setDirty(true); }} />
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: -4 }}>
-                {(form.gen_year_start || form._snap_confidence) ? (
-                  <span style={{ fontSize: 11, color: C.mute }}>
-                    {form.gen_year_start ? `생산 ${form.gen_year_start}~${form.gen_year_end}` : ''}
-                    {form._snap_confidence ? `${form.gen_year_start ? ' · ' : ''}매칭 ${form._snap_confidence}` : ''}
-                  </span>
-                ) : null}
-                <span style={{ flex: 1 }} />
-                <Btn variant="ghost" size="sm" onClick={normalizeVehicle}>차종 정규화 (마스터 매칭)</Btn>
-              </div>
-              {Section('신원 (차종)', ['car_number', 'maker', 'model', 'sub_model', 'variant', 'trim_name', 'vehicle_class'])}
-              {Section('선택옵션', ['options'], 1)}
-              {Section('제원 · 스펙', ['year', 'fuel_type', 'engine_cc', 'seats', 'drive_type', 'transmission', 'usage', 'ext_color', 'int_color', 'first_registration_date'])}
-              {getRole() === 'admin' && Section('원가 · 이력 · 등록증', ['vehicle_price', 'location', 'vin', 'vehicle_age_expiry_date', 'cert_car_name', 'type_number', 'engine_type', 'partner_memo'])}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, border: `1px solid ${C.line}`, borderRadius: 4, background: '#f8fbff', padding: '8px 10px' }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: C.brand }}>자동차등록증</div>
+              <div style={{ fontSize: 10.5, color: C.faint }}>등록증 올리면 차번·차대·연료·배기량·인승·용도·최초등록 자동채움(빈 칸만)</div>
             </div>
-            {/* ── 우: 변동 정보 (대여료 바로 아래 = 사진) ── */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>
-              <div style={{ fontSize: 11, fontWeight: 800, color: C.faint, letterSpacing: 0.3 }}>변동 정보</div>
-              <div>
-                <SectionLabel>상태 · 구분 · 정책</SectionLabel>
-                {FG(['vehicle_status', 'product_type'])}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 9, marginTop: 9 }}>
-                  <label style={{ fontSize: 11.5, color: C.mute }}>무보증 가능
-                    <div style={{ marginTop: 3 }}><Select value={String(form.deposit_free || '')} onChange={(v) => onChange('deposit_free', v)} options={['예', '아니오']} placeholder="—" full /></div>
-                  </label>
-                  <label style={{ fontSize: 11.5, color: C.mute }}>정책 연결
-                    <div style={{ marginTop: 3 }}><Select value={String(form.policy_code || '')} onChange={(v) => onChange('policy_code', v)} placeholder="— 정책 선택 —" full
-                      options={policies.filter((pl) => !form.provider_company_code || String(pl.provider_company_code) === String(form.provider_company_code)).map((pl) => ({ value: String(pl.policy_code), label: `${String(pl.policy_name || pl.policy_code)} (${String(pl.policy_code)})` }))} /></div>
-                  </label>
-                </div>
-              </div>
-              {Section('주행 · 사고', ['mileage', 'accident_history'])}
-              <div><SectionLabel>대여료</SectionLabel><PriceMatrix price={form.price} onChange={(p) => { setForm((f) => ({ ...f, price: p })); setDirty(true); }} /></div>
-              <div><SectionLabel>사진</SectionLabel><PhotoUpload photos={form.photos} onChange={(ps) => { setForm((f) => ({ ...f, photos: ps })); setDirty(true); }} /></div>
-              {/* 공급사 원본사진(photo_link 해석) — 읽기전용. 복사 안 하고 v3 링크를 그때그때 해석해 보여줌. */}
-              {supplierPhotos.length > 0 && (
-                <div>
-                  <SectionLabel>공급사 사진 <span style={{ fontSize: 11, fontWeight: 400, color: C.faint }}>· 연동(읽기전용) {supplierPhotos.length}장</span></SectionLabel>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(88px, 1fr))', gap: 6 }}>
-                    {supplierPhotos.map((u, i) => (
-                      <a key={i} href={u} target="_blank" rel="noreferrer" style={{ display: 'block', aspectRatio: '4 / 3', borderRadius: 4, overflow: 'hidden', background: C.placeholder || '#eef1f5', border: `1px solid ${C.line}` }}>
-                        <img src={u} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      </a>
-                    ))}
-                  </div>
-                </div>
-              )}
+            <input ref={ocrRef} type="file" accept="image/*" onChange={(e) => runOcr(e.target.files)} style={{ display: 'none' }} />
+            <Btn size="sm" onClick={() => ocrRef.current?.click()} disabled={ocrBusy}>{ocrBusy ? '인식 중…' : '등록증 올리기'}</Btn>
+          </div>
+          <VehicleMasterPicker onPick={(v) => { setForm((f) => ({ ...f, ...v })); setDirty(true); }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: -4 }}>
+            {(form.gen_year_start || form._snap_confidence) ? (
+              <span style={{ fontSize: 11, color: C.mute }}>
+                {form.gen_year_start ? `생산 ${form.gen_year_start}~${form.gen_year_end}` : ''}
+                {form._snap_confidence ? `${form.gen_year_start ? ' · ' : ''}매칭 ${form._snap_confidence}` : ''}
+              </span>
+            ) : null}
+            <span style={{ flex: 1 }} />
+            <Btn variant="ghost" size="sm" onClick={normalizeVehicle}>차종 정규화 (마스터 매칭)</Btn>
+          </div>
+          {Section('신원 (차종)', ['car_number', 'maker', 'model', 'sub_model', 'variant', 'trim_name', 'vehicle_class'])}
+          {Section('선택옵션', ['options'], 1)}
+          {Section('제원 · 스펙', ['year', 'fuel_type', 'engine_cc', 'seats', 'drive_type', 'transmission', 'usage', 'ext_color', 'int_color', 'first_registration_date'])}
+          {getRole() === 'admin' && Section('원가 · 이력 · 등록증', ['vehicle_price', 'location', 'vin', 'vehicle_age_expiry_date', 'cert_car_name', 'type_number', 'engine_type', 'partner_memo'])}
+        </> : <CenterNote>매물을 선택하세요.</CenterNote>}
+      </div>
+    </>
+  );
+  const varPane = (
+    <>
+      <PaneHead title="변동 정보" right={saveBtn} />
+      <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {sel ? <>
+          <div>
+            <SectionLabel>상태 · 구분 · 정책</SectionLabel>
+            {FG(['vehicle_status', 'product_type'])}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 9, marginTop: 9 }}>
+              <label style={{ fontSize: 11.5, color: C.mute }}>무보증 가능
+                <div style={{ marginTop: 3 }}><Select value={String(form.deposit_free || '')} onChange={(v) => onChange('deposit_free', v)} options={['예', '아니오']} placeholder="—" full /></div>
+              </label>
+              <label style={{ fontSize: 11.5, color: C.mute }}>정책 연결
+                <div style={{ marginTop: 3 }}><Select value={String(form.policy_code || '')} onChange={(v) => onChange('policy_code', v)} placeholder="— 정책 선택 —" full
+                  options={policies.filter((pl) => !form.provider_company_code || String(pl.provider_company_code) === String(form.provider_company_code)).map((pl) => ({ value: String(pl.policy_code), label: `${String(pl.policy_name || pl.policy_code)} (${String(pl.policy_code)})` }))} /></div>
+              </label>
             </div>
           </div>
+          {Section('주행 · 사고', ['mileage', 'accident_history'])}
+          <div><SectionLabel>대여료</SectionLabel><PriceMatrix price={form.price} onChange={(p) => { setForm((f) => ({ ...f, price: p })); setDirty(true); }} /></div>
+          <div><SectionLabel>사진</SectionLabel><PhotoUpload photos={form.photos} onChange={(ps) => { setForm((f) => ({ ...f, photos: ps })); setDirty(true); }} /></div>
+          {/* 공급사 원본사진(photo_link 해석) — 읽기전용. 복사 안 하고 v3 링크를 그때그때 해석해 보여줌. */}
+          {supplierPhotos.length > 0 && (
+            <div>
+              <SectionLabel>공급사 사진 <span style={{ fontSize: 11, fontWeight: 400, color: C.faint }}>· 연동(읽기전용) {supplierPhotos.length}장</span></SectionLabel>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(88px, 1fr))', gap: 6 }}>
+                {supplierPhotos.map((u, i) => (
+                  <a key={i} href={u} target="_blank" rel="noreferrer" style={{ display: 'block', aspectRatio: '4 / 3', borderRadius: 4, overflow: 'hidden', background: C.placeholder || '#eef1f5', border: `1px solid ${C.line}` }}>
+                    <img src={u} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
         </> : <CenterNote>매물을 선택하세요.</CenterNote>}
       </div>
     </>
@@ -269,23 +236,20 @@ export default function Inventory() {
           <div style={{ fontSize: 11, color: C.faint, lineHeight: 1.5, marginBottom: 9 }}>공급사 매물을 전부 끌어와 차종마스터 계단트리(제조사→모델→세대→파워트레인→트림)로 자동 정합. 결과는 항상 실존 조합, 저신뢰만 검토 표시.</div>
           <Btn onClick={reconcileAll} disabled={reconBusy}>{reconBusy ? '불러오는 중…' : '전체 불러와 차종 정합'}</Btn>
         </div>
-        {/* 보조 도구(작게) */}
-        <div style={{ fontSize: 11.5, fontWeight: 700, color: C.mute, marginTop: 2 }}>보조 도구</div>
-        <Btn size="sm" variant="ghost" onClick={copyJonghap}>종합표 TSV 복사</Btn>
-        <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
-          <input value={sheetUrl} onChange={(e) => setSheetUrl(e.target.value)} placeholder="구글시트 URL" style={{ ...inp, marginTop: 0, flex: 1, minWidth: 0 }} />
-          <Btn size="sm" variant="ghost" onClick={saveLink}>저장</Btn>
-        </div>
-        <textarea value={paste} onChange={(e) => setPaste(e.target.value)} placeholder={'엑셀/시트 붙여넣기 — 첫 줄=헤더(탭)\n차량번호\t제조사\t모델\t연식\t연료'} rows={5} style={{ ...inp, marginTop: 0, fontFamily: 'var(--font-mono)', resize: 'vertical' }} />
-        <Btn size="sm" variant="ghost" onClick={importPaste}>붙여넣기 반영</Btn>
+        {/* 공급사 시트 취합 — 연동하기(관리자=전체 자동) + 엑셀 업로드 2방식 */}
+        <div style={{ fontSize: 11.5, fontWeight: 700, color: C.mute, marginTop: 2 }}>공급사 시트 취합</div>
+        <SheetSync co={co} onImported={() => load(getRole())} />
+        <div style={{ height: 1, background: C.line2, margin: '2px 0' }} />
+        <Btn size="sm" variant="ghost" onClick={copyJonghap}>종합표 TSV 복사 (ERP→시트)</Btn>
       </div>
     </>
   );
 
-  // 메인 = 매물 편집(가변폭) · 보조 = 공급사 업로드(좁게 고정)
+  // 편집 = 고정·변동 2패널(둘 다 flex=동일 비율) · 업로드 = 좁게 고정. 모바일=슬라이딩탭 하나씩.
   const panes: WorkPane[] = [
-    { key: 'edit', title: '매물 편집', node: editPane },
-    { key: 'sync', title: '공급사 업로드', node: syncPane, width: WORK_SIDE_W },
+    { key: 'fixed', title: '고정', node: fixedPane },
+    { key: 'var', title: '변동', node: varPane },
+    { key: 'sync', title: '업로드', node: syncPane, width: WORK_SIDE_W },
   ];
   return <WorkPage title="재고" listCount={rows ? rows.length : ''} list={rows === null ? <Loading /> : listEl} panes={panes} selected={!!sel} onBack={clearSel}
     search={{ value: q, onChange: setQ, placeholder: '차량·차번·제조사·상태' }} actions={<Btn size="sm" onClick={newP}>매물 등록</Btn>} />;
