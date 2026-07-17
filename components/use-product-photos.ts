@@ -23,7 +23,23 @@ export function useProductPhotos(p: EntityRecord, size = 1280): string[] {
   return [...immediate, ...extra].filter((u) => { if (seen.has(u)) return false; seen.add(u); return true; });
 }
 
-export function useFirstPhoto(p: EntityRecord, size = 480): string {
+// 목록·상세 첫장. 표시 크기는 카드/상세 프레임(CSS cover)이 담당 — 여기 size는 Drive 요청폭만.
+export function useFirstPhoto(p: EntityRecord, size = 1280): string {
   const photos = useProductPhotos(p, size);
   return photos[0] || '';
+}
+
+// 공급사 링크(드라이브·모던렌트카·오플) 해석 사진만 — ERP 매물편집서 "읽기전용"으로 보여주기(복사 아님).
+export function useResolvedLinkPhotos(p: EntityRecord, size = 1280): string[] {
+  const [urls, setUrls] = useState<string[]>([]);
+  const code = String(p?.product_code ?? p?._key ?? '');
+  const link = String(p?.photo_link ?? '');
+  useEffect(() => {
+    let alive = true;
+    setUrls([]);
+    if (scrapableSources(p).length) resolveServerPhotos(p, size).then((u) => { if (alive) setUrls(u); });
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [code, link, size]);
+  return urls;
 }

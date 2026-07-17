@@ -8,14 +8,14 @@ import { ENTITIES, type EntityRecord, type Field } from '@/lib/intake/entities';
 import { getRole, actor, type Role } from '@/lib/domain/deal';
 import { newId } from '@/lib/domain/ids';
 import { vehicleName } from '@/lib/domain/product';
-import { PaneHead, Btn, FormGrid, C } from '@/components/ui';
-import { WorkPage, type WorkPane } from '@/components/WorkPage';
+import { PaneHead, Btn, FormGrid, C, Loading, CenterNote, SectionLabel, Select, ListRow } from '@/components/ui';
+import { WorkPage, type WorkPane, WORK_SIDE_W } from '@/components/WorkPage';
 import { toast } from '@/components/Toaster';
 import { buildJonghapTsv } from '@/lib/domain/jonghap';
 import { snapToMaster, applySnap, reconcileToMaster, type MasterEntry } from '@/lib/domain/vehicle-master-match';
-import { useIsMobile } from '@/lib/use-mobile';
 import { VehicleMasterPicker } from '@/components/VehicleMasterPicker';
 import { PhotoUpload } from '@/components/PhotoUpload';
+import { useResolvedLinkPhotos } from '@/components/use-product-photos';
 import { PriceMatrix } from '@/components/PriceMatrix';
 
 // 재고관리 = [매물 목록 | 매물 편집 | 공급사 소스 연동]. 파인더와 같은 데이터의 "편집 렌즈". 공급사=자기 매물만.
@@ -34,7 +34,6 @@ export default function Inventory() {
   const [paste, setPaste] = useState('');
   const [q, setQ] = useState('');
   const [policies, setPolicies] = useState<EntityRecord[]>([]);
-  const mobile = useIsMobile();
 
   const myProvider = () => (getRole() === 'provider' ? actor('provider').code : String(form.provider_company_code || 'sup_jeil'));
   const load = async (r: Role) => { const all = await getStore().list('product', co); const mine = r === 'provider' ? all.filter((p) => String(p.provider_company_code) === actor('provider').code) : all; setRows(mine); return mine; };
@@ -85,6 +84,8 @@ export default function Inventory() {
     toast(`차종 정규화: ${res.maker} ${res.sub_model}${span} (${res.confidence})`, res.confidence === 'low' ? 'info' : 'ok');
   };
   const [reconBusy, setReconBusy] = useState(false);
+  // 공급사 원본사진(photo_link=드라이브·모던렌트카) 해석 — ERP서 읽기전용으로 보여주기(복사 아님).
+  const supplierPhotos = useResolvedLinkPhotos(form);
   // 전체 차종 재구현 — v3에서 당겨온 매물 원자를 차종마스터 계단트리로 일괄 재스냅 → v4 오버레이 canonical 저장(v3 무변경).
   const reconcileAll = async () => {
     if (reconBusy) return;
@@ -157,17 +158,17 @@ export default function Inventory() {
 
   const shown = (rows || []).filter((p) => !q || [vehicleName(p), p.car_number, p.maker, p.model, p.sub_model, p.vehicle_status, p.provider_company_code].join(' ').toLowerCase().includes(q.toLowerCase()));
   const listEl = shown.length === 0
-    ? <div style={{ padding: 24, textAlign: 'center', color: C.faint, fontSize: 12.5 }}>{q ? '검색 결과 없음' : '매물 없음'}</div>
+    ? <CenterNote>{q ? '검색 결과 없음' : '매물 없음'}</CenterNote>
     : <div>{shown.map((p) => {
         const on = String(p.product_code) === sel;
         return (
-          <div key={String(p.product_code)} onClick={() => selectP(p)} style={{ padding: '11px 14px', borderBottom: `1px solid ${C.line2}`, cursor: 'pointer', background: on ? '#eef4ff' : 'transparent' }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 7 }}>
-              <span style={{ fontSize: 13, fontWeight: 700, color: C.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{vehicleName(p)}</span>
-              <span style={{ fontSize: 10.5, color: C.faint, flex: '0 0 auto', fontFamily: 'var(--font-mono)' }}>{String(p.car_number || '')}</span>
-            </div>
-            <div style={{ fontSize: 11.5, color: C.mute, marginTop: 2 }}>{[p.vehicle_status, p.product_type, p.provider_company_code].filter(Boolean).join(' · ')}</div>
-          </div>
+          <ListRow key={String(p.product_code)} selected={on} onClick={() => selectP(p)}
+            main={<span style={{ display: 'flex', alignItems: 'baseline', gap: 7, minWidth: 0, overflow: 'hidden' }}>
+              <span style={{ flex: '1 1 0', minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{vehicleName(p)}</span>
+              <span style={{ fontSize: 10.5, color: C.faint, flex: '0 0 auto', fontFamily: 'var(--font-mono)', fontWeight: 500 }}>{String(p.car_number || '')}</span>
+            </span>}
+            sub={[p.vehicle_status, p.product_type, p.provider_company_code].filter(Boolean).join(' · ')}
+          />
         );
       })}</div>;
 
@@ -175,9 +176,8 @@ export default function Inventory() {
   // 역할별 섹션(원자 사전) — erp3 자산정보/가격/사진 3카드 이식. 내부·파생(image_urls·catalog_id·fp_options·review_status·provider_name)은 폼서 제외(전용 에디터/자동).
   const byKey = Object.fromEntries(ENTITIES.product.fields.map((f) => [f.key, f]));
   const grp = (keys: string[]): Field[] => keys.map((k) => byKey[k]).filter(Boolean) as Field[];
-  const secTitle: CSSProperties = { fontSize: 12, fontWeight: 800, color: C.ink, margin: '2px 0 5px' };
   const FG = (keys: string[], cols = 2) => <FormGrid fields={grp(keys)} form={form} onChange={onChange} cols={cols} />;
-  const Section = (title: string, keys: string[], cols = 2) => <div><div style={secTitle}>{title}</div>{FG(keys, cols)}</div>;
+  const Section = (title: string, keys: string[], cols = 2) => <div><SectionLabel>{title}</SectionLabel>{FG(keys, cols)}</div>;
   const editPane = (
     <>
       <PaneHead title="매물 편집" right={<Btn size="sm" onClick={save} disabled={!dirty}>저장</Btn>} />
@@ -190,14 +190,21 @@ export default function Inventory() {
             <Btn variant="ghost" size="sm" onClick={resetForm}>초기화</Btn>
             <Btn variant="ghost" size="sm" onClick={copyForm}>복사</Btn>
             <Btn variant="ghost" size="sm" onClick={pasteForm} disabled={!clip}>붙여넣기</Btn>
-            {dirty && <span style={{ color: '#9a3412' }}>● 미저장</span>}
+            {dirty && <span style={{ color: C.warn }}>● 미저장</span>}
           </div>
-          {/* 좌 = 불변(한번 입력하고 끝: 차종·제원) | 우 = 변동(대여료·사진·주행·정책·상태) */}
-          <div style={{ display: 'grid', gridTemplateColumns: mobile ? '1fr' : 'minmax(0,1fr) minmax(0,1fr)', gap: 18, alignItems: 'start' }}>
+          {/* 좌 = 고정(차종·제원) | 우 = 변동(대여료·사진·주행·정책·상태). 기본 2열, 좁으면 1열 스택. */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 18, alignItems: 'start' }}>
             {/* ── 좌: 고정 정보 ── */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>
               <div style={{ fontSize: 11, fontWeight: 800, color: C.faint, letterSpacing: 0.3 }}>고정 정보 · 한번 입력</div>
-              {/* 신원 = 차종마스터 자동채움 + 보정 */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, border: `1px solid ${C.line}`, borderRadius: 4, background: '#f8fbff', padding: '8px 10px' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12, fontWeight: 800, color: C.brand }}>자동차등록증</div>
+                  <div style={{ fontSize: 10.5, color: C.faint }}>등록증 올리면 차번·차대·연료·배기량·인승·용도·최초등록 자동채움(빈 칸만)</div>
+                </div>
+                <input ref={ocrRef} type="file" accept="image/*" onChange={(e) => runOcr(e.target.files)} style={{ display: 'none' }} />
+                <Btn size="sm" onClick={() => ocrRef.current?.click()} disabled={ocrBusy}>{ocrBusy ? '인식 중…' : '등록증 올리기'}</Btn>
+              </div>
               <VehicleMasterPicker onPick={(v) => { setForm((f) => ({ ...f, ...v })); setDirty(true); }} />
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: -4 }}>
                 {(form.gen_year_start || form._snap_confidence) ? (
@@ -210,49 +217,45 @@ export default function Inventory() {
                 <Btn variant="ghost" size="sm" onClick={normalizeVehicle}>차종 정규화 (마스터 매칭)</Btn>
               </div>
               {Section('신원 (차종)', ['car_number', 'maker', 'model', 'sub_model', 'variant', 'trim_name', 'vehicle_class'])}
-              {Section('제원 · 스펙', ['year', 'fuel_type', 'engine_cc', 'seats', 'drive_type', 'transmission', 'usage', 'ext_color', 'int_color', 'first_registration_date'])}
               {Section('선택옵션', ['options'], 1)}
+              {Section('제원 · 스펙', ['year', 'fuel_type', 'engine_cc', 'seats', 'drive_type', 'transmission', 'usage', 'ext_color', 'int_color', 'first_registration_date'])}
               {getRole() === 'admin' && Section('원가 · 이력 · 등록증', ['vehicle_price', 'location', 'vin', 'vehicle_age_expiry_date', 'cert_car_name', 'type_number', 'engine_type', 'partner_memo'])}
             </div>
-            {/* ── 우: 변동 정보 ── */}
+            {/* ── 우: 변동 정보 (대여료 바로 아래 = 사진) ── */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>
-              <div style={{ fontSize: 11, fontWeight: 800, color: C.faint, letterSpacing: 0.3 }}>사진 · 등록증 · 변동 정보</div>
-              {/* 사진 · 등록증 업로드(우측 상단) */}
-              <div><div style={secTitle}>사진</div><PhotoUpload photos={form.photos} onChange={(ps) => { setForm((f) => ({ ...f, photos: ps })); setDirty(true); }} /></div>
-              {/* 자동차등록증 OCR(로컬 GPU) — 올리면 좌측 고정정보 빈 칸 자동채움 */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, border: `1px solid ${C.line}`, borderRadius: 4, background: '#f8fbff', padding: '8px 10px' }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 12, fontWeight: 800, color: C.brand }}>자동차등록증</div>
-                  <div style={{ fontSize: 10.5, color: C.faint }}>등록증 올리면 차번·차대·연료·배기량·인승·용도·최초등록 자동채움(좌측 빈 칸만)</div>
-                </div>
-                <input ref={ocrRef} type="file" accept="image/*" onChange={(e) => runOcr(e.target.files)} style={{ display: 'none' }} />
-                <Btn size="sm" onClick={() => ocrRef.current?.click()} disabled={ocrBusy}>{ocrBusy ? '인식 중…' : '등록증 올리기'}</Btn>
-              </div>
-              {/* 상태·구분·정책 */}
+              <div style={{ fontSize: 11, fontWeight: 800, color: C.faint, letterSpacing: 0.3 }}>변동 정보</div>
               <div>
-                <div style={secTitle}>상태 · 구분 · 정책</div>
+                <SectionLabel>상태 · 구분 · 정책</SectionLabel>
                 {FG(['vehicle_status', 'product_type'])}
-                <div style={{ display: 'grid', gridTemplateColumns: mobile ? '1fr' : '1fr 1fr', gap: 9, marginTop: 9 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 9, marginTop: 9 }}>
                   <label style={{ fontSize: 11.5, color: C.mute }}>무보증 가능
-                    <select value={String(form.deposit_free || '')} onChange={(e) => onChange('deposit_free', e.target.value)} style={{ ...inp, marginTop: 3, background: form.deposit_free ? '#fff' : '#fff7ed' }}>
-                      <option value="">—</option><option value="예">예</option><option value="아니오">아니오</option>
-                    </select>
+                    <div style={{ marginTop: 3 }}><Select value={String(form.deposit_free || '')} onChange={(v) => onChange('deposit_free', v)} options={['예', '아니오']} placeholder="—" full /></div>
                   </label>
                   <label style={{ fontSize: 11.5, color: C.mute }}>정책 연결
-                    <select value={String(form.policy_code || '')} onChange={(e) => onChange('policy_code', e.target.value)} style={{ ...inp, marginTop: 3 }}>
-                      <option value="">— 정책 선택 —</option>
-                      {policies.filter((pl) => !form.provider_company_code || String(pl.provider_company_code) === String(form.provider_company_code)).map((pl) => (
-                        <option key={String(pl.policy_code)} value={String(pl.policy_code)}>{String(pl.policy_name || pl.policy_code)} ({String(pl.policy_code)})</option>
-                      ))}
-                    </select>
+                    <div style={{ marginTop: 3 }}><Select value={String(form.policy_code || '')} onChange={(v) => onChange('policy_code', v)} placeholder="— 정책 선택 —" full
+                      options={policies.filter((pl) => !form.provider_company_code || String(pl.provider_company_code) === String(form.provider_company_code)).map((pl) => ({ value: String(pl.policy_code), label: `${String(pl.policy_name || pl.policy_code)} (${String(pl.policy_code)})` }))} /></div>
                   </label>
                 </div>
               </div>
-              {Section('주행거리', ['mileage'], 1)}
-              <div><div style={secTitle}>대여료</div><PriceMatrix price={form.price} onChange={(p) => { setForm((f) => ({ ...f, price: p })); setDirty(true); }} /></div>
+              {Section('주행 · 사고', ['mileage', 'accident_history'])}
+              <div><SectionLabel>대여료</SectionLabel><PriceMatrix price={form.price} onChange={(p) => { setForm((f) => ({ ...f, price: p })); setDirty(true); }} /></div>
+              <div><SectionLabel>사진</SectionLabel><PhotoUpload photos={form.photos} onChange={(ps) => { setForm((f) => ({ ...f, photos: ps })); setDirty(true); }} /></div>
+              {/* 공급사 원본사진(photo_link 해석) — 읽기전용. 복사 안 하고 v3 링크를 그때그때 해석해 보여줌. */}
+              {supplierPhotos.length > 0 && (
+                <div>
+                  <SectionLabel>공급사 사진 <span style={{ fontSize: 11, fontWeight: 400, color: C.faint }}>· 연동(읽기전용) {supplierPhotos.length}장</span></SectionLabel>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(88px, 1fr))', gap: 6 }}>
+                    {supplierPhotos.map((u, i) => (
+                      <a key={i} href={u} target="_blank" rel="noreferrer" style={{ display: 'block', aspectRatio: '4 / 3', borderRadius: 4, overflow: 'hidden', background: C.placeholder || '#eef1f5', border: `1px solid ${C.line}` }}>
+                        <img src={u} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
-        </> : <div style={{ color: C.faint, fontSize: 12.5 }}>매물을 선택하세요.</div>}
+        </> : <CenterNote>매물을 선택하세요.</CenterNote>}
       </div>
     </>
   );
@@ -279,10 +282,11 @@ export default function Inventory() {
     </>
   );
 
+  // 메인 = 매물 편집(가변폭) · 보조 = 공급사 업로드(좁게 고정)
   const panes: WorkPane[] = [
     { key: 'edit', title: '매물 편집', node: editPane },
-    { key: 'sync', title: '공급사 업로드', node: syncPane, width: 360 },
+    { key: 'sync', title: '공급사 업로드', node: syncPane, width: WORK_SIDE_W },
   ];
-  return <WorkPage title="재고" listCount={rows ? rows.length : ''} list={rows === null ? <div style={{ padding: 24, color: C.faint }}>불러오는 중…</div> : listEl} panes={panes} selected={!!sel} onBack={clearSel}
+  return <WorkPage title="재고" listCount={rows ? rows.length : ''} list={rows === null ? <Loading /> : listEl} panes={panes} selected={!!sel} onBack={clearSel}
     search={{ value: q, onChange: setQ, placeholder: '차량·차번·제조사·상태' }} actions={<Btn size="sm" onClick={newP}>매물 등록</Btn>} />;
 }
