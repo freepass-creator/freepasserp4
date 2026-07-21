@@ -10,7 +10,7 @@ import type { EntityRecord } from '@/lib/intake/entities';
 import { contractStage, getProgress, contractTone } from '@/lib/domain/contract';
 import { vehicleName, canonProductType } from '@/lib/domain/product';
 import {
-  Badge, CountPill, NUM, C, FS, productTypeStyle,
+  Badge, CountPill, NUM, C, FS, productTypeStyle, VEHICLE_STATUS_TONE,
   type BadgeTone,
 } from '@/components/ui';
 import {
@@ -72,19 +72,20 @@ function contractStatusIcon(c: EntityRecord): { icon: LucideIcon; tone: BadgeTon
   return { icon: FileText, tone: tone || 'amber', title: `${st || '진행'} · ${pr.done}/${pr.total}` };
 }
 
-/** 재고 — 출고가능=판매중 · 상품화=준비 · 협의 · 불가 */
+/** 재고 — 아이콘 모양만 로컬. 색 = VEHICLE_STATUS_TONE SSOT. */
 function inventoryStatusIcon(p: EntityRecord): { icon: LucideIcon; tone: BadgeTone; title: string } {
   const st = String(p.vehicle_status || '');
-  const tone = vehicleTone(st) as BadgeTone;
+  const key = st.replace(/\s+/g, '');
+  const tone = ((VEHICLE_STATUS_TONE as Record<string, BadgeTone>)[key] || 'gray');
   if (st === '즉시출고' || st === '출고가능') {
-    return { icon: CircleCheck, tone: 'green', title: `${st} · 판매중` };
+    return { icon: CircleCheck, tone, title: `${st} · 판매중` };
   }
-  if (st === '상품화중') return { icon: Package, tone: 'amber', title: '상품화중' };
-  if (st === '출고협의') return { icon: Handshake, tone: 'blue', title: '출고협의' };
-  if (st === '계약중') return { icon: FileText, tone: 'orange' as BadgeTone, title: '계약중' };
-  if (st === '출고불가') return { icon: Ban, tone: 'red', title: '출고불가' };
+  if (st === '상품화중') return { icon: Package, tone, title: '상품화중' };
+  if (st === '출고협의') return { icon: Handshake, tone, title: '출고협의' };
+  if (st === '계약중') return { icon: FileText, tone, title: '계약중' };
+  if (st === '출고불가') return { icon: Ban, tone, title: '출고불가' };
   if (p._needs_master_review) return { icon: ClipboardList, tone: 'amber', title: '검수 필요' };
-  return { icon: Car, tone: tone, title: st || '재고' };
+  return { icon: Car, tone, title: st || '재고' };
 }
 
 /**
