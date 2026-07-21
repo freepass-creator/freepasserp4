@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
-import { ENTITIES, type EntityRecord, type Field } from '@/lib/intake/entities';
+import { ENTITIES, ROLES, ROLE_LABEL_RAW, type EntityRecord, type Field } from '@/lib/intake/entities';
 import { getRole } from '@/lib/domain/deal';
 import { newId } from '@/lib/domain/ids';
 import { PaneHead, PaneBody, Btn, Badge, FormGrid, FormCard, PillTabs, C, NUM, Loading, CenterNote, ListRow, ACTOR_TONE, FilterChips, SectionLabel, Message, PageActions } from '@/components/ui';
@@ -28,20 +28,17 @@ const MEM_ACTIVE: { key: MemActive; label: string }[] = [
   { key: 'active', label: '활성' },
   { key: 'inactive', label: '비활성' },
 ];
+// 역할 칩·라벨 = ROLES/ROLE_LABEL_RAW SSOT 파생(로컬 라벨 복붙 금지 — 화면마다 달라진다).
 const MEM_ROLES: { key: string; label: string }[] = [
   { key: 'all', label: '전체' },
-  { key: 'agent', label: '영업자' },
-  { key: 'agent_admin', label: '영업관리자' },
-  { key: 'agent_manager', label: '영업뷰어' },
-  { key: 'provider', label: '공급사' },
-  { key: 'admin', label: '관리자' },
+  ...ROLES.map((r) => ({ key: r, label: ROLE_LABEL_RAW[r] })),
 ];
 const MEM_PARTNER_TYPES: { key: string; label: string }[] = [
   { key: 'all', label: '전체' },
   { key: '공급사', label: '공급사' },
   { key: '채널', label: '채널' },
 ];
-const ROLE_LABEL: Record<string, string> = { agent: '영업자', agent_admin: '영업관리자', agent_manager: '영업뷰어', provider: '공급사', admin: '관리자' };
+const ROLE_LABEL: Record<string, string> = ROLE_LABEL_RAW;
 const USER_KEYS = ['name', 'role', 'company_code', 'company_name', 'agent_channel_code', 'user_code', 'agent_payout_rate', 'is_team_manager', 'is_active'];
 const PARTNER_KEYS = ['name', 'partner_type', 'fee_rate', 'contact', 'sheet_url', 'sheet_tab', 'header_row', 'adapter_id']; // partner_code=자연키(헤더 표시·편집불가)
 const idFieldOf = (t: Tab) => (t === 'user' ? 'uid' : 'partner_code');

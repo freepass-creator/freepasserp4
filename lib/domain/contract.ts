@@ -81,10 +81,8 @@ export function contractTone(s: string): 'blue' | 'amber' | 'green' | 'red' | 'g
   return ({ 계약요청: 'blue', 계약대기: 'amber', 계약발송: 'amber', 계약완료: 'green', 계약취소: 'red' } as Record<string, 'blue' | 'amber' | 'green' | 'red' | 'gray'>)[s] || 'gray';
 }
 
-/* ── 정산 2단: 공급사 → 프리패스 → 영업자 ── */
-export function settlementCalc(rentAmount: number, supplierFeeRate: number, agentPayoutRate: number): { fee: number; payout: number; net: number } {
-  const rent = Number(rentAmount) || 0;
-  const fee = Math.round(rent * (Number(supplierFeeRate) || 0));      // R1 공급사→프리패스(수취)
-  const payout = Math.round(rent * (Number(agentPayoutRate) || 0));   // R2 프리패스→영업자(지급)
-  return { fee, payout, net: fee - payout };                          // 프리패스 순수익
-}
+/* ── 정산 2단: 공급사 → 프리패스 → 영업자 ──
+ * 금액 계산은 settlement-engine.createSettlement 단일 구현.
+ * (여기 있던 settlementCalc 은 임포터 0인 두 번째 구현이었다 — 돈 계산이 두 벌이면
+ *  나중에 요율 로직을 고칠 때 안 쓰이는 쪽을 고칠 위험이 있어 제거. 2026-07-21)
+ */

@@ -6,14 +6,17 @@
  */
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
-import { type EntityRecord } from '@/lib/intake/entities';
+import { type EntityRecord, ROLE_LABEL_RAW } from '@/lib/intake/entities';
 import { vehicleName, priceAt, creditDisplay } from '@/lib/domain/product';
 import { resolveRates } from '@/lib/domain/settlement-engine';
 import { getSession } from '@/lib/auth-session';
 import { BRAND_MAIN } from '@/lib/brand';
 
 export type Role = 'agent' | 'provider' | 'admin';
-export const ROLE_LABEL: Record<Role, string> = { agent: '영업자', provider: '공급사', admin: '관리자' };
+// v4 3역할 라벨 = 원본 5역할 라벨(entities.ROLE_LABEL_RAW SSOT)에서 파생. 값 복붙 금지.
+export const ROLE_LABEL: Record<Role, string> = {
+  agent: ROLE_LABEL_RAW.agent, provider: ROLE_LABEL_RAW.provider, admin: ROLE_LABEL_RAW.admin,
+};
 // 로컬/둘러보기 데모용 기본 행위자(실 로그인 시 세션이 우선).
 const ACTORS: Record<Role, { uid: string; code: string; name: string }> = {
   agent: { uid: 'usr_park', code: 'usr_park', name: '박영업' },        // = seed usr_park

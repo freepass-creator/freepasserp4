@@ -23,14 +23,23 @@
 | 버튼 | `Btn`(solid/ghost/danger·sm/md·href)·`IconBtn`·`IconSeg` | `<button>` |
 | 입력 | `Input`(full)·`SearchInput`(돋보기·X·full)·`Select`(full)·`FormGrid`(스키마폼)·`fmtPhone` | `<input>/<select>` |
 | 탭·필터 | `PillTabs`·`FilterChips`(단일+count)·`ToggleChips`(다중)·`FilterGroup`(접이식축+해제) | 탭/필터 `<button>` 群 |
-| 목록 | `ObjCard`·`Cards`·`Metric`·`DataTable`(+`th`/`td`*)·`ListRow`·`ListBox` | 손 목록행 |
-| 상태·라벨 | `Badge`·`CompanyBadge`·`Status`/`StatusTag`·`RiskTag`·`SevTag`·`CountPill` · 톤맵(`productTypeStyle`·`CREDIT_TONE`·`VEHICLE_STATUS_TONE`·`SETTLEMENT_STATUS_TONE`·`PERK_TONE`·`ACTOR_TONE`) (`badges.tsx`) | 로컬 색맵 |
-| 로딩·빈·알림 | `Loading`·`CenterNote`·`DetailEmpty`·`EmptyState`·`Message` · `toast`/`Toaster` | "불러오는 중" 손롤 |
-| 껍데기 | `Page`·`MobilePageShell`(모바일 4단 SSOT)·`WorkPage`·`BottomNav`·`TopBar`·`PaneHead`·`PaneBody`·`DetailShell`·`Sec`/`HiddenSecs`·`SectionLabel`·`VSplit` | 손 레이아웃 |
-| 상세·폼 | `KV`·`Section`·`DetailGrid`·`DetailRow`·`Panel`·`Modal`·`Drawer`·`Dash` | |
-| 카드 슬롯 | `CardThumb`·`CardTitle`·`CardKind`·`CardRailBadges`·`CardSpecs`·`CardBenefits`/`CardPerkLine`·`CardEvents`·`OptionChips`/`OptionsInline`·`Plate`·`badges()`/`badgeSpecs`·`FavHeart` | 카드 표기 손롤 |
-| 가격 슬롯 | `PricePeekRoot`·`PriceAmounts`·`PeriodChips`·`PriceHero`(간단)·`PriceFare`/`PriceMini` | 요금 손롤 |
+| 목록 | `ListRow` | 손 목록행 |
+| 상태·라벨 | `Badge`·`CompanyBadge`·`CountPill` · 톤맵(`productTypeStyle`·`CREDIT_TONE`·`VEHICLE_STATUS_TONE`·`SETTLEMENT_STATUS_TONE`·`ACTOR_TONE`) (`badges.tsx`) | 로컬 색맵 |
+| 로딩·빈·알림 | `Loading`·`CenterNote`·`Message` · `toast`/`Toaster` | "불러오는 중" 손롤 |
+| 껍데기 | `Page`·`MobilePageShell`(모바일 4단 SSOT)·`WorkPage`·`BottomNav`·`TopBar`·`PaneHead`·`PaneBody`·`SectionLabel` | 손 레이아웃 |
+| 상세·폼 | `Section`·`DetailGrid`·`FormCard` | |
+| 카드 슬롯 | `CardThumb`·`CardTitle`·`CardKind`·`CardRailBadges`·`CardSpecs`·`CardBenefits`/`CardPerkLine`·`CardEvents`·`OptionChips`·`Plate`·`badges()`/`badgeSpecs`·`FavHeart` | 카드 표기 손롤 |
+| 가격 슬롯 | `PricePeekRoot`·`PriceAmounts`·`PeriodChips`·`PriceHero` | 요금 손롤 |
 | 카드 복합 | `ProductRowCard`(상세 4×2 SSOT)·`ProductCard`(간단 세로 파생) | 페이지에서 슬롯 재조립 |
+
+**준비만 되고 아직 안 쓰는 원자 (2026-07-21 실측 사용처 0):**
+`DataTable` · `ObjCard`/`Cards`/`Metric` · `KV`/`DetailRow`/`DetailEmpty`/`Dash` · `Sec`/`HiddenSecs` ·
+`Modal`/`Drawer`/`EmptyState`/`ListBox`/`DetailShell`/`VSplit`/`Panel` ·
+`Status`/`StatusTag`/`RiskTag`/`SevTag` + `STATUS_TONE`/`RISK_TONE`/`PERK_TONE` · `PriceFare`/`PriceMini`/`OptionsInline`/`CardFacts`
+
+**지우지 않는다**(모바일 분기·토큰까지 규격대로 짜여 있어 다시 만드는 비용이 더 크고, 미사용 export는 빌드에서 트리셰이킹됨).
+다만 **"이게 확립된 패턴"이라고 오해하지 말 것** — 선례가 없으므로, 쓰려면 먼저 실제 화면에 맞는지 확인하고 필요하면 원자를 고쳐 쓴다.
+새로 쓰기 시작하면 위 표로 옮길 것.
 
 **레거시(쓰지 말 것 → 대체):** `Identity`→`CardTitle` · `SpecLine`→`CardSpecs` · `PriceHeadline`→`PriceHero` · `PriceRows`/`PricePeers`→`PriceFare` · `CardMarks`/`CardPerks`→`CardBenefits`.
 **사전 밖(기능 셸):** `InterestRail`·`ChatThread`·`ContractPanel` 등은 원자 아님 — 페이지/도메인 조립.
