@@ -48,6 +48,13 @@
 - Rules: `products`/`policies`/`v4/products|policies` `.read: true`
 - 서명: `contract_sign/{token}` 공개 슬롯 읽기·제출 (`sign.ts`)
 - **배포 필요:** `firebase deploy --only database` (rules)
+  🛑 **2026-07-21 중단 — 지금 배포하면 안 된다.** 실측(REST 프로브)으로 확인:
+  `products`/`policies`/`v4/*`/`contract_sign` 전부 현재 **비공개**(401)다. 즉 `database.rules.json` 은
+  **한 번도 배포된 적이 없는 초안**이고, 라이브 규칙은 그보다 옛 버전이다.
+  이 파일을 그대로 배포하면 `.read:true` 가 된 `products`(원가 `vehicle_price`·`vin`·수수료 `price.*.fee`)와
+  `v4/$other` 만능 통로(전 계약·정산·감사로그 read/write), `contract_sign`(주민등록번호·서명이미지)이
+  **한 번에 전부 공개된다.** 규칙 재작성 후에 배포할 것.
+  ※ 부작용: 손님 공개면(`/catalog`·`/q`·`/sign`)은 배포 전까지 프로덕션에서 동작하지 않는다.
 
 ### ⏭ Phase D — 알림 + 관리자소통
 ### ⏭ Phase E — 회원 승인·스코프
