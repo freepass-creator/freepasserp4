@@ -15,7 +15,7 @@
  *      주행밴드
  */
 import type { EntityRecord } from '@/lib/intake/entities';
-import { PRODUCT_TYPES, VEHICLE_STATES, FUEL_TYPES, PROMO_BADGES } from '@/lib/intake/entities';
+import { PRODUCT_TYPES, FUEL_TYPES, PROMO_BADGES } from '@/lib/intake/entities';
 import {
   fuelDisplay,
   yearDisplay,
@@ -37,7 +37,6 @@ export const CORE_FILTERS = [
   'rent',      // 월대여료
   'dep',       // 보증금
   'ptype',     // 상품구분
-  'vstatus',   // 출고상태
   'credit',    // 심사
   'fuel',      // 연료(스펙)
 ] as const;
@@ -68,7 +67,6 @@ export const MILE_BANDS: Band[] = [
 /** entities SSOT 재노출 — 페이지는 여기만 import. */
 export const FUELS = [...FUEL_TYPES];
 export const PTYPES = [...PRODUCT_TYPES];
-export const VSTATUSES = [...VEHICLE_STATES];
 export const PROMOS = [...PROMO_BADGES];
 export const CREDITS = ['무심사', '소득확'] as const;
 /** 혜택 = benefitSignals와 1:1 (만21세=연령≤21 라벨). */
@@ -158,7 +156,6 @@ export function presentFilterOptions(products: EntityRecord[]): {
   rent: PresentChip[];
   dep: PresentChip[];
   mile: PresentChip[];
-  vstatus: PresentChip[];
   ptype: PresentChip[];
   credit: PresentChip[];
   fuel: PresentChip[];
@@ -190,7 +187,6 @@ export function presentFilterOptions(products: EntityRecord[]): {
     rent: countBand(RENT_BANDS, (p) => priceList(p).map((x) => x.rent)),
     dep: countBand(DEP_BANDS, (p) => priceList(p).map((x) => x.deposit)),
     mile: countBand(MILE_BANDS, (p) => [Number(p.mileage) || 0]),
-    vstatus: countEnum(VSTATUSES, (p) => String(p.vehicle_status || '')),
     ptype: countEnum(PTYPES, (p) => String(p.product_type || '')),
     credit: countEnum(CREDITS, (p) => creditDisplay(p)),
     fuel: countEnum(FUELS, (p) => fuelDisplay(p.fuel_type) || String(p.fuel_type || '')),
@@ -212,7 +208,7 @@ export function presentFilterOptions(products: EntityRecord[]): {
 export type FState = {
   q: string; periods: Set<number>;
   rent: Set<string>; dep: Set<string>; mile: Set<string>;
-  fuel: Set<string>; ptype: Set<string>; vstatus: Set<string>;
+  fuel: Set<string>; ptype: Set<string>;
   credit: Set<string>; perks: Set<string>; promo: Set<string>;
   dyn: Record<string, Set<string>>;
   vehicle: VehicleFilter;
@@ -286,7 +282,6 @@ export function matchProduct(p: EntityRecord, s: FState): boolean {
   if (s.mile.size) { const km = Number(p.mileage) || 0; if (!MILE_BANDS.some((b) => s.mile.has(b.k) && km > b.lo && km <= b.hi)) return false; }
   if (s.fuel.size && !s.fuel.has(fuelDisplay(p.fuel_type) || String(p.fuel_type))) return false;
   if (s.ptype.size && !s.ptype.has(String(p.product_type))) return false;
-  if (s.vstatus.size && !s.vstatus.has(String(p.vehicle_status))) return false;
   if (s.credit.size && !s.credit.has(creditDisplay(p))) return false;
   if (s.perks.size && ![...s.perks].every((pk) => hasPerk(p, pk))) return false;
   if (s.promo.size) {
@@ -300,7 +295,7 @@ export function matchProduct(p: EntityRecord, s: FState): boolean {
 
 export function activeCount(s: FState): number {
   return s.periods.size + s.rent.size + s.dep.size + s.mile.size + s.fuel.size
-    + s.ptype.size + s.vstatus.size + s.credit.size + s.perks.size + s.promo.size
+    + s.ptype.size + s.credit.size + s.perks.size + s.promo.size
     + DYN_ALL.reduce((n, d) => n + (s.dyn[d.key]?.size || 0), 0)
     + vehicleFilterCount(s.vehicle || EMPTY_VEHICLE_FILTER);
 }
@@ -311,7 +306,6 @@ export function activeFilterHints(s: FState): string[] {
   if (s.periods.size) h.push(sortFilterMonths(s.periods).map((m) => `${m}개월`).join('·'));
   for (const b of RENT_BANDS) if (s.rent.has(b.k)) h.push(b.label);
   for (const b of DEP_BANDS) if (s.dep.has(b.k)) h.push(b.label);
-  s.vstatus.forEach((v) => h.push(v));
   s.ptype.forEach((v) => h.push(v));
   const vf = s.vehicle || EMPTY_VEHICLE_FILTER;
   if (vf.maker) {

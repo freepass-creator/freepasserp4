@@ -80,7 +80,7 @@ const sample = products.find((p) => String(p.vehicle_status) === '출고가능')
 const fState = {
   q: '', periods: new Set<number>(), rent: new Set<string>(), dep: new Set<string>(),
   mile: new Set<string>(), fuel: new Set<string>(), ptype: new Set<string>(),
-  vstatus: new Set<string>(), credit: new Set<string>(), perks: new Set<string>(),
+  credit: new Set<string>(), perks: new Set<string>(),
   promo: new Set<string>(), dyn: {}, vehicle: { ...EMPTY_VEHICLE_FILTER },
 };
 const matched = products.filter((p) => matchProduct(p, fState));

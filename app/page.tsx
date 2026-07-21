@@ -62,7 +62,7 @@ type SavedFinderFilters = {
   q: string;
   periods: number[];
   rent: string[]; dep: string[]; mile: string[]; fuel: string[];
-  ptype: string[]; vstatus: string[]; credit: string[]; perks: string[]; promo: string[];
+  ptype: string[]; credit: string[]; perks: string[]; promo: string[];
   dyn: Record<string, string[]>;
   vehicle: VehicleFilter;
   sort: string;
@@ -250,7 +250,6 @@ export default function Finder() {
   const [mile, setMile] = useState<Set<string>>(new Set());
   const [fuel, setFuel] = useState<Set<string>>(new Set());
   const [ptype, setPtype] = useState<Set<string>>(new Set());
-  const [vstatus, setVstatus] = useState<Set<string>>(new Set());
   const [credit, setCredit] = useState<Set<string>>(new Set());
   const [perks, setPerks] = useState<Set<string>>(new Set());
   const [promo, setPromo] = useState<Set<string>>(new Set());
@@ -327,7 +326,6 @@ export default function Finder() {
       setMile(setFromArr(saved.mile));
       setFuel(setFromArr(saved.fuel));
       setPtype(setFromArr(saved.ptype));
-      setVstatus(setFromArr(saved.vstatus));
       setCredit(setFromArr(saved.credit));
       setPerks(setFromArr(saved.perks));
       setPromo(setFromArr(saved.promo));
@@ -367,11 +365,11 @@ export default function Finder() {
     writeSavedFilters({
       q, periods: [...periods],
       rent: [...rent], dep: [...dep], mile: [...mile], fuel: [...fuel],
-      ptype: [...ptype], vstatus: [...vstatus], credit: [...credit], perks: [...perks], promo: [...promo],
+      ptype: [...ptype], credit: [...credit], perks: [...perks], promo: [...promo],
       dyn: Object.fromEntries(Object.entries(dyn).map(([k, set]) => [k, [...set]])),
       vehicle, sort,
     });
-  }, [q, periods, rent, dep, mile, fuel, ptype, vstatus, credit, perks, promo, dyn, vehicle, sort]);
+  }, [q, periods, rent, dep, mile, fuel, ptype, credit, perks, promo, dyn, vehicle, sort]);
 
   // 검색 디바운스 — 타이핑마다 전량 filter/sort 방지
   useEffect(() => {
@@ -399,16 +397,16 @@ export default function Finder() {
     return () => { alive = false; };
   }, [authReady, co]);
 
-  const s: FState = { q, periods, rent, dep, mile, fuel, ptype, vstatus, credit, perks, promo, dyn, vehicle };
+  const s: FState = { q, periods, rent, dep, mile, fuel, ptype, credit, perks, promo, dyn, vehicle };
   const agg = useMemo(() => aggregateDyn(rows || []), [rows]);
   const months = useMemo(() => excelMonths(rows || []), [rows]);
   const present = useMemo(() => presentFilterOptions(rows || []), [rows]);
   // 제조사스펙 집계 모수 = 스펙 필터만 뺀 나머지 조건(다른 필터 반영한 매물수).
   const cascadeProducts = useMemo(() => {
-    const base: FState = { q, periods, rent, dep, mile, fuel, ptype, vstatus, credit, perks, promo, dyn, vehicle: { ...EMPTY_VEHICLE_FILTER } };
+    const base: FState = { q, periods, rent, dep, mile, fuel, ptype, credit, perks, promo, dyn, vehicle: { ...EMPTY_VEHICLE_FILTER } };
     return (rows || []).filter((p) => matchProduct(p, base));
     // eslint-disable-next-line
-  }, [rows, q, periods, rent, dep, mile, fuel, ptype, vstatus, credit, perks, promo, dyn]);
+  }, [rows, q, periods, rent, dep, mile, fuel, ptype, credit, perks, promo, dyn]);
   const list = useMemo(() => {
     // 정렬·표시 = 최저 대여료. 숨김 제외. 관심없음=맨 뒤.
     const l = (rows || []).filter((p) => {
@@ -443,7 +441,7 @@ export default function Finder() {
     }
     return [...front, ...back];
     // eslint-disable-next-line
-  }, [rows, q, periods, rent, dep, mile, fuel, ptype, vstatus, credit, perks, promo, dyn, vehicle, sort, hiddenCodes, passedCodes]);
+  }, [rows, q, periods, rent, dep, mile, fuel, ptype, credit, perks, promo, dyn, vehicle, sort, hiddenCodes, passedCodes]);
 
   const totalVisible = useMemo(() => {
     const all = rows || [];
@@ -462,7 +460,7 @@ export default function Finder() {
   const focusMonth = periods.size === 1 ? [...periods][0] : undefined;
 
   // 필터·정렬·관심탭 바뀌면 더보기 리셋
-  useEffect(() => { setLimit(PAGE); }, [q, periods, rent, dep, mile, fuel, ptype, vstatus, credit, perks, promo, dyn, vehicle, sort, colFilter, colSort, interestTab]);
+  useEffect(() => { setLimit(PAGE); }, [q, periods, rent, dep, mile, fuel, ptype, credit, perks, promo, dyn, vehicle, sort, colFilter, colSort, interestTab]);
 
   // 엑셀 헤더 필터·정렬 적용(사이드바 필터 위에 추가). 정렬=숫자칸만(연식·주행·대여료).
   const excelRows = useMemo(() => {
@@ -511,7 +509,7 @@ export default function Finder() {
   const toggleDyn = (key: string, v: string) => setDyn((p) => { const cur = new Set(p[key] || []); cur.has(v) ? cur.delete(v) : cur.add(v); return { ...p, [key]: cur }; });
   const reset = () => {
     clearSavedFilters();
-    setQInput(''); setQ(''); setPeriods(new Set()); setRent(new Set()); setDep(new Set()); setMile(new Set()); setFuel(new Set()); setPtype(new Set()); setVstatus(new Set()); setCredit(new Set()); setPerks(new Set()); setPromo(new Set()); setDyn({}); setVehicle({ ...EMPTY_VEHICLE_FILTER }); setSort('');
+    setQInput(''); setQ(''); setPeriods(new Set()); setRent(new Set()); setDep(new Set()); setMile(new Set()); setFuel(new Set()); setPtype(new Set()); setCredit(new Set()); setPerks(new Set()); setPromo(new Set()); setDyn({}); setVehicle({ ...EMPTY_VEHICLE_FILTER }); setSort('');
   };
   const ac = activeCount(s);
   // 더보기 = 지금 보고 있는 목록 기준. 100개 미만이면 버튼 없음.
@@ -688,11 +686,6 @@ export default function Finder() {
           </FilterGroup>
         )}
         {/* 상품·조건 */}
-        {present.vstatus.length > 0 && (
-          <FilterGroup title="출고상태" count={vstatus.size} defaultOpen={vstatus.size > 0} onClear={() => setVstatus(new Set())}>
-            <ToggleChips selected={vstatus} onToggle={(k) => setVstatus((p) => toggleInSet(p, k))} options={present.vstatus} />
-          </FilterGroup>
-        )}
         {present.ptype.length > 0 && (
           <FilterGroup title="상품구분" count={ptype.size} defaultOpen={ptype.size > 0} onClear={() => setPtype(new Set())}>
             <ToggleChips selected={ptype} onToggle={(k) => setPtype((p) => toggleInSet(p, k))} options={present.ptype} />
