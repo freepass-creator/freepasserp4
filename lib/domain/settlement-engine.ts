@@ -1,12 +1,13 @@
 /**
  * 정산 엔진 — 돈·상태 누락 제로의 핵심(제작자 의도 최상위 비타협 니즈).
  * 계약 단계 체크 = 단일 writer → 완료 시 [계약완료 + 차량 출고불가 + 정산 원자생성], 거절 시 [계약취소 + 환수].
+ * 차량: 계약금 입금(확인) 선점 → 계약중 · 완료 → 출고불가. 문의·서류만으로는 잠금 없음.
  * 수수료율은 partner.fee_rate·user.agent_payout_rate SSOT에서 해석(신차=공급사 우대 0%). 계약시점 동결.
  */
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { type EntityRecord } from '@/lib/intake/entities';
-import { getProgress } from '@/lib/domain/contract';
+import { getProgress, hasDepositClaim, DEPOSIT_CLAIM_KEYS, isDone } from '@/lib/domain/contract';
 
 const REJECT_VALS = ['불가', '부결', '출고 불가'];
 const isReject = (v: unknown) => typeof v === 'string' && REJECT_VALS.includes(v);
@@ -60,7 +61,7 @@ export function clawbackCalc(settlement: EntityRecord, terminatedAtMs?: number):
 }
 
 /**
- * 계약 수동 취소 — 어느 단계든(진행중·완료 포함): 계약취소 + 재고 '출고가능' 복원 + (정산 있으면) 환수대기 전이.
+ * 계약 수동 취소 — 어느 단계든(진행중·완료 포함): 계약취소 + 재고 복원 + (정산 있으면) 환수대기 전이.
  * reject 분기(applyStepCheck)는 1~2단계에서만 도달하므로, 후반 단계·완료 계약의 취소는 이 함수로만 가능(단일 취소 경로).
  */
 export async function cancelContract(contract: EntityRecord): Promise<void> {
@@ -69,8 +70,8 @@ export async function cancelContract(contract: EntityRecord): Promise<void> {
   const fresh = (await store.get('contract', co, code)) || contract;
   if (fresh.contract_status === '계약취소') return;
   await store.update('contract', co, code, { contract_status: '계약취소' });
-  // 재고 상태 = 이 계약 취소 후 재계산(다른 진행/완료 계약 있으면 출고불가 유지 — 단일 writer 보호). 무조건 출고가능 복원 금지.
-  if (fresh.product_code) { const lock = await vehicleLockedStatus(String(fresh.product_code)); await store.update('product', co, String(fresh.product_code), { vehicle_status: lock || '출고가능' }); }
+  // 재고 = 이 계약 취소 후 재계산(다른 계약중/완료 있으면 유지). 무조건 출고가능 복원 금지.
+  if (fresh.product_code) await syncVehicleLock(String(fresh.product_code), code);
   await onContractCancel(fresh); // 정산 존재(완료건) → 환수대기+환수액. 없으면 no-op.
 }
 
@@ -84,26 +85,105 @@ export async function onContractCancel(contract: EntityRecord): Promise<void> {
 }
 
 /**
- * 차량 상태 엔진 잠금 판정 — 진행중(done>0)/완료 계약(취소 아님)이 있으면 '출고불가'로 잠금.
- * 재고 편집 등 페이지가 vehicle_status를 폼값으로 덮기 전 이 값이 있으면 그걸 우선(단일 writer 보호).
+ * 차량 상태 엔진 잠금 — 완료=출고불가 · 계약금 입금(확인) 선점=계약중.
+ * 문의·서류만 진행 중이면 잠금 없음(여러 영업 병행 가능, 입금 선점이 이김).
+ * byContract = 락을 쥔 계약코드. 상품의 locked_by_contract 와 대조해 "내 락 vs 남의 락"을 구분한다(자기잠금 데드락 방지).
  */
-export async function vehicleLockedStatus(productCode: string): Promise<string | null> {
-  if (!productCode) return null;
+export async function vehicleLockedBy(productCode: string): Promise<{ status: '출고불가' | '계약중' | null; byContract: string }> {
+  if (!productCode) return { status: null, byContract: '' };
   const co = getCompanyId(); const store = getStore();
   const cts = (await store.list('contract', co)).filter((c) => String(c.product_code) === String(productCode) && c.contract_status !== '계약취소');
-  const locked = cts.some((c) => c.contract_status === '계약완료' || getProgress(c).done > 0);
-  return locked ? '출고불가' : null;
+  const done = cts.find((c) => c.contract_status === '계약완료');
+  if (done) return { status: '출고불가', byContract: String(done.contract_code) };
+  const claim = cts.find((c) => hasDepositClaim(c));
+  if (claim) return { status: '계약중', byContract: String(claim.contract_code) };
+  return { status: null, byContract: '' };
+}
+export async function vehicleLockedStatus(productCode: string): Promise<'출고불가' | '계약중' | null> {
+  return (await vehicleLockedBy(productCode)).status;
+}
+
+/**
+ * 락 반영 SSOT — 계약 상태로 차량 락을 재계산해 상품에 기록. 선점·해제 양방향.
+ * 해제 규칙(중요): 수기 상태를 덮지 않는다.
+ *   · 내가 쥔 락(locked_by_contract === 이 계약)만 해제.
+ *   · 주인 없는 '계약중' = 소유필드 도입 이전에 엔진이 남긴 락 → 치유 대상(해제).
+ *   · 주인 없는 '출고불가' = 공급사 수기 설정이거나 구규칙 잔재 → 건드리지 않음(백필로 별도 처리).
+ *   · 상품화중·출고협의 등 비락 상태는 어떤 경우에도 보존.
+ */
+async function syncVehicleLock(productCode: string, actingContractCode: string): Promise<void> {
+  if (!productCode) return;
+  const co = getCompanyId(); const store = getStore();
+  const lock = await vehicleLockedBy(productCode);
+  const p = await store.get('product', co, productCode);
+  if (!p) return;
+  const cur = String(p.vehicle_status || '');
+  const owner = String(p.locked_by_contract || '');
+  if (lock.status) {
+    if (cur !== lock.status || owner !== lock.byContract) {
+      await store.update('product', co, productCode, { vehicle_status: lock.status, locked_by_contract: lock.byContract });
+    }
+    return;
+  }
+  const mine = owner === actingContractCode;
+  const orphanClaim = !owner && cur === '계약중';
+  if ((cur === '계약중' || cur === '출고불가') && (mine || orphanClaim)) {
+    await store.update('product', co, productCode, { vehicle_status: '출고가능', locked_by_contract: '' });
+  }
+}
+
+/**
+ * 삭제·중대변경 차단용 — 이 매물을 붙잡고 있는 계약코드(없으면 '').
+ * 락(입금선점)보다 넓다: 문의만 있는 건은 통과시키되, 한 단계라도 진행된 계약은 막는다.
+ * 입금선점을 락 기준으로 좁히면서 삭제보호까지 같이 좁아지면 진행 중인 딜의 매물이 삭제되므로 분리한다.
+ */
+export async function blockingContractFor(productCode: string): Promise<string> {
+  if (!productCode) return '';
+  const co = getCompanyId(); const store = getStore();
+  const c = (await store.list('contract', co)).find((x) =>
+    String(x.product_code) === String(productCode)
+    && x.contract_status !== '계약취소'
+    && (x.contract_status === '계약완료' || hasDepositClaim(x) || getProgress(x).done > 0));
+  return c ? String(c.contract_code) : '';
+}
+
+/** 같은 매물에 이미 계약금 선점한 다른 계약(또는 완료)이 있으면 그 코드. */
+async function rivalDepositClaim(productCode: string, exceptContractCode: string): Promise<string | null> {
+  const co = getCompanyId(); const store = getStore();
+  const rival = (await store.list('contract', co)).find((c) =>
+    String(c.product_code) === String(productCode)
+    && String(c.contract_code) !== exceptContractCode
+    && c.contract_status !== '계약취소'
+    && (c.contract_status === '계약완료' || hasDepositClaim(c)));
+  return rival ? String(rival.contract_code) : null;
 }
 
 /** 단일 writer — 단계 체크 기록 + 자동 전이 사슬. ContractPanel/계약페이지는 이것만 호출. */
 export async function applyStepCheck(contract: EntityRecord, key: string, value: string): Promise<void> {
   const co = getCompanyId(); const store = getStore();
   const code = String(contract.contract_code);
+  const productCode = contract.product_code ? String(contract.product_code) : '';
+
+  // 계약금 입금·입금확인 선점 — 먼저 누른 계약만 계약중. 이미 선점/완료된 매물은 차단.
+  const claimingDeposit = !isReject(value) && (DEPOSIT_CLAIM_KEYS as readonly string[]).includes(key) && !isDone(contract[key]);
+  if (claimingDeposit && productCode) {
+    const rival = await rivalDepositClaim(productCode, code);
+    if (rival) throw new Error(`이미 계약금이 확인된 계약(${rival})이 있는 차량입니다 — 선점 불가`);
+    // 2차 방어 — 계약목록 조회가 권한/캐시로 실패해 rival 을 못 봤을 때를 대비해 상품의 락 소유자로 재확인.
+    // 소유자가 본 계약이면 통과(체크 재클릭·잔금확인 등 후속). 소유자 없음 = 구데이터 잔재이므로 여기서 막지 않는다(자기잠금 데드락 방지).
+    const p = await store.get('product', co, productCode);
+    const st = String(p?.vehicle_status || '');
+    const owner = String(p?.locked_by_contract || '');
+    if ((st === '출고불가' || st === '계약중') && owner && owner !== code) {
+      throw new Error(`이 차량은 이미 ${st} 상태입니다(계약 ${owner}) — 중복 계약 불가`);
+    }
+  }
+
   // 중복완료 가드(v3 이식) — 이 체크로 계약이 완료되는데 같은 차량에 이미 '계약완료'된 다른 계약이 있으면 이중판매 → 쓰기 전에 차단.
-  if (!isReject(value) && contract.product_code) {
+  if (!isReject(value) && productCode) {
     const hypo = getProgress({ ...contract, [key]: value } as EntityRecord);
     if (hypo.done === hypo.total && contract.contract_status !== '계약완료') {
-      const dup = (await store.list('contract', co)).find((c) => String(c.product_code) === String(contract.product_code) && String(c.contract_code) !== code && c.contract_status === '계약완료');
+      const dup = (await store.list('contract', co)).find((c) => String(c.product_code) === productCode && String(c.contract_code) !== code && c.contract_status === '계약완료');
       if (dup) throw new Error(`이미 완료된 계약(${dup.contract_code})이 있는 차량입니다 — 이중판매 불가`);
     }
   }
@@ -112,19 +192,18 @@ export async function applyStepCheck(contract: EntityRecord, key: string, value:
 
   if (isReject(value)) {
     if (fresh.contract_status !== '계약취소') await store.update('contract', co, code, { contract_status: '계약취소' });
-    // 재고 = 재계산(다른 진행/완료 계약 있으면 출고불가 유지). 무조건 출고가능 금지 — cancelContract와 동일 규칙.
-    if (fresh.product_code) { const lock = await vehicleLockedStatus(String(fresh.product_code)); await store.update('product', co, String(fresh.product_code), { vehicle_status: lock || '출고가능' }); }
+    if (productCode) await syncVehicleLock(productCode, code);
     await onContractCancel(fresh);
     return;
   }
   const pr = getProgress(fresh);
   if (pr.done === pr.total && fresh.contract_status !== '계약완료') {
     await store.update('contract', co, code, { contract_status: '계약완료' });
-    if (fresh.product_code) await store.update('product', co, String(fresh.product_code), { vehicle_status: '출고불가' });
+    if (productCode) await store.update('product', co, productCode, { vehicle_status: '출고불가', locked_by_contract: code });
     await createSettlement(fresh);
-  } else if (fresh.product_code && pr.done > 0 && fresh.contract_status !== '계약완료' && fresh.contract_status !== '계약취소') {
-    // 계약 진행 시작(계약문의 단계 넘어감) = 계약중 → 재고 자동 출고불가(중복판매 방지). 계약취소 시 출고가능 복귀(위 isReject 분기).
-    const p = await store.get('product', co, String(fresh.product_code));
-    if (p && p.vehicle_status !== '출고불가') await store.update('product', co, String(fresh.product_code), { vehicle_status: '출고불가' });
+  } else if (productCode) {
+    // 락 재계산 — 선점·해제 양방향. 체크 해제('')로 선점이 풀린 경우도 반드시 여기서 상품에 반영된다.
+    // (구현: 해제를 별도 분기로 두면 매번 새 누락 경로가 생김 → 매 체크마다 무조건 재계산이 SSOT)
+    await syncVehicleLock(productCode, code);
   }
 }

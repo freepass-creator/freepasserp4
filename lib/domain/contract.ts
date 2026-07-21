@@ -31,6 +31,12 @@ const REJECT = ['불가', '부결', '출고 불가'];
 export function isDone(v: unknown): boolean { if (v === true || v === 'yes') return true; return typeof v === 'string' && DONE.includes(v); }
 function isRejected(v: unknown): boolean { return typeof v === 'string' && REJECT.includes(v); }
 
+/** 계약금 입금·입금확인 — 선점 락(먼저 누른 계약이 차량 계약중). */
+export const DEPOSIT_CLAIM_KEYS = ['agent_balance_paid', 'provider_balance_confirmed'] as const;
+export function hasDepositClaim(c: EntityRecord): boolean {
+  return DEPOSIT_CLAIM_KEYS.some((k) => isDone(c[k]));
+}
+
 /** 단계 진행률 N/5 (단계 내 모든 체크 done & rejected 없음 = 단계 완료) */
 export function getProgress(c: EntityRecord): { done: number; total: number } {
   let done = 0;
