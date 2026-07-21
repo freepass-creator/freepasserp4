@@ -726,3 +726,42 @@ export function Modal({ title, meta, onClose, children, footer, width = 720 }: {
     </div>
   );
 }
+
+/* 복사용 텍스트 블록 — 양식처럼 그대로 긁어 쓰는 내용. 눌러서 클립보드로.
+ * 페이지에서 <pre>+손롤 버튼 조합 금지(규격). 복사 대상 문자열만 넘긴다. */
+export function CopyBlock({ text, label = '양식 복사' }: { text: string; label?: string }) {
+  const mobile = useIsMobile();
+  const [done, setDone] = React.useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      // 비보안 컨텍스트·구브라우저 폴백
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      ta.remove();
+    }
+    haptic.success();
+    setDone(true);
+    window.setTimeout(() => setDone(false), 1600);
+  };
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+        <span style={{ flex: 1 }} />
+        <Btn size="sm" variant={done ? 'solid' : 'ghost'} onClick={copy}>{done ? '복사됨' : label}</Btn>
+      </div>
+      <pre style={{
+        margin: 0, padding: mobile ? '12px 13px' : '11px 12px',
+        border: `1px dashed ${C.line}`, borderRadius: R, background: C.taupeBg,
+        fontFamily: 'inherit', fontSize: mobile ? 13 : 12.5, lineHeight: 1.75,
+        color: C.ink, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+      }}>{text}</pre>
+    </div>
+  );
+}

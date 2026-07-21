@@ -1,6 +1,7 @@
 'use client';
 import React from 'react';
 import type { EntityRecord } from '@/lib/intake/entities';
+import { ChevronDown } from 'lucide-react';
 import { C, R, ctrlH, ctrlInputFs } from './tokens';
 import { useIsMobile } from '@/lib/use-mobile';
 
@@ -62,6 +63,35 @@ export function FormCard({ title, hint, children }: { title?: React.ReactNode; h
 }
 /* 빈값 폴백 대시 — 인라인 '—' 통일. */
 export function Dash() { return <span style={{ color: C.faint }}>—</span>; }
+
+/* 접이식 항목 — 제목 줄만 보이고 눌러야 펼쳐진다(QnA·도움말).
+ * Sec(페이지 섹션: 숨김·드래그 정렬 포함)과 별개. 이건 목록 안 한 줄짜리.
+ * 여러 개를 세로로 쌓으면 위아래 선이 붙어 하나의 목록으로 보인다. */
+export function Disclosure({ title, defaultOpen = false, children }: { title: React.ReactNode; defaultOpen?: boolean; children: React.ReactNode }) {
+  const mobile = useIsMobile();
+  const [open, setOpen] = React.useState(defaultOpen);
+  return (
+    <div style={{ borderBottom: `1px solid ${C.line}` }}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+          minHeight: ctrlH(mobile), padding: mobile ? '10px 2px' : '8px 2px',
+          border: 'none', background: 'none', cursor: 'pointer', textAlign: 'left',
+        }}
+      >
+        <ChevronDown
+          size={mobile ? 16 : 14}
+          color={open ? C.ink : C.faint}
+          style={{ flex: '0 0 auto', transform: open ? 'none' : 'rotate(-90deg)', transition: 'transform .15s' }}
+        />
+        <span style={{ flex: 1, minWidth: 0, fontSize: mobile ? 14 : 12.5, fontWeight: open ? 700 : 500, color: C.ink, lineHeight: 1.45 }}>{title}</span>
+      </button>
+      {open && <div style={{ padding: '0 0 12px 24px' }}>{children}</div>}
+    </div>
+  );
+}
 
 /* 라벨|값 표(인라인 편집) — 세부(360)·InfoDoc 공용 SSOT.
  * editing이면 값 칸만 그 자리에서 입력칸으로(화면 그대로, 폼 스왑 X). key=null이면 읽기전용.
