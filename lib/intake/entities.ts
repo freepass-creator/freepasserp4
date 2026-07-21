@@ -364,6 +364,11 @@ export const ENTITIES: Record<string, Entity> = {
       { key: 'agent_payout_rate', label: '영업자 지급율(0~1)', type: 'number', manual: true, note: 'R2 프리패스→영업자: 지급 = 월대여료×이 값' },
       { key: 'is_team_manager', label: '팀매니저', type: 'select', options: ['예', '아니오'], manual: true },
       { key: 'is_active', label: '활성', type: 'select', options: ['예', '아니오'], manual: true },
+      // 가입 승인 상태 — is_active(운영상 on/off)와 별개다.
+      //  active  = 사업자번호가 partners 에 매칭된 가입(또는 관리자 승인 완료)
+      //  pending = 매칭 실패 가입 → 관리자 승인 전까지 앱 사용 불가
+      //  값 없음 = 이 필드 도입 이전 회원 → 정상 사용(기존 회원을 잠그지 않는다)
+      { key: 'status', label: '가입승인', type: 'select', options: ['active', 'pending'], manual: true },
     ],
   },
 

@@ -8,7 +8,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { firebaseReady } from '@/lib/firebase/client';
-import { getSession, subscribeSession, isGuest, type Session } from '@/lib/auth-session';
+import { getSession, subscribeSession, isGuest, isPending, type Session } from '@/lib/auth-session';
 import { isPublicPath, setPublicAccess } from '@/lib/public-access';
 
 const Ctx = createContext<{ session: Session | null; ready: boolean }>({ session: null, ready: false });
@@ -74,5 +74,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   if (mounted && active && !allowed && !ready) return <AuthLoading />;
 
+  // 가입 승인 대기 — 로그인은 됐지만 아직 관리자 승인 전. 공개면(/q·/catalog·/sign)과 /login 은 통과.
+  if (mounted && active && isPending(session) && !onLogin && !publicPage) {
+    return <PendingApproval email={session?.email || ''} />;
+  }
+
   return <Ctx.Provider value={{ session, ready }}>{children}</Ctx.Provider>;
+}
+
+/** 승인 대기 안내 — 데이터에 접근시키지 않고 여기서 멈춘다. */
+function PendingApproval({ email }: { email: string }) {
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, background: '#fff', padding: 24, textAlign: 'center' }}>
+      <div style={{ fontSize: 17, fontWeight: 800, color: '#1B2A4A' }}>가입 승인 대기 중입니다</div>
+      <div style={{ fontSize: 13, color: '#495057', lineHeight: 1.7, maxWidth: 380 }}>
+        입력하신 사업자번호가 등록된 거래처와 맞지 않아 관리자 확인이 필요합니다.
+        <br />승인되면 바로 이용하실 수 있습니다.
+      </div>
+      {email && <div style={{ fontSize: 12, color: '#868e96' }}>{email}</div>}
+      <button
+        onClick={() => { void import('@/lib/firebase/auth').then((m) => m.logout()).then(() => { window.location.href = '/login'; }); }}
+        style={{ marginTop: 6, height: 40, padding: '0 18px', fontSize: 13, fontWeight: 700, color: '#1B2A4A', background: '#fff', border: '1px solid #d5d8dc', borderRadius: 4, cursor: 'pointer' }}
+      >
+        로그아웃
+      </button>
+    </div>
+  );
 }

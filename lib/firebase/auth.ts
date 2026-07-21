@@ -62,6 +62,7 @@ export function initAuth(): Promise<void> {
               uid: user.uid, email: user.email || '', role, rawRole,
               name: String(profile.name || user.email || ''), code,
               company_code, agent_channel_code, user_code: user_code || user.uid,
+              status: String(profile.status || ''),
             });
           } catch (e) {
             console.warn('[auth] users 프로필 읽기 실패 — 최소 세션 진행:', (e as Error)?.message || e);
@@ -141,9 +142,12 @@ export async function writeUserProfile(user: User, info: { name: string; phone: 
     const res = await runTransaction(ref(db, 'counters/user_code_seq'), (cur) => (cur || 0) + 1);
     if (res.committed) user_code = `U${String(res.snapshot.val()).padStart(4, '0')}`;
   } catch { /* noop */ }
+  // 가입 승인 — 사업자번호가 partners 에 매칭되면 즉시 활성(실 거래처는 흐름 그대로),
+  // 매칭 실패는 pending 으로 두고 관리자 승인을 받는다(불특정 가입자가 곧바로 데이터에 붙는 것을 막는다).
+  const status = matched_partner_code ? 'active' : 'pending';
   await set(ref(db, `users/${user.uid}`), {
     uid: user.uid, email: user.email || '', name: info.name || '', phone: info.phone || '',
     company_name: info.company_name || '', business_no: bizNo, user_code,
-    role, company_code, agent_channel_code, matched_partner_code, status: 'active', created_at: Date.now(),
+    role, company_code, agent_channel_code, matched_partner_code, status, created_at: Date.now(),
   });
 }

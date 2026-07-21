@@ -40,7 +40,7 @@ const MEM_PARTNER_TYPES: { key: string; label: string }[] = [
   { key: '채널', label: '채널' },
 ];
 const ROLE_LABEL: Record<string, string> = ROLE_LABEL_RAW;
-const USER_KEYS = ['name', 'role', 'company_code', 'company_name', 'agent_channel_code', 'user_code', 'agent_payout_rate', 'is_team_manager', 'is_active'];
+const USER_KEYS = ['name', 'role', 'company_code', 'company_name', 'agent_channel_code', 'user_code', 'agent_payout_rate', 'is_team_manager', 'is_active', 'status'];
 const PARTNER_KEYS = ['name', 'partner_type', 'fee_rate', 'contact', 'sheet_url', 'sheet_tab', 'header_row', 'adapter_id']; // partner_code=자연키(헤더 표시·편집불가)
 const idFieldOf = (t: Tab) => (t === 'user' ? 'uid' : 'partner_code');
 
@@ -162,12 +162,18 @@ export default function Members() {
     ? <CenterNote>{q || roleFlt !== 'all' || activeFlt !== 'all' || ptypeFlt !== 'all' ? '검색 결과 없음' : '없음 — 신규로 추가'}</CenterNote>
     : <div>{shown.map((r) => {
         const on = String(r._key) === sel;
+        const pending = tab === 'user' && String(r.status || '') === 'pending';
         const sub = tab === 'user' ? `${ROLE_LABEL[String(r.role)] || String(r.role || '')} · ${r.is_active === '아니오' ? '비활성' : '활성'}` : `${String(r.partner_type || '')} · 수수료 ${r.fee_rate != null ? `${Math.round(Number(r.fee_rate) * 100)}%` : '기본'}`;
         return (
           <ListRow key={String(r._key)} selected={on} onClick={() => { haptic.tap(); select(r); }}
             main={String(r.name || r.user_code || r.partner_code || '—')}
             sub={sub}
-            right={tab === 'user' ? <Badge tone={ACTOR_TONE[String(r.role)] || (String(r.role).startsWith('agent') ? 'blue' : 'gray')}>{ROLE_LABEL[String(r.role)] || ''}</Badge> : undefined}
+            // 승인 대기는 역할보다 먼저 보여야 한다 — 관리자가 목록에서 바로 찾도록.
+            right={tab === 'user'
+              ? (pending
+                ? <Badge tone="amber" variant="solid">승인대기</Badge>
+                : <Badge tone={ACTOR_TONE[String(r.role)] || (String(r.role).startsWith('agent') ? 'blue' : 'gray')}>{ROLE_LABEL[String(r.role)] || ''}</Badge>)
+              : undefined}
           />
         );
       })}</div>;
