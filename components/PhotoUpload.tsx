@@ -1,14 +1,15 @@
 'use client';
 import { useRef, useState } from 'react';
-import { Btn, C, R } from '@/components/ui';
+import { Btn, IconBtn, C, R, FS } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
 
 const LONG_MS = 480;
 const MOVE_PX = 10;
+const THUMB_W = 76;
 
 // 차량 사진 업로드 — photos[] ([0]=대표). interior_photo=실내 URL.
-// 모바일: 탭=크게 · 꾹=대표/실내/삭제 시트. 웹: 왕관·× 오버레이.
+// 모바일: 탭=크게 · 꾹=대표/실내/삭제 시트. 웹: 클릭=크게 · 라이트박스에서 조작.
 export function PhotoUpload({
   photos,
   onChange,
@@ -25,6 +26,7 @@ export function PhotoUpload({
   hideTitle?: boolean;
 }) {
   const mobile = useIsMobile();
+  const fileRef = useRef<HTMLInputElement>(null);
   const list: string[] = Array.isArray(photos) ? (photos as unknown[]).map(String) : [];
   const interior = String(interiorUrl || '');
   const [full, setFull] = useState<number | null>(null);
@@ -37,6 +39,7 @@ export function PhotoUpload({
     if (!files || !files.length) return;
     const readers = Array.from(files).map((f) => new Promise<string>((res) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.readAsDataURL(f); }));
     Promise.all(readers).then((urls) => onChange([...list, ...urls]));
+    if (fileRef.current) fileRef.current.value = '';
   };
 
   const makeCover = (i: number) => {
@@ -52,8 +55,13 @@ export function PhotoUpload({
 
   const del = (i: number) => {
     const url = list[i];
+    const nextLen = list.length - 1;
     onChange(list.filter((_, j) => j !== i));
     if (url && interior === url) onInteriorChange?.(null);
+    if (full != null) {
+      if (nextLen <= 0) setFull(null);
+      else setFull(Math.min(full, nextLen - 1));
+    }
   };
 
   const clearPress = () => {
@@ -96,22 +104,24 @@ export function PhotoUpload({
   const sheetUrl = sheet != null ? list[sheet] : null;
   const sheetIsCover = sheet === 0;
   const sheetIsInterior = !!sheetUrl && interior === sheetUrl;
+  const fullIsCover = fullIdx === 0;
+  const fullIsInterior = fullIdx != null && !!list[fullIdx] && interior === list[fullIdx];
 
   return (
-    <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: '#fff', padding: '10px 12px' }}>
+    <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg, padding: '10px 12px' }}>
       {!hideTitle && (
-        <div style={{ fontSize: 12, fontWeight: 800, color: C.ink, marginBottom: 7 }}>{title} <span style={{ color: C.faint, fontWeight: 600 }}>{list.length}</span>
-          <span style={{ fontSize: 10.5, color: C.faint, fontWeight: 400, marginLeft: 6 }}>
-            {mobile ? '· 탭=크게 · 꾹=메뉴' : '· 왕관=대표 · 클릭=크게'}
+        <div style={{ fontSize: FS.sub, fontWeight: 800, color: C.ink, marginBottom: 7 }}>{title} <span style={{ color: C.faint, fontWeight: 600 }}>{list.length}</span>
+          <span style={{ fontSize: FS.micro, color: C.faint, fontWeight: 400, marginLeft: 6 }}>
+            {mobile ? '· 탭=크게 · 꾹=메뉴' : '· 클릭=크게 · 메뉴는 확대 화면'}
           </span>
         </div>
       )}
       {list.length === 0 && (
-        <div style={{ fontSize: 12, color: C.mute, marginBottom: 8, lineHeight: 1.45 }}>
-          사진 없음 — 오른쪽 <b style={{ color: C.brand }}>+</b> 칸을 눌러 추가하세요
+        <div style={{ fontSize: FS.sub, color: C.mute, marginBottom: 8, lineHeight: 1.45 }}>
+          사진 없음 — <b style={{ color: C.brand }}>+</b> 칸을 눌러 추가하세요
         </div>
       )}
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'stretch' }}>
         {list.map((u, i) => {
           const isCover = i === 0;
           const isInterior = interior === u;
@@ -119,7 +129,7 @@ export function PhotoUpload({
             <div
               key={`${i}-${u.slice(0, 24)}`}
               style={{
-                position: 'relative', width: 76, height: 57, borderRadius: R, overflow: 'hidden',
+                position: 'relative', width: THUMB_W, aspectRatio: '4 / 3', borderRadius: R, overflow: 'hidden',
                 border: `${isCover ? 2 : 1}px solid ${isCover ? C.brand : C.line}`,
                 touchAction: 'manipulation', userSelect: 'none',
               }}
@@ -138,58 +148,47 @@ export function PhotoUpload({
               />
               <div style={{ position: 'absolute', left: 2, top: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
                 {isCover && (
-                  <span style={{ fontSize: 9, fontWeight: 800, color: '#fff', background: C.brand, borderRadius: 3, padding: '0 4px' }}>대표</span>
+                  <span style={{ fontSize: FS.micro, fontWeight: 800, color: C.taupeBg, background: C.brand, borderRadius: R, padding: '0 4px' }}>대표</span>
                 )}
                 {isInterior && (
-                  <span style={{ fontSize: 9, fontWeight: 800, color: '#fff', background: C.ok, borderRadius: 3, padding: '0 4px' }}>실내</span>
+                  <span style={{ fontSize: FS.micro, fontWeight: 800, color: C.taupeBg, background: C.ok, borderRadius: R, padding: '0 4px' }}>실내</span>
                 )}
               </div>
-              {/* 웹만 오버레이 조작 — 모바일은 꾹 메뉴 */}
-              {!mobile && (
-                <>
-                  {!isCover && (
-                    <button type="button" onClick={(e) => { e.stopPropagation(); makeCover(i); }} aria-label="대표설정" title="대표로"
-                      style={{ position: 'absolute', bottom: 2, left: 2, width: 18, height: 18, borderRadius: 3, border: 'none', background: 'rgba(0,0,0,0.55)', color: '#fff', fontSize: 10, cursor: 'pointer', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>♛</button>
-                  )}
-                  <button type="button" onClick={(e) => { e.stopPropagation(); makeInterior(i); }} aria-label="실내설정" title={isInterior ? '실내 해제' : '실내로'}
-                    style={{ position: 'absolute', bottom: 2, left: isCover ? 2 : 22, height: 18, padding: '0 4px', borderRadius: 3, border: 'none', background: isInterior ? C.ok : 'rgba(0,0,0,0.55)', color: '#fff', fontSize: 9, fontWeight: 800, cursor: 'pointer', lineHeight: 1 }}>실내</button>
-                  <button type="button" onClick={(e) => { e.stopPropagation(); del(i); }} aria-label="삭제"
-                    style={{ position: 'absolute', top: 2, right: 2, width: 18, height: 18, borderRadius: 9, border: 'none', background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 12, lineHeight: 1, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
-                </>
-              )}
             </div>
           );
         })}
-        <label style={{
-          width: 76, height: 57, borderRadius: R,
-          border: `1.5px dashed ${C.brand}`,
-          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          cursor: 'pointer', color: C.brand, fontSize: 20, fontWeight: 700,
-          background: C.selected, gap: 2,
-        }}>
-          +
-          {list.length === 0 && <span style={{ fontSize: 9.5, fontWeight: 700 }}>추가</span>}
-          <input type="file" accept="image/*" multiple onChange={(e) => add(e.target.files)} style={{ display: 'none' }} />
-        </label>
+        <div
+          style={{
+            width: THUMB_W, aspectRatio: '4 / 3', borderRadius: R,
+            border: `1.5px dashed ${C.brand}`,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            background: C.selected, gap: 2,
+          }}
+        >
+          <IconBtn onClick={() => fileRef.current?.click()} title="사진 추가">+</IconBtn>
+          {list.length === 0 && <span style={{ fontSize: FS.micro, fontWeight: 700, color: C.brand }}>추가</span>}
+          <input ref={fileRef} type="file" accept="image/*" multiple onChange={(e) => add(e.target.files)} style={{ display: 'none' }} />
+        </div>
       </div>
 
       {/* 모바일 꾹 메뉴 */}
       {sheet != null && sheetUrl && (
         <div
-          style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(15,23,42,0.4)' }}
+          style={{ position: 'fixed', inset: 0, zIndex: 100 }}
           onClick={() => { haptic.back(); setSheet(null); }}
         >
+          <div style={{ position: 'absolute', inset: 0, background: C.ink, opacity: 0.4 }} />
           <div
             onClick={(e) => e.stopPropagation()}
             style={{
               position: 'absolute', left: 0, right: 0, bottom: 0,
-              background: C.taupeBg, borderRadius: '12px 12px 0 0',
+              background: C.taupeBg, borderRadius: `${R}px ${R}px 0 0`,
               padding: '12px 14px calc(12px + env(safe-area-inset-bottom))',
-              boxShadow: '0 -8px 28px rgba(15,23,42,0.18)',
               display: 'flex', flexDirection: 'column', gap: 8,
+              zIndex: 1,
             }}
           >
-            <div style={{ fontSize: 13, fontWeight: 800, color: C.ink, marginBottom: 2 }}>사진 메뉴</div>
+            <div style={{ fontSize: FS.body, fontWeight: 800, color: C.ink, marginBottom: 2 }}>사진 메뉴</div>
             <Btn
               full
               variant="ghost"
@@ -220,11 +219,37 @@ export function PhotoUpload({
       )}
 
       {fullIdx != null && list[fullIdx] && (
-        <div onClick={() => setFull(null)} style={{ position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(0,0,0,0.92)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <button onClick={(e) => { e.stopPropagation(); setFull(null); }} aria-label="닫기" style={{ position: 'fixed', top: 14, right: 16, width: 38, height: 38, borderRadius: 19, border: 'none', background: 'rgba(255,255,255,0.18)', color: '#fff', fontSize: 21, cursor: 'pointer' }}>×</button>
-          {fullIdx > 0 && <button onClick={(e) => { e.stopPropagation(); setFull(fullIdx - 1); }} aria-label="이전" style={{ position: 'fixed', left: 12, top: '50%', transform: 'translateY(-50%)', width: 40, height: 40, borderRadius: 20, border: 'none', background: 'rgba(255,255,255,0.18)', color: '#fff', fontSize: 22, cursor: 'pointer' }}>‹</button>}
-          {fullIdx < list.length - 1 && <button onClick={(e) => { e.stopPropagation(); setFull(fullIdx + 1); }} aria-label="다음" style={{ position: 'fixed', right: 12, top: '50%', transform: 'translateY(-50%)', width: 40, height: 40, borderRadius: 20, border: 'none', background: 'rgba(255,255,255,0.18)', color: '#fff', fontSize: 22, cursor: 'pointer' }}>›</button>}
-          <img src={list[fullIdx]} alt="" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: 6 }} />
+        <div onClick={() => setFull(null)} style={{ position: 'fixed', inset: 0, zIndex: 90, background: C.ink, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ position: 'fixed', top: 14, right: 16, zIndex: 1 }} onClick={(e) => e.stopPropagation()}>
+            <IconBtn onClick={() => setFull(null)} title="닫기">×</IconBtn>
+          </div>
+          {fullIdx > 0 && (
+            <div style={{ position: 'fixed', left: 12, top: '50%', transform: 'translateY(-50%)', zIndex: 1 }} onClick={(e) => e.stopPropagation()}>
+              <IconBtn onClick={() => setFull(fullIdx - 1)} title="이전">‹</IconBtn>
+            </div>
+          )}
+          {fullIdx < list.length - 1 && (
+            <div style={{ position: 'fixed', right: 12, top: '50%', transform: 'translateY(-50%)', zIndex: 1 }} onClick={(e) => e.stopPropagation()}>
+              <IconBtn onClick={() => setFull(fullIdx + 1)} title="다음">›</IconBtn>
+            </div>
+          )}
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ position: 'fixed', left: 0, right: 0, bottom: 0, padding: '12px 14px calc(12px + env(safe-area-inset-bottom))', display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center', background: C.head, zIndex: 1 }}
+          >
+            <Btn size="sm" variant="ghost" disabled={fullIsCover} onClick={() => { if (fullIdx != null) { makeCover(fullIdx); setFull(0); } }}>
+              {fullIsCover ? '대표사진' : '대표로'}
+            </Btn>
+            {onInteriorChange && (
+              <Btn size="sm" variant="ghost" onClick={() => { if (fullIdx != null) makeInterior(fullIdx); }}>
+                {fullIsInterior ? '실내 해제' : '실내로'}
+              </Btn>
+            )}
+            <Btn size="sm" variant="danger" onClick={() => { if (fullIdx != null) del(fullIdx); }}>
+              삭제
+            </Btn>
+          </div>
+          <img src={list[fullIdx]} alt="" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: R }} />
         </div>
       )}
     </div>
