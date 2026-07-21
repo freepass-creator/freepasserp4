@@ -3,12 +3,13 @@
  *   쓰기 없음(읽기 스캔). 새 시트 취합 시마다 재점검 → 쓰레기 데이터 유입 즉시 포착.
  */
 import { type EntityRecord } from '@/lib/intake/entities';
+import { EXT_COLORS } from '@/lib/domain/color-master';
 
 export type CheckHit = { car: string; code: string; note?: string };
 export type CheckGroup = { key: string; label: string; severity: 'high' | 'mid' | 'low'; hint: string; hits: CheckHit[] };
 
 const GARBAGE_MAKER = new Set(['개인/사업자', '제조사', '']);
-const COLORS = new Set(['화이트', '블랙', '그레이', '실버', '레드', '블루', '네이비', '브라운', '베이지', '민트', '크레용']);
+const COLORS = new Set<string>(EXT_COLORS);
 const driveFolder = (u: unknown): string => { const m = /\/folders\/([a-zA-Z0-9_-]+)/.exec(String(u ?? '')); return m ? m[1] : ''; };
 const parseYear = (v: EntityRecord): number => { const m = /(\d{2,4})/.exec(String(v.year ?? v.first_registration_date ?? '')); if (!m) return 0; const n = Number(m[1]); return n > 1900 ? n : n < 50 ? 2000 + n : 1900 + n; };
 const parseKm = (v: unknown): number => { const n = Number(String(v ?? '').replace(/[^\d]/g, '')); return Number.isFinite(n) ? n : 0; };

@@ -11,6 +11,8 @@ import { getSession } from './auth-session';
 import { getFirebaseApp, firebaseReady } from './firebase/client';
 import { RtdbAdapter } from './firebase/rtdb-adapter';
 import { COMPANIES, ALL_COMPANIES } from './companies';
+import { isPublicAccess } from './public-access';
+import { buildAuditEntry, buildMasterSnapBulkEntry } from './domain/audit';
 
 export type SaveResult = { saved: number; duplicates: number; backend: string };
 
@@ -70,7 +72,9 @@ class LocalAdapter implements StoreAdapter {
     let n = 0;
     for (const { key, patch } of patches) { const i = idx.get(key); if (i == null) continue; arr[i] = { ...arr[i], ...patch, updatedAt: now }; n++; }
     localStorage.setItem(this.k(entityKey, companyId), JSON.stringify(arr));
-    this.logAudit(entityKey, companyId, `bulk:${n}`, 'update', null, { count: n } as EntityRecord);
+    const snapish = patches.some((p) => p.patch._snapped);
+    if (snapish && n) this.pushAudit(buildMasterSnapBulkEntry(companyId, patches.slice(0, n), currentActor()));
+    else this.logAudit(entityKey, companyId, `bulk:${n}`, 'update', null, { count: n } as EntityRecord);
     return n;
   }
   async save(entityKey: string, companyId: string, records: EntityRecord[]) {
@@ -89,17 +93,20 @@ class LocalAdapter implements StoreAdapter {
     localStorage.setItem(this.k(entityKey, companyId), JSON.stringify(existing));
     return { saved, duplicates, backend: this.backend };
   }
-  // 전 write 자동 감사 — 페이지가 신경 안 쓰게 writer 레벨에서 강제(ERP 30원칙). audit_log·message는 제외(자기자신·고빈도).
-  private logAudit(entityKey: string, companyId: string, key: string, action: string, before: EntityRecord | null, after: EntityRecord | null) {
-    if (typeof window === 'undefined' || entityKey === 'audit_log' || entityKey === 'message') return;
+  private pushAudit(entry: EntityRecord | null) {
+    if (!entry || typeof window === 'undefined') return;
     try {
+      const companyId = String(entry.companyId || '');
       const ak = this.k('audit_log', companyId);
       const arr = JSON.parse(localStorage.getItem(ak) || '[]') as EntityRecord[];
-      const a = currentActor();
-      arr.push({ _key: `AL-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, entity: entityKey, target_key: key, action, actor_uid: a.uid, actor_role: a.role, actor_name: a.name, at: Date.now(), before: before ? JSON.stringify(before).slice(0, 600) : '', after: after ? JSON.stringify(after).slice(0, 600) : '' });
-      if (arr.length > 1000) arr.splice(0, arr.length - 1000);
+      arr.push(entry);
+      if (arr.length > 5000) arr.splice(0, arr.length - 5000);
       localStorage.setItem(ak, JSON.stringify(arr));
-    } catch { /* 감사는 best-effort */ }
+    } catch { /* best-effort */ }
+  }
+  private logAudit(entityKey: string, companyId: string, key: string, action: string, before: EntityRecord | null, after: EntityRecord | null) {
+    if (typeof window === 'undefined' || entityKey === 'audit_log') return;
+    this.pushAudit(buildAuditEntry(entityKey, companyId, key, action, before, after, currentActor()));
   }
 }
 
@@ -124,9 +131,11 @@ class FirestoreAdapter implements StoreAdapter {
       const key = naturalKey(entityKey, rec);
       if (key && seen.has(key)) { duplicates++; continue; }
       const id = key ? `${companyId}__${key}` : `${companyId}__${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-      await withTimeout(setDoc(doc(col, id), { ...rec, companyId, _key: key, createdAt: new Date().toISOString(), createdBy: 'system' }));
+      const stored = { ...rec, companyId, _key: key, createdAt: new Date().toISOString(), createdBy: 'system' };
+      await withTimeout(setDoc(doc(col, id), stored));
       if (key) seen.add(key);
       saved++;
+      this.logAudit(entityKey, companyId, String(key || id), 'create', null, stored);
     }
     return { saved, duplicates, backend: this.backend };
   }
@@ -147,9 +156,12 @@ class FirestoreAdapter implements StoreAdapter {
     } catch (e) { console.warn(`Firestore get(${entityKey}) 대기 실패(DB·규칙 확인):`, (e as Error).message); return null; }
   }
   async update(entityKey: string, companyId: string, key: string, patch: EntityRecord): Promise<void> {
+    const before = await this.get(entityKey, companyId, key);
     const { getFirestore, doc, setDoc } = await import('firebase/firestore');
     const db = getFirestore(getFirebaseApp()!);
-    await setDoc(doc(db, entityKey, `${companyId}__${key}`), { ...patch, updatedAt: new Date().toISOString() }, { merge: true });
+    const after = { ...(before || {}), ...patch, updatedAt: new Date().toISOString() };
+    await setDoc(doc(db, entityKey, `${companyId}__${key}`), { ...patch, updatedAt: after.updatedAt }, { merge: true });
+    this.logAudit(entityKey, companyId, key, patch.deletedAt ? 'delete' : 'update', before, after);
   }
   async bulkPatch(entityKey: string, companyId: string, patches: { key: string; patch: EntityRecord }[]): Promise<number> {
     const { getFirestore, doc, writeBatch } = await import('firebase/firestore');
@@ -161,6 +173,9 @@ class FirestoreAdapter implements StoreAdapter {
       n++; if (++inB >= 400) { await batch.commit(); batch = writeBatch(db); inB = 0; }
     }
     if (inB) await batch.commit();
+    const snapish = patches.some((p) => p.patch._snapped);
+    if (snapish && n) this.pushAudit(buildMasterSnapBulkEntry(companyId, patches, currentActor()));
+    else this.logAudit(entityKey, companyId, `bulk:${n}`, 'update', null, { count: n } as EntityRecord);
     return n;
   }
   async remove(entityKey: string, companyId: string, key: string, reason = ''): Promise<void> {
@@ -175,6 +190,20 @@ class FirestoreAdapter implements StoreAdapter {
   async restore(entityKey: string, companyId: string, key: string): Promise<void> {
     await this.update(entityKey, companyId, key, { deletedAt: null, deletedReason: null });
   }
+  private async pushAudit(entry: EntityRecord | null) {
+    if (!entry) return;
+    try {
+      const { getFirestore, doc, setDoc } = await import('firebase/firestore');
+      const db = getFirestore(getFirebaseApp()!);
+      const id = String(entry._key);
+      const companyId = String(entry.companyId || '');
+      await setDoc(doc(db, 'audit_log', `${companyId}__${id}`), entry);
+    } catch { /* best-effort */ }
+  }
+  private logAudit(entityKey: string, companyId: string, key: string, action: string, before: EntityRecord | null, after: EntityRecord | null) {
+    if (entityKey === 'audit_log') return;
+    void this.pushAudit(buildAuditEntry(entityKey, companyId, key, action, before, after, currentActor()));
+  }
 }
 
 /**
@@ -188,8 +217,25 @@ class FirestoreAdapter implements StoreAdapter {
 // 모듈 레벨 인메모리 캐시 — list 결과(Promise)를 재사용해 재조회·화면 전환을 즉시로.
 // 저장/수정/삭제 시 해당 엔티티 캐시만 무효화(다음 list에서 신선하게 재조회). 세션 한정(새로고침 시 초기화).
 const _listCache = new Map<string, Promise<EntityRecord[]>>();
-function _invalidate(entityKey: string) { for (const k of [..._listCache.keys()]) if (k.startsWith(entityKey + '::')) _listCache.delete(k); }
-export function clearStoreCache() { _listCache.clear(); }
+const _listResolved = new Map<string, EntityRecord[]>(); // Promise settle 후 동기 peek용(홈→상세 즉시 페인팅)
+function _invalidate(entityKey: string) {
+  for (const k of [..._listCache.keys()]) if (k.startsWith(entityKey + '::')) _listCache.delete(k);
+  for (const k of [..._listResolved.keys()]) if (k.startsWith(entityKey + '::')) _listResolved.delete(k);
+}
+export function clearStoreCache() { _listCache.clear(); _listResolved.clear(); }
+
+function findCached(rows: EntityRecord[], key: string): EntityRecord | null {
+  return rows.find((r) => String(r._key) === key) || null;
+}
+/** 이미 list된 엔티티를 동기 조회 — 홈→상세 첫 페인트에서 Loading 스킵. 없으면 null. */
+export function peekCached(entityKey: string, companyId: string, key: string): EntityRecord | null {
+  const rows = _listResolved.get(`${entityKey}::${companyId}`);
+  return rows ? findCached(rows, key) : null;
+}
+/** 이미 list된 엔티티 전체를 동기 조회 — 반복 진입 첫 페인트에서 Loading 스킵(stale-while-revalidate). 없으면 null. */
+export function peekList(entityKey: string, companyId: string): EntityRecord[] | null {
+  return _listResolved.get(`${entityKey}::${companyId}`) ?? null;
+}
 
 class DispatchStore implements StoreAdapter {
   backend: string;
@@ -203,11 +249,12 @@ class DispatchStore implements StoreAdapter {
     const ck = `${entityKey}::${companyId}`;
     let p = _listCache.get(ck);
     if (!p) {
-      p = this.all(companyId)
+      p = (this.all(companyId)
         ? Promise.all(COMPANIES.map((c) => this.base.list(entityKey, c))).then((a) => a.flat())
-        : this.base.list(entityKey, companyId);
+        : this.base.list(entityKey, companyId)
+      ).then((rows) => { _listResolved.set(ck, rows); return rows; });
       _listCache.set(ck, p);
-      p.catch(() => _listCache.delete(ck)); // 실패는 캐시 안 함(다음에 재시도)
+      p.catch(() => { _listCache.delete(ck); _listResolved.delete(ck); }); // 실패는 캐시 안 함(다음에 재시도)
     }
     return p;
   }
@@ -216,6 +263,12 @@ class DispatchStore implements StoreAdapter {
     return (await Promise.all(COMPANIES.map((c) => this.base.listDeleted(entityKey, c)))).flat();
   }
   async get(entityKey: string, companyId: string, key: string) {
+    // 홈 list 캐시 우선 — RTDB get이 전량 재다운로드하는 비용 회피(홈→상세 즉시).
+    const ck = `${entityKey}::${companyId}`;
+    const synced = _listResolved.get(ck);
+    if (synced) { const hit = findCached(synced, key); if (hit) return hit; }
+    const pending = _listCache.get(ck);
+    if (pending) { const hit = findCached(await pending, key); if (hit) return hit; }
     if (!this.all(companyId)) return this.base.get(entityKey, companyId, key);
     for (const c of COMPANIES) { const r = await this.base.get(entityKey, c, key); if (r) return r; }
     return null;
@@ -244,12 +297,12 @@ class DispatchStore implements StoreAdapter {
 
 export function getStore(): StoreAdapter {
   // 데이터 백엔드 opt-in(NEXT_PUBLIC_DATA_BACKEND). 기본 Local(seed).
-  //   · rtdb  = freepasserp3 라이브 RTDB 브리지(v3 실데이터 반영). RTDB는 인증 게이트라
-  //             로그인 세션 있을 때만 — 둘러보기/게스트는 Local seed(데모).
+  //   · rtdb  = 로그인 세션 또는 손님 공개면(/q·/catalog·/sign) → RTDB.
   //   · firestore = v4 전용 Firestore.
   const backend = process.env.NEXT_PUBLIC_DATA_BACKEND;
   let base: StoreAdapter;
-  if (backend === 'rtdb' && firebaseReady() && getSession()) base = new RtdbAdapter();
+  const rtdbOk = backend === 'rtdb' && firebaseReady() && (!!getSession() || isPublicAccess());
+  if (rtdbOk) base = new RtdbAdapter();
   else if (backend === 'firestore' && firebaseReady()) base = new FirestoreAdapter();
   else base = new LocalAdapter();
   return new DispatchStore(base);

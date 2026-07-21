@@ -1,63 +1,176 @@
 'use client';
 import Link from 'next/link';
-import type { CSSProperties } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { useIsMobile } from '@/lib/use-mobile';
-import { useFirstPhoto } from '@/components/use-product-photos';
-import { C } from '@/components/ui';
-import { badges, Identity, SpecLine, OptionChips, PriceRows, CarGlyph, specLine, productOptions } from '@/components/product-card-atoms';
+import { C, R } from '@/components/ui';
+import {
+  CardTitle, CardSpecs, CardPerkLine, CardThumb, CardRailBadges,
+  PricePeekRoot, PriceAmounts, PeriodChips, PeriodRange, OptionChips,
+} from '@/components/product-card-atoms';
+import { ProductMoreMenu } from '@/components/ProductMoreMenu';
 
-// 리스트 뷰 = 가로형 카드+엑셀 하이브리드. 세로카드와 같은 공용 원자(연장선 디자인).
-// 원자 구성은 모바일·데스크톱 동일, 표현만 상이:
-//  · 데스크톱 = 가로 길이를 활용 → 윗단[사진|신원·뱃지|가격] + 아랫단 전폭 가로띠[스펙 · 옵션 주우욱]
-//  · 모바일 = 좁으니 세로 스택[사진+신원·뱃지 / 스펙 / 옵션 / 가격]
-export function ProductRowCard({ p }: { p: EntityRecord; period?: number }) {
+/**
+ * 상세카드 SSOT
+ *
+ * 웹 4×2:
+ *   1 차명              | 뱃지
+ *   2 옵션/옵션미입력   | (빈 슬롯)
+ *   3 스펙(+차번)       | 기간·대여료·보증금
+ *   4 조건              | 기간칩
+ *
+ * 모바일 피드 4줄(세로 · 썸네일 좌):
+ *   1 차종
+ *   2 옵션
+ *   3 차번·연식·연료·주행·배기
+ *   4 가격(+범위) · 뱃지 · 우대조건
+ */
+export function ProductRowCard({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) {
   const mobile = useIsMobile();
-  const photo = useFirstPhoto(p);
-  const href = `/m/${encodeURIComponent(String(p.product_code))}`;
-  const cardStyle = { border: `1px solid ${C.line}`, borderRadius: 6, background: '#fff', padding: 10, textDecoration: 'none', color: 'inherit', boxShadow: '0 1px 2px rgba(15,23,42,0.05)' } as CSSProperties;
-  const photoBox = (w: number, h: number | 'stretch') => (
-    <div style={{ width: w, flex: `0 0 ${w}px`, ...(h === 'stretch' ? { alignSelf: 'stretch', minHeight: 66 } : { height: h }), borderRadius: 4, background: '#eef1f5', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      {photo ? <img src={photo} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <CarGlyph />}
+  return mobile
+    ? <MobileRow p={p} focusMonth={focusMonth} />
+    : <WebRow p={p} focusMonth={focusMonth} />;
+}
+
+function Cell({ right, children }: { right?: boolean; children?: ReactNode }) {
+  return (
+    <div style={{
+      minWidth: 0,
+      display: 'flex', alignItems: 'center',
+      justifyContent: right ? 'flex-end' : 'flex-start',
+      minHeight: 22,
+    }}>
+      {children ?? null}
     </div>
   );
-  const badgeRow = <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>{badges(p)}</div>;
-  const spec = specLine(p);
-  const hasDetail = !!spec || productOptions(p).length > 0;
+}
 
-  // 모바일 = 세로 스택. 좁으니 원자를 위→아래로.
-  if (mobile) {
-    return (
-      <Link href={href} style={{ display: 'block', ...cardStyle }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-          <div style={{ display: 'flex', gap: 10 }}>
-            {photoBox(88, 62)}
-            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 5 }}><Identity p={p} size={13.5} />{badgeRow}</div>
-          </div>
-          <SpecLine p={p} />
-          <OptionChips p={p} />
-          <div style={{ paddingTop: 8, borderTop: `1px solid ${C.line2}` }}><PriceRows p={p} wrap align="flex-start" limit={3} /></div>
-        </div>
-      </Link>
-    );
-  }
-
-  // 데스크톱(웹) = 가로 폭 활용. [사진] [신원 1줄 / 뱃지 / 가격 옆으로 쭉 / 스펙·옵션].
-  // 가격 = "개월 대여료 보증" 한 단위를 옆으로 쭉 나열(있는 기간 다, 1~60개월도 wrap으로 흡수).
+/** 웹 — 조건 | 기간칩 */
+function PerkPeriodRow({ p }: { p: EntityRecord }) {
   return (
-    <Link href={href} style={{ display: 'flex', gap: 12, alignItems: 'stretch', ...cardStyle }}>
-      {photoBox(116, 'stretch')}
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6, justifyContent: 'center' }}>
-        <Identity p={p} size={14} inline />
-        {badgeRow}
-        <PriceRows p={p} wrap />
-        {hasDetail && (
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
-            {spec && <span style={{ fontSize: 11, color: C.faint, lineHeight: 1.5 }}>{spec}</span>}
-            <OptionChips p={p} />
-          </div>
-        )}
+    <div style={{
+      gridColumn: '1 / -1',
+      display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start',
+      gap: 8, minWidth: 0, width: '100%',
+    }}>
+      <div style={{ flex: '1 1 96px', minWidth: 0 }}>
+        <CardPerkLine p={p} dense={false} />
       </div>
+      <div style={{ flex: '2 1 168px', minWidth: 0, maxWidth: '100%' }}>
+        <PeriodChips align="end" clamp />
+      </div>
+    </div>
+  );
+}
+
+function WebRow({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) {
+  const href = `/m/${encodeURIComponent(String(p.product_code))}`;
+  return (
+    <Link href={href} className="fp-card" style={{
+      display: 'flex', gap: 14, alignItems: 'stretch',
+      borderRadius: R,
+      padding: '10px 12px',
+      border: `1px solid ${C.line}`,
+      boxShadow: '0 1px 2px rgba(15,23,42,0.04)',
+      textDecoration: 'none', color: 'inherit',
+    } satisfies CSSProperties}>
+      <CardThumb p={p} w={88} marks={false} heart />
+
+      <PricePeekRoot p={p} focusMonth={focusMonth} style={{
+        display: 'grid',
+        gridTemplateColumns: 'minmax(0, 1fr) auto',
+        gridTemplateRows: 'repeat(4, auto)',
+        columnGap: 16,
+        rowGap: 6,
+        alignItems: 'center',
+        flex: '1 1 auto',
+        minWidth: 0,
+        alignSelf: 'stretch',
+      }}>
+        <Cell>
+          <div style={{ position: 'relative', minWidth: 0, width: '100%' }}>
+            <CardTitle p={p} size={15} />
+          </div>
+        </Cell>
+        <Cell right><CardRailBadges p={p} /></Cell>
+
+        <Cell><OptionChips p={p} clamp /></Cell>
+        <Cell right />
+
+        <Cell><CardSpecs p={p} /></Cell>
+        <Cell right><PriceAmounts align="end" /></Cell>
+
+        <PerkPeriodRow p={p} />
+      </PricePeekRoot>
+    </Link>
+  );
+}
+
+/**
+ * 모바일 4줄 — 기간칩 없음.
+ * 4행은 가격이 주인공, 범위·뱃지·우대는 같은 슬롯에 묶음.
+ */
+function MobileRow({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) {
+  const href = `/m/${encodeURIComponent(String(p.product_code))}`;
+  return (
+    <Link href={href} className="fp-card fp-card-row" style={{
+      display: 'flex', gap: 12, alignItems: 'stretch',
+      borderRadius: 0,
+      padding: '10px 12px',
+      borderBottom: `1px solid ${C.line2}`,
+      textDecoration: 'none', color: 'inherit',
+    } satisfies CSSProperties}>
+      {/* 모바일 목록 = 찜 없음(썸네일 버튼은 상세에서만). 웹 가로카드는 heart 유지. */}
+      <CardThumb p={p} w={56} marks={false} />
+
+      <PricePeekRoot p={p} focusMonth={focusMonth} style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 5,
+        flex: '1 1 auto',
+        minWidth: 0,
+        alignSelf: 'stretch',
+        justifyContent: 'center',
+      }}>
+        {/* 1 차종 — 모바일만 ··· absolute */}
+        <div style={{ position: 'relative', minWidth: 0, paddingRight: 22 }}>
+          <CardTitle p={p} size={15} narrow />
+          <ProductMoreMenu p={p} />
+        </div>
+
+        {/* 2 옵션 — 텍스트톤 박스 · 넘치면 2+… (웹과 동일) */}
+        <OptionChips p={p} clamp />
+
+        {/* 3 스펙 */}
+        <CardSpecs p={p} />
+
+        {/* 4 가격 · [최단]~[최장] 기간칩 · 뱃지 · 우대 */}
+        <div style={{
+          display: 'flex', flexDirection: 'column', gap: 4,
+          minWidth: 0, width: '100%',
+        }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            minWidth: 0, width: '100%', overflow: 'hidden',
+          }}>
+            <div style={{ flex: '1 1 auto', minWidth: 0, overflow: 'hidden' }}>
+              <PriceAmounts align="start" />
+            </div>
+            <PeriodRange />
+          </div>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            minWidth: 0, width: '100%', overflow: 'hidden',
+          }}>
+            <div style={{ flex: '0 1 auto', minWidth: 0, overflow: 'hidden' }}>
+              <CardRailBadges p={p} />
+            </div>
+            <div style={{ flex: '1 1 auto', minWidth: 0, overflow: 'hidden' }}>
+              <CardPerkLine p={p} inline />
+            </div>
+          </div>
+        </div>
+      </PricePeekRoot>
     </Link>
   );
 }

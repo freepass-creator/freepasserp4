@@ -1,6 +1,7 @@
 /** 로그인 화면 보조 — 세션 재노출 + 사업자번호 실시간 매칭(partners 읽기). */
 export { setGuest, getSession } from '@/lib/auth-session';
 import { firebaseReady, getRtdb } from '@/lib/firebase/client';
+import { companyAlias } from '@/lib/domain/identity';
 
 export function firebaseReadySafe(): boolean { return firebaseReady(); }
 
@@ -16,7 +17,8 @@ export async function matchBizNo(digits: string): Promise<{ name: string; code: 
     const pn = String(p.business_number || '').replace(/\D/g, '');
     if (pn && pn === digits) {
       const code = String(p.partner_code || k);
-      const name = String(p.partner_name || p.company_name || code);
+      const full = String(p.partner_name || p.company_name || p.name || code);
+      const name = companyAlias(full, p.alias || p.short_name);
       const type = PARTNER_TYPE_LABEL[String(p.partner_type)] || String(p.partner_type || '');
       return { name, code, type };
     }

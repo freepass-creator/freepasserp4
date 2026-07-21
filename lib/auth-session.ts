@@ -11,10 +11,11 @@ export interface Session {
   role: V4Role;
   rawRole: string;        // v3 원본(agent_admin 등) — 세부 권한 후속용
   name: string;
-  code: string;           // 목록 필터·귀속키(공급사=company_code, 영업자=agent_channel_code||company_code)
+  /** 목록·방·계약 귀속키. 공급사=company_code, 영업자=user_code(사람), 관리자=user_code|uid */
+  code: string;
   company_code: string;
-  agent_channel_code: string;
-  user_code: string;
+  agent_channel_code: string; // 채널(팀) — 필터·요율용. 방키/계약 agent_code 와 분리
+  user_code: string;          // 사람키 — /q?a= · CH_{매물}_{user_code}
 }
 
 const CACHE = 'fp4_session';
@@ -42,6 +43,8 @@ export function setSession(s: Session | null): void {
   if (typeof window !== 'undefined') {
     if (s) localStorage.setItem(CACHE, JSON.stringify(s)); else localStorage.removeItem(CACHE);
     window.dispatchEvent(new CustomEvent('fp:session', { detail: s }));
+    // 메뉴·페이지 역할 게이트가 fp:role 만 듣는 경우 — 세션 역할도 같이 전파
+    if (s?.role) window.dispatchEvent(new CustomEvent('fp:role', { detail: s.role }));
   }
   subs.forEach((cb) => cb(s));
 }

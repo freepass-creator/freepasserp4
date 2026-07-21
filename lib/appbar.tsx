@@ -1,10 +1,18 @@
 'use client';
-// 컨텍스트 앱바 — 하나의 상단바가 화면(라우트)마다 내용을 바꿔 씀.
-// 홈: 회사·렌즈(left) + 검색·입력(actions). 세부: ←이전·제목(back/title) + 수정·저장(actions).
-// 웹=상단바에 back/title/left/actions, 모바일=상단바엔 title/left, back/actions는 하단 고정바.
+// 컨텍스트 앱바 — 상단바=상태창(어디·맥락). 메뉴=우측.
+// title = 페이지 상태(재고 · 차명 등). 없으면 TopBar가 라우트 라벨로 채움.
+// 웹=상태+이전/액션+메뉴 / 모바일=상태+메뉴(이전·액션=하단).
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 
-export type AppBarSlots = { back?: () => void; title?: ReactNode; left?: ReactNode; actions?: ReactNode };
+export type AppBarSlots = {
+  back?: () => void;
+  /** list = 같은 화면 목록 복귀 라벨. 기본 history = 이전. */
+  backKind?: 'history' | 'list';
+  /** 페이지 소개 — TopBar 중앙. 있으면 소속·이름 대신 표시. */
+  title?: ReactNode;
+  left?: ReactNode;
+  actions?: ReactNode;
+};
 
 const Ctx = createContext<{ slots: AppBarSlots; set: (s: AppBarSlots) => void }>({ slots: {}, set: () => {} });
 

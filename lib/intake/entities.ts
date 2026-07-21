@@ -9,16 +9,24 @@
  * ⚠ 필드명·enum은 freepasserp3 실제 값 그대로(RTDB 호환·마이그레이션 대비). 추정 항목은 note에 표기.
  */
 
-export type FieldType = 'text' | 'number' | 'date' | 'select';
-export type Field = { key: string; label: string; type: FieldType; required?: boolean; options?: string[]; ocrFrom?: string; manual?: boolean; note?: string };
+import { EXT_COLORS, INT_COLORS } from '@/lib/domain/color-master';
+
+export type FieldType = 'text' | 'number' | 'date' | 'select' | 'chips';
+export type Field = { key: string; label: string; type: FieldType; required?: boolean; options?: string[]; max?: number; ocrFrom?: string; manual?: boolean; note?: string };
 export type Entity = { key: string; label: string; ocrType?: string; source: string; idFrom: string; keyFields?: string[]; fields: Field[] };
 
 /* ── enum SSOT (freepasserp3 실측) ── */
 export const ROLES = ['agent', 'agent_admin', 'agent_manager', 'provider', 'admin'] as const; // 영업자/영업관리자/영업관리자(계약·정산만)/공급사/관리자
 export const CONTRACT_STATES = ['계약요청', '계약대기', '계약발송', '계약완료', '계약취소'] as const; // contract-status.js
 export const SETTLEMENT_STATES = ['정산대기', '정산완료', '정산보류', '환수대기', '환수결정'] as const; // settlement-status.js
-export const VEHICLE_STATES = ['즉시출고', '출고가능', '출고준비', '출고협의', '출고불가'] as const; // ⚠ vehicle-status.js 최종확인 필요
+export const VEHICLE_STATES = ['즉시출고', '출고가능', '상품화중', '출고협의', '출고불가'] as const;
+/** 썸네일 이벤트 딱지 — 재고 chips · 카드 좌상 최대 2. */
+export const PROMO_BADGES = ['수수료+', '첫달할인', '금주특가', '보증할인', '탁송비지원', '특별가'] as const;
+export const MAX_PROMO_BADGES = 2;
+/** 구표기 → 현재 뱃지 (저장·필터 호환). */
+export const PROMO_BADGE_LEGACY: Record<string, string> = { 추가수수료면제: '수수료+' };
 export const PRODUCT_TYPES = ['신차렌트', '재렌트', '신차구독', '중고구독'] as const; // 렌트/구독 × 신차/중고. 검색필터(PTYPES)와 일치
+export const FUEL_TYPES = ['가솔린', '디젤', 'LPG', '하이브리드', '전기', '수소'] as const;
 export const QUOTE_STATES = ['초안', '발송', '열람', '계약전환', '만료'] as const; // v4 신규
 
 /** 계약 5단계 2자 핸드셰이크 체크 키 (contract-steps.js SSOT — key명은 레거시 그대로, actor 주석 참고) */
@@ -41,24 +49,25 @@ export const ENTITIES: Record<string, Entity> = {
     key: 'product', label: '매물', ocrType: 'vehicle_reg', source: '자동차등록증/공급사 시트', idFrom: 'product_code',
     fields: [
       { key: 'product_code', label: '상품코드', type: 'text', manual: true },
-      { key: 'car_number', label: '차량번호', type: 'text', ocrFrom: 'car_number' },
+      { key: 'car_number', label: '차량번호', type: 'text', required: true, ocrFrom: 'car_number', manual: true },
       // ── 차종 5단계 ──
       { key: 'maker', label: '제조사', type: 'text' },
       { key: 'model', label: '모델', type: 'text' },
       { key: 'sub_model', label: '세부모델', type: 'text' },
       { key: 'variant', label: '파워트레인', type: 'text', note: '5단계 — 연료·배기량·구동·배터리' },
-      { key: 'trim_name', label: '세부트림', type: 'text' },
+      { key: 'trim_name', label: '세부트림', type: 'text', note: '마스터 실트림만' },
+      { key: 'trim_extra', label: '추가표기', type: 'text', manual: true, note: '마스터 밖 자유입력(런칭·휠·패키지 등). 규격 트림 아님' },
       { key: 'vehicle_class', label: '차종', type: 'select', options: ['경형', '소형', '소형 SUV', '준중형', '준중형 SUV', '중형', '중형 SUV', '중형 RV', '중형 픽업', '준대형', '준대형 SUV', '대형', '대형 SUV', '대형 RV', '소형화물', '승합', '수입'] },
       // ── 스펙(등록증) ──
       { key: 'year', label: '연식', type: 'text', ocrFrom: 'car_year_month' },
-      { key: 'fuel_type', label: '연료', type: 'select', options: ['가솔린', '디젤', 'LPG', '하이브리드', '전기', '수소'], ocrFrom: 'fuel_type' },
+      { key: 'fuel_type', label: '연료', type: 'select', options: [...FUEL_TYPES], ocrFrom: 'fuel_type' },
       { key: 'mileage', label: '주행거리(km)', type: 'number', ocrFrom: 'mileage' },
       { key: 'accident_history', label: '사고여부', type: 'select', options: ['무사고', '단순수리', '사고이력', '전손이력'], manual: true, note: '차량 상태·이력' },
       { key: 'drive_type', label: '구동', type: 'select', options: ['전륜(FF)', '후륜(FR)', '4륜(AWD)', '4륜(4WD)'] },
       { key: 'seats', label: '인승', type: 'number', ocrFrom: 'seats' },
       { key: 'engine_cc', label: '배기량(cc)', type: 'number', ocrFrom: 'displacement' },
-      { key: 'ext_color', label: '외장색', type: 'text' },
-      { key: 'int_color', label: '내장색', type: 'text' },
+      { key: 'ext_color', label: '외부색상', type: 'select', options: [...EXT_COLORS], manual: true },
+      { key: 'int_color', label: '내부색상', type: 'select', options: [...INT_COLORS], manual: true },
       { key: 'usage', label: '용도', type: 'select', options: ['자가용', '영업용', '관용'], ocrFrom: 'usage_type' },
       { key: 'first_registration_date', label: '최초등록일', type: 'date', ocrFrom: 'first_registration_date' },
       { key: 'vin', label: '차대번호', type: 'text', ocrFrom: 'vin', manual: true, note: '관리자 전용' },
@@ -75,6 +84,8 @@ export const ENTITIES: Record<string, Entity> = {
       { key: 'location', label: '위치', type: 'text', manual: true, note: '관리자 전용' },
       // ── 사진(product-photos.js 정규화 소스) ──
       { key: 'image_urls', label: '매물사진', type: 'text', note: '배열/멀티키(images·photos·image_url)' },
+      { key: 'photos', label: '업로드 사진', type: 'text', note: '배열 · [0]=대표' },
+      { key: 'interior_photo', label: '실내사진 URL', type: 'text', note: 'photos 중 실내로 지정한 URL' },
       { key: 'photo_link', label: '사진 링크', type: 'text', manual: true, note: '외부 링크(Drive/스크래핑)' },
       { key: 'doc_images', label: '서류사진', type: 'text', manual: true, note: '관리자 · 등록증' },
       // ── 차종마스터 · 표준옵션 ──
@@ -83,7 +94,8 @@ export const ENTITIES: Record<string, Entity> = {
       { key: 'provider_name', label: '공급사명', type: 'text', note: '엑셀·검색 표기' },
       // ── 심사 표기 파생 ──
       { key: 'review_status', label: '심사여부(원본)', type: 'text', note: 'screening_criteria로 통합표기·검색' },
-      { key: 'deposit_free', label: '무보증 가능', type: 'select', options: ['예', '아니오'], manual: true, note: '무보증 뱃지' },
+      { key: 'deposit_free', label: '무보증 가능', type: 'select', options: ['예', '아니오'], manual: true, note: '혜택 MetaIcon' },
+      { key: 'event_tags', label: '이벤트 뱃지', type: 'chips', manual: true, max: MAX_PROMO_BADGES, options: [...PROMO_BADGES], note: '썸네일 좌상 최대 2 · 수수료+=추가수수료면제' },
       // ── 등록증 상세(관리자) ──
       { key: 'transmission', label: '변속기', type: 'select', options: ['자동', '수동', 'CVT', 'DCT', '세미오토'] },
       { key: 'vehicle_age_expiry_date', label: '차령만료일', type: 'date', manual: true, note: '관리자 전용' },
@@ -101,6 +113,7 @@ export const ENTITIES: Record<string, Entity> = {
     fields: [
       { key: 'policy_code', label: '정책코드', type: 'text', required: true, manual: true },
       { key: 'policy_name', label: '정책명', type: 'text', manual: true },
+      { key: 'provider_company_code', label: '공급사코드', type: 'text', manual: true, note: '비우면 공용(전 공급사 연결 가능). 채우면 해당 공급사 전용' },
       { key: 'policy_type', label: '정책유형', type: 'text', manual: true },
       { key: 'screening_criteria', label: '심사기준', type: 'text', manual: true, note: '신용무관/신용조회/저신용 → 무심사·심사필요 판정' },
       { key: 'credit_grade', label: '신용등급', type: 'text', manual: true },
@@ -159,6 +172,9 @@ export const ENTITIES: Record<string, Entity> = {
       { key: 'unread_for_agent', label: '영업자 안읽음', type: 'number' },
       { key: 'unread_for_provider', label: '공급사 안읽음', type: 'number' },
       { key: 'unread_for_admin', label: '관리자 안읽음', type: 'number' },
+      { key: 'last_read_at_agent', label: '영업자 열람시각', type: 'number' },
+      { key: 'last_read_at_provider', label: '공급사 열람시각', type: 'number' },
+      { key: 'last_read_at_admin', label: '관리자 열람시각', type: 'number' },
       { key: 'last_message', label: '마지막메시지', type: 'text' },
       { key: 'last_message_at', label: '마지막시각', type: 'number' },
       { key: 'last_sender_role', label: '마지막발신 역할', type: 'text' },
@@ -178,8 +194,11 @@ export const ENTITIES: Record<string, Entity> = {
       { key: 'sender_code', label: '발신코드', type: 'text' },
       { key: 'sender_name', label: '발신자', type: 'text' },
       { key: 'created_at', label: '발신시각', type: 'number' },
+      { key: 'room_id', label: '방ID', type: 'text' },
       { key: 'image_url', label: '이미지', type: 'text' },
       { key: 'file_url', label: '파일', type: 'text' },
+      { key: 'file_name', label: '파일명', type: 'text' },
+      { key: 'channel', label: '채널', type: 'select', options: ['간단', '정식'], note: '간단=상세 간단문의 섹션 / 정식=계약문의 채팅. 간단은 양쪽 노출, 정식은 계약문의만' },
     ],
   },
 
@@ -242,6 +261,7 @@ export const ENTITIES: Record<string, Entity> = {
       { key: 'agent_docs_submitted', label: '서류제출', type: 'select', options: ['yes'], manual: true },
       { key: 'provider_docs_review', label: '서류확인', type: 'select', options: ['승인', '부결'], manual: true },
       { key: 'agent_balance_paid', label: '계약금입금', type: 'select', options: ['yes'], manual: true },
+      { key: 'agent_final_paid', label: '잔금입금', type: 'select', options: ['yes'], manual: true },
       { key: 'provider_agreement_sent', label: '약정발송', type: 'select', options: ['yes'], manual: true },
       { key: 'provider_agreement_done', label: '약정작성완료(agent)', type: 'select', options: ['yes'], manual: true },
       { key: 'provider_balance_confirmed', label: '잔금확인', type: 'select', options: ['yes'], manual: true },
@@ -258,6 +278,8 @@ export const ENTITIES: Record<string, Entity> = {
       { key: 'sign_signed_at', label: '서명시각', type: 'number' },
       { key: 'sign_signature', label: '서명 이미지', type: 'text', note: 'data URL' },
       { key: 'sign_consents', label: '동의 항목', type: 'text', note: '콤마 구분' },
+      { key: 'contract_draft', label: '계약서 초안 JSON', type: 'text', manual: true, note: '템플릿 setData 스냅샷' },
+      { key: 'sign_draft_at', label: '초안 저장시각', type: 'number' },
       { key: 'memo_agent', label: '영업자메모', type: 'text', manual: true },
       { key: 'memo_provider', label: '공급사메모', type: 'text', manual: true },
       { key: 'memo_admin', label: '관리자메모', type: 'text', manual: true },
@@ -285,14 +307,17 @@ export const ENTITIES: Record<string, Entity> = {
     key: 'partner', label: '파트너', source: '내부 등록', idFrom: 'partner_code',
     fields: [
       { key: 'partner_code', label: '파트너코드', type: 'text', required: true, manual: true, note: '공급사=provider_company_code와 매칭' },
-      { key: 'name', label: '상호/이름', type: 'text', required: true, manual: true },
+      { key: 'name', label: '상호/이름', type: 'text', required: true, manual: true, note: '정식 상호(풀네임)' },
+      { key: 'alias', label: '별칭', type: 'text', manual: true, note: 'UI 표기. 비우면 주식회사·렌트카·렌터카·모빌리티 자동 제거' },
       { key: 'partner_type', label: '유형', type: 'select', options: ['공급사', '영업채널'], manual: true },
       { key: 'fee_rate', label: '공급사 수수료율(0~1)', type: 'number', manual: true, note: 'R1 공급사→프리패스: 정산 fee = 월대여료×이 값. 미설정 시 기본 0.1' },
       { key: 'contact', label: '담당/연락처', type: 'text', manual: true },
       // ── 쉽게 올리고: 렌트사 자체 구글시트 연동(ERP 안 써도 자기 시트만 관리하면 매물화) ──
-      { key: 'sheet_url', label: '구글시트 URL', type: 'text', manual: true, note: '렌트사 자체 재고 시트' },
-      { key: 'sheet_tab', label: '시트 탭', type: 'text', manual: true },
-      { key: 'mapping_profile', label: '컬럼 매핑 프로필', type: 'text', manual: true, note: '렌트사별 컬럼→프리패스 표준 필드 매핑(규격화)' },
+      { key: 'sheet_url', label: '구글시트 URL', type: 'text', manual: true, note: '공급사 고유 재고 시트' },
+      { key: 'sheet_tab', label: '시트 gid', type: 'text', manual: true, note: '탭 gid(숫자). URL에 gid 있으면 생략 가능' },
+      { key: 'header_row', label: '헤더 행(0부터)', type: 'number', manual: true, note: '위쪽 안내행 스킵' },
+      { key: 'adapter_id', label: '시트 어댑터', type: 'select', options: ['generic', 'autoplus'], manual: true, note: '기본 generic=헤더학습. 병적 양식만 autoplus' },
+      { key: 'mapping_profile', label: '컬럼 매핑 프로필', type: 'text', manual: true, note: '컬럼→표준 필드 매핑(학습)' },
       { key: 'last_synced_at', label: '최근 동기화', type: 'number' },
     ],
   },
@@ -370,7 +395,7 @@ export const ENTITIES: Record<string, Entity> = {
       { key: 'rent_month', label: '대여기간(개월)', type: 'number' },
       { key: 'rent_amount', label: '월대여료(원)', type: 'number', manual: true },
       { key: 'deposit_amount', label: '보증금(원)', type: 'number', manual: true },
-      { key: 'credit_display', label: '심사표기', type: 'select', options: ['무심사', '소득확인'], manual: true },
+      { key: 'credit_display', label: '심사표기', type: 'select', options: ['무심사', '소득확'], manual: true },
       { key: 'driver_age', label: '가능연령', type: 'text' },
       { key: 'annual_mileage', label: '약정주행', type: 'text' },
       { key: 'insurance_summary', label: '보험요약', type: 'text' },
@@ -384,6 +409,29 @@ export const ENTITIES: Record<string, Entity> = {
     ],
   },
 
+  /* ══════════════ 관리자 월정산서(admin_settlement) — VAT·청구/지급. 건별 settlement와 분리 ══════════════ */
+  admin_settlement: {
+    key: 'admin_settlement', label: '월정산서', source: '관리자 작성', idFrom: 'admin_settlement_code',
+    fields: [
+      { key: 'admin_settlement_code', label: '정산서코드', type: 'text', required: true },
+      { key: 'settle_month', label: '정산월', type: 'text', manual: true },
+      { key: 'contract_code', label: '계약번호', type: 'text', manual: true },
+      { key: 'settle_status', label: '상태', type: 'select', options: ['계약완료', '정산완료', '진행', '보류', '취소', '환수'], manual: true },
+      { key: 'provider_name', label: '공급사', type: 'text', manual: true },
+      { key: 'car_number', label: '차량번호', type: 'text', manual: true },
+      { key: 'customer_name', label: '고객명', type: 'text', manual: true },
+      { key: 'sale_fee', label: '판매수수료', type: 'number', manual: true },
+      { key: 'provider_incentive', label: '공급 인센티브', type: 'number', manual: true },
+      { key: 'provider_bill', label: '청구금액', type: 'number', manual: true },
+      { key: 'delivery_fee', label: '출고수수료', type: 'number', manual: true },
+      { key: 'agency_incentive', label: '에이전시 인센티브', type: 'number', manual: true },
+      { key: 'doc_agency_fee', label: '대행료', type: 'number', manual: true },
+      { key: 'agency_pay', label: '지급액', type: 'number', manual: true },
+      { key: 'monthly_profit', label: '당월수익', type: 'number' },
+      { key: 'source_settlement_code', label: '원천 정산코드', type: 'text' },
+    ],
+  },
+
   /* ══════════════ 감사로그(audit_log) — 전 write 자동 기록(store 훅). 누가·언제·무엇(before/after) ══════════════ */
   audit_log: {
     key: 'audit_log', label: '감사로그', source: 'store 자동', idFrom: '_key',
@@ -391,6 +439,8 @@ export const ENTITIES: Record<string, Entity> = {
       { key: 'entity', label: '대상엔티티', type: 'text' },
       { key: 'target_key', label: '대상키', type: 'text' },
       { key: 'action', label: '동작', type: 'text' },
+      { key: 'summary', label: '요약', type: 'text' },
+      { key: 'room_id', label: '채팅방', type: 'text' },
       { key: 'actor_role', label: '역할', type: 'text' },
       { key: 'actor_name', label: '행위자', type: 'text' },
       { key: 'at', label: '시각', type: 'number' },

@@ -1,66 +1,229 @@
 'use client';
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { C } from '@/components/ui';
+import { useEffect, useMemo, useState } from 'react';
+import { C, R, Select, Input } from '@/components/ui';
+import { useIsMobile } from '@/lib/use-mobile';
+import {
+  masterVariantLabel,
+  masterVariantOptionLabel,
+  variantSeatsDiffer,
+  realMasterTrims,
+  resolveExactMasterPath,
+  masterMakerGroups,
+  masterModels,
+  masterSubs,
+  type MasterEntry,
+} from '@/lib/domain/vehicle-master-match';
+import { loadVehicleMaster, peekVehicleMaster } from '@/lib/domain/vehicle-master-load';
 
-// 차종 마스터 5단계 picker — 제조사→모델→세부모델→파워트레인→세부트림. 선택 시 스펙 자동채움(쉽게 등록).
-// 소스 = /data/vehicle-master.json (엔카 1805 세부모델, vehicle-master/dist/match-index.json 번들).
-type Variant = { label: string; fuel: string; displacement_l: number | null; turbo: boolean; drivetrain: string | null; seat: number | null; battery_kwh: number | null; trims: string[] };
-type Entry = { id: string; maker: string; model: string; sub_model: string; gen_code: string; origin: string; year_start: string; year_end: string; variants: Variant[] };
-export type VehiclePick = { maker: string; model: string; sub_model: string; gen_code: string; variant: string; fuel: string; engine_cc: string; seats: string; drive_type: string; trim_name: string };
+// 차종 마스터: 제조사→모델→세부모델→파워트레인→세부트림 → 추가표기(자유) → (페이지)선택옵션.
+// 마스터 경로만 드롭다운. 추가표기 = 규격 밖 텍스트(런칭·휠 등).
+type Entry = MasterEntry;
+export type VehiclePick = {
+  maker: string; model: string; sub_model: string; catalog_id: string;
+  variant: string; trim_name: string; trim_extra: string;
+  fuel_type: string; engine_cc: string; seats: string; drive_type: string;
+  gen_year_start?: string; gen_year_end?: string;
+};
 
-const sel: CSSProperties = { height: 30, padding: '0 6px', border: `1px solid ${C.line}`, borderRadius: 4, fontSize: 12, background: '#fff', minWidth: 0 };
+export type VehicleMasterValue = {
+  maker?: string; model?: string; sub_model?: string;
+  catalog_id?: string; variant?: string; trim_name?: string; trim_extra?: string;
+};
 
-export function VehicleMasterPicker({ onPick }: { onPick: (v: VehiclePick) => void }) {
-  const [entries, setEntries] = useState<Entry[] | null>(null);
-  const [maker, setMaker] = useState(''); const [model, setModel] = useState(''); const [smId, setSmId] = useState(''); const [vIdx, setVIdx] = useState(-1); const [trim, setTrim] = useState('');
-  useEffect(() => { fetch('/data/vehicle-master.json').then((r) => r.json()).then((d) => setEntries(d.entries as Entry[])).catch(() => setEntries([])); }, []);
+export function VehicleMasterPicker({
+  value,
+  onPick,
+}: {
+  value?: VehicleMasterValue | null;
+  onPick: (v: VehiclePick) => void;
+}) {
+  const [entries, setEntries] = useState<Entry[] | null>(() => peekVehicleMaster());
+  const [maker, setMaker] = useState('');
+  const [model, setModel] = useState('');
+  const [smId, setSmId] = useState('');
+  const [vIdx, setVIdx] = useState(-1);
+  const [trim, setTrim] = useState('');
+  const [extra, setExtra] = useState('');
+  const [pathOk, setPathOk] = useState<boolean | null>(null);
 
-  // 제조사 = 국산/수입 구분(마스터 origin). 국산 먼저. 같은 제조사 혼재 시 국산 우선.
-  const makerGroups = useMemo(() => {
-    if (!entries) return [] as { origin: string; makers: string[] }[];
-    const isDom = new Map<string, boolean>();
-    for (const e of entries) isDom.set(e.maker, (isDom.get(e.maker) || false) || e.origin === '국산');
-    const dom: string[] = [], imp: string[] = [];
-    for (const [m, d] of isDom) (d ? dom : imp).push(m);
-    return [{ origin: '국산', makers: dom }, { origin: '수입', makers: imp }];
-  }, [entries]);
-  const models = useMemo(() => (entries && maker ? Array.from(new Set(entries.filter((e) => e.maker === maker).map((e) => e.model))) : []), [entries, maker]);
-  const subs = useMemo(() => (entries && maker && model ? entries.filter((e) => e.maker === maker && e.model === model) : []), [entries, maker, model]);
+  useEffect(() => {
+    loadVehicleMaster()
+      .then((entries) => setEntries(entries))
+      .catch(() => setEntries([]));
+  }, []);
+
+  useEffect(() => {
+    if (!entries?.length) return;
+    setExtra(String(value?.trim_extra ?? '').trim());
+    if (!value || !(value.maker || value.model || value.sub_model || value.catalog_id)) {
+      setMaker(''); setModel(''); setSmId(''); setVIdx(-1); setTrim('');
+      setPathOk(null);
+      return;
+    }
+    const path = resolveExactMasterPath(entries, value);
+    if (path) {
+      setMaker(path.entry.maker);
+      setModel(path.entry.model);
+      setSmId(path.entry.id);
+      setVIdx(path.variantIndex);
+      setTrim(path.trim);
+      setPathOk(true);
+      return;
+    }
+    // 완전경로 실패해도 제조사·모델·세부가 마스터에 있으면 드롭다운은 유지(없는 차로 싹 지우지 않음).
+    const mk = String(value.maker || '').trim();
+    const md = String(value.model || '').trim();
+    const sb = String(value.sub_model || '').trim();
+    const hasMaker = !!mk && entries.some((e) => e.maker === mk);
+    const hasModel = hasMaker && !!md && entries.some((e) => e.maker === mk && e.model === md);
+    const subHit = hasModel && sb
+      ? entries.find((e) => e.maker === mk && e.model === md && e.sub_model === sb)
+      : undefined;
+    setMaker(hasMaker ? mk : '');
+    setModel(hasModel ? md : '');
+    setSmId(subHit ? subHit.id : '');
+    setVIdx(-1);
+    setTrim('');
+    setPathOk(false);
+  }, [
+    entries,
+    value?.maker, value?.model, value?.sub_model,
+    value?.catalog_id, value?.variant, value?.trim_name, value?.trim_extra,
+  ]);
+
+  const makerGroups = useMemo(() => (entries ? masterMakerGroups(entries) : []), [entries]);
+  const models = useMemo(() => (entries ? masterModels(entries, maker) : []), [entries, maker]);
+  const subs = useMemo(() => (entries ? masterSubs(entries, maker, model) : []), [entries, maker, model]);
   const sub = subs.find((e) => e.id === smId) || null;
   const variants = sub ? sub.variants : [];
   const variant = vIdx >= 0 ? variants[vIdx] : null;
-  const trims = variant ? variant.trims : [];
+  const trims = variant ? realMasterTrims(variant.trims) : [];
+  const noTrimGrade = !!variant && trims.length === 0;
+  const showSeat = variantSeatsDiffer(variants);
 
-  const commit = (t: string) => {
-    setTrim(t);
-    if (!sub || !variant) return;
-    onPick({
-      maker, model, sub_model: sub.sub_model, gen_code: sub.gen_code, variant: variant.label,
-      fuel: variant.fuel || '', engine_cc: variant.displacement_l ? String(Math.round(variant.displacement_l * 1000)) : '',
-      seats: variant.seat ? String(variant.seat) : '', drive_type: variant.drivetrain || '', trim_name: t,
-    });
+  const buildPick = (t: string, ex: string): VehiclePick | null => {
+    if (!sub || !variant) return null;
+    return {
+      maker, model, sub_model: sub.sub_model, catalog_id: sub.gen_code,
+      variant: masterVariantLabel(variant), trim_name: t, trim_extra: ex,
+      fuel_type: variant.fuel || '',
+      engine_cc: variant.displacement_l != null && variant.displacement_l > 0
+        ? String(Math.round(variant.displacement_l * 1000))
+        : '',
+      seats: showSeat && variant.seat != null ? String(variant.seat) : '',
+      drive_type: variant.drivetrain || '',
+      gen_year_start: sub.year_start || undefined,
+      gen_year_end: sub.year_end || undefined,
+    };
   };
 
+  const emit = (t: string) => {
+    setTrim(t);
+    const pick = buildPick(t, extra);
+    if (!pick) return;
+    onPick(pick);
+    setPathOk(true);
+  };
+
+  const commitExtra = (ex: string) => {
+    setExtra(ex);
+    if (!variant) return;
+    const pick = buildPick(trim, ex);
+    if (!pick) return;
+    onPick(pick);
+  };
+
+  const pickVariant = (v: string) => {
+    const idx = v === '' ? -1 : Number(v);
+    setVIdx(idx);
+    setTrim('');
+    setPathOk(null);
+    if (idx < 0 || !sub) return;
+    const vv = variants[idx];
+    if (!vv) return;
+    // 세부트림 후보가 있어도 미선택('') 가능 — 파워트레인만으로 규격 확정(베뉴 프리미엄 강제 금지)
+    const seatShow = variantSeatsDiffer(variants);
+    onPick({
+      maker, model, sub_model: sub.sub_model, catalog_id: sub.gen_code,
+      variant: masterVariantLabel(vv), trim_name: '', trim_extra: extra,
+      fuel_type: vv.fuel || '',
+      engine_cc: vv.displacement_l != null && vv.displacement_l > 0
+        ? String(Math.round(vv.displacement_l * 1000))
+        : '',
+      seats: seatShow && vv.seat != null ? String(vv.seat) : '',
+      drive_type: vv.drivetrain || '',
+      gen_year_start: sub.year_start || undefined,
+      gen_year_end: sub.year_end || undefined,
+    });
+    setPathOk(true);
+  };
+
+  const mobile = useIsMobile();
+
   return (
-    <div style={{ border: `1px solid ${C.line}`, borderRadius: 4, background: '#f8fbff', padding: '10px 12px' }}>
-      <div style={{ fontSize: 12, fontWeight: 800, color: C.brand, marginBottom: 7 }}>차종 마스터에서 채우기 {entries === null && <span style={{ color: C.faint, fontWeight: 400 }}>· 불러오는 중…</span>}</div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(104px, 1fr))', gap: 6 }}>
-        <select style={sel} value={maker} onChange={(e) => { setMaker(e.target.value); setModel(''); setSmId(''); setVIdx(-1); setTrim(''); }}>
-          <option value="">제조사</option>{makerGroups.map((g) => g.makers.length ? <optgroup key={g.origin} label={`── ${g.origin} ──`}>{g.makers.map((m) => <option key={m} value={m}>{m}</option>)}</optgroup> : null)}
-        </select>
-        <select style={sel} value={model} disabled={!maker} onChange={(e) => { setModel(e.target.value); setSmId(''); setVIdx(-1); setTrim(''); }}>
-          <option value="">모델</option>{models.map((m) => <option key={m} value={m}>{m}</option>)}
-        </select>
-        <select style={sel} value={smId} disabled={!model} onChange={(e) => { setSmId(e.target.value); setVIdx(-1); setTrim(''); }}>
-          <option value="">세부모델</option>{subs.map((s) => <option key={s.id} value={s.id}>{s.sub_model}{s.year_start ? ` (${s.year_start}~${s.year_end})` : ''}</option>)}
-        </select>
-        <select style={sel} value={vIdx} disabled={!sub} onChange={(e) => { setVIdx(Number(e.target.value)); setTrim(''); }}>
-          <option value={-1}>파워트레인</option>{variants.map((v, i) => <option key={i} value={i}>{v.label}</option>)}
-        </select>
-        <select style={sel} value={trim} disabled={!variant} onChange={(e) => commit(e.target.value)}>
-          <option value="">세부트림</option>{trims.map((t) => <option key={t} value={t}>{t}</option>)}
-        </select>
+    <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: C.selected, padding: '10px 12px' }}>
+      <div style={{ fontSize: 12, fontWeight: 800, color: C.brand, marginBottom: 7 }}>
+        차종 마스터 규격{' '}
+        {entries === null && <span style={{ color: C.faint, fontWeight: 400 }}>· 불러오는 중…</span>}
+        {entries && entries.length === 0 && <span style={{ color: C.danger, fontWeight: 400 }}>· 마스터 로드 실패</span>}
+        {entries && entries.length > 0 && pathOk === true && (
+          <span style={{ color: C.ok, fontWeight: 600 }}>
+            · 규격 일치{noTrimGrade ? ' (세부트림 없음)' : (trim ? '' : ' (세부트림 미선택)')}
+          </span>
+        )}
+        {entries && entries.length > 0 && pathOk === false && (
+          <span style={{ color: C.danger, fontWeight: 600 }}>· 마스터에 없는 값 — 아래에서 규격 선택</span>
+        )}
+        {entries && entries.length > 0 && pathOk == null && (
+          <span style={{ color: C.faint, fontWeight: 400 }}>· {entries.length.toLocaleString()}세대</span>
+        )}
       </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 6 }}>
+        <Select
+          full
+          placeholder="제조사"
+          value={maker}
+          onChange={(v) => { setMaker(v); setModel(''); setSmId(''); setVIdx(-1); setTrim(''); setPathOk(null); }}
+          groups={makerGroups.filter((g) => g.makers.length).map((g) => ({
+            label: `── ${g.origin} ──`,
+            options: g.makers,
+          }))}
+        />
+        <Select full placeholder="모델" value={model} disabled={!maker} onChange={(v) => { setModel(v); setSmId(''); setVIdx(-1); setTrim(''); setPathOk(null); }} options={models} />
+        <Select full placeholder="세부모델" value={smId} disabled={!model} onChange={(v) => { setSmId(v); setVIdx(-1); setTrim(''); setPathOk(null); }} options={subs.map((s) => ({ value: s.id, label: `${s.sub_model}${s.year_start ? ` (${s.year_start}~${s.year_end})` : ''}` }))} />
+        <Select full placeholder="파워트레인" value={vIdx < 0 ? '' : String(vIdx)} disabled={!sub} onChange={pickVariant}
+          options={variants.map((v, i) => ({
+            value: String(i),
+            label: masterVariantOptionLabel(v, variants),
+          }))} />
+        <Select
+          full
+          placeholder={noTrimGrade ? '세부트림 없음' : '세부트림 · 미선택'}
+          value={trim}
+          disabled={!variant || noTrimGrade}
+          onChange={emit}
+          options={trims}
+        />
+      </div>
+      <div style={{ marginTop: 6 }}>
+        <div style={{ fontSize: 10.5, color: C.mute, marginBottom: 3 }}>추가표기 · 마스터 밖 자유입력 (런칭·휠·패키지 등)</div>
+        <Input
+          full
+          size="sm"
+          placeholder={variant ? '예: 20인치+ECS 런칭' : '파워트레인 선택 후 입력'}
+          value={extra}
+          disabled={!variant}
+          onChange={commitExtra}
+        />
+      </div>
+      {variant && (
+        <div style={{ marginTop: 6, fontSize: 11, color: C.mute }}>
+          마스터 · {sub?.sub_model} · {masterVariantLabel(variant)}
+          {variant.drivetrain ? ` · ${variant.drivetrain}` : ''}
+          {noTrimGrade ? ' · 세부트림 없음' : (trim ? ` · ${trim}` : ' · 세부트림 미선택')}
+          {extra ? ` · +${extra}` : ''}
+        </div>
+      )}
     </div>
   );
 }

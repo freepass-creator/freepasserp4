@@ -1,11 +1,12 @@
 import type { MetadataRoute } from 'next';
+import { BRAND } from '@/lib/brand';
 
-// PWA 매니페스트 — 화이트라벨. 자사 브랜드 노출 금지, 중립명(배포 시 테넌트별 대체).
+// PWA 매니페스트 — 플랫폼 BRAND(운영자 앱). 손님 공개페이지는 화이트라벨 오버라이드.
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: '차량 렌탈 검색',
-    short_name: '차량검색',
-    description: '조건별 차량 검색 · 견적.',
+    name: BRAND,
+    short_name: BRAND,
+    description: `${BRAND} — 렌터카 중개 플랫폼.`,
     start_url: '/',
     display: 'standalone',
     background_color: '#fafafa',

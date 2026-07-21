@@ -195,8 +195,10 @@ const LOGIN_CSS = `
 .fp-login .login-page{min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;padding:40px 16px;padding-top:max(40px,env(safe-area-inset-top));padding-bottom:max(32px,env(safe-area-inset-bottom));background:#fff;-webkit-user-select:none;user-select:none;font-size:13px;line-height:1.5;}
 .fp-login .login-page,.fp-login .login-page *{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,system-ui,'Segoe UI',sans-serif;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;}
 .fp-login .login-page input{-webkit-user-select:text;user-select:text;}
-/* 워드마크 = 명함 CI: freepass(600·#1B2A4A) + erp.com(300·#555) — 파란 trailing 도트 금지 */
-.fp-login .login-brand{font-size:25px;letter-spacing:-0.04em;display:flex;align-items:baseline;justify-content:center;text-transform:lowercase;font-family:'Exo 2','Pretendard',sans-serif;line-height:1;}
+/* 워드마크 = 명함 CI(Exo 2): freepass(600·#1B2A4A) + erp.com(300·#555).
+   .login-page * Pretendard 덮어쓰기보다 specificity 높게 — 자식에도 Exo 2 강제 */
+.fp-login .login-brand,.fp-login .login-brand span{font-size:25px;letter-spacing:-0.04em;text-transform:lowercase;font-family:'Exo 2','Pretendard',sans-serif;line-height:1;}
+.fp-login .login-brand{display:flex;align-items:baseline;justify-content:center;}
 .fp-login .login-brand-main{font-weight:600;color:#1B2A4A;}
 .fp-login .login-brand-sub{font-weight:300;color:#555555;}
 .fp-login .login-card{position:relative;width:100%;max-width:400px;background:#fff;border:none;border-radius:2px;padding:40px 32px;box-shadow:0 2px 10px rgba(0,0,0,.04),0 10px 30px rgba(0,0,0,.06);display:grid;gap:24px;overflow:hidden;margin:0;}
@@ -229,7 +231,8 @@ const LOGIN_CSS = `
 .fp-login .biz-no-match.is-miss{color:#d93025;}
 @media (max-width:768px){
 .fp-login .login-page{align-items:stretch;padding:max(24px,env(safe-area-inset-top)) 0 max(24px,env(safe-area-inset-bottom));gap:20px;}
-.fp-login .login-brand{font-size:22px;text-align:center;padding:0 24px;}
+.fp-login .login-brand,.fp-login .login-brand span{font-size:22px;text-align:center;}
+.fp-login .login-brand{padding:0 24px;}
 .fp-login .login-card{box-shadow:none;border:0;border-radius:0;padding:0 24px;gap:20px;max-width:none;}
 .fp-login .login-field input{height:48px;font-size:16px;border-radius:4px;padding:0 16px;}
 .fp-login .login-field label{font-size:13px;}

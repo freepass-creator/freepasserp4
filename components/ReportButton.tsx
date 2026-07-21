@@ -2,11 +2,14 @@
 import { useState } from 'react';
 import { submitReport, REPORT_REASONS } from '@/lib/domain/report';
 import { toast } from '@/components/Toaster';
-import { Btn, C } from '@/components/ui';
+import { Btn, C, R, Select, Textarea } from '@/components/ui';
 import { type EntityRecord } from '@/lib/intake/entities';
+import { useIsMobile } from '@/lib/use-mobile';
 
 // 이상매물 제보 — 영업자가 매물 보다 이상하면 클릭. 공급사·관리자에게 전달(관리자 확인처=/data-check).
-export function ReportButton({ p, compact }: { p: EntityRecord; compact?: boolean }) {
+// 본문 가로폭에 맞춤(maxWidth 제한·가운데 딸랑 금지).
+export function ReportButton({ p }: { p: EntityRecord }) {
+  const mobile = useIsMobile();
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState<string>(REPORT_REASONS[0]);
   const [memo, setMemo] = useState('');
@@ -19,19 +22,29 @@ export function ReportButton({ p, compact }: { p: EntityRecord; compact?: boolea
     finally { setBusy(false); }
   };
 
-  if (!open) return (
-    <button onClick={() => setOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: compact ? 11 : 12, color: C.mute, background: 'none', border: `1px solid ${C.line}`, borderRadius: 4, padding: compact ? '2px 8px' : '4px 10px', cursor: 'pointer' }}>
-      ⚑ 검수 요청
-    </button>
-  );
-  const inp: React.CSSProperties = { width: '100%', padding: '6px 8px', border: `1px solid ${C.line}`, borderRadius: 4, fontSize: 12.5, boxSizing: 'border-box' };
+  if (!open) {
+    return (
+      <div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+        <span style={{ fontSize: 12, color: C.faint }}>매물 정보·사진이 이상하면 검수를 요청하세요.</span>
+        <Btn variant="ghost" size="sm" onClick={() => setOpen(true)}>⚑ 검수 요청</Btn>
+      </div>
+    );
+  }
+
   return (
-    <div style={{ border: `1px solid ${C.line}`, borderRadius: 6, background: '#fff7ed', padding: 10, display: 'flex', flexDirection: 'column', gap: 6, maxWidth: 340 }}>
-      <div style={{ fontSize: 12.5, fontWeight: 700, color: '#9a3412' }}>상품 검수 요청 <span style={{ fontWeight: 400, color: C.faint }}>· 공급사·관리자에게 전달</span></div>
-      <select value={reason} onChange={(e) => setReason(e.target.value)} style={inp}>
-        {REPORT_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
-      </select>
-      <textarea value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="상세 내용(선택) — 예: 사진이 다른 차량입니다" rows={2} style={{ ...inp, resize: 'vertical' }} />
+    <div style={{
+      width: '100%', boxSizing: 'border-box',
+      border: `1px solid ${C.line}`, borderRadius: R, background: C.warnBg,
+      padding: mobile ? 12 : 12, display: 'flex', flexDirection: 'column', gap: 8,
+    }}>
+      <div style={{ fontSize: 12.5, fontWeight: 700, color: C.warn }}>
+        상품 검수 요청
+        <span style={{ fontWeight: 400, color: C.mute }}> · 공급사·관리자에게 전달</span>
+      </div>
+      <Select full value={reason} onChange={setReason} options={[...REPORT_REASONS]} />
+      <Textarea full rows={2} value={memo} onChange={setMemo}
+        placeholder="상세 내용(선택) — 예: 사진이 다른 차량입니다"
+        style={{ background: '#fff' }} /> {/* 경고 배경 위 = 흰 입력면으로 대비 */}
       <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
         <Btn size="sm" variant="ghost" onClick={() => setOpen(false)} disabled={busy}>취소</Btn>
         <Btn size="sm" onClick={submit} disabled={busy}>{busy ? '접수 중…' : '요청 보내기'}</Btn>

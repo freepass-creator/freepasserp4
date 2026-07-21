@@ -8,12 +8,14 @@
  *   · 조인 enrich: product._policy(policies 조인), settlement.contract_date(contracts 조인), room.vehicle_name 합성.
  * 스키마 매핑 근거 = 워크플로 wgt6khvjq(6도메인 매핑→v4 실사용 대조검증→합성).
  */
-import { ref, get, update as dbUpdate } from 'firebase/database';
-import { getRtdb } from './client';
+import { ref, get, query, orderByChild, equalTo, update as dbUpdate, type DataSnapshot } from 'firebase/database';
+import { getRtdb, getAuthClient } from './client';
 import { ENTITIES, type EntityRecord } from '../intake/entities';
 import { carYear } from '@/lib/domain/vehicle-master-match';
 import { currentActor } from '../session';
+import { getSession } from '../auth-session';
 import type { StoreAdapter, SaveResult } from '../store';
+import { buildAuditEntry, buildMasterSnapBulkEntry } from '@/lib/domain/audit';
 
 type Rec = Record<string, any>;
 
@@ -23,12 +25,12 @@ const stripUndef = (o: Rec): Rec => { const r: Rec = {}; for (const [k, v] of Ob
 // v4 엔티티키 → v3 RTDB 노드명
 const NODE: Record<string, string> = {
   product: 'products', policy: 'policies', partner: 'partners', user: 'users',
-  contract: 'contracts', room: 'rooms', message: 'messages', settlement: 'settlements', audit_log: 'audit_logs',
+  contract: 'contracts', room: 'rooms', message: 'messages', settlement: 'settlements', admin_settlement: 'admin_settlements', audit_log: 'audit_logs',
 };
 const OVERLAY = 'v4'; // 쓰기 격리 루트
-// v3 라이브에서 당겨오는 엔티티 = 매물·회원·채팅(+매물 표시에 필요한 정책·공급사).
-//  계약·정산·감사는 v4 네이티브(오버레이만) — 새 생태계는 v3 레거시 계약/정산을 끌어오지 않는다(사용자 결정).
-const BRIDGE_FROM_V3 = new Set(['product', 'policy', 'partner', 'user', 'room', 'message']);
+// v3 라이브에서 당겨오는 엔티티 = 매물·회원·채팅·계약(+매물 표시에 필요한 정책·공급사).
+//  정산·감사는 v4 네이티브(오버레이만). 쓰기는 전부 v4/ 오버레이(v3 라이브 무변경).
+const BRIDGE_FROM_V3 = new Set(['product', 'policy', 'partner', 'user', 'room', 'message', 'contract']);
 
 // 카슝(=빌린카) 불러온 매물은 v4에서 제외 — 사용자 결정. 빌린카 = 공급사 RP021 / PT-0024(35대).
 //  브리지 read 단에서 걸러 v4 목록·상세서 안 보이게(v3 원본은 무변경).
@@ -79,7 +81,7 @@ function toV4(entity: string, childKey: string, rec: Rec, co: string, joinMap?: 
     }
     case 'policy': { const c = rec.policy_code || childKey; return { ...base, _key: String(c), policy_code: c } as EntityRecord; }
     case 'partner': { const c = rec.partner_code || childKey; return { ...base, _key: String(c), partner_code: c, name: rec.name || rec.partner_name || rec.company_name || c } as EntityRecord; }
-    case 'user': { const c = rec.uid || childKey; return { ...base, _key: String(c), uid: c, agent_channel_code: rec.agent_channel_code || rec.company_code || '', name: rec.name || rec.email || '' } as EntityRecord; }
+    case 'user': { const c = rec.uid || childKey; return { ...base, _key: String(c), uid: c, user_code: rec.user_code || c, agent_channel_code: rec.agent_channel_code || rec.company_code || '', name: rec.name || rec.email || '' } as EntityRecord; }
     case 'contract': { const c = rec.contract_code || childKey; return { ...base, _key: String(c), contract_code: c, attachments: attachmentsOf(rec) } as EntityRecord; }
     case 'room': return { ...base, _key: String(childKey), room_code: rec.room_code || childKey, car_number: rec.car_number || rec.vehicle_number || '', vehicle_name: rec.vehicle_name || [rec.maker, rec.model, rec.sub_model, rec.trim_name].filter(Boolean).join(' ') } as EntityRecord;
     case 'settlement': { const c = rec.settlement_code || childKey; return { ...base, _key: String(c), settlement_code: c, contract_date: rec.contract_date || (joinMap && joinMap[rec.contract_code]?.contract_date) || '' } as EntityRecord; }
@@ -92,22 +94,78 @@ export class RtdbAdapter implements StoreAdapter {
   private db() { const d = getRtdb(); if (!d) throw new Error('RTDB 미연결'); return d; }
 
   // message = 중첩 messages/{roomId}/{pushId} → flat + room_id 실체화. 오버레이는 flat v4/messages/{pushId}.
-  private async readMessages(co: string, overlay: boolean): Promise<EntityRecord[]> {
-    const val: Rec = (await get(ref(this.db(), overlay ? `${OVERLAY}/messages` : 'messages'))).val() || {};
+  // v3 rules = $room_id 단위 읽기만 허용 → roomIds 로 스코프 조회(통째 get 금지).
+  private async readMessages(co: string, overlay: boolean, roomIds: string[] = []): Promise<EntityRecord[]> {
     const out: EntityRecord[] = [];
     if (overlay) {
-      for (const [k, m] of Object.entries<any>(val)) if (m && typeof m === 'object') out.push({ ...m, _key: String(k), room_id: m.room_id, companyId: co } as EntityRecord);
-    } else {
-      for (const [roomId, msgs] of Object.entries<any>(val)) {
-        if (!msgs || typeof msgs !== 'object') continue;
-        for (const [pushId, m] of Object.entries<any>(msgs)) if (m && typeof m === 'object') out.push({ ...m, _key: String(pushId), room_id: m.room_id || roomId, companyId: co } as EntityRecord);
+      try {
+        const val: Rec = (await get(ref(this.db(), `${OVERLAY}/messages`))).val() || {};
+        for (const [k, m] of Object.entries<any>(val)) {
+          if (!m || typeof m !== 'object') continue;
+          if (roomIds.length && !roomIds.includes(String(m.room_id || ''))) continue;
+          out.push({ ...m, _key: String(k), room_id: m.room_id, companyId: co } as EntityRecord);
+        }
+      } catch (e) {
+        console.warn('RTDB v4/messages 읽기 실패:', (e as Error).message);
       }
+      return out;
     }
+    await Promise.all(roomIds.map(async (roomId) => {
+      try {
+        const val: Rec = (await get(ref(this.db(), `messages/${roomId}`))).val() || {};
+        for (const [pushId, m] of Object.entries<any>(val)) {
+          if (m && typeof m === 'object') out.push({ ...m, _key: String(pushId), room_id: m.room_id || roomId, companyId: co } as EntityRecord);
+        }
+      } catch { /* 권한 없는 방 스킵 */ }
+    }));
     return out;
   }
 
-  private async readNode(entity: string, co: string, overlay: boolean, joinMap?: Rec): Promise<EntityRecord[]> {
-    if (entity === 'message') return this.readMessages(co, overlay);
+  /** v3 rooms — rules가 query.orderByChild 스코프 요구. 통째 get 시 permission_denied → 빈목록. */
+  private async readRoomsLive(co: string): Promise<EntityRecord[]> {
+    const auth = getAuthClient()?.currentUser;
+    const sess = getSession();
+    const role = sess?.role || 'agent';
+    const db = this.db();
+    const out: EntityRecord[] = [];
+    const pushVal = (val: Rec | null) => {
+      if (!val) return;
+      for (const [childKey, rec] of Object.entries<any>(val)) {
+        if (rec && typeof rec === 'object') out.push(toV4('room', childKey, rec, co));
+      }
+    };
+    const take = (snap: DataSnapshot | null) => { if (snap) pushVal(snap.val()); };
+    try {
+      if (role === 'admin') {
+        take(await get(ref(db, 'rooms')));
+        return out;
+      }
+      if (!auth) return out;
+      if (role === 'provider') {
+        const company = sess?.company_code || sess?.code || '';
+        if (company) take(await get(query(ref(db, 'rooms'), orderByChild('provider_company_code'), equalTo(company))));
+        return out;
+      }
+      // agent: 사람(uid) + 채널(레거시·팀뷰) 병합 후 앱이 agent_code 로 재필터
+      const snaps = await Promise.allSettled([
+        get(query(ref(db, 'rooms'), orderByChild('agent_uid'), equalTo(auth.uid))),
+        sess?.agent_channel_code
+          ? get(query(ref(db, 'rooms'), orderByChild('agent_channel_code'), equalTo(sess.agent_channel_code)))
+          : Promise.resolve(null as DataSnapshot | null),
+      ]);
+      for (const s of snaps) {
+        if (s.status === 'fulfilled') take(s.value);
+      }
+    } catch (e) {
+      console.warn('RTDB rooms 스코프 조회 실패:', (e as Error).message);
+    }
+    const map = new Map(out.map((r) => [String(r._key), r]));
+    return [...map.values()];
+  }
+
+  private async readNode(entity: string, co: string, overlay: boolean, joinMap?: Rec, roomIds?: string[]): Promise<EntityRecord[]> {
+    if (entity === 'message') return this.readMessages(co, overlay, roomIds || []);
+    if (entity === 'room' && !overlay) return this.readRoomsLive(co);
     const node = NODE[entity] || entity;
     const val: Rec = (await get(ref(this.db(), overlay ? `${OVERLAY}/${node}` : node))).val() || {};
     const out: EntityRecord[] = [];
@@ -121,11 +179,19 @@ export class RtdbAdapter implements StoreAdapter {
       let joinMap: Rec | undefined;
       if (entity === 'product') joinMap = (await get(ref(this.db(), 'policies'))).val() || {};
       else if (entity === 'settlement') joinMap = (await get(ref(this.db(), `${OVERLAY}/contracts`))).val() || {};   // 정산은 v4 네이티브 → 계약도 v4 오버레이 참조
-      // 매물·회원·채팅(+정책·공급사)만 v3 라이브에서 당겨옴. 계약·정산·감사는 v4 오버레이만(v3 라이브 read 생략).
+      // 매물·회원·채팅·계약(+정책·공급사) = v3 라이브 ∪ 오버레이. 정산·감사 = 오버레이만.
       const bridge = BRIDGE_FROM_V3.has(entity);
+
+      // message = 방 목록 먼저 → roomId별 messages/$id (rules 스코프)
+      let roomIds: string[] = [];
+      if (entity === 'message' && bridge) {
+        const rooms = await this.merged('room', co);
+        roomIds = rooms.map((r) => String(r._key)).filter(Boolean);
+      }
+
       const [live, over] = await Promise.all([
-        bridge ? this.readNode(entity, co, false, joinMap).catch(() => [] as EntityRecord[]) : Promise.resolve([] as EntityRecord[]),
-        this.readNode(entity, co, true, joinMap).catch(() => [] as EntityRecord[]),
+        bridge ? this.readNode(entity, co, false, joinMap, roomIds).catch(() => [] as EntityRecord[]) : Promise.resolve([] as EntityRecord[]),
+        this.readNode(entity, co, true, joinMap, roomIds).catch(() => [] as EntityRecord[]),
       ]);
       const map = new Map<string, EntityRecord>();
       for (const r of live) map.set(String(r._key), r);
@@ -190,7 +256,9 @@ export class RtdbAdapter implements StoreAdapter {
       await dbUpdate(ref(this.db(), `${OVERLAY}/${node}`), multi);
       done += Math.min(CHUNK, patches.length - i);
     }
-    this.writeAudit(entity, co, `bulk:${done}`, 'update', null, { count: done } as EntityRecord);
+    const snapish = patches.some((p) => p.patch._snapped);
+    if (snapish && done) this.writeAuditRec(buildMasterSnapBulkEntry(co, patches, currentActor()));
+    else this.writeAudit(entity, co, `bulk:${done}`, 'update', null, { count: done } as EntityRecord);
     return done;
   }
   async remove(entity: string, co: string, key: string, reason = ''): Promise<void> {
@@ -200,16 +268,16 @@ export class RtdbAdapter implements StoreAdapter {
     await this.update(entity, co, key, { _deleted: false, deletedAt: null });
   }
 
-  // 전 write 감사 — v4/audit_logs 오버레이(ERP 30원칙). message·audit_log 자기제외. best-effort.
-  private writeAudit(entity: string, co: string, key: string, action: string, before: EntityRecord | null, after: EntityRecord | null): void {
-    if (entity === 'audit_log' || entity === 'message') return;
+  // 전 write 감사 — v4/audit_logs. audit_log 자기제외. 메시지도 기록(채팅 관장).
+  private writeAuditRec(entry: EntityRecord | null): void {
+    if (!entry) return;
     try {
-      const a = currentActor();
-      const id = `AL-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-      void dbUpdate(ref(this.db(), `${OVERLAY}/audit_logs/${id}`), {
-        _key: id, entity, target_key: key, action, actor_uid: a.uid, actor_role: a.role, actor_name: a.name,
-        at: Date.now(), companyId: co, before: before ? JSON.stringify(before).slice(0, 600) : '', after: after ? JSON.stringify(after).slice(0, 600) : '',
-      }).catch(() => {});
-    } catch { /* 감사는 best-effort */ }
+      const id = String(entry._key);
+      void dbUpdate(ref(this.db(), `${OVERLAY}/audit_logs/${id}`), stripUndef(entry as Rec)).catch(() => {});
+    } catch { /* best-effort */ }
+  }
+  private writeAudit(entity: string, co: string, key: string, action: string, before: EntityRecord | null, after: EntityRecord | null): void {
+    if (entity === 'audit_log') return;
+    this.writeAuditRec(buildAuditEntry(entity, co, key, action, before, after, currentActor()));
   }
 }

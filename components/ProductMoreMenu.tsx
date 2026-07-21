@@ -1,0 +1,183 @@
+'use client';
+import { useEffect, useState, type MouseEvent, type ReactNode } from 'react';
+import { MoreVertical, Star, ThumbsDown, EyeOff } from 'lucide-react';
+import { C } from '@/components/ui';
+import { useIsMobile } from '@/lib/use-mobile';
+import { haptic } from '@/lib/haptics';
+import { isFav, toggleFav, removeFav, subscribeInterest } from '@/lib/product-interest';
+import { hideProduct } from '@/lib/product-hide';
+import { passProduct, isPassed, unpassProduct, subscribePassed } from '@/lib/product-pass';
+import { vehicleName } from '@/lib/domain/product';
+import { toast } from '@/components/Toaster';
+import { BottomSheet } from '@/components/BottomSheet';
+import type { EntityRecord } from '@/lib/intake/entities';
+
+/**
+ * 상품 카드 ··· 메뉴 (웹·모바일 공통)
+ *   트리거 = absolute(제목 줄높이·갭 불변). 부모는 relative + paddingRight.
+ *   · 관심 있음 / 관심 해제 — 찜
+ *   · 관심없음 — 목록 맨 뒤로
+ *   · 숨기기 — 목록에서 완전 제외
+ */
+export function ProductMoreMenu({ p }: { p: EntityRecord }) {
+  const mobile = useIsMobile();
+  const [open, setOpen] = useState(false);
+  const code = String(p.product_code || p._key || '');
+  const [fav, setFav] = useState(false);
+  const [passed, setPassed] = useState(false);
+  useEffect(() => {
+    setFav(isFav(code));
+    return subscribeInterest(() => setFav(isFav(code)));
+  }, [code]);
+  useEffect(() => {
+    setPassed(isPassed(code));
+    return subscribePassed(() => setPassed(isPassed(code)));
+  }, [code]);
+
+  // 웹 = 우클릭·설정으로. ⋯ 트리거는 모바일만.
+  if (!mobile) return null;
+
+  const openMenu = (e: MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    haptic.tap();
+    setOpen(true);
+  };
+
+  const meta = { code, name: vehicleName(p), plate: String(p.car_number || '') };
+
+  const item = (label: string, onClick: () => void, opts?: { danger?: boolean; icon?: ReactNode; muted?: boolean }) => (
+    <button
+      type="button"
+      className="fp-press"
+      onClick={() => { onClick(); setOpen(false); }}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 12,
+        width: '100%', minHeight: mobile ? 48 : 40, padding: mobile ? '0 16px' : '0 14px',
+        border: 'none', borderTop: `1px solid ${C.line2}`,
+        background: '#fff', cursor: 'pointer', textAlign: 'left',
+        fontSize: mobile ? 15.5 : 13.5, fontWeight: 600,
+        color: opts?.danger ? C.danger : opts?.muted ? C.mute : C.ink,
+      }}
+    >
+      {opts?.icon}
+      <span style={{ flex: 1 }}>{label}</span>
+    </button>
+  );
+
+  const panel = (
+    <div style={{ paddingBottom: mobile ? 8 : 6 }}>
+      {item(
+        fav ? '관심 해제' : '관심 있음',
+        () => {
+          haptic.select();
+          if (!fav && passed) unpassProduct(code);
+          const next = toggleFav(p);
+          setFav(next);
+          toast(next ? '관심 상품에 추가' : '관심 해제', next ? 'ok' : 'info');
+        },
+        {
+          icon: <Star size={18} strokeWidth={2.2} fill={fav ? C.brand : 'none'} color={fav ? C.brand : C.mute} />,
+        },
+      )}
+      {item(
+        passed ? '관심없음 해제' : '관심없음',
+        () => {
+          haptic.select();
+          if (passed) {
+            unpassProduct(code);
+            setPassed(false);
+            toast('다시 앞쪽에 표시합니다', 'ok');
+          } else {
+            if (fav) { removeFav(code); setFav(false); }
+            passProduct(meta);
+            setPassed(true);
+            toast('관심없음 — 목록 맨 뒤로 보냈어요', 'info');
+          }
+        },
+        {
+          muted: !passed,
+          icon: <ThumbsDown size={18} color={passed ? C.brand : C.mute} />,
+        },
+      )}
+      {item(
+        '숨기기',
+        () => {
+          haptic.impact();
+          hideProduct(meta);
+          toast('숨겼습니다. 설정에서 다시 볼 수 있어요.', 'info');
+        },
+        {
+          danger: true,
+          icon: <EyeOff size={18} color={C.danger} />,
+        },
+      )}
+      <button
+        type="button"
+        className="fp-press"
+        onClick={() => { haptic.back(); setOpen(false); }}
+        style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          width: '100%', minHeight: mobile ? 48 : 40, marginTop: 6,
+          border: 'none', borderTop: `1px solid ${C.line}`,
+          background: C.head, cursor: 'pointer',
+          fontSize: mobile ? 15 : 13, fontWeight: 700, color: C.mute,
+        }}
+      >
+        취소
+      </button>
+    </div>
+  );
+
+  // absolute — 제목 행 높이·줄간격에 영향 없음. 터치타깃은 40.
+  const hit = mobile ? 40 : 32;
+  return (
+    <>
+      <button
+        type="button"
+        className="fp-press"
+        aria-label="더보기"
+        onClick={openMenu}
+        onPointerDown={(e) => e.stopPropagation()}
+        style={{
+          position: 'absolute',
+          right: mobile ? -10 : -8,
+          top: '50%',
+          transform: 'translateY(-50%)',
+          zIndex: 2,
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          width: hit, height: hit, margin: 0, padding: 0,
+          border: 'none', background: 'none', color: C.mute, cursor: 'pointer',
+          WebkitTapHighlightColor: 'transparent',
+        }}
+      >
+        <MoreVertical size={mobile ? 18 : 16} strokeWidth={2.2} />
+      </button>
+      {mobile ? (
+        <BottomSheet open={open} onClose={() => setOpen(false)} maxHeight="auto" title="상품">
+          {panel}
+        </BottomSheet>
+      ) : open ? (
+        <div
+          role="presentation"
+          style={{ position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(15,23,42,0.25)' }}
+          onClick={() => { haptic.back(); setOpen(false); }}
+        >
+          <div
+            role="dialog"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: 'fixed', left: '50%', top: '50%', transform: 'translate(-50%, -50%)',
+              width: 'min(360px, calc(100vw - 32px))',
+              background: '#fff', borderRadius: 8, border: `1px solid ${C.line}`,
+              boxShadow: '0 16px 40px rgba(15,23,42,0.2)', overflow: 'hidden',
+            }}
+          >
+            <div style={{ padding: '12px 14px 8px', fontSize: 14, fontWeight: 800, color: C.ink }}>상품</div>
+            {panel}
+          </div>
+        </div>
+      ) : null}
+    </>
+  );
+}

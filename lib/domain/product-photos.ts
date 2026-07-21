@@ -55,10 +55,11 @@ export function collectImages(value: any): string[] {
   return out;
 }
 
-/** 업로드 이미지(image_urls/images/photos/image_url). */
+/** 업로드 이미지(image_urls/images/photos/image_url). 스크래핑 대상 URL은 제외(extract-photos 전용). */
 export function productImages(p: EntityRecord): string[] {
   if (!p) return [];
-  return collectImages([p.image_urls, p.images, p.photos, p.photo, p.image_url, p.doc_images]);
+  return collectImages([p.image_urls, p.images, p.photos, p.photo, p.image_url, p.doc_images])
+    .filter((u) => !NEEDS_SERVER_RE.test(u));
 }
 
 /** photo_link 중 바로 <img>에 박을 외부 URL(스크래핑 대상 제외). */
@@ -86,18 +87,29 @@ export function scrapableSources(p: EntityRecord): string[] {
 
 // 폴더→이미지 해석 결과 캐시(카드 다수·재렌더 dedup). 세션 한정.
 const _folderCache = new Map<string, Promise<string[]>>();
+// 동시성 상한 큐(v3 MAX_CONCURRENT 이식) — 그리드 N개 카드가 마운트 시 /api/extract-photos를 무제한 병렬 발사하면
+// 서버가 구글드라이브를 동시다발 스크래핑 → 429로 전체 썸네일 붕괴. 캐시 hit은 큐 우회.
+const MAX_CONCURRENT = 6;
+let _active = 0;
+const _queue: (() => void)[] = [];
+function _run<T>(fn: () => Promise<T>): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const task = () => { _active++; fn().then(resolve, reject).finally(() => { _active--; const n = _queue.shift(); if (n) n(); }); };
+    if (_active < MAX_CONCURRENT) task(); else _queue.push(task);
+  });
+}
 function fetchFolderImages(src: string, size: number): Promise<string[]> {
   const key = `${src}:${size}`;
   let pr = _folderCache.get(key);
   if (!pr) {
-    pr = (async () => {
+    pr = _run(async () => {
       try {
         const r = await fetch(`/api/extract-photos?url=${encodeURIComponent(src)}&size=${size}`);
         if (!r.ok) return [];
         const d = await r.json();
         return (d && d.ok && Array.isArray(d.urls) ? d.urls : []) as string[];
       } catch { return []; }
-    })();
+    });
     _folderCache.set(key, pr);
     pr.then((u) => { if (!u.length) _folderCache.delete(key); }); // 실패는 캐시 안 함(재시도 가능)
   }

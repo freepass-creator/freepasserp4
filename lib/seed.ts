@@ -15,10 +15,10 @@ const POL_무관 = {
 };
 const POL_확인 = { ...POL_무관, screening_criteria: '소득확인', basic_driver_age: '만 26세 이상', license_period: '1년 이상', driver_age_lowering: '불가', annual_mileage: '연간 3만Km' };
 
-// 정책관리 페이지용 샘플 정책 엔티티(매물의 _policy 템플릿을 독립 레코드로).
+// 정책관리 페이지용 샘플 — provider_company_code 비움=공용(전 공급사 매물에 연결 가능).
 export const SAMPLE_POLICIES: EntityRecord[] = [
-  { policy_code: 'pol_nocheck', policy_name: '무심사 표준', policy_type: '무심사', ...POL_무관 },
-  { policy_code: 'pol_income', policy_name: '소득확인 표준', policy_type: '일반', ...POL_확인 },
+  { policy_code: 'pol_nocheck', policy_name: '무심사 표준', policy_type: '무심사', provider_company_code: '', ...POL_무관 },
+  { policy_code: 'pol_income', policy_name: '소득확인 표준', policy_type: '일반', provider_company_code: '', ...POL_확인 },
 ];
 
 // 샘플 사진 — 차량 실루엣 SVG data-URI(자체완결·오프라인). 외장색 반영. 갤러리·썸네일 데모.
@@ -66,8 +66,8 @@ export const SAMPLE_USERS: EntityRecord[] = [
 
 // 샘플 소통(방·메시지) — 소통 3단 화면을 바로 확인하기 위한 씨앗. 방키=CH_{매물}_{영업자}(ensureRoom 규격).
 export const SAMPLE_ROOMS: EntityRecord[] = [
-  { _key: 'CH_veh_1001_usr_park', room_code: 'CH_veh_1001_usr_park', product_uid: 'veh_1001', product_code: 'veh_1001', car_number: '123가4567', vehicle_name: '기아 스포티지 NQ5 노블레스', agent_uid: 'usr_park', agent_code: 'usr_park', agent_name: '박영업', provider_company_code: 'sup_jeil', last_message: '36개월 무보증으로 진행하고 싶습니다', last_message_at: 1752300000000 },
-  { _key: 'CH_veh_1003_usr_park', room_code: 'CH_veh_1003_usr_park', product_uid: 'veh_1003', product_code: 'veh_1003', car_number: '88조1234', vehicle_name: '기아 모닝 프레스티지', agent_uid: 'usr_park', agent_code: 'usr_park', agent_name: '박영업', provider_company_code: 'sup_hanbit', last_message: '60개월 가능한가요?', last_message_at: 1752200000000 },
+  { _key: 'CH_veh_1001_usr_park', room_code: 'CH_veh_1001_usr_park', product_uid: 'veh_1001', product_code: 'veh_1001', car_number: '123가4567', vehicle_name: '기아 스포티지 NQ5 노블레스', agent_uid: 'usr_park', agent_code: 'usr_park', agent_name: '박영업', agent_channel_code: 'chn_seoul', provider_company_code: 'sup_jeil', last_message: '36개월 무보증으로 진행하고 싶습니다', last_message_at: 1752300000000 },
+  { _key: 'CH_veh_1003_usr_park', room_code: 'CH_veh_1003_usr_park', product_uid: 'veh_1003', product_code: 'veh_1003', car_number: '88조1234', vehicle_name: '기아 모닝 프레스티지', agent_uid: 'usr_park', agent_code: 'usr_park', agent_name: '박영업', agent_channel_code: 'chn_seoul', provider_company_code: 'sup_hanbit', last_message: '60개월 가능한가요?', last_message_at: 1752200000000 },
 ];
 export const SAMPLE_MESSAGES: EntityRecord[] = [
   { _key: 'msg-1', room_id: 'CH_veh_1001_usr_park', text: '스포티지 NQ5 즉시출고 가능한가요?', sender_uid: 'usr_park', sender_role: 'agent', sender_name: '박영업', created_at: 1752290000000 },
@@ -78,7 +78,18 @@ export const SAMPLE_MESSAGES: EntityRecord[] = [
 
 // 샘플 스키마(정책 필드 등)나 식별코드 체계가 바뀌면 올림 → 로컬 미리보기 자동 재주입.
 const SEED_VERSION = 'v6-ptype';
+const seedOnce = new Map<string, Promise<boolean>>();
+
 export async function seedIfEmpty(companyId: string): Promise<boolean> {
+  let p = seedOnce.get(companyId);
+  if (!p) {
+    p = seedIfEmptyInner(companyId).finally(() => { /* keep resolved promise for coalesce */ });
+    seedOnce.set(companyId, p);
+  }
+  return p;
+}
+
+async function seedIfEmptyInner(companyId: string): Promise<boolean> {
   const store = getStore();
   // 시드는 로컬 미리보기 전용. 실 백엔드(rtdb=v3 브리지·firestore)는 실데이터를 그대로 쓰므로 시드 금지.
   //  ※ 이거 없으면 rtdb에서 save()가 v4 쓰기 → PERMISSION_DENIED throw → load() 중단 → 목록 "불러오는 중" 영구정지.

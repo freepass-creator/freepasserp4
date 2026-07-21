@@ -13,7 +13,7 @@ export const runtime = 'nodejs';
 const SCRAPABLE_HOSTS = ['moderentcar.co.kr', 'autoplus.co.kr'];
 const DRIVE_KEY = process.env.DRIVE_API_KEY || ''; // 없으면 공개폴더 HTML 스크래핑만(키 불필요)
 
-export function extractDriveFolderId(value: string): string {
+function extractDriveFolderId(value: string): string {
   if (!value) return '';
   const s = String(value).trim();
   for (const re of [/\/folders\/([a-zA-Z0-9_-]+)/, /\/drive\/.*?\/([a-zA-Z0-9_-]{20,})/]) {

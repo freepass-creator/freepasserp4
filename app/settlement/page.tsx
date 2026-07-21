@@ -1,104 +1,248 @@
 'use client';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
 import { useIsMobile } from '@/lib/use-mobile';
 import { type EntityRecord } from '@/lib/intake/entities';
-import { createSettlement } from '@/lib/domain/settlement-engine';
-import { getRole, actor } from '@/lib/domain/deal';
-import { PaneHead, Badge, Btn, won, C } from '@/components/ui';
-import { WorkPage, type WorkPane } from '@/components/WorkPage';
+import { getRole } from '@/lib/domain/deal';
+import { parseSettlementHistory } from '@/lib/domain/settlement-import';
+import { downloadSettlementReport } from '@/lib/excel-export';
+import { Page, Btn, Badge, FilterChips, IconBtn, PillTabs, SearchInput, won, C, R, NUM, Loading, CenterNote, SETTLEMENT_STATUS_TONE, th, thR, td, tdR } from '@/components/ui';
+import { toast } from '@/components/Toaster';
+import { AdminSettlementSheet } from '@/components/AdminSettlementSheet';
+import { matchSettlementQuery } from '@/lib/domain/search';
+import { NAV_LABEL } from '@/lib/tabbar';
 
-// 정산 = 수수료정산. [정산 목록 | 정산 상세]. 계약완료 시 정산 자동생성(누락분 로드 시 복구).
-// 프리패스 마진 숨김 — 공급사 청구 + 영업자 지급 두 금액만. 중도취소 시 환수(경과비례).
-const ST_TONE: Record<string, 'gray' | 'green' | 'amber' | 'red'> = { '정산대기': 'amber', '정산완료': 'green', '정산보류': 'gray', '환수대기': 'red', '환수결정': 'red' };
+// 관리자 월별정산 — ① 집계(건별 R1/R2) ② 정산서(VAT·청구/지급 admin_settlement).
+const monthOf = (s: EntityRecord) => String(s.contract_date || '').slice(0, 7);
+const tdL: typeof td = { ...td, textAlign: 'left' as const };
 
-export default function Settlements() {
+export default function MonthlySettlement() {
   const co = getCompanyId();
+  const router = useRouter();
   const mobile = useIsMobile();
-  const [rows, setRows] = useState<EntityRecord[] | null>(null);
-  const [sel, setSel] = useState<string | null>(null);
-  const [selS, setSelS] = useState<EntityRecord | null>(null);
+  const [ok, setOk] = useState<boolean | null>(null);
+  const [rows, setRows] = useState<EntityRecord[]>([]);
+  const [month, setMonth] = useState('');
+  const [group, setGroup] = useState<'none' | 'provider' | 'channel'>('none');
+  const [mode, setMode] = useState<'agg' | 'sheet'>('agg');
   const [q, setQ] = useState('');
+  const fileRef = useRef<HTMLInputElement | null>(null);
 
-  const load = async (): Promise<EntityRecord[]> => {
-    const contracts = await getStore().list('contract', co);
-    const done = contracts.filter((c) => c.contract_status === '계약완료');
-    let setts = await getStore().list('settlement', co);
-    const have = new Set(setts.map((s) => String(s.settlement_code)));
-    const missing = done.filter((c) => !have.has(`ST_${c.contract_code}`));
-    if (missing.length) { for (const c of missing) await createSettlement(c); setts = await getStore().list('settlement', co); }
-    // 역할별 자기 것만: 공급사=내 정산·영업자=내 정산·관리자=전부(관장)
-    const r = getRole();
-    if (r !== 'admin') { const me = actor(r); setts = setts.filter((s) => r === 'provider' ? String(s.provider_company_code) === me.code : String(s.agent_code) === me.code); }
-    setts.sort((a, b) => String(b.contract_date || '').localeCompare(String(a.contract_date || '')));
-    setRows(setts); return setts;
+  useEffect(() => { (async () => {
+    await seedIfEmpty(co);
+    if (getRole() !== 'admin') { router.replace('/contract'); return; }
+    const all = await getStore().list('settlement', co);
+    setRows(all); setOk(true);
+    const ms = [...new Set(all.map(monthOf).filter(Boolean))].sort();
+    setMonth(ms.length ? ms[ms.length - 1] : new Date().toISOString().slice(0, 7));
+  })(); /* eslint-disable-next-line */ }, []);
+
+  // 계약현황 xlsx → 정산 이력 임포트(관리자). 재사용: 다음 파일도 같은 버튼.
+  const importXlsx = async (files: FileList | null) => {
+    if (!files || !files.length) return;
+    try {
+      const XLSX = await import('xlsx');
+      const buf = await files[0].arrayBuffer();
+      const wb = XLSX.read(buf, { type: 'array', cellDates: true });
+      const sheets = wb.SheetNames.map((name) => ({ name, aoa: XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, raw: true, defval: null }) as unknown[][] }));
+      const { records } = parseSettlementHistory(sheets);
+      if (!records.length) { toast('정산 데이터를 찾지 못했습니다 (계약현황 형식 확인)', 'error'); return; }
+      const res = await getStore().save('settlement', co, records);
+      const all = await getStore().list('settlement', co); setRows(all);
+      const ms = [...new Set(all.map(monthOf).filter(Boolean))].sort();
+      if (ms.length) setMonth(ms[ms.length - 1]);
+      toast(`정산 이력 ${res.saved}건 반영${res.duplicates ? ` · 기존 ${res.duplicates} 유지` : ''}`, 'ok');
+    } catch (e) { toast('가져오기 실패: ' + String(e), 'error'); }
+    finally { if (fileRef.current) fileRef.current.value = ''; }
   };
-  const selectS = (s: EntityRecord) => { setSel(String(s.settlement_code)); setSelS(s); };
-  const clearSel = () => { setSel(null); setSelS(null); };
-  useEffect(() => { (async () => { await seedIfEmpty(co); const l = await load(); if (!mobile && l.length) selectS(l[0]); })(); /* eslint-disable-next-line */ }, []);
-  useEffect(() => { const on = () => { (async () => { const l = await load(); clearSel(); if (!mobile && l.length) selectS(l[0]); })(); }; window.addEventListener('fp:role', on); return () => window.removeEventListener('fp:role', on); /* eslint-disable-next-line */ }, [mobile]);
 
-  const setStatus = async (to: string) => {
-    if (!selS) return;
-    await getStore().update('settlement', co, String(selS.settlement_code), { settlement_status: to });
-    const l = await load(); const s = l.find((x) => String(x.settlement_code) === sel); if (s) setSelS(s);
-  };
+  const months = useMemo(() => { const s = new Set(rows.map(monthOf).filter(Boolean)); s.add(new Date().toISOString().slice(0, 7)); return [...s].sort(); }, [rows]);
+  const monthRowsAll = useMemo(() => rows.filter((s) => monthOf(s) === month).sort((a, b) => String(a.settlement_code).localeCompare(String(b.settlement_code))), [rows, month]);
+  const monthRows = useMemo(() => monthRowsAll.filter((s) => matchSettlementQuery(s, q)), [monthRowsAll, q]);
+  const tot = (f: (s: EntityRecord) => unknown) => monthRows.reduce((n, s) => n + (Number(f(s)) || 0), 0);
+  const idx = months.indexOf(month);
+  const step = (d: number) => { const i = idx + d; if (i >= 0 && i < months.length) setMonth(months[i]); };
 
-  const shown = (rows || []).filter((s) => !q || [s.settlement_code, s.customer_name, s.car_number, s.sub_model_snapshot, s.settlement_status].join(' ').toLowerCase().includes(q.toLowerCase()));
-  const listEl = shown.length === 0
-    ? <div style={{ padding: 24, textAlign: 'center', color: C.faint, fontSize: 12.5 }}>{q ? '검색 결과 없음' : '정산 없음 · 계약 출고완료 시 자동 생성'}</div>
-    : <div>{shown.map((s) => {
-        const on = String(s.settlement_code) === sel;
-        return (
-          <div key={String(s.settlement_code)} onClick={() => selectS(s)} style={{ padding: '11px 14px', borderBottom: `1px solid ${C.line2}`, cursor: 'pointer', background: on ? '#eef4ff' : 'transparent' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-              <span style={{ fontSize: 12, fontWeight: 800, fontFamily: 'var(--font-mono)' }}>{String(s.settlement_code)}</span>
-              <Badge tone={ST_TONE[String(s.settlement_status)] || 'gray'}>{String(s.settlement_status)}</Badge>
-              <span style={{ flex: 1 }} />
-              <span style={{ fontSize: 12, fontWeight: 800, color: C.brand, fontFamily: 'var(--font-mono)' }}>{won(s.fee_amount)}</span>
-            </div>
-            <div style={{ fontSize: 11.5, color: C.mute, marginTop: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{[s.customer_name, s.car_number, s.sub_model_snapshot].filter(Boolean).join(' · ')}</div>
+  // 공급사별·영업채널별 소계(정산서). 환수는 net에서 이미 fee_amount 기준이라 별도 표기.
+  const grouped = useMemo(() => {
+    if (group === 'none') return [] as { name: string; n: number; r1: number; r2: number; net: number; cb: number }[];
+    const key = group === 'provider' ? 'provider_company_code' : 'agent_channel_code';
+    const m = new Map<string, EntityRecord[]>();
+    for (const s of monthRows) { const k = String(s[key] || '(미지정)'); const a = m.get(k); if (a) a.push(s); else m.set(k, [s]); }
+    return [...m.entries()].map(([name, list]) => {
+      const r1 = list.reduce((n, s) => n + (Number(s.fee_amount) || 0), 0);
+      const r2 = list.reduce((n, s) => n + (Number(s.agent_payout) || 0), 0);
+      const cb = list.reduce((n, s) => n + (Number(s.clawback_amount) || 0), 0);
+      return { name, n: list.length, r1, r2, net: r1 - r2, cb };
+    }).sort((a, b) => b.net - a.net);
+  }, [monthRows, group]);
+
+  if (ok === null) return <Loading />;
+
+  const cards: [string, number, string][] = [
+    ['공급사 청구 (R1)', tot((s) => s.fee_amount), C.ink],
+    ['영업자 지급 (R2)', tot((s) => s.agent_payout), C.ink],
+    ['순수익', tot((s) => s.net_amount), C.brand],
+    ['환수', tot((s) => s.clawback_amount), C.danger],
+  ];
+  return (
+    <Page title={NAV_LABEL.settlement} meta={`${monthRows.length}건`}
+      listTools={mode === 'agg' ? {
+        search: { value: q, onChange: setQ, placeholder: '정산·계약·차번·계약자·공급·영업…' },
+        hints: q.trim() ? [q.trim().length > 12 ? `${q.trim().slice(0, 12)}…` : q.trim()] : undefined,
+        onClearHints: () => setQ(''),
+      } : undefined}
+      bottomActions={mode === 'agg' ? (
+        <span style={{ display: 'inline-flex', gap: 6 }}>
+          <Btn variant="ghost" size="sm" onClick={() => fileRef.current?.click()}>가져오기</Btn>
+          {monthRows.length > 0 && <Btn variant="ghost" size="sm" onClick={() => downloadSettlementReport(monthRows, month)}>정산서</Btn>}
+        </span>
+      ) : undefined}
+      right={<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <IconBtn onClick={() => step(-1)} disabled={idx <= 0} title="이전 달">‹</IconBtn>
+        <span style={{ fontSize: 15, fontWeight: 800, fontFamily: NUM, minWidth: 74, textAlign: 'center' }}>{month || '—'}</span>
+        <IconBtn onClick={() => step(1)} disabled={idx >= months.length - 1} title="다음 달">›</IconBtn>
+        {!mobile && mode === 'agg' && <>
+          <Btn variant="ghost" size="sm" onClick={() => fileRef.current?.click()}>가져오기</Btn>
+          {monthRows.length > 0 && <Btn variant="ghost" size="sm" onClick={() => downloadSettlementReport(monthRows, month)}>정산서</Btn>}
+        </>}
+        <input ref={fileRef} type="file" accept=".xlsx,.xls" onChange={(e) => importXlsx(e.target.files)} style={{ display: 'none' }} />
+      </div>}>
+
+      <div style={{ marginBottom: 12, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+        <PillTabs tabs={[{ key: 'agg', label: '월별 집계' }, { key: 'sheet', label: 'VAT 정산서' }]} value={mode} onChange={setMode} size="sm" />
+        {mode === 'agg' && !mobile && (
+          <SearchInput
+            value={q}
+            onChange={setQ}
+            placeholder="정산·계약·차번·계약자·공급·영업…"
+            style={{ flex: '1 1 220px', minWidth: 180, maxWidth: 360 }}
+          />
+        )}
+      </div>
+
+      {mode === 'sheet' ? <AdminSettlementSheet month={month} /> : (<>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, margin: '14px 0' }}>
+        {cards.map(([label, val, color]) => (
+          <div key={label} style={{ border: `1px solid ${C.line}`, borderRadius: R, background: '#fff', padding: '11px 14px' }}>
+            <div style={{ fontSize: 11.5, color: C.mute, fontWeight: 600 }}>{label}</div>
+            <div style={{ fontSize: 17, fontWeight: 800, color, fontFamily: 'var(--font-mono)', marginTop: 3 }}>{won(val)}</div>
           </div>
-        );
-      })}</div>;
-
-  const detail = () => {
-    if (!selS) return <div style={{ padding: 16, color: C.faint, fontSize: 12.5 }}>정산을 선택하세요.</div>;
-    const st = String(selS.settlement_status);
-    const cb = Number(selS.clawback_amount) || 0;
-    const row = (k: string, v: ReactNode, strong?: boolean) => (
-      <div style={{ display: 'flex', padding: '8px 14px', borderTop: `1px solid ${C.line2}`, fontSize: 12.5 }}>
-        <span style={{ width: 120, flex: '0 0 120px', color: C.mute }}>{k}</span>
-        <span style={{ fontWeight: strong ? 800 : 600, color: strong ? C.brand : C.ink, fontFamily: 'var(--font-mono)' }}>{v}</span>
+        ))}
       </div>
-    );
-    return (
-      <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 14px' }}>
-          <span style={{ fontSize: 13, fontWeight: 800, fontFamily: 'var(--font-mono)' }}>{String(selS.settlement_code)}</span>
-          <Badge tone={ST_TONE[st] || 'gray'}>{st}</Badge>
-          <span style={{ flex: 1 }} />
-          {st === '정산대기' && <Btn size="sm" onClick={() => setStatus('정산완료')}>정산 확정</Btn>}
-          {st === '환수대기' && <Btn size="sm" onClick={() => setStatus('환수결정')}>환수 확정</Btn>}
-        </div>
-        <div style={{ margin: '0 14px', border: `1px solid ${C.line}`, borderRadius: 4, background: '#fff', overflow: 'hidden' }}>
-          {row('계약', String(selS.contract_code || '—'))}
-          {row('계약자', String(selS.customer_name || '—'))}
-          {row('차량', [selS.car_number, selS.sub_model_snapshot].filter(Boolean).join(' · ') || '—')}
-          {row('공급사 청구', `${won(selS.fee_amount)}원`, true)}
-          {row('영업자 지급', `${won(selS.agent_payout)}원`, true)}
-          {cb > 0 ? row('환수액', `${won(cb)}원`) : null}
-        </div>
-        <div style={{ padding: '10px 14px', fontSize: 11.5, color: C.faint, lineHeight: 1.6 }}>
-          정산대기 → 정산 확정 → 지급. 중도취소 시 환수대기(경과비례) → 환수 확정. 공급사 청구 = 대여료 × 공급사율(신차 0%), 영업자 지급 = 대여료 × 영업자율.
-        </div>
-      </div>
-    );
-  };
 
-  const panes: WorkPane[] = [{ key: 'detail', title: '정산', node: <><PaneHead title="정산 상세" /><div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>{detail()}</div></> }];
-  return <WorkPage title="정산" listCount={rows ? rows.length : ''} list={rows === null ? <div style={{ padding: 24, color: C.faint }}>불러오는 중…</div> : listEl} panes={panes} selected={!!sel} onBack={clearSel}
-    search={{ value: q, onChange: setQ, placeholder: '정산코드·계약자·차번·상태' }} />;
+      <div style={{ marginBottom: 10 }}>
+        <FilterChips value={group} onChange={setGroup} options={[{ key: 'none', label: '전체' }, { key: 'provider', label: '공급사별' }, { key: 'channel', label: '영업채널별' }]} />
+      </div>
+
+      {monthRows.length === 0 ? <CenterNote>{q ? '검색 결과 없음' : '이 달 정산 내역이 없습니다.'}</CenterNote>
+        : group !== 'none' ? (
+          mobile ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {grouped.map((g) => (
+                <div key={g.name} style={{ border: `1px solid ${C.line}`, borderRadius: R, background: '#fff', padding: '10px 12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 }}><span style={{ fontSize: 13, fontWeight: 800, color: C.ink }}>{g.name}</span><span style={{ fontSize: 11, color: C.faint }}>{g.n}건</span></div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px 12px', fontSize: 12 }}>
+                    <div style={{ color: C.mute }}>공급사청구 <b style={{ float: 'right', color: C.ink, fontFamily: 'var(--font-mono)' }}>{won(g.r1)}</b></div>
+                    <div style={{ color: C.mute }}>영업지급 <b style={{ float: 'right', color: C.ink, fontFamily: 'var(--font-mono)' }}>{won(g.r2)}</b></div>
+                    <div style={{ color: C.mute }}>순수익 <b style={{ float: 'right', color: C.brand, fontFamily: 'var(--font-mono)' }}>{won(g.net)}</b></div>
+                    {g.cb > 0 && <div style={{ color: C.mute }}>환수 <b style={{ float: 'right', color: C.danger, fontFamily: 'var(--font-mono)' }}>{won(g.cb)}</b></div>}
+                  </div>
+                </div>
+              ))}
+              <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: C.head, padding: '10px 12px', fontSize: 12.5 }}><b>합계 {monthRows.length}건</b> · 순수익 <b style={{ color: C.brand, fontFamily: 'var(--font-mono)' }}>{won(tot((s) => s.net_amount))}</b> · 환수 <b style={{ color: C.danger, fontFamily: 'var(--font-mono)' }}>{won(tot((s) => s.clawback_amount))}</b></div>
+            </div>
+          ) : (
+            <div className="fp-sheet">
+              <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 620 }}>
+                <thead><tr><th style={th}>{group === 'provider' ? '공급사' : '영업채널'}</th><th style={thR}>건수</th><th style={thR}>공급사청구</th><th style={thR}>영업지급</th><th style={thR}>순수익</th><th style={thR}>환수</th></tr></thead>
+                <tbody>
+                  {grouped.map((g) => (
+                    <tr key={g.name} style={{ borderTop: `1px solid ${C.line2}` }}>
+                      <td style={tdL}>{g.name}</td><td style={tdR}>{g.n}</td><td style={tdR}>{won(g.r1)}</td><td style={tdR}>{won(g.r2)}</td><td style={{ ...tdR, color: C.brand, fontWeight: 700 }}>{won(g.net)}</td><td style={{ ...tdR, color: g.cb ? C.danger : C.faint }}>{g.cb ? won(g.cb) : '—'}</td>
+                    </tr>
+                  ))}
+                  <tr style={{ background: C.head, borderTop: `1px solid ${C.line2}` }}>
+                    <td style={{ ...tdL, fontWeight: 800 }} colSpan={2}>합계 {monthRows.length}건</td>
+                    <td style={{ ...tdR, fontWeight: 800 }}>{won(tot((s) => s.fee_amount))}</td>
+                    <td style={{ ...tdR, fontWeight: 800 }}>{won(tot((s) => s.agent_payout))}</td>
+                    <td style={{ ...tdR, fontWeight: 800, color: C.brand }}>{won(tot((s) => s.net_amount))}</td>
+                    <td style={{ ...tdR, fontWeight: 800, color: C.danger }}>{won(tot((s) => s.clawback_amount))}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          )
+        )
+        : mobile ? (
+          /* 모바일 = 카드(가로 표 회피) */
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {monthRows.map((s) => {
+              const cb = Number(s.clawback_amount) || 0;
+              return (
+                <div key={String(s.settlement_code)} style={{ border: `1px solid ${C.line}`, borderRadius: R, background: '#fff', padding: '10px 12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: C.ink }}>{String(s.customer_name || '—')}</span>
+                    <span style={{ fontSize: 11, color: C.faint, fontFamily: 'var(--font-mono)' }}>{String(s.car_number || '')}</span>
+                    <span style={{ flex: 1 }} />
+                    <Badge tone={SETTLEMENT_STATUS_TONE[String(s.settlement_status)] || 'gray'}>{String(s.settlement_status || '')}</Badge>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px 12px', fontSize: 12 }}>
+                    <div style={{ color: C.mute }}>월대여료 <b style={{ color: C.ink, fontFamily: 'var(--font-mono)', float: 'right' }}>{won(s.rent_amount)}</b></div>
+                    <div style={{ color: C.mute }}>공급사청구 <b style={{ color: C.ink, fontFamily: 'var(--font-mono)', float: 'right' }}>{won(s.fee_amount)}</b></div>
+                    <div style={{ color: C.mute }}>영업지급 <b style={{ color: C.ink, fontFamily: 'var(--font-mono)', float: 'right' }}>{won(s.agent_payout)}</b></div>
+                    <div style={{ color: C.mute }}>순수익 <b style={{ color: C.brand, fontFamily: 'var(--font-mono)', float: 'right' }}>{won(s.net_amount)}</b></div>
+                    {cb > 0 && <div style={{ color: C.mute, gridColumn: '1 / -1' }}>환수 <b style={{ color: C.danger, fontFamily: 'var(--font-mono)', float: 'right' }}>{won(cb)}</b></div>}
+                  </div>
+                </div>
+              );
+            })}
+            <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: C.head, padding: '10px 12px', fontSize: 12.5 }}>
+              <b>합계 {monthRows.length}건</b> · 청구 <b style={{ fontFamily: 'var(--font-mono)' }}>{won(tot((s) => s.fee_amount))}</b> · 지급 <b style={{ fontFamily: 'var(--font-mono)' }}>{won(tot((s) => s.agent_payout))}</b> · 순수익 <b style={{ color: C.brand, fontFamily: 'var(--font-mono)' }}>{won(tot((s) => s.net_amount))}</b>
+            </div>
+          </div>
+        ) : (
+          /* 웹 = 엑셀형 표 (.fp-sheet + sticky th SSOT) */
+          <div className="fp-sheet">
+            <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 720 }}>
+              <thead><tr>
+                <th style={th}>계약자</th><th style={th}>차량</th><th style={th}>공급사</th><th style={th}>영업자</th>
+                <th style={thR}>월대여료</th><th style={thR}>공급사청구</th><th style={thR}>영업지급</th><th style={thR}>순수익</th><th style={thR}>환수</th><th style={th}>상태</th>
+              </tr></thead>
+              <tbody>
+                {monthRows.map((s) => (
+                  <tr key={String(s.settlement_code)} style={{ borderTop: `1px solid ${C.line2}` }}>
+                    <td style={tdL}>{String(s.customer_name || '—')}</td>
+                    <td style={tdL}>{[s.car_number, s.sub_model_snapshot].filter(Boolean).join(' ') || '—'}</td>
+                    <td style={tdL}>{String(s.provider_company_code || '—')}</td>
+                    <td style={tdL}>{String(s.agent_code || '—')}</td>
+                    <td style={tdR}>{won(s.rent_amount)}</td>
+                    <td style={tdR}>{won(s.fee_amount)}</td>
+                    <td style={tdR}>{won(s.agent_payout)}</td>
+                    <td style={{ ...tdR, color: C.brand, fontWeight: 700 }}>{won(s.net_amount)}</td>
+                    <td style={{ ...tdR, color: Number(s.clawback_amount) ? C.danger : C.faint }}>{Number(s.clawback_amount) ? won(s.clawback_amount) : '—'}</td>
+                    <td style={tdL}>{String(s.settlement_status || '')}</td>
+                  </tr>
+                ))}
+                <tr style={{ background: C.head, borderTop: `1px solid ${C.line2}` }}>
+                  <td style={{ ...tdL, fontWeight: 800 }} colSpan={4}>합계 {monthRows.length}건</td>
+                  <td style={{ ...tdR, fontWeight: 800 }}>{won(tot((s) => s.rent_amount))}</td>
+                  <td style={{ ...tdR, fontWeight: 800 }}>{won(tot((s) => s.fee_amount))}</td>
+                  <td style={{ ...tdR, fontWeight: 800 }}>{won(tot((s) => s.agent_payout))}</td>
+                  <td style={{ ...tdR, fontWeight: 800, color: C.brand }}>{won(tot((s) => s.net_amount))}</td>
+                  <td style={{ ...tdR, fontWeight: 800, color: C.danger }}>{won(tot((s) => s.clawback_amount))}</td>
+                  <td style={tdL} />
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        )}
+      <div style={{ marginTop: 12, fontSize: 11, color: C.faint, lineHeight: 1.6 }}>공급사청구(R1)=월대여료×공급사율 · 영업지급(R2)=월대여료×영업지급율 · 순수익=R1−R2. 율은 계약 시점 동결(기본 10%/4%, 신차=공급사 0%).</div>
+      </>)}
+    </Page>
+  );
 }

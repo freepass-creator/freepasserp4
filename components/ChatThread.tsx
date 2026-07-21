@@ -4,28 +4,29 @@ import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
 import { type EntityRecord } from '@/lib/intake/entities';
-import { getRole, actor, ROLE_LABEL, type Role } from '@/lib/domain/deal';
-import { Btn, C } from '@/components/ui';
+import { getRole, actor, ROLE_LABEL, chatDisplayName, type Role } from '@/lib/domain/deal';
+import { sendText, sendFile as sendFileMsg, markRead, listMessages, isMine } from '@/lib/domain/messaging';
+import { Btn, C, R, Loading, CenterNote, Input, IconBtn, ctrlH, NavBack } from '@/components/ui';
+import { toast } from '@/components/Toaster';
+import { useIsMobile } from '@/lib/use-mobile';
 
-// 대화창 = 공통 원자(방 하나의 스레드+입력). 역할=로그인 세션 고정(getRole) — 대화 안 역할 전환 UI 없음.
-// 상단바 계정(역할) 변경 시 fp:role 이벤트로 갱신. 헤드 높이 44(패널 규격 통일).
+// 대화창 = 공통 원자(방 하나의 스레드+입력). 전송·안읽음 = messaging SSOT.
 export function ChatThread({ roomId, onBack, onVehicle, onContract }: { roomId: string; onBack?: () => void; onVehicle?: (productCode: string) => void; onContract?: (productCode: string) => void }) {
+  const mobile = useIsMobile();
   const co = getCompanyId();
   const [room, setRoom] = useState<EntityRecord | null | undefined>(undefined);
   const [msgs, setMsgs] = useState<EntityRecord[]>([]);
   const [role, setRoleS] = useState<Role>('agent');
   const [text, setText] = useState('');
+  const [full, setFull] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement | null>(null);
+  const fileRef = useRef<HTMLInputElement | null>(null);
 
   const load = async () => {
     const rm = await getStore().get('room', co, roomId);
     setRoom(rm);
-    // 열람 = 내 역할 안읽음 리셋
-    const r = getRole();
-    const field = r === 'agent' ? 'unread_for_agent' : r === 'provider' ? 'unread_for_provider' : '';
-    if (field && rm && Number(rm[field]) > 0) await getStore().update('room', co, roomId, { [field]: 0 });
-    const all = await getStore().list('message', co);
-    setMsgs(all.filter((m) => m.room_id === roomId).sort((a, b) => Number(a.created_at) - Number(b.created_at)));
+    await markRead(roomId, getRole());
+    setMsgs(await listMessages(roomId));
   };
   useEffect(() => { (async () => { await seedIfEmpty(co); setRoleS(getRole()); await load(); })(); /* eslint-disable-next-line */ }, [roomId]);
   useEffect(() => { const on = (e: Event) => setRoleS((e as CustomEvent).detail as Role); window.addEventListener('fp:role', on); return () => window.removeEventListener('fp:role', on); }, []);
@@ -33,46 +34,84 @@ export function ChatThread({ roomId, onBack, onVehicle, onContract }: { roomId: 
 
   const send = async () => {
     const t = text.trim(); if (!t) return;
-    const me = actor(role); const now = Date.now();
-    await getStore().save('message', co, [{ _key: `${roomId}_${now}_${Math.random().toString(36).slice(2, 6)}`, room_id: roomId, text: t, sender_uid: me.uid, sender_role: role, sender_name: me.name, created_at: now }]);
-    const rm = await getStore().get('room', co, roomId);
-    const patch: EntityRecord = { last_message: t, last_message_at: now }; // 상대 안읽음 증가(회신대기)
-    if (role !== 'agent') patch.unread_for_agent = (Number(rm?.unread_for_agent) || 0) + 1;
-    if (role !== 'provider') patch.unread_for_provider = (Number(rm?.unread_for_provider) || 0) + 1;
-    await getStore().update('room', co, roomId, patch);
-    setText(''); await load();
+    setText('');
+    try {
+      await sendText({ roomId, text: t, channel: '정식', role });
+      await load();
+    } catch (e) {
+      console.error('메시지 전송 실패:', e);
+      toast(`전송 실패: ${(e as Error).message}`, 'error');
+      setText(t);
+    }
   };
 
-  if (room === undefined) return <div style={{ padding: 30, color: C.faint, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>불러오는 중…</div>;
-  if (!room) return <div style={{ padding: 20 }}>{onBack && <Btn variant="ghost" size="sm" onClick={onBack}>← 목록</Btn>}<div style={{ marginTop: 14, color: C.faint }}>대화방을 찾을 수 없습니다.</div></div>;
+  const onPickFile = async (files: FileList | null) => {
+    if (!files || !files.length) return;
+    try {
+      await sendFileMsg({ roomId, file: files[0], channel: '정식', role });
+      await load();
+    } catch (e) {
+      console.error('첨부 전송 실패:', e);
+      toast(`첨부 전송 실패: ${(e as Error).message}`, 'error');
+    } finally {
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  };
 
+  if (room === undefined) return <Loading label="불러오는 중…" minHeight="100%" />;
+  if (!room) {
+    return (
+      <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        {onBack && <div style={{ padding: 12 }}><NavBack kind="list" onClick={onBack} /></div>}
+        <CenterNote minHeight="100%">대화방을 찾을 수 없습니다.</CenterNote>
+      </div>
+    );
+  }
+
+  const me = actor(role);
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, background: '#fff' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: 44, flex: '0 0 44px', padding: '0 14px', borderBottom: `1px solid ${C.line}`, background: '#fff', boxSizing: 'border-box' }}>
-        {onBack && <Btn variant="ghost" size="sm" onClick={onBack}>← 목록</Btn>}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: ctrlH(mobile), flex: `0 0 ${ctrlH(mobile)}px`, padding: '0 14px', borderBottom: `1px solid ${C.line}`, background: '#fff', boxSizing: 'border-box' }}>
+        {onBack && <NavBack kind="list" onClick={onBack} />}
         <span style={{ fontSize: 13.5, fontWeight: 800, minWidth: 0, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{String(room.vehicle_name || '')}</span>
         {onVehicle && <Btn variant="ghost" size="sm" onClick={() => onVehicle(String(room.product_code))}>차량</Btn>}
-        {onContract && <Btn size="sm" onClick={() => onContract(String(room.product_code))}>계약</Btn>}
+        {onContract && <Btn size="sm" onClick={() => onContract(String(room.product_code))}>계약진행</Btn>}
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
         {msgs.length === 0 && <div style={{ textAlign: 'center', color: C.faint, fontSize: 12.5, marginTop: 20 }}>첫 메시지를 남겨보세요.</div>}
         {msgs.map((m) => {
-          const mine = m.sender_role === role; const isAdmin = m.sender_role === 'admin';
+          const mine = isMine(m, me, role);
+          const isAdmin = m.sender_role === 'admin';
+          const simple = m.channel === '간단';
           return (
             <div key={String(m._key)} style={{ alignSelf: mine ? 'flex-end' : 'flex-start', maxWidth: '78%' }}>
-              {!mine && <div style={{ fontSize: 10.5, color: C.faint, margin: '0 0 2px 3px' }}>{String(m.sender_name)} · {ROLE_LABEL[m.sender_role as Role] || ''}</div>}
-              <div style={{ padding: '8px 11px', borderRadius: 8, fontSize: 13, lineHeight: 1.45, background: mine ? C.brand : isAdmin ? '#fff7ed' : '#fff', color: mine ? '#fff' : C.ink, border: mine ? 'none' : `1px solid ${C.line}`, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{String(m.text)}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5, margin: '0 0 2px 3px', justifyContent: mine ? 'flex-end' : 'flex-start' }}>
+                {!mine && <span style={{ fontSize: 10.5, color: C.faint }}>{chatDisplayName(String(m.sender_role), String(m.sender_name), String(m.sender_code || m.sender_uid || ''))} · {ROLE_LABEL[m.sender_role as Role] || ''}</span>}
+                {simple && <span style={{ fontSize: 9.5, fontWeight: 700, color: C.brand, background: C.selected, padding: '1px 5px', borderRadius: R }}>간단</span>}
+              </div>
+              {m.image_url ? (
+                <img src={String(m.image_url)} alt="" onClick={() => setFull(String(m.image_url))} style={{ maxWidth: 200, maxHeight: 220, borderRadius: R, cursor: 'zoom-in', display: 'block', border: `1px solid ${C.line}` }} />
+              ) : m.file_url ? (
+                <a href={String(m.file_url)} download={String(m.file_name || 'file')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, maxWidth: 220, padding: '8px 11px', borderRadius: R, fontSize: 12.5, background: mine ? C.brand : '#fff', color: mine ? '#fff' : C.ink, border: mine ? 'none' : `1px solid ${C.line}`, textDecoration: 'none' }}><span>📎</span><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{String(m.file_name || '파일')}</span></a>
+              ) : (
+                <div style={{ padding: '8px 11px', borderRadius: R, fontSize: 13, lineHeight: 1.45, background: mine ? C.brand : isAdmin ? C.warnBg : '#fff', color: mine ? '#fff' : C.ink, border: mine ? 'none' : `1px solid ${C.line}`, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{String(m.text)}</div>
+              )}
             </div>
           );
         })}
         <div ref={endRef} />
       </div>
 
-      <div style={{ display: 'flex', gap: 8, padding: '10px 12px calc(10px + env(safe-area-inset-bottom))', borderTop: `1px solid ${C.line}`, flex: '0 0 auto' }}>
-        <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }} placeholder="메시지 입력" style={{ flex: 1, height: 38, padding: '0 12px', border: `1px solid ${C.line}`, borderRadius: 6, fontSize: 14 }} />
+      {/* 일반 메신저처럼 1줄 컴포저 — 상하 패딩 최소(2줄 높이 감 방지) */}
+      <div style={{ display: 'flex', gap: 6, padding: '6px 10px calc(6px + env(safe-area-inset-bottom))', borderTop: `1px solid ${C.line}`, flex: '0 0 auto', alignItems: 'center' }}>
+        <input ref={fileRef} type="file" accept="image/*,application/pdf" onChange={(e) => onPickFile(e.target.files)} style={{ display: 'none' }} />
+        <IconBtn onClick={() => fileRef.current?.click()} title="사진·파일 첨부">📎</IconBtn>
+        <Input value={text} onChange={setText} onEnter={send} placeholder="메시지 입력" full style={{ flex: 1 }} />
         <Btn onClick={send}>보내기</Btn>
       </div>
+
+      {full && <div onClick={() => setFull(null)} style={{ position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(0,0,0,0.92)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}><img src={full} alt="" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: R }} /></div>}
     </div>
   );
 }

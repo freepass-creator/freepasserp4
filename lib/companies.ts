@@ -1,13 +1,14 @@
 /**
  * 회사(테넌트) 레지스트리 — session·store 공유.
- * 프리패스 v4는 지금 단일 회사(freepass)로 운영. 멀티테넌트 seam(companyId 스코프)은 유지 →
- * 추후 제품화(다른 렌터카 업체 입점) 시 회사만 추가하면 store/ui가 그대로 격리·구분.
+ * 단일 회사 운영. 표시명은 플랫폼 브랜드(BRAND). 멀티테넌트 seam(companyId)은 유지.
  */
+import { BRAND } from '@/lib/brand';
+
 export const COMPANIES = ['freepass'];
 export const ALL_COMPANIES = '__ALL__';
 
 export const COMPANY_LABELS: Record<string, string> = {
-  freepass: '프리패스모빌리티',
+  freepass: BRAND,
 };
 export function companyLabel(id: unknown): string {
   const s = String(id || '');
@@ -15,7 +16,7 @@ export function companyLabel(id: unknown): string {
   return COMPANY_LABELS[s] || s || '—';
 }
 
-export const COMPANY_SHORT: Record<string, string> = { freepass: '프리패스' };
+export const COMPANY_SHORT: Record<string, string> = { freepass: BRAND };
 export function companyShort(id: unknown): string {
   const s = String(id || '');
   return COMPANY_SHORT[s] || COMPANY_LABELS[s] || s;

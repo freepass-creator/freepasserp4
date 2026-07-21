@@ -20,46 +20,74 @@ const _persistenceReady = (() => {
   ]);
 })();
 
+/** HMR에도 유지 — 리스너 중복 등록·세션 날림 방지. */
+type AuthBoot = { promise?: Promise<void>; lastUid: string | null };
+const boot = (globalThis as unknown as { __fp4AuthBoot?: AuthBoot }).__fp4AuthBoot
+  ?? ((globalThis as unknown as { __fp4AuthBoot: AuthBoot }).__fp4AuthBoot = { lastUid: null });
+
 /** 인증 상태 감시 → 프로필 로드 → 세션 반영. resolve = 최초 1회(로그인 여부 확정). */
-let _inited = false;
 export function initAuth(): Promise<void> {
   if (!firebaseReady()) return Promise.resolve();
-  if (_inited) return Promise.resolve();
-  _inited = true;
+  if (boot.promise) return boot.promise;
   const auth = getAuthClient();
   const db = getRtdb();
   if (!auth) return Promise.resolve();
-  return new Promise((resolve) => {
-    let resolved = false; let lastUid: string | null = null;
-    setTimeout(() => { if (!resolved) { resolved = true; resolve(); } }, 8000); // 무응답 8s 방어
-    onAuthStateChanged(auth, async (user) => {
-      const uid = user?.uid || null;
-      if (uid === lastUid && uid !== null) { if (!resolved) { resolved = true; resolve(); } return; }
-      lastUid = uid;
-      if (user && db) {
-        // 첫 로그인 직후 토큰 attach race — role 없으면 1회 재시도
-        let profile: Record<string, unknown> = (await get(ref(db, `users/${user.uid}`))).val() || {};
-        if (!profile.role) { await new Promise((r) => setTimeout(r, 300)); profile = (await get(ref(db, `users/${user.uid}`))).val() || profile; }
-        const rawRole = profile.role === 'agent_manager' ? 'agent_admin' : String(profile.role || '');
-        const role = mapRole(rawRole);
-        const company_code = String(profile.company_code || '');
-        const agent_channel_code = String(profile.agent_channel_code || '') || company_code;
-        const code = role === 'provider' ? company_code : agent_channel_code;
-        setGuest(false);
-        setSession({
-          uid: user.uid, email: user.email || '', role, rawRole,
-          name: String(profile.name || user.email || ''), code,
-          company_code, agent_channel_code, user_code: String(profile.user_code || ''),
-        });
-      } else if (user && !db) {
-        // db 미연결 — 인증만. 최소 세션(역할 미상=영업자 기본).
-        setSession({ uid: user.uid, email: user.email || '', role: 'agent', rawRole: '', name: user.email || '', code: '', company_code: '', agent_channel_code: '', user_code: '' });
-      } else {
-        setSession(null);
-      }
-      if (!resolved) { resolved = true; resolve(); }
+
+  boot.promise = (async () => {
+    // persistence 적용 전에 listener 붙이면 null → setSession(null) → 매 수정/HMR마다 재로그인.
+    await _persistenceReady;
+    await new Promise<void>((resolve) => {
+      let resolved = false;
+      const done = () => { if (!resolved) { resolved = true; resolve(); } };
+      setTimeout(done, 8000);
+      onAuthStateChanged(auth, async (user) => {
+        const uid = user?.uid || null;
+        if (uid === boot.lastUid && uid !== null) { done(); return; }
+        boot.lastUid = uid;
+        if (user && db) {
+          try {
+            let profile: Record<string, unknown> = (await get(ref(db, `users/${user.uid}`))).val() || {};
+            if (!profile.role) { await new Promise((r) => setTimeout(r, 300)); profile = (await get(ref(db, `users/${user.uid}`))).val() || profile; }
+            const rawRole = profile.role === 'agent_manager' ? 'agent_admin' : String(profile.role || '');
+            const role = mapRole(rawRole);
+            const company_code = String(profile.company_code || '');
+            const agent_channel_code = String(profile.agent_channel_code || '') || company_code;
+            const user_code = String(profile.user_code || '').trim();
+            // 귀속키 SSOT: 공급사=회사코드, 영업자=사람키(user_code→uid). 채널코드로 방/계약을 묶지 않음(동채널 충돌·/q?a= 불일치 방지).
+            const code = role === 'provider'
+              ? company_code
+              : (user_code || user.uid);
+            setGuest(false);
+            setSession({
+              uid: user.uid, email: user.email || '', role, rawRole,
+              name: String(profile.name || user.email || ''), code,
+              company_code, agent_channel_code, user_code: user_code || user.uid,
+            });
+          } catch (e) {
+            console.warn('[auth] users 프로필 읽기 실패 — 최소 세션 진행:', (e as Error)?.message || e);
+            setGuest(false);
+            // 귀속키 최소=uid. 빈 code면 actor가 usr_park 폴백 → 타 영업 방/계약에 붙는 사고 방지.
+            setSession({
+              uid: user.uid, email: user.email || '', role: 'agent', rawRole: '',
+              name: user.email || '', code: user.uid, company_code: '',
+              agent_channel_code: '', user_code: user.uid,
+            });
+          }
+        } else if (user && !db) {
+          setSession({
+            uid: user.uid, email: user.email || '', role: 'agent', rawRole: '',
+            name: user.email || '', code: user.uid, company_code: '',
+            agent_channel_code: '', user_code: user.uid,
+          });
+        } else {
+          // 진짜 비로그인만 지움. auth.currentUser 가 있으면(복원 직후 race) 캐시 세션 유지.
+          if (!auth.currentUser) setSession(null);
+        }
+        done();
+      });
     });
-  });
+  })();
+  return boot.promise;
 }
 
 export async function login(email: string, password: string): Promise<User> {
@@ -78,6 +106,7 @@ export async function signup(email: string, password: string): Promise<User> {
 
 export async function logout(): Promise<void> {
   const auth = getAuthClient(); if (auth) await signOut(auth);
+  boot.lastUid = null;
   setSession(null);
 }
 

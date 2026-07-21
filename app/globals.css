@@ -18,6 +18,7 @@
   --bg-page: #fafafa;   --bg-card: #ffffff;    --bg-header: #f4f4f5;
   --bg-sunken: #f4f4f5; --bg-hover: #e9e9eb;   --bg-selected: #eff6ff;
   --bg-stripe: #f9f9fa; --bg-elevated: #ffffff; --bg-disabled: #f4f4f5;
+  --bg-placeholder: #eef1f5;
 
   /* Text hierarchy */
   --text-main: #18181b;   --text-sub: #52525b;   --text-weak: #a1a1aa;
@@ -50,7 +51,20 @@
   /* Sizing — 4px 미세 라운드 통일 */
   --radius-sm: 3px; --radius: 4px; --radius-md: 6px; --radius-lg: 8px; --radius-pill: 999px;
   --row-height: 30px; --input-height: 26px; --button-height: 26px;
-  --topbar-h: 48px; --bottombar-h: 42px;
+
+  /* 바 높이 SSOT — 메뉴(TopBar)·건수툴바·필터헤드·하단독 동일
+   *   웹: ctrl 32 + padY 12×2 = 56
+   *   모바일: ctrl 40 + padY 8×2 = 56
+   */
+  --fp-ctrl-h: 32px;
+  --fp-bar-pad-y: 12px;
+  --fp-bar-pad-x: 16px;
+  --fp-bar-h: calc(var(--fp-ctrl-h) + var(--fp-bar-pad-y) * 2);
+  --topbar-h: var(--fp-bar-h);
+  --bottombar-h: var(--fp-bar-h);
+  /* 모바일 AppTabBar — 표시 시 JS가 채움. 기본 0(웹·비탭). */
+  --fp-tabbar-h: 0px;
+  --fp-dock-safe: env(safe-area-inset-bottom, 0px);
 
   --z-dropdown: 100; --z-modal: 1000; --z-toast: 2000;
   --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
@@ -59,9 +73,42 @@
   --shadow-lg: 0 10px 24px -4px rgba(0,0,0,0.10), 0 4px 8px -2px rgba(0,0,0,0.04);
 }
 
+/* 다크 테마 — 토큰만 덮어씀(원자·페이지는 C.* 그대로) */
+html[data-theme="dark"] {
+  --bg-page: #0f1419;   --bg-card: #171c22;    --bg-header: #1a2028;
+  --bg-sunken: #12171d; --bg-hover: #242b34;   --bg-selected: #1a2740;
+  --bg-stripe: #141a21; --bg-elevated: #1c232c; --bg-disabled: #1a2028;
+  --bg-placeholder: #1e252e;
+
+  --text-main: #f4f4f5;   --text-sub: #a1a1aa;   --text-weak: #71717a;
+  --text-muted: #52525b;  --text-inverse: #18181b; --text-link: #93c5fd;
+
+  --border: #2a3340;  --border-soft: #1e252e;  --border-strong: #3f4a5a;  --border-focus: #9EC5F3;
+
+  --brand: #9EC5F3;   --brand-h: #b8d7f7;   --brand-bg: #1a2740;   --brand-soft: #141c28;
+  --sky: #9EC5F3;     --sky-bg: #1a2740;
+  --focus-ring: rgba(158, 197, 243, 0.22);
+
+  --red-bg: #2a1515;    --red-text: #fca5a5;    --red-border: #7f1d1d;
+  --orange-bg: #2a1c12; --orange-text: #fdba74; --orange-border: #9a3412;
+  --amber-bg: #2a2410;  --amber-text: #fde047;  --amber-border: #854d0e;
+  --green-bg: #14241a;  --green-text: #86efac;  --green-border: #166534;
+  --blue-bg: #152033;   --blue-text: #93c5fd;   --blue-border: #1e3a5f;
+  --indigo-bg: #1a1a33; --indigo-text: #a5b4fc; --indigo-border: #312e81;
+  --purple-bg: #1f1530; --purple-text: #d8b4fe; --purple-border: #6b21a8;
+  --zinc-bg: #1e252e;   --zinc-text: #a1a1aa;   --zinc-border: #2a3340;
+
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.35);
+  --shadow: 0 1px 3px rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.25);
+  --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.45);
+  --shadow-lg: 0 10px 24px -4px rgba(0,0,0,0.5);
+}
+
 * { box-sizing: border-box; }
 html, body {
   margin: 0; padding: 0;
+  height: 100%;
+  overflow: hidden;            /* 문서 자체 스크롤 잠금 — 상단바는 고정, 스크롤은 .fp-main-pad 안에서만 */
   font-family: var(--font);
   font-size: var(--font-size);
   line-height: var(--line-height);
@@ -69,6 +116,19 @@ html, body {
   background: var(--bg-page);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+}
+/* 앱 셸 = [상단바 고정 | 스크롤 영역]. 상단바는 스크롤에 안 끌려감. */
+.fp-shell { display: flex; flex-direction: column; height: 100dvh; }
+/* flex 열 = 자식 Loading/CenterNote(flex:1)·.fp-finder(height:100%)가 패드를 채워 정중앙·풀하이트.
+ * scrollbar-gutter:stable = 세로막대 유무로 레이아웃 점프 방지(오른쪽 예약). */
+.fp-main-pad { flex: 1 1 0; min-height: 0; overflow-y: auto; overflow-x: hidden; scrollbar-gutter: stable; display: flex; flex-direction: column; }
+
+/* 모바일 새로고침: 폭 확정 전 셸 숨김 — 웹 격자(칸) 깜빡임 차단 (MobileBoot가 해제) */
+html.fp-pending-m,
+html.fp-pending-m body { background: #fff; }
+html.fp-pending-m .fp-shell {
+  visibility: hidden !important;
+  pointer-events: none !important;
 }
 a { color: inherit; }
 button, input, select, textarea { font-family: inherit; }
@@ -85,10 +145,37 @@ button, input, select, textarea { font-family: inherit; }
   70% { box-shadow: 0 0 0 5px rgba(185, 28, 28, 0); }
   100% { box-shadow: 0 0 0 0 rgba(185, 28, 28, 0); }
 }
+/* 모바일 메뉴 시트 — 상단바 아래로 슬라이드 다운. */
+@keyframes menuDrop {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: none; }
+}
+/* 하단 시트 — 아래에서 위로 */
+@keyframes sheetUp {
+  from { opacity: 0.6; transform: translateY(28px); }
+  to { opacity: 1; transform: none; }
+}
+/* 로딩 스피너 회전. */
+@keyframes fp-spin { to { transform: rotate(360deg); } }
+@keyframes fp-page-fresh {
+  from { opacity: 0.45; }
+  to { opacity: 1; }
+}
+.fp-page-fresh {
+  animation: fp-page-fresh 0.32s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  [style*="menuDrop"], [style*="sheetUp"] { animation: none !important; }
+}
 
-::-webkit-scrollbar { width: 10px; height: 10px; }
-::-webkit-scrollbar-thumb { background: #d4d4d8; border-radius: 999px; border: 2px solid var(--bg-page); }
-::-webkit-scrollbar-thumb:hover { background: #a1a1aa; }
+/* 스크롤바 SSOT — 기본 연하게, 커서 올리면 진하게 (전역) */
+* { scrollbar-width: thin; scrollbar-color: #d4d4d8 transparent; }
+*:hover { scrollbar-color: #a1a1aa transparent; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #d4d4d8; border-radius: 999px; border: none; }
+*:hover::-webkit-scrollbar-thumb { background: #b0b0b8; }
+::-webkit-scrollbar-thumb:hover { background: #8b8b96; }
 
 /* ── 모바일·웹 한 벌 셸 ── 웹=상단 내비 / 모바일(≤760)=하단 탭바 ── */
 .fp-topnav { display: flex; gap: 2px; align-items: center; }
@@ -97,10 +184,10 @@ button, input, select, textarea { font-family: inherit; }
 
 @media (max-width: 760px) {
   .fp-topnav { display: none; }               /* 모바일: 상단 내비 숨김 */
-  .fp-main-pad { padding-bottom: 64px; }        /* 하단 탭바 자리 */
+  /* 하단 여백은 전역 예약 안 함 — BottomNav 있는 페이지만 자기 하단패딩 calc(bar+safe-area)로 클리어(이중예약 죽은공간 방지). */
   .fp-bottomnav {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 45;
-    display: flex; align-items: stretch; height: 56px;
+    display: flex; align-items: stretch; height: var(--fp-bar-h);
     background: #fff; border-top: 1px solid var(--border);
     padding-bottom: env(safe-area-inset-bottom);
     box-shadow: 0 -2px 12px rgba(15, 23, 42, 0.06);
@@ -114,12 +201,401 @@ button, input, select, textarea { font-family: inherit; }
 .fp-bottomnav-tab[data-on="true"] { color: var(--brand); font-weight: 800; box-shadow: inset 0 2px 0 0 var(--brand); }
 
 /* ── 파인더: 웹=좌측 사이드바 필터 / 모바일=숨김(필터 버튼) ── 각지게(저 radius) ── */
-.fp-finder { display: grid; grid-template-columns: 264px 1fr; gap: 0; align-items: start; }
-.fp-sidebar { position: sticky; top: var(--topbar-h); height: calc(100vh - var(--topbar-h)); overflow-y: auto; border-right: 1px solid var(--border); background: #fff; }
-.fp-filter-btn { display: none; }
-@media (max-width: 860px) {
-  .fp-finder { grid-template-columns: 1fr; }
-  .fp-sidebar { display: none; }
-  .fp-sidebar.is-open { display: block; position: fixed; inset: var(--topbar-h) 0 0 0; z-index: 60; background: #fff; overflow-y: auto; padding: 12px 16px 80px; max-height: none; }
-  .fp-filter-btn { display: inline-flex; }
+/* 웹=사이드·목록 각자 스크롤(메인패드로 휠 전달 금지). 모바일=본문만 메인패드 스크롤.
+ * 파인더 메인에는 스크롤 없음 → gutter 끔. 본문(.fp-finder-body)만 stable gutter + 툴바 오른쪽을 --fp-pane-sb로 맞춤. */
+.fp-main-pad:has(.fp-finder) { overflow: hidden; scrollbar-gutter: auto; }
+.fp-finder {
+  /* 필터 사이드바 : 결과 = 비율(고정폭 강제 없음). 화면 폭 따라 함께 신축. */
+  display: grid; grid-template-columns: 1fr 4fr; grid-template-rows: auto 1fr;
+  flex: 1 1 0; height: 100%; min-height: 0; width: 100%; overflow: hidden;
+  /* 틀 패딩 = 바 SSOT (--fp-bar-pad-*) */
+  --fp-frame-pad-y: var(--fp-bar-pad-y);
+  --fp-frame-pad-x: var(--fp-bar-pad-x);
 }
+/* 웹 필터 접기 — 목록 풀폭. 모바일 시트(is-open)와 무관. */
+.fp-finder.is-nofilter { grid-template-columns: 1fr; }
+.fp-finder.is-nofilter > .fp-sidebar { display: none; }
+/* subgrid = 좌·우 1행(헤더) 높이를 하나로. 어긋남 원천 차단. */
+.fp-sidebar,
+.fp-finder-main {
+  display: grid; grid-template-rows: subgrid; grid-row: 1 / -1;
+  min-height: 0; overflow: hidden;
+}
+.fp-sidebar {
+  border-right: 1px solid var(--border); background: #fff;
+  overscroll-behavior: contain;
+}
+.fp-sidebar-head,
+.fp-finder-toolbar,
+.fp-page-toolbar {
+  z-index: 2; box-sizing: border-box;
+  display: flex; align-items: center; gap: 10px;
+  padding: var(--fp-bar-pad-y) var(--fp-bar-pad-x);
+  /* 본문 세로막대/gutter 열과 툴바 오른쪽 끝을 맞춤 — 카드·엑셀 좌우가 안 밀리게 */
+  padding-right: calc(var(--fp-bar-pad-x) + var(--fp-pane-sb, 0px));
+  border-bottom: 1px solid var(--border);
+  /* 고정 높이 = --fp-bar-h (메뉴·건수·필터 헤드 동일) */
+  height: var(--fp-bar-h);
+  min-height: var(--fp-bar-h);
+  overflow: hidden;
+}
+.fp-sidebar-head { background: #fff; padding-right: var(--fp-bar-pad-x); }
+.fp-finder-toolbar,
+.fp-page-toolbar { background: var(--bg-page); min-width: 0; }
+.fp-sidebar-body,
+.fp-finder-body {
+  min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+}
+.fp-sidebar-body { padding: 8px var(--fp-frame-pad-x) 28px; }
+.fp-finder-main {
+  background: var(--bg-page); min-width: 0;
+  --fp-pane-sb: 0px;
+}
+/* pane = 관심함 틀고정(스크롤 밖) + 목록 본문 스크롤. 엑셀은 본문 안 시트가 스크롤. */
+.fp-finder-pane {
+  min-height: 0; overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.fp-finder-interest-bar {
+  flex: 0 0 auto;
+  z-index: 3;
+  background: var(--bg-page);
+  padding: 10px var(--fp-frame-pad-x) 0;
+  padding-right: calc(var(--fp-frame-pad-x) + var(--fp-pane-sb, 0px));
+  box-sizing: border-box;
+  /* 카드 여러 장일 때 본문을 다 가리지 않게 */
+  max-height: min(28vh, 240px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.fp-finder-interest-bar:empty { display: none; }
+.fp-finder-pane > .fp-finder-body {
+  flex: 1 1 0; min-height: 0;
+}
+/* 카드·리스트: gutter로 막대 자리 고정 → 좌패딩과 우패딩이 콘텐츠 기준으로 같음 */
+.fp-finder-body {
+  padding: 14px var(--fp-frame-pad-x) 40px;
+  scrollbar-gutter: stable;
+}
+/* 엑셀 = 본문 스크롤 대신 시트(.fp-excel-sheet)만 스크롤.
+ * 끝선(좌우·상하 패딩) = 카드·리스트와 동일 --fp-frame-pad. */
+.fp-finder-body.is-excel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 14px var(--fp-frame-pad-x) 40px;
+  scrollbar-gutter: auto;
+  background: var(--bg-page);
+}
+.fp-finder-body.is-excel .fp-excel-sheet {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  /* 세로막대 자리 예약 — sticky 헤더·우측 대여료 열이 막대 유무로 안 밀림 */
+  scrollbar-gutter: stable;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+.fp-finder-body.is-excel .fp-excel-table {
+  /* 넓으면 100%(옵션이 남는 폭 흡수). 좁으면 min 이하로 lock·옵션160 안 줄이고 가로 스크롤. */
+  width: 100%;
+  min-width: 1600px;
+  border-collapse: collapse;
+  border-spacing: 0;
+  table-layout: fixed;
+  font-size: 12px;
+}
+.fp-finder-body.is-excel .fp-excel-table th,
+.fp-finder-body.is-excel .fp-excel-table td {
+  box-sizing: border-box;
+}
+.fp-finder-body.is-excel .fp-excel-table th.fp-excel-price,
+.fp-finder-body.is-excel .fp-excel-table td.fp-excel-price {
+  /* 대여료 = EXCEL_PRICE_COL 샘플 lock(인라인). 필터 펴나 접으나 동일·뭉개짐 금지. */
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+/* ── 표 스크롤포트 SSOT (.fp-sheet) ──
+ * · 기본(.fp-sheet): overflow:auto + sticky th(top) — 스크롤바가 헤더 높이까지 포함
+ * · 틀분리(.fp-sheet--pane): 헤더는 포트 밖, 세로 스크롤바는 .fp-sheet-body만
+ *   (엑셀뷰 권장 — 타이틀 헤더에 막대 안 들어옴). 가로만 head↔body scrollLeft 동기.
+ * · 가로 고정열 = th/td sticky left|right (코너·블록 가장자리 boxShadow)
+ */
+.fp-sheet,
+.fp-excel-sheet {
+  min-height: 0;
+  overflow: auto;
+  background: #fff;
+  border: 1px solid var(--border-soft);
+  border-radius: 4px;
+}
+/* 헤더 밖 + 본문만 세로스크롤.
+ * 세로막대가 있을 때만 오른쪽 한 열(--fp-sb-w): 위=헤더옆 빈칸 · 아래=본문 스크롤바.
+ * 막대 없으면 열 자체 제거(빈칸도 없음). */
+.fp-sheet--pane {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+  --fp-sb-w: 0px;
+}
+.fp-sheet-head-row {
+  display: flex;
+  flex: 0 0 auto;
+  min-width: 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-header);
+}
+.fp-sheet-head {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none; /* 가로막대는 body만 — head는 scrollLeft 동기 */
+}
+.fp-sheet-head::-webkit-scrollbar { display: none; }
+/* 스크롤바 열의 위쪽(헤더 행) — 본문 세로막대와 동일 폭, 막대 없을 때 숨김 */
+.fp-sheet-sb-gap {
+  display: none;
+  flex: 0 0 var(--fp-sb-w);
+  width: var(--fp-sb-w);
+  background: var(--bg-header);
+  box-shadow: inset 1px 0 0 var(--border-soft);
+}
+.fp-sheet--pane[data-sb] .fp-sheet-sb-gap { display: block; }
+.fp-sheet-body {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: auto;
+}
+.fp-filter-btn { display: none; }
+.fp-search-tb { max-width: 420px; }  /* 웹=검색 여유폭 */
+@supports not (grid-template-rows: subgrid) {
+  .fp-finder { grid-template-rows: none; align-items: stretch; }
+  .fp-sidebar, .fp-finder-main {
+    display: flex; flex-direction: column; grid-row: auto; height: 100%;
+  }
+  .fp-sidebar-head, .fp-finder-toolbar, .fp-page-toolbar {
+    flex: 0 0 auto; height: var(--fp-bar-h); min-height: var(--fp-bar-h);
+  }
+  .fp-sidebar-body, .fp-finder-pane { flex: 1 1 0; min-height: 0; }
+}
+@media (max-width: 760px) {
+  :root {
+    --fp-ctrl-h: 40px;
+    --fp-bar-pad-y: 8px;
+    --fp-bar-pad-x: 12px;
+  }
+  /* 홈 = 업무 셸과 동일: 툴바 고정 · 본문만 스크롤 · 하단 AppTabBar */
+  .fp-finder {
+    --fp-finder-dock-h: var(--fp-tabbar-h, 0px);
+    --fp-frame-pad-x: var(--fp-bar-pad-x);
+    --fp-frame-pad-y: var(--fp-bar-pad-y);
+  }
+  .fp-main-pad:has(.fp-finder) {
+    overflow: hidden;
+    scrollbar-gutter: auto;
+  }
+  .fp-finder {
+    grid-template-columns: 1fr;
+    grid-template-rows: none;
+    height: 100%;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .fp-sidebar { display: none; }
+  .fp-finder-main {
+    flex: 1 1 0;
+    min-height: 0;
+    height: auto;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    grid-template-rows: none;
+    grid-row: auto;
+  }
+  /* 툴바 = 스크롤에 안 딸려감(고정). sticky 아님 — 셸 flex 고정과 동일 */
+  .fp-finder-toolbar,
+  .fp-page-toolbar {
+    position: relative;
+    top: auto;
+    z-index: 6;
+    flex: 0 0 auto;
+    height: var(--fp-bar-h);
+    min-height: var(--fp-bar-h);
+    padding: var(--fp-bar-pad-y) var(--fp-bar-pad-x);
+    padding-right: var(--fp-bar-pad-x);
+  }
+  /* 페이지 툴바 SSOT = 아이콘 행(+적용 힌트). 시트는 화면 바닥에서. */
+  .fp-finder-toolbar.is-home-tools,
+  .fp-page-toolbar.is-page-tools {
+    display: flex; flex-direction: column; align-items: stretch; gap: 0;
+    height: auto; min-height: var(--fp-bar-h);
+    padding: 0; overflow: visible;
+    background: #fff;
+    border-bottom: 1px solid var(--border);
+  }
+  .fp-home-tool-row,
+  .fp-page-tool-row {
+    display: flex; align-items: stretch;
+    height: var(--fp-bar-h); min-height: var(--fp-bar-h);
+    padding: 0 4px;
+    box-sizing: border-box;
+  }
+  .fp-home-tool,
+  .fp-page-tool {
+    position: relative;
+    flex: 1 1 0; min-width: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 2px;
+    border: none; background: none; cursor: pointer;
+    color: var(--text-sub); font-weight: 600; font-size: 11px; line-height: 1.1;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .fp-home-tool[aria-pressed="true"],
+  .fp-home-tool[data-active="1"],
+  .fp-page-tool[aria-pressed="true"],
+  .fp-page-tool[data-active="1"] {
+    color: var(--brand); font-weight: 800;
+  }
+  .fp-home-tool-badge,
+  .fp-page-tool-badge {
+    position: absolute; top: 4px; right: max(4px, 10%);
+    pointer-events: none;
+    transform: scale(1.05);
+  }
+  .fp-home-tool-hints,
+  .fp-page-tool-hints {
+    display: flex; align-items: center; gap: 8px;
+    min-height: 32px; padding: 4px 12px 8px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-selected);
+    box-sizing: border-box;
+  }
+  .fp-home-tool-hints-label,
+  .fp-page-tool-hints-label {
+    flex: 0 0 auto; font-size: 11px; font-weight: 800; color: var(--brand);
+  }
+  .fp-home-tool-hints-text,
+  .fp-page-tool-hints-text {
+    flex: 1 1 0; min-width: 0;
+    font-size: 12px; font-weight: 600; color: var(--text-main);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  /* 필터 시트 안 사이드바 헤드 숨김(시트 타이틀이 대체) */
+  .fp-bottom-sheet-body .fp-sidebar-head { display: none; }
+  .fp-bottom-sheet-body .fp-sidebar-body {
+    padding: 4px 16px 12px;
+  }
+  .fp-finder-pane {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    height: auto;
+  }
+  /* 카드 피드 = 좌우 풀블리드. 하단 = 탭바 높이. 여기만 스크롤 */
+  .fp-finder-body {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    height: auto;
+    padding: 0 0 var(--fp-finder-dock-h);
+    -webkit-overflow-scrolling: touch;
+  }
+  .fp-finder-body.is-excel {
+    display: block;
+    overflow: auto;
+    padding: 8px var(--fp-frame-pad-x) var(--fp-finder-dock-h);
+  }
+  .fp-finder-body.is-excel .fp-excel-sheet {
+    flex: none;
+    overflow-x: auto;
+    overflow-y: visible;
+    max-height: none;
+  }
+  .fp-sheet,
+  .fp-excel-sheet { overflow-x: auto; }
+  /* (레거시) 모바일 필터 전체시트 — 홈은 툴 패널로 대체 */
+  .fp-sidebar.is-open {
+    display: flex; flex-direction: column; grid-template-rows: none; grid-row: auto;
+    position: fixed; inset: var(--topbar-h) 0 0 0; z-index: 60;
+    background: #fff; overflow: hidden; max-height: none; height: auto; animation: menuDrop .18s ease; overscroll-behavior: contain;
+    padding: 0 0 var(--fp-finder-dock-h);
+  }
+  .fp-sidebar.is-open .fp-sidebar-head {
+    height: var(--fp-bar-h);
+    min-height: var(--fp-bar-h);
+    padding: var(--fp-bar-pad-y) var(--fp-bar-pad-x);
+    overflow: hidden;
+  }
+  .fp-sidebar.is-open .fp-sidebar-body { padding: 8px var(--fp-bar-pad-x) 16px; flex: 1 1 0; }
+  .fp-filter-btn { display: inline-flex; align-items: center; justify-content: center; }
+  .fp-search-tb { max-width: none; }
+}
+.fp-filter-apply { display: none; }
+
+/* 모바일 하단 슬라이딩 탭 스트립 — 스크롤바 숨김(터치로 좌우 슬라이드). */
+.fp-tabstrip { scrollbar-width: none; -ms-overflow-style: none; }
+.fp-tabstrip::-webkit-scrollbar { display: none; }
+
+/* 버튼 성격별 인터랙션 — 필터칩(토글)=누름 스케일, 액션/네비(페이지전환)=눌림 translate. */
+.fp-chip { transition: transform .07s ease, filter .12s ease, border-color .12s ease; }
+.fp-chip:hover { filter: brightness(0.97); }
+.fp-chip:active { transform: scale(0.93); }
+.fp-press { transition: transform .07s ease, filter .12s ease, box-shadow .12s ease; }
+.fp-press:hover { filter: brightness(0.97); box-shadow: 0 1px 4px rgba(15, 23, 42, 0.12); }
+.fp-press:active { transform: translateY(1px); box-shadow: none; }
+@media (hover: none) { .fp-chip:hover, .fp-press:hover { filter: none; box-shadow: none; } }
+
+/* 매물 카드 hover = 카드형(그림자·살짝 뜸). 색칠(selected)은 엑셀 행만.
+ * background 인라인 #fff여도 box-shadow·transform은 여기 SSOT. */
+.fp-card {
+  background: #fff;
+  transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+@media (hover: hover) {
+  .fp-card:hover {
+    border-color: #cfd3da;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.10);
+    transform: translateY(-1px);
+  }
+  /* 모바일 리스트형(하단선만) — 떠오름 없이 약한 그림자만 */
+  .fp-card.fp-card-row:hover {
+    border-color: transparent;
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
+    transform: none;
+  }
+  /* 관심·최근 얇은 북마크 — 누름감 그림자만(떠오름·색 없음) */
+  .fp-card.fp-card-bookmark:hover {
+    border-color: var(--border);
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.12);
+    transform: none;
+  }
+  /* 엑셀 행 hover — 색만. sticky td 인라인 배경도 덮음 */
+  .fp-excel-sheet tbody tr.fp-sheet-row:hover > td,
+  .fp-sheet-body tbody tr.fp-sheet-row:hover > td {
+    background: var(--bg-selected) !important;
+  }
+
+  /* WorkPage 모바일 스택 — 패널 본문은 내용만큼 늘리고 바깥(.fp-work-stack)만 스크롤 */
+  .fp-work-stack .fp-pane-scroll {
+    flex: none !important;
+    overflow: visible !important;
+    min-height: 0 !important;
+  }
+}
+.fp-card:active {
+  transform: none;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.10);
+}
+.fp-card.fp-card-bookmark:active {
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.12);
+}
+
