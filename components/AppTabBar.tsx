@@ -13,9 +13,9 @@ import { refreshCurrentPage } from '@/lib/page-refresh';
 
 /**
  * 모바일 하단 탭.
- *   공통: 상품 · 문의 · 계약 · 설정
- *   공급사·관리자: + 재고
- * 아이콘 = NAV_ICON SSOT (상단 메뉴와 동일)
+ *   공통: 상품찾기 · 계약문의 · 계약진행 · 설정
+ *   공급사·관리자: + 재고관리
+ * 라벨 = NAV_LABEL SSOT · 아이콘 = NAV_ICON SSOT (상단 메뉴와 동일)
  */
 function setTabCss(on: boolean) {
   const root = document.documentElement;
@@ -144,7 +144,8 @@ export default function AppTabBar() {
               }}
             >
               <t.icon size={20} strokeWidth={on ? 2.4 : 1.75} />
-              <span>{t.label}</span>
+              {/* 라벨이 4글자(계약문의 등) — 좁은 화면에서 줄바꿈되면 탭 높이가 깨지므로 한 줄 고정. */}
+              <span style={{ whiteSpace: 'nowrap' }}>{t.label}</span>
               {n != null && n > 0 ? (
                 <span style={{ position: 'absolute', top: 4, right: '18%', pointerEvents: 'none' }}>
                   <CountPill n={n} max={99} />

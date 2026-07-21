@@ -5,6 +5,7 @@ import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
 import { ENTITIES, ROLES, ROLE_LABEL_RAW, type EntityRecord, type Field } from '@/lib/intake/entities';
+import { isGuest } from '@/lib/auth-session';
 import { getRole } from '@/lib/domain/deal';
 import { newId } from '@/lib/domain/ids';
 import { PaneHead, PaneBody, Btn, Badge, FormGrid, FormCard, PillTabs, C, NUM, Loading, CenterNote, ListRow, ACTOR_TONE, FilterChips, SectionLabel, Message, PageActions } from '@/components/ui';
@@ -62,7 +63,10 @@ export default function Members() {
   const [editing, setEditing] = useState(false);
 
   const load = async (t: Tab) => { const all = await getStore().list(t, co); setRows(all); return all; };
-  useEffect(() => { (async () => { await seedIfEmpty(co); if (getRole() !== 'admin') { router.replace('/'); return; } await load('user'); setOk(true); })(); /* eslint-disable-next-line */ }, []);
+  // 회원·파트너 = 관리자 전용(요율·역할을 바꾸는 화면).
+  // 둘러보기는 세션이 없어 getRole()이 localStorage 값을 읽는다 → fp4_role 조작으로 통과 가능하므로 함께 차단.
+  // ※ 화면 게이트는 방어의 일부일 뿐 — 실제 강제는 RTDB 규칙에서 해야 한다(현재 v4 오버레이 규칙 미비, 별도 과제).
+  useEffect(() => { (async () => { await seedIfEmpty(co); if (isGuest() || getRole() !== 'admin') { router.replace('/'); return; } await load('user'); setOk(true); })(); /* eslint-disable-next-line */ }, []);
 
   const switchTab = async (t: Tab) => {
     if (t === tab) return;

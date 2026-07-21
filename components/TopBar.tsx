@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect, useCallback, type CSSProperties, type ReactNode } from 'react';
-import { Menu, X, Search, FileText, ScrollText, Settings, ChevronLeft, List, History, Users, Wrench, type LucideIcon } from 'lucide-react';
+import { Menu, X, Search, FileText, ScrollText, Settings, ChevronLeft, List, History, Users, Wrench, HelpCircle, type LucideIcon } from 'lucide-react';
 import { useAppBarSlots } from '@/lib/appbar';
 import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
@@ -40,6 +40,7 @@ const GROUPS: { title: string; items: { href?: string; label: string; icon: Luci
   ] },
   { title: '', items: [
     { href: '/dev', label: NAV_LABEL.dev, icon: Wrench, roles: ['admin'], hideMobile: true },
+    { href: '/faq', label: NAV_LABEL.faq, icon: HelpCircle, roles: ['agent', 'admin'] },
     { href: '/settings', label: NAV_LABEL.settings, icon: NAV_ICON.settings, roles: ALL_ROLES },
   ] },
 ];
@@ -186,9 +187,11 @@ function NavMenu({ mobile }: { mobile: boolean }) {
   const menuRole: Role = session?.role === 'admin' || session?.role === 'provider' || session?.role === 'agent'
     ? session.role
     : role;
+  // 관리자는 역할 게이트를 통과한다 — 모든 메뉴가 보인다(항목마다 roles 에 admin 을 넣지 않아도 되게 여기서 규칙화).
+  const seesAll = menuRole === 'admin';
   const groups = GROUPS.map((g) => ({
     ...g,
-    items: g.items.filter((it) => (!it.roles || it.roles.includes(menuRole)) && !(mobile && it.hideMobile)),
+    items: g.items.filter((it) => (seesAll || !it.roles || it.roles.includes(menuRole)) && !(mobile && it.hideMobile)),
   })).filter((g) => g.items.length);
   const line = C.line, ink = C.ink, mute = C.mute, weak = C.faint;
   // 웹=좌측 드롭다운 · 모바일=풀스크린

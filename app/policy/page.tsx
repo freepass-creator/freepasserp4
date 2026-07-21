@@ -193,7 +193,7 @@ export default function PolicyMgmt() {
 
   if (ok === false) {
     return (
-      <Page title="정책">
+      <Page title={NAV_LABEL.policy}>
         <CenterNote>공급사·관리자만 정책을 관리할 수 있습니다</CenterNote>
         <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 12 }}>
           <Btn href="/settings" size="sm">설정에서 역할 변경</Btn>

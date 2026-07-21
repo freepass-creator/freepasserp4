@@ -17,6 +17,7 @@ import { ContractDocs } from '@/components/ContractDocs';
 import { matchRoomQuery } from '@/lib/domain/search';
 import { haptic } from '@/lib/haptics';
 import { ChatRoomRow } from '@/components/list-rows';
+import { NAV_LABEL } from '@/lib/tabbar';
 
 type ChatSort = 'unread' | 'name';
 type ChatFilter = '문의' | 'all' | '완료' | '취소';
@@ -205,7 +206,7 @@ export default function Chat() {
   return (
     <>
     <WorkPage
-      title="문의"
+      title={NAV_LABEL.chat}
       statusLabel="문의 미확인"
       statusCount={inquiryUnreadN}
       listCount={shownRooms.length}

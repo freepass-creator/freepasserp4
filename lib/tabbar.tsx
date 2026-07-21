@@ -39,22 +39,35 @@ export const NAV_ICON = {
 } as const satisfies Record<string, LucideIcon>;
 
 /**
- * 네비 워딩 SSOT — 웹 햄버거·모바일 탭·상태창 폴백 동일.
- * 짧은 탭 라벨 기준(상품·문의·계약·재고·설정). 페이지 본문 타이틀과 다를 수 있음.
+ * 네비 워딩 SSOT — 웹 햄버거·페이지 타이틀.
+ * 두 글자 약어 대신 무슨 일을 하는 곳인지 담는다(2026-07-21 결정).
+ *   계약문의      = 단순 문의로 시작해 자연스럽게 계약으로 넘어가는 곳
+ *   계약진행 및 정산 = 계약문의에서 넘어온 건 중 실제 계약이 진행되고 건별 정산까지 가는 곳
+ *   월별정산      = 관리자 월 단위 정산(건별과 구분)
  */
 export const NAV_LABEL = {
-  product: '상품',
-  chat: '문의',
-  contract: '계약',
-  inventory: '재고',
+  product: '상품찾기',
+  chat: '계약문의',
+  contract: '계약진행 및 정산',
+  inventory: '재고관리',
   settings: '설정',
-  policy: '정책',
+  policy: '정책관리',
   settlement: '월별정산',
   members: '회원·파트너',
   audit: '감사·휴지통',
   dataCheck: '데이터점검',
   dev: '개발도구',
+  faq: '업무안내·QNA',
 } as const;
+
+/**
+ * 하단 탭 전용 축약 — 탭 칸폭이 화면/5 라 4글자가 한계(11px 기준 ~44px).
+ * 긴 정식명(NAV_LABEL)은 햄버거 메뉴·페이지 타이틀에서 그대로 보여준다. 여기 없는 키는 NAV_LABEL 사용.
+ */
+const NAV_TAB_LABEL: Partial<Record<keyof typeof NAV_LABEL, string>> = {
+  contract: '계약진행',
+};
+const tabLabel = (k: keyof typeof NAV_LABEL): string => NAV_TAB_LABEL[k] ?? NAV_LABEL[k];
 
 export type AppTab = {
   href: string;
@@ -67,14 +80,14 @@ export type AppTab = {
 /** 하단 탭 항목 — 공급사·관리자만 재고 추가 */
 export function appTabsFor(role: Role): AppTab[] {
   const tabs: AppTab[] = [
-    { href: '/', label: NAV_LABEL.product, icon: NAV_ICON.product },
-    { href: '/chat', label: NAV_LABEL.chat, icon: NAV_ICON.chat, badgeKey: '/chat' },
-    { href: '/contract', label: NAV_LABEL.contract, icon: NAV_ICON.contract, badgeKey: '/contract' },
+    { href: '/', label: tabLabel('product'), icon: NAV_ICON.product },
+    { href: '/chat', label: tabLabel('chat'), icon: NAV_ICON.chat, badgeKey: '/chat' },
+    { href: '/contract', label: tabLabel('contract'), icon: NAV_ICON.contract, badgeKey: '/contract' },
   ];
   if (role === 'provider' || role === 'admin') {
-    tabs.push({ href: '/inventory', label: NAV_LABEL.inventory, icon: NAV_ICON.inventory });
+    tabs.push({ href: '/inventory', label: tabLabel('inventory'), icon: NAV_ICON.inventory });
   }
-  tabs.push({ href: '/settings', label: NAV_LABEL.settings, icon: NAV_ICON.settings });
+  tabs.push({ href: '/settings', label: tabLabel('settings'), icon: NAV_ICON.settings });
   return tabs;
 }
 
