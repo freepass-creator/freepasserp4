@@ -82,9 +82,12 @@
 `ink/mute/faint`(텍스트) · `line/line2`(테두리) · `brand`(강조) · `accent`(링크·포커스) · `danger/ok/warn` · `head`(헤더바탕) · `selected`(선택행) · `zebra`. `#eef4ff→C.selected`, `var(--font-mono)→NUM`, `radius:8→R`.
 
 ## 데이터·엔진
-- 저장 = `getStore().save/update`(audit 자동). 계약↔차량 상태동기화 = `settlement-engine.applyStepCheck`(계약 진행시작=출고불가). 직접 상태변경 금지.
+- 저장 = `getStore().save/update`(audit 자동). 계약↔차량 상태동기화 = `settlement-engine.applyStepCheck`. 직접 상태변경 금지.
+- **차량 락** — 계약금 입금(확인) 선점 = `계약중`(목록 노출·마크) · 계약완료 = `출고불가`(목록 숨김). 문의·서류만으로는 잠그지 않는다(여러 영업 병행, 입금 선점이 이김).
+  락 주인은 `product.locked_by_contract`. 락 쓰기는 `syncVehicleLock` 한 곳(매 체크마다 재계산 — 분기를 늘리면 해제 누락이 생긴다). 삭제보호는 `blockingContractFor`(락보다 넓음).
 - 식별코드 = `lib/domain/ids.ts`(`usr_/sup_/veh_/pol_/chn_`).
-- **v4 = Firestore 독립 새집 / v3 = RTDB 읽기전용**(구데이터 write 금지). 이관 = `lib/migrate/v3.ts`.
+- **v3 = 라이브 읽기 / v4 = `v4/` 오버레이 쓰기** (`lib/firebase/rtdb-adapter.ts`). 읽기 = v3 라이브 ∪ v4 오버레이 필드단위 병합, 쓰기는 전부 `v4/{node}/{key}` — **v3 구데이터 write 금지**.
+  ※ 초기 설계였던 "v4=Firestore 독립 새집 + 일괄 ETL 이관"은 폐기됨(브리지로 대체). `lib/migrate/v3.ts` 도 함께 삭제(2026-07-21).
 
 ## 레인
 - 이 저장소는 두 AI 도구 동시 작업. **v3 데이터 연동/브리지 = 다른 도구 담당**. UI·원자·페이지·규격 = 이 규격 따름. 같은 파일 동시편집 시 .next 청크 desync 주의(백지=stale 서버, `.next` 삭제 후 재기동).
