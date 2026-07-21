@@ -6,7 +6,7 @@ import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { vehicleName } from '@/lib/domain/product';
-import { checkInventory } from '@/lib/domain/data-check';
+import { checkInventory, checkVehicleLocks } from '@/lib/domain/data-check';
 import { auditMasterFit, type MasterEntry } from '@/lib/domain/vehicle-master-match';
 import { loadVehicleMaster } from '@/lib/domain/vehicle-master-load';
 import { setReportStatus } from '@/lib/domain/report';
@@ -20,6 +20,7 @@ import { haptic } from '@/lib/haptics';
 export default function DataCheck() {
   const co = getCompanyId();
   const [rows, setRows] = useState<EntityRecord[] | null>(null);
+  const [contracts, setContracts] = useState<EntityRecord[] | null>(null);
   const [master, setMaster] = useState<MasterEntry[] | null>(null);
   const [reports, setReports] = useState<EntityRecord[]>([]);
   const [open, setOpen] = useState<Set<string>>(new Set());
@@ -28,6 +29,8 @@ export default function DataCheck() {
     (async () => {
       await seedIfEmpty(co);
       setRows(await getStore().list('product', co));
+      // 계약은 권한(관리자·스코프)에 걸려 비면 잠금점검만 건너뛴다 — 다른 점검은 그대로 돌아야 함.
+      try { setContracts(await getStore().list('contract', co)); } catch { setContracts([]); }
       await loadReports();
     })();
     loadVehicleMaster()
@@ -47,6 +50,7 @@ export default function DataCheck() {
   const openReports = reports.filter((r) => String(r.status) !== '처리완료').sort((a, b) => Number(b.at || 0) - Number(a.at || 0));
   const byCode = useMemo(() => new Map((rows || []).map((p) => [String(p.product_code ?? p._key), p])), [rows]);
   const groups = useMemo(() => (rows ? checkInventory(rows) : []), [rows]);
+  const lockGroups = useMemo(() => (rows && contracts ? checkVehicleLocks(rows, contracts) : []), [rows, contracts]);
   const masterFit = useMemo(() => (rows && master && master.length ? auditMasterFit(rows, master) : null), [rows, master]);
   if (rows === null) return <Loading />;
 
@@ -58,7 +62,9 @@ export default function DataCheck() {
     setOpen((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; });
   };
 
+  const lockHits = lockGroups.reduce((a, g) => a + g.hits.length, 0);
   const meta = `${rows.length.toLocaleString()}매물 · 이상 ${groups.length}종 · ${totalHits}건`
+    + (lockHits ? ` · 잠금 ${lockHits}` : '')
     + (openReports.length ? ` · 검수 ${openReports.length}` : '');
 
   return (
@@ -121,12 +127,36 @@ export default function DataCheck() {
       )}
 
       <div style={{ marginTop: 18 }}>
+        <SectionLabel mt={0}>차량 잠금 정합성</SectionLabel>
+        {contracts === null ? (
+          <CenterNote minHeight={48}>계약 불러오는 중…</CenterNote>
+        ) : contracts.length === 0 ? (
+          <CenterNote minHeight={48}>계약을 읽지 못했습니다 — 관리자로 로그인해야 점검됩니다</CenterNote>
+        ) : lockGroups.length === 0 ? (
+          <CenterNote minHeight={48}>매물 상태와 계약이 모두 일치합니다</CenterNote>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{renderGroups(lockGroups)}</div>
+        )}
+      </div>
+
+      <div style={{ marginTop: 18 }}>
         <SectionLabel mt={0}>자동 이상 감지</SectionLabel>
         {groups.length === 0 ? (
           <CenterNote minHeight={120}>이상 없음 — 데이터가 깨끗합니다</CenterNote>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {groups.map((g) => {
+            {renderGroups(groups)}
+          </div>
+        )}
+      </div>
+    </Page>
+  );
+
+  /** 이상 그룹 카드 목록 — 자동 이상감지·잠금정합성 공용 렌더(같은 모양 두 번 손롤 금지). */
+  function renderGroups(list: typeof groups) {
+    return (
+      <>
+        {list.map((g) => {
               const on = open.has(g.key);
               const tone = sevTone(g.severity);
               return (
@@ -172,9 +202,7 @@ export default function DataCheck() {
                 </FormCard>
               );
             })}
-          </div>
-        )}
-      </div>
-    </Page>
-  );
+      </>
+    );
+  }
 }

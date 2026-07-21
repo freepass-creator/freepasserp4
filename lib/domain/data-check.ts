@@ -4,6 +4,7 @@
  */
 import { type EntityRecord } from '@/lib/intake/entities';
 import { EXT_COLORS } from '@/lib/domain/color-master';
+import { hasDepositClaim } from '@/lib/domain/contract';
 
 export type CheckHit = { car: string; code: string; note?: string };
 export type CheckGroup = { key: string; label: string; severity: 'high' | 'mid' | 'low'; hint: string; hits: CheckHit[] };
@@ -54,6 +55,65 @@ export function checkInventory(products: EntityRecord[]): CheckGroup[] {
     const y = parseYear(p);
     if (y && nowYear - y >= 9) add('old', '노후 (9년↑, 곧 취급중단)', 'low', '10년 되면 자동 제외', hit(`${y}년식`));
   }
+  const sevRank = { high: 0, mid: 1, low: 2 };
+  return Object.values(G).sort((a, b) => sevRank[a.severity] - sevRank[b.severity] || b.hits.length - a.hits.length);
+}
+
+/**
+ * 차량 잠금 정합성 — 매물의 vehicle_status 와 실제 계약 상태가 어긋난 건을 찾는다. **읽기 전용.**
+ *
+ * 왜 필요한가: 잠금 규칙이 "계약 진행 = 출고불가"에서 "계약금 입금 선점 = 계약중"으로 바뀌었다.
+ * 옛 규칙으로 출고불가가 박힌 매물은 새 규칙에선 잠글 이유가 없는데도 카탈로그에서 영구히 사라진다.
+ * 다만 출고불가는 공급사가 수기로도 거는 값이라 자동 복구가 불가능하다 — 그래서 "찾아서 보여주기"까지만 한다.
+ */
+export function checkVehicleLocks(products: EntityRecord[], contracts: EntityRecord[]): CheckGroup[] {
+  const byProduct = new Map<string, EntityRecord[]>();
+  for (const c of contracts) {
+    const pc = String(c.product_code ?? '').trim();
+    if (!pc || c._deleted === true || String(c.contract_status ?? '') === '계약취소') continue;
+    let arr = byProduct.get(pc); if (!arr) { arr = []; byProduct.set(pc, arr); }
+    arr.push(c);
+  }
+
+  const G: Record<string, CheckGroup> = {};
+  const add = (key: string, label: string, severity: CheckGroup['severity'], hint: string, hit: CheckHit) => {
+    (G[key] ||= { key, label, severity, hint, hits: [] }).hits.push(hit);
+  };
+
+  for (const p of products) {
+    const code = String(p.product_code ?? p._key ?? '');
+    const car = String(p.car_number ?? '').trim() || '(차번없음)';
+    const st = String(p.vehicle_status ?? '').trim();
+    const owner = String(p.locked_by_contract ?? '').trim();
+    const cts = byProduct.get(code) || [];
+    const completed = cts.find((c) => String(c.contract_status ?? '') === '계약완료');
+    const claimed = cts.find((c) => hasDepositClaim(c));
+    const shouldBe = completed ? '출고불가' : claimed ? '계약중' : '';
+    const shouldOwner = String((completed || claimed)?.contract_code ?? '');
+
+    if (st === '출고불가' && !completed) {
+      add('stale_block', '출고불가인데 완료 계약 없음', 'high',
+        '옛 규칙 잔재일 수 있음 — 손님 화면에서 영구히 사라진 상태. 공급사 수기 설정과 구분 안 되니 확인 후 수동 해제',
+        { car, code, note: claimed ? '입금선점만 있음 → 계약중이 맞음' : '계약 없음' });
+    }
+    if (st === '계약중' && !claimed && !completed) {
+      add('orphan_claim', '계약중인데 선점 계약 없음', 'high',
+        '해제 누락 잔재 — 재고가 묶여 있음. 매물 편집에서 출고가능으로 되돌리면 됨', { car, code });
+    }
+    if (shouldBe && st !== shouldBe && st !== '출고불가') {
+      add('missing_lock', '잠겨야 하는데 안 잠김', 'high',
+        `계약이 ${shouldBe} 상태인데 매물은 "${st || '(빈값)'}" — 이중판매 위험`, { car, code, note: shouldOwner });
+    }
+    if (shouldBe && owner && owner !== shouldOwner) {
+      add('owner_mismatch', '잠금 주인 불일치', 'mid',
+        '매물에 각인된 계약과 실제 잠근 계약이 다름 — 재선점이 막힐 수 있음', { car, code, note: `각인 ${owner} ≠ 실제 ${shouldOwner}` });
+    }
+    if (shouldBe && !owner) {
+      add('no_owner', '잠금 주인 미각인 (구데이터)', 'low',
+        '소유필드 도입 이전 잠금 — 해당 계약에서 체크를 한 번 갱신하면 자동으로 각인됨', { car, code, note: shouldOwner });
+    }
+  }
+
   const sevRank = { high: 0, mid: 1, low: 2 };
   return Object.values(G).sort((a, b) => sevRank[a.severity] - sevRank[b.severity] || b.hits.length - a.hits.length);
 }
