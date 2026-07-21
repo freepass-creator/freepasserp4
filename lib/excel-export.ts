@@ -3,7 +3,7 @@
  * 화면 엑셀뷰는 스캔 핵심만, 실제 xlsx는 여기서 45+컬럼 풀. SheetJS 지연 로드.
  */
 import { type EntityRecord } from '@/lib/intake/entities';
-import { priceList, creditDisplay } from '@/lib/domain/product';
+import { priceList, creditDisplay, canonProductType } from '@/lib/domain/product';
 import { excelMonths } from '@/lib/domain/product-filters';
 import { fuelDisplay, fuelEmbeddedCc } from '@/lib/domain/vehicle-master-match';
 import { BRAND } from '@/lib/brand';
@@ -29,7 +29,7 @@ function buildCols(data: EntityRecord[]): Col[] {
   return [
     // 상태·구분
     ['차량상태', (p) => str(p.vehicle_status)],
-    ['상품분류', (p) => str(p.product_type)],
+    ['상품분류', (p) => canonProductType(p.product_type)],
     ['심사여부', (p) => creditDisplay(p)],
     // 식별·차종 5단계
     ['차량번호', (p) => str(p.car_number)],

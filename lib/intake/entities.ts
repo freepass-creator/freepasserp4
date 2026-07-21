@@ -19,13 +19,20 @@ export type Entity = { key: string; label: string; ocrType?: string; source: str
 export const ROLES = ['agent', 'agent_admin', 'agent_manager', 'provider', 'admin'] as const; // 영업자/영업관리자/영업관리자(계약·정산만)/공급사/관리자
 export const CONTRACT_STATES = ['계약요청', '계약대기', '계약발송', '계약완료', '계약취소'] as const; // contract-status.js
 export const SETTLEMENT_STATES = ['정산대기', '정산완료', '정산보류', '환수대기', '환수결정'] as const; // settlement-status.js
-export const VEHICLE_STATES = ['즉시출고', '출고가능', '상품화중', '출고협의', '출고불가'] as const;
+// 계약금 입금(확인) 선점 → 계약중 · 계약완료 → 출고불가(상품목록 숨김). 엔진 단일 writer.
+export const VEHICLE_STATES = ['즉시출고', '출고가능', '상품화중', '출고협의', '계약중', '출고불가'] as const;
 /** 썸네일 이벤트 딱지 — 재고 chips · 카드 좌상 최대 2. */
 export const PROMO_BADGES = ['수수료+', '첫달할인', '금주특가', '보증할인', '탁송비지원', '특별가'] as const;
 export const MAX_PROMO_BADGES = 2;
 /** 구표기 → 현재 뱃지 (저장·필터 호환). */
 export const PROMO_BADGE_LEGACY: Record<string, string> = { 추가수수료면제: '수수료+' };
-export const PRODUCT_TYPES = ['신차렌트', '재렌트', '신차구독', '중고구독'] as const; // 렌트/구독 × 신차/중고. 검색필터(PTYPES)와 일치
+export const PRODUCT_TYPES = ['신차렌트', '중고렌트', '신차구독', '중고구독'] as const; // 렌트/구독 × 신차/중고
+/** 구표기 → 캐논(필터·뱃지·저장 호환). */
+export const PRODUCT_TYPE_LEGACY: Record<string, typeof PRODUCT_TYPES[number]> = {
+  재렌트: '중고렌트', 중고렌트: '중고렌트',
+  재구독: '중고구독', 중고구독: '중고구독',
+  신차렌트: '신차렌트', 신차구독: '신차구독',
+};
 export const FUEL_TYPES = ['가솔린', '디젤', 'LPG', '하이브리드', '전기', '수소'] as const;
 export const QUOTE_STATES = ['초안', '발송', '열람', '계약전환', '만료'] as const; // v4 신규
 

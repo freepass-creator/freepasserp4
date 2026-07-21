@@ -3,11 +3,24 @@
  * product는 정책(_policy, ~30필드)을 물고 옴 → 검색·상세가 정책조건까지 포함.
  */
 import type { EntityRecord } from '@/lib/intake/entities';
-import { MAX_PROMO_BADGES as PROMO_MAX, PROMO_BADGES, PROMO_BADGE_LEGACY, VEHICLE_STATES } from '@/lib/intake/entities';
+import { MAX_PROMO_BADGES as PROMO_MAX, PROMO_BADGES, PROMO_BADGE_LEGACY, VEHICLE_STATES, PRODUCT_TYPES, PRODUCT_TYPE_LEGACY } from '@/lib/intake/entities';
 import { fuelDisplay, fuelEmbeddedCc, yearDisplay, makerDisplay } from '@/lib/domain/vehicle-master-match';
 import { kmDisplay } from '@/lib/format';
 export { PROMO_BADGES, MAX_PROMO_BADGES } from '@/lib/intake/entities';
 export const VEHICLE_STATUSES = VEHICLE_STATES;
+
+/** 상품구분 캐논 — 재렌트→중고렌트 · 재구독→중고구독. 필터·뱃지·매칭 SSOT. */
+export function canonProductType(raw: unknown): string {
+  const s = String(raw || '').replace(/\s+/g, '');
+  if (!s) return '';
+  if (PRODUCT_TYPE_LEGACY[s]) return PRODUCT_TYPE_LEGACY[s];
+  if ((PRODUCT_TYPES as readonly string[]).includes(s)) return s;
+  if (s.includes('신차') && s.includes('구독')) return '신차구독';
+  if (s.includes('신차')) return '신차렌트';
+  if (s.includes('구독')) return '중고구독';
+  if (s.includes('렌트') || s.includes('재렌')) return '중고렌트';
+  return s;
+}
 
 const num = (v: unknown): number => { const n = Number(v); return isNaN(n) ? 0 : n; };
 
@@ -212,13 +225,19 @@ export function eventSignals(p: EntityRecord): ProductSignal[] {
     .map((label, i) => ({ key: `ev${i}`, label, kind: 'event' as const }));
 }
 
-// 출고상태 5종 — entities.VEHICLE_STATES SSOT (위 VEHICLE_STATUSES re-export).
-// 계약대기/요청/발송 → 출고협의, 계약완료 → 출고불가, 계약취소 → 출고가능.
+// 출고상태 — entities.VEHICLE_STATES SSOT (위 VEHICLE_STATUSES re-export).
+// 계약금 입금 선점 → 계약중, 계약완료 → 출고불가(상품목록 숨김), 계약취소 → 출고가능.
 export const VEHICLE_STATUS_TONES = {
-  즉시출고: 'green', 출고가능: 'green', 상품화중: 'amber', 출고협의: 'blue', 출고불가: 'red',
-} as const satisfies Record<string, 'green' | 'blue' | 'amber' | 'gray' | 'red'>;
+  즉시출고: 'green', 출고가능: 'green', 상품화중: 'amber', 출고협의: 'blue', 계약중: 'orange', 출고불가: 'red',
+} as const satisfies Record<string, 'green' | 'blue' | 'amber' | 'gray' | 'red' | 'orange'>;
 
-export function vehicleTone(s: string): 'green' | 'blue' | 'amber' | 'gray' | 'red' {
+/** 상품찾기·카탈로그 — 출고불가만 숨김. 계약중은 마크 노출. */
+export function isHiddenFromCatalog(p: { vehicle_status?: unknown; _deleted?: unknown }): boolean {
+  if (p._deleted === true) return true;
+  return String(p.vehicle_status || '') === '출고불가';
+}
+
+export function vehicleTone(s: string): 'green' | 'blue' | 'amber' | 'gray' | 'red' | 'orange' {
   const k = s.replace(/\s+/g, '') as keyof typeof VEHICLE_STATUS_TONES;
   return VEHICLE_STATUS_TONES[k] || 'gray';
 }
@@ -268,7 +287,7 @@ export function detailSections(p: EntityRecord, audience: Audience = 'agent'): D
       pv('ext_color') ? `외장 ${pv('ext_color')}` : '',
       pv('int_color') ? `내장 ${pv('int_color')}` : '',
     ])],
-    ['분류', gSlots([pv('vehicle_class'), pv('usage'), pv('product_type')])],
+    ['분류', gSlots([pv('vehicle_class'), pv('usage'), canonProductType(p.product_type)])],
     ['최초등록', pv('first_registration_date') || '-'],
   ];
 

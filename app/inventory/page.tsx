@@ -6,10 +6,10 @@ import { seedIfEmpty } from '@/lib/seed';
 import { ENTITIES, VEHICLE_STATES, PRODUCT_TYPES, type EntityRecord, type Field } from '@/lib/intake/entities';
 import { getRole, actor, type Role } from '@/lib/domain/deal';
 import { newId } from '@/lib/domain/ids';
-import { vehicleName, joinEventTags } from '@/lib/domain/product';
+import { vehicleName, joinEventTags, canonProductType } from '@/lib/domain/product';
 import { matchProductQuery } from '@/lib/domain/search';
 import { withProviderNames } from '@/lib/domain/identity';
-import { vehicleLockedStatus } from '@/lib/domain/settlement-engine';
+import { vehicleLockedBy, blockingContractFor } from '@/lib/domain/settlement-engine';
 import { PaneHead, PaneBody, Btn, FormGrid, FormCard, C, R, NUM, Loading, CenterNote, SectionLabel, Select, Badge, Page, FilterChips, Message, PageActions } from '@/components/ui';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
 import { toast } from '@/components/Toaster';
@@ -254,18 +254,25 @@ export default function Inventory() {
       if (dup) { toast(`이미 등록된 차량번호 (공급사 ${dup.provider_company_code || '?'})`, 'error'); return; }
     }
     // vehicle_status 단일 writer 보호 — 진행중/완료 계약이 걸린 매물은 폼값으로 상태를 못 덮음(엔진 잠금 우선, 중복판매 desync 방지).
-    const lock = await vehicleLockedStatus(String(form.product_code));
+    const locked = await vehicleLockedBy(String(form.product_code));
+    const lock = locked.status;
     const stamped = role === 'provider'
       ? { ...form, provider_company_code: actor('provider').code }
       : form;
     const withPromo: EntityRecord = { ...stamped, event_tags: joinEventTags(String(stamped.event_tags || '').split(/[,/#|]/)) };
-    const patch = lock && withPromo.vehicle_status !== lock ? { ...withPromo, vehicle_status: lock } : withPromo;
+    // 락이 걸려 있으면 상태와 함께 소유 계약도 각인 — 상태만 맞고 주인이 비면 재클릭이 자기잠금으로 막힌다.
+    const patch = lock ? { ...withPromo, vehicle_status: lock, locked_by_contract: locked.byContract } : withPromo;
     await getStore().save('product', co, [patch]); await getStore().update('product', co, String(form.product_code), patch);
     setDirty(false);
     setCreating(false);
     setEditing(false);
     await load(getRole());
-    if (lock && form.vehicle_status !== lock) { setForm((f) => ({ ...f, vehicle_status: lock })); toast('진행 중 계약이 있어 차량상태는 출고불가로 유지됩니다', 'info'); }
+    if (lock && form.vehicle_status !== lock) {
+      setForm((f) => ({ ...f, vehicle_status: lock }));
+      toast(lock === '계약중'
+        ? '계약금이 확인된 계약이 있어 차량상태는 계약중으로 유지됩니다'
+        : '완료 계약이 있어 차량상태는 출고불가로 유지됩니다', 'info');
+    }
     else toast('저장되었습니다', 'ok');
   };
 
@@ -287,8 +294,9 @@ export default function Inventory() {
       const me = actor('provider').code;
       if (String(form.provider_company_code || '') !== me) { toast('다른 공급사 매물은 삭제할 수 없습니다', 'error'); return; }
     }
-    const lock = await vehicleLockedStatus(String(form.product_code));
-    if (lock) { toast('진행·완료 계약이 있는 매물은 삭제할 수 없습니다', 'error'); return; }
+    // 락(입금선점)만 보면 서류 단계 진행 중인 매물이 삭제된다 → 진행 중인 계약 전체를 차단 기준으로.
+    const blocking = await blockingContractFor(String(form.product_code));
+    if (blocking) { toast(`진행 중인 계약(${blocking})이 있는 매물은 삭제할 수 없습니다`, 'error'); return; }
     if (typeof window !== 'undefined' && !window.confirm(`매물 ${form.car_number || form.product_code}을(를) 삭제할까요?\n휴지통에서 복구할 수 있습니다.`)) return;
     await getStore().remove('product', co, String(form.product_code), `${NAV_LABEL.inventory} 삭제`);
     clearSel();
@@ -299,7 +307,7 @@ export default function Inventory() {
   // 입력초기화(차번·공급사·상태만 유지) / 복사(식별·사진 제외) / 붙여넣기
   const resetForm = () => {
     setForm((f) => {
-      const keep: EntityRecord = { product_code: f.product_code, car_number: f.car_number, provider_company_code: f.provider_company_code, vehicle_status: f.vehicle_status || '상품화중', product_type: f.product_type || '재렌트' };
+      const keep: EntityRecord = { product_code: f.product_code, car_number: f.car_number, provider_company_code: f.provider_company_code, vehicle_status: f.vehicle_status || '상품화중', product_type: f.product_type || '중고렌트' };
       const META = new Set(['companyId', 'createdAt', 'createdBy', 'updatedAt', 'deletedAt']);
       const cleared: EntityRecord = {};
       for (const k of Object.keys(f)) if (!(k in keep) && !k.startsWith('_') && !META.has(k)) cleared[k] = ''; // 빈값 저장→merge로 실제 클리어(키 삭제 시 안 지워지던 버그)
@@ -340,7 +348,7 @@ export default function Inventory() {
   const newP = () => {
     const c = newId('product');
     setSel(c);
-    setForm({ product_code: c, vehicle_status: '상품화중', product_type: '재렌트', provider_company_code: getRole() === 'provider' ? actor('provider').code : '' });
+    setForm({ product_code: c, vehicle_status: '상품화중', product_type: '중고렌트', provider_company_code: getRole() === 'provider' ? actor('provider').code : '' });
     setDirty(true);
     setCreating(true);
     setEditing(true);
@@ -380,7 +388,7 @@ export default function Inventory() {
   const filtered = (rows || [])
     .filter((p) => matchProductQuery(p, q))
     .filter((p) => stFlt === 'all' || String(p.vehicle_status || '') === stFlt)
-    .filter((p) => typeFlt === 'all' || String(p.product_type || '') === typeFlt)
+    .filter((p) => typeFlt === 'all' || canonProductType(p.product_type) === typeFlt)
     .slice()
     .sort((a, b) => {
       if (!sort) return 0;

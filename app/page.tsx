@@ -8,7 +8,7 @@ import { seedIfEmpty } from '@/lib/seed';
 import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
 import { type EntityRecord } from '@/lib/intake/entities';
-import { priceList, rentForSort, depositForSort, creditDisplay, vehicleTone, excelCondSignals } from '@/lib/domain/product';
+import { priceList, rentForSort, depositForSort, creditDisplay, vehicleTone, excelCondSignals, isHiddenFromCatalog, canonProductType } from '@/lib/domain/product';
 import { fuelDisplay, yearDisplay, makerDisplay, parseYear } from '@/lib/domain/vehicle-master-match';
 import { withProviderNames } from '@/lib/domain/identity';
 import { DYN, CAR_DYN_KEYS, EXTRA_DYN_KEYS, aggregateDyn, matchProduct, activeCount, activeFilterHints, presentFilterOptions, excelMonths, operatingMonths, EMPTY_VEHICLE_FILTER, vehicleFilterCount, sortProviderOptions, type FState, type VehicleFilter } from '@/lib/domain/product-filters';
@@ -109,6 +109,7 @@ function exColVal(p: EntityRecord, key: string): string {
     return c.length ? c.map((x) => x.label).join('·') : '조건없음';
   }
   if (key === 'provider_name') return String(p.provider_name || p.provider_company_code || '').trim();
+  if (key === 'product_type') return canonProductType(p.product_type);
   if (key.startsWith('price:')) {
     const m = Number(key.slice(6));
     const e = priceList(p).find((x) => x.m === m);
@@ -444,7 +445,7 @@ export default function Finder() {
   }, [rows, q, periods, rent, dep, mile, fuel, ptype, credit, perks, promo, dyn, vehicle, sort, hiddenCodes, passedCodes]);
 
   const totalVisible = useMemo(() => {
-    const all = rows || [];
+    const all = (rows || []).filter((p) => !isHiddenFromCatalog(p));
     if (!hiddenCodes.size) return all.length;
     return all.filter((p) => !hiddenCodes.has(String(p.product_code || p._key || ''))).length;
   }, [rows, hiddenCodes]);
@@ -685,7 +686,7 @@ export default function Finder() {
             <ToggleChips selected={mile} onToggle={(k) => setMile((p) => toggleInSet(p, k))} options={present.mile} />
           </FilterGroup>
         )}
-        {/* 상품·조건 */}
+        {/* 상품·조건 — 출고상태는 사이드 필터 없음(계약중 뱃지로만) */}
         {present.ptype.length > 0 && (
           <FilterGroup title="상품구분" count={ptype.size} defaultOpen={ptype.size > 0} onClear={() => setPtype(new Set())}>
             <ToggleChips selected={ptype} onToggle={(k) => setPtype((p) => toggleInSet(p, k))} options={present.ptype} />
@@ -947,8 +948,8 @@ export default function Finder() {
                   return (
                   <tr key={String(p.product_code || p._key || i)} className="fp-sheet-row" onClick={() => go(p)} onContextMenu={(e) => onProductCtx(e, p)} style={{ cursor: 'pointer', background: bg }}>
                     <td style={{ ...tdXPin, ...colLock(EXCEL_MAX.plate), background: bg, fontFamily: NUM, fontWeight: 700 }} title={String(p.car_number || '') || undefined}>{String(p.car_number || '') || DASH}</td>
-                    <td style={{ ...tdX, ...colLock(EXCEL_W.status) }}>{st ? <Badge tone={vehicleTone(st)}>{st}</Badge> : DASH}</td>
-                    <td style={{ ...tdX, ...colLock(EXCEL_W.ptype) }}>{pt ? (() => { const s = productTypeStyle(pt); return <Badge tone={s.tone} variant={s.variant}>{pt}</Badge>; })() : DASH}</td>
+                    <td style={{ ...tdX, ...colLock(EXCEL_W.status) }}>{st ? <Badge tone={vehicleTone(st)} variant={st === '계약중' ? 'solid' : 'line'} pulse={st === '계약중'}>{st}</Badge> : DASH}</td>
+                    <td style={{ ...tdX, ...colLock(EXCEL_W.ptype) }}>{pt ? (() => { const c = canonProductType(pt) || pt; const s = productTypeStyle(c); return <Badge tone={s.tone} variant={s.variant}>{c}</Badge>; })() : DASH}</td>
                     <td style={{ ...tdX, ...colLockChars(makerChars) }}>{clipMax(makerDisplay(p.maker) || p.maker, makerChars)}</td>
                     <td style={{ ...tdX, ...(typeof modelW === 'number' ? colLockChars(modelW) : colLock(modelW)) }}>{typeof modelW === 'number' ? clipMax(p.model, modelW) : clip(p.model)}</td>
                     <td style={{ ...tdX, ...colChars(subChars, hasOpts) }}>{clipMax(p.sub_model, subChars)}</td>
@@ -1017,10 +1018,10 @@ export default function Finder() {
           {moreN > 0 && (
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, flexWrap: 'wrap',
-              // 카드 행과 동일 리듬 — 모바일=카드 padding 10 + 구분선 / 웹=격자 gap 14
+              // 카드 격자 gap과 동일 리듬. 하단 여백은 body frame-pad에만 맡김
               ...(mobile
                 ? { padding: '10px 12px', borderTop: `1px solid ${C.line2}` }
-                : { marginTop: 14, paddingBottom: 2 }),
+                : { marginTop: 14 }),
             }}>
               <span style={{ fontSize: mobile ? 13 : 12, color: C.mute }}>
                 {shown.length.toLocaleString()} / {activeList.length.toLocaleString()}대

@@ -2,7 +2,7 @@
 import { createContext, useContext, useState, useRef, useEffect, type CSSProperties, type ReactNode } from 'react';
 import { Wallet, UserRound, Briefcase, ShieldCheck, Sparkles, Coins, type LucideIcon } from 'lucide-react';
 import { type EntityRecord } from '@/lib/intake/entities';
-import { creditDisplay, vehicleTone, benefitSignals, eventSignals, priceList, cheapest, priceAt, type Audience } from '@/lib/domain/product';
+import { creditDisplay, vehicleTone, benefitSignals, eventSignals, priceList, cheapest, priceAt, canonProductType, type Audience } from '@/lib/domain/product';
 import { man, kmDisplay } from '@/lib/format';
 import { C, R, NUM, Badge, EXCEL_OPT_BOX_H, EXCEL_OPT_CHIP_H, EXCEL_OPT_ROW_GAP, EXCEL_BADGE_GAP_X } from '@/components/ui';
 import { CREDIT_TONE, productTypeStyle, toneText, type BadgeTone } from '@/components/ui/badges';
@@ -53,10 +53,10 @@ export function CarGlyph({ size = 30 }: { size?: number }) {
 
 // 모바일 축약 SSOT — 썸네일 마크·BadgesClip 전용(2글자). 레일 뱃지(CardRailBadges)는 풀네임.
 const STATUS_SHORT: Record<string, string> = {
-  즉시출고: '즉시', 출고가능: '가능', 상품화중: '준비', 출고협의: '협의', 출고불가: '불가',
+  즉시출고: '즉시', 출고가능: '가능', 상품화중: '준비', 출고협의: '협의', 계약중: '계약', 출고불가: '불가',
 };
 const PT_SHORT: Record<string, string> = {
-  신차렌트: '신렌', 신차구독: '신구', 재렌트: '재렌', 중고구독: '중구', 재구독: '재구',
+  신차렌트: '신렌', 신차구독: '신구', 중고렌트: '중렌', 중고구독: '중구',
 };
 
 /** hover 설명 SSOT — 뱃지·혜택 공통. */
@@ -65,14 +65,14 @@ const STATUS_TIP: Record<string, string> = {
   출고가능: '출고 가능한 상태입니다. 일정 조율 후 진행합니다.',
   상품화중: '상품화(세차·점검 등) 진행 중입니다.',
   출고협의: '출고 일정을 협의해야 합니다.',
-  출고불가: '현재 출고할 수 없습니다. (계약 진행 중 등)',
+  계약중: '계약금이 확인되어 계약 진행 중입니다.',
+  출고불가: '출고 완료·판매 종료된 차량입니다.',
 };
 const PT_TIP: Record<string, string> = {
   신차렌트: '신차 렌트 상품입니다.',
   신차구독: '신차 구독 상품입니다.',
-  재렌트: '재렌트(중고 렌트) 상품입니다.',
+  중고렌트: '중고 렌트(재렌트) 상품입니다.',
   중고구독: '중고 구독 상품입니다.',
-  재구독: '재구독 상품입니다.',
   신차: '신차 상품입니다.',
   중고: '중고 상품입니다.',
 };
@@ -113,15 +113,24 @@ export function benefitTip(key: string, label: string): string {
  * Badge 계층만(SSOT). 혜택·이벤트는 CardBenefits / CardEvents.
  * hideCredit=true → 카드 사진(리본이 담당). 상세 헤더는 credit 칩 허용.
  */
-export type BadgeSpec = { key: string; label: string; tone: BadgeTone; variant?: 'line' | 'solid' | 'quiet' };
+export type BadgeSpec = { key: string; label: string; tone: BadgeTone; variant?: 'line' | 'solid' | 'quiet'; pulse?: boolean };
 
 export function badgeSpecs(p: EntityRecord, hideCredit = false, short = false, audience: Audience = 'agent'): BadgeSpec[] {
   const st = String(p.vehicle_status || '');
   const cd = creditDisplay(p);
-  const pt = String(p.product_type || '');
+  const ptRaw = String(p.product_type || '');
+  const pt = canonProductType(ptRaw) || ptRaw;
   const out: BadgeSpec[] = [];
   // 표기순 SSOT: 차량상태 → 상품분류 → 심사기준
-  if (st && audience !== 'customer') out.push({ key: 'st', label: short ? (STATUS_SHORT[st] ?? st) : st, tone: vehicleTone(st) as BadgeTone });
+  if (st && audience !== 'customer') {
+    out.push({
+      key: 'st',
+      label: short ? (STATUS_SHORT[st] ?? st) : st,
+      tone: vehicleTone(st) as BadgeTone,
+      variant: st === '계약중' ? 'solid' : undefined,
+      pulse: st === '계약중',
+    });
+  }
   if (pt) {
     const pst = productTypeStyle(pt);
     out.push({ key: 'pt', label: short ? (PT_SHORT[pt] ?? pt) : pt, tone: pst.tone, variant: pst.variant });
@@ -138,7 +147,7 @@ export function photoMarkSpecs(p: EntityRecord, audience: Audience = 'agent'): B
 /** 매물 뱃지열(웹=전체 라벨) — Badge 원자만. overlay=사진 위(세로카드). hideCredit=심사를 썸네일로 뺀 카드. audience=노출 게이팅. */
 export function badges(p: EntityRecord, overlay = false, hideCredit = false, short = false, audience: Audience = 'agent'): ReactNode {
   return (<>{badgeSpecs(p, hideCredit, short, audience).map((b) => (
-    <Badge key={b.key} tone={b.tone} variant={b.variant || 'line'} overlay={overlay} title={badgeTip(b.key, b.label)}>{b.label}</Badge>
+    <Badge key={b.key} tone={b.tone} variant={b.variant || 'line'} overlay={overlay} pulse={b.pulse} title={badgeTip(b.key, b.label)}>{b.label}</Badge>
   ))}</>);
 }
 
@@ -149,7 +158,7 @@ export function BadgesClip({ p, max = 3 }: { p: EntityRecord; max?: number }) {
   const rest = specs.length - shown.length;
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, flex: '0 0 auto' }}>
-      {shown.map((b) => <Badge key={b.key} tone={b.tone} variant={b.variant || 'line'} title={badgeTip(b.key, b.label)}>{b.label}</Badge>)}
+      {shown.map((b) => <Badge key={b.key} tone={b.tone} variant={b.variant || 'line'} pulse={b.pulse} title={badgeTip(b.key, b.label)}>{b.label}</Badge>)}
       {rest > 0 && <Badge tone="gray">+{rest}</Badge>}
     </span>
   );
@@ -248,7 +257,7 @@ export function CardTitle({ p, narrow, size }: { p: EntityRecord; narrow?: boole
 
 /** CardKind — 상품구분. 신차/중고·렌트/구독 축으로 톤·variant. */
 export function CardKind({ p }: { p: EntityRecord }) {
-  const pt = String(p.product_type || '');
+  const pt = canonProductType(p.product_type) || String(p.product_type || '');
   if (!pt) return null;
   const st = productTypeStyle(pt);
   return <Badge tone={st.tone} variant={st.variant} title={badgeTip('pt', pt)}>{pt}</Badge>;
@@ -277,6 +286,7 @@ export function CardRailBadges({ p, audience = 'agent', dense }: {
           key={s.key}
           tone={s.tone}
           variant={s.variant || 'line'}
+          pulse={s.pulse}
           title={badgeTip(s.key, s.label)}
         >{s.label}</Badge>
       ))}
@@ -581,6 +591,7 @@ export function CardThumb({ p, audience = 'agent', fill, w, h, heart = false, ma
               tone={s.tone}
               variant={s.variant || 'line'}
               frosted
+              pulse={s.pulse}
               title={badgeTip(s.key, s.label)}
             >{s.label}</Badge>
           ))}

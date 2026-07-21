@@ -30,17 +30,20 @@ export function toneAccent(tone: BadgeTone): string { return (BADGE[tone] || BAD
 export const ACTOR_TONE: Record<string, BadgeTone> = { agent: 'blue', provider: 'green', admin: 'orange' };
 export function actorColor(actor: string): string { return toneText(ACTOR_TONE[actor] || 'gray'); }
 
-export function Badge({ children, tone = 'gray', overlay = false, title, variant = 'line', frosted = false }: {
+export function Badge({ children, tone = 'gray', overlay = false, title, variant = 'line', frosted = false, pulse = false }: {
   children: React.ReactNode; tone?: BadgeTone; overlay?: boolean; title?: string;
   /** line=기본 · quiet=무채 · solid=약한틴트. 박스 크기 동일, 색만 다름. 좌측 | 바 없음. */
   variant?: 'line' | 'quiet' | 'solid' | 'fill';
   /** 사진 위 — 상세와 동일 톤·variant, 배경만 반투명+블러 */
   frosted?: boolean;
+  /** 계약중 등 — 은은한 주황 펄스 */
+  pulse?: boolean;
 }) {
   const m = BADGE[tone] || BADGE.gray;
   // 카드·레일 뱃지 = 웹/모바일 동일 치수(SSOT). 터치타깃은 행·버튼이 담당.
   const h = frosted ? 18 : 20;
   const fs = frosted ? 10 : 10.5;
+  const pulseCls = pulse ? 'fp-badge-pulse' : undefined;
 
   const shell: React.CSSProperties = {
     display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
@@ -54,7 +57,7 @@ export function Badge({ children, tone = 'gray', overlay = false, title, variant
 
   if (overlay) {
     return (
-      <span title={title} style={{
+      <span title={title} className={pulseCls} style={{
         ...shell, height: 16, fontSize: 9.5,
         padding: '0 6px',
         color: '#fff', background: 'rgba(15,23,42,0.55)',
@@ -71,7 +74,7 @@ export function Badge({ children, tone = 'gray', overlay = false, title, variant
     const bg = v === 'solid' ? `${m[1]}e6` : 'rgba(255,255,255,0.84)';
     const fg = v === 'quiet' ? (tone === 'red' ? m[0] : C.mute) : m[0];
     return (
-      <span title={title} style={{
+      <span title={title} className={pulseCls} style={{
         ...shell,
         color: fg,
         background: bg,
@@ -85,7 +88,7 @@ export function Badge({ children, tone = 'gray', overlay = false, title, variant
 
   if (v === 'quiet') {
     return (
-      <span title={title} style={{
+      <span title={title} className={pulseCls} style={{
         ...shell,
         color: tone === 'red' ? m[0] : C.mute,
         background: '#fff',
@@ -96,7 +99,7 @@ export function Badge({ children, tone = 'gray', overlay = false, title, variant
 
   if (v === 'solid') {
     return (
-      <span title={title} style={{
+      <span title={title} className={pulseCls} style={{
         ...shell,
         color: m[0], background: m[1], border: `1px solid ${C.line}`,
       }}>{children}</span>
@@ -105,7 +108,7 @@ export function Badge({ children, tone = 'gray', overlay = false, title, variant
 
   // line — 톤 글자색 + 헤어라인 (출고불가=red 등)
   return (
-    <span title={title} style={{
+    <span title={title} className={pulseCls} style={{
       ...shell,
       color: m[0], background: '#fff', border: `1px solid ${C.line}`,
     }}>{children}</span>
@@ -167,8 +170,8 @@ export function SevTag({ high }: { high: boolean }) {
 }
 
 export const PRODUCT_TYPE_TONE: Record<string, BadgeTone> = {
-  '신차렌트': 'blue', '신차구독': 'blue', '재렌트': 'gray', '중고구독': 'gray',
-  '신차': 'blue', '재구독': 'gray', '중고': 'gray',
+  '신차렌트': 'blue', '신차구독': 'blue', '중고렌트': 'gray', '중고구독': 'gray',
+  '신차': 'blue', '중고': 'gray',
 };
 
 /**

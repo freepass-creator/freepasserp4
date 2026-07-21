@@ -3,7 +3,7 @@
  * 공백으로 나뉜 모든 토큰이 포함돼야 통과(예: "현대 쏘나타 즉시").
  */
 import type { EntityRecord } from '@/lib/intake/entities';
-import { vehicleName, creditDisplay, policyOf } from '@/lib/domain/product';
+import { vehicleName, creditDisplay, policyOf, canonProductType } from '@/lib/domain/product';
 import { fuelDisplay, fuelEmbeddedCc } from '@/lib/domain/vehicle-master-match';
 
 export function queryTokens(q: string): string[] {
@@ -40,7 +40,7 @@ export function productHaystack(p: EntityRecord): string {
     p.seats != null && p.seats !== '' ? `${p.seats}인승` : '',
     p.ext_color, p.int_color, p.usage, p.first_registration_date,
     p.options, p.fp_options, p.accident_history,
-    p.vehicle_status, p.product_type, p.deposit_free, p.review_status,
+    p.vehicle_status, canonProductType(p.product_type), p.deposit_free, p.review_status,
     p.event_tags, p.promo_tags,
     p.provider_company_code, p.provider_name, p.provider_name_full, p.provider_company_name,
     p.partner_code, p.partner_name, p.company_name, p.company_code,
