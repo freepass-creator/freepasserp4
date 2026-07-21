@@ -9,6 +9,9 @@ import { Store } from 'lucide-react';
 import { type User } from 'firebase/auth';
 import { login, signup, logout, resetPassword, writeUserProfile } from '@/lib/firebase/auth';
 import { setGuest, getSession, firebaseReadySafe } from '@/lib/login-helpers';
+import { fmtPhone, C } from '@/components/ui';
+import { BRAND_MAIN, BRAND_SUB } from '@/lib/brand';
+/** 로그인은 v3 CSS 섬(44/48·브랜드 hex). Input/Btn 원자 높이(32/40)와 충돌 → raw 유지. */
 
 type Mode = 'login' | 'signup' | 'reset';
 
@@ -123,12 +126,15 @@ export default function LoginPage() {
     } catch (err) { console.error('[reset]', err); say(koreanAuthMsg(err, '전송 실패'), 'err'); setBusy(false); }
   };
 
-  const msgColor = msg.tone === 'ok' ? '#137333' : msg.tone === 'err' ? '#d93025' : '#868e96';
+  const msgColor = msg.tone === 'ok' ? C.ok : msg.tone === 'err' ? C.danger : C.faint;
 
   return (
     <div className="fp-login">
       <div className="login-page">
-        <div className="login-brand"><span className="login-brand-main">freepass</span> <span className="login-brand-base">erp</span></div>
+        <div className="login-brand" aria-label={`${BRAND_MAIN}${BRAND_SUB}`}>
+          <span className="login-brand-main">{BRAND_MAIN}</span>
+          <span className="login-brand-sub">{BRAND_SUB}</span>
+        </div>
 
         {mode === 'login' && (
           <form className={`login-card${busy ? ' is-loading' : ''}`} onSubmit={doLogin} noValidate>
@@ -155,7 +161,7 @@ export default function LoginPage() {
               <div className="login-field"><label htmlFor="suEmail">이메일</label><input id="suEmail" type="email" placeholder="name@company.com" autoComplete="username" value={su.email} onChange={(e) => setSu({ ...su, email: e.target.value })} required /></div>
               <div className="login-field"><label htmlFor="suPw">비밀번호</label><input id="suPw" type="password" placeholder="6자 이상" autoComplete="new-password" value={su.pw} onChange={(e) => setSu({ ...su, pw: e.target.value })} required /></div>
               <div className="login-field"><label htmlFor="suName">이름</label><input id="suName" placeholder="홍길동" value={su.name} onChange={(e) => setSu({ ...su, name: e.target.value })} required /></div>
-              <div className="login-field"><label htmlFor="suPhone">연락처</label><input id="suPhone" type="tel" placeholder="010-0000-0000" value={su.phone} onChange={(e) => setSu({ ...su, phone: e.target.value })} /></div>
+              <div className="login-field"><label htmlFor="suPhone">연락처</label><input id="suPhone" type="tel" placeholder="010-0000-0000" value={su.phone} onChange={(e) => setSu({ ...su, phone: fmtPhone(e.target.value) })} /></div>
               <div className="login-field"><label htmlFor="suCompany">소속 회사명 (참고)</label><input id="suCompany" placeholder="회사명" value={su.company} onChange={(e) => setSu({ ...su, company: e.target.value })} /></div>
               <div className="login-field"><label htmlFor="suBizNo">소속 사업자번호</label><input id="suBizNo" inputMode="numeric" placeholder="000-00-00000" autoComplete="off" value={su.bizNo} onChange={(e) => onBizNo(e.target.value)} />{bizMatch.text && <p className={`biz-no-match${bizMatch.cls ? ` is-${bizMatch.cls}` : ''}`}>{bizMatch.text}</p>}</div>
               <p className="login-msg" style={{ margin: '4px 0 8px', color: '#5f6368', fontSize: 12, lineHeight: 1.4, textAlign: 'left' }}>사업자번호가 등록된 경우 가입 즉시 이용 가능합니다.</p>
@@ -189,11 +195,10 @@ const LOGIN_CSS = `
 .fp-login .login-page{min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;padding:40px 16px;padding-top:max(40px,env(safe-area-inset-top));padding-bottom:max(32px,env(safe-area-inset-bottom));background:#fff;-webkit-user-select:none;user-select:none;font-size:13px;line-height:1.5;}
 .fp-login .login-page,.fp-login .login-page *{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,system-ui,'Segoe UI',sans-serif;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;}
 .fp-login .login-page input{-webkit-user-select:text;user-select:text;}
-.fp-login .login-brand{font-size:25px;letter-spacing:-0.04em;display:flex;align-items:center;justify-content:center;gap:3px;text-transform:lowercase;}
-.fp-login .login-brand,.fp-login .login-brand *{font-family:'Exo 2','Pretendard',sans-serif;}
+/* 워드마크 = 명함 CI: freepass(600·#1B2A4A) + erp.com(300·#555) — 파란 trailing 도트 금지 */
+.fp-login .login-brand{font-size:25px;letter-spacing:-0.04em;display:flex;align-items:baseline;justify-content:center;text-transform:lowercase;font-family:'Exo 2','Pretendard',sans-serif;line-height:1;}
 .fp-login .login-brand-main{font-weight:600;color:#1B2A4A;}
-.fp-login .login-brand-base{font-weight:500;color:#7F93B3;}
-.fp-login .login-brand::after{content:'';width:5px;height:5px;border-radius:50%;background:#9EC5F3;align-self:flex-end;margin:0 0 3px 2px;}
+.fp-login .login-brand-sub{font-weight:300;color:#555555;}
 .fp-login .login-card{position:relative;width:100%;max-width:400px;background:#fff;border:none;border-radius:2px;padding:40px 32px;box-shadow:0 2px 10px rgba(0,0,0,.04),0 10px 30px rgba(0,0,0,.06);display:grid;gap:24px;overflow:hidden;margin:0;}
 .fp-login .login-card.is-loading::after{content:'';position:absolute;inset:0;background:rgba(255,255,255,.85);z-index:10;}
 .fp-login .login-card.is-loading::before{content:'';position:absolute;top:50%;left:50%;width:32px;height:32px;margin:-16px 0 0 -16px;border:3px solid #d5d8dc;border-top-color:#1B2A4A;border-radius:50%;animation:fp-login-spin .6s linear infinite;z-index:11;}
