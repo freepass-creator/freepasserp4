@@ -119,11 +119,18 @@ export default function LoginPage() {
     e.preventDefault(); if (busy) return;
     if (!rpEmail.trim()) { say('이메일을 입력해주세요', 'err'); return; }
     setBusy(true); say('전송 중…', 'muted');
+    let timer: ReturnType<typeof setTimeout> | undefined;
     try {
-      const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('요청 시간 초과 — 잠시 후 다시 시도해주세요')), 15000));
+      // 진 쪽 타이머를 안 끄면 15초 뒤 처리되지 않은 reject 가 남는다.
+      const timeout = new Promise((_, rej) => { timer = setTimeout(() => rej(new Error('요청 시간 초과 — 잠시 후 다시 시도해주세요')), 15000); });
       await Promise.race([resetPassword(rpEmail.trim()), timeout]);
-      say('재설정 메일 전송됨. 이메일(스팸함 포함)을 확인하세요.', 'ok');
-    } catch (err) { console.error('[reset]', err); say(koreanAuthMsg(err, '전송 실패'), 'err'); setBusy(false); }
+      say('재설정 메일 전송됨. 이메일(스팸함 포함)을 확인하세요. 안 오면 몇 분 뒤 다시 보내주세요.', 'ok');
+    } catch (err) { console.error('[reset]', err); say(koreanAuthMsg(err, '전송 실패'), 'err'); }
+    finally {
+      // 성공 시에도 반드시 풀 것 — 안 그러면 폼이 잠긴 채 남아 재전송이 막힌다(메일이 스팸으로 갔을 때 탈출구가 없음).
+      if (timer) clearTimeout(timer);
+      setBusy(false);
+    }
   };
 
   const msgColor = msg.tone === 'ok' ? C.ok : msg.tone === 'err' ? C.danger : C.faint;
