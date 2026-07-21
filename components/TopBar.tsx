@@ -79,9 +79,13 @@ function partnerName(rows: EntityRecord[], code: string): string {
 /** 웹 우측 — 오늘 · 소속 · 이름 · 직책 (탭 → 설정). */
 function WebSessionMeta() {
   const session = useSession();
-  const role = session?.role ?? getRole();
-  const me = actor(role);
-  const guest = isGuest();
+  // SSR·첫 클라 렌더 동일 — getRole()/actor()/isGuest()는 localStorage 의존이라 서버엔 값이 없다.
+  // 렌더 중에 읽으면 서버 폴백(박영업)과 클라 실제세션(박영협)이 어긋나 hydration mismatch. NavMenu와 동일하게 마운트 후에만 읽는다.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+  const role = session?.role ?? (mounted ? getRole() : 'agent');
+  const me = mounted ? actor(role) : null;
+  const guest = mounted ? isGuest() : false;
   const [date, setDate] = useState(() => todayLabel());
   const [org, setOrg] = useState('');
 
@@ -107,8 +111,8 @@ function WebSessionMeta() {
     return () => { alive = false; };
   }, [session?.company_code, role, guest]);
 
-  const name = session?.name || me.name;
-  const job = ROLE_LABEL[role] || role;
+  const name = session?.name || me?.name || '';
+  const job = mounted ? (ROLE_LABEL[role] || role) : '';
   const bits = [org, name, job].filter(Boolean);
 
   return (
