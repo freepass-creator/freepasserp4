@@ -50,7 +50,8 @@ export function FeedThumbIcon({
         overflow: 'hidden',
       }}
     >
-      <Icon size={mobile ? 14 : 15} strokeWidth={2.25} />
+      {/* SVG=인라인이라 baseline 여백이 껴 미세하게 떠 보임 → block 으로 제거(정중앙 고정). */}
+      <Icon size={mobile ? 14 : 15} strokeWidth={2.25} style={{ display: 'block' }} />
     </div>
   );
 }

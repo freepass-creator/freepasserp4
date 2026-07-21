@@ -617,7 +617,8 @@ export default function Finder() {
           </span>
         ) : (
           <>
-            <span style={{ fontSize: 13, color: C.mute }}>총 <b style={{ color: C.ink, fontSize: 15 }}>{rows.length.toLocaleString()}</b>대</span>
+            {/* 총계 = 손님에게 보이는 매물(출고불가 제외) — 상단바 '상품 N대'(totalVisible)와 동일 기준. rows.length는 출고불가까지 세어 어긋남. */}
+            <span style={{ fontSize: 13, color: C.mute }}>총 <b style={{ color: C.ink, fontSize: 15 }}>{totalVisible.toLocaleString()}</b>대</span>
             <span style={{ fontSize: 14, fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 6, color: C.ink }}>
               조건 검색{ac > 0 ? <CountPill n={ac} /> : null}
             </span>
