@@ -2,10 +2,12 @@
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { type EntityRecord } from '@/lib/intake/entities';
-import { getRole, actor, ensureRoom, chatDisplayName, ROLE_LABEL, type Role } from '@/lib/domain/deal';
+import { getRole, actor, ensureRoom, type Role } from '@/lib/domain/deal';
 import { sendText, listMessages, isMine, markRead } from '@/lib/domain/messaging';
-import { C, R, Btn, Input } from '@/components/ui';
+import { C, R, FS, Btn, Input } from '@/components/ui';
 import { toast } from '@/components/Toaster';
+import { ChatSenderLabel } from '@/components/ChatSenderLabel';
+import { msgClock } from '@/lib/format';
 
 /**
  * 간단 문의 — 상세 하단. 방 = CH_매물_{나}, channel='간단'.
@@ -80,6 +82,7 @@ export function SimpleInquiry({ p }: { p: EntityRecord }) {
     }}>
       {msgs.map((m) => {
         const mine = isMine(m, me, role);
+        const clock = msgClock(m.created_at);
         return (
           <div key={String(m._key)} style={{
             alignSelf: mine ? 'flex-end' : 'flex-start',
@@ -87,19 +90,27 @@ export function SimpleInquiry({ p }: { p: EntityRecord }) {
             display: 'flex', flexDirection: 'column', gap: 2,
             alignItems: mine ? 'flex-end' : 'flex-start',
           }}>
-            <div style={{ fontSize: 10.5, color: C.faint, padding: '0 2px' }}>
-              {chatDisplayName(String(m.sender_role), String(m.sender_name), String(m.sender_code || m.sender_uid || ''))}
-              {ROLE_LABEL[m.sender_role as Role] ? ` · ${ROLE_LABEL[m.sender_role as Role]}` : ''}
+            {!mine && (
+              <div style={{ padding: '0 2px' }}>
+                <ChatSenderLabel role={String(m.sender_role)} name={String(m.sender_name)} code={String(m.sender_code || m.sender_uid || '')} />
+              </div>
+            )}
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, flexDirection: mine ? 'row-reverse' : 'row' }}>
+              <div style={{
+                padding: '7px 11px', borderRadius: mine ? `${R}px ${R}px 2px ${R}px` : `${R}px ${R}px ${R}px 2px`,
+                fontSize: 12.5, lineHeight: 1.45,
+                background: mine ? C.brand : '#fff',
+                color: mine ? '#fff' : C.ink,
+                border: mine ? 'none' : `1px solid ${C.line2}`,
+                whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                boxShadow: mine ? 'none' : `0 1px 0 ${C.line2}`,
+              }}>{String(m.text)}</div>
+              {clock ? (
+                <span style={{ flex: '0 0 auto', fontSize: FS.micro, color: C.faint, fontVariantNumeric: 'tabular-nums', lineHeight: 1, paddingBottom: 1 }}>
+                  {clock}
+                </span>
+              ) : null}
             </div>
-            <div style={{
-              padding: '7px 11px', borderRadius: mine ? `${R}px ${R}px 2px ${R}px` : `${R}px ${R}px ${R}px 2px`,
-              fontSize: 12.5, lineHeight: 1.45,
-              background: mine ? C.brand : '#fff',
-              color: mine ? '#fff' : C.ink,
-              border: mine ? 'none' : `1px solid ${C.line2}`,
-              whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-              boxShadow: mine ? 'none' : `0 1px 0 ${C.line2}`,
-            }}>{String(m.text)}</div>
           </div>
         );
       })}

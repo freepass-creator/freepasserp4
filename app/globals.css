@@ -145,6 +145,14 @@ button, input, select, textarea { font-family: inherit; }
   70% { box-shadow: 0 0 0 5px rgba(185, 28, 28, 0); }
   100% { box-shadow: 0 0 0 0 rgba(185, 28, 28, 0); }
 }
+/* 계약중 뱃지 — 은은한 주황 펄스(주의 환기, 과하지 않게) */
+@keyframes fp-badge-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(234, 88, 12, 0); opacity: 1; }
+  50% { box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.22); opacity: 0.88; }
+}
+.fp-badge-pulse {
+  animation: fp-badge-pulse 1.6s ease-in-out infinite;
+}
 /* 모바일 메뉴 시트 — 상단바 아래로 슬라이드 다운. */
 @keyframes menuDrop {
   from { opacity: 0; transform: translateY(-8px); }
@@ -272,18 +280,18 @@ button, input, select, textarea { font-family: inherit; }
 .fp-finder-pane > .fp-finder-body {
   flex: 1 1 0; min-height: 0;
 }
-/* 카드·리스트: gutter로 막대 자리 고정 → 좌패딩과 우패딩이 콘텐츠 기준으로 같음 */
+/* 카드·리스트: 상·하 = frame-pad-y, 좌·우 = frame-pad-x (하단만 크게 두지 않음) */
 .fp-finder-body {
-  padding: 14px var(--fp-frame-pad-x) 40px;
+  padding: var(--fp-frame-pad-y) var(--fp-frame-pad-x);
   scrollbar-gutter: stable;
 }
 /* 엑셀 = 본문 스크롤 대신 시트(.fp-excel-sheet)만 스크롤.
- * 끝선(좌우·상하 패딩) = 카드·리스트와 동일 --fp-frame-pad. */
+ * 끝선(좌우·상하 패딩) = 카드·리스트와 동일. */
 .fp-finder-body.is-excel {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  padding: 14px var(--fp-frame-pad-x) 40px;
+  padding: var(--fp-frame-pad-y) var(--fp-frame-pad-x);
   scrollbar-gutter: auto;
   background: var(--bg-page);
 }

@@ -4,11 +4,13 @@ import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
 import { type EntityRecord } from '@/lib/intake/entities';
-import { getRole, actor, ROLE_LABEL, chatDisplayName, type Role } from '@/lib/domain/deal';
+import { getRole, actor, type Role } from '@/lib/domain/deal';
 import { sendText, sendFile as sendFileMsg, markRead, listMessages, isMine } from '@/lib/domain/messaging';
-import { Btn, C, R, Loading, CenterNote, Input, IconBtn, ctrlH, NavBack } from '@/components/ui';
+import { Btn, C, R, FS, Loading, CenterNote, Input, IconBtn, ctrlH, NavBack } from '@/components/ui';
 import { toast } from '@/components/Toaster';
+import { ChatSenderLabel } from '@/components/ChatSenderLabel';
 import { useIsMobile } from '@/lib/use-mobile';
+import { msgClock } from '@/lib/format';
 
 // 대화창 = 공통 원자(방 하나의 스레드+입력). 전송·안읽음 = messaging SSOT.
 export function ChatThread({ roomId, onBack, onVehicle, onContract }: { roomId: string; onBack?: () => void; onVehicle?: (productCode: string) => void; onContract?: (productCode: string) => void }) {
@@ -84,27 +86,36 @@ export function ChatThread({ roomId, onBack, onVehicle, onContract }: { roomId: 
           const mine = isMine(m, me, role);
           const isAdmin = m.sender_role === 'admin';
           const simple = m.channel === '간단';
+          const clock = msgClock(m.created_at);
+          const bubble = m.image_url ? (
+            <img src={String(m.image_url)} alt="" onClick={() => setFull(String(m.image_url))} style={{ maxWidth: 200, maxHeight: 220, borderRadius: R, cursor: 'zoom-in', display: 'block', border: `1px solid ${C.line}` }} />
+          ) : m.file_url ? (
+            <a href={String(m.file_url)} download={String(m.file_name || 'file')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, maxWidth: 220, padding: '8px 11px', borderRadius: R, fontSize: 12.5, background: mine ? C.brand : '#fff', color: mine ? '#fff' : C.ink, border: mine ? 'none' : `1px solid ${C.line}`, textDecoration: 'none' }}><span>📎</span><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{String(m.file_name || '파일')}</span></a>
+          ) : (
+            <div style={{ padding: '8px 11px', borderRadius: R, fontSize: 13, lineHeight: 1.45, background: mine ? C.brand : isAdmin ? C.warnBg : '#fff', color: mine ? '#fff' : C.ink, border: mine ? 'none' : `1px solid ${C.line}`, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{String(m.text)}</div>
+          );
           return (
             <div key={String(m._key)} style={{ alignSelf: mine ? 'flex-end' : 'flex-start', maxWidth: '78%' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 5, margin: '0 0 2px 3px', justifyContent: mine ? 'flex-end' : 'flex-start' }}>
-                {!mine && <span style={{ fontSize: 10.5, color: C.faint }}>{chatDisplayName(String(m.sender_role), String(m.sender_name), String(m.sender_code || m.sender_uid || ''))} · {ROLE_LABEL[m.sender_role as Role] || ''}</span>}
-                {simple && <span style={{ fontSize: 9.5, fontWeight: 700, color: C.brand, background: C.selected, padding: '1px 5px', borderRadius: R }}>간단</span>}
+                {!mine && <ChatSenderLabel role={String(m.sender_role)} name={String(m.sender_name)} code={String(m.sender_code || m.sender_uid || '')} />}
+                {simple && <span style={{ fontSize: FS.micro, fontWeight: 700, color: C.brand, background: C.selected, padding: '1px 5px', borderRadius: R }}>간단</span>}
               </div>
-              {m.image_url ? (
-                <img src={String(m.image_url)} alt="" onClick={() => setFull(String(m.image_url))} style={{ maxWidth: 200, maxHeight: 220, borderRadius: R, cursor: 'zoom-in', display: 'block', border: `1px solid ${C.line}` }} />
-              ) : m.file_url ? (
-                <a href={String(m.file_url)} download={String(m.file_name || 'file')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, maxWidth: 220, padding: '8px 11px', borderRadius: R, fontSize: 12.5, background: mine ? C.brand : '#fff', color: mine ? '#fff' : C.ink, border: mine ? 'none' : `1px solid ${C.line}`, textDecoration: 'none' }}><span>📎</span><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{String(m.file_name || '파일')}</span></a>
-              ) : (
-                <div style={{ padding: '8px 11px', borderRadius: R, fontSize: 13, lineHeight: 1.45, background: mine ? C.brand : isAdmin ? C.warnBg : '#fff', color: mine ? '#fff' : C.ink, border: mine ? 'none' : `1px solid ${C.line}`, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{String(m.text)}</div>
-              )}
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, flexDirection: mine ? 'row-reverse' : 'row' }}>
+                {bubble}
+                {clock ? (
+                  <span style={{ flex: '0 0 auto', fontSize: FS.micro, color: C.faint, fontVariantNumeric: 'tabular-nums', lineHeight: 1, paddingBottom: 2 }}>
+                    {clock}
+                  </span>
+                ) : null}
+              </div>
             </div>
           );
         })}
         <div ref={endRef} />
       </div>
 
-      {/* 일반 메신저처럼 1줄 컴포저 — 상하 패딩 최소(2줄 높이 감 방지) */}
-      <div style={{ display: 'flex', gap: 6, padding: '6px 10px calc(6px + env(safe-area-inset-bottom))', borderTop: `1px solid ${C.line}`, flex: '0 0 auto', alignItems: 'center' }}>
+      {/* 일반 메신저처럼 1줄 컴포저 — 탭바 켤 때 --fp-dock-safe=0 (이중 safe-area 빈칸 방지) */}
+      <div style={{ display: 'flex', gap: 6, padding: '6px 10px calc(6px + var(--fp-dock-safe, env(safe-area-inset-bottom, 0px)))', borderTop: `1px solid ${C.line}`, flex: '0 0 auto', alignItems: 'center' }}>
         <input ref={fileRef} type="file" accept="image/*,application/pdf" onChange={(e) => onPickFile(e.target.files)} style={{ display: 'none' }} />
         <IconBtn onClick={() => fileRef.current?.click()} title="사진·파일 첨부">📎</IconBtn>
         <Input value={text} onChange={setText} onEnter={send} placeholder="메시지 입력" full style={{ flex: 1 }} />

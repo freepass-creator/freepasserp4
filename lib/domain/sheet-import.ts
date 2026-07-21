@@ -193,7 +193,7 @@ export function importSheetTable(table: string[][], opts: {
     rec.source = 'sheet';
     rec.source_schema = opts.providerCode;                 // 공급사별 소스 태깅 → "이 렌트사만 빼기" 한방
     if (!rec.vehicle_status) rec.vehicle_status = '출고가능';
-    if (!rec.product_type) rec.product_type = '재렌트';
+    if (!rec.product_type) rec.product_type = '중고렌트';
     // 연료칸 "가솔린1.0"·"LPG3.0" → 연료/배기 분리
     if (rec.fuel_type) {
       const fuel = fuelDisplay(rec.fuel_type);

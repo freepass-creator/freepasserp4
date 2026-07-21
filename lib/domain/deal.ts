@@ -10,7 +10,7 @@ import { type EntityRecord } from '@/lib/intake/entities';
 import { vehicleName, priceAt, creditDisplay } from '@/lib/domain/product';
 import { resolveRates } from '@/lib/domain/settlement-engine';
 import { getSession } from '@/lib/auth-session';
-import { BRAND } from '@/lib/brand';
+import { BRAND_MAIN } from '@/lib/brand';
 
 export type Role = 'agent' | 'provider' | 'admin';
 export const ROLE_LABEL: Record<Role, string> = { agent: '영업자', provider: '공급사', admin: '관리자' };
@@ -42,11 +42,11 @@ export function actor(r: Role): { uid: string; code: string; name: string; chann
   return { ...ACTORS[r], channel: r === 'agent' ? 'chn_seoul' : undefined };
 }
 
-// 채팅 표기명 — 관리자만 플랫폼 화이트라벨(BRAND · 이름). 영업자·공급사는 코드명으로 익명 거래.
+/** 채팅 표기명 — 역할 라벨 없이. 관리자=`freepass.이름`, 그 외=유저코드(없으면 이름). */
 export function chatDisplayName(role: Role | string, name: string, code?: string): string {
   if (role === 'admin') {
     const n = String(name || '').trim();
-    return n ? `${BRAND} · ${n}` : BRAND;
+    return n ? `${BRAND_MAIN}.${n}` : BRAND_MAIN;
   }
   return String(code || name || '').trim();
 }

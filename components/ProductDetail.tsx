@@ -111,14 +111,14 @@ export function ProductDetail({ p, audience }: { p: EntityRecord; audience?: Aud
           {sec.kind === 'price' ? (
             <div style={box}>
               <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: FS.table, tableLayout: 'fixed' }}>
-                <thead><tr>{['기간', '월대여료', '보증금'].map((h, i) => <th key={h} style={{ width: '33.33%', padding: '6px 10px', textAlign: i ? 'right' : 'left', background: C.head, borderBottom: `1px solid ${C.line}`, fontSize: FS.caption, color: C.mute, fontWeight: 700 }}>{h}</th>)}</tr></thead>
+                <thead><tr>{['기간', '월대여료', '보증금'].map((h, i) => <th key={h} style={{ width: '33.33%', padding: '6px 10px', textAlign: i === 0 ? 'left' : i === 1 ? 'center' : 'right', background: C.head, borderBottom: `1px solid ${C.line}`, fontSize: FS.caption, color: C.mute, fontWeight: 700 }}>{h}</th>)}</tr></thead>
                 <tbody>{prices.length === 0 ? <tr><td colSpan={3} style={{ padding: 12, textAlign: 'center', color: C.faint }}>가격 문의</td></tr> :
                   prices.map((pr, i) => {
                     const isCheap = !!cheap && pr.m === cheap.m;
                     return (
                       <tr key={pr.m} style={{ borderTop: i ? `1px solid ${C.line2}` : 'none', background: isCheap ? C.selected : 'transparent' }}>
                         <td style={{ padding: '6px 10px' }}>{pr.m}개월{isCheap && <span style={{ marginLeft: 5, fontSize: 9.5, fontWeight: 800, color: '#fff', background: C.brand, borderRadius: R, padding: '1px 5px', verticalAlign: 'middle' }}>최저</span>}</td>
-                        <td style={{ padding: '6px 10px', textAlign: 'right', fontWeight: 800, color: C.brand, fontFamily: NUM }}>{won(pr.rent)}</td>
+                        <td style={{ padding: '6px 10px', textAlign: 'center', fontWeight: 800, color: C.brand, fontFamily: NUM }}>{won(pr.rent)}</td>
                         <td style={{ padding: '6px 10px', textAlign: 'right', fontFamily: NUM }}>{won(pr.deposit)}</td>
                       </tr>
                     );

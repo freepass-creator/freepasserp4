@@ -55,11 +55,58 @@ function naturalKey(entity: string, rec: Rec): string {
 }
 
 // v3 계약 첨부(customer_docs 중첩맵 + doc_attachments 배열) → v4 attachments 배열
+// 문자열 URL만 있는 경우 name=URL 로 들어가 목록이 링크 덤프·NaNKB 로 깨짐 → 정규화.
+function fileNameFromUrl(url: string): string {
+  try {
+    const bare = decodeURIComponent(String(url).split('?')[0] || '');
+    const o = bare.match(/\/o\/(.+)$/);
+    const path = o ? decodeURIComponent(o[1]) : bare;
+    const base = path.split('/').filter(Boolean).pop() || '';
+    if (base && !/^https?:$/i.test(base)) return base;
+  } catch { /* ignore */ }
+  return '첨부파일';
+}
+function looksLikeUrl(s: string): boolean {
+  return /^https?:\/\//i.test(s) || /firebasestorage\.googleapis/i.test(s);
+}
+function guessAttType(s: string): string {
+  if (/\.(jpe?g|png|gif|webp|bmp)(\?|$)/i.test(s)) return 'image/jpeg';
+  if (/\.pdf(\?|$)/i.test(s)) return 'application/pdf';
+  return '';
+}
+function normalizeAtt(raw: unknown): Rec | null {
+  if (raw == null) return null;
+  if (typeof raw === 'string') {
+    const url = raw.trim();
+    if (!url) return null;
+    return { url, name: fileNameFromUrl(url), size: 0, type: guessAttType(url), at: 0 };
+  }
+  if (typeof raw !== 'object') return null;
+  const d = raw as Rec;
+  if (d._deleted) return null;
+  let url = String(d.url || d.downloadURL || d.href || d.src || '').trim();
+  let name = String(d.name || d.file_name || d.filename || d.original_name || d.title || '').trim();
+  // v3: name 자리에 Storage URL만 넣고 url 필드가 비어 있는 경우
+  if (!url && looksLikeUrl(name)) url = name;
+  if (!name || looksLikeUrl(name)) name = url ? fileNameFromUrl(url) : '첨부파일';
+  const sizeNum = Number(d.size ?? d.bytes ?? d.file_size ?? d.byteSize);
+  const size = Number.isFinite(sizeNum) && sizeNum > 0 ? sizeNum : 0;
+  const type = String(d.type || d.contentType || d.mime || guessAttType(name) || guessAttType(url) || '');
+  const atNum = Number(d.at || d.created_at || d.uploaded_at || d.ts || d.time);
+  const at = Number.isFinite(atNum) && atNum > 0 ? atNum : 0;
+  return { ...d, url, name, size, type, at };
+}
 function attachmentsOf(rec: Rec): Rec[] {
-  if (Array.isArray(rec.attachments)) return rec.attachments;
   const out: Rec[] = [];
-  if (Array.isArray(rec.doc_attachments)) for (const a of rec.doc_attachments) out.push(typeof a === 'string' ? { url: a, name: a } : a);
-  if (rec.customer_docs && typeof rec.customer_docs === 'object') for (const d of Object.values<any>(rec.customer_docs)) if (d && !d._deleted) out.push(d);
+  const push = (raw: unknown) => { const n = normalizeAtt(raw); if (n) out.push(n); };
+  if (Array.isArray(rec.attachments)) {
+    for (const a of rec.attachments) push(a);
+    return out;
+  }
+  if (Array.isArray(rec.doc_attachments)) for (const a of rec.doc_attachments) push(a);
+  if (rec.customer_docs && typeof rec.customer_docs === 'object') {
+    for (const d of Object.values<any>(rec.customer_docs)) push(d);
+  }
   return out;
 }
 

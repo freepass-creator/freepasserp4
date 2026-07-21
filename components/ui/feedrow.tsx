@@ -5,19 +5,16 @@ import { useIsMobile } from '@/lib/use-mobile';
 import { C, R, FS } from '@/components/ui/tokens';
 import { type BadgeTone, toneSoft, toneText } from '@/components/ui/badges';
 
-/** 일반 목록 3줄 행 — 줄 높이 고정(내용 길이와 무관).
- *  ERP 목록 = 스캔성 우선(한 화면에 많이). 값을 키우면 보이는 건수가 줄어 목록의 본분이 깨진다. */
+/** 업무 목록 3줄 — 스캔성·한 화면에 많이. 행·아이콘을 키우면 피드가 되어 답답해진다. */
 const LINE = {
-  title: 19,   // FeedTitle 14.5
-  badges: 20,  // Badge 레일
-  sub: 15,     // FeedSub 12
+  title: 18,   // FeedTitle
+  badges: 18,  // Badge 레일
+  sub: 14,     // FeedSub
 } as const;
 
 /**
- * 피드 목록행 SSOT — 상품 ProductRowCard와 같은 DNA.
- *   [상태 아이콘] + 3줄 본문 (문의·계약·재고)
- * 줄 높이 고정 → 채팅 내용·뱃지 길이와 무관하게 행 높이 동일.
- * tone = 확인필요·진행·판매중 등 상태색.
+ * 목록행 SSOT — 문의·계약·재고·정책.
+ *   [상태 칩] + 3줄 본문. 상태칩은 작을수록 목록다움(B2C 큰 썸네일 금지).
  */
 export function FeedThumbIcon({
   icon: Icon,
@@ -32,8 +29,8 @@ export function FeedThumbIcon({
   title?: string;
 }) {
   const mobile = useIsMobile();
-  // 상태 표시용 레일 — 사진이 아니라 "상태 한 글자"다. 크게 두면 목록이 B2C 피드처럼 보이고 스캔성이 죽는다.
-  const w = size ?? (mobile ? 40 : 44);
+  // 상태 칩(목록 레일) — 28/32. 40+면 피드·답답.
+  const w = size ?? (mobile ? 28 : 32);
   return (
     <div
       aria-hidden={title ? undefined : true}
@@ -53,7 +50,7 @@ export function FeedThumbIcon({
         overflow: 'hidden',
       }}
     >
-      <Icon size={mobile ? 18 : 20} strokeWidth={2} />
+      <Icon size={mobile ? 14 : 15} strokeWidth={2.25} />
     </div>
   );
 }
@@ -65,7 +62,7 @@ export function FeedListRow({
   onClick,
   href,
 }: {
-  thumb: ReactNode;
+  thumb?: ReactNode;
   /** 일반 목록 = 3줄 SSOT. (상품 파인더 ProductRowCard는 별도) */
   lines: ReactNode[];
   selected?: boolean;
@@ -73,13 +70,13 @@ export function FeedListRow({
   href?: string;
 }) {
   const mobile = useIsMobile();
-  const gap = 3;
+  const gap = 2;
   const lineH = [LINE.title, LINE.badges, LINE.sub];
   const style: CSSProperties = {
     display: 'flex',
-    gap: mobile ? 10 : 11,
+    gap: mobile ? 8 : 9,
     alignItems: 'center',
-    padding: mobile ? '8px 12px' : '8px 14px',
+    padding: mobile ? '6px 12px' : '5px 12px',
     borderBottom: `1px solid ${C.line2}`,
     background: selected ? C.selected : 'transparent',
     textDecoration: 'none',
@@ -89,7 +86,7 @@ export function FeedListRow({
   };
   const body = (
     <>
-      {thumb}
+      {thumb ?? null}
       <div style={{
         display: 'flex',
         flexDirection: 'column',
@@ -135,7 +132,7 @@ export function FeedListRow({
 export function FeedTitle({ children, mono }: { children: ReactNode; mono?: boolean }) {
   return (
     <div style={{
-      fontSize: FS.title, fontWeight: 800, color: C.ink, letterSpacing: '-0.02em',
+      fontSize: FS.title, fontWeight: 700, color: C.ink, letterSpacing: '-0.02em',
       lineHeight: `${LINE.title}px`, height: LINE.title,
       whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
       fontFamily: mono ? 'var(--font-mono)' : undefined,
@@ -169,7 +166,7 @@ export function FeedSub({ children, strong }: { children: ReactNode; strong?: bo
 export function FeedBadges({ children }: { children: ReactNode }) {
   return (
     <div style={{
-      display: 'flex', alignItems: 'center', gap: 6,
+      display: 'flex', alignItems: 'center', gap: 5,
       minWidth: 0, width: '100%', height: LINE.badges,
       overflow: 'hidden', flexWrap: 'nowrap',
     }}>

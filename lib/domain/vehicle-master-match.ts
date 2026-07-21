@@ -283,7 +283,15 @@ export function vehicleFilterCount(v: VehicleFilter): number {
   return [v.maker, v.model, v.sub_model, v.variant, v.trim_name].filter(Boolean).length;
 }
 export function matchVehicleFilter(p: EntityRecord, v: VehicleFilter): boolean {
-  if (v.maker && String(p.maker || '') !== v.maker) return false;
+  if (v.maker) {
+    const pm = makerDisplay(p.maker) || String(p.maker || '');
+    const vm = makerDisplay(v.maker) || v.maker;
+    if (pm !== vm && String(p.maker || '') !== v.maker) {
+      // 르노 국산 계열 표기 흔들림(르노코리아·르노삼성·르노) — 영문 Renault는 별도
+      const reno = (s: string) => /르노/.test(s);
+      if (!(reno(pm) && reno(vm))) return false;
+    }
+  }
   if (v.model && String(p.model || '') !== v.model) return false;
   if (v.sub_model && String(p.sub_model || '') !== v.sub_model) return false;
   if (v.variant && String(p.variant || '') !== v.variant) return false;

@@ -246,15 +246,17 @@ export function WorkPage({
 
   const col = (flex: string, extra?: CSSProperties): CSSProperties => ({
     flex, display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0,
-    borderRight: `1px solid ${C.line}`, boxSizing: 'border-box', ...extra,
+    borderRight: `1px solid ${C.line}`, boxSizing: 'border-box',
+    background: C.taupeBg, // 목록·패널 = 흰 서피스(페이지 회색 #fafafa 비침 방지 → 목록다움)
+    ...extra,
   });
   return (
     <>
-      <div style={{ display: 'flex', height: 'calc(100dvh - var(--topbar-h) - var(--fp-bar-h))', borderTop: `1px solid ${C.line}`, overflowX: 'hidden' }}>
+      <div style={{ display: 'flex', height: 'calc(100dvh - var(--topbar-h) - var(--fp-bar-h))', borderTop: `1px solid ${C.line}`, overflowX: 'hidden', background: C.bg }}>
         <div style={col('1 1 0', { minWidth: 0, overflow: 'hidden' })}>
           <PaneHead title={title} count={listCount} />
           {webSearchBar}
-          <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', minHeight: 0 }}>{list}</div>
+          <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', minHeight: 0, background: C.taupeBg }}>{list}</div>
         </div>
         {panes.map((p, i) => (
           <div key={p.key} style={col(
