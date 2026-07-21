@@ -15,3 +15,15 @@ export function kmDisplay(raw: unknown): string {
   if (v >= 10) return `${Math.floor(v)}만`;
   return `${v.toFixed(1)}만`;
 }
+
+/** 채팅 버블 시각 — 오늘=`HH:mm`, 아니면 `M/D HH:mm`. `dateOnly`면 비오늘은 `M/D`만. */
+export function msgClock(ms: unknown, opts?: { dateOnly?: boolean }): string {
+  const n = Number(ms);
+  if (!n) return '';
+  const d = new Date(n);
+  const hm = d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
+  const now = new Date();
+  if (d.toDateString() === now.toDateString()) return hm;
+  const md = `${d.getMonth() + 1}/${d.getDate()}`;
+  return opts?.dateOnly ? md : `${md} ${hm}`;
+}

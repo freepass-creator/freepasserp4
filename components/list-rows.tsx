@@ -8,7 +8,7 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { contractStage, getProgress, contractTone } from '@/lib/domain/contract';
-import { vehicleName } from '@/lib/domain/product';
+import { vehicleName, canonProductType } from '@/lib/domain/product';
 import {
   Badge, CountPill, NUM, C, FS, productTypeStyle,
   type BadgeTone,
@@ -18,18 +18,7 @@ import {
 } from '@/components/ui/feedrow';
 import { CardSpecs } from '@/components/product-card-atoms';
 import { vehicleTone } from '@/lib/domain/product';
-
-/** 목록 시각 짧은 표기 */
-function shortAt(ms: unknown): string {
-  const n = Number(ms);
-  if (!n) return '';
-  const d = new Date(n);
-  const now = new Date();
-  if (d.toDateString() === now.toDateString()) {
-    return d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
-  }
-  return `${d.getMonth() + 1}/${d.getDate()}`;
-}
+import { msgClock } from '@/lib/format';
 
 function plateSpan(plate: string) {
   if (!plate) return null;
@@ -92,6 +81,7 @@ function inventoryStatusIcon(p: EntityRecord): { icon: LucideIcon; tone: BadgeTo
   }
   if (st === '상품화중') return { icon: Package, tone: 'amber', title: '상품화중' };
   if (st === '출고협의') return { icon: Handshake, tone: 'blue', title: '출고협의' };
+  if (st === '계약중') return { icon: FileText, tone: 'orange' as BadgeTone, title: '계약중' };
   if (st === '출고불가') return { icon: Ban, tone: 'red', title: '출고불가' };
   if (p._needs_master_review) return { icon: ClipboardList, tone: 'amber', title: '검수 필요' };
   return { icon: Car, tone: tone, title: st || '재고' };
@@ -126,7 +116,7 @@ export function ChatRoomRow({
         <FeedTitleRow
           key="t"
           title={<FeedTitle>{String(room.vehicle_name || '매물')}</FeedTitle>}
-          meta={<span style={{ fontSize: FS.cap, color: C.faint, fontVariantNumeric: 'tabular-nums' }}>{shortAt(room.last_message_at)}</span>}
+          meta={<span style={{ fontSize: FS.cap, color: C.faint, fontVariantNumeric: 'tabular-nums' }}>{msgClock(room.last_message_at, { dateOnly: true })}</span>}
         />,
         <FeedBadges key="b">
           <Badge tone={stage.tone}>{stage.label}</Badge>
@@ -208,7 +198,6 @@ export function InventoryListRow({
 }) {
   const st = String(p.vehicle_status || '');
   const pt = String(p.product_type || '');
-  const pts = productTypeStyle(pt);
   const provider = String(p.provider_name || p.provider_company_code || '').trim();
   const ic = inventoryStatusIcon(p);
   return (
@@ -219,8 +208,8 @@ export function InventoryListRow({
       lines={[
         <FeedTitle key="t">{vehicleName(p) || String(p.product_code || '매물')}</FeedTitle>,
         <FeedBadges key="b">
-          {st ? <Badge tone={vehicleTone(st)}>{st}</Badge> : null}
-          {pt ? <Badge tone={pts.tone} variant={pts.variant}>{pt}</Badge> : null}
+          {st ? <Badge tone={vehicleTone(st)} variant={st === '계약중' ? 'solid' : 'line'} pulse={st === '계약중'}>{st}</Badge> : null}
+          {pt ? (() => { const c = canonProductType(pt) || pt; const pts = productTypeStyle(c); return <Badge tone={pts.tone} variant={pts.variant}>{c}</Badge>; })() : null}
           {p._needs_master_review ? <Badge tone="amber" variant="solid">검수</Badge>
             : p._snapped ? <Badge tone="blue" variant="quiet">변환</Badge> : null}
         </FeedBadges>,

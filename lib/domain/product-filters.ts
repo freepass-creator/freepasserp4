@@ -19,6 +19,7 @@ import { PRODUCT_TYPES, FUEL_TYPES, PROMO_BADGES } from '@/lib/intake/entities';
 import {
   fuelDisplay,
   yearDisplay,
+  parseYear,
   EMPTY_VEHICLE_FILTER,
   matchVehicleFilter,
   vehicleFilterCount,
@@ -29,7 +30,8 @@ import { productHaystack, matchHay } from '@/lib/domain/search';
 export { productHaystack, matchProductQuery } from '@/lib/domain/search';
 export type { VehicleFilter } from '@/lib/domain/vehicle-master-match';
 export { EMPTY_VEHICLE_FILTER, vehicleFilterCount } from '@/lib/domain/vehicle-master-match';
-import { priceList, creditDisplay, noDeposit, minAge, shortExperience, installmentOk, parseEventTags, isOperatedPeriod, isStandardPeriod, PERIODS } from '@/lib/domain/product';
+import { priceList, creditDisplay, noDeposit, minAge, shortExperience, installmentOk, parseEventTags, isOperatedPeriod, isStandardPeriod, PERIODS, isHiddenFromCatalog, canonProductType } from '@/lib/domain/product';
+import { makerDisplay } from '@/lib/domain/vehicle-master-match';
 
 /** 매물에 항상 있는 축 — 카드 필수와 1:1. */
 export const CORE_FILTERS = [
@@ -163,21 +165,23 @@ export function presentFilterOptions(products: EntityRecord[]): {
   promo: PresentChip[];
   hasVehicle: boolean;
 } {
+  // 상품목록 모수 = 출고불가 제외(계약중은 포함·마크 노출).
+  const listed = products.filter((p) => !isHiddenFromCatalog(p));
   const countBand = (bands: Band[], pick: (p: EntityRecord) => number[]): PresentChip[] =>
     bands.map((b) => {
       let n = 0;
-      for (const p of products) if (pick(p).some((v) => v > b.lo && v <= b.hi)) n++;
+      for (const p of listed) if (pick(p).some((v) => v > b.lo && v <= b.hi)) n++;
       return { key: b.k, label: b.label, count: n };
     }).filter((o) => o.count > 0);
 
   const countEnum = (vals: readonly string[], get: (p: EntityRecord) => string): PresentChip[] => {
     const m = new Map<string, number>();
-    for (const p of products) { const v = get(p); if (v) m.set(v, (m.get(v) || 0) + 1); }
+    for (const p of listed) { const v = get(p); if (v) m.set(v, (m.get(v) || 0) + 1); }
     return vals.filter((v) => (m.get(v) || 0) > 0).map((v) => ({ key: v, label: v, count: m.get(v)! }));
   };
 
   const monthMap = new Map<number, number>();
-  for (const p of products) for (const x of priceList(p)) {
+  for (const p of listed) for (const x of priceList(p)) {
     if (!isOperatedPeriod(x.m)) continue;
     monthMap.set(x.m, (monthMap.get(x.m) || 0) + 1);
   }
@@ -187,21 +191,25 @@ export function presentFilterOptions(products: EntityRecord[]): {
     rent: countBand(RENT_BANDS, (p) => priceList(p).map((x) => x.rent)),
     dep: countBand(DEP_BANDS, (p) => priceList(p).map((x) => x.deposit)),
     mile: countBand(MILE_BANDS, (p) => [Number(p.mileage) || 0]),
-    ptype: countEnum(PTYPES, (p) => String(p.product_type || '')),
+    ptype: PTYPES.map((t) => {
+      let n = 0;
+      for (const p of listed) if (canonProductType(p.product_type) === t) n++;
+      return { key: t, label: t, count: n };
+    }), // 4분류 항상 노출(재렌트→중고렌트 캐논 포함)
     credit: countEnum(CREDITS, (p) => creditDisplay(p)),
     fuel: countEnum(FUELS, (p) => fuelDisplay(p.fuel_type) || String(p.fuel_type || '')),
     perks: PERKS.map((pk) => {
-      let n = 0; for (const p of products) if (hasPerk(p, pk)) n++;
+      let n = 0; for (const p of listed) if (hasPerk(p, pk)) n++;
       return { key: pk, label: pk, count: n };
     }).filter((o) => o.count > 0),
     promo: (() => {
       const m = new Map<string, number>();
-      for (const p of products) {
+      for (const p of listed) {
         for (const t of parseEventTags(p.event_tags || p.promo_tags)) m.set(t, (m.get(t) || 0) + 1);
       }
       return PROMOS.filter((t) => (m.get(t) || 0) > 0).map((t) => ({ key: t, label: t, count: m.get(t)! }));
     })(),
-    hasVehicle: products.some((p) => String(p.maker || '').trim() !== ''),
+    hasVehicle: listed.some((p) => String(p.maker || '').trim() !== ''),
   };
 }
 
@@ -214,8 +222,19 @@ export type FState = {
   vehicle: VehicleFilter;
 };
 
-/** 국산 제조사(erp3 DOMESTIC_MAKERS) — 매물 계단식 제조사 optgroup용. */
-const DOMESTIC_MAKERS = new Set(['현대', '기아', '제네시스', '쉐보레', '르노', '르노삼성', '삼성', 'KGM', 'KG모빌리티', '쌍용', '대우']);
+/** 국산 제조사 — 르노(르노코리아·르노삼성)=국산. 영문 Renault 등 수입 르노는 별도(미포함). */
+const DOMESTIC_MAKERS = new Set(['현대', '기아', '제네시스', '쉐보레', '르노', '르노삼성', '르노코리아', '삼성', 'KGM', 'KG모빌리티', 'KG', '쌍용', '대우', '한국지엠']);
+function isDomesticMaker(raw: string): boolean {
+  const v = raw.trim();
+  if (!v) return false;
+  if (DOMESTIC_MAKERS.has(v)) return true;
+  const d = makerDisplay(v);
+  if (DOMESTIC_MAKERS.has(d)) return true;
+  // 국산 르노 계열(표기 흔들림) — 영문 Renault 단독은 수입으로 둠
+  if (/르노/.test(v) || /르노/.test(d)) return true;
+  if (/^kgm?$/i.test(d) || /모빌리티|쌍용/.test(v)) return true;
+  return false;
+}
 
 export type CascadeOpt = { value: string; count: number };
 /** 매물에만 있는 값으로 차종 5단 계단 옵션 집계(상위 선택으로 하위 좁힘). */
@@ -229,8 +248,10 @@ export function aggregateVehicleCascade(products: EntityRecord[], v: VehicleFilt
   const countField = (list: EntityRecord[], field: keyof VehicleFilter): CascadeOpt[] => {
     const m = new Map<string, number>();
     for (const p of list) {
-      const raw = String(p[field] || '').trim();
+      let raw = String(p[field] || '').trim();
       if (!raw) continue;
+      // 제조사 = 표시명으로 묶어 르노코리아→르노 국산 집계
+      if (field === 'maker') raw = makerDisplay(raw) || raw;
       m.set(raw, (m.get(raw) || 0) + 1);
     }
     return [...m.entries()]
@@ -239,8 +260,8 @@ export function aggregateVehicleCascade(products: EntityRecord[], v: VehicleFilt
   };
 
   const makersAll = countField(products, 'maker');
-  const dom = makersAll.filter((o) => DOMESTIC_MAKERS.has(o.value));
-  const imp = makersAll.filter((o) => !DOMESTIC_MAKERS.has(o.value));
+  const dom = makersAll.filter((o) => isDomesticMaker(o.value));
+  const imp = makersAll.filter((o) => !isDomesticMaker(o.value));
   const makers = [
     ...(dom.length ? [{ origin: '국산', options: dom }] : []),
     ...(imp.length ? [{ origin: '수입', options: imp }] : []),
@@ -259,21 +280,19 @@ export function aggregateVehicleCascade(products: EntityRecord[], v: VehicleFilt
 }
 
 export function aggregateDyn(products: EntityRecord[]): Record<string, [string, number][]> {
+  const listed = products.filter((p) => !isHiddenFromCatalog(p));
   const out: Record<string, [string, number][]> = {};
   for (const d of DYN_ALL) {
     const m = new Map<string, number>();
-    for (const p of products) { const v = d.get(p); if (v) m.set(v, (m.get(v) || 0) + 1); }
-    out[d.key] = [...m.entries()].sort((a, b) => d.key === 'year' ? Number(b[0]) - Number(a[0]) : b[1] - a[1]);
+    for (const p of listed) { const v = d.get(p); if (v) m.set(v, (m.get(v) || 0) + 1); }
+    // 연식 = "24년" 표기라 Number()가 NaN → 수량순처럼 깨짐. parseYear로 최신→과거.
+    out[d.key] = [...m.entries()].sort((a, b) => d.key === 'year' ? parseYear(b[0]) - parseYear(a[0]) : b[1] - a[1]);
   }
   return out;
 }
 
-// 검색 대상 = productHaystack SSOT (전 원자). 토큰 AND.
-export function searchHaystack(p: EntityRecord): string {
-  return productHaystack(p);
-}
-
 export function matchProduct(p: EntityRecord, s: FState): boolean {
+  if (isHiddenFromCatalog(p)) return false; // 출고불가 = 상품목록 제외(계약중은 노출)
   const pl = priceList(p);
   if (!matchHay(productHaystack(p), s.q)) return false;
   if (s.rent.size && !RENT_BANDS.some((b) => s.rent.has(b.k) && pl.some((x) => x.rent > b.lo && x.rent <= b.hi))) return false;
@@ -281,7 +300,7 @@ export function matchProduct(p: EntityRecord, s: FState): boolean {
   if (s.periods.size && !pl.some((x) => s.periods.has(x.m))) return false;
   if (s.mile.size) { const km = Number(p.mileage) || 0; if (!MILE_BANDS.some((b) => s.mile.has(b.k) && km > b.lo && km <= b.hi)) return false; }
   if (s.fuel.size && !s.fuel.has(fuelDisplay(p.fuel_type) || String(p.fuel_type))) return false;
-  if (s.ptype.size && !s.ptype.has(String(p.product_type))) return false;
+  if (s.ptype.size && !s.ptype.has(canonProductType(p.product_type))) return false;
   if (s.credit.size && !s.credit.has(creditDisplay(p))) return false;
   if (s.perks.size && ![...s.perks].every((pk) => hasPerk(p, pk))) return false;
   if (s.promo.size) {

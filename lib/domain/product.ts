@@ -3,11 +3,10 @@
  * product는 정책(_policy, ~30필드)을 물고 옴 → 검색·상세가 정책조건까지 포함.
  */
 import type { EntityRecord } from '@/lib/intake/entities';
-import { MAX_PROMO_BADGES as PROMO_MAX, PROMO_BADGES, PROMO_BADGE_LEGACY, VEHICLE_STATES, PRODUCT_TYPES, PRODUCT_TYPE_LEGACY } from '@/lib/intake/entities';
+import { MAX_PROMO_BADGES as PROMO_MAX, PROMO_BADGES, PROMO_BADGE_LEGACY, PRODUCT_TYPES, PRODUCT_TYPE_LEGACY } from '@/lib/intake/entities';
 import { fuelDisplay, fuelEmbeddedCc, yearDisplay, makerDisplay } from '@/lib/domain/vehicle-master-match';
 import { kmDisplay } from '@/lib/format';
 export { PROMO_BADGES, MAX_PROMO_BADGES } from '@/lib/intake/entities';
-export const VEHICLE_STATUSES = VEHICLE_STATES;
 
 /** 상품구분 캐논 — 재렌트→중고렌트 · 재구독→중고구독. 필터·뱃지·매칭 SSOT. */
 export function canonProductType(raw: unknown): string {
@@ -56,7 +55,6 @@ export function normalizeWonPair(rentRaw: unknown, depositRaw: unknown): { rent:
  * 6·18 등 비표준은 데이터에 있으면 필터·상세·입력(PriceMatrix)에 포함.
  */
 export const PERIODS = [1, 12, 24, 36, 48, 60] as const;
-export const PERIOD_ROWS: readonly (readonly number[])[] = [[1, 12, 24], [36, 48, 60]];
 
 /** 유효 기간 — 양수 개월. 6·18 포함(데이터 있으면 필터·상세). */
 export function isOperatedPeriod(m: number): boolean {
@@ -90,11 +88,6 @@ export function priceList(p: EntityRecord): Price[] {
   return list.filter((e, i) => !list.slice(i + 1).some((lo) => lo.rent > e.rent * 1.05));
 }
 
-/** 표준 기간만 — 엑셀·종합표용. */
-export function standardPriceList(p: EntityRecord): Price[] {
-  return priceList(p).filter((x) => isStandardPeriod(x.m));
-}
-
 /** 선택 기간의 가격 (없으면 가장 가까운 기간) */
 export function priceAt(p: EntityRecord, target: number): Price | null {
   const l = priceList(p);
@@ -113,7 +106,6 @@ export function creditDisplay(p: EntityRecord): string {
   if (/신용 *조회|신용 *필요|소득 *확인|소득 *조회|등급|심사\s*필|심사\s*필요|소득확/.test(v)) return '소득확';
   return v || '무심사';
 }
-export function isReview(p: EntityRecord): boolean { return creditDisplay(p) === '소득확'; }
 /** 무보증(보증금 0 상품) — 저신용 손님의 핵심 진입장벽 해소. 영업자 셀링포인트. */
 export function noDeposit(p: EntityRecord): boolean {
   if (p.deposit_free === true || String(p.deposit_free) === '예') return true; // 명시 무보증 플래그
@@ -124,11 +116,6 @@ export function noDeposit(p: EntityRecord): boolean {
 /** 최저 월대여료 상품(카드 헤드라인) — 영업자·손님이 제일 먼저 보는 값. */
 export function cheapest(p: EntityRecord): Price | null { const l = priceList(p); return l.length ? l.reduce((a, b) => (b.rent < a.rent ? b : a)) : null; }
 export function cheapestRent(p: EntityRecord): number { const c = cheapest(p); return c ? c.rent : Infinity; }
-/** 기간 중 최저 보증금(무보증=0). 정렬·필터용. */
-export function minDeposit(p: EntityRecord): number {
-  const l = priceList(p);
-  return l.length ? Math.min(...l.map((x) => x.deposit)) : Infinity;
-}
 /** 선택 기간 대여료(없으면 최저). 정렬 시 필터기간 1개와 맞춤. */
 export function rentForSort(p: EntityRecord, focusMonth?: number): number {
   if (focusMonth && focusMonth > 0) { const e = priceAt(p, focusMonth); return e ? e.rent : Infinity; }
@@ -136,7 +123,8 @@ export function rentForSort(p: EntityRecord, focusMonth?: number): number {
 }
 export function depositForSort(p: EntityRecord, focusMonth?: number): number {
   if (focusMonth && focusMonth > 0) { const e = priceAt(p, focusMonth); return e ? e.deposit : Infinity; }
-  return minDeposit(p);
+  const l = priceList(p);
+  return l.length ? Math.min(...l.map((x) => x.deposit)) : Infinity;
 }
 /** 최저 운전가능 연령 — 정책 기본연령/연령하향 중 최소. 21 가능 = 젊은 손님 셀링포인트(딱지). */
 const twoDigit = (s: unknown): number => { const m = String(s ?? '').match(/(\d{2})/); return m ? Number(m[1]) : 0; };
@@ -225,7 +213,7 @@ export function eventSignals(p: EntityRecord): ProductSignal[] {
     .map((label, i) => ({ key: `ev${i}`, label, kind: 'event' as const }));
 }
 
-// 출고상태 — entities.VEHICLE_STATES SSOT (위 VEHICLE_STATUSES re-export).
+// 출고상태 — entities.VEHICLE_STATES SSOT.
 // 계약금 입금 선점 → 계약중, 계약완료 → 출고불가(상품목록 숨김), 계약취소 → 출고가능.
 export const VEHICLE_STATUS_TONES = {
   즉시출고: 'green', 출고가능: 'green', 상품화중: 'amber', 출고협의: 'blue', 계약중: 'orange', 출고불가: 'red',
