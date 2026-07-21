@@ -4,7 +4,7 @@ import { getStore, peekList } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
 import { type EntityRecord } from '@/lib/intake/entities';
-import { cheapestRent, creditDisplay } from '@/lib/domain/product';
+import { cheapestRent, creditDisplay, isHiddenFromCatalog, priceList } from '@/lib/domain/product';
 import { matchProductQuery } from '@/lib/domain/search';
 import { withProviderNames } from '@/lib/domain/identity';
 import { ProductCard } from '@/components/ProductCard';
@@ -13,7 +13,7 @@ import { C, Loading, CenterNote, SearchInput, Select, ToggleChips } from '@/comp
 import { toggleInSet } from '@/lib/set';
 
 // 손님 공개 카탈로그(화이트라벨) — 영업 공유의 착지점. ERP 크롬 없음.
-// 필터 축 = 홈과 동일 SSOT (심사 CREDITS · 혜택 CATALOG_PERKS). 로컬 PERKS 금지.
+// 필터 축 = 홈과 동일 SSOT (심사 CREDITS · 혜택 CATALOG_PERKS · 월대여료=matchProduct와 동일 밴드 판정).
 
 export default function Catalog() {
   const co = getCompanyId();
@@ -33,7 +33,7 @@ export default function Catalog() {
     const all = await getStore().list('product', co);
     const partners = await getStore().list('partner', co);
     setRows(withProviderNames(
-      all.filter((p) => p._deleted !== true && String(p.vehicle_status) !== '출고불가' && cheapestRent(p) < Infinity),
+      all.filter((p) => !isHiddenFromCatalog(p) && cheapestRent(p) < Infinity),
       partners,
     ));
   })(); /* eslint-disable-next-line */ }, []);
@@ -41,7 +41,11 @@ export default function Catalog() {
   const list = useMemo(() => {
     const l = (rows || []).filter((p) => {
       if (!matchProductQuery(p, q)) return false;
-      if (rent) { const b = RENT_BANDS.find((x) => x.k === rent); const cr = cheapestRent(p); if (b && !(cr > b.lo && cr <= b.hi)) return false; }
+      // 월대여료 = 홈 matchProduct SSOT (모든 기간 중 하나라도 밴드에 들면 통과)
+      if (rent) {
+        const b = RENT_BANDS.find((x) => x.k === rent);
+        if (b && !priceList(p).some((x) => x.rent > b.lo && x.rent <= b.hi)) return false;
+      }
       if (credit.size && !credit.has(creditDisplay(p))) return false;
       if (perks.size && ![...perks].every((pk) => hasPerk(p, pk))) return false;
       return true;
