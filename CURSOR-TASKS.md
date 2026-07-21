@@ -44,7 +44,14 @@ scripts/sim-vehicle-lock.mts      scripts/audit-vehicle-status.mts
 ```
 
 ### 이미 Claude가 수정한 파일 (읽어도 되지만 줄번호 믿지 마라)
-`app/inventory/page.tsx` — 락 관련 3곳(import·`saveP`·`removeP`) 변경됨. 작업 전 반드시 다시 읽을 것.
+`app/inventory/page.tsx` · `components/TopBar.tsx` · `lib/domain/data-check.ts` · `app/data-check/page.tsx`
+작업 전 반드시 다시 읽을 것.
+
+### T5 진행 시 추가 제외
+`components/TopBar.tsx` — 하이드레이션 수정 직후다. 렌더 중 `getRole()`/`actor()`/`isGuest()` 를
+다시 호출하는 형태로 되돌리지 마라(마운트 후에만 읽는다). 색·높이 토큰화만 하려면 해도 되지만,
+`mounted` 가드는 건드리지 말 것.
+`app/diag/page.tsx` — 진단 도구. 장애 때 이것마저 깨지면 안 되니 스윕 대상에서 제외.
 
 ### 태스크 잠금 상태
 | 태스크 | 상태 | 비고 |
@@ -53,7 +60,7 @@ scripts/sim-vehicle-lock.mts      scripts/audit-vehicle-status.mts
 | T2 canonProductType | ✅ 완료 | `b8e9bd7` |
 | T3 중복·죽은코드 | ⬜ 열림 | |
 | T4 PhotoUpload 원자화 | ⬜ 열림 | |
-| T5 하드코딩 스윕 | 🔒 잠금 | Claude가 커밋 정리 후 해제 |
+| T5 하드코딩 스윕 | ⬜ 열림 | 2026-07-21 해제 — 커밋 정리 완료(작업트리 클린) |
 | T6 login 원자화 | ❌ 폐기 | 의도적 설계였음 |
 | T7 카탈로그 요금필터 통일 | ⬜ 열림 | |
 | T8 재고상태 아이콘 SSOT | ⬜ 열림 | |
@@ -103,11 +110,9 @@ scripts/sim-vehicle-lock.mts      scripts/audit-vehicle-status.mts
 
 ---
 
-## T5. 하드코딩 스윕  🔒 잠금
+## T5. 하드코딩 스윕  ⬜ (2026-07-21 해제)
 
-**Claude 해제 전까지 시작 금지.** (커밋 안 된 대량 변경과 뒤엉키면 분리 불가)
-
-해제되면: `app/**` · `components/**` 중 아래 제외 목록 밖 전부에서
+`app/**` · `components/**` 중 아래 제외 목록 밖 전부에서
 하드코딩 hex → `C.*` / `borderRadius` 숫자 → `R` / height 숫자 → `CTRL`·`ctrlH`·`ctrlChipH`.
 
 **제외**: `components/ui/*` 전체 · `components/product-card-atoms.tsx` · `app/layout.tsx` ·
