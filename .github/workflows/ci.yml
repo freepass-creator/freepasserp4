@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# 매 push/PR = typecheck + 폰트 토큰 가드 + 도메인 시뮬레이션 + 프로덕션 빌드.
+#  다중 도구 동시 작업의 회귀를 자동 차단. 시크릿 불필요(sim=LocalAdapter, build=NEXT_PUBLIC 미설정 시 Local 폴백).
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Font token guard
+        run: npm run check:fonts
+
+      - name: Sim — 시트 병합(soft-merge·락 보호)
+        run: npx tsx scripts/sim-sheet-merge.mts
+
+      - name: Sim — 차량 락(선점·해제·재선점·경쟁·삭제보호)
+        run: npx tsx scripts/sim-vehicle-lock.mts
+
+      - name: Sim — 3자 정산 E2E(공급등록→계약→정산→월정산)
+        run: npx tsx scripts/sim-e2e-settlement.mts
+
+      - name: Production build
+        run: npm run build
