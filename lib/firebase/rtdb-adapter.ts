@@ -42,6 +42,17 @@ const isKashungProduct = (r: Rec): boolean =>
 const MAX_AGE = 10;
 const isTooOld = (r: Rec): boolean => { const y = carYear(r as EntityRecord); return y > 0 && (new Date().getFullYear() - y) >= MAX_AGE; };
 
+// 공급 원가(vehicle_price) = 마진 노출 필드. 영업자·손님에겐 read 단에서 가린다(관리자·공급사만 조회).
+//  ※ 수수료(price.*.fee)는 영업자 수익 판단 기준이라 유지. vin도 유지(식별자).
+//  RTDB는 필드단위 규칙이 안 되므로 앱 어댑터에서 차단 — 완전 격리는 v4/products_private 이관(부채) 후.
+function seesProductCost(): boolean { const role = getSession()?.role; return role === 'admin' || role === 'provider'; }
+function stripProductCost(p: EntityRecord): EntityRecord {
+  if (p.vehicle_price == null) return p;
+  const out: Rec = { ...(p as Rec) };
+  delete out.vehicle_price;
+  return out as EntityRecord;
+}
+
 // v4 매물에서 제외할 것 종합(카슝 + 10년 이상).
 const isExcludedProduct = (r: Rec): boolean => isKashungProduct(r) || isTooOld(r);
 
@@ -292,14 +303,18 @@ export class RtdbAdapter implements StoreAdapter {
 
   async list(entity: string, co: string): Promise<EntityRecord[]> {
     const rows = (await this.merged(entity, co)).filter((r) => !r._deleted && !r.deletedAt);
-    return entity === 'product' ? rows.filter((r) => !isExcludedProduct(r as Rec)) : rows; // 카슝(빌린카)·10년이상 제외
+    if (entity !== 'product') return rows;
+    const shown = rows.filter((r) => !isExcludedProduct(r as Rec)); // 카슝(빌린카)·10년이상 제외
+    return seesProductCost() ? shown : shown.map(stripProductCost); // 영업자·손님엔 원가 가림
   }
   async listDeleted(entity: string, co: string): Promise<EntityRecord[]> {
     return (await this.merged(entity, co)).filter((r) => r._deleted || r.deletedAt);
   }
   async get(entity: string, co: string, key: string): Promise<EntityRecord | null> {
     const r = (await this.merged(entity, co)).find((r) => String(r._key) === key && !r._deleted && !r.deletedAt) || null;
-    return (r && entity === 'product' && isExcludedProduct(r as Rec)) ? null : r; // 카슝·10년이상은 직접링크로도 숨김
+    if (!r || entity !== 'product') return r;
+    if (isExcludedProduct(r as Rec)) return null; // 카슝·10년이상은 직접링크로도 숨김
+    return seesProductCost() ? r : stripProductCost(r); // 영업자·손님엔 원가 가림
   }
 
   async save(entity: string, co: string, records: EntityRecord[]): Promise<SaveResult> {
