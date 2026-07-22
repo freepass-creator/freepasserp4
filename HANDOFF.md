@@ -1,7 +1,38 @@
 # 규격통일 핸드오프 (Claude ↔ Cursor)
 
 공용 규격 = **`CLAUDE.md`**. 둘 다 이거 따름.
-**철칙: 같은 파일 동시편집 금지. 편집 전 재확인 → 편집 → `npx tsc --noEmit`(0 확인).**
+**철칙: 같은 파일 동시편집 금지. 편집 전 재확인 → 편집 → `npx tsc --noEmit`(0). 이제 매 push/PR = CI(typecheck·`npm run check:fonts`·sim3종·빌드) 자동 검증.**
+
+---
+## 🗓 최신 세션 (2026-07-22, Claude 레인) — 다음 도구/PC 재개용 · 먼저 읽을 것
+
+> 순서: `git pull` → 이 절 → 아래 2026-07-21 절. 외부 평가 78→86점(보안·UI 실코드 반영).
+
+### ✅ 이번 세션 완료 (전부 커밋·푸시 · CI 초록)
+1. **보안 — 계약 읽기 역할 스코프** (`rtdb-adapter.readContractsScoped`): admin=전량·provider=회사·agent=본인uid+채널. v3 `contracts`·`v4/contracts` 양쪽 스코프 쿼리. 고객 PII(이름·전화) 역할 격리(영업자 A가 B 고객 못 봄). rules `v4/contracts`·`v4/customers` `.read` 스코프 + `.indexOn`. 게시 전/후 모두 안전(부분집합만).
+2. **보안 — 공급 원가 가림**: `vehicle_price` 를 영업자·손님 read 단(`list`/`get`)에서 제거. admin·provider만. ※완전격리는 `products_private` 이관 후(아래 ③).
+3. **보안 — 자가승인 차단**: 가입=항상 `pending`(`auth.ts`), `approveUser`(게이트가 읽는 **최상위** `users/{uid}/status` 에 기록 — v4 아님), `members` 승인버튼, rules `users/$uid` status `.validate`(본인은 pending만·active는 admin). ⚠️ **신규가입 전원 관리자 승인 필요**(members에서 승인).
+4. **보안 — 감사로그 위조방지**: `v4/audit_logs` `actor_uid === auth.uid`.
+5. **UI/UX 구조통일**: `FW`(두께)·`FS`(크기) 토큰 SSOT 전면 적용(공유원자 6 + 페이지 38 = 346건). 800/900 퇴출. 목록 지브라·호버/선택 색구분·안읽음🟠/진행중🔵 액센트·실차명 해석(product·계약스냅샷·삭제매물 다단 폴백, "삭제된 차량" 명시). **`scripts/check-fonts.mts` 가드 + CI로 잠금** — raw fontSize/fontWeight 재난립 차단.
+6. **정산 3자 E2E** (`scripts/sim-e2e-settlement.mts`, 15/15): 공급등록→영업 5단계 계약→정산(수수료 R1·지급 R2·순수익)→관리자 월정산(VAT).
+7. **CI** (`.github/workflows/ci.yml`): push/PR마다 typecheck·폰트가드·sim(시트병합·차량락·정산)·빌드. 시크릿 불필요.
+8. **버그**: 시트 재동기화 락 대량해제 · 로그인직후 매물 안뜸 · 약정주행 필터중복 · **계약코드 전역충돌(계약 스코핑 회귀 — 두 영업자 같은날 -01 충돌 → 접미사로 전역고유)** · vehicle-lock sim flaky(하네스 Date.now 충돌).
+9. **견적·구독 임베드**: `/welrix`·`/sonogong` (외부 Vue 앱 iframe, 공개경로).
+
+### 🔴 다음 (우선순위) — 90+ 로 가는 길
+- **① Rules 콘솔 게시 (사장님 손, 미완)** — `database.rules.json` = 최신본(계약/고객 스코프·status validate·감사). 콘솔 → RTDB → 규칙 → 전체 붙여넣기 → 게시. **게시 전엔 어댑터 스코프만 동작(RTDB 직접 우회 미차단).** 게시 후 관리자 화면 정상 확인.
+- **② 역할별 침투 테스트** — admin·provider·agentA·agentB·승인대기·비로그인으로 직접 접근해 격리 확인(게시 후).
+- **③ `products_private` 물리 분리** — `vehicle_price`·`vin`·`price.*.fee` → `v4/products_private`(관리자만). 현재 어댑터 strip은 앱만 보호(v3 원가 인라인). v3 원가 이관 필요.
+
+### v3→v4 종료(exit) 기준 — 브리지는 "이전 구조"지 최종 아님
+현재: 읽기 = v3 라이브 ∪ v4 오버레이 필드병합, 쓰기 = `v4/` 만. 장점=무중단 이전. 장기부채=병합비용·이중추적·삭제복잡·어댑터 병목. **아래 충족 시 v4 단독 전환 검토:**
+- [ ] 모든 활성 계약이 v4 스키마로 정착
+- [ ] 핵심 상품 데이터 v4 저장(카탈로그·가격·상태)
+- [ ] 회원 역할체계 v4 정착(status·role·company)
+- [ ] 과거 v3 데이터 read-only 아카이브
+- [ ] v3 신규 쓰기 완전 중단(신규는 v4 단독 생성)
+
+권장: 각 엔티티에 `source_version`·`source_id`·`overridden_fields`·`migrated_at`·`migration_status` 부착 → 이관 추적. 일정 시점 후 **신규 데이터만이라도 v4 단독** 생성으로 전환.
 
 ---
 ## 전략 (사장님 결정 2026-07-18)
