@@ -4,9 +4,13 @@
  */
 export const PUBLIC_PATH_PREFIXES = ['/q/', '/sign/'] as const;
 
+/** 로그인 없이 열리는 단일 경로(임베드 견적/구독 앱 등). 접두 프리픽스와 별도. */
+const PUBLIC_EXACT = ['/welrix', '/sonogong'] as const;
+
 export function isPublicPath(pathname: string | null | undefined): boolean {
   if (!pathname) return false;
   if (pathname === '/catalog' || pathname.startsWith('/catalog/')) return true;
+  if (PUBLIC_EXACT.some((p) => pathname === p || pathname.startsWith(p + '/'))) return true;
   return PUBLIC_PATH_PREFIXES.some((p) => pathname === p.slice(0, -1) || pathname.startsWith(p));
 }
 

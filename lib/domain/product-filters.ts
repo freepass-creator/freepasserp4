@@ -87,6 +87,20 @@ export function hasPerk(p: EntityRecord, perk: string): boolean {
 
 const polGet = (p: EntityRecord, k: string): string => String((p._policy as Record<string, unknown> | undefined)?.[k] ?? '');
 
+/** 약정주행 표기 통일 — "연간 2만Km 주행"·"연간2만km"·"20000km" 등이 한 칩으로 모이게(집계·매칭 공통).
+ *  약정 km 수를 뽑아 "연간 N만Km"로 정규화. 숫자 못 뽑으면 꼬리 '주행'·공백만 정리해 원문 보존. */
+export function normAnnualMileage(raw: unknown): string {
+  const s0 = String(raw ?? '').trim();
+  if (!s0) return '';
+  const s = s0.replace(/\s+/g, '').replace(/주행$/, ''); // 공백 제거 + 꼬리 '주행' 제거
+  if (/무제한|제한없/.test(s)) return '무제한';
+  const man = s.match(/(\d+(?:\.\d+)?)\s*만/); // "2만", "3만"
+  if (man) return `연간 ${man[1]}만Km`;
+  const num = s.replace(/[^\d]/g, ''); // "20000", "20,000km"
+  if (num && Number(num) >= 10000) return `연간 ${Number(num) / 10000}만Km`;
+  return s.replace(/km/gi, 'Km'); // 그밖엔 km 표기만 통일해 원문 유지
+}
+
 export type DynDef = { key: string; label: string; get: (p: EntityRecord) => string };
 
 /** 공급사 — 사이드바 맨 아래 Select. 칩 DYN과 분리. */
@@ -117,7 +131,7 @@ export const DYN: DynDef[] = [
   { key: 'int_color', label: '내부색상', get: (p) => colorDisplay(p.int_color, 'int') },
   { key: 'year', label: '연식', get: (p) => yearDisplay(p.year) },
   { key: 'vehicle_class', label: '차급', get: (p) => String(p.vehicle_class || '') },
-  { key: 'annual_mileage', label: '약정주행', get: (p) => polGet(p, 'annual_mileage') },
+  { key: 'annual_mileage', label: '약정주행', get: (p) => normAnnualMileage(polGet(p, 'annual_mileage')) },
 ];
 
 /** 차 관련 DYN — 사이드바에서 연료·주행 앞에 고정 배치. 나머지는 하단. */

@@ -28,9 +28,13 @@ function same(a: unknown, b: unknown): boolean {
  *  _raw_vehicle = 최초 원본 유지. _snap_history = 이어붙이기(최근 10). */
 export function softMergeProduct(existing: EntityRecord, incoming: EntityRecord): EntityRecord {
   const out: EntityRecord = { ...existing };
+  const engineLocked = !isBlank(existing.locked_by_contract); // 계약이 선점한 매물 = 락 주인 각인됨
   for (const [k, v] of Object.entries(incoming)) {
     if (PROTECTED.has(k)) continue;
     if (isBlank(v)) continue;
+    // 엔진 락(계약중·출고불가)의 상태는 settlement-engine 소관 — 시트 재동기화가 덮으면 재고가 통째로 풀린다.
+    // 락 주인이 없는 매물(공급사 수기 출고불가 등)은 그대로 시트가 갱신하도록 둔다.
+    if (k === 'vehicle_status' && engineLocked) continue;
     if (k === '_raw_vehicle') {
       if (existing._raw_vehicle && typeof existing._raw_vehicle === 'object') continue;
       out._raw_vehicle = v;

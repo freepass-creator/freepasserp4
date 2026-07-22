@@ -22,7 +22,7 @@ import { C, R, NUM, Loading, CenterNote, SearchInput, Select, FilterGroup, Filte
 import type { BadgeTone } from '@/components/ui/badges';
 import { man, kmDisplay } from '@/lib/format';
 import { downloadProductsExcel } from '@/lib/excel-export';
-import { useAuthReady } from '@/lib/auth-context';
+import { useAuthReady, useSession } from '@/lib/auth-context';
 import { firebaseReady } from '@/lib/firebase/client';
 import { toggleInSet } from '@/lib/set';
 import { toast } from '@/components/Toaster';
@@ -309,6 +309,7 @@ export default function Finder() {
   const router = useRouter();
   const mobile = useIsMobile();
   const authReady = useAuthReady();
+  const session = useSession(); // 로그인 순간 매물 재조회 트리거(uid 변화 → 아래 로드 effect 재실행)
   // 보기모드 = 새로고침해도 유지(localStorage). 서버·최초렌더는 'card' → effect에서 복원(하이드레이션 mismatch 방지).
   const setView = (v: string) => { setViewState(v); if (typeof window !== 'undefined') localStorage.setItem('fp4_finder_view', v); };
   // 엑셀보기 = 넓은 화면 전용 배열. 모바일은 미제공(뷰에서 숨김) → 같은 원자를 카드 배열로. 엑셀 '다운로드'는 유지.
@@ -396,7 +397,7 @@ export default function Finder() {
     const f = typeof window !== 'undefined' ? localStorage.getItem('fp4_finder_filter') : null;
     if (f === '0') setFilterOpenState(false);
     return () => { alive = false; };
-  }, [authReady, co]);
+  }, [authReady, co, session?.uid]);
 
   const s: FState = { q, periods, rent, dep, mile, fuel, ptype, credit, perks, promo, dyn, vehicle };
   const agg = useMemo(() => aggregateDyn(rows || []), [rows]);
