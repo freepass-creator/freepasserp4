@@ -47,14 +47,7 @@
 - Store: 공개면에서 RTDB 읽기 (`getSession || isPublicAccess`)
 - Rules: `products`/`policies`/`v4/products|policies` `.read: true`
 - 서명: `contract_sign/{token}` 공개 슬롯 읽기·제출 (`sign.ts`)
-- **배포 필요:** `firebase deploy --only database` (rules)
-  🛑 **2026-07-21 중단 — 지금 배포하면 안 된다.** 실측(REST 프로브)으로 확인:
-  `products`/`policies`/`v4/*`/`contract_sign` 전부 현재 **비공개**(401)다. 즉 `database.rules.json` 은
-  **한 번도 배포된 적이 없는 초안**이고, 라이브 규칙은 그보다 옛 버전이다.
-  이 파일을 그대로 배포하면 `.read:true` 가 된 `products`(원가 `vehicle_price`·`vin`·수수료 `price.*.fee`)와
-  `v4/$other` 만능 통로(전 계약·정산·감사로그 read/write), `contract_sign`(주민등록번호·서명이미지)이
-  **한 번에 전부 공개된다.** 규칙 재작성 후에 배포할 것.
-  ※ 부작용: 손님 공개면(`/catalog`·`/q`·`/sign`)은 배포 전까지 프로덕션에서 동작하지 않는다.
+- **규칙 = 2026-07-21 재작성 완료.** `database.rules.json` 이 최신본이다. 아래 "세션 이력" 참고.
 
 ### ⏭ Phase D — 알림 + 관리자소통
 ### ⏭ Phase E — 회원 승인·스코프
@@ -77,4 +70,57 @@
 - 홈만 하단바 없음 / 스크롤 시 자동 숨김 / 페이지마다 다른 하단 높이.
 
 ---
-갱신: Phase3·5 규격통일 + 영업자 막힘 개선(2026-07-19: session.code=user_code, RTDB rooms/messages 스코프 조회, /q?a= 매칭, 발송 링크 UX). 다음 = rules 배포 · 알림톡 Phase D · 모바일 하단탭 · Phase4 auth/store(타 레인).
+갱신: Phase3·5 규격통일 + 영업자 막힘 개선(2026-07-19: session.code=user_code, RTDB rooms/messages 스코프 조회, /q?a= 매칭, 발송 링크 UX).
+
+---
+## 🗓 세션 이력 — 2026-07-21 (Claude 레인, 다른 PC 인수인계용)
+
+> 이 세션은 3자 동시 작업이었다: **Claude(나) + Cursor + 다른 Claude**.
+> 파일 소유권 분리 = `CURSOR-TASKS.md`(Claude 소유·지시) / `CURSOR-STATUS.md`(Cursor 소유·기록).
+> 다른 PC에서 이어받을 때 **먼저 `git pull` → 이 절 → CURSOR-STATUS.md 순으로 읽을 것.**
+
+### ✅ 이번 세션에 끝낸 것 (전부 커밋·푸시됨, tsc 0)
+1. **차량 락 재설계 버그 수정** (`474d62d`) — 계약금 체크 해제 시 영구잠금·자기잠금 데드락.
+   원인 = 락에 주인이 없었음. `product.locked_by_contract` 도입, 락 쓰기를 `syncVehicleLock` 한 곳으로.
+   검증 = `scripts/sim-vehicle-lock.mts` 23/23. 삭제보호는 `blockingContractFor`(락보다 넓음)로 분리.
+2. **데이터점검 잠금 정합성** (`4778441`) — `/data-check` 에 매물상태 vs 계약 대조(읽기전용). 옛 규칙 잔재 출고불가 탐지.
+3. **TopBar 하이드레이션** (`f454b00`) — 세션을 렌더 중 읽던 것 → 마운트 후로.
+4. **진단 페이지 `/diag`** (`2cb57dc`) — RTDB 연결·권한·건수·사진해석을 화면에서 확인(콘솔 대신). 장애 시 여기부터.
+5. **홈 총계 기준 통일** (`ef52fed`) — 사이드바 "총 N대"가 rows.length(출고불가 포함) → totalVisible 로. 상단바와 일치.
+6. **역할 라벨 SSOT 통일 + settlementCalc 삭제 + 원자 사전 실측** (`ad3f328`).
+7. **폐기 ETL 골격 삭제 + CLAUDE.md 락/데이터 규격 정정** (`a723490`) — 문서가 옛 규칙이었음.
+8. **비밀번호 재설정 폼 잠김 버그** (`57e54a7`) — 성공 경로에 busy 해제 누락. v3·v4 코드 동일(기능은 있음).
+9. **메뉴 워딩 의미화 + 관리자 전 메뉴 + members 게이트** (`1a2327b`).
+   상품찾기/계약문의/계약진행 및 정산/재고관리/정책관리. 탭 축약=NAV_TAB_LABEL. 관리자는 TopBar 필터에서 규칙화(seesAll).
+10. **가입 승인 게이트** (`45de7de`) — 사업자번호 매칭=즉시 active / 미매칭=pending(승인대기 화면). `AuthProvider` 중앙 게이트.
+    `user.status` 필드 부활(is_active 와 의미 분리). 기존회원 보호 위해 `!== 'pending'` 블랙리스트.
+
+### 🔴 다음에 할 일 — 우선순위 순
+
+**① 라이브 RTDB 규칙 게시 (사장님 손 필요, 미완)**
+- `database.rules.json` = 최신 재작성본. **아직 콘솔에 게시 안 됨(마지막 pending 가드 60곳 추가분).**
+- 절차: `database.rules.json` 전체 → Firebase 콘솔 → Realtime Database → 규칙 → Ctrl+A → 붙여넣기 → 게시.
+- ⚠️ Claude 는 firebase CLI 로그인이 이 환경에서 막힘(non-interactive 거부) → **직접 배포 불가.** 붙여넣기만이 경로.
+- 게시 후: 관리자·영업자로 로그인해 매물목록·계약·정산·채팅·재고저장 정상인지 확인. 이상 시 즉시 되돌릴 것.
+- 막은 것: v4 통째 덤프·삭제, 수수료율·정산금액 조작, 감사로그 열람, contract_sign 부모 읽기(주민번호 대량유출), 승인대기자 접근.
+
+**② 계약·고객 스코프 조회 (어댑터 수정 필요)** — Phase E 후반
+- 현재 `v4/contracts`·`v4/customers` 는 로그인 사용자면 **전부 읽힘**(고객 이름·전화번호).
+- 규칙에 스코프 조건을 걸면 어댑터의 통째 `get()` 이 거부→`.catch(()=>[])`→빈 목록. 그래서 규칙만으론 못 조임.
+- 해결: `rtdb-adapter.ts` 에 `readContractsLive`(역할별 orderByChild 스코프) 추가. **선례 = `readRoomsLive`.**
+- 선착순 락은 `product.locked_by_contract` 로 이미 매물에 각인돼 있어, 계약을 못 봐도 락 판정 가능(스코프 걸어도 됨).
+
+**③ 원가 필드 분리** — 1~2h
+- `products` 의 `vehicle_price`(원가)·`vin`·`price.*.fee`(수수료)를 `v4/products_private/{코드}` 로 분리, 관리자 읽기 제한.
+
+### ⚠️ 3자 작업 주의
+- **dev 서버는 한 명만.** 같은 프로젝트에 서버 2개 띄우면 `.next` 청크 desync → 먹통. 복구 = `.next` 삭제 후 재기동.
+- **`lib/tabbar.tsx`·`components/TopBar.tsx` = 모두가 건드리는 SSOT.** 편집 전 확인.
+- Cursor T5(하드코딩 스윕)는 해제됨·미착수. 잔여 hex ~52·치수 ~29·raw 컨트롤 ~10.
+- 편집 묶음마다 `npx tsc --noEmit` 돌리고 넘어갈 것(이번 세션에 import 누락으로 먹통 2회).
+
+### 미결 판단 (사장님)
+- 죽은 원자 28개: 코드 유지·문서만 정리 완료(CLAUDE.md "준비만 된 원자"). 실사용 유도/삭제는 판단 대기.
+- 옛 규칙 `출고불가` 잔재 백필: `/data-check` 잠금정합성으로 목록만 노출. 자동복구 안 함(공급사 수기설정과 구분 불가).
+
+갱신: 2026-07-21 — rules 재작성·가입승인·메뉴워딩·락버그. 다음 = ① rules 게시(붙여넣기) → ② 계약/고객 스코프 → ③ 원가분리.
