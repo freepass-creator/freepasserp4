@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState, type MouseEvent, type ReactNode } from 'react';
 import { MoreVertical, Star, ThumbsDown, EyeOff } from 'lucide-react';
-import { C, FW, FS } from '@/components/ui';
+import { C, R, FW, FS, Btn, IconBtn } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
 import { isFav, toggleFav, removeFav, subscribeInterest } from '@/lib/product-interest';
@@ -47,22 +47,25 @@ export function ProductMoreMenu({ p }: { p: EntityRecord }) {
   const meta = { code, name: vehicleName(p), plate: String(p.car_number || '') };
 
   const item = (label: string, onClick: () => void, opts?: { danger?: boolean; icon?: ReactNode; muted?: boolean }) => (
-    <button
-      type="button"
-      className="fp-press"
+    <Btn
+      key={label}
+      full
+      variant="ghost"
       onClick={() => { onClick(); setOpen(false); }}
       style={{
-        display: 'flex', alignItems: 'center', gap: 12,
-        width: '100%', minHeight: mobile ? 48 : 40, padding: mobile ? '0 16px' : '0 14px',
+        display: 'flex', justifyContent: 'flex-start', gap: 12,
+        minHeight: mobile ? 48 : 40, height: 'auto',
+        padding: mobile ? '0 16px' : '0 14px',
         border: 'none', borderTop: `1px solid ${C.line2}`,
-        background: '#fff', cursor: 'pointer', textAlign: 'left',
+        background: C.taupeBg, boxShadow: 'none', borderRadius: 0,
+        textAlign: 'left',
         fontSize: mobile ? FS.title : FS.body, fontWeight: FW.strong,
         color: opts?.danger ? C.danger : opts?.muted ? C.mute : C.ink,
       }}
     >
       {opts?.icon}
       <span style={{ flex: 1 }}>{label}</span>
-    </button>
+    </Btn>
   );
 
   const panel = (
@@ -112,20 +115,19 @@ export function ProductMoreMenu({ p }: { p: EntityRecord }) {
           icon: <EyeOff size={18} color={C.danger} />,
         },
       )}
-      <button
-        type="button"
-        className="fp-press"
+      <Btn
+        full
+        variant="ghost"
         onClick={() => { haptic.back(); setOpen(false); }}
         style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          width: '100%', minHeight: mobile ? 48 : 40, marginTop: 6,
+          minHeight: mobile ? 48 : 40, height: 'auto', marginTop: 6,
           border: 'none', borderTop: `1px solid ${C.line}`,
-          background: C.head, cursor: 'pointer',
+          background: C.head, boxShadow: 'none', borderRadius: 0,
           fontSize: mobile ? FS.title : FS.body, fontWeight: FW.strong, color: C.mute,
         }}
       >
         취소
-      </button>
+      </Btn>
     </div>
   );
 
@@ -133,10 +135,8 @@ export function ProductMoreMenu({ p }: { p: EntityRecord }) {
   const hit = mobile ? 40 : 32;
   return (
     <>
-      <button
-        type="button"
-        className="fp-press"
-        aria-label="더보기"
+      <IconBtn
+        title="더보기"
         onClick={openMenu}
         onPointerDown={(e) => e.stopPropagation()}
         style={{
@@ -145,14 +145,13 @@ export function ProductMoreMenu({ p }: { p: EntityRecord }) {
           top: '50%',
           transform: 'translateY(-50%)',
           zIndex: 2,
-          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          width: hit, height: hit, margin: 0, padding: 0,
-          border: 'none', background: 'none', color: C.mute, cursor: 'pointer',
+          width: hit, height: hit,
+          border: 'none', background: 'none', color: C.mute,
           WebkitTapHighlightColor: 'transparent',
         }}
       >
         <MoreVertical size={mobile ? 18 : 16} strokeWidth={2.2} />
-      </button>
+      </IconBtn>
       {mobile ? (
         <BottomSheet open={open} onClose={() => setOpen(false)} maxHeight="auto" title="상품">
           {panel}
@@ -169,7 +168,7 @@ export function ProductMoreMenu({ p }: { p: EntityRecord }) {
             style={{
               position: 'fixed', left: '50%', top: '50%', transform: 'translate(-50%, -50%)',
               width: 'min(360px, calc(100vw - 32px))',
-              background: '#fff', borderRadius: 8, border: `1px solid ${C.line}`,
+              background: C.taupeBg, borderRadius: R, border: `1px solid ${C.line}`,
               boxShadow: '0 16px 40px rgba(15,23,42,0.2)', overflow: 'hidden',
             }}
           >

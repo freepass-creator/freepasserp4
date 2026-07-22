@@ -10,7 +10,7 @@ import { getRole, actor, ROLE_LABEL, type Role } from '@/lib/domain/deal';
 import { useSession } from '@/lib/auth-context';
 import { isGuest } from '@/lib/auth-session';
 import { loadMenuBadges, menuItemBadge, type MenuBadgeMap } from '@/lib/domain/menu-badges';
-import { C, R, CountPill, NUM, ctrlH, ctrlFs, FW, FS } from '@/components/ui';
+import { C, R, CountPill, NUM, ctrlH, ctrlFs, FW, FS, Btn, IconBtn } from '@/components/ui';
 import { NAV_ICON, NAV_LABEL } from '@/lib/tabbar';
 import { refreshCurrentPage } from '@/lib/page-refresh';
 import { PageStatus, statusIconFor } from '@/components/PageStatus';
@@ -203,27 +203,27 @@ function NavMenu({ mobile }: { mobile: boolean }) {
   // 웹=좌측 드롭다운 · 모바일=풀스크린
   const panel: CSSProperties = mobile
     ? { position: 'fixed', left: 0, right: 0, top: 'var(--topbar-h)', bottom: 0, background: C.taupeBg, zIndex: 80, overflowY: 'auto', overscrollBehavior: 'contain', animation: 'menuDrop .18s ease', paddingBottom: 'calc(24px + env(safe-area-inset-bottom))' }
-    : { position: 'absolute', left: 0, top: 'calc(100% + 6px)', width: 250, background: C.taupeBg, border: `1px solid ${line}`, borderRadius: 4, boxShadow: '0 12px 34px rgba(15,23,42,0.18)', zIndex: 85, overflow: 'hidden' };
+    : { position: 'absolute', left: 0, top: 'calc(100% + 6px)', width: 250, background: C.taupeBg, border: `1px solid ${line}`, borderRadius: R, boxShadow: '0 12px 34px rgba(15,23,42,0.18)', zIndex: 85, overflow: 'hidden' };
   const iPad = mobile ? '15px 20px' : '9px 14px';
   const iFont = mobile ? 16 : FS.body;
   const iSize = mobile ? 20 : 15;
   return (
     <div style={{ position: 'relative', flex: '0 0 auto' }}>
-      <button onClick={() => { haptic.tap(); setOpen((o) => !o); }} aria-label={open ? '메뉴 닫기' : '메뉴'}
-        style={{
-          ...(mobile
-            ? { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: ctrlH(true), height: ctrlH(true), marginRight: -6, border: 'none', background: 'none', color: ink, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' } as CSSProperties
-            : { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: ctrlH(false), height: ctrlH(false), boxSizing: 'border-box', border: `1px solid ${line}`, borderRadius: 4, background: open ? C.hover : C.taupeBg, color: ink, cursor: 'pointer' } as CSSProperties),
-        }}>
-        {/* 햄버거 아이콘엔 숫자 뱃지 없음 — 탭·메뉴행만. (숫자 중첩·99 폭주 방지) */}
+      <IconBtn
+        title={open ? '메뉴 닫기' : '메뉴'}
+        onClick={() => { haptic.tap(); setOpen((o) => !o); }}
+        style={mobile
+          ? { marginRight: -6, border: 'none', background: 'none', color: ink, width: ctrlH(true), height: ctrlH(true) }
+          : { background: open ? C.hover : C.taupeBg, color: ink, border: `1px solid ${line}` }}
+      >
         {mobile && open ? <X size={24} /> : <Menu size={mobile ? 23 : 17} />}
-      </button>
+      </IconBtn>
       {open && (<>
         {!mobile && <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 74 }} />}
         <div style={panel}>
           {groups.map((g, gi) => (
             <div key={gi} style={{ borderTop: gi ? `1px solid ${line}` : 'none', padding: '5px 0' }}>
-              {g.title && <div style={{ fontSize: mobile ? 11.5 : FS.micro, color: weak, fontWeight: FW.title, padding: mobile ? '7px 20px 4px' : '4px 14px', letterSpacing: '0.02em' }}>{g.title}</div>}
+              {g.title && <div style={{ fontSize: mobile ? FS.cap : FS.micro, color: weak, fontWeight: FW.title, padding: mobile ? '7px 20px 4px' : '4px 14px', letterSpacing: '0.02em' }}>{g.title}</div>}
               {g.items.map((it) => {
                 if (it.soon) {
                   return (
@@ -283,7 +283,15 @@ export default function TopBar() {
     ? <List size={mobile ? 18 : 16} strokeWidth={2.25} />
     : <ChevronLeft size={mobile ? 18 : 16} strokeWidth={2.25} />;
   const backBtn = back ? (
-    <button onClick={() => { haptic.back(); back(); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, height: ctrlH(mobile), boxSizing: 'border-box', padding: mobile ? '0 14px 0 10px' : '0 12px 0 8px', border: `1px solid ${line}`, borderRadius: R, background: '#fff', color: ink, fontSize: ctrlFs(mobile), cursor: 'pointer' }}>{backIcon} {backLabel}</button>
+    <Btn
+      variant="ghost"
+      onClick={() => { haptic.back(); back(); }}
+      style={{
+        gap: 3, padding: mobile ? '0 14px 0 10px' : '0 12px 0 8px',
+        background: C.taupeBg, color: ink, fontSize: ctrlFs(mobile),
+        boxShadow: 'none',
+      }}
+    >{backIcon} {backLabel}</Btn>
   ) : null;
 
   // 상태창 = 앱바 title 우선(페이지가 타이포·아이콘 책임), 없으면 라우트 라벨
@@ -295,7 +303,7 @@ export default function TopBar() {
 
   return (
     <>
-      <header style={{ position: 'sticky', top: 0, zIndex: 70, height: 'var(--topbar-h)', display: 'flex', alignItems: 'center', gap: 8, padding: '0 10px 0 14px', background: '#fff', borderBottom: `1px solid ${line}`, boxSizing: 'border-box' }}>
+      <header style={{ position: 'sticky', top: 0, zIndex: 70, height: 'var(--topbar-h)', display: 'flex', alignItems: 'center', gap: 8, padding: '0 10px 0 14px', background: C.taupeBg, borderBottom: `1px solid ${line}`, boxSizing: 'border-box' }}>
         {/* 웹=메뉴 좌측 · 모바일=우측 */}
         {!mobile && <NavMenu mobile={false} />}
         {/* 좌·중앙 = 상태 — 탭하면 이 페이지 새로 온 느낌(스크롤↑·목록·시트닫기) */}
@@ -316,7 +324,7 @@ export default function TopBar() {
               cursor: 'pointer',
               WebkitTapHighlightColor: 'transparent',
               ...(typeof status === 'string' ? {
-                fontSize: mobile ? 15 : FS.title, fontWeight: FW.title, color: ink,
+                fontSize: FS.title, fontWeight: FW.title, color: ink,
                 whiteSpace: 'nowrap' as const, overflow: 'hidden', textOverflow: 'ellipsis',
                 letterSpacing: '-0.01em',
               } : {}),
@@ -331,7 +339,7 @@ export default function TopBar() {
         <div style={{
           position: 'fixed', left: 0, right: 0,
           bottom: 'var(--fp-tabbar-h, 0px)',
-          zIndex: 55, background: '#fff',
+          zIndex: 55, background: C.taupeBg,
           borderTop: `1px solid ${line}`,
           boxShadow: '0 -2px 12px rgba(15,23,42,0.06)',
           paddingBottom: 'var(--fp-dock-safe, env(safe-area-inset-bottom))',

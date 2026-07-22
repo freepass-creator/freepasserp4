@@ -1,6 +1,6 @@
 'use client';
 import type { LucideIcon } from 'lucide-react';
-import { CountPill, C } from '@/components/ui';
+import { CountPill, C, Btn, FS, FW } from '@/components/ui';
 import { haptic } from '@/lib/haptics';
 
 /**
@@ -40,21 +40,31 @@ export function PageToolBar({
           const on = !!(t.active || t.pressed);
           const badge = t.badge != null && t.badge > 0 ? t.badge : undefined;
           return (
-            <button
+            <Btn
               key={t.key}
-              type="button"
-              className="fp-press fp-page-tool"
+              variant="ghost"
+              className="fp-page-tool"
               aria-label={badge != null ? `${t.label} ${badge}` : t.label}
               aria-pressed={!!t.pressed}
               data-active={on ? '1' : undefined}
               onClick={() => { haptic.tap(); t.onClick(); }}
+              style={{
+                // .fp-page-tool 레이아웃과 맞춤(인라인이 클래스보다 우선)
+                position: 'relative', flex: '1 1 0', minWidth: 0,
+                height: 'auto', width: 'auto', padding: 0, gap: 2,
+                display: 'flex', flexDirection: 'column',
+                border: 'none', background: 'none', boxShadow: 'none', borderRadius: 0,
+                color: on ? C.brand : C.mute,
+                fontWeight: on ? FW.head : FW.strong,
+                fontSize: FS.cap, lineHeight: 1.1, whiteSpace: 'normal',
+              }}
             >
               <Icon size={18} strokeWidth={on ? 2.4 : 2} />
               <span>{t.label}</span>
               {badge != null ? (
                 <span className="fp-page-tool-badge"><CountPill n={badge} /></span>
               ) : null}
-            </button>
+            </Btn>
           );
         })}
       </div>
@@ -63,18 +73,18 @@ export function PageToolBar({
           <span className="fp-page-tool-hints-label">적용</span>
           <span className="fp-page-tool-hints-text">{hints.join(' · ')}</span>
           {onClearHints ? (
-            <button
-              type="button"
-              className="fp-press"
+            <Btn
+              size="sm"
+              variant="ghost"
               onClick={() => { haptic.select(); onClearHints(); }}
               style={{
                 flex: '0 0 auto', border: 'none', background: 'none',
-                color: C.brand, fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                padding: '0 2px',
+                color: C.brand, fontSize: FS.sub, fontWeight: FW.head,
+                padding: '0 2px', height: 'auto', boxShadow: 'none',
               }}
             >
               {clearLabel}
-            </button>
+            </Btn>
           ) : null}
         </div>
       ) : null}

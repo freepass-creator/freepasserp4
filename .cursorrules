@@ -15,13 +15,14 @@
 
 ## 절대 금지
 1. `<input>` `<textarea>` `<select>` `<button>`을 직접 쓰지 않는다 → 공용 원자 사용
-   (`Input` `Textarea` `SearchInput` `Btn` `IconBtn` `Select` `Badge` `ListRow` `PaneHead` `PaneBody`).
+   (`Input` `Textarea` `SearchInput` `Btn` `IconBtn` `Select` `Badge` `ListRow` `FeedListRow` `PaneHead` `PaneBody`).
    숨김 파일선택(`type="file"` + `display:none`)만 예외. **필요한 원자가 없으면 만들지 말고 보고.**
 2. 여러 화면이 쓰는 **공용 원자를 자체 컴포넌트로 교체 금지.** 개선 필요해 보여도 보고만 한다.
-   (사고 사례: 공용 `ListRow` → 자체 `FeedListRow` 교체로 4개 업무화면 톤이 갈라지고 스캔성 저하)
+   업무 목록행 SSOT = `FeedListRow` + `list-rows`(문의·계약·재고·정책). 단순 행만 `ListRow`.
 3. 업무 페이지 레이아웃을 손으로 짜지 않는다 → 반드시 `WorkPage` + `panes` **4패널**
    (계약문의: 목록·채팅·상세(→첨부)·진행 / 계약정산: 목록·진행·첨부·정산상태 /
     재고관리: 목록·기본정보·운영정보·업로드 / 정책관리: 목록·기본심사·계약조건·보험)
+   예외: 회원관리 = WorkPage 1패널 + `ListRow`.
 4. **v3(운영 중) 노드에 write 금지.** 쓰기는 `v4/` 오버레이로만. `database.rules.json` 수정·배포 금지.
 5. **엔진 우회 금지.** 계약 단계·취소는 `applyStepCheck`/`cancelContract`, 저장·삭제는 `getStore()`.
    차량 상태는 엔진이 단일 writer — 페이지에서 직접 바꾸지 않는다.
@@ -30,7 +31,8 @@
 ## 반드시
 - 모바일 입력 **16px**(미만이면 iOS 확대 = 버그), 터치 타깃 **40px**. 크기 하드코딩 말고 `ctrlH()`/`ctrlInputFs()`/`useIsMobile()`.
 - ERP 톤: **고밀도·스캔성 우선**, 목록이 본체. 큰 카드·큰 아이콘·여백 과다·**B2C 피드 패턴 금지**.
-- 계약·방·정산 신규 기록 시 당사자 3필드 항상 기록: `agent_uid` · `agent_channel_code` · `provider_company_code` (빈 문자열 금지 — 전환 후 접근 불가해짐).
+- 계약·방 신규 기록 시 당사자 3필드 항상 기록: `agent_uid` · `agent_channel_code` · `provider_company_code` (빈 문자열 금지).
+  정산은 `agent_uid` 없음 — `agent_channel_code` · `provider_company_code`만(비우지 말 것).
 - 다른 작업자(Claude)가 방금 수정했을 수 있으니 **편집 전 파일을 다시 읽는다.**
 
 ## 작업 후

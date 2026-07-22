@@ -507,7 +507,7 @@ export function FilterChips<T extends string>({ value, onChange, options }: { va
   );
 }
 
-export function Btn({ children, onClick, variant = 'solid', size = 'md', disabled, href, style, full, type = 'button' }: { children: React.ReactNode; onClick?: () => void; variant?: 'solid' | 'ghost' | 'danger'; size?: 'sm' | 'md'; disabled?: boolean; href?: string; style?: React.CSSProperties; full?: boolean; type?: 'button' | 'submit' }) {
+export function Btn({ children, onClick, variant = 'solid', size = 'md', disabled, href, style, full, type = 'button', className, title, 'aria-label': ariaLabel, 'aria-pressed': ariaPressed, 'data-active': dataActive }: { children: React.ReactNode; onClick?: () => void; variant?: 'solid' | 'ghost' | 'danger'; size?: 'sm' | 'md'; disabled?: boolean; href?: string; style?: React.CSSProperties; full?: boolean; type?: 'button' | 'submit'; className?: string; title?: string; 'aria-label'?: string; 'aria-pressed'?: boolean; 'data-active'?: string }) {
   const mobile = useIsMobile();
   const h = ctrlH(mobile, size);
   const fs = ctrlFs(mobile, size);
@@ -527,23 +527,31 @@ export function Btn({ children, onClick, variant = 'solid', size = 'md', disable
     ...(full ? { width: '100%' } : null),
     ...style,
   };
+  const cls = className ? `fp-press ${className}` : 'fp-press';
+  const a11y = {
+    ...(title ? { title } : null),
+    ...(ariaLabel ? { 'aria-label': ariaLabel } : null),
+    ...(ariaPressed != null ? { 'aria-pressed': ariaPressed } : null),
+    ...(dataActive != null ? { 'data-active': dataActive } : null),
+  };
   return href
-    ? <a href={href} data-clickable="" onClick={onClick} style={s}>{children}</a>
-    : <button type={type} onClick={onClick} disabled={disabled} className="fp-press" style={s}>{children}</button>;
+    ? <a href={href} data-clickable="" onClick={onClick} className={cls} style={s} {...a11y}>{children}</a>
+    : <button type={type} onClick={onClick} disabled={disabled} className={cls} style={s} {...a11y}>{children}</button>;
 }
 
-/** 정사각 아이콘 버튼 — CTRL.md. */
-export function IconBtn({ children, onClick, title, active, disabled }: { children: React.ReactNode; onClick?: () => void; title?: string; active?: boolean; disabled?: boolean }) {
+/** 정사각 아이콘 버튼 — CTRL.md. style로 셸·특수 배치 1:1 오버라이드 가능. */
+export function IconBtn({ children, onClick, onPointerDown, title, active, disabled, style, className }: { children: React.ReactNode; onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void; onPointerDown?: (e: React.PointerEvent<HTMLButtonElement>) => void; title?: string; active?: boolean; disabled?: boolean; style?: React.CSSProperties; className?: string }) {
   const mobile = useIsMobile();
   const h = ctrlH(mobile);
   return (
-    <button type="button" className="fp-press" onClick={onClick} disabled={disabled} title={title} aria-label={title} aria-pressed={active || undefined}
+    <button type="button" className={className ? `fp-press ${className}` : 'fp-press'} onClick={onClick} onPointerDown={onPointerDown} disabled={disabled} title={title} aria-label={title} aria-pressed={active || undefined}
       style={{
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
         height: h, width: h, boxSizing: 'border-box', padding: 0, borderRadius: R,
         border: `1px solid ${active ? C.brand : C.line}`,
         background: active ? C.brand : C.taupeBg, color: active ? '#fff' : C.mute,
         cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1,
+        ...style,
       }}>
       {children}
     </button>

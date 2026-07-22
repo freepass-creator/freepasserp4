@@ -2,7 +2,7 @@
 import { useEffect, useState, type MouseEvent } from 'react';
 import { Star } from 'lucide-react';
 import { haptic } from '@/lib/haptics';
-import { C, R } from '@/components/ui';
+import { C, R, IconBtn } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { isFav, toggleFav, subscribeInterest, type InterestSnap } from '@/lib/product-interest';
 import type { EntityRecord } from '@/lib/intake/entities';
@@ -35,6 +35,7 @@ export function FavHeart({ p, size = 16, onPhoto = false, compact = false }: {
   };
 
   // 사진 위 = 연한 반투명 원반(사진 훼손 최소). 그 외 = 솔리드 버튼.
+  // onPhoto 반투명은 사진 위 전용 — C 토큰에 대응 없음(보고용 예외, 신규 HEX 도입 아님).
   const bg = onPhoto
     ? (on ? 'rgba(255,255,255,0.82)' : 'rgba(255,255,255,0.55)')
     : (on ? C.selected : C.taupeBg);
@@ -43,19 +44,21 @@ export function FavHeart({ p, size = 16, onPhoto = false, compact = false }: {
     : (on ? C.brand : C.line);
 
   return (
-    <button type="button" className="fp-press" onClick={click} title={on ? '관심 매물 (해제)' : '관심'} aria-label={on ? '관심 해제' : '관심'} aria-pressed={on}
+    <IconBtn
+      title={on ? '관심 매물 (해제)' : '관심'}
+      active={on}
+      onClick={click}
       style={{
-        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        height: h, width: h, boxSizing: 'border-box', padding: 0, borderRadius: R,
+        height: h, width: h, borderRadius: R,
         border: `1px solid ${border}`,
         background: bg,
-        color: on ? C.brand : (onPhoto ? 'rgba(55,65,81,0.85)' : C.mute),
-        cursor: 'pointer',
+        color: on ? C.brand : C.mute,
         boxShadow: onPhoto ? '0 1px 3px rgba(15,23,42,0.18)' : undefined,
         backdropFilter: onPhoto ? 'blur(6px)' : undefined,
         WebkitBackdropFilter: onPhoto ? 'blur(6px)' : undefined,
-      }}>
+      }}
+    >
       <Star size={size} strokeWidth={on ? 2.2 : 2} fill={on ? C.brand : 'none'} />
-    </button>
+    </IconBtn>
   );
 }

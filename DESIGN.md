@@ -75,7 +75,7 @@ ctrlChipH(mobile)         // 필터칩 높이
 | 버튼 / 아이콘버튼 | `Btn` / `IconBtn` |
 | 선택 | `Select` |
 | 상태 뱃지 / 카운트 | `Badge` / `CountPill` |
-| 목록 행 | `ListRow` · `FeedListRow`(문의·계약·재고) |
+| 목록 행 | `ListRow` · `FeedListRow`(문의·계약·재고·정책) |
 | 패널 | `PaneHead` / `PaneBody` / `Panel` |
 | 업무 페이지 골격 | `WorkPage` + `panes`(4패널) |
 | 빈 화면 | `CenterNote` |

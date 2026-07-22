@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { useEffect, useState, type MouseEvent } from 'react';
 import { Star, History, X } from 'lucide-react';
-import { C, R, Btn, NUM, ctrlH, ctrlFs, FW, FS } from '@/components/ui';
+import { C, R, Btn, IconBtn, NUM, ctrlH, ctrlFs, FW, FS } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { vehicleName, cheapest } from '@/lib/domain/product';
 import {
@@ -77,27 +77,25 @@ export function InterestTriggers({
     const accent = C.brand;
     const accentBg = C.selected;
     return (
-      <button
-        type="button"
-        className="fp-press"
+      <Btn
+        key={k}
+        variant="ghost"
         title={label}
         aria-label={`${label} ${n}`}
         aria-pressed={on}
         onClick={() => { haptic.select(); onTab(on ? null : k); }}
         style={{
-          flex: '0 0 auto', height: h, minWidth: h,
-          boxSizing: 'border-box', padding: mobile ? '0 10px' : '0 8px',
-          display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 4,
-          borderRadius: R, cursor: 'pointer',
+          flex: '0 0 auto', minWidth: h,
+          padding: mobile ? '0 10px' : '0 8px',
           border: `1px solid ${on ? accent : C.line}`,
           background: on ? accentBg : C.taupeBg,
           color: on ? accent : C.mute, fontWeight: FW.label, fontSize: ctrlFs(mobile),
-          fontFamily: NUM,
+          fontFamily: NUM, boxShadow: 'none', gap: 4,
         }}
       >
         <Icon size={14} strokeWidth={on ? 2.4 : 2} />
         {n}
-      </button>
+      </Btn>
     );
   };
 
@@ -151,7 +149,7 @@ export function InterestSummaryCard({ live, snap, tab }: {
     >
       <div style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
         <div style={{
-          fontSize: mobile ? 13 : FS.sub, lineHeight: 1.25, color: C.ink,
+          fontSize: mobile ? FS.body : FS.sub, lineHeight: 1.25, color: C.ink,
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>
           {plate ? <span style={{ fontFamily: NUM, fontWeight: FW.head }}>{plate}</span> : null}
@@ -159,7 +157,7 @@ export function InterestSummaryCard({ live, snap, tab }: {
           <span style={{ fontWeight: FW.strong }}>{name}</span>
         </div>
         <div style={{
-          fontSize: mobile ? 12 : FS.cap, lineHeight: 1.25,
+          fontSize: mobile ? FS.sub : FS.cap, lineHeight: 1.25,
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>
           {focus && focus.rent > 0 ? (
@@ -186,20 +184,16 @@ export function InterestSummaryCard({ live, snap, tab }: {
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
         gap: 2, flex: '0 0 auto',
       }}>
-        <button
-          type="button"
-          className="fp-press"
-          aria-label={removeLabel}
+        <IconBtn
           title={removeLabel}
           onClick={onRemove}
           style={{
-            border: 'none', background: C.head, color: C.mute, cursor: 'pointer',
-            width: mobile ? 28 : 24, height: mobile ? 28 : 24, padding: 0, borderRadius: R,
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            border: 'none', background: C.head, color: C.mute,
+            width: mobile ? 28 : 24, height: mobile ? 28 : 24,
           }}
         >
           <X size={13} />
-        </button>
+        </IconBtn>
       </div>
     </Link>
   );
@@ -225,7 +219,7 @@ export function InterestPanel({
   return (
     <div className="fp-finder-interest" style={{ width: '100%', marginBottom: mobile ? 10 : 8 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-        <span style={{ fontSize: 12, fontWeight: FW.title, color: C.brand }}>
+        <span style={{ fontSize: FS.sub, fontWeight: FW.title, color: C.brand }}>
           {tab === 'recent' ? `최근 ${recent.length}` : `관심 ${favs.length}`}
         </span>
         <span style={{ flex: 1 }} />
@@ -238,7 +232,7 @@ export function InterestPanel({
         <Btn size="sm" variant="ghost" onClick={onClose}>닫기</Btn>
       </div>
       {items.length === 0 ? (
-        <div style={{ fontSize: 12, color: C.faint, padding: '4px 0' }}>
+        <div style={{ fontSize: FS.sub, color: C.faint, padding: '4px 0' }}>
           {tab === 'recent' ? '아직 본 상품이 없습니다' : '관심 상품이 없습니다'}
         </div>
       ) : (
