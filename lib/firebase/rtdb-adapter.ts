@@ -210,9 +210,49 @@ export class RtdbAdapter implements StoreAdapter {
     return [...map.values()];
   }
 
+  /**
+   * 계약 스코프 조회 — 고객 PII(이름·전화)를 담아 역할별 격리 필수(readRoomsLive 선례).
+   * v3 `contracts` · v4 `v4/contracts` 양쪽에 적용. admin=전량 · provider=자기 회사 · agent=본인 uid+채널.
+   * rules가 스코프 쿼리를 요구해도(게시 후) 통과, 열린 규칙(게시 전)에서도 부분집합만 → 게시 전/후 모두 안전.
+   */
+  private async readContractsScoped(co: string, overlay: boolean): Promise<EntityRecord[]> {
+    const node = overlay ? `${OVERLAY}/contracts` : 'contracts';
+    const auth = getAuthClient()?.currentUser;
+    const sess = getSession();
+    const role = sess?.role || 'agent';
+    const db = this.db();
+    const out: EntityRecord[] = [];
+    const take = (snap: DataSnapshot | null) => {
+      const val = snap?.val() as Rec | null; if (!val) return;
+      for (const [k, rec] of Object.entries<any>(val)) if (rec && typeof rec === 'object') out.push(toV4('contract', k, rec, co));
+    };
+    try {
+      if (role === 'admin') { take(await get(ref(db, node))); }
+      else if (auth) {
+        if (role === 'provider') {
+          const company = sess?.company_code || sess?.code || '';
+          if (company) take(await get(query(ref(db, node), orderByChild('provider_company_code'), equalTo(company))));
+        } else {
+          const snaps = await Promise.allSettled([
+            get(query(ref(db, node), orderByChild('agent_uid'), equalTo(auth.uid))),
+            sess?.agent_channel_code
+              ? get(query(ref(db, node), orderByChild('agent_channel_code'), equalTo(sess.agent_channel_code)))
+              : Promise.resolve(null as DataSnapshot | null),
+          ]);
+          for (const s of snaps) if (s.status === 'fulfilled') take(s.value);
+        }
+      }
+    } catch (e) {
+      console.warn(`RTDB contracts(${node}) 스코프 조회 실패:`, (e as Error).message);
+    }
+    const map = new Map(out.map((r) => [String(r._key), r]));
+    return [...map.values()];
+  }
+
   private async readNode(entity: string, co: string, overlay: boolean, joinMap?: Rec, roomIds?: string[]): Promise<EntityRecord[]> {
     if (entity === 'message') return this.readMessages(co, overlay, roomIds || []);
     if (entity === 'room' && !overlay) return this.readRoomsLive(co);
+    if (entity === 'contract') return this.readContractsScoped(co, overlay);
     const node = NODE[entity] || entity;
     const val: Rec = (await get(ref(this.db(), overlay ? `${OVERLAY}/${node}` : node))).val() || {};
     const out: EntityRecord[] = [];

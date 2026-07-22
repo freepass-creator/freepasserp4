@@ -295,12 +295,14 @@
         }
       },
       "contracts": {
-        ".read": "(auth != null) && root.child('users').child(auth.uid).child('status').val() !== 'pending'",
-        ".write": "(auth != null && auth.token.firebase.sign_in_provider !== 'anonymous') && root.child('users').child(auth.uid).child('status').val() !== 'pending'"
+        ".read": "(auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || (query.orderByChild === 'agent_uid' && query.equalTo === auth.uid) || (query.orderByChild === 'provider_company_code' && query.equalTo === root.child('users').child(auth.uid).child('company_code').val()) || (query.orderByChild === 'agent_channel_code' && (query.equalTo === root.child('users').child(auth.uid).child('agent_channel_code').val() || query.equalTo === root.child('users').child(auth.uid).child('company_code').val())))) && root.child('users').child(auth.uid).child('status').val() !== 'pending'",
+        ".write": "(auth != null && auth.token.firebase.sign_in_provider !== 'anonymous') && root.child('users').child(auth.uid).child('status').val() !== 'pending'",
+        ".indexOn": ["agent_uid", "provider_company_code", "agent_channel_code", "contract_status", "created_at"]
       },
       "customers": {
-        ".read": "(auth != null) && root.child('users').child(auth.uid).child('status').val() !== 'pending'",
-        ".write": "(auth != null && auth.token.firebase.sign_in_provider !== 'anonymous') && root.child('users').child(auth.uid).child('status').val() !== 'pending'"
+        ".read": "(auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || (query.orderByChild === 'created_by' && query.equalTo === auth.uid))) && root.child('users').child(auth.uid).child('status').val() !== 'pending'",
+        ".write": "(auth != null && auth.token.firebase.sign_in_provider !== 'anonymous') && root.child('users').child(auth.uid).child('status').val() !== 'pending'",
+        ".indexOn": ["created_by", "phone", "name"]
       },
       "rooms": {
         ".read": "(auth != null) && root.child('users').child(auth.uid).child('status').val() !== 'pending'",
