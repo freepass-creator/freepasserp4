@@ -106,8 +106,11 @@ export async function createContractRequest(product: EntityRecord, opt: { period
   const d = new Date();
   const p2 = (n: number) => String(n).padStart(2, '0');
   const yymmdd = `${String(d.getFullYear()).slice(2)}${p2(d.getMonth() + 1)}${p2(d.getDate())}`;
+  // NN 은 표시용 순번. 계약 read가 역할 스코프(영업자=본인 것만)라 NN 이 전역 고유가 아니다
+  //  → 두 영업자가 같은 날 각자 첫 계약이면 둘 다 -01 이 되어 키 충돌·덮어쓰기. 전역 고유는 뒤 짧은 토큰으로 보장.
   const todays = (await store.list('contract', co)).filter((c) => String(c.contract_code || '').startsWith(`TMP-${yymmdd}`)).length;
-  const code = `TMP-${yymmdd}-${p2(todays + 1)}`;
+  const uniq = Math.random().toString(36).slice(2, 6);
+  const code = `TMP-${yymmdd}-${p2(todays + 1)}-${uniq}`;
   const channel = ag.channel || getSession()?.agent_channel_code || '';
   await store.save('contract', co, [{
     contract_code: code, contract_status: '계약요청', contract_date: `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`,

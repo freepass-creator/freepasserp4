@@ -40,6 +40,7 @@ const vehStatus = async (code: string) => String((await store.get('product', co,
 const owner = async (code: string) => String((await store.get('product', co, code))?.locked_by_contract || '');
 const ct = async (code: string) => (await store.get('contract', co, code)) as EntityRecord;
 
+let _fxSeq = 0; // 계약코드 전역 고유 카운터(하네스)
 /** 매물 1대 + 계약 n건 생성. */
 async function fixture(n: number, productStatus = '출고가능') {
   const pc = newId('product');
@@ -50,7 +51,7 @@ async function fixture(n: number, productStatus = '출고가능') {
   } as EntityRecord]);
   const codes: string[] = [];
   for (let i = 0; i < n; i++) {
-    const cc = `TMP-SIM-${Date.now().toString(36)}-${i}`;
+    const cc = `TMP-SIM-${_fxSeq++}`; // 전역 단조 카운터 — Date.now() 밀리초 충돌 제거(결정적)
     await store.save('contract', co, [{
       contract_code: cc, product_code: pc, contract_status: '계약요청',
       agent_code: `agent${i}`, provider_company_code: 'sup_jeil',
