@@ -213,7 +213,7 @@ export function Kpi({ label, value, tone = 'ink', href }: { label: string; value
   const color = tone === 'danger' ? C.danger : tone === 'ok' ? C.ok : tone === 'warn' ? C.warn : C.ink;
   const inner = (
     <div style={{ border: `1px solid ${C.line}`, borderRadius: R, padding: '9px 14px', minWidth: 128, background: C.taupeBg }}>
-      <div style={{ fontSize: 11.5, color: C.mute, fontWeight: FW.strong }}>{label}</div>
+      <div style={{ fontSize: FS.cap, color: C.mute, fontWeight: FW.strong }}>{label}</div>
       <div style={{ fontSize: 19, fontWeight: FW.head, marginTop: 2, color, fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{value}</div>
     </div>
   );
@@ -232,8 +232,8 @@ export function StatBar({ items }: { items: { label: string; value: React.ReactN
         const color = it.tone === 'danger' ? C.danger : it.tone === 'ok' ? C.ok : it.tone === 'warn' ? C.warn : C.ink;
         return (
           <div key={i} style={{ padding: '7px 15px', borderLeft: i ? `1px solid ${C.line2}` : 'none', minWidth: 96 }}>
-            <div style={{ fontSize: 10.5, color: C.mute, fontWeight: FW.strong }}>{it.label}</div>
-            <div style={{ fontSize: 15.5, fontWeight: FW.head, marginTop: 1, color, fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{it.value}</div>
+            <div style={{ fontSize: FS.micro, color: C.mute, fontWeight: FW.strong }}>{it.label}</div>
+            <div style={{ fontSize: FS.title, fontWeight: FW.head, marginTop: 1, color, fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{it.value}</div>
           </div>
         );
       })}
@@ -257,7 +257,7 @@ export function Stepper({ steps }: { steps: Step[] }) {
               {s.state === 'done' ? '✓' : i + 1}
             </div>
             <div style={{ marginTop: 6, fontSize: FS.sub, fontWeight: s.state === 'current' ? FW.title : FW.strong, color: s.state === 'todo' ? C.faint : C.ink, whiteSpace: 'nowrap' }}>{s.label}</div>
-            <div style={{ fontSize: 10.5, color: C.faint, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', minHeight: 13 }}>{s.date || ''}</div>
+            <div style={{ fontSize: FS.micro, color: C.faint, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', minHeight: 13 }}>{s.date || ''}</div>
             {s.note && <div style={{ fontSize: FS.micro, color: C.warn, fontWeight: FW.label }}>{s.note}</div>}
           </div>
           {i < steps.length - 1 && <div style={{ flex: 1, minWidth: 24, height: 2, marginTop: 10, background: steps[i + 1].state === 'todo' ? C.line2 : C.ok, borderRadius: 2 }} />}
@@ -597,7 +597,7 @@ export function FormGrid({ fields, form, onChange, cols = 2, disabled }: { field
         const isPhone = /phone|연락처|전화/.test(f.key);
         const span = f.type === 'chips' ? { gridColumn: '1 / -1' as const } : undefined;
         return (
-          <label key={f.key} style={{ fontSize: 11.5, color: C.mute, ...span }}>
+          <label key={f.key} style={{ fontSize: FS.cap, color: C.mute, ...span }}>
             {f.label}{f.required && <span style={{ color: C.danger }}> *</span>}{f.manual && !disabled && <span style={{ color: '#9a3412' }}> ·직접</span>}
             {f.max ? <span style={{ color: C.faint }}> ·최대 {f.max}</span> : null}
             {f.type === 'select' ? (
@@ -662,7 +662,7 @@ export function ListRow({ badge, badgeTone = 'gray', main, sub, right, href, onC
       {badge != null && <Badge tone={badgeTone}>{badge}</Badge>}
       <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
         <div style={{ fontSize: FS.body, fontWeight: FW.title, color: C.ink, minWidth: 0, overflow: 'hidden' }}>{main}</div>
-        {sub != null && <div style={{ fontSize: 11.5, color: C.mute, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sub}</div>}
+        {sub != null && <div style={{ fontSize: FS.cap, color: C.mute, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sub}</div>}
       </div>
       {right}
     </div>
