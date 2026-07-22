@@ -399,9 +399,10 @@ export class RtdbAdapter implements StoreAdapter {
     const node = NODE[entity] || entity;
     const before = await this.get(entity, co, key);
     const p: Rec = stripUndef({ ...patch, _key: key, updatedAt: new Date().toISOString() });
-    // room = v4 오버레이 규칙이 소유필드 기반(스코프 read·소유 write). last_message·안읽음 갱신 패치엔 소유필드가 없어
-    //  오버레이 방이 소유필드 결핍→스코프 조회 누락·write 거부가 됨. 기존 방에서 승계 스탬프해 자기기술형으로 유지.
-    if (entity === 'room' && before) {
+    // room·contract·settlement = v4 오버레이 규칙이 소유필드 기반(스코프 read·소유 write). 부분 패치엔 소유필드가 없어
+    //  레거시(v3전용) 레코드를 처음 오버레이에 쓸 때 생성분기가 소유필드 null → permission_denied(계약진행·정산 실패).
+    //  기존(merged) 레코드에서 소유필드를 승계 스탬프해 자기기술형으로 유지 — 방/계약/정산 공통.
+    if ((entity === 'room' || entity === 'contract' || entity === 'settlement') && before) {
       for (const f of ['agent_uid', 'agent_code', 'agent_channel_code', 'provider_company_code', 'provider_uid'] as const) {
         if (p[f] === undefined && (before as Rec)[f] != null && (before as Rec)[f] !== '') p[f] = (before as Rec)[f];
       }
