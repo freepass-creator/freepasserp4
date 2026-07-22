@@ -1,7 +1,7 @@
 'use client';
 import React from 'react';
 import { useIsMobile } from '@/lib/use-mobile';
-import { C, R, NUM } from './tokens';
+import { C, R, NUM, FW, FS } from './tokens';
 
 /* 표 — 기업형 데이터 그리드 SSOT.
  * 스크롤·틀고정 = globals.css `.fp-sheet` / `.fp-sheet--pane`.
@@ -11,13 +11,13 @@ import { C, R, NUM } from './tokens';
  * · colW(px) = 칸 폭. fit(기본)=페이지에 맞춤 · tight=고정.
  */
 export const th: React.CSSProperties = {
-  padding: '6px 10px', textAlign: 'left', fontSize: 11.5, color: C.mute, fontWeight: 700,
+  padding: '6px 10px', textAlign: 'left', fontSize: FS.cap, color: C.mute, fontWeight: FW.strong,
   background: C.head, borderBottom: `1px solid ${C.line}`, whiteSpace: 'nowrap',
   position: 'sticky', top: 0, zIndex: 2,
 };
 /** 틀분리(.fp-sheet--pane) 헤더 — 세로 고정은 레이아웃, sticky top 불필요. */
 export const thFlat: React.CSSProperties = {
-  padding: '6px 10px', textAlign: 'left', fontSize: 11.5, color: C.mute, fontWeight: 700,
+  padding: '6px 10px', textAlign: 'left', fontSize: FS.cap, color: C.mute, fontWeight: FW.strong,
   background: C.head, whiteSpace: 'nowrap',
 };
 export const thR: React.CSSProperties = { ...th, textAlign: 'right', fontFamily: NUM, fontVariantNumeric: 'tabular-nums' };
@@ -25,8 +25,8 @@ export const thFlatR: React.CSSProperties = { ...thFlat, textAlign: 'right', fon
 export const thPin: React.CSSProperties = { ...th, left: 0, zIndex: 4, boxShadow: `1px 0 0 ${C.line}` };
 export const thFlatPin: React.CSSProperties = { ...thFlat, position: 'sticky', left: 0, zIndex: 4, boxShadow: `1px 0 0 ${C.line}` };
 export const thPinR: React.CSSProperties = { ...th, right: 0, zIndex: 4 };
-export const td: React.CSSProperties = { padding: '5px 10px', fontSize: 12, whiteSpace: 'nowrap', color: C.ink };
-export const tdR: React.CSSProperties = { ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontFamily: NUM, fontWeight: 600 };
+export const td: React.CSSProperties = { padding: '5px 10px', fontSize: FS.sub, whiteSpace: 'nowrap', color: C.ink };
+export const tdR: React.CSSProperties = { ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontFamily: NUM, fontWeight: FW.strong };
 export const tdPin: React.CSSProperties = { ...td, position: 'sticky', left: 0, zIndex: 1, boxShadow: `1px 0 0 ${C.line}` };
 export const tdPinR: React.CSSProperties = { ...td, position: 'sticky', right: 0, zIndex: 1 };
 
@@ -47,18 +47,18 @@ const EXCEL_ROW_H = EXCEL_PAD_Y * 2 + EXCEL_BODY_H; // 55
 
 /** 엑셀 — 헤더·본문 12. 본문 상하 = 옵션/조건 2줄 기준(고정). */
 export const thX: React.CSSProperties = {
-  ...thFlat, padding: `${EXCEL_PAD_Y}px ${EXCEL_PAD_X}px`, fontSize: 12,
+  ...thFlat, padding: `${EXCEL_PAD_Y}px ${EXCEL_PAD_X}px`, fontSize: FS.sub,
   position: 'sticky', top: 0, zIndex: 2,
   borderBottom: `1px solid ${C.line}`,
 };
 export const thXR: React.CSSProperties = { ...thX, textAlign: 'right', fontFamily: NUM, fontVariantNumeric: 'tabular-nums' };
 export const thXPin: React.CSSProperties = { ...thX, left: 0, zIndex: 5, boxShadow: `1px 0 0 ${C.line}` };
 export const tdX: React.CSSProperties = {
-  ...td, padding: `${EXCEL_PAD_Y}px ${EXCEL_PAD_X}px`, fontSize: 12,
+  ...td, padding: `${EXCEL_PAD_Y}px ${EXCEL_PAD_X}px`, fontSize: FS.sub,
   verticalAlign: 'middle', height: EXCEL_ROW_H, maxHeight: EXCEL_ROW_H,
   boxSizing: 'border-box', overflow: 'hidden',
 };
-export const tdXR: React.CSSProperties = { ...tdX, textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontFamily: NUM, fontWeight: 600 };
+export const tdXR: React.CSSProperties = { ...tdX, textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontFamily: NUM, fontWeight: FW.strong };
 export const tdXPin: React.CSSProperties = { ...tdX, position: 'sticky', left: 0, zIndex: 1, boxShadow: `1px 0 0 ${C.line}` };
 
 /** 엑셀 OptionChips lines=2 박스 높이. 행 본문칸(EXCEL_BODY_H) 안에 들어감. */
@@ -86,7 +86,7 @@ export const cellClamp2: React.CSSProperties = {
   whiteSpace: 'normal',
   wordBreak: 'keep-all',
   lineHeight: 1.35,
-  fontWeight: 400,
+  fontWeight: FW.body,
 };
 /** 우측 틀고정 — i=0이 블록 왼쪽(선). head면 top도 sticky(본문 스크롤용).
  * colPxOrSample: px 숫자 또는 샘플문자열(sampleW와 동일 폭으로 right 누적). */
@@ -297,9 +297,9 @@ export function DataTable<T>({ cols, rows, onRow }: { cols: Col<T>[]; rows: T[];
           <div key={i} onClick={() => onRow && onRow(r)} tabIndex={onRow ? 0 : -1}
             onKeyDown={(e) => { if (onRow && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onRow(r); } }}
             style={{ border: `1px solid ${C.line}`, borderRadius: R, background: '#fff', padding: '10px 12px', cursor: onRow ? 'pointer' : 'default', outline: 'none' }}>
-            <div style={{ fontSize: 13, fontWeight: 700 }}>{cols[0]?.render(r)}</div>
+            <div style={{ fontSize: FS.body, fontWeight: FW.head }}>{cols[0]?.render(r)}</div>
             {cols.slice(1).map((c) => (
-              <div key={c.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '3px 0', fontSize: 12, borderTop: `1px solid ${C.line2}`, marginTop: 3 }}>
+              <div key={c.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '3px 0', fontSize: FS.sub, borderTop: `1px solid ${C.line2}`, marginTop: 3 }}>
                 <span style={{ color: C.mute, flex: '0 0 auto' }}>{c.label}</span>
                 <span style={{ textAlign: 'right', minWidth: 0, overflow: 'hidden' }}>{c.render(r)}</span>
               </div>
@@ -311,7 +311,7 @@ export function DataTable<T>({ cols, rows, onRow }: { cols: Col<T>[]; rows: T[];
   }
   return (
     <div className="fp-sheet" style={{ marginTop: 10 }}>
-      <table style={{ borderCollapse: 'collapse', fontSize: 12.5, width: '100%' }}>
+      <table style={{ borderCollapse: 'collapse', fontSize: FS.sub, width: '100%' }}>
         <thead><tr>{cols.map((c) => {
           const base = c.align === 'r' ? thR : th;
           return <th key={c.key} style={c.pin ? { ...base, ...thPin } : base}>{c.label}</th>;

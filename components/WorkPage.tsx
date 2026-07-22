@@ -123,7 +123,7 @@ export function WorkPage({
         ) : <span style={{ flex: 1, minWidth: 0 }} />}
         {webSort ? (
           <Select
-            size="sm"
+            size="md"
             value={webSort.value}
             onChange={webSort.onChange}
             placeholder={webSort.placeholder || '정렬'}
@@ -131,7 +131,7 @@ export function WorkPage({
               { value: '', label: '기본' },
               ...webSort.options.map((o) => ({ value: o.value, label: o.label })),
             ]}
-            width={112}
+            width={118}
           />
         ) : null}
       </div>

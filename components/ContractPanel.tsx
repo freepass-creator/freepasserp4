@@ -113,9 +113,9 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
                 if (ch.key === 'agent_delivery_inquiry') {
                   return (
                     <div key={ch.key} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      {actorTag}<span style={{ fontSize: 11.5, color: C.ink, flex: 1 }}>계약 문의</span>
+                      {actorTag}<span style={{ fontSize: 11.5, color: C.ink, flex: 1 }}>출고 문의</span>
                       {done ? <span style={{ fontSize: 11, color: C.ok, fontWeight: 700 }}>문의함 ✓</span>
-                        : mine ? <Btn size="sm" onClick={doInquiry} disabled={busy || !product}>계약 문의하기</Btn>
+                        : mine ? <Btn size="sm" onClick={doInquiry} disabled={busy || !product}>출고 문의하기</Btn>
                           : <span style={{ fontSize: 11, color: C.faint }}>대기</span>}
                     </div>
                   );

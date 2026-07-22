@@ -16,7 +16,7 @@
 
   /* Neutral palette */
   --bg-page: #fafafa;   --bg-card: #ffffff;    --bg-header: #f4f4f5;
-  --bg-sunken: #f4f4f5; --bg-hover: #e9e9eb;   --bg-selected: #eff6ff;
+  --bg-sunken: #f4f4f5; --bg-hover: #eef0f3;   --bg-selected: #d8e6ff;
   --bg-stripe: #f9f9fa; --bg-elevated: #ffffff; --bg-disabled: #f4f4f5;
   --bg-placeholder: #eef1f5;
 
@@ -76,7 +76,7 @@
 /* 다크 테마 — 토큰만 덮어씀(원자·페이지는 C.* 그대로) */
 html[data-theme="dark"] {
   --bg-page: #0f1419;   --bg-card: #171c22;    --bg-header: #1a2028;
-  --bg-sunken: #12171d; --bg-hover: #242b34;   --bg-selected: #1a2740;
+  --bg-sunken: #12171d; --bg-hover: #222831;   --bg-selected: #26436f;
   --bg-stripe: #141a21; --bg-elevated: #1c232c; --bg-disabled: #1a2028;
   --bg-placeholder: #1e252e;
 
@@ -605,5 +605,15 @@ button, input, select, textarea { font-family: inherit; }
 }
 .fp-card.fp-card-bookmark:active {
   box-shadow: 0 1px 4px rgba(15, 23, 42, 0.12);
+}
+/* 목록 지브라 — 짝수 행에 옅은 배경 틴트(행 경계·스캔성). selected 인라인이 덮고, accent 좌측 바는 유지. */
+.fp-card.fp-card-row:nth-child(even) {
+  background: var(--bg-stripe);
+}
+@media (hover: hover) {
+  /* 목록 행 호버 — 커서 위치 표시(배경). 지브라 뒤에 둬 짝수 행에서도 호버가 이김. selected 인라인엔 양보. */
+  .fp-card.fp-card-row:hover {
+    background: var(--bg-hover);
+  }
 }
 

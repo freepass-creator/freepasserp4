@@ -1,7 +1,7 @@
 'use client';
 import React from 'react';
 import { ChevronDown, EyeOff, GripVertical } from 'lucide-react';
-import { C, NUM } from './tokens';
+import { C, NUM, FW, FS } from './tokens';
 
 /* ── 카드 우선 레이아웃 — 박스 그룹 대신 "섹션 텍스트 + 카드들". 모든 데이터=카드 객체. ── */
 // 섹션 = 박스 없는 텍스트 타이틀 + 카드 흐름
@@ -39,12 +39,12 @@ export function Sec({ id, title, n, desc, tone, right, hideable = true, onReorde
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 9, flexWrap: 'wrap' }}>
         <button onClick={() => set(state === 'open' ? 'collapsed' : 'open')} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, border: 'none', background: 'none', cursor: 'pointer', padding: 0 }}>
           <ChevronDown size={15} color={C.sub} style={{ transform: state === 'open' ? 'none' : 'rotate(-90deg)', transition: 'transform .15s' }} />
-          <span style={{ fontSize: 13.5, fontWeight: 800, letterSpacing: '-0.01em', color: C.ink }}>{title}</span>
-          {n != null && <span style={{ fontSize: 13, fontWeight: 800, color: nc, fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{n}</span>}
+          <span style={{ fontSize: FS.title, fontWeight: FW.title, letterSpacing: '-0.01em', color: C.ink }}>{title}</span>
+          {n != null && <span style={{ fontSize: FS.body, fontWeight: FW.strong, color: nc, fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{n}</span>}
           {tone === 'danger' && n != null && n > 0 && <span className="attn-dot" style={{ marginLeft: 4 }} title="처리 필요" />}
         </button>
-        {desc ? <span style={{ fontSize: 11.5, color: C.faint, flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{desc}</span> : <span style={{ flex: 1 }} />}
-        {over && <span style={{ fontSize: 11.5, fontWeight: 800, color: C.accent, flexShrink: 0 }}>↓ 여기로</span>}
+        {desc ? <span style={{ fontSize: FS.cap, color: C.faint, flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{desc}</span> : <span style={{ flex: 1 }} />}
+        {over && <span style={{ fontSize: FS.cap, fontWeight: FW.strong, color: C.accent, flexShrink: 0 }}>↓ 여기로</span>}
         {state !== 'collapsed' && right}
         {id && onReorder && (
           <span draggable onDragStart={() => { dragSecId = id; setDragging(true); }} onDragEnd={() => { dragSecId = null; setDragging(false); setOver(false); }} title="드래그해서 순서 변경"
@@ -64,8 +64,8 @@ export function HiddenSecs() {
   if (!items.length) return null;
   return (
     <div style={{ marginTop: 30, paddingTop: 14, borderTop: `1px solid ${C.line}`, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-      <span style={{ fontSize: 11.5, color: C.faint }}>숨긴 섹션</span>
-      {items.map(([hid, htitle]) => <button key={hid} onClick={() => window.dispatchEvent(new CustomEvent('fp:sec-show', { detail: hid }))} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 11px', border: `1px dashed ${C.line}`, borderRadius: 999, background: '#fff', cursor: 'pointer', fontSize: 11.5, color: C.mute }}><EyeOff size={12} /> {htitle} · 표시</button>)}
+      <span style={{ fontSize: FS.cap, color: C.faint }}>숨긴 섹션</span>
+      {items.map(([hid, htitle]) => <button key={hid} onClick={() => window.dispatchEvent(new CustomEvent('fp:sec-show', { detail: hid }))} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 11px', border: `1px dashed ${C.line}`, borderRadius: 999, background: '#fff', cursor: 'pointer', fontSize: FS.cap, color: C.mute }}><EyeOff size={12} /> {htitle} · 표시</button>)}
     </div>
   );
 }

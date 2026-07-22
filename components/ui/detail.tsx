@@ -2,14 +2,14 @@
 import React from 'react';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { ChevronDown } from 'lucide-react';
-import { C, R, ctrlH, ctrlInputFs } from './tokens';
+import { C, R, ctrlH, ctrlInputFs, FW, FS } from './tokens';
 import { useIsMobile } from '@/lib/use-mobile';
 
 /* 상세 — 섹션/그리드/행 */
 export function Section({ title, children }: { title: React.ReactNode; children: React.ReactNode }) {
   return (
     <div style={{ marginTop: 18 }}>
-      <h2 style={{ fontSize: 12, fontWeight: 700, color: C.mute, marginBottom: 6 }}>{title}</h2>
+      <h2 style={{ fontSize: FS.cap, fontWeight: FW.strong, color: C.mute, marginBottom: 6 }}>{title}</h2>
       <div style={{ border: `1px solid ${C.line}`, borderRadius: R, overflow: 'hidden', background: C.taupeBg }}>{children}</div>
     </div>
   );
@@ -21,7 +21,7 @@ export function DetailGrid({ rows }: { rows: [string, unknown][] }) {
         const filled = val != null && val !== '';
         const node = (typeof val === 'object' ? val : filled ? String(val) : '—') as React.ReactNode;
         return (
-          <div key={i} style={{ display: 'flex', padding: '6px 12px', fontSize: 12.5, borderTop: i ? `1px solid ${C.line2}` : 'none' }}>
+          <div key={i} style={{ display: 'flex', padding: '6px 12px', fontSize: FS.body, borderTop: i ? `1px solid ${C.line2}` : 'none' }}>
             <span style={{ width: 116, color: C.mute, flex: '0 0 116px' }}>{k}</span>
             <span style={{ color: filled ? C.ink : C.faint, fontVariantNumeric: 'tabular-nums' }}>{node}</span>
           </div>
@@ -34,19 +34,19 @@ export function DetailRow({ main, sub, right, rightColor = C.mute }: { main: Rea
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 12px', borderTop: `1px solid ${C.line2}` }}>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 12.5, fontWeight: 600 }}>{main}</div>
-        <div style={{ fontSize: 11, color: C.faint }}>{sub}</div>
+        <div style={{ fontSize: FS.body, fontWeight: FW.strong }}>{main}</div>
+        <div style={{ fontSize: FS.cap, color: C.faint }}>{sub}</div>
       </div>
-      {right != null && <div style={{ fontSize: 12.5, fontWeight: 700, color: rightColor, fontVariantNumeric: 'tabular-nums' }}>{right}</div>}
+      {right != null && <div style={{ fontSize: FS.body, fontWeight: FW.strong, color: rightColor, fontVariantNumeric: 'tabular-nums' }}>{right}</div>}
     </div>
   );
 }
 export function DetailEmpty({ children }: { children: React.ReactNode }) {
-  return <div style={{ padding: 14, fontSize: 12.5, color: C.faint }}>{children}</div>;
+  return <div style={{ padding: 14, fontSize: FS.body, color: C.faint }}>{children}</div>;
 }
 /* 섹션 소제목(테두리 없음) — 상세·폼 내부. Section(박스형)과 별개. 손롤 secTitle 금지. */
 export function SectionLabel({ children, mt = 2, mb = 5 }: { children: React.ReactNode; mt?: number; mb?: number }) {
-  return <div style={{ fontSize: 12, fontWeight: 800, color: C.ink, margin: `${mt}px 0 ${mb}px` }}>{children}</div>;
+  return <div style={{ fontSize: FS.sub, fontWeight: FW.title, color: C.ink, margin: `${mt}px 0 ${mb}px` }}>{children}</div>;
 }
 
 /** 폼 구역 카드 — SectionLabel + 테두리·패딩. 재고·정책·회원 편집 SSOT. */
@@ -54,7 +54,7 @@ export function FormCard({ title, hint, children }: { title?: React.ReactNode; h
   return (
     <div>
       {title != null && title !== '' ? <SectionLabel mt={0}>{title}</SectionLabel> : null}
-      {hint ? <div style={{ fontSize: 11.5, color: C.faint, margin: title != null ? '-2px 0 8px' : '0 0 8px', lineHeight: 1.4 }}>{hint}</div> : null}
+      {hint ? <div style={{ fontSize: FS.cap, color: C.faint, margin: title != null ? '-2px 0 8px' : '0 0 8px', lineHeight: 1.4 }}>{hint}</div> : null}
       <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg, padding: '10px 12px' }}>
         {children}
       </div>
@@ -86,7 +86,7 @@ export function Disclosure({ title, defaultOpen = false, children }: { title: Re
           color={open ? C.ink : C.faint}
           style={{ flex: '0 0 auto', transform: open ? 'none' : 'rotate(-90deg)', transition: 'transform .15s' }}
         />
-        <span style={{ flex: 1, minWidth: 0, fontSize: mobile ? 14 : 12.5, fontWeight: open ? 700 : 500, color: C.ink, lineHeight: 1.45 }}>{title}</span>
+        <span style={{ flex: 1, minWidth: 0, fontSize: mobile ? 14 : FS.body, fontWeight: open ? FW.head : FW.meta, color: C.ink, lineHeight: 1.45 }}>{title}</span>
       </button>
       {open && <div style={{ padding: '0 0 12px 24px' }}>{children}</div>}
     </div>
@@ -102,7 +102,7 @@ export function KV({ rows, editing, form, onChange }: { rows: KVRow[]; editing?:
   return (
     <div style={{ border: `1px solid ${editing ? C.accent : C.line}`, borderRadius: 'var(--radius)', background: editing ? 'var(--bg-card)' : C.taupeBg, boxShadow: editing ? '0 0 0 3px rgba(37,99,235,0.10)' : '0 1px 2px rgba(15,23,42,0.05)', transition: 'box-shadow .15s, border-color .15s' }}>
       {rows.map(([k, key, val], i) => (
-        <div key={i} style={{ display: 'flex', alignItems: 'center', minHeight: ctrlH(mobile), padding: mobile ? '0 14px' : '0 12px', fontSize: mobile ? 14 : 12.5, borderTop: i ? `1px solid var(--border-soft)` : 'none' }}>
+        <div key={i} style={{ display: 'flex', alignItems: 'center', minHeight: ctrlH(mobile), padding: mobile ? '0 14px' : '0 12px', fontSize: mobile ? 14 : FS.body, borderTop: i ? `1px solid var(--border-soft)` : 'none' }}>
           <span style={{ width: mobile ? 104 : 96, flex: `0 0 ${mobile ? 104 : 96}px`, color: C.mute }}>{k}</span>
           {editing && key
             ? <input value={String(form?.[key] ?? '')} onChange={(e) => onChange?.(key, e.target.value)}

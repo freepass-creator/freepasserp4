@@ -96,7 +96,7 @@ function inventoryStatusIcon(p: EntityRecord): { icon: LucideIcon; tone: BadgeTo
  * 좌측 = 상태 아이콘(색)
  */
 export function ChatRoomRow({
-  room, stageContract, counter, unread, selected, onClick,
+  room, stageContract, counter, unread, selected, onClick, displayName,
 }: {
   room: EntityRecord;
   stageContract?: EntityRecord | null;
@@ -104,19 +104,23 @@ export function ChatRoomRow({
   unread: number;
   selected?: boolean;
   onClick: () => void;
+  displayName?: string;
 }) {
   const stage = contractStage(stageContract);
   const msg = String(room.last_message || '대화를 시작하세요').replace(/\s+/g, ' ').trim();
   const ic = chatStatusIcon(stage, unread);
+  const inProg = !!stageContract && !['상담', '계약완료', '취소'].includes(stage.label);
+  const accent: BadgeTone | undefined = unread > 0 ? 'amber' : inProg ? 'blue' : undefined;
   return (
     <FeedListRow
+      accent={accent}
       selected={selected}
       onClick={onClick}
       thumb={<FeedThumbIcon icon={ic.icon} tone={ic.tone} title={ic.title} />}
       lines={[
         <FeedTitleRow
           key="t"
-          title={<FeedTitle>{String(room.vehicle_name || '매물')}</FeedTitle>}
+          title={<FeedTitle>{displayName || String(room.vehicle_name || '상품')}</FeedTitle>}
           meta={<span style={{ fontSize: FS.cap, color: C.faint, fontVariantNumeric: 'tabular-nums' }}>{msgClock(room.last_message_at, { dateOnly: true })}</span>}
         />,
         <FeedBadges key="b">
@@ -126,7 +130,7 @@ export function ChatRoomRow({
         </FeedBadges>,
         <div key="m" style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, width: '100%' }}>
           <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
-            <FeedSub>{msg}</FeedSub>
+            <FeedSub strong={unread > 0}>{msg}</FeedSub>
           </div>
           {unread > 0 ? <CountPill n={unread} /> : null}
         </div>,
@@ -150,12 +154,14 @@ export function ContractListRow({
   onClick: () => void;
 }) {
   const pr = getProgress(c);
-  const title = String(c.sub_model_snapshot || c.vehicle_name || c.customer_name || c.contract_code || '계약');
+  const carName = [c.maker_snapshot, c.sub_model_snapshot].filter(Boolean).join(' ').trim();
+  const title = carName || String(c.vehicle_name || c.customer_name || c.contract_code || '계약');
   const ic = contractStatusIcon(c);
   const inProgress = String(c.contract_status || '') !== '계약완료'
     && String(c.contract_status || '') !== '계약취소';
   return (
     <FeedListRow
+      accent={inProgress ? 'blue' : undefined}
       selected={selected}
       onClick={onClick}
       thumb={<FeedThumbIcon icon={ic.icon} tone={ic.tone} title={ic.title} />}
@@ -207,7 +213,7 @@ export function InventoryListRow({
       onClick={onClick}
       thumb={<FeedThumbIcon icon={ic.icon} tone={ic.tone} title={ic.title} />}
       lines={[
-        <FeedTitle key="t">{vehicleName(p) || String(p.product_code || '매물')}</FeedTitle>,
+        <FeedTitle key="t">{vehicleName(p) || String(p.product_code || '상품')}</FeedTitle>,
         <FeedBadges key="b">
           {st ? <Badge tone={vehicleTone(st)} variant={st === '계약중' ? 'solid' : 'line'} pulse={st === '계약중'}>{st}</Badge> : null}
           {pt ? (() => { const c = canonProductType(pt) || pt; const pts = productTypeStyle(c); return <Badge tone={pts.tone} variant={pts.variant}>{c}</Badge>; })() : null}

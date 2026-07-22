@@ -1,6 +1,6 @@
 'use client';
 import React from 'react';
-import { C, NUM } from './tokens';
+import { C, NUM, FW, FS } from './tokens';
 import { Badge, CompanyBadge, type BadgeTone } from './badges';
 
 // 반응형 카드 그리드 — 폭에 맞춰 자동(auto-fit). 카드 높이는 내용(원자 수)에 맞게, 짧은 카드는 안 늘림(align start).
@@ -22,8 +22,8 @@ export function Metric({ label, value, tone, onClick }: { label: React.ReactNode
   const { h, on } = useHover();
   return (
     <div onClick={onClick} {...on} style={{ ...cardStyle(h, !!onClick), padding: '9px 13px', flex: '0 0 auto', minHeight: 54, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-      <div style={{ fontSize: 11, color: C.mute, fontWeight: 600, whiteSpace: 'nowrap' }}>{label}</div>
-      <div style={{ fontSize: 18, fontWeight: 800, color, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', marginTop: 2, whiteSpace: 'nowrap' }}>{value}</div>
+      <div style={{ fontSize: FS.cap, color: C.mute, fontWeight: FW.label, whiteSpace: 'nowrap' }}>{label}</div>
+      <div style={{ fontSize: FS.page, fontWeight: FW.head, color, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', marginTop: 2, whiteSpace: 'nowrap' }}>{value}</div>
     </div>
   );
 }
@@ -48,14 +48,14 @@ export function ObjCard({ badge, badgeTone = 'gray', co, rail = 'none', plate, n
   const shown = fields ? fields.slice(0, ATOM_CAP) : [];
   const moreN = fields ? fields.length - shown.length : 0;
   const row2: React.ReactNode = fields && fields.length > 0
-    ? <>{shown.map(([l, v], i) => <span key={i} style={{ flex: '0 0 auto', whiteSpace: 'nowrap' }}>{l != null && <span style={{ color: C.mute }}>{l} </span>}<span style={{ color: C.ink, fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>{v}</span>{i < shown.length - 1 && <span style={{ color: C.faint, margin: '0 5px' }}>·</span>}</span>)}{moreN > 0 && <span style={{ flex: '0 0 auto', color: C.faint, marginLeft: 6 }}>＋{moreN}</span>}</>
+    ? <>{shown.map(([l, v], i) => <span key={i} style={{ flex: '0 0 auto', whiteSpace: 'nowrap' }}>{l != null && <span style={{ color: C.mute }}>{l} </span>}<span style={{ color: C.ink, fontWeight: FW.meta, fontVariantNumeric: 'tabular-nums' }}>{v}</span>{i < shown.length - 1 && <span style={{ color: C.faint, margin: '0 5px' }}>·</span>}</span>)}{moreN > 0 && <span style={{ flex: '0 0 auto', color: C.faint, marginLeft: 6 }}>＋{moreN}</span>}</>
     : sub;
   // 앵커 = 차번(모노·flexShrink0·자를 수단 없음) → 이름(비모노·축소가능) → legacy title(축소가능)
   const anchor = plate != null
-    ? <span style={{ flex: '0 0 auto', whiteSpace: 'nowrap', fontFamily: NUM, fontSize: 13.5, fontWeight: 700, letterSpacing: '-0.01em', color: C.ink }}>{plate}</span>
+    ? <span style={{ flex: '0 0 auto', whiteSpace: 'nowrap', fontFamily: NUM, fontSize: FS.body, fontWeight: FW.title, letterSpacing: '-0.01em', color: C.ink }}>{plate}</span>
     : name != null
-      ? <span style={{ flex: '0 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 13, fontWeight: 700, color: C.ink }}>{name}</span>
-      : <span style={{ flex: '0 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12.5, fontWeight: 600, color: C.ink }}>{title}</span>;
+      ? <span style={{ flex: '0 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: FS.body, fontWeight: FW.title, color: C.ink }}>{name}</span>
+      : <span style={{ flex: '0 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: FS.sub, fontWeight: FW.title, color: C.ink }}>{title}</span>;
   return (
     <div onClick={onClick} {...on} style={{ ...cardStyle(h, !!onClick), position: 'relative', overflow: 'hidden', height: 56, padding: '0 12px 0 14px', display: 'flex', alignItems: 'center', minWidth: 0 }}>
       <span style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 2, background: rl.c, opacity: rl.o }} />
@@ -65,12 +65,12 @@ export function ObjCard({ badge, badgeTone = 'gray', co, rail = 'none', plate, n
           {co ? <span style={{ flex: '0 0 auto' }}><CompanyBadge co={co} /></span> : null}
           {badge != null && <span style={{ flex: '0 0 auto' }}><Badge tone={badgeTone}>{badge}</Badge></span>}
           {anchor}
-          {carType != null && <span style={{ flex: '0 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12, color: C.mute }}>{carType}</span>}
+          {carType != null && <span style={{ flex: '0 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: FS.sub, color: C.mute }}>{carType}</span>}
         </div>
         {/* 2행 = 내용(원자·왼쪽 축소) + 핵심 수치(오른쪽 고정·무잘림) */}
         {(row2 != null || right != null) && <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, minWidth: 0 }}>
-          <div style={{ flex: 1, minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap', display: 'flex', alignItems: 'baseline', fontSize: 11.5, color: C.faint }}>{row2}</div>
-          {right != null && <div style={{ flex: '0 0 auto', fontSize: 13, fontWeight: 700, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', color: C.ink }}>{right}</div>}
+          <div style={{ flex: 1, minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap', display: 'flex', alignItems: 'baseline', fontSize: FS.cap, color: C.faint }}>{row2}</div>
+          {right != null && <div style={{ flex: '0 0 auto', fontSize: FS.body, fontWeight: FW.head, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', color: C.ink }}>{right}</div>}
         </div>}
       </div>
     </div>

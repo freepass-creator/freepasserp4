@@ -6,12 +6,12 @@ import { useAppBar } from '@/lib/appbar';
 import { useRouter } from 'next/navigation';
 import { ChevronDown, ChevronLeft, List, Search, X } from 'lucide-react';
 import { haptic } from '@/lib/haptics';
-import { C, R, NUM, ctrlH, ctrlFs, ctrlInputFs, ctrlChipH } from './tokens';
+import { C, R, NUM, FS, FW, ctrlH, ctrlFs, ctrlInputFs, ctrlChipH } from './tokens';
 import { Badge, CountPill } from './badges';
 
 /* 공용 UI 키트 — 전 페이지가 이걸 써서 통일. 기업형: 각지게(저radius)·고밀도·색 절제. */
 // 토큰(C/R/NUM)=tokens.ts SSOT. 리프 분리: 접이식섹션=sec, 데이터표=table, 상태·라벨=badges, 카드원자=objcard. 여기서 배럴 재export.
-export { C, R, NUM, FS, CTRL, ctrlH, ctrlFs, ctrlInputFs, ctrlChipH } from './tokens';
+export { C, R, NUM, FS, FW, CTRL, ctrlH, ctrlFs, ctrlInputFs, ctrlChipH } from './tokens';
 export type { CtrlSize } from './tokens';
 export * from './sec';
 export * from './table';
@@ -124,7 +124,7 @@ export function PaneHead({ title, count, right }: { title: React.ReactNode; coun
   const h = ctrlH(mobile);
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: h, flex: `0 0 ${h}px`, padding: mobile ? '0 16px' : '0 14px', borderBottom: `1px solid ${C.line}`, background: C.taupeBg, boxSizing: 'border-box' }}>
-      <span style={{ fontSize: mobile ? 15 : 13, fontWeight: 800, color: C.ink, whiteSpace: 'nowrap', letterSpacing: mobile ? '-0.01em' : 0 }}>{title}</span>
+      <span style={{ fontSize: mobile ? 15 : 13, fontWeight: FW.title, color: C.ink, whiteSpace: 'nowrap', letterSpacing: mobile ? '-0.01em' : 0 }}>{title}</span>
       {count != null && count !== '' && <span style={{ fontSize: mobile ? 12.5 : 11.5, color: C.faint, fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{count}</span>}
       {right != null && <><span style={{ flex: 1 }} />{right}</>}
     </div>
@@ -175,7 +175,7 @@ export function PillTabs<T extends string>({ tabs, value, onChange, size = 'md' 
         const on = value === t.key;
         return (
           <button key={t.key} onClick={() => onChange(t.key)} title={t.title}
-            style={{ height: h, boxSizing: 'border-box', padding: pad, fontSize: fs, fontWeight: on ? 700 : 500, cursor: 'pointer', borderRadius: R, border: `1px solid ${on ? C.brand : C.line}`, background: on ? C.brand : C.taupeBg, color: on ? '#fff' : C.mute, whiteSpace: 'nowrap', flexShrink: 0, transition: 'background .1s, border-color .1s, color .1s' }}>{t.label}</button>
+            style={{ height: h, boxSizing: 'border-box', padding: pad, fontSize: fs, fontWeight: on ? FW.label : FW.meta, cursor: 'pointer', borderRadius: R, border: `1px solid ${on ? C.brand : C.line}`, background: on ? C.brand : C.taupeBg, color: on ? '#fff' : C.mute, whiteSpace: 'nowrap', flexShrink: 0, transition: 'background .1s, border-color .1s, color .1s' }}>{t.label}</button>
         );
       })}
     </div>
@@ -186,9 +186,9 @@ export function Card({ title, value, note, tone = 'ink' }: { title: string; valu
   const color = tone === 'danger' ? C.danger : tone === 'ok' ? C.ok : tone === 'warn' ? C.warn : C.ink;
   return (
     <div style={{ background: C.taupeBg, border: `1px solid ${C.line}`, borderRadius: R, padding: '16px', minHeight: 112, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: '0 10px 28px rgba(15,23,42,0.04)' }}>
-      <div style={{ fontSize: 12.5, color: C.mute, fontWeight: 700, marginBottom: 10 }}>{title}</div>
-      <div style={{ fontSize: 24, fontWeight: 800, color, fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{value}</div>
-      {note && <div style={{ fontSize: 12, color: C.faint, marginTop: 8 }}>{note}</div>}
+      <div style={{ fontSize: 12.5, color: C.mute, fontWeight: FW.label, marginBottom: 10 }}>{title}</div>
+      <div style={{ fontSize: 24, fontWeight: FW.head, color, fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{value}</div>
+      {note && <div style={{ fontSize: FS.sub, color: C.faint, marginTop: 8 }}>{note}</div>}
     </div>
   );
 }
@@ -201,7 +201,7 @@ export function Panel({ title, action, children }: { title: React.ReactNode; act
   return (
     <div style={{ marginTop: 18, border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg, overflow: 'hidden', boxShadow: '0 10px 24px rgba(15,23,42,0.05)' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: `1px solid ${C.line}`, background: '#f8fafc' }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: C.ink }}>{title}</div>
+        <div style={{ fontSize: FS.body, fontWeight: FW.title, color: C.ink }}>{title}</div>
         {action && <div>{action}</div>}
       </div>
       <div style={{ padding: '16px' }}>{children}</div>
@@ -213,8 +213,8 @@ export function Kpi({ label, value, tone = 'ink', href }: { label: string; value
   const color = tone === 'danger' ? C.danger : tone === 'ok' ? C.ok : tone === 'warn' ? C.warn : C.ink;
   const inner = (
     <div style={{ border: `1px solid ${C.line}`, borderRadius: R, padding: '9px 14px', minWidth: 128, background: C.taupeBg }}>
-      <div style={{ fontSize: 11.5, color: C.mute, fontWeight: 600 }}>{label}</div>
-      <div style={{ fontSize: 19, fontWeight: 700, marginTop: 2, color, fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{value}</div>
+      <div style={{ fontSize: 11.5, color: C.mute, fontWeight: FW.strong }}>{label}</div>
+      <div style={{ fontSize: 19, fontWeight: FW.head, marginTop: 2, color, fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{value}</div>
     </div>
   );
   return href ? <a href={href} style={{ textDecoration: 'none', color: 'inherit' }}>{inner}</a> : inner;
@@ -232,8 +232,8 @@ export function StatBar({ items }: { items: { label: string; value: React.ReactN
         const color = it.tone === 'danger' ? C.danger : it.tone === 'ok' ? C.ok : it.tone === 'warn' ? C.warn : C.ink;
         return (
           <div key={i} style={{ padding: '7px 15px', borderLeft: i ? `1px solid ${C.line2}` : 'none', minWidth: 96 }}>
-            <div style={{ fontSize: 10.5, color: C.mute, fontWeight: 600 }}>{it.label}</div>
-            <div style={{ fontSize: 15.5, fontWeight: 700, marginTop: 1, color, fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{it.value}</div>
+            <div style={{ fontSize: 10.5, color: C.mute, fontWeight: FW.strong }}>{it.label}</div>
+            <div style={{ fontSize: 15.5, fontWeight: FW.head, marginTop: 1, color, fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{it.value}</div>
           </div>
         );
       })}
@@ -250,15 +250,15 @@ export function Stepper({ steps }: { steps: Step[] }) {
       {steps.map((s, i) => (
         <React.Fragment key={i}>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 88, flex: '0 0 auto' }}>
-            <div style={{ width: 22, height: 22, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800,
+            <div style={{ width: 22, height: 22, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: FS.cap, fontWeight: FW.head,
               background: s.state === 'done' ? C.ok : s.state === 'current' ? C.brand : C.taupeBg,
               color: s.state === 'todo' ? C.faint : '#fff', border: `2px solid ${dotColor(s.state)}`,
               boxShadow: s.state === 'current' ? `0 0 0 3px color-mix(in srgb, ${C.brand} 18%, transparent)` : 'none' }}>
               {s.state === 'done' ? '✓' : i + 1}
             </div>
-            <div style={{ marginTop: 6, fontSize: 12, fontWeight: s.state === 'current' ? 800 : 600, color: s.state === 'todo' ? C.faint : C.ink, whiteSpace: 'nowrap' }}>{s.label}</div>
+            <div style={{ marginTop: 6, fontSize: FS.sub, fontWeight: s.state === 'current' ? FW.title : FW.strong, color: s.state === 'todo' ? C.faint : C.ink, whiteSpace: 'nowrap' }}>{s.label}</div>
             <div style={{ fontSize: 10.5, color: C.faint, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', minHeight: 13 }}>{s.date || ''}</div>
-            {s.note && <div style={{ fontSize: 10, color: C.warn, fontWeight: 700 }}>{s.note}</div>}
+            {s.note && <div style={{ fontSize: FS.micro, color: C.warn, fontWeight: FW.label }}>{s.note}</div>}
           </div>
           {i < steps.length - 1 && <div style={{ flex: 1, minWidth: 24, height: 2, marginTop: 10, background: steps[i + 1].state === 'todo' ? C.line2 : C.ok, borderRadius: 2 }} />}
         </React.Fragment>
@@ -276,7 +276,7 @@ export function DetailShell({ title, meta, onBack, actions, fixed, maxWidth = 10
   if (!fixed) {
     return (
       <div style={{ maxWidth, margin: '0 auto', padding: mobile ? '10px 12px 80px' : '14px 16px 48px' }}>
-        {title != null && <h1 style={{ fontSize: mobile ? 20 : 22, fontWeight: 800, letterSpacing: '-0.02em', margin: '2px 0 14px' }}>{title}</h1>}
+        {title != null && <h1 style={{ fontSize: mobile ? 20 : 22, fontWeight: FW.title, letterSpacing: '-0.02em', margin: '2px 0 14px' }}>{title}</h1>}
         {children}
       </div>
     );
@@ -288,13 +288,13 @@ export function DetailShell({ title, meta, onBack, actions, fixed, maxWidth = 10
       <div style={{ maxWidth, margin: '0 auto', padding: mobile ? '0 12px 76px' : '0 16px 48px' }}>
         {mobile ? (
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, padding: '12px 2px 4px', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 17, fontWeight: 800, letterSpacing: '-0.02em' }}>{title}</span>
-            {meta && <span style={{ fontSize: 12, color: C.faint }}>{meta}</span>}
+            <span style={{ fontSize: 17, fontWeight: FW.title, letterSpacing: '-0.02em' }}>{title}</span>
+            {meta && <span style={{ fontSize: FS.sub, color: C.faint }}>{meta}</span>}
           </div>
         ) : (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 0', flexWrap: 'wrap', position: 'sticky', top: 0, background: 'var(--bg-page)', zIndex: 10 }}>
             {back}
-            <span style={{ fontSize: 17, fontWeight: 800, letterSpacing: '-0.02em', marginLeft: 6 }}>{title}</span>
+            <span style={{ fontSize: 17, fontWeight: FW.title, letterSpacing: '-0.02em', marginLeft: 6 }}>{title}</span>
             {meta && <span style={{ fontSize: 12.5, color: C.faint }}>{meta}</span>}
             <span style={{ flex: 1 }} />
             {actions}
@@ -315,7 +315,7 @@ export function DetailShell({ title, meta, onBack, actions, fixed, maxWidth = 10
   );
 }
 export function EmptyState({ children }: { children: React.ReactNode }) {
-  return <div style={{ marginTop: 12, padding: 20, textAlign: 'center', color: C.faint, border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg, fontSize: 13 }}>{children}</div>;
+  return <div style={{ marginTop: 12, padding: 20, textAlign: 'center', color: C.faint, border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg, fontSize: FS.body }}>{children}</div>;
 }
 
 /* 로딩 = 공용 원자(SSOT). 어디서든 이거만 — 중앙 스피너 + 텍스트. 별도 로딩 div 금지.
@@ -330,7 +330,7 @@ export function Loading({ label = '불러오는 중…', minHeight = '100%' }: {
 }
 /* 중앙 안내(로딩 아님) — 빈 결과·에러 등. 스피너 없이 중앙 텍스트. */
 export function CenterNote({ children, minHeight = '100%' }: { children: React.ReactNode; minHeight?: string | number }) {
-  return <div style={{ minHeight, flex: 1, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.faint, fontSize: 13, textAlign: 'center', padding: '40px 16px', boxSizing: 'border-box' }}>{children}</div>;
+  return <div style={{ minHeight, flex: 1, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.faint, fontSize: FS.body, textAlign: 'center', padding: '40px 16px', boxSizing: 'border-box' }}>{children}</div>;
 }
 
 /* ── 낱개 입력 원자(SSOT). FormGrid=스키마폼용 / 이건 툴바·필터의 단일 select·input. 손롤 <select>/<input> 금지. ── */
@@ -439,7 +439,7 @@ export function ToggleChips<T extends string>({ selected, onToggle, options, siz
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: mobile ? 8 : 6 }}>
       {options.map((o) => { const on = selected.has(o.key); return (
         <button key={o.key} onClick={() => { haptic.select(); onToggle(o.key); }} aria-pressed={on} className="fp-chip"
-          style={{ display: 'inline-flex', alignItems: 'center', height: h, boxSizing: 'border-box', padding: pad, fontSize: fs, fontWeight: on ? 700 : 500, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0, borderRadius: R, border: `1px solid ${on ? C.brand : C.line}`, background: on ? C.brand : C.taupeBg, color: on ? '#fff' : C.mute, lineHeight: 1 }}>
+          style={{ display: 'inline-flex', alignItems: 'center', height: h, boxSizing: 'border-box', padding: pad, fontSize: fs, fontWeight: on ? FW.label : FW.meta, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0, borderRadius: R, border: `1px solid ${on ? C.brand : C.line}`, background: on ? C.brand : C.taupeBg, color: on ? '#fff' : C.mute, lineHeight: 1 }}>
           {o.label}
         </button>
       ); })}
@@ -457,11 +457,11 @@ export function FilterGroup({ title, count = 0, onClear, defaultOpen = true, fir
       <div style={{ display: 'flex', alignItems: 'center', minHeight: h }}>
         <button onClick={() => { haptic.tap(); setOpen((o) => !o); }} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6, padding: mobile ? '10px 0' : '8px 0', background: 'none', border: 'none', cursor: 'pointer', minHeight: h }}>
           <ChevronDown size={mobile ? 18 : 15} color={C.faint} style={{ flex: '0 0 auto', transform: open ? 'none' : 'rotate(-90deg)', transition: 'transform .12s' }} />
-          <span style={{ fontSize: mobile ? 15 : 13, fontWeight: 700, color: C.ink, letterSpacing: '-0.01em', lineHeight: 1.2 }}>{title}</span>
+          <span style={{ fontSize: mobile ? 15 : 13, fontWeight: FW.title, color: C.ink, letterSpacing: '-0.01em', lineHeight: 1.2 }}>{title}</span>
           {count > 0 && <CountPill n={count} />}
           <span style={{ flex: 1 }} />
         </button>
-        {count > 0 && onClear && <button onClick={() => { haptic.select(); onClear(); }} style={{ marginLeft: 6, flex: '0 0 auto', border: 'none', background: 'none', color: C.accent, fontSize: mobile ? 13 : 12.5, fontWeight: 600, cursor: 'pointer', padding: mobile ? '8px 8px' : '6px 4px', minHeight: h }}>해제</button>}
+        {count > 0 && onClear && <button onClick={() => { haptic.select(); onClear(); }} style={{ marginLeft: 6, flex: '0 0 auto', border: 'none', background: 'none', color: C.accent, fontSize: mobile ? 13 : 12.5, fontWeight: FW.strong, cursor: 'pointer', padding: mobile ? '8px 8px' : '6px 4px', minHeight: h }}>해제</button>}
       </div>
       {open && <div style={{ display: 'flex', flexWrap: 'wrap', gap: mobile ? 8 : 6, paddingBottom: mobile ? 14 : 12, width: '100%' }}>{children}</div>}
     </div>
@@ -478,7 +478,7 @@ export function Message({ variant = 'info', children }: { variant?: MessageVaria
   };
   const p = palette[variant];
   return (
-    <div style={{ marginTop: 12, padding: '12px 14px', borderRadius: R, border: `1px solid ${p.border}`, background: p.bg, color: p.color, fontSize: 13, lineHeight: 1.5 }}>
+    <div style={{ marginTop: 12, padding: '12px 14px', borderRadius: R, border: `1px solid ${p.border}`, background: p.bg, color: p.color, fontSize: FS.body, lineHeight: 1.5 }}>
       {children}
     </div>
   );
@@ -496,7 +496,7 @@ export function FilterChips<T extends string>({ value, onChange, options }: { va
         const active = value === o.key;
         return (
           <button key={o.key} onClick={() => { haptic.select(); onChange(o.key); }} aria-pressed={active}
-            style={{ display: 'inline-flex', alignItems: 'center', height: h, boxSizing: 'border-box', padding: mobile ? '0 18px' : '0 12px', fontSize: fs, fontWeight: active ? 700 : 500, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0, lineHeight: 1,
+            style={{ display: 'inline-flex', alignItems: 'center', height: h, boxSizing: 'border-box', padding: mobile ? '0 18px' : '0 12px', fontSize: fs, fontWeight: active ? FW.label : FW.meta, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0, lineHeight: 1,
               borderRadius: R, border: `1px solid ${active ? C.brand : C.taupeLine}`, background: active ? C.brand : C.taupeBg, color: active ? '#fff' : C.mute,
               transition: 'background .1s, border-color .1s, color .1s' }}>
             {o.label}
@@ -515,7 +515,7 @@ export function Btn({ children, onClick, variant = 'solid', size = 'md', disable
   const pad = mobile ? '0 18px' : (size === 'sm' ? '0 11px' : '0 14px');
   const s: React.CSSProperties = {
     height: h, boxSizing: 'border-box', padding: pad, borderRadius: R,
-    fontWeight: 600, fontSize: fs, letterSpacing: '-0.01em', lineHeight: 1,
+    fontWeight: FW.strong, fontSize: fs, letterSpacing: '-0.01em', lineHeight: 1,
     cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1,
     border: `1px solid ${disabled ? C.line : variant === 'solid' ? C.brand : variant === 'danger' ? 'var(--red-border)' : C.line}`,
     background: variant === 'solid' ? (disabled ? C.line : C.brand) : C.taupeBg,
@@ -661,7 +661,7 @@ export function ListRow({ badge, badgeTone = 'gray', main, sub, right, href, onC
     }}>
       {badge != null && <Badge tone={badgeTone}>{badge}</Badge>}
       <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: C.ink, minWidth: 0, overflow: 'hidden' }}>{main}</div>
+        <div style={{ fontSize: FS.body, fontWeight: FW.title, color: C.ink, minWidth: 0, overflow: 'hidden' }}>{main}</div>
         {sub != null && <div style={{ fontSize: 11.5, color: C.mute, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sub}</div>}
       </div>
       {right}
@@ -684,14 +684,14 @@ export function Drawer({ title, meta, onClose, children, footer, width = 560, on
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose, onPrev, onNext]);
-  const navBtn: React.CSSProperties = { border: `1px solid ${C.line}`, background: C.taupeBg, borderRadius: R, width: 26, height: 26, cursor: 'pointer', color: C.mute, fontSize: 13, lineHeight: 1 };
+  const navBtn: React.CSSProperties = { border: `1px solid ${C.line}`, background: C.taupeBg, borderRadius: R, width: 26, height: 26, cursor: 'pointer', color: C.mute, fontSize: FS.body, lineHeight: 1 };
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.32)', zIndex: 50, display: 'flex', justifyContent: 'flex-end' }}>
       <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: width, height: '100vh', background: C.taupeBg, boxShadow: '-10px 0 32px rgba(0,0,0,0.16)', display: 'flex', flexDirection: 'column', borderLeft: `1px solid ${C.line}` }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 16px', borderBottom: `1px solid ${C.line}`, background: C.head }}>
           <div style={{ minWidth: 0, display: 'flex', alignItems: 'baseline', gap: 8 }}>
-            <h2 style={{ fontSize: 14, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</h2>
-            {meta && <span style={{ fontSize: 12, color: C.mute }}>{meta}</span>}
+            <h2 style={{ fontSize: 14, fontWeight: FW.title, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</h2>
+            {meta && <span style={{ fontSize: FS.sub, color: C.mute }}>{meta}</span>}
           </div>
           <span style={{ flex: 1 }} />
           {(onPrev || onNext) && <div style={{ display: 'flex', gap: 4 }} title="↑/↓ 이전·다음">
@@ -715,8 +715,8 @@ export function Modal({ title, meta, onClose, children, footer, width = 720 }: {
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.4)', zIndex: 50, display: 'flex', alignItems: mobile ? 'stretch' : 'flex-start', justifyContent: 'center', padding: mobile ? 0 : '6vh 16px', overflowY: 'auto' }}>
       <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: mobile ? '100%' : width, minHeight: mobile ? '100dvh' : undefined, background: C.taupeBg, borderRadius: mobile ? 0 : R, boxShadow: mobile ? 'none' : '0 16px 48px rgba(0,0,0,0.22)', overflow: 'hidden', border: mobile ? 'none' : `1px solid ${C.line}`, display: 'flex', flexDirection: 'column' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, padding: '13px 18px', borderBottom: `1px solid ${C.line}`, background: C.head, position: mobile ? 'sticky' : undefined, top: 0, zIndex: 1 }}>
-          <h2 style={{ fontSize: 14.5, fontWeight: 700 }}>{title}</h2>
-          {meta && <span style={{ fontSize: 12, color: C.mute }}>{meta}</span>}
+          <h2 style={{ fontSize: FS.title, fontWeight: FW.title }}>{title}</h2>
+          {meta && <span style={{ fontSize: FS.sub, color: C.mute }}>{meta}</span>}
           <span style={{ flex: 1 }} />
           <button onClick={onClose} style={{ border: 'none', background: 'none', fontSize: 19, cursor: 'pointer', color: C.faint, lineHeight: 1 }}>×</button>
         </div>

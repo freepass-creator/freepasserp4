@@ -8,8 +8,8 @@ import { type BadgeTone, toneSoft, toneText } from '@/components/ui/badges';
 /** 업무 목록 3줄 — 스캔성·한 화면에 많이. 행·아이콘을 키우면 피드가 되어 답답해진다. */
 const LINE = {
   title: 18,   // FeedTitle
-  badges: 18,  // Badge 레일
-  sub: 14,     // FeedSub
+  badges: 20,  // Badge 레일 — Badge 실제 높이(20)와 일치시켜 삐져나옴·어긋남 제거
+  sub: 15,     // FeedSub
 } as const;
 
 /**
@@ -62,6 +62,7 @@ export function FeedListRow({
   selected,
   onClick,
   href,
+  accent,
 }: {
   thumb?: ReactNode;
   /** 일반 목록 = 3줄 SSOT. (상품 파인더 ProductRowCard는 별도) */
@@ -69,17 +70,20 @@ export function FeedListRow({
   selected?: boolean;
   onClick?: () => void;
   href?: string;
+  /** 주의환기 좌측 액센트 바 — 안읽음(amber)·진행중(blue) 등. 레이아웃 불변(inset). */
+  accent?: BadgeTone;
 }) {
   const mobile = useIsMobile();
-  const gap = 2;
+  const gap = 3;
   const lineH = [LINE.title, LINE.badges, LINE.sub];
   const style: CSSProperties = {
     display: 'flex',
-    gap: mobile ? 8 : 9,
+    gap: mobile ? 10 : 11,
     alignItems: 'center',
-    padding: mobile ? '6px 12px' : '5px 12px',
-    borderBottom: `1px solid ${C.line2}`,
-    background: selected ? C.selected : 'transparent',
+    padding: mobile ? '8px 14px' : '7px 14px',
+    borderBottom: `1px solid ${C.line}`,
+    background: selected ? C.selected : undefined, // 짝수 행 지브라는 globals.css(.fp-card-row:nth-child(even))가 담당
+    boxShadow: accent ? `inset 3px 0 0 0 ${toneText(accent)}` : undefined,
     textDecoration: 'none',
     color: 'inherit',
     cursor: href || onClick ? 'pointer' : 'default',
@@ -167,7 +171,7 @@ export function FeedSub({ children, strong }: { children: ReactNode; strong?: bo
 export function FeedBadges({ children }: { children: ReactNode }) {
   return (
     <div style={{
-      display: 'flex', alignItems: 'center', gap: 5,
+      display: 'flex', alignItems: 'center', gap: 7,
       minWidth: 0, width: '100%', height: LINE.badges,
       overflow: 'hidden', flexWrap: 'nowrap',
     }}>

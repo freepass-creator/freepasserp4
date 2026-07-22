@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState, useMemo, type ReactNode } from 'react';
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
@@ -8,6 +8,7 @@ import { type EntityRecord } from '@/lib/intake/entities';
 import { getRole, actor, type Role } from '@/lib/domain/deal';
 import { roomsWithUnread, unreadFor, unreadRoomCount } from '@/lib/domain/messaging';
 import { getProgress, isInquiryOnly } from '@/lib/domain/contract';
+import { vehicleName } from '@/lib/domain/product';
 import { PaneHead, Btn, C, Loading, CenterNote, PaneBody, FilterChips, SectionLabel } from '@/components/ui';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
 import { ChatThread } from '@/components/ChatThread';
@@ -41,6 +42,8 @@ export default function Chat() {
   const [role, setRoleS] = useState<Role>('agent');
   const [rooms, setRooms] = useState<EntityRecord[] | null>(null);
   const [contracts, setContracts] = useState<EntityRecord[]>([]);
+  const [products, setProducts] = useState<EntityRecord[]>([]);
+  const [deletedProducts, setDeletedProducts] = useState<EntityRecord[]>([]);
   const [sel, setSel] = useState<string | null>(null);
   const [selRoom, setSelRoom] = useState<EntityRecord | null>(null);
   const [selProduct, setSelProduct] = useState<EntityRecord | null>(null);
@@ -50,9 +53,64 @@ export default function Chat() {
   const [flt, setFlt] = useState<ChatFilter>('문의');
 
   const contractOf = (rm: EntityRecord) => contracts.find((c) => String(c.product_code) === String(rm.product_code) && String(c.agent_code) === String(rm.agent_code) && c.contract_status !== '계약취소');
+  const productLookup = useMemo(() => {
+    const byId = new Map<string, EntityRecord>();   // product_code·_key 둘 다 색인 (v3 방은 product_uid=_key로 연결)
+    const byCar = new Map<string, EntityRecord>();
+    for (const p of products) {
+      const code = String(p.product_code || ''); const key = String(p._key || ''); const car = String(p.car_number || '');
+      if (code) byId.set(code, p);
+      if (key && !byId.has(key)) byId.set(key, p);
+      if (car) byCar.set(car, p);
+    }
+    return { byId, byCar };
+  }, [products]);
+  const deletedLookup = useMemo(() => {
+    const byId = new Map<string, EntityRecord>(); const byCar = new Map<string, EntityRecord>();
+    for (const p of deletedProducts) {
+      const code = String(p.product_code || ''); const key = String(p._key || ''); const car = String(p.car_number || '');
+      if (code) byId.set(code, p); if (key && !byId.has(key)) byId.set(key, p); if (car) byCar.set(car, p);
+    }
+    return { byId, byCar };
+  }, [deletedProducts]);
+  /** 방 제목 = 실차명 해석. v3 방은 product_uid(=매물 _key)·car_number로 연결. 방값→매물→계약스냅샷→차번 순. (표시만, 데이터 미변경) */
+  const roomTitle = (rm: EntityRecord): string => {
+    const vn = String(rm.vehicle_name || '').trim();
+    if (vn) return vn;
+    const car = String(rm.car_number || '').trim();
+    const p = productLookup.byId.get(String(rm.product_code))
+      || productLookup.byId.get(String(rm.product_uid))
+      || productLookup.byId.get(String(rm.product_id))
+      || (car ? productLookup.byCar.get(car) : undefined);
+    if (p) { const n = vehicleName(p); if (n) return n; }
+    // 계약 스냅샷 — resolveProduct 와 동일 관대함: agent 무관, 취소 계약까지 최종 폴백. 차명 없으면 계약의 차번(car_number_snapshot)이라도.
+    const pc = String(rm.product_code || '');
+    const c = pc ? (contractOf(rm)
+      || contracts.find((x) => String(x.product_code) === pc && String(x.contract_status || '') !== '계약취소')
+      || contracts.find((x) => String(x.product_code) === pc)) : undefined;
+    if (c) {
+      const snap = [c.maker_snapshot, c.sub_model_snapshot].filter(Boolean).join(' ').trim();
+      if (snap) return snap;
+      const csnapCar = String(c.car_number_snapshot || '').trim();
+      if (csnapCar) return csnapCar;
+    }
+    // 삭제된 매물(휴지통)에서라도 이름 복원
+    const dp = deletedLookup.byId.get(String(rm.product_code))
+      || deletedLookup.byId.get(String(rm.product_uid))
+      || deletedLookup.byId.get(String(rm.product_id))
+      || (car ? deletedLookup.byCar.get(car) : undefined);
+    if (dp) { const n = vehicleName(dp); if (n) return car ? `${n} (삭제)` : n; }
+    // 어디에도 정보 없음 — 매물이 삭제/제외돼 정보 유실. blank 대신 명시.
+    return car ? `${car} (삭제된 차량)` : '삭제된 차량';
+  };
+  /** 채팅 참여자 = 코드 표기(영업코드 ↔ 공급사코드). 역할별 관점. */
+  const roomCounter = (rm: EntityRecord): string => {
+    const ag = String(rm.agent_code || '').trim();
+    const pv = String(rm.provider_company_code || '').trim();
+    return role === 'provider' ? ag : role === 'agent' ? pv : [ag, pv].filter(Boolean).join(' ↔ ');
+  };
   const load = async (r: Role): Promise<EntityRecord[]> => {
-    const [all, cts] = await Promise.all([getStore().list('room', co), getStore().list('contract', co)]);
-    setContracts(cts);
+    const [all, cts, prods, del] = await Promise.all([getStore().list('room', co), getStore().list('contract', co), getStore().list('product', co), getStore().listDeleted('product', co).catch(() => [])]);
+    setContracts(cts); setProducts(prods); setDeletedProducts(del);
     const me = actor(r);
     const mine = r === 'admin' ? [...all] : r === 'provider' ? all.filter((x) => String(x.provider_company_code) === me.code) : all.filter((x) => String(x.agent_code) === me.code);
     const withUnread = await roomsWithUnread(mine, r);
@@ -131,11 +189,12 @@ export default function Chat() {
   const roomListEl = shownRooms.length === 0
     ? <div style={{ padding: 24, textAlign: 'center', color: C.faint, fontSize: 12.5 }}>{q || flt !== '문의' ? '검색 결과 없음' : role === 'provider' ? '들어온 문의가 없습니다.' : role === 'admin' ? '채팅 중인 문의가 없습니다.' : '채팅 중인 문의가 없습니다.'}</div>
     : <div>{shownRooms.map((rm) => {
-        const counter = role === 'provider' ? String(rm.agent_code || '') : role === 'agent' ? String(rm.provider_company_code || '') : `${rm.agent_code || ''} ↔ ${rm.provider_company_code || ''}`;
+        const counter = roomCounter(rm);
         return (
           <ChatRoomRow
             key={String(rm._key)}
             room={rm}
+            displayName={roomTitle(rm)}
             stageContract={contractOf(rm)}
             counter={counter}
             unread={unreadFor(rm, role)}

@@ -1,6 +1,6 @@
 'use client';
 import React from 'react';
-import { C, R, NUM } from './tokens';
+import { C, R, NUM, FW, FS } from './tokens';
 import { companyTone, companyShort } from '@/lib/companies';
 import { useIsMobile } from '@/lib/use-mobile';
 
@@ -42,14 +42,14 @@ export function Badge({ children, tone = 'gray', overlay = false, title, variant
   const m = BADGE[tone] || BADGE.gray;
   // 카드·레일 뱃지 = 웹/모바일 동일 치수(SSOT). 터치타깃은 행·버튼이 담당.
   const h = frosted ? 18 : 20;
-  const fs = frosted ? 10 : 10.5;
+  const fs = FS.micro;
   const pulseCls = pulse ? 'fp-badge-pulse' : undefined;
 
   const shell: React.CSSProperties = {
     display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
     height: h, boxSizing: 'border-box',
     padding: frosted ? '0 6px' : '0 7px', borderRadius: R,
-    fontSize: fs, fontWeight: 600,
+    fontSize: fs, fontWeight: FW.strong,
     whiteSpace: 'nowrap', letterSpacing: '-0.01em',
     lineHeight: 1,
     cursor: title ? 'help' : undefined,
@@ -58,7 +58,7 @@ export function Badge({ children, tone = 'gray', overlay = false, title, variant
   if (overlay) {
     return (
       <span title={title} className={pulseCls} style={{
-        ...shell, height: 16, fontSize: 9.5,
+        ...shell, height: 16, fontSize: FS.micro,
         padding: '0 6px',
         color: '#fff', background: 'rgba(15,23,42,0.55)',
       }}>
@@ -124,7 +124,7 @@ export function CompanyBadge({ co }: { co: string }) {
       height: 20, boxSizing: 'border-box',
       padding: '0 7px 0 6px', borderRadius: R,
       border: `1px solid ${C.line}`, background: '#fff', color: C.ink,
-      fontSize: 10.5, fontWeight: 600, whiteSpace: 'nowrap',
+      fontSize: FS.micro, fontWeight: FW.strong, whiteSpace: 'nowrap',
       lineHeight: 1,
     }}>
       <span style={{ width: 5, height: 5, borderRadius: 1, background: m[2], flex: '0 0 auto', opacity: 0.8 }} />
@@ -138,7 +138,7 @@ type Tone = 'gray' | 'green' | 'red' | 'amber' | 'blue';
 export function Status({ label, tone = 'gray' }: { label: React.ReactNode; tone?: Tone }) {
   const dot = { gray: '#a1a1aa', green: '#16a34a', red: '#dc2626', amber: '#ca8a04', blue: '#1B2A4A' }[tone];
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: C.ink, whiteSpace: 'nowrap', fontWeight: 500 }}>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: FS.sub, color: C.ink, whiteSpace: 'nowrap', fontWeight: FW.meta }}>
       <span style={{ width: 6, height: 6, borderRadius: 1, background: dot, flex: '0 0 6px' }} />
       {label}
     </span>
@@ -213,7 +213,7 @@ export function CountPill({ n, tone = 'brand', max = 999 }: {
           minWidth: mobile ? 18 : 16, height: mobile ? 16 : 15, boxSizing: 'border-box',
           padding: '0 5px', borderRadius: R,
           background: C.brand, color: '#fff',
-          fontSize: mobile ? 10.5 : 10, fontWeight: 700, lineHeight: 1,
+          fontSize: FS.micro, fontWeight: FW.strong, lineHeight: 1,
           fontFamily: NUM, fontVariantNumeric: 'tabular-nums',
         }}
       >

@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect, useCallback, type CSSProperties, type ReactNode } from 'react';
-import { Menu, X, Search, FileText, ScrollText, Settings, ChevronLeft, List, History, Users, Wrench, HelpCircle, Calculator, Car, type LucideIcon } from 'lucide-react';
+import { Menu, X, Search, FileText, ScrollText, Settings, ChevronLeft, List, History, Users, Wrench, HelpCircle, Sparkles, RefreshCw, type LucideIcon } from 'lucide-react';
 import { useAppBarSlots } from '@/lib/appbar';
 import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
@@ -29,8 +29,8 @@ const GROUPS: { title: string; items: { href?: string; label: string; icon: Luci
     { href: '/contract', label: NAV_LABEL.contract, icon: NAV_ICON.contract, roles: ['agent', 'provider', 'admin'] },
   ] },
   { title: '견적·구독', items: [
-    { href: '/sonogong', label: '중고 픽업구독', icon: Car, roles: ALL_ROLES },
-    { href: '/welrix', label: '신차렌탈 견적기', icon: Calculator, roles: ALL_ROLES },
+    { href: '/sonogong', label: '중고 픽업구독', icon: RefreshCw, roles: ALL_ROLES },
+    { href: '/welrix', label: '신차렌탈 견적기', icon: Sparkles, roles: ALL_ROLES },
   ] },
   { title: '공급관리', items: [
     { href: '/inventory', label: NAV_LABEL.inventory, icon: NAV_ICON.inventory, roles: ['provider', 'admin'] },
@@ -57,8 +57,8 @@ function statusFromPath(path: string): ReactNode {
   if (path.startsWith('/chat')) return <PageStatus icon={NAV_ICON.chat} label="문의 미확인" />;
   if (path.startsWith('/contract')) return <PageStatus icon={NAV_ICON.contract} label="계약진행중" />;
   if (path.startsWith('/inventory')) return <PageStatus icon={NAV_ICON.inventory} label="출고가능" />;
-  if (path.startsWith('/sonogong')) return <PageStatus icon={Car} label="중고차 렌트구독 견적기" />;
-  if (path.startsWith('/welrix')) return <PageStatus icon={Calculator} label="신차렌탈 견적기" />;
+  if (path.startsWith('/sonogong')) return <PageStatus icon={RefreshCw} label="중고차 렌트구독 견적기" />;
+  if (path.startsWith('/welrix')) return <PageStatus icon={Sparkles} label="신차장기렌터카 견적기" />;
   if (path.startsWith('/policy')) return <PageStatus icon={statusIconFor('정책')} label={NAV_LABEL.policy} />;
   if (path.startsWith('/settlement')) return <PageStatus icon={statusIconFor('정산')} label={NAV_LABEL.settlement} />;
   if (path.startsWith('/members')) return <PageStatus icon={statusIconFor('회원')} label={NAV_LABEL.members} />;
