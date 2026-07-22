@@ -9,6 +9,9 @@
         },
         "agent_payout_rate": {
           ".validate": "root.child('users').child(auth.uid).child('role').val() === 'admin' || (data.exists() && newData.val() === data.val())"
+        },
+        "status": {
+          ".validate": "root.child('users').child(auth.uid).child('role').val() === 'admin' || newData.val() === 'pending' || (data.exists() && newData.val() === data.val())"
         }
       }
     },
@@ -263,6 +266,9 @@
           },
           "agent_payout_rate": {
             ".validate": "root.child('users').child(auth.uid).child('role').val() === 'admin' || (data.exists() && newData.val() === data.val())"
+          },
+          "status": {
+            ".validate": "root.child('users').child(auth.uid).child('role').val() === 'admin' || newData.val() === 'pending' || (data.exists() && newData.val() === data.val())"
           }
         }
       },

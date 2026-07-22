@@ -142,12 +142,20 @@ export async function writeUserProfile(user: User, info: { name: string; phone: 
     const res = await runTransaction(ref(db, 'counters/user_code_seq'), (cur) => (cur || 0) + 1);
     if (res.committed) user_code = `U${String(res.snapshot.val()).padStart(4, '0')}`;
   } catch { /* noop */ }
-  // 가입 승인 — 사업자번호가 partners 에 매칭되면 즉시 활성(실 거래처는 흐름 그대로),
-  // 매칭 실패는 pending 으로 두고 관리자 승인을 받는다(불특정 가입자가 곧바로 데이터에 붙는 것을 막는다).
-  const status = matched_partner_code ? 'active' : 'pending';
+  // 가입 승인 — 전원 관리자 승인(자가활성 차단). 사업자번호 매칭은 role·company 자동부여에만 쓰고,
+  //   status 는 항상 pending 으로 저장 → 관리자가 approveUser 로 "최상위" users/{uid}/status 에 active 를 찍어야 사용 가능.
+  //   (게이트가 최상위 status 를 읽으므로 승인은 반드시 최상위에 기록해야 한다.)
+  const status = 'pending';
   await set(ref(db, `users/${user.uid}`), {
     uid: user.uid, email: user.email || '', name: info.name || '', phone: info.phone || '',
     company_name: info.company_name || '', business_no: bizNo, user_code,
     role, company_code, agent_channel_code, matched_partner_code, status, created_at: Date.now(),
   });
+}
+
+/** 관리자 가입 승인/해제 — 게이트가 읽는 "최상위" users/{uid}/status 에 직접 기록(v4 오버레이 아님). 관리자만(규칙 + 화면 게이트). */
+export async function approveUser(uid: string, active = true): Promise<void> {
+  const db = getRtdb(); if (!db) throw new Error('DB가 설정되지 않았습니다');
+  if (!uid) throw new Error('uid 없음');
+  await set(ref(db, `users/${uid}/status`), active ? 'active' : 'pending');
 }

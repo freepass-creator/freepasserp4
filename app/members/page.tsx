@@ -7,8 +7,9 @@ import { seedIfEmpty } from '@/lib/seed';
 import { ENTITIES, ROLES, ROLE_LABEL_RAW, type EntityRecord, type Field } from '@/lib/intake/entities';
 import { isGuest } from '@/lib/auth-session';
 import { getRole } from '@/lib/domain/deal';
+import { approveUser } from '@/lib/firebase/auth';
 import { newId } from '@/lib/domain/ids';
-import { PaneHead, PaneBody, Btn, Badge, FormGrid, FormCard, PillTabs, C, NUM, Loading, CenterNote, ListRow, ACTOR_TONE, FilterChips, SectionLabel, Message, PageActions, FW, FS } from '@/components/ui';
+import { PaneHead, PaneBody, Btn, Badge, FormGrid, FormCard, PillTabs, C, R, NUM, Loading, CenterNote, ListRow, ACTOR_TONE, FilterChips, SectionLabel, Message, PageActions, FW, FS } from '@/components/ui';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
 import { toast } from '@/components/Toaster';
 import { matchMemberQuery } from '@/lib/domain/search';
@@ -40,7 +41,8 @@ const MEM_PARTNER_TYPES: { key: string; label: string }[] = [
   { key: '채널', label: '채널' },
 ];
 const ROLE_LABEL: Record<string, string> = ROLE_LABEL_RAW;
-const USER_KEYS = ['name', 'role', 'company_code', 'company_name', 'agent_channel_code', 'user_code', 'agent_payout_rate', 'is_team_manager', 'is_active', 'status'];
+// status(가입승인)는 폼에서 제외 — v4 오버레이가 아니라 approveUser 로 "최상위"에 기록해야 게이트가 인식. 아래 승인 버튼 전용.
+const USER_KEYS = ['name', 'role', 'company_code', 'company_name', 'agent_channel_code', 'user_code', 'agent_payout_rate', 'is_team_manager', 'is_active'];
 const PARTNER_KEYS = ['name', 'partner_type', 'fee_rate', 'contact', 'sheet_url', 'sheet_tab', 'header_row', 'adapter_id']; // partner_code=자연키(헤더 표시·편집불가)
 const idFieldOf = (t: Tab) => (t === 'user' ? 'uid' : 'partner_code');
 
@@ -89,6 +91,18 @@ export default function Members() {
     setEditing(false);
   };
   const onChange = (k: string, v: string) => { setForm((f) => ({ ...f, [k]: v })); setDirty(true); };
+  // 가입 승인/해제 — approveUser 가 "최상위" users/{uid}/status 에 기록(게이트가 읽는 곳). v4 폼저장으로는 승인 안 됨.
+  const doApprove = async (active: boolean) => {
+    const uid = String(form.uid || form._key || '');
+    if (!uid) { toast('uid 없음 — 승인 불가', 'error'); return; }
+    try {
+      haptic.select();
+      await approveUser(uid, active);
+      setForm((f) => ({ ...f, status: active ? 'active' : 'pending' }));
+      toast(active ? '가입 승인 완료' : '승인 취소(대기)', 'ok');
+      await load(tab);
+    } catch (e) { toast(String((e as Error)?.message || e), 'error'); }
+  };
   const newRec = () => {
     // 식별코드 = 실무 표준(usr_/sup_). uid=user_code 동일값(단일 안정 ID) → 관계 어느 필드로 걸어도 일치.
     if (tab === 'user') { const c = newId('user'); setForm({ uid: c, user_code: c, role: 'agent', is_active: '예' }); }
@@ -203,6 +217,18 @@ export default function Members() {
         {sel ? (
           <>
             {modeBanner}
+            {tab === 'user' && String(form.status || '') === 'pending' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: C.selected, borderRadius: R, marginBottom: 8 }}>
+                <Badge tone="amber" variant="solid">승인대기</Badge>
+                <span style={{ fontSize: FS.sub, color: C.mute, flex: 1, minWidth: 0 }}>승인하면 이 사용자가 앱을 사용할 수 있습니다.</span>
+                <Btn size="sm" onClick={() => doApprove(true)}>가입 승인</Btn>
+              </div>
+            )}
+            {tab === 'user' && String(form.status || '') === 'active' && (
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+                <Btn size="sm" variant="ghost" onClick={() => doApprove(false)}>승인 취소(대기로)</Btn>
+              </div>
+            )}
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: FS.cap, color: C.faint }}>
               <span style={{ fontFamily: NUM, fontWeight: FW.strong, color: C.mute }}>{String(form[idFieldOf(tab)] || '')}</span>
             </div>
