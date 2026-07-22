@@ -26,6 +26,7 @@ const stripUndef = (o: Rec): Rec => { const r: Rec = {}; for (const [k, v] of Ob
 const NODE: Record<string, string> = {
   product: 'products', policy: 'policies', partner: 'partners', user: 'users',
   contract: 'contracts', room: 'rooms', message: 'messages', settlement: 'settlements', admin_settlement: 'admin_settlements', audit_log: 'audit_logs',
+  customer: 'customers', // ← 누락 시 단수 'customer' 경로로 새어 v4/$other(오픈) 규칙에 걸림. 복수 노드로 강제.
 };
 const OVERLAY = 'v4'; // 쓰기 격리 루트
 // v3 라이브에서 당겨오는 엔티티 = 매물·회원·채팅·계약(+매물 표시에 필요한 정책·공급사).
@@ -156,16 +157,16 @@ export class RtdbAdapter implements StoreAdapter {
   private async readMessages(co: string, overlay: boolean, roomIds: string[] = []): Promise<EntityRecord[]> {
     const out: EntityRecord[] = [];
     if (overlay) {
-      try {
-        const val: Rec = (await get(ref(this.db(), `${OVERLAY}/messages`))).val() || {};
-        for (const [k, m] of Object.entries<any>(val)) {
-          if (!m || typeof m !== 'object') continue;
-          if (roomIds.length && !roomIds.includes(String(m.room_id || ''))) continue;
-          out.push({ ...m, _key: String(k), room_id: m.room_id, companyId: co } as EntityRecord);
-        }
-      } catch (e) {
-        console.warn('RTDB v4/messages 읽기 실패:', (e as Error).message);
-      }
+      // v4 rules = room_id 쿼리 스코프(통째 get = permission_denied). roomIds 별 orderByChild('room_id') 조회.
+      //  통째 get + 클라 필터는 보안경계가 아님(raw SDK로 전량 유출) → 방 소유권을 rules가 판정하는 쿼리로 전환.
+      await Promise.all(roomIds.map(async (roomId) => {
+        try {
+          const val: Rec = (await get(query(ref(this.db(), `${OVERLAY}/messages`), orderByChild('room_id'), equalTo(roomId)))).val() || {};
+          for (const [k, m] of Object.entries<any>(val)) {
+            if (m && typeof m === 'object') out.push({ ...m, _key: String(k), room_id: m.room_id || roomId, companyId: co } as EntityRecord);
+          }
+        } catch { /* 권한 없는 방 스킵 */ }
+      }));
       return out;
     }
     await Promise.all(roomIds.map(async (roomId) => {
@@ -179,8 +180,12 @@ export class RtdbAdapter implements StoreAdapter {
     return out;
   }
 
-  /** v3 rooms — rules가 query.orderByChild 스코프 요구. 통째 get 시 permission_denied → 빈목록. */
-  private async readRoomsLive(co: string): Promise<EntityRecord[]> {
+  /**
+   * rooms 스코프 조회 — v3 `rooms` · v4 `v4/rooms` 양쪽. rules가 query.orderByChild 스코프 요구 → 통째 get 금지.
+   * v4 오버레이 방도 소유필드(agent_uid·agent_channel_code·provider_company_code)를 담아야 스코프 조회됨(update()에서 승계 스탬프).
+   */
+  private async readRoomsScoped(co: string, overlay: boolean): Promise<EntityRecord[]> {
+    const node = overlay ? `${OVERLAY}/rooms` : 'rooms';
     const auth = getAuthClient()?.currentUser;
     const sess = getSession();
     const role = sess?.role || 'agent';
@@ -195,34 +200,34 @@ export class RtdbAdapter implements StoreAdapter {
     const take = (snap: DataSnapshot | null) => { if (snap) pushVal(snap.val()); };
     try {
       if (role === 'admin') {
-        take(await get(ref(db, 'rooms')));
+        take(await get(ref(db, node)));
         return out;
       }
       if (!auth) return out;
       if (role === 'provider') {
         const company = sess?.company_code || sess?.code || '';
-        if (company) take(await get(query(ref(db, 'rooms'), orderByChild('provider_company_code'), equalTo(company))));
+        if (company) take(await get(query(ref(db, node), orderByChild('provider_company_code'), equalTo(company))));
         return out;
       }
       // agent: 사람(uid) + 채널(레거시·팀뷰) 병합 후 앱이 agent_code 로 재필터
       const snaps = await Promise.allSettled([
-        get(query(ref(db, 'rooms'), orderByChild('agent_uid'), equalTo(auth.uid))),
+        get(query(ref(db, node), orderByChild('agent_uid'), equalTo(auth.uid))),
         sess?.agent_channel_code
-          ? get(query(ref(db, 'rooms'), orderByChild('agent_channel_code'), equalTo(sess.agent_channel_code)))
+          ? get(query(ref(db, node), orderByChild('agent_channel_code'), equalTo(sess.agent_channel_code)))
           : Promise.resolve(null as DataSnapshot | null),
       ]);
       for (const s of snaps) {
         if (s.status === 'fulfilled') take(s.value);
       }
     } catch (e) {
-      console.warn('RTDB rooms 스코프 조회 실패:', (e as Error).message);
+      console.warn(`RTDB rooms(${node}) 스코프 조회 실패:`, (e as Error).message);
     }
     const map = new Map(out.map((r) => [String(r._key), r]));
     return [...map.values()];
   }
 
   /**
-   * 계약 스코프 조회 — 고객 PII(이름·전화)를 담아 역할별 격리 필수(readRoomsLive 선례).
+   * 계약 스코프 조회 — 고객 PII(이름·전화)를 담아 역할별 격리 필수(readRoomsScoped 선례).
    * v3 `contracts` · v4 `v4/contracts` 양쪽에 적용. admin=전량 · provider=자기 회사 · agent=본인 uid+채널.
    * rules가 스코프 쿼리를 요구해도(게시 후) 통과, 열린 규칙(게시 전)에서도 부분집합만 → 게시 전/후 모두 안전.
    */
@@ -260,10 +265,66 @@ export class RtdbAdapter implements StoreAdapter {
     return [...map.values()];
   }
 
+  /**
+   * 정산 스코프 조회 — v4 `v4/settlements`(정산=오버레이 네이티브). 정산 레코드엔 agent_uid 없음 →
+   * 영업자는 agent_channel_code, 공급사는 provider_company_code 로 스코프(계약과 키가 다름 주의).
+   */
+  private async readSettlementsScoped(co: string, overlay: boolean, joinMap?: Rec): Promise<EntityRecord[]> {
+    const node = overlay ? `${OVERLAY}/settlements` : 'settlements';
+    const auth = getAuthClient()?.currentUser;
+    const sess = getSession();
+    const role = sess?.role || 'agent';
+    const db = this.db();
+    const out: EntityRecord[] = [];
+    const take = (snap: DataSnapshot | null) => {
+      const val = snap?.val() as Rec | null; if (!val) return;
+      for (const [k, rec] of Object.entries<any>(val)) if (rec && typeof rec === 'object') out.push(toV4('settlement', k, rec, co, joinMap));
+    };
+    try {
+      if (role === 'admin') { take(await get(ref(db, node))); }
+      else if (auth) {
+        if (role === 'provider') {
+          const company = sess?.company_code || sess?.code || '';
+          if (company) take(await get(query(ref(db, node), orderByChild('provider_company_code'), equalTo(company))));
+        } else if (sess?.agent_channel_code) {
+          take(await get(query(ref(db, node), orderByChild('agent_channel_code'), equalTo(sess.agent_channel_code))));
+        }
+      }
+    } catch (e) {
+      console.warn(`RTDB settlements(${node}) 스코프 조회 실패:`, (e as Error).message);
+    }
+    const map = new Map(out.map((r) => [String(r._key), r]));
+    return [...map.values()];
+  }
+
+  /** 고객 스코프 조회 — v4 `v4/customers`. 비관리자는 본인 생성분(created_by === 내 uid)만. */
+  private async readCustomersScoped(co: string, overlay: boolean): Promise<EntityRecord[]> {
+    const node = overlay ? `${OVERLAY}/customers` : 'customers';
+    const auth = getAuthClient()?.currentUser;
+    const sess = getSession();
+    const role = sess?.role || 'agent';
+    const db = this.db();
+    const out: EntityRecord[] = [];
+    const take = (snap: DataSnapshot | null) => {
+      const val = snap?.val() as Rec | null; if (!val) return;
+      for (const [k, rec] of Object.entries<any>(val)) if (rec && typeof rec === 'object') out.push(toV4('customer', k, rec, co));
+    };
+    try {
+      if (role === 'admin') { take(await get(ref(db, node))); }
+      else if (auth) { take(await get(query(ref(db, node), orderByChild('created_by'), equalTo(auth.uid)))); }
+    } catch (e) {
+      console.warn(`RTDB customers(${node}) 스코프 조회 실패:`, (e as Error).message);
+    }
+    const map = new Map(out.map((r) => [String(r._key), r]));
+    return [...map.values()];
+  }
+
   private async readNode(entity: string, co: string, overlay: boolean, joinMap?: Rec, roomIds?: string[]): Promise<EntityRecord[]> {
     if (entity === 'message') return this.readMessages(co, overlay, roomIds || []);
-    if (entity === 'room' && !overlay) return this.readRoomsLive(co);
+    if (entity === 'room') return this.readRoomsScoped(co, overlay);
     if (entity === 'contract') return this.readContractsScoped(co, overlay);
+    if (entity === 'settlement') return this.readSettlementsScoped(co, overlay, joinMap);
+    if (entity === 'customer') return this.readCustomersScoped(co, overlay);
     const node = NODE[entity] || entity;
     const val: Rec = (await get(ref(this.db(), overlay ? `${OVERLAY}/${node}` : node))).val() || {};
     const out: EntityRecord[] = [];
@@ -276,7 +337,7 @@ export class RtdbAdapter implements StoreAdapter {
     try {
       let joinMap: Rec | undefined;
       if (entity === 'product') joinMap = (await get(ref(this.db(), 'policies'))).val() || {};
-      else if (entity === 'settlement') joinMap = (await get(ref(this.db(), `${OVERLAY}/contracts`))).val() || {};   // 정산은 v4 네이티브 → 계약도 v4 오버레이 참조
+      else if (entity === 'settlement') { try { joinMap = (await get(ref(this.db(), `${OVERLAY}/contracts`))).val() || {}; } catch { joinMap = {}; } }   // 정산 조인(계약일자). v4/contracts 스코프거부(비관리자) 시 무시 → 정산은 스코프 리더가 별도로 조회
       // 매물·회원·채팅·계약(+정책·공급사) = v3 라이브 ∪ 오버레이. 정산·감사 = 오버레이만.
       const bridge = BRIDGE_FROM_V3.has(entity);
 
@@ -325,7 +386,8 @@ export class RtdbAdapter implements StoreAdapter {
       let key = naturalKey(entity, rec as Rec);
       if (key && seen.has(key)) { duplicates++; continue; }
       if (!key) key = `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-      const stored: Rec = stripUndef({ ...rec, companyId: co, _key: key, createdAt: new Date().toISOString(), createdBy: 'rtdb' });
+      // 고객 = created_by 소유필드 필수(v4/customers 스코프 read + 소유 write 규칙 기준). 로그인 uid 로 귀속.
+      const stored: Rec = stripUndef({ ...rec, companyId: co, _key: key, createdAt: new Date().toISOString(), createdBy: 'rtdb', ...(entity === 'customer' ? { created_by: (rec as Rec).created_by || getAuthClient()?.currentUser?.uid } : {}) });
       await dbUpdate(ref(this.db(), `${OVERLAY}/${node}/${key}`), stored);
       this.writeAudit(entity, co, key, 'create', null, stored);
       seen.add(key); saved++;
@@ -337,6 +399,13 @@ export class RtdbAdapter implements StoreAdapter {
     const node = NODE[entity] || entity;
     const before = await this.get(entity, co, key);
     const p: Rec = stripUndef({ ...patch, _key: key, updatedAt: new Date().toISOString() });
+    // room = v4 오버레이 규칙이 소유필드 기반(스코프 read·소유 write). last_message·안읽음 갱신 패치엔 소유필드가 없어
+    //  오버레이 방이 소유필드 결핍→스코프 조회 누락·write 거부가 됨. 기존 방에서 승계 스탬프해 자기기술형으로 유지.
+    if (entity === 'room' && before) {
+      for (const f of ['agent_uid', 'agent_code', 'agent_channel_code', 'provider_company_code', 'provider_uid'] as const) {
+        if (p[f] === undefined && (before as Rec)[f] != null && (before as Rec)[f] !== '') p[f] = (before as Rec)[f];
+      }
+    }
     await dbUpdate(ref(this.db(), `${OVERLAY}/${node}/${key}`), p);
     this.writeAudit(entity, co, key, (patch as Rec)._deleted ? 'delete' : 'update', before, { ...(before || {}), ...p });
   }
