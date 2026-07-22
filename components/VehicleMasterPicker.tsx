@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
-import { C, R, Select, Input } from '@/components/ui';
+import { C, R, Select, Input, FW, FS } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import {
   masterVariantLabel,
@@ -162,20 +162,20 @@ export function VehicleMasterPicker({
 
   return (
     <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: C.selected, padding: '10px 12px' }}>
-      <div style={{ fontSize: 12, fontWeight: 800, color: C.brand, marginBottom: 7 }}>
+      <div style={{ fontSize: 12, fontWeight: FW.title, color: C.brand, marginBottom: 7 }}>
         차종 마스터 규격{' '}
-        {entries === null && <span style={{ color: C.faint, fontWeight: 400 }}>· 불러오는 중…</span>}
-        {entries && entries.length === 0 && <span style={{ color: C.danger, fontWeight: 400 }}>· 마스터 로드 실패</span>}
+        {entries === null && <span style={{ color: C.faint, fontWeight: FW.body }}>· 불러오는 중…</span>}
+        {entries && entries.length === 0 && <span style={{ color: C.danger, fontWeight: FW.body }}>· 마스터 로드 실패</span>}
         {entries && entries.length > 0 && pathOk === true && (
-          <span style={{ color: C.ok, fontWeight: 600 }}>
+          <span style={{ color: C.ok, fontWeight: FW.strong }}>
             · 규격 일치{noTrimGrade ? ' (세부트림 없음)' : (trim ? '' : ' (세부트림 미선택)')}
           </span>
         )}
         {entries && entries.length > 0 && pathOk === false && (
-          <span style={{ color: C.danger, fontWeight: 600 }}>· 마스터에 없는 값 — 아래에서 규격 선택</span>
+          <span style={{ color: C.danger, fontWeight: FW.strong }}>· 마스터에 없는 값 — 아래에서 규격 선택</span>
         )}
         {entries && entries.length > 0 && pathOk == null && (
-          <span style={{ color: C.faint, fontWeight: 400 }}>· {entries.length.toLocaleString()}세대</span>
+          <span style={{ color: C.faint, fontWeight: FW.body }}>· {entries.length.toLocaleString()}세대</span>
         )}
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 6 }}>
@@ -206,7 +206,7 @@ export function VehicleMasterPicker({
         />
       </div>
       <div style={{ marginTop: 6 }}>
-        <div style={{ fontSize: 10.5, color: C.mute, marginBottom: 3 }}>추가표기 · 마스터 밖 자유입력 (런칭·휠·패키지 등)</div>
+        <div style={{ fontSize: FS.micro, color: C.mute, marginBottom: 3 }}>추가표기 · 마스터 밖 자유입력 (런칭·휠·패키지 등)</div>
         <Input
           full
           size="sm"

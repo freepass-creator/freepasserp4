@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState, type MouseEvent, type ReactNode } from 'react';
 import { MoreVertical, Star, ThumbsDown, EyeOff } from 'lucide-react';
-import { C } from '@/components/ui';
+import { C, FW, FS } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
 import { isFav, toggleFav, removeFav, subscribeInterest } from '@/lib/product-interest';
@@ -56,7 +56,7 @@ export function ProductMoreMenu({ p }: { p: EntityRecord }) {
         width: '100%', minHeight: mobile ? 48 : 40, padding: mobile ? '0 16px' : '0 14px',
         border: 'none', borderTop: `1px solid ${C.line2}`,
         background: '#fff', cursor: 'pointer', textAlign: 'left',
-        fontSize: mobile ? 15.5 : 13.5, fontWeight: 600,
+        fontSize: mobile ? FS.title : FS.body, fontWeight: FW.strong,
         color: opts?.danger ? C.danger : opts?.muted ? C.mute : C.ink,
       }}
     >
@@ -121,7 +121,7 @@ export function ProductMoreMenu({ p }: { p: EntityRecord }) {
           width: '100%', minHeight: mobile ? 48 : 40, marginTop: 6,
           border: 'none', borderTop: `1px solid ${C.line}`,
           background: C.head, cursor: 'pointer',
-          fontSize: mobile ? 15 : 13, fontWeight: 700, color: C.mute,
+          fontSize: mobile ? FS.title : FS.body, fontWeight: FW.strong, color: C.mute,
         }}
       >
         취소
@@ -173,7 +173,7 @@ export function ProductMoreMenu({ p }: { p: EntityRecord }) {
               boxShadow: '0 16px 40px rgba(15,23,42,0.2)', overflow: 'hidden',
             }}
           >
-            <div style={{ padding: '12px 14px 8px', fontSize: 14, fontWeight: 800, color: C.ink }}>상품</div>
+            <div style={{ padding: '12px 14px 8px', fontSize: FS.title, fontWeight: FW.title, color: C.ink }}>상품</div>
             {panel}
           </div>
         </div>

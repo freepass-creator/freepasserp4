@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { useEffect, useState, type MouseEvent } from 'react';
 import { Star, History, X } from 'lucide-react';
-import { C, R, Btn, NUM, ctrlH, ctrlFs } from '@/components/ui';
+import { C, R, Btn, NUM, ctrlH, ctrlFs, FW, FS } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { vehicleName, cheapest } from '@/lib/domain/product';
 import {
@@ -91,7 +91,7 @@ export function InterestTriggers({
           borderRadius: R, cursor: 'pointer',
           border: `1px solid ${on ? accent : C.line}`,
           background: on ? accentBg : C.taupeBg,
-          color: on ? accent : C.mute, fontWeight: 800, fontSize: ctrlFs(mobile),
+          color: on ? accent : C.mute, fontWeight: FW.label, fontSize: ctrlFs(mobile),
           fontFamily: NUM,
         }}
       >
@@ -151,26 +151,26 @@ export function InterestSummaryCard({ live, snap, tab }: {
     >
       <div style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
         <div style={{
-          fontSize: mobile ? 13 : 12.5, lineHeight: 1.25, color: C.ink,
+          fontSize: mobile ? 13 : FS.sub, lineHeight: 1.25, color: C.ink,
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>
-          {plate ? <span style={{ fontFamily: NUM, fontWeight: 800 }}>{plate}</span> : null}
+          {plate ? <span style={{ fontFamily: NUM, fontWeight: FW.head }}>{plate}</span> : null}
           {plate ? <span style={{ color: C.faint }}> · </span> : null}
-          <span style={{ fontWeight: 600 }}>{name}</span>
+          <span style={{ fontWeight: FW.strong }}>{name}</span>
         </div>
         <div style={{
-          fontSize: mobile ? 12 : 11.5, lineHeight: 1.25,
+          fontSize: mobile ? 12 : FS.cap, lineHeight: 1.25,
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>
           {focus && focus.rent > 0 ? (
             <>
               <span style={{ color: C.faint }}>{focus.m}개월</span>
               {' · '}
-              <span style={{ fontFamily: NUM, fontWeight: 800, color: C.brand }}>{man(focus.rent)}</span>
+              <span style={{ fontFamily: NUM, fontWeight: FW.head, color: C.brand }}>{man(focus.rent)}</span>
               {' · '}
               {focus.deposit > 0 ? (
                 <span style={{ color: C.mute }}>
-                  보증 <span style={{ fontFamily: NUM, fontWeight: 600 }}>{man(focus.deposit)}</span>
+                  보증 <span style={{ fontFamily: NUM, fontWeight: FW.strong }}>{man(focus.deposit)}</span>
                 </span>
               ) : (
                 <span style={{ color: C.faint }}>무보증</span>
@@ -225,7 +225,7 @@ export function InterestPanel({
   return (
     <div className="fp-finder-interest" style={{ width: '100%', marginBottom: mobile ? 10 : 8 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-        <span style={{ fontSize: 12, fontWeight: 800, color: C.brand }}>
+        <span style={{ fontSize: 12, fontWeight: FW.title, color: C.brand }}>
           {tab === 'recent' ? `최근 ${recent.length}` : `관심 ${favs.length}`}
         </span>
         <span style={{ flex: 1 }} />

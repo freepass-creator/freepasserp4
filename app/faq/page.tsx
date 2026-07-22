@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { getRole } from '@/lib/domain/deal';
-import { Page, Section, DetailGrid, SectionLabel, Disclosure, CopyBlock, CenterNote, Loading, Btn, C } from '@/components/ui';
+import { Page, Section, DetailGrid, SectionLabel, Disclosure, CopyBlock, CenterNote, Loading, Btn, C, FW, FS } from '@/components/ui';
 import { GUIDE, FAQ, matchFaq } from '@/lib/domain/faq';
 import { NAV_LABEL } from '@/lib/tabbar';
 
@@ -9,7 +9,7 @@ import { NAV_LABEL } from '@/lib/tabbar';
 // 내용 SSOT는 lib/domain/faq.ts — 여기서는 배열·검색만 한다.
 function Para({ lines }: { lines: string[] }) {
   return (
-    <div style={{ padding: '8px 12px', fontSize: 12.5, lineHeight: 1.7, color: C.ink }}>
+    <div style={{ padding: '8px 12px', fontSize: FS.sub, lineHeight: 1.7, color: C.ink }}>
       {lines.map((p, i) => <p key={i} style={{ margin: i ? '6px 0 0' : 0 }}>{p}</p>)}
     </div>
   );
@@ -56,16 +56,16 @@ export default function Faq() {
       {!searching && GUIDE.map((s) => (
         <Section key={s.title} title={s.title}>
           {s.desc ? (
-            <div style={{ padding: '8px 12px 2px', fontSize: 11.5, color: C.faint }}>{s.desc}</div>
+            <div style={{ padding: '8px 12px 2px', fontSize: FS.cap, color: C.faint }}>{s.desc}</div>
           ) : null}
           {s.steps?.length ? (
             <div style={{ padding: '6px 12px 4px' }}>
               {s.steps.map((st, i) => (
-                <div key={i} style={{ display: 'flex', gap: 10, padding: '5px 0', fontSize: 12.5, lineHeight: 1.55 }}>
+                <div key={i} style={{ display: 'flex', gap: 10, padding: '5px 0', fontSize: FS.sub, lineHeight: 1.55 }}>
                   <span style={{ flex: '0 0 auto', width: 18, color: C.faint, fontVariantNumeric: 'tabular-nums' }}>{i + 1}</span>
                   <span style={{ flex: 1 }}>
                     {st.main}
-                    {st.sub ? <span style={{ display: 'block', color: C.faint, fontSize: 11.5 }}>{st.sub}</span> : null}
+                    {st.sub ? <span style={{ display: 'block', color: C.faint, fontSize: FS.cap }}>{st.sub}</span> : null}
                   </span>
                 </div>
               ))}
@@ -87,11 +87,11 @@ export default function Faq() {
       ) : (
         groups.map((g) => (
           <div key={g.title} style={{ marginBottom: 14 }}>
-            <div style={{ fontSize: 11.5, fontWeight: 700, color: C.faint, margin: '10px 0 2px' }}>{g.title}</div>
+            <div style={{ fontSize: FS.cap, fontWeight: FW.strong, color: C.faint, margin: '10px 0 2px' }}>{g.title}</div>
             {g.items.map((it) => (
               <Disclosure key={it.q} title={it.q} defaultOpen={searching}>
                 {it.a?.length ? (
-                  <div style={{ fontSize: 12.5, lineHeight: 1.7, color: C.ink }}>
+                  <div style={{ fontSize: FS.sub, lineHeight: 1.7, color: C.ink }}>
                     {it.a.map((p, i) => <p key={i} style={{ margin: i ? '6px 0 0' : 0 }}>{p}</p>)}
                   </div>
                 ) : null}

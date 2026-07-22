@@ -7,7 +7,7 @@ import { seedIfEmpty } from '@/lib/seed';
 import { ENTITIES, type EntityRecord } from '@/lib/intake/entities';
 import { getRole } from '@/lib/domain/deal';
 import { parseAuditChanges, auditDomainOf, AUDIT_DOMAIN_OPTS } from '@/lib/domain/audit';
-import { Page, Btn, Badge, PillTabs, FilterChips, SearchInput, C, R, Loading, CenterNote, SectionLabel } from '@/components/ui';
+import { Page, Btn, Badge, PillTabs, FilterChips, SearchInput, C, R, Loading, CenterNote, SectionLabel, FW, FS } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 
 // 감사·휴지통 — 전 데이터 write 관장(매물·대여료·계약·정산·채팅·회원). store 자동 기록.
@@ -30,9 +30,9 @@ function AuditRow({ log }: { log: EntityRecord }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px' }}>
         <Badge tone={ACT_TONE[act] || 'gray'}>{act === 'chat' ? '채팅' : act === 'master_snap' ? '차종변환' : act}</Badge>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 12.5, fontWeight: 600, color: C.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <div style={{ fontSize: FS.sub, fontWeight: FW.strong, color: C.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {label(String(log.entity))}{' '}
-            <span style={{ fontFamily: 'var(--font-mono)', color: C.mute, fontWeight: 400 }}>{String(log.target_key || '')}</span>
+            <span style={{ fontFamily: 'var(--font-mono)', color: C.mute, fontWeight: FW.body }}>{String(log.target_key || '')}</span>
           </div>
           <div style={{ fontSize: 11, color: C.faint, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {String(log.actor_name || '?')} · {String(log.actor_role || '')}
@@ -47,11 +47,11 @@ function AuditRow({ log }: { log: EntityRecord }) {
       {open && (
         <div style={{ padding: '0 14px 10px 14px', display: 'flex', flexDirection: 'column', gap: 4 }}>
           {changes.map((c) => (
-            <div key={c.key} style={{ display: 'grid', gridTemplateColumns: '88px 1fr auto 1fr', gap: 6, fontSize: 11.5, alignItems: 'baseline' }}>
+            <div key={c.key} style={{ display: 'grid', gridTemplateColumns: '88px 1fr auto 1fr', gap: 6, fontSize: FS.cap, alignItems: 'baseline' }}>
               <span style={{ color: C.faint }}>{c.label}</span>
               <span style={{ color: C.mute, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={c.from}>{c.from}</span>
               <span style={{ color: C.faint }}>→</span>
-              <span style={{ color: C.brand, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={c.to}>{c.to}</span>
+              <span style={{ color: C.brand, fontWeight: FW.strong, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={c.to}>{c.to}</span>
             </div>
           ))}
           {samples.map((s, i) => (
@@ -147,7 +147,7 @@ export default function AuditTrash() {
               <div key={`${entity}_${rec._key}_${i}`} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px', borderTop: i ? `1px solid ${C.line2}` : 'none' }}>
                 <Badge tone="gray">{label(entity)}</Badge>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 12.5, fontWeight: 600, color: C.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{String(rec.car_number || rec.customer_name || rec.name || rec.contract_code || rec.policy_name || rec._key)}</div>
+                  <div style={{ fontSize: FS.sub, fontWeight: FW.strong, color: C.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{String(rec.car_number || rec.customer_name || rec.name || rec.contract_code || rec.policy_name || rec._key)}</div>
                   <div style={{ fontSize: 11, color: C.faint }}>삭제 {fmt(Date.parse(String(rec.deletedAt || '')) || undefined)} {rec.deletedReason ? `· ${rec.deletedReason}` : ''}</div>
                 </div>
                 <Btn variant="ghost" size="sm" onClick={() => restore(entity, String(rec._key))}>복구</Btn>

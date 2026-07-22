@@ -6,7 +6,7 @@ import { seedIfEmpty } from '@/lib/seed';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { getRole, actor, type Role } from '@/lib/domain/deal';
 import { sendText, sendFile as sendFileMsg, markRead, listMessages, isMine } from '@/lib/domain/messaging';
-import { Btn, C, R, FS, Loading, CenterNote, Input, IconBtn, ctrlH, NavBack } from '@/components/ui';
+import { Btn, C, R, FW, FS, Loading, CenterNote, Input, IconBtn, ctrlH, NavBack } from '@/components/ui';
 import { toast } from '@/components/Toaster';
 import { ChatSenderLabel } from '@/components/ChatSenderLabel';
 import { useIsMobile } from '@/lib/use-mobile';
@@ -75,13 +75,13 @@ export function ChatThread({ roomId, onBack, onVehicle, onContract }: { roomId: 
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, background: '#fff' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: ctrlH(mobile), flex: `0 0 ${ctrlH(mobile)}px`, padding: '0 14px', borderBottom: `1px solid ${C.line}`, background: '#fff', boxSizing: 'border-box' }}>
         {onBack && <NavBack kind="list" onClick={onBack} />}
-        <span style={{ fontSize: 13.5, fontWeight: 800, minWidth: 0, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{String(room.vehicle_name || '')}</span>
+        <span style={{ fontSize: FS.title, fontWeight: FW.title, minWidth: 0, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{String(room.vehicle_name || '')}</span>
         {onVehicle && <Btn variant="ghost" size="sm" onClick={() => onVehicle(String(room.product_code))}>차량</Btn>}
         {onContract && <Btn size="sm" onClick={() => onContract(String(room.product_code))}>계약진행</Btn>}
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {msgs.length === 0 && <div style={{ textAlign: 'center', color: C.faint, fontSize: 12.5, marginTop: 20 }}>첫 메시지를 남겨보세요.</div>}
+        {msgs.length === 0 && <div style={{ textAlign: 'center', color: C.faint, fontSize: FS.sub, marginTop: 20 }}>첫 메시지를 남겨보세요.</div>}
         {msgs.map((m) => {
           const mine = isMine(m, me, role);
           const isAdmin = m.sender_role === 'admin';
@@ -90,7 +90,7 @@ export function ChatThread({ roomId, onBack, onVehicle, onContract }: { roomId: 
           const bubble = m.image_url ? (
             <img src={String(m.image_url)} alt="" onClick={() => setFull(String(m.image_url))} style={{ maxWidth: 200, maxHeight: 220, borderRadius: R, cursor: 'zoom-in', display: 'block', border: `1px solid ${C.line}` }} />
           ) : m.file_url ? (
-            <a href={String(m.file_url)} download={String(m.file_name || 'file')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, maxWidth: 220, padding: '8px 11px', borderRadius: R, fontSize: 12.5, background: mine ? C.brand : '#fff', color: mine ? '#fff' : C.ink, border: mine ? 'none' : `1px solid ${C.line}`, textDecoration: 'none' }}><span>📎</span><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{String(m.file_name || '파일')}</span></a>
+            <a href={String(m.file_url)} download={String(m.file_name || 'file')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, maxWidth: 220, padding: '8px 11px', borderRadius: R, fontSize: FS.sub, background: mine ? C.brand : '#fff', color: mine ? '#fff' : C.ink, border: mine ? 'none' : `1px solid ${C.line}`, textDecoration: 'none' }}><span>📎</span><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{String(m.file_name || '파일')}</span></a>
           ) : (
             <div style={{ padding: '8px 11px', borderRadius: R, fontSize: 13, lineHeight: 1.45, background: mine ? C.brand : isAdmin ? C.warnBg : '#fff', color: mine ? '#fff' : C.ink, border: mine ? 'none' : `1px solid ${C.line}`, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{String(m.text)}</div>
           );
@@ -98,7 +98,7 @@ export function ChatThread({ roomId, onBack, onVehicle, onContract }: { roomId: 
             <div key={String(m._key)} style={{ alignSelf: mine ? 'flex-end' : 'flex-start', maxWidth: '78%' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 5, margin: '0 0 2px 3px', justifyContent: mine ? 'flex-end' : 'flex-start' }}>
                 {!mine && <ChatSenderLabel role={String(m.sender_role)} name={String(m.sender_name)} code={String(m.sender_code || m.sender_uid || '')} />}
-                {simple && <span style={{ fontSize: FS.micro, fontWeight: 700, color: C.brand, background: C.selected, padding: '1px 5px', borderRadius: R }}>간단</span>}
+                {simple && <span style={{ fontSize: FS.micro, fontWeight: FW.label, color: C.brand, background: C.selected, padding: '1px 5px', borderRadius: R }}>간단</span>}
               </div>
               <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, flexDirection: mine ? 'row-reverse' : 'row' }}>
                 {bubble}

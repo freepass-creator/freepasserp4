@@ -10,7 +10,7 @@ import { vehicleName, joinEventTags, canonProductType } from '@/lib/domain/produ
 import { matchProductQuery } from '@/lib/domain/search';
 import { withProviderNames } from '@/lib/domain/identity';
 import { vehicleLockedBy, blockingContractFor } from '@/lib/domain/settlement-engine';
-import { PaneHead, PaneBody, Btn, FormGrid, FormCard, C, R, NUM, Loading, CenterNote, SectionLabel, Select, Badge, Page, FilterChips, Message, PageActions } from '@/components/ui';
+import { PaneHead, PaneBody, Btn, FormGrid, FormCard, C, R, NUM, Loading, CenterNote, SectionLabel, Select, Badge, Page, FilterChips, Message, PageActions, FW, FS } from '@/components/ui';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
 import { toast } from '@/components/Toaster';
 import { haptic } from '@/lib/haptics';
@@ -418,7 +418,7 @@ export default function Inventory() {
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, flexWrap: 'wrap',
             padding: '12px 14px', borderTop: `1px solid ${C.line2}`,
           }}>
-            <span style={{ fontSize: 12.5, color: C.mute }}>
+            <span style={{ fontSize: FS.sub, color: C.mute }}>
               {shown.length.toLocaleString()} / {filtered.length.toLocaleString()}대
             </span>
             <Btn variant="ghost" size="sm" onClick={() => setLimit((n) => n + PAGE)}>
@@ -457,7 +457,7 @@ export default function Inventory() {
         {sel ? <>
           {modeBanner}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: C.faint, flexWrap: 'wrap' }}>
-            <span style={{ fontFamily: NUM, fontWeight: 700, color: C.mute }}>{String(form.product_code)}</span>
+            <span style={{ fontFamily: NUM, fontWeight: FW.strong, color: C.mute }}>{String(form.product_code)}</span>
             <span>{String(form.provider_company_code || '')}</span>
             <span style={{ flex: 1 }} />
             {canEdit ? (
@@ -475,14 +475,14 @@ export default function Inventory() {
             opacity: canEdit ? 1 : 0.75, pointerEvents: canEdit ? undefined : 'none',
           }}>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 12, fontWeight: 800, color: C.brand }}>① 자동차등록증</div>
-              <div style={{ fontSize: 10.5, color: C.faint }}>올리면 차번·차대·연료·배기·인승·용도·최초등록 자동채움(빈 칸만)</div>
+              <div style={{ fontSize: 12, fontWeight: FW.title, color: C.brand }}>① 자동차등록증</div>
+              <div style={{ fontSize: FS.micro, color: C.faint }}>올리면 차번·차대·연료·배기·인승·용도·최초등록 자동채움(빈 칸만)</div>
             </div>
             <input ref={ocrRef} type="file" accept="image/*" onChange={(e) => runOcr(e.target.files)} style={{ display: 'none' }} />
             <Btn size="sm" onClick={() => ocrRef.current?.click()} disabled={ocrBusy || !canEdit}>{ocrBusy ? '인식 중…' : '등록증 올리기'}</Btn>
           </div>
           <div style={{ pointerEvents: canEdit ? undefined : 'none', opacity: canEdit ? 1 : 0.85 }}>
-            <div style={{ fontSize: 12, fontWeight: 800, color: C.brand, marginBottom: 6 }}>② 차종 마스터</div>
+            <div style={{ fontSize: 12, fontWeight: FW.title, color: C.brand, marginBottom: 6 }}>② 차종 마스터</div>
             <VehicleMasterPicker
               key={sel || 'none'}
               value={{
@@ -542,10 +542,10 @@ export default function Inventory() {
           <FormCard title="상태 · 구분 · 정책" hint="매물 운영 상태와 연결 정책">
             {FG(['vehicle_status', 'product_type'])}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 9, marginTop: 9 }}>
-              <label style={{ fontSize: 11.5, color: C.mute }}>무보증 가능
+              <label style={{ fontSize: FS.cap, color: C.mute }}>무보증 가능
                 <div style={{ marginTop: 3 }}><Select value={String(form.deposit_free || '')} onChange={(v) => onChange('deposit_free', v)} options={['예', '아니오']} placeholder="—" full disabled={!canEdit} /></div>
               </label>
-              <label style={{ fontSize: 11.5, color: C.mute }}>정책 연결
+              <label style={{ fontSize: FS.cap, color: C.mute }}>정책 연결
                 <div style={{ marginTop: 3 }}><Select value={String(form.policy_code || '')} onChange={(v) => onChange('policy_code', v)} placeholder="— 정책 선택 —" full disabled={!canEdit}
                   options={policies.filter((pl) => {
                     const pc = String(form.provider_company_code || '');
@@ -563,12 +563,12 @@ export default function Inventory() {
           {Section('주행 · 사고', ['mileage', 'accident_history'])}
           <div style={{ pointerEvents: canEdit ? undefined : 'none', opacity: canEdit ? 1 : 0.85 }}>
             <SectionLabel mt={0}>대여료 · 보증금</SectionLabel>
-            <div style={{ fontSize: 11.5, color: C.faint, margin: '-2px 0 8px', lineHeight: 1.4 }}>넣은 기간만 매물에 노출</div>
+            <div style={{ fontSize: FS.cap, color: C.faint, margin: '-2px 0 8px', lineHeight: 1.4 }}>넣은 기간만 매물에 노출</div>
             <PriceMatrix price={form.price} onChange={(p) => { setForm((f) => ({ ...f, price: p })); setDirty(true); }} />
           </div>
           <div style={{ pointerEvents: canEdit ? undefined : 'none', opacity: canEdit ? 1 : 0.85 }}>
             <SectionLabel mt={0}>사진</SectionLabel>
-            <div style={{ fontSize: 11.5, color: C.faint, margin: '-2px 0 8px', lineHeight: 1.4 }}>탭=크게 · 꾹=대표/실내/삭제</div>
+            <div style={{ fontSize: FS.cap, color: C.faint, margin: '-2px 0 8px', lineHeight: 1.4 }}>탭=크게 · 꾹=대표/실내/삭제</div>
             <PhotoUpload
               hideTitle
               photos={form.photos}
@@ -579,7 +579,7 @@ export default function Inventory() {
           </div>
           {supplierPhotos.length > 0 && (
             <div>
-              <SectionLabel mt={0}>공급사 사진 <span style={{ fontSize: 11, fontWeight: 400, color: C.faint }}>· 연동(읽기전용) {supplierPhotos.length}장</span></SectionLabel>
+              <SectionLabel mt={0}>공급사 사진 <span style={{ fontSize: 11, fontWeight: FW.body, color: C.faint }}>· 연동(읽기전용) {supplierPhotos.length}장</span></SectionLabel>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(88px, 1fr))', gap: 6 }}>
                 {supplierPhotos.map((u, i) => (
                   <a key={i} href={u} target="_blank" rel="noreferrer" style={{ display: 'block', aspectRatio: '4 / 3', borderRadius: R, overflow: 'hidden', background: C.placeholder, border: `1px solid ${C.line}` }}>
@@ -598,7 +598,7 @@ export default function Inventory() {
       <PaneHead title="공급사 업로드" />
       <PaneBody pad>
         {/* 전수 차종변환 = /dev 개발도구. 여기는 공급사 시트 취합만. */}
-        <div style={{ fontSize: 11.5, fontWeight: 700, color: C.mute }}>공급사 시트 취합</div>
+        <div style={{ fontSize: FS.cap, fontWeight: FW.strong, color: C.mute }}>공급사 시트 취합</div>
         <SheetSync co={co} onImported={() => load(getRole())} />
         <div style={{ height: 1, background: C.line2, margin: '2px 0' }} />
         <Btn size="sm" variant="ghost" onClick={copyJonghap}>종합표 TSV 복사 (ERP→시트)</Btn>

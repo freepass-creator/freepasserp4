@@ -11,7 +11,7 @@ import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { productImages, productExternalImages, scrapableSources, productPhotos } from '@/lib/domain/product-photos';
-import { Page, Btn, Input, C, R, NUM, SectionLabel, Badge, CenterNote } from '@/components/ui';
+import { Page, Btn, Input, C, R, NUM, SectionLabel, Badge, CenterNote, FW, FS } from '@/components/ui';
 
 type Probe = { path: string; state: 'ok' | 'denied' | 'timeout' | 'error'; count: number; detail: string; ms: number };
 
@@ -144,7 +144,7 @@ export default function Diag() {
 
   const tone = (s: Probe['state']) => (s === 'ok' ? 'green' : s === 'denied' ? 'red' : s === 'timeout' ? 'amber' : 'gray') as 'green' | 'red' | 'amber' | 'gray';
   const kv = (k: string, v: string) => (
-    <div key={k} style={{ display: 'flex', gap: 8, fontSize: 12.5, padding: '3px 0' }}>
+    <div key={k} style={{ display: 'flex', gap: 8, fontSize: FS.sub, padding: '3px 0' }}>
       <span style={{ color: C.mute, minWidth: 120 }}>{k}</span>
       <span style={{ color: C.ink, fontFamily: NUM, wordBreak: 'break-all' }}>{v}</span>
     </div>
@@ -169,11 +169,11 @@ export default function Diag() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             {probes.map((p) => (
               <div key={p.path} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', border: `1px solid ${C.line}`, borderRadius: R, padding: '6px 10px' }}>
-                <span style={{ fontFamily: NUM, fontSize: 12.5, minWidth: 130, color: C.ink }}>{p.path}</span>
+                <span style={{ fontFamily: NUM, fontSize: FS.sub, minWidth: 130, color: C.ink }}>{p.path}</span>
                 <Badge tone={tone(p.state)}>{p.state}</Badge>
-                <span style={{ fontFamily: NUM, fontSize: 12.5, fontWeight: 800, color: C.ink }}>{p.state === 'ok' ? `${p.count}건` : '—'}</span>
-                <span style={{ fontSize: 11.5, color: C.faint }}>{p.ms}ms</span>
-                {p.detail && <span style={{ fontSize: 11.5, color: C.mute, flex: 1, minWidth: 0 }}>{p.detail}</span>}
+                <span style={{ fontFamily: NUM, fontSize: FS.sub, fontWeight: FW.head, color: C.ink }}>{p.state === 'ok' ? `${p.count}건` : '—'}</span>
+                <span style={{ fontSize: FS.cap, color: C.faint }}>{p.ms}ms</span>
+                {p.detail && <span style={{ fontSize: FS.cap, color: C.mute, flex: 1, minWidth: 0 }}>{p.detail}</span>}
               </div>
             ))}
           </div>
@@ -184,7 +184,7 @@ export default function Diag() {
         <div style={{ marginTop: 16 }}>
           <SectionLabel mt={0}>스토어 경유 최종 목록</SectionLabel>
           {storeInfo.map((l, i) => (
-            <div key={i} style={{ fontSize: 12.5, color: C.ink, fontFamily: NUM, padding: '3px 0' }}>{l}</div>
+            <div key={i} style={{ fontSize: FS.sub, color: C.ink, fontFamily: NUM, padding: '3px 0' }}>{l}</div>
           ))}
         </div>
       )}
@@ -199,7 +199,7 @@ export default function Diag() {
         </div>
         {photoOut && (
           <pre style={{
-            marginTop: 10, fontSize: 11.5, lineHeight: 1.6, color: C.ink, background: C.head,
+            marginTop: 10, fontSize: FS.cap, lineHeight: 1.6, color: C.ink, background: C.head,
             border: `1px solid ${C.line}`, borderRadius: R, padding: 12,
             whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontFamily: NUM,
           }}>{photoOut.join('\n')}</pre>

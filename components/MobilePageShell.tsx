@@ -2,7 +2,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { Search, ArrowUpDown, SlidersHorizontal } from 'lucide-react';
-import { BottomNav, SearchInput, Btn, FilterChips, C, NUM } from '@/components/ui';
+import { BottomNav, SearchInput, Btn, FilterChips, C, NUM, FS } from '@/components/ui';
 import { PageToolBar, type PageToolItem } from '@/components/PageToolBar';
 import { MobileListDock } from '@/components/MobileListDock';
 import { BottomSheet } from '@/components/BottomSheet';
@@ -122,7 +122,7 @@ export function MobilePageShell({
   })();
 
   const infoEl = info ?? (
-    <span style={{ fontSize: 13.5, color: C.mute, whiteSpace: 'nowrap', flex: '0 0 auto' }}>
+    <span style={{ fontSize: FS.body, color: C.mute, whiteSpace: 'nowrap', flex: '0 0 auto' }}>
       {title || ''}
       {count != null && count !== '' ? (
         <>

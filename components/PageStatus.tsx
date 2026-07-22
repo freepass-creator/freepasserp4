@@ -1,7 +1,7 @@
 'use client';
 import type { LucideIcon } from 'lucide-react';
 import { FileText, ScrollText, Users, History, Search, Wrench } from 'lucide-react';
-import { C, NUM } from '@/components/ui';
+import { C, NUM, FW, FS } from '@/components/ui';
 import { NAV_ICON } from '@/lib/tabbar';
 
 /**
@@ -44,22 +44,22 @@ export function PageStatus({
         display: 'flex', alignItems: 'baseline', gap: 6,
         minWidth: 0, flex: '1 1 auto',
         whiteSpace: 'nowrap', overflow: 'hidden',
-        fontSize: 14, fontWeight: 800, letterSpacing: '-0.02em', color: C.ink,
+        fontSize: FS.title, fontWeight: FW.head, letterSpacing: '-0.02em', color: C.ink,
       }}>
-        <span style={{ color: C.mute, fontWeight: 700, fontSize: 13 }}>{label}</span>
+        <span style={{ color: C.mute, fontWeight: FW.strong, fontSize: FS.body }}>{label}</span>
         {n != null ? (
           <span style={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>
             {typeof n === 'number' ? n.toLocaleString() : n}
-            <span style={{ marginLeft: 1, fontSize: 12, fontWeight: 700, color: C.mute }}>{unit}</span>
+            <span style={{ marginLeft: 1, fontSize: FS.sub, fontWeight: FW.strong, color: C.mute }}>{unit}</span>
           </span>
         ) : null}
         {secondaryLabel ? (
           <>
-            <span style={{ color: C.line, fontWeight: 500, margin: '0 2px' }}>·</span>
+            <span style={{ color: C.line, fontWeight: FW.meta, margin: '0 2px' }}>·</span>
             <span style={{
               color: sn != null ? C.brand : C.ink,
-              fontWeight: 700,
-              fontSize: 13,
+              fontWeight: FW.strong,
+              fontSize: FS.body,
               overflow: 'hidden',
               textOverflow: 'ellipsis',
             }}>{secondaryLabel}</span>
@@ -68,7 +68,7 @@ export function PageStatus({
                 fontFamily: NUM, fontVariantNumeric: 'tabular-nums', color: C.brand,
               }}>
                 {typeof sn === 'number' ? sn.toLocaleString() : sn}
-                <span style={{ marginLeft: 1, fontSize: 12, fontWeight: 700 }}>{sUnit}</span>
+                <span style={{ marginLeft: 1, fontSize: FS.sub, fontWeight: FW.strong }}>{sUnit}</span>
               </span>
             ) : null}
           </>

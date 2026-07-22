@@ -10,7 +10,7 @@ import { createSettlement } from '@/lib/domain/settlement-engine';
 import { downloadSettlementsExcel } from '@/lib/excel-export';
 import { getRole, actor, ensureRoomForContract, type Role } from '@/lib/domain/deal';
 import { man } from '@/lib/format';
-import { PaneHead, PaneBody, Badge, Btn, Input, won, C, R, NUM, Loading, CenterNote, SETTLEMENT_STATUS_TONE, FilterChips, SectionLabel, PageActions } from '@/components/ui';
+import { PaneHead, PaneBody, Badge, Btn, Input, won, C, R, NUM, Loading, CenterNote, SETTLEMENT_STATUS_TONE, FilterChips, SectionLabel, PageActions, FW, FS } from '@/components/ui';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
 import { ContractPanel } from '@/components/ContractPanel';
 import { ContractDocs } from '@/components/ContractDocs';
@@ -155,9 +155,9 @@ export default function ContractsSettlement() {
     ))}</div>;
 
   const kv = (k: string, v: React.ReactNode, strong?: boolean) => (
-    <div style={{ display: 'flex', padding: '8px 14px', borderTop: `1px solid ${C.line2}`, fontSize: 12.5 }}>
+    <div style={{ display: 'flex', padding: '8px 14px', borderTop: `1px solid ${C.line2}`, fontSize: FS.sub }}>
       <span style={{ width: 110, flex: '0 0 110px', color: C.mute }}>{k}</span>
-      <span style={{ fontWeight: strong ? 800 : 600, color: strong ? C.brand : C.ink, fontFamily: NUM }}>{v}</span>
+      <span style={{ fontWeight: strong ? FW.head : FW.strong, color: strong ? C.brand : C.ink, fontFamily: NUM }}>{v}</span>
     </div>
   );
 
@@ -178,11 +178,11 @@ export default function ContractsSettlement() {
     setSelS(allS.find((x) => String(x.settlement_code) === String(selS.settlement_code)) || null);
   };
   const amtRow = (label: string, field: 'fee_amount' | 'agent_payout', val: number, code: string) => (
-    <div style={{ display: 'flex', alignItems: 'center', padding: '7px 14px', borderTop: `1px solid ${C.line2}`, fontSize: 12.5 }}>
+    <div style={{ display: 'flex', alignItems: 'center', padding: '7px 14px', borderTop: `1px solid ${C.line2}`, fontSize: FS.sub }}>
       <span style={{ width: 120, flex: '0 0 120px', color: C.mute }}>{label}</span>
       {role === 'admin'
         ? <AmtInput key={`${code}-${field}`} val={val} onCommit={(n) => setAmount(field, n)} />
-        : <span style={{ fontWeight: 800, color: C.brand, fontFamily: NUM }}>{won(val)}원</span>}
+        : <span style={{ fontWeight: FW.head, color: C.brand, fontFamily: NUM }}>{won(val)}원</span>}
     </div>
   );
   const detailSettle = () => {
@@ -191,7 +191,7 @@ export default function ContractsSettlement() {
     return (
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 14px' }}>
-          <span style={{ fontSize: 13, fontWeight: 800, fontFamily: NUM }}>{String(s.settlement_code)}</span>
+          <span style={{ fontSize: FS.body, fontWeight: FW.title, fontFamily: NUM }}>{String(s.settlement_code)}</span>
           <Badge tone={SETTLEMENT_STATUS_TONE[st] || 'gray'}>{st}</Badge>
           <span style={{ flex: 1 }} />
           {role === 'admin' && st === '정산대기' && <Btn variant="ghost" size="sm" onClick={() => setStatus('정산보류')}>보류</Btn>}
@@ -205,7 +205,7 @@ export default function ContractsSettlement() {
           {role === 'admin' && kv('순수익 (R1−R2)', `${won((Number(s.fee_amount) || 0) - (Number(s.agent_payout) || 0))}원`, true)}
           {cb > 0 ? kv('환수액', `${won(cb)}원`) : null}
         </div>
-        <div style={{ padding: '10px 14px', fontSize: 11.5, color: C.faint, lineHeight: 1.6 }}>공급사에서 <b>받은 금액(R1)</b>·영업자에 <b>준 금액(R2)</b>을 실측 기록(관리자 편집, 율=기본값). 순수익=R1−R2. 중도취소 시 환수(경과비례).</div>
+        <div style={{ padding: '10px 14px', fontSize: FS.cap, color: C.faint, lineHeight: 1.6 }}>공급사에서 <b>받은 금액(R1)</b>·영업자에 <b>준 금액(R2)</b>을 실측 기록(관리자 편집, 율=기본값). 순수익=R1−R2. 중도취소 시 환수(경과비례).</div>
       </div>
     );
   };
@@ -242,8 +242,8 @@ export default function ContractsSettlement() {
     <div style={{ display: 'flex', borderBottom: `1px solid ${C.line}`, background: C.head, position: 'sticky', top: 0, zIndex: 2 }}>
       {cells.map(([label, val, color], i) => (
         <div key={label} style={{ flex: 1, padding: '7px 8px', borderLeft: i ? `1px solid ${C.line2}` : 'none', textAlign: 'center' }}>
-          <div style={{ fontSize: 10, color: C.mute, fontWeight: 700 }}>{label}</div>
-          <div style={{ fontSize: 13, fontWeight: 800, color, fontFamily: NUM }}>{man(val)}</div>
+          <div style={{ fontSize: FS.micro, color: C.mute, fontWeight: FW.strong }}>{label}</div>
+          <div style={{ fontSize: FS.body, fontWeight: FW.head, color, fontFamily: NUM }}>{man(val)}</div>
         </div>
       ))}
     </div>

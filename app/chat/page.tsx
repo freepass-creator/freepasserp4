@@ -9,7 +9,7 @@ import { getRole, actor, type Role } from '@/lib/domain/deal';
 import { roomsWithUnread, unreadFor, unreadRoomCount } from '@/lib/domain/messaging';
 import { getProgress, isInquiryOnly } from '@/lib/domain/contract';
 import { vehicleName } from '@/lib/domain/product';
-import { PaneHead, Btn, C, Loading, CenterNote, PaneBody, FilterChips, SectionLabel } from '@/components/ui';
+import { PaneHead, Btn, C, Loading, CenterNote, PaneBody, FilterChips, SectionLabel, FW, FS } from '@/components/ui';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
 import { ChatThread } from '@/components/ChatThread';
 import { ProductDetail } from '@/components/ProductDetail';
@@ -187,7 +187,7 @@ export default function Chat() {
       return 0;
     });
   const roomListEl = shownRooms.length === 0
-    ? <div style={{ padding: 24, textAlign: 'center', color: C.faint, fontSize: 12.5 }}>{q || flt !== '문의' ? '검색 결과 없음' : role === 'provider' ? '들어온 문의가 없습니다.' : role === 'admin' ? '채팅 중인 문의가 없습니다.' : '채팅 중인 문의가 없습니다.'}</div>
+    ? <div style={{ padding: 24, textAlign: 'center', color: C.faint, fontSize: FS.sub }}>{q || flt !== '문의' ? '검색 결과 없음' : role === 'provider' ? '들어온 문의가 없습니다.' : role === 'admin' ? '채팅 중인 문의가 없습니다.' : '채팅 중인 문의가 없습니다.'}</div>
     : <div>{shownRooms.map((rm) => {
         const counter = roomCounter(rm);
         return (
@@ -211,8 +211,8 @@ export default function Chat() {
   const docCode = selContract ? String(selContract.contract_code) : linked;
   const scroll = (n: ReactNode) => <PaneBody>{n}</PaneBody>;
   const reloadContracts = async () => setContracts(await getStore().list('contract', co));
-  const contractBody = sel ? <ContractPanel product={selProduct} roomId={sel} linkedCode={linked} agentCode={selRoom ? String(selRoom.agent_code || '') : undefined} onChange={reloadContracts} /> : <div style={{ padding: 16, color: C.faint, fontSize: 12.5 }}>—</div>;
-  const docsBody = docCode ? <ContractDocs contractCode={docCode} roomId={sel || undefined} /> : <div style={{ padding: 16, color: C.faint, fontSize: 12.5 }}>계약문의를 시작하면 서류를 첨부할 수 있습니다.</div>;
+  const contractBody = sel ? <ContractPanel product={selProduct} roomId={sel} linkedCode={linked} agentCode={selRoom ? String(selRoom.agent_code || '') : undefined} onChange={reloadContracts} /> : <div style={{ padding: 16, color: C.faint, fontSize: FS.sub }}>—</div>;
+  const docsBody = docCode ? <ContractDocs contractCode={docCode} roomId={sel || undefined} /> : <div style={{ padding: 16, color: C.faint, fontSize: FS.sub }}>계약문의를 시작하면 서류를 첨부할 수 있습니다.</div>;
   const vehicleBlock = selProduct
     ? <>{selProduct._fromHistory ? <div style={{ fontSize: 11, color: C.faint, marginBottom: 8 }}>재고에서 내려간 매물 · 계약 이력 기준</div> : null}<ProductDetail p={selProduct} /></>
     : <CenterNote>이 매물의 이력이 없습니다.</CenterNote>;
@@ -232,9 +232,9 @@ export default function Chat() {
         right={<Btn variant="ghost" size="sm" onClick={goChat}>채팅</Btn>}
       />
       <PaneBody pad>
-        <div style={{ fontSize: 12, fontWeight: 800, color: C.faint, marginBottom: 8 }}>{inContract ? '첨부 서류' : '문의 차량'}</div>
+        <div style={{ fontSize: 12, fontWeight: FW.label, color: C.faint, marginBottom: 8 }}>{inContract ? '첨부 서류' : '문의 차량'}</div>
         {inContract ? docsBody : vehicleBlock}
-        <div style={{ fontSize: 12, fontWeight: 800, color: C.faint, margin: '18px 0 8px' }}>계약</div>
+        <div style={{ fontSize: 12, fontWeight: FW.label, color: C.faint, margin: '18px 0 8px' }}>계약</div>
         {contractBody}
       </PaneBody>
     </>

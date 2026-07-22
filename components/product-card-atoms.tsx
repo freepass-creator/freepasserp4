@@ -4,7 +4,7 @@ import { Wallet, UserRound, Briefcase, ShieldCheck, Sparkles, Coins, type Lucide
 import { type EntityRecord } from '@/lib/intake/entities';
 import { creditDisplay, vehicleTone, benefitSignals, eventSignals, priceList, cheapest, priceAt, canonProductType, type Audience } from '@/lib/domain/product';
 import { man, kmDisplay } from '@/lib/format';
-import { C, R, NUM, Badge, EXCEL_OPT_BOX_H, EXCEL_OPT_CHIP_H, EXCEL_OPT_ROW_GAP, EXCEL_BADGE_GAP_X } from '@/components/ui';
+import { C, R, NUM, Badge, FW, FS, EXCEL_OPT_BOX_H, EXCEL_OPT_CHIP_H, EXCEL_OPT_ROW_GAP, EXCEL_BADGE_GAP_X } from '@/components/ui';
 import { CREDIT_TONE, productTypeStyle, toneText, type BadgeTone } from '@/components/ui/badges';
 import { useIsMobile } from '@/lib/use-mobile';
 import { useFirstPhoto } from '@/components/use-product-photos';
@@ -169,7 +169,7 @@ export function Plate({ p }: { p: EntityRecord }) {
   if (!p.car_number) return null;
   return (
     <span style={{
-      fontSize: 11, fontWeight: 700, color: C.ink, fontFamily: NUM,
+      fontSize: 11, fontWeight: FW.strong, color: C.ink, fontFamily: NUM,
       letterSpacing: '-0.2px', whiteSpace: 'nowrap', flex: '0 0 auto',
     }}>{String(p.car_number)}</span>
   );
@@ -241,13 +241,13 @@ export function cardTitle(p: EntityRecord, mobileNarrow = false): string {
 
 /** CardTitle — 본문 1행. 한 줄 넘치면 … (호버=전체). */
 export function CardTitle({ p, narrow, size }: { p: EntityRecord; narrow?: boolean; size?: number }) {
-  const fs = size ?? (narrow ? 14 : 14);
+  const fs = size ?? FS.title;
   const text = cardTitle(p, !!narrow);
   return (
     <div
       title={text}
       style={{
-        fontSize: fs, fontWeight: narrow ? 700 : 800, color: C.ink, lineHeight: 1.35,
+        fontSize: fs, fontWeight: FW.title, color: C.ink, lineHeight: 1.35,
         minWidth: 0, width: '100%',
         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
       }}
@@ -303,7 +303,7 @@ export function MetaIcon({ icon: Icon, text, size = 12, strong, iconColor, title
       title={title}
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 3, flex: '0 0 auto', whiteSpace: 'nowrap',
-        fontWeight: strong ? 600 : 400, color: strong ? C.ink : undefined,
+        fontWeight: strong ? FW.strong : FW.body, color: strong ? C.ink : undefined,
         cursor: title ? 'help' : undefined,
       }}
     >
@@ -334,7 +334,7 @@ function benefitIconColor(key: string): string {
 
 function metaRow(dense: boolean, _mobile: boolean, strong?: boolean, clamp?: boolean, inline?: boolean): CSSProperties {
   // 카드 메타 = 웹/모바일 동일 치수
-  const fs = dense ? 11 : 11.5;
+  const fs = dense ? 11 : FS.cap;
   return {
     display: 'flex', alignItems: 'center', gap: dense ? 8 : 10,
     flexWrap: clamp || inline ? 'nowrap' : 'wrap',
@@ -355,7 +355,7 @@ export function CardSpecs({ p, dense, audience = 'agent' }: {
   const s = specLineCard(p);
   const showPlateSlot = audience !== 'customer';
   const plate = String(p.car_number || '').trim();
-  const fs = dense ? 11 : 11.5;
+  const fs = dense ? 11 : FS.cap;
   const tip = [
     showPlateSlot && plate ? plate : '',
     specLine(p),
@@ -369,7 +369,7 @@ export function CardSpecs({ p, dense, audience = 'agent' }: {
       {showPlateSlot && (
         <>
           <span style={{
-            fontWeight: 700, color: C.ink, fontFamily: NUM,
+            fontWeight: FW.strong, color: C.ink, fontFamily: NUM,
             letterSpacing: '-0.2px', fontVariantNumeric: 'tabular-nums',
           }}>{plate || '-'}</span>
           <span style={{ color: C.faint }}> · </span>
@@ -389,7 +389,7 @@ export function CardBenefits({ p, dense, clamp, inline }: {
   if (!items.length) {
     return (
       <div style={{
-        fontSize: dense ? 11 : 11.5,
+        fontSize: dense ? 11 : FS.cap,
         color: C.faint, lineHeight: 1.35,
         flex: inline ? '0 0 auto' : undefined,
         whiteSpace: inline ? 'nowrap' : undefined,
@@ -445,7 +445,7 @@ export function CardPerkLine({ p, dense, inline }: {
   p: EntityRecord; dense?: boolean; inline?: boolean;
 }) {
   const bens = benefitSignals(p);
-  const fs = dense ? 11 : 11.5;
+  const fs = dense ? 11 : FS.cap;
   if (!bens.length) {
     return (
       <div style={{
@@ -505,7 +505,7 @@ export function CardThumb({ p, audience = 'agent', fill, w, h, heart = false, ma
   const showHeart = heart && audience !== 'customer';
   const glyph = fill ? (mobile ? 40 : 36) : 24;
   const pad = fill ? 6 : 5;
-  const promoFs = fill ? (mobile ? 11 : 10.5) : (mobile ? 10.5 : 9.5);
+  const promoFs = fill ? (mobile ? 11 : FS.micro) : (mobile ? 10.5 : 9.5);
 
   // fill(간단) — 5열·넓은 카드 기준. 2:1 = 존재 신호 + 답답하지 않은 높이(~120px@240).
   const box: CSSProperties = fill
@@ -551,7 +551,7 @@ export function CardThumb({ p, audience = 'agent', fill, w, h, heart = false, ma
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
         maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         height: fill ? 18 : 16, boxSizing: 'border-box',
-        fontSize: promoFs, fontWeight: 700, letterSpacing: '-0.02em',
+        fontSize: promoFs, fontWeight: FW.strong, letterSpacing: '-0.02em',
         lineHeight: 1,
         color: '#fff',
         background: 'rgba(15,23,42,0.42)',
@@ -676,7 +676,7 @@ export function OptionChips({ p, clamp, lines = 1, expand }: {
   }
   if (expand) {
     const chip: CSSProperties = {
-      fontSize: 12.5, color: C.mute, background: C.head, borderRadius: R,
+      fontSize: FS.sub, color: C.mute, background: C.head, borderRadius: R,
       padding: '2px 8px', whiteSpace: 'nowrap',
     };
     return (
@@ -714,7 +714,7 @@ export function OptionChips({ p, clamp, lines = 1, expand }: {
         </div>
         {more && (
           <span style={{
-            flex: '0 0 auto', fontSize: 11, fontWeight: 700,
+            flex: '0 0 auto', fontSize: 11, fontWeight: FW.strong,
             color: C.faint, paddingInline: 2, letterSpacing: '0.04em', lineHeight: 1.2, marginTop: 2,
           }}>…</span>
         )}
@@ -734,7 +734,7 @@ export function OptionChips({ p, clamp, lines = 1, expand }: {
       </div>
       {more && (
         <span style={{
-          flex: '0 0 auto', fontSize: 11, fontWeight: 700,
+          flex: '0 0 auto', fontSize: 11, fontWeight: FW.strong,
           color: C.faint, paddingInline: 2, letterSpacing: '0.04em', lineHeight: 1,
         }}>…</span>
       )}
@@ -810,7 +810,7 @@ export function PriceMonth({ align = 'end' }: { align?: 'start' | 'end' }) {
   return (
     <span style={{
       fontSize: 11,
-      fontWeight: 700,
+      fontWeight: FW.strong,
       color: peeking ? C.ink : C.mute,
       textAlign: end ? 'right' : undefined,
       whiteSpace: 'nowrap',
@@ -824,7 +824,7 @@ export function PriceRentDep({ align = 'end' }: { align?: 'start' | 'end' }) {
   const { focus, peeking } = usePricePeek();
   const end = align === 'end';
   if (!focus) {
-    return <span style={{ fontSize: 11, color: C.faint, fontWeight: 700 }}>가격문의</span>;
+    return <span style={{ fontSize: 11, color: C.faint, fontWeight: FW.strong }}>가격문의</span>;
   }
   return (
     <div style={{
@@ -832,14 +832,14 @@ export function PriceRentDep({ align = 'end' }: { align?: 'start' | 'end' }) {
       justifyContent: end ? 'flex-end' : 'flex-start', minWidth: 0,
     }}>
       <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 3 }}>
-        <span style={{ fontSize: 10, fontWeight: 400, color: peeking ? C.mute : C.faint, transition: 'color 0.12s ease' }}>월</span>
+        <span style={{ fontSize: 10, fontWeight: FW.body, color: peeking ? C.mute : C.faint, transition: 'color 0.12s ease' }}>월</span>
         <span style={{
-          fontSize: 18, fontWeight: 800, fontFamily: NUM, letterSpacing: '-0.02em',
+          fontSize: 18, fontWeight: FW.head, fontFamily: NUM, letterSpacing: '-0.02em',
           color: peeking ? C.brand : C.ink, transition: 'color 0.12s ease',
         }}>{man(focus.rent)}</span>
       </span>
       <span style={{
-        fontSize: 11, fontWeight: 500,
+        fontSize: 11, fontWeight: FW.meta,
         color: peeking ? C.mute : C.faint, transition: 'color 0.12s ease',
       }}>
         {focus.deposit > 0 ? `보증 ${man(focus.deposit)}` : '무보증'}
@@ -858,7 +858,7 @@ export function PriceAmounts({ align = 'start' }: {
   const end = align === 'end';
   const center = align === 'center';
   if (!focus) {
-    return <span style={{ fontSize: 11, color: C.faint, fontWeight: 700 }}>가격문의</span>;
+    return <span style={{ fontSize: 11, color: C.faint, fontWeight: FW.strong }}>가격문의</span>;
   }
   return (
     <div style={{
@@ -867,22 +867,22 @@ export function PriceAmounts({ align = 'start' }: {
       justifyContent: end ? 'flex-end' : center ? 'center' : 'flex-start',
     }}>
       <span style={{
-        fontSize: 11, fontWeight: 700,
+        fontSize: 11, fontWeight: FW.strong,
         color: peeking ? C.ink : C.mute, whiteSpace: 'nowrap',
         transition: 'color 0.12s ease',
       }}>{focus.m}개월</span>
       <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 3, whiteSpace: 'nowrap' }}>
         <span style={{
-          fontSize: 10, fontWeight: 400,
+          fontSize: 10, fontWeight: FW.body,
           color: peeking ? C.mute : C.faint, transition: 'color 0.12s ease',
         }}>월</span>
         <span style={{
-          fontSize: 15, fontWeight: 800, fontFamily: NUM, letterSpacing: '-0.02em',
+          fontSize: FS.title, fontWeight: FW.head, fontFamily: NUM, letterSpacing: '-0.02em',
           color: peeking ? C.brand : C.ink, transition: 'color 0.12s ease',
         }}>{man(focus.rent)}</span>
       </span>
       <span style={{
-        fontSize: 11, fontWeight: 500,
+        fontSize: 11, fontWeight: FW.meta,
         color: peeking ? C.mute : C.faint, whiteSpace: 'nowrap',
         transition: 'color 0.12s ease',
       }}>
@@ -898,7 +898,7 @@ function periodChipStyle(on: boolean): CSSProperties {
     display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
     height: 20, boxSizing: 'border-box',
     padding: '0 6px', borderRadius: 3,
-    fontSize: 9.5, fontWeight: 700, lineHeight: 1,
+    fontSize: 9.5, fontWeight: FW.strong, lineHeight: 1,
     letterSpacing: '-0.01em', whiteSpace: 'nowrap',
     color: on ? '#fff' : C.mute,
     background: on ? C.brand : C.head,
@@ -929,7 +929,7 @@ export function PeriodRange() {
         {lo}개월
       </span>
       <span style={{
-        fontSize: 9.5, fontWeight: 700, color: C.faint,
+        fontSize: 9.5, fontWeight: FW.strong, color: C.faint,
         lineHeight: 1, flex: '0 0 auto',
       }}>~</span>
       <span data-period-chip title={tip(hi)} style={periodChipStyle(activeM === hi)}>
@@ -1083,16 +1083,16 @@ export function PriceMini({ m, rent, deposit = 0, on = false }: {
         whiteSpace: 'nowrap',
       }}
     >
-      <span style={{ fontSize: mobile ? 11 : 10, fontWeight: 700, color: on ? C.brand : C.mute, lineHeight: 1.1 }}>{m}개월</span>
+      <span style={{ fontSize: mobile ? 11 : 10, fontWeight: FW.strong, color: on ? C.brand : C.mute, lineHeight: 1.1 }}>{m}개월</span>
       <span style={{
-        fontSize: on ? (mobile ? 13 : 12.5) : (mobile ? 12 : 11.5),
-        fontFamily: NUM, fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.1,
+        fontSize: on ? (mobile ? 13 : FS.sub) : (mobile ? 12 : FS.cap),
+        fontFamily: NUM, fontWeight: FW.head, letterSpacing: '-0.02em', lineHeight: 1.1,
         color: on ? C.brand : C.ink,
       }}>
-        <span style={{ fontSize: mobile ? 10.5 : 9.5, fontFamily: 'inherit', fontWeight: 600, color: C.faint }}>월 </span>
+        <span style={{ fontSize: mobile ? 10.5 : 9.5, fontFamily: 'inherit', fontWeight: FW.strong, color: C.faint }}>월 </span>
         {man(rent)}
       </span>
-      <span style={{ fontSize: mobile ? 10.5 : 9.5, fontFamily: NUM, fontWeight: 600, color: C.faint, lineHeight: 1.1 }}>
+      <span style={{ fontSize: mobile ? 10.5 : 9.5, fontFamily: NUM, fontWeight: FW.strong, color: C.faint, lineHeight: 1.1 }}>
         보증 {deposit > 0 ? man(deposit) : '없음'}
       </span>
     </div>

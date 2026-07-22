@@ -6,7 +6,7 @@ import { type EntityRecord } from '@/lib/intake/entities';
 import { getRole, type Role } from '@/lib/domain/deal';
 import { createSignToken, approveSign } from '@/lib/domain/sign';
 import { readContractSign, signPublicToContract } from '@/lib/firebase/contract-sign-public';
-import { Btn, C, toneText } from '@/components/ui';
+import { Btn, C, toneText, FW, FS } from '@/components/ui';
 import { toast } from '@/components/Toaster';
 
 // 계약서 서명 진행(계약 패널) — 발송 → 손님(/sign) → 검토대기 → 승인. 공개 슬롯(contract_sign) 상태 병합.
@@ -52,18 +52,18 @@ export function ContractSign({ contractCode }: { contractCode: string }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span style={{ fontSize: 11.5, fontWeight: 800, color: C.ink }}>계약서 서명</span>
-        <span style={{ fontSize: 10.5, fontWeight: 800, color: stColor }}>{st}</span>
+        <span style={{ fontSize: FS.cap, fontWeight: FW.title, color: C.ink }}>계약서 서명</span>
+        <span style={{ fontSize: FS.micro, fontWeight: FW.label, color: stColor }}>{st}</span>
         <span style={{ flex: 1 }} />
         {canAct && st === '미발송' && <Btn size="sm" onClick={send} disabled={busy}>계약서 발송</Btn>}
         {canAct && st === '발송' && <><Btn variant="ghost" size="sm" onClick={copy}>링크</Btn><Btn variant="ghost" size="sm" onClick={send} disabled={busy}>재발송</Btn><Btn variant="ghost" size="sm" onClick={load}>새로고침</Btn></>}
         {canAct && st === '검토대기' && <Btn size="sm" onClick={approve} disabled={busy}>승인</Btn>}
       </div>
       {st === '검토대기' && c.sign_signature ? <img src={String(c.sign_signature)} alt="서명" style={{ maxWidth: 180, border: `1px solid ${C.line}`, borderRadius: 4, background: '#fff' }} /> : null}
-      {st === '검토대기' && <div style={{ fontSize: 10.5, color: C.faint }}>{[c.customer_name, c.customer_phone].filter(Boolean).join(' · ')} 서명 제출됨. 승인 시 약정발송 완료.</div>}
-      {st === '미발송' && <div style={{ fontSize: 10.5, color: C.faint }}>약정 완료 후 서명 링크를 만들어 손님에게 전달하세요.</div>}
-      {st === '발송' && <div style={{ fontSize: 10.5, color: C.faint }}>손님 서명 대기 중. 손님이 제출하면 새로고침으로 확인.</div>}
-      {st === '서명완료' && <div style={{ fontSize: 10.5, color: C.ok }}>전자서명 완료 — 계약 확정.</div>}
+      {st === '검토대기' && <div style={{ fontSize: FS.micro, color: C.faint }}>{[c.customer_name, c.customer_phone].filter(Boolean).join(' · ')} 서명 제출됨. 승인 시 약정발송 완료.</div>}
+      {st === '미발송' && <div style={{ fontSize: FS.micro, color: C.faint }}>약정 완료 후 서명 링크를 만들어 손님에게 전달하세요.</div>}
+      {st === '발송' && <div style={{ fontSize: FS.micro, color: C.faint }}>손님 서명 대기 중. 손님이 제출하면 새로고침으로 확인.</div>}
+      {st === '서명완료' && <div style={{ fontSize: FS.micro, color: C.ok }}>전자서명 완료 — 계약 확정.</div>}
     </div>
   );
 }

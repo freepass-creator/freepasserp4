@@ -9,7 +9,7 @@ import { type EntityRecord } from '@/lib/intake/entities';
 import { getRole } from '@/lib/domain/deal';
 import { parseSettlementHistory } from '@/lib/domain/settlement-import';
 import { downloadSettlementReport } from '@/lib/excel-export';
-import { Page, Btn, Badge, FilterChips, IconBtn, PillTabs, SearchInput, won, C, R, NUM, Loading, CenterNote, SETTLEMENT_STATUS_TONE, th, thR, td, tdR } from '@/components/ui';
+import { Page, Btn, Badge, FilterChips, IconBtn, PillTabs, SearchInput, won, C, R, NUM, FW, FS, Loading, CenterNote, SETTLEMENT_STATUS_TONE, th, thR, td, tdR } from '@/components/ui';
 import { toast } from '@/components/Toaster';
 import { AdminSettlementSheet } from '@/components/AdminSettlementSheet';
 import { matchSettlementQuery } from '@/lib/domain/search';
@@ -103,7 +103,7 @@ export default function MonthlySettlement() {
       ) : undefined}
       right={<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <IconBtn onClick={() => step(-1)} disabled={idx <= 0} title="이전 달">‹</IconBtn>
-        <span style={{ fontSize: 15, fontWeight: 800, fontFamily: NUM, minWidth: 74, textAlign: 'center' }}>{month || '—'}</span>
+        <span style={{ fontSize: FS.title, fontWeight: FW.head, fontFamily: NUM, minWidth: 74, textAlign: 'center' }}>{month || '—'}</span>
         <IconBtn onClick={() => step(1)} disabled={idx >= months.length - 1} title="다음 달">›</IconBtn>
         {!mobile && mode === 'agg' && <>
           <Btn variant="ghost" size="sm" onClick={() => fileRef.current?.click()}>가져오기</Btn>
@@ -129,8 +129,8 @@ export default function MonthlySettlement() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, margin: '14px 0' }}>
         {cards.map(([label, val, color]) => (
           <div key={label} style={{ border: `1px solid ${C.line}`, borderRadius: R, background: '#fff', padding: '11px 14px' }}>
-            <div style={{ fontSize: 11.5, color: C.mute, fontWeight: 600 }}>{label}</div>
-            <div style={{ fontSize: 17, fontWeight: 800, color, fontFamily: 'var(--font-mono)', marginTop: 3 }}>{won(val)}</div>
+            <div style={{ fontSize: FS.cap, color: C.mute, fontWeight: FW.strong }}>{label}</div>
+            <div style={{ fontSize: 17, fontWeight: FW.head, color, fontFamily: 'var(--font-mono)', marginTop: 3 }}>{won(val)}</div>
           </div>
         ))}
       </div>
@@ -145,7 +145,7 @@ export default function MonthlySettlement() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {grouped.map((g) => (
                 <div key={g.name} style={{ border: `1px solid ${C.line}`, borderRadius: R, background: '#fff', padding: '10px 12px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 }}><span style={{ fontSize: 13, fontWeight: 800, color: C.ink }}>{g.name}</span><span style={{ fontSize: 11, color: C.faint }}>{g.n}건</span></div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 }}><span style={{ fontSize: 13, fontWeight: FW.title, color: C.ink }}>{g.name}</span><span style={{ fontSize: 11, color: C.faint }}>{g.n}건</span></div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px 12px', fontSize: 12 }}>
                     <div style={{ color: C.mute }}>공급사청구 <b style={{ float: 'right', color: C.ink, fontFamily: 'var(--font-mono)' }}>{won(g.r1)}</b></div>
                     <div style={{ color: C.mute }}>영업지급 <b style={{ float: 'right', color: C.ink, fontFamily: 'var(--font-mono)' }}>{won(g.r2)}</b></div>
@@ -154,7 +154,7 @@ export default function MonthlySettlement() {
                   </div>
                 </div>
               ))}
-              <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: C.head, padding: '10px 12px', fontSize: 12.5 }}><b>합계 {monthRows.length}건</b> · 순수익 <b style={{ color: C.brand, fontFamily: 'var(--font-mono)' }}>{won(tot((s) => s.net_amount))}</b> · 환수 <b style={{ color: C.danger, fontFamily: 'var(--font-mono)' }}>{won(tot((s) => s.clawback_amount))}</b></div>
+              <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: C.head, padding: '10px 12px', fontSize: FS.sub }}><b>합계 {monthRows.length}건</b> · 순수익 <b style={{ color: C.brand, fontFamily: 'var(--font-mono)' }}>{won(tot((s) => s.net_amount))}</b> · 환수 <b style={{ color: C.danger, fontFamily: 'var(--font-mono)' }}>{won(tot((s) => s.clawback_amount))}</b></div>
             </div>
           ) : (
             <div className="fp-sheet">
@@ -163,15 +163,15 @@ export default function MonthlySettlement() {
                 <tbody>
                   {grouped.map((g) => (
                     <tr key={g.name} style={{ borderTop: `1px solid ${C.line2}` }}>
-                      <td style={tdL}>{g.name}</td><td style={tdR}>{g.n}</td><td style={tdR}>{won(g.r1)}</td><td style={tdR}>{won(g.r2)}</td><td style={{ ...tdR, color: C.brand, fontWeight: 700 }}>{won(g.net)}</td><td style={{ ...tdR, color: g.cb ? C.danger : C.faint }}>{g.cb ? won(g.cb) : '—'}</td>
+                      <td style={tdL}>{g.name}</td><td style={tdR}>{g.n}</td><td style={tdR}>{won(g.r1)}</td><td style={tdR}>{won(g.r2)}</td><td style={{ ...tdR, color: C.brand, fontWeight: FW.strong }}>{won(g.net)}</td><td style={{ ...tdR, color: g.cb ? C.danger : C.faint }}>{g.cb ? won(g.cb) : '—'}</td>
                     </tr>
                   ))}
                   <tr style={{ background: C.head, borderTop: `1px solid ${C.line2}` }}>
-                    <td style={{ ...tdL, fontWeight: 800 }} colSpan={2}>합계 {monthRows.length}건</td>
-                    <td style={{ ...tdR, fontWeight: 800 }}>{won(tot((s) => s.fee_amount))}</td>
-                    <td style={{ ...tdR, fontWeight: 800 }}>{won(tot((s) => s.agent_payout))}</td>
-                    <td style={{ ...tdR, fontWeight: 800, color: C.brand }}>{won(tot((s) => s.net_amount))}</td>
-                    <td style={{ ...tdR, fontWeight: 800, color: C.danger }}>{won(tot((s) => s.clawback_amount))}</td>
+                    <td style={{ ...tdL, fontWeight: FW.head }} colSpan={2}>합계 {monthRows.length}건</td>
+                    <td style={{ ...tdR, fontWeight: FW.head }}>{won(tot((s) => s.fee_amount))}</td>
+                    <td style={{ ...tdR, fontWeight: FW.head }}>{won(tot((s) => s.agent_payout))}</td>
+                    <td style={{ ...tdR, fontWeight: FW.head, color: C.brand }}>{won(tot((s) => s.net_amount))}</td>
+                    <td style={{ ...tdR, fontWeight: FW.head, color: C.danger }}>{won(tot((s) => s.clawback_amount))}</td>
                   </tr>
                 </tbody>
               </table>
@@ -186,7 +186,7 @@ export default function MonthlySettlement() {
               return (
                 <div key={String(s.settlement_code)} style={{ border: `1px solid ${C.line}`, borderRadius: R, background: '#fff', padding: '10px 12px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 }}>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: C.ink }}>{String(s.customer_name || '—')}</span>
+                    <span style={{ fontSize: 13, fontWeight: FW.title, color: C.ink }}>{String(s.customer_name || '—')}</span>
                     <span style={{ fontSize: 11, color: C.faint, fontFamily: 'var(--font-mono)' }}>{String(s.car_number || '')}</span>
                     <span style={{ flex: 1 }} />
                     <Badge tone={SETTLEMENT_STATUS_TONE[String(s.settlement_status)] || 'gray'}>{String(s.settlement_status || '')}</Badge>
@@ -201,7 +201,7 @@ export default function MonthlySettlement() {
                 </div>
               );
             })}
-            <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: C.head, padding: '10px 12px', fontSize: 12.5 }}>
+            <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: C.head, padding: '10px 12px', fontSize: FS.sub }}>
               <b>합계 {monthRows.length}건</b> · 청구 <b style={{ fontFamily: 'var(--font-mono)' }}>{won(tot((s) => s.fee_amount))}</b> · 지급 <b style={{ fontFamily: 'var(--font-mono)' }}>{won(tot((s) => s.agent_payout))}</b> · 순수익 <b style={{ color: C.brand, fontFamily: 'var(--font-mono)' }}>{won(tot((s) => s.net_amount))}</b>
             </div>
           </div>
@@ -223,18 +223,18 @@ export default function MonthlySettlement() {
                     <td style={tdR}>{won(s.rent_amount)}</td>
                     <td style={tdR}>{won(s.fee_amount)}</td>
                     <td style={tdR}>{won(s.agent_payout)}</td>
-                    <td style={{ ...tdR, color: C.brand, fontWeight: 700 }}>{won(s.net_amount)}</td>
+                    <td style={{ ...tdR, color: C.brand, fontWeight: FW.strong }}>{won(s.net_amount)}</td>
                     <td style={{ ...tdR, color: Number(s.clawback_amount) ? C.danger : C.faint }}>{Number(s.clawback_amount) ? won(s.clawback_amount) : '—'}</td>
                     <td style={tdL}>{String(s.settlement_status || '')}</td>
                   </tr>
                 ))}
                 <tr style={{ background: C.head, borderTop: `1px solid ${C.line2}` }}>
-                  <td style={{ ...tdL, fontWeight: 800 }} colSpan={4}>합계 {monthRows.length}건</td>
-                  <td style={{ ...tdR, fontWeight: 800 }}>{won(tot((s) => s.rent_amount))}</td>
-                  <td style={{ ...tdR, fontWeight: 800 }}>{won(tot((s) => s.fee_amount))}</td>
-                  <td style={{ ...tdR, fontWeight: 800 }}>{won(tot((s) => s.agent_payout))}</td>
-                  <td style={{ ...tdR, fontWeight: 800, color: C.brand }}>{won(tot((s) => s.net_amount))}</td>
-                  <td style={{ ...tdR, fontWeight: 800, color: C.danger }}>{won(tot((s) => s.clawback_amount))}</td>
+                  <td style={{ ...tdL, fontWeight: FW.head }} colSpan={4}>합계 {monthRows.length}건</td>
+                  <td style={{ ...tdR, fontWeight: FW.head }}>{won(tot((s) => s.rent_amount))}</td>
+                  <td style={{ ...tdR, fontWeight: FW.head }}>{won(tot((s) => s.fee_amount))}</td>
+                  <td style={{ ...tdR, fontWeight: FW.head }}>{won(tot((s) => s.agent_payout))}</td>
+                  <td style={{ ...tdR, fontWeight: FW.head, color: C.brand }}>{won(tot((s) => s.net_amount))}</td>
+                  <td style={{ ...tdR, fontWeight: FW.head, color: C.danger }}>{won(tot((s) => s.clawback_amount))}</td>
                   <td style={tdL} />
                 </tr>
               </tbody>

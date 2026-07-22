@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { Badge, Btn, C, R, SectionLabel } from '@/components/ui';
+import { Badge, Btn, C, FS, FW, R, SectionLabel } from '@/components/ui';
 import { type EntityRecord } from '@/lib/intake/entities';
 import {
   isNoTrimLabel,
@@ -43,10 +43,10 @@ export function SnapTrace({ form, onRematch }: { form: EntityRecord; onRematch?:
         {noTrim && snapped ? <Badge tone="gray" variant="quiet">세부트림 없음</Badge> : null}
         <span style={{ flex: 1 }} />
         {onRematch ? <Btn size="sm" variant="ghost" onClick={onRematch}>다시 매칭</Btn> : null}
-        {form._snap_at ? <span style={{ fontSize: 10.5, color: C.faint }}>{fmtAt(Number(form._snap_at))}</span> : null}
+        {form._snap_at ? <span style={{ fontSize: FS.micro, color: C.faint }}>{fmtAt(Number(form._snap_at))}</span> : null}
       </div>
 
-      <div style={{ fontSize: 11.5, lineHeight: 1.55, color: C.mute }}>
+      <div style={{ fontSize: FS.cap, lineHeight: 1.55, color: C.mute }}>
         <div>
           <span style={{ color: C.faint }}>공급 원본</span>
           <span style={{ color: C.faint }}> (증거, 그대로 보존)</span>
@@ -55,11 +55,11 @@ export function SnapTrace({ form, onRematch }: { form: EntityRecord; onRematch?:
         <div style={{ marginTop: 6 }}>
           <span style={{ color: C.faint }}>마스터 규격</span>
           <span style={{ color: C.faint }}> (손님·영업에 보이는 표준)</span>
-          <div style={{ color: C.ink, fontWeight: 600, marginTop: 2 }}>
+          <div style={{ color: C.ink, fontWeight: FW.strong, marginTop: 2 }}>
             {vehicleIdentityLine(form)}
-            {noTrim ? <span style={{ fontWeight: 500, color: C.faint }}> · 세부트림 없음</span> : null}
+            {noTrim ? <span style={{ fontWeight: FW.meta, color: C.faint }}> · 세부트림 없음</span> : null}
             {String(form.trim_extra || '').trim() ? (
-              <div style={{ fontWeight: 500, color: C.mute, marginTop: 2 }}>
+              <div style={{ fontWeight: FW.meta, color: C.mute, marginTop: 2 }}>
                 추가표기 · {String(form.trim_extra)}
               </div>
             ) : null}
@@ -69,13 +69,13 @@ export function SnapTrace({ form, onRematch }: { form: EntityRecord; onRematch?:
 
       {diffs.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 3, borderTop: `1px solid ${C.line2}`, paddingTop: 6 }}>
-          <div style={{ fontSize: 10.5, color: C.faint, marginBottom: 2 }}>바뀐 칸만</div>
+          <div style={{ fontSize: FS.micro, color: C.faint, marginBottom: 2 }}>바뀐 칸만</div>
           {diffs.map((d) => (
-            <div key={d.key} style={{ display: 'grid', gridTemplateColumns: '64px 1fr auto 1fr', gap: 6, alignItems: 'baseline', fontSize: 11.5 }}>
+            <div key={d.key} style={{ display: 'grid', gridTemplateColumns: '64px 1fr auto 1fr', gap: 6, alignItems: 'baseline', fontSize: FS.cap }}>
               <span style={{ color: C.faint }}>{d.label}</span>
               <span style={{ color: C.mute, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={d.from}>{d.from}</span>
               <span style={{ color: C.faint, flex: '0 0 auto' }}>→</span>
-              <span style={{ color: C.brand, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={d.to}>{d.to}</span>
+              <span style={{ color: C.brand, fontWeight: FW.strong, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={d.to}>{d.to}</span>
             </div>
           ))}
         </div>
@@ -87,9 +87,9 @@ export function SnapTrace({ form, onRematch }: { form: EntityRecord; onRematch?:
             {openHist ? '이력 접기' : `변환 이력 ${hist.length}건`}
           </Btn>
           {openHist && [...hist].reverse().map((h, i) => (
-            <div key={`${h.at}-${i}`} style={{ fontSize: 11, color: C.mute, lineHeight: 1.45, padding: '6px 8px', background: C.head, borderRadius: R }}>
+            <div key={`${h.at}-${i}`} style={{ fontSize: FS.cap, color: C.mute, lineHeight: 1.45, padding: '6px 8px', background: C.head, borderRadius: R }}>
               <div style={{ color: C.faint }}>{fmtAt(h.at)} · {h.confidence}{h.source ? ` · ${h.source}` : ''}</div>
-              <div>{vehicleIdentityLine(h.from)} → <span style={{ color: C.ink, fontWeight: 700 }}>{vehicleIdentityLine(h.to)}</span></div>
+              <div>{vehicleIdentityLine(h.from)} → <span style={{ color: C.ink, fontWeight: FW.strong }}>{vehicleIdentityLine(h.to)}</span></div>
             </div>
           ))}
         </div>

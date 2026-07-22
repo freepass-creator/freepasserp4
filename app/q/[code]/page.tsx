@@ -8,7 +8,7 @@ import { type EntityRecord } from '@/lib/intake/entities';
 import { vehicleName } from '@/lib/domain/product';
 import { matchAgentByShareCode } from '@/lib/domain/product-share';
 import { ProductDetail } from '@/components/ProductDetail';
-import { C, R, Loading, CenterNote, Btn } from '@/components/ui';
+import { C, R, Loading, CenterNote, Btn, FW } from '@/components/ui';
 import { haptic } from '@/lib/haptics';
 
 /**
@@ -50,7 +50,7 @@ export default function Quote() {
       <div style={{ fontSize: 12, color: C.mute, letterSpacing: '0.04em', marginBottom: 10 }}>대여 견적서</div>
       <ProductDetail p={p} audience="customer" />
       <div style={{ marginTop: 24, padding: '14px 16px', background: C.brand, color: '#fff', borderRadius: R }}>
-        <div style={{ fontSize: 13, fontWeight: 700 }}>상담 문의</div>
+        <div style={{ fontSize: 13, fontWeight: FW.title }}>상담 문의</div>
         <div style={{ fontSize: 13, marginTop: 4, opacity: 0.9 }}>
           {agentName ? `담당 영업자 ${agentName}에게 연락 주세요.` : '담당 영업자에게 연락 주세요.'}
         </div>
@@ -59,7 +59,7 @@ export default function Quote() {
             <Btn
               href={telHref}
               onClick={() => haptic.nav()}
-              style={{ background: '#fff', color: C.brand, borderColor: '#fff', boxShadow: 'none', fontWeight: 800 }}
+              style={{ background: '#fff', color: C.brand, borderColor: '#fff', boxShadow: 'none', fontWeight: FW.label }}
             >
               전화하기{phone ? ` · ${phone}` : ''}
             </Btn>

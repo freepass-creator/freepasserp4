@@ -9,7 +9,7 @@ import { matchProductQuery } from '@/lib/domain/search';
 import { withProviderNames } from '@/lib/domain/identity';
 import { ProductCard } from '@/components/ProductCard';
 import { RENT_BANDS, CREDITS, CATALOG_PERKS, hasPerk } from '@/lib/domain/product-filters';
-import { C, Loading, CenterNote, SearchInput, Select, ToggleChips } from '@/components/ui';
+import { C, FW, FS, Loading, CenterNote, SearchInput, Select, ToggleChips } from '@/components/ui';
 import { toggleInSet } from '@/lib/set';
 
 // 손님 공개 카탈로그(화이트라벨) — 영업 공유의 착지점. ERP 크롬 없음.
@@ -61,7 +61,7 @@ export default function Catalog() {
   return (
     <main style={{ maxWidth: 1000, margin: '0 auto', padding: '18px 16px 28px' }}>
       <div style={{ fontSize: 12, color: C.mute, letterSpacing: '0.04em' }}>차량 렌탈</div>
-      <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em', margin: '4px 0 12px' }}>조건별 차량 찾기</h1>
+      <h1 style={{ fontSize: FS.page, fontWeight: FW.title, letterSpacing: '-0.02em', margin: '4px 0 12px' }}>조건별 차량 찾기</h1>
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 }}>
         <SearchInput value={q} onChange={setQ} placeholder="차번·차명·연료·옵션…" style={{ flex: '1 1 200px', minWidth: 180 }} />
@@ -73,7 +73,7 @@ export default function Catalog() {
       </div>
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 14 }}>
         <ToggleChips selected={perks} onToggle={(k) => setPerks((p) => toggleInSet(p, k))} options={CATALOG_PERKS.map((pk) => ({ key: pk, label: pk }))} />
-        <span style={{ fontSize: 12.5, color: C.mute }}>{list.length}대</span>
+        <span style={{ fontSize: FS.sub, color: C.mute }}>{list.length}대</span>
       </div>
 
       {list.length === 0 ? <CenterNote>조건에 맞는 차량이 없습니다.</CenterNote> : (

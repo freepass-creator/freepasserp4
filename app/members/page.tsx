@@ -8,7 +8,7 @@ import { ENTITIES, ROLES, ROLE_LABEL_RAW, type EntityRecord, type Field } from '
 import { isGuest } from '@/lib/auth-session';
 import { getRole } from '@/lib/domain/deal';
 import { newId } from '@/lib/domain/ids';
-import { PaneHead, PaneBody, Btn, Badge, FormGrid, FormCard, PillTabs, C, NUM, Loading, CenterNote, ListRow, ACTOR_TONE, FilterChips, SectionLabel, Message, PageActions } from '@/components/ui';
+import { PaneHead, PaneBody, Btn, Badge, FormGrid, FormCard, PillTabs, C, NUM, Loading, CenterNote, ListRow, ACTOR_TONE, FilterChips, SectionLabel, Message, PageActions, FW, FS } from '@/components/ui';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
 import { toast } from '@/components/Toaster';
 import { matchMemberQuery } from '@/lib/domain/search';
@@ -203,8 +203,8 @@ export default function Members() {
         {sel ? (
           <>
             {modeBanner}
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: 11.5, color: C.faint }}>
-              <span style={{ fontFamily: NUM, fontWeight: 700, color: C.mute }}>{String(form[idFieldOf(tab)] || '')}</span>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: FS.cap, color: C.faint }}>
+              <span style={{ fontFamily: NUM, fontWeight: FW.strong, color: C.mute }}>{String(form[idFieldOf(tab)] || '')}</span>
             </div>
             <FormCard
               hint={tab === 'user'

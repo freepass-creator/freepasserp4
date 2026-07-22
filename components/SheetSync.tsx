@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getStore } from '@/lib/store';
 import { getRole, actor } from '@/lib/domain/deal';
 import { toast } from '@/components/Toaster';
-import { Btn, C, Input, PillTabs, R, Select, SectionLabel, Textarea } from '@/components/ui';
+import { Btn, C, FS, FW, Input, PillTabs, R, Select, SectionLabel, Textarea } from '@/components/ui';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { type MasterEntry } from '@/lib/domain/vehicle-master-match';
 import { fetchSheetTable, parseDelimited, autoMapHeaders, IMPORT_FIELDS, type MappingProfile } from '@/lib/domain/sheet-import';
@@ -196,19 +196,19 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       {isAdmin && (
         <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: C.selected, padding: 10 }}>
-          <div style={{ fontSize: 12, fontWeight: 800, color: C.brand, marginBottom: 3 }}>공급사 시트 일괄 변환</div>
+          <div style={{ fontSize: 12, fontWeight: FW.title, color: C.brand, marginBottom: 3 }}>공급사 시트 일괄 변환</div>
           <div style={{ fontSize: 11, color: C.faint, lineHeight: 1.5, marginBottom: 8 }}>
             공급사 기본정보 → 차종마스터 틀로 변환 후 저장. high·중 확정, 검토·미매칭은 검수 표시.
           </div>
           {roster.length === 0 ? (
-            <div style={{ fontSize: 11.5, color: C.mute, marginBottom: 8 }}>등록된 시트 없음 → `/members` 파트너에 구글시트 URL 입력</div>
+            <div style={{ fontSize: FS.cap, color: C.mute, marginBottom: 8 }}>등록된 시트 없음 → `/members` 파트너에 구글시트 URL 입력</div>
           ) : (
             <div style={{ maxHeight: 120, overflowY: 'auto', marginBottom: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
               {roster.map((p) => (
-                <div key={p.code} style={{ display: 'flex', gap: 8, alignItems: 'baseline', fontSize: 11.5, minWidth: 0 }}>
-                  <span style={{ fontWeight: 700, color: C.ink, flex: '0 0 auto' }}>{p.name}</span>
+                <div key={p.code} style={{ display: 'flex', gap: 8, alignItems: 'baseline', fontSize: FS.cap, minWidth: 0 }}>
+                  <span style={{ fontWeight: FW.strong, color: C.ink, flex: '0 0 auto' }}>{p.name}</span>
                   <span style={{ color: C.faint, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0, flex: 1 }} title={p.url}>{p.url}</span>
-                  <span style={{ color: C.mute, flex: '0 0 auto', fontFamily: 'var(--font-mono)', fontSize: 10.5 }}>{fmtSync(p.lastSyncedAt)}</span>
+                  <span style={{ color: C.mute, flex: '0 0 auto', fontFamily: 'var(--font-mono)', fontSize: FS.micro }}>{fmtSync(p.lastSyncedAt)}</span>
                 </div>
               ))}
             </div>
@@ -224,7 +224,7 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
 
       <PillTabs tabs={[{ key: 'sheet', label: '단일 시트' }, { key: 'excel', label: '엑셀 업로드' }]} value={tab} onChange={(k) => { setTab(k); clear(); }} size="sm" />
       {!isAdmin && (
-        <div style={{ fontSize: 11.5, color: C.mute, lineHeight: 1.45, padding: '6px 8px', background: C.head, borderRadius: R }}>
+        <div style={{ fontSize: FS.cap, color: C.mute, lineHeight: 1.45, padding: '6px 8px', background: C.head, borderRadius: R }}>
           <b style={{ color: C.ink }}>연습</b> — 어댑터 <b>오토플러스식</b> · 구글시트 URL → 불러오기 → 차량번호 매핑 → 차종 변환 후 저장.
           {partnerHint ? <span style={{ display: 'block', marginTop: 4, color: C.faint }}>{partnerHint}</span> : null}
         </div>
@@ -254,13 +254,13 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
 
       {table && (
         <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: '#fff', padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <SectionLabel>컬럼 매핑 <span style={{ fontSize: 11, fontWeight: 400, color: C.faint }}>· 틀린 칸만 바꾸면 학습됩니다</span></SectionLabel>
+          <SectionLabel>컬럼 매핑 <span style={{ fontSize: 11, fontWeight: FW.body, color: C.faint }}>· 틀린 칸만 바꾸면 학습됩니다</span></SectionLabel>
           <div style={{ maxHeight: 210, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
             {(table[0] || []).map((h, i) => (
               <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 96px', gap: 6, alignItems: 'center' }}>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: 12, color: C.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{String(h || `(빈 헤더 ${i})`)}</div>
-                  <div style={{ fontSize: 10.5, color: C.faint, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>예: {String(table[1]?.[i] ?? '')}</div>
+                  <div style={{ fontSize: FS.micro, color: C.faint, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>예: {String(table[1]?.[i] ?? '')}</div>
                 </div>
                 <Select value={fieldForCol(i)} onChange={(v) => setColField(i, v)} placeholder="(무시)" size="sm" full
                   options={IMPORT_FIELDS.map((f) => ({ value: f.key, label: f.label }))} />

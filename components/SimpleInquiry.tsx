@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { getRole, actor, ensureRoom, type Role } from '@/lib/domain/deal';
 import { sendText, listMessages, isMine, markRead } from '@/lib/domain/messaging';
-import { C, R, FS, Btn, Input } from '@/components/ui';
+import { C, R, FS, FW, Btn, Input } from '@/components/ui';
 import { toast } from '@/components/Toaster';
 import { ChatSenderLabel } from '@/components/ChatSenderLabel';
 import { msgClock } from '@/lib/format';
@@ -98,7 +98,7 @@ export function SimpleInquiry({ p }: { p: EntityRecord }) {
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, flexDirection: mine ? 'row-reverse' : 'row' }}>
               <div style={{
                 padding: '7px 11px', borderRadius: mine ? `${R}px ${R}px 2px ${R}px` : `${R}px ${R}px ${R}px 2px`,
-                fontSize: 12.5, lineHeight: 1.45,
+                fontSize: FS.sub, lineHeight: 1.45,
                 background: mine ? C.brand : '#fff',
                 color: mine ? '#fff' : C.ink,
                 border: mine ? 'none' : `1px solid ${C.line2}`,
@@ -120,10 +120,10 @@ export function SimpleInquiry({ p }: { p: EntityRecord }) {
   return (
     <section style={{ marginTop: 22 }}>
       <div style={{ borderRadius: R, background: C.selected, padding: '14px 14px 12px', border: `1px solid ${C.line}` }}>
-        <div style={{ fontSize: 13.5, fontWeight: 800, color: C.ink, marginBottom: 2 }}>
+        <div style={{ fontSize: FS.title, fontWeight: FW.title, color: C.ink, marginBottom: 2 }}>
           {msgs.length ? '이어가는 문의' : '궁금한 게 있으신가요?'}
         </div>
-        <div style={{ fontSize: 11.5, color: C.mute, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <div style={{ fontSize: FS.cap, color: C.mute, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           {msgs.length ? (
             <>
               <span>주고받은 {msgs.length}건 · 계약문의로 이어집니다</span>

@@ -4,7 +4,7 @@ import { type EntityRecord } from '@/lib/intake/entities';
 import { priceList, detailSections, cheapest, type Audience } from '@/lib/domain/product';
 import { useProductPhotos } from '@/components/use-product-photos';
 import { getRole } from '@/lib/domain/deal';
-import { won, C, R, NUM } from '@/components/ui';
+import { won, C, R, NUM, FW, FS } from '@/components/ui';
 import { useDragScroll } from '@/lib/use-drag-scroll';
 import {
   badges, Plate, idParts, CardBenefits, CardEvents, OptionChips,
@@ -16,10 +16,9 @@ import { FavHeart } from '@/components/FavHeart';
  * 차이는 페이지 껍데기 배열(패딩·하단바·스와이프)만. dense/모바일 폰트 분기 금지.
  * /m · 소통·계약 패널 · /q 공용.
  */
-const FS = { title: 13.5, body: 13, lab: 13, table: 13, chip: 12.5, caption: 11 } as const;
 const LAB_W = 92;
 const lab: CSSProperties = {
-  width: LAB_W, flex: `0 0 ${LAB_W}px`, color: C.mute, fontSize: FS.lab,
+  width: LAB_W, flex: `0 0 ${LAB_W}px`, color: C.mute, fontSize: FS.body,
 };
 const box: CSSProperties = {
   border: `1px solid ${C.line}`, borderRadius: R, background: '#fff', overflow: 'hidden',
@@ -58,8 +57,8 @@ export function ProductDetail({ p, audience }: { p: EntityRecord; audience?: Aud
       {/* 1 헤더 — 차명 → 차번·상태·상품·심사 → 우대·이벤트 (원자 공용) */}
       <div style={{ marginBottom: 11 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
-          <h1 style={{ fontSize: 19, fontWeight: 800, letterSpacing: '-0.02em', margin: 0, lineHeight: 1.25 }}>{idMain}</h1>
-          {idExt && <span style={{ fontSize: 14, fontWeight: 500, color: C.mute }}>{idExt}</span>}
+          <h1 style={{ fontSize: FS.page, fontWeight: FW.title, letterSpacing: '-0.02em', margin: 0, lineHeight: 1.25 }}>{idMain}</h1>
+          {idExt && <span style={{ fontSize: FS.title, fontWeight: FW.meta, color: C.mute }}>{idExt}</span>}
         </div>
         <div style={{
           display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap',
@@ -78,7 +77,7 @@ export function ProductDetail({ p, audience }: { p: EntityRecord; audience?: Aud
           <div onClick={() => setLb(mainIdx)} style={{ position: 'relative', aspectRatio: '16 / 10', background: C.placeholder, borderRadius: R, overflow: 'hidden', cursor: 'zoom-in' }}>
             <img src={photos[mainIdx]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             {aud !== 'customer' && <span style={{ position: 'absolute', top: 8, right: 8, zIndex: 2 }}><FavHeart p={p} onPhoto /></span>}
-            <span style={{ position: 'absolute', right: 8, bottom: 8, background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: R, fontFamily: NUM }}>{mainIdx + 1} / {photos.length}</span>
+            <span style={{ position: 'absolute', right: 8, bottom: 8, background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 11, fontWeight: FW.strong, padding: '2px 8px', borderRadius: R, fontFamily: NUM }}>{mainIdx + 1} / {photos.length}</span>
           </div>
           {photos.length > 1 && (
             <div
@@ -98,7 +97,7 @@ export function ProductDetail({ p, audience }: { p: EntityRecord; audience?: Aud
           )}
         </div>
       ) : (
-        <div style={{ position: 'relative', aspectRatio: '16 / 10', background: C.placeholder, borderRadius: R, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.faint, fontSize: 12.5 }}>
+        <div style={{ position: 'relative', aspectRatio: '16 / 10', background: C.placeholder, borderRadius: R, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.faint, fontSize: FS.sub }}>
           사진 준비중
           {aud !== 'customer' && <span style={{ position: 'absolute', top: 8, right: 8 }}><FavHeart p={p} onPhoto /></span>}
         </div>
@@ -107,29 +106,29 @@ export function ProductDetail({ p, audience }: { p: EntityRecord; audience?: Aud
       {/* 3 섹션 — 데이터=detailSections. 표기 원자=웹·모바일 동일 */}
       {secs.map((sec) => (
         <div key={sec.title} style={{ marginTop: 11 }}>
-          <div style={{ fontSize: FS.title, fontWeight: 800, color: C.ink, marginBottom: 4 }}>{sec.title}</div>
+          <div style={{ fontSize: FS.title, fontWeight: FW.title, color: C.ink, marginBottom: 4 }}>{sec.title}</div>
           {sec.kind === 'price' ? (
             <div style={box}>
-              <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: FS.table, tableLayout: 'fixed' }}>
-                <thead><tr>{['기간', '월대여료', '보증금'].map((h, i) => <th key={h} style={{ width: '33.33%', padding: '6px 10px', textAlign: i === 0 ? 'left' : i === 1 ? 'center' : 'right', background: C.head, borderBottom: `1px solid ${C.line}`, fontSize: FS.caption, color: C.mute, fontWeight: 700 }}>{h}</th>)}</tr></thead>
+              <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: FS.body, tableLayout: 'fixed' }}>
+                <thead><tr>{['기간', '월대여료', '보증금'].map((h, i) => <th key={h} style={{ width: '33.33%', padding: '6px 10px', textAlign: i === 0 ? 'left' : i === 1 ? 'center' : 'right', background: C.head, borderBottom: `1px solid ${C.line}`, fontSize: FS.cap, color: C.mute, fontWeight: FW.strong }}>{h}</th>)}</tr></thead>
                 <tbody>{prices.length === 0 ? <tr><td colSpan={3} style={{ padding: 12, textAlign: 'center', color: C.faint }}>가격 문의</td></tr> :
                   prices.map((pr, i) => {
                     const isCheap = !!cheap && pr.m === cheap.m;
                     return (
                       <tr key={pr.m} style={{ borderTop: i ? `1px solid ${C.line2}` : 'none', background: isCheap ? C.selected : 'transparent' }}>
-                        <td style={{ padding: '6px 10px' }}>{pr.m}개월{isCheap && <span style={{ marginLeft: 5, fontSize: 9.5, fontWeight: 800, color: '#fff', background: C.brand, borderRadius: R, padding: '1px 5px', verticalAlign: 'middle' }}>최저</span>}</td>
-                        <td style={{ padding: '6px 10px', textAlign: 'center', fontWeight: 800, color: C.brand, fontFamily: NUM }}>{won(pr.rent)}</td>
+                        <td style={{ padding: '6px 10px' }}>{pr.m}개월{isCheap && <span style={{ marginLeft: 5, fontSize: 9.5, fontWeight: FW.label, color: '#fff', background: C.brand, borderRadius: R, padding: '1px 5px', verticalAlign: 'middle' }}>최저</span>}</td>
+                        <td style={{ padding: '6px 10px', textAlign: 'center', fontWeight: FW.head, color: C.brand, fontFamily: NUM }}>{won(pr.rent)}</td>
                         <td style={{ padding: '6px 10px', textAlign: 'right', fontFamily: NUM }}>{won(pr.deposit)}</td>
                       </tr>
                     );
                   })}</tbody>
               </table>
-              {caption && <div style={{ padding: '6px 10px', fontSize: FS.caption, color: C.faint, borderTop: `1px solid ${C.line2}` }}>* {caption} 기준</div>}
+              {caption && <div style={{ padding: '6px 10px', fontSize: FS.cap, color: C.faint, borderTop: `1px solid ${C.line2}` }}>* {caption} 기준</div>}
             </div>
           ) : sec.kind === 'ins' ? (
             <div style={box}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: FS.table, tableLayout: 'fixed' }}>
-                <thead><tr>{['항목', '보장한도', '면책금'].map((h, i) => <th key={h} style={{ width: i ? '36%' : '28%', textAlign: i ? 'right' : 'left', padding: '5px 10px', background: C.head, borderBottom: `1px solid ${C.line}`, fontSize: FS.caption, fontWeight: 700, color: C.mute }}>{h}</th>)}</tr></thead>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: FS.body, tableLayout: 'fixed' }}>
+                <thead><tr>{['항목', '보장한도', '면책금'].map((h, i) => <th key={h} style={{ width: i ? '36%' : '28%', textAlign: i ? 'right' : 'left', padding: '5px 10px', background: C.head, borderBottom: `1px solid ${C.line}`, fontSize: FS.cap, fontWeight: FW.strong, color: C.mute }}>{h}</th>)}</tr></thead>
                 <tbody>{sec.rows.map(([lbl, limit, ded], i) => (
                   <tr key={lbl} style={{ borderTop: i ? `1px solid ${C.line2}` : 'none' }}>
                     <td style={{ padding: '5px 10px', color: C.mute }}>{lbl}</td>
@@ -138,12 +137,12 @@ export function ProductDetail({ p, audience }: { p: EntityRecord; audience?: Aud
                   </tr>
                 ))}</tbody>
               </table>
-              {sec.note && <div style={{ padding: '7px 10px', fontSize: 11.5, color: C.mute, borderTop: `1px solid ${C.line2}`, background: '#fafbfc', display: 'flex', gap: 7, alignItems: 'center' }}><span style={{ fontSize: 10, fontWeight: 700, color: C.faint }}>부가</span>{sec.note}</div>}
+              {sec.note && <div style={{ padding: '7px 10px', fontSize: FS.cap, color: C.mute, borderTop: `1px solid ${C.line2}`, background: '#fafbfc', display: 'flex', gap: 7, alignItems: 'center' }}><span style={{ fontSize: 10, fontWeight: FW.label, color: C.faint }}>부가</span>{sec.note}</div>}
             </div>
           ) : sec.kind === 'chips' ? (
             <div style={{ ...box, padding: '8px 10px' }}>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-                {sec.items.map((o) => <span key={o} style={{ fontSize: FS.chip, color: C.mute, background: C.head, borderRadius: R, padding: '2px 8px' }}>{o}</span>)}
+                {sec.items.map((o) => <span key={o} style={{ fontSize: FS.sub, color: C.mute, background: C.head, borderRadius: R, padding: '2px 8px' }}>{o}</span>)}
               </div>
             </div>
           ) : (

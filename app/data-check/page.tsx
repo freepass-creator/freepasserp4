@@ -11,7 +11,7 @@ import { auditMasterFit, type MasterEntry } from '@/lib/domain/vehicle-master-ma
 import { loadVehicleMaster } from '@/lib/domain/vehicle-master-load';
 import { setReportStatus } from '@/lib/domain/report';
 import { toast } from '@/components/Toaster';
-import { Page, C, R, NUM, Loading, Btn, CenterNote, FormCard, SectionLabel, Badge, toneText } from '@/components/ui';
+import { Page, C, R, NUM, Loading, Btn, CenterNote, FormCard, SectionLabel, Badge, toneText, FW, FS } from '@/components/ui';
 import { MasterFitSummary } from '@/components/MasterFitSummary';
 import { NAV_LABEL } from '@/lib/tabbar';
 import { haptic } from '@/lib/haptics';
@@ -73,19 +73,19 @@ export default function DataCheck() {
         {master === null ? (
           <CenterNote minHeight={48}>마스터 불러오는 중…</CenterNote>
         ) : !master.length ? (
-          <div style={{ fontSize: 12.5, color: toneText('red') }}>마스터 로드 실패 — `/data/vehicle-master.json` 확인</div>
+          <div style={{ fontSize: FS.sub, color: toneText('red') }}>마스터 로드 실패 — `/data/vehicle-master.json` 확인</div>
         ) : !masterFit ? (
           <CenterNote minHeight={48}>집계 중…</CenterNote>
         ) : (
           <>
-            <div style={{ fontSize: 12.5, color: C.mute, marginBottom: 10, lineHeight: 1.5 }}>
+            <div style={{ fontSize: FS.sub, color: C.mute, marginBottom: 10, lineHeight: 1.5 }}>
               마스터 {master.length.toLocaleString()}세대 기준. 자동변환= high+중 · 검수= 검토+미매칭+신호없음.
             </div>
             <MasterFitSummary
               fit={masterFit}
               showSamples
               footer={
-                <div style={{ fontSize: 11.5, color: C.faint, marginTop: 10 }}>
+                <div style={{ fontSize: FS.cap, color: C.faint, marginTop: 10 }}>
                   일괄 변환은 <Link href="/dev" style={{ color: C.accent }}>개발도구</Link>에서 · 단건은 재고에서 매칭.
                 </div>
               }
@@ -110,13 +110,13 @@ export default function DataCheck() {
                 >
                   <Link
                     href={`/m/${encodeURIComponent(String(r.product_code))}`}
-                    style={{ fontSize: 12.5, fontWeight: 700, color: C.ink, textDecoration: 'none', fontFamily: NUM }}
+                    style={{ fontSize: FS.sub, fontWeight: FW.strong, color: C.ink, textDecoration: 'none', fontFamily: NUM }}
                   >
                     {String(r.car_number || r.product_code)}
                   </Link>
                   <Badge tone="amber">{String(r.reason)}</Badge>
-                  {p && <span style={{ fontSize: 11.5, color: C.mute }}>{vehicleName(p)}</span>}
-                  {r.memo ? <span style={{ fontSize: 11.5, color: C.faint, flex: 1, minWidth: 0 }}>“{String(r.memo)}”</span> : <span style={{ flex: 1 }} />}
+                  {p && <span style={{ fontSize: FS.cap, color: C.mute }}>{vehicleName(p)}</span>}
+                  {r.memo ? <span style={{ fontSize: FS.cap, color: C.faint, flex: 1, minWidth: 0 }}>“{String(r.memo)}”</span> : <span style={{ flex: 1 }} />}
                   <span style={{ fontSize: 11, color: C.faint }}>{String(r.reporter_name || '')} · {String(r.provider_company_code || '')}</span>
                   <Btn size="sm" variant="ghost" onClick={() => resolve(String(r.report_code))}>처리완료</Btn>
                 </div>
@@ -166,7 +166,7 @@ export default function DataCheck() {
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', width: '100%' }}>
                       <span>{g.label}</span>
                       <Badge tone={tone}>{sevLabel(g.severity)}</Badge>
-                      <span style={{ fontFamily: NUM, fontWeight: 800, color: toneText(tone) }}>{g.hits.length}건</span>
+                      <span style={{ fontFamily: NUM, fontWeight: FW.head, color: toneText(tone) }}>{g.hits.length}건</span>
                       <span style={{ marginLeft: 'auto' }}>
                         <Btn size="sm" variant="ghost" onClick={() => toggle(g.key)}>
                           {on ? '접기' : '펼치기'}
@@ -186,7 +186,7 @@ export default function DataCheck() {
                             href={`/m/${encodeURIComponent(h.code)}`}
                             title={p ? vehicleName(p) : ''}
                             style={{
-                              fontSize: 11.5, color: C.ink, background: C.head,
+                              fontSize: FS.cap, color: C.ink, background: C.head,
                               border: `1px solid ${C.line}`, borderRadius: R,
                               padding: '3px 8px', textDecoration: 'none', fontFamily: NUM,
                             }}

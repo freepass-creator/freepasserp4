@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { getRole, actor, ROLE_LABEL, type Role } from '@/lib/domain/deal';
-import { C, R, FS, IconBtn, Btn } from '@/components/ui';
+import { C, R, FS, FW, IconBtn, Btn } from '@/components/ui';
 import { Paperclip, FileText, X, Download } from 'lucide-react';
 import { toast } from '@/components/Toaster';
 
@@ -135,7 +135,7 @@ export function ContractDocs({ contractCode, roomId }: { contractCode: string; r
   return (
     <div style={{ padding: '12px 14px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-        <span style={{ fontSize: FS.sub, fontWeight: 800, color: C.ink }}>첨부 서류</span>
+        <span style={{ fontSize: FS.sub, fontWeight: FW.title, color: C.ink }}>첨부 서류</span>
         <span style={{ fontSize: FS.cap, color: C.faint }}>{merged.length}</span>
         <span style={{ flex: 1 }} />
         <span style={{ fontSize: FS.cap, color: C.faint }}>영업·공급·관리자 공유</span>
@@ -148,7 +148,7 @@ export function ContractDocs({ contractCode, roomId }: { contractCode: string; r
         onDrop={(e) => { e.preventDefault(); setDrag(false); addFiles(e.dataTransfer.files); }}
         style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, padding: '16px 12px', border: `1.5px dashed ${drag ? C.brand : C.line}`, borderRadius: R, background: drag ? C.selected : C.head, cursor: 'pointer', marginBottom: 8, transition: 'background .12s, border-color .12s' }}>
         <Paperclip size={16} color={drag ? C.brand : C.faint} />
-        <span style={{ fontSize: FS.cap, color: drag ? C.brand : C.mute, fontWeight: 600 }}>{busy ? '첨부 중…' : '파일을 여기로 끌어놓거나 클릭'}</span>
+        <span style={{ fontSize: FS.cap, color: drag ? C.brand : C.mute, fontWeight: FW.strong }}>{busy ? '첨부 중…' : '파일을 여기로 끌어놓거나 클릭'}</span>
         <span style={{ fontSize: FS.micro, color: C.faint }}>이미지·PDF 등 · 4MB/파일</span>
         <input ref={inputRef} type="file" multiple onChange={(e) => addFiles(e.target.files)} style={{ display: 'none' }} />
       </div>
@@ -166,7 +166,7 @@ export function ContractDocs({ contractCode, roomId }: { contractCode: string; r
                   <span
                     onClick={() => canPreview(a) ? setPreview(a) : a.url && window.open(a.url, '_blank')}
                     title={a.name}
-                    style={{ fontSize: FS.sub, fontWeight: 600, color: C.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block', cursor: 'pointer' }}
+                    style={{ fontSize: FS.sub, fontWeight: FW.strong, color: C.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block', cursor: 'pointer' }}
                   >{a.name}</span>
                   <span style={{ fontSize: FS.micro, color: C.faint }}>
                     {[sizeLabel, a.fromChat ? '채팅' : '', [a.by_role, a.by_name].filter(Boolean).join(' ')].filter(Boolean).join(' · ')}
@@ -174,7 +174,7 @@ export function ContractDocs({ contractCode, roomId }: { contractCode: string; r
                   </span>
                 </div>
                 {a.fromChat
-                  ? <span style={{ fontSize: FS.micro, fontWeight: 700, color: C.brand, background: C.selected, borderRadius: R, padding: '1px 5px', flex: '0 0 auto' }}>채팅</span>
+                  ? <span style={{ fontSize: FS.micro, fontWeight: FW.label, color: C.brand, background: C.selected, borderRadius: R, padding: '1px 5px', flex: '0 0 auto' }}>채팅</span>
                   : null}
                 {a.url && <a href={a.url} download={a.name} aria-label="다운로드" style={{ color: C.faint, display: 'flex', flex: '0 0 auto' }}><Download size={13} /></a>}
                 {!a.fromChat && <IconBtn title="삭제" onClick={() => remove(a)}><X size={13} /></IconBtn>}
@@ -186,7 +186,7 @@ export function ContractDocs({ contractCode, roomId }: { contractCode: string; r
       {preview && preview.url && (
         <div onClick={() => setPreview(null)} style={{ position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(0,0,0,0.9)', display: 'flex', flexDirection: 'column', padding: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#fff', padding: '4px 6px 8px' }}>
-            <span style={{ fontSize: FS.sub, fontWeight: 700, flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{preview.name}</span>
+            <span style={{ fontSize: FS.sub, fontWeight: FW.title, flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{preview.name}</span>
             <a href={preview.url} download={preview.name} onClick={(e) => e.stopPropagation()} aria-label="다운로드" style={{ color: '#fff', display: 'flex' }}><Download size={17} /></a>
             <Btn
               size="sm"

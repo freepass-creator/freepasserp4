@@ -5,7 +5,7 @@ import { seedIfEmpty } from '@/lib/seed';
 import { getCompanyId } from '@/lib/tenant';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { getContractByToken, submitSign } from '@/lib/domain/sign';
-import { won, C, R, Input, fmtPhone, Loading, Btn } from '@/components/ui';
+import { won, C, R, Input, fmtPhone, Loading, Btn, FW, FS } from '@/components/ui';
 import { toast } from '@/components/Toaster';
 
 // 손님 전자서명 페이지(공개·화이트라벨). 계약요약 → 본인확인 → 약관동의 → 전자서명 → 제출(검토대기).
@@ -49,37 +49,37 @@ export default function SignPage() {
 
   const wrap: CSSProperties = { maxWidth: 560, margin: '0 auto', padding: '18px 16px 60px' };
   if (c === undefined) return <Loading />;
-  if (!c) return <main style={wrap}><h1 style={{ fontSize: 18 }}>유효하지 않은 링크</h1><p style={{ color: C.mute, fontSize: 13 }}>서명 링크가 만료되었거나 잘못되었습니다. 담당자에게 문의해 주세요.</p></main>;
+  if (!c) return <main style={wrap}><h1 style={{ fontSize: FS.page }}>유효하지 않은 링크</h1><p style={{ color: C.mute, fontSize: FS.body }}>서명 링크가 만료되었거나 잘못되었습니다. 담당자에게 문의해 주세요.</p></main>;
 
   const st = String(c.sign_status || '');
   if (st === '검토대기' || st === '서명완료') return (
     <main style={wrap}>
       <div style={{ textAlign: 'center', padding: '40px 0' }}>
         <div style={{ fontSize: 40 }}>✓</div>
-        <h1 style={{ fontSize: 19, fontWeight: 800, margin: '8px 0 4px' }}>{st === '서명완료' ? '서명이 완료되었습니다' : '제출이 접수되었습니다'}</h1>
-        <p style={{ color: C.mute, fontSize: 13.5 }}>{st === '서명완료' ? '계약이 확정되었습니다.' : '담당자 확인 후 계약이 확정됩니다. 잠시만 기다려 주세요.'}</p>
+        <h1 style={{ fontSize: FS.page, fontWeight: FW.title, margin: '8px 0 4px' }}>{st === '서명완료' ? '서명이 완료되었습니다' : '제출이 접수되었습니다'}</h1>
+        <p style={{ color: C.mute, fontSize: FS.body }}>{st === '서명완료' ? '계약이 확정되었습니다.' : '담당자 확인 후 계약이 확정됩니다. 잠시만 기다려 주세요.'}</p>
       </div>
     </main>
   );
 
   const inpStyle: CSSProperties = { display: 'block', marginTop: 4 };
-  const label: CSSProperties = { fontSize: 12, color: C.mute, fontWeight: 600 };
+  const label: CSSProperties = { fontSize: FS.sub, color: C.mute, fontWeight: FW.strong };
 
   return (
     <main style={wrap}>
-      <div style={{ fontSize: 12, color: C.mute, letterSpacing: '0.04em' }}>렌터카 대여 계약 · 전자서명</div>
-      <h1 style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em', margin: '4px 0 12px' }}>{String(c.vehicle_name_snapshot || c.sub_model_snapshot || '차량')}</h1>
+      <div style={{ fontSize: FS.sub, color: C.mute, letterSpacing: '0.04em' }}>렌터카 대여 계약 · 전자서명</div>
+      <h1 style={{ fontSize: FS.page, fontWeight: FW.title, letterSpacing: '-0.02em', margin: '4px 0 12px' }}>{String(c.vehicle_name_snapshot || c.sub_model_snapshot || '차량')}</h1>
 
       <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: '#fff', overflow: 'hidden', marginBottom: 18 }}>
         {[['차량', [c.car_number_snapshot, c.sub_model_snapshot].filter(Boolean).join(' · ')], ['대여기간', `${c.rent_month_snapshot || '—'}개월`], ['월 대여료', `${won(c.rent_amount_snapshot)}원`], ['보증금', `${won(c.deposit_amount_snapshot)}원`]].map(([k, v], i) => (
           <div key={String(k)} style={{ display: 'flex', padding: '10px 14px', borderTop: i ? `1px solid ${C.line2}` : 'none' }}>
-            <span style={{ width: 90, flex: '0 0 90px', color: C.mute, fontSize: 13 }}>{k}</span>
-            <span style={{ fontSize: 13.5, fontWeight: 600, color: C.ink }}>{String(v) || '—'}</span>
+            <span style={{ width: 90, flex: '0 0 90px', color: C.mute, fontSize: FS.body }}>{k}</span>
+            <span style={{ fontSize: FS.body, fontWeight: FW.strong, color: C.ink }}>{String(v) || '—'}</span>
           </div>
         ))}
       </div>
 
-      <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 8 }}>계약자 정보</div>
+      <div style={{ fontSize: FS.title, fontWeight: FW.title, marginBottom: 8 }}>계약자 정보</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
         <label style={label}>성명 *<Input value={form.customer_name} onChange={(v) => set('customer_name', v)} full style={inpStyle} /></label>
         <label style={label}>연락처 *<Input value={form.customer_phone} onChange={(v) => set('customer_phone', fmtPhone(v))} inputMode="tel" full style={inpStyle} /></label>
@@ -93,7 +93,7 @@ export default function SignPage() {
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
-        <span style={{ fontSize: 14, fontWeight: 800, flex: 1 }}>약관 동의</span>
+        <span style={{ fontSize: FS.title, fontWeight: FW.title, flex: 1 }}>약관 동의</span>
         <Btn size="sm" variant={allC ? 'solid' : 'ghost'} onClick={() => setConsents(allC ? new Set() : new Set(CONSENTS))}>전체 동의</Btn>
       </div>
       <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: '#fff', overflow: 'hidden', marginBottom: 20 }}>
@@ -115,7 +115,7 @@ export default function SignPage() {
                 minHeight: 44,
                 padding: '11px 14px',
                 whiteSpace: 'normal',
-                fontWeight: on ? 700 : 500,
+                fontWeight: on ? FW.head : FW.meta,
               }}
             >
               <span style={{ flex: '0 0 18px', fontFamily: 'var(--font-mono)' }}>{on ? '✓' : ''}</span>
@@ -125,13 +125,13 @@ export default function SignPage() {
         })}
       </div>
 
-      <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 8, display: 'flex', alignItems: 'center' }}>전자서명 <span style={{ flex: 1 }} /><Btn size="sm" variant="ghost" onClick={clearSig}>지우기</Btn></div>
+      <div style={{ fontSize: FS.title, fontWeight: FW.title, marginBottom: 8, display: 'flex', alignItems: 'center' }}>전자서명 <span style={{ flex: 1 }} /><Btn size="sm" variant="ghost" onClick={clearSig}>지우기</Btn></div>
       <canvas ref={canvasRef} width={600} height={180} onPointerDown={start} onPointerMove={move} onPointerUp={end} onPointerLeave={end}
         style={{ width: '100%', height: 'auto', aspectRatio: '600 / 180', border: `1.5px dashed ${C.line}`, borderRadius: R, background: '#fff', touchAction: 'none', cursor: 'crosshair' }} />
-      <div style={{ fontSize: 11, color: C.faint, marginTop: 4 }}>위 칸에 손가락 또는 마우스로 서명해 주세요.</div>
+      <div style={{ fontSize: FS.cap, color: C.faint, marginTop: 4 }}>위 칸에 손가락 또는 마우스로 서명해 주세요.</div>
 
       <div style={{ marginTop: 22 }}><Btn onClick={submit} disabled={busy}>{busy ? '제출 중…' : '동의하고 서명 제출'}</Btn></div>
-      <div style={{ marginTop: 12, fontSize: 11, color: C.faint, lineHeight: 1.6 }}>제출 시 위 약관에 동의하고 전자서명한 것으로 간주됩니다. 입력 정보는 계약·본인확인 목적에만 사용됩니다.</div>
+      <div style={{ marginTop: 12, fontSize: FS.cap, color: C.faint, lineHeight: 1.6 }}>제출 시 위 약관에 동의하고 전자서명한 것으로 간주됩니다. 입력 정보는 계약·본인확인 목적에만 사용됩니다.</div>
     </main>
   );
 }

@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { getRole, type Role } from '@/lib/domain/deal';
-import { C, actorColor, Textarea } from '@/components/ui';
+import { C, actorColor, Textarea, FW, FS } from '@/components/ui';
 
 // 계약 역할별 메모 3슬롯(영업/공급/관리자). 본인 역할 슬롯만 편집, 나머지는 열람. 관리자는 전부 편집.
 // 필드: memo_agent / memo_provider / memo_admin (blur 자동저장).
@@ -31,13 +31,13 @@ export function ContractMemos({ contractCode }: { contractCode: string }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-      <span style={{ fontSize: 11.5, fontWeight: 800, color: C.ink }}>메모 <span style={{ fontSize: 10, color: C.faint, fontWeight: 600 }}>· 본인 역할만 편집</span></span>
+      <span style={{ fontSize: FS.cap, fontWeight: FW.title, color: C.ink }}>메모 <span style={{ fontSize: 10, color: C.faint, fontWeight: FW.strong }}>· 본인 역할만 편집</span></span>
       {SLOTS.map(({ slot, label }) => {
         const mine = role === slot || role === 'admin';
         const val = memos[slot] || '';
         return (
           <div key={slot}>
-            <div style={{ fontSize: 10, fontWeight: 800, color: actorColor(slot), marginBottom: 3 }}>{label}</div>
+            <div style={{ fontSize: 10, fontWeight: FW.label, color: actorColor(slot), marginBottom: 3 }}>{label}</div>
             {mine ? (
               <Textarea full rows={2} value={val}
                 onChange={(v) => { setMemos((m) => ({ ...m, [slot]: v })); setDirty((d) => ({ ...d, [slot]: true })); }}

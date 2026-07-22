@@ -18,7 +18,7 @@ import { ProductRowCard } from '@/components/ProductRowCard';
 import { productOptions, OptionChips } from '@/components/product-card-atoms';
 import { InterestTriggers, InterestPanel, InterestSummaryCard, useInterestLists, useInterestTab, useInterestTabGuard } from '@/components/InterestRail';
 import { clearRecent, clearFavs } from '@/lib/product-interest';
-import { C, R, NUM, Loading, CenterNote, SearchInput, Select, FilterGroup, FilterChips, ToggleChips, Btn, IconBtn, IconSeg, Badge, CountPill, productTypeStyle, CREDIT_TONE, thX, thXR, thXPin, tdX, tdXR, tdXPin, colLock, colLockChars, colChars, colOpts, clipN, pinRight, EXCEL_W, EXCEL_MAX, EXCEL_CELL_BODY_H, EXCEL_BADGE_GAP_X, EXCEL_PRICE_COL, excelColMode, excelShowFilterCols, excelMakerChars, excelSubChars, excelNameChars, ContextMenu, useContextMenu } from '@/components/ui';
+import { C, R, NUM, FW, FS, Loading, CenterNote, SearchInput, Select, FilterGroup, FilterChips, ToggleChips, Btn, IconBtn, IconSeg, Badge, CountPill, productTypeStyle, CREDIT_TONE, thX, thXR, thXPin, tdX, tdXR, tdXPin, colLock, colLockChars, colChars, colOpts, clipN, pinRight, EXCEL_W, EXCEL_MAX, EXCEL_CELL_BODY_H, EXCEL_BADGE_GAP_X, EXCEL_PRICE_COL, excelColMode, excelShowFilterCols, excelMakerChars, excelSubChars, excelNameChars, ContextMenu, useContextMenu } from '@/components/ui';
 import type { BadgeTone } from '@/components/ui/badges';
 import { man, kmDisplay } from '@/lib/format';
 import { downloadProductsExcel } from '@/lib/excel-export';
@@ -177,7 +177,7 @@ function FilterPop({ field, x, y, rows, colFilter, setColFilter, colSort, setCol
       position: 'fixed', top: y + 2,
       left: Math.max(6, Math.min(x, (typeof window !== 'undefined' ? window.innerWidth : 1200) - 226)),
       width: 220, background: C.taupeBg, border: `1px solid ${C.line}`, borderRadius: R,
-      boxShadow: '0 8px 24px rgba(15,23,42,0.14)', zIndex: 91, textAlign: 'left', fontWeight: 400,
+      boxShadow: '0 8px 24px rgba(15,23,42,0.14)', zIndex: 91, textAlign: 'left', fontWeight: FW.body,
     }}>
       {canSort && (
         <div style={{ display: 'flex', borderBottom: `1px solid ${C.line2}` }}>
@@ -188,7 +188,7 @@ function FilterPop({ field, x, y, rows, colFilter, setColFilter, colSort, setCol
               onClick={() => setSort(dir)}
               style={{
                 ...rowPad, flex: 1, justifyContent: 'center',
-                fontWeight: isS(dir) ? 700 : 500,
+                fontWeight: isS(dir) ? FW.head : FW.meta,
                 color: isS(dir) ? C.brand : C.mute,
                 background: isS(dir) ? C.selected : 'transparent',
               }}
@@ -213,7 +213,7 @@ function FilterPop({ field, x, y, rows, colFilter, setColFilter, colSort, setCol
                 ...rowPad,
                 background: on ? C.selected : 'transparent',
                 color: C.ink,
-                fontWeight: on ? 700 : 500,
+                fontWeight: on ? FW.head : FW.meta,
               }}
               onMouseEnter={(e) => { if (!on) e.currentTarget.style.background = C.hover as string; }}
               onMouseLeave={(e) => { e.currentTarget.style.background = on ? (C.selected as string) : 'transparent'; }}
@@ -234,7 +234,7 @@ function FilterPop({ field, x, y, rows, colFilter, setColFilter, colSort, setCol
         <button
           type="button"
           onClick={onClose}
-          style={{ ...rowPad, flex: 1, justifyContent: 'center', color: C.brand, fontWeight: 700, borderLeft: `1px solid ${C.line2}` }}
+          style={{ ...rowPad, flex: 1, justifyContent: 'center', color: C.brand, fontWeight: FW.strong, borderLeft: `1px solid ${C.line2}` }}
         >닫기</button>
       </div>
     </div>
@@ -602,7 +602,7 @@ export default function Finder() {
         }}
         title={`${label} 필터`}
       >
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2, fontWeight: 700 }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2, fontWeight: FW.strong }}>
           {label}{sorted && <span style={{ fontSize: 9 }}>{colSort!.dir === 'asc' ? '↑' : '↓'}</span>}
         </span>
       </th>
@@ -613,14 +613,14 @@ export default function Finder() {
     <>
       <div className="fp-sidebar-head">
         {mobile ? (
-          <span style={{ fontSize: 15, fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 6, color: C.ink }}>
+          <span style={{ fontSize: FS.title, fontWeight: FW.title, display: 'inline-flex', alignItems: 'center', gap: 6, color: C.ink }}>
             조건 검색{ac > 0 ? <CountPill n={ac} /> : null}
           </span>
         ) : (
           <>
             {/* 총계 = 손님에게 보이는 매물(출고불가 제외) — 상단바 '상품 N대'(totalVisible)와 동일 기준. rows.length는 출고불가까지 세어 어긋남. */}
-            <span style={{ fontSize: 13, color: C.mute }}>총 <b style={{ color: C.ink, fontSize: 15 }}>{totalVisible.toLocaleString()}</b>대</span>
-            <span style={{ fontSize: 14, fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 6, color: C.ink }}>
+            <span style={{ fontSize: 13, color: C.mute }}>총 <b style={{ color: C.ink, fontSize: FS.title }}>{totalVisible.toLocaleString()}</b>대</span>
+            <span style={{ fontSize: FS.title, fontWeight: FW.title, display: 'inline-flex', alignItems: 'center', gap: 6, color: C.ink }}>
               조건 검색{ac > 0 ? <CountPill n={ac} /> : null}
             </span>
             <span style={{ flex: 1 }} />
@@ -817,7 +817,7 @@ export default function Finder() {
                 )}
               </span>
             );
-            const countEl = <span style={{ fontSize: 12.5, color: C.mute, whiteSpace: 'nowrap' }}>상품 <b style={{ color: C.ink }}>{list.length.toLocaleString()}</b>대</span>;
+            const countEl = <span style={{ fontSize: FS.sub, color: C.mute, whiteSpace: 'nowrap' }}>상품 <b style={{ color: C.ink }}>{list.length.toLocaleString()}</b>대</span>;
             const sortSel = <Select value={sort} onChange={setSort} placeholder="정렬" width={118} options={SORTS.map((o) => ({ value: o.k, label: o.label }))} />;
             const searchEl = (
               <SearchInput
@@ -949,7 +949,7 @@ export default function Finder() {
                   };
                   return (
                   <tr key={String(p.product_code || p._key || i)} className="fp-sheet-row" onClick={() => go(p)} onContextMenu={(e) => onProductCtx(e, p)} style={{ cursor: 'pointer', background: bg }}>
-                    <td style={{ ...tdXPin, ...colLock(EXCEL_MAX.plate), background: bg, fontFamily: NUM, fontWeight: 700 }} title={String(p.car_number || '') || undefined}>{String(p.car_number || '') || DASH}</td>
+                    <td style={{ ...tdXPin, ...colLock(EXCEL_MAX.plate), background: bg, fontFamily: NUM, fontWeight: FW.strong }} title={String(p.car_number || '') || undefined}>{String(p.car_number || '') || DASH}</td>
                     <td style={{ ...tdX, ...colLock(EXCEL_W.status) }}>{st ? <Badge tone={vehicleTone(st)} variant={st === '계약중' ? 'solid' : 'line'} pulse={st === '계약중'}>{st}</Badge> : DASH}</td>
                     <td style={{ ...tdX, ...colLock(EXCEL_W.ptype) }}>{pt ? (() => { const c = canonProductType(pt) || pt; const s = productTypeStyle(c); return <Badge tone={s.tone} variant={s.variant}>{c}</Badge>; })() : DASH}</td>
                     <td style={{ ...tdX, ...colLockChars(makerChars) }}>{clipMax(makerDisplay(p.maker) || p.maker, makerChars)}</td>
@@ -992,7 +992,7 @@ export default function Finder() {
                     )}
                     {months.map((m, mi) => { const e = pl.find((x) => x.m === m); return (
                       <td key={m} className="fp-excel-price" style={{ ...tdXR, ...colLock(EXCEL_PRICE_COL), ...pinRight(mi, EXCEL_PRICE_COL, months.length), background: bg, lineHeight: 1.2 }}>
-                            {e ? <><div style={{ color: C.brand, fontWeight: 800, whiteSpace: 'nowrap' }}>{man(e.rent)}</div><div style={{ color: C.faint, fontWeight: 400, whiteSpace: 'nowrap' }}>{e.deposit ? man(e.deposit) : '0'}</div></> : DASH}
+                            {e ? <><div style={{ color: C.brand, fontWeight: FW.head, whiteSpace: 'nowrap' }}>{man(e.rent)}</div><div style={{ color: C.faint, fontWeight: FW.body, whiteSpace: 'nowrap' }}>{e.deposit ? man(e.deposit) : '0'}</div></> : DASH}
                       </td>
                     ); })}
                   </tr>

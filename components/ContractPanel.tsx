@@ -7,7 +7,7 @@ import { STEPS, contractTone, isDone } from '@/lib/domain/contract';
 import { applyStepCheck, cancelContract } from '@/lib/domain/settlement-engine';
 import { createContractRequest, getRole, type Role } from '@/lib/domain/deal';
 import { cheapest, priceList } from '@/lib/domain/product';
-import { Btn, Badge, C, R, NUM, Input, fmtPhone, actorColor } from '@/components/ui';
+import { Btn, Badge, C, R, NUM, Input, fmtPhone, actorColor, FW, FS } from '@/components/ui';
 import { ContractMemos } from '@/components/ContractMemos';
 import { ContractSign } from '@/components/ContractSign';
 import { toast } from '@/components/Toaster';
@@ -74,7 +74,7 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
     try { haptic.impact(); await cancelContract(contract); await load(); onChange?.(); } finally { setBusy(false); }
   };
 
-  if (contract === undefined) return <div style={{ padding: 20, color: C.faint, fontSize: 12.5 }}>불러오는 중…</div>;
+  if (contract === undefined) return <div style={{ padding: 20, color: C.faint, fontSize: FS.sub }}>불러오는 중…</div>;
 
   const c = contract; // null = 아직 계약 전(출고문의로 시작)
   const cval = (k: string) => (c ? c[k] : undefined);
@@ -85,10 +85,10 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
   return (
     <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 9 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        {c ? <><span style={{ fontSize: 12, fontWeight: 800, fontFamily: NUM }}>{String(c.contract_code)}</span><Badge tone={contractTone(String(c.contract_status))}>{String(c.contract_status)}</Badge></>
-          : <span style={{ fontSize: 12.5, fontWeight: 800, color: C.ink }}>새 계약 — 출고문의로 시작</span>}
+        {c ? <><span style={{ fontSize: 12, fontWeight: FW.title, fontFamily: NUM }}>{String(c.contract_code)}</span><Badge tone={contractTone(String(c.contract_status))}>{String(c.contract_status)}</Badge></>
+          : <span style={{ fontSize: FS.sub, fontWeight: FW.title, color: C.ink }}>새 계약 — 출고문의로 시작</span>}
         <span style={{ flex: 1 }} />
-        <span style={{ fontSize: 12, fontWeight: 800, color: C.brand }}>{doneCount}/{STEPS.length}</span>
+        <span style={{ fontSize: 12, fontWeight: FW.head, color: C.brand }}>{doneCount}/{STEPS.length}</span>
         {c && String(c.contract_status) !== '계약취소' && (role === 'agent' || role === 'admin') && <Btn size="sm" variant="ghost" onClick={doCancel} disabled={busy}>계약취소</Btn>}
       </div>
 
@@ -100,21 +100,21 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
         return (
           <div key={s.id} style={{ border: `1px solid ${active ? C.brand : C.line}`, borderRadius: R, padding: '8px 10px', background: stepDone ? C.okBg : active ? C.selected : C.taupeBg, opacity: locked ? 0.55 : 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-              <span style={{ fontSize: 11.5, fontWeight: 800, color: stepDone ? C.ok : C.ink }}>{i + 1}. {s.label}</span>
-              {stepDone ? <span style={{ fontSize: 10, color: C.ok, fontWeight: 800 }}>완료</span> : active ? <span style={{ fontSize: 10, color: C.brand, fontWeight: 800 }}>진행 중</span> : <span style={{ fontSize: 10, color: C.faint }}>잠김</span>}
+              <span style={{ fontSize: FS.cap, fontWeight: FW.title, color: stepDone ? C.ok : C.ink }}>{i + 1}. {s.label}</span>
+              {stepDone ? <span style={{ fontSize: 10, color: C.ok, fontWeight: FW.label }}>완료</span> : active ? <span style={{ fontSize: 10, color: C.brand, fontWeight: FW.label }}>진행 중</span> : <span style={{ fontSize: 10, color: C.faint }}>잠김</span>}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {s.checks.map((ch) => {
                 const cur = cval(ch.key);
                 const done = isDone(cur);
                 const mine = (ch.actor === role || role === 'admin') && stepUnlocked;
-                const actorTag = <span style={{ fontSize: 10, fontWeight: 800, color: actorColor(ch.actor), width: 26, flex: '0 0 26px' }}>{ch.actor === 'agent' ? '영업' : '공급'}</span>;
+                const actorTag = <span style={{ fontSize: 10, fontWeight: FW.label, color: actorColor(ch.actor), width: 26, flex: '0 0 26px' }}>{ch.actor === 'agent' ? '영업' : '공급'}</span>;
 
                 if (ch.key === 'agent_delivery_inquiry') {
                   return (
                     <div key={ch.key} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      {actorTag}<span style={{ fontSize: 11.5, color: C.ink, flex: 1 }}>출고 문의</span>
-                      {done ? <span style={{ fontSize: 11, color: C.ok, fontWeight: 700 }}>문의함 ✓</span>
+                      {actorTag}<span style={{ fontSize: FS.cap, color: C.ink, flex: 1 }}>출고 문의</span>
+                      {done ? <span style={{ fontSize: 11, color: C.ok, fontWeight: FW.strong }}>문의함 ✓</span>
                         : mine ? <Btn size="sm" onClick={doInquiry} disabled={busy || !product}>출고 문의하기</Btn>
                           : <span style={{ fontSize: 11, color: C.faint }}>대기</span>}
                     </div>
@@ -123,10 +123,10 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
                 if (ch.key === 'provider_agreement_done') {
                   return (
                     <div key={ch.key} style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>{actorTag}<span style={{ fontSize: 11.5, color: C.ink, flex: 1 }}>약정 작성완료</span>{done && <span style={{ fontSize: 11, color: C.ok, fontWeight: 700 }}>완료 ✓</span>}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>{actorTag}<span style={{ fontSize: FS.cap, color: C.ink, flex: 1 }}>약정 작성완료</span>{done && <span style={{ fontSize: 11, color: C.ok, fontWeight: FW.strong }}>완료 ✓</span>}</div>
                       {!done && mine && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingLeft: 32 }}>
-                          <span style={{ fontSize: 10.5, color: C.faint }}>계약서 발송 전 손님 연락처 확인</span>
+                          <span style={{ fontSize: FS.micro, color: C.faint }}>계약서 발송 전 손님 연락처 확인</span>
                           <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
                             <Input value={cust.name} onChange={(v) => setCust((s) => ({ ...s, name: v }))} placeholder="손님명" size="sm" width={82} />
                             <Input value={cust.phone} onChange={(v) => setCust((s) => ({ ...s, phone: fmtPhone(v) }))} placeholder="연락처" inputMode="tel" size="sm" style={{ flex: 1, minWidth: 0 }} />
@@ -146,7 +146,7 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
                 }
                 return (
                   <div key={ch.key} style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                    {actorTag}<span style={{ fontSize: 11.5, color: C.ink }}>{ch.label}</span><span style={{ flex: 1 }} />
+                    {actorTag}<span style={{ fontSize: FS.cap, color: C.ink }}>{ch.label}</span><span style={{ flex: 1 }} />
                     {ch.choices ? ch.choices.map((opt) => (
                       <Btn
                         key={opt}

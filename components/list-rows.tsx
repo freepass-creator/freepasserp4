@@ -10,7 +10,7 @@ import type { EntityRecord } from '@/lib/intake/entities';
 import { contractStage, getProgress, contractTone } from '@/lib/domain/contract';
 import { vehicleName, canonProductType } from '@/lib/domain/product';
 import {
-  Badge, CountPill, NUM, C, FS, productTypeStyle, VEHICLE_STATUS_TONE,
+  Badge, CountPill, NUM, C, FS, FW, productTypeStyle, VEHICLE_STATUS_TONE,
   type BadgeTone,
 } from '@/components/ui';
 import {
@@ -23,7 +23,7 @@ import { msgClock } from '@/lib/format';
 function plateSpan(plate: string) {
   if (!plate) return null;
   return (
-    <span style={{ fontFamily: NUM, fontWeight: 600, fontSize: FS.sub, color: C.mute }}>{plate}</span>
+    <span style={{ fontFamily: NUM, fontWeight: FW.strong, fontSize: FS.sub, color: C.mute }}>{plate}</span>
   );
 }
 
@@ -170,13 +170,13 @@ export function ContractListRow({
           key="t"
           title={<FeedTitle>{title}</FeedTitle>}
           meta={inProgress ? (
-            <span style={{ fontSize: FS.sub, fontWeight: 800, color: C.brand, fontFamily: NUM }}>{pr.done}/{pr.total}</span>
+            <span style={{ fontSize: FS.sub, fontWeight: FW.head, color: C.brand, fontFamily: NUM }}>{pr.done}/{pr.total}</span>
           ) : null}
         />,
         <FeedBadges key="b">
           <Badge tone={contractTone(String(c.contract_status))}>{String(c.contract_status || '—')}</Badge>
           {plateSpan(String(c.car_number_snapshot || ''))}
-          <span style={{ fontSize: FS.cap, fontFamily: NUM, color: C.faint, fontWeight: 600 }}>{String(c.contract_code || '')}</span>
+          <span style={{ fontSize: FS.cap, fontFamily: NUM, color: C.faint, fontWeight: FW.strong }}>{String(c.contract_code || '')}</span>
         </FeedBadges>,
         <FeedSub key="s">
           {dotJoin([
@@ -229,7 +229,7 @@ export function InventoryListRow({
               <span style={{ color: C.faint, margin: '0 5px', flex: '0 0 auto' }}>·</span>
               <span style={{
                 flex: '0 1 auto', maxWidth: '42%',
-                fontSize: FS.sub, color: C.faint, fontWeight: 500,
+                fontSize: FS.sub, color: C.faint, fontWeight: FW.meta,
                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
               }}>{provider}</span>
             </>

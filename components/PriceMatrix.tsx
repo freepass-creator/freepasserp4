@@ -1,6 +1,6 @@
 'use client';
 import { useState, type CSSProperties } from 'react';
-import { C, R, NUM, Input, Btn, IconBtn, thFlat, thFlatR } from '@/components/ui';
+import { C, R, NUM, FW, FS, Input, Btn, IconBtn, thFlat, thFlatR } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { PERIODS as STD_PERIODS, isOperatedPeriod, isStandardPeriod } from '@/lib/domain/product';
 import { X } from 'lucide-react';
@@ -74,12 +74,12 @@ export function PriceMatrix({ price, onChange }: { price: unknown; onChange: (p:
   const padX = mobile ? 10 : 10;
   const padY = mobile ? 6 : 4;
   const cellPad = `${padY}px ${padX}px`;
-  const fs = mobile ? 13.5 : 12.5;
+  const fs = mobile ? FS.body : FS.sub;
 
   const cellInp = (filledRent: boolean): CSSProperties => ({
     textAlign: 'right',
     fontFamily: NUM,
-    fontWeight: filledRent ? 800 : 600,
+    fontWeight: filledRent ? FW.head : FW.strong,
     color: filledRent ? C.brand : C.ink,
     border: 'none',
     borderRadius: 0,
@@ -121,14 +121,14 @@ export function PriceMatrix({ price, onChange }: { price: unknown; onChange: (p:
                 <td style={{ padding: cellPad, verticalAlign: 'middle' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 0 }}>
                     <span style={{
-                      fontWeight: 700, color: C.ink, fontFamily: NUM, fontVariantNumeric: 'tabular-nums',
+                      fontWeight: FW.head, color: C.ink, fontFamily: NUM, fontVariantNumeric: 'tabular-nums',
                       whiteSpace: 'nowrap',
                     }}>
-                      {k}<span style={{ fontWeight: 600, color: C.mute, fontSize: mobile ? 12 : 11 }}>개월</span>
+                      {k}<span style={{ fontWeight: FW.strong, color: C.mute, fontSize: mobile ? FS.sub : FS.cap }}>개월</span>
                     </span>
                     {isCheap && (
                       <span style={{
-                        flex: '0 0 auto', fontSize: 9.5, fontWeight: 800, color: '#fff',
+                        flex: '0 0 auto', fontSize: 9.5, fontWeight: FW.label, color: '#fff',
                         background: C.brand, borderRadius: R, padding: '1px 5px', lineHeight: 1.2,
                       }}>최저</span>
                     )}
@@ -180,7 +180,7 @@ export function PriceMatrix({ price, onChange }: { price: unknown; onChange: (p:
         padding: mobile ? '10px 12px' : '8px 10px',
         borderTop: `1px solid ${C.line}`, background: C.head,
       }}>
-        <span style={{ fontSize: 11.5, fontWeight: 700, color: C.mute, flex: '0 0 auto' }}>별도기간</span>
+        <span style={{ fontSize: FS.cap, fontWeight: FW.strong, color: C.mute, flex: '0 0 auto' }}>별도기간</span>
         <Input
           inputMode="numeric"
           placeholder="6"
@@ -191,12 +191,12 @@ export function PriceMatrix({ price, onChange }: { price: unknown; onChange: (p:
           size="sm"
           style={{ textAlign: 'right', fontFamily: NUM }}
         />
-        <span style={{ fontSize: 12, color: C.mute }}>개월</span>
+        <span style={{ fontSize: FS.sub, color: C.mute }}>개월</span>
         <Btn size="sm" variant="ghost" onClick={addExtra}>추가</Btn>
         {hint ? (
-          <span style={{ fontSize: 11.5, color: C.danger, width: '100%' }}>{hint}</span>
+          <span style={{ fontSize: FS.cap, color: C.danger, width: '100%' }}>{hint}</span>
         ) : (
-          <span style={{ fontSize: 11, color: C.faint, flex: '1 1 120px', minWidth: 0 }}>
+          <span style={{ fontSize: FS.cap, color: C.faint, flex: '1 1 120px', minWidth: 0 }}>
             대여료 넣은 기간만 매물에 노출
           </span>
         )}

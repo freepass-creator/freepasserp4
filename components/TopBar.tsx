@@ -10,7 +10,7 @@ import { getRole, actor, ROLE_LABEL, type Role } from '@/lib/domain/deal';
 import { useSession } from '@/lib/auth-context';
 import { isGuest } from '@/lib/auth-session';
 import { loadMenuBadges, menuItemBadge, type MenuBadgeMap } from '@/lib/domain/menu-badges';
-import { C, R, CountPill, NUM, ctrlH, ctrlFs } from '@/components/ui';
+import { C, R, CountPill, NUM, ctrlH, ctrlFs, FW, FS } from '@/components/ui';
 import { NAV_ICON, NAV_LABEL } from '@/lib/tabbar';
 import { refreshCurrentPage } from '@/lib/page-refresh';
 import { PageStatus, statusIconFor } from '@/components/PageStatus';
@@ -136,18 +136,18 @@ function WebSessionMeta() {
       }}
     >
       <span style={{
-        flex: '0 0 auto', fontFamily: NUM, fontSize: 12, fontWeight: 700,
+        flex: '0 0 auto', fontFamily: NUM, fontSize: FS.sub, fontWeight: FW.strong,
         color: C.mute, letterSpacing: '-0.01em', whiteSpace: 'nowrap',
       }}>{date}</span>
       {bits.length > 0 && (
         <span style={{
-          minWidth: 0, fontSize: 12, color: C.ink, fontWeight: 600,
+          minWidth: 0, fontSize: FS.sub, color: C.ink, fontWeight: FW.strong,
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>
           {bits.map((b, i) => (
             <span key={i}>
-              {i > 0 && <span style={{ color: C.faint, fontWeight: 500, margin: '0 5px' }}>·</span>}
-              <span style={i === bits.length - 1 ? { color: C.mute, fontWeight: 600 } : undefined}>{b}</span>
+              {i > 0 && <span style={{ color: C.faint, fontWeight: FW.meta, margin: '0 5px' }}>·</span>}
+              <span style={i === bits.length - 1 ? { color: C.mute, fontWeight: FW.strong } : undefined}>{b}</span>
             </span>
           ))}
         </span>
@@ -205,7 +205,7 @@ function NavMenu({ mobile }: { mobile: boolean }) {
     ? { position: 'fixed', left: 0, right: 0, top: 'var(--topbar-h)', bottom: 0, background: C.taupeBg, zIndex: 80, overflowY: 'auto', overscrollBehavior: 'contain', animation: 'menuDrop .18s ease', paddingBottom: 'calc(24px + env(safe-area-inset-bottom))' }
     : { position: 'absolute', left: 0, top: 'calc(100% + 6px)', width: 250, background: C.taupeBg, border: `1px solid ${line}`, borderRadius: 4, boxShadow: '0 12px 34px rgba(15,23,42,0.18)', zIndex: 85, overflow: 'hidden' };
   const iPad = mobile ? '15px 20px' : '9px 14px';
-  const iFont = mobile ? 16 : 13;
+  const iFont = mobile ? 16 : FS.body;
   const iSize = mobile ? 20 : 15;
   return (
     <div style={{ position: 'relative', flex: '0 0 auto' }}>
@@ -223,12 +223,12 @@ function NavMenu({ mobile }: { mobile: boolean }) {
         <div style={panel}>
           {groups.map((g, gi) => (
             <div key={gi} style={{ borderTop: gi ? `1px solid ${line}` : 'none', padding: '5px 0' }}>
-              {g.title && <div style={{ fontSize: mobile ? 11.5 : 10.5, color: weak, fontWeight: 700, padding: mobile ? '7px 20px 4px' : '4px 14px', letterSpacing: '0.02em' }}>{g.title}</div>}
+              {g.title && <div style={{ fontSize: mobile ? 11.5 : FS.micro, color: weak, fontWeight: FW.title, padding: mobile ? '7px 20px 4px' : '4px 14px', letterSpacing: '0.02em' }}>{g.title}</div>}
               {g.items.map((it) => {
                 if (it.soon) {
                   return (
                     <div key={it.label} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: iPad, fontSize: iFont, color: weak, cursor: 'default' }}>
-                      <it.icon size={iSize} /> <span>{it.label}</span> <span style={{ marginLeft: 'auto', fontSize: 10, color: weak }}>준비중</span>
+                      <it.icon size={iSize} /> <span>{it.label}</span> <span style={{ marginLeft: 'auto', fontSize: FS.micro, color: weak }}>준비중</span>
                     </div>
                   );
                 }
@@ -243,7 +243,7 @@ function NavMenu({ mobile }: { mobile: boolean }) {
                     queueMicrotask(() => refreshCurrentPage(href));
                   }
                 }}
-                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: iPad, fontSize: iFont, fontWeight: (it.href === '/' ? path === '/' : path.startsWith(it.href ?? '##')) ? 700 : 500, color: ink, textDecoration: 'none' }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: iPad, fontSize: iFont, fontWeight: (it.href === '/' ? path === '/' : path.startsWith(it.href ?? '##')) ? FW.head : FW.meta, color: ink, textDecoration: 'none' }}
                   onMouseEnter={(e) => (e.currentTarget.style.background = C.hover as string)}
                   onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
                   <it.icon size={iSize} color={mute} />
@@ -316,7 +316,7 @@ export default function TopBar() {
               cursor: 'pointer',
               WebkitTapHighlightColor: 'transparent',
               ...(typeof status === 'string' ? {
-                fontSize: mobile ? 15 : 13.5, fontWeight: 800, color: ink,
+                fontSize: mobile ? 15 : FS.title, fontWeight: FW.title, color: ink,
                 whiteSpace: 'nowrap' as const, overflow: 'hidden', textOverflow: 'ellipsis',
                 letterSpacing: '-0.01em',
               } : {}),

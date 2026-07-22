@@ -2,7 +2,7 @@
 import type { ReactNode } from 'react';
 import { useIsMobile } from '@/lib/use-mobile';
 import { useAppBar } from '@/lib/appbar';
-import { BottomNav, C, NUM } from '@/components/ui';
+import { BottomNav, C, NUM, FW, FS } from '@/components/ui';
 import { MobilePageShell, type ListToolsConfig } from '@/components/MobilePageShell';
 import type { PageToolItem } from '@/components/PageToolBar';
 import { PageStatus, statusIconFor } from '@/components/PageStatus';
@@ -53,7 +53,7 @@ export function Page({
       ? left
       : (typeof title !== 'string' && title != null)
         ? (
-          <span style={{ fontSize: 13.5, color: C.mute, whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: FS.body, color: C.mute, whiteSpace: 'nowrap' }}>
             {title}
             {meta != null && meta !== '' ? <>{' '}<b style={{ color: C.ink, fontFamily: NUM }}>{meta}</b></> : null}
           </span>
@@ -79,8 +79,8 @@ export function Page({
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, paddingBottom: 12, borderBottom: `1px solid ${C.line}`, minHeight: 42 }}>
           {left != null ? left : (
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, minWidth: 0 }}>
-              {title != null && title !== '' && <h1 style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.02em', margin: 0 }}>{title}</h1>}
-              {meta && <span style={{ fontSize: 12.5, color: C.faint, whiteSpace: 'nowrap' }}>{meta}</span>}
+              {title != null && title !== '' && <h1 style={{ fontSize: FS.page, fontWeight: FW.title, letterSpacing: '-0.02em', margin: 0 }}>{title}</h1>}
+              {meta && <span style={{ fontSize: FS.sub, color: C.faint, whiteSpace: 'nowrap' }}>{meta}</span>}
             </div>
           )}
           {right != null && <><span style={{ flex: 1 }} />{right}</>}

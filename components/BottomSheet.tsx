@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, type ReactNode } from 'react';
-import { Btn, C } from '@/components/ui';
+import { Btn, C, FW, FS } from '@/components/ui';
 import { haptic } from '@/lib/haptics';
 
 /**
@@ -106,7 +106,7 @@ export function BottomSheet({
         {title != null && (
           <div style={{
             flex: '0 0 auto', padding: '2px 16px 10px',
-            fontSize: 14, fontWeight: 800, color: C.ink, letterSpacing: '-0.02em',
+            fontSize: FS.title, fontWeight: FW.title, color: C.ink, letterSpacing: '-0.02em',
           }}>{title}</div>
         )}
         <div

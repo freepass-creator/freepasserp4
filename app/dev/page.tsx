@@ -10,7 +10,7 @@ import { auditMasterFit, reconcileToMaster, type MasterEntry } from '@/lib/domai
 import { loadVehicleMaster } from '@/lib/domain/vehicle-master-load';
 import { checkInventory } from '@/lib/domain/data-check';
 import { toast } from '@/components/Toaster';
-import { Page, Btn, C, R, Loading, CenterNote, SectionLabel, Badge } from '@/components/ui';
+import { Page, Btn, C, R, Loading, CenterNote, SectionLabel, Badge, FS } from '@/components/ui';
 import { MasterFitSummary } from '@/components/MasterFitSummary';
 import { NAV_LABEL } from '@/lib/tabbar';
 import Link from 'next/link';
@@ -112,14 +112,14 @@ export default function DevTools() {
   return (
     <Page title="개발도구">
       <div style={{ maxWidth: 720, margin: '0 auto', padding: '12px 0 40px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <div style={{ fontSize: 12.5, color: C.mute, lineHeight: 1.5 }}>
+        <div style={{ fontSize: FS.sub, color: C.mute, lineHeight: 1.5 }}>
           수집된 차량 원자(시트·OCR·등록증·옵션·메모)를 전부 신호로 써서 차종마스터 규격에 맞춥니다.
           손님·영업에 보이는 차종은 마스터 표준. 원본은 보존.
         </div>
 
         <div style={{ ...card, background: C.selected }}>
           <SectionLabel mt={0}>지금 있는 매물 → 차종마스터</SectionLabel>
-          <div style={{ fontSize: 11.5, color: C.faint, lineHeight: 1.5, marginBottom: 10 }}>
+          <div style={{ fontSize: FS.cap, color: C.faint, lineHeight: 1.5, marginBottom: 10 }}>
             거친 표기·흩어진 칸을 모아 마스터 트리(제조사→모델→세대→파워→트림)에 스냅.
             high·중만 저장, 애매하면 미선택·검수. 임의 재조합 금지.
           </div>
@@ -131,13 +131,13 @@ export default function DevTools() {
               {master === null ? '마스터 로딩' : masterReady ? `마스터 ${master!.length.toLocaleString()}세대` : '마스터 실패'}
             </Badge>
           </div>
-          {log && <pre style={{ margin: '10px 0 0', fontSize: 11.5, color: C.mute, whiteSpace: 'pre-wrap', fontFamily: 'var(--font-mono)' }}>{log}</pre>}
+          {log && <pre style={{ margin: '10px 0 0', fontSize: FS.cap, color: C.mute, whiteSpace: 'pre-wrap', fontFamily: 'var(--font-mono)' }}>{log}</pre>}
         </div>
 
         <div style={card}>
           <SectionLabel mt={0}>마스터 정합 현황</SectionLabel>
           {!fit ? (
-            <div style={{ fontSize: 12.5, color: C.faint }}>{rows === null ? '매물 로딩…' : '집계 중…'}</div>
+            <div style={{ fontSize: FS.sub, color: C.faint }}>{rows === null ? '매물 로딩…' : '집계 중…'}</div>
           ) : (
             <MasterFitSummary fit={fit} />
           )}
@@ -145,7 +145,7 @@ export default function DevTools() {
 
         <div style={card}>
           <SectionLabel mt={0}>데이터 이상</SectionLabel>
-          <div style={{ fontSize: 12.5, color: C.mute, marginBottom: 8 }}>
+          <div style={{ fontSize: FS.sub, color: C.mute, marginBottom: 8 }}>
             자동감지 {issues.length}종 · 표시 {issueHits}건
           </div>
           <Btn href="/data-check" size="sm" variant="ghost">데이터 점검 상세</Btn>

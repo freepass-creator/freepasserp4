@@ -1,6 +1,6 @@
 'use client';
 import { useRef, useState } from 'react';
-import { Btn, IconBtn, C, R, FS } from '@/components/ui';
+import { Btn, IconBtn, C, R, FS, FW } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
 
@@ -110,8 +110,8 @@ export function PhotoUpload({
   return (
     <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg, padding: '10px 12px' }}>
       {!hideTitle && (
-        <div style={{ fontSize: FS.sub, fontWeight: 800, color: C.ink, marginBottom: 7 }}>{title} <span style={{ color: C.faint, fontWeight: 600 }}>{list.length}</span>
-          <span style={{ fontSize: FS.micro, color: C.faint, fontWeight: 400, marginLeft: 6 }}>
+        <div style={{ fontSize: FS.sub, fontWeight: FW.title, color: C.ink, marginBottom: 7 }}>{title} <span style={{ color: C.faint, fontWeight: FW.strong }}>{list.length}</span>
+          <span style={{ fontSize: FS.micro, color: C.faint, fontWeight: FW.body, marginLeft: 6 }}>
             {mobile ? '· 탭=크게 · 꾹=메뉴' : '· 클릭=크게 · 메뉴는 확대 화면'}
           </span>
         </div>
@@ -148,10 +148,10 @@ export function PhotoUpload({
               />
               <div style={{ position: 'absolute', left: 2, top: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
                 {isCover && (
-                  <span style={{ fontSize: FS.micro, fontWeight: 800, color: C.taupeBg, background: C.brand, borderRadius: R, padding: '0 4px' }}>대표</span>
+                  <span style={{ fontSize: FS.micro, fontWeight: FW.label, color: C.taupeBg, background: C.brand, borderRadius: R, padding: '0 4px' }}>대표</span>
                 )}
                 {isInterior && (
-                  <span style={{ fontSize: FS.micro, fontWeight: 800, color: C.taupeBg, background: C.ok, borderRadius: R, padding: '0 4px' }}>실내</span>
+                  <span style={{ fontSize: FS.micro, fontWeight: FW.label, color: C.taupeBg, background: C.ok, borderRadius: R, padding: '0 4px' }}>실내</span>
                 )}
               </div>
             </div>
@@ -166,7 +166,7 @@ export function PhotoUpload({
           }}
         >
           <IconBtn onClick={() => fileRef.current?.click()} title="사진 추가">+</IconBtn>
-          {list.length === 0 && <span style={{ fontSize: FS.micro, fontWeight: 700, color: C.brand }}>추가</span>}
+          {list.length === 0 && <span style={{ fontSize: FS.micro, fontWeight: FW.strong, color: C.brand }}>추가</span>}
           <input ref={fileRef} type="file" accept="image/*" multiple onChange={(e) => add(e.target.files)} style={{ display: 'none' }} />
         </div>
       </div>
@@ -188,7 +188,7 @@ export function PhotoUpload({
               zIndex: 1,
             }}
           >
-            <div style={{ fontSize: FS.body, fontWeight: 800, color: C.ink, marginBottom: 2 }}>사진 메뉴</div>
+            <div style={{ fontSize: FS.body, fontWeight: FW.title, color: C.ink, marginBottom: 2 }}>사진 메뉴</div>
             <Btn
               full
               variant="ghost"

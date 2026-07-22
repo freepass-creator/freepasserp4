@@ -1,7 +1,7 @@
 'use client';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { C, R, NUM } from '@/components/ui';
+import { C, R, NUM, FW, FS } from '@/components/ui';
 import { toneText } from '@/components/ui/badges';
 import type { MasterFitRow } from '@/lib/domain/vehicle-master-match';
 
@@ -46,13 +46,13 @@ export function MasterFitSummary({
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(88px, 1fr))', gap: 8, marginBottom: showSamples ? 10 : 0 }}>
         {cells.map((x) => (
           <div key={x.k} style={{ border: `1px solid ${C.line2}`, borderRadius: R, padding: '8px 10px' }}>
-            <div style={{ fontSize: 10.5, color: C.mute }}>{x.k}</div>
-            <div style={{ fontSize: 16, fontWeight: 800, fontFamily: NUM, color: x.c }}>{x.n.toLocaleString()}</div>
+            <div style={{ fontSize: FS.micro, color: C.mute }}>{x.k}</div>
+            <div style={{ fontSize: 16, fontWeight: FW.head, fontFamily: NUM, color: x.c }}>{x.n.toLocaleString()}</div>
           </div>
         ))}
       </div>
       {fit.needReview != null && (
-        <div style={{ fontSize: 12, color: C.ink, fontWeight: 700, marginBottom: 4 }}>
+        <div style={{ fontSize: 12, color: C.ink, fontWeight: FW.strong, marginBottom: 4 }}>
           변환 시 예상 · 자동 {fit.autoConvert.toLocaleString()} · 검수 {fit.needReview.toLocaleString()}
         </div>
       )}
@@ -62,12 +62,12 @@ export function MasterFitSummary({
         if (!list.length) return null;
         return (
           <div key={bucket} style={{ marginTop: 8 }}>
-            <div style={{ fontSize: 11.5, fontWeight: 700, color: C.mute, marginBottom: 4 }}>{label}</div>
+            <div style={{ fontSize: FS.cap, fontWeight: FW.strong, color: C.mute, marginBottom: 4 }}>{label}</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
               {list.map((s) => (
-                <Link key={s.key || s.car} href={`/m/${encodeURIComponent(s.key)}`} style={{ fontSize: 11.5, color: C.ink, textDecoration: 'none', fontFamily: NUM }}>
+                <Link key={s.key || s.car} href={`/m/${encodeURIComponent(s.key)}`} style={{ fontSize: FS.cap, color: C.ink, textDecoration: 'none', fontFamily: NUM }}>
                   {s.car}
-                  <span style={{ color: C.faint, fontWeight: 400 }}> · {s.before}{s.after ? ` → ${s.after}` : ''}{s.year ? ` · ${s.year}` : ''}</span>
+                  <span style={{ color: C.faint, fontWeight: FW.body }}> · {s.before}{s.after ? ` → ${s.after}` : ''}{s.year ? ` · ${s.year}` : ''}</span>
                 </Link>
               ))}
             </div>
