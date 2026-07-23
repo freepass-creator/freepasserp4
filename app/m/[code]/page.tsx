@@ -48,8 +48,8 @@ export default function Detail() {
       title: (
         <PageStatus
           icon={NAV_ICON.product}
-          label="상품"
-          secondaryLabel={detailName || '상세'}
+          label="상품상세"
+          secondaryLabel={detailName || undefined}
         />
       ),
     },
