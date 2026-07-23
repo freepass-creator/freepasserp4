@@ -47,7 +47,7 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
       }
       if (cc) await applyStepCheck(cc, 'agent_delivery_inquiry', 'yes');
       await load(); onChange?.();
-    } finally { setBusy(false); }
+    } catch (e) { toast(String((e as Error)?.message || e), 'error'); } finally { setBusy(false); }
   };
   // 약정 작성완료 = 계약서(약정) 발송 직전 손님 연락처 확인 + 체크. (연락처 모르니 가부 먼저, 계약서 날리기 전에만 입력)
   const doAgreement = async () => {
@@ -56,7 +56,7 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
       await getStore().update('contract', co, String(contract.contract_code), { customer_name: cust.name.trim(), customer_phone: cust.phone.trim() });
       await applyStepCheck(contract, 'provider_agreement_done', 'yes');
       await load(); onChange?.();
-    } finally { setBusy(false); }
+    } catch (e) { toast(String((e as Error)?.message || e), 'error'); } finally { setBusy(false); }
   };
   const setCheck = async (key: string, value: string) => {
     if (!contract) return;
@@ -71,7 +71,7 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
     if (!contract || busy) return;
     if (typeof window !== 'undefined' && !window.confirm('이 계약을 취소하시겠습니까?\n재고는 출고가능으로 복원되고, 완료 계약이면 환수가 진행됩니다.')) return;
     setBusy(true);
-    try { haptic.impact(); await cancelContract(contract); await load(); onChange?.(); } finally { setBusy(false); }
+    try { haptic.impact(); await cancelContract(contract); await load(); onChange?.(); } catch (e) { toast(String((e as Error)?.message || e), 'error'); } finally { setBusy(false); }
   };
 
   if (contract === undefined) return <div style={{ padding: 20, color: C.faint, fontSize: FS.sub }}>불러오는 중…</div>;
