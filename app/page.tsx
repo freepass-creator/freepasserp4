@@ -400,7 +400,8 @@ export default function Finder() {
 
   const s: FState = { q, periods, rent, dep, mile, fuel, ptype, credit, perks, promo, dyn, vehicle };
   const agg = useMemo(() => aggregateDyn(rows || []), [rows]);
-  const months = useMemo(() => excelMonths(rows || []), [rows]);
+  // 엑셀 전용 열 집계 — 카드/리스트 뷰에선 스킵(빈배열). effView==='excel'일 때만 전량 priceList 순회.
+  const months = useMemo(() => (effView === 'excel' ? excelMonths(rows || []) : []), [rows, effView]);
   const present = useMemo(() => presentFilterOptions(rows || []), [rows]);
   // 제조사스펙 집계 모수 = 스펙 필터만 뺀 나머지 조건(다른 필터 반영한 매물수).
   const cascadeProducts = useMemo(() => {
@@ -478,8 +479,9 @@ export default function Finder() {
   // 필터·정렬·관심탭 바뀌면 더보기 리셋
   useEffect(() => { setLimit(PAGE); }, [q, periods, rent, dep, mile, fuel, ptype, credit, perks, promo, dyn, vehicle, sort, colFilter, colSort, interestTab, models]);
 
-  // 엑셀 헤더 필터·정렬 적용(사이드바 필터 위에 추가). 정렬=숫자칸만(연식·주행·대여료).
+  // 엑셀 헤더 필터·정렬 — 엑셀 뷰에서만 계산(카드/리스트는 빈배열 안전값).
   const excelRows = useMemo(() => {
+    if (effView !== 'excel') return [] as EntityRecord[];
     let r = list.filter((p) => Object.entries(colFilter).every(([k, set]) => exColMatch(p, k, set)));
     if (colSort && exColSortNum(colSort.field)) {
       const { field, dir } = colSort;
@@ -489,7 +491,7 @@ export default function Finder() {
       });
     }
     return r;
-  }, [list, colFilter, colSort]);
+  }, [effView, list, colFilter, colSort]);
 
   // 본문/엑셀시트 세로막대 폭 → 툴바·관심바 오른쪽 패딩(--fp-pane-sb). 헤더·본문 끝선 맞춤.
   useEffect(() => {
