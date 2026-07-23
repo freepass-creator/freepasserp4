@@ -7,7 +7,7 @@ import { seedIfEmpty } from '@/lib/seed';
 import { ENTITIES, ROLES, ROLE_LABEL_RAW, type EntityRecord, type Field } from '@/lib/intake/entities';
 import { isGuest } from '@/lib/auth-session';
 import { getRole } from '@/lib/domain/deal';
-import { approveUser, backfillPersonalAgentChannels } from '@/lib/firebase/auth';
+import { approveUser, backfillPersonalAgentChannels, adminUpdateUserIdentity } from '@/lib/firebase/auth';
 import { newId } from '@/lib/domain/ids';
 import { PaneHead, PaneBody, Btn, Badge, FormGrid, FormCard, PillTabs, C, R, NUM, Loading, CenterNote, ListRow, ACTOR_TONE, FilterChips, SectionLabel, Message, PageActions, FW, FS } from '@/components/ui';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
@@ -140,6 +140,16 @@ export default function Members() {
     const id = idFieldOf(tab); if (!String(form[id] || '').trim()) { toast('식별자는 필수입니다', 'error'); return; }
     try {
       await getStore().save(tab, co, [form]); await getStore().update(tab, co, String(form[id]), form);
+      // 신원 게이트 필드(role/company_code/agent_channel_code)는 세션(initAuth)·RLS·approveUser 가 읽는 "최상위" users/{uid} 에 직접 반영.
+      //  v4 오버레이에만 쓰면 강등·재배정이 조용히 무효(desync) → approveUser 와 동일 노드로 SSOT 정합. status 는 approveUser 전용이라 제외.
+      if (tab === 'user') {
+        const uid = String(form.uid || form._key || '').trim();
+        if (uid) await adminUpdateUserIdentity(uid, {
+          role: form.role != null ? String(form.role) : undefined,
+          company_code: form.company_code != null ? String(form.company_code) : undefined,
+          agent_channel_code: form.agent_channel_code != null ? String(form.agent_channel_code) : undefined,
+        });
+      }
     } catch (e) {
       toast(`저장 실패: ${String((e as Error)?.message || e)}`, 'error');
       return;

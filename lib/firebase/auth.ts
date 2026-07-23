@@ -218,6 +218,29 @@ export async function updateMyProfile(fields: { name?: string; phone?: string; c
   if (s && patch.name != null) setSession({ ...s, name: String(patch.name) });
 }
 
+/**
+ * 관리자 회원 신원 편집 — 게이트가 읽는 "최상위" users/{uid} 에 직접 기록(approveUser 와 동일 노드).
+ *  role·company_code·agent_channel_code 는 세션(initAuth)·RLS 규칙이 이 노드에서 읽는다.
+ *  회원관리 폼이 v4 오버레이에만 쓰면 강등·재배정이 조용히 무효화(desync)되므로 신원 필드는 최상위로 직접 반영.
+ *  status 는 approveUser 전용(여기서 건드리지 않음 — 폼의 구값으로 승인상태를 덮지 않도록).
+ *  firebase 미설정(로컬/데모)이면 no-op — 동기화할 최상위 users 노드 자체가 없음.
+ */
+export async function adminUpdateUserIdentity(
+  uid: string,
+  fields: { role?: string; company_code?: string; agent_channel_code?: string; status?: string },
+): Promise<void> {
+  const db = getRtdb();
+  if (!db) return; // 로컬/데모: 최상위 users 없음 → 스킵(정상)
+  if (!uid) throw new Error('uid 없음');
+  const patch: Record<string, unknown> = {};
+  if (fields.role != null) patch.role = String(fields.role);
+  if (fields.company_code != null) patch.company_code = String(fields.company_code);
+  if (fields.agent_channel_code != null) patch.agent_channel_code = String(fields.agent_channel_code);
+  if (fields.status != null) patch.status = String(fields.status);
+  if (!Object.keys(patch).length) return;
+  await update(ref(db, `users/${uid}`), patch);
+}
+
 export async function approveUser(uid: string, active = true): Promise<void> {
   const db = getRtdb(); if (!db) throw new Error('DB가 설정되지 않았습니다');
   if (!uid) throw new Error('uid 없음');

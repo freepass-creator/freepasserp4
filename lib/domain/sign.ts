@@ -86,5 +86,6 @@ export async function approveSign(contract: EntityRecord): Promise<void> {
     try { await writeContractSign(token, { status: 'signed', sign_status: '서명완료', contract_code: code }); } catch { /* best-effort */ }
   }
   const fresh = (await getStore().get('contract', co, code)) || contract;
-  if (fresh.provider_agreement_sent !== 'yes') await applyStepCheck(fresh, 'provider_agreement_sent', 'yes');
+  // 전자서명 승인(영업자/관리자가 손님 서명 검토 후)이 provider 스텝(약정발송)을 진행하는 정당 경로 — 엔진 actor 인가 우회(system).
+  if (fresh.provider_agreement_sent !== 'yes') await applyStepCheck(fresh, 'provider_agreement_sent', 'yes', { system: true });
 }

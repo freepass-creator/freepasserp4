@@ -31,6 +31,13 @@ const REJECT = ['불가', '부결', '출고 불가'];
 export function isDone(v: unknown): boolean { if (v === true || v === 'yes') return true; return typeof v === 'string' && DONE.includes(v); }
 function isRejected(v: unknown): boolean { return typeof v === 'string' && REJECT.includes(v); }
 
+/** 스텝키 → 담당 actor(엔진 인가 강제용 SSOT). 비스텝 필드면 undefined.
+ *  key 접두(provider_*)가 아니라 STEPS의 actor 를 본다 — provider_agreement_done 처럼 이름은 provider지만 actor=agent 인 예외를 정확히 반영. */
+export function stepActorOf(key: string): 'agent' | 'provider' | undefined {
+  for (const s of STEPS) for (const ch of s.checks) if (ch.key === key) return ch.actor;
+  return undefined;
+}
+
 /** 계약금 입금·입금확인 — 선점 락(먼저 누른 계약이 차량 계약중). */
 export const DEPOSIT_CLAIM_KEYS = ['agent_balance_paid', 'provider_balance_confirmed'] as const;
 export function hasDepositClaim(c: EntityRecord): boolean {

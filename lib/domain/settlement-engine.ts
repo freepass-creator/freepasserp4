@@ -6,8 +6,9 @@
  */
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
+import { currentActor } from '@/lib/session';
 import { type EntityRecord } from '@/lib/intake/entities';
-import { getProgress, hasDepositClaim, DEPOSIT_CLAIM_KEYS, isDone } from '@/lib/domain/contract';
+import { getProgress, hasDepositClaim, DEPOSIT_CLAIM_KEYS, isDone, stepActorOf } from '@/lib/domain/contract';
 
 const REJECT_VALS = ['불가', '부결', '출고 불가'];
 const isReject = (v: unknown) => typeof v === 'string' && REJECT_VALS.includes(v);
@@ -120,6 +121,9 @@ async function syncVehicleLock(productCode: string, actingContractCode: string):
   const cur = String(p.vehicle_status || '');
   const owner = String(p.locked_by_contract || '');
   if (lock.status) {
+    // 주인없는 '출고불가'(공급사 수기 보류) 불가침 — 아래 release분기(orphan 출고불가 보존)와 대칭.
+    //  계약 락(계약중/출고불가)으로 덮으면 공급사 수기 보류가 무효화·중복판매 → 스킵. (정상 딜은 cur가 출고가능/상품화중/자기락이라 미해당.)
+    if (cur === '출고불가' && !owner) return;
     if (cur !== lock.status || owner !== lock.byContract) {
       await store.update('product', co, productCode, { vehicle_status: lock.status, locked_by_contract: lock.byContract });
     }
@@ -158,11 +162,26 @@ async function rivalDepositClaim(productCode: string, exceptContractCode: string
   return rival ? String(rival.contract_code) : null;
 }
 
-/** 단일 writer — 단계 체크 기록 + 자동 전이 사슬. ContractPanel/계약페이지는 이것만 호출. */
-export async function applyStepCheck(contract: EntityRecord, key: string, value: string): Promise<void> {
+/**
+ * 단일 writer — 단계 체크 기록 + 자동 전이 사슬. ContractPanel/계약페이지는 이것만 호출.
+ * opts.system = 신뢰 파이프라인(전자서명 approveSign 등) 내부 호출 → actor 인가 우회.
+ */
+export async function applyStepCheck(contract: EntityRecord, key: string, value: string, opts?: { system?: boolean }): Promise<void> {
   const co = getCompanyId(); const store = getStore();
   const code = String(contract.contract_code);
   const productCode = contract.product_code ? String(contract.product_code) : '';
+
+  // [인가 강제] 스텝 write 는 STEPS 상 담당 역할만(admin 예외). 엔진이 UI mine 게이팅(ch.actor===role||admin)을 신뢰만 하던 구멍을 강제로 전환.
+  //  ★정상흐름 보존: 정상 UI(agent가 agent스텝·provider가 provider스텝·admin 전체)는 mine 규칙과 동일해 그대로 통과.
+  //  비스텝 필드(stepActor undefined)는 applyStepCheck 호출 경로가 없어 무관 — 기존대로 허용.
+  //  system 우회 = provider_agreement_sent 처럼 전자서명(approveSign, 영업자/관리자가 승인)이 provider 스텝을 정당하게 진행하는 경로 보존.
+  if (!opts?.system) {
+    const stepActor = stepActorOf(key);
+    const role = currentActor().role;
+    if (stepActor && role !== 'admin' && role !== stepActor) {
+      throw new Error(`${stepActor === 'provider' ? '공급사' : '영업자'} 단계는 해당 역할만 진행할 수 있습니다`);
+    }
+  }
 
   // 계약금 입금·입금확인 선점 — 먼저 누른 계약만 계약중. 이미 선점/완료된 매물은 차단.
   const claimingDeposit = !isReject(value) && (DEPOSIT_CLAIM_KEYS as readonly string[]).includes(key) && !isDone(contract[key]);
@@ -170,12 +189,18 @@ export async function applyStepCheck(contract: EntityRecord, key: string, value:
     const rival = await rivalDepositClaim(productCode, code);
     if (rival) throw new Error(`이미 계약금이 확인된 계약(${rival})이 있는 차량입니다 — 선점 불가`);
     // 2차 방어 — 계약목록 조회가 권한/캐시로 실패해 rival 을 못 봤을 때를 대비해 상품의 락 소유자로 재확인.
-    // 소유자가 본 계약이면 통과(체크 재클릭·잔금확인 등 후속). 소유자 없음 = 구데이터 잔재이므로 여기서 막지 않는다(자기잠금 데드락 방지).
+    // 소유자가 본 계약이면 통과(체크 재클릭·잔금확인 등 후속). 소유자 없는 '계약중'만 구데이터 잔재로 보고 막지 않음(데드락 방지) — 소유자 없는 '출고불가'는 공급사 수기 보류라 아래에서 차단.
     const p = await store.get('product', co, productCode);
     const st = String(p?.vehicle_status || '');
     const owner = String(p?.locked_by_contract || '');
+    // 남의 락(출고불가·계약중)이면 선점 불가.
     if ((st === '출고불가' || st === '계약중') && owner && owner !== code) {
       throw new Error(`이 차량은 이미 ${st} 상태입니다(계약 ${owner}) — 중복 계약 불가`);
+    }
+    // 주인없는 '출고불가' = 공급사가 재고에서 수기로 보류(locked_by_contract 없음). 완료 시엔 owner=code로 찍히므로 이 계약이 만든 락일 수 없다 → 재선점 차단.
+    //  (주인없는 '계약중'은 소유필드 도입 이전 엔진 잔재 → 치유 대상이라 여기서 막지 않음: 자기잠금 데드락 방지 유지.)
+    if (st === '출고불가' && !owner) {
+      throw new Error('이 차량은 공급사가 출고불가로 보류한 차량입니다 — 선점 불가');
     }
   }
 
