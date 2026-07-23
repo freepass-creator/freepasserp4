@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Page, Btn, C, SectionLabel, DetailGrid, ListRow, FilterChips, NUM,
+  Page, Btn, C, SectionLabel, DetailGrid, ListRow, FilterChips, NUM, Input,
 } from '@/components/ui';
 import { useSession } from '@/lib/auth-context';
 import { getRole, setRole, actor, ROLE_LABEL, type Role } from '@/lib/domain/deal';
@@ -50,12 +50,33 @@ export default function Settings() {
   const [theme, setTheme] = useState<ThemePref>('light');
   const [hapticOn, setHapticLocal] = useState(true);
   const [appEnv, setAppEnv] = useState('—');
+  const [pName, setPName] = useState('');
+  const [pPhone, setPPhone] = useState('');
+  const [pInit, setPInit] = useState({ name: '', phone: '' });
+  const [savingProfile, setSavingProfile] = useState(false);
 
   useEffect(() => {
     setRoleLocal(getRole());
     const on = (e: Event) => setRoleLocal((e as CustomEvent).detail as Role);
     window.addEventListener('fp:role', on);
     return () => window.removeEventListener('fp:role', on);
+  }, [session]);
+
+  // 내 프로필(이름·연락처) 로드 — 편집 폼 초기값
+  useEffect(() => {
+    if (!session) return;
+    let alive = true;
+    (async () => {
+      try {
+        const { loadMyProfile } = await import('@/lib/firebase/auth');
+        const p = await loadMyProfile();
+        if (!alive) return;
+        const nm = String(p?.name ?? session.name ?? '');
+        const ph = String(p?.phone ?? '');
+        setPName(nm); setPPhone(ph); setPInit({ name: nm, phone: ph });
+      } catch { /* noop */ }
+    })();
+    return () => { alive = false; };
   }, [session]);
 
   useEffect(() => {
@@ -116,6 +137,28 @@ export default function Settings() {
     toast(v === 'on' ? '햅틱 켜짐' : '햅틱 꺼짐', 'info');
   };
 
+  const profileDirty = !!session && (pName.trim() !== pInit.name.trim() || pPhone.trim() !== pInit.phone.trim());
+  const saveProfile = async () => {
+    if (!profileDirty || savingProfile) return;
+    setSavingProfile(true);
+    try {
+      const { updateMyProfile } = await import('@/lib/firebase/auth');
+      await updateMyProfile({ name: pName.trim(), phone: pPhone.trim() });
+      setPInit({ name: pName.trim(), phone: pPhone.trim() });
+      haptic.select();
+      toast('내 정보를 저장했습니다', 'ok');
+    } catch (e) { toast('저장 실패: ' + String((e as Error).message || e), 'error'); }
+    finally { setSavingProfile(false); }
+  };
+  const changePassword = async () => {
+    if (!email) return;
+    try {
+      const { resetPassword } = await import('@/lib/firebase/auth');
+      await resetPassword(email);
+      toast(`비밀번호 재설정 메일을 보냈습니다 · ${email}`, 'ok');
+    } catch (e) { toast('메일 발송 실패: ' + String((e as Error).message || e), 'error'); }
+  };
+
   const empty = (text: string) => (
     <div style={{ padding: '10px 0 4px', fontSize: 13, color: C.faint, lineHeight: 1.45 }}>{text}</div>
   );
@@ -134,14 +177,32 @@ export default function Settings() {
       }}>
         <div>
           <SectionLabel mt={0}>계정</SectionLabel>
+          {session ? (
+            <div style={{ display: 'grid', gap: 10, marginBottom: 12 }}>
+              <label style={{ fontSize: 12, color: C.faint }}>이름
+                <div style={{ marginTop: 4 }}><Input value={pName} onChange={setPName} full placeholder="이름" /></div>
+              </label>
+              <label style={{ fontSize: 12, color: C.faint }}>연락처
+                <div style={{ marginTop: 4 }}><Input value={pPhone} onChange={setPPhone} full placeholder="010-0000-0000" /></div>
+              </label>
+              <div>
+                <Btn size="sm" onClick={saveProfile} disabled={!profileDirty || savingProfile}>
+                  {savingProfile ? '저장 중…' : '내 정보 저장'}
+                </Btn>
+              </div>
+            </div>
+          ) : null}
           <DetailGrid rows={[
-            ['이름', name],
+            ...(session ? [] : [['이름', name] as [string, string]]),
             ['역할', ROLE_LABEL[role] || role],
             ['이메일', email],
             ...(company ? [['회사', company] as [string, string]] : []),
             ['상태', statusLabel],
           ]} />
-          <div style={{ marginTop: 12 }}>
+          <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {session ? (
+              <Btn variant="ghost" full onClick={changePassword}>비밀번호 변경 (재설정 메일)</Btn>
+            ) : null}
             <Btn variant="danger" full onClick={doLogout}>
               {session || guest ? '로그아웃' : '로그인'}
             </Btn>

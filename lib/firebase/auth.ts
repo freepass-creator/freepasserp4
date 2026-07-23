@@ -9,7 +9,7 @@ import {
 } from 'firebase/auth';
 import { ref, get, set, update, runTransaction } from 'firebase/database';
 import { getAuthClient, getRtdb, firebaseReady } from './client';
-import { setSession, mapRole, setGuest } from '../auth-session';
+import { setSession, getSession, mapRole, setGuest } from '../auth-session';
 
 const _persistenceReady = (() => {
   const auth = getAuthClient();
@@ -185,6 +185,29 @@ export async function writeUserProfile(user: User, info: { name: string; phone: 
  *  승인 = 신원 확정: 사업자번호를 partners 로 "재매칭"(사용자 self 필드가 아니라 권한 소스)해 company_code·agent_channel_code 세팅.
  *  ※ 관리자가 사업자 진위를 확인하고 승인한다는 전제(사람 KYC) — 규칙은 이 필드를 관리자만 쓰게 강제한다.
  */
+/** 내 프로필 조회 — 설정 프로필 편집용(최상위 users/{uid}). */
+export async function loadMyProfile(): Promise<Record<string, unknown> | null> {
+  const db = getRtdb(); const auth = getAuthClient();
+  const uid = auth?.currentUser?.uid;
+  if (!db || !uid) return null;
+  return ((await get(ref(db, `users/${uid}`))).val() as Record<string, unknown> | null) || null;
+}
+
+/** 내 프로필 수정 — 이름·연락처 등 "자기 필드"만. 역할·회사코드 등 신원은 건드리지 않음(규칙상 관리자 전용). 세션 즉시 반영. */
+export async function updateMyProfile(fields: { name?: string; phone?: string; company_name?: string }): Promise<void> {
+  const db = getRtdb(); const auth = getAuthClient();
+  const uid = auth?.currentUser?.uid;
+  if (!db || !uid) throw new Error('로그인이 필요합니다');
+  const patch: Record<string, unknown> = {};
+  if (fields.name != null) patch.name = String(fields.name);
+  if (fields.phone != null) patch.phone = String(fields.phone);
+  if (fields.company_name != null) patch.company_name = String(fields.company_name);
+  if (!Object.keys(patch).length) return;
+  await update(ref(db, `users/${uid}`), patch);
+  const s = getSession(); // 상단바·설정에 이름 즉시 반영
+  if (s && patch.name != null) setSession({ ...s, name: String(patch.name) });
+}
+
 export async function approveUser(uid: string, active = true): Promise<void> {
   const db = getRtdb(); if (!db) throw new Error('DB가 설정되지 않았습니다');
   if (!uid) throw new Error('uid 없음');
