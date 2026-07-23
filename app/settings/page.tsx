@@ -62,6 +62,7 @@ export default function Settings() {
   const [pInit, setPInit] = useState({ name: '', phone: '' });
   const [savingProfile, setSavingProfile] = useState(false);
   const [idleMin, setIdleLocal] = useState(0);
+  const [origin, setOrigin] = useState('');
 
   useEffect(() => {
     setRoleLocal(getRole());
@@ -100,6 +101,7 @@ export default function Settings() {
     refreshPrefs();
     applyTheme();
     setAppEnv(window.matchMedia('(display-mode: standalone)').matches ? '홈화면 앱' : '브라우저');
+    setOrigin(window.location.origin);
     const offH = subscribeHidden(refreshHide);
     const offP = subscribePassed(refreshHide);
     const offI = subscribeInterest(refreshInterest);
@@ -172,6 +174,13 @@ export default function Settings() {
     setIdleLocal(m);
     toast(m ? `${m}분 자리비움 시 자동 로그아웃` : '자동 로그아웃 끔', 'info');
   };
+  const shareCode = session ? String(session.user_code || session.code || session.uid || '') : '';
+  const shareUrl = origin && shareCode ? `${origin}/catalog?a=${encodeURIComponent(shareCode)}` : '';
+  const copyShare = async () => {
+    if (!shareUrl) return;
+    try { await navigator.clipboard.writeText(shareUrl); haptic.select(); toast('공유 링크를 복사했습니다', 'ok'); }
+    catch { toast('복사 실패 — 링크를 길게 눌러 복사하세요', 'error'); }
+  };
 
   const empty = (text: string) => (
     <div style={{ padding: '10px 0 4px', fontSize: 13, color: C.faint, lineHeight: 1.45 }}>{text}</div>
@@ -222,6 +231,19 @@ export default function Settings() {
             </Btn>
           </div>
         </div>
+
+        {session && shareUrl ? (
+          <div>
+            <SectionLabel mt={0}>카탈로그 공유</SectionLabel>
+            <div style={{ fontSize: 12, color: C.faint, marginBottom: 8, lineHeight: 1.45 }}>
+              이 링크로 들어온 손님 문의는 나에게 귀속됩니다. 카톡·문자로 공유하세요.
+            </div>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <div style={{ flex: 1, minWidth: 0, fontSize: 12, color: C.ink, background: C.head, borderRadius: 6, padding: '8px 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{shareUrl}</div>
+              <Btn size="sm" onClick={copyShare}>복사</Btn>
+            </div>
+          </div>
+        ) : null}
 
         <div>
           <SectionLabel mt={0}>화면</SectionLabel>
