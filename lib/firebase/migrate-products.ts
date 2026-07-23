@@ -7,9 +7,15 @@
  */
 import { ref, get, update } from 'firebase/database';
 import { getRtdb } from './client';
-import { vehicleIdentity, isRealPlate } from '@/lib/domain/product';
+import { vehicleIdentity, isRealPlate, isHiddenFromCatalog } from '@/lib/domain/product';
+import { carYear } from '@/lib/domain/vehicle-master-match';
 
 type PRec = Record<string, unknown>;
+
+// 진단 전용 층위 판별(어댑터 SSOT 동일). 카슝=빌린카 공급사, 10년↑=노후차.
+const KASHUNG = new Set(['RP021', 'PT-0024']); // ← 어댑터 KASHUNG_PROVIDERS 와 동일
+const isKashung = (r: PRec) => KASHUNG.has(String(r.provider_company_code)) || KASHUNG.has(String(r.partner_code));
+const isTooOld = (r: PRec) => { const y = carYear(r as Parameters<typeof carYear>[0]); return y > 0 && (new Date().getFullYear() - y) >= 10; };
 
 export type MigrateProductsResult = {
   v3Total: number;       // v3 products 총 노드 수
@@ -72,6 +78,10 @@ export type DedupDiag = {
   uniqueByRawCarNumber: number;                      // 옛 dedup(원문 car_number) 결과 — placeholder 오합침
   placeholderValues: { value: string; count: number }[]; // 비-실번호판 non-blank 값 상위(오합침 원인)
   dupIdentities: { id: string; count: number }[];    // 실신원 중복(v3/v4 더블) 상위
+  // deduped(재고, 모든 상태) 기준 층위 분해 — "374가 어느 수인지" 규명
+  statusCounts: { status: string; count: number }[]; // 상태별 구성(내림차순)
+  kashung: number; tooOld: number; hiddenFromCatalog: number; // 파인더가 빼는 것들
+  finderVisible: number;                             // = 재고 − 카슝 − 10년 − 출고불가 (파인더 카탈로그)
 };
 
 /** v3∪v4 병합 후 실데이터로 중복 구조를 진단 — 355 vs 374 같은 대수 차이 원인 규명용(쓰기 없음). */
@@ -96,18 +106,25 @@ export async function diagnoseProductDedup(): Promise<DedupDiag> {
 
   const norm = (v: unknown) => String(v ?? '').replace(/\s/g, '').toUpperCase();
   let realPlateRows = 0, vinOnlyRows = 0, placeholderRows = 0, blankRows = 0;
-  const newIds = new Set<string>();      // 실신원(P:/V:)
   let noIdRows = 0;                        // 신원 불명 = 개별 유지
   const rawCarNums = new Set<string>();   // 옛 dedup 재현(원문 car_number)
   let rawBlank = 0;
   const placeholderCount = new Map<string, number>();
   const idCount = new Map<string, number>();
+  // deduped(재고) 구성: 신원별 1건 + 신원불명 개별 — 최신·product_code 있는 것 우선
+  const byId = new Map<string, PRec>();
+  const noId: PRec[] = [];
+  const ts = (p: PRec) => Number(p.updatedAt ?? p.updated_at ?? p.created_at ?? 0);
 
   for (const r of rows) {
     const cn = norm((r as PRec).car_number);
     const id = vehicleIdentity(r as PRec);
-    if (id) { newIds.add(id); idCount.set(id, (idCount.get(id) || 0) + 1); }
-    else noIdRows++;
+    if (id) {
+      idCount.set(id, (idCount.get(id) || 0) + 1);
+      const prev = byId.get(id);
+      if (!prev) byId.set(id, r);
+      else { const score = (Number(!!r.product_code) - Number(!!prev.product_code)) || (ts(r) - ts(prev)); if (score > 0) byId.set(id, r); }
+    } else { noIdRows++; noId.push(r); }
     // 카테고리
     if (isRealPlate((r as PRec).car_number)) realPlateRows++;
     else if (norm((r as PRec).vin).length >= 11) vinOnlyRows++;
@@ -117,15 +134,30 @@ export async function diagnoseProductDedup(): Promise<DedupDiag> {
     if (cn) rawCarNums.add(cn); else rawBlank++;
   }
 
+  // deduped(재고, 모든 상태) 기준 층위 분해
+  const deduped = [...byId.values(), ...noId];
+  const statusMap = new Map<string, number>();
+  let kashung = 0, tooOld = 0, hiddenFromCatalog = 0, finderVisible = 0;
+  for (const r of deduped) {
+    statusMap.set(String(r.vehicle_status || '(없음)'), (statusMap.get(String(r.vehicle_status || '(없음)')) || 0) + 1);
+    const k = isKashung(r), o = isTooOld(r), h = isHiddenFromCatalog(r);
+    if (k) kashung++;
+    if (o) tooOld++;
+    if (h) hiddenFromCatalog++;
+    if (!k && !o && !h) finderVisible++;
+  }
+
   const top = (m: Map<string, number>, n: number) =>
     [...m.entries()].filter(([, c]) => c > 1).sort((a, b) => b[1] - a[1]).slice(0, n);
 
   return {
     v3: Object.keys(v3).length, v4: Object.keys(v4).length, merged: rows.length,
     realPlateRows, vinOnlyRows, placeholderRows, blankRows,
-    uniqueByNewIdentity: newIds.size + noIdRows,
+    uniqueByNewIdentity: deduped.length,
     uniqueByRawCarNumber: rawCarNums.size + rawBlank,
     placeholderValues: top(placeholderCount, 10).map(([value, count]) => ({ value, count })),
     dupIdentities: top(idCount, 10).map(([id, count]) => ({ id, count })),
+    statusCounts: [...statusMap.entries()].sort((a, b) => b[1] - a[1]).map(([status, count]) => ({ status, count })),
+    kashung, tooOld, hiddenFromCatalog, finderVisible,
   };
 }
