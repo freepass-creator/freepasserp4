@@ -57,6 +57,25 @@ function stripProductCost(p: EntityRecord): EntityRecord {
 // v4 매물에서 제외할 것 종합(카슝 + 10년 이상).
 const isExcludedProduct = (r: Rec): boolean => isKashungProduct(r) || isTooOld(r);
 
+// 차량번호(실물 유일키) 기준 중복 제거 — v3 누적·v3∪v4 혼재로 같은 차가 다른 product_code 로
+//  두 번 들어오는 것 방지(카탈로그 대수 부풀림 차단). 차량번호 없는 건(상품화 전 등)은 각각 유지.
+//  중복이면 product_code 있는 것 → 최신(updatedAt/created_at) 것 우선.
+function dedupeByCarNumber(rows: EntityRecord[]): EntityRecord[] {
+  const norm = (v: unknown) => String(v ?? '').replace(/\s/g, '').toUpperCase();
+  const ts = (p: EntityRecord) => Number((p as Rec).updatedAt ?? (p as Rec).updated_at ?? (p as Rec).created_at ?? 0);
+  const noCar: EntityRecord[] = [];
+  const byCar = new Map<string, EntityRecord>();
+  for (const p of rows) {
+    const cn = norm((p as Rec).car_number);
+    if (!cn) { noCar.push(p); continue; }
+    const prev = byCar.get(cn);
+    if (!prev) { byCar.set(cn, p); continue; }
+    const score = (Number(!!(p as Rec).product_code) - Number(!!(prev as Rec).product_code)) || (ts(p) - ts(prev));
+    if (score > 0) byCar.set(cn, p); // 더 나은 쪽으로 교체
+  }
+  return [...byCar.values(), ...noCar];
+}
+
 function naturalKey(entity: string, rec: Rec): string {
   const e = ENTITIES[entity];
   if (!e) return String(rec._key ?? '');
@@ -365,7 +384,7 @@ export class RtdbAdapter implements StoreAdapter {
   async list(entity: string, co: string): Promise<EntityRecord[]> {
     const rows = (await this.merged(entity, co)).filter((r) => !r._deleted && !r.deletedAt);
     if (entity !== 'product') return rows;
-    const shown = rows.filter((r) => !isExcludedProduct(r as Rec)); // 카슝(빌린카)·10년이상 제외
+    const shown = dedupeByCarNumber(rows.filter((r) => !isExcludedProduct(r as Rec))); // 카슝·10년 제외 후 차량번호 중복 제거
     return seesProductCost() ? shown : shown.map(stripProductCost); // 영업자·손님엔 원가 가림
   }
   async listDeleted(entity: string, co: string): Promise<EntityRecord[]> {
