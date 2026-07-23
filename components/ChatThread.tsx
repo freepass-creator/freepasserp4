@@ -38,8 +38,11 @@ export function ChatThread({ roomId, onBack, onVehicle, onContract }: { roomId: 
     const t = text.trim(); if (!t) return;
     setText('');
     try {
-      await sendText({ roomId, text: t, channel: '정식', role });
-      await load();
+      const rec = await sendText({ roomId, text: t, channel: '정식', role });
+      // 전송 직후 서버 재조회 생략 — 방금 rec 로컬 append(표시 동일).
+      setMsgs((prev) => [...prev, rec]);
+      const rm = await getStore().get('room', co, roomId);
+      if (rm) setRoom(rm);
     } catch (e) {
       console.error('메시지 전송 실패:', e);
       toast(`전송 실패: ${(e as Error).message}`, 'error');
@@ -50,8 +53,10 @@ export function ChatThread({ roomId, onBack, onVehicle, onContract }: { roomId: 
   const onPickFile = async (files: FileList | null) => {
     if (!files || !files.length) return;
     try {
-      await sendFileMsg({ roomId, file: files[0], channel: '정식', role });
-      await load();
+      const rec = await sendFileMsg({ roomId, file: files[0], channel: '정식', role });
+      setMsgs((prev) => [...prev, rec]);
+      const rm = await getStore().get('room', co, roomId);
+      if (rm) setRoom(rm);
     } catch (e) {
       console.error('첨부 전송 실패:', e);
       toast(`첨부 전송 실패: ${(e as Error).message}`, 'error');

@@ -161,12 +161,21 @@ export async function markRead(roomId: string, role?: Role): Promise<void> {
   }
 }
 
-/** 방 메시지 목록(시간순). channel 지정 시 필터. */
-export async function listMessages(roomId: string, channel?: MsgChannel): Promise<EntityRecord[]> {
+/** 방 메시지 목록(시간순). channel 지정 시 필터.
+ *  getMessages = roomId 1개만 스코프 조회(전 방 list 회피). */
+export async function getMessages(roomId: string): Promise<EntityRecord[]> {
   const co = getCompanyId();
-  const all = await getStore().list('message', co);
+  const store = getStore();
+  if (typeof store.listMessagesForRoom === 'function') {
+    return store.listMessagesForRoom(co, roomId);
+  }
+  return (await store.list('message', co)).filter((m) => String(m.room_id) === roomId);
+}
+
+export async function listMessages(roomId: string, channel?: MsgChannel): Promise<EntityRecord[]> {
+  const all = await getMessages(roomId);
   return all
-    .filter((m) => m.room_id === roomId && (!channel || m.channel === channel))
+    .filter((m) => !channel || m.channel === channel)
     .sort((a, b) => Number(a.created_at) - Number(b.created_at));
 }
 
