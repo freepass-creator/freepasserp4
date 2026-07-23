@@ -1,4 +1,5 @@
 'use client';
+import { memo } from 'react';
 import Link from 'next/link';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { useIsMobile } from '@/lib/use-mobile';
@@ -23,7 +24,7 @@ import { type Audience } from '@/lib/domain/product';
  *
  * 모바일 파인더 피드는 ProductRowCard 4줄 사용.
  */
-export function ProductCard({ p, audience = 'agent', href, focusMonth }: {
+export const ProductCard = memo(function ProductCard({ p, audience = 'agent', href, focusMonth }: {
   p: EntityRecord; audience?: Audience; href?: string;
   focusMonth?: number;
 }) {
@@ -64,4 +65,4 @@ export function ProductCard({ p, audience = 'agent', href, focusMonth }: {
       </div>
     </Link>
   );
-}
+});

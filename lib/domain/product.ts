@@ -84,8 +84,14 @@ export function isStandardPeriod(m: number): boolean {
   return (PERIODS as readonly number[]).includes(m);
 }
 
+/** priceList 결과 캐시 — 로드된 매물 객체는 세션 내 불변이라 첫 계산 후 재사용(무효화 불필요).
+ *  matchProduct·정렬·카드 렌더가 같은 매물을 여러 번 훑어도 캐시히트. 반환 배열은 읽기 전용으로만 쓰인다(호출부 비변형 확인). */
+const priceListCache = new WeakMap<object, Price[]>();
+
 /** 기간별 가격 목록 (m 오름차순). 데이터에 있는 기간 전부(6·18 포함). */
 export function priceList(p: EntityRecord): Price[] {
+  const cached = priceListCache.get(p as object);
+  if (cached) return cached;
   const price = (p.price || {}) as Record<string, { rent?: number; deposit?: number; fee?: number }>;
   // 월(m)별 단일 가격으로 통합 — 주행거리 변형(24_3만 등)은 추가요금=정책 담당이라 기간에서 접는다.
   // 표준키('24') 우선, 없으면 최저 대여료 변형을 기본가로. 중복 개월·"(3만)" 라벨 제거.
@@ -104,7 +110,9 @@ export function priceList(p: EntityRecord): Price[] {
   }
   const list = [...byM.values()].map((x) => x.e).sort((a, b) => a.m - b.m);
   // 역전 방어(v3 이식) — 짧은 기간이 더 긴 기간보다 5%↑ 쌈 = 불가능(단기가 더 비싸야) → 짧은 쪽 오입력 제거.
-  return list.filter((e, i) => !list.slice(i + 1).some((lo) => lo.rent > e.rent * 1.05));
+  const result = list.filter((e, i) => !list.slice(i + 1).some((lo) => lo.rent > e.rent * 1.05));
+  priceListCache.set(p as object, result);
+  return result;
 }
 
 /** 선택 기간의 가격 (없으면 가장 가까운 기간) */

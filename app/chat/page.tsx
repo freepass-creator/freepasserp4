@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState, useMemo, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, useMemo, type ReactNode } from 'react';
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
@@ -52,7 +52,19 @@ export default function Chat() {
   const [sort, setSort] = useState<ChatSort | ''>('');
   const [flt, setFlt] = useState<ChatFilter>('문의');
 
-  const contractOf = (rm: EntityRecord) => contracts.find((c) => String(c.product_code) === String(rm.product_code) && String(c.agent_code) === String(rm.agent_code) && c.contract_status !== '계약취소');
+  // 계약 인덱스 — `product_code|agent_code` → 계약. 현행 contracts.find 순서를 정확 재현:
+  //  · '계약취소'는 후보에서 제외(find의 `c.contract_status !== '계약취소'`).
+  //  · 같은 키에 비취소 계약이 여럿이면 배열에서 먼저 나온 것 우선(find가 먼저 만나는 원소).
+  const contractIndex = useMemo(() => {
+    const m = new Map<string, EntityRecord>();
+    for (const c of contracts) {
+      if (c.contract_status === '계약취소') continue;
+      const key = String(c.product_code) + '|' + String(c.agent_code);
+      if (!m.has(key)) m.set(key, c);
+    }
+    return m;
+  }, [contracts]);
+  const contractOf = (rm: EntityRecord) => contractIndex.get(String(rm.product_code) + '|' + String(rm.agent_code));
   const productLookup = useMemo(() => {
     const byId = new Map<string, EntityRecord>();   // product_code·_key 둘 다 색인 (v3 방은 product_uid=_key로 연결)
     const byCar = new Map<string, EntityRecord>();
@@ -118,6 +130,18 @@ export default function Chat() {
     setRooms(sorted);
     return sorted;
   };
+  // 방목록·안읽음(+계약)만 부분 갱신 — products/deletedProducts 카탈로그는 재조회하지 않음(fp:unread 경량 경로).
+  //  메시지 열람/전송으로 카탈로그는 변하지 않으므로 최초 load에서 받은 products·deletedProducts(삭제매물 이름복원)를 재사용.
+  const refreshRooms = async (r: Role): Promise<EntityRecord[]> => {
+    const [all, cts] = await Promise.all([getStore().list('room', co), getStore().list('contract', co)]);
+    setContracts(cts);
+    const me = actor(r);
+    const mine = r === 'admin' ? [...all] : r === 'provider' ? all.filter((x) => String(x.provider_company_code) === me.code) : all.filter((x) => String(x.agent_code) === me.code);
+    const withUnread = await roomsWithUnread(mine, r);
+    const sorted = withUnread.sort((a, b) => Number(b.last_message_at || 0) - Number(a.last_message_at || 0));
+    setRooms(sorted);
+    return sorted;
+  };
   const resolveProduct = async (rm: EntityRecord): Promise<EntityRecord | null> => {
     const live = await getStore().get('product', co, String(rm.product_code));
     if (live) return live;
@@ -140,6 +164,11 @@ export default function Chat() {
     setSwapKey('chat');
   };
   const clearSel = () => { setSel(null); setSelRoom(null); setSelProduct(null); setSwapKey('chat'); };
+  // 방행 클릭 = 최신 selectRoom을 안정 참조로 호출. handleRoomClick 참조가 렌더마다 바뀌지 않아
+  //  ChatRoomRow(React.memo)가 검색 타이핑·선택 변경 등 리렌더에 전량 재렌더되지 않는다.
+  const selectRoomRef = useRef(selectRoom);
+  selectRoomRef.current = selectRoom;
+  const handleRoomClick = useCallback((rm: EntityRecord) => selectRoomRef.current(rm), []);
   const firstInquiry = (list: EntityRecord[], cts: EntityRecord[]) => {
     const of = (rm: EntityRecord) => cts.find((c) => String(c.product_code) === String(rm.product_code) && String(c.agent_code) === String(rm.agent_code) && c.contract_status !== '계약취소');
     return list.find((rm) => isInquiryOnly(of(rm))) || list[0];
@@ -161,15 +190,17 @@ export default function Chat() {
     return () => window.removeEventListener('fp:work-list', on);
   }, []);
 
-  // 열람·전송 후 목록·뱃지 안읽음 갱신
+  // 열람·전송 후 목록·뱃지 안읽음 갱신 — 방목록·안읽음(+계약)만 부분 갱신(전체 매물 카탈로그 재조회 안 함).
   useEffect(() => {
-    const on = () => { void load(getRole()); };
+    const on = () => { void refreshRooms(getRole()); };
     window.addEventListener('fp:unread', on);
     return () => window.removeEventListener('fp:unread', on);
     /* eslint-disable-next-line */
   }, []);
 
-  const shownRooms = (rooms || [])
+  // 방목록 필터·정렬 — 실제 사용값(rooms·q·flt·sort·role·계약인덱스)이 바뀔 때만 재계산.
+  //  contractOf는 contractIndex를 읽으므로 deps에 contractIndex 포함(값 의미는 원본 find와 동일).
+  const shownRooms = useMemo(() => (rooms || [])
     .filter((rm) => matchRoomQuery(rm, q))
     .filter((rm) => {
       if (flt === 'all') return true;
@@ -185,7 +216,9 @@ export default function Chat() {
       if (sort === 'unread') return unreadFor(b, role) - unreadFor(a, role) || Number(b.last_message_at || 0) - Number(a.last_message_at || 0);
       if (sort === 'name') return String(a.vehicle_name || '').localeCompare(String(b.vehicle_name || ''), 'ko');
       return 0;
-    });
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rooms, q, flt, sort, role, contractIndex]);
   const roomListEl = shownRooms.length === 0
     ? (
       <CenterNote>
@@ -208,7 +241,7 @@ export default function Chat() {
             counter={counter}
             unread={unreadFor(rm, role)}
             selected={String(rm._key) === sel}
-            onClick={() => selectRoom(rm)}
+            onClick={handleRoomClick}
           />
         );
       })}</div>;

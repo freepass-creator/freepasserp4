@@ -26,7 +26,7 @@ import {
   type VehicleFilter,
 } from '@/lib/domain/vehicle-master-match';
 import { colorDisplay } from '@/lib/domain/color-master';
-import { productHaystack, matchHay } from '@/lib/domain/search';
+import { productHaystack, matchHay, queryTokens } from '@/lib/domain/search';
 export { productHaystack, matchProductQuery } from '@/lib/domain/search';
 export type { VehicleFilter } from '@/lib/domain/vehicle-master-match';
 export { EMPTY_VEHICLE_FILTER, vehicleFilterCount } from '@/lib/domain/vehicle-master-match';
@@ -308,7 +308,8 @@ export function aggregateDyn(products: EntityRecord[]): Record<string, [string, 
 export function matchProduct(p: EntityRecord, s: FState): boolean {
   if (isHiddenFromCatalog(p)) return false; // 출고불가 = 상품목록 제외(계약중은 노출)
   const pl = priceList(p);
-  if (!matchHay(productHaystack(p), s.q)) return false;
+  // 검색어 없으면 haystack 생성 자체를 생략(matchHay는 빈 토큰이면 어차피 true). 토큰은 queryTokens 메모로 패스당 1회.
+  if (queryTokens(s.q).length && !matchHay(productHaystack(p), s.q)) return false;
   if (s.rent.size && !RENT_BANDS.some((b) => s.rent.has(b.k) && pl.some((x) => x.rent > b.lo && x.rent <= b.hi))) return false;
   if (s.dep.size && !DEP_BANDS.some((b) => s.dep.has(b.k) && pl.some((x) => x.deposit > b.lo && x.deposit <= b.hi))) return false;
   if (s.periods.size && !pl.some((x) => s.periods.has(x.m))) return false;

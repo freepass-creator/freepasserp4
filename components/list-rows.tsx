@@ -1,4 +1,5 @@
 'use client';
+import { memo } from 'react';
 import type { ReactNode } from 'react';
 import {
   MessageCircleMore, MessageCircle, MessageCircleWarning,
@@ -95,7 +96,7 @@ function inventoryStatusIcon(p: EntityRecord): { icon: LucideIcon; tone: BadgeTo
  *   3 마지막 메시지 (+안읽음)
  * 좌측 = 상태 아이콘(색)
  */
-export function ChatRoomRow({
+export const ChatRoomRow = memo(function ChatRoomRow({
   room, stageContract, counter, unread, selected, onClick, displayName,
 }: {
   room: EntityRecord;
@@ -103,7 +104,7 @@ export function ChatRoomRow({
   counter: string;
   unread: number;
   selected?: boolean;
-  onClick: () => void;
+  onClick: (room: EntityRecord) => void; // 항목을 인자로 받는 안정 핸들러(부모 useCallback) — memo 유효화
   displayName?: string;
 }) {
   const stage = contractStage(stageContract);
@@ -115,7 +116,7 @@ export function ChatRoomRow({
     <FeedListRow
       accent={accent}
       selected={selected}
-      onClick={onClick}
+      onClick={() => onClick(room)}
       thumb={<FeedThumbIcon icon={ic.icon} tone={ic.tone} title={ic.title} />}
       lines={[
         <FeedTitleRow
@@ -137,7 +138,7 @@ export function ChatRoomRow({
       ]}
     />
   );
-}
+});
 
 /**
  * 계약 목록 3줄
@@ -196,12 +197,12 @@ export function ContractListRow({
  *   3 차번 · 스펙 · 공급사
  * 좌측 = 출고/판매 상태 아이콘(색)
  */
-export function InventoryListRow({
+export const InventoryListRow = memo(function InventoryListRow({
   p, selected, onClick,
 }: {
   p: EntityRecord;
   selected?: boolean;
-  onClick: () => void;
+  onClick: (p: EntityRecord) => void; // 항목을 인자로 받는 안정 핸들러(부모 useCallback) — memo 유효화
 }) {
   const st = String(p.vehicle_status || '');
   const pt = String(p.product_type || '');
@@ -210,7 +211,7 @@ export function InventoryListRow({
   return (
     <FeedListRow
       selected={selected}
-      onClick={onClick}
+      onClick={() => onClick(p)}
       thumb={<FeedThumbIcon icon={ic.icon} tone={ic.tone} title={ic.title} />}
       lines={[
         <FeedTitle key="t">{vehicleName(p) || String(p.product_code || '상품')}</FeedTitle>,
@@ -238,7 +239,7 @@ export function InventoryListRow({
       ]}
     />
   );
-}
+});
 
 /** 정책 — 전용/공용 아이콘 · 유형뱃지 · 코드·심사 (문의·계약·재고와 동일 3줄) */
 function policyStatusIcon(p: EntityRecord): { icon: LucideIcon; tone: BadgeTone; title: string } {

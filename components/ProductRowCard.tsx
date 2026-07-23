@@ -1,4 +1,5 @@
 'use client';
+import { memo } from 'react';
 import Link from 'next/link';
 import type { CSSProperties, ReactNode } from 'react';
 import { type EntityRecord } from '@/lib/intake/entities';
@@ -25,12 +26,12 @@ import { ProductMoreMenu } from '@/components/ProductMoreMenu';
  *   3 차번·연식·연료·주행·배기
  *   4 가격(+범위) · 뱃지 · 우대조건
  */
-export function ProductRowCard({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) {
+export const ProductRowCard = memo(function ProductRowCard({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) {
   const mobile = useIsMobile();
   return mobile
     ? <MobileRow p={p} focusMonth={focusMonth} />
     : <WebRow p={p} focusMonth={focusMonth} />;
-}
+});
 
 function Cell({ right, children }: { right?: boolean; children?: ReactNode }) {
   return (

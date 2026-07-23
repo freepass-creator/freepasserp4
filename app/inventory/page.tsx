@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getStore, peekList } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
@@ -60,7 +60,8 @@ export default function Inventory() {
   const [sel, setSel] = useState<string | null>(null);
   const [form, setForm] = useState<EntityRecord>({});
   const [dirty, setDirty] = useState(false);
-  const [q, setQ] = useState('');
+  const [q, setQ] = useState(''); // 검색창 즉시 반영(입력·힌트·조건해제)
+  const [debouncedQ, setDebouncedQ] = useState(''); // 디바운스된 검색 — 목록 필터에만 사용
   const [policies, setPolicies] = useState<EntityRecord[]>([]);
   const [ok, setOk] = useState<boolean | null>(null);
   const [gateMsg, setGateMsg] = useState('');
@@ -183,6 +184,11 @@ export default function Inventory() {
     }
   };
   const clearSel = () => { setSel(null); setForm({}); setDirty(false); setCreating(false); setEditing(false); };
+  // 목록행 클릭 = 최신 selectP를 안정 참조로 호출. handleRowClick 참조가 렌더마다 바뀌지 않아
+  //  InventoryListRow(React.memo)가 편집 폼 타이핑(form state 변경) 리렌더에 딸려 재렌더되지 않는다.
+  const selectPRef = useRef(selectP);
+  selectPRef.current = selectP;
+  const handleRowClick = useCallback((p: EntityRecord) => { haptic.tap(); selectPRef.current(p); }, []);
   useEffect(() => {
     (async () => {
       try {
@@ -237,8 +243,30 @@ export default function Inventory() {
     return () => window.removeEventListener('fp:work-list', on);
   }, []);
 
+  // 검색 디바운스 — 편집 폼 타이핑과 무관하게, 목록 검색 타이핑마다 전량 filter/sort 하지 않게(파인더와 동일 패턴).
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQ(q), 180);
+    return () => clearTimeout(t);
+  }, [q]);
+
   // 검색·필터·정렬 바뀌면 더보기 리셋
-  useEffect(() => { setLimit(PAGE); }, [q, stFlt, typeFlt, sort]);
+  useEffect(() => { setLimit(PAGE); }, [debouncedQ, stFlt, typeFlt, sort]);
+
+  // 목록 필터·정렬 = 디바운스 검색 + 상태·구분 필터 + 정렬. 편집 폼(form) 변경은 여기 deps에 없어 목록 재계산 안 함.
+  const filtered = useMemo(() => (rows || [])
+    .filter((p) => matchProductQuery(p, debouncedQ))
+    .filter((p) => stFlt === 'all' || String(p.vehicle_status || '') === stFlt)
+    .filter((p) => typeFlt === 'all' || canonProductType(p.product_type) === typeFlt)
+    .slice()
+    .sort((a, b) => {
+      if (!sort) return 0;
+      if (sort === 'name') return vehicleName(a).localeCompare(vehicleName(b), 'ko');
+      if (sort === 'plate') return String(a.car_number || '').localeCompare(String(b.car_number || ''), 'ko');
+      if (sort === 'code') return String(a.product_code || '').localeCompare(String(b.product_code || ''), 'ko');
+      const ai = VEHICLE_STATES.indexOf(String(a.vehicle_status || '') as typeof VEHICLE_STATES[number]);
+      const bi = VEHICLE_STATES.indexOf(String(b.vehicle_status || '') as typeof VEHICLE_STATES[number]);
+      return (ai < 0 ? 99 : ai) - (bi < 0 ? 99 : bi) || vehicleName(a).localeCompare(vehicleName(b), 'ko');
+    }), [rows, debouncedQ, stFlt, typeFlt, sort]);
 
   const onChange = (k: string, v: string) => { setForm((f) => ({ ...f, [k]: v })); setDirty(true); };
   const norm = (v: unknown) => String(v ?? '').replace(/\s/g, '');
@@ -407,20 +435,6 @@ export default function Inventory() {
   }
   if (ok !== true) return <Loading />;
 
-  const filtered = (rows || [])
-    .filter((p) => matchProductQuery(p, q))
-    .filter((p) => stFlt === 'all' || String(p.vehicle_status || '') === stFlt)
-    .filter((p) => typeFlt === 'all' || canonProductType(p.product_type) === typeFlt)
-    .slice()
-    .sort((a, b) => {
-      if (!sort) return 0;
-      if (sort === 'name') return vehicleName(a).localeCompare(vehicleName(b), 'ko');
-      if (sort === 'plate') return String(a.car_number || '').localeCompare(String(b.car_number || ''), 'ko');
-      if (sort === 'code') return String(a.product_code || '').localeCompare(String(b.product_code || ''), 'ko');
-      const ai = VEHICLE_STATES.indexOf(String(a.vehicle_status || '') as typeof VEHICLE_STATES[number]);
-      const bi = VEHICLE_STATES.indexOf(String(b.vehicle_status || '') as typeof VEHICLE_STATES[number]);
-      return (ai < 0 ? 99 : ai) - (bi < 0 ? 99 : bi) || vehicleName(a).localeCompare(vehicleName(b), 'ko');
-    });
   const shown = filtered.slice(0, limit);
   const moreN = Math.max(0, filtered.length - limit);
   const listEl = filtered.length === 0
@@ -441,7 +455,7 @@ export default function Inventory() {
             key={String(p.product_code)}
             p={p}
             selected={String(p.product_code) === sel}
-            onClick={() => { haptic.tap(); selectP(p); }}
+            onClick={handleRowClick}
           />
         ))}
         {moreN > 0 && (

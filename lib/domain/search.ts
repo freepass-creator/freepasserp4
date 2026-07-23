@@ -6,8 +6,15 @@ import type { EntityRecord } from '@/lib/intake/entities';
 import { vehicleName, creditDisplay, policyOf, canonProductType } from '@/lib/domain/product';
 import { fuelDisplay, fuelEmbeddedCc } from '@/lib/domain/vehicle-master-match';
 
+// 검색어 토큰화 1엔트리 메모 — 한 번의 필터 패스에서 매 항목이 같은 q로 queryTokens를 재계산하던 것을 1회로.
+// 같은 q면 같은 배열 참조 반환. 반환 배열은 읽기 전용으로만 소비됨(matchHay는 every로 순회만).
+let _tokQ: string | undefined;
+let _tokRes: string[] = [];
 export function queryTokens(q: string): string[] {
-  return q.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (q === _tokQ) return _tokRes;
+  _tokQ = q;
+  _tokRes = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  return _tokRes;
 }
 
 export function matchHay(hay: string, q: string): boolean {
@@ -25,11 +32,16 @@ function parts(...xs: unknown[]): string {
     .toLowerCase();
 }
 
+/** productHaystack 캐시 — 매물 객체는 세션 내 불변. 검색 타이핑마다 전량 haystack 재빌드하던 비용 제거(첫 계산 후 캐시). */
+const productHaystackCache = new WeakMap<object, string>();
+
 /** 매물 — 스키마 원자 + 파생(차명·심사·연료정규화) + 임베드 정책 핵심. */
 export function productHaystack(p: EntityRecord): string {
+  const cached = productHaystackCache.get(p as object);
+  if (cached !== undefined) return cached;
   const pol = policyOf(p);
   const cc = Number(p.engine_cc) || fuelEmbeddedCc(p.fuel_type);
-  return parts(
+  const hay = parts(
     vehicleName(p),
     creditDisplay(p),
     p.product_code, p.car_number, p.vin, p.cert_car_name, p.type_number, p.engine_type,
@@ -53,6 +65,8 @@ export function productHaystack(p: EntityRecord): string {
     pol.deposit_installment, pol.maintenance_service, pol.personal_driver_scope,
     pol.business_driver_scope,
   );
+  productHaystackCache.set(p as object, hay);
+  return hay;
 }
 
 export function matchProductQuery(p: EntityRecord, q: string): boolean {

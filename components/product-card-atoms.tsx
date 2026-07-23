@@ -506,6 +506,9 @@ export function CardThumb({ p, audience = 'agent', fill, w, h, heart = false, ma
   const glyph = fill ? (mobile ? 40 : 36) : 24;
   const pad = fill ? 6 : 5;
   const promoFs = fill ? (mobile ? 11 : FS.micro) : (mobile ? 10.5 : 9.5);
+  // 모바일 목록 피드 썸네일(w=56, !fill) = 긴 스크롤. blur는 스크롤 합성비용이 커서 반투명 단색으로 대체.
+  // 상세(웹 가로카드)·간단(fill) 카드는 blur 유지.
+  const listThumb = mobile && !fill;
 
   // fill(간단) — 5열·넓은 카드 기준. 2:1 = 존재 신호 + 답답하지 않은 높이(~120px@240).
   const box: CSSProperties = fill
@@ -554,10 +557,11 @@ export function CardThumb({ p, audience = 'agent', fill, w, h, heart = false, ma
         fontSize: promoFs, fontWeight: FW.strong, letterSpacing: '-0.02em',
         lineHeight: 1,
         color: '#fff',
-        background: 'rgba(15,23,42,0.42)',
+        // 목록 썸네일 = blur 없이 가독 유지되게 더 진한 단색 / 그밖엔 기존 frosted(blur+옅은 톤).
+        background: listThumb ? 'rgba(15,23,42,0.66)' : 'rgba(15,23,42,0.42)',
         border: '1px solid rgba(255,255,255,0.18)',
-        backdropFilter: 'blur(6px)',
-        WebkitBackdropFilter: 'blur(6px)',
+        backdropFilter: listThumb ? undefined : 'blur(6px)',
+        WebkitBackdropFilter: listThumb ? undefined : 'blur(6px)',
         padding: '0 7px',
         borderRadius: R,
       }}

@@ -367,6 +367,9 @@ export class RtdbAdapter implements StoreAdapter {
   // v3 라이브 ∪ v4 오버레이 필드단위 병합(같은 _key는 오버레이 필드 우선). 필터 전 전량.
   private async merged(entity: string, co: string): Promise<EntityRecord[]> {
     try {
+      // 매물 = 공급사이름 부착용 파트너 목록을 정책·매물 조회와 동시에 선발사(직렬 워터폴 제거).
+      //  partnersForNames는 내부에서 .catch(() => []) 처리 → 아래 흐름이 먼저 throw해도 미처리 reject 없음.
+      const partnersP = entity === 'product' ? this.partnersForNames(co) : undefined;
       let joinMap: Rec | undefined;
       if (entity === 'product') joinMap = (await get(ref(this.db(), 'policies'))).val() || {};
       else if (entity === 'settlement') { try { joinMap = (await get(ref(this.db(), `${OVERLAY}/contracts`))).val() || {}; } catch { joinMap = {}; } }   // 정산 조인(계약일자). v4/contracts 스코프거부(비관리자) 시 무시 → 정산은 스코프 리더가 별도로 조회
@@ -389,7 +392,7 @@ export class RtdbAdapter implements StoreAdapter {
       for (const r of over) { const k = String(r._key); map.set(k, { ...(map.get(k) || {}), ...r }); }
       const result = [...map.values()];
       // 매물엔 공급사 한글이름(provider_name) 부착 — 상세·목록 SSOT(파인더와 동일). 코드만 보이던 문제 해결.
-      if (entity === 'product') return withProviderNames(result, await this.partnersForNames(co));
+      if (entity === 'product') return withProviderNames(result, await partnersP!);
       return result;
     } catch (e) {
       console.warn(`RTDB merged(${entity}) 실패(로그인·규칙 확인):`, (e as Error).message);
