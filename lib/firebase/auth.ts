@@ -116,9 +116,9 @@ export async function resetPassword(email: string): Promise<void> {
   await sendPasswordResetEmail(auth, email);
 }
 
-/** 사업자번호 → partners 매칭으로 역할·회사·채널 해석(가입·승인 공통). 미매칭=영업자·SP999. */
+/** 사업자번호 → partners 매칭으로 역할·회사·채널 해석(가입·승인 공통). 미매칭=영업자·SP999(채널=회사코드). */
 async function resolveIdentity(bizNo: string): Promise<{ role: string; company_code: string; agent_channel_code: string; matched_partner_code: string | null }> {
-  let role = 'agent', company_code = 'SP999', agent_channel_code = '', matched_partner_code: string | null = null;
+  let role = 'agent', company_code = 'SP999', agent_channel_code = 'SP999', matched_partner_code: string | null = null;
   const db = getRtdb();
   if (bizNo && db) {
     try {
@@ -130,12 +130,15 @@ async function resolveIdentity(bizNo: string): Promise<{ role: string; company_c
           matched_partner_code = String(p.partner_code || k);
           const pt = String(p.partner_type || '');
           if (/영업|sales/i.test(pt)) { role = 'agent'; company_code = matched_partner_code; agent_channel_code = matched_partner_code; }
-          else if (/공급|provider/i.test(pt)) { role = 'provider'; company_code = matched_partner_code; }
+          else if (/공급|provider/i.test(pt)) { role = 'provider'; company_code = matched_partner_code; agent_channel_code = ''; }
           break;
         }
       }
     } catch { /* noop */ }
   }
+  // 세션 게이트(auth.ts)도 agent_channel 빈값이면 company_code 로 보정함 — DB와 어긋나면
+  //  v4/settlements·quote 등 채널 소유 write 가 permission_denied (계약완료→정산생성 실패).
+  if (role === 'agent' && !agent_channel_code) agent_channel_code = company_code;
   return { role, company_code, agent_channel_code, matched_partner_code };
 }
 

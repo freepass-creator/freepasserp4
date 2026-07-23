@@ -90,8 +90,14 @@ export function planProductUpsert(incoming: EntityRecord[], existing: EntityReco
     }
     const merged = softMergeProduct(prev, rec);
     const patch = changedPatch(prev, merged);
-    if (patch) patches.push({ key, patch });
-    else unchanged++;
+    if (patch) {
+      // v4 매물 write 규칙 = newData.provider_company_code === 내 회사. 변경필드만 담는 patch가 v3전용 매물의
+      //  첫 오버레이면 회사코드 누락 → provider permission_denied. 기존 소유코드 승계 스탬프(자기기술형·admin 무해).
+      if (patch.provider_company_code === undefined && prev.provider_company_code != null && prev.provider_company_code !== '') {
+        patch.provider_company_code = prev.provider_company_code;
+      }
+      patches.push({ key, patch });
+    } else unchanged++;
   }
   return { creates, patches, unchanged };
 }
