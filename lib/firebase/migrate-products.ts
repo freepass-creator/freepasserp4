@@ -82,7 +82,7 @@ export type DedupDiag = {
   statusCounts: { status: string; count: number }[]; // 상태별 구성(내림차순)
   kashung: number; tooOld: number; hiddenFromCatalog: number; // 파인더가 빼는 것들
   finderVisible: number;                             // = 재고 − 카슝 − 10년 − 출고불가 (파인더 카탈로그)
-  providerCounts: { code: string; count: number }[]; // 공급사별 재고 구성(상위) — 실무자 오플/기타 대조용
+  providerCounts: { code: string; name: string; count: number }[]; // 공급사별 재고 구성(상위) — 카슝·빌린카·오플 식별용
   v3ActiveUnique: number; v4ActiveUnique: number;    // v3만 / v4만 활성(비삭제) 유일대수 — erp3 374 대조
   v4NotInV3: number; v3NotInV4: number;              // 교집합 밖 — v4 stale 잔여 / v3에만 있는 것
 };
@@ -91,9 +91,19 @@ export type DedupDiag = {
 export async function diagnoseProductDedup(): Promise<DedupDiag> {
   const db = getRtdb();
   if (!db) throw new Error('DB가 설정되지 않았습니다');
-  const [v3snap, v4snap] = await Promise.all([get(ref(db, 'products')), get(ref(db, 'v4/products'))]);
+  const [v3snap, v4snap, pSnap] = await Promise.all([
+    get(ref(db, 'products')), get(ref(db, 'v4/products')), get(ref(db, 'partners')),
+  ]);
   const v3 = (v3snap.val() as Record<string, PRec> | null) || {};
   const v4 = (v4snap.val() as Record<string, PRec> | null) || {};
+  // 공급사코드 → 이름(카슝·빌린카·빌림 식별용)
+  const partners = (pSnap.val() as Record<string, PRec> | null) || {};
+  const nameByCode = new Map<string, string>();
+  for (const [k, p] of Object.entries(partners)) {
+    if (!p || typeof p !== 'object') continue;
+    const code = String((p as PRec).partner_code || k);
+    if (code) nameByCode.set(code, String((p as PRec).name || (p as PRec).company_name || ''));
+  }
 
   // 어댑터 merged 동일: product_code(없으면 노드키)로 병합, v4 필드 우선.
   const merged = new Map<string, PRec>();
@@ -179,7 +189,7 @@ export async function diagnoseProductDedup(): Promise<DedupDiag> {
     dupIdentities: top(idCount, 10).map(([id, count]) => ({ id, count })),
     statusCounts: [...statusMap.entries()].sort((a, b) => b[1] - a[1]).map(([status, count]) => ({ status, count })),
     kashung, tooOld, hiddenFromCatalog, finderVisible,
-    providerCounts: [...provMap.entries()].sort((a, b) => b[1] - a[1]).slice(0, 20).map(([code, count]) => ({ code, count })),
+    providerCounts: [...provMap.entries()].sort((a, b) => b[1] - a[1]).slice(0, 20).map(([code, count]) => ({ code, name: nameByCode.get(code) || '', count })),
     v3ActiveUnique: A3.unique, v4ActiveUnique: A4.unique, v4NotInV3, v3NotInV4,
   };
 }

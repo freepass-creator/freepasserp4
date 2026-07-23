@@ -122,7 +122,7 @@ export default function DevTools() {
       const ph = d.placeholderValues.map((x) => `  ${x.value} ×${x.count}`).join('\n');
       const dp = d.dupIdentities.map((x) => `  ${x.id} ×${x.count}`).join('\n');
       const st = d.statusCounts.map((x) => `  ${x.status} ${x.count}`).join('\n');
-      const pv = d.providerCounts.map((x) => `  ${x.code} ${x.count}`).join('\n');
+      const pv = d.providerCounts.map((x) => `  ${x.code} ${x.name || '?'} ${x.count}`).join('\n');
       const msg =
         `v3 ${d.v3} · v4 ${d.v4} · 병합 ${d.merged}\n`
         + `활성 유일대수: v3만 ${d.v3ActiveUnique} · v4만 ${d.v4ActiveUnique} · 합집합 ${d.uniqueByNewIdentity}\n`
