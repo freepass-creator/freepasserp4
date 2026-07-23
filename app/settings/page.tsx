@@ -17,7 +17,6 @@ import {
   getIdleMinutes, setIdleMinutes, type ThemePref, applyTheme,
 } from '@/lib/prefs';
 import { toast } from '@/components/Toaster';
-import { useIsMobile } from '@/lib/use-mobile';
 
 const DEMO_ROLES: { key: Role; label: string }[] = [
   { key: 'agent', label: '영업자' },
@@ -46,7 +45,6 @@ const IDLE_OPTS: { key: string; label: string }[] = [
 /** 설정 — 계정·화면·피드백·관심·숨김·앱정보. 박스 중첩 없음. */
 export default function Settings() {
   const router = useRouter();
-  const mobile = useIsMobile();
   const session = useSession();
   const guest = isGuest();
   const [role, setRoleLocal] = useState<Role>('agent');
@@ -188,16 +186,15 @@ export default function Settings() {
 
   return (
     <Page title="설정">
-      <div style={{
-        maxWidth: 560,
-        width: '100%',
-        margin: mobile ? undefined : '0 auto',
-        boxSizing: 'border-box',
-        padding: mobile ? '12px 14px' : '16px 0 8px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 20,
-      }}>
+      {/* 웹 = 폭 활용 2단(섹션 원자는 그대로, 배열만 컬럼) · 모바일 = 단일 세로 스크롤. */}
+      <style>{`
+        .fp-settings-grid { max-width: 560px; width: 100%; box-sizing: border-box; margin: 0 auto; padding: 12px 14px; display: flex; flex-direction: column; gap: 20px; }
+        @media (min-width: 760px) {
+          .fp-settings-grid { max-width: 960px; padding: 18px 16px 28px; display: block; column-count: 2; column-gap: 30px; }
+          .fp-settings-grid > * { break-inside: avoid; -webkit-column-break-inside: avoid; margin-bottom: 22px; }
+        }
+      `}</style>
+      <div className="fp-settings-grid">
         <div>
           <SectionLabel mt={0}>계정</SectionLabel>
           {session ? (
