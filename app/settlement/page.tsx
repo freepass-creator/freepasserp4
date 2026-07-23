@@ -18,10 +18,9 @@ import { NAV_LABEL } from '@/lib/tabbar';
 // 관리자 월별정산 — ① 집계(건별 R1/R2) ② 정산서(VAT·청구/지급 admin_settlement).
 const monthOf = (s: EntityRecord) => String(s.contract_date || '').slice(0, 7);
 const tdL: typeof td = { ...td, textAlign: 'left' as const };
-// 순수익 = 취소·환수(클로백) 건 제외 net 합산 — 계약페이지 기준(환수 전이된 건은 순수익에서 빠짐)과 통일.
-//  환수 건은 settlement_status 에 '환수'(환수대기·환수결정) 포함 → 제외. 환수액은 별도 카드/열로 계속 표기.
-const isClawed = (s: EntityRecord) => String(s.settlement_status || '').includes('환수');
-const netProfitOf = (list: EntityRecord[]) => list.reduce((n, s) => (isClawed(s) ? n : n + (Number(s.net_amount) || 0)), 0);
+// 순수익 = '정산완료' 건의 net 합산 — 계약페이지 summaryBar(순수익=정산완료 net, contract/page.tsx)와 동일 기준.
+//  (정산대기·보류·환수 등 미완료는 제외. 환수액은 별도 카드/열로 계속 표기.)
+const netProfitOf = (list: EntityRecord[]) => list.reduce((n, s) => (String(s.settlement_status) === '정산완료' ? n + (Number(s.net_amount) || 0) : n), 0);
 
 export default function MonthlySettlement() {
   const co = getCompanyId();
