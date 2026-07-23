@@ -10,6 +10,7 @@ import {
   badges, Plate, idParts, CardBenefits, CardEvents, OptionChips,
 } from '@/components/product-card-atoms';
 import { FavHeart } from '@/components/FavHeart';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 /**
  * 매물 상세 SSOT — 웹·모바일 **동일 원자·동일 타이포**.
@@ -89,9 +90,9 @@ export function ProductDetail({ p, audience }: { p: EntityRecord; audience?: Aud
             {photos.length > 1 && (
               <>
                 <button aria-label="이전 사진" onPointerDown={(e) => e.stopPropagation()} onPointerUp={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); stepPhoto(-1); }}
-                  style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', width: 34, height: 34, borderRadius: '50%', border: 'none', background: 'rgba(0,0,0,0.45)', color: '#fff', fontSize: 22, lineHeight: 1, cursor: 'pointer', zIndex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', paddingBottom: 2 }}>‹</button>
+                  style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', width: 34, height: 34, borderRadius: '50%', border: 'none', background: 'rgba(0,0,0,0.5)', color: '#fff', cursor: 'pointer', zIndex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}><ChevronLeft size={20} strokeWidth={2.5} /></button>
                 <button aria-label="다음 사진" onPointerDown={(e) => e.stopPropagation()} onPointerUp={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); stepPhoto(1); }}
-                  style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', width: 34, height: 34, borderRadius: '50%', border: 'none', background: 'rgba(0,0,0,0.45)', color: '#fff', fontSize: 22, lineHeight: 1, cursor: 'pointer', zIndex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', paddingBottom: 2 }}>›</button>
+                  style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', width: 34, height: 34, borderRadius: '50%', border: 'none', background: 'rgba(0,0,0,0.5)', color: '#fff', cursor: 'pointer', zIndex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}><ChevronRight size={20} strokeWidth={2.5} /></button>
               </>
             )}
             {aud !== 'customer' && <span style={{ position: 'absolute', top: 8, right: 8, zIndex: 2 }}><FavHeart p={p} onPhoto /></span>}
