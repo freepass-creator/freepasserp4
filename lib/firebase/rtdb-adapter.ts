@@ -34,9 +34,9 @@ const OVERLAY = 'v4'; // 쓰기 격리 루트
 //  정산·감사는 v4 네이티브(오버레이만). 쓰기는 전부 v4/ 오버레이(v3 라이브 무변경).
 const BRIDGE_FROM_V3 = new Set(['product', 'policy', 'partner', 'user', 'room', 'message', 'contract']);
 
-// 카슝(=빌린카) 불러온 매물은 v4에서 제외 — 사용자 결정. 빌린카 = 공급사 RP021 / PT-0024(35대).
-//  브리지 read 단에서 걸러 v4 목록·상세서 안 보이게(v3 원본은 무변경).
-const KASHUNG_PROVIDERS = new Set(['RP021', 'PT-0024']);
+// 카슝(구독차량 연동)만 카탈로그서 제외 — 연동 끊겨 현재 0대. 빌린카(RP021 자체매물)는 포함(erp3도 포함).
+//  ※ 과거엔 RP021(빌린카)까지 묶어 뺐으나 오분류였음 — 빌린카는 정상 공급사(자체매물). 카슝=PT-0024.
+const KASHUNG_PROVIDERS = new Set(['PT-0024']);
 const isKashungProduct = (r: Rec): boolean =>
   KASHUNG_PROVIDERS.has(String(r.provider_company_code)) || KASHUNG_PROVIDERS.has(String(r.partner_code));
 
@@ -385,7 +385,9 @@ export class RtdbAdapter implements StoreAdapter {
   async list(entity: string, co: string): Promise<EntityRecord[]> {
     const rows = (await this.merged(entity, co)).filter((r) => !r._deleted && !r.deletedAt);
     if (entity !== 'product') return rows;
-    const shown = dedupeByVehicleIdentity(rows.filter((r) => !isExcludedProduct(r as Rec))); // 카슝·10년 제외 후 실물 신원 중복 제거
+    // erp3 소프트삭제 정합: status==='deleted' 도 제외(_deleted 불리언과 별개 마커 — 이걸 안 걸러 재고가 부풀었음)
+    const live = rows.filter((r) => String((r as Rec).status) !== 'deleted');
+    const shown = dedupeByVehicleIdentity(live.filter((r) => !isExcludedProduct(r as Rec))); // 카슝(연동)·10년 제외 후 실물 신원 중복 제거
     return seesProductCost() ? shown : shown.map(stripProductCost); // 영업자·손님엔 원가 가림
   }
   async listDeleted(entity: string, co: string): Promise<EntityRecord[]> {
@@ -394,7 +396,8 @@ export class RtdbAdapter implements StoreAdapter {
   async get(entity: string, co: string, key: string): Promise<EntityRecord | null> {
     const r = (await this.merged(entity, co)).find((r) => String(r._key) === key && !r._deleted && !r.deletedAt) || null;
     if (!r || entity !== 'product') return r;
-    if (isExcludedProduct(r as Rec)) return null; // 카슝·10년이상은 직접링크로도 숨김
+    if (String((r as Rec).status) === 'deleted') return null; // erp3 소프트삭제 정합
+    if (isExcludedProduct(r as Rec)) return null; // 카슝(연동)·10년이상은 직접링크로도 숨김
     return seesProductCost() ? r : stripProductCost(r); // 영업자·손님엔 원가 가림
   }
 

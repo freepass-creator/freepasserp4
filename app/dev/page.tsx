@@ -129,6 +129,7 @@ export default function DevTools() {
         + `교집합 밖: v4에만(v3없음) ${d.v4NotInV3} · v3에만(v4없음) ${d.v3NotInV4}\n`
         + `분류: 실번호판 ${d.realPlateRows} · VIN만 ${d.vinOnlyRows} · placeholder ${d.placeholderRows} · 공백 ${d.blankRows}\n`
         + `dedup(재고): 새(신원) ${d.uniqueByNewIdentity}  vs  옛(원문차번) ${d.uniqueByRawCarNumber}\n`
+        + `erp3정합: 재고 ${d.uniqueByNewIdentity} − status삭제 ${d.statusDeleted} = ${d.erp3Inventory}대 (노후빼면 ${d.erp3InvExOld})\n`
         + `층위: 재고 ${d.uniqueByNewIdentity} − 카슝 ${d.kashung} − 10년 ${d.tooOld} − 출고불가 ${d.hiddenFromCatalog} = 카탈로그 ${d.finderVisible}\n`
         + (st ? `상태별:\n${st}\n` : '')
         + (pv ? `공급사별:\n${pv}\n` : '')

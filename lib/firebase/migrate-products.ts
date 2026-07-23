@@ -13,7 +13,7 @@ import { carYear } from '@/lib/domain/vehicle-master-match';
 type PRec = Record<string, unknown>;
 
 // 진단 전용 층위 판별(어댑터 SSOT 동일). 카슝=빌린카 공급사, 10년↑=노후차.
-const KASHUNG = new Set(['RP021', 'PT-0024']); // ← 어댑터 KASHUNG_PROVIDERS 와 동일
+const KASHUNG = new Set(['PT-0024']); // ← 어댑터와 동일(카슝=PT-0024 구독연동. 빌린카 RP021은 포함)
 const isKashung = (r: PRec) => KASHUNG.has(String(r.provider_company_code)) || KASHUNG.has(String(r.partner_code));
 const isTooOld = (r: PRec) => { const y = carYear(r as Parameters<typeof carYear>[0]); return y > 0 && (new Date().getFullYear() - y) >= 10; };
 
@@ -85,6 +85,8 @@ export type DedupDiag = {
   providerCounts: { code: string; name: string; count: number }[]; // 공급사별 재고 구성(상위) — 카슝·빌린카·오플 식별용
   v3ActiveUnique: number; v4ActiveUnique: number;    // v3만 / v4만 활성(비삭제) 유일대수 — erp3 374 대조
   v4NotInV3: number; v3NotInV4: number;              // 교집합 밖 — v4 stale 잔여 / v3에만 있는 것
+  statusDeleted: number;                             // 재고 중 status==='deleted'(erp3가 거르는 소프트삭제)
+  erp3Inventory: number; erp3InvExOld: number;       // erp3 정합 재고(=374 목표) / 노후 뺀 값
 };
 
 /** v3∪v4 병합 후 실데이터로 중복 구조를 진단 — 355 vs 374 같은 대수 차이 원인 규명용(쓰기 없음). */
@@ -152,6 +154,7 @@ export async function diagnoseProductDedup(): Promise<DedupDiag> {
   const statusMap = new Map<string, number>();
   const provMap = new Map<string, number>();
   let kashung = 0, tooOld = 0, hiddenFromCatalog = 0, finderVisible = 0;
+  let statusDeleted = 0, erp3Inventory = 0, erp3InvExOld = 0;
   for (const r of deduped) {
     statusMap.set(String(r.vehicle_status || '(없음)'), (statusMap.get(String(r.vehicle_status || '(없음)')) || 0) + 1);
     const pc = String(r.provider_company_code || r.partner_code || '(미지정)');
@@ -161,6 +164,9 @@ export async function diagnoseProductDedup(): Promise<DedupDiag> {
     if (o) tooOld++;
     if (h) hiddenFromCatalog++;
     if (!k && !o && !h) finderVisible++;
+    // erp3 정합: status==='deleted'(소프트삭제) 제외 = 재고 374 목표. 노후 뺀 값도 함께.
+    if (String(r.status) === 'deleted') statusDeleted++;
+    else { erp3Inventory++; if (!o) erp3InvExOld++; }
   }
 
   // v3만 / v4만 활성(비삭제) 유일대수 — erp3(v3) 기준 374가 어디서 나오는지 대조
@@ -191,5 +197,6 @@ export async function diagnoseProductDedup(): Promise<DedupDiag> {
     kashung, tooOld, hiddenFromCatalog, finderVisible,
     providerCounts: [...provMap.entries()].sort((a, b) => b[1] - a[1]).slice(0, 20).map(([code, count]) => ({ code, name: nameByCode.get(code) || '', count })),
     v3ActiveUnique: A3.unique, v4ActiveUnique: A4.unique, v4NotInV3, v3NotInV4,
+    statusDeleted, erp3Inventory, erp3InvExOld,
   };
 }
