@@ -18,6 +18,8 @@ export interface StoreAdapter {
   backend: string;
   save(entityKey: string, companyId: string, records: EntityRecord[]): Promise<SaveResult>;
   list(entityKey: string, companyId: string): Promise<EntityRecord[]>;
+  /** 방 하나 메시지 스코프 조회(전 방 list 회피). 미구현 어댑터는 list+필터로 폴백. */
+  listMessagesForRoom?(companyId: string, roomId: string): Promise<EntityRecord[]>;
   get(entityKey: string, companyId: string, key: string): Promise<EntityRecord | null>;
   update(entityKey: string, companyId: string, key: string, patch: EntityRecord): Promise<void>;
   bulkPatch(entityKey: string, companyId: string, patches: { key: string; patch: EntityRecord }[]): Promise<number>; // 다건 부분갱신(멀티패스) — 일괄 차종 재구현 등
@@ -48,6 +50,9 @@ class LocalAdapter implements StoreAdapter {
     try { return JSON.parse(localStorage.getItem(this.k(entityKey, companyId)) || '[]'); } catch { return []; }
   }
   async list(entityKey: string, companyId: string) { return this.read(entityKey, companyId).filter((r) => !r.deletedAt); }
+  async listMessagesForRoom(companyId: string, roomId: string) {
+    return (await this.list('message', companyId)).filter((m) => String(m.room_id) === roomId);
+  }
   async get(entityKey: string, companyId: string, key: string) {
     return this.read(entityKey, companyId).find((r) => String(r._key) === key) || null;
   }
@@ -222,6 +227,19 @@ function _invalidate(entityKey: string) {
 }
 export function clearStoreCache() { _listCache.clear(); _listResolved.clear(); }
 
+/** list 캐시 부분 패치 — update 후 전량 무효화 대신 해당 레코드만 병합. 캐시 없으면 no-op(다음 list가 신선 조회). */
+export function patchListCache(entityKey: string, companyId: string, key: string, patch: EntityRecord): void {
+  const ck = `${entityKey}::${companyId}`;
+  const rows = _listResolved.get(ck);
+  if (!rows) return;
+  const i = rows.findIndex((r) => String(r._key) === key);
+  const next = rows.slice();
+  if (i >= 0) next[i] = { ...next[i], ...patch, _key: key };
+  else next.push({ ...patch, _key: key } as EntityRecord);
+  _listResolved.set(ck, next);
+  _listCache.set(ck, Promise.resolve(next));
+}
+
 function findCached(rows: EntityRecord[], key: string): EntityRecord | null {
   return rows.find((r) => String(r._key) === key) || null;
 }
@@ -256,6 +274,20 @@ class DispatchStore implements StoreAdapter {
     }
     return p;
   }
+  async listMessagesForRoom(companyId: string, roomId: string) {
+    const ck = `message::${companyId}::room::${roomId}`;
+    let p = _listCache.get(ck);
+    if (!p) {
+      const base = this.base;
+      p = (typeof base.listMessagesForRoom === 'function'
+        ? base.listMessagesForRoom(companyId, roomId)
+        : base.list('message', companyId).then((all) => all.filter((m) => String(m.room_id) === roomId))
+      ).then((rows) => { _listResolved.set(ck, rows); return rows; });
+      _listCache.set(ck, p);
+      p.catch(() => { _listCache.delete(ck); _listResolved.delete(ck); });
+    }
+    return p;
+  }
   async listDeleted(entityKey: string, companyId: string) {
     if (!this.all(companyId)) return this.base.listDeleted(entityKey, companyId);
     return (await Promise.all(COMPANIES.map((c) => this.base.listDeleted(entityKey, c)))).flat();
@@ -276,7 +308,14 @@ class DispatchStore implements StoreAdapter {
     return null;
   }
   async update(entityKey: string, companyId: string, key: string, patch: EntityRecord) {
-    if (!this.all(companyId)) { const r = await this.base.update(entityKey, companyId, key, patch); _invalidate(entityKey); return r; }
+    if (!this.all(companyId)) {
+      await this.base.update(entityKey, companyId, key, patch);
+      // 전량 무효화 대신 해당 레코드만 패치(다음 list가 RTDB 전량 재다운로드 안 함).
+      patchListCache(entityKey, companyId, key, patch);
+      // 방 메시지 스코프 캐시도 메시지 write 시 무효(append는 호출부가 담당).
+      if (entityKey === 'message') _invalidate('message');
+      return;
+    }
     const c = await this.ownerOf(entityKey, key); if (c) await this.base.update(entityKey, c, key, patch); _invalidate(entityKey);
   }
   async bulkPatch(entityKey: string, companyId: string, patches: { key: string; patch: EntityRecord }[]) {

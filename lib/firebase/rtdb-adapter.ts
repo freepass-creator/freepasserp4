@@ -310,7 +310,7 @@ export class RtdbAdapter implements StoreAdapter {
 
   /**
    * 정산 스코프 조회 — v4 `v4/settlements`(정산=오버레이 네이티브). 정산 레코드엔 agent_uid 없음 →
-   * 영업자는 agent_channel_code, 공급사는 provider_company_code 로 스코프(계약과 키가 다름 주의).
+   * 영업자는 agent_channel_code + agent_code(사람키) 병합(채널 재키잉 고아 폴백), 공급사는 provider_company_code.
    */
   private async readSettlementsScoped(co: string, overlay: boolean, joinMap?: Rec): Promise<EntityRecord[]> {
     const node = overlay ? `${OVERLAY}/settlements` : 'settlements';
@@ -329,8 +329,18 @@ export class RtdbAdapter implements StoreAdapter {
         if (role === 'provider') {
           const company = sess?.company_code || sess?.code || '';
           if (company) take(await get(query(ref(db, node), orderByChild('provider_company_code'), equalTo(company))));
-        } else if (sess?.agent_channel_code) {
-          take(await get(query(ref(db, node), orderByChild('agent_channel_code'), equalTo(sess.agent_channel_code))));
+        } else {
+          // 채널 + 사람키(agent_code) 병합 — 채널 재배정 후에도 본인 정산 열람 유지.
+          const agentCode = String(sess?.user_code || sess?.code || auth.uid || '').trim();
+          const snaps = await Promise.allSettled([
+            sess?.agent_channel_code
+              ? get(query(ref(db, node), orderByChild('agent_channel_code'), equalTo(sess.agent_channel_code)))
+              : Promise.resolve(null as DataSnapshot | null),
+            agentCode
+              ? get(query(ref(db, node), orderByChild('agent_code'), equalTo(agentCode)))
+              : Promise.resolve(null as DataSnapshot | null),
+          ]);
+          for (const s of snaps) if (s.status === 'fulfilled') take(s.value);
         }
       }
     } catch (e) {
@@ -435,30 +445,87 @@ export class RtdbAdapter implements StoreAdapter {
     const shown = dedupeByVehicleIdentity(live.filter((r) => !isExcludedProduct(r as Rec))); // 카슝(연동)·10년 제외 후 실물 신원 중복 제거
     return shown.map((r) => (seesProductCost(r) ? r : stripProductCost(r))); // 원가는 관리자·본인소유 공급사만(레코드별 판정)
   }
+
+  /** 단일 방 메시지 — 전 방 roomIds 스캔 없이 roomId 1개만 v3∪v4 병합. */
+  async listMessagesForRoom(co: string, roomId: string): Promise<EntityRecord[]> {
+    if (!roomId) return [];
+    const [live, over] = await Promise.all([
+      this.readMessages(co, false, [roomId]).catch(() => [] as EntityRecord[]),
+      this.readMessages(co, true, [roomId]).catch(() => [] as EntityRecord[]),
+    ]);
+    const map = new Map<string, EntityRecord>();
+    for (const r of live) map.set(String(r._key), r);
+    for (const r of over) {
+      const k = String(r._key);
+      const cur: Rec = { ...(map.get(k) || {}) };
+      for (const [kk, vv] of Object.entries(r as Rec)) if (vv !== undefined) cur[kk] = vv;
+      map.set(k, cur as EntityRecord);
+    }
+    return [...map.values()].filter((r) => !r._deleted && !r.deletedAt);
+  }
+
   async listDeleted(entity: string, co: string): Promise<EntityRecord[]> {
     return (await this.merged(entity, co)).filter((r) => r._deleted || r.deletedAt);
   }
+
+  /**
+   * 단건 get — product/policy/partner/user 는 keyed-read(노드/{key}∪v4 병합)로 전량 merged 회피.
+   *  contract/room/settlement/message 는 규칙이 쿼리 스코프라 keyed get이 거부될 수 있어 기존 merged find 유지.
+   */
   async get(entity: string, co: string, key: string): Promise<EntityRecord | null> {
-    const r = (await this.merged(entity, co)).find((r) => String(r._key) === key && !r._deleted && !r.deletedAt) || null;
+    const KEYED = new Set(['product', 'policy', 'partner', 'user']);
+    if (KEYED.has(entity)) {
+      const node = NODE[entity] || entity;
+      try {
+        let joinMap: Rec | undefined;
+        if (entity === 'product') joinMap = (await get(ref(this.db(), 'policies'))).val() || {};
+        const [liveSnap, overSnap] = await Promise.all([
+          BRIDGE_FROM_V3.has(entity) ? get(ref(this.db(), `${node}/${key}`)).catch(() => null) : Promise.resolve(null),
+          get(ref(this.db(), `${OVERLAY}/${node}/${key}`)).catch(() => null),
+        ]);
+        const liveVal = liveSnap?.val() as Rec | null;
+        const overVal = overSnap?.val() as Rec | null;
+        if (!liveVal && !overVal) return null;
+        const merged: Rec = { ...(liveVal || {}) };
+        if (overVal) for (const [kk, vv] of Object.entries(overVal)) if (vv !== undefined) merged[kk] = vv;
+        let r = toV4(entity, key, merged, co, joinMap);
+        if (r._deleted || r.deletedAt) return null;
+        if (entity === 'product') {
+          if (String((r as Rec).status) === 'deleted') return null;
+          if (isExcludedProduct(r as Rec)) return null;
+          if (this._partnersForNames?.length) r = withProviderNames([r], this._partnersForNames)[0] || r;
+          else {
+            try { r = withProviderNames([r], await this.partnersForNames(co))[0] || r; } catch { /* 이름 없으면 코드만 */ }
+          }
+          return seesProductCost(r) ? r : stripProductCost(r);
+        }
+        return r;
+      } catch (e) {
+        console.warn(`RTDB keyed get(${entity}/${key}) 실패 → merged 폴백:`, (e as Error).message);
+      }
+    }
+    const r = (await this.merged(entity, co)).find((row) => String(row._key) === key && !row._deleted && !row.deletedAt) || null;
     if (!r || entity !== 'product') return r;
-    if (String((r as Rec).status) === 'deleted') return null; // erp3 소프트삭제 정합
-    if (isExcludedProduct(r as Rec)) return null; // 카슝(연동)·10년이상은 직접링크로도 숨김
-    return seesProductCost(r) ? r : stripProductCost(r); // 원가는 관리자·본인소유 공급사만(레코드별 판정)
+    if (String((r as Rec).status) === 'deleted') return null;
+    if (isExcludedProduct(r as Rec)) return null;
+    return seesProductCost(r) ? r : stripProductCost(r);
   }
 
   async save(entity: string, co: string, records: EntityRecord[]): Promise<SaveResult> {
     const node = NODE[entity] || entity;
-    const seen = new Set((await this.merged(entity, co)).map((r) => String(r._key)));
+    // dedup = 자연키 존재만 keyed get으로 확인(전량 merged 회피). 스코프 엔티티는 get이 merged 폴백.
     let saved = 0, duplicates = 0;
     for (const rec of records) {
       let key = naturalKey(entity, rec as Rec);
-      if (key && seen.has(key)) { duplicates++; continue; }
+      if (key) {
+        const exists = await this.get(entity, co, key);
+        if (exists) { duplicates++; continue; }
+      }
       if (!key) key = `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-      // 고객 = created_by 소유필드 필수(v4/customers 스코프 read + 소유 write 규칙 기준). 로그인 uid 로 귀속.
       const stored: Rec = stripUndef({ ...rec, companyId: co, _key: key, createdAt: new Date().toISOString(), createdBy: 'rtdb', ...(entity === 'customer' ? { created_by: (rec as Rec).created_by || getAuthClient()?.currentUser?.uid } : {}) });
       await dbUpdate(ref(this.db(), `${OVERLAY}/${node}/${key}`), stored);
       this.writeAudit(entity, co, key, 'create', null, stored);
-      seen.add(key); saved++;
+      saved++;
     }
     return { saved, duplicates, backend: this.backend };
   }

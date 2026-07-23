@@ -1,6 +1,6 @@
 'use client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { getStore, peekList } from '@/lib/store';
+import { getStore, peekList, patchListCache } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
 import { ENTITIES, VEHICLE_STATES, PRODUCT_TYPES, type EntityRecord, type Field } from '@/lib/intake/entities';
@@ -131,7 +131,10 @@ export default function Inventory() {
               return;
             }
             if (gen !== selectGen.current) return;
-            setForm({ ...p, ...colorPatch });
+            const mergedColor = { ...p, ...colorPatch };
+            patchListCache('product', co, code, mergedColor);
+            setRows((prev) => (prev || []).map((r) => String(r.product_code) === code ? { ...r, ...colorPatch } : r));
+            setForm(mergedColor);
           }
         }
         return;
@@ -174,10 +177,11 @@ export default function Inventory() {
         return;
       }
       if (gen !== selectGen.current) return;
-      const named = await load(getRole());
-      if (gen !== selectGen.current) return;
-      const fresh = named.find((x) => String(x.product_code) === code);
-      if (fresh) setForm({ ...fresh, ...patch });
+      // 전체 load() 대신 해당 레코드만 캐시·목록 패치(전량 product 재조회 제거).
+      const mergedSnap = { ...p, ...patch };
+      patchListCache('product', co, code, mergedSnap);
+      setRows((prev) => (prev || []).map((r) => String(r.product_code) === code ? { ...r, ...patch } : r));
+      setForm(mergedSnap);
       setDirty(false);
     } catch {
       /* 마스터 로드 실패 시 원본 폼 유지(자동보정 write 실패는 위에서 toast) */
