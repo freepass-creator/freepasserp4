@@ -7,7 +7,7 @@ import { seedIfEmpty } from '@/lib/seed';
 import { ENTITIES, ROLES, ROLE_LABEL_RAW, type EntityRecord, type Field } from '@/lib/intake/entities';
 import { isGuest } from '@/lib/auth-session';
 import { getRole } from '@/lib/domain/deal';
-import { approveUser } from '@/lib/firebase/auth';
+import { approveUser, backfillPersonalAgentChannels } from '@/lib/firebase/auth';
 import { newId } from '@/lib/domain/ids';
 import { PaneHead, PaneBody, Btn, Badge, FormGrid, FormCard, PillTabs, C, R, NUM, Loading, CenterNote, ListRow, ACTOR_TONE, FilterChips, SectionLabel, Message, PageActions, FW, FS } from '@/components/ui';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
@@ -102,6 +102,21 @@ export default function Members() {
       setForm((f) => ({ ...f, status: active ? 'active' : 'pending' }));
       toast(active ? '가입 승인 완료' : '승인 취소(대기)', 'ok');
       await load(tab);
+    } catch (e) { toast(String((e as Error)?.message || e), 'error'); }
+  };
+  /** 규칙 게시 전 — SP999/빈 채널 개인 영업자를 user_code 채널로 고유화. */
+  const doBackfillChannels = async (dry: boolean) => {
+    try {
+      haptic.select();
+      const r = await backfillPersonalAgentChannels({ dryRun: dry });
+      const n = r.updated.length;
+      toast(
+        dry
+          ? `미리보기: ${n}명 대상 (스캔 ${r.scanned} · 건너뜀 ${r.skipped})`
+          : `채널 백필 ${n}명 완료 (스캔 ${r.scanned} · 건너뜀 ${r.skipped})`,
+        n ? 'ok' : 'info',
+      );
+      if (!dry && n) await load(tab);
     } catch (e) { toast(String((e as Error)?.message || e), 'error'); }
   };
   const newRec = () => {
@@ -238,7 +253,15 @@ export default function Members() {
             </FormCard>
           </>
         ) : (
-          <CenterNote>{tab === 'user' ? '사용자' : '파트너'}를 선택하거나 신규로 추가하세요.</CenterNote>
+          <>
+            <CenterNote>{tab === 'user' ? '사용자' : '파트너'}를 선택하거나 신규로 추가하세요.</CenterNote>
+            {tab === 'user' && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12, justifyContent: 'center' }}>
+                <Btn size="sm" variant="ghost" onClick={() => doBackfillChannels(true)}>개인채널 백필 미리보기</Btn>
+                <Btn size="sm" variant="ghost" onClick={() => doBackfillChannels(false)}>개인채널 백필 실행</Btn>
+              </div>
+            )}
+          </>
         )}
       </PaneBody>
     </>

@@ -166,8 +166,8 @@ export default function Inventory() {
       const fresh = named.find((x) => String(x.product_code) === code);
       if (fresh) setForm({ ...fresh, ...patch });
       setDirty(false);
-    } catch {
-      /* 마스터 로드 실패 시 원본 폼 유지 */
+    } catch (e) {
+      toast(`매물 자동보정 저장 실패: ${String((e as Error)?.message || e)}`, 'error');
     }
   };
   const clearSel = () => { setSel(null); setForm({}); setDirty(false); setCreating(false); setEditing(false); };

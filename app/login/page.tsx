@@ -117,9 +117,8 @@ export default function LoginPage() {
       if (typeof window !== 'undefined') window.alert(`가입 실패\n${m}`);
       setBusy(false); return;
     }
-    // 자동승인 — 로그아웃/재로그인 없이 방금 만든 계정으로 바로 홈. 가입 시 이미 로그인 상태이므로
-    //  전체 새로고침(location.assign)으로 세션(역할·회사)을 신선하게 로드한다. (로그인 화면 안 거침)
-    say('가입 완료! 이동 중…', 'ok');
+    // Path B 승인제 — 가입 직후 status=pending → PendingApproval. 세션 갱신 위해 홈으로.
+    say('가입 신청 완료. 관리자 승인 후 이용할 수 있습니다.', 'ok');
     if (typeof window !== 'undefined') window.location.assign('/');
   };
 
@@ -171,7 +170,7 @@ export default function LoginPage() {
 
         {mode === 'signup' && (
           <form className={`login-card${busy ? ' is-loading' : ''}`} onSubmit={doSignup} noValidate>
-            <header className="login-head"><h2 className="login-title">계정 만들기</h2><p className="login-sub">사업자번호로 회사·역할이 자동 부여됩니다.</p></header>
+            <header className="login-head"><h2 className="login-title">계정 만들기</h2><p className="login-sub">사업자번호로 소속을 확인한 뒤 관리자 승인으로 이용합니다.</p></header>
             {msg.text && <p className="login-msg" style={{ margin: 0, color: msgColor, textAlign: 'center', fontWeight: 600 }} aria-live="polite">{msg.text}</p>}
             <div className="login-form">
               <div className="login-field"><label htmlFor="suEmail">이메일 (필수)</label><input id="suEmail" type="email" placeholder="name@company.com" autoComplete="username" value={su.email} onChange={(e) => setSu({ ...su, email: e.target.value })} required /></div>
@@ -181,7 +180,7 @@ export default function LoginPage() {
               <div className="login-field"><label htmlFor="suPhone">연락처</label><input id="suPhone" type="tel" placeholder="010-0000-0000" value={su.phone} onChange={(e) => setSu({ ...su, phone: fmtPhone(e.target.value) })} /></div>
               <div className="login-field"><label htmlFor="suCompany">소속 회사명 (참고)</label><input id="suCompany" placeholder="회사명" value={su.company} onChange={(e) => setSu({ ...su, company: e.target.value })} /></div>
               <div className="login-field"><label htmlFor="suBizNo">소속 사업자번호</label><input id="suBizNo" inputMode="numeric" placeholder="000-00-00000" autoComplete="off" value={su.bizNo} onChange={(e) => onBizNo(e.target.value)} />{bizMatch.text && <p className={`biz-no-match${bizMatch.cls ? ` is-${bizMatch.cls}` : ''}`}>{bizMatch.text}</p>}</div>
-              <p className="login-msg" style={{ margin: '4px 0 8px', color: '#5f6368', fontSize: 12, lineHeight: 1.4, textAlign: 'left' }}>사업자번호로 회사·역할이 자동 부여되어 바로 이용할 수 있습니다.</p>
+              <p className="login-msg" style={{ margin: '4px 0 8px', color: '#5f6368', fontSize: 12, lineHeight: 1.4, textAlign: 'left' }}>가입 신청 후 관리자 승인이 필요합니다. 승인되면 사업자번호에 맞는 회사·역할이 부여됩니다.</p>
               <button type="submit" className="login-submit" disabled={busy}>계정 만들기</button>
             </div>
             <div className="login-links"><a href="#" onClick={(e) => { e.preventDefault(); switchMode('login'); }}>로그인으로 돌아가기</a></div>

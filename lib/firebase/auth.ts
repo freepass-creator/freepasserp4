@@ -116,9 +116,11 @@ export async function resetPassword(email: string): Promise<void> {
   await sendPasswordResetEmail(auth, email);
 }
 
-/** 사업자번호 → partners 매칭으로 역할·회사·채널 해석(가입·승인 공통). 미매칭=영업자·SP999(채널=회사코드). */
+/** 사업자번호 → partners 매칭으로 역할·회사·채널 해석(가입·승인 공통).
+ *  미매칭 = 영업자·company SP999. 채널은 여기 두지 않음 — 개인은 writeUserProfile/approveUser 가 user_code 로 고유화
+ *  (공유 'SP999' 채널 금지: 규칙 게시 시 개인끼리 방/계약/정산 교차열람). */
 async function resolveIdentity(bizNo: string): Promise<{ role: string; company_code: string; agent_channel_code: string; matched_partner_code: string | null }> {
-  let role = 'agent', company_code = 'SP999', agent_channel_code = 'SP999', matched_partner_code: string | null = null;
+  let role = 'agent', company_code = 'SP999', agent_channel_code = '', matched_partner_code: string | null = null;
   const db = getRtdb();
   if (bizNo && db) {
     try {
@@ -136,19 +138,19 @@ async function resolveIdentity(bizNo: string): Promise<{ role: string; company_c
       }
     } catch { /* noop */ }
   }
-  // 세션 게이트(auth.ts)도 agent_channel 빈값이면 company_code 로 보정함 — DB와 어긋나면
-  //  v4/settlements·quote 등 채널 소유 write 가 permission_denied (계약완료→정산생성 실패).
-  if (role === 'agent' && !agent_channel_code) agent_channel_code = company_code;
   return { role, company_code, agent_channel_code, matched_partner_code };
 }
 
+/** 개인(SP999) 영업자 채널 = 사람키. 매칭 sales 소속은 partner 채널 유지. */
+function resolveAgentChannel(role: string, company_code: string, fromIdentity: string, user_code: string, uid: string): string {
+  if (role === 'provider') return '';
+  if (role === 'agent' && company_code === 'SP999') return String(user_code || uid || '').trim();
+  return String(fromIdentity || '').trim();
+}
+
 /**
- * 가입 프로필 쓰기 — 사업자번호 매칭으로 역할·회사·채널 자동 부여.
- *  현재는 **자동승인**(status 미기록 → 게이트가 'pending'만 막으므로 통과): 공급사 사업자면 공급사 직원, 영업 사업자면 영업자,
- *  미매칭이면 영업자·임시소속(SP999)으로 즉시 이용.
- *  ※ TODO(security): 관리자 승인 게이트 + 신원 서버배정(자가쓰기 위조 차단)은 추후 재도입.
- *    재도입 시 company_code/agent_channel_code 규칙을 admin-only 로 되돌리고 여기서 미기록,
- *    approveUser 가 사업자 재매칭으로 확정한다.
+ * 가입 프로필 쓰기 — Path B(승인제): 신원(company/channel)은 자가쓰기 금지 → 관리자 approveUser 가 확정.
+ *  본인은 role(non-admin)·status:'pending'·연락처만. 승인 전 앱 게이트(isPending)에 막힘.
  */
 export async function writeUserProfile(user: User, info: { name: string; phone: string; company_name: string; business_no: string }): Promise<void> {
   const db = getRtdb(); if (!db) throw new Error('DB가 설정되지 않았습니다');
@@ -159,7 +161,9 @@ export async function writeUserProfile(user: User, info: { name: string; phone: 
     const uid = String(user?.uid || '');
     if (!uid) throw new Error('auth uid 없음');
     step = '사업자 매칭';
-    const { role, company_code, agent_channel_code, matched_partner_code } = await resolveIdentity(bizNo);
+    // role 힌트만(승인 시 approveUser 가 재매칭으로 확정). company/channel 은 여기 안 씀(자가사칭 차단).
+    const { role } = await resolveIdentity(bizNo);
+    const safeRole = role === 'admin' ? 'agent' : role; // 자가 admin 승격 금지
     step = '회원번호 채번';
     let user_code = 'U0001';
     try {
@@ -170,12 +174,11 @@ export async function writeUserProfile(user: User, info: { name: string; phone: 
     const rec: Record<string, unknown> = {
       uid, email: user.email || '', name: info.name || '', phone: info.phone || '',
       company_name: info.company_name || '', business_no: bizNo, user_code,
-      // status 미기록 = 자동승인. 규칙상 본인은 'active' 못 씀(자가활성 차단)이고, 앱 게이트는
-      //  'pending' 만 막으므로(블랙리스트, auth-session isPending) status 없음 = 통과. (승인흐름
-      //  재도입 시 여기서 status:'pending' 저장 + approveUser 가 활성으로.)
-      role, company_code, agent_channel_code, created_at: Date.now(),
+      // Path B: 승인 대기. company_code·agent_channel_code 미기록(규칙 admin-only + 승인 시 배정).
+      status: 'pending',
+      role: safeRole,
+      created_at: Date.now(),
     };
-    if (matched_partner_code) rec.matched_partner_code = matched_partner_code; // null 은 set 에 넣지 않음
     await set(ref(db, `users/${uid}`), rec);
   } catch (e) {
     console.error(`[writeUserProfile] 실패 단계=[${step}]`, e);
@@ -186,7 +189,7 @@ export async function writeUserProfile(user: User, info: { name: string; phone: 
 /**
  * 관리자 가입 승인/해제 — 게이트가 읽는 "최상위" users/{uid} 에 직접 기록(v4 오버레이 아님). 관리자만(규칙 + 화면 게이트).
  *  승인 = 신원 확정: 사업자번호를 partners 로 "재매칭"(사용자 self 필드가 아니라 권한 소스)해 company_code·agent_channel_code 세팅.
- *  ※ 관리자가 사업자 진위를 확인하고 승인한다는 전제(사람 KYC) — 규칙은 이 필드를 관리자만 쓰게 강제한다.
+ *  개인(SP999) 영업자 채널 = user_code(공유 SP999 금지).
  */
 /** 내 프로필 조회 — 설정 프로필 편집용(최상위 users/{uid}). */
 export async function loadMyProfile(): Promise<Record<string, unknown> | null> {
@@ -217,6 +220,44 @@ export async function approveUser(uid: string, active = true): Promise<void> {
   if (!active) { await set(ref(db, `users/${uid}/status`), 'pending'); return; }
   const u = (await get(ref(db, `users/${uid}`))).val() as Record<string, unknown> | null;
   const bizNo = String((u && u.business_no) || '').replace(/\D/g, '');
+  const user_code = String((u && u.user_code) || uid).trim();
   const { role, company_code, agent_channel_code, matched_partner_code } = await resolveIdentity(bizNo);
-  await update(ref(db, `users/${uid}`), { status: 'active', role, company_code, agent_channel_code, matched_partner_code });
+  const channel = resolveAgentChannel(role, company_code, agent_channel_code, user_code, uid);
+  const patch: Record<string, unknown> = {
+    status: 'active', role, company_code, agent_channel_code: channel,
+  };
+  if (matched_partner_code) patch.matched_partner_code = matched_partner_code;
+  else patch.matched_partner_code = null;
+  await update(ref(db, `users/${uid}`), patch);
+}
+
+/**
+ * 개인 영업자 채널 백필 — company SP999 이고 채널이 ''|SP999 인 유저를 user_code 로 고유화.
+ *  관리자 세션에서 실행(규칙: agent_channel_code 변경 = admin). 규칙 게시 전 1회.
+ *  dryRun=true 면 목록만 반환.
+ */
+export async function backfillPersonalAgentChannels(opts?: { dryRun?: boolean }): Promise<{
+  scanned: number; updated: { uid: string; from: string; to: string }[]; skipped: number;
+}> {
+  const db = getRtdb(); if (!db) throw new Error('DB가 설정되지 않았습니다');
+  const dry = !!opts?.dryRun;
+  const snap = (await get(ref(db, 'users'))).val() as Record<string, Record<string, unknown>> | null;
+  const updated: { uid: string; from: string; to: string }[] = [];
+  let scanned = 0; let skipped = 0;
+  if (!snap) return { scanned: 0, updated, skipped: 0 };
+  for (const [uid, u] of Object.entries(snap)) {
+    if (!u || typeof u !== 'object') continue;
+    scanned++;
+    const role = String(u.role || '');
+    const company = String(u.company_code || '');
+    const ch = String(u.agent_channel_code || '');
+    const isAgent = role === 'agent' || role === 'agent_admin' || role === 'agent_manager' || (!role && company === 'SP999');
+    if (!isAgent || company !== 'SP999') { skipped++; continue; }
+    if (ch && ch !== 'SP999') { skipped++; continue; } // 이미 고유 채널
+    const to = String(u.user_code || uid).trim();
+    if (!to || to === ch) { skipped++; continue; }
+    updated.push({ uid, from: ch || '(empty)', to });
+    if (!dry) await update(ref(db, `users/${uid}`), { agent_channel_code: to });
+  }
+  return { scanned, updated, skipped };
 }

@@ -98,8 +98,8 @@ function PendingApproval({ email }: { email: string }) {
     <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, background: C.taupeBg, padding: 24, textAlign: 'center' }}>
       <div style={{ fontSize: FS.page, fontWeight: FW.head, color: C.brand }}>가입 승인 대기 중입니다</div>
       <div style={{ fontSize: FS.body, color: C.mute, lineHeight: 1.7, maxWidth: 380 }}>
-        입력하신 사업자번호가 등록된 거래처와 맞지 않아 관리자 확인이 필요합니다.
-        <br />승인되면 바로 이용하실 수 있습니다.
+        가입 신청이 접수되었습니다. 관리자가 사업자·소속을 확인한 뒤 승인하면 이용할 수 있습니다.
+        <br />승인이 끝나면 다시 로그인해 주세요.
       </div>
       {email && <div style={{ fontSize: FS.sub, color: C.faint }}>{email}</div>}
       <Btn
