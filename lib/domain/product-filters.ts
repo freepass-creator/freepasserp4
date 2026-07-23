@@ -181,49 +181,63 @@ export function presentFilterOptions(products: EntityRecord[]): {
 } {
   // 상품목록 모수 = 출고불가 제외(계약중은 포함·마크 노출).
   const listed = products.filter((p) => !isHiddenFromCatalog(p));
-  const countBand = (bands: Band[], pick: (p: EntityRecord) => number[]): PresentChip[] =>
-    bands.map((b) => {
-      let n = 0;
-      for (const p of listed) if (pick(p).some((v) => v > b.lo && v <= b.hi)) n++;
-      return { key: b.k, label: b.label, count: n };
-    }).filter((o) => o.count > 0);
-
-  const countEnum = (vals: readonly string[], get: (p: EntityRecord) => string): PresentChip[] => {
-    const m = new Map<string, number>();
-    for (const p of listed) { const v = get(p); if (v) m.set(v, (m.get(v) || 0) + 1); }
-    return vals.filter((v) => (m.get(v) || 0) > 0).map((v) => ({ key: v, label: v, count: m.get(v)! }));
-  };
-
+  // 단일패스 — 매물당 priceList 1회 + 밴드·enum·혜택 카운터 동시 누적(구 countBand×N 반복스캔 제거).
+  //  밴드 의미 불변: 매물이 밴드에 해당하는 값(lo < x ≤ hi)을 하나라도 가지면 +1.
+  const rentCnt = RENT_BANDS.map(() => 0);
+  const depCnt = DEP_BANDS.map(() => 0);
+  const mileCnt = MILE_BANDS.map(() => 0);
+  const ptypeCnt = new Map<string, number>();
+  const creditCnt = new Map<string, number>();
+  const fuelCnt = new Map<string, number>();
+  const perkCnt = new Map<string, number>();
+  const promoCnt = new Map<string, number>();
   const monthMap = new Map<number, number>();
-  for (const p of listed) for (const x of priceList(p)) {
-    if (!isOperatedPeriod(x.m)) continue;
-    monthMap.set(x.m, (monthMap.get(x.m) || 0) + 1);
+  let hasVehicle = false;
+
+  for (const p of listed) {
+    const pl = priceList(p);
+    for (const x of pl) {
+      if (!isOperatedPeriod(x.m)) continue;
+      monthMap.set(x.m, (monthMap.get(x.m) || 0) + 1);
+    }
+    for (let i = 0; i < RENT_BANDS.length; i++) {
+      const b = RENT_BANDS[i];
+      if (pl.some((x) => x.rent > b.lo && x.rent <= b.hi)) rentCnt[i]++;
+    }
+    for (let i = 0; i < DEP_BANDS.length; i++) {
+      const b = DEP_BANDS[i];
+      if (pl.some((x) => x.deposit > b.lo && x.deposit <= b.hi)) depCnt[i]++;
+    }
+    const km = Number(p.mileage) || 0;
+    for (let i = 0; i < MILE_BANDS.length; i++) {
+      const b = MILE_BANDS[i];
+      if (km > b.lo && km <= b.hi) mileCnt[i]++;
+    }
+    const pt = canonProductType(p.product_type);
+    if (pt) ptypeCnt.set(pt, (ptypeCnt.get(pt) || 0) + 1);
+    const cd = creditDisplay(p);
+    if (cd) creditCnt.set(cd, (creditCnt.get(cd) || 0) + 1);
+    const fl = fuelDisplay(p.fuel_type) || String(p.fuel_type || '');
+    if (fl) fuelCnt.set(fl, (fuelCnt.get(fl) || 0) + 1);
+    for (const pk of PERKS) if (hasPerk(p, pk)) perkCnt.set(pk, (perkCnt.get(pk) || 0) + 1);
+    for (const t of parseEventTags(p.event_tags || p.promo_tags)) promoCnt.set(t, (promoCnt.get(t) || 0) + 1);
+    if (!hasVehicle && String(p.maker || '').trim() !== '') hasVehicle = true;
   }
+
+  const bandChips = (bands: Band[], counts: number[]): PresentChip[] =>
+    bands.map((b, i) => ({ key: b.k, label: b.label, count: counts[i] })).filter((o) => o.count > 0);
 
   return {
     months: sortFilterMonths(monthMap.keys()).map((m) => ({ key: String(m), label: `${m}개월`, count: monthMap.get(m)! })),
-    rent: countBand(RENT_BANDS, (p) => priceList(p).map((x) => x.rent)),
-    dep: countBand(DEP_BANDS, (p) => priceList(p).map((x) => x.deposit)),
-    mile: countBand(MILE_BANDS, (p) => [Number(p.mileage) || 0]),
-    ptype: PTYPES.map((t) => {
-      let n = 0;
-      for (const p of listed) if (canonProductType(p.product_type) === t) n++;
-      return { key: t, label: t, count: n };
-    }), // 4분류 항상 노출(재렌트→중고렌트 캐논 포함)
-    credit: countEnum(CREDITS, (p) => creditDisplay(p)),
-    fuel: countEnum(FUELS, (p) => fuelDisplay(p.fuel_type) || String(p.fuel_type || '')),
-    perks: PERKS.map((pk) => {
-      let n = 0; for (const p of listed) if (hasPerk(p, pk)) n++;
-      return { key: pk, label: pk, count: n };
-    }).filter((o) => o.count > 0),
-    promo: (() => {
-      const m = new Map<string, number>();
-      for (const p of listed) {
-        for (const t of parseEventTags(p.event_tags || p.promo_tags)) m.set(t, (m.get(t) || 0) + 1);
-      }
-      return PROMOS.filter((t) => (m.get(t) || 0) > 0).map((t) => ({ key: t, label: t, count: m.get(t)! }));
-    })(),
-    hasVehicle: listed.some((p) => String(p.maker || '').trim() !== ''),
+    rent: bandChips(RENT_BANDS, rentCnt),
+    dep: bandChips(DEP_BANDS, depCnt),
+    mile: bandChips(MILE_BANDS, mileCnt),
+    ptype: PTYPES.map((t) => ({ key: t, label: t, count: ptypeCnt.get(t) || 0 })), // 4분류 항상 노출(재렌트→중고렌트 캐논 포함)
+    credit: CREDITS.filter((v) => (creditCnt.get(v) || 0) > 0).map((v) => ({ key: v, label: v, count: creditCnt.get(v)! })),
+    fuel: FUELS.filter((v) => (fuelCnt.get(v) || 0) > 0).map((v) => ({ key: v, label: v, count: fuelCnt.get(v)! })),
+    perks: PERKS.map((pk) => ({ key: pk, label: pk, count: perkCnt.get(pk) || 0 })).filter((o) => o.count > 0),
+    promo: PROMOS.filter((t) => (promoCnt.get(t) || 0) > 0).map((t) => ({ key: t, label: t, count: promoCnt.get(t)! })),
+    hasVehicle,
   };
 }
 
