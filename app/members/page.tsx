@@ -72,6 +72,7 @@ export default function Members() {
 
   const switchTab = async (t: Tab) => {
     if (t === tab) return;
+    if (dirty && typeof window !== 'undefined' && !window.confirm('수정 중인 내용이 있습니다. 저장하지 않고 이동할까요?')) return;
     setTab(t); setSel(null); setForm({}); setDirty(false); setCreating(false); setEditing(false); setQ('');
     setRoleFlt('all'); setActiveFlt('all'); setPtypeFlt('all'); setSort('');
     await load(t);
