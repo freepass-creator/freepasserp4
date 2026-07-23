@@ -346,7 +346,7 @@ export function detailSections(p: EntityRecord, audience: Audience = 'agent'): D
     ['차령 · 차대', g([pv('vehicle_age_expiry_date') && `만료 ${pv('vehicle_age_expiry_date')}`, pv('vin')])],
     ['등록증', g([pv('transmission'), pv('cert_car_name'), pv('type_number'), pv('engine_type')])],
     ['정책', g([String(pol.policy_name ?? p.policy_name ?? ''), String(pol.policy_code ?? p.policy_code ?? ''), String(pol.policy_type ?? '')])],
-    ['공급 · 영업', g([pv('provider_company_code'), pv('partner_code')])],
+    ['공급사', pv('provider_name') || pv('provider_company_code') || '-'],
     ['상품', g([pv('product_code'), String(p._key ?? '')])],
     ['수수료 환수', s('commission_clawback_condition')],
     ['특이사항', String(p.partner_memo ?? p.note ?? '')],

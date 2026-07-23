@@ -12,6 +12,7 @@ import { ref, get, query, orderByChild, equalTo, update as dbUpdate, type DataSn
 import { getRtdb, getAuthClient } from './client';
 import { ENTITIES, type EntityRecord } from '../intake/entities';
 import { vehicleIdentity } from '@/lib/domain/product';
+import { withProviderNames } from '@/lib/domain/identity';
 import { currentActor } from '../session';
 import { getSession } from '../auth-session';
 import type { StoreAdapter, SaveResult } from '../store';
@@ -386,11 +387,23 @@ export class RtdbAdapter implements StoreAdapter {
       const map = new Map<string, EntityRecord>();
       for (const r of live) map.set(String(r._key), r);
       for (const r of over) { const k = String(r._key); map.set(k, { ...(map.get(k) || {}), ...r }); }
-      return [...map.values()];
+      const result = [...map.values()];
+      // 매물엔 공급사 한글이름(provider_name) 부착 — 상세·목록 SSOT(파인더와 동일). 코드만 보이던 문제 해결.
+      if (entity === 'product') return withProviderNames(result, await this.partnersForNames(co));
+      return result;
     } catch (e) {
       console.warn(`RTDB merged(${entity}) 실패(로그인·규칙 확인):`, (e as Error).message);
       return [];
     }
+  }
+
+  private _partnersForNames?: EntityRecord[];
+  /** provider_name 부착용 파트너 목록(1회 캐시). */
+  private async partnersForNames(co: string): Promise<EntityRecord[]> {
+    if (this._partnersForNames?.length) return this._partnersForNames;
+    const p = await this.merged('partner', co).catch(() => [] as EntityRecord[]);
+    if (p.length) this._partnersForNames = p;
+    return p;
   }
 
   async list(entity: string, co: string): Promise<EntityRecord[]> {
