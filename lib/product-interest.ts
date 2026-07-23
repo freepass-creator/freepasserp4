@@ -24,6 +24,10 @@ const MAX_FAV = 40;
 const EVT = 'fp:interest';
 const listeners = new Set<() => void>();
 
+/** 찜 코드 Set 캐시 — isFav O(1). write/타탭 storage 시 무효화 후 재파싱. */
+let _favCodes: Set<string> | null = null;
+let _favList: InterestSnap[] | null = null;
+
 function notify() {
   for (const cb of listeners) {
     try { cb(); } catch { /* noop */ }
@@ -31,6 +35,11 @@ function notify() {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent(EVT));
   }
+}
+
+function invalidateFavCache() {
+  _favCodes = null;
+  _favList = null;
 }
 
 function read(key: string): InterestSnap[] {
@@ -55,9 +64,21 @@ function normalizeSnap(x: InterestSnap): InterestSnap {
   };
 }
 
+function ensureFavCache(): { codes: Set<string>; list: InterestSnap[] } {
+  if (_favCodes && _favList) return { codes: _favCodes, list: _favList };
+  const list = read(FAV_KEY);
+  _favList = list;
+  _favCodes = new Set(list.map((x) => x.code));
+  return { codes: _favCodes, list: _favList };
+}
+
 function write(key: string, list: InterestSnap[]) {
   if (typeof window === 'undefined') return;
   localStorage.setItem(key, JSON.stringify(list));
+  if (key === FAV_KEY) {
+    _favList = list;
+    _favCodes = new Set(list.map((x) => x.code));
+  }
   notify();
 }
 
@@ -75,8 +96,8 @@ export function snapOf(p: EntityRecord): InterestSnap {
 }
 
 export function listRecent(): InterestSnap[] { return read(RECENT_KEY); }
-export function listFavs(): InterestSnap[] { return read(FAV_KEY); }
-export function isFav(code: string): boolean { return !!code && read(FAV_KEY).some((x) => x.code === code); }
+export function listFavs(): InterestSnap[] { return ensureFavCache().list.slice(); }
+export function isFav(code: string): boolean { return !!code && ensureFavCache().codes.has(code); }
 
 /** 상세 진입 시 — 최근 본 맨 앞. 중복 제거. */
 export function touchRecent(p: EntityRecord | InterestSnap) {
@@ -90,15 +111,15 @@ export function touchRecent(p: EntityRecord | InterestSnap) {
 export function toggleFav(p: EntityRecord | InterestSnap): boolean {
   const snap = 'product_code' in p || '_key' in p ? snapOf(p as EntityRecord) : { ...normalizeSnap(p as InterestSnap), at: Date.now() };
   if (!snap.code) return false;
-  const cur = read(FAV_KEY);
-  const on = cur.some((x) => x.code === snap.code);
+  const cur = ensureFavCache().list;
+  const on = ensureFavCache().codes.has(snap.code);
   if (on) write(FAV_KEY, cur.filter((x) => x.code !== snap.code));
   else write(FAV_KEY, [snap, ...cur].slice(0, MAX_FAV));
   return !on;
 }
 
 export function removeFav(code: string) {
-  write(FAV_KEY, read(FAV_KEY).filter((x) => x.code !== code));
+  write(FAV_KEY, ensureFavCache().list.filter((x) => x.code !== code));
 }
 
 export function removeRecent(code: string) {
@@ -113,7 +134,10 @@ export function subscribeInterest(cb: () => void): () => void {
   listeners.add(cb);
   if (typeof window === 'undefined') return () => { listeners.delete(cb); };
   const onStorage = (e: StorageEvent) => {
-    if (e.key === RECENT_KEY || e.key === FAV_KEY || e.key === null) cb();
+    if (e.key === RECENT_KEY || e.key === FAV_KEY || e.key === null) {
+      if (e.key === FAV_KEY || e.key === null) invalidateFavCache();
+      cb();
+    }
   };
   window.addEventListener(EVT, cb);
   window.addEventListener('storage', onStorage);

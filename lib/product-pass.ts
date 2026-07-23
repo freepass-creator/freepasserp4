@@ -9,6 +9,10 @@ const META_KEY = 'fp4_pass_products_meta';
 const EVT = 'fp:pass';
 const listeners = new Set<() => void>();
 
+/** 관심없음 코드 Set 캐시 — isPassed O(1). write/타탭 storage 시 무효화. */
+let _passCodes: Set<string> | null = null;
+let _passList: string[] | null = null;
+
 function notify() {
   for (const cb of listeners) {
     try { cb(); } catch { /* noop */ }
@@ -18,7 +22,12 @@ function notify() {
   }
 }
 
-function read(): string[] {
+function invalidatePassCache() {
+  _passCodes = null;
+  _passList = null;
+}
+
+function readRaw(): string[] {
   if (typeof window === 'undefined') return [];
   try {
     const raw = localStorage.getItem(PASS_KEY);
@@ -27,9 +36,19 @@ function read(): string[] {
   } catch { return []; }
 }
 
+function ensurePassCache(): { codes: Set<string>; list: string[] } {
+  if (_passCodes && _passList) return { codes: _passCodes, list: _passList };
+  const list = readRaw();
+  _passList = list;
+  _passCodes = new Set(list);
+  return { codes: _passCodes, list: _passList };
+}
+
 function write(codes: string[]) {
   if (typeof window === 'undefined') return;
   localStorage.setItem(PASS_KEY, JSON.stringify(codes));
+  _passList = codes;
+  _passCodes = new Set(codes);
   notify();
 }
 
@@ -49,17 +68,17 @@ function writeSnaps(snaps: PassSnap[]) {
   localStorage.setItem(META_KEY, JSON.stringify(snaps));
 }
 
-export function listPassedCodes(): string[] { return read(); }
+export function listPassedCodes(): string[] { return ensurePassCache().list.slice(); }
 export function listPassed(): PassSnap[] {
-  const codes = new Set(read());
+  const codes = ensurePassCache().codes;
   return readSnaps().filter((s) => codes.has(s.code));
 }
-export function isPassed(code: string): boolean { return !!code && read().includes(code); }
+export function isPassed(code: string): boolean { return !!code && ensurePassCache().codes.has(code); }
 
 /** 관심없음 — 맨 뒤로. 관심(찜)에 있으면 함께 해제. */
 export function passProduct(p: { code: string; name?: string; plate?: string }) {
   if (!p.code) return;
-  const codes = read().filter((c) => c !== p.code);
+  const codes = ensurePassCache().list.filter((c) => c !== p.code);
   write([...codes, p.code]); // 최근 관심없음이 더 뒤
   const snaps = readSnaps().filter((s) => s.code !== p.code);
   writeSnaps([{ code: p.code, name: p.name || '', plate: p.plate || '', at: Date.now() }, ...snaps].slice(0, 200));
@@ -67,7 +86,7 @@ export function passProduct(p: { code: string; name?: string; plate?: string }) 
 }
 
 export function unpassProduct(code: string) {
-  write(read().filter((c) => c !== code));
+  write(ensurePassCache().list.filter((c) => c !== code));
   writeSnaps(readSnaps().filter((s) => s.code !== code));
   notify();
 }
@@ -82,7 +101,10 @@ export function subscribePassed(cb: () => void): () => void {
   listeners.add(cb);
   if (typeof window === 'undefined') return () => { listeners.delete(cb); };
   const onStorage = (e: StorageEvent) => {
-    if (e.key === PASS_KEY || e.key === META_KEY || e.key === null) cb();
+    if (e.key === PASS_KEY || e.key === META_KEY || e.key === null) {
+      if (e.key === PASS_KEY || e.key === null) invalidatePassCache();
+      cb();
+    }
   };
   window.addEventListener(EVT, cb);
   window.addEventListener('storage', onStorage);
