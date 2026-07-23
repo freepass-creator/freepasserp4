@@ -45,6 +45,8 @@ export function ProductDetail({ p, audience }: { p: EntityRecord; audience?: Aud
   useEffect(() => { setMain(0); }, [p.product_code]);
   const mainIdx = Math.min(main, Math.max(0, photos.length - 1));
   const aud: Audience = audience || (getRole() === 'admin' ? 'admin' : 'agent');
+  const [swipeX, setSwipeX] = useState<number | null>(null); // 메인 사진 좌우 스와이프
+  const stepPhoto = (dir: number) => { if (photos.length > 1) setMain((m) => (m + dir + photos.length) % photos.length); };
   const secs = detailSections(p, aud);
   const prices = priceList(p);
   const cheap = cheapest(p);
@@ -74,10 +76,26 @@ export function ProductDetail({ p, audience }: { p: EntityRecord; audience?: Aud
       {/* 2 사진 */}
       {photos.length ? (
         <div>
-          <div onClick={() => setLb(mainIdx)} style={{ position: 'relative', aspectRatio: '16 / 10', background: C.placeholder, borderRadius: R, overflow: 'hidden', cursor: 'zoom-in' }}>
-            <img src={photos[mainIdx]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <div
+            onPointerDown={(e) => setSwipeX(e.clientX)}
+            onPointerUp={(e) => {
+              const sx = swipeX; setSwipeX(null);
+              if (sx != null && Math.abs(e.clientX - sx) > 40) { stepPhoto(e.clientX < sx ? 1 : -1); return; } // 스와이프=넘김
+              setLb(mainIdx); // 탭=크게보기
+            }}
+            style={{ position: 'relative', aspectRatio: '16 / 10', background: C.placeholder, borderRadius: R, overflow: 'hidden', cursor: 'zoom-in', touchAction: 'pan-y', userSelect: 'none' }}
+          >
+            <img src={photos[mainIdx]} alt="" draggable={false} style={{ width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none' }} />
+            {photos.length > 1 && (
+              <>
+                <button aria-label="이전 사진" onPointerDown={(e) => e.stopPropagation()} onPointerUp={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); stepPhoto(-1); }}
+                  style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', width: 34, height: 34, borderRadius: '50%', border: 'none', background: 'rgba(0,0,0,0.45)', color: '#fff', fontSize: 22, lineHeight: 1, cursor: 'pointer', zIndex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', paddingBottom: 2 }}>‹</button>
+                <button aria-label="다음 사진" onPointerDown={(e) => e.stopPropagation()} onPointerUp={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); stepPhoto(1); }}
+                  style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', width: 34, height: 34, borderRadius: '50%', border: 'none', background: 'rgba(0,0,0,0.45)', color: '#fff', fontSize: 22, lineHeight: 1, cursor: 'pointer', zIndex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', paddingBottom: 2 }}>›</button>
+              </>
+            )}
             {aud !== 'customer' && <span style={{ position: 'absolute', top: 8, right: 8, zIndex: 2 }}><FavHeart p={p} onPhoto /></span>}
-            <span style={{ position: 'absolute', right: 8, bottom: 8, background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: FS.cap, fontWeight: FW.strong, padding: '2px 8px', borderRadius: R, fontFamily: NUM }}>{mainIdx + 1} / {photos.length}</span>
+            <span style={{ position: 'absolute', right: 8, bottom: 8, background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: FS.cap, fontWeight: FW.strong, padding: '2px 8px', borderRadius: R, fontFamily: NUM, pointerEvents: 'none' }}>{mainIdx + 1} / {photos.length}</span>
           </div>
           {photos.length > 1 && (
             <div

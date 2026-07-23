@@ -62,6 +62,17 @@ const isExcludedProduct = (r: Rec): boolean => isKashungProduct(r);
 //  중복이면 product_code 있는 것 → 최신(updatedAt/created_at) 것 우선.
 function dedupeByVehicleIdentity(rows: EntityRecord[]): EntityRecord[] {
   const ts = (p: Rec) => Number(p.updatedAt ?? p.updated_at ?? p.created_at ?? 0);
+  // 정보 충실도 — 같은 차 중복 시 "알맹이 있는" 레코드 우선(가격·정책·스펙·사진). 부실 중복이 앞서지 않게.
+  const rich = (p: Rec) => {
+    let s = 0;
+    const pr = p.price;
+    if (pr && typeof pr === 'object' && Object.keys(pr).length) s += 5; // 가격맵 있음 = 최우선
+    if (p.policy_code) s += 2;
+    if (p.maker || p.sub_model || p.model) s += 1;
+    if (p.year) s += 1;
+    if (p.photos || p.image_urls || p.images) s += 1;
+    return s;
+  };
   const keep: EntityRecord[] = []; // 신원 불명 = 각각 유지
   const byId = new Map<string, EntityRecord>();
   for (const p of rows) {
@@ -69,8 +80,10 @@ function dedupeByVehicleIdentity(rows: EntityRecord[]): EntityRecord[] {
     if (!id) { keep.push(p); continue; }
     const prev = byId.get(id);
     if (!prev) { byId.set(id, p); continue; }
-    const score = (Number(!!(p as Rec).product_code) - Number(!!(prev as Rec).product_code)) || (ts(p as Rec) - ts(prev as Rec));
-    if (score > 0) byId.set(id, p); // 더 나은 쪽으로 교체
+    const a = p as Rec, b = prev as Rec;
+    // 충실도 → product_code 유무 → 최신 순으로 우선
+    const score = (rich(a) - rich(b)) || (Number(!!a.product_code) - Number(!!b.product_code)) || (ts(a) - ts(b));
+    if (score > 0) byId.set(id, p);
   }
   return [...byId.values(), ...keep];
 }
