@@ -189,7 +189,7 @@ export function InterestSummaryCard({ live, snap, tab }: {
           onClick={onRemove}
           style={{
             border: 'none', background: C.head, color: C.mute,
-            width: mobile ? 28 : 24, height: mobile ? 28 : 24,
+            width: mobile ? 36 : 26, height: mobile ? 36 : 26,
           }}
         >
           <X size={13} />

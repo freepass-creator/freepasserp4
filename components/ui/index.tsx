@@ -736,7 +736,7 @@ export function Modal({ title, meta, onClose, children, footer, width = 720 }: {
           <h2 style={{ fontSize: FS.title, fontWeight: FW.title }}>{title}</h2>
           {meta && <span style={{ fontSize: FS.sub, color: C.mute }}>{meta}</span>}
           <span style={{ flex: 1 }} />
-          <button onClick={onClose} style={{ border: 'none', background: 'none', fontSize: 19, cursor: 'pointer', color: C.faint, lineHeight: 1 }}>×</button>
+          <button onClick={onClose} aria-label="닫기" style={{ border: 'none', background: 'none', fontSize: 19, cursor: 'pointer', color: C.faint, lineHeight: 1, padding: 10, margin: '-10px -8px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
         </div>
         <div style={{ padding: '16px 18px', flex: mobile ? 1 : undefined, overflowY: mobile ? 'auto' : undefined }}>{children}</div>
         {footer && <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '12px 18px', borderTop: `1px solid ${C.line}`, background: C.bg, flexWrap: 'wrap', position: mobile ? 'sticky' : undefined, bottom: 0 }}>{footer}</div>}
