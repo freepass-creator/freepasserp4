@@ -141,7 +141,7 @@ async function resolveIdentity(bizNo: string): Promise<{ role: string; company_c
 
 /**
  * 가입 프로필 쓰기 — 사업자번호 매칭으로 역할·회사·채널 자동 부여.
- *  현재는 **자동승인**(status=active): 공급사 사업자면 공급사 직원, 영업 사업자면 영업자,
+ *  현재는 **자동승인**(status 미기록 → 게이트가 'pending'만 막으므로 통과): 공급사 사업자면 공급사 직원, 영업 사업자면 영업자,
  *  미매칭이면 영업자·임시소속(SP999)으로 즉시 이용.
  *  ※ TODO(security): 관리자 승인 게이트 + 신원 서버배정(자가쓰기 위조 차단)은 추후 재도입.
  *    재도입 시 company_code/agent_channel_code 규칙을 admin-only 로 되돌리고 여기서 미기록,
@@ -167,7 +167,10 @@ export async function writeUserProfile(user: User, info: { name: string; phone: 
     const rec: Record<string, unknown> = {
       uid, email: user.email || '', name: info.name || '', phone: info.phone || '',
       company_name: info.company_name || '', business_no: bizNo, user_code,
-      role, company_code, agent_channel_code, status: 'active', created_at: Date.now(),
+      // status 미기록 = 자동승인. 규칙상 본인은 'active' 못 씀(자가활성 차단)이고, 앱 게이트는
+      //  'pending' 만 막으므로(블랙리스트, auth-session isPending) status 없음 = 통과. (승인흐름
+      //  재도입 시 여기서 status:'pending' 저장 + approveUser 가 활성으로.)
+      role, company_code, agent_channel_code, created_at: Date.now(),
     };
     if (matched_partner_code) rec.matched_partner_code = matched_partner_code; // null 은 set 에 넣지 않음
     await set(ref(db, `users/${uid}`), rec);
