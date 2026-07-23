@@ -122,7 +122,13 @@ export default function Inventory() {
               _raw_int_color: colored._raw_int_color,
               _colors_snapped: colored._colors_snapped,
             };
-            await getStore().update('product', co, code, colorPatch);
+            try {
+              await getStore().update('product', co, code, colorPatch);
+            } catch (e) {
+              console.warn('[inventory] 색상 자동저장 거부:', e);
+              toast(`매물 자동보정 저장 실패: ${String((e as Error)?.message || e)}`, 'error');
+              return;
+            }
             if (gen !== selectGen.current) return;
             setForm({ ...p, ...colorPatch });
           }
@@ -159,15 +165,21 @@ export default function Inventory() {
         _raw_vehicle: applied._raw_vehicle, _snap_at: applied._snap_at, _snap_history: applied._snap_history,
         _needs_master_review: false,
       };
-      await getStore().update('product', co, code, patch);
+      try {
+        await getStore().update('product', co, code, patch);
+      } catch (e) {
+        console.warn('[inventory] 마스터스냅 자동저장 거부:', e);
+        toast(`매물 자동보정 저장 실패: ${String((e as Error)?.message || e)}`, 'error');
+        return;
+      }
       if (gen !== selectGen.current) return;
       const named = await load(getRole());
       if (gen !== selectGen.current) return;
       const fresh = named.find((x) => String(x.product_code) === code);
       if (fresh) setForm({ ...fresh, ...patch });
       setDirty(false);
-    } catch (e) {
-      toast(`매물 자동보정 저장 실패: ${String((e as Error)?.message || e)}`, 'error');
+    } catch {
+      /* 마스터 로드 실패 시 원본 폼 유지(자동보정 write 실패는 위에서 toast) */
     }
   };
   const clearSel = () => { setSel(null); setForm({}); setDirty(false); setCreating(false); setEditing(false); };
@@ -262,7 +274,12 @@ export default function Inventory() {
     const withPromo: EntityRecord = { ...stamped, event_tags: joinEventTags(String(stamped.event_tags || '').split(/[,/#|]/)) };
     // 락이 걸려 있으면 상태와 함께 소유 계약도 각인 — 상태만 맞고 주인이 비면 재클릭이 자기잠금으로 막힌다.
     const patch = lock ? { ...withPromo, vehicle_status: lock, locked_by_contract: locked.byContract } : withPromo;
-    await getStore().save('product', co, [patch]); await getStore().update('product', co, String(form.product_code), patch);
+    try {
+      await getStore().save('product', co, [patch]); await getStore().update('product', co, String(form.product_code), patch);
+    } catch (e) {
+      toast(`저장 실패: ${String((e as Error)?.message || e)}`, 'error');
+      return; // dirty 유지 → 재시도
+    }
     setDirty(false);
     setCreating(false);
     setEditing(false);
@@ -298,7 +315,12 @@ export default function Inventory() {
     const blocking = await blockingContractFor(String(form.product_code));
     if (blocking) { toast(`진행 중인 계약(${blocking})이 있는 매물은 삭제할 수 없습니다`, 'error'); return; }
     if (typeof window !== 'undefined' && !window.confirm(`매물 ${form.car_number || form.product_code}을(를) 삭제할까요?\n휴지통에서 복구할 수 있습니다.`)) return;
-    await getStore().remove('product', co, String(form.product_code), `${NAV_LABEL.inventory} 삭제`);
+    try {
+      await getStore().remove('product', co, String(form.product_code), `${NAV_LABEL.inventory} 삭제`);
+    } catch (e) {
+      toast(`삭제 실패: ${String((e as Error)?.message || e)}`, 'error');
+      return;
+    }
     clearSel();
     await load(role);
     haptic.impact();

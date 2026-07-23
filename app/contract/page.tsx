@@ -19,6 +19,7 @@ import { matchContractQuery } from '@/lib/domain/search';
 import { haptic } from '@/lib/haptics';
 import { ContractListRow } from '@/components/list-rows';
 import { NAV_LABEL } from '@/lib/tabbar';
+import { toast } from '@/components/Toaster';
 
 type ContSort = 'date' | 'status' | 'progress' | 'name';
 type ContFilter = '진행' | 'all' | (typeof CONTRACT_STATES)[number];
@@ -80,13 +81,23 @@ export default function ContractsSettlement() {
       getStore().get('product', co, String(c.product_code)),
       ensureRoomForContract(c),
     ]);
-    let s = settsList.find((x) => String(x.contract_code) === String(c.contract_code));
+    let s = settsList.find((x) => String(x.contract_code) === String(c.contract_code)) || null;
+    // lazy create = admin·소유 공급사만(영업자 채널 불일치 시 permission_denied로 pane abort 방지)
     if (!s && c.contract_status === '계약완료') {
-      await createSettlement(c);
-      const again = await getStore().list('settlement', co);
-      s = again.find((x) => String(x.contract_code) === String(c.contract_code));
+      const r = getRole();
+      const canCreate = r === 'admin'
+        || (r === 'provider' && String(c.provider_company_code) === actor('provider').code);
+      if (canCreate) {
+        try {
+          await createSettlement(c);
+          const again = await getStore().list('settlement', co);
+          s = again.find((x) => String(x.contract_code) === String(c.contract_code)) || null;
+        } catch (e) {
+          toast(`정산 생성 실패: ${String((e as Error)?.message || e)}`, 'error');
+        }
+      }
     }
-    setSelS(s || null);
+    setSelS(s);
     setSelProduct(prod || null);
     setRoomId(room);
   };
@@ -98,13 +109,22 @@ export default function ContractsSettlement() {
     if (c) {
       setSelC(c);
       const settsList = await getStore().list('settlement', co);
-      let s = settsList.find((x) => String(x.contract_code) === sel);
+      let s = settsList.find((x) => String(x.contract_code) === sel) || null;
       if (!s && c.contract_status === '계약완료') {
-        await createSettlement(c);
-        const again = await getStore().list('settlement', co);
-        s = again.find((x) => String(x.contract_code) === sel);
+        const r = getRole();
+        const canCreate = r === 'admin'
+          || (r === 'provider' && String(c.provider_company_code) === actor('provider').code);
+        if (canCreate) {
+          try {
+            await createSettlement(c);
+            const again = await getStore().list('settlement', co);
+            s = again.find((x) => String(x.contract_code) === sel) || null;
+          } catch (e) {
+            toast(`정산 생성 실패: ${String((e as Error)?.message || e)}`, 'error');
+          }
+        }
       }
-      setSelS(s || null);
+      setSelS(s);
     }
   };
 
@@ -173,7 +193,12 @@ export default function ContractsSettlement() {
 
   const setStatus = async (to: string) => {
     if (!selS || role !== 'admin') return;
-    await getStore().update('settlement', co, String(selS.settlement_code), { settlement_status: to });
+    try {
+      await getStore().update('settlement', co, String(selS.settlement_code), { settlement_status: to });
+    } catch (e) {
+      toast(`정산 상태 변경 실패: ${String((e as Error)?.message || e)}`, 'error');
+      return;
+    }
     const allS = await getStore().list('settlement', co); const me = actor(role);
     setSetts(role === 'admin' ? allS : role === 'provider' ? allS.filter((s) => String(s.provider_company_code) === me.code) : allS.filter((s) => String(s.agent_code) === me.code));
     setSelS(allS.find((x) => String(x.settlement_code) === String(selS.settlement_code)) || null);
@@ -182,7 +207,12 @@ export default function ContractsSettlement() {
     if (!selS) return;
     const fee = field === 'fee_amount' ? value : Number(selS.fee_amount) || 0;
     const payout = field === 'agent_payout' ? value : Number(selS.agent_payout) || 0;
-    await getStore().update('settlement', co, String(selS.settlement_code), { [field]: value, net_amount: fee - payout });
+    try {
+      await getStore().update('settlement', co, String(selS.settlement_code), { [field]: value, net_amount: fee - payout });
+    } catch (e) {
+      toast(`정산 금액 저장 실패: ${String((e as Error)?.message || e)}`, 'error');
+      return;
+    }
     const allS = await getStore().list('settlement', co); const me = actor(role);
     setSetts(role === 'admin' ? allS : role === 'provider' ? allS.filter((s) => String(s.provider_company_code) === me.code) : allS.filter((s) => String(s.agent_code) === me.code));
     setSelS(allS.find((x) => String(x.settlement_code) === String(selS.settlement_code)) || null);
@@ -196,7 +226,7 @@ export default function ContractsSettlement() {
     </div>
   );
   const detailSettle = () => {
-    if (!selS) return <CenterNote>{selC?.contract_status === '계약완료' ? '정산 생성 중…' : '계약 완료 시 정산이 자동 생성됩니다.'}</CenterNote>;
+    if (!selS) return <CenterNote>{selC?.contract_status === '계약완료' ? '정산 기록 없음' : '계약 완료 시 정산이 자동 생성됩니다.'}</CenterNote>;
     const s = selS; const st = String(s.settlement_status); const cb = Number(s.clawback_amount) || 0;
     return (
       <div>

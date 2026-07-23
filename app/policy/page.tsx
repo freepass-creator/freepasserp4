@@ -138,8 +138,13 @@ export default function PolicyMgmt() {
       }
       patch = { ...patch, provider_company_code: me };
     }
-    await getStore().save('policy', co, [patch]);
-    await getStore().update('policy', co, String(patch.policy_code), patch);
+    try {
+      await getStore().save('policy', co, [patch]);
+      await getStore().update('policy', co, String(patch.policy_code), patch);
+    } catch (e) {
+      toast(`저장 실패: ${String((e as Error)?.message || e)}`, 'error');
+      return;
+    }
     setDirty(false);
     setCreating(false);
     setEditing(false);
@@ -163,7 +168,12 @@ export default function PolicyMgmt() {
       }
     }
     if (typeof window !== 'undefined' && !window.confirm(`정책 「${form.policy_name || form.policy_code}」을(를) 삭제할까요?\n휴지통에서 복구할 수 있습니다.`)) return;
-    await getStore().remove('policy', co, String(form.policy_code), '정책관리 삭제');
+    try {
+      await getStore().remove('policy', co, String(form.policy_code), '정책관리 삭제');
+    } catch (e) {
+      toast(`삭제 실패: ${String((e as Error)?.message || e)}`, 'error');
+      return;
+    }
     clearSel();
     await load(role);
     haptic.success();

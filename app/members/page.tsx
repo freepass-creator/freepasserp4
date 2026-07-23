@@ -138,7 +138,12 @@ export default function Members() {
   const startEdit = () => { setEditing(true); haptic.tap(); };
   const save = async () => {
     const id = idFieldOf(tab); if (!String(form[id] || '').trim()) { toast('식별자는 필수입니다', 'error'); return; }
-    await getStore().save(tab, co, [form]); await getStore().update(tab, co, String(form[id]), form);
+    try {
+      await getStore().save(tab, co, [form]); await getStore().update(tab, co, String(form[id]), form);
+    } catch (e) {
+      toast(`저장 실패: ${String((e as Error)?.message || e)}`, 'error');
+      return;
+    }
     setDirty(false);
     setCreating(false);
     setEditing(false);
@@ -154,7 +159,12 @@ export default function Members() {
     if (!key) return;
     const label = String(form.name || key);
     if (typeof window !== 'undefined' && !window.confirm(`「${label}」을(를) 삭제할까요?\n휴지통에서 복구할 수 있습니다.`)) return;
-    await getStore().remove(tab, co, key, '회원·파트너 삭제');
+    try {
+      await getStore().remove(tab, co, key, '회원·파트너 삭제');
+    } catch (e) {
+      toast(`삭제 실패: ${String((e as Error)?.message || e)}`, 'error');
+      return;
+    }
     clearSel();
     await load(tab);
     haptic.success();
@@ -188,25 +198,32 @@ export default function Members() {
       }
       return String(a.name || '').localeCompare(String(b.name || ''), 'ko');
     });
-  const listEl = shown.length === 0
-    ? <CenterNote>{q || roleFlt !== 'all' || activeFlt !== 'all' || ptypeFlt !== 'all' ? '검색 결과 없음' : '없음 — 신규로 추가'}</CenterNote>
-    : <div>{shown.map((r) => {
-        const on = String(r._key) === sel;
-        const pending = tab === 'user' && String(r.status || '') === 'pending';
-        const sub = tab === 'user' ? `${ROLE_LABEL[String(r.role)] || String(r.role || '')} · ${r.is_active === '아니오' ? '비활성' : '활성'}` : `${String(r.partner_type || '')} · 수수료 ${r.fee_rate != null ? `${Math.round(Number(r.fee_rate) * 100)}%` : '기본'}`;
-        return (
-          <ListRow key={String(r._key)} selected={on} onClick={() => { haptic.tap(); select(r); }}
-            main={String(r.name || r.user_code || r.partner_code || '—')}
-            sub={sub}
-            // 승인 대기는 역할보다 먼저 보여야 한다 — 관리자가 목록에서 바로 찾도록.
-            right={tab === 'user'
-              ? (pending
-                ? <Badge tone="amber" variant="solid">승인대기</Badge>
-                : <Badge tone={ACTOR_TONE[String(r.role)] || (String(r.role).startsWith('agent') ? 'blue' : 'gray')}>{ROLE_LABEL[String(r.role)] || ''}</Badge>)
-              : undefined}
-          />
-        );
-      })}</div>;
+  const listEl = (
+    <>
+      <div style={{ padding: '8px 10px', borderBottom: `1px solid ${C.line}`, background: C.head, flex: '0 0 auto' }}>
+        <PillTabs tabs={[{ key: 'user', label: '사용자' }, { key: 'partner', label: '파트너' }]} value={tab} onChange={switchTab} size="sm" />
+      </div>
+      {shown.length === 0
+        ? <CenterNote>{q || roleFlt !== 'all' || activeFlt !== 'all' || ptypeFlt !== 'all' ? '검색 결과 없음' : '없음 — 신규로 추가'}</CenterNote>
+        : <div>{shown.map((r) => {
+            const on = String(r._key) === sel;
+            const pending = tab === 'user' && String(r.status || '') === 'pending';
+            const sub = tab === 'user' ? `${ROLE_LABEL[String(r.role)] || String(r.role || '')} · ${r.is_active === '아니오' ? '비활성' : '활성'}` : `${String(r.partner_type || '')} · 수수료 ${r.fee_rate != null ? `${Math.round(Number(r.fee_rate) * 100)}%` : '기본'}`;
+            return (
+              <ListRow key={String(r._key)} selected={on} onClick={() => { haptic.tap(); select(r); }}
+                main={String(r.name || r.user_code || r.partner_code || '—')}
+                sub={sub}
+                // 승인 대기는 역할보다 먼저 보여야 한다 — 관리자가 목록에서 바로 찾도록.
+                right={tab === 'user'
+                  ? (pending
+                    ? <Badge tone="amber" variant="solid">승인대기</Badge>
+                    : <Badge tone={ACTOR_TONE[String(r.role)] || (String(r.role).startsWith('agent') ? 'blue' : 'gray')}>{ROLE_LABEL[String(r.role)] || ''}</Badge>)
+                  : undefined}
+              />
+            );
+          })}</div>}
+    </>
+  );
 
   const byKey = Object.fromEntries(ENTITIES[tab].fields.map((f) => [f.key, f]));
   const fields = (tab === 'user' ? USER_KEYS : PARTNER_KEYS).map((k) => byKey[k]).filter(Boolean) as Field[];
@@ -216,7 +233,7 @@ export default function Members() {
   ) : editing ? (
     <Message variant="warning">수정 중 · 저장해야 반영됩니다</Message>
   ) : null;
-  // 하단바 = 편집 컨텍스트만(수정·삭제 / 취소·저장). 신규는 상단 툴바(listTools.action). PillTabs는 목록 스코프라 하단 유지.
+  // 하단바 = 편집 컨텍스트만(수정·삭제 / 취소·저장). PillTabs는 목록 상단(320px 독 넘침 방지).
   const editActions = creating || editing ? (
     <PageActions cancel={{ onClick: cancelEdit }} save={{ onClick: save, disabled: !dirty }} />
   ) : sel ? (
@@ -273,12 +290,7 @@ export default function Members() {
     ? (roleFlt !== 'all' ? 1 : 0) + (activeFlt !== 'all' ? 1 : 0)
     : (ptypeFlt !== 'all' ? 1 : 0);
 
-  const dockActions = (
-    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-      <PillTabs tabs={[{ key: 'user', label: '사용자' }, { key: 'partner', label: '파트너' }]} value={tab} onChange={switchTab} size="sm" />
-      {editActions}
-    </div>
-  );
+  const dockActions = editActions;
 
   return (
     <>
