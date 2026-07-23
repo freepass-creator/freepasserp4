@@ -52,7 +52,7 @@ export function BottomSheet({
       padding: '10px 14px',
       paddingBottom: 'calc(10px + env(safe-area-inset-bottom, 0px))',
       borderTop: `1px solid ${C.line}`,
-      background: '#fff',
+      background: C.taupeBg,
     }}>
       <Btn style={{ flex: 1 }} onClick={() => { haptic.nav(); onClose(); }}>{applyLabel}</Btn>
       {onClear ? (
@@ -66,7 +66,7 @@ export function BottomSheet({
       padding: '10px 14px',
       paddingBottom: 'calc(10px + env(safe-area-inset-bottom, 0px))',
       borderTop: `1px solid ${C.line}`,
-      background: '#fff',
+      background: C.taupeBg,
     }}>
       {footer}
     </div>
@@ -90,7 +90,7 @@ export function BottomSheet({
           bottom: dockH,
           maxHeight,
           display: 'flex', flexDirection: 'column',
-          background: '#fff',
+          background: C.taupeBg,
           borderRadius: '14px 14px 0 0',
           boxShadow: '0 -10px 32px rgba(15,23,42,0.2)',
           animation: 'sheetUp .22s ease',

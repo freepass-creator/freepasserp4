@@ -39,7 +39,7 @@ export function Toaster() {
   return (<>
     <div style={{ position: 'fixed', left: 0, right: 0, bottom: 84, zIndex: 200, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, pointerEvents: 'none', padding: '0 12px' }}>
       {toasts.map((t) => (
-        <div key={t.id} role="status" style={{ pointerEvents: 'auto', maxWidth: 'min(92vw, 440px)', padding: '10px 16px', borderRadius: R, fontSize: FS.body, fontWeight: FW.strong, color: '#fff', background: BG[t.type], boxShadow: '0 6px 22px rgba(0,0,0,0.22)', whiteSpace: 'pre-wrap', textAlign: 'center' }}>{t.msg}</div>
+        <div key={t.id} role="status" style={{ pointerEvents: 'auto', maxWidth: 'min(92vw, 440px)', padding: '10px 16px', borderRadius: R, fontSize: FS.body, fontWeight: FW.strong, color: C.taupeBg, background: BG[t.type], boxShadow: '0 6px 22px rgba(0,0,0,0.22)', whiteSpace: 'pre-wrap', textAlign: 'center' }}>{t.msg}</div>
       ))}
     </div>
     {confirm && (
@@ -52,7 +52,7 @@ export function Toaster() {
             <Btn
               variant={confirm.danger ? 'danger' : 'solid'}
               onClick={() => close(true)}
-              style={confirm.danger ? { background: C.danger, borderColor: C.danger, color: '#fff' } : undefined}
+              style={confirm.danger ? { background: C.danger, borderColor: C.danger, color: C.taupeBg } : undefined}
             >{confirm.okLabel || '확인'}</Btn>
           </div>
         </div>

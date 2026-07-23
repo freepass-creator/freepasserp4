@@ -131,7 +131,7 @@ export default function AuditTrash() {
               <SearchInput value={q} onChange={setQ} placeholder="차번·계약·채팅·행위자 검색" full />
             </div>
           )}
-          <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: '#fff', overflow: 'hidden' }}>
+          <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg, overflow: 'hidden' }}>
             {shownLogs.length === 0 ? <CenterNote>기록이 없습니다.</CenterNote> :
               shownLogs.map((l, i) => <AuditRow key={String(l._key) || i} log={l} />)}
           </div>
@@ -141,7 +141,7 @@ export default function AuditTrash() {
           </div>
         </>
       ) : (
-        <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: '#fff', overflow: 'hidden' }}>
+        <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg, overflow: 'hidden' }}>
           {deleted.length === 0 ? <CenterNote>삭제된 항목이 없습니다.</CenterNote> :
             deleted.map(({ entity, rec }, i) => (
               <div key={`${entity}_${rec._key}_${i}`} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px', borderTop: i ? `1px solid ${C.line2}` : 'none' }}>

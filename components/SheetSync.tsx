@@ -253,7 +253,7 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
       )}
 
       {table && (
-        <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: '#fff', padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg, padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
           <SectionLabel>컬럼 매핑 <span style={{ fontSize: 11, fontWeight: FW.body, color: C.faint }}>· 틀린 칸만 바꾸면 학습됩니다</span></SectionLabel>
           <div style={{ maxHeight: 210, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
             {(table[0] || []).map((h, i) => (

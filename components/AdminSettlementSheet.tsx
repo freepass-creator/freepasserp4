@@ -73,7 +73,7 @@ export function AdminSettlementSheet({ month }: { month: string }) {
         <div style={{ fontSize: FS.cap, color: C.mute }}>
           청구 {won(tot.bill)} · 지급 {won(tot.pay)} · 수익 <b style={{ color: C.brand }}>{won(tot.profit)}</b> ({tot.n}건)
         </div>
-        <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: '#fff', maxHeight: mobile ? 200 : 480, overflowY: 'auto' }}>
+        <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg, maxHeight: mobile ? 200 : 480, overflowY: 'auto' }}>
           {shown.length === 0
             ? <CenterNote>이 달 정산서 없음 — 정산완료 불러오기</CenterNote>
             : shown.map((r) => (
@@ -86,7 +86,7 @@ export function AdminSettlementSheet({ month }: { month: string }) {
         </div>
       </div>
 
-      <div style={{ flex: 1, minWidth: 0, border: `1px solid ${C.line}`, borderRadius: R, background: '#fff', padding: 12, overflowY: 'auto', maxHeight: mobile ? undefined : 520 }}>
+      <div style={{ flex: 1, minWidth: 0, border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg, padding: 12, overflowY: 'auto', maxHeight: mobile ? undefined : 520 }}>
         {!sel ? <CenterNote>왼쪽에서 정산서를 선택하세요</CenterNote> : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

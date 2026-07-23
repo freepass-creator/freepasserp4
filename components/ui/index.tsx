@@ -155,7 +155,7 @@ export function VSplit({ top, bottom, initial = 0.6, storageKey }: { top: React.
     <div ref={ref} style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
       <div style={pane(ratio)}>{top}</div>
       <div onMouseDown={start} onTouchStart={start} style={{ flex: '0 0 9px', height: 9, cursor: 'row-resize', background: C.head, borderTop: `1px solid ${C.line}`, borderBottom: `1px solid ${C.line}`, display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'none' }}>
-        <div style={{ width: 34, height: 3, borderRadius: 2, background: '#c4ccd8' }} />
+        <div style={{ width: 34, height: 3, borderRadius: 2, background: C.line2 }} />
       </div>
       <div style={pane(1 - ratio)}>{bottom}</div>
     </div>
@@ -175,7 +175,7 @@ export function PillTabs<T extends string>({ tabs, value, onChange, size = 'md' 
         const on = value === t.key;
         return (
           <button key={t.key} onClick={() => onChange(t.key)} title={t.title}
-            style={{ height: h, boxSizing: 'border-box', padding: pad, fontSize: fs, fontWeight: on ? FW.label : FW.meta, cursor: 'pointer', borderRadius: R, border: `1px solid ${on ? C.brand : C.line}`, background: on ? C.brand : C.taupeBg, color: on ? '#fff' : C.mute, whiteSpace: 'nowrap', flexShrink: 0, transition: 'background .1s, border-color .1s, color .1s' }}>{t.label}</button>
+            style={{ height: h, boxSizing: 'border-box', padding: pad, fontSize: fs, fontWeight: on ? FW.label : FW.meta, cursor: 'pointer', borderRadius: R, border: `1px solid ${on ? C.brand : C.line}`, background: on ? C.brand : C.taupeBg, color: on ? C.taupeBg : C.mute, whiteSpace: 'nowrap', flexShrink: 0, transition: 'background .1s, border-color .1s, color .1s' }}>{t.label}</button>
         );
       })}
     </div>
@@ -200,7 +200,7 @@ export function Toolbar({ children }: { children: React.ReactNode }) {
 export function Panel({ title, action, children }: { title: React.ReactNode; action?: React.ReactNode; children: React.ReactNode }) {
   return (
     <div style={{ marginTop: 18, border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg, overflow: 'hidden', boxShadow: '0 10px 24px rgba(15,23,42,0.05)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: `1px solid ${C.line}`, background: '#f8fafc' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: `1px solid ${C.line}`, background: C.head }}>
         <div style={{ fontSize: FS.body, fontWeight: FW.title, color: C.ink }}>{title}</div>
         {action && <div>{action}</div>}
       </div>
@@ -252,7 +252,7 @@ export function Stepper({ steps }: { steps: Step[] }) {
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 88, flex: '0 0 auto' }}>
             <div style={{ width: 22, height: 22, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: FS.cap, fontWeight: FW.head,
               background: s.state === 'done' ? C.ok : s.state === 'current' ? C.brand : C.taupeBg,
-              color: s.state === 'todo' ? C.faint : '#fff', border: `2px solid ${dotColor(s.state)}`,
+              color: s.state === 'todo' ? C.faint : C.taupeBg, border: `2px solid ${dotColor(s.state)}`,
               boxShadow: s.state === 'current' ? `0 0 0 3px color-mix(in srgb, ${C.brand} 18%, transparent)` : 'none' }}>
               {s.state === 'done' ? '✓' : i + 1}
             </div>
@@ -284,7 +284,7 @@ export function DetailShell({ title, meta, onBack, actions, fixed, maxWidth = 10
   // 오버레이(자금 세부 등, 라우트 아님) → 자체 크롬. 닫기 = 목록(같은 화면 복귀).
   const back = onBack ? <NavBack kind="list" onClick={onBack} /> : null;
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'var(--bg-page)', overflowY: 'auto', overscrollBehavior: 'contain' }}>
+    <div style={{ position: 'fixed', top: 'var(--topbar-h)', left: 0, right: 0, bottom: 0, zIndex: 60, background: 'var(--bg-page)', overflowY: 'auto', overscrollBehavior: 'contain' }}>
       <div style={{ maxWidth, margin: '0 auto', padding: mobile ? '0 12px 76px' : '0 16px 48px' }}>
         {mobile ? (
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, padding: '12px 2px 4px', flexWrap: 'wrap' }}>
@@ -439,7 +439,7 @@ export function ToggleChips<T extends string>({ selected, onToggle, options, siz
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: mobile ? 8 : 6 }}>
       {options.map((o) => { const on = selected.has(o.key); return (
         <button key={o.key} onClick={() => { haptic.select(); onToggle(o.key); }} aria-pressed={on} className="fp-chip"
-          style={{ display: 'inline-flex', alignItems: 'center', height: h, boxSizing: 'border-box', padding: pad, fontSize: fs, fontWeight: on ? FW.label : FW.meta, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0, borderRadius: R, border: `1px solid ${on ? C.brand : C.line}`, background: on ? C.brand : C.taupeBg, color: on ? '#fff' : C.mute, lineHeight: 1 }}>
+          style={{ display: 'inline-flex', alignItems: 'center', height: h, boxSizing: 'border-box', padding: pad, fontSize: fs, fontWeight: on ? FW.label : FW.meta, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0, borderRadius: R, border: `1px solid ${on ? C.brand : C.line}`, background: on ? C.brand : C.taupeBg, color: on ? C.taupeBg : C.mute, lineHeight: 1 }}>
           {o.label}
         </button>
       ); })}
@@ -471,10 +471,10 @@ export function FilterGroup({ title, count = 0, onClear, defaultOpen = true, fir
 export type MessageVariant = 'info' | 'success' | 'warning' | 'danger';
 export function Message({ variant = 'info', children }: { variant?: MessageVariant; children: React.ReactNode }) {
   const palette: Record<MessageVariant, { bg: string; border: string; color: string }> = {
-    info: { bg: '#eff6ff', border: '#bfdbfe', color: '#1d4ed8' },
-    success: { bg: '#ecfdf5', border: '#86efac', color: '#15803d' },
-    warning: { bg: '#fffbeb', border: '#facc15', color: '#b45309' },
-    danger: { bg: '#fef2f2', border: '#fecaca', color: '#b91c1c' },
+    info: { bg: 'var(--blue-bg)', border: 'var(--blue-border)', color: 'var(--blue-text)' },
+    success: { bg: 'var(--green-bg)', border: 'var(--green-border)', color: 'var(--green-text)' },
+    warning: { bg: 'var(--orange-bg)', border: 'var(--orange-border)', color: 'var(--orange-text)' },
+    danger: { bg: 'var(--red-bg)', border: 'var(--red-border)', color: 'var(--red-text)' },
   };
   const p = palette[variant];
   return (
@@ -497,7 +497,7 @@ export function FilterChips<T extends string>({ value, onChange, options }: { va
         return (
           <button key={o.key} onClick={() => { haptic.select(); onChange(o.key); }} aria-pressed={active}
             style={{ display: 'inline-flex', alignItems: 'center', height: h, boxSizing: 'border-box', padding: mobile ? '0 18px' : '0 12px', fontSize: fs, fontWeight: active ? FW.label : FW.meta, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0, lineHeight: 1,
-              borderRadius: R, border: `1px solid ${active ? C.brand : C.taupeLine}`, background: active ? C.brand : C.taupeBg, color: active ? '#fff' : C.mute,
+              borderRadius: R, border: `1px solid ${active ? C.brand : C.taupeLine}`, background: active ? C.brand : C.taupeBg, color: active ? C.taupeBg : C.mute,
               transition: 'background .1s, border-color .1s, color .1s' }}>
             {o.label}
           </button>
@@ -529,7 +529,7 @@ export function Btn({ children, onClick, variant = 'solid', size = 'md', disable
     cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1,
     border: `1px solid ${disabled ? C.line : variant === 'solid' ? C.brand : variant === 'danger' ? 'var(--red-border)' : C.line}`,
     background: variant === 'solid' ? (disabled ? C.line : C.brand) : C.taupeBg,
-    color: variant === 'solid' ? '#fff' : variant === 'danger' ? 'var(--red-text)' : C.ink,
+    color: variant === 'solid' ? C.taupeBg : variant === 'danger' ? 'var(--red-text)' : C.ink,
     boxShadow: disabled ? 'none' : variant === 'solid' ? '0 1px 2px rgba(15,23,42,0.14)' : '0 1px 2px rgba(15,23,42,0.05)',
     textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, whiteSpace: 'nowrap',
     transition: 'filter .12s ease, box-shadow .12s ease',
@@ -559,7 +559,7 @@ export function IconBtn({ children, onClick, onPointerDown, title, active, disab
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
         height: h, width: h, boxSizing: 'border-box', padding: 0, borderRadius: R,
         border: `1px solid ${active ? C.brand : C.line}`,
-        background: active ? C.brand : C.taupeBg, color: active ? '#fff' : C.mute,
+        background: active ? C.brand : C.taupeBg, color: active ? C.taupeBg : C.mute,
         cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1,
         ...style,
       }}>
@@ -581,7 +581,7 @@ export function IconSeg<T extends string>({ value, onChange, options }: { value:
             style={{
               height: h, width: h, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
               cursor: 'pointer', border: 'none', borderLeft: i ? `1px solid ${C.line}` : 'none',
-              background: on ? C.brand : C.taupeBg, color: on ? '#fff' : C.mute, padding: 0,
+              background: on ? C.brand : C.taupeBg, color: on ? C.taupeBg : C.mute, padding: 0,
             }}>
             {o.icon}
           </button>
@@ -704,7 +704,7 @@ export function Drawer({ title, meta, onClose, children, footer, width = 560, on
   }, [onClose, onPrev, onNext]);
   const navBtn: React.CSSProperties = { border: `1px solid ${C.line}`, background: C.taupeBg, borderRadius: R, width: 26, height: 26, cursor: 'pointer', color: C.mute, fontSize: FS.body, lineHeight: 1 };
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.32)', zIndex: 50, display: 'flex', justifyContent: 'flex-end' }}>
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.32)', zIndex: 90, display: 'flex', justifyContent: 'flex-end' }}>
       <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: width, height: '100vh', background: C.taupeBg, boxShadow: '-10px 0 32px rgba(0,0,0,0.16)', display: 'flex', flexDirection: 'column', borderLeft: `1px solid ${C.line}` }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 16px', borderBottom: `1px solid ${C.line}`, background: C.head }}>
           <div style={{ minWidth: 0, display: 'flex', alignItems: 'baseline', gap: 8 }}>
@@ -730,7 +730,7 @@ export function Drawer({ title, meta, onClose, children, footer, width = 560, on
 export function Modal({ title, meta, onClose, children, footer, width = 720 }: { title: React.ReactNode; meta?: React.ReactNode; onClose: () => void; children: React.ReactNode; footer?: React.ReactNode; width?: number }) {
   const mobile = useIsMobile(); // 모바일=풀스크린 시트(중앙 카드 아님)
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.4)', zIndex: 50, display: 'flex', alignItems: mobile ? 'stretch' : 'flex-start', justifyContent: 'center', padding: mobile ? 0 : '6vh 16px', overflowY: 'auto' }}>
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.4)', zIndex: 90, display: 'flex', alignItems: mobile ? 'stretch' : 'flex-start', justifyContent: 'center', padding: mobile ? 0 : '6vh 16px', overflowY: 'auto' }}>
       <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: mobile ? '100%' : width, minHeight: mobile ? '100dvh' : undefined, background: C.taupeBg, borderRadius: mobile ? 0 : R, boxShadow: mobile ? 'none' : '0 16px 48px rgba(0,0,0,0.22)', overflow: 'hidden', border: mobile ? 'none' : `1px solid ${C.line}`, display: 'flex', flexDirection: 'column' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, padding: '13px 18px', borderBottom: `1px solid ${C.line}`, background: C.head, position: mobile ? 'sticky' : undefined, top: 0, zIndex: 1 }}>
           <h2 style={{ fontSize: FS.title, fontWeight: FW.title }}>{title}</h2>

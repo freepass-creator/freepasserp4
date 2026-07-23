@@ -128,7 +128,7 @@ export default function MonthlySettlement() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, margin: '14px 0' }}>
         {cards.map(([label, val, color]) => (
-          <div key={label} style={{ border: `1px solid ${C.line}`, borderRadius: R, background: '#fff', padding: '11px 14px' }}>
+          <div key={label} style={{ border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg, padding: '11px 14px' }}>
             <div style={{ fontSize: FS.cap, color: C.mute, fontWeight: FW.strong }}>{label}</div>
             <div style={{ fontSize: 17, fontWeight: FW.head, color, fontFamily: 'var(--font-mono)', marginTop: 3 }}>{won(val)}</div>
           </div>
@@ -144,7 +144,7 @@ export default function MonthlySettlement() {
           mobile ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {grouped.map((g) => (
-                <div key={g.name} style={{ border: `1px solid ${C.line}`, borderRadius: R, background: '#fff', padding: '10px 12px' }}>
+                <div key={g.name} style={{ border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg, padding: '10px 12px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 }}><span style={{ fontSize: 13, fontWeight: FW.title, color: C.ink }}>{g.name}</span><span style={{ fontSize: 11, color: C.faint }}>{g.n}건</span></div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px 12px', fontSize: 12 }}>
                     <div style={{ color: C.mute }}>공급사청구 <b style={{ float: 'right', color: C.ink, fontFamily: 'var(--font-mono)' }}>{won(g.r1)}</b></div>
@@ -184,7 +184,7 @@ export default function MonthlySettlement() {
             {monthRows.map((s) => {
               const cb = Number(s.clawback_amount) || 0;
               return (
-                <div key={String(s.settlement_code)} style={{ border: `1px solid ${C.line}`, borderRadius: R, background: '#fff', padding: '10px 12px' }}>
+                <div key={String(s.settlement_code)} style={{ border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg, padding: '10px 12px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 }}>
                     <span style={{ fontSize: 13, fontWeight: FW.title, color: C.ink }}>{String(s.customer_name || '—')}</span>
                     <span style={{ fontSize: 11, color: C.faint, fontFamily: 'var(--font-mono)' }}>{String(s.car_number || '')}</span>

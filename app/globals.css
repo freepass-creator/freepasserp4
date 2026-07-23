@@ -196,7 +196,7 @@ button, input, select, textarea { font-family: inherit; }
   .fp-bottomnav {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 45;
     display: flex; align-items: stretch; height: var(--fp-bar-h);
-    background: #fff; border-top: 1px solid var(--border);
+    background: var(--bg-card); border-top: 1px solid var(--border);
     padding-bottom: env(safe-area-inset-bottom);
     box-shadow: 0 -2px 12px rgba(15, 23, 42, 0.06);
   }
@@ -230,7 +230,7 @@ button, input, select, textarea { font-family: inherit; }
   min-height: 0; overflow: hidden;
 }
 .fp-sidebar {
-  border-right: 1px solid var(--border); background: #fff;
+  border-right: 1px solid var(--border); background: var(--bg-card);
   overscroll-behavior: contain;
 }
 .fp-sidebar-head,
@@ -247,7 +247,7 @@ button, input, select, textarea { font-family: inherit; }
   min-height: var(--fp-bar-h);
   overflow: hidden;
 }
-.fp-sidebar-head { background: #fff; padding-right: var(--fp-bar-pad-x); }
+.fp-sidebar-head { background: var(--bg-card); padding-right: var(--fp-bar-pad-x); }
 .fp-finder-toolbar,
 .fp-page-toolbar { background: var(--bg-page); min-width: 0; }
 .fp-sidebar-body,
@@ -302,7 +302,7 @@ button, input, select, textarea { font-family: inherit; }
   overscroll-behavior: contain;
   /* 세로막대 자리 예약 — sticky 헤더·우측 대여료 열이 막대 유무로 안 밀림 */
   scrollbar-gutter: stable;
-  background: #fff;
+  background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 4px;
 }
@@ -336,7 +336,7 @@ button, input, select, textarea { font-family: inherit; }
 .fp-excel-sheet {
   min-height: 0;
   overflow: auto;
-  background: #fff;
+  background: var(--bg-card);
   border: 1px solid var(--border-soft);
   border-radius: 4px;
 }
@@ -444,7 +444,7 @@ button, input, select, textarea { font-family: inherit; }
     display: flex; flex-direction: column; align-items: stretch; gap: 0;
     height: auto; min-height: var(--fp-bar-h);
     padding: 0; overflow: visible;
-    background: #fff;
+    background: var(--bg-card);
     border-bottom: 1px solid var(--border);
   }
   .fp-home-tool-row,
@@ -534,7 +534,7 @@ button, input, select, textarea { font-family: inherit; }
   .fp-sidebar.is-open {
     display: flex; flex-direction: column; grid-template-rows: none; grid-row: auto;
     position: fixed; inset: var(--topbar-h) 0 0 0; z-index: 60;
-    background: #fff; overflow: hidden; max-height: none; height: auto; animation: menuDrop .18s ease; overscroll-behavior: contain;
+    background: var(--bg-card); overflow: hidden; max-height: none; height: auto; animation: menuDrop .18s ease; overscroll-behavior: contain;
     padding: 0 0 var(--fp-finder-dock-h);
   }
   .fp-sidebar.is-open .fp-sidebar-head {

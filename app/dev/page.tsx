@@ -162,7 +162,7 @@ export default function DevTools() {
   }
 
   const masterReady = !!(master && master.length);
-  const card: CSSProperties = { border: `1px solid ${C.line}`, borderRadius: R, background: '#fff', padding: 14 };
+  const card: CSSProperties = { border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg, padding: 14 };
 
   return (
     <Page title="개발도구">
