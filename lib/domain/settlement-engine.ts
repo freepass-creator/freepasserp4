@@ -4,7 +4,7 @@
  * 차량: 계약금 입금(확인) 선점 → 계약중 · 완료 → 출고불가. 문의·서류만으로는 잠금 없음.
  * 수수료율은 partner.fee_rate·user.agent_payout_rate SSOT에서 해석(신차=공급사 우대 0%). 계약시점 동결.
  */
-import { getStore, patchListCache } from '@/lib/store';
+import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { currentActor } from '@/lib/session';
 import { type EntityRecord } from '@/lib/intake/entities';
@@ -228,10 +228,8 @@ export async function applyStepCheck(contract: EntityRecord, key: string, value:
     }
   }
   await store.update('contract', co, code, { [key]: value });
-  // 로컬 캐시에도 반영 — 이어지는 sync/get이 신선 스냅샷을 쓰게(전량 list 재다운로드 불필요).
-  const patched = { ...contract, [key]: value } as EntityRecord;
-  patchListCache('contract', co, code, patched);
-  const fresh = (await store.get('contract', co, code)) || patched;
+  // store.update 가 delta 로 캐시를 정확히 패치 — 호출자 stale 스냅샷(contract 전체)으로 덮지 않는다(캐시 되돌림→락 오해제·중복판매 방지).
+  const fresh = (await store.get('contract', co, code)) || ({ ...contract, [key]: value } as EntityRecord);
   // 공유 list에 방금 패치 반영한 사본(락 재계산 first-wins가 최신 체크값 보도록).
   const contractsFresh = contracts.map((c) => String(c.contract_code) === code ? fresh : c);
 

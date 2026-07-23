@@ -233,9 +233,10 @@ export function patchListCache(entityKey: string, companyId: string, key: string
   const rows = _listResolved.get(ck);
   if (!rows) return;
   const i = rows.findIndex((r) => String(r._key) === key);
+  // 캐시에 없으면 얇은(부분필드) 행 주입 금지 — 무효화해 다음 list가 신선 전량 재조회(반쪽 레코드 오염 방지).
+  if (i < 0) { _invalidate(entityKey); return; }
   const next = rows.slice();
-  if (i >= 0) next[i] = { ...next[i], ...patch, _key: key };
-  else next.push({ ...patch, _key: key } as EntityRecord);
+  next[i] = { ...next[i], ...patch, _key: key };
   _listResolved.set(ck, next);
   _listCache.set(ck, Promise.resolve(next));
 }

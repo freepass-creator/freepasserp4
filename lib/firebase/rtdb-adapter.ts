@@ -473,37 +473,7 @@ export class RtdbAdapter implements StoreAdapter {
    *  contract/room/settlement/message 는 규칙이 쿼리 스코프라 keyed get이 거부될 수 있어 기존 merged find 유지.
    */
   async get(entity: string, co: string, key: string): Promise<EntityRecord | null> {
-    const KEYED = new Set(['product', 'policy', 'partner', 'user']);
-    if (KEYED.has(entity)) {
-      const node = NODE[entity] || entity;
-      try {
-        let joinMap: Rec | undefined;
-        if (entity === 'product') joinMap = (await get(ref(this.db(), 'policies'))).val() || {};
-        const [liveSnap, overSnap] = await Promise.all([
-          BRIDGE_FROM_V3.has(entity) ? get(ref(this.db(), `${node}/${key}`)).catch(() => null) : Promise.resolve(null),
-          get(ref(this.db(), `${OVERLAY}/${node}/${key}`)).catch(() => null),
-        ]);
-        const liveVal = liveSnap?.val() as Rec | null;
-        const overVal = overSnap?.val() as Rec | null;
-        if (!liveVal && !overVal) return null;
-        const merged: Rec = { ...(liveVal || {}) };
-        if (overVal) for (const [kk, vv] of Object.entries(overVal)) if (vv !== undefined) merged[kk] = vv;
-        let r = toV4(entity, key, merged, co, joinMap);
-        if (r._deleted || r.deletedAt) return null;
-        if (entity === 'product') {
-          if (String((r as Rec).status) === 'deleted') return null;
-          if (isExcludedProduct(r as Rec)) return null;
-          if (this._partnersForNames?.length) r = withProviderNames([r], this._partnersForNames)[0] || r;
-          else {
-            try { r = withProviderNames([r], await this.partnersForNames(co))[0] || r; } catch { /* 이름 없으면 코드만 */ }
-          }
-          return seesProductCost(r) ? r : stripProductCost(r);
-        }
-        return r;
-      } catch (e) {
-        console.warn(`RTDB keyed get(${entity}/${key}) 실패 → merged 폴백:`, (e as Error).message);
-      }
-    }
+    // ※ keyed get 최적화는 야간검증서 revert(HIGH) — v3 라이브 childKey≠product_code 매물을 miss(merged 폴백은 throw만 탐). merged 전량 스캔이 정합 SSOT.
     const r = (await this.merged(entity, co)).find((row) => String(row._key) === key && !row._deleted && !row.deletedAt) || null;
     if (!r || entity !== 'product') return r;
     if (String((r as Rec).status) === 'deleted') return null;
@@ -513,19 +483,17 @@ export class RtdbAdapter implements StoreAdapter {
 
   async save(entity: string, co: string, records: EntityRecord[]): Promise<SaveResult> {
     const node = NODE[entity] || entity;
-    // dedup = 자연키 존재만 keyed get으로 확인(전량 merged 회피). 스코프 엔티티는 get이 merged 폴백.
+    // dedup = 전량 merged 의 _key 집합(소프트삭제·제외 레코드 포함). keyed get 확인은 삭제/제외 자연키 재저장(부활·오카운트)을 못 막아 야간검증서 revert.
+    const seen = new Set((await this.merged(entity, co)).map((r) => String(r._key)));
     let saved = 0, duplicates = 0;
     for (const rec of records) {
       let key = naturalKey(entity, rec as Rec);
-      if (key) {
-        const exists = await this.get(entity, co, key);
-        if (exists) { duplicates++; continue; }
-      }
+      if (key && seen.has(key)) { duplicates++; continue; }
       if (!key) key = `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
       const stored: Rec = stripUndef({ ...rec, companyId: co, _key: key, createdAt: new Date().toISOString(), createdBy: 'rtdb', ...(entity === 'customer' ? { created_by: (rec as Rec).created_by || getAuthClient()?.currentUser?.uid } : {}) });
       await dbUpdate(ref(this.db(), `${OVERLAY}/${node}/${key}`), stored);
       this.writeAudit(entity, co, key, 'create', null, stored);
-      saved++;
+      seen.add(key); saved++;
     }
     return { saved, duplicates, backend: this.backend };
   }
