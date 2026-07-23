@@ -8,7 +8,7 @@ import { seedIfEmpty } from '@/lib/seed';
 import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
 import { type EntityRecord } from '@/lib/intake/entities';
-import { priceList, rentForSort, depositForSort, creditDisplay, vehicleTone, excelCondSignals, isHiddenFromCatalog, canonProductType } from '@/lib/domain/product';
+import { priceList, rentForSort, depositForSort, creditDisplay, vehicleTone, excelCondSignals, isHiddenFromCatalog, canonProductType, noDeposit } from '@/lib/domain/product';
 import { fuelDisplay, yearDisplay, makerDisplay, parseYear } from '@/lib/domain/vehicle-master-match';
 import { withProviderNames } from '@/lib/domain/identity';
 import { DYN, CAR_DYN_KEYS, EXTRA_DYN_KEYS, aggregateDyn, matchProduct, activeCount, activeFilterHints, presentFilterOptions, excelMonths, operatingMonths, EMPTY_VEHICLE_FILTER, vehicleFilterCount, sortProviderOptions, type FState, type VehicleFilter } from '@/lib/domain/product-filters';
@@ -414,6 +414,7 @@ export default function Finder() {
       if (code && hiddenCodes.has(code)) return false;
       return matchProduct(p, s);
     });
+    // 기본 정렬 = 무보증 가능 차량 우선(그 외 원순서). 명시 정렬 선택 시엔 그 기준 그대로.
     if (sort) {
       l.sort((a, b) => {
         const mile = (p: EntityRecord) => numOr(p.mileage, sort === 'mile_asc' ? Infinity : -1);
@@ -430,6 +431,8 @@ export default function Finder() {
           default: return 0;
         }
       });
+    } else {
+      l.sort((a, b) => (noDeposit(a) ? 0 : 1) - (noDeposit(b) ? 0 : 1)); // 무보증 먼저
     }
     if (!passedCodes.size) return l;
     const front: EntityRecord[] = [];
