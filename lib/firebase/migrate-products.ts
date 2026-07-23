@@ -82,6 +82,9 @@ export type DedupDiag = {
   statusCounts: { status: string; count: number }[]; // 상태별 구성(내림차순)
   kashung: number; tooOld: number; hiddenFromCatalog: number; // 파인더가 빼는 것들
   finderVisible: number;                             // = 재고 − 카슝 − 10년 − 출고불가 (파인더 카탈로그)
+  providerCounts: { code: string; count: number }[]; // 공급사별 재고 구성(상위) — 실무자 오플/기타 대조용
+  v3ActiveUnique: number; v4ActiveUnique: number;    // v3만 / v4만 활성(비삭제) 유일대수 — erp3 374 대조
+  v4NotInV3: number; v3NotInV4: number;              // 교집합 밖 — v4 stale 잔여 / v3에만 있는 것
 };
 
 /** v3∪v4 병합 후 실데이터로 중복 구조를 진단 — 355 vs 374 같은 대수 차이 원인 규명용(쓰기 없음). */
@@ -137,15 +140,32 @@ export async function diagnoseProductDedup(): Promise<DedupDiag> {
   // deduped(재고, 모든 상태) 기준 층위 분해
   const deduped = [...byId.values(), ...noId];
   const statusMap = new Map<string, number>();
+  const provMap = new Map<string, number>();
   let kashung = 0, tooOld = 0, hiddenFromCatalog = 0, finderVisible = 0;
   for (const r of deduped) {
     statusMap.set(String(r.vehicle_status || '(없음)'), (statusMap.get(String(r.vehicle_status || '(없음)')) || 0) + 1);
+    const pc = String(r.provider_company_code || r.partner_code || '(미지정)');
+    provMap.set(pc, (provMap.get(pc) || 0) + 1);
     const k = isKashung(r), o = isTooOld(r), h = isHiddenFromCatalog(r);
     if (k) kashung++;
     if (o) tooOld++;
     if (h) hiddenFromCatalog++;
     if (!k && !o && !h) finderVisible++;
   }
+
+  // v3만 / v4만 활성(비삭제) 유일대수 — erp3(v3) 기준 374가 어디서 나오는지 대조
+  const activeIds = (obj: Record<string, PRec>) => {
+    const ids = new Set<string>(); let noId2 = 0;
+    for (const r of Object.values(obj)) {
+      if (!r || typeof r !== 'object' || (r as PRec)._deleted || (r as PRec).deletedAt) continue;
+      const id = vehicleIdentity(r as PRec);
+      if (id) ids.add(id); else noId2++;
+    }
+    return { ids, unique: ids.size + noId2 };
+  };
+  const A3 = activeIds(v3), A4 = activeIds(v4);
+  const v4NotInV3 = [...A4.ids].filter((id) => !A3.ids.has(id)).length;
+  const v3NotInV4 = [...A3.ids].filter((id) => !A4.ids.has(id)).length;
 
   const top = (m: Map<string, number>, n: number) =>
     [...m.entries()].filter(([, c]) => c > 1).sort((a, b) => b[1] - a[1]).slice(0, n);
@@ -159,5 +179,7 @@ export async function diagnoseProductDedup(): Promise<DedupDiag> {
     dupIdentities: top(idCount, 10).map(([id, count]) => ({ id, count })),
     statusCounts: [...statusMap.entries()].sort((a, b) => b[1] - a[1]).map(([status, count]) => ({ status, count })),
     kashung, tooOld, hiddenFromCatalog, finderVisible,
+    providerCounts: [...provMap.entries()].sort((a, b) => b[1] - a[1]).slice(0, 20).map(([code, count]) => ({ code, count })),
+    v3ActiveUnique: A3.unique, v4ActiveUnique: A4.unique, v4NotInV3, v3NotInV4,
   };
 }

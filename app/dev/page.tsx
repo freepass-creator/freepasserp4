@@ -122,12 +122,16 @@ export default function DevTools() {
       const ph = d.placeholderValues.map((x) => `  ${x.value} ×${x.count}`).join('\n');
       const dp = d.dupIdentities.map((x) => `  ${x.id} ×${x.count}`).join('\n');
       const st = d.statusCounts.map((x) => `  ${x.status} ${x.count}`).join('\n');
+      const pv = d.providerCounts.map((x) => `  ${x.code} ${x.count}`).join('\n');
       const msg =
         `v3 ${d.v3} · v4 ${d.v4} · 병합 ${d.merged}\n`
+        + `활성 유일대수: v3만 ${d.v3ActiveUnique} · v4만 ${d.v4ActiveUnique} · 합집합 ${d.uniqueByNewIdentity}\n`
+        + `교집합 밖: v4에만(v3없음) ${d.v4NotInV3} · v3에만(v4없음) ${d.v3NotInV4}\n`
         + `분류: 실번호판 ${d.realPlateRows} · VIN만 ${d.vinOnlyRows} · placeholder ${d.placeholderRows} · 공백 ${d.blankRows}\n`
         + `dedup(재고): 새(신원) ${d.uniqueByNewIdentity}  vs  옛(원문차번) ${d.uniqueByRawCarNumber}\n`
         + `층위: 재고 ${d.uniqueByNewIdentity} − 카슝 ${d.kashung} − 10년 ${d.tooOld} − 출고불가 ${d.hiddenFromCatalog} = 카탈로그 ${d.finderVisible}\n`
         + (st ? `상태별:\n${st}\n` : '')
+        + (pv ? `공급사별:\n${pv}\n` : '')
         + (ph ? `placeholder 값(오합침 원인):\n${ph}\n` : '')
         + (dp ? `실신원 중복(v3/v4 더블) TOP:\n${dp}` : '');
       setDiagLog(msg);
