@@ -146,7 +146,7 @@ export function ProductDetail({ p, audience }: { p: EntityRecord; audience?: Aud
                       <tr key={pr.m} style={{ borderTop: i ? `1px solid ${C.line2}` : 'none', background: isCheap ? C.selected : 'transparent' }}>
                         <td style={{ padding: '6px 10px' }}>{pr.m}개월{isCheap && <span style={{ marginLeft: 5, fontSize: FS.micro, fontWeight: FW.label, color: C.taupeBg, background: C.brand, borderRadius: R, padding: '1px 5px', verticalAlign: 'middle' }}>최저</span>}</td>
                         <td style={{ padding: '6px 10px', textAlign: 'center', fontWeight: FW.head, color: C.brand, fontFamily: NUM }}>{won(pr.rent)}</td>
-                        <td style={{ padding: '6px 10px', textAlign: 'right', fontFamily: NUM }}>{won(pr.deposit)}</td>
+                        <td style={{ padding: '6px 10px', textAlign: 'right', fontFamily: NUM }}>{pr.deposit > 0 ? won(pr.deposit) : '무보증'}</td>
                       </tr>
                     );
                   })}</tbody>
