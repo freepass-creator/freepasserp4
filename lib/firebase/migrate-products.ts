@@ -7,6 +7,9 @@
  */
 import { ref, get, update } from 'firebase/database';
 import { getRtdb } from './client';
+import { vehicleIdentity, isRealPlate } from '@/lib/domain/product';
+
+type PRec = Record<string, unknown>;
 
 export type MigrateProductsResult = {
   v3Total: number;       // v3 products 총 노드 수
@@ -57,5 +60,72 @@ export async function migrateV3ProductsToV4(dryRun = false): Promise<MigrateProd
     v3Total, v4Before, copied, skippedExists, skippedUnsafe,
     v4After: dryRun ? v4Before : v4Before + copied,
     dryRun,
+  };
+}
+
+// ── 매물 중복 진단 ────────────────────────────────────────────────────────────
+export type DedupDiag = {
+  v3: number; v4: number; merged: number;           // 원천 개수·병합(product_code) 후
+  realPlateRows: number; vinOnlyRows: number;       // 실번호판 / (번호판X·VIN만) 행수
+  placeholderRows: number; blankRows: number;       // 번호판 placeholder / 완전 공백 행수
+  uniqueByNewIdentity: number;                       // 새 dedup 결과(실번호판·VIN 유일 + placeholder·blank 개별)
+  uniqueByRawCarNumber: number;                      // 옛 dedup(원문 car_number) 결과 — placeholder 오합침
+  placeholderValues: { value: string; count: number }[]; // 비-실번호판 non-blank 값 상위(오합침 원인)
+  dupIdentities: { id: string; count: number }[];    // 실신원 중복(v3/v4 더블) 상위
+};
+
+/** v3∪v4 병합 후 실데이터로 중복 구조를 진단 — 355 vs 374 같은 대수 차이 원인 규명용(쓰기 없음). */
+export async function diagnoseProductDedup(): Promise<DedupDiag> {
+  const db = getRtdb();
+  if (!db) throw new Error('DB가 설정되지 않았습니다');
+  const [v3snap, v4snap] = await Promise.all([get(ref(db, 'products')), get(ref(db, 'v4/products'))]);
+  const v3 = (v3snap.val() as Record<string, PRec> | null) || {};
+  const v4 = (v4snap.val() as Record<string, PRec> | null) || {};
+
+  // 어댑터 merged 동일: product_code(없으면 노드키)로 병합, v4 필드 우선.
+  const merged = new Map<string, PRec>();
+  const put = (obj: Record<string, PRec>, win: boolean) => {
+    for (const [k, r] of Object.entries(obj)) {
+      if (!r || typeof r !== 'object') continue;
+      const key = String((r as PRec).product_code || k);
+      merged.set(key, win ? { ...(merged.get(key) || {}), ...r } : r);
+    }
+  };
+  put(v3, false); put(v4, true);
+  const rows = [...merged.values()].filter((r) => !(r as PRec)._deleted && !(r as PRec).deletedAt);
+
+  const norm = (v: unknown) => String(v ?? '').replace(/\s/g, '').toUpperCase();
+  let realPlateRows = 0, vinOnlyRows = 0, placeholderRows = 0, blankRows = 0;
+  const newIds = new Set<string>();      // 실신원(P:/V:)
+  let noIdRows = 0;                        // 신원 불명 = 개별 유지
+  const rawCarNums = new Set<string>();   // 옛 dedup 재현(원문 car_number)
+  let rawBlank = 0;
+  const placeholderCount = new Map<string, number>();
+  const idCount = new Map<string, number>();
+
+  for (const r of rows) {
+    const cn = norm((r as PRec).car_number);
+    const id = vehicleIdentity(r as PRec);
+    if (id) { newIds.add(id); idCount.set(id, (idCount.get(id) || 0) + 1); }
+    else noIdRows++;
+    // 카테고리
+    if (isRealPlate((r as PRec).car_number)) realPlateRows++;
+    else if (norm((r as PRec).vin).length >= 11) vinOnlyRows++;
+    else if (cn) { placeholderRows++; placeholderCount.set(cn, (placeholderCount.get(cn) || 0) + 1); }
+    else blankRows++;
+    // 옛 dedup: 원문 car_number 유일 + 공백은 개별
+    if (cn) rawCarNums.add(cn); else rawBlank++;
+  }
+
+  const top = (m: Map<string, number>, n: number) =>
+    [...m.entries()].filter(([, c]) => c > 1).sort((a, b) => b[1] - a[1]).slice(0, n);
+
+  return {
+    v3: Object.keys(v3).length, v4: Object.keys(v4).length, merged: rows.length,
+    realPlateRows, vinOnlyRows, placeholderRows, blankRows,
+    uniqueByNewIdentity: newIds.size + noIdRows,
+    uniqueByRawCarNumber: rawCarNums.size + rawBlank,
+    placeholderValues: top(placeholderCount, 10).map(([value, count]) => ({ value, count })),
+    dupIdentities: top(idCount, 10).map(([id, count]) => ({ id, count })),
   };
 }

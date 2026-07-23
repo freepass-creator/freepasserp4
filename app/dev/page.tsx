@@ -24,6 +24,7 @@ export default function DevTools() {
   const [log, setLog] = useState('');
   const [migBusy, setMigBusy] = useState(false);
   const [migLog, setMigLog] = useState('');
+  const [diagLog, setDiagLog] = useState('');
   const [role, setRoleLocal] = useState<Role>(() => (typeof window !== 'undefined' ? getRole() : 'agent'));
 
   const reload = useCallback(async () => {
@@ -111,6 +112,29 @@ export default function DevTools() {
     } finally { setMigBusy(false); }
   };
 
+  // 매물 중복 진단 — v3∪v4 병합 후 무엇이 몇 개 합쳐지는지 실데이터로 확인(쓰기 없음).
+  const runDiag = async () => {
+    if (migBusy) return;
+    setMigBusy(true); setDiagLog('');
+    try {
+      const { diagnoseProductDedup } = await import('@/lib/firebase/migrate-products');
+      const d = await diagnoseProductDedup();
+      const ph = d.placeholderValues.map((x) => `  ${x.value} ×${x.count}`).join('\n');
+      const dp = d.dupIdentities.map((x) => `  ${x.id} ×${x.count}`).join('\n');
+      const msg =
+        `v3 ${d.v3} · v4 ${d.v4} · 병합 ${d.merged}\n`
+        + `분류: 실번호판 ${d.realPlateRows} · VIN만 ${d.vinOnlyRows} · placeholder ${d.placeholderRows} · 공백 ${d.blankRows}\n`
+        + `dedup 결과: 새(신원) ${d.uniqueByNewIdentity}  vs  옛(원문차번) ${d.uniqueByRawCarNumber}\n`
+        + (ph ? `placeholder 값(오합침 원인):\n${ph}\n` : '')
+        + (dp ? `실신원 중복(v3/v4 더블) TOP:\n${dp}` : '');
+      setDiagLog(msg);
+      toast('중복 진단 완료', 'ok');
+    } catch (e) {
+      const msg = '진단 오류: ' + String((e as Error).message || e);
+      setDiagLog(msg); toast(msg, 'error');
+    } finally { setMigBusy(false); }
+  };
+
   if (ok === null) return <Loading />;
   if (!ok) {
     const canDemoSwitch = !getSession();
@@ -165,9 +189,11 @@ export default function DevTools() {
             복사·검증 후 카탈로그를 v4 전용으로 전환합니다.
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <Btn variant="ghost" onClick={runDiag} disabled={migBusy}>중복 진단(쓰기 없음)</Btn>
             <Btn variant="ghost" onClick={() => runMigrate(true)} disabled={migBusy}>미리보기(복사 안 함)</Btn>
             <Btn onClick={() => runMigrate(false)} disabled={migBusy}>{migBusy ? '복사 중…' : 'v3→v4 복사 실행'}</Btn>
           </div>
+          {diagLog && <pre style={{ margin: '10px 0 0', fontSize: FS.cap, color: C.mute, whiteSpace: 'pre-wrap', fontFamily: 'var(--font-mono)', lineHeight: 1.6 }}>{diagLog}</pre>}
           {migLog && <pre style={{ margin: '10px 0 0', fontSize: FS.cap, color: C.mute, whiteSpace: 'pre-wrap', fontFamily: 'var(--font-mono)' }}>{migLog}</pre>}
         </div>
 

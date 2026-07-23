@@ -21,6 +21,25 @@ export function canonProductType(raw: unknown): string {
   return s;
 }
 
+/** 실 번호판 형식(한국) — 숫자2~3 + 한글 + 숫자4. 지역접두(서울…) 포함해도 부분매칭. */
+export const PLATE_RE = /\d{2,3}[가-힣]\d{4}/;
+export function isRealPlate(carNumber: unknown): boolean {
+  const s = String(carNumber ?? '').replace(/\s/g, '').toUpperCase();
+  return !!s && PLATE_RE.test(s);
+}
+/**
+ * 매물 실물 유일신원 — 중복제거 키. 실번호판 → 없으면 VIN(11자↑) → 둘 다 없으면 null(개별 유지).
+ *  ※ 번호판이 미정·`-`·`0`·빈칸 등 placeholder면 유일키로 쓰지 않는다 — 서로 다른 차가 같은
+ *    placeholder를 공유해 잘못 합쳐지는(재고 과소집계) 것을 막는다. VIN도 없으면 합치지 않음.
+ */
+export function vehicleIdentity(p: { car_number?: unknown; vin?: unknown }): string | null {
+  const plate = String(p.car_number ?? '').replace(/\s/g, '').toUpperCase();
+  if (plate && PLATE_RE.test(plate)) return 'P:' + plate;
+  const vin = String(p.vin ?? '').replace(/\s/g, '').toUpperCase();
+  if (vin.length >= 11) return 'V:' + vin;
+  return null;
+}
+
 const num = (v: unknown): number => { const n = Number(v); return isNaN(n) ? 0 : n; };
 
 export type Price = { m: number; rent: number; deposit: number; fee: number };
