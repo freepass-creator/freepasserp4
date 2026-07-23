@@ -201,16 +201,12 @@ export default function Members() {
   ) : editing ? (
     <Message variant="warning">수정 중 · 저장해야 반영됩니다</Message>
   ) : null;
-  // 목록·보기=신규·수정·삭제. 신규/수정=취소·저장.
-  const editActions = !sel || (!creating && !editing) ? (
-    <PageActions
-      primary={{ label: '신규', onClick: newRec }}
-      edit={sel && !creating && !editing ? { onClick: startEdit } : undefined}
-      remove={sel && !creating && !editing ? { onClick: removeRec } : undefined}
-    />
-  ) : (
+  // 하단바 = 편집 컨텍스트만(수정·삭제 / 취소·저장). 신규는 상단 툴바(listTools.action). PillTabs는 목록 스코프라 하단 유지.
+  const editActions = creating || editing ? (
     <PageActions cancel={{ onClick: cancelEdit }} save={{ onClick: save, disabled: !dirty }} />
-  );
+  ) : sel ? (
+    <PageActions edit={{ onClick: startEdit }} remove={{ onClick: removeRec }} />
+  ) : null;
   const editPane = (
     <>
       <PaneHead title={tab === 'user' ? '사용자' : '파트너'} />
@@ -268,6 +264,7 @@ export default function Members() {
         actions={dockActions}
         listTools={{
           search: { value: q, onChange: setQ, placeholder: '이름·코드·회사·연락처·역할…' },
+          action: { label: '신규', onClick: newRec },
           sort: { value: sort, onChange: (v) => setSort(v as MemSort | ''), options: MEM_SORTS },
           filter: {
             count: fltCount,

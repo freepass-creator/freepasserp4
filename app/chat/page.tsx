@@ -227,10 +227,10 @@ export default function Chat() {
     : <CenterNote>이 매물의 이력이 없습니다.</CenterNote>;
 
   const goChat = () => { haptic.nav(); setSwapKey('chat'); };
-  const goProgress = () => { haptic.nav(); setSwapKey('progress'); };
 
+  // 계약진행 이동 = 하단 swap 바([채팅][계약진행])가 담당 → 채팅 헤더엔 중복 버튼 없음.
   const chatNode = sel
-    ? <ChatThread roomId={sel} onContract={mobile ? () => goProgress() : undefined} />
+    ? <ChatThread roomId={sel} />
     : emptyPane('채팅', '왼쪽에서 대화를 선택하세요.');
 
   // 모바일 계약진행 = 문의차량(또는 서류) + 계약패널을 한 스크롤에.

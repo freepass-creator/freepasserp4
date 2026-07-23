@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
-import { Search, ArrowUpDown, SlidersHorizontal } from 'lucide-react';
+import { Search, ArrowUpDown, SlidersHorizontal, Plus, type LucideIcon } from 'lucide-react';
 import { BottomNav, SearchInput, Btn, FilterChips, C, NUM, FS } from '@/components/ui';
 import { PageToolBar, type PageToolItem } from '@/components/PageToolBar';
 import { MobileListDock } from '@/components/MobileListDock';
@@ -32,6 +32,8 @@ export type ListToolsConfig = {
     onClear?: () => void;
     body: ReactNode;
   };
+  /** 목록 주액션(등록·엑셀 등) — 모바일 툴바 우측 툴 / 웹 목록 헤더 버튼. 하단바 아님(하단바=이전·홈·공유·문의). */
+  action?: { label: string; onClick: () => void; icon?: LucideIcon; disabled?: boolean };
   /** @deprecated 목록 등록·삭제는 bottomActions(PageActions) — 툴바는 검색·정렬·필터만 */
   extra?: PageToolItem[];
   hints?: string[];
@@ -116,6 +118,12 @@ export function MobilePageShell({
         key: 'filter', label: filterCfg.label || '필터', icon: SlidersHorizontal,
         badge: n || undefined, active: n > 0, pressed: sheet === 'filter',
         onClick: () => toggle('filter'),
+      });
+    }
+    if (lt?.action) {
+      out.push({
+        key: 'action', label: lt.action.label, icon: lt.action.icon || Plus,
+        accent: true, onClick: lt.action.onClick,
       });
     }
     return out.length ? out : null;

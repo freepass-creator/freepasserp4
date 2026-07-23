@@ -621,16 +621,12 @@ export default function Inventory() {
     { key: 'var', title: '운영', node: varPane },
     { key: 'sync', title: '업로드', node: syncPane },
   ];
-  // 목록·보기=상품+·수정·삭제. 신규/수정=취소·저장.
-  const dockActions = !sel || (!creating && !editing) ? (
-    <PageActions
-      primary={{ label: '상품+', onClick: newP }}
-      edit={sel && !creating && !editing ? { onClick: startEdit } : undefined}
-      remove={sel && !creating && !editing ? { onClick: removeP } : undefined}
-    />
-  ) : (
+  // 하단바 = 편집 컨텍스트만(수정·삭제 / 취소·저장). 등록은 상단 툴바(listTools.action) → 목록뷰 이중바 제거.
+  const dockActions = creating || editing ? (
     <PageActions cancel={{ onClick: cancelEdit }} save={{ onClick: save, disabled: !dirty }} />
-  );
+  ) : sel ? (
+    <PageActions edit={{ onClick: startEdit }} remove={{ onClick: removeP }} />
+  ) : undefined;
   const fltCount = (stFlt !== 'all' ? 1 : 0) + (typeFlt !== 'all' ? 1 : 0);
   return (
     <>
@@ -647,6 +643,7 @@ export default function Inventory() {
         actions={dockActions}
         listTools={{
           search: { value: q, onChange: setQ, placeholder: '차번·차명·코드·옵션·공급사·메모…' },
+          action: { label: '등록', onClick: newP },
           sort: { value: sort, onChange: (v) => setSort(v as InvSort | ''), options: INV_SORTS },
           filter: {
             count: fltCount,

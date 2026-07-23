@@ -8,9 +8,10 @@ import { type EntityRecord } from '@/lib/intake/entities';
 import { getProgress, CONTRACT_STATES, isContractInProgress } from '@/lib/domain/contract';
 import { createSettlement } from '@/lib/domain/settlement-engine';
 import { downloadSettlementsExcel } from '@/lib/excel-export';
+import { Download } from 'lucide-react';
 import { getRole, actor, ensureRoomForContract, type Role } from '@/lib/domain/deal';
 import { man } from '@/lib/format';
-import { PaneHead, PaneBody, Badge, Btn, Input, won, C, R, NUM, Loading, CenterNote, SETTLEMENT_STATUS_TONE, FilterChips, SectionLabel, PageActions, FW, FS } from '@/components/ui';
+import { PaneHead, PaneBody, Badge, Btn, Input, won, C, R, NUM, Loading, CenterNote, SETTLEMENT_STATUS_TONE, FilterChips, SectionLabel, FW, FS } from '@/components/ui';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
 import { ContractPanel } from '@/components/ContractPanel';
 import { ContractDocs } from '@/components/ContractDocs';
@@ -265,10 +266,10 @@ export default function ContractsSettlement() {
         listCount={shown.length}
         list={rows === null ? <Loading /> : <>{summaryBar}{listEl}</>} panes={panes} selected={!!sel} onBack={clearSel}
         contextTitle={selC ? String(selC.customer_name || selC.vehicle_name || selC.car_number || selC.contract_code || '') : undefined}
-        actions={setts.length ? <PageActions extra={<Btn variant="ghost" size="sm" onClick={() => downloadSettlementsExcel(setts, new Date().toISOString().slice(0, 10), role === 'admin')}>정산 엑셀</Btn>} /> : undefined}
         search={{ value: q, onChange: setQ, placeholder: '계약·차번·계약자·전화·영업·공급…' }}
         listTools={{
           search: { value: q, onChange: setQ, placeholder: '계약·차번·계약자·전화·영업…' },
+          action: setts.length ? { label: '엑셀', icon: Download, onClick: () => downloadSettlementsExcel(setts, new Date().toISOString().slice(0, 10), role === 'admin') } : undefined,
           sort: { value: sort, onChange: (v) => setSort(v as ContSort | ''), options: CONT_SORTS },
           filter: {
             count: flt === '진행' ? 0 : 1,

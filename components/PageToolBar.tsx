@@ -18,6 +18,8 @@ export type PageToolItem = {
   active?: boolean;
   /** 시트 열림(aria-pressed) */
   pressed?: boolean;
+  /** 주액션(등록·엑셀 등) — 브랜드 강조. 토글 아님(aria-pressed 미부여). */
+  accent?: boolean;
   onClick: () => void;
 };
 
@@ -37,7 +39,7 @@ export function PageToolBar({
       <div className="fp-page-tool-row">
         {tools.map((t) => {
           const Icon = t.icon;
-          const on = !!(t.active || t.pressed);
+          const on = !!(t.active || t.pressed || t.accent);
           const badge = t.badge != null && t.badge > 0 ? t.badge : undefined;
           return (
             <Btn

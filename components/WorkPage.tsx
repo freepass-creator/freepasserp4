@@ -254,7 +254,9 @@ export function WorkPage({
     <>
       <div style={{ display: 'flex', height: 'calc(100dvh - var(--topbar-h) - var(--fp-bar-h))', borderTop: `1px solid ${C.line}`, overflowX: 'hidden', background: C.bg }}>
         <div style={col('1 1 0', { minWidth: 0, overflow: 'hidden' })}>
-          <PaneHead title={title} count={listCount} />
+          <PaneHead title={title} count={listCount} right={resolvedTools?.action ? (
+            <Btn size="sm" disabled={resolvedTools.action.disabled} onClick={resolvedTools.action.onClick}>{resolvedTools.action.label}</Btn>
+          ) : undefined} />
           {webSearchBar}
           <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', minHeight: 0, background: C.taupeBg }}>{list}</div>
         </div>
