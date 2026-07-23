@@ -93,30 +93,44 @@ export function adminSettlementCode(month: string, contractCode: string): string
   return `AS_${month}_${contractCode}`;
 }
 
-/** 건별 정산완료 → 월정산서 초안. sale_fee=R1, delivery_fee=R2 시드. */
-export function fromCaseSettlement(s: EntityRecord, month: string): EntityRecord {
+const pick = (a: unknown, b: unknown): unknown => (a != null && a !== '' ? a : b);
+const rateStr = (v: unknown): string => (v != null && v !== '' ? String(v) : '');
+
+/**
+ * 건별 정산완료 → 월정산서 초안. sale_fee=R1, delivery_fee=R2 시드.
+ * 메타(수수료율·보증금·상품구분·연락처)는 정산 스냅샷이 우선, 없으면 조인 계약(ctx.contract)·상품(ctx.product_type)에서 보충.
+ *  ※ createSettlement가 저장하는 실제 키(fee_rate 등)를 읽고, 정산에 없는 필드는 계약/상품 조인으로 채운다.
+ */
+export function fromCaseSettlement(
+  s: EntityRecord, month: string,
+  ctx?: { contract?: EntityRecord | null; product_type?: string },
+): EntityRecord {
   const code = String(s.contract_code || '');
+  const c = (ctx?.contract || undefined) as Record<string, unknown> | undefined;
+  const term = pick(s.rent_month_snapshot, c?.rent_month_snapshot);
   const base: EntityRecord = {
     admin_settlement_code: adminSettlementCode(month, code),
     settle_month: month,
     contract_code: code,
     settle_status: '정산완료',
     provider_name: String(s.provider_company_code || ''),
-    car_number: String(s.car_number || ''),
-    model_name: String(s.sub_model_snapshot || s.vehicle_name_snapshot || ''),
-    customer_name: String(s.customer_name || ''),
-    customer_phone: String(s.customer_phone || ''),
-    contract_term: s.rent_month_snapshot ? `${s.rent_month_snapshot}개월` : '',
-    deposit: Number(s.deposit_amount_snapshot) || 0,
+    car_number: String(s.car_number || c?.car_number_snapshot || ''),
+    model_name: String(s.sub_model_snapshot || s.vehicle_name_snapshot || c?.sub_model_snapshot || ''),
+    customer_name: String(s.customer_name || c?.customer_name || ''),
+    customer_phone: String(s.customer_phone || c?.customer_phone || ''),
+    contract_term: term ? `${term}개월` : '',
+    deposit: Number(pick(s.deposit_amount_snapshot, c?.deposit_amount_snapshot)) || 0,
     rental_fee: Number(s.rent_amount) || 0,
     contract_rent: Number(s.rent_amount) || 0,
-    product_type: String(s.product_type_snapshot || ''),
+    product_type: String(s.product_type_snapshot || ctx?.product_type || ''),
     fee_code: String(s.settlement_code || ''),
-    provider_fee_rate: s.fee_rate_snapshot != null ? String(s.fee_rate_snapshot) : '',
+    // createSettlement는 공급사율을 fee_rate 로 저장(fee_rate_snapshot 아님). 계약 조인 시 fee_rate_snapshot 로 보충.
+    provider_fee_rate: rateStr(pick(pick(s.fee_rate, s.fee_rate_snapshot), c?.fee_rate_snapshot)),
     sale_fee: Number(s.fee_amount) || 0,
     agency: String(s.agent_channel_code || ''),
     agent_name: String(s.agent_code || ''),
-    agency_fee_rate: s.agent_payout_rate_snapshot != null ? String(s.agent_payout_rate_snapshot) : '',
+    // 영업지급율은 정산 스냅샷에 없음 → 계약의 payout_rate_snapshot 로 보충.
+    agency_fee_rate: rateStr(pick(pick(s.agent_payout_rate_snapshot, s.payout_rate_snapshot), c?.payout_rate_snapshot)),
     delivery_fee: Number(s.agent_payout) || 0,
     source_settlement_code: String(s.settlement_code || ''),
   };
@@ -131,10 +145,16 @@ export async function importCompletedForMonth(month: string): Promise<{ created:
     String(s.settlement_status) === '정산완료' && String(s.contract_date || '').slice(0, 7) === month
   );
   const existing = new Set((await store.list('admin_settlement', co)).map((r) => String(r._key || r.admin_settlement_code)));
+  // 정산 스냅샷에 없는 메타(보증금·연락처·상품구분·수수료율) 보충용 조인 — 계약(계약코드)·상품(상품코드). 매칭 없으면 공란 유지.
+  const [contracts, products] = await Promise.all([store.list('contract', co), store.list('product', co)]);
+  const cByCode = new Map(contracts.map((c) => [String(c.contract_code), c]));
+  const pByCode = new Map(products.map((p) => [String(p.product_code), p]));
   const creates: EntityRecord[] = [];
   let skipped = 0;
   for (const s of cases) {
-    const rec = fromCaseSettlement(s, month);
+    const c = cByCode.get(String(s.contract_code)) || null;
+    const product_type = c ? String(pByCode.get(String(c.product_code))?.product_type || '') : '';
+    const rec = fromCaseSettlement(s, month, { contract: c, product_type });
     const key = String(rec.admin_settlement_code);
     if (existing.has(key)) { skipped++; continue; }
     creates.push(rec);

@@ -51,8 +51,12 @@ export function initAuth(): Promise<void> {
             const rawRole = profile.role === 'agent_manager' ? 'agent_admin' : String(profile.role || '');
             const role = mapRole(rawRole);
             const company_code = String(profile.company_code || '');
-            const agent_channel_code = String(profile.agent_channel_code || '') || company_code;
             const user_code = String(profile.user_code || '').trim();
+            // 채널 폴백: provider=''(회사코드로 스코프), agent=본인 채널→사람키(user_code→uid).
+            //  company_code 폴백 제거 — 개인(SP999) 영업자에게 공유 SP999 채널을 줘 교차 테넌트 유출되던 결함 수정.
+            const agent_channel_code = role === 'provider'
+              ? ''
+              : (String(profile.agent_channel_code || '').trim() || user_code || user.uid);
             // 귀속키 SSOT: 공급사=회사코드, 영업자=사람키(user_code→uid). 채널코드로 방/계약을 묶지 않음(동채널 충돌·/q?a= 불일치 방지).
             const code = role === 'provider'
               ? company_code

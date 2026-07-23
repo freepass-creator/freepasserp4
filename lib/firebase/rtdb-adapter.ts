@@ -45,7 +45,18 @@ const isKashungProduct = (r: Rec): boolean =>
 // 공급 원가(vehicle_price) = 마진 노출 필드. 영업자·손님에겐 read 단에서 가린다(관리자·공급사만 조회).
 //  ※ 수수료(price.*.fee)는 영업자 수익 판단 기준이라 유지. vin도 유지(식별자).
 //  RTDB는 필드단위 규칙이 안 되므로 앱 어댑터에서 차단 — 완전 격리는 v4/products_private 이관(부채) 후.
-function seesProductCost(): boolean { const role = getSession()?.role; return role === 'admin' || role === 'provider'; }
+// 원가(vehicle_price) 노출 판정 — admin=전체, provider=본인 소유 매물(provider_company_code===본인 회사)만, 그 외=차단.
+//  ★provider가 타사 매물 원가까지 받던 유출 차단 — 레코드별 소유 판정(currentActor가 아닌 세션의 company_code 사용).
+function seesProductCost(p?: EntityRecord): boolean {
+  const sess = getSession();
+  const role = sess?.role;
+  if (role === 'admin') return true;
+  if (role === 'provider') {
+    const own = String(sess?.company_code || sess?.code || '');
+    return !!own && String((p as Rec | undefined)?.provider_company_code || '') === own;
+  }
+  return false;
+}
 function stripProductCost(p: EntityRecord): EntityRecord {
   if (p.vehicle_price == null) return p;
   const out: Rec = { ...(p as Rec) };
@@ -389,7 +400,14 @@ export class RtdbAdapter implements StoreAdapter {
       ]);
       const map = new Map<string, EntityRecord>();
       for (const r of live) map.set(String(r._key), r);
-      for (const r of over) { const k = String(r._key); map.set(k, { ...(map.get(k) || {}), ...r }); }
+      for (const r of over) {
+        const k = String(r._key);
+        // 오버레이 부분패치의 undefined 값이 v3 파생필드(_policy·photos 등)를 덮어 유실시키던 결함 수정:
+        //  undefined 값 키는 병합에서 스킵. 단 빈 문자열('')은 의도적 클리어(inventory resetForm)이므로 덮어쓰기 유지.
+        const cur: Rec = { ...(map.get(k) || {}) };
+        for (const [kk, vv] of Object.entries(r)) if (vv !== undefined) cur[kk] = vv;
+        map.set(k, cur as EntityRecord);
+      }
       const result = [...map.values()];
       // 매물엔 공급사 한글이름(provider_name) 부착 — 상세·목록 SSOT(파인더와 동일). 코드만 보이던 문제 해결.
       if (entity === 'product') return withProviderNames(result, await partnersP!);
@@ -415,7 +433,7 @@ export class RtdbAdapter implements StoreAdapter {
     // erp3 소프트삭제 정합: status==='deleted' 도 제외(_deleted 불리언과 별개 마커 — 이걸 안 걸러 재고가 부풀었음)
     const live = rows.filter((r) => String((r as Rec).status) !== 'deleted');
     const shown = dedupeByVehicleIdentity(live.filter((r) => !isExcludedProduct(r as Rec))); // 카슝(연동)·10년 제외 후 실물 신원 중복 제거
-    return seesProductCost() ? shown : shown.map(stripProductCost); // 영업자·손님엔 원가 가림
+    return shown.map((r) => (seesProductCost(r) ? r : stripProductCost(r))); // 원가는 관리자·본인소유 공급사만(레코드별 판정)
   }
   async listDeleted(entity: string, co: string): Promise<EntityRecord[]> {
     return (await this.merged(entity, co)).filter((r) => r._deleted || r.deletedAt);
@@ -425,7 +443,7 @@ export class RtdbAdapter implements StoreAdapter {
     if (!r || entity !== 'product') return r;
     if (String((r as Rec).status) === 'deleted') return null; // erp3 소프트삭제 정합
     if (isExcludedProduct(r as Rec)) return null; // 카슝(연동)·10년이상은 직접링크로도 숨김
-    return seesProductCost() ? r : stripProductCost(r); // 영업자·손님엔 원가 가림
+    return seesProductCost(r) ? r : stripProductCost(r); // 원가는 관리자·본인소유 공급사만(레코드별 판정)
   }
 
   async save(entity: string, co: string, records: EntityRecord[]): Promise<SaveResult> {

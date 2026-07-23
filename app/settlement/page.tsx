@@ -18,6 +18,10 @@ import { NAV_LABEL } from '@/lib/tabbar';
 // 관리자 월별정산 — ① 집계(건별 R1/R2) ② 정산서(VAT·청구/지급 admin_settlement).
 const monthOf = (s: EntityRecord) => String(s.contract_date || '').slice(0, 7);
 const tdL: typeof td = { ...td, textAlign: 'left' as const };
+// 순수익 = 취소·환수(클로백) 건 제외 net 합산 — 계약페이지 기준(환수 전이된 건은 순수익에서 빠짐)과 통일.
+//  환수 건은 settlement_status 에 '환수'(환수대기·환수결정) 포함 → 제외. 환수액은 별도 카드/열로 계속 표기.
+const isClawed = (s: EntityRecord) => String(s.settlement_status || '').includes('환수');
+const netProfitOf = (list: EntityRecord[]) => list.reduce((n, s) => (isClawed(s) ? n : n + (Number(s.net_amount) || 0)), 0);
 
 export default function MonthlySettlement() {
   const co = getCompanyId();
@@ -66,7 +70,7 @@ export default function MonthlySettlement() {
   const idx = months.indexOf(month);
   const step = (d: number) => { const i = idx + d; if (i >= 0 && i < months.length) setMonth(months[i]); };
 
-  // 공급사별·영업채널별 소계(정산서). 환수는 net에서 이미 fee_amount 기준이라 별도 표기.
+  // 공급사별·영업채널별 소계(정산서). 순수익(net)=취소·환수 제외 net 합산(netProfitOf), 환수(cb)는 별도 표기.
   const grouped = useMemo(() => {
     if (group === 'none') return [] as { name: string; n: number; r1: number; r2: number; net: number; cb: number }[];
     const key = group === 'provider' ? 'provider_company_code' : 'agent_channel_code';
@@ -76,7 +80,7 @@ export default function MonthlySettlement() {
       const r1 = list.reduce((n, s) => n + (Number(s.fee_amount) || 0), 0);
       const r2 = list.reduce((n, s) => n + (Number(s.agent_payout) || 0), 0);
       const cb = list.reduce((n, s) => n + (Number(s.clawback_amount) || 0), 0);
-      return { name, n: list.length, r1, r2, net: r1 - r2, cb };
+      return { name, n: list.length, r1, r2, net: netProfitOf(list), cb };
     }).sort((a, b) => b.net - a.net);
   }, [monthRows, group]);
 
@@ -85,7 +89,7 @@ export default function MonthlySettlement() {
   const cards: [string, number, string][] = [
     ['공급사 청구 (R1)', tot((s) => s.fee_amount), C.ink],
     ['영업자 지급 (R2)', tot((s) => s.agent_payout), C.ink],
-    ['순수익', tot((s) => s.net_amount), C.brand],
+    ['순수익', netProfitOf(monthRows), C.brand],
     ['환수', tot((s) => s.clawback_amount), C.danger],
   ];
   return (
@@ -154,7 +158,7 @@ export default function MonthlySettlement() {
                   </div>
                 </div>
               ))}
-              <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: C.head, padding: '10px 12px', fontSize: FS.sub }}><b>합계 {monthRows.length}건</b> · 순수익 <b style={{ color: C.brand, fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{won(tot((s) => s.net_amount))}</b> · 환수 <b style={{ color: C.danger, fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{won(tot((s) => s.clawback_amount))}</b></div>
+              <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: C.head, padding: '10px 12px', fontSize: FS.sub }}><b>합계 {monthRows.length}건</b> · 순수익 <b style={{ color: C.brand, fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{won(netProfitOf(monthRows))}</b> · 환수 <b style={{ color: C.danger, fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{won(tot((s) => s.clawback_amount))}</b></div>
             </div>
           ) : (
             <div className="fp-sheet">
@@ -170,7 +174,7 @@ export default function MonthlySettlement() {
                     <td style={{ ...tdL, fontWeight: FW.head }} colSpan={2}>합계 {monthRows.length}건</td>
                     <td style={{ ...tdR, fontWeight: FW.head }}>{won(tot((s) => s.fee_amount))}</td>
                     <td style={{ ...tdR, fontWeight: FW.head }}>{won(tot((s) => s.agent_payout))}</td>
-                    <td style={{ ...tdR, fontWeight: FW.head, color: C.brand }}>{won(tot((s) => s.net_amount))}</td>
+                    <td style={{ ...tdR, fontWeight: FW.head, color: C.brand }}>{won(netProfitOf(monthRows))}</td>
                     <td style={{ ...tdR, fontWeight: FW.head, color: C.danger }}>{won(tot((s) => s.clawback_amount))}</td>
                   </tr>
                 </tbody>
@@ -202,7 +206,7 @@ export default function MonthlySettlement() {
               );
             })}
             <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: C.head, padding: '10px 12px', fontSize: FS.sub }}>
-              <b>합계 {monthRows.length}건</b> · 청구 <b style={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{won(tot((s) => s.fee_amount))}</b> · 지급 <b style={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{won(tot((s) => s.agent_payout))}</b> · 순수익 <b style={{ color: C.brand, fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{won(tot((s) => s.net_amount))}</b>
+              <b>합계 {monthRows.length}건</b> · 청구 <b style={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{won(tot((s) => s.fee_amount))}</b> · 지급 <b style={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{won(tot((s) => s.agent_payout))}</b> · 순수익 <b style={{ color: C.brand, fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{won(netProfitOf(monthRows))}</b>
             </div>
           </div>
         ) : (
@@ -233,7 +237,7 @@ export default function MonthlySettlement() {
                   <td style={{ ...tdR, fontWeight: FW.head }}>{won(tot((s) => s.rent_amount))}</td>
                   <td style={{ ...tdR, fontWeight: FW.head }}>{won(tot((s) => s.fee_amount))}</td>
                   <td style={{ ...tdR, fontWeight: FW.head }}>{won(tot((s) => s.agent_payout))}</td>
-                  <td style={{ ...tdR, fontWeight: FW.head, color: C.brand }}>{won(tot((s) => s.net_amount))}</td>
+                  <td style={{ ...tdR, fontWeight: FW.head, color: C.brand }}>{won(netProfitOf(monthRows))}</td>
                   <td style={{ ...tdR, fontWeight: FW.head, color: C.danger }}>{won(tot((s) => s.clawback_amount))}</td>
                   <td style={tdL} />
                 </tr>
