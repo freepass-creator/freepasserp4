@@ -156,11 +156,11 @@ export function ProductDetail({ p, audience }: { p: EntityRecord; audience?: Aud
           ) : sec.kind === 'ins' ? (
             <div style={box}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: FS.body, tableLayout: 'fixed' }}>
-                <thead><tr>{['항목', '보장한도', '면책금'].map((h, i) => <th key={h} style={{ width: i ? '36%' : '28%', textAlign: i ? 'right' : 'left', padding: '5px 10px', background: C.head, borderBottom: `1px solid ${C.line}`, fontSize: FS.cap, fontWeight: FW.strong, color: C.mute }}>{h}</th>)}</tr></thead>
+                <thead><tr>{['항목', '보장한도', '면책금'].map((h, i) => <th key={h} style={{ width: '33.33%', textAlign: i === 0 ? 'left' : i === 1 ? 'center' : 'right', padding: '5px 10px', background: C.head, borderBottom: `1px solid ${C.line}`, fontSize: FS.cap, fontWeight: FW.strong, color: C.mute }}>{h}</th>)}</tr></thead>
                 <tbody>{sec.rows.map(([lbl, limit, ded], i) => (
                   <tr key={lbl} style={{ borderTop: i ? `1px solid ${C.line2}` : 'none' }}>
                     <td style={{ padding: '5px 10px', color: C.mute }}>{lbl}</td>
-                    <td style={{ padding: '5px 10px', textAlign: 'right', color: limit ? C.ink : C.faint, fontVariantNumeric: 'tabular-nums' }}>{limit || '—'}</td>
+                    <td style={{ padding: '5px 10px', textAlign: 'center', color: limit ? C.ink : C.faint, fontVariantNumeric: 'tabular-nums' }}>{limit || '—'}</td>
                     <td style={{ padding: '5px 10px', textAlign: 'right', color: ded ? C.ink : C.faint, fontVariantNumeric: 'tabular-nums' }}>{ded || '—'}</td>
                   </tr>
                 ))}</tbody>
