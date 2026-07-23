@@ -416,7 +416,7 @@ export default function Finder() {
       const m = String(p.sub_model || p.model || '').trim();
       if (m) cnt.set(m, (cnt.get(m) || 0) + 1);
     }
-    return [...cnt.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([m, c]) => ({ key: m, label: m, count: c }));
+    return [...cnt.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([m], i) => ({ key: m, label: `${i + 1} ${m}` }));
   }, [rows]);
 
   const list = useMemo(() => {
