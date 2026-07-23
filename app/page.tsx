@@ -254,6 +254,7 @@ export default function Finder() {
   const [promo, setPromo] = useState<Set<string>>(new Set());
   const [dyn, setDyn] = useState<Record<string, Set<string>>>({});
   const [vehicle, setVehicle] = useState<VehicleFilter>({ ...EMPTY_VEHICLE_FILTER });
+  const [models, setModels] = useState<Set<string>>(() => new Set()); // 인기차종 빠른필터(모델명)
   const [sort, setSort] = useState('');
   const [view, setViewState] = useState('card');
   const [homeTool, setHomeTool] = useState<HomeTool | null>(null); // 모바일 하단 시트
@@ -407,11 +408,23 @@ export default function Finder() {
     return (rows || []).filter((p) => matchProduct(p, base));
     // eslint-disable-next-line
   }, [rows, q, periods, rent, dep, mile, fuel, ptype, credit, perks, promo, dyn]);
+  // 인기차종 = 카탈로그 노출 매물의 모델(세부모델) 상위 10개.
+  const popModels = useMemo(() => {
+    const cnt = new Map<string, number>();
+    for (const p of rows || []) {
+      if (isHiddenFromCatalog(p)) continue;
+      const m = String(p.sub_model || p.model || '').trim();
+      if (m) cnt.set(m, (cnt.get(m) || 0) + 1);
+    }
+    return [...cnt.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([m, c]) => ({ key: m, label: m, count: c }));
+  }, [rows]);
+
   const list = useMemo(() => {
     // 정렬·표시 = 최저 대여료. 숨김 제외. 관심없음=맨 뒤.
     const l = (rows || []).filter((p) => {
       const code = String(p.product_code || p._key || '');
       if (code && hiddenCodes.has(code)) return false;
+      if (models.size && !models.has(String(p.sub_model || p.model || '').trim())) return false;
       return matchProduct(p, s);
     });
     // 기본 정렬 = 무보증 가능 차량 우선(그 외 원순서). 명시 정렬 선택 시엔 그 기준 그대로.
@@ -444,7 +457,7 @@ export default function Finder() {
     }
     return [...front, ...back];
     // eslint-disable-next-line
-  }, [rows, q, periods, rent, dep, mile, fuel, ptype, credit, perks, promo, dyn, vehicle, sort, hiddenCodes, passedCodes]);
+  }, [rows, q, periods, rent, dep, mile, fuel, ptype, credit, perks, promo, dyn, vehicle, sort, hiddenCodes, passedCodes, models]);
 
   const totalVisible = useMemo(() => {
     const all = (rows || []).filter((p) => !isHiddenFromCatalog(p));
@@ -463,7 +476,7 @@ export default function Finder() {
   const focusMonth = periods.size === 1 ? [...periods][0] : undefined;
 
   // 필터·정렬·관심탭 바뀌면 더보기 리셋
-  useEffect(() => { setLimit(PAGE); }, [q, periods, rent, dep, mile, fuel, ptype, credit, perks, promo, dyn, vehicle, sort, colFilter, colSort, interestTab]);
+  useEffect(() => { setLimit(PAGE); }, [q, periods, rent, dep, mile, fuel, ptype, credit, perks, promo, dyn, vehicle, sort, colFilter, colSort, interestTab, models]);
 
   // 엑셀 헤더 필터·정렬 적용(사이드바 필터 위에 추가). 정렬=숫자칸만(연식·주행·대여료).
   const excelRows = useMemo(() => {
@@ -647,6 +660,11 @@ export default function Finder() {
                 return { key: String(m), label: hit?.label || `${m}개월` };
               })}
             />
+          </FilterGroup>
+        )}
+        {popModels.length > 0 && (
+          <FilterGroup title="인기차종" count={models.size} defaultOpen onClear={() => setModels(new Set())}>
+            <ToggleChips selected={models} onToggle={(k) => setModels((p) => toggleInSet(p, k))} options={popModels} />
           </FilterGroup>
         )}
         {present.rent.length > 0 && (
