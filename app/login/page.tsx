@@ -117,10 +117,10 @@ export default function LoginPage() {
       if (typeof window !== 'undefined') window.alert(`가입 실패\n${m}`);
       setBusy(false); return;
     }
-    await logout().catch(() => {});
-    setEmail(su.email.trim()); switchMode('login');
-    say('가입 완료! 이메일·비밀번호로 로그인해주세요.', 'ok'); setBusy(false);
-    if (typeof window !== 'undefined') window.alert('가입이 완료되었습니다.\n이메일·비밀번호로 로그인해주세요.');
+    // 자동승인 — 로그아웃/재로그인 없이 방금 만든 계정으로 바로 홈. 가입 시 이미 로그인 상태이므로
+    //  전체 새로고침(location.assign)으로 세션(역할·회사)을 신선하게 로드한다. (로그인 화면 안 거침)
+    say('가입 완료! 이동 중…', 'ok');
+    if (typeof window !== 'undefined') window.location.assign('/');
   };
 
   const doReset = async (e: React.FormEvent) => {

@@ -6,7 +6,7 @@ import { Menu, X, Search, FileText, ScrollText, Settings, ChevronLeft, List, His
 import { useAppBarSlots } from '@/lib/appbar';
 import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
-import { getRole, actor, ROLE_LABEL, type Role } from '@/lib/domain/deal';
+import { getRole, actor, type Role } from '@/lib/domain/deal';
 import { useSession } from '@/lib/auth-context';
 import { isGuest } from '@/lib/auth-session';
 import { loadMenuBadges, menuItemBadge, type MenuBadgeMap } from '@/lib/domain/menu-badges';
@@ -119,8 +119,7 @@ function WebSessionMeta() {
   }, [session?.company_code, role, guest]);
 
   const name = session?.name || me?.name || '';
-  const job = mounted ? (ROLE_LABEL[role] || role) : '';
-  const bits = [org, name, job].filter(Boolean);
+  const bits = [org, name].filter(Boolean); // 직책(역할 라벨)은 상단바에서 제외
 
   return (
     <Link
