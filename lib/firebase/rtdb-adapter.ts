@@ -454,9 +454,11 @@ export class RtdbAdapter implements StoreAdapter {
         if (p[f] === undefined && (before as Rec)[f] != null && (before as Rec)[f] !== '') p[f] = (before as Rec)[f];
       }
     }
-    // product = provider 쓰기 규칙이 newData.provider_company_code === 내 company 를 요구.
-    //  색상·마스터스냅 등 부분패치가 첫 v4 오버레이면 회사코드 누락으로 거부됨(inventory select 자동저장).
-    if (entity === 'product' && before) {
+    // product 소유코드 승계 = provider 자기매물 부분패치일 때만. (색·마스터스냅 첫 v4 오버레이가 회사코드 누락으로 거부되던 것 방지)
+    //  ★영업자 락-write(계약금입금·취소·완료 → vehicle_status/locked_by_contract)엔 절대 스탬프 금지:
+    //   provider_company_code 리프는 v4/products 자식 .write가 없어 부모규칙(admin|provider only)로 판정됨 →
+    //   영업자에 딸려 들어가면 원자 멀티패스 write 전체가 permission_denied(딜 진행 전부 막힘). 영업자는 이 필드 불필요.
+    if (entity === 'product' && before && currentActor().role === 'provider') {
       if (p.provider_company_code === undefined && (before as Rec).provider_company_code != null && (before as Rec).provider_company_code !== '') {
         p.provider_company_code = (before as Rec).provider_company_code;
       }
