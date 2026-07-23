@@ -51,36 +51,9 @@ export function ProductDetail({ p, audience }: { p: EntityRecord; audience?: Aud
   const pol = (p._policy || {}) as Record<string, unknown>;
   const caption = [pol.basic_driver_age, pol.annual_mileage, pol.insurance_included].filter(Boolean).join(' · ');
   const { idMain, idExt } = idParts(p);
-  // 엔카식 웹 배열용 — 대여료 섹션은 우측 sticky 레일로, 나머지는 사진 아래. 좁으면 세로로 reflow.
-  const priceSec = secs.find((x) => x.kind === 'price');
-  const otherSecs = secs.filter((x) => x.kind !== 'price');
-  const photoBadges = ([
-    String(p.deposit_free ?? '') === '예' ? { t: '무보증', go: true } : null,
-    pol.deposit_installment ? { t: '분납', go: false } : null,
-  ].filter(Boolean)) as { t: string; go: boolean }[];
-  const priceBody = (
-    <div style={box}>
-      <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: FS.body, tableLayout: 'fixed' }}>
-        <thead><tr>{['기간', '월대여료', '보증금'].map((h, i) => <th key={h} style={{ width: '33.33%', padding: '6px 10px', textAlign: i === 0 ? 'left' : i === 1 ? 'center' : 'right', background: C.head, borderBottom: `1px solid ${C.line}`, fontSize: FS.cap, color: C.mute, fontWeight: FW.strong }}>{h}</th>)}</tr></thead>
-        <tbody>{prices.length === 0 ? <tr><td colSpan={3} style={{ padding: 12, textAlign: 'center', color: C.faint }}>가격 문의</td></tr> :
-          prices.map((pr, i) => {
-            const isCheap = !!cheap && pr.m === cheap.m;
-            return (
-              <tr key={pr.m} style={{ borderTop: i ? `1px solid ${C.line2}` : 'none', background: isCheap ? C.selected : 'transparent' }}>
-                <td style={{ padding: '6px 10px' }}>{pr.m}개월{isCheap && <span style={{ marginLeft: 5, fontSize: FS.micro, fontWeight: FW.label, color: C.taupeBg, background: C.brand, borderRadius: R, padding: '1px 5px', verticalAlign: 'middle' }}>최저</span>}</td>
-                <td style={{ padding: '6px 10px', textAlign: 'center', fontWeight: FW.head, color: C.brand, fontFamily: NUM }}>{won(pr.rent)}</td>
-                <td style={{ padding: '6px 10px', textAlign: 'right', fontFamily: NUM }}>{won(pr.deposit)}</td>
-              </tr>
-            );
-          })}</tbody>
-      </table>
-      {caption && <div style={{ padding: '6px 10px', fontSize: FS.cap, color: C.faint, borderTop: `1px solid ${C.line2}` }}>* {caption} 기준</div>}
-    </div>
-  );
 
   return (
-    <div className="pd-root">
-      <style>{`.pd-root{container-type:inline-size}.pd-grid{display:flex;flex-direction:column}@container (min-width:820px){.pd-grid{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(288px,344px);grid-template-areas:"gallery price" "info price";gap:0 26px;align-items:start}.pd-gallery{grid-area:gallery;min-width:0}.pd-info{grid-area:info;min-width:0}.pd-price{grid-area:price;min-width:0}.pd-price>div{position:sticky;top:12px;margin-top:0}}`}</style>
+    <div>
       {/* 1 헤더 — 차명 → 차번·상태·상품·심사 → 우대·이벤트 (원자 공용) */}
       <div style={{ marginBottom: 11 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
@@ -98,21 +71,12 @@ export function ProductDetail({ p, audience }: { p: EntityRecord; audience?: Aud
         </div>
       </div>
 
-      <div className="pd-grid">
-      <div className="pd-gallery">
       {/* 2 사진 */}
       {photos.length ? (
         <div>
           <div onClick={() => setLb(mainIdx)} style={{ position: 'relative', aspectRatio: '16 / 10', background: C.placeholder, borderRadius: R, overflow: 'hidden', cursor: 'zoom-in' }}>
             <img src={photos[mainIdx]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             {aud !== 'customer' && <span style={{ position: 'absolute', top: 8, right: 8, zIndex: 2 }}><FavHeart p={p} onPhoto /></span>}
-            {photoBadges.length > 0 && (
-              <div style={{ position: 'absolute', left: 8, bottom: 8, display: 'flex', flexWrap: 'wrap', gap: 5, maxWidth: '72%' }}>
-                {photoBadges.map((b) => (
-                  <span key={b.t} style={{ fontSize: 11.5, fontWeight: 800, padding: '4px 9px', borderRadius: 999, color: b.go ? '#fff' : '#0e2038', background: b.go ? '#12a150' : 'rgba(255,255,255,0.95)', boxShadow: '0 2px 8px rgba(0,0,0,0.28)' }}>{b.t}</span>
-                ))}
-              </div>
-            )}
             <span style={{ position: 'absolute', right: 8, bottom: 8, background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: FS.cap, fontWeight: FW.strong, padding: '2px 8px', borderRadius: R, fontFamily: NUM }}>{mainIdx + 1} / {photos.length}</span>
           </div>
           {photos.length > 1 && (
@@ -147,21 +111,30 @@ export function ProductDetail({ p, audience }: { p: EntityRecord; audience?: Aud
           {aud !== 'customer' && <span style={{ position: 'absolute', top: 8, right: 8 }}><FavHeart p={p} onPhoto /></span>}
         </div>
       )}
-      </div>
-      <aside className="pd-price">
-        {priceSec ? (
-          <div style={{ marginTop: 11 }}>
-            <div style={{ fontSize: FS.title, fontWeight: FW.title, color: C.ink, marginBottom: 4 }}>{priceSec.title}</div>
-            {priceBody}
-          </div>
-        ) : null}
-      </aside>
-      <div className="pd-info">
+
       {/* 3 섹션 — 데이터=detailSections. 표기 원자=웹·모바일 동일 */}
-      {otherSecs.map((sec) => (
+      {secs.map((sec) => (
         <div key={sec.title} style={{ marginTop: 11 }}>
           <div style={{ fontSize: FS.title, fontWeight: FW.title, color: C.ink, marginBottom: 4 }}>{sec.title}</div>
-          {sec.kind === 'ins' ? (
+          {sec.kind === 'price' ? (
+            <div style={box}>
+              <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: FS.body, tableLayout: 'fixed' }}>
+                <thead><tr>{['기간', '월대여료', '보증금'].map((h, i) => <th key={h} style={{ width: '33.33%', padding: '6px 10px', textAlign: i === 0 ? 'left' : i === 1 ? 'center' : 'right', background: C.head, borderBottom: `1px solid ${C.line}`, fontSize: FS.cap, color: C.mute, fontWeight: FW.strong }}>{h}</th>)}</tr></thead>
+                <tbody>{prices.length === 0 ? <tr><td colSpan={3} style={{ padding: 12, textAlign: 'center', color: C.faint }}>가격 문의</td></tr> :
+                  prices.map((pr, i) => {
+                    const isCheap = !!cheap && pr.m === cheap.m;
+                    return (
+                      <tr key={pr.m} style={{ borderTop: i ? `1px solid ${C.line2}` : 'none', background: isCheap ? C.selected : 'transparent' }}>
+                        <td style={{ padding: '6px 10px' }}>{pr.m}개월{isCheap && <span style={{ marginLeft: 5, fontSize: FS.micro, fontWeight: FW.label, color: C.taupeBg, background: C.brand, borderRadius: R, padding: '1px 5px', verticalAlign: 'middle' }}>최저</span>}</td>
+                        <td style={{ padding: '6px 10px', textAlign: 'center', fontWeight: FW.head, color: C.brand, fontFamily: NUM }}>{won(pr.rent)}</td>
+                        <td style={{ padding: '6px 10px', textAlign: 'right', fontFamily: NUM }}>{won(pr.deposit)}</td>
+                      </tr>
+                    );
+                  })}</tbody>
+              </table>
+              {caption && <div style={{ padding: '6px 10px', fontSize: FS.cap, color: C.faint, borderTop: `1px solid ${C.line2}` }}>* {caption} 기준</div>}
+            </div>
+          ) : sec.kind === 'ins' ? (
             <div style={box}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: FS.body, tableLayout: 'fixed' }}>
                 <thead><tr>{['항목', '보장한도', '면책금'].map((h, i) => <th key={h} style={{ width: i ? '36%' : '28%', textAlign: i ? 'right' : 'left', padding: '5px 10px', background: C.head, borderBottom: `1px solid ${C.line}`, fontSize: FS.cap, fontWeight: FW.strong, color: C.mute }}>{h}</th>)}</tr></thead>
@@ -205,8 +178,6 @@ export function ProductDetail({ p, audience }: { p: EntityRecord; audience?: Aud
           )}
         </div>
       ))}
-      </div>
-      </div>
 
       {lb !== null && photos.length > 0 && (
         <div onClick={() => setLb(null)} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(0,0,0,0.92)', overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: '48px 12px' }}>
