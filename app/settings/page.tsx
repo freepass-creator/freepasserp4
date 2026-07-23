@@ -14,7 +14,7 @@ import { listPassed, unpassProduct, clearPassed, subscribePassed, type PassSnap 
 import { listRecent, listFavs, clearRecent, clearFavs, subscribeInterest } from '@/lib/product-interest';
 import {
   getThemePref, setThemePref, getHapticOn, setHapticOn, subscribePrefs,
-  type ThemePref, applyTheme,
+  getIdleMinutes, setIdleMinutes, type ThemePref, applyTheme,
 } from '@/lib/prefs';
 import { toast } from '@/components/Toaster';
 import { useIsMobile } from '@/lib/use-mobile';
@@ -36,6 +36,13 @@ const HAPTIC_OPTS: { key: 'on' | 'off'; label: string }[] = [
   { key: 'off', label: '끄기' },
 ];
 
+const IDLE_OPTS: { key: string; label: string }[] = [
+  { key: '0', label: '끔' },
+  { key: '10', label: '10분' },
+  { key: '30', label: '30분' },
+  { key: '60', label: '60분' },
+];
+
 /** 설정 — 계정·화면·피드백·관심·숨김·앱정보. 박스 중첩 없음. */
 export default function Settings() {
   const router = useRouter();
@@ -54,6 +61,7 @@ export default function Settings() {
   const [pPhone, setPPhone] = useState('');
   const [pInit, setPInit] = useState({ name: '', phone: '' });
   const [savingProfile, setSavingProfile] = useState(false);
+  const [idleMin, setIdleLocal] = useState(0);
 
   useEffect(() => {
     setRoleLocal(getRole());
@@ -85,6 +93,7 @@ export default function Settings() {
     const refreshPrefs = () => {
       setTheme(getThemePref());
       setHapticLocal(getHapticOn());
+      setIdleLocal(getIdleMinutes());
     };
     refreshHide();
     refreshInterest();
@@ -158,6 +167,11 @@ export default function Settings() {
       toast(`비밀번호 재설정 메일을 보냈습니다 · ${email}`, 'ok');
     } catch (e) { toast('메일 발송 실패: ' + String((e as Error).message || e), 'error'); }
   };
+  const onIdle = (m: number) => {
+    setIdleMinutes(m);
+    setIdleLocal(m);
+    toast(m ? `${m}분 자리비움 시 자동 로그아웃` : '자동 로그아웃 끔', 'info');
+  };
 
   const empty = (text: string) => (
     <div style={{ padding: '10px 0 4px', fontSize: 13, color: C.faint, lineHeight: 1.45 }}>{text}</div>
@@ -227,6 +241,17 @@ export default function Settings() {
             모바일에서 탭·전환 시 짧은 진동. 미지원 기기는 자동으로 무시됩니다.
           </div>
         </div>
+
+        {session ? (
+          <div>
+            <SectionLabel mt={0}>보안</SectionLabel>
+            <div style={{ fontSize: 12, color: C.faint, marginBottom: 8 }}>자동 로그아웃 (자리비움)</div>
+            <FilterChips value={String(idleMin)} onChange={(k) => onIdle(Number(k))} options={IDLE_OPTS} />
+            <div style={{ marginTop: 8, fontSize: 12, color: C.faint, lineHeight: 1.45 }}>
+              설정한 시간 동안 활동이 없으면 자동 로그아웃됩니다. 공용 PC에서 유용.
+            </div>
+          </div>
+        ) : null}
 
         <div>
           <SectionLabel mt={0}>

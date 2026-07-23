@@ -56,6 +56,17 @@ export function setHapticOn(on: boolean) {
   write(HAPTIC_KEY, on ? '1' : '0');
 }
 
+// 자동 로그아웃(유휴 분). 0 = 끔(기본). 허용값만.
+const IDLE_KEY = 'fp4_idle_min';
+const IDLE_ALLOWED = [0, 10, 30, 60];
+export function getIdleMinutes(): number {
+  const v = Number(read(IDLE_KEY));
+  return IDLE_ALLOWED.includes(v) ? v : 0;
+}
+export function setIdleMinutes(m: number) {
+  write(IDLE_KEY, String(IDLE_ALLOWED.includes(m) ? m : 0));
+}
+
 export function subscribePrefs(cb: () => void) {
   if (typeof window === 'undefined') return () => {};
   const on = () => cb();

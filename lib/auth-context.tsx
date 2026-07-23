@@ -61,6 +61,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener('unhandledrejection', h);
   }, []);
 
+  // 유휴 자동 로그아웃 — 로그인 상태에서만 무장(설정 0분이면 모듈 내부에서 끔).
+  useEffect(() => {
+    if (!active || !session) return;
+    let alive = true;
+    let stop = () => {};
+    import('@/lib/idle-logout').then((m) => { if (alive) { m.startIdleLogout(); stop = m.stopIdleLogout; } });
+    return () => { alive = false; stop(); };
+  }, [active, session]);
+
   // ready 전엔 캐시 세션·게스트로 통과 — persistence 복원 race에 /login 튕김 방지.
   const authed = !!session || isGuest() || (!ready && !!getSession());
   const onLogin = pathname === '/login';
