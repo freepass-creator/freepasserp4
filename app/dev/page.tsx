@@ -22,6 +22,8 @@ export default function DevTools() {
   const [master, setMaster] = useState<MasterEntry[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [log, setLog] = useState('');
+  const [migBusy, setMigBusy] = useState(false);
+  const [migLog, setMigLog] = useState('');
   const [role, setRoleLocal] = useState<Role>(() => (typeof window !== 'undefined' ? getRole() : 'agent'));
 
   const reload = useCallback(async () => {
@@ -88,6 +90,27 @@ export default function DevTools() {
     } finally { setBusy(false); }
   };
 
+  // v3 라이브 매물 → v4 오버레이 1회 복사(소스 전환 준비). dryRun=미리보기(쓰기 없음).
+  const runMigrate = async (dryRun: boolean) => {
+    if (migBusy) return;
+    if (!dryRun && typeof window !== 'undefined'
+      && !window.confirm('v3 매물을 v4로 복사합니다.\n이미 v4에 있는 건 건너뛰고, v3 원본은 변경하지 않습니다.\n진행할까요?')) return;
+    setMigBusy(true); setMigLog('');
+    try {
+      const { migrateV3ProductsToV4 } = await import('@/lib/firebase/migrate-products');
+      const r = await migrateV3ProductsToV4(dryRun);
+      const head = dryRun ? '[미리보기] ' : '[복사 완료] ';
+      const msg = `${head}v3 ${r.v3Total} · v4(전) ${r.v4Before} → ${dryRun ? '복사예정' : '복사'} ${r.copied}`
+        + ` · 이미있음 ${r.skippedExists} · 건너뜀 ${r.skippedUnsafe} · v4(후) ${r.v4After}`;
+      setMigLog(msg);
+      toast(msg, r.copied || dryRun ? 'ok' : 'info');
+      if (!dryRun) await reload();
+    } catch (e) {
+      const msg = '마이그레이션 오류: ' + String((e as Error).message || e);
+      setMigLog(msg); toast(msg, 'error');
+    } finally { setMigBusy(false); }
+  };
+
   if (ok === null) return <Loading />;
   if (!ok) {
     const canDemoSwitch = !getSession();
@@ -132,6 +155,20 @@ export default function DevTools() {
             </Badge>
           </div>
           {log && <pre style={{ margin: '10px 0 0', fontSize: FS.cap, color: C.mute, whiteSpace: 'pre-wrap', fontFamily: 'var(--font-mono)' }}>{log}</pre>}
+        </div>
+
+        <div style={{ ...card, background: C.selected }}>
+          <SectionLabel mt={0}>v3 매물 → v4 복사 (소스 전환 준비)</SectionLabel>
+          <div style={{ fontSize: FS.cap, color: C.faint, lineHeight: 1.5, marginBottom: 10 }}>
+            v3 라이브 매물을 v4 오버레이로 1회 복사합니다. 이미 v4에 있는 건 건너뜀(편집본 보존),
+            v3 원본은 변경 안 함. <b style={{ color: C.mute }}>미리보기로 대수를 먼저 확인</b>하고 복사 실행하세요.
+            복사·검증 후 카탈로그를 v4 전용으로 전환합니다.
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <Btn variant="ghost" onClick={() => runMigrate(true)} disabled={migBusy}>미리보기(복사 안 함)</Btn>
+            <Btn onClick={() => runMigrate(false)} disabled={migBusy}>{migBusy ? '복사 중…' : 'v3→v4 복사 실행'}</Btn>
+          </div>
+          {migLog && <pre style={{ margin: '10px 0 0', fontSize: FS.cap, color: C.mute, whiteSpace: 'pre-wrap', fontFamily: 'var(--font-mono)' }}>{migLog}</pre>}
         </div>
 
         <div style={card}>
