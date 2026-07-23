@@ -64,18 +64,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           rel="stylesheet"
           href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css"
           media="print"
-          // @ts-expect-error React 18 onLoad media swap
-          onLoad="this.media='all'"
+          onLoad={(e) => { (e.currentTarget as HTMLLinkElement).media = 'all'; }}
         />
         {/* CI 워드마크: Exo 2 — 명함과 동일 300(light)·600(bold). 500은 레거시 호환 */}
         <link
           rel="stylesheet"
           href="https://fonts.googleapis.com/css2?family=Exo+2:wght@300;500;600&display=swap"
           media="print"
-          // @ts-expect-error React 18 onLoad media swap
-          onLoad="this.media='all'"
-        />
-        <noscript>
+          onLoad={(e) => { (e.currentTarget as HTMLLinkElement).media = 'all'; }}
+        />        <noscript>
           <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
           <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@300;500;600&display=swap" />
         </noscript>
