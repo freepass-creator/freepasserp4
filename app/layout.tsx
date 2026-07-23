@@ -56,11 +56,29 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="ko" data-fp-m={dataFpM} className={htmlClass} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: BP_BOOT }} />
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+        {/* 폰트 논블로킹 — media=print→onload all (렌더 블로킹 제거). preconnect로 TTFB 단축. */}
+        <link rel="preconnect" href="https://cdn.jsdelivr.net" crossOrigin="anonymous" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          rel="stylesheet"
+          href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css"
+          media="print"
+          // @ts-expect-error React 18 onLoad media swap
+          onLoad="this.media='all'"
+        />
         {/* CI 워드마크: Exo 2 — 명함과 동일 300(light)·600(bold). 500은 레거시 호환 */}
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@300;500;600&display=swap" />
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Exo+2:wght@300;500;600&display=swap"
+          media="print"
+          // @ts-expect-error React 18 onLoad media swap
+          onLoad="this.media='all'"
+        />
+        <noscript>
+          <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+          <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@300;500;600&display=swap" />
+        </noscript>
       </head>
       <body suppressHydrationWarning>
         <MobileBpProvider ssrMobile={ssrMobile}>

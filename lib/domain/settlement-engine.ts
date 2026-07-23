@@ -243,9 +243,11 @@ export async function applyStepCheck(contract: EntityRecord, key: string, value:
   }
   const pr = getProgress(fresh);
   if (pr.done === pr.total && fresh.contract_status !== '계약완료') {
+    // 정산을 먼저(멱등 ST_) — 실패 시 계약완료·락을 찍지 않아 "완료만 남고 정산 누락"을 막는다.
+    //  재시도 시 createSettlement는 이미 있으면 즉시 반환 → status/락만 이어감.
+    await createSettlement(fresh);
     await store.update('contract', co, code, { contract_status: '계약완료' });
     if (productCode) await store.update('product', co, productCode, { vehicle_status: '출고불가', locked_by_contract: code });
-    await createSettlement(fresh);
   } else if (productCode) {
     // 락 재계산 — 선점·해제 양방향. 체크 해제('')로 선점이 풀린 경우도 반드시 여기서 상품에 반영된다.
     // (구현: 해제를 별도 분기로 두면 매번 새 누락 경로가 생김 → 매 체크마다 무조건 재계산이 SSOT)
