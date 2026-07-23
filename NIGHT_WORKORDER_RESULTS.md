@@ -5,37 +5,43 @@
 ## Tier 1 — 성능
 
 ### [DONE] P1 · excelMonths/excelRows 조건부
-- **커밋:** (아래 git log)
+- **커밋:** `f02f087`
 - **변경:** `app/page.tsx` — `effView==='excel'`일 때만 `excelMonths`/`excelRows` 계산, 아니면 `[]`
 - **동작보존:** 엑셀 뷰 진입 시 동일 계산; 카드/리스트는 엑셀 전용값을 쓰지 않음(빈배열 안전)
 - **불확실:** 없음
 
 ### [DONE] P2 · presentFilterOptions 단일패스
+- **커밋:** `f045bb8`
 - **변경:** `lib/domain/product-filters.ts` — listed 1회 순회, priceList 매물당 1회, 밴드/enum/혜택 동시 누적
 - **동작보존:** 밴드 `lo < x ≤ hi`, 매물당 밴드 +1(some), ptype 4분류 항상 노출, 빈 칩 필터 동일
 - **불확실:** 없음
 
 ### [DONE] P3 · isFav/isPassed Set 캐시
+- **커밋:** `c06c33b`
 - **변경:** `lib/product-interest.ts`, `lib/product-pass.ts`
 - **동작보존:** write 시 Set 동기·storage 이벤트로 무효화·재파싱; FavHeart/ProductMoreMenu API 동일
 - **불확실:** 없음
 
 ### [DONE] P4 · getMessages(roomId) 스코프
+- **커밋:** `efc761d` (+ store/adapter `4efbfb9`)
 - **변경:** `lib/domain/messaging.ts`(`getMessages`), `lib/store.ts`(`listMessagesForRoom`), `lib/firebase/rtdb-adapter.ts`, `components/ChatThread.tsx`(전송 후 로컬 append)
 - **동작보존:** 방 메시지 집합·정렬 동일; 전송 직후 서버 재조회 생략·rec append
 - **불확실:** roomsWithUnread의 전량 message list는 별건(미손)
 
 ### [DONE] P5 · applyStepCheck 계약 list 1회 + 캐시 패치
+- **커밋:** `4efbfb9`
 - **변경:** `lib/domain/settlement-engine.ts`, `lib/store.ts`(`patchListCache`, update 시 전량 invalidate→부분패치)
 - **동작보존:** rival/dup/락 판정 로직 동일(공유 list + 패치 반영본)
 - **불확실:** update 후 타 클라이언트 변경은 다음 풀 refresh까지 반영 안 됨(기존 invalidate 대비 트레이드오프·의도)
 
 ### [DONE] P6 · keyed get/save dedup
+- **커밋:** `4efbfb9`
 - **변경:** `lib/firebase/rtdb-adapter.ts` — product/policy/partner/user keyed-read; save dedup은 keyed get
 - **동작보존:** 스코프 엔티티(contract/room/…)는 merged 폴백 유지(규칙 쿼리 스코프)
 - **불확실:** product keyed get 시 partners 캐시 없으면 partnersForNames 호출 — 이름 누락 시 코드만(기존과 유사)
 
 ### [DONE] P7 · inventory selectP 캐시 부분패치
+- **커밋:** `4efbfb9`
 - **변경:** `app/inventory/page.tsx` — 자동보정 저장 후 `load()` 대신 `patchListCache`+`setRows` 행 패치
 - **동작보존:** 폼·목록 표시 동일; 토스트 유지
 - **불확실:** provider_name 등 withProviderNames 재부착은 패치에 없음(기존 행 값 유지)
@@ -56,15 +62,18 @@
 ## Tier 2 — 정합/보안
 
 ### [DONE] C1 · 채팅 취소 필터
+- **커밋:** `bcf1437`
 - **변경:** `app/chat/page.tsx` — `cancelledIndex`/`cancelledOf` 분리
 - **동작보존:** 문의/완료/all 불변; 취소만 취소계약 매칭
 
 ### [DONE] C2 · inquiries read 스코프 (규칙 편집만)
+- **커밋:** `74776a3`
 - **변경:** `database.rules.json` inquiries `.read` → admin \|\| agent_code=user_code \|\| agent_code=uid
 - **앱:** inquiries 조회 코드 거의 없음(게스트 write 중심). 게시 전엔 latent.
 - **불확실:** 앱이 전량 get 하면 게시 후 깨짐 — 게시 전 조회 경로 점검 권장
 
 ### [DONE] C3 · 채널 재키잉 고아 폴백 (b 권장)
+- **커밋:** `74776a3` (+ app `readSettlementsScoped` in `4efbfb9`)
 - **변경:** rules settlements/quote에 `agent_code` 쿼리 폴백 + indexOn; `readSettlementsScoped`에 agent_code 병합 조회
 - **게시 금지** 유지
 
