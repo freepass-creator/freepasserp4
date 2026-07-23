@@ -91,7 +91,7 @@ export function Badge({ children, tone = 'gray', overlay = false, title, variant
       <span title={title} className={pulseCls} style={{
         ...shell,
         color: tone === 'red' ? m[0] : C.mute,
-        background: '#fff',
+        background: C.taupeBg,
         border: `1px solid ${C.line}`,
       }}>{children}</span>
     );
@@ -110,7 +110,7 @@ export function Badge({ children, tone = 'gray', overlay = false, title, variant
   return (
     <span title={title} className={pulseCls} style={{
       ...shell,
-      color: m[0], background: '#fff', border: `1px solid ${C.line}`,
+      color: m[0], background: C.taupeBg, border: `1px solid ${C.line}`,
     }}>{children}</span>
   );
 }
@@ -123,7 +123,7 @@ export function CompanyBadge({ co }: { co: string }) {
       display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 5,
       height: 20, boxSizing: 'border-box',
       padding: '0 7px 0 6px', borderRadius: R,
-      border: `1px solid ${C.line}`, background: '#fff', color: C.ink,
+      border: `1px solid ${C.line}`, background: C.taupeBg, color: C.ink,
       fontSize: FS.micro, fontWeight: FW.strong, whiteSpace: 'nowrap',
       lineHeight: 1,
     }}>
@@ -212,7 +212,7 @@ export function CountPill({ n, tone = 'brand', max = 999 }: {
           flex: '0 0 auto',
           minWidth: mobile ? 18 : 16, height: mobile ? 16 : 15, boxSizing: 'border-box',
           padding: '0 5px', borderRadius: R,
-          background: C.brand, color: '#fff',
+          background: C.brand, color: C.taupeBg,
           fontSize: FS.micro, fontWeight: FW.strong, lineHeight: 1,
           fontFamily: NUM, fontVariantNumeric: 'tabular-nums',
         }}

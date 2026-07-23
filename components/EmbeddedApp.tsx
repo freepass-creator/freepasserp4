@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { toast } from '@/components/Toaster';
+import { C, FS } from '@/components/ui';
 
 /**
  * 외부 Vue 앱(웰릭스·손오공)을 erp4 전용 라우트 안에 iframe 임베드.
@@ -49,8 +50,8 @@ export default function EmbeddedApp({ src, title, appId, onQuote, prefill }: {
   return (
     <div style={{ flex: '1 1 0', minHeight: 0, position: 'relative', display: 'flex' }}>
       {!loaded && (
-        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, color: '#868e96', fontSize: 13 }}>
-          <span style={{ width: 22, height: 22, border: '3px solid #d5d8dc', borderTopColor: '#1B2A4A', borderRadius: '50%', animation: 'fp-embed-spin .7s linear infinite' }} />
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, color: C.faint, fontSize: FS.body }}>
+          <span style={{ width: 22, height: 22, border: `3px solid ${C.line}`, borderTopColor: C.brand, borderRadius: '50%', animation: 'fp-embed-spin .7s linear infinite' }} />
           {title} 불러오는 중…
           <style>{'@keyframes fp-embed-spin{to{transform:rotate(360deg)}}'}</style>
         </div>

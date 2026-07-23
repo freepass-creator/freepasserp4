@@ -59,6 +59,7 @@ export function ContractSign({ contractCode }: { contractCode: string }) {
         {canAct && st === '발송' && <><Btn variant="ghost" size="sm" onClick={copy}>링크</Btn><Btn variant="ghost" size="sm" onClick={send} disabled={busy}>재발송</Btn><Btn variant="ghost" size="sm" onClick={load}>새로고침</Btn></>}
         {canAct && st === '검토대기' && <Btn size="sm" onClick={approve} disabled={busy}>승인</Btn>}
       </div>
+      {/* 서명 PNG = 투명배경·짙은잉크(#0f1830) → 다크에서도 흰 지면 유지(C.taupeBg면 서명 안 보임). sign 캔버스·PDF와 동일 예외. */}
       {st === '검토대기' && c.sign_signature ? <img src={String(c.sign_signature)} alt="서명" style={{ maxWidth: 180, border: `1px solid ${C.line}`, borderRadius: 4, background: '#fff' }} /> : null}
       {st === '검토대기' && <div style={{ fontSize: FS.micro, color: C.faint }}>{[c.customer_name, c.customer_phone].filter(Boolean).join(' · ')} 서명 제출됨. 승인 시 약정발송 완료.</div>}
       {st === '미발송' && <div style={{ fontSize: FS.micro, color: C.faint }}>약정 완료 후 서명 링크를 만들어 손님에게 전달하세요.</div>}

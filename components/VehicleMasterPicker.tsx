@@ -162,7 +162,7 @@ export function VehicleMasterPicker({
 
   return (
     <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: C.selected, padding: '10px 12px' }}>
-      <div style={{ fontSize: 12, fontWeight: FW.title, color: C.brand, marginBottom: 7 }}>
+      <div style={{ fontSize: FS.sub, fontWeight: FW.title, color: C.brand, marginBottom: 7 }}>
         차종 마스터 규격{' '}
         {entries === null && <span style={{ color: C.faint, fontWeight: FW.body }}>· 불러오는 중…</span>}
         {entries && entries.length === 0 && <span style={{ color: C.danger, fontWeight: FW.body }}>· 마스터 로드 실패</span>}
@@ -217,7 +217,7 @@ export function VehicleMasterPicker({
         />
       </div>
       {variant && (
-        <div style={{ marginTop: 6, fontSize: 11, color: C.mute }}>
+        <div style={{ marginTop: 6, fontSize: FS.cap, color: C.mute }}>
           마스터 · {sub?.sub_model} · {masterVariantLabel(variant)}
           {variant.drivetrain ? ` · ${variant.drivetrain}` : ''}
           {noTrimGrade ? ' · 세부트림 없음' : (trim ? ` · ${trim}` : ' · 세부트림 미선택')}

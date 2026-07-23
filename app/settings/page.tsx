@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Page, Btn, C, SectionLabel, DetailGrid, ListRow, FilterChips, NUM, Input,
+  Page, Btn, C, SectionLabel, DetailGrid, ListRow, FilterChips, NUM, Input, FS,
 } from '@/components/ui';
 import { useSession } from '@/lib/auth-context';
 import { getRole, setRole, actor, ROLE_LABEL, type Role } from '@/lib/domain/deal';
@@ -181,7 +181,7 @@ export default function Settings() {
   };
 
   const empty = (text: string) => (
-    <div style={{ padding: '10px 0 4px', fontSize: 13, color: C.faint, lineHeight: 1.45 }}>{text}</div>
+    <div style={{ padding: '10px 0 4px', fontSize: FS.body, color: C.faint, lineHeight: 1.45 }}>{text}</div>
   );
 
   return (
@@ -199,10 +199,10 @@ export default function Settings() {
           <SectionLabel mt={0}>계정</SectionLabel>
           {session ? (
             <div style={{ display: 'grid', gap: 10, marginBottom: 12 }}>
-              <label style={{ fontSize: 12, color: C.faint }}>이름
+              <label style={{ fontSize: FS.sub, color: C.faint }}>이름
                 <div style={{ marginTop: 4 }}><Input value={pName} onChange={setPName} full placeholder="이름" /></div>
               </label>
-              <label style={{ fontSize: 12, color: C.faint }}>연락처
+              <label style={{ fontSize: FS.sub, color: C.faint }}>연락처
                 <div style={{ marginTop: 4 }}><Input value={pPhone} onChange={setPPhone} full placeholder="010-0000-0000" /></div>
               </label>
               <div>
@@ -232,11 +232,11 @@ export default function Settings() {
         {session && shareUrl ? (
           <div>
             <SectionLabel mt={0}>카탈로그 공유</SectionLabel>
-            <div style={{ fontSize: 12, color: C.faint, marginBottom: 8, lineHeight: 1.45 }}>
+            <div style={{ fontSize: FS.sub, color: C.faint, marginBottom: 8, lineHeight: 1.45 }}>
               이 링크로 들어온 손님 문의는 나에게 귀속됩니다. 카톡·문자로 공유하세요.
             </div>
             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-              <div style={{ flex: 1, minWidth: 0, fontSize: 12, color: C.ink, background: C.head, borderRadius: 6, padding: '8px 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{shareUrl}</div>
+              <div style={{ flex: 1, minWidth: 0, fontSize: FS.sub, color: C.ink, background: C.head, borderRadius: 6, padding: '8px 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{shareUrl}</div>
               <Btn size="sm" onClick={copyShare}>복사</Btn>
             </div>
           </div>
@@ -244,19 +244,19 @@ export default function Settings() {
 
         <div>
           <SectionLabel mt={0}>화면</SectionLabel>
-          <div style={{ fontSize: 12, color: C.faint, marginBottom: 8 }}>테마</div>
+          <div style={{ fontSize: FS.sub, color: C.faint, marginBottom: 8 }}>테마</div>
           <FilterChips value={theme} onChange={(k) => onTheme(k as ThemePref)} options={THEMES} />
         </div>
 
         <div>
           <SectionLabel mt={0}>피드백</SectionLabel>
-          <div style={{ fontSize: 12, color: C.faint, marginBottom: 8 }}>햅틱(진동)</div>
+          <div style={{ fontSize: FS.sub, color: C.faint, marginBottom: 8 }}>햅틱(진동)</div>
           <FilterChips
             value={hapticOn ? 'on' : 'off'}
             onChange={(k) => onHaptic(k as 'on' | 'off')}
             options={HAPTIC_OPTS}
           />
-          <div style={{ marginTop: 8, fontSize: 12, color: C.faint, lineHeight: 1.45 }}>
+          <div style={{ marginTop: 8, fontSize: FS.sub, color: C.faint, lineHeight: 1.45 }}>
             모바일에서 탭·전환 시 짧은 진동. 미지원 기기는 자동으로 무시됩니다.
           </div>
         </div>
@@ -264,9 +264,9 @@ export default function Settings() {
         {session ? (
           <div>
             <SectionLabel mt={0}>보안</SectionLabel>
-            <div style={{ fontSize: 12, color: C.faint, marginBottom: 8 }}>자동 로그아웃 (자리비움)</div>
+            <div style={{ fontSize: FS.sub, color: C.faint, marginBottom: 8 }}>자동 로그아웃 (자리비움)</div>
             <FilterChips value={String(idleMin)} onChange={(k) => onIdle(Number(k))} options={IDLE_OPTS} />
-            <div style={{ marginTop: 8, fontSize: 12, color: C.faint, lineHeight: 1.45 }}>
+            <div style={{ marginTop: 8, fontSize: FS.sub, color: C.faint, lineHeight: 1.45 }}>
               설정한 시간 동안 활동이 없으면 자동 로그아웃됩니다. 공용 PC에서 유용.
             </div>
           </div>
@@ -364,7 +364,7 @@ export default function Settings() {
               onChange={(k) => switchRole(k as Role)}
               options={DEMO_ROLES}
             />
-            <div style={{ marginTop: 8, fontSize: 12, color: C.faint, lineHeight: 1.45 }}>
+            <div style={{ marginTop: 8, fontSize: FS.sub, color: C.faint, lineHeight: 1.45 }}>
               미로그인 데모용. 관리자로 바꾸면 메뉴·개발도구에 들어갑니다.
             </div>
           </div>
@@ -386,7 +386,7 @@ export default function Settings() {
             ['버전', '4.0.0-alpha'],
             ['환경', appEnv],
           ]} />
-          <div style={{ marginTop: 10, fontSize: 12, color: C.faint, lineHeight: 1.5 }}>
+          <div style={{ marginTop: 10, fontSize: FS.sub, color: C.faint, lineHeight: 1.5 }}>
             화이트라벨 렌터카 중개 ERP.
           </div>
         </div>

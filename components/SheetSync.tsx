@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getStore } from '@/lib/store';
 import { getRole, actor } from '@/lib/domain/deal';
 import { toast } from '@/components/Toaster';
-import { Btn, C, FS, FW, Input, PillTabs, R, Select, SectionLabel, Textarea } from '@/components/ui';
+import { Btn, C, FS, FW, Input, PillTabs, R, Select, SectionLabel, Textarea, NUM } from '@/components/ui';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { type MasterEntry } from '@/lib/domain/vehicle-master-match';
 import { fetchSheetTable, parseDelimited, autoMapHeaders, IMPORT_FIELDS, type MappingProfile } from '@/lib/domain/sheet-import';
@@ -196,8 +196,8 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       {isAdmin && (
         <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: C.selected, padding: 10 }}>
-          <div style={{ fontSize: 12, fontWeight: FW.title, color: C.brand, marginBottom: 3 }}>공급사 시트 일괄 변환</div>
-          <div style={{ fontSize: 11, color: C.faint, lineHeight: 1.5, marginBottom: 8 }}>
+          <div style={{ fontSize: FS.sub, fontWeight: FW.title, color: C.brand, marginBottom: 3 }}>공급사 시트 일괄 변환</div>
+          <div style={{ fontSize: FS.cap, color: C.faint, lineHeight: 1.5, marginBottom: 8 }}>
             공급사 기본정보 → 차종마스터 틀로 변환 후 저장. high·중 확정, 검토·미매칭은 검수 표시.
           </div>
           {roster.length === 0 ? (
@@ -208,7 +208,7 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
                 <div key={p.code} style={{ display: 'flex', gap: 8, alignItems: 'baseline', fontSize: FS.cap, minWidth: 0 }}>
                   <span style={{ fontWeight: FW.strong, color: C.ink, flex: '0 0 auto' }}>{p.name}</span>
                   <span style={{ color: C.faint, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0, flex: 1 }} title={p.url}>{p.url}</span>
-                  <span style={{ color: C.mute, flex: '0 0 auto', fontFamily: 'var(--font-mono)', fontSize: FS.micro }}>{fmtSync(p.lastSyncedAt)}</span>
+                  <span style={{ color: C.mute, flex: '0 0 auto', fontFamily: NUM, fontSize: FS.micro }}>{fmtSync(p.lastSyncedAt)}</span>
                 </div>
               ))}
             </div>
@@ -217,7 +217,7 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
             {busy ? '변환 중…' : `전체 변환 후 저장 (${roster.length})`}
           </Btn>
           {bulkLog && (
-            <pre style={{ margin: '8px 0 0', fontSize: 11, color: C.mute, whiteSpace: 'pre-wrap', maxHeight: 130, overflowY: 'auto', fontFamily: 'var(--font-mono)' }}>{bulkLog}</pre>
+            <pre style={{ margin: '8px 0 0', fontSize: FS.cap, color: C.mute, whiteSpace: 'pre-wrap', maxHeight: 130, overflowY: 'auto', fontFamily: NUM }}>{bulkLog}</pre>
           )}
         </div>
       )}
@@ -247,19 +247,19 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
           {/* 엑셀 붙여넣기 = 열 정렬이 보여야 하므로 고정폭 폰트가 의도적(원자 규격 위에 mono만 덮음) */}
           <Textarea full rows={4} value={paste} onChange={setPaste}
             placeholder={'엑셀 복사→붙여넣기 (첫 줄=헤더, 탭)\n차량번호\t제조사\t모델\t연식'}
-            style={{ fontFamily: 'var(--font-mono)' }} />
+            style={{ fontFamily: NUM }} />
           <Btn size="sm" variant="ghost" onClick={loadExcel} disabled={busy}>불러오기</Btn>
         </>
       )}
 
       {table && (
         <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg, padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <SectionLabel>컬럼 매핑 <span style={{ fontSize: 11, fontWeight: FW.body, color: C.faint }}>· 틀린 칸만 바꾸면 학습됩니다</span></SectionLabel>
+          <SectionLabel>컬럼 매핑 <span style={{ fontSize: FS.cap, fontWeight: FW.body, color: C.faint }}>· 틀린 칸만 바꾸면 학습됩니다</span></SectionLabel>
           <div style={{ maxHeight: 210, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
             {(table[0] || []).map((h, i) => (
               <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 96px', gap: 6, alignItems: 'center' }}>
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 12, color: C.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{String(h || `(빈 헤더 ${i})`)}</div>
+                  <div style={{ fontSize: FS.sub, color: C.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{String(h || `(빈 헤더 ${i})`)}</div>
                   <div style={{ fontSize: FS.micro, color: C.faint, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>예: {String(table[1]?.[i] ?? '')}</div>
                 </div>
                 <Select value={fieldForCol(i)} onChange={(v) => setColField(i, v)} placeholder="(무시)" size="sm" full
@@ -267,7 +267,7 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
               </div>
             ))}
           </div>
-          <div style={{ fontSize: 11, color: C.mute, borderTop: `1px solid ${C.line2}`, paddingTop: 6, lineHeight: 1.55 }}>
+          <div style={{ fontSize: FS.cap, color: C.mute, borderTop: `1px solid ${C.line2}`, paddingTop: 6, lineHeight: 1.55 }}>
             {!masterReady ? (
               <span style={{ color: C.danger }}>차종마스터 없음 — 변환 저장 불가</span>
             ) : (

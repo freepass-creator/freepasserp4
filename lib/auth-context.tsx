@@ -10,6 +10,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { firebaseReady } from '@/lib/firebase/client';
 import { getSession, subscribeSession, isGuest, isPending, type Session } from '@/lib/auth-session';
 import { isPublicPath, setPublicAccess } from '@/lib/public-access';
+import { Btn, C, FS, FW, R } from '@/components/ui';
 
 const Ctx = createContext<{ session: Session | null; ready: boolean }>({ session: null, ready: false });
 export function useSession(): Session | null { return useContext(Ctx).session; }
@@ -17,8 +18,8 @@ export function useAuthReady(): boolean { return useContext(Ctx).ready; }
 
 function AuthLoading() {
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 10000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, background: '#fff', color: '#495057', fontSize: 14 }}>
-      <div style={{ width: 32, height: 32, border: '3px solid #d5d8dc', borderTopColor: '#1B2A4A', borderRadius: '50%', animation: 'fp-authspin 0.7s linear infinite' }} />
+    <div style={{ position: 'fixed', inset: 0, zIndex: 10000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, background: C.taupeBg, color: C.mute, fontSize: FS.title }}>
+      <div style={{ width: 32, height: 32, border: `3px solid ${C.line}`, borderTopColor: C.brand, borderRadius: '50%', animation: 'fp-authspin 0.7s linear infinite' }} />
       <span>인증 중…</span>
       <style>{'@keyframes fp-authspin{to{transform:rotate(360deg)}}'}</style>
     </div>
@@ -94,19 +95,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 /** 승인 대기 안내 — 데이터에 접근시키지 않고 여기서 멈춘다. */
 function PendingApproval({ email }: { email: string }) {
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, background: '#fff', padding: 24, textAlign: 'center' }}>
-      <div style={{ fontSize: 17, fontWeight: 800, color: '#1B2A4A' }}>가입 승인 대기 중입니다</div>
-      <div style={{ fontSize: 13, color: '#495057', lineHeight: 1.7, maxWidth: 380 }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, background: C.taupeBg, padding: 24, textAlign: 'center' }}>
+      <div style={{ fontSize: FS.page, fontWeight: FW.head, color: C.brand }}>가입 승인 대기 중입니다</div>
+      <div style={{ fontSize: FS.body, color: C.mute, lineHeight: 1.7, maxWidth: 380 }}>
         입력하신 사업자번호가 등록된 거래처와 맞지 않아 관리자 확인이 필요합니다.
         <br />승인되면 바로 이용하실 수 있습니다.
       </div>
-      {email && <div style={{ fontSize: 12, color: '#868e96' }}>{email}</div>}
-      <button
+      {email && <div style={{ fontSize: FS.sub, color: C.faint }}>{email}</div>}
+      <Btn
+        variant="ghost"
         onClick={() => { void import('@/lib/firebase/auth').then((m) => m.logout()).then(() => { window.location.href = '/login'; }); }}
-        style={{ marginTop: 6, height: 40, padding: '0 18px', fontSize: 13, fontWeight: 700, color: '#1B2A4A', background: '#fff', border: '1px solid #d5d8dc', borderRadius: 4, cursor: 'pointer' }}
+        style={{ marginTop: 6, borderRadius: R }}
       >
         로그아웃
-      </button>
+      </Btn>
     </div>
   );
 }

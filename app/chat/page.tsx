@@ -223,7 +223,7 @@ export default function Chat() {
   const contractBody = sel ? <ContractPanel product={selProduct} roomId={sel} linkedCode={linked} agentCode={selRoom ? String(selRoom.agent_code || '') : undefined} onChange={reloadContracts} /> : <div style={{ padding: 16, color: C.faint, fontSize: FS.sub }}>—</div>;
   const docsBody = docCode ? <ContractDocs contractCode={docCode} roomId={sel || undefined} /> : <div style={{ padding: 16, color: C.faint, fontSize: FS.sub }}>계약문의를 시작하면 서류를 첨부할 수 있습니다.</div>;
   const vehicleBlock = selProduct
-    ? <>{selProduct._fromHistory ? <div style={{ fontSize: 11, color: C.faint, marginBottom: 8 }}>재고에서 내려간 매물 · 계약 이력 기준</div> : null}<ProductDetail p={selProduct} /></>
+    ? <>{selProduct._fromHistory ? <div style={{ fontSize: FS.cap, color: C.faint, marginBottom: 8 }}>재고에서 내려간 매물 · 계약 이력 기준</div> : null}<ProductDetail p={selProduct} /></>
     : <CenterNote>이 매물의 이력이 없습니다.</CenterNote>;
 
   const goChat = () => { haptic.nav(); setSwapKey('chat'); };
@@ -241,9 +241,9 @@ export default function Chat() {
         right={<Btn variant="ghost" size="sm" onClick={goChat}>채팅</Btn>}
       />
       <PaneBody pad>
-        <div style={{ fontSize: 12, fontWeight: FW.label, color: C.faint, marginBottom: 8 }}>{inContract ? '첨부 서류' : '문의 차량'}</div>
+        <div style={{ fontSize: FS.sub, fontWeight: FW.label, color: C.faint, marginBottom: 8 }}>{inContract ? '첨부 서류' : '문의 차량'}</div>
         {inContract ? docsBody : vehicleBlock}
-        <div style={{ fontSize: 12, fontWeight: FW.label, color: C.faint, margin: '18px 0 8px' }}>계약</div>
+        <div style={{ fontSize: FS.sub, fontWeight: FW.label, color: C.faint, margin: '18px 0 8px' }}>계약</div>
         {contractBody}
       </PaneBody>
     </>

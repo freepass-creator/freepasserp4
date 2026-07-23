@@ -117,7 +117,7 @@ export default function DataCheck() {
                   <Badge tone="amber">{String(r.reason)}</Badge>
                   {p && <span style={{ fontSize: FS.cap, color: C.mute }}>{vehicleName(p)}</span>}
                   {r.memo ? <span style={{ fontSize: FS.cap, color: C.faint, flex: 1, minWidth: 0 }}>“{String(r.memo)}”</span> : <span style={{ flex: 1 }} />}
-                  <span style={{ fontSize: 11, color: C.faint }}>{String(r.reporter_name || '')} · {String(r.provider_company_code || '')}</span>
+                  <span style={{ fontSize: FS.cap, color: C.faint }}>{String(r.reporter_name || '')} · {String(r.provider_company_code || '')}</span>
                   <Btn size="sm" variant="ghost" onClick={() => resolve(String(r.report_code))}>처리완료</Btn>
                 </div>
               );
@@ -197,7 +197,7 @@ export default function DataCheck() {
                       })}
                     </div>
                   ) : (
-                    <div style={{ fontSize: 12, color: C.faint }}>펼치면 해당 매물 링크를 봅니다.</div>
+                    <div style={{ fontSize: FS.sub, color: C.faint }}>펼치면 해당 매물 링크를 봅니다.</div>
                   )}
                 </FormCard>
               );

@@ -34,7 +34,7 @@ export function SnapTrace({ form, onRematch }: { form: EntityRecord; onRematch?:
   const noTrim = !trimNow || isNoTrimLabel(trimNow);
 
   return (
-    <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: '#fff', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
         <SectionLabel mt={0} mb={0}>차종 변환</SectionLabel>
         {snapped && <Badge tone="blue" variant="solid">마스터 규격</Badge>}

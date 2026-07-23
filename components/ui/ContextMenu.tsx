@@ -1,7 +1,7 @@
 'use client';
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { C, R } from './tokens';
+import { C, R, FS, FW } from './tokens';
 import { useIsMobile } from '@/lib/use-mobile';
 
 export type CtxItem =
@@ -60,7 +60,7 @@ export function ContextMenu({ x, y, items, onClose }: {
       style={{
         position: 'fixed', left: pos.left, top: pos.top, zIndex: 200,
         minWidth: 180, maxWidth: 260,
-        background: '#fff', border: `1px solid ${C.line}`, borderRadius: R,
+        background: C.taupeBg, border: `1px solid ${C.line}`, borderRadius: R,
         boxShadow: '0 10px 28px rgba(15,23,42,0.18)',
         padding: '4px 0', boxSizing: 'border-box',
       }}
@@ -81,7 +81,7 @@ export function ContextMenu({ x, y, items, onClose }: {
               display: 'flex', alignItems: 'center', width: '100%', boxSizing: 'border-box',
               height: 32, padding: '0 14px', border: 'none', background: 'transparent',
               cursor: item.disabled ? 'default' : 'pointer',
-              fontSize: 13, fontWeight: 500, textAlign: 'left',
+              fontSize: FS.body, fontWeight: FW.meta, textAlign: 'left',
               color: item.disabled ? C.faint : item.danger ? C.danger : C.ink,
               opacity: item.disabled ? 0.5 : 1,
             }}

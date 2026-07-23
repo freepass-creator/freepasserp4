@@ -60,7 +60,7 @@ export default function Catalog() {
 
   return (
     <main style={{ maxWidth: 1000, margin: '0 auto', padding: '18px 16px 28px' }}>
-      <div style={{ fontSize: 12, color: C.mute, letterSpacing: '0.04em' }}>차량 렌탈</div>
+      <div style={{ fontSize: FS.sub, color: C.mute, letterSpacing: '0.04em' }}>차량 렌탈</div>
       <h1 style={{ fontSize: FS.page, fontWeight: FW.title, letterSpacing: '-0.02em', margin: '4px 0 12px' }}>조건별 차량 찾기</h1>
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 }}>
@@ -81,7 +81,7 @@ export default function Catalog() {
           {list.map((p) => <ProductCard key={String(p.product_code)} p={p} audience="customer" href={href(p)} />)}
         </div>
       )}
-      <div style={{ marginTop: 20, fontSize: 11, color: C.faint, textAlign: 'center' }}>표시 가격은 참고용이며 심사·재고에 따라 변동될 수 있습니다.</div>
+      <div style={{ marginTop: 20, fontSize: FS.cap, color: C.faint, textAlign: 'center' }}>표시 가격은 참고용이며 심사·재고에 따라 변동될 수 있습니다.</div>
     </main>
   );
 }

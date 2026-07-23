@@ -14,7 +14,7 @@ const REST_SH = '0 1px 2px rgba(15,23,42,0.05)';
 const HOVER_SH = '0 4px 12px rgba(15,23,42,0.10)';
 function useHover() { const [h, setH] = React.useState(false); return { h, on: { onMouseEnter: () => setH(true), onMouseLeave: () => setH(false) } }; }
 function cardStyle(h: boolean, click: boolean): React.CSSProperties {
-  return { border: `1px solid ${h && click ? '#cfd3da' : C.line}`, borderRadius: 'var(--radius)', background: '#fff', boxShadow: h && click ? HOVER_SH : REST_SH, transform: h && click ? 'translateY(-1px)' : 'none', transition: 'box-shadow .15s ease, border-color .15s ease, transform .15s ease', cursor: click ? 'pointer' : 'default' };
+  return { border: `1px solid ${C.line}`, borderRadius: 'var(--radius)', background: C.taupeBg, boxShadow: h && click ? HOVER_SH : REST_SH, transform: h && click ? 'translateY(-1px)' : 'none', transition: 'box-shadow .15s ease, border-color .15s ease, transform .15s ease', cursor: click ? 'pointer' : 'default' };
 }
 // 지표 카드 (가동률·미수 등) — 라벨 + 숫자. 색은 숫자에만.
 export function Metric({ label, value, tone, onClick }: { label: React.ReactNode; value: React.ReactNode; tone?: 'ink' | 'danger' | 'ok' | 'warn'; onClick?: () => void }) {

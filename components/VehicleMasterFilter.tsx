@@ -5,7 +5,7 @@
  * 다음에 고를 칸 = 라벨 옆 →다음단계 힌트 + select accent.
  */
 import { useMemo, type ReactNode } from 'react';
-import { C, Select } from '@/components/ui';
+import { C, Select, FS } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { type VehicleFilter } from '@/lib/domain/vehicle-master-match';
@@ -69,7 +69,7 @@ export function VehicleMasterFilter({ products, value, onChange }: {
     : null;
 
   if (!products.length) {
-    return <div style={{ fontSize: 12.5, color: C.faint }}>매물이 없어 고를 수 없습니다</div>;
+    return <div style={{ fontSize: FS.sub, color: C.faint }}>매물이 없어 고를 수 없습니다</div>;
   }
 
   const makerActive = nextKey === 'maker';

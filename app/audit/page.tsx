@@ -7,7 +7,7 @@ import { seedIfEmpty } from '@/lib/seed';
 import { ENTITIES, type EntityRecord } from '@/lib/intake/entities';
 import { getRole } from '@/lib/domain/deal';
 import { parseAuditChanges, auditDomainOf, AUDIT_DOMAIN_OPTS } from '@/lib/domain/audit';
-import { Page, Btn, Badge, PillTabs, FilterChips, SearchInput, C, R, Loading, CenterNote, SectionLabel, FW, FS } from '@/components/ui';
+import { Page, Btn, Badge, PillTabs, FilterChips, SearchInput, C, R, Loading, CenterNote, SectionLabel, FW, FS, NUM } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 
 // 감사·휴지통 — 전 데이터 write 관장(매물·대여료·계약·정산·채팅·회원). store 자동 기록.
@@ -32,14 +32,14 @@ function AuditRow({ log }: { log: EntityRecord }) {
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: FS.sub, fontWeight: FW.strong, color: C.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {label(String(log.entity))}{' '}
-            <span style={{ fontFamily: 'var(--font-mono)', color: C.mute, fontWeight: FW.body }}>{String(log.target_key || '')}</span>
+            <span style={{ fontFamily: NUM, color: C.mute, fontWeight: FW.body }}>{String(log.target_key || '')}</span>
           </div>
-          <div style={{ fontSize: 11, color: C.faint, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <div style={{ fontSize: FS.cap, color: C.faint, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {String(log.actor_name || '?')} · {String(log.actor_role || '')}
             {summary ? ` · ${summary}` : ''}
           </div>
         </div>
-        <span style={{ fontSize: 11, color: C.faint, fontVariantNumeric: 'tabular-nums', flex: '0 0 auto' }}>{fmt(log.at)}</span>
+        <span style={{ fontSize: FS.cap, color: C.faint, fontVariantNumeric: 'tabular-nums', flex: '0 0 auto' }}>{fmt(log.at)}</span>
         {(changes.length > 0 || samples.length > 0) && (
           <Btn size="sm" variant="ghost" onClick={() => setOpen((v) => !v)}>{open ? '접기' : '상세'}</Btn>
         )}
@@ -55,7 +55,7 @@ function AuditRow({ log }: { log: EntityRecord }) {
             </div>
           ))}
           {samples.map((s, i) => (
-            <div key={i} style={{ fontSize: 11, color: C.mute, fontFamily: 'var(--font-mono)', padding: '4px 6px', background: C.head, borderRadius: R }}>{s}</div>
+            <div key={i} style={{ fontSize: FS.cap, color: C.mute, fontFamily: NUM, padding: '4px 6px', background: C.head, borderRadius: R }}>{s}</div>
           ))}
         </div>
       )}
@@ -135,7 +135,7 @@ export default function AuditTrash() {
             {shownLogs.length === 0 ? <CenterNote>기록이 없습니다.</CenterNote> :
               shownLogs.map((l, i) => <AuditRow key={String(l._key) || i} log={l} />)}
           </div>
-          <div style={{ marginTop: 10, fontSize: 11, color: C.faint, lineHeight: 1.5 }}>
+          <div style={{ marginTop: 10, fontSize: FS.cap, color: C.faint, lineHeight: 1.5 }}>
             매물·대여료·계약·정산·채팅·정책·회원 변경이 자동 기록됩니다. 채팅은 메시지 본문, 대여료는 기간별 금액 diff.
             방 unread 갱신은 제외(메시지 로그로 대체). 최근 표시 500건.
           </div>
@@ -148,7 +148,7 @@ export default function AuditTrash() {
                 <Badge tone="gray">{label(entity)}</Badge>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: FS.sub, fontWeight: FW.strong, color: C.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{String(rec.car_number || rec.customer_name || rec.name || rec.contract_code || rec.policy_name || rec._key)}</div>
-                  <div style={{ fontSize: 11, color: C.faint }}>삭제 {fmt(Date.parse(String(rec.deletedAt || '')) || undefined)} {rec.deletedReason ? `· ${rec.deletedReason}` : ''}</div>
+                  <div style={{ fontSize: FS.cap, color: C.faint }}>삭제 {fmt(Date.parse(String(rec.deletedAt || '')) || undefined)} {rec.deletedReason ? `· ${rec.deletedReason}` : ''}</div>
                 </div>
                 <Btn variant="ghost" size="sm" onClick={() => restore(entity, String(rec._key))}>복구</Btn>
               </div>

@@ -465,7 +465,7 @@ export default function Inventory() {
       <PaneBody pad>
         {sel ? <>
           {modeBanner}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: C.faint, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: FS.cap, color: C.faint, flexWrap: 'wrap' }}>
             <span style={{ fontFamily: NUM, fontWeight: FW.strong, color: C.mute }}>{String(form.product_code)}</span>
             <span>{String(form.provider_company_code || '')}</span>
             <span style={{ flex: 1 }} />
@@ -484,14 +484,14 @@ export default function Inventory() {
             opacity: canEdit ? 1 : 0.75, pointerEvents: canEdit ? undefined : 'none',
           }}>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 12, fontWeight: FW.title, color: C.brand }}>① 자동차등록증</div>
+              <div style={{ fontSize: FS.sub, fontWeight: FW.title, color: C.brand }}>① 자동차등록증</div>
               <div style={{ fontSize: FS.micro, color: C.faint }}>올리면 차번·차대·연료·배기·인승·용도·최초등록 자동채움(빈 칸만)</div>
             </div>
             <input ref={ocrRef} type="file" accept="image/*" onChange={(e) => runOcr(e.target.files)} style={{ display: 'none' }} />
             <Btn size="sm" onClick={() => ocrRef.current?.click()} disabled={ocrBusy || !canEdit}>{ocrBusy ? '인식 중…' : '등록증 올리기'}</Btn>
           </div>
           <div style={{ pointerEvents: canEdit ? undefined : 'none', opacity: canEdit ? 1 : 0.85 }}>
-            <div style={{ fontSize: 12, fontWeight: FW.title, color: C.brand, marginBottom: 6 }}>② 차종 마스터</div>
+            <div style={{ fontSize: FS.sub, fontWeight: FW.title, color: C.brand, marginBottom: 6 }}>② 차종 마스터</div>
             <VehicleMasterPicker
               key={sel || 'none'}
               value={{
@@ -526,7 +526,7 @@ export default function Inventory() {
             }} />
           </div>
           {(form.gen_year_start || form._snap_confidence) ? (
-            <div style={{ fontSize: 11, color: C.mute, marginTop: -4 }}>
+            <div style={{ fontSize: FS.cap, color: C.mute, marginTop: -4 }}>
               {form.gen_year_start ? `생산 ${form.gen_year_start}~${form.gen_year_end}` : ''}
               {form._snap_confidence ? `${form.gen_year_start ? ' · ' : ''}매칭 ${form._snap_confidence}` : ''}
             </div>
@@ -588,7 +588,7 @@ export default function Inventory() {
           </div>
           {supplierPhotos.length > 0 && (
             <div>
-              <SectionLabel mt={0}>공급사 사진 <span style={{ fontSize: 11, fontWeight: FW.body, color: C.faint }}>· 연동(읽기전용) {supplierPhotos.length}장</span></SectionLabel>
+              <SectionLabel mt={0}>공급사 사진 <span style={{ fontSize: FS.cap, fontWeight: FW.body, color: C.faint }}>· 연동(읽기전용) {supplierPhotos.length}장</span></SectionLabel>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(88px, 1fr))', gap: 6 }}>
                 {supplierPhotos.map((u, i) => (
                   <a key={i} href={u} target="_blank" rel="noreferrer" style={{ display: 'block', aspectRatio: '4 / 3', borderRadius: R, overflow: 'hidden', background: C.placeholder, border: `1px solid ${C.line}` }}>

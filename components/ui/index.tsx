@@ -186,7 +186,7 @@ export function Card({ title, value, note, tone = 'ink' }: { title: string; valu
   const color = tone === 'danger' ? C.danger : tone === 'ok' ? C.ok : tone === 'warn' ? C.warn : C.ink;
   return (
     <div style={{ background: C.taupeBg, border: `1px solid ${C.line}`, borderRadius: R, padding: '16px', minHeight: 112, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: '0 10px 28px rgba(15,23,42,0.04)' }}>
-      <div style={{ fontSize: 12.5, color: C.mute, fontWeight: FW.label, marginBottom: 10 }}>{title}</div>
+      <div style={{ fontSize: FS.sub, color: C.mute, fontWeight: FW.label, marginBottom: 10 }}>{title}</div>
       <div style={{ fontSize: 24, fontWeight: FW.head, color, fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{value}</div>
       {note && <div style={{ fontSize: FS.sub, color: C.faint, marginTop: 8 }}>{note}</div>}
     </div>
@@ -295,7 +295,7 @@ export function DetailShell({ title, meta, onBack, actions, fixed, maxWidth = 10
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 0', flexWrap: 'wrap', position: 'sticky', top: 0, background: 'var(--bg-page)', zIndex: 10 }}>
             {back}
             <span style={{ fontSize: 17, fontWeight: FW.title, letterSpacing: '-0.02em', marginLeft: 6 }}>{title}</span>
-            {meta && <span style={{ fontSize: 12.5, color: C.faint }}>{meta}</span>}
+            {meta && <span style={{ fontSize: FS.sub, color: C.faint }}>{meta}</span>}
             <span style={{ flex: 1 }} />
             {actions}
           </div>
@@ -324,7 +324,7 @@ export function Loading({ label = '불러오는 중…', minHeight = '100%' }: {
   return (
     <div style={{ minHeight, flex: 1, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '40px 16px', boxSizing: 'border-box' }}>
       <span aria-label="로딩" role="status" style={{ width: 26, height: 26, border: `3px solid ${C.line}`, borderTopColor: C.brand, borderRadius: '50%', animation: 'fp-spin 0.7s linear infinite' }} />
-      {label != null && label !== '' && <span style={{ fontSize: 12.5, color: C.faint }}>{label}</span>}
+      {label != null && label !== '' && <span style={{ fontSize: FS.sub, color: C.faint }}>{label}</span>}
     </div>
   );
 }
@@ -616,7 +616,7 @@ export function FormGrid({ fields, form, onChange, cols = 2, disabled }: { field
         const span = f.type === 'chips' ? { gridColumn: '1 / -1' as const } : undefined;
         return (
           <label key={f.key} style={{ fontSize: FS.cap, color: C.mute, ...span }}>
-            {f.label}{f.required && <span style={{ color: C.danger }}> *</span>}{f.manual && !disabled && <span style={{ color: '#9a3412' }}> ·직접</span>}
+            {f.label}{f.required && <span style={{ color: C.danger }}> *</span>}{f.manual && !disabled && <span style={{ color: C.warn }}> ·직접</span>}
             {f.max ? <span style={{ color: C.faint }}> ·최대 {f.max}</span> : null}
             {f.type === 'select' ? (
               <select value={val} disabled={disabled} onChange={(e) => onChange(f.key, e.target.value)} style={{ ...inp, background: bg, cursor: disabled ? 'default' : undefined, opacity: disabled ? 0.85 : 1 }}>
@@ -702,13 +702,13 @@ export function Drawer({ title, meta, onClose, children, footer, width = 560, on
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose, onPrev, onNext]);
-  const navBtn: React.CSSProperties = { border: `1px solid ${C.line}`, background: C.taupeBg, borderRadius: R, width: 26, height: 26, cursor: 'pointer', color: C.mute, fontSize: FS.body, lineHeight: 1 };
+  const navBtn: React.CSSProperties = { border: `1px solid ${C.line}`, background: C.taupeBg, borderRadius: R, width: 40, height: 40, cursor: 'pointer', color: C.mute, fontSize: FS.body, lineHeight: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: 0 };
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.32)', zIndex: 90, display: 'flex', justifyContent: 'flex-end' }}>
       <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: width, height: '100vh', background: C.taupeBg, boxShadow: '-10px 0 32px rgba(0,0,0,0.16)', display: 'flex', flexDirection: 'column', borderLeft: `1px solid ${C.line}` }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 16px', borderBottom: `1px solid ${C.line}`, background: C.head }}>
           <div style={{ minWidth: 0, display: 'flex', alignItems: 'baseline', gap: 8 }}>
-            <h2 style={{ fontSize: 14, fontWeight: FW.title, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</h2>
+            <h2 style={{ fontSize: FS.title, fontWeight: FW.title, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</h2>
             {meta && <span style={{ fontSize: FS.sub, color: C.mute }}>{meta}</span>}
           </div>
           <span style={{ flex: 1 }} />

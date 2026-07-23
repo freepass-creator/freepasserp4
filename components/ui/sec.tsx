@@ -1,7 +1,7 @@
 'use client';
 import React from 'react';
 import { ChevronDown, EyeOff, GripVertical } from 'lucide-react';
-import { C, NUM, FW, FS } from './tokens';
+import { C, NUM, FW, FS, R } from './tokens';
 
 /* ── 카드 우선 레이아웃 — 박스 그룹 대신 "섹션 텍스트 + 카드들". 모든 데이터=카드 객체. ── */
 // 섹션 = 박스 없는 텍스트 타이틀 + 카드 흐름
@@ -65,7 +65,7 @@ export function HiddenSecs() {
   return (
     <div style={{ marginTop: 30, paddingTop: 14, borderTop: `1px solid ${C.line}`, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
       <span style={{ fontSize: FS.cap, color: C.faint }}>숨긴 섹션</span>
-      {items.map(([hid, htitle]) => <button key={hid} onClick={() => window.dispatchEvent(new CustomEvent('fp:sec-show', { detail: hid }))} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 11px', border: `1px dashed ${C.line}`, borderRadius: 999, background: '#fff', cursor: 'pointer', fontSize: FS.cap, color: C.mute }}><EyeOff size={12} /> {htitle} · 표시</button>)}
+      {items.map(([hid, htitle]) => <button key={hid} onClick={() => window.dispatchEvent(new CustomEvent('fp:sec-show', { detail: hid }))} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minHeight: 40, padding: '0 12px', border: `1px dashed ${C.line}`, borderRadius: R, background: C.taupeBg, cursor: 'pointer', fontSize: FS.cap, color: C.mute }}><EyeOff size={12} /> {htitle} · 표시</button>)}
     </div>
   );
 }

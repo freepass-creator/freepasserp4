@@ -7,7 +7,7 @@ import {
   ADMIN_SETTLE_BLOCKS, computeAdminSettlement, importCompletedForMonth,
   monthTotals, saveAdminSettlement,
 } from '@/lib/domain/admin-settlement';
-import { Btn, C, CenterNote, FS, FW, Input, ListRow, Loading, R, Select, SectionLabel, won } from '@/components/ui';
+import { Btn, C, CenterNote, FS, FW, Input, ListRow, Loading, R, Select, SectionLabel, won, NUM } from '@/components/ui';
 import { toast } from '@/components/Toaster';
 import { useIsMobile } from '@/lib/use-mobile';
 
@@ -80,7 +80,7 @@ export function AdminSettlementSheet({ month }: { month: string }) {
               <ListRow key={String(r._key)} selected={String(r._key) === sel} onClick={() => select(r)}
                 main={String(r.customer_name || r.contract_code || '—')}
                 sub={`${r.car_number || ''} · 청구 ${won(r.provider_bill)}`}
-                right={<span style={{ fontSize: 11, fontWeight: FW.head, color: C.brand, fontFamily: 'var(--font-mono)' }}>{won(r.monthly_profit)}</span>}
+                right={<span style={{ fontSize: FS.cap, fontWeight: FW.head, color: C.brand, fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{won(r.monthly_profit)}</span>}
               />
             ))}
         </div>
@@ -90,7 +90,7 @@ export function AdminSettlementSheet({ month }: { month: string }) {
         {!sel ? <CenterNote>왼쪽에서 정산서를 선택하세요</CenterNote> : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 13, fontWeight: FW.title }}>{String(form.admin_settlement_code)}</span>
+              <span style={{ fontSize: FS.body, fontWeight: FW.title }}>{String(form.admin_settlement_code)}</span>
               <span style={{ flex: 1 }} />
               <Btn size="sm" onClick={save} disabled={busy}>저장</Btn>
             </div>
@@ -100,22 +100,22 @@ export function AdminSettlementSheet({ month }: { month: string }) {
                 <div style={{ display: 'grid', gridTemplateColumns: mobile ? '1fr' : '1fr 1fr', gap: 8, marginTop: 6 }}>
                   {block.fields.map((f) => (
                     <div key={f.k} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                      <span style={{ fontSize: 11, color: C.mute, fontWeight: FW.strong }}>{f.label}{f.calc ? ' (자동)' : ''}</span>
+                      <span style={{ fontSize: FS.cap, color: C.mute, fontWeight: FW.strong }}>{f.label}{f.calc ? ' (자동)' : ''}</span>
                       {f.type === 'select' ? (
                         <Select value={String(form[f.k] ?? '')} onChange={(v) => setField(f.k, v)} options={(f.opts || []).map((o) => ({ value: o, label: o }))} size="sm" full />
                       ) : f.calc ? (
-                        <div style={{ height: 32, display: 'flex', alignItems: 'center', padding: '0 8px', borderRadius: R, background: C.head, fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: FW.head }}>{String(form[f.k] ?? '')}</div>
+                        <div style={{ height: 32, display: 'flex', alignItems: 'center', padding: '0 8px', borderRadius: R, background: C.head, fontFamily: NUM, fontSize: FS.body, fontWeight: FW.head }}>{String(form[f.k] ?? '')}</div>
                       ) : (
                         <Input value={form[f.k] == null ? '' : String(form[f.k])} onChange={(v) => setField(f.k, v)}
                           size="sm" full inputMode={f.type === 'num' ? 'numeric' : undefined}
-                          style={f.type === 'num' ? { fontFamily: 'var(--font-mono)' } : undefined} />
+                          style={f.type === 'num' ? { fontFamily: NUM } : undefined} />
                       )}
                     </div>
                   ))}
                 </div>
               </div>
             ))}
-            <div style={{ fontSize: 11, color: C.faint, borderTop: `1px solid ${C.line2}`, paddingTop: 8 }}>
+            <div style={{ fontSize: FS.cap, color: C.faint, borderTop: `1px solid ${C.line2}`, paddingTop: 8 }}>
               부가세=합계×10% · 청구/지급=합계+부가세 · 당월수익=청구−지급. 청구·지급 칸을 직접 넣으면 그 값이 우선입니다.
             </div>
           </div>

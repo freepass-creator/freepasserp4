@@ -296,7 +296,7 @@ export function DataTable<T>({ cols, rows, onRow }: { cols: Col<T>[]; rows: T[];
         {rows.map((r, i) => (
           <div key={i} onClick={() => onRow && onRow(r)} tabIndex={onRow ? 0 : -1}
             onKeyDown={(e) => { if (onRow && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onRow(r); } }}
-            style={{ border: `1px solid ${C.line}`, borderRadius: R, background: '#fff', padding: '10px 12px', cursor: onRow ? 'pointer' : 'default', outline: 'none' }}>
+            style={{ border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg, padding: '10px 12px', cursor: onRow ? 'pointer' : 'default', outline: 'none' }}>
             <div style={{ fontSize: FS.body, fontWeight: FW.head }}>{cols[0]?.render(r)}</div>
             {cols.slice(1).map((c) => (
               <div key={c.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '3px 0', fontSize: FS.sub, borderTop: `1px solid ${C.line2}`, marginTop: 3 }}>

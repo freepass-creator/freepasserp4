@@ -52,7 +52,7 @@ export function MasterFitSummary({
         ))}
       </div>
       {fit.needReview != null && (
-        <div style={{ fontSize: 12, color: C.ink, fontWeight: FW.strong, marginBottom: 4 }}>
+        <div style={{ fontSize: FS.sub, color: C.ink, fontWeight: FW.strong, marginBottom: 4 }}>
           변환 시 예상 · 자동 {fit.autoConvert.toLocaleString()} · 검수 {fit.needReview.toLocaleString()}
         </div>
       )}

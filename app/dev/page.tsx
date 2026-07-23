@@ -10,7 +10,7 @@ import { auditMasterFit, reconcileToMaster, type MasterEntry } from '@/lib/domai
 import { loadVehicleMaster } from '@/lib/domain/vehicle-master-load';
 import { checkInventory } from '@/lib/domain/data-check';
 import { toast } from '@/components/Toaster';
-import { Page, Btn, C, R, Loading, CenterNote, SectionLabel, Badge, FS } from '@/components/ui';
+import { Page, Btn, C, R, Loading, CenterNote, SectionLabel, Badge, FS, NUM } from '@/components/ui';
 import { MasterFitSummary } from '@/components/MasterFitSummary';
 import { NAV_LABEL } from '@/lib/tabbar';
 import Link from 'next/link';
@@ -186,7 +186,7 @@ export default function DevTools() {
               {master === null ? '마스터 로딩' : masterReady ? `마스터 ${master!.length.toLocaleString()}세대` : '마스터 실패'}
             </Badge>
           </div>
-          {log && <pre style={{ margin: '10px 0 0', fontSize: FS.cap, color: C.mute, whiteSpace: 'pre-wrap', fontFamily: 'var(--font-mono)' }}>{log}</pre>}
+          {log && <pre style={{ margin: '10px 0 0', fontSize: FS.cap, color: C.mute, whiteSpace: 'pre-wrap', fontFamily: NUM }}>{log}</pre>}
         </div>
 
         <div style={{ ...card, background: C.selected }}>
@@ -201,8 +201,8 @@ export default function DevTools() {
             <Btn variant="ghost" onClick={() => runMigrate(true)} disabled={migBusy}>미리보기(복사 안 함)</Btn>
             <Btn onClick={() => runMigrate(false)} disabled={migBusy}>{migBusy ? '복사 중…' : 'v3→v4 복사 실행'}</Btn>
           </div>
-          {diagLog && <pre style={{ margin: '10px 0 0', fontSize: FS.cap, color: C.mute, whiteSpace: 'pre-wrap', fontFamily: 'var(--font-mono)', lineHeight: 1.6 }}>{diagLog}</pre>}
-          {migLog && <pre style={{ margin: '10px 0 0', fontSize: FS.cap, color: C.mute, whiteSpace: 'pre-wrap', fontFamily: 'var(--font-mono)' }}>{migLog}</pre>}
+          {diagLog && <pre style={{ margin: '10px 0 0', fontSize: FS.cap, color: C.mute, whiteSpace: 'pre-wrap', fontFamily: NUM, lineHeight: 1.6 }}>{diagLog}</pre>}
+          {migLog && <pre style={{ margin: '10px 0 0', fontSize: FS.cap, color: C.mute, whiteSpace: 'pre-wrap', fontFamily: NUM }}>{migLog}</pre>}
         </div>
 
         <div style={card}>
@@ -239,7 +239,7 @@ export default function DevTools() {
           </div>
         </div>
 
-        <div style={{ fontSize: 11, color: C.faint }}>
+        <div style={{ fontSize: FS.cap, color: C.faint }}>
           팁: 역할이 영업자면 재고·개발도구가 막힙니다. <Link href="/settings" style={{ color: C.accent }}>설정</Link>에서 관리자로 전환.
         </div>
       </div>
