@@ -11,7 +11,6 @@
 import { ref, get, query, orderByChild, equalTo, update as dbUpdate, type DataSnapshot } from 'firebase/database';
 import { getRtdb, getAuthClient } from './client';
 import { ENTITIES, type EntityRecord } from '../intake/entities';
-import { carYear } from '@/lib/domain/vehicle-master-match';
 import { vehicleIdentity } from '@/lib/domain/product';
 import { currentActor } from '../session';
 import { getSession } from '../auth-session';
@@ -40,9 +39,7 @@ const KASHUNG_PROVIDERS = new Set(['PT-0024']);
 const isKashungProduct = (r: Rec): boolean =>
   KASHUNG_PROVIDERS.has(String(r.provider_company_code)) || KASHUNG_PROVIDERS.has(String(r.partner_code));
 
-// 만 10년 이상 노후차는 취급 안 함(사용자 룰) — 연식/최초등록 기준 나이. 매년 자동 노후차 제외. 연식불명은 유지.
-const MAX_AGE = 10;
-const isTooOld = (r: Rec): boolean => { const y = carYear(r as EntityRecord); return y > 0 && (new Date().getFullYear() - y) >= MAX_AGE; };
+// (노후 10년 제외 폐기 — 사용자 결정: 노후차 숨길 필요 없음. 있는 상품 다 노출·erp3 정합.)
 
 // 공급 원가(vehicle_price) = 마진 노출 필드. 영업자·손님에겐 read 단에서 가린다(관리자·공급사만 조회).
 //  ※ 수수료(price.*.fee)는 영업자 수익 판단 기준이라 유지. vin도 유지(식별자).
@@ -55,8 +52,9 @@ function stripProductCost(p: EntityRecord): EntityRecord {
   return out as EntityRecord;
 }
 
-// v4 매물에서 제외할 것 종합(카슝 + 10년 이상).
-const isExcludedProduct = (r: Rec): boolean => isKashungProduct(r) || isTooOld(r);
+// v4 매물에서 제외할 것 = 카슝(구독연동, PT-0024, 현재 0대)만. 노후(10년)는 제외 안 함
+//  — 사용자 결정: 노후차 숨길 필요 없음(erp3도 미제외). erp3 재고규칙과 정합.
+const isExcludedProduct = (r: Rec): boolean => isKashungProduct(r);
 
 // 실물 유일신원(실번호판→VIN, product.vehicleIdentity SSOT) 기준 중복 제거 — v3 누적·v3∪v4 혼재로
 //  같은 차가 다른 product_code 로 두 번 들어오는 것 방지(카탈로그 대수 부풀림 차단).

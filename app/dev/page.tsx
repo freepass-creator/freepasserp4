@@ -130,7 +130,7 @@ export default function DevTools() {
         + `분류: 실번호판 ${d.realPlateRows} · VIN만 ${d.vinOnlyRows} · placeholder ${d.placeholderRows} · 공백 ${d.blankRows}\n`
         + `dedup(재고): 새(신원) ${d.uniqueByNewIdentity}  vs  옛(원문차번) ${d.uniqueByRawCarNumber}\n`
         + `erp3정합: 재고 ${d.uniqueByNewIdentity} − status삭제 ${d.statusDeleted} = ${d.erp3Inventory}대 (노후빼면 ${d.erp3InvExOld})\n`
-        + `층위: 재고 ${d.uniqueByNewIdentity} − 카슝 ${d.kashung} − 10년 ${d.tooOld} − 출고불가 ${d.hiddenFromCatalog} = 카탈로그 ${d.finderVisible}\n`
+        + `층위: 재고 ${d.uniqueByNewIdentity} − 카슝 ${d.kashung} − 출고불가 ${d.hiddenFromCatalog} = 카탈로그 ${d.finderVisible} (노후 ${d.tooOld} 포함)\n`
         + (st ? `상태별:\n${st}\n` : '')
         + (pv ? `공급사별:\n${pv}\n` : '')
         + (ph ? `placeholder 값(오합침 원인):\n${ph}\n` : '')

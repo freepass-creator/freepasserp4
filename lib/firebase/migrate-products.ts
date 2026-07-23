@@ -163,7 +163,7 @@ export async function diagnoseProductDedup(): Promise<DedupDiag> {
     if (k) kashung++;
     if (o) tooOld++;
     if (h) hiddenFromCatalog++;
-    if (!k && !o && !h) finderVisible++;
+    if (!k && !h) finderVisible++; // 노후(o)는 이제 카탈로그 포함 — 출고불가·카슝만 뺌
     // erp3 정합: status==='deleted'(소프트삭제) 제외 = 재고 374 목표. 노후 뺀 값도 함께.
     if (String(r.status) === 'deleted') statusDeleted++;
     else { erp3Inventory++; if (!o) erp3InvExOld++; }
