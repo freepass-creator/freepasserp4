@@ -53,7 +53,7 @@ export default function LoginPage() {
   const [msg, setMsg] = useState<{ text: string; tone: 'muted' | 'ok' | 'err' }>({ text: '', tone: 'muted' });
   // 필드
   const [email, setEmail] = useState(''); const [pw, setPw] = useState('');
-  const [su, setSu] = useState({ email: '', pw: '', name: '', phone: '', company: '', bizNo: '' });
+  const [su, setSu] = useState({ email: '', pw: '', pw2: '', name: '', phone: '', company: '', bizNo: '' });
   const [bizMatch, setBizMatch] = useState<{ text: string; cls: '' | 'ok' | 'miss' }>({ text: '', cls: '' });
   const [rpEmail, setRpEmail] = useState('');
   const bizTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -95,12 +95,16 @@ export default function LoginPage() {
   const doSignup = async (e: React.FormEvent) => {
     e.preventDefault(); if (busy) return;
     if (!su.email.trim() || !su.pw || su.pw.length < 6) { say('이메일·비밀번호(6자 이상) 필수', 'err'); return; }
+    if (su.pw !== su.pw2) { say('비밀번호가 일치하지 않습니다', 'err'); return; }
     setBusy(true); say('');
     let authUser: User;
     try { authUser = await signup(su.email.trim(), su.pw); }
     catch (authErr) {
-      if ((authErr as { code?: string })?.code === 'auth/email-already-in-use') say('이미 가입된 이메일입니다. 로그인해주세요.', 'err');
-      else { console.error('[signup]', authErr); say(koreanAuthMsg(authErr, '가입 실패'), 'err'); }
+      const m = (authErr as { code?: string })?.code === 'auth/email-already-in-use'
+        ? '이미 가입된 이메일입니다. 로그인해주세요.'
+        : koreanAuthMsg(authErr, '가입 실패');
+      console.error('[signup]', authErr); say(m, 'err');
+      if (typeof window !== 'undefined') window.alert(`가입 실패\n${m}`);
       setBusy(false); return;
     }
     try {
@@ -108,11 +112,15 @@ export default function LoginPage() {
       await writeUserProfile(authUser, { name: su.name.trim(), phone: su.phone.trim(), company_name: su.company.trim(), business_no: su.bizNo.trim() });
     } catch (err) {
       await authUser.delete().catch(() => {});
-      console.error('[signup profile]', err); say(koreanAuthMsg(err, '가입 실패'), 'err'); setBusy(false); return;
+      const m = koreanAuthMsg(err, '가입 실패');
+      console.error('[signup profile]', err); say(m, 'err');
+      if (typeof window !== 'undefined') window.alert(`가입 실패\n${m}`);
+      setBusy(false); return;
     }
     await logout().catch(() => {});
     setEmail(su.email.trim()); switchMode('login');
     say('가입 완료! 이메일·비밀번호로 로그인해주세요.', 'ok'); setBusy(false);
+    if (typeof window !== 'undefined') window.alert('가입이 완료되었습니다.\n이메일·비밀번호로 로그인해주세요.');
   };
 
   const doReset = async (e: React.FormEvent) => {
@@ -164,15 +172,17 @@ export default function LoginPage() {
         {mode === 'signup' && (
           <form className={`login-card${busy ? ' is-loading' : ''}`} onSubmit={doSignup} noValidate>
             <header className="login-head"><h2 className="login-title">계정 만들기</h2><p className="login-sub">사업자번호로 회사·역할이 자동 부여됩니다.</p></header>
+            {msg.text && <p className="login-msg" style={{ margin: 0, color: msgColor, textAlign: 'center', fontWeight: 600 }} aria-live="polite">{msg.text}</p>}
             <div className="login-form">
-              <div className="login-field"><label htmlFor="suEmail">이메일</label><input id="suEmail" type="email" placeholder="name@company.com" autoComplete="username" value={su.email} onChange={(e) => setSu({ ...su, email: e.target.value })} required /></div>
+              <div className="login-field"><label htmlFor="suEmail">이메일 (필수)</label><input id="suEmail" type="email" placeholder="name@company.com" autoComplete="username" value={su.email} onChange={(e) => setSu({ ...su, email: e.target.value })} required /></div>
               <div className="login-field"><label htmlFor="suPw">비밀번호</label><input id="suPw" type="password" placeholder="6자 이상" autoComplete="new-password" value={su.pw} onChange={(e) => setSu({ ...su, pw: e.target.value })} required /></div>
+              <div className="login-field"><label htmlFor="suPw2">비밀번호 확인</label><input id="suPw2" type="password" placeholder="비밀번호 재입력" autoComplete="new-password" value={su.pw2} onChange={(e) => setSu({ ...su, pw2: e.target.value })} required />{su.pw2 && su.pw !== su.pw2 && <p className="biz-no-match is-miss">비밀번호가 일치하지 않습니다</p>}</div>
               <div className="login-field"><label htmlFor="suName">이름</label><input id="suName" placeholder="홍길동" value={su.name} onChange={(e) => setSu({ ...su, name: e.target.value })} required /></div>
               <div className="login-field"><label htmlFor="suPhone">연락처</label><input id="suPhone" type="tel" placeholder="010-0000-0000" value={su.phone} onChange={(e) => setSu({ ...su, phone: fmtPhone(e.target.value) })} /></div>
               <div className="login-field"><label htmlFor="suCompany">소속 회사명 (참고)</label><input id="suCompany" placeholder="회사명" value={su.company} onChange={(e) => setSu({ ...su, company: e.target.value })} /></div>
               <div className="login-field"><label htmlFor="suBizNo">소속 사업자번호</label><input id="suBizNo" inputMode="numeric" placeholder="000-00-00000" autoComplete="off" value={su.bizNo} onChange={(e) => onBizNo(e.target.value)} />{bizMatch.text && <p className={`biz-no-match${bizMatch.cls ? ` is-${bizMatch.cls}` : ''}`}>{bizMatch.text}</p>}</div>
-              <p className="login-msg" style={{ margin: '4px 0 8px', color: '#5f6368', fontSize: 12, lineHeight: 1.4, textAlign: 'left' }}>사업자번호가 등록된 경우 가입 즉시 이용 가능합니다.</p>
-              <button type="submit" className="login-submit" disabled={busy}>가입하기</button>
+              <p className="login-msg" style={{ margin: '4px 0 8px', color: '#5f6368', fontSize: 12, lineHeight: 1.4, textAlign: 'left' }}>사업자번호로 회사·역할이 자동 부여되어 바로 이용할 수 있습니다.</p>
+              <button type="submit" className="login-submit" disabled={busy}>계정 만들기</button>
             </div>
             <div className="login-links"><a href="#" onClick={(e) => { e.preventDefault(); switchMode('login'); }}>로그인으로 돌아가기</a></div>
             {msg.text && <p className="login-msg" style={{ color: msgColor }} aria-live="polite">{msg.text}</p>}

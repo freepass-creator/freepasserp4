@@ -7,7 +7,7 @@ import {
   onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword,
   signOut, sendPasswordResetEmail, setPersistence, browserLocalPersistence, type User,
 } from 'firebase/auth';
-import { ref, get, set, runTransaction } from 'firebase/database';
+import { ref, get, set, update, runTransaction } from 'firebase/database';
 import { getAuthClient, getRtdb, firebaseReady } from './client';
 import { setSession, mapRole, setGuest } from '../auth-session';
 
@@ -116,12 +116,11 @@ export async function resetPassword(email: string): Promise<void> {
   await sendPasswordResetEmail(auth, email);
 }
 
-/** 가입 프로필 쓰기 — v3 _writeUserProfile 그대로. 사업자번호→partners 매칭으로 회사·역할 자동 부여. */
-export async function writeUserProfile(user: User, info: { name: string; phone: string; company_name: string; business_no: string }): Promise<void> {
-  const db = getRtdb(); if (!db) throw new Error('DB가 설정되지 않았습니다');
-  const bizNo = String(info.business_no || '').replace(/\D/g, '');
+/** 사업자번호 → partners 매칭으로 역할·회사·채널 해석(가입·승인 공통). 미매칭=영업자·SP999. */
+async function resolveIdentity(bizNo: string): Promise<{ role: string; company_code: string; agent_channel_code: string; matched_partner_code: string | null }> {
   let role = 'agent', company_code = 'SP999', agent_channel_code = '', matched_partner_code: string | null = null;
-  if (bizNo) {
+  const db = getRtdb();
+  if (bizNo && db) {
     try {
       const partners = (await get(ref(db, 'partners'))).val() || {};
       for (const [k, p] of Object.entries<Record<string, unknown>>(partners)) {
@@ -137,25 +136,58 @@ export async function writeUserProfile(user: User, info: { name: string; phone: 
       }
     } catch { /* noop */ }
   }
-  let user_code = 'U0001';
-  try {
-    const res = await runTransaction(ref(db, 'counters/user_code_seq'), (cur) => (cur || 0) + 1);
-    if (res.committed) user_code = `U${String(res.snapshot.val()).padStart(4, '0')}`;
-  } catch { /* noop */ }
-  // 가입 승인 — 전원 관리자 승인(자가활성 차단). 사업자번호 매칭은 role·company 자동부여에만 쓰고,
-  //   status 는 항상 pending 으로 저장 → 관리자가 approveUser 로 "최상위" users/{uid}/status 에 active 를 찍어야 사용 가능.
-  //   (게이트가 최상위 status 를 읽으므로 승인은 반드시 최상위에 기록해야 한다.)
-  const status = 'pending';
-  await set(ref(db, `users/${user.uid}`), {
-    uid: user.uid, email: user.email || '', name: info.name || '', phone: info.phone || '',
-    company_name: info.company_name || '', business_no: bizNo, user_code,
-    role, company_code, agent_channel_code, matched_partner_code, status, created_at: Date.now(),
-  });
+  return { role, company_code, agent_channel_code, matched_partner_code };
 }
 
-/** 관리자 가입 승인/해제 — 게이트가 읽는 "최상위" users/{uid}/status 에 직접 기록(v4 오버레이 아님). 관리자만(규칙 + 화면 게이트). */
+/**
+ * 가입 프로필 쓰기 — 사업자번호 매칭으로 역할·회사·채널 자동 부여.
+ *  현재는 **자동승인**(status=active): 공급사 사업자면 공급사 직원, 영업 사업자면 영업자,
+ *  미매칭이면 영업자·임시소속(SP999)으로 즉시 이용.
+ *  ※ TODO(security): 관리자 승인 게이트 + 신원 서버배정(자가쓰기 위조 차단)은 추후 재도입.
+ *    재도입 시 company_code/agent_channel_code 규칙을 admin-only 로 되돌리고 여기서 미기록,
+ *    approveUser 가 사업자 재매칭으로 확정한다.
+ */
+export async function writeUserProfile(user: User, info: { name: string; phone: string; company_name: string; business_no: string }): Promise<void> {
+  const db = getRtdb(); if (!db) throw new Error('DB가 설정되지 않았습니다');
+  const bizNo = String(info.business_no || '').replace(/\D/g, '');
+  let step = '초기화'; // 실패 단계 표기(가입 오류 위치 추적)
+  try {
+    step = 'uid 확인';
+    const uid = String(user?.uid || '');
+    if (!uid) throw new Error('auth uid 없음');
+    step = '사업자 매칭';
+    const { role, company_code, agent_channel_code, matched_partner_code } = await resolveIdentity(bizNo);
+    step = '회원번호 채번';
+    let user_code = 'U0001';
+    try {
+      const res = await runTransaction(ref(db, 'counters/user_code_seq'), (cur) => (cur || 0) + 1);
+      if (res.committed) user_code = `U${String(res.snapshot.val()).padStart(4, '0')}`;
+    } catch (ce) { console.warn('[writeUserProfile] 채번 실패(계속):', (ce as Error)?.message || ce); }
+    step = '프로필 저장';
+    const rec: Record<string, unknown> = {
+      uid, email: user.email || '', name: info.name || '', phone: info.phone || '',
+      company_name: info.company_name || '', business_no: bizNo, user_code,
+      role, company_code, agent_channel_code, status: 'active', created_at: Date.now(),
+    };
+    if (matched_partner_code) rec.matched_partner_code = matched_partner_code; // null 은 set 에 넣지 않음
+    await set(ref(db, `users/${uid}`), rec);
+  } catch (e) {
+    console.error(`[writeUserProfile] 실패 단계=[${step}]`, e);
+    throw new Error(`[${step}] ${(e as Error)?.message || String(e)}`);
+  }
+}
+
+/**
+ * 관리자 가입 승인/해제 — 게이트가 읽는 "최상위" users/{uid} 에 직접 기록(v4 오버레이 아님). 관리자만(규칙 + 화면 게이트).
+ *  승인 = 신원 확정: 사업자번호를 partners 로 "재매칭"(사용자 self 필드가 아니라 권한 소스)해 company_code·agent_channel_code 세팅.
+ *  ※ 관리자가 사업자 진위를 확인하고 승인한다는 전제(사람 KYC) — 규칙은 이 필드를 관리자만 쓰게 강제한다.
+ */
 export async function approveUser(uid: string, active = true): Promise<void> {
   const db = getRtdb(); if (!db) throw new Error('DB가 설정되지 않았습니다');
   if (!uid) throw new Error('uid 없음');
-  await set(ref(db, `users/${uid}/status`), active ? 'active' : 'pending');
+  if (!active) { await set(ref(db, `users/${uid}/status`), 'pending'); return; }
+  const u = (await get(ref(db, `users/${uid}`))).val() as Record<string, unknown> | null;
+  const bizNo = String((u && u.business_no) || '').replace(/\D/g, '');
+  const { role, company_code, agent_channel_code, matched_partner_code } = await resolveIdentity(bizNo);
+  await update(ref(db, `users/${uid}`), { status: 'active', role, company_code, agent_channel_code, matched_partner_code });
 }
