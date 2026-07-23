@@ -453,8 +453,8 @@ export default function Finder() {
 
   // 상단바 상태창 = PageStatus SSOT (웹·모바일 동일)
   useAppBar({
-    title: <FinderStatus total={totalVisible} matched={list.length} narrowed={narrowed} />,
-  }, [totalVisible, list.length, narrowed]);
+    title: <FinderStatus />,
+  }, []);
 
   // 기간 필터 1개만 = 카드 앵커 가격. 복수/전체 = 최저가.
   const focusMonth = periods.size === 1 ? [...periods][0] : undefined;
