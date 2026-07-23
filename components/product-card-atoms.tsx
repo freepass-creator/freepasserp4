@@ -169,7 +169,7 @@ export function Plate({ p }: { p: EntityRecord }) {
   if (!p.car_number) return null;
   return (
     <span style={{
-      fontSize: 11, fontWeight: FW.strong, color: C.ink, fontFamily: NUM,
+      fontSize: FS.cap, fontWeight: FW.strong, color: C.ink, fontFamily: NUM,
       letterSpacing: '-0.2px', whiteSpace: 'nowrap', flex: '0 0 auto',
     }}>{String(p.car_number)}</span>
   );
@@ -669,7 +669,7 @@ export function OptionChips({ p, clamp, lines = 1, expand }: {
   if (!opts.length) {
     return (
       <div style={{
-        fontSize: 11, color: C.faint, lineHeight: 1.45,
+        fontSize: FS.cap, color: C.faint, lineHeight: 1.45,
         minWidth: 0, width: '100%',
       }}>옵션미입력</div>
     );
@@ -691,13 +691,13 @@ export function OptionChips({ p, clamp, lines = 1, expand }: {
   const more = over || clipped;
   // 카드 = 텍스트처럼(11) · 박스만. 엑셀 = 칸 높이 맞춤.
   const optChip: CSSProperties = wrap2 ? {
-    fontSize: 12, color: C.mute, background: C.head, borderRadius: 3,
+    fontSize: FS.sub, color: C.mute, background: C.head, borderRadius: R,
     padding: '0 5px', height: EXCEL_OPT_CHIP_H,
     display: 'inline-flex', alignItems: 'center',
     whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
     maxWidth: '100%', minWidth: 0, flex: '0 0 auto', boxSizing: 'border-box',
   } : {
-    fontSize: 11, color: C.mute, background: C.head, borderRadius: 3,
+    fontSize: FS.cap, color: C.mute, background: C.head, borderRadius: R,
     padding: '1px 5px',
     whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
     maxWidth: 140, minWidth: 0, flex: '0 1 auto', boxSizing: 'border-box',
@@ -714,7 +714,7 @@ export function OptionChips({ p, clamp, lines = 1, expand }: {
         </div>
         {more && (
           <span style={{
-            flex: '0 0 auto', fontSize: 11, fontWeight: FW.strong,
+            flex: '0 0 auto', fontSize: FS.cap, fontWeight: FW.strong,
             color: C.faint, paddingInline: 2, letterSpacing: '0.04em', lineHeight: 1.2, marginTop: 2,
           }}>…</span>
         )}
@@ -734,7 +734,7 @@ export function OptionChips({ p, clamp, lines = 1, expand }: {
       </div>
       {more && (
         <span style={{
-          flex: '0 0 auto', fontSize: 11, fontWeight: FW.strong,
+          flex: '0 0 auto', fontSize: FS.cap, fontWeight: FW.strong,
           color: C.faint, paddingInline: 2, letterSpacing: '0.04em', lineHeight: 1,
         }}>…</span>
       )}
@@ -806,10 +806,10 @@ export function PricePeekRoot({ p, focusMonth, children, style }: {
 export function PriceMonth({ align = 'end' }: { align?: 'start' | 'end' }) {
   const { focus, peeking } = usePricePeek();
   const end = align === 'end';
-  if (!focus) return <span style={{ fontSize: 11, color: C.faint }}>—</span>;
+  if (!focus) return <span style={{ fontSize: FS.cap, color: C.faint }}>—</span>;
   return (
     <span style={{
-      fontSize: 11,
+      fontSize: FS.cap,
       fontWeight: FW.strong,
       color: peeking ? C.ink : C.mute,
       textAlign: end ? 'right' : undefined,
@@ -824,7 +824,7 @@ export function PriceRentDep({ align = 'end' }: { align?: 'start' | 'end' }) {
   const { focus, peeking } = usePricePeek();
   const end = align === 'end';
   if (!focus) {
-    return <span style={{ fontSize: 11, color: C.faint, fontWeight: FW.strong }}>가격문의</span>;
+    return <span style={{ fontSize: FS.cap, color: C.faint, fontWeight: FW.strong }}>가격문의</span>;
   }
   return (
     <div style={{
@@ -832,14 +832,14 @@ export function PriceRentDep({ align = 'end' }: { align?: 'start' | 'end' }) {
       justifyContent: end ? 'flex-end' : 'flex-start', minWidth: 0,
     }}>
       <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 3 }}>
-        <span style={{ fontSize: 10, fontWeight: FW.body, color: peeking ? C.mute : C.faint, transition: 'color 0.12s ease' }}>월</span>
+        <span style={{ fontSize: FS.micro, fontWeight: FW.body, color: peeking ? C.mute : C.faint, transition: 'color 0.12s ease' }}>월</span>
         <span style={{
-          fontSize: 18, fontWeight: FW.head, fontFamily: NUM, letterSpacing: '-0.02em',
+          fontSize: FS.page, fontWeight: FW.head, fontFamily: NUM, letterSpacing: '-0.02em',
           color: peeking ? C.brand : C.ink, transition: 'color 0.12s ease',
         }}>{man(focus.rent)}</span>
       </span>
       <span style={{
-        fontSize: 11, fontWeight: FW.meta,
+        fontSize: FS.cap, fontWeight: FW.meta,
         color: peeking ? C.mute : C.faint, transition: 'color 0.12s ease',
       }}>
         {focus.deposit > 0 ? `보증 ${man(focus.deposit)}` : '무보증'}
@@ -858,7 +858,7 @@ export function PriceAmounts({ align = 'start' }: {
   const end = align === 'end';
   const center = align === 'center';
   if (!focus) {
-    return <span style={{ fontSize: 11, color: C.faint, fontWeight: FW.strong }}>가격문의</span>;
+    return <span style={{ fontSize: FS.cap, color: C.faint, fontWeight: FW.strong }}>가격문의</span>;
   }
   return (
     <div style={{
@@ -867,13 +867,13 @@ export function PriceAmounts({ align = 'start' }: {
       justifyContent: end ? 'flex-end' : center ? 'center' : 'flex-start',
     }}>
       <span style={{
-        fontSize: 11, fontWeight: FW.strong,
+        fontSize: FS.cap, fontWeight: FW.strong,
         color: peeking ? C.ink : C.mute, whiteSpace: 'nowrap',
         transition: 'color 0.12s ease',
       }}>{focus.m}개월</span>
       <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 3, whiteSpace: 'nowrap' }}>
         <span style={{
-          fontSize: 10, fontWeight: FW.body,
+          fontSize: FS.micro, fontWeight: FW.body,
           color: peeking ? C.mute : C.faint, transition: 'color 0.12s ease',
         }}>월</span>
         <span style={{
@@ -882,7 +882,7 @@ export function PriceAmounts({ align = 'start' }: {
         }}>{man(focus.rent)}</span>
       </span>
       <span style={{
-        fontSize: 11, fontWeight: FW.meta,
+        fontSize: FS.cap, fontWeight: FW.meta,
         color: peeking ? C.mute : C.faint, whiteSpace: 'nowrap',
         transition: 'color 0.12s ease',
       }}>
@@ -897,10 +897,10 @@ function periodChipStyle(on: boolean): CSSProperties {
   return {
     display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
     height: 20, boxSizing: 'border-box',
-    padding: '0 6px', borderRadius: 3,
-    fontSize: 9.5, fontWeight: FW.strong, lineHeight: 1,
+    padding: '0 6px', borderRadius: R,
+    fontSize: FS.micro, fontWeight: FW.strong, lineHeight: 1,
     letterSpacing: '-0.01em', whiteSpace: 'nowrap',
-    color: on ? '#fff' : C.mute,
+    color: on ? C.taupeBg : C.mute,
     background: on ? C.brand : C.head,
     flex: '0 0 auto',
   };
@@ -929,7 +929,7 @@ export function PeriodRange() {
         {lo}개월
       </span>
       <span style={{
-        fontSize: 9.5, fontWeight: FW.strong, color: C.faint,
+        fontSize: FS.micro, fontWeight: FW.strong, color: C.faint,
         lineHeight: 1, flex: '0 0 auto',
       }}>~</span>
       <span data-period-chip title={tip(hi)} style={periodChipStyle(activeM === hi)}>

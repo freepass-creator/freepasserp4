@@ -187,7 +187,16 @@ export default function Chat() {
       return 0;
     });
   const roomListEl = shownRooms.length === 0
-    ? <div style={{ padding: 24, textAlign: 'center', color: C.faint, fontSize: FS.sub }}>{q || flt !== '문의' ? '검색 결과 없음' : role === 'provider' ? '들어온 문의가 없습니다.' : role === 'admin' ? '채팅 중인 문의가 없습니다.' : '채팅 중인 문의가 없습니다.'}</div>
+    ? (
+      <CenterNote>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+          <span>{q || flt !== '문의' ? '검색 결과 없음' : role === 'provider' ? '들어온 문의가 없습니다.' : role === 'admin' ? '채팅 중인 문의가 없습니다.' : '채팅 중인 문의가 없습니다.'}</span>
+          {(q || flt !== '문의') ? (
+            <Btn size="sm" variant="ghost" onClick={() => { setQ(''); setFlt('문의'); }}>조건 해제</Btn>
+          ) : null}
+        </div>
+      </CenterNote>
+    )
     : <div>{shownRooms.map((rm) => {
         const counter = roomCounter(rm);
         return (

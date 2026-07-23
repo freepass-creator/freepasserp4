@@ -402,7 +402,16 @@ export default function Inventory() {
   const shown = filtered.slice(0, limit);
   const moreN = Math.max(0, filtered.length - limit);
   const listEl = filtered.length === 0
-    ? <CenterNote>{q || stFlt !== 'all' || typeFlt !== 'all' ? '검색 결과 없음' : '매물 없음'}</CenterNote>
+    ? (
+      <CenterNote>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+          <span>{q || stFlt !== 'all' || typeFlt !== 'all' ? '검색 결과 없음' : '매물 없음'}</span>
+          {(q || stFlt !== 'all' || typeFlt !== 'all') ? (
+            <Btn size="sm" variant="ghost" onClick={() => { setQ(''); setStFlt('all'); setTypeFlt('all'); }}>조건 해제</Btn>
+          ) : null}
+        </div>
+      </CenterNote>
+    )
     : (
       <div>
         {shown.map((p) => (

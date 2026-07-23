@@ -6,7 +6,7 @@ import { haptic } from '@/lib/haptics';
 /**
  * 페이지 상단 툴바 SSOT (상품검색·업무목록 동일).
  *   아이콘+라벨 균등 행 → 탭 시 시트.
- *   스크롤에 안 딸려감 — 셸/파인더가 flex로 고정(sticky 아님).
+ *   툴 버튼 = Btn bare + .fp-page-tool (시각은 CSS SSOT).
  */
 export type PageToolItem = {
   key: string;
@@ -42,22 +42,12 @@ export function PageToolBar({
           return (
             <Btn
               key={t.key}
-              variant="ghost"
+              variant="bare"
               className="fp-page-tool"
               aria-label={badge != null ? `${t.label} ${badge}` : t.label}
               aria-pressed={!!t.pressed}
               data-active={on ? '1' : undefined}
               onClick={() => { haptic.tap(); t.onClick(); }}
-              style={{
-                // .fp-page-tool 레이아웃과 맞춤(인라인이 클래스보다 우선)
-                position: 'relative', flex: '1 1 0', minWidth: 0,
-                height: 'auto', width: 'auto', padding: 0, gap: 2,
-                display: 'flex', flexDirection: 'column',
-                border: 'none', background: 'none', boxShadow: 'none', borderRadius: 0,
-                color: on ? C.brand : C.mute,
-                fontWeight: on ? FW.head : FW.strong,
-                fontSize: FS.cap, lineHeight: 1.1, whiteSpace: 'normal',
-              }}
             >
               <Icon size={18} strokeWidth={on ? 2.4 : 2} />
               <span>{t.label}</span>
@@ -74,13 +64,11 @@ export function PageToolBar({
           <span className="fp-page-tool-hints-text">{hints.join(' · ')}</span>
           {onClearHints ? (
             <Btn
-              size="sm"
-              variant="ghost"
+              variant="bare"
               onClick={() => { haptic.select(); onClearHints(); }}
               style={{
-                flex: '0 0 auto', border: 'none', background: 'none',
-                color: C.brand, fontSize: FS.sub, fontWeight: FW.head,
-                padding: '0 2px', height: 'auto', boxShadow: 'none',
+                flex: '0 0 auto', color: C.brand, fontSize: FS.sub, fontWeight: FW.head,
+                padding: '0 2px',
               }}
             >
               {clearLabel}

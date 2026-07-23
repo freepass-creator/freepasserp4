@@ -144,7 +144,16 @@ export default function ContractsSettlement() {
       return String(b.contract_date || '').localeCompare(String(a.contract_date || ''));
     });
   const listEl = shown.length === 0
-    ? <CenterNote>{q || flt !== '진행' ? '검색 결과 없음' : '진행 중인 계약이 없습니다.'}</CenterNote>
+    ? (
+      <CenterNote>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+          <span>{q || flt !== '진행' ? '검색 결과 없음' : '진행 중인 계약이 없습니다.'}</span>
+          {(q || flt !== '진행') ? (
+            <Btn size="sm" variant="ghost" onClick={() => { setQ(''); setFlt('진행'); }}>조건 해제</Btn>
+          ) : null}
+        </div>
+      </CenterNote>
+    )
     : <div>{shown.map((c) => (
       <ContractListRow
         key={String(c.contract_code)}

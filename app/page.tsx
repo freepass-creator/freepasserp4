@@ -27,7 +27,7 @@ import { firebaseReady } from '@/lib/firebase/client';
 import { toggleInSet } from '@/lib/set';
 import { toast } from '@/components/Toaster';
 import { actor, getRole, ensureRoom, ROLE_LABEL } from '@/lib/domain/deal';
-import { getSession } from '@/lib/auth-session';
+import { getSession, isGuest } from '@/lib/auth-session';
 import { guestShareUrl, formatProductForCopy } from '@/lib/domain/product-share';
 import type { CtxItem } from '@/components/ui/ContextMenu';
 import { useAppBar } from '@/lib/appbar';
@@ -170,7 +170,7 @@ function FilterPop({ field, x, y, rows, colFilter, setColFilter, colSort, setCol
   const isS = (dir: string) => !!colSort && colSort.field === field && colSort.dir === dir;
   const shown = entries.filter(([k]) => !q || k.toLowerCase().includes(q.toLowerCase()));
   const canSort = exColSortNum(field); // 오름·내림 = 숫자칸만(연식·주행·대여료)
-  const rowPad = { padding: '6px 10px', fontSize: 12.5, cursor: 'pointer' as const, display: 'flex', alignItems: 'center', gap: 8, border: 'none', background: 'transparent', width: '100%', boxSizing: 'border-box' as const, textAlign: 'left' as const, fontFamily: 'inherit' };
+  const rowPad = { padding: '6px 10px', fontSize: FS.sub, cursor: 'pointer' as const, display: 'flex', alignItems: 'center', gap: 8, border: 'none', background: 'transparent', width: '100%', boxSizing: 'border-box' as const, textAlign: 'left' as const, fontFamily: 'inherit' };
   return (<>
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 90 }} />
     <div style={{
@@ -182,9 +182,9 @@ function FilterPop({ field, x, y, rows, colFilter, setColFilter, colSort, setCol
       {canSort && (
         <div style={{ display: 'flex', borderBottom: `1px solid ${C.line2}` }}>
           {(['asc', 'desc'] as const).map((dir) => (
-            <button
+            <Btn
               key={dir}
-              type="button"
+              variant="bare"
               onClick={() => setSort(dir)}
               style={{
                 ...rowPad, flex: 1, justifyContent: 'center',
@@ -192,7 +192,7 @@ function FilterPop({ field, x, y, rows, colFilter, setColFilter, colSort, setCol
                 color: isS(dir) ? C.brand : C.mute,
                 background: isS(dir) ? C.selected : 'transparent',
               }}
-            >{dir === 'asc' ? '↑ 오름' : '↓ 내림'}</button>
+            >{dir === 'asc' ? '↑ 오름' : '↓ 내림'}</Btn>
           ))}
         </div>
       )}
@@ -205,9 +205,9 @@ function FilterPop({ field, x, y, rows, colFilter, setColFilter, colSort, setCol
         ) : shown.map(([k, cnt]) => {
           const on = sel.has(k);
           return (
-            <button
+            <Btn
               key={k}
-              type="button"
+              variant="bare"
               onClick={() => toggleV(k)}
               style={{
                 ...rowPad,
@@ -215,27 +215,25 @@ function FilterPop({ field, x, y, rows, colFilter, setColFilter, colSort, setCol
                 color: C.ink,
                 fontWeight: on ? FW.head : FW.meta,
               }}
-              onMouseEnter={(e) => { if (!on) e.currentTarget.style.background = C.hover as string; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = on ? (C.selected as string) : 'transparent'; }}
             >
-              <span style={{ flex: '0 0 14px', fontFamily: NUM, color: on ? C.brand : C.faint, fontSize: 12 }}>{on ? '✓' : ''}</span>
+              <span style={{ flex: '0 0 14px', fontFamily: NUM, color: on ? C.brand : C.faint, fontSize: FS.sub }}>{on ? '✓' : ''}</span>
               <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{k}</span>
-              <span style={{ flex: '0 0 auto', fontFamily: NUM, color: C.faint, fontSize: 11 }}>{cnt}</span>
-            </button>
+              <span style={{ flex: '0 0 auto', fontFamily: NUM, color: C.faint, fontSize: FS.cap }}>{cnt}</span>
+            </Btn>
           );
         })}
       </div>
       <div style={{ display: 'flex', borderTop: `1px solid ${C.line2}` }}>
-        <button
-          type="button"
+        <Btn
+          variant="bare"
           onClick={() => { const nf = { ...colFilter }; delete nf[field]; setColFilter(nf); }}
           style={{ ...rowPad, flex: 1, justifyContent: 'center', color: C.mute }}
-        >초기화</button>
-        <button
-          type="button"
+        >초기화</Btn>
+        <Btn
+          variant="bare"
           onClick={onClose}
           style={{ ...rowPad, flex: 1, justifyContent: 'center', color: C.brand, fontWeight: FW.strong, borderLeft: `1px solid ${C.line2}` }}
-        >닫기</button>
+        >닫기</Btn>
       </div>
     </div>
   </>);
@@ -603,7 +601,7 @@ export default function Finder() {
         title={`${label} 필터`}
       >
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2, fontWeight: FW.strong }}>
-          {label}{sorted && <span style={{ fontSize: 9 }}>{colSort!.dir === 'asc' ? '↑' : '↓'}</span>}
+          {label}{sorted && <span style={{ fontSize: FS.micro }}>{colSort!.dir === 'asc' ? '↑' : '↓'}</span>}
         </span>
       </th>
     );
@@ -619,7 +617,7 @@ export default function Finder() {
         ) : (
           <>
             {/* 총계 = 손님에게 보이는 매물(출고불가 제외) — 상단바 '상품 N대'(totalVisible)와 동일 기준. rows.length는 출고불가까지 세어 어긋남. */}
-            <span style={{ fontSize: 13, color: C.mute }}>총 <b style={{ color: C.ink, fontSize: FS.title }}>{totalVisible.toLocaleString()}</b>대</span>
+            <span style={{ fontSize: FS.body, color: C.mute }}>총 <b style={{ color: C.ink, fontSize: FS.title }}>{totalVisible.toLocaleString()}</b>대</span>
             <span style={{ fontSize: FS.title, fontWeight: FW.title, display: 'inline-flex', alignItems: 'center', gap: 6, color: C.ink }}>
               조건 검색{ac > 0 ? <CountPill n={ac} /> : null}
             </span>
@@ -876,11 +874,27 @@ export default function Finder() {
           )}
           <div ref={finderBodyRef} className={`fp-finder-body ${effView === 'excel' ? 'is-excel' : ''}`}>
           {list.length === 0
-            ? <CenterNote>조건에 맞는 상품이 없습니다</CenterNote> :
+            ? (
+              <CenterNote>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+                  <span>
+                    {(rows?.length ?? 0) === 0
+                      ? '표시할 상품이 없습니다'
+                      : '조건에 맞는 상품이 없습니다'}
+                  </span>
+                  {narrowed ? (
+                    <Btn size="sm" variant="ghost" onClick={reset}>조건 해제</Btn>
+                  ) : null}
+                  {(rows?.length ?? 0) === 0 && isGuest() ? (
+                    <Btn size="sm" href="/login">로그인</Btn>
+                  ) : null}
+                </div>
+              </CenterNote>
+            ) :
             effView === 'card' ? (
               // 웹 간단=ProductCard 격자 / 모바일=RowCard 피드(기간칩 없음)
               mobile ? (
-                <div style={{ background: '#fff', borderTop: `1px solid ${C.line2}` }}>
+                <div style={{ background: C.taupeBg, borderTop: `1px solid ${C.line2}` }}>
                   {shown.map((p) => <ProductRowCard key={String(p.product_code || p._key)} p={p} focusMonth={focusMonth} />)}
                 </div>
               ) : (
@@ -931,7 +945,7 @@ export default function Finder() {
                   ))}
                 </tr></thead>
                 <tbody>{exShown.map((p, i) => {
-                  const pl = priceList(p); const bg = i % 2 ? C.zebra : '#fff';
+                  const pl = priceList(p); const bg = i % 2 ? C.zebra : C.taupeBg;
                   const st = String(p.vehicle_status || ''); const pt = String(p.product_type || '');
                   const opts = productOptions(p);
                   const fuel = fuelDisplay(p.fuel_type);
@@ -986,7 +1000,7 @@ export default function Finder() {
                           })}
                         </span>
                       ) : (
-                        <span style={{ color: C.faint, fontSize: 12 }}>조건없음</span>
+                        <span style={{ color: C.faint, fontSize: FS.sub }}>조건없음</span>
                       )}
                     </td>
                     )}

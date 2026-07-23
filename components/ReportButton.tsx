@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { submitReport, REPORT_REASONS } from '@/lib/domain/report';
 import { toast } from '@/components/Toaster';
-import { Btn, C, R, Select, Textarea } from '@/components/ui';
+import { Btn, C, R, Select, Textarea, FS, FW } from '@/components/ui';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { useIsMobile } from '@/lib/use-mobile';
 
@@ -25,7 +25,7 @@ export function ReportButton({ p }: { p: EntityRecord }) {
   if (!open) {
     return (
       <div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-        <span style={{ fontSize: 12, color: C.faint }}>매물 정보·사진이 이상하면 검수를 요청하세요.</span>
+        <span style={{ fontSize: FS.sub, color: C.faint }}>매물 정보·사진이 이상하면 검수를 요청하세요.</span>
         <Btn variant="ghost" size="sm" onClick={() => setOpen(true)}>⚑ 검수 요청</Btn>
       </div>
     );
@@ -37,14 +37,14 @@ export function ReportButton({ p }: { p: EntityRecord }) {
       border: `1px solid ${C.line}`, borderRadius: R, background: C.warnBg,
       padding: mobile ? 12 : 12, display: 'flex', flexDirection: 'column', gap: 8,
     }}>
-      <div style={{ fontSize: 12.5, fontWeight: 700, color: C.warn }}>
+      <div style={{ fontSize: FS.sub, fontWeight: FW.head, color: C.warn }}>
         상품 검수 요청
-        <span style={{ fontWeight: 400, color: C.mute }}> · 공급사·관리자에게 전달</span>
+        <span style={{ fontWeight: FW.body, color: C.mute }}> · 공급사·관리자에게 전달</span>
       </div>
       <Select full value={reason} onChange={setReason} options={[...REPORT_REASONS]} />
       <Textarea full rows={2} value={memo} onChange={setMemo}
         placeholder="상세 내용(선택) — 예: 사진이 다른 차량입니다"
-        style={{ background: '#fff' }} /> {/* 경고 배경 위 = 흰 입력면으로 대비 */}
+        style={{ background: C.taupeBg }} />
       <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
         <Btn size="sm" variant="ghost" onClick={() => setOpen(false)} disabled={busy}>취소</Btn>
         <Btn size="sm" onClick={submit} disabled={busy}>{busy ? '접수 중…' : '요청 보내기'}</Btn>

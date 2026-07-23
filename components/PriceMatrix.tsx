@@ -128,7 +128,7 @@ export function PriceMatrix({ price, onChange }: { price: unknown; onChange: (p:
                     </span>
                     {isCheap && (
                       <span style={{
-                        flex: '0 0 auto', fontSize: 9.5, fontWeight: FW.label, color: '#fff',
+                        flex: '0 0 auto', fontSize: FS.micro, fontWeight: FW.label, color: C.taupeBg,
                         background: C.brand, borderRadius: R, padding: '1px 5px', lineHeight: 1.2,
                       }}>최저</span>
                     )}

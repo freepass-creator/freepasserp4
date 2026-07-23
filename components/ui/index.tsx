@@ -507,13 +507,23 @@ export function FilterChips<T extends string>({ value, onChange, options }: { va
   );
 }
 
-export function Btn({ children, onClick, variant = 'solid', size = 'md', disabled, href, style, full, type = 'button', className, title, 'aria-label': ariaLabel, 'aria-pressed': ariaPressed, 'data-active': dataActive }: { children: React.ReactNode; onClick?: () => void; variant?: 'solid' | 'ghost' | 'danger'; size?: 'sm' | 'md'; disabled?: boolean; href?: string; style?: React.CSSProperties; full?: boolean; type?: 'button' | 'submit'; className?: string; title?: string; 'aria-label'?: string; 'aria-pressed'?: boolean; 'data-active'?: string }) {
+export function Btn({ children, onClick, variant = 'solid', size = 'md', disabled, href, style, full, type = 'button', className, title, 'aria-label': ariaLabel, 'aria-pressed': ariaPressed, 'data-active': dataActive }: { children: React.ReactNode; onClick?: () => void; variant?: 'solid' | 'ghost' | 'danger' | 'bare'; size?: 'sm' | 'md'; disabled?: boolean; href?: string; style?: React.CSSProperties; full?: boolean; type?: 'button' | 'submit'; className?: string; title?: string; 'aria-label'?: string; 'aria-pressed'?: boolean; 'data-active'?: string }) {
   const mobile = useIsMobile();
   const h = ctrlH(mobile, size);
   const fs = ctrlFs(mobile, size);
+  // bare = 시각은 CSS/부모가 담당(PageToolBar 등). 원자 시맨틱·fp-press만.
+  const bare = variant === 'bare';
   // 모바일=가로 패딩 넉넉(좁은 버튼 금지). 높이는 ctrlH 유지.
   const pad = mobile ? '0 18px' : (size === 'sm' ? '0 11px' : '0 14px');
-  const s: React.CSSProperties = {
+  const s: React.CSSProperties = bare ? {
+    cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1,
+    border: 'none', background: 'none', boxShadow: 'none', padding: 0, margin: 0,
+    borderRadius: 0, font: 'inherit', color: 'inherit',
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+    pointerEvents: disabled ? 'none' : 'auto',
+    ...(full ? { width: '100%' } : null),
+    ...style,
+  } : {
     height: h, boxSizing: 'border-box', padding: pad, borderRadius: R,
     fontWeight: FW.strong, fontSize: fs, letterSpacing: '-0.01em', lineHeight: 1,
     cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1,

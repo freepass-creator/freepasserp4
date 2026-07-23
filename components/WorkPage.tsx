@@ -4,7 +4,7 @@ import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
 import { useAppBar } from '@/lib/appbar';
 import { useHideTabBar } from '@/lib/tabbar';
-import { PaneHead, BottomNav, SearchInput, Btn, Select, C } from '@/components/ui';
+import { PaneHead, BottomNav, SearchInput, Btn, Select, C, FS, FW } from '@/components/ui';
 import { MobilePageShell, type ListToolsConfig } from '@/components/MobilePageShell';
 import { PageStatus, statusIconFor } from '@/components/PageStatus';
 
@@ -69,10 +69,10 @@ export function WorkPage({
           <div style={{ flex: '0 1 auto', minWidth: 0, maxWidth: '42%' }}>
             <PageStatus icon={icon} label={title} />
           </div>
-          <span style={{ color: C.mute, fontWeight: 500, flex: '0 0 auto' }}>·</span>
+          <span style={{ color: C.mute, fontWeight: FW.meta, flex: '0 0 auto' }}>·</span>
           <span style={{
             minWidth: 0, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-            fontSize: 13, fontWeight: 700, color: C.ink,
+            fontSize: FS.body, fontWeight: FW.head, color: C.ink,
           }}>{contextTitle}</span>
         </div>
       );
@@ -148,9 +148,9 @@ export function WorkPage({
       {resolvedTools?.hints && resolvedTools.hints.length > 0 ? (
         <div style={{
           padding: '0 12px 8px', display: 'flex', alignItems: 'center', gap: 8,
-          fontSize: 12, color: C.mute, minWidth: 0,
+          fontSize: FS.sub, color: C.mute, minWidth: 0,
         }}>
-          <span style={{ flex: '0 0 auto', fontWeight: 700, color: C.faint }}>적용</span>
+          <span style={{ flex: '0 0 auto', fontWeight: FW.head, color: C.faint }}>적용</span>
           <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {resolvedTools.hints.join(' · ')}
           </span>

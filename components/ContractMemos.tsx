@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { getRole, type Role } from '@/lib/domain/deal';
-import { C, actorColor, Textarea, FW, FS } from '@/components/ui';
+import { C, actorColor, Textarea, FW, FS, R } from '@/components/ui';
 
 // 계약 역할별 메모 3슬롯(영업/공급/관리자). 본인 역할 슬롯만 편집, 나머지는 열람. 관리자는 전부 편집.
 // 필드: memo_agent / memo_provider / memo_admin (blur 자동저장).
@@ -31,20 +31,20 @@ export function ContractMemos({ contractCode }: { contractCode: string }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-      <span style={{ fontSize: FS.cap, fontWeight: FW.title, color: C.ink }}>메모 <span style={{ fontSize: 10, color: C.faint, fontWeight: FW.strong }}>· 본인 역할만 편집</span></span>
+      <span style={{ fontSize: FS.cap, fontWeight: FW.title, color: C.ink }}>메모 <span style={{ fontSize: FS.micro, color: C.faint, fontWeight: FW.strong }}>· 본인 역할만 편집</span></span>
       {SLOTS.map(({ slot, label }) => {
         const mine = role === slot || role === 'admin';
         const val = memos[slot] || '';
         return (
           <div key={slot}>
-            <div style={{ fontSize: 10, fontWeight: FW.label, color: actorColor(slot), marginBottom: 3 }}>{label}</div>
+            <div style={{ fontSize: FS.micro, fontWeight: FW.label, color: actorColor(slot), marginBottom: 3 }}>{label}</div>
             {mine ? (
               <Textarea full rows={2} value={val}
                 onChange={(v) => { setMemos((m) => ({ ...m, [slot]: v })); setDirty((d) => ({ ...d, [slot]: true })); }}
                 onBlur={() => save(slot)} placeholder={`${label} 메모…`}
                 style={dirty[slot] ? { background: C.warnBg } : undefined} />
             ) : (
-              <div style={{ fontSize: 12, color: val ? C.ink : C.faint, whiteSpace: 'pre-wrap', padding: '5px 8px', border: `1px solid ${C.line2}`, borderRadius: 4, background: '#fafbfc', minHeight: 28 }}>{val || '—'}</div>
+              <div style={{ fontSize: FS.sub, color: val ? C.ink : C.faint, whiteSpace: 'pre-wrap', padding: '5px 8px', border: `1px solid ${C.line2}`, borderRadius: R, background: C.head, minHeight: 28 }}>{val || '—'}</div>
             )}
           </div>
         );

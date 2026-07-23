@@ -4,7 +4,7 @@ import { type EntityRecord } from '@/lib/intake/entities';
 import { priceList, detailSections, cheapest, type Audience } from '@/lib/domain/product';
 import { useProductPhotos } from '@/components/use-product-photos';
 import { getRole } from '@/lib/domain/deal';
-import { won, C, R, NUM, FW, FS } from '@/components/ui';
+import { won, C, R, NUM, FW, FS, IconBtn } from '@/components/ui';
 import { useDragScroll } from '@/lib/use-drag-scroll';
 import {
   badges, Plate, idParts, CardBenefits, CardEvents, OptionChips,
@@ -21,7 +21,7 @@ const lab: CSSProperties = {
   width: LAB_W, flex: `0 0 ${LAB_W}px`, color: C.mute, fontSize: FS.body,
 };
 const box: CSSProperties = {
-  border: `1px solid ${C.line}`, borderRadius: R, background: '#fff', overflow: 'hidden',
+  border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg, overflow: 'hidden',
 };
 
 function KvRow({ label, children, first }: { label: string; children: ReactNode; first?: boolean }) {
@@ -77,7 +77,7 @@ export function ProductDetail({ p, audience }: { p: EntityRecord; audience?: Aud
           <div onClick={() => setLb(mainIdx)} style={{ position: 'relative', aspectRatio: '16 / 10', background: C.placeholder, borderRadius: R, overflow: 'hidden', cursor: 'zoom-in' }}>
             <img src={photos[mainIdx]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             {aud !== 'customer' && <span style={{ position: 'absolute', top: 8, right: 8, zIndex: 2 }}><FavHeart p={p} onPhoto /></span>}
-            <span style={{ position: 'absolute', right: 8, bottom: 8, background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 11, fontWeight: FW.strong, padding: '2px 8px', borderRadius: R, fontFamily: NUM }}>{mainIdx + 1} / {photos.length}</span>
+            <span style={{ position: 'absolute', right: 8, bottom: 8, background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: FS.cap, fontWeight: FW.strong, padding: '2px 8px', borderRadius: R, fontFamily: NUM }}>{mainIdx + 1} / {photos.length}</span>
           </div>
           {photos.length > 1 && (
             <div
@@ -89,9 +89,18 @@ export function ProductDetail({ p, audience }: { p: EntityRecord; audience?: Aud
               style={{ display: 'flex', gap: 6, marginTop: 6, overflowX: 'auto', paddingBottom: 2, cursor: 'grab', touchAction: 'pan-y', userSelect: 'none', WebkitOverflowScrolling: 'touch' }}
             >
               {photos.map((ph, i) => (
-                <button key={i} onClick={() => { if (thumbs.consumeClick()) return; setMain(i); }} aria-label={`사진 ${i + 1}`} style={{ flex: '0 0 auto', width: 74, height: 48, borderRadius: R, overflow: 'hidden', border: `2px solid ${i === mainIdx ? C.brand : 'transparent'}`, padding: 0, cursor: 'inherit', background: C.placeholder, pointerEvents: 'auto' }}>
+                <IconBtn
+                  key={i}
+                  title={`사진 ${i + 1}`}
+                  onClick={() => { if (thumbs.consumeClick()) return; setMain(i); }}
+                  style={{
+                    flex: '0 0 auto', width: 74, height: 48, borderRadius: R, overflow: 'hidden',
+                    border: `2px solid ${i === mainIdx ? C.brand : 'transparent'}`,
+                    padding: 0, background: C.placeholder, cursor: 'inherit',
+                  }}
+                >
                   <img src={ph} alt="" draggable={false} style={{ width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none' }} />
-                </button>
+                </IconBtn>
               ))}
             </div>
           )}
@@ -116,7 +125,7 @@ export function ProductDetail({ p, audience }: { p: EntityRecord; audience?: Aud
                     const isCheap = !!cheap && pr.m === cheap.m;
                     return (
                       <tr key={pr.m} style={{ borderTop: i ? `1px solid ${C.line2}` : 'none', background: isCheap ? C.selected : 'transparent' }}>
-                        <td style={{ padding: '6px 10px' }}>{pr.m}개월{isCheap && <span style={{ marginLeft: 5, fontSize: 9.5, fontWeight: FW.label, color: '#fff', background: C.brand, borderRadius: R, padding: '1px 5px', verticalAlign: 'middle' }}>최저</span>}</td>
+                        <td style={{ padding: '6px 10px' }}>{pr.m}개월{isCheap && <span style={{ marginLeft: 5, fontSize: FS.micro, fontWeight: FW.label, color: C.taupeBg, background: C.brand, borderRadius: R, padding: '1px 5px', verticalAlign: 'middle' }}>최저</span>}</td>
                         <td style={{ padding: '6px 10px', textAlign: 'center', fontWeight: FW.head, color: C.brand, fontFamily: NUM }}>{won(pr.rent)}</td>
                         <td style={{ padding: '6px 10px', textAlign: 'right', fontFamily: NUM }}>{won(pr.deposit)}</td>
                       </tr>
@@ -137,7 +146,7 @@ export function ProductDetail({ p, audience }: { p: EntityRecord; audience?: Aud
                   </tr>
                 ))}</tbody>
               </table>
-              {sec.note && <div style={{ padding: '7px 10px', fontSize: FS.cap, color: C.mute, borderTop: `1px solid ${C.line2}`, background: '#fafbfc', display: 'flex', gap: 7, alignItems: 'center' }}><span style={{ fontSize: 10, fontWeight: FW.label, color: C.faint }}>부가</span>{sec.note}</div>}
+              {sec.note && <div style={{ padding: '7px 10px', fontSize: FS.cap, color: C.mute, borderTop: `1px solid ${C.line2}`, background: C.head, display: 'flex', gap: 7, alignItems: 'center' }}><span style={{ fontSize: FS.micro, fontWeight: FW.label, color: C.faint }}>부가</span>{sec.note}</div>}
             </div>
           ) : sec.kind === 'chips' ? (
             <div style={{ ...box, padding: '8px 10px' }}>
@@ -172,7 +181,14 @@ export function ProductDetail({ p, audience }: { p: EntityRecord; audience?: Aud
 
       {lb !== null && photos.length > 0 && (
         <div onClick={() => setLb(null)} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(0,0,0,0.92)', overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: '48px 12px' }}>
-          <button onClick={(e) => { e.stopPropagation(); setLb(null); }} aria-label="닫기" style={{ position: 'fixed', top: 14, right: 14, width: 40, height: 40, borderRadius: 20, border: 'none', background: 'rgba(255,255,255,0.18)', color: '#fff', fontSize: 22, cursor: 'pointer', zIndex: 1 }}>×</button>
+          <IconBtn
+            title="닫기"
+            onClick={(e) => { e.stopPropagation(); setLb(null); }}
+            style={{
+              position: 'fixed', top: 14, right: 14, width: 40, height: 40, borderRadius: '50%',
+              border: 'none', background: 'rgba(255,255,255,0.18)', color: '#fff', fontSize: FS.page, zIndex: 1,
+            }}
+          >×</IconBtn>
           <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: 880, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
             {photos.map((ph, i) => <img key={i} src={ph} alt="" style={{ width: '100%', height: 'auto', borderRadius: R, display: 'block' }} />)}
           </div>

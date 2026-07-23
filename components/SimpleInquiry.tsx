@@ -64,7 +64,7 @@ export function SimpleInquiry({ p }: { p: EntityRecord }) {
   const inputRow = (
     <div style={{
       display: 'flex', gap: 8, alignItems: 'center',
-      background: '#fff', border: `1px solid ${C.line}`, borderRadius: R, padding: 6,
+      background: C.taupeBg, border: `1px solid ${C.line}`, borderRadius: R, padding: 6,
     }}>
       <Input full value={text} onChange={setText} onEnter={send} placeholder="여기에 바로 문의하세요"
         style={{ flex: 1, border: 'none', background: 'transparent' }} />
@@ -99,8 +99,8 @@ export function SimpleInquiry({ p }: { p: EntityRecord }) {
               <div style={{
                 padding: '7px 11px', borderRadius: mine ? `${R}px ${R}px 2px ${R}px` : `${R}px ${R}px ${R}px 2px`,
                 fontSize: FS.sub, lineHeight: 1.45,
-                background: mine ? C.brand : '#fff',
-                color: mine ? '#fff' : C.ink,
+                background: mine ? C.brand : C.taupeBg,
+                color: mine ? C.taupeBg : C.ink,
                 border: mine ? 'none' : `1px solid ${C.line2}`,
                 whiteSpace: 'pre-wrap', wordBreak: 'break-word',
                 boxShadow: mine ? 'none' : `0 1px 0 ${C.line2}`,
@@ -132,7 +132,7 @@ export function SimpleInquiry({ p }: { p: EntityRecord }) {
           ) : '출고·조건 뭐든 여기에 바로 문의하세요. 계약문의로 이어집니다.'}
         </div>
         {msgs.length > 0 && (
-          <div style={{ background: '#fff', borderRadius: R, border: `1px solid ${C.line2}`, padding: '8px 10px', marginBottom: 8 }}>
+          <div style={{ background: C.taupeBg, borderRadius: R, border: `1px solid ${C.line2}`, padding: '8px 10px', marginBottom: 8 }}>
             {thread}
           </div>
         )}
