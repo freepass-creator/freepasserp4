@@ -64,7 +64,18 @@ export default function Chat() {
     }
     return m;
   }, [contracts]);
+  // 취소 필터 전용 — 취소된 계약만(동일 키 first-wins). contractIndex와 분리(취소 제외 인덱스는 항상 빈결과였음).
+  const cancelledIndex = useMemo(() => {
+    const m = new Map<string, EntityRecord>();
+    for (const c of contracts) {
+      if (c.contract_status !== '계약취소') continue;
+      const key = String(c.product_code) + '|' + String(c.agent_code);
+      if (!m.has(key)) m.set(key, c);
+    }
+    return m;
+  }, [contracts]);
   const contractOf = (rm: EntityRecord) => contractIndex.get(String(rm.product_code) + '|' + String(rm.agent_code));
+  const cancelledOf = (rm: EntityRecord) => cancelledIndex.get(String(rm.product_code) + '|' + String(rm.agent_code));
   const productLookup = useMemo(() => {
     const byId = new Map<string, EntityRecord>();   // product_code·_key 둘 다 색인 (v3 방은 product_uid=_key로 연결)
     const byCar = new Map<string, EntityRecord>();
@@ -204,8 +215,8 @@ export default function Chat() {
     .filter((rm) => matchRoomQuery(rm, q))
     .filter((rm) => {
       if (flt === 'all') return true;
+      if (flt === '취소') return !!cancelledOf(rm);
       const c = contractOf(rm);
-      if (flt === '취소') return String(c?.contract_status || '') === '계약취소';
       if (flt === '완료') return String(c?.contract_status || '') === '계약완료';
       if (flt === '문의') return isInquiryOnly(c);
       return true;
@@ -218,7 +229,7 @@ export default function Chat() {
       return 0;
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [rooms, q, flt, sort, role, contractIndex]);
+    [rooms, q, flt, sort, role, contractIndex, cancelledIndex]);
   const roomListEl = shownRooms.length === 0
     ? (
       <CenterNote>
