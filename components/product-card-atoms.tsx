@@ -335,7 +335,7 @@ function benefitIconColor(key: string): string {
 
 function metaRow(dense: boolean, _mobile: boolean, strong?: boolean, clamp?: boolean, inline?: boolean): CSSProperties {
   // 카드 메타 = 웹/모바일 동일 치수
-  const fs = dense ? FS.cap : FS.cap;
+  const fs = FS.cap;
   return {
     display: 'flex', alignItems: 'center', gap: dense ? 8 : 10,
     flexWrap: clamp || inline ? 'nowrap' : 'wrap',
@@ -356,7 +356,7 @@ export function CardSpecs({ p, dense, audience = 'agent' }: {
   const s = specLineCard(p);
   const showPlateSlot = audience !== 'customer';
   const plate = String(p.car_number || '').trim();
-  const fs = dense ? FS.cap : FS.cap;
+  const fs = FS.cap;
   const tip = [
     showPlateSlot && plate ? plate : '',
     specLine(p),
@@ -390,7 +390,7 @@ export function CardBenefits({ p, dense, clamp, inline }: {
   if (!items.length) {
     return (
       <div style={{
-        fontSize: dense ? FS.cap : FS.cap,
+        fontSize: FS.cap,
         color: C.faint, lineHeight: 1.35,
         flex: inline ? '0 0 auto' : undefined,
         whiteSpace: inline ? 'nowrap' : undefined,
@@ -446,7 +446,7 @@ export function CardPerkLine({ p, dense, inline }: {
   p: EntityRecord; dense?: boolean; inline?: boolean;
 }) {
   const bens = benefitSignals(p);
-  const fs = dense ? FS.cap : FS.cap;
+  const fs = FS.cap;
   if (!bens.length) {
     return (
       <div style={{
