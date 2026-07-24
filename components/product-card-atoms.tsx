@@ -362,7 +362,7 @@ export function CardSpecs({ p, dense, audience = 'agent' }: {
   ].filter(Boolean).join(' · ');
   return (
     <div title={tip || undefined} style={{
-      fontSize: fs, color: C.mute, lineHeight: 1.45,
+      fontSize: fs, color: C.mute, lineHeight: 1.35,
       minWidth: 0, width: '100%',
       overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
     }}>

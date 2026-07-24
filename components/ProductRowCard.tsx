@@ -147,7 +147,7 @@ function MobileRow({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) 
 
         {/* 4 가격 · [최단]~[최장] 기간 · 우대(혜택) */}
         <div style={{
-          display: 'flex', flexDirection: 'column', gap: 4,
+          display: 'flex', flexDirection: 'column', gap: 5,
           minWidth: 0, width: '100%',
         }}>
           <div style={{
