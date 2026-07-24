@@ -7,7 +7,7 @@ import {
   ADMIN_SETTLE_BLOCKS, computeAdminSettlement, importCompletedForMonth,
   monthTotals, saveAdminSettlement,
 } from '@/lib/domain/admin-settlement';
-import { Btn, C, CenterNote, FS, FW, Input, ListRow, Loading, R, Select, SectionLabel, won, NUM } from '@/components/ui';
+import { Btn, C, CenterNote, ctrlH, FS, FW, Input, ListRow, Loading, R, Select, SectionLabel, won, NUM } from '@/components/ui';
 import { toast } from '@/components/Toaster';
 import { useIsMobile } from '@/lib/use-mobile';
 
@@ -104,7 +104,7 @@ export function AdminSettlementSheet({ month }: { month: string }) {
                       {f.type === 'select' ? (
                         <Select value={String(form[f.k] ?? '')} onChange={(v) => setField(f.k, v)} options={(f.opts || []).map((o) => ({ value: o, label: o }))} size="sm" full />
                       ) : f.calc ? (
-                        <div style={{ height: 32, display: 'flex', alignItems: 'center', padding: '0 8px', borderRadius: R, background: C.head, fontFamily: NUM, fontSize: FS.body, fontWeight: FW.head }}>{String(form[f.k] ?? '')}</div>
+                        <div style={{ height: ctrlH(mobile, 'sm'), display: 'flex', alignItems: 'center', padding: '0 8px', borderRadius: R, background: C.head, fontFamily: NUM, fontSize: FS.body, fontWeight: FW.head }}>{String(form[f.k] ?? '')}</div>
                       ) : (
                         <Input value={form[f.k] == null ? '' : String(form[f.k])} onChange={(v) => setField(f.k, v)}
                           size="sm" full inputMode={f.type === 'num' ? 'numeric' : undefined}

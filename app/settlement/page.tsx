@@ -133,7 +133,7 @@ export default function MonthlySettlement() {
         {cards.map(([label, val, color]) => (
           <div key={label} style={{ border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg, padding: '11px 14px' }}>
             <div style={{ fontSize: FS.cap, color: C.mute, fontWeight: FW.strong }}>{label}</div>
-            <div style={{ fontSize: 17, fontWeight: FW.head, color, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', marginTop: 3 }}>{won(val)}</div>
+            <div style={{ fontSize: FS.page, fontWeight: FW.head, color, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', marginTop: 3 }}>{won(val)}</div>
           </div>
         ))}
       </div>

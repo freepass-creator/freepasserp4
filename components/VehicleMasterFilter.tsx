@@ -5,7 +5,7 @@
  * 다음에 고를 칸 = 라벨 옆 →다음단계 힌트 + select accent.
  */
 import { useMemo, type ReactNode } from 'react';
-import { C, Select, FS } from '@/components/ui';
+import { C, Select, FS, FW } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { type VehicleFilter } from '@/lib/domain/vehicle-master-match';
@@ -31,12 +31,12 @@ function Step({ label, nextHint, active, children }: {
         display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, minHeight: mobile ? 18 : 16,
       }}>
         <div style={{
-          fontSize: mobile ? 12.5 : 11.5, fontWeight: 700,
+          fontSize: mobile ? FS.sub : FS.cap, fontWeight: FW.title,
           color: active ? C.accent : C.mute, flex: '0 0 auto',
         }}>{label}</div>
         {active && nextHint && (
           <div style={{
-            flex: 1, minWidth: 0, fontSize: mobile ? 11.5 : 11, fontWeight: 600, color: C.accent,
+            flex: 1, minWidth: 0, fontSize: FS.cap, fontWeight: FW.strong, color: C.accent,
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'right',
           }}>
             선택 → {nextHint}

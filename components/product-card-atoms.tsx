@@ -48,7 +48,7 @@ import { fuelDisplay, fuelEmbeddedCc, yearDisplay, makerDisplay, isNoTrimLabel }
  */
 
 export function CarGlyph({ size = 30 }: { size?: number }) {
-  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#c4ccd8" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M5 13l1.6-4.2A2 2 0 0 1 8.5 7.5h7A2 2 0 0 1 17.4 8.8L19 13" /><path d="M3 13h18v3.5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V13z" /><circle cx="7.5" cy="17.5" r="1.5" /><circle cx="16.5" cy="17.5" r="1.5" /></svg>;
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={C.faint} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M5 13l1.6-4.2A2 2 0 0 1 8.5 7.5h7A2 2 0 0 1 17.4 8.8L19 13" /><path d="M3 13h18v3.5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V13z" /><circle cx="7.5" cy="17.5" r="1.5" /><circle cx="16.5" cy="17.5" r="1.5" /></svg>;
 }
 
 // 모바일 축약 SSOT — 썸네일 마크·BadgesClip 전용(2글자). 레일 뱃지(CardRailBadges)는 풀네임.
@@ -335,7 +335,7 @@ function benefitIconColor(key: string): string {
 
 function metaRow(dense: boolean, _mobile: boolean, strong?: boolean, clamp?: boolean, inline?: boolean): CSSProperties {
   // 카드 메타 = 웹/모바일 동일 치수
-  const fs = dense ? 11 : FS.cap;
+  const fs = dense ? FS.cap : FS.cap;
   return {
     display: 'flex', alignItems: 'center', gap: dense ? 8 : 10,
     flexWrap: clamp || inline ? 'nowrap' : 'wrap',
@@ -356,7 +356,7 @@ export function CardSpecs({ p, dense, audience = 'agent' }: {
   const s = specLineCard(p);
   const showPlateSlot = audience !== 'customer';
   const plate = String(p.car_number || '').trim();
-  const fs = dense ? 11 : FS.cap;
+  const fs = dense ? FS.cap : FS.cap;
   const tip = [
     showPlateSlot && plate ? plate : '',
     specLine(p),
@@ -390,7 +390,7 @@ export function CardBenefits({ p, dense, clamp, inline }: {
   if (!items.length) {
     return (
       <div style={{
-        fontSize: dense ? 11 : FS.cap,
+        fontSize: dense ? FS.cap : FS.cap,
         color: C.faint, lineHeight: 1.35,
         flex: inline ? '0 0 auto' : undefined,
         whiteSpace: inline ? 'nowrap' : undefined,
@@ -446,7 +446,7 @@ export function CardPerkLine({ p, dense, inline }: {
   p: EntityRecord; dense?: boolean; inline?: boolean;
 }) {
   const bens = benefitSignals(p);
-  const fs = dense ? 11 : FS.cap;
+  const fs = dense ? FS.cap : FS.cap;
   if (!bens.length) {
     return (
       <div style={{
@@ -506,7 +506,7 @@ export function CardThumb({ p, audience = 'agent', fill, w, h, heart = false, ma
   const showHeart = heart && audience !== 'customer';
   const glyph = fill ? (mobile ? 40 : 36) : 24;
   const pad = fill ? 6 : 5;
-  const promoFs = fill ? (mobile ? 11 : FS.micro) : (mobile ? 10.5 : 9.5);
+  const promoFs = fill ? (mobile ? FS.cap : FS.micro) : FS.micro;
   // 모바일 목록 피드 썸네일(w=56, !fill) = 긴 스크롤. blur는 스크롤 합성비용이 커서 반투명 단색으로 대체.
   // 상세(웹 가로카드)·간단(fill) 카드는 blur 유지.
   const listThumb = mobile && !fill;
@@ -1082,16 +1082,16 @@ export function PriceMini({ m, rent, deposit = 0, on = false }: {
         whiteSpace: 'nowrap',
       }}
     >
-      <span style={{ fontSize: mobile ? 11 : 10, fontWeight: FW.strong, color: on ? C.brand : C.mute, lineHeight: 1.1 }}>{m}개월</span>
+      <span style={{ fontSize: mobile ? FS.cap : FS.micro, fontWeight: FW.strong, color: on ? C.brand : C.mute, lineHeight: 1.1 }}>{m}개월</span>
       <span style={{
-        fontSize: on ? (mobile ? 13 : FS.sub) : (mobile ? 12 : FS.cap),
+        fontSize: on ? (mobile ? FS.body : FS.sub) : (mobile ? FS.sub : FS.cap),
         fontFamily: NUM, fontWeight: FW.head, letterSpacing: '-0.02em', lineHeight: 1.1,
         color: on ? C.brand : C.ink,
       }}>
-        <span style={{ fontSize: mobile ? 10.5 : 9.5, fontFamily: 'inherit', fontWeight: FW.strong, color: C.faint }}>월 </span>
+        <span style={{ fontSize: FS.micro, fontFamily: 'inherit', fontWeight: FW.strong, color: C.faint }}>월 </span>
         {man(rent)}
       </span>
-      <span style={{ fontSize: mobile ? 10.5 : 9.5, fontFamily: NUM, fontWeight: FW.strong, color: C.faint, lineHeight: 1.1 }}>
+      <span style={{ fontSize: FS.micro, fontFamily: NUM, fontWeight: FW.strong, color: C.faint, lineHeight: 1.1 }}>
         보증 {deposit > 0 ? man(deposit) : '없음'}
       </span>
     </div>
@@ -1135,7 +1135,7 @@ export function PriceFare({ p, focusMonth, compact = false }: { p: EntityRecord;
   const all = priceList(p);
   const focus = focusMonth && focusMonth > 0 ? priceAt(p, focusMonth) : cheapest(p);
   if (!all.length || !focus) {
-    return <span style={{ fontSize: mobile ? 12.5 : 11, color: C.faint }}>가격문의</span>;
+    return <span style={{ fontSize: mobile ? FS.sub : FS.cap, color: C.faint }}>가격문의</span>;
   }
   if (compact) return <PriceFareCards all={all} focusM={focus.m} />;
 

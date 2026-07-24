@@ -2,7 +2,7 @@
 import type { CSSProperties, ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { useIsMobile } from '@/lib/use-mobile';
-import { C, R, FS } from '@/components/ui/tokens';
+import { C, R, FS, FW } from '@/components/ui/tokens';
 import { type BadgeTone, toneSoft, toneText } from '@/components/ui/badges';
 
 /** 업무 목록 3줄 — 스캔성·한 화면에 많이. 행·아이콘을 키우면 피드가 되어 답답해진다. */
@@ -137,7 +137,7 @@ export function FeedListRow({
 export function FeedTitle({ children, mono }: { children: ReactNode; mono?: boolean }) {
   return (
     <div style={{
-      fontSize: FS.title, fontWeight: 700, color: C.ink, letterSpacing: '-0.02em',
+      fontSize: FS.title, fontWeight: FW.head, color: C.ink, letterSpacing: '-0.02em',
       lineHeight: `${LINE.title}px`, height: LINE.title,
       whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
       fontFamily: mono ? 'var(--font-mono)' : undefined,

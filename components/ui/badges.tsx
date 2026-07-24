@@ -139,7 +139,7 @@ export function CompanyBadge({ co }: { co: string }) {
 /* 상태 = 점 + 텍스트. 필 뱃지 대신 기본 상태표시. */
 type Tone = 'gray' | 'green' | 'red' | 'amber' | 'blue';
 export function Status({ label, tone = 'gray' }: { label: React.ReactNode; tone?: Tone }) {
-  const dot = { gray: '#a1a1aa', green: '#16a34a', red: '#dc2626', amber: '#ca8a04', blue: '#1B2A4A' }[tone];
+  const dot = toneAccent(tone); // 점 색 = BADGE accent SSOT(로컬 hex맵 제거)
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: FS.sub, color: C.ink, whiteSpace: 'nowrap', fontWeight: FW.meta }}>
       <span style={{ width: 6, height: 6, borderRadius: 1, background: dot, flex: '0 0 6px' }} />

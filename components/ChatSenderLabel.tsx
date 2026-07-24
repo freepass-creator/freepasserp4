@@ -2,7 +2,7 @@
 import type { CSSProperties } from 'react';
 import { BRAND_MAIN } from '@/lib/brand';
 import { chatDisplayName } from '@/lib/domain/deal';
-import { C, FS } from '@/components/ui';
+import { C, FS, FW } from '@/components/ui';
 
 /**
  * 채팅 발신 라벨
@@ -26,7 +26,7 @@ export function ChatSenderLabel({
         {/* = login-brand-main 동일 — freepass 글자 자체가 CI */}
         <span style={{
           fontFamily: "'Exo 2', Pretendard, sans-serif",
-          fontWeight: 600,
+          fontWeight: FW.strong,
           fontSize: FS.cap,
           lineHeight: 1,
           color: C.brand,
@@ -35,7 +35,7 @@ export function ChatSenderLabel({
         }}>
           {BRAND_MAIN}
         </span>
-        {n ? <span style={{ fontSize: FS.cap, lineHeight: 1, fontWeight: 500 }}>.{n}</span> : null}
+        {n ? <span style={{ fontSize: FS.cap, lineHeight: 1, fontWeight: FW.meta }}>.{n}</span> : null}
       </span>
     );
   }

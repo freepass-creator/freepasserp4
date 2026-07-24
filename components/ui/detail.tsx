@@ -86,7 +86,7 @@ export function Disclosure({ title, defaultOpen = false, children }: { title: Re
           color={open ? C.ink : C.faint}
           style={{ flex: '0 0 auto', transform: open ? 'none' : 'rotate(-90deg)', transition: 'transform .15s' }}
         />
-        <span style={{ flex: 1, minWidth: 0, fontSize: mobile ? 14 : FS.body, fontWeight: open ? FW.head : FW.meta, color: C.ink, lineHeight: 1.45 }}>{title}</span>
+        <span style={{ flex: 1, minWidth: 0, fontSize: mobile ? FS.title : FS.body, fontWeight: open ? FW.head : FW.meta, color: C.ink, lineHeight: 1.45 }}>{title}</span>
       </button>
       {open && <div style={{ padding: '0 0 12px 24px' }}>{children}</div>}
     </div>
@@ -102,7 +102,7 @@ export function KV({ rows, editing, form, onChange }: { rows: KVRow[]; editing?:
   return (
     <div style={{ border: `1px solid ${editing ? C.accent : C.line}`, borderRadius: 'var(--radius)', background: editing ? 'var(--bg-card)' : C.taupeBg, boxShadow: editing ? '0 0 0 3px rgba(37,99,235,0.10)' : '0 1px 2px rgba(15,23,42,0.05)', transition: 'box-shadow .15s, border-color .15s' }}>
       {rows.map(([k, key, val], i) => (
-        <div key={i} style={{ display: 'flex', alignItems: 'center', minHeight: ctrlH(mobile), padding: mobile ? '0 14px' : '0 12px', fontSize: mobile ? 14 : FS.body, borderTop: i ? `1px solid var(--border-soft)` : 'none' }}>
+        <div key={i} style={{ display: 'flex', alignItems: 'center', minHeight: ctrlH(mobile), padding: mobile ? '0 14px' : '0 12px', fontSize: mobile ? FS.title : FS.body, borderTop: i ? `1px solid var(--border-soft)` : 'none' }}>
           <span style={{ width: mobile ? 104 : 96, flex: `0 0 ${mobile ? 104 : 96}px`, color: C.mute }}>{k}</span>
           {editing && key
             ? <input value={String(form?.[key] ?? '')} onChange={(e) => onChange?.(key, e.target.value)}

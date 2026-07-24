@@ -1,7 +1,7 @@
 'use client';
 import type { LucideIcon } from 'lucide-react';
 import { FileText, ScrollText, Users, History, Search, Wrench } from 'lucide-react';
-import { C, NUM, FW, FS } from '@/components/ui';
+import { C, NUM, FW, FS, R } from '@/components/ui';
 import { NAV_ICON } from '@/lib/tabbar';
 
 /**
@@ -35,7 +35,7 @@ export function PageStatus({
     }}>
       <span style={{
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        width: 28, height: 28, flex: '0 0 auto', borderRadius: 6,
+        width: 28, height: 28, flex: '0 0 auto', borderRadius: R,
         background: C.head, color: C.mute,
       }}>
         <Icon size={15} strokeWidth={2.25} />

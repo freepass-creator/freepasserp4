@@ -47,7 +47,7 @@ export function MasterFitSummary({
         {cells.map((x) => (
           <div key={x.k} style={{ border: `1px solid ${C.line2}`, borderRadius: R, padding: '8px 10px' }}>
             <div style={{ fontSize: FS.micro, color: C.mute }}>{x.k}</div>
-            <div style={{ fontSize: 16, fontWeight: FW.head, fontFamily: NUM, color: x.c }}>{x.n.toLocaleString()}</div>
+            <div style={{ fontSize: FS.page, fontWeight: FW.head, fontFamily: NUM, color: x.c }}>{x.n.toLocaleString()}</div>
           </div>
         ))}
       </div>

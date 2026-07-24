@@ -124,8 +124,8 @@ export function PaneHead({ title, count, right }: { title: React.ReactNode; coun
   const h = ctrlH(mobile);
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: h, flex: `0 0 ${h}px`, padding: mobile ? '0 16px' : '0 14px', borderBottom: `1px solid ${C.line}`, background: C.taupeBg, boxSizing: 'border-box' }}>
-      <span style={{ fontSize: mobile ? 15 : 13, fontWeight: FW.title, color: C.ink, whiteSpace: 'nowrap', letterSpacing: mobile ? '-0.01em' : 0 }}>{title}</span>
-      {count != null && count !== '' && <span style={{ fontSize: mobile ? 12.5 : 11.5, color: C.faint, fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{count}</span>}
+      <span style={{ fontSize: mobile ? FS.title : FS.body, fontWeight: FW.title, color: C.ink, whiteSpace: 'nowrap', letterSpacing: mobile ? '-0.01em' : 0 }}>{title}</span>
+      {count != null && count !== '' && <span style={{ fontSize: mobile ? FS.sub : FS.cap, color: C.faint, fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{count}</span>}
       {right != null && <><span style={{ flex: 1 }} />{right}</>}
     </div>
   );
@@ -155,7 +155,7 @@ export function VSplit({ top, bottom, initial = 0.6, storageKey }: { top: React.
     <div ref={ref} style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
       <div style={pane(ratio)}>{top}</div>
       <div onMouseDown={start} onTouchStart={start} style={{ flex: '0 0 9px', height: 9, cursor: 'row-resize', background: C.head, borderTop: `1px solid ${C.line}`, borderBottom: `1px solid ${C.line}`, display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'none' }}>
-        <div style={{ width: 34, height: 3, borderRadius: 2, background: C.line2 }} />
+        <div style={{ width: 34, height: 3, borderRadius: 999, background: C.line2 }} />
       </div>
       <div style={pane(1 - ratio)}>{bottom}</div>
     </div>
@@ -260,7 +260,7 @@ export function Stepper({ steps }: { steps: Step[] }) {
             <div style={{ fontSize: FS.micro, color: C.faint, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', minHeight: 13 }}>{s.date || ''}</div>
             {s.note && <div style={{ fontSize: FS.micro, color: C.warn, fontWeight: FW.label }}>{s.note}</div>}
           </div>
-          {i < steps.length - 1 && <div style={{ flex: 1, minWidth: 24, height: 2, marginTop: 10, background: steps[i + 1].state === 'todo' ? C.line2 : C.ok, borderRadius: 2 }} />}
+          {i < steps.length - 1 && <div style={{ flex: 1, minWidth: 24, height: 2, marginTop: 10, background: steps[i + 1].state === 'todo' ? C.line2 : C.ok, borderRadius: 999 }} />}
         </React.Fragment>
       ))}
     </div>
@@ -276,7 +276,7 @@ export function DetailShell({ title, meta, onBack, actions, fixed, maxWidth = 10
   if (!fixed) {
     return (
       <div style={{ maxWidth, margin: '0 auto', padding: mobile ? '10px 12px 80px' : '14px 16px 48px' }}>
-        {title != null && <h1 style={{ fontSize: mobile ? 20 : 22, fontWeight: FW.title, letterSpacing: '-0.02em', margin: '2px 0 14px' }}>{title}</h1>}
+        {title != null && <h1 style={{ fontSize: FS.page, fontWeight: FW.title, letterSpacing: '-0.02em', margin: '2px 0 14px' }}>{title}</h1>}
         {children}
       </div>
     );
@@ -288,13 +288,13 @@ export function DetailShell({ title, meta, onBack, actions, fixed, maxWidth = 10
       <div style={{ maxWidth, margin: '0 auto', padding: mobile ? '0 12px 76px' : '0 16px 48px' }}>
         {mobile ? (
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, padding: '12px 2px 4px', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 17, fontWeight: FW.title, letterSpacing: '-0.02em' }}>{title}</span>
+            <span style={{ fontSize: FS.page, fontWeight: FW.title, letterSpacing: '-0.02em' }}>{title}</span>
             {meta && <span style={{ fontSize: FS.sub, color: C.faint }}>{meta}</span>}
           </div>
         ) : (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 0', flexWrap: 'wrap', position: 'sticky', top: 0, background: 'var(--bg-page)', zIndex: 10 }}>
             {back}
-            <span style={{ fontSize: 17, fontWeight: FW.title, letterSpacing: '-0.02em', marginLeft: 6 }}>{title}</span>
+            <span style={{ fontSize: FS.page, fontWeight: FW.title, letterSpacing: '-0.02em', marginLeft: 6 }}>{title}</span>
             {meta && <span style={{ fontSize: FS.sub, color: C.faint }}>{meta}</span>}
             <span style={{ flex: 1 }} />
             {actions}
@@ -457,11 +457,11 @@ export function FilterGroup({ title, count = 0, onClear, defaultOpen = true, fir
       <div style={{ display: 'flex', alignItems: 'center', minHeight: h }}>
         <button onClick={() => { haptic.tap(); setOpen((o) => !o); }} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6, padding: mobile ? '10px 0' : '8px 0', background: 'none', border: 'none', cursor: 'pointer', minHeight: h }}>
           <ChevronDown size={mobile ? 18 : 15} color={C.faint} style={{ flex: '0 0 auto', transform: open ? 'none' : 'rotate(-90deg)', transition: 'transform .12s' }} />
-          <span style={{ fontSize: mobile ? 15 : 13, fontWeight: FW.title, color: C.ink, letterSpacing: '-0.01em', lineHeight: 1.2 }}>{title}</span>
+          <span style={{ fontSize: mobile ? FS.title : FS.body, fontWeight: FW.title, color: C.ink, letterSpacing: '-0.01em', lineHeight: 1.2 }}>{title}</span>
           {count > 0 && <CountPill n={count} tone="accent" />}
           <span style={{ flex: 1 }} />
         </button>
-        {count > 0 && onClear && <button onClick={() => { haptic.select(); onClear(); }} style={{ marginLeft: 6, flex: '0 0 auto', border: 'none', background: 'none', color: C.accent, fontSize: mobile ? 11.5 : 11, fontWeight: FW.strong, cursor: 'pointer', padding: mobile ? '8px 8px' : '6px 4px', minHeight: h }}>해제</button>}
+        {count > 0 && onClear && <button onClick={() => { haptic.select(); onClear(); }} style={{ marginLeft: 6, flex: '0 0 auto', border: 'none', background: 'none', color: C.accent, fontSize: mobile ? FS.sub : FS.cap, fontWeight: FW.strong, cursor: 'pointer', padding: mobile ? '8px 8px' : '6px 4px', minHeight: h }}>해제</button>}
       </div>
       {open && <div style={{ display: 'flex', flexWrap: 'wrap', gap: mobile ? 8 : 6, paddingBottom: mobile ? 14 : 12, width: '100%' }}>{children}</div>}
     </div>
@@ -777,7 +777,7 @@ export function CopyBlock({ text, label = '양식 복사' }: { text: string; lab
       <pre style={{
         margin: 0, padding: mobile ? '12px 13px' : '11px 12px',
         border: `1px dashed ${C.line}`, borderRadius: R, background: C.taupeBg,
-        fontFamily: 'inherit', fontSize: mobile ? 13 : 12.5, lineHeight: 1.75,
+        fontFamily: 'inherit', fontSize: mobile ? FS.body : FS.sub, lineHeight: 1.75,
         color: C.ink, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
       }}>{text}</pre>
     </div>
