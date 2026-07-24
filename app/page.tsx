@@ -635,15 +635,15 @@ export default function Finder() {
     <>
       <div className="fp-sidebar-head">
         {mobile ? (
-          <span style={{ fontSize: FS.title, fontWeight: FW.title, display: 'inline-flex', alignItems: 'center', gap: 6, color: C.ink }}>
-            조건 검색{ac > 0 ? <CountPill n={ac} tone="accent" /> : null}
+          <span style={{ fontSize: FS.title, fontWeight: FW.title, lineHeight: 1, display: 'inline-flex', alignItems: 'center', gap: 6, color: C.ink }}>
+            조건 검색{ac > 0 ? <CountPill n={ac} /> : null}
           </span>
         ) : (
           <>
             {/* 총계 = 손님에게 보이는 매물(출고불가 제외) — 상단바 '상품 N대'(totalVisible)와 동일 기준. rows.length는 출고불가까지 세어 어긋남. */}
             <span style={{ fontSize: FS.body, color: C.mute }}>총 <b style={{ color: C.ink, fontSize: FS.title }}>{totalVisible.toLocaleString()}</b>대</span>
-            <span style={{ fontSize: FS.title, fontWeight: FW.title, display: 'inline-flex', alignItems: 'center', gap: 6, color: C.ink }}>
-              조건 검색{ac > 0 ? <CountPill n={ac} tone="accent" /> : null}
+            <span style={{ fontSize: FS.title, fontWeight: FW.title, lineHeight: 1, display: 'inline-flex', alignItems: 'center', gap: 6, color: C.ink }}>
+              조건 검색{ac > 0 ? <CountPill n={ac} /> : null}
             </span>
             <span style={{ flex: 1 }} />
             {ac > 0 && <Btn size="sm" variant="ghost" onClick={() => { haptic.select(); reset(); }}>초기화</Btn>}
