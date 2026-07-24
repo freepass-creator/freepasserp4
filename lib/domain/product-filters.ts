@@ -70,7 +70,7 @@ export const MILE_BANDS: Band[] = [
 export const FUELS = [...FUEL_TYPES];
 export const PTYPES = [...PRODUCT_TYPES];
 export const PROMOS = [...PROMO_BADGES];
-export const CREDITS = ['무심사', '소득확'] as const;
+export const CREDITS = ['무심사', '소득확인'] as const;
 /** 혜택 = benefitSignals와 1:1 (만21세=연령≤21 라벨). */
 export const PERKS = ['분납가능', '무보증', '만21세', '경력무관', '무사고'] as const;
 /** 손님 카탈로그 — 심사와 분리된 혜택 서브셋. */

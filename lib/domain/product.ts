@@ -130,7 +130,7 @@ export function vehicleName(p: EntityRecord): string {
 export function creditDisplay(p: EntityRecord): string {
   const v = String(policyOf(p).screening_criteria || p.screening_criteria || p.credit_grade || '');
   if (/무심사|신용 *무관|소득 *무관|저신용/.test(v)) return '무심사';
-  if (/신용 *조회|신용 *필요|소득 *확인|소득 *조회|등급|심사\s*필|심사\s*필요|소득확/.test(v)) return '소득확';
+  if (/신용 *조회|신용 *필요|소득 *확인|소득 *조회|등급|심사\s*필|심사\s*필요|소득확/.test(v)) return '소득확인';
   return v || '무심사';
 }
 /** 무보증(보증금 0 상품) — 저신용 손님의 핵심 진입장벽 해소. 영업자 셀링포인트. */

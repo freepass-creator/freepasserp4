@@ -411,7 +411,7 @@ export const ENTITIES: Record<string, Entity> = {
       { key: 'rent_month', label: '대여기간(개월)', type: 'number' },
       { key: 'rent_amount', label: '월대여료(원)', type: 'number', manual: true },
       { key: 'deposit_amount', label: '보증금(원)', type: 'number', manual: true },
-      { key: 'credit_display', label: '심사표기', type: 'select', options: ['무심사', '소득확'], manual: true },
+      { key: 'credit_display', label: '심사표기', type: 'select', options: ['무심사', '소득확인'], manual: true },
       { key: 'driver_age', label: '가능연령', type: 'text' },
       { key: 'annual_mileage', label: '약정주행', type: 'text' },
       { key: 'insurance_summary', label: '보험요약', type: 'text' },

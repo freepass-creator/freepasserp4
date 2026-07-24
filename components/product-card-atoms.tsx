@@ -78,7 +78,7 @@ const PT_TIP: Record<string, string> = {
 };
 const CREDIT_TIP: Record<string, string> = {
   무심사: '신용·소득 심사 없이 진행 가능한 기준입니다. (소득무관)',
-  소득확: '소득·신용 확인이 필요한 심사 기준입니다. (소득확인)',
+  소득확인: '소득·신용 확인이 필요한 심사 기준입니다. (소득확인)',
 };
 const BENEFIT_TIP: Record<string, string> = {
   ins: '보증금을 나눠 낼 수 있습니다.',
@@ -912,33 +912,27 @@ function periodChipStyle(on: boolean): CSSProperties {
 
 /** 모바일 — 최단~최장 기간칩 2개 + 물결. 칩 나열 금지. */
 export function PeriodRange() {
-  const { all, focus, cheap } = usePricePeek();
+  const { all } = usePricePeek();
   if (all.length < 2) return null;
   const months = all.map((x) => x.m);
   const lo = Math.min(...months);
   const hi = Math.max(...months);
   if (lo === hi) return null;
-  const activeM = focus?.m ?? cheap?.m ?? null;
   const tip = (m: number) => {
     const pr = all.find((x) => x.m === m);
     if (!pr) return `${m}개월`;
     return `${pr.m}개월 · 월 ${man(pr.rent)} · ${pr.deposit > 0 ? `보증 ${man(pr.deposit)}` : '무보증'}`;
   };
+  // 색·칩 없이 연한 텍스트 — 계약가능 기간범위(언제~언제)만 표시.
+  const txt = { fontSize: FS.cap, fontWeight: FW.meta, color: C.faint, lineHeight: 1, flex: '0 0 auto' } as const;
   return (
     <div style={{
       display: 'inline-flex', alignItems: 'center', gap: 3,
       flex: '0 0 auto', whiteSpace: 'nowrap',
     }} aria-label={`${lo}~${hi}개월`}>
-      <span data-period-chip title={tip(lo)} style={periodChipStyle(activeM === lo)}>
-        {lo}개월
-      </span>
-      <span style={{
-        fontSize: FS.micro, fontWeight: FW.strong, color: C.faint,
-        lineHeight: 1, flex: '0 0 auto',
-      }}>~</span>
-      <span data-period-chip title={tip(hi)} style={periodChipStyle(activeM === hi)}>
-        {hi}개월
-      </span>
+      <span title={tip(lo)} style={txt}>{lo}개월</span>
+      <span style={txt}>~</span>
+      <span title={tip(hi)} style={txt}>{hi}개월</span>
     </div>
   );
 }

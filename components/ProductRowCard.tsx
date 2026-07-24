@@ -133,14 +133,14 @@ function MobileRow({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) 
         alignSelf: 'stretch',
         justifyContent: 'center',
       }}>
-        {/* 1 뱃지 레일(맨위) — 출고가능·중고렌트·소득확인 (st·pt·cd) */}
-        <CardRailBadges p={p} align="start" />
-
-        {/* 2 차명 — 모바일만 ··· absolute */}
+        {/* 1 뱃지 레일(맨위) + ⋯ 메뉴 — ⋯는 차명 안 따라다니고 카드 최상단 우측에 고정 */}
         <div style={{ position: 'relative', minWidth: 0, paddingRight: 22 }}>
-          <CardTitle p={p} size={15} narrow />
+          <CardRailBadges p={p} align="start" />
           <ProductMoreMenu p={p} />
         </div>
+
+        {/* 2 차명 */}
+        <CardTitle p={p} size={15} narrow />
 
         {/* 3 스펙 (모바일 카드 간결화 — 옵션 OptionChips 제거) */}
         <CardSpecs p={p} />
