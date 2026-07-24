@@ -646,7 +646,7 @@ export default function Finder() {
               조건 검색{ac > 0 ? <CountPill n={ac} /> : null}
             </span>
             <span style={{ flex: 1 }} />
-            {ac > 0 && <Btn size="sm" variant="ghost" onClick={() => { haptic.select(); reset(); }}>초기화</Btn>}
+            {ac > 0 && <button onClick={() => { haptic.select(); reset(); }} style={{ border: 'none', background: 'none', color: C.accent, fontSize: mobile ? 11.5 : 11, fontWeight: FW.strong, cursor: 'pointer', padding: '4px 6px' }}>초기화</button>}
           </>
         )}
       </div>
@@ -810,7 +810,7 @@ export default function Finder() {
               tools={[
                 { key: 'search', label: '검색', icon: Search, badge: searchOn ? 1 : undefined, active: searchOn, pressed: homeTool === 'search', onClick: () => toggleHomeTool('search') },
                 { key: 'sort', label: '정렬', icon: ArrowUpDown, badge: sortOn ? 1 : undefined, active: sortOn, pressed: homeTool === 'sort', onClick: () => toggleHomeTool('sort') },
-                { key: 'filter', label: '필터', icon: SlidersHorizontal, badge: ac || undefined, active: filterOn, pressed: homeTool === 'filter', onClick: () => toggleHomeTool('filter') },
+                { key: 'filter', label: '필터', icon: SlidersHorizontal, badge: ac || undefined, badgeTone: 'accent', active: filterOn, pressed: homeTool === 'filter', onClick: () => toggleHomeTool('filter') },
                 { key: 'recent', label: '최근', icon: History, badge: interestRecent.length || undefined, active: interestRecent.length > 0, pressed: homeTool === 'recent', onClick: () => toggleHomeTool('recent') },
                 { key: 'fav', label: '관심', icon: Star, badge: interestFavs.length || undefined, active: interestFavs.length > 0, pressed: homeTool === 'fav', onClick: () => toggleHomeTool('fav') },
               ]}
@@ -833,7 +833,7 @@ export default function Finder() {
                 </IconBtn>
                 {ac > 0 && (
                   <span style={{ position: 'absolute', top: -4, right: -4, pointerEvents: 'none' }}>
-                    <CountPill n={ac} />
+                    <CountPill n={ac} tone="accent" />
                   </span>
                 )}
               </span>

@@ -14,6 +14,8 @@ export type PageToolItem = {
   icon: LucideIcon;
   /** 적용됨·건수 배지 */
   badge?: number;
+  /** 배지 색 — 'accent'(파랑, 필터 활성 강조) / 기본 네이비 */
+  badgeTone?: 'brand' | 'accent';
   /** 조건이 켜진 상태(브랜드색) */
   active?: boolean;
   /** 시트 열림(aria-pressed) */
@@ -54,7 +56,7 @@ export function PageToolBar({
               <Icon size={18} strokeWidth={on ? 2.4 : 2} />
               <span>{t.label}</span>
               {badge != null ? (
-                <span className="fp-page-tool-badge"><CountPill n={badge} /></span>
+                <span className="fp-page-tool-badge"><CountPill n={badge} tone={t.badgeTone} /></span>
               ) : null}
             </Btn>
           );
