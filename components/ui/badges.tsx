@@ -210,7 +210,8 @@ export function CountPill({ n, tone = 'brand', max = 999 }: {
         style={{
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
           flex: '0 0 auto',
-          minWidth: mobile ? 18 : 16, height: mobile ? 16 : 15, boxSizing: 'border-box',
+          // 높이 15 = 목록행 sub 줄(LINE.sub=15, overflow:hidden)에 딱 맞춤 — 모바일 16이면 그 줄에 세로로 잘렸음(문의 안읽음 뱃지).
+          minWidth: mobile ? 18 : 16, height: 15, boxSizing: 'border-box',
           padding: '0 5px', borderRadius: R,
           background: C.brand, color: C.taupeBg,
           fontSize: FS.micro, fontWeight: FW.strong, lineHeight: 1,
