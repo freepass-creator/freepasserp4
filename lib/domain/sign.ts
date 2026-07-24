@@ -89,3 +89,25 @@ export async function approveSign(contract: EntityRecord): Promise<void> {
   // 전자서명 승인(영업자/관리자가 손님 서명 검토 후)이 provider 스텝(약정발송)을 진행하는 정당 경로 — 엔진 actor 인가 우회(system).
   if (fresh.provider_agreement_sent !== 'yes') await applyStepCheck(fresh, 'provider_agreement_sent', 'yes', { system: true });
 }
+
+/** 반려(재서명 요청) — 검토대기 서명을 되돌려 손님이 다시 서명하게 한다.
+ *  공개 슬롯 status='sent'(=발송)로 되돌리면 /sign 폼이 다시 열리고, 제출 서명은 클리어, 사유는 손님에게 표시.
+ *  오입력(주민번호·성명) 계약을 그대로 확정하거나 방치할 수밖에 없던 막힘 해소. */
+export async function rejectSign(contract: EntityRecord, reason?: string): Promise<void> {
+  const co = getCompanyId();
+  const code = String(contract.contract_code);
+  const rj = String(reason || '').slice(0, 200);
+  await getStore().update('contract', co, code, {
+    sign_status: '발송', sign_signature: '', sign_consents: '',
+    sign_reject_reason: rj, sign_rejected_at: Date.now(),
+  });
+  const token = String(contract.sign_token || '');
+  if (token) {
+    try {
+      await writeContractSign(token, {
+        contract_code: code, status: 'sent', sign_status: '발송',
+        sign_signature: '', reject_reason: rj,
+      });
+    } catch { /* best-effort */ }
+  }
+}

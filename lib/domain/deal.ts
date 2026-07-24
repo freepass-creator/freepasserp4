@@ -32,9 +32,11 @@ export function setRole(r: Role): void { if (typeof window !== 'undefined') { lo
 export function actor(r: Role): { uid: string; code: string; name: string; channel?: string } {
   const s = getSession();
   if (s && s.role === r) {
+    // 실 세션인데 귀속코드가 비면 데모 스텁(공유코드 sup_jeil 등)으로 폴백 금지 —
+    // uid로(고유) 격리해 타테넌트 오염 차단. 미설정 세션은 스코프 리더에서 자연히 막힘(fail-safe).
     const code = r === 'agent'
-      ? (s.user_code || s.code || ACTORS.agent.code)
-      : (s.code || ACTORS[r].code);
+      ? (s.user_code || s.code || s.uid)
+      : (s.code || s.uid);
     return {
       uid: s.uid,
       code,

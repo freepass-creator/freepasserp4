@@ -4,7 +4,7 @@ import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { getRole, type Role } from '@/lib/domain/deal';
-import { createSignToken, approveSign } from '@/lib/domain/sign';
+import { createSignToken, approveSign, rejectSign } from '@/lib/domain/sign';
 import { readContractSign, signPublicToContract } from '@/lib/firebase/contract-sign-public';
 import { Btn, C, toneText, FW, FS } from '@/components/ui';
 import { toast } from '@/components/Toaster';
@@ -46,7 +46,15 @@ export function ContractSign({ contractCode }: { contractCode: string }) {
   const linkOf = () => `${location.origin}/sign/${c.sign_token}`;
   const send = async () => { setBusy(true); try { const token = await createSignToken(c); await navigator.clipboard?.writeText(`${location.origin}/sign/${token}`).catch(() => {}); await load(); toast('계약서 링크 복사됨 — 손님에게 전달하세요', 'ok'); } finally { setBusy(false); } };
   const copy = async () => { await navigator.clipboard?.writeText(linkOf()).catch(() => {}); toast('링크 복사됨', 'ok'); };
-  const approve = async () => { setBusy(true); try { await approveSign(c); await load(); toast('승인 — 계약 진행됨', 'ok'); } finally { setBusy(false); } };
+  const approve = async () => { setBusy(true); try { await approveSign(c); await load(); toast('승인 — 계약 진행됨', 'ok'); } catch (e) { toast('승인 실패: ' + ((e as Error)?.message || ''), 'error'); } finally { setBusy(false); } };
+  const reject = async () => {
+    const reason = typeof window !== 'undefined' ? window.prompt('반려 사유(손님에게 표시 · 선택):', '') : '';
+    if (reason === null) return; // 취소
+    setBusy(true);
+    try { await rejectSign(c, reason || ''); await load(); toast('반려 — 손님이 다시 서명하도록 재개방됨', 'ok'); }
+    catch (e) { toast('반려 실패: ' + ((e as Error)?.message || ''), 'error'); }
+    finally { setBusy(false); }
+  };
   const stColor = st === '서명완료' ? C.ok : st === '검토대기' ? toneText('amber') : st === '발송' ? toneText('blue') : C.faint;
 
   return (
@@ -57,7 +65,7 @@ export function ContractSign({ contractCode }: { contractCode: string }) {
         <span style={{ flex: 1 }} />
         {canAct && st === '미발송' && <Btn size="sm" onClick={send} disabled={busy}>계약서 발송</Btn>}
         {canAct && st === '발송' && <><Btn variant="ghost" size="sm" onClick={copy}>링크</Btn><Btn variant="ghost" size="sm" onClick={send} disabled={busy}>재발송</Btn><Btn variant="ghost" size="sm" onClick={load}>새로고침</Btn></>}
-        {canAct && st === '검토대기' && <Btn size="sm" onClick={approve} disabled={busy}>승인</Btn>}
+        {canAct && st === '검토대기' && <><Btn variant="ghost" size="sm" onClick={reject} disabled={busy}>반려</Btn><Btn size="sm" onClick={approve} disabled={busy}>승인</Btn></>}
       </div>
       {/* 서명 PNG = 투명배경·짙은잉크(#0f1830) → 다크에서도 흰 지면 유지(C.taupeBg면 서명 안 보임). sign 캔버스·PDF와 동일 예외. */}
       {st === '검토대기' && c.sign_signature ? <img src={String(c.sign_signature)} alt="서명" style={{ maxWidth: 180, border: `1px solid ${C.line}`, borderRadius: 4, background: '#fff' }} /> : null}

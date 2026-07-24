@@ -10,6 +10,21 @@ import {
 import { ref, get, set, update, runTransaction } from 'firebase/database';
 import { getAuthClient, getRtdb, firebaseReady } from './client';
 import { setSession, getSession, mapRole, setGuest } from '../auth-session';
+import { buildAuditEntry } from '@/lib/domain/audit';
+import { currentActor } from '@/lib/session';
+import { getCompanyId } from '@/lib/tenant';
+import type { EntityRecord } from '@/lib/intake/entities';
+
+/** 관리자 신원 조작(승인·역할재배정·채널백필) 감사기록 — store를 안 거치는 top-level users 쓰기라 별도 기록.
+ *  best-effort(감사 실패가 원 작업을 막지 않음). audit_logs 규칙: actor_uid === auth.uid(=현재 관리자). */
+async function writeIdentityAudit(uid: string, action: string, before: Record<string, unknown> | null, after: Record<string, unknown> | null, summary: string): Promise<void> {
+  const db = getRtdb();
+  if (!db) return;
+  try {
+    const entry = buildAuditEntry('user', getCompanyId(), uid, action, (before as EntityRecord | null), (after as EntityRecord | null), currentActor(), { summary });
+    if (entry) await update(ref(db, `v4/audit_logs/${String(entry._key)}`), entry as Record<string, unknown>);
+  } catch { /* best-effort */ }
+}
 import { writeUserPrivate } from '../domain/private-fields';
 
 const _persistenceReady = (() => {
@@ -244,13 +259,15 @@ export async function adminUpdateUserIdentity(
   if (fields.agent_channel_code != null) patch.agent_channel_code = String(fields.agent_channel_code);
   if (fields.status != null) patch.status = String(fields.status);
   if (!Object.keys(patch).length) return;
+  const before = (await get(ref(db, `users/${uid}`))).val() as Record<string, unknown> | null;
   await update(ref(db, `users/${uid}`), patch);
+  await writeIdentityAudit(uid, 'update', before, { ...(before || {}), ...patch }, '회원 신원 수정(역할·회사·채널)');
 }
 
 export async function approveUser(uid: string, active = true): Promise<void> {
   const db = getRtdb(); if (!db) throw new Error('DB가 설정되지 않았습니다');
   if (!uid) throw new Error('uid 없음');
-  if (!active) { await set(ref(db, `users/${uid}/status`), 'pending'); return; }
+  if (!active) { await set(ref(db, `users/${uid}/status`), 'pending'); await writeIdentityAudit(uid, 'approve', null, { status: 'pending' }, '가입 승인취소(대기로 되돌림)'); return; }
   const u = (await get(ref(db, `users/${uid}`))).val() as Record<string, unknown> | null;
   const bizNo = String((u && u.business_no) || '').replace(/\D/g, '');
   const user_code = String((u && u.user_code) || uid).trim();
@@ -262,6 +279,7 @@ export async function approveUser(uid: string, active = true): Promise<void> {
   if (matched_partner_code) patch.matched_partner_code = matched_partner_code;
   else patch.matched_partner_code = null;
   await update(ref(db, `users/${uid}`), patch);
+  await writeIdentityAudit(uid, 'approve', u, { ...(u || {}), ...patch }, `가입 승인 · ${role}/${company_code}${matched_partner_code ? ` (파트너 ${matched_partner_code})` : ''}`);
 }
 
 /**
@@ -290,7 +308,7 @@ export async function backfillPersonalAgentChannels(opts?: { dryRun?: boolean })
     const to = String(u.user_code || uid).trim();
     if (!to || to === ch) { skipped++; continue; }
     updated.push({ uid, from: ch || '(empty)', to });
-    if (!dry) await update(ref(db, `users/${uid}`), { agent_channel_code: to });
+    if (!dry) { await update(ref(db, `users/${uid}`), { agent_channel_code: to }); await writeIdentityAudit(uid, 'update', { agent_channel_code: ch }, { agent_channel_code: to }, `개인채널 백필 ${ch || '(빈)'}→${to}`); }
   }
   return { scanned, updated, skipped };
 }

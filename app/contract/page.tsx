@@ -272,9 +272,12 @@ export default function ContractsSettlement() {
   ];
 
   const agg = (pred: (s: EntityRecord) => boolean, f: (s: EntityRecord) => unknown) => setts.filter(pred).reduce((n, s) => n + (Number(f(s)) || 0), 0);
+  // 요약 금액: 영업자는 본인 지급(agent_payout=R2), 그 외(공급사·관리자)는 공급사청구(fee_amount=R1).
+  //  영업자가 R1(≈2.5배)을 자기 정산으로 오인하던 것 교정.
+  const settleAmt = (s: EntityRecord) => (role === 'agent' ? s.agent_payout : s.fee_amount);
   const cells: [string, number, string][] = [
-    ['대기', agg((s) => String(s.settlement_status) === '정산대기', (s) => s.fee_amount), C.warn],
-    ['완료', agg((s) => String(s.settlement_status) === '정산완료', (s) => s.fee_amount), C.ok],
+    ['대기', agg((s) => String(s.settlement_status) === '정산대기', settleAmt), C.warn],
+    ['완료', agg((s) => String(s.settlement_status) === '정산완료', settleAmt), C.ok],
     ['환수', agg((s) => String(s.settlement_status).includes('환수'), (s) => s.clawback_amount), C.danger],
     ...(role === 'admin' ? [['순수익', agg((s) => String(s.settlement_status) === '정산완료', (s) => s.net_amount), C.brand] as [string, number, string]] : []),
   ];

@@ -131,6 +131,7 @@ export function memberHaystack(u: EntityRecord): string {
     u.user_code, u.uid, u.name, u.role, u.partner_type,
     u.partner_code, u.company_code, u.company_name,
     u.agent_channel_code, u.contact, u.phone, u.email,
+    u.status, String(u.status || '') === 'pending' ? '승인대기' : '',
   );
 }
 

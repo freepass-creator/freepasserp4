@@ -21,7 +21,7 @@ import { NAV_LABEL } from '@/lib/tabbar';
 // 사용자·파트너 관리(관리자) — 역할·활성·영업지급율(user) / 유형·공급사수수료율(partner). 여기 율이 정산 R1/R2 SSOT.
 type Tab = 'user' | 'partner';
 type MemSort = 'name' | 'role' | 'code';
-type MemActive = 'all' | 'active' | 'inactive';
+type MemActive = 'all' | 'active' | 'inactive' | 'pending';
 const MEM_SORTS: { value: MemSort; label: string }[] = [
   { value: 'name', label: '이름순' },
   { value: 'role', label: '역할순' },
@@ -232,11 +232,17 @@ export default function Members() {
         if (roleFlt !== 'all' && String(r.role || '') !== roleFlt) return false;
         if (activeFlt === 'active' && r.is_active === '아니오') return false;
         if (activeFlt === 'inactive' && r.is_active !== '아니오') return false;
+        // status(승인대기)는 is_active(운영 on/off)와 별개 필드 → 대기만 추리는 전용 필터
+        if (activeFlt === 'pending' && String(r.status || '') !== 'pending') return false;
       } else if (ptypeFlt !== 'all' && String(r.partner_type || '') !== ptypeFlt) return false;
       return true;
     })
     .slice()
     .sort((a, b) => {
+      // 승인대기는 정렬과 무관하게 항상 최상단(관리자가 처리대상을 먼저 보게)
+      const ap = tab === 'user' && String(a.status || '') === 'pending' ? 0 : 1;
+      const bp = tab === 'user' && String(b.status || '') === 'pending' ? 0 : 1;
+      if (ap !== bp) return ap - bp;
       if (!sort) return 0;
       if (sort === 'code') {
         const ak = tab === 'user' ? String(a.user_code || a.uid || '') : String(a.partner_code || '');
@@ -276,6 +282,12 @@ export default function Members() {
           })}</div>}
     </>
   );
+
+  // 승인대기 카운트 + 대기 전용 필터칩(관리자가 신규 가입 처리대상을 한눈에)
+  const pendingCount = tab === 'user' ? rows.filter((r) => String(r.status || '') === 'pending').length : 0;
+  const activeOptions: { key: MemActive; label: string }[] = tab === 'user'
+    ? [...MEM_ACTIVE, { key: 'pending', label: pendingCount ? `승인대기 ${pendingCount}` : '승인대기' }]
+    : MEM_ACTIVE;
 
   const byKey = Object.fromEntries(ENTITIES[tab].fields.map((f) => [f.key, f]));
   const fields = (tab === 'user' ? USER_KEYS : PARTNER_KEYS).map((k) => byKey[k]).filter(Boolean) as Field[];
@@ -366,7 +378,7 @@ export default function Members() {
                 <SectionLabel mt={0}>역할</SectionLabel>
                 <FilterChips value={roleFlt} onChange={setRoleFlt} options={MEM_ROLES} />
                 <SectionLabel>활성</SectionLabel>
-                <FilterChips value={activeFlt} onChange={setActiveFlt} options={MEM_ACTIVE} />
+                <FilterChips value={activeFlt} onChange={setActiveFlt} options={activeOptions} />
               </>
             ) : (
               <>

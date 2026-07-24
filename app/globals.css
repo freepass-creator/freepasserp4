@@ -318,6 +318,9 @@ button, input, select, textarea { font-family: inherit; }
 .fp-finder-body.is-excel .fp-excel-table th,
 .fp-finder-body.is-excel .fp-excel-table td {
   box-sizing: border-box;
+  /* 운영시트 그리드라인 — 살짝(소프트 보더). border-collapse:collapse 라 인접셀 1px 공유. */
+  border-right: 1px solid var(--border-soft);
+  border-bottom: 1px solid var(--border-soft);
 }
 .fp-finder-body.is-excel .fp-excel-table th.fp-excel-price,
 .fp-finder-body.is-excel .fp-excel-table td.fp-excel-price {
