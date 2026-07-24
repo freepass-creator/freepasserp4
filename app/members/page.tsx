@@ -8,6 +8,8 @@ import { ENTITIES, ROLES, ROLE_LABEL_RAW, type EntityRecord, type Field } from '
 import { isGuest } from '@/lib/auth-session';
 import { getRole } from '@/lib/domain/deal';
 import { approveUser, backfillPersonalAgentChannels, adminUpdateUserIdentity } from '@/lib/firebase/auth';
+import { readAllPartnersPrivate, readAllUsersPrivate, writePartnerPrivate } from '@/lib/domain/private-fields';
+import { migrateSensitiveToPrivate } from '@/lib/firebase/migrate-private';
 import { newId } from '@/lib/domain/ids';
 import { PaneHead, PaneBody, Btn, Badge, FormGrid, FormCard, PillTabs, C, R, NUM, Loading, CenterNote, ListRow, ACTOR_TONE, FilterChips, SectionLabel, Message, PageActions, FW, FS } from '@/components/ui';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
@@ -64,7 +66,21 @@ export default function Members() {
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState(false);
 
-  const load = async (t: Tab) => { const all = await getStore().list(t, co); setRows(all); return all; };
+  // 민감필드 enrich — 관리자 화면은 private 노드(fee_rate·email 등)를 병합해 목록/폼/검색에 채운다.
+  //  private 비활성·미마이그레이션이면 {} → 본노드 값 그대로(무변경). private 우선(마이그레이션 후 본노드에서 빠진 값 복원).
+  const enrichPrivate = async (t: Tab, list: EntityRecord[]): Promise<EntityRecord[]> => {
+    try {
+      if (t === 'partner') {
+        const priv = await readAllPartnersPrivate();
+        if (!priv || !Object.keys(priv).length) return list;
+        return list.map((r) => { const pv = priv[String(r.partner_code || r._key || '')]; return pv ? { ...r, ...pv } : r; });
+      }
+      const priv = await readAllUsersPrivate();
+      if (!priv || !Object.keys(priv).length) return list;
+      return list.map((r) => { const pv = priv[String(r.uid || r._key || '')]; return pv ? { ...r, ...pv } : r; });
+    } catch { return list; }
+  };
+  const load = async (t: Tab) => { const all = await enrichPrivate(t, await getStore().list(t, co)); setRows(all); return all; };
   // 회원·파트너 = 관리자 전용(요율·역할을 바꾸는 화면).
   // 둘러보기는 세션이 없어 getRole()이 localStorage 값을 읽는다 → fp4_role 조작으로 통과 가능하므로 함께 차단.
   // ※ 화면 게이트는 방어의 일부일 뿐 — 실제 강제는 RTDB 규칙에서 해야 한다(현재 v4 오버레이 규칙 미비, 별도 과제).
@@ -119,6 +135,22 @@ export default function Members() {
       if (!dry && n) await load(tab);
     } catch (e) { toast(String((e as Error)?.message || e), 'error'); }
   };
+  /** 민감정보(_private) 분리 마이그레이션 — 공급사 fee_rate·회원 email 을 private 노드로 복사(+실행 시 본노드 제거). dryRun 기본. */
+  const doMigratePrivate = async (dry: boolean) => {
+    if (!dry && typeof window !== 'undefined' && !window.confirm('민감정보를 private 노드로 이관하고 본노드에서 제거합니다.\n규칙(database.rules.json)이 먼저 게시되어 있어야 합니다. 진행할까요?')) return;
+    try {
+      haptic.select();
+      const r = await migrateSensitiveToPrivate({ dryRun: dry });
+      toast(
+        `${dry ? '미리보기' : '실행 완료'} · 공급사 ${r.partners.moved}/${r.partners.scanned}(fee_rate) · 회원 ${r.users.moved}/${r.users.scanned}(email)`
+          + (r.errors.length ? ` · 오류 ${r.errors.length}` : ''),
+        r.errors.length ? 'error' : (dry ? 'info' : 'ok'),
+      );
+      if (r.errors.length) console.warn('[migratePrivate] errors', r.errors);
+      console.info('[migratePrivate] report', r);
+      if (!dry) await load(tab);
+    } catch (e) { toast(String((e as Error)?.message || e), 'error'); }
+  };
   const newRec = () => {
     // 식별코드 = 실무 표준(usr_/sup_). uid=user_code 동일값(단일 안정 ID) → 관계 어느 필드로 걸어도 일치.
     if (tab === 'user') { const c = newId('user'); setForm({ uid: c, user_code: c, role: 'agent', is_active: '예' }); }
@@ -139,7 +171,17 @@ export default function Members() {
   const save = async () => {
     const id = idFieldOf(tab); if (!String(form[id] || '').trim()) { toast('식별자는 필수입니다', 'error'); return; }
     try {
-      await getStore().save(tab, co, [form]); await getStore().update(tab, co, String(form[id]), form);
+      // 공급사 수수료율(상업기밀)은 private 노드로 라우팅. 이관 성공 시 본노드 쓰기에서 제외(공개 read 차단).
+      //  실패(규칙 미게시·no-db)면 본노드에 그대로 남긴다(유실·머니율 누락 방지) — 폴백이 기존 동작 보존.
+      let mainForm: EntityRecord = form;
+      if (tab === 'partner') {
+        const code = String(form.partner_code || form._key || '').trim();
+        const moved = await writePartnerPrivate(code, { fee_rate: form.fee_rate });
+        // 이관 성공 시 본노드(v4)에서 fee_rate를 null로 제거 — 단순 제외(delete)는 merge라 옛값이 잔존해
+        //  base/private divergence + 마이그레이션 revert를 유발. null로 명시 삭제. (resolveRates·마이그레이션 모두 private-first)
+        if (moved) mainForm = { ...form, fee_rate: null };
+      }
+      await getStore().save(tab, co, [mainForm]); await getStore().update(tab, co, String(form[id]), mainForm);
       // 신원 게이트 필드(role/company_code/agent_channel_code)는 세션(initAuth)·RLS·approveUser 가 읽는 "최상위" users/{uid} 에 직접 반영.
       //  v4 오버레이에만 쓰면 강등·재배정이 조용히 무효(desync) → approveUser 와 동일 노드로 SSOT 정합. status 는 approveUser 전용이라 제외.
       if (tab === 'user') {
@@ -288,6 +330,10 @@ export default function Members() {
                 <Btn size="sm" variant="ghost" onClick={() => doBackfillChannels(false)}>개인채널 백필 실행</Btn>
               </div>
             )}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12, justifyContent: 'center' }}>
+              <Btn size="sm" variant="ghost" onClick={() => doMigratePrivate(true)}>민감정보 분리 미리보기</Btn>
+              <Btn size="sm" variant="ghost" onClick={() => doMigratePrivate(false)}>민감정보 분리 실행</Btn>
+            </div>
           </>
         )}
       </PaneBody>

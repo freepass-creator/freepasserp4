@@ -206,6 +206,13 @@
           }
         }
       },
+      "partners_private": {
+        ".read": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous' && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'agent' || root.child('users').child(auth.uid).child('role').val() === 'agent_admin' || root.child('users').child(auth.uid).child('role').val() === 'agent_manager')",
+        ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'",
+        "$pid": {
+          ".read": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'provider' && root.child('users').child(auth.uid).child('company_code').val() !== null && root.child('users').child(auth.uid).child('company_code').val() !== '' && root.child('users').child(auth.uid).child('company_code').val() === $pid"
+        }
+      },
       "users": {
         ".read": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous'",
         "$uid": {
@@ -224,6 +231,16 @@
           },
           "agent_channel_code": {
             ".validate": "newData.val() === data.val() || root.child('users').child(auth.uid).child('role').val() === 'admin'"
+          }
+        }
+      },
+      "users_private": {
+        ".read": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'",
+        "$uid": {
+          ".read": "auth != null && ($uid === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+          ".write": "auth != null && ($uid === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+          "agent_payout_rate": {
+            ".validate": "root.child('users').child(auth.uid).child('role').val() === 'admin' || (data.exists() && newData.val() === data.val())"
           }
         }
       },

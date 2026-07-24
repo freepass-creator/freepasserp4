@@ -10,6 +10,7 @@ import {
 import { ref, get, set, update, runTransaction } from 'firebase/database';
 import { getAuthClient, getRtdb, firebaseReady } from './client';
 import { setSession, getSession, mapRole, setGuest } from '../auth-session';
+import { writeUserPrivate } from '../domain/private-fields';
 
 const _persistenceReady = (() => {
   const auth = getAuthClient();
@@ -175,13 +176,18 @@ export async function writeUserProfile(user: User, info: { name: string; phone: 
       if (res.committed) user_code = `U${String(res.snapshot.val()).padStart(4, '0')}`;
     } catch (ce) { console.warn('[writeUserProfile] 채번 실패(계속):', (ce as Error)?.message || ce); }
     step = '프로필 저장';
+    // 이메일(PII)은 users_private/{uid}(본인 write)로 분리 시도. 성공 시 본노드에서 제외(공개 read 차단).
+    //  실패(규칙 미게시·no-db)면 본노드에 그대로 남긴다(유실 방지) — 폴백이 기존 동작 보존.
+    //  ※ phone 은 공개 견적 /q 연락 CTA 가 본노드에서 읽으므로 본노드 유지(옵션 A: 샤프한 유출만 차단).
+    const emailMoved = await writeUserPrivate(uid, { email: user.email || '' });
     const rec: Record<string, unknown> = {
-      uid, email: user.email || '', name: info.name || '', phone: info.phone || '',
+      uid, name: info.name || '', phone: info.phone || '',
       company_name: info.company_name || '', business_no: bizNo, user_code,
       // Path B: 승인 대기. company_code·agent_channel_code 미기록(규칙 admin-only + 승인 시 배정).
       status: 'pending',
       role: safeRole,
       created_at: Date.now(),
+      ...(emailMoved ? {} : { email: user.email || '' }),
     };
     await set(ref(db, `users/${uid}`), rec);
   } catch (e) {

@@ -9,6 +9,7 @@ import { getCompanyId } from '@/lib/tenant';
 import { currentActor } from '@/lib/session';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { getProgress, hasDepositClaim, DEPOSIT_CLAIM_KEYS, isDone, stepActorOf } from '@/lib/domain/contract';
+import { readPartnerPrivate, readUserPrivate } from '@/lib/domain/private-fields';
 
 const REJECT_VALS = ['불가', '부결', '출고 불가'];
 const isReject = (v: unknown) => typeof v === 'string' && REJECT_VALS.includes(v);
@@ -20,8 +21,14 @@ export async function resolveRates(contract: EntityRecord, product: EntityRecord
   const users = await store.list('user', co);
   const partner = partners.find((p) => String(p.partner_code) === String(contract.provider_company_code));
   const user = users.find((u) => String(u.user_code) === String(contract.agent_code));
-  let feeRate = partner && partner.fee_rate != null ? Number(partner.fee_rate) : 0.1;
-  const payoutRate = user && user.agent_payout_rate != null ? Number(user.agent_payout_rate) : 0.04;
+  // 상업기밀·PII 분리(_private) 대응 — private 우선, 없으면 본노드 폴백(미마이그레이션·권한없음·no-db 모두 기존값).
+  //  ★율 계산 수학·신차 특례·반올림·반환형 전부 불변. private 가 null 이면 아래 식은 기존과 완전 동치.
+  const pp = await readPartnerPrivate(String(partner?.partner_code ?? contract.provider_company_code ?? ''));
+  const up = await readUserPrivate(String(user?.uid ?? user?.user_code ?? contract.agent_code ?? ''));
+  const rawFee = pp?.fee_rate ?? partner?.fee_rate;
+  const rawPayout = up?.agent_payout_rate ?? user?.agent_payout_rate;
+  let feeRate = rawFee != null ? Number(rawFee) : 0.1;
+  const payoutRate = rawPayout != null ? Number(rawPayout) : 0.04;
   if (String(product?.product_type || '').startsWith('신차')) feeRate = 0; // 신차(렌트·구독) 파트너 우대(공급사 수수료 0)
   return { feeRate, payoutRate };
 }
