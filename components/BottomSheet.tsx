@@ -18,8 +18,9 @@ export function BottomSheet({
   maxHeight = 'min(58vh, 520px)',
   footer,
   onClear,
-  applyLabel = '적용',
+  closeLabel = '닫기',
   clearLabel = '해제',
+  footerInfo,
   pad = true,
 }: {
   open: boolean;
@@ -28,11 +29,15 @@ export function BottomSheet({
   title?: ReactNode;
   dockH?: number | string;
   maxHeight?: string | number;
-  /** filter = 표준 필터 푸터 / ReactNode = 커스텀 */
-  footer?: 'filter' | ReactNode;
+  /** 'std' = 표준 하단바 SSOT(비우기/해제 좌 · 닫기 우 · 가운데 info). 'filter'=별칭(하위호환). ReactNode=완전 커스텀. */
+  footer?: 'std' | 'filter' | ReactNode;
   onClear?: () => void;
-  applyLabel?: string;
+  /** 우측 기본(닫기) 버튼 라벨 */
+  closeLabel?: string;
+  /** 좌측 ghost 액션 라벨(비우기·해제·지우기·기본 등). onClear 있을 때만 노출 */
   clearLabel?: string;
+  /** 가운데 뮤트 정보(예: '결과 N대') */
+  footerInfo?: ReactNode;
   /** 본문 좌우 패딩(기본 on) */
   pad?: boolean;
 }) {
@@ -49,7 +54,8 @@ export function BottomSheet({
 
   if (!open) return null;
 
-  const filterFooter = footer === 'filter' ? (
+  // 표준 하단바 SSOT — 모든 시트 공통 규격: [비우기/해제 좌(ghost, onClear 있을 때) · info 가운데(뮤트) · 닫기 우(solid)].
+  const sheetFooter = (footer === 'std' || footer === 'filter') ? (
     <div style={{
       flex: '0 0 auto',
       display: 'flex', alignItems: 'center', gap: 8,
@@ -58,13 +64,16 @@ export function BottomSheet({
       borderTop: `1px solid ${C.line}`,
       background: C.taupeBg,
     }}>
-      <Btn style={{ flex: 1 }} onClick={() => { haptic.nav(); onClose(); }}>{applyLabel}</Btn>
       {onClear ? (
         <Btn variant="ghost" onClick={() => { haptic.tap(); onClear(); }}>{clearLabel}</Btn>
       ) : null}
-      <Btn variant="ghost" onClick={() => { haptic.nav(); onClose(); }}>닫기</Btn>
+      <span style={{
+        flex: 1, minWidth: 0, fontSize: FS.sub, color: C.mute,
+        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+      }}>{footerInfo}</span>
+      <Btn onClick={() => { haptic.nav(); onClose(); }} style={{ minWidth: 100 }}>{closeLabel}</Btn>
     </div>
-  ) : footer != null && footer !== 'filter' ? (
+  ) : footer != null ? (
     <div style={{
       flex: '0 0 auto',
       padding: '10px 14px',
@@ -98,7 +107,7 @@ export function BottomSheet({
           borderRadius: '14px 14px 0 0',
           boxShadow: '0 -10px 32px rgba(15,23,42,0.2)',
           animation: 'sheetUp .22s ease',
-          paddingBottom: filterFooter ? 0 : 'env(safe-area-inset-bottom, 0px)',
+          paddingBottom: sheetFooter ? 0 : 'env(safe-area-inset-bottom, 0px)',
           overflow: 'hidden',
           transform: dragY ? `translateY(${dragY}px)` : undefined,
           transition: dragY ? 'none' : 'transform .22s ease',
@@ -130,7 +139,7 @@ export function BottomSheet({
         >
           {children}
         </div>
-        {filterFooter}
+        {sheetFooter}
       </div>
     </div>
   );
