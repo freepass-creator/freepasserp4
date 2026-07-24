@@ -16,7 +16,7 @@ import { refreshCurrentPage } from '@/lib/page-refresh';
 import { PageStatus, statusIconFor } from '@/components/PageStatus';
 import { getStore, peekList } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
-import { BRAND, VERSION } from '@/lib/brand';
+import { BRAND, VERSION, BUILD } from '@/lib/brand';
 import type { EntityRecord } from '@/lib/intake/entities';
 
 // 상단바 = 상태창(어디·몇 건). 웹 메뉴=좌측 · 모바일 메뉴=우측.
@@ -255,7 +255,7 @@ function NavMenu({ mobile }: { mobile: boolean }) {
           ))}
           {/* 배포 버전(설정 항목 바로 아래) — 배포 확인용. lib/brand VERSION SSOT. */}
           <div style={{ borderTop: `1px solid ${line}`, padding: mobile ? '10px 20px' : '7px 14px', fontSize: FS.micro, color: weak, fontFamily: NUM, letterSpacing: '0.02em' }}>
-            {BRAND} · v{VERSION}
+            {BRAND} · v{VERSION}{BUILD ? ` · ${BUILD}` : ''}
           </div>
         </div>
       </>)}

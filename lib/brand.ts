@@ -12,3 +12,11 @@ export const BRAND = `${BRAND_MAIN}${BRAND_SUB}`;
  * (package.json version 은 레포 내부값이라 별개)
  */
 export const VERSION = '4.0.0';
+
+/**
+ * 빌드 태그 — git 커밋수(#147…) 우선, 없으면 짧은 SHA. next.config가 빌드 시 주입.
+ * 누가 커밋/배포해도 매 빌드 자동 갱신 → 배포된 게 맞는지 화면에서 바로 확인.
+ */
+const BUILD_NO = process.env.NEXT_PUBLIC_BUILD_NO || '';
+const BUILD_SHA = process.env.NEXT_PUBLIC_BUILD_SHA || '';
+export const BUILD = BUILD_NO ? `#${BUILD_NO}` : BUILD_SHA;
