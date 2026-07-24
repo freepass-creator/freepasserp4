@@ -462,17 +462,19 @@ button, input, select, textarea { font-family: inherit; }
     grid-template-rows: none;
     grid-row: auto;
   }
-  /* 툴바 = 스크롤에 안 딸려감(고정). sticky 아님 — 셸 flex 고정과 동일 */
+  /* 툴바 = 스크롤에 안 딸려감(고정). sticky top:0 로 로버스트하게 — flex 고정이 어떤 이유로
+     깨져 전체가 스크롤돼도(예: :has 미지원) 툴바는 상단에 pin. 정상 flex 레이아웃에선 no-op. */
   .fp-finder-toolbar,
   .fp-page-toolbar {
-    position: relative;
-    top: auto;
+    position: sticky;
+    top: 0;
     z-index: 6;
     flex: 0 0 auto;
     height: var(--fp-bar-h);
     min-height: var(--fp-bar-h);
     padding: var(--fp-bar-pad-y) var(--fp-bar-pad-x);
     padding-right: var(--fp-bar-pad-x);
+    background: var(--bg-page);
   }
   /* 페이지 툴바 SSOT = 아이콘 행(+적용 힌트). 시트는 화면 바닥에서. */
   .fp-finder-toolbar.is-home-tools,

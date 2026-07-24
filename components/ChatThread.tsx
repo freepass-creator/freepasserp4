@@ -123,7 +123,7 @@ export function ChatThread({ roomId, onBack, onVehicle, onContract }: { roomId: 
       <div style={{ display: 'flex', gap: 6, padding: '6px 10px calc(6px + var(--fp-dock-safe, env(safe-area-inset-bottom, 0px)))', borderTop: `1px solid ${C.line}`, flex: '0 0 auto', alignItems: 'center' }}>
         <input ref={fileRef} type="file" accept="image/*,application/pdf" onChange={(e) => onPickFile(e.target.files)} style={{ display: 'none' }} />
         <IconBtn onClick={() => fileRef.current?.click()} title="사진·파일 첨부">📎</IconBtn>
-        <Input value={text} onChange={setText} onEnter={send} placeholder="메시지 입력" full style={{ flex: 1 }} />
+        <Input value={text} onChange={setText} onEnter={send} placeholder="메시지 입력" full style={{ flex: 1 }} autoFocus={mobile} />
         <Btn onClick={send}>보내기</Btn>
       </div>
 
