@@ -8,7 +8,7 @@ import { seedIfEmpty } from '@/lib/seed';
 import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
 import { type EntityRecord } from '@/lib/intake/entities';
-import { priceList, rentForSort, depositForSort, creditDisplay, vehicleTone, excelCondSignals, isHiddenFromCatalog, canonProductType, noDeposit } from '@/lib/domain/product';
+import { priceList, rentForSort, depositForSort, creditDisplay, vehicleTone, excelCondSignals, isHiddenFromCatalog, canonProductType, noDeposit, installmentOk, minAge } from '@/lib/domain/product';
 import { fuelDisplay, yearDisplay, makerDisplay, parseYear } from '@/lib/domain/vehicle-master-match';
 import { withProviderNames } from '@/lib/domain/identity';
 import { DYN, CAR_DYN_KEYS, EXTRA_DYN_KEYS, aggregateDyn, matchProduct, activeCount, activeFilterHints, presentFilterOptions, excelMonths, operatingMonths, EMPTY_VEHICLE_FILTER, vehicleFilterCount, sortProviderOptions, type FState, type VehicleFilter } from '@/lib/domain/product-filters';
@@ -451,7 +451,10 @@ export default function Finder() {
         }
       });
     } else {
-      l.sort((a, b) => (noDeposit(a) ? 0 : 1) - (noDeposit(b) ? 0 : 1)); // 무보증 먼저
+      // 기본 정렬 = 혜택 우선: 무보증(4) > 분납가능(2) > 21세가능(1). 점수는 1회 선계산(priceList 재호출 방지), 동점은 원순서 유지(안정 정렬).
+      const sc = new Map<EntityRecord, number>();
+      for (const p of l) { const age = minAge(p); sc.set(p, (noDeposit(p) ? 4 : 0) + (installmentOk(p) ? 2 : 0) + (age > 0 && age <= 21 ? 1 : 0)); }
+      l.sort((a, b) => (sc.get(b) ?? 0) - (sc.get(a) ?? 0));
     }
     if (!passedCodes.size) return l;
     const front: EntityRecord[] = [];
