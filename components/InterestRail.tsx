@@ -239,7 +239,7 @@ export function InterestPanel({
         <div style={{
           display: 'grid', width: '100%',
           gridTemplateColumns: mobile ? '1fr' : 'repeat(auto-fill, minmax(240px, 1fr))',
-          gap: mobile ? 6 : 14,
+          gap: mobile ? 10 : 14,
         }}>
           {items.map((s) => (
             <InterestSummaryCard key={s.code} live={byCode.get(s.code)} snap={s} tab={tab} />
