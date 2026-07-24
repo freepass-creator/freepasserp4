@@ -287,6 +287,7 @@ export function CardRailBadges({ p, audience = 'agent', dense, align = 'end' }: 
           tone={s.tone}
           variant={s.variant || 'line'}
           pulse={s.pulse}
+          size={FS.sub}
           title={badgeTip(s.key, s.label)}
         >{s.label}</Badge>
       ))}
