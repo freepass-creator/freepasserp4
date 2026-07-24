@@ -83,10 +83,7 @@ export function BottomSheet({
       borderTop: `1px solid ${C.line}`,
       background: C.taupeBg,
     }}>
-      {/* std: [해제 좌 · info 가운데 · 닫기 우]. onClear 있을 때만 해제 노출 */}
-      {isStd && onClear ? (
-        <Btn variant="ghost" onClick={() => { haptic.tap(); onClear(); }}>{clearLabel}</Btn>
-      ) : null}
+      {/* 하단바 = 기본 액션만(닫기·취소·적용). 해제/비우기 등 시트 고유 액션은 제목 옆으로 이동함. */}
       {isCommit ? <span style={{ flex: 1 }} /> : (
         <span style={{
           flex: 1, minWidth: 0, fontSize: FS.sub, color: C.mute,
@@ -154,9 +151,21 @@ export function BottomSheet({
         </div>
         {title != null && (
           <div style={{
-            flex: '0 0 auto', padding: '2px 16px 10px',
-            fontSize: FS.title, fontWeight: FW.title, color: C.ink, letterSpacing: '-0.02em',
-          }}>{title}</div>
+            flex: '0 0 auto', display: 'flex', alignItems: 'center', gap: 10,
+            padding: '2px 16px 10px',
+          }}>
+            <div style={{
+              flex: '1 1 auto', minWidth: 0,
+              fontSize: FS.title, fontWeight: FW.title, color: C.ink, letterSpacing: '-0.02em',
+              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            }}>{title}</div>
+            {/* 시트 고유 액션(해제·비우기·지우기·기본·초기화)은 웹처럼 제목 옆으로. 기본(닫기·취소·적용)만 하단바. */}
+            {onClear ? (
+              <Btn variant="bare" onClick={() => { haptic.tap(); onClear(); }} style={{
+                flex: '0 0 auto', color: C.accent, fontSize: FS.sub, fontWeight: FW.strong, padding: '2px 2px',
+              }}>{clearLabel}</Btn>
+            ) : null}
+          </div>
         )}
         <div
           className="fp-bottom-sheet-body"

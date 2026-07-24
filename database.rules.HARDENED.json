@@ -1,0 +1,259 @@
+{
+  "rules": {
+    "users": {
+      ".read": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous'",
+      "$uid": {
+        ".write": "auth != null && ($uid === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+        "role": {
+          ".validate": "(!data.exists() && newData.val() !== 'admin') || newData.val() === data.val() || root.child('users').child(auth.uid).child('role').val() === 'admin'"
+        },
+        "agent_payout_rate": {
+          ".validate": "!data.exists() || newData.val() === data.val() || root.child('users').child(auth.uid).child('role').val() === 'admin'"
+        },
+        "status": {
+          ".validate": "root.child('users').child(auth.uid).child('role').val() === 'admin' || newData.val() === 'pending' || (data.exists() && newData.val() === data.val())"
+        },
+        "company_code": {
+          ".validate": "newData.val() === data.val() || root.child('users').child(auth.uid).child('role').val() === 'admin'"
+        },
+        "agent_channel_code": {
+          ".validate": "newData.val() === data.val() || root.child('users').child(auth.uid).child('role').val() === 'admin'"
+        }
+      }
+    },
+
+    "partners": {
+      ".read": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous'",
+      ".write": "auth != null && root.child('users').child(auth.uid).child('status').val() !== 'pending' && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'provider')",
+      ".indexOn": ["partner_code", "partner_type"]
+    },
+    "policies": {
+      ".read": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous'",
+      ".write": "auth != null && root.child('users').child(auth.uid).child('status').val() !== 'pending' && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'provider')",
+      ".indexOn": ["policy_code", "provider_company_code"]
+    },
+    "products": {
+      ".read": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous'",
+      ".write": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous' && root.child('users').child(auth.uid).child('status').val() !== 'pending'",
+      ".indexOn": ["car_number", "product_code", "provider_company_code", "status", "vehicle_status"]
+    },
+    "rooms": {
+      ".read": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous' && root.child('users').child(auth.uid).child('status').val() !== 'pending'",
+      ".write": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous' && root.child('users').child(auth.uid).child('status').val() !== 'pending'",
+      ".indexOn": ["product_uid", "agent_uid", "provider_uid", "provider_company_code", "agent_channel_code", "last_message_at"]
+    },
+    "messages": {
+      ".read": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous' && root.child('users').child(auth.uid).child('status').val() !== 'pending'",
+      ".write": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous' && root.child('users').child(auth.uid).child('status').val() !== 'pending'"
+    },
+
+    "contracts": {
+      ".read": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous' && root.child('users').child(auth.uid).child('status').val() !== 'pending'",
+      ".indexOn": ["product_uid", "partner_code", "contract_status", "agent_uid", "provider_company_code", "agent_channel_code", "created_at"]
+    },
+    "settlements": {
+      ".read": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous' && root.child('users').child(auth.uid).child('status').val() !== 'pending' && (root.child('users').child(auth.uid).child('role').val() === 'admin' || (root.child('users').child(auth.uid).child('company_code').val() !== null && root.child('users').child(auth.uid).child('company_code').val() !== '' && query.orderByChild === 'provider_company_code' && query.equalTo === root.child('users').child(auth.uid).child('company_code').val()) || (query.orderByChild === 'agent_channel_code' && ((root.child('users').child(auth.uid).child('agent_channel_code').val() !== null && root.child('users').child(auth.uid).child('agent_channel_code').val() !== '' && query.equalTo === root.child('users').child(auth.uid).child('agent_channel_code').val()) || (root.child('users').child(auth.uid).child('company_code').val() !== null && root.child('users').child(auth.uid).child('company_code').val() !== '' && query.equalTo === root.child('users').child(auth.uid).child('company_code').val()))) || (query.orderByChild === 'agent_code' && ((root.child('users').child(auth.uid).child('user_code').val() !== null && root.child('users').child(auth.uid).child('user_code').val() !== '' && query.equalTo === root.child('users').child(auth.uid).child('user_code').val()) || query.equalTo === auth.uid)))",
+      ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'",
+      ".indexOn": ["contract_code", "settlement_status", "provider_company_code", "agent_channel_code", "agent_code"]
+    },
+    "admin_settlements": {
+      ".read": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'",
+      ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'",
+      ".indexOn": ["settle_month", "settle_status", "contract_code"]
+    },
+    "customers": {
+      ".read": "auth != null && root.child('users').child(auth.uid).child('status').val() !== 'pending' && (root.child('users').child(auth.uid).child('role').val() === 'admin' || (query.orderByChild === 'created_by' && query.equalTo === auth.uid))",
+      "$id": {
+        ".read": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || data.child('created_by').val() === auth.uid)",
+        ".write": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous' && root.child('users').child(auth.uid).child('status').val() !== 'pending' && (root.child('users').child(auth.uid).child('role').val() === 'admin' || (data.exists() && data.child('created_by').val() === auth.uid) || (!data.exists() && newData.child('created_by').val() === auth.uid))"
+      },
+      ".indexOn": ["phone", "name", "created_at", "created_by"]
+    },
+
+    "inquiries": {
+      ".read": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || (query.orderByChild === 'agent_code' && query.equalTo === root.child('users').child(auth.uid).child('user_code').val()) || (query.orderByChild === 'agent_code' && query.equalTo === auth.uid))",
+      "$id": {
+        ".write": "auth != null || !data.exists()",
+        ".validate": "newData.hasChildren(['visitor_name', 'visitor_phone', 'created_at']) && newData.child('visitor_name').isString() && newData.child('visitor_phone').isString() && newData.child('visitor_name').val().length > 0 && newData.child('visitor_phone').val().length >= 10 && newData.child('visitor_phone').val().length <= 13",
+        "created_at": { ".validate": "newData.isNumber() && newData.val() <= now + 5000" },
+        "visitor_name": { ".validate": "newData.val().length <= 30" },
+        "message": { ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 1000)" }
+      },
+      ".indexOn": ["product_uid", "agent_code", "status", "created_at"]
+    },
+    "contract_sign": {
+      "$token": {
+        ".read": true,
+        ".write": "auth != null || (data.exists() && data.child('status').val() === 'sent' && newData.child('status').val() === 'pending_review')",
+        ".validate": "auth != null || (newData.child('sign_token').val() === data.child('sign_token').val() && newData.child('contract_code').val() === data.child('contract_code').val() && newData.child('rent_amount_snapshot').val() === data.child('rent_amount_snapshot').val() && newData.child('deposit_amount_snapshot').val() === data.child('deposit_amount_snapshot').val() && newData.child('rent_month_snapshot').val() === data.child('rent_month_snapshot').val() && newData.child('product_code').val() === data.child('product_code').val() && newData.child('car_number').val() === data.child('car_number').val() && newData.child('vehicle_name').val() === data.child('vehicle_name').val() && newData.child('companyId').val() === data.child('companyId').val() && newData.child('sign_status').val() === '검토대기' && newData.child('customer_name').isString() && newData.child('customer_name').val().length > 0 && newData.child('customer_name').val().length <= 50 && newData.child('customer_phone').isString() && newData.child('customer_phone').val().length >= 10 && newData.child('customer_phone').val().length <= 20 && newData.child('sign_signature').isString() && newData.child('sign_signature').val().length > 100 && newData.child('sign_signature').val().length <= 500000 && newData.child('sign_consents').isString() && newData.child('sign_consents').val().length <= 500 && (!newData.child('customer_id').exists() || (newData.child('customer_id').isString() && newData.child('customer_id').val().length <= 30)) && (!newData.child('customer_address').exists() || (newData.child('customer_address').isString() && newData.child('customer_address').val().length <= 200)) && (!newData.child('driver_license_no').exists() || (newData.child('driver_license_no').isString() && newData.child('driver_license_no').val().length <= 50)) && (!newData.child('emergency_name').exists() || (newData.child('emergency_name').isString() && newData.child('emergency_name').val().length <= 50)) && (!newData.child('emergency_phone').exists() || (newData.child('emergency_phone').isString() && newData.child('emergency_phone').val().length <= 20)))"
+      }
+    },
+    "proposals": { ".read": true, ".write": "auth != null" },
+    "proposal_views": {
+      "$id": { ".read": "auth != null", ".write": "auth != null || !data.exists()" }
+    },
+
+    "terms": {
+      ".read": "auth != null",
+      ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'"
+    },
+    "home_notices": {
+      ".read": "auth != null",
+      ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'"
+    },
+    "car_models": { ".read": true, ".write": "auth != null", ".indexOn": ["maker", "model", "code"] },
+    "vehicle_master": { ".read": "auth != null", ".write": "auth != null" },
+    "color_master": { ".read": "auth != null", ".write": "auth != null" },
+    "product_code_aliases": {
+      ".read": "auth != null",
+      ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'"
+    },
+    "code_sequences": { ".read": "auth != null", ".write": "auth != null" },
+    "input_codes": { ".read": "auth != null", ".write": "auth != null", ".indexOn": ["group_code"] },
+    "counters": { ".read": "auth != null", ".write": "auth != null" },
+
+    "fcm_tokens": {
+      "$uid": {
+        ".read": "auth != null && ($uid === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+        ".write": "auth != null && $uid === auth.uid"
+      }
+    },
+    "sms_cooldown": {
+      ".read": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'",
+      ".write": false
+    },
+    "audit_logs": {
+      ".read": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'",
+      ".indexOn": ["ts", "actor_uid", "collection"],
+      "$auto": {
+        ".write": "auth != null && newData.child('actor_uid').val() === auth.uid"
+      }
+    },
+    "backup": {
+      ".read": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'",
+      ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'"
+    },
+    "api_keys": {
+      ".read": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'",
+      ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'"
+    },
+
+    "$other": { ".read": false, ".write": false },
+
+    "v4": {
+      "products": {
+        ".read": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous'",
+        ".write": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous' && root.child('users').child(auth.uid).child('status').val() !== 'pending'",
+        ".indexOn": ["provider_company_code", "vehicle_status"]
+      },
+      "policies": {
+        ".read": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous'",
+        ".write": "auth != null && root.child('users').child(auth.uid).child('status').val() !== 'pending' && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'provider')"
+      },
+      "partners": {
+        ".read": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous'",
+        ".write": "auth != null && root.child('users').child(auth.uid).child('status').val() !== 'pending' && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'provider')",
+        "$pid": {
+          "fee_rate": {
+            ".validate": "!data.exists() || newData.val() === data.val() || root.child('users').child(auth.uid).child('role').val() === 'admin'"
+          }
+        }
+      },
+      "partners_private": {
+        ".read": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous' && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'agent' || root.child('users').child(auth.uid).child('role').val() === 'agent_admin' || root.child('users').child(auth.uid).child('role').val() === 'agent_manager')",
+        ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'",
+        "$pid": {
+          ".read": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'provider' && root.child('users').child(auth.uid).child('company_code').val() !== null && root.child('users').child(auth.uid).child('company_code').val() !== '' && root.child('users').child(auth.uid).child('company_code').val() === $pid"
+        }
+      },
+      "users": {
+        ".read": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous'",
+        "$uid": {
+          ".write": "auth != null && ($uid === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+          "role": { ".validate": "!data.exists() || newData.val() === data.val() || root.child('users').child(auth.uid).child('role').val() === 'admin'" },
+          "agent_payout_rate": { ".validate": "!data.exists() || newData.val() === data.val() || root.child('users').child(auth.uid).child('role').val() === 'admin'" },
+          "status": { ".validate": "root.child('users').child(auth.uid).child('role').val() === 'admin' || newData.val() === 'pending' || (data.exists() && newData.val() === data.val())" },
+          "company_code": { ".validate": "newData.val() === data.val() || root.child('users').child(auth.uid).child('role').val() === 'admin'" },
+          "agent_channel_code": { ".validate": "newData.val() === data.val() || root.child('users').child(auth.uid).child('role').val() === 'admin'" }
+        }
+      },
+      "users_private": {
+        ".read": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'",
+        "$uid": {
+          ".read": "auth != null && ($uid === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+          ".write": "auth != null && ($uid === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+          "agent_payout_rate": {
+            ".validate": "root.child('users').child(auth.uid).child('role').val() === 'admin' || (data.exists() && newData.val() === data.val())"
+          }
+        }
+      },
+      "settlements": {
+        ".read": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous' && root.child('users').child(auth.uid).child('status').val() !== 'pending' && (root.child('users').child(auth.uid).child('role').val() === 'admin' || (root.child('users').child(auth.uid).child('company_code').val() !== null && root.child('users').child(auth.uid).child('company_code').val() !== '' && query.orderByChild === 'provider_company_code' && query.equalTo === root.child('users').child(auth.uid).child('company_code').val()) || (query.orderByChild === 'agent_channel_code' && ((root.child('users').child(auth.uid).child('agent_channel_code').val() !== null && root.child('users').child(auth.uid).child('agent_channel_code').val() !== '' && query.equalTo === root.child('users').child(auth.uid).child('agent_channel_code').val()) || (root.child('users').child(auth.uid).child('company_code').val() !== null && root.child('users').child(auth.uid).child('company_code').val() !== '' && query.equalTo === root.child('users').child(auth.uid).child('company_code').val()))) || (query.orderByChild === 'agent_code' && ((root.child('users').child(auth.uid).child('user_code').val() !== null && root.child('users').child(auth.uid).child('user_code').val() !== '' && query.equalTo === root.child('users').child(auth.uid).child('user_code').val()) || query.equalTo === auth.uid)))",
+        ".indexOn": ["provider_company_code", "agent_channel_code", "agent_code", "settlement_status", "contract_code"],
+        "$sid": {
+          ".write": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous' && root.child('users').child(auth.uid).child('status').val() !== 'pending' && (root.child('users').child(auth.uid).child('role').val() === 'admin' || (!data.exists() && $sid === 'ST_' + newData.child('contract_code').val() && root.child('v4').child('contracts').child(newData.child('contract_code').val()).exists() && ((root.child('users').child(auth.uid).child('role').val() === 'provider' && root.child('users').child(auth.uid).child('company_code').val() === newData.child('provider_company_code').val()) || (root.child('users').child(auth.uid).child('role').val() === 'agent' && (root.child('v4').child('contracts').child(newData.child('contract_code').val()).child('agent_uid').val() === auth.uid || root.child('v4').child('contracts').child(newData.child('contract_code').val()).child('agent_code').val() === root.child('users').child(auth.uid).child('user_code').val())))))",
+          ".validate": "root.child('users').child(auth.uid).child('role').val() === 'admin' || (newData.child('settlement_code').val() === $sid && newData.child('settlement_status').val() === '정산대기' && newData.child('clawback_amount').val() === 0 && newData.child('contract_code').val() !== null && newData.child('provider_company_code').val() === root.child('v4').child('contracts').child(newData.child('contract_code').val()).child('provider_company_code').val() && newData.child('agent_code').val() === root.child('v4').child('contracts').child(newData.child('contract_code').val()).child('agent_code').val() && newData.child('agent_channel_code').val() === root.child('v4').child('contracts').child(newData.child('contract_code').val()).child('agent_channel_code').val() && newData.child('rent_amount').val() === root.child('v4').child('contracts').child(newData.child('contract_code').val()).child('rent_amount_snapshot').val() && newData.child('fee_rate').val() === root.child('v4').child('contracts').child(newData.child('contract_code').val()).child('fee_rate_snapshot').val() && newData.child('fee_amount').isNumber() && newData.child('fee_amount').val() % 1 === 0 && newData.child('fee_amount').val() >= newData.child('rent_amount').val() * newData.child('fee_rate').val() - 0.5 && newData.child('fee_amount').val() <= newData.child('rent_amount').val() * newData.child('fee_rate').val() + 0.5 && newData.child('agent_payout').isNumber() && newData.child('agent_payout').val() % 1 === 0 && newData.child('agent_payout').val() >= newData.child('rent_amount').val() * root.child('v4').child('contracts').child(newData.child('contract_code').val()).child('payout_rate_snapshot').val() - 0.5 && newData.child('agent_payout').val() <= newData.child('rent_amount').val() * root.child('v4').child('contracts').child(newData.child('contract_code').val()).child('payout_rate_snapshot').val() + 0.5 && newData.child('net_amount').val() === newData.child('fee_amount').val() - newData.child('agent_payout').val())",
+          "fee_amount": { ".validate": "!data.exists() || newData.val() === data.val() || root.child('users').child(auth.uid).child('role').val() === 'admin'" },
+          "agent_payout": { ".validate": "!data.exists() || newData.val() === data.val() || root.child('users').child(auth.uid).child('role').val() === 'admin'" },
+          "net_amount": { ".validate": "!data.exists() || newData.val() === data.val() || root.child('users').child(auth.uid).child('role').val() === 'admin'" },
+          "fee_rate": { ".validate": "!data.exists() || newData.val() === data.val() || root.child('users').child(auth.uid).child('role').val() === 'admin'" }
+        }
+      },
+      "admin_settlements": {
+        ".read": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'",
+        ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'"
+      },
+      "contracts": {
+        ".read": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous' && root.child('users').child(auth.uid).child('status').val() !== 'pending'",
+        ".indexOn": ["agent_uid", "provider_company_code", "agent_channel_code", "contract_status", "created_at"],
+        "$cid": {
+          ".write": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous' && root.child('users').child(auth.uid).child('status').val() !== 'pending' && (root.child('users').child(auth.uid).child('role').val() === 'admin' || (root.child('users').child(auth.uid).child('role').val() === 'provider' && root.child('users').child(auth.uid).child('company_code').val() !== null && root.child('users').child(auth.uid).child('company_code').val() !== '' && (data.exists() ? data.child('provider_company_code').val() === root.child('users').child(auth.uid).child('company_code').val() : newData.child('provider_company_code').val() === root.child('users').child(auth.uid).child('company_code').val())) || (root.child('users').child(auth.uid).child('role').val() === 'agent' && (data.exists() ? (data.child('agent_uid').val() === auth.uid || data.child('agent_code').val() === root.child('users').child(auth.uid).child('user_code').val()) : (newData.child('agent_uid').val() === auth.uid || newData.child('agent_code').val() === root.child('users').child(auth.uid).child('user_code').val()))))",
+          ".validate": "newData.child('contract_code').val() === $cid && newData.child('provider_company_code').val() !== null && newData.child('agent_uid').val() !== null && newData.child('agent_code').val() !== null && (!data.exists() || (newData.child('provider_company_code').val() === data.child('provider_company_code').val() && newData.child('agent_uid').val() === data.child('agent_uid').val() && newData.child('agent_code').val() === data.child('agent_code').val() && newData.child('agent_channel_code').val() === data.child('agent_channel_code').val() && newData.child('product_code').val() === data.child('product_code').val() && newData.child('rent_amount_snapshot').val() === data.child('rent_amount_snapshot').val() && newData.child('deposit_amount_snapshot').val() === data.child('deposit_amount_snapshot').val() && newData.child('rent_month_snapshot').val() === data.child('rent_month_snapshot').val() && newData.child('fee_rate_snapshot').val() === data.child('fee_rate_snapshot').val() && newData.child('payout_rate_snapshot').val() === data.child('payout_rate_snapshot').val()))"
+        }
+      },
+      "customers": {
+        ".read": "auth != null && root.child('users').child(auth.uid).child('status').val() !== 'pending' && (root.child('users').child(auth.uid).child('role').val() === 'admin' || (query.orderByChild === 'created_by' && query.equalTo === auth.uid))",
+        ".indexOn": ["created_by", "phone", "name"],
+        "$cid": {
+          ".read": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || data.child('created_by').val() === auth.uid)",
+          ".write": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous' && root.child('users').child(auth.uid).child('status').val() !== 'pending' && (root.child('users').child(auth.uid).child('role').val() === 'admin' || (data.exists() && data.child('created_by').val() === auth.uid) || (!data.exists() && newData.child('created_by').val() === auth.uid))"
+        }
+      },
+      "rooms": {
+        ".read": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous' && root.child('users').child(auth.uid).child('status').val() !== 'pending'",
+        ".write": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous' && root.child('users').child(auth.uid).child('status').val() !== 'pending'",
+        ".indexOn": ["agent_uid", "provider_company_code", "agent_channel_code", "last_message_at"]
+      },
+      "messages": {
+        ".read": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous' && root.child('users').child(auth.uid).child('status').val() !== 'pending'",
+        ".indexOn": ["room_id"],
+        "$message_id": {
+          ".write": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous' && root.child('users').child(auth.uid).child('status').val() !== 'pending' && newData.exists()",
+          "sender_uid": { ".validate": "newData.val() === auth.uid" }
+        }
+      },
+      "report": {
+        ".read": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'",
+        "$rid": {
+          ".write": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous' && root.child('users').child(auth.uid).child('status').val() !== 'pending'"
+        }
+      },
+      "quote": {
+        ".read": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous' && root.child('users').child(auth.uid).child('status').val() !== 'pending'",
+        ".write": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous' && root.child('users').child(auth.uid).child('status').val() !== 'pending'",
+        ".indexOn": ["agent_channel_code", "agent_code", "quote_code", "product_code"]
+      },
+      "_client_errors": {
+        ".read": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'",
+        ".indexOn": ["ts"],
+        "$eid": {
+          ".write": "auth != null && !data.exists()",
+          ".validate": "newData.hasChildren(['msg', 'ts'])",
+          "msg": { ".validate": "newData.isString() && newData.val().length <= 600" },
+          "stack": { ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 2000)" }
+        }
+      },
+      "$other": { ".read": false, ".write": false }
+    }
+  }
+}
