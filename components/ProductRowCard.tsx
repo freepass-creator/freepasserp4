@@ -133,19 +133,19 @@ function MobileRow({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) 
         alignSelf: 'stretch',
         justifyContent: 'center',
       }}>
-        {/* 1 차종 — 모바일만 ··· absolute */}
+        {/* 1 뱃지 레일(맨위) — 출고가능·중고렌트·소득확인 (st·pt·cd) */}
+        <CardRailBadges p={p} align="start" />
+
+        {/* 2 차명 — 모바일만 ··· absolute */}
         <div style={{ position: 'relative', minWidth: 0, paddingRight: 22 }}>
           <CardTitle p={p} size={15} narrow />
           <ProductMoreMenu p={p} />
         </div>
 
-        {/* 2 옵션 — 텍스트톤 박스 · 넘치면 2+… (웹과 동일) */}
-        <OptionChips p={p} clamp />
-
-        {/* 3 스펙 */}
+        {/* 3 스펙 (모바일 카드 간결화 — 옵션 OptionChips 제거) */}
         <CardSpecs p={p} />
 
-        {/* 4 가격 · [최단]~[최장] 기간칩 · 뱃지 · 우대 */}
+        {/* 4 가격 · [최단]~[최장] 기간 · 우대(혜택) */}
         <div style={{
           display: 'flex', flexDirection: 'column', gap: 4,
           minWidth: 0, width: '100%',
@@ -159,17 +159,7 @@ function MobileRow({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) 
             </div>
             <PeriodRange />
           </div>
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            minWidth: 0, width: '100%', overflow: 'hidden',
-          }}>
-            <div style={{ flex: '0 1 auto', minWidth: 0, overflow: 'hidden' }}>
-              <CardRailBadges p={p} />
-            </div>
-            <div style={{ flex: '1 1 auto', minWidth: 0, overflow: 'hidden' }}>
-              <CardPerkLine p={p} inline />
-            </div>
-          </div>
+          <CardPerkLine p={p} inline />
         </div>
       </PricePeekRoot>
     </Link>

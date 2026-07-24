@@ -268,8 +268,8 @@ export function CardKind({ p }: { p: EntityRecord }) {
  * 라벨 = 풀네임(대개 3~4글자: 즉시출고·신차렌트·소득확). 축약(신렌·즉시)은 썸네일 마크·BadgesClip만.
  * dense = 좁은 폭 레이아웃만 (라벨은 동일).
  */
-export function CardRailBadges({ p, audience = 'agent', dense }: {
-  p: EntityRecord; audience?: Audience; dense?: boolean;
+export function CardRailBadges({ p, audience = 'agent', dense, align = 'end' }: {
+  p: EntityRecord; audience?: Audience; dense?: boolean; align?: 'start' | 'end';
 }) {
   const order = ['st', 'pt', 'cd'] as const;
   const byKey = new Map(badgeSpecs(p, false, false, audience).map((s) => [s.key, s]));
@@ -278,7 +278,7 @@ export function CardRailBadges({ p, audience = 'agent', dense }: {
   return (
     <div style={{
       display: 'flex', flexWrap: 'nowrap', gap: 4,
-      justifyContent: 'flex-end', alignItems: 'center',
+      justifyContent: align === 'start' ? 'flex-start' : 'flex-end', alignItems: 'center',
       flex: '0 0 auto', overflow: 'hidden', maxWidth: dense ? 200 : 280,
     }}>
       {specs.map((s) => (
