@@ -1152,6 +1152,10 @@ export default function Finder() {
             onClose={closeHomeTool}
             title={<>최근 <span style={{ fontFamily: NUM }}>{interestRecent.length}</span>건</>}
             maxHeight="min(58vh, 480px)"
+            footer="filter"
+            applyLabel="닫기"
+            clearLabel="비우기"
+            onClear={interestRecent.length ? () => { haptic.select(); clearRecent(); } : undefined}
           >
             <div style={{ padding: '0 12px 12px' }}>
               {interestRecent.length === 0
@@ -1160,11 +1164,6 @@ export default function Finder() {
                   const live = (rows || []).find((p) => String(p.product_code) === snp.code || String(p._key) === snp.code);
                   return <InterestSummaryCard key={snp.code} live={live} snap={snp} tab="recent" />;
                 })}
-              {interestRecent.length > 0 && (
-                <div style={{ marginTop: 10 }}>
-                  <Btn full variant="ghost" onClick={() => { clearRecent(); haptic.select(); }}>전체 지우기</Btn>
-                </div>
-              )}
             </div>
           </BottomSheet>
 
@@ -1173,6 +1172,10 @@ export default function Finder() {
             onClose={closeHomeTool}
             title={<>관심 <span style={{ fontFamily: NUM }}>{interestFavs.length}</span>건</>}
             maxHeight="min(58vh, 480px)"
+            footer="filter"
+            applyLabel="닫기"
+            clearLabel="비우기"
+            onClear={interestFavs.length ? () => { haptic.select(); clearFavs(); } : undefined}
           >
             <div style={{ padding: '0 12px 12px' }}>
               {interestFavs.length === 0
@@ -1181,11 +1184,6 @@ export default function Finder() {
                   const live = (rows || []).find((p) => String(p.product_code) === snp.code || String(p._key) === snp.code);
                   return <InterestSummaryCard key={snp.code} live={live} snap={snp} tab="fav" />;
                 })}
-              {interestFavs.length > 0 && (
-                <div style={{ marginTop: 10 }}>
-                  <Btn full variant="ghost" onClick={() => { clearFavs(); haptic.select(); }}>전체 지우기</Btn>
-                </div>
-              )}
             </div>
           </BottomSheet>
         </>
