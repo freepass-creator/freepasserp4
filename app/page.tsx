@@ -11,7 +11,7 @@ import { type EntityRecord } from '@/lib/intake/entities';
 import { priceList, rentForSort, depositForSort, creditDisplay, vehicleTone, excelCondSignals, isHiddenFromCatalog, canonProductType, noDeposit, installmentOk, minAge } from '@/lib/domain/product';
 import { fuelDisplay, yearDisplay, makerDisplay, parseYear } from '@/lib/domain/vehicle-master-match';
 import { withProviderNames } from '@/lib/domain/identity';
-import { DYN, CAR_DYN_KEYS, EXTRA_DYN_KEYS, aggregateDyn, matchProduct, activeCount, activeFilterHints, presentFilterOptions, excelMonths, operatingMonths, EMPTY_VEHICLE_FILTER, vehicleFilterCount, sortProviderOptions, type FState, type VehicleFilter } from '@/lib/domain/product-filters';
+import { DYN, CAR_DYN_KEYS, EXTRA_DYN_KEYS, aggregateDyn, matchProduct, activeCount, presentFilterOptions, excelMonths, operatingMonths, EMPTY_VEHICLE_FILTER, vehicleFilterCount, sortProviderOptions, type FState, type VehicleFilter } from '@/lib/domain/product-filters';
 import { VehicleMasterFilter } from '@/components/VehicleMasterFilter';
 import { ProductCard } from '@/components/ProductCard';
 import { ProductRowCard } from '@/components/ProductRowCard';
@@ -840,18 +840,10 @@ export default function Finder() {
       <section className="fp-finder-main" ref={finderMainRef}>
         {/* 툴바: 웹=검색·필터 한 줄 / 모바일=PageToolBar SSOT → 시트 */}
         {mobile ? (() => {
-          const sortLabel = SORTS.find((o) => o.k === sort)?.short || '';
           const searchOn = !!q.trim();
           const sortOn = !!sort;
           const filterOn = ac > 0;
-          const hintParts: string[] = [];
-          if (searchOn) hintParts.push(q.trim().length > 12 ? `${q.trim().slice(0, 12)}…` : q.trim());
-          if (sortOn) hintParts.push(sortLabel);
-          if (filterOn) {
-            const fh = activeFilterHints(s);
-            hintParts.push(...fh.slice(0, 3));
-            if (fh.length > 3) hintParts.push(`외 ${fh.length - 3}`);
-          }
+          // 힌트 텍스트 바(툴바 밑 '적용 …필터… 해제')는 제거 — 툴바 버튼 카운트 뱃지로 활성표시 충분(중복).
           return (
             <PageToolBar
               tools={[
@@ -861,8 +853,6 @@ export default function Finder() {
                 { key: 'recent', label: '최근', icon: History, badge: interestRecent.length || undefined, active: interestRecent.length > 0, pressed: homeTool === 'recent', onClick: () => toggleHomeTool('recent') },
                 { key: 'fav', label: '관심', icon: Star, badge: interestFavs.length || undefined, active: interestFavs.length > 0, pressed: homeTool === 'fav', onClick: () => toggleHomeTool('fav') },
               ]}
-              hints={hintParts}
-              onClearHints={hintParts.length ? () => reset() : undefined}
             />
           );
         })() : (
