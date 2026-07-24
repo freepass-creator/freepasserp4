@@ -244,7 +244,8 @@ export function clipN(raw: unknown, n: number): string {
 export const EXCEL_W = {
   /** 즉시출고 등 4글자 Badge — 잘림 없이, 옆 상품뱃지와 간격 과하지 않게 */
   status: 66,
-  ptype: 58,
+  /** 중고렌트 등 4글자 상품 Badge — 58은 좁아 제조사에 붙었음(→ status와 맞춰 여유). */
+  ptype: 70,
   /** 조건 — 뱃지 박스 2개 가로(+ gap). 3번째는 다음 줄. 필터 닫힘(full)만 표시. */
   cond: 118,
   credit: 48,
