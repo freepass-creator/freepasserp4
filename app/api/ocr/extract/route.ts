@@ -12,6 +12,10 @@ export const maxDuration = 120;
 const PY = process.env.OCR_PYTHON || 'C:\\dev\\ocrenv\\Scripts\\python.exe';
 
 export async function POST(req: NextRequest) {
+  // ⚠ 프로덕션 가드 — 로컬 GPU(Windows python) 전용. 배포환경(Vercel)엔 파이썬/CUDA 없어 spawn 실패·행 → 501로 명확히 차단.
+  if (process.env.VERCEL || process.env.OCR_DISABLED === '1') {
+    return NextResponse.json({ error: 'OCR은 로컬 개발 전용입니다(배포환경 미지원)' }, { status: 501 });
+  }
   let dataUrl: string;
   try { ({ dataUrl } = await req.json()); } catch { return NextResponse.json({ error: 'bad request' }, { status: 400 }); }
   const m = /^data:(image\/[\w.+-]+);base64,(.+)$/s.exec(dataUrl || '');

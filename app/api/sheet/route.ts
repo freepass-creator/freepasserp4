@@ -5,6 +5,7 @@
  *   ※ 시트는 "링크 있는 사람 보기 가능" 또는 "웹에 게시" 상태여야 함(인증 불필요).
  */
 import { NextResponse } from 'next/server';
+import { allowedHost } from '@/lib/net/proxy-hosts';
 
 export const runtime = 'nodejs';
 
@@ -30,6 +31,8 @@ export async function GET(request: Request): Promise<Response> {
     : id ? `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv${gid ? `&gid=${gid}` : ''}`
     : url;
   if (!id && !isPubCsv) return NextResponse.json({ ok: false, error: '구글시트 URL 아님(시트 ID 못 찾음)' }, { status: 400 });
+  // ⚠ SSRF 차단: isPubCsv 분기는 raw url을 그대로 fetch → 구글 호스트만 허용(내부주소·임의도메인 차단).
+  if (!allowedHost(csvUrl, 'sheet')) return NextResponse.json({ ok: false, error: '허용되지 않은 호스트(구글시트만)' }, { status: 403 });
 
   try {
     const r = await fetch(csvUrl, { headers: { 'User-Agent': 'Mozilla/5.0' }, redirect: 'follow', signal: AbortSignal.timeout(12000) });
