@@ -264,22 +264,40 @@ export async function adminUpdateUserIdentity(
   await writeIdentityAudit(uid, 'update', before, { ...(before || {}), ...patch }, '회원 신원 수정(역할·회사·채널)');
 }
 
-export async function approveUser(uid: string, active = true): Promise<void> {
+/**
+ * 가입 승인 — status=active 로 전환.
+ *  H1 결정(지정보존): 최초 승인만 bizNo로 신원 파생·배정. 이미 신원이 있는(=이전 승인 또는 관리자 수동지정)
+ *  유저의 재승인/활성토글은 신원을 보존하고 활성화만 한다 — 관리자 지정이 조용히 리셋되던 결함 차단.
+ *  RLS 스코프·정산 귀속을 좌우하는 필드라 '조용한 덮어쓰기'가 가장 위험한 방향.
+ *  opts.rematch=true 면 신원이 있어도 강제 재파생(파트너 디렉토리 갱신 후 명시적 재매칭용 이스케이프 해치).
+ */
+export async function approveUser(uid: string, active = true, opts?: { rematch?: boolean }): Promise<void> {
   const db = getRtdb(); if (!db) throw new Error('DB가 설정되지 않았습니다');
   if (!uid) throw new Error('uid 없음');
   if (!active) { await set(ref(db, `users/${uid}/status`), 'pending'); await writeIdentityAudit(uid, 'approve', null, { status: 'pending' }, '가입 승인취소(대기로 되돌림)'); return; }
   const u = (await get(ref(db, `users/${uid}`))).val() as Record<string, unknown> | null;
-  const bizNo = String((u && u.business_no) || '').replace(/\D/g, '');
-  const user_code = String((u && u.user_code) || uid).trim();
-  const { role, company_code, agent_channel_code, matched_partner_code } = await resolveIdentity(bizNo);
-  const channel = resolveAgentChannel(role, company_code, agent_channel_code, user_code, uid);
-  const patch: Record<string, unknown> = {
-    status: 'active', role, company_code, agent_channel_code: channel,
-  };
-  if (matched_partner_code) patch.matched_partner_code = matched_partner_code;
-  else patch.matched_partner_code = null;
+  // company_code 존재 = 이미 신원 배정됨(이전 승인 또는 adminUpdateUserIdentity 수동지정). 가입 시엔 미기록.
+  const hasIdentity = !!String((u && u.company_code) || '').trim();
+  let patch: Record<string, unknown>;
+  let summary: string;
+  if (hasIdentity && !opts?.rematch) {
+    // 지정보존 — 신원 안 건드리고 활성화만.
+    patch = { status: 'active' };
+    summary = '가입 승인(기존 신원 보존)';
+  } else {
+    // 최초 승인(또는 명시적 재매칭) — bizNo로 신원 파생·배정.
+    const bizNo = String((u && u.business_no) || '').replace(/\D/g, '');
+    const user_code = String((u && u.user_code) || uid).trim();
+    const { role, company_code, agent_channel_code, matched_partner_code } = await resolveIdentity(bizNo);
+    const channel = resolveAgentChannel(role, company_code, agent_channel_code, user_code, uid);
+    patch = {
+      status: 'active', role, company_code, agent_channel_code: channel,
+      matched_partner_code: matched_partner_code || null,
+    };
+    summary = `가입 승인 · ${role}/${company_code}${matched_partner_code ? ` (파트너 ${matched_partner_code})` : ''}${opts?.rematch ? ' [재매칭]' : ''}`;
+  }
   await update(ref(db, `users/${uid}`), patch);
-  await writeIdentityAudit(uid, 'approve', u, { ...(u || {}), ...patch }, `가입 승인 · ${role}/${company_code}${matched_partner_code ? ` (파트너 ${matched_partner_code})` : ''}`);
+  await writeIdentityAudit(uid, 'approve', u, { ...(u || {}), ...patch }, summary);
 }
 
 /**
