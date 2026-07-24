@@ -141,9 +141,12 @@ export function InterestSummaryCard({ live, snap, tab }: {
       className="fp-card fp-card-bookmark"
       style={{
         display: 'flex', alignItems: 'center', gap: 8, minWidth: 0,
-        padding: mobile ? '6px 8px' : '5px 8px',
-        borderRadius: R, background: C.taupeBg,
-        border: `1px solid ${C.line}`,
+        padding: mobile ? '10px 6px' : '5px 8px',
+        // 모바일 = 리스트형(테두리·배경 제거, 얇은 구분선). 웹 = 격자 카드 유지.
+        borderRadius: mobile ? 0 : R,
+        background: mobile ? 'transparent' : C.taupeBg,
+        border: mobile ? 'none' : `1px solid ${C.line}`,
+        borderBottom: mobile ? `1px solid ${C.line2}` : `1px solid ${C.line}`,
         textDecoration: 'none', color: 'inherit', boxSizing: 'border-box',
       }}
     >
@@ -188,8 +191,8 @@ export function InterestSummaryCard({ live, snap, tab }: {
           title={removeLabel}
           onClick={onRemove}
           style={{
-            border: 'none', background: C.head, color: C.mute,
-            width: mobile ? 36 : 26, height: mobile ? 36 : 26,
+            border: 'none', background: mobile ? 'transparent' : C.head, color: C.faint,
+            width: mobile ? 34 : 26, height: mobile ? 34 : 26,
           }}
         >
           <X size={13} />
@@ -239,7 +242,7 @@ export function InterestPanel({
         <div style={{
           display: 'grid', width: '100%',
           gridTemplateColumns: mobile ? '1fr' : 'repeat(auto-fill, minmax(240px, 1fr))',
-          gap: mobile ? 10 : 14,
+          gap: mobile ? 0 : 14,
         }}>
           {items.map((s) => (
             <InterestSummaryCard key={s.code} live={byCode.get(s.code)} snap={s} tab={tab} />
