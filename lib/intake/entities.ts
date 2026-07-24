@@ -68,7 +68,7 @@ export const ENTITIES: Record<string, Entity> = {
       { key: 'variant', label: '파워트레인', type: 'text', note: '5단계 — 연료·배기량·구동·배터리' },
       { key: 'trim_name', label: '세부트림', type: 'text', note: '마스터 실트림만' },
       { key: 'trim_extra', label: '추가표기', type: 'text', manual: true, note: '마스터 밖 자유입력(런칭·휠·패키지 등). 규격 트림 아님' },
-      { key: 'vehicle_class', label: '차종', type: 'select', options: ['경형', '소형', '소형 SUV', '준중형', '준중형 SUV', '중형', '중형 SUV', '중형 RV', '중형 픽업', '준대형', '준대형 SUV', '대형', '대형 SUV', '대형 RV', '소형화물', '승합', '수입'] },
+      { key: 'vehicle_class', label: '차급', type: 'select', options: ['경형', '소형', '소형 SUV', '준중형', '준중형 SUV', '중형', '중형 SUV', '중형 RV', '중형 픽업', '준대형', '준대형 SUV', '대형', '대형 SUV', '대형 RV', '소형화물', '승합', '수입'] },
       // ── 스펙(등록증) ──
       { key: 'year', label: '연식', type: 'text', ocrFrom: 'car_year_month' },
       { key: 'fuel_type', label: '연료', type: 'select', options: [...FUEL_TYPES], ocrFrom: 'fuel_type' },
