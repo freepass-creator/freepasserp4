@@ -10,16 +10,17 @@ import { useIsMobile } from '@/lib/use-mobile';
  */
 export type BadgeTone = 'gray' | 'green' | 'red' | 'amber' | 'blue' | 'orange' | 'purple' | 'teal';
 
-/** [text, softBg, accent] — accent=왼쪽 바·솔리드 틴트용. */
+/** [text, softBg, accent] — accent=왼쪽 바·솔리드 틴트용.
+ * 값 = globals.css --bdg-* 변수(라이트/다크 SSOT). 여기 hex 직접 금지(다크모드 깨짐 원흉이었음). */
 const BADGE: Record<BadgeTone, [string, string, string]> = {
-  gray: ['#52525b', '#f4f4f5', '#a1a1aa'],
-  green: ['#166534', '#f0fdf4', '#16a34a'],
-  red: ['#b91c1c', '#fef2f2', '#dc2626'],
-  amber: ['#a16207', '#fefce8', '#ca8a04'],
-  blue: ['#1e3a5f', '#f1f5f9', '#1B2A4A'],
-  orange: ['#c2410c', '#fff7ed', '#ea580c'],
-  purple: ['#5b21b6', '#faf5ff', '#7c3aed'],
-  teal: ['#0f766e', '#f0fdfa', '#0d9488'],
+  gray: ['var(--bdg-gray-fg)', 'var(--bdg-gray-bg)', 'var(--bdg-gray-ac)'],
+  green: ['var(--bdg-green-fg)', 'var(--bdg-green-bg)', 'var(--bdg-green-ac)'],
+  red: ['var(--bdg-red-fg)', 'var(--bdg-red-bg)', 'var(--bdg-red-ac)'],
+  amber: ['var(--bdg-amber-fg)', 'var(--bdg-amber-bg)', 'var(--bdg-amber-ac)'],
+  blue: ['var(--bdg-blue-fg)', 'var(--bdg-blue-bg)', 'var(--bdg-blue-ac)'],
+  orange: ['var(--bdg-orange-fg)', 'var(--bdg-orange-bg)', 'var(--bdg-orange-ac)'],
+  purple: ['var(--bdg-purple-fg)', 'var(--bdg-purple-bg)', 'var(--bdg-purple-ac)'],
+  teal: ['var(--bdg-teal-fg)', 'var(--bdg-teal-bg)', 'var(--bdg-teal-ac)'],
 };
 
 export function toneText(tone: BadgeTone): string { return (BADGE[tone] || BADGE.gray)[0]; }
@@ -74,7 +75,7 @@ export function Badge({ children, tone = 'gray', overlay = false, title, variant
 
   if (frosted) {
     // 상세 Badge와 같은 글자색·variant · 흰/틴트만 반투명+블러
-    const bg = v === 'solid' ? `${m[1]}e6` : 'rgba(255,255,255,0.84)';
+    const bg = v === 'solid' ? `color-mix(in srgb, ${m[1]} 90%, transparent)` : 'rgba(255,255,255,0.84)';
     const fg = v === 'quiet' ? (tone === 'red' ? m[0] : C.mute) : m[0];
     return (
       <span title={title} className={pulseCls} style={{

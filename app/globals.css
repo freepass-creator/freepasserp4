@@ -42,6 +42,17 @@
   --purple-bg: #faf5ff; --purple-text: #7e22ce; --purple-border: #e9d5ff;
   --zinc-bg: #f4f4f5;   --zinc-text: #52525b;   --zinc-border: #e4e4e7;
 
+  /* Badge 톤맵 SSOT — [fg 글자 / bg 소프트배경 / ac 액센트·점]. badges.tsx BADGE가 이 변수만 읽음.
+   *   라이트=기존 실색 그대로 · 다크는 html[data-theme=dark]에서 덮음(다크세이프). */
+  --bdg-gray-fg: #52525b;   --bdg-gray-bg: #f4f4f5;   --bdg-gray-ac: #a1a1aa;
+  --bdg-green-fg: #166534;  --bdg-green-bg: #f0fdf4;  --bdg-green-ac: #16a34a;
+  --bdg-red-fg: #b91c1c;    --bdg-red-bg: #fef2f2;    --bdg-red-ac: #dc2626;
+  --bdg-amber-fg: #a16207;  --bdg-amber-bg: #fefce8;  --bdg-amber-ac: #ca8a04;
+  --bdg-blue-fg: #1e3a5f;   --bdg-blue-bg: #f1f5f9;   --bdg-blue-ac: #1B2A4A;
+  --bdg-orange-fg: #c2410c; --bdg-orange-bg: #fff7ed; --bdg-orange-ac: #ea580c;
+  --bdg-purple-fg: #5b21b6; --bdg-purple-bg: #faf5ff; --bdg-purple-ac: #7c3aed;
+  --bdg-teal-fg: #0f766e;   --bdg-teal-bg: #f0fdfa;   --bdg-teal-ac: #0d9488;
+
   /* Alert aliases — tailwind.config 브릿지 */
   --alert-red-bg: var(--red-bg);       --alert-red-text: var(--red-text);       --alert-red-border: var(--red-border);
   --alert-orange-bg: var(--orange-bg); --alert-orange-text: var(--orange-text); --alert-orange-border: var(--orange-border);
@@ -97,6 +108,16 @@ html[data-theme="dark"] {
   --indigo-bg: #1a1a33; --indigo-text: #a5b4fc; --indigo-border: #312e81;
   --purple-bg: #1f1530; --purple-text: #d8b4fe; --purple-border: #6b21a8;
   --zinc-bg: #1e252e;   --zinc-text: #a1a1aa;   --zinc-border: #2a3340;
+
+  /* Badge 다크 — 팔레트 다크 톤과 일관(밝은 파스텔 글자 · 짙은 틴트 배경 · 선명한 액센트) */
+  --bdg-gray-fg: #a1a1aa;   --bdg-gray-bg: #1e252e;   --bdg-gray-ac: #71717a;
+  --bdg-green-fg: #86efac;  --bdg-green-bg: #14241a;  --bdg-green-ac: #22c55e;
+  --bdg-red-fg: #fca5a5;    --bdg-red-bg: #2a1515;    --bdg-red-ac: #ef4444;
+  --bdg-amber-fg: #fde047;  --bdg-amber-bg: #2a2410;  --bdg-amber-ac: #eab308;
+  --bdg-blue-fg: #93c5fd;   --bdg-blue-bg: #152033;   --bdg-blue-ac: #60a5fa;
+  --bdg-orange-fg: #fdba74; --bdg-orange-bg: #2a1c12; --bdg-orange-ac: #f97316;
+  --bdg-purple-fg: #d8b4fe; --bdg-purple-bg: #1f1530; --bdg-purple-ac: #a855f7;
+  --bdg-teal-fg: #5eead4;   --bdg-teal-bg: #0f2a28;   --bdg-teal-ac: #2dd4bf;
 
   --shadow-sm: 0 1px 2px rgba(0,0,0,0.35);
   --shadow: 0 1px 3px rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.25);
