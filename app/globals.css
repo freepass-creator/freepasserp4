@@ -322,10 +322,17 @@ button, input, select, textarea { font-family: inherit; }
   border-right: 1px solid var(--border-soft);
   border-bottom: 1px solid var(--border-soft);
 }
-/* 타이틀헤더 th = position:sticky → border-collapse에서 세로 border가 사라짐.
- * inset box-shadow는 셀에 붙어 스티키 유지 → 헤더에도 세로 그리드라인. (thXPin 인라인 shadow=고정열 분리선은 인라인 우선으로 유지) */
-.fp-finder-body.is-excel .fp-excel-table th {
-  box-shadow: inset -1px 0 0 0 var(--border-soft);
+/* 타이틀헤더 th = position:sticky → border-collapse에선 세로 border도 box-shadow도 렌더 안 됨(브라우저 버그).
+ * ::after 가상요소(absolute, sticky th에 앵커)로 세로 그리드라인을 확실히 그림. */
+.fp-finder-body.is-excel .fp-excel-table th::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 1px;
+  background: var(--border-soft);
+  pointer-events: none;
 }
 .fp-finder-body.is-excel .fp-excel-table th.fp-excel-price,
 .fp-finder-body.is-excel .fp-excel-table td.fp-excel-price {
