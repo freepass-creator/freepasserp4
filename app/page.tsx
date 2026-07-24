@@ -417,7 +417,8 @@ export default function Finder() {
       const m = String(p.sub_model || p.model || '').trim();
       if (m) cnt.set(m, (cnt.get(m) || 0) + 1);
     }
-    return [...cnt.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([m], i) => ({ key: m, label: `${i + 1} ${m}` }));
+    // 칩 = 모델명만. 1·2·3위는 금은동(🥇🥈🥉)으로 구분.
+    return [...cnt.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([m], i) => ({ key: m, label: i < 3 ? `${['🥇', '🥈', '🥉'][i]} ${m}` : m }));
   }, [rows]);
 
   const list = useMemo(() => {
@@ -652,8 +653,13 @@ export default function Finder() {
           차: 차종 → 색상(외·내) → 연식 → 연료 → 주행
           상품: 출고 → 상품구분 → 심사 → 우대 → 이벤트 → 차급·약정 → 공급사
         */}
+        {popModels.length > 0 && (
+          <FilterGroup title="인기차종" count={models.size} defaultOpen first onClear={() => setModels(new Set())}>
+            <ToggleChips selected={models} onToggle={(k) => setModels((p) => toggleInSet(p, k))} options={popModels} />
+          </FilterGroup>
+        )}
         {present.months.length > 0 && (
-          <FilterGroup title="기간" count={periods.size} defaultOpen first onClear={() => setPeriods(new Set())}>
+          <FilterGroup title="기간" count={periods.size} defaultOpen onClear={() => setPeriods(new Set())}>
             <ToggleChips
               selected={new Set([...periods].map(String))}
               onToggle={(k) => setPeriods((p) => toggleInSet(p, Number(k)))}
@@ -662,11 +668,6 @@ export default function Finder() {
                 return { key: String(m), label: hit?.label || `${m}개월` };
               })}
             />
-          </FilterGroup>
-        )}
-        {popModels.length > 0 && (
-          <FilterGroup title="인기차종" count={models.size} defaultOpen onClear={() => setModels(new Set())}>
-            <ToggleChips selected={models} onToggle={(k) => setModels((p) => toggleInSet(p, k))} options={popModels} />
           </FilterGroup>
         )}
         {present.rent.length > 0 && (
@@ -700,7 +701,7 @@ export default function Finder() {
           );
         })}
         {present.fuel.length > 0 && (
-          <FilterGroup title="연료" count={fuel.size} defaultOpen={fuel.size > 0} onClear={() => setFuel(new Set())}>
+          <FilterGroup title="연료(동력)" count={fuel.size} defaultOpen={fuel.size > 0} onClear={() => setFuel(new Set())}>
             <ToggleChips selected={fuel} onToggle={(k) => setFuel((p) => toggleInSet(p, k))} options={present.fuel} />
           </FilterGroup>
         )}
