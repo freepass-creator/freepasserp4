@@ -56,6 +56,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="ko" data-fp-m={dataFpM} className={htmlClass} suppressHydrationWarning>
       <head>
+        {/* 크리티컬 마스크 인라인 — globals.css(dev=JS주입, 페인트 늦음) 로드 전이라도 pending 마스크가
+            페인트 전에 걸리게. 부트스크립트가 모바일 감지→fp-pending-m 붙이면 데스크톱 콘텐츠가 안 그려짐(FOUC 차단). */}
+        <style dangerouslySetInnerHTML={{ __html: 'html.fp-pending-m .fp-shell{visibility:hidden!important;pointer-events:none!important}html.fp-pending-m,html.fp-pending-m body{background:#fff}' }} />
         <script dangerouslySetInnerHTML={{ __html: BP_BOOT }} />
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
