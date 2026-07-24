@@ -458,10 +458,10 @@ export function FilterGroup({ title, count = 0, onClear, defaultOpen = true, fir
         <button onClick={() => { haptic.tap(); setOpen((o) => !o); }} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6, padding: mobile ? '10px 0' : '8px 0', background: 'none', border: 'none', cursor: 'pointer', minHeight: h }}>
           <ChevronDown size={mobile ? 18 : 15} color={C.faint} style={{ flex: '0 0 auto', transform: open ? 'none' : 'rotate(-90deg)', transition: 'transform .12s' }} />
           <span style={{ fontSize: mobile ? 15 : 13, fontWeight: FW.title, color: C.ink, letterSpacing: '-0.01em', lineHeight: 1.2 }}>{title}</span>
-          {count > 0 && <CountPill n={count} />}
+          {count > 0 && <CountPill n={count} tone="accent" />}
           <span style={{ flex: 1 }} />
         </button>
-        {count > 0 && onClear && <button onClick={() => { haptic.select(); onClear(); }} style={{ marginLeft: 6, flex: '0 0 auto', border: `1px solid ${C.accent}`, background: C.taupeBg, color: C.accent, fontSize: mobile ? 12 : 11.5, fontWeight: FW.strong, cursor: 'pointer', padding: mobile ? '5px 11px' : '3px 9px', borderRadius: R, lineHeight: 1 }}>해제</button>}
+        {count > 0 && onClear && <button onClick={() => { haptic.select(); onClear(); }} style={{ marginLeft: 6, flex: '0 0 auto', border: 'none', background: 'none', color: C.accent, fontSize: mobile ? 13 : 12.5, fontWeight: FW.strong, cursor: 'pointer', padding: mobile ? '8px 8px' : '6px 4px', minHeight: h }}>해제</button>}
       </div>
       {open && <div style={{ display: 'flex', flexWrap: 'wrap', gap: mobile ? 8 : 6, paddingBottom: mobile ? 14 : 12, width: '100%' }}>{children}</div>}
     </div>

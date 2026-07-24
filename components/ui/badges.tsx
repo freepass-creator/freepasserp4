@@ -198,12 +198,13 @@ export const SETTLEMENT_STATUS_TONE: Record<string, BadgeTone> = {
 
 /** 필터 선택 개수 — erp3 m-filter-section-count. 작게 유지(헤더 늘어남 방지). */
 export function CountPill({ n, tone = 'brand', max = 999 }: {
-  n: number; tone?: BadgeTone | 'brand' | 'red'; max?: number;
+  n: number; tone?: BadgeTone | 'brand' | 'red' | 'accent'; max?: number;
 }) {
   const mobile = useIsMobile();
   if (!n) return null;
   const label = n > max ? `${max}+` : String(n);
-  if (tone === 'brand' || tone === 'blue') {
+  // accent = 필터 카운트 뱃지용(해제색=링크 블루). pill 규격은 brand와 100% 동일, 배경색만.
+  if (tone === 'brand' || tone === 'blue' || tone === 'accent') {
     return (
       <span
         title={`${n}개 선택`}
