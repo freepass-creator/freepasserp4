@@ -821,11 +821,9 @@ export default function Finder() {
         })() : (
         <div className="fp-finder-toolbar">
           {(() => {
-            const hints = [...models, ...activeFilterHints(s)]; // 인기차종 먼저(패널 최상단 순서와 일치)
-            const hintShow = hints.slice(0, 2);
-            const hintMore = hints.length - hintShow.length;
+            // 필터 = 다른 아이콘 버튼과 동일 규격(정사각) + 총 조건수만 뱃지. 텍스트 힌트 제거.
             const filterToggle = (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0, maxWidth: filterOpen ? undefined : 420 }}>
+              <span style={{ position: 'relative', display: 'inline-flex', flex: '0 0 auto' }}>
                 <IconBtn
                   title={filterOpen ? '필터 숨기기' : (ac ? `조건 ${ac}개 · 필터 보기` : '필터 보기')}
                   active={filterOpen}
@@ -833,14 +831,10 @@ export default function Finder() {
                 >
                   <SlidersHorizontal size={16} />
                 </IconBtn>
-                {!filterOpen && ac > 0 && (
-                  <Btn
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setFilterOpen(true)}
-                  >
-                    조건 {ac}개{hintShow.length ? ` · ${hintShow.join(' · ')}${hintMore > 0 ? ` 외 ${hintMore}` : ''}` : ''}
-                  </Btn>
+                {ac > 0 && (
+                  <span style={{ position: 'absolute', top: -4, right: -4, pointerEvents: 'none' }}>
+                    <CountPill n={ac} />
+                  </span>
                 )}
               </span>
             );
