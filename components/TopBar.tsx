@@ -155,9 +155,16 @@ function WebSessionMeta() {
   );
 }
 
-function NavMenu({ mobile }: { mobile: boolean }) {
+function NavMenu({ mobile, open: openProp, setOpen: setOpenProp }: {
+  mobile: boolean;
+  // 상위(TopBar)에서 열림상태를 제어 → 열리면 좌측 상태를 '메뉴'로 스왑. 미지정 시 내부상태(하위호환).
+  open?: boolean;
+  setOpen?: (v: boolean | ((prev: boolean) => boolean)) => void;
+}) {
   const session = useSession();
-  const [open, setOpen] = useState(false);
+  const [openLocal, setOpenLocal] = useState(false);
+  const open = openProp ?? openLocal;
+  const setOpen = setOpenProp ?? setOpenLocal;
   // SSR·첫 클라 동일 — getRole()은 마운트 후(hydration mismatch 방지).
   const [role, setRole] = useState<Role>('agent');
   const [badges, setBadges] = useState<MenuBadgeMap>({});
@@ -267,6 +274,7 @@ export default function TopBar() {
   const { back, backKind, left, actions, title } = useAppBarSlots();
   const mobile = useIsMobile();
   const path = usePathname();
+  const [menuOpen, setMenuOpen] = useState(false); // 메뉴 열림 → 좌측 상태를 '메뉴'로 스왑
   useEffect(() => {
     const el = document.querySelector('.fp-main-pad') as HTMLElement | null;
     if (!el) return;
@@ -298,9 +306,15 @@ export default function TopBar() {
     >{backIcon} {backLabel}</Btn>
   ) : null;
 
-  // 상태창 = 앱바 title 우선(페이지가 타이포·아이콘 책임), 없으면 라우트 라벨
-  const status: ReactNode = (title != null && title !== '') ? title : statusFromPath(path);
+  // 상태창 = 메뉴 열림 시 '메뉴'(아이콘+텍스트) · 아니면 앱바 title 우선 · 없으면 라우트 라벨
+  const menuLabel: ReactNode = (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: FS.title, fontWeight: FW.title, color: ink, letterSpacing: '-0.01em' }}>
+      <Menu size={mobile ? 20 : 17} strokeWidth={2.4} /> 메뉴
+    </span>
+  );
+  const status: ReactNode = menuOpen ? menuLabel : ((title != null && title !== '') ? title : statusFromPath(path));
   const onStatusTap = () => {
+    if (menuOpen) { setMenuOpen(false); return; } // 메뉴 열린 상태에서 상태탭 = 메뉴 닫기
     haptic.nav();
     refreshCurrentPage(path);
   };
@@ -309,7 +323,7 @@ export default function TopBar() {
     <>
       <header style={{ position: 'sticky', top: 0, zIndex: 70, height: 'var(--topbar-h)', display: 'flex', alignItems: 'center', gap: 8, padding: '0 10px 0 14px', background: C.taupeBg, borderBottom: `1px solid ${line}`, boxSizing: 'border-box' }}>
         {/* 웹=메뉴 좌측 · 모바일=우측 */}
-        {!mobile && <NavMenu mobile={false} />}
+        {!mobile && <NavMenu mobile={false} open={menuOpen} setOpen={setMenuOpen} />}
         {/* 좌·중앙 = 상태 — 탭하면 이 페이지 새로 온 느낌(스크롤↑·목록·시트닫기) */}
         <div style={{
           flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8,
@@ -337,7 +351,7 @@ export default function TopBar() {
         </div>
         {!mobile && actions != null && <span style={{ flex: '0 0 auto' }}>{actions}</span>}
         {!mobile && <WebSessionMeta />}
-        {mobile && <NavMenu mobile />}
+        {mobile && <NavMenu mobile open={menuOpen} setOpen={setMenuOpen} />}
       </header>
       {mobile && (back || actions != null) && (
         <div style={{
