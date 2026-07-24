@@ -238,6 +238,16 @@
         ".write": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous' && root.child('users').child(auth.uid).child('status').val() !== 'pending'",
         ".indexOn": ["agent_channel_code", "agent_code", "quote_code", "product_code"]
       },
+      "_client_errors": {
+        ".read": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'",
+        ".indexOn": ["ts"],
+        "$eid": {
+          ".write": "auth != null && !data.exists()",
+          ".validate": "newData.hasChildren(['msg', 'ts'])",
+          "msg": { ".validate": "newData.isString() && newData.val().length <= 600" },
+          "stack": { ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 2000)" }
+        }
+      },
       "$other": { ".read": false, ".write": false }
     }
   }

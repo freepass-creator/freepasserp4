@@ -9,6 +9,7 @@ import { MobileBpProvider, MobileBoot } from '@/lib/use-mobile';
 import TopBar from '@/components/TopBar';
 import AppTabBar from '@/components/AppTabBar';
 import { Toaster } from '@/components/Toaster';
+import ClientErrorReporter from '@/components/ClientErrorReporter';
 
 export const viewport: Viewport = {
   themeColor: '#1B2A4A',
@@ -68,6 +69,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <AppBarProvider>
               <TabBarProvider>
                 <MobileBoot />
+                <ClientErrorReporter />
                 <div className="fp-shell">
                   <TopBar />
                   <main className="fp-main-pad">{children}</main>
