@@ -448,7 +448,7 @@ export function ToggleChips<T extends string>({ selected, onToggle, options, siz
 }
 
 /* 접이식 필터 그룹 — 헤더 = CTRL.md. */
-export function FilterGroup({ title, count = 0, onClear, defaultOpen = true, first = false, children }: { title: string; count?: number; onClear?: () => void; defaultOpen?: boolean; first?: boolean; children: React.ReactNode }) {
+export function FilterGroup({ title, count = 0, onClear, defaultOpen = true, first = false, children }: { title: React.ReactNode; count?: number; onClear?: () => void; defaultOpen?: boolean; first?: boolean; children: React.ReactNode }) {
   const mobile = useIsMobile();
   const [open, setOpen] = React.useState(defaultOpen);
   const h = ctrlH(mobile);

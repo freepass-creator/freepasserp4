@@ -409,16 +409,16 @@ export default function Finder() {
     return (rows || []).filter((p) => matchProduct(p, base));
     // eslint-disable-next-line
   }, [rows, q, periods, rent, dep, mile, fuel, ptype, credit, perks, promo, dyn]);
-  // 인기차종 = 카탈로그 노출 매물의 모델(세부모델) 상위 10개.
+  // 인기차종 = 카탈로그 노출 매물의 모델(제조사-모델-세부모델 중 모델) 상위 10개.
   const popModels = useMemo(() => {
     const cnt = new Map<string, number>();
     for (const p of rows || []) {
       if (isHiddenFromCatalog(p)) continue;
-      const m = String(p.sub_model || p.model || '').trim();
+      const m = String(p.model || '').trim(); // 모델 기준(세부모델 아님)
       if (m) cnt.set(m, (cnt.get(m) || 0) + 1);
     }
-    // 칩 = 모델명만. 1·2·3위는 금은동(🥇🥈🥉)으로 구분.
-    return [...cnt.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([m], i) => ({ key: m, label: i < 3 ? `${['🥇', '🥈', '🥉'][i]} ${m}` : m }));
+    // 칩 = 모델명만. 랭킹은 제목 BEST 뱃지 + 인기순 배열로 전달(금은동 제거).
+    return [...cnt.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([m]) => ({ key: m, label: m }));
   }, [rows]);
 
   const list = useMemo(() => {
@@ -654,7 +654,7 @@ export default function Finder() {
           상품: 출고 → 상품구분 → 심사 → 우대 → 이벤트 → 차급·약정 → 공급사
         */}
         {popModels.length > 0 && (
-          <FilterGroup title="인기차종" count={models.size} defaultOpen first onClear={() => setModels(new Set())}>
+          <FilterGroup title={<>인기차종 <Badge tone="amber" variant="solid">BEST</Badge></>} count={models.size} defaultOpen first onClear={() => setModels(new Set())}>
             <ToggleChips selected={models} onToggle={(k) => setModels((p) => toggleInSet(p, k))} options={popModels} />
           </FilterGroup>
         )}
