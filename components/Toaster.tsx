@@ -44,7 +44,7 @@ export function Toaster() {
     </div>
     {confirm && (
       <div onClick={() => close(false)} style={{ position: 'fixed', inset: 0, zIndex: 210, background: 'rgba(15,23,42,0.42)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-        <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: 360, width: '100%', background: C.taupeBg, borderRadius: 12, padding: '18px 18px 14px', boxShadow: '0 24px 60px rgba(0,0,0,0.28)' }}>
+        <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: 360, width: '100%', background: C.taupeBg, borderRadius: R, padding: '18px 18px 14px', boxShadow: '0 24px 60px rgba(0,0,0,0.28)' }}>
           {confirm.title && <div style={{ fontSize: FS.title, fontWeight: FW.title, marginBottom: 6, color: C.ink }}>{confirm.title}</div>}
           <div style={{ fontSize: FS.body, color: C.mute, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{confirm.message}</div>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>

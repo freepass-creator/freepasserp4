@@ -289,7 +289,7 @@ export type Col<T> = { key: string; label: string; align?: 'l' | 'r'; pin?: bool
 export function DataTable<T>({ cols, rows, onRow }: { cols: Col<T>[]; rows: T[]; onRow?: (row: T) => void }) {
   const [sel, setSel] = React.useState(-1);
   const mobile = useIsMobile();
-  const bgOf = (i: number) => (sel === i ? C.selected : i % 2 ? C.zebra : '#fff');
+  const bgOf = (i: number) => (sel === i ? C.selected : i % 2 ? C.zebra : C.taupeBg);
   // 좁은 화면 = 같은 객체를 카드로(엑셀 표 대신). 필드 정의(cols)는 동일 SSOT.
   if (mobile) {
     return (

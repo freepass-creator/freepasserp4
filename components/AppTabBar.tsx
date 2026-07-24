@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useState, useCallback } from 'react';
 import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
-import { C, CountPill, FS } from '@/components/ui';
+import { C, CountPill, FS, FW } from '@/components/ui';
 import { getRole, type Role } from '@/lib/domain/deal';
 import { useSession } from '@/lib/auth-context';
 import { loadMenuBadges, type MenuBadgeMap } from '@/lib/domain/menu-badges';
@@ -136,7 +136,7 @@ export default function AppTabBar() {
                 textDecoration: 'none',
                 color: on ? C.brand : C.faint,
                 opacity: on ? 1 : 0.72,
-                fontWeight: on ? 800 : 500,
+                fontWeight: on ? FW.head : FW.meta,
                 fontSize: FS.cap,
                 letterSpacing: '-0.02em',
                 lineHeight: 1,
