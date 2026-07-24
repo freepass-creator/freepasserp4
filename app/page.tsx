@@ -256,6 +256,14 @@ function filterKey(s: {
   ].join('~');
 }
 
+// 하단시트 제목 SSOT — 라벨 + 뮤트 카운트. 5개 시트(검색·정렬·필터·최근·관심) 동일 규격.
+//  result=true → '결과 N대'(검색·정렬·필터), false → 'N건'(최근·관심).
+function SheetTitle({ label, count, unit, result }: { label: string; count: number; unit: string; result?: boolean }) {
+  return (
+    <>{label}<span style={{ marginLeft: 6, fontWeight: FW.body, color: C.mute, fontSize: FS.sub }}>· {result ? '결과 ' : ''}<span style={{ fontFamily: NUM }}>{count.toLocaleString()}</span>{unit}</span></>
+  );
+}
+
 export default function Finder() {
   const [rows, setRows] = useState<EntityRecord[] | null>(() => peekList('product', getCompanyId()));
   const [qInput, setQInput] = useState(''); // 검색창 즉시 반영
@@ -1129,13 +1137,12 @@ export default function Finder() {
           <BottomSheet
             open={homeTool === 'search'}
             onClose={closeHomeTool}
-            title="검색"
+            title={<SheetTitle label="검색" count={list.length} unit="대" result />}
             maxHeight="auto"
             pad={false}
             footer="std"
             clearLabel="지우기"
             onClear={q ? () => { setQInput(''); setQ(''); } : undefined}
-            footerInfo={`결과 ${list.length.toLocaleString()}대`}
           >
             <div style={{ padding: '4px 16px 8px' }}>
               <SearchInput
@@ -1151,7 +1158,7 @@ export default function Finder() {
           <BottomSheet
             open={homeTool === 'sort'}
             onClose={closeHomeTool}
-            title="정렬"
+            title={<SheetTitle label="정렬" count={list.length} unit="대" result />}
             maxHeight="auto"
             footer="std"
             clearLabel="기본"
@@ -1167,7 +1174,7 @@ export default function Finder() {
           <BottomSheet
             open={homeTool === 'filter'}
             onClose={closeHomeTool}
-            title={<>조건 검색 <span style={{ fontWeight: FW.body, color: C.mute, fontSize: FS.sub }}>· 결과 <span style={{ fontFamily: NUM }}>{list.length.toLocaleString()}</span>대</span></>}
+            title={<SheetTitle label="조건 검색" count={list.length} unit="대" result />}
             maxHeight="min(68vh, 560px)"
             footer="commit"
             dirty={filterDirty}
@@ -1182,7 +1189,7 @@ export default function Finder() {
           <BottomSheet
             open={homeTool === 'recent'}
             onClose={closeHomeTool}
-            title={<>최근 <span style={{ fontFamily: NUM }}>{interestRecent.length}</span>건</>}
+            title={<SheetTitle label="최근" count={interestRecent.length} unit="건" />}
             maxHeight="min(58vh, 480px)"
             footer="std"
             clearLabel="비우기"
@@ -1201,7 +1208,7 @@ export default function Finder() {
           <BottomSheet
             open={homeTool === 'fav'}
             onClose={closeHomeTool}
-            title={<>관심 <span style={{ fontFamily: NUM }}>{interestFavs.length}</span>건</>}
+            title={<SheetTitle label="관심" count={interestFavs.length} unit="건" />}
             maxHeight="min(58vh, 480px)"
             footer="std"
             clearLabel="비우기"

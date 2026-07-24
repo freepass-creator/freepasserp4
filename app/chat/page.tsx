@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState, useMemo, type ReactNode } fro
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
-import { useIsMobile } from '@/lib/use-mobile';
+import { useIsMobile, isMobileViewport } from '@/lib/use-mobile';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { getRole, actor, type Role } from '@/lib/domain/deal';
 import { roomsWithUnread, unreadFor, unreadRoomCount } from '@/lib/domain/messaging';
@@ -188,7 +188,9 @@ export default function Chat() {
     await seedIfEmpty(co); const r = getRole(); setRoleS(r); const s = await load(r);
     const cts = await getStore().list('contract', co);
     const wanted = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('room') : null;
-    const target = wanted ? s.find((x) => String(x._key) === wanted) : (!mobile ? firstInquiry(s, cts) : undefined);
+    // 모바일은 '목록 먼저' — 첫 방 자동선택은 웹만. mobile(첫 렌더 SSR힌트)이 데스크톱으로 어긋나
+    //  모바일서도 방이 열리던 버그 → 마운트 시점 신뢰되는 isMobileViewport()로 직접 판정.
+    const target = wanted ? s.find((x) => String(x._key) === wanted) : (!isMobileViewport() ? firstInquiry(s, cts) : undefined);
     if (target) selectRoom(target);
   })(); /* eslint-disable-next-line */ }, []);
   useEffect(() => { const on = (e: Event) => { const r = (e as CustomEvent).detail as Role; setRoleS(r); (async () => { const s = await load(r); clearSel(); if (!mobile && s.length) { const cts = await getStore().list('contract', co); selectRoom(firstInquiry(s, cts)); } })(); }; window.addEventListener('fp:role', on); return () => window.removeEventListener('fp:role', on); /* eslint-disable-next-line */ }, [mobile]);
