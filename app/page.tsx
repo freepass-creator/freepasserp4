@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useMemo, useRef, useState, useCallback, type CSSProperties, type MouseEvent } from 'react';
+import { useDeferredValue, useEffect, useMemo, useRef, useState, useCallback, type CSSProperties, type MouseEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { LayoutGrid, List, Table, Download, SlidersHorizontal, Search, ArrowUpDown, History, Star } from 'lucide-react';
 import { getStore, peekList } from '@/lib/store';
@@ -399,16 +399,18 @@ export default function Finder() {
   }, [authReady, co, session?.uid]);
 
   const s: FState = { q, periods, rent, dep, mile, fuel, ptype, credit, perks, promo, dyn, vehicle };
+  // 필터 토글 = 칩 즉시 반영(immediate), 무거운 목록 재필터는 지연(deferred) — 수천 매물 matchProduct가 칩 리페인트를 막지 않게.
+  const sDef = useDeferredValue(s);
+  const modelsDef = useDeferredValue(models);
   const agg = useMemo(() => aggregateDyn(rows || []), [rows]);
   // 엑셀 전용 열 집계 — 카드/리스트 뷰에선 스킵(빈배열). effView==='excel'일 때만 전량 priceList 순회.
   const months = useMemo(() => (effView === 'excel' ? excelMonths(rows || []) : []), [rows, effView]);
   const present = useMemo(() => presentFilterOptions(rows || []), [rows]);
   // 제조사스펙 집계 모수 = 스펙 필터만 뺀 나머지 조건(다른 필터 반영한 매물수).
   const cascadeProducts = useMemo(() => {
-    const base: FState = { q, periods, rent, dep, mile, fuel, ptype, credit, perks, promo, dyn, vehicle: { ...EMPTY_VEHICLE_FILTER } };
+    const base: FState = { ...sDef, vehicle: { ...EMPTY_VEHICLE_FILTER } };
     return (rows || []).filter((p) => matchProduct(p, base));
-    // eslint-disable-next-line
-  }, [rows, q, periods, rent, dep, mile, fuel, ptype, credit, perks, promo, dyn]);
+  }, [rows, sDef]);
   // 인기차종 = 카탈로그 노출 매물의 모델(제조사-모델-세부모델 중 모델) 상위 10개.
   const popModels = useMemo(() => {
     const cnt = new Map<string, number>();
@@ -426,8 +428,8 @@ export default function Finder() {
     const l = (rows || []).filter((p) => {
       const code = String(p.product_code || p._key || '');
       if (code && hiddenCodes.has(code)) return false;
-      if (models.size && !models.has(String(p.sub_model || p.model || '').trim())) return false;
-      return matchProduct(p, s);
+      if (modelsDef.size && !modelsDef.has(String(p.model || '').trim())) return false;
+      return matchProduct(p, sDef);
     });
     // 기본 정렬 = 무보증 가능 차량 우선(그 외 원순서). 명시 정렬 선택 시엔 그 기준 그대로.
     if (sort) {
@@ -458,8 +460,8 @@ export default function Finder() {
       else front.push(p);
     }
     return [...front, ...back];
-    // eslint-disable-next-line
-  }, [rows, q, periods, rent, dep, mile, fuel, ptype, credit, perks, promo, dyn, vehicle, sort, hiddenCodes, passedCodes, models]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, sDef, modelsDef, sort, hiddenCodes, passedCodes]);
 
   const totalVisible = useMemo(() => {
     const all = (rows || []).filter((p) => !isHiddenFromCatalog(p));
