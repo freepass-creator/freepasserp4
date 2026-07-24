@@ -23,3 +23,16 @@ export function allowedHost(url: string, kind: 'img' | 'sheet'): string | null {
   const re = kind === 'img' ? IMG_ALLOW : SHEET_ALLOW;
   return re.test(host) ? host : null;
 }
+
+/** DNS 결과까지 포함한 서버측 차단용 IP 판정. */
+export function isPrivateOrLocalIp(ip: string): boolean {
+  const v = ip.toLowerCase().split('%')[0];
+  if (v === '::1' || v === '::' || v.startsWith('fe80:') || v.startsWith('fc') || v.startsWith('fd')) return true;
+  const mapped = v.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/)?.[1];
+  const parts = (mapped || v).split('.').map(Number);
+  if (parts.length !== 4 || parts.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) return false;
+  const [a, b] = parts;
+  return a === 0 || a === 10 || a === 127 || (a === 169 && b === 254)
+    || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168)
+    || (a === 100 && b >= 64 && b <= 127) || a >= 224;
+}

@@ -8,9 +8,13 @@ import { type EntityRecord } from '@/lib/intake/entities';
 const norm = (s: unknown) => String(s ?? '').replace(/\s+/g, '').trim();
 const money = (v: unknown): number => {
   if (v == null) return 0;
-  if (typeof v === 'number') return v > 0 ? Math.round(v) : 0;
-  const s = norm(v).replace(/[^0-9]/g, '');
-  return s && Number(s) > 0 ? Number(s) : 0;
+  if (typeof v === 'number') return Number.isFinite(v) ? Math.round(v) : 0;
+  const raw = norm(v);
+  const negative = /^-/.test(raw) || /^\(.*\)$/.test(raw);
+  const digits = raw.replace(/[^0-9]/g, '');
+  if (!digits) return 0;
+  const amount = Number(digits);
+  return negative ? -amount : amount;
 };
 function asDate(v: unknown): string | null {
   if (v instanceof Date) return `${v.getFullYear()}-${String(v.getMonth() + 1).padStart(2, '0')}-${String(v.getDate()).padStart(2, '0')}`;
