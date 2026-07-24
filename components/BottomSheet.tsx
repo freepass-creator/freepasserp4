@@ -19,7 +19,9 @@ export function BottomSheet({
   footer,
   onClear,
   onCancel,
+  dirty = false,
   closeLabel = '닫기',
+  commitLabel = '적용',
   clearLabel = '해제',
   cancelLabel = '취소',
   footerInfo,
@@ -39,10 +41,14 @@ export function BottomSheet({
    */
   footer?: 'std' | 'commit' | 'filter' | ReactNode;
   onClear?: () => void;
-  /** 'commit'에서 취소(되돌리기) 액션. 있으면 취소 버튼 노출 */
+  /** 'commit'에서 취소(되돌리기) 액션 */
   onCancel?: () => void;
-  /** 우측 solid 버튼 라벨(std:닫기 · commit:적용) */
+  /** 'commit' 변경됨 여부. true면 [취소·적용], false면 [닫기] */
+  dirty?: boolean;
+  /** 우측 solid 버튼 라벨(std:닫기 · commit clean:닫기) */
   closeLabel?: string;
+  /** commit dirty 시 우측 solid 라벨(기본 '적용') */
+  commitLabel?: string;
   /** 좌측 ghost 액션 라벨(비우기·해제·지우기·기본 등). onClear 있을 때만 노출 */
   clearLabel?: string;
   /** commit 취소 버튼 라벨(기본 '취소'). onCancel 있을 때만 노출 */
@@ -77,20 +83,23 @@ export function BottomSheet({
       borderTop: `1px solid ${C.line}`,
       background: C.taupeBg,
     }}>
-      {onClear ? (
+      {/* std: [해제 좌 · info 가운데 · 닫기 우]. onClear 있을 때만 해제 노출 */}
+      {isStd && onClear ? (
         <Btn variant="ghost" onClick={() => { haptic.tap(); onClear(); }}>{clearLabel}</Btn>
       ) : null}
-      {/* std: 가운데 정보. commit: 정보 없이 우측 취소·적용 그룹으로 밀기 */}
       {isCommit ? <span style={{ flex: 1 }} /> : (
         <span style={{
           flex: 1, minWidth: 0, fontSize: FS.sub, color: C.mute,
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>{footerInfo}</span>
       )}
-      {isCommit && onCancel ? (
+      {/* commit: 변경 전엔 [닫기]만, 변경되면 [취소·적용] */}
+      {isCommit && dirty && onCancel ? (
         <Btn variant="ghost" onClick={() => { onCancel(); }}>{cancelLabel}</Btn>
       ) : null}
-      <Btn onClick={() => { haptic.nav(); onClose(); }} style={{ minWidth: isCommit ? 96 : 100 }}>{closeLabel}</Btn>
+      <Btn onClick={() => { haptic.nav(); onClose(); }} style={{ minWidth: isCommit ? 96 : 100 }}>
+        {isCommit ? (dirty ? commitLabel : closeLabel) : closeLabel}
+      </Btn>
     </div>
   ) : footer != null ? (
     <div style={{

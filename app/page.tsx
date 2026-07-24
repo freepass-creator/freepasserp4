@@ -240,6 +240,22 @@ function FilterPop({ field, x, y, rows, colFilter, setColFilter, colSort, setCol
   </>);
 }
 
+// 필터 스냅샷 비교키 — 변경(dirty) 판정용. Set/dyn/vehicle을 순서 무관 안정 문자열로.
+const arrKey = (x: Iterable<unknown>) => [...x].map(String).sort().join(',');
+function filterKey(s: {
+  q: string; periods: Set<number>; rent: Set<string>; dep: Set<string>; mile: Set<string>;
+  fuel: Set<string>; ptype: Set<string>; credit: Set<string>; perks: Set<string>; promo: Set<string>;
+  dyn: Record<string, Set<string>>; vehicle: VehicleFilter; models: Set<string>;
+}): string {
+  const dyn = Object.entries(s.dyn)
+    .filter(([, v]) => v.size).map(([k, v]) => `${k}:${arrKey(v)}`).sort().join('|');
+  return [
+    s.q, arrKey(s.periods), arrKey(s.rent), arrKey(s.dep), arrKey(s.mile), arrKey(s.fuel),
+    arrKey(s.ptype), arrKey(s.credit), arrKey(s.perks), arrKey(s.promo), dyn,
+    JSON.stringify(s.vehicle), arrKey(s.models),
+  ].join('~');
+}
+
 export default function Finder() {
   const [rows, setRows] = useState<EntityRecord[] | null>(() => peekList('product', getCompanyId()));
   const [qInput, setQInput] = useState(''); // 검색창 즉시 반영
@@ -538,20 +554,21 @@ export default function Finder() {
     setQInput(''); setQ(''); setPeriods(new Set()); setRent(new Set()); setDep(new Set()); setMile(new Set()); setFuel(new Set()); setPtype(new Set()); setCredit(new Set()); setPerks(new Set()); setPromo(new Set()); setDyn({}); setVehicle({ ...EMPTY_VEHICLE_FILTER }); setSort(''); setModels(new Set());
   };
 
-  // 필터 적용/취소 — 시트 열 때 상태 스냅샷, '취소'면 그 상태로 되돌림(라이브 프리뷰는 유지).
+  // 필터 적용/취소 — 시트 열 때 상태를 스냅샷(state). 스냅샷과 현재가 다르면 '변경됨(dirty)' →
+  // 하단바가 [취소·적용], 같으면(안 건드림) [닫기]. '취소'면 스냅샷으로 복원(라이브 프리뷰는 유지).
   // 모든 필터 갱신이 불변(new Set/{...})이라 얕은 캡처로 충분(캡처한 Set은 이후 갱신에 안 바뀜).
   const filterLive = { q: qInput, periods, rent, dep, mile, fuel, ptype, credit, perks, promo, dyn, vehicle, models };
-  const filterLiveRef = useRef(filterLive);
-  filterLiveRef.current = filterLive;
-  const filterSnapRef = useRef<typeof filterLive | null>(null);
-  const filterWasOpen = useRef(false);
-  useEffect(() => {
-    const openNow = homeTool === 'filter';
-    if (openNow && !filterWasOpen.current) filterSnapRef.current = { ...filterLiveRef.current };
-    filterWasOpen.current = openNow;
-  }, [homeTool]);
+  const filterSheetOpen = homeTool === 'filter';
+  const [filterSnap, setFilterSnap] = useState<typeof filterLive | null>(null);
+  const [filterSnapOpen, setFilterSnapOpen] = useState(false);
+  // 열림 전이를 렌더 중 감지해 스냅샷을 동기 확정(effect면 첫 프레임 dirty 오판). 조건부라 재귀 없음.
+  if (filterSheetOpen !== filterSnapOpen) {
+    setFilterSnapOpen(filterSheetOpen);
+    setFilterSnap(filterSheetOpen ? { ...filterLive } : null);
+  }
+  const filterDirty = !!filterSnap && filterKey(filterLive) !== filterKey(filterSnap);
   const restoreFilters = () => {
-    const s0 = filterSnapRef.current;
+    const s0 = filterSnap;
     if (!s0) return;
     setQInput(s0.q); setQ(s0.q);
     setPeriods(s0.periods); setRent(s0.rent); setDep(s0.dep); setMile(s0.mile); setFuel(s0.fuel);
@@ -1158,9 +1175,7 @@ export default function Finder() {
             title={<>조건 검색 <span style={{ fontWeight: FW.body, color: C.mute, fontSize: FS.sub }}>· 결과 <span style={{ fontFamily: NUM }}>{list.length.toLocaleString()}</span>대</span></>}
             maxHeight="min(68vh, 560px)"
             footer="commit"
-            clearLabel="해제"
-            onClear={ac > 0 ? () => { haptic.select(); reset(); } : undefined}
-            closeLabel="적용"
+            dirty={filterDirty}
             onCancel={cancelFilter}
             pad={false}
           >
