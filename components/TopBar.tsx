@@ -276,7 +276,8 @@ export default function TopBar() {
     return () => { ro.disconnect(); window.removeEventListener('resize', apply); };
   }, [path]);
   const line = C.line, ink = C.ink;
-  if (path === '/login' || path.startsWith('/q/') || path.startsWith('/catalog') || path.startsWith('/sign/')) return null;
+  // /m = 모바일 미리보기(폰 프레임) → 앱 상단바 없이 전체화면. /m/[code](실제 모바일 상세)는 상단바 유지.
+  if (path === '/login' || path === '/m' || path.startsWith('/q/') || path.startsWith('/catalog') || path.startsWith('/sign/')) return null;
   const backLabel = backKind === 'list' ? '목록' : '이전';
   const backIcon = backKind === 'list'
     ? <List size={mobile ? 18 : 16} strokeWidth={2.25} />

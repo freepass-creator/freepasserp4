@@ -70,7 +70,7 @@ export default function MobilePreview() {
   // 마운트 전(SSR·첫 클라)엔 빈 배경만 — 하이드레이션 일치.
   if (!mounted) return <div style={{ minHeight: '60vh' }} />;
 
-  const frameH = `min(${dev.h}px, calc(100dvh - 168px))`;
+  const frameH = `min(${dev.h}px, calc(100dvh - 190px))`;
 
   return (
     <div
@@ -80,7 +80,7 @@ export default function MobilePreview() {
         alignItems: 'center',
         gap: 16,
         padding: '18px 16px 40px',
-        minHeight: 'calc(100dvh - var(--topbar-h, 56px))',
+        minHeight: '100dvh',
         boxSizing: 'border-box',
       }}
     >
