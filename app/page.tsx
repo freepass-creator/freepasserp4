@@ -65,6 +65,7 @@ type SavedFinderFilters = {
   ptype: string[]; credit: string[]; perks: string[]; promo: string[];
   dyn: Record<string, string[]>;
   vehicle: VehicleFilter;
+  models: string[]; // 인기차종 빠른필터(모델명)
   sort: string;
 };
 
@@ -334,6 +335,7 @@ export default function Finder() {
       for (const [k, arr] of Object.entries(saved.dyn || {})) dynNext[k] = setFromArr(arr);
       setDyn(dynNext);
       setVehicle({ ...EMPTY_VEHICLE_FILTER, ...(saved.vehicle || {}) });
+      setModels(setFromArr(saved.models));
       setSort(saved.sort || '');
     }
   }, []);
@@ -368,9 +370,9 @@ export default function Finder() {
       rent: [...rent], dep: [...dep], mile: [...mile], fuel: [...fuel],
       ptype: [...ptype], credit: [...credit], perks: [...perks], promo: [...promo],
       dyn: Object.fromEntries(Object.entries(dyn).map(([k, set]) => [k, [...set]])),
-      vehicle, sort,
+      vehicle, sort, models: [...models],
     });
-  }, [q, periods, rent, dep, mile, fuel, ptype, credit, perks, promo, dyn, vehicle, sort]);
+  }, [q, periods, rent, dep, mile, fuel, ptype, credit, perks, promo, dyn, vehicle, sort, models]);
 
   // 검색 디바운스 — 타이핑마다 전량 filter/sort 방지
   useEffect(() => {
@@ -469,7 +471,7 @@ export default function Finder() {
     return all.filter((p) => !hiddenCodes.has(String(p.product_code || p._key || ''))).length;
   }, [rows, hiddenCodes]);
 
-  const narrowed = !!(q || activeCount(s) > 0);
+  const narrowed = !!(q || activeCount(s) > 0 || models.size > 0);
 
   // 상단바 상태창 = PageStatus SSOT (웹·모바일 동일)
   useAppBar({
@@ -530,9 +532,10 @@ export default function Finder() {
   const toggleDyn = (key: string, v: string) => setDyn((p) => { const cur = new Set(p[key] || []); cur.has(v) ? cur.delete(v) : cur.add(v); return { ...p, [key]: cur }; });
   const reset = () => {
     clearSavedFilters();
-    setQInput(''); setQ(''); setPeriods(new Set()); setRent(new Set()); setDep(new Set()); setMile(new Set()); setFuel(new Set()); setPtype(new Set()); setCredit(new Set()); setPerks(new Set()); setPromo(new Set()); setDyn({}); setVehicle({ ...EMPTY_VEHICLE_FILTER }); setSort('');
+    setQInput(''); setQ(''); setPeriods(new Set()); setRent(new Set()); setDep(new Set()); setMile(new Set()); setFuel(new Set()); setPtype(new Set()); setCredit(new Set()); setPerks(new Set()); setPromo(new Set()); setDyn({}); setVehicle({ ...EMPTY_VEHICLE_FILTER }); setSort(''); setModels(new Set());
   };
-  const ac = activeCount(s);
+  // 인기차종(models)은 s(FState)와 별도 상태 → activeCount에 안 잡히므로 여기서 합산(뱃지·툴·narrowed 공통).
+  const ac = activeCount(s) + models.size;
   // 더보기 = 지금 보고 있는 목록 기준. 100개 미만이면 버튼 없음.
   const activeList = list;
   const shown = activeList.slice(0, limit);
@@ -818,7 +821,7 @@ export default function Finder() {
         })() : (
         <div className="fp-finder-toolbar">
           {(() => {
-            const hints = activeFilterHints(s);
+            const hints = [...models, ...activeFilterHints(s)]; // 인기차종 먼저(패널 최상단 순서와 일치)
             const hintShow = hints.slice(0, 2);
             const hintMore = hints.length - hintShow.length;
             const filterToggle = (
