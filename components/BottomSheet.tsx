@@ -18,8 +18,10 @@ export function BottomSheet({
   maxHeight = 'min(58vh, 520px)',
   footer,
   onClear,
+  onCancel,
   closeLabel = '닫기',
   clearLabel = '해제',
+  cancelLabel = '취소',
   footerInfo,
   pad = true,
 }: {
@@ -29,14 +31,23 @@ export function BottomSheet({
   title?: ReactNode;
   dockH?: number | string;
   maxHeight?: string | number;
-  /** 'std' = 표준 하단바 SSOT(비우기/해제 좌 · 닫기 우 · 가운데 info). 'filter'=별칭(하위호환). ReactNode=완전 커스텀. */
-  footer?: 'std' | 'filter' | ReactNode;
+  /**
+   * 하단바 SSOT — 두 표준 타입:
+   *  'std'    = [해제/비우기 좌(ghost, onClear시) · info 가운데 · 닫기 우(solid)]. 즉시반영 시트(최근·관심·검색·정렬).
+   *  'commit' = [해제 좌(ghost, onClear시) · 취소(ghost, onCancel시) · 적용 우(solid, closeLabel)]. 조건 조정 후 확정하는 필터용.
+   *  'filter' = 'std' 별칭(하위호환). ReactNode = 완전 커스텀.
+   */
+  footer?: 'std' | 'commit' | 'filter' | ReactNode;
   onClear?: () => void;
-  /** 우측 기본(닫기) 버튼 라벨 */
+  /** 'commit'에서 취소(되돌리기) 액션. 있으면 취소 버튼 노출 */
+  onCancel?: () => void;
+  /** 우측 solid 버튼 라벨(std:닫기 · commit:적용) */
   closeLabel?: string;
   /** 좌측 ghost 액션 라벨(비우기·해제·지우기·기본 등). onClear 있을 때만 노출 */
   clearLabel?: string;
-  /** 가운데 뮤트 정보(예: '결과 N대') */
+  /** commit 취소 버튼 라벨(기본 '취소'). onCancel 있을 때만 노출 */
+  cancelLabel?: string;
+  /** std 가운데 뮤트 정보(예: '결과 N대'). commit엔 없음(제목 옆으로) */
   footerInfo?: ReactNode;
   /** 본문 좌우 패딩(기본 on) */
   pad?: boolean;
@@ -54,8 +65,10 @@ export function BottomSheet({
 
   if (!open) return null;
 
-  // 표준 하단바 SSOT — 모든 시트 공통 규격: [비우기/해제 좌(ghost, onClear 있을 때) · info 가운데(뮤트) · 닫기 우(solid)].
-  const sheetFooter = (footer === 'std' || footer === 'filter') ? (
+  // 하단바 SSOT — 공통 컨테이너 규격에 std/commit 두 타입.
+  const isStd = footer === 'std' || footer === 'filter';
+  const isCommit = footer === 'commit';
+  const sheetFooter = (isStd || isCommit) ? (
     <div style={{
       flex: '0 0 auto',
       display: 'flex', alignItems: 'center', gap: 8,
@@ -67,11 +80,17 @@ export function BottomSheet({
       {onClear ? (
         <Btn variant="ghost" onClick={() => { haptic.tap(); onClear(); }}>{clearLabel}</Btn>
       ) : null}
-      <span style={{
-        flex: 1, minWidth: 0, fontSize: FS.sub, color: C.mute,
-        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-      }}>{footerInfo}</span>
-      <Btn onClick={() => { haptic.nav(); onClose(); }} style={{ minWidth: 100 }}>{closeLabel}</Btn>
+      {/* std: 가운데 정보. commit: 정보 없이 우측 취소·적용 그룹으로 밀기 */}
+      {isCommit ? <span style={{ flex: 1 }} /> : (
+        <span style={{
+          flex: 1, minWidth: 0, fontSize: FS.sub, color: C.mute,
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        }}>{footerInfo}</span>
+      )}
+      {isCommit && onCancel ? (
+        <Btn variant="ghost" onClick={() => { onCancel(); }}>{cancelLabel}</Btn>
+      ) : null}
+      <Btn onClick={() => { haptic.nav(); onClose(); }} style={{ minWidth: isCommit ? 96 : 100 }}>{closeLabel}</Btn>
     </div>
   ) : footer != null ? (
     <div style={{

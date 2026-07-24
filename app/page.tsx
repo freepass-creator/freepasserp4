@@ -537,6 +537,28 @@ export default function Finder() {
     clearSavedFilters();
     setQInput(''); setQ(''); setPeriods(new Set()); setRent(new Set()); setDep(new Set()); setMile(new Set()); setFuel(new Set()); setPtype(new Set()); setCredit(new Set()); setPerks(new Set()); setPromo(new Set()); setDyn({}); setVehicle({ ...EMPTY_VEHICLE_FILTER }); setSort(''); setModels(new Set());
   };
+
+  // 필터 적용/취소 — 시트 열 때 상태 스냅샷, '취소'면 그 상태로 되돌림(라이브 프리뷰는 유지).
+  // 모든 필터 갱신이 불변(new Set/{...})이라 얕은 캡처로 충분(캡처한 Set은 이후 갱신에 안 바뀜).
+  const filterLive = { q: qInput, periods, rent, dep, mile, fuel, ptype, credit, perks, promo, dyn, vehicle, models };
+  const filterLiveRef = useRef(filterLive);
+  filterLiveRef.current = filterLive;
+  const filterSnapRef = useRef<typeof filterLive | null>(null);
+  const filterWasOpen = useRef(false);
+  useEffect(() => {
+    const openNow = homeTool === 'filter';
+    if (openNow && !filterWasOpen.current) filterSnapRef.current = { ...filterLiveRef.current };
+    filterWasOpen.current = openNow;
+  }, [homeTool]);
+  const restoreFilters = () => {
+    const s0 = filterSnapRef.current;
+    if (!s0) return;
+    setQInput(s0.q); setQ(s0.q);
+    setPeriods(s0.periods); setRent(s0.rent); setDep(s0.dep); setMile(s0.mile); setFuel(s0.fuel);
+    setPtype(s0.ptype); setCredit(s0.credit); setPerks(s0.perks); setPromo(s0.promo);
+    setDyn(s0.dyn); setVehicle(s0.vehicle); setModels(s0.models);
+  };
+  const cancelFilter = () => { haptic.back(); restoreFilters(); closeHomeTool(); };
   // 인기차종(models)은 s(FState)와 별도 상태 → activeCount에 안 잡히므로 여기서 합산(뱃지·툴·narrowed 공통).
   const ac = activeCount(s) + models.size;
   // 더보기 = 지금 보고 있는 목록 기준. 100개 미만이면 버튼 없음.
@@ -1133,12 +1155,13 @@ export default function Finder() {
           <BottomSheet
             open={homeTool === 'filter'}
             onClose={closeHomeTool}
-            title="조건 검색"
+            title={<>조건 검색 <span style={{ fontWeight: FW.body, color: C.mute, fontSize: FS.sub }}>· 결과 <span style={{ fontFamily: NUM }}>{list.length.toLocaleString()}</span>대</span></>}
             maxHeight="min(68vh, 560px)"
-            footer="std"
+            footer="commit"
             clearLabel="해제"
             onClear={ac > 0 ? () => { haptic.select(); reset(); } : undefined}
-            footerInfo={`결과 ${list.length.toLocaleString()}대`}
+            closeLabel="적용"
+            onCancel={cancelFilter}
             pad={false}
           >
             <div className="fp-bottom-sheet-body" style={{ padding: 0 }}>
