@@ -9,6 +9,9 @@ const PUBLIC_EXACT = ['/welrix', '/sonogong'] as const;
 
 export function isPublicPath(pathname: string | null | undefined): boolean {
   if (!pathname) return false;
+  // /m = 모바일 미리보기 프레임 호스트(안의 iframe이 자체 인증) → 로그아웃해도 최상위 창이 /login으로 안 튕겨야 프레임 유지.
+  //  /m/{code}(실제 모바일 상세)는 앱콘텐츠라 제외 — exact 매칭만.
+  if (pathname === '/m') return true;
   if (pathname === '/catalog' || pathname.startsWith('/catalog/')) return true;
   if (PUBLIC_EXACT.some((p) => pathname === p || pathname.startsWith(p + '/'))) return true;
   return PUBLIC_PATH_PREFIXES.some((p) => pathname === p.slice(0, -1) || pathname.startsWith(p));
