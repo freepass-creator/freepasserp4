@@ -1099,11 +1099,10 @@ export default function Finder() {
             maxHeight="auto"
             pad={false}
             footer={
-              <div style={{ display: 'flex', gap: 8 }}>
-                <Btn style={{ flex: 1 }} onClick={() => { haptic.success(); closeHomeTool(); }}>
-                  결과 {list.length.toLocaleString()}대
-                </Btn>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 {q ? <Btn variant="ghost" onClick={() => { setQInput(''); setQ(''); }}>지우기</Btn> : null}
+                <span style={{ flex: 1, fontSize: FS.sub, color: C.mute, whiteSpace: 'nowrap' }}>결과 {list.length.toLocaleString()}대</span>
+                <Btn onClick={() => { haptic.nav(); closeHomeTool(); }} style={{ minWidth: 100 }}>닫기</Btn>
               </div>
             }
           >
@@ -1123,7 +1122,13 @@ export default function Finder() {
             onClose={closeHomeTool}
             title="정렬"
             maxHeight="auto"
-            footer={<Btn full onClick={() => { haptic.success(); closeHomeTool(); }}>적용</Btn>}
+            footer={
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {sort ? <Btn variant="ghost" onClick={() => { setSort(''); haptic.tap(); }}>기본</Btn> : null}
+                <span style={{ flex: 1 }} />
+                <Btn onClick={() => { haptic.nav(); closeHomeTool(); }} style={{ minWidth: 100 }}>닫기</Btn>
+              </div>
+            }
           >
             <FilterChips
               value={sort || ''}
@@ -1152,10 +1157,13 @@ export default function Finder() {
             onClose={closeHomeTool}
             title={<>최근 <span style={{ fontFamily: NUM }}>{interestRecent.length}</span>건</>}
             maxHeight="min(58vh, 480px)"
-            footer="filter"
-            applyLabel="닫기"
-            clearLabel="비우기"
-            onClear={interestRecent.length ? () => { haptic.select(); clearRecent(); } : undefined}
+            footer={
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {interestRecent.length ? <Btn variant="ghost" onClick={() => { haptic.tap(); clearRecent(); }}>비우기</Btn> : null}
+                <span style={{ flex: 1 }} />
+                <Btn onClick={() => { haptic.nav(); closeHomeTool(); }} style={{ minWidth: 100 }}>닫기</Btn>
+              </div>
+            }
           >
             <div style={{ padding: '0 12px 12px' }}>
               {interestRecent.length === 0
@@ -1172,10 +1180,13 @@ export default function Finder() {
             onClose={closeHomeTool}
             title={<>관심 <span style={{ fontFamily: NUM }}>{interestFavs.length}</span>건</>}
             maxHeight="min(58vh, 480px)"
-            footer="filter"
-            applyLabel="닫기"
-            clearLabel="비우기"
-            onClear={interestFavs.length ? () => { haptic.select(); clearFavs(); } : undefined}
+            footer={
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {interestFavs.length ? <Btn variant="ghost" onClick={() => { haptic.tap(); clearFavs(); }}>비우기</Btn> : null}
+                <span style={{ flex: 1 }} />
+                <Btn onClick={() => { haptic.nav(); closeHomeTool(); }} style={{ minWidth: 100 }}>닫기</Btn>
+              </div>
+            }
           >
             <div style={{ padding: '0 12px 12px' }}>
               {interestFavs.length === 0
