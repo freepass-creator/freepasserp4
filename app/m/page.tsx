@@ -51,7 +51,11 @@ export default function MobilePreview() {
     return () => setMobileCookie(window.innerWidth < MOBILE_BP ? '1' : '0');
   }, [router]);
 
-  const reload = useCallback(() => setNonce((n) => n + 1), []);
+  // 현재 내부 위치 그대로 리로드(동일 출처) — 이동해 둔 곳을 잃지 않는다. 실패 시 key 리마운트.
+  const reload = useCallback(() => {
+    try { iframeRef.current?.contentWindow?.location.reload(); }
+    catch { setNonce((n) => n + 1); }
+  }, []);
   const home = useCallback(() => {
     setSrc('/'); setPath('/'); setNonce((n) => n + 1);
   }, []);
