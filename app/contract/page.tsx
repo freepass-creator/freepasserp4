@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
-import { useIsMobile } from '@/lib/use-mobile';
+import { useIsMobile, isMobileViewport } from '@/lib/use-mobile';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { getProgress, CONTRACT_STATES, isContractInProgress } from '@/lib/domain/contract';
 import { createSettlement } from '@/lib/domain/settlement-engine';
@@ -132,7 +132,8 @@ export default function ContractsSettlement() {
     await seedIfEmpty(co); const all = await load(getRole());
     const wanted = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('c') : null;
     const first = all.find((c) => isContractInProgress(c)) || all[0];
-    const target = wanted ? all.find((x) => String(x.contract_code) === wanted) : (!mobile ? first : undefined);
+    // 모바일은 '목록 먼저' — 첫 계약 자동선택은 웹만. mobile 첫 렌더 스테일 회피(isMobileViewport).
+    const target = wanted ? all.find((x) => String(x.contract_code) === wanted) : (!isMobileViewport() ? first : undefined);
     if (target) selectContract(target);
   })(); /* eslint-disable-next-line */ }, []);
   useEffect(() => { const on = (e: Event) => { const r = (e as CustomEvent).detail as Role; (async () => { const all = await load(r); clearSel(); if (!mobile && all.length) selectContract(all.find((c) => isContractInProgress(c)) || all[0]); })(); }; window.addEventListener('fp:role', on); return () => window.removeEventListener('fp:role', on); /* eslint-disable-next-line */ }, [mobile]);

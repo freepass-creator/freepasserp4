@@ -131,15 +131,24 @@ export default function Chat() {
     const pv = String(rm.provider_company_code || '').trim();
     return role === 'provider' ? ag : role === 'agent' ? pv : [ag, pv].filter(Boolean).join(' ↔ ');
   };
+  const sortByRecent = (arr: EntityRecord[]) => arr.slice().sort((a, b) => Number(b.last_message_at || 0) - Number(a.last_message_at || 0));
+  // 점진 로딩 — 1차: 방 목록만 즉시 페인트(저장된 안읽음 카운터·차명은 코드 폴백).
+  //  2차(백그라운드): 상품카탈로그·계약·전체 메시지 안읽음 보강 → 차명·필터·안읽음 채움.
+  //  전량 선반입을 첫 페인트 뒤로 미뤄 계약진행만큼 빠르게 목록이 뜸.
   const load = async (r: Role): Promise<EntityRecord[]> => {
-    const [all, cts, prods, del] = await Promise.all([getStore().list('room', co), getStore().list('contract', co), getStore().list('product', co), getStore().listDeleted('product', co).catch(() => [])]);
-    setContracts(cts); setProducts(prods); setDeletedProducts(del);
+    const all = await getStore().list('room', co);
     const me = actor(r);
     const mine = r === 'admin' ? [...all] : r === 'provider' ? all.filter((x) => String(x.provider_company_code) === me.code) : all.filter((x) => String(x.agent_code) === me.code);
-    const withUnread = await roomsWithUnread(mine, r);
-    const sorted = withUnread.sort((a, b) => Number(b.last_message_at || 0) - Number(a.last_message_at || 0));
-    setRooms(sorted);
-    return sorted;
+    setRooms(sortByRecent(mine)); // ← 즉시 페인트
+    void (async () => {
+      try {
+        const [cts, prods, del] = await Promise.all([getStore().list('contract', co), getStore().list('product', co), getStore().listDeleted('product', co).catch(() => [])]);
+        setContracts(cts); setProducts(prods); setDeletedProducts(del);
+        const withUnread = await roomsWithUnread(mine, r);
+        setRooms(sortByRecent(withUnread));
+      } catch { /* 보강 실패해도 1차 목록 유지 */ }
+    })();
+    return sortByRecent(mine);
   };
   // 방목록·안읽음(+계약)만 부분 갱신 — products/deletedProducts 카탈로그는 재조회하지 않음(fp:unread 경량 경로).
   //  메시지 열람/전송으로 카탈로그는 변하지 않으므로 최초 load에서 받은 products·deletedProducts(삭제매물 이름복원)를 재사용.
