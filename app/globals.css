@@ -513,6 +513,10 @@ button, input, select, textarea { font-family: inherit; }
   .fp-bottom-sheet-body .fp-sidebar-head { display: none; }
   .fp-bottom-sheet-body .fp-sidebar-body {
     padding: 4px 16px 12px;
+    /* 시트 안에선 내부 스크롤 끔 — .fp-bottom-sheet-body(overflow:auto) 하나만 스크롤.
+     * 안 그러면 이중 스크롤 컨테이너가 터치를 가로채 필터가 안 내려감. */
+    overflow: visible;
+    min-height: auto;
   }
   .fp-finder-pane {
     flex: 1 1 0;

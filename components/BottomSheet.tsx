@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useState, useRef, type ReactNode } from 'react';
 import { Btn, C, FW, FS } from '@/components/ui';
 import { haptic } from '@/lib/haptics';
 
@@ -42,6 +42,10 @@ export function BottomSheet({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
+
+  // 스와이프-다운 닫기 — 핸들을 손으로 내리면 닫힘(임계 90px). 백드롭 탭 닫기는 아래 onClick.
+  const [dragY, setDragY] = useState(0);
+  const dragStart = useRef<number | null>(null);
 
   if (!open) return null;
 
@@ -96,11 +100,19 @@ export function BottomSheet({
           animation: 'sheetUp .22s ease',
           paddingBottom: filterFooter ? 0 : 'env(safe-area-inset-bottom, 0px)',
           overflow: 'hidden',
+          transform: dragY ? `translateY(${dragY}px)` : undefined,
+          transition: dragY ? 'none' : 'transform .22s ease',
         }}
       >
-        <div style={{
-          flex: '0 0 auto', display: 'flex', justifyContent: 'center', padding: '10px 0 4px',
-        }}>
+        <div
+          onTouchStart={(e) => { dragStart.current = e.touches[0].clientY; }}
+          onTouchMove={(e) => { if (dragStart.current == null) return; const dy = e.touches[0].clientY - dragStart.current; setDragY(dy > 0 ? dy : 0); }}
+          onTouchEnd={() => { if (dragY > 90) { haptic.back(); onClose(); } setDragY(0); dragStart.current = null; }}
+          style={{
+            flex: '0 0 auto', display: 'flex', justifyContent: 'center', padding: '12px 0 8px',
+            cursor: 'grab', touchAction: 'none',
+          }}
+        >
           <span style={{ width: 36, height: 4, borderRadius: 2, background: C.line }} />
         </div>
         {title != null && (
