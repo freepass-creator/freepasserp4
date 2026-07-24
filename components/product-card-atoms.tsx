@@ -247,7 +247,7 @@ export function CardTitle({ p, narrow, size }: { p: EntityRecord; narrow?: boole
     <div
       title={text}
       style={{
-        fontSize: fs, fontWeight: FW.title, color: C.ink, lineHeight: 1.35,
+        fontSize: fs, fontWeight: FW.title, color: C.ink, lineHeight: 1.2,
         minWidth: 0, width: '100%',
         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
       }}
@@ -363,7 +363,7 @@ export function CardSpecs({ p, dense, audience = 'agent' }: {
   ].filter(Boolean).join(' · ');
   return (
     <div title={tip || undefined} style={{
-      fontSize: fs, color: C.mute, lineHeight: 1.35,
+      fontSize: fs, color: C.mute, lineHeight: 1.2,
       minWidth: 0, width: '100%',
       overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
     }}>
