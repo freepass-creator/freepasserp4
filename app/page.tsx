@@ -546,18 +546,9 @@ export default function Finder() {
     return () => ro.disconnect();
   }, [effView, mobile, list.length, filterOpen, limit, months.length, excelRows.length]);
 
-  if (!rows) return <Loading />;
-
-  const toggleDyn = (key: string, v: string) => setDyn((p) => { const cur = new Set(p[key] || []); cur.has(v) ? cur.delete(v) : cur.add(v); return { ...p, [key]: cur }; });
-  const reset = () => {
-    clearSavedFilters();
-    setQInput(''); setQ(''); setPeriods(new Set()); setRent(new Set()); setDep(new Set()); setMile(new Set()); setFuel(new Set()); setPtype(new Set()); setCredit(new Set()); setPerks(new Set()); setPromo(new Set()); setDyn({}); setVehicle({ ...EMPTY_VEHICLE_FILTER }); setSort(''); setModels(new Set());
-  };
-
-  // 필터 적용/취소 — 시트 열 때 상태를 ref로 스냅샷(effect), 닫으면 null. 스냅샷과 현재가 다르면
-  // '변경됨(dirty)' → 하단바 [취소·적용], 같으면(안 건드림) [닫기]. '취소'면 스냅샷으로 복원(라이브 프리뷰 유지).
+  // 필터 적용/취소 스냅샷 훅 — 반드시 early-return(!rows) 앞에서 무조건 호출(훅 순서 고정).
+  // 시트 열 때 상태를 ref로 캡처(effect), 닫으면 null. dirty는 렌더 중 ref '읽기'로만 계산(아래).
   // 모든 필터 갱신이 불변(new Set/{...})이라 얕은 캡처로 충분(캡처한 Set은 이후 갱신에 안 바뀜).
-  // 렌더 중 setState는 훅 순서를 깨므로 ref+effect로 관리(dirty는 렌더 중 ref '읽기'만 — 허용).
   const filterLive = { q: qInput, periods, rent, dep, mile, fuel, ptype, credit, perks, promo, dyn, vehicle, models };
   const filterSheetOpen = homeTool === 'filter';
   const filterLiveRef = useRef(filterLive);
@@ -569,6 +560,17 @@ export default function Finder() {
     else if (!filterSheetOpen && filterWasOpen.current) filterSnapRef.current = null;
     filterWasOpen.current = filterSheetOpen;
   }, [filterSheetOpen]);
+
+  if (!rows) return <Loading />;
+
+  const toggleDyn = (key: string, v: string) => setDyn((p) => { const cur = new Set(p[key] || []); cur.has(v) ? cur.delete(v) : cur.add(v); return { ...p, [key]: cur }; });
+  const reset = () => {
+    clearSavedFilters();
+    setQInput(''); setQ(''); setPeriods(new Set()); setRent(new Set()); setDep(new Set()); setMile(new Set()); setFuel(new Set()); setPtype(new Set()); setCredit(new Set()); setPerks(new Set()); setPromo(new Set()); setDyn({}); setVehicle({ ...EMPTY_VEHICLE_FILTER }); setSort(''); setModels(new Set());
+  };
+
+  // 위(early-return 앞)에서 캡처한 스냅샷과 현재 상태 비교 → 변경됨(dirty)이면 하단바 [취소·적용].
+  // dirty는 렌더 중 ref '읽기'만(허용). 첫 프레임은 ref null이라 [닫기]로 시작(정상).
   const filterDirty = filterSheetOpen && !!filterSnapRef.current && filterKey(filterLive) !== filterKey(filterSnapRef.current);
   const restoreFilters = () => {
     const s0 = filterSnapRef.current;
