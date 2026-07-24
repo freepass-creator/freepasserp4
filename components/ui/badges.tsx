@@ -198,12 +198,13 @@ export const SETTLEMENT_STATUS_TONE: Record<string, BadgeTone> = {
 
 /** 필터 선택 개수 — erp3 m-filter-section-count. 작게 유지(헤더 늘어남 방지). */
 export function CountPill({ n, tone = 'brand', max = 999 }: {
-  n: number; tone?: BadgeTone | 'brand' | 'red'; max?: number;
+  n: number; tone?: BadgeTone | 'brand' | 'red' | 'accent'; max?: number;
 }) {
   const mobile = useIsMobile();
   if (!n) return null;
   const label = n > max ? `${max}+` : String(n);
-  if (tone === 'brand' || tone === 'blue') {
+  // brand·blue·accent = pill 모양 유지(규격 동일), 색만 다름. accent = 합계(총합) 뱃지용 살짝 다른 색.
+  if (tone === 'brand' || tone === 'blue' || tone === 'accent') {
     return (
       <span
         title={`${n}개 선택`}
@@ -213,7 +214,7 @@ export function CountPill({ n, tone = 'brand', max = 999 }: {
           // 높이 15 = 목록행 sub 줄(LINE.sub=15, overflow:hidden)에 딱 맞춤 — 모바일 16이면 그 줄에 세로로 잘렸음(문의 안읽음 뱃지).
           minWidth: mobile ? 18 : 16, height: 15, boxSizing: 'border-box',
           padding: '0 5px', borderRadius: R,
-          background: C.brand, color: C.taupeBg,
+          background: tone === 'accent' ? C.accent : C.brand, color: C.taupeBg,
           fontSize: FS.micro, fontWeight: FW.strong, lineHeight: 1,
           fontFamily: NUM, fontVariantNumeric: 'tabular-nums',
         }}
