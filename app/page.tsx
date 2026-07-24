@@ -554,21 +554,24 @@ export default function Finder() {
     setQInput(''); setQ(''); setPeriods(new Set()); setRent(new Set()); setDep(new Set()); setMile(new Set()); setFuel(new Set()); setPtype(new Set()); setCredit(new Set()); setPerks(new Set()); setPromo(new Set()); setDyn({}); setVehicle({ ...EMPTY_VEHICLE_FILTER }); setSort(''); setModels(new Set());
   };
 
-  // 필터 적용/취소 — 시트 열 때 상태를 스냅샷(state). 스냅샷과 현재가 다르면 '변경됨(dirty)' →
-  // 하단바가 [취소·적용], 같으면(안 건드림) [닫기]. '취소'면 스냅샷으로 복원(라이브 프리뷰는 유지).
+  // 필터 적용/취소 — 시트 열 때 상태를 ref로 스냅샷(effect), 닫으면 null. 스냅샷과 현재가 다르면
+  // '변경됨(dirty)' → 하단바 [취소·적용], 같으면(안 건드림) [닫기]. '취소'면 스냅샷으로 복원(라이브 프리뷰 유지).
   // 모든 필터 갱신이 불변(new Set/{...})이라 얕은 캡처로 충분(캡처한 Set은 이후 갱신에 안 바뀜).
+  // 렌더 중 setState는 훅 순서를 깨므로 ref+effect로 관리(dirty는 렌더 중 ref '읽기'만 — 허용).
   const filterLive = { q: qInput, periods, rent, dep, mile, fuel, ptype, credit, perks, promo, dyn, vehicle, models };
   const filterSheetOpen = homeTool === 'filter';
-  const [filterSnap, setFilterSnap] = useState<typeof filterLive | null>(null);
-  const [filterSnapOpen, setFilterSnapOpen] = useState(false);
-  // 열림 전이를 렌더 중 감지해 스냅샷을 동기 확정(effect면 첫 프레임 dirty 오판). 조건부라 재귀 없음.
-  if (filterSheetOpen !== filterSnapOpen) {
-    setFilterSnapOpen(filterSheetOpen);
-    setFilterSnap(filterSheetOpen ? { ...filterLive } : null);
-  }
-  const filterDirty = !!filterSnap && filterKey(filterLive) !== filterKey(filterSnap);
+  const filterLiveRef = useRef(filterLive);
+  filterLiveRef.current = filterLive;
+  const filterSnapRef = useRef<typeof filterLive | null>(null);
+  const filterWasOpen = useRef(false);
+  useEffect(() => {
+    if (filterSheetOpen && !filterWasOpen.current) filterSnapRef.current = { ...filterLiveRef.current };
+    else if (!filterSheetOpen && filterWasOpen.current) filterSnapRef.current = null;
+    filterWasOpen.current = filterSheetOpen;
+  }, [filterSheetOpen]);
+  const filterDirty = filterSheetOpen && !!filterSnapRef.current && filterKey(filterLive) !== filterKey(filterSnapRef.current);
   const restoreFilters = () => {
-    const s0 = filterSnap;
+    const s0 = filterSnapRef.current;
     if (!s0) return;
     setQInput(s0.q); setQ(s0.q);
     setPeriods(s0.periods); setRent(s0.rent); setDep(s0.dep); setMile(s0.mile); setFuel(s0.fuel);
