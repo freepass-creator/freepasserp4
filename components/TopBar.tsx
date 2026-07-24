@@ -307,9 +307,10 @@ export default function TopBar() {
   ) : null;
 
   // 상태창 = 메뉴 열림 시 '메뉴'(아이콘+텍스트) · 아니면 앱바 title 우선 · 없으면 라우트 라벨
+  // 햄버거 아이콘은 넣지 않는다 — 실제 메뉴버튼이 따로 있어 아이콘 중복 시 버튼이 옮겨간 것처럼 보임.
   const menuLabel: ReactNode = (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: FS.title, fontWeight: FW.title, color: ink, letterSpacing: '-0.01em' }}>
-      <Menu size={mobile ? 20 : 17} strokeWidth={2.4} /> 메뉴
+    <span style={{ display: 'inline-flex', alignItems: 'center', fontSize: FS.title, fontWeight: FW.title, color: ink, letterSpacing: '-0.01em' }}>
+      메뉴
     </span>
   );
   const status: ReactNode = menuOpen ? menuLabel : ((title != null && title !== '') ? title : statusFromPath(path));
