@@ -12,6 +12,7 @@ import { ProductDetail } from '@/components/ProductDetail';
 import { SimpleInquiry } from '@/components/SimpleInquiry';
 import { ReportButton } from '@/components/ReportButton';
 import { actor, getRole, ensureRoom } from '@/lib/domain/deal';
+import { guestShareUrl } from '@/lib/domain/product-share';
 import { touchRecent } from '@/lib/product-interest';
 import { useAuthReady } from '@/lib/auth-context';
 import { FINDER_RESET_LIMIT } from '@/lib/finder-session';
@@ -90,13 +91,23 @@ export default function Detail() {
     );
   }
 
+  const role = getRole();
+  const canDeal = role === 'agent' || role === 'admin';
   const sendLink = () => {
-    const url = `${location.origin}/q/${encodeURIComponent(String(p.product_code))}?a=${encodeURIComponent(actor(getRole()).code)}`;
+    const a = actor(role);
+    const url = guestShareUrl(p, a.code || a.uid);
     if (navigator.share) { navigator.share({ title: vehicleName(p), url }).catch(() => {}); return; }
     navigator.clipboard?.writeText(url).then(() => toast('손님용 매물 링크 복사됨', 'ok'), () => prompt('링크', url));
   };
   // 계약문의 = 현재 사용자 방 보장(영업자=자기 딜방 / 관리자=관리자↔공급사방) 후 /chat. 간단문의와 같은 방으로 이어짐. 진행·계약요청은 거기서(ContractPanel 5단계).
-  const inquire = async () => { const keyRoom = await ensureRoom(p, actor(getRole())); router.push(`/chat?room=${encodeURIComponent(keyRoom)}`); };
+  const inquire = async () => {
+    try {
+      const keyRoom = await ensureRoom(p, actor(role));
+      router.push(`/chat?room=${encodeURIComponent(keyRoom)}`);
+    } catch (e) {
+      toast(e instanceof Error ? e.message : '계약문의 실패', 'error');
+    }
+  };
   return (
     <>
       <main style={{ flex: 1, width: '100%', maxWidth: 920, margin: '0 auto', padding: '14px 16px calc(76px + env(safe-area-inset-bottom))', boxSizing: 'border-box' }}>
@@ -107,10 +118,12 @@ export default function Detail() {
           <ReportButton p={p} />
         </div>
       </main>
-      <BottomNav maxWidth={920} padX={16} actions={<>
-        <Btn variant="ghost" size="sm" onClick={sendLink}>손님공유</Btn>
-        <Btn size="sm" onClick={inquire}>계약문의</Btn>
-      </>} />
+      {canDeal ? (
+        <BottomNav maxWidth={920} padX={16} actions={<>
+          <Btn variant="ghost" size="sm" onClick={sendLink}>손님공유</Btn>
+          <Btn size="sm" onClick={inquire}>계약문의</Btn>
+        </>} />
+      ) : null}
     </>
   );
 }

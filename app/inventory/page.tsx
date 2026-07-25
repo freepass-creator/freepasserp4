@@ -199,7 +199,7 @@ export default function Inventory() {
         await seedIfEmpty(co);
         const r = getRole();
         if (r !== 'admin' && r !== 'provider') {
-          setGateMsg(`${NAV_LABEL.inventory}는 공급사·관리자만 사용할 수 있습니다. 설정에서 역할을 바꾸세요.`);
+          setGateMsg(`${NAV_LABEL.inventory}는 공급사·관리자만 사용할 수 있습니다.`);
           setOk(false);
           return;
         }
@@ -431,8 +431,7 @@ export default function Inventory() {
       <Page title={NAV_LABEL.inventory}>
         <CenterNote>{gateMsg || '접근 불가'}</CenterNote>
         <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 12 }}>
-          <Btn href="/settings" size="sm">설정에서 역할 변경</Btn>
-          {getRole() === 'admin' && <Btn href="/dev" size="sm" variant="ghost">개발도구</Btn>}
+          <Btn href="/" size="sm">홈으로</Btn>
         </div>
       </Page>
     );

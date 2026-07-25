@@ -461,7 +461,17 @@ export function FilterGroup({ title, count = 0, onClear, defaultOpen = true, fir
           {count > 0 && <CountPill n={count} tone="accent" />}
           <span style={{ flex: 1 }} />
         </button>
-        {count > 0 && onClear && <button onClick={() => { haptic.select(); onClear(); }} style={{ marginLeft: 6, flex: '0 0 auto', border: 'none', background: 'none', color: C.accent, fontSize: mobile ? FS.sub : FS.cap, fontWeight: FW.strong, cursor: 'pointer', padding: mobile ? '8px 8px' : '6px 4px', minHeight: h }}>해제</button>}
+        {count > 0 && onClear && (
+          <Btn
+            variant="bare"
+            onClick={() => { haptic.select(); onClear(); }}
+            style={{
+              marginLeft: 6, flex: '0 0 auto', color: C.accent,
+              fontSize: mobile ? FS.sub : FS.cap, fontWeight: FW.strong,
+              minHeight: h, padding: mobile ? '0 10px' : '0 6px',
+            }}
+          >해제</Btn>
+        )}
       </div>
       {open && <div style={{ display: 'flex', flexWrap: 'wrap', gap: mobile ? 8 : 6, paddingBottom: mobile ? 14 : 12, width: '100%' }}>{children}</div>}
     </div>

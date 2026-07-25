@@ -90,7 +90,7 @@ function WebRow({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) {
       }}>
         <Cell>
           <div style={{ position: 'relative', minWidth: 0, width: '100%' }}>
-            <CardTitle p={p} size={15} />
+            <CardTitle p={p} />
           </div>
         </Cell>
         <Cell right><CardRailBadges p={p} /></Cell>
@@ -140,7 +140,7 @@ function MobileRow({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) 
         </div>
 
         {/* 2 차명 */}
-        <CardTitle p={p} size={15} narrow />
+        <CardTitle p={p} narrow />
 
         {/* 3 스펙 (모바일 카드 간결화 — 옵션 OptionChips 제거) */}
         <CardSpecs p={p} />

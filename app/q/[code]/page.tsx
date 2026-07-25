@@ -44,12 +44,13 @@ export default function Quote() {
     ? String(agent.phone || agent.mobile || agent.tel || agent.contact || '').replace(/\s/g, '')
     : '';
   const telHref = phone ? `tel:${phone.replace(/[^0-9+]/g, '')}` : '';
+  const inverse = 'var(--text-inverse)';
 
   return (
     <main style={{ maxWidth: 620, margin: '0 auto', padding: '18px 18px 28px' }}>
       <div style={{ fontSize: FS.sub, color: C.mute, letterSpacing: '0.04em', marginBottom: 10 }}>대여 견적서</div>
       <ProductDetail p={p} audience="customer" />
-      <div style={{ marginTop: 24, padding: '14px 16px', background: C.brand, color: '#fff', borderRadius: R }}>
+      <div style={{ marginTop: 24, padding: '14px 16px', background: C.brand, color: inverse, borderRadius: R }}>
         <div style={{ fontSize: FS.body, fontWeight: FW.title }}>상담 문의</div>
         <div style={{ fontSize: FS.body, marginTop: 4, opacity: 0.9 }}>
           {agentName ? `담당 영업자 ${agentName}에게 연락 주세요.` : '담당 영업자에게 연락 주세요.'}
@@ -59,7 +60,7 @@ export default function Quote() {
             <Btn
               href={telHref}
               onClick={() => haptic.nav()}
-              style={{ background: '#fff', color: C.brand, borderColor: '#fff', boxShadow: 'none', fontWeight: FW.label }}
+              style={{ background: C.taupeBg, color: C.brand, borderColor: C.taupeBg, boxShadow: 'none', fontWeight: FW.label }}
             >
               전화하기{phone ? ` · ${phone}` : ''}
             </Btn>

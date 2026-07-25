@@ -9,7 +9,7 @@ import { getRole, actor, type Role } from '@/lib/domain/deal';
 import { roomsWithUnread, unreadFor, unreadRoomCount } from '@/lib/domain/messaging';
 import { getProgress, isInquiryOnly } from '@/lib/domain/contract';
 import { vehicleName } from '@/lib/domain/product';
-import { PaneHead, Btn, C, Loading, CenterNote, PaneBody, FilterChips, SectionLabel, FW, FS } from '@/components/ui';
+import { PaneHead, Btn, C, Loading, CenterNote, PaneBody, FilterChips, SectionLabel, FS } from '@/components/ui';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
 import { ChatThread } from '@/components/ChatThread';
 import { ProductDetail } from '@/components/ProductDetail';
@@ -245,7 +245,7 @@ export default function Chat() {
     ? (
       <CenterNote>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-          <span>{q || flt !== '문의' ? '검색 결과 없음' : role === 'provider' ? '들어온 문의가 없습니다.' : role === 'admin' ? '채팅 중인 문의가 없습니다.' : '채팅 중인 문의가 없습니다.'}</span>
+          <span>{q || flt !== '문의' ? '검색 결과 없음' : role === 'provider' ? '들어온 문의가 없습니다.' : role === 'admin' ? '처리할 문의가 없습니다.' : '채팅 중인 문의가 없습니다.'}</span>
           {(q || flt !== '문의') ? (
             <Btn size="sm" variant="ghost" onClick={() => { setQ(''); setFlt('문의'); }}>조건 해제</Btn>
           ) : null}
@@ -281,27 +281,29 @@ export default function Chat() {
     ? <>{selProduct._fromHistory ? <div style={{ fontSize: FS.cap, color: C.faint, marginBottom: 8 }}>재고에서 내려간 매물 · 계약 이력 기준</div> : null}<ProductDetail p={selProduct} /></>
     : <CenterNote>이 매물의 이력이 없습니다.</CenterNote>;
 
-  const goChat = () => { haptic.nav(); setSwapKey('chat'); };
-
-  // 계약진행 이동 = 하단 swap 바([채팅][계약진행])가 담당 → 채팅 헤더엔 중복 버튼 없음.
+  // 계약진행 이동 = 하단 swap 바([채팅][계약진행])가 담당.
   const chatNode = sel
     ? <ChatThread roomId={sel} />
     : emptyPane('채팅', '왼쪽에서 대화를 선택하세요.');
 
-  // 모바일 계약진행 = 문의차량(또는 서류) + 계약패널을 한 스크롤에.
+  // 모바일 계약진행 = /contract 모바일 스택과 동일(진행 → 서류). 상품상세·정산은 각 페이지 규격.
   const progressNode = (
-    <>
-      <PaneHead
-        title="계약 진행"
-        right={<Btn variant="ghost" size="sm" onClick={goChat}>채팅</Btn>}
-      />
-      <PaneBody pad>
-        <div style={{ fontSize: FS.sub, fontWeight: FW.label, color: C.faint, marginBottom: 8 }}>{inContract ? '첨부 서류' : '문의 차량'}</div>
-        {inContract ? docsBody : vehicleBlock}
-        <div style={{ fontSize: FS.sub, fontWeight: FW.label, color: C.faint, margin: '18px 0 8px' }}>계약</div>
-        {contractBody}
-      </PaneBody>
-    </>
+    <div style={{ height: '100%', overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
+      <section
+        aria-label="진행"
+        style={{ borderBottom: `1px solid ${C.line}`, background: 'var(--bg-card)', boxSizing: 'border-box' }}
+      >
+        <PaneHead title="계약 진행상황" />
+        <PaneBody>{contractBody}</PaneBody>
+      </section>
+      <section
+        aria-label="서류"
+        style={{ background: 'var(--bg-card)', boxSizing: 'border-box' }}
+      >
+        <PaneHead title="첨부 서류" />
+        <PaneBody>{docsBody}</PaneBody>
+      </section>
+    </div>
   );
 
   const webPanes: WorkPane[] = [
@@ -313,7 +315,7 @@ export default function Chat() {
         ? <><PaneHead title="첨부 서류" />{scroll(docsBody)}</>
         : <><PaneHead title="문의 차량" /><PaneBody pad>{vehicleBlock}</PaneBody></>,
     },
-    { key: 'contract', title: '계약', node: <><PaneHead title="계약 진행" />{scroll(contractBody)}</> },
+    { key: 'contract', title: '계약', node: <><PaneHead title="계약 진행상황" />{scroll(contractBody)}</> },
   ];
 
   const mobilePanes: WorkPane[] = [

@@ -192,10 +192,10 @@ export function InterestSummaryCard({ live, snap, tab }: {
           onClick={onRemove}
           style={{
             border: 'none', background: mobile ? 'transparent' : C.head, color: C.faint,
-            width: mobile ? 34 : 26, height: mobile ? 34 : 26,
+            width: mobile ? 40 : 26, height: mobile ? 40 : 26,
           }}
         >
-          <X size={13} />
+          <X size={mobile ? 16 : 13} />
         </IconBtn>
       </div>
     </Link>

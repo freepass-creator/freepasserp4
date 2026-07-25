@@ -2,7 +2,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { Search, ArrowUpDown, SlidersHorizontal, Plus, type LucideIcon } from 'lucide-react';
-import { BottomNav, SearchInput, Btn, FilterChips, C, NUM, FS } from '@/components/ui';
+import { BottomNav, SearchInput, FilterChips, C, NUM, FS } from '@/components/ui';
 import { PageToolBar, type PageToolItem } from '@/components/PageToolBar';
 import { MobileListDock } from '@/components/MobileListDock';
 import { BottomSheet } from '@/components/BottomSheet';
@@ -191,16 +191,17 @@ export function MobilePageShell({
       </div>
       {dock}
 
+      {/* 시트 액션 SSOT = 홈과 동일: 제목 옆 파란 액션(지우기·기본·초기화) · 하단바는 닫기만 */}
       {searchCfg && (
-        <BottomSheet open={sheet === 'search'} onClose={close} title="검색" maxHeight="auto" pad={false}
-          footer={
-            <div style={{ display: 'flex', gap: 8 }}>
-              <Btn variant="ghost" style={{ flex: 1 }} onClick={() => { searchCfg.onChange(''); haptic.select(); }}>지우기</Btn>
-              <Btn style={{ flex: 1 }} onClick={() => { haptic.nav(); close(); }}>
-                {count != null ? `${count}${countSuffix}` : '닫기'}
-              </Btn>
-            </div>
-          }
+        <BottomSheet
+          open={sheet === 'search'}
+          onClose={close}
+          title="검색"
+          maxHeight="auto"
+          pad={false}
+          footer="std"
+          clearLabel="지우기"
+          onClear={searchCfg.value.trim() ? () => { searchCfg.onChange(''); haptic.select(); } : undefined}
         >
           <div style={{ padding: '4px 16px 8px' }}>
             <SearchInput
@@ -214,8 +215,14 @@ export function MobilePageShell({
       )}
 
       {sortCfg && (
-        <BottomSheet open={sheet === 'sort'} onClose={close} title={sortCfg.placeholder || '정렬'} maxHeight="auto"
-          footer={<Btn style={{ width: '100%' }} onClick={() => { haptic.nav(); close(); }}>적용</Btn>}
+        <BottomSheet
+          open={sheet === 'sort'}
+          onClose={close}
+          title={sortCfg.placeholder || '정렬'}
+          maxHeight="auto"
+          footer="std"
+          clearLabel="기본"
+          onClear={sortCfg.value ? () => { sortCfg.onChange(''); haptic.select(); } : undefined}
         >
           <FilterChips
             value={sortCfg.value || ''}
@@ -231,8 +238,11 @@ export function MobilePageShell({
           onClose={close}
           title={filterCfg.title || filterCfg.label || '필터'}
           maxHeight="min(68vh, 560px)"
-          footer="filter"
-          onClear={filterCfg.onClear}
+          footer="std"
+          clearLabel="초기화"
+          onClear={filterCfg.count > 0 && filterCfg.onClear
+            ? () => { haptic.select(); filterCfg.onClear?.(); }
+            : undefined}
         >
           {filterCfg.body}
         </BottomSheet>

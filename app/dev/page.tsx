@@ -5,7 +5,8 @@ import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { getRole, setRole, ROLE_LABEL, type Role } from '@/lib/domain/deal';
-import { getSession } from '@/lib/auth-session';
+import { getSession, isGuest } from '@/lib/auth-session';
+import { isAdminUiAllowed } from '@/lib/auth-gate';
 import { auditMasterFit, reconcileToMaster, type MasterEntry } from '@/lib/domain/vehicle-master-match';
 import { loadVehicleMaster } from '@/lib/domain/vehicle-master-load';
 import { checkInventory } from '@/lib/domain/data-check';
@@ -39,7 +40,7 @@ export default function DevTools() {
       await seedIfEmpty(co);
       const r = getRole();
       setRoleLocal(r);
-      if (r !== 'admin') { setOk(false); return; }
+      if (!isAdminUiAllowed()) { setOk(false); return; }
       await reload();
       setOk(true);
     })();
@@ -52,6 +53,10 @@ export default function DevTools() {
   const enterAsAdmin = () => {
     if (getSession()) {
       toast('로그인 계정 역할은 바꿀 수 없습니다. 관리자 계정으로 로그인하세요.', 'info');
+      return;
+    }
+    if (isGuest()) {
+      toast('둘러보기에서는 관리자 도구를 열 수 없습니다. 관리자 계정으로 로그인하세요.', 'info');
       return;
     }
     setRole('admin');

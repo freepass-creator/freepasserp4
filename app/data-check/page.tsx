@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
@@ -15,10 +16,13 @@ import { Page, C, R, NUM, Loading, Btn, CenterNote, FormCard, SectionLabel, Badg
 import { MasterFitSummary } from '@/components/MasterFitSummary';
 import { NAV_LABEL } from '@/lib/tabbar';
 import { haptic } from '@/lib/haptics';
+import { isAdminUiAllowed } from '@/lib/auth-gate';
 
-// 데이터 점검 — 매물 자동 이상감지(상시) + 차종마스터 규격 전수 검수.
+// 데이터 점검 — 매물 자동 이상감지(상시) + 차종마스터 규격 전수 검수. 관리자 전용.
 export default function DataCheck() {
   const co = getCompanyId();
+  const router = useRouter();
+  const [allowed, setAllowed] = useState<boolean | null>(null);
   const [rows, setRows] = useState<EntityRecord[] | null>(null);
   const [contracts, setContracts] = useState<EntityRecord[] | null>(null);
   const [master, setMaster] = useState<MasterEntry[] | null>(null);
@@ -28,6 +32,8 @@ export default function DataCheck() {
   useEffect(() => {
     (async () => {
       await seedIfEmpty(co);
+      if (!isAdminUiAllowed()) { router.replace('/'); return; }
+      setAllowed(true);
       setRows(await getStore().list('product', co));
       // 계약은 권한(관리자·스코프)에 걸려 비면 잠금점검만 건너뛴다 — 다른 점검은 그대로 돌아야 함.
       try { setContracts(await getStore().list('contract', co)); } catch { setContracts([]); }
@@ -52,7 +58,7 @@ export default function DataCheck() {
   const groups = useMemo(() => (rows ? checkInventory(rows) : []), [rows]);
   const lockGroups = useMemo(() => (rows && contracts ? checkVehicleLocks(rows, contracts) : []), [rows, contracts]);
   const masterFit = useMemo(() => (rows && master && master.length ? auditMasterFit(rows, master) : null), [rows, master]);
-  if (rows === null) return <Loading />;
+  if (allowed !== true || rows === null) return <Loading />;
 
   const sevTone = (p: string) => (p === 'high' ? 'red' : p === 'mid' ? 'amber' : 'gray') as 'red' | 'amber' | 'gray';
   const sevLabel = (p: string) => (p === 'high' ? '높음' : p === 'mid' ? '중간' : '낮음');

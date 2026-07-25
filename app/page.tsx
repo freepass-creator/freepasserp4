@@ -240,22 +240,6 @@ function FilterPop({ field, x, y, rows, colFilter, setColFilter, colSort, setCol
   </>);
 }
 
-// 필터 스냅샷 비교키 — 변경(dirty) 판정용. Set/dyn/vehicle을 순서 무관 안정 문자열로.
-const arrKey = (x: Iterable<unknown>) => [...x].map(String).sort().join(',');
-function filterKey(s: {
-  q: string; periods: Set<number>; rent: Set<string>; dep: Set<string>; mile: Set<string>;
-  fuel: Set<string>; ptype: Set<string>; credit: Set<string>; perks: Set<string>; promo: Set<string>;
-  dyn: Record<string, Set<string>>; vehicle: VehicleFilter; models: Set<string>;
-}): string {
-  const dyn = Object.entries(s.dyn)
-    .filter(([, v]) => v.size).map(([k, v]) => `${k}:${arrKey(v)}`).sort().join('|');
-  return [
-    s.q, arrKey(s.periods), arrKey(s.rent), arrKey(s.dep), arrKey(s.mile), arrKey(s.fuel),
-    arrKey(s.ptype), arrKey(s.credit), arrKey(s.perks), arrKey(s.promo), dyn,
-    JSON.stringify(s.vehicle), arrKey(s.models),
-  ].join('~');
-}
-
 // 하단시트 제목 SSOT — 라벨 + 뮤트 카운트. 5개 시트(검색·정렬·필터·최근·관심) 동일 규격.
 //  result=true → '결과 N대'(검색·정렬·필터), false → 'N건'(최근·관심).
 function SheetTitle({ label, count, unit, result }: { label: string; count: number; unit: string; result?: boolean }) {
@@ -554,21 +538,6 @@ export default function Finder() {
     return () => ro.disconnect();
   }, [effView, mobile, list.length, filterOpen, limit, months.length, excelRows.length]);
 
-  // 필터 적용/취소 스냅샷 훅 — 반드시 early-return(!rows) 앞에서 무조건 호출(훅 순서 고정).
-  // 시트 열 때 상태를 ref로 캡처(effect), 닫으면 null. dirty는 렌더 중 ref '읽기'로만 계산(아래).
-  // 모든 필터 갱신이 불변(new Set/{...})이라 얕은 캡처로 충분(캡처한 Set은 이후 갱신에 안 바뀜).
-  const filterLive = { q: qInput, periods, rent, dep, mile, fuel, ptype, credit, perks, promo, dyn, vehicle, models };
-  const filterSheetOpen = homeTool === 'filter';
-  const filterLiveRef = useRef(filterLive);
-  filterLiveRef.current = filterLive;
-  const filterSnapRef = useRef<typeof filterLive | null>(null);
-  const filterWasOpen = useRef(false);
-  useEffect(() => {
-    if (filterSheetOpen && !filterWasOpen.current) filterSnapRef.current = { ...filterLiveRef.current };
-    else if (!filterSheetOpen && filterWasOpen.current) filterSnapRef.current = null;
-    filterWasOpen.current = filterSheetOpen;
-  }, [filterSheetOpen]);
-
   if (!rows) return <Loading />;
 
   const toggleDyn = (key: string, v: string) => setDyn((p) => { const cur = new Set(p[key] || []); cur.has(v) ? cur.delete(v) : cur.add(v); return { ...p, [key]: cur }; });
@@ -576,19 +545,6 @@ export default function Finder() {
     clearSavedFilters();
     setQInput(''); setQ(''); setPeriods(new Set()); setRent(new Set()); setDep(new Set()); setMile(new Set()); setFuel(new Set()); setPtype(new Set()); setCredit(new Set()); setPerks(new Set()); setPromo(new Set()); setDyn({}); setVehicle({ ...EMPTY_VEHICLE_FILTER }); setSort(''); setModels(new Set());
   };
-
-  // 위(early-return 앞)에서 캡처한 스냅샷과 현재 상태 비교 → 변경됨(dirty)이면 하단바 [취소·적용].
-  // dirty는 렌더 중 ref '읽기'만(허용). 첫 프레임은 ref null이라 [닫기]로 시작(정상).
-  const filterDirty = filterSheetOpen && !!filterSnapRef.current && filterKey(filterLive) !== filterKey(filterSnapRef.current);
-  const restoreFilters = () => {
-    const s0 = filterSnapRef.current;
-    if (!s0) return;
-    setQInput(s0.q); setQ(s0.q);
-    setPeriods(s0.periods); setRent(s0.rent); setDep(s0.dep); setMile(s0.mile); setFuel(s0.fuel);
-    setPtype(s0.ptype); setCredit(s0.credit); setPerks(s0.perks); setPromo(s0.promo);
-    setDyn(s0.dyn); setVehicle(s0.vehicle); setModels(s0.models);
-  };
-  const cancelFilter = () => { haptic.back(); restoreFilters(); closeHomeTool(); };
   // 인기차종(models)은 s(FState)와 별도 상태 → activeCount에 안 잡히므로 여기서 합산(뱃지·툴·narrowed 공통).
   const ac = activeCount(s) + models.size;
   // 더보기 = 지금 보고 있는 목록 기준. 100개 미만이면 버튼 없음.
@@ -701,7 +657,7 @@ export default function Finder() {
               조건 검색{ac > 0 ? <CountPill n={ac} /> : null}
             </span>
             <span style={{ flex: 1 }} />
-            {ac > 0 && <button onClick={() => { haptic.select(); reset(); }} style={{ border: 'none', background: 'none', color: C.accent, fontSize: mobile ? 11.5 : 11, fontWeight: FW.strong, cursor: 'pointer', padding: '4px 6px' }}>초기화</button>}
+            {ac > 0 && <Btn variant="bare" onClick={() => { haptic.select(); reset(); }} style={{ color: C.accent, fontSize: FS.cap, fontWeight: FW.strong, padding: '4px 6px' }}>초기화</Btn>}
           </>
         )}
       </div>
@@ -1107,7 +1063,7 @@ export default function Finder() {
                 ? { padding: '10px 12px', borderTop: `1px solid ${C.line2}` }
                 : { marginTop: 14 }),
             }}>
-              <span style={{ fontSize: mobile ? 13 : 12, color: C.mute }}>
+              <span style={{ fontSize: mobile ? FS.body : FS.sub, color: C.mute }}>
                 {shown.length.toLocaleString()} / {activeList.length.toLocaleString()}대
               </span>
               <Btn variant="ghost" onClick={() => setLimit((n) => n + PAGE)}>더보기 · {Math.min(PAGE, moreN).toLocaleString()}대</Btn>
@@ -1176,9 +1132,9 @@ export default function Finder() {
             onClose={closeHomeTool}
             title={<SheetTitle label="조건 검색" count={list.length} unit="대" result />}
             maxHeight="min(68vh, 560px)"
-            footer="commit"
-            dirty={filterDirty}
-            onCancel={cancelFilter}
+            footer="std"
+            clearLabel="초기화"
+            onClear={ac > 0 ? () => { haptic.select(); reset(); } : undefined}
             pad={false}
           >
             <div className="fp-bottom-sheet-body" style={{ padding: 0 }}>

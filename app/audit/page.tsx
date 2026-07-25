@@ -5,7 +5,7 @@ import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
 import { ENTITIES, type EntityRecord } from '@/lib/intake/entities';
-import { getRole } from '@/lib/domain/deal';
+import { isAdminUiAllowed } from '@/lib/auth-gate';
 import { parseAuditChanges, auditDomainOf, AUDIT_DOMAIN_OPTS } from '@/lib/domain/audit';
 import { Page, Btn, Badge, PillTabs, FilterChips, SearchInput, C, R, Loading, CenterNote, SectionLabel, FW, FS, NUM } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
@@ -85,7 +85,7 @@ export default function AuditTrash() {
     setLogs([...al].sort((a, b) => Number(b.at) - Number(a.at)));
     await loadTrash();
   };
-  useEffect(() => { (async () => { await seedIfEmpty(co); if (getRole() !== 'admin') { router.replace('/'); return; } await load(); setOk(true); })(); /* eslint-disable-next-line */ }, []);
+  useEffect(() => { (async () => { await seedIfEmpty(co); if (!isAdminUiAllowed()) { router.replace('/'); return; } await load(); setOk(true); })(); /* eslint-disable-next-line */ }, []);
 
   const shownLogs = useMemo(() => {
     const qq = q.trim().toLowerCase();

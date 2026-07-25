@@ -1,6 +1,7 @@
 'use client';
 import type { LucideIcon } from 'lucide-react';
-import { CountPill, C, Btn, FS, FW } from '@/components/ui';
+import { CountPill, C, Btn, FS, FW, ctrlH } from '@/components/ui';
+import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
 
 /**
@@ -36,6 +37,7 @@ export function PageToolBar({
   onClearHints?: () => void;
   clearLabel?: string;
 }) {
+  const mobile = useIsMobile();
   return (
     <div className="fp-page-toolbar is-page-tools">
       <div className="fp-page-tool-row">
@@ -72,7 +74,7 @@ export function PageToolBar({
               onClick={() => { haptic.select(); onClearHints(); }}
               style={{
                 flex: '0 0 auto', color: C.brand, fontSize: FS.sub, fontWeight: FW.head,
-                padding: '0 2px',
+                minHeight: ctrlH(mobile), padding: mobile ? '0 10px' : '0 6px',
               }}
             >
               {clearLabel}

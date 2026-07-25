@@ -8,6 +8,10 @@ import { useSyncExternalStore } from 'react';
 /** SSR 힌트 — 쿠키 fp_m / CH. null = 모름 → 데스크톱 가정. */
 const SsrMobileCtx = createContext<boolean | null>(null);
 
+/**
+ * 서버 힌트 + 클라이언트에서 실폭으로 보정.
+ * 탭 이동 시 자식이 리마운트돼도 컨텍스트가 null/데스크톱에 고정되지 않게 함.
+ */
 export function MobileBpProvider({
   ssrMobile,
   children,
@@ -15,7 +19,20 @@ export function MobileBpProvider({
   ssrMobile: boolean | null;
   children: ReactNode;
 }) {
-  return createElement(SsrMobileCtx.Provider, { value: ssrMobile }, children);
+  const [hint, setHint] = useState(ssrMobile);
+  useEffect(() => { setHint(ssrMobile); }, [ssrMobile]);
+  useEffect(() => {
+    const sync = () => setHint(window.innerWidth < MOBILE_BP);
+    sync();
+    const mq = window.matchMedia(`(max-width: ${MOBILE_BP - 1}px)`);
+    mq.addEventListener('change', sync);
+    window.addEventListener('resize', sync);
+    return () => {
+      mq.removeEventListener('change', sync);
+      window.removeEventListener('resize', sync);
+    };
+  }, []);
+  return createElement(SsrMobileCtx.Provider, { value: hint }, children);
 }
 
 export const MOBILE_BP = 760;
@@ -52,8 +69,10 @@ export function isMobileViewport(bp = MOBILE_BP): boolean {
 
 /**
  * 모바일 여부 — 웹·모바일 양립 스위치.
- * 마운트 전 = SSR 힌트만(서버·첫 클라 동일 → hydration 일치).
- * 마운트 후 = 실제 폭. 모바일 새로고침 웹격자 깜빡임은 MobileBoot pending이 막음.
+ * useSyncExternalStore만 사용(클라 즉시 실폭).
+ * ⚠ mounted 게이트 금지 — 탭(문의·계약·재고) 이동마다 리마운트 시
+ *   한 프레임 웹 격자(WorkPage)가 깜빡이던 원인.
+ * 첫 로드 FOUC는 html.fp-pending-m + MobileBoot가 담당.
  */
 export function useIsMobile(bp = MOBILE_BP): boolean {
   const ssrHint = useContext(SsrMobileCtx);
@@ -61,14 +80,11 @@ export function useIsMobile(bp = MOBILE_BP): boolean {
     () => (ssrHint != null ? ssrHint : false),
     [ssrHint],
   );
-  const live = useSyncExternalStore(
+  return useSyncExternalStore(
     subscribe,
     () => readWidthMobile(bp),
     getServer,
   );
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => { setMounted(true); }, []);
-  return mounted ? live : getServer();
 }
 
 /** 실제 폭과 훅이 맞을 때만 pending 해제 — 하이드레이션 직후 웹 칸 깜빡임 방지 */
@@ -80,12 +96,13 @@ export function MobileBoot() {
       document.documentElement.dataset.fpM = actual ? '1' : '0';
       document.cookie = `fp_m=${actual ? '1' : '0'};path=/;max-age=31536000;SameSite=Lax`;
     } catch { /* */ }
-    if (mobile !== actual) return;
-    // 페인트 한 프레임 뒤에 표시(아직 웹 DOM이면 한 프레임 더 숨김)
+    const clear = () => document.documentElement.classList.remove('fp-pending-m');
+    // tip을 실폭에 맞춘 뒤, 훅 일치 시 즉시 해제. 불일치 고착 방지용 failsafe.
     const id = requestAnimationFrame(() => {
-      document.documentElement.classList.remove('fp-pending-m');
+      if (mobile === actual) clear();
     });
-    return () => cancelAnimationFrame(id);
+    const t = window.setTimeout(clear, 320);
+    return () => { cancelAnimationFrame(id); window.clearTimeout(t); };
   }, [mobile]);
   return null;
 }

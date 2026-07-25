@@ -2,7 +2,7 @@
 import { useEffect, useState, type MouseEvent } from 'react';
 import { Star } from 'lucide-react';
 import { haptic } from '@/lib/haptics';
-import { C, R, IconBtn } from '@/components/ui';
+import { C, R, IconBtn, ctrlH } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { isFav, toggleFav, subscribeInterest, type InterestSnap } from '@/lib/product-interest';
 import type { EntityRecord } from '@/lib/intake/entities';
@@ -22,9 +22,10 @@ export function FavHeart({ p, size = 16, onPhoto = false, compact = false }: {
     return subscribeInterest(() => setOn(isFav(code)));
   }, [code]);
 
-  const h = compact
-    ? (mobile ? 28 : 24)
-    : onPhoto ? (mobile ? 34 : 30) : (mobile ? 40 : 32);
+  // 터치 ≥ ctrlH. compact/onPhoto도 모바일은 md(40) 유지(타깃 축소 금지).
+  const h = mobile
+    ? ctrlH(true)
+    : compact ? 24 : onPhoto ? 30 : 32;
   const click = (e: MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
