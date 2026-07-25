@@ -4,10 +4,12 @@ import type { Field, EntityRecord } from '@/lib/intake/entities';
 import { useIsMobile } from '@/lib/use-mobile';
 import { useAppBar } from '@/lib/appbar';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, ChevronLeft, List, Search, X } from 'lucide-react';
+import { ChevronDown, ChevronLeft, List } from 'lucide-react';
 import { haptic } from '@/lib/haptics';
+import { copyText } from '@/lib/clipboard';
 import { C, R, NUM, FS, FW, ctrlH, ctrlFs, ctrlInputFs, ctrlChipH } from './tokens';
-import { Badge, CountPill } from './badges';
+import { CountPill } from './badges';
+import { Btn } from './buttons';
 
 /* 공용 UI 키트 — 전 페이지가 이걸 써서 통일. 기업형: 각지게(저radius)·고밀도·색 절제. */
 // 토큰(C/R/NUM)=tokens.ts SSOT. 리프 분리: 접이식섹션=sec, 데이터표=table, 상태·라벨=badges, 카드원자=objcard. 여기서 배럴 재export.
@@ -20,6 +22,11 @@ export * from './objcard';
 export * from './detail';
 export * from './ContextMenu';
 export * from './feedrow';
+export * from './overlays';
+export * from './list';
+export * from './form-controls';
+export * from './buttons';
+export * from './layout';
 
 // 표준 하단바 — 이전|목록(좌) + 액션(우). 홈은 TopBar 메뉴로(하단 홈 버튼 없음).
 //
@@ -117,50 +124,6 @@ export { PageToolBar, type PageToolItem } from '../PageToolBar';
 export { PageActions, type PageActionSpec } from '../PageActions';
 export { BottomSheet, FilterSheet } from '../BottomSheet';
 
-
-// 패널 헤더 — CTRL.md 높이(웹32/모바일40).
-export function PaneHead({ title, count, right }: { title: React.ReactNode; count?: React.ReactNode; right?: React.ReactNode }) {
-  const mobile = useIsMobile();
-  const h = ctrlH(mobile);
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: h, flex: `0 0 ${h}px`, padding: mobile ? '0 16px' : '0 14px', borderBottom: `1px solid ${C.line}`, background: C.taupeBg, boxSizing: 'border-box' }}>
-      <span style={{ fontSize: mobile ? FS.title : FS.body, fontWeight: FW.title, color: C.ink, whiteSpace: 'nowrap', letterSpacing: mobile ? '-0.01em' : 0 }}>{title}</span>
-      {count != null && count !== '' && <span style={{ fontSize: mobile ? FS.sub : FS.cap, color: C.faint, fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{count}</span>}
-      {right != null && <><span style={{ flex: 1 }} />{right}</>}
-    </div>
-  );
-}
-
-export function CardGrid({ children }: { children: React.ReactNode }) {
-  return <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 14, marginTop: 18 }}>{children}</div>;
-}
-
-// 위·아래 분할 패널 — 드래그로 상하 비율 조정(계약패널 밑 첨부서류 등). storageKey로 비율 유지.
-export function VSplit({ top, bottom, initial = 0.6, storageKey }: { top: React.ReactNode; bottom: React.ReactNode; initial?: number; storageKey?: string }) {
-  const ref = React.useRef<HTMLDivElement | null>(null);
-  const [ratio, setRatio] = React.useState(initial);
-  const dragging = React.useRef(false);
-  React.useEffect(() => { if (!storageKey || typeof window === 'undefined') return; const s = localStorage.getItem(storageKey); const n = s ? Number(s) : NaN; if (n > 0.1 && n < 0.9) setRatio(n); }, [storageKey]);
-  React.useEffect(() => {
-    const move = (cy: number) => { if (!dragging.current || !ref.current) return; const r = ref.current.getBoundingClientRect(); setRatio(Math.min(0.85, Math.max(0.15, (cy - r.top) / r.height))); };
-    const mm = (e: MouseEvent) => move(e.clientY);
-    const tm = (e: TouchEvent) => { if (e.touches[0]) move(e.touches[0].clientY); };
-    const up = () => { if (dragging.current && storageKey) localStorage.setItem(storageKey, String(ratio)); dragging.current = false; };
-    window.addEventListener('mousemove', mm); window.addEventListener('mouseup', up); window.addEventListener('touchmove', tm); window.addEventListener('touchend', up);
-    return () => { window.removeEventListener('mousemove', mm); window.removeEventListener('mouseup', up); window.removeEventListener('touchmove', tm); window.removeEventListener('touchend', up); };
-  }, [ratio, storageKey]);
-  const start = (e: React.SyntheticEvent) => { dragging.current = true; e.preventDefault(); };
-  const pane = (f: number): React.CSSProperties => ({ flex: `${f} 1 0`, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' });
-  return (
-    <div ref={ref} style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-      <div style={pane(ratio)}>{top}</div>
-      <div onMouseDown={start} onTouchStart={start} style={{ flex: '0 0 9px', height: 9, cursor: 'row-resize', background: C.head, borderTop: `1px solid ${C.line}`, borderBottom: `1px solid ${C.line}`, display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'none' }}>
-        <div style={{ width: 34, height: 3, borderRadius: 999, background: C.line2 }} />
-      </div>
-      <div style={pane(1 - ratio)}>{bottom}</div>
-    </div>
-  );
-}
 
 // PillTabs — 원자(유닛)화된 탭 그룹. 각 탭은 독립 버튼: 공간 넓으면 한 줄, 좁으면 줄바꿈에 유연 대응.
 // 뷰 전환용 표준(렌즈 탭 등). 활성=brand 채움 / 비활성=흰 배경.
@@ -333,102 +296,6 @@ export function CenterNote({ children, minHeight = '100%' }: { children: React.R
   return <div style={{ minHeight, flex: 1, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.faint, fontSize: FS.body, textAlign: 'center', padding: '40px 16px', boxSizing: 'border-box' }}>{children}</div>;
 }
 
-/* ── 낱개 입력 원자(SSOT). FormGrid=스키마폼용 / 이건 툴바·필터의 단일 select·input. 손롤 <select>/<input> 금지. ── */
-export function Select({ value, onChange, options, groups, placeholder, size = 'md', width, full, disabled, style }: {
-  value: string; onChange: (v: string) => void;
-  options?: (string | { value: string; label: string })[];
-  groups?: { label: string; options: (string | { value: string; label: string })[] }[];
-  placeholder?: string; size?: 'sm' | 'md'; width?: number; full?: boolean; disabled?: boolean;
-  style?: React.CSSProperties;
-}) {
-  const mobile = useIsMobile();
-  const optNode = (o: string | { value: string; label: string }) => {
-    const v = typeof o === 'string' ? o : o.value;
-    const l = typeof o === 'string' ? o : o.label;
-    return <option key={v} value={v}>{l}</option>;
-  };
-  // 모바일 패딩=입력과 동일(14). full/고정폭 아니면 현재 표시 글자에 맞춤(긴 옵션 폭 금지).
-  return (
-    <select value={value} onChange={(e) => onChange(e.target.value)} disabled={disabled}
-      style={{
-        height: ctrlH(mobile, size), boxSizing: 'border-box',
-        padding: mobile ? '0 14px' : '0 8px',
-        border: `1px solid ${C.line}`, borderRadius: R,
-        fontSize: ctrlInputFs(mobile, size), background: C.taupeBg, color: C.ink,
-        cursor: disabled ? 'default' : 'pointer',
-        ...(full ? { width: '100%' } : width ? { width } : { width: 'max-content', maxWidth: '100%', fieldSizing: 'content' as const }),
-        ...style,
-      }}>
-      {placeholder != null && <option value="">{placeholder}</option>}
-      {groups
-        ? groups.map((g) => <optgroup key={g.label} label={g.label}>{g.options.map(optNode)}</optgroup>)
-        : (options || []).map(optNode)}
-    </select>
-  );
-}
-export function Input({ value, onChange, placeholder, size = 'md', type = 'text', inputMode, width, full, style, onEnter, onKeyDown, autoFocus, disabled }: { value: string; onChange: (v: string) => void; placeholder?: string; size?: 'sm' | 'md'; type?: string; inputMode?: 'text' | 'search' | 'numeric' | 'tel' | 'email' | 'url' | 'decimal'; width?: number; full?: boolean; style?: React.CSSProperties; onEnter?: () => void; onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void; autoFocus?: boolean; disabled?: boolean }) {
-  const mobile = useIsMobile();
-  return <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} type={type} inputMode={inputMode} autoFocus={autoFocus} disabled={disabled}
-    onKeyDown={(e) => { onKeyDown?.(e); if (onEnter && e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); onEnter(); } }}
-    style={{ height: ctrlH(mobile, size), boxSizing: 'border-box', padding: mobile ? '0 12px' : '0 10px', border: `1px solid ${C.line}`, borderRadius: R, fontSize: ctrlInputFs(mobile, size), background: disabled ? C.head : C.taupeBg, color: C.ink, opacity: disabled ? 0.7 : 1, cursor: disabled ? 'default' : undefined, ...(full ? { width: '100%' } : width ? { width } : {}), ...style }} />;
-}
-// 여러 줄 입력 SSOT — Input과 동일 규격(모바일 16px=iOS 포커스 확대 방지·테두리·배경 공유). 높이만 rows로.
-//  ※ textarea는 브라우저 기본이 고정폭 폰트 → fontFamily:'inherit' 필수(손롤이 놓쳐 투박해지는 지점).
-export function Textarea({ value, onChange, onBlur, placeholder, size = 'md', rows = 3, full, style, disabled, autoFocus }: { value: string; onChange: (v: string) => void; onBlur?: () => void; placeholder?: string; size?: 'sm' | 'md'; rows?: number; full?: boolean; style?: React.CSSProperties; disabled?: boolean; autoFocus?: boolean }) {
-  const mobile = useIsMobile();
-  return <textarea value={value} onChange={(e) => onChange(e.target.value)} onBlur={onBlur} placeholder={placeholder} rows={rows} disabled={disabled} autoFocus={autoFocus}
-    style={{ boxSizing: 'border-box', padding: mobile ? '10px 12px' : '8px 10px', border: `1px solid ${C.line}`, borderRadius: R, fontSize: ctrlInputFs(mobile, size), lineHeight: 1.5, fontFamily: 'inherit', background: disabled ? C.head : C.taupeBg, color: C.ink, opacity: disabled ? 0.7 : 1, resize: 'vertical', ...(full ? { width: '100%' } : {}), ...style }} />;
-}
-// 검색창 SSOT — CTRL.md (웹32·모바일40). 입력폰트=ctrlInputFs(모바일 16=Btn·Select와 동일).
-export function SearchInput({ value, onChange, placeholder = '검색', width, full, style, autoFocus }: { value: string; onChange: (v: string) => void; placeholder?: string; width?: number; full?: boolean; style?: React.CSSProperties; autoFocus?: boolean }) {
-  const mobile = useIsMobile();
-  const [focus, setFocus] = React.useState(false);
-  const h = ctrlH(mobile);
-  const ref = React.useRef<HTMLInputElement>(null);
-  React.useEffect(() => {
-    if (!autoFocus) return;
-    const t = window.setTimeout(() => ref.current?.focus(), 60);
-    return () => window.clearTimeout(t);
-  }, [autoFocus]);
-  return (
-    <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', ...(full ? { flex: '1 1 auto', width: '100%' } : width ? { width } : {}), ...style }}>
-      <Search size={mobile ? 16 : 14} style={{ position: 'absolute', left: mobile ? 12 : 9, color: focus ? C.accent : C.faint, pointerEvents: 'none' }} />
-      <input ref={ref} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} inputMode="search" autoFocus={autoFocus}
-        onFocus={() => setFocus(true)} onBlur={() => setFocus(false)}
-        style={{ width: '100%', height: h, boxSizing: 'border-box', padding: mobile ? '0 40px 0 36px' : '0 28px 0 28px', border: `1px solid ${focus ? C.accent : C.line}`, borderRadius: R, fontSize: ctrlInputFs(mobile), background: C.taupeBg, color: C.ink, outline: 'none', boxShadow: focus ? '0 0 0 3px rgba(37,99,235,0.15)' : 'none', transition: 'border-color .12s, box-shadow .12s' }} />
-      {value && (
-        <button type="button" aria-label="지우기" onMouseDown={(e) => e.preventDefault()} onClick={() => onChange('')}
-          style={{ position: 'absolute', right: mobile ? 4 : 7, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: mobile ? 36 : 17, height: mobile ? 36 : 17, padding: 0, borderRadius: '50%', border: 'none', background: mobile ? 'transparent' : C.line2, color: C.mute, cursor: 'pointer' }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: mobile ? 22 : 17, height: mobile ? 22 : 17, borderRadius: '50%', background: C.line2 }}>
-            <X size={mobile ? 14 : 11} />
-          </span>
-        </button>
-      )}
-    </div>
-  );
-}
-
-/* PaneHead와 짝 — 스크롤 본문 껍데기. pad=업무상세 SSOT(12·14 + gap12 세로스택). */
-export function PaneBody({ children, pad = false }: { children: React.ReactNode; pad?: boolean }) {
-  return (
-    <div
-      className="fp-pane-scroll"
-      style={{
-        flex: 1, overflowY: 'auto', minHeight: 0,
-        ...(pad ? {
-          padding: '12px 14px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 12,
-          boxSizing: 'border-box',
-        } : {}),
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
 /* 다중선택 필터칩 — 높이·글자·가로패딩 = Btn/Select와 동일(모바일 40·16·18). */
 export function ToggleChips<T extends string>({ selected, onToggle, options, size = 'md' }: {
   selected: Set<T>; onToggle: (v: T) => void; options: { key: T; label: string; count?: number; disabled?: boolean }[]; size?: 'sm' | 'md';
@@ -543,90 +410,6 @@ export function FilterChips<T extends string>({ value, onChange, options }: { va
   );
 }
 
-export function Btn({ children, onClick, variant = 'solid', size = 'md', disabled, href, style, full, type = 'button', className, title, 'aria-label': ariaLabel, 'aria-pressed': ariaPressed, 'data-active': dataActive }: { children: React.ReactNode; onClick?: () => void; variant?: 'solid' | 'ghost' | 'danger' | 'bare'; size?: 'sm' | 'md'; disabled?: boolean; href?: string; style?: React.CSSProperties; full?: boolean; type?: 'button' | 'submit'; className?: string; title?: string; 'aria-label'?: string; 'aria-pressed'?: boolean; 'data-active'?: string }) {
-  const mobile = useIsMobile();
-  const h = ctrlH(mobile, size);
-  const fs = ctrlFs(mobile, size);
-  // bare = 시각은 CSS/부모가 담당(PageToolBar 등). 원자 시맨틱·fp-press만.
-  const bare = variant === 'bare';
-  // 모바일=가로 패딩 넉넉(좁은 버튼 금지). 높이는 ctrlH 유지.
-  const pad = mobile ? '0 18px' : (size === 'sm' ? '0 11px' : '0 14px');
-  const s: React.CSSProperties = bare ? {
-    cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1,
-    border: 'none', background: 'none', boxShadow: 'none', padding: 0, margin: 0,
-    borderRadius: 0, font: 'inherit', color: 'inherit',
-    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-    pointerEvents: disabled ? 'none' : 'auto',
-    ...(full ? { width: '100%' } : null),
-    ...style,
-  } : {
-    height: h, boxSizing: 'border-box', padding: pad, borderRadius: R,
-    fontWeight: FW.strong, fontSize: fs, letterSpacing: '-0.01em', lineHeight: 1,
-    cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1,
-    border: `1px solid ${disabled ? C.line : variant === 'solid' ? C.brand : variant === 'danger' ? 'var(--red-border)' : C.line}`,
-    background: variant === 'solid' ? (disabled ? C.line : C.brand) : C.taupeBg,
-    color: variant === 'solid' ? C.taupeBg : variant === 'danger' ? 'var(--red-text)' : C.ink,
-    boxShadow: disabled ? 'none' : variant === 'solid' ? '0 1px 2px rgba(15,23,42,0.14)' : '0 1px 2px rgba(15,23,42,0.05)',
-    textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, whiteSpace: 'nowrap',
-    transition: 'filter .12s ease, box-shadow .12s ease',
-    pointerEvents: disabled ? 'none' : 'auto',
-    ...(full ? { width: '100%' } : null),
-    ...style,
-  };
-  const cls = className ? `fp-press ${className}` : 'fp-press';
-  const a11y = {
-    ...(title ? { title } : null),
-    ...(ariaLabel ? { 'aria-label': ariaLabel } : null),
-    ...(ariaPressed != null ? { 'aria-pressed': ariaPressed } : null),
-    ...(dataActive != null ? { 'data-active': dataActive } : null),
-  };
-  return href
-    ? <a href={href} data-clickable="" onClick={onClick} className={cls} style={s} {...a11y}>{children}</a>
-    : <button type={type} onClick={onClick} disabled={disabled} className={cls} style={s} {...a11y}>{children}</button>;
-}
-
-/** 정사각 아이콘 버튼 — CTRL.md. style로 셸·특수 배치 1:1 오버라이드 가능. */
-export function IconBtn({ children, onClick, onPointerDown, title, active, disabled, style, className }: { children: React.ReactNode; onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void; onPointerDown?: (e: React.PointerEvent<HTMLButtonElement>) => void; title?: string; active?: boolean; disabled?: boolean; style?: React.CSSProperties; className?: string }) {
-  const mobile = useIsMobile();
-  const h = ctrlH(mobile);
-  return (
-    <button type="button" className={className ? `fp-press ${className}` : 'fp-press'} onClick={onClick} onPointerDown={onPointerDown} disabled={disabled} title={title} aria-label={title} aria-pressed={active || undefined}
-      style={{
-        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        height: h, width: h, boxSizing: 'border-box', padding: 0, borderRadius: R,
-        border: `1px solid ${active ? C.brand : C.line}`,
-        background: active ? C.brand : C.taupeBg, color: active ? C.taupeBg : C.mute,
-        cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1,
-        ...style,
-      }}>
-      {children}
-    </button>
-  );
-}
-
-/** 아이콘 세그먼트 — CTRL.md. */
-export function IconSeg<T extends string>({ value, onChange, options }: { value: T; onChange: (k: T) => void; options: { key: T; label: string; icon: React.ReactNode }[] }) {
-  const mobile = useIsMobile();
-  const h = ctrlH(mobile);
-  return (
-    <div style={{ display: 'flex', border: `1px solid ${C.line}`, borderRadius: R, overflow: 'hidden' }}>
-      {options.map((o, i) => {
-        const on = value === o.key;
-        return (
-          <button key={o.key} type="button" className="fp-press" onClick={() => onChange(o.key)} title={o.label} aria-label={o.label} aria-pressed={on}
-            style={{
-              height: h, width: h, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer', border: 'none', borderLeft: i ? `1px solid ${C.line}` : 'none',
-              background: on ? C.brand : C.taupeBg, color: on ? C.taupeBg : C.mute, padding: 0,
-            }}>
-            {o.icon}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
 export function won(n: unknown): string { const x = Number(n); return isNaN(x) ? '—' : x.toLocaleString(); }
 
 /* 공용 입력 폼 — 직접입력·상세수정 공용. 숫자=콤마 서식, 연락처=전화 자동서식(편한 입력). */
@@ -705,106 +488,13 @@ export function FormGrid({ fields, form, onChange, cols = 2, disabled }: { field
   );
 }
 
-/* 링크·선택형 리스트 행 — WorkPage 목록 SSOT. selected = C.selected. */
-/* 업무 목록행 = FeedListRow(ui/feedrow) + list-rows 도메인행. 이 2줄 ListRow는 보조/단순용. */
-export function ListRow({ badge, badgeTone = 'gray', main, sub, right, href, onClick, selected }: {
-  badge?: React.ReactNode; badgeTone?: 'gray' | 'green' | 'red' | 'amber' | 'blue';
-  main: React.ReactNode; sub?: React.ReactNode; right?: React.ReactNode;
-  href?: string; onClick?: () => void; selected?: boolean;
-}) {
-  const inner = (
-    <div onClick={onClick} style={{
-      display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px',
-      borderBottom: `1px solid ${C.line2}`, background: selected ? C.selected : 'transparent',
-      textDecoration: 'none', color: 'inherit', cursor: href || onClick ? 'pointer' : 'default',
-    }}>
-      {badge != null && <Badge tone={badgeTone}>{badge}</Badge>}
-      <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
-        <div style={{ fontSize: FS.body, fontWeight: FW.title, color: C.ink, minWidth: 0, overflow: 'hidden' }}>{main}</div>
-        {sub != null && <div style={{ fontSize: FS.cap, color: C.mute, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sub}</div>}
-      </div>
-      {right}
-    </div>
-  );
-  return href ? <a href={href} style={{ textDecoration: 'none', color: 'inherit' }}>{inner}</a> : inner;
-}
-export function ListBox({ children }: { children: React.ReactNode }) {
-  return <div style={{ marginTop: 10, border: `1px solid ${C.line}`, borderRadius: R, overflow: 'hidden', background: C.taupeBg }}>{children}</div>;
-}
-
-/* 공통 상세 드로어 — 모든 목록 상세가 이 하나 재사용. ↑↓ 이동 · URL 동기화 · ↗전체화면. */
-export function Drawer({ title, meta, onClose, children, footer, width = 560, onPrev, onNext, expandHref }: { title: React.ReactNode; meta?: React.ReactNode; onClose: () => void; children: React.ReactNode; footer?: React.ReactNode; width?: number; onPrev?: () => void; onNext?: () => void; expandHref?: string }) {
-  React.useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose();
-      else if (e.key === 'ArrowDown' && onNext) { e.preventDefault(); onNext(); }
-      else if (e.key === 'ArrowUp' && onPrev) { e.preventDefault(); onPrev(); }
-    }
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose, onPrev, onNext]);
-  const navBtn: React.CSSProperties = { border: `1px solid ${C.line}`, background: C.taupeBg, borderRadius: R, width: 40, height: 40, cursor: 'pointer', color: C.mute, fontSize: FS.body, lineHeight: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: 0 };
-  return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.32)', zIndex: 90, display: 'flex', justifyContent: 'flex-end' }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: width, height: '100vh', background: C.taupeBg, boxShadow: '-10px 0 32px rgba(0,0,0,0.16)', display: 'flex', flexDirection: 'column', borderLeft: `1px solid ${C.line}` }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 16px', borderBottom: `1px solid ${C.line}`, background: C.head }}>
-          <div style={{ minWidth: 0, display: 'flex', alignItems: 'baseline', gap: 8 }}>
-            <h2 style={{ fontSize: FS.title, fontWeight: FW.title, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</h2>
-            {meta && <span style={{ fontSize: FS.sub, color: C.mute }}>{meta}</span>}
-          </div>
-          <span style={{ flex: 1 }} />
-          {(onPrev || onNext) && <div style={{ display: 'flex', gap: 4 }} title="↑/↓ 이전·다음">
-            <button onClick={onPrev} disabled={!onPrev} style={navBtn}>↑</button>
-            <button onClick={onNext} disabled={!onNext} style={navBtn}>↓</button>
-          </div>}
-          {expandHref && <a href={expandHref} title="전체화면" style={{ ...navBtn, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>↗</a>}
-          <button onClick={onClose} style={{ ...navBtn, fontSize: 18, border: 'none', background: 'none' }}>×</button>
-        </div>
-        <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>{children}</div>
-        {footer && <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '11px 16px', borderTop: `1px solid ${C.line}`, background: C.bg, flexWrap: 'wrap' }}>{footer}</div>}
-      </div>
-    </div>
-  );
-}
-
-/* 중앙 모달 — 확인/경고/단일 액션용. */
-export function Modal({ title, meta, onClose, children, footer, width = 720 }: { title: React.ReactNode; meta?: React.ReactNode; onClose: () => void; children: React.ReactNode; footer?: React.ReactNode; width?: number }) {
-  const mobile = useIsMobile(); // 모바일=풀스크린 시트(중앙 카드 아님)
-  return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.4)', zIndex: 90, display: 'flex', alignItems: mobile ? 'stretch' : 'flex-start', justifyContent: 'center', padding: mobile ? 0 : '6vh 16px', overflowY: 'auto' }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: mobile ? '100%' : width, minHeight: mobile ? '100dvh' : undefined, background: C.taupeBg, borderRadius: mobile ? 0 : R, boxShadow: mobile ? 'none' : '0 16px 48px rgba(0,0,0,0.22)', overflow: 'hidden', border: mobile ? 'none' : `1px solid ${C.line}`, display: 'flex', flexDirection: 'column' }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, padding: '13px 18px', borderBottom: `1px solid ${C.line}`, background: C.head, position: mobile ? 'sticky' : undefined, top: 0, zIndex: 1 }}>
-          <h2 style={{ fontSize: FS.title, fontWeight: FW.title }}>{title}</h2>
-          {meta && <span style={{ fontSize: FS.sub, color: C.mute }}>{meta}</span>}
-          <span style={{ flex: 1 }} />
-          <button onClick={onClose} aria-label="닫기" style={{ border: 'none', background: 'none', fontSize: 19, cursor: 'pointer', color: C.faint, lineHeight: 1, padding: 10, margin: '-10px -8px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
-        </div>
-        <div style={{ padding: '16px 18px', flex: mobile ? 1 : undefined, overflowY: mobile ? 'auto' : undefined }}>{children}</div>
-        {footer && <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '12px 18px', borderTop: `1px solid ${C.line}`, background: C.bg, flexWrap: 'wrap', position: mobile ? 'sticky' : undefined, bottom: 0 }}>{footer}</div>}
-      </div>
-    </div>
-  );
-}
-
 /* 복사용 텍스트 블록 — 양식처럼 그대로 긁어 쓰는 내용. 눌러서 클립보드로.
  * 페이지에서 <pre>+손롤 버튼 조합 금지(규격). 복사 대상 문자열만 넘긴다. */
 export function CopyBlock({ text, label = '양식 복사' }: { text: string; label?: string }) {
   const mobile = useIsMobile();
   const [done, setDone] = React.useState(false);
   const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch {
-      // 비보안 컨텍스트·구브라우저 폴백
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      ta.style.position = 'fixed';
-      ta.style.opacity = '0';
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      ta.remove();
-    }
+    if (!await copyText(text)) return;
     haptic.success();
     setDone(true);
     window.setTimeout(() => setDone(false), 1600);

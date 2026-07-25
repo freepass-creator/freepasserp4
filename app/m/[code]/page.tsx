@@ -19,6 +19,7 @@ import { FINDER_RESET_LIMIT } from '@/lib/finder-session';
 import { useAppBar } from '@/lib/appbar';
 import { PageStatus } from '@/components/PageStatus';
 import { NAV_ICON } from '@/lib/tabbar';
+import { copyText } from '@/lib/clipboard';
 
 // 매물 상세(전체화면) = ProductDetail 원자 + 하단 액션바(이전·소통·손님공유·계약).
 export default function Detail() {
@@ -97,7 +98,7 @@ export default function Detail() {
     const a = actor(role);
     const url = guestShareUrl(p, a.code || a.uid);
     if (navigator.share) { navigator.share({ title: vehicleName(p), url }).catch(() => {}); return; }
-    navigator.clipboard?.writeText(url).then(() => toast('손님용 매물 링크 복사됨', 'ok'), () => prompt('링크', url));
+    void copyText(url).then((copied) => copied ? toast('손님용 매물 링크 복사됨', 'ok') : prompt('링크', url));
   };
   // 계약문의 = 현재 사용자 방 보장(영업자=자기 딜방 / 관리자=관리자↔공급사방) 후 /chat. 간단문의와 같은 방으로 이어짐. 진행·계약요청은 거기서(ContractPanel 5단계).
   const inquire = async () => {

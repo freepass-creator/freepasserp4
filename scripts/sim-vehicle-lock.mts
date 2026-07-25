@@ -29,6 +29,17 @@ import type { EntityRecord } from '../lib/intake/entities';
 const co = getCompanyId();
 const store = getStore();
 
+async function asRole<T>(role: 'agent' | 'provider', run: () => Promise<T>): Promise<T> {
+  const before = localStorage.getItem('fp4_role');
+  localStorage.setItem('fp4_role', role);
+  try {
+    return await run();
+  } finally {
+    if (before == null) localStorage.removeItem('fp4_role');
+    else localStorage.setItem('fp4_role', before);
+  }
+}
+
 let pass = 0, fail = 0;
 const check = (name: string, cond: boolean, got?: unknown) => {
   if (cond) { pass++; console.log(`  ✓ ${name}`); }
@@ -116,7 +127,7 @@ head('5. 선점자 본인의 후속 체크(입금확인)는 통과');
   const { pc, codes: [c1] } = await fixture(1);
   await applyStepCheck(await ct(c1), 'agent_balance_paid', 'yes');
   let threw = '';
-  try { await applyStepCheck(await ct(c1), 'provider_balance_confirmed', 'yes'); }
+  try { await asRole('provider', async () => applyStepCheck(await ct(c1), 'provider_balance_confirmed', 'yes')); }
   catch (e) { threw = (e as Error).message; }
   check('예외 없음', threw === '', threw);
   check('여전히 계약중', (await vehStatus(pc)) === '계약중', await vehStatus(pc));
@@ -128,7 +139,7 @@ head('6. 삭제보호 — 입금 전(서류 단계)에도 진행 계약이면 �
   const { pc, codes: [c1] } = await fixture(1);
   check('진행 없음 → 삭제 허용', (await blockingContractFor(pc)) === '');
   await applyStepCheck(await ct(c1), 'agent_delivery_inquiry', 'yes');
-  await applyStepCheck(await ct(c1), 'provider_delivery_response', '출고 가능');
+  await asRole('provider', async () => applyStepCheck(await ct(c1), 'provider_delivery_response', '출고 가능'));
   check('1단계 완료 → 삭제 차단', (await blockingContractFor(pc)) === c1, await blockingContractFor(pc));
   check('락은 아직 없음(문의만으론 잠금 안 함)', (await vehicleLockedBy(pc)).status === null);
 }
@@ -149,7 +160,7 @@ head('8. 수기 상태(상품화중) 보존 — 거절/취소가 강제 출고�
   const { pc, codes: [c1] } = await fixture(1, '상품화중');
   await applyStepCheck(await ct(c1), 'agent_delivery_inquiry', 'yes');
   check('문의 후에도 상품화중 유지', (await vehStatus(pc)) === '상품화중', await vehStatus(pc));
-  await applyStepCheck(await ct(c1), 'provider_delivery_response', '출고 불가'); // 거절
+  await asRole('provider', async () => applyStepCheck(await ct(c1), 'provider_delivery_response', '출고 불가')); // 거절
   check('거절 후에도 상품화중 유지', (await vehStatus(pc)) === '상품화중', await vehStatus(pc));
 }
 

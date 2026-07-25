@@ -11,12 +11,18 @@
 import { ref, get, query, orderByChild, equalTo, update as dbUpdate, type DataSnapshot } from 'firebase/database';
 import { getRtdb, getAuthClient } from './client';
 import { ENTITIES, type EntityRecord } from '../intake/entities';
-import { vehicleIdentity } from '@/lib/domain/product';
 import { withProviderNames } from '@/lib/domain/identity';
 import { currentActor } from '../session';
 import { getSession } from '../auth-session';
 import type { StoreAdapter, SaveResult } from '../store';
 import { buildAuditEntry, buildMasterSnapBulkEntry } from '@/lib/domain/audit';
+import { toV4Record } from './rtdb-records';
+import {
+  canSeeProductCost,
+  dedupeProductsByVehicle,
+  isExcludedProduct,
+  stripProductCost,
+} from './rtdb-products';
 
 type Rec = Record<string, any>;
 
@@ -36,69 +42,6 @@ const BRIDGE_FROM_V3 = new Set(['product', 'policy', 'partner', 'user', 'room', 
 
 // 카슝(구독차량 연동)만 카탈로그서 제외 — 연동 끊겨 현재 0대. 빌린카(RP021 자체매물)는 포함(erp3도 포함).
 //  ※ 과거엔 RP021(빌린카)까지 묶어 뺐으나 오분류였음 — 빌린카는 정상 공급사(자체매물). 카슝=PT-0024.
-const KASHUNG_PROVIDERS = new Set(['PT-0024']);
-const isKashungProduct = (r: Rec): boolean =>
-  KASHUNG_PROVIDERS.has(String(r.provider_company_code)) || KASHUNG_PROVIDERS.has(String(r.partner_code));
-
-// (노후 10년 제외 폐기 — 사용자 결정: 노후차 숨길 필요 없음. 있는 상품 다 노출·erp3 정합.)
-
-// 공급 원가(vehicle_price) = 마진 노출 필드. 영업자·손님에겐 read 단에서 가린다(관리자·공급사만 조회).
-//  ※ 수수료(price.*.fee)는 영업자 수익 판단 기준이라 유지. vin도 유지(식별자).
-//  RTDB는 필드단위 규칙이 안 되므로 앱 어댑터에서 차단 — 완전 격리는 v4/products_private 이관(부채) 후.
-// 원가(vehicle_price) 노출 판정 — admin=전체, provider=본인 소유 매물(provider_company_code===본인 회사)만, 그 외=차단.
-//  ★provider가 타사 매물 원가까지 받던 유출 차단 — 레코드별 소유 판정(currentActor가 아닌 세션의 company_code 사용).
-function seesProductCost(p?: EntityRecord): boolean {
-  const sess = getSession();
-  const role = sess?.role;
-  if (role === 'admin') return true;
-  if (role === 'provider') {
-    const own = String(sess?.company_code || sess?.code || '');
-    return !!own && String((p as Rec | undefined)?.provider_company_code || '') === own;
-  }
-  return false;
-}
-function stripProductCost(p: EntityRecord): EntityRecord {
-  if (p.vehicle_price == null) return p;
-  const out: Rec = { ...(p as Rec) };
-  delete out.vehicle_price;
-  return out as EntityRecord;
-}
-
-// v4 매물에서 제외할 것 = 카슝(구독연동, PT-0024, 현재 0대)만. 노후(10년)는 제외 안 함
-//  — 사용자 결정: 노후차 숨길 필요 없음(erp3도 미제외). erp3 재고규칙과 정합.
-const isExcludedProduct = (r: Rec): boolean => isKashungProduct(r);
-
-// 실물 유일신원(실번호판→VIN, product.vehicleIdentity SSOT) 기준 중복 제거 — v3 누적·v3∪v4 혼재로
-//  같은 차가 다른 product_code 로 두 번 들어오는 것 방지(카탈로그 대수 부풀림 차단).
-//  ※ 신원 불명(번호판 placeholder·VIN 없음)은 합치지 않고 각각 유지 — 미등록차 오합치기(과소집계) 방지.
-//  중복이면 product_code 있는 것 → 최신(updatedAt/created_at) 것 우선.
-function dedupeByVehicleIdentity(rows: EntityRecord[]): EntityRecord[] {
-  const ts = (p: Rec) => Number(p.updatedAt ?? p.updated_at ?? p.created_at ?? 0);
-  // 정보 충실도 — 같은 차 중복 시 "알맹이 있는" 레코드 우선(가격·정책·스펙·사진). 부실 중복이 앞서지 않게.
-  const rich = (p: Rec) => {
-    let s = 0;
-    const pr = p.price;
-    if (pr && typeof pr === 'object' && Object.keys(pr).length) s += 5; // 가격맵 있음 = 최우선
-    if (p.policy_code) s += 2;
-    if (p.maker || p.sub_model || p.model) s += 1;
-    if (p.year) s += 1;
-    if (p.photos || p.image_urls || p.images) s += 1;
-    return s;
-  };
-  const keep: EntityRecord[] = []; // 신원 불명 = 각각 유지
-  const byId = new Map<string, EntityRecord>();
-  for (const p of rows) {
-    const id = vehicleIdentity(p as Rec);
-    if (!id) { keep.push(p); continue; }
-    const prev = byId.get(id);
-    if (!prev) { byId.set(id, p); continue; }
-    const a = p as Rec, b = prev as Rec;
-    // 충실도 → product_code 유무 → 최신 순으로 우선
-    const score = (rich(a) - rich(b)) || (Number(!!a.product_code) - Number(!!b.product_code)) || (ts(a) - ts(b));
-    if (score > 0) byId.set(id, p);
-  }
-  return [...byId.values(), ...keep];
-}
 
 function naturalKey(entity: string, rec: Rec): string {
   const e = ENTITIES[entity];
@@ -111,86 +54,6 @@ function naturalKey(entity: string, rec: Rec): string {
 
 // v3 계약 첨부(customer_docs 중첩맵 + doc_attachments 배열) → v4 attachments 배열
 // 문자열 URL만 있는 경우 name=URL 로 들어가 목록이 링크 덤프·NaNKB 로 깨짐 → 정규화.
-function fileNameFromUrl(url: string): string {
-  try {
-    const bare = decodeURIComponent(String(url).split('?')[0] || '');
-    const o = bare.match(/\/o\/(.+)$/);
-    const path = o ? decodeURIComponent(o[1]) : bare;
-    const base = path.split('/').filter(Boolean).pop() || '';
-    if (base && !/^https?:$/i.test(base)) return base;
-  } catch { /* ignore */ }
-  return '첨부파일';
-}
-function looksLikeUrl(s: string): boolean {
-  return /^https?:\/\//i.test(s) || /firebasestorage\.googleapis/i.test(s);
-}
-function guessAttType(s: string): string {
-  if (/\.(jpe?g|png|gif|webp|bmp)(\?|$)/i.test(s)) return 'image/jpeg';
-  if (/\.pdf(\?|$)/i.test(s)) return 'application/pdf';
-  return '';
-}
-function normalizeAtt(raw: unknown): Rec | null {
-  if (raw == null) return null;
-  if (typeof raw === 'string') {
-    const url = raw.trim();
-    if (!url) return null;
-    return { url, name: fileNameFromUrl(url), size: 0, type: guessAttType(url), at: 0 };
-  }
-  if (typeof raw !== 'object') return null;
-  const d = raw as Rec;
-  if (d._deleted) return null;
-  let url = String(d.url || d.downloadURL || d.href || d.src || '').trim();
-  let name = String(d.name || d.file_name || d.filename || d.original_name || d.title || '').trim();
-  // v3: name 자리에 Storage URL만 넣고 url 필드가 비어 있는 경우
-  if (!url && looksLikeUrl(name)) url = name;
-  if (!name || looksLikeUrl(name)) name = url ? fileNameFromUrl(url) : '첨부파일';
-  const sizeNum = Number(d.size ?? d.bytes ?? d.file_size ?? d.byteSize);
-  const size = Number.isFinite(sizeNum) && sizeNum > 0 ? sizeNum : 0;
-  const type = String(d.type || d.contentType || d.mime || guessAttType(name) || guessAttType(url) || '');
-  const atNum = Number(d.at || d.created_at || d.uploaded_at || d.ts || d.time);
-  const at = Number.isFinite(atNum) && atNum > 0 ? atNum : 0;
-  return { ...d, url, name, size, type, at };
-}
-function attachmentsOf(rec: Rec): Rec[] {
-  const out: Rec[] = [];
-  const push = (raw: unknown) => { const n = normalizeAtt(raw); if (n) out.push(n); };
-  if (Array.isArray(rec.attachments)) {
-    for (const a of rec.attachments) push(a);
-    return out;
-  }
-  if (Array.isArray(rec.doc_attachments)) for (const a of rec.doc_attachments) push(a);
-  if (rec.customer_docs && typeof rec.customer_docs === 'object') {
-    for (const d of Object.values<any>(rec.customer_docs)) push(d);
-  }
-  return out;
-}
-
-// v3 레코드 → v4 레코드(엔티티별 재키잉·오분류 복구·조인 임베드). joinMap=policies(product) 또는 contracts(settlement).
-function toV4(entity: string, childKey: string, rec: Rec, co: string, joinMap?: Rec): EntityRecord {
-  const base: Rec = { ...rec, companyId: co };
-  switch (entity) {
-    case 'product': {
-      const code = rec.product_code || childKey;
-      const policy = rec._policy || (rec.policy_code && joinMap ? joinMap[rec.policy_code] : undefined);
-      // photo_link(Drive폴더·모던렌트카)는 scrapable — photo에 넣으면 /api/img 415 + 썸네일 영구 공백.
-      // photo_link는 ...base 로 유지 → useProductPhotos → /api/extract-photos 경로.
-      return {
-        ...base, _key: String(code), product_code: code, product_uid: rec.product_uid || childKey,
-        _policy: policy,
-        photos: rec.photos || rec.image_urls || rec.images || rec.doc_images,
-        photo: rec.photo || rec.image_url || (Array.isArray(rec.photos) ? rec.photos[0] : undefined),
-      } as EntityRecord;
-    }
-    case 'policy': { const c = rec.policy_code || childKey; return { ...base, _key: String(c), policy_code: c } as EntityRecord; }
-    case 'partner': { const c = rec.partner_code || childKey; return { ...base, _key: String(c), partner_code: c, name: rec.name || rec.partner_name || rec.company_name || c } as EntityRecord; }
-    case 'user': { const c = rec.uid || childKey; return { ...base, _key: String(c), uid: c, user_code: rec.user_code || c, agent_channel_code: rec.agent_channel_code || rec.company_code || '', name: rec.name || rec.email || '' } as EntityRecord; }
-    case 'contract': { const c = rec.contract_code || childKey; return { ...base, _key: String(c), contract_code: c, attachments: attachmentsOf(rec) } as EntityRecord; }
-    case 'room': return { ...base, _key: String(childKey), room_code: rec.room_code || childKey, car_number: rec.car_number || rec.vehicle_number || '', vehicle_name: rec.vehicle_name || [rec.maker, rec.model, rec.sub_model, rec.trim_name].filter(Boolean).join(' ') } as EntityRecord;
-    case 'settlement': { const c = rec.settlement_code || childKey; return { ...base, _key: String(c), settlement_code: c, contract_date: rec.contract_date || (joinMap && joinMap[rec.contract_code]?.contract_date) || '' } as EntityRecord; }
-    default: return { ...base, _key: String(rec._key || childKey) } as EntityRecord;
-  }
-}
-
 export class RtdbAdapter implements StoreAdapter {
   backend = 'rtdb(freepasserp3)';
   private db() { const d = getRtdb(); if (!d) throw new Error('RTDB 미연결'); return d; }
@@ -237,7 +100,7 @@ export class RtdbAdapter implements StoreAdapter {
     const pushVal = (val: Rec | null) => {
       if (!val) return;
       for (const [childKey, rec] of Object.entries<any>(val)) {
-        if (rec && typeof rec === 'object') out.push(toV4('room', childKey, rec, co));
+        if (rec && typeof rec === 'object') out.push(toV4Record('room', childKey, rec, co));
       }
     };
     const take = (snap: DataSnapshot | null) => { if (snap) pushVal(snap.val()); };
@@ -283,7 +146,7 @@ export class RtdbAdapter implements StoreAdapter {
     const out: EntityRecord[] = [];
     const take = (snap: DataSnapshot | null) => {
       const val = snap?.val() as Rec | null; if (!val) return;
-      for (const [k, rec] of Object.entries<any>(val)) if (rec && typeof rec === 'object') out.push(toV4('contract', k, rec, co));
+      for (const [k, rec] of Object.entries<any>(val)) if (rec && typeof rec === 'object') out.push(toV4Record('contract', k, rec, co));
     };
     try {
       if (role === 'admin') { take(await get(ref(db, node))); }
@@ -321,7 +184,7 @@ export class RtdbAdapter implements StoreAdapter {
     const out: EntityRecord[] = [];
     const take = (snap: DataSnapshot | null) => {
       const val = snap?.val() as Rec | null; if (!val) return;
-      for (const [k, rec] of Object.entries<any>(val)) if (rec && typeof rec === 'object') out.push(toV4('settlement', k, rec, co, joinMap));
+      for (const [k, rec] of Object.entries<any>(val)) if (rec && typeof rec === 'object') out.push(toV4Record('settlement', k, rec, co, joinMap));
     };
     try {
       if (role === 'admin') { take(await get(ref(db, node))); }
@@ -360,7 +223,7 @@ export class RtdbAdapter implements StoreAdapter {
     const out: EntityRecord[] = [];
     const take = (snap: DataSnapshot | null) => {
       const val = snap?.val() as Rec | null; if (!val) return;
-      for (const [k, rec] of Object.entries<any>(val)) if (rec && typeof rec === 'object') out.push(toV4('customer', k, rec, co));
+      for (const [k, rec] of Object.entries<any>(val)) if (rec && typeof rec === 'object') out.push(toV4Record('customer', k, rec, co));
     };
     try {
       if (role === 'admin') { take(await get(ref(db, node))); }
@@ -381,7 +244,7 @@ export class RtdbAdapter implements StoreAdapter {
     const node = NODE[entity] || entity;
     const val: Rec = (await get(ref(this.db(), overlay ? `${OVERLAY}/${node}` : node))).val() || {};
     const out: EntityRecord[] = [];
-    for (const [childKey, rec] of Object.entries<any>(val)) if (rec && typeof rec === 'object') out.push(toV4(entity, childKey, rec, co, joinMap));
+    for (const [childKey, rec] of Object.entries<any>(val)) if (rec && typeof rec === 'object') out.push(toV4Record(entity, childKey, rec, co, joinMap));
     return out;
   }
 
@@ -442,8 +305,8 @@ export class RtdbAdapter implements StoreAdapter {
     if (entity !== 'product') return rows;
     // erp3 소프트삭제 정합: status==='deleted' 도 제외(_deleted 불리언과 별개 마커 — 이걸 안 걸러 재고가 부풀었음)
     const live = rows.filter((r) => String((r as Rec).status) !== 'deleted');
-    const shown = dedupeByVehicleIdentity(live.filter((r) => !isExcludedProduct(r as Rec))); // 카슝(연동)·10년 제외 후 실물 신원 중복 제거
-    return shown.map((r) => (seesProductCost(r) ? r : stripProductCost(r))); // 원가는 관리자·본인소유 공급사만(레코드별 판정)
+    const shown = dedupeProductsByVehicle(live.filter((r) => !isExcludedProduct(r as Rec)));
+    return shown.map((r) => (canSeeProductCost(r) ? r : stripProductCost(r)));
   }
 
   /** 단일 방 메시지 — 전 방 roomIds 스캔 없이 roomId 1개만 v3∪v4 병합. */
@@ -478,7 +341,7 @@ export class RtdbAdapter implements StoreAdapter {
     if (!r || entity !== 'product') return r;
     if (String((r as Rec).status) === 'deleted') return null;
     if (isExcludedProduct(r as Rec)) return null;
-    return seesProductCost(r) ? r : stripProductCost(r);
+    return canSeeProductCost(r) ? r : stripProductCost(r);
   }
 
   async save(entity: string, co: string, records: EntityRecord[]): Promise<SaveResult> {

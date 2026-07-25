@@ -25,107 +25,112 @@
  */
 import { type EntityRecord } from '@/lib/intake/entities';
 import { classifyVehicleClass } from '@/lib/domain/vehicle-class';
+import {
+  FUEL_ALIAS,
+  fuelDisplay,
+  fuelEmbeddedCc,
+  makerDisplay,
+  normFuel,
+  parseYear,
+  yearDisplay,
+} from '@/lib/domain/vehicle-master-format';
+import {
+  appendSnapHistory,
+  captureRawVehicle,
+  pickSnapTrack,
+  SNAP_TRACK_KEYS,
+  SNAP_TRACK_LABEL,
+  snapFieldDiffs,
+  type RawVehicle,
+  type SnapHistoryEntry,
+  type SnapTrackKey,
+} from '@/lib/domain/vehicle-master-snapshot';
+import {
+  EMPTY_VEHICLE_FILTER,
+  masterMakerGroups,
+  masterModels,
+  masterSubs,
+  matchVehicleFilter,
+  vehicleFilterCount,
+} from '@/lib/domain/vehicle-master-filter';
+import {
+  collectVehicleSignals,
+  VEHICLE_SIGNAL_KEYS,
+  vehicleSignalBlob,
+  withRawVehicleSignals,
+} from '@/lib/domain/vehicle-master-signals';
+import {
+  isNoTrimLabel,
+  masterVariantLabel,
+  masterVariantOptionLabel,
+  realMasterTrims,
+  variantSeatsDiffer,
+} from '@/lib/domain/vehicle-master-options';
+import { resolveExactMasterPathEngine } from '@/lib/domain/vehicle-master-exact';
+import {
+  auditMasterFitEngine,
+  isMasterPath,
+  masterPathSet,
+  reconcileToMasterEngine,
+} from '@/lib/domain/vehicle-master-operations';
+import type {
+  ExactMasterPath,
+  MasterEntry,
+  MasterFitRow,
+  MasterVariant,
+  SnapResult,
+  VehicleFilter,
+} from '@/lib/domain/vehicle-master-types';
 
-export type MasterVariant = { label: string; fuel: string; displacement_l: number | null; turbo: boolean; drivetrain: string | null; seat: number | null; battery_kwh: number | null; trims: string[] };
-export type MasterEntry = { id: string; maker: string; model: string; sub_model: string; gen_code: string; origin: string; year_start: string; year_end: string; title?: string; variants: MasterVariant[]; trims?: string[] };
-export type SnapResult = { maker: string; model: string; sub_model: string; gen_code: string; year_start?: string; year_end?: string; variant?: string; trim_name?: string; fuel_type?: string; engine_cc?: string; seats?: string; drive_type?: string; year?: string; confidence: 'high' | 'medium' | 'low' };
-
-/**
- * 차종 규격화에 쓰는 수집 원자(신호) SSOT.
- * 시트·OCR·등록증·메모·옵션 등 들어오는 모든 단서를 모아 마스터 트리에 맞춘다.
- * 출력(손님·영업에 보이는 차종)은 마스터 노드만 — 이 목록으로 임의 재조합하지 않음.
- */
-export const VEHICLE_SIGNAL_KEYS = [
-  'maker', 'model', 'sub_model', 'variant', 'trim_name', 'catalog_id',
-  'vehicle_name', 'cert_car_name', 'type_number', 'engine_type',
-  'year', 'first_registration_date',
-  'fuel_type', 'engine_cc', 'seats', 'drive_type', 'transmission',
-  'vehicle_class', 'options', 'partner_memo', 'usage',
-  '_ocr_registration',
-] as const;
-export type VehicleSignalKey = (typeof VEHICLE_SIGNAL_KEYS)[number];
-
-/** 매물에 쌓인 신호 조각 — 빈값 제외. _raw_vehicle 원본 우선(재변환 시 틀린 스냅값 재사용 방지). */
-export function collectVehicleSignals(p: EntityRecord): string[] {
-  const base: EntityRecord = { ...p };
-  const raw = p._raw_vehicle;
-  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
-    for (const k of Object.keys(raw as object)) {
-      const v = String((raw as EntityRecord)[k] ?? '').trim();
-      if (v) base[k] = v;
-    }
-  }
-  const parts: string[] = [];
-  for (const k of VEHICLE_SIGNAL_KEYS) {
-    const v = base[k];
-    if (v == null || v === '') continue;
-    const s = String(v).trim();
-    if (s) parts.push(s);
-  }
-  return parts;
-}
-
-export function vehicleSignalBlob(p: EntityRecord): string {
-  return collectVehicleSignals(p).join(' ');
-}
-
-/**
- * 매칭 입력 레코드 — 원본(_raw_vehicle) 신원·스펙을 현재 칸에 덮어 재스냅.
- * OCR·등록증 등 원본에 없는 추가 수집칸은 유지.
- */
-export function withRawVehicleSignals(p: EntityRecord): EntityRecord {
-  const raw = p._raw_vehicle;
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return p;
-  const out: EntityRecord = { ...p };
-  for (const k of [
-    'maker', 'model', 'sub_model', 'variant', 'trim_name', 'year',
-    'fuel_type', 'engine_cc', 'seats', 'drive_type', 'vehicle_class',
-    'catalog_id', 'vehicle_name', 'cert_car_name',
-  ] as const) {
-    const v = String((raw as EntityRecord)[k] ?? '').trim();
-    if (v) out[k] = v;
-  }
-  return out;
-}
-
-/**
- * 마스터 파워트레인 라벨 = SSOT. 숫자로 재조합·.0 폴리시 금지.
- * 표기가 틀리면 vehicle-master.json 라벨을 고친다.
- */
-export function masterVariantLabel(v: Pick<MasterVariant, 'label'> | null | undefined): string {
-  return String(v?.label ?? '').trim();
-}
-
-/** 이 세대 파워트레인들이 인승으로 갈리는지 — 2종 이상일 때만 인승 표기·저장. */
-export function variantSeatsDiffer(variants: MasterVariant[] | null | undefined): boolean {
-  const seats = new Set<number>();
-  for (const v of variants || []) {
-    if (v.seat != null && v.seat > 0) seats.add(v.seat);
-  }
-  return seats.size > 1;
-}
-
-/** 픽커 옵션 라벨 — 인승은 세대 내 갈릴 때만. 구동은 라벨에 없을 때만 보강. */
-export function masterVariantOptionLabel(v: MasterVariant, variants: MasterVariant[]): string {
-  const base = masterVariantLabel(v);
-  const parts = [base];
-  if (variantSeatsDiffer(variants) && v.seat != null && v.seat > 0) parts.push(`${v.seat}인승`);
-  const drive = String(v.drivetrain || '').trim();
-  if (drive && !base.includes(drive)) parts.push(drive);
-  return parts.filter(Boolean).join(' · ');
-}
-
-/** 마스터 "(세부등급 없음)" 등 — 트림 미선택과 동일. 선택·저장 값으로 쓰지 않음. */
-export function isNoTrimLabel(raw: unknown): boolean {
-  const n = String(raw ?? '').trim().toLowerCase().replace(/\s+/g, '');
-  if (!n) return true;
-  return n === '(세부등급없음)' || n === '세부등급없음' || n === '없음' || n === '미선택' || n === '-' || n === '—';
-}
-
-/** 마스터에 실재하는 세부트림만(플레이스홀더 제외). */
-export function realMasterTrims(list: string[] | null | undefined): string[] {
-  return (list || []).filter((t) => !isNoTrimLabel(t));
-}
+export type {
+  ExactMasterPath,
+  MasterEntry,
+  MasterFitBucket,
+  MasterFitRow,
+  MasterVariant,
+  SnapResult,
+  VehicleFilter,
+} from '@/lib/domain/vehicle-master-types';
+export {
+  fuelDisplay,
+  fuelEmbeddedCc,
+  makerDisplay,
+  normFuel,
+  parseYear,
+  yearDisplay,
+} from '@/lib/domain/vehicle-master-format';
+export {
+  captureRawVehicle,
+  pickSnapTrack,
+  SNAP_TRACK_KEYS,
+  SNAP_TRACK_LABEL,
+  snapFieldDiffs,
+  type RawVehicle,
+  type SnapHistoryEntry,
+  type SnapTrackKey,
+} from '@/lib/domain/vehicle-master-snapshot';
+export {
+  EMPTY_VEHICLE_FILTER,
+  masterMakerGroups,
+  masterModels,
+  masterSubs,
+  matchVehicleFilter,
+  vehicleFilterCount,
+} from '@/lib/domain/vehicle-master-filter';
+export {
+  collectVehicleSignals,
+  VEHICLE_SIGNAL_KEYS,
+  vehicleSignalBlob,
+  withRawVehicleSignals,
+  type VehicleSignalKey,
+} from '@/lib/domain/vehicle-master-signals';
+export {
+  isNoTrimLabel,
+  masterVariantLabel,
+  masterVariantOptionLabel,
+  realMasterTrims,
+  variantSeatsDiffer,
+} from '@/lib/domain/vehicle-master-options';
 
 /**
  * 수집 영문 트림 → 마스터 한글 트림.
@@ -192,13 +197,6 @@ export function canonMasterTrim(raw: unknown, pool?: string[] | null): string {
   return byAlias || '';
 }
 
-/** 드롭다운·검증용 — 매물의 값이 마스터 트리에 실재하는 경로인지(임의 추정 없음). */
-export type ExactMasterPath = {
-  entry: MasterEntry;
-  variantIndex: number; // -1 = 파워트레인 미선택
-  trim: string;         // 실트림만. 세부등급 없음 세대는 ''
-};
-
 /**
  * 제조사·모델·세부모델(또는 catalog_id)·파워트레인 라벨·트림이
  * 마스터 JSON에 있는 그대로일 때만 경로 반환. 비슷함·추정 금지.
@@ -208,52 +206,11 @@ export function resolveExactMasterPath(
   entries: MasterEntry[],
   p: Partial<Pick<EntityRecord, 'maker' | 'model' | 'sub_model' | 'catalog_id' | 'variant' | 'trim_name'>> | EntityRecord,
 ): ExactMasterPath | null {
-  if (!entries.length) return null;
-  const cat = String(p.catalog_id ?? '').trim();
-  const maker = String(p.maker ?? '').trim();
-  const model = String(p.model ?? '').trim();
-  const sub = String(p.sub_model ?? '').trim();
-  // gen_code(catalog_id)만으로 find 금지 — RG3=ICE+EV, KA4=더뉴+기본 등 동코드 다수.
-  // 1) 제조사·모델·세부모델 완전일치 2) 동코드 후보를 신원으로 좁힘 3) 후보 1개일 때만 코드단독.
-  const eq = (a: unknown, b: string) => String(a ?? '').replace(/\s+/g, ' ').trim() === b;
-  let entry: MasterEntry | undefined;
-  if (maker && model && sub) {
-    entry = entries.find((e) => eq(e.maker, maker) && eq(e.model, model) && eq(e.sub_model, sub));
-  }
-  if (!entry && cat) {
-    let cands = entries.filter((e) => String(e.gen_code ?? '').trim() === cat);
-    if (maker) cands = cands.filter((e) => eq(e.maker, maker));
-    if (model) cands = cands.filter((e) => eq(e.model, model));
-    if (sub) {
-      const hit = cands.find((e) => eq(e.sub_model, sub));
-      if (hit) entry = hit;
-    }
-    if (!entry && cands.length === 1) entry = cands[0];
-  }
-  if (!entry) return null;
-  if (maker && !eq(entry.maker, maker)) return null;
-  if (model && !eq(entry.model, model)) return null;
-  if (sub && !eq(entry.sub_model, sub)) return null;
-
-  const wantVar = String(p.variant ?? '').trim();
-  let variantIndex = -1;
-  if (wantVar) {
-    variantIndex = (entry.variants || []).findIndex((v) => masterVariantLabel(v) === wantVar);
-    // 파워트레인 문구가 살짝 달라도(가솔린 2.5 vs 가솔린 2.5 2WD) 세대 경로까지 버리지 않음.
-    // 미일치면 vIdx=-1(미선택) — 픽커가 "없는 차"로 초기화하던 원인.
-  }
-  const wantTrimRaw = String(p.trim_name ?? '').trim();
-  const trimPool = realMasterTrims(
-    variantIndex >= 0
-      ? entry.variants[variantIndex]?.trims
-      : (entry.trims || entry.variants?.flatMap((v) => v.trims || []) || []),
-  );
-  // 영문 Premium 등 → 한글 프리미엄. 마스터 실트림이면 채택, 아니면 미선택(경로 유지).
-  const wantTrim = canonMasterTrim(wantTrimRaw, trimPool);
-  if (wantTrim && trimPool.includes(wantTrim)) {
-    return { entry, variantIndex, trim: wantTrim };
-  }
-  return { entry, variantIndex, trim: '' };
+  return resolveExactMasterPathEngine(entries, p, {
+    variantLabel: masterVariantLabel,
+    realTrims: realMasterTrims,
+    canonicalTrim: canonMasterTrim,
+  });
 }
 
 /** 구동 신호 정규화 — 전륜(FF)·4륜(AWD)·사륜 → 마스터 drivetrain 비교용 2WD|4WD. */
@@ -272,101 +229,7 @@ export function turboHint(p: EntityRecord, blob: string): boolean {
   );
 }
 
-/** 파인더 차종 필터(매물 집계 5단: 제조사→모델→세부모델→파워트레인→세부트림). */
-export type VehicleFilter = {
-  maker: string; model: string; sub_model: string; variant: string; trim_name: string;
-};
-export const EMPTY_VEHICLE_FILTER: VehicleFilter = {
-  maker: '', model: '', sub_model: '', variant: '', trim_name: '',
-};
-export function vehicleFilterCount(v: VehicleFilter): number {
-  return [v.maker, v.model, v.sub_model, v.variant, v.trim_name].filter(Boolean).length;
-}
-export function matchVehicleFilter(p: EntityRecord, v: VehicleFilter): boolean {
-  if (v.maker) {
-    const pm = makerDisplay(p.maker) || String(p.maker || '');
-    const vm = makerDisplay(v.maker) || v.maker;
-    if (pm !== vm && String(p.maker || '') !== v.maker) {
-      // 르노 국산 계열 표기 흔들림(르노코리아·르노삼성·르노) — 영문 Renault는 별도
-      const reno = (s: string) => /르노/.test(s);
-      if (!(reno(pm) && reno(vm))) return false;
-    }
-  }
-  if (v.model && String(p.model || '') !== v.model) return false;
-  if (v.sub_model && String(p.sub_model || '') !== v.sub_model) return false;
-  if (v.variant && String(p.variant || '') !== v.variant) return false;
-  if (v.trim_name && String(p.trim_name || '') !== v.trim_name) return false;
-  return true;
-}
-
-/** 마스터 제조사 그룹(국산 먼저). */
-export function masterMakerGroups(entries: MasterEntry[]): { origin: string; makers: string[] }[] {
-  const isDom = new Map<string, boolean>();
-  for (const e of entries) isDom.set(e.maker, (isDom.get(e.maker) || false) || e.origin === '국산');
-  const dom: string[] = [], imp: string[] = [];
-  for (const [m, d] of isDom) (d ? dom : imp).push(m);
-  dom.sort((a, b) => a.localeCompare(b, 'ko'));
-  imp.sort((a, b) => a.localeCompare(b, 'ko'));
-  return [{ origin: '국산', makers: dom }, { origin: '수입', makers: imp }];
-}
-export function masterModels(entries: MasterEntry[], maker: string): string[] {
-  if (!maker) return [];
-  return [...new Set(entries.filter((e) => e.maker === maker).map((e) => e.model))].sort((a, b) => a.localeCompare(b, 'ko'));
-}
-export function masterSubs(entries: MasterEntry[], maker: string, model: string): MasterEntry[] {
-  if (!maker || !model) return [];
-  return entries.filter((e) => e.maker === maker && e.model === model);
-}
-
 const norm = (s: unknown) => String(s ?? '').toLowerCase().replace(/\s+/g, '');
-// 학습 정규화 — 엔카/시트 표기를 매칭 가능 값으로. 실측(v3 522매물): 이 둘로 99%→100% 매칭.
-//  · 연식 "17년식"/"2017-03" → 2017 (매처가 Number()로 NaN 되던 구멍)
-//  · 연료 별칭 휘발유=가솔린·경유=디젤·엘피지=lpg 등
-export function parseYear(y: unknown): number { const m = /(\d{2,4})/.exec(String(y ?? '')); if (!m) return 0; const n = Number(m[1]); return n > 1900 ? n : n < 50 ? 2000 + n : 1900 + n; }
-/** 연식 표시 SSOT — 두 자리+년(24년). "24년식"·"2017-03" → 24년·17년. */
-export function yearDisplay(raw: unknown): string {
-  const n = parseYear(raw);
-  if (n <= 0) return '';
-  return `${String(n % 100).padStart(2, '0')}년`;
-}
-const FUEL_ALIAS: Record<string, string> = { 휘발유: '가솔린', 가솔린: '가솔린', 경유: '디젤', 디젤: '디젤', 엘피지: 'lpg', lpg: 'lpg', 하이브리드: '하이브리드', hev: '하이브리드', 전기: '전기', ev: '전기', 수소: '수소' };
-// 부분일치까지 — "가솔린2.0"·"HEV1.6"·"LPG 2.0" 처럼 연료 뒤에 배기량 붙는 실표기 흡수.
-export const normFuel = (f: unknown) => { const n = norm(f); if (FUEL_ALIAS[n]) return FUEL_ALIAS[n]; for (const k of Object.keys(FUEL_ALIAS)) if (n.includes(k)) return FUEL_ALIAS[k]; return n; };
-
-/** 연료 표시 SSOT — "가솔린1.0"·"LPG3.0" → 가솔린·LPG. 배기량은 engine_cc. */
-export function fuelDisplay(raw: unknown): string {
-  const n = normFuel(raw);
-  if (!n || n === '-') return '';
-  if (n === 'lpg') return 'LPG';
-  if (n === '가솔린' || n === '디젤' || n === '하이브리드' || n === '전기' || n === '수소') return n;
-  return '';
-}
-
-/**
- * 제조사 표시 SSOT — 법인 접미사 제거.
- * 르노코리아→르노, KG모빌리티→KG, 케이지모빌리티→케이지.
- */
-export function makerDisplay(raw: unknown): string {
-  const src = String(raw || '').trim();
-  if (!src) return '';
-  let s = src
-    .replace(/코리아/gi, '')
-    .replace(/모빌리티/gi, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-  if (/^kgm?$/i.test(s)) s = 'KG';
-  return s || src;
-}
-
-/** 연료칸에 붙은 배기 추출 — "가솔린1.6"→1600, "LPG3.0"→3000. 이미 cc(≥100)면 그대로. */
-export function fuelEmbeddedCc(raw: unknown): number {
-  if (!fuelDisplay(raw)) return 0;
-  const m = /(\d+(?:\.\d+)?)/.exec(String(raw ?? '').replace(/,/g, ''));
-  if (!m) return 0;
-  const n = Number(m[1]);
-  if (!Number.isFinite(n) || n <= 0) return 0;
-  return n >= 100 ? Math.round(n) : Math.round(n * 1000);
-}
 // 제조사 그룹 별칭 — 구데이터 오라벨(제네시스 G90/GV60이 '현대'로) + 표기흔들림(르노삼성=르노코리아=르노(삼성)) 흡수.
 //   같은 그룹은 제조사 풀을 공유 → 모델 하드락이 G90을 제네시스에서 찾아 잠금(모델이 최종 판별하므로 안전).
 const MAKER_GROUPS: string[][] = [
@@ -895,39 +758,6 @@ export function snapToMaster(p: EntityRecord, entries: MasterEntry[]): SnapResul
   };
 }
 
-/** 차종 변환 추적 필드 — 원본(_raw_vehicle)·이력·감사 diff 공용. */
-export const SNAP_TRACK_KEYS = [
-  'maker', 'model', 'sub_model', 'variant', 'trim_name', 'year', 'fuel_type', 'engine_cc', 'seats', 'drive_type', 'vehicle_class',
-] as const;
-export type SnapTrackKey = (typeof SNAP_TRACK_KEYS)[number];
-export const SNAP_TRACK_LABEL: Record<SnapTrackKey, string> = {
-  maker: '제조사', model: '모델', sub_model: '세부모델', variant: '파워트레인', trim_name: '트림',
-  year: '연식', fuel_type: '연료', engine_cc: '배기량', seats: '인승', drive_type: '구동', vehicle_class: '차종분류',
-};
-export type RawVehicle = Partial<Record<SnapTrackKey, string>>;
-export type SnapHistoryEntry = {
-  at: number;
-  confidence: string;
-  source?: string;
-  from: RawVehicle;
-  to: RawVehicle;
-};
-
-export function pickSnapTrack(rec: EntityRecord | RawVehicle): RawVehicle {
-  const o: RawVehicle = {};
-  for (const k of SNAP_TRACK_KEYS) {
-    const v = String((rec as EntityRecord)[k] ?? '').trim();
-    if (v) o[k] = v;
-  }
-  return o;
-}
-
-/** 최초 공급/입력 원본 — 이미 있으면 유지, 없으면 현재값 스냅샷. */
-export function captureRawVehicle(rec: EntityRecord): RawVehicle {
-  if (rec._raw_vehicle && typeof rec._raw_vehicle === 'object') return rec._raw_vehicle as RawVehicle;
-  return pickSnapTrack(rec);
-}
-
 export function vehicleIdentityLine(p: EntityRecord | RawVehicle | null | undefined): string {
   if (!p) return '—';
   const parts = [p.maker, p.model, p.sub_model, p.variant]
@@ -936,38 +766,6 @@ export function vehicleIdentityLine(p: EntityRecord | RawVehicle | null | undefi
   const trim = String(p.trim_name || '').trim();
   if (trim && !isNoTrimLabel(trim)) parts.push(trim);
   return parts.join(' ') || '—';
-}
-
-/** 원본 vs 현재 — 바뀐 칸만. 재고·감사 표시용. */
-export function snapFieldDiffs(raw: RawVehicle | null | undefined, cur: EntityRecord): {
-  key: SnapTrackKey; label: string; from: string; to: string;
-}[] {
-  if (!raw) return [];
-  const out: { key: SnapTrackKey; label: string; from: string; to: string }[] = [];
-  for (const k of SNAP_TRACK_KEYS) {
-    const from = String(raw[k] ?? '').trim();
-    const to = String(cur[k] ?? '').trim();
-    if (from === to) continue;
-    if (!from && !to) continue;
-    out.push({ key: k, label: SNAP_TRACK_LABEL[k], from: from || '—', to: to || '—' });
-  }
-  return out;
-}
-
-function appendSnapHistory(rec: EntityRecord, from: RawVehicle, to: RawVehicle, confidence: string, source?: string): SnapHistoryEntry[] {
-  const changedFrom: RawVehicle = {};
-  const changedTo: RawVehicle = {};
-  for (const k of SNAP_TRACK_KEYS) {
-    const a = String(from[k] ?? '').trim();
-    const b = String(to[k] ?? '').trim();
-    if (a === b) continue;
-    if (a) changedFrom[k] = a;
-    if (b) changedTo[k] = b;
-  }
-  const prev = Array.isArray(rec._snap_history) ? (rec._snap_history as SnapHistoryEntry[]) : [];
-  if (!Object.keys(changedFrom).length && !Object.keys(changedTo).length) return prev.slice(-10);
-  const entry: SnapHistoryEntry = { at: Date.now(), confidence, source, from: changedFrom, to: changedTo };
-  return [...prev, entry].slice(-10);
 }
 
 /**
@@ -1020,49 +818,11 @@ export function reconcileToMaster(products: EntityRecord[], entries: MasterEntry
   patches: { key: string; patch: EntityRecord; confidence: SnapResult['confidence'] }[];
   matched: number; high: number; medium: number; low: number; unmatched: number;
 } {
-  const auto = (opts?.mode ?? 'auto') === 'auto';
-  const patches: { key: string; patch: EntityRecord; confidence: SnapResult['confidence'] }[] = [];
-  let high = 0, medium = 0, low = 0, unmatched = 0;
-  for (const p of products) {
-    const key = String(p._key ?? p.product_code ?? '');
-    if (!key) continue;
-    const res = snapToMaster(p, entries);
-    if (!res) { unmatched++; continue; }
-    if (res.confidence === 'high') high++;
-    else if (res.confidence === 'medium') medium++;
-    else { low++; if (auto) continue; }
-    const applied = applySnap(p, res, { source: 'reconcile' });
-    const patch: EntityRecord = {
-      maker: applied.maker, model: applied.model, sub_model: applied.sub_model, catalog_id: applied.catalog_id,
-      gen_year_start: applied.gen_year_start, gen_year_end: applied.gen_year_end,
-      variant: applied.variant, trim_name: applied.trim_name,
-      fuel_type: applied.fuel_type, engine_cc: applied.engine_cc, seats: applied.seats, drive_type: applied.drive_type,
-      year: applied.year,
-      vehicle_class: applied.vehicle_class, _snap_confidence: res.confidence,
-      _raw_vehicle: applied._raw_vehicle, _snapped: true,
-      _snap_at: applied._snap_at, _snap_history: applied._snap_history,
-    };
-    patches.push({ key, patch, confidence: res.confidence });
-  }
-  return { patches, matched: patches.length, high, medium, low, unmatched };
+  return reconcileToMasterEngine(products, entries, opts, snapToMaster, applySnap);
 }
 
-/** 규격 적합 = 마스터에 동일 제조사·모델·세부모델 경로가 실재. */
-export function isMasterPath(p: EntityRecord, pathSet: Set<string>): boolean {
-  const k = `${norm(p.maker)}|${norm(p.model)}|${norm(p.sub_model)}`;
-  return !!(norm(p.maker) && norm(p.model) && norm(p.sub_model) && pathSet.has(k));
-}
-export function masterPathSet(entries: MasterEntry[]): Set<string> {
-  const s = new Set<string>();
-  for (const e of entries) s.add(`${norm(e.maker)}|${norm(e.model)}|${norm(e.sub_model)}`);
-  return s;
-}
+export { isMasterPath, masterPathSet } from '@/lib/domain/vehicle-master-operations';
 
-export type MasterFitBucket = 'ok' | 'high' | 'medium' | 'low' | 'none' | 'no_signal';
-export type MasterFitRow = {
-  key: string; car: string; bucket: MasterFitBucket;
-  before: string; after?: string; year?: string; confidence?: SnapResult['confidence'];
-};
 /**
  * 전수 검수(쓰기 없음) — 수천대 변환 전 규모 파악.
  *  · ok = 이미 마스터 실경로(제조사·모델·세부)
@@ -1079,54 +839,5 @@ export function auditMasterFit(products: EntityRecord[], entries: MasterEntry[])
   needReview: number;
   samples: { low: MasterFitRow[]; none: MasterFitRow[]; no_signal: MasterFitRow[] };
 } {
-  const paths = masterPathSet(entries);
-  let ok = 0, high = 0, medium = 0, low = 0, none = 0, no_signal = 0;
-  const samples = { low: [] as MasterFitRow[], none: [] as MasterFitRow[], no_signal: [] as MasterFitRow[] };
-  const pushSample = (bucket: 'low' | 'none' | 'no_signal', row: MasterFitRow) => {
-    if (samples[bucket].length < 12) samples[bucket].push(row);
-  };
-
-  for (const p of products) {
-    const key = String(p._key ?? p.product_code ?? '');
-    const car = String(p.car_number || '').trim() || '(차번없음)';
-    const before = [p.maker, p.model, p.sub_model].map((x) => String(x || '').trim()).filter(Boolean).join(' ') || '(차종공란)';
-    const year = yearDisplay(p.year) || undefined;
-
-    if (isMasterPath(p, paths)) { ok++; continue; }
-
-    const maker = norm(p.maker), model = norm(p.model), sub = norm(p.sub_model);
-    if (!maker && !model && !sub) {
-      no_signal++;
-      pushSample('no_signal', { key, car, bucket: 'no_signal', before, year });
-      continue;
-    }
-    if (!model && !sub) {
-      no_signal++;
-      pushSample('no_signal', { key, car, bucket: 'no_signal', before, year });
-      continue;
-    }
-
-    const res = snapToMaster(p, entries);
-    if (!res) {
-      none++;
-      pushSample('none', { key, car, bucket: 'none', before, year });
-      continue;
-    }
-    const after = [res.maker, res.model, res.sub_model].join(' ');
-    if (res.confidence === 'high') high++;
-    else if (res.confidence === 'medium') medium++;
-    else {
-      low++;
-      pushSample('low', { key, car, bucket: 'low', before, after, year, confidence: res.confidence });
-    }
-  }
-
-  const total = products.length;
-  const offSpec = total - ok;
-  return {
-    total, ok, high, medium, low, none, no_signal, offSpec,
-    autoConvert: high + medium,
-    needReview: low + none + no_signal,
-    samples,
-  };
+  return auditMasterFitEngine(products, entries, snapToMaster);
 }

@@ -9,7 +9,7 @@ import { getRole, actor, type Role } from '@/lib/domain/deal';
 import { PaneHead, PaneBody, Btn, FormGrid, FormCard, C, Loading, CenterNote, Page, FilterChips, FilterGroup, Message, PageActions } from '@/components/ui';
 import { PolicyListRow } from '@/components/list-rows';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
-import { toast } from '@/components/Toaster';
+import { confirmDialog, toast } from '@/components/Toaster';
 import { matchPolicyQuery } from '@/lib/domain/search';
 import { haptic } from '@/lib/haptics';
 import { useIsMobile } from '@/lib/use-mobile';
@@ -167,7 +167,7 @@ export default function PolicyMgmt() {
         return;
       }
     }
-    if (typeof window !== 'undefined' && !window.confirm(`정책 「${form.policy_name || form.policy_code}」을(를) 삭제할까요?\n휴지통에서 복구할 수 있습니다.`)) return;
+    if (!await confirmDialog({ title: '정책 삭제', message: `정책 「${form.policy_name || form.policy_code}」을(를) 삭제할까요?\n휴지통에서 복구할 수 있습니다.`, danger: true, okLabel: '삭제' })) return;
     try {
       await getStore().remove('policy', co, String(form.policy_code), '정책관리 삭제');
     } catch (e) {

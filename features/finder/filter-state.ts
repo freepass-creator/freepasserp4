@@ -1,0 +1,90 @@
+import { EMPTY_VEHICLE_FILTER, type VehicleFilter } from '@/lib/domain/product-filters';
+import { FILTER_SS } from '@/lib/finder-session';
+
+export type InterestKey = 'recent' | 'fav';
+export type FilterBag = {
+  periods: Set<number>;
+  rent: Set<string>; dep: Set<string>; mile: Set<string>; fuel: Set<string>;
+  ptype: Set<string>; credit: Set<string>; perks: Set<string>; promo: Set<string>;
+  dyn: Record<string, Set<string>>;
+  vehicle: VehicleFilter;
+  models: Set<string>;
+  sort: string;
+  interest: Set<InterestKey>;
+};
+
+export type SavedFinderFilters = {
+  q: string;
+  periods: number[];
+  rent: string[]; dep: string[]; mile: string[]; fuel: string[];
+  ptype: string[]; credit: string[]; perks: string[]; promo: string[];
+  dyn: Record<string, string[]>;
+  vehicle: VehicleFilter;
+  models: string[];
+  sort: string;
+};
+
+export function emptyBag(): FilterBag {
+  return {
+    periods: new Set(), rent: new Set(), dep: new Set(), mile: new Set(), fuel: new Set(),
+    ptype: new Set(), credit: new Set(), perks: new Set(), promo: new Set(),
+    dyn: {}, vehicle: { ...EMPTY_VEHICLE_FILTER }, models: new Set(), sort: '', interest: new Set(),
+  };
+}
+
+export function cloneBag(bag: FilterBag): FilterBag {
+  const dyn: Record<string, Set<string>> = {};
+  for (const [key, values] of Object.entries(bag.dyn)) dyn[key] = new Set(values);
+  return {
+    periods: new Set(bag.periods), rent: new Set(bag.rent), dep: new Set(bag.dep),
+    mile: new Set(bag.mile), fuel: new Set(bag.fuel), ptype: new Set(bag.ptype),
+    credit: new Set(bag.credit), perks: new Set(bag.perks), promo: new Set(bag.promo),
+    dyn, vehicle: { ...EMPTY_VEHICLE_FILTER, ...bag.vehicle }, models: new Set(bag.models),
+    sort: bag.sort, interest: new Set(bag.interest),
+  };
+}
+
+function setKey(values: Iterable<unknown>): string {
+  return [...values].map(String).sort().join('\0');
+}
+
+export function sameBag(a: FilterBag, b: FilterBag): boolean {
+  if (a.sort !== b.sort || setKey(a.interest) !== setKey(b.interest)) return false;
+  const fields = ['periods', 'rent', 'dep', 'mile', 'fuel', 'ptype', 'credit', 'perks', 'promo', 'models'] as const;
+  if (fields.some((field) => setKey(a[field]) !== setKey(b[field]))) return false;
+  const dynA = Object.keys(a.dyn).filter((key) => a.dyn[key]?.size).sort();
+  const dynB = Object.keys(b.dyn).filter((key) => b.dyn[key]?.size).sort();
+  if (dynA.length !== dynB.length || dynA.some((key, index) => key !== dynB[index] || setKey(a.dyn[key] || []) !== setKey(b.dyn[key] || []))) return false;
+  return a.vehicle.maker === b.vehicle.maker
+    && a.vehicle.model === b.vehicle.model
+    && a.vehicle.sub_model === b.vehicle.sub_model
+    && a.vehicle.variant === b.vehicle.variant
+    && a.vehicle.trim_name === b.vehicle.trim_name;
+}
+
+export function readSavedFilters(): SavedFinderFilters | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = sessionStorage.getItem(FILTER_SS);
+    return raw ? JSON.parse(raw) as SavedFinderFilters : null;
+  } catch { return null; }
+}
+
+export function writeSavedFilters(filters: SavedFinderFilters): void {
+  if (typeof window === 'undefined') return;
+  try { sessionStorage.setItem(FILTER_SS, JSON.stringify(filters)); } catch { /* unavailable */ }
+}
+
+export function clearSavedFilters(): void {
+  if (typeof window === 'undefined') return;
+  try { sessionStorage.removeItem(FILTER_SS); } catch { /* unavailable */ }
+}
+
+export function setFromArr(values?: string[]): Set<string> {
+  return new Set(Array.isArray(values) ? values : []);
+}
+
+export function numOr(value: unknown, fallback: number): number {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+}

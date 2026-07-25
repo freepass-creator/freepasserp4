@@ -10,7 +10,7 @@ import { isAdminUiAllowed } from '@/lib/auth-gate';
 import { auditMasterFit, reconcileToMaster, type MasterEntry } from '@/lib/domain/vehicle-master-match';
 import { loadVehicleMaster } from '@/lib/domain/vehicle-master-load';
 import { checkInventory } from '@/lib/domain/data-check';
-import { toast } from '@/components/Toaster';
+import { confirmDialog, toast } from '@/components/Toaster';
 import { Page, Btn, C, R, Loading, CenterNote, SectionLabel, Badge, FS, NUM } from '@/components/ui';
 import { MasterFitSummary } from '@/components/MasterFitSummary';
 import { NAV_LABEL } from '@/lib/tabbar';
@@ -99,8 +99,7 @@ export default function DevTools() {
   // v3 라이브 매물 → v4 오버레이 1회 복사(소스 전환 준비). dryRun=미리보기(쓰기 없음).
   const runMigrate = async (dryRun: boolean) => {
     if (migBusy) return;
-    if (!dryRun && typeof window !== 'undefined'
-      && !window.confirm('v3 매물을 v4로 복사합니다.\n이미 v4에 있는 건 건너뛰고, v3 원본은 변경하지 않습니다.\n진행할까요?')) return;
+    if (!dryRun && !await confirmDialog({ title: 'V3 매물 이관', message: 'v3 매물을 v4로 복사합니다.\n이미 v4에 있는 건 건너뛰고, v3 원본은 변경하지 않습니다.\n진행할까요?', danger: true, okLabel: '이관 실행' })) return;
     setMigBusy(true); setMigLog('');
     try {
       const { migrateV3ProductsToV4 } = await import('@/lib/firebase/migrate-products');

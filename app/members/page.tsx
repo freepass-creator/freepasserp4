@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
-import { ENTITIES, ROLES, ROLE_LABEL_RAW, type EntityRecord, type Field } from '@/lib/intake/entities';
+import { ENTITIES, ROLE_LABEL_RAW, type EntityRecord, type Field } from '@/lib/intake/entities';
 import { isAdminUiAllowed } from '@/lib/auth-gate';
 import { approveUser, backfillPersonalAgentChannels, adminUpdateUserIdentity } from '@/lib/firebase/auth';
 import { readAllPartnersPrivate, readAllUsersPrivate, writePartnerPrivate } from '@/lib/domain/private-fields';
@@ -12,36 +12,24 @@ import { migrateSensitiveToPrivate } from '@/lib/firebase/migrate-private';
 import { newId } from '@/lib/domain/ids';
 import { PaneHead, PaneBody, Btn, Badge, FormGrid, FormCard, PillTabs, C, R, NUM, Loading, CenterNote, ListRow, ACTOR_TONE, FilterChips, FilterGroup, Message, PageActions, FW, FS } from '@/components/ui';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
-import { toast } from '@/components/Toaster';
-import { matchMemberQuery } from '@/lib/domain/search';
+import { confirmDialog, toast } from '@/components/Toaster';
 import { haptic } from '@/lib/haptics';
 import { useIsMobile } from '@/lib/use-mobile';
 import { NAV_LABEL } from '@/lib/tabbar';
+import {
+  MEMBER_ACTIVE_OPTIONS as MEM_ACTIVE,
+  MEMBER_PARTNER_TYPE_OPTIONS as MEM_PARTNER_TYPES,
+  MEMBER_ROLE_OPTIONS as MEM_ROLES,
+  MEMBER_SORT_OPTIONS as MEM_SORTS,
+  filterMembers,
+  pendingMemberCount,
+  type MemberActiveFilter as MemActive,
+  type MemberSort as MemSort,
+  type MemberTab as Tab,
+} from '@/features/members/member-filter';
+import { MembersList } from '@/features/members/MembersList';
 
 // 사용자·파트너 관리(관리자) — 역할·활성·영업지급율(user) / 유형·공급사수수료율(partner). 여기 율이 정산 R1/R2 SSOT.
-type Tab = 'user' | 'partner';
-type MemSort = 'name' | 'role' | 'code';
-type MemActive = 'all' | 'active' | 'inactive' | 'pending';
-const MEM_SORTS: { value: MemSort; label: string }[] = [
-  { value: 'name', label: '이름순' },
-  { value: 'role', label: '역할순' },
-  { value: 'code', label: '코드순' },
-];
-const MEM_ACTIVE: { key: MemActive; label: string }[] = [
-  { key: 'all', label: '전체' },
-  { key: 'active', label: '활성' },
-  { key: 'inactive', label: '비활성' },
-];
-// 역할 칩·라벨 = ROLES/ROLE_LABEL_RAW SSOT 파생(로컬 라벨 복붙 금지 — 화면마다 달라진다).
-const MEM_ROLES: { key: string; label: string }[] = [
-  { key: 'all', label: '전체' },
-  ...ROLES.map((r) => ({ key: r, label: ROLE_LABEL_RAW[r] })),
-];
-const MEM_PARTNER_TYPES: { key: string; label: string }[] = [
-  { key: 'all', label: '전체' },
-  { key: '공급사', label: '공급사' },
-  { key: '채널', label: '채널' },
-];
 const ROLE_LABEL: Record<string, string> = ROLE_LABEL_RAW;
 // status(가입승인)는 폼에서 제외 — v4 오버레이가 아니라 approveUser 로 "최상위"에 기록해야 게이트가 인식. 아래 승인 버튼 전용.
 const USER_KEYS = ['name', 'role', 'company_code', 'company_name', 'agent_channel_code', 'user_code', 'agent_payout_rate', 'is_team_manager', 'is_active'];
@@ -89,7 +77,7 @@ export default function Members() {
 
   const switchTab = async (t: Tab) => {
     if (t === tab) return;
-    if (dirty && typeof window !== 'undefined' && !window.confirm('수정 중인 내용이 있습니다. 저장하지 않고 이동할까요?')) return;
+    if (dirty && !await confirmDialog({ title: '수정 취소', message: '수정 중인 내용이 있습니다. 저장하지 않고 이동할까요?', danger: true, okLabel: '이동' })) return;
     setTab(t); setSel(null); setForm({}); setDirty(false); setCreating(false); setEditing(false); setQ('');
     setRoleFlt('all'); setActiveFlt('all'); setPtypeFlt('all'); setSort('');
     await load(t);
@@ -138,7 +126,7 @@ export default function Members() {
   };
   /** 민감정보(_private) 분리 마이그레이션 — 공급사 fee_rate·회원 email 을 private 노드로 복사(+실행 시 본노드 제거). dryRun 기본. */
   const doMigratePrivate = async (dry: boolean) => {
-    if (!dry && typeof window !== 'undefined' && !window.confirm('민감정보를 private 노드로 이관하고 본노드에서 제거합니다.\n규칙(database.rules.json)이 먼저 게시되어 있어야 합니다. 진행할까요?')) return;
+    if (!dry && !await confirmDialog({ title: '민감정보 이관', message: '민감정보를 private 노드로 이관하고 본노드에서 제거합니다.\n규칙(database.rules.json)이 먼저 게시되어 있어야 합니다. 진행할까요?', danger: true, okLabel: '이관 실행' })) return;
     try {
       haptic.select();
       const r = await migrateSensitiveToPrivate({ dryRun: dry });
@@ -211,7 +199,7 @@ export default function Members() {
     const key = String(form._key || form[id] || '');
     if (!key) return;
     const label = String(form.name || key);
-    if (typeof window !== 'undefined' && !window.confirm(`「${label}」을(를) 삭제할까요?\n휴지통에서 복구할 수 있습니다.`)) return;
+    if (!await confirmDialog({ title: '구성원 삭제', message: `「${label}」을(를) 삭제할까요?\n휴지통에서 복구할 수 있습니다.`, danger: true, okLabel: '삭제' })) return;
     try {
       await getStore().remove(tab, co, key, '회원·파트너 삭제');
     } catch (e) {
@@ -226,66 +214,22 @@ export default function Members() {
 
   if (ok === null) return <Loading />;
 
-  const shown = rows
-    .filter((r) => matchMemberQuery(r, q))
-    .filter((r) => {
-      if (tab === 'user') {
-        if (roleFlt !== 'all' && String(r.role || '') !== roleFlt) return false;
-        if (activeFlt === 'active' && r.is_active === '아니오') return false;
-        if (activeFlt === 'inactive' && r.is_active !== '아니오') return false;
-        // status(승인대기)는 is_active(운영 on/off)와 별개 필드 → 대기만 추리는 전용 필터
-        if (activeFlt === 'pending' && String(r.status || '') !== 'pending') return false;
-      } else if (ptypeFlt !== 'all' && String(r.partner_type || '') !== ptypeFlt) return false;
-      return true;
-    })
-    .slice()
-    .sort((a, b) => {
-      // 승인대기는 정렬과 무관하게 항상 최상단(관리자가 처리대상을 먼저 보게)
-      const ap = tab === 'user' && String(a.status || '') === 'pending' ? 0 : 1;
-      const bp = tab === 'user' && String(b.status || '') === 'pending' ? 0 : 1;
-      if (ap !== bp) return ap - bp;
-      if (!sort) return 0;
-      if (sort === 'code') {
-        const ak = tab === 'user' ? String(a.user_code || a.uid || '') : String(a.partner_code || '');
-        const bk = tab === 'user' ? String(b.user_code || b.uid || '') : String(b.partner_code || '');
-        return ak.localeCompare(bk, 'ko');
-      }
-      if (sort === 'role') {
-        const ak = tab === 'user' ? String(a.role || '') : String(a.partner_type || '');
-        const bk = tab === 'user' ? String(b.role || '') : String(b.partner_type || '');
-        return ak.localeCompare(bk, 'ko') || String(a.name || '').localeCompare(String(b.name || ''), 'ko');
-      }
-      return String(a.name || '').localeCompare(String(b.name || ''), 'ko');
-    });
+  const shown = filterMembers({
+    rows, tab, query: q, sort, role: roleFlt, active: activeFlt, partnerType: ptypeFlt,
+  });
   const listEl = (
-    <>
-      <div style={{ padding: '8px 10px', borderBottom: `1px solid ${C.line}`, background: C.head, flex: '0 0 auto' }}>
-        <PillTabs tabs={[{ key: 'user', label: '사용자' }, { key: 'partner', label: '파트너' }]} value={tab} onChange={switchTab} size="sm" />
-      </div>
-      {shown.length === 0
-        ? <CenterNote>{q || roleFlt !== 'all' || activeFlt !== 'all' || ptypeFlt !== 'all' ? '검색 결과 없음' : '없음 — 신규로 추가'}</CenterNote>
-        : <div>{shown.map((r) => {
-            const on = String(r._key) === sel;
-            const pending = tab === 'user' && String(r.status || '') === 'pending';
-            const sub = tab === 'user' ? `${ROLE_LABEL[String(r.role)] || String(r.role || '')} · ${r.is_active === '아니오' ? '비활성' : '활성'}` : `${String(r.partner_type || '')} · 수수료 ${r.fee_rate != null ? `${Math.round(Number(r.fee_rate) * 100)}%` : '기본'}`;
-            return (
-              <ListRow key={String(r._key)} selected={on} onClick={() => { haptic.tap(); select(r); }}
-                main={String(r.name || r.user_code || r.partner_code || '—')}
-                sub={sub}
-                // 승인 대기는 역할보다 먼저 보여야 한다 — 관리자가 목록에서 바로 찾도록.
-                right={tab === 'user'
-                  ? (pending
-                    ? <Badge tone="amber" variant="solid">승인대기</Badge>
-                    : <Badge tone={ACTOR_TONE[String(r.role)] || (String(r.role).startsWith('agent') ? 'blue' : 'gray')}>{ROLE_LABEL[String(r.role)] || ''}</Badge>)
-                  : undefined}
-              />
-            );
-          })}</div>}
-    </>
+    <MembersList
+      tab={tab}
+      rows={shown}
+      selected={sel}
+      filtered={!!(q || roleFlt !== 'all' || activeFlt !== 'all' || ptypeFlt !== 'all')}
+      onTab={(next) => { void switchTab(next); }}
+      onSelect={select}
+    />
   );
 
   // 승인대기 카운트 + 대기 전용 필터칩(관리자가 신규 가입 처리대상을 한눈에)
-  const pendingCount = tab === 'user' ? rows.filter((r) => String(r.status || '') === 'pending').length : 0;
+  const pendingCount = pendingMemberCount(rows, tab);
   const activeOptions: { key: MemActive; label: string }[] = tab === 'user'
     ? [...MEM_ACTIVE, { key: 'pending', label: pendingCount ? `승인대기 ${pendingCount}` : '승인대기' }]
     : MEM_ACTIVE;

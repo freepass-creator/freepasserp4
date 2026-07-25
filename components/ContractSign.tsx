@@ -8,6 +8,7 @@ import { createSignToken, approveSign, rejectSign } from '@/lib/domain/sign';
 import { readContractSign, signPublicToContract } from '@/lib/firebase/contract-sign-public';
 import { Btn, C, toneText, FW, FS } from '@/components/ui';
 import { toast } from '@/components/Toaster';
+import { copyText } from '@/lib/clipboard';
 
 // 계약서 서명 진행(계약 패널) — 발송 → 손님(/sign) → 검토대기 → 승인. 공개 슬롯(contract_sign) 상태 병합.
 export function ContractSign({ contractCode }: { contractCode: string }) {
@@ -48,7 +49,7 @@ export function ContractSign({ contractCode }: { contractCode: string }) {
     setBusy(true);
     try {
       const token = await createSignToken(c);
-      await navigator.clipboard?.writeText(`${location.origin}/sign/${token}`).catch(() => {});
+      await copyText(`${location.origin}/sign/${token}`);
       await load();
       toast('계약서 링크 복사됨 — 손님에게 전달하세요', 'ok');
     } catch (e) {
@@ -57,7 +58,10 @@ export function ContractSign({ contractCode }: { contractCode: string }) {
       setBusy(false);
     }
   };
-  const copy = async () => { await navigator.clipboard?.writeText(linkOf()).catch(() => {}); toast('링크 복사됨', 'ok'); };
+  const copy = async () => {
+    const copied = await copyText(linkOf());
+    toast(copied ? '링크 복사됨' : '클립보드 복사 실패', copied ? 'ok' : 'error');
+  };
   const approve = async () => { setBusy(true); try { await approveSign(c); await load(); toast('승인 — 계약 진행됨', 'ok'); } catch (e) { toast('승인 실패: ' + ((e as Error)?.message || ''), 'error'); } finally { setBusy(false); } };
   const reject = async () => {
     const reason = typeof window !== 'undefined' ? window.prompt('반려 사유(손님에게 표시 · 선택):', '') : '';

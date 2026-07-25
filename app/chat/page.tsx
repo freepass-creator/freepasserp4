@@ -8,7 +8,6 @@ import { type EntityRecord } from '@/lib/intake/entities';
 import { getRole, actor, type Role } from '@/lib/domain/deal';
 import { roomsWithUnread, unreadFor, unreadRoomCount } from '@/lib/domain/messaging';
 import { getProgress, isInquiryOnly } from '@/lib/domain/contract';
-import { vehicleName } from '@/lib/domain/product';
 import { withProviderNames } from '@/lib/domain/identity';
 import { PaneHead, Btn, C, Loading, CenterNote, PaneBody, FilterChips, FilterGroup, FS, FW, NUM } from '@/components/ui';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
@@ -16,25 +15,25 @@ import { ChatThread } from '@/components/ChatThread';
 import { ProductDetail } from '@/components/ProductDetail';
 import { ContractPanel } from '@/components/ContractPanel';
 import { ContractDocs } from '@/components/ContractDocs';
-import { matchRoomQuery } from '@/lib/domain/search';
 import { haptic } from '@/lib/haptics';
 import { ChatRoomRow } from '@/components/list-rows';
 import { NAV_LABEL } from '@/lib/tabbar';
-
-type ChatSort = 'unread' | 'name';
-type ChatFilter = '미확인' | '문의' | 'all' | '완료' | '취소';
-
-const CHAT_SORTS: { value: ChatSort; label: string }[] = [
-  { value: 'unread', label: '안읽음' },
-  { value: 'name', label: '차명순' },
-];
-const CHAT_FILTERS: { key: ChatFilter; label: string }[] = [
-  { key: '미확인', label: '미확인' },
-  { key: '문의', label: '문의' },
-  { key: 'all', label: '전체' },
-  { key: '완료', label: '완료' },
-  { key: '취소', label: '취소' },
-];
+import {
+  buildContractIndex,
+  buildProductLookup,
+  contractForRoom,
+  providerForRoom,
+  roomTitle as resolveRoomTitle,
+} from '@/features/chat/room-display';
+import {
+  CHAT_FILTERS,
+  CHAT_SORTS,
+  chatRoomPreviewCount,
+  filterChatRooms,
+  type ChatFilter,
+  type ChatSort,
+} from '@/features/chat/room-filter';
+import { ChatRoomList } from '@/features/chat/ChatRoomList';
 
 // 문의 = 단순 채팅 목록 | 채팅 | 상품상세 | 계약(진행 전환).
 //   계약진행으로 넘어간 방은 /contract. 웹=4열 / 모바일=채팅↔계약진행.
@@ -58,86 +57,17 @@ export default function Chat() {
   // 계약 인덱스 — `product_code|agent_code` → 계약. 현행 contracts.find 순서를 정확 재현:
   //  · '계약취소'는 후보에서 제외(find의 `c.contract_status !== '계약취소'`).
   //  · 같은 키에 비취소 계약이 여럿이면 배열에서 먼저 나온 것 우선(find가 먼저 만나는 원소).
-  const contractIndex = useMemo(() => {
-    const m = new Map<string, EntityRecord>();
-    for (const c of contracts) {
-      if (c.contract_status === '계약취소') continue;
-      const key = String(c.product_code) + '|' + String(c.agent_code);
-      if (!m.has(key)) m.set(key, c);
-    }
-    return m;
-  }, [contracts]);
+  const contractIndex = useMemo(() => buildContractIndex(contracts, false), [contracts]);
   // 취소 필터 전용 — 취소된 계약만(동일 키 first-wins). contractIndex와 분리(취소 제외 인덱스는 항상 빈결과였음).
-  const cancelledIndex = useMemo(() => {
-    const m = new Map<string, EntityRecord>();
-    for (const c of contracts) {
-      if (c.contract_status !== '계약취소') continue;
-      const key = String(c.product_code) + '|' + String(c.agent_code);
-      if (!m.has(key)) m.set(key, c);
-    }
-    return m;
-  }, [contracts]);
-  const contractOf = (rm: EntityRecord) => contractIndex.get(String(rm.product_code) + '|' + String(rm.agent_code));
-  const cancelledOf = (rm: EntityRecord) => cancelledIndex.get(String(rm.product_code) + '|' + String(rm.agent_code));
-  const productLookup = useMemo(() => {
-    const byId = new Map<string, EntityRecord>();   // product_code·_key 둘 다 색인 (v3 방은 product_uid=_key로 연결)
-    const byCar = new Map<string, EntityRecord>();
-    for (const p of products) {
-      const code = String(p.product_code || ''); const key = String(p._key || ''); const car = String(p.car_number || '');
-      if (code) byId.set(code, p);
-      if (key && !byId.has(key)) byId.set(key, p);
-      if (car) byCar.set(car, p);
-    }
-    return { byId, byCar };
-  }, [products]);
-  const deletedLookup = useMemo(() => {
-    const byId = new Map<string, EntityRecord>(); const byCar = new Map<string, EntityRecord>();
-    for (const p of deletedProducts) {
-      const code = String(p.product_code || ''); const key = String(p._key || ''); const car = String(p.car_number || '');
-      if (code) byId.set(code, p); if (key && !byId.has(key)) byId.set(key, p); if (car) byCar.set(car, p);
-    }
-    return { byId, byCar };
-  }, [deletedProducts]);
+  const cancelledIndex = useMemo(() => buildContractIndex(contracts, true), [contracts]);
+  const contractOf = (rm: EntityRecord) => contractForRoom(contractIndex, rm);
+  const cancelledOf = (rm: EntityRecord) => contractForRoom(cancelledIndex, rm);
+  const productLookup = useMemo(() => buildProductLookup(products), [products]);
+  const deletedLookup = useMemo(() => buildProductLookup(deletedProducts), [deletedProducts]);
   /** 방 제목 = 실차명 해석. v3 방은 product_uid(=매물 _key)·car_number로 연결. 방값→매물→계약스냅샷→차번 순. (표시만, 데이터 미변경) */
-  const roomTitle = (rm: EntityRecord): string => {
-    const vn = String(rm.vehicle_name || '').trim();
-    if (vn) return vn;
-    const car = String(rm.car_number || '').trim();
-    const p = productLookup.byId.get(String(rm.product_code))
-      || productLookup.byId.get(String(rm.product_uid))
-      || productLookup.byId.get(String(rm.product_id))
-      || (car ? productLookup.byCar.get(car) : undefined);
-    if (p) { const n = vehicleName(p); if (n) return n; }
-    // 계약 스냅샷 — resolveProduct 와 동일 관대함: agent 무관, 취소 계약까지 최종 폴백. 차명 없으면 계약의 차번(car_number_snapshot)이라도.
-    const pc = String(rm.product_code || '');
-    const c = pc ? (contractOf(rm)
-      || contracts.find((x) => String(x.product_code) === pc && String(x.contract_status || '') !== '계약취소')
-      || contracts.find((x) => String(x.product_code) === pc)) : undefined;
-    if (c) {
-      const snap = [c.maker_snapshot, c.sub_model_snapshot].filter(Boolean).join(' ').trim();
-      if (snap) return snap;
-      const csnapCar = String(c.car_number_snapshot || '').trim();
-      if (csnapCar) return csnapCar;
-    }
-    // 삭제된 매물(휴지통)에서라도 이름 복원
-    const dp = deletedLookup.byId.get(String(rm.product_code))
-      || deletedLookup.byId.get(String(rm.product_uid))
-      || deletedLookup.byId.get(String(rm.product_id))
-      || (car ? deletedLookup.byCar.get(car) : undefined);
-    if (dp) { const n = vehicleName(dp); if (n) return car ? `${n} (삭제)` : n; }
-    // 어디에도 정보 없음 — 매물이 삭제/제외돼 정보 유실. blank 대신 명시.
-    return car ? `${car} (삭제된 차량)` : '삭제된 차량';
-  };
+  const roomTitle = (rm: EntityRecord): string => resolveRoomTitle(rm, productLookup, deletedLookup, contracts, contractOf(rm));
   /** 매물 공급사 표기 — 관리자 응대용(이름 우선, 없으면 코드). */
-  const providerOf = (rm: EntityRecord): { code: string; name: string } => {
-    const code = String(rm.provider_company_code || '').trim();
-    const p = productLookup.byId.get(String(rm.product_code))
-      || productLookup.byId.get(String(rm.product_uid))
-      || productLookup.byId.get(String(rm.product_id))
-      || (String(rm.car_number || '') ? productLookup.byCar.get(String(rm.car_number)) : undefined);
-    const name = String(p?.provider_name || p?.provider_name_full || rm.provider_name || '').trim();
-    return { code, name: name || code };
-  };
+  const providerOf = (rm: EntityRecord) => providerForRoom(rm, productLookup);
   /** 목록 1줄 헤드 — 영업·공급=차명 / 관리자=차량번호. */
   const roomHead = (rm: EntityRecord): string => {
     if (role === 'admin') {
@@ -254,59 +184,29 @@ export default function Chat() {
 
   // 방목록 필터·정렬 — 실제 사용값(rooms·q·flt·sort·role·계약인덱스)이 바뀔 때만 재계산.
   //  contractOf는 contractIndex를 읽으므로 deps에 contractIndex 포함(값 의미는 원본 find와 동일).
-  const matchesFilter = (rm: EntityRecord, value: ChatFilter) => {
-    if (value === 'all') return true;
-    if (value === '취소') return !!cancelledOf(rm);
-    const c = contractOf(rm);
-    if (value === '완료') return String(c?.contract_status || '') === '계약완료';
-    if (value === '미확인') return isInquiryOnly(c) && unreadFor(rm, role) > 0;
-    if (value === '문의') return isInquiryOnly(c);
-    return true;
-  };
-  const shownRooms = useMemo(() => (rooms || [])
-    .filter((rm) => matchRoomQuery(rm, q))
-    .filter((rm) => matchesFilter(rm, flt))
-    .slice()
-    .sort((a, b) => {
-      if (!sort) return 0; // 기본 = load 최근순
-      if (sort === 'unread') return unreadFor(b, role) - unreadFor(a, role) || Number(b.last_message_at || 0) - Number(a.last_message_at || 0);
-      if (sort === 'name') return String(a.vehicle_name || '').localeCompare(String(b.vehicle_name || ''), 'ko');
-      return 0;
-    }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [rooms, q, flt, sort, role, contractIndex, cancelledIndex]);
-  const draftPreviewCount = (rooms || [])
-    .filter((rm) => matchRoomQuery(rm, q))
-    .filter((rm) => matchesFilter(rm, draftFlt))
-    .length;
-  const roomListEl = shownRooms.length === 0
-    ? (
-      <CenterNote>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-          <span>{q || flt !== '문의' ? '검색 결과 없음' : role === 'provider' ? '들어온 문의가 없습니다.' : role === 'admin' ? '처리할 문의가 없습니다.' : '채팅 중인 문의가 없습니다.'}</span>
-          {(q || flt !== '문의') ? (
-            <Btn size="sm" variant="ghost" onClick={() => { setQ(''); setFlt('문의'); }}>조건 해제</Btn>
-          ) : null}
-        </div>
-      </CenterNote>
-    )
-    : <div>{shownRooms.map((rm) => {
-        const counter = roomCounter(rm);
-        const pv = role === 'admin' ? providerOf(rm) : null;
-        return (
-          <ChatRoomRow
-            key={String(rm._key)}
-            room={rm}
-            displayName={roomHead(rm)}
-            providerSuffix={pv && (pv.name || pv.code) ? (pv.name || pv.code) : undefined}
-            stageContract={contractOf(rm)}
-            counter={counter}
-            unread={unreadFor(rm, role)}
-            selected={String(rm._key) === sel}
-            onClick={handleRoomClick}
-          />
-        );
-      })}</div>;
+  const shownRooms = useMemo(() => filterChatRooms({
+    rooms: rooms || [], query: q, filter: flt, sort, role, contractIndex, cancelledIndex,
+  }), [rooms, q, flt, sort, role, contractIndex, cancelledIndex]);
+  const draftPreviewCount = chatRoomPreviewCount({
+    rooms: rooms || [], query: q, filter: draftFlt, role, contractIndex, cancelledIndex,
+  });
+  const roomListEl = <ChatRoomList
+    rooms={shownRooms}
+    role={role}
+    selected={sel}
+    query={q}
+    filterActive={flt !== '문의'}
+    displayName={roomHead}
+    providerName={(room) => {
+      if (role !== 'admin') return undefined;
+      const provider = providerOf(room);
+      return provider.name || provider.code || undefined;
+    }}
+    contract={contractOf}
+    counter={roomCounter}
+    onSelect={handleRoomClick}
+    onReset={() => { setQ(''); setFlt('문의'); }}
+  />;
 
   const emptyPane = (t: string, msg: string) => <><PaneHead title={t} /><CenterNote>{msg}</CenterNote></>;
   const linked = selRoom?.linked_contract ? String(selRoom.linked_contract) : undefined;

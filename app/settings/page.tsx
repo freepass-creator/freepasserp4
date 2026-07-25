@@ -9,15 +9,17 @@ import { getRole, setRole, actor, ROLE_LABEL, type Role } from '@/lib/domain/dea
 import { setGuest, isGuest } from '@/lib/auth-session';
 import { haptic } from '@/lib/haptics';
 import { BRAND, VERSION } from '@/lib/brand';
-import { listHidden, unhideProduct, clearHidden, subscribeHidden, type HiddenSnap } from '@/lib/product-hide';
-import { listPassed, unpassProduct, clearPassed, subscribePassed, type PassSnap } from '@/lib/product-pass';
-import { listRecent, listFavs, clearRecent, clearFavs, subscribeInterest } from '@/lib/product-interest';
+import { listHidden, subscribeHidden, type HiddenSnap } from '@/lib/product-hide';
+import { listPassed, subscribePassed, type PassSnap } from '@/lib/product-pass';
+import { listRecent, listFavs, subscribeInterest } from '@/lib/product-interest';
 import {
   getThemePref, setThemePref, getHapticOn, setHapticOn, subscribePrefs,
   getIdleMinutes, setIdleMinutes, type ThemePref, applyTheme,
 } from '@/lib/prefs';
 import { toast } from '@/components/Toaster';
 import { NAV_LABEL } from '@/lib/tabbar';
+import { copyText } from '@/lib/clipboard';
+import { ProductPreferences } from '@/features/settings/ProductPreferences';
 
 /** 미로그인 데모 — 관리자 승격 금지(둘러보기·권한 구멍 차단). */
 const DEMO_ROLES: { key: Role; label: string }[] = [
@@ -181,13 +183,11 @@ export default function Settings() {
   const shareUrl = origin && shareCode ? `${origin}/catalog?a=${encodeURIComponent(shareCode)}` : '';
   const copyShare = async () => {
     if (!shareUrl) return;
-    try { await navigator.clipboard.writeText(shareUrl); haptic.select(); toast('공유 링크를 복사했습니다', 'ok'); }
-    catch { toast('복사 실패 — 링크를 길게 눌러 복사하세요', 'error'); }
+    if (await copyText(shareUrl)) {
+      haptic.select();
+      toast('공유 링크를 복사했습니다', 'ok');
+    } else toast('복사 실패 — 링크를 길게 눌러 복사하세요', 'error');
   };
-
-  const empty = (text: string) => (
-    <div style={{ padding: '10px 0 4px', fontSize: FS.body, color: C.faint, lineHeight: 1.45 }}>{text}</div>
-  );
 
   return (
     <Page title="설정">
@@ -277,89 +277,12 @@ export default function Settings() {
           </div>
         ) : null}
 
-        <div>
-          <SectionLabel mt={0}>
-            관심함{recentN + favN > 0 ? ` · ${recentN + favN}` : ''}
-          </SectionLabel>
-          <DetailGrid rows={[
-            ['최근 본', `${recentN}건`],
-            ['찜', `${favN}건`],
-          ]} />
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
-            <Btn size="sm" variant="ghost" disabled={recentN === 0} onClick={() => {
-              haptic.impact();
-              clearRecent();
-              toast('최근 본을 비웠습니다', 'info');
-            }}>최근 비우기</Btn>
-            <Btn size="sm" variant="ghost" disabled={favN === 0} onClick={() => {
-              haptic.impact();
-              clearFavs();
-              toast('찜을 비웠습니다', 'info');
-            }}>찜 비우기</Btn>
-          </div>
-        </div>
-
-        <div>
-          <SectionLabel mt={0}>
-            관심없음{passed.length > 0 ? ` · ${passed.length}` : ''}
-          </SectionLabel>
-          {passed.length === 0 ? empty('「관심없음」한 상품은 목록 맨 뒤로 보냅니다.') : (
-            <>
-              {passed.map((h) => (
-                <ListRow
-                  key={h.code}
-                  main={h.name || h.code}
-                  sub={h.plate ? <span style={{ fontFamily: NUM }}>{h.plate}</span> : undefined}
-                  right={(
-                    <Btn size="sm" variant="ghost" onClick={() => {
-                      haptic.select();
-                      unpassProduct(h.code);
-                      toast('다시 앞쪽에 표시합니다', 'ok');
-                    }}>앞으로</Btn>
-                  )}
-                />
-              ))}
-              <div style={{ paddingTop: 8 }}>
-                <Btn size="sm" variant="ghost" onClick={() => {
-                  haptic.impact();
-                  clearPassed();
-                  toast('관심없음을 모두 해제했습니다', 'info');
-                }}>전체 앞으로</Btn>
-              </div>
-            </>
-          )}
-        </div>
-
-        <div>
-          <SectionLabel mt={0}>
-            숨긴 상품{hidden.length > 0 ? ` · ${hidden.length}` : ''}
-          </SectionLabel>
-          {hidden.length === 0 ? empty('「숨기기」한 상품은 목록에서 빠집니다. 여기서 다시 볼 수 있어요.') : (
-            <>
-              {hidden.map((h) => (
-                <ListRow
-                  key={h.code}
-                  main={h.name || h.code}
-                  sub={h.plate ? <span style={{ fontFamily: NUM }}>{h.plate}</span> : undefined}
-                  right={(
-                    <Btn size="sm" variant="ghost" onClick={() => {
-                      haptic.select();
-                      unhideProduct(h.code);
-                      toast('다시 목록에 표시됩니다', 'ok');
-                    }}>보이기</Btn>
-                  )}
-                />
-              ))}
-              <div style={{ paddingTop: 8 }}>
-                <Btn size="sm" variant="ghost" onClick={() => {
-                  haptic.impact();
-                  clearHidden();
-                  toast('숨긴 상품을 모두 해제했습니다', 'info');
-                }}>전체 보이기</Btn>
-              </div>
-            </>
-          )}
-        </div>
+        <ProductPreferences
+          recentCount={recentN}
+          favoriteCount={favN}
+          passed={passed}
+          hidden={hidden}
+        />
 
         {demoRole ? (
           <div>

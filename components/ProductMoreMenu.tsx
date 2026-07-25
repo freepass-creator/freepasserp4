@@ -14,6 +14,7 @@ import { guestShareUrl } from '@/lib/domain/product-share';
 import { toast } from '@/components/Toaster';
 import { BottomSheet } from '@/components/BottomSheet';
 import type { EntityRecord } from '@/lib/intake/entities';
+import { copyText } from '@/lib/clipboard';
 
 /**
  * 상품 카드 ··· 메뉴 (웹·모바일 공통)
@@ -95,7 +96,7 @@ export function ProductMoreMenu({ p }: { p: EntityRecord }) {
           )}
           {item(
             '손님공유',
-            () => {
+            async () => {
               haptic.select();
               const a = actor(role);
               const url = guestShareUrl(p, a.code || a.uid);
@@ -103,10 +104,8 @@ export function ProductMoreMenu({ p }: { p: EntityRecord }) {
                 navigator.share({ title: vehicleName(p), url }).catch(() => {});
                 return;
               }
-              navigator.clipboard?.writeText(url).then(
-                () => toast('손님용 매물 링크 복사됨', 'ok'),
-                () => prompt('링크', url),
-              );
+              if (await copyText(url)) toast('손님용 매물 링크 복사됨', 'ok');
+              else prompt('링크', url);
             },
             { icon: <Share2 size={18} color={C.brand} /> },
           )}

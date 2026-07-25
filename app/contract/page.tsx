@@ -5,7 +5,7 @@ import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
 import { useIsMobile, isMobileViewport } from '@/lib/use-mobile';
 import { type EntityRecord } from '@/lib/intake/entities';
-import { getProgress, CONTRACT_STATES, isContractInProgress } from '@/lib/domain/contract';
+import { getProgress, isContractInProgress } from '@/lib/domain/contract';
 import { createSettlement } from '@/lib/domain/settlement-engine';
 import { downloadSettlementsExcel } from '@/lib/excel-export';
 import { Download } from 'lucide-react';
@@ -15,32 +15,21 @@ import { PaneHead, PaneBody, Badge, Btn, Input, won, C, R, NUM, Loading, CenterN
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
 import { ContractPanel } from '@/components/ContractPanel';
 import { ContractDocs } from '@/components/ContractDocs';
-import { matchContractQuery } from '@/lib/domain/search';
 import { haptic } from '@/lib/haptics';
 import { ContractListRow } from '@/components/list-rows';
 import { NAV_LABEL } from '@/lib/tabbar';
 import { toast } from '@/components/Toaster';
-
-type ContSort = 'date' | 'status' | 'progress' | 'name';
-type ContFilter = '진행' | 'all' | (typeof CONTRACT_STATES)[number];
-const CONT_SORTS: { value: ContSort; label: string }[] = [
-  { value: 'status', label: '상태순' },
-  { value: 'progress', label: '진행순' },
-  { value: 'name', label: '계약자순' },
-  { value: 'date', label: '최근순' },
-];
-const CONT_FILTERS: { key: ContFilter; label: string }[] = [
-  { key: '진행', label: '진행' },
-  { key: 'all', label: '전체' },
-  ...CONTRACT_STATES.map((s) => ({ key: s, label: s })),
-];
-
-const contractMonth = (c: EntityRecord) => String(c.contract_date || '').slice(0, 7);
-const labelMonth = (ym: string) => {
-  const [y, m] = ym.split('-');
-  if (!y || !m) return ym;
-  return `${y}년 ${Number(m)}월`;
-};
+import {
+  CONTRACT_FILTER_OPTIONS as CONT_FILTERS,
+  CONTRACT_SORT_OPTIONS as CONT_SORTS,
+  contractMonthLabel as labelMonth,
+  contractMonthOptions,
+  contractPreviewCount,
+  filterContracts,
+  type ContractFilter as ContFilter,
+  type ContractSort as ContSort,
+} from '@/features/contract/contract-filter';
+import { SettlementSummary } from '@/features/contract/SettlementSummary';
 
 // 계약 = [목록 | 계약진행상황 | 첨부서류 | 정산상태] 4프레임.
 // 진행상황은 문의(/chat) ContractPanel과 동일 SSOT. 발송·단계는 패널 안.
@@ -86,10 +75,7 @@ export default function ContractsSettlement() {
   /** 모바일 스왑 — 진행중=계약진행상황 · 계약완료=정산 */
   const [swapKey, setSwapKey] = useState('progress');
 
-  const monthOptions = useMemo(() => {
-    const ms = [...new Set((rows || []).map(contractMonth).filter((m) => /^\d{4}-\d{2}$/.test(m)))].sort().reverse();
-    return ms.map((m) => ({ value: m, label: labelMonth(m) }));
-  }, [rows]);
+  const monthOptions = useMemo(() => contractMonthOptions(rows || []), [rows]);
 
   const load = async (r: Role): Promise<EntityRecord[]> => {
     setRoleS(r);
@@ -174,37 +160,12 @@ export default function ContractsSettlement() {
     return () => window.removeEventListener('fp:work-list', on);
   }, []);
 
-  const matchesFilter = (c: EntityRecord, value: ContFilter) => {
-    // 기본「진행」= 진행중 + 계약완료(취소만 제외). 완료 건은 목록에 모아 두고 탭 시 정산으로.
-    if (value === '진행') {
-      const st = String(c.contract_status || '');
-      return !!st && st !== '계약취소';
-    }
-    if (value === 'all') return true;
-    return String(c.contract_status || '') === value;
-  };
-  const matchesMonth = (c: EntityRecord, ym: string) => !ym || contractMonth(c) === ym;
-  const shown = (rows || [])
-    .filter((c) => matchContractQuery(c, q))
-    .filter((c) => matchesFilter(c, flt))
-    .filter((c) => matchesMonth(c, monthFlt))
-    .slice()
-    .sort((a, b) => {
-      if (!sort) return 0;
-      if (sort === 'name') return String(a.customer_name || '').localeCompare(String(b.customer_name || ''), 'ko');
-      if (sort === 'progress') return getProgress(b).done - getProgress(a).done || String(b.contract_date || '').localeCompare(String(a.contract_date || ''));
-      if (sort === 'status') {
-        const ai = CONTRACT_STATES.indexOf(String(a.contract_status || '') as typeof CONTRACT_STATES[number]);
-        const bi = CONTRACT_STATES.indexOf(String(b.contract_status || '') as typeof CONTRACT_STATES[number]);
-        return (ai < 0 ? 99 : ai) - (bi < 0 ? 99 : bi);
-      }
-      return String(b.contract_date || '').localeCompare(String(a.contract_date || ''));
-    });
-  const draftPreviewCount = (rows || [])
-    .filter((c) => matchContractQuery(c, q))
-    .filter((c) => matchesFilter(c, draftFlt))
-    .filter((c) => matchesMonth(c, draftMonthFlt))
-    .length;
+  const shown = filterContracts({
+    contracts: rows || [], query: q, filter: flt, month: monthFlt, sort,
+  });
+  const draftPreviewCount = contractPreviewCount({
+    contracts: rows || [], query: q, filter: draftFlt, month: draftMonthFlt,
+  });
   const filterActive = (flt !== '진행' ? 1 : 0) + (monthFlt ? 1 : 0);
   const uiFlt = mobile ? draftFlt : flt;
   const uiMonth = mobile ? draftMonthFlt : monthFlt;
@@ -317,26 +278,7 @@ export default function ContractsSettlement() {
     { key: 'settle', title: '정산', node: <><PaneHead title="정산상태" /><PaneBody>{detailSettle()}</PaneBody></> },
   ];
 
-  const agg = (pred: (s: EntityRecord) => boolean, f: (s: EntityRecord) => unknown) => setts.filter(pred).reduce((n, s) => n + (Number(f(s)) || 0), 0);
-  // 요약 금액: 영업자는 본인 지급(agent_payout=R2), 그 외(공급사·관리자)는 공급사청구(fee_amount=R1).
-  //  영업자가 R1(≈2.5배)을 자기 정산으로 오인하던 것 교정.
-  const settleAmt = (s: EntityRecord) => (role === 'agent' ? s.agent_payout : s.fee_amount);
-  const cells: [string, number, string][] = [
-    ['대기', agg((s) => String(s.settlement_status) === '정산대기', settleAmt), C.warn],
-    ['완료', agg((s) => String(s.settlement_status) === '정산완료', settleAmt), C.ok],
-    ['환수', agg((s) => String(s.settlement_status).includes('환수'), (s) => s.clawback_amount), C.danger],
-    ...(role === 'admin' ? [['순수익', agg((s) => String(s.settlement_status) === '정산완료', (s) => s.net_amount), C.brand] as [string, number, string]] : []),
-  ];
-  const summaryBar = setts.length ? (
-    <div style={{ display: 'flex', borderBottom: `1px solid ${C.line}`, background: C.head, position: 'sticky', top: 0, zIndex: 2 }}>
-      {cells.map(([label, val, color], i) => (
-        <div key={label} style={{ flex: 1, padding: '7px 8px', borderLeft: i ? `1px solid ${C.line2}` : 'none', textAlign: 'center' }}>
-          <div style={{ fontSize: FS.micro, color: C.mute, fontWeight: FW.strong }}>{label}</div>
-          <div style={{ fontSize: FS.body, fontWeight: FW.head, color, fontFamily: NUM }}>{man(val)}</div>
-        </div>
-      ))}
-    </div>
-  ) : null;
+  const summaryBar = <SettlementSummary settlements={setts} role={role} />;
 
   return (
     <>

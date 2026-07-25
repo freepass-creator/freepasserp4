@@ -10,7 +10,7 @@ import { cheapest, priceList } from '@/lib/domain/product';
 import { Btn, Badge, C, R, NUM, Input, fmtPhone, actorColor, FW, FS } from '@/components/ui';
 import { ContractMemos } from '@/components/ContractMemos';
 import { ContractSign } from '@/components/ContractSign';
-import { toast } from '@/components/Toaster';
+import { confirmDialog, toast } from '@/components/Toaster';
 import { haptic } from '@/lib/haptics';
 
 // 계약 패널 = 5단계 핸드셰이크 진행. 계약 없으면 계약문의로 시작 → 서류·입금·약정·출고.
@@ -69,7 +69,7 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
   // 계약취소 — 어느 단계든(진행중·완료). 재고 출고가능 복원 + 완료건이면 환수. 영업자·관리자만.
   const doCancel = async () => {
     if (!contract || busy) return;
-    if (typeof window !== 'undefined' && !window.confirm('이 계약을 취소하시겠습니까?\n재고는 출고가능으로 복원되고, 완료 계약이면 환수가 진행됩니다.')) return;
+    if (!await confirmDialog({ title: '계약 취소', message: '이 계약을 취소하시겠습니까?\n재고는 출고가능으로 복원되고, 완료 계약이면 환수가 진행됩니다.', danger: true, okLabel: '계약 취소' })) return;
     setBusy(true);
     try { haptic.impact(); await cancelContract(contract); await load(); onChange?.(); } catch (e) { toast(String((e as Error)?.message || e), 'error'); } finally { setBusy(false); }
   };

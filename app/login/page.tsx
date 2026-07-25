@@ -11,6 +11,7 @@ import { login, signup, logout, resetPassword, writeUserProfile } from '@/lib/fi
 import { setGuest, getSession, firebaseReadySafe } from '@/lib/login-helpers';
 import { fmtPhone, C } from '@/components/ui';
 import { BRAND_MAIN, BRAND_SUB } from '@/lib/brand';
+import { toast } from '@/components/Toaster';
 /** 로그인은 v3 CSS 섬(44/48·브랜드 hex). Input/Btn 원자 높이(32/40)와 충돌 → raw 유지. */
 
 type Mode = 'login' | 'signup' | 'reset';
@@ -104,7 +105,7 @@ export default function LoginPage() {
         ? '이미 가입된 이메일입니다. 로그인해주세요.'
         : koreanAuthMsg(authErr, '가입 실패');
       console.error('[signup]', authErr); say(m, 'err');
-      if (typeof window !== 'undefined') window.alert(`가입 실패\n${m}`);
+      toast(`가입 실패: ${m}`, 'error');
       setBusy(false); return;
     }
     try {
@@ -114,7 +115,7 @@ export default function LoginPage() {
       await authUser.delete().catch(() => {});
       const m = koreanAuthMsg(err, '가입 실패');
       console.error('[signup profile]', err); say(m, 'err');
-      if (typeof window !== 'undefined') window.alert(`가입 실패\n${m}`);
+      toast(`가입 실패: ${m}`, 'error');
       setBusy(false); return;
     }
     // Path B 승인제 — 가입 직후 status=pending → PendingApproval. 세션 갱신 위해 홈으로.

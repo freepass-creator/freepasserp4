@@ -155,3 +155,78 @@
 - 옛 규칙 `출고불가` 잔재 백필: `/data-check` 잠금정합성으로 목록만 노출. 자동복구 안 함(공급사 수기설정과 구분 불가).
 
 갱신: 2026-07-21 — rules 재작성·가입승인·메뉴워딩·락버그. 다음 = ① rules 게시(붙여넣기) → ② 계약/고객 스코프 → ③ 원가분리.
+# 진행 중 리팩터링
+
+매물 검색 대형 파일 분리 작업의 최신 상태와 다음 순서는
+`docs/REFACTOR_PROGRESS.md`를 먼저 확인한다. 해당 문서는 단계별 검증 결과와
+다른 AI가 이어서 작업할 때 지켜야 할 호환성 원칙을 포함한다.
+
+# AI 협업 방식
+
+Claude Code(설계) → Cursor(구현) → Codex(독립 검증·수정·완료)의 역할과
+인수인계 산출물 규칙은 `docs/AI_COLLABORATION.md`를 따른다.
+
+가장 중요한 규칙은 최종 검증 기준이 설계 문서가 아니라 사용자의 원래 요구사항이라는
+점이다. Codex는 원래 요구사항, `PLAN.md`, 실제 변경사항을 함께 비교해야 한다.
+
+# 2026-07-26 최신 인수인계
+
+- 브라우저 기본 `window.confirm`·`window.alert` 제거 완료.
+- 공통 확인 UI는 `components/Toaster.tsx`의 `confirmDialog`, 오류 알림은 `toast` 사용.
+- 적용 범위: 계약, 정책, 회원, 재고, 개발 도구, 로그인/가입.
+- typecheck 및 7개 시뮬레이션/검증 스크립트 모두 PASS.
+- 개발 서버는 포트 4004에서 유지 중이며 `/inventory` HTTP 200 확인.
+- 서버 실행 중에는 `.next` 충돌 위험 때문에 production build를 실행하지 말 것.
+- 현재 작업 트리는 의도된 미커밋 변경을 포함하므로 정리·reset하지 말 것.
+- 공통 UI 분리 시작: `Drawer`, `Modal`은 `components/ui/overlays.tsx`로 이동 완료.
+- `components/ui/index.tsx`는 782줄에서 731줄로 감소했으며 공개 import 경로는 그대로다.
+- 다음 안전한 작업은 `ListRow`·`ListBox` 분리 후 폼 입력 묶음 분리다.
+- `ListRow`, `ListBox`는 `components/ui/list.tsx`로 이동 완료.
+- `components/ui/index.tsx`는 현재 706줄이며 다음은 기본 폼 입력 4종 분리가 안전하다.
+- 기본 폼 입력 4종은 `components/ui/form-controls.tsx`로 이동 완료.
+- `components/ui/index.tsx`는 현재 633줄이며 다음 후보는 버튼 3종 분리다.
+- 버튼 3종은 `components/ui/buttons.tsx`로 이동 완료.
+- `components/ui/index.tsx`는 현재 554줄이며 다음 후보는 레이아웃 원자 분리다.
+- 레이아웃 원자 4종은 `components/ui/layout.tsx`로 이동 완료.
+- `components/ui/index.tsx`는 현재 494줄로 500줄 미만이다.
+- 다음 큰 작업은 `lib/domain/vehicle-master-match.ts`를 타입·표시 유틸부터 작은 단계로 분리하는 것이다.
+- 차량 마스터 순수 타입 7종은 `lib/domain/vehicle-master-types.ts`로 이동 완료.
+- 기존 타입 import 경로는 `vehicle-master-match.ts` 재수출로 호환된다.
+- 매칭 실행 로직은 아직 이동하지 않았고 다음은 표시/정규화 유틸 경계를 검토한다.
+- 표시·정규화 함수는 `lib/domain/vehicle-master-format.ts`로 이동 완료.
+- 기존 함수 import 경로는 `vehicle-master-match.ts` 재수출로 호환된다.
+- 매칭 본체는 현재 1,040줄이며 다음 후보는 스냅 추적·이력 묶음이다.
+- 스냅 추적·원본·diff·이력은 `lib/domain/vehicle-master-snapshot.ts`로 이동 완료.
+- `applySnap` 반영 정책은 본체에 남아 있고 기존 export 경로는 유지된다.
+- 매칭 본체는 현재 1,001줄이며 다음 후보는 차량 필터·마스터 목록 탐색 묶음이다.
+- 차량 필터·마스터 목록 탐색은 `lib/domain/vehicle-master-filter.ts`로 이동 완료.
+- 매칭 본체는 현재 976줄이며 다음은 경로 감사·일괄 reconcile 의존성부터 분석한다.
+- 차량 신호 수집은 `vehicle-master-signals.ts`, 선택 보조는 `vehicle-master-options.ts`로 이동 완료.
+- 매칭 본체는 현재 915줄이며 모든 자동 검증과 서버 HTTP 200을 통과했다.
+- 계속 진행 시 매칭 점수 핵심은 한 번에 옮기지 말고 정확 경로·감사 경계를 우선 분리한다.
+- 정확 경로 엔진은 `vehicle-master-exact.ts`, 감사·일괄 변환은 `vehicle-master-operations.ts`로 분리 완료.
+- 콜백 주입 구조라 순환 import가 없고 기존 공개 API도 유지된다.
+- 매칭 본체는 현재 805줄이며 전체 자동 검증과 서버 HTTP 200을 통과했다.
+- Finder 상품 우클릭 액션은 `features/finder/product-context.ts`로 이동 완료.
+- `app/page.tsx`는 현재 644줄이며 다음은 상단 툴바 렌더링 분리가 안전하다.
+- Finder 상단 툴바는 `features/finder/FinderToolbar.tsx`로 이동 완료.
+- `app/page.tsx`는 현재 563줄이며 다음 후보는 결과 본문 렌더링 분리다.
+- Finder 결과 본문은 `features/finder/FinderResults.tsx`로 이동 완료.
+- `app/page.tsx`는 현재 511줄이며 결과 보기·Excel·페이징 동작은 검증 완료.
+- 채팅 방 색인·표시 계산은 `features/chat/room-display.ts`로 이동 완료.
+- `app/chat/page.tsx`는 435줄에서 372줄로 감소했고 `/chat` HTTP 200 검증 완료.
+- 채팅 필터·정렬·미리보기 집계는 `features/chat/room-filter.ts`로 이동 완료.
+- `app/chat/page.tsx`는 현재 347줄이며 자동 검증과 `/chat` HTTP 200 통과.
+- 계약 필터·정렬·월 옵션은 `features/contract/contract-filter.ts`로 이동 완료.
+- `app/contract/page.tsx`는 현재 355줄이며 `/contract` HTTP 200 검증 완료.
+- 회원 필터·정렬·승인대기 집계는 `features/members/member-filter.ts`로 이동 완료.
+- `app/members/page.tsx`는 현재 368줄이며 `/members` HTTP 200 검증 완료.
+- UI/UX 통합 배치 완료: `ProductPreferences`, `MembersList`, `SettlementSummary`, `ChatRoomList`.
+- 설정 302줄, 회원 353줄, 계약 337줄, 채팅 337줄.
+- 네 페이지 HTTP 200, typecheck·전체 시뮬레이션·diff 검사 PASS.
+- 다음은 UI와 분리해 `lib/firebase/rtdb-adapter.ts` 데이터 계층을 다룬다.
+- RTDB 정리 완료: `rtdb-records.ts`, `rtdb-products.ts` 분리.
+- `rtdb-adapter.ts`는 537줄에서 406줄로 감소.
+- v3 읽기 전용·v4 오버레이 쓰기, 역할 스코프, 원가 마스킹 정책 유지.
+- 남은 명시적 `any` 9건은 Firebase snapshot 동적 경계이며 무리한 캐스팅 제거는 보류.
+- typecheck·전체 시뮬레이션·주요 화면 HTTP 200 통과.
