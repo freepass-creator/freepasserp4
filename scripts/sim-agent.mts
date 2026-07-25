@@ -110,6 +110,54 @@ const agentSecs = detailSections(sample, 'agent');
 const custSecs = detailSections(sample, 'customer');
 const dump = (secs: ReturnType<typeof detailSections>) => JSON.stringify(secs);
 check('1.7 손님 상세에 원가·파트너메모 없음', !/vehicle_price|partner_memo|원가/.test(dump(custSecs)));
+{
+  const { mergeProductPrivate, splitProductPrivate, stripProductCost } = await import('../lib/firebase/rtdb-products');
+  const privateFixture = {
+    ...sample,
+    vehicle_price: 25000000,
+    vin: 'KMH12345678901234',
+    price: {
+      '36': {
+        rent: 390000,
+        deposit: 0,
+        fee: 39000,
+        commission: 12000,
+        fee_memo: '내부 수수료',
+      },
+    },
+  } as EntityRecord;
+  const masked = stripProductCost(privateFixture);
+  const terms = (masked.price as Record<string, Record<string, unknown>>)['36'];
+  check(
+    '1.7b 영업자 원가·VIN·수수료 객체 마스킹',
+    masked.vehicle_price == null
+      && masked.vin == null
+      && terms.rent === 390000
+      && terms.deposit === 0
+      && terms.fee == null
+      && terms.commission == null
+      && terms.fee_memo == null,
+  );
+  const split = splitProductPrivate(privateFixture);
+  const restored = mergeProductPrivate(split.publicRecord, split.privateRecord);
+  const publicTerms = (split.publicRecord.price as Record<string, Record<string, unknown>>)['36'];
+  const privateTerms = (split.privateRecord?.price as Record<string, Record<string, unknown>>)['36'];
+  const restoredTerms = (restored.price as Record<string, Record<string, unknown>>)['36'];
+  check(
+    '1.7c public/private 분리·권한 병합 왕복',
+    split.publicRecord.vehicle_price == null
+      && split.publicRecord.vin == null
+      && publicTerms.rent === 390000
+      && publicTerms.fee == null
+      && split.privateRecord?.vehicle_price === 25000000
+      && split.privateRecord?.vin === 'KMH12345678901234'
+      && privateTerms.fee === 39000
+      && restored.vehicle_price === 25000000
+      && restored.vin === 'KMH12345678901234'
+      && restoredTerms.rent === 390000
+      && restoredTerms.fee === 39000,
+  );
+}
 check('1.8 영업·손님 상세 섹션', agentSecs.length >= 1 && custSecs.length >= 1, { agent: agentSecs.length, customer: custSecs.length });
 
 // ── 2. 픽스처 매물(공급사) + 영업 문의 ──

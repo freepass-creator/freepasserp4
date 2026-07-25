@@ -309,6 +309,30 @@ Claude Code(설계) → Cursor(구현) → Codex(독립 검증·수정·완료)�
 - 계약·채팅·정산 화면 HTTP 200.
 - 중요: `database.rules.json` 변경은 아직 Firebase 콘솔/CLI에 게시하지 않았다.
   라이브 데이터 보호는 규칙 게시와 관리자·공급사·영업자 실계정 스모크 후 완료 판정한다.
+
+## 2026-07-26 민감 매물 필드 분리 기반
+
+- 계약 조회 보안 배치 커밋: `f285b66` (`security: scope contract reads by actor`).
+- 비권한 상품 객체 마스킹을 `vehicle_price`에서 다음 필드까지 확대했다.
+  - `vin`
+  - `price.*.fee`
+  - `price.*.commission`
+  - `price.*.fee_memo`
+- 월 대여료와 보증금 등 공개 가격 필드는 유지한다.
+- `database.rules.json`에 `v4/products_private/{product}` 규칙 골격을 추가했다.
+  - 관리자: 전체 읽기·쓰기
+  - 공급사: `provider_company_code`가 자기 회사인 단건 읽기·쓰기
+  - 영업자: 접근 불가
+- `sim-agent.mts`에 원가·VIN·수수료 객체 마스킹 회귀 검사를 추가해 38/38 PASS.
+- typecheck·전체 7개 시뮬레이션·마스터 전수 검증·diff 검사 PASS.
+- 홈·재고·계약 HTTP 200.
+- 민감 필드 추출·공개 제거·권한 병합 helper를 구현했다.
+- RTDB 신규 저장·수정·일괄 패치는 민감 필드를 `v4/products_private`로 분기한다.
+- 관리자와 자기 회사 공급사는 private 레코드를 읽어 공개 상품에 병합하고, 영업자는 읽지 않는다.
+- public/private 분리·병합 왕복 회귀 검사를 추가해 영업자 시뮬레이션 39/39 PASS.
+- 기존 v3/v4 public 레코드의 민감 필드는 아직 마이그레이션하지 않았다.
+  신규 write는 분리되지만 과거 네트워크 원본 보호는 마이그레이션·규칙 게시 후 완료된다.
+- 다음 단계는 dry-run 가능한 민감 필드 마이그레이션 도구다. 자동 실행하거나 라이브 데이터를 삭제하지 말 것.
 - 공통 통계·요약 UI를 `components/ui/metrics.tsx`로 분리했다.
   - 이동: `Card`, `Toolbar`, `Panel`, `Kpi`, `KpiRow`, `StatBar`, `Stepper`
   - 공통 tone 색 계산을 모듈 내부 `toneColor`로 통합했다.

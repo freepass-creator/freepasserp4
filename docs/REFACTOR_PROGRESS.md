@@ -415,6 +415,20 @@ npx.cmd tsx scripts/sim-phase12.mts
 - 계약·채팅·정산 HTTP 200.
 - 라이브 Firebase 규칙 게시는 별도 운영 작업으로 남아 있다.
 
+## 민감 매물 필드 private 노드 기반
+
+- 비권한 상품 객체에서 `vehicle_price`, `vin`, 기간별 `fee`·`commission`·`fee_memo`를 제거한다.
+- 대여료·보증금 등 고객/영업 공개 가격은 유지한다.
+- `v4/products_private/{product}` 규칙 골격을 추가했다.
+- 관리자와 자기 회사 공급사만 private 레코드에 접근할 수 있다.
+- 영업자 시뮬레이션에 객체 마스킹 회귀 검사를 추가해 38/38 PASS.
+- 전체 자동 검증과 홈·재고·계약 HTTP 200.
+- 민감 필드 추출·공개 제거·권한 병합 helper를 구현했다.
+- 신규 저장·수정·일괄 패치는 public/private RTDB 경로로 원자 분기한다.
+- 관리자·자기 회사 공급사만 private 원자를 다시 병합한다.
+- public/private 왕복 회귀 검사를 포함해 영업자 시뮬레이션 39/39 PASS.
+- 기존 public 레코드 마이그레이션과 라이브 규칙 게시는 남아 있어 운영 완료로 판정하지 않는다.
+
 ## 완료: 공통 UI 통계·요약 분리
 
 - 새 파일: `components/ui/metrics.tsx`

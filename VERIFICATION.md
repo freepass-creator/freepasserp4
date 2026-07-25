@@ -149,6 +149,63 @@
 - 라이브 관리자·공급사·영업자 계정별 조회: 미실행
 - 따라서 로컬 코드·규칙 파일은 완료됐지만 라이브 보안 적용 완료로 판정하지 않는다.
 
+## 2026-07-26 — 민감 매물 필드 private 노드 기반
+
+### 발견
+
+- 기존 `stripProductCost`는 `vehicle_price`만 제거했다.
+- VIN과 `price.*.fee/commission/fee_memo`가 비권한 상품 객체에 남을 수 있었다.
+- `products_private` 노드와 규칙이 없었다.
+
+### 수정
+
+- 비권한 객체에서 원가·VIN·기간별 내부 수수료 필드 제거
+- 공개 대여료·보증금 유지
+- `v4/products_private/{product}` 관리자/자기회사 공급사 규칙 추가
+- 영업자 시뮬레이션에 민감 필드 마스킹 회귀 케이스 추가
+
+### 자동 검증
+
+- `database.rules.json` JSON 파싱: PASS
+- `npm.cmd run typecheck`: PASS
+- `sim-agent.mts`: 38/38 PASS
+- 나머지 전체 시뮬레이션·마스터 전수 검증: PASS
+- `git diff --check`: PASS
+- 홈·재고·계약: HTTP 200
+
+### 미완료
+
+- 기존 public product 레코드의 민감 필드 마이그레이션
+- Firebase 규칙 라이브 게시 및 실계정 검증
+
+## 2026-07-26 — 민감 매물 필드 public/private 이중 저장
+
+### 구현
+
+- `splitProductPrivate`: 공개 상품과 민감 원자를 분리
+- `mergeProductPrivate`: 권한 있는 읽기에서 원가·VIN·수수료를 복원
+- 신규 `save`: `v4/products`와 `v4/products_private`에 원자 멀티패스 저장
+- `update`: 민감 필드가 포함된 패치를 private 경로로 분기
+- `bulkPatch`: 상품 일괄 패치도 같은 분기 적용
+- 관리자 전체 및 공급사 회사 쿼리로 private 레코드 조회
+
+### 회귀 검증
+
+- 공개 레코드에 원가·VIN·내부 수수료 없음: PASS
+- private 레코드에 민감 필드 보존: PASS
+- 공개 대여료·보증금 유지: PASS
+- 권한 병합 후 전체 원자 복원: PASS
+- `sim-agent.mts`: 39/39 PASS
+- 나머지 전체 시뮬레이션·마스터 검증: PASS
+- 타입 검사·규칙 JSON·diff 검사: PASS
+- 홈·재고·계약·채팅: HTTP 200
+
+### 운영 잔여
+
+- 기존 v3/v4 public 상품 민감 필드 마이그레이션
+- Firebase 규칙 게시
+- 관리자·공급사·영업자 실계정 검증
+
 ## 2026-07-26 — 공통 UI 칩·필터 분리
 
 ### 범위

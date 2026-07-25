@@ -145,6 +145,15 @@
         ".write": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous' && root.child('users').child(auth.uid).child('status').val() !== 'pending'",
         ".indexOn": ["provider_company_code", "vehicle_status"]
       },
+      "products_private": {
+        ".read": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || (root.child('users').child(auth.uid).child('role').val() === 'provider' && root.child('users').child(auth.uid).child('company_code').val() !== null && root.child('users').child(auth.uid).child('company_code').val() !== '' && query.orderByChild === 'provider_company_code' && query.equalTo === root.child('users').child(auth.uid).child('company_code').val()))",
+        ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'",
+        ".indexOn": ["provider_company_code"],
+        "$product": {
+          ".read": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'provider' && root.child('users').child(auth.uid).child('company_code').val() !== null && root.child('users').child(auth.uid).child('company_code').val() !== '' && data.child('provider_company_code').val() === root.child('users').child(auth.uid).child('company_code').val()",
+          ".write": "auth != null && root.child('users').child(auth.uid).child('status').val() !== 'pending' && root.child('users').child(auth.uid).child('role').val() === 'provider' && root.child('users').child(auth.uid).child('company_code').val() !== null && root.child('users').child(auth.uid).child('company_code').val() !== '' && ((data.exists() && data.child('provider_company_code').val() === root.child('users').child(auth.uid).child('company_code').val()) || (!data.exists() && newData.child('provider_company_code').val() === root.child('users').child(auth.uid).child('company_code').val()))"
+        }
+      },
       "policies": {
         ".read": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous'",
         ".write": "auth != null && root.child('users').child(auth.uid).child('status').val() !== 'pending' && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'provider')"

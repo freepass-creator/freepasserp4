@@ -21,6 +21,8 @@ import {
   canSeeProductCost,
   dedupeProductsByVehicle,
   isExcludedProduct,
+  mergeProductPrivate,
+  splitProductPrivate,
   stripProductCost,
 } from './rtdb-products';
 
@@ -235,6 +237,40 @@ export class RtdbAdapter implements StoreAdapter {
     return [...map.values()];
   }
 
+  /** 관리자·자기 회사 공급사만 private 상품 원자를 읽어 공개 레코드에 병합한다. */
+  private async readProductPrivate(): Promise<Map<string, EntityRecord>> {
+    const auth = getAuthClient()?.currentUser;
+    const session = getSession();
+    const role = session?.role || 'agent';
+    const output = new Map<string, EntityRecord>();
+    if (!auth || (role !== 'admin' && role !== 'provider')) return output;
+    try {
+      const node = `${OVERLAY}/products_private`;
+      const company = String(session?.company_code || session?.code || '');
+      if (role === 'provider' && !company) return output;
+      const snapshot = role === 'admin'
+        ? await get(ref(this.db(), node))
+        : await get(query(
+            ref(this.db(), node),
+            orderByChild('provider_company_code'),
+            equalTo(company),
+          ));
+      const value = snapshot.val() as Rec | null;
+      if (!value) return output;
+      for (const [key, record] of Object.entries<any>(value)) {
+        if (!record || typeof record !== 'object') continue;
+        output.set(String(record.product_code || record._key || key), {
+          ...record,
+          _key: String(record._key || key),
+          product_code: String(record.product_code || key),
+        } as EntityRecord);
+      }
+    } catch (error) {
+      console.warn('RTDB products_private 조회 실패:', (error as Error).message);
+    }
+    return output;
+  }
+
   private async readNode(entity: string, co: string, overlay: boolean, joinMap?: Rec, roomIds?: string[]): Promise<EntityRecord[]> {
     if (entity === 'message') return this.readMessages(co, overlay, roomIds || []);
     if (entity === 'room') return this.readRoomsScoped(co, overlay);
@@ -293,7 +329,14 @@ export class RtdbAdapter implements StoreAdapter {
       }
       const result = [...map.values()];
       // 매물엔 공급사 한글이름(provider_name) 부착 — 상세·목록 SSOT(파인더와 동일). 코드만 보이던 문제 해결.
-      if (entity === 'product') return withProviderNames(result, await partnersP!);
+      if (entity === 'product') {
+        const privateMap = await this.readProductPrivate();
+        const mergedProducts = result.map((product) => mergeProductPrivate(
+          product,
+          privateMap.get(String(product.product_code || product._key)),
+        ));
+        return withProviderNames(mergedProducts, await partnersP!);
+      }
       return result;
     } catch (e) {
       console.warn(`RTDB merged(${entity}) 실패(로그인·규칙 확인):`, (e as Error).message);
@@ -364,7 +407,24 @@ export class RtdbAdapter implements StoreAdapter {
       if (key && seen.has(key)) { duplicates++; continue; }
       if (!key) key = `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
       const stored: Rec = stripUndef({ ...rec, companyId: co, _key: key, createdAt: new Date().toISOString(), createdBy: 'rtdb', ...(entity === 'customer' ? { created_by: (rec as Rec).created_by || getAuthClient()?.currentUser?.uid } : {}) });
-      await dbUpdate(ref(this.db(), `${OVERLAY}/${node}/${key}`), stored);
+      if (entity === 'product') {
+        const { publicRecord, privateRecord } = splitProductPrivate(stored as EntityRecord);
+        const multi: Rec = { [`products/${key}`]: stripUndef(publicRecord as Rec) };
+        if (privateRecord) {
+          multi[`products_private/${key}`] = stripUndef({
+            ...privateRecord,
+            companyId: co,
+            _key: key,
+            product_code: stored.product_code || key,
+            provider_company_code: stored.provider_company_code,
+            createdAt: stored.createdAt,
+            createdBy: stored.createdBy,
+          });
+        }
+        await dbUpdate(ref(this.db(), OVERLAY), multi);
+      } else {
+        await dbUpdate(ref(this.db(), `${OVERLAY}/${node}/${key}`), stored);
+      }
       this.writeAudit(entity, co, key, 'create', null, stored);
       seen.add(key); saved++;
     }
@@ -392,7 +452,28 @@ export class RtdbAdapter implements StoreAdapter {
         p.provider_company_code = (before as Rec).provider_company_code;
       }
     }
-    await dbUpdate(ref(this.db(), `${OVERLAY}/${node}/${key}`), p);
+    if (entity === 'product') {
+      const { publicRecord, privateRecord } = splitProductPrivate(p as EntityRecord);
+      const multi: Rec = {};
+      for (const [field, value] of Object.entries(publicRecord)) {
+        if (value !== undefined) multi[`products/${key}/${field}`] = value;
+      }
+      if (privateRecord) {
+        const privatePatch = stripUndef({
+          ...privateRecord,
+          _key: key,
+          product_code: (before as Rec | null)?.product_code || key,
+          provider_company_code: privateRecord.provider_company_code || (before as Rec | null)?.provider_company_code,
+          updatedAt: p.updatedAt,
+        });
+        for (const [field, value] of Object.entries(privatePatch)) {
+          if (value !== undefined) multi[`products_private/${key}/${field}`] = value;
+        }
+      }
+      await dbUpdate(ref(this.db(), OVERLAY), multi);
+    } else {
+      await dbUpdate(ref(this.db(), `${OVERLAY}/${node}/${key}`), p);
+    }
     this.writeAudit(entity, co, key, (patch as Rec)._deleted ? 'delete' : 'update', before, { ...(before || {}), ...p });
   }
 
@@ -406,11 +487,28 @@ export class RtdbAdapter implements StoreAdapter {
     for (let i = 0; i < patches.length; i += CHUNK) {
       const multi: Rec = {};
       for (const { key, patch } of patches.slice(i, i + CHUNK)) {
-        for (const [k, v] of Object.entries(patch)) if (v !== undefined) multi[`${key}/${k}`] = v; // RTDB update는 undefined 거부
-        multi[`${key}/_key`] = key;
-        multi[`${key}/updatedAt`] = now;
+        if (entity === 'product') {
+          const { publicRecord, privateRecord } = splitProductPrivate(patch);
+          for (const [field, value] of Object.entries(publicRecord)) {
+            if (value !== undefined) multi[`products/${key}/${field}`] = value;
+          }
+          multi[`products/${key}/_key`] = key;
+          multi[`products/${key}/updatedAt`] = now;
+          if (privateRecord) {
+            for (const [field, value] of Object.entries(privateRecord)) {
+              if (value !== undefined) multi[`products_private/${key}/${field}`] = value;
+            }
+            multi[`products_private/${key}/_key`] = key;
+            multi[`products_private/${key}/product_code`] = key;
+            multi[`products_private/${key}/updatedAt`] = now;
+          }
+        } else {
+          for (const [k, v] of Object.entries(patch)) if (v !== undefined) multi[`${key}/${k}`] = v;
+          multi[`${key}/_key`] = key;
+          multi[`${key}/updatedAt`] = now;
+        }
       }
-      await dbUpdate(ref(this.db(), `${OVERLAY}/${node}`), multi);
+      await dbUpdate(ref(this.db(), entity === 'product' ? OVERLAY : `${OVERLAY}/${node}`), multi);
       done += Math.min(CHUNK, patches.length - i);
     }
     const snapish = patches.some((p) => p.patch._snapped);

@@ -4,6 +4,79 @@ import { getSession } from '@/lib/auth-session';
 
 type RecordValue = Record<string, unknown>;
 const KASHUNG_PROVIDERS = new Set(['PT-0024']);
+const PRIVATE_PRICE_FIELDS = new Set(['fee', 'commission', 'fee_memo']);
+
+const hasOwn = (record: RecordValue, key: string) => Object.prototype.hasOwnProperty.call(record, key);
+
+function splitPrice(price: unknown): { publicPrice?: RecordValue; privatePrice?: RecordValue } {
+  if (!price || typeof price !== 'object' || Array.isArray(price)) return {};
+  const publicPrice: RecordValue = {};
+  const privatePrice: RecordValue = {};
+  for (const [period, rawTerms] of Object.entries(price as RecordValue)) {
+    if (!rawTerms || typeof rawTerms !== 'object' || Array.isArray(rawTerms)) {
+      publicPrice[period] = rawTerms;
+      continue;
+    }
+    const publicTerms: RecordValue = {};
+    const privateTerms: RecordValue = {};
+    for (const [field, value] of Object.entries(rawTerms as RecordValue)) {
+      if (PRIVATE_PRICE_FIELDS.has(field)) privateTerms[field] = value;
+      else publicTerms[field] = value;
+    }
+    publicPrice[period] = publicTerms;
+    if (Object.keys(privateTerms).length) privatePrice[period] = privateTerms;
+  }
+  return {
+    publicPrice,
+    privatePrice: Object.keys(privatePrice).length ? privatePrice : undefined,
+  };
+}
+
+export function splitProductPrivate(product: EntityRecord): {
+  publicRecord: EntityRecord;
+  privateRecord: EntityRecord | null;
+} {
+  const source = product as RecordValue;
+  const publicRecord = { ...product };
+  const privateRecord: EntityRecord = {};
+  if (hasOwn(source, 'vehicle_price')) {
+    privateRecord.vehicle_price = product.vehicle_price;
+    delete publicRecord.vehicle_price;
+  }
+  if (hasOwn(source, 'vin')) {
+    privateRecord.vin = product.vin;
+    delete publicRecord.vin;
+  }
+  if (hasOwn(source, 'price')) {
+    const { publicPrice, privatePrice } = splitPrice(product.price);
+    if (publicPrice) publicRecord.price = publicPrice;
+    if (privatePrice) privateRecord.price = privatePrice;
+  }
+  if (!Object.keys(privateRecord).length) return { publicRecord, privateRecord: null };
+  for (const field of ['_key', 'product_code', 'provider_company_code'] as const) {
+    if (product[field] != null && product[field] !== '') privateRecord[field] = product[field];
+  }
+  return { publicRecord, privateRecord };
+}
+
+export function mergeProductPrivate(product: EntityRecord, privateRecord?: EntityRecord | null): EntityRecord {
+  if (!privateRecord) return product;
+  const output = { ...product };
+  if (hasOwn(privateRecord as RecordValue, 'vehicle_price')) output.vehicle_price = privateRecord.vehicle_price;
+  if (hasOwn(privateRecord as RecordValue, 'vin')) output.vin = privateRecord.vin;
+  if (privateRecord.price && typeof privateRecord.price === 'object' && !Array.isArray(privateRecord.price)) {
+    const mergedPrice: RecordValue = { ...((output.price as RecordValue | undefined) || {}) };
+    for (const [period, rawPrivateTerms] of Object.entries(privateRecord.price as RecordValue)) {
+      const publicTerms = mergedPrice[period];
+      mergedPrice[period] = {
+        ...(publicTerms && typeof publicTerms === 'object' && !Array.isArray(publicTerms) ? publicTerms as RecordValue : {}),
+        ...(rawPrivateTerms && typeof rawPrivateTerms === 'object' && !Array.isArray(rawPrivateTerms) ? rawPrivateTerms as RecordValue : {}),
+      };
+    }
+    output.price = mergedPrice;
+  }
+  return output;
+}
 
 export function isExcludedProduct(record: RecordValue): boolean {
   return KASHUNG_PROVIDERS.has(String(record.provider_company_code))
@@ -19,10 +92,7 @@ export function canSeeProductCost(product?: EntityRecord): boolean {
 }
 
 export function stripProductCost(product: EntityRecord): EntityRecord {
-  if (product.vehicle_price == null) return product;
-  const output = { ...product };
-  delete output.vehicle_price;
-  return output;
+  return splitProductPrivate(product).publicRecord;
 }
 
 export function dedupeProductsByVehicle(rows: EntityRecord[]): EntityRecord[] {
