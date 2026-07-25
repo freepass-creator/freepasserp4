@@ -294,6 +294,21 @@ Claude Code(설계) → Cursor(구현) → Codex(독립 검증·수정·완료)�
 - typecheck·전체 7개 시뮬레이션·마스터 전수 검증·diff 검사 PASS.
 - `/inventory` HTTP 200, 서버 포트 4004 유지.
 - 다음 후보는 트림 선택과 trim conflict·confidence 판정이다.
+
+## 2026-07-26 기능 완성도 전환: 계약·고객 조회 보안
+
+- 구조 분리는 커밋 `0f5acc7`에서 종료하고 실제 권한 작업으로 전환했다.
+- 어댑터의 `readContractsScoped`, `readCustomersScoped`는 이미 구현되어 있음을 재확인했다.
+- `database.rules.json`의 v3 `contracts`, v4 `v4/contracts` 읽기를 역할별 쿼리로 강화했다.
+  - 관리자: 전체
+  - 공급사: `provider_company_code === 내 company_code`
+  - 영업자: `agent_uid === auth.uid` 또는 `agent_channel_code === 내 채널`
+- 고객은 기존 규칙과 어댑터 모두 `created_by === auth.uid`로 이미 스코프되어 변경하지 않았다.
+- 정산 계약일자 조인은 `v4/contracts` 전체 get 대신 역할별 계약 병합 결과를 사용한다.
+- 규칙 JSON 파싱·typecheck·전체 7개 시뮬레이션·diff 검사 PASS.
+- 계약·채팅·정산 화면 HTTP 200.
+- 중요: `database.rules.json` 변경은 아직 Firebase 콘솔/CLI에 게시하지 않았다.
+  라이브 데이터 보호는 규칙 게시와 관리자·공급사·영업자 실계정 스모크 후 완료 판정한다.
 - 공통 통계·요약 UI를 `components/ui/metrics.tsx`로 분리했다.
   - 이동: `Card`, `Toolbar`, `Panel`, `Kpi`, `KpiRow`, `StatBar`, `Stepper`
   - 공통 tone 색 계산을 모듈 내부 `toneColor`로 통합했다.

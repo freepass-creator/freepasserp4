@@ -256,7 +256,17 @@ export class RtdbAdapter implements StoreAdapter {
       const partnersP = entity === 'product' ? this.partnersForNames(co) : undefined;
       let joinMap: Rec | undefined;
       if (entity === 'product') joinMap = (await get(ref(this.db(), 'policies'))).val() || {};
-      else if (entity === 'settlement') { try { joinMap = (await get(ref(this.db(), `${OVERLAY}/contracts`))).val() || {}; } catch { joinMap = {}; } }   // 정산 조인(계약일자). v4/contracts 스코프거부(비관리자) 시 무시 → 정산은 스코프 리더가 별도로 조회
+      else if (entity === 'settlement') {
+        // 계약 규칙은 역할별 쿼리 스코프를 요구한다. 전체 get은 비관리자에서 거부되므로
+        // 같은 역할 스코프 계약 목록으로 contract_date 조인 맵을 만든다.
+        const contracts = await this.merged('contract', co);
+        joinMap = Object.fromEntries(
+          contracts.map((contract) => [
+            String(contract.contract_code || contract._key),
+            contract,
+          ]),
+        ) as Rec;
+      }
       // 매물·회원·채팅·계약(+정책·공급사) = v3 라이브 ∪ 오버레이. 정산·감사 = 오버레이만.
       const bridge = BRIDGE_FROM_V3.has(entity);
 

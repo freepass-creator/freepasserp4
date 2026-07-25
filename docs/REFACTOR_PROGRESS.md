@@ -404,6 +404,17 @@ npx.cmd tsx scripts/sim-phase12.mts
 - `/inventory` HTTP 200.
 - 다음 후보: 트림 선택 및 conflict·confidence 판정.
 
+## 전환: 구조 분리 종료, 계약 조회 보안 강화
+
+- 차량 마스터 추가 분리는 중단하고 실제 기능·보안 완성도로 전환했다.
+- 기존 `readContractsScoped`·`readCustomersScoped` 구현과 규칙을 대조했다.
+- v3/v4 계약 규칙을 관리자·공급사 회사·영업자 uid/채널 쿼리로 제한했다.
+- 고객은 기존 `created_by` 스코프가 어댑터와 규칙에 모두 적용되어 있었다.
+- 정산 계약일자 조인은 전체 계약 읽기 대신 스코프 계약 병합 결과를 사용한다.
+- 규칙 JSON 파싱·typecheck·전체 7개 시뮬레이션·diff 검사 PASS.
+- 계약·채팅·정산 HTTP 200.
+- 라이브 Firebase 규칙 게시는 별도 운영 작업으로 남아 있다.
+
 ## 완료: 공통 UI 통계·요약 분리
 
 - 새 파일: `components/ui/metrics.tsx`
