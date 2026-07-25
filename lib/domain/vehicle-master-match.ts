@@ -26,13 +26,8 @@
 import { type EntityRecord } from '@/lib/intake/entities';
 import { classifyVehicleClass } from '@/lib/domain/vehicle-class';
 import {
-  FUEL_ALIAS,
-  fuelDisplay,
-  fuelEmbeddedCc,
-  makerDisplay,
   normFuel,
   parseYear,
-  yearDisplay,
 } from '@/lib/domain/vehicle-master-format';
 import {
   appendSnapHistory,
@@ -62,11 +57,12 @@ import {
 import {
   isNoTrimLabel,
   masterVariantLabel,
-  masterVariantOptionLabel,
   realMasterTrims,
-  variantSeatsDiffer,
 } from '@/lib/domain/vehicle-master-options';
 import { resolveExactMasterPathEngine } from '@/lib/domain/vehicle-master-exact';
+import { unpackVehicleSignalsEngine } from '@/lib/domain/vehicle-master-normalize';
+import { selectMasterEntry } from '@/lib/domain/vehicle-master-score';
+import { selectMasterVariant } from '@/lib/domain/vehicle-master-variant';
 import {
   auditMasterFitEngine,
   isMasterPath,
@@ -77,7 +73,6 @@ import type {
   ExactMasterPath,
   MasterEntry,
   MasterFitRow,
-  MasterVariant,
   SnapResult,
   VehicleFilter,
 } from '@/lib/domain/vehicle-master-types';
@@ -131,6 +126,10 @@ export {
   realMasterTrims,
   variantSeatsDiffer,
 } from '@/lib/domain/vehicle-master-options';
+export {
+  modeSeat,
+  modeSeatForModel,
+} from '@/lib/domain/vehicle-master-variant';
 
 /**
  * 수집 영문 트림 → 마스터 한글 트림.
@@ -339,30 +338,6 @@ function looksCompoundVehicleText(s: unknown): boolean {
   return false;
 }
 
-/** 블롭에서 연식 — "20년식"·"2020년"·"2020"(배기 1.6과 안 겹침). */
-function yearFromBlob(blob: string): number {
-  const m =
-    /(\d{2,4})\s*년\s*식/.exec(blob) ||
-    /(20\d{2}|\d{2})\s*년(?!\s*식)/.exec(blob) ||
-    /\b(20\d{2})\b/.exec(blob);
-  return m ? parseYear(m[1]) : 0;
-}
-
-/** 블롭에서 배기 — "1.6"·"1.6L" → 1600. 연식 연도는 배기로 안 봄. */
-function ccFromBlob(blob: string): number {
-  const lit = /(?:^|[^\d])(\d\.\d)\s*(?:l|L|리터)?(?=$|[^\d])/.exec(blob);
-  if (lit) {
-    const n = Number(lit[1]);
-    if (n >= 0.6 && n <= 8) return Math.round(n * 1000);
-  }
-  const cc = /(?:^|[^\d])([1-7]\d{3})\s*(?:cc|CC)?(?=$|[^\d.])/.exec(blob);
-  if (cc) {
-    const n = Number(cc[1]);
-    if (n >= 600 && n <= 8000 && !(n >= 1990 && n <= 2099)) return n;
-  }
-  return 0;
-}
-
 /** 블롭에서 인승 — "7인승"·"8인". */
 export function seatsFromBlob(blob: string): number {
   const m = /(\d{1,2})\s*인승?/.exec(blob);
@@ -379,26 +354,6 @@ export function driveFromBlob(blob: string): string {
   return '';
 }
 
-/** variant 목록에서 가장 많은 인승(동률이면 더 큰 인승). */
-export function modeSeat(variants: MasterVariant[]): number | null {
-  const counts = new Map<number, number>();
-  for (const v of variants) {
-    if (v.seat == null || !(v.seat > 0)) continue;
-    counts.set(v.seat, (counts.get(v.seat) || 0) + 1);
-  }
-  let best: number | null = null, n = -1;
-  for (const [seat, c] of counts) {
-    if (c > n || (c === n && best != null && seat > best)) { n = c; best = seat; }
-  }
-  return best;
-}
-
-/** 모델 전체(전 세대 variant)에서 최빈 인승. */
-export function modeSeatForModel(entries: MasterEntry[], model: string): number | null {
-  if (!model) return null;
-  return modeSeat(entries.filter((e) => e.model === model).flatMap((e) => e.variants || []));
-}
-
 /**
  * 공급사 거친 표기 → 매칭용 신호 분해(SSOT).
  *
@@ -411,280 +366,56 @@ export function modeSeatForModel(entries: MasterEntry[], model: string): number 
  *   → 둘 다 maker=현대 · model=아반떼 · trim=인스퍼레이션 · year=2020 · fuel=가솔린 · cc=1600
  */
 export function unpackVehicleSignals(p: EntityRecord, entries: MasterEntry[]): EntityRecord {
-  if (!entries.length) return p;
-  const out: EntityRecord = { ...p };
-  const blob = vehicleSignalBlob(out);
-  if (!blob.trim()) return out;
-  const nblob = norm(blob);
-
-  if (!carYear(out)) {
-    const y = yearFromBlob(blob);
-    if (y) out.year = String(y);
-  } else {
-    // "21년식" → 2021 정규화(이미 연식칸에 있을 때)
-    const y = parseYear(out.year) || yearFromBlob(String(out.year));
-    if (y) out.year = String(y);
-  }
-
-  // 배기: 리터(1.6)·cc(1600)·연료임베드·블롭 모두 → cc 정수
-  {
-    const rawCc = String(out.engine_cc ?? '').trim();
-    const n = Number(rawCc.replace(/,/g, ''));
-    let cc = 0;
-    if (Number.isFinite(n) && n > 0) {
-      if (n >= 0.6 && n <= 8) cc = Math.round(n * 1000); // 칸에 "1.6"만 있는 경우
-      else if (n >= 600 && n <= 8000) cc = Math.round(n);
-    }
-    if (!cc) cc = fuelEmbeddedCc(out.fuel_type) || ccFromBlob(blob);
-    if (cc) out.engine_cc = String(cc);
-  }
-
-  // 인승·구동 — 칸 비었으면 블롭·옵션·메모에서
-  if (!(Number(out.seats) > 0)) {
-    const s = seatsFromBlob(blob);
-    if (s) out.seats = String(s);
-  }
-  if (!normDrive(out.drive_type)) {
-    const d = driveFromBlob(blob);
-    if (d) out.drive_type = d;
-  } else {
-    out.drive_type = normDrive(out.drive_type) || out.drive_type;
-  }
-
-  if (!fuelDisplay(out.fuel_type)) {
-    for (const k of Object.keys(FUEL_ALIAS)) {
-      if (nblob.includes(k)) {
-        const d = fuelDisplay(FUEL_ALIAS[k]);
-        if (d) { out.fuel_type = d; break; }
-      }
-    }
-  }
-
-  // catalog_id → 세대코드. 동코드 다수(RG3=ICE+EV, GN7=더뉴+기본)면 sub를 첫 hit로 채우지 않음.
-  // 전원 동일 maker/model일 때만 빈 칸 보강 — 세부 고르는 건 snap 점수에 맡김.
-  const cat = String(out.catalog_id || out.type_number || '').trim().toUpperCase();
-  if (cat) {
-    let cands = entries.filter((e) => String(e.gen_code || '').trim().toUpperCase() === cat);
-    const mk = String(out.maker || '').trim();
-    if (mk) {
-      const mg = makerGroup(norm(mk));
-      cands = cands.filter((e) => mg.some((g) => {
-        const em = norm(e.maker);
-        return em === g || em.includes(g) || g.includes(em);
-      }));
-    }
-    const md = String(out.model || '').trim();
-    if (md && !looksCompoundVehicleText(md)) {
-      cands = cands.filter((e) => norm(e.model) === norm(md) || norm(md).includes(norm(e.model)));
-    }
-    if (cands.length === 1) {
-      const hit = cands[0];
-      if (!String(out.sub_model ?? '').trim()) out.sub_model = hit.sub_model;
-      if (!String(out.model ?? '').trim()) out.model = hit.model;
-      if (!mk) out.maker = hit.maker;
-    } else if (cands.length > 1) {
-      const models = new Set(cands.map((e) => e.model));
-      const makers = new Set(cands.map((e) => e.maker));
-      if (models.size === 1 && !String(out.model ?? '').trim()) out.model = cands[0].model;
-      if (makers.size === 1 && !mk) out.maker = cands[0].maker;
-      // sub_model 은 모호하면 비움 유지
-    }
-  }
-
-  // 모델명 탐지 — 제조사 칸 제외( maker=제네시스 → 현대 모델 '제네시스' 오탐 → G80 소실 → 카니발 오염 ).
-  const modelProbe = norm([
-    out.model, out.sub_model, out.cert_car_name, out.vehicle_name,
-    out.trim_name, out.variant, out.options, out.partner_memo, out.engine_type,
-  ].map((x) => String(x ?? '').trim()).filter(Boolean).join(' '));
-  const models = [...new Set(entries.map((e) => e.model))].sort((a, b) => b.length - a.length);
-  let hitModel = '';
-  if (modelProbe) {
-    for (const m of models) {
-      const nm = norm(m);
-      if (nm.length >= 2 && modelProbe.includes(nm)) { hitModel = m; break; }
-    }
-    if (!hitModel) {
-      for (const [alias, canon] of Object.entries(MODEL_ALIAS)) {
-        if (!modelProbe.includes(alias)) continue;
-        const real = models.find((x) => norm(x) === norm(canon)) || models.find((x) => norm(x) === alias);
-        if (real) { hitModel = real; break; }
-      }
-    }
-  }
-
-  // 트림 후보 사전(모델 힌트 있으면 그 모델 우선, 없으면 전체) — 모델 정제 전에 뽑아 "팰리세이드 프레스티지" 분해
-  const trimHintModel = hitModel;
-  const trimEmpty = !String(out.trim_name ?? '').trim();
-  const modelWasBlob = looksCompoundVehicleText(p.model) || looksCompoundVehicleText(p.sub_model) || looksCompoundVehicleText(p.cert_car_name) || looksCompoundVehicleText(p.vehicle_name);
-  if (trimEmpty || modelWasBlob) {
-    const trimSet = new Set<string>();
-    for (const e of entries) {
-      if (trimHintModel && e.model !== trimHintModel) continue;
-      for (const t of realMasterTrims(e.trims)) trimSet.add(t);
-      for (const v of e.variants || []) for (const t of realMasterTrims(v.trims)) trimSet.add(t);
-    }
-    if (!trimHintModel) {
-      for (const e of entries) {
-        for (const t of realMasterTrims(e.trims)) trimSet.add(t);
-        for (const v of e.variants || []) for (const t of realMasterTrims(v.trims)) trimSet.add(t);
-      }
-    }
-    for (const t of [...trimSet].sort((a, b) => b.length - a.length)) {
-      if (norm(t).length < 2) continue;
-      if (nblob.includes(norm(t))) { out.trim_name = t; break; }
-    }
-  }
-  // 이미 들어있는 trim이 플레이스홀더·장문 마케팅이면 비움(신호는 블롭에 남음)
-  if (isNoTrimLabel(out.trim_name) || String(out.trim_name || '').trim().length > 40) {
-    out.trim_name = '';
-  } else if (String(out.trim_name || '').trim()) {
-    // Premium → 프리미엄 (모델 힌트 풀이 있으면 그 안에서만)
-    const pool: string[] = [];
-    const hint = String(out.model || hitModel || '').trim();
-    for (const e of entries) {
-      if (hint && e.model !== hint) continue;
-      for (const t of realMasterTrims(e.trims)) pool.push(t);
-      for (const v of e.variants || []) for (const t of realMasterTrims(v.trims)) pool.push(t);
-    }
-    const canon = canonMasterTrim(out.trim_name, pool.length ? pool : null);
-    if (canon) out.trim_name = canon;
-  }
-
-  if (hitModel) {
-    const modelRaw = String(out.model ?? '').trim();
-    const peeled = !!(out.trim_name && norm(modelRaw).includes(norm(String(out.trim_name))) && norm(modelRaw).includes(norm(hitModel)) && norm(modelRaw) !== norm(hitModel));
-    if (!modelRaw || looksCompoundVehicleText(modelRaw) || peeled) out.model = hitModel;
-    if (!String(out.maker ?? '').trim()) {
-      const mk = entries.find((e) => e.model === hitModel)?.maker;
-      if (mk) out.maker = mk;
-    }
-  }
-
-  return out;
+  return unpackVehicleSignalsEngine(p, entries, {
+    norm,
+    carYear,
+    seatsFromBlob,
+    normDrive,
+    driveFromBlob,
+    makerGroup,
+    looksCompoundVehicleText,
+    canonMasterTrim,
+    modelAlias: MODEL_ALIAS,
+  });
 }
 
 export function snapToMaster(p: EntityRecord, entries: MasterEntry[]): SnapResult | null {
   // 원본 수집 신호 우선 → 한줄·섞인 표기 분해 → 이후는 구조화 필드 매칭
   p = unpackVehicleSignals(withRawVehicleSignals(p), entries);
-  const maker = norm(p.maker), model = norm(p.model), sub = norm(p.sub_model), year = carYear(p);
-  if (!maker && !model && !sub) return null;
-  if (!model && !sub) return null; // P4(사용자 정책): 제조사만 있고 모델·세부 공란 = 매칭 안 함(미분류로 사람이 채움)
   const signalBlob = vehicleSignalBlob(p);
   const wantTurbo = turboHint(p, signalBlob);
-  const pCatalog = String(p.catalog_id || '').trim().toUpperCase();
-
-  // ── 1단계: 제조사 잠금 ── (아반떼→현대). 그룹 별칭으로 제네시스↔현대·르노 표기흔들림 흡수. 불명이면 전체.
-  const mg = maker ? makerGroup(maker) : [];
-  const sameMaker = (em: string) => mg.some((g) => em === g || em.includes(g) || g.includes(em));
-  let pool = maker ? entries.filter((e) => sameMaker(norm(e.maker))) : entries;
-  if (!pool.length) pool = entries;
-  if (!pool.length) return null;
-
-  // ── 2단계: 모델 하드 잠금 ── 풀 안 distinct 모델 중 매물 model/sub_model 과 최적 1개로 고정.
-  //   "아반떼면 아반떼 안에서만" — 이후 세대·variant·트림은 이 모델 밖으로 못 나감(교차오염 차단).
-  const codes = genCodes(entries);
-  const pmodel = normModel(p.model, p.maker, p.sub_model);      // 제조사·세대 접두 벗긴 모델신호(모델칸)
-  const subModel = modelFromSub(p.sub_model, p.maker, codes);   // 세부에서 뽑은 모델명(P3: 모델↔세부 충돌 시 우선)
-  let lockedModel: string | null = null, modelSim = 0;
-  for (const em of new Set(pool.map((e) => e.model))) {
-    const nem = norm(em);
-    // P3(사용자 정책): 세부모델 우선(full) > 모델칸(0.9) > 전체sub유사(0.85). 베뉴(모델)vs카니발(세부)→카니발
-    let s = Math.max(sim(subModel, em), sim(pmodel, em) * 0.9, sub ? sim(String(p.sub_model), em) * 0.85 : 0);
-    if (nem && sub.includes(nem)) s += 0.02 * nem.length;   // 구체성 우선 — sub에 전체 모델명 포함 시 더 긴 모델(A6 e-트론 > A6)
-    if (s > modelSim) { modelSim = s; lockedModel = em; }
-  }
-  const locked = (lockedModel && modelSim > 0.4) ? pool.filter((e) => e.model === lockedModel) : pool;
-
-  // ── 3단계: 세대 좁히기 ── 잠긴 모델 안에서 세부명·트림·세대코드·연식·파워트레인·등록증 종합.
-  const pgen = extractGen(p.sub_model, codes) || extractGen(p.catalog_id, codes) || extractGen(p.type_number, codes);
-  const ord = ordinalGen(p.sub_model) || ordinalGen(p.trim_name) || ordinalGen(p.cert_car_name);
-  const orderList = lockedModel ? (genOrder(entries).get(lockedModel) || []) : [];
-  const targetGen = (ord >= 1 && ord <= orderList.length) ? orderList[ord - 1] : null; // N세대 → 연대순 N번째
-  const pfuel = normFuel(p.fuel_type);
-  const productIsEv = pfuel === '전기' || pfuel === '수소';
-  // EV 힌트 — 수집 전 필드에 전기/일렉트릭 흔적(연료 미상이라도 EV면 배제 안 함).
-  const evHint = /전기|일렉트릭|일렉트리파이드|electrified|\bev\b/i.test(signalBlob.toLowerCase());
-  const BODY_RE = /쿠페|카브리올레|컨버터블|coupe|cabriolet|convertible/i;
-  const pCoupe = BODY_RE.test(signalBlob);
-  const scored = locked.map((e) => {
-    let s = 0;
-    if (sub) s += sim(String(p.sub_model), e.sub_model) * 2.2 + sim(String(p.sub_model), e.title || '') * 0.5;
-    if (p.trim_name) s += sim(String(p.trim_name), e.sub_model) * 1.0;              // 트림의 세대신호(뉴라이즈→페이스리프트)
-    if (p.cert_car_name) s += sim(String(p.cert_car_name), e.sub_model) * 0.8 + sim(String(p.cert_car_name), e.title || '') * 0.4;
-    if (p.vehicle_name) s += sim(String(p.vehicle_name), e.sub_model) * 0.6;
-    const genLock = (pgen && String(e.gen_code).toUpperCase() === pgen)
-      || (targetGen && e.gen_code === targetGen)
-      || (!!pCatalog && String(e.gen_code).toUpperCase() === pCatalog);
-    if (genLock) s += 5;                                                            // 세대코드 명시(NQ5) 또는 "N세대" 서수 = 지배적
-    const ys = Number(e.year_start) || 0, ye = /\d{4}/.test(String(e.year_end)) ? Number(e.year_end) : 9999;
-    // P2(사용자 정책): 세대가 확정(genLock)되면 연식 무시(연식칸 오기 잦음). 아니면 연식으로 세대 좁힘.
-    if (year && ys && !genLock) {
-      if (year >= ys && year <= ye) s += 3;                                    // 연식이 세대 범위 안 = 강가점
-      else if (year >= ys - 1 && year <= ye + 1) s += 1.2;                     // 경계 ±1
-      else s -= Math.min(3, (year < ys ? ys - year : year - ye) * 0.6);        // 벗어난 세대 배제
-    } else if (year && ys && genLock && year >= ys && year <= ye) s += 1;      // 세대확정+연식도 맞으면 소폭 보강
-    if (pfuel && e.variants?.length) {                                             // 파워트레인으로 세대 제약(하이브리드=KA4 전용 등)
-      const fuels = new Set(e.variants.map((v) => normFuel(v.fuel)));
-      if (fuels.has(pfuel)) s += 0.8;
-      else if (pfuel === '하이브리드' || pfuel === '전기') s -= 2;                  // 해당 연료 없는 세대 강배제
-    }
-    // EV 무음 오스냅 방지(v3 이식) — 제품이 EV 아님(연료 미상 포함)+EV힌트 없음인데 세대가 EV전용이면 강배제(가솔린 G80→일렉트리파이드 방지).
-    if (!productIsEv && !evHint && e.variants?.length && e.variants.every((v) => { const f = normFuel(v.fuel); return f === '전기' || f === '수소'; })) s -= 6;
-    // 쿠페/카브리올레 불일치 패널티(v3 이식) — 한쪽만 쿠페류 = 다른 차(GV80→GV80쿠페 오매칭 차단).
-    if (pCoupe !== BODY_RE.test(`${e.sub_model || ''} ${e.title || ''}`)) s -= 6;
-    return { e, s };
-  }).sort((a, b) => {
-    if (b.s !== a.s) return b.s - a.s;
-    // 동점: 연식 시작이 빠른 쪽(기본형) 우선 — catalog만 있을 때 더뉴/EV가 JSON 앞이라 이기던 단순오류 방지
-    return (Number(a.e.year_start) || 0) - (Number(b.e.year_start) || 0);
+  const selected = selectMasterEntry(p, entries, signalBlob, {
+    norm,
+    makerGroup,
+    genCodes,
+    normModel,
+    modelFromSub,
+    similarity: sim,
+    extractGen,
+    ordinalGen,
+    genOrder,
+    carYear,
+    normFuel,
   });
+  if (!selected) return null;
+  const {
+    entry: e,
+    score: bestScore,
+    modelSimilarity: modelSim,
+    lockedModel,
+    makerPool: pool,
+    year,
+  } = selected;
 
-  const best = scored[0];
-  if (!best) return null;
-  const e = best.e;
-
-  const fuel = normFuel(p.fuel_type), disp = (Number(p.engine_cc) || 0) / 1000;
-  const wantSeats = Number(p.seats) > 0 ? Number(p.seats) : 0;
-  const wantDrive = normDrive(p.drive_type);
-  const seatMatters = variantSeatsDiffer(e.variants); // 카니발·팰리 등 인승이 갈리는 세대만
-  const modelModeSeat = seatMatters
-    ? (lockedModel ? modeSeatForModel(entries, lockedModel) : modeSeat(e.variants || []))
-    : null;
-  let variant: MasterVariant | undefined;
-  if (e.variants?.length) {
-    variant = e.variants.map((v) => {
-      let vs = 0;
-      const vf = normFuel(v.fuel);
-      if (fuel && vf === fuel) vs += 2;
-      else if (fuel && vf && (vf.includes(fuel) || fuel.includes(vf))) vs += 1;
-      else if (fuel && vf) vs -= 3; // 연료 명확히 다름 = 강페널티
-      if (disp && v.displacement_l) vs += Math.max(0, 1 - Math.abs(v.displacement_l - disp) * 1.2);
-      // 구동: 명시되면 가점/감점. 없으면 2WD 쪽 variant 선호(힌트만 — 저장은 마스터 노드).
-      if (wantDrive && v.drivetrain) {
-        const vd = normDrive(v.drivetrain);
-        if (vd === wantDrive) vs += 1.5;
-        else vs -= 1;
-      } else if (!wantDrive && v.drivetrain) {
-        const vd = normDrive(v.drivetrain);
-        if (vd === '2WD') vs += 0.5;
-        else if (vd === '4WD') vs -= 0.25;
-      }
-      // 인승: 세대 내 인승이 갈릴 때만 매칭·힌트 (단일 5인승 차는 인승 없음)
-      if (seatMatters && wantSeats && v.seat) {
-        if (v.seat === wantSeats) vs += 1.5;
-        else vs -= 0.6;
-      } else if (seatMatters && !wantSeats && modelModeSeat != null && v.seat === modelModeSeat) {
-        vs += 0.45;
-      }
-      // 터보 — 옵션·원동기·표기에 T/터보 있으면 turbo 노드 선호
-      if (wantTurbo) vs += v.turbo ? 1.2 : -0.8;
-      else if (v.turbo) vs -= 0.15;
-      // 마스터 라벨이 수집 블롭에 그대로 있으면 강가점
-      const vl = masterVariantLabel(v);
-      if (vl && norm(signalBlob).includes(norm(vl))) vs += 1.5;
-      return { v, vs };
-    }).sort((a, b) => b.vs - a.vs)[0]?.v;
-  }
+  const { variant, seatMatters } = selectMasterVariant(
+    p,
+    e,
+    entries,
+    lockedModel,
+    signalBlob,
+    wantTurbo,
+    { norm, normDrive },
+  );
 
   let trim = '';
   const trimSrc = realMasterTrims(variant?.trims?.length ? variant.trims : (e.trims || []));
@@ -740,7 +471,7 @@ export function snapToMaster(p: EntityRecord, entries: MasterEntry[]): SnapResul
   // 확신도 = 모델락 강도 × 세대 확정도. 모델 못 잠갔거나 트림충돌이면 저신뢰.
   //   연식+연료만으로 세대가 갈리면(sub 공란 한줄분해) best.s≥3·modelSim≥0.7 → high.
   const ms = Math.min(modelSim, 1);
-  const confidence: SnapResult['confidence'] = trimConflict ? 'low' : (ms >= 0.7 && best.s >= 3) ? 'high' : (ms >= 0.45 && best.s >= 0.5) ? 'medium' : 'low';
+  const confidence: SnapResult['confidence'] = trimConflict ? 'low' : (ms >= 0.7 && bestScore >= 3) ? 'high' : (ms >= 0.45 && bestScore >= 0.5) ? 'medium' : 'low';
   // 결과 스펙 = 마스터 노드만. 신호·최빈값으로 임의 채우기 금지(미선택=공란).
   return {
     maker: e.maker, model: e.model, sub_model: e.sub_model, gen_code: e.gen_code,

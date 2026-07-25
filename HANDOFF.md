@@ -264,6 +264,36 @@ Claude Code(설계) → Cursor(구현) → Codex(독립 검증·수정·완료)�
 - `components/ui/index.tsx`는 191줄에서 32줄의 순수 barrel로 정리됐다.
 - 기존 `@/components/ui` 공개 경로는 모두 유지되며 호출부 수정은 없다.
 - 다음 큰 작업은 UI가 아니라 `vehicle-master-match.ts`의 신호 정규화와 점수 계산 경계를 별도 검증 단위로 다루는 것이다.
+
+## 2026-07-26 차량 마스터 정규화 분리
+
+- UI 분리 체크포인트 커밋: `b04e23b` (`refactor: split shared UI modules`).
+- `unpackVehicleSignals` 구현을 `lib/domain/vehicle-master-normalize.ts`의
+  `unpackVehicleSignalsEngine`으로 이동했다.
+- 기존 `vehicle-master-match.ts`의 공개 함수는 의존성을 주입하는 호환 래퍼로 유지한다.
+- 연식·배기 파서는 정규화 엔진 내부로 이동했고 본체의 중복 구현은 제거했다.
+- `vehicle-master-match.ts`: 843줄 → 676줄.
+- 새 정규화 엔진: 225줄.
+- typecheck·전체 7개 시뮬레이션·마스터 전수 검증·diff 검사 PASS.
+- `/inventory` HTTP 200, 개발 서버 포트 4004 유지.
+- 다음 안전한 경계는 모델·세대 후보 점수 계산이다. 매칭 결과 변화 없이 별도 엔진과 콜백 주입 구조로 다룬다.
+- 모델 잠금·세대 후보 점수 계산을 `lib/domain/vehicle-master-score.ts`로 분리했다.
+- 이동 정책: 제조사 그룹 잠금, 모델 유사도, 세대코드·서수, 연식 범위,
+  연료, EV 전용 세대, 쿠페 불일치 패널티, 동점 정렬.
+- `selectMasterEntry`는 선택 엔트리·점수·모델 유사도·잠긴 모델·제조사 풀·연식을 반환한다.
+- variant·트림 선택과 최종 confidence 판정은 본체에 남겨 경계를 작게 유지했다.
+- `vehicle-master-match.ts`: 676줄 → 625줄, 점수 엔진 148줄.
+- typecheck·전체 시뮬레이션·마스터 전수 검증·diff 검사 PASS, `/inventory` HTTP 200.
+- 다음 후보는 variant 점수 계산이다. 트림과 confidence는 아직 본체에 유지한다.
+- variant 점수 계산을 `lib/domain/vehicle-master-variant.ts`로 분리했다.
+- 이동 정책: 연료 일치·불일치, 배기량 거리, 구동, 가변 인승, 최빈 인승,
+  터보 힌트, 마스터 variant 라벨 직접 일치.
+- `modeSeat`, `modeSeatForModel`도 새 모듈로 이동하고 기존 공개 경로에서 재수출한다.
+- `selectMasterVariant`는 선택 variant와 `seatMatters`를 반환한다.
+- `vehicle-master-match.ts`: 625줄 → 574줄, variant 엔진 98줄.
+- typecheck·전체 7개 시뮬레이션·마스터 전수 검증·diff 검사 PASS.
+- `/inventory` HTTP 200, 서버 포트 4004 유지.
+- 다음 후보는 트림 선택과 trim conflict·confidence 판정이다.
 - 공통 통계·요약 UI를 `components/ui/metrics.tsx`로 분리했다.
   - 이동: `Card`, `Toolbar`, `Panel`, `Kpi`, `KpiRow`, `StatBar`, `Stepper`
   - 공통 tone 색 계산을 모듈 내부 `toneColor`로 통합했다.

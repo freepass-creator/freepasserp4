@@ -61,6 +61,66 @@
 - 홈·재고·계약·채팅·회원·설정·정책·FAQ: HTTP 200
 - `git diff --check`: PASS
 
+## 2026-07-26 — 차량 마스터 입력 신호 정규화 분리
+
+### 범위
+
+- `lib/domain/vehicle-master-normalize.ts` 신규
+- `unpackVehicleSignalsEngine`으로 입력 신호 해석 구현 이동
+- 기존 `unpackVehicleSignals` 공개 함수는 호환 래퍼 유지
+- 기존 본체의 연식·배기 중복 파서 제거
+
+### 검증
+
+- `npm.cmd run typecheck`: PASS
+- 전체 7개 시뮬레이션: PASS
+- `verify-master-pass.mts`: PASS
+- `git diff --check`: PASS
+- `/inventory`: HTTP 200
+- `vehicle-master-match.ts`: 843줄 → 676줄
+
+## 2026-07-26 — 차량 마스터 모델·세대 점수 엔진 분리
+
+### 범위
+
+- `lib/domain/vehicle-master-score.ts` 신규
+- 제조사 그룹 잠금, 모델 유사도, 세대 후보 점수와 동점 정렬 이동
+- variant·트림·confidence 판정은 기존 본체에 유지
+
+### 정책 동일성
+
+- 세대코드 및 `N세대` 서수 가중치 유지
+- 연식 범위·경계·범위 밖 패널티 유지
+- 하이브리드·전기 세대 제약 유지
+- EV 전용 세대와 쿠페·카브리올레 불일치 패널티 유지
+
+### 검증
+
+- `npm.cmd run typecheck`: PASS
+- 전체 7개 시뮬레이션: PASS
+- `verify-master-pass.mts`: PASS
+- `git diff --check`: PASS
+- `/inventory`: HTTP 200
+- `vehicle-master-match.ts`: 676줄 → 625줄
+
+## 2026-07-26 — 차량 마스터 variant 점수 엔진 분리
+
+### 범위
+
+- `lib/domain/vehicle-master-variant.ts` 신규
+- variant 연료·배기·구동·인승·터보·라벨 점수 이동
+- `modeSeat`, `modeSeatForModel` 이동 및 기존 경로 재수출
+- 트림·confidence 판정은 기존 본체 유지
+
+### 검증
+
+- `npm.cmd run typecheck`: PASS
+- 전체 7개 시뮬레이션: PASS
+- `verify-master-pass.mts`: PASS
+- `git diff --check`: PASS
+- `/inventory`: HTTP 200
+- `vehicle-master-match.ts`: 625줄 → 574줄
+
 ## 2026-07-26 — 공통 UI 칩·필터 분리
 
 ### 범위

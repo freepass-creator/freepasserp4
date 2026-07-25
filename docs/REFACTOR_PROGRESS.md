@@ -368,6 +368,42 @@ npx.cmd tsx scripts/sim-phase12.mts
 - 공통 UI 대형 단일 파일 분리는 완료 상태다.
 - 다음 큰 후보: `vehicle-master-match.ts` 신호 정규화·점수 계산 경계.
 
+## 완료: 차량 마스터 입력 신호 정규화 분리
+
+- 새 파일: `lib/domain/vehicle-master-normalize.ts` (225줄)
+- `unpackVehicleSignals` 구현을 `unpackVehicleSignalsEngine`으로 이동했다.
+- 기존 공개 함수는 호환 래퍼로 유지해 호출부 변경이 없다.
+- 본체 정책 함수는 명시적 의존성 객체로 주입해 순환 import를 피했다.
+- 연식·배기 파서는 정규화 엔진 내부로 이동했다.
+- `vehicle-master-match.ts`: 843줄 → 676줄.
+- typecheck·전체 7개 시뮬레이션·마스터 전수 검증·diff 검사 PASS.
+- `/inventory` HTTP 200.
+- 다음 후보: 모델 잠금·세대 후보 점수 계산 엔진.
+
+## 완료: 차량 마스터 모델·세대 점수 엔진 분리
+
+- 새 파일: `lib/domain/vehicle-master-score.ts` (148줄)
+- `selectMasterEntry`로 제조사 풀, 모델 잠금, 세대 후보 점수 계산을 이동했다.
+- 세대코드·N세대 서수·연식·연료·EV·쿠페 정책과 동점 정렬을 유지했다.
+- 선택 결과에 후속 variant·트림 판정이 필요한 컨텍스트를 명시적으로 반환한다.
+- variant·트림·confidence는 본체에 남겨 한 번에 정책을 과도하게 이동하지 않았다.
+- `vehicle-master-match.ts`: 676줄 → 625줄.
+- typecheck·전체 7개 시뮬레이션·마스터 전수 검증·diff 검사 PASS.
+- `/inventory` HTTP 200.
+- 다음 후보: variant 점수 계산 엔진.
+
+## 완료: 차량 마스터 variant 점수 엔진 분리
+
+- 새 파일: `lib/domain/vehicle-master-variant.ts` (98줄)
+- `selectMasterVariant`로 연료·배기·구동·인승·터보·라벨 점수 계산을 이동했다.
+- `modeSeat`, `modeSeatForModel`도 이동하고 기존 공개 경로에서 재수출한다.
+- 선택 결과는 variant와 세대 내 인승 구분 여부를 반환한다.
+- 트림과 confidence 판정은 본체에 유지했다.
+- `vehicle-master-match.ts`: 625줄 → 574줄.
+- typecheck·전체 7개 시뮬레이션·마스터 전수 검증·diff 검사 PASS.
+- `/inventory` HTTP 200.
+- 다음 후보: 트림 선택 및 conflict·confidence 판정.
+
 ## 완료: 공통 UI 통계·요약 분리
 
 - 새 파일: `components/ui/metrics.tsx`
