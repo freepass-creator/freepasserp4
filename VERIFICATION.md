@@ -1,5 +1,19 @@
 # 독립 검증 결과
 
+## 2026-07-26 채팅 RTDB 읽기 경계
+
+결과: **PASS (정적 규칙·로컬 시뮬레이션 기준)**
+
+- `database.rules.json` JSON 파싱: PASS
+- TypeScript `tsc --noEmit`: PASS
+- `scripts/sim-chat-rules.mts`: 21/21 PASS
+- 기존 시뮬레이션: agent 39/39, lifecycle PASS, settlement 15/15, phase12 25/25, sheet merge 12/12, vehicle lock 23/23, product private migration 14/14
+- 실행 중 개발 서버: 포트 4004 LISTEN 유지
+- HTTP smoke: `/chat` 200, `/contract` 200
+- `git diff --check`: PASS
+- production build: 실행 중 개발 서버 보호를 위해 보류
+- 미검증 범위: Firebase Rules 게시, Rules Emulator, 실제 관리자·공급사·영업자 계정 권한 시나리오
+
 ## 2026-07-26 — 공통 UI 내비게이션·피드백 분리
 
 ### 범위

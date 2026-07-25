@@ -1,5 +1,15 @@
 # 규격통일 핸드오프 (Claude ↔ Cursor)
 
+## 2026-07-26 채팅 읽기 권한 경계 강화
+
+- `database.rules.json`의 V3·V4 `rooms` 전체 인증 사용자 읽기를 제거했다.
+- 관리자만 전체 조회할 수 있고, 공급사는 `provider_company_code`, 영업자는 `agent_uid` 또는 `agent_channel_code` 쿼리로 자기 범위만 조회한다.
+- V3 메시지는 `messages/{roomId}` 중첩 구조를 유지하며 해당 방 소유권으로 읽기를 판정한다.
+- V4 메시지는 `room_id` 쿼리를 의무화하고 해당 V4 방 소유권으로 읽기를 판정한다.
+- `scripts/sim-chat-rules.mts` 21/21 PASS, 전체 기존 시뮬레이션·typecheck·JSON 파싱·diff 검사 PASS.
+- 개발 서버는 포트 4004에서 유지 중이며 `/chat`, `/contract` HTTP 200을 확인했다.
+- 중요: 규칙은 저장소에만 반영했고 Firebase 콘솔/CLI에는 게시하지 않았다. 실제 계정·에뮬레이터 권한 검증도 아직 필요하다.
+
 공용 규격 = **`CLAUDE.md`**. 둘 다 이거 따름.
 **철칙: 같은 파일 동시편집 금지. 편집 전 재확인 → 편집 → `npx tsc --noEmit`(0). 이제 매 push/PR = CI(typecheck·`npm run check:fonts`·sim3종·빌드) 자동 검증.**
 
