@@ -429,6 +429,16 @@ npx.cmd tsx scripts/sim-phase12.mts
 - public/private 왕복 회귀 검사를 포함해 영업자 시뮬레이션 39/39 PASS.
 - 기존 public 레코드 마이그레이션과 라이브 규칙 게시는 남아 있어 운영 완료로 판정하지 않는다.
 
+## 완료: 민감 필드 마이그레이션 도구
+
+- `migrate-products-private.ts`: v3/v4/public/private 마이그레이션 계획 및 적용 함수.
+- 기본 dry-run이며 관리자 개발도구에서만 실제 실행 확인을 제공한다.
+- v3·v4 기간별 가격을 깊게 병합해 한쪽에만 있는 수수료를 보존한다.
+- 기존 private 값 우선으로 재실행 안전성을 확보했다.
+- private 복사 대상이 있는 상품만 public 민감 필드를 삭제한다.
+- 전용 시뮬레이션 14/14 PASS, 기존 전체 검증 PASS.
+- 실제 Firebase 데이터에는 실행하지 않았다.
+
 ## 완료: 공통 UI 통계·요약 분리
 
 - 새 파일: `components/ui/metrics.tsx`

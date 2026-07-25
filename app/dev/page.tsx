@@ -25,6 +25,7 @@ export default function DevTools() {
   const [log, setLog] = useState('');
   const [migBusy, setMigBusy] = useState(false);
   const [migLog, setMigLog] = useState('');
+  const [privateMigLog, setPrivateMigLog] = useState('');
   const [diagLog, setDiagLog] = useState('');
   const [role, setRoleLocal] = useState<Role>(() => (typeof window !== 'undefined' ? getRole() : 'agent'));
 
@@ -147,6 +148,37 @@ export default function DevTools() {
     } finally { setMigBusy(false); }
   };
 
+  const runPrivateMigration = async (dryRun: boolean) => {
+    if (migBusy) return;
+    if (!dryRun && !await confirmDialog({
+      title: '민감 매물 필드 이동',
+      message: '원가·VIN·내부 수수료를 products_private로 복사한 뒤 v3/v4 공개 노드에서 제거합니다.\n되돌리기 어려운 운영 데이터 변경입니다. dry-run 결과를 확인했나요?',
+      danger: true,
+      okLabel: '민감 필드 이동 실행',
+    })) return;
+    setMigBusy(true);
+    setPrivateMigLog('');
+    try {
+      const { migrateProductsPrivate } = await import('@/lib/firebase/migrate-products-private');
+      const result = await migrateProductsPrivate(dryRun);
+      const message = `${dryRun ? '[미리보기]' : '[이동 완료]'} 검사 ${result.scannedProducts}대`
+        + ` · 민감필드 상품 ${result.productsWithPrivate}`
+        + ` · private 쓰기 ${result.privateWrites}`
+        + ` · public 삭제 ${result.publicDeletes}`
+        + ` · 안전제외 ${result.skippedUnsafe}`
+        + ` · 적용경로 ${result.appliedPaths}`;
+      setPrivateMigLog(message);
+      toast(message, 'ok');
+      if (!dryRun) await reload();
+    } catch (error) {
+      const message = '민감 필드 이동 오류: ' + String((error as Error).message || error);
+      setPrivateMigLog(message);
+      toast(message, 'error');
+    } finally {
+      setMigBusy(false);
+    }
+  };
+
   if (ok === null) return <Loading />;
   if (!ok) {
     const canDemoSwitch = !getSession();
@@ -207,6 +239,23 @@ export default function DevTools() {
           </div>
           {diagLog && <pre style={{ margin: '10px 0 0', fontSize: FS.cap, color: C.mute, whiteSpace: 'pre-wrap', fontFamily: NUM, lineHeight: 1.6 }}>{diagLog}</pre>}
           {migLog && <pre style={{ margin: '10px 0 0', fontSize: FS.cap, color: C.mute, whiteSpace: 'pre-wrap', fontFamily: NUM }}>{migLog}</pre>}
+        </div>
+
+        <div style={{ ...card, background: C.warnBg }}>
+          <SectionLabel mt={0}>민감 매물 필드 → private 이동</SectionLabel>
+          <div style={{ fontSize: FS.cap, color: C.mute, lineHeight: 1.6, marginBottom: 10 }}>
+            원가·VIN·기간별 내부 수수료를 <code>v4/products_private</code>에 보존한 뒤
+            v3/v4 공개 상품에서 제거합니다. 먼저 미리보기로 대상과 삭제 경로 수를 확인하세요.
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <Btn variant="ghost" onClick={() => runPrivateMigration(true)} disabled={migBusy}>
+              민감 필드 미리보기
+            </Btn>
+            <Btn variant="danger" onClick={() => runPrivateMigration(false)} disabled={migBusy}>
+              {migBusy ? '처리 중…' : 'private 이동 실행'}
+            </Btn>
+          </div>
+          {privateMigLog && <pre style={{ margin: '10px 0 0', fontSize: FS.cap, color: C.mute, whiteSpace: 'pre-wrap', fontFamily: NUM }}>{privateMigLog}</pre>}
         </div>
 
         <div style={card}>

@@ -333,6 +333,20 @@ Claude Code(설계) → Cursor(구현) → Codex(독립 검증·수정·완료)�
 - 기존 v3/v4 public 레코드의 민감 필드는 아직 마이그레이션하지 않았다.
   신규 write는 분리되지만 과거 네트워크 원본 보호는 마이그레이션·규칙 게시 후 완료된다.
 - 다음 단계는 dry-run 가능한 민감 필드 마이그레이션 도구다. 자동 실행하거나 라이브 데이터를 삭제하지 말 것.
+
+## 2026-07-26 민감 필드 마이그레이션 도구
+
+- 이중 저장 배치 커밋: `843b07e` (`security: separate private product fields`).
+- `lib/firebase/migrate-products-private.ts`를 추가했다.
+- v3·v4 상품을 상품코드 기준으로 병합하고, 기간별 가격은 깊게 병합한다.
+- 기존 private 값이 있으면 public 값보다 우선해 재실행 시 최신 private 데이터를 보존한다.
+- private 쓰기 계획이 준비된 상품만 v3/v4 public 민감 경로 삭제 대상으로 만든다.
+- 기본 API는 `migrateProductsPrivate(true)` dry-run이며 쓰기 0건이다.
+- 관리자 `/dev`에 미리보기와 별도 위험 확인이 필요한 실행 버튼을 추가했다.
+- 전용 순수 계획 시뮬레이션 `sim-product-private-migration.mts` 14/14 PASS.
+- typecheck·기존 전체 7개 검증·규칙 JSON·diff 검사 PASS, `/dev`·`/inventory`·홈 HTTP 200.
+- 현재 환경은 Firebase env가 없어 실제 dry-run조차 라이브에 실행하지 않았다.
+- 다음 운영 순서: 규칙 게시 → 관리자 로그인 → `/dev` 미리보기 수치 저장 → 백업 → 실행 승인 → 적용 → 역할별 스모크.
 - 공통 통계·요약 UI를 `components/ui/metrics.tsx`로 분리했다.
   - 이동: `Card`, `Toolbar`, `Panel`, `Kpi`, `KpiRow`, `StatBar`, `Stepper`
   - 공통 tone 색 계산을 모듈 내부 `toneColor`로 통합했다.

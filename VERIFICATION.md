@@ -206,6 +206,34 @@
 - Firebase 규칙 게시
 - 관리자·공급사·영업자 실계정 검증
 
+## 2026-07-26 — 민감 필드 마이그레이션 도구
+
+### 안전장치
+
+- 기본값 dry-run
+- 실제 실행 전 관리자 개발도구 위험 확인
+- private 레코드 준비 후에만 public 삭제 계획 생성
+- 기존 private 값 우선 보존
+- v3/v4 가격 기간·필드 깊은 병합
+- RTDB 금지문자 키 제외
+- 400개 경로 단위 적용 배치
+
+### 검증
+
+- `sim-product-private-migration.mts`: 14/14 PASS
+- v4 원가 우선 및 v3 전용 fee 보존: PASS
+- 기존 private VIN·메모 우선: PASS
+- v3/v4 public 삭제 경로 생성: PASS
+- 공개 전용 상품 미변경: PASS
+- 타입 검사·기존 전체 7개 검증·규칙 JSON·diff 검사: PASS
+- `/dev`, `/inventory`, `/`: HTTP 200
+
+### 미실행
+
+- 라이브 dry-run: Firebase 환경변수 부재로 미실행
+- 실제 마이그레이션: 미실행
+- 라이브 규칙 게시 및 실계정 검증: 미실행
+
 ## 2026-07-26 — 공통 UI 칩·필터 분리
 
 ### 범위
