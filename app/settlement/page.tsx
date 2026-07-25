@@ -6,7 +6,7 @@ import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
 import { useIsMobile } from '@/lib/use-mobile';
 import { type EntityRecord } from '@/lib/intake/entities';
-import { getRole } from '@/lib/domain/deal';
+import { isAdminUiAllowed } from '@/lib/auth-gate';
 import { parseSettlementHistory } from '@/lib/domain/settlement-import';
 import { downloadSettlementReport } from '@/lib/excel-export';
 import { Page, Btn, Badge, FilterChips, IconBtn, PillTabs, SearchInput, won, C, R, NUM, FW, FS, Loading, CenterNote, SETTLEMENT_STATUS_TONE, th, thR, td, tdR } from '@/components/ui';
@@ -36,7 +36,7 @@ export default function MonthlySettlement() {
 
   useEffect(() => { (async () => {
     await seedIfEmpty(co);
-    if (getRole() !== 'admin') { router.replace('/contract'); return; }
+    if (!isAdminUiAllowed()) { router.replace('/contract'); return; }
     const all = await getStore().list('settlement', co);
     setRows(all); setOk(true);
     const ms = [...new Set(all.map(monthOf).filter(Boolean))].sort();

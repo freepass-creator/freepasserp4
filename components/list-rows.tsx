@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import {
   MessageCircleMore, MessageCircle, MessageCircleWarning,
   FileText, FileClock, FileCheck2, FileX2, ClipboardList,
-  CircleCheck, Package, Handshake, Ban, Car, ShieldCheck,
+  CircleCheck, Package, Handshake, Ban, Car, ShieldCheck, Plus,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { EntityRecord } from '@/lib/intake/entities';
@@ -17,9 +17,11 @@ import {
 import {
   FeedListRow, FeedThumbIcon, FeedTitle, FeedSub, FeedBadges, FeedTitleRow,
 } from '@/components/ui/feedrow';
+import { useIsMobile } from '@/lib/use-mobile';
 import { CardSpecs } from '@/components/product-card-atoms';
 import { vehicleTone } from '@/lib/domain/product';
 import { msgClock } from '@/lib/format';
+import { haptic } from '@/lib/haptics';
 
 function plateSpan(plate: string) {
   if (!plate) return null;
@@ -96,8 +98,14 @@ function inventoryStatusIcon(p: EntityRecord): { icon: LucideIcon; tone: BadgeTo
  *   3 마지막 메시지 (+안읽음)
  * 좌측 = 상태 아이콘(색)
  */
+/**
+ * 문의 목록 3줄
+ *   1 영업·공급=차명 / 관리자=차량번호·공급사명 · 날짜
+ *   2 상태뱃지 · (비관리자)차번 · 상대코드
+ *   3 마지막 메시지 · 안읽음
+ */
 export const ChatRoomRow = memo(function ChatRoomRow({
-  room, stageContract, counter, unread, selected, onClick, displayName,
+  room, stageContract, counter, unread, selected, onClick, displayName, providerSuffix,
 }: {
   room: EntityRecord;
   stageContract?: EntityRecord | null;
@@ -106,12 +114,30 @@ export const ChatRoomRow = memo(function ChatRoomRow({
   selected?: boolean;
   onClick: (room: EntityRecord) => void; // 항목을 인자로 받는 안정 핸들러(부모 useCallback) — memo 유효화
   displayName?: string;
+  /** 관리자만 — 차량번호 뒤 공급사(번호 말줄임, 공급사는 유지) */
+  providerSuffix?: string;
 }) {
   const stage = contractStage(stageContract);
   const msg = String(room.last_message || '대화를 시작하세요').replace(/\s+/g, ' ').trim();
   const ic = chatStatusIcon(stage, unread);
   const inProg = !!stageContract && !['상담', '계약완료', '취소'].includes(stage.label);
   const accent: BadgeTone | undefined = unread > 0 ? 'amber' : inProg ? 'blue' : undefined;
+  const head = displayName || String(room.vehicle_name || '상품');
+  const titleNode = providerSuffix ? (
+    <div style={{ display: 'flex', alignItems: 'baseline', minWidth: 0, width: '100%', gap: 0 }}>
+      <div style={{ flex: '1 1 0', minWidth: 0, overflow: 'hidden' }}>
+        <FeedTitle mono>{head}</FeedTitle>
+      </div>
+      <span style={{
+        flex: '0 0 auto', maxWidth: '46%',
+        fontSize: FS.sub, fontWeight: FW.strong, color: C.mute,
+        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        marginLeft: 4,
+      }}>· {providerSuffix}</span>
+    </div>
+  ) : (
+    <FeedTitle>{head}</FeedTitle>
+  );
   return (
     <FeedListRow
       accent={accent}
@@ -121,12 +147,12 @@ export const ChatRoomRow = memo(function ChatRoomRow({
       lines={[
         <FeedTitleRow
           key="t"
-          title={<FeedTitle>{displayName || String(room.vehicle_name || '상품')}</FeedTitle>}
+          title={titleNode}
           meta={<span style={{ fontSize: FS.cap, color: C.faint, fontVariantNumeric: 'tabular-nums' }}>{msgClock(room.last_message_at, { dateOnly: true })}</span>}
         />,
         <FeedBadges key="b">
           <Badge tone={stage.tone}>{stage.label}</Badge>
-          {plateSpan(String(room.car_number || ''))}
+          {!providerSuffix ? plateSpan(String(room.car_number || '')) : null}
           {counter ? <span style={{ fontSize: FS.sub, color: C.faint, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{counter}</span> : null}
         </FeedBadges>,
         <div key="m" style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, width: '100%' }}>
@@ -145,7 +171,7 @@ export const ChatRoomRow = memo(function ChatRoomRow({
  *   1 차종/계약자 · 진행 n/5
  *   2 상태뱃지 · 차번 · 계약코드
  *   3 계약자 · 계약일
- * 좌측 = 상태 아이콘(색) — 문의·재고와 동일 규격
+ * 좌측 = 상태 아이콘(색) — 문의·재고와 동일 규격(액센트 바 없음)
  */
 export function ContractListRow({
   c, selected, onClick,
@@ -162,7 +188,6 @@ export function ContractListRow({
     && String(c.contract_status || '') !== '계약취소';
   return (
     <FeedListRow
-      accent={inProgress ? 'blue' : undefined}
       selected={selected}
       onClick={onClick}
       thumb={<FeedThumbIcon icon={ic.icon} tone={ic.tone} title={ic.title} />}
@@ -240,6 +265,42 @@ export const InventoryListRow = memo(function InventoryListRow({
     />
   );
 });
+
+/** 재고 목록 맨 위 — 목록행과 동일 아이콘 슬롯(+), 옆에 신규등록 세로 중앙. */
+export function InventoryCreateRow({ onClick }: { onClick: () => void }) {
+  const mobile = useIsMobile();
+  // FeedListRow 3줄 본체 높이 — 다른 재고행과 슬롯 높이 일치
+  const bodyH = 18 + 20 + 15 + 6;
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      aria-label="신규 등록"
+      className="fp-card fp-card-row fp-press"
+      onClick={() => { haptic.tap(); onClick(); }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); haptic.tap(); onClick(); }
+      }}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: mobile ? 10 : 11,
+        padding: mobile ? '8px 14px' : '7px 14px',
+        minHeight: (mobile ? 16 : 14) + bodyH,
+        borderBottom: `1px solid ${C.line}`,
+        boxSizing: 'border-box',
+        cursor: 'pointer',
+        color: 'inherit',
+      }}
+    >
+      <FeedThumbIcon icon={Plus} tone="blue" title="신규 등록" />
+      <span style={{
+        fontSize: FS.title, fontWeight: FW.head, color: C.ink, letterSpacing: '-0.02em',
+        lineHeight: 1, minWidth: 0,
+      }}>신규등록</span>
+    </div>
+  );
+}
 
 /** 정책 — 전용/공용 아이콘 · 유형뱃지 · 코드·심사 (문의·계약·재고와 동일 3줄) */
 function policyStatusIcon(p: EntityRecord): { icon: LucideIcon; tone: BadgeTone; title: string } {

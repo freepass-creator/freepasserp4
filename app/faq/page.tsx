@@ -31,9 +31,9 @@ export default function Faq() {
   if (role !== 'agent' && role !== 'admin') {
     return (
       <Page title={NAV_LABEL.faq}>
-        <CenterNote>영업자에게 제공되는 안내입니다</CenterNote>
+        <CenterNote>영업자·관리자에게 제공되는 안내입니다</CenterNote>
         <div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}>
-          <Btn href="/settings" size="sm">설정에서 역할 변경</Btn>
+          <Btn href="/" size="sm">홈으로</Btn>
         </div>
       </Page>
     );

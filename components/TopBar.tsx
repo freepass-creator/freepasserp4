@@ -249,7 +249,7 @@ function NavMenu({ mobile, open: openProp, setOpen: setOpenProp }: {
                     queueMicrotask(() => refreshCurrentPage(href));
                   }
                 }}
-                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: iPad, fontSize: iFont, fontWeight: (it.href === '/' ? path === '/' : path.startsWith(it.href ?? '##')) ? FW.head : FW.meta, color: ink, textDecoration: 'none' }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: iPad, fontSize: iFont, fontWeight: FW.strong, color: (it.href === '/' ? path === '/' : path.startsWith(it.href ?? '##')) ? C.brand : ink, textDecoration: 'none' }}
                   onMouseEnter={(e) => (e.currentTarget.style.background = C.hover as string)}
                   onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
                   <it.icon size={iSize} color={mute} />

@@ -89,9 +89,14 @@ export async function sendText(opts: SendTextOpts): Promise<EntityRecord> {
   };
   const r = await store.save('message', co, [rec]);
   if (!r.saved) throw new Error(`저장 0건 (중복 ${r.duplicates} · ${r.backend})`);
-  const rm = await store.get('room', co, opts.roomId);
-  await store.update('room', co, opts.roomId, bumpUnreadPatch(rm, role, text, now));
-  notifyUnread();
+  // 메시지 저장 후 방 갱신 실패해도 메시지는 남음 — throw 하면 UI가 재전송해 중복됨.
+  try {
+    const rm = await store.get('room', co, opts.roomId);
+    await store.update('room', co, opts.roomId, bumpUnreadPatch(rm, role, text, now));
+    notifyUnread();
+  } catch (e) {
+    console.warn('[messaging] room bump failed after text save (message kept):', e);
+  }
   return rec;
 }
 
@@ -135,9 +140,13 @@ export async function sendFile(opts: SendFileOpts): Promise<EntityRecord> {
   const r = await store.save('message', co, [rec]);
   if (!r.saved) throw new Error(`저장 0건 (중복 ${r.duplicates} · ${r.backend})`);
   const preview = isImg ? '[사진]' : '[파일]';
-  const rm = await store.get('room', co, opts.roomId);
-  await store.update('room', co, opts.roomId, bumpUnreadPatch(rm, role, preview, now));
-  notifyUnread();
+  try {
+    const rm = await store.get('room', co, opts.roomId);
+    await store.update('room', co, opts.roomId, bumpUnreadPatch(rm, role, preview, now));
+    notifyUnread();
+  } catch (e) {
+    console.warn('[messaging] room bump failed after file save (message kept):', e);
+  }
   return rec;
 }
 

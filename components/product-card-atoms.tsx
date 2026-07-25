@@ -35,11 +35,11 @@ import { fuelDisplay, fuelEmbeddedCc, yearDisplay, makerDisplay, isNoTrimLabel }
  *   3 Specs(+차번) ─────── PriceAmounts
  *   4 PerkLine ─────────── PeriodChips
  *
- *  모바일 피드 4줄(세로 스택 · 썸네일 좌):
- *   1 차종(Title)
- *   2 옵션
- *   3 차번·연식·연료·주행·배기
- *   4 가격(+범위) · 뱃지 · 우대조건
+ *  모바일 피드 4줄(세로 스택 · 썸네일 좌) — 영업 스캔. 옵션·뱃지·연료/주행=/m:
+ *   1 차량명(+⋯)
+ *   2 차량번호 · 연식
+ *   3 대여료 · 보증금 · 최저~최대 운영기간
+ *   4 우대조건
  *────────────────────────────────────────────────────────────
  * 간단카드 ProductCard — 웹 격자용
  *────────────────────────────────────────────────────────────
@@ -347,19 +347,21 @@ function metaRow(dense: boolean, _mobile: boolean, strong?: boolean, clamp?: boo
 }
 
 /** CardSpecs — 객관 스펙 한 줄.
- *  차량번호 · 연식 · 연료 · 주행 · 배기량. 없으면 `-`.
+ *  기본 = 차량번호 · 연식 · 연료 · 주행 · 배기량. 없으면 `-`.
+ *  plateYear = 모바일 목록용(차번 · 연식만). 연료·주행·배기·심사는 /m.
  *  차번 = 운영자만(손님 숨김). 텍스트만 · 살짝 두껍게.
  */
-export function CardSpecs({ p, dense, audience = 'agent' }: {
-  p: EntityRecord; dense?: boolean; audience?: Audience;
+export function CardSpecs({ p, dense, audience = 'agent', plateYear }: {
+  p: EntityRecord; dense?: boolean; audience?: Audience; plateYear?: boolean;
 }) {
-  const s = specLineCard(p);
   const showPlateSlot = audience !== 'customer';
   const plate = String(p.car_number || '').trim();
+  const year = fmtCardYear(p);
   const fs = FS.cap;
+  const body = plateYear ? year : specLineCard(p);
   const tip = [
     showPlateSlot && plate ? plate : '',
-    specLine(p),
+    plateYear ? year : specLine(p),
   ].filter(Boolean).join(' · ');
   return (
     <div title={tip || undefined} style={{
@@ -376,7 +378,7 @@ export function CardSpecs({ p, dense, audience = 'agent' }: {
           <span style={{ color: C.faint }}> · </span>
         </>
       )}
-      <span>{s}</span>
+      <span>{body}</span>
     </div>
   );
 }
@@ -1084,7 +1086,7 @@ export function PriceMini({ m, rent, deposit = 0, on = false }: {
     >
       <span style={{ fontSize: mobile ? FS.cap : FS.micro, fontWeight: FW.strong, color: on ? C.brand : C.mute, lineHeight: 1.1 }}>{m}개월</span>
       <span style={{
-        fontSize: on ? (mobile ? FS.body : FS.sub) : (mobile ? FS.sub : FS.cap),
+        fontSize: mobile ? FS.sub : FS.cap,
         fontFamily: NUM, fontWeight: FW.head, letterSpacing: '-0.02em', lineHeight: 1.1,
         color: on ? C.brand : C.ink,
       }}>

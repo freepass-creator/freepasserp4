@@ -1,7 +1,7 @@
 'use client';
 import { useDeferredValue, useEffect, useMemo, useRef, useState, useCallback, type CSSProperties, type MouseEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { LayoutGrid, List, Table, Download, SlidersHorizontal, Search, ArrowUpDown, History, Star } from 'lucide-react';
+import { LayoutGrid, List, Table, Download, SlidersHorizontal } from 'lucide-react';
 import { getStore, peekList } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
@@ -16,16 +16,16 @@ import { VehicleMasterFilter } from '@/components/VehicleMasterFilter';
 import { ProductCard } from '@/components/ProductCard';
 import { ProductRowCard } from '@/components/ProductRowCard';
 import { productOptions, OptionChips } from '@/components/product-card-atoms';
-import { InterestTriggers, InterestPanel, InterestSummaryCard, useInterestLists, useInterestTab, useInterestTabGuard } from '@/components/InterestRail';
+import { InterestTriggers, InterestPanel, useInterestLists, useInterestTab, useInterestTabGuard } from '@/components/InterestRail';
 import { clearRecent, clearFavs } from '@/lib/product-interest';
-import { C, R, NUM, FW, FS, Loading, CenterNote, SearchInput, Select, FilterGroup, FilterChips, ToggleChips, Btn, IconBtn, IconSeg, Badge, CountPill, productTypeStyle, CREDIT_TONE, thX, thXR, thXPin, tdX, tdXR, tdXPin, colLock, colLockChars, colChars, colOpts, clipN, pinRight, EXCEL_W, EXCEL_MAX, EXCEL_CELL_BODY_H, EXCEL_BADGE_GAP_X, EXCEL_PRICE_COL, excelColMode, excelShowFilterCols, excelMakerChars, excelSubChars, excelNameChars, ContextMenu, useContextMenu } from '@/components/ui';
+import { toast } from '@/components/Toaster';
+import { C, R, NUM, FW, FS, ctrlH, Loading, CenterNote, SearchInput, Select, FilterGroup, FilterChips, ToggleChips, Btn, IconBtn, IconSeg, Badge, CountPill, productTypeStyle, CREDIT_TONE, thX, thXR, thXPin, tdX, tdXR, tdXPin, colLock, colLockChars, colChars, colOpts, clipN, pinRight, EXCEL_W, EXCEL_MAX, EXCEL_CELL_BODY_H, EXCEL_BADGE_GAP_X, EXCEL_PRICE_COL, excelColMode, excelShowFilterCols, excelMakerChars, excelSubChars, excelNameChars, ContextMenu, useContextMenu } from '@/components/ui';
 import type { BadgeTone } from '@/components/ui/badges';
 import { man, kmDisplay } from '@/lib/format';
 import { downloadProductsExcel } from '@/lib/excel-export';
 import { useAuthReady, useSession } from '@/lib/auth-context';
 import { firebaseReady } from '@/lib/firebase/client';
 import { toggleInSet } from '@/lib/set';
-import { toast } from '@/components/Toaster';
 import { actor, getRole, ensureRoom, ROLE_LABEL } from '@/lib/domain/deal';
 import { getSession, isGuest } from '@/lib/auth-session';
 import { guestShareUrl, formatProductForCopy } from '@/lib/domain/product-share';
@@ -34,12 +34,64 @@ import { useAppBar } from '@/lib/appbar';
 import { FILTER_SS, FINDER_RESET_LIMIT } from '@/lib/finder-session';
 import { FinderStatus } from '@/components/FinderStatus';
 import { BottomSheet } from '@/components/BottomSheet';
-import { PageToolBar } from '@/components/PageToolBar';
 import { listHiddenCodes, subscribeHidden } from '@/lib/product-hide';
 import { listPassedCodes, subscribePassed } from '@/lib/product-pass';
 
-/** 홈 모바일 툴 — 상단 툴바 버튼 → 아래에서 시트. */
-type HomeTool = 'search' | 'sort' | 'filter' | 'recent' | 'fav';
+/** 홈 모바일 툴 — 필터 시트만. */
+type HomeTool = 'filter';
+type InterestKey = 'recent' | 'fav';
+type FilterBag = {
+  periods: Set<number>;
+  rent: Set<string>; dep: Set<string>; mile: Set<string>; fuel: Set<string>;
+  ptype: Set<string>; credit: Set<string>; perks: Set<string>; promo: Set<string>;
+  dyn: Record<string, Set<string>>;
+  vehicle: VehicleFilter;
+  models: Set<string>;
+  sort: string;
+  interest: Set<InterestKey>;
+};
+
+function emptyBag(): FilterBag {
+  return {
+    periods: new Set(), rent: new Set(), dep: new Set(), mile: new Set(), fuel: new Set(),
+    ptype: new Set(), credit: new Set(), perks: new Set(), promo: new Set(),
+    dyn: {}, vehicle: { ...EMPTY_VEHICLE_FILTER }, models: new Set(), sort: '', interest: new Set(),
+  };
+}
+
+function cloneBag(b: FilterBag): FilterBag {
+  const dynNext: Record<string, Set<string>> = {};
+  for (const [k, set] of Object.entries(b.dyn)) dynNext[k] = new Set(set);
+  return {
+    periods: new Set(b.periods), rent: new Set(b.rent), dep: new Set(b.dep), mile: new Set(b.mile), fuel: new Set(b.fuel),
+    ptype: new Set(b.ptype), credit: new Set(b.credit), perks: new Set(b.perks), promo: new Set(b.promo),
+    dyn: dynNext, vehicle: { ...EMPTY_VEHICLE_FILTER, ...b.vehicle }, models: new Set(b.models),
+    sort: b.sort, interest: new Set(b.interest),
+  };
+}
+
+/** 드래프트 dirty 판정 — 최근·관심·정렬 포함(빠지면 취소해도 회귀 안 됨). */
+function arrKey(x: Iterable<unknown>) { return [...x].map(String).sort().join('\0'); }
+function sameBag(a: FilterBag, b: FilterBag): boolean {
+  if (a.sort !== b.sort) return false;
+  if (arrKey(a.interest) !== arrKey(b.interest)) return false;
+  if (arrKey(a.periods) !== arrKey(b.periods)) return false;
+  if (arrKey(a.rent) !== arrKey(b.rent)) return false;
+  if (arrKey(a.dep) !== arrKey(b.dep)) return false;
+  if (arrKey(a.mile) !== arrKey(b.mile)) return false;
+  if (arrKey(a.fuel) !== arrKey(b.fuel)) return false;
+  if (arrKey(a.ptype) !== arrKey(b.ptype)) return false;
+  if (arrKey(a.credit) !== arrKey(b.credit)) return false;
+  if (arrKey(a.perks) !== arrKey(b.perks)) return false;
+  if (arrKey(a.promo) !== arrKey(b.promo)) return false;
+  if (arrKey(a.models) !== arrKey(b.models)) return false;
+  const dynA = Object.keys(a.dyn).filter((k) => (a.dyn[k]?.size || 0) > 0).sort();
+  const dynB = Object.keys(b.dyn).filter((k) => (b.dyn[k]?.size || 0) > 0).sort();
+  if (dynA.length !== dynB.length || dynA.some((k, i) => k !== dynB[i] || arrKey(a.dyn[k] || []) !== arrKey(b.dyn[k] || []))) return false;
+  const va = a.vehicle; const vb = b.vehicle;
+  return va.maker === vb.maker && va.model === vb.model && va.sub_model === vb.sub_model
+    && va.variant === vb.variant && va.trim_name === vb.trim_name;
+}
 
 const SORTS = [
   { k: 'asc', label: '대여료 낮은순', short: '대여↓' },
@@ -189,7 +241,7 @@ function FilterPop({ field, x, y, rows, colFilter, setColFilter, colSort, setCol
               onClick={() => setSort(dir)}
               style={{
                 ...rowPad, flex: 1, justifyContent: 'center',
-                fontWeight: isS(dir) ? FW.head : FW.meta,
+                fontWeight: FW.strong,
                 color: isS(dir) ? C.brand : C.mute,
                 background: isS(dir) ? C.selected : 'transparent',
               }}
@@ -214,7 +266,7 @@ function FilterPop({ field, x, y, rows, colFilter, setColFilter, colSort, setCol
                 ...rowPad,
                 background: on ? C.selected : 'transparent',
                 color: C.ink,
-                fontWeight: on ? FW.head : FW.meta,
+                fontWeight: FW.strong,
               }}
             >
               <span style={{ flex: '0 0 14px', fontFamily: NUM, color: on ? C.brand : C.faint, fontSize: FS.sub }}>{on ? '✓' : ''}</span>
@@ -240,27 +292,15 @@ function FilterPop({ field, x, y, rows, colFilter, setColFilter, colSort, setCol
   </>);
 }
 
-// 필터 스냅샷 비교키 — 변경(dirty) 판정용. Set/dyn/vehicle을 순서 무관 안정 문자열로.
-const arrKey = (x: Iterable<unknown>) => [...x].map(String).sort().join(',');
-function filterKey(s: {
-  q: string; periods: Set<number>; rent: Set<string>; dep: Set<string>; mile: Set<string>;
-  fuel: Set<string>; ptype: Set<string>; credit: Set<string>; perks: Set<string>; promo: Set<string>;
-  dyn: Record<string, Set<string>>; vehicle: VehicleFilter; models: Set<string>;
-}): string {
-  const dyn = Object.entries(s.dyn)
-    .filter(([, v]) => v.size).map(([k, v]) => `${k}:${arrKey(v)}`).sort().join('|');
-  return [
-    s.q, arrKey(s.periods), arrKey(s.rent), arrKey(s.dep), arrKey(s.mile), arrKey(s.fuel),
-    arrKey(s.ptype), arrKey(s.credit), arrKey(s.perks), arrKey(s.promo), dyn,
-    JSON.stringify(s.vehicle), arrKey(s.models),
-  ].join('~');
-}
-
-// 하단시트 제목 SSOT — 라벨 + 뮤트 카운트. 5개 시트(검색·정렬·필터·최근·관심) 동일 규격.
-//  result=true → '결과 N대'(검색·정렬·필터), false → 'N건'(최근·관심).
-function SheetTitle({ label, count, unit, result }: { label: string; count: number; unit: string; result?: boolean }) {
+// 하단시트 제목 SSOT — 라벨 + 결과 건수(드래프트 미리보기).
+function SheetTitle({ label, count, unit }: { label: string; count: number; unit: string }) {
   return (
-    <>{label}<span style={{ marginLeft: 6, fontWeight: FW.body, color: C.mute, fontSize: FS.sub }}>· {result ? '결과 ' : ''}<span style={{ fontFamily: NUM }}>{count.toLocaleString()}</span>{unit}</span></>
+    <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 6, minWidth: 0 }}>
+      <span>{label}</span>
+      <span style={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums', fontWeight: FW.head, color: C.brand }}>
+        {count.toLocaleString()}{unit}
+      </span>
+    </span>
   );
 }
 
@@ -281,8 +321,14 @@ export default function Finder() {
   const [vehicle, setVehicle] = useState<VehicleFilter>({ ...EMPTY_VEHICLE_FILTER });
   const [models, setModels] = useState<Set<string>>(() => new Set()); // 인기차종 빠른필터(모델명)
   const [sort, setSort] = useState('');
+  const [interestFlt, setInterestFlt] = useState<Set<InterestKey>>(new Set());
   const [view, setViewState] = useState('card');
-  const [homeTool, setHomeTool] = useState<HomeTool | null>(null); // 모바일 하단 시트
+  const [homeTool, setHomeTool] = useState<HomeTool | null>(null); // 모바일 필터 시트
+  const [filterDraft, setFilterDraft] = useState<FilterBag | null>(null);
+  /** 시트 연 순간의 라이브 스냅 — 취소/필터버튼 닫기 시 여기로 회귀(최근·관심·정렬 포함). */
+  const [filterSnap, setFilterSnap] = useState<FilterBag | null>(null);
+  const filterDraftRef = useRef<FilterBag | null>(null);
+  filterDraftRef.current = filterDraft;
   const [hiddenCodes, setHiddenCodes] = useState<Set<string>>(() => new Set());
   const [passedCodes, setPassedCodes] = useState<Set<string>>(() => new Set());
   const [filterOpen, setFilterOpenState] = useState(true); // 웹 사이드바 필터 표시
@@ -296,7 +342,6 @@ export default function Finder() {
   const [limit, setLimit] = useState(PAGE); // 목록·엑셀 공통 페이징(더보기)
   const [interestTab, setInterestTab] = useInterestTab();
   const { recent: interestRecent, favs: interestFavs } = useInterestLists();
-  useInterestTabGuard(interestTab, setInterestTab, interestRecent.length, interestFavs.length);
 
   useEffect(() => {
     const refreshH = () => setHiddenCodes(new Set(listHiddenCodes()));
@@ -308,23 +353,69 @@ export default function Finder() {
     return () => { offH(); offP(); };
   }, []);
 
-  const toggleHomeTool = useCallback((t: HomeTool) => {
-    haptic.select();
-    setHomeTool((cur) => (cur === t ? null : t));
+  const liveBag = useCallback((): FilterBag => ({
+    periods, rent, dep, mile, fuel, ptype, credit, perks, promo, dyn, vehicle, models, sort, interest: interestFlt,
+  }), [periods, rent, dep, mile, fuel, ptype, credit, perks, promo, dyn, vehicle, models, sort, interestFlt]);
+
+  const applyBag = useCallback((b: FilterBag) => {
+    setPeriods(new Set(b.periods));
+    setRent(new Set(b.rent));
+    setDep(new Set(b.dep));
+    setMile(new Set(b.mile));
+    setFuel(new Set(b.fuel));
+    setPtype(new Set(b.ptype));
+    setCredit(new Set(b.credit));
+    setPerks(new Set(b.perks));
+    setPromo(new Set(b.promo));
+    const dynNext: Record<string, Set<string>> = {};
+    for (const [k, set] of Object.entries(b.dyn)) dynNext[k] = new Set(set);
+    setDyn(dynNext);
+    setVehicle({ ...EMPTY_VEHICLE_FILTER, ...b.vehicle });
+    setModels(new Set(b.models));
+    setSort(b.sort);
+    setInterestFlt(new Set(b.interest));
   }, []);
 
-  const closeHomeTool = useCallback(() => setHomeTool(null), []);
+  const discardFilterDraft = useCallback(() => {
+    // 라이브를 연 시점 스냅으로 강제 회귀 — 최근·관심·정렬이 드래프트 밖·라이브로 샌 경우도 되돌림
+    if (filterSnap) applyBag(cloneBag(filterSnap));
+    setFilterSnap(null);
+    setFilterDraft(null);
+    setHomeTool(null);
+  }, [filterSnap, applyBag]);
+
+  const openFilterDraft = useCallback(() => {
+    const snap = cloneBag(liveBag());
+    setFilterSnap(snap);
+    setFilterDraft(cloneBag(snap));
+    setHomeTool('filter');
+  }, [liveBag]);
+
+  const toggleFilterSheet = useCallback(() => {
+    haptic.select();
+    if (homeTool === 'filter') discardFilterDraft();
+    else openFilterDraft();
+  }, [homeTool, discardFilterDraft, openFilterDraft]);
+
+  const applyFilterDraft = useCallback(() => {
+    if (filterDraft) applyBag(filterDraft);
+    setFilterSnap(null);
+    setFilterDraft(null);
+    setHomeTool(null);
+  }, [filterDraft, applyBag]);
+
+  const filterDirty = !!(filterDraft && filterSnap && !sameBag(filterDraft, filterSnap));
 
   // 상단바 탭 = 시트 닫고 목록 맨 위(새로 온 느낌)
   useEffect(() => {
     const on = (e: Event) => {
       if ((e as CustomEvent).detail !== '/') return;
-      setHomeTool(null);
+      discardFilterDraft();
       setInterestTab(null);
     };
     window.addEventListener('fp:page-refresh', on);
     return () => window.removeEventListener('fp:page-refresh', on);
-  }, [setInterestTab]);
+  }, [setInterestTab, discardFilterDraft]);
 
   const finderMainRef = useRef<HTMLElement>(null);
   const finderBodyRef = useRef<HTMLDivElement>(null);
@@ -332,6 +423,7 @@ export default function Finder() {
   const co = getCompanyId();
   const router = useRouter();
   const mobile = useIsMobile();
+  useInterestTabGuard(interestTab, setInterestTab, interestRecent.length, interestFavs.length, !mobile);
   const authReady = useAuthReady();
   const session = useSession(); // 로그인 순간 매물 재조회 트리거(uid 변화 → 아래 로드 effect 재실행)
   // 보기모드 = 새로고침해도 유지(localStorage). 서버·최초렌더는 'card' → effect에서 복원(하이드레이션 mismatch 방지).
@@ -451,12 +543,18 @@ export default function Finder() {
 
   const list = useMemo(() => {
     // 정렬·표시 = 최저 대여료. 숨김 제외. 관심없음=맨 뒤.
-    const l = (rows || []).filter((p) => {
+    let l = (rows || []).filter((p) => {
       const code = String(p.product_code || p._key || '');
       if (code && hiddenCodes.has(code)) return false;
       if (modelsDef.size && !modelsDef.has(String(p.model || '').trim())) return false;
       return matchProduct(p, sDef);
     });
+    if (interestFlt.size > 0) {
+      const codes = new Set<string>();
+      if (interestFlt.has('recent')) for (const snp of interestRecent) codes.add(snp.code);
+      if (interestFlt.has('fav')) for (const snp of interestFavs) codes.add(snp.code);
+      l = l.filter((p) => codes.has(String(p.product_code || p._key || '')));
+    }
     // 기본 정렬 = 무보증 가능 차량 우선(그 외 원순서). 명시 정렬 선택 시엔 그 기준 그대로.
     if (sort) {
       l.sort((a, b) => {
@@ -490,7 +588,41 @@ export default function Finder() {
     }
     return [...front, ...back];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, sDef, modelsDef, sort, hiddenCodes, passedCodes]);
+  }, [rows, sDef, modelsDef, sort, hiddenCodes, passedCodes, interestFlt, interestRecent, interestFavs]);
+
+  /** 필터 시트 드래프트 기준 미리보기 건수(제목 옆). */
+  const draftPreviewCount = useMemo(() => {
+    if (!filterDraft || !rows) return list.length;
+    const sDraft: FState = {
+      q,
+      periods: filterDraft.periods,
+      rent: filterDraft.rent,
+      dep: filterDraft.dep,
+      mile: filterDraft.mile,
+      fuel: filterDraft.fuel,
+      ptype: filterDraft.ptype,
+      credit: filterDraft.credit,
+      perks: filterDraft.perks,
+      promo: filterDraft.promo,
+      dyn: filterDraft.dyn,
+      vehicle: filterDraft.vehicle,
+    };
+    let interestCodes: Set<string> | null = null;
+    if (filterDraft.interest.size > 0) {
+      interestCodes = new Set();
+      if (filterDraft.interest.has('recent')) for (const snp of interestRecent) interestCodes.add(snp.code);
+      if (filterDraft.interest.has('fav')) for (const snp of interestFavs) interestCodes.add(snp.code);
+    }
+    let n = 0;
+    for (const p of rows) {
+      const code = String(p.product_code || p._key || '');
+      if (code && hiddenCodes.has(code)) continue;
+      if (filterDraft.models.size && !filterDraft.models.has(String(p.model || '').trim())) continue;
+      if (interestCodes && (!code || !interestCodes.has(code))) continue;
+      if (matchProduct(p, sDraft)) n += 1;
+    }
+    return n;
+  }, [filterDraft, rows, q, hiddenCodes, interestRecent, interestFavs, list.length]);
 
   const totalVisible = useMemo(() => {
     const all = (rows || []).filter((p) => !isHiddenFromCatalog(p));
@@ -498,7 +630,7 @@ export default function Finder() {
     return all.filter((p) => !hiddenCodes.has(String(p.product_code || p._key || ''))).length;
   }, [rows, hiddenCodes]);
 
-  const narrowed = !!(q || activeCount(s) > 0 || models.size > 0);
+  const narrowed = !!(q || activeCount(s) > 0 || models.size > 0 || interestFlt.size > 0 || sort);
 
   // 상단바 상태창 = PageStatus SSOT (웹·모바일 동일)
   useAppBar({
@@ -509,7 +641,7 @@ export default function Finder() {
   const focusMonth = periods.size === 1 ? [...periods][0] : undefined;
 
   // 필터·정렬·관심탭 바뀌면 더보기 리셋
-  useEffect(() => { setLimit(PAGE); }, [q, periods, rent, dep, mile, fuel, ptype, credit, perks, promo, dyn, vehicle, sort, colFilter, colSort, interestTab, models]);
+  useEffect(() => { setLimit(PAGE); }, [q, periods, rent, dep, mile, fuel, ptype, credit, perks, promo, dyn, vehicle, sort, colFilter, colSort, interestTab, models, interestFlt]);
 
   // 엑셀 헤더 필터·정렬 — 엑셀 뷰에서만 계산(카드/리스트는 빈배열 안전값).
   const excelRows = useMemo(() => {
@@ -554,43 +686,41 @@ export default function Finder() {
     return () => ro.disconnect();
   }, [effView, mobile, list.length, filterOpen, limit, months.length, excelRows.length]);
 
-  // 필터 적용/취소 스냅샷 훅 — 반드시 early-return(!rows) 앞에서 무조건 호출(훅 순서 고정).
-  // 시트 열 때 상태를 ref로 캡처(effect), 닫으면 null. dirty는 렌더 중 ref '읽기'로만 계산(아래).
-  // 모든 필터 갱신이 불변(new Set/{...})이라 얕은 캡처로 충분(캡처한 Set은 이후 갱신에 안 바뀜).
-  const filterLive = { q: qInput, periods, rent, dep, mile, fuel, ptype, credit, perks, promo, dyn, vehicle, models };
-  const filterSheetOpen = homeTool === 'filter';
-  const filterLiveRef = useRef(filterLive);
-  filterLiveRef.current = filterLive;
-  const filterSnapRef = useRef<typeof filterLive | null>(null);
-  const filterWasOpen = useRef(false);
-  useEffect(() => {
-    if (filterSheetOpen && !filterWasOpen.current) filterSnapRef.current = { ...filterLiveRef.current };
-    else if (!filterSheetOpen && filterWasOpen.current) filterSnapRef.current = null;
-    filterWasOpen.current = filterSheetOpen;
-  }, [filterSheetOpen]);
-
   if (!rows) return <Loading />;
 
-  const toggleDyn = (key: string, v: string) => setDyn((p) => { const cur = new Set(p[key] || []); cur.has(v) ? cur.delete(v) : cur.add(v); return { ...p, [key]: cur }; });
-  const reset = () => {
-    clearSavedFilters();
-    setQInput(''); setQ(''); setPeriods(new Set()); setRent(new Set()); setDep(new Set()); setMile(new Set()); setFuel(new Set()); setPtype(new Set()); setCredit(new Set()); setPerks(new Set()); setPromo(new Set()); setDyn({}); setVehicle({ ...EMPTY_VEHICLE_FILTER }); setSort(''); setModels(new Set());
+  const v: FilterBag = filterDraft ?? {
+    periods, rent, dep, mile, fuel, ptype, credit, perks, promo, dyn, vehicle, models, sort, interest: interestFlt,
   };
+  const bump = (patch: Partial<FilterBag> | ((prev: FilterBag) => FilterBag)) => {
+    // ref로 판정 — 클로저 stale로 라이브에 직접 쓰는 사고 방지(최근·관심·정렬 회귀 깨짐 원인)
+    if (filterDraftRef.current != null) {
+      setFilterDraft((prev) => {
+        const cur = prev ?? cloneBag(liveBag());
+        return typeof patch === 'function' ? patch(cur) : { ...cur, ...patch };
+      });
+    } else {
+      const cur = liveBag();
+      applyBag(typeof patch === 'function' ? patch(cur) : { ...cur, ...patch });
+    }
+  };
+  const sidebarAc = filterDraft
+    ? activeCount({ q: '', periods: v.periods, rent: v.rent, dep: v.dep, mile: v.mile, fuel: v.fuel, ptype: v.ptype, credit: v.credit, perks: v.perks, promo: v.promo, dyn: v.dyn, vehicle: v.vehicle }) + v.models.size + v.interest.size + (v.sort ? 1 : 0)
+    : activeCount(s) + models.size;
 
-  // 위(early-return 앞)에서 캡처한 스냅샷과 현재 상태 비교 → 변경됨(dirty)이면 하단바 [취소·적용].
-  // dirty는 렌더 중 ref '읽기'만(허용). 첫 프레임은 ref null이라 [닫기]로 시작(정상).
-  const filterDirty = filterSheetOpen && !!filterSnapRef.current && filterKey(filterLive) !== filterKey(filterSnapRef.current);
-  const restoreFilters = () => {
-    const s0 = filterSnapRef.current;
-    if (!s0) return;
-    setQInput(s0.q); setQ(s0.q);
-    setPeriods(s0.periods); setRent(s0.rent); setDep(s0.dep); setMile(s0.mile); setFuel(s0.fuel);
-    setPtype(s0.ptype); setCredit(s0.credit); setPerks(s0.perks); setPromo(s0.promo);
-    setDyn(s0.dyn); setVehicle(s0.vehicle); setModels(s0.models);
+  const toggleDyn = (key: string, val: string) => bump((b) => {
+    const cur = new Set(b.dyn[key] || []);
+    cur.has(val) ? cur.delete(val) : cur.add(val);
+    return { ...b, dyn: { ...b.dyn, [key]: cur } };
+  });
+  const reset = () => {
+    if (filterDraftRef.current != null) {
+      setFilterDraft(emptyBag());
+      return;
+    }
+    clearSavedFilters();
+    setQInput(''); setQ(''); setPeriods(new Set()); setRent(new Set()); setDep(new Set()); setMile(new Set()); setFuel(new Set()); setPtype(new Set()); setCredit(new Set()); setPerks(new Set()); setPromo(new Set()); setDyn({}); setVehicle({ ...EMPTY_VEHICLE_FILTER }); setSort(''); setModels(new Set()); setInterestFlt(new Set());
   };
-  const cancelFilter = () => { haptic.back(); restoreFilters(); closeHomeTool(); };
-  // 인기차종(models)은 s(FState)와 별도 상태 → activeCount에 안 잡히므로 여기서 합산(뱃지·툴·narrowed 공통).
-  const ac = activeCount(s) + models.size;
+  const filterBadge = activeCount(s) + models.size + interestFlt.size + (sort ? 1 : 0);
   // 더보기 = 지금 보고 있는 목록 기준. 100개 미만이면 버튼 없음.
   const activeList = list;
   const shown = activeList.slice(0, limit);
@@ -688,41 +818,116 @@ export default function Finder() {
 
   const renderSidebar = () => (
     <>
+      {!mobile ? (
       <div className="fp-sidebar-head">
-        {mobile ? (
-          <span style={{ fontSize: FS.title, fontWeight: FW.title, display: 'inline-flex', alignItems: 'center', gap: 6, color: C.ink }}>
-            조건 검색{ac > 0 ? <CountPill n={ac} /> : null}
-          </span>
-        ) : (
           <>
             {/* 총계 = 손님에게 보이는 매물(출고불가 제외) — 상단바 '상품 N대'(totalVisible)와 동일 기준. rows.length는 출고불가까지 세어 어긋남. */}
             <span style={{ fontSize: FS.body, color: C.mute }}>총 <b style={{ color: C.ink, fontSize: FS.title }}>{totalVisible.toLocaleString()}</b>대</span>
             <span style={{ fontSize: FS.title, fontWeight: FW.title, display: 'inline-flex', alignItems: 'center', gap: 6, color: C.ink }}>
-              조건 검색{ac > 0 ? <CountPill n={ac} /> : null}
+              조건 검색{sidebarAc > 0 ? <CountPill n={sidebarAc} /> : null}
             </span>
             <span style={{ flex: 1 }} />
-            {ac > 0 && <button onClick={() => { haptic.select(); reset(); }} style={{ border: 'none', background: 'none', color: C.accent, fontSize: mobile ? 11.5 : 11, fontWeight: FW.strong, cursor: 'pointer', padding: '4px 6px' }}>초기화</button>}
+            {sidebarAc > 0 && <Btn variant="bare" onClick={() => { haptic.select(); reset(); }} style={{ color: C.accent, fontSize: FS.cap, fontWeight: FW.strong, padding: '4px 6px' }}>초기화</Btn>}
+          </>
+      </div>
+      ) : null}
+      <div className="fp-sidebar-body">
+        {filterDraft != null && (
+          <>
+            <FilterGroup
+              title="최근·관심"
+              count={v.interest.size}
+              defaultOpen
+              first
+              actions={(() => {
+                const h = ctrlH(mobile);
+                const base: CSSProperties = {
+                  marginLeft: 4, flex: '0 0 auto',
+                  fontSize: mobile ? FS.sub : FS.cap, fontWeight: FW.strong,
+                  minHeight: h, minWidth: 40, padding: mobile ? '0 8px' : '0 6px',
+                };
+                if (v.interest.size > 0) {
+                  return (
+                    <Btn
+                      variant="bare"
+                      onClick={() => {
+                        haptic.select();
+                        bump({ interest: new Set() });
+                      }}
+                      style={{ ...base, color: C.accent }}
+                    >해제</Btn>
+                  );
+                }
+                return (
+                  <>
+                    <Btn
+                      variant="bare"
+                      disabled={interestRecent.length === 0}
+                      onClick={() => {
+                        haptic.impact();
+                        clearRecent();
+                        setInterestFlt((prev) => { const n = new Set(prev); n.delete('recent'); return n; });
+                        setFilterSnap((snap) => {
+                          if (!snap) return snap;
+                          const n = new Set(snap.interest); n.delete('recent');
+                          return { ...snap, interest: n };
+                        });
+                        toast('최근 본을 비웠습니다', 'info');
+                      }}
+                      style={{ ...base, color: C.mute }}
+                    >최근 비우기</Btn>
+                    <Btn
+                      variant="bare"
+                      disabled={interestFavs.length === 0}
+                      onClick={() => {
+                        haptic.impact();
+                        clearFavs();
+                        setInterestFlt((prev) => { const n = new Set(prev); n.delete('fav'); return n; });
+                        setFilterSnap((snap) => {
+                          if (!snap) return snap;
+                          const n = new Set(snap.interest); n.delete('fav');
+                          return { ...snap, interest: n };
+                        });
+                        toast('관심을 비웠습니다', 'info');
+                      }}
+                      style={{ ...base, color: C.mute }}
+                    >관심 비우기</Btn>
+                  </>
+                );
+              })()}
+            >
+              <ToggleChips
+                selected={v.interest}
+                onToggle={(k) => bump((b) => ({ ...b, interest: toggleInSet(b.interest, k as InterestKey) }))}
+                options={[
+                  { key: 'recent', label: interestRecent.length ? `최근 ${interestRecent.length}` : '최근' },
+                  { key: 'fav', label: interestFavs.length ? `관심 ${interestFavs.length}` : '관심' },
+                ]}
+              />
+            </FilterGroup>
+            <FilterGroup title="정렬" count={v.sort ? 1 : 0} defaultOpen onClear={() => bump({ sort: '' })}>
+              <div style={{ flex: '1 1 100%', width: '100%', minWidth: 0 }}>
+                <Select
+                  full
+                  value={v.sort || ''}
+                  onChange={(k) => bump({ sort: k })}
+                  placeholder="기본"
+                  options={SORTS.map((o) => ({ value: o.k, label: o.label }))}
+                />
+              </div>
+            </FilterGroup>
           </>
         )}
-      </div>
-      <div className="fp-sidebar-body">
-        {/*
-          필터 사이드바 SSOT (웹·모바일 동일 순서 · 묶지 않음)
-          펼침 = 기간·월대여·차종. 나머지 접음(선택 있으면 펼침).
-          딜: 기간 → 월대여 → 보증
-          차: 차종 → 색상(외·내) → 연식 → 연료 → 주행
-          상품: 출고 → 상품구분 → 심사 → 우대 → 이벤트 → 차급·약정 → 공급사
-        */}
         {popModels.length > 0 && (
-          <FilterGroup title={<>인기차종 <Badge tone="amber" variant="solid">BEST</Badge></>} count={models.size} defaultOpen first onClear={() => setModels(new Set())}>
-            <ToggleChips selected={models} onToggle={(k) => setModels((p) => toggleInSet(p, k))} options={popModels} />
+          <FilterGroup title={<>인기차종 <Badge tone="amber" variant="solid">BEST</Badge></>} count={v.models.size} defaultOpen={filterDraft == null} first={filterDraft == null} onClear={() => bump({ models: new Set() })}>
+            <ToggleChips selected={v.models} onToggle={(k) => bump((b) => ({ ...b, models: toggleInSet(b.models, k) }))} options={popModels} />
           </FilterGroup>
         )}
         {present.months.length > 0 && (
-          <FilterGroup title="기간" count={periods.size} defaultOpen onClear={() => setPeriods(new Set())}>
+          <FilterGroup title="기간" count={v.periods.size} defaultOpen onClear={() => bump({ periods: new Set() })}>
             <ToggleChips
-              selected={new Set([...periods].map(String))}
-              onToggle={(k) => setPeriods((p) => toggleInSet(p, Number(k)))}
+              selected={new Set([...v.periods].map(String))}
+              onToggle={(k) => bump((b) => ({ ...b, periods: toggleInSet(b.periods, Number(k)) }))}
               options={operatingMonths(rows || []).map((m) => {
                 const hit = present.months.find((o) => o.key === String(m));
                 return { key: String(m), label: hit?.label || `${m}개월` };
@@ -731,75 +936,73 @@ export default function Finder() {
           </FilterGroup>
         )}
         {present.rent.length > 0 && (
-          <FilterGroup title="월대여료" count={rent.size} defaultOpen onClear={() => setRent(new Set())}>
-            <ToggleChips selected={rent} onToggle={(k) => setRent((p) => toggleInSet(p, k))} options={present.rent} />
+          <FilterGroup title="월대여료" count={v.rent.size} defaultOpen onClear={() => bump({ rent: new Set() })}>
+            <ToggleChips selected={v.rent} onToggle={(k) => bump((b) => ({ ...b, rent: toggleInSet(b.rent, k) }))} options={present.rent} />
           </FilterGroup>
         )}
         {present.dep.length > 0 && (
-          <FilterGroup title="보증금" count={dep.size} defaultOpen={dep.size > 0} onClear={() => setDep(new Set())}>
-            <ToggleChips selected={dep} onToggle={(k) => setDep((p) => toggleInSet(p, k))} options={present.dep} />
+          <FilterGroup title="보증금" count={v.dep.size} defaultOpen={v.dep.size > 0} onClear={() => bump({ dep: new Set() })}>
+            <ToggleChips selected={v.dep} onToggle={(k) => bump((b) => ({ ...b, dep: toggleInSet(b.dep, k) }))} options={present.dep} />
           </FilterGroup>
         )}
-        {/* 차 — 차종 → 색상 → 연식 → 연료 → 주행 */}
         {present.hasVehicle && (
-          <FilterGroup title="차종(제조사, 모델, 트림 등)" count={vehicleFilterCount(vehicle)} defaultOpen onClear={() => setVehicle({ ...EMPTY_VEHICLE_FILTER })}>
+          <FilterGroup title="차종(제조사, 모델, 트림 등)" count={vehicleFilterCount(v.vehicle)} defaultOpen onClear={() => bump({ vehicle: { ...EMPTY_VEHICLE_FILTER } })}>
             <div style={{ flex: '1 1 100%', width: '100%', minWidth: 0 }}>
-              <VehicleMasterFilter products={cascadeProducts} value={vehicle} onChange={setVehicle} />
+              <VehicleMasterFilter products={cascadeProducts} value={v.vehicle} onChange={(veh) => bump({ vehicle: veh })} />
             </div>
           </FilterGroup>
         )}
         {CAR_DYN_KEYS.map((key) => {
           const d = DYN.find((x) => x.key === key);
           if (!d) return null;
-          const opts = (agg[d.key] || []).map(([v, c]) => ({ key: v, label: v, count: c }));
+          const opts = (agg[d.key] || []).map(([val, c]) => ({ key: val, label: val, count: c }));
           if (!opts.length) return null;
-          const n = dyn[d.key]?.size || 0;
+          const n = v.dyn[d.key]?.size || 0;
           return (
-            <FilterGroup key={d.key} title={d.label} count={n} defaultOpen={n > 0} onClear={() => setDyn((p) => ({ ...p, [d.key]: new Set() }))}>
-              <ToggleChips selected={dyn[d.key] || new Set()} onToggle={(k) => toggleDyn(d.key, k)} options={opts} />
+            <FilterGroup key={d.key} title={d.label} count={n} defaultOpen={n > 0} onClear={() => bump((b) => ({ ...b, dyn: { ...b.dyn, [d.key]: new Set() } }))}>
+              <ToggleChips selected={v.dyn[d.key] || new Set()} onToggle={(k) => toggleDyn(d.key, k)} options={opts} />
             </FilterGroup>
           );
         })}
         {present.fuel.length > 0 && (
-          <FilterGroup title="연료(동력)" count={fuel.size} defaultOpen={fuel.size > 0} onClear={() => setFuel(new Set())}>
-            <ToggleChips selected={fuel} onToggle={(k) => setFuel((p) => toggleInSet(p, k))} options={present.fuel} />
+          <FilterGroup title="연료(동력)" count={v.fuel.size} defaultOpen={v.fuel.size > 0} onClear={() => bump({ fuel: new Set() })}>
+            <ToggleChips selected={v.fuel} onToggle={(k) => bump((b) => ({ ...b, fuel: toggleInSet(b.fuel, k) }))} options={present.fuel} />
           </FilterGroup>
         )}
         {present.mile.length > 0 && (
-          <FilterGroup title="주행거리" count={mile.size} defaultOpen={mile.size > 0} onClear={() => setMile(new Set())}>
-            <ToggleChips selected={mile} onToggle={(k) => setMile((p) => toggleInSet(p, k))} options={present.mile} />
+          <FilterGroup title="주행거리" count={v.mile.size} defaultOpen={v.mile.size > 0} onClear={() => bump({ mile: new Set() })}>
+            <ToggleChips selected={v.mile} onToggle={(k) => bump((b) => ({ ...b, mile: toggleInSet(b.mile, k) }))} options={present.mile} />
           </FilterGroup>
         )}
-        {/* 상품·조건 — 출고상태는 사이드 필터 없음(계약중 뱃지로만) */}
         {present.ptype.length > 0 && (
-          <FilterGroup title="상품구분" count={ptype.size} defaultOpen={ptype.size > 0} onClear={() => setPtype(new Set())}>
-            <ToggleChips selected={ptype} onToggle={(k) => setPtype((p) => toggleInSet(p, k))} options={present.ptype} />
+          <FilterGroup title="상품구분" count={v.ptype.size} defaultOpen={v.ptype.size > 0} onClear={() => bump({ ptype: new Set() })}>
+            <ToggleChips selected={v.ptype} onToggle={(k) => bump((b) => ({ ...b, ptype: toggleInSet(b.ptype, k) }))} options={present.ptype} />
           </FilterGroup>
         )}
         {present.credit.length > 0 && (
-          <FilterGroup title="심사" count={credit.size} defaultOpen={credit.size > 0} onClear={() => setCredit(new Set())}>
-            <ToggleChips selected={credit} onToggle={(k) => setCredit((p) => toggleInSet(p, k))} options={present.credit} />
+          <FilterGroup title="심사" count={v.credit.size} defaultOpen={v.credit.size > 0} onClear={() => bump({ credit: new Set() })}>
+            <ToggleChips selected={v.credit} onToggle={(k) => bump((b) => ({ ...b, credit: toggleInSet(b.credit, k) }))} options={present.credit} />
           </FilterGroup>
         )}
         {present.perks.length > 0 && (
-          <FilterGroup title="우대조건" count={perks.size} defaultOpen={perks.size > 0} onClear={() => setPerks(new Set())}>
-            <ToggleChips selected={perks} onToggle={(k) => setPerks((p) => toggleInSet(p, k))} options={present.perks} />
+          <FilterGroup title="우대조건" count={v.perks.size} defaultOpen={v.perks.size > 0} onClear={() => bump({ perks: new Set() })}>
+            <ToggleChips selected={v.perks} onToggle={(k) => bump((b) => ({ ...b, perks: toggleInSet(b.perks, k) }))} options={present.perks} />
           </FilterGroup>
         )}
         {present.promo.length > 0 && (
-          <FilterGroup title="이벤트" count={promo.size} defaultOpen={promo.size > 0} onClear={() => setPromo(new Set())}>
-            <ToggleChips selected={promo} onToggle={(k) => setPromo((p) => toggleInSet(p, k))} options={present.promo} />
+          <FilterGroup title="이벤트" count={v.promo.size} defaultOpen={v.promo.size > 0} onClear={() => bump({ promo: new Set() })}>
+            <ToggleChips selected={v.promo} onToggle={(k) => bump((b) => ({ ...b, promo: toggleInSet(b.promo, k) }))} options={present.promo} />
           </FilterGroup>
         )}
         {EXTRA_DYN_KEYS.map((key) => {
           const d = DYN.find((x) => x.key === key);
           if (!d) return null;
-          const opts = (agg[d.key] || []).map(([v, c]) => ({ key: v, label: v, count: c }));
+          const opts = (agg[d.key] || []).map(([val, c]) => ({ key: val, label: val, count: c }));
           if (!opts.length) return null;
-          const n = dyn[d.key]?.size || 0;
+          const n = v.dyn[d.key]?.size || 0;
           return (
-            <FilterGroup key={d.key} title={d.label} count={n} defaultOpen={n > 0} onClear={() => setDyn((p) => ({ ...p, [d.key]: new Set() }))}>
-              <ToggleChips selected={dyn[d.key] || new Set()} onToggle={(k) => toggleDyn(d.key, k)} options={opts} />
+            <FilterGroup key={d.key} title={d.label} count={n} defaultOpen={n > 0} onClear={() => bump((b) => ({ ...b, dyn: { ...b.dyn, [d.key]: new Set() } }))}>
+              <ToggleChips selected={v.dyn[d.key] || new Set()} onToggle={(k) => toggleDyn(d.key, k)} options={opts} />
             </FilterGroup>
           );
         })}
@@ -807,20 +1010,20 @@ export default function Finder() {
           const entries = agg.provider || [];
           if (!entries.length) return null;
           const opts = sortProviderOptions(entries);
-          const sel = [...(dyn.provider || [])][0] || '';
+          const sel = [...(v.dyn.provider || [])][0] || '';
           return (
             <FilterGroup
               title="공급사"
               count={sel ? 1 : 0}
               defaultOpen={!!sel}
-              onClear={() => setDyn((p) => ({ ...p, provider: new Set() }))}
+              onClear={() => bump((b) => ({ ...b, dyn: { ...b.dyn, provider: new Set() } }))}
             >
               <div style={{ flex: '1 1 100%', width: '100%', minWidth: 0 }}>
                 <Select
                   full
                   value={sel}
                   placeholder="전체"
-                  onChange={(v) => setDyn((p) => ({ ...p, provider: v ? new Set([v]) : new Set() }))}
+                  onChange={(val) => bump((b) => ({ ...b, dyn: { ...b.dyn, provider: val ? new Set([val]) : new Set() } }))}
                   options={opts}
                 />
               </div>
@@ -846,39 +1049,46 @@ export default function Finder() {
       >{renderSidebar()}</aside>
 
       <section className="fp-finder-main" ref={finderMainRef}>
-        {/* 툴바: 웹=검색·필터 한 줄 / 모바일=PageToolBar SSOT → 시트 */}
-        {mobile ? (() => {
-          const searchOn = !!q.trim();
-          const sortOn = !!sort;
-          const filterOn = ac > 0;
-          // 힌트 텍스트 바(툴바 밑 '적용 …필터… 해제')는 제거 — 툴바 버튼 카운트 뱃지로 활성표시 충분(중복).
-          return (
-            <PageToolBar
-              tools={[
-                { key: 'search', label: '검색', icon: Search, badge: searchOn ? 1 : undefined, active: searchOn, pressed: homeTool === 'search', onClick: () => toggleHomeTool('search') },
-                { key: 'sort', label: '정렬', icon: ArrowUpDown, badge: sortOn ? 1 : undefined, active: sortOn, pressed: homeTool === 'sort', onClick: () => toggleHomeTool('sort') },
-                { key: 'filter', label: '필터', icon: SlidersHorizontal, badge: ac || undefined, badgeTone: 'accent', active: filterOn, pressed: homeTool === 'filter', onClick: () => toggleHomeTool('filter') },
-                { key: 'recent', label: '최근', icon: History, badge: interestRecent.length || undefined, active: interestRecent.length > 0, pressed: homeTool === 'recent', onClick: () => toggleHomeTool('recent') },
-                { key: 'fav', label: '관심', icon: Star, badge: interestFavs.length || undefined, active: interestFavs.length > 0, pressed: homeTool === 'fav', onClick: () => toggleHomeTool('fav') },
-              ]}
+        {/* 툴바: 웹=검색·필터 한 줄 / 모바일=SearchInput+필터 */}
+        {mobile ? (
+          <div className="fp-finder-toolbar">
+            <SearchInput
+              value={qInput}
+              onChange={setQInput}
+              placeholder="차번·차명·옵션·코드·공급사…"
+              style={{ flex: '1 1 0', minWidth: 0 }}
             />
-          );
-        })() : (
+            <span style={{ position: 'relative', display: 'inline-flex', flex: '0 0 auto' }}>
+              <IconBtn
+                title={filterBadge > 0 ? `조건 ${filterBadge}개 · 필터` : '필터'}
+                active={homeTool === 'filter'}
+                onClick={toggleFilterSheet}
+              >
+                <SlidersHorizontal size={16} />
+              </IconBtn>
+              {filterBadge > 0 && (
+                <span className="fp-icon-count">
+                  <CountPill n={filterBadge} tone="accent" />
+                </span>
+              )}
+            </span>
+          </div>
+        ) : (
         <div className="fp-finder-toolbar">
           {(() => {
             // 필터 = 다른 아이콘 버튼과 동일 규격(정사각) + 총 조건수만 뱃지. 텍스트 힌트 제거.
             const filterToggle = (
               <span style={{ position: 'relative', display: 'inline-flex', flex: '0 0 auto' }}>
                 <IconBtn
-                  title={filterOpen ? '필터 숨기기' : (ac ? `조건 ${ac}개 · 필터 보기` : '필터 보기')}
+                  title={filterOpen ? '필터 숨기기' : (sidebarAc ? `조건 ${sidebarAc}개 · 필터 보기` : '필터 보기')}
                   active={filterOpen}
                   onClick={() => setFilterOpen(!filterOpen)}
                 >
                   <SlidersHorizontal size={16} />
                 </IconBtn>
-                {ac > 0 && (
-                  <span style={{ position: 'absolute', top: -4, right: -4, pointerEvents: 'none' }}>
-                    <CountPill n={ac} tone="accent" />
+                {sidebarAc > 0 && (
+                  <span className="fp-icon-count">
+                    <CountPill n={sidebarAc} tone="accent" />
                   </span>
                 )}
               </span>
@@ -1107,7 +1317,7 @@ export default function Finder() {
                 ? { padding: '10px 12px', borderTop: `1px solid ${C.line2}` }
                 : { marginTop: 14 }),
             }}>
-              <span style={{ fontSize: mobile ? 13 : 12, color: C.mute }}>
+              <span style={{ fontSize: mobile ? FS.body : FS.sub, color: C.mute }}>
                 {shown.length.toLocaleString()} / {activeList.length.toLocaleString()}대
               </span>
               <Btn variant="ghost" onClick={() => setLimit((n) => n + PAGE)}>더보기 · {Math.min(PAGE, moreN).toLocaleString()}대</Btn>
@@ -1131,99 +1341,27 @@ export default function Finder() {
         />
       )}
 
-      {/* 모바일: 상단 툴바 버튼 → 아래에서 시트 */}
+      {/* 모바일: 필터 시트 — commit 푸터(draft·적용·취소) */}
       {mobile && (
-        <>
-          <BottomSheet
-            open={homeTool === 'search'}
-            onClose={closeHomeTool}
-            title={<SheetTitle label="검색" count={list.length} unit="대" result />}
-            maxHeight="auto"
-            pad={false}
-            footer="std"
-            clearLabel="지우기"
-            onClear={q ? () => { setQInput(''); setQ(''); } : undefined}
-          >
-            <div style={{ padding: '4px 16px 8px' }}>
-              <SearchInput
-                value={qInput}
-                onChange={setQInput}
-                placeholder="차번·차명·옵션·코드·공급사…"
-                style={{ width: '100%', minWidth: 0 }}
-                autoFocus
-              />
-            </div>
-          </BottomSheet>
-
-          <BottomSheet
-            open={homeTool === 'sort'}
-            onClose={closeHomeTool}
-            title={<SheetTitle label="정렬" count={list.length} unit="대" result />}
-            maxHeight="auto"
-            footer="std"
-            clearLabel="기본"
-            onClear={sort ? () => { setSort(''); haptic.tap(); } : undefined}
-          >
-            <FilterChips
-              value={sort || ''}
-              onChange={(k) => { setSort(k); haptic.select(); }}
-              options={[{ key: '', label: '기본' }, ...SORTS.map((o) => ({ key: o.k, label: o.short }))]}
-            />
-          </BottomSheet>
-
-          <BottomSheet
-            open={homeTool === 'filter'}
-            onClose={closeHomeTool}
-            title={<SheetTitle label="조건 검색" count={list.length} unit="대" result />}
-            maxHeight="min(68vh, 560px)"
-            footer="commit"
-            dirty={filterDirty}
-            onCancel={cancelFilter}
-            pad={false}
-          >
-            <div className="fp-bottom-sheet-body" style={{ padding: 0 }}>
-              {homeTool === 'filter' ? renderSidebar() : null}
-            </div>
-          </BottomSheet>
-
-          <BottomSheet
-            open={homeTool === 'recent'}
-            onClose={closeHomeTool}
-            title={<SheetTitle label="최근" count={interestRecent.length} unit="건" />}
-            maxHeight="min(58vh, 480px)"
-            footer="std"
-            clearLabel="비우기"
-            onClear={interestRecent.length ? () => { haptic.tap(); clearRecent(); } : undefined}
-          >
-            <div style={{ padding: '0 12px 12px' }}>
-              {interestRecent.length === 0
-                ? <CenterNote minHeight={120}>최근 본 상품이 없습니다</CenterNote>
-                : interestRecent.map((snp) => {
-                  const live = (rows || []).find((p) => String(p.product_code) === snp.code || String(p._key) === snp.code);
-                  return <InterestSummaryCard key={snp.code} live={live} snap={snp} tab="recent" />;
-                })}
-            </div>
-          </BottomSheet>
-
-          <BottomSheet
-            open={homeTool === 'fav'}
-            onClose={closeHomeTool}
-            title={<SheetTitle label="관심" count={interestFavs.length} unit="건" />}
-            maxHeight="min(58vh, 480px)"
-            footer="std"
-            clearLabel="비우기"
-            onClear={interestFavs.length ? () => { haptic.tap(); clearFavs(); } : undefined}
-          >
-            <div style={{ padding: '0 12px 12px' }}>
-              {interestFavs.length === 0
-                ? <CenterNote minHeight={120}>관심 상품이 없습니다</CenterNote>
-                : interestFavs.map((snp) => {
-                  const live = (rows || []).find((p) => String(p.product_code) === snp.code || String(p._key) === snp.code);
-                  return <InterestSummaryCard key={snp.code} live={live} snap={snp} tab="fav" />;
-                })}
-            </div>
-          </BottomSheet>
-        </>
+        <BottomSheet
+          open={homeTool === 'filter'}
+          onClose={discardFilterDraft}
+          onCancel={discardFilterDraft}
+          onCommit={applyFilterDraft}
+          dirty={filterDirty}
+          footer="commit"
+          fixedHeight
+          topInset="calc(var(--topbar-h) + var(--fp-bar-h))"
+          title={<SheetTitle label="조건 검색" count={draftPreviewCount} unit="대" />}
+          maxHeight="min(68vh, 560px)"
+          clearLabel="초기화"
+          onClear={(filterDraft ? sidebarAc : filterBadge) > 0 ? () => { haptic.select(); reset(); } : undefined}
+          pad={false}
+        >
+          <div className="fp-bottom-sheet-body" style={{ padding: 0 }}>
+            {homeTool === 'filter' ? renderSidebar() : null}
+          </div>
+        </BottomSheet>
       )}
     </div>
   );

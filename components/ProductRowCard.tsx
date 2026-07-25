@@ -20,11 +20,11 @@ import { ProductMoreMenu } from '@/components/ProductMoreMenu';
  *   3 스펙(+차번)       | 기간·대여료·보증금
  *   4 조건              | 기간칩
  *
- * 모바일 피드 4줄(세로 · 썸네일 좌):
- *   1 차종
- *   2 옵션
- *   3 차번·연식·연료·주행·배기
- *   4 가격(+범위) · 뱃지 · 우대조건
+ * 모바일 피드 4줄(세로 · 썸네일 좌) — 영업 스캔. 옵션·뱃지·연료/주행은 /m:
+ *   1 차량명 (+⋯)
+ *   2 차량번호 · 연식
+ *   3 대여료 · 보증금 · 최저~최대 운영기간
+ *   4 우대조건
  */
 export const ProductRowCard = memo(function ProductRowCard({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) {
   const mobile = useIsMobile();
@@ -90,7 +90,7 @@ function WebRow({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) {
       }}>
         <Cell>
           <div style={{ position: 'relative', minWidth: 0, width: '100%' }}>
-            <CardTitle p={p} size={15} />
+            <CardTitle p={p} />
           </div>
         </Cell>
         <Cell right><CardRailBadges p={p} /></Cell>
@@ -108,8 +108,8 @@ function WebRow({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) {
 }
 
 /**
- * 모바일 4줄 — 기간칩 없음.
- * 4행은 가격이 주인공, 범위·뱃지·우대는 같은 슬롯에 묶음.
+ * 모바일 4줄 — 영업 스캔: 차명 / 차번·연식 / 대여·보증·기간범위 / 우대.
+ * 출고·상품·심사·연료·주행·옵션 = /m.
  */
 function MobileRow({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) {
   const href = `/m/${encodeURIComponent(String(p.product_code))}`;
@@ -133,34 +133,28 @@ function MobileRow({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) 
         alignSelf: 'stretch',
         justifyContent: 'center',
       }}>
-        {/* 1 뱃지 레일(맨위) + ⋯ 메뉴 — ⋯는 차명 안 따라다니고 카드 최상단 우측에 고정 */}
+        {/* 1 차량명 + ⋯ */}
         <div style={{ position: 'relative', minWidth: 0, paddingRight: 22 }}>
-          <CardRailBadges p={p} align="start" />
+          <CardTitle p={p} narrow />
           <ProductMoreMenu p={p} />
         </div>
 
-        {/* 2 차명 */}
-        <CardTitle p={p} size={15} narrow />
+        {/* 2 차량번호 · 연식 */}
+        <CardSpecs p={p} plateYear />
 
-        {/* 3 스펙 (모바일 카드 간결화 — 옵션 OptionChips 제거) */}
-        <CardSpecs p={p} />
-
-        {/* 4 가격 · [최단]~[최장] 기간 · 우대(혜택) */}
+        {/* 3 대여료 · 보증금 · 최저~최대 운영기간 */}
         <div style={{
-          display: 'flex', flexDirection: 'column', gap: 5,
-          minWidth: 0, width: '100%',
+          display: 'flex', alignItems: 'center', gap: 8,
+          minWidth: 0, width: '100%', overflow: 'hidden',
         }}>
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            minWidth: 0, width: '100%', overflow: 'hidden',
-          }}>
-            <div style={{ flex: '1 1 auto', minWidth: 0, overflow: 'hidden' }}>
-              <PriceAmounts align="start" />
-            </div>
-            <PeriodRange />
+          <div style={{ flex: '1 1 auto', minWidth: 0, overflow: 'hidden' }}>
+            <PriceAmounts align="start" />
           </div>
-          <CardPerkLine p={p} inline />
+          <PeriodRange />
         </div>
+
+        {/* 4 우대 */}
+        <CardPerkLine p={p} inline />
       </PricePeekRoot>
     </Link>
   );

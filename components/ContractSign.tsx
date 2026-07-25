@@ -44,7 +44,19 @@ export function ContractSign({ contractCode }: { contractCode: string }) {
   const st = String(c.sign_status || '미발송');
   const canAct = role === 'agent' || role === 'admin';
   const linkOf = () => `${location.origin}/sign/${c.sign_token}`;
-  const send = async () => { setBusy(true); try { const token = await createSignToken(c); await navigator.clipboard?.writeText(`${location.origin}/sign/${token}`).catch(() => {}); await load(); toast('계약서 링크 복사됨 — 손님에게 전달하세요', 'ok'); } finally { setBusy(false); } };
+  const send = async () => {
+    setBusy(true);
+    try {
+      const token = await createSignToken(c);
+      await navigator.clipboard?.writeText(`${location.origin}/sign/${token}`).catch(() => {});
+      await load();
+      toast('계약서 링크 복사됨 — 손님에게 전달하세요', 'ok');
+    } catch (e) {
+      toast(`발송 실패: ${String((e as Error)?.message || e)}`, 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
   const copy = async () => { await navigator.clipboard?.writeText(linkOf()).catch(() => {}); toast('링크 복사됨', 'ok'); };
   const approve = async () => { setBusy(true); try { await approveSign(c); await load(); toast('승인 — 계약 진행됨', 'ok'); } catch (e) { toast('승인 실패: ' + ((e as Error)?.message || ''), 'error'); } finally { setBusy(false); } };
   const reject = async () => {

@@ -146,7 +146,7 @@ html, body {
 
 /* 모바일 새로고침: 폭 확정 전 셸 숨김 — 웹 격자(칸) 깜빡임 차단 (MobileBoot가 해제) */
 html.fp-pending-m,
-html.fp-pending-m body { background: #fff; }
+html.fp-pending-m body { background: var(--bg-card); }
 html.fp-pending-m .fp-shell {
   visibility: hidden !important;
   pointer-events: none !important;
@@ -173,6 +173,15 @@ button, input, select, textarea { font-family: inherit; }
 }
 .fp-badge-pulse {
   animation: fp-badge-pulse 1.6s ease-in-out infinite;
+}
+/* IconBtn 건수 — 우측 상단 모서리(버튼 밖). inset(top/right:2) 금지=아이콘과 겹침. */
+.fp-icon-count {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  pointer-events: none;
+  z-index: 1;
+  line-height: 0;
 }
 /* 모바일 메뉴 시트 — 상단바 아래로 슬라이드 다운. */
 @keyframes menuDrop {
@@ -227,7 +236,8 @@ button, input, select, textarea { font-family: inherit; }
   flex: 1; display: flex; align-items: center; justify-content: center;
   font-size: 13px; font-weight: 600; text-decoration: none; color: var(--text-sub);
 }
-.fp-bottomnav-tab[data-on="true"] { color: var(--brand); font-weight: 700; box-shadow: inset 0 2px 0 0 var(--brand); }
+/* 활성 font-weight 변경 금지 — 라벨 폭 수 px 흔들림 */
+.fp-bottomnav-tab[data-on="true"] { color: var(--brand); box-shadow: inset 0 2px 0 0 var(--brand); }
 
 /* ── 파인더: 웹=좌측 사이드바 필터 / 모바일=숨김(필터 버튼) ── 각지게(저 radius) ── */
 /* 웹=사이드·목록 각자 스크롤(메인패드로 휠 전달 금지). 모바일=본문만 메인패드 스크롤.
@@ -433,6 +443,10 @@ button, input, select, textarea { font-family: inherit; }
     --fp-bar-pad-y: 8px;
     --fp-bar-pad-x: 12px;
   }
+  /* 모바일 = 스크롤바 거터 예약 끄기(우측만 넓어져 검색·필터 좌우 여백이 갈라짐) */
+  .fp-main-pad {
+    scrollbar-gutter: auto;
+  }
   /* 홈 = 업무 셸과 동일: 툴바 고정 · 본문만 스크롤 · 하단 AppTabBar */
   .fp-finder {
     --fp-finder-dock-h: var(--fp-tabbar-h, 0px);
@@ -472,9 +486,13 @@ button, input, select, textarea { font-family: inherit; }
     flex: 0 0 auto;
     height: var(--fp-bar-h);
     min-height: var(--fp-bar-h);
-    padding: var(--fp-bar-pad-y) var(--fp-bar-pad-x);
+    /* 좌우 동일 — pane-sb·거터 보정 금지. 검색창 왼쪽 = 필터 오른쪽 */
+    padding-top: var(--fp-bar-pad-y);
+    padding-bottom: var(--fp-bar-pad-y);
+    padding-left: var(--fp-bar-pad-x);
     padding-right: var(--fp-bar-pad-x);
     background: var(--bg-page);
+    overflow: visible;
   }
   /* 페이지 툴바 SSOT = 아이콘 행(+적용 힌트). 시트는 화면 바닥에서. */
   .fp-finder-toolbar.is-home-tools,
@@ -499,14 +517,15 @@ button, input, select, textarea { font-family: inherit; }
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     gap: 2px;
     border: none; background: none; cursor: pointer;
-    color: var(--text-sub); font-weight: 600; font-size: 11px; line-height: 1.1;
+    color: var(--text-sub); font-weight: var(--fw-semibold); font-size: var(--text-sm); line-height: 1.1;
     -webkit-tap-highlight-color: transparent;
   }
   .fp-home-tool[aria-pressed="true"],
   .fp-home-tool[data-active="1"],
   .fp-page-tool[aria-pressed="true"],
   .fp-page-tool[data-active="1"] {
-    color: var(--brand); font-weight: 700;
+    color: var(--brand);
+    /* font-weight 변경 금지 — 라벨 폭이 수 px 흔들림 */
   }
   .fp-home-tool-badge,
   .fp-page-tool-badge {
@@ -517,19 +536,19 @@ button, input, select, textarea { font-family: inherit; }
   .fp-home-tool-hints,
   .fp-page-tool-hints {
     display: flex; align-items: center; gap: 8px;
-    min-height: 32px; padding: 4px 12px 8px;
+    min-height: var(--fp-bar-h, 40px); padding: 4px 12px 8px;
     border-bottom: 1px solid var(--border);
     background: var(--bg-selected);
     box-sizing: border-box;
   }
   .fp-home-tool-hints-label,
   .fp-page-tool-hints-label {
-    flex: 0 0 auto; font-size: 11px; font-weight: 700; color: var(--brand);
+    flex: 0 0 auto; font-size: var(--text-sm); font-weight: var(--fw-bold); color: var(--brand);
   }
   .fp-home-tool-hints-text,
   .fp-page-tool-hints-text {
     flex: 1 1 0; min-width: 0;
-    font-size: 12px; font-weight: 600; color: var(--text-main);
+    font-size: var(--text-base); font-weight: var(--fw-semibold); color: var(--text-main);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   /* 필터 시트 안 사이드바 헤드 숨김(시트 타이틀이 대체) */
@@ -595,38 +614,36 @@ button, input, select, textarea { font-family: inherit; }
 .fp-tabstrip { scrollbar-width: none; -ms-overflow-style: none; }
 .fp-tabstrip::-webkit-scrollbar { display: none; }
 
-/* 버튼 성격별 인터랙션 — 필터칩(토글)=누름 스케일, 액션/네비(페이지전환)=눌림 translate. */
-.fp-chip { transition: transform .07s ease, filter .12s ease, border-color .12s ease; }
+/* 버튼 성격별 인터랙션 — 크기/위치 transform 금지(칩·버튼 수 px 출렁임). 밝기만. */
+.fp-chip { transition: filter .12s ease, border-color .12s ease, background-color .12s ease, color .12s ease; }
 .fp-chip:hover { filter: brightness(0.97); }
-.fp-chip:active { transform: scale(0.93); }
-.fp-press { transition: transform .07s ease, filter .12s ease, box-shadow .12s ease; }
+/* 스케일 금지 — 칩 선택/프레스 시 수 px 출렁임 원인 */
+.fp-chip:active { filter: brightness(0.94); }
+.fp-press { transition: filter .12s ease, box-shadow .12s ease, background-color .12s ease, border-color .12s ease, color .12s ease; }
 .fp-press:hover { filter: brightness(0.97); box-shadow: 0 1px 4px rgba(15, 23, 42, 0.12); }
-.fp-press:active { transform: translateY(1px); box-shadow: none; }
+/* translateY도 레이아웃 흔들림 — 밝기만 */
+.fp-press:active { filter: brightness(0.94); box-shadow: none; }
 @media (hover: none) { .fp-chip:hover, .fp-press:hover { filter: none; box-shadow: none; } }
 
-/* 매물 카드 hover = 카드형(그림자·살짝 뜸). 색칠(selected)은 엑셀 행만.
- * background 인라인 #fff여도 box-shadow·transform은 여기 SSOT. */
+/* 매물 카드 hover = 그림자만(떠오름 transform 금지 — 터치 sticky hover 포함 흔들림). */
 .fp-card {
   background: #fff;
-  transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+  transition: border-color .15s ease, box-shadow .15s ease;
 }
 @media (hover: hover) {
   .fp-card:hover {
     border-color: #cfd3da;
     box-shadow: 0 4px 12px rgba(15, 23, 42, 0.10);
-    transform: translateY(-1px);
   }
   /* 모바일 리스트형(하단선만) — 떠오름 없이 약한 그림자만 */
   .fp-card.fp-card-row:hover {
     border-color: transparent;
     box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
-    transform: none;
   }
   /* 관심·최근 얇은 북마크 — 누름감 그림자만(떠오름·색 없음) */
   .fp-card.fp-card-bookmark:hover {
     border-color: var(--border);
     box-shadow: 0 1px 4px rgba(15, 23, 42, 0.12);
-    transform: none;
   }
   /* 엑셀 행 hover — 색만. sticky td 인라인 배경도 덮음 */
   .fp-excel-sheet tbody tr.fp-sheet-row:hover > td,
@@ -642,7 +659,6 @@ button, input, select, textarea { font-family: inherit; }
   }
 }
 .fp-card:active {
-  transform: none;
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.10);
 }
 .fp-card.fp-card-bookmark:active {

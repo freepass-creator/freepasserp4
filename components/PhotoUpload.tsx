@@ -3,10 +3,13 @@ import { useRef, useState } from 'react';
 import { Btn, IconBtn, C, R, FS, FW } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
+import { toast } from '@/components/Toaster';
 
 const LONG_MS = 480;
 const MOVE_PX = 10;
 const THUMB_W = 76;
+/** RTDB data URL 한도 보호 — 채팅(3MB)·서류(4MB)와 맞춤. */
+const PHOTO_CAP = 3 * 1024 * 1024;
 
 // 차량 사진 업로드 — photos[] ([0]=대표). interior_photo=실내 URL.
 // 모바일: 탭=크게 · 꾹=대표/실내/삭제 시트. 웹: 클릭=크게 · 라이트박스에서 조작.
@@ -37,8 +40,27 @@ export function PhotoUpload({
 
   const add = (files: FileList | null) => {
     if (!files || !files.length) return;
-    const readers = Array.from(files).map((f) => new Promise<string>((res) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.readAsDataURL(f); }));
-    Promise.all(readers).then((urls) => onChange([...list, ...urls]));
+    const ok: File[] = [];
+    for (const f of Array.from(files)) {
+      if (f.size > PHOTO_CAP) {
+        toast(`${f.name} — 3MB 초과로 생략`, 'error');
+        continue;
+      }
+      ok.push(f);
+    }
+    if (!ok.length) {
+      if (fileRef.current) fileRef.current.value = '';
+      return;
+    }
+    const readers = ok.map((f) => new Promise<string>((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(String(r.result));
+      r.onerror = () => rej(new Error(f.name));
+      r.readAsDataURL(f);
+    }));
+    Promise.all(readers)
+      .then((urls) => onChange([...list, ...urls]))
+      .catch((e) => toast(`사진 읽기 실패: ${String((e as Error)?.message || e)}`, 'error'));
     if (fileRef.current) fileRef.current.value = '';
   };
 
@@ -170,6 +192,7 @@ export function PhotoUpload({
           <input ref={fileRef} type="file" accept="image/*" multiple onChange={(e) => add(e.target.files)} style={{ display: 'none' }} />
         </div>
       </div>
+      <div style={{ marginTop: 6, fontSize: FS.micro, color: C.faint }}>이미지 · 3MB/장 · 저장해야 반영</div>
 
       {/* 모바일 꾹 메뉴 */}
       {sheet != null && sheetUrl && (

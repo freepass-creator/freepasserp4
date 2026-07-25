@@ -5,17 +5,17 @@ import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
 import { ENTITIES, ROLES, ROLE_LABEL_RAW, type EntityRecord, type Field } from '@/lib/intake/entities';
-import { isGuest } from '@/lib/auth-session';
-import { getRole } from '@/lib/domain/deal';
+import { isAdminUiAllowed } from '@/lib/auth-gate';
 import { approveUser, backfillPersonalAgentChannels, adminUpdateUserIdentity } from '@/lib/firebase/auth';
 import { readAllPartnersPrivate, readAllUsersPrivate, writePartnerPrivate } from '@/lib/domain/private-fields';
 import { migrateSensitiveToPrivate } from '@/lib/firebase/migrate-private';
 import { newId } from '@/lib/domain/ids';
-import { PaneHead, PaneBody, Btn, Badge, FormGrid, FormCard, PillTabs, C, R, NUM, Loading, CenterNote, ListRow, ACTOR_TONE, FilterChips, SectionLabel, Message, PageActions, FW, FS } from '@/components/ui';
+import { PaneHead, PaneBody, Btn, Badge, FormGrid, FormCard, PillTabs, C, R, NUM, Loading, CenterNote, ListRow, ACTOR_TONE, FilterChips, FilterGroup, Message, PageActions, FW, FS } from '@/components/ui';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
 import { toast } from '@/components/Toaster';
 import { matchMemberQuery } from '@/lib/domain/search';
 import { haptic } from '@/lib/haptics';
+import { useIsMobile } from '@/lib/use-mobile';
 import { NAV_LABEL } from '@/lib/tabbar';
 
 // 사용자·파트너 관리(관리자) — 역할·활성·영업지급율(user) / 유형·공급사수수료율(partner). 여기 율이 정산 R1/R2 SSOT.
@@ -51,6 +51,7 @@ const idFieldOf = (t: Tab) => (t === 'user' ? 'uid' : 'partner_code');
 export default function Members() {
   const co = getCompanyId();
   const router = useRouter();
+  const mobile = useIsMobile();
   const [ok, setOk] = useState<boolean | null>(null);
   const [tab, setTab] = useState<Tab>('user');
   const [rows, setRows] = useState<EntityRecord[]>([]);
@@ -84,7 +85,7 @@ export default function Members() {
   // 회원·파트너 = 관리자 전용(요율·역할을 바꾸는 화면).
   // 둘러보기는 세션이 없어 getRole()이 localStorage 값을 읽는다 → fp4_role 조작으로 통과 가능하므로 함께 차단.
   // ※ 화면 게이트는 방어의 일부일 뿐 — 실제 강제는 RTDB 규칙에서 해야 한다(현재 v4 오버레이 규칙 미비, 별도 과제).
-  useEffect(() => { (async () => { await seedIfEmpty(co); if (isGuest() || getRole() !== 'admin') { router.replace('/'); return; } await load('user'); setOk(true); })(); /* eslint-disable-next-line */ }, []);
+  useEffect(() => { (async () => { await seedIfEmpty(co); if (!isAdminUiAllowed()) { router.replace('/'); return; } await load('user'); setOk(true); })(); /* eslint-disable-next-line */ }, []);
 
   const switchTab = async (t: Tab) => {
     if (t === tab) return;
@@ -371,20 +372,38 @@ export default function Members() {
           sort: { value: sort, onChange: (v) => setSort(v as MemSort | ''), options: MEM_SORTS },
           filter: {
             count: fltCount,
-            title: tab === 'user' ? '사용자 필터' : '파트너 필터',
+            title: '조건 검색',
             onClear: () => { setRoleFlt('all'); setActiveFlt('all'); setPtypeFlt('all'); },
             body: tab === 'user' ? (
               <>
-                <SectionLabel mt={0}>역할</SectionLabel>
-                <FilterChips value={roleFlt} onChange={setRoleFlt} options={MEM_ROLES} />
-                <SectionLabel>활성</SectionLabel>
-                <FilterChips value={activeFlt} onChange={setActiveFlt} options={activeOptions} />
+                <FilterGroup
+                  title="역할"
+                  count={roleFlt === 'all' ? 0 : 1}
+                  defaultOpen
+                  first={!mobile}
+                  onClear={() => setRoleFlt('all')}
+                >
+                  <FilterChips value={roleFlt} onChange={setRoleFlt} options={MEM_ROLES} />
+                </FilterGroup>
+                <FilterGroup
+                  title="활성"
+                  count={activeFlt === 'all' ? 0 : 1}
+                  defaultOpen
+                  onClear={() => setActiveFlt('all')}
+                >
+                  <FilterChips value={activeFlt} onChange={setActiveFlt} options={activeOptions} />
+                </FilterGroup>
               </>
             ) : (
-              <>
-                <SectionLabel mt={0}>유형</SectionLabel>
+              <FilterGroup
+                title="유형"
+                count={ptypeFlt === 'all' ? 0 : 1}
+                defaultOpen
+                first={!mobile}
+                onClear={() => setPtypeFlt('all')}
+              >
                 <FilterChips value={ptypeFlt} onChange={setPtypeFlt} options={MEM_PARTNER_TYPES} />
-              </>
+              </FilterGroup>
             ),
           },
           hints: [

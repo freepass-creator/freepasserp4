@@ -36,17 +36,15 @@ export function ChatThread({ roomId, onBack, onVehicle, onContract }: { roomId: 
 
   const send = async () => {
     const t = text.trim(); if (!t) return;
-    setText('');
     try {
       const rec = await sendText({ roomId, text: t, channel: '정식', role });
-      // 전송 직후 서버 재조회 생략 — 방금 rec 로컬 append(표시 동일).
+      setText('');
       setMsgs((prev) => [...prev, rec]);
       const rm = await getStore().get('room', co, roomId);
       if (rm) setRoom(rm);
     } catch (e) {
       console.error('메시지 전송 실패:', e);
       toast(`전송 실패: ${(e as Error).message}`, 'error');
-      setText(t);
     }
   };
 
@@ -76,14 +74,18 @@ export function ChatThread({ roomId, onBack, onVehicle, onContract }: { roomId: 
   }
 
   const me = actor(role);
+  // WorkPage 선택(swap) = TopBar·BottomNav가 크롬 담당 → 스레드 헤더·컴포저 safe-area 생략(이중 여백·차명 중복 방지).
+  const embedded = !onBack && !onVehicle && !onContract;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, background: C.taupeBg }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: ctrlH(mobile), flex: `0 0 ${ctrlH(mobile)}px`, padding: '0 14px', borderBottom: `1px solid ${C.line}`, background: C.taupeBg, boxSizing: 'border-box' }}>
-        {onBack && <NavBack kind="list" onClick={onBack} />}
-        <span style={{ fontSize: FS.title, fontWeight: FW.title, minWidth: 0, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{String(room.vehicle_name || room.car_number || room.vehicle_number || '대화')}</span>
-        {onVehicle && <Btn variant="ghost" size="sm" onClick={() => onVehicle(String(room.product_code))}>차량</Btn>}
-        {onContract && <Btn size="sm" onClick={() => onContract(String(room.product_code))}>계약진행</Btn>}
-      </div>
+      {!embedded ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: ctrlH(mobile), flex: `0 0 ${ctrlH(mobile)}px`, padding: '0 14px', borderBottom: `1px solid ${C.line}`, background: C.taupeBg, boxSizing: 'border-box' }}>
+          {onBack && <NavBack kind="list" onClick={onBack} />}
+          <span style={{ fontSize: FS.title, fontWeight: FW.title, minWidth: 0, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{String(room.vehicle_name || room.car_number || room.vehicle_number || '대화')}</span>
+          {onVehicle && <Btn variant="ghost" size="sm" onClick={() => onVehicle(String(room.product_code))}>차량</Btn>}
+          {onContract && <Btn size="sm" onClick={() => onContract(String(room.product_code))}>계약진행</Btn>}
+        </div>
+      ) : null}
 
       <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
         {msgs.length === 0 && <div style={{ textAlign: 'center', color: C.faint, fontSize: FS.sub, marginTop: 20 }}>첫 메시지를 남겨보세요.</div>}
@@ -119,8 +121,14 @@ export function ChatThread({ roomId, onBack, onVehicle, onContract }: { roomId: 
         <div ref={endRef} />
       </div>
 
-      {/* 일반 메신저처럼 1줄 컴포저 — 탭바 켤 때 --fp-dock-safe=0 (이중 safe-area 빈칸 방지) */}
-      <div style={{ display: 'flex', gap: 6, padding: '6px 10px calc(6px + var(--fp-dock-safe, env(safe-area-inset-bottom, 0px)))', borderTop: `1px solid ${C.line}`, flex: '0 0 auto', alignItems: 'center' }}>
+      {/* embedded(WorkPage) = BottomNav가 safe-area · 그 외 = --fp-dock-safe(탭바 숨김 시) */}
+      <div style={{
+        display: 'flex', gap: 6, alignItems: 'center', flex: '0 0 auto',
+        padding: embedded
+          ? '6px 10px'
+          : '6px 10px calc(6px + var(--fp-dock-safe, env(safe-area-inset-bottom, 0px)))',
+        borderTop: `1px solid ${C.line}`,
+      }}>
         <input ref={fileRef} type="file" accept="image/*,application/pdf" onChange={(e) => onPickFile(e.target.files)} style={{ display: 'none' }} />
         <IconBtn onClick={() => fileRef.current?.click()} title="사진·파일 첨부">📎</IconBtn>
         <Input value={text} onChange={setText} onEnter={send} placeholder="메시지 입력" full style={{ flex: 1 }} autoFocus={mobile} />

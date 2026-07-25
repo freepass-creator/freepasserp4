@@ -8,7 +8,7 @@ import { useSession } from '@/lib/auth-context';
 import { getRole, setRole, actor, ROLE_LABEL, type Role } from '@/lib/domain/deal';
 import { setGuest, isGuest } from '@/lib/auth-session';
 import { haptic } from '@/lib/haptics';
-import { BRAND } from '@/lib/brand';
+import { BRAND, VERSION } from '@/lib/brand';
 import { listHidden, unhideProduct, clearHidden, subscribeHidden, type HiddenSnap } from '@/lib/product-hide';
 import { listPassed, unpassProduct, clearPassed, subscribePassed, type PassSnap } from '@/lib/product-pass';
 import { listRecent, listFavs, clearRecent, clearFavs, subscribeInterest } from '@/lib/product-interest';
@@ -17,11 +17,12 @@ import {
   getIdleMinutes, setIdleMinutes, type ThemePref, applyTheme,
 } from '@/lib/prefs';
 import { toast } from '@/components/Toaster';
+import { NAV_LABEL } from '@/lib/tabbar';
 
+/** 미로그인 데모 — 관리자 승격 금지(둘러보기·권한 구멍 차단). */
 const DEMO_ROLES: { key: Role; label: string }[] = [
   { key: 'agent', label: '영업자' },
   { key: 'provider', label: '공급사' },
-  { key: 'admin', label: '관리자' },
 ];
 
 const THEMES: { key: ThemePref; label: string }[] = [
@@ -127,6 +128,10 @@ export default function Settings() {
   };
 
   const switchRole = (r: Role) => {
+    if (r === 'admin' && (guest || !session)) {
+      toast('관리자 화면은 관리자 계정으로 로그인하세요.', 'info');
+      return;
+    }
     setRole(r);
     setRoleLocal(r);
     haptic.tap();
@@ -365,17 +370,18 @@ export default function Settings() {
               options={DEMO_ROLES}
             />
             <div style={{ marginTop: 8, fontSize: FS.sub, color: C.faint, lineHeight: 1.45 }}>
-              미로그인 데모용. 관리자로 바꾸면 메뉴·개발도구에 들어갑니다.
+              미로그인 데모용(영업·공급). 관리자 메뉴는 관리자 계정 로그인이 필요합니다.
+              손님 공유 링크는 카탈로그·견적(`/catalog`, `/q/…`)으로 전달하세요.
             </div>
           </div>
         ) : null}
 
-        {role === 'admin' ? (
+        {session?.role === 'admin' ? (
           <div>
             <SectionLabel mt={0}>관리</SectionLabel>
             <ListRow main="개발도구" href="/dev" />
-            <ListRow main="데이터점검" href="/data-check" />
-            <ListRow main="감사로그" href="/audit" />
+            <ListRow main={NAV_LABEL.dataCheck} href="/data-check" />
+            <ListRow main={NAV_LABEL.audit} href="/audit" />
           </div>
         ) : null}
 
@@ -383,7 +389,7 @@ export default function Settings() {
           <SectionLabel mt={0}>앱</SectionLabel>
           <DetailGrid rows={[
             ['이름', BRAND],
-            ['버전', '4.0.0-alpha'],
+            ['버전', VERSION],
             ['환경', appEnv],
           ]} />
           <div style={{ marginTop: 10, fontSize: FS.sub, color: C.faint, lineHeight: 1.5 }}>

@@ -174,8 +174,8 @@ export function PillTabs<T extends string>({ tabs, value, onChange, size = 'md' 
       {tabs.map((t) => {
         const on = value === t.key;
         return (
-          <button key={t.key} onClick={() => onChange(t.key)} title={t.title}
-            style={{ height: h, boxSizing: 'border-box', padding: pad, fontSize: fs, fontWeight: on ? FW.label : FW.meta, cursor: 'pointer', borderRadius: R, border: `1px solid ${on ? C.brand : C.line}`, background: on ? C.brand : C.taupeBg, color: on ? C.taupeBg : C.mute, whiteSpace: 'nowrap', flexShrink: 0, transition: 'background .1s, border-color .1s, color .1s' }}>{t.label}</button>
+          <button key={t.key} onClick={() => onChange(t.key)} title={t.title} className="fp-chip"
+            style={{ height: h, boxSizing: 'border-box', padding: pad, fontSize: fs, fontWeight: FW.label, cursor: 'pointer', borderRadius: R, border: `1px solid ${on ? C.brand : C.line}`, background: on ? C.brand : C.taupeBg, color: on ? C.taupeBg : C.mute, whiteSpace: 'nowrap', flexShrink: 0, transition: 'background .1s, border-color .1s, color .1s' }}>{t.label}</button>
         );
       })}
     </div>
@@ -256,7 +256,7 @@ export function Stepper({ steps }: { steps: Step[] }) {
               boxShadow: s.state === 'current' ? `0 0 0 3px color-mix(in srgb, ${C.brand} 18%, transparent)` : 'none' }}>
               {s.state === 'done' ? '✓' : i + 1}
             </div>
-            <div style={{ marginTop: 6, fontSize: FS.sub, fontWeight: s.state === 'current' ? FW.title : FW.strong, color: s.state === 'todo' ? C.faint : C.ink, whiteSpace: 'nowrap' }}>{s.label}</div>
+            <div style={{ marginTop: 6, fontSize: FS.sub, fontWeight: FW.strong, color: s.state === 'todo' ? C.faint : C.ink, whiteSpace: 'nowrap' }}>{s.label}</div>
             <div style={{ fontSize: FS.micro, color: C.faint, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', minHeight: 13 }}>{s.date || ''}</div>
             {s.note && <div style={{ fontSize: FS.micro, color: C.warn, fontWeight: FW.label }}>{s.note}</div>}
           </div>
@@ -430,38 +430,72 @@ export function PaneBody({ children, pad = false }: { children: React.ReactNode;
 }
 
 /* 다중선택 필터칩 — 높이·글자·가로패딩 = Btn/Select와 동일(모바일 40·16·18). */
-export function ToggleChips<T extends string>({ selected, onToggle, options, size = 'md' }: { selected: Set<T>; onToggle: (v: T) => void; options: { key: T; label: string; count?: number }[]; size?: 'sm' | 'md' }) {
+export function ToggleChips<T extends string>({ selected, onToggle, options, size = 'md' }: {
+  selected: Set<T>; onToggle: (v: T) => void; options: { key: T; label: string; count?: number }[]; size?: 'sm' | 'md';
+}) {
   const mobile = useIsMobile();
   const h = ctrlChipH(mobile);
   const fs = ctrlFs(mobile, size);
   const pad = mobile ? '0 18px' : (size === 'sm' ? '0 11px' : '0 12px');
+  const chip = (on: boolean): React.CSSProperties => ({
+    display: 'inline-flex', alignItems: 'center', height: h, boxSizing: 'border-box', padding: pad, fontSize: fs, fontWeight: FW.label, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0, borderRadius: R,
+    border: `1px solid ${on ? C.brand : C.line}`, background: on ? C.brand : C.taupeBg, color: on ? C.taupeBg : C.mute, lineHeight: 1,
+    transition: 'background .1s, border-color .1s, color .1s',
+  });
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: mobile ? 8 : 6 }}>
-      {options.map((o) => { const on = selected.has(o.key); return (
-        <button key={o.key} onClick={() => { haptic.select(); onToggle(o.key); }} aria-pressed={on} className="fp-chip"
-          style={{ display: 'inline-flex', alignItems: 'center', height: h, boxSizing: 'border-box', padding: pad, fontSize: fs, fontWeight: on ? FW.label : FW.meta, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0, borderRadius: R, border: `1px solid ${on ? C.brand : C.line}`, background: on ? C.brand : C.taupeBg, color: on ? C.taupeBg : C.mute, lineHeight: 1 }}>
-          {o.label}
-        </button>
-      ); })}
+      {options.map((o) => {
+        const on = selected.has(o.key);
+        return (
+          <button key={o.key} type="button" onClick={() => { haptic.select(); onToggle(o.key); }} aria-pressed={on} className="fp-chip" style={chip(on)}>
+            {o.label}
+          </button>
+        );
+      })}
     </div>
   );
 }
 
-/* 접이식 필터 그룹 — 헤더 = CTRL.md. */
-export function FilterGroup({ title, count = 0, onClear, defaultOpen = true, first = false, children }: { title: React.ReactNode; count?: number; onClear?: () => void; defaultOpen?: boolean; first?: boolean; children: React.ReactNode }) {
+/* 접이식 필터 그룹 — 헤더 = CTRL.md.
+ * actions = 우측 슬롯(해제 자리). 있으면 onClear「해제」대신 렌더(최근·관심 비우기↔해제 등). */
+export function FilterGroup({ title, count = 0, onClear, actions, defaultOpen = true, first = false, children }: {
+  title: React.ReactNode; count?: number; onClear?: () => void; actions?: React.ReactNode;
+  defaultOpen?: boolean; first?: boolean; children: React.ReactNode;
+}) {
   const mobile = useIsMobile();
   const [open, setOpen] = React.useState(defaultOpen);
   const h = ctrlH(mobile);
+  const clearStyle: React.CSSProperties = {
+    marginLeft: 6, flex: '0 0 auto', color: C.accent,
+    fontSize: mobile ? FS.sub : FS.cap, fontWeight: FW.strong,
+    minHeight: h, minWidth: 40, padding: mobile ? '0 10px' : '0 6px',
+    visibility: count > 0 ? 'visible' : 'hidden',
+    pointerEvents: count > 0 ? 'auto' : 'none',
+  };
   return (
     <div style={{ borderTop: first ? 'none' : `1px solid ${C.line2}` }}>
       <div style={{ display: 'flex', alignItems: 'center', minHeight: h }}>
-        <button onClick={() => { haptic.tap(); setOpen((o) => !o); }} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6, padding: mobile ? '10px 0' : '8px 0', background: 'none', border: 'none', cursor: 'pointer', minHeight: h }}>
+        <button onClick={() => { haptic.tap(); setOpen((o) => !o); }} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6, padding: mobile ? '10px 0' : '8px 0', background: 'none', border: 'none', cursor: 'pointer', minHeight: h, minWidth: 0 }}>
           <ChevronDown size={mobile ? 18 : 15} color={C.faint} style={{ flex: '0 0 auto', transform: open ? 'none' : 'rotate(-90deg)', transition: 'transform .12s' }} />
           <span style={{ fontSize: mobile ? FS.title : FS.body, fontWeight: FW.title, color: C.ink, letterSpacing: '-0.01em', lineHeight: 1.2 }}>{title}</span>
-          {count > 0 && <CountPill n={count} tone="accent" />}
+          <span style={{
+            display: 'inline-flex', visibility: count > 0 ? 'visible' : 'hidden',
+            pointerEvents: 'none', minWidth: 22,
+          }}>
+            <CountPill n={count > 0 ? count : 1} tone="accent" />
+          </span>
           <span style={{ flex: 1 }} />
         </button>
-        {count > 0 && onClear && <button onClick={() => { haptic.select(); onClear(); }} style={{ marginLeft: 6, flex: '0 0 auto', border: 'none', background: 'none', color: C.accent, fontSize: mobile ? FS.sub : FS.cap, fontWeight: FW.strong, cursor: 'pointer', padding: mobile ? '8px 8px' : '6px 4px', minHeight: h }}>해제</button>}
+        {actions != null ? (
+          <div style={{ display: 'flex', alignItems: 'center', flex: '0 0 auto', marginLeft: 2 }}>{actions}</div>
+        ) : onClear ? (
+          <Btn
+            variant="bare"
+            disabled={count <= 0}
+            onClick={() => { if (count <= 0) return; haptic.select(); onClear(); }}
+            style={clearStyle}
+          >해제</Btn>
+        ) : null}
       </div>
       {open && <div style={{ display: 'flex', flexWrap: 'wrap', gap: mobile ? 8 : 6, paddingBottom: mobile ? 14 : 12, width: '100%' }}>{children}</div>}
     </div>
@@ -495,8 +529,8 @@ export function FilterChips<T extends string>({ value, onChange, options }: { va
       {options.map((o) => {
         const active = value === o.key;
         return (
-          <button key={o.key} onClick={() => { haptic.select(); onChange(o.key); }} aria-pressed={active}
-            style={{ display: 'inline-flex', alignItems: 'center', height: h, boxSizing: 'border-box', padding: mobile ? '0 18px' : '0 12px', fontSize: fs, fontWeight: active ? FW.label : FW.meta, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0, lineHeight: 1,
+          <button key={o.key} onClick={() => { haptic.select(); onChange(o.key); }} aria-pressed={active} className="fp-chip"
+            style={{ display: 'inline-flex', alignItems: 'center', height: h, boxSizing: 'border-box', padding: mobile ? '0 18px' : '0 12px', fontSize: fs, fontWeight: FW.label, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0, lineHeight: 1,
               borderRadius: R, border: `1px solid ${active ? C.brand : C.taupeLine}`, background: active ? C.brand : C.taupeBg, color: active ? C.taupeBg : C.mute,
               transition: 'background .1s, border-color .1s, color .1s' }}>
             {o.label}

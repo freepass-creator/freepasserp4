@@ -4,6 +4,7 @@ import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { getRole, actor, ROLE_LABEL, type Role } from '@/lib/domain/deal';
 import { C, R, FS, FW, IconBtn, Btn } from '@/components/ui';
+import { useIsMobile } from '@/lib/use-mobile';
 import { Paperclip, FileText, X, Download } from 'lucide-react';
 import { toast } from '@/components/Toaster';
 
@@ -60,7 +61,9 @@ function coerceAtt(raw: unknown): Att | null {
 }
 
 export function ContractDocs({ contractCode, roomId }: { contractCode: string; roomId?: string }) {
+  const mobile = useIsMobile();
   const co = getCompanyId();
+  const thumb = mobile ? 40 : 34;
   const [atts, setAtts] = useState<Att[]>([]);
   const [chatAtts, setChatAtts] = useState<Att[]>([]);
   const [drag, setDrag] = useState(false);
@@ -118,9 +121,20 @@ export function ContractDocs({ contractCode, roomId }: { contractCode: string; r
       const next = [...atts, ...added];
       await getStore().update('contract', co, contractCode, { attachments: next });
       setAtts(next);
+      toast(`${added.length}건 첨부됨`, 'ok');
+    } catch (e) {
+      toast(`첨부 실패: ${String((e as Error)?.message || e)}`, 'error');
     } finally { setBusy(false); if (inputRef.current) inputRef.current.value = ''; }
   };
-  const remove = async (target: Att) => { const next = atts.filter((a) => !(a.url === target.url && a.at === target.at)); await getStore().update('contract', co, contractCode, { attachments: next }); setAtts(next); };
+  const remove = async (target: Att) => {
+    const next = atts.filter((a) => !(a.url === target.url && a.at === target.at));
+    try {
+      await getStore().update('contract', co, contractCode, { attachments: next });
+      setAtts(next);
+    } catch (e) {
+      toast(`첨부 삭제 실패: ${String((e as Error)?.message || e)}`, 'error');
+    }
+  };
   const sz = (n: number) => {
     if (!Number.isFinite(n) || n <= 0) return '';
     return n >= 1048576 ? `${(n / 1048576).toFixed(1)}MB` : `${Math.max(1, Math.round(n / 1024))}KB`;
@@ -160,7 +174,7 @@ export function ContractDocs({ contractCode, roomId }: { contractCode: string; r
             return (
               <div key={`${a.url || a.name}-${a.at}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 9px', border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg }}>
                 {isImg(a) && a.url
-                  ? <img src={a.url} alt="" onClick={() => setPreview(a)} style={{ width: 34, height: 34, objectFit: 'cover', borderRadius: R, cursor: 'zoom-in', flex: '0 0 auto', background: C.placeholder }} />
+                  ? <img src={a.url} alt="" onClick={() => setPreview(a)} style={{ width: thumb, height: thumb, objectFit: 'cover', borderRadius: R, cursor: 'zoom-in', flex: '0 0 auto', background: C.placeholder }} />
                   : <span onClick={() => canPreview(a) && setPreview(a)} style={{ display: 'flex', flex: '0 0 auto', cursor: canPreview(a) ? 'pointer' : 'default' }}>{isPdf(a) ? <FileText size={16} color={C.danger} /> : <FileText size={14} color={C.mute} />}</span>}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <span

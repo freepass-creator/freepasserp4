@@ -79,7 +79,7 @@ export function PriceMatrix({ price, onChange }: { price: unknown; onChange: (p:
   const cellInp = (filledRent: boolean): CSSProperties => ({
     textAlign: 'right',
     fontFamily: NUM,
-    fontWeight: filledRent ? FW.head : FW.strong,
+    fontWeight: FW.head,
     color: filledRent ? C.brand : C.ink,
     border: 'none',
     borderRadius: 0,

@@ -10,7 +10,7 @@ import { vehicleName, joinEventTags, canonProductType } from '@/lib/domain/produ
 import { matchProductQuery } from '@/lib/domain/search';
 import { withProviderNames } from '@/lib/domain/identity';
 import { vehicleLockedBy, blockingContractFor } from '@/lib/domain/settlement-engine';
-import { PaneHead, PaneBody, Btn, FormGrid, FormCard, C, R, NUM, Loading, CenterNote, SectionLabel, Select, Badge, Page, FilterChips, Message, PageActions, FW, FS } from '@/components/ui';
+import { PaneHead, PaneBody, Btn, FormGrid, FormCard, C, R, NUM, Loading, CenterNote, SectionLabel, Select, Badge, Page, FilterChips, FilterGroup, Message, PageActions, FW, FS } from '@/components/ui';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
 import { toast } from '@/components/Toaster';
 import { haptic } from '@/lib/haptics';
@@ -24,7 +24,7 @@ import { useResolvedLinkPhotos } from '@/components/use-product-photos';
 import dynamic from 'next/dynamic';
 import { PriceMatrix } from '@/components/PriceMatrix';
 import { useIsMobile } from '@/lib/use-mobile';
-import { InventoryListRow } from '@/components/list-rows';
+import { InventoryListRow, InventoryCreateRow } from '@/components/list-rows';
 import { NAV_LABEL } from '@/lib/tabbar';
 
 type InvSort = 'status' | 'name' | 'plate' | 'code';
@@ -71,6 +71,8 @@ export default function Inventory() {
   const [sort, setSort] = useState<InvSort | ''>('');
   const [stFlt, setStFlt] = useState<string>('all');
   const [typeFlt, setTypeFlt] = useState<string>('all');
+  const [draftStFlt, setDraftStFlt] = useState<string>('all');
+  const [draftTypeFlt, setDraftTypeFlt] = useState<string>('all');
   const [limit, setLimit] = useState(PAGE);
   /** 신규 작성 중(아직 DB 없음). 기존 = 보기 → 수정 눌러야 편집. */
   const [creating, setCreating] = useState(false);
@@ -199,7 +201,7 @@ export default function Inventory() {
         await seedIfEmpty(co);
         const r = getRole();
         if (r !== 'admin' && r !== 'provider') {
-          setGateMsg(`${NAV_LABEL.inventory}는 공급사·관리자만 사용할 수 있습니다. 설정에서 역할을 바꾸세요.`);
+          setGateMsg(`${NAV_LABEL.inventory}는 공급사·관리자만 사용할 수 있습니다.`);
           setOk(false);
           return;
         }
@@ -257,10 +259,12 @@ export default function Inventory() {
   useEffect(() => { setLimit(PAGE); }, [debouncedQ, stFlt, typeFlt, sort]);
 
   // 목록 필터·정렬 = 디바운스 검색 + 상태·구분 필터 + 정렬. 편집 폼(form) 변경은 여기 deps에 없어 목록 재계산 안 함.
+  const matchesFilters = (p: EntityRecord, status: string, type: string) =>
+    (status === 'all' || String(p.vehicle_status || '') === status)
+    && (type === 'all' || canonProductType(p.product_type) === type);
   const filtered = useMemo(() => (rows || [])
     .filter((p) => matchProductQuery(p, debouncedQ))
-    .filter((p) => stFlt === 'all' || String(p.vehicle_status || '') === stFlt)
-    .filter((p) => typeFlt === 'all' || canonProductType(p.product_type) === typeFlt)
+    .filter((p) => matchesFilters(p, stFlt, typeFlt))
     .slice()
     .sort((a, b) => {
       if (!sort) return 0;
@@ -270,7 +274,12 @@ export default function Inventory() {
       const ai = VEHICLE_STATES.indexOf(String(a.vehicle_status || '') as typeof VEHICLE_STATES[number]);
       const bi = VEHICLE_STATES.indexOf(String(b.vehicle_status || '') as typeof VEHICLE_STATES[number]);
       return (ai < 0 ? 99 : ai) - (bi < 0 ? 99 : bi) || vehicleName(a).localeCompare(vehicleName(b), 'ko');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }), [rows, debouncedQ, stFlt, typeFlt, sort]);
+  const draftPreviewCount = (rows || [])
+    .filter((p) => matchProductQuery(p, q))
+    .filter((p) => matchesFilters(p, draftStFlt, draftTypeFlt))
+    .length;
 
   const onChange = (k: string, v: string) => { setForm((f) => ({ ...f, [k]: v })); setDirty(true); };
   const norm = (v: unknown) => String(v ?? '').replace(/\s/g, '');
@@ -431,8 +440,7 @@ export default function Inventory() {
       <Page title={NAV_LABEL.inventory}>
         <CenterNote>{gateMsg || '접근 불가'}</CenterNote>
         <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 12 }}>
-          <Btn href="/settings" size="sm">설정에서 역할 변경</Btn>
-          {getRole() === 'admin' && <Btn href="/dev" size="sm" variant="ghost">개발도구</Btn>}
+          <Btn href="/" size="sm">홈으로</Btn>
         </div>
       </Page>
     );
@@ -441,48 +449,56 @@ export default function Inventory() {
 
   const shown = filtered.slice(0, limit);
   const moreN = Math.max(0, filtered.length - limit);
-  const listEl = filtered.length === 0
-    ? (
-      <CenterNote>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-          <span>{q || stFlt !== 'all' || typeFlt !== 'all' ? '검색 결과 없음' : '매물 없음'}</span>
-          {(q || stFlt !== 'all' || typeFlt !== 'all') ? (
-            <Btn size="sm" variant="ghost" onClick={() => { setQ(''); setStFlt('all'); setTypeFlt('all'); }}>조건 해제</Btn>
-          ) : null}
-        </div>
-      </CenterNote>
-    )
-    : (
-      <div>
-        {shown.map((p) => (
-          <InventoryListRow
-            key={String(p.product_code)}
-            p={p}
-            selected={String(p.product_code) === sel}
-            onClick={handleRowClick}
-          />
-        ))}
-        {moreN > 0 && (
-          <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, flexWrap: 'wrap',
-            padding: '12px 14px', borderTop: `1px solid ${C.line2}`,
-          }}>
-            <span style={{ fontSize: FS.sub, color: C.mute }}>
-              {shown.length.toLocaleString()} / {filtered.length.toLocaleString()}대
-            </span>
-            <Btn variant="ghost" size="sm" onClick={() => setLimit((n) => n + PAGE)}>
-              더보기 · {Math.min(PAGE, moreN).toLocaleString()}대
-            </Btn>
-            <Btn variant="ghost" size="sm" onClick={() => {
-              if (filtered.length > PAGE_HARD) {
-                setLimit(PAGE_HARD);
-                toast(`성능상 ${PAGE_HARD.toLocaleString()}대까지 표시합니다. 검색·필터로 좁혀주세요.`, 'info');
-              } else setLimit(filtered.length);
-            }}>전체 보기</Btn>
+  // 맨 위 슬롯: 빈 칸(신규등록+) → 작성 중이면 그 칸을 드래프트 행으로 채움
+  const draftFillsSlot = creating && !!sel && String(form.product_code || '') === sel;
+  const createSlot = draftFillsSlot
+    ? <InventoryListRow p={form} selected onClick={handleRowClick} />
+    : <InventoryCreateRow onClick={newP} />;
+  const listEl = (
+    <div>
+      {createSlot}
+      {filtered.length === 0 ? (
+        <CenterNote>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+            <span>{q || stFlt !== 'all' || typeFlt !== 'all' ? '검색 결과 없음' : '매물 없음'}</span>
+            {(q || stFlt !== 'all' || typeFlt !== 'all') ? (
+              <Btn size="sm" variant="ghost" onClick={() => { setQ(''); setStFlt('all'); setTypeFlt('all'); }}>조건 해제</Btn>
+            ) : null}
           </div>
-        )}
-      </div>
-    );
+        </CenterNote>
+      ) : (
+        <>
+          {shown.map((p) => (
+            <InventoryListRow
+              key={String(p.product_code)}
+              p={p}
+              selected={String(p.product_code) === sel}
+              onClick={handleRowClick}
+            />
+          ))}
+          {moreN > 0 && (
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, flexWrap: 'wrap',
+              padding: '12px 14px', borderTop: `1px solid ${C.line2}`,
+            }}>
+              <span style={{ fontSize: FS.sub, color: C.mute }}>
+                {shown.length.toLocaleString()} / {filtered.length.toLocaleString()}대
+              </span>
+              <Btn variant="ghost" size="sm" onClick={() => setLimit((n) => n + PAGE)}>
+                더보기 · {Math.min(PAGE, moreN).toLocaleString()}대
+              </Btn>
+              <Btn variant="ghost" size="sm" onClick={() => {
+                if (filtered.length > PAGE_HARD) {
+                  setLimit(PAGE_HARD);
+                  toast(`성능상 ${PAGE_HARD.toLocaleString()}대까지 표시합니다. 검색·필터로 좁혀주세요.`, 'info');
+                } else setLimit(filtered.length);
+              }}>전체 보기</Btn>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
 
   // 역할별 섹션 — erp3 자산/가격/사진 카드. FormCard = 입력 구역 테두리(어디에 치는지).
   const byKey = Object.fromEntries(ENTITIES.product.fields.map((f) => [f.key, f]));
@@ -661,7 +677,7 @@ export default function Inventory() {
     { key: 'var', title: '운영', node: varPane },
     { key: 'sync', title: '업로드', node: syncPane },
   ];
-  // 하단바 = 편집 컨텍스트만(수정·삭제 / 취소·저장). 등록은 상단 툴바(listTools.action) → 목록뷰 이중바 제거.
+  // 하단바 = 편집 컨텍스트만(수정·삭제 / 취소·저장). 등록 = 목록 맨 위 행(InventoryCreateRow).
   const dockActions = creating || editing ? (
     <PageActions cancel={{ onClick: cancelEdit }} save={{ onClick: save, disabled: !dirty }} />
   ) : sel ? (
@@ -683,18 +699,53 @@ export default function Inventory() {
         actions={dockActions}
         listTools={{
           search: { value: q, onChange: setQ, placeholder: '차번·차명·코드·옵션·공급사·메모…' },
-          action: { label: '등록', onClick: newP },
           sort: { value: sort, onChange: (v) => setSort(v as InvSort | ''), options: INV_SORTS },
           filter: {
             count: fltCount,
-            title: '재고 필터',
-            onClear: () => { setStFlt('all'); setTypeFlt('all'); },
+            title: '조건 검색',
+            previewCount: draftPreviewCount,
+            previewUnit: '대',
+            dirty: draftStFlt !== stFlt || draftTypeFlt !== typeFlt,
+            capture: () => {
+              setDraftStFlt(stFlt);
+              setDraftTypeFlt(typeFlt);
+            },
+            restore: () => {
+              setDraftStFlt(stFlt);
+              setDraftTypeFlt(typeFlt);
+            },
+            commit: () => {
+              setStFlt(draftStFlt);
+              setTypeFlt(draftTypeFlt);
+            },
+            onClear: () => {
+              if (mobile) {
+                setDraftStFlt('all');
+                setDraftTypeFlt('all');
+              } else {
+                setStFlt('all');
+                setTypeFlt('all');
+              }
+            },
             body: (
               <>
-                <SectionLabel mt={0}>매물상태</SectionLabel>
-                <FilterChips value={stFlt} onChange={setStFlt} options={INV_STATUS_CHIPS} />
-                <SectionLabel>상품구분</SectionLabel>
-                <FilterChips value={typeFlt} onChange={setTypeFlt} options={INV_TYPE_CHIPS} />
+                <FilterGroup
+                  title="매물상태"
+                  count={(mobile ? draftStFlt : stFlt) === 'all' ? 0 : 1}
+                  defaultOpen
+                  first={!mobile}
+                  onClear={() => mobile ? setDraftStFlt('all') : setStFlt('all')}
+                >
+                  <FilterChips value={mobile ? draftStFlt : stFlt} onChange={mobile ? setDraftStFlt : setStFlt} options={INV_STATUS_CHIPS} />
+                </FilterGroup>
+                <FilterGroup
+                  title="상품구분"
+                  count={(mobile ? draftTypeFlt : typeFlt) === 'all' ? 0 : 1}
+                  defaultOpen
+                  onClear={() => mobile ? setDraftTypeFlt('all') : setTypeFlt('all')}
+                >
+                  <FilterChips value={mobile ? draftTypeFlt : typeFlt} onChange={mobile ? setDraftTypeFlt : setTypeFlt} options={INV_TYPE_CHIPS} />
+                </FilterGroup>
               </>
             ),
           },

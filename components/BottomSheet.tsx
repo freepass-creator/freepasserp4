@@ -1,13 +1,17 @@
 'use client';
 import { useEffect, useState, useRef, type ReactNode } from 'react';
-import { Btn, C, FW, FS } from '@/components/ui';
+import { Btn, C, FW, FS, R, ctrlH } from '@/components/ui';
+import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
 
 /**
  * 하단 시트 SSOT — 화면 바닥에서 슬라이드업.
- * 검색·정렬·필터·메뉴 전부 이거. MobileFilterSheet 별도 구현 금지.
+ * 검색·정렬·필터·최근·관심·업무목록 전부 이거. 별도 FilterSheet UI 금지.
  *
- * footer='filter' → 적용·해제·닫기 표준 액션바.
+ * 액션 규격:
+ *   · 시트 고유(지우기·기본·초기화·비우기) = 제목 오른쪽 파란 bare(onClear)
+ *   · footer std = 닫기
+ *   · footer commit = 미변경 닫기만 / 변경 시 취소·적용 (onCommit)
  */
 export function BottomSheet({
   open,
@@ -15,14 +19,18 @@ export function BottomSheet({
   children,
   title,
   dockH = 0,
+  topInset = 0,
   maxHeight = 'min(58vh, 520px)',
+  /** true면 maxHeight를 고정 높이로 씀(필터 시트 출렁임 방지) */
+  fixedHeight = false,
   footer,
   onClear,
   onCancel,
+  onCommit,
   dirty = false,
   closeLabel = '닫기',
   commitLabel = '적용',
-  clearLabel = '해제',
+  clearLabel = '초기화',
   cancelLabel = '취소',
   footerInfo,
   pad = true,
@@ -32,32 +40,23 @@ export function BottomSheet({
   children: ReactNode;
   title?: ReactNode;
   dockH?: number | string;
+  /** 상단 툴바를 시트·백드롭 밖에 두어 필터 버튼 재탭 닫기 가능 */
+  topInset?: number | string;
   maxHeight?: string | number;
-  /**
-   * 하단바 SSOT — 두 표준 타입:
-   *  'std'    = [해제/비우기 좌(ghost, onClear시) · info 가운데 · 닫기 우(solid)]. 즉시반영 시트(최근·관심·검색·정렬).
-   *  'commit' = [해제 좌(ghost, onClear시) · 취소(ghost, onCancel시) · 적용 우(solid, closeLabel)]. 조건 조정 후 확정하는 필터용.
-   *  'filter' = 'std' 별칭(하위호환). ReactNode = 완전 커스텀.
-   */
+  fixedHeight?: boolean;
   footer?: 'std' | 'commit' | 'filter' | ReactNode;
   onClear?: () => void;
-  /** 'commit'에서 취소(되돌리기) 액션 */
   onCancel?: () => void;
-  /** 'commit' 변경됨 여부. true면 [취소·적용], false면 [닫기] */
+  onCommit?: () => void;
   dirty?: boolean;
-  /** 우측 solid 버튼 라벨(std:닫기 · commit clean:닫기) */
   closeLabel?: string;
-  /** commit dirty 시 우측 solid 라벨(기본 '적용') */
   commitLabel?: string;
-  /** 좌측 ghost 액션 라벨(비우기·해제·지우기·기본 등). onClear 있을 때만 노출 */
   clearLabel?: string;
-  /** commit 취소 버튼 라벨(기본 '취소'). onCancel 있을 때만 노출 */
   cancelLabel?: string;
-  /** std 가운데 뮤트 정보(예: '결과 N대'). commit엔 없음(제목 옆으로) */
   footerInfo?: ReactNode;
-  /** 본문 좌우 패딩(기본 on) */
   pad?: boolean;
 }) {
+  const mobile = useIsMobile();
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -71,9 +70,11 @@ export function BottomSheet({
 
   if (!open) return null;
 
-  // 하단바 SSOT — 공통 컨테이너 규격에 std/commit 두 타입.
+  // 하단바 SSOT — commit: 미변경=닫기 / 변경=취소·적용. 슬롯은 항상 예약(크기 불변).
   const isStd = footer === 'std' || footer === 'filter';
   const isCommit = footer === 'commit';
+  const clearVisible = !!onClear;
+  const cancelVisible = !!(isCommit && dirty && onCancel);
   const sheetFooter = (isStd || isCommit) ? (
     <div style={{
       flex: '0 0 auto',
@@ -82,19 +83,35 @@ export function BottomSheet({
       paddingBottom: 'calc(10px + env(safe-area-inset-bottom, 0px))',
       borderTop: `1px solid ${C.line}`,
       background: C.taupeBg,
+      minHeight: ctrlH(mobile) + 20,
+      boxSizing: 'border-box',
     }}>
-      {/* 하단바 = 기본 액션만(닫기·취소·적용). 해제/비우기 등 시트 고유 액션은 제목 옆으로 이동함. */}
       {isCommit ? <span style={{ flex: 1 }} /> : (
         <span style={{
           flex: 1, minWidth: 0, fontSize: FS.sub, color: C.mute,
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>{footerInfo}</span>
       )}
-      {/* commit: 변경 전엔 [닫기]만, 변경되면 [취소·적용] */}
-      {isCommit && dirty && onCancel ? (
-        <Btn variant="ghost" onClick={() => { onCancel(); }}>{cancelLabel}</Btn>
+      {isCommit ? (
+        <Btn
+          variant="ghost"
+          disabled={!cancelVisible}
+          onClick={() => { if (!cancelVisible || !onCancel) return; haptic.back(); onCancel(); }}
+          style={{
+            minWidth: 72,
+            visibility: cancelVisible ? 'visible' : 'hidden',
+            pointerEvents: cancelVisible ? 'auto' : 'none',
+          }}
+        >{cancelLabel}</Btn>
       ) : null}
-      <Btn onClick={() => { haptic.nav(); onClose(); }} style={{ minWidth: isCommit ? 96 : 100 }}>
+      <Btn
+        onClick={() => {
+          haptic.nav();
+          if (isCommit && dirty && onCommit) onCommit();
+          else onClose();
+        }}
+        style={{ minWidth: isCommit ? 96 : 100 }}
+      >
         {isCommit ? (dirty ? commitLabel : closeLabel) : closeLabel}
       </Btn>
     </div>
@@ -105,6 +122,8 @@ export function BottomSheet({
       paddingBottom: 'calc(10px + env(safe-area-inset-bottom, 0px))',
       borderTop: `1px solid ${C.line}`,
       background: C.taupeBg,
+      minHeight: ctrlH(mobile) + 20,
+      boxSizing: 'border-box',
     }}>
       {footer}
     </div>
@@ -114,7 +133,9 @@ export function BottomSheet({
     <div
       role="presentation"
       style={{
-        position: 'fixed', inset: 0, zIndex: 62,
+        position: 'fixed',
+        top: topInset, left: 0, right: 0, bottom: 0,
+        zIndex: 62,
         background: 'rgba(15,23,42,0.38)',
       }}
       onClick={() => { haptic.back(); onClose(); }}
@@ -127,9 +148,10 @@ export function BottomSheet({
           position: 'absolute', left: 0, right: 0,
           bottom: dockH,
           maxHeight,
+          height: fixedHeight ? maxHeight : undefined,
           display: 'flex', flexDirection: 'column',
           background: C.taupeBg,
-          borderRadius: '14px 14px 0 0',
+          borderRadius: `${R}px ${R}px 0 0`,
           boxShadow: '0 -10px 32px rgba(15,23,42,0.2)',
           animation: 'sheetUp .22s ease',
           paddingBottom: sheetFooter ? 0 : 'env(safe-area-inset-bottom, 0px)',
@@ -147,23 +169,33 @@ export function BottomSheet({
             cursor: 'grab', touchAction: 'none',
           }}
         >
-          <span style={{ width: 36, height: 4, borderRadius: 2, background: C.line }} />
+          <span style={{ width: 36, height: 4, borderRadius: R, background: C.line }} />
         </div>
         {title != null && (
           <div style={{
             flex: '0 0 auto', display: 'flex', alignItems: 'center', gap: 10,
             padding: '2px 16px 10px',
+            minHeight: ctrlH(mobile),
+            boxSizing: 'border-box',
           }}>
             <div style={{
               flex: '1 1 auto', minWidth: 0,
               fontSize: FS.title, fontWeight: FW.title, color: C.ink, letterSpacing: '-0.02em',
               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             }}>{title}</div>
-            {/* 시트 고유 액션(해제·비우기·지우기·기본·초기화)은 웹처럼 제목 옆으로. 기본(닫기·취소·적용)만 하단바. */}
-            {onClear ? (
-              <Btn variant="bare" onClick={() => { haptic.tap(); onClear(); }} style={{
-                flex: '0 0 auto', color: C.accent, fontSize: FS.sub, fontWeight: FW.strong, padding: '2px 2px',
-              }}>{clearLabel}</Btn>
+            {/* 초기화 슬롯 항상 예약 — 보일 때만 보이게(레이아웃 불변) */}
+            {(isCommit || onClear) ? (
+              <Btn
+                variant="bare"
+                disabled={!clearVisible}
+                onClick={() => { if (!onClear) return; haptic.tap(); onClear(); }}
+                style={{
+                  flex: '0 0 auto', color: C.accent, fontSize: FS.sub, fontWeight: FW.strong,
+                  minHeight: ctrlH(mobile), minWidth: 52, padding: mobile ? '0 10px' : '0 6px',
+                  visibility: clearVisible ? 'visible' : 'hidden',
+                  pointerEvents: clearVisible ? 'auto' : 'none',
+                }}
+              >{clearLabel}</Btn>
             ) : null}
           </div>
         )}
@@ -193,6 +225,7 @@ export function FilterSheet({
   onClear,
   children,
   maxHeight = 'min(68vh, 560px)',
+  clearLabel = '초기화',
 }: {
   open: boolean;
   title?: string;
@@ -200,6 +233,7 @@ export function FilterSheet({
   onClear?: () => void;
   children: ReactNode;
   maxHeight?: string | number;
+  clearLabel?: string;
 }) {
   return (
     <BottomSheet
@@ -207,7 +241,8 @@ export function FilterSheet({
       onClose={onClose}
       title={title}
       maxHeight={maxHeight}
-      footer="filter"
+      footer="std"
+      clearLabel={clearLabel}
       onClear={onClear}
       pad
     >

@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState, type MouseEvent, type ReactNode } from 'react';
-import { MoreVertical, Star, ThumbsDown, EyeOff } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { MoreVertical, Star, ThumbsDown, EyeOff, MessageCircleMore, Share2 } from 'lucide-react';
 import { C, R, FW, FS, Btn, IconBtn } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
@@ -8,6 +9,8 @@ import { isFav, toggleFav, removeFav, subscribeInterest } from '@/lib/product-in
 import { hideProduct } from '@/lib/product-hide';
 import { passProduct, isPassed, unpassProduct, subscribePassed } from '@/lib/product-pass';
 import { vehicleName } from '@/lib/domain/product';
+import { actor, getRole, ensureRoom } from '@/lib/domain/deal';
+import { guestShareUrl } from '@/lib/domain/product-share';
 import { toast } from '@/components/Toaster';
 import { BottomSheet } from '@/components/BottomSheet';
 import type { EntityRecord } from '@/lib/intake/entities';
@@ -15,16 +18,20 @@ import type { EntityRecord } from '@/lib/intake/entities';
 /**
  * 상품 카드 ··· 메뉴 (웹·모바일 공통)
  *   트리거 = absolute(제목 줄높이·갭 불변). 부모는 relative + paddingRight.
+ *   · 계약문의 / 손님공유 — 영업·관리자(웹 우클릭과 동일)
  *   · 관심 있음 / 관심 해제 — 찜
  *   · 관심없음 — 목록 맨 뒤로
  *   · 숨기기 — 목록에서 완전 제외
  */
 export function ProductMoreMenu({ p }: { p: EntityRecord }) {
   const mobile = useIsMobile();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const code = String(p.product_code || p._key || '');
   const [fav, setFav] = useState(false);
   const [passed, setPassed] = useState(false);
+  const role = getRole();
+  const canDeal = role === 'agent' || role === 'admin';
   useEffect(() => {
     setFav(isFav(code));
     return subscribeInterest(() => setFav(isFav(code)));
@@ -70,6 +77,41 @@ export function ProductMoreMenu({ p }: { p: EntityRecord }) {
 
   const panel = (
     <div style={{ paddingBottom: mobile ? 8 : 6 }}>
+      {canDeal ? (
+        <>
+          {item(
+            '계약문의',
+            async () => {
+              try {
+                haptic.nav();
+                const a = actor(role);
+                const room = await ensureRoom(p, a);
+                router.push(`/chat?room=${encodeURIComponent(room)}`);
+              } catch (e) {
+                toast(e instanceof Error ? e.message : '계약문의 실패', 'error');
+              }
+            },
+            { icon: <MessageCircleMore size={18} color={C.brand} /> },
+          )}
+          {item(
+            '손님공유',
+            () => {
+              haptic.select();
+              const a = actor(role);
+              const url = guestShareUrl(p, a.code || a.uid);
+              if (navigator.share) {
+                navigator.share({ title: vehicleName(p), url }).catch(() => {});
+                return;
+              }
+              navigator.clipboard?.writeText(url).then(
+                () => toast('손님용 매물 링크 복사됨', 'ok'),
+                () => prompt('링크', url),
+              );
+            },
+            { icon: <Share2 size={18} color={C.brand} /> },
+          )}
+        </>
+      ) : null}
       {item(
         fav ? '관심 해제' : '관심 있음',
         () => {
@@ -115,19 +157,6 @@ export function ProductMoreMenu({ p }: { p: EntityRecord }) {
           icon: <EyeOff size={18} color={C.danger} />,
         },
       )}
-      <Btn
-        full
-        variant="ghost"
-        onClick={() => { haptic.back(); setOpen(false); }}
-        style={{
-          minHeight: mobile ? 48 : 40, height: 'auto', marginTop: 6,
-          border: 'none', borderTop: `1px solid ${C.line}`,
-          background: C.head, boxShadow: 'none', borderRadius: 0,
-          fontSize: mobile ? FS.title : FS.body, fontWeight: FW.strong, color: C.mute,
-        }}
-      >
-        취소
-      </Btn>
     </div>
   );
 
@@ -153,7 +182,7 @@ export function ProductMoreMenu({ p }: { p: EntityRecord }) {
         <MoreVertical size={mobile ? 18 : 16} strokeWidth={2.2} />
       </IconBtn>
       {mobile ? (
-        <BottomSheet open={open} onClose={() => setOpen(false)} maxHeight="auto" title="상품">
+        <BottomSheet open={open} onClose={() => setOpen(false)} maxHeight="auto" title="상품" footer="std" pad={false}>
           {panel}
         </BottomSheet>
       ) : open ? (
