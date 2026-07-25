@@ -3,10 +3,10 @@
  * product는 정책(_policy, ~30필드)을 물고 옴 → 검색·상세가 정책조건까지 포함.
  */
 import type { EntityRecord } from '@/lib/intake/entities';
-import { MAX_PROMO_BADGES as PROMO_MAX, PROMO_BADGES, PROMO_BADGE_LEGACY, PRODUCT_TYPES, PRODUCT_TYPE_LEGACY } from '@/lib/intake/entities';
+import { MAX_PROMO_BADGES as PROMO_MAX, PROMO_BADGES_ACTIVE, PROMO_BADGES_PLANNED, PROMO_BADGE_LEGACY, PRODUCT_TYPES, PRODUCT_TYPE_LEGACY } from '@/lib/intake/entities';
 import { fuelDisplay, fuelEmbeddedCc, yearDisplay, makerDisplay } from '@/lib/domain/vehicle-master-match';
 import { kmDisplay } from '@/lib/format';
-export { PROMO_BADGES, MAX_PROMO_BADGES } from '@/lib/intake/entities';
+export { PROMO_BADGES, PROMO_BADGES_ACTIVE, PROMO_BADGES_PLANNED, MAX_PROMO_BADGES } from '@/lib/intake/entities';
 
 /** 상품구분 캐논 — 재렌트→중고렌트 · 재구독→중고구독. 필터·뱃지·매칭 SSOT. */
 export function canonProductType(raw: unknown): string {
@@ -224,16 +224,17 @@ export function parseEventTags(raw: unknown): string[] {
 }
 
 export function joinEventTags(tags: string[]): string {
-  const allow = new Set<string>(PROMO_BADGES as unknown as string[]);
+  const allow = new Set<string>(PROMO_BADGES_ACTIVE as unknown as string[]);
+  const planned = new Set<string>(PROMO_BADGES_PLANNED as unknown as string[]);
   return [...new Set(tags.map((t) => {
     const x = (PROMO_BADGE_LEGACY[t.trim()] || t.trim());
     return x;
-  }).filter((t) => t && allow.has(t)))].slice(0, PROMO_MAX).join(',');
+  }).filter((t) => t && allow.has(t) && !planned.has(t)))].slice(0, PROMO_MAX).join(',');
 }
 
-/** 한시 이벤트/프로모 — 썸네일 딱지·상세 CardEvents. PROMO_BADGES 화이트리스트 · 최대 MAX_PROMO_BADGES. */
+/** 한시 이벤트/프로모 — 썸네일 딱지·상세 CardEvents. 운영중 뱃지만 · 최대 MAX_PROMO_BADGES. */
 export function eventSignals(p: EntityRecord): ProductSignal[] {
-  const allow = new Set<string>(PROMO_BADGES as unknown as string[]);
+  const allow = new Set<string>(PROMO_BADGES_ACTIVE as unknown as string[]);
   return parseEventTags(p.event_tags || p.promo_tags)
     .filter((t) => allow.has(t))
     .slice(0, PROMO_MAX)

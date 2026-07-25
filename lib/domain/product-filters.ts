@@ -15,7 +15,7 @@
  *      주행밴드
  */
 import type { EntityRecord } from '@/lib/intake/entities';
-import { PRODUCT_TYPES, FUEL_TYPES, PROMO_BADGES } from '@/lib/intake/entities';
+import { PRODUCT_TYPES, FUEL_TYPES, PROMO_BADGES_ACTIVE } from '@/lib/intake/entities';
 import {
   fuelDisplay,
   yearDisplay,
@@ -69,7 +69,7 @@ export const MILE_BANDS: Band[] = [
 /** entities SSOT 재노출 — 페이지는 여기만 import. */
 export const FUELS = [...FUEL_TYPES];
 export const PTYPES = [...PRODUCT_TYPES];
-export const PROMOS = [...PROMO_BADGES];
+export const PROMOS = [...PROMO_BADGES_ACTIVE];
 export const CREDITS = ['무심사', '소득확인'] as const;
 /** 혜택 = benefitSignals와 1:1 (만21세=연령≤21 라벨). */
 export const PERKS = ['분납가능', '무보증', '만21세', '경력무관', '무사고'] as const;
@@ -130,7 +130,7 @@ export const DYN: DynDef[] = [
   { key: 'ext_color', label: '외부색상', get: (p) => colorDisplay(p.ext_color, 'ext') },
   { key: 'int_color', label: '내부색상', get: (p) => colorDisplay(p.int_color, 'int') },
   { key: 'year', label: '연식', get: (p) => yearDisplay(p.year) },
-  { key: 'vehicle_class', label: '차급', get: (p) => String(p.vehicle_class || '') },
+  { key: 'vehicle_class', label: '차종분류', get: (p) => String(p.vehicle_class || '') },
   { key: 'annual_mileage', label: '약정주행', get: (p) => normAnnualMileage(polGet(p, 'annual_mileage')) },
 ];
 

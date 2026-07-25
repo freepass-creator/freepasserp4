@@ -239,7 +239,7 @@ export const InventoryListRow = memo(function InventoryListRow({
       onClick={() => onClick(p)}
       thumb={<FeedThumbIcon icon={ic.icon} tone={ic.tone} title={ic.title} />}
       lines={[
-        <FeedTitle key="t">{vehicleName(p) || String(p.product_code || '상품')}</FeedTitle>,
+        <FeedTitle key="t">{vehicleName(p) || String(p.car_number || '상품')}</FeedTitle>,
         <FeedBadges key="b">
           {st ? <Badge tone={vehicleTone(st)} variant={st === '계약중' ? 'solid' : 'line'} pulse={st === '계약중'}>{st}</Badge> : null}
           {pt ? (() => { const c = canonProductType(pt) || pt; const pts = productTypeStyle(c); return <Badge tone={pts.tone} variant={pts.variant}>{c}</Badge>; })() : null}

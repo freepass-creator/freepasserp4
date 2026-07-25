@@ -42,7 +42,7 @@ export default function Detail() {
   }, [key]);
 
   const detailName = p
-    ? (vehicleName(p) || String(p.car_number || p.product_code || '매물'))
+    ? (vehicleName(p) || String(p.car_number || '상품'))
     : null;
   useAppBar(
     {

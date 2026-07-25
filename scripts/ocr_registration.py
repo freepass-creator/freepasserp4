@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""자동차등록증 OCR → 매물 필드 추출 (easyocr + GPU).
-사용: python ocr_registration.py <image_path>
+"""자동차등록증 OCR → 상품 필드 추출 (easyocr + GPU).
+사용: python ocr_registration.py <image_or_pdf_path>
 출력(stdout, 마지막 줄): {"raw":[...], "text":"...", "fields":{...}}
 원본(raw/text)은 보존 — 필드는 best-effort. 정규화 최소.
+PDF = 첫 페이지를 래스터화 후 OCR (pymupdf/fitz 필요).
 """
-import sys, json, re
+import sys, json, re, os
 
 try:  # API(Node)가 한글을 정상 수신하도록 stdout/err을 UTF-8로 고정(Windows 콘솔 codepage 무관)
     sys.stdout.reconfigure(encoding='utf-8')
@@ -40,16 +41,43 @@ def extract(text: str, lines):
     return f
 
 
+def to_image_path(path: str) -> str:
+    """PDF면 첫 페이지 PNG로 변환해 경로 반환. 이미지는 그대로."""
+    if not path.lower().endswith('.pdf'):
+        return path
+    try:
+        import fitz  # pymupdf
+    except ImportError:
+        raise RuntimeError('PDF OCR에는 pymupdf 필요: pip install pymupdf')
+    doc = fitz.open(path)
+    if doc.page_count < 1:
+        raise RuntimeError('빈 PDF입니다')
+    page = doc[0]
+    pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))  # ~144dpi 상당
+    out = path + '.png'
+    pix.save(out)
+    doc.close()
+    return out
+
+
 def main():
     if len(sys.argv) < 2:
         print(json.dumps({'error': 'no image path'})); return
-    img = sys.argv[1]
+    src = sys.argv[1]
+    png = None
     try:
+        img = to_image_path(src)
+        if img != src:
+            png = img
         import easyocr
         reader = easyocr.Reader(['ko', 'en'], gpu=True, verbose=False)
         lines = reader.readtext(img, detail=0, paragraph=False)
     except Exception as e:
         print(json.dumps({'error': f'ocr failed: {e}'}, ensure_ascii=False)); return
+    finally:
+        if png and os.path.exists(png):
+            try: os.remove(png)
+            except OSError: pass
     text = ' '.join(lines)
     print(json.dumps({'raw': lines, 'text': text, 'fields': extract(text, lines)}, ensure_ascii=False))
 
