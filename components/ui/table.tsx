@@ -43,7 +43,17 @@ const EXCEL_COND_2H = EXCEL_BADGE_H * 2 + EXCEL_BADGE_GAP; // 45
 const EXCEL_BODY_H = Math.max(EXCEL_OPT_2H, EXCEL_COND_2H); // 45
 const EXCEL_PAD_Y = 5;
 const EXCEL_PAD_X = 6;
+/** filter(사이드 열림) — 칸 좌우 패딩만 양보(글자수·항목 구성은 유지). */
+const EXCEL_PAD_X_FILTER = 4;
 const EXCEL_ROW_H = EXCEL_PAD_Y * 2 + EXCEL_BODY_H; // 55
+
+export type ExcelColMode = 'filter' | 'full';
+export function excelPadX(mode: ExcelColMode = 'full'): number {
+  return mode === 'filter' ? EXCEL_PAD_X_FILTER : EXCEL_PAD_X;
+}
+export function excelPadY(): number {
+  return EXCEL_PAD_Y;
+}
 
 /** 엑셀 — 헤더·본문 12. 본문 상하 = 옵션/조건 2줄 기준(고정). */
 export const thX: React.CSSProperties = {
@@ -89,7 +99,10 @@ export const cellClamp2: React.CSSProperties = {
   fontWeight: FW.body,
 };
 /** 우측 틀고정 — i=0이 블록 왼쪽(선). head면 top도 sticky(본문 스크롤용).
- * colPxOrSample: px 숫자 또는 샘플문자열(sampleW와 동일 폭으로 right 누적). */
+ * colPxOrSample: px 숫자 또는 샘플문자열(sampleW와 동일 폭으로 right 누적).
+ * zIndex는 오른쪽(끝)일수록 높게 — 인접 sticky 열이 1px이라도 겹치면 왼쪽 칸(1개월)이
+ * 오른쪽 칸에 덮여 “세로 줄/내용 더 있음”처럼 보이는 걸 막는다(사이드바 열림·가로스크롤 시).
+ * 구분선 = inset(overflow:hidden에 안 잘림). 바깥 -1px shadow는 fp-excel-price overflow에 잘림. */
 export function pinRight(i: number, colPxOrSample: number | string, total: number, head = false): React.CSSProperties {
   const n = total - 1 - i;
   let right: number | string = 0;
@@ -103,24 +116,27 @@ export function pinRight(i: number, colPxOrSample: number | string, total: numbe
   }
   const edge = i === 0;
   return {
-    position: 'sticky', right, zIndex: head ? 4 : 1,
+    position: 'sticky',
+    right,
+    // head 기본 th z=2·좌측핀 z=5 위 · 본문 좌측핀 z=1과 맞춤 후 i로 상승
+    zIndex: (head ? 6 : 2) + i,
     ...(head ? { top: 0 } : {}),
-    ...(edge ? { boxShadow: `-1px 0 0 ${C.line}` } : {}),
+    ...(edge ? { boxShadow: `inset 1px 0 0 ${C.line}` } : {}),
   };
 }
 
 /**
  * 엑셀 열 모드 SSOT
  *
- *  · filter(사이드바 열림): 공급사·심사·조건 숨김 · 제조사 3자 · 세부모델·파워·트림 10자(옵션 min 축소로 확보)
- *  · full(사이드바 닫힘): 공급사·심사·조건 표시 · 제조사 4자 · 세부모델·파워·트림 10자
+ *  · filter(사이드바 열림·웹): 공급사·심사·조건 숨김 · 제조사 3자 · 패딩 양보(6→4).
+ *  · full(사이드바 닫힘): 공급사·심사·조건 표시 · 제조사 4자 · 패딩 6.
+ *  · 틀고정(차번/대여료 sticky) 없음. 가로스크롤은 창이 열 합보다 좁을 때만.
  *
- * 공통 열(항상 동일 순서 — 필터 토글해도 연식·주행·연료 자리 유지):
+ * 공통 열(항상 동일 순서):
  *   차번 · 상태 · 상품 · 제조사 · 모델 · 세부모델 · 파워 · 트림 · 옵션 · 외장 · 내장 · 연식 · 주행 · 연료
  * full만 추가(대여료 직전): 공급사 · 심사 · 조건
- * 맨끝(항상·모드 무관 동일 폭): 표준 대여료(EXCEL_PRICE_COL 딱맞춤)
+ * 맨끝: 표준 대여료(EXCEL_PRICE_W)
  */
-export type ExcelColMode = 'filter' | 'full';
 export function excelColMode(filterOpen: boolean): ExcelColMode {
   return filterOpen ? 'filter' : 'full';
 }
@@ -129,22 +145,34 @@ export function excelShowFilterCols(mode: ExcelColMode): boolean {
 }
 /** 제조사 — filter 3 / full 4 */
 export function excelMakerChars(mode: ExcelColMode): number {
-  return mode === 'filter' ? 3 : 4;
+  return mode === 'filter' ? EXCEL_MAX.makerSlim : EXCEL_MAX.maker;
 }
-/** 세부모델 — 필터 여부와 무관 10자 */
+/** 세부모델 — 모드 무관 10자(간격 양보로 맞춤). */
 export function excelSubChars(_mode: ExcelColMode): number {
-  return 10;
+  return EXCEL_MAX.sub;
 }
-/** 파워·트림 — 필터 여부와 무관 10자 */
+/** 파워·트림 — 모드 무관 10자. */
 export function excelNameChars(_mode: ExcelColMode): number {
-  return 10;
+  return EXCEL_MAX.name;
+}
+/** 외장·내장 — 모드 무관 3자. */
+export function excelColorChars(_mode: ExcelColMode): number {
+  return EXCEL_MAX.color;
+}
+/** 연료 — 모드 무관 3자. */
+export function excelFuelChars(_mode: ExcelColMode): number {
+  return EXCEL_MAX.fuel;
+}
+/** 모델 — 옵션 있으면 slim. */
+export function excelModelWidth(_mode: ExcelColMode, hasOpts: boolean): number | typeof EXCEL_MAX.model {
+  return hasOpts ? EXCEL_MAX.modelSlim : EXCEL_MAX.model;
 }
 
 /**
  * 엑셀 열 규격 SSOT
  *  · tight = 표시 최대만큼만(절대 안 불어남) → 옵션에 폭 양보.
  *  · name  = 세부모델·파워·트림 10자. 옵션 있으면 tight.
- *  · opts  = 최소 160 확보 + 남는 폭 흡수(width 100%).
+ *  · opts  = 최소 확보 + 남는 폭 흡수(width 100%).
  */
 export const EXCEL_MAX = {
   plate: '000가0000',
@@ -153,7 +181,7 @@ export const EXCEL_MAX = {
   model: '펠리세이드',
   modelSlim: 6,
   sub: 10,
-  subSlim: 10,
+  name: 10,
   mile: '9.9만',
   fuel: 3,
   color: 3,
@@ -165,37 +193,37 @@ const cellClip: React.CSSProperties = {
   boxSizing: 'border-box', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
 };
 
-function sampleW(sample: string): string {
+function sampleW(sample: string, padX: number = EXCEL_PAD_X): string {
   let em = 0;
   let ch = 0;
   for (const c of sample) {
     if (/[0-9A-Za-z.,\s]/.test(c)) ch += 1;
     else em += 1;
   }
-  return `calc(${em}em + ${ch}ch + ${EXCEL_PAD_X * 2}px)`;
+  return `calc(${em}em + ${ch}ch + ${padX * 2}px)`;
 }
 
-function charsW(n: number, ellipsis = true): string {
-  return sampleW(`${'가'.repeat(n)}${ellipsis ? '…' : ''}`);
+function charsW(n: number, ellipsis = true, padX: number = EXCEL_PAD_X): string {
+  return sampleW(`${'가'.repeat(n)}${ellipsis ? '…' : ''}`, padX);
 }
 
-/** 필수 고정칸 — 샘플/px 밖으로 안 줄고 안 늘음. */
-export function colLock(pxOrSample: number | string): React.CSSProperties {
-  const w = typeof pxOrSample === 'number' ? pxOrSample : sampleW(pxOrSample);
+/** 필수 고정칸 — 샘플/px 밖으로 안 줄고 안 늘음. 문자열 샘플만 padX 반영(px 뱃지폭은 그대로). */
+export function colLock(pxOrSample: number | string, padX: number = EXCEL_PAD_X): React.CSSProperties {
+  const w = typeof pxOrSample === 'number' ? pxOrSample : sampleW(pxOrSample, padX);
   return { width: w, minWidth: w, maxWidth: w, ...cellClip };
 }
 
 /** 필수 고정칸 — n글자(+…) 폭. */
-export function colLockChars(n: number, ellipsis = true): React.CSSProperties {
-  return colLock(`${'가'.repeat(n)}${ellipsis ? '…' : ''}`);
+export function colLockChars(n: number, ellipsis = true, padX: number = EXCEL_PAD_X): React.CSSProperties {
+  return colLock(`${'가'.repeat(n)}${ellipsis ? '…' : ''}`, padX);
 }
 
 /**
  * 글자 최소칸 — 옵션이 밀어낼 대상(세부모델·파워·트림).
  * squeeze=true: min=max. squeeze=false: 최소만(옵션 없을 때 살짝 늘어날 수 있음).
  */
-export function colChars(n: number, squeeze: boolean, ellipsis = true): React.CSSProperties {
-  const w = charsW(n, ellipsis);
+export function colChars(n: number, squeeze: boolean, ellipsis = true, padX: number = EXCEL_PAD_X): React.CSSProperties {
+  const w = charsW(n, ellipsis, padX);
   return {
     width: w,
     minWidth: w,
@@ -255,19 +283,34 @@ export const EXCEL_W = {
 
 /**
  * 대여료 열 폭 SSOT — 헤더(60개월)·본문(999만) 중 넓은 쪽에 딱맞춤.
- * 필터 펴나 접으나 동일(모드 분기 없음). pinRight도 같은 샘플로 right 누적.
+ * filter는 패딩 양보분만 폭에서 차감(글자 샘플 동일).
  */
 export const EXCEL_PRICE_MAX = '999만';
 export const EXCEL_PRICE_COL = '60개월';
+function sampleWPx(sample: string, padX: number = EXCEL_PAD_X): number {
+  let em = 0;
+  let ch = 0;
+  for (const c of sample) {
+    if (/[0-9A-Za-z.,\s]/.test(c)) ch += 1;
+    else em += 1;
+  }
+  return Math.round(em * FS.sub + ch * FS.sub * 0.6 + padX * 2);
+}
+/** 대여료 열 고정폭(px) — full 기준. */
+export const EXCEL_PRICE_W = Math.max(sampleWPx(EXCEL_PRICE_COL), sampleWPx(EXCEL_PRICE_MAX));
+export function excelPriceW(mode: ExcelColMode): number {
+  return Math.max(sampleWPx(EXCEL_PRICE_COL, excelPadX(mode)), sampleWPx(EXCEL_PRICE_MAX, excelPadX(mode)));
+}
 
 /**
- * 옵션칸 — 있으면 min(160) 확보 + width:100%로 남는 폭 흡수.
- * 세부모델·파워·트림 10자 고정을 위해 예전 240보다 좁게.
+ * 옵션칸 — 있으면 min 확보 + width:100%로 남는 폭 흡수.
+ *  · full = 160(EXCEL_W.opts.min)
+ *  · filter = empty(40) — 사이드 열림 웹에서 표가 뷰포트에 들어가게(가로스크롤 금지).
  * 없으면 좁게 잠금(다른 칸이 키울 여지).
  */
-export function colOpts(hasOpts: boolean): React.CSSProperties {
+export function colOpts(hasOpts: boolean, mode: ExcelColMode = 'full'): React.CSSProperties {
   if (hasOpts) {
-    const min = EXCEL_W.opts.min;
+    const min = mode === 'filter' ? EXCEL_W.opts.empty : EXCEL_W.opts.min;
     return {
       width: '100%',
       minWidth: min,

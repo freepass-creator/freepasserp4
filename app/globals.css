@@ -338,38 +338,40 @@ button, input, select, textarea { font-family: inherit; }
   border-radius: 4px;
 }
 .fp-finder-body.is-excel .fp-excel-table {
-  /* 넓으면 100%(옵션이 남는 폭 흡수). 좁으면 min 이하로 lock·옵션160 안 줄이고 가로 스크롤. */
+  /* 폭 = 시트 100%. 열 lock 합이 뷰포트보다 클 때만 가로스크롤(창 축소 시).
+   * 최대창·여유 폭이면 옵션칸이 흡수 → 가로스크롤 없음. min-width 강제 없음. */
   width: 100%;
-  min-width: 1600px;
-  border-collapse: collapse;
+  min-width: 0;
+  /* separate = sticky left/right 오프셋·보더가 collapse에서 어긋나는 브라우저 버그 회피.
+   * 좌/상 보더 없이 right+bottom만 쓰면 칸 사이 1px — collapse와 동일 톤. */
+  border-collapse: separate;
   border-spacing: 0;
   table-layout: fixed;
   font-size: 12px;
 }
+/* 웹+필터열림 — 패딩 양보·틀고정 없음. 가로스크롤 숨김(맞춤). */
+@media (min-width: 761px) {
+  .fp-finder-body.is-excel .fp-excel-sheet.is-fit {
+    overflow-x: hidden;
+  }
+}
 .fp-finder-body.is-excel .fp-excel-table th,
 .fp-finder-body.is-excel .fp-excel-table td {
   box-sizing: border-box;
-  /* 운영시트 그리드라인 — 살짝(소프트 보더). border-collapse:collapse 라 인접셀 1px 공유. */
   border-right: 1px solid var(--border-soft);
   border-bottom: 1px solid var(--border-soft);
-}
-/* 타이틀헤더 th = position:sticky → border-collapse에선 세로 border도 box-shadow도 렌더 안 됨(브라우저 버그).
- * ::after 가상요소(absolute, sticky th에 앵커)로 세로 그리드라인을 확실히 그림. */
-.fp-finder-body.is-excel .fp-excel-table th::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  right: 0;
-  width: 1px;
-  background: var(--border-soft);
-  pointer-events: none;
 }
 .fp-finder-body.is-excel .fp-excel-table th.fp-excel-price,
 .fp-finder-body.is-excel .fp-excel-table td.fp-excel-price {
   /* 대여료 = EXCEL_PRICE_COL 샘플 lock(인라인). 필터 펴나 접으나 동일·뭉개짐 금지. */
   white-space: nowrap;
   overflow: hidden;
+  /* sticky 겹침 시 아래 스크롤 칸이 비쳐 “세로 줄”로 보이는 것 차단 */
+  background-clip: padding-box;
+}
+/* 필터 활성 헤더 — CountPill이 우측 상단(fp-icon-count)에 잘리지 않게 */
+.fp-finder-body.is-excel .fp-excel-table th.fp-excel-hdr-on {
+  overflow: visible;
 }
 
 /* ── 표 스크롤포트 SSOT (.fp-sheet) ──

@@ -266,7 +266,7 @@ export const InventoryListRow = memo(function InventoryListRow({
   );
 });
 
-/** 재고 목록 맨 위 — 목록행과 동일 아이콘 슬롯(+), 옆에 신규등록 세로 중앙. */
+/** 재고 목록 맨 위 — 목록행과 동일 아이콘 슬롯(+), 옆에 상품등록 + 모바일 보조문구. */
 export function InventoryCreateRow({ onClick }: { onClick: () => void }) {
   const mobile = useIsMobile();
   // FeedListRow 3줄 본체 높이 — 다른 재고행과 슬롯 높이 일치
@@ -275,7 +275,7 @@ export function InventoryCreateRow({ onClick }: { onClick: () => void }) {
     <div
       role="button"
       tabIndex={0}
-      aria-label="신규 등록"
+      aria-label="상품등록"
       className="fp-card fp-card-row fp-press"
       onClick={() => { haptic.tap(); onClick(); }}
       onKeyDown={(e) => {
@@ -293,11 +293,22 @@ export function InventoryCreateRow({ onClick }: { onClick: () => void }) {
         color: 'inherit',
       }}
     >
-      <FeedThumbIcon icon={Plus} tone="blue" title="신규 등록" />
+      <FeedThumbIcon icon={Plus} tone="blue" title="상품등록" />
       <span style={{
-        fontSize: FS.title, fontWeight: FW.head, color: C.ink, letterSpacing: '-0.02em',
-        lineHeight: 1, minWidth: 0,
-      }}>신규등록</span>
+        display: 'flex', alignItems: 'baseline', gap: 8, minWidth: 0, flex: '1 1 auto',
+        overflow: 'hidden',
+      }}>
+        <span style={{
+          fontSize: FS.title, fontWeight: FW.head, color: C.ink, letterSpacing: '-0.02em',
+          lineHeight: 1, flex: '0 0 auto',
+        }}>상품등록</span>
+        {mobile && (
+          <span style={{
+            fontSize: FS.cap, fontWeight: FW.meta, color: C.faint, lineHeight: 1.2,
+            minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }}>여기를 눌러 신규 상품을 등록해주세요</span>
+        )}
+      </span>
     </div>
   );
 }
