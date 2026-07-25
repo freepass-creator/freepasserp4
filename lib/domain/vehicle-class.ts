@@ -1,7 +1,8 @@
 /**
- * 차종(vehicle_class) SSOT — 세그먼트 × 차형. 모델명으로 정확 분류(마스터엔 차종 없음 → 여기가 단일 출처).
+ * 차종분류(vehicle_class) SSOT — 세그먼트 × 차형. 모델명으로 정확 분류(마스터엔 차종분류 없음 → 여기가 단일 출처).
  *   · 세그먼트: 경형·소형·준중형·중형·준대형·대형   · 차형: (세단 생략)·SUV·RV·해치백·쿠페·왜건·승합·화물
  *   · 표기 = "세그먼트[ 차형]"  예: 중형 SUV, 준대형, 대형 RV, 경형.
+ *   · 플랫폼 전역 라벨 = 「차종분류」(구 차급). 차종=마스터 5단계 maker~trim 과 구분.
  *   · 정확성 원칙: 모델 큐레이션 맵 우선 → 없으면 차형만 규칙추정(세그먼트 불명은 공란 유지, 오분류 방지).
  */
 import { type EntityRecord } from '@/lib/intake/entities';
@@ -43,7 +44,7 @@ function bodyGuess(p: EntityRecord): string {
   return ''; // 세단 등은 세그먼트만
 }
 
-/** 매물 → 차종. 큐레이션 맵 우선(정확), 없으면 차형만 추정(세그먼트 공란=오분류 방지). */
+/** 상품 → 차종분류. 큐레이션 맵 우선(정확), 없으면 차형만 추정(세그먼트 공란=오분류 방지). */
 export function classifyVehicleClass(p: EntityRecord): string {
   const key = norm(p.model);
   if (key && CLASS_MAP[key]) return CLASS_MAP[key];
@@ -53,7 +54,7 @@ export function classifyVehicleClass(p: EntityRecord): string {
   return bodyGuess(p); // 못 찾으면 차형만(세그먼트는 비워 오분류 회피)
 }
 
-/** 현재 차종 값이 분류기와 다른지(교정 후보). '' 이거나 다르면 제안. */
+/** 현재 차종분류 값이 분류기와 다른지(교정 후보). '' 이거나 다르면 제안. */
 export function suggestVehicleClass(p: EntityRecord): { current: string; suggested: string; mismatch: boolean } {
   const current = String(p.vehicle_class || '').trim();
   const suggested = classifyVehicleClass(p);

@@ -431,23 +431,25 @@ export function PaneBody({ children, pad = false }: { children: React.ReactNode;
 
 /* 다중선택 필터칩 — 높이·글자·가로패딩 = Btn/Select와 동일(모바일 40·16·18). */
 export function ToggleChips<T extends string>({ selected, onToggle, options, size = 'md' }: {
-  selected: Set<T>; onToggle: (v: T) => void; options: { key: T; label: string; count?: number }[]; size?: 'sm' | 'md';
+  selected: Set<T>; onToggle: (v: T) => void; options: { key: T; label: string; count?: number; disabled?: boolean }[]; size?: 'sm' | 'md';
 }) {
   const mobile = useIsMobile();
   const h = ctrlChipH(mobile);
   const fs = ctrlFs(mobile, size);
   const pad = mobile ? '0 18px' : (size === 'sm' ? '0 11px' : '0 12px');
-  const chip = (on: boolean): React.CSSProperties => ({
-    display: 'inline-flex', alignItems: 'center', height: h, boxSizing: 'border-box', padding: pad, fontSize: fs, fontWeight: FW.label, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0, borderRadius: R,
+  const chip = (on: boolean, locked: boolean): React.CSSProperties => ({
+    display: 'inline-flex', alignItems: 'center', height: h, boxSizing: 'border-box', padding: pad, fontSize: fs, fontWeight: FW.label, cursor: locked ? 'default' : 'pointer', whiteSpace: 'nowrap', flexShrink: 0, borderRadius: R,
     border: `1px solid ${on ? C.brand : C.line}`, background: on ? C.brand : C.taupeBg, color: on ? C.taupeBg : C.mute, lineHeight: 1,
+    opacity: locked ? 0.55 : 1,
     transition: 'background .1s, border-color .1s, color .1s',
   });
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: mobile ? 8 : 6 }}>
       {options.map((o) => {
         const on = selected.has(o.key);
+        const locked = !!o.disabled;
         return (
-          <button key={o.key} type="button" onClick={() => { haptic.select(); onToggle(o.key); }} aria-pressed={on} className="fp-chip" style={chip(on)}>
+          <button key={o.key} type="button" disabled={locked} onClick={() => { if (locked) return; haptic.select(); onToggle(o.key); }} aria-pressed={on} aria-disabled={locked || undefined} className="fp-chip" style={chip(on, locked)} title={locked ? '운영예정' : undefined}>
             {o.label}
           </button>
         );
@@ -662,23 +664,28 @@ export function FormGrid({ fields, form, onChange, cols = 2, disabled }: { field
               <div style={{ marginTop: 5, pointerEvents: disabled ? 'none' : undefined, opacity: disabled ? 0.85 : 1 }}>
                 {(() => {
                   const selected = new Set(val.split(/[,/#|]/).map((s) => s.trim()).filter(Boolean));
-                  // 레거시 값도 칩으로 유지(표준 목록에 없어도 표시·해제 가능)
+                  const locked = new Set(f.disabledOptions || []);
+                  // 레거시 값도 칩으로 유지(표준 목록에 없어도 표시·해제 가능). 운영예정은 선택 불가.
                   const opts = [...(f.options || [])];
                   for (const s of selected) if (!opts.includes(s)) opts.push(s);
                   return (
                     <ToggleChips
                       size="sm"
                       selected={selected}
-                      options={opts.map((o) => ({ key: o, label: o }))}
+                      options={opts.map((o) => ({
+                        key: o,
+                        label: locked.has(o) ? `${o} ·운영예정` : o,
+                        disabled: locked.has(o),
+                      }))}
                       onToggle={(k) => {
-                        if (disabled) return;
+                        if (disabled || locked.has(k)) return;
                         const next = new Set(selected);
                         if (next.has(k)) next.delete(k);
                         else {
                           if (f.max != null && next.size >= f.max) return; // 최대 개수 초과 시 무시
                           next.add(k);
                         }
-                        onChange(f.key, [...next].join(','));
+                        onChange(f.key, [...next].filter((x) => !locked.has(x)).join(','));
                       }}
                     />
                   );

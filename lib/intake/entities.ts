@@ -12,7 +12,7 @@
 import { EXT_COLORS, INT_COLORS } from '@/lib/domain/color-master';
 
 export type FieldType = 'text' | 'number' | 'date' | 'select' | 'chips';
-export type Field = { key: string; label: string; type: FieldType; required?: boolean; options?: string[]; max?: number; ocrFrom?: string; manual?: boolean; note?: string };
+export type Field = { key: string; label: string; type: FieldType; required?: boolean; options?: string[]; disabledOptions?: string[]; max?: number; ocrFrom?: string; manual?: boolean; note?: string };
 export type Entity = { key: string; label: string; ocrType?: string; source: string; idFrom: string; keyFields?: string[]; fields: Field[] };
 
 /* ── enum SSOT (freepasserp3 실측) ── */
@@ -26,7 +26,10 @@ export const SETTLEMENT_STATES = ['정산대기', '정산완료', '정산보류'
 // 계약금 입금(확인) 선점 → 계약중 · 계약완료 → 출고불가(상품목록 숨김). 엔진 단일 writer.
 export const VEHICLE_STATES = ['즉시출고', '출고가능', '상품화중', '출고협의', '계약중', '출고불가'] as const;
 /** 썸네일 이벤트 딱지 — 재고 chips · 카드 좌상 최대 2. */
-export const PROMO_BADGES = ['수수료+', '첫달할인', '금주특가', '보증할인', '탁송비지원', '특별가'] as const;
+export const PROMO_BADGES_ACTIVE = ['보증할인', '탁송비지원', '특별가'] as const;
+/** 운영 예정 — UI에 보이되 선택·노출 불가. */
+export const PROMO_BADGES_PLANNED = ['수수료+', '첫달할인', '금주특가'] as const;
+export const PROMO_BADGES = [...PROMO_BADGES_ACTIVE, ...PROMO_BADGES_PLANNED] as const;
 export const MAX_PROMO_BADGES = 2;
 /** 구표기 → 현재 뱃지 (저장·필터 호환). */
 export const PROMO_BADGE_LEGACY: Record<string, string> = { 추가수수료면제: '수수료+' };
@@ -55,11 +58,11 @@ export const STEP_CHECK_KEYS = [
 ] as const;
 
 export const ENTITIES: Record<string, Entity> = {
-  /* ══════════════ 매물(product) — 공급사 소유, 기간별 가격맵 ══════════════ */
+  /* ══════════════ 상품(product) — 공급사 소유, 기간별 가격맵 ══════════════ */
   product: {
-    key: 'product', label: '매물', ocrType: 'vehicle_reg', source: '자동차등록증/공급사 시트', idFrom: 'product_code',
+    key: 'product', label: '상품', ocrType: 'vehicle_reg', source: '자동차등록증/공급사 시트', idFrom: 'product_code',
     fields: [
-      { key: 'product_code', label: '상품코드', type: 'text', manual: true },
+      { key: 'product_code', label: '상품코드', type: 'text', manual: true, note: '내부 ID — 화면 비노출' },
       { key: 'car_number', label: '차량번호', type: 'text', required: true, ocrFrom: 'car_number', manual: true },
       // ── 차종 5단계 ──
       { key: 'maker', label: '제조사', type: 'text' },
@@ -68,7 +71,7 @@ export const ENTITIES: Record<string, Entity> = {
       { key: 'variant', label: '파워트레인', type: 'text', note: '5단계 — 연료·배기량·구동·배터리' },
       { key: 'trim_name', label: '세부트림', type: 'text', note: '마스터 실트림만' },
       { key: 'trim_extra', label: '추가표기', type: 'text', manual: true, note: '마스터 밖 자유입력(런칭·휠·패키지 등). 규격 트림 아님' },
-      { key: 'vehicle_class', label: '차급', type: 'select', options: ['경형', '소형', '소형 SUV', '준중형', '준중형 SUV', '중형', '중형 SUV', '중형 RV', '중형 픽업', '준대형', '준대형 SUV', '대형', '대형 SUV', '대형 RV', '소형화물', '승합', '수입'] },
+      { key: 'vehicle_class', label: '차종분류', type: 'select', options: ['경형', '소형', '소형 SUV', '준중형', '준중형 SUV', '중형', '중형 SUV', '중형 RV', '중형 픽업', '준대형', '준대형 SUV', '대형', '대형 SUV', '대형 RV', '소형화물', '승합', '수입'], note: '세그먼트[ 차형] — 예: 중형 SUV. 구표기 차급' },
       // ── 스펙(등록증) ──
       { key: 'year', label: '연식', type: 'text', ocrFrom: 'car_year_month' },
       { key: 'fuel_type', label: '연료', type: 'select', options: [...FUEL_TYPES], ocrFrom: 'fuel_type' },
@@ -82,9 +85,9 @@ export const ENTITIES: Record<string, Entity> = {
       { key: 'usage', label: '용도', type: 'select', options: ['자가용', '영업용', '관용'], ocrFrom: 'usage_type' },
       { key: 'first_registration_date', label: '최초등록일', type: 'date', ocrFrom: 'first_registration_date' },
       { key: 'vin', label: '차대번호', type: 'text', ocrFrom: 'vin', manual: true, note: '관리자 전용' },
-      { key: 'options', label: '옵션', type: 'text', manual: true, note: '콤마/슬래시 구분' },
+      { key: 'options', label: '선택옵션', type: 'text', manual: true, note: '제조사 스펙 · 콤마/슬래시 구분 · 차종마스터 다음·차량번호 앞' },
       // ── 마켓플레이스 상태·구분 ──
-      { key: 'vehicle_status', label: '매물상태', type: 'select', options: [...VEHICLE_STATES], manual: true },
+      { key: 'vehicle_status', label: '상품상태', type: 'select', options: [...VEHICLE_STATES], manual: true },
       { key: 'product_type', label: '상품구분', type: 'select', options: [...PRODUCT_TYPES], manual: true },
       // ── 관계·정책 ──
       { key: 'provider_company_code', label: '공급사코드', type: 'text', manual: true },
@@ -94,7 +97,7 @@ export const ENTITIES: Record<string, Entity> = {
       { key: 'vehicle_price', label: '차량가격(원)', type: 'number', manual: true, note: '관리자 전용 원가' },
       { key: 'location', label: '위치', type: 'text', manual: true, note: '관리자 전용' },
       // ── 사진(product-photos.js 정규화 소스) ──
-      { key: 'image_urls', label: '매물사진', type: 'text', note: '배열/멀티키(images·photos·image_url)' },
+      { key: 'image_urls', label: '상품사진', type: 'text', note: '배열/멀티키(images·photos·image_url)' },
       { key: 'photos', label: '업로드 사진', type: 'text', note: '배열 · [0]=대표' },
       { key: 'interior_photo', label: '실내사진 URL', type: 'text', note: 'photos 중 실내로 지정한 URL' },
       { key: 'photo_link', label: '사진 링크', type: 'text', manual: true, note: '외부 링크(Drive/스크래핑)' },
@@ -106,7 +109,7 @@ export const ENTITIES: Record<string, Entity> = {
       // ── 심사 표기 파생 ──
       { key: 'review_status', label: '심사여부(원본)', type: 'text', note: 'screening_criteria로 통합표기·검색' },
       { key: 'deposit_free', label: '무보증 가능', type: 'select', options: ['예', '아니오'], manual: true, note: '혜택 MetaIcon' },
-      { key: 'event_tags', label: '이벤트 뱃지', type: 'chips', manual: true, max: MAX_PROMO_BADGES, options: [...PROMO_BADGES], note: '썸네일 좌상 최대 2 · 수수료+=추가수수료면제' },
+      { key: 'event_tags', label: '이벤트 뱃지', type: 'chips', manual: true, max: MAX_PROMO_BADGES, options: [...PROMO_BADGES], disabledOptions: [...PROMO_BADGES_PLANNED], note: '운영 최대 2 · 수수료+/첫달할인/금주특가=운영예정' },
       // ── 등록증 상세(관리자) ──
       { key: 'transmission', label: '변속기', type: 'select', options: ['자동', '수동', 'CVT', 'DCT', '세미오토'] },
       { key: 'vehicle_age_expiry_date', label: '차령만료일', type: 'date', manual: true, note: '관리자 전용' },

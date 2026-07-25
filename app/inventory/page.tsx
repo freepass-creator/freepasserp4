@@ -10,7 +10,7 @@ import { vehicleName, joinEventTags, canonProductType } from '@/lib/domain/produ
 import { matchProductQuery } from '@/lib/domain/search';
 import { withProviderNames } from '@/lib/domain/identity';
 import { vehicleLockedBy, blockingContractFor } from '@/lib/domain/settlement-engine';
-import { PaneHead, PaneBody, Btn, FormGrid, FormCard, C, R, NUM, Loading, CenterNote, SectionLabel, Select, Badge, Page, FilterChips, FilterGroup, Message, PageActions, FW, FS } from '@/components/ui';
+import { PaneHead, PaneBody, Btn, FormGrid, FormCard, C, R, Loading, CenterNote, SectionLabel, Select, Badge, Page, FilterChips, FilterGroup, Message, PageActions, FW, FS } from '@/components/ui';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
 import { toast } from '@/components/Toaster';
 import { haptic } from '@/lib/haptics';
@@ -128,7 +128,7 @@ export default function Inventory() {
           await getStore().update('product', co, code, colorPatch);
         } catch (e) {
           console.warn('[inventory] 색상 자동저장 거부:', e);
-          toast(`매물 자동보정 저장 실패: ${String((e as Error)?.message || e)}`, 'error');
+          toast(`상품 자동보정 저장 실패: ${String((e as Error)?.message || e)}`, 'error');
           return colored;
         }
         if (gen !== selectGen.current) return colored;
@@ -183,7 +183,7 @@ export default function Inventory() {
         await getStore().update('product', co, code, patch);
       } catch (e) {
         console.warn('[inventory] 마스터스냅 자동저장 거부:', e);
-        toast(`매물 자동보정 저장 실패: ${String((e as Error)?.message || e)}`, 'error');
+        toast(`상품 자동보정 저장 실패: ${String((e as Error)?.message || e)}`, 'error');
         return;
       }
       if (gen !== selectGen.current) return;
@@ -321,7 +321,7 @@ export default function Inventory() {
       if (!me) { toast('공급사 코드가 없습니다 — 설정·로그인을 확인하세요', 'error'); return; }
       const existing = await getStore().get('product', co, String(form.product_code));
       if (existing && String(existing.provider_company_code || '') !== me) {
-        toast('다른 공급사 매물은 수정할 수 없습니다', 'error');
+        toast('다른 공급사 상품은 수정할 수 없습니다', 'error');
         return;
       }
       if (String(form.provider_company_code || '') && String(form.provider_company_code) !== me) {
@@ -382,12 +382,12 @@ export default function Inventory() {
     const role = getRole();
     if (role === 'provider') {
       const me = actor('provider').code;
-      if (String(form.provider_company_code || '') !== me) { toast('다른 공급사 매물은 삭제할 수 없습니다', 'error'); return; }
+      if (String(form.provider_company_code || '') !== me) { toast('다른 공급사 상품은 삭제할 수 없습니다', 'error'); return; }
     }
     // 락(입금선점)만 보면 서류 단계 진행 중인 매물이 삭제된다 → 진행 중인 계약 전체를 차단 기준으로.
     const blocking = await blockingContractFor(String(form.product_code));
-    if (blocking) { toast(`진행 중인 계약(${blocking})이 있는 매물은 삭제할 수 없습니다`, 'error'); return; }
-    if (typeof window !== 'undefined' && !window.confirm(`매물 ${form.car_number || form.product_code}을(를) 삭제할까요?\n휴지통에서 복구할 수 있습니다.`)) return;
+    if (blocking) { toast(`진행 중인 계약(${blocking})이 있는 상품은 삭제할 수 없습니다`, 'error'); return; }
+    if (typeof window !== 'undefined' && !window.confirm(`상품 ${form.car_number || vehicleName(form) || '선택 항목'}을(를) 삭제할까요?\n휴지통에서 복구할 수 있습니다.`)) return;
     try {
       await getStore().remove('product', co, String(form.product_code), `${NAV_LABEL.inventory} 삭제`);
     } catch (e) {
@@ -397,7 +397,7 @@ export default function Inventory() {
     clearSel();
     await load(role);
     haptic.impact();
-    toast('매물이 삭제되었습니다', 'ok');
+    toast('상품이 삭제되었습니다', 'ok');
   };
   // 입력초기화(차번·공급사·상태만 유지) / 복사(식별·사진 제외) / 붙여넣기
   const resetForm = () => {
@@ -497,7 +497,7 @@ export default function Inventory() {
       {filtered.length === 0 ? (
         <CenterNote>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-            <span>{q || stFlt !== 'all' || typeFlt !== 'all' ? '검색 결과 없음' : '매물 없음'}</span>
+            <span>{q || stFlt !== 'all' || typeFlt !== 'all' ? '검색 결과 없음' : '상품 없음'}</span>
             {(q || stFlt !== 'all' || typeFlt !== 'all') ? (
               <Btn size="sm" variant="ghost" onClick={() => { setQ(''); setStFlt('all'); setTypeFlt('all'); }}>조건 해제</Btn>
             ) : null}
@@ -546,11 +546,11 @@ export default function Inventory() {
     <FormCard title={title} hint={hint}>{FG(keys, cols)}</FormCard>
   );
   const modeBanner = creating ? (
-    <Message variant="info">신규 매물 등록 — 등록증 올리기 또는 차종 마스터부터 입력하세요.</Message>
+    <Message variant="info">신규 상품 등록 — 등록증(사진·파일) 올리기 또는 차종 마스터부터 입력하세요.</Message>
   ) : editing ? (
     <Message variant="warning">수정 중 · 저장해야 반영됩니다</Message>
   ) : null;
-  // 매물편집 = 독립 패널 2개(고정/변동) — 웹 나란히(각 패널 스크롤) / 모바일 스택(한 스크롤로 이어짐).
+  // 상품편집 = 독립 패널 2개(고정/변동) — 웹 나란히(각 패널 스크롤) / 모바일 스택(한 스크롤로 이어짐).
   // 취소·저장·수정·삭제 = 하단 독만 (PaneHead에 두지 않음).
   const fixedPane = (
     <>
@@ -559,13 +559,12 @@ export default function Inventory() {
         {sel ? <>
           {modeBanner}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: FS.cap, color: C.faint, flexWrap: 'wrap' }}>
-            <span style={{ fontFamily: NUM, fontWeight: FW.strong, color: C.mute }}>{String(form.product_code)}</span>
-            <span>{String(form.provider_company_code || '')}</span>
+            {form.provider_company_code ? <span>{String(form.provider_company_code)}</span> : null}
             <span style={{ flex: 1 }} />
             {canEdit ? (
               <>
                 <Btn variant="ghost" size="sm" onClick={resetForm}>초기화</Btn>
-                <Btn variant="ghost" size="sm" onClick={copyForm}>복사</Btn>
+                {!creating && <Btn variant="ghost" size="sm" onClick={copyForm}>복사</Btn>}
                 <Btn variant="ghost" size="sm" onClick={pasteForm} disabled={!clip}>붙여넣기</Btn>
                 {dirty && <span style={{ color: C.warn }}>● 미저장</span>}
               </>
@@ -578,9 +577,9 @@ export default function Inventory() {
           }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: FS.sub, fontWeight: FW.title, color: C.brand }}>① 자동차등록증</div>
-              <div style={{ fontSize: FS.micro, color: C.faint }}>올리면 차번·차대·연료·배기·인승·용도·최초등록 자동채움(빈 칸만)</div>
+              <div style={{ fontSize: FS.micro, color: C.faint }}>사진·PDF 모두 가능 · 차번·차대·연료·배기·인승·용도·최초등록 자동채움(빈 칸만)</div>
             </div>
-            <input ref={ocrRef} type="file" accept="image/*" onChange={(e) => runOcr(e.target.files)} style={{ display: 'none' }} />
+            <input ref={ocrRef} type="file" accept="image/*,application/pdf,.pdf" onChange={(e) => runOcr(e.target.files)} style={{ display: 'none' }} />
             <Btn size="sm" onClick={() => ocrRef.current?.click()} disabled={ocrBusy || !canEdit}>{ocrBusy ? '인식 중…' : '등록증 올리기'}</Btn>
           </div>
           <div style={{ pointerEvents: canEdit ? undefined : 'none', opacity: canEdit ? 1 : 0.85 }}>
@@ -624,15 +623,18 @@ export default function Inventory() {
               {form._snap_confidence ? `${form.gen_year_start ? ' · ' : ''}매칭 ${form._snap_confidence}` : ''}
             </div>
           ) : null}
-          <SnapTrace
-            form={form}
-            onRematch={canEdit && (form._needs_master_review || form._snap_confidence === 'low' || !form._snapped) ? normalizeVehicle : undefined}
-          />
-          {Section('③ 신원', ['car_number', 'vehicle_class'], 2, '차량번호는 필수')}
-          {Section('선택옵션', ['options'], 1)}
+          {/* 신규 상품은 마스터 규격으로 올리므로 차종변환(시트→규격) 불필요 */}
+          {!creating && (
+            <SnapTrace
+              form={form}
+              onRematch={canEdit && (form._needs_master_review || form._snap_confidence === 'low' || !form._snapped) ? normalizeVehicle : undefined}
+            />
+          )}
+          {Section('선택옵션', ['options'], 1, '제조사 스펙 · 콤마/슬래시 구분')}
+          {Section('③ 신원', ['car_number', 'vehicle_class'], 2, '차량번호는 필수 · 차종분류=세그먼트[ 차형]')}
           {Section('제원 · 스펙', ['year', 'fuel_type', 'engine_cc', 'seats', 'drive_type', 'transmission', 'usage', 'ext_color', 'int_color', 'first_registration_date'], 2)}
           {getRole() === 'admin' && Section('원가 · 이력 · 등록증', ['vehicle_price', 'location', 'vin', 'vehicle_age_expiry_date', 'cert_car_name', 'type_number', 'engine_type', 'partner_memo'])}
-        </> : <CenterNote>왼쪽에서 매물을 고르거나 · 매물 등록을 누르세요.</CenterNote>}
+        </> : <CenterNote>왼쪽에서 상품을 고르거나 · 상품등록을 누르세요.</CenterNote>}
       </PaneBody>
     </>
   );
@@ -641,7 +643,7 @@ export default function Inventory() {
       <PaneHead title="운영정보" />
       <PaneBody pad>
         {sel ? <>
-          <FormCard title="상태 · 구분 · 정책" hint="매물 운영 상태와 연결 정책">
+          <FormCard title="상태 · 구분 · 정책" hint="상품 운영 상태와 연결 정책">
             {FG(['vehicle_status', 'product_type'])}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 9, marginTop: 9 }}>
               <label style={{ fontSize: FS.cap, color: C.mute }}>무보증 가능
@@ -665,7 +667,7 @@ export default function Inventory() {
           {Section('주행 · 사고', ['mileage', 'accident_history'])}
           <div style={{ pointerEvents: canEdit ? undefined : 'none', opacity: canEdit ? 1 : 0.85 }}>
             <SectionLabel mt={0}>대여료 · 보증금</SectionLabel>
-            <div style={{ fontSize: FS.cap, color: C.faint, margin: '-2px 0 8px', lineHeight: 1.4 }}>넣은 기간만 매물에 노출</div>
+            <div style={{ fontSize: FS.cap, color: C.faint, margin: '-2px 0 8px', lineHeight: 1.4 }}>넣은 기간만 상품에 노출</div>
             <PriceMatrix price={form.price} onChange={(p) => { setForm((f) => ({ ...f, price: p })); setDirty(true); }} />
           </div>
           <div style={{ pointerEvents: canEdit ? undefined : 'none', opacity: canEdit ? 1 : 0.85 }}>
@@ -691,7 +693,7 @@ export default function Inventory() {
               </div>
             </div>
           )}
-        </> : <CenterNote>왼쪽에서 매물을 고르거나 · 매물 등록을 누르세요.</CenterNote>}
+        </> : <CenterNote>왼쪽에서 상품을 고르거나 · 상품등록을 누르세요.</CenterNote>}
       </PaneBody>
     </>
   );
@@ -731,11 +733,11 @@ export default function Inventory() {
         countSuffix="대"
         listCount={filtered.length}
         list={rows === null ? <Loading /> : listEl} panes={panes} selected={!!sel} onBack={clearSel}
-        contextTitle={sel ? (creating ? '신규 매물' : (vehicleName(form) || String(form.car_number || form.product_code || ''))) : undefined}
-        search={{ value: q, onChange: setQ, placeholder: '차번·차명·코드·옵션·공급사·메모…' }}
+        contextTitle={sel ? (creating ? '신규 상품' : (vehicleName(form) || String(form.car_number || '상품'))) : undefined}
+        search={{ value: q, onChange: setQ, placeholder: '차번·차명·옵션·공급사·메모…' }}
         actions={dockActions}
         listTools={{
-          search: { value: q, onChange: setQ, placeholder: '차번·차명·코드·옵션·공급사·메모…' },
+          search: { value: q, onChange: setQ, placeholder: '차번·차명·옵션·공급사·메모…' },
           sort: { value: sort, onChange: (v) => setSort(v as InvSort | ''), options: INV_SORTS },
           filter: {
             count: fltCount,
@@ -767,7 +769,7 @@ export default function Inventory() {
             body: (
               <>
                 <FilterGroup
-                  title="매물상태"
+                  title="상품상태"
                   count={(mobile ? draftStFlt : stFlt) === 'all' ? 0 : 1}
                   defaultOpen
                   first={!mobile}

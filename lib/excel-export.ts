@@ -114,8 +114,8 @@ export async function downloadProductsExcel(data: EntityRecord[], dateStr: strin
   ws['!cols'] = [...cols.map((c) => ({ wch: Math.max(8, Math.min(20, c[0].length + 4)) })), { wch: 6 }];
   ws['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: data.length, c: cols.length } }) };
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, '매물');
-  XLSX.writeFile(wb, `${BRAND}_매물_${dateStr}.xlsx`);
+  XLSX.utils.book_append_sheet(wb, ws, '상품');
+  XLSX.writeFile(wb, `${BRAND}_상품_${dateStr}.xlsx`);
 }
 
 /** 정산 목록 xlsx — 순수익(net)은 관리자만 포함. */

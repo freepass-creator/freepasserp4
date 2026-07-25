@@ -4,7 +4,7 @@ import { writeFile, unlink } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-// 자동차등록증 OCR — 로컬 GPU(easyocr, ocrenv). 업로드 이미지 → 파이썬 → 필드 추출.
+// 자동차등록증 OCR — 로컬 GPU(easyocr, ocrenv). 업로드 이미지·PDF → 파이썬 → 필드 추출.
 // ⚠ 로컬 개발기(RTX 3060) 전용. 배포 환경엔 파이썬/CUDA 없으므로 미동작(그때는 클라우드 OCR로 대체).
 export const runtime = 'nodejs';
 export const maxDuration = 120;
@@ -18,9 +18,11 @@ export async function POST(req: NextRequest) {
   }
   let dataUrl: string;
   try { ({ dataUrl } = await req.json()); } catch { return NextResponse.json({ error: 'bad request' }, { status: 400 }); }
-  const m = /^data:(image\/[\w.+-]+);base64,(.+)$/s.exec(dataUrl || '');
-  if (!m) return NextResponse.json({ error: '이미지 데이터가 아닙니다' }, { status: 400 });
-  const ext = (m[1].split('/')[1] || 'png').replace(/[^\w]/g, '');
+  const m = /^data:(image\/[\w.+-]+|application\/pdf);base64,(.+)$/s.exec(dataUrl || '');
+  if (!m) return NextResponse.json({ error: '이미지 또는 PDF 데이터가 아닙니다' }, { status: 400 });
+  const mime = m[1];
+  const isPdf = mime === 'application/pdf';
+  const ext = isPdf ? 'pdf' : (mime.split('/')[1] || 'png').replace(/[^\w]/g, '');
   const buf = Buffer.from(m[2], 'base64');
   const tmp = join(tmpdir(), `fp4_reg_${Date.now()}_${Math.random().toString(36).slice(2, 7)}.${ext}`);
   const script = join(process.cwd(), 'scripts', 'ocr_registration.py');

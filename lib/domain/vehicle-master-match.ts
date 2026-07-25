@@ -902,7 +902,7 @@ export const SNAP_TRACK_KEYS = [
 export type SnapTrackKey = (typeof SNAP_TRACK_KEYS)[number];
 export const SNAP_TRACK_LABEL: Record<SnapTrackKey, string> = {
   maker: '제조사', model: '모델', sub_model: '세부모델', variant: '파워트레인', trim_name: '트림',
-  year: '연식', fuel_type: '연료', engine_cc: '배기량', seats: '인승', drive_type: '구동', vehicle_class: '차급',
+  year: '연식', fuel_type: '연료', engine_cc: '배기량', seats: '인승', drive_type: '구동', vehicle_class: '차종분류',
 };
 export type RawVehicle = Partial<Record<SnapTrackKey, string>>;
 export type SnapHistoryEntry = {

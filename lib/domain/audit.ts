@@ -17,7 +17,7 @@ export type AuditDomain = 'product' | 'price' | 'contract' | 'settlement' | 'cha
 
 export const AUDIT_DOMAIN_OPTS: { key: string; label: string }[] = [
   { key: '', label: '전체' },
-  { key: 'product', label: '매물' },
+  { key: 'product', label: '상품' },
   { key: 'price', label: '대여료' },
   { key: 'contract', label: '계약' },
   { key: 'settlement', label: '정산' },

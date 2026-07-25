@@ -27,8 +27,9 @@ export const HEADER_ALIASES: Record<string, string> = {
   내장: 'int_color', 내장색: 'int_color', 실내색: 'int_color', 내장색상: 'int_color',
   인승: 'seats', 승차인원: 'seats', 승차: 'seats',
   변속기: 'transmission', 변속: 'transmission', 미션: 'transmission',
-  // 렌트시트 「차종」=모델명(쏘나타). 세그먼트는 차급만. 차종분류=종합표 모델칸.
-  차종분류: 'model', 차종: 'model', 차급: 'vehicle_class',
+  // 렌트시트 「차종」=모델명(쏘나타). 세그먼트×차형 = 차종분류(구 차급).
+  차종: 'model',
+  차종분류: 'vehicle_class', 차급: 'vehicle_class',
   상태: 'vehicle_status', 판매상태: 'vehicle_status', 재고상태: 'vehicle_status',
   구분: 'product_type', 상품구분: 'product_type', 렌트구분: 'product_type',
   사진: 'photo_link', 사진링크: 'photo_link', 이미지: 'photo_link', 사진url: 'photo_link', 이미지링크: 'photo_link',
@@ -42,7 +43,7 @@ export const IMPORT_FIELDS: { key: string; label: string }[] = [
   { key: 'sub_model', label: '세부모델' }, { key: 'trim_name', label: '트림' }, { key: 'trim_extra', label: '추가표기' }, { key: 'year', label: '연식' },
   { key: 'first_registration_date', label: '최초등록일' }, { key: 'fuel_type', label: '연료' }, { key: 'engine_cc', label: '배기량' },
   { key: 'mileage', label: '주행거리' }, { key: 'ext_color', label: '외장색' }, { key: 'int_color', label: '내장색' },
-  { key: 'seats', label: '인승' }, { key: 'transmission', label: '변속기' }, { key: 'vehicle_class', label: '차급' },
+  { key: 'seats', label: '인승' }, { key: 'transmission', label: '변속기' }, { key: 'vehicle_class', label: '차종분류' },
   { key: 'vehicle_status', label: '상태' }, { key: 'product_type', label: '구분' }, { key: 'photo_link', label: '사진링크' },
   { key: 'options', label: '옵션' }, { key: 'partner_memo', label: '메모' },
 ];
