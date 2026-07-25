@@ -120,7 +120,7 @@ export default function SignPage() {
                 minHeight: 44,
                 padding: '11px 14px',
                 whiteSpace: 'normal',
-                fontWeight: on ? FW.head : FW.meta,
+                fontWeight: FW.strong,
               }}
             >
               <span style={{ flex: '0 0 18px', fontFamily: 'var(--font-mono)' }}>{on ? '✓' : ''}</span>

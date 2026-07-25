@@ -36,17 +36,15 @@ export function ChatThread({ roomId, onBack, onVehicle, onContract }: { roomId: 
 
   const send = async () => {
     const t = text.trim(); if (!t) return;
-    setText('');
     try {
       const rec = await sendText({ roomId, text: t, channel: '정식', role });
-      // 전송 직후 서버 재조회 생략 — 방금 rec 로컬 append(표시 동일).
+      setText('');
       setMsgs((prev) => [...prev, rec]);
       const rm = await getStore().get('room', co, roomId);
       if (rm) setRoom(rm);
     } catch (e) {
       console.error('메시지 전송 실패:', e);
       toast(`전송 실패: ${(e as Error).message}`, 'error');
-      setText(t);
     }
   };
 

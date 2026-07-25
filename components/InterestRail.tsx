@@ -48,17 +48,19 @@ export function useInterestLists() {
   return { recent, favs };
 }
 
-/** 활성 탭이 비면 자동 닫기(칩 0개면 패널도 끔). */
+/** 활성 탭이 비면 자동 닫기(칩 0개면 패널도 끔). enabled=false면 스킵(모바일 목록모드=빈 최근/관심도 선택 유지). */
 export function useInterestTabGuard(
   tab: InterestTab | null,
   setTab: (t: InterestTab | null) => void,
   recentN: number,
   favN: number,
+  enabled = true,
 ) {
   useEffect(() => {
+    if (!enabled) return;
     if (tab === 'recent' && recentN === 0) setTab(null);
     else if (tab === 'fav' && favN === 0) setTab(null);
-  }, [tab, recentN, favN, setTab]);
+  }, [tab, recentN, favN, setTab, enabled]);
 }
 
 /** 검색창 옆 숫자 칩 — 최근 N / 찜 N. 0이면 칩만 숨김(슬롯 높이는 유지 → 툴바 상하 간격 고정). */
@@ -93,7 +95,7 @@ export function InterestTriggers({
           fontFamily: NUM, boxShadow: 'none', gap: 4,
         }}
       >
-        <Icon size={14} strokeWidth={on ? 2.4 : 2} />
+        <Icon size={14} strokeWidth={2.2} />
         {n}
       </Btn>
     );

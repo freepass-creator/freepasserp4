@@ -6,7 +6,7 @@ import { seedIfEmpty } from '@/lib/seed';
 import { ENTITIES, type EntityRecord } from '@/lib/intake/entities';
 import { newId } from '@/lib/domain/ids';
 import { getRole, actor, type Role } from '@/lib/domain/deal';
-import { PaneHead, PaneBody, Btn, FormGrid, FormCard, C, Loading, CenterNote, Page, FilterChips, SectionLabel, Message, PageActions } from '@/components/ui';
+import { PaneHead, PaneBody, Btn, FormGrid, FormCard, C, Loading, CenterNote, Page, FilterChips, FilterGroup, Message, PageActions } from '@/components/ui';
 import { PolicyListRow } from '@/components/list-rows';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
 import { toast } from '@/components/Toaster';
@@ -292,13 +292,18 @@ export default function PolicyMgmt() {
           sort: { value: sort, onChange: (v) => setSort(v as PolSort | ''), options: POL_SORTS },
           filter: {
             count: scope === 'all' ? 0 : 1,
-            title: '정책 필터',
+            title: '조건 검색',
             onClear: () => setScope('all'),
             body: (
-              <>
-                <SectionLabel mt={0}>귀속</SectionLabel>
+              <FilterGroup
+                title="귀속"
+                count={scope === 'all' ? 0 : 1}
+                defaultOpen
+                first={!mobile}
+                onClear={() => setScope('all')}
+              >
                 <FilterChips value={scope} onChange={setScope} options={POL_SCOPE} />
-              </>
+              </FilterGroup>
             ),
           },
           hints: [

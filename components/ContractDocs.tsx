@@ -121,9 +121,20 @@ export function ContractDocs({ contractCode, roomId }: { contractCode: string; r
       const next = [...atts, ...added];
       await getStore().update('contract', co, contractCode, { attachments: next });
       setAtts(next);
+      toast(`${added.length}건 첨부됨`, 'ok');
+    } catch (e) {
+      toast(`첨부 실패: ${String((e as Error)?.message || e)}`, 'error');
     } finally { setBusy(false); if (inputRef.current) inputRef.current.value = ''; }
   };
-  const remove = async (target: Att) => { const next = atts.filter((a) => !(a.url === target.url && a.at === target.at)); await getStore().update('contract', co, contractCode, { attachments: next }); setAtts(next); };
+  const remove = async (target: Att) => {
+    const next = atts.filter((a) => !(a.url === target.url && a.at === target.at));
+    try {
+      await getStore().update('contract', co, contractCode, { attachments: next });
+      setAtts(next);
+    } catch (e) {
+      toast(`첨부 삭제 실패: ${String((e as Error)?.message || e)}`, 'error');
+    }
+  };
   const sz = (n: number) => {
     if (!Number.isFinite(n) || n <= 0) return '';
     return n >= 1048576 ? `${(n / 1048576).toFixed(1)}MB` : `${Math.max(1, Math.round(n / 1024))}KB`;

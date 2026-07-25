@@ -1084,7 +1084,7 @@ export function PriceMini({ m, rent, deposit = 0, on = false }: {
     >
       <span style={{ fontSize: mobile ? FS.cap : FS.micro, fontWeight: FW.strong, color: on ? C.brand : C.mute, lineHeight: 1.1 }}>{m}개월</span>
       <span style={{
-        fontSize: on ? (mobile ? FS.body : FS.sub) : (mobile ? FS.sub : FS.cap),
+        fontSize: mobile ? FS.sub : FS.cap,
         fontFamily: NUM, fontWeight: FW.head, letterSpacing: '-0.02em', lineHeight: 1.1,
         color: on ? C.brand : C.ink,
       }}>

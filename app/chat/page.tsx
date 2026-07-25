@@ -9,7 +9,8 @@ import { getRole, actor, type Role } from '@/lib/domain/deal';
 import { roomsWithUnread, unreadFor, unreadRoomCount } from '@/lib/domain/messaging';
 import { getProgress, isInquiryOnly } from '@/lib/domain/contract';
 import { vehicleName } from '@/lib/domain/product';
-import { PaneHead, Btn, C, Loading, CenterNote, PaneBody, FilterChips, SectionLabel, FS } from '@/components/ui';
+import { withProviderNames } from '@/lib/domain/identity';
+import { PaneHead, Btn, C, Loading, CenterNote, PaneBody, FilterChips, FilterGroup, FS, FW, NUM } from '@/components/ui';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
 import { ChatThread } from '@/components/ChatThread';
 import { ProductDetail } from '@/components/ProductDetail';
@@ -21,13 +22,14 @@ import { ChatRoomRow } from '@/components/list-rows';
 import { NAV_LABEL } from '@/lib/tabbar';
 
 type ChatSort = 'unread' | 'name';
-type ChatFilter = '문의' | 'all' | '완료' | '취소';
+type ChatFilter = '미확인' | '문의' | 'all' | '완료' | '취소';
 
 const CHAT_SORTS: { value: ChatSort; label: string }[] = [
   { value: 'unread', label: '안읽음' },
   { value: 'name', label: '차명순' },
 ];
 const CHAT_FILTERS: { key: ChatFilter; label: string }[] = [
+  { key: '미확인', label: '미확인' },
   { key: '문의', label: '문의' },
   { key: 'all', label: '전체' },
   { key: '완료', label: '완료' },
@@ -51,6 +53,7 @@ export default function Chat() {
   const [swapKey, setSwapKey] = useState('chat');
   const [sort, setSort] = useState<ChatSort | ''>('');
   const [flt, setFlt] = useState<ChatFilter>('문의');
+  const [draftFlt, setDraftFlt] = useState<ChatFilter>('문의');
 
   // 계약 인덱스 — `product_code|agent_code` → 계약. 현행 contracts.find 순서를 정확 재현:
   //  · '계약취소'는 후보에서 제외(find의 `c.contract_status !== '계약취소'`).
@@ -125,11 +128,33 @@ export default function Chat() {
     // 어디에도 정보 없음 — 매물이 삭제/제외돼 정보 유실. blank 대신 명시.
     return car ? `${car} (삭제된 차량)` : '삭제된 차량';
   };
-  /** 채팅 참여자 = 코드 표기(영업코드 ↔ 공급사코드). 역할별 관점. */
+  /** 매물 공급사 표기 — 관리자 응대용(이름 우선, 없으면 코드). */
+  const providerOf = (rm: EntityRecord): { code: string; name: string } => {
+    const code = String(rm.provider_company_code || '').trim();
+    const p = productLookup.byId.get(String(rm.product_code))
+      || productLookup.byId.get(String(rm.product_uid))
+      || productLookup.byId.get(String(rm.product_id))
+      || (String(rm.car_number || '') ? productLookup.byCar.get(String(rm.car_number)) : undefined);
+    const name = String(p?.provider_name || p?.provider_name_full || rm.provider_name || '').trim();
+    return { code, name: name || code };
+  };
+  /** 목록 1줄 헤드 — 영업·공급=차명 / 관리자=차량번호. */
+  const roomHead = (rm: EntityRecord): string => {
+    if (role === 'admin') {
+      const plate = String(rm.car_number || '').trim();
+      if (plate) return plate;
+      const c = contractOf(rm);
+      const snap = String(c?.car_number_snapshot || '').trim();
+      if (snap) return snap;
+    }
+    return roomTitle(rm);
+  };
   const roomCounter = (rm: EntityRecord): string => {
     const ag = String(rm.agent_code || '').trim();
-    const pv = String(rm.provider_company_code || '').trim();
-    return role === 'provider' ? ag : role === 'agent' ? pv : [ag, pv].filter(Boolean).join(' ↔ ');
+    const pv = providerOf(rm);
+    if (role === 'provider') return ag;
+    if (role === 'admin') return ag;
+    return pv.name || pv.code;
   };
   const sortByRecent = (arr: EntityRecord[]) => arr.slice().sort((a, b) => Number(b.last_message_at || 0) - Number(a.last_message_at || 0));
   // 점진 로딩 — 1차: 방 목록만 즉시 페인트(저장된 안읽음 카운터·차명은 코드 폴백).
@@ -142,8 +167,15 @@ export default function Chat() {
     setRooms(sortByRecent(mine)); // ← 즉시 페인트
     void (async () => {
       try {
-        const [cts, prods, del] = await Promise.all([getStore().list('contract', co), getStore().list('product', co), getStore().listDeleted('product', co).catch(() => [])]);
-        setContracts(cts); setProducts(prods); setDeletedProducts(del);
+        const [cts, prods, del, partners] = await Promise.all([
+          getStore().list('contract', co),
+          getStore().list('product', co),
+          getStore().listDeleted('product', co).catch(() => []),
+          getStore().list('partner', co).catch(() => []),
+        ]);
+        setContracts(cts);
+        setProducts(withProviderNames(prods, partners));
+        setDeletedProducts(del);
         const withUnread = await roomsWithUnread(mine, r);
         setRooms(sortByRecent(withUnread));
       } catch { /* 보강 실패해도 1차 목록 유지 */ }
@@ -222,16 +254,18 @@ export default function Chat() {
 
   // 방목록 필터·정렬 — 실제 사용값(rooms·q·flt·sort·role·계약인덱스)이 바뀔 때만 재계산.
   //  contractOf는 contractIndex를 읽으므로 deps에 contractIndex 포함(값 의미는 원본 find와 동일).
+  const matchesFilter = (rm: EntityRecord, value: ChatFilter) => {
+    if (value === 'all') return true;
+    if (value === '취소') return !!cancelledOf(rm);
+    const c = contractOf(rm);
+    if (value === '완료') return String(c?.contract_status || '') === '계약완료';
+    if (value === '미확인') return isInquiryOnly(c) && unreadFor(rm, role) > 0;
+    if (value === '문의') return isInquiryOnly(c);
+    return true;
+  };
   const shownRooms = useMemo(() => (rooms || [])
     .filter((rm) => matchRoomQuery(rm, q))
-    .filter((rm) => {
-      if (flt === 'all') return true;
-      if (flt === '취소') return !!cancelledOf(rm);
-      const c = contractOf(rm);
-      if (flt === '완료') return String(c?.contract_status || '') === '계약완료';
-      if (flt === '문의') return isInquiryOnly(c);
-      return true;
-    })
+    .filter((rm) => matchesFilter(rm, flt))
     .slice()
     .sort((a, b) => {
       if (!sort) return 0; // 기본 = load 최근순
@@ -241,6 +275,10 @@ export default function Chat() {
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [rooms, q, flt, sort, role, contractIndex, cancelledIndex]);
+  const draftPreviewCount = (rooms || [])
+    .filter((rm) => matchRoomQuery(rm, q))
+    .filter((rm) => matchesFilter(rm, draftFlt))
+    .length;
   const roomListEl = shownRooms.length === 0
     ? (
       <CenterNote>
@@ -254,11 +292,13 @@ export default function Chat() {
     )
     : <div>{shownRooms.map((rm) => {
         const counter = roomCounter(rm);
+        const pv = role === 'admin' ? providerOf(rm) : null;
         return (
           <ChatRoomRow
             key={String(rm._key)}
             room={rm}
-            displayName={roomTitle(rm)}
+            displayName={roomHead(rm)}
+            providerSuffix={pv && (pv.name || pv.code) ? (pv.name || pv.code) : undefined}
             stageContract={contractOf(rm)}
             counter={counter}
             unread={unreadFor(rm, role)}
@@ -339,7 +379,25 @@ export default function Chat() {
       panes={mobile ? mobilePanes : webPanes}
       selected={!!sel}
       onBack={clearSel}
-      contextTitle={selRoom ? String(selRoom.vehicle_name || selRoom.car_number || '대화') : undefined}
+      contextTitle={selRoom
+        ? (role === 'admin'
+          ? (() => {
+              const plate = roomHead(selRoom);
+              const pv = providerOf(selRoom);
+              const suf = pv.name || pv.code;
+              if (!suf) return plate;
+              return (
+                <span style={{ display: 'inline-flex', alignItems: 'baseline', minWidth: 0, maxWidth: '100%' }}>
+                  <span style={{
+                    minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    fontFamily: NUM, fontVariantNumeric: 'tabular-nums',
+                  }}>{plate}</span>
+                  <span style={{ flex: '0 0 auto', color: C.mute, fontWeight: FW.strong, marginLeft: 4 }}>· {suf}</span>
+                </span>
+              );
+            })()
+          : roomTitle(selRoom))
+        : undefined}
       search={{ value: q, onChange: setQ, placeholder: '차번·상품·영업…' }}
       mobileLayout="swap"
       mobileSwapKey={swapKey}
@@ -350,14 +408,33 @@ export default function Chat() {
         sort: { value: sort, onChange: (v) => setSort(v as ChatSort | ''), options: CHAT_SORTS },
         filter: {
           count: flt === '문의' ? 0 : 1,
-          title: '문의 필터',
-          onClear: () => setFlt('문의'),
-          body: (
-            <>
-              <SectionLabel mt={0}>분류</SectionLabel>
-              <FilterChips value={flt} onChange={setFlt} options={CHAT_FILTERS} />
-            </>
-          ),
+          title: '조건 검색',
+          previewCount: draftPreviewCount,
+          previewUnit: '건',
+          dirty: draftFlt !== flt,
+          capture: () => setDraftFlt(flt),
+          restore: () => setDraftFlt(flt),
+          commit: () => setFlt(draftFlt),
+          onClear: () => mobile ? setDraftFlt('문의') : setFlt('문의'),
+            body: (
+              <FilterGroup
+                title="분류"
+                count={(mobile ? draftFlt : flt) === '문의' ? 0 : 1}
+                defaultOpen
+                first={!mobile}
+                onClear={() => mobile ? setDraftFlt('문의') : setFlt('문의')}
+              >
+                <FilterChips
+                  value={mobile ? draftFlt : flt}
+                  onChange={mobile ? setDraftFlt : setFlt}
+                  options={CHAT_FILTERS.map((o) => (
+                    o.key === '미확인' && inquiryUnreadN > 0
+                      ? { ...o, label: `미확인 ${inquiryUnreadN}` }
+                      : o
+                  ))}
+                />
+              </FilterGroup>
+            ),
         },
         hints: [
           ...(q.trim() ? [q.trim().length > 12 ? `${q.trim().slice(0, 12)}…` : q.trim()] : []),

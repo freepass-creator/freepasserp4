@@ -4,6 +4,7 @@ import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { getRole, type Role } from '@/lib/domain/deal';
 import { C, actorColor, Textarea, FW, FS, R } from '@/components/ui';
+import { toast } from '@/components/Toaster';
 
 // 계약 역할별 메모 3슬롯(영업/공급/관리자). 본인 역할 슬롯만 편집, 나머지는 열람. 관리자는 전부 편집.
 // 필드: memo_agent / memo_provider / memo_admin (blur 자동저장).
@@ -27,7 +28,15 @@ export function ContractMemos({ contractCode }: { contractCode: string }) {
   useEffect(() => { setRole(getRole()); load(); /* eslint-disable-next-line */ }, [contractCode]);
   useEffect(() => { const on = (e: Event) => setRole((e as CustomEvent).detail as Role); window.addEventListener('fp:role', on); return () => window.removeEventListener('fp:role', on); }, []);
 
-  const save = async (slot: string) => { if (!dirty[slot]) return; await getStore().update('contract', co, contractCode, { [`memo_${slot}`]: memos[slot] }); setDirty((d) => ({ ...d, [slot]: false })); };
+  const save = async (slot: string) => {
+    if (!dirty[slot]) return;
+    try {
+      await getStore().update('contract', co, contractCode, { [`memo_${slot}`]: memos[slot] });
+      setDirty((d) => ({ ...d, [slot]: false }));
+    } catch (e) {
+      toast(`메모 저장 실패: ${String((e as Error)?.message || e)}`, 'error');
+    }
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>

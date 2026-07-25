@@ -59,7 +59,7 @@ export function FavHeart({ p, size = 16, onPhoto = false, compact = false }: {
         WebkitBackdropFilter: onPhoto ? 'blur(6px)' : undefined,
       }}
     >
-      <Star size={size} strokeWidth={on ? 2.2 : 2} fill={on ? C.brand : 'none'} />
+      <Star size={size} strokeWidth={2.2} fill={on ? C.brand : 'none'} />
     </IconBtn>
   );
 }

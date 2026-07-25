@@ -86,7 +86,7 @@ export function Disclosure({ title, defaultOpen = false, children }: { title: Re
           color={open ? C.ink : C.faint}
           style={{ flex: '0 0 auto', transform: open ? 'none' : 'rotate(-90deg)', transition: 'transform .15s' }}
         />
-        <span style={{ flex: 1, minWidth: 0, fontSize: mobile ? FS.title : FS.body, fontWeight: open ? FW.head : FW.meta, color: C.ink, lineHeight: 1.45 }}>{title}</span>
+        <span style={{ flex: 1, minWidth: 0, fontSize: mobile ? FS.title : FS.body, fontWeight: FW.title, color: C.ink, lineHeight: 1.45 }}>{title}</span>
       </button>
       {open && <div style={{ padding: '0 0 12px 24px' }}>{children}</div>}
     </div>

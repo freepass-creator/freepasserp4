@@ -136,14 +136,14 @@ export default function AppTabBar() {
                 textDecoration: 'none',
                 color: on ? C.brand : C.faint,
                 opacity: on ? 1 : 0.72,
-                fontWeight: on ? FW.head : FW.meta,
+                fontWeight: FW.strong,
                 fontSize: FS.cap,
                 letterSpacing: '-0.02em',
                 lineHeight: 1,
                 WebkitTapHighlightColor: 'transparent',
               }}
             >
-              <t.icon size={20} strokeWidth={on ? 2.4 : 1.75} />
+              <t.icon size={20} strokeWidth={2.2} />
               {/* 라벨이 4글자(계약문의 등) — 좁은 화면에서 줄바꿈되면 탭 높이가 깨지므로 한 줄 고정. */}
               <span style={{ whiteSpace: 'nowrap' }}>{t.label}</span>
               {n != null && n > 0 ? (

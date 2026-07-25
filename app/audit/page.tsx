@@ -7,7 +7,7 @@ import { seedIfEmpty } from '@/lib/seed';
 import { ENTITIES, type EntityRecord } from '@/lib/intake/entities';
 import { isAdminUiAllowed } from '@/lib/auth-gate';
 import { parseAuditChanges, auditDomainOf, AUDIT_DOMAIN_OPTS } from '@/lib/domain/audit';
-import { Page, Btn, Badge, PillTabs, FilterChips, SearchInput, C, R, Loading, CenterNote, SectionLabel, FW, FS, NUM } from '@/components/ui';
+import { Page, Btn, Badge, PillTabs, FilterChips, FilterGroup, SearchInput, C, R, Loading, CenterNote, FW, FS, NUM } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 
 // 감사·휴지통 — 전 데이터 write 관장(매물·대여료·계약·정산·채팅·회원). store 자동 기록.
@@ -106,13 +106,18 @@ export default function AuditTrash() {
         search: { value: q, onChange: setQ, placeholder: '차번·계약·채팅·행위자 검색' },
         filter: {
           count: domain ? 1 : 0,
-          title: '감사 필터',
+          title: '조건 검색',
           onClear: () => setDomain(''),
           body: (
-            <>
-              <SectionLabel mt={0}>영역</SectionLabel>
+            <FilterGroup
+              title="영역"
+              count={domain ? 1 : 0}
+              defaultOpen
+              first
+              onClear={() => setDomain('')}
+            >
               <FilterChips value={domain} onChange={setDomain} options={AUDIT_DOMAIN_OPTS} />
-            </>
+            </FilterGroup>
           ),
         },
         hints: [

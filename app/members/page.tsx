@@ -10,11 +10,12 @@ import { approveUser, backfillPersonalAgentChannels, adminUpdateUserIdentity } f
 import { readAllPartnersPrivate, readAllUsersPrivate, writePartnerPrivate } from '@/lib/domain/private-fields';
 import { migrateSensitiveToPrivate } from '@/lib/firebase/migrate-private';
 import { newId } from '@/lib/domain/ids';
-import { PaneHead, PaneBody, Btn, Badge, FormGrid, FormCard, PillTabs, C, R, NUM, Loading, CenterNote, ListRow, ACTOR_TONE, FilterChips, SectionLabel, Message, PageActions, FW, FS } from '@/components/ui';
+import { PaneHead, PaneBody, Btn, Badge, FormGrid, FormCard, PillTabs, C, R, NUM, Loading, CenterNote, ListRow, ACTOR_TONE, FilterChips, FilterGroup, Message, PageActions, FW, FS } from '@/components/ui';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
 import { toast } from '@/components/Toaster';
 import { matchMemberQuery } from '@/lib/domain/search';
 import { haptic } from '@/lib/haptics';
+import { useIsMobile } from '@/lib/use-mobile';
 import { NAV_LABEL } from '@/lib/tabbar';
 
 // 사용자·파트너 관리(관리자) — 역할·활성·영업지급율(user) / 유형·공급사수수료율(partner). 여기 율이 정산 R1/R2 SSOT.
@@ -50,6 +51,7 @@ const idFieldOf = (t: Tab) => (t === 'user' ? 'uid' : 'partner_code');
 export default function Members() {
   const co = getCompanyId();
   const router = useRouter();
+  const mobile = useIsMobile();
   const [ok, setOk] = useState<boolean | null>(null);
   const [tab, setTab] = useState<Tab>('user');
   const [rows, setRows] = useState<EntityRecord[]>([]);
@@ -370,20 +372,38 @@ export default function Members() {
           sort: { value: sort, onChange: (v) => setSort(v as MemSort | ''), options: MEM_SORTS },
           filter: {
             count: fltCount,
-            title: tab === 'user' ? '사용자 필터' : '파트너 필터',
+            title: '조건 검색',
             onClear: () => { setRoleFlt('all'); setActiveFlt('all'); setPtypeFlt('all'); },
             body: tab === 'user' ? (
               <>
-                <SectionLabel mt={0}>역할</SectionLabel>
-                <FilterChips value={roleFlt} onChange={setRoleFlt} options={MEM_ROLES} />
-                <SectionLabel>활성</SectionLabel>
-                <FilterChips value={activeFlt} onChange={setActiveFlt} options={activeOptions} />
+                <FilterGroup
+                  title="역할"
+                  count={roleFlt === 'all' ? 0 : 1}
+                  defaultOpen
+                  first={!mobile}
+                  onClear={() => setRoleFlt('all')}
+                >
+                  <FilterChips value={roleFlt} onChange={setRoleFlt} options={MEM_ROLES} />
+                </FilterGroup>
+                <FilterGroup
+                  title="활성"
+                  count={activeFlt === 'all' ? 0 : 1}
+                  defaultOpen
+                  onClear={() => setActiveFlt('all')}
+                >
+                  <FilterChips value={activeFlt} onChange={setActiveFlt} options={activeOptions} />
+                </FilterGroup>
               </>
             ) : (
-              <>
-                <SectionLabel mt={0}>유형</SectionLabel>
+              <FilterGroup
+                title="유형"
+                count={ptypeFlt === 'all' ? 0 : 1}
+                defaultOpen
+                first={!mobile}
+                onClear={() => setPtypeFlt('all')}
+              >
                 <FilterChips value={ptypeFlt} onChange={setPtypeFlt} options={MEM_PARTNER_TYPES} />
-              </>
+              </FilterGroup>
             ),
           },
           hints: [
