@@ -318,6 +318,66 @@ npx.cmd tsx scripts/sim-phase12.mts
 - `components/product-card-atoms.tsx`: 1,151줄 → 1,037줄
 - typecheck, build, 전체 시뮬레이션: PASS
 
+## 완료: 공통 UI 내비게이션·피드백 분리
+
+- 새 파일: `components/ui/navigation.tsx`
+  - `NavBack`, `BottomNav` 이동
+- 새 파일: `components/ui/feedback.tsx`
+  - `EmptyState`, `Loading`, `CenterNote`, `Message` 이동
+- `components/ui/index.tsx`는 기존 공개 API를 재수출해 호출부 변경이 없다.
+- 내비게이션의 history fallback, 모바일 아이콘 크기, safe-area와 하단 탭 위치 계산을 유지했다.
+- 로딩 role/aria-label, 상태 메시지 색 토큰과 레이아웃을 유지했다.
+- typecheck·전체 7개 시뮬레이션·마스터 전수 검증·diff 검사 PASS, 홈·재고·계약·채팅·회원·설정 HTTP 200.
+- 다음 후보: 통계·요약 묶음(`Card`, `Kpi`, `KpiRow`, `StatBar`, `Stepper`).
+
+## 완료: 공통 UI 통계·요약 분리
+
+- 새 파일: `components/ui/metrics.tsx`
+- 이동: `Card`, `Toolbar`, `Panel`, `Kpi`, `KpiRow`, `StatBar`, `Stepper`, `Step`
+- tone별 색상 선택을 `toneColor` 내부 함수로 통합했다.
+- 기존 `@/components/ui` 공개 import와 props·타입 export는 유지한다.
+- `components/ui/index.tsx`: 393줄 → 309줄.
+- typecheck·전체 7개 시뮬레이션·마스터 전수 검증·diff 검사 PASS.
+- 홈·재고·계약·채팅·회원·설정 HTTP 200.
+- 다음 후보: 칩·필터 UI(`PillTabs`, `ToggleChips`, `FilterGroup`, `FilterChips`).
+
+## 완료: 공통 UI 칩·필터 분리
+
+- 새 파일: `components/ui/filters.tsx`
+- 이동: `PillTabs`, `ToggleChips`, `FilterGroup`, `FilterChips`, `ChipOpt`
+- 선택 햅틱, 모바일 높이·패딩, disabled 표시, 필터 카운트 동작을 유지했다.
+- `FormGrid`는 `ToggleChips`를 leaf 모듈에서 직접 import해 barrel 순환을 피한다.
+- 기존 `@/components/ui` 공개 import와 타입 export는 유지한다.
+- `components/ui/index.tsx`: 309줄 → 191줄.
+- typecheck·전체 7개 시뮬레이션·마스터 전수 검증·diff 검사 PASS.
+- 홈·재고·계약·채팅·회원·설정 HTTP 200.
+- 다음 후보: `DetailShell`, `FormGrid`, `CopyBlock` 책임별 분리.
+
+## 완료: 공통 UI 본체 최종 분리
+
+- 새 파일: `components/ui/detail-shell.tsx`
+- 새 파일: `components/ui/form-grid.tsx`
+- 새 파일: `components/ui/copy-block.tsx`
+- 새 파일: `components/ui/formatters.ts`
+- 이동: `DetailShell`, `FormGrid`, `CopyBlock`, `won`, `fmtPhone`
+- 숫자 입력 표시용 `fmtNumber`도 순수 포맷 유틸로 명명했다.
+- 기존 `@/components/ui` 공개 import와 동작은 유지한다.
+- `components/ui/index.tsx`: 191줄 → 32줄의 순수 barrel.
+- typecheck·전체 7개 시뮬레이션·마스터 전수 검증·diff 검사 PASS.
+- 홈·재고·계약·채팅·회원·설정·정책·FAQ HTTP 200.
+- 공통 UI 대형 단일 파일 분리는 완료 상태다.
+- 다음 큰 후보: `vehicle-master-match.ts` 신호 정규화·점수 계산 경계.
+
+## 완료: 공통 UI 통계·요약 분리
+
+- 새 파일: `components/ui/metrics.tsx`
+- 이동: `Card`, `Toolbar`, `Panel`, `Kpi`, `KpiRow`, `StatBar`, `Stepper`
+- tone별 색 선택을 모듈 내부 헬퍼로 중복 제거했다.
+- 기존 `Step` 타입과 `@/components/ui` barrel export를 유지했다.
+- 수치 글꼴·tabular 숫자·상태 색·Stepper 상태 표현은 변경하지 않았다.
+- typecheck·diff 검사 PASS, 홈·재고·계약·채팅·회원·설정 HTTP 200.
+- 다음 후보: 선택·필터 묶음(`PillTabs`, `ToggleChips`, `FilterGroup`, `FilterChips`).
+
 ## 완료: 브라우저 기본 확인창·알림 현대화
 
 - 공통 `confirmDialog` 적용: 계약 취소, 정책 삭제, 회원 관련 확인, 재고 상품 삭제, V3 마이그레이션

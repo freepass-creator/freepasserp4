@@ -230,3 +230,43 @@ Claude Code(설계) → Cursor(구현) → Codex(독립 검증·수정·완료)�
 - v3 읽기 전용·v4 오버레이 쓰기, 역할 스코프, 원가 마스킹 정책 유지.
 - 남은 명시적 `any` 9건은 Firebase snapshot 동적 경계이며 무리한 캐스팅 제거는 보류.
 - typecheck·전체 시뮬레이션·주요 화면 HTTP 200 통과.
+
+## 2026-07-26 체크포인트 이후 작업
+
+- 커밋 `6b1aa7f` (`refactor: split ERP feature and data modules`) 이후 작업이다.
+- 공통 UI 내비게이션을 `components/ui/navigation.tsx`로 분리했다.
+  - 이동: `NavBack`, `BottomNav`
+  - 기존 `@/components/ui` import 경로와 props는 유지한다.
+- 공통 피드백 UI를 `components/ui/feedback.tsx`로 분리했다.
+  - 이동: `EmptyState`, `Loading`, `CenterNote`, `Message`
+  - 기존 barrel export와 `MessageVariant` 타입 경로는 유지한다.
+- `components/ui/index.tsx`는 내비게이션·피드백 구현을 직접 소유하지 않고 재수출한다.
+- 검증: typecheck·전체 7개 시뮬레이션·마스터 전수 검증·diff 검사 PASS, 홈·재고·계약·채팅·회원·설정 HTTP 200.
+- 개발 서버는 포트 4004에서 유지 중이다. 서버가 켜진 동안 production build를 실행하지 않는다.
+- 다음 안전한 UI 경계는 통계·요약 묶음(`Card`, `Kpi`, `KpiRow`, `StatBar`, `Stepper`)이다.
+- 차량 마스터 점수 계산은 핵심 정책이므로 UI 정리 이후 별도 커밋 단위로 다룬다.
+- 공통 통계·요약 UI를 `components/ui/metrics.tsx`로 추가 분리했다.
+  - 이동: `Card`, `Toolbar`, `Panel`, `Kpi`, `KpiRow`, `StatBar`, `Stepper`, `Step`
+  - 공통 tone 색 계산은 모듈 내부 `toneColor`로 중복을 제거했다.
+- `components/ui/index.tsx`는 393줄에서 309줄로 감소했다.
+- 다음 안전한 경계는 칩·필터 UI(`PillTabs`, `ToggleChips`, `FilterGroup`, `FilterChips`)다.
+- 칩·필터 UI를 `components/ui/filters.tsx`로 분리했다.
+  - 이동: `PillTabs`, `ToggleChips`, `FilterGroup`, `FilterChips`, `ChipOpt`
+  - 선택 햅틱, 모바일 제어 높이, disabled 상태, 카운트 표시를 유지한다.
+- `FormGrid`는 순환 의존을 피하도록 leaf 모듈의 `ToggleChips`를 직접 import한다.
+- `components/ui/index.tsx`는 309줄에서 191줄로 감소했다.
+- 다음 후보는 `DetailShell`, `FormGrid`, `CopyBlock`의 각 책임별 분리다.
+- 공통 UI 본체 최종 분리를 완료했다.
+  - `components/ui/detail-shell.tsx`: `DetailShell`
+  - `components/ui/form-grid.tsx`: `FormGrid`
+  - `components/ui/copy-block.tsx`: `CopyBlock`
+  - `components/ui/formatters.ts`: `won`, `fmtNumber`, `fmtPhone`
+- `components/ui/index.tsx`는 191줄에서 32줄의 순수 barrel로 정리됐다.
+- 기존 `@/components/ui` 공개 경로는 모두 유지되며 호출부 수정은 없다.
+- 다음 큰 작업은 UI가 아니라 `vehicle-master-match.ts`의 신호 정규화와 점수 계산 경계를 별도 검증 단위로 다루는 것이다.
+- 공통 통계·요약 UI를 `components/ui/metrics.tsx`로 분리했다.
+  - 이동: `Card`, `Toolbar`, `Panel`, `Kpi`, `KpiRow`, `StatBar`, `Stepper`
+  - 공통 tone 색 계산을 모듈 내부 `toneColor`로 통합했다.
+  - 기존 `Step` 타입과 `@/components/ui` 공개 API는 유지한다.
+- 통계·요약 분리 후 typecheck·주요 6개 화면 HTTP 200·diff 검사 PASS.
+- 다음 안전한 UI 경계는 선택·필터 묶음(`PillTabs`, `ToggleChips`, `FilterGroup`, `FilterChips`)이다.

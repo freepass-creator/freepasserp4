@@ -1,5 +1,104 @@
 # 독립 검증 결과
 
+## 2026-07-26 — 공통 UI 내비게이션·피드백 분리
+
+### 범위
+
+- `components/ui/navigation.tsx`: `NavBack`, `BottomNav`
+- `components/ui/feedback.tsx`: `EmptyState`, `Loading`, `CenterNote`, `Message`
+- `components/ui/index.tsx`: 구현 제거 후 기존 공개 API 재수출
+
+### 호환성 및 검증
+
+- 기존 `@/components/ui` import와 props·타입 export 유지
+- 모바일 하단 safe-area 및 history/list 뒤로가기 동작 유지
+- `npm.cmd run typecheck`: PASS
+- `/`, `/inventory`, `/contract`, `/chat`, `/members`, `/settings`: HTTP 200
+- 전체 7개 시뮬레이션·마스터 전수 검증: PASS
+- `git diff --check`: PASS
+- production build는 실행 중인 개발 서버 보호를 위해 보류
+
+## 2026-07-26 — 공통 UI 통계·요약 분리
+
+### 범위
+
+- `components/ui/metrics.tsx` 신규
+- `Card`, `Toolbar`, `Panel`, `Kpi`, `KpiRow`, `StatBar`, `Stepper`, `Step` 이동
+- `components/ui/index.tsx`는 기존 공개 API 재수출
+
+### 1차 검증
+
+- `npm.cmd run typecheck`: PASS
+- `/contract`: HTTP 200
+- `components/ui/index.tsx`: 393줄 → 309줄
+
+### 전체 검증
+
+- 전체 7개 시뮬레이션·마스터 전수 검증: PASS
+- `/`, `/inventory`, `/contract`, `/chat`, `/members`, `/settings`: HTTP 200
+- `git diff --check`: PASS
+
+## 2026-07-26 — 공통 UI 본체 최종 분리
+
+### 범위
+
+- `detail-shell.tsx`: `DetailShell`
+- `form-grid.tsx`: `FormGrid`
+- `copy-block.tsx`: `CopyBlock`
+- `formatters.ts`: `won`, `fmtNumber`, `fmtPhone`
+- `components/ui/index.tsx`: 구현 제거 후 순수 barrel
+
+### 1차 검증
+
+- `npm.cmd run typecheck`: PASS
+- `/`, `/inventory`, `/members`, `/policy`, `/faq`: HTTP 200
+- `components/ui/index.tsx`: 191줄 → 32줄
+- 기존 `@/components/ui` import 경로 변경 없음
+
+### 전체 검증
+
+- 전체 7개 시뮬레이션·마스터 전수 검증: PASS
+- 홈·재고·계약·채팅·회원·설정·정책·FAQ: HTTP 200
+- `git diff --check`: PASS
+
+## 2026-07-26 — 공통 UI 칩·필터 분리
+
+### 범위
+
+- `components/ui/filters.tsx` 신규
+- `PillTabs`, `ToggleChips`, `FilterGroup`, `FilterChips`, `ChipOpt` 이동
+- `components/ui/index.tsx` 기존 공개 API 재수출
+- `FormGrid`의 `ToggleChips` 의존성을 leaf 직접 import로 전환
+
+### 1차 검증
+
+- `npm.cmd run typecheck`: PASS
+- `/`, `/inventory`, `/contract`: HTTP 200
+- `components/ui/index.tsx`: 309줄 → 191줄
+
+### 전체 검증
+
+- 전체 7개 시뮬레이션·마스터 전수 검증: PASS
+- `/`, `/inventory`, `/contract`, `/chat`, `/members`, `/settings`: HTTP 200
+- `git diff --check`: PASS
+
+## 2026-07-26 — 공통 UI 통계·요약 분리
+
+### 범위
+
+- `components/ui/metrics.tsx`
+- 이동 대상: `Card`, `Toolbar`, `Panel`, `Kpi`, `KpiRow`, `StatBar`, `Stepper`
+- `components/ui/index.tsx`는 기존 API를 재수출한다.
+
+### 호환성 및 검증
+
+- 기존 `Step` 타입과 컴포넌트 props 유지
+- tone 색, 수치 표시, Stepper 상태 표현 유지
+- `npm.cmd run typecheck`: PASS
+- `/`, `/inventory`, `/contract`, `/chat`, `/members`, `/settings`: HTTP 200
+- `git diff --check`: PASS
+- production build는 실행 중인 개발 서버 보호를 위해 보류
+
 ## 2026-07-26 — Inventory 목록 UI 분리 검증
 
 ### 검증 결과
