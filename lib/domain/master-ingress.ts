@@ -24,6 +24,7 @@ import {
   applySnap,
   type MasterEntry,
 } from '@/lib/domain/vehicle-master-match';
+import { applyColors } from '@/lib/domain/color-master';
 
 export type MasterIngressCommit = CommitSheetResult & {
   confirmed: number;
@@ -35,14 +36,14 @@ function assertMaster(entries: MasterEntry[] | null | undefined): MasterEntry[] 
   return entries;
 }
 
-/** 미변환 행이 있으면 마스터로 한 번 더 스냅(우회 입고 방어). */
+/** 미변환 행이 있으면 마스터·색상 규격으로 한 번 더 스냅(우회 입고 방어). */
 function ensureSnapped(products: EntityRecord[], entries: MasterEntry[]): EntityRecord[] {
   return products.map((p) => {
     if (p._snapped && (p._snap_confidence === 'high' || p._snap_confidence === 'medium' || p._snap_confidence === 'low')) {
-      return p;
+      return applyColors(p);
     }
     const res = snapToMaster(p, entries);
-    return res ? applySnap(p, res, { source: 'ingress' }) : p;
+    return applyColors(res ? applySnap(p, res, { source: 'ingress' }) : p);
   });
 }
 

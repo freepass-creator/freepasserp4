@@ -12,6 +12,7 @@ import { priceList, rentForSort, depositForSort, creditDisplay, vehicleTone, exc
 import { fuelDisplay, yearDisplay, makerDisplay, parseYear } from '@/lib/domain/vehicle-master-match';
 import { withProviderNames } from '@/lib/domain/identity';
 import { DYN, CAR_DYN_KEYS, EXTRA_DYN_KEYS, aggregateDyn, matchProduct, activeCount, presentFilterOptions, excelMonths, operatingMonths, EMPTY_VEHICLE_FILTER, vehicleFilterCount, sortProviderOptions, type FState, type VehicleFilter } from '@/lib/domain/product-filters';
+import { excelPopEntries, excelColFilterMatch, type PopEntry } from '@/lib/domain/excel-col-filter';
 import { VehicleMasterFilter } from '@/components/VehicleMasterFilter';
 import { ProductCard } from '@/components/ProductCard';
 import { ProductRowCard } from '@/components/ProductRowCard';
@@ -19,7 +20,7 @@ import { productOptions, OptionChips } from '@/components/product-card-atoms';
 import { InterestTriggers, InterestPanel, useInterestLists, useInterestTab, useInterestTabGuard } from '@/components/InterestRail';
 import { clearRecent, clearFavs } from '@/lib/product-interest';
 import { toast } from '@/components/Toaster';
-import { C, R, NUM, FW, FS, ctrlH, Loading, CenterNote, SearchInput, Select, FilterGroup, FilterChips, ToggleChips, Btn, IconBtn, IconSeg, Badge, CountPill, productTypeStyle, CREDIT_TONE, thX, thXR, thXPin, tdX, tdXR, tdXPin, colLock, colLockChars, colChars, colOpts, clipN, pinRight, EXCEL_W, EXCEL_MAX, EXCEL_CELL_BODY_H, EXCEL_BADGE_GAP_X, EXCEL_PRICE_COL, excelColMode, excelShowFilterCols, excelMakerChars, excelSubChars, excelNameChars, ContextMenu, useContextMenu } from '@/components/ui';
+import { C, R, NUM, FW, FS, ctrlH, Loading, CenterNote, SearchInput, Select, FilterGroup, FilterChips, ToggleChips, Btn, IconBtn, IconSeg, Badge, CountPill, Message, productTypeStyle, CREDIT_TONE, thX, thXR, tdX, tdXR, colLock, colLockChars, colChars, colOpts, clipN, EXCEL_W, EXCEL_MAX, EXCEL_CELL_BODY_H, EXCEL_BADGE_GAP_X, excelPriceW, excelPadX, excelPadY, excelColMode, excelShowFilterCols, excelMakerChars, excelSubChars, excelNameChars, excelColorChars, excelFuelChars, excelModelWidth, ContextMenu, useContextMenu } from '@/components/ui';
 import type { BadgeTone } from '@/components/ui/badges';
 import { man, kmDisplay } from '@/lib/format';
 import { downloadProductsExcel } from '@/lib/excel-export';
@@ -204,26 +205,57 @@ function exColSortNum(key: string): boolean {
   return key.startsWith('price:') || key === 'mileage' || key === 'year';
 }
 
+function matchExcelCol(p: EntityRecord, key: string, set: Set<string>): boolean {
+  const special = excelColFilterMatch(p, key, set);
+  if (special !== null) return special;
+  return exColMatch(p, key, set);
+}
+
 function FilterPop({ field, x, y, rows, colFilter, setColFilter, colSort, setColSort, onClose }: {
   field: string; x: number; y: number; rows: EntityRecord[];
   colFilter: Record<string, Set<string>>; setColFilter: (f: Record<string, Set<string>>) => void;
   colSort: ColSort; setColSort: (s: ColSort) => void; onClose: () => void;
 }) {
   const [q, setQ] = useState('');
-  const entries = useMemo(() => {
+  const entries = useMemo((): PopEntry[] => {
+    const preset = excelPopEntries(field, rows);
+    if (preset) return preset;
     const m = new Map<string, number>();
     rows.forEach((p) => {
       for (const v of exColVals(p, field)) m.set(v, (m.get(v) || 0) + 1);
     });
-    return [...m.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'ko'));
+    return [...m.entries()]
+      .map(([key, count]) => ({ key, label: key, count }))
+      .sort((a, b) => b.count - a.count || a.key.localeCompare(b.key, 'ko'));
   }, [rows, field]);
   const sel = colFilter[field] || new Set<string>();
-  const toggleV = (v: string) => { const n = new Set(sel); n.has(v) ? n.delete(v) : n.add(v); const nf = { ...colFilter }; if (n.size) nf[field] = n; else delete nf[field]; setColFilter(nf); };
+  const toggleV = (v: string) => {
+    const n = new Set(sel);
+    n.has(v) ? n.delete(v) : n.add(v);
+    const nf = { ...colFilter };
+    if (n.size) nf[field] = n; else delete nf[field];
+    setColFilter(nf);
+  };
+  const clear = () => { const nf = { ...colFilter }; delete nf[field]; setColFilter(nf); };
   const setSort = (dir: 'asc' | 'desc') => setColSort(colSort && colSort.field === field && colSort.dir === dir ? null : { field, dir });
   const isS = (dir: string) => !!colSort && colSort.field === field && colSort.dir === dir;
-  const shown = entries.filter(([k]) => !q || k.toLowerCase().includes(q.toLowerCase()));
-  const canSort = exColSortNum(field); // 오름·내림 = 숫자칸만(연식·주행·대여료)
+  const shown = entries.filter((e) => !q || e.label.toLowerCase().includes(q.toLowerCase()) || e.key.toLowerCase().includes(q.toLowerCase()));
+  const canSort = exColSortNum(field);
   const rowPad = { padding: '6px 10px', fontSize: FS.sub, cursor: 'pointer' as const, display: 'flex', alignItems: 'center', gap: 8, border: 'none', background: 'transparent', width: '100%', boxSizing: 'border-box' as const, textAlign: 'left' as const, fontFamily: 'inherit' };
+  const checkBox = (on: boolean) => (
+    <span
+      aria-hidden
+      style={{
+        flex: '0 0 auto',
+        width: 14, height: 14, boxSizing: 'border-box',
+        borderRadius: 2,
+        border: `1.5px solid ${on ? C.brand : C.line}`,
+        background: on ? C.brand : C.taupeBg,
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        color: C.taupeBg, fontSize: 10, fontWeight: FW.head, lineHeight: 1,
+      }}
+    >{on ? '✓' : ''}</span>
+  );
   return (<>
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 90 }} />
     <div style={{
@@ -255,23 +287,24 @@ function FilterPop({ field, x, y, rows, colFilter, setColFilter, colSort, setCol
       <div style={{ maxHeight: 240, overflowY: 'auto' }}>
         {shown.length === 0 ? (
           <div style={{ ...rowPad, color: C.faint, cursor: 'default' }}>값 없음</div>
-        ) : shown.map(([k, cnt]) => {
-          const on = sel.has(k);
+        ) : shown.map((e) => {
+          const on = sel.has(e.key);
           return (
             <Btn
-              key={k}
+              key={e.key}
               variant="bare"
-              onClick={() => toggleV(k)}
+              onClick={() => toggleV(e.key)}
+              aria-pressed={on}
               style={{
                 ...rowPad,
                 background: on ? C.selected : 'transparent',
                 color: C.ink,
-                fontWeight: FW.strong,
+                fontWeight: FW.body,
               }}
             >
-              <span style={{ flex: '0 0 14px', fontFamily: NUM, color: on ? C.brand : C.faint, fontSize: FS.sub }}>{on ? '✓' : ''}</span>
-              <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{k}</span>
-              <span style={{ flex: '0 0 auto', fontFamily: NUM, color: C.faint, fontSize: FS.cap }}>{cnt}</span>
+              {checkBox(on)}
+              <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.label}</span>
+              <span style={{ flex: '0 0 auto', fontFamily: NUM, color: C.faint, fontSize: FS.cap }}>{e.count}</span>
             </Btn>
           );
         })}
@@ -279,7 +312,7 @@ function FilterPop({ field, x, y, rows, colFilter, setColFilter, colSort, setCol
       <div style={{ display: 'flex', borderTop: `1px solid ${C.line2}` }}>
         <Btn
           variant="bare"
-          onClick={() => { const nf = { ...colFilter }; delete nf[field]; setColFilter(nf); }}
+          onClick={clear}
           style={{ ...rowPad, flex: 1, justifyContent: 'center', color: C.mute }}
         >초기화</Btn>
         <Btn
@@ -322,7 +355,8 @@ export default function Finder() {
   const [models, setModels] = useState<Set<string>>(() => new Set()); // 인기차종 빠른필터(모델명)
   const [sort, setSort] = useState('');
   const [interestFlt, setInterestFlt] = useState<Set<InterestKey>>(new Set());
-  const [view, setViewState] = useState('card');
+  const [view, setViewState] = useState('excel');
+  const [viewTip, setViewTip] = useState(false); // 웹 최초 1회: 엑셀·간단·상세 안내
   const [homeTool, setHomeTool] = useState<HomeTool | null>(null); // 모바일 필터 시트
   const [filterDraft, setFilterDraft] = useState<FilterBag | null>(null);
   /** 시트 연 순간의 라이브 스냅 — 취소/필터버튼 닫기 시 여기로 회귀(최근·관심·정렬 포함). */
@@ -336,7 +370,7 @@ export default function Finder() {
     setFilterOpenState(v);
     if (typeof window !== 'undefined') localStorage.setItem('fp4_finder_filter', v ? '1' : '0');
   };
-  const [colFilter, setColFilter] = useState<Record<string, Set<string>>>({}); // 엑셀 헤더 필터
+  const [colFilter, setColFilter] = useState<Record<string, Set<string>>>({}); // 엑셀 헤더 필터(사이드와 분리)
   const [colSort, setColSort] = useState<ColSort>(null);
   const [openCol, setOpenCol] = useState<{ field: string; x: number; y: number } | null>(null);
   const [limit, setLimit] = useState(PAGE); // 목록·엑셀 공통 페이징(더보기)
@@ -513,6 +547,7 @@ export default function Finder() {
     const v = typeof window !== 'undefined' ? localStorage.getItem('fp4_finder_view') : null; if (v) setViewState(v);
     const f = typeof window !== 'undefined' ? localStorage.getItem('fp4_finder_filter') : null;
     if (f === '0') setFilterOpenState(false);
+    if (typeof window !== 'undefined' && !localStorage.getItem('fp4_finder_view_tip')) setViewTip(true);
     return () => { alive = false; };
   }, [authReady, co, session?.uid]);
 
@@ -643,10 +678,12 @@ export default function Finder() {
   // 필터·정렬·관심탭 바뀌면 더보기 리셋
   useEffect(() => { setLimit(PAGE); }, [q, periods, rent, dep, mile, fuel, ptype, credit, perks, promo, dyn, vehicle, sort, colFilter, colSort, interestTab, models, interestFlt]);
 
-  // 엑셀 헤더 필터·정렬 — 엑셀 뷰에서만 계산(카드/리스트는 빈배열 안전값).
+  // 엑셀 행 = 사이드 matchProduct(list) + 엑셀 헤더 colFilter(독립)
   const excelRows = useMemo(() => {
     if (effView !== 'excel') return [] as EntityRecord[];
-    let r = list.filter((p) => Object.entries(colFilter).every(([k, set]) => exColMatch(p, k, set)));
+    let r = list.filter((p) =>
+      Object.entries(colFilter).every(([k, set]) => matchExcelCol(p, k, set)),
+    );
     if (colSort && exColSortNum(colSort.field)) {
       const { field, dir } = colSort;
       r = [...r].sort((a, b) => {
@@ -703,9 +740,10 @@ export default function Finder() {
       applyBag(typeof patch === 'function' ? patch(cur) : { ...cur, ...patch });
     }
   };
+  const colFilterN = Object.values(colFilter).reduce((n, set) => n + set.size, 0);
   const sidebarAc = filterDraft
-    ? activeCount({ q: '', periods: v.periods, rent: v.rent, dep: v.dep, mile: v.mile, fuel: v.fuel, ptype: v.ptype, credit: v.credit, perks: v.perks, promo: v.promo, dyn: v.dyn, vehicle: v.vehicle }) + v.models.size + v.interest.size + (v.sort ? 1 : 0)
-    : activeCount(s) + models.size;
+    ? activeCount({ q: '', periods: v.periods, rent: v.rent, dep: v.dep, mile: v.mile, fuel: v.fuel, ptype: v.ptype, credit: v.credit, perks: v.perks, promo: v.promo, dyn: v.dyn, vehicle: v.vehicle }) + v.models.size + v.interest.size + (v.sort ? 1 : 0) + colFilterN
+    : activeCount(s) + models.size + colFilterN;
 
   const toggleDyn = (key: string, val: string) => bump((b) => {
     const cur = new Set(b.dyn[key] || []);
@@ -713,6 +751,10 @@ export default function Finder() {
     return { ...b, dyn: { ...b.dyn, [key]: cur } };
   });
   const reset = () => {
+    // 사이드 초기화 = 엑셀 헤더 필터·정렬도 전부 해제
+    setColFilter({});
+    setColSort(null);
+    setOpenCol(null);
     if (filterDraftRef.current != null) {
       setFilterDraft(emptyBag());
       return;
@@ -720,7 +762,7 @@ export default function Finder() {
     clearSavedFilters();
     setQInput(''); setQ(''); setPeriods(new Set()); setRent(new Set()); setDep(new Set()); setMile(new Set()); setFuel(new Set()); setPtype(new Set()); setCredit(new Set()); setPerks(new Set()); setPromo(new Set()); setDyn({}); setVehicle({ ...EMPTY_VEHICLE_FILTER }); setSort(''); setModels(new Set()); setInterestFlt(new Set());
   };
-  const filterBadge = activeCount(s) + models.size + interestFlt.size + (sort ? 1 : 0);
+  const filterBadge = activeCount(s) + models.size + interestFlt.size + (sort ? 1 : 0) + colFilterN;
   // 더보기 = 지금 보고 있는 목록 기준. 100개 미만이면 버튼 없음.
   const activeList = list;
   const shown = activeList.slice(0, limit);
@@ -732,7 +774,13 @@ export default function Finder() {
   const makerChars = excelMakerChars(exMode);
   const subChars = excelSubChars(exMode);
   const nameChars = excelNameChars(exMode);
-  const modelW = hasOpts ? EXCEL_MAX.modelSlim : EXCEL_MAX.model;
+  const colorChars = excelColorChars(exMode);
+  const fuelChars = excelFuelChars(exMode);
+  const modelW = excelModelWidth(exMode, hasOpts);
+  const priceW = excelPriceW(exMode);
+  const padX = excelPadX(exMode);
+  const cellPad = { padding: `${excelPadY()}px ${padX}px` } as const;
+  const nameSqueeze = hasOpts;
   const moreN = effView === 'excel' ? 0 : Math.max(0, activeList.length - shown.length);
   const go = (p: EntityRecord) => router.push(`/m/${encodeURIComponent(String(p.product_code))}`);
   // 웹 우클릭 — erp3 상품찾기: 계약문의·손님공유·내용복사 (+상세·관심).
@@ -789,13 +837,15 @@ export default function Finder() {
   };
   /** 엑셀 헤더 칸 전체 클릭 = 필터 팝(텍스트만이 아니라 th 영역). */
   const hdrTh = (field: string, label: string, style: CSSProperties, className?: string) => {
-    const filtered = !!colFilter[field]?.size;
+    const n = colFilter[field]?.size || 0;
+    const filtered = n > 0;
     const sorted = !!colSort && colSort.field === field && exColSortNum(field);
     const on = filtered || sorted;
+    const cls = [className, filtered ? 'fp-excel-hdr-on' : ''].filter(Boolean).join(' ') || undefined;
     return (
       <th
         key={field}
-        className={className}
+        className={cls}
         onClick={(e) => {
           e.stopPropagation();
           const rc = e.currentTarget.getBoundingClientRect();
@@ -806,11 +856,30 @@ export default function Finder() {
           cursor: 'pointer',
           color: on ? C.brand : style.color,
           userSelect: 'none',
+          // colLock overflow:hidden 이 뱃지를 잘라먹음 → 필터 활성 시 풀어줌
+          ...(filtered ? { overflow: 'visible' } : null),
         }}
-        title={`${label} 필터`}
+        title={n > 0 ? `${label} 필터 · ${n}개` : `${label} 필터`}
       >
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2, fontWeight: FW.strong }}>
-          {label}{sorted && <span style={{ fontSize: FS.micro }}>{colSort!.dir === 'asc' ? '↑' : '↓'}</span>}
+        {/* 뱃지 = 라벨 끝 우측 상단에 살짝만 걸침(텍스트 침범 최소) */}
+        <span style={{ position: 'relative', display: 'inline-block', fontWeight: FW.strong }}>
+          {label}
+          {sorted && <span style={{ fontSize: FS.micro }}>{colSort!.dir === 'asc' ? '↑' : '↓'}</span>}
+          {n > 0 && (
+            <span
+              style={{
+                position: 'absolute',
+                top: -6,
+                left: '100%',
+                marginLeft: -3,
+                pointerEvents: 'none',
+                zIndex: 2,
+                lineHeight: 0,
+              }}
+            >
+              <CountPill n={n} tone="accent" />
+            </span>
+          )}
         </span>
       </th>
     );
@@ -1137,6 +1206,26 @@ export default function Finder() {
         </div>
         )}
 
+        {!mobile && viewTip && (
+          <div style={{ padding: '0 12px', flex: '0 0 auto' }}>
+            <Message variant="info">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <span style={{ flex: '1 1 200px', minWidth: 0 }}>
+                  목록은 엑셀이 기본입니다. 상단에서 간단·상세·엑셀로 바꿀 수 있습니다.
+                </span>
+                <Btn
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    if (typeof window !== 'undefined') localStorage.setItem('fp4_finder_view_tip', '1');
+                    setViewTip(false);
+                  }}
+                >확인</Btn>
+              </div>
+            </Message>
+          </div>
+        )}
+
         {/* pane = 관심함 틀고정 + 목록 스크롤(카드) / 엑셀은 본문 안 시트 스크롤 */}
         <div className="fp-finder-pane">
           {!mobile && (
@@ -1195,31 +1284,31 @@ export default function Finder() {
                 ))}
               </div>
             ) : (
-              <div className="fp-excel-sheet">
-              {/* 엑셀 전용 스크롤포트 — 헤더 sticky · 가로·세로 시트가 담당 */}
+              <div className={`fp-excel-sheet${exMode === 'filter' && !mobile ? ' is-fit' : ''}`}>
+              {/* 엑셀 전용 스크롤포트 — 헤더 sticky · 가로·세로 시트가 담당. 웹+filter=가로맞춤(is-fit). */}
               <table className={`fp-excel-table is-${exMode}${hasOpts ? ' has-opts' : ' no-opts'}`} data-excel-mode={exMode}>
                 <thead><tr>
                   {/* 공통 열 — 모드와 무관 동일 순서·폭(연식·주행·연료가 필터 토글에 안 밀림). 칸 전체 클릭=필터. */}
-                  {hdrTh('car_number', '차량번호', { ...thXPin, ...colLock(EXCEL_MAX.plate) })}
-                  {hdrTh('vehicle_status', '상태', { ...thX, ...colLock(EXCEL_W.status) })}
-                  {hdrTh('product_type', '상품', { ...thX, ...colLock(EXCEL_W.ptype) })}
-                  {hdrTh('maker', '제조사', { ...thX, ...colLockChars(makerChars) })}
-                  {hdrTh('model', '모델', { ...thX, ...(typeof modelW === 'number' ? colLockChars(modelW) : colLock(modelW)) })}
-                  {hdrTh('sub_model', '세부모델', { ...thX, ...colChars(subChars, hasOpts) })}
-                  {hdrTh('variant', '파워', { ...thX, ...colChars(nameChars, hasOpts) })}
-                  {hdrTh('trim_name', '트림', { ...thX, ...colChars(nameChars, hasOpts) })}
-                  {hdrTh('options', '옵션', { ...thX, ...colOpts(hasOpts) })}
-                  {hdrTh('ext_color', '외장', { ...thX, ...colLockChars(EXCEL_MAX.color) })}
-                  {hdrTh('int_color', '내장', { ...thX, ...colLockChars(EXCEL_MAX.color) })}
-                  {hdrTh('year', '연식', { ...thX, ...colLock(EXCEL_MAX.year) })}
-                  {hdrTh('mileage', '주행', { ...thXR, ...colLock(EXCEL_MAX.mile) })}
-                  {hdrTh('fuel_type', '연료', { ...thX, ...colLockChars(EXCEL_MAX.fuel) })}
+                  {hdrTh('car_number', '차량번호', { ...thX, ...cellPad, ...colLock(EXCEL_MAX.plate, padX) })}
+                  {hdrTh('vehicle_status', '상태', { ...thX, ...cellPad, ...colLock(EXCEL_W.status) })}
+                  {hdrTh('product_type', '상품', { ...thX, ...cellPad, ...colLock(EXCEL_W.ptype) })}
+                  {hdrTh('maker', '제조사', { ...thX, ...cellPad, ...colLockChars(makerChars, true, padX) })}
+                  {hdrTh('model', '모델', { ...thX, ...cellPad, ...(typeof modelW === 'number' ? colLockChars(modelW, true, padX) : colLock(modelW, padX)) })}
+                  {hdrTh('sub_model', '세부모델', { ...thX, ...cellPad, ...colChars(subChars, nameSqueeze, true, padX) })}
+                  {hdrTh('variant', '파워', { ...thX, ...cellPad, ...colChars(nameChars, nameSqueeze, true, padX) })}
+                  {hdrTh('trim_name', '트림', { ...thX, ...cellPad, ...colChars(nameChars, nameSqueeze, true, padX) })}
+                  {hdrTh('options', '옵션', { ...thX, ...cellPad, ...colOpts(hasOpts, exMode) })}
+                  {hdrTh('ext_color', '외장', { ...thX, ...cellPad, ...colLockChars(colorChars, true, padX) })}
+                  {hdrTh('int_color', '내장', { ...thX, ...cellPad, ...colLockChars(colorChars, true, padX) })}
+                  {hdrTh('year', '연식', { ...thX, ...cellPad, ...colLock(EXCEL_MAX.year, padX) })}
+                  {hdrTh('mileage', '주행', { ...thXR, ...cellPad, ...colLock(EXCEL_MAX.mile, padX) })}
+                  {hdrTh('fuel_type', '연료', { ...thX, ...cellPad, ...colLockChars(fuelChars, true, padX) })}
                   {/* full만 — 대여료 직전. 필터 열림 시 숨김(사이드에서 선택). */}
-                  {exFilterCols && hdrTh('provider_name', '공급사', { ...thX, ...colLockChars(EXCEL_MAX.provider) })}
-                  {exFilterCols && hdrTh('credit', '심사', { ...thX, ...colLock(EXCEL_W.credit) })}
-                  {exFilterCols && hdrTh('cond', '조건', { ...thX, ...colLock(EXCEL_W.cond) })}
-                  {months.map((m, mi) => (
-                    hdrTh(`price:${m}`, `${m}개월`, { ...thXR, ...colLock(EXCEL_PRICE_COL), ...pinRight(mi, EXCEL_PRICE_COL, months.length, true) }, 'fp-excel-price')
+                  {exFilterCols && hdrTh('provider_name', '공급사', { ...thX, ...cellPad, ...colLockChars(EXCEL_MAX.provider, true, padX) })}
+                  {exFilterCols && hdrTh('credit', '심사', { ...thX, ...cellPad, ...colLock(EXCEL_W.credit) })}
+                  {exFilterCols && hdrTh('cond', '조건', { ...thX, ...cellPad, ...colLock(EXCEL_W.cond) })}
+                  {months.map((m) => (
+                    hdrTh(`price:${m}`, `${m}개월`, { ...thXR, ...cellPad, ...colLock(priceW) }, 'fp-excel-price')
                   ))}
                 </tr></thead>
                 <tbody>{exShown.map((p, i) => {
@@ -1241,26 +1330,26 @@ export default function Finder() {
                   };
                   return (
                   <tr key={String(p.product_code || p._key || i)} className="fp-sheet-row" onClick={() => go(p)} onContextMenu={(e) => onProductCtx(e, p)} style={{ cursor: 'pointer', background: bg }}>
-                    <td style={{ ...tdXPin, ...colLock(EXCEL_MAX.plate), background: bg, fontFamily: NUM, fontWeight: FW.strong }} title={String(p.car_number || '') || undefined}>{String(p.car_number || '') || DASH}</td>
-                    <td style={{ ...tdX, ...colLock(EXCEL_W.status) }}>{st ? <Badge tone={vehicleTone(st)} variant={st === '계약중' ? 'solid' : 'line'} pulse={st === '계약중'}>{st}</Badge> : DASH}</td>
-                    <td style={{ ...tdX, ...colLock(EXCEL_W.ptype) }}>{pt ? (() => { const c = canonProductType(pt) || pt; const s = productTypeStyle(c); return <Badge tone={s.tone} variant={s.variant}>{c}</Badge>; })() : DASH}</td>
-                    <td style={{ ...tdX, ...colLockChars(makerChars) }}>{clipMax(makerDisplay(p.maker) || p.maker, makerChars)}</td>
-                    <td style={{ ...tdX, ...(typeof modelW === 'number' ? colLockChars(modelW) : colLock(modelW)) }}>{typeof modelW === 'number' ? clipMax(p.model, modelW) : clip(p.model)}</td>
-                    <td style={{ ...tdX, ...colChars(subChars, hasOpts) }}>{clipMax(p.sub_model, subChars)}</td>
-                    <td style={{ ...tdX, ...colChars(nameChars, hasOpts) }}>{clipMax(p.variant, nameChars)}</td>
-                    <td style={{ ...tdX, ...colChars(nameChars, hasOpts) }}>{clipMax(p.trim_name, nameChars)}</td>
-                    <td style={{ ...tdX, ...colOpts(hasOpts), whiteSpace: 'normal', verticalAlign: 'middle', overflow: 'hidden' }} title={opts.join(' · ') || undefined}>
+                    <td style={{ ...tdX, ...cellPad, ...colLock(EXCEL_MAX.plate, padX), background: bg, fontFamily: NUM, fontWeight: FW.strong }} title={String(p.car_number || '') || undefined}>{String(p.car_number || '') || DASH}</td>
+                    <td style={{ ...tdX, ...cellPad, ...colLock(EXCEL_W.status) }}>{st ? <Badge tone={vehicleTone(st)} variant={st === '계약중' ? 'solid' : 'line'} pulse={st === '계약중'}>{st}</Badge> : DASH}</td>
+                    <td style={{ ...tdX, ...cellPad, ...colLock(EXCEL_W.ptype) }}>{pt ? (() => { const c = canonProductType(pt) || pt; const s = productTypeStyle(c); return <Badge tone={s.tone} variant={s.variant}>{c}</Badge>; })() : DASH}</td>
+                    <td style={{ ...tdX, ...cellPad, ...colLockChars(makerChars, true, padX) }}>{clipMax(makerDisplay(p.maker) || p.maker, makerChars)}</td>
+                    <td style={{ ...tdX, ...cellPad, ...(typeof modelW === 'number' ? colLockChars(modelW, true, padX) : colLock(modelW, padX)) }}>{typeof modelW === 'number' ? clipMax(p.model, modelW) : clip(p.model)}</td>
+                    <td style={{ ...tdX, ...cellPad, ...colChars(subChars, nameSqueeze, true, padX) }}>{clipMax(p.sub_model, subChars)}</td>
+                    <td style={{ ...tdX, ...cellPad, ...colChars(nameChars, nameSqueeze, true, padX) }}>{clipMax(p.variant, nameChars)}</td>
+                    <td style={{ ...tdX, ...cellPad, ...colChars(nameChars, nameSqueeze, true, padX) }}>{clipMax(p.trim_name, nameChars)}</td>
+                    <td style={{ ...tdX, ...cellPad, ...colOpts(hasOpts, exMode), whiteSpace: 'normal', verticalAlign: 'middle', overflow: 'hidden' }} title={opts.join(' · ') || undefined}>
                       {opts.length ? <OptionChips p={p} lines={2} /> : DASH}
                     </td>
-                    <td style={{ ...tdX, ...colLockChars(EXCEL_MAX.color) }}>{clipMax(p.ext_color, EXCEL_MAX.color)}</td>
-                    <td style={{ ...tdX, ...colLockChars(EXCEL_MAX.color) }}>{clipMax(p.int_color, EXCEL_MAX.color)}</td>
-                    <td style={{ ...tdX, ...colLock(EXCEL_MAX.year) }}>{yearDisplay(p.year) || DASH}</td>
-                    <td style={{ ...tdXR, ...colLock(EXCEL_MAX.mile) }}>{kmDisplay(p.mileage) || DASH}</td>
-                    <td style={{ ...tdX, ...colLockChars(EXCEL_MAX.fuel) }}>{fuel ? clipMax(fuel, EXCEL_MAX.fuel) : DASH}</td>
-                    {exFilterCols && <td style={{ ...tdX, ...colLockChars(EXCEL_MAX.provider) }}>{clipMax(p.provider_name || p.provider_company_code, EXCEL_MAX.provider)}</td>}
-                    {exFilterCols && <td style={{ ...tdX, ...colLock(EXCEL_W.credit) }}>{(() => { const c = creditDisplay(p); return c ? <Badge tone={CREDIT_TONE(c)}>{c}</Badge> : DASH; })()}</td>}
+                    <td style={{ ...tdX, ...cellPad, ...colLockChars(colorChars, true, padX) }}>{clipMax(p.ext_color, colorChars)}</td>
+                    <td style={{ ...tdX, ...cellPad, ...colLockChars(colorChars, true, padX) }}>{clipMax(p.int_color, colorChars)}</td>
+                    <td style={{ ...tdX, ...cellPad, ...colLock(EXCEL_MAX.year, padX) }}>{yearDisplay(p.year) || DASH}</td>
+                    <td style={{ ...tdXR, ...cellPad, ...colLock(EXCEL_MAX.mile, padX) }}>{kmDisplay(p.mileage) || DASH}</td>
+                    <td style={{ ...tdX, ...cellPad, ...colLockChars(fuelChars, true, padX) }}>{fuel ? clipMax(fuel, fuelChars) : DASH}</td>
+                    {exFilterCols && <td style={{ ...tdX, ...cellPad, ...colLockChars(EXCEL_MAX.provider, true, padX) }}>{clipMax(p.provider_name || p.provider_company_code, EXCEL_MAX.provider)}</td>}
+                    {exFilterCols && <td style={{ ...tdX, ...cellPad, ...colLock(EXCEL_W.credit) }}>{(() => { const c = creditDisplay(p); return c ? <Badge tone={CREDIT_TONE(c)}>{c}</Badge> : DASH; })()}</td>}
                     {exFilterCols && (
-                    <td style={{ ...tdX, ...colLock(EXCEL_W.cond), whiteSpace: 'normal' }}>
+                    <td style={{ ...tdX, ...cellPad, ...colLock(EXCEL_W.cond), whiteSpace: 'normal' }}>
                       {conds.length ? (
                         <span style={{
                           display: 'flex', flexWrap: 'wrap',
@@ -1282,8 +1371,8 @@ export default function Finder() {
                       )}
                     </td>
                     )}
-                    {months.map((m, mi) => { const e = pl.find((x) => x.m === m); return (
-                      <td key={m} className="fp-excel-price" style={{ ...tdXR, ...colLock(EXCEL_PRICE_COL), ...pinRight(mi, EXCEL_PRICE_COL, months.length), background: bg, lineHeight: 1.2 }}>
+                    {months.map((m) => { const e = pl.find((x) => x.m === m); return (
+                      <td key={m} className="fp-excel-price" style={{ ...tdXR, ...cellPad, ...colLock(priceW), background: bg, lineHeight: 1.2 }}>
                             {e ? <><div style={{ color: C.brand, fontWeight: FW.head, whiteSpace: 'nowrap' }}>{man(e.rent)}</div><div style={{ color: C.faint, fontWeight: FW.body, whiteSpace: 'nowrap' }}>{e.deposit ? man(e.deposit) : '0'}</div></> : DASH}
                       </td>
                     ); })}
@@ -1292,7 +1381,9 @@ export default function Finder() {
               </table>
               {openCol && (() => {
                 const f = openCol.field;
-                const popRows = list.filter((p) => Object.entries(colFilter).every(([k, set]) => k === f || exColMatch(p, k, set)));
+                const popRows = list.filter((p) =>
+                  Object.entries(colFilter).every(([k, set]) => k === f || matchExcelCol(p, k, set)),
+                );
                 return (
                   <FilterPop
                     field={f}

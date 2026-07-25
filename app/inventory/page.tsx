@@ -16,7 +16,7 @@ import { toast } from '@/components/Toaster';
 import { haptic } from '@/lib/haptics';
 import { buildJonghapTsv } from '@/lib/domain/jonghap';
 import { snapToMaster, applySnap, resolveExactMasterPath, SNAP_TRACK_KEYS, type MasterEntry } from '@/lib/domain/vehicle-master-match';
-import { applyColors } from '@/lib/domain/color-master';
+import { applyColors, snapColor } from '@/lib/domain/color-master';
 import { VehicleMasterPicker } from '@/components/VehicleMasterPicker';
 import { SnapTrace } from '@/components/SnapTrace';
 import { PhotoUpload } from '@/components/PhotoUpload';
@@ -109,36 +109,44 @@ export default function Inventory() {
     try {
       const entries = await loadMaster();
       if (gen !== selectGen.current) return;
-      // 이미 마스터 실경로면 그대로(드롭다운이 규격에 딱 맞음)
-      if (resolveExactMasterPath(entries, p)) return;
+
+      /** 색상만 규격 스냅 → 바뀌면 DB 패치. 차종 exact여도 색은 별도 보정. */
+      const persistColors = async (src: EntityRecord): Promise<EntityRecord> => {
+        const colored = applyColors(src);
+        const colorChanged = String(src.ext_color ?? '') !== String(colored.ext_color ?? '')
+          || String(src.int_color ?? '') !== String(colored.int_color ?? '');
+        if (!colorChanged) return colored;
+        setForm(colored);
+        const colorPatch: EntityRecord = {
+          ext_color: colored.ext_color,
+          int_color: colored.int_color,
+          _raw_ext_color: colored._raw_ext_color,
+          _raw_int_color: colored._raw_int_color,
+          _colors_snapped: colored._colors_snapped,
+        };
+        try {
+          await getStore().update('product', co, code, colorPatch);
+        } catch (e) {
+          console.warn('[inventory] 색상 자동저장 거부:', e);
+          toast(`매물 자동보정 저장 실패: ${String((e as Error)?.message || e)}`, 'error');
+          return colored;
+        }
+        if (gen !== selectGen.current) return colored;
+        const mergedColor = { ...src, ...colorPatch };
+        patchListCache('product', co, code, mergedColor);
+        setRows((prev) => (prev || []).map((r) => String(r.product_code) === code ? { ...r, ...colorPatch } : r));
+        setForm(mergedColor);
+        return mergedColor;
+      };
+
+      // 이미 마스터 실경로면 차종은 두고 색상만 규격 맞춤
+      if (resolveExactMasterPath(entries, p)) {
+        await persistColors(p);
+        return;
+      }
       const res = snapToMaster(p, entries);
       if (!res) {
-        const colored = applyColors(p);
-        if (colored !== p && (colored.ext_color !== p.ext_color || colored.int_color !== p.int_color)) {
-          setForm(colored);
-          if (String(colored.ext_color || '') !== String(p.ext_color || '')
-            || String(colored.int_color || '') !== String(p.int_color || '')) {
-            const colorPatch: EntityRecord = {
-              ext_color: colored.ext_color,
-              int_color: colored.int_color,
-              _raw_ext_color: colored._raw_ext_color,
-              _raw_int_color: colored._raw_int_color,
-              _colors_snapped: colored._colors_snapped,
-            };
-            try {
-              await getStore().update('product', co, code, colorPatch);
-            } catch (e) {
-              console.warn('[inventory] 색상 자동저장 거부:', e);
-              toast(`매물 자동보정 저장 실패: ${String((e as Error)?.message || e)}`, 'error');
-              return;
-            }
-            if (gen !== selectGen.current) return;
-            const mergedColor = { ...p, ...colorPatch };
-            patchListCache('product', co, code, mergedColor);
-            setRows((prev) => (prev || []).map((r) => String(r.product_code) === code ? { ...r, ...colorPatch } : r));
-            setForm(mergedColor);
-          }
-        }
+        await persistColors(p);
         return;
       }
       const applied = applyColors(applySnap(p, res, { source: 'select' }));
@@ -281,7 +289,28 @@ export default function Inventory() {
     .filter((p) => matchesFilters(p, draftStFlt, draftTypeFlt))
     .length;
 
-  const onChange = (k: string, v: string) => { setForm((f) => ({ ...f, [k]: v })); setDirty(true); };
+  const onChange = (k: string, v: string) => {
+    // 외·내장색 = 입력 즉시 규격 스냅. 미매칭은 기타(원문 _raw_*).
+    if (k === 'ext_color' || k === 'int_color') {
+      const kind = k === 'int_color' ? 'int' : 'ext';
+      const raw = String(v || '').trim();
+      const snapped = snapColor(raw, kind);
+      const nextVal = snapped || (raw ? '기타' : '');
+      setForm((f) => {
+        const next: EntityRecord = { ...f, [k]: nextVal };
+        if (raw && nextVal !== raw) {
+          const rawKey = k === 'int_color' ? '_raw_int_color' : '_raw_ext_color';
+          if (!next[rawKey]) next[rawKey] = raw;
+          next._colors_snapped = true;
+        }
+        return next;
+      });
+      setDirty(true);
+      return;
+    }
+    setForm((f) => ({ ...f, [k]: v }));
+    setDirty(true);
+  };
   const norm = (v: unknown) => String(v ?? '').replace(/\s/g, '');
   const save = async () => {
     if (!String(form.product_code || '').trim()) { toast('상품코드는 필수입니다', 'error'); return; }
@@ -313,8 +342,11 @@ export default function Inventory() {
       ? { ...form, provider_company_code: actor('provider').code }
       : form;
     const withPromo: EntityRecord = { ...stamped, event_tags: joinEventTags(String(stamped.event_tags || '').split(/[,/#|]/)) };
+    // 외·내장색 = 저장 직전 규격 스냅(시트·OCR·맞춤형 표기 → EXT/INT_COLORS)
+    const colored = applyColors(withPromo);
+    if (colored !== withPromo) setForm(colored);
     // 락이 걸려 있으면 상태와 함께 소유 계약도 각인 — 상태만 맞고 주인이 비면 재클릭이 자기잠금으로 막힌다.
-    const patch = lock ? { ...withPromo, vehicle_status: lock, locked_by_contract: locked.byContract } : withPromo;
+    const patch = lock ? { ...colored, vehicle_status: lock, locked_by_contract: locked.byContract } : colored;
     try {
       await getStore().save('product', co, [patch]); await getStore().update('product', co, String(form.product_code), patch);
     } catch (e) {
@@ -379,14 +411,14 @@ export default function Inventory() {
     setDirty(true);
   };
   const copyForm = () => { const { car_number, vin, product_code, photos, image_urls, ...rest } = form; void car_number; void vin; void product_code; void photos; void image_urls; setClip(rest); };
-  const pasteForm = () => { if (clip) { setForm((f) => ({ ...f, ...clip })); setDirty(true); } };
+  const pasteForm = () => { if (clip) { setForm((f) => applyColors({ ...f, ...clip })); setDirty(true); } };
   // 차종 SSOT 정규화 — 현재 폼 차종을 차종마스터 실재 조합으로 스냅(사용자 검토형). 신원=덮어쓰기, 스펙=빈칸만.
   const normalizeVehicle = async () => {
     try {
       const entries = await loadMaster();
       const res = snapToMaster(form, entries);
       if (!res) { toast('매칭되는 차종을 찾지 못했습니다', 'error'); return; }
-      setForm((f) => applySnap(f, res, { source: 'manual' }));
+      setForm((f) => applyColors(applySnap(f, res, { source: 'manual' })));
       setDirty(true);
       const span = res.year_start ? ` [${res.year_start}~${res.year_end}]` : '';
       toast(`차종 정규화: ${res.maker} ${res.sub_model}${span} (${res.confidence})`, res.confidence === 'low' ? 'info' : 'ok');
@@ -402,7 +434,12 @@ export default function Inventory() {
       if (!resp.ok || data.error) { toast('OCR 실패: ' + (data.error || resp.status), 'error'); return; }
       const fields: Record<string, string> = data.fields || {};
       const keys = Object.keys(fields);
-      setForm((prev) => { const next = { ...prev }; for (const k of keys) if (!String(next[k] ?? '').trim()) next[k] = fields[k]; next._ocr_registration = data.text || ''; return next; });
+      setForm((prev) => {
+        const next = { ...prev };
+        for (const k of keys) if (!String(next[k] ?? '').trim()) next[k] = fields[k];
+        next._ocr_registration = data.text || '';
+        return applyColors(next);
+      });
       setDirty(true);
       toast(keys.length ? `OCR 완료 — 빈 칸 자동채움: ${keys.join(', ')}` : 'OCR 완료 — 인식 항목 없음. 선명한 사진으로 다시', keys.length ? 'ok' : 'info');
     } catch (e) { toast('OCR 오류: ' + String(e), 'error'); }

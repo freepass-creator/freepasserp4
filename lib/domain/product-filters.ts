@@ -324,7 +324,11 @@ export function matchProduct(p: EntityRecord, s: FState): boolean {
   const pl = priceList(p);
   // 검색어 없으면 haystack 생성 자체를 생략(matchHay는 빈 토큰이면 어차피 true). 토큰은 queryTokens 메모로 패스당 1회.
   if (queryTokens(s.q).length && !matchHay(productHaystack(p), s.q)) return false;
-  if (s.rent.size && !RENT_BANDS.some((b) => s.rent.has(b.k) && pl.some((x) => x.rent > b.lo && x.rent <= b.hi))) return false;
+  // 월대여 — 기간 있으면 그 개월 칸만, 없으면 전기간 중 하나
+  if (s.rent.size) {
+    const lines = s.periods.size ? pl.filter((x) => s.periods.has(x.m)) : pl;
+    if (!RENT_BANDS.some((b) => s.rent.has(b.k) && lines.some((x) => x.rent > b.lo && x.rent <= b.hi))) return false;
+  }
   if (s.dep.size && !DEP_BANDS.some((b) => s.dep.has(b.k) && pl.some((x) => x.deposit > b.lo && x.deposit <= b.hi))) return false;
   if (s.periods.size && !pl.some((x) => s.periods.has(x.m))) return false;
   if (s.mile.size) { const km = Number(p.mileage) || 0; if (!MILE_BANDS.some((b) => s.mile.has(b.k) && km > b.lo && km <= b.hi)) return false; }
