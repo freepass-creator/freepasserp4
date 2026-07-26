@@ -10,6 +10,8 @@ import {
   organizationRole,
 } from '../lib/domain/authorization';
 import { mapRole, type Session } from '../lib/auth-session';
+import fs from 'node:fs';
+import path from 'node:path';
 
 const session = (rawRole: string, extra: Partial<Session> = {}): Session => ({
   uid: 'user-1',
@@ -67,5 +69,22 @@ check('legacy settlement without uid uses agent code', canAccessOwnedRecord(agen
 check('organization admins manage organization', [admin, agentAdmin, providerAdmin].every(canManageOrganization), true);
 check('ordinary staff cannot manage organization', [agent, provider].every((s) => !canManageOrganization(s)), true);
 check('only platform admin finalizes settlement', [canFinalizeSettlement(admin), canFinalizeSettlement(agentAdmin), canFinalizeSettlement(providerAdmin)], [true, false, false]);
+
+const rules = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'database.rules.json'), 'utf8')).rules;
+const v3RoomsRead = String(rules.rooms['.read']);
+const v4RoomsRead = String(rules.v4.rooms['.read']);
+const v4ContractsRead = String(rules.v4.contracts['.read']);
+const v4ContractsWrite = String(rules.v4.contracts.$contract_id['.write']);
+const v4SettlementsRead = String(rules.v4.settlements['.read']);
+const v4SettlementStatus = String(rules.v4.settlements.$sid.settlement_status['.validate']);
+check('v3 rooms recognize provider admin', v3RoomsRead.includes("role').val() === 'provider_admin'"), true);
+check('v4 rooms recognize provider admin', v4RoomsRead.includes("role').val() === 'provider_admin'"), true);
+check('room channel query names agent admin', v4RoomsRead.includes("role').val() === 'agent_admin'"), true);
+check('room channel query names legacy manager', v4RoomsRead.includes("role').val() === 'agent_manager'"), true);
+check('ordinary agent branch is uid-scoped', v4RoomsRead.includes("role').val() === 'agent'") && v4RoomsRead.includes("query.orderByChild === 'agent_uid'"), true);
+check('contract reads recognize five-role organization scopes', v4ContractsRead.includes("'provider_admin'") && v4ContractsRead.includes("'agent_admin'"), true);
+check('contract writes recognize provider admin', v4ContractsWrite.includes("'provider_admin'"), true);
+check('settlement reads distinguish channel and company', v4SettlementsRead.includes("'agent_admin'") && v4SettlementsRead.includes("'provider_admin'"), true);
+check('only platform admin changes settlement status', v4SettlementStatus.includes("role').val() === 'admin'"), true);
 
 console.log(`authorization simulation: ${passed}/${passed} PASS`);

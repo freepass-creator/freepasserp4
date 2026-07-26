@@ -1,5 +1,15 @@
 # 독립 검증 결과
 
+## 2026-07-26 Firebase Rules 조직 5역할
+
+결과: **PASS (정적 규칙·로컬 시뮬레이션 기준)**
+
+- 권한 모델 및 Rules 회귀 가드: 35/35 PASS
+- 일반 영업자 개인 범위, 영업 관리자 채널 범위, 공급사 직원·관리자 회사 범위 확인
+- 계약 담당 단계 역할군 분리 및 정산 상태 관리자 전용 확인
+- JSON 파싱, typecheck, chat rules 40/40, contract rules 23/23, agent 39/39, lifecycle, settlement 15/15: PASS
+- Firebase Rules 운영 게시·Emulator·실계정 검증은 미실행
+
 ## 2026-07-26 조직 권한 골격
 
 결과: **PASS (애플리케이션 판정·조회 범위 기준)**

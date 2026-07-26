@@ -1,5 +1,16 @@
 # 규격통일 핸드오프 (Claude ↔ Cursor)
 
+## 2026-07-26 Firebase Rules 5역할 정렬
+
+- 채팅방·메시지·계약·건별 정산 Rules를 조직 5역할 모델에 맞췄다.
+- 일반 `agent`는 UID/개인 코드 쿼리만 가능하고 채널 쿼리는 `agent_admin`·레거시 `agent_manager`만 가능하다.
+- `provider_admin`은 `provider`와 동일하게 자기 `company_code`의 채팅·계약·정산·재고·정책·비공개 상품에 접근한다.
+- 계약 단계 필드는 영업 측 역할군과 공급사 측 역할군을 명시적으로 구분한다.
+- 정산 귀속 필드는 생성 후 불변이며 정산 상태·금액·요율은 플랫폼 관리자만 변경한다.
+- 역할 부여 UI는 포함하지 않았다.
+- 권한 시뮬레이션 35/35, chat rules 40/40, contract rules 23/23 및 핵심 전체 회귀 PASS.
+- 중요: Rules 파일만 갱신했으며 Firebase 운영 게시·Emulator·실계정 검증은 아직 하지 않았다.
+
 ## 2026-07-26 조직 권한 코드 골격 1차
 
 - `lib/domain/authorization.ts`를 조직 권한 SSOT로 추가했다.
