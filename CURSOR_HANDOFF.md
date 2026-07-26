@@ -95,4 +95,10 @@
 - production build PASS: 26개 페이지
 - 서버 복구 후 수정 화면 8개 경로 HTTP 200
 - 포트 4004 개발 서버 유지
-- 제한: 연결 가능한 브라우저가 없어 실제 연타·모바일 DevTools 콘솔 검증은 수행하지 못함
+- 후속 Chrome 연결 검증:
+  - 로그인 표시 이름 `박영협`과 localhost ERP4 탭 연결 성공
+  - 390×844에서 재고·채팅·계약·정산·설정 가로 넘침 없음
+  - JavaScript error 없음
+  - 설정 화면은 `로그인` 버튼과 무프로필 입력 상태여서 Firebase 인증 세션은 확인되지 않음
+  - `products_private`, `settlement private` 조회가 Permission denied로 반복됨
+  - 실제 쓰기를 발생시키는 연타 검증은 운영 데이터 부작용을 피하기 위해 미실행

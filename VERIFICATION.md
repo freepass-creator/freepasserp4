@@ -1690,7 +1690,16 @@ Next 개발 서버와 production build가 같은 `.next`를 사용하면 실행 
 - 서버 복구 후 `/`, `/inventory`, `/chat`, `/contract`, `/settlement`, `/members`, `/settings`, `/sign/invalid-test-token`: HTTP 200
 - `git diff --check`: PASS
 
+### Chrome 실브라우저 후속 검증
+
+- localhost ERP4 탭 연결 및 화면 제어 성공
+- 상단 사용자 표시: `박영협`
+- 390×844 모바일 뷰포트에서 `/inventory`, `/chat`, `/contract`, `/settlement`, `/settings` 가로 넘침 없음
+- DevTools JavaScript error 없음
+- `products_private`, `settlement private` 조회의 `Permission denied` 경고 반복
+- 설정 화면에 프로필 입력란 없이 `로그인` 버튼이 표시되어 Firebase 인증 세션은 확인되지 않음
+
 ### 잔여 수동 검증
 
-- 현재 세션에 연결 가능한 브라우저가 없어 빠른 연타·Enter 반복·모바일 뷰포트·DevTools 콘솔 검증은 수행하지 못했다.
-- 운영 실계정 QA에서 위 네 항목을 확인한다.
+- 실제 쓰기를 만드는 빠른 연타·Enter 반복은 운영 데이터 부작용을 피하기 위해 실행하지 않았다.
+- Firebase Rules 게시 후 실제 5역할 계정으로 private 조회와 쓰기 중복 방지를 확인한다.
