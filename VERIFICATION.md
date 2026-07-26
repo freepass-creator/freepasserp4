@@ -1,5 +1,17 @@
 # 독립 검증 결과
 
+## 2026-07-26 채팅 RTDB 쓰기 경계
+
+결과: **PASS (정적 규칙·로컬 시뮬레이션 기준)**
+
+- 방 생성·갱신: 역할별 소유권 검사 및 소유 필드 불변성 확인
+- 메시지 생성: 방 참여자, 신규 레코드, 실제 인증 UID 조건 확인
+- 공격 회귀: 타 회사/타 영업 방, UID 위조, 메시지 overwrite, 방 ownership transfer 차단
+- V3 방 + V4 메시지 호환 분기 확인
+- `scripts/sim-chat-rules.mts`: 40/40 PASS
+- JSON 파싱, `tsc --noEmit`, agent 39/39, phase12 25/25, lifecycle, settlement 15/15, vehicle lock 23/23: PASS
+- 미검증 범위: Rules Emulator 및 Firebase 실제 계정
+
 ## 2026-07-26 채팅 RTDB 읽기 경계
 
 결과: **PASS (정적 규칙·로컬 시뮬레이션 기준)**
