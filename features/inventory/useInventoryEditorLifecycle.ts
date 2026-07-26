@@ -42,6 +42,7 @@ export function useInventoryEditorLifecycle({
   reload,
 }: EditorLifecycleOptions) {
   const [clipboard, setClipboard] = useState<EntityRecord | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const clearSelection = () => {
     setSelectedCode(null);
@@ -74,73 +75,79 @@ export function useInventoryEditorLifecycle({
   };
 
   const save = async () => {
+    if (saving) return;
     if (!String(form.product_code || '').trim()) {
       toast('상품코드는 필수입니다', 'error');
       return;
     }
-    const role = getRole();
-    if (role === 'provider') {
-      const providerCode = actor('provider').code;
-      if (!providerCode) {
-        toast('공급사 코드가 없습니다 — 설정·로그인을 확인하세요', 'error');
-        return;
-      }
-      const existing = await getStore().get('product', companyId, String(form.product_code));
-      if (existing && String(existing.provider_company_code || '') !== providerCode) {
-        toast('다른 공급사 상품은 수정할 수 없습니다', 'error');
-        return;
-      }
-      if (String(form.provider_company_code || '') && String(form.provider_company_code) !== providerCode) {
-        toast('공급사 코드를 변경할 수 없습니다', 'error');
-        return;
-      }
-    }
-    if (form.car_number) {
-      const normalizedPlate = normalizePlate(form.car_number);
-      const all = await getStore().list('product', companyId);
-      const duplicate = all.find((product) => (
-        product.car_number
-        && normalizePlate(product.car_number) === normalizedPlate
-        && String(product.product_code) !== String(form.product_code)
-        && product._deleted !== true
-      ));
-      if (duplicate) {
-        toast(`이미 등록된 차량번호 (공급사 ${duplicate.provider_company_code || '?'})`, 'error');
-        return;
-      }
-    }
-
-    const locked = await vehicleLockedBy(String(form.product_code));
-    const stamped = role === 'provider'
-      ? { ...form, provider_company_code: actor('provider').code }
-      : form;
-    const withPromotion: EntityRecord = {
-      ...stamped,
-      event_tags: joinEventTags(String(stamped.event_tags || '').split(/[,/#|]/)),
-    };
-    const colored = applyColors(withPromotion);
-    if (colored !== withPromotion) setForm(colored);
-    const patch = locked.status
-      ? { ...colored, vehicle_status: locked.status, locked_by_contract: locked.byContract }
-      : colored;
+    setSaving(true);
     try {
-      await getStore().save('product', companyId, [patch]);
-      await getStore().update('product', companyId, String(form.product_code), patch);
-    } catch (error) {
-      toast(`저장 실패: ${String((error as Error)?.message || error)}`, 'error');
-      return;
-    }
-    setDirty(false);
-    setCreating(false);
-    setEditing(false);
-    await reload(getRole());
-    if (locked.status && form.vehicle_status !== locked.status) {
-      setForm((current) => ({ ...current, vehicle_status: locked.status }));
-      toast(locked.status === '계약중'
-        ? '계약금이 확인된 계약이 있어 차량상태는 계약중으로 유지됩니다'
-        : '완료 계약이 있어 차량상태는 출고불가로 유지됩니다', 'info');
-    } else {
-      toast('저장되었습니다', 'ok');
+      const role = getRole();
+      if (role === 'provider') {
+        const providerCode = actor('provider').code;
+        if (!providerCode) {
+          toast('공급사 코드가 없습니다 — 설정·로그인을 확인하세요', 'error');
+          return;
+        }
+        const existing = await getStore().get('product', companyId, String(form.product_code));
+        if (existing && String(existing.provider_company_code || '') !== providerCode) {
+          toast('다른 공급사 상품은 수정할 수 없습니다', 'error');
+          return;
+        }
+        if (String(form.provider_company_code || '') && String(form.provider_company_code) !== providerCode) {
+          toast('공급사 코드를 변경할 수 없습니다', 'error');
+          return;
+        }
+      }
+      if (form.car_number) {
+        const normalizedPlate = normalizePlate(form.car_number);
+        const all = await getStore().list('product', companyId);
+        const duplicate = all.find((product) => (
+          product.car_number
+          && normalizePlate(product.car_number) === normalizedPlate
+          && String(product.product_code) !== String(form.product_code)
+          && product._deleted !== true
+        ));
+        if (duplicate) {
+          toast(`이미 등록된 차량번호 (공급사 ${duplicate.provider_company_code || '?'})`, 'error');
+          return;
+        }
+      }
+
+      const locked = await vehicleLockedBy(String(form.product_code));
+      const stamped = role === 'provider'
+        ? { ...form, provider_company_code: actor('provider').code }
+        : form;
+      const withPromotion: EntityRecord = {
+        ...stamped,
+        event_tags: joinEventTags(String(stamped.event_tags || '').split(/[,/#|]/)),
+      };
+      const colored = applyColors(withPromotion);
+      if (colored !== withPromotion) setForm(colored);
+      const patch = locked.status
+        ? { ...colored, vehicle_status: locked.status, locked_by_contract: locked.byContract }
+        : colored;
+      try {
+        await getStore().save('product', companyId, [patch]);
+        await getStore().update('product', companyId, String(form.product_code), patch);
+      } catch (error) {
+        toast(`저장 실패: ${String((error as Error)?.message || error)}`, 'error');
+        return;
+      }
+      setDirty(false);
+      setCreating(false);
+      setEditing(false);
+      await reload(getRole());
+      if (locked.status && form.vehicle_status !== locked.status) {
+        setForm((current) => ({ ...current, vehicle_status: locked.status }));
+        toast(locked.status === '계약중'
+          ? '계약금이 확인된 계약이 있어 차량상태는 계약중으로 유지됩니다'
+          : '완료 계약이 있어 차량상태는 출고불가로 유지됩니다', 'info');
+      } else {
+        toast('저장되었습니다', 'ok');
+      }
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -248,6 +255,7 @@ export function useInventoryEditorLifecycle({
 
   return {
     clipboardAvailable: !!clipboard,
+    saving,
     clearSelection,
     changeField,
     save,

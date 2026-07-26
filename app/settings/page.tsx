@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Page, Btn, C, SectionLabel, DetailGrid, ListRow, FilterChips, NUM, Input, FS,
+  Page, Btn, C, SectionLabel, DetailGrid, ListRow, FilterChips, NUM, Input, FS, fmtPhone,
 } from '@/components/ui';
 import { useSession } from '@/lib/auth-context';
 import { getRole, setRole, actor, ROLE_LABEL, type Role } from '@/lib/domain/deal';
@@ -62,6 +62,7 @@ export default function Settings() {
   const [pPhone, setPPhone] = useState('');
   const [pInit, setPInit] = useState({ name: '', phone: '' });
   const [savingProfile, setSavingProfile] = useState(false);
+  const [pwdBusy, setPwdBusy] = useState(false);
   const [idleMin, setIdleLocal] = useState(0);
   const [origin, setOrigin] = useState('');
 
@@ -167,12 +168,14 @@ export default function Settings() {
     finally { setSavingProfile(false); }
   };
   const changePassword = async () => {
-    if (!email) return;
+    if (!email || pwdBusy) return;
+    setPwdBusy(true);
     try {
       const { resetPassword } = await import('@/lib/firebase/auth');
       await resetPassword(email);
       toast(`비밀번호 재설정 메일을 보냈습니다 · ${email}`, 'ok');
     } catch (e) { toast('메일 발송 실패: ' + String((e as Error).message || e), 'error'); }
+    finally { setPwdBusy(false); }
   };
   const onIdle = (m: number) => {
     setIdleMinutes(m);
@@ -208,7 +211,7 @@ export default function Settings() {
                 <div style={{ marginTop: 4 }}><Input value={pName} onChange={setPName} full placeholder="이름" /></div>
               </label>
               <label style={{ fontSize: FS.sub, color: C.faint }}>연락처
-                <div style={{ marginTop: 4 }}><Input value={pPhone} onChange={setPPhone} full placeholder="010-0000-0000" /></div>
+                <div style={{ marginTop: 4 }}><Input value={pPhone} onChange={(v) => setPPhone(fmtPhone(v))} inputMode="tel" full placeholder="010-0000-0000" /></div>
               </label>
               <div>
                 <Btn size="sm" onClick={saveProfile} disabled={!profileDirty || savingProfile}>
@@ -226,7 +229,9 @@ export default function Settings() {
           ]} />
           <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
             {session ? (
-              <Btn variant="ghost" full onClick={changePassword}>비밀번호 변경 (재설정 메일)</Btn>
+              <Btn variant="ghost" full onClick={changePassword} disabled={pwdBusy}>
+                {pwdBusy ? '메일 전송 중…' : '비밀번호 변경 (재설정 메일)'}
+              </Btn>
             ) : null}
             <Btn variant="danger" full onClick={doLogout}>
               {session || guest ? '로그아웃' : '로그인'}

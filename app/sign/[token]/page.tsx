@@ -45,12 +45,15 @@ export default function SignPage() {
     if (!form.customer_name.trim() || !form.customer_phone.trim()) { toast('성명·연락처를 입력하세요', 'error'); return; }
     if (!allC) { toast('모든 약관에 동의해야 진행됩니다', 'error'); return; }
     if (!inked.current) { toast('전자서명을 해주세요', 'error'); return; }
+    if (busy) return;
     setBusy(true);
     try {
       const signature = canvasRef.current!.toDataURL('image/png');
       await submitSign(String(c!.contract_code), { ...form, signature, consents: [...consents] }, String(token));
       setC(await getContractByToken(String(token)));
       toast('제출되었습니다. 확인 후 안내드립니다.', 'ok');
+    } catch (e) {
+      toast(String((e as Error)?.message || e || '서명 제출에 실패했습니다'), 'error');
     } finally { setBusy(false); }
   };
 

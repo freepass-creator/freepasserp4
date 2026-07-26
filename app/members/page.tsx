@@ -46,6 +46,8 @@ export default function Members() {
   const [sel, setSel] = useState<string | null>(null);
   const [form, setForm] = useState<EntityRecord>({});
   const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [approveBusy, setApproveBusy] = useState(false);
   const [q, setQ] = useState('');
   const [sort, setSort] = useState<MemSort | ''>('');
   const [roleFlt, setRoleFlt] = useState('all');
@@ -101,6 +103,8 @@ export default function Members() {
   const doApprove = async (active: boolean) => {
     const uid = String(form.uid || form._key || '');
     if (!uid) { toast('uid 없음 — 승인 불가', 'error'); return; }
+    if (approveBusy) return;
+    setApproveBusy(true);
     try {
       haptic.select();
       await approveUser(uid, active);
@@ -108,6 +112,7 @@ export default function Members() {
       toast(active ? '가입 승인 완료' : '승인 취소(대기)', 'ok');
       await load(tab);
     } catch (e) { toast(String((e as Error)?.message || e), 'error'); }
+    finally { setApproveBusy(false); }
   };
   /** 규칙 게시 전 — SP999/빈 채널 개인 영업자를 user_code 채널로 고유화. */
   const doBackfillChannels = async (dry: boolean) => {
@@ -159,6 +164,8 @@ export default function Members() {
   const startEdit = () => { setEditing(true); haptic.tap(); };
   const save = async () => {
     const id = idFieldOf(tab); if (!String(form[id] || '').trim()) { toast('식별자는 필수입니다', 'error'); return; }
+    if (saving) return;
+    setSaving(true);
     try {
       // 공급사 수수료율(상업기밀)은 private 노드로 라우팅. 이관 성공 시 본노드 쓰기에서 제외(공개 read 차단).
       //  실패(규칙 미게시·no-db)면 본노드에 그대로 남긴다(유실·머니율 누락 방지) — 폴백이 기존 동작 보존.
@@ -181,17 +188,21 @@ export default function Members() {
           agent_channel_code: form.agent_channel_code != null ? String(form.agent_channel_code) : undefined,
         });
       }
+      setDirty(false);
+      setCreating(false);
+      setEditing(false);
+      const all = await load(tab);
+      const key = String(form._key || form[id]);
+      const row = all.find((r) => String(r._key || r[id]) === key);
+      if (row) setForm({ ...row });
+      setSel(key);
+      haptic.success();
+      toast('저장되었습니다', 'ok');
     } catch (e) {
       toast(`저장 실패: ${String((e as Error)?.message || e)}`, 'error');
-      return;
+    } finally {
+      setSaving(false);
     }
-    setDirty(false);
-    setCreating(false);
-    setEditing(false);
-    await load(tab);
-    setSel(String(form._key || form[id]));
-    haptic.success();
-    toast('저장되었습니다', 'ok');
   };
   const removeRec = async () => {
     if (!sel || creating) { clearSel(); return; }
@@ -244,7 +255,7 @@ export default function Members() {
   ) : null;
   // 하단바 = 편집 컨텍스트만(수정·삭제 / 취소·저장). PillTabs는 목록 상단(320px 독 넘침 방지).
   const editActions = creating || editing ? (
-    <PageActions cancel={{ onClick: cancelEdit }} save={{ onClick: save, disabled: !dirty }} />
+    <PageActions cancel={{ onClick: cancelEdit, disabled: saving }} save={{ onClick: save, disabled: !dirty || saving, label: saving ? '저장 중…' : undefined }} />
   ) : sel ? (
     <PageActions edit={{ onClick: startEdit }} remove={{ onClick: removeRec }} />
   ) : null;
@@ -259,12 +270,12 @@ export default function Members() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: C.selected, borderRadius: R, marginBottom: 8 }}>
                 <Badge tone="amber" variant="solid">승인대기</Badge>
                 <span style={{ fontSize: FS.sub, color: C.mute, flex: 1, minWidth: 0 }}>승인하면 이 사용자가 앱을 사용할 수 있습니다.</span>
-                <Btn size="sm" onClick={() => doApprove(true)}>가입 승인</Btn>
+                <Btn size="sm" onClick={() => doApprove(true)} disabled={approveBusy}>{approveBusy ? '처리 중…' : '가입 승인'}</Btn>
               </div>
             )}
             {tab === 'user' && String(form.status || '') === 'active' && (
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
-                <Btn size="sm" variant="ghost" onClick={() => doApprove(false)}>승인 취소(대기로)</Btn>
+                <Btn size="sm" variant="ghost" onClick={() => doApprove(false)} disabled={approveBusy}>{approveBusy ? '처리 중…' : '승인 취소(대기로)'}</Btn>
               </div>
             )}
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: FS.cap, color: C.faint }}>

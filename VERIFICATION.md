@@ -1666,3 +1666,31 @@ Next 개발 서버와 production build가 같은 `.next`를 사용하면 실행 
 - Vercel production 배포
 
 단일 실행 문서는 `OPENING_CHECKLIST.md`를 따른다. 추가 리팩터링은 오픈 후 범위로 동결한다.
+
+---
+
+## 2026-07-26 — Cursor 오픈 전 실사용 QA 독립 검증
+
+### 판정
+
+**PASS / 실제 브라우저 연타 검증만 수동 잔여**
+
+- 채팅 전송·첨부, 계약 단계, 서명 제출, 회원 저장·승인, 재고 저장, 비밀번호 메일에 중복 실행 방지와 오류 피드백 적용
+- 설정 연락처 포맷 통일
+- 회원 private 요율 저장 후 enrich된 행으로 상세 폼 재주입
+- Firebase Rules·스키마·마이그레이션·전자서명 상태기계 변경 없음
+
+### 실행 결과
+
+- typecheck·폰트 검사: PASS
+- 전체 권한·채팅·계약·서명·정산·생애주기·차량잠금 시뮬레이션: PASS
+- 상품·정산 private 마이그레이션 계획 시뮬레이션: PASS
+- 차량 마스터 전수검증: PASS
+- production build: PASS, 26개 페이지
+- 서버 복구 후 `/`, `/inventory`, `/chat`, `/contract`, `/settlement`, `/members`, `/settings`, `/sign/invalid-test-token`: HTTP 200
+- `git diff --check`: PASS
+
+### 잔여 수동 검증
+
+- 현재 세션에 연결 가능한 브라우저가 없어 빠른 연타·Enter 반복·모바일 뷰포트·DevTools 콘솔 검증은 수행하지 못했다.
+- 운영 실계정 QA에서 위 네 항목을 확인한다.

@@ -98,6 +98,7 @@ export default function Inventory() {
 
   const {
     clipboardAvailable,
+    saving,
     clearSelection: clearSel,
     changeField: onChange,
     save,
@@ -259,7 +260,7 @@ export default function Inventory() {
   ];
   // 하단바 = 편집 컨텍스트만(수정·삭제 / 취소·저장). 등록 = 목록 맨 위 행(InventoryCreateRow).
   const dockActions = creating || editing ? (
-    <PageActions cancel={{ onClick: cancelEdit }} save={{ onClick: save, disabled: !dirty }} />
+    <PageActions cancel={{ onClick: cancelEdit, disabled: saving }} save={{ onClick: save, disabled: !dirty || saving, label: saving ? '저장 중…' : undefined }} />
   ) : sel ? (
     <PageActions edit={{ onClick: startEdit }} remove={{ onClick: removeP }} />
   ) : undefined;

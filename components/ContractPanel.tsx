@@ -59,12 +59,14 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
     } catch (e) { toast(String((e as Error)?.message || e), 'error'); } finally { setBusy(false); }
   };
   const setCheck = async (key: string, value: string) => {
-    if (!contract) return;
+    if (!contract || busy) return;
+    setBusy(true);
     try {
       haptic.select();
       await applyStepCheck(contract, key, value);
-    } catch (e) { toast(String((e as Error)?.message || e), 'error'); return; }
-    await load(); onChange?.();
+      await load(); onChange?.();
+    } catch (e) { toast(String((e as Error)?.message || e), 'error'); }
+    finally { setBusy(false); }
   };
   // 계약취소 — 어느 단계든(진행중·완료). 재고 출고가능 복원 + 완료건이면 환수. 영업자·관리자만.
   const doCancel = async () => {
@@ -152,14 +154,14 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
                         key={opt}
                         size="sm"
                         variant={cur === opt ? 'solid' : 'ghost'}
-                        disabled={!mine}
+                        disabled={!mine || busy}
                         onClick={() => setCheck(ch.key, cur === opt ? '' : opt)}
                       >{opt}</Btn>
                     )) : (
                       <Btn
                         size="sm"
                         variant={done ? 'solid' : 'ghost'}
-                        disabled={!mine}
+                        disabled={!mine || busy}
                         onClick={() => setCheck(ch.key, done ? '' : 'yes')}
                       >{done ? '완료' : mine ? '체크' : '대기'}</Btn>
                     )}

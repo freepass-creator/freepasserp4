@@ -20,6 +20,7 @@ export function ChatThread({ roomId, onBack, onVehicle, onContract }: { roomId: 
   const [msgs, setMsgs] = useState<EntityRecord[]>([]);
   const [role, setRoleS] = useState<Role>('agent');
   const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
   const [full, setFull] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
@@ -35,7 +36,8 @@ export function ChatThread({ roomId, onBack, onVehicle, onContract }: { roomId: 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [msgs.length, roomId]);
 
   const send = async () => {
-    const t = text.trim(); if (!t) return;
+    const t = text.trim(); if (!t || busy) return;
+    setBusy(true);
     try {
       const rec = await sendText({ roomId, text: t, channel: '정식', role });
       setText('');
@@ -45,11 +47,12 @@ export function ChatThread({ roomId, onBack, onVehicle, onContract }: { roomId: 
     } catch (e) {
       console.error('메시지 전송 실패:', e);
       toast(`전송 실패: ${(e as Error).message}`, 'error');
-    }
+    } finally { setBusy(false); }
   };
 
   const onPickFile = async (files: FileList | null) => {
-    if (!files || !files.length) return;
+    if (!files || !files.length || busy) return;
+    setBusy(true);
     try {
       const rec = await sendFileMsg({ roomId, file: files[0], channel: '정식', role });
       setMsgs((prev) => [...prev, rec]);
@@ -59,6 +62,7 @@ export function ChatThread({ roomId, onBack, onVehicle, onContract }: { roomId: 
       console.error('첨부 전송 실패:', e);
       toast(`첨부 전송 실패: ${(e as Error).message}`, 'error');
     } finally {
+      setBusy(false);
       if (fileRef.current) fileRef.current.value = '';
     }
   };
@@ -130,9 +134,9 @@ export function ChatThread({ roomId, onBack, onVehicle, onContract }: { roomId: 
         borderTop: `1px solid ${C.line}`,
       }}>
         <input ref={fileRef} type="file" accept="image/*,application/pdf" onChange={(e) => onPickFile(e.target.files)} style={{ display: 'none' }} />
-        <IconBtn onClick={() => fileRef.current?.click()} title="사진·파일 첨부">📎</IconBtn>
-        <Input value={text} onChange={setText} onEnter={send} placeholder="메시지 입력" full style={{ flex: 1 }} autoFocus={mobile} />
-        <Btn onClick={send}>보내기</Btn>
+        <IconBtn onClick={() => fileRef.current?.click()} title="사진·파일 첨부" disabled={busy}>📎</IconBtn>
+        <Input value={text} onChange={setText} onEnter={send} placeholder="메시지 입력" full style={{ flex: 1 }} autoFocus={mobile} disabled={busy} />
+        <Btn onClick={send} disabled={busy || !text.trim()}>{busy ? '전송 중…' : '보내기'}</Btn>
       </div>
 
       {full && <div onClick={() => setFull(null)} style={{ position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(0,0,0,0.92)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}><img src={full} alt="" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: R }} /></div>}
