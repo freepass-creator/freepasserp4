@@ -1477,3 +1477,22 @@ Next 개발 서버와 production build가 같은 `.next`를 사용하면 실행 
 
 - 현재 환경에는 Firebase 설정이 없어 실제 Rules 배포·에뮬레이터 검증을 수행하지 않았다.
 - 규칙 게시 후 익명 서명자, 계약 소유 영업자, 채널 관리자, 플랫폼 관리자 계정으로 역할별 스모크가 필요하다.
+
+---
+
+## 2026-07-26 — 전자서명 토큰·비활성 링크 앱 경계
+
+### 판정
+
+**PASS**
+
+- Web Crypto로 192비트 난수 토큰을 생성한다.
+- 폐기 상태만 있고 폐기 시각이 없는 불완전 레코드도 비활성 처리한다.
+- Firebase 공개 조회와 로컬 저장소 fallback 모두 만료·폐기 링크를 반환하지 않는다.
+
+### 실행 결과
+
+- `npm.cmd run typecheck`: PASS
+- `node --import tsx scripts/sim-contract-sign-rules.mts`: 26/26 PASS
+- `node --import tsx scripts/sim-agent.mts`: 39/39 PASS
+- production build: 실행 중인 개발 서버 보호를 위해 보류

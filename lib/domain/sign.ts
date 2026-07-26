@@ -17,7 +17,15 @@ export type SignData = {
   signature: string; consents: string[];
 };
 
-export function makeSignToken(): string { return `sign_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`; }
+export function makeSignToken(): string {
+  const bytes = new Uint8Array(24);
+  if (globalThis.crypto?.getRandomValues) {
+    globalThis.crypto.getRandomValues(bytes);
+    return `sign_${Array.from(bytes, (value) => value.toString(16).padStart(2, '0')).join('')}`;
+  }
+  // 구형 WebView fallback. 최신 브라우저와 Node에서는 위 CSPRNG 경로를 사용한다.
+  return `sign_${Date.now().toString(36)}_${Math.random().toString(36).slice(2)}_${Math.random().toString(36).slice(2)}`;
+}
 
 /** 계약서 발송 — 토큰 + contract 갱신 + 공개 슬롯(contract_sign) 기록.
  *  공개 슬롯 실패 시 throw — 손님 /sign 빈화면 방지(규칙 미배포 등). */
@@ -61,11 +69,16 @@ export async function revokeSignLink(contract: EntityRecord): Promise<void> {
 /** 공개 서명 페이지용 — 공개 슬롯 우선, 없으면 store(로그인 기기) fallback. */
 export async function getContractByToken(token: string): Promise<EntityRecord | null> {
   const pub = await readContractSign(token);
-  if (pub) return signPublicToContract(pub);
+  if (pub) return isContractSignActive(pub) ? signPublicToContract(pub) : null;
   try {
     const co = getCompanyId();
     const all = await getStore().list('contract', co);
-    return all.find((c) => c.sign_token && String(c.sign_token) === token && c.contract_status !== '계약취소') || null;
+    return all.find((c) => (
+      c.sign_token
+      && String(c.sign_token) === token
+      && c.contract_status !== '계약취소'
+      && isContractSignActive(c)
+    )) || null;
   } catch {
     return null;
   }

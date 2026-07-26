@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { makeSignToken } from '../lib/domain/sign';
 import { contractToSignPublic, isContractSignActive, SIGN_LINK_TTL_MS } from '../lib/firebase/contract-sign-public';
 
 let passed = 0;
@@ -27,6 +28,11 @@ check('new public slot expires in seven days', Number(publicSlot.expires_at) > D
 check('active link accepted before expiry', isContractSignActive({ expires_at: Date.now() + 1000 }), true);
 check('expired link rejected', isContractSignActive({ expires_at: Date.now() - 1 }), false);
 check('revoked link rejected', isContractSignActive({ expires_at: Date.now() + 1000, revoked_at: Date.now() }), false);
+check('revoked status rejected without timestamp', isContractSignActive({ expires_at: Date.now() + 1000, status: 'revoked' }), false);
+
+const tokens = Array.from({ length: 100 }, () => makeSignToken());
+check('sign tokens use 192-bit hex payload', tokens.every((token) => /^sign_[0-9a-f]{48}$/.test(token)), true);
+check('generated sign tokens are unique', new Set(tokens).size, tokens.length);
 
 const rules = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'database.rules.json'), 'utf8')).rules.contract_sign.$token;
 check('anonymous write requires sent state', rules['.write'].includes("data.child('status').val() === 'sent'"), true);

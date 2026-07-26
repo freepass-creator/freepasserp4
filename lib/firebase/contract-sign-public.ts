@@ -14,7 +14,8 @@ export type ContractSignRec = EntityRecord & {
 
 export const SIGN_LINK_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 export function isContractSignActive(record?: ContractSignRec | EntityRecord | null, at = Date.now()): boolean {
-  if (!record || record.revoked_at || record.sign_revoked_at) return false;
+  const status = String(record?.status || record?.sign_status || '');
+  if (!record || status === 'revoked' || record.revoked_at || record.sign_revoked_at) return false;
   const expires = Number(record.expires_at || record.sign_expires_at || 0);
   return !expires || expires > at;
 }
