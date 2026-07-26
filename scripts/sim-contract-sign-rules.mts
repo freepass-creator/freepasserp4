@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { makeSignToken } from '../lib/domain/sign';
+import { canApproveSign, makeSignToken } from '../lib/domain/sign';
 import { contractToSignPublic, isContractSignActive, SIGN_LINK_TTL_MS } from '../lib/firebase/contract-sign-public';
 
 let passed = 0;
@@ -33,6 +33,14 @@ check('revoked status rejected without timestamp', isContractSignActive({ expire
 const tokens = Array.from({ length: 100 }, () => makeSignToken());
 check('sign tokens use 192-bit hex payload', tokens.every((token) => /^sign_[0-9a-f]{48}$/.test(token)), true);
 check('generated sign tokens are unique', new Set(tokens).size, tokens.length);
+check('approval rejects sent link without submission', canApproveSign({ sign_status: '발송' }), false);
+check('approval rejects pending review without signature', canApproveSign({ sign_status: '검토대기', sign_consents: 'required' }), false);
+check('approval rejects pending review without consent', canApproveSign({ sign_status: '검토대기', sign_signature: 'data:image/png;base64,AA' }), false);
+check('approval accepts reviewed signature and consent', canApproveSign({
+  sign_status: '검토대기',
+  sign_signature: 'data:image/png;base64,AA',
+  sign_consents: 'required',
+}), true);
 
 const rules = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'database.rules.json'), 'utf8')).rules.contract_sign.$token;
 check('anonymous write requires sent state', rules['.write'].includes("data.child('status').val() === 'sent'"), true);
@@ -47,5 +55,10 @@ check('anonymous read checks expiry', rules['.read'].includes("expires_at") && r
 check('anonymous read checks revocation', rules['.read'].includes("revoked_at"), true);
 check('anonymous write checks expiry', rules['.write'].includes("expires_at") && rules['.write'].includes('> now'), true);
 check('expiry becomes immutable', rules['.validate'].includes("newData.child('expires_at').val() === data.child('expires_at').val()"), true);
+
+const contractRules = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'database.rules.json'), 'utf8')).rules.v4.contracts.$contract_id;
+check('contract approval requires pending public submission', contractRules.sign_status['.validate'].includes("child('status').val() === 'pending_review'"), true);
+check('contract approval requires public signature', contractRules.sign_status['.validate'].includes("child('sign_signature').isString()"), true);
+check('agreement step requires signed public slot', contractRules.provider_agreement_sent['.validate'].includes("child('status').val() === 'signed'"), true);
 
 console.log(`contract sign rules simulation: ${passed}/${passed} PASS`);

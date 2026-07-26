@@ -1496,3 +1496,23 @@ Next 개발 서버와 production build가 같은 `.next`를 사용하면 실행 
 - `node --import tsx scripts/sim-contract-sign-rules.mts`: 26/26 PASS
 - `node --import tsx scripts/sim-agent.mts`: 39/39 PASS
 - production build: 실행 중인 개발 서버 보호를 위해 보류
+
+---
+
+## 2026-07-26 — 전자서명 승인 상태 전이
+
+### 판정
+
+**자동 검증 PASS / Firebase 배포 검증 보류**
+
+- 발송 상태 또는 서명·동의가 빠진 검토대기는 도메인 승인 조건에서 거부된다.
+- v4 계약 Rules는 공개 슬롯의 계약코드, 검토대기 상태, 서명, 동의를 승인 근거로 확인한다.
+- 영업자가 약정발송 단계를 진행할 때 공개 슬롯의 최종 `signed` 상태를 요구한다.
+
+### 실행 결과
+
+- `npm.cmd run typecheck`: PASS
+- `node --import tsx scripts/sim-contract-sign-rules.mts`: 33/33 PASS
+- `node --import tsx scripts/sim-agent.mts`: 39/39 PASS
+- `database.rules.json` JSON 파싱: PASS
+- production build: 실행 중인 개발 서버 보호를 위해 보류

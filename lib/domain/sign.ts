@@ -17,6 +17,12 @@ export type SignData = {
   signature: string; consents: string[];
 };
 
+export function canApproveSign(contract?: EntityRecord | null): boolean {
+  return String(contract?.sign_status || '') === '검토대기'
+    && String(contract?.sign_signature || '').startsWith('data:image/png')
+    && String(contract?.sign_consents || '').trim().length > 0;
+}
+
 export function makeSignToken(): string {
   const bytes = new Uint8Array(24);
   if (globalThis.crypto?.getRandomValues) {
@@ -113,6 +119,9 @@ export async function submitSign(contractCode: string, data: SignData, token?: s
 
 /** 관리자 승인 — 서명완료 + 약정발송 단계. 공개 슬롯도 signed. */
 export async function approveSign(contract: EntityRecord): Promise<void> {
+  if (!canApproveSign(contract)) {
+    throw new Error('검토대기 상태의 서명과 필수 동의가 확인된 계약만 승인할 수 있습니다.');
+  }
   const co = getCompanyId();
   const code = String(contract.contract_code);
   await getStore().update('contract', co, code, { sign_status: '서명완료', signed_pdf_url: '전자서명 완료' });
