@@ -30,9 +30,9 @@ let _session: Session | null = null;
 let _loaded = false;
 const subs = new Set<(s: Session | null) => void>();
 
-/** v3 role → v4 3역할. agent/agent_admin/agent_manager=영업자, provider=공급사, admin=관리자. */
+/** 세부 조직 역할 → 기존 화면용 3역할. 세부 권한 판정은 rawRole을 보존해 authorization.ts가 담당한다. */
 export function mapRole(raw: string): V4Role {
-  if (raw === 'provider') return 'provider';
+  if (raw === 'provider' || raw === 'provider_admin') return 'provider';
   if (raw === 'admin') return 'admin';
   return 'agent';
 }

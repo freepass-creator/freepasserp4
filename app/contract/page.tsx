@@ -10,6 +10,8 @@ import { createSettlement } from '@/lib/domain/settlement-engine';
 import { downloadSettlementsExcel } from '@/lib/excel-export';
 import { Download } from 'lucide-react';
 import { getRole, actor, ensureRoomForContract, type Role } from '@/lib/domain/deal';
+import { getSession } from '@/lib/auth-session';
+import { canAccessOwnedRecord } from '@/lib/domain/authorization';
 import { man } from '@/lib/format';
 import { PaneHead, PaneBody, Badge, Btn, Input, won, C, R, NUM, Loading, CenterNote, SETTLEMENT_STATUS_TONE, FilterChips, FilterGroup, Select, FW, FS } from '@/components/ui';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
@@ -80,10 +82,9 @@ export default function ContractsSettlement() {
   const load = async (r: Role): Promise<EntityRecord[]> => {
     setRoleS(r);
     const [all, allS] = await Promise.all([getStore().list('contract', co), getStore().list('settlement', co)]);
-    const me = actor(r);
-    const mine = r === 'admin' ? [...all] : r === 'provider' ? all.filter((c) => String(c.provider_company_code) === me.code) : all.filter((c) => String(c.agent_code) === me.code);
+    const mine = all.filter((c) => canAccessOwnedRecord(getSession(), c));
     mine.sort((a, b) => String(b.contract_date || '').localeCompare(String(a.contract_date || '')));
-    const mineS = r === 'admin' ? allS : r === 'provider' ? allS.filter((s) => String(s.provider_company_code) === me.code) : allS.filter((s) => String(s.agent_code) === me.code);
+    const mineS = allS.filter((s) => canAccessOwnedRecord(getSession(), s));
     setRows(mine); setSetts(mineS); return mine;
   };
   const selectContract = async (c: EntityRecord) => {
@@ -204,8 +205,8 @@ export default function ContractsSettlement() {
       toast(`정산 상태 변경 실패: ${String((e as Error)?.message || e)}`, 'error');
       return;
     }
-    const allS = await getStore().list('settlement', co); const me = actor(role);
-    setSetts(role === 'admin' ? allS : role === 'provider' ? allS.filter((s) => String(s.provider_company_code) === me.code) : allS.filter((s) => String(s.agent_code) === me.code));
+    const allS = await getStore().list('settlement', co);
+    setSetts(allS.filter((s) => canAccessOwnedRecord(getSession(), s)));
     setSelS(allS.find((x) => String(x.settlement_code) === String(selS.settlement_code)) || null);
   };
   const setAmount = async (field: 'fee_amount' | 'agent_payout', value: number): Promise<boolean> => {
@@ -218,8 +219,8 @@ export default function ContractsSettlement() {
       toast(`정산 금액 저장 실패: ${String((e as Error)?.message || e)}`, 'error');
       return false;
     }
-    const allS = await getStore().list('settlement', co); const me = actor(role);
-    setSetts(role === 'admin' ? allS : role === 'provider' ? allS.filter((s) => String(s.provider_company_code) === me.code) : allS.filter((s) => String(s.agent_code) === me.code));
+    const allS = await getStore().list('settlement', co);
+    setSetts(allS.filter((s) => canAccessOwnedRecord(getSession(), s)));
     setSelS(allS.find((x) => String(x.settlement_code) === String(selS.settlement_code)) || null);
     return true;
   };

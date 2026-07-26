@@ -6,7 +6,9 @@
  */
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
-import { actor, type Role } from '@/lib/domain/deal';
+import { type Role } from '@/lib/domain/deal';
+import { getSession } from '@/lib/auth-session';
+import { canAccessOwnedRecord } from '@/lib/domain/authorization';
 import { roomsWithUnread, unreadRoomCount } from '@/lib/domain/messaging';
 import { isInquiryOnly, isContractInProgress } from '@/lib/domain/contract';
 
@@ -17,14 +19,12 @@ const HAMBURGER_KEYS = new Set(['/chat']);
 
 export async function loadMenuBadges(role: Role, co = getCompanyId()): Promise<MenuBadgeMap> {
   const store = getStore();
-  const me = actor(role);
   const out: MenuBadgeMap = {};
 
   try {
     const [rooms, contracts] = await Promise.all([store.list('room', co), store.list('contract', co)]);
-    const mineRooms = role === 'admin' ? rooms
-      : role === 'provider' ? rooms.filter((r) => String(r.provider_company_code) === me.code)
-      : rooms.filter((r) => String(r.agent_code) === me.code);
+    const session = getSession();
+    const mineRooms = rooms.filter((room) => canAccessOwnedRecord(session, room));
     const contractOf = (rm: (typeof rooms)[number]) =>
       contracts.find((c) => String(c.product_code) === String(rm.product_code) && String(c.agent_code) === String(rm.agent_code) && c.contract_status !== '계약취소');
     const inquiryRooms = mineRooms.filter((r) => isInquiryOnly(contractOf(r)));
@@ -33,9 +33,7 @@ export async function loadMenuBadges(role: Role, co = getCompanyId()): Promise<M
     const unread = unreadRoomCount(withUnread, role);
     if (unread > 0) out['/chat'] = unread;
 
-    const mineContracts = role === 'admin' ? contracts
-      : role === 'provider' ? contracts.filter((c) => String(c.provider_company_code) === me.code)
-      : contracts.filter((c) => String(c.agent_code) === me.code);
+    const mineContracts = contracts.filter((contract) => canAccessOwnedRecord(session, contract));
     const inProgress = mineContracts.filter((c) => isContractInProgress(c)).length;
     if (inProgress > 0) out['/contract'] = inProgress;
   } catch { /* ignore */ }

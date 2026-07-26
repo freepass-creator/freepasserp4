@@ -14,6 +14,7 @@ import { ENTITIES, type EntityRecord } from '../intake/entities';
 import { withProviderNames } from '@/lib/domain/identity';
 import { currentActor } from '../session';
 import { getSession } from '../auth-session';
+import { isAgentOrgAdmin } from '@/lib/domain/authorization';
 import type { StoreAdapter, SaveResult } from '../store';
 import { buildAuditEntry, buildMasterSnapBulkEntry } from '@/lib/domain/audit';
 import { toV4Record } from './rtdb-records';
@@ -117,13 +118,14 @@ export class RtdbAdapter implements StoreAdapter {
         if (company) take(await get(query(ref(db, node), orderByChild('provider_company_code'), equalTo(company))));
         return out;
       }
-      // agent: 사람(uid) + 채널(레거시·팀뷰) 병합 후 앱이 agent_code 로 재필터
-      const snaps = await Promise.allSettled([
+      // 일반 영업자는 개인 UID, 영업채널 관리자는 채널 전체(+본인 레거시 방)를 조회한다.
+      const scopedReads = [
         get(query(ref(db, node), orderByChild('agent_uid'), equalTo(auth.uid))),
-        sess?.agent_channel_code
-          ? get(query(ref(db, node), orderByChild('agent_channel_code'), equalTo(sess.agent_channel_code)))
-          : Promise.resolve(null as DataSnapshot | null),
-      ]);
+      ];
+      if (isAgentOrgAdmin(sess) && sess?.agent_channel_code) {
+        scopedReads.push(get(query(ref(db, node), orderByChild('agent_channel_code'), equalTo(sess.agent_channel_code))));
+      }
+      const snaps = await Promise.allSettled(scopedReads);
       for (const s of snaps) {
         if (s.status === 'fulfilled') take(s.value);
       }
@@ -157,12 +159,13 @@ export class RtdbAdapter implements StoreAdapter {
           const company = sess?.company_code || sess?.code || '';
           if (company) take(await get(query(ref(db, node), orderByChild('provider_company_code'), equalTo(company))));
         } else {
-          const snaps = await Promise.allSettled([
+          const scopedReads = [
             get(query(ref(db, node), orderByChild('agent_uid'), equalTo(auth.uid))),
-            sess?.agent_channel_code
-              ? get(query(ref(db, node), orderByChild('agent_channel_code'), equalTo(sess.agent_channel_code)))
-              : Promise.resolve(null as DataSnapshot | null),
-          ]);
+          ];
+          if (isAgentOrgAdmin(sess) && sess?.agent_channel_code) {
+            scopedReads.push(get(query(ref(db, node), orderByChild('agent_channel_code'), equalTo(sess.agent_channel_code))));
+          }
+          const snaps = await Promise.allSettled(scopedReads);
           for (const s of snaps) if (s.status === 'fulfilled') take(s.value);
         }
       }
@@ -195,16 +198,14 @@ export class RtdbAdapter implements StoreAdapter {
           const company = sess?.company_code || sess?.code || '';
           if (company) take(await get(query(ref(db, node), orderByChild('provider_company_code'), equalTo(company))));
         } else {
-          // 채널 + 사람키(agent_code) 병합 — 채널 재배정 후에도 본인 정산 열람 유지.
+          // 일반 영업자는 개인 정산, 영업채널 관리자는 채널 전체(+본인 레거시 정산)를 조회한다.
           const agentCode = String(sess?.user_code || sess?.code || auth.uid || '').trim();
-          const snaps = await Promise.allSettled([
-            sess?.agent_channel_code
-              ? get(query(ref(db, node), orderByChild('agent_channel_code'), equalTo(sess.agent_channel_code)))
-              : Promise.resolve(null as DataSnapshot | null),
-            agentCode
-              ? get(query(ref(db, node), orderByChild('agent_code'), equalTo(agentCode)))
-              : Promise.resolve(null as DataSnapshot | null),
-          ]);
+          const scopedReads: Promise<DataSnapshot | null>[] = [];
+          if (agentCode) scopedReads.push(get(query(ref(db, node), orderByChild('agent_code'), equalTo(agentCode))));
+          if (isAgentOrgAdmin(sess) && sess?.agent_channel_code) {
+            scopedReads.push(get(query(ref(db, node), orderByChild('agent_channel_code'), equalTo(sess.agent_channel_code))));
+          }
+          const snaps = await Promise.allSettled(scopedReads);
           for (const s of snaps) if (s.status === 'fulfilled') take(s.value);
         }
       }

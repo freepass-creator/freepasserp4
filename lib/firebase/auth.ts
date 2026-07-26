@@ -64,7 +64,7 @@ export function initAuth(): Promise<void> {
           try {
             let profile: Record<string, unknown> = (await get(ref(db, `users/${user.uid}`))).val() || {};
             if (!profile.role) { await new Promise((r) => setTimeout(r, 300)); profile = (await get(ref(db, `users/${user.uid}`))).val() || profile; }
-            const rawRole = profile.role === 'agent_manager' ? 'agent_admin' : String(profile.role || '');
+            const rawRole = String(profile.role || '');
             const role = mapRole(rawRole);
             const company_code = String(profile.company_code || '');
             const user_code = String(profile.user_code || '').trim();

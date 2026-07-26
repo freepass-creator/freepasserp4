@@ -1,5 +1,17 @@
 # 규격통일 핸드오프 (Claude ↔ Cursor)
 
+## 2026-07-26 조직 권한 코드 골격 1차
+
+- `lib/domain/authorization.ts`를 조직 권한 SSOT로 추가했다.
+- `admin`, `agent_admin`, `agent`, `provider_admin`, `provider`를 세부 역할로 판정한다.
+- 기존 화면은 `agent/provider/admin` 3역할을 계속 사용하고 `rawRole`로 조직 관리자 여부를 구분해 호환성을 유지한다.
+- 로그인에서 `agent_manager`를 강제로 `agent_admin`으로 바꾸던 처리를 제거해 원본 역할을 보존한다.
+- 일반 영업자는 개인 UID, 영업채널 관리자는 채널 전체, 공급사 역할은 회사 전체 범위로 어댑터 조회를 분리했다.
+- 채팅·계약 화면과 메뉴 뱃지의 개인 `agent_code` 재필터를 중앙 권한 판정으로 교체했다.
+- 역할 부여·초대·회원관리 UI는 사용자 요청대로 이번 범위에서 제외했다.
+- `scripts/sim-authorization.mts` 26/26 PASS.
+- 다음 필수 작업: Firebase Rules에서 `provider_admin`과 영업 관리자/직원의 명시적 조건을 동일하게 반영한다.
+
 ## 2026-07-26 조직·역할·권한 모델 확정
 
 - 권한 기준 문서: `docs/AUTHORIZATION_MODEL.md`

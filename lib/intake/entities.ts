@@ -16,10 +16,10 @@ export type Field = { key: string; label: string; type: FieldType; required?: bo
 export type Entity = { key: string; label: string; ocrType?: string; source: string; idFrom: string; keyFields?: string[]; fields: Field[] };
 
 /* ── enum SSOT (freepasserp3 실측) ── */
-export const ROLES = ['agent', 'agent_admin', 'agent_manager', 'provider', 'admin'] as const; // 영업자/영업관리자/영업관리자(계약·정산만)/공급사/관리자
+export const ROLES = ['agent', 'agent_admin', 'agent_manager', 'provider', 'provider_admin', 'admin'] as const;
 /** 역할 표시 SSOT(v3 원본 5역할). 화면마다 로컬 맵 만들지 말 것 — v4 3역할 라벨(deal.ts ROLE_LABEL)도 여기서 파생한다. */
 export const ROLE_LABEL_RAW: Record<(typeof ROLES)[number], string> = {
-  agent: '영업자', agent_admin: '영업관리자', agent_manager: '영업뷰어', provider: '공급사', admin: '관리자',
+  agent: '영업자', agent_admin: '영업채널 관리자', agent_manager: '영업관리자(레거시)', provider: '공급사 직원', provider_admin: '공급사 관리자', admin: '플랫폼 관리자',
 };
 export const CONTRACT_STATES = ['계약요청', '계약대기', '계약발송', '계약완료', '계약취소'] as const; // contract-status.js
 export const SETTLEMENT_STATES = ['정산대기', '정산완료', '정산보류', '환수대기', '환수결정'] as const; // settlement-status.js

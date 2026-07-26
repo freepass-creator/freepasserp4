@@ -18,6 +18,8 @@ import { ContractDocs } from '@/components/ContractDocs';
 import { haptic } from '@/lib/haptics';
 import { ChatRoomRow } from '@/components/list-rows';
 import { NAV_LABEL } from '@/lib/tabbar';
+import { getSession } from '@/lib/auth-session';
+import { canAccessOwnedRecord } from '@/lib/domain/authorization';
 import {
   buildContractIndex,
   buildProductLookup,
@@ -92,8 +94,7 @@ export default function Chat() {
   //  전량 선반입을 첫 페인트 뒤로 미뤄 계약진행만큼 빠르게 목록이 뜸.
   const load = async (r: Role): Promise<EntityRecord[]> => {
     const all = await getStore().list('room', co);
-    const me = actor(r);
-    const mine = r === 'admin' ? [...all] : r === 'provider' ? all.filter((x) => String(x.provider_company_code) === me.code) : all.filter((x) => String(x.agent_code) === me.code);
+    const mine = all.filter((x) => canAccessOwnedRecord(getSession(), x));
     setRooms(sortByRecent(mine)); // ← 즉시 페인트
     void (async () => {
       try {
@@ -117,8 +118,7 @@ export default function Chat() {
   const refreshRooms = async (r: Role): Promise<EntityRecord[]> => {
     const [all, cts] = await Promise.all([getStore().list('room', co), getStore().list('contract', co)]);
     setContracts(cts);
-    const me = actor(r);
-    const mine = r === 'admin' ? [...all] : r === 'provider' ? all.filter((x) => String(x.provider_company_code) === me.code) : all.filter((x) => String(x.agent_code) === me.code);
+    const mine = all.filter((x) => canAccessOwnedRecord(getSession(), x));
     const withUnread = await roomsWithUnread(mine, r);
     const sorted = withUnread.sort((a, b) => Number(b.last_message_at || 0) - Number(a.last_message_at || 0));
     setRooms(sorted);
