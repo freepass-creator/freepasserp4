@@ -73,6 +73,16 @@ export function scrubPublicSignSubmission(): EntityRecord {
   };
 }
 
+export function publicSignRevocationPatch(contractCode: string, expiresAt: unknown, revokedAt: number): EntityRecord {
+  return {
+    contract_code: contractCode,
+    status: 'revoked',
+    sign_status: '미발송',
+    revoked_at: revokedAt,
+    expires_at: Number(expiresAt || revokedAt),
+  };
+}
+
 export function canApproveSign(contract?: EntityRecord | null): boolean {
   const consents = String(contract?.sign_consents || '');
   return String(contract?.sign_status || '') === '검토대기'
@@ -128,12 +138,12 @@ export async function revokeSignLink(contract: EntityRecord): Promise<void> {
   const code = String(contract.contract_code || '');
   const token = String(contract.sign_token || '');
   const now = Date.now();
+  // 보안 우선 순서: 공개 링크를 먼저 막는다. 뒤의 계약 동기화가 실패해도 외부 링크는 살아나지 않는다.
+  if (token) {
+    await writeContractSign(token, publicSignRevocationPatch(code, contract.sign_expires_at, now));
+  }
   await getStore().update('contract', co, code, {
     sign_status: '미발송', sign_revoked_at: now,
-  });
-  if (token) await writeContractSign(token, {
-    contract_code: code, status: 'revoked', sign_status: '미발송',
-    revoked_at: now, expires_at: Number(contract.sign_expires_at || now),
   });
 }
 

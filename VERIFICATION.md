@@ -1599,3 +1599,22 @@ Next 개발 서버와 production build가 같은 `.next`를 사용하면 실행 
 - `node --import tsx scripts/sim-contract-sign-rules.mts`: 52/52 PASS
 - `node --import tsx scripts/sim-agent.mts`: 39/39 PASS
 - production build: 실행 중인 개발 서버 보호를 위해 보류
+
+---
+
+## 2026-07-26 — 전자서명 링크 해지 실패 안전성
+
+### 판정
+
+**PASS**
+
+- 공개 슬롯을 계약 원본보다 먼저 폐기한다.
+- 폐기 패치는 `revoked` 상태, 폐기 시각, 기존 만료 시각을 보존한다.
+- 두 단계 사이 실패 시에도 공개 링크가 활성 상태로 남는 방향을 피한다.
+
+### 실행 결과
+
+- `npm.cmd run typecheck`: PASS
+- `node --import tsx scripts/sim-contract-sign-rules.mts`: 55/55 PASS
+- `node --import tsx scripts/sim-agent.mts`: 39/39 PASS
+- production build: 실행 중인 개발 서버 보호를 위해 보류

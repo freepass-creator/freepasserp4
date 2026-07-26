@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   canApproveSign, canResumeApprovedSign, makeSignToken, normalizeSignConsents, SIGN_REQUIRED_CONSENTS, SIGN_REQUIRED_CONSENTS_VALUE,
-  scrubPublicSignSubmission, signSubmissionPatch, validateSignData,
+  publicSignRevocationPatch, scrubPublicSignSubmission, signSubmissionPatch, validateSignData,
 } from '../lib/domain/sign';
 import { contractToSignPublic, isContractSignActive, SIGN_LINK_TTL_MS } from '../lib/firebase/contract-sign-public';
 
@@ -77,6 +77,10 @@ const scrubPatch = scrubPublicSignSubmission();
 check('signed public slot removes signature', scrubPatch.sign_signature, null);
 check('signed public slot removes consent details', scrubPatch.sign_consents, null);
 check('signed public slot removes signer identity', scrubPatch.customer_id, null);
+const revokePatch = publicSignRevocationPatch('C-1', 123456, 123000);
+check('revocation patch closes public status', revokePatch.status, 'revoked');
+check('revocation patch records revocation time', revokePatch.revoked_at, 123000);
+check('revocation patch preserves link expiry', revokePatch.expires_at, 123456);
 check('approved sign can resume missing agreement step', canResumeApprovedSign({
   sign_status: '서명완료',
   provider_agreement_sent: '',
