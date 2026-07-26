@@ -1638,3 +1638,31 @@ Next 개발 서버와 production build가 같은 `.next`를 사용하면 실행 
 - `node --import tsx scripts/sim-agent.mts`: 39/39 PASS
 - `database.rules.json` JSON 파싱: PASS
 - production build: 실행 중인 개발 서버 보호를 위해 보류
+
+---
+
+## 2026-07-26 — 오픈 준비 로컬 릴리스 게이트
+
+### 판정
+
+**로컬 코드 게이트 PASS / 운영 Firebase 게이트 대기**
+
+- 개발 서버를 잠시 종료하고 `npm.cmd run build` 성공: 26개 페이지
+- 빌드 후 포트 4004 개발 서버 복구
+- typecheck·폰트 검사·전체 시뮬레이션·차량 마스터 전수검증 PASS
+- 실행 서버 주요 22개 경로 HTTP 200
+- 로컬 Firebase 필수 환경변수 6종 설정 확인
+- Vercel Production·Preview Firebase 환경변수 8종 설정 확인
+- 자차 면책 비율형·정액형 표시 변경은 build와 전체 회귀검사를 통과
+
+### 남은 오픈 차단 항목
+
+- 운영 RTDB 전체 백업
+- Firebase Rules 실제 게시
+- 상품·정산 private dry-run 수치 승인과 실제 마이그레이션
+- 5역할 실제 계정 권한 테스트
+- 실제 모바일 전자서명 흐름
+- 운영 데이터 E2E
+- Vercel production 배포
+
+단일 실행 문서는 `OPENING_CHECKLIST.md`를 따른다. 추가 리팩터링은 오픈 후 범위로 동결한다.

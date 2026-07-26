@@ -308,11 +308,15 @@ export function detailSections(p: EntityRecord, audience: Audience = 'agent'): D
   ];
 
   // 2) 보험 3열 [구분, 한도, 면책금] — 6항목 항상 노출(값 없으면 뷰에서 '—')
+  // 자차 면책: 비율형=「수리비의 OO%」(+구간) / 정액형(비율 없음)=금액만(동일값이면 단일)
   const ownDed = (() => {
-    const ratio = s('own_damage_repair_ratio');
-    const lo = pol.own_damage_min_deductible, hi = pol.own_damage_max_deductible;
-    const range = lo && hi ? `${lo}~${hi}` : String(lo || hi || '');
-    return [ratio, range].filter(Boolean).join(' · ');
+    const raw = s('own_damage_repair_ratio').trim();
+    const lo = String(pol.own_damage_min_deductible ?? '').trim();
+    const hi = String(pol.own_damage_max_deductible ?? '').trim();
+    const amount = lo && hi ? (lo === hi ? lo : `${lo}~${hi}`) : (lo || hi || '');
+    if (!raw) return amount; // 정액
+    const ratio = /수리비/.test(raw) ? raw : `수리비의 ${raw}`;
+    return [ratio, amount].filter(Boolean).join(' · ');
   })();
   // 담보 = 한도·면책 성격 항목만(대인~자차). 긴급출동은 성격 달라 표에서 빼 아래 노트로.
   const insRows: InsRow[] = [
