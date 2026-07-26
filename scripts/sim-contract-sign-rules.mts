@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { canApproveSign, makeSignToken } from '../lib/domain/sign';
+import {
+  canApproveSign, makeSignToken, normalizeSignConsents, SIGN_REQUIRED_CONSENTS, SIGN_REQUIRED_CONSENTS_VALUE,
+} from '../lib/domain/sign';
 import { contractToSignPublic, isContractSignActive, SIGN_LINK_TTL_MS } from '../lib/firebase/contract-sign-public';
 
 let passed = 0;
@@ -39,8 +41,11 @@ check('approval rejects pending review without consent', canApproveSign({ sign_s
 check('approval accepts reviewed signature and consent', canApproveSign({
   sign_status: '검토대기',
   sign_signature: 'data:image/png;base64,AA',
-  sign_consents: 'required',
+  sign_consents: SIGN_REQUIRED_CONSENTS_VALUE,
 }), true);
+check('consents normalize to stable ids', normalizeSignConsents([...SIGN_REQUIRED_CONSENTS]), SIGN_REQUIRED_CONSENTS_VALUE);
+assert.throws(() => normalizeSignConsents(SIGN_REQUIRED_CONSENTS.slice(0, -1)), /필수 약관 동의/);
+passed++;
 
 const rules = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'database.rules.json'), 'utf8')).rules.contract_sign.$token;
 check('anonymous write requires sent state', rules['.write'].includes("data.child('status').val() === 'sent'"), true);
@@ -54,6 +59,8 @@ check('unknown anonymous fields are immutable', rules.$other['.validate'].includ
 check('anonymous read checks expiry', rules['.read'].includes("expires_at") && rules['.read'].includes('> now'), true);
 check('anonymous read checks revocation', rules['.read'].includes("revoked_at"), true);
 check('anonymous write checks expiry', rules['.write'].includes("expires_at") && rules['.write'].includes('> now'), true);
+check('anonymous submission requires exact consent set', rules['.write'].includes(`sign_consents').val() === '${SIGN_REQUIRED_CONSENTS_VALUE}`), true);
+check('anonymous submission requires consent version', rules['.write'].includes("sign_consent_version').val() === 'v1'"), true);
 check('expiry becomes immutable', rules['.validate'].includes("newData.child('expires_at').val() === data.child('expires_at').val()"), true);
 
 const contractRules = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'database.rules.json'), 'utf8')).rules.v4.contracts.$contract_id;

@@ -17,10 +17,24 @@ export type SignData = {
   signature: string; consents: string[];
 };
 
+export const SIGN_CONSENT_VERSION = 'v1';
+export const SIGN_REQUIRED_CONSENTS = ['rental_terms', 'privacy', 'credit', 'gps', 'cms'] as const;
+export const SIGN_REQUIRED_CONSENTS_VALUE = SIGN_REQUIRED_CONSENTS.join(',');
+const LEGACY_SIGN_CONSENTS_VALUE = '렌터카 대여 계약 약관,개인정보 수집·이용,신용정보 조회·제공,차량 위치(GPS) 수집,자동결제(CMS) 출금';
+
+export function normalizeSignConsents(consents: string[]): string {
+  const selected = new Set(consents);
+  if (!SIGN_REQUIRED_CONSENTS.every((consent) => selected.has(consent))) {
+    throw new Error('필수 약관 동의가 누락되었습니다.');
+  }
+  return SIGN_REQUIRED_CONSENTS_VALUE;
+}
+
 export function canApproveSign(contract?: EntityRecord | null): boolean {
+  const consents = String(contract?.sign_consents || '');
   return String(contract?.sign_status || '') === '검토대기'
     && String(contract?.sign_signature || '').startsWith('data:image/png')
-    && String(contract?.sign_consents || '').trim().length > 0;
+    && (consents === SIGN_REQUIRED_CONSENTS_VALUE || consents === LEGACY_SIGN_CONSENTS_VALUE);
 }
 
 export function makeSignToken(): string {
@@ -93,11 +107,12 @@ export async function getContractByToken(token: string): Promise<EntityRecord | 
 /** 손님 서명 제출 — 공개 슬롯 갱신 + (가능하면) contract 동기화. */
 export async function submitSign(contractCode: string, data: SignData, token?: string): Promise<void> {
   const co = getCompanyId();
+  const normalizedConsents = normalizeSignConsents(data.consents);
   const patch: EntityRecord = {
     customer_name: data.customer_name, customer_phone: data.customer_phone,
     customer_id: data.customer_id || '', customer_address: data.customer_address || '',
     driver_license_no: data.driver_license_no || '', emergency_name: data.emergency_name || '', emergency_phone: data.emergency_phone || '',
-    sign_signature: data.signature, sign_consents: data.consents.join(','),
+    sign_signature: data.signature, sign_consents: normalizedConsents, sign_consent_version: SIGN_CONSENT_VERSION,
     sign_status: '검토대기', sign_signed_at: Date.now(),
   };
   if (token) {

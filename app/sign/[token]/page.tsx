@@ -4,12 +4,19 @@ import { useParams } from 'next/navigation';
 import { seedIfEmpty } from '@/lib/seed';
 import { getCompanyId } from '@/lib/tenant';
 import { type EntityRecord } from '@/lib/intake/entities';
-import { getContractByToken, submitSign } from '@/lib/domain/sign';
+import { getContractByToken, SIGN_REQUIRED_CONSENTS, submitSign } from '@/lib/domain/sign';
 import { won, C, R, Input, fmtPhone, Loading, Btn, FW, FS } from '@/components/ui';
 import { toast } from '@/components/Toaster';
 
 // 손님 전자서명 페이지(공개·화이트라벨). 계약요약 → 본인확인 → 약관동의 → 전자서명 → 제출(검토대기).
-const CONSENTS = ['렌터카 대여 계약 약관', '개인정보 수집·이용', '신용정보 조회·제공', '차량 위치(GPS) 수집', '자동결제(CMS) 출금'];
+const CONSENT_LABELS: Record<(typeof SIGN_REQUIRED_CONSENTS)[number], string> = {
+  rental_terms: '렌터카 대여 계약 약관',
+  privacy: '개인정보 수집·이용',
+  credit: '신용정보 조회·제공',
+  gps: '차량 위치(GPS) 수집',
+  cms: '자동결제(CMS) 출금',
+};
+const CONSENTS = [...SIGN_REQUIRED_CONSENTS];
 
 export default function SignPage() {
   const { token } = useParams<{ token: string }>();
@@ -124,7 +131,7 @@ export default function SignPage() {
               }}
             >
               <span style={{ flex: '0 0 18px', fontFamily: 'var(--font-mono)' }}>{on ? '✓' : ''}</span>
-              <span style={{ textAlign: 'left' }}>{x} <span style={{ color: on ? 'rgba(255,255,255,0.85)' : C.danger }}>(필수)</span></span>
+              <span style={{ textAlign: 'left' }}>{CONSENT_LABELS[x]} <span style={{ color: on ? 'rgba(255,255,255,0.85)' : C.danger }}>(필수)</span></span>
             </Btn>
           );
         })}

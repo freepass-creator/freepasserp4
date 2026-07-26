@@ -1516,3 +1516,24 @@ Next 개발 서버와 production build가 같은 `.next`를 사용하면 실행 
 - `node --import tsx scripts/sim-agent.mts`: 39/39 PASS
 - `database.rules.json` JSON 파싱: PASS
 - production build: 실행 중인 개발 서버 보호를 위해 보류
+
+---
+
+## 2026-07-26 — 전자서명 필수 동의 증적
+
+### 판정
+
+**자동 검증 PASS / Firebase 배포 검증 보류**
+
+- 필수 동의 5개가 고정 ID와 순서로 정규화된다.
+- 하나라도 누락된 동의 배열은 제출 전에 거부된다.
+- 익명 쓰기는 정확한 동의 문자열과 `v1` 버전을 모두 요구한다.
+- 기존 한글 동의 증적은 승인 단계에서 계속 인정된다.
+
+### 실행 결과
+
+- `npm.cmd run typecheck`: PASS
+- `node --import tsx scripts/sim-contract-sign-rules.mts`: 37/37 PASS
+- `node --import tsx scripts/sim-agent.mts`: 39/39 PASS
+- `database.rules.json` JSON 파싱: PASS
+- production build: 실행 중인 개발 서버 보호를 위해 보류
