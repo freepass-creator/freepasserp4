@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import {
-  canApproveSign, makeSignToken, normalizeSignConsents, SIGN_REQUIRED_CONSENTS, SIGN_REQUIRED_CONSENTS_VALUE,
+  canApproveSign, canResumeApprovedSign, makeSignToken, normalizeSignConsents, SIGN_REQUIRED_CONSENTS, SIGN_REQUIRED_CONSENTS_VALUE,
   scrubPublicSignSubmission, signSubmissionPatch, validateSignData,
 } from '../lib/domain/sign';
 import { contractToSignPublic, isContractSignActive, SIGN_LINK_TTL_MS } from '../lib/firebase/contract-sign-public';
@@ -77,6 +77,22 @@ const scrubPatch = scrubPublicSignSubmission();
 check('signed public slot removes signature', scrubPatch.sign_signature, null);
 check('signed public slot removes consent details', scrubPatch.sign_consents, null);
 check('signed public slot removes signer identity', scrubPatch.customer_id, null);
+check('approved sign can resume missing agreement step', canResumeApprovedSign({
+  sign_status: '서명완료',
+  provider_agreement_sent: '',
+  sign_signature: 'data:image/png;base64,AA==',
+  sign_consents: SIGN_REQUIRED_CONSENTS_VALUE,
+}), true);
+check('completed agreement step needs no recovery', canResumeApprovedSign({
+  sign_status: '서명완료',
+  provider_agreement_sent: 'yes',
+  sign_signature: 'data:image/png;base64,AA==',
+  sign_consents: SIGN_REQUIRED_CONSENTS_VALUE,
+}), false);
+check('recovery rejects completed state without evidence', canResumeApprovedSign({
+  sign_status: '서명완료',
+  provider_agreement_sent: '',
+}), false);
 
 const rules = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'database.rules.json'), 'utf8')).rules.contract_sign.$token;
 check('anonymous write requires sent state', rules['.write'].includes("data.child('status').val() === 'sent'"), true);

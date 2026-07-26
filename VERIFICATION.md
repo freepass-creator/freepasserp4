@@ -1580,3 +1580,22 @@ Next 개발 서버와 production build가 같은 `.next`를 사용하면 실행 
 ### 남은 검증
 
 - Firebase 환경에서 익명 제출 → 영업자 승인 → 계약 원본 증적 확인 → 공개 슬롯 개인정보 삭제를 실제 계정으로 확인해야 한다.
+
+---
+
+## 2026-07-26 — 전자서명 승인 중간 실패 복구
+
+### 판정
+
+**PASS**
+
+- 서명완료이지만 약정발송이 누락되고 유효 증적이 남은 상태만 복구 대상으로 판정한다.
+- 이미 완료된 계약과 증적이 없는 계약은 복구 대상에서 제외된다.
+- 복구 실행은 계약 증적 저장을 반복하지 않고 후속 단계만 재시도한다.
+
+### 실행 결과
+
+- `npm.cmd run typecheck`: PASS
+- `node --import tsx scripts/sim-contract-sign-rules.mts`: 52/52 PASS
+- `node --import tsx scripts/sim-agent.mts`: 39/39 PASS
+- production build: 실행 중인 개발 서버 보호를 위해 보류
