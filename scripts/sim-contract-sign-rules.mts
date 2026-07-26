@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   canApproveSign, makeSignToken, normalizeSignConsents, SIGN_REQUIRED_CONSENTS, SIGN_REQUIRED_CONSENTS_VALUE,
-  validateSignData,
+  scrubPublicSignSubmission, signSubmissionPatch, validateSignData,
 } from '../lib/domain/sign';
 import { contractToSignPublic, isContractSignActive, SIGN_LINK_TTL_MS } from '../lib/firebase/contract-sign-public';
 
@@ -61,6 +61,22 @@ assert.throws(() => validateSignData({ ...validSignData, signature: 'data:image/
 passed++;
 assert.throws(() => validateSignData({ ...validSignData, signature: `data:image/png;base64,${'A'.repeat(600000)}` }), /PNG/);
 passed++;
+const submissionPatch = signSubmissionPatch({
+  customer_name: '홍길동',
+  customer_phone: '010-1234-5678',
+  customer_id: 'customer-id',
+  sign_signature: 'data:image/png;base64,AA==',
+  sign_consents: SIGN_REQUIRED_CONSENTS_VALUE,
+  sign_consent_version: 'v1',
+  sign_signed_at: 123,
+});
+check('approved contract keeps signature evidence', submissionPatch.sign_signature, 'data:image/png;base64,AA==');
+check('approved contract keeps consent evidence', submissionPatch.sign_consents, SIGN_REQUIRED_CONSENTS_VALUE);
+check('approved contract keeps signer identity', submissionPatch.customer_id, 'customer-id');
+const scrubPatch = scrubPublicSignSubmission();
+check('signed public slot removes signature', scrubPatch.sign_signature, null);
+check('signed public slot removes consent details', scrubPatch.sign_consents, null);
+check('signed public slot removes signer identity', scrubPatch.customer_id, null);
 
 const rules = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'database.rules.json'), 'utf8')).rules.contract_sign.$token;
 check('anonymous write requires sent state', rules['.write'].includes("data.child('status').val() === 'sent'"), true);

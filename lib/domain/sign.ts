@@ -41,6 +41,38 @@ export function validateSignData(data: SignData): void {
   normalizeSignConsents(data.consents);
 }
 
+export function signSubmissionPatch(contract: EntityRecord): EntityRecord {
+  return {
+    customer_name: contract.customer_name || '',
+    customer_phone: contract.customer_phone || '',
+    customer_id: contract.customer_id || '',
+    customer_address: contract.customer_address || '',
+    driver_license_no: contract.driver_license_no || '',
+    emergency_name: contract.emergency_name || '',
+    emergency_phone: contract.emergency_phone || '',
+    sign_signature: contract.sign_signature || '',
+    sign_consents: contract.sign_consents || '',
+    sign_consent_version: contract.sign_consent_version || '',
+    sign_signed_at: contract.sign_signed_at || null,
+  };
+}
+
+export function scrubPublicSignSubmission(): EntityRecord {
+  return {
+    customer_name: null,
+    customer_phone: null,
+    customer_id: null,
+    customer_address: null,
+    driver_license_no: null,
+    emergency_name: null,
+    emergency_phone: null,
+    sign_signature: null,
+    sign_consents: null,
+    sign_consent_version: null,
+    sign_signed_at: null,
+  };
+}
+
 export function canApproveSign(contract?: EntityRecord | null): boolean {
   const consents = String(contract?.sign_consents || '');
   return String(contract?.sign_status || '') === '검토대기'
@@ -151,10 +183,19 @@ export async function approveSign(contract: EntityRecord): Promise<void> {
   }
   const co = getCompanyId();
   const code = String(contract.contract_code);
-  await getStore().update('contract', co, code, { sign_status: '서명완료', signed_pdf_url: '전자서명 완료' });
+  await getStore().update('contract', co, code, {
+    ...signSubmissionPatch(contract),
+    sign_status: '서명완료',
+    signed_pdf_url: '전자서명 완료',
+  });
   const token = String(contract.sign_token || '');
   if (token) {
-    try { await writeContractSign(token, { status: 'signed', sign_status: '서명완료', contract_code: code }); } catch { /* best-effort */ }
+    await writeContractSign(token, {
+      ...scrubPublicSignSubmission(),
+      status: 'signed',
+      sign_status: '서명완료',
+      contract_code: code,
+    });
   }
   const fresh = (await getStore().get('contract', co, code)) || contract;
   // 전자서명 승인(영업자/관리자가 손님 서명 검토 후)이 provider 스텝(약정발송)을 진행하는 정당 경로 — 엔진 actor 인가 우회(system).

@@ -1557,3 +1557,26 @@ Next 개발 서버와 production build가 같은 `.next`를 사용하면 실행 
 - `node --import tsx scripts/sim-agent.mts`: 39/39 PASS
 - `database.rules.json` JSON 파싱: PASS
 - production build: 실행 중인 개발 서버 보호를 위해 보류
+
+---
+
+## 2026-07-26 — 전자서명 증적 확정·공개 개인정보 정리
+
+### 판정
+
+**자동 검증 PASS / Firebase 통합 검증 보류**
+
+- 공개 슬롯의 서명·동의·본인확인 필드가 관리자 검토 객체에 모두 병합된다.
+- 승인된 계약 원본에는 서명·동의·신원 증적이 보존된다.
+- 서명 완료 공개 슬롯에서는 제출 개인정보와 서명 데이터가 삭제된다.
+
+### 실행 결과
+
+- `npm.cmd run typecheck`: PASS
+- `node --import tsx scripts/sim-contract-sign-rules.mts`: 49/49 PASS
+- `node --import tsx scripts/sim-agent.mts`: 39/39 PASS
+- production build: 실행 중인 개발 서버 보호를 위해 보류
+
+### 남은 검증
+
+- Firebase 환경에서 익명 제출 → 영업자 승인 → 계약 원본 증적 확인 → 공개 슬롯 개인정보 삭제를 실제 계정으로 확인해야 한다.

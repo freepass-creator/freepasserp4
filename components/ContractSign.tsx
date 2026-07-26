@@ -29,8 +29,16 @@ export function ContractSign({ contractCode }: { contractCode: string }) {
             ...row,
             sign_status: m.sign_status || row.sign_status,
             sign_signature: m.sign_signature || row.sign_signature,
+            sign_consents: m.sign_consents || row.sign_consents,
+            sign_consent_version: m.sign_consent_version || row.sign_consent_version,
+            sign_signed_at: m.sign_signed_at || row.sign_signed_at,
             customer_name: m.customer_name || row.customer_name,
             customer_phone: m.customer_phone || row.customer_phone,
+            customer_id: m.customer_id || row.customer_id,
+            customer_address: m.customer_address || row.customer_address,
+            driver_license_no: m.driver_license_no || row.driver_license_no,
+            emergency_name: m.emergency_name || row.emergency_name,
+            emergency_phone: m.emergency_phone || row.emergency_phone,
           });
           return;
         }
