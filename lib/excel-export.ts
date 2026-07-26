@@ -7,6 +7,7 @@ import { priceList, creditDisplay, canonProductType } from '@/lib/domain/product
 import { excelMonths } from '@/lib/domain/product-filters';
 import { fuelDisplay, fuelEmbeddedCc } from '@/lib/domain/vehicle-master-match';
 import { BRAND } from '@/lib/brand';
+import type { Role } from '@/lib/domain/deal';
 
 const str = (v: unknown) => (v == null ? '' : String(v));
 const num = (v: unknown) => (v == null || v === '' ? '' : Number(v) || '');
@@ -118,15 +119,17 @@ export async function downloadProductsExcel(data: EntityRecord[], dateStr: strin
   XLSX.writeFile(wb, `${BRAND}_상품_${dateStr}.xlsx`);
 }
 
-/** 정산 목록 xlsx — 순수익(net)은 관리자만 포함. */
-export async function downloadSettlementsExcel(data: EntityRecord[], dateStr: string, includeNet: boolean): Promise<void> {
+/** 정산 목록 xlsx — 관리자=전체, 공급사=회사청구, 영업=영업지급만 포함. */
+export async function downloadSettlementsExcel(data: EntityRecord[], dateStr: string, role: Role): Promise<void> {
   const XLSX = await import('xlsx');
   const cols: [string, (s: EntityRecord) => string | number][] = [
     ['정산코드', (s) => str(s.settlement_code)], ['계약코드', (s) => str(s.contract_code)],
     ['계약자', (s) => str(s.customer_name)], ['차량번호', (s) => str(s.car_number)],
     ['공급사', (s) => str(s.provider_company_code)], ['영업자', (s) => str(s.agent_code)],
-    ['월대여료', (s) => num(s.rent_amount)], ['공급사청구', (s) => num(s.fee_amount)], ['영업지급', (s) => num(s.agent_payout)],
-    ...(includeNet ? [['순수익', (s: EntityRecord) => num(s.net_amount)] as [string, (s: EntityRecord) => string | number]] : []),
+    ['월대여료', (s) => num(s.rent_amount)],
+    ...(role !== 'agent' ? [['공급사청구', (s: EntityRecord) => num(s.fee_amount)] as [string, (s: EntityRecord) => string | number]] : []),
+    ...(role !== 'provider' ? [['영업지급', (s: EntityRecord) => num(s.agent_payout)] as [string, (s: EntityRecord) => string | number]] : []),
+    ...(role === 'admin' ? [['순수익', (s: EntityRecord) => num(s.net_amount)] as [string, (s: EntityRecord) => string | number]] : []),
     ['환수', (s) => num(s.clawback_amount)], ['상태', (s) => str(s.settlement_status)], ['계약일', (s) => str(s.contract_date)],
   ];
   const header = cols.map((c) => c[0]);

@@ -247,8 +247,8 @@ export default function ContractsSettlement() {
           {role === 'admin' && st === '환수대기' && <Btn size="sm" onClick={() => setStatus('환수결정')}>환수 확정</Btn>}
         </div>
         <div style={{ margin: '0 14px', border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg, overflow: 'hidden' }}>
-          {amtRow('공급사 청구 (R1)', 'fee_amount', Number(s.fee_amount) || 0, String(s.settlement_code))}
-          {amtRow('영업자 지급 (R2)', 'agent_payout', Number(s.agent_payout) || 0, String(s.settlement_code))}
+          {role !== 'agent' && amtRow('공급사 청구 (R1)', 'fee_amount', Number(s.fee_amount) || 0, String(s.settlement_code))}
+          {role !== 'provider' && amtRow('영업자 지급 (R2)', 'agent_payout', Number(s.agent_payout) || 0, String(s.settlement_code))}
           {role === 'admin' && kv('순수익 (R1−R2)', `${won((Number(s.fee_amount) || 0) - (Number(s.agent_payout) || 0))}원`, true)}
           {cb > 0 ? kv('환수액', `${won(cb)}원`) : null}
         </div>
@@ -294,7 +294,7 @@ export default function ContractsSettlement() {
         onMobileSwapKeyChange={setSwapKey}
         listTools={{
           search: { value: q, onChange: setQ, placeholder: '계약·차번·계약자·전화·영업…' },
-          action: setts.length ? { label: '엑셀', icon: Download, onClick: () => downloadSettlementsExcel(setts, new Date().toISOString().slice(0, 10), role === 'admin') } : undefined,
+          action: setts.length ? { label: '엑셀', icon: Download, onClick: () => downloadSettlementsExcel(setts, new Date().toISOString().slice(0, 10), role) } : undefined,
           sort: { value: sort, onChange: (v) => setSort(v as ContSort | ''), options: CONT_SORTS },
           filter: {
             count: filterActive,
