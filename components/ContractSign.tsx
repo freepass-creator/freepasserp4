@@ -4,8 +4,8 @@ import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { getRole, type Role } from '@/lib/domain/deal';
-import { createSignToken, approveSign, rejectSign } from '@/lib/domain/sign';
-import { readContractSign, signPublicToContract } from '@/lib/firebase/contract-sign-public';
+import { createSignToken, approveSign, rejectSign, revokeSignLink } from '@/lib/domain/sign';
+import { isContractSignActive, readContractSign, signPublicToContract } from '@/lib/firebase/contract-sign-public';
 import { Btn, C, toneText, FW, FS } from '@/components/ui';
 import { toast } from '@/components/Toaster';
 import { copyText } from '@/lib/clipboard';
@@ -71,6 +71,13 @@ export function ContractSign({ contractCode }: { contractCode: string }) {
     catch (e) { toast('반려 실패: ' + ((e as Error)?.message || ''), 'error'); }
     finally { setBusy(false); }
   };
+  const revoke = async () => {
+    setBusy(true);
+    try { await revokeSignLink(c); await load(); toast('서명 링크를 해지했습니다', 'ok'); }
+    catch (e) { toast('링크 해지 실패: ' + ((e as Error)?.message || ''), 'error'); }
+    finally { setBusy(false); }
+  };
+  const active = isContractSignActive(c);
   const stColor = st === '서명완료' ? C.ok : st === '검토대기' ? toneText('amber') : st === '발송' ? toneText('blue') : C.faint;
 
   return (
@@ -80,14 +87,16 @@ export function ContractSign({ contractCode }: { contractCode: string }) {
         <span style={{ fontSize: FS.micro, fontWeight: FW.label, color: stColor }}>{st}</span>
         <span style={{ flex: 1 }} />
         {canAct && st === '미발송' && <Btn size="sm" onClick={send} disabled={busy}>계약서 발송</Btn>}
-        {canAct && st === '발송' && <><Btn variant="ghost" size="sm" onClick={copy}>링크</Btn><Btn variant="ghost" size="sm" onClick={send} disabled={busy}>재발송</Btn><Btn variant="ghost" size="sm" onClick={load}>새로고침</Btn></>}
+        {canAct && st === '발송' && active && <><Btn variant="ghost" size="sm" onClick={copy}>링크</Btn><Btn variant="ghost" size="sm" onClick={send} disabled={busy}>재발송</Btn><Btn variant="ghost" size="sm" onClick={revoke} disabled={busy}>해지</Btn><Btn variant="ghost" size="sm" onClick={load}>새로고침</Btn></>}
+        {canAct && st === '발송' && !active && <Btn size="sm" onClick={send} disabled={busy}>새 링크 발급</Btn>}
         {canAct && st === '검토대기' && <><Btn variant="ghost" size="sm" onClick={reject} disabled={busy}>반려</Btn><Btn size="sm" onClick={approve} disabled={busy}>승인</Btn></>}
       </div>
       {/* 서명 PNG = 투명배경·짙은잉크(#0f1830) → 다크에서도 흰 지면 유지(C.taupeBg면 서명 안 보임). sign 캔버스·PDF와 동일 예외. */}
       {st === '검토대기' && c.sign_signature ? <img src={String(c.sign_signature)} alt="서명" style={{ maxWidth: 180, border: `1px solid ${C.line}`, borderRadius: 4, background: '#fff' }} /> : null}
       {st === '검토대기' && <div style={{ fontSize: FS.micro, color: C.faint }}>{[c.customer_name, c.customer_phone].filter(Boolean).join(' · ')} 서명 제출됨. 승인 시 약정발송 완료.</div>}
       {st === '미발송' && <div style={{ fontSize: FS.micro, color: C.faint }}>약정 완료 후 서명 링크를 만들어 손님에게 전달하세요.</div>}
-      {st === '발송' && <div style={{ fontSize: FS.micro, color: C.faint }}>손님 서명 대기 중. 손님이 제출하면 새로고침으로 확인.</div>}
+      {st === '발송' && active && <div style={{ fontSize: FS.micro, color: C.faint }}>손님 서명 대기 중. 링크는 발급 후 7일간 유효합니다.</div>}
+      {st === '발송' && !active && <div style={{ fontSize: FS.micro, color: C.warn }}>링크가 만료되었거나 해지되었습니다. 새 링크를 발급하세요.</div>}
       {st === '서명완료' && <div style={{ fontSize: FS.micro, color: C.ok }}>전자서명 완료 — 계약 확정.</div>}
     </div>
   );

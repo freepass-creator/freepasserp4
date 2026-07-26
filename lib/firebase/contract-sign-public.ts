@@ -12,6 +12,13 @@ export type ContractSignRec = EntityRecord & {
   contract_code?: string;
 };
 
+export const SIGN_LINK_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+export function isContractSignActive(record?: ContractSignRec | EntityRecord | null, at = Date.now()): boolean {
+  if (!record || record.revoked_at || record.sign_revoked_at) return false;
+  const expires = Number(record.expires_at || record.sign_expires_at || 0);
+  return !expires || expires > at;
+}
+
 export async function readContractSign(token: string): Promise<ContractSignRec | null> {
   if (!firebaseReady() || !token) return null;
   const db = getRtdb();
@@ -60,6 +67,8 @@ export function contractToSignPublic(c: EntityRecord, token: string, status = 's
     companyId: c.companyId,
     sign_status: status === 'sent' ? '발송' : status === 'pending_review' ? '검토대기' : status === 'signed' ? '서명완료' : c.sign_status,
     created_at: c.sign_sent_at || Date.now(),
+    expires_at: c.sign_expires_at || (Date.now() + SIGN_LINK_TTL_MS),
+    revoked_at: c.sign_revoked_at || null,
   };
 }
 

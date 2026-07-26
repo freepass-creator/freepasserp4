@@ -1449,3 +1449,31 @@ Next 개발 서버와 production build가 같은 `.next`를 사용하면 실행 
 - 전체 시뮬레이션·차량 마스터 검증: PASS
 - 개발 서버 `/inventory`: HTTP 200
 - production build: 서버 유지 요청으로 보류
+
+---
+
+## 2026-07-26 — 전자서명 링크 만료·폐기 검증
+
+### 판정
+
+**자동 검증 PASS / Firebase 배포 검증 보류**
+
+- 새 링크는 기본 7일 만료 시각을 가진다.
+- 유효 링크 재발송은 토큰을 유지하고, 만료·폐기 링크 재발급은 새 토큰을 만든다.
+- 익명 읽기·서명 제출은 유효한 발송 링크에만 허용된다.
+- 계약 소유자·채널 관리자·플랫폼 관리자는 만료·폐기 링크 상태를 확인할 수 있다.
+- 만료 시각은 생성 시각 이후, 최대 30일 이내이며 생성 후 임의 변경할 수 없다.
+
+### 실행 결과
+
+- `npm.cmd run typecheck`: PASS
+- `node --import tsx scripts/sim-contract-sign-rules.mts`: 23/23 PASS
+- `node --import tsx scripts/sim-agent.mts`: 39/39 PASS
+- `database.rules.json` JSON 파싱: PASS
+- `git diff --check`: PASS
+- production build: 실행 중인 개발 서버 보호를 위해 보류
+
+### 남은 운영 검증
+
+- 현재 환경에는 Firebase 설정이 없어 실제 Rules 배포·에뮬레이터 검증을 수행하지 않았다.
+- 규칙 게시 후 익명 서명자, 계약 소유 영업자, 채널 관리자, 플랫폼 관리자 계정으로 역할별 스모크가 필요하다.

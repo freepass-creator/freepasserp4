@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { contractToSignPublic } from '../lib/firebase/contract-sign-public';
+import { contractToSignPublic, isContractSignActive, SIGN_LINK_TTL_MS } from '../lib/firebase/contract-sign-public';
 
 let passed = 0;
 const check = (name: string, actual: unknown, expected: unknown) => {
@@ -23,6 +23,10 @@ const publicSlot = contractToSignPublic({
 check('public slot carries agent uid ownership', publicSlot.agent_uid, 'agent-1');
 check('public slot carries channel ownership', publicSlot.agent_channel_code, 'CH-1');
 check('public slot carries provider ownership', publicSlot.provider_company_code, 'SUP-1');
+check('new public slot expires in seven days', Number(publicSlot.expires_at) > Date.now() + SIGN_LINK_TTL_MS - 5000, true);
+check('active link accepted before expiry', isContractSignActive({ expires_at: Date.now() + 1000 }), true);
+check('expired link rejected', isContractSignActive({ expires_at: Date.now() - 1 }), false);
+check('revoked link rejected', isContractSignActive({ expires_at: Date.now() + 1000, revoked_at: Date.now() }), false);
 
 const rules = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'database.rules.json'), 'utf8')).rules.contract_sign.$token;
 check('anonymous write requires sent state', rules['.write'].includes("data.child('status').val() === 'sent'"), true);
@@ -33,5 +37,9 @@ check('contract code is immutable', rules['.validate'].includes("newData.child('
 check('amount snapshot is immutable', rules['.validate'].includes("rent_amount_snapshot"), true);
 check('signature has size limit', rules.sign_signature['.validate'].includes('600000'), true);
 check('unknown anonymous fields are immutable', rules.$other['.validate'].includes('newData.val() === data.val()'), true);
+check('anonymous read checks expiry', rules['.read'].includes("expires_at") && rules['.read'].includes('> now'), true);
+check('anonymous read checks revocation', rules['.read'].includes("revoked_at"), true);
+check('anonymous write checks expiry', rules['.write'].includes("expires_at") && rules['.write'].includes('> now'), true);
+check('expiry becomes immutable', rules['.validate'].includes("newData.child('expires_at').val() === data.child('expires_at').val()"), true);
 
 console.log(`contract sign rules simulation: ${passed}/${passed} PASS`);

@@ -8,7 +8,7 @@ import { getCompanyId } from '@/lib/tenant';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { applyStepCheck } from '@/lib/domain/settlement-engine';
 import {
-  contractToSignPublic, readContractSign, signPublicToContract, writeContractSign,
+  contractToSignPublic, isContractSignActive, readContractSign, SIGN_LINK_TTL_MS, signPublicToContract, writeContractSign,
 } from '@/lib/firebase/contract-sign-public';
 
 export type SignData = {
@@ -23,8 +23,16 @@ export function makeSignToken(): string { return `sign_${Date.now().toString(36)
  *  공개 슬롯 실패 시 throw — 손님 /sign 빈화면 방지(규칙 미배포 등). */
 export async function createSignToken(contract: EntityRecord): Promise<string> {
   const co = getCompanyId();
-  const token = String(contract.sign_token || '') || makeSignToken();
-  const patch = { sign_token: token, sign_status: '발송', sign_sent_at: Date.now() };
+  const previousToken = String(contract.sign_token || '');
+  const previousPublic = previousToken ? await readContractSign(previousToken) : null;
+  const reuse = previousToken && isContractSignActive(previousPublic || contract);
+  const token = reuse ? previousToken : makeSignToken();
+  const now = Date.now();
+  const patch = {
+    sign_token: token, sign_status: '발송', sign_sent_at: now,
+    sign_expires_at: reuse ? Number(previousPublic?.expires_at || contract.sign_expires_at) : now + SIGN_LINK_TTL_MS,
+    sign_revoked_at: null,
+  };
   await getStore().update('contract', co, String(contract.contract_code), patch);
   try {
     await writeContractSign(token, contractToSignPublic({ ...contract, ...patch }, token, 'sent'));
@@ -34,6 +42,20 @@ export async function createSignToken(contract: EntityRecord): Promise<string> {
     throw new Error(`서명 공개 슬롯 저장 실패 — database rules 배포를 확인하세요. (${msg})`);
   }
   return token;
+}
+
+export async function revokeSignLink(contract: EntityRecord): Promise<void> {
+  const co = getCompanyId();
+  const code = String(contract.contract_code || '');
+  const token = String(contract.sign_token || '');
+  const now = Date.now();
+  await getStore().update('contract', co, code, {
+    sign_status: '미발송', sign_revoked_at: now,
+  });
+  if (token) await writeContractSign(token, {
+    contract_code: code, status: 'revoked', sign_status: '미발송',
+    revoked_at: now, expires_at: Number(contract.sign_expires_at || now),
+  });
 }
 
 /** 공개 서명 페이지용 — 공개 슬롯 우선, 없으면 store(로그인 기기) fallback. */
