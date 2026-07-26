@@ -27,6 +27,8 @@ const publicSlot = contractToSignPublic({
 check('public slot carries agent uid ownership', publicSlot.agent_uid, 'agent-1');
 check('public slot carries channel ownership', publicSlot.agent_channel_code, 'CH-1');
 check('public slot carries provider ownership', publicSlot.provider_company_code, 'SUP-1');
+check('new public slot omits customer name', publicSlot.customer_name, undefined);
+check('new public slot omits customer phone', publicSlot.customer_phone, undefined);
 check('new public slot expires in seven days', Number(publicSlot.expires_at) > Date.now() + SIGN_LINK_TTL_MS - 5000, true);
 check('active link accepted before expiry', isContractSignActive({ expires_at: Date.now() + 1000 }), true);
 check('expired link rejected', isContractSignActive({ expires_at: Date.now() - 1 }), false);

@@ -55,8 +55,6 @@ export function contractToSignPublic(c: EntityRecord, token: string, status = 's
     contract_status: c.contract_status,
     car_number: c.car_number_snapshot || c.car_number || '',
     vehicle_name: c.vehicle_name_snapshot || '',
-    customer_name: c.customer_name || '',
-    customer_phone: c.customer_phone || '',
     rent_amount_snapshot: c.rent_amount_snapshot,
     deposit_amount_snapshot: c.deposit_amount_snapshot,
     rent_month_snapshot: c.rent_month_snapshot,

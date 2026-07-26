@@ -238,8 +238,11 @@ export async function rejectSign(contract: EntityRecord, reason?: string): Promi
   if (token) {
     try {
       await writeContractSign(token, {
-        contract_code: code, status: 'sent', sign_status: '발송',
-        sign_signature: '', reject_reason: rj,
+        ...scrubPublicSignSubmission(),
+        contract_code: code,
+        status: 'sent',
+        sign_status: '발송',
+        reject_reason: rj,
       });
     } catch { /* best-effort */ }
   }

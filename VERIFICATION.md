@@ -1618,3 +1618,23 @@ Next 개발 서버와 production build가 같은 `.next`를 사용하면 실행 
 - `node --import tsx scripts/sim-contract-sign-rules.mts`: 55/55 PASS
 - `node --import tsx scripts/sim-agent.mts`: 39/39 PASS
 - production build: 실행 중인 개발 서버 보호를 위해 보류
+
+---
+
+## 2026-07-26 — 전자서명 공개 개인정보 최소화
+
+### 판정
+
+**PASS**
+
+- 신규 공개 슬롯에 계약 원본의 고객 이름과 전화번호가 포함되지 않는다.
+- 반려 후 재서명 공개 슬롯에서 이전 제출 개인정보와 서명 증적이 제거된다.
+- 계약 원본과 관리자 검토 데이터는 삭제하지 않는다.
+
+### 실행 결과
+
+- `npm.cmd run typecheck`: PASS
+- `node --import tsx scripts/sim-contract-sign-rules.mts`: 57/57 PASS
+- `node --import tsx scripts/sim-agent.mts`: 39/39 PASS
+- `database.rules.json` JSON 파싱: PASS
+- production build: 실행 중인 개발 서버 보호를 위해 보류
