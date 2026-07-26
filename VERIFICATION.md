@@ -1,5 +1,15 @@
 # 독립 검증 결과
 
+## 2026-07-26 계약 RTDB 쓰기 경계
+
+결과: **PASS (정적 규칙·로컬 시뮬레이션 기준)**
+
+- `scripts/sim-contract-rules.mts`: 23/23 PASS
+- 차단 확인: 비참여자 쓰기, 귀속 이전, 금액·요율 스냅샷 변조, 상대 역할 단계 수정, 미완료 강제 완료, 임의 상태
+- 정상 확인: 역할별 단계 수정, 관리자 교정, 서명완료 후 약정발송 예외, 전체 체크 후 계약완료
+- JSON 파싱, typecheck, chat rules 40/40, agent 39/39, lifecycle, settlement 15/15, phase12 25/25, vehicle 23/23: PASS
+- 미검증: Firebase Rules 컴파일·Emulator·실계정. 저장소 규칙은 아직 운영에 게시하지 않음.
+
 ## 2026-07-26 채팅 RTDB 쓰기 경계
 
 결과: **PASS (정적 규칙·로컬 시뮬레이션 기준)**
