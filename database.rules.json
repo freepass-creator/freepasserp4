@@ -91,7 +91,26 @@
     "contract_sign": {
       "$token": {
         ".read": true,
-        ".write": "auth != null || (data.exists() && data.child('status').val() !== '서명완료')"
+        ".write": "(auth != null && root.child('users').child(auth.uid).child('status').val() !== 'pending' && (root.child('users').child(auth.uid).child('role').val() === 'admin' || (root.child('users').child(auth.uid).child('role').val() === 'agent' && ((data.exists() && data.child('agent_uid').val() === auth.uid) || (!data.exists() && newData.child('agent_uid').val() === auth.uid))) || ((root.child('users').child(auth.uid).child('role').val() === 'agent_admin' || root.child('users').child(auth.uid).child('role').val() === 'agent_manager') && root.child('users').child(auth.uid).child('agent_channel_code').val() !== null && root.child('users').child(auth.uid).child('agent_channel_code').val() !== '' && ((data.exists() && data.child('agent_channel_code').val() === root.child('users').child(auth.uid).child('agent_channel_code').val()) || (!data.exists() && newData.child('agent_channel_code').val() === root.child('users').child(auth.uid).child('agent_channel_code').val()))))) || (auth == null && data.exists() && data.child('status').val() === 'sent' && newData.child('status').val() === 'pending_review')",
+        ".validate": "newData.hasChildren(['sign_token', 'status', 'contract_code']) && newData.child('sign_token').val() === $token && (!data.exists() || (newData.child('contract_code').val() === data.child('contract_code').val() && newData.child('product_code').val() === data.child('product_code').val() && newData.child('agent_uid').val() === data.child('agent_uid').val() && newData.child('agent_channel_code').val() === data.child('agent_channel_code').val() && newData.child('provider_company_code').val() === data.child('provider_company_code').val() && newData.child('rent_amount_snapshot').val() === data.child('rent_amount_snapshot').val() && newData.child('deposit_amount_snapshot').val() === data.child('deposit_amount_snapshot').val() && newData.child('rent_month_snapshot').val() === data.child('rent_month_snapshot').val()))",
+        "status": {
+          ".validate": "(auth != null && (newData.val() === 'sent' || newData.val() === 'pending_review' || newData.val() === 'signed')) || (auth == null && data.val() === 'sent' && newData.val() === 'pending_review')"
+        },
+        "sign_status": {
+          ".validate": "(auth != null && (newData.val() === '발송' || newData.val() === '검토대기' || newData.val() === '서명완료')) || (auth == null && data.val() === '발송' && newData.val() === '검토대기')"
+        },
+        "customer_name": { ".validate": "auth != null || (newData.isString() && newData.val().length > 0 && newData.val().length <= 40)" },
+        "customer_phone": { ".validate": "auth != null || (newData.isString() && newData.val().length > 0 && newData.val().length <= 30)" },
+        "customer_id": { ".validate": "auth != null || (!newData.exists() || (newData.isString() && newData.val().length <= 30))" },
+        "customer_address": { ".validate": "auth != null || (!newData.exists() || (newData.isString() && newData.val().length <= 200))" },
+        "driver_license_no": { ".validate": "auth != null || (!newData.exists() || (newData.isString() && newData.val().length <= 50))" },
+        "emergency_name": { ".validate": "auth != null || (!newData.exists() || (newData.isString() && newData.val().length <= 40))" },
+        "emergency_phone": { ".validate": "auth != null || (!newData.exists() || (newData.isString() && newData.val().length <= 30))" },
+        "sign_signature": { ".validate": "auth != null || (newData.isString() && newData.val().length > 0 && newData.val().length <= 600000)" },
+        "sign_consents": { ".validate": "auth != null || (newData.isString() && newData.val().length > 0 && newData.val().length <= 1000)" },
+        "sign_signed_at": { ".validate": "auth != null || (newData.isNumber() && newData.val() <= now + 5000)" },
+        "updated_at": { ".validate": "newData.isNumber() && newData.val() <= now + 5000" },
+        "$other": { ".validate": "auth != null || newData.val() === data.val()" }
       }
     },
     "proposals": { ".read": true, ".write": "auth != null" },

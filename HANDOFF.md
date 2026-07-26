@@ -1,5 +1,16 @@
 # 규격통일 핸드오프 (Claude ↔ Cursor)
 
+## 2026-07-26 전자서명 공개 슬롯 권한 강화
+
+- 기존 `contract_sign/{token}`은 링크만 존재하면 익명 사용자가 계약코드·금액·상태까지 임의 수정할 수 있었다.
+- 공개 슬롯에 `agent_uid`, `agent_channel_code`, `provider_company_code` 귀속 스냅샷을 추가했다.
+- 로그인 쓰기는 플랫폼 관리자, 소유 영업자, 소유 영업채널 관리자만 허용한다.
+- 익명 쓰기는 기존 상태 `sent`에서 `pending_review`로 넘어가는 최초 제출 한 번만 허용한다.
+- 계약코드·상품·조직 귀속·기간·금액 스냅샷은 생성 후 불변이다.
+- 고객 입력 길이, 서명 데이터 크기, 제출 시간과 알 수 없는 필드 변경을 검증한다.
+- `scripts/sim-contract-sign-rules.mts` 15/15, 계약 23/23, 영업 39/39, typecheck PASS.
+- 공개 읽기는 무작위 토큰을 bearer 링크로 사용하는 기존 구조를 유지한다. 토큰 유출 시 조회 위험은 별도 만료/해지 설계가 필요하다.
+
 ## 2026-07-26 정산 private 마이그레이션 도구
 
 - `lib/firebase/migrate-settlements-private.ts`에 V3·V4 정산 금액 이동 계획기와 dry-run 기본 실행기를 추가했다.

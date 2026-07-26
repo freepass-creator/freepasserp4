@@ -1,5 +1,14 @@
 # 독립 검증 결과
 
+## 2026-07-26 전자서명 공개 슬롯
+
+결과: **PASS (정적 Rules·로컬 시뮬레이션 기준)**
+
+- 익명 상태 전이·불변 필드·소유 영업조직·입력 제한: 15/15 PASS
+- JSON 파싱, typecheck, contract rules 23/23, agent 39/39, diff check: PASS
+- 잔여 위험: 공개 읽기는 토큰 보유자에게 허용되며 만료·명시적 해지 기능은 없음
+- Firebase Rules 실게시·Emulator·실계정/실브라우저 제출은 미검증
+
 ## 2026-07-26 정산 private 마이그레이션
 
 결과: **PASS (순수 계획·UI 기준)**
