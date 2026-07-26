@@ -9,7 +9,8 @@ import {
   isProviderOrgAdmin,
   organizationRole,
 } from '../lib/domain/authorization';
-import { mapRole, type Session } from '../lib/auth-session';
+import { mapRole, setSession, type Session } from '../lib/auth-session';
+import { mergeSettlementPrivate, splitSettlementPrivate } from '../lib/firebase/rtdb-settlements';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -86,5 +87,28 @@ check('contract reads recognize five-role organization scopes', v4ContractsRead.
 check('contract writes recognize provider admin', v4ContractsWrite.includes("'provider_admin'"), true);
 check('settlement reads distinguish channel and company', v4SettlementsRead.includes("'agent_admin'") && v4SettlementsRead.includes("'provider_admin'"), true);
 check('only platform admin changes settlement status', v4SettlementStatus.includes("role').val() === 'admin'"), true);
+
+const finance = {
+  _key: 'ST-1', settlement_code: 'ST-1', provider_company_code: 'P-100',
+  agent_code: 'AG-1', agent_channel_code: 'CH-100',
+  fee_rate: 0.1, fee_amount: 100000, agent_payout: 40000, net_amount: 60000,
+};
+const split = splitSettlementPrivate(finance);
+check('public settlement excludes provider finance', split.publicRecord.fee_amount, undefined);
+check('public settlement excludes agent finance', split.publicRecord.agent_payout, undefined);
+check('provider private keeps company ownership', split.providerRecord?.provider_company_code, 'P-100');
+check('agent private keeps channel ownership', split.agentRecord?.agent_channel_code, 'CH-100');
+setSession(provider);
+const providerView = mergeSettlementPrivate(split.publicRecord, split.providerRecord, split.agentRecord, split.adminRecord);
+check('provider view has R1', providerView.fee_amount, 100000);
+check('provider view hides R2', providerView.agent_payout, undefined);
+setSession(agent);
+const agentView = mergeSettlementPrivate(split.publicRecord, split.providerRecord, split.agentRecord, split.adminRecord);
+check('agent view has R2', agentView.agent_payout, 40000);
+check('agent view hides R1', agentView.fee_amount, undefined);
+setSession(admin);
+const adminView = mergeSettlementPrivate(split.publicRecord, split.providerRecord, split.agentRecord, split.adminRecord);
+check('admin view has derived net', adminView.net_amount, 60000);
+setSession(null);
 
 console.log(`authorization simulation: ${passed}/${passed} PASS`);

@@ -26,6 +26,7 @@ import {
   splitProductPrivate,
   stripProductCost,
 } from './rtdb-products';
+import { mergeSettlementPrivate, splitSettlementPrivate } from './rtdb-settlements';
 
 type Rec = Record<string, any>;
 
@@ -238,6 +239,48 @@ export class RtdbAdapter implements StoreAdapter {
     return [...map.values()];
   }
 
+  private async readSettlementPrivate(): Promise<{
+    provider: Map<string, EntityRecord>;
+    agent: Map<string, EntityRecord>;
+    admin: Map<string, EntityRecord>;
+  }> {
+    const empty = () => new Map<string, EntityRecord>();
+    const output = { provider: empty(), agent: empty(), admin: empty() };
+    const auth = getAuthClient()?.currentUser;
+    const sess = getSession();
+    if (!auth || !sess) return output;
+    const take = (snap: DataSnapshot, target: Map<string, EntityRecord>) => {
+      const val = snap.val() as Rec | null;
+      for (const [key, record] of Object.entries<any>(val || {})) {
+        if (record && typeof record === 'object') target.set(String(record.settlement_code || key), { ...record, _key: key });
+      }
+    };
+    try {
+      if (sess.role === 'admin') {
+        const [provider, agent, admin] = await Promise.all([
+          get(ref(this.db(), `${OVERLAY}/settlements_provider_private`)),
+          get(ref(this.db(), `${OVERLAY}/settlements_agent_private`)),
+          get(ref(this.db(), `${OVERLAY}/settlements_admin_private`)),
+        ]);
+        take(provider, output.provider); take(agent, output.agent); take(admin, output.admin);
+      } else if (sess.role === 'provider') {
+        const company = String(sess.company_code || sess.code || '');
+        if (company) take(await get(query(ref(this.db(), `${OVERLAY}/settlements_provider_private`), orderByChild('provider_company_code'), equalTo(company))), output.provider);
+      } else {
+        const reads: Promise<DataSnapshot>[] = [];
+        const code = String(sess.user_code || sess.code || auth.uid);
+        if (code) reads.push(get(query(ref(this.db(), `${OVERLAY}/settlements_agent_private`), orderByChild('agent_code'), equalTo(code))));
+        if (isAgentOrgAdmin(sess) && sess.agent_channel_code) {
+          reads.push(get(query(ref(this.db(), `${OVERLAY}/settlements_agent_private`), orderByChild('agent_channel_code'), equalTo(sess.agent_channel_code))));
+        }
+        for (const snap of await Promise.all(reads)) take(snap, output.agent);
+      }
+    } catch (e) {
+      console.warn('RTDB settlement private 조회 실패:', (e as Error).message);
+    }
+    return output;
+  }
+
   /** 관리자·자기 회사 공급사만 private 상품 원자를 읽어 공개 레코드에 병합한다. */
   private async readProductPrivate(): Promise<Map<string, EntityRecord>> {
     const auth = getAuthClient()?.currentUser;
@@ -329,6 +372,18 @@ export class RtdbAdapter implements StoreAdapter {
         map.set(k, cur as EntityRecord);
       }
       const result = [...map.values()];
+      if (entity === 'settlement') {
+        const privateMaps = await this.readSettlementPrivate();
+        return result.map((settlement) => {
+          const code = String(settlement.settlement_code || settlement._key);
+          return mergeSettlementPrivate(
+            settlement,
+            privateMaps.provider.get(code),
+            privateMaps.agent.get(code),
+            privateMaps.admin.get(code),
+          );
+        });
+      }
       // 매물엔 공급사 한글이름(provider_name) 부착 — 상세·목록 SSOT(파인더와 동일). 코드만 보이던 문제 해결.
       if (entity === 'product') {
         const privateMap = await this.readProductPrivate();
@@ -423,6 +478,13 @@ export class RtdbAdapter implements StoreAdapter {
           });
         }
         await dbUpdate(ref(this.db(), OVERLAY), multi);
+      } else if (entity === 'settlement') {
+        const { publicRecord, providerRecord, agentRecord, adminRecord } = splitSettlementPrivate(stored as EntityRecord);
+        const multi: Rec = { [`settlements/${key}`]: stripUndef(publicRecord as Rec) };
+        if (providerRecord) multi[`settlements_provider_private/${key}`] = stripUndef(providerRecord as Rec);
+        if (agentRecord) multi[`settlements_agent_private/${key}`] = stripUndef(agentRecord as Rec);
+        if (adminRecord && currentActor().role === 'admin') multi[`settlements_admin_private/${key}`] = stripUndef(adminRecord as Rec);
+        await dbUpdate(ref(this.db(), OVERLAY), multi);
       } else {
         await dbUpdate(ref(this.db(), `${OVERLAY}/${node}/${key}`), stored);
       }
@@ -470,6 +532,16 @@ export class RtdbAdapter implements StoreAdapter {
         for (const [field, value] of Object.entries(privatePatch)) {
           if (value !== undefined) multi[`products_private/${key}/${field}`] = value;
         }
+      }
+      await dbUpdate(ref(this.db(), OVERLAY), multi);
+    } else if (entity === 'settlement') {
+      const { publicRecord, providerRecord, agentRecord, adminRecord } = splitSettlementPrivate(p as EntityRecord);
+      const multi: Rec = {};
+      for (const [field, value] of Object.entries(publicRecord)) if (value !== undefined) multi[`settlements/${key}/${field}`] = value;
+      for (const [field, value] of Object.entries(providerRecord || {})) if (value !== undefined) multi[`settlements_provider_private/${key}/${field}`] = value;
+      for (const [field, value] of Object.entries(agentRecord || {})) if (value !== undefined) multi[`settlements_agent_private/${key}/${field}`] = value;
+      if (currentActor().role === 'admin') {
+        for (const [field, value] of Object.entries(adminRecord || {})) if (value !== undefined) multi[`settlements_admin_private/${key}/${field}`] = value;
       }
       await dbUpdate(ref(this.db(), OVERLAY), multi);
     } else {

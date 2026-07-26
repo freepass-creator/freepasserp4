@@ -1,5 +1,15 @@
 # 규격통일 핸드오프 (Claude ↔ Cursor)
 
+## 2026-07-26 정산 금액 private 노드 분리 골격
+
+- 신규 RTDB 쓰기는 `v4/settlements` 공개 진행정보, `settlements_provider_private` R1, `settlements_agent_private` R2, `settlements_admin_private` 관리자 금액으로 분리한다.
+- 공급사 역할은 자기 회사 R1, 영업자는 개인 R2, 영업채널 관리자는 채널 R2, 플랫폼 관리자는 양쪽을 병합한다.
+- 관리자 private `net_amount`가 없으면 R1-R2로 계산한다.
+- 기존 공개 정산은 역할별 필드만 호환 병합해 화면 기능을 유지한다.
+- Rules에 각 private 노드의 역할·조직 읽기와 create/update 경계를 추가했다.
+- 권한·분리 시뮬레이션 44/44, typecheck 및 영업 생애주기 PASS.
+- 미완료: 기존 공개 정산의 금액 필드 제거 dry-run 마이그레이션. 완료 전에는 과거 레코드의 SDK 원본 노출이 남는다.
+
 ## 2026-07-26 정산 금액 역할별 표시 경계
 
 - 계약진행 정산 상세에서 영업 역할은 영업 지급(R2), 공급사 역할은 공급사 청구(R1), 플랫폼 관리자는 R1·R2·순수익을 본다.

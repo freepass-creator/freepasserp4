@@ -1,5 +1,15 @@
 # 독립 검증 결과
 
+## 2026-07-26 정산 private 저장 골격
+
+결과: **PASS (신규 저장·애플리케이션 병합 기준)**
+
+- public/R1/R2/admin split 및 역할별 merge: authorization 44/44 PASS
+- RTDB adapter 신규 save/update 멀티패스 분리 적용
+- private Rules 조직별 읽기·쓰기 추가
+- JSON 파싱, typecheck, agent 39/39, diff check: PASS
+- 잔여 위험: 기존 public settlement 금액은 아직 마이그레이션되지 않음
+
 ## 2026-07-26 정산 표시·엑셀 역할 경계
 
 결과: **PASS (프레젠테이션 경계)**

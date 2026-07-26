@@ -215,6 +215,24 @@
           "fee_rate": { ".validate": "!data.exists() || newData.val() === data.val() || root.child('users').child(auth.uid).child('role').val() === 'admin'" }
         }
       },
+      "settlements_provider_private": {
+        ".read": "auth != null && root.child('users').child(auth.uid).child('status').val() !== 'pending' && (root.child('users').child(auth.uid).child('role').val() === 'admin' || ((root.child('users').child(auth.uid).child('role').val() === 'provider' || root.child('users').child(auth.uid).child('role').val() === 'provider_admin') && query.orderByChild === 'provider_company_code' && query.equalTo === root.child('users').child(auth.uid).child('company_code').val()))",
+        ".indexOn": ["provider_company_code"],
+        "$sid": {
+          ".write": "auth != null && root.child('users').child(auth.uid).child('status').val() !== 'pending' && newData.exists() && (root.child('users').child(auth.uid).child('role').val() === 'admin' || (!data.exists() && (((root.child('users').child(auth.uid).child('role').val() === 'provider' || root.child('users').child(auth.uid).child('role').val() === 'provider_admin') && newData.child('provider_company_code').val() === root.child('users').child(auth.uid).child('company_code').val()) || (root.child('users').child(auth.uid).child('role').val() === 'agent' && (newData.child('agent_code').val() === root.child('users').child(auth.uid).child('user_code').val() || newData.child('agent_code').val() === auth.uid)) || ((root.child('users').child(auth.uid).child('role').val() === 'agent_admin' || root.child('users').child(auth.uid).child('role').val() === 'agent_manager') && newData.child('agent_channel_code').val() === root.child('users').child(auth.uid).child('agent_channel_code').val()))))"
+        }
+      },
+      "settlements_agent_private": {
+        ".read": "auth != null && root.child('users').child(auth.uid).child('status').val() !== 'pending' && (root.child('users').child(auth.uid).child('role').val() === 'admin' || ((root.child('users').child(auth.uid).child('role').val() === 'agent_admin' || root.child('users').child(auth.uid).child('role').val() === 'agent_manager') && query.orderByChild === 'agent_channel_code' && query.equalTo === root.child('users').child(auth.uid).child('agent_channel_code').val()) || (root.child('users').child(auth.uid).child('role').val() === 'agent' && query.orderByChild === 'agent_code' && (query.equalTo === root.child('users').child(auth.uid).child('user_code').val() || query.equalTo === auth.uid)))",
+        ".indexOn": ["agent_code", "agent_channel_code"],
+        "$sid": {
+          ".write": "auth != null && root.child('users').child(auth.uid).child('status').val() !== 'pending' && newData.exists() && (root.child('users').child(auth.uid).child('role').val() === 'admin' || (!data.exists() && (((root.child('users').child(auth.uid).child('role').val() === 'provider' || root.child('users').child(auth.uid).child('role').val() === 'provider_admin') && newData.child('provider_company_code').val() === root.child('users').child(auth.uid).child('company_code').val()) || (root.child('users').child(auth.uid).child('role').val() === 'agent' && (newData.child('agent_code').val() === root.child('users').child(auth.uid).child('user_code').val() || newData.child('agent_code').val() === auth.uid)) || ((root.child('users').child(auth.uid).child('role').val() === 'agent_admin' || root.child('users').child(auth.uid).child('role').val() === 'agent_manager') && newData.child('agent_channel_code').val() === root.child('users').child(auth.uid).child('agent_channel_code').val()))))"
+        }
+      },
+      "settlements_admin_private": {
+        ".read": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'",
+        ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'"
+      },
       "admin_settlements": {
         ".read": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'",
         ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'"
