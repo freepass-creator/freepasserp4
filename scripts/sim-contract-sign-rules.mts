@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   canApproveSign, makeSignToken, normalizeSignConsents, SIGN_REQUIRED_CONSENTS, SIGN_REQUIRED_CONSENTS_VALUE,
+  validateSignData,
 } from '../lib/domain/sign';
 import { contractToSignPublic, isContractSignActive, SIGN_LINK_TTL_MS } from '../lib/firebase/contract-sign-public';
 
@@ -46,6 +47,20 @@ check('approval accepts reviewed signature and consent', canApproveSign({
 check('consents normalize to stable ids', normalizeSignConsents([...SIGN_REQUIRED_CONSENTS]), SIGN_REQUIRED_CONSENTS_VALUE);
 assert.throws(() => normalizeSignConsents(SIGN_REQUIRED_CONSENTS.slice(0, -1)), /필수 약관 동의/);
 passed++;
+const validSignData = {
+  customer_name: '홍길동',
+  customer_phone: '010-1234-5678',
+  signature: 'data:image/png;base64,AA==',
+  consents: [...SIGN_REQUIRED_CONSENTS],
+};
+validateSignData(validSignData);
+passed++;
+assert.throws(() => validateSignData({ ...validSignData, customer_phone: '1234' }), /연락처/);
+passed++;
+assert.throws(() => validateSignData({ ...validSignData, signature: 'data:image/svg+xml;base64,AA==' }), /PNG/);
+passed++;
+assert.throws(() => validateSignData({ ...validSignData, signature: `data:image/png;base64,${'A'.repeat(600000)}` }), /PNG/);
+passed++;
 
 const rules = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'database.rules.json'), 'utf8')).rules.contract_sign.$token;
 check('anonymous write requires sent state', rules['.write'].includes("data.child('status').val() === 'sent'"), true);
@@ -55,6 +70,8 @@ check('channel manager write requires owned channel', rules['.write'].includes("
 check('contract code is immutable', rules['.validate'].includes("newData.child('contract_code').val() === data.child('contract_code').val()"), true);
 check('amount snapshot is immutable', rules['.validate'].includes("rent_amount_snapshot"), true);
 check('signature has size limit', rules.sign_signature['.validate'].includes('600000'), true);
+check('signature must be PNG data url', rules.sign_signature['.validate'].includes("beginsWith('data:image/png;base64,')"), true);
+check('signed timestamp rejects stale client values', rules.sign_signed_at['.validate'].includes('now - 300000'), true);
 check('unknown anonymous fields are immutable', rules.$other['.validate'].includes('newData.val() === data.val()'), true);
 check('anonymous read checks expiry', rules['.read'].includes("expires_at") && rules['.read'].includes('> now'), true);
 check('anonymous read checks revocation', rules['.read'].includes("revoked_at"), true);

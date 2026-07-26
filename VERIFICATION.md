@@ -1537,3 +1537,23 @@ Next 개발 서버와 production build가 같은 `.next`를 사용하면 실행 
 - `node --import tsx scripts/sim-agent.mts`: 39/39 PASS
 - `database.rules.json` JSON 파싱: PASS
 - production build: 실행 중인 개발 서버 보호를 위해 보류
+
+---
+
+## 2026-07-26 — 전자서명 공개 제출 데이터 검증
+
+### 판정
+
+**자동 검증 PASS / Firebase 배포 검증 보류**
+
+- 정상 성명·연락처·PNG 서명·필수 동의 제출은 허용된다.
+- 짧은 연락처, SVG 서명, 600KB 초과 서명은 도메인에서 거부된다.
+- Rules는 PNG data URL 접두사와 최근 제출 시각을 요구한다.
+
+### 실행 결과
+
+- `npm.cmd run typecheck`: PASS
+- `node --import tsx scripts/sim-contract-sign-rules.mts`: 43/43 PASS
+- `node --import tsx scripts/sim-agent.mts`: 39/39 PASS
+- `database.rules.json` JSON 파싱: PASS
+- production build: 실행 중인 개발 서버 보호를 위해 보류

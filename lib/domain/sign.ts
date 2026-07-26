@@ -30,6 +30,17 @@ export function normalizeSignConsents(consents: string[]): string {
   return SIGN_REQUIRED_CONSENTS_VALUE;
 }
 
+export function validateSignData(data: SignData): void {
+  const name = data.customer_name.trim();
+  const phone = data.customer_phone.replace(/\D/g, '');
+  if (!name || name.length > 40) throw new Error('성명은 1~40자로 입력해 주세요.');
+  if (phone.length < 10 || phone.length > 11) throw new Error('올바른 연락처를 입력해 주세요.');
+  if (!data.signature.startsWith('data:image/png;base64,') || data.signature.length > 600000) {
+    throw new Error('유효한 PNG 전자서명이 필요합니다.');
+  }
+  normalizeSignConsents(data.consents);
+}
+
 export function canApproveSign(contract?: EntityRecord | null): boolean {
   const consents = String(contract?.sign_consents || '');
   return String(contract?.sign_status || '') === '검토대기'
@@ -107,6 +118,7 @@ export async function getContractByToken(token: string): Promise<EntityRecord | 
 /** 손님 서명 제출 — 공개 슬롯 갱신 + (가능하면) contract 동기화. */
 export async function submitSign(contractCode: string, data: SignData, token?: string): Promise<void> {
   const co = getCompanyId();
+  validateSignData(data);
   const normalizedConsents = normalizeSignConsents(data.consents);
   const patch: EntityRecord = {
     customer_name: data.customer_name, customer_phone: data.customer_phone,
