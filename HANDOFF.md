@@ -1,5 +1,14 @@
 # 규격통일 핸드오프 (Claude ↔ Cursor)
 
+## 2026-07-26 정산 private 마이그레이션 도구
+
+- `lib/firebase/migrate-settlements-private.ts`에 V3·V4 정산 금액 이동 계획기와 dry-run 기본 실행기를 추가했다.
+- 기존 private 값이 있으면 공개 값보다 우선 보존한다.
+- R1/R2/admin private 쓰기 계획이 있는 정산만 공개 금액 삭제 대상으로 만든다.
+- `/dev`에 미리보기와 별도 위험 확인이 필요한 실제 실행 버튼을 추가했다.
+- `scripts/sim-settlement-private-migration.mts` 10/10, authorization 44/44, typecheck PASS.
+- 라이브 dry-run과 실제 적용은 실행하지 않았다. 순서: Rules 게시 → RTDB 백업 → 관리자 로그인 → 미리보기 → 수치 확인 → 실제 실행.
+
 ## 2026-07-26 정산 금액 private 노드 분리 골격
 
 - 신규 RTDB 쓰기는 `v4/settlements` 공개 진행정보, `settlements_provider_private` R1, `settlements_agent_private` R2, `settlements_admin_private` 관리자 금액으로 분리한다.

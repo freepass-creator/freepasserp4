@@ -26,6 +26,7 @@ export default function DevTools() {
   const [migBusy, setMigBusy] = useState(false);
   const [migLog, setMigLog] = useState('');
   const [privateMigLog, setPrivateMigLog] = useState('');
+  const [settlementMigLog, setSettlementMigLog] = useState('');
   const [diagLog, setDiagLog] = useState('');
   const [role, setRoleLocal] = useState<Role>(() => (typeof window !== 'undefined' ? getRole() : 'agent'));
 
@@ -179,6 +180,31 @@ export default function DevTools() {
     }
   };
 
+  const runSettlementMigration = async (dryRun: boolean) => {
+    if (migBusy) return;
+    if (!dryRun && !await confirmDialog({
+      title: '정산 금액 private 이동',
+      message: 'R1·R2·순수익을 역할별 private 노드로 복사한 뒤 공개 정산에서 제거합니다.\n되돌리기 어려운 운영 데이터 변경입니다. dry-run 결과와 백업을 확인했나요?',
+      danger: true,
+      okLabel: '정산 금액 이동 실행',
+    })) return;
+    setMigBusy(true); setSettlementMigLog('');
+    try {
+      const { migrateSettlementsPrivate } = await import('@/lib/firebase/migrate-settlements-private');
+      const result = await migrateSettlementsPrivate(dryRun);
+      const message = `${dryRun ? '[미리보기]' : '[이동 완료]'} 검사 ${result.scanned}건`
+        + ` · 금액 정산 ${result.withFinance}`
+        + ` · R1/R2/admin 쓰기 ${result.providerWrites}/${result.agentWrites}/${result.adminWrites}`
+        + ` · public 삭제 ${result.publicDeletes}`
+        + ` · 안전제외 ${result.skippedUnsafe}`
+        + ` · 적용경로 ${result.appliedPaths}`;
+      setSettlementMigLog(message); toast(message, 'ok');
+    } catch (error) {
+      const message = '정산 금액 이동 오류: ' + String((error as Error).message || error);
+      setSettlementMigLog(message); toast(message, 'error');
+    } finally { setMigBusy(false); }
+  };
+
   if (ok === null) return <Loading />;
   if (!ok) {
     const canDemoSwitch = !getSession();
@@ -256,6 +282,21 @@ export default function DevTools() {
             </Btn>
           </div>
           {privateMigLog && <pre style={{ margin: '10px 0 0', fontSize: FS.cap, color: C.mute, whiteSpace: 'pre-wrap', fontFamily: NUM }}>{privateMigLog}</pre>}
+        </div>
+
+        <div style={{ ...card, background: C.warnBg }}>
+          <SectionLabel mt={0}>정산 금액 → 역할별 private 이동</SectionLabel>
+          <div style={{ fontSize: FS.cap, color: C.mute, lineHeight: 1.6, marginBottom: 10 }}>
+            공급사 청구(R1), 영업 지급(R2), 관리자 순수익을 각 private 노드에 보존한 뒤 공개 정산에서 제거합니다.
+            실제 실행 전 미리보기와 RTDB 백업이 필요합니다.
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <Btn variant="ghost" onClick={() => runSettlementMigration(true)} disabled={migBusy}>정산 이동 미리보기</Btn>
+            <Btn variant="danger" onClick={() => runSettlementMigration(false)} disabled={migBusy}>
+              {migBusy ? '처리 중…' : '정산 private 이동 실행'}
+            </Btn>
+          </div>
+          {settlementMigLog && <pre style={{ margin: '10px 0 0', fontSize: FS.cap, color: C.mute, whiteSpace: 'pre-wrap', fontFamily: NUM }}>{settlementMigLog}</pre>}
         </div>
 
         <div style={card}>

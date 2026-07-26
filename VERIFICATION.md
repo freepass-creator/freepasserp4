@@ -1,5 +1,15 @@
 # 독립 검증 결과
 
+## 2026-07-26 정산 private 마이그레이션
+
+결과: **PASS (순수 계획·UI 기준)**
+
+- 정산 마이그레이션 시뮬레이션: 10/10 PASS
+- 기존 private 우선, V3/V4 삭제 경로, R1/R2/admin 분리 확인
+- 기본 dry-run 및 실제 실행 위험 확인 UI 확인
+- authorization 44/44, typecheck, diff check: PASS
+- 라이브 Firebase 실행: 미실행
+
 ## 2026-07-26 정산 private 저장 골격
 
 결과: **PASS (신규 저장·애플리케이션 병합 기준)**
