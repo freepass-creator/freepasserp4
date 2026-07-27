@@ -8,7 +8,7 @@ import { type EntityRecord } from '@/lib/intake/entities';
 import { getProgress, isContractInProgress } from '@/lib/domain/contract';
 import { createSettlement } from '@/lib/domain/settlement-engine';
 import { downloadSettlementsExcel } from '@/lib/excel-export';
-import { Download } from 'lucide-react';
+import { Download, Files, ListChecks, WalletCards } from 'lucide-react';
 import { getRole, actor, ensureRoomForContract, type Role } from '@/lib/domain/deal';
 import { getSession } from '@/lib/auth-session';
 import { canAccessOwnedRecord } from '@/lib/domain/authorization';
@@ -32,7 +32,6 @@ import {
   type ContractFilter as ContFilter,
   type ContractSort as ContSort,
 } from '@/features/contract/contract-filter';
-import { SettlementSummary } from '@/features/contract/SettlementSummary';
 
 // 계약 = [목록 | 계약진행상황 | 첨부서류 | 정산상태] 4프레임.
 // 진행상황은 문의(/chat) ContractPanel과 동일 SSOT. 발송·단계는 패널 안.
@@ -276,19 +275,17 @@ export default function ContractsSettlement() {
   // 웹·모바일 공통 3패널(+목록 = 4프레임).
   // 모바일 스왑: 진행중→진행 · 계약완료→정산(하단 탭으로 서류·나머지 이동).
   const panes: WorkPane[] = [
-    { key: 'progress', title: '진행', node: <><PaneHead title="계약 진행상황" /><PaneBody>{progressBody}</PaneBody></> },
-    { key: 'docs', title: '서류', node: <><PaneHead title="첨부 서류" /><PaneBody>{docsBody}</PaneBody></> },
-    { key: 'settle', title: '정산', node: <><PaneHead title="정산상태" /><PaneBody>{detailSettle()}</PaneBody></> },
+    { key: 'progress', title: '진행', icon: ListChecks, node: <><PaneHead title="계약 진행상황" /><PaneBody>{progressBody}</PaneBody></> },
+    { key: 'docs', title: '서류', icon: Files, node: <><PaneHead title="첨부 서류" /><PaneBody>{docsBody}</PaneBody></> },
+    { key: 'settle', title: '정산', icon: WalletCards, node: <><PaneHead title="정산상태" /><PaneBody>{detailSettle()}</PaneBody></> },
   ];
-
-  const summaryBar = <SettlementSummary settlements={setts} role={role} />;
 
   return (
     <>
       <WorkPage title={NAV_LABEL.contract || '계약'} statusLabel="계약진행중"
         statusCount={rows?.filter((c) => isContractInProgress(c)).length ?? 0}
         listCount={shown.length}
-        list={rows === null ? <Loading /> : <>{summaryBar}{listEl}</>} panes={panes} selected={!!sel} onBack={clearSel}
+        list={rows === null ? <Loading /> : listEl} panes={panes} selected={!!sel} onBack={clearSel}
         contextTitle={selC ? String(selC.customer_name || selC.vehicle_name || selC.car_number || selC.contract_code || '') : undefined}
         search={{ value: q, onChange: setQ, placeholder: '계약·차번·계약자·전화·영업·공급…' }}
         mobileLayout="swap"

@@ -36,6 +36,7 @@ import {
   type ChatFilter,
   type ChatSort,
 } from '@/features/chat/room-filter';
+import { ListChecks, MessageCircle } from 'lucide-react';
 import { ChatRoomList } from '@/features/chat/ChatRoomList';
 
 // 문의 = 단순 채팅 목록 | 채팅 | 상품상세 | 계약(진행 전환).
@@ -261,8 +262,8 @@ export default function Chat() {
   ];
 
   const mobilePanes: WorkPane[] = [
-    { key: 'chat', title: '채팅', node: chatNode },
-    { key: 'progress', title: '계약진행', node: progressNode },
+    { key: 'chat', title: '채팅', icon: MessageCircle, node: chatNode },
+    { key: 'progress', title: '계약진행', icon: ListChecks, node: progressNode },
   ];
 
   const inquiryUnreadN = unreadRoomCount(

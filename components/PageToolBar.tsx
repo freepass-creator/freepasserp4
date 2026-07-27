@@ -1,5 +1,6 @@
 'use client';
 import type { LucideIcon } from 'lucide-react';
+import { X } from 'lucide-react';
 import { CountPill, C, Btn, FS, FW, ctrlH } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
@@ -56,7 +57,7 @@ export function PageToolBar({
               onClick={() => { haptic.tap(); t.onClick(); }}
             >
               <Icon size={18} strokeWidth={2.2} />
-              <span>{t.label}</span>
+              {!mobile && <span>{t.label}</span>}
               {badge != null ? (
                 <span className="fp-page-tool-badge"><CountPill n={badge} tone={t.badgeTone} /></span>
               ) : null}
@@ -71,13 +72,15 @@ export function PageToolBar({
           {onClearHints ? (
             <Btn
               variant="bare"
+              title={clearLabel}
+              aria-label={clearLabel}
               onClick={() => { haptic.select(); onClearHints(); }}
               style={{
                 flex: '0 0 auto', color: C.brand, fontSize: FS.sub, fontWeight: FW.head,
                 minHeight: ctrlH(mobile), padding: mobile ? '0 10px' : '0 6px',
               }}
             >
-              {clearLabel}
+              {mobile ? <X size={18} /> : clearLabel}
             </Btn>
           ) : null}
         </div>

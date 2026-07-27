@@ -11,6 +11,7 @@ import { toast } from '@/components/Toaster';
 import { ChatSenderLabel } from '@/components/ChatSenderLabel';
 import { useIsMobile } from '@/lib/use-mobile';
 import { msgClock } from '@/lib/format';
+import { LoaderCircle, Send } from 'lucide-react';
 
 // 대화창 = 공통 원자(방 하나의 스레드+입력). 전송·안읽음 = messaging SSOT.
 export function ChatThread({ roomId, onBack, onVehicle, onContract }: { roomId: string; onBack?: () => void; onVehicle?: (productCode: string) => void; onContract?: (productCode: string) => void }) {
@@ -164,7 +165,13 @@ export function ChatThread({ roomId, onBack, onVehicle, onContract }: { roomId: 
         <input ref={fileRef} type="file" accept="image/*,application/pdf" onChange={(e) => onPickFile(e.target.files)} style={{ display: 'none' }} />
         <IconBtn onClick={() => fileRef.current?.click()} title="사진·파일 첨부" disabled={busy}>📎</IconBtn>
         <Input value={text} onChange={setText} onEnter={send} placeholder="메시지 입력" full style={{ flex: 1 }} autoFocus={mobile} disabled={busy} />
-        <Btn onClick={send} disabled={busy || !text.trim()}>{busy ? '전송 중…' : '보내기'}</Btn>
+        {mobile ? (
+          <IconBtn onClick={send} title={busy ? '전송 중' : '보내기'} disabled={busy || !text.trim()}>
+            {busy ? <LoaderCircle size={18} /> : <Send size={18} />}
+          </IconBtn>
+        ) : (
+          <Btn onClick={send} disabled={busy || !text.trim()}>{busy ? '전송 중…' : '보내기'}</Btn>
+        )}
       </div>
 
       {full && <div onClick={() => setFull(null)} style={{ position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(0,0,0,0.92)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}><img src={full} alt="" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: R }} /></div>}

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ChevronLeft, List } from 'lucide-react';
 import { haptic } from '@/lib/haptics';
 import { useIsMobile } from '@/lib/use-mobile';
-import { Btn } from './buttons';
+import { Btn, IconBtn } from './buttons';
 import { C } from './tokens';
 
 export function NavBack({
@@ -34,6 +34,9 @@ export function NavBack({
   const icon = kind === 'list'
     ? <List size={mobile ? 18 : 16} strokeWidth={2.25} aria-hidden />
     : <ChevronLeft size={mobile ? 18 : 16} strokeWidth={2.25} aria-hidden />;
+  if (mobile) {
+    return <IconBtn title={label} onClick={go}>{icon}</IconBtn>;
+  }
   return (
     <Btn variant="ghost" onClick={go}>
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>

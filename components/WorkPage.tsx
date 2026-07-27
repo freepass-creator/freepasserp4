@@ -1,10 +1,11 @@
 'use client';
 import { useEffect, useState, type ReactNode, type CSSProperties } from 'react';
+import type { LucideIcon } from 'lucide-react';
 import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
 import { useAppBar } from '@/lib/appbar';
 import { useHideTabBar } from '@/lib/tabbar';
-import { PaneHead, BottomNav, SearchInput, Btn, Select, C, FS, FW } from '@/components/ui';
+import { PaneHead, BottomNav, SearchInput, Btn, IconBtn, Select, C, FS, FW } from '@/components/ui';
 import { MobilePageShell, type ListToolsConfig } from '@/components/MobilePageShell';
 import { PageStatus, statusIconFor } from '@/components/PageStatus';
 
@@ -13,7 +14,7 @@ import { PageStatus, statusIconFor } from '@/components/PageStatus';
  * 상단바 상태 = PageStatus(상품검색과 동일: 아이콘+라벨+건수).
  * 목록 툴 = 모바일 PageToolBar 시트 / 웹 검색행+정렬·필터(동일 listTools).
  */
-export type WorkPane = { key: string; title: string; node: ReactNode; width?: number };
+export type WorkPane = { key: string; title: string; node: ReactNode; width?: number; icon?: LucideIcon };
 export type WorkMobileLayout = 'stack' | 'swap';
 
 export function WorkPage({
@@ -197,15 +198,17 @@ export function WorkPage({
                 <div style={{ display: 'flex', gap: 6, width: '100%' }}>
                   {panes.map((p) => {
                     const on = p.key === swapKey;
+                    const PaneIcon = p.icon;
                     return (
-                      <Btn
+                      <IconBtn
                         key={p.key}
-                        variant={on ? 'solid' : 'ghost'}
+                        title={p.title}
+                        active={on}
                         onClick={() => { haptic.nav(); setSwapKey(p.key); }}
                         style={{ flex: 1, minWidth: 0 }}
                       >
-                        {p.title}
-                      </Btn>
+                        {PaneIcon ? <PaneIcon size={19} /> : p.title.slice(0, 1)}
+                      </IconBtn>
                     );
                   })}
                 </div>

@@ -177,6 +177,16 @@ const catSrc = fs.readFileSync(path.join(root, 'app/catalog/page.tsx'), 'utf8');
 check('D catalog에 CatalogCard 포크 없음', !/function CatalogCard/.test(catSrc) && catSrc.includes('ProductCard'));
 const qSrc = fs.readFileSync(path.join(root, 'app/q/[code]/page.tsx'), 'utf8');
 check('D q → ProductDetail customer', qSrc.includes('ProductDetail') && qSrc.includes("audience=\"customer\""));
+const contractPageSrc = fs.readFileSync(path.join(root, 'app/contract/page.tsx'), 'utf8');
+const workPageSrc = fs.readFileSync(path.join(root, 'components/WorkPage.tsx'), 'utf8');
+const pageActionsSrc = fs.readFileSync(path.join(root, 'components/PageActions.tsx'), 'utf8');
+const pageToolBarSrc = fs.readFileSync(path.join(root, 'components/PageToolBar.tsx'), 'utf8');
+const navigationSrc = fs.readFileSync(path.join(root, 'components/ui/navigation.tsx'), 'utf8');
+check('D 계약 목록 규격 외 SettlementSummary 제거', !contractPageSrc.includes('SettlementSummary'));
+check('D 모바일 업무 패널은 icon SSOT', workPageSrc.includes('icon?: LucideIcon') && workPageSrc.includes('<IconBtn'));
+check('D 모바일 CRUD는 IconBtn', pageActionsSrc.includes('if (mobile)') && pageActionsSrc.includes('<IconBtn'));
+check('D 모바일 툴바 라벨은 아이콘으로 축약', pageToolBarSrc.includes('{!mobile && <span>{t.label}</span>}'));
+check('D 모바일 목록복귀는 IconBtn', navigationSrc.includes('if (mobile)') && navigationSrc.includes('<IconBtn title={label}'));
 
 // ── 요약 ──
 const failed = cases.filter((c) => !c.ok);

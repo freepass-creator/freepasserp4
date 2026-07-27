@@ -238,13 +238,26 @@ export function MobilePageShell({
         </span>
       ) : null}
       {lt?.action ? (
-        <Btn
-          size="sm"
-          disabled={lt.action.disabled}
-          onClick={() => { haptic.tap(); lt.action!.onClick(); }}
-        >
-          {lt.action.label}
-        </Btn>
+        mobile ? (
+          <IconBtn
+            title={lt.action.label}
+            disabled={lt.action.disabled}
+            onClick={() => { haptic.tap(); lt.action!.onClick(); }}
+          >
+            {(() => {
+              const ActionIcon = lt.action!.icon || Plus;
+              return <ActionIcon size={18} />;
+            })()}
+          </IconBtn>
+        ) : (
+          <Btn
+            size="sm"
+            disabled={lt.action.disabled}
+            onClick={() => { haptic.tap(); lt.action!.onClick(); }}
+          >
+            {lt.action.label}
+          </Btn>
+        )
       ) : null}
     </div>
   ) : null;

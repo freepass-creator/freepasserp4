@@ -20,6 +20,8 @@ import { toast } from '@/components/Toaster';
 import { AdminSettlementSheet } from '@/components/AdminSettlementSheet';
 import { matchSettlementQuery } from '@/lib/domain/search';
 import { NAV_LABEL } from '@/lib/tabbar';
+import { Banknote, ChartNoAxesCombined, ChevronLeft, ChevronRight, Download, FileText, ReceiptText, Upload } from 'lucide-react';
+import { useIsMobile } from '@/lib/use-mobile';
 
 type SettlementSort = '' | 'date_desc' | 'customer' | 'amount_desc' | 'status';
 type SettlementGroup = 'provider' | 'channel';
@@ -59,6 +61,7 @@ function MoneyCard({
 export default function MonthlySettlement() {
   const co = getCompanyId();
   const router = useRouter();
+  const mobile = useIsMobile();
   const [ok, setOk] = useState<boolean | null>(null);
   const [rows, setRows] = useState<EntityRecord[]>([]);
   const [month, setMonth] = useState('');
@@ -303,22 +306,23 @@ export default function MonthlySettlement() {
             />
           )) : <CenterNote>집계할 정산 내역이 없습니다.</CenterNote>}
         </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-          <Btn size="sm" variant="ghost" onClick={() => fileRef.current?.click()}>이력 가져오기</Btn>
-          <Btn size="sm" variant="ghost" onClick={() => downloadSettlementReport(monthRows, month)} disabled={!monthRows.length}>정산서 다운로드</Btn>
-          <Btn size="sm" onClick={() => setShowVatSheet(true)}>VAT 정산서</Btn>
-        </div>
       </PaneBody>
     </>
   );
 
   const panes: WorkPane[] = [
-    { key: 'detail', title: '상세', node: detailPane },
-    { key: 'amount', title: '금액', node: amountPane },
-    { key: 'summary', title: '월 집계', node: summaryPane },
+    { key: 'detail', title: '상세', icon: FileText, node: detailPane },
+    { key: 'amount', title: '금액', icon: Banknote, node: amountPane },
+    { key: 'summary', title: '월 집계', icon: ChartNoAxesCombined, node: summaryPane },
   ];
 
-  const actions = (
+  const actions = mobile ? (
+    <div style={{ display: 'flex', gap: 6 }}>
+      <IconBtn title="가져오기" onClick={() => fileRef.current?.click()}><Upload size={18} /></IconBtn>
+      <IconBtn title="정산서 다운로드" onClick={() => downloadSettlementReport(monthRows, month)} disabled={!monthRows.length}><Download size={18} /></IconBtn>
+      <IconBtn title="VAT 정산서" active onClick={() => setShowVatSheet(true)}><ReceiptText size={18} /></IconBtn>
+    </div>
+  ) : (
     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
       <Btn size="sm" variant="ghost" onClick={() => fileRef.current?.click()}>가져오기</Btn>
       <Btn size="sm" variant="ghost" onClick={() => downloadSettlementReport(monthRows, month)} disabled={!monthRows.length}>정산서</Btn>
@@ -341,7 +345,7 @@ export default function MonthlySettlement() {
             padding: '8px 12px', borderBottom: `1px solid ${C.line2}`,
             display: 'flex', alignItems: 'center', gap: 6,
           }}>
-            <IconBtn onClick={() => stepMonth(-1)} disabled={monthIndex <= 0} title="이전 달">‹</IconBtn>
+            <IconBtn onClick={() => stepMonth(-1)} disabled={monthIndex <= 0} title="이전 달"><ChevronLeft size={18} /></IconBtn>
             <Select
               value={month}
               onChange={changeMonth}
@@ -350,7 +354,7 @@ export default function MonthlySettlement() {
               full
               style={{ flex: 1, minWidth: 0, fontFamily: NUM }}
             />
-            <IconBtn onClick={() => stepMonth(1)} disabled={monthIndex >= months.length - 1} title="다음 달">›</IconBtn>
+            <IconBtn onClick={() => stepMonth(1)} disabled={monthIndex >= months.length - 1} title="다음 달"><ChevronRight size={18} /></IconBtn>
           </div>
         )}
         panes={panes}

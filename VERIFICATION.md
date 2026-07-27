@@ -2236,3 +2236,31 @@ Next 개발 서버와 production build가 같은 `.next`를 사용하면 실행 
 - 실행 중 개발 서버의 `.next`는 건드리지 않았고 PID `30312` 유지.
 
 ---
+
+## 2026-07-28 — 계약 규격 복구 및 모바일 아이콘 버튼 통일
+
+### 변경
+
+- 계약 목록 위에 임의로 추가됐던 `대기·완료·환수·순수익` 요약줄과
+  `features/contract/SettlementSummary.tsx`를 제거했다.
+- 계약 화면은 다시 `목록 1 + 업무 패널 3`만 표시하며, 정산 집계는 월별 정산 화면에서 담당한다.
+- 공통 뒤로가기, 검색 초기화, 패널 전환, 하단 CRUD, 채팅 전송 버튼을 모바일에서
+  아이콘 전용으로 표시하고 모든 버튼에 접근성 이름을 유지했다.
+- 계약 승인·상태 변경처럼 오동작 위험이 있는 업무 버튼, 앱 하단 내비게이션,
+  카테고리·상태 선택은 의미 전달을 위해 텍스트 라벨을 유지했다.
+- `scripts/sim-phase12.mts`에 계약 요약줄 재삽입 방지와 공통 모바일 아이콘 규격 검사를 추가했다.
+
+### 확인
+
+- 브라우저 `/contract`: 규격 외 요약줄 미표시, 계약 목록과 3개 업무 패널 정상 표시
+- `npm.cmd run typecheck`: PASS
+- `npm.cmd run check:fonts`: PASS, 드리프트 0
+- `scripts/sim-phase12.mts`: 30/30 PASS
+- `scripts/sim-*.mts` 12개: 전부 PASS
+- `NEXT_DIST_DIR=tmp/verification-build/mobile-icons-20260728 npm.cmd run build`: PASS
+  - 28개 라우트
+  - `/contract` 4.68kB, `/chat` 8.45kB, `/settlement` 10.5kB
+- production build가 추가한 임시 `tsconfig.json` include/포맷 변경은 원상복구했다.
+- 모바일 아이콘 분기는 `useIsMobile()` 내부에 한정하고 데스크톱 텍스트 버튼은 유지했다.
+
+---
