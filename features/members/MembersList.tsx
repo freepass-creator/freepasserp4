@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { MemberCreateRow, MemberListRow } from '@/components/list-rows';
-import { Btn, C, CenterNote, FS, PillTabs } from '@/components/ui';
+import { Btn, C, CenterNote, FS } from '@/components/ui';
 import { toast } from '@/components/Toaster';
 import type { MemberTab } from './member-filter';
 
@@ -12,7 +12,7 @@ const PAGE_HARD = 500;
 
 export function MembersList({
   tab, rows, selected, creating, draft, filtered,
-  onTab, onSelect, onCreate, onClearConditions,
+  onSelect, onCreate, onClearConditions,
 }: {
   tab: MemberTab;
   rows: EntityRecord[];
@@ -20,7 +20,6 @@ export function MembersList({
   creating: boolean;
   draft: EntityRecord;
   filtered: boolean;
-  onTab: (tab: MemberTab) => void;
   onSelect: (row: EntityRecord) => void;
   onCreate: () => void;
   onClearConditions: () => void;
@@ -37,9 +36,6 @@ export function MembersList({
 
   return (
     <>
-      <div style={{ padding: '8px 10px', borderBottom: `1px solid ${C.line}`, background: C.head, flex: '0 0 auto' }}>
-        <PillTabs tabs={[{ key: 'user', label: '사용자' }, { key: 'partner', label: '파트너' }]} value={tab} onChange={onTab} size="sm" />
-      </div>
       {draftFillsSlot ? (
         <MemberListRow row={draft} kind={tab} selected />
       ) : (

@@ -17,7 +17,7 @@ export type WorkPane = { key: string; title: string; node: ReactNode; width?: nu
 export type WorkMobileLayout = 'stack' | 'swap';
 
 export function WorkPage({
-  title, statusLabel, statusCount, listCount, list, panes, selected, onBack, search, actions,
+  title, statusLabel, statusCount, listCount, list, listHeader, panes, selected, onBack, search, actions,
   mobileLayout = 'stack', mobileSwapKey, onMobileSwapKeyChange, countSuffix = '건',
   listTools, contextTitle,
   attentionLabel, attentionCount,
@@ -28,7 +28,10 @@ export function WorkPage({
   /** 상단바 건수(미지정 시 listCount). 필터와 무관한 KPI */
   statusCount?: number | null;
   listCount?: ReactNode;
-  list: ReactNode; panes: WorkPane[]; selected: boolean; onBack: () => void;
+  list: ReactNode;
+  /** 목록 종류 전환처럼 검색·필터보다 상위인 제어. */
+  listHeader?: ReactNode;
+  panes: WorkPane[]; selected: boolean; onBack: () => void;
   search?: { value: string; onChange: (v: string) => void; placeholder?: string };
   actions?: ReactNode;
   mobileLayout?: WorkMobileLayout;
@@ -166,6 +169,7 @@ export function WorkPage({
     if (!selected) {
       return (
         <MobilePageShell listTools={resolvedTools} bottomActions={actions}>
+          {listHeader}
           {list}
         </MobilePageShell>
       );
@@ -257,6 +261,7 @@ export function WorkPage({
           <PaneHead title={title} count={listCount} right={resolvedTools?.action ? (
             <Btn size="sm" disabled={resolvedTools.action.disabled} onClick={resolvedTools.action.onClick}>{resolvedTools.action.label}</Btn>
           ) : undefined} />
+          {listHeader}
           {webSearchBar}
           <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', minHeight: 0, background: C.taupeBg }}>{list}</div>
         </div>

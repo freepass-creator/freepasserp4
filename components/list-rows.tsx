@@ -13,7 +13,7 @@ import { contractStage, getProgress, contractTone } from '@/lib/domain/contract'
 import { vehicleName, canonProductType } from '@/lib/domain/product';
 import {
   ACTOR_TONE, Badge, CountPill, NUM, C, FS, FW, productTypeStyle, VEHICLE_STATUS_TONE,
-  type BadgeTone,
+  SETTLEMENT_STATUS_TONE, won, type BadgeTone,
 } from '@/components/ui';
 import {
   FeedListRow, FeedThumbIcon, FeedTitle, FeedSub, FeedBadges, FeedTitleRow,
@@ -434,6 +434,54 @@ function CreateListRow({
         )}
       </span>
     </div>
+  );
+}
+
+function settlementStatusIcon(s: EntityRecord): { icon: LucideIcon; tone: BadgeTone; title: string } {
+  const status = String(s.settlement_status || '정산대기');
+  const tone = SETTLEMENT_STATUS_TONE[status] || 'gray';
+  if (status === '정산완료') return { icon: CircleCheck, tone, title: status };
+  if (status === '환수대기' || status === '환수결정') return { icon: Ban, tone, title: status };
+  return { icon: FileClock, tone, title: status };
+}
+
+/** 월별 정산 목록 — 정산 상태·계약/차량·관계자·순수익을 3줄 규격으로 표시. */
+export function SettlementListRow({
+  settlement, selected, onClick,
+}: {
+  settlement: EntityRecord;
+  selected?: boolean;
+  onClick: () => void;
+}) {
+  const status = String(settlement.settlement_status || '정산대기');
+  const ic = settlementStatusIcon(settlement);
+  const net = Number(settlement.net_amount) || 0;
+  const title = String(settlement.customer_name || settlement.car_number || settlement.settlement_code || '정산');
+  return (
+    <FeedListRow
+      selected={selected}
+      onClick={onClick}
+      thumb={<FeedThumbIcon icon={ic.icon} tone={ic.tone} title={ic.title} />}
+      lines={[
+        <FeedTitleRow
+          key="t"
+          title={<FeedTitle>{title}</FeedTitle>}
+          meta={<span style={{ fontSize: FS.sub, fontWeight: FW.head, color: net > 0 ? C.brand : C.mute, fontFamily: NUM }}>{won(net)}</span>}
+        />,
+        <FeedBadges key="b">
+          <Badge tone={SETTLEMENT_STATUS_TONE[status] || 'gray'}>{status}</Badge>
+          {plateSpan(String(settlement.car_number || ''))}
+          <span style={{ fontSize: FS.cap, fontFamily: NUM, color: C.faint, fontWeight: FW.strong }}>{String(settlement.contract_date || '')}</span>
+        </FeedBadges>,
+        <FeedSub key="s">
+          {dotJoin([
+            settlement.provider_company_code ? String(settlement.provider_company_code) : null,
+            settlement.agent_code ? String(settlement.agent_code) : null,
+            settlement.settlement_code ? <span key="c" style={{ fontFamily: NUM }}>{String(settlement.settlement_code)}</span> : null,
+          ]) || '—'}
+        </FeedSub>,
+      ]}
+    />
   );
 }
 

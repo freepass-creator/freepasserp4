@@ -10,7 +10,7 @@ import { approveUser, backfillPersonalAgentChannels, adminUpdateUserIdentity } f
 import { readAllPartnersPrivate, readAllUsersPrivate, writePartnerPrivate } from '@/lib/domain/private-fields';
 import { migrateSensitiveToPrivate } from '@/lib/firebase/migrate-private';
 import { newId } from '@/lib/domain/ids';
-import { PaneHead, PaneBody, Btn, Badge, FormGrid, FormCard, C, R, NUM, Loading, CenterNote, FilterChips, FilterGroup, Message, PageActions, FW, FS } from '@/components/ui';
+import { PaneHead, PaneBody, Btn, Badge, FormGrid, FormCard, C, R, NUM, Loading, CenterNote, FilterChips, FilterGroup, Message, PageActions, PillTabs, FW, FS } from '@/components/ui';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
 import { confirmDialog, toast } from '@/components/Toaster';
 import { haptic } from '@/lib/haptics';
@@ -31,8 +31,6 @@ import { MembersList } from '@/features/members/MembersList';
 
 // 사용자·파트너 관리(관리자) — 역할·활성·영업지급율(user) / 유형·공급사수수료율(partner). 여기 율이 정산 R1/R2 SSOT.
 // status(가입승인)는 폼에서 제외 — v4 오버레이가 아니라 approveUser 로 "최상위"에 기록해야 게이트가 인식. 아래 승인 버튼 전용.
-const USER_KEYS = ['name', 'role', 'company_code', 'company_name', 'agent_channel_code', 'user_code', 'agent_payout_rate', 'is_team_manager', 'is_active'];
-const PARTNER_KEYS = ['name', 'partner_type', 'fee_rate', 'contact', 'sheet_url', 'sheet_tab', 'header_row', 'adapter_id']; // partner_code=자연키(헤더 표시·편집불가)
 const idFieldOf = (t: Tab) => (t === 'user' ? 'uid' : 'partner_code');
 
 export default function Members() {
@@ -241,7 +239,6 @@ export default function Members() {
       creating={creating}
       draft={form}
       filtered={!!(q || roleFlt !== 'all' || activeFlt !== 'all' || ptypeFlt !== 'all')}
-      onTab={(next) => { void switchTab(next); }}
       onSelect={select}
       onCreate={newRec}
       onClearConditions={() => {
@@ -262,10 +259,16 @@ export default function Members() {
   const byKey = Object.fromEntries(ENTITIES[tab].fields.map((f) => [f.key, f]));
   // 관리자 신규 등록은 이미 생성된 Firebase Auth 계정과 정확히 연결할 수 있어야 한다.
   // UID는 관계·권한의 루트 키이므로 생성 중에만 입력을 허용하고 기존 레코드 편집에서는 계속 숨긴다.
-  const formKeys = tab === 'user'
-    ? (creating ? ['uid', ...USER_KEYS] : USER_KEYS)
-    : PARTNER_KEYS;
-  const fields = formKeys.map((k) => byKey[k]).filter(Boolean) as Field[];
+  const fieldsIn = (keys: string[]) => keys.map((k) => byKey[k]).filter(Boolean) as Field[];
+  const basicFields = tab === 'user'
+    ? fieldsIn(creating ? ['uid', 'name', 'user_code', 'company_code', 'company_name'] : ['name', 'user_code', 'company_code', 'company_name'])
+    : fieldsIn(['name', 'partner_type', 'contact']);
+  const accessFields = tab === 'user'
+    ? fieldsIn(['role', 'is_active'])
+    : fieldsIn(['fee_rate']);
+  const operationFields = tab === 'user'
+    ? fieldsIn(['agent_channel_code', 'agent_payout_rate', 'is_team_manager'])
+    : fieldsIn(['sheet_url', 'sheet_tab', 'header_row', 'adapter_id']);
   const canEdit = creating || editing;
   const modeBanner = creating ? (
     <Message variant="info">신규 {tab === 'user' ? '사용자' : '파트너'} — 필수 항목을 입력한 뒤 저장하세요.</Message>
@@ -278,13 +281,32 @@ export default function Members() {
   ) : sel ? (
     <PageActions edit={{ onClick: startEdit }} remove={{ onClick: removeRec }} />
   ) : null;
-  const editPane = (
+  const basicPane = (
     <>
-      <PaneHead title={tab === 'user' ? '사용자' : '파트너'} />
+      <PaneHead title="기본정보" />
       <PaneBody pad>
         {sel ? (
           <>
             {modeBanner}
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: FS.cap, color: C.faint }}>
+              <span style={{ fontFamily: NUM, fontWeight: FW.strong, color: C.mute }}>{String(form[idFieldOf(tab)] || '')}</span>
+            </div>
+            <FormCard hint={tab === 'user' ? '사용자 식별정보와 소속 회사를 관리합니다.' : '파트너 식별정보와 기본 연락처를 관리합니다.'}>
+              <FormGrid fields={basicFields} form={form} onChange={onChange} cols={2} disabled={!canEdit} />
+            </FormCard>
+          </>
+        ) : (
+          <CenterNote>{tab === 'user' ? '사용자' : '파트너'}를 선택하거나 신규로 추가하세요.</CenterNote>
+        )}
+      </PaneBody>
+    </>
+  );
+  const accessPane = (
+    <>
+      <PaneHead title={tab === 'user' ? '소속·권한' : '정산·운영'} />
+      <PaneBody pad>
+        {sel ? (
+          <>
             {tab === 'user' && String(form.status || '') === 'pending' && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: C.selected, borderRadius: R, marginBottom: 8 }}>
                 <Badge tone="amber" variant="solid">승인대기</Badge>
@@ -297,20 +319,33 @@ export default function Members() {
                 <Btn size="sm" variant="ghost" onClick={() => doApprove(false)} disabled={approveBusy}>{approveBusy ? '처리 중…' : '승인 취소(대기로)'}</Btn>
               </div>
             )}
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: FS.cap, color: C.faint }}>
-              <span style={{ fontFamily: NUM, fontWeight: FW.strong, color: C.mute }}>{String(form[idFieldOf(tab)] || '')}</span>
-            </div>
-            <FormCard
-              hint={tab === 'user'
-                ? '영업지급율(0~1) = 월대여료 대비 영업자 지급 비율. 정산 R2 기준(기본 0.04).'
-                : '공급사 수수료율(0~1) = 정산 R1. 구글시트 URL을 넣으면 재고·시트 연동에서 관리자가 일괄 가져오기 가능.'}
+            <FormCard hint={tab === 'user'
+              ? '역할과 활성 상태는 메뉴 접근 및 데이터 범위의 기준입니다.'
+              : '공급사 수수료율(0~1)은 정산 R1 계산 기준입니다.'}
             >
-              <FormGrid fields={fields} form={form} onChange={onChange} cols={2} disabled={!canEdit} />
+              <FormGrid fields={accessFields} form={form} onChange={onChange} cols={2} disabled={!canEdit} />
             </FormCard>
           </>
         ) : (
+          <CenterNote>목록에서 대상을 선택하면 {tab === 'user' ? '권한' : '정산 기준'}을 확인할 수 있습니다.</CenterNote>
+        )}
+      </PaneBody>
+    </>
+  );
+  const operationPane = (
+    <>
+      <PaneHead title={tab === 'user' ? '영업설정' : '데이터연동'} />
+      <PaneBody pad>
+        {sel ? (
+          <FormCard hint={tab === 'user'
+            ? '영업지급율(0~1)은 월대여료 대비 영업자 지급 비율이며 정산 R2 기준입니다.'
+            : '구글시트 URL을 넣으면 재고·시트 연동에서 관리자가 일괄 가져올 수 있습니다.'}
+          >
+            <FormGrid fields={operationFields} form={form} onChange={onChange} cols={2} disabled={!canEdit} />
+          </FormCard>
+        ) : (
           <>
-            <CenterNote>{tab === 'user' ? '사용자' : '파트너'}를 선택하거나 신규로 추가하세요.</CenterNote>
+            <CenterNote>목록에서 대상을 선택하면 업무 연동 설정을 확인할 수 있습니다.</CenterNote>
             {tab === 'user' && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12, justifyContent: 'center' }}>
                 <Btn size="sm" variant="ghost" onClick={() => doBackfillChannels(true)}>개인채널 백필 미리보기</Btn>
@@ -327,7 +362,11 @@ export default function Members() {
     </>
   );
 
-  const panes: WorkPane[] = [{ key: 'edit', title: '편집', node: editPane }];
+  const panes: WorkPane[] = [
+    { key: 'basic', title: '기본', node: basicPane },
+    { key: 'access', title: tab === 'user' ? '권한' : '정산', node: accessPane },
+    { key: 'operation', title: tab === 'user' ? '영업' : '연동', node: operationPane },
+  ];
 
   const fltCount = tab === 'user'
     ? (roleFlt !== 'all' ? 1 : 0) + (activeFlt !== 'all' ? 1 : 0)
@@ -340,6 +379,16 @@ export default function Members() {
       <WorkPage title={NAV_LABEL.members} listCount={shown.length} list={listEl} panes={panes} selected={!!sel} onBack={clearSel}
         contextTitle={sel ? (creating ? '신규' : String(form.name || form.partner_code || form.user_code || '')) : undefined}
         actions={dockActions}
+        listHeader={(
+          <div style={{ padding: '8px 12px', borderBottom: `1px solid ${C.line2}` }}>
+            <PillTabs
+              tabs={[{ key: 'user', label: '사용자' }, { key: 'partner', label: '파트너' }]}
+              value={tab}
+              onChange={(next) => { void switchTab(next); }}
+              size="sm"
+            />
+          </div>
+        )}
         listTools={{
           search: { value: q, onChange: setQ, placeholder: '이름·코드·회사·연락처·역할…' },
           sort: { value: sort, onChange: (v) => setSort(v as MemSort | ''), options: MEM_SORTS },
