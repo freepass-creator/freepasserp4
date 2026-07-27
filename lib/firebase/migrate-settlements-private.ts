@@ -20,6 +20,22 @@ export type SettlementPrivateMigrationPlan = {
   updates: Updates;
 };
 
+export type SettlementPrivateMigrationBackup = {
+  version: 1;
+  exportedAt: string;
+  nodes: {
+    settlements: Rows;
+    v4Settlements: Rows;
+    providerPrivate: Rows;
+    agentPrivate: Rows;
+    adminPrivate: Rows;
+  };
+};
+
+type SettlementPrivateMigrationOptions = {
+  beforeApply?: (backup: SettlementPrivateMigrationBackup) => void | Promise<void>;
+};
+
 export function buildSettlementPrivateMigrationPlan(
   v3: Rows,
   v4: Rows,
@@ -74,7 +90,10 @@ export function buildSettlementPrivateMigrationPlan(
   return { scanned: merged.size, withFinance, providerWrites, agentWrites, adminWrites, publicDeletes, skippedUnsafe, updates };
 }
 
-export async function migrateSettlementsPrivate(dryRun = true) {
+export async function migrateSettlementsPrivate(
+  dryRun = true,
+  options: SettlementPrivateMigrationOptions = {},
+) {
   const db = getRtdb();
   if (!db) throw new Error('Firebase DB가 설정되지 않았습니다.');
   const snaps = await Promise.all([
@@ -84,19 +103,43 @@ export async function migrateSettlementsPrivate(dryRun = true) {
     get(ref(db, 'v4/settlements_agent_private')),
     get(ref(db, 'v4/settlements_admin_private')),
   ]);
+  const source = {
+    settlements: (snaps[0].val() as Rows | null) || {},
+    v4Settlements: (snaps[1].val() as Rows | null) || {},
+    providerPrivate: (snaps[2].val() as Rows | null) || {},
+    agentPrivate: (snaps[3].val() as Rows | null) || {},
+    adminPrivate: (snaps[4].val() as Rows | null) || {},
+  };
   const plan = buildSettlementPrivateMigrationPlan(
-    (snaps[0].val() as Rows | null) || {},
-    (snaps[1].val() as Rows | null) || {},
-    (snaps[2].val() as Rows | null) || {},
-    (snaps[3].val() as Rows | null) || {},
-    (snaps[4].val() as Rows | null) || {},
+    source.settlements,
+    source.v4Settlements,
+    source.providerPrivate,
+    source.agentPrivate,
+    source.adminPrivate,
   );
   const entries = Object.entries(plan.updates);
   if (!dryRun) {
+    if (plan.skippedUnsafe) {
+      throw new Error(`안전하지 않은 정산 ${plan.skippedUnsafe}건이 있어 실제 이동을 중단했습니다.`);
+    }
+    if (!options.beforeApply) {
+      throw new Error('실제 이동 전 백업 처리가 필요합니다.');
+    }
+    await options.beforeApply({
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      nodes: source,
+    });
     for (let index = 0; index < entries.length; index += 400) {
       await update(ref(db), Object.fromEntries(entries.slice(index, index + 400)));
     }
   }
-  return { ...plan, updates: undefined, dryRun, appliedPaths: dryRun ? 0 : entries.length };
+  return {
+    ...plan,
+    updates: undefined,
+    dryRun,
+    plannedPaths: entries.length,
+    plannedBatches: Math.ceil(entries.length / 400),
+    appliedPaths: dryRun ? 0 : entries.length,
+  };
 }
-

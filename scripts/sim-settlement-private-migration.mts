@@ -26,6 +26,7 @@ const checks: [string, boolean][] = [
   ['v4 공급사 금액 삭제 계획', plan.updates['v4/settlements/ST-1/fee_amount'] === null],
   ['v4 순수익 삭제 계획', plan.updates['v4/settlements/ST-1/net_amount'] === null],
   ['dry plan에 private 3종 쓰기', plan.providerWrites === 1 && plan.agentWrites === 1 && plan.adminWrites === 1],
+  ['삭제보다 private 쓰기가 먼저 계획됨', Object.keys(plan.updates).slice(0, 3).every((path) => path.includes('_private/'))],
 ];
 let passed = 0;
 for (const [name, ok] of checks) { console.log(`${ok ? '✓' : '✗'} ${name}`); if (ok) passed++; }

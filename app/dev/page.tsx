@@ -16,6 +16,18 @@ import { MasterFitSummary } from '@/components/MasterFitSummary';
 import { NAV_LABEL } from '@/lib/tabbar';
 import Link from 'next/link';
 
+function downloadJson(filename: string, value: unknown) {
+  const blob = new Blob([JSON.stringify(value, null, 2)], { type: 'application/json;charset=utf-8' });
+  const href = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = href;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(href), 1000);
+}
+
 export default function DevTools() {
   const co = getCompanyId();
   const [ok, setOk] = useState<boolean | null>(null);
@@ -191,12 +203,18 @@ export default function DevTools() {
     setMigBusy(true); setSettlementMigLog('');
     try {
       const { migrateSettlementsPrivate } = await import('@/lib/firebase/migrate-settlements-private');
-      const result = await migrateSettlementsPrivate(dryRun);
+      const result = await migrateSettlementsPrivate(dryRun, {
+        beforeApply: (backup) => {
+          const stamp = backup.exportedAt.replace(/[:.]/g, '-');
+          downloadJson(`freepasserp-settlements-backup-${stamp}.json`, backup);
+        },
+      });
       const message = `${dryRun ? '[미리보기]' : '[이동 완료]'} 검사 ${result.scanned}건`
         + ` · 금액 정산 ${result.withFinance}`
         + ` · R1/R2/admin 쓰기 ${result.providerWrites}/${result.agentWrites}/${result.adminWrites}`
         + ` · public 삭제 ${result.publicDeletes}`
         + ` · 안전제외 ${result.skippedUnsafe}`
+        + ` · 계획경로/배치 ${result.plannedPaths}/${result.plannedBatches}`
         + ` · 적용경로 ${result.appliedPaths}`;
       setSettlementMigLog(message); toast(message, 'ok');
     } catch (error) {
