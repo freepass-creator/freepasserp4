@@ -15,6 +15,22 @@ const plan = buildSettlementPrivateMigrationPlan(
 const provider = plan.updates['v4/settlements_provider_private/ST-1'] as Record<string, unknown>;
 const agent = plan.updates['v4/settlements_agent_private/ST-1'] as Record<string, unknown>;
 const admin = plan.updates['v4/settlements_admin_private/ST-1'] as Record<string, unknown>;
+const missingOwnershipPlan = buildSettlementPrivateMigrationPlan(
+  {
+    legacy: {
+      settlement_code: 'ST-MISSING',
+      provider_company_code: 'P-1',
+      fee_amount: 50000,
+    },
+  },
+  {},
+  {},
+  {},
+  {},
+);
+const missingOwnershipProvider = missingOwnershipPlan.updates[
+  'v4/settlements_provider_private/ST-MISSING'
+] as Record<string, unknown>;
 const checks: [string, boolean][] = [
   ['정산 1건 검사', plan.scanned === 1],
   ['민감 정산 1건', plan.withFinance === 1],
@@ -27,6 +43,7 @@ const checks: [string, boolean][] = [
   ['v4 순수익 삭제 계획', plan.updates['v4/settlements/ST-1/net_amount'] === null],
   ['dry plan에 private 3종 쓰기', plan.providerWrites === 1 && plan.agentWrites === 1 && plan.adminWrites === 1],
   ['삭제보다 private 쓰기가 먼저 계획됨', Object.keys(plan.updates).slice(0, 3).every((path) => path.includes('_private/'))],
+  ['누락 귀속값은 undefined 없이 제거', !Object.values(missingOwnershipProvider).includes(undefined)],
 ];
 let passed = 0;
 for (const [name, ok] of checks) { console.log(`${ok ? '✓' : '✗'} ${name}`); if (ok) passed++; }

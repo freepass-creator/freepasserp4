@@ -9,6 +9,25 @@ type Updates = Record<string, unknown>;
 const PRIVATE_FIELDS = ['fee_rate', 'fee_amount', 'agent_payout', 'payout_rate', 'agent_payout_rate_snapshot', 'payout_rate_snapshot', 'net_amount'] as const;
 const FORBIDDEN_KEY = /[.#$/[\]]/;
 
+function stripUndefined(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item) => item === undefined ? null : stripUndefined(item));
+  }
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(
+    Object.entries(value as Rec)
+      .filter(([, item]) => item !== undefined)
+      .map(([key, item]) => [key, stripUndefined(item)]),
+  );
+}
+
+function containsUndefined(value: unknown): boolean {
+  if (value === undefined) return true;
+  if (Array.isArray(value)) return value.some(containsUndefined);
+  if (!value || typeof value !== 'object') return false;
+  return Object.values(value as Rec).some(containsUndefined);
+}
+
 export type SettlementPrivateMigrationPlan = {
   scanned: number;
   withFinance: number;
@@ -68,15 +87,27 @@ export function buildSettlementPrivateMigrationPlan(
     if (!hasFinance) continue;
     withFinance++;
     if (split.providerRecord) {
-      updates[`v4/settlements_provider_private/${key}`] = { ...split.providerRecord, ...(existingProvider[key] || {}), migratedAt: new Date().toISOString() };
+      updates[`v4/settlements_provider_private/${key}`] = stripUndefined({
+        ...split.providerRecord,
+        ...(existingProvider[key] || {}),
+        migratedAt: new Date().toISOString(),
+      });
       providerWrites++;
     }
     if (split.agentRecord) {
-      updates[`v4/settlements_agent_private/${key}`] = { ...split.agentRecord, ...(existingAgent[key] || {}), migratedAt: new Date().toISOString() };
+      updates[`v4/settlements_agent_private/${key}`] = stripUndefined({
+        ...split.agentRecord,
+        ...(existingAgent[key] || {}),
+        migratedAt: new Date().toISOString(),
+      });
       agentWrites++;
     }
     if (split.adminRecord) {
-      updates[`v4/settlements_admin_private/${key}`] = { ...split.adminRecord, ...(existingAdmin[key] || {}), migratedAt: new Date().toISOString() };
+      updates[`v4/settlements_admin_private/${key}`] = stripUndefined({
+        ...split.adminRecord,
+        ...(existingAdmin[key] || {}),
+        migratedAt: new Date().toISOString(),
+      });
       adminWrites++;
     }
     for (const source of sources.get(key) || []) {
@@ -119,6 +150,10 @@ export async function migrateSettlementsPrivate(
   );
   const entries = Object.entries(plan.updates);
   if (!dryRun) {
+    const undefinedPath = entries.find(([, value]) => containsUndefined(value))?.[0];
+    if (undefinedPath) {
+      throw new Error(`undefined 값이 포함된 경로가 있어 실제 이동을 중단했습니다: ${undefinedPath}`);
+    }
     if (plan.skippedUnsafe) {
       throw new Error(`안전하지 않은 정산 ${plan.skippedUnsafe}건이 있어 실제 이동을 중단했습니다.`);
     }

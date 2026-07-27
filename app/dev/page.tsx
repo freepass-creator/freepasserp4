@@ -16,16 +16,17 @@ import { MasterFitSummary } from '@/components/MasterFitSummary';
 import { NAV_LABEL } from '@/lib/tabbar';
 import Link from 'next/link';
 
-function downloadJson(filename: string, value: unknown) {
-  const blob = new Blob([JSON.stringify(value, null, 2)], { type: 'application/json;charset=utf-8' });
-  const href = URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-  anchor.href = href;
-  anchor.download = filename;
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  window.setTimeout(() => URL.revokeObjectURL(href), 1000);
+async function saveMigrationBackup(kind: 'products' | 'settlements', backup: unknown): Promise<string> {
+  const response = await fetch('/api/dev/migration-backup', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ kind, backup }),
+  });
+  const result = await response.json() as { ok?: boolean; path?: string; sha256?: string; error?: string };
+  if (!response.ok || !result.ok || !result.path || !result.sha256) {
+    throw new Error(result.error || '마이그레이션 백업 저장에 실패했습니다.');
+  }
+  return `${result.path} · SHA-256 ${result.sha256}`;
 }
 
 export default function DevTools() {
@@ -165,7 +166,7 @@ export default function DevTools() {
     if (migBusy) return;
     if (!dryRun && !await confirmDialog({
       title: '민감 매물 필드 이동',
-      message: '원가·VIN·내부 수수료를 products_private로 복사한 뒤 v3/v4 공개 노드에서 제거합니다.\n되돌리기 어려운 운영 데이터 변경입니다. dry-run 결과를 확인했나요?',
+      message: '원가·VIN·내부 수수료를 products_private로 복사한 뒤 v3/v4 공개 노드에서 제거합니다.\n동일 스냅샷은 로컬 tmp/migration-backups에 자동 저장됩니다. dry-run 결과를 확인했나요?',
       danger: true,
       okLabel: '민감 필드 이동 실행',
     })) return;
@@ -174,9 +175,9 @@ export default function DevTools() {
     try {
       const { migrateProductsPrivate } = await import('@/lib/firebase/migrate-products-private');
       const result = await migrateProductsPrivate(dryRun, {
-        beforeApply: (backup) => {
-          const stamp = backup.exportedAt.replace(/[:.]/g, '-');
-          downloadJson(`freepasserp-products-backup-${stamp}.json`, backup);
+        beforeApply: async (backup) => {
+          const saved = await saveMigrationBackup('products', backup);
+          setPrivateMigLog(`[백업 완료] ${saved}`);
         },
         onProgress: (completed, total) => {
           setPrivateMigLog(`[이동 중] ${completed}/${total}배치 완료`);
@@ -205,7 +206,7 @@ export default function DevTools() {
     if (migBusy) return;
     if (!dryRun && !await confirmDialog({
       title: '정산 금액 private 이동',
-      message: 'R1·R2·순수익을 역할별 private 노드로 복사한 뒤 공개 정산에서 제거합니다.\n되돌리기 어려운 운영 데이터 변경입니다. dry-run 결과와 백업을 확인했나요?',
+      message: 'R1·R2·순수익을 역할별 private 노드로 복사한 뒤 공개 정산에서 제거합니다.\n동일 스냅샷은 로컬 tmp/migration-backups에 자동 저장됩니다. dry-run 결과를 확인했나요?',
       danger: true,
       okLabel: '정산 금액 이동 실행',
     })) return;
@@ -213,9 +214,9 @@ export default function DevTools() {
     try {
       const { migrateSettlementsPrivate } = await import('@/lib/firebase/migrate-settlements-private');
       const result = await migrateSettlementsPrivate(dryRun, {
-        beforeApply: (backup) => {
-          const stamp = backup.exportedAt.replace(/[:.]/g, '-');
-          downloadJson(`freepasserp-settlements-backup-${stamp}.json`, backup);
+        beforeApply: async (backup) => {
+          const saved = await saveMigrationBackup('settlements', backup);
+          setSettlementMigLog(`[백업 완료] ${saved}`);
         },
       });
       const message = `${dryRun ? '[미리보기]' : '[이동 완료]'} 검사 ${result.scanned}건`
