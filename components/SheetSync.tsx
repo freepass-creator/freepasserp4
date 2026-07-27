@@ -11,6 +11,7 @@ import { commitSupplierProducts, previewSupplierTable } from '@/lib/domain/maste
 import { loadVehicleMaster, peekVehicleMaster } from '@/lib/domain/vehicle-master-load';
 import { ADAPTER_OPTIONS, resolveAdapter, type SheetAdapterId } from '@/lib/domain/sheet-adapters';
 import { listSheetPartners, syncAllPartnerSheets, type PartnerSheetRow } from '@/lib/domain/sheet-sync-all';
+import { Database, RefreshCw, Save, Upload } from 'lucide-react';
 
 /**
  * 공급사 매물 취합 — 공급사마다 고유 시트 + 매핑 학습.
@@ -213,7 +214,7 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
               ))}
             </div>
           )}
-          <Btn onClick={syncAllAndSave} disabled={busy || !masterReady || !roster.length}>
+          <Btn mobileIcon={<RefreshCw size={18} />} title={busy ? '전체 변환 중' : `전체 변환 후 저장 ${roster.length}개`} onClick={syncAllAndSave} disabled={busy || !masterReady || !roster.length}>
             {busy ? '변환 중…' : `전체 변환 후 저장 (${roster.length})`}
           </Btn>
           {bulkLog && (
@@ -238,7 +239,7 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <div style={{ display: 'flex', gap: 6 }}>
             <Input value={url} onChange={(v) => setUrl(v)} placeholder="구글시트 URL" full style={{ flex: 1, minWidth: 0 }} />
-            <Btn size="sm" variant="ghost" onClick={loadSheet} disabled={busy}>불러오기</Btn>
+            <Btn mobileIcon={<Upload size={18} />} title="구글시트 불러오기" size="sm" variant="ghost" onClick={loadSheet} disabled={busy}>불러오기</Btn>
           </div>
           <Input value={gid} onChange={setGid} placeholder="gid(선택·탭)" full />
         </div>
@@ -248,7 +249,7 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
           <Textarea full rows={4} value={paste} onChange={setPaste}
             placeholder={'엑셀 복사→붙여넣기 (첫 줄=헤더, 탭)\n차량번호\t제조사\t모델\t연식'}
             style={{ fontFamily: NUM }} />
-          <Btn size="sm" variant="ghost" onClick={loadExcel} disabled={busy}>불러오기</Btn>
+          <Btn mobileIcon={<Upload size={18} />} title="엑셀 붙여넣기 불러오기" size="sm" variant="ghost" onClick={loadExcel} disabled={busy}>불러오기</Btn>
         </>
       )}
 
@@ -281,8 +282,10 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
             {!('car_number' in mapping) && <span style={{ color: C.danger }}> · ⚠ 차량번호 컬럼 지정 필요</span>}
           </div>
           <div style={{ display: 'flex', gap: 6 }}>
-            <Btn size="sm" variant="ghost" onClick={saveMapping} disabled={busy}>매핑·URL 저장</Btn>
+            <Btn mobileIcon={<Database size={18} />} title="매핑과 URL 저장" size="sm" variant="ghost" onClick={saveMapping} disabled={busy}>매핑·URL 저장</Btn>
             <Btn
+              mobileIcon={<Save size={18} />}
+              title={`차종 변환 후 저장 ${preview?.products.length ?? 0}건`}
               size="sm"
               onClick={convertAndSave}
               disabled={busy || !masterReady || !preview?.products.length || !('car_number' in mapping)}

@@ -319,7 +319,6 @@ export default function MonthlySettlement() {
   const actions = mobile ? (
     <div style={{ display: 'flex', gap: 6 }}>
       <IconBtn title="가져오기" onClick={() => fileRef.current?.click()}><Upload size={18} /></IconBtn>
-      <IconBtn title="정산서 다운로드" onClick={() => downloadSettlementReport(monthRows, month)} disabled={!monthRows.length}><Download size={18} /></IconBtn>
       <IconBtn title="VAT 정산서" active onClick={() => setShowVatSheet(true)}><ReceiptText size={18} /></IconBtn>
     </div>
   ) : (

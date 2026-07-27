@@ -2264,3 +2264,30 @@ Next 개발 서버와 production build가 같은 `.next`를 사용하면 실행 
 - 모바일 아이콘 분기는 `useIsMobile()` 내부에 한정하고 데스크톱 텍스트 버튼은 유지했다.
 
 ---
+
+## 2026-07-28 — 모바일 표면 액션 아이콘 전용 2차 통일
+
+### 변경
+
+- 위 절의 “계약 승인·상태 변경은 모바일 텍스트 유지” 판단은 사용자 지시에 따라 폐기했다.
+- 공통 `Btn.mobileIcon`으로 모바일은 아이콘, 웹은 기존 텍스트를 렌더링한다.
+- 계약·전자서명·정산, 재고·OCR·시트 연동·사진, 채팅, 회원 승인, 설정,
+  관심함, 목록 초기화·더보기·전체보기 액션을 모바일 아이콘 전용으로 통일했다.
+- 모바일 상품·계약 엑셀, 월정산 정산서, 재고 종합표 내보내기를 노출하지 않는다.
+- 선택 칩·탭·확인 대화상자는 텍스트를 유지한다.
+
+### 확인
+
+- 브라우저 `/contract`: 웹 계약 액션 텍스트와 4프레임 유지
+- 브라우저 `/settings`: 웹 저장·비밀번호 변경 텍스트 유지
+- `npm.cmd run typecheck`: PASS
+- `npm.cmd run check:fonts`: PASS, 드리프트 0
+- `scripts/sim-phase12.mts`: 33/33 PASS
+- `scripts/sim-*.mts` 12개: 전부 PASS
+- `NEXT_DIST_DIR=tmp/verification-build/mobile-icon-actions-20260728 npm.cmd run build`: PASS
+  - 28개 라우트
+  - `/contract` 4.73kB, `/inventory` 22.6kB, `/members` 9.22kB
+- production build가 추가한 임시 `tsconfig.json` include/포맷 변경은 원상복구했다.
+- 실행 중 개발 서버는 재시작하지 않았다.
+
+---

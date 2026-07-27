@@ -8,6 +8,7 @@ import {
   uploadManagedFile,
   type ManagedFile,
 } from '@/lib/firebase/storage-files';
+import { Images, PanelTop, Trash2, X } from 'lucide-react';
 
 const LONG_MS = 480;
 const MOVE_PX = 10;
@@ -236,12 +237,14 @@ export function PhotoUpload({
               position: 'absolute', left: 0, right: 0, bottom: 0,
               background: C.taupeBg, borderRadius: `${R}px ${R}px 0 0`,
               padding: '12px 14px calc(12px + env(safe-area-inset-bottom))',
-              display: 'flex', flexDirection: 'column', gap: 8,
+              display: 'flex', flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8,
               zIndex: 1,
             }}
           >
-            <div style={{ fontSize: FS.body, fontWeight: FW.title, color: C.ink, marginBottom: 2 }}>사진 메뉴</div>
+            <div style={{ width: '100%', fontSize: FS.body, fontWeight: FW.title, color: C.ink, marginBottom: 2 }}>사진 메뉴</div>
             <Btn
+              mobileIcon={<Images size={18} />}
+              title={sheetIsCover ? '이미 대표사진' : '대표사진으로 지정'}
               full
               variant="ghost"
               disabled={sheetIsCover}
@@ -251,6 +254,8 @@ export function PhotoUpload({
             </Btn>
             {onInteriorChange && (
               <Btn
+                mobileIcon={<PanelTop size={18} />}
+                title={sheetIsInterior ? '실내사진 해제' : '실내사진으로 지정'}
                 full
                 variant="ghost"
                 onClick={() => { makeInterior(sheet); haptic.select(); setSheet(null); }}
@@ -259,13 +264,15 @@ export function PhotoUpload({
               </Btn>
             )}
             <Btn
+              mobileIcon={<Trash2 size={18} />}
+              title="사진 삭제"
               full
               variant="danger"
               onClick={() => { del(sheet); haptic.impact(); setSheet(null); }}
             >
               삭제
             </Btn>
-            <Btn full variant="ghost" onClick={() => { haptic.back(); setSheet(null); }}>취소</Btn>
+            <Btn mobileIcon={<X size={18} />} title="사진 메뉴 닫기" full variant="ghost" onClick={() => { haptic.back(); setSheet(null); }}>취소</Btn>
           </div>
         </div>
       )}
@@ -289,15 +296,15 @@ export function PhotoUpload({
             onClick={(e) => e.stopPropagation()}
             style={{ position: 'fixed', left: 0, right: 0, bottom: 0, padding: '12px 14px calc(12px + env(safe-area-inset-bottom))', display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center', background: C.head, zIndex: 1 }}
           >
-            <Btn size="sm" variant="ghost" disabled={fullIsCover} onClick={() => { if (fullIdx != null) { makeCover(fullIdx); setFull(0); } }}>
+            <Btn mobileIcon={<Images size={18} />} title={fullIsCover ? '대표사진' : '대표사진으로 지정'} size="sm" variant="ghost" disabled={fullIsCover} onClick={() => { if (fullIdx != null) { makeCover(fullIdx); setFull(0); } }}>
               {fullIsCover ? '대표사진' : '대표로'}
             </Btn>
             {onInteriorChange && (
-              <Btn size="sm" variant="ghost" onClick={() => { if (fullIdx != null) makeInterior(fullIdx); }}>
+              <Btn mobileIcon={<PanelTop size={18} />} title={fullIsInterior ? '실내사진 해제' : '실내사진으로 지정'} size="sm" variant="ghost" onClick={() => { if (fullIdx != null) makeInterior(fullIdx); }}>
                 {fullIsInterior ? '실내 해제' : '실내로'}
               </Btn>
             )}
-            <Btn size="sm" variant="danger" onClick={() => { if (fullIdx != null) del(fullIdx); }}>
+            <Btn mobileIcon={<Trash2 size={18} />} title="사진 삭제" size="sm" variant="danger" onClick={() => { if (fullIdx != null) del(fullIdx); }}>
               삭제
             </Btn>
           </div>

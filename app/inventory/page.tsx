@@ -23,6 +23,7 @@ import { useInventoryVehicleTools } from '@/features/inventory/useInventoryVehic
 import { useInventoryEditorLifecycle } from '@/features/inventory/useInventoryEditorLifecycle';
 import { useInventoryAccessEffects, useInventoryData } from '@/features/inventory/useInventoryData';
 import { copyText } from '@/lib/clipboard';
+import { House } from 'lucide-react';
 
 const INV_SORTS: { value: InvSort; label: string }[] = [
   { value: 'status', label: '상태순' },
@@ -184,7 +185,7 @@ export default function Inventory() {
       <Page title={NAV_LABEL.inventory}>
         <CenterNote>{gateMsg || '접근 불가'}</CenterNote>
         <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 12 }}>
-          <Btn href="/" size="sm">홈으로</Btn>
+          <Btn mobileIcon={<House size={18} />} title="홈으로" href="/" size="sm">홈으로</Btn>
         </div>
       </Page>
     );
@@ -249,7 +250,7 @@ export default function Inventory() {
         <div style={{ fontSize: FS.cap, fontWeight: FW.strong, color: C.mute }}>공급사 시트 취합</div>
         <SheetSync co={co} onImported={() => load(getRole())} />
         <div style={{ height: 1, background: C.line2, margin: '2px 0' }} />
-        <Btn size="sm" variant="ghost" onClick={copyJonghap}>종합표 TSV 복사 (ERP→시트)</Btn>
+        {!mobile && <Btn size="sm" variant="ghost" onClick={copyJonghap}>종합표 TSV 복사 (ERP→시트)</Btn>}
       </PaneBody>
     </>
   );

@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useEffect, useState, type MouseEvent } from 'react';
-import { Star, History, X } from 'lucide-react';
+import { Star, History, Trash2, X } from 'lucide-react';
 import { C, R, Btn, IconBtn, NUM, ctrlH, ctrlFs, FW, FS } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { vehicleName, cheapest } from '@/lib/domain/product';
@@ -229,12 +229,12 @@ export function InterestPanel({
         </span>
         <span style={{ flex: 1 }} />
         {tab === 'recent' && recent.length > 0 && (
-          <Btn size="sm" variant="ghost" onClick={clearRecent}>비우기</Btn>
+          <Btn mobileIcon={<Trash2 size={18} />} title="최근 본 비우기" size="sm" variant="ghost" onClick={clearRecent}>비우기</Btn>
         )}
         {tab === 'fav' && favs.length > 0 && (
-          <Btn size="sm" variant="ghost" onClick={clearFavs}>비우기</Btn>
+          <Btn mobileIcon={<Trash2 size={18} />} title="관심 상품 비우기" size="sm" variant="ghost" onClick={clearFavs}>비우기</Btn>
         )}
-        <Btn size="sm" variant="ghost" onClick={onClose}>닫기</Btn>
+        <Btn mobileIcon={<X size={18} />} title="관심함 닫기" size="sm" variant="ghost" onClick={onClose}>닫기</Btn>
       </div>
       {items.length === 0 ? (
         <div style={{ fontSize: FS.sub, color: C.faint, padding: '4px 0' }}>

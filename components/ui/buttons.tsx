@@ -4,8 +4,10 @@ import React from 'react';
 import { useIsMobile } from '@/lib/use-mobile';
 import { C, FW, R, ctrlFs, ctrlH } from './tokens';
 
-export function Btn({ children, onClick, variant = 'solid', size = 'md', disabled, href, style, full, type = 'button', className, title, 'aria-label': ariaLabel, 'aria-pressed': ariaPressed, 'data-active': dataActive }: {
+export function Btn({ children, mobileIcon, onClick, variant = 'solid', size = 'md', disabled, href, style, full, type = 'button', className, title, 'aria-label': ariaLabel, 'aria-pressed': ariaPressed, 'data-active': dataActive }: {
   children: React.ReactNode;
+  /** 모바일 표면 액션을 아이콘 전용으로 축약한다. 웹은 children 텍스트를 유지한다. */
+  mobileIcon?: React.ReactNode;
   onClick?: () => void;
   variant?: 'solid' | 'ghost' | 'danger' | 'bare';
   size?: 'sm' | 'md';
@@ -24,6 +26,7 @@ export function Btn({ children, onClick, variant = 'solid', size = 'md', disable
   const h = ctrlH(mobile, size);
   const fs = ctrlFs(mobile, size);
   const bare = variant === 'bare';
+  const iconOnly = mobile && mobileIcon != null;
   const pad = mobile ? '0 18px' : (size === 'sm' ? '0 11px' : '0 14px');
   const s: React.CSSProperties = bare ? {
     cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1,
@@ -44,19 +47,21 @@ export function Btn({ children, onClick, variant = 'solid', size = 'md', disable
     textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, whiteSpace: 'nowrap',
     transition: 'filter .12s ease, box-shadow .12s ease',
     pointerEvents: disabled ? 'none' : 'auto',
-    ...(full ? { width: '100%' } : null),
+    ...(iconOnly ? { width: h, minWidth: h, padding: 0, flex: `0 0 ${h}px` } : full ? { width: '100%' } : null),
     ...style,
   };
   const cls = className ? `fp-press ${className}` : 'fp-press';
+  const childLabel = typeof children === 'string' || typeof children === 'number' ? String(children) : undefined;
+  const accessibleLabel = ariaLabel || title || (iconOnly ? childLabel : undefined);
   const a11y = {
     ...(title ? { title } : null),
-    ...(ariaLabel ? { 'aria-label': ariaLabel } : null),
+    ...(accessibleLabel ? { 'aria-label': accessibleLabel } : null),
     ...(ariaPressed != null ? { 'aria-pressed': ariaPressed } : null),
     ...(dataActive != null ? { 'data-active': dataActive } : null),
   };
   return href
-    ? <a href={href} data-clickable="" onClick={onClick} className={cls} style={s} {...a11y}>{children}</a>
-    : <button type={type} onClick={onClick} disabled={disabled} className={cls} style={s} {...a11y}>{children}</button>;
+    ? <a href={href} data-clickable="" onClick={onClick} className={cls} style={s} {...a11y}>{iconOnly ? mobileIcon : children}</a>
+    : <button type={type} onClick={onClick} disabled={disabled} className={cls} style={s} {...a11y}>{iconOnly ? mobileIcon : children}</button>;
 }
 
 /** 정사각 아이콘 버튼 — CTRL.md. style로 셸·특수 배치 1:1 오버라이드 가능. */

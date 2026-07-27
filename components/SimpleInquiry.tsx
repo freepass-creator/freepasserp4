@@ -8,6 +8,7 @@ import { C, R, FS, FW, Btn, Input } from '@/components/ui';
 import { toast } from '@/components/Toaster';
 import { ChatSenderLabel } from '@/components/ChatSenderLabel';
 import { msgClock } from '@/lib/format';
+import { MessageCircleMore, Send } from 'lucide-react';
 
 /**
  * 간단 문의 — 상세 하단. 방 = CH_매물_{나}, channel='간단'.
@@ -68,7 +69,7 @@ export function SimpleInquiry({ p }: { p: EntityRecord }) {
     }}>
       <Input full value={text} onChange={setText} onEnter={send} placeholder="여기에 바로 문의하세요"
         style={{ flex: 1, border: 'none', background: 'transparent' }} />
-      <Btn size="sm" onClick={send} disabled={busy || !text.trim()}>문의</Btn>
+      <Btn mobileIcon={<Send size={18} />} title="문의 보내기" size="sm" onClick={send} disabled={busy || !text.trim()}>문의</Btn>
     </div>
   );
 
@@ -127,7 +128,7 @@ export function SimpleInquiry({ p }: { p: EntityRecord }) {
           {msgs.length ? (
             <>
               <span>주고받은 {msgs.length}건 · 계약문의로 이어집니다</span>
-              <Btn variant="ghost" size="sm" onClick={openFull}>전체 대화 보기 →</Btn>
+              <Btn mobileIcon={<MessageCircleMore size={18} />} title="전체 대화 보기" variant="ghost" size="sm" onClick={openFull}>전체 대화 보기 →</Btn>
             </>
           ) : '출고·조건 뭐든 여기에 바로 문의하세요. 계약문의로 이어집니다.'}
         </div>

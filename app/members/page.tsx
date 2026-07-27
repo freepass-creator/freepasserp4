@@ -28,6 +28,7 @@ import {
   type MemberTab as Tab,
 } from '@/features/members/member-filter';
 import { MembersList } from '@/features/members/MembersList';
+import { Database, ShieldCheck, UserCheck, UserX } from 'lucide-react';
 
 // 사용자·파트너 관리(관리자) — 역할·활성·영업지급율(user) / 유형·공급사수수료율(partner). 여기 율이 정산 R1/R2 SSOT.
 // status(가입승인)는 폼에서 제외 — v4 오버레이가 아니라 approveUser 로 "최상위"에 기록해야 게이트가 인식. 아래 승인 버튼 전용.
@@ -311,12 +312,12 @@ export default function Members() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: C.selected, borderRadius: R, marginBottom: 8 }}>
                 <Badge tone="amber" variant="solid">승인대기</Badge>
                 <span style={{ fontSize: FS.sub, color: C.mute, flex: 1, minWidth: 0 }}>승인하면 이 사용자가 앱을 사용할 수 있습니다.</span>
-                <Btn size="sm" onClick={() => doApprove(true)} disabled={approveBusy}>{approveBusy ? '처리 중…' : '가입 승인'}</Btn>
+                <Btn mobileIcon={<UserCheck size={18} />} title={approveBusy ? '가입 승인 처리 중' : '가입 승인'} size="sm" onClick={() => doApprove(true)} disabled={approveBusy}>{approveBusy ? '처리 중…' : '가입 승인'}</Btn>
               </div>
             )}
             {tab === 'user' && String(form.status || '') === 'active' && (
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
-                <Btn size="sm" variant="ghost" onClick={() => doApprove(false)} disabled={approveBusy}>{approveBusy ? '처리 중…' : '승인 취소(대기로)'}</Btn>
+                <Btn mobileIcon={<UserX size={18} />} title={approveBusy ? '승인 취소 처리 중' : '승인 취소 후 대기로 변경'} size="sm" variant="ghost" onClick={() => doApprove(false)} disabled={approveBusy}>{approveBusy ? '처리 중…' : '승인 취소(대기로)'}</Btn>
               </div>
             )}
             <FormCard hint={tab === 'user'
@@ -348,13 +349,13 @@ export default function Members() {
             <CenterNote>목록에서 대상을 선택하면 업무 연동 설정을 확인할 수 있습니다.</CenterNote>
             {tab === 'user' && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12, justifyContent: 'center' }}>
-                <Btn size="sm" variant="ghost" onClick={() => doBackfillChannels(true)}>개인채널 백필 미리보기</Btn>
-                <Btn size="sm" variant="ghost" onClick={() => doBackfillChannels(false)}>개인채널 백필 실행</Btn>
+                <Btn mobileIcon={<Database size={18} />} title="개인채널 백필 미리보기" size="sm" variant="ghost" onClick={() => doBackfillChannels(true)}>개인채널 백필 미리보기</Btn>
+                <Btn mobileIcon={<Database size={18} />} title="개인채널 백필 실행" size="sm" variant="ghost" onClick={() => doBackfillChannels(false)}>개인채널 백필 실행</Btn>
               </div>
             )}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12, justifyContent: 'center' }}>
-              <Btn size="sm" variant="ghost" onClick={() => doMigratePrivate(true)}>민감정보 분리 미리보기</Btn>
-              <Btn size="sm" variant="ghost" onClick={() => doMigratePrivate(false)}>민감정보 분리 실행</Btn>
+              <Btn mobileIcon={<ShieldCheck size={18} />} title="민감정보 분리 미리보기" size="sm" variant="ghost" onClick={() => doMigratePrivate(true)}>민감정보 분리 미리보기</Btn>
+              <Btn mobileIcon={<ShieldCheck size={18} />} title="민감정보 분리 실행" size="sm" variant="ghost" onClick={() => doMigratePrivate(false)}>민감정보 분리 실행</Btn>
             </div>
           </>
         )}

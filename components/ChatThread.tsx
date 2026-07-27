@@ -11,7 +11,7 @@ import { toast } from '@/components/Toaster';
 import { ChatSenderLabel } from '@/components/ChatSenderLabel';
 import { useIsMobile } from '@/lib/use-mobile';
 import { msgClock } from '@/lib/format';
-import { LoaderCircle, Send } from 'lucide-react';
+import { CarFront, ListChecks, LoaderCircle, Send } from 'lucide-react';
 
 // 대화창 = 공통 원자(방 하나의 스레드+입력). 전송·안읽음 = messaging SSOT.
 export function ChatThread({ roomId, onBack, onVehicle, onContract }: { roomId: string; onBack?: () => void; onVehicle?: (productCode: string) => void; onContract?: (productCode: string) => void }) {
@@ -114,8 +114,8 @@ export function ChatThread({ roomId, onBack, onVehicle, onContract }: { roomId: 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: ctrlH(mobile), flex: `0 0 ${ctrlH(mobile)}px`, padding: '0 14px', borderBottom: `1px solid ${C.line}`, background: C.taupeBg, boxSizing: 'border-box' }}>
           {onBack && <NavBack kind="list" onClick={onBack} />}
           <span style={{ fontSize: FS.title, fontWeight: FW.title, minWidth: 0, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{String(room.vehicle_name || room.car_number || room.vehicle_number || '대화')}</span>
-          {onVehicle && <Btn variant="ghost" size="sm" onClick={() => onVehicle(String(room.product_code))}>차량</Btn>}
-          {onContract && <Btn size="sm" onClick={() => onContract(String(room.product_code))}>계약진행</Btn>}
+          {onVehicle && <Btn mobileIcon={<CarFront size={18} />} title="차량 보기" variant="ghost" size="sm" onClick={() => onVehicle(String(room.product_code))}>차량</Btn>}
+          {onContract && <Btn mobileIcon={<ListChecks size={18} />} title="계약 진행" size="sm" onClick={() => onContract(String(room.product_code))}>계약진행</Btn>}
         </div>
       ) : null}
 

@@ -10,6 +10,7 @@ import { VehicleMasterPicker } from '@/components/VehicleMasterPicker';
 import { SnapTrace } from '@/components/SnapTrace';
 import { PhotoUpload } from '@/components/PhotoUpload';
 import { PriceMatrix } from '@/components/PriceMatrix';
+import { ClipboardPaste, Copy, RotateCcw, ScanLine } from 'lucide-react';
 
 type MasterPick = Parameters<NonNullable<ComponentProps<typeof VehicleMasterPicker>['onPick']>>[0];
 type Price = ComponentProps<typeof PriceMatrix>['price'];
@@ -73,9 +74,9 @@ export function InventoryFixedPane({ model }: { model: InventoryEditorModel }) {
             {form.provider_company_code ? <span>{String(form.provider_company_code)}</span> : null}
             <span style={{ flex: 1 }} />
             {canEdit ? <>
-              <Btn variant="ghost" size="sm" onClick={model.onReset}>초기화</Btn>
-              {!model.creating && <Btn variant="ghost" size="sm" onClick={model.onCopy}>복사</Btn>}
-              <Btn variant="ghost" size="sm" onClick={model.onPaste} disabled={!model.clipboardAvailable}>붙여넣기</Btn>
+              <Btn mobileIcon={<RotateCcw size={18} />} title="입력 초기화" variant="ghost" size="sm" onClick={model.onReset}>초기화</Btn>
+              {!model.creating && <Btn mobileIcon={<Copy size={18} />} title="상품 복사" variant="ghost" size="sm" onClick={model.onCopy}>복사</Btn>}
+              <Btn mobileIcon={<ClipboardPaste size={18} />} title="상품 붙여넣기" variant="ghost" size="sm" onClick={model.onPaste} disabled={!model.clipboardAvailable}>붙여넣기</Btn>
               {model.dirty && <span style={{ color: C.warn }}>● 미저장</span>}
             </> : null}
           </div>
@@ -89,7 +90,7 @@ export function InventoryFixedPane({ model }: { model: InventoryEditorModel }) {
               <div style={{ fontSize: FS.micro, color: C.faint }}>사진·PDF 모두 가능 · 차번·차대·연료·배기·인승·용도·최초등록 자동채움(빈 칸만)</div>
             </div>
             <input ref={model.ocrInputRef} type="file" accept="image/*,application/pdf,.pdf" onChange={(e) => model.onOcrFiles(e.target.files)} style={{ display: 'none' }} />
-            <Btn size="sm" onClick={() => model.ocrInputRef.current?.click()} disabled={model.ocrBusy || !canEdit}>{model.ocrBusy ? '인식 중…' : '등록증 올리기'}</Btn>
+            <Btn mobileIcon={<ScanLine size={18} />} title={model.ocrBusy ? '등록증 인식 중' : '등록증 올리기'} size="sm" onClick={() => model.ocrInputRef.current?.click()} disabled={model.ocrBusy || !canEdit}>{model.ocrBusy ? '인식 중…' : '등록증 올리기'}</Btn>
           </div>
           <div style={{ pointerEvents: canEdit ? undefined : 'none', opacity: canEdit ? 1 : 0.85 }}>
             <div style={{ fontSize: FS.sub, fontWeight: FW.title, color: C.brand, marginBottom: 6 }}>② 차종 마스터</div>

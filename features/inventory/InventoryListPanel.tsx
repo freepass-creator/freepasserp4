@@ -4,6 +4,7 @@ import type { EntityRecord } from '@/lib/intake/entities';
 import { InventoryCreateRow, InventoryListRow } from '@/components/list-rows';
 import { Btn, C, CenterNote, FS } from '@/components/ui';
 import { toast } from '@/components/Toaster';
+import { List, Plus, RotateCcw } from 'lucide-react';
 
 const PAGE = 100;
 const PAGE_HARD = 500;
@@ -41,7 +42,7 @@ export function InventoryListPanel({ model }: { model: InventoryListPanelModel }
         <CenterNote>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
             <span>{hasConditions ? '검색 결과 없음' : '상품 없음'}</span>
-            {hasConditions ? <Btn size="sm" variant="ghost" onClick={onClearConditions}>조건 해제</Btn> : null}
+            {hasConditions ? <Btn mobileIcon={<RotateCcw size={18} />} title="조건 해제" size="sm" variant="ghost" onClick={onClearConditions}>조건 해제</Btn> : null}
           </div>
         </CenterNote>
       ) : (
@@ -62,10 +63,12 @@ export function InventoryListPanel({ model }: { model: InventoryListPanelModel }
               <span style={{ fontSize: FS.sub, color: C.mute }}>
                 {shown.length.toLocaleString()} / {rows.length.toLocaleString()}대
               </span>
-              <Btn variant="ghost" size="sm" onClick={() => onLimitChange((current) => current + PAGE)}>
+              <Btn mobileIcon={<Plus size={18} />} title={`더보기 ${Math.min(PAGE, remaining)}대`} variant="ghost" size="sm" onClick={() => onLimitChange((current) => current + PAGE)}>
                 더보기 · {Math.min(PAGE, remaining).toLocaleString()}대
               </Btn>
               <Btn
+                mobileIcon={<List size={18} />}
+                title={`전체 ${rows.length}대 보기`}
                 variant="ghost"
                 size="sm"
                 onClick={() => {

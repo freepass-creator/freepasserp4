@@ -10,6 +10,7 @@ import {
 import { Btn, C, CenterNote, ctrlH, FS, FW, Input, ListRow, Loading, R, Select, SectionLabel, won, NUM } from '@/components/ui';
 import { toast } from '@/components/Toaster';
 import { useIsMobile } from '@/lib/use-mobile';
+import { Save, Upload } from 'lucide-react';
 
 /** 월정산서(VAT·청구/지급) — /settlement 정산서 탭. */
 export function AdminSettlementSheet({ month }: { month: string }) {
@@ -68,7 +69,7 @@ export function AdminSettlementSheet({ month }: { month: string }) {
     <div style={{ display: 'flex', flexDirection: mobile ? 'column' : 'row', gap: 10, minHeight: mobile ? undefined : 420 }}>
       <div style={{ flex: mobile ? undefined : '0 0 280px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          <Btn size="sm" onClick={importDone} disabled={busy}>정산완료 불러오기</Btn>
+          <Btn mobileIcon={<Upload size={18} />} title="정산완료 불러오기" size="sm" onClick={importDone} disabled={busy}>정산완료 불러오기</Btn>
         </div>
         <div style={{ fontSize: FS.cap, color: C.mute }}>
           청구 {won(tot.bill)} · 지급 {won(tot.pay)} · 수익 <b style={{ color: C.brand }}>{won(tot.profit)}</b> ({tot.n}건)
@@ -92,7 +93,7 @@ export function AdminSettlementSheet({ month }: { month: string }) {
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontSize: FS.body, fontWeight: FW.title }}>{String(form.admin_settlement_code)}</span>
               <span style={{ flex: 1 }} />
-              <Btn size="sm" onClick={save} disabled={busy}>저장</Btn>
+              <Btn mobileIcon={<Save size={18} />} title="정산서 저장" size="sm" onClick={save} disabled={busy}>저장</Btn>
             </div>
             {ADMIN_SETTLE_BLOCKS.map((block) => (
               <div key={block.key}>

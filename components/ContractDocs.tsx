@@ -258,6 +258,8 @@ export function ContractDocs({ contractCode, roomId }: { contractCode: string; r
             <span style={{ fontSize: FS.sub, fontWeight: FW.title, flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{preview.name}</span>
             <a href={preview.url} download={preview.name} onClick={(e) => e.stopPropagation()} aria-label="다운로드" style={{ color: '#fff', display: 'flex' }}><Download size={17} /></a>
             <Btn
+              mobileIcon={<X size={18} />}
+              title="미리보기 닫기"
               size="sm"
               variant="ghost"
               onClick={() => setPreview(null)}

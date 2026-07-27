@@ -8,6 +8,7 @@ import { ProductRowCard } from '@/components/ProductRowCard';
 import { Btn, C, CenterNote, FS } from '@/components/ui';
 import { isGuest } from '@/lib/auth-session';
 import { ExcelResultsTable } from './ExcelResultsTable';
+import { List, LogIn, Plus, RotateCcw } from 'lucide-react';
 
 type Props = {
   bodyRef: RefObject<HTMLDivElement>;
@@ -42,8 +43,8 @@ export function FinderResults(props: Props) {
         <CenterNote>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
             <span>{(props.rows?.length ?? 0) === 0 ? '표시할 상품이 없습니다' : '조건에 맞는 상품이 없습니다'}</span>
-            {props.narrowed && <Btn size="sm" variant="ghost" onClick={props.onReset}>조건 해제</Btn>}
-            {(props.rows?.length ?? 0) === 0 && isGuest() && <Btn size="sm" href="/login">로그인</Btn>}
+            {props.narrowed && <Btn mobileIcon={<RotateCcw size={18} />} title="조건 해제" size="sm" variant="ghost" onClick={props.onReset}>조건 해제</Btn>}
+            {(props.rows?.length ?? 0) === 0 && isGuest() && <Btn mobileIcon={<LogIn size={18} />} title="로그인" size="sm" href="/login">로그인</Btn>}
           </div>
         </CenterNote>
       ) : props.view === 'card' ? (
@@ -92,8 +93,8 @@ export function FinderResults(props: Props) {
           <span style={{ fontSize: props.mobile ? FS.body : FS.sub, color: C.mute }}>
             {props.shown.length.toLocaleString()} / {props.list.length.toLocaleString()}대
           </span>
-          <Btn variant="ghost" onClick={props.onMore}>더보기 · {Math.min(100, props.moreCount).toLocaleString()}대</Btn>
-          <Btn variant="ghost" onClick={props.onShowAll}>전체 보기</Btn>
+          <Btn mobileIcon={<Plus size={18} />} title={`더보기 ${Math.min(100, props.moreCount)}대`} variant="ghost" onClick={props.onMore}>더보기 · {Math.min(100, props.moreCount).toLocaleString()}대</Btn>
+          <Btn mobileIcon={<List size={18} />} title={`전체 ${props.list.length}대 보기`} variant="ghost" onClick={props.onShowAll}>전체 보기</Btn>
         </div>
       )}
     </div>

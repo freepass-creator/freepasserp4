@@ -20,6 +20,7 @@ import { toast } from '@/components/Toaster';
 import { NAV_LABEL } from '@/lib/tabbar';
 import { copyText } from '@/lib/clipboard';
 import { ProductPreferences } from '@/features/settings/ProductPreferences';
+import { Copy, KeyRound, LogIn, LogOut, Save } from 'lucide-react';
 
 /** 미로그인 데모 — 관리자 승격 금지(둘러보기·권한 구멍 차단). */
 const DEMO_ROLES: { key: Role; label: string }[] = [
@@ -219,7 +220,7 @@ export default function Settings() {
                 <div style={{ marginTop: 4 }}><Input value={pPhone} onChange={(v) => setPPhone(fmtPhone(v))} inputMode="tel" full placeholder="010-0000-0000" /></div>
               </label>
               <div>
-                <Btn size="sm" onClick={saveProfile} disabled={!profileDirty || savingProfile}>
+                <Btn mobileIcon={<Save size={18} />} title={savingProfile ? '내 정보 저장 중' : '내 정보 저장'} size="sm" onClick={saveProfile} disabled={!profileDirty || savingProfile}>
                   {savingProfile ? '저장 중…' : '내 정보 저장'}
                 </Btn>
               </div>
@@ -234,11 +235,11 @@ export default function Settings() {
           ]} />
           <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
             {visibleSession ? (
-              <Btn variant="ghost" full onClick={changePassword} disabled={pwdBusy}>
+              <Btn mobileIcon={<KeyRound size={18} />} title={pwdBusy ? '재설정 메일 전송 중' : '비밀번호 변경'} variant="ghost" full onClick={changePassword} disabled={pwdBusy}>
                 {pwdBusy ? '메일 전송 중…' : '비밀번호 변경 (재설정 메일)'}
               </Btn>
             ) : null}
-            <Btn variant="danger" full onClick={doLogout}>
+            <Btn mobileIcon={visibleSession || guest ? <LogOut size={18} /> : <LogIn size={18} />} title={visibleSession || guest ? '로그아웃' : '로그인'} variant="danger" full onClick={doLogout}>
               {visibleSession || guest ? '로그아웃' : '로그인'}
             </Btn>
           </div>
@@ -252,7 +253,7 @@ export default function Settings() {
             </div>
             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
               <div style={{ flex: 1, minWidth: 0, fontSize: FS.sub, color: C.ink, background: C.head, borderRadius: 6, padding: '8px 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{shareUrl}</div>
-              <Btn size="sm" onClick={copyShare}>복사</Btn>
+              <Btn mobileIcon={<Copy size={18} />} title="카탈로그 링크 복사" size="sm" onClick={copyShare}>복사</Btn>
             </div>
           </div>
         ) : null}

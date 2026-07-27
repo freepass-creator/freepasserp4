@@ -5,6 +5,7 @@ import { toast } from '@/components/Toaster';
 import { Btn, C, R, Select, Textarea, FS, FW } from '@/components/ui';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { useIsMobile } from '@/lib/use-mobile';
+import { Flag, Send, X } from 'lucide-react';
 
 // 이상매물 제보 — 영업자가 매물 보다 이상하면 클릭. 공급사·관리자에게 전달(관리자 확인처=/data-check).
 // 본문 가로폭에 맞춤(maxWidth 제한·가운데 딸랑 금지).
@@ -26,7 +27,7 @@ export function ReportButton({ p }: { p: EntityRecord }) {
     return (
       <div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
         <span style={{ fontSize: FS.sub, color: C.faint }}>매물 정보·사진이 이상하면 검수를 요청하세요.</span>
-        <Btn variant="ghost" size="sm" onClick={() => setOpen(true)}>⚑ 검수 요청</Btn>
+        <Btn mobileIcon={<Flag size={18} />} title="상품 검수 요청" variant="ghost" size="sm" onClick={() => setOpen(true)}>⚑ 검수 요청</Btn>
       </div>
     );
   }
@@ -46,8 +47,8 @@ export function ReportButton({ p }: { p: EntityRecord }) {
         placeholder="상세 내용(선택) — 예: 사진이 다른 차량입니다"
         style={{ background: C.taupeBg }} />
       <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-        <Btn size="sm" variant="ghost" onClick={() => setOpen(false)} disabled={busy}>취소</Btn>
-        <Btn size="sm" onClick={submit} disabled={busy}>{busy ? '접수 중…' : '요청 보내기'}</Btn>
+        <Btn mobileIcon={<X size={18} />} title="검수 요청 취소" size="sm" variant="ghost" onClick={() => setOpen(false)} disabled={busy}>취소</Btn>
+        <Btn mobileIcon={<Send size={18} />} title={busy ? '검수 요청 접수 중' : '검수 요청 보내기'} size="sm" onClick={submit} disabled={busy}>{busy ? '접수 중…' : '요청 보내기'}</Btn>
       </div>
     </div>
   );
