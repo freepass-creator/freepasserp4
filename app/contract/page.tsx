@@ -12,6 +12,7 @@ import { Download } from 'lucide-react';
 import { getRole, actor, ensureRoomForContract, type Role } from '@/lib/domain/deal';
 import { getSession } from '@/lib/auth-session';
 import { canAccessOwnedRecord } from '@/lib/domain/authorization';
+import { initAuth } from '@/lib/firebase/auth';
 import { man } from '@/lib/format';
 import { PaneHead, PaneBody, Badge, Btn, Input, won, C, R, NUM, Loading, CenterNote, SETTLEMENT_STATUS_TONE, FilterChips, FilterGroup, Select, FW, FS } from '@/components/ui';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
@@ -144,6 +145,7 @@ export default function ContractsSettlement() {
   };
 
   useEffect(() => { (async () => {
+    await initAuth();
     await seedIfEmpty(co); const all = await load(getRole());
     const wanted = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('c') : null;
     const first = all.find((c) => isContractInProgress(c)) || all[0];

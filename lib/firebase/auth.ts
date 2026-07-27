@@ -41,6 +41,15 @@ type AuthBoot = { promise?: Promise<void>; lastUid: string | null };
 const boot = (globalThis as unknown as { __fp4AuthBoot?: AuthBoot }).__fp4AuthBoot
   ?? ((globalThis as unknown as { __fp4AuthBoot: AuthBoot }).__fp4AuthBoot = { lastUid: null });
 
+async function clearScopedStoreCache(): Promise<void> {
+  try {
+    const { clearStoreCache } = await import('@/lib/store');
+    clearStoreCache();
+  } catch {
+    // 캐시 초기화 실패가 인증 자체를 막아서는 안 된다.
+  }
+}
+
 /** 인증 상태 감시 → 프로필 로드 → 세션 반영. resolve = 최초 1회(로그인 여부 확정). */
 export function initAuth(): Promise<void> {
   if (!firebaseReady()) return Promise.resolve();
@@ -60,6 +69,7 @@ export function initAuth(): Promise<void> {
         const uid = user?.uid || null;
         if (uid === boot.lastUid && uid !== null) { done(); return; }
         boot.lastUid = uid;
+        await clearScopedStoreCache();
         if (user && db) {
           try {
             let profile: Record<string, unknown> = (await get(ref(db, `users/${user.uid}`))).val() || {};
@@ -248,7 +258,18 @@ export async function updateMyProfile(fields: { name?: string; phone?: string; c
  */
 export async function adminUpdateUserIdentity(
   uid: string,
-  fields: { role?: string; company_code?: string; agent_channel_code?: string; status?: string },
+  fields: {
+    role?: string;
+    company_code?: string;
+    agent_channel_code?: string;
+    status?: string;
+    name?: string;
+    company_name?: string;
+    user_code?: string;
+    agent_payout_rate?: string | number;
+    is_team_manager?: string;
+    is_active?: string;
+  },
 ): Promise<void> {
   const db = getRtdb();
   if (!db) return; // 로컬/데모: 최상위 users 없음 → 스킵(정상)
@@ -258,10 +279,18 @@ export async function adminUpdateUserIdentity(
   if (fields.company_code != null) patch.company_code = String(fields.company_code);
   if (fields.agent_channel_code != null) patch.agent_channel_code = String(fields.agent_channel_code);
   if (fields.status != null) patch.status = String(fields.status);
+  if (fields.name != null) patch.name = String(fields.name);
+  if (fields.company_name != null) patch.company_name = String(fields.company_name);
+  if (fields.user_code != null) patch.user_code = String(fields.user_code);
+  if (fields.agent_payout_rate != null && fields.agent_payout_rate !== '') {
+    patch.agent_payout_rate = Number(fields.agent_payout_rate);
+  }
+  if (fields.is_team_manager != null) patch.is_team_manager = String(fields.is_team_manager);
+  if (fields.is_active != null) patch.is_active = String(fields.is_active);
   if (!Object.keys(patch).length) return;
   const before = (await get(ref(db, `users/${uid}`))).val() as Record<string, unknown> | null;
   await update(ref(db, `users/${uid}`), patch);
-  await writeIdentityAudit(uid, 'update', before, { ...(before || {}), ...patch }, '회원 신원 수정(역할·회사·채널)');
+  await writeIdentityAudit(uid, 'update', before, { ...(before || {}), ...patch }, '회원 신원·운영 프로필 수정');
 }
 
 /**

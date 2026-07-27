@@ -186,6 +186,12 @@ export default function Members() {
           role: form.role != null ? String(form.role) : undefined,
           company_code: form.company_code != null ? String(form.company_code) : undefined,
           agent_channel_code: form.agent_channel_code != null ? String(form.agent_channel_code) : undefined,
+          name: form.name != null ? String(form.name) : undefined,
+          company_name: form.company_name != null ? String(form.company_name) : undefined,
+          user_code: form.user_code != null ? String(form.user_code) : undefined,
+          agent_payout_rate: form.agent_payout_rate != null ? String(form.agent_payout_rate) : undefined,
+          is_team_manager: form.is_team_manager != null ? String(form.is_team_manager) : undefined,
+          is_active: form.is_active != null ? String(form.is_active) : undefined,
         });
       }
       setDirty(false);
@@ -246,7 +252,12 @@ export default function Members() {
     : MEM_ACTIVE;
 
   const byKey = Object.fromEntries(ENTITIES[tab].fields.map((f) => [f.key, f]));
-  const fields = (tab === 'user' ? USER_KEYS : PARTNER_KEYS).map((k) => byKey[k]).filter(Boolean) as Field[];
+  // 관리자 신규 등록은 이미 생성된 Firebase Auth 계정과 정확히 연결할 수 있어야 한다.
+  // UID는 관계·권한의 루트 키이므로 생성 중에만 입력을 허용하고 기존 레코드 편집에서는 계속 숨긴다.
+  const formKeys = tab === 'user'
+    ? (creating ? ['uid', ...USER_KEYS] : USER_KEYS)
+    : PARTNER_KEYS;
+  const fields = formKeys.map((k) => byKey[k]).filter(Boolean) as Field[];
   const canEdit = creating || editing;
   const modeBanner = creating ? (
     <Message variant="info">신규 {tab === 'user' ? '사용자' : '파트너'} — 필수 항목을 입력한 뒤 저장하세요.</Message>

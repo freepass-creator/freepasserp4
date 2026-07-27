@@ -20,6 +20,7 @@ import { ChatRoomRow } from '@/components/list-rows';
 import { NAV_LABEL } from '@/lib/tabbar';
 import { getSession } from '@/lib/auth-session';
 import { canAccessOwnedRecord } from '@/lib/domain/authorization';
+import { initAuth } from '@/lib/firebase/auth';
 import {
   buildContractIndex,
   buildProductLookup,
@@ -156,6 +157,7 @@ export default function Chat() {
     return list.find((rm) => isInquiryOnly(of(rm))) || list[0];
   };
   useEffect(() => { (async () => {
+    await initAuth();
     await seedIfEmpty(co); const r = getRole(); setRoleS(r); const s = await load(r);
     const cts = await getStore().list('contract', co);
     const wanted = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('room') : null;
