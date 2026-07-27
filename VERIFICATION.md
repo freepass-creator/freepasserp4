@@ -1,5 +1,21 @@
 # 독립 검증 결과
 
+## 2026-07-27 운영 RTDB 전체 백업
+
+결과: **PASS — 실제 private 마이그레이션 전 복구 원본 확보**
+
+- Firebase Console에서 `freepasserp3` Realtime Database 전체 JSON을 내보냈다.
+- 보관 파일:
+  `C:\Users\user\Downloads\freepasserp3-rtdb-backup-2026-07-27-101030.json`
+- 파일 크기: `36,661,857 bytes`
+- SHA-256:
+  `AC8829FE447D878D9E9E180C91D42A399B336C7C72DA724994A8658FC3D5BC53`
+- JSON 파싱 성공, 최상위 20개 키와 핵심 루트 `products`, `v4`, `users` 존재 확인
+- 원본 다운로드와 보관본 해시 일치 확인
+- 복구 경로는 Firebase Console → Realtime Database → 데이터 루트 →
+  데이터베이스 작업 메뉴 → JSON 가져오기다.
+- 실제 복원은 운영 데이터 변경 작업이므로 이번 검증에서는 실행하지 않았다.
+
 ## 2026-07-27 상품 private 운영 dry-run 및 백업 안전장치
 
 결과: **PASS — 운영 데이터 변경 없이 대량 이동 규모 확정**
@@ -1748,12 +1764,9 @@ Next 개발 서버와 production build가 같은 `.next`를 사용하면 실행 
 
 ### 남은 오픈 차단 항목
 
-- 운영 RTDB 전체 백업
-- Firebase Rules 실제 게시
 - 상품·정산 private dry-run 수치 승인과 실제 마이그레이션
-- 5역할 실제 계정 권한 테스트
-- 실제 모바일 전자서명 흐름
-- 운영 데이터 E2E
+- 관리자 외 4역할 실제 계정 권한 테스트
+- 전자서명 반려·해지·만료 실브라우저 테스트
 - Vercel production 배포
 
 단일 실행 문서는 `OPENING_CHECKLIST.md`를 따른다. 추가 리팩터링은 오픈 후 범위로 동결한다.
