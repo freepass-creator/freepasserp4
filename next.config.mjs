@@ -12,6 +12,9 @@ const BUILD_SHA = sh('git rev-parse --short HEAD') || (process.env.VERCEL_GIT_CO
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // 병렬 QA 서버가 기본 개발 서버의 .next 산출물을 덮어쓰지 않도록
+  // 보조 서버는 NEXT_DIST_DIR=.next-qa처럼 별도 디렉터리를 지정할 수 있다.
+  distDir: process.env.NEXT_DIST_DIR || '.next',
   // 빌드번호·SHA를 클라이언트 번들에 주입 → 메뉴 하단 버전표시(배포 확인용, 자동 증가).
   env: {
     NEXT_PUBLIC_BUILD_NO: BUILD_NO,

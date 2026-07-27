@@ -115,8 +115,10 @@ check('contract collection has no broad write', v4['.write'], undefined);
 check('contract writes are record-scoped', typeof v4.$contract_id['.write'], 'string');
 check('contract deletion is denied', v4.$contract_id['.write'].includes('newData.exists()'), true);
 check('contract ownership is required', v4.$contract_id['.write'].includes("newData.child('provider_company_code')"), true);
-check('contract identity snapshots are immutable', v4.$contract_id['.validate'].includes("newData.child('fee_rate_snapshot').val() === data.child('fee_rate_snapshot').val()"), true);
-check('cross-role deletion is guarded at parent', v4.$contract_id['.validate'].includes("newData.child('agent_docs_submitted').val() === data.child('agent_docs_submitted').val()"), true);
+check('contract identity snapshots are immutable', v4.$contract_id.fee_rate_snapshot['.validate'].includes("newData.val() === data.val()"), true);
+check('contract identity fields are immutable', v4.$contract_id.agent_uid['.validate'].includes("newData.val() === data.val()"), true);
+check('cross-role agent step is guarded at child', v4.$contract_id.agent_docs_submitted['.validate'].includes("role').val() === 'agent'"), true);
+check('cross-role provider step is guarded at child', v4.$contract_id.provider_docs_review['.validate'].includes("role').val() === 'provider'"), true);
 check('completion requires final provider step', v4.$contract_id.contract_status['.validate'].includes("provider_release_completed"), true);
 check('agreement exception requires signed state', v4.$contract_id.provider_agreement_sent['.validate'].includes("sign_status").valueOf(), true);
 

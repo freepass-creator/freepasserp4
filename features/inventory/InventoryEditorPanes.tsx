@@ -26,6 +26,7 @@ export type InventoryEditorModel = {
   ocrBusy: boolean;
   ocrInputRef: RefObject<HTMLInputElement>;
   policies: EntityRecord[];
+  partners: EntityRecord[];
   supplierPhotos: string[];
   isAdmin: boolean;
   onReset: () => void;
@@ -117,6 +118,30 @@ export function InventoryFixedPane({ model }: { model: InventoryEditorModel }) {
           )}
           {section('선택옵션', ['options'], 1, '제조사 스펙 · 콤마/슬래시 구분')}
           {section('③ 신원', ['car_number', 'vehicle_class'], 2, '차량번호는 필수 · 차종분류=세그먼트[ 차형]')}
+          {model.isAdmin ? (
+            <FormCard title="④ 공급사" hint="계약·채팅·정산의 공급사 권한 범위를 결정합니다.">
+              <label style={{ fontSize: FS.cap, color: C.mute }}>공급사 *
+                <div style={{ marginTop: 3 }}>
+                  <Select
+                    value={String(form.provider_company_code || '')}
+                    onChange={(value) => model.onFieldChange('provider_company_code', value)}
+                    placeholder="— 공급사 선택 —"
+                    full
+                    disabled={!canEdit}
+                    options={model.partners
+                      // 레거시 공급사 파트너는 partner_type이 비어 있는 경우가 있다.
+                      // 영업채널로 명시된 파트너만 제외하고 관리자에게 배정 후보로 제공한다.
+                      .filter((partner) => String(partner.partner_type || '') !== '영업채널')
+                      .map((partner) => ({
+                        value: String(partner.partner_code || partner._key || ''),
+                        label: `${String(partner.name || partner.company_name || partner.partner_name || partner.partner_code || '공급사')} (${String(partner.partner_code || partner._key || '')})`,
+                      }))
+                      .filter((option) => option.value)}
+                  />
+                </div>
+              </label>
+            </FormCard>
+          ) : null}
           {section('제원 · 스펙', ['year', 'fuel_type', 'engine_cc', 'seats', 'drive_type', 'transmission', 'usage', 'ext_color', 'int_color', 'first_registration_date'], 2)}
           {model.isAdmin && section('원가 · 이력 · 등록증', ['vehicle_price', 'location', 'vin', 'vehicle_age_expiry_date', 'cert_car_name', 'type_number', 'engine_type', 'partner_memo'])}
         </> : <CenterNote>왼쪽에서 상품을 고르거나 · 상품등록을 누르세요.</CenterNote>}

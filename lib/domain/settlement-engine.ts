@@ -46,15 +46,46 @@ export async function createSettlement(contract: EntityRecord): Promise<string> 
   const rent = Number(contract.rent_amount_snapshot) || 0;
   const fee = Math.round(rent * feeRate);
   const payout = Math.round(rent * payoutRate);
-  await store.save('settlement', co, [{
-    settlement_code: code, contract_code: contract.contract_code, car_number: contract.car_number_snapshot,
-    customer_name: contract.customer_name, provider_company_code: contract.provider_company_code, partner_code: contract.provider_company_code,
-    agent_code: contract.agent_code, agent_channel_code: contract.agent_channel_code,
-    rent_amount: rent, fee_rate: feeRate, fee_amount: fee, agent_payout: payout, net_amount: fee - payout, clawback_amount: 0,
-    settlement_status: '정산대기', contract_date: contract.contract_date,
-    rent_month_snapshot: contract.rent_month_snapshot, sub_model_snapshot: contract.sub_model_snapshot,
-  }]);
+  try {
+    await store.save('settlement', co, [{
+      settlement_code: code, contract_code: contract.contract_code, car_number: contract.car_number_snapshot,
+      customer_name: contract.customer_name, provider_company_code: contract.provider_company_code, partner_code: contract.provider_company_code,
+      agent_code: contract.agent_code, agent_channel_code: contract.agent_channel_code,
+      rent_amount: rent, fee_rate: feeRate, fee_amount: fee, agent_payout: payout, net_amount: fee - payout, clawback_amount: 0,
+      settlement_status: '정산대기', contract_date: contract.contract_date,
+      rent_month_snapshot: contract.rent_month_snapshot, sub_model_snapshot: contract.sub_model_snapshot,
+    }]);
+  } catch (error) {
+    const message = String((error as Error)?.message || error);
+    if (/permission[\s_-]*denied/i.test(message)) {
+      throw new Error('정산 저장 권한이 거부되었습니다. 최신 database.rules.json 게시 상태를 확인한 뒤 완료 처리를 재시도하세요.');
+    }
+    throw error;
+  }
   return code;
+}
+
+/**
+ * 5/5인데 정산·완료 전이 중 실패한 계약을 멱등 복구한다.
+ * 정산 → 계약완료 → 차량잠금 순서를 지켜 완료만 남거나 정산이 중복되는 것을 막는다.
+ */
+export async function finalizeContractIfReady(contract: EntityRecord): Promise<boolean> {
+  const co = getCompanyId(); const store = getStore();
+  const code = String(contract.contract_code);
+  const fresh = (await store.get('contract', co, code)) || contract;
+  const progress = getProgress(fresh);
+  if (progress.done !== progress.total) return false;
+  await createSettlement(fresh);
+  if (fresh.contract_status !== '계약완료') {
+    await store.update('contract', co, code, { contract_status: '계약완료' });
+  }
+  if (fresh.product_code) {
+    await store.update('product', co, String(fresh.product_code), {
+      vehicle_status: '출고불가',
+      locked_by_contract: code,
+    });
+  }
+  return true;
 }
 
 /** 경과비례 환수 — 정산완료 건만, 잔여기간 비례(공급사수수료 기준). */
@@ -249,10 +280,8 @@ export async function applyStepCheck(contract: EntityRecord, key: string, value:
   const pr = getProgress(fresh);
   if (pr.done === pr.total && fresh.contract_status !== '계약완료') {
     // 정산을 먼저(멱등 ST_) — 실패 시 계약완료·락을 찍지 않아 "완료만 남고 정산 누락"을 막는다.
-    //  재시도 시 createSettlement는 이미 있으면 즉시 반환 → status/락만 이어감.
-    await createSettlement(fresh);
-    await store.update('contract', co, code, { contract_status: '계약완료' });
-    if (productCode) await store.update('product', co, productCode, { vehicle_status: '출고불가', locked_by_contract: code });
+    // 중간 실패는 ContractPanel의 명시적 재시도 경로로 같은 전이 사슬을 이어간다.
+    await finalizeContractIfReady(fresh);
   } else if (productCode) {
     // 락 재계산 — 선점·해제 양방향. 체크 해제('')로 선점이 풀린 경우도 반드시 여기서 상품에 반영된다.
     // (구현: 해제를 별도 분기로 두면 매번 새 누락 경로가 생김 → 매 체크마다 무조건 재계산이 SSOT)

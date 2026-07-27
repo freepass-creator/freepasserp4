@@ -83,6 +83,10 @@ export function useInventoryEditorLifecycle({
     setSaving(true);
     try {
       const role = getRole();
+      if (role === 'admin' && !String(form.provider_company_code || '').trim()) {
+        toast('공급사를 선택하세요 — 계약·채팅·정산 연결에 필요합니다', 'error');
+        return;
+      }
       if (role === 'provider') {
         const providerCode = actor('provider').code;
         if (!providerCode) {

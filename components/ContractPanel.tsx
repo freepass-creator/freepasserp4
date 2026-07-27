@@ -4,7 +4,7 @@ import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { STEPS, contractTone, isDone } from '@/lib/domain/contract';
-import { applyStepCheck, cancelContract } from '@/lib/domain/settlement-engine';
+import { applyStepCheck, cancelContract, finalizeContractIfReady } from '@/lib/domain/settlement-engine';
 import { createContractRequest, getRole, type Role } from '@/lib/domain/deal';
 import { cheapest, priceList } from '@/lib/domain/product';
 import { Btn, Badge, C, R, NUM, Input, fmtPhone, actorColor, FW, FS } from '@/components/ui';
@@ -75,6 +75,19 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
     setBusy(true);
     try { haptic.impact(); await cancelContract(contract); await load(); onChange?.(); } catch (e) { toast(String((e as Error)?.message || e), 'error'); } finally { setBusy(false); }
   };
+  const retryFinalize = async () => {
+    if (!contract || busy) return;
+    setBusy(true);
+    try {
+      await finalizeContractIfReady(contract);
+      await load(); onChange?.();
+      toast('계약 완료·정산 처리를 마쳤습니다.', 'ok');
+    } catch (e) {
+      toast(String((e as Error)?.message || e), 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
 
   if (contract === undefined) return <div style={{ padding: 20, color: C.faint, fontSize: FS.sub }}>불러오는 중…</div>;
 
@@ -83,6 +96,7 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
   const stepDoneArr = STEPS.map((s) => s.checks.every((ch) => isDone(cval(ch.key))));
   const activeIdx = stepDoneArr.findIndex((d) => !d);
   const doneCount = stepDoneArr.filter(Boolean).length;
+  const needsFinalize = Boolean(c && doneCount === STEPS.length && String(c.contract_status) !== '계약완료');
 
   return (
     <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 9 }}>
@@ -93,6 +107,13 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
         <span style={{ fontSize: FS.sub, fontWeight: FW.head, color: C.brand }}>{doneCount}/{STEPS.length}</span>
         {c && String(c.contract_status) !== '계약취소' && (role === 'agent' || role === 'admin') && <Btn size="sm" variant="ghost" onClick={doCancel} disabled={busy}>계약취소</Btn>}
       </div>
+
+      {needsFinalize && (
+        <div style={{ border: `1px solid ${C.warn}`, borderRadius: R, padding: '9px 10px', background: C.warnBg, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ flex: 1, fontSize: FS.cap, color: C.ink, lineHeight: 1.5 }}>5단계 체크는 끝났지만 정산·완료 처리가 남았습니다.</span>
+          {(role === 'admin' || role === 'provider') && <Btn size="sm" onClick={retryFinalize} disabled={busy}>완료 처리 재시도</Btn>}
+        </div>
+      )}
 
       {STEPS.map((s, i) => {
         const stepDone = stepDoneArr[i];

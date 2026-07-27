@@ -11,6 +11,7 @@ import { NAV_LABEL } from '@/lib/tabbar';
 export function useInventoryData(companyId: string) {
   const [rows, setRows] = useState<EntityRecord[] | null>(() => peekList('product', companyId));
   const [policies, setPolicies] = useState<EntityRecord[]>([]);
+  const [partners, setPartners] = useState<EntityRecord[]>([]);
   const [access, setAccess] = useState<boolean | null>(null);
   const [gateMessage, setGateMessage] = useState('');
 
@@ -23,6 +24,7 @@ export function useInventoryData(companyId: string) {
       ? all.filter((product) => String(product.provider_company_code) === actor('provider').code)
       : all;
     const named = withProviderNames(visible, partners);
+    setPartners(partners);
     setRows(named);
     return named;
   }, [companyId]);
@@ -32,6 +34,7 @@ export function useInventoryData(companyId: string) {
     setRows,
     policies,
     setPolicies,
+    partners,
     access,
     setAccess,
     gateMessage,
