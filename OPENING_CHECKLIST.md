@@ -83,7 +83,9 @@ JSON 가져오기를 사용한다. 기존 데이터를 변경하는 작업이므
 - [x] 상품·계약 파일의 Google Drive 2차 백업 경로 구현
 - [x] Storage Rules 에뮬레이터 문법·로딩 확인
 - [x] 공유 버킷의 V3 기존 7개 Storage 경로 규칙 병합
-- [ ] 운영 Firebase Storage Rules 게시
+- [x] 운영 Firebase Storage Rules 게시
+- [x] Google Drive API 활성화
+- [x] My Drive `FreepassERP4 백업` 루트 폴더 생성
 - [ ] Vercel Production·Preview에 Drive OAuth 환경변수 4종 설정
 - [ ] 관리자·영업자·공급사 계정으로 상품 사진·계약 서류·채팅 첨부 실검증
 - [ ] Drive 장애 시 Storage 저장 유지, 정상 시 `상품/{코드}`·`계약/{코드}` 백업 확인

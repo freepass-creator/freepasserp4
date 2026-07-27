@@ -1058,3 +1058,7 @@ HTTP 스모크, 전체 자동 시뮬레이션과 production build는 통과한 �
 - `storage.rules`, `firebase.json`, `.env.example`과 운영 문서를 추가했다.
 - 공유 버킷을 계속 쓰는 V3의 기존 7개 Storage 경로 규칙을 병합해 V4 게시가 V3를 막지 않게 했다.
 - Drive 사본은 복구용이므로 ERP 삭제와 연동해 삭제하지 않는다.
+- 2026-07-27 운영 버킷 `freepasserp3.firebasestorage.app`에 병합 Rules 게시 완료.
+- 게시 전 V3 Rules는 `storage.rules.PREV`에 보존했다.
+- Google Drive API 활성화 및 `FreepassERP4 백업` 루트 폴더 생성 완료.
+- OAuth 앱 정책 동의와 클라이언트/refresh token 발급은 계정 소유자 확인 대기다.

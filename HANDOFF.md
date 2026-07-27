@@ -9,7 +9,9 @@
 - Drive OAuth 네 환경변수는 현재 로컬에 없으므로 설정 전까지 `disabled` 상태가 정상이다.
 - `storage.rules`는 공유 버킷의 V3 7개 기존 경로와 V4 `/erp` 경로를 함께 보존한다.
   V3 호환 블록을 제거하거나 V4 규칙만 단독 게시하면 안 된다.
-- Storage Rules와 `firebase.json`은 작성했지만 운영 게시 여부는 검증 기록을 확인한다.
+- V3 호환 + V4 `/erp` Storage Rules를 `freepasserp3` 운영 버킷에 게시했다.
+- Google Drive API를 활성화하고 My Drive에 `FreepassERP4 백업` 루트 폴더를 만들었다.
+- OAuth 앱은 정책 동의 직전까지 구성됐다. 계정 소유자의 정책 동의 후 클라이언트·refresh token을 발급한다.
 - 상세 구조·설정·보안 경계·복구 절차: `docs/FILE_STORAGE_AND_DRIVE_BACKUP.md`
 
 ## 2026-07-27 오픈 게이트 재조사 결과

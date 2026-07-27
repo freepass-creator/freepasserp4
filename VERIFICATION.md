@@ -2075,7 +2075,7 @@ Next 개발 서버와 production build가 같은 `.next`를 사용하면 실행 
 
 ### 판정
 
-**로컬 구현 PASS / 운영 활성화 대기**
+**Storage 운영 활성화 PASS / Drive OAuth 동의 대기**
 
 - 신규 상품 사진·계약 서류·채팅 파일은 RTDB data URL 대신 Firebase Storage를 사용한다.
 - 상품·계약은 Drive 백업을 시도하고 채팅은 Storage에만 저장한다.
@@ -2103,11 +2103,17 @@ Next 개발 서버와 production build가 같은 `.next`를 사용하면 실행 
 - `/api/drive-backup`: HTTP 200, `{"enabled":false}` 확인
 - `git diff --check`: PASS
 
-### 운영 대기
+### 운영 적용 결과
 
-- 현재 Drive OAuth 환경변수 4종이 없어 Drive 백업은 의도대로 비활성이다.
-- Storage Rules는 로컬 에뮬레이터에서 검증했지만 운영 프로젝트에는 아직 게시하지 않았다.
-- 따라서 실제 Storage 업로드·Drive 사본 생성·삭제 복구는 Rules 게시와 OAuth 설정 후
+- `freepasserp3.firebasestorage.app`에 V3 호환 + V4 `/erp` Rules 게시 완료.
+- 운영 Rules release ruleset:
+  `projects/freepasserp3/rulesets/9a8cdcea-56e9-48f5-bcd9-445a63d0ebb2`
+- 게시 전 V3 Rules는 `storage.rules.PREV`에 보존했다.
+- Google Drive API를 `freepasserp3` 프로젝트에서 활성화했다.
+- Drive 루트 `FreepassERP4 백업`
+  (`1bCDIXDMGatPRoxcAoWcI1HgZFxA4NXGo`)을 만들고 로컬 환경변수에 설정했다.
+- 현재 OAuth 정책 동의 전이라 나머지 환경변수 3종이 없고 Drive 백업은 의도대로 비활성이다.
+- 정책 동의·클라이언트·refresh token 발급 후 실제 Storage 업로드·Drive 사본 생성·삭제 복구를
   관리자·영업자·공급사 계정으로 최종 확인해야 한다.
 - Storage download URL은 capability URL이다. RTDB 업무 범위가 URL 발견을 제한하지만
   URL 자체의 외부 전달까지 막지는 못한다. 계약 개인정보의 강한 차단은 인증 다운로드 프록시가 후속 과제다.

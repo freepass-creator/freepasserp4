@@ -53,6 +53,14 @@ GOOGLE_DRIVE_BACKUP_FOLDER_ID=
 하나라도 없으면 `/api/drive-backup`은 비활성 상태를 반환하며 Storage 업로드는 정상 진행한다.
 브라우저에는 OAuth 비밀값이 노출되지 않는다.
 
+2026-07-27 운영 상태:
+
+- Storage Rules 게시 완료
+- Google Drive API 활성화 완료
+- 백업 루트 `FreepassERP4 백업`
+  (`1bCDIXDMGatPRoxcAoWcI1HgZFxA4NXGo`) 생성 완료
+- OAuth 앱 정책 동의와 클라이언트/refresh token 발급 대기
+
 ## 제한과 보안 경계
 
 - 상품 사진 3MB, 계약 서류 4MB, 채팅 첨부 3MB가 파일당 상한이다.
