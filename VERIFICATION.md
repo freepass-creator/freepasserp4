@@ -701,6 +701,45 @@
 
 ---
 
+## 2026-07-27 4역할 실계정·채팅 갱신·정산 격리 검증
+
+### 판정
+
+**PASS — 역할별 실제 금액 화면만 QA 정산 생성 후 최종 확인**
+
+- 별도 QA 조직의 활성 계정 4종(영업채널 관리자·직원, 공급사 관리자·직원)으로 실제 Firebase Auth 로그인했다.
+- 메뉴와 데이터 범위:
+  - 영업채널 관리자는 채널 계약·채팅, 영업채널 직원은 본인 계약·채팅만 조회했다.
+  - 공급사 관리자·직원은 자기 회사 재고·계약·채팅을 조회했다.
+  - 반대 조직 코드 쿼리와 권한 밖 경로는 운영 RTDB Rules가 HTTP 401로 차단했다.
+- QA 계약 `TMP-260727-01-yvjf`, 차량 `99하0727`, QA 문의방을 네 역할에서 확인했다.
+- 공급사 직원→영업자, 영업자→공급사 메시지 송수신을 확인했다.
+- 채팅 메시지 로딩 전 빈 대화 안내가 잠깐 보이던 상태를 로딩 상태로 분리했다.
+- 방별 메시지 성공 결과를 영구 캐시하지 않고 동시 요청만 합치도록 변경했다.
+- 열린 대화는 5초 주기·창 포커스·`fp:unread` 이벤트에 새 메시지를 다시 읽는다.
+- 공급사 토큰으로 새 QA 메시지를 넣은 뒤 페이지 새로고침 없이 영업자 화면에 나타나는 것을 확인했다.
+- 감사로그 쓰기/조회 경로를 운영 Rules가 허용하는 루트 `audit_logs`로 통일했고, 채팅 전송 시 새 `permission_denied` 경고 0건을 확인했다.
+- 설정 페이지는 hydration 전에 localStorage 기반 `actor()`를 호출하지 않도록 바꿨고, 로그인 세션 이름 불일치 오류가 재발하지 않았다.
+
+### 정산 private 운영 매트릭스
+
+- 영업 직원의 자기 `settlements_agent_private` 쿼리: HTTP 200
+- 영업채널 관리자의 자기 채널 `settlements_agent_private` 쿼리: HTTP 200
+- 공급사 직원·관리자의 자기 회사 `settlements_provider_private` 쿼리: HTTP 200
+- 영업→공급사 private, 공급사→영업 private, 네 역할→관리자 private: HTTP 401
+- 전용 QA 정산 데이터는 아직 0건이므로 R1/R2 실제 숫자 화면 표시는 오픈 체크리스트에 잔여로 유지했다.
+
+### 자동 검증
+
+- `npm.cmd run typecheck`: PASS
+- `npm.cmd run check:fonts`: PASS, 폰트 드리프트 0
+- `scripts/sim-*.mts` 12개: 전부 PASS
+- `NEXT_DIST_DIR=tmp/verification-build/chat-live-20260727 npm.cmd run build`: PASS
+  - 28개 라우트
+- 개발 서버 PID `30312`, 포트 4004 유지 및 HTTP 200
+
+---
+
 ## 2026-07-26 — Inventory 목록 계산 훅 검증
 
 ### 검증 결과

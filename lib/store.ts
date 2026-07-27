@@ -285,7 +285,15 @@ class DispatchStore implements StoreAdapter {
         : base.list('message', companyId).then((all) => all.filter((m) => String(m.room_id) === roomId))
       ).then((rows) => { _listResolved.set(ck, rows); return rows; });
       _listCache.set(ck, p);
-      p.catch(() => { _listCache.delete(ck); _listResolved.delete(ck); });
+      // 채팅은 다른 사용자가 계속 추가하므로 일반 목록처럼 성공 결과를 영구 캐시하면
+      // 열린 대화방이 새 메시지를 다시 읽지 못한다. 동시 호출만 합치고 완료 후 새 조회를 허용한다.
+      p.then(
+        () => { if (_listCache.get(ck) === p) _listCache.delete(ck); },
+        () => {
+          if (_listCache.get(ck) === p) _listCache.delete(ck);
+          _listResolved.delete(ck);
+        },
+      );
     }
     return p;
   }

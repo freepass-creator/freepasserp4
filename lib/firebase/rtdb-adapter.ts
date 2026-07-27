@@ -40,9 +40,10 @@ const NODE: Record<string, string> = {
   customer: 'customers', // ← 누락 시 단수 'customer' 경로로 새어 v4/$other(오픈) 규칙에 걸림. 복수 노드로 강제.
 };
 const OVERLAY = 'v4'; // 쓰기 격리 루트
-// v3 라이브에서 당겨오는 엔티티 = 매물·회원·채팅·계약(+매물 표시에 필요한 정책·공급사).
-//  정산·감사는 v4 네이티브(오버레이만). 쓰기는 전부 v4/ 오버레이(v3 라이브 무변경).
-const BRIDGE_FROM_V3 = new Set(['product', 'policy', 'partner', 'user', 'room', 'message', 'contract']);
+// v3 라이브에서 당겨오는 엔티티 = 매물·회원·채팅·계약·감사(+매물 표시에 필요한 정책·공급사).
+//  정산은 v4 네이티브(오버레이만). 업무 데이터 쓰기는 v4/ 오버레이(v3 라이브 무변경)이며
+//  감사만 기존 운영 Rules와 관리자 화면이 공유하는 루트 audit_logs를 유지한다.
+const BRIDGE_FROM_V3 = new Set(['product', 'policy', 'partner', 'user', 'room', 'message', 'contract', 'audit_log']);
 
 // 카슝(구독차량 연동)만 카탈로그서 제외 — 연동 끊겨 현재 0대. 빌린카(RP021 자체매물)는 포함(erp3도 포함).
 //  ※ 과거엔 RP021(빌린카)까지 묶어 뺐으나 오분류였음 — 빌린카는 정상 공급사(자체매물). 카슝=PT-0024.
@@ -596,12 +597,13 @@ export class RtdbAdapter implements StoreAdapter {
     await this.update(entity, co, key, { _deleted: false, deletedAt: null });
   }
 
-  // 전 write 감사 — v4/audit_logs. audit_log 자기제외. 메시지도 기록(채팅 관장).
+  // 전 write 감사 — 운영 Rules가 actor_uid 본인 쓰기를 허용하는 루트 audit_logs.
+  // audit_log 자기제외. 메시지도 기록(채팅 관장).
   private writeAuditRec(entry: EntityRecord | null): void {
     if (!entry) return;
     try {
       const id = String(entry._key);
-      void dbUpdate(ref(this.db(), `${OVERLAY}/audit_logs/${id}`), stripUndef(entry as Rec)).catch(() => {});
+      void dbUpdate(ref(this.db(), `audit_logs/${id}`), stripUndef(entry as Rec)).catch(() => {});
     } catch { /* best-effort */ }
   }
   private writeAudit(entity: string, co: string, key: string, action: string, before: EntityRecord | null, after: EntityRecord | null): void {

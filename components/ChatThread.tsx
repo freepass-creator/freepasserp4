@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
@@ -17,7 +17,7 @@ export function ChatThread({ roomId, onBack, onVehicle, onContract }: { roomId: 
   const mobile = useIsMobile();
   const co = getCompanyId();
   const [room, setRoom] = useState<EntityRecord | null | undefined>(undefined);
-  const [msgs, setMsgs] = useState<EntityRecord[]>([]);
+  const [msgs, setMsgs] = useState<EntityRecord[] | undefined>(undefined);
   const [role, setRoleS] = useState<Role>('agent');
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
@@ -25,15 +25,42 @@ export function ChatThread({ roomId, onBack, onVehicle, onContract }: { roomId: 
   const endRef = useRef<HTMLDivElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
-  const load = async () => {
+  const load = useCallback(async (mark = true) => {
     const rm = await getStore().get('room', co, roomId);
     setRoom(rm);
-    await markRead(roomId, getRole());
+    if (mark) await markRead(roomId, getRole());
     setMsgs(await listMessages(roomId));
-  };
-  useEffect(() => { (async () => { await seedIfEmpty(co); setRoleS(getRole()); await load(); })(); /* eslint-disable-next-line */ }, [roomId]);
+  }, [co, roomId]);
+  useEffect(() => {
+    let alive = true;
+    setMsgs(undefined);
+    (async () => {
+      await seedIfEmpty(co);
+      if (!alive) return;
+      setRoleS(getRole());
+      await load();
+    })().catch((e) => {
+      console.error('메시지 조회 실패:', e);
+      if (alive) setMsgs([]);
+    });
+    return () => { alive = false; };
+  }, [co, load]);
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === 'hidden') return;
+      load(false).catch((e) => console.warn('메시지 새로고침 실패:', e));
+    };
+    const id = window.setInterval(refresh, 5000);
+    window.addEventListener('focus', refresh);
+    window.addEventListener('fp:unread', refresh);
+    return () => {
+      window.clearInterval(id);
+      window.removeEventListener('focus', refresh);
+      window.removeEventListener('fp:unread', refresh);
+    };
+  }, [load]);
   useEffect(() => { const on = (e: Event) => setRoleS((e as CustomEvent).detail as Role); window.addEventListener('fp:role', on); return () => window.removeEventListener('fp:role', on); }, []);
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [msgs.length, roomId]);
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [msgs?.length, roomId]);
 
   const send = async () => {
     const t = text.trim(); if (!t || busy) return;
@@ -41,7 +68,7 @@ export function ChatThread({ roomId, onBack, onVehicle, onContract }: { roomId: 
     try {
       const rec = await sendText({ roomId, text: t, channel: '정식', role });
       setText('');
-      setMsgs((prev) => [...prev, rec]);
+      setMsgs((prev) => [...(prev || []), rec]);
       const rm = await getStore().get('room', co, roomId);
       if (rm) setRoom(rm);
     } catch (e) {
@@ -55,7 +82,7 @@ export function ChatThread({ roomId, onBack, onVehicle, onContract }: { roomId: 
     setBusy(true);
     try {
       const rec = await sendFileMsg({ roomId, file: files[0], channel: '정식', role });
-      setMsgs((prev) => [...prev, rec]);
+      setMsgs((prev) => [...(prev || []), rec]);
       const rm = await getStore().get('room', co, roomId);
       if (rm) setRoom(rm);
     } catch (e) {
@@ -92,8 +119,9 @@ export function ChatThread({ roomId, onBack, onVehicle, onContract }: { roomId: 
       ) : null}
 
       <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {msgs.length === 0 && <div style={{ textAlign: 'center', color: C.faint, fontSize: FS.sub, marginTop: 20 }}>첫 메시지를 남겨보세요.</div>}
-        {msgs.map((m) => {
+        {msgs === undefined && <Loading label="메시지를 불러오는 중…" minHeight={80} />}
+        {msgs?.length === 0 && <div style={{ textAlign: 'center', color: C.faint, fontSize: FS.sub, marginTop: 20 }}>첫 메시지를 남겨보세요.</div>}
+        {msgs?.map((m) => {
           const mine = isMine(m, me, role);
           const isAdmin = m.sender_role === 'admin';
           const simple = m.channel === '간단';

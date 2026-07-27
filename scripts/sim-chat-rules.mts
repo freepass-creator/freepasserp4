@@ -84,6 +84,7 @@ const cwd = process.cwd();
 const rulesText = fs.readFileSync(path.join(cwd, 'database.rules.json'), 'utf8');
 const rules = JSON.parse(rulesText).rules;
 const adapter = fs.readFileSync(path.join(cwd, 'lib/firebase/rtdb-adapter.ts'), 'utf8');
+const firebaseAuth = fs.readFileSync(path.join(cwd, 'lib/firebase/auth.ts'), 'utf8');
 
 check('v3 room reads require a scoped query', rules.rooms['.read'].includes('query.orderByChild'), true);
 check('v3 message bulk read is absent', rules.messages['.read'], undefined);
@@ -105,5 +106,8 @@ check('adapter reads v3 messages by room node', adapter.includes('`messages/${ro
 check('adapter queries provider rooms by company', adapter.includes("orderByChild('provider_company_code'), equalTo(company)"), true);
 check('adapter queries agent rooms by uid', adapter.includes("orderByChild('agent_uid'), equalTo(auth.uid)"), true);
 check('adapter queries agent rooms by channel', adapter.includes("orderByChild('agent_channel_code'), equalTo(sess.agent_channel_code)"), true);
+check('audit writes bind actor uid to auth uid', rules.audit_logs.$auto['.write'].includes("newData.child('actor_uid').val() === auth.uid"), true);
+check('store audit writes use the deployed root audit path', adapter.includes('`audit_logs/${id}`') && !adapter.includes('`${OVERLAY}/audit_logs/${id}`'), true);
+check('auth audit writes use the deployed root audit path', firebaseAuth.includes('`audit_logs/${String(entry._key)}`'), true);
 
 console.log(`chat rules simulation: ${passed}/${passed} PASS`);

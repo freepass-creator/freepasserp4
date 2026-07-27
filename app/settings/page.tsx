@@ -49,7 +49,9 @@ const IDLE_OPTS: { key: string; label: string }[] = [
 export default function Settings() {
   const router = useRouter();
   const session = useSession();
-  const guest = isGuest();
+  const [mounted, setMounted] = useState(false);
+  const visibleSession = mounted ? session : null;
+  const guest = mounted ? isGuest() : false;
   const [role, setRoleLocal] = useState<Role>('agent');
   const [hidden, setHidden] = useState<HiddenSnap[]>([]);
   const [passed, setPassed] = useState<PassSnap[]>([]);
@@ -65,6 +67,8 @@ export default function Settings() {
   const [pwdBusy, setPwdBusy] = useState(false);
   const [idleMin, setIdleLocal] = useState(0);
   const [origin, setOrigin] = useState('');
+
+  useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
     setRoleLocal(getRole());
@@ -117,11 +121,12 @@ export default function Settings() {
     };
   }, []);
 
-  const name = session ? session.name : actor(role).name;
-  const email = session?.email || '';
-  const company = session?.company_code || '';
-  const demoRole = !session;
-  const statusLabel = session ? '로그인' : guest ? '둘러보기(비로그인)' : '데모';
+  // actor()도 내부에서 localStorage 세션을 읽으므로 hydration 전에는 호출하지 않는다.
+  const name = visibleSession ? visibleSession.name : mounted ? actor(role).name : '박영업';
+  const email = visibleSession?.email || '';
+  const company = visibleSession?.company_code || '';
+  const demoRole = !visibleSession;
+  const statusLabel = visibleSession ? '로그인' : guest ? '둘러보기(비로그인)' : '데모';
 
   const doLogout = async () => {
     haptic.impact();
@@ -182,7 +187,7 @@ export default function Settings() {
     setIdleLocal(m);
     toast(m ? `${m}분 자리비움 시 자동 로그아웃` : '자동 로그아웃 끔', 'info');
   };
-  const shareCode = session ? String(session.user_code || session.code || session.uid || '') : '';
+  const shareCode = visibleSession ? String(visibleSession.user_code || visibleSession.code || visibleSession.uid || '') : '';
   const shareUrl = origin && shareCode ? `${origin}/catalog?a=${encodeURIComponent(shareCode)}` : '';
   const copyShare = async () => {
     if (!shareUrl) return;
@@ -205,7 +210,7 @@ export default function Settings() {
       <div className="fp-settings-grid">
         <div>
           <SectionLabel mt={0}>계정</SectionLabel>
-          {session ? (
+          {visibleSession ? (
             <div style={{ display: 'grid', gap: 10, marginBottom: 12 }}>
               <label style={{ fontSize: FS.sub, color: C.faint }}>이름
                 <div style={{ marginTop: 4 }}><Input value={pName} onChange={setPName} full placeholder="이름" /></div>
@@ -221,25 +226,25 @@ export default function Settings() {
             </div>
           ) : null}
           <DetailGrid rows={[
-            ...(session ? [] : [['이름', name] as [string, string]]),
+            ...(visibleSession ? [] : [['이름', name] as [string, string]]),
             ['역할', ROLE_LABEL[role] || role],
             ['이메일', email],
             ...(company ? [['회사', company] as [string, string]] : []),
             ['상태', statusLabel],
           ]} />
           <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {session ? (
+            {visibleSession ? (
               <Btn variant="ghost" full onClick={changePassword} disabled={pwdBusy}>
                 {pwdBusy ? '메일 전송 중…' : '비밀번호 변경 (재설정 메일)'}
               </Btn>
             ) : null}
             <Btn variant="danger" full onClick={doLogout}>
-              {session || guest ? '로그아웃' : '로그인'}
+              {visibleSession || guest ? '로그아웃' : '로그인'}
             </Btn>
           </div>
         </div>
 
-        {session && shareUrl ? (
+        {visibleSession && shareUrl ? (
           <div>
             <SectionLabel mt={0}>카탈로그 공유</SectionLabel>
             <div style={{ fontSize: FS.sub, color: C.faint, marginBottom: 8, lineHeight: 1.45 }}>
@@ -271,7 +276,7 @@ export default function Settings() {
           </div>
         </div>
 
-        {session ? (
+        {visibleSession ? (
           <div>
             <SectionLabel mt={0}>보안</SectionLabel>
             <div style={{ fontSize: FS.sub, color: C.faint, marginBottom: 8 }}>자동 로그아웃 (자리비움)</div>
@@ -304,7 +309,7 @@ export default function Settings() {
           </div>
         ) : null}
 
-        {session?.role === 'admin' ? (
+        {visibleSession?.role === 'admin' ? (
           <div>
             <SectionLabel mt={0}>관리</SectionLabel>
             <ListRow main="개발도구" href="/dev" />
