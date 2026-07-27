@@ -1047,3 +1047,14 @@ HTTP 스모크, 전체 자동 시뮬레이션과 production build는 통과한 �
 - `/inventory`: 19.2 kB
 
 현재 변경은 커밋하지 않았다.
+## 2026-07-27 — Firebase Storage 원본 + Google Drive 백업
+
+- `lib/firebase/storage-files.ts`: 파일 경로·크기 제한·Storage 업로드/삭제·선택적 Drive 백업을 통합했다.
+- `app/api/drive-backup/route.ts`, `lib/server/drive-backup.ts`: Firebase 로그인 확인 후
+  OAuth refresh token으로 Drive 폴더 생성과 multipart 백업을 수행한다.
+- 상품 사진과 계약 서류는 Storage 저장 후 Drive 백업을 시도하고, 채팅 첨부는 Storage만 사용한다.
+- 계약·채팅의 업무 레코드 저장 실패 시 이미 업로드한 Storage 원본을 정리한다.
+- 레거시 data URL은 마이그레이션 없이 계속 읽는다.
+- `storage.rules`, `firebase.json`, `.env.example`과 운영 문서를 추가했다.
+- 공유 버킷을 계속 쓰는 V3의 기존 7개 Storage 경로 규칙을 병합해 V4 게시가 V3를 막지 않게 했다.
+- Drive 사본은 복구용이므로 ERP 삭제와 연동해 삭제하지 않는다.

@@ -187,7 +187,7 @@ export function InventoryVariablePane({ model }: { model: InventoryEditorModel }
           <div style={{ pointerEvents: canEdit ? undefined : 'none', opacity: canEdit ? 1 : 0.85 }}>
             <SectionLabel mt={0}>사진</SectionLabel>
             <div style={{ fontSize: FS.cap, color: C.faint, margin: '-2px 0 8px', lineHeight: 1.4 }}>탭=크게 · 꾹=대표/실내/삭제</div>
-            <PhotoUpload hideTitle photos={form.photos} interiorUrl={String(form.interior_photo || '')}
+            <PhotoUpload hideTitle productCode={String(form.product_code || model.selectedCode || '')} photos={form.photos} interiorUrl={String(form.interior_photo || '')}
               onChange={model.onPhotosChange} onInteriorChange={model.onInteriorChange} />
           </div>
           {model.supplierPhotos.length > 0 && (

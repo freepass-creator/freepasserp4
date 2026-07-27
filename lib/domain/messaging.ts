@@ -10,6 +10,7 @@ import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { actor, getRole, type Role } from '@/lib/domain/deal';
+import { deleteManagedFile, uploadManagedFile } from '@/lib/firebase/storage-files';
 
 export type MsgChannel = '간단' | '정식';
 
@@ -108,7 +109,7 @@ export type SendFileOpts = {
   maxBytes?: number;
 };
 
-/** 파일/이미지 첨부(data URL). 3MB 기본 한도. */
+/** 파일/이미지 첨부(Firebase Storage). 3MB 기본 한도. */
 export async function sendFile(opts: SendFileOpts): Promise<EntityRecord> {
   const max = opts.maxBytes ?? 3 * 1024 * 1024;
   if (opts.file.size > max) throw new Error(`${Math.round(max / (1024 * 1024))}MB 초과 파일은 첨부할 수 없습니다`);
@@ -117,12 +118,12 @@ export async function sendFile(opts: SendFileOpts): Promise<EntityRecord> {
   const role = opts.role ?? getRole();
   const me = actor(role);
   const channel: MsgChannel = opts.channel ?? '정식';
-  const url = await new Promise<string>((res, rej) => {
-    const r = new FileReader();
-    r.onload = () => res(String(r.result));
-    r.onerror = () => rej(new Error('파일 읽기 실패'));
-    r.readAsDataURL(opts.file);
+  const uploaded = await uploadManagedFile(opts.file, {
+    kind: 'chat',
+    entityId: opts.roomId,
+    backupToDrive: false,
   });
+  const url = uploaded.url;
   const isImg = /^image\//.test(opts.file.type);
   const now = Date.now();
   const rec: EntityRecord = {
@@ -134,11 +135,20 @@ export async function sendFile(opts: SendFileOpts): Promise<EntityRecord> {
     sender_name: me.name,
     channel,
     created_at: now,
+    storage_path: uploaded.storage_path,
+    file_size: uploaded.file_size,
+    file_type: uploaded.file_type,
   };
   if (isImg) rec.image_url = url;
   else { rec.file_url = url; rec.file_name = opts.file.name; }
-  const r = await store.save('message', co, [rec]);
-  if (!r.saved) throw new Error(`저장 0건 (중복 ${r.duplicates} · ${r.backend})`);
+  let r;
+  try {
+    r = await store.save('message', co, [rec]);
+    if (!r.saved) throw new Error(`저장 0건 (중복 ${r.duplicates} · ${r.backend})`);
+  } catch (error) {
+    await deleteManagedFile(uploaded.storage_path).catch(() => undefined);
+    throw error;
+  }
   const preview = isImg ? '[사진]' : '[파일]';
   try {
     const rm = await store.get('room', co, opts.roomId);

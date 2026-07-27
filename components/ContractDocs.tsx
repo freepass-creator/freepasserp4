@@ -7,12 +7,24 @@ import { C, R, FS, FW, IconBtn, Btn } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { Paperclip, FileText, X, Download } from 'lucide-react';
 import { toast } from '@/components/Toaster';
+import { deleteManagedFile, uploadManagedFile, type DriveBackupStatus } from '@/lib/firebase/storage-files';
 
-// 첨부 서류 = 계약별 파일. 파일 내용(data URL)까지 계약 레코드에 저장 → 그 계약을 보는 영업·공급·관리자가 함께 열람.
-// 드래그앤드랍 + 클릭 열람 + 첨부자(역할) 기록. ⚠ 로컬/RTDB엔 data URL 저장(대용량은 Firebase Storage 후속).
-type Att = { name: string; size: number; type: string; at: number; url?: string; by_role?: string; by_name?: string; fromChat?: boolean };
-const CAP = 4 * 1024 * 1024; // 4MB/파일 (localStorage 한도 보호)
-const toDataUrl = (f: File) => new Promise<string>((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.onerror = rej; r.readAsDataURL(f); });
+// 신규 파일은 Storage 원본 + Drive 백업으로 저장한다. 기존 data URL 레코드는 계속 읽는다.
+type Att = {
+  name: string;
+  size: number;
+  type: string;
+  at: number;
+  url?: string;
+  storage_path?: string;
+  drive_backup_status?: DriveBackupStatus;
+  drive_file_id?: string;
+  drive_web_view_link?: string;
+  by_role?: string;
+  by_name?: string;
+  fromChat?: boolean;
+};
+const CAP = 4 * 1024 * 1024;
 
 function fileNameFromUrl(url: string): string {
   try {
@@ -54,6 +66,10 @@ function coerceAtt(raw: unknown): Att | null {
   const at = Number.isFinite(atN) && atN > 0 ? atN : 0;
   return {
     name, size, type, at, url: url || undefined,
+    storage_path: d.storage_path != null ? String(d.storage_path) : undefined,
+    drive_backup_status: d.drive_backup_status as DriveBackupStatus | undefined,
+    drive_file_id: d.drive_file_id != null ? String(d.drive_file_id) : undefined,
+    drive_web_view_link: d.drive_web_view_link != null ? String(d.drive_web_view_link) : undefined,
     by_role: d.by_role != null ? String(d.by_role) : undefined,
     by_name: d.by_name != null ? String(d.by_name) : undefined,
     fromChat: !!d.fromChat,
@@ -108,20 +124,51 @@ export function ContractDocs({ contractCode, roomId }: { contractCode: string; r
     if (!files || !files.length || busy) return;
     setBusy(true);
     try {
-      const now = Date.now();
       const me = actor(getRole());
       const role = ROLE_LABEL[getRole()];
       const added: Att[] = [];
       for (const f of Array.from(files)) {
         if (f.size > CAP) { toast(`${f.name} — 4MB 초과로 첨부 생략`, 'error'); continue; }
-        const url = await toDataUrl(f);
-        added.push({ name: f.name, size: f.size, type: f.type, at: now, url, by_role: role, by_name: me.name });
+        try {
+          const uploaded = await uploadManagedFile(f, {
+            kind: 'contract',
+            entityId: contractCode,
+            backupToDrive: true,
+          });
+          added.push({
+            name: uploaded.file_name,
+            size: uploaded.file_size,
+            type: uploaded.file_type,
+            at: uploaded.uploaded_at,
+            url: uploaded.url,
+            storage_path: uploaded.storage_path,
+            drive_backup_status: uploaded.drive_backup_status,
+            drive_file_id: uploaded.drive_file_id,
+            drive_web_view_link: uploaded.drive_web_view_link,
+            by_role: role,
+            by_name: me.name,
+          });
+        } catch (error) {
+          toast(`${f.name} 업로드 실패: ${String((error as Error)?.message || error)}`, 'error');
+        }
       }
       if (!added.length) return;
       const next = [...atts, ...added];
-      await getStore().update('contract', co, contractCode, { attachments: next });
+      try {
+        await getStore().update('contract', co, contractCode, { attachments: next });
+      } catch (error) {
+        await Promise.all(added.map((file) =>
+          deleteManagedFile(file.storage_path || file.url || '').catch(() => undefined)
+        ));
+        throw error;
+      }
       setAtts(next);
-      toast(`${added.length}건 첨부됨`, 'ok');
+      const saved = added.filter((file) => file.drive_backup_status === 'saved').length;
+      const disabled = added.some((file) => file.drive_backup_status === 'disabled');
+      const failed = added.some((file) => file.drive_backup_status === 'failed');
+      if (failed) toast(`${added.length}건 첨부됨 · Drive 백업 일부 실패`, 'error');
+      else if (disabled) toast(`${added.length}건 첨부됨 · Drive 백업 미설정`, 'ok');
+      else toast(`${added.length}건 첨부됨${saved ? ` · Drive 백업 ${saved}건` : ''}`, 'ok');
     } catch (e) {
       toast(`첨부 실패: ${String((e as Error)?.message || e)}`, 'error');
     } finally { setBusy(false); if (inputRef.current) inputRef.current.value = ''; }
@@ -131,6 +178,11 @@ export function ContractDocs({ contractCode, roomId }: { contractCode: string; r
     try {
       await getStore().update('contract', co, contractCode, { attachments: next });
       setAtts(next);
+      try {
+        await deleteManagedFile(target.storage_path || target.url || '');
+      } catch (error) {
+        toast(`목록에서는 삭제됐지만 Storage 원본 삭제 실패: ${String((error as Error)?.message || error)}`, 'error');
+      }
     } catch (e) {
       toast(`첨부 삭제 실패: ${String((e as Error)?.message || e)}`, 'error');
     }
@@ -152,7 +204,7 @@ export function ContractDocs({ contractCode, roomId }: { contractCode: string; r
         <span style={{ fontSize: FS.sub, fontWeight: FW.title, color: C.ink }}>첨부 서류</span>
         <span style={{ fontSize: FS.cap, color: C.faint }}>{merged.length}</span>
         <span style={{ flex: 1 }} />
-        <span style={{ fontSize: FS.cap, color: C.faint }}>영업·공급·관리자 공유</span>
+        <span style={{ fontSize: FS.cap, color: C.faint }}>Storage 원본 · Drive 백업(설정 시)</span>
       </div>
 
       <div
@@ -164,7 +216,7 @@ export function ContractDocs({ contractCode, roomId }: { contractCode: string; r
         <Paperclip size={16} color={drag ? C.brand : C.faint} />
         <span style={{ fontSize: FS.cap, color: drag ? C.brand : C.mute, fontWeight: FW.strong }}>{busy ? '첨부 중…' : '파일을 여기로 끌어놓거나 클릭'}</span>
         <span style={{ fontSize: FS.micro, color: C.faint }}>이미지·PDF 등 · 4MB/파일</span>
-        <input ref={inputRef} type="file" multiple onChange={(e) => addFiles(e.target.files)} style={{ display: 'none' }} />
+        <input ref={inputRef} type="file" multiple disabled={busy} onChange={(e) => void addFiles(e.target.files)} style={{ display: 'none' }} />
       </div>
 
       {merged.length === 0 ? <div style={{ fontSize: FS.cap, color: C.faint, textAlign: 'center', padding: '6px 0' }}>첨부된 서류가 없습니다.</div> :
@@ -185,6 +237,9 @@ export function ContractDocs({ contractCode, roomId }: { contractCode: string; r
                   <span style={{ fontSize: FS.micro, color: C.faint }}>
                     {[sizeLabel, a.fromChat ? '채팅' : '', [a.by_role, a.by_name].filter(Boolean).join(' ')].filter(Boolean).join(' · ')}
                     {(a.by_name || a.by_role) && !a.fromChat ? ' 첨부' : ''}
+                    {!a.fromChat && a.drive_backup_status === 'saved' ? ' · Drive 백업됨' : ''}
+                    {!a.fromChat && a.drive_backup_status === 'failed' ? ' · Drive 백업 실패' : ''}
+                    {!a.fromChat && a.drive_backup_status === 'disabled' ? ' · Drive 미설정' : ''}
                   </span>
                 </div>
                 {a.fromChat

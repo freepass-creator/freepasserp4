@@ -2071,3 +2071,53 @@ Next 개발 서버와 production build가 같은 `.next`를 사용하면 실행 
 자동 검증은 통과했지만 실제 역할별 계정으로 회원가입·승인·배정·채팅·계약·서명·
 정산서 출력까지 수행하는 브라우저 운영 E2E는 아직 완료되지 않았다. 이 항목을
 오픈 전 최종 잔여 검증으로 유지한다.
+## 2026-07-27 — Firebase Storage 원본 + Google Drive 백업 독립 검증
+
+### 판정
+
+**로컬 구현 PASS / 운영 활성화 대기**
+
+- 신규 상품 사진·계약 서류·채팅 파일은 RTDB data URL 대신 Firebase Storage를 사용한다.
+- 상품·계약은 Drive 백업을 시도하고 채팅은 Storage에만 저장한다.
+- Drive 설정 누락·백업 실패가 Storage 원본을 제거하거나 업무 저장을 취소하지 않는다.
+- 계약·채팅 레코드 저장 실패 시 직전 Storage 업로드를 정리한다.
+- 상품 편집 취소 시 신규 업로드를, 저장 성공 시 제거된 기존 사진을 정리한다.
+- ERP 삭제는 Storage 원본만 삭제하고 Drive 사본은 복구용으로 보존한다.
+- 레거시 data URL은 계속 표시한다.
+
+### 자동 검증
+
+- `npm.cmd run typecheck`: PASS
+- `npm.cmd run check:fonts`: PASS, 드리프트 0
+- `scripts/sim-*.mts` 12개: 전부 PASS
+  - 영업자 39/39, 권한 44/44, 채팅 Rules 40/40
+  - 계약 Rules 25/25, 전자서명 57/57, 3자 정산 15/15
+  - 생애주기, Phase 1·2 25/25, private 마이그레이션 15/15·12/12
+  - 시트 병합 12/12, 차량 잠금 23/23
+- `NEXT_DIST_DIR=.next-storage-verification npm.cmd run build`: PASS
+  - 28개 라우트, `/api/drive-backup` 포함
+- Firebase Storage Emulator 15.24.0: `storage.rules` 로드·컴파일 PASS
+- 공유 버킷의 V3 `product-images`, `contract-files`, `notice-images`, `user-docs`,
+  `contract-signed`, `contract-unsigned`, `chat-files` 규칙을 원본과 대조해 보존
+- 실행 서버: `/`, `/inventory`, `/chat`, `/contract` HTTP 200
+- `/api/drive-backup`: HTTP 200, `{"enabled":false}` 확인
+- `git diff --check`: PASS
+
+### 운영 대기
+
+- 현재 Drive OAuth 환경변수 4종이 없어 Drive 백업은 의도대로 비활성이다.
+- Storage Rules는 로컬 에뮬레이터에서 검증했지만 운영 프로젝트에는 아직 게시하지 않았다.
+- 따라서 실제 Storage 업로드·Drive 사본 생성·삭제 복구는 Rules 게시와 OAuth 설정 후
+  관리자·영업자·공급사 계정으로 최종 확인해야 한다.
+- Storage download URL은 capability URL이다. RTDB 업무 범위가 URL 발견을 제한하지만
+  URL 자체의 외부 전달까지 막지는 못한다. 계약 개인정보의 강한 차단은 인증 다운로드 프록시가 후속 과제다.
+
+### 개발 서버 복구 기록
+
+- 별도 production 빌드는 성공했으나 ignored 산출물 정리 명령이 실행 중 `.next` 캐시까지 정리해
+  기존 서버가 일시적으로 500을 반환했다.
+- 소스와 Firebase 운영 데이터는 변경되지 않았다.
+- 손상 캐시는 `tmp/server-recovery/`로 보존하고 4004 개발 서버를 재기동했다.
+- 최종 리스너 PID는 `2096`이며 위 4개 핵심 경로 HTTP 200으로 복구를 확인했다.
+
+---

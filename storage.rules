@@ -1,0 +1,84 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // ── V3 호환 경로 ─────────────────────────────────────────────────
+    // freepasserp3와 같은 Firebase 프로젝트·버킷을 사용하므로 기존 경로를 제거하면 안 된다.
+    match /product-images/{productId}/{fileName} {
+      allow read: if true;
+      allow create, update: if request.auth != null
+        && request.resource.size < 20 * 1024 * 1024;
+      allow delete: if request.auth != null;
+    }
+
+    match /contract-files/{contractId}/{fileName} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null
+        && request.resource.size < 20 * 1024 * 1024;
+      allow delete: if request.auth != null;
+    }
+
+    match /notice-images/{userId}/{fileName} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.size < 10 * 1024 * 1024;
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+
+    match /user-docs/{userId}/{fileName} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow create, update: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.size < 10 * 1024 * 1024;
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+
+    match /contract-signed/{token}/{fileName} {
+      allow read: if true;
+      allow create, update: if request.resource.size < 20 * 1024 * 1024;
+    }
+
+    match /contract-unsigned/{token}/{fileName} {
+      allow read: if true;
+      allow create, update: if request.auth != null
+        && request.resource.size < 20 * 1024 * 1024;
+    }
+
+    match /chat-files/{roomId}/{fileName} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.size < 20 * 1024 * 1024;
+    }
+
+    // ── V4 신규 경로 ─────────────────────────────────────────────────
+    match /erp/{companyId}/{kind}/{entityId}/{uid}/{fileName} {
+      // 목록 열람은 금지하고 업로더만 SDK 메타데이터를 읽는다.
+      // 업무 화면의 다른 사용자는 권한 스코프가 적용된 RTDB에서 내려준 download URL로 열람한다.
+      allow read: if request.auth != null
+        && request.auth.token.firebase.sign_in_provider != 'anonymous'
+        && request.auth.uid == uid;
+
+      allow create: if request.auth != null
+        && request.auth.token.firebase.sign_in_provider != 'anonymous'
+        && request.auth.uid == uid
+        && (kind == 'product' || kind == 'contract' || kind == 'chat')
+        && request.resource.size > 0
+        && (
+          (kind == 'product'
+            && request.resource.size <= 3 * 1024 * 1024
+            && request.resource.contentType.matches('image/.*'))
+          || (kind == 'contract' && request.resource.size <= 4 * 1024 * 1024)
+          || (kind == 'chat' && request.resource.size <= 3 * 1024 * 1024)
+        )
+        && request.resource.contentType != null;
+
+      allow update: if false;
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

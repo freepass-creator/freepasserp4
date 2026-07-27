@@ -4,11 +4,15 @@ import { Btn, IconBtn, C, R, FS, FW } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
 import { toast } from '@/components/Toaster';
+import {
+  uploadManagedFile,
+  type ManagedFile,
+} from '@/lib/firebase/storage-files';
 
 const LONG_MS = 480;
 const MOVE_PX = 10;
 const THUMB_W = 76;
-/** RTDB data URL 한도 보호 — 채팅(3MB)·서류(4MB)와 맞춤. */
+/** Firebase Storage 업로드 한도. */
 const PHOTO_CAP = 3 * 1024 * 1024;
 
 // 차량 사진 업로드 — photos[] ([0]=대표). interior_photo=실내 URL.
@@ -18,6 +22,7 @@ export function PhotoUpload({
   onChange,
   interiorUrl,
   onInteriorChange,
+  productCode,
   title = '차량 사진',
   hideTitle,
 }: {
@@ -25,6 +30,7 @@ export function PhotoUpload({
   onChange: (p: string[]) => void;
   interiorUrl?: string;
   onInteriorChange?: (url: string | null) => void;
+  productCode: string;
   title?: string;
   hideTitle?: boolean;
 }) {
@@ -34,12 +40,17 @@ export function PhotoUpload({
   const interior = String(interiorUrl || '');
   const [full, setFull] = useState<number | null>(null);
   const [sheet, setSheet] = useState<number | null>(null);
+  const [busy, setBusy] = useState(false);
   const press = useRef<{
     i: number; x: number; y: number; timer: ReturnType<typeof setTimeout>; long: boolean; pid: number;
   } | null>(null);
 
-  const add = (files: FileList | null) => {
-    if (!files || !files.length) return;
+  const add = async (files: FileList | null) => {
+    if (!files || !files.length || busy) return;
+    if (!productCode.trim()) {
+      toast('상품 코드를 먼저 생성한 뒤 사진을 올려주세요', 'error');
+      return;
+    }
     const ok: File[] = [];
     for (const f of Array.from(files)) {
       if (f.size > PHOTO_CAP) {
@@ -52,16 +63,34 @@ export function PhotoUpload({
       if (fileRef.current) fileRef.current.value = '';
       return;
     }
-    const readers = ok.map((f) => new Promise<string>((res, rej) => {
-      const r = new FileReader();
-      r.onload = () => res(String(r.result));
-      r.onerror = () => rej(new Error(f.name));
-      r.readAsDataURL(f);
-    }));
-    Promise.all(readers)
-      .then((urls) => onChange([...list, ...urls]))
-      .catch((e) => toast(`사진 읽기 실패: ${String((e as Error)?.message || e)}`, 'error'));
-    if (fileRef.current) fileRef.current.value = '';
+    setBusy(true);
+    try {
+      const uploaded: ManagedFile[] = [];
+      for (const file of ok) {
+        try {
+          uploaded.push(await uploadManagedFile(file, {
+            kind: 'product',
+            entityId: productCode,
+            backupToDrive: true,
+          }));
+        } catch (error) {
+          toast(`${file.name} 업로드 실패: ${String((error as Error)?.message || error)}`, 'error');
+        }
+      }
+      if (!uploaded.length) return;
+      onChange([...list, ...uploaded.map((file) => file.url)]);
+      const saved = uploaded.filter((file) => file.drive_backup_status === 'saved').length;
+      const disabled = uploaded.some((file) => file.drive_backup_status === 'disabled');
+      const failed = uploaded.some((file) => file.drive_backup_status === 'failed');
+      if (failed) toast(`${uploaded.length}장 저장됨 · Drive 백업 일부 실패`, 'error');
+      else if (disabled) toast(`${uploaded.length}장 저장됨 · Drive 백업 미설정`, 'ok');
+      else toast(`${uploaded.length}장 저장됨${saved ? ` · Drive 백업 ${saved}건` : ''}`, 'ok');
+    } catch (e) {
+      toast(`사진 업로드 실패: ${String((e as Error)?.message || e)}`, 'error');
+    } finally {
+      setBusy(false);
+      if (fileRef.current) fileRef.current.value = '';
+    }
   };
 
   const makeCover = (i: number) => {
@@ -187,12 +216,12 @@ export function PhotoUpload({
             background: C.selected, gap: 2,
           }}
         >
-          <IconBtn onClick={() => fileRef.current?.click()} title="사진 추가">+</IconBtn>
-          {list.length === 0 && <span style={{ fontSize: FS.micro, fontWeight: FW.strong, color: C.brand }}>추가</span>}
-          <input ref={fileRef} type="file" accept="image/*" multiple onChange={(e) => add(e.target.files)} style={{ display: 'none' }} />
+          <IconBtn onClick={() => !busy && fileRef.current?.click()} title="사진 추가" disabled={busy}>+</IconBtn>
+          {list.length === 0 && <span style={{ fontSize: FS.micro, fontWeight: FW.strong, color: C.brand }}>{busy ? '업로드 중' : '추가'}</span>}
+          <input ref={fileRef} type="file" accept="image/*" multiple disabled={busy} onChange={(e) => void add(e.target.files)} style={{ display: 'none' }} />
         </div>
       </div>
-      <div style={{ marginTop: 6, fontSize: FS.micro, color: C.faint }}>이미지 · 3MB/장 · 저장해야 반영</div>
+      <div style={{ marginTop: 6, fontSize: FS.micro, color: C.faint }}>이미지 · 3MB/장 · Storage 원본 + Drive 백업(설정 시)</div>
 
       {/* 모바일 꾹 메뉴 */}
       {sheet != null && sheetUrl && (

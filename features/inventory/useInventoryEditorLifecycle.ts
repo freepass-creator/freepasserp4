@@ -11,6 +11,7 @@ import { applyColors, snapColor } from '@/lib/domain/color-master';
 import { confirmDialog, toast } from '@/components/Toaster';
 import { haptic } from '@/lib/haptics';
 import { NAV_LABEL } from '@/lib/tabbar';
+import { deleteManagedFile } from '@/lib/firebase/storage-files';
 
 type StateSetter<T> = Dispatch<SetStateAction<T>>;
 
@@ -131,12 +132,25 @@ export function useInventoryEditorLifecycle({
       const patch = locked.status
         ? { ...colored, vehicle_status: locked.status, locked_by_contract: locked.byContract }
         : colored;
+      const previous = (rows ?? []).find((candidate) =>
+        String(candidate.product_code) === String(form.product_code)
+      );
       try {
         await getStore().save('product', companyId, [patch]);
         await getStore().update('product', companyId, String(form.product_code), patch);
       } catch (error) {
         toast(`저장 실패: ${String((error as Error)?.message || error)}`, 'error');
         return;
+      }
+      const removedPhotos = photoUrls(previous?.photos).filter((url) =>
+        !photoUrls(patch.photos).includes(url)
+      );
+      if (removedPhotos.length) {
+        try {
+          await Promise.all(removedPhotos.map(deleteManagedFile));
+        } catch (error) {
+          toast(`상품은 저장됐지만 제거한 사진 원본 정리 실패: ${String((error as Error)?.message || error)}`, 'error');
+        }
       }
       setDirty(false);
       setCreating(false);
@@ -156,11 +170,16 @@ export function useInventoryEditorLifecycle({
   };
 
   const cancelEdit = () => {
+    const row = (rows ?? []).find((candidate) => String(candidate.product_code) === selectedCode);
+    const original = new Set(photoUrls(row?.photos));
+    const unsavedUploads = photoUrls(form.photos).filter((url) => !original.has(url));
+    if (unsavedUploads.length) {
+      void Promise.all(unsavedUploads.map((url) => deleteManagedFile(url).catch(() => undefined)));
+    }
     if (creating) {
       clearSelection();
       return;
     }
-    const row = (rows ?? []).find((candidate) => String(candidate.product_code) === selectedCode);
     if (row) {
       setForm({ ...row });
       setDirty(false);
@@ -275,4 +294,8 @@ export function useInventoryEditorLifecycle({
 
 function normalizePlate(value: unknown) {
   return String(value ?? '').replace(/\s/g, '');
+}
+
+function photoUrls(value: unknown): string[] {
+  return Array.isArray(value) ? value.map(String).filter(Boolean) : [];
 }

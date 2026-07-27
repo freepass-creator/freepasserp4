@@ -2,6 +2,7 @@
 import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
 import { getDatabase, type Database } from 'firebase/database';
 import { getAuth, type Auth } from 'firebase/auth';
+import { getStorage, type FirebaseStorage } from 'firebase/storage';
 
 const cfg = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -41,6 +42,10 @@ export function getFirebaseApp(): FirebaseApp | null {
 }
 export function getRtdb(): Database | null { const a = getFirebaseApp(); return a ? getDatabase(a) : null; }
 export function getAuthClient(): Auth | null { const a = getFirebaseApp(); return a ? getAuth(a) : null; }
+export function getStorageClient(): FirebaseStorage | null {
+  const a = getFirebaseApp();
+  return a && cfg.storageBucket ? getStorage(a) : null;
+}
 
 /** RTDB 노드 경로(루트 프리픽스 적용). */
 export function dataPath(...parts: string[]): string {

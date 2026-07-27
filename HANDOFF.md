@@ -1,5 +1,17 @@
 # 규격통일 핸드오프 (Claude ↔ Cursor)
 
+## 2026-07-27 파일 저장·Drive 백업 전환
+
+- 신규 상품 사진·계약 서류·채팅 첨부의 본문을 RTDB data URL이 아니라 Firebase Storage에 저장한다.
+- 상품·계약 파일만 Google Drive에 2차 백업하며, 백업 실패가 업무 업로드를 취소하지 않는다.
+- ERP 삭제 시 Storage 원본만 삭제하고 Drive 백업은 보존한다.
+- 기존 data URL 파일은 계속 읽을 수 있다.
+- Drive OAuth 네 환경변수는 현재 로컬에 없으므로 설정 전까지 `disabled` 상태가 정상이다.
+- `storage.rules`는 공유 버킷의 V3 7개 기존 경로와 V4 `/erp` 경로를 함께 보존한다.
+  V3 호환 블록을 제거하거나 V4 규칙만 단독 게시하면 안 된다.
+- Storage Rules와 `firebase.json`은 작성했지만 운영 게시 여부는 검증 기록을 확인한다.
+- 상세 구조·설정·보안 경계·복구 절차: `docs/FILE_STORAGE_AND_DRIVE_BACKUP.md`
+
 ## 2026-07-27 오픈 게이트 재조사 결과
 
 1. 출고불가 3대는 자동 해제하지 않는다.
