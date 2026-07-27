@@ -5,13 +5,14 @@ import {
   MessageCircleMore, MessageCircle, MessageCircleWarning,
   FileText, FileClock, FileCheck2, FileX2, ClipboardList,
   CircleCheck, Package, Handshake, Ban, Car, ShieldCheck, Plus,
+  Building2, UserPlus, UserRoundCheck, UserRoundX,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import type { EntityRecord } from '@/lib/intake/entities';
+import { ROLE_LABEL_RAW, type EntityRecord } from '@/lib/intake/entities';
 import { contractStage, getProgress, contractTone } from '@/lib/domain/contract';
 import { vehicleName, canonProductType } from '@/lib/domain/product';
 import {
-  Badge, CountPill, NUM, C, FS, FW, productTypeStyle, VEHICLE_STATUS_TONE,
+  ACTOR_TONE, Badge, CountPill, NUM, C, FS, FW, productTypeStyle, VEHICLE_STATUS_TONE,
   type BadgeTone,
 } from '@/components/ui';
 import {
@@ -22,6 +23,9 @@ import { CardSpecs } from '@/components/product-card-atoms';
 import { vehicleTone } from '@/lib/domain/product';
 import { msgClock } from '@/lib/format';
 import { haptic } from '@/lib/haptics';
+import { partnerTypeLabel } from '@/lib/domain/partner';
+
+const MEMBER_ROLE_LABEL: Record<string, string> = ROLE_LABEL_RAW;
 
 function plateSpan(plate: string) {
   if (!plate) return null;
@@ -268,18 +272,138 @@ export const InventoryListRow = memo(function InventoryListRow({
 
 /** 재고 목록 맨 위 — 목록행과 동일 아이콘 슬롯(+), 옆에 상품등록 + 모바일 보조문구. */
 export function InventoryCreateRow({ onClick }: { onClick: () => void }) {
+  return (
+    <CreateListRow
+      label="상품등록"
+      hint="여기를 눌러 신규 상품을 등록해주세요"
+      ariaLabel="상품등록"
+      onClick={onClick}
+    />
+  );
+}
+
+function memberStatus(row: EntityRecord, kind: 'user' | 'partner'): {
+  icon: LucideIcon; tone: BadgeTone; title: string;
+} {
+  if (kind === 'partner') {
+    const partnerType = partnerTypeLabel(row.partner_type, row.partner_code || row._key);
+    return { icon: Building2, tone: partnerType === '공급사' ? 'blue' : 'gray', title: partnerType };
+  }
+  if (String(row.status || '') === 'pending') {
+    return { icon: UserPlus, tone: 'amber', title: '가입 승인대기' };
+  }
+  if (String(row.is_active || '') === '아니오') {
+    return { icon: UserRoundX, tone: 'gray', title: '비활성 사용자' };
+  }
+  return { icon: UserRoundCheck, tone: 'green', title: '활성 사용자' };
+}
+
+/** 회원·파트너 — 재고·문의·계약과 동일한 아이콘 + 3줄 목록 규격. */
+export function MemberListRow({
+  row, kind, selected, onClick,
+}: {
+  row: EntityRecord;
+  kind: 'user' | 'partner';
+  selected?: boolean;
+  onClick?: () => void;
+}) {
+  const role = String(row.role || '');
+  const pending = kind === 'user' && String(row.status || '') === 'pending';
+  const inactive = kind === 'user' && String(row.is_active || '') === '아니오';
+  const partnerType = partnerTypeLabel(row.partner_type, row.partner_code || row._key);
+  const code = kind === 'user'
+    ? String(row.user_code || row.uid || '')
+    : String(row.partner_code || '');
+  const company = String(row.company_name || row.company_code || '').trim();
+  const ic = memberStatus(row, kind);
+  const rate = kind === 'user'
+    ? row.agent_payout_rate
+    : row.fee_rate;
+  const rateNumber = Number(rate);
+  const rateLabel = rate != null && rate !== '' && Number.isFinite(rateNumber)
+    ? `${Math.round(rateNumber * 100)}%`
+    : '기본';
+
+  return (
+    <FeedListRow
+      selected={selected}
+      onClick={onClick}
+      thumb={<FeedThumbIcon icon={ic.icon} tone={ic.tone} title={ic.title} />}
+      lines={[
+        <FeedTitle key="t">{String(row.name || code || (kind === 'user' ? '사용자' : '파트너'))}</FeedTitle>,
+        <FeedBadges key="b">
+          {kind === 'user' ? (
+            <>
+              <Badge tone={ACTOR_TONE[role] || (role.startsWith('agent') ? 'blue' : 'gray')}>
+                {MEMBER_ROLE_LABEL[role] || role || '역할 미지정'}
+              </Badge>
+              {pending ? <Badge tone="amber" variant="solid">승인대기</Badge>
+                : <Badge tone={inactive ? 'gray' : 'green'} variant="quiet">{inactive ? '비활성' : '활성'}</Badge>}
+            </>
+          ) : (
+            <>
+              <Badge tone={partnerType === '공급사' ? 'blue' : 'gray'}>{partnerType}</Badge>
+              <Badge tone="gray" variant="quiet">수수료 {rateLabel}</Badge>
+            </>
+          )}
+        </FeedBadges>,
+        <FeedSub key="s">
+          {dotJoin([
+            code ? <span key="c" style={{ fontFamily: NUM }}>{code}</span> : null,
+            kind === 'user'
+              ? (company || String(row.agent_channel_code || ''))
+              : String(row.contact || ''),
+          ]) || '—'}
+        </FeedSub>,
+      ]}
+    />
+  );
+}
+
+/** 회원·파트너 목록 맨 위 — 재고의 상품등록 행과 같은 신규 등록 규격. */
+export function MemberCreateRow({
+  kind, onClick,
+}: {
+  kind: 'user' | 'partner';
+  onClick: () => void;
+}) {
+  const label = kind === 'user' ? '사용자 등록' : '파트너 등록';
+  const hint = kind === 'user'
+    ? '새 사용자와 권한을 등록합니다'
+    : '새 공급사 또는 영업채널을 등록합니다';
+  return (
+    <CreateListRow
+      label={label}
+      hint={hint}
+      ariaLabel={label}
+      onClick={onClick}
+    />
+  );
+}
+
+function CreateListRow({
+  label, hint, ariaLabel, onClick,
+}: {
+  label: string;
+  hint: string;
+  ariaLabel: string;
+  onClick: () => void;
+}) {
   const mobile = useIsMobile();
-  // FeedListRow 3줄 본체 높이 — 다른 재고행과 슬롯 높이 일치
   const bodyH = 18 + 20 + 15 + 6;
   return (
     <div
       role="button"
       tabIndex={0}
-      aria-label="상품등록"
+      aria-label={ariaLabel}
       className="fp-card fp-card-row fp-press"
       onClick={() => { haptic.tap(); onClick(); }}
       onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); haptic.tap(); onClick(); }
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          haptic.tap();
+          onClick();
+        }
       }}
       style={{
         display: 'flex',
@@ -293,7 +417,7 @@ export function InventoryCreateRow({ onClick }: { onClick: () => void }) {
         color: 'inherit',
       }}
     >
-      <FeedThumbIcon icon={Plus} tone="blue" title="상품등록" />
+      <FeedThumbIcon icon={Plus} tone="blue" title={ariaLabel} />
       <span style={{
         display: 'flex', alignItems: 'baseline', gap: 8, minWidth: 0, flex: '1 1 auto',
         overflow: 'hidden',
@@ -301,12 +425,12 @@ export function InventoryCreateRow({ onClick }: { onClick: () => void }) {
         <span style={{
           fontSize: FS.title, fontWeight: FW.head, color: C.ink, letterSpacing: '-0.02em',
           lineHeight: 1, flex: '0 0 auto',
-        }}>상품등록</span>
+        }}>{label}</span>
         {mobile && (
           <span style={{
             fontSize: FS.cap, fontWeight: FW.meta, color: C.faint, lineHeight: 1.2,
             minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          }}>여기를 눌러 신규 상품을 등록해주세요</span>
+          }}>{hint}</span>
         )}
       </span>
     </div>

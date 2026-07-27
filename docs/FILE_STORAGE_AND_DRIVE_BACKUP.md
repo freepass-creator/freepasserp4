@@ -40,7 +40,9 @@ npx firebase-tools deploy --only storage --project freepasserp3
 ```
 
 Google Cloud 프로젝트에서 Drive API를 켜고 OAuth 클라이언트와 오프라인
-refresh token을 만든다. 백업 루트 폴더는 그 OAuth 사용자에게 편집 권한을 줘야 한다.
+refresh token을 만든다. 현재 최소 권한인 `drive.file`을 사용하므로 백업 루트는
+해당 OAuth 앱이 직접 생성한 폴더여야 한다. 다른 도구가 만든 폴더 ID를 넣으면
+권한이 있어도 앱에서 `404 File not found`로 보일 수 있다.
 운영 환경에 아래 네 값을 모두 설정하면 Drive 백업이 자동 활성화된다.
 
 ```dotenv
@@ -57,9 +59,12 @@ GOOGLE_DRIVE_BACKUP_FOLDER_ID=
 
 - Storage Rules 게시 완료
 - Google Drive API 활성화 완료
-- 백업 루트 `FreepassERP4 백업`
-  (`1bCDIXDMGatPRoxcAoWcI1HgZFxA4NXGo`) 생성 완료
-- OAuth 앱 정책 동의와 클라이언트/refresh token 발급 대기
+- 백업 앱 전용 루트 `FreepassERP4 자동백업`
+  (`1KT0jDkm3yYFpcYWnv6-kJQutIhZwEum3`) 생성 완료
+- OAuth 앱·테스트 사용자·데스크톱 클라이언트·오프라인 refresh token 구성 완료
+- 로컬 `/api/drive-backup`: HTTP 200, `{"enabled":true}`
+- Vercel Production·Preview 환경변수 4종 암호화 설정 완료
+- 실제 helper 업로드로 `상품/DRIVE-CONNECTION-TEST/` 폴더와 확인 파일 생성 완료
 
 ## 제한과 보안 경계
 

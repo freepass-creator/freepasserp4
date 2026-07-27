@@ -4,13 +4,13 @@ import { useRouter } from 'next/navigation';
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
-import { ENTITIES, ROLE_LABEL_RAW, type EntityRecord, type Field } from '@/lib/intake/entities';
+import { ENTITIES, type EntityRecord, type Field } from '@/lib/intake/entities';
 import { isAdminUiAllowed } from '@/lib/auth-gate';
 import { approveUser, backfillPersonalAgentChannels, adminUpdateUserIdentity } from '@/lib/firebase/auth';
 import { readAllPartnersPrivate, readAllUsersPrivate, writePartnerPrivate } from '@/lib/domain/private-fields';
 import { migrateSensitiveToPrivate } from '@/lib/firebase/migrate-private';
 import { newId } from '@/lib/domain/ids';
-import { PaneHead, PaneBody, Btn, Badge, FormGrid, FormCard, PillTabs, C, R, NUM, Loading, CenterNote, ListRow, ACTOR_TONE, FilterChips, FilterGroup, Message, PageActions, FW, FS } from '@/components/ui';
+import { PaneHead, PaneBody, Btn, Badge, FormGrid, FormCard, C, R, NUM, Loading, CenterNote, FilterChips, FilterGroup, Message, PageActions, FW, FS } from '@/components/ui';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
 import { confirmDialog, toast } from '@/components/Toaster';
 import { haptic } from '@/lib/haptics';
@@ -30,7 +30,6 @@ import {
 import { MembersList } from '@/features/members/MembersList';
 
 // 사용자·파트너 관리(관리자) — 역할·활성·영업지급율(user) / 유형·공급사수수료율(partner). 여기 율이 정산 R1/R2 SSOT.
-const ROLE_LABEL: Record<string, string> = ROLE_LABEL_RAW;
 // status(가입승인)는 폼에서 제외 — v4 오버레이가 아니라 approveUser 로 "최상위"에 기록해야 게이트가 인식. 아래 승인 버튼 전용.
 const USER_KEYS = ['name', 'role', 'company_code', 'company_name', 'agent_channel_code', 'user_code', 'agent_payout_rate', 'is_team_manager', 'is_active'];
 const PARTNER_KEYS = ['name', 'partner_type', 'fee_rate', 'contact', 'sheet_url', 'sheet_tab', 'header_row', 'adapter_id']; // partner_code=자연키(헤더 표시·편집불가)
@@ -239,9 +238,18 @@ export default function Members() {
       tab={tab}
       rows={shown}
       selected={sel}
+      creating={creating}
+      draft={form}
       filtered={!!(q || roleFlt !== 'all' || activeFlt !== 'all' || ptypeFlt !== 'all')}
       onTab={(next) => { void switchTab(next); }}
       onSelect={select}
+      onCreate={newRec}
+      onClearConditions={() => {
+        setQ('');
+        setRoleFlt('all');
+        setActiveFlt('all');
+        setPtypeFlt('all');
+      }}
     />
   );
 
@@ -264,7 +272,7 @@ export default function Members() {
   ) : editing ? (
     <Message variant="warning">수정 중 · 저장해야 반영됩니다</Message>
   ) : null;
-  // 하단바 = 편집 컨텍스트만(수정·삭제 / 취소·저장). PillTabs는 목록 상단(320px 독 넘침 방지).
+  // 하단바 = 편집 컨텍스트만(수정·삭제 / 취소·저장). 사용자·파트너 탭은 목록 상단.
   const editActions = creating || editing ? (
     <PageActions cancel={{ onClick: cancelEdit, disabled: saving }} save={{ onClick: save, disabled: !dirty || saving, label: saving ? '저장 중…' : undefined }} />
   ) : sel ? (
@@ -334,7 +342,6 @@ export default function Members() {
         actions={dockActions}
         listTools={{
           search: { value: q, onChange: setQ, placeholder: '이름·코드·회사·연락처·역할…' },
-          action: { label: '신규', onClick: newRec },
           sort: { value: sort, onChange: (v) => setSort(v as MemSort | ''), options: MEM_SORTS },
           filter: {
             count: fltCount,

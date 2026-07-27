@@ -85,8 +85,8 @@ JSON 가져오기를 사용한다. 기존 데이터를 변경하는 작업이므
 - [x] 공유 버킷의 V3 기존 7개 Storage 경로 규칙 병합
 - [x] 운영 Firebase Storage Rules 게시
 - [x] Google Drive API 활성화
-- [x] My Drive `FreepassERP4 백업` 루트 폴더 생성
-- [ ] Vercel Production·Preview에 Drive OAuth 환경변수 4종 설정
+- [x] OAuth 앱 소유 `FreepassERP4 자동백업` 루트 폴더 생성
+- [x] Vercel Production·Preview에 Drive OAuth 환경변수 4종 암호화 설정
 - [ ] 관리자·영업자·공급사 계정으로 상품 사진·계약 서류·채팅 첨부 실검증
 - [ ] Drive 장애 시 Storage 저장 유지, 정상 시 `상품/{코드}`·`계약/{코드}` 백업 확인
 - [ ] ERP 삭제 후 Storage 원본 삭제·Drive 사본 보존과 수동 복구 확인

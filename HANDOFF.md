@@ -6,13 +6,27 @@
 - 상품·계약 파일만 Google Drive에 2차 백업하며, 백업 실패가 업무 업로드를 취소하지 않는다.
 - ERP 삭제 시 Storage 원본만 삭제하고 Drive 백업은 보존한다.
 - 기존 data URL 파일은 계속 읽을 수 있다.
-- Drive OAuth 네 환경변수는 현재 로컬에 없으므로 설정 전까지 `disabled` 상태가 정상이다.
+- Drive OAuth 네 환경변수는 로컬과 Vercel Production·Preview에 설정됐다.
 - `storage.rules`는 공유 버킷의 V3 7개 기존 경로와 V4 `/erp` 경로를 함께 보존한다.
   V3 호환 블록을 제거하거나 V4 규칙만 단독 게시하면 안 된다.
 - V3 호환 + V4 `/erp` Storage Rules를 `freepasserp3` 운영 버킷에 게시했다.
-- Google Drive API를 활성화하고 My Drive에 `FreepassERP4 백업` 루트 폴더를 만들었다.
-- OAuth 앱은 정책 동의 직전까지 구성됐다. 계정 소유자의 정책 동의 후 클라이언트·refresh token을 발급한다.
+- Google Drive API와 OAuth 테스트 앱을 활성화하고 `drive.file` 최소 권한의
+  `FreepassERP4 자동백업` 루트 폴더를 앱 자체로 만들었다.
+- 데스크톱 OAuth 클라이언트·테스트 사용자·오프라인 refresh token 구성을 완료했다.
+- 로컬 `/api/drive-backup`은 `enabled:true`이며 실제 `uploadDriveBackup` helper로
+  `상품/DRIVE-CONNECTION-TEST/` 사본 생성을 확인했다.
+- Vercel Production·Preview 환경변수 4종은 모두 암호화 상태다.
 - 상세 구조·설정·보안 경계·복구 절차: `docs/FILE_STORAGE_AND_DRIVE_BACKUP.md`
+
+## 2026-07-27 회원·파트너 목록 규격 통일
+
+- 기존 `WorkPage`의 좌측 목록/우측 상세·모바일 목록→상세 구조는 유지했다.
+- 회원·파트너 목록행을 재고·문의·계약과 같은 아이콘 + 3줄 `FeedListRow` 규격으로 통일했다.
+- 목록 첫 행의 사용자/파트너 등록, 검색 결과 조건 해제, 100명 단위 더보기와 500명 표시 상한을 적용했다.
+- 사용자 목록은 역할·승인대기·활성·코드·소속을, 파트너 목록은 유형·수수료·코드·연락처를 표시한다.
+- V3 `provider`·`sales_channel`·`operator`를 공급사·영업채널·운영사로 표준화해
+  목록·정렬·필터·사업자번호 로그인 안내가 같은 값을 사용한다.
+- 실제 관리자 세션에서 사용자 151명, 파트너 38명, 대량 목록·공급사 필터를 확인했다.
 
 ## 2026-07-27 오픈 게이트 재조사 결과
 

@@ -2,10 +2,9 @@
 export { setGuest, getSession } from '@/lib/auth-session';
 import { firebaseReady, getRtdb } from '@/lib/firebase/client';
 import { companyAlias } from '@/lib/domain/identity';
+import { partnerTypeLabel } from '@/lib/domain/partner';
 
 export function firebaseReadySafe(): boolean { return firebaseReady(); }
-
-const PARTNER_TYPE_LABEL: Record<string, string> = { provider: '공급사', sales_channel: '영업채널', operator: '운영사' };
 
 /** 사업자번호(숫자 10자리) → partners 매칭. v3 bindLoginForm matchBizNo 이식. */
 export async function matchBizNo(digits: string): Promise<{ name: string; code: string; type: string } | null> {
@@ -19,7 +18,7 @@ export async function matchBizNo(digits: string): Promise<{ name: string; code: 
       const code = String(p.partner_code || k);
       const full = String(p.partner_name || p.company_name || p.name || code);
       const name = companyAlias(full, p.alias || p.short_name);
-      const type = PARTNER_TYPE_LABEL[String(p.partner_type)] || String(p.partner_type || '');
+      const type = partnerTypeLabel(p.partner_type, code);
       return { name, code, type };
     }
   }

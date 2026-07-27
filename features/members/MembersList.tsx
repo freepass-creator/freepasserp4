@@ -1,48 +1,99 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import type { EntityRecord } from '@/lib/intake/entities';
-import { ROLE_LABEL_RAW } from '@/lib/intake/entities';
-import { ACTOR_TONE, Badge, C, CenterNote, ListRow, PillTabs } from '@/components/ui';
-import { haptic } from '@/lib/haptics';
+import { MemberCreateRow, MemberListRow } from '@/components/list-rows';
+import { Btn, C, CenterNote, FS, PillTabs } from '@/components/ui';
+import { toast } from '@/components/Toaster';
 import type { MemberTab } from './member-filter';
 
-const ROLE_LABEL: Record<string, string> = ROLE_LABEL_RAW;
+const PAGE = 100;
+const PAGE_HARD = 500;
 
-export function MembersList({ tab, rows, selected, filtered, onTab, onSelect }: {
+export function MembersList({
+  tab, rows, selected, creating, draft, filtered,
+  onTab, onSelect, onCreate, onClearConditions,
+}: {
   tab: MemberTab;
   rows: EntityRecord[];
   selected: string | null;
+  creating: boolean;
+  draft: EntityRecord;
   filtered: boolean;
   onTab: (tab: MemberTab) => void;
   onSelect: (row: EntityRecord) => void;
+  onCreate: () => void;
+  onClearConditions: () => void;
 }) {
+  const [limit, setLimit] = useState(PAGE);
+
+  useEffect(() => {
+    setLimit(PAGE);
+  }, [tab, rows.length]);
+
+  const shown = rows.slice(0, limit);
+  const remaining = Math.max(0, rows.length - limit);
+  const draftFillsSlot = creating && selected === 'new';
+
   return (
     <>
       <div style={{ padding: '8px 10px', borderBottom: `1px solid ${C.line}`, background: C.head, flex: '0 0 auto' }}>
         <PillTabs tabs={[{ key: 'user', label: '사용자' }, { key: 'partner', label: '파트너' }]} value={tab} onChange={onTab} size="sm" />
       </div>
-      {!rows.length ? <CenterNote>{filtered ? '검색 결과 없음' : '없음 — 신규로 추가'}</CenterNote> : (
-        <div>{rows.map((row) => {
-          const pending = tab === 'user' && String(row.status || '') === 'pending';
-          const role = String(row.role || '');
-          const sub = tab === 'user'
-            ? `${ROLE_LABEL[role] || role} · ${row.is_active === '아니오' ? '비활성' : '활성'}`
-            : `${String(row.partner_type || '')} · 수수료 ${row.fee_rate != null ? `${Math.round(Number(row.fee_rate) * 100)}%` : '기본'}`;
-          return (
-            <ListRow
-              key={String(row._key)}
-              selected={String(row._key) === selected}
-              onClick={() => { haptic.tap(); onSelect(row); }}
-              main={String(row.name || row.user_code || row.partner_code || '—')}
-              sub={sub}
-              right={tab === 'user' ? (
-                pending
-                  ? <Badge tone="amber" variant="solid">승인대기</Badge>
-                  : <Badge tone={ACTOR_TONE[role] || (role.startsWith('agent') ? 'blue' : 'gray')}>{ROLE_LABEL[role] || ''}</Badge>
-              ) : undefined}
-            />
-          );
-        })}</div>
+      {draftFillsSlot ? (
+        <MemberListRow row={draft} kind={tab} selected />
+      ) : (
+        <MemberCreateRow kind={tab} onClick={onCreate} />
+      )}
+      {!rows.length ? (
+        <CenterNote>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+            <span>{filtered ? '검색 결과 없음' : `${tab === 'user' ? '사용자' : '파트너'} 없음`}</span>
+            {filtered ? <Btn size="sm" variant="ghost" onClick={onClearConditions}>조건 해제</Btn> : null}
+          </div>
+        </CenterNote>
+      ) : (
+        <>
+          {shown.map((row) => {
+            const key = String(row._key || (tab === 'user' ? row.uid || row.user_code : row.partner_code));
+            return (
+              <MemberListRow
+                key={key}
+                row={row}
+                kind={tab}
+                selected={key === selected}
+                onClick={() => onSelect(row)}
+              />
+            );
+          })}
+          {remaining > 0 && (
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+              flexWrap: 'wrap', padding: '12px 14px', borderTop: `1px solid ${C.line2}`,
+            }}>
+              <span style={{ fontSize: FS.sub, color: C.mute }}>
+                {shown.length.toLocaleString()} / {rows.length.toLocaleString()}명
+              </span>
+              <Btn variant="ghost" size="sm" onClick={() => setLimit((current) => current + PAGE)}>
+                더보기 · {Math.min(PAGE, remaining).toLocaleString()}명
+              </Btn>
+              <Btn
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  if (rows.length > PAGE_HARD) {
+                    setLimit(PAGE_HARD);
+                    toast(`성능상 ${PAGE_HARD.toLocaleString()}명까지 표시합니다. 검색·필터로 좁혀주세요.`, 'info');
+                  } else {
+                    setLimit(rows.length);
+                  }
+                }}
+              >
+                전체 보기
+              </Btn>
+            </div>
+          )}
+        </>
       )}
     </>
   );

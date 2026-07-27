@@ -1,6 +1,7 @@
 import type { EntityRecord } from '@/lib/intake/entities';
 import { ROLES, ROLE_LABEL_RAW } from '@/lib/intake/entities';
 import { matchMemberQuery } from '@/lib/domain/search';
+import { partnerTypeLabel } from '@/lib/domain/partner';
 
 export type MemberTab = 'user' | 'partner';
 export type MemberSort = 'name' | 'role' | 'code';
@@ -26,7 +27,7 @@ export const MEMBER_ROLE_OPTIONS = [
 export const MEMBER_PARTNER_TYPE_OPTIONS = [
   { key: 'all', label: '전체' },
   { key: '공급사', label: '공급사' },
-  { key: '채널', label: '채널' },
+  { key: '영업채널', label: '영업채널' },
 ];
 
 type Params = {
@@ -48,7 +49,10 @@ export function filterMembers(params: Params): EntityRecord[] {
         if (params.active === 'active' && row.is_active === '아니오') return false;
         if (params.active === 'inactive' && row.is_active !== '아니오') return false;
         if (params.active === 'pending' && String(row.status || '') !== 'pending') return false;
-      } else if (params.partnerType !== 'all' && String(row.partner_type || '') !== params.partnerType) {
+      } else if (
+        params.partnerType !== 'all'
+        && partnerTypeLabel(row.partner_type, row.partner_code || row._key) !== params.partnerType
+      ) {
         return false;
       }
       return true;
@@ -65,8 +69,12 @@ export function filterMembers(params: Params): EntityRecord[] {
         return aCode.localeCompare(bCode, 'ko');
       }
       if (params.sort === 'role') {
-        const aRole = params.tab === 'user' ? String(a.role || '') : String(a.partner_type || '');
-        const bRole = params.tab === 'user' ? String(b.role || '') : String(b.partner_type || '');
+        const aRole = params.tab === 'user'
+          ? String(a.role || '')
+          : partnerTypeLabel(a.partner_type, a.partner_code || a._key);
+        const bRole = params.tab === 'user'
+          ? String(b.role || '')
+          : partnerTypeLabel(b.partner_type, b.partner_code || b._key);
         return aRole.localeCompare(bRole, 'ko') || String(a.name || '').localeCompare(String(b.name || ''), 'ko');
       }
       return String(a.name || '').localeCompare(String(b.name || ''), 'ko');

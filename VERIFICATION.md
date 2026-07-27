@@ -2075,7 +2075,7 @@ Next 개발 서버와 production build가 같은 `.next`를 사용하면 실행 
 
 ### 판정
 
-**Storage 운영 활성화 PASS / Drive OAuth 동의 대기**
+**Storage 운영 활성화 PASS / Drive OAuth·실제 helper 업로드 PASS**
 
 - 신규 상품 사진·계약 서류·채팅 파일은 RTDB data URL 대신 Firebase Storage를 사용한다.
 - 상품·계약은 Drive 백업을 시도하고 채팅은 Storage에만 저장한다.
@@ -2100,7 +2100,7 @@ Next 개발 서버와 production build가 같은 `.next`를 사용하면 실행 
 - 공유 버킷의 V3 `product-images`, `contract-files`, `notice-images`, `user-docs`,
   `contract-signed`, `contract-unsigned`, `chat-files` 규칙을 원본과 대조해 보존
 - 실행 서버: `/`, `/inventory`, `/chat`, `/contract` HTTP 200
-- `/api/drive-backup`: HTTP 200, `{"enabled":false}` 확인
+- `/api/drive-backup`: 서버 재시작 후 HTTP 200, `{"enabled":true}` 확인
 - `git diff --check`: PASS
 
 ### 운영 적용 결과
@@ -2110,11 +2110,16 @@ Next 개발 서버와 production build가 같은 `.next`를 사용하면 실행 
   `projects/freepasserp3/rulesets/9a8cdcea-56e9-48f5-bcd9-445a63d0ebb2`
 - 게시 전 V3 Rules는 `storage.rules.PREV`에 보존했다.
 - Google Drive API를 `freepasserp3` 프로젝트에서 활성화했다.
-- Drive 루트 `FreepassERP4 백업`
-  (`1bCDIXDMGatPRoxcAoWcI1HgZFxA4NXGo`)을 만들고 로컬 환경변수에 설정했다.
-- 현재 OAuth 정책 동의 전이라 나머지 환경변수 3종이 없고 Drive 백업은 의도대로 비활성이다.
-- 정책 동의·클라이언트·refresh token 발급 후 실제 Storage 업로드·Drive 사본 생성·삭제 복구를
-  관리자·영업자·공급사 계정으로 최종 확인해야 한다.
+- `drive.file` 최소 권한으로 앱이 직접 만든 Drive 루트 `FreepassERP4 자동백업`
+  (`1KT0jDkm3yYFpcYWnv6-kJQutIhZwEum3`)을 로컬 환경변수에 설정했다.
+- OAuth 앱 정책 동의, 테스트 사용자, 데스크톱 클라이언트, 오프라인 refresh token 발급을 완료했다.
+- Vercel Production·Preview에 Drive 환경변수 4종이 모두 암호화 상태임을 확인했다.
+- refresh token으로 새 access token을 발급한 뒤 확인 파일 업로드에 성공했다.
+- 실제 서버 helper `uploadDriveBackup`으로
+  `상품/DRIVE-CONNECTION-TEST/2026-07-27T04-01-50-914Z_connection-check.txt`를
+  생성해 폴더 탐색·생성·multipart 업로드까지 확인했다.
+- 관리자·영업자·공급사 계정별 실제 사진·계약서 업로드와 ERP 삭제 후
+  Storage 원본 삭제·Drive 사본 보존·수동 복구는 최종 운영 E2E 항목으로 남긴다.
 - Storage download URL은 capability URL이다. RTDB 업무 범위가 URL 발견을 제한하지만
   URL 자체의 외부 전달까지 막지는 못한다. 계약 개인정보의 강한 차단은 인증 다운로드 프록시가 후속 과제다.
 
@@ -2124,6 +2129,26 @@ Next 개발 서버와 production build가 같은 `.next`를 사용하면 실행 
   기존 서버가 일시적으로 500을 반환했다.
 - 소스와 Firebase 운영 데이터는 변경되지 않았다.
 - 손상 캐시는 `tmp/server-recovery/`로 보존하고 4004 개발 서버를 재기동했다.
-- 최종 리스너 PID는 `2096`이며 위 4개 핵심 경로 HTTP 200으로 복구를 확인했다.
+- Drive 환경변수 반영을 위해 4004 서버만 짧게 재시작했다.
+- 최종 리스너 PID는 `30312`이며 `/api/drive-backup` HTTP 200과 `enabled:true`를 확인했다.
+
+## 2026-07-27 — 회원·파트너 목록 규격 통일 검증
+
+### 판정
+
+**PASS**
+
+- 회원·파트너 목록을 재고와 같은 아이콘 + 3줄 피드 행, 첫 행 신규 등록,
+  검색 결과 조건 해제, 100명 단위 더보기 규격으로 통일했다.
+- 사용자 151명에서 첫 100명과 `더보기 · 51명`, 승인대기 1명, 역할·활성 표시를 확인했다.
+- 파트너 38명에서 V3 `provider`·`sales_channel`이 공급사·영업채널로 표시되는지 확인했다.
+- 공급사 필터에서 V3 `provider` 항목은 남고 영업채널 항목은 제외되는지 확인했다.
+- 기존 좌측 목록/우측 상세, 모바일 목록→상세 전환, 저장·승인·삭제 동작은 변경하지 않았다.
+- `npm.cmd run typecheck`: PASS
+- `npm.cmd run check:fonts`: PASS, 드리프트 0
+- `scripts/sim-*.mts` 12개: 전부 PASS
+- `NEXT_DIST_DIR=.next-verification-20260727-members npm.cmd run build`: PASS
+  - 28개 라우트, `/members` 8.76kB, `/api/drive-backup` 포함
+- 실행 중인 `.next`와 분리한 빌드 산출물은 `tmp/verification-build/members-20260727/`에 보존했다.
 
 ---
