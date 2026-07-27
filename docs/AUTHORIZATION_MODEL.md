@@ -132,20 +132,25 @@ provider admin/staff:
 
 ## 6. 현재 구현과의 차이
 
-1. `lib/auth-session.ts`가 `agent_admin`, `agent_manager`를 모두 `agent`로 축약해 채널 관리자와 직원을 구분하지 못한다.
-2. `provider_admin` 역할이 스키마·세션·UI·Rules에 없다.
-3. 일부 화면은 영업 계약과 채팅을 `agent_code` 개인 기준으로 다시 필터링해 채널 관리자가 채널 전체를 볼 수 없다.
-4. Rules의 일부 `role !== 'provider'` 조건은 관리자 외 모든 비공급사 역할을 한 그룹으로 보므로 표준 역할을 명시적으로 검사해야 한다.
-5. 공급사 직원은 회사 단위 조회가 이미 대체로 적용되어 있지만, 관리자 전용 고위험 기능 분리는 아직 없다.
-6. 정산 데이터는 역할별 필드 마스킹이 추가로 필요하다.
+1. `lib/auth-session.ts`는 화면 호환용 3역할과 별도로 `rawRole`을 보존한다.
+2. `lib/domain/authorization.ts`가 `admin`, `agent_admin`, `agent`, `provider_admin`, `provider`와 레거시 `agent_manager`를 중앙 판정한다.
+3. 영업 직원은 개인 UID, 영업채널 관리자는 채널, 공급사 직원·관리자는 회사 범위로 조회한다.
+4. Firebase Rules에도 `provider_admin`, `agent_admin`, `agent_manager`의 조직 범위가 반영돼 운영 게시됐다.
+5. 정산 금액은 신규 데이터부터 R1/R2/admin private 노드로 물리 분리해 역할별 병합한다.
+6. 아직 남은 차이는 공급사 직원과 관리자의 고위험 기능 분리, 역할 부여·초대 UI 세분화다.
+7. 자동 권한 시뮬레이션은 통과했지만 5개 실제 역할 계정의 브라우저 격리 테스트는 남아 있다.
 
 ## 7. 구현 순서
 
-1. 역할 스키마에 `provider_admin` 추가, `agent_manager` 레거시 매핑 확정
-2. 세션에 축약 역할과 별도로 표준 세부 역할(`rawRole`) 기반 권한 helper 추가
-3. 중앙 권한 모듈에서 `isPlatformAdmin`, `isAgentOrgAdmin`, `isProviderOrgAdmin`, `canAccessRecord` 제공
-4. 채팅·계약 어댑터를 영업자 개인/채널 관리자/공급사 회사 쿼리로 분리
-5. Firebase Rules를 동일한 역할·조직 판정으로 갱신
-6. 메뉴·버튼·필드 마스킹을 중앙 권한 helper로 통일
-7. 역할 5종 × 업무 시나리오 자동 시뮬레이션과 Rules Emulator 검증
+완료:
 
+1. 역할 스키마·레거시 매핑·`rawRole` 기반 중앙 권한 helper
+2. 채팅·계약·정산 어댑터의 개인/채널/회사 범위 쿼리
+3. Firebase Rules 역할·조직 판정과 운영 게시
+4. 메뉴·버튼·정산 금액 표시 경계
+5. 역할 시뮬레이션과 Rules Emulator
+
+오픈 후:
+
+1. 공급사 직원과 관리자 사이의 대량 삭제·복원·회사설정 권한 분리
+2. 역할 부여·초대·비활성화 UI 세분화

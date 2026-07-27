@@ -173,12 +173,21 @@ export default function DevTools() {
     setPrivateMigLog('');
     try {
       const { migrateProductsPrivate } = await import('@/lib/firebase/migrate-products-private');
-      const result = await migrateProductsPrivate(dryRun);
+      const result = await migrateProductsPrivate(dryRun, {
+        beforeApply: (backup) => {
+          const stamp = backup.exportedAt.replace(/[:.]/g, '-');
+          downloadJson(`freepasserp-products-backup-${stamp}.json`, backup);
+        },
+        onProgress: (completed, total) => {
+          setPrivateMigLog(`[이동 중] ${completed}/${total}배치 완료`);
+        },
+      });
       const message = `${dryRun ? '[미리보기]' : '[이동 완료]'} 검사 ${result.scannedProducts}대`
         + ` · 민감필드 상품 ${result.productsWithPrivate}`
         + ` · private 쓰기 ${result.privateWrites}`
         + ` · public 삭제 ${result.publicDeletes}`
         + ` · 안전제외 ${result.skippedUnsafe}`
+        + ` · 계획경로/배치 ${result.plannedPaths}/${result.plannedBatches}`
         + ` · 적용경로 ${result.appliedPaths}`;
       setPrivateMigLog(message);
       toast(message, 'ok');

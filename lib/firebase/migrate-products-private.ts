@@ -36,7 +36,24 @@ export type ProductPrivateMigrationPlan = {
 
 export type ProductPrivateMigrationResult = Omit<ProductPrivateMigrationPlan, 'updates'> & {
   dryRun: boolean;
+  plannedPaths: number;
+  plannedBatches: number;
   appliedPaths: number;
+};
+
+export type ProductPrivateMigrationBackup = {
+  version: 1;
+  exportedAt: string;
+  nodes: {
+    products: ProductMap;
+    v4Products: ProductMap;
+    productsPrivate: ProductMap;
+  };
+};
+
+type ProductPrivateMigrationOptions = {
+  beforeApply?: (backup: ProductPrivateMigrationBackup) => void | Promise<void>;
+  onProgress?: (completedBatches: number, totalBatches: number) => void | Promise<void>;
 };
 
 function addPublicDeletes(updates: UpdateMap, path: string, record: Record<string, unknown>): number {
@@ -133,7 +150,10 @@ export function buildProductPrivateMigrationPlan(
   };
 }
 
-export async function migrateProductsPrivate(dryRun = true): Promise<ProductPrivateMigrationResult> {
+export async function migrateProductsPrivate(
+  dryRun = true,
+  options: ProductPrivateMigrationOptions = {},
+): Promise<ProductPrivateMigrationResult> {
   const db = getRtdb();
   if (!db) throw new Error('Firebase DB가 설정되지 않았습니다.');
   const [v3Snapshot, v4Snapshot, privateSnapshot] = await Promise.all([
@@ -141,16 +161,34 @@ export async function migrateProductsPrivate(dryRun = true): Promise<ProductPriv
     get(ref(db, 'v4/products')),
     get(ref(db, 'v4/products_private')),
   ]);
+  const source = {
+    products: (v3Snapshot.val() as ProductMap | null) || {},
+    v4Products: (v4Snapshot.val() as ProductMap | null) || {},
+    productsPrivate: (privateSnapshot.val() as ProductMap | null) || {},
+  };
   const plan = buildProductPrivateMigrationPlan(
-    (v3Snapshot.val() as ProductMap | null) || {},
-    (v4Snapshot.val() as ProductMap | null) || {},
-    (privateSnapshot.val() as ProductMap | null) || {},
+    source.products,
+    source.v4Products,
+    source.productsPrivate,
   );
   const entries = Object.entries(plan.updates);
+  const batchSize = 400;
+  const plannedBatches = Math.ceil(entries.length / batchSize);
   if (!dryRun && entries.length) {
-    const batchSize = 400;
+    if (plan.skippedUnsafe) {
+      throw new Error(`안전하지 않은 상품 ${plan.skippedUnsafe}건이 있어 실제 이동을 중단했습니다.`);
+    }
+    if (!options.beforeApply) {
+      throw new Error('실제 이동 전 백업 처리가 필요합니다.');
+    }
+    await options.beforeApply({
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      nodes: source,
+    });
     for (let index = 0; index < entries.length; index += batchSize) {
       await update(ref(db), Object.fromEntries(entries.slice(index, index + batchSize)));
+      await options.onProgress?.(Math.floor(index / batchSize) + 1, plannedBatches);
     }
   }
   return {
@@ -160,6 +198,8 @@ export async function migrateProductsPrivate(dryRun = true): Promise<ProductPriv
     publicDeletes: plan.publicDeletes,
     skippedUnsafe: plan.skippedUnsafe,
     dryRun,
+    plannedPaths: entries.length,
+    plannedBatches,
     appliedPaths: dryRun ? 0 : entries.length,
   };
 }

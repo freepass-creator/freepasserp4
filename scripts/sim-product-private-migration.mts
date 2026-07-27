@@ -58,6 +58,7 @@ const checks: [string, boolean][] = [
   ['v3 fee 삭제 계획', plan.updates['products/legacy_child/price/36/fee'] === null],
   ['v4 원가 삭제 계획', plan.updates['v4/products/P-001/vehicle_price'] === null],
   ['v4 commission 삭제 계획', plan.updates['v4/products/P-001/price/36/commission'] === null],
+  ['삭제보다 private 쓰기가 먼저 계획됨', Object.keys(plan.updates)[0] === 'v4/products_private/P-001'],
   ['공개 전용 상품 미변경', !Object.keys(plan.updates).some((path) => path.includes('P-002'))],
 ];
 
