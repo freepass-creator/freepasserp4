@@ -1,7 +1,7 @@
 'use client';
 import type { CSSProperties, ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
-import { NavBack, C } from '@/components/ui';
+import { NavBack, C, SH } from '@/components/ui';
 import { isTabRoute } from '@/lib/tabbar';
 import { useIsMobile } from '@/lib/use-mobile';
 
@@ -55,7 +55,7 @@ export function MobileDockShell({
         paddingBottom: 'var(--fp-dock-safe, env(safe-area-inset-bottom, 0px))',
         background: C.taupeBg,
         borderTop: `1px solid ${C.line}`,
-        boxShadow: '0 -3px 14px rgba(15,23,42,0.07)',
+        boxShadow: SH.dock,
       }}
     >
       <div style={{ height: 'var(--fp-bar-h)', boxSizing: 'border-box', display: 'flex', alignItems: 'center' }}>

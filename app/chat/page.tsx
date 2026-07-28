@@ -52,11 +52,18 @@ export default function Chat() {
   const [sel, setSel] = useState<string | null>(null);
   const [selRoom, setSelRoom] = useState<EntityRecord | null>(null);
   const [selProduct, setSelProduct] = useState<EntityRecord | null>(null);
-  const [q, setQ] = useState('');
+  const [qInput, setQInput] = useState(''); // 검색창 즉시 반영
+  const [q, setQ] = useState(''); // 디바운스된 검색
   const [swapKey, setSwapKey] = useState('chat');
   const [sort, setSort] = useState<ChatSort | ''>('');
   const [flt, setFlt] = useState<ChatFilter>('문의');
   const [draftFlt, setDraftFlt] = useState<ChatFilter>('문의');
+
+  // 검색 디바운스 — 타이핑마다 방목록 filter 전량 재계산 방지
+  useEffect(() => {
+    const t = setTimeout(() => setQ(qInput), 180);
+    return () => clearTimeout(t);
+  }, [qInput]);
 
   // 계약 인덱스 — `product_code|agent_code` → 계약. 현행 contracts.find 순서를 정확 재현:
   //  · '계약취소'는 후보에서 제외(find의 `c.contract_status !== '계약취소'`).
@@ -211,14 +218,14 @@ export default function Chat() {
   const shownRooms = useMemo(() => filterChatRooms({
     rooms: rooms || [], query: q, filter: flt, sort, role, contractIndex, cancelledIndex,
   }), [rooms, q, flt, sort, role, contractIndex, cancelledIndex]);
-  const draftPreviewCount = chatRoomPreviewCount({
+  const draftPreviewCount = useMemo(() => chatRoomPreviewCount({
     rooms: rooms || [], query: q, filter: draftFlt, role, contractIndex, cancelledIndex,
-  });
+  }), [rooms, q, draftFlt, role, contractIndex, cancelledIndex]);
   const roomListEl = <ChatRoomList
     rooms={shownRooms}
     role={role}
     selected={sel}
-    query={q}
+    query={qInput}
     filterActive={flt !== '문의'}
     displayName={roomHead}
     providerName={(room) => {
@@ -229,7 +236,7 @@ export default function Chat() {
     contract={contractOf}
     counter={roomCounter}
     onSelect={handleRoomClick}
-    onReset={() => { setQ(''); setFlt('문의'); }}
+    onReset={() => { setQInput(''); setQ(''); setFlt('문의'); }}
   />;
 
   const emptyPane = (t: string, msg: string) => <><PaneHead title={t} /><CenterNote>{msg}</CenterNote></>;
@@ -322,13 +329,13 @@ export default function Chat() {
             })()
           : roomTitle(selRoom))
         : undefined}
-      search={{ value: q, onChange: setQ, placeholder: '차번·상품·영업…' }}
+      search={{ value: qInput, onChange: setQInput, placeholder: '차번·상품·영업…' }}
       mobileLayout="swap"
       mobileSwapKey={swapKey}
       onMobileSwapKeyChange={setSwapKey}
       countSuffix="건"
       listTools={{
-        search: { value: q, onChange: setQ, placeholder: '차번·상품·영업…' },
+        search: { value: qInput, onChange: setQInput, placeholder: '차번·상품·영업…' },
         sort: { value: sort, onChange: (v) => setSort(v as ChatSort | ''), options: CHAT_SORTS },
         filter: {
           count: flt === '문의' ? 0 : 1,
@@ -365,7 +372,7 @@ export default function Chat() {
           ...(sort ? [CHAT_SORTS.find((o) => o.value === sort)?.label || sort] : []),
           ...(flt !== '문의' ? [flt === 'all' ? '전체' : flt] : []),
         ],
-        onClearHints: () => { setQ(''); setSort(''); setFlt('문의'); },
+        onClearHints: () => { setQInput(''); setQ(''); setSort(''); setFlt('문의'); },
       }}
     />
     </>

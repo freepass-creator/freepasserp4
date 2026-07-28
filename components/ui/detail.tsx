@@ -2,7 +2,7 @@
 import React from 'react';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { ChevronDown } from 'lucide-react';
-import { C, R, ctrlH, ctrlInputFs, FW, FS } from './tokens';
+import { C, R, ctrlH, ctrlInputFs, FW, FS, SH } from './tokens';
 import { useIsMobile } from '@/lib/use-mobile';
 
 /* 상세 — 섹션/그리드/행 */
@@ -100,7 +100,7 @@ export type KVRow = [label: string, key: string | null, value: React.ReactNode];
 export function KV({ rows, editing, form, onChange }: { rows: KVRow[]; editing?: boolean; form?: EntityRecord; onChange?: (k: string, v: string) => void }) {
   const mobile = useIsMobile();
   return (
-    <div style={{ border: `1px solid ${editing ? C.accent : C.line}`, borderRadius: 'var(--radius)', background: editing ? 'var(--bg-card)' : C.taupeBg, boxShadow: editing ? '0 0 0 3px rgba(37,99,235,0.10)' : '0 1px 2px rgba(15,23,42,0.05)', transition: 'box-shadow .15s, border-color .15s' }}>
+    <div style={{ border: `1px solid ${editing ? C.accent : C.line}`, borderRadius: R, background: editing ? 'var(--bg-card)' : C.taupeBg, boxShadow: editing ? `0 0 0 3px ${C.focusRing}` : SH.cardRest, transition: 'box-shadow .15s, border-color .15s' }}>
       {rows.map(([k, key, val], i) => (
         <div key={i} style={{ display: 'flex', alignItems: 'center', minHeight: ctrlH(mobile), padding: mobile ? '0 14px' : '0 12px', fontSize: mobile ? FS.title : FS.body, borderTop: i ? `1px solid var(--border-soft)` : 'none' }}>
           <span style={{ width: mobile ? 104 : 96, flex: `0 0 ${mobile ? 104 : 96}px`, color: C.mute }}>{k}</span>

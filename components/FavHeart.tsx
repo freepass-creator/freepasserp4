@@ -2,7 +2,7 @@
 import { useEffect, useState, type MouseEvent } from 'react';
 import { Star } from 'lucide-react';
 import { haptic } from '@/lib/haptics';
-import { C, R, IconBtn, ctrlH } from '@/components/ui';
+import { C, R, IconBtn, ctrlH, SH } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { isFav, toggleFav, subscribeInterest, type InterestSnap } from '@/lib/product-interest';
 import type { EntityRecord } from '@/lib/intake/entities';
@@ -36,12 +36,11 @@ export function FavHeart({ p, size = 16, onPhoto = false, compact = false }: {
   };
 
   // 사진 위 = 연한 반투명 원반(사진 훼손 최소). 그 외 = 솔리드 버튼.
-  // onPhoto 반투명은 사진 위 전용 — C 토큰에 대응 없음(보고용 예외, 신규 HEX 도입 아님).
   const bg = onPhoto
-    ? (on ? 'rgba(255,255,255,0.82)' : 'rgba(255,255,255,0.55)')
+    ? (on ? `color-mix(in srgb, ${C.inverse} 82%, transparent)` : `color-mix(in srgb, ${C.inverse} 55%, transparent)`)
     : (on ? C.selected : C.taupeBg);
   const border = onPhoto
-    ? (on ? C.brand : 'rgba(255,255,255,0.65)')
+    ? (on ? C.brand : `color-mix(in srgb, ${C.inverse} 65%, transparent)`)
     : (on ? C.brand : C.line);
 
   return (
@@ -54,7 +53,7 @@ export function FavHeart({ p, size = 16, onPhoto = false, compact = false }: {
         border: `1px solid ${border}`,
         background: bg,
         color: on ? C.brand : C.mute,
-        boxShadow: onPhoto ? '0 1px 3px rgba(15,23,42,0.18)' : undefined,
+        boxShadow: onPhoto ? SH.cardRest : undefined,
         backdropFilter: onPhoto ? 'blur(6px)' : undefined,
         WebkitBackdropFilter: onPhoto ? 'blur(6px)' : undefined,
       }}

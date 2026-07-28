@@ -34,11 +34,17 @@ type Props = {
   moreCount: number;
   onMore: () => void;
   onShowAll: () => void;
+  /** 보기 전환(startTransition) 중 — 프리즈 체감 완화용 dim */
+  pending?: boolean;
 };
 
 export function FinderResults(props: Props) {
   return (
-    <div ref={props.bodyRef} className={`fp-finder-body ${props.view === 'excel' ? 'is-excel' : ''}`}>
+    <div
+      ref={props.bodyRef}
+      className={`fp-finder-body ${props.view === 'excel' ? 'is-excel' : ''}`}
+      style={props.pending ? { opacity: 0.55, transition: 'opacity .15s ease', pointerEvents: 'none' } : { transition: 'opacity .15s ease' }}
+    >
       {props.list.length === 0 ? (
         <CenterNote>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>

@@ -9,21 +9,26 @@ import { matchProductQuery } from '@/lib/domain/search';
 import { withProviderNames } from '@/lib/domain/identity';
 import { ProductCard } from '@/components/ProductCard';
 import { RENT_BANDS, CREDITS, CATALOG_PERKS, hasPerk } from '@/lib/domain/product-filters';
-import { C, FW, FS, Loading, CenterNote, SearchInput, Select, ToggleChips } from '@/components/ui';
+import { Btn, C, FW, FS, Loading, CenterNote, SearchInput, Select, ToggleChips } from '@/components/ui';
 import { toggleInSet } from '@/lib/set';
+import { Plus } from 'lucide-react';
 
 // 손님 공개 카탈로그(화이트라벨) — 영업 공유의 착지점. ERP 크롬 없음.
 // 필터 축 = 홈과 동일 SSOT (심사 CREDITS · 혜택 CATALOG_PERKS · 월대여료=matchProduct와 동일 밴드 판정).
+
+const PAGE = 100; // 파인더와 동일 — 첫 화면·더보기 단위
 
 export default function Catalog() {
   const co = getCompanyId();
   const [rows, setRows] = useState<EntityRecord[] | null>(() => peekList('product', co));
   const [attr, setAttr] = useState('');
-  const [q, setQ] = useState('');
+  const [qInput, setQInput] = useState(''); // 검색창 즉시 반영
+  const [q, setQ] = useState(''); // 디바운스된 검색
   const [rent, setRent] = useState('');
   const [credit, setCredit] = useState<Set<string>>(new Set());
   const [perks, setPerks] = useState<Set<string>>(new Set());
   const [sort, setSort] = useState('asc');
+  const [limit, setLimit] = useState(PAGE);
 
   useEffect(() => { (async () => {
     await seedIfEmpty(co);
@@ -37,6 +42,14 @@ export default function Catalog() {
       partners,
     ));
   })(); /* eslint-disable-next-line */ }, []);
+
+  // 검색 디바운스 — 타이핑마다 전량 filter/sort 방지(파인더 180ms와 동일)
+  useEffect(() => {
+    const t = setTimeout(() => setQ(qInput), 180);
+    return () => clearTimeout(t);
+  }, [qInput]);
+
+  useEffect(() => { setLimit(PAGE); }, [q, rent, credit, perks, sort]);
 
   const list = useMemo(() => {
     const l = (rows || []).filter((p) => {
@@ -54,6 +67,8 @@ export default function Catalog() {
     return l;
   }, [rows, q, rent, credit, perks, sort]);
 
+  const shown = list.slice(0, limit);
+  const moreCount = Math.max(0, list.length - shown.length);
   const href = (p: EntityRecord) => `/q/${encodeURIComponent(String(p.product_code))}${attr ? `?a=${encodeURIComponent(attr)}` : ''}`;
 
   if (rows === null) return <Loading />;
@@ -64,7 +79,7 @@ export default function Catalog() {
       <h1 style={{ fontSize: FS.page, fontWeight: FW.title, letterSpacing: '-0.02em', margin: '4px 0 12px' }}>조건별 차량 찾기</h1>
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 }}>
-        <SearchInput value={q} onChange={setQ} placeholder="차번·차명·연료·옵션…" style={{ flex: '1 1 200px', minWidth: 180 }} />
+        <SearchInput value={qInput} onChange={setQInput} placeholder="차번·차명·연료·옵션…" style={{ flex: '1 1 200px', minWidth: 180 }} />
         <Select value={rent} onChange={setRent} placeholder="월대여료 전체" options={RENT_BANDS.map((b) => ({ value: b.k, label: b.label }))} />
         <Select value={sort} onChange={setSort} options={[{ value: 'asc', label: '낮은 대여료순' }, { value: 'desc', label: '높은 대여료순' }]} />
       </div>
@@ -77,9 +92,23 @@ export default function Catalog() {
       </div>
 
       {list.length === 0 ? <CenterNote>조건에 맞는 차량이 없습니다.</CenterNote> : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: 12 }}>
-          {list.map((p) => <ProductCard key={String(p.product_code)} p={p} audience="customer" href={href(p)} />)}
-        </div>
+        <>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: 12 }}>
+            {shown.map((p) => <ProductCard key={String(p.product_code)} p={p} audience="customer" href={href(p)} />)}
+          </div>
+          {moreCount > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 16 }}>
+              <Btn
+                mobileIcon={<Plus size={18} />}
+                title={`더보기 ${Math.min(PAGE, moreCount)}대`}
+                variant="ghost"
+                onClick={() => setLimit((n) => n + PAGE)}
+              >
+                {`더보기 · ${Math.min(PAGE, moreCount).toLocaleString()}대`}
+              </Btn>
+            </div>
+          )}
+        </>
       )}
       <div style={{ marginTop: 20, fontSize: FS.cap, color: C.faint, textAlign: 'center' }}>표시 가격은 참고용이며 심사·재고에 따라 변동될 수 있습니다.</div>
     </main>

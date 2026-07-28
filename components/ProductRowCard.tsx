@@ -4,7 +4,7 @@ import Link from 'next/link';
 import type { CSSProperties, ReactNode } from 'react';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { useIsMobile } from '@/lib/use-mobile';
-import { C, R } from '@/components/ui';
+import { C, R, SH } from '@/components/ui';
 import {
   CardTitle, CardSpecs, CardPerkLine, CardThumb, CardRailBadges,
   PricePeekRoot, PriceAmounts, PeriodChips, PeriodRange, OptionChips,
@@ -72,7 +72,7 @@ function WebRow({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) {
       borderRadius: R,
       padding: '10px 12px',
       border: `1px solid ${C.line}`,
-      boxShadow: '0 1px 2px rgba(15,23,42,0.04)',
+      boxShadow: SH.cardRest,
       textDecoration: 'none', color: 'inherit',
     } satisfies CSSProperties}>
       <CardThumb p={p} w={88} marks={false} heart />

@@ -3,7 +3,7 @@ import { memo } from 'react';
 import Link from 'next/link';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { useIsMobile } from '@/lib/use-mobile';
-import { C, R } from '@/components/ui';
+import { C, R, SH } from '@/components/ui';
 import {
   CardTitle, CardSpecs, CardThumb,
   OptionChips,
@@ -39,7 +39,7 @@ export const ProductCard = memo(function ProductCard({ p, audience = 'agent', hr
         display: 'flex', flexDirection: 'column', borderRadius: R, overflow: 'hidden',
         textDecoration: 'none', color: 'inherit',
         border: `1px solid ${C.line}`,
-        boxShadow: '0 1px 2px rgba(15,23,42,0.04)',
+        boxShadow: SH.cardRest,
       }}>
       {/* 1 — CORE 뱃지 3 = thumb 우하 */}
       <CardThumb p={p} audience={audience} fill marks={false} coreBadges />

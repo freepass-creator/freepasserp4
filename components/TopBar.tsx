@@ -10,7 +10,7 @@ import { getRole, actor, type Role } from '@/lib/domain/deal';
 import { useSession } from '@/lib/auth-context';
 import { isGuest } from '@/lib/auth-session';
 import { loadMenuBadges, menuItemBadge, type MenuBadgeMap } from '@/lib/domain/menu-badges';
-import { C, R, CountPill, NUM, ctrlH, ctrlFs, FW, FS, Btn, IconBtn } from '@/components/ui';
+import { C, R, CountPill, NUM, ctrlH, ctrlFs, FW, FS, Btn, IconBtn, SH } from '@/components/ui';
 import { NAV_ICON, NAV_LABEL } from '@/lib/tabbar';
 import { refreshCurrentPage } from '@/lib/page-refresh';
 import { PageStatus, statusIconFor } from '@/components/PageStatus';
@@ -209,7 +209,7 @@ function NavMenu({ mobile, open: openProp, setOpen: setOpenProp }: {
   // 웹=좌측 드롭다운 · 모바일=풀스크린
   const panel: CSSProperties = mobile
     ? { position: 'fixed', left: 0, right: 0, top: 'var(--topbar-h)', bottom: 0, background: C.taupeBg, zIndex: 80, overflowY: 'auto', overscrollBehavior: 'contain', animation: 'menuDrop .18s ease', paddingBottom: 'calc(24px + env(safe-area-inset-bottom))' }
-    : { position: 'absolute', left: 0, top: 'calc(100% + 6px)', width: 250, background: C.taupeBg, border: `1px solid ${line}`, borderRadius: R, boxShadow: '0 12px 34px rgba(15,23,42,0.18)', zIndex: 85, overflow: 'hidden' };
+    : { position: 'absolute', left: 0, top: 'calc(100% + 6px)', width: 250, background: C.taupeBg, border: `1px solid ${line}`, borderRadius: R, boxShadow: SH.menu, zIndex: 85, overflow: 'hidden' };
   const iPad = mobile ? '15px 20px' : '9px 14px';
   const iFont = mobile ? 16 : FS.body;
   const iSize = mobile ? 20 : 15;
@@ -364,7 +364,7 @@ export default function TopBar() {
           bottom: 'var(--fp-tabbar-h, 0px)',
           zIndex: 55, background: C.taupeBg,
           borderTop: `1px solid ${line}`,
-          boxShadow: '0 -2px 12px rgba(15,23,42,0.06)',
+          boxShadow: SH.dock,
           paddingBottom: 'var(--fp-dock-safe, env(safe-area-inset-bottom))',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: 'var(--fp-bar-h)', boxSizing: 'border-box', padding: '0 var(--fp-bar-pad-x)' }}>

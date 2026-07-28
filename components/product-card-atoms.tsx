@@ -2,7 +2,7 @@
 import { type CSSProperties } from 'react';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { eventSignals, type Audience } from '@/lib/domain/product';
-import { C, R, NUM, Badge, FW, FS } from '@/components/ui';
+import { C, R, NUM, Badge, FW, FS, SCRIM } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { useFirstPhoto } from '@/components/use-product-photos';
 import { FavHeart } from '@/components/FavHeart';
@@ -190,10 +190,10 @@ export function CardThumb({ p, audience = 'agent', fill, w, h, heart = false, ma
         height: fill ? 18 : 16, boxSizing: 'border-box',
         fontSize: promoFs, fontWeight: FW.strong, letterSpacing: '-0.02em',
         lineHeight: 1,
-        color: '#fff',
+        color: C.inverse,
         // 목록 썸네일 = blur 없이 가독 유지되게 더 진한 단색 / 그밖엔 기존 frosted(blur+옅은 톤).
-        background: listThumb ? 'rgba(15,23,42,0.66)' : 'rgba(15,23,42,0.42)',
-        border: '1px solid rgba(255,255,255,0.18)',
+        background: listThumb ? SCRIM.heavy : SCRIM.light,
+        border: `1px solid color-mix(in srgb, ${C.inverse} 18%, transparent)`,
         backdropFilter: listThumb ? undefined : 'blur(6px)',
         WebkitBackdropFilter: listThumb ? undefined : 'blur(6px)',
         padding: '0 7px',
@@ -212,7 +212,7 @@ export function CardThumb({ p, audience = 'agent', fill, w, h, heart = false, ma
       {hasCore && (
         <div aria-hidden style={{
           position: 'absolute', left: 0, right: 0, bottom: 0, height: '28%', zIndex: 1,
-          background: 'linear-gradient(to top, rgba(15,23,42,0.22) 0%, transparent 100%)',
+          background: `linear-gradient(to top, ${SCRIM.light} 0%, transparent 100%)`,
           pointerEvents: 'none',
         }} />
       )}

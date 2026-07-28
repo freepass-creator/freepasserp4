@@ -6,7 +6,7 @@ import { ChevronLeft, List } from 'lucide-react';
 import { haptic } from '@/lib/haptics';
 import { useIsMobile } from '@/lib/use-mobile';
 import { Btn, IconBtn } from './buttons';
-import { C } from './tokens';
+import { C, SH } from './tokens';
 
 export function NavBack({
   kind = 'history',
@@ -112,7 +112,7 @@ export function BottomNav({
       paddingRight: 'var(--sbw, 0px)',
       background: C.taupeBg,
       borderTop: `1px solid ${C.line}`,
-      boxShadow: '0 -3px 14px rgba(15,23,42,0.07)',
+      boxShadow: SH.dock,
       paddingBottom: 'var(--fp-dock-safe, env(safe-area-inset-bottom))',
     }}>
       {inner}

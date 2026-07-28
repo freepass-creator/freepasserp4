@@ -9,9 +9,28 @@ export const C = {
   selected: 'var(--bg-selected)',       // 선택 행/항목 강조 배경
   warnBg: 'var(--orange-bg)',           // 수기입력·주의 앰버 틴트 배경(=#fff7ed)
   okBg: 'var(--green-bg)',              // 완료 스텝·성공 틴트
+  inverse: 'var(--text-inverse)',       // 대비 글자(흰/검정 — 테마 따라)
+  focusRing: 'var(--focus-ring)',       // 포커스 링 틴트
 };
 export const R = 4; // = --radius (jpkerp5 표준 4px)
 export const NUM = 'var(--font-mono)';
+
+/** 그림자 SSOT — globals.css --shadow-* 브릿지. 하드코딩 boxShadow 금지. */
+export const SH = {
+  cardRest: 'var(--shadow-sm)',
+  cardHover: 'var(--shadow-md)',
+  dock: 'var(--shadow-dock)',
+  menu: 'var(--shadow-menu)',
+  modal: 'var(--shadow-modal)',
+} as const;
+
+/** 스크림(오버레이 딤) SSOT — globals.css --scrim-* 브릿지. */
+export const SCRIM = {
+  light: 'var(--scrim-light)',
+  heavy: 'var(--scrim-heavy)',
+  /** 풀블리드 라이트박스(사진·문서) — light/heavy와 알파가 다름. */
+  black: 'var(--scrim-black)',
+} as const;
 
 /**
  * 콘텐츠 타입 스케일 SSOT — 제목·본문·캡션은 이 6단계만 쓴다.

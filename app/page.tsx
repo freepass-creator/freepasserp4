@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState, useCallback, type CSSProperties, type MouseEvent } from 'react';
+import { useEffect, useRef, useState, useCallback, useTransition, type CSSProperties, type MouseEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { getCompanyId } from '@/lib/tenant';
 import { useIsMobile } from '@/lib/use-mobile';
@@ -169,8 +169,14 @@ export default function Finder() {
     authReady,
     sessionUid: session?.uid,
   });
+  const [viewPending, startViewTransition] = useTransition();
   // 보기모드 = 새로고침해도 유지(localStorage). 서버·최초렌더는 'card' → effect에서 복원(하이드레이션 mismatch 방지).
-  const setView = (v: string) => { setViewState(v); if (typeof window !== 'undefined') localStorage.setItem('fp4_finder_view', v); };
+  const setView = (v: string) => {
+    startViewTransition(() => {
+      setViewState(v);
+      if (typeof window !== 'undefined') localStorage.setItem('fp4_finder_view', v);
+    });
+  };
   // 엑셀보기 = 넓은 화면 전용 배열. 모바일은 카드만(뷰·다운로드 미제공).
   const effView = mobile ? 'card' : view;
 
@@ -492,6 +498,7 @@ export default function Finder() {
             setOpenCol={setOpenCol}
             moreCount={moreN}
             onMore={() => setLimit((current) => current + PAGE)}
+            pending={viewPending}
             onShowAll={() => {
               if (activeList.length > PAGE_HARD) {
                 setLimit(PAGE_HARD);

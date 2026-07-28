@@ -2,7 +2,7 @@
 import { useEffect, useState, type MouseEvent, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { MoreVertical, Star, ThumbsDown, EyeOff, MessageCircleMore, Share2 } from 'lucide-react';
-import { C, R, FW, FS, Btn, IconBtn, ctrlH } from '@/components/ui';
+import { C, R, FW, FS, Btn, IconBtn, ctrlH, SH, SCRIM } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
 import { isFav, toggleFav, removeFav, subscribeInterest } from '@/lib/product-interest';
@@ -188,7 +188,7 @@ export function ProductMoreMenu({ p }: { p: EntityRecord }) {
       ) : open ? (
         <div
           role="presentation"
-          style={{ position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(15,23,42,0.25)' }}
+          style={{ position: 'fixed', inset: 0, zIndex: 90, background: SCRIM.light }}
           onClick={() => { haptic.back(); setOpen(false); }}
         >
           <div
@@ -198,7 +198,7 @@ export function ProductMoreMenu({ p }: { p: EntityRecord }) {
               position: 'fixed', left: '50%', top: '50%', transform: 'translate(-50%, -50%)',
               width: 'min(360px, calc(100vw - 32px))',
               background: C.taupeBg, borderRadius: R, border: `1px solid ${C.line}`,
-              boxShadow: '0 16px 40px rgba(15,23,42,0.2)', overflow: 'hidden',
+              boxShadow: SH.menu, overflow: 'hidden',
             }}
           >
             <div style={{ padding: '12px 14px 8px', fontSize: FS.title, fontWeight: FW.title, color: C.ink }}>상품</div>

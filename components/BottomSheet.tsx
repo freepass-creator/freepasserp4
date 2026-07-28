@@ -1,9 +1,11 @@
 'use client';
 import { useEffect, useState, useRef, type ReactNode } from 'react';
-import { Btn, C, FW, FS, R, ctrlH } from '@/components/ui';
+import { Btn, C, FW, FS, R, SCRIM, SH, ctrlH } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
 import { Check, RotateCcw, Undo2, X } from 'lucide-react';
+
+const EXIT_MS = 220; // sheetUp .22s와 대칭
 
 /**
  * 하단 시트 SSOT — 화면 바닥에서 슬라이드업.
@@ -58,18 +60,37 @@ export function BottomSheet({
   pad?: boolean;
 }) {
   const mobile = useIsMobile();
+  const [mounted, setMounted] = useState(open);
+  const [leaving, setLeaving] = useState(false);
+
+  // 닫힘 = 즉시 언마운트 금지 → 퇴장 애니메이션 후 언마운트(입장 sheetUp과 대칭)
   useEffect(() => {
-    if (!open) return;
+    if (open) {
+      setMounted(true);
+      setLeaving(false);
+      return;
+    }
+    if (!mounted) return;
+    setLeaving(true);
+    const t = window.setTimeout(() => {
+      setMounted(false);
+      setLeaving(false);
+    }, EXIT_MS);
+    return () => window.clearTimeout(t);
+  }, [open, mounted]);
+
+  useEffect(() => {
+    if (!mounted || leaving) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
+  }, [mounted, leaving, onClose]);
 
   // 스와이프-다운 닫기 — 핸들을 손으로 내리면 닫힘(임계 90px). 백드롭 탭 닫기는 아래 onClick.
   const [dragY, setDragY] = useState(0);
   const dragStart = useRef<number | null>(null);
 
-  if (!open) return null;
+  if (!mounted) return null;
 
   // 하단바 SSOT — commit: 미변경=닫기 / 변경=취소·적용. 슬롯은 항상 예약(크기 불변).
   const isStd = footer === 'std' || footer === 'filter';
@@ -141,9 +162,13 @@ export function BottomSheet({
         position: 'fixed',
         top: topInset, left: 0, right: 0, bottom: 0,
         zIndex: 62,
-        background: 'rgba(15,23,42,0.38)',
+        background: SCRIM.heavy,
+        opacity: leaving ? 0 : 1,
+        transition: 'opacity .22s ease',
+        animation: leaving ? undefined : 'scrimIn .22s ease',
+        pointerEvents: leaving ? 'none' : 'auto',
       }}
-      onClick={() => { haptic.back(); onClose(); }}
+      onClick={() => { if (leaving) return; haptic.back(); onClose(); }}
     >
       <div
         role="dialog"
@@ -157,12 +182,12 @@ export function BottomSheet({
           display: 'flex', flexDirection: 'column',
           background: C.taupeBg,
           borderRadius: `${R}px ${R}px 0 0`,
-          boxShadow: '0 -10px 32px rgba(15,23,42,0.2)',
-          animation: 'sheetUp .22s ease',
+          boxShadow: SH.menu,
+          animation: leaving ? 'sheetDown .22s ease forwards' : 'sheetUp .22s ease',
           paddingBottom: sheetFooter ? 0 : 'env(safe-area-inset-bottom, 0px)',
           overflow: 'hidden',
           transform: dragY ? `translateY(${dragY}px)` : undefined,
-          transition: dragY ? 'none' : 'transform .22s ease',
+          transition: dragY ? 'none' : undefined,
         }}
       >
         <div

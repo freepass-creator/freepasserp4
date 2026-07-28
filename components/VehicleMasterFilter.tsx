@@ -73,7 +73,7 @@ export function VehicleMasterFilter({ products, value, onChange }: {
   }
 
   const makerActive = nextKey === 'maker';
-  const accent = { borderColor: C.accent, boxShadow: '0 0 0 2px rgba(37,99,235,0.14)' } as const;
+  const accent = { borderColor: C.accent, boxShadow: `0 0 0 2px ${C.focusRing}` } as const;
 
   return (
     <div style={{

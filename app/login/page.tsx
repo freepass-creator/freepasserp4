@@ -9,7 +9,7 @@ import { Store } from 'lucide-react';
 import { type User } from 'firebase/auth';
 import { login, signup, logout, resetPassword, writeUserProfile } from '@/lib/firebase/auth';
 import { setGuest, getSession, firebaseReadySafe } from '@/lib/login-helpers';
-import { fmtPhone, C } from '@/components/ui';
+import { fmtPhone, C, FS } from '@/components/ui';
 import { BRAND_MAIN, BRAND_SUB } from '@/lib/brand';
 import { toast } from '@/components/Toaster';
 /** 로그인은 v3 CSS 섬(44/48·브랜드 hex). Input/Btn 원자 높이(32/40)와 충돌 → raw 유지. */
@@ -181,7 +181,7 @@ export default function LoginPage() {
               <div className="login-field"><label htmlFor="suPhone">연락처</label><input id="suPhone" type="tel" placeholder="010-0000-0000" value={su.phone} onChange={(e) => setSu({ ...su, phone: fmtPhone(e.target.value) })} /></div>
               <div className="login-field"><label htmlFor="suCompany">소속 회사명 (참고)</label><input id="suCompany" placeholder="회사명" value={su.company} onChange={(e) => setSu({ ...su, company: e.target.value })} /></div>
               <div className="login-field"><label htmlFor="suBizNo">소속 사업자번호</label><input id="suBizNo" inputMode="numeric" placeholder="000-00-00000" autoComplete="off" value={su.bizNo} onChange={(e) => onBizNo(e.target.value)} />{bizMatch.text && <p className={`biz-no-match${bizMatch.cls ? ` is-${bizMatch.cls}` : ''}`}>{bizMatch.text}</p>}</div>
-              <p className="login-msg" style={{ margin: '4px 0 8px', color: '#5f6368', fontSize: 12, lineHeight: 1.4, textAlign: 'left' }}>가입 신청 후 관리자 승인이 필요합니다. 승인되면 사업자번호에 맞는 회사·역할이 부여됩니다.</p>
+              <p className="login-msg" style={{ margin: '4px 0 8px', color: C.mute, fontSize: FS.sub, lineHeight: 1.4, textAlign: 'left' }}>가입 신청 후 관리자 승인이 필요합니다. 승인되면 사업자번호에 맞는 회사·역할이 부여됩니다.</p>
               <button type="submit" className="login-submit" disabled={busy}>계정 만들기</button>
             </div>
             <div className="login-links"><a href="#" onClick={(e) => { e.preventDefault(); switchMode('login'); }}>로그인으로 돌아가기</a></div>
@@ -206,46 +206,46 @@ export default function LoginPage() {
   );
 }
 
-// v3 desktop.css 로그인 규격 그대로 이식(스코프 .fp-login).
+// v3 desktop.css 로그인 규격 이식(스코프 .fp-login). 팔레트는 globals 토큰 변수로 미러.
 const LOGIN_CSS = `
-.fp-login{position:fixed;inset:0;z-index:9999;background:#fff;overflow:auto;}
-.fp-login .login-page{min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;padding:40px 16px;padding-top:max(40px,env(safe-area-inset-top));padding-bottom:max(32px,env(safe-area-inset-bottom));background:#fff;-webkit-user-select:none;user-select:none;font-size:13px;line-height:1.5;}
+.fp-login{position:fixed;inset:0;z-index:9999;background:var(--bg-page);overflow:auto;}
+.fp-login .login-page{min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;padding:40px 16px;padding-top:max(40px,env(safe-area-inset-top));padding-bottom:max(32px,env(safe-area-inset-bottom));background:var(--bg-page);-webkit-user-select:none;user-select:none;font-size:13px;line-height:1.5;}
 .fp-login .login-page,.fp-login .login-page *{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,system-ui,'Segoe UI',sans-serif;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;}
 .fp-login .login-page input{-webkit-user-select:text;user-select:text;}
-/* 워드마크 = 명함 CI(Exo 2): freepass(600·#1B2A4A) + erp.com(300·#555).
+/* 워드마크 = 명함 CI(Exo 2): freepass(600·brand) + erp.com(300·sub).
    .login-page * Pretendard 덮어쓰기보다 specificity 높게 — 자식에도 Exo 2 강제 */
 .fp-login .login-brand,.fp-login .login-brand span{font-size:25px;letter-spacing:-0.04em;text-transform:lowercase;font-family:'Exo 2','Pretendard',sans-serif;line-height:1;}
 .fp-login .login-brand{display:flex;align-items:baseline;justify-content:center;}
-.fp-login .login-brand-main{font-weight:600;color:#1B2A4A;}
-.fp-login .login-brand-sub{font-weight:300;color:#555555;}
-.fp-login .login-card{position:relative;width:100%;max-width:400px;background:#fff;border:none;border-radius:2px;padding:40px 32px;box-shadow:0 2px 10px rgba(0,0,0,.04),0 10px 30px rgba(0,0,0,.06);display:grid;gap:24px;overflow:hidden;margin:0;}
-.fp-login .login-card.is-loading::after{content:'';position:absolute;inset:0;background:rgba(255,255,255,.85);z-index:10;}
-.fp-login .login-card.is-loading::before{content:'';position:absolute;top:50%;left:50%;width:32px;height:32px;margin:-16px 0 0 -16px;border:3px solid #d5d8dc;border-top-color:#1B2A4A;border-radius:50%;animation:fp-login-spin .6s linear infinite;z-index:11;}
+.fp-login .login-brand-main{font-weight:600;color:var(--brand);}
+.fp-login .login-brand-sub{font-weight:300;color:var(--text-sub);}
+.fp-login .login-card{position:relative;width:100%;max-width:400px;background:var(--bg-card);border:none;border-radius:2px;padding:40px 32px;box-shadow:var(--shadow-md);display:grid;gap:24px;overflow:hidden;margin:0;}
+.fp-login .login-card.is-loading::after{content:'';position:absolute;inset:0;background:color-mix(in srgb, var(--bg-card) 85%, transparent);z-index:10;}
+.fp-login .login-card.is-loading::before{content:'';position:absolute;top:50%;left:50%;width:32px;height:32px;margin:-16px 0 0 -16px;border:3px solid var(--border-strong);border-top-color:var(--brand);border-radius:50%;animation:fp-login-spin .6s linear infinite;z-index:11;}
 @keyframes fp-login-spin{to{transform:rotate(360deg)}}
 .fp-login .login-head{display:grid;gap:8px;}
-.fp-login .login-title{margin:0;font-size:20px;font-weight:600;color:#1f1f1f;line-height:1.3;letter-spacing:-0.02em;}
-.fp-login .login-sub{margin:0;font-size:13px;color:#5f6368;line-height:1.5;}
+.fp-login .login-title{margin:0;font-size:20px;font-weight:600;color:var(--text-main);line-height:1.3;letter-spacing:-0.02em;}
+.fp-login .login-sub{margin:0;font-size:13px;color:var(--text-sub);line-height:1.5;}
 .fp-login .login-form{display:grid;gap:16px;}
 .fp-login .login-field{display:grid;gap:6px;}
-.fp-login .login-field label{font-size:12px;font-weight:500;color:#5f6368;line-height:1.4;}
-.fp-login .login-field input{width:100%;height:44px;padding:0 12px;border:1px solid #dadce0;border-radius:2px;background:#fff;font-size:13px;color:#1f1f1f;outline:none;box-sizing:border-box;letter-spacing:-0.01em;transition:border-color 100ms;}
-.fp-login .login-field input::placeholder{color:#80868b;}
-.fp-login .login-field input:hover{border-color:#c4c7cc;}
-.fp-login .login-field input:focus{border-color:#1b2a4a;}
-.fp-login .login-submit{width:100%;height:44px;margin-top:4px;padding:0 12px;border:0;border-radius:2px;background:#1b2a4a;color:#fff;font-size:13px;font-weight:600;cursor:pointer;letter-spacing:-0.01em;transition:background-color 100ms,box-shadow 100ms;}
-.fp-login .login-submit:hover{background:#142038;box-shadow:0 1px 3px rgba(27,42,74,.4);}
-.fp-login .login-submit:active{background:#0f1a2e;}
-.fp-login .login-submit:disabled{background:#c4c7cc;cursor:default;box-shadow:none;}
-.fp-login .login-guest{width:100%;height:42px;margin-top:8px;padding:0 12px;border:1px solid #d4d7dc;border-radius:2px;background:transparent;color:#45506a;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;transition:background-color 100ms,border-color 100ms;}
-.fp-login .login-guest:hover{background:#f3f5f8;border-color:#1b2a4a;color:#1b2a4a;}
-.fp-login .login-links{display:flex;align-items:center;justify-content:center;gap:8px;font-size:11px;color:#868e96;}
-.fp-login .login-links a{color:#1B2A4A;font-weight:500;text-decoration:none;}
-.fp-login .login-links a:hover{color:#0F1B35;}
-.fp-login .login-links-sep{color:#adb5bd;}
-.fp-login .login-msg{margin:0;min-height:16px;font-size:11px;color:#868e96;text-align:center;}
-.fp-login .biz-no-match{margin:2px 0 0;min-height:14px;font-size:11px;line-height:1.4;color:#80868b;letter-spacing:-0.01em;}
-.fp-login .biz-no-match.is-ok{color:#137333;}
-.fp-login .biz-no-match.is-miss{color:#d93025;}
+.fp-login .login-field label{font-size:12px;font-weight:500;color:var(--text-sub);line-height:1.4;}
+.fp-login .login-field input{width:100%;height:44px;padding:0 12px;border:1px solid var(--border);border-radius:2px;background:var(--bg-card);font-size:13px;color:var(--text-main);outline:none;box-sizing:border-box;letter-spacing:-0.01em;transition:border-color 100ms;}
+.fp-login .login-field input::placeholder{color:var(--text-weak);}
+.fp-login .login-field input:hover{border-color:var(--border-strong);}
+.fp-login .login-field input:focus{border-color:var(--brand);}
+.fp-login .login-submit{width:100%;height:44px;margin-top:4px;padding:0 12px;border:0;border-radius:2px;background:var(--brand);color:var(--text-inverse);font-size:13px;font-weight:600;cursor:pointer;letter-spacing:-0.01em;transition:background-color 100ms,box-shadow 100ms;}
+.fp-login .login-submit:hover{background:var(--brand-h);box-shadow:var(--shadow-sm);}
+.fp-login .login-submit:active{background:var(--brand-h);filter:brightness(0.92);}
+.fp-login .login-submit:disabled{background:var(--bg-disabled);color:var(--text-weak);cursor:default;box-shadow:none;}
+.fp-login .login-guest{width:100%;height:42px;margin-top:8px;padding:0 12px;border:1px solid var(--border-strong);border-radius:2px;background:transparent;color:var(--text-sub);font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;transition:background-color 100ms,border-color 100ms;}
+.fp-login .login-guest:hover{background:var(--bg-hover);border-color:var(--brand);color:var(--brand);}
+.fp-login .login-links{display:flex;align-items:center;justify-content:center;gap:8px;font-size:11px;color:var(--text-weak);}
+.fp-login .login-links a{color:var(--brand);font-weight:500;text-decoration:none;}
+.fp-login .login-links a:hover{color:var(--brand-h);}
+.fp-login .login-links-sep{color:var(--text-muted);}
+.fp-login .login-msg{margin:0;min-height:16px;font-size:11px;color:var(--text-weak);text-align:center;}
+.fp-login .biz-no-match{margin:2px 0 0;min-height:14px;font-size:11px;line-height:1.4;color:var(--text-weak);letter-spacing:-0.01em;}
+.fp-login .biz-no-match.is-ok{color:var(--green-text);}
+.fp-login .biz-no-match.is-miss{color:var(--red-text);}
 @media (max-width:768px){
 .fp-login .login-page{align-items:stretch;padding:max(24px,env(safe-area-inset-top)) 0 max(24px,env(safe-area-inset-bottom));gap:20px;}
 .fp-login .login-brand,.fp-login .login-brand span{font-size:22px;text-align:center;}

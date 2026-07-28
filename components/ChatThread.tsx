@@ -6,7 +6,7 @@ import { seedIfEmpty } from '@/lib/seed';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { getRole, actor, type Role } from '@/lib/domain/deal';
 import { sendText, sendFile as sendFileMsg, markRead, listMessages, isMine } from '@/lib/domain/messaging';
-import { Btn, C, R, FW, FS, Loading, CenterNote, Input, IconBtn, ctrlH, NavBack } from '@/components/ui';
+import { Btn, C, R, FW, FS, Loading, CenterNote, Input, IconBtn, ctrlH, NavBack, SCRIM } from '@/components/ui';
 import { toast } from '@/components/Toaster';
 import { ChatSenderLabel } from '@/components/ChatSenderLabel';
 import { useIsMobile } from '@/lib/use-mobile';
@@ -61,24 +61,41 @@ export function ChatThread({ roomId, onBack, onVehicle, onContract }: { roomId: 
     };
   }, [load]);
   useEffect(() => { const on = (e: Event) => setRoleS((e as CustomEvent).detail as Role); window.addEventListener('fp:role', on); return () => window.removeEventListener('fp:role', on); }, []);
-  // 스레드 박스 안에서만 스크롤 — scrollIntoView는 .fp-main-pad까지 끌어올려 채팅이 밀려 내용이 안 보임
+  // 스레드 박스 안에서만 스크롤 — rAF 후 적용(이미지 로드 점프 완화). scrollIntoView는 .fp-main-pad까지 끌어올림.
   useEffect(() => {
     const el = threadRef.current;
     if (!el) return;
-    el.scrollTop = el.scrollHeight;
+    const id = requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
+    return () => cancelAnimationFrame(id);
   }, [msgs?.length, roomId]);
 
   const send = async () => {
     const t = text.trim(); if (!t || busy) return;
+    const meNow = actor(role);
+    const tempKey = `_tmp_${Date.now()}`;
+    const optimistic: EntityRecord = {
+      _key: tempKey,
+      room_id: roomId,
+      text: t,
+      sender_uid: meNow.uid,
+      sender_role: role,
+      sender_name: meNow.name,
+      sender_code: meNow.code,
+      created_at: Date.now(),
+      channel: '정식',
+    };
+    setText('');
+    setMsgs((prev) => [...(prev || []), optimistic]);
     setBusy(true);
     try {
       const rec = await sendText({ roomId, text: t, channel: '정식', role });
-      setText('');
-      setMsgs((prev) => [...(prev || []), rec]);
+      setMsgs((prev) => (prev || []).map((m) => (String(m._key) === tempKey ? rec : m)));
       const rm = await getStore().get('room', co, roomId);
       if (rm) setRoom(rm);
     } catch (e) {
       console.error('메시지 전송 실패:', e);
+      setMsgs((prev) => (prev || []).filter((m) => String(m._key) !== tempKey));
+      setText(t);
       toast(`전송 실패: ${(e as Error).message}`, 'error');
     } finally { setBusy(false); }
   };
@@ -133,7 +150,16 @@ export function ChatThread({ roomId, onBack, onVehicle, onContract }: { roomId: 
           const simple = m.channel === '간단';
           const clock = msgClock(m.created_at);
           const bubble = m.image_url ? (
-            <img src={String(m.image_url)} alt="" onClick={() => setFull(String(m.image_url))} style={{ maxWidth: 200, maxHeight: 220, borderRadius: R, cursor: 'zoom-in', display: 'block', border: `1px solid ${C.line}` }} />
+            <img
+              src={String(m.image_url)}
+              alt=""
+              width={200}
+              height={220}
+              loading="lazy"
+              decoding="async"
+              onClick={() => setFull(String(m.image_url))}
+              style={{ maxWidth: 200, maxHeight: 220, width: 'auto', height: 'auto', aspectRatio: '10 / 11', objectFit: 'cover', borderRadius: R, cursor: 'zoom-in', display: 'block', border: `1px solid ${C.line}` }}
+            />
           ) : m.file_url ? (
             <a href={String(m.file_url)} download={String(m.file_name || 'file')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, maxWidth: 220, padding: '8px 11px', borderRadius: R, fontSize: FS.sub, background: mine ? C.brand : C.taupeBg, color: mine ? C.taupeBg : C.ink, border: mine ? 'none' : `1px solid ${C.line}`, textDecoration: 'none' }}><span>📎</span><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{String(m.file_name || '파일')}</span></a>
           ) : (
@@ -179,7 +205,7 @@ export function ChatThread({ roomId, onBack, onVehicle, onContract }: { roomId: 
         )}
       </div>
 
-      {full && <div onClick={() => setFull(null)} style={{ position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(0,0,0,0.92)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}><img src={full} alt="" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: R }} /></div>}
+      {full && <div onClick={() => setFull(null)} style={{ position: 'fixed', inset: 0, zIndex: 90, background: SCRIM.black, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}><img src={full} alt="" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: R }} /></div>}
     </div>
   );
 }

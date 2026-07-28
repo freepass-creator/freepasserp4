@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useIsMobile } from '@/lib/use-mobile';
-import { C, FW, R, ctrlFs, ctrlH } from './tokens';
+import { C, FW, R, ctrlFs, ctrlH, SH } from './tokens';
 
 export function Btn({ children, mobileIcon, onClick, variant = 'solid', size = 'md', disabled, href, style, full, type = 'button', className, title, 'aria-label': ariaLabel, 'aria-pressed': ariaPressed, 'data-active': dataActive }: {
   children: React.ReactNode;
@@ -43,7 +43,7 @@ export function Btn({ children, mobileIcon, onClick, variant = 'solid', size = '
     border: `1px solid ${disabled ? C.line : variant === 'solid' ? C.brand : variant === 'danger' ? 'var(--red-border)' : C.line}`,
     background: variant === 'solid' ? (disabled ? C.line : C.brand) : C.taupeBg,
     color: variant === 'solid' ? C.taupeBg : variant === 'danger' ? 'var(--red-text)' : C.ink,
-    boxShadow: disabled ? 'none' : variant === 'solid' ? '0 1px 2px rgba(15,23,42,0.14)' : '0 1px 2px rgba(15,23,42,0.05)',
+    boxShadow: disabled ? 'none' : SH.cardRest,
     textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, whiteSpace: 'nowrap',
     transition: 'filter .12s ease, box-shadow .12s ease',
     pointerEvents: disabled ? 'none' : 'auto',

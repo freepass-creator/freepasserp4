@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { getRole, actor, ROLE_LABEL, type Role } from '@/lib/domain/deal';
-import { C, R, FS, FW, IconBtn, Btn } from '@/components/ui';
+import { C, R, FS, FW, IconBtn, Btn, SCRIM } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { Paperclip, FileText, X, Download } from 'lucide-react';
 import { toast } from '@/components/Toaster';
@@ -253,22 +253,22 @@ export function ContractDocs({ contractCode, roomId }: { contractCode: string; r
         </div>}
 
       {preview && preview.url && (
-        <div onClick={() => setPreview(null)} style={{ position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(0,0,0,0.9)', display: 'flex', flexDirection: 'column', padding: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#fff', padding: '4px 6px 8px' }}>
+        <div onClick={() => setPreview(null)} style={{ position: 'fixed', inset: 0, zIndex: 90, background: SCRIM.black, display: 'flex', flexDirection: 'column', padding: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: C.inverse, padding: '4px 6px 8px' }}>
             <span style={{ fontSize: FS.sub, fontWeight: FW.title, flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{preview.name}</span>
-            <a href={preview.url} download={preview.name} onClick={(e) => e.stopPropagation()} aria-label="다운로드" style={{ color: '#fff', display: 'flex' }}><Download size={17} /></a>
+            <a href={preview.url} download={preview.name} onClick={(e) => e.stopPropagation()} aria-label="다운로드" style={{ color: C.inverse, display: 'flex' }}><Download size={17} /></a>
             <Btn
               mobileIcon={<X size={18} />}
               title="미리보기 닫기"
               size="sm"
               variant="ghost"
               onClick={() => setPreview(null)}
-              style={{ background: 'transparent', border: 'none', color: '#fff', boxShadow: 'none', minWidth: 40 }}
+              style={{ background: 'transparent', border: 'none', color: C.inverse, boxShadow: 'none', minWidth: 40 }}
             >닫기</Btn>
           </div>
           <div onClick={(e) => e.stopPropagation()} style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'auto' }}>
             {isPdf(preview)
-              ? <iframe title={preview.name} src={preview.url} style={{ width: '100%', height: '100%', border: 'none', background: '#fff', borderRadius: R }} />
+              ? <iframe title={preview.name} src={preview.url} style={{ width: '100%', height: '100%', border: 'none', background: C.taupeBg, borderRadius: R }} />
               : <img src={preview.url} alt="" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: R }} />}
           </div>
         </div>

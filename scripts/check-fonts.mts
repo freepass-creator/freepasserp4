@@ -9,7 +9,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url)); // scripts/ 의 부모 = 프로젝트 루트
-const ROOTS = ['app', 'components'];
+const ROOTS = ['app', 'components', 'features'];
 const BAN = [
   { re: /fontWeight:\s*[89]00\b/, msg: 'fontWeight 800/900 금지 → FW 토큰(title 650·head 700·strong 600·label 550)' },
   { re: /fontSize:\s*(11\.5|10\.5|13\.5|15\.5)\b/, msg: '오프스케일 fontSize 금지 → FS 토큰(cap 11·micro 10·body 13·title 14.5)' },

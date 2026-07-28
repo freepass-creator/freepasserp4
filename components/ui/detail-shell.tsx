@@ -4,7 +4,7 @@ import React from 'react';
 import { useAppBar } from '@/lib/appbar';
 import { useIsMobile } from '@/lib/use-mobile';
 import { BottomNav, NavBack } from './navigation';
-import { C, FS, FW } from './tokens';
+import { C, FS, FW, SH } from './tokens';
 
 export function DetailShell({
   title,
@@ -62,7 +62,7 @@ export function DetailShell({
           zIndex: 70,
           background: C.taupeBg,
           borderTop: `1px solid ${C.line}`,
-          boxShadow: '0 -2px 12px rgba(15,23,42,0.06)',
+          boxShadow: SH.dock,
           paddingBottom: 'env(safe-area-inset-bottom)',
         }}>
           <BottomNav embedded backKind="list" onBack={onBack} actions={actions} />

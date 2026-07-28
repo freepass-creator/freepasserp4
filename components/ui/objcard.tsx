@@ -1,6 +1,6 @@
 'use client';
 import React from 'react';
-import { C, NUM, FW, FS } from './tokens';
+import { C, R, NUM, FW, FS, SH } from './tokens';
 import { Badge, CompanyBadge, type BadgeTone } from './badges';
 
 // 반응형 카드 그리드 — 폭에 맞춰 자동(auto-fit). 카드 높이는 내용(원자 수)에 맞게, 짧은 카드는 안 늘림(align start).
@@ -10,11 +10,9 @@ export function Cards({ min = 240, fit, children }: { min?: number; fit?: boolea
   return <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(min(100%, ${min}px), 1fr))`, gap: 8, alignItems: 'start' }}>{children}</div>;
 }
 // 카드 공통 — 살짝 뜬 그림자 + 자연스러운 통일 호버(떠오름). 절제(눈 안 아프게).
-const REST_SH = '0 1px 2px rgba(15,23,42,0.05)';
-const HOVER_SH = '0 4px 12px rgba(15,23,42,0.10)';
 function useHover() { const [h, setH] = React.useState(false); return { h, on: { onMouseEnter: () => setH(true), onMouseLeave: () => setH(false) } }; }
 function cardStyle(h: boolean, click: boolean): React.CSSProperties {
-  return { border: `1px solid ${C.line}`, borderRadius: 'var(--radius)', background: C.taupeBg, boxShadow: h && click ? HOVER_SH : REST_SH, transition: 'box-shadow .15s ease, border-color .15s ease', cursor: click ? 'pointer' : 'default' };
+  return { border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg, boxShadow: h && click ? SH.cardHover : SH.cardRest, transition: 'box-shadow .15s ease, border-color .15s ease', cursor: click ? 'pointer' : 'default' };
 }
 // 지표 카드 (가동률·미수 등) — 라벨 + 숫자. 색은 숫자에만.
 export function Metric({ label, value, tone, onClick }: { label: React.ReactNode; value: React.ReactNode; tone?: 'ink' | 'danger' | 'ok' | 'warn'; onClick?: () => void }) {

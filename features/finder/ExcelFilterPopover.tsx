@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { excelPopEntries, type PopEntry } from '@/lib/domain/excel-col-filter';
 import { excelColumnValues, isNumericExcelColumn, type ColSort } from './excel-columns';
-import { Btn, C, FS, FW, NUM, R, SearchInput } from '@/components/ui';
+import { Btn, C, FS, FW, NUM, R, SearchInput, SH } from '@/components/ui';
 
 type Props = {
   field: string;
@@ -85,7 +85,7 @@ export function ExcelFilterPopover({
         position: 'fixed', top: y + 2,
         left: Math.max(6, Math.min(x, (typeof window !== 'undefined' ? window.innerWidth : 1200) - 226)),
         width: 220, background: C.taupeBg, border: `1px solid ${C.line}`, borderRadius: R,
-        boxShadow: '0 8px 24px rgba(15,23,42,0.14)', zIndex: 91,
+        boxShadow: SH.menu, zIndex: 91,
         textAlign: 'left', fontWeight: FW.body,
       }}>
         {canSort && (

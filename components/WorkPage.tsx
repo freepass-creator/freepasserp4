@@ -5,7 +5,7 @@ import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
 import { useAppBar } from '@/lib/appbar';
 import { useHideTabBar } from '@/lib/tabbar';
-import { PaneHead, BottomNav, SearchInput, Btn, IconBtn, Select, C, FS, FW } from '@/components/ui';
+import { PaneHead, BottomNav, SearchInput, Btn, IconBtn, Select, C, FS, FW, SH } from '@/components/ui';
 import { MobilePageShell, type ListToolsConfig } from '@/components/MobilePageShell';
 import { PageStatus, statusIconFor } from '@/components/PageStatus';
 
@@ -187,7 +187,7 @@ export function WorkPage({
           </div>
           <div style={{
             borderTop: `1px solid ${C.line}`, background: 'var(--bg-card)',
-            boxShadow: '0 -3px 14px rgba(15,23,42,0.07)',
+            boxShadow: SH.dock,
             paddingBottom: 'env(safe-area-inset-bottom)',
           }}>
             <BottomNav
@@ -241,7 +241,7 @@ export function WorkPage({
         </div>
         <div style={{
           borderTop: `1px solid ${C.line}`, background: 'var(--bg-card)',
-          boxShadow: '0 -3px 14px rgba(15,23,42,0.07)',
+          boxShadow: SH.dock,
           paddingBottom: 'env(safe-area-inset-bottom)',
           flex: '0 0 auto',
         }}>

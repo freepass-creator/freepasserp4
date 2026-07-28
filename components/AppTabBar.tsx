@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useState, useCallback } from 'react';
 import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
-import { C, CountPill, FS, FW } from '@/components/ui';
+import { C, CountPill, FS, FW, SH } from '@/components/ui';
 import { getRole, type Role } from '@/lib/domain/deal';
 import { useSession } from '@/lib/auth-context';
 import { loadMenuBadges, type MenuBadgeMap } from '@/lib/domain/menu-badges';
@@ -102,7 +102,7 @@ export default function AppTabBar() {
         paddingBottom: 'env(safe-area-inset-bottom, 0px)',
         background: C.taupeBg,
         borderTop: `1px solid ${C.line}`,
-        boxShadow: '0 -2px 12px rgba(15,23,42,0.06)',
+        boxShadow: SH.dock,
       }}
     >
       <div style={{

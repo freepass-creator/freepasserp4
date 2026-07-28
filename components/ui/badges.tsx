@@ -1,6 +1,6 @@
 'use client';
 import React from 'react';
-import { C, R, NUM, FW, FS } from './tokens';
+import { C, R, NUM, FW, FS, SH, SCRIM } from './tokens';
 import { companyTone, companyShort } from '@/lib/companies';
 import { useIsMobile } from '@/lib/use-mobile';
 
@@ -64,7 +64,7 @@ export function Badge({ children, tone = 'gray', overlay = false, title, variant
       <span title={title} className={pulseCls} style={{
         ...shell, height: 16, fontSize: FS.micro,
         padding: '0 6px',
-        color: '#fff', background: 'rgba(15,23,42,0.55)',
+        color: C.inverse, background: SCRIM.heavy,
       }}>
         {children}
       </span>
@@ -75,7 +75,7 @@ export function Badge({ children, tone = 'gray', overlay = false, title, variant
 
   if (frosted) {
     // 상세 Badge와 같은 글자색·variant · 흰/틴트만 반투명+블러
-    const bg = v === 'solid' ? `color-mix(in srgb, ${m[1]} 90%, transparent)` : 'rgba(255,255,255,0.84)';
+    const bg = v === 'solid' ? `color-mix(in srgb, ${m[1]} 90%, transparent)` : `color-mix(in srgb, ${C.inverse} 84%, transparent)`;
     const fg = v === 'quiet' ? (tone === 'red' ? m[0] : C.mute) : m[0];
     return (
       <span title={title} className={pulseCls} style={{
@@ -83,7 +83,7 @@ export function Badge({ children, tone = 'gray', overlay = false, title, variant
         color: fg,
         background: bg,
         border: `1px solid ${C.line}`,
-        boxShadow: '0 1px 2px rgba(15,23,42,0.08)',
+        boxShadow: SH.cardRest,
         backdropFilter: 'blur(8px)',
         WebkitBackdropFilter: 'blur(8px)',
       }}>{children}</span>

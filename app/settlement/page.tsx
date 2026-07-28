@@ -66,12 +66,19 @@ export default function MonthlySettlement() {
   const [rows, setRows] = useState<EntityRecord[]>([]);
   const [month, setMonth] = useState('');
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
-  const [query, setQuery] = useState('');
+  const [queryInput, setQueryInput] = useState(''); // 검색창 즉시 반영
+  const [query, setQuery] = useState(''); // 디바운스된 검색(정렬·그룹 재계산)
   const [sort, setSort] = useState<SettlementSort>('');
   const [status, setStatus] = useState('all');
   const [group, setGroup] = useState<SettlementGroup>('provider');
   const [showVatSheet, setShowVatSheet] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
+
+  // 검색 디바운스 — 타이핑마다 정렬·그룹 전량 재계산 방지(파인더 180ms와 동일)
+  useEffect(() => {
+    const t = setTimeout(() => setQuery(queryInput), 180);
+    return () => clearTimeout(t);
+  }, [queryInput]);
 
   useEffect(() => {
     (async () => {
@@ -198,6 +205,7 @@ export default function MonthlySettlement() {
   };
   const clearSelection = () => setSelectedKey(null);
   const clearConditions = () => {
+    setQueryInput('');
     setQuery('');
     setSort('');
     setStatus('all');
@@ -358,7 +366,7 @@ export default function MonthlySettlement() {
         actions={actions}
         mobileLayout="swap"
         listTools={{
-          search: { value: query, onChange: setQuery, placeholder: '정산·계약·차번·계약자·공급·영업…' },
+          search: { value: queryInput, onChange: setQueryInput, placeholder: '정산·계약·차번·계약자·공급·영업…' },
           sort: {
             value: sort,
             onChange: (value) => setSort(value as SettlementSort),

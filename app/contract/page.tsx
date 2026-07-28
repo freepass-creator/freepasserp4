@@ -8,7 +8,7 @@ import { type EntityRecord } from '@/lib/intake/entities';
 import { getProgress, isContractInProgress } from '@/lib/domain/contract';
 import { createSettlement } from '@/lib/domain/settlement-engine';
 import { downloadSettlementsExcel } from '@/lib/excel-export';
-import { Download, Files, ListChecks, RotateCcw, WalletCards } from 'lucide-react';
+import { Download, Files, ListChecks, Plus, RotateCcw, WalletCards } from 'lucide-react';
 import { getRole, actor, ensureRoomForContract, type Role } from '@/lib/domain/deal';
 import { getSession } from '@/lib/auth-session';
 import { canAccessOwnedRecord } from '@/lib/domain/authorization';
@@ -32,6 +32,8 @@ import {
   type ContractFilter as ContFilter,
   type ContractSort as ContSort,
 } from '@/features/contract/contract-filter';
+
+const PAGE = 100; // 파인더와 동일 — 첫 화면·더보기 단위
 
 // 계약 = [목록 | 계약진행상황 | 첨부서류 | 정산상태] 4프레임.
 // 진행상황은 문의(/chat) ContractPanel과 동일 SSOT. 발송·단계는 패널 안.
@@ -67,7 +69,8 @@ export default function ContractsSettlement() {
   const [roomId, setRoomId] = useState<string | null>(null);
   const [setts, setSetts] = useState<EntityRecord[]>([]);
   const [role, setRoleS] = useState<Role>('agent');
-  const [q, setQ] = useState('');
+  const [qInput, setQInput] = useState(''); // 검색창 즉시 반영
+  const [q, setQ] = useState(''); // 디바운스된 검색
   const [sort, setSort] = useState<ContSort | ''>('');
   const [flt, setFlt] = useState<ContFilter>('진행');
   const [draftFlt, setDraftFlt] = useState<ContFilter>('진행');
@@ -76,6 +79,15 @@ export default function ContractsSettlement() {
   const [draftMonthFlt, setDraftMonthFlt] = useState('');
   /** 모바일 스왑 — 진행중=계약진행상황 · 계약완료=정산 */
   const [swapKey, setSwapKey] = useState('progress');
+  const [limit, setLimit] = useState(PAGE);
+
+  // 검색 디바운스 — 타이핑마다 계약 필터 전량 재계산 방지
+  useEffect(() => {
+    const t = setTimeout(() => setQ(qInput), 180);
+    return () => clearTimeout(t);
+  }, [qInput]);
+
+  useEffect(() => { setLimit(PAGE); }, [q, flt, monthFlt, sort]);
 
   const monthOptions = useMemo(() => contractMonthOptions(rows || []), [rows]);
 
@@ -182,34 +194,53 @@ export default function ContractsSettlement() {
     return () => window.removeEventListener('fp:work-list', on);
   }, []);
 
-  const shown = filterContracts({
+  const shownAll = useMemo(() => filterContracts({
     contracts: rows || [], query: q, filter: flt, month: monthFlt, sort,
-  });
-  const draftPreviewCount = contractPreviewCount({
+  }), [rows, q, flt, monthFlt, sort]);
+  const shown = shownAll.slice(0, limit);
+  const moreCount = Math.max(0, shownAll.length - shown.length);
+  const draftPreviewCount = useMemo(() => contractPreviewCount({
     contracts: rows || [], query: q, filter: draftFlt, month: draftMonthFlt,
-  });
+  }), [rows, q, draftFlt, draftMonthFlt]);
   const filterActive = (flt !== '진행' ? 1 : 0) + (monthFlt ? 1 : 0);
   const uiFlt = mobile ? draftFlt : flt;
   const uiMonth = mobile ? draftMonthFlt : monthFlt;
-  const listEl = shown.length === 0
+  const listEl = shownAll.length === 0
     ? (
       <CenterNote>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
           <span>{q || filterActive > 0 ? '검색 결과 없음' : '진행·완료 계약이 없습니다.'}</span>
           {(q || filterActive > 0) ? (
-            <Btn mobileIcon={<RotateCcw size={18} />} title="조건 해제" size="sm" variant="ghost" onClick={() => { setQ(''); setFlt('진행'); setMonthFlt(''); }}>조건 해제</Btn>
+            <Btn mobileIcon={<RotateCcw size={18} />} title="조건 해제" size="sm" variant="ghost" onClick={() => { setQInput(''); setQ(''); setFlt('진행'); setMonthFlt(''); }}>조건 해제</Btn>
           ) : null}
         </div>
       </CenterNote>
     )
-    : <div>{shown.map((c) => (
-      <ContractListRow
-        key={String(c.contract_code)}
-        c={c}
-        selected={String(c.contract_code) === sel}
-        onClick={() => { haptic.tap(); selectContract(c); }}
-      />
-    ))}</div>;
+    : (
+      <div>
+        {shown.map((c) => (
+          <ContractListRow
+            key={String(c.contract_code)}
+            c={c}
+            selected={String(c.contract_code) === sel}
+            onClick={() => { haptic.tap(); selectContract(c); }}
+          />
+        ))}
+        {moreCount > 0 && (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 14px' }}>
+            <Btn
+              mobileIcon={<Plus size={18} />}
+              title={`더보기 ${Math.min(PAGE, moreCount)}건`}
+              variant="ghost"
+              size="sm"
+              onClick={() => setLimit((n) => n + PAGE)}
+            >
+              {`더보기 · ${Math.min(PAGE, moreCount).toLocaleString()}건`}
+            </Btn>
+          </div>
+        )}
+      </div>
+    );
 
   const kv = (k: string, v: React.ReactNode, strong?: boolean) => (
     <div style={{ display: 'flex', padding: '8px 14px', borderTop: `1px solid ${C.line2}`, fontSize: FS.sub }}>
@@ -304,15 +335,15 @@ export default function ContractsSettlement() {
     <>
       <WorkPage title={NAV_LABEL.contract || '계약'} statusLabel="계약진행중"
         statusCount={rows?.filter((c) => isContractInProgress(c)).length ?? 0}
-        listCount={shown.length}
+        listCount={shownAll.length}
         list={rows === null ? <Loading /> : listEl} panes={panes} selected={!!sel} onBack={clearSel}
         contextTitle={selC ? String(selC.customer_name || selC.vehicle_name || selC.car_number || selC.contract_code || '') : undefined}
-        search={{ value: q, onChange: setQ, placeholder: '계약·차번·계약자·전화·영업·공급…' }}
+        search={{ value: qInput, onChange: setQInput, placeholder: '계약·차번·계약자·전화·영업·공급…' }}
         mobileLayout="swap"
         mobileSwapKey={swapKey}
         onMobileSwapKeyChange={setSwapKey}
         listTools={{
-          search: { value: q, onChange: setQ, placeholder: '계약·차번·계약자·전화·영업…' },
+          search: { value: qInput, onChange: setQInput, placeholder: '계약·차번·계약자·전화·영업…' },
           action: !mobile && setts.length ? { label: '엑셀', icon: Download, onClick: () => downloadSettlementsExcel(setts, new Date().toISOString().slice(0, 10), role) } : undefined,
           sort: { value: sort, onChange: (v) => setSort(v as ContSort | ''), options: CONT_SORTS },
           filter: {
@@ -364,7 +395,7 @@ export default function ContractsSettlement() {
             ...(monthFlt ? [labelMonth(monthFlt)] : []),
             ...(flt !== '진행' ? [flt === 'all' ? '전체' : flt] : []),
           ],
-          onClearHints: () => { setQ(''); setSort(''); setFlt('진행'); setMonthFlt(''); },
+          onClearHints: () => { setQInput(''); setQ(''); setSort(''); setFlt('진행'); setMonthFlt(''); },
         }}
       />
     </>

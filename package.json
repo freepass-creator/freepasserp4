@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start -p 4004",
     "typecheck": "tsc --noEmit",
-    "check:fonts": "tsx scripts/check-fonts.mts"
+    "check:fonts": "tsx scripts/check-fonts.mts",
+    "check:tokens": "tsx scripts/check-tokens.mts"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
