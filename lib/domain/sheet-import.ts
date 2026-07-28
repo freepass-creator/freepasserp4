@@ -207,7 +207,13 @@ export function importSheetTable(table: string[][], opts: {
   if (!opts.entries?.length) throw new Error('차종마스터 필수 — importSheetTable');
   const headers = table[0] || [];
   const dataRows = table.slice(1);
-  const mapping = (opts.profile && Object.keys(opts.profile).length) ? opts.profile : autoMapHeaders(headers);
+  const mapping = (opts.profile && Object.keys(opts.profile).length) ? { ...opts.profile } : autoMapHeaders(headers);
+  // 저장된 프로파일에 상태열이 없으면(구버전 매핑) 상태열 자동탐지로 보강.
+  // 없으면 rec.vehicle_status가 안 채워져 배차중 제외·상태동기화가 통째로 안 걸림(아이카 "즉시출고" 헤더 케이스).
+  if (!('vehicle_status' in mapping)) {
+    const autoStatus = autoMapHeaders(headers).vehicle_status;
+    if (autoStatus !== undefined) mapping.vehicle_status = autoStatus;
+  }
   const products: EntityRecord[] = [];
   const seen = new Set<string>();
   const snap = { high: 0, medium: 0, low: 0, none: 0 };
