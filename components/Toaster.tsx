@@ -6,13 +6,28 @@ import { C, R, Btn, FW, FS } from '@/components/ui';
 // 어디서든 toast('저장됨','ok') / await confirmDialog({message:'삭제할까요?', danger:true}). <Toaster/>는 layout에 1회 마운트.
 export type ToastType = 'info' | 'ok' | 'error';
 type Toast = { id: number; msg: string; type: ToastType };
-type ConfirmReq = { id: number; title?: string; message: string; danger?: boolean; okLabel?: string; resolve: (b: boolean) => void };
+type ConfirmReq = {
+  id: number;
+  title?: string;
+  message: string;
+  danger?: boolean;
+  okLabel?: string;
+  /** true면 취소 버튼 없음 — 확인(또는 Esc·바깥클릭)만으로 닫힘 */
+  hideCancel?: boolean;
+  resolve: (b: boolean) => void;
+};
 
 let _id = 0;
 export function toast(msg: string, type: ToastType = 'info') {
   if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('fp:toast', { detail: { id: ++_id, msg, type } }));
 }
-export function confirmDialog(opts: { title?: string; message: string; danger?: boolean; okLabel?: string }): Promise<boolean> {
+export function confirmDialog(opts: {
+  title?: string;
+  message: string;
+  danger?: boolean;
+  okLabel?: string;
+  hideCancel?: boolean;
+}): Promise<boolean> {
   if (typeof window === 'undefined') return Promise.resolve(false);
   return new Promise((resolve) => window.dispatchEvent(new CustomEvent('fp:confirm', { detail: { id: ++_id, resolve, ...opts } })));
 }
@@ -31,7 +46,10 @@ export function Toaster() {
   const close = (ok: boolean) => { if (confirm) { confirm.resolve(ok); setConfirm(null); } };
   useEffect(() => {
     if (!confirm) return;
-    const on = (e: KeyboardEvent) => { if (e.key === 'Escape') close(false); else if (e.key === 'Enter') close(true); };
+    const on = (e: KeyboardEvent) => {
+      if (e.key === 'Enter') close(true);
+      else if (e.key === 'Escape') close(confirm.hideCancel ? true : false);
+    };
     window.addEventListener('keydown', on); return () => window.removeEventListener('keydown', on);
     // eslint-disable-next-line
   }, [confirm]);
@@ -48,12 +66,17 @@ export function Toaster() {
       ))}
     </div>
     {confirm && (
-      <div onClick={() => close(false)} style={{ position: 'fixed', inset: 0, zIndex: 210, background: 'rgba(15,23,42,0.42)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div
+        onClick={() => close(confirm.hideCancel ? true : false)}
+        style={{ position: 'fixed', inset: 0, zIndex: 210, background: 'rgba(15,23,42,0.42)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+      >
         <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: 360, width: '100%', background: C.taupeBg, borderRadius: R, padding: '18px 18px 14px', boxShadow: '0 24px 60px rgba(0,0,0,0.28)' }}>
           {confirm.title && <div style={{ fontSize: FS.title, fontWeight: FW.title, marginBottom: 6, color: C.ink }}>{confirm.title}</div>}
           <div style={{ fontSize: FS.body, color: C.mute, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{confirm.message}</div>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
-            <Btn variant="ghost" onClick={() => close(false)}>취소</Btn>
+            {!confirm.hideCancel && (
+              <Btn variant="ghost" onClick={() => close(false)}>취소</Btn>
+            )}
             <Btn
               variant={confirm.danger ? 'danger' : 'solid'}
               onClick={() => close(true)}

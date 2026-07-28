@@ -8,9 +8,10 @@ import { type EntityRecord } from '@/lib/intake/entities';
 import { activeCount, EMPTY_VEHICLE_FILTER, type VehicleFilter } from '@/lib/domain/product-filters';
 import { InterestPanel, useInterestLists, useInterestTab, useInterestTabGuard } from '@/components/InterestRail';
 import { clearRecent, clearFavs } from '@/lib/product-interest';
-import { toast } from '@/components/Toaster';
-import { C, R, NUM, FW, FS, Loading, CenterNote, Btn, Badge, Message, ContextMenu, useContextMenu } from '@/components/ui';
+import { confirmDialog, toast } from '@/components/Toaster';
+import { C, R, NUM, FW, FS, Loading, CenterNote, ContextMenu, useContextMenu } from '@/components/ui';
 import { useAuthReady, useSession } from '@/lib/auth-context';
+import { isGuest } from '@/lib/auth-session';
 import { useAppBar } from '@/lib/appbar';
 import { FINDER_RESET_LIMIT } from '@/lib/finder-session';
 import { FinderStatus } from '@/components/FinderStatus';
@@ -72,7 +73,6 @@ export default function Finder() {
   const [sort, setSort] = useState('');
   const [interestFlt, setInterestFlt] = useState<Set<InterestKey>>(new Set());
   const [view, setViewState] = useState('excel');
-  const [viewTip, setViewTip] = useState(false); // 웹 최초 1회: 엑셀·간단·상세 안내
   const [homeTool, setHomeTool] = useState<HomeTool | null>(null); // 모바일 필터 시트
   const [filterDraft, setFilterDraft] = useState<FilterBag | null>(null);
   /** 시트 연 순간의 라이브 스냅 — 취소/필터버튼 닫기 시 여기로 회귀(최근·관심·정렬 포함). */
@@ -243,8 +243,25 @@ export default function Finder() {
     const v = typeof window !== 'undefined' ? localStorage.getItem('fp4_finder_view') : null; if (v) setViewState(v);
     const f = typeof window !== 'undefined' ? localStorage.getItem('fp4_finder_filter') : null;
     if (f === '0') setFilterOpenState(false);
-    if (typeof window !== 'undefined' && !localStorage.getItem('fp4_finder_view_tip')) setViewTip(true);
   }, []);
+
+  // 로그인 후 최초 1회 — 우측 상단 보기(간단·상세·엑셀) 안내. 취소 없음 · 다음에 안보기만.
+  const viewTipAsked = useRef(false);
+  useEffect(() => {
+    if (!authReady || !session || isGuest()) return;
+    if (viewTipAsked.current) return;
+    if (typeof window === 'undefined' || localStorage.getItem('fp4_finder_view_tip')) return;
+    viewTipAsked.current = true;
+    void (async () => {
+      const ok = await confirmDialog({
+        title: '웹 보기',
+        message: '목록 보기(간단·상세·엑셀)는 화면 우측 상단에서 바꿀 수 있습니다.\n기본은 엑셀입니다.',
+        okLabel: '다음에 안보기',
+        hideCancel: true,
+      });
+      if (ok) localStorage.setItem('fp4_finder_view_tip', '1');
+    })();
+  }, [authReady, session?.uid]);
 
   const {
     state: s, aggregate: agg, months, present, cascadeProducts,
@@ -438,26 +455,6 @@ export default function Finder() {
           interestTab={interestTab}
           onInterestTab={setInterestTab}
         />
-
-        {!mobile && viewTip && (
-          <div style={{ padding: '0 12px', flex: '0 0 auto' }}>
-            <Message variant="info">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                <span style={{ flex: '1 1 200px', minWidth: 0 }}>
-                  목록은 엑셀이 기본입니다. 상단에서 간단·상세·엑셀로 바꿀 수 있습니다.
-                </span>
-                <Btn
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => {
-                    if (typeof window !== 'undefined') localStorage.setItem('fp4_finder_view_tip', '1');
-                    setViewTip(false);
-                  }}
-                >확인</Btn>
-              </div>
-            </Message>
-          </div>
-        )}
 
         {/* pane = 관심함 틀고정 + 목록 스크롤(카드) / 엑셀은 본문 안 시트 스크롤 */}
         <div className="fp-finder-pane">
