@@ -1,5 +1,38 @@
 # 구현 로그
 
+## 2026-07-28 — 모바일 데스크탑 도구 추가 숨김
+
+### 완료한 작업
+
+- 월정산 모바일: xlsx `가져오기`·정산서·VAT 툴바 전부 미노출 (`actions = undefined`, file input도 `!mobile`)
+- 재고 업로드 패널 모바일: `SheetSync`/종합표 대신 웹 안내 `CenterNote`
+- 파인더 주석: 모바일 엑셀 다운로드 미제공으로 정정
+- `sim-phase12` 회귀 가드 갱신
+
+### 검증
+
+- typecheck PASS · sim-phase12 재실행 · `/settlement` `/inventory` HTTP 200 · `:4004` 유지
+
+---
+
+## 2026-07-28 — 모바일 아이콘·규격 잔여 정리
+
+### 완료한 작업
+
+- 표면 액션 `mobileIcon` 잔여: `/m` 손님공유·계약문의, FilterGroup 해제, Finder 최근/관심 비우기, CopyBlock, FAQ/정책 홈으로, 서명 전체동의·지우기, TopBar 모바일 뒤로(`IconBtn`)
+- 모바일 VAT 정산서 툴바 숨김 (`app/settlement/page.tsx`) — 웹 텍스트 버튼 유지
+- 토큰·원자: 로그인 submit 16px, ProductDetail 캐러셀 `IconBtn`, ProductMoreMenu `ctrlH`, PhotoUpload 시트 메뉴 텍스트 복구(시트에서 `mobileIcon` 제거)
+
+### 검증
+
+- `npm run typecheck`: PASS
+- `npx tsx scripts/sim-phase12.mts`: 33/33 PASS
+- HTTP 스모크 `:4004` 주요 경로 200
+- production build: 미실행
+- `:4004` 유지
+
+---
+
 ## 2026-07-26 — 매물 카드 가격·혜택 원자 분리
 
 ### 완료한 작업

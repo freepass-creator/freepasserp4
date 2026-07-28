@@ -36,7 +36,7 @@ export function DetailShell({
   const back = onBack ? <NavBack kind="list" onClick={onBack} /> : null;
   return (
     <div style={{ position: 'fixed', top: 'var(--topbar-h)', left: 0, right: 0, bottom: 0, zIndex: 60, background: 'var(--bg-page)', overflowY: 'auto', overscrollBehavior: 'contain' }}>
-      <div style={{ maxWidth, margin: '0 auto', padding: mobile ? '0 12px 76px' : '0 16px 48px' }}>
+      <div style={{ maxWidth, margin: '0 auto', padding: mobile ? '0 12px calc(76px + env(safe-area-inset-bottom, 0px))' : '0 16px 48px' }}>
         {mobile ? (
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, padding: '12px 2px 4px', flexWrap: 'wrap' }}>
             <span style={{ fontSize: FS.page, fontWeight: FW.title, letterSpacing: '-0.02em' }}>{title}</span>

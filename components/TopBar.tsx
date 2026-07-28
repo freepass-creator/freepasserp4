@@ -295,15 +295,19 @@ export default function TopBar() {
     ? <List size={mobile ? 18 : 16} strokeWidth={2.25} />
     : <ChevronLeft size={mobile ? 18 : 16} strokeWidth={2.25} />;
   const backBtn = back ? (
-    <Btn
-      variant="ghost"
-      onClick={() => { haptic.back(); back(); }}
-      style={{
-        gap: 3, padding: mobile ? '0 14px 0 10px' : '0 12px 0 8px',
-        background: C.taupeBg, color: ink, fontSize: ctrlFs(mobile),
-        boxShadow: 'none',
-      }}
-    >{backIcon} {backLabel}</Btn>
+    mobile ? (
+      <IconBtn title={backLabel} onClick={() => { haptic.back(); back(); }}>{backIcon}</IconBtn>
+    ) : (
+      <Btn
+        variant="ghost"
+        onClick={() => { haptic.back(); back(); }}
+        style={{
+          gap: 3, padding: '0 12px 0 8px',
+          background: C.taupeBg, color: ink, fontSize: ctrlFs(mobile),
+          boxShadow: 'none',
+        }}
+      >{backIcon} {backLabel}</Btn>
+    )
   ) : null;
 
   // 상태창 = 메뉴 열림 시 '메뉴'(아이콘+텍스트) · 아니면 앱바 title 우선 · 없으면 라우트 라벨

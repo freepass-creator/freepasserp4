@@ -89,10 +89,24 @@ export function ProductDetail({ p, audience }: { p: EntityRecord; audience?: Aud
             <img src={photos[mainIdx]} alt="" draggable={false} style={{ width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none' }} />
             {photos.length > 1 && (
               <>
-                <button aria-label="이전 사진" onPointerDown={(e) => e.stopPropagation()} onPointerUp={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); stepPhoto(-1); }}
-                  style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', width: 40, height: 40, borderRadius: '50%', border: 'none', background: 'rgba(0,0,0,0.5)', color: '#fff', cursor: 'pointer', zIndex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}><ChevronLeft size={20} strokeWidth={2.5} /></button>
-                <button aria-label="다음 사진" onPointerDown={(e) => e.stopPropagation()} onPointerUp={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); stepPhoto(1); }}
-                  style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', width: 40, height: 40, borderRadius: '50%', border: 'none', background: 'rgba(0,0,0,0.5)', color: '#fff', cursor: 'pointer', zIndex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}><ChevronRight size={20} strokeWidth={2.5} /></button>
+                <IconBtn
+                  title="이전 사진"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => { e.stopPropagation(); stepPhoto(-1); }}
+                  style={{
+                    position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', zIndex: 2,
+                    border: 'none', background: C.ink, color: C.taupeBg, opacity: 0.7, borderRadius: '50%',
+                  }}
+                ><ChevronLeft size={20} strokeWidth={2.5} /></IconBtn>
+                <IconBtn
+                  title="다음 사진"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => { e.stopPropagation(); stepPhoto(1); }}
+                  style={{
+                    position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', zIndex: 2,
+                    border: 'none', background: C.ink, color: C.taupeBg, opacity: 0.7, borderRadius: '50%',
+                  }}
+                ><ChevronRight size={20} strokeWidth={2.5} /></IconBtn>
               </>
             )}
             {aud !== 'customer' && <span style={{ position: 'absolute', top: 8, right: 8, zIndex: 2 }}><FavHeart p={p} onPhoto /></span>}

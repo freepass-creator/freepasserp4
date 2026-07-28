@@ -6,6 +6,7 @@ import { seedIfEmpty } from '@/lib/seed';
 import { ENTITIES, type EntityRecord } from '@/lib/intake/entities';
 import { newId } from '@/lib/domain/ids';
 import { getRole, actor, type Role } from '@/lib/domain/deal';
+import { House } from 'lucide-react';
 import { PaneHead, PaneBody, Btn, FormGrid, FormCard, C, Loading, CenterNote, Page, FilterChips, FilterGroup, Message, PageActions } from '@/components/ui';
 import { PolicyListRow } from '@/components/list-rows';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
@@ -206,7 +207,7 @@ export default function PolicyMgmt() {
       <Page title={NAV_LABEL.policy}>
         <CenterNote>공급사·관리자만 정책을 관리할 수 있습니다</CenterNote>
         <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 12 }}>
-          <Btn href="/" size="sm">홈으로</Btn>
+          <Btn mobileIcon={<House size={18} />} title="홈으로" href="/" size="sm">홈으로</Btn>
         </div>
       </Page>
     );

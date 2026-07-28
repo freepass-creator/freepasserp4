@@ -171,7 +171,7 @@ export default function Finder() {
   });
   // 보기모드 = 새로고침해도 유지(localStorage). 서버·최초렌더는 'card' → effect에서 복원(하이드레이션 mismatch 방지).
   const setView = (v: string) => { setViewState(v); if (typeof window !== 'undefined') localStorage.setItem('fp4_finder_view', v); };
-  // 엑셀보기 = 넓은 화면 전용 배열. 모바일은 미제공(뷰에서 숨김) → 같은 원자를 카드 배열로. 엑셀 '다운로드'는 유지.
+  // 엑셀보기 = 넓은 화면 전용 배열. 모바일은 카드만(뷰·다운로드 미제공).
   const effView = mobile ? 'card' : view;
 
   // 필터·정렬 복원(세션). 상세 다녀오면 limit만 PAGE(필터 유지).

@@ -5,6 +5,7 @@ import { seedIfEmpty } from '@/lib/seed';
 import { getCompanyId } from '@/lib/tenant';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { getContractByToken, SIGN_REQUIRED_CONSENTS, submitSign } from '@/lib/domain/sign';
+import { CheckCheck, Eraser } from 'lucide-react';
 import { won, C, R, Input, fmtPhone, Loading, Btn, FW, FS } from '@/components/ui';
 import { toast } from '@/components/Toaster';
 
@@ -109,7 +110,7 @@ export default function SignPage() {
 
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
         <span style={{ fontSize: FS.title, fontWeight: FW.title, flex: 1 }}>약관 동의</span>
-        <Btn size="sm" variant={allC ? 'solid' : 'ghost'} onClick={() => setConsents(allC ? new Set() : new Set(CONSENTS))}>전체 동의</Btn>
+        <Btn mobileIcon={<CheckCheck size={18} />} title="전체 동의" size="sm" variant={allC ? 'solid' : 'ghost'} onClick={() => setConsents(allC ? new Set() : new Set(CONSENTS))}>전체 동의</Btn>
       </div>
       <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: '#fff', overflow: 'hidden', marginBottom: 20 }}>
         {CONSENTS.map((x, i) => {
@@ -140,7 +141,7 @@ export default function SignPage() {
         })}
       </div>
 
-      <div style={{ fontSize: FS.title, fontWeight: FW.title, marginBottom: 8, display: 'flex', alignItems: 'center' }}>전자서명 <span style={{ flex: 1 }} /><Btn size="sm" variant="ghost" onClick={clearSig}>지우기</Btn></div>
+      <div style={{ fontSize: FS.title, fontWeight: FW.title, marginBottom: 8, display: 'flex', alignItems: 'center' }}>전자서명 <span style={{ flex: 1 }} /><Btn mobileIcon={<Eraser size={18} />} title="서명 지우기" size="sm" variant="ghost" onClick={clearSig}>지우기</Btn></div>
       <canvas ref={canvasRef} width={600} height={180} onPointerDown={start} onPointerMove={move} onPointerUp={end} onPointerLeave={end}
         style={{ width: '100%', height: 'auto', aspectRatio: '600 / 180', border: `1.5px dashed ${C.line}`, borderRadius: R, background: '#fff', touchAction: 'none', cursor: 'crosshair' }} />
       <div style={{ fontSize: FS.cap, color: C.faint, marginTop: 4 }}>위 칸에 손가락 또는 마우스로 서명해 주세요.</div>

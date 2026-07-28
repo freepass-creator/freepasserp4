@@ -1,5 +1,33 @@
 # CURSOR_HANDOFF — 오픈 전 실사용 QA (2026-07-26)
 
+## 2026-07-28 — 모바일 아이콘·규격 잔여 정리
+
+### 수정
+
+- 남은 표면 액션을 `Btn.mobileIcon` / TopBar `IconBtn`으로 맞춤 (웹 텍스트 유지)
+- 모바일 월정산: VAT·정산서·xlsx **가져오기**까지 전부 미노출
+- 재고 업로드 패널 모바일: SheetSync/종합표 대신 웹 안내
+- 로그인 15→16px, ProductDetail raw button→IconBtn, ProductMoreMenu `ctrlH`, PhotoUpload 시트는 전체폭 텍스트 행으로 복구
+
+### 변경 파일
+
+- `app/m/[code]/page.tsx`, `app/faq/page.tsx`, `app/policy/page.tsx`, `app/sign/[token]/page.tsx`, `app/login/page.tsx`, `app/settlement/page.tsx`, `app/inventory/page.tsx`, `app/page.tsx`
+- `components/ui/filters.tsx`, `components/ui/copy-block.tsx`, `components/TopBar.tsx`, `components/ProductDetail.tsx`, `components/ProductMoreMenu.tsx`, `components/PhotoUpload.tsx`
+- `features/finder/FinderFilterPanel.tsx`, `scripts/sim-phase12.mts`
+
+### 검증
+
+- typecheck PASS · sim-phase12 34/34 PASS · HTTP 스모크 200 · `:4004` 유지 · build 미실행
+
+### Codex 재검증
+
+- 390폭에서 필터 해제·/m 하단·TopBar 뒤로가 정사각 아이콘인지
+- PhotoUpload 꾹 시트는 **텍스트 행**(아이콘 정사각 아님)
+- 모바일 `/settlement`에 가져오기·VAT/정산서 없음, `/inventory` 업로드는 웹 안내만
+- 웹에는 정산서·가져오기·SheetSync 유지
+
+---
+
 > Cursor 레인. 신규 기능·구조 변경 없음. Firebase Rules / 스키마 / 마이그레이션 / 전자서명 상태기계 미수정.
 > `:4004` 유지 · production build 미실행.
 

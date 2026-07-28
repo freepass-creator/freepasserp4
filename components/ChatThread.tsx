@@ -23,7 +23,7 @@ export function ChatThread({ roomId, onBack, onVehicle, onContract }: { roomId: 
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [full, setFull] = useState<string | null>(null);
-  const endRef = useRef<HTMLDivElement | null>(null);
+  const threadRef = useRef<HTMLDivElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   const load = useCallback(async (mark = true) => {
@@ -61,7 +61,12 @@ export function ChatThread({ roomId, onBack, onVehicle, onContract }: { roomId: 
     };
   }, [load]);
   useEffect(() => { const on = (e: Event) => setRoleS((e as CustomEvent).detail as Role); window.addEventListener('fp:role', on); return () => window.removeEventListener('fp:role', on); }, []);
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [msgs?.length, roomId]);
+  // 스레드 박스 안에서만 스크롤 — scrollIntoView는 .fp-main-pad까지 끌어올려 채팅이 밀려 내용이 안 보임
+  useEffect(() => {
+    const el = threadRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  }, [msgs?.length, roomId]);
 
   const send = async () => {
     const t = text.trim(); if (!t || busy) return;
@@ -119,7 +124,7 @@ export function ChatThread({ roomId, onBack, onVehicle, onContract }: { roomId: 
         </div>
       ) : null}
 
-      <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div ref={threadRef} style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
         {msgs === undefined && <Loading label="메시지를 불러오는 중…" minHeight={80} />}
         {msgs?.length === 0 && <div style={{ textAlign: 'center', color: C.faint, fontSize: FS.sub, marginTop: 20 }}>첫 메시지를 남겨보세요.</div>}
         {msgs?.map((m) => {
@@ -151,7 +156,6 @@ export function ChatThread({ roomId, onBack, onVehicle, onContract }: { roomId: 
             </div>
           );
         })}
-        <div ref={endRef} />
       </div>
 
       {/* embedded(WorkPage) = BottomNav가 safe-area · 그 외 = --fp-dock-safe(탭바 숨김 시) */}
@@ -164,7 +168,8 @@ export function ChatThread({ roomId, onBack, onVehicle, onContract }: { roomId: 
       }}>
         <input ref={fileRef} type="file" accept="image/*,application/pdf" onChange={(e) => onPickFile(e.target.files)} style={{ display: 'none' }} />
         <IconBtn onClick={() => fileRef.current?.click()} title="사진·파일 첨부" disabled={busy}>📎</IconBtn>
-        <Input value={text} onChange={setText} onEnter={send} placeholder="메시지 입력" full style={{ flex: 1 }} autoFocus={mobile} disabled={busy} />
+        {/* embedded 모바일 autoFocus 금지 — 키보드가 뷰를 밀면 메시지 영역이 사라짐. 탭해서 입력. */}
+        <Input value={text} onChange={setText} onEnter={send} placeholder="메시지 입력" full style={{ flex: 1 }} autoFocus={mobile && !embedded} disabled={busy} />
         {mobile ? (
           <IconBtn onClick={send} title={busy ? '전송 중' : '보내기'} disabled={busy || !text.trim()}>
             {busy ? <LoaderCircle size={18} /> : <Send size={18} />}

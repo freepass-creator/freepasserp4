@@ -37,7 +37,12 @@ export function Toaster() {
   }, [confirm]);
 
   return (<>
-    <div style={{ position: 'fixed', left: 0, right: 0, bottom: 84, zIndex: 200, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, pointerEvents: 'none', padding: '0 12px' }}>
+    <div style={{
+      position: 'fixed', left: 0, right: 0, zIndex: 200,
+      /* 탭바(표시 시 h에 safe 포함) vs 상세 BottomNav(bar+dock-safe) 중 큰 쪽 + 여유 */
+      bottom: 'calc(max(var(--fp-tabbar-h, 0px), calc(var(--fp-bar-h) + var(--fp-dock-safe, 0px))) + 12px)',
+      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, pointerEvents: 'none', padding: '0 12px',
+    }}>
       {toasts.map((t) => (
         <div key={t.id} role="status" style={{ pointerEvents: 'auto', maxWidth: 'min(92vw, 440px)', padding: '10px 16px', borderRadius: R, fontSize: FS.body, fontWeight: FW.strong, color: C.taupeBg, background: BG[t.type], boxShadow: '0 6px 22px rgba(0,0,0,0.22)', whiteSpace: 'pre-wrap', textAlign: 'center' }}>{t.msg}</div>
       ))}

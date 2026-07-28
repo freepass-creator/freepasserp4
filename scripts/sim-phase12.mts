@@ -184,9 +184,7 @@ const pageToolBarSrc = fs.readFileSync(path.join(root, 'components/PageToolBar.t
 const navigationSrc = fs.readFileSync(path.join(root, 'components/ui/navigation.tsx'), 'utf8');
 const buttonsSrc = fs.readFileSync(path.join(root, 'components/ui/buttons.tsx'), 'utf8');
 const settlementPageSrc = fs.readFileSync(path.join(root, 'app/settlement/page.tsx'), 'utf8');
-const settlementMobileActions = settlementPageSrc
-  .split('const actions = mobile ? (')[1]
-  ?.split(') : (')[0] || '';
+const inventoryPageSrc = fs.readFileSync(path.join(root, 'app/inventory/page.tsx'), 'utf8');
 check('D 계약 목록 규격 외 SettlementSummary 제거', !contractPageSrc.includes('SettlementSummary'));
 check('D 모바일 업무 패널은 icon SSOT', workPageSrc.includes('icon?: LucideIcon') && workPageSrc.includes('<IconBtn'));
 check('D 모바일 CRUD는 IconBtn', pageActionsSrc.includes('if (mobile)') && pageActionsSrc.includes('<IconBtn'));
@@ -194,7 +192,8 @@ check('D 모바일 툴바 라벨은 아이콘으로 축약', pageToolBarSrc.incl
 check('D 모바일 목록복귀는 IconBtn', navigationSrc.includes('if (mobile)') && navigationSrc.includes('<IconBtn title={label}'));
 check('D 공통 Btn 모바일 아이콘 전환 SSOT', buttonsSrc.includes('mobileIcon?: React.ReactNode') && buttonsSrc.includes('iconOnly ? mobileIcon : children'));
 check('D 모바일 계약 엑셀 액션 미노출', contractPageSrc.includes('action: !mobile && setts.length'));
-check('D 모바일 월정산 다운로드 미노출', !!settlementMobileActions && !settlementMobileActions.includes('downloadSettlementReport'));
+check('D 모바일 월정산 엑셀·정산서 미노출', settlementPageSrc.includes('const actions = mobile ? undefined') && settlementPageSrc.includes('{!mobile && (') && settlementPageSrc.includes('accept=".xlsx,.xls"'));
+check('D 모바일 재고 시트취합 웹전용', inventoryPageSrc.includes('시트·엑셀 취합과 종합표 복사는 웹에서') && inventoryPageSrc.includes('<SheetSync'));
 
 // ── 요약 ──
 const failed = cases.filter((c) => !c.ok);

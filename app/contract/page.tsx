@@ -115,7 +115,17 @@ export default function ContractsSettlement() {
     setSelProduct(prod || null);
     setRoomId(room);
   };
-  const clearSel = () => { setSel(null); setSelC(null); setSelS(null); setSelProduct(null); setRoomId(null); setSwapKey('progress'); };
+  const clearSel = () => {
+    setSel(null); setSelC(null); setSelS(null); setSelProduct(null); setRoomId(null); setSwapKey('progress');
+    if (typeof window !== 'undefined') {
+      const u = new URL(window.location.href);
+      if (u.searchParams.has('c')) {
+        u.searchParams.delete('c');
+        const q = u.searchParams.toString();
+        window.history.replaceState({}, '', u.pathname + (q ? `?${q}` : '') + u.hash);
+      }
+    }
+  };
   const reloadSel = async () => {
     if (!sel) return;
     const all = await load(getRole());
@@ -152,6 +162,16 @@ export default function ContractsSettlement() {
     const target = wanted ? all.find((x) => String(x.contract_code) === wanted) : (!isMobileViewport() ? first : undefined);
     if (target) selectContract(target);
   })(); /* eslint-disable-next-line */ }, []);
+
+  // ?c= 계약이 첫 load에 없으면 목록 갱신 시 재시도(이미 다른 건 선택 중이면 스킵).
+  useEffect(() => {
+    if (!rows || sel) return;
+    const wanted = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('c') : null;
+    if (!wanted) return;
+    const target = rows.find((x) => String(x.contract_code) === wanted);
+    if (target) void selectContract(target);
+  }, [rows, sel]);
+
   useEffect(() => { const on = (e: Event) => { const r = (e as CustomEvent).detail as Role; (async () => { const all = await load(r); clearSel(); if (!mobile && all.length) selectContract(all.find((c) => isContractInProgress(c)) || all[0]); })(); }; window.addEventListener('fp:role', on); return () => window.removeEventListener('fp:role', on); /* eslint-disable-next-line */ }, [mobile]);
 
   useEffect(() => {

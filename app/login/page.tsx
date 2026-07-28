@@ -253,7 +253,7 @@ const LOGIN_CSS = `
 .fp-login .login-card{box-shadow:none;border:0;border-radius:0;padding:0 24px;gap:20px;max-width:none;}
 .fp-login .login-field input{height:48px;font-size:16px;border-radius:4px;padding:0 16px;}
 .fp-login .login-field label{font-size:13px;}
-.fp-login .login-submit{height:48px;font-size:15px;border-radius:4px;}
+.fp-login .login-submit{height:48px;font-size:16px;border-radius:4px;}
 .fp-login .login-links{font-size:13px;gap:12px;}
 }
 `;

@@ -246,11 +246,17 @@ export default function Inventory() {
     <>
       <PaneHead title="공급사 업로드" />
       <PaneBody pad>
-        {/* 전수 차종변환 = /dev 개발도구. 여기는 공급사 시트 취합만. */}
-        <div style={{ fontSize: FS.cap, fontWeight: FW.strong, color: C.mute }}>공급사 시트 취합</div>
-        <SheetSync co={co} onImported={() => load(getRole())} />
-        <div style={{ height: 1, background: C.line2, margin: '2px 0' }} />
-        {!mobile && <Btn size="sm" variant="ghost" onClick={copyJonghap}>종합표 TSV 복사 (ERP→시트)</Btn>}
+        {mobile ? (
+          <CenterNote>시트·엑셀 취합과 종합표 복사는 웹에서 진행하세요.</CenterNote>
+        ) : (
+          <>
+            {/* 전수 차종변환 = /dev 개발도구. 여기는 공급사 시트 취합만. */}
+            <div style={{ fontSize: FS.cap, fontWeight: FW.strong, color: C.mute }}>공급사 시트 취합</div>
+            <SheetSync co={co} onImported={() => load(getRole())} />
+            <div style={{ height: 1, background: C.line2, margin: '2px 0' }} />
+            <Btn size="sm" variant="ghost" onClick={copyJonghap}>종합표 TSV 복사 (ERP→시트)</Btn>
+          </>
+        )}
       </PaneBody>
     </>
   );

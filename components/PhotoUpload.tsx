@@ -8,7 +8,7 @@ import {
   uploadManagedFile,
   type ManagedFile,
 } from '@/lib/firebase/storage-files';
-import { Images, PanelTop, Trash2, X } from 'lucide-react';
+import { Images, PanelTop, Trash2 } from 'lucide-react';
 
 const LONG_MS = 480;
 const MOVE_PX = 10;
@@ -243,7 +243,6 @@ export function PhotoUpload({
           >
             <div style={{ width: '100%', fontSize: FS.body, fontWeight: FW.title, color: C.ink, marginBottom: 2 }}>사진 메뉴</div>
             <Btn
-              mobileIcon={<Images size={18} />}
               title={sheetIsCover ? '이미 대표사진' : '대표사진으로 지정'}
               full
               variant="ghost"
@@ -254,7 +253,6 @@ export function PhotoUpload({
             </Btn>
             {onInteriorChange && (
               <Btn
-                mobileIcon={<PanelTop size={18} />}
                 title={sheetIsInterior ? '실내사진 해제' : '실내사진으로 지정'}
                 full
                 variant="ghost"
@@ -264,7 +262,6 @@ export function PhotoUpload({
               </Btn>
             )}
             <Btn
-              mobileIcon={<Trash2 size={18} />}
               title="사진 삭제"
               full
               variant="danger"
@@ -272,7 +269,7 @@ export function PhotoUpload({
             >
               삭제
             </Btn>
-            <Btn mobileIcon={<X size={18} />} title="사진 메뉴 닫기" full variant="ghost" onClick={() => { haptic.back(); setSheet(null); }}>취소</Btn>
+            <Btn title="사진 메뉴 닫기" full variant="ghost" onClick={() => { haptic.back(); setSheet(null); }}>취소</Btn>
           </div>
         </div>
       )}

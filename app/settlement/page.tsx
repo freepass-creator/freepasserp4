@@ -20,7 +20,7 @@ import { toast } from '@/components/Toaster';
 import { AdminSettlementSheet } from '@/components/AdminSettlementSheet';
 import { matchSettlementQuery } from '@/lib/domain/search';
 import { NAV_LABEL } from '@/lib/tabbar';
-import { Banknote, ChartNoAxesCombined, ChevronLeft, ChevronRight, Download, FileText, ReceiptText, Upload } from 'lucide-react';
+import { Banknote, ChartNoAxesCombined, ChevronLeft, ChevronRight, FileText } from 'lucide-react';
 import { useIsMobile } from '@/lib/use-mobile';
 
 type SettlementSort = '' | 'date_desc' | 'customer' | 'amount_desc' | 'status';
@@ -316,12 +316,7 @@ export default function MonthlySettlement() {
     { key: 'summary', title: '월 집계', icon: ChartNoAxesCombined, node: summaryPane },
   ];
 
-  const actions = mobile ? (
-    <div style={{ display: 'flex', gap: 6 }}>
-      <IconBtn title="가져오기" onClick={() => fileRef.current?.click()}><Upload size={18} /></IconBtn>
-      <IconBtn title="VAT 정산서" active onClick={() => setShowVatSheet(true)}><ReceiptText size={18} /></IconBtn>
-    </div>
-  ) : (
+  const actions = mobile ? undefined : (
     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
       <Btn size="sm" variant="ghost" onClick={() => fileRef.current?.click()}>가져오기</Btn>
       <Btn size="sm" variant="ghost" onClick={() => downloadSettlementReport(monthRows, month)} disabled={!monthRows.length}>정산서</Btn>
@@ -411,13 +406,15 @@ export default function MonthlySettlement() {
           onClearHints: clearConditions,
         }}
       />
-      <input
-        ref={fileRef}
-        type="file"
-        accept=".xlsx,.xls"
-        onChange={(event) => { void importXlsx(event.target.files); }}
-        style={{ display: 'none' }}
-      />
+      {!mobile && (
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".xlsx,.xls"
+          onChange={(event) => { void importXlsx(event.target.files); }}
+          style={{ display: 'none' }}
+        />
+      )}
       {showVatSheet ? (
         <DetailShell
           fixed

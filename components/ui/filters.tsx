@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, RotateCcw } from 'lucide-react';
 import { haptic } from '@/lib/haptics';
 import { useIsMobile } from '@/lib/use-mobile';
 import { CountPill } from './badges';
@@ -174,6 +174,8 @@ export function FilterGroup({
         ) : onClear ? (
           <Btn
             variant="bare"
+            mobileIcon={<RotateCcw size={18} />}
+            title="해제"
             disabled={count <= 0}
             onClick={() => {
               if (count <= 0) return;

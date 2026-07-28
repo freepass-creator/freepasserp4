@@ -2,7 +2,7 @@
 import { useEffect, useState, type MouseEvent, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { MoreVertical, Star, ThumbsDown, EyeOff, MessageCircleMore, Share2 } from 'lucide-react';
-import { C, R, FW, FS, Btn, IconBtn } from '@/components/ui';
+import { C, R, FW, FS, Btn, IconBtn, ctrlH } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
 import { isFav, toggleFav, removeFav, subscribeInterest } from '@/lib/product-interest';
@@ -53,6 +53,7 @@ export function ProductMoreMenu({ p }: { p: EntityRecord }) {
   };
 
   const meta = { code, name: vehicleName(p), plate: String(p.car_number || '') };
+  const rowH = ctrlH(mobile);
 
   const item = (label: string, onClick: () => void, opts?: { danger?: boolean; icon?: ReactNode; muted?: boolean }) => (
     <Btn
@@ -62,12 +63,12 @@ export function ProductMoreMenu({ p }: { p: EntityRecord }) {
       onClick={() => { onClick(); setOpen(false); }}
       style={{
         display: 'flex', justifyContent: 'flex-start', gap: 12,
-        minHeight: mobile ? 48 : 40, height: 'auto',
-        padding: mobile ? '0 16px' : '0 14px',
+        minHeight: rowH, height: 'auto',
+        padding: '0 16px',
         border: 'none', borderTop: `1px solid ${C.line2}`,
         background: C.taupeBg, boxShadow: 'none', borderRadius: 0,
         textAlign: 'left',
-        fontSize: mobile ? FS.title : FS.body, fontWeight: FW.strong,
+        fontSize: FS.title, fontWeight: FW.strong,
         color: opts?.danger ? C.danger : opts?.muted ? C.mute : C.ink,
       }}
     >

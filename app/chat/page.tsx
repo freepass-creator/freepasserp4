@@ -147,7 +147,18 @@ export default function Chat() {
     setSelProduct(await resolveProduct(rm));
     setSwapKey('chat');
   };
-  const clearSel = () => { setSel(null); setSelRoom(null); setSelProduct(null); setSwapKey('chat'); };
+  const clearSel = () => {
+    setSel(null); setSelRoom(null); setSelProduct(null); setSwapKey('chat');
+    // 목록 복귀 후 새로고침이 ?room=으로 다시 열리지 않게
+    if (typeof window !== 'undefined') {
+      const u = new URL(window.location.href);
+      if (u.searchParams.has('room')) {
+        u.searchParams.delete('room');
+        const q = u.searchParams.toString();
+        window.history.replaceState({}, '', u.pathname + (q ? `?${q}` : '') + u.hash);
+      }
+    }
+  };
   // 방행 클릭 = 최신 selectRoom을 안정 참조로 호출. handleRoomClick 참조가 렌더마다 바뀌지 않아
   //  ChatRoomRow(React.memo)가 검색 타이핑·선택 변경 등 리렌더에 전량 재렌더되지 않는다.
   const selectRoomRef = useRef(selectRoom);
@@ -167,6 +178,16 @@ export default function Chat() {
     const target = wanted ? s.find((x) => String(x._key) === wanted) : (!isMobileViewport() ? firstInquiry(s, cts) : undefined);
     if (target) selectRoom(target);
   })(); /* eslint-disable-next-line */ }, []);
+
+  // ?room= 방이 첫 load에 없으면(권한·타이밍) 목록이 갱신될 때 한 번 더 연다. 이미 다른 방 선택 중이면 건드리지 않음.
+  useEffect(() => {
+    if (!rooms || sel) return;
+    const wanted = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('room') : null;
+    if (!wanted) return;
+    const target = rooms.find((x) => String(x._key) === wanted);
+    if (target) void selectRoomRef.current(target);
+  }, [rooms, sel]);
+
   useEffect(() => { const on = (e: Event) => { const r = (e as CustomEvent).detail as Role; setRoleS(r); (async () => { const s = await load(r); clearSel(); if (!mobile && s.length) { const cts = await getStore().list('contract', co); selectRoom(firstInquiry(s, cts)); } })(); }; window.addEventListener('fp:role', on); return () => window.removeEventListener('fp:role', on); /* eslint-disable-next-line */ }, [mobile]);
 
   useEffect(() => {
