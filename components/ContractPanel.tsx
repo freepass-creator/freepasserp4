@@ -183,7 +183,7 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
                         variant={cur === opt ? 'solid' : 'ghost'}
                         disabled={!mine || busy}
                         onClick={() => setCheck(ch.key, cur === opt ? '' : opt)}
-                      >{opt}</Btn>
+                      >{mobile ? String(opt).replace(/^출고\s*/, '') : opt}</Btn>
                     )) : (
                       <Btn
                         title={done ? '완료 해제' : mine ? '체크' : '대기'}
