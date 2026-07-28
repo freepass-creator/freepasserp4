@@ -92,26 +92,35 @@ export function IconBtn({ children, onClick, onPointerDown, title, active, disab
   );
 }
 
-/** 아이콘 세그먼트 — CTRL.md. */
-export function IconSeg<T extends string>({ value, onChange, options }: {
+/** 아이콘 세그먼트 — CTRL.md. showLabel=true면 아이콘+텍스트(업무 swap 등). */
+export function IconSeg<T extends string>({ value, onChange, options, showLabel = false }: {
   value: T;
   onChange: (k: T) => void;
   options: { key: T; label: string; icon: React.ReactNode }[];
+  /** 텍스트 라벨 노출(공간 여유 있는 전환 세그먼트용). 기본=아이콘만. */
+  showLabel?: boolean;
 }) {
   const mobile = useIsMobile();
   const h = ctrlH(mobile);
+  const fs = ctrlFs(mobile);
   return (
-    <div style={{ display: 'flex', border: `1px solid ${C.line}`, borderRadius: R, overflow: 'hidden' }}>
+    <div style={{ display: 'flex', border: `1px solid ${C.line}`, borderRadius: R, overflow: 'hidden', width: showLabel ? '100%' : undefined }}>
       {options.map((o, i) => {
         const on = value === o.key;
         return (
           <button key={o.key} type="button" className="fp-press" onClick={() => onChange(o.key)} title={o.label} aria-label={o.label} aria-pressed={on}
             style={{
-              height: h, width: h, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              height: h,
+              ...(showLabel
+                ? { flex: '1 1 0', minWidth: 0, padding: '0 10px', gap: 5 }
+                : { width: h, padding: 0 }),
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
               cursor: 'pointer', border: 'none', borderLeft: i ? `1px solid ${C.line}` : 'none',
-              background: on ? C.brand : C.taupeBg, color: on ? C.taupeBg : C.mute, padding: 0,
+              background: on ? C.brand : C.taupeBg, color: on ? C.taupeBg : C.mute,
+              fontSize: fs, fontWeight: FW.strong, whiteSpace: 'nowrap',
             }}>
             {o.icon}
+            {showLabel ? <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{o.label}</span> : null}
           </button>
         );
       })}

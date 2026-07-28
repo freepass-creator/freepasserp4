@@ -5,7 +5,7 @@ import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
 import { useAppBar } from '@/lib/appbar';
 import { useHideTabBar } from '@/lib/tabbar';
-import { PaneHead, BottomNav, SearchInput, Btn, IconBtn, Select, C, FS, FW, SH } from '@/components/ui';
+import { PaneHead, BottomNav, SearchInput, Btn, IconSeg, Select, C, FS, FW, SH } from '@/components/ui';
 import { MobilePageShell, type ListToolsConfig } from '@/components/MobilePageShell';
 import { PageStatus, statusIconFor } from '@/components/PageStatus';
 
@@ -193,25 +193,22 @@ export function WorkPage({
             <BottomNav
               embedded
               backKind="list"
+              backShowLabel
               onBack={onBack}
               actions={
-                <div style={{ display: 'flex', gap: 6, width: '100%' }}>
-                  {panes.map((p) => {
-                    const on = p.key === swapKey;
+                <IconSeg
+                  showLabel
+                  value={swapKey}
+                  onChange={(key) => { haptic.nav(); setSwapKey(key); }}
+                  options={panes.map((p) => {
                     const PaneIcon = p.icon;
-                    return (
-                      <IconBtn
-                        key={p.key}
-                        title={p.title}
-                        active={on}
-                        onClick={() => { haptic.nav(); setSwapKey(p.key); }}
-                        style={{ flex: 1, minWidth: 0 }}
-                      >
-                        {PaneIcon ? <PaneIcon size={19} /> : p.title.slice(0, 1)}
-                      </IconBtn>
-                    );
+                    return {
+                      key: p.key,
+                      label: p.title,
+                      icon: PaneIcon ? <PaneIcon size={16} /> : <span>{p.title.slice(0, 1)}</span>,
+                    };
                   })}
-                </div>
+                />
               }
             />
           </div>

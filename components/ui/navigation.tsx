@@ -11,9 +11,12 @@ import { C, SH } from './tokens';
 export function NavBack({
   kind = 'history',
   onClick,
+  showLabel = false,
 }: {
   kind?: 'history' | 'list';
   onClick?: () => void;
+  /** 모바일도 아이콘+텍스트(업무 swap 독 등). 기본=모바일 아이콘만. */
+  showLabel?: boolean;
 }) {
   const router = useRouter();
   const mobile = useIsMobile();
@@ -34,11 +37,11 @@ export function NavBack({
   const icon = kind === 'list'
     ? <List size={mobile ? 18 : 16} strokeWidth={2.25} aria-hidden />
     : <ChevronLeft size={mobile ? 18 : 16} strokeWidth={2.25} aria-hidden />;
-  if (mobile) {
+  if (mobile && !showLabel) {
     return <IconBtn title={label} onClick={go}>{icon}</IconBtn>;
   }
   return (
-    <Btn variant="ghost" onClick={go}>
+    <Btn variant="ghost" size="sm" title={label} onClick={go}>
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
         {icon}
         {label}
@@ -55,6 +58,7 @@ export function BottomNav({
   onBack,
   embedded,
   zIndex = 45,
+  backShowLabel = false,
 }: {
   actions?: React.ReactNode;
   maxWidth?: number;
@@ -63,6 +67,8 @@ export function BottomNav({
   onBack?: () => void;
   embedded?: boolean;
   zIndex?: number;
+  /** 모바일 목록/이전에도 텍스트 라벨(swap 독). */
+  backShowLabel?: boolean;
 }) {
   const mobile = useIsMobile();
   React.useEffect(() => {
@@ -92,7 +98,7 @@ export function BottomNav({
       };
   const inner = (
     <div style={row}>
-      <NavBack kind={backKind} onClick={onBack} />
+      <NavBack kind={backKind} onClick={onBack} showLabel={backShowLabel} />
       {actions != null && (
         <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end' }}>
           {actions}
