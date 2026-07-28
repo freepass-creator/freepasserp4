@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, type CSSProperties, type MouseEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from 'react';
 import type { EntityRecord } from '@/lib/intake/entities';
 import {
   priceList, creditDisplay, vehicleTone, excelCondSignals, canonProductType,
@@ -10,10 +10,10 @@ import { productOptions, OptionChips } from '@/components/product-card-atoms';
 import {
   C, NUM, FW, FS, Badge, CountPill, productTypeStyle, CREDIT_TONE,
   thX, thXR, tdX, tdXR, colLock, colLockChars, colChars, colOpts, clipN,
-  EXCEL_W, EXCEL_MAX, EXCEL_CELL_BODY_H, EXCEL_BADGE_GAP_X,
+  EXCEL_W, EXCEL_MAX, EXCEL_CELL_BODY_H, EXCEL_BADGE_GAP_X, EXCEL_OPT_ROW_GAP,
   excelPriceW, excelPadX, excelPadY, excelColMode, excelShowFilterCols,
   excelMakerChars, excelSubChars, excelNameChars, excelColorChars, excelFuelChars,
-  excelModelWidth,
+  excelModelWidth, excelFitPlan,
 } from '@/components/ui';
 import type { BadgeTone } from '@/components/ui/badges';
 import { man, kmDisplay } from '@/lib/format';
@@ -52,6 +52,8 @@ export function ExcelResultsTable({
   openCol, setOpenCol, onRowClick, onRowContextMenu,
 }: Props) {
   const mobile = useIsMobile();
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const [sheetW, setSheetW] = useState(0);
   const hasOpts = useMemo(() => rows.some((p) => productOptions(p).length > 0), [rows]);
   const exMode = excelColMode(filterOpen);
   const exFilterCols = excelShowFilterCols(exMode);
@@ -65,6 +67,28 @@ export function ExcelResultsTable({
   const padX = excelPadX(exMode);
   const cellPad = { padding: `${excelPadY()}px ${padX}px` } as const;
   const nameSqueeze = hasOpts;
+
+  useEffect(() => {
+    const el = sheetRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width || 0;
+      setSheetW((prev) => (Math.abs(prev - w) < 1 ? prev : w));
+    });
+    ro.observe(el);
+    setSheetW(el.clientWidth);
+    return () => ro.disconnect();
+  }, []);
+
+  const fit = useMemo(
+    () => excelFitPlan({ availPx: sheetW, mode: exMode, months, hasOpts }),
+    [sheetW, exMode, months, hasOpts],
+  );
+  const show = (field: string) => fit.show.has(field);
+  const visMonths = fit.months;
+  const showProv = exFilterCols && show('provider_name');
+  const showCredit = exFilterCols && show('credit');
+  const showCond = exFilterCols && show('cond');
 
   /** 엑셀 헤더 칸 전체 클릭 = 필터 팝(텍스트만이 아니라 th 영역). */
   const hdrTh = (field: string, label: string, style: CSSProperties, className?: string) => {
@@ -87,12 +111,10 @@ export function ExcelResultsTable({
           cursor: 'pointer',
           color: on ? C.brand : style.color,
           userSelect: 'none',
-          // colLock overflow:hidden 이 뱃지를 잘라먹음 → 필터 활성 시 풀어줌
           ...(filtered ? { overflow: 'visible' } : null),
         }}
         title={n > 0 ? `${label} 필터 · ${n}개` : `${label} 필터`}
       >
-        {/* 뱃지 = 라벨 끝 우측 상단에 살짝만 걸침(텍스트 침범 최소) */}
         <span style={{ position: 'relative', display: 'inline-block', fontWeight: FW.strong }}>
           {label}
           {sorted && <span style={{ fontSize: FS.micro }}>{colSort!.dir === 'asc' ? '↑' : '↓'}</span>}
@@ -117,30 +139,28 @@ export function ExcelResultsTable({
   };
 
   return (
-    <div className={`fp-excel-sheet${exMode === 'filter' && !mobile ? ' is-fit' : ''}`}>
-      {/* 엑셀 전용 스크롤포트 — 헤더 sticky · 가로·세로 시트가 담당. 웹+filter=가로맞춤(is-fit). */}
+    <div ref={sheetRef} className={`fp-excel-sheet${!mobile ? ' is-fit' : ''}`}>
+      {/* 웹: 기본(필터열림)·전체(필터닫힘) 모두 is-fit. 열·짧은 대여기간 축소로 가로스크롤 없음. */}
       <table className={`fp-excel-table is-${exMode}${hasOpts ? ' has-opts' : ' no-opts'}`} data-excel-mode={exMode}>
         <thead><tr>
-          {/* 공통 열 — 모드와 무관 동일 순서·폭(연식·주행·연료가 필터 토글에 안 밀림). 칸 전체 클릭=필터. */}
           {hdrTh('car_number', '차량번호', { ...thX, ...cellPad, ...colLock(EXCEL_MAX.plate, padX) })}
-          {hdrTh('vehicle_status', '상태', { ...thX, ...cellPad, ...colLock(EXCEL_W.status) })}
-          {hdrTh('product_type', '상품', { ...thX, ...cellPad, ...colLock(EXCEL_W.ptype) })}
-          {hdrTh('maker', '제조사', { ...thX, ...cellPad, ...colLockChars(makerChars, true, padX) })}
-          {hdrTh('model', '모델', { ...thX, ...cellPad, ...(typeof modelW === 'number' ? colLockChars(modelW, true, padX) : colLock(modelW, padX)) })}
-          {hdrTh('sub_model', '세부모델', { ...thX, ...cellPad, ...colChars(subChars, nameSqueeze, true, padX) })}
-          {hdrTh('variant', '파워', { ...thX, ...cellPad, ...colChars(nameChars, nameSqueeze, true, padX) })}
-          {hdrTh('trim_name', '트림', { ...thX, ...cellPad, ...colChars(nameChars, nameSqueeze, true, padX) })}
-          {hdrTh('options', '옵션', { ...thX, ...cellPad, ...colOpts(hasOpts, exMode) })}
-          {hdrTh('ext_color', '외장', { ...thX, ...cellPad, ...colLockChars(colorChars, true, padX) })}
-          {hdrTh('int_color', '내장', { ...thX, ...cellPad, ...colLockChars(colorChars, true, padX) })}
-          {hdrTh('year', '연식', { ...thX, ...cellPad, ...colLock(EXCEL_MAX.year, padX) })}
-          {hdrTh('mileage', '주행', { ...thXR, ...cellPad, ...colLock(EXCEL_MAX.mile, padX) })}
-          {hdrTh('fuel_type', '연료', { ...thX, ...cellPad, ...colLockChars(fuelChars, true, padX) })}
-          {/* full만 — 대여료 직전. 필터 열림 시 숨김(사이드에서 선택). */}
-          {exFilterCols && hdrTh('provider_name', '공급사', { ...thX, ...cellPad, ...colLockChars(EXCEL_MAX.provider, true, padX) })}
-          {exFilterCols && hdrTh('credit', '심사', { ...thX, ...cellPad, ...colLock(EXCEL_W.credit) })}
-          {exFilterCols && hdrTh('cond', '조건', { ...thX, ...cellPad, ...colLock(EXCEL_W.cond) })}
-          {months.map((m) => (
+          {show('vehicle_status') && hdrTh('vehicle_status', '상태', { ...thX, ...cellPad, ...colLock(EXCEL_W.status) })}
+          {show('product_type') && hdrTh('product_type', '상품', { ...thX, ...cellPad, ...colLock(EXCEL_W.ptype) })}
+          {show('maker') && hdrTh('maker', '제조사', { ...thX, ...cellPad, ...colLockChars(makerChars, true, padX) })}
+          {show('model') && hdrTh('model', '모델', { ...thX, ...cellPad, ...(typeof modelW === 'number' ? colLockChars(modelW, true, padX) : colLock(modelW, padX)) })}
+          {show('sub_model') && hdrTh('sub_model', '세부모델', { ...thX, ...cellPad, ...colChars(subChars, nameSqueeze, true, padX) })}
+          {show('variant') && hdrTh('variant', '파워', { ...thX, ...cellPad, ...colChars(nameChars, nameSqueeze, true, padX) })}
+          {show('trim_name') && hdrTh('trim_name', '트림', { ...thX, ...cellPad, ...colChars(nameChars, nameSqueeze, true, padX) })}
+          {show('options') && hdrTh('options', '옵션', { ...thX, ...cellPad, ...colOpts(hasOpts, exMode) })}
+          {show('ext_color') && hdrTh('ext_color', '외장', { ...thX, ...cellPad, ...colLockChars(colorChars, true, padX) })}
+          {show('int_color') && hdrTh('int_color', '내장', { ...thX, ...cellPad, ...colLockChars(colorChars, true, padX) })}
+          {show('year') && hdrTh('year', '연식', { ...thX, ...cellPad, ...colLock(EXCEL_MAX.year, padX) })}
+          {show('mileage') && hdrTh('mileage', '주행', { ...thXR, ...cellPad, ...colLock(EXCEL_MAX.mile, padX) })}
+          {show('fuel_type') && hdrTh('fuel_type', '연료', { ...thX, ...cellPad, ...colLockChars(fuelChars, true, padX) })}
+          {showProv && hdrTh('provider_name', '공급사', { ...thX, ...cellPad, ...colLockChars(EXCEL_MAX.provider, true, padX) })}
+          {showCredit && hdrTh('credit', '심사', { ...thX, ...cellPad, ...colLock(EXCEL_W.credit) })}
+          {showCond && hdrTh('cond', '조건', { ...thX, ...cellPad, ...colLock(EXCEL_W.cond) })}
+          {visMonths.map((m) => (
             hdrTh(`price:${m}`, `${m}개월`, { ...thXR, ...cellPad, ...colLock(priceW) }, 'fp-excel-price')
           ))}
         </tr></thead>
@@ -164,36 +184,39 @@ export function ExcelResultsTable({
           return (
           <tr key={String(p.product_code || p._key || i)} className="fp-sheet-row" onClick={() => onRowClick(p)} onContextMenu={(e) => onRowContextMenu(e, p)} style={{ cursor: 'pointer', background: bg }}>
             <td style={{ ...tdX, ...cellPad, ...colLock(EXCEL_MAX.plate, padX), background: bg, fontFamily: NUM, fontWeight: FW.strong }} title={String(p.car_number || '') || undefined}>{String(p.car_number || '') || DASH}</td>
-            <td style={{ ...tdX, ...cellPad, ...colLock(EXCEL_W.status) }}>{st ? <Badge tone={vehicleTone(st)} variant={st === '계약중' ? 'solid' : 'line'} pulse={st === '계약중'}>{st}</Badge> : DASH}</td>
-            <td style={{ ...tdX, ...cellPad, ...colLock(EXCEL_W.ptype) }}>{pt ? (() => { const c = canonProductType(pt) || pt; const s = productTypeStyle(c); return <Badge tone={s.tone} variant={s.variant}>{c}</Badge>; })() : DASH}</td>
-            <td style={{ ...tdX, ...cellPad, ...colLockChars(makerChars, true, padX) }}>{clipMax(makerDisplay(p.maker) || p.maker, makerChars)}</td>
-            <td style={{ ...tdX, ...cellPad, ...(typeof modelW === 'number' ? colLockChars(modelW, true, padX) : colLock(modelW, padX)) }}>{typeof modelW === 'number' ? clipMax(p.model, modelW) : clip(p.model)}</td>
-            <td style={{ ...tdX, ...cellPad, ...colChars(subChars, nameSqueeze, true, padX) }}>{clipMax(p.sub_model, subChars)}</td>
-            <td style={{ ...tdX, ...cellPad, ...colChars(nameChars, nameSqueeze, true, padX) }}>{clipMax(p.variant, nameChars)}</td>
-            <td style={{ ...tdX, ...cellPad, ...colChars(nameChars, nameSqueeze, true, padX) }}>{clipMax(p.trim_name, nameChars)}</td>
-            <td style={{ ...tdX, ...cellPad, ...colOpts(hasOpts, exMode), whiteSpace: 'normal', verticalAlign: 'middle', overflow: 'hidden' }} title={opts.join(' · ') || undefined}>
-              {opts.length ? <OptionChips p={p} lines={2} /> : DASH}
-            </td>
-            <td style={{ ...tdX, ...cellPad, ...colLockChars(colorChars, true, padX) }}>{clipMax(p.ext_color, colorChars)}</td>
-            <td style={{ ...tdX, ...cellPad, ...colLockChars(colorChars, true, padX) }}>{clipMax(p.int_color, colorChars)}</td>
-            <td style={{ ...tdX, ...cellPad, ...colLock(EXCEL_MAX.year, padX) }}>{yearDisplay(p.year) || DASH}</td>
-            <td style={{ ...tdXR, ...cellPad, ...colLock(EXCEL_MAX.mile, padX) }}>{kmDisplay(p.mileage) || DASH}</td>
-            <td style={{ ...tdX, ...cellPad, ...colLockChars(fuelChars, true, padX) }}>{fuel ? clipMax(fuel, fuelChars) : DASH}</td>
-            {exFilterCols && <td style={{ ...tdX, ...cellPad, ...colLockChars(EXCEL_MAX.provider, true, padX) }}>{clipMax(p.provider_name || p.provider_company_code, EXCEL_MAX.provider)}</td>}
-            {exFilterCols && <td style={{ ...tdX, ...cellPad, ...colLock(EXCEL_W.credit) }}>{(() => { const c = creditDisplay(p); return c ? <Badge tone={CREDIT_TONE(c)}>{c}</Badge> : DASH; })()}</td>}
-            {exFilterCols && (
-            <td style={{ ...tdX, ...cellPad, ...colLock(EXCEL_W.cond), whiteSpace: 'normal' }}>
+            {show('vehicle_status') && <td style={{ ...tdX, ...cellPad, ...colLock(EXCEL_W.status) }}>{st ? <Badge tone={vehicleTone(st)} variant={st === '계약중' ? 'solid' : 'line'} pulse={st === '계약중'}>{st}</Badge> : DASH}</td>}
+            {show('product_type') && <td style={{ ...tdX, ...cellPad, ...colLock(EXCEL_W.ptype) }}>{pt ? (() => { const c = canonProductType(pt) || pt; const s = productTypeStyle(c); return <Badge tone={s.tone} variant={s.variant}>{c}</Badge>; })() : DASH}</td>}
+            {show('maker') && <td style={{ ...tdX, ...cellPad, ...colLockChars(makerChars, true, padX) }}>{clipMax(makerDisplay(p.maker) || p.maker, makerChars)}</td>}
+            {show('model') && <td style={{ ...tdX, ...cellPad, ...(typeof modelW === 'number' ? colLockChars(modelW, true, padX) : colLock(modelW, padX)) }}>{typeof modelW === 'number' ? clipMax(p.model, modelW) : clip(p.model)}</td>}
+            {show('sub_model') && <td style={{ ...tdX, ...cellPad, ...colChars(subChars, nameSqueeze, true, padX) }}>{clipMax(p.sub_model, subChars)}</td>}
+            {show('variant') && <td style={{ ...tdX, ...cellPad, ...colChars(nameChars, nameSqueeze, true, padX) }}>{clipMax(p.variant, nameChars)}</td>}
+            {show('trim_name') && <td style={{ ...tdX, ...cellPad, ...colChars(nameChars, nameSqueeze, true, padX) }}>{clipMax(p.trim_name, nameChars)}</td>}
+            {show('options') && (
+              <td style={{ ...tdX, ...cellPad, ...colOpts(hasOpts, exMode), whiteSpace: 'normal', verticalAlign: 'middle', overflow: 'hidden' }} title={opts.join(' · ') || undefined}>
+                {opts.length ? <OptionChips p={p} lines={2} /> : DASH}
+              </td>
+            )}
+            {show('ext_color') && <td style={{ ...tdX, ...cellPad, ...colLockChars(colorChars, true, padX) }}>{clipMax(p.ext_color, colorChars)}</td>}
+            {show('int_color') && <td style={{ ...tdX, ...cellPad, ...colLockChars(colorChars, true, padX) }}>{clipMax(p.int_color, colorChars)}</td>}
+            {show('year') && <td style={{ ...tdX, ...cellPad, ...colLock(EXCEL_MAX.year, padX) }}>{yearDisplay(p.year) || DASH}</td>}
+            {show('mileage') && <td style={{ ...tdXR, ...cellPad, ...colLock(EXCEL_MAX.mile, padX) }}>{kmDisplay(p.mileage) || DASH}</td>}
+            {show('fuel_type') && <td style={{ ...tdX, ...cellPad, ...colLockChars(fuelChars, true, padX) }}>{fuel ? clipMax(fuel, fuelChars) : DASH}</td>}
+            {showProv && <td style={{ ...tdX, ...cellPad, ...colLockChars(EXCEL_MAX.provider, true, padX) }}>{clipMax(p.provider_name || p.provider_company_code, EXCEL_MAX.provider)}</td>}
+            {showCredit && <td style={{ ...tdX, ...cellPad, ...colLock(EXCEL_W.credit) }}>{(() => { const c = creditDisplay(p); return c ? <Badge tone={CREDIT_TONE(c)}>{c}</Badge> : DASH; })()}</td>}
+            {showCond && (
+            <td style={{ ...tdX, ...cellPad, ...colLock(EXCEL_W.cond), whiteSpace: 'normal', overflow: 'hidden' }}>
               {conds.length ? (
                 <span style={{
                   display: 'flex', flexWrap: 'wrap',
-                  gap: EXCEL_BADGE_GAP_X, alignItems: 'center', alignContent: 'flex-start',
+                  columnGap: EXCEL_BADGE_GAP_X, rowGap: EXCEL_OPT_ROW_GAP,
+                  alignItems: 'center', alignContent: 'flex-start',
+                  width: '100%', minWidth: 0,
                   maxHeight: EXCEL_CELL_BODY_H, overflow: 'hidden',
                 }}>
                   {conds.map((c) => {
                     const tone: BadgeTone = c.key === 'age' ? 'blue' : 'purple';
-                    // 박스 단위 — shrink 금지(텍스트끼리 붙어 보이지 않게).
                     return (
-                      <span key={c.key} style={{ flex: '0 0 auto', display: 'inline-flex' }}>
+                      <span key={c.key} style={{ flex: '0 0 auto', display: 'inline-flex', maxWidth: '100%' }}>
                         <Badge tone={tone} variant="line">{c.label}</Badge>
                       </span>
                     );
@@ -204,7 +227,7 @@ export function ExcelResultsTable({
               )}
             </td>
             )}
-            {months.map((m) => { const e = pl.find((x) => x.m === m); return (
+            {visMonths.map((m) => { const e = pl.find((x) => x.m === m); return (
               <td key={m} className="fp-excel-price" style={{ ...tdXR, ...cellPad, ...colLock(priceW), background: bg, lineHeight: 1.2 }}>
                     {e ? <><div style={{ color: C.brand, fontWeight: FW.head, whiteSpace: 'nowrap' }}>{man(e.rent)}</div><div style={{ color: C.faint, fontWeight: FW.body, whiteSpace: 'nowrap' }}>{e.deposit ? man(e.deposit) : '0'}</div></> : DASH}
               </td>

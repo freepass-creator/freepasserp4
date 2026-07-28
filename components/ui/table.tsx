@@ -128,9 +128,11 @@ export function pinRight(i: number, colPxOrSample: number | string, total: numbe
 /**
  * 엑셀 열 모드 SSOT
  *
- *  · filter(사이드바 열림·웹): 공급사·심사·조건 숨김 · 제조사 3자 · 패딩 양보(6→4).
- *  · full(사이드바 닫힘): 공급사·심사·조건 표시 · 제조사 4자 · 패딩 6.
- *  · 틀고정(차번/대여료 sticky) 없음. 가로스크롤은 창이 열 합보다 좁을 때만.
+ *  · filter = 기본보기(사이드 필터 열림): 공급사·심사·조건 숨김 · 제조사 3자 · 패딩 양보(6→4).
+ *    폭이 줄면 excelFitPlan으로 열·짧은 대여기간부터 숨김 → 가로스크롤 없음.
+ *    차량번호·긴 기간 대여료가 끝까지 생존.
+ *  · full = 전체보기(필터 닫힘): 공급사·심사·조건 표시 · 제조사 4자 · 패딩 6.
+ *    브라우저 최대화에서도 가로스크롤 없음(넘치면 같은 fit로 맞춤).
  *
  * 공통 열(항상 동일 순서):
  *   차번 · 상태 · 상품 · 제조사 · 모델 · 세부모델 · 파워 · 트림 · 옵션 · 외장 · 내장 · 연식 · 주행 · 연료
@@ -274,9 +276,10 @@ export const EXCEL_W = {
   status: 66,
   /** 중고렌트 등 4글자 상품 Badge — 58은 좁아 제조사에 붙었음(→ status와 맞춰 여유). */
   ptype: 70,
-  /** 조건 — 뱃지 박스 2개 가로(+ gap). 3번째는 다음 줄. 필터 닫힘(full)만 표시. */
+  /** 조건 — 뱃지 박스 2개 가로(+ gap). 3번째는 다음 줄(옵션칩 lines=2와 동일). 필터 닫힘(full)만 표시. */
   cond: 118,
-  credit: 48,
+  /** 소득확인(4글자) Badge — 48이면 칸에서 잘려 조건열로 밀림. status와 동일 여유. */
+  credit: 66,
   /** 옵션칸 — 세부모델·파워·트림 10자 고정 양보. min 축소(구 240). */
   opts: { min: 160, prefer: 160, empty: 40 },
 } as const;
@@ -300,6 +303,109 @@ function sampleWPx(sample: string, padX: number = EXCEL_PAD_X): number {
 export const EXCEL_PRICE_W = Math.max(sampleWPx(EXCEL_PRICE_COL), sampleWPx(EXCEL_PRICE_MAX));
 export function excelPriceW(mode: ExcelColMode): number {
   return Math.max(sampleWPx(EXCEL_PRICE_COL, excelPadX(mode)), sampleWPx(EXCEL_PRICE_MAX, excelPadX(mode)));
+}
+
+/** 메타 열 탈락 순서 — 차번·대여료는 여기 없음. full은 공급사·심사·조건부터. */
+const EXCEL_FIT_DROP_FILTER: readonly string[] = [
+  'options', 'variant', 'trim_name', 'sub_model',
+  'ext_color', 'int_color', 'fuel_type', 'year', 'mileage',
+  'maker', 'model', 'product_type', 'vehicle_status',
+];
+const EXCEL_FIT_DROP_FULL: readonly string[] = [
+  'cond', 'credit', 'provider_name',
+  ...EXCEL_FIT_DROP_FILTER,
+];
+
+export type ExcelFitPlan = {
+  /** 표시할 메타 필드(차량번호 제외 — 항상 표시) */
+  show: Set<string>;
+  /** 표시할 대여 개월(오름차순 유지, 짧은 기간부터 탈락) */
+  months: number[];
+};
+
+function excelMetaColPx(field: string, mode: ExcelColMode, hasOpts: boolean): number {
+  const pad = excelPadX(mode);
+  switch (field) {
+    case 'vehicle_status': return EXCEL_W.status;
+    case 'product_type': return EXCEL_W.ptype;
+    case 'maker': return sampleWPx(`${'가'.repeat(excelMakerChars(mode))}…`, pad);
+    case 'model': {
+      const mw = excelModelWidth(mode, hasOpts);
+      return typeof mw === 'number' ? sampleWPx(`${'가'.repeat(mw)}…`, pad) : sampleWPx(String(mw), pad);
+    }
+    case 'sub_model': return sampleWPx(`${'가'.repeat(excelSubChars(mode))}…`, pad);
+    case 'variant':
+    case 'trim_name': return sampleWPx(`${'가'.repeat(excelNameChars(mode))}…`, pad);
+    case 'options': return hasOpts
+      ? (mode === 'filter' ? EXCEL_W.opts.empty : EXCEL_W.opts.min)
+      : EXCEL_W.opts.empty;
+    case 'ext_color':
+    case 'int_color': return sampleWPx(`${'가'.repeat(excelColorChars(mode))}…`, pad);
+    case 'year': return sampleWPx(EXCEL_MAX.year, pad);
+    case 'mileage': return sampleWPx(EXCEL_MAX.mile, pad);
+    case 'fuel_type': return sampleWPx(`${'가'.repeat(excelFuelChars(mode))}…`, pad);
+    case 'provider_name': return sampleWPx(`${'가'.repeat(EXCEL_MAX.provider)}…`, pad);
+    case 'credit': return EXCEL_W.credit;
+    case 'cond': return EXCEL_W.cond;
+    default: return 40;
+  }
+}
+
+/**
+ * 뷰포트 폭에 맞춰 엑셀 열 축소 계획.
+ * · filter(기본보기): 창이 줄면 열·짧은 대여기간부터 숨김.
+ * · full(전체보기): 최대화에서도 가로스크롤 없이 맞춤(넘칠 때만 동일 규칙).
+ * 차량번호 + 대여료(긴 기간 우선) 유지. availPx≤0이면 전부 표시(측정 전).
+ */
+export function excelFitPlan(opts: {
+  availPx: number;
+  mode: ExcelColMode;
+  months: number[];
+  hasOpts: boolean;
+}): ExcelFitPlan {
+  const { mode, hasOpts } = opts;
+  const allMonths = [...opts.months].sort((a, b) => a - b);
+  const baseMeta = [
+    'vehicle_status', 'product_type', 'maker', 'model',
+    'sub_model', 'variant', 'trim_name', 'options',
+    'ext_color', 'int_color', 'year', 'mileage', 'fuel_type',
+    ...(mode === 'full' ? ['provider_name', 'credit', 'cond'] : []),
+  ];
+  let meta = [...baseMeta];
+  let months = [...allMonths];
+  if (!(opts.availPx > 0)) return { show: new Set(meta), months };
+
+  const pad = excelPadX(mode);
+  const platePx = sampleWPx(EXCEL_MAX.plate, pad);
+  const pricePx = excelPriceW(mode);
+  // sampleWPx ↔ CSS calc 오차·보더·scrollbar-gutter
+  const slack = 24;
+  const dropOrder = mode === 'full' ? EXCEL_FIT_DROP_FULL : EXCEL_FIT_DROP_FILTER;
+
+  const total = () =>
+    platePx
+    + meta.reduce((s, f) => s + excelMetaColPx(f, mode, hasOpts), 0)
+    + months.length * pricePx
+    + slack;
+
+  // 1) 메타 열 탈락(드롭 순서)
+  for (const field of dropOrder) {
+    if (total() <= opts.availPx) break;
+    if (!meta.includes(field)) continue;
+    meta = meta.filter((f) => f !== field);
+  }
+  // 2) 짧은 대여 기간부터 탈락(긴 기간 생존). 최소 1열은 남김.
+  while (months.length > 1 && total() > opts.availPx) {
+    months = months.slice(1);
+  }
+  // 3) 그래도 넘치면 메타를 차번만 남기고 재시도(대여 1열 유지)
+  if (total() > opts.availPx) {
+    meta = [];
+    while (months.length > 1 && platePx + months.length * pricePx + slack > opts.availPx) {
+      months = months.slice(1);
+    }
+  }
+  return { show: new Set(meta), months };
 }
 
 /**

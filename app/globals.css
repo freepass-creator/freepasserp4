@@ -349,7 +349,8 @@ button, input, select, textarea { font-family: inherit; }
   table-layout: fixed;
   font-size: 12px;
 }
-/* 웹+필터열림 — 패딩 양보·틀고정 없음. 가로스크롤 숨김(맞춤). */
+/* 웹 엑셀 — 기본보기(필터열림)·전체보기(필터닫힘) 모두 가로스크롤 숨김.
+ * 열 축소는 excelFitPlan(차번·긴 기간 대여료 우선). */
 @media (min-width: 761px) {
   .fp-finder-body.is-excel .fp-excel-sheet.is-fit {
     overflow-x: hidden;
@@ -627,10 +628,14 @@ button, input, select, textarea { font-family: inherit; }
 .fp-press:active { filter: brightness(0.94); box-shadow: none; }
 @media (hover: none) { .fp-chip:hover, .fp-press:hover { filter: none; box-shadow: none; } }
 
-/* 매물 카드 hover = 그림자만(떠오름 transform 금지 — 터치 sticky hover 포함 흔들림). */
+/* 매물 카드 hover = 그림자만(떠오름 transform 금지 — 터치 sticky hover 포함 흔들림).
+ * user-select:none = 드래그 시 카드 뒤로 파란 선택 하이라이트(브라우저 기본) 방지. */
 .fp-card {
-  background: #fff;
+  background: var(--bg-card);
   transition: border-color .15s ease, box-shadow .15s ease;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 @media (hover: hover) {
   .fp-card:hover {
