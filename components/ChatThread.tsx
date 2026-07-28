@@ -11,7 +11,7 @@ import { toast } from '@/components/Toaster';
 import { ChatSenderLabel } from '@/components/ChatSenderLabel';
 import { useIsMobile } from '@/lib/use-mobile';
 import { msgClock } from '@/lib/format';
-import { CarFront, ListChecks, LoaderCircle, Send } from 'lucide-react';
+import { CarFront, ListChecks, LoaderCircle, Paperclip, Send } from 'lucide-react';
 
 /** 📎 accept와 동일 — image/* · application/pdf */
 function isAcceptedChatFile(file: File): boolean {
@@ -228,7 +228,7 @@ export function ChatThread({ roomId, onBack, onVehicle, onContract }: { roomId: 
               style={{ maxWidth: 200, maxHeight: 220, width: 'auto', height: 'auto', aspectRatio: '10 / 11', objectFit: 'cover', borderRadius: R, cursor: 'zoom-in', display: 'block', border: `1px solid ${C.line}` }}
             />
           ) : m.file_url ? (
-            <a href={String(m.file_url)} download={String(m.file_name || 'file')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, maxWidth: 220, padding: '8px 11px', borderRadius: R, fontSize: FS.sub, background: mine ? C.brand : C.taupeBg, color: mine ? C.taupeBg : C.ink, border: mine ? 'none' : `1px solid ${C.line}`, textDecoration: 'none' }}><span>📎</span><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{String(m.file_name || '파일')}</span></a>
+            <a href={String(m.file_url)} download={String(m.file_name || 'file')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, maxWidth: 220, padding: '8px 11px', borderRadius: R, fontSize: FS.sub, background: mine ? C.brand : C.taupeBg, color: mine ? C.taupeBg : C.ink, border: mine ? 'none' : `1px solid ${C.line}`, textDecoration: 'none' }}><Paperclip size={14} aria-hidden /><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{String(m.file_name || '파일')}</span></a>
           ) : (
             <div style={{ padding: '8px 11px', borderRadius: R, fontSize: FS.body, lineHeight: 1.45, background: mine ? C.brand : isAdmin ? C.warnBg : C.taupeBg, color: mine ? C.taupeBg : C.ink, border: mine ? 'none' : `1px solid ${C.line}`, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{String(m.text)}</div>
           );
@@ -260,7 +260,7 @@ export function ChatThread({ roomId, onBack, onVehicle, onContract }: { roomId: 
         borderTop: `1px solid ${C.line}`,
       }}>
         <input ref={fileRef} type="file" accept="image/*,application/pdf" onChange={(e) => onPickFile(e.target.files)} style={{ display: 'none' }} />
-        <IconBtn onClick={() => fileRef.current?.click()} title="사진·파일 첨부" disabled={busy}>📎</IconBtn>
+        <IconBtn onClick={() => fileRef.current?.click()} title="사진·파일 첨부" disabled={busy}><Paperclip size={18} /></IconBtn>
         {/* embedded 모바일 autoFocus 금지 — 키보드가 뷰를 밀면 메시지 영역이 사라짐. 탭해서 입력. */}
         <Input value={text} onChange={setText} onEnter={send} placeholder="메시지 입력" full style={{ flex: 1 }} autoFocus={mobile && !embedded} disabled={busy} />
         {mobile ? (

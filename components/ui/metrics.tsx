@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { Check } from 'lucide-react';
 import { C, FS, FW, NUM, R } from './tokens';
 
 type Tone = 'ink' | 'danger' | 'ok' | 'warn';
@@ -142,7 +143,7 @@ export function Stepper({ steps }: { steps: Step[] }) {
               border: `2px solid ${dotColor(step.state)}`,
               boxShadow: step.state === 'current' ? `0 0 0 3px color-mix(in srgb, ${C.brand} 18%, transparent)` : 'none',
             }}>
-              {step.state === 'done' ? '✓' : index + 1}
+              {step.state === 'done' ? <Check size={14} aria-hidden /> : index + 1}
             </div>
             <div style={{ marginTop: 6, fontSize: FS.sub, fontWeight: FW.strong, color: step.state === 'todo' ? C.faint : C.ink, whiteSpace: 'nowrap' }}>{step.label}</div>
             <div style={{ fontSize: FS.micro, color: C.faint, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', minHeight: 13 }}>{step.date || ''}</div>

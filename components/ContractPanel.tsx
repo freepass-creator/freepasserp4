@@ -138,7 +138,7 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
                   return (
                     <div key={ch.key} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       {actorTag}<span style={{ fontSize: FS.cap, color: C.ink, flex: 1 }}>출고 문의</span>
-                      {done ? <span style={{ fontSize: FS.cap, color: C.ok, fontWeight: FW.strong }}>문의함 ✓</span>
+                      {done ? <span style={{ fontSize: FS.cap, color: C.ok, fontWeight: FW.strong, display: 'inline-flex', alignItems: 'center', gap: 4 }}>문의함 <Check size={14} aria-hidden /></span>
                         : mine ? <Btn mobileIcon={<Send size={18} />} title="출고 문의하기" size="sm" onClick={doInquiry} disabled={busy || !product}>출고 문의하기</Btn>
                           : <span style={{ fontSize: FS.cap, color: C.faint }}>대기</span>}
                     </div>
@@ -147,7 +147,7 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
                 if (ch.key === 'provider_agreement_done') {
                   return (
                     <div key={ch.key} style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>{actorTag}<span style={{ fontSize: FS.cap, color: C.ink, flex: 1 }}>약정 작성완료</span>{done && <span style={{ fontSize: FS.cap, color: C.ok, fontWeight: FW.strong }}>완료 ✓</span>}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>{actorTag}<span style={{ fontSize: FS.cap, color: C.ink, flex: 1 }}>약정 작성완료</span>{done && <span style={{ fontSize: FS.cap, color: C.ok, fontWeight: FW.strong, display: 'inline-flex', alignItems: 'center', gap: 4 }}>완료 <Check size={14} aria-hidden /></span>}</div>
                       {!done && mine && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingLeft: 32 }}>
                           <span style={{ fontSize: FS.micro, color: C.faint }}>계약서 발송 전 손님 연락처 확인</span>

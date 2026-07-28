@@ -5,7 +5,7 @@ import { seedIfEmpty } from '@/lib/seed';
 import { getCompanyId } from '@/lib/tenant';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { getContractByToken, SIGN_REQUIRED_CONSENTS, submitSign } from '@/lib/domain/sign';
-import { CheckCheck, Eraser } from 'lucide-react';
+import { Check, CheckCheck, Eraser } from 'lucide-react';
 import { won, C, R, Input, fmtPhone, Loading, Btn, FW, FS } from '@/components/ui';
 import { toast } from '@/components/Toaster';
 
@@ -66,7 +66,7 @@ export default function SignPage() {
   if (st === '검토대기' || st === '서명완료') return (
     <main style={wrap}>
       <div style={{ textAlign: 'center', padding: '40px 0' }}>
-        <div style={{ fontSize: 40 }}>✓</div>
+        <div style={{ color: C.ok, display: 'flex', justifyContent: 'center', lineHeight: 1 }}><Check size={40} aria-hidden /></div>
         <h1 style={{ fontSize: FS.page, fontWeight: FW.title, margin: '8px 0 4px' }}>{st === '서명완료' ? '서명이 완료되었습니다' : '제출이 접수되었습니다'}</h1>
         <p style={{ color: C.mute, fontSize: FS.body }}>{st === '서명완료' ? '계약이 확정되었습니다.' : '담당자 확인 후 계약이 확정됩니다. 잠시만 기다려 주세요.'}</p>
       </div>
@@ -134,7 +134,7 @@ export default function SignPage() {
                 fontWeight: FW.strong,
               }}
             >
-              <span style={{ flex: '0 0 18px', fontFamily: 'var(--font-mono)' }}>{on ? '✓' : ''}</span>
+              <span style={{ flex: '0 0 18px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{on ? <Check size={14} aria-hidden /> : null}</span>
               <span style={{ textAlign: 'left' }}>{CONSENT_LABELS[x]} <span style={{ color: on ? 'rgba(255,255,255,0.85)' : C.danger }}>(필수)</span></span>
             </Btn>
           );

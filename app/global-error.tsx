@@ -1,5 +1,6 @@
 'use client';
 import { useEffect } from 'react';
+import { AlertTriangle } from 'lucide-react';
 import { logClientError } from '@/lib/observability/log-error';
 
 /**
@@ -57,7 +58,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
           minHeight: '100vh', display: 'flex', flexDirection: 'column',
           alignItems: 'center', justifyContent: 'center', gap: 14, padding: 24, textAlign: 'center',
         }}>
-          <div style={{ fontSize: 40 }}>⚠️</div>
+          <div style={{ color: '#a16207', display: 'flex', lineHeight: 1 }}><AlertTriangle size={40} aria-hidden /></div>
           <div style={{ fontSize: 18, fontWeight: 650 }}>일시적인 오류가 발생했습니다</div>
           <div style={{ fontSize: 13, color: 'var(--text-sub)', maxWidth: 360, lineHeight: 1.6 }}>
             페이지를 새로고침하거나 잠시 후 다시 접속해 주세요.

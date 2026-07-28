@@ -5,6 +5,7 @@ import type { EntityRecord } from '@/lib/intake/entities';
 import { excelPopEntries, type PopEntry } from '@/lib/domain/excel-col-filter';
 import { excelColumnValues, isNumericExcelColumn, type ColSort } from './excel-columns';
 import { Btn, C, FS, FW, NUM, R, SearchInput, SH } from '@/components/ui';
+import { Check } from 'lucide-react';
 
 type Props = {
   field: string;
@@ -75,7 +76,7 @@ export function ExcelFilterPopover({
         alignItems: 'center', justifyContent: 'center', color: C.taupeBg,
         fontSize: 10, fontWeight: FW.head, lineHeight: 1,
       }}
-    >{on ? '✓' : ''}</span>
+    >{on ? <Check size={14} aria-hidden /> : null}</span>
   );
 
   return (

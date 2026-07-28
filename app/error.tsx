@@ -1,6 +1,7 @@
 'use client';
 import { useEffect } from 'react';
 import Link from 'next/link';
+import { AlertTriangle } from 'lucide-react';
 import { C, FS, FW, R } from '@/components/ui/tokens';
 import { logClientError } from '@/lib/observability/log-error';
 
@@ -15,7 +16,7 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
       minHeight: '60vh', display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'center', gap: 14, padding: 24, textAlign: 'center',
     }}>
-      <div style={{ fontSize: 40 }}>⚠️</div>
+      <div style={{ color: C.warn, display: 'flex', lineHeight: 1 }}><AlertTriangle size={40} aria-hidden /></div>
       <div style={{ fontSize: FS.title, fontWeight: FW.title, color: C.ink }}>문제가 발생했습니다</div>
       <div style={{ fontSize: FS.sub, color: C.mute, maxWidth: 360, lineHeight: 1.6 }}>
         일시적인 오류일 수 있습니다. 다시 시도하거나 잠시 후 접속해 주세요.
