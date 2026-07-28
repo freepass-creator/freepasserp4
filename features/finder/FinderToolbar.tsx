@@ -4,7 +4,7 @@ import { Download, LayoutGrid, List, SlidersHorizontal, Table } from 'lucide-rea
 import type { EntityRecord } from '@/lib/intake/entities';
 import { downloadProductsExcel } from '@/lib/excel-export';
 import { InterestTriggers, type InterestTab } from '@/components/InterestRail';
-import { C, FS, CountPill, IconBtn, IconSeg, SearchInput, Select, Btn } from '@/components/ui';
+import { C, FS, CountPill, IconBtn, IconSeg, SearchInput, Select } from '@/components/ui';
 
 const SORTS = [
   { k: 'asc', label: '대여료 낮은순' },
@@ -62,17 +62,13 @@ export function FinderToolbar(props: Props) {
       <div className="fp-finder-toolbar">
         {search}
         <span style={{ position: 'relative', display: 'inline-flex', flex: '0 0 auto' }}>
-          <Btn
-            variant="ghost"
-            size="sm"
+          <IconBtn
             title={props.filterBadge > 0 ? `조건 ${props.filterBadge}개 · 필터` : '필터'}
-            aria-pressed={props.filterSheetOpen}
+            active={props.filterSheetOpen}
             onClick={props.onToggleFilterSheet}
-            style={{ gap: 4, padding: '0 10px' }}
           >
             <SlidersHorizontal size={16} />
-            필터
-          </Btn>
+          </IconBtn>
           {props.filterBadge > 0 && <span className="fp-icon-count"><CountPill n={props.filterBadge} tone="accent" /></span>}
         </span>
       </div>
