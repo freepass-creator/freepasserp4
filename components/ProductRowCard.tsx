@@ -144,7 +144,7 @@ function MobileRow({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) 
 
         {/* 3 대여료 · 보증금 · 최저~최대 운영기간 */}
         <div style={{
-          display: 'flex', alignItems: 'center', gap: 8,
+          display: 'flex', alignItems: 'center', gap: 8, lineHeight: 1.2,
           minWidth: 0, width: '100%', overflow: 'hidden',
         }}>
           <div style={{ flex: '1 1 auto', minWidth: 0, overflow: 'hidden' }}>
