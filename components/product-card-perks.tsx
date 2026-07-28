@@ -140,7 +140,7 @@ export function CardPerkLine({ p, dense, inline }: {
   return (
     <div style={{
       ...metaRow(!!dense, false, true, !inline),
-      ...(inline ? { width: undefined, flex: '0 1 auto', overflow: 'hidden' } : null),
+      ...(inline ? { width: undefined, flex: '0 1 auto', overflow: 'hidden', lineHeight: 1.2 } : null),
     }}>
       {bens.map((s) => (
         <MetaIcon
