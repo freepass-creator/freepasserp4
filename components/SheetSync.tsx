@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getStore } from '@/lib/store';
 import { getRole, actor } from '@/lib/domain/deal';
-import { toast } from '@/components/Toaster';
+import { confirmDialog, toast } from '@/components/Toaster';
 import { Btn, C, FS, FW, Input, PillTabs, R, Select, SectionLabel, Textarea, NUM } from '@/components/ui';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { type MasterEntry } from '@/lib/domain/vehicle-master-match';
@@ -151,6 +151,12 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
     if (!masterReady) { toast('차종마스터가 없습니다 — 변환 불가', 'error'); return; }
     if (!preview?.products.length) return;
     if (!('car_number' in mapping)) { toast('차량번호 컬럼을 지정하세요', 'error'); return; }
+    const ok = await confirmDialog({
+      message: `취합 ${preview.products.length}건`
+        + (preview.rentedExcluded > 0 ? `\n배차중 제외 ${preview.rentedExcluded}` : '')
+        + '\n\n차종 변환 후 재고에 저장할까요?',
+    });
+    if (!ok) return;
     setBusy(true);
     try {
       const r = await commitSupplierProducts(co, preview.products, master!);
@@ -277,6 +283,9 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
                 · 검수 <b style={{ color: preview && preview.review > 0 ? C.warn : C.mute }}>{preview?.review ?? 0}</b>
                 <span style={{ color: C.faint }}> (high {preview?.snap.high ?? 0}·중 {preview?.snap.medium ?? 0}·검토 {preview?.snap.low ?? 0}{preview?.snap.none ? `·미매칭 ${preview.snap.none}` : ''})</span>
                 {preview?.skipped ? ` · 건너뜀 ${preview.skipped}` : ''}
+                {preview && preview.rentedExcluded > 0 ? (
+                  <span style={{ color: C.faint }}> · 배차중 제외 {preview.rentedExcluded}</span>
+                ) : null}
               </>
             )}
             {!('car_number' in mapping) && <span style={{ color: C.danger }}> · ⚠ 차량번호 컬럼 지정 필요</span>}
