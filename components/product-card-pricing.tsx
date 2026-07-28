@@ -115,7 +115,7 @@ export function PriceRentDep({ align = 'end' }: { align?: 'start' | 'end' }) {
 export function PriceAmounts({ align = 'start' }: {
   align?: 'start' | 'end' | 'center';
 }) {
-  const { focus, peeking } = usePricePeek();
+  const { focus, peeking, mobile } = usePricePeek();
   const end = align === 'end';
   const center = align === 'center';
   if (!focus) {
@@ -139,6 +139,8 @@ export function PriceAmounts({ align = 'start' }: {
         }}>월</span>
         <span style={{
           fontSize: FS.title, fontWeight: FW.head, fontFamily: NUM, letterSpacing: '-0.02em',
+          // 모바일: 큰 금액 ascent로 행2↔3이 벌어져 보임 → lh 축소(웹 Cell은 기본 lh 유지)
+          ...(mobile ? { lineHeight: 1.05 } : null),
           color: peeking ? C.brand : C.ink, transition: 'color 0.12s ease',
         }}>{man(focus.rent)}</span>
       </span>
