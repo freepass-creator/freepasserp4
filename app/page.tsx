@@ -379,10 +379,10 @@ export default function Finder() {
     setQInput(''); setQ(''); setPeriods(new Set()); setRent(new Set()); setDep(new Set()); setMile(new Set()); setFuel(new Set()); setPtype(new Set()); setCredit(new Set()); setPerks(new Set()); setPromo(new Set()); setDyn({}); setVehicle({ ...EMPTY_VEHICLE_FILTER }); setSort(''); setModels(new Set()); setInterestFlt(new Set());
   };
   const filterBadge = activeCount(s) + models.size + interestFlt.size + (sort ? 1 : 0) + colFilterN;
-  // 더보기 = 지금 보고 있는 목록 기준. 100개 미만이면 버튼 없음.
-  const activeList = list;
+  // 더보기 = 지금 보고 있는 목록 기준(엑셀=헤더필터·정렬 반영분). 100개 미만이면 버튼 없음.
+  const activeList = effView === 'excel' ? excelRows : list;
   const shown = activeList.slice(0, limit);
-  const moreN = effView === 'excel' ? 0 : Math.max(0, activeList.length - shown.length);
+  const moreN = Math.max(0, activeList.length - shown.length);
   const go = (p: EntityRecord) => router.push(`/m/${encodeURIComponent(String(p.product_code))}`);
   const productCtxItems = (p: EntityRecord) => buildProductContextItems(p, router.push);
   const onProductCtx = (e: MouseEvent, p: EntityRecord) => {
@@ -478,7 +478,7 @@ export default function Finder() {
           <FinderResults
             bodyRef={finderBodyRef}
             rows={rows}
-            list={activeList}
+            list={list}
             shown={shown}
             excelRows={excelRows}
             months={months}

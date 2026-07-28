@@ -77,7 +77,7 @@ export function FinderResults(props: Props) {
         </div>
       ) : (
         <ExcelResultsTable
-          rows={props.excelRows}
+          rows={props.shown}
           list={props.list}
           months={props.months}
           filterOpen={props.filterOpen}
@@ -97,10 +97,10 @@ export function FinderResults(props: Props) {
           ...(props.mobile ? { padding: '10px 12px', borderTop: `1px solid ${C.line2}` } : { marginTop: 14 }),
         }}>
           <span style={{ fontSize: props.mobile ? FS.body : FS.sub, color: C.mute }}>
-            {props.shown.length.toLocaleString()} / {props.list.length.toLocaleString()}대
+            {props.shown.length.toLocaleString()} / {(props.shown.length + props.moreCount).toLocaleString()}대
           </span>
           <Btn mobileIcon={<Plus size={18} />} title={`더보기 ${Math.min(100, props.moreCount)}대`} variant="ghost" onClick={props.onMore}>더보기 · {Math.min(100, props.moreCount).toLocaleString()}대</Btn>
-          <Btn mobileIcon={<List size={18} />} title={`전체 ${props.list.length}대 보기`} variant="ghost" onClick={props.onShowAll}>전체 보기</Btn>
+          <Btn mobileIcon={<List size={18} />} title={`전체 ${props.shown.length + props.moreCount}대 보기`} variant="ghost" onClick={props.onShowAll}>전체 보기</Btn>
         </div>
       )}
     </div>

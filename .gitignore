@@ -13,3 +13,11 @@ npm-debug.log*
 .vercel
 .env*
 /tmp/
+
+# 운영 RTDB 덤프(PII) — 절대 커밋 금지
+/backup.json
+/backup-*.json
+/companies.json
+/partners.json
+/hn.json
+/*-rtdb-*.json
