@@ -7,6 +7,7 @@
 import { snapToMaster, applySnap, fuelDisplay, fuelEmbeddedCc, type MasterEntry } from '@/lib/domain/vehicle-master-match';
 import { applyColors } from '@/lib/domain/color-master';
 import { type EntityRecord } from '@/lib/intake/entities';
+import { normalizeProductOptionsText, isRealPlate } from '@/lib/domain/product';
 
 // ── 헤더 별칭 사전 ── 렌트사 시트 컬럼명 → 프리패스 표준 필드. 국산 렌트 시트는 대동소이 → 자동 90%.
 export const HEADER_ALIASES: Record<string, string> = {
@@ -50,7 +51,42 @@ export const IMPORT_FIELDS: { key: string; label: string }[] = [
 
 const norm = (s: unknown) => String(s ?? '').trim().toLowerCase().replace(/\s+/g, '');
 
+/**
+ * 시트 판매상태 → VEHICLE_STATES.
+ * 연동 판단 SSOT: 시트에 차번이 있으면 데이터화하고, **출고불가 여부**만 규격 상태로 맞춘다.
+ *  · 보류·불가·완료 → 출고불가
+ *  · 계약중 → 계약중
+ *  · 판매중·할인판매·가능·빈값 → 출고가능 (오토플러스 등)
+ *  · 이미 규격값이면 그대로
+ */
+export function canonSheetVehicleStatus(raw: unknown): string {
+  const s = String(raw ?? '').trim();
+  if (!s) return '출고가능';
+  if (s === '즉시출고' || s === '출고가능' || s === '상품화중' || s === '출고협의' || s === '계약중' || s === '출고불가') return s;
+  if (/^계약/.test(s)) return '계약중';
+  // 배차대기·입고대기 = 곧 나올 수 있음(협의 필요) → 출고협의. (지금은 default 출고가능으로 오분류됐음)
+  if (/배차대기|입고대기/.test(s)) return '출고협의';
+  if (/보류|불가|완료|마감|종료|sold|hold/i.test(s)) return '출고불가';
+  if (/판매중|할인판매|즉시|가능|판매|promo|할인/i.test(s)) return '출고가능';
+  return '출고가능';
+}
+
+/**
+ * 시트 원문 상태가 '이미 나간 차'(배차중·운행중·렌트중·대여중·판매완료·반납·폐차·말소) 여부.
+ * → 상품이 아니므로 유입에서 skip. (배차대기는 출고협의로 상품에 포함 — 이 함수 대상 아님)
+ */
+export function isSheetRentedOut(raw: unknown): boolean {
+  return /배차중|운행중|렌트중|대여중|판매완료|반납|폐차|말소/.test(String(raw ?? ''));
+}
+
 /** 헤더 자동매핑 — 정확일치 → 정규화일치 → 부분일치(별칭 긴 키 우선). 반환 = {표준필드: 컬럼인덱스}(첫 매칭 우선). */
+/**
+ * 헤더칸이 상태 컬럼명이 아니라 상태값 자체인 경우(아이카: 0번 열 헤더 = "즉시출고").
+ * 이런 열은 상태값이 들어있는 상태 컬럼이므로 vehicle_status로 인식.
+ * (상태 별칭 상태·판매상태·재고상태가 우선. 이건 그게 없을 때의 폴백)
+ */
+const STATUS_VALUE_HEADER = /^(즉시출고|출고가능|출고불가|출고협의|상품화중|계약중|배차중|배차대기|입고대기|판매중|할인판매|출고상태|차량상태|배차상태|출고현황)$/;
+
 export function autoMapHeaders(headers: string[]): MappingProfile {
   const map: MappingProfile = {};
   const aliasKeys = Object.keys(HEADER_ALIASES).sort((a, b) => b.length - a.length);
@@ -62,6 +98,8 @@ export function autoMapHeaders(headers: string[]): MappingProfile {
       const k = aliasKeys.find((a) => norm(t).includes(norm(a)));
       if (k) field = HEADER_ALIASES[k];
     }
+    // 폴백: 헤더가 상태값 자체면 상태 컬럼(아이카식). 이미 상태열이 잡혔으면 덮지 않음.
+    if (!field && !('vehicle_status' in map) && STATUS_VALUE_HEADER.test(norm(t))) field = 'vehicle_status';
     if (field && !(field in map)) map[field] = i;
   });
   return map;
@@ -98,6 +136,7 @@ export type ImportResult = {
   products: EntityRecord[];
   mapping: MappingProfile;   // 사용된 매핑(자동이면 이걸 프로파일로 저장)
   total: number; imported: number; skipped: number;
+  rentedExcluded: number;    // 배차중·운행중·렌트중 등 '이미 나간 차' — 상품 아님(유입 제외)
   snap: { high: number; medium: number; low: number; none: number };
 };
 
@@ -173,10 +212,20 @@ export function importSheetTable(table: string[][], opts: {
   const seen = new Set<string>();
   const snap = { high: 0, medium: 0, low: 0, none: 0 };
   let skipped = 0;
+  let rentedExcluded = 0;
   for (const cells of dataRows) {
     const rec: EntityRecord = {};
     for (const [field, idx] of Object.entries(mapping)) { const v = String(cells[idx] ?? '').trim(); if (v) rec[field] = v; }
+    if (rec.options) rec.options = normalizeProductOptionsText(rec.options);
+    // 이미 나간 차(배차중·운행중·렌트중·판매완료·반납·폐차) = 상품 아님 → 유입 제외.
+    // (배차대기는 canonSheetVehicleStatus에서 출고협의로 상품에 포함 — 여기 대상 아님)
+    if (isSheetRentedOut(rec.vehicle_status)) { rentedExcluded++; continue; }
     let car = String(rec.car_number || '').replace(/\s/g, '');
+    // 안내문구·배너가 차량번호 칸에 들어온 경우 버림(오토플러스 ★★★프로모션… 등)
+    if (car && !isRealPlate(car)) {
+      rec.car_number = '';
+      car = '';
+    }
     if (!car) {
       // 번호없는 신차 구제(v3 이식) — 차종정보 있으면 100신XXXX 임시번호(멱등: 공급사+신원 해시)+신차렌트. 진짜 빈행만 skip.
       const ident = `${rec.maker || ''}${rec.model || ''}${rec.sub_model || ''}${rec.trim_name || ''}${rec.year || ''}`.replace(/\s/g, '');
@@ -193,7 +242,12 @@ export function importSheetTable(table: string[][], opts: {
     rec.product_code = `${opts.providerCode}_${car}`;      // 식별 = 공급사_차번(오플식)
     rec.source = 'sheet';
     rec.source_schema = opts.providerCode;                 // 공급사별 소스 태깅 → "이 렌트사만 빼기" 한방
-    if (!rec.vehicle_status) rec.vehicle_status = '출고가능';
+    if (rec.vehicle_status) {
+      rec.status_label_raw = String(rec.vehicle_status);
+      rec.vehicle_status = canonSheetVehicleStatus(rec.vehicle_status);
+    } else {
+      rec.vehicle_status = '출고가능';
+    }
     if (!rec.product_type) rec.product_type = '중고렌트';
     // 연료칸 "가솔린1.0"·"LPG3.0" → 연료/배기 분리
     if (rec.fuel_type) {
@@ -211,7 +265,7 @@ export function importSheetTable(table: string[][], opts: {
     if (price) rec.price = price;
     products.push(rec);
   }
-  return { products, mapping, total: dataRows.length, imported: products.length, skipped, snap };
+  return { products, mapping, total: dataRows.length, imported: products.length, skipped, rentedExcluded, snap };
 }
 
 /**
