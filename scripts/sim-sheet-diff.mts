@@ -1,5 +1,5 @@
 /** 시트 유입 diff 미리보기 집계 검증 — summarizeSheetDiff. */
-import { summarizeSheetDiff } from '@/lib/domain/sheet-diff';
+import { formatSheetDiffBanner, summarizeSheetDiff } from '@/lib/domain/sheet-diff';
 import type { EntityRecord } from '@/lib/intake/entities';
 
 const PC = 'RP023';
@@ -28,16 +28,24 @@ for (const [k, v] of Object.entries(expect)) {
   if (!ok) fail++;
   console.log(`${ok ? 'PASS' : 'FAIL'} ${k}: expected ${v}, got ${got}`);
 }
-// 상세: status 항목이 출고가능→계약중 전이를 담는지
 const st = s.items.find((i) => i.kind === 'status');
 const stOk = st?.statusFrom === '출고가능' && st?.statusTo === '계약중';
 console.log(`${stOk ? 'PASS' : 'FAIL'} status 전이: ${st?.statusFrom}→${st?.statusTo}`);
 if (!stOk) fail++;
-// content 항목이 바뀐 필드(color)를 담는지
 const ct = s.items.find((i) => i.kind === 'content');
 const ctOk = !!ct?.fields?.includes('color');
 console.log(`${ctOk ? 'PASS' : 'FAIL'} content 필드: ${JSON.stringify(ct?.fields)}`);
 if (!ctOk) fail++;
+
+const banner = formatSheetDiffBanner(s, 99);
+const bannerOk = /신규등록 1/.test(banner)
+  && /출고가능→계약중 1/.test(banner)
+  && /내용수정 1/.test(banner)
+  && /부재→출고불가 1/.test(banner)
+  && /무변경 1/.test(banner)
+  && /재고 대수\(출고가능\+보류\) 99/.test(banner);
+console.log(`${bannerOk ? 'PASS' : 'FAIL'} banner: ${banner}`);
+if (!bannerOk) fail++;
 
 console.log(fail ? `\n${fail} FAIL` : `\n전체 PASS (신규 ${s.new}·상태 ${s.status}·내용 ${s.content}·부재 ${s.absent}·무변경 ${s.unchanged}·락스킵 ${s.skippedLocked})`);
 process.exit(fail ? 1 : 0);

@@ -3,7 +3,10 @@
  * 실행: npx tsx scripts/sim-sheet-merge.mts
  */
 import type { EntityRecord } from '../lib/intake/entities';
-import { softMergeProduct, planProductUpsert, changedPatch } from '../lib/domain/sheet-merge';
+import {
+  softMergeProduct, planProductUpsert, changedPatch,
+  planAbsentBlocked, shouldReconcileAbsent,
+} from '../lib/domain/sheet-merge';
 import { resolveAdapter, partnerSheetOpts } from '../lib/domain/sheet-adapters';
 
 type Case = { name: string; ok: boolean; detail?: unknown };
@@ -53,6 +56,25 @@ check('patch에 빈 memo 없음', plan.patches[0].patch.partner_memo === undefin
 
 const sameAgain = softMergeProduct(merged, { product_code: merged.product_code, maker: '현대', model: '아반떼', vehicle_status: '출고가능' });
 check('동일 유입 → patch 없음', changedPatch(merged, sameAgain) === null);
+
+// 부재 → 출고불가 (삭제 없음)
+const stock: EntityRecord[] = [
+  { _key: 'RP_1가1111', product_code: 'RP_1가1111', provider_company_code: 'RP', car_number: '1가1111', vehicle_status: '출고가능' },
+  { _key: 'RP_2가2222', product_code: 'RP_2가2222', provider_company_code: 'RP', car_number: '2가2222', vehicle_status: '출고가능', locked_by_contract: 'CT1' },
+  { _key: 'RP_3가3333', product_code: 'RP_3가3333', provider_company_code: 'RP', car_number: '3가3333', vehicle_status: '출고불가' },
+  { _key: 'RP_4가4444', product_code: 'RP_4가4444', provider_company_code: 'RP', car_number: '4가4444', vehicle_status: '출고가능' },
+  { _key: 'OT_9가9999', product_code: 'OT_9가9999', provider_company_code: 'OT', car_number: '9가9999', vehicle_status: '출고가능' },
+];
+const present = new Set(['RP_1가1111']);
+const absent = planAbsentBlocked({ existing: stock, providerCode: 'RP', presentKeys: present });
+check('부재 1건만 출고불가 patch', absent.patches.length === 1 && absent.patches[0].key === 'RP_4가4444');
+check('락 매물은 부재 patch 스킵', absent.skipped_locked === 1 && absent.patches.every((p) => p.key !== 'RP_2가2222'));
+check('이미 출고불가 제외', absent.already_blocked === 1);
+check('다른 공급사 안 건드림', absent.patches.every((p) => p.key.startsWith('RP_')));
+check('부재 patch 상태=출고불가', absent.patches[0]?.patch.vehicle_status === '출고불가');
+check('가드: 유입0 스킵', shouldReconcileAbsent(0, 20).ok === false);
+check('가드: 급감 스킵', shouldReconcileAbsent(3, 20).ok === false);
+check('가드: 정상 통과', shouldReconcileAbsent(18, 20).ok === true);
 
 const ad = resolveAdapter('generic');
 const table = [['안내'], ['차량번호', '제조사'], ['1가1', '현대']];
