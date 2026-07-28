@@ -117,7 +117,7 @@ export function InventoryFixedPane({ model }: { model: InventoryEditorModel }) {
               onRematch={canEdit && (form._needs_master_review || form._snap_confidence === 'low' || !form._snapped) ? model.onRematch : undefined}
             />
           )}
-          {section('선택옵션', ['options'], 1, '제조사 스펙 · 콤마/슬래시 구분')}
+          {section('선택옵션', ['options'], 1, '구분 = , 또는 /')}
           {section('③ 신원', ['car_number', 'vehicle_class'], 2, '차량번호는 필수 · 차종분류=세그먼트[ 차형]')}
           {model.isAdmin ? (
             <FormCard title="④ 공급사" hint="계약·채팅·정산의 공급사 권한 범위를 결정합니다.">

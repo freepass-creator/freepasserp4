@@ -5,11 +5,13 @@ import type { EntityRecord } from '@/lib/intake/entities';
 import {
   C, R, FW, FS, EXCEL_OPT_BOX_H, EXCEL_OPT_CHIP_H, EXCEL_OPT_ROW_GAP, EXCEL_BADGE_GAP_X,
 } from '@/components/ui';
+import { parseProductOptions } from '@/lib/domain/product';
 
 const OPT_CHIP_MAX = 2;
 
+/** 칩·엑셀용 — 도메인 `parseProductOptions`(구분 `,` `/`) 래퍼. */
 export function productOptions(product: EntityRecord): string[] {
-  return String(product.options || '').split(/[,/]/).map((option) => option.trim()).filter(Boolean);
+  return parseProductOptions(product.options);
 }
 
 export function OptionChips({ p, clamp, lines = 1, expand }: {
@@ -47,7 +49,7 @@ export function OptionChips({ p, clamp, lines = 1, expand }: {
   }
   if (expand) {
     const chip: CSSProperties = {
-      fontSize: FS.sub, color: C.mute, background: C.head, borderRadius: R,
+      fontSize: FS.cap, color: C.mute, background: C.head, borderRadius: R,
       padding: '2px 8px', whiteSpace: 'nowrap',
     };
     return (
@@ -62,7 +64,7 @@ export function OptionChips({ p, clamp, lines = 1, expand }: {
   const tip = options.join(' · ');
   const more = over || clipped;
   const optionChip: CSSProperties = wrap2 ? {
-    fontSize: FS.sub, color: C.mute, background: C.head, borderRadius: R,
+    fontSize: FS.cap, color: C.mute, background: C.head, borderRadius: R,
     padding: '0 5px', height: EXCEL_OPT_CHIP_H,
     display: 'inline-flex', alignItems: 'center',
     whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',

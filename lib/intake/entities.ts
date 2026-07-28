@@ -85,7 +85,7 @@ export const ENTITIES: Record<string, Entity> = {
       { key: 'usage', label: '용도', type: 'select', options: ['자가용', '영업용', '관용'], ocrFrom: 'usage_type' },
       { key: 'first_registration_date', label: '최초등록일', type: 'date', ocrFrom: 'first_registration_date' },
       { key: 'vin', label: '차대번호', type: 'text', ocrFrom: 'vin', manual: true, note: '관리자 전용' },
-      { key: 'options', label: '선택옵션', type: 'text', manual: true, note: '제조사 스펙 · 콤마/슬래시 구분 · 차종마스터 다음·차량번호 앞' },
+      { key: 'options', label: '선택옵션', type: 'text', manual: true, note: '구분=, 또는 / · 차종마스터 다음·차량번호 앞' },
       // ── 마켓플레이스 상태·구분 ──
       { key: 'vehicle_status', label: '상품상태', type: 'select', options: [...VEHICLE_STATES], manual: true },
       { key: 'product_type', label: '상품구분', type: 'select', options: [...PRODUCT_TYPES], manual: true },

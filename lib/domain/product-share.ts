@@ -3,12 +3,12 @@
  * erp3 formatProductForCopy / searchActionShare 이관.
  */
 import type { EntityRecord } from '@/lib/intake/entities';
-import { priceList, vehicleName, creditDisplay, isOperatedPeriod } from '@/lib/domain/product';
+import { priceList, vehicleName, creditDisplay, isOperatedPeriod, parseProductOptions } from '@/lib/domain/product';
 import { fuelDisplay, yearDisplay } from '@/lib/domain/vehicle-master-match';
 import { kmDisplay } from '@/lib/format';
 
 function optsOf(p: EntityRecord): string[] {
-  return String(p.options || '').split(/[,/]/).map((s) => s.trim()).filter(Boolean);
+  return parseProductOptions(p.options);
 }
 
 /** 손님공유 URL — /q/{code}?a={영업 사람키 user_code}. */

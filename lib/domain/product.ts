@@ -8,6 +8,21 @@ import { fuelDisplay, fuelEmbeddedCc, yearDisplay, makerDisplay } from '@/lib/do
 import { kmDisplay } from '@/lib/format';
 export { PROMO_BADGES, PROMO_BADGES_ACTIVE, PROMO_BADGES_PLANNED, MAX_PROMO_BADGES } from '@/lib/intake/entities';
 
+/**
+ * 선택옵션 구분 SSOT = `,` 또는 `/` 만.
+ * 표시·칩·검색·상세는 전부 이 파서. 시트 입고는 normalizeProductOptionsText로 맞춤.
+ */
+export function parseProductOptions(raw: unknown): string[] {
+  if (Array.isArray(raw)) return raw.map(String).map((s) => s.trim()).filter(Boolean);
+  return String(raw ?? '').split(/[,/]/).map((s) => s.trim()).filter(Boolean);
+}
+
+/** 외부·시트 옵션 문자열 → `,`/`/` 구분만 남기고 저장용 한 줄. (`·` `;` `|` 개행 → `,`) */
+export function normalizeProductOptionsText(raw: unknown): string {
+  const cleaned = String(raw ?? '').replace(/[·;|｜\n\r]+/g, ',');
+  return parseProductOptions(cleaned).join(', ');
+}
+
 /** 상품구분 캐논 — 재렌트→중고렌트 · 재구독→중고구독. 필터·뱃지·매칭 SSOT. */
 export function canonProductType(raw: unknown): string {
   const s = String(raw || '').replace(/\s+/g, '');
@@ -344,7 +359,7 @@ export function detailSections(p: EntityRecord, audience: Audience = 'agent'): D
     ['정비 서비스', s('maintenance_service')],
   ];
 
-  const opts = Array.isArray(p.options) ? (p.options as unknown[]).map(String) : (p.options ? String(p.options).split(/[,/]+/).map((x) => x.trim()).filter(Boolean) : []);
+  const opts = parseProductOptions(p.options);
 
   // 손님·영업자 시선: 메인(대여료/보증금=얼마 먼저, 차량정보=스펙+옵션) → 부가(보험, 계약조건, 기타).
   const out: DetailSection[] = [
