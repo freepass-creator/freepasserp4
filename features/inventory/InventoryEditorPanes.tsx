@@ -3,8 +3,8 @@
 import type { ComponentProps, RefObject } from 'react';
 import { ENTITIES, type EntityRecord, type Field } from '@/lib/intake/entities';
 import {
-  PaneHead, PaneBody, Btn, FormGrid, FormCard, C, R, CenterNote,
-  SectionLabel, Select, Message, FW, FS,
+  PaneHead, PaneBody, Btn, FormGrid, FormCard, C, R, CenterNote, Dropzone,
+  SectionLabel, Select, Message, FW, FS, THUMB_W,
 } from '@/components/ui';
 import { VehicleMasterPicker } from '@/components/VehicleMasterPicker';
 import { SnapTrace } from '@/components/SnapTrace';
@@ -52,8 +52,10 @@ function editorHelpers(model: InventoryEditorModel) {
   const section = (title: string, keys: string[], cols = 2, hint?: string) => (
     <FormCard title={title} hint={hint}>{fields(keys, cols)}</FormCard>
   );
-  return { canEdit, fields, section };
+  return { canEdit, group, fields, section };
 }
+
+const EMPTY_NOTE = '상품을 고르거나 · 상품등록을 누르세요.';
 
 export function InventoryFixedPane({ model }: { model: InventoryEditorModel }) {
   const { form } = model;
@@ -70,30 +72,41 @@ export function InventoryFixedPane({ model }: { model: InventoryEditorModel }) {
       <PaneBody pad>
         {model.selected ? <>
           {modeBanner}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: FS.cap, color: C.faint, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: FS.cap, color: C.faint, minHeight: 18 }}>
             {form.provider_company_code ? <span>{String(form.provider_company_code)}</span> : null}
             <span style={{ flex: 1 }} />
-            {canEdit ? <>
+            {canEdit && model.dirty ? <span style={{ color: C.warn }}>● 미저장</span> : null}
+          </div>
+          {canEdit ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 2 }}>
               <Btn mobileIcon={<RotateCcw size={18} />} title="입력 초기화" variant="ghost" size="sm" onClick={model.onReset}>초기화</Btn>
               {!model.creating && <Btn mobileIcon={<Copy size={18} />} title="상품 복사" variant="ghost" size="sm" onClick={model.onCopy}>복사</Btn>}
               <Btn mobileIcon={<ClipboardPaste size={18} />} title="상품 붙여넣기" variant="ghost" size="sm" onClick={model.onPaste} disabled={!model.clipboardAvailable}>붙여넣기</Btn>
-              {model.dirty && <span style={{ color: C.warn }}>● 미저장</span>}
-            </> : null}
-          </div>
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 8, border: `1px solid ${C.line}`, borderRadius: R,
-            background: C.selected, padding: '8px 10px',
-            opacity: canEdit ? 1 : 0.75, pointerEvents: canEdit ? undefined : 'none',
-          }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: FS.sub, fontWeight: FW.title, color: C.brand }}>① 자동차등록증</div>
-              <div style={{ fontSize: FS.micro, color: C.faint }}>사진·PDF 모두 가능 · 차번·차대·연료·배기·인승·용도·최초등록 자동채움(빈 칸만)</div>
             </div>
+          ) : null}
+          <div style={{
+            border: `1px solid ${C.line}`, borderRadius: R, background: C.selected, padding: '10px 12px',
+            opacity: canEdit ? 1 : 0.75, pointerEvents: canEdit ? undefined : 'none',
+            display: 'flex', flexDirection: 'column', gap: 8,
+          }}>
+            <SectionLabel mt={0} mb={0}>자동차등록증</SectionLabel>
+            <div style={{ fontSize: FS.micro, color: C.faint, lineHeight: 1.4 }}>사진·PDF · 빈 칸 자동채움</div>
             <input ref={model.ocrInputRef} type="file" accept="image/*,application/pdf,.pdf" onChange={(e) => model.onOcrFiles(e.target.files)} style={{ display: 'none' }} />
-            <Btn mobileIcon={<ScanLine size={18} />} title={model.ocrBusy ? '등록증 인식 중' : '등록증 올리기'} size="sm" onClick={() => model.ocrInputRef.current?.click()} disabled={model.ocrBusy || !canEdit}>{model.ocrBusy ? '인식 중…' : '등록증 올리기'}</Btn>
+            <Dropzone
+              variant="file"
+              disabled={model.ocrBusy || !canEdit}
+              onClick={() => model.ocrInputRef.current?.click()}
+              title={model.ocrBusy ? '등록증 인식 중' : '등록증 올리기'}
+              style={{ padding: '12px 10px', width: '100%' }}
+            >
+              <ScanLine size={16} color={C.brand} aria-hidden />
+              <span style={{ fontSize: FS.cap, fontWeight: FW.strong, color: C.brand }}>
+                {model.ocrBusy ? '인식 중…' : '등록증 올리기'}
+              </span>
+            </Dropzone>
           </div>
           <div style={{ pointerEvents: canEdit ? undefined : 'none', opacity: canEdit ? 1 : 0.85 }}>
-            <div style={{ fontSize: FS.sub, fontWeight: FW.title, color: C.brand, marginBottom: 6 }}>② 차종 마스터</div>
+            <SectionLabel mt={0}>차종 마스터</SectionLabel>
             <VehicleMasterPicker
               key={model.selectedCode || 'none'}
               value={{
@@ -118,9 +131,9 @@ export function InventoryFixedPane({ model }: { model: InventoryEditorModel }) {
             />
           )}
           {section('선택옵션', ['options'], 1, '구분 = , 또는 /')}
-          {section('③ 신원', ['car_number', 'vehicle_class'], 2, '차량번호는 필수 · 차종분류=세그먼트[ 차형]')}
+          {section('신원', ['car_number', 'vehicle_class'], 2, '차량번호는 필수 · 차종분류=세그먼트[ 차형]')}
           {model.isAdmin ? (
-            <FormCard title="④ 공급사" hint="계약·채팅·정산의 공급사 권한 범위를 결정합니다.">
+            <FormCard title="공급사" hint="계약·채팅·정산의 공급사 권한 범위를 결정합니다.">
               <label style={{ fontSize: FS.cap, color: C.mute }}>공급사 *
                 <div style={{ marginTop: 3 }}>
                   <Select
@@ -145,7 +158,7 @@ export function InventoryFixedPane({ model }: { model: InventoryEditorModel }) {
           ) : null}
           {section('제원 · 스펙', ['year', 'fuel_type', 'engine_cc', 'seats', 'drive_type', 'transmission', 'usage', 'ext_color', 'int_color', 'first_registration_date'], 2)}
           {model.isAdmin && section('원가 · 이력 · 등록증', ['vehicle_price', 'location', 'vin', 'vehicle_age_expiry_date', 'cert_car_name', 'type_number', 'engine_type', 'partner_memo'])}
-        </> : <CenterNote>왼쪽에서 상품을 고르거나 · 상품등록을 누르세요.</CenterNote>}
+        </> : <CenterNote>{EMPTY_NOTE}</CenterNote>}
       </PaneBody>
     </>
   );
@@ -153,30 +166,35 @@ export function InventoryFixedPane({ model }: { model: InventoryEditorModel }) {
 
 export function InventoryVariablePane({ model }: { model: InventoryEditorModel }) {
   const { form } = model;
-  const { canEdit, fields, section } = editorHelpers(model);
+  const { canEdit, group, fields, section } = editorHelpers(model);
+  const providerCode = String(form.provider_company_code || '');
+  const policyField: Field = {
+    key: 'policy_code',
+    label: '정책 연결',
+    type: 'select',
+    manual: true,
+  };
+  const policyOptions = model.policies.filter((policy) => {
+    const policyProviderCode = String(policy.provider_company_code || '');
+    return !providerCode || !policyProviderCode || policyProviderCode === providerCode;
+  }).map((policy) => ({
+    value: String(policy.policy_code),
+    label: `${String(policy.policy_name || policy.policy_code)}${policy.provider_company_code ? '' : ' · 공용'} (${String(policy.policy_code)})`,
+  }));
   return (
     <>
       <PaneHead title="운영정보" />
       <PaneBody pad>
         {model.selected ? <>
           <FormCard title="상태 · 구분 · 정책" hint="상품 운영 상태와 연결 정책">
-            {fields(['vehicle_status', 'product_type'])}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 9, marginTop: 9 }}>
-              <label style={{ fontSize: FS.cap, color: C.mute }}>무보증 가능
-                <div style={{ marginTop: 3 }}><Select value={String(form.deposit_free || '')} onChange={(value) => model.onFieldChange('deposit_free', value)} options={['예', '아니오']} placeholder="—" full disabled={!canEdit} /></div>
-              </label>
-              <label style={{ fontSize: FS.cap, color: C.mute }}>정책 연결
-                <div style={{ marginTop: 3 }}><Select value={String(form.policy_code || '')} onChange={(value) => model.onFieldChange('policy_code', value)} placeholder="— 정책 선택 —" full disabled={!canEdit}
-                  options={model.policies.filter((policy) => {
-                    const providerCode = String(form.provider_company_code || '');
-                    const policyProviderCode = String(policy.provider_company_code || '');
-                    return !providerCode || !policyProviderCode || policyProviderCode === providerCode;
-                  }).map((policy) => ({
-                    value: String(policy.policy_code),
-                    label: `${String(policy.policy_name || policy.policy_code)}${policy.provider_company_code ? '' : ' · 공용'} (${String(policy.policy_code)})`,
-                  }))} /></div>
-              </label>
-            </div>
+            <FormGrid
+              fields={[...group(['vehicle_status', 'product_type', 'deposit_free']), policyField]}
+              form={model.form}
+              onChange={model.onFieldChange}
+              cols={1}
+              disabled={!canEdit}
+              selectOptions={{ policy_code: policyOptions }}
+            />
             <div style={{ marginTop: 10 }}>{fields(['event_tags'], 1)}</div>
           </FormCard>
           {section('주행 · 사고', ['mileage', 'accident_history'])}
@@ -194,7 +212,7 @@ export function InventoryVariablePane({ model }: { model: InventoryEditorModel }
           {model.supplierPhotos.length > 0 && (
             <div>
               <SectionLabel mt={0}>공급사 사진 <span style={{ fontSize: FS.cap, fontWeight: FW.body, color: C.faint }}>· 연동(읽기전용) {model.supplierPhotos.length}장</span></SectionLabel>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(88px, 1fr))', gap: 6 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${THUMB_W}px, 1fr))`, gap: 6 }}>
                 {model.supplierPhotos.map((url, index) => (
                   <a key={index} href={url} target="_blank" rel="noreferrer" style={{ display: 'block', aspectRatio: '4 / 3', borderRadius: R, overflow: 'hidden', background: C.placeholder, border: `1px solid ${C.line}` }}>
                     <img src={url} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -203,7 +221,7 @@ export function InventoryVariablePane({ model }: { model: InventoryEditorModel }
               </div>
             </div>
           )}
-        </> : <CenterNote>왼쪽에서 상품을 고르거나 · 상품등록을 누르세요.</CenterNote>}
+        </> : <CenterNote>{EMPTY_NOTE}</CenterNote>}
       </PaneBody>
     </>
   );

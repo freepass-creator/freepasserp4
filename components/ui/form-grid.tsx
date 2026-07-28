@@ -5,7 +5,10 @@ import type { EntityRecord, Field } from '@/lib/intake/entities';
 import { useIsMobile } from '@/lib/use-mobile';
 import { ToggleChips } from './filters';
 import { fmtNumber, fmtPhone } from './formatters';
+import { Select } from './form-controls';
 import { C, FS, R, ctrlH, ctrlInputFs } from './tokens';
+
+type SelectOption = string | { value: string; label: string };
 
 export function FormGrid({
   fields,
@@ -13,12 +16,15 @@ export function FormGrid({
   onChange,
   cols = 2,
   disabled,
+  selectOptions,
 }: {
   fields: Field[];
   form: EntityRecord;
   onChange: (key: string, value: string) => void;
   cols?: number;
   disabled?: boolean;
+  /** 필드별 Select 옵션 오버라이드(정책코드 등 value≠label). */
+  selectOptions?: Record<string, SelectOption[]>;
 }) {
   const mobile = useIsMobile();
   const columns = mobile ? 1 : cols;
@@ -42,6 +48,12 @@ export function FormGrid({
         const numeric = field.type === 'number';
         const phone = /phone|연락처|전화/.test(field.key);
         const span = field.type === 'chips' ? { gridColumn: '1 / -1' as const } : undefined;
+        const overrideOpts = selectOptions?.[field.key];
+        const baseOpts: SelectOption[] = overrideOpts || (field.options || []);
+        const hasValue = !!value && baseOpts.some((o) => (typeof o === 'string' ? o : o.value) === value);
+        const selectOpts: SelectOption[] = value && field.type === 'select' && !hasValue
+          ? [value, ...baseOpts]
+          : [...baseOpts];
         return (
           <label key={field.key} style={{ fontSize: FS.cap, color: C.mute, ...span }}>
             {field.label}
@@ -49,15 +61,15 @@ export function FormGrid({
             {field.manual && !disabled && <span style={{ color: C.warn }}> ·직접</span>}
             {field.max ? <span style={{ color: C.faint }}> ·최대 {field.max}</span> : null}
             {field.type === 'select' ? (
-              <select
+              <Select
                 value={value}
                 disabled={disabled}
-                onChange={(event) => onChange(field.key, event.target.value)}
-                style={{ ...inputStyle, background, cursor: disabled ? 'default' : undefined, opacity: disabled ? 0.85 : 1 }}
-              >
-                <option value="">—</option>
-                {[...(value && !(field.options || []).includes(value) ? [value] : []), ...(field.options || [])].map((option) => <option key={option} value={option}>{option}</option>)}
-              </select>
+                full
+                placeholder="—"
+                onChange={(v) => onChange(field.key, v)}
+                options={selectOpts}
+                style={{ marginTop: 3, background, opacity: disabled ? 0.85 : 1 }}
+              />
             ) : field.type === 'chips' ? (
               <div style={{ marginTop: 5, pointerEvents: disabled ? 'none' : undefined, opacity: disabled ? 0.85 : 1 }}>
                 {(() => {

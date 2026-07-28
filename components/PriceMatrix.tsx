@@ -1,6 +1,6 @@
 'use client';
 import { useState, type CSSProperties } from 'react';
-import { C, R, NUM, FW, FS, Input, Btn, IconBtn, thFlat, thFlatR } from '@/components/ui';
+import { C, R, NUM, FW, FS, Input, Btn, thFlat, thFlatR } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { PERIODS as STD_PERIODS, isOperatedPeriod, isStandardPeriod } from '@/lib/domain/product';
 import { Plus, X } from 'lucide-react';
@@ -134,9 +134,9 @@ export function PriceMatrix({ price, onChange }: { price: unknown; onChange: (p:
                     )}
                     {custom && (
                       <span style={{ marginLeft: 'auto', flex: '0 0 auto' }}>
-                        <IconBtn title={`${k}개월 삭제`} onClick={() => removeExtra(k)}>
-                          <X size={14} />
-                        </IconBtn>
+                        <Btn variant="bare" title={`${k}개월 삭제`} onClick={() => removeExtra(k)} aria-label={`${k}개월 삭제`}>
+                          <X size={16} aria-hidden />
+                        </Btn>
                       </span>
                     )}
                   </div>

@@ -13,6 +13,8 @@ export const C = {
   focusRing: 'var(--focus-ring)',       // 포커스 링 틴트
 };
 export const R = 4; // = --radius (jpkerp5 표준 4px)
+/** 재고·업로드 썸네일 폭 SSOT (PhotoUpload·공급사 사진 그리드). */
+export const THUMB_W = 76;
 export const NUM = 'var(--font-mono)';
 
 /** 그림자 SSOT — globals.css --shadow-* 브릿지. 하드코딩 boxShadow 금지. */

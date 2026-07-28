@@ -11,6 +11,7 @@ import { useIsMobile } from '@/lib/use-mobile';
  *   보기: [수정] [삭제] [등록…]  — 선택 건 기준 액션 + 신규
  *   신규·수정: [취소] [저장]
  * 페이지는 이 조합만 — Btn 나열 손롤 지양.
+ * 모바일: 저장·취소=텍스트 라벨 / 수정·삭제·등록=아이콘.
  */
 export type PageActionSpec = {
   onClick: () => void;
@@ -41,10 +42,12 @@ export function PageActions({
     fallback: string,
     icon: ReactNode,
     variant: 'solid' | 'ghost' | 'danger',
+    opts?: { textOnMobile?: boolean },
   ) => {
     if (!spec) return null;
     const label = spec.label || fallback;
-    if (mobile) {
+    const textOnMobile = opts?.textOnMobile;
+    if (mobile && !textOnMobile) {
       return (
         <IconBtn
           title={label}
@@ -66,10 +69,10 @@ export function PageActions({
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
       {extra}
-      {action(cancel, '취소', <X size={18} />, 'ghost')}
+      {action(cancel, '취소', <X size={18} />, 'ghost', { textOnMobile: true })}
       {action(edit, '수정', <Pencil size={18} />, 'ghost')}
       {action(remove, '삭제', <Trash2 size={18} />, 'danger')}
-      {action(save, '저장', <Save size={18} />, 'solid')}
+      {action(save, '저장', <Save size={18} />, 'solid', { textOnMobile: true })}
       {action(primary, '등록', <Plus size={18} />, 'solid')}
     </span>
   );

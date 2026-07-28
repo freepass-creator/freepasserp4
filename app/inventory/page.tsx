@@ -246,26 +246,20 @@ export default function Inventory() {
     <>
       <PaneHead title="공급사 업로드" />
       <PaneBody pad>
-        {mobile ? (
-          <CenterNote>시트·엑셀 취합과 종합표 복사는 웹에서 진행하세요.</CenterNote>
-        ) : (
-          <>
-            {/* 전수 차종변환 = /dev 개발도구. 여기는 공급사 시트 취합만. */}
-            <div style={{ fontSize: FS.cap, fontWeight: FW.strong, color: C.mute }}>공급사 시트 취합</div>
-            <SheetSync co={co} onImported={() => load(getRole())} />
-            <div style={{ height: 1, background: C.line2, margin: '2px 0' }} />
-            <Btn size="sm" variant="ghost" onClick={copyJonghap}>종합표 TSV 복사 (ERP→시트)</Btn>
-          </>
-        )}
+        {/* 전수 차종변환 = /dev 개발도구. 여기는 공급사 시트 취합만. 모바일 panes에서 제외. */}
+        <div style={{ fontSize: FS.cap, fontWeight: FW.strong, color: C.mute }}>공급사 시트 취합</div>
+        <SheetSync co={co} onImported={() => load(getRole())} />
+        <div style={{ height: 1, background: C.line2, margin: '2px 0' }} />
+        <Btn size="sm" variant="ghost" onClick={copyJonghap}>종합표 TSV 복사 (ERP→시트)</Btn>
       </PaneBody>
     </>
   );
 
-  // 편집 = 기본·운영·업로드 3패널.
+  // 데스크톱 = 기본·운영·업로드 3패널. 모바일 = 업로드 페인 제외(시트 취합은 웹).
   const panes: WorkPane[] = [
     { key: 'fixed', title: '기본', node: fixedPane },
     { key: 'var', title: '운영', node: varPane },
-    { key: 'sync', title: '업로드', node: syncPane },
+    ...(mobile ? [] : [{ key: 'sync', title: '업로드', node: syncPane }]),
   ];
   // 하단바 = 편집 컨텍스트만(수정·삭제 / 취소·저장). 등록 = 목록 맨 위 행(InventoryCreateRow).
   const dockActions = creating || editing ? (

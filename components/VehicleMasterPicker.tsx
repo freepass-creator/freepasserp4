@@ -161,21 +161,20 @@ export function VehicleMasterPicker({
   const mobile = useIsMobile();
 
   return (
-    <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: C.selected, padding: '10px 12px' }}>
-      <div style={{ fontSize: FS.sub, fontWeight: FW.title, color: C.brand, marginBottom: 7 }}>
-        차종 마스터 규격{' '}
-        {entries === null && <span style={{ color: C.faint, fontWeight: FW.body }}>· 불러오는 중…</span>}
-        {entries && entries.length === 0 && <span style={{ color: C.danger, fontWeight: FW.body }}>· 마스터 로드 실패</span>}
+    <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg, padding: '10px 12px' }}>
+      <div style={{ fontSize: FS.cap, color: C.mute, marginBottom: 7, minHeight: 16 }}>
+        {entries === null && <span style={{ color: C.faint }}>불러오는 중…</span>}
+        {entries && entries.length === 0 && <span style={{ color: C.danger }}>마스터 로드 실패</span>}
         {entries && entries.length > 0 && pathOk === true && (
           <span style={{ color: C.ok, fontWeight: FW.strong }}>
-            · 규격 일치{noTrimGrade ? ' (세부트림 없음)' : (trim ? '' : ' (세부트림 미선택)')}
+            규격 일치{noTrimGrade ? ' (세부트림 없음)' : (trim ? '' : ' (세부트림 미선택)')}
           </span>
         )}
         {entries && entries.length > 0 && pathOk === false && (
-          <span style={{ color: C.danger, fontWeight: FW.strong }}>· 마스터에 없는 값 — 아래에서 규격 선택</span>
+          <span style={{ color: C.danger, fontWeight: FW.strong }}>마스터에 없는 값 — 아래에서 규격 선택</span>
         )}
         {entries && entries.length > 0 && pathOk == null && (
-          <span style={{ color: C.faint, fontWeight: FW.body }}>· {entries.length.toLocaleString()}세대</span>
+          <span style={{ color: C.faint }}>{entries.length.toLocaleString()}세대</span>
         )}
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 6 }}>

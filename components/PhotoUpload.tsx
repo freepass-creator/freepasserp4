@@ -1,6 +1,6 @@
 'use client';
 import { useRef, useState } from 'react';
-import { AddTile, Btn, CloseBtn, IconBtn, C, R, FS, FW } from '@/components/ui';
+import { AddTile, Btn, CloseBtn, IconBtn, C, R, FS, FW, THUMB_W } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
 import { toast } from '@/components/Toaster';
@@ -12,7 +12,6 @@ import { ChevronLeft, ChevronRight, Images, PanelTop, Trash2 } from 'lucide-reac
 
 const LONG_MS = 480;
 const MOVE_PX = 10;
-const THUMB_W = 76;
 /** Firebase Storage 업로드 한도. */
 const PHOTO_CAP = 3 * 1024 * 1024;
 
