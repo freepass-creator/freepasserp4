@@ -11,7 +11,7 @@ import { toast } from '@/components/Toaster';
 import { ChatSenderLabel } from '@/components/ChatSenderLabel';
 import { useIsMobile } from '@/lib/use-mobile';
 import { msgClock } from '@/lib/format';
-import { CarFront, ListChecks, LoaderCircle, Paperclip, Send } from 'lucide-react';
+import { ListChecks, LoaderCircle, Paperclip, Send } from 'lucide-react';
 
 /** 📎 accept와 동일 — image/* · application/pdf */
 function isAcceptedChatFile(file: File): boolean {
@@ -180,7 +180,7 @@ export function ChatThread({ roomId, onBack, onVehicle, onContract }: { roomId: 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: ctrlH(mobile), flex: `0 0 ${ctrlH(mobile)}px`, padding: '0 14px', borderBottom: `1px solid ${C.line}`, background: C.taupeBg, boxSizing: 'border-box' }}>
           {onBack && <NavBack kind="list" onClick={onBack} />}
           <span style={{ fontSize: FS.title, fontWeight: FW.title, minWidth: 0, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{String(room.vehicle_name || room.car_number || room.vehicle_number || '대화')}</span>
-          {onVehicle && <Btn mobileIcon={<CarFront size={18} />} title="차량 보기" variant="ghost" size="sm" onClick={() => onVehicle(String(room.product_code))}>차량</Btn>}
+          {onVehicle && <Btn title="차량 보기" variant="ghost" size="sm" onClick={() => onVehicle(String(room.product_code))}>차량</Btn>}
           {onContract && <Btn mobileIcon={<ListChecks size={18} />} title="계약 진행" size="sm" onClick={() => onContract(String(room.product_code))}>계약진행</Btn>}
         </div>
       ) : null}

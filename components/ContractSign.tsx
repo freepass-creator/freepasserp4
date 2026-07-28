@@ -9,7 +9,7 @@ import { isContractSignActive, readContractSign, signPublicToContract } from '@/
 import { Btn, C, toneText, FW, FS } from '@/components/ui';
 import { toast } from '@/components/Toaster';
 import { copyText } from '@/lib/clipboard';
-import { Check, Copy, Link2Off, RefreshCw, RotateCcw, Send, X } from 'lucide-react';
+import { RefreshCw, Send } from 'lucide-react';
 
 // 계약서 서명 진행(계약 패널) — 발송 → 손님(/sign) → 검토대기 → 승인. 공개 슬롯(contract_sign) 상태 병합.
 export function ContractSign({ contractCode }: { contractCode: string }) {
@@ -97,10 +97,10 @@ export function ContractSign({ contractCode }: { contractCode: string }) {
         <span style={{ fontSize: FS.micro, fontWeight: FW.label, color: stColor }}>{st}</span>
         <span style={{ flex: 1 }} />
         {canAct && st === '미발송' && <Btn mobileIcon={<Send size={18} />} title="계약서 발송" size="sm" onClick={send} disabled={busy}>계약서 발송</Btn>}
-        {canAct && st === '발송' && active && <><Btn mobileIcon={<Copy size={18} />} title="링크 복사" variant="ghost" size="sm" onClick={copy}>링크</Btn><Btn mobileIcon={<RefreshCw size={18} />} title="계약서 재발송" variant="ghost" size="sm" onClick={send} disabled={busy}>재발송</Btn><Btn mobileIcon={<Link2Off size={18} />} title="서명 링크 해지" variant="ghost" size="sm" onClick={revoke} disabled={busy}>해지</Btn><Btn mobileIcon={<RefreshCw size={18} />} title="서명 상태 새로고침" variant="ghost" size="sm" onClick={load}>새로고침</Btn></>}
-        {canAct && st === '발송' && !active && <Btn mobileIcon={<Send size={18} />} title="새 서명 링크 발급" size="sm" onClick={send} disabled={busy}>새 링크 발급</Btn>}
-        {canAct && st === '검토대기' && <><Btn mobileIcon={<X size={18} />} title="전자서명 반려" variant="ghost" size="sm" onClick={reject} disabled={busy}>반려</Btn><Btn mobileIcon={<Check size={18} />} title="전자서명 승인" size="sm" onClick={approve} disabled={busy}>승인</Btn></>}
-        {canRecover && <Btn mobileIcon={<RotateCcw size={18} />} title="약정 단계 복구" size="sm" onClick={approve} disabled={busy}>약정 단계 복구</Btn>}
+        {canAct && st === '발송' && active && <><Btn title="링크 복사" variant="ghost" size="sm" onClick={copy}>링크</Btn><Btn mobileIcon={<RefreshCw size={18} />} title="계약서 재발송" variant="ghost" size="sm" onClick={send} disabled={busy}>재발송</Btn><Btn title="서명 링크 해지" variant="ghost" size="sm" onClick={revoke} disabled={busy}>해지</Btn><Btn title="서명 상태 새로고침" variant="ghost" size="sm" onClick={load}>새로고침</Btn></>}
+        {canAct && st === '발송' && !active && <Btn title="새 서명 링크 발급" size="sm" onClick={send} disabled={busy}>새 링크 발급</Btn>}
+        {canAct && st === '검토대기' && <><Btn title="전자서명 반려" variant="ghost" size="sm" onClick={reject} disabled={busy}>반려</Btn><Btn title="전자서명 승인" size="sm" onClick={approve} disabled={busy}>승인</Btn></>}
+        {canRecover && <Btn title="약정 단계 복구" size="sm" onClick={approve} disabled={busy}>약정 단계 복구</Btn>}
       </div>
       {/* 서명 PNG = 투명배경·짙은잉크(#0f1830) → 다크에서도 흰 지면 유지(C.taupeBg면 서명 안 보임). sign 캔버스·PDF와 동일 예외. */}
       {st === '검토대기' && c.sign_signature ? <img src={String(c.sign_signature)} alt="서명" style={{ maxWidth: 180, border: `1px solid ${C.line}`, borderRadius: 4, background: '#fff' }} /> : null}

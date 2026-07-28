@@ -293,10 +293,10 @@ export default function ContractsSettlement() {
           <span style={{ fontSize: FS.body, fontWeight: FW.title, fontFamily: NUM }}>{String(s.settlement_code)}</span>
           <Badge tone={SETTLEMENT_STATUS_TONE[st] || 'gray'}>{st}</Badge>
           <span style={{ flex: 1 }} />
-          {role === 'admin' && st === '정산대기' && <Btn mobileIcon={<WalletCards size={18} />} title="정산 보류" variant="ghost" size="sm" onClick={() => setStatus('정산보류')}>보류</Btn>}
-          {role === 'admin' && st === '정산대기' && <Btn mobileIcon={<ListChecks size={18} />} title="정산 확정" size="sm" onClick={() => setStatus('정산완료')}>정산 확정</Btn>}
-          {role === 'admin' && st === '정산보류' && <Btn mobileIcon={<WalletCards size={18} />} title="정산 대기로 변경" size="sm" onClick={() => setStatus('정산대기')}>대기로</Btn>}
-          {role === 'admin' && st === '환수대기' && <Btn mobileIcon={<ListChecks size={18} />} title="환수 확정" size="sm" onClick={() => setStatus('환수결정')}>환수 확정</Btn>}
+          {role === 'admin' && st === '정산대기' && <Btn title="정산 보류" variant="ghost" size="sm" onClick={() => setStatus('정산보류')}>보류</Btn>}
+          {role === 'admin' && st === '정산대기' && <Btn title="정산 확정" size="sm" onClick={() => setStatus('정산완료')}>정산 확정</Btn>}
+          {role === 'admin' && st === '정산보류' && <Btn title="정산 대기로 변경" size="sm" onClick={() => setStatus('정산대기')}>대기로</Btn>}
+          {role === 'admin' && st === '환수대기' && <Btn title="환수 확정" size="sm" onClick={() => setStatus('환수결정')}>환수 확정</Btn>}
         </div>
         <div style={{ margin: '0 14px', border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg, overflow: 'hidden' }}>
           {role !== 'agent' && amtRow('공급사 청구 (R1)', 'fee_amount', Number(s.fee_amount) || 0, String(s.settlement_code))}

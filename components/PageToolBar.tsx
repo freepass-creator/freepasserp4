@@ -57,7 +57,7 @@ export function PageToolBar({
               onClick={() => { haptic.tap(); t.onClick(); }}
             >
               <Icon size={18} strokeWidth={2.2} />
-              {!mobile && <span>{t.label}</span>}
+              <span>{t.label}</span>
               {badge != null ? (
                 <span className="fp-page-tool-badge"><CountPill n={badge} tone={t.badgeTone} /></span>
               ) : null}

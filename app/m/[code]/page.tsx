@@ -6,7 +6,7 @@ import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { vehicleName } from '@/lib/domain/product';
-import { Share2, MessageCircle } from 'lucide-react';
+import { MessageCircle } from 'lucide-react';
 import { Btn, BottomNav, Loading, CenterNote, C } from '@/components/ui';
 import { toast } from '@/components/Toaster';
 import { ProductDetail } from '@/components/ProductDetail';
@@ -122,7 +122,7 @@ export default function Detail() {
       </main>
       {canDeal ? (
         <BottomNav maxWidth={920} padX={16} actions={<>
-          <Btn mobileIcon={<Share2 size={18} />} title="손님공유" variant="ghost" size="sm" onClick={sendLink}>손님공유</Btn>
+          <Btn title="손님공유" variant="ghost" size="sm" onClick={sendLink}>손님공유</Btn>
           <Btn mobileIcon={<MessageCircle size={18} />} title="계약문의" size="sm" onClick={inquire}>계약문의</Btn>
         </>} />
       ) : null}

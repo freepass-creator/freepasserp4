@@ -96,7 +96,8 @@ export function InterestTriggers({
         }}
       >
         <Icon size={14} strokeWidth={2.2} />
-        {n}
+        <span style={{ whiteSpace: 'nowrap' }}>{label}</span>
+        <span style={{ fontFamily: NUM }}>{n}</span>
       </Btn>
     );
   };

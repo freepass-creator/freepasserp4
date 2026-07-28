@@ -9,7 +9,7 @@ import {
   type RawVehicle,
   type SnapHistoryEntry,
 } from '@/lib/domain/vehicle-master-match';
-import { History, RefreshCw } from 'lucide-react';
+import { History } from 'lucide-react';
 
 /**
  * 재고 상세 — 공급사 원본(증거) vs 마스터 규격(표준).
@@ -43,7 +43,7 @@ export function SnapTrace({ form, onRematch }: { form: EntityRecord; onRematch?:
         {conf ? <Badge tone={confTone as 'green' | 'amber' | 'orange' | 'gray'}>{conf}</Badge> : null}
         {noTrim && snapped ? <Badge tone="gray" variant="quiet">세부트림 없음</Badge> : null}
         <span style={{ flex: 1 }} />
-        {onRematch ? <Btn mobileIcon={<RefreshCw size={18} />} title="차종 다시 매칭" size="sm" variant="ghost" onClick={onRematch}>다시 매칭</Btn> : null}
+        {onRematch ? <Btn title="차종 다시 매칭" size="sm" variant="ghost" onClick={onRematch}>다시 매칭</Btn> : null}
         {form._snap_at ? <span style={{ fontSize: FS.micro, color: C.faint }}>{fmtAt(Number(form._snap_at))}</span> : null}
       </div>
 

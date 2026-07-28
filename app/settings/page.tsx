@@ -20,7 +20,7 @@ import { toast } from '@/components/Toaster';
 import { NAV_LABEL } from '@/lib/tabbar';
 import { copyText } from '@/lib/clipboard';
 import { ProductPreferences } from '@/features/settings/ProductPreferences';
-import { Copy, KeyRound, LogIn, LogOut, Save } from 'lucide-react';
+import { KeyRound, LogIn, LogOut, Save } from 'lucide-react';
 
 /** 미로그인 데모 — 관리자 승격 금지(둘러보기·권한 구멍 차단). */
 const DEMO_ROLES: { key: Role; label: string }[] = [
@@ -253,7 +253,7 @@ export default function Settings() {
             </div>
             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
               <div style={{ flex: 1, minWidth: 0, fontSize: FS.sub, color: C.ink, background: C.head, borderRadius: 6, padding: '8px 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{shareUrl}</div>
-              <Btn mobileIcon={<Copy size={18} />} title="카탈로그 링크 복사" size="sm" onClick={copyShare}>복사</Btn>
+              <Btn title="카탈로그 링크 복사" size="sm" onClick={copyShare}>복사</Btn>
             </div>
           </div>
         ) : null}

@@ -27,7 +27,7 @@ import {
   summarizeSheetDiff,
   type SheetDiffSummary,
 } from '@/lib/domain/sheet-diff';
-import { Database, Download, Link2, RefreshCw, Save, Upload } from 'lucide-react';
+import { Database, Download, RefreshCw, Save } from 'lucide-react';
 
 /** 아이카식 표준 양식 — autoMapHeaders 별칭과 정합. 컬럼명 변경 금지. */
 const STANDARD_SHEET_HEADERS = [
@@ -448,7 +448,7 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
             </div>
           )}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-            <Btn mobileIcon={<Link2 size={18} />} title="허브 시트 → partner.sheet_url" variant="ghost" onClick={syncHubUrls} disabled={busy}>
+            <Btn title="허브 시트 → partner.sheet_url" variant="ghost" onClick={syncHubUrls} disabled={busy}>
               허브 URL 동기
             </Btn>
             <Btn
@@ -505,7 +505,7 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <div style={{ display: 'flex', gap: 6 }}>
             <Input value={url} onChange={(v) => setUrl(v)} placeholder="구글시트 URL" full style={{ flex: 1, minWidth: 0 }} />
-            <Btn mobileIcon={<Upload size={18} />} title="구글시트 불러오기" size="sm" variant="ghost" onClick={loadSheet} disabled={busy}>불러오기</Btn>
+            <Btn title="구글시트 불러오기" size="sm" variant="ghost" onClick={loadSheet} disabled={busy}>불러오기</Btn>
           </div>
           <Input value={gid} onChange={setGid} placeholder="gid(선택·탭)" full />
         </div>
@@ -515,7 +515,7 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
           <Textarea full rows={4} value={paste} onChange={setPaste}
             placeholder={'엑셀 복사→붙여넣기 (첫 줄=헤더, 탭)\n차량번호\t제조사\t모델\t연식'}
             style={{ fontFamily: NUM }} />
-          <Btn mobileIcon={<Upload size={18} />} title="엑셀 붙여넣기 불러오기" size="sm" variant="ghost" onClick={loadExcel} disabled={busy}>불러오기</Btn>
+          <Btn title="엑셀 붙여넣기 불러오기" size="sm" variant="ghost" onClick={loadExcel} disabled={busy}>불러오기</Btn>
         </>
       )}
 

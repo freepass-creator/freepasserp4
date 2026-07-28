@@ -223,13 +223,17 @@ export function MobilePageShell({
       ) : <span style={{ flex: 1, minWidth: 0 }} />}
       {filterCfg ? (
         <span style={{ position: 'relative', display: 'inline-flex', flex: '0 0 auto' }}>
-          <IconBtn
+          <Btn
+            variant="ghost"
+            size="sm"
             title={filterBadge > 0 ? `필터 ${filterBadge}` : (filterCfg.label || '필터')}
-            active={sheet === 'filter'}
+            aria-pressed={sheet === 'filter'}
             onClick={() => { if (sheet === 'filter') discardFilter(); else openFilter(); }}
+            style={{ gap: 4, padding: '0 10px' }}
           >
             <SlidersHorizontal size={18} />
-          </IconBtn>
+            {filterCfg.label || '필터'}
+          </Btn>
           {filterBadge > 0 ? (
             <span className="fp-icon-count">
               <CountPill n={filterBadge} tone="accent" />
