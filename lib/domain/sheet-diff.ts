@@ -97,3 +97,46 @@ export function summarizeSheetDiff(opts: {
     items,
   };
 }
+
+/** 상태 전이 카운트 — status kind만(부재는 별도 absent). */
+export function countStatusTransitions(diff: SheetDiffSummary): {
+  availToBlocked: number;   // 출고가능→출고불가
+  blockedToAvail: number;   // 출고불가→출고가능
+  availToContract: number;  // 출고가능→계약중
+  otherStatus: number;
+} {
+  let availToBlocked = 0;
+  let blockedToAvail = 0;
+  let availToContract = 0;
+  let otherStatus = 0;
+  for (const it of diff.items) {
+    if (it.kind !== 'status') continue;
+    const from = String(it.statusFrom || '');
+    const to = String(it.statusTo || '');
+    if ((from === '출고가능' || from === '즉시출고') && to === '출고불가') availToBlocked++;
+    else if (from === '출고불가' && (to === '출고가능' || to === '즉시출고')) blockedToAvail++;
+    else if ((from === '출고가능' || from === '즉시출고') && to === '계약중') availToContract++;
+    else otherStatus++;
+  }
+  return { availToBlocked, blockedToAvail, availToContract, otherStatus };
+}
+
+/**
+ * 저장 전 배너 문구.
+ * 신규등록 · 출고가능→출고불가 · 출고불가→출고가능 · 출고가능→계약중 ·
+ * 내용수정 · 부재→출고불가 · 무변경 · (+ 재고 대수)
+ */
+export function formatSheetDiffBanner(diff: SheetDiffSummary, stock?: number): string {
+  const t = countStatusTransitions(diff);
+  const parts = [
+    `신규등록 ${diff.new}`,
+    `출고가능→출고불가 ${t.availToBlocked}`,
+    `출고불가→출고가능 ${t.blockedToAvail}`,
+    `출고가능→계약중 ${t.availToContract}`,
+    `내용수정 ${diff.content}`,
+    `부재→출고불가 ${diff.absent}`,
+    `무변경 ${diff.unchanged}`,
+  ];
+  if (stock != null) parts.push(`재고 대수(출고가능+보류) ${stock}`);
+  return parts.join(' · ');
+}

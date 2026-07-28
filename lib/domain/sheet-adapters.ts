@@ -20,29 +20,61 @@ function sliceFromHeader(table: string[][], headerRow = 0): string[][] {
   return table.slice(i);
 }
 
+function findPlateHeaderRow(table: string[][]): number {
+  for (let i = 0; i < Math.min(25, table.length); i++) {
+    if ((table[i] || []).some((c) => /차량번호|차번/.test(String(c)))) return i;
+  }
+  return 0;
+}
+
+/** 무라벨 데이터 col11~14 → 개월 헤더 */
+export const AUTOPLUS_PRICE_HEADERS = ['12개월', '24개월', '36개월', '48개월'] as const;
+
+/**
+ * 오토플러스 헤더 행 라벨 고정.
+ * col6=최초등록 · col7=주행거리 · col11~14=12/24/36/48개월.
+ */
+export function labelAutoplusHeaderRow(header: string[]): string[] {
+  const h = header.map((c) => String(c ?? ''));
+  while (h.length < 15) h.push('');
+  h[6] = '최초등록';
+  h[7] = '주행거리';
+  for (let i = 0; i < AUTOPLUS_PRICE_HEADERS.length; i++) {
+    h[11 + i] = AUTOPLUS_PRICE_HEADERS[i];
+  }
+  return h;
+}
+
 export const SHEET_ADAPTERS: Record<SheetAdapterId, SheetAdapter> = {
   generic: {
     id: 'generic',
     label: '일반(헤더 학습)',
     prepareTable: (table, opts) => sliceFromHeader(table, opts?.headerRow ?? 0),
   },
-  // 오토플러스식 — 실시트 헤더≈9행(0-based 8)·데이터 11행~. 가격 12/3만·보증배율은 sheet-import.
+  /**
+   * 오토플러스식 — 판매차량리스트: 헤더 자동탐지(또는 headerRow>0).
+   * 무라벨 col6/7/11~14 → 최초등록·주행·12/24/36/48개월.
+   * 헤더 다음 안내/배너 1행 스킵.
+   */
   autoplus: {
     id: 'autoplus',
     label: '오토플러스식',
     prepareTable: (table, opts) => {
-      // SheetSync 기본값 0 = 미설정 → 오토플러스 실시트 헤더 9행(0-based 8)
-      const headerRow = (opts?.headerRow && opts.headerRow > 0) ? opts.headerRow : 8;
+      const headerRow = (opts?.headerRow && opts.headerRow > 0)
+        ? opts.headerRow
+        : findPlateHeaderRow(table);
       const sliced = sliceFromHeader(table, headerRow);
-      // 헤더 바로 다음 안내/빈 행 1장 스킵(v3 dataStartRowIdx = header+2)
-      if (sliced.length >= 3) {
-        const maybeGuide = sliced[1] || [];
+      if (!sliced.length) return sliced;
+      let body = sliced.slice(1);
+      if (body.length >= 1) {
+        const maybeGuide = body[0] || [];
         const guideBlank = !maybeGuide.some((c) => String(c || '').trim());
+        const plateCell = String(maybeGuide[1] || maybeGuide[0] || '').replace(/\s/g, '');
         const guideNoPlate = !/차량번호|차번/.test(String(maybeGuide[0] || ''))
-          && !/^\d{2,3}[가-힣]/.test(String(maybeGuide[1] || maybeGuide[0] || ''));
-        if (guideBlank || guideNoPlate) return [sliced[0], ...sliced.slice(2)];
+          && !/^\d{2,3}[가-힣]/.test(plateCell);
+        if (guideBlank || guideNoPlate) body = body.slice(1);
       }
-      return sliced;
+      return [labelAutoplusHeaderRow(sliced[0] || []), ...body];
     },
   },
 };
