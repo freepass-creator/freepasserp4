@@ -131,3 +131,82 @@ export async function commitSheetProducts(companyId: string, products: EntityRec
   }
   return { created, updated, unchanged: plan.unchanged, duplicates, backend: store.backend };
 }
+
+export type AbsentPlan = {
+  patches: { key: string; patch: EntityRecord }[];
+  skipped_locked: number;
+  already_blocked: number;
+};
+
+/**
+ * 시트에 이번 유입에 없는 같은 공급사 매물 → 출고불가 patch (삭제 금지).
+ * locked_by_contract 있으면 스킵. 이미 출고불가면 집계만.
+ */
+export function planAbsentBlocked(opts: {
+  existing: EntityRecord[];
+  providerCode: string;
+  presentKeys: Set<string>;
+}): AbsentPlan {
+  const provider = opts.providerCode;
+  let skipped_locked = 0;
+  let already_blocked = 0;
+  const patches: { key: string; patch: EntityRecord }[] = [];
+  for (const r of opts.existing) {
+    if (r._deleted) continue;
+    const key = String(r._key || r.product_code || '');
+    if (!key) continue;
+    const pc = String(r.provider_company_code || '');
+    if (pc !== provider && !key.startsWith(`${provider}_`)) continue;
+    const pcode = String(r.product_code || '');
+    if (opts.presentKeys.has(key) || (pcode && opts.presentKeys.has(pcode))) continue;
+    if (String(r.vehicle_status || '') === '출고불가') {
+      already_blocked++;
+      continue;
+    }
+    if (!isBlank(r.locked_by_contract)) {
+      skipped_locked++;
+      continue;
+    }
+    patches.push({
+      key,
+      patch: {
+        vehicle_status: '출고불가',
+        // v3-only 첫 오버레이 permission — 소유 공급사 코드 승계
+        provider_company_code: pc || provider,
+      },
+    });
+  }
+  return { patches, skipped_locked, already_blocked };
+}
+
+/** fetch 성공·건수 가드. 빈 유입·급감(사고)이면 부재→출고불가 금지. */
+export function shouldReconcileAbsent(
+  imported: number,
+  previousCount: number,
+): { ok: boolean; reason?: 'imported_empty' | 'collapse' } {
+  if (imported <= 0) return { ok: false, reason: 'imported_empty' };
+  if (previousCount >= 10 && imported < previousCount * 0.5) {
+    return { ok: false, reason: 'collapse' };
+  }
+  return { ok: true };
+}
+
+/** 부재 매물 출고불가 적용. 일괄 연동(sync-all) 전용 — 부분 붙여넣기 경로에서 호출 금지. */
+export async function applyAbsentBlocked(
+  companyId: string,
+  providerCode: string,
+  presentKeys: Set<string>,
+): Promise<{ absent_blocked: number; skipped_locked: number; already_blocked: number }> {
+  const store = getStore();
+  const existing = await store.list('product', companyId);
+  const plan = planAbsentBlocked({ existing, providerCode, presentKeys });
+  let absent_blocked = 0;
+  if (plan.patches.length) {
+    absent_blocked = await store.bulkPatch('product', companyId, plan.patches);
+  }
+  return {
+    absent_blocked,
+    skipped_locked: plan.skipped_locked,
+    already_blocked: plan.already_blocked,
+  };
+}
