@@ -27,7 +27,35 @@ import {
   summarizeSheetDiff,
   type SheetDiffSummary,
 } from '@/lib/domain/sheet-diff';
-import { Database, Link2, RefreshCw, Save, Upload } from 'lucide-react';
+import { Database, Download, Link2, RefreshCw, Save, Upload } from 'lucide-react';
+
+/** 아이카식 표준 양식 — autoMapHeaders 별칭과 정합. 컬럼명 변경 금지. */
+const STANDARD_SHEET_HEADERS = [
+  '차량번호', '제조사', '모델', '세부모델', '트림', '연식', '최초등록일', '연료', '배기량', '주행거리',
+  '외장', '내장', '인승', '변속기', '상태', '구분', '옵션',
+  '1개월', '6개월', '12개월', '24개월', '36개월', '48개월', '60개월', '단기보증', '장기보증',
+] as const;
+
+const STANDARD_SHEET_EXAMPLE = [
+  '12가3456', '현대', '쏘나타', 'DN8', '인스퍼레이션', '2022', '2022-03', '가솔린', '2000', '35000',
+  '흰색', '검정', '5', '자동', '출고가능', '중고렌트', '파노라마선루프',
+  '', '', '650000', '', '580000', '', '540000', '3000000', '5000000',
+] as const;
+
+const STANDARD_SHEET_HINT =
+  '상태=출고가능/출고협의/계약중/출고불가, 배차중은 자동 제외됨. 대여료는 개월 열에 월 렌트료(원), 보증금은 단기(12개월↓)/장기(24개월↑).';
+
+function downloadStandardSheetTemplate() {
+  const csv = `\uFEFF${STANDARD_SHEET_HEADERS.join(',')}\n${STANDARD_SHEET_EXAMPLE.join(',')}\n`;
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const href = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = href;
+  a.download = '프리패스_공급사_표준양식.csv';
+  a.click();
+  URL.revokeObjectURL(href);
+  toast('표준 양식 다운로드됨');
+}
 
 /**
  * 공급사 매물 취합 — 공급사마다 고유 시트 + 매핑 학습.
@@ -419,7 +447,7 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
               {' '}· 무변경 {pending.totals.unchanged}
             </div>
           )}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
             <Btn mobileIcon={<Link2 size={18} />} title="허브 시트 → partner.sheet_url" variant="ghost" onClick={syncHubUrls} disabled={busy}>
               허브 URL 동기
             </Btn>
@@ -442,6 +470,18 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
                 ? `동기화 (${roster.length}) · ${pending.fetched.products.length}대`
                 : `동기화 (${roster.length})`}
             </Btn>
+            <Btn
+              mobileIcon={<Download size={18} />}
+              title="아이카식 표준 양식 CSV"
+              variant="ghost"
+              onClick={downloadStandardSheetTemplate}
+              disabled={busy}
+            >
+              표준 템플릿
+            </Btn>
+          </div>
+          <div style={{ fontSize: FS.cap, color: C.faint, lineHeight: 1.45, marginTop: 6 }} title={STANDARD_SHEET_HINT}>
+            {STANDARD_SHEET_HINT}
           </div>
           {bulkLog && (
             <pre style={{ margin: '8px 0 0', fontSize: FS.cap, color: C.mute, whiteSpace: 'pre-wrap', maxHeight: 130, overflowY: 'auto', fontFamily: NUM }}>{bulkLog}</pre>
