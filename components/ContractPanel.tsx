@@ -12,13 +12,15 @@ import { ContractMemos } from '@/components/ContractMemos';
 import { ContractSign } from '@/components/ContractSign';
 import { confirmDialog, toast } from '@/components/Toaster';
 import { haptic } from '@/lib/haptics';
-import { Check, CircleX, X } from 'lucide-react';
+import { useIsMobile } from '@/lib/use-mobile';
+import { Check } from 'lucide-react';
 
 // 계약 패널 = 5단계 핸드셰이크 진행. 계약 없으면 계약문의로 시작 → 서류·입금·약정·출고.
 // 첨부 서류는 별도 패널(계약패널 밑, 위아래 리사이즈). 손님 연락처는 약정(계약서 발송) 단계에서.
 
 export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange }: { product: EntityRecord | null; roomId: string; linkedCode?: string; agentCode?: string; onChange?: () => void }) {
   const co = getCompanyId();
+  const mobile = useIsMobile();
   const [contract, setContract] = useState<EntityRecord | null | undefined>(undefined);
   const [role, setRoleS] = useState<Role>('agent');
   const [cust, setCust] = useState({ name: '', phone: '' });
@@ -101,12 +103,12 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
 
   return (
     <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 9 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: mobile ? 'wrap' : 'nowrap' }}>
         {c ? <><span style={{ fontSize: FS.sub, fontWeight: FW.title, fontFamily: NUM }}>{String(c.contract_code)}</span><Badge tone={contractTone(String(c.contract_status))}>{String(c.contract_status)}</Badge></>
           : <span style={{ fontSize: FS.sub, fontWeight: FW.title, color: C.ink }}>새 계약 — 출고문의로 시작</span>}
-        <span style={{ flex: 1 }} />
+        <span style={{ flex: 1, minWidth: 8 }} />
         <span style={{ fontSize: FS.sub, fontWeight: FW.head, color: C.brand }}>{doneCount}/{STEPS.length}</span>
-        {c && String(c.contract_status) !== '계약취소' && (role === 'agent' || role === 'admin') && <Btn mobileIcon={<CircleX size={18} />} title="계약 취소" size="sm" variant="ghost" onClick={doCancel} disabled={busy}>계약취소</Btn>}
+        {c && String(c.contract_status) !== '계약취소' && (role === 'agent' || role === 'admin') && <Btn title="계약 취소" size="sm" variant="ghost" onClick={doCancel} disabled={busy}>계약취소</Btn>}
       </div>
 
       {needsFinalize && (
@@ -149,19 +151,21 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
                     <div key={ch.key} style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>{actorTag}<span style={{ fontSize: FS.cap, color: C.ink, flex: 1 }}>약정 작성완료</span>{done && <span style={{ fontSize: FS.cap, color: C.ok, fontWeight: FW.strong, display: 'inline-flex', alignItems: 'center', gap: 4 }}>완료 <Check size={14} aria-hidden /></span>}</div>
                       {!done && mine && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingLeft: 32 }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingLeft: mobile ? 0 : 32 }}>
                           <span style={{ fontSize: FS.micro, color: C.faint }}>계약서 발송 전 손님 연락처 확인</span>
-                          <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
-                            <Input value={cust.name} onChange={(v) => setCust((s) => ({ ...s, name: v }))} placeholder="손님명" size="sm" width={82} />
-                            <Input value={cust.phone} onChange={(v) => setCust((s) => ({ ...s, phone: fmtPhone(v) }))} placeholder="연락처" inputMode="tel" size="sm" style={{ flex: 1, minWidth: 0 }} />
+                          <div style={{ display: 'flex', flexDirection: mobile ? 'column' : 'row', gap: 5, alignItems: mobile ? 'stretch' : 'center' }}>
+                            <div style={{ display: 'flex', gap: 5, alignItems: 'center', minWidth: 0, ...(mobile ? {} : { flex: 1 }) }}>
+                              <Input value={cust.name} onChange={(v) => setCust((s) => ({ ...s, name: v }))} placeholder="손님명" size="sm" width={mobile ? undefined : 82} style={mobile ? { flex: '1 1 40%', minWidth: 0 } : undefined} />
+                              <Input value={cust.phone} onChange={(v) => setCust((s) => ({ ...s, phone: fmtPhone(v) }))} placeholder="연락처" inputMode="tel" size="sm" style={{ flex: 1, minWidth: 0 }} />
+                            </div>
                             <Btn title="약정 완료" size="sm" onClick={doAgreement} disabled={busy || !cust.name.trim() || !cust.phone.trim()}>약정완료</Btn>
                           </div>
                         </div>
                       )}
-                      {!done && !mine && <span style={{ fontSize: FS.cap, color: C.faint, paddingLeft: 32 }}>대기</span>}
-                      {done && (c?.customer_name || c?.customer_phone) ? <span style={{ fontSize: FS.cap, color: C.mute, paddingLeft: 32 }}>{[c?.customer_name, c?.customer_phone].filter(Boolean).join(' · ')}</span> : null}
+                      {!done && !mine && <span style={{ fontSize: FS.cap, color: C.faint, paddingLeft: mobile ? 0 : 32 }}>대기</span>}
+                      {done && (c?.customer_name || c?.customer_phone) ? <span style={{ fontSize: FS.cap, color: C.mute, paddingLeft: mobile ? 0 : 32 }}>{[c?.customer_name, c?.customer_phone].filter(Boolean).join(' · ')}</span> : null}
                       {done && c ? (
-                        <div style={{ marginTop: 4, paddingLeft: 32 }}>
+                        <div style={{ marginTop: 4, paddingLeft: mobile ? 0 : 32 }}>
                           <ContractSign contractCode={String(c.contract_code)} />
                         </div>
                       ) : null}
@@ -174,7 +178,6 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
                     {ch.choices ? ch.choices.map((opt) => (
                       <Btn
                         key={opt}
-                        mobileIcon={String(opt).includes('불가') || String(opt).includes('반려') ? <X size={18} /> : <Check size={18} />}
                         title={opt}
                         size="sm"
                         variant={cur === opt ? 'solid' : 'ghost'}
@@ -183,7 +186,6 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
                       >{opt}</Btn>
                     )) : (
                       <Btn
-                        mobileIcon={<Check size={18} />}
                         title={done ? '완료 해제' : mine ? '체크' : '대기'}
                         size="sm"
                         variant={done ? 'solid' : 'ghost'}
