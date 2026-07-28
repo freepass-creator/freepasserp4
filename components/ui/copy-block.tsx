@@ -5,7 +5,8 @@ import { Check, Copy } from 'lucide-react';
 import { haptic } from '@/lib/haptics';
 import { copyText } from '@/lib/clipboard';
 import { Btn } from './buttons';
-import { C, FS, R } from './tokens';
+import { Dropzone } from './dropzone';
+import { C, FS } from './tokens';
 import { useIsMobile } from '@/lib/use-mobile';
 
 export function CopyBlock({ text, label = '양식 복사' }: { text: string; label?: string }) {
@@ -29,21 +30,23 @@ export function CopyBlock({ text, label = '양식 복사' }: { text: string; lab
           onClick={copy}
         >{done ? '복사됨' : label}</Btn>
       </div>
-      <pre style={{
-        margin: 0,
-        padding: mobile ? '12px 13px' : '11px 12px',
-        border: `1px dashed ${C.line}`,
-        borderRadius: R,
-        background: C.taupeBg,
-        fontFamily: 'inherit',
-        fontSize: mobile ? FS.body : FS.sub,
-        lineHeight: 1.75,
-        color: C.ink,
-        whiteSpace: 'pre-wrap',
-        wordBreak: 'break-word',
-      }}>
-        {text}
-      </pre>
+      <Dropzone variant="copy" style={{ alignItems: 'stretch' }}>
+        <pre style={{
+          margin: 0,
+          padding: mobile ? '12px 13px' : '11px 12px',
+          border: 'none',
+          background: 'transparent',
+          fontFamily: 'inherit',
+          fontSize: mobile ? FS.body : FS.sub,
+          lineHeight: 1.75,
+          color: C.ink,
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+          width: '100%',
+        }}>
+          {text}
+        </pre>
+      </Dropzone>
     </div>
   );
 }

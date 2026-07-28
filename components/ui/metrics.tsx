@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Check } from 'lucide-react';
-import { C, FS, FW, NUM, R } from './tokens';
+import { C, FS, FW, NUM, R, SH } from './tokens';
 
 type Tone = 'ink' | 'danger' | 'ok' | 'warn';
 
@@ -63,7 +63,7 @@ export function Panel({
       borderRadius: R,
       background: C.taupeBg,
       overflow: 'hidden',
-      boxShadow: '0 10px 24px rgba(15,23,42,0.05)',
+      boxShadow: SH.cardRest,
     }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: `1px solid ${C.line}`, background: C.head }}>
         <div style={{ fontSize: FS.body, fontWeight: FW.title, color: C.ink }}>{title}</div>

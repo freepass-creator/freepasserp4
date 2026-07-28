@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { getRole, actor, ROLE_LABEL, type Role } from '@/lib/domain/deal';
-import { C, R, FS, FW, IconBtn, Btn, SCRIM } from '@/components/ui';
+import { C, R, FS, FW, IconBtn, Btn, Dropzone, SCRIM } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { Paperclip, FileText, X, Download } from 'lucide-react';
 import { toast } from '@/components/Toaster';
@@ -207,17 +207,21 @@ export function ContractDocs({ contractCode, roomId }: { contractCode: string; r
         <span style={{ fontSize: FS.cap, color: C.faint }}>Storage 원본 · Drive 백업(설정 시)</span>
       </div>
 
-      <div
+      <Dropzone
+        variant="file"
+        active={drag}
         onClick={() => inputRef.current?.click()}
         onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
         onDragLeave={() => setDrag(false)}
         onDrop={(e) => { e.preventDefault(); setDrag(false); addFiles(e.dataTransfer.files); }}
-        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, padding: '16px 12px', border: `1.5px dashed ${drag ? C.brand : C.line}`, borderRadius: R, background: drag ? C.selected : C.head, cursor: 'pointer', marginBottom: 8, transition: 'background .12s, border-color .12s' }}>
+        style={{ marginBottom: 8 }}
+        title={busy ? '첨부 중…' : '파일 첨부'}
+      >
         <Paperclip size={16} color={drag ? C.brand : C.faint} />
         <span style={{ fontSize: FS.cap, color: drag ? C.brand : C.mute, fontWeight: FW.strong }}>{busy ? '첨부 중…' : '파일을 여기로 끌어놓거나 클릭'}</span>
         <span style={{ fontSize: FS.micro, color: C.faint }}>이미지·PDF 등 · 4MB/파일</span>
-        <input ref={inputRef} type="file" multiple disabled={busy} onChange={(e) => void addFiles(e.target.files)} style={{ display: 'none' }} />
-      </div>
+        <input ref={inputRef} type="file" multiple disabled={busy} onChange={(e) => void addFiles(e.target.files)} style={{ display: 'none' }} onClick={(e) => e.stopPropagation()} />
+      </Dropzone>
 
       {merged.length === 0 ? <div style={{ fontSize: FS.cap, color: C.faint, textAlign: 'center', padding: '6px 0' }}>첨부된 서류가 없습니다.</div> :
         <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>

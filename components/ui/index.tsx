@@ -23,6 +23,9 @@ export * from './filters';
 export * from './detail-shell';
 export * from './form-grid';
 export * from './copy-block';
+export * from './add-tile';
+export * from './dropzone';
+export * from './close-btn';
 export * from './formatters';
 
 // Page = components/Page.tsx (모바일=MobilePageShell SSOT).

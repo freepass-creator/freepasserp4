@@ -1,6 +1,6 @@
 'use client';
 import { useRef, useState } from 'react';
-import { Btn, IconBtn, C, R, FS, FW } from '@/components/ui';
+import { AddTile, Btn, CloseBtn, IconBtn, C, R, FS, FW } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
 import { toast } from '@/components/Toaster';
@@ -8,7 +8,7 @@ import {
   uploadManagedFile,
   type ManagedFile,
 } from '@/lib/firebase/storage-files';
-import { Images, PanelTop, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Images, PanelTop, Trash2 } from 'lucide-react';
 
 const LONG_MS = 480;
 const MOVE_PX = 10;
@@ -209,16 +209,14 @@ export function PhotoUpload({
             </div>
           );
         })}
-        <div
-          style={{
-            width: THUMB_W, aspectRatio: '4 / 3', borderRadius: R,
-            border: `1.5px dashed ${C.brand}`,
-            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-            background: C.selected, gap: 2,
-          }}
-        >
-          <IconBtn onClick={() => !busy && fileRef.current?.click()} title="사진 추가" disabled={busy}>+</IconBtn>
-          {list.length === 0 && <span style={{ fontSize: FS.micro, fontWeight: FW.strong, color: C.brand }}>{busy ? '업로드 중' : '추가'}</span>}
+        <div style={{ width: THUMB_W, flex: '0 0 auto' }}>
+          <AddTile
+            aspect="4/3"
+            disabled={busy}
+            title="사진 추가"
+            label={list.length === 0 ? (busy ? '업로드 중' : '추가') : undefined}
+            onClick={() => !busy && fileRef.current?.click()}
+          />
           <input ref={fileRef} type="file" accept="image/*" multiple disabled={busy} onChange={(e) => void add(e.target.files)} style={{ display: 'none' }} />
         </div>
       </div>
@@ -277,16 +275,16 @@ export function PhotoUpload({
       {fullIdx != null && list[fullIdx] && (
         <div onClick={() => setFull(null)} style={{ position: 'fixed', inset: 0, zIndex: 90, background: C.ink, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
           <div style={{ position: 'fixed', top: 14, right: 16, zIndex: 1 }} onClick={(e) => e.stopPropagation()}>
-            <IconBtn onClick={() => setFull(null)} title="닫기">×</IconBtn>
+            <CloseBtn onClick={() => setFull(null)} />
           </div>
           {fullIdx > 0 && (
             <div style={{ position: 'fixed', left: 12, top: '50%', transform: 'translateY(-50%)', zIndex: 1 }} onClick={(e) => e.stopPropagation()}>
-              <IconBtn onClick={() => setFull(fullIdx - 1)} title="이전">‹</IconBtn>
+              <IconBtn onClick={() => setFull(fullIdx - 1)} title="이전"><ChevronLeft size={18} strokeWidth={2.25} aria-hidden /></IconBtn>
             </div>
           )}
           {fullIdx < list.length - 1 && (
             <div style={{ position: 'fixed', right: 12, top: '50%', transform: 'translateY(-50%)', zIndex: 1 }} onClick={(e) => e.stopPropagation()}>
-              <IconBtn onClick={() => setFull(fullIdx + 1)} title="다음">›</IconBtn>
+              <IconBtn onClick={() => setFull(fullIdx + 1)} title="다음"><ChevronRight size={18} strokeWidth={2.25} aria-hidden /></IconBtn>
             </div>
           )}
           <div

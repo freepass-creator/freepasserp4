@@ -6,7 +6,7 @@ import { seedIfEmpty } from '@/lib/seed';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { getRole, actor, type Role } from '@/lib/domain/deal';
 import { sendText, sendFile as sendFileMsg, markRead, listMessages, isMine } from '@/lib/domain/messaging';
-import { Btn, C, R, FW, FS, Loading, CenterNote, Input, IconBtn, ctrlH, NavBack, SCRIM } from '@/components/ui';
+import { Btn, C, R, FW, FS, Loading, CenterNote, Input, IconBtn, ctrlH, NavBack, Dropzone, SCRIM } from '@/components/ui';
 import { toast } from '@/components/Toaster';
 import { ChatSenderLabel } from '@/components/ChatSenderLabel';
 import { useIsMobile } from '@/lib/use-mobile';
@@ -194,20 +194,18 @@ export function ChatThread({ roomId, onBack, onVehicle, onContract }: { roomId: 
         style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: 14, display: 'flex', flexDirection: 'column', gap: 8, position: 'relative' }}
       >
         {!mobile && dragActive ? (
-          <div
-            aria-hidden
+          <Dropzone
+            variant="file"
+            active
             style={{
               position: 'absolute', inset: 0, zIndex: 5,
               background: SCRIM.light,
-              border: `2px dashed ${C.brand}`,
-              borderRadius: R,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
               pointerEvents: 'none',
               color: C.ink, fontSize: FS.title, fontWeight: FW.title,
             }}
           >
             여기에 놓아 첨부
-          </div>
+          </Dropzone>
         ) : null}
         {msgs === undefined && <Loading label="메시지를 불러오는 중…" minHeight={80} />}
         {msgs?.length === 0 && <div style={{ textAlign: 'center', color: C.faint, fontSize: FS.sub, marginTop: 20 }}>첫 메시지를 남겨보세요.</div>}

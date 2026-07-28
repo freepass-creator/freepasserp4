@@ -4,7 +4,7 @@ import { type EntityRecord } from '@/lib/intake/entities';
 import { priceList, detailSections, cheapest, type Audience } from '@/lib/domain/product';
 import { useProductPhotos } from '@/components/use-product-photos';
 import { getRole } from '@/lib/domain/deal';
-import { won, C, R, NUM, FW, FS, IconBtn, SCRIM } from '@/components/ui';
+import { won, C, R, NUM, FW, FS, CloseBtn, IconBtn, SCRIM } from '@/components/ui';
 import { useDragScroll } from '@/lib/use-drag-scroll';
 import {
   badges, Plate, idParts, CardBenefits, CardEvents, OptionChips,
@@ -214,14 +214,14 @@ export function ProductDetail({ p, audience }: { p: EntityRecord; audience?: Aud
 
       {lb !== null && photos.length > 0 && (
         <div onClick={() => setLb(null)} style={{ position: 'fixed', inset: 0, zIndex: 80, background: SCRIM.black, overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: '48px 12px' }}>
-          <IconBtn
+          <CloseBtn
             title="닫기"
             onClick={(e) => { e.stopPropagation(); setLb(null); }}
             style={{
               position: 'fixed', top: 14, right: 14, width: 40, height: 40, borderRadius: '50%',
-              border: 'none', background: `color-mix(in srgb, ${C.inverse} 18%, transparent)`, color: C.inverse, fontSize: FS.page, zIndex: 1,
+              border: 'none', background: `color-mix(in srgb, ${C.inverse} 18%, transparent)`, color: C.inverse, zIndex: 1,
             }}
-          >×</IconBtn>
+          />
           <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: 880, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
             {photos.map((ph, i) => <img key={i} src={ph} alt="" style={{ width: '100%', height: 'auto', borderRadius: R, display: 'block' }} />)}
           </div>

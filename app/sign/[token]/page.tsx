@@ -6,7 +6,7 @@ import { getCompanyId } from '@/lib/tenant';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { getContractByToken, SIGN_REQUIRED_CONSENTS, submitSign } from '@/lib/domain/sign';
 import { Check } from 'lucide-react';
-import { won, C, R, Input, fmtPhone, Loading, Btn, FW, FS } from '@/components/ui';
+import { won, C, R, Input, fmtPhone, Loading, Btn, Dropzone, FW, FS } from '@/components/ui';
 import { toast } from '@/components/Toaster';
 
 // 손님 전자서명 페이지(공개·화이트라벨). 계약요약 → 본인확인 → 약관동의 → 전자서명 → 제출(검토대기).
@@ -142,8 +142,10 @@ export default function SignPage() {
       </div>
 
       <div style={{ fontSize: FS.title, fontWeight: FW.title, marginBottom: 8, display: 'flex', alignItems: 'center' }}>전자서명 <span style={{ flex: 1 }} /><Btn title="서명 지우기" size="sm" variant="ghost" onClick={clearSig}>지우기</Btn></div>
-      <canvas ref={canvasRef} width={600} height={180} onPointerDown={start} onPointerMove={move} onPointerUp={end} onPointerLeave={end}
-        style={{ width: '100%', height: 'auto', aspectRatio: '600 / 180', border: `1.5px dashed ${C.line}`, borderRadius: R, background: '#fff', touchAction: 'none', cursor: 'crosshair' }} />
+      <Dropzone variant="sign" style={{ background: '#fff', width: '100%', padding: 0, overflow: 'hidden' }}>
+        <canvas ref={canvasRef} width={600} height={180} onPointerDown={start} onPointerMove={move} onPointerUp={end} onPointerLeave={end}
+          style={{ width: '100%', height: 'auto', aspectRatio: '600 / 180', display: 'block', border: 'none', background: 'transparent', touchAction: 'none', cursor: 'crosshair' }} />
+      </Dropzone>
       <div style={{ fontSize: FS.cap, color: C.faint, marginTop: 4 }}>위 칸에 손가락 또는 마우스로 서명해 주세요.</div>
 
       <div style={{ marginTop: 22 }}><Btn onClick={submit} disabled={busy}>{busy ? '제출 중…' : '동의하고 서명 제출'}</Btn></div>

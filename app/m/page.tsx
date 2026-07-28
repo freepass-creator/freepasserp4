@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { MOBILE_BP } from '@/lib/use-mobile';
 import { Btn } from '@/components/ui';
 import { C, FS, FW } from '@/components/ui/tokens';
+import { RotateCw } from 'lucide-react';
 
 /**
  * `/m` — 모바일 미리보기(디바이스 프리뷰).
@@ -110,7 +111,7 @@ export default function MobilePreview() {
               {d.label}
             </Btn>
           ))}
-          <Btn size="sm" variant="ghost" onClick={reload} title="프레임 새로고침">↻</Btn>
+          <Btn size="sm" variant="ghost" onClick={reload} title="프레임 새로고침"><RotateCw size={16} aria-hidden /></Btn>
           <Btn size="sm" variant="ghost" onClick={() => router.push('/')}>데스크톱으로</Btn>
         </div>
       </div>
