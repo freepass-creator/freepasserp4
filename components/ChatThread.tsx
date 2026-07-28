@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useState, useRef, type DragEvent } from 'react';
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
@@ -13,6 +13,11 @@ import { useIsMobile } from '@/lib/use-mobile';
 import { msgClock } from '@/lib/format';
 import { CarFront, ListChecks, LoaderCircle, Send } from 'lucide-react';
 
+/** 📎 accept와 동일 — image/* · application/pdf */
+function isAcceptedChatFile(file: File): boolean {
+  return file.type.startsWith('image/') || file.type === 'application/pdf';
+}
+
 // 대화창 = 공통 원자(방 하나의 스레드+입력). 전송·안읽음 = messaging SSOT.
 export function ChatThread({ roomId, onBack, onVehicle, onContract }: { roomId: string; onBack?: () => void; onVehicle?: (productCode: string) => void; onContract?: (productCode: string) => void }) {
   const mobile = useIsMobile();
@@ -23,8 +28,10 @@ export function ChatThread({ roomId, onBack, onVehicle, onContract }: { roomId: 
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [full, setFull] = useState<string | null>(null);
+  const [dragActive, setDragActive] = useState(false);
   const threadRef = useRef<HTMLDivElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const dragDepth = useRef(0);
 
   const load = useCallback(async (mark = true) => {
     const rm = await getStore().get('room', co, roomId);
@@ -117,6 +124,43 @@ export function ChatThread({ roomId, onBack, onVehicle, onContract }: { roomId: 
     }
   };
 
+  // 데스크톱 DnD — 모바일은 리스너·오버레이 없음. 업로드는 onPickFile 재사용만.
+  const onDragEnter = (e: DragEvent) => {
+    if (mobile) return;
+    e.preventDefault();
+    e.stopPropagation();
+    dragDepth.current += 1;
+    setDragActive(true);
+  };
+  const onDragOver = (e: DragEvent) => {
+    if (mobile) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+  };
+  const onDragLeave = (e: DragEvent) => {
+    if (mobile) return;
+    e.preventDefault();
+    e.stopPropagation();
+    dragDepth.current = Math.max(0, dragDepth.current - 1);
+    if (dragDepth.current === 0) setDragActive(false);
+  };
+  const onDrop = (e: DragEvent) => {
+    if (mobile) return;
+    e.preventDefault();
+    e.stopPropagation();
+    dragDepth.current = 0;
+    setDragActive(false);
+    const files = e.dataTransfer?.files ?? null;
+    if (!files?.length) return;
+    const file = files[0];
+    if (!isAcceptedChatFile(file)) {
+      toast('이미지 또는 PDF만 첨부할 수 있습니다', 'error');
+      return;
+    }
+    void onPickFile(files);
+  };
+
   if (room === undefined) return <Loading label="불러오는 중…" minHeight="100%" />;
   if (!room) {
     return (
@@ -141,7 +185,30 @@ export function ChatThread({ roomId, onBack, onVehicle, onContract }: { roomId: 
         </div>
       ) : null}
 
-      <div ref={threadRef} style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div
+        ref={threadRef}
+        onDragEnter={mobile ? undefined : onDragEnter}
+        onDragOver={mobile ? undefined : onDragOver}
+        onDragLeave={mobile ? undefined : onDragLeave}
+        onDrop={mobile ? undefined : onDrop}
+        style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: 14, display: 'flex', flexDirection: 'column', gap: 8, position: 'relative' }}
+      >
+        {!mobile && dragActive ? (
+          <div
+            aria-hidden
+            style={{
+              position: 'absolute', inset: 0, zIndex: 5,
+              background: SCRIM.light,
+              border: `2px dashed ${C.brand}`,
+              borderRadius: R,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              pointerEvents: 'none',
+              color: C.ink, fontSize: FS.title, fontWeight: FW.title,
+            }}
+          >
+            여기에 놓아 첨부
+          </div>
+        ) : null}
         {msgs === undefined && <Loading label="메시지를 불러오는 중…" minHeight={80} />}
         {msgs?.length === 0 && <div style={{ textAlign: 'center', color: C.faint, fontSize: FS.sub, marginTop: 20 }}>첫 메시지를 남겨보세요.</div>}
         {msgs?.map((m) => {
