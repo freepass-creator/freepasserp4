@@ -1,0 +1,132 @@
+# UI/UX 작업지시서 — 정적 리뷰 기반 (2026-07-28)
+
+> 출처: UI/UX **정적** 안티패턴 리뷰(5축 병렬 스캔). **기능·로직·보안·정합성은 대상 아님** — 오직 비효율·중복·규격화·버벅임/느림.
+> 역할(→ [AGENTS.md](AGENTS.md) 파이프라인): **커서=구현(노가다) · 클로드/코덱스=게이트 · push는 사람/클로드.** 각 오더는 독립 실행 가능.
+> 공통 가드레일(모든 오더): **표시 데이터·정렬결과·필터 의미·기능 불변**(UI/성능/스타일만), 게이트 `tsc --noEmit` + `check:fonts`(Order4는 `check:tokens`), 완료 후 **커서 브라우저로 체감 확인(스샷)**, `git push` 금지.
+
+## 추천 실행 순서 (런칭 내일 기준)
+- **먼저(안전·즉효, 리스크 低):** Order 3 → 4 → 5
+- **그다음(핫패스 리팩터, 리스크 中 — 커서 구현 후 클로드/코덱스 게이트 + 브라우저 실측):** Order 2 → 1
+- 근거: 버벅임 90%는 Order 1(엑셀 뷰)이지만 리팩터 규모가 커서, 안전건 먼저 털고 리팩터는 검증 붙여 신중히.
+
+## 상태
+- [ ] Order 1 — 엑셀 뷰 가상화/페이징
+- [ ] Order 2 — useIsMobile 전역 구독화 + 카드당 effect 제거
+- [ ] Order 3 — 비파인더 화면 디바운스+페이징
+- [ ] Order 4 — 토큰 규격화 + check:tokens 가드
+- [ ] Order 5 — 인터랙션 폴리시
+- [ ] Order 6 — UI 코드 중복 제거 *(dedup 축 스캔 결과 도착 후 추가)*
+
+---
+
+## ⭐ ORDER 1 — 엑셀 결과뷰 가상화/페이징  · 영향 HIGH · 리스크 中
+**문제:** 웹 기본 화면인 엑셀 뷰가 필터된 전체 행(~1,600)을 페이징·가상화 없이 전량 렌더. 행마다 ResizeObserver + `priceList`/`productOptions`/`excelCondSignals` 재계산 + 셀 20여개 inline style 스프레드. 컬럼필터 토글이 동기로 전체 재렌더. → 첫 화면 최초페인트·필터·스크롤 버벅임의 근원. (리뷰 3축이 여기로 수렴)
+
+**파일·앵커:**
+- `features/finder/ExcelResultsTable.tsx:167`(tbody `rows.map` 전량) · `:186-234`(셀 style 스프레드) · `:94-165`(헤더 style) · `:240`(팝오버 열림 시 매 렌더 재필터)
+- `app/page.tsx:379`(`moreN = effView==='excel'?0` → 엑셀에 페이징 미적용) · `:42-43`(PAGE=100/PAGE_HARD=500 패턴 참고)
+- `lib/finder/useFinderResults.ts:155-168`(`excelRows` 상한 없음, colFilter/colSort deferred 아님)
+- `features/finder/ExcelFilterPopover.tsx:40-47`(체크 토글 → setColFilter 동기)
+- `components/product-card-options.tsx:37`(OptionChips 내 ResizeObserver — 행마다)
+
+**작업:**
+1. 엑셀에도 카드/리스트와 동일 `limit`(PAGE=100) 슬라이스+더보기 적용(`moreN` 엑셀 0 제거). *윈도잉 대신 페이징이 리스크 낮음 — 우선 이걸로.*
+2. 열별 style 객체(`tdX`/`cellPad`/`colLock`)를 map 루프 밖 `useMemo`로 1회 산출 후 재사용.
+3. 행을 `React.memo`된 `<ExcelRow>`로 추출 — 변경 행만 갱신.
+4. per-row 파생값(`priceList`·`productOptions`·`excelCondSignals`·`fuelDisplay` 등)을 `useFinderResults` 파이프라인에서 1회 사전계산 → 행엔 완성 데이터만 전달.
+5. 엑셀 셀 `OptionChips`는 ResizeObserver 대신 CSS `-webkit-line-clamp`.
+6. `colFilter`/`colSort`를 `useDeferredValue` 또는 `setColFilter`를 `startTransition`으로.
+
+---
+
+## ⭐ ORDER 2 — useIsMobile 전역 구독화 + 카드당 effect 제거  · 영향 HIGH · 리스크 中
+**문제:** `useIsMobile`이 카드 1장당 ~4회 호출 → resize/matchMedia 리스너 수천개(500장×4), 리사이즈 1회에 전부 발화 → 프레임드랍. `ProductMoreMenu`는 웹에서 `null` 반환하면서도 카드당 전역구독 2개 등록(500×2=1000). `useProductPhotos`는 카드마다 `setExtra([])`로 전 카드 이중 렌더.
+
+**파일·앵커:**
+- `lib/use-mobile.ts:77-88`(카드마다 subscribe 생성) — 이미 있는 `MobileBpProvider` 컨텍스트 활용
+- `components/ProductMoreMenu.tsx:36-43`(구독 effect) vs `:46`(`if(!mobile) return null` — 조기 return이 hook 뒤)
+- `components/use-product-photos.ts:8-24` · 진입 `product-card-atoms.tsx:137`
+- `components/product-card-options.tsx:23,37,40`(productOptions 재계산 + RO) · `components/product-card-pricing.tsx:250-271`(PeriodPerkBand RO)
+
+**작업:**
+1. `useIsMobile`을 `MobileBpProvider` 컨텍스트만 읽도록 전환(전역 1구독). 카드마다 subscribe 금지. (부팅 감지 `isMobileViewport`는 유지)
+2. `ProductMoreMenu`: 웹에선 아예 마운트 안 하도록 상위(카드)에서 분기, 또는 구독 effect를 `mobile` 가드 뒤로.
+3. `useProductPhotos`: 반환 배열 `useMemo`, `setExtra([])`는 `scrapableSources` 있을 때만, 직접 사진만 있으면 effect 스킵.
+4. `OptionChips`·`PeriodPerkBand`: `productOptions` `useMemo`, 칩 줄바꿈 측정 ResizeObserver를 CSS(`flex-wrap`)로 대체 가능하면 제거.
+
+---
+
+## ORDER 3 — 비파인더 화면 디바운스+페이징  · 영향 MED · 리스크 低
+**문제:** 상품찾기 본체는 이미 180ms 디바운스+`useDeferredValue`로 잘 됨. 그러나 카탈로그·정산·채팅 검색은 디바운스 전무 + 결과 전량 무페이징 렌더 → 타이핑 끊김·리스트 무거움.
+
+**파일·앵커:**
+- `app/catalog/page.tsx:22`(setQ 직결) · `:41-55`(매 키 필터) · `:81`(전량 렌더)
+- `app/settlement/page.tsx:69,361`(setQuery 직결) · `:134-152`(정렬 포함 memo 매 키)
+- `app/chat/page.tsx:325/331`(setQ 직결) · `:214-216`(`chatRoomPreviewCount` 비메모)
+- `app/contract/page.tsx:205`(전량 렌더, 페이징 상한 없음)
+- 복제 대상 패턴: `app/page.tsx:42-43,236-239`(디바운스+페이징)
+
+**작업:** 위 4개 화면에 파인더식 180ms 디바운스(또는 `useDeferredValue`) + `slice(0, PAGE=100)` 페이징+더보기 이식. 채팅 `chatRoomPreviewCount`는 `useMemo`.
+
+---
+
+## ORDER 4 — 토큰 규격화(그림자/반경/인버스/포커스/스크림) + 가드 확장  · 영향 MED · 리스크 低
+**문제:** 그림자·반경·인버스색·포커스링·스크림 토큰이 `globals.css`에 **이미 있는데(`--shadow-*`,`--radius-*`,`--focus-ring`,`--text-inverse`) 아무도 안 쓰고** 손 rgba로 찍어 값 제각각 — 카드그림자 alpha 3종, 스크림 17종, 포커스링 색이 토큰(네이비)과 다른 색조(파랑). `check:fonts`는 `features/`·정수 폰트크기·리터럴 굵기·색을 못 막음.
+
+**파일·앵커:**
+- 그림자 하드코딩 ~25곳: `objcard.tsx:13-14`, `metrics.tsx:36,65`, `buttons.tsx:46`, `ProductCard.tsx:42`, `ProductRowCard.tsx:75`, `detail.tsx:103`, `ContextMenu.tsx:64`, `TopBar.tsx:212,367`, `Toaster.tsx:65,73`, `overlays.tsx:47,80`, `ProductMoreMenu.tsx:201`, `AppTabBar.tsx:105`, `MobileListDock.tsx:58`, `navigation.tsx:115`, `WorkPage.tsx:190,244`, `detail-shell.tsx:65`, `badges.tsx:86`
+- 스크림 17종: `overlays.tsx:46,79`, `Toaster.tsx:71`, `ProductMoreMenu.tsx:191`, `BottomSheet.tsx:144`, `ChatThread.tsx:182`, `ContractDocs.tsx:256`, `ProductDetail.tsx:216`
+- `#fff` 인버스 10곳: `badges.tsx:67`, `product-card-atoms.tsx:193`, `ProductDetail.tsx:113,222`, `error.tsx:31`, `not-found.tsx:20`, `ContractDocs.tsx:257,259,266`
+- 포커스링 `rgba(37,99,235,·)`: `detail.tsx:103`, `VehicleMasterFilter.tsx:76`, `form-controls.tsx:109` (SSOT `--focus-ring`)
+- 반경 혼용: `R` vs `'var(--radius)'`(`detail.tsx:103`) vs 리터럴 `4`(`faq/page.tsx:100`, `ContractSign.tsx:106`, `sign/[token]/page.tsx:89,115`, `global-error.tsx:32,36`) · 오프토큰 `settings/page.tsx:255`(6), `ExcelFilterPopover.tsx:73`(2)
+- 팔레트 섬: `app/global-error.tsx:16,23,27,36`(웜톤 화석·다크 없음), `app/login/page.tsx`(생 hex 29개·다크 없음)
+- 가드: `scripts/check-fonts.mts:12`(walk=app,components만) · `:15`(소수점 4종만 금지)
+- **의도된 예외(수정 금지, tokens.ts에 명명만):** `ContractSign.tsx:106`·`sign/[token]` 흰 지면+서명잉크, `m/page.tsx:152` 폰 베젤 → `C.paperFixed`/`C.inkFixed` 상수로 명명
+
+**작업:**
+1. `components/ui/tokens.ts` 신설: `SH={cardRest,cardHover,dock,menu,modal}`, `SCRIM={light,heavy}`, `C.inverse(var(--text-inverse))`, `C.focusRing(var(--focus-ring))`. 다크 승격은 `globals.css` CSS 변수로.
+2. 위 하드코딩 그림자/스크림/`#fff`/포커스링 → 토큰 치환. 반경 리터럴 `4`/`'var(--radius)'` → `R` 단일화.
+3. `global-error.tsx`·`login/page.tsx` 팔레트 섬: 토큰 hex 미러링 + 다크 대응.
+4. `scripts/check-fonts.mts` → **`check:tokens`** 확장: (a)walk에 `features/` 추가 (b)FS 6값 외 정수 `fontSize` 금지 (c)FW 외 리터럴 `fontWeight` 금지 (d)생 hex/rgba 금지(예외 화이트리스트). `package.json`에 스크립트 등록.
+
+---
+
+## ORDER 5 — 인터랙션 폴리시  · 영향 MED · 리스크 低
+**문제:** 시트 닫힘이 툭 끊기고, 채팅 전송이 낙관적이 아니며, `prefers-reduced-motion`이 무한 애니메이션을 못 끄고, 채팅 이미지에 치수/lazy 누락(CLS).
+
+**파일·앵커:**
+- `components/BottomSheet.tsx:72`(`if(!open) return null` 즉시 언마운트) · `:161`(입장 `sheetUp .22s`) · `:138-146`(백드롭 즉시)
+- `components/ChatThread.tsx:75-77`(전송 완료 후 append) · `:136`(img 치수·lazy 없음) · `:65-69`(scrollTop 동기)
+- `app/globals.css:205-207`(reduced-motion이 menuDrop/sheetUp만) · `:162 attn-pulse`·`:175 fp-badge-pulse`·`:203 fp-page-fresh`(무한)
+- `features/finder/FinderToolbar.tsx:105`·`components/ui/buttons.tsx:96`(IconSeg 뷰토글)
+- 참고(양호): `transition: all` 없음 · 상품카드 썸네일은 이미 lazy+aspect-ratio
+
+**작업:**
+1. `BottomSheet`: 퇴장 트랜지션+언마운트 지연, 백드롭 opacity 페이드인(입장과 대칭).
+2. `ChatThread`: 전송 낙관적(임시 메시지 즉시 append, 실패 롤백). img에 width/height(or aspect-ratio)+`loading="lazy"`+`decoding="async"`. 하단고정 scrollTop을 `requestAnimationFrame` 후로.
+3. `globals.css`: reduced-motion에서 `attn-pulse`/`fp-badge-pulse`/`fp-page-fresh`/스피너도 `animation:none`.
+4. 엑셀 뷰 토글을 `startTransition`으로 감싸고 pending 시 세그먼트 dim(Order 1과 함께).
+
+---
+
+## ORDER 6 — UI 코드 중복 제거 (dedup)  · 영향 MED · 리스크 低
+**문제:** `components/ui/`에 광범위한 SSOT(Btn/Input/Select/EmptyState/Kpi/FeedListRow 등)가 있는데도, **5개 화면(finder/inventory/members/settlement/contract)에 걸친 구조적 블록이 복붙**됨. 값어치 최상 3건(#1·#2·#3)만 컴포넌트화해도 중복 대부분 제거.
+
+**추출할 컴포넌트 (심각도 = 반복횟수 × 라인수):**
+
+1. **[최상] `<ListMoreFooter>` + `usePaged` 훅** — "더보기 · N / 전체 보기 / PAGE_HARD 초과 toast"가 문자단위로 3곳 복붙: `features/finder/FinderResults.tsx:88-99`, `features/inventory/InventoryListPanel.tsx:58-86`, `features/members/MembersList.tsx:66-94`, `app/page.tsx:495-502`. `PAGE=100/PAGE_HARD=500` 상수도 `app/page.tsx:42-43`·`InventoryListPanel.tsx:9-10`·`MembersList.tsx:11-12` 3중 정의 → 상수 SSOT로. (Order 1·3의 페이징과 같은 훅 공유)
+2. **[최상] `<EntityListPanel>`** — `InventoryListPanel.tsx:36-91` ≈ `MembersList.tsx:38-98` 패널 껍데기 통째 near-duplicate(create-row→empty→map→더보기). 차이는 renderRow·unit·label뿐 → 제네릭 패널 1개. (row는 이미 `list-rows.tsx FeedListRow`로 분리됨 — 껍데기만 문제)
+3. **[상] `<DetailPane title count? actions? empty>`** — `PaneHead+PaneBody+(sel?내용:CenterNote)` 6+곳: `settlement:224-311`(한 파일 3회), `members:330-364`, `contract:257,289,293`, `chat:235,246,251`, `policy:275`.
+4. **[상] `<AdminToolCard>` + `<LogOutput>`** — dev 작업카드(카드+SectionLabel+설명+Btn행+`<pre>`로그)가 `app/dev/page.tsx:265-362`에 6회. 로그 `<pre>`(pre-wrap·FS.cap·C.mute·NUM)는 dev 5회 + `SheetSync.tsx:487` + `diag/page.tsx:201-205`.
+5. **[중] `Kpi`에 `money` prop 추가 → 로컬 `MoneyCard` 제거** — `settlement:43-59 MoneyCard`가 `ui/metrics.tsx:76 Kpi`와 동일 박스(won 포맷+raw tone만 차이). 사용처 `settlement:262-291`. 2×2 배치는 `KpiRow`로.
+6. **[중] `msgClock` short 변형** — 짧은 날짜시각(`toLocaleString ko-KR month/day/hour/minute`)을 3파일 재구현: `audit/page.tsx:20`, `SheetSync.tsx:408`, `SnapTrace.tsx:31`. SSOT `lib/format.ts:20 msgClock`에 변형 추가 후 교체.
+7. **[중하] `fmtRate(v)`** — 비율→% 중복: `settlement:40 rateLabel`(basis 10000), `list-rows.tsx:322-325`(basis 100). `components/ui/formatters.ts`(현재 won/fmtNumber/fmtPhone)에 추가.
+8. **[중] `<ChipSetting label caption options hint?>`** — 설정 칩섹션(SectionLabel+caption+FilterChips+hint) `settings/page.tsx:261-311` 5회.
+9. **[중] `<Panel pad? scroll?>`** — `border 1px C.line·R·C.taupeBg·overflow:hidden` 박스를 SSOT 없이 raw로 ~10곳(`audit:139,149`·`contract:270`·`settlement:298`·`AdminSettlementSheet:77,90`·`PriceMatrix:93`·`ProductDetail:25`·`SnapTrace:38`·`PhotoUpload:163`). `ListBox`와 정합.
+10. **[중] `<EmptyResult filtered emptyLabel onReset?>`** — "결과없음(+조건해제)" 7곳(`FinderResults:42-49`·`InventoryListPanel:41-47`·`MembersList:45-51`·`ChatRoomList:23`·`contract:198`·`policy:233`·`settlement:221`). #1과 짝.
+11. **[중하] `<PreviewRunButtons>`** — ghost 미리보기+danger 실행(busy시 '처리 중…') 쌍: `dev:290-325`, `members:352-358`.
+12. **[하·빈도최상] `<Hint>`/`<Caption>` 텍스트 원자** — `color:C.faint` 보조문구 전체 163회, 대부분 `FS.sub|cap+C.faint+lineHeight1.45` 동일. 가치는 낮지만 빈도 압도적. Order 4(토큰) 이후 판단.
+
+**손댈 필요 없음(양호·참고):** `list-rows.tsx`(FeedListRow SSOT), create-row 공용화(`CreateListRow`), 상품카드 원자분해 — 이미 잘 됨.
+
+**작업 권장:** **#1·#2·#3 먼저**(5개 화면 구조 복붙 제거) → #4~#8 국소 → #9~#12 정리. #1의 `usePaged`는 Order 1·3의 페이징과 **같은 훅으로 공유**하면 3개 오더가 한 SSOT로 수렴.
