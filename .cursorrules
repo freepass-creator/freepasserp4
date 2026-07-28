@@ -1,6 +1,6 @@
 # freepasserp4 — 커서 작업 규칙 (자동 적용)
 
-작업 전 반드시 `CURSOR.md`(업무지시서) · `DESIGN.md`(디자인 일관성 규격) · `CLAUDE.md`(규격 SSOT)를 읽는다.
+작업 전 반드시 `AGENTS.md`(공통 작업원칙·역할) · `CURSOR.md`(업무지시서) · `DESIGN.md`(디자인 일관성 규격) · `CLAUDE.md`(규격 SSOT)를 읽는다.
 
 ## 디자인 토큰 — 숫자·색을 직접 쓰지 않는다
 - 색: `C.*` (`C.ink` `C.mute` `C.faint` `C.line` `C.taupeBg` `C.selected` `C.ok/warn/danger/brand`) — **HEX·rgba 직접 금지**(`#fff` 포함)
