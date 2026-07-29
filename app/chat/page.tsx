@@ -99,19 +99,22 @@ export default function Chat() {
   //  2차(백그라운드): 상품카탈로그·계약·전체 메시지 안읽음 보강 → 차명·필터·안읽음 채움.
   //  전량 선반입을 첫 페인트 뒤로 미뤄 계약진행만큼 빠르게 목록이 뜸.
   const load = async (r: Role): Promise<EntityRecord[]> => {
-    const all = await getStore().list('room', co);
+    const store = getStore();
+    // 카탈로그를 방 목록과 "동시에" 출발 — 방을 받은 뒤 시작하면 네트워크 왕복이 한 번 더 붙어
+    // 목록이 뜬 다음 차량번호·차명이 뒤늦게 따라붙는 게 눈에 보인다.
+    // 차명 조인은 원본(listRaw) 기준 — 판매용 목록은 중복정리·제외로 예전 문의 차를 놓친다.
+    const catalogP = Promise.all([
+      store.list('contract', co),
+      typeof store.listRaw === 'function' ? store.listRaw('product', co) : store.list('product', co),
+      store.listDeleted('product', co).catch(() => []),
+      store.list('partner', co).catch(() => []),
+    ]);
+    const all = await store.list('room', co);
     const mine = all.filter((x) => canAccessOwnedRecord(getSession(), x) && isWorkspaceChatRoom(x, r));
     setRooms(sortByRecent(mine)); // ← 즉시 페인트
     void (async () => {
       try {
-        // 차명 조인은 원본(listRaw) 기준 — 판매용 목록은 중복정리·제외로 예전 문의 차를 놓친다(= 전부 "삭제된 차량").
-        const store = getStore();
-        const [cts, prods, del, partners] = await Promise.all([
-          store.list('contract', co),
-          typeof store.listRaw === 'function' ? store.listRaw('product', co) : store.list('product', co),
-          store.listDeleted('product', co).catch(() => []),
-          store.list('partner', co).catch(() => []),
-        ]);
+        const [cts, prods, del, partners] = await catalogP;
         setContracts(cts);
         setProducts(withProviderNames(prods, partners));
         setDeletedProducts(del);

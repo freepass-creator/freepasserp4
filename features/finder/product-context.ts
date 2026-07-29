@@ -29,7 +29,7 @@ export function buildProductContextItems(
       },
     });
     items.push({
-      label: '손님공유',
+      label: '공유',
       onClick: async () => {
         const url = guestShareUrl(product, currentActor.code || currentActor.uid);
         if (await copyText(url)) toast('손님용 매물 링크 복사됨', 'ok');

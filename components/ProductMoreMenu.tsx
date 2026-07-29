@@ -95,7 +95,7 @@ export function ProductMoreMenu({ p }: { p: EntityRecord }) {
             { icon: <MessageCircleMore size={18} color={C.brand} />, haptic: 'nav' },
           )}
           {item(
-            '손님공유',
+            '공유',
             async () => {
               const a = actor(role);
               const url = guestShareUrl(p, a.code || a.uid);
