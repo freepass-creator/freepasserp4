@@ -3,9 +3,11 @@
 import React from 'react';
 import { Plus } from 'lucide-react';
 import { Dropzone } from './dropzone';
+import { useIsMobile } from '@/lib/use-mobile';
 import { C, FS, FW } from './tokens';
 
-/** 점선 추가 타일 — 박스 자체가 버튼(내부 IconBtn 금지). Dropzone photo SSOT 공유. */
+/** 점선 추가 타일 — 박스 자체가 버튼(내부 IconBtn 금지). Dropzone photo SSOT 공유.
+ *  모바일: 컨트롤 규격상 '사진 추가'는 결정적 액션 → 작은 4/3 타일 대신 풀폭 아이콘+텍스트 버튼. */
 export function AddTile({
   aspect = '4/3',
   onClick,
@@ -21,7 +23,32 @@ export function AddTile({
   title?: string;
   style?: React.CSSProperties;
 }) {
+  const mobile = useIsMobile();
   const a11y = title || label || '추가';
+  if (mobile) {
+    return (
+      <Dropzone
+        variant="photo"
+        active
+        title={a11y}
+        disabled={disabled}
+        onClick={onClick}
+        style={{
+          width: '100%',
+          minHeight: 48,
+          flexDirection: 'row',
+          gap: 6,
+          padding: '0 14px',
+          borderColor: C.brand,
+          color: C.brand,
+          ...style,
+        }}
+      >
+        <Plus size={18} strokeWidth={2.25} aria-hidden />
+        <span style={{ fontSize: FS.body, fontWeight: FW.strong, color: C.brand }}>{label || '사진 추가'}</span>
+      </Dropzone>
+    );
+  }
   return (
     <Dropzone
       variant="photo"
