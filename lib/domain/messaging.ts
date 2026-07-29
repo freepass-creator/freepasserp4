@@ -107,6 +107,8 @@ export type SendFileOpts = {
   channel?: MsgChannel;
   role?: Role;
   maxBytes?: number;
+  /** 한 번에 여러 장 올릴 때 같은 값을 줘 묶음으로 표시(카톡식 앨범 말풍선). 낱장은 미지정. */
+  batchId?: string;
 };
 
 /** 파일/이미지 첨부(Firebase Storage). 3MB 기본 한도. */
@@ -141,6 +143,7 @@ export async function sendFile(opts: SendFileOpts): Promise<EntityRecord> {
   };
   if (isImg) rec.image_url = url;
   else { rec.file_url = url; rec.file_name = opts.file.name; }
+  if (opts.batchId) rec.batch_id = opts.batchId; // 같은 batch = 한 번에 올린 묶음
   let r;
   try {
     r = await store.save('message', co, [rec]);

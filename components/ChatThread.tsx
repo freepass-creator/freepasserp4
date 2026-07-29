@@ -138,14 +138,23 @@ export function ChatThread({
   const onPickFile = async (files: FileList | null) => {
     if (!files || !files.length || busy) return;
     setBusy(true);
+    // 한 번에 여러 장 = 같은 batchId → 한 말풍선(앨범)으로 표시. 낱장은 batchId 없음 → 각각 표시.
+    const list = Array.from(files);
+    const batchId = list.length > 1 ? `B${Date.now()}` : undefined;
+    let sent = 0;
     try {
-      const rec = await sendFileMsg({ roomId, file: files[0], channel: '정식', role });
-      setMsgs((prev) => [...(prev || []), rec]);
+      for (const file of list) {
+        const rec = await sendFileMsg({ roomId, file, channel: '정식', role, batchId });
+        setMsgs((prev) => [...(prev || []), rec]);
+        sent += 1;
+      }
       const rm = await getStore().get('room', co, roomId);
       if (rm) setRoom(rm);
     } catch (e) {
       console.error('첨부 전송 실패:', e);
-      toast(`첨부 전송 실패: ${(e as Error).message}`, 'error');
+      // 여러 장 중 일부만 올라간 경우를 숨기지 않는다 — 어디까지 갔는지 알려야 재시도 판단이 된다.
+      const done = sent ? ` (${sent}/${list.length}장 전송됨)` : '';
+      toast(`첨부 전송 실패${done}: ${(e as Error).message}`, 'error');
     } finally {
       setBusy(false);
       if (fileRef.current) fileRef.current.value = '';
@@ -205,6 +214,15 @@ export function ChatThread({
     .filter((m) => m.image_url)
     .map((m) => ({ url: String(m.image_url), name: String(m.file_name || '') }));
   const stepView = (d: number) => setFull((i) => (i == null || !gallery.length ? i : (i + d + gallery.length) % gallery.length));
+  const openView = (url: unknown) => setFull(gallery.findIndex((g) => g.url === String(url)));
+  // 같은 batch_id로 연속 도착한 사진 = 한 번에 올린 묶음 → 말풍선 하나(앨범). 낱장은 그대로 각각.
+  const rows: { lead: EntityRecord; items: EntityRecord[] }[] = [];
+  for (const m of msgs || []) {
+    const b = String(m.batch_id || '');
+    const last = rows[rows.length - 1];
+    if (b && last && String(last.lead.batch_id || '') === b) { last.items.push(m); continue; }
+    rows.push({ lead: m, items: [m] });
+  }
   // WorkPage 선택(swap) = TopBar·BottomNav가 크롬 담당 → 스레드 헤더·컴포저 safe-area 생략(이중 여백·차명 중복 방지).
   const embedded = !onBack && !onVehicle && !onContract;
   const headTitle = (title || '').trim()
@@ -249,12 +267,44 @@ export function ChatThread({
         ) : null}
         {msgs === undefined && <Loading label="메시지를 불러오는 중…" minHeight={80} />}
         {msgs?.length === 0 && <div style={{ textAlign: 'center', color: C.faint, fontSize: FS.sub, marginTop: 20 }}>첫 메시지를 남겨보세요.</div>}
-        {msgs?.map((m) => {
+        {rows.map((row) => {
+          const m = row.lead;
           const mine = isMine(m, me, role);
           const isAdmin = m.sender_role === 'admin';
           const simple = m.channel === '간단';
           const clock = msgClock(m.created_at);
-          const bubble = m.image_url ? (
+          // 앨범(한 번에 올린 사진 묶음) — 최대 6칸 노출, 나머지는 마지막 칸에 +N.
+          const album = row.items.length > 1 && row.items.every((x) => x.image_url);
+          const cells = album ? row.items.slice(0, 6) : [];
+          const restN = album ? row.items.length - cells.length : 0;
+          const cols = cells.length >= 3 ? 3 : 2;
+          const bubble = album ? (
+            <div style={{
+              display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 2,
+              width: Math.min(240, cols * 80), borderRadius: R, overflow: 'hidden',
+              border: `1px solid ${C.line}`,
+            }}>
+              {cells.map((it, i) => (
+                <button
+                  key={String(it._key)}
+                  type="button"
+                  className="fp-press"
+                  onClick={() => openView(it.image_url)}
+                  title={`사진 ${i + 1}`}
+                  style={{ position: 'relative', padding: 0, border: 'none', background: C.head, aspectRatio: '1 / 1', cursor: 'zoom-in', display: 'block' }}
+                >
+                  <img src={String(it.image_url)} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                  {i === cells.length - 1 && restN > 0 && (
+                    <span style={{
+                      position: 'absolute', inset: 0, background: SCRIM.heavy, color: C.inverse,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: FS.title, fontWeight: FW.head,
+                    }}>+{restN}</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          ) : m.image_url ? (
             <img
               src={String(m.image_url)}
               alt=""
@@ -262,7 +312,7 @@ export function ChatThread({
               height={220}
               loading="lazy"
               decoding="async"
-              onClick={() => setFull(gallery.findIndex((g) => g.url === String(m.image_url)))}
+              onClick={() => openView(m.image_url)}
               style={{ maxWidth: 200, maxHeight: 220, width: 'auto', height: 'auto', aspectRatio: '10 / 11', objectFit: 'cover', borderRadius: R, cursor: 'zoom-in', display: 'block', border: `1px solid ${C.line}` }}
             />
           ) : m.file_url ? (
@@ -297,7 +347,7 @@ export function ChatThread({
           : '6px 10px calc(6px + var(--fp-dock-safe, env(safe-area-inset-bottom, 0px)))',
         borderTop: `1px solid ${C.line}`,
       }}>
-        <input ref={fileRef} type="file" accept="image/*,application/pdf" onChange={(e) => onPickFile(e.target.files)} style={{ display: 'none' }} />
+        <input ref={fileRef} type="file" accept="image/*,application/pdf" multiple onChange={(e) => onPickFile(e.target.files)} style={{ display: 'none' }} />
         {/* 모바일 = 아이콘 전용(첨부·보내기). 라벨을 달면 입력창 폭이 죽는다 —
             "아이콘 only 화이트리스트"의 채팅 입력행 예외(입력 폭 우선). 웹은 라벨 유지. */}
         {mobile ? (

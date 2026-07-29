@@ -212,6 +212,7 @@ export const ENTITIES: Record<string, Entity> = {
       { key: 'image_url', label: '이미지', type: 'text' },
       { key: 'file_url', label: '파일', type: 'text' },
       { key: 'file_name', label: '파일명', type: 'text' },
+      { key: 'batch_id', label: '첨부묶음', type: 'text', note: '한 번에 올린 사진들의 공통 키 — 같은 값이면 앨범 말풍선으로 묶어 표시. 낱장은 빈 값' },
       { key: 'channel', label: '채널', type: 'select', options: ['간단', '정식'], note: '간단=상세 간단문의 섹션 / 정식=계약문의 채팅. 간단은 양쪽 노출, 정식은 계약문의만' },
     ],
   },
