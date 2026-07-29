@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Fragment, type ReactNode } from 'react';
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { type EntityRecord } from '@/lib/intake/entities';
@@ -7,7 +7,7 @@ import { STEPS, contractTone, isDone } from '@/lib/domain/contract';
 import { applyStepCheck, cancelContract, finalizeContractIfReady } from '@/lib/domain/settlement-engine';
 import { createContractRequest, getRole, type Role } from '@/lib/domain/deal';
 import { cheapest, priceList } from '@/lib/domain/product';
-import { Btn, Badge, C, R, NUM, Input, fmtPhone, actorColor, FW, FS } from '@/components/ui';
+import { Btn, Badge, C, R, NUM, Input, fmtPhone, actorColor, DetailRow, ListGroup, FW, FS } from '@/components/ui';
 import { ContractMemos } from '@/components/ContractMemos';
 import { ContractSign } from '@/components/ContractSign';
 import { confirmDialog, toast } from '@/components/Toaster';
@@ -16,6 +16,14 @@ import { Check } from 'lucide-react';
 
 // 계약 패널 = 5단계 핸드셰이크 진행. 계약 없으면 계약문의로 시작 → 서류·입금·약정·출고.
 // 첨부 서류는 별도 패널(계약패널 밑, 위아래 리사이즈). 손님 연락처는 약정(계약서 발송) 단계에서.
+
+function actorLabel(actor: 'agent' | 'provider'): ReactNode {
+  return (
+    <span style={{ fontSize: FS.micro, fontWeight: FW.label, color: actorColor(actor), marginRight: 6 }}>
+      {actor === 'agent' ? '영업' : '공급'}
+    </span>
+  );
+}
 
 export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange }: { product: EntityRecord | null; roomId: string; linkedCode?: string; agentCode?: string; onChange?: () => void }) {
   const co = getCompanyId();
@@ -98,19 +106,34 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
   const activeIdx = stepDoneArr.findIndex((d) => !d);
   const doneCount = stepDoneArr.filter(Boolean).length;
   const needsFinalize = Boolean(c && doneCount === STEPS.length && String(c.contract_status) !== '계약완료');
+  const agreementDone = isDone(cval('provider_agreement_done'));
 
   return (
-    <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 9 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: mobile ? 'wrap' : 'nowrap' }}>
-        {c ? <><span style={{ fontSize: FS.sub, fontWeight: FW.title, fontFamily: NUM }}>{String(c.contract_code)}</span><Badge tone={contractTone(String(c.contract_status))}>{String(c.contract_status)}</Badge></>
-          : <span style={{ fontSize: FS.sub, fontWeight: FW.title, color: C.ink }}>새 계약 — 출고문의로 시작</span>}
-        <span style={{ flex: 1, minWidth: 8 }} />
-        <span style={{ fontSize: FS.sub, fontWeight: FW.head, color: C.brand }}>{doneCount}/{STEPS.length}</span>
-        {c && String(c.contract_status) !== '계약취소' && (role === 'agent' || role === 'admin') && <Btn title="계약 취소" size="sm" variant="ghost" haptic="impact" onClick={doCancel} disabled={busy}>계약취소</Btn>}
+    <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+      {/* 히어로 — 코드·상태·진행률 */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingBottom: 4 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          {c ? (
+            <>
+              <span style={{ fontSize: FS.title, fontWeight: FW.head, fontFamily: NUM, color: C.ink }}>{String(c.contract_code)}</span>
+              <Badge tone={contractTone(String(c.contract_status))}>{String(c.contract_status)}</Badge>
+            </>
+          ) : (
+            <span style={{ fontSize: FS.title, fontWeight: FW.title, color: C.ink }}>새 계약 — 출고문의로 시작</span>
+          )}
+          <span style={{ flex: 1, minWidth: 8 }} />
+          {c && String(c.contract_status) !== '계약취소' && (role === 'agent' || role === 'admin') && (
+            <Btn title="계약 취소" size="sm" variant="ghost" haptic="impact" onClick={doCancel} disabled={busy}>계약취소</Btn>
+          )}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+          <span style={{ fontSize: FS.page, fontWeight: FW.head, color: C.brand, fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{doneCount}</span>
+          <span style={{ fontSize: FS.cap, color: C.faint }}>/ {STEPS.length} 단계 완료</span>
+        </div>
       </div>
 
       {needsFinalize && (
-        <div style={{ border: `1px solid ${C.warn}`, borderRadius: R, padding: '9px 10px', background: C.warnBg, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ border: `1px solid ${C.warn}`, borderRadius: R, padding: '9px 10px', background: C.warnBg, display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
           <span style={{ flex: 1, fontSize: FS.cap, color: C.ink, lineHeight: 1.5 }}>5단계 체크는 끝났지만 정산·완료 처리가 남았습니다.</span>
           {(role === 'admin' || role === 'provider') && <Btn title="완료 처리 재시도" size="sm" onClick={retryFinalize} disabled={busy}>완료 처리 재시도</Btn>}
         </div>
@@ -121,87 +144,102 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
         const active = i === activeIdx;
         const locked = !stepDone && !active;
         const stepUnlocked = role === 'admin' || active;
+        const statusNote = stepDone ? '완료' : active ? '진행 중' : '잠김';
         return (
-          <div key={s.id} style={{ border: `1px solid ${active ? C.brand : C.line}`, borderRadius: R, padding: '8px 10px', background: stepDone ? C.okBg : active ? C.selected : C.taupeBg, opacity: locked ? 0.55 : 1 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-              <span style={{ fontSize: FS.cap, fontWeight: FW.title, color: stepDone ? C.ok : C.ink }}>{i + 1}. {s.label}</span>
-              {stepDone ? <span style={{ fontSize: FS.micro, color: C.ok, fontWeight: FW.label }}>완료</span> : active ? <span style={{ fontSize: FS.micro, color: C.brand, fontWeight: FW.label }}>진행 중</span> : <span style={{ fontSize: FS.micro, color: C.faint }}>잠김</span>}
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {s.checks.map((ch) => {
-                const cur = cval(ch.key);
-                const done = isDone(cur);
-                const mine = (ch.actor === role || role === 'admin') && stepUnlocked;
-                const actorTag = <span style={{ fontSize: FS.micro, fontWeight: FW.label, color: actorColor(ch.actor), width: 26, flex: '0 0 26px' }}>{ch.actor === 'agent' ? '영업' : '공급'}</span>;
+          <ListGroup
+            key={s.id}
+            header={`${i + 1}. ${s.label}`}
+            footer={statusNote}
+            style={{ opacity: locked ? 0.55 : 1 }}
+          >
+            {s.checks.map((ch) => {
+              const cur = cval(ch.key);
+              const done = isDone(cur);
+              const mine = (ch.actor === role || role === 'admin') && stepUnlocked;
+              const label = <>{actorLabel(ch.actor)}{ch.key === 'agent_delivery_inquiry' ? '출고 문의' : ch.key === 'provider_agreement_done' ? '약정 작성완료' : ch.label}</>;
 
-                if (ch.key === 'agent_delivery_inquiry') {
-                  return (
-                    <div key={ch.key} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      {actorTag}<span style={{ fontSize: FS.cap, color: C.ink, flex: 1 }}>출고 문의</span>
-                      {done ? <span style={{ fontSize: FS.cap, color: C.ok, fontWeight: FW.strong, display: 'inline-flex', alignItems: 'center', gap: 4 }}>문의함 <Check size={14} aria-hidden /></span>
-                        : mine ? <Btn title="출고 문의하기" size="sm" onClick={doInquiry} disabled={busy || !product}>출고 문의하기</Btn>
-                          : <span style={{ fontSize: FS.cap, color: C.faint }}>대기</span>}
-                    </div>
-                  );
-                }
-                if (ch.key === 'provider_agreement_done') {
-                  return (
-                    <div key={ch.key} style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>{actorTag}<span style={{ fontSize: FS.cap, color: C.ink, flex: 1 }}>약정 작성완료</span>{done && <span style={{ fontSize: FS.cap, color: C.ok, fontWeight: FW.strong, display: 'inline-flex', alignItems: 'center', gap: 4 }}>완료 <Check size={14} aria-hidden /></span>}</div>
-                      {!done && mine && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingLeft: mobile ? 0 : 32 }}>
-                          <span style={{ fontSize: FS.micro, color: C.faint }}>계약서 발송 전 손님 연락처 확인</span>
-                          <div style={{ display: 'flex', flexDirection: mobile ? 'column' : 'row', gap: 5, alignItems: mobile ? 'stretch' : 'center' }}>
-                            <div style={{ display: 'flex', gap: 5, alignItems: 'center', minWidth: 0, ...(mobile ? {} : { flex: 1 }) }}>
-                              <Input value={cust.name} onChange={(v) => setCust((s) => ({ ...s, name: v }))} placeholder="손님명" size="sm" width={mobile ? undefined : 82} style={mobile ? { flex: '1 1 40%', minWidth: 0 } : undefined} />
-                              <Input value={cust.phone} onChange={(v) => setCust((s) => ({ ...s, phone: fmtPhone(v) }))} placeholder="연락처" inputMode="tel" size="sm" style={{ flex: 1, minWidth: 0 }} />
-                            </div>
-                            <Btn title="약정 완료" size="sm" onClick={doAgreement} disabled={busy || !cust.name.trim() || !cust.phone.trim()}>약정완료</Btn>
-                          </div>
-                        </div>
-                      )}
-                      {!done && !mine && <span style={{ fontSize: FS.cap, color: C.faint, paddingLeft: mobile ? 0 : 32 }}>대기</span>}
-                      {done && (c?.customer_name || c?.customer_phone) ? <span style={{ fontSize: FS.cap, color: C.mute, paddingLeft: mobile ? 0 : 32 }}>{[c?.customer_name, c?.customer_phone].filter(Boolean).join(' · ')}</span> : null}
-                      {done && c ? (
-                        <div style={{ marginTop: 4, paddingLeft: mobile ? 0 : 32 }}>
-                          <ContractSign contractCode={String(c.contract_code)} />
-                        </div>
-                      ) : null}
-                    </div>
-                  );
-                }
+              if (ch.key === 'agent_delivery_inquiry') {
                 return (
-                  <div key={ch.key} style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                    {actorTag}<span style={{ fontSize: FS.cap, color: C.ink }}>{ch.label}</span><span style={{ flex: 1 }} />
-                    {ch.choices ? ch.choices.map((opt) => (
-                      <Btn
-                        key={opt}
-                        title={opt}
-                        size="sm"
-                        variant={cur === opt ? 'solid' : 'ghost'}
-                        haptic="select"
-                        disabled={!mine || busy}
-                        onClick={() => setCheck(ch.key, cur === opt ? '' : opt)}
-                      >{mobile ? String(opt).replace(/^출고\s*/, '') : opt}</Btn>
-                    )) : (
-                      <Btn
-                        title={done ? '완료 해제' : mine ? '체크' : '대기'}
-                        size="sm"
-                        variant={done ? 'solid' : 'ghost'}
-                        haptic="select"
-                        disabled={!mine || busy}
-                        onClick={() => setCheck(ch.key, done ? '' : 'yes')}
-                      >{done ? '완료' : mine ? '체크' : '대기'}</Btn>
-                    )}
-                  </div>
+                  <DetailRow
+                    key={ch.key}
+                    label={label}
+                    value={done
+                      ? <span style={{ color: C.ok, fontWeight: FW.strong, display: 'inline-flex', alignItems: 'center', gap: 4 }}>문의함 <Check size={14} aria-hidden /></span>
+                      : mine
+                        ? <Btn title="출고 문의하기" size="sm" onClick={doInquiry} disabled={busy || !product}>출고 문의하기</Btn>
+                        : <span style={{ color: C.faint }}>대기</span>}
+                  />
                 );
-              })}
-            </div>
-          </div>
+              }
+
+              if (ch.key === 'provider_agreement_done') {
+                return (
+                  <Fragment key={ch.key}>
+                    <DetailRow
+                      label={label}
+                      value={done
+                        ? <span style={{ color: C.ok, fontWeight: FW.strong, display: 'inline-flex', alignItems: 'center', gap: 4 }}>완료 <Check size={14} aria-hidden /></span>
+                        : !mine
+                          ? <span style={{ color: C.faint }}>대기</span>
+                          : <></>}
+                    />
+                    {!done && mine && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '8px 12px 10px', boxSizing: 'border-box' }}>
+                        <span style={{ fontSize: FS.micro, color: C.faint }}>계약서 발송 전 손님 연락처 확인</span>
+                        <div style={{ display: 'flex', flexDirection: mobile ? 'column' : 'row', gap: 5, alignItems: mobile ? 'stretch' : 'center' }}>
+                          <div style={{ display: 'flex', gap: 5, alignItems: 'center', minWidth: 0, ...(mobile ? {} : { flex: 1 }) }}>
+                            <Input value={cust.name} onChange={(v) => setCust((s) => ({ ...s, name: v }))} placeholder="손님명" size="sm" width={mobile ? undefined : 82} style={mobile ? { flex: '1 1 40%', minWidth: 0 } : undefined} />
+                            <Input value={cust.phone} onChange={(v) => setCust((s) => ({ ...s, phone: fmtPhone(v) }))} placeholder="연락처" inputMode="tel" size="sm" style={{ flex: 1, minWidth: 0 }} />
+                          </div>
+                          <Btn title="약정 완료" size="sm" onClick={doAgreement} disabled={busy || !cust.name.trim() || !cust.phone.trim()}>약정완료</Btn>
+                        </div>
+                      </div>
+                    )}
+                    {done && (c?.customer_name || c?.customer_phone) ? (
+                      <DetailRow label="손님" value={[c?.customer_name, c?.customer_phone].filter(Boolean).join(' · ')} />
+                    ) : null}
+                  </Fragment>
+                );
+              }
+
+              return (
+                <DetailRow
+                  key={ch.key}
+                  label={label}
+                  value={ch.choices ? (
+                    <>
+                      {ch.choices.map((opt) => (
+                        <Btn
+                          key={opt}
+                          title={opt}
+                          size="sm"
+                          variant={cur === opt ? 'solid' : 'ghost'}
+                          haptic="select"
+                          disabled={!mine || busy}
+                          onClick={() => setCheck(ch.key, cur === opt ? '' : opt)}
+                        >{mobile ? String(opt).replace(/^출고\s*/, '') : opt}</Btn>
+                      ))}
+                    </>
+                  ) : (
+                    <Btn
+                      title={done ? '완료 해제' : mine ? '체크' : '대기'}
+                      size="sm"
+                      variant={done ? 'solid' : 'ghost'}
+                      haptic="select"
+                      disabled={!mine || busy}
+                      onClick={() => setCheck(ch.key, done ? '' : 'yes')}
+                    >{done ? '완료' : mine ? '체크' : '대기'}</Btn>
+                  )}
+                />
+              );
+            })}
+          </ListGroup>
         );
       })}
 
-      {c && <div style={{ borderTop: `1px solid ${C.line2}`, paddingTop: 9 }}><ContractMemos contractCode={String(c.contract_code)} /></div>}
+      {c && agreementDone ? <ContractSign contractCode={String(c.contract_code)} /> : null}
+
+      {c && <div style={{ borderTop: `1px solid ${C.line2}`, paddingTop: 9, marginTop: 8 }}><ContractMemos contractCode={String(c.contract_code)} /></div>}
     </div>
   );
 }

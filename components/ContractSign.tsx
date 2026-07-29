@@ -6,15 +6,13 @@ import { type EntityRecord } from '@/lib/intake/entities';
 import { getRole, type Role } from '@/lib/domain/deal';
 import { canResumeApprovedSign, createSignToken, approveSign, rejectSign, revokeSignLink } from '@/lib/domain/sign';
 import { isContractSignActive, readContractSign, signPublicToContract } from '@/lib/firebase/contract-sign-public';
-import { Btn, C, toneText, FW, FS } from '@/components/ui';
+import { Btn, C, toneText, DetailRow, ListGroup, FW, FS, R } from '@/components/ui';
 import { toast } from '@/components/Toaster';
 import { copyText } from '@/lib/clipboard';
-import { useIsMobile } from '@/lib/use-mobile';
 
 // 계약서 서명 진행(계약 패널) — 발송 → 손님(/sign) → 검토대기 → 승인. 공개 슬롯(contract_sign) 상태 병합.
 export function ContractSign({ contractCode }: { contractCode: string }) {
   const co = getCompanyId();
-  const mobile = useIsMobile();
   const [c, setC] = useState<EntityRecord | null>(null);
   const [role, setRole] = useState<Role>('agent');
   const [busy, setBusy] = useState(false);
@@ -90,6 +88,13 @@ export function ContractSign({ contractCode }: { contractCode: string }) {
   const active = isContractSignActive(c);
   const canRecover = canAct && canResumeApprovedSign(c);
   const stColor = st === '서명완료' ? C.ok : st === '검토대기' ? toneText('amber') : st === '발송' ? toneText('blue') : C.faint;
+  const footer = st === '미발송' ? '약정 완료 후 서명 링크를 만들어 손님에게 전달하세요.'
+    : st === '발송' && active ? '손님 서명 대기 중. 링크는 발급 후 7일간 유효합니다.'
+      : st === '발송' && !active ? '링크가 만료되었거나 해지되었습니다. 새 링크를 발급하세요.'
+        : st === '검토대기' ? `${[c.customer_name, c.customer_phone].filter(Boolean).join(' · ') || '손님'} 서명 제출됨. 승인 시 약정발송 완료.`
+          : st === '서명완료'
+            ? (canRecover ? '전자서명은 보존됐지만 약정발송 단계 반영이 필요합니다.' : '전자서명 완료 — 계약 확정.')
+            : undefined;
   const actions = (
     <>
       {canAct && st === '미발송' && <Btn title="계약서 발송" size="sm" onClick={send} disabled={busy}>계약서 발송</Btn>}
@@ -99,27 +104,22 @@ export function ContractSign({ contractCode }: { contractCode: string }) {
       {canRecover && <Btn title="약정 단계 복구" size="sm" onClick={approve} disabled={busy}>약정 단계 복구</Btn>}
     </>
   );
+  const hasActions = canAct && (st === '미발송' || st === '발송' || st === '검토대기' || canRecover);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-      <div style={{ display: 'flex', flexDirection: mobile ? 'column' : 'row', alignItems: mobile ? 'stretch' : 'center', gap: mobile ? 6 : 8 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-          <span style={{ fontSize: FS.cap, fontWeight: FW.title, color: C.ink, whiteSpace: 'nowrap' }}>계약서 서명</span>
-          <span style={{ fontSize: FS.micro, fontWeight: FW.label, color: stColor, whiteSpace: 'nowrap' }}>{st}</span>
-          {!mobile ? <span style={{ flex: 1 }} /> : null}
-          {!mobile ? actions : null}
-        </div>
-        {mobile ? <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>{actions}</div> : null}
-      </div>
+    <ListGroup header="계약서 서명" footer={footer}>
+      <DetailRow label="상태" value={<span style={{ color: stColor, fontWeight: FW.label }}>{st}</span>} />
       {/* 서명 PNG = 투명배경·짙은잉크(#0f1830) → 다크에서도 흰 지면 유지(C.taupeBg면 서명 안 보임). sign 캔버스·PDF와 동일 예외. */}
-      {st === '검토대기' && c.sign_signature ? <img src={String(c.sign_signature)} alt="서명" style={{ maxWidth: 180, border: `1px solid ${C.line}`, borderRadius: 4, background: '#fff' }} /> : null}
-      {st === '검토대기' && <div style={{ fontSize: FS.micro, color: C.faint }}>{[c.customer_name, c.customer_phone].filter(Boolean).join(' · ')} 서명 제출됨. 승인 시 약정발송 완료.</div>}
-      {st === '미발송' && <div style={{ fontSize: FS.micro, color: C.faint }}>약정 완료 후 서명 링크를 만들어 손님에게 전달하세요.</div>}
-      {st === '발송' && active && <div style={{ fontSize: FS.micro, color: C.faint }}>손님 서명 대기 중. 링크는 발급 후 7일간 유효합니다.</div>}
-      {st === '발송' && !active && <div style={{ fontSize: FS.micro, color: C.warn }}>링크가 만료되었거나 해지되었습니다. 새 링크를 발급하세요.</div>}
-      {st === '서명완료' && <div style={{ fontSize: FS.micro, color: canRecover ? C.warn : C.ok }}>
-        {canRecover ? '전자서명은 보존됐지만 약정발송 단계 반영이 필요합니다.' : '전자서명 완료 — 계약 확정.'}
-      </div>}
-    </div>
+      {st === '검토대기' && c.sign_signature ? (
+        <div style={{ padding: '8px 12px' }}>
+          <img src={String(c.sign_signature)} alt="서명" style={{ maxWidth: 180, border: `1px solid ${C.line}`, borderRadius: R, background: '#fff' }} />
+        </div>
+      ) : null}
+      {hasActions ? (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', padding: '8px 12px', boxSizing: 'border-box' }}>
+          {actions}
+        </div>
+      ) : null}
+    </ListGroup>
   );
 }

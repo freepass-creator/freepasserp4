@@ -201,6 +201,7 @@ export function DetailRow({
 }) {
   const mobile = useIsMobile();
   const shown = displayValue(value);
+  const plain = typeof value === 'string' || typeof value === 'number' || value == null || value === '';
   if (stacked) {
     return (
       <div style={{
@@ -245,16 +246,21 @@ export function DetailRow({
         {label}
       </span>
       <span style={{
-        flex: '0 1 auto',
-        maxWidth: '58%',
+        flex: plain ? '0 1 auto' : '0 0 auto',
+        maxWidth: plain ? '58%' : undefined,
         minWidth: 0,
         fontSize: FS.body,
         color: valueColor ?? C.mute,
         textAlign: 'right',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap',
+        overflow: plain ? 'hidden' : 'visible',
+        textOverflow: plain ? 'ellipsis' : undefined,
+        whiteSpace: plain ? 'nowrap' : undefined,
         fontVariantNumeric: 'tabular-nums',
+        display: plain ? undefined : 'inline-flex',
+        alignItems: plain ? undefined : 'center',
+        justifyContent: 'flex-end',
+        flexWrap: plain ? undefined : 'wrap',
+        gap: plain ? undefined : 6,
       }}>
         {shown}
       </span>
