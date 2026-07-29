@@ -78,9 +78,16 @@ export function ProductDetail({ p, audience }: { p: EntityRecord; audience?: Aud
       {photos.length ? (
         <div>
           <div
-            onPointerDown={(e) => setSwipeX(e.clientX)}
+            onPointerDown={(e) => {
+              // 버튼(좌우 화살표·관심) 위에서 시작한 포인터는 사진 제스처가 아니다.
+              if ((e.target as HTMLElement).closest('button, a')) return;
+              setSwipeX(e.clientX);
+            }}
             onPointerUp={(e) => {
               const sx = swipeX; setSwipeX(null);
+              // 화살표·관심 위에서 뗀 것은 사진 탭이 아님 — 여기서 안 거르면 화살표를 눌러도
+              // 크게보기가 먼저 열려 "좌우로 안 넘어간다"처럼 보인다(자식의 stopPropagation은 pointerup을 못 막음).
+              if ((e.target as HTMLElement).closest('button, a')) return;
               if (sx != null && Math.abs(e.clientX - sx) > 40) { stepPhoto(e.clientX < sx ? 1 : -1); return; } // 스와이프=넘김
               setLb(mainIdx); // 탭=크게보기
             }}
