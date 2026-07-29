@@ -97,15 +97,8 @@ function inventoryStatusIcon(p: EntityRecord): { icon: LucideIcon; tone: BadgeTo
 
 /**
  * 문의 목록 3줄
- *   1 차명 · 시간
- *   2 상담뱃지 · 차번 · 상대
- *   3 마지막 메시지 (+안읽음)
- * 좌측 = 상태 아이콘(색)
- */
-/**
- * 문의 목록 3줄
- *   1 영업·공급=차명 / 관리자=차량번호·공급사명 · 날짜
- *   2 상태뱃지 · (비관리자)차번 · 상대코드
+ *   1 「차량번호 차량명」(+ 관리자·공급사) · 날짜
+ *   2 단계뱃지 · 상대(영업=공급사 / 공급·관리자=영업자)
  *   3 마지막 메시지 · 안읽음
  */
 export const ChatRoomRow = memo(function ChatRoomRow({
@@ -118,7 +111,7 @@ export const ChatRoomRow = memo(function ChatRoomRow({
   selected?: boolean;
   onClick: (room: EntityRecord) => void; // 항목을 인자로 받는 안정 핸들러(부모 useCallback) — memo 유효화
   displayName?: string;
-  /** 관리자만 — 차량번호 뒤 공급사(번호 말줄임, 공급사는 유지) */
+  /** 관리자만 — 제목(차번 차명) 뒤 공급사(제목 말줄임, 공급사는 유지) */
   providerSuffix?: string;
 }) {
   const stage = contractStage(stageContract);
@@ -130,7 +123,7 @@ export const ChatRoomRow = memo(function ChatRoomRow({
   const titleNode = providerSuffix ? (
     <div style={{ display: 'flex', alignItems: 'baseline', minWidth: 0, width: '100%', gap: 0 }}>
       <div style={{ flex: '1 1 0', minWidth: 0, overflow: 'hidden' }}>
-        <FeedTitle mono>{head}</FeedTitle>
+        <FeedTitle>{head}</FeedTitle>
       </div>
       <span style={{
         flex: '0 0 auto', maxWidth: '46%',
@@ -156,7 +149,6 @@ export const ChatRoomRow = memo(function ChatRoomRow({
         />,
         <FeedBadges key="b">
           <Badge tone={stage.tone}>{stage.label}</Badge>
-          {!providerSuffix ? plateSpan(String(room.car_number || '')) : null}
           {counter ? <span style={{ fontSize: FS.sub, color: C.faint, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{counter}</span> : null}
         </FeedBadges>,
         <div key="m" style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, width: '100%' }}>

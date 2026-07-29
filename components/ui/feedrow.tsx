@@ -81,7 +81,7 @@ export function FeedListRow({
     display: 'flex',
     gap: mobile ? 10 : 11,
     alignItems: 'center',
-    padding: mobile ? '8px 14px' : '7px 14px',
+    padding: mobile ? '8px 12px' : '7px 14px', // 모바일 좌우 12 = 툴바·독과 좌측 정렬 일치
     borderBottom: `1px solid ${C.line}`,
     background: selected ? C.selected : undefined, // 짝수 행 지브라는 globals.css(.fp-card-row:nth-child(even))가 담당
     boxShadow: accent ? `inset 3px 0 0 0 ${toneText(accent)}` : undefined,
@@ -138,7 +138,7 @@ export function FeedListRow({
 export function FeedTitle({ children, mono }: { children: ReactNode; mono?: boolean }) {
   return (
     <div style={{
-      fontSize: FS.title, fontWeight: FW.head, color: C.ink, letterSpacing: '-0.02em',
+      fontSize: FS.title, fontWeight: FW.title, color: C.ink, letterSpacing: '-0.02em',
       lineHeight: `${LINE.title}px`, height: LINE.title,
       whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
       fontFamily: mono ? 'var(--font-mono)' : undefined,
@@ -157,7 +157,7 @@ export function FeedSub({ children, strong }: { children: ReactNode; strong?: bo
   return (
     <div style={{
       fontSize: FS.sub,
-      fontWeight: strong ? 600 : 500,
+      fontWeight: strong ? FW.strong : FW.meta,
       color: strong ? C.mute : C.faint,
       lineHeight: `${LINE.sub}px`, height: LINE.sub,
       whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',

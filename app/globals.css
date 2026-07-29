@@ -148,7 +148,10 @@ html, body {
   color: var(--text-main);
   background: var(--bg-page);
   -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
+  -moz-osx-font-smoothing: grayscale;
+  /* 한글 트래킹 — erp3와 동일(-0.01em). 조밀·샤프하게(작은 크기에서 뭉침 완화). */
+  letter-spacing: -0.01em;
+  /* text-rendering:optimizeLegibility 금지 — 커닝/리가처 강제로 한글 획이 굵고 불균일해진다(두꺼워 보이는 원인). */
 }
 /* 앱 셸 = [상단바 고정 | 스크롤 영역]. 상단바는 스크롤에 안 끌려감. */
 .fp-shell { display: flex; flex-direction: column; height: 100dvh; }
@@ -497,8 +500,9 @@ html[data-fp-filter="0"] .fp-finder > .fp-sidebar { display: none; }
 }
 @media (max-width: 760px) {
   :root {
-    --fp-ctrl-h: 40px;
-    --fp-bar-pad-y: 8px;
+    /* 컨트롤 36 = tokens.ts CTRL 모바일과 동일(md·sm 수렴). 바 높이는 56 유지(36+10×2). */
+    --fp-ctrl-h: 36px;
+    --fp-bar-pad-y: 10px;
     --fp-bar-pad-x: 12px;
   }
   /* 모바일 = 스크롤바 거터 예약 끄기(우측만 넓어져 검색·필터 좌우 여백이 갈라짐) */

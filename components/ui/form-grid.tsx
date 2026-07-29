@@ -6,7 +6,7 @@ import { useIsMobile } from '@/lib/use-mobile';
 import { ToggleChips } from './filters';
 import { fmtNumber, fmtPhone } from './formatters';
 import { SheetSelect, Switch } from './native-form';
-import { C, FS, R, ctrlH, ctrlInputFs } from './tokens';
+import { C, FS, R, ctrlH, ctrlInputFs, ctrlPadX } from './tokens';
 
 type SelectOption = string | { value: string; label: string };
 
@@ -40,7 +40,7 @@ export function FormGrid({
     marginTop: 3,
     boxSizing: 'border-box',
     height: ctrlH(mobile),
-    padding: mobile ? '0 11px' : '0 9px',
+    padding: `0 ${ctrlPadX(mobile)}px`, // Input과 동일 — 스키마 폼이 툴바 입력과 1px 어긋나던 것 제거
     border: `1px solid ${C.line}`,
     borderRadius: R,
     fontSize: ctrlInputFs(mobile),

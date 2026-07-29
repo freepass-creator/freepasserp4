@@ -11,6 +11,7 @@ import { getSession } from '@/lib/auth-session';
 import { canAccessOwnedRecord } from '@/lib/domain/authorization';
 import { roomsWithUnread, unreadRoomCount } from '@/lib/domain/messaging';
 import { isInquiryOnly, isContractInProgress } from '@/lib/domain/contract';
+import { isWorkspaceChatRoom } from '@/features/chat/room-filter';
 
 export type MenuBadgeMap = Record<string, number>;
 
@@ -24,7 +25,7 @@ export async function loadMenuBadges(role: Role, co = getCompanyId()): Promise<M
   try {
     const [rooms, contracts] = await Promise.all([store.list('room', co), store.list('contract', co)]);
     const session = getSession();
-    const mineRooms = rooms.filter((room) => canAccessOwnedRecord(session, room));
+    const mineRooms = rooms.filter((room) => canAccessOwnedRecord(session, room) && isWorkspaceChatRoom(room, role));
     const contractOf = (rm: (typeof rooms)[number]) =>
       contracts.find((c) => String(c.product_code) === String(rm.product_code) && String(c.agent_code) === String(rm.agent_code) && c.contract_status !== '계약취소');
     const inquiryRooms = mineRooms.filter((r) => isInquiryOnly(contractOf(r)));

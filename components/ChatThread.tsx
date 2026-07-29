@@ -6,7 +6,7 @@ import { seedIfEmpty } from '@/lib/seed';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { getRole, actor, type Role } from '@/lib/domain/deal';
 import { sendText, sendFile as sendFileMsg, markRead, listMessages, isMine } from '@/lib/domain/messaging';
-import { Btn, C, R, FW, FS, Loading, CenterNote, Input, ctrlH, NavBack, Dropzone, SCRIM } from '@/components/ui';
+import { Btn, IconBtn, C, R, FW, FS, Loading, CenterNote, Input, ctrlH, NavBack, Dropzone, SCRIM } from '@/components/ui';
 import { toast } from '@/components/Toaster';
 import { ChatSenderLabel } from '@/components/ChatSenderLabel';
 import { useIsMobile } from '@/lib/use-mobile';
@@ -19,7 +19,18 @@ function isAcceptedChatFile(file: File): boolean {
 }
 
 // 대화창 = 공통 원자(방 하나의 스레드+입력). 전송·안읽음 = messaging SSOT.
-export function ChatThread({ roomId, onBack, onVehicle, onContract }: { roomId: string; onBack?: () => void; onVehicle?: (productCode: string) => void; onContract?: (productCode: string) => void }) {
+export function ChatThread({
+  roomId, onBack, onVehicle, onContract, title, chatCode,
+}: {
+  roomId: string;
+  onBack?: () => void;
+  onVehicle?: (productCode: string) => void;
+  onContract?: (productCode: string) => void;
+  /** 목록·contextTitle과 동일 「차량번호 차량명」. 없으면 방 필드 폴백. */
+  title?: string;
+  /** erp3 대화코드(CH-차번-영업자). 스레드 단독 헤더에만 노출(WorkPage contextTitle이 담당할 때는 생략 가능). */
+  chatCode?: string;
+}) {
   const mobile = useIsMobile();
   const co = getCompanyId();
   const [room, setRoom] = useState<EntityRecord | null | undefined>(undefined);
@@ -174,12 +185,19 @@ export function ChatThread({ roomId, onBack, onVehicle, onContract }: { roomId: 
   const me = actor(role);
   // WorkPage 선택(swap) = TopBar·BottomNav가 크롬 담당 → 스레드 헤더·컴포저 safe-area 생략(이중 여백·차명 중복 방지).
   const embedded = !onBack && !onVehicle && !onContract;
+  const headTitle = (title || '').trim()
+    || String(room?.vehicle_name || room?.car_number || room?.vehicle_number || '대화');
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, background: C.taupeBg }}>
       {!embedded ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: ctrlH(mobile), flex: `0 0 ${ctrlH(mobile)}px`, padding: '0 14px', borderBottom: `1px solid ${C.line}`, background: C.taupeBg, boxSizing: 'border-box' }}>
           {onBack && <NavBack kind="list" onClick={onBack} />}
-          <span style={{ fontSize: FS.title, fontWeight: FW.title, minWidth: 0, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{String(room.vehicle_name || room.car_number || room.vehicle_number || '대화')}</span>
+          <span style={{ fontSize: FS.title, fontWeight: FW.title, minWidth: 0, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {headTitle}
+            {chatCode ? (
+              <span style={{ marginLeft: 8, color: C.faint, fontWeight: FW.label, fontSize: FS.sub }}>{chatCode}</span>
+            ) : null}
+          </span>
           {onVehicle && <Btn title="차량 보기" variant="ghost" size="sm" onClick={() => onVehicle(String(room.product_code))}>차량</Btn>}
           {onContract && <Btn title="계약 진행" size="sm" onClick={() => onContract(String(room.product_code))}>계약진행</Btn>}
         </div>
@@ -258,20 +276,34 @@ export function ChatThread({ roomId, onBack, onVehicle, onContract }: { roomId: 
         borderTop: `1px solid ${C.line}`,
       }}>
         <input ref={fileRef} type="file" accept="image/*,application/pdf" onChange={(e) => onPickFile(e.target.files)} style={{ display: 'none' }} />
-        <Btn size="sm" variant="ghost" onClick={() => fileRef.current?.click()} title="사진·파일 첨부" disabled={busy}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-            <Paperclip size={16} aria-hidden />
-            첨부
-          </span>
-        </Btn>
+        {/* 모바일 = 아이콘 전용(첨부·보내기). 라벨을 달면 입력창 폭이 죽는다 —
+            "아이콘 only 화이트리스트"의 채팅 입력행 예외(입력 폭 우선). 웹은 라벨 유지. */}
+        {mobile ? (
+          <IconBtn onClick={() => fileRef.current?.click()} title="사진·파일 첨부" disabled={busy}>
+            <Paperclip size={18} aria-hidden />
+          </IconBtn>
+        ) : (
+          <Btn size="sm" variant="ghost" onClick={() => fileRef.current?.click()} title="사진·파일 첨부" disabled={busy}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+              <Paperclip size={16} aria-hidden />
+              첨부
+            </span>
+          </Btn>
+        )}
         {/* embedded 모바일 autoFocus 금지 — 키보드가 뷰를 밀면 메시지 영역이 사라짐. 탭해서 입력. */}
-        <Input value={text} onChange={setText} onEnter={send} placeholder="메시지 입력" full style={{ flex: 1 }} autoFocus={mobile && !embedded} disabled={busy} />
-        <Btn size="sm" onClick={send} disabled={busy || !text.trim()} title={busy ? '전송 중' : '보내기'}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-            {busy ? <LoaderCircle size={16} aria-hidden /> : <Send size={16} aria-hidden />}
-            {busy ? '전송 중…' : '보내기'}
-          </span>
-        </Btn>
+        <Input value={text} onChange={setText} onEnter={send} placeholder="메시지 입력" full style={{ flex: 1, minWidth: 0 }} autoFocus={mobile && !embedded} disabled={busy} />
+        {mobile ? (
+          <IconBtn onClick={send} disabled={busy || !text.trim()} title={busy ? '전송 중' : '보내기'} active={!busy && !!text.trim()}>
+            {busy ? <LoaderCircle size={18} aria-hidden /> : <Send size={18} aria-hidden />}
+          </IconBtn>
+        ) : (
+          <Btn size="sm" onClick={send} disabled={busy || !text.trim()} title={busy ? '전송 중' : '보내기'}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+              {busy ? <LoaderCircle size={16} aria-hidden /> : <Send size={16} aria-hidden />}
+              {busy ? '전송 중…' : '보내기'}
+            </span>
+          </Btn>
+        )}
       </div>
 
       {full && <div onClick={() => setFull(null)} style={{ position: 'fixed', inset: 0, zIndex: 90, background: SCRIM.black, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}><img src={full} alt="" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: R }} /></div>}

@@ -66,19 +66,32 @@ export const FW = {
  * 컨트롤 높이·폰트 SSOT — 페이지/컴포넌트는 height 숫자 금지, size·헬퍼만.
  *
  *  웹  md=32 / sm=28
- *  모바일 md=40 / sm=36 (높이는 터치 여유. 가로는 Btn 패딩으로 키움)
+ *  모바일 md=sm=36 — B2B 밀도. size와 무관하게 한 높이로 수렴(화면마다 36/40이 섞이던 문제 제거).
  *  입력·독 컨트롤 폰트 모바일=16 고정(검색·정렬·필터 동일 · iOS 줌 방지)
- *  칩 = 웹 sm(28) · 모바일 md(40)
+ *  칩 = 웹 sm(28) · 모바일 36
  *
  *  바 높이 = CSS --fp-bar-h
- *    웹 32+12×2=56 · 모바일 40+8×2=56
+ *    웹 32+12×2=56 · 모바일 36+10×2=56 (바 높이는 56 유지)
  */
 export type CtrlSize = 'md' | 'sm';
 
 export const CTRL = {
-  md: { web: 32, mobile: 40, fsWeb: 12.5, fsMobile: 16 },
+  md: { web: 32, mobile: 36, fsWeb: 12.5, fsMobile: 16 },
   sm: { web: 28, mobile: 36, fsWeb: 12, fsMobile: 16 },
 } as const;
+
+/**
+ * 아이콘 크기 SSOT — lucide size 숫자 하드코딩 금지.
+ * 같은 동작이 화면마다 13/14/16/17/18/20으로 갈리던 문제 방지.
+ *   sm=목록 행 안 보조 · md=버튼·행 기본 · lg=독·툴바·네비 · xl=상세 히어로
+ */
+export const ICON = { sm: 14, md: 16, lg: 18, xl: 20 } as const;
+
+/** 컨트롤 좌우 패딩 SSOT — 전 요소 12(모바일). 바·독·툴바·목록행과 좌측 정렬 일치. */
+export function ctrlPadX(mobile: boolean, size: CtrlSize = 'md'): number {
+  if (mobile) return 12;
+  return size === 'sm' ? 8 : 10;
+}
 
 export function ctrlH(mobile: boolean, size: CtrlSize = 'md'): number {
   return mobile ? CTRL[size].mobile : CTRL[size].web;
@@ -96,7 +109,7 @@ export function ctrlInputFs(mobile: boolean, size: CtrlSize = 'md'): number {
   return size === 'sm' ? 12.5 : 13;
 }
 
-/** 필터칩 높이 — 웹 sm · 모바일 md (옆 Btn/Search와 맞춤) */
+/** 필터칩 높이 — 웹 sm · 모바일 36 (옆 Btn/Search와 맞춤) */
 export function ctrlChipH(mobile: boolean): number {
   return mobile ? CTRL.md.mobile : CTRL.sm.web;
 }

@@ -66,11 +66,28 @@ export function toV4Record(entity: string, childKey: string, record: RtdbRecord,
   const base: RtdbRecord = { ...record, companyId };
   switch (entity) {
     case 'product': {
-      const code = record.product_code || childKey;
+      const code = String(record.product_code || childKey);
       const policy = record._policy || (record.policy_code && joinMap ? (joinMap[record.policy_code as string] as unknown) : undefined);
-      return { ...base, _key: String(code), product_code: code, product_uid: record.product_uid || childKey, _policy: policy,
+      // product_uid = erp3 원본 키(EXT_/PD*/pushId). v4 오버레이는 childKey===product_code 이라
+      //  여기서 childKey를 uid로 채우면 라이브 EXT uid를 덮어 문의방 조인이 끊긴다.
+      const uidExplicit = record.product_uid != null && String(record.product_uid).trim() !== ''
+        ? String(record.product_uid)
+        : '';
+      const uidFromKey = String(childKey) !== code ? String(childKey) : '';
+      const product_uid = uidExplicit || uidFromKey;
+      const row: RtdbRecord = {
+        ...base,
+        _key: code,
+        product_code: code,
+        _policy: policy,
         photos: record.photos || record.image_urls || record.images || record.doc_images,
-        photo: record.photo || record.image_url || (Array.isArray(record.photos) ? record.photos[0] : undefined) } as EntityRecord;
+        photo: record.photo || record.image_url || (Array.isArray(record.photos) ? record.photos[0] : undefined),
+      };
+      // 쓸모없는 product_uid(=product_code 메아리)는 제거 — 오버레이 병합 시 라이브 EXT/PD uid를 덮지 않게.
+      if (product_uid && product_uid !== code) row.product_uid = product_uid;
+      else delete row.product_uid;
+      if (uidFromKey) row._rtdb_key = uidFromKey;
+      return row as EntityRecord;
     }
     case 'policy': { const code = record.policy_code || childKey; return { ...base, _key: String(code), policy_code: code } as EntityRecord; }
     case 'partner': { const code = record.partner_code || childKey; return { ...base, _key: String(code), partner_code: code, name: record.name || record.partner_name || record.company_name || code } as EntityRecord; }

@@ -3,7 +3,7 @@
 import React from 'react';
 import { Search, X } from 'lucide-react';
 import { useIsMobile } from '@/lib/use-mobile';
-import { C, R, ctrlH, ctrlInputFs } from './tokens';
+import { C, R, ctrlH, ctrlInputFs, ctrlPadX } from './tokens';
 
 type Option = string | { value: string; label: string };
 

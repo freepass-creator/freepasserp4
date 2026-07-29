@@ -231,7 +231,8 @@ export default function MonthlySettlement() {
 
   const detailPane = (
     <>
-      <PaneHead title="정산 상세" />
+      {/* 모바일 스왑 = 하단 세그먼트가 이미 「상세」를 표시 → 같은 말 반복하는 헤드 생략(세로 확보). */}
+      {!mobile && <PaneHead title="정산 상세" />}
       <PaneBody pad>
         {selected ? (
           <>
@@ -260,7 +261,7 @@ export default function MonthlySettlement() {
 
   const amountPane = (
     <>
-      <PaneHead title="금액·지급" />
+      {!mobile && <PaneHead title="금액·지급" />}
       <PaneBody pad>
         {selected ? (
           <>

@@ -53,7 +53,8 @@ export function ListGroup({
 }) {
   const items = Children.toArray(children);
   return (
-    <div style={{ marginTop: 12, ...style }}>
+    // marginTop 없음 — 세로 간격은 컨테이너(PaneBody gap:12)가 담당. 둘 다 주면 24로 벌어진다.
+    <div style={style}>
       {header != null && header !== '' ? (
         typeof header === 'string' || typeof header === 'number'
           ? <GroupHeader>{header}</GroupHeader>
@@ -213,10 +214,10 @@ export function DetailRow({
         padding: '8px 12px',
         boxSizing: 'border-box',
       }}>
-        <div style={{ fontSize: FS.body, color: C.ink }}>{label}</div>
+        <div style={{ fontSize: FS.body, color: C.mute }}>{label}</div>
         <div style={{
           fontSize: FS.body,
-          color: valueColor ?? C.mute,
+          color: valueColor ?? C.ink,
           fontVariantNumeric: 'tabular-nums',
           wordBreak: 'break-word',
         }}>
@@ -234,11 +235,12 @@ export function DetailRow({
       padding: '0 12px',
       boxSizing: 'border-box',
     }}>
+      {/* 정보행 SSOT — 라벨 mute / 값 ink(강조는 값에). 다른 정보행 구현들도 이 규격으로 수렴. */}
       <span style={{
         flex: '1 1 auto',
         minWidth: 0,
         fontSize: FS.body,
-        color: C.ink,
+        color: C.mute,
         overflow: 'hidden',
         textOverflow: 'ellipsis',
         whiteSpace: 'nowrap',
@@ -250,7 +252,7 @@ export function DetailRow({
         maxWidth: plain ? '58%' : undefined,
         minWidth: 0,
         fontSize: FS.body,
-        color: valueColor ?? C.mute,
+        color: valueColor ?? C.ink,
         textAlign: 'right',
         overflow: plain ? 'hidden' : 'visible',
         textOverflow: plain ? 'ellipsis' : undefined,

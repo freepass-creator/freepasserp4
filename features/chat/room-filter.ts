@@ -13,13 +13,29 @@ export const CHAT_SORTS: { value: ChatSort; label: string }[] = [
   { value: 'name', label: '차명순' },
 ];
 
+/** 기본 = erp3 workspace와 동일하게 전체(계약상태 필터 없음). */
+export const CHAT_FILTER_DEFAULT: ChatFilter = 'all';
+
 export const CHAT_FILTERS: { key: ChatFilter; label: string }[] = [
+  { key: 'all', label: '전체' },
   { key: '미확인', label: '미확인' },
   { key: '문의', label: '문의' },
-  { key: 'all', label: '전체' },
   { key: '완료', label: '완료' },
   { key: '취소', label: '취소' },
 ];
+
+/**
+ * erp3 workspace 목록 가시성 — `!_deleted && !is_admin_chat && !hidden_for_*`.
+ * 관리자 소통방(ADMIN_* / is_admin_chat)은 별도 화면 전용이라 계약문의 목록에서 제외.
+ * v4에서 새로 만든 방도 같은 규칙으로 통과(erp3에 없는 키는 erp4에만 노출).
+ */
+export function isWorkspaceChatRoom(room: EntityRecord, role: Role): boolean {
+  if (room.is_admin_chat || String(room._key || '').startsWith('ADMIN_')) return false;
+  if (role === 'admin' && room.hidden_for_admin) return false;
+  if (role === 'provider' && room.hidden_for_provider) return false;
+  if (role === 'agent' && room.hidden_for_agent) return false;
+  return true;
+}
 
 type Params = {
   rooms: EntityRecord[];

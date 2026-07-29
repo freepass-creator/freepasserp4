@@ -322,13 +322,20 @@ export default function ContractsSettlement() {
     ? <ContractDocs contractCode={sel} roomId={roomId || undefined} />
     : <CenterNote>계약을 선택하세요.</CenterNote>;
 
-  // 웹·모바일 공통 3패널(+목록 = 4프레임).
-  // 모바일 스왑: 진행중→진행 · 계약완료→정산(하단 탭으로 서류·나머지 이동).
-  const panes: WorkPane[] = [
-    { key: 'progress', title: '진행', icon: ListChecks, node: <><PaneHead title="계약 진행상황" /><PaneBody>{progressBody}</PaneBody></> },
-    { key: 'docs', title: '서류', icon: Files, node: <><PaneHead title="첨부 서류" /><PaneBody>{docsBody}</PaneBody></> },
-    { key: 'settle', title: '정산', icon: WalletCards, node: <><PaneHead title="정산상태" /><PaneBody>{detailSettle()}</PaneBody></> },
-  ];
+  // 웹 = 3패널 나란히(+목록 = 4프레임) → 어느 칸이 무엇인지 PaneHead로 구분.
+  // 모바일 = 스왑(한 번에 한 칸) + 하단 세그먼트가 이미 「진행·서류·정산」을 표시 →
+  //   PaneHead는 같은 말 반복 + 틀고정으로 세로를 먹는다. 문의(/chat) 모바일 pane과 동일하게 헤드 없이 본문만.
+  const panes: WorkPane[] = mobile
+    ? [
+      { key: 'progress', title: '진행', icon: ListChecks, node: <PaneBody>{progressBody}</PaneBody> },
+      { key: 'docs', title: '서류', icon: Files, node: <PaneBody>{docsBody}</PaneBody> },
+      { key: 'settle', title: '정산', icon: WalletCards, node: <PaneBody>{detailSettle()}</PaneBody> },
+    ]
+    : [
+      { key: 'progress', title: '진행', icon: ListChecks, node: <><PaneHead title="계약 진행상황" /><PaneBody>{progressBody}</PaneBody></> },
+      { key: 'docs', title: '서류', icon: Files, node: <><PaneHead title="첨부 서류" /><PaneBody>{docsBody}</PaneBody></> },
+      { key: 'settle', title: '정산', icon: WalletCards, node: <><PaneHead title="정산상태" /><PaneBody>{detailSettle()}</PaneBody></> },
+    ];
 
   return (
     <>

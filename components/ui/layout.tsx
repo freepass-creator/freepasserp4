@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useIsMobile } from '@/lib/use-mobile';
-import { C, FS, FW, NUM, ctrlH } from './tokens';
+import { C, FS, FW, NUM, ctrlH, ctrlPadX } from './tokens';
 
 // 패널 헤더 — CTRL.md 높이(웹32/모바일40).
 export function PaneHead({ title, count, right }: {
@@ -13,7 +13,7 @@ export function PaneHead({ title, count, right }: {
   const mobile = useIsMobile();
   const h = ctrlH(mobile);
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: h, flex: `0 0 ${h}px`, padding: mobile ? '0 16px' : '0 14px', borderBottom: `1px solid ${C.line}`, background: C.taupeBg, boxSizing: 'border-box' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: h, flex: `0 0 ${h}px`, padding: `0 ${ctrlPadX(mobile)}px`, borderBottom: `1px solid ${C.line}`, background: C.taupeBg, boxSizing: 'border-box' }}>
       <span style={{ fontSize: mobile ? FS.title : FS.body, fontWeight: FW.title, color: C.ink, whiteSpace: 'nowrap', letterSpacing: mobile ? '-0.01em' : 0 }}>{title}</span>
       {count != null && count !== '' && <span style={{ fontSize: mobile ? FS.sub : FS.cap, color: C.faint, fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{count}</span>}
       {right != null && <><span style={{ flex: 1 }} />{right}</>}
@@ -28,7 +28,7 @@ export function PaneBody({ children, pad = false }: { children: React.ReactNode;
       style={{
         flex: 1, overflowY: 'auto', minHeight: 0,
         ...(pad ? {
-          padding: '12px 14px',
+          padding: '12px', // 좌우 = 바·독·목록행과 동일(12) — 화면 간 좌측 정렬 일치
           display: 'flex',
           flexDirection: 'column',
           gap: 12,

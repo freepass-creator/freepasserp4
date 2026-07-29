@@ -24,15 +24,19 @@ import { initAuth } from '@/lib/firebase/auth';
 import {
   buildContractIndex,
   buildProductLookup,
+  chatCodeOf,
   contractForRoom,
   providerForRoom,
+  roomPlate,
   roomTitle as resolveRoomTitle,
 } from '@/features/chat/room-display';
 import {
+  CHAT_FILTER_DEFAULT,
   CHAT_FILTERS,
   CHAT_SORTS,
   chatRoomPreviewCount,
   filterChatRooms,
+  isWorkspaceChatRoom,
   type ChatFilter,
   type ChatSort,
 } from '@/features/chat/room-filter';
@@ -56,8 +60,8 @@ export default function Chat() {
   const [q, setQ] = useState(''); // 디바운스된 검색
   const [swapKey, setSwapKey] = useState('chat');
   const [sort, setSort] = useState<ChatSort | ''>('');
-  const [flt, setFlt] = useState<ChatFilter>('문의');
-  const [draftFlt, setDraftFlt] = useState<ChatFilter>('문의');
+  const [flt, setFlt] = useState<ChatFilter>(CHAT_FILTER_DEFAULT);
+  const [draftFlt, setDraftFlt] = useState<ChatFilter>(CHAT_FILTER_DEFAULT);
 
   // 검색 디바운스 — 타이핑마다 방목록 filter 전량 재계산 방지
   useEffect(() => {
@@ -77,19 +81,12 @@ export default function Chat() {
   const deletedLookup = useMemo(() => buildProductLookup(deletedProducts), [deletedProducts]);
   /** 방 제목 = 실차명 해석. v3 방은 product_uid(=매물 _key)·car_number로 연결. 방값→매물→계약스냅샷→차번 순. (표시만, 데이터 미변경) */
   const roomTitle = (rm: EntityRecord): string => resolveRoomTitle(rm, productLookup, deletedLookup, contracts, contractOf(rm));
+  const roomChatCode = (rm: EntityRecord): string =>
+    chatCodeOf(rm, roomPlate(rm, productLookup, deletedLookup, contracts, contractOf(rm)));
   /** 매물 공급사 표기 — 관리자 응대용(이름 우선, 없으면 코드). */
   const providerOf = (rm: EntityRecord) => providerForRoom(rm, productLookup);
-  /** 목록 1줄 헤드 — 영업·공급=차명 / 관리자=차량번호. */
-  const roomHead = (rm: EntityRecord): string => {
-    if (role === 'admin') {
-      const plate = String(rm.car_number || '').trim();
-      if (plate) return plate;
-      const c = contractOf(rm);
-      const snap = String(c?.car_number_snapshot || '').trim();
-      if (snap) return snap;
-    }
-    return roomTitle(rm);
-  };
+  /** 목록·헤더 1줄 = erp3과 동일 「차량번호 차량명」(roomTitle). 관리자 공급사는 providerSuffix로 뒤에 붙음. */
+  const roomHead = (rm: EntityRecord): string => roomTitle(rm);
   const roomCounter = (rm: EntityRecord): string => {
     const ag = String(rm.agent_code || '').trim();
     const pv = providerOf(rm);
@@ -103,7 +100,7 @@ export default function Chat() {
   //  전량 선반입을 첫 페인트 뒤로 미뤄 계약진행만큼 빠르게 목록이 뜸.
   const load = async (r: Role): Promise<EntityRecord[]> => {
     const all = await getStore().list('room', co);
-    const mine = all.filter((x) => canAccessOwnedRecord(getSession(), x));
+    const mine = all.filter((x) => canAccessOwnedRecord(getSession(), x) && isWorkspaceChatRoom(x, r));
     setRooms(sortByRecent(mine)); // ← 즉시 페인트
     void (async () => {
       try {
@@ -132,7 +129,7 @@ export default function Chat() {
   const refreshRooms = async (r: Role): Promise<EntityRecord[]> => {
     const [all, cts] = await Promise.all([getStore().list('room', co), getStore().list('contract', co)]);
     setContracts(cts);
-    const mine = all.filter((x) => canAccessOwnedRecord(getSession(), x));
+    const mine = all.filter((x) => canAccessOwnedRecord(getSession(), x) && isWorkspaceChatRoom(x, r));
     const withUnread = await roomsWithUnread(mine, r);
     const sorted = withUnread.sort((a, b) => Number(b.last_message_at || 0) - Number(a.last_message_at || 0));
     setRooms(sorted);
@@ -231,7 +228,7 @@ export default function Chat() {
     role={role}
     selected={sel}
     query={qInput}
-    filterActive={flt !== '문의'}
+    filterActive={flt !== CHAT_FILTER_DEFAULT}
     displayName={roomHead}
     providerName={(room) => {
       if (role !== 'admin') return undefined;
@@ -241,7 +238,7 @@ export default function Chat() {
     contract={contractOf}
     counter={roomCounter}
     onSelect={handleRoomClick}
-    onReset={() => { setQInput(''); setQ(''); setFlt('문의'); }}
+    onReset={() => { setQInput(''); setQ(''); setFlt(CHAT_FILTER_DEFAULT); }}
   />;
 
   const emptyPane = (t: string, msg: string) => <><PaneHead title={t} /><CenterNote>{msg}</CenterNote></>;
@@ -258,8 +255,10 @@ export default function Chat() {
     : <CenterNote>이 매물의 이력이 없습니다.</CenterNote>;
 
   // 계약진행 이동 = 하단 swap 바([채팅][계약진행])가 담당.
+  const chatHead = selRoom ? roomTitle(selRoom) : '';
+  const chatCode = selRoom ? roomChatCode(selRoom) : '';
   const chatNode = sel
-    ? <ChatThread roomId={sel} />
+    ? <ChatThread roomId={sel} title={chatHead} chatCode={chatCode} />
     : emptyPane('채팅', '왼쪽에서 대화를 선택하세요.');
 
   // 모바일 계약진행 = /contract 모바일 스택과 동일(진행 → 서류). 상품상세·정산은 각 페이지 규격.
@@ -316,23 +315,29 @@ export default function Chat() {
       selected={!!sel}
       onBack={clearSel}
       contextTitle={selRoom
-        ? (role === 'admin'
-          ? (() => {
-              const plate = roomHead(selRoom);
-              const pv = providerOf(selRoom);
-              const suf = pv.name || pv.code;
-              if (!suf) return plate;
-              return (
-                <span style={{ display: 'inline-flex', alignItems: 'baseline', minWidth: 0, maxWidth: '100%' }}>
-                  <span style={{
-                    minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                    fontFamily: NUM, fontVariantNumeric: 'tabular-nums',
-                  }}>{plate}</span>
-                  <span style={{ flex: '0 0 auto', color: C.mute, fontWeight: FW.strong, marginLeft: 4 }}>· {suf}</span>
+        ? (() => {
+            const head = roomTitle(selRoom);
+            const code = roomChatCode(selRoom);
+            const pv = role === 'admin' ? providerOf(selRoom) : null;
+            const suf = pv ? (pv.name || pv.code) : '';
+            return (
+              <span style={{ display: 'inline-flex', alignItems: 'baseline', minWidth: 0, maxWidth: '100%' }}>
+                <span style={{
+                  minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>
+                  {head}
+                  {suf ? <span style={{ color: C.mute, fontWeight: FW.strong }}> · {suf}</span> : null}
                 </span>
-              );
-            })()
-          : roomTitle(selRoom))
+                {code ? (
+                  <span style={{
+                    flex: '0 0 auto', marginLeft: 8, color: C.faint, fontWeight: FW.label,
+                    fontSize: FS.sub, fontFamily: NUM, fontVariantNumeric: 'tabular-nums',
+                    whiteSpace: 'nowrap',
+                  }}>{code}</span>
+                ) : null}
+              </span>
+            );
+          })()
         : undefined}
       search={{ value: qInput, onChange: setQInput, placeholder: '차번·상품·영업…' }}
       mobileLayout="swap"
@@ -343,7 +348,7 @@ export default function Chat() {
         search: { value: qInput, onChange: setQInput, placeholder: '차번·상품·영업…' },
         sort: { value: sort, onChange: (v) => setSort(v as ChatSort | ''), options: CHAT_SORTS },
         filter: {
-          count: flt === '문의' ? 0 : 1,
+          count: flt === CHAT_FILTER_DEFAULT ? 0 : 1,
           title: '조건 검색',
           previewCount: draftPreviewCount,
           previewUnit: '건',
@@ -351,14 +356,14 @@ export default function Chat() {
           capture: () => setDraftFlt(flt),
           restore: () => setDraftFlt(flt),
           commit: () => setFlt(draftFlt),
-          onClear: () => mobile ? setDraftFlt('문의') : setFlt('문의'),
+          onClear: () => mobile ? setDraftFlt(CHAT_FILTER_DEFAULT) : setFlt(CHAT_FILTER_DEFAULT),
             body: (
               <FilterGroup
                 title="분류"
-                count={(mobile ? draftFlt : flt) === '문의' ? 0 : 1}
+                count={(mobile ? draftFlt : flt) === CHAT_FILTER_DEFAULT ? 0 : 1}
                 defaultOpen
                 first={!mobile}
-                onClear={() => mobile ? setDraftFlt('문의') : setFlt('문의')}
+                onClear={() => mobile ? setDraftFlt(CHAT_FILTER_DEFAULT) : setFlt(CHAT_FILTER_DEFAULT)}
               >
                 <FilterChips
                   value={mobile ? draftFlt : flt}
@@ -375,9 +380,9 @@ export default function Chat() {
         hints: [
           ...(q.trim() ? [q.trim().length > 12 ? `${q.trim().slice(0, 12)}…` : q.trim()] : []),
           ...(sort ? [CHAT_SORTS.find((o) => o.value === sort)?.label || sort] : []),
-          ...(flt !== '문의' ? [flt === 'all' ? '전체' : flt] : []),
+          ...(flt !== CHAT_FILTER_DEFAULT ? [CHAT_FILTERS.find((o) => o.key === flt)?.label || flt] : []),
         ],
-        onClearHints: () => { setQInput(''); setQ(''); setSort(''); setFlt('문의'); },
+        onClearHints: () => { setQInput(''); setQ(''); setSort(''); setFlt(CHAT_FILTER_DEFAULT); },
       }}
     />
     </>

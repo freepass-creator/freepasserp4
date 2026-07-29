@@ -188,8 +188,9 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
                         <span style={{ fontSize: FS.micro, color: C.faint }}>계약서 발송 전 손님 연락처 확인</span>
                         <div style={{ display: 'flex', flexDirection: mobile ? 'column' : 'row', gap: 5, alignItems: mobile ? 'stretch' : 'center' }}>
                           <div style={{ display: 'flex', gap: 5, alignItems: 'center', minWidth: 0, ...(mobile ? {} : { flex: 1 }) }}>
-                            <Input value={cust.name} onChange={(v) => setCust((s) => ({ ...s, name: v }))} placeholder="손님명" size="sm" width={mobile ? undefined : 82} style={mobile ? { flex: '1 1 40%', minWidth: 0 } : undefined} />
-                            <Input value={cust.phone} onChange={(v) => setCust((s) => ({ ...s, phone: fmtPhone(v) }))} placeholder="연락처" inputMode="tel" size="sm" style={{ flex: 1, minWidth: 0 }} />
+                            {/* 손님명 = 3~4자면 충분 → 폭 고정. 남는 폭은 전부 연락처(010-1234-5678 13자)로. */}
+                            <Input value={cust.name} onChange={(v) => setCust((s) => ({ ...s, name: v }))} placeholder="손님명" size="sm" width={mobile ? undefined : 82} style={mobile ? { flex: '0 1 92px', minWidth: 72 } : undefined} />
+                            <Input value={cust.phone} onChange={(v) => setCust((s) => ({ ...s, phone: fmtPhone(v) }))} placeholder="연락처" inputMode="tel" size="sm" style={{ flex: '1 1 auto', minWidth: 0 }} />
                           </div>
                           <Btn title="약정 완료" size="sm" onClick={doAgreement} disabled={busy || !cust.name.trim() || !cust.phone.trim()}>약정완료</Btn>
                         </div>
