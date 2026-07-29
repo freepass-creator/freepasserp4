@@ -139,7 +139,7 @@ export function PriceAmounts({ align = 'start' }: {
         }}>월</span>
         <span style={{
           fontSize: FS.title, fontWeight: FW.head, fontFamily: NUM, letterSpacing: '-0.02em',
-          // 모바일: 큰 금액 ascent로 행2↔3이 벌어져 보임 → lh 축소(웹 Cell은 기본 lh 유지)
+          // 모바일: 기간칩 없을 때 큰 금액 ascent 보정(웹 Cell은 기본 lh 유지). 칩 있는 행은 MobileRow marginTop=-1
           ...(mobile ? { lineHeight: 1.05 } : null),
           color: peeking ? C.brand : C.ink, transition: 'color 0.12s ease',
         }}>{man(focus.rent)}</span>

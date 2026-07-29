@@ -1,9 +1,8 @@
 'use client';
 import type { ReactNode } from 'react';
 import { Pencil, Plus, Save, Trash2, X } from 'lucide-react';
-import { Btn, IconBtn } from '@/components/ui';
+import { Btn } from '@/components/ui';
 import { haptic } from '@/lib/haptics';
-import { useIsMobile } from '@/lib/use-mobile';
 
 /**
  * 하단 액션 슬롯 SSOT.
@@ -11,7 +10,7 @@ import { useIsMobile } from '@/lib/use-mobile';
  *   보기: [수정] [삭제] [등록…]  — 선택 건 기준 액션 + 신규
  *   신규·수정: [취소] [저장]
  * 페이지는 이 조합만 — Btn 나열 손롤 지양.
- * 모바일: 저장·취소=텍스트 라벨 / 수정·삭제·등록=아이콘.
+ * 독 액션은 폭 여유 있음 → 아이콘+텍스트(아이콘온리 금지).
  */
 export type PageActionSpec = {
   onClick: () => void;
@@ -35,45 +34,32 @@ export function PageActions({
   save?: PageActionSpec;
   extra?: ReactNode;
 }) {
-  const mobile = useIsMobile();
   const go = (fn: () => void) => () => { haptic.tap(); fn(); };
   const action = (
     spec: PageActionSpec | undefined,
     fallback: string,
     icon: ReactNode,
     variant: 'solid' | 'ghost' | 'danger',
-    opts?: { textOnMobile?: boolean },
   ) => {
     if (!spec) return null;
     const label = spec.label || fallback;
-    const textOnMobile = opts?.textOnMobile;
-    if (mobile && !textOnMobile) {
-      return (
-        <IconBtn
-          title={label}
-          disabled={spec.disabled}
-          active={variant === 'solid'}
-          onClick={go(spec.onClick)}
-          style={variant === 'danger' ? { color: 'var(--red-text)', borderColor: 'var(--red-border)' } : undefined}
-        >
-          {icon}
-        </IconBtn>
-      );
-    }
     return (
-      <Btn size="sm" variant={variant} disabled={spec.disabled} onClick={go(spec.onClick)}>
-        {label}
+      <Btn size="sm" variant={variant} disabled={spec.disabled} title={label} onClick={go(spec.onClick)}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+          {icon}
+          {label}
+        </span>
       </Btn>
     );
   };
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
       {extra}
-      {action(cancel, '취소', <X size={18} />, 'ghost', { textOnMobile: true })}
-      {action(edit, '수정', <Pencil size={18} />, 'ghost')}
-      {action(remove, '삭제', <Trash2 size={18} />, 'danger')}
-      {action(save, '저장', <Save size={18} />, 'solid', { textOnMobile: true })}
-      {action(primary, '등록', <Plus size={18} />, 'solid')}
+      {action(cancel, '취소', <X size={16} aria-hidden />, 'ghost')}
+      {action(edit, '수정', <Pencil size={16} aria-hidden />, 'ghost')}
+      {action(remove, '삭제', <Trash2 size={16} aria-hidden />, 'danger')}
+      {action(save, '저장', <Save size={16} aria-hidden />, 'solid')}
+      {action(primary, '등록', <Plus size={16} aria-hidden />, 'solid')}
     </span>
   );
 }

@@ -142,10 +142,12 @@ function MobileRow({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) 
         {/* 2 차량번호 · 연식 */}
         <CardSpecs p={p} plateYear />
 
-        {/* 3 대여료 · 보증금 · 최저~최대 운영기간 */}
+        {/* 3 대여료 · 보증금 · 최저~최대 운영기간
+            PeriodRange 칩(h20) + 큰 금액 ascent로 행2↔3이 ~1px 넓어 보임 → 행 전체 -1 */}
         <div style={{
           display: 'flex', alignItems: 'center', gap: 8, lineHeight: 1.2,
           minWidth: 0, width: '100%', overflow: 'hidden',
+          marginTop: -1,
         }}>
           <div style={{ flex: '1 1 auto', minWidth: 0, overflow: 'hidden' }}>
             <PriceAmounts align="start" />
