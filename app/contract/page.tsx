@@ -14,7 +14,7 @@ import { getSession } from '@/lib/auth-session';
 import { canAccessOwnedRecord } from '@/lib/domain/authorization';
 import { initAuth } from '@/lib/firebase/auth';
 import { man } from '@/lib/format';
-import { PaneHead, PaneBody, Badge, Btn, Input, won, C, R, NUM, Loading, CenterNote, SETTLEMENT_STATUS_TONE, FilterChips, FilterGroup, Select, FW, FS } from '@/components/ui';
+import { PaneHead, PaneBody, Badge, Btn, Input, won, C, R, NUM, Loading, CenterNote, SETTLEMENT_STATUS_TONE, FilterChips, FilterGroup, Select, FW, FS, FeedRowSkeleton } from '@/components/ui';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
 import { ContractPanel } from '@/components/ContractPanel';
 import { ContractDocs } from '@/components/ContractDocs';
@@ -335,7 +335,7 @@ export default function ContractsSettlement() {
       <WorkPage title={NAV_LABEL.contract || '계약'} statusLabel="계약진행중"
         statusCount={rows?.filter((c) => isContractInProgress(c)).length ?? 0}
         listCount={shownAll.length}
-        list={rows === null ? <Loading /> : listEl} panes={panes} selected={!!sel} onBack={clearSel}
+        list={rows === null ? <FeedRowSkeleton /> : listEl} panes={panes} selected={!!sel} onBack={clearSel}
         contextTitle={selC ? String(selC.customer_name || selC.vehicle_name || selC.car_number || selC.contract_code || '') : undefined}
         search={{ value: qInput, onChange: setQInput, placeholder: '계약·차번·계약자·전화·영업·공급…' }}
         mobileLayout="swap"

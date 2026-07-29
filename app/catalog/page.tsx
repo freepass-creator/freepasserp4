@@ -9,7 +9,7 @@ import { matchProductQuery } from '@/lib/domain/search';
 import { withProviderNames } from '@/lib/domain/identity';
 import { ProductCard } from '@/components/ProductCard';
 import { RENT_BANDS, CREDITS, CATALOG_PERKS, hasPerk } from '@/lib/domain/product-filters';
-import { Btn, C, FW, FS, Loading, CenterNote, SearchInput, Select, ToggleChips } from '@/components/ui';
+import { Btn, C, FW, FS, CenterNote, SearchInput, Select, ToggleChips, ProductCardSkeleton } from '@/components/ui';
 import { toggleInSet } from '@/lib/set';
 // 손님 공개 카탈로그(화이트라벨) — 영업 공유의 착지점. ERP 크롬 없음.
 // 필터 축 = 홈과 동일 SSOT (심사 CREDITS · 혜택 CATALOG_PERKS · 월대여료=matchProduct와 동일 밴드 판정).
@@ -69,7 +69,7 @@ export default function Catalog() {
   const moreCount = Math.max(0, list.length - shown.length);
   const href = (p: EntityRecord) => `/q/${encodeURIComponent(String(p.product_code))}${attr ? `?a=${encodeURIComponent(attr)}` : ''}`;
 
-  if (rows === null) return <Loading />;
+  if (rows === null) return <ProductCardSkeleton count={6} />;
 
   return (
     <main style={{ maxWidth: 1000, margin: '0 auto', padding: '18px 16px 28px' }}>

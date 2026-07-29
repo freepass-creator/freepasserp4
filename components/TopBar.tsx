@@ -217,7 +217,7 @@ function NavMenu({ mobile, open: openProp, setOpen: setOpenProp }: {
     <div style={{ position: 'relative', flex: '0 0 auto' }}>
       <IconBtn
         title={open ? '메뉴 닫기' : '메뉴'}
-        onClick={() => { haptic.tap(); setOpen((o) => !o); }}
+        onClick={() => { setOpen((o) => !o); }}
         style={mobile
           ? { marginRight: -6, border: 'none', background: 'none', color: ink, width: ctrlH(true), height: ctrlH(true) }
           : { background: open ? C.hover : C.taupeBg, color: ink, border: `1px solid ${line}` }}
@@ -296,11 +296,12 @@ export default function TopBar() {
     : <ChevronLeft size={mobile ? 18 : 16} strokeWidth={2.25} />;
   const backBtn = back ? (
     mobile ? (
-      <IconBtn title={backLabel} onClick={() => { haptic.back(); back(); }}>{backIcon}</IconBtn>
+      <IconBtn title={backLabel} haptic="back" onClick={() => { back(); }}>{backIcon}</IconBtn>
     ) : (
       <Btn
         variant="ghost"
-        onClick={() => { haptic.back(); back(); }}
+        haptic="back"
+        onClick={() => { back(); }}
         style={{
           gap: 3, padding: '0 12px 0 8px',
           background: C.taupeBg, color: ink, fontSize: ctrlFs(mobile),

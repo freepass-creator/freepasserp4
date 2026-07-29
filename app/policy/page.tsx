@@ -6,7 +6,7 @@ import { seedIfEmpty } from '@/lib/seed';
 import { ENTITIES, type EntityRecord } from '@/lib/intake/entities';
 import { newId } from '@/lib/domain/ids';
 import { getRole, actor, type Role } from '@/lib/domain/deal';
-import { PaneHead, PaneBody, Btn, FormGrid, FormCard, C, Loading, CenterNote, Page, FilterChips, FilterGroup, Message, PageActions } from '@/components/ui';
+import { PaneHead, PaneBody, Btn, FormGrid, FormCard, C, Loading, CenterNote, Page, FilterChips, FilterGroup, Message, PageActions, FeedRowSkeleton } from '@/components/ui';
 import { PolicyListRow } from '@/components/list-rows';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
 import { confirmDialog, toast } from '@/components/Toaster';
@@ -283,7 +283,7 @@ export default function PolicyMgmt() {
   ];
   return (
     <>
-      <WorkPage title={NAV_LABEL.policy} listCount={shown.length} list={rows === null ? <Loading /> : listEl} panes={panes} selected={!!sel} onBack={clearSel}
+      <WorkPage title={NAV_LABEL.policy} listCount={shown.length} list={rows === null ? <FeedRowSkeleton /> : listEl} panes={panes} selected={!!sel} onBack={clearSel}
         contextTitle={sel ? (creating ? '신규 정책' : String(form.policy_name || form.policy_code || '')) : undefined}
         actions={dockActions}
         listTools={{

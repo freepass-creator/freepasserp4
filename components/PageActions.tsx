@@ -2,7 +2,6 @@
 import type { ReactNode } from 'react';
 import { Pencil, Plus, Save, Trash2, X } from 'lucide-react';
 import { Btn } from '@/components/ui';
-import { haptic } from '@/lib/haptics';
 
 /**
  * 하단 액션 슬롯 SSOT.
@@ -34,17 +33,17 @@ export function PageActions({
   save?: PageActionSpec;
   extra?: ReactNode;
 }) {
-  const go = (fn: () => void) => () => { haptic.tap(); fn(); };
   const action = (
     spec: PageActionSpec | undefined,
     fallback: string,
     icon: ReactNode,
     variant: 'solid' | 'ghost' | 'danger',
+    haptic: 'tap' | 'impact' = 'tap',
   ) => {
     if (!spec) return null;
     const label = spec.label || fallback;
     return (
-      <Btn size="sm" variant={variant} disabled={spec.disabled} title={label} onClick={go(spec.onClick)}>
+      <Btn size="sm" variant={variant} disabled={spec.disabled} title={label} haptic={haptic} onClick={spec.onClick}>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
           {icon}
           {label}
@@ -57,7 +56,7 @@ export function PageActions({
       {extra}
       {action(cancel, '취소', <X size={16} aria-hidden />, 'ghost')}
       {action(edit, '수정', <Pencil size={16} aria-hidden />, 'ghost')}
-      {action(remove, '삭제', <Trash2 size={16} aria-hidden />, 'danger')}
+      {action(remove, '삭제', <Trash2 size={16} aria-hidden />, 'danger', 'impact')}
       {action(save, '저장', <Save size={16} aria-hidden />, 'solid')}
       {action(primary, '등록', <Plus size={16} aria-hidden />, 'solid')}
     </span>

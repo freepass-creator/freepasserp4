@@ -2,9 +2,17 @@
 
 import React from 'react';
 import { useIsMobile } from '@/lib/use-mobile';
+import { haptic as hapticApi } from '@/lib/haptics';
 import { C, FW, R, ctrlFs, ctrlH, SH } from './tokens';
 
-export function Btn({ children, mobileIcon, onClick, variant = 'solid', size = 'md', disabled, href, style, full, type = 'button', className, title, 'aria-label': ariaLabel, 'aria-pressed': ariaPressed, 'data-active': dataActive }: {
+export type BtnHaptic = false | 'tap' | 'nav' | 'select' | 'back' | 'impact' | 'success' | 'error';
+
+function fireHaptic(kind: BtnHaptic) {
+  if (!kind) return;
+  hapticApi[kind]();
+}
+
+export function Btn({ children, mobileIcon, onClick, variant = 'solid', size = 'md', disabled, href, style, full, type = 'button', className, title, haptic = 'tap', 'aria-label': ariaLabel, 'aria-pressed': ariaPressed, 'data-active': dataActive }: {
   children: React.ReactNode;
   /**
    * 모바일 아이콘 only — 화이트리스트(뒤로·닫기·메뉴·검색·필터·정렬·공유·더보기·새로고침)만.
@@ -21,6 +29,8 @@ export function Btn({ children, mobileIcon, onClick, variant = 'solid', size = '
   type?: 'button' | 'submit';
   className?: string;
   title?: string;
+  /** 내장 햅틱. false=끄기. 핸들러 안 수동 haptic.* 금지(이중발동). */
+  haptic?: BtnHaptic;
   'aria-label'?: string;
   'aria-pressed'?: boolean;
   'data-active'?: string;
@@ -62,13 +72,16 @@ export function Btn({ children, mobileIcon, onClick, variant = 'solid', size = '
     ...(ariaPressed != null ? { 'aria-pressed': ariaPressed } : null),
     ...(dataActive != null ? { 'data-active': dataActive } : null),
   };
+  const handleClick = onClick
+    ? () => { fireHaptic(haptic); onClick(); }
+    : (haptic ? () => { fireHaptic(haptic); } : undefined);
   return href
-    ? <a href={href} data-clickable="" onClick={onClick} className={cls} style={s} {...a11y}>{iconOnly ? mobileIcon : children}</a>
-    : <button type={type} onClick={onClick} disabled={disabled} className={cls} style={s} {...a11y}>{iconOnly ? mobileIcon : children}</button>;
+    ? <a href={href} data-clickable="" onClick={handleClick} className={cls} style={s} {...a11y}>{iconOnly ? mobileIcon : children}</a>
+    : <button type={type} onClick={handleClick} disabled={disabled} className={cls} style={s} {...a11y}>{iconOnly ? mobileIcon : children}</button>;
 }
 
 /** 정사각 아이콘 버튼 — CTRL.md. style로 셸·특수 배치 1:1 오버라이드 가능. */
-export function IconBtn({ children, onClick, onPointerDown, title, active, disabled, style, className }: {
+export function IconBtn({ children, onClick, onPointerDown, title, active, disabled, style, className, haptic = 'tap' }: {
   children: React.ReactNode;
   onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
   onPointerDown?: (e: React.PointerEvent<HTMLButtonElement>) => void;
@@ -77,11 +90,21 @@ export function IconBtn({ children, onClick, onPointerDown, title, active, disab
   disabled?: boolean;
   style?: React.CSSProperties;
   className?: string;
+  /** 내장 햅틱. false=끄기. 핸들러 안 수동 haptic.* 금지(이중발동). */
+  haptic?: BtnHaptic;
 }) {
   const mobile = useIsMobile();
   const h = ctrlH(mobile);
   return (
-    <button type="button" className={className ? `fp-press ${className}` : 'fp-press'} onClick={onClick} onPointerDown={onPointerDown} disabled={disabled} title={title} aria-label={title} aria-pressed={active || undefined}
+    <button
+      type="button"
+      className={className ? `fp-press ${className}` : 'fp-press'}
+      onClick={(e) => { fireHaptic(haptic); onClick?.(e); }}
+      onPointerDown={onPointerDown}
+      disabled={disabled}
+      title={title}
+      aria-label={title}
+      aria-pressed={active || undefined}
       style={{
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
         height: h, width: h, boxSizing: 'border-box', padding: 0, borderRadius: R,
@@ -89,7 +112,8 @@ export function IconBtn({ children, onClick, onPointerDown, title, active, disab
         background: active ? C.brand : C.taupeBg, color: active ? C.taupeBg : C.mute,
         cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1,
         ...style,
-      }}>
+      }}
+    >
       {children}
     </button>
   );

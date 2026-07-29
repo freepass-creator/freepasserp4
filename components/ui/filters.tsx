@@ -175,10 +175,10 @@ export function FilterGroup({
           <Btn
             variant="bare"
             title="해제"
+            haptic="select"
             disabled={count <= 0}
             onClick={() => {
               if (count <= 0) return;
-              haptic.select();
               onClear();
             }}
             style={clearStyle}

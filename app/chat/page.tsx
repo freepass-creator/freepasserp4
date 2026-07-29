@@ -9,7 +9,7 @@ import { getRole, actor, type Role } from '@/lib/domain/deal';
 import { roomsWithUnread, unreadFor, unreadRoomCount } from '@/lib/domain/messaging';
 import { getProgress, isInquiryOnly } from '@/lib/domain/contract';
 import { withProviderNames } from '@/lib/domain/identity';
-import { PaneHead, Btn, C, Loading, CenterNote, PaneBody, FilterChips, FilterGroup, FS, FW, NUM } from '@/components/ui';
+import { PaneHead, Btn, C, Loading, CenterNote, PaneBody, FilterChips, FilterGroup, FS, FW, NUM, FeedRowSkeleton } from '@/components/ui';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
 import { ChatThread } from '@/components/ChatThread';
 import { ProductDetail } from '@/components/ProductDetail';
@@ -306,7 +306,7 @@ export default function Chat() {
       statusLabel="문의 미확인"
       statusCount={inquiryUnreadN}
       listCount={shownRooms.length}
-      list={rooms === null ? <Loading /> : roomListEl}
+      list={rooms === null ? <FeedRowSkeleton /> : roomListEl}
       panes={mobile ? mobilePanes : webPanes}
       selected={!!sel}
       onBack={clearSel}

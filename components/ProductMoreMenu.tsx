@@ -48,18 +48,18 @@ export function ProductMoreMenu({ p }: { p: EntityRecord }) {
   const openMenu = (e: MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    haptic.tap();
     setOpen(true);
   };
 
   const meta = { code, name: vehicleName(p), plate: String(p.car_number || '') };
   const rowH = ctrlH(mobile);
 
-  const item = (label: string, onClick: () => void, opts?: { danger?: boolean; icon?: ReactNode; muted?: boolean }) => (
+  const item = (label: string, onClick: () => void, opts?: { danger?: boolean; icon?: ReactNode; muted?: boolean; haptic?: 'tap' | 'nav' | 'select' | 'impact' }) => (
     <Btn
       key={label}
       full
       variant="ghost"
+      haptic={opts?.haptic ?? 'tap'}
       onClick={() => { onClick(); setOpen(false); }}
       style={{
         display: 'flex', justifyContent: 'flex-start', gap: 12,
@@ -85,7 +85,6 @@ export function ProductMoreMenu({ p }: { p: EntityRecord }) {
             '계약문의',
             async () => {
               try {
-                haptic.nav();
                 const a = actor(role);
                 const room = await ensureRoom(p, a);
                 router.push(`/chat?room=${encodeURIComponent(room)}`);
@@ -93,12 +92,11 @@ export function ProductMoreMenu({ p }: { p: EntityRecord }) {
                 toast(e instanceof Error ? e.message : '계약문의 실패', 'error');
               }
             },
-            { icon: <MessageCircleMore size={18} color={C.brand} /> },
+            { icon: <MessageCircleMore size={18} color={C.brand} />, haptic: 'nav' },
           )}
           {item(
             '손님공유',
             async () => {
-              haptic.select();
               const a = actor(role);
               const url = guestShareUrl(p, a.code || a.uid);
               if (navigator.share) {
@@ -108,14 +106,13 @@ export function ProductMoreMenu({ p }: { p: EntityRecord }) {
               if (await copyText(url)) toast('손님용 매물 링크 복사됨', 'ok');
               else prompt('링크', url);
             },
-            { icon: <Share2 size={18} color={C.brand} /> },
+            { icon: <Share2 size={18} color={C.brand} />, haptic: 'select' },
           )}
         </>
       ) : null}
       {item(
         fav ? '관심 해제' : '관심 있음',
         () => {
-          haptic.select();
           if (!fav && passed) unpassProduct(code);
           const next = toggleFav(p);
           setFav(next);
@@ -123,12 +120,12 @@ export function ProductMoreMenu({ p }: { p: EntityRecord }) {
         },
         {
           icon: <Star size={18} strokeWidth={2.2} fill={fav ? C.brand : 'none'} color={fav ? C.brand : C.mute} />,
+          haptic: 'select',
         },
       )}
       {item(
         passed ? '관심없음 해제' : '관심없음',
         () => {
-          haptic.select();
           if (passed) {
             unpassProduct(code);
             setPassed(false);
@@ -143,18 +140,19 @@ export function ProductMoreMenu({ p }: { p: EntityRecord }) {
         {
           muted: !passed,
           icon: <ThumbsDown size={18} color={passed ? C.brand : C.mute} />,
+          haptic: 'select',
         },
       )}
       {item(
         '숨기기',
         () => {
-          haptic.impact();
           hideProduct(meta);
           toast('숨겼습니다. 설정에서 다시 볼 수 있어요.', 'info');
         },
         {
           danger: true,
           icon: <EyeOff size={18} color={C.danger} />,
+          haptic: 'impact',
         },
       )}
     </div>

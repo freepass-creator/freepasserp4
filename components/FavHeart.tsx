@@ -1,7 +1,6 @@
 'use client';
 import { useEffect, useState, type MouseEvent } from 'react';
 import { Star } from 'lucide-react';
-import { haptic } from '@/lib/haptics';
 import { C, R, IconBtn, ctrlH, SH } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { isFav, toggleFav, subscribeInterest, type InterestSnap } from '@/lib/product-interest';
@@ -29,7 +28,6 @@ export function FavHeart({ p, size = 16, onPhoto = false, compact = false }: {
   const click = (e: MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    haptic.select();
     const next = toggleFav(p);
     setOn(next);
     toast(next ? '관심에 추가' : '관심 해제', next ? 'ok' : 'info');
@@ -47,6 +45,7 @@ export function FavHeart({ p, size = 16, onPhoto = false, compact = false }: {
     <IconBtn
       title={on ? '관심 매물 (해제)' : '관심'}
       active={on}
+      haptic="select"
       onClick={click}
       style={{
         height: h, width: h, borderRadius: R,

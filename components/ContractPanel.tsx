@@ -76,7 +76,7 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
     if (!contract || busy) return;
     if (!await confirmDialog({ title: '계약 취소', message: '이 계약을 취소하시겠습니까?\n재고는 출고가능으로 복원되고, 완료 계약이면 환수가 진행됩니다.', danger: true, okLabel: '계약 취소' })) return;
     setBusy(true);
-    try { haptic.impact(); await cancelContract(contract); await load(); onChange?.(); } catch (e) { toast(String((e as Error)?.message || e), 'error'); } finally { setBusy(false); }
+    try { await cancelContract(contract); await load(); onChange?.(); } catch (e) { toast(String((e as Error)?.message || e), 'error'); } finally { setBusy(false); }
   };
   const retryFinalize = async () => {
     if (!contract || busy) return;
@@ -108,7 +108,7 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
           : <span style={{ fontSize: FS.sub, fontWeight: FW.title, color: C.ink }}>새 계약 — 출고문의로 시작</span>}
         <span style={{ flex: 1, minWidth: 8 }} />
         <span style={{ fontSize: FS.sub, fontWeight: FW.head, color: C.brand }}>{doneCount}/{STEPS.length}</span>
-        {c && String(c.contract_status) !== '계약취소' && (role === 'agent' || role === 'admin') && <Btn title="계약 취소" size="sm" variant="ghost" onClick={doCancel} disabled={busy}>계약취소</Btn>}
+        {c && String(c.contract_status) !== '계약취소' && (role === 'agent' || role === 'admin') && <Btn title="계약 취소" size="sm" variant="ghost" haptic="impact" onClick={doCancel} disabled={busy}>계약취소</Btn>}
       </div>
 
       {needsFinalize && (

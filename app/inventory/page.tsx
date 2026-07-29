@@ -5,7 +5,7 @@ import { getCompanyId } from '@/lib/tenant';
 import { VEHICLE_STATES, PRODUCT_TYPES, type EntityRecord } from '@/lib/intake/entities';
 import { getRole, actor } from '@/lib/domain/deal';
 import { vehicleName } from '@/lib/domain/product';
-import { PaneHead, PaneBody, Btn, C, Loading, CenterNote, Badge, Page, FilterChips, FilterGroup, PageActions, FW, FS } from '@/components/ui';
+import { PaneHead, PaneBody, Btn, C, Loading, CenterNote, Badge, Page, FilterChips, FilterGroup, PageActions, FW, FS, FeedRowSkeleton } from '@/components/ui';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
 import { toast } from '@/components/Toaster';
 import { haptic } from '@/lib/haptics';
@@ -275,7 +275,7 @@ export default function Inventory() {
         }).length}
         countSuffix="대"
         listCount={filtered.length}
-        list={rows === null ? <Loading /> : listEl} panes={panes} selected={!!sel} onBack={clearSel}
+        list={rows === null ? <FeedRowSkeleton /> : listEl} panes={panes} selected={!!sel} onBack={clearSel}
         contextTitle={sel ? (creating ? '신규 상품' : (vehicleName(form) || String(form.car_number || '상품'))) : undefined}
         search={{ value: q, onChange: setQ, placeholder: '차번·차명·옵션·공급사·메모…' }}
         actions={dockActions}

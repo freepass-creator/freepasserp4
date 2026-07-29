@@ -222,11 +222,38 @@ button, input, select, textarea { font-family: inherit; }
 .fp-page-fresh {
   animation: fp-page-fresh 0.32s ease-out;
 }
+/* 스켈레톤 shimmer — 밝기만(스케일 금지). */
+@keyframes fp-shimmer {
+  0% { opacity: 0.55; }
+  50% { opacity: 1; }
+  100% { opacity: 0.55; }
+}
+.fp-skeleton {
+  animation: fp-shimmer 1.2s ease-in-out infinite;
+}
+/* Drawer 우측 슬라이드 · Modal 웹 페이드(스케일 금지 — opacity만). */
+@keyframes drawerIn {
+  from { opacity: 0.85; transform: translateX(28px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes drawerOut {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0.85; transform: translateX(28px); }
+}
+@keyframes modalIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes modalOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
 @media (prefers-reduced-motion: reduce) {
-  [style*="menuDrop"], [style*="sheetUp"], [style*="sheetDown"], [style*="scrimIn"] { animation: none !important; }
-  .attn-dot, .attn-pulse, .fp-badge-pulse, .fp-page-fresh,
-  [class*="attn-pulse"], [class*="fp-badge-pulse"], [class*="fp-spin"],
-  [style*="fp-spin"], [style*="attn-pulse"] {
+  [style*="menuDrop"], [style*="sheetUp"], [style*="sheetDown"], [style*="scrimIn"],
+  [style*="drawerIn"], [style*="drawerOut"], [style*="modalIn"], [style*="modalOut"] { animation: none !important; }
+  .attn-dot, .attn-pulse, .fp-badge-pulse, .fp-page-fresh, .fp-skeleton,
+  [class*="attn-pulse"], [class*="fp-badge-pulse"], [class*="fp-spin"], [class*="fp-shimmer"],
+  [style*="fp-spin"], [style*="attn-pulse"], [style*="fp-shimmer"] {
     animation: none !important;
   }
 }

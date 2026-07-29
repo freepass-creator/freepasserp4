@@ -19,7 +19,7 @@ export function CloseBtn({
   onPointerDown?: (e: React.PointerEvent<HTMLButtonElement>) => void;
 }) {
   return (
-    <IconBtn onClick={onClick} onPointerDown={onPointerDown} title={title} style={style} className={className}>
+    <IconBtn haptic="back" onClick={onClick} onPointerDown={onPointerDown} title={title} style={style} className={className}>
       <X size={18} strokeWidth={2.25} aria-hidden />
     </IconBtn>
   );

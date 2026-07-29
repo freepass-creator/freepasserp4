@@ -57,6 +57,122 @@ export function Loading({
   );
 }
 
+/** 스켈레톤 박스 SSOT — shimmer. reduced-motion = .fp-skeleton 정적. */
+export function Skeleton({
+  width = '100%',
+  height = 12,
+  radius = R,
+  style,
+  className,
+}: {
+  width?: number | string;
+  height?: number | string;
+  radius?: number | string;
+  style?: React.CSSProperties;
+  className?: string;
+}) {
+  return (
+    <span
+      aria-hidden
+      className={className ? `fp-skeleton ${className}` : 'fp-skeleton'}
+      style={{
+        display: 'block',
+        width,
+        height,
+        borderRadius: radius,
+        background: 'var(--bg-placeholder)',
+        ...style,
+      }}
+    />
+  );
+}
+
+/** FeedListRow 3줄 골격 — title18 / badges20 / sub15. */
+export function FeedRowSkeleton({ count = 6 }: { count?: number }) {
+  return (
+    <div role="status" aria-label="목록 불러오는 중" style={{ width: '100%' }}>
+      {Array.from({ length: count }, (_, i) => (
+        <div
+          key={i}
+          className="fp-card-row"
+          style={{
+            display: 'flex',
+            gap: 10,
+            alignItems: 'center',
+            padding: '8px 14px',
+            borderBottom: `1px solid ${C.line}`,
+            boxSizing: 'border-box',
+          }}
+        >
+          <Skeleton width={28} height={28} radius={R} style={{ flex: '0 0 28px' }} />
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <Skeleton width="72%" height={18} />
+            <Skeleton width="48%" height={20} />
+            <Skeleton width="58%" height={15} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** ProductCard / ProductRowCard 로딩 골격. */
+export function ProductCardSkeleton({ count = 4, dense }: { count?: number; dense?: boolean }) {
+  return (
+    <div
+      role="status"
+      aria-label="상품 불러오는 중"
+      style={{
+        display: dense ? 'flex' : 'grid',
+        flexDirection: dense ? 'column' : undefined,
+        gridTemplateColumns: dense ? undefined : 'repeat(auto-fill, minmax(160px, 1fr))',
+        gap: dense ? 0 : 12,
+        width: '100%',
+      }}
+    >
+      {Array.from({ length: count }, (_, i) => (
+        dense ? (
+          <div
+            key={i}
+            className="fp-card-row"
+            style={{
+              display: 'flex', gap: 12, alignItems: 'stretch',
+              padding: '10px 12px', borderBottom: `1px solid ${C.line}`,
+              boxSizing: 'border-box',
+            }}
+          >
+            <Skeleton width={56} height={56} radius={R} style={{ flex: '0 0 56px' }} />
+            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 5, justifyContent: 'center' }}>
+              <Skeleton width="85%" height={14} />
+              <Skeleton width="55%" height={11} />
+              <Skeleton width="70%" height={15} />
+              <Skeleton width="40%" height={11} />
+            </div>
+          </div>
+        ) : (
+          <div
+            key={i}
+            style={{
+              border: `1px solid ${C.line}`, borderRadius: R, overflow: 'hidden',
+              background: C.taupeBg,
+            }}
+          >
+            <div style={{ position: 'relative', width: '100%', paddingTop: '50%', background: 'var(--bg-placeholder)' }}>
+              <span className="fp-skeleton" style={{ position: 'absolute', inset: 0, display: 'block', borderRadius: 0 }} />
+            </div>
+            <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <Skeleton width="90%" height={14} />
+              <Skeleton width="60%" height={11} />
+              <Skeleton width="70%" height={11} />
+              <Skeleton width="50%" height={16} />
+            </div>
+          </div>
+        )
+      ))}
+    </div>
+  );
+}
+
 export function CenterNote({
   children,
   minHeight = '100%',

@@ -3,7 +3,6 @@
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, List } from 'lucide-react';
-import { haptic } from '@/lib/haptics';
 import { useIsMobile } from '@/lib/use-mobile';
 import { Btn, IconBtn } from './buttons';
 import { C, SH } from './tokens';
@@ -21,7 +20,6 @@ export function NavBack({
   const router = useRouter();
   const mobile = useIsMobile();
   const go = () => {
-    haptic.back();
     if (kind === 'list') {
       onClick?.();
       return;
@@ -40,10 +38,10 @@ export function NavBack({
   // 목록(list)은 모바일서 항상 아이콘+라벨(호출부 backShowLabel 의존 제거 → 전 페이지 자동 통일).
   // 이전(history)은 범용 back이라 아이콘only 유지(showLabel 주면 라벨).
   if (mobile && !showLabel && kind !== 'list') {
-    return <IconBtn title={label} onClick={go}>{icon}</IconBtn>;
+    return <IconBtn haptic="back" title={label} onClick={go}>{icon}</IconBtn>;
   }
   return (
-    <Btn variant="ghost" size="sm" title={label} onClick={go}>
+    <Btn variant="ghost" size="sm" title={label} haptic="back" onClick={go}>
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
         {icon}
         {label}

@@ -7,7 +7,6 @@ import {
   type aggregateDyn, type presentFilterOptions,
 } from '@/lib/domain/product-filters';
 import { toggleInSet } from '@/lib/set';
-import { haptic } from '@/lib/haptics';
 import { VehicleMasterFilter } from '@/components/VehicleMasterFilter';
 import {
   Badge, Btn, C, CountPill, FilterGroup, FS, FW, Select, ToggleChips, ctrlH,
@@ -62,7 +61,8 @@ export function FinderFilterPanel({ model }: { model: FinderFilterPanelModel }) 
           {activeCount > 0 && (
             <Btn
               variant="bare"
-              onClick={() => { haptic.select(); reset(); }}
+              haptic="select"
+              onClick={() => { reset(); }}
               style={{ color: C.accent, fontSize: FS.cap, fontWeight: FW.strong, padding: '4px 6px' }}
             >
               초기화
@@ -86,12 +86,12 @@ export function FinderFilterPanel({ model }: { model: FinderFilterPanelModel }) 
                   padding: mobile ? '0 8px' : '0 6px',
                 };
                 if (value.interest.size > 0) {
-                  return <Btn variant="bare" title="해제" onClick={() => { haptic.select(); update({ interest: new Set() }); }} style={{ ...style, color: C.accent }}>해제</Btn>;
+                  return <Btn variant="bare" title="해제" haptic="select" onClick={() => { update({ interest: new Set() }); }} style={{ ...style, color: C.accent }}>해제</Btn>;
                 }
                 return (
                   <>
-                    <Btn variant="bare" title="최근 비우기" disabled={recentCount === 0} onClick={() => { haptic.impact(); clearRecent(); }} style={{ ...style, color: C.mute }}>최근 비우기</Btn>
-                    <Btn variant="bare" title="관심 비우기" disabled={favoriteCount === 0} onClick={() => { haptic.impact(); clearFavorites(); }} style={{ ...style, color: C.mute }}>관심 비우기</Btn>
+                    <Btn variant="bare" title="최근 비우기" haptic="impact" disabled={recentCount === 0} onClick={() => { clearRecent(); }} style={{ ...style, color: C.mute }}>최근 비우기</Btn>
+                    <Btn variant="bare" title="관심 비우기" haptic="impact" disabled={favoriteCount === 0} onClick={() => { clearFavorites(); }} style={{ ...style, color: C.mute }}>관심 비우기</Btn>
                   </>
                 );
               })()}

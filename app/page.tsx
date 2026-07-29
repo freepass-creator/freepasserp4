@@ -9,7 +9,7 @@ import { activeCount, EMPTY_VEHICLE_FILTER, type VehicleFilter } from '@/lib/dom
 import { InterestPanel, useInterestLists, useInterestTab, useInterestTabGuard } from '@/components/InterestRail';
 import { clearRecent, clearFavs } from '@/lib/product-interest';
 import { confirmDialog, toast } from '@/components/Toaster';
-import { C, R, NUM, FW, FS, Loading, CenterNote, ContextMenu, useContextMenu } from '@/components/ui';
+import { C, R, NUM, FW, FS, CenterNote, ContextMenu, useContextMenu, ProductCardSkeleton } from '@/components/ui';
 import { useAuthReady, useSession } from '@/lib/auth-context';
 import { isGuest } from '@/lib/auth-session';
 import { useAppBar } from '@/lib/appbar';
@@ -339,7 +339,7 @@ export default function Finder() {
     return () => ro.disconnect();
   }, [effView, mobile, list.length, filterOpen, limit, months.length, excelRows.length]);
 
-  if (!rows) return <Loading />;
+  if (!rows) return <ProductCardSkeleton dense count={8} />;
 
   const v: FilterBag = filterDraft ?? {
     periods, rent, dep, mile, fuel, ptype, credit, perks, promo, dyn, vehicle, models, sort, interest: interestFlt,

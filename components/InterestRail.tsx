@@ -85,7 +85,8 @@ export function InterestTriggers({
         title={label}
         aria-label={`${label} ${n}`}
         aria-pressed={on}
-        onClick={() => { haptic.select(); onTab(on ? null : k); }}
+        onClick={() => { onTab(on ? null : k); }}
+        haptic="select"
         style={{
           flex: '0 0 auto', minWidth: h,
           padding: mobile ? '0 10px' : '0 8px',
@@ -230,12 +231,12 @@ export function InterestPanel({
         </span>
         <span style={{ flex: 1 }} />
         {tab === 'recent' && recent.length > 0 && (
-          <Btn title="최근 본 비우기" size="sm" variant="ghost" onClick={clearRecent}>비우기</Btn>
+          <Btn title="최근 본 비우기" size="sm" variant="ghost" haptic="impact" onClick={clearRecent}>비우기</Btn>
         )}
         {tab === 'fav' && favs.length > 0 && (
-          <Btn title="관심 상품 비우기" size="sm" variant="ghost" onClick={clearFavs}>비우기</Btn>
+          <Btn title="관심 상품 비우기" size="sm" variant="ghost" haptic="impact" onClick={clearFavs}>비우기</Btn>
         )}
-        <Btn mobileIcon={<X size={18} />} title="관심함 닫기" size="sm" variant="ghost" onClick={onClose}>닫기</Btn>
+        <Btn mobileIcon={<X size={18} />} title="관심함 닫기" size="sm" variant="ghost" haptic="back" onClick={onClose}>닫기</Btn>
       </div>
       {items.length === 0 ? (
         <div style={{ fontSize: FS.sub, color: C.faint, padding: '4px 0' }}>

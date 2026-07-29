@@ -12,6 +12,7 @@ export * from './detail';
 export * from './ContextMenu';
 export * from './feedrow';
 export * from './overlays';
+export * from './use-enter-exit';
 export * from './list';
 export * from './form-controls';
 export * from './buttons';

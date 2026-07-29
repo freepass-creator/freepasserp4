@@ -3,7 +3,6 @@ import type { LucideIcon } from 'lucide-react';
 import { X } from 'lucide-react';
 import { CountPill, C, Btn, FS, FW, ctrlH } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
-import { haptic } from '@/lib/haptics';
 
 /**
  * 페이지 상단 툴바 SSOT (상품검색·업무목록 동일).
@@ -54,7 +53,7 @@ export function PageToolBar({
               aria-label={badge != null ? `${t.label} ${badge}` : t.label}
               aria-pressed={!!t.pressed}
               data-active={on ? '1' : undefined}
-              onClick={() => { haptic.tap(); t.onClick(); }}
+              onClick={() => { t.onClick(); }}
             >
               <Icon size={18} strokeWidth={2.2} />
               <span>{t.label}</span>
@@ -74,7 +73,8 @@ export function PageToolBar({
               variant="bare"
               title={clearLabel}
               aria-label={clearLabel}
-              onClick={() => { haptic.select(); onClearHints(); }}
+              haptic="select"
+              onClick={() => { onClearHints(); }}
               style={{
                 flex: '0 0 auto', color: C.brand, fontSize: FS.sub, fontWeight: FW.head,
                 minHeight: ctrlH(mobile), padding: mobile ? '0 10px' : '0 6px',

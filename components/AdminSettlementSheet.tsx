@@ -7,7 +7,7 @@ import {
   ADMIN_SETTLE_BLOCKS, computeAdminSettlement, importCompletedForMonth,
   monthTotals, saveAdminSettlement,
 } from '@/lib/domain/admin-settlement';
-import { Btn, C, CenterNote, ctrlH, FS, FW, Input, ListRow, Loading, R, Select, SectionLabel, won, NUM } from '@/components/ui';
+import { Btn, C, CenterNote, ctrlH, FS, FW, Input, ListRow, R, Select, SectionLabel, won, NUM, FeedRowSkeleton } from '@/components/ui';
 import { toast } from '@/components/Toaster';
 import { useIsMobile } from '@/lib/use-mobile';
 
@@ -62,7 +62,7 @@ export function AdminSettlementSheet({ month }: { month: string }) {
     finally { setBusy(false); }
   };
 
-  if (rows === null) return <Loading />;
+  if (rows === null) return <FeedRowSkeleton count={5} />;
 
   return (
     <div style={{ display: 'flex', flexDirection: mobile ? 'column' : 'row', gap: 10, minHeight: mobile ? undefined : 420 }}>

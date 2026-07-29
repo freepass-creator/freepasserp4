@@ -144,7 +144,7 @@ export function WorkPage({
           {webFilter.body}
           {webFilter.count > 0 && webFilter.onClear ? (
             <div style={{ marginTop: 8 }}>
-              <Btn size="sm" variant="ghost" onClick={() => { haptic.select(); webFilter.onClear?.(); }}>필터 해제</Btn>
+              <Btn size="sm" variant="ghost" haptic="select" onClick={() => { webFilter.onClear?.(); }}>필터 해제</Btn>
             </div>
           ) : null}
         </div>
@@ -159,7 +159,7 @@ export function WorkPage({
             {resolvedTools.hints.join(' · ')}
           </span>
           {resolvedTools.onClearHints ? (
-            <Btn size="sm" variant="ghost" onClick={() => { haptic.select(); resolvedTools.onClearHints?.(); }}>해제</Btn>
+            <Btn size="sm" variant="ghost" haptic="select" onClick={() => { resolvedTools.onClearHints?.(); }}>해제</Btn>
           ) : null}
         </div>
       ) : null}

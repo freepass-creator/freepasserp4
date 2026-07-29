@@ -117,8 +117,9 @@ export function BottomSheet({
         <Btn
           title={cancelLabel}
           variant="ghost"
+          haptic="back"
           disabled={!cancelVisible}
-          onClick={() => { if (!cancelVisible || !onCancel) return; haptic.back(); onCancel(); }}
+          onClick={() => { if (!cancelVisible || !onCancel) return; onCancel(); }}
           style={{
             minWidth: 72,
             visibility: cancelVisible ? 'visible' : 'hidden',
@@ -128,8 +129,8 @@ export function BottomSheet({
       ) : null}
       <Btn
         title={isCommit ? (dirty ? commitLabel : closeLabel) : closeLabel}
+        haptic={isCommit && dirty ? 'nav' : 'back'}
         onClick={() => {
-          haptic.nav();
           if (isCommit && dirty && onCommit) onCommit();
           else onClose();
         }}
@@ -215,8 +216,9 @@ export function BottomSheet({
               <Btn
                 title={clearLabel}
                 variant="bare"
+                haptic="select"
                 disabled={!clearVisible}
-                onClick={() => { if (!onClear) return; haptic.tap(); onClear(); }}
+                onClick={() => { if (!onClear) return; onClear(); }}
                 style={{
                   flex: '0 0 auto', color: C.accent, fontSize: FS.sub, fontWeight: FW.strong,
                   minHeight: ctrlH(mobile), minWidth: 52, padding: mobile ? '0 10px' : '0 6px',

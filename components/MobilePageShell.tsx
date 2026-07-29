@@ -243,7 +243,7 @@ export function MobilePageShell({
           size="sm"
           disabled={lt.action.disabled}
           title={lt.action.label}
-          onClick={() => { haptic.tap(); lt.action!.onClick(); }}
+          onClick={() => { lt.action!.onClick(); }}
         >
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
             {(() => {
