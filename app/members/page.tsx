@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
-import { ENTITIES, ROLE_LABEL_RAW, type EntityRecord, type Field } from '@/lib/intake/entities';
+import { ENTITIES, ROLE_LABEL_RAW, ROLES, type EntityRecord, type Field } from '@/lib/intake/entities';
 import { isAdminUiAllowed } from '@/lib/auth-gate';
 import { approveUser, backfillPersonalAgentChannels, adminUpdateUserIdentity } from '@/lib/firebase/auth';
 import { readAllPartnersPrivate, readAllUsersPrivate, writePartnerPrivate } from '@/lib/domain/private-fields';
@@ -377,6 +377,10 @@ export default function Members() {
     </>
   );
 
+  const roleSelectOptions = tab === 'user'
+    ? { role: ROLES.map((r) => ({ value: r, label: ROLE_LABEL_RAW[r] })) }
+    : undefined;
+
   const editGroups = (
     <>
       {approveBar}
@@ -385,7 +389,7 @@ export default function Members() {
       </FormCard>
       <div style={{ marginTop: 12 }}>
         <FormCard title={accessTitle} hint={accessHint}>
-          <FormGrid fields={accessFields} form={form} onChange={onChange} cols={2} />
+          <FormGrid fields={accessFields} form={form} onChange={onChange} cols={2} selectOptions={roleSelectOptions} />
         </FormCard>
       </div>
       <div style={{ marginTop: 12 }}>

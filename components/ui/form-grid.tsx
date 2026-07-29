@@ -5,10 +5,16 @@ import type { EntityRecord, Field } from '@/lib/intake/entities';
 import { useIsMobile } from '@/lib/use-mobile';
 import { ToggleChips } from './filters';
 import { fmtNumber, fmtPhone } from './formatters';
-import { Select } from './form-controls';
+import { SheetSelect, Switch } from './native-form';
 import { C, FS, R, ctrlH, ctrlInputFs } from './tokens';
 
 type SelectOption = string | { value: string; label: string };
+
+function isYesNoActive(field: Field): boolean {
+  if (field.key !== 'is_active') return false;
+  const opts = field.options || [];
+  return opts.includes('예') && opts.includes('아니오');
+}
 
 export function FormGrid({
   fields,
@@ -47,7 +53,7 @@ export function FormGrid({
         const background = disabled ? C.head : empty ? (field.manual || field.required ? C.warnBg : C.head) : C.taupeBg;
         const numeric = field.type === 'number';
         const phone = /phone|연락처|전화/.test(field.key);
-        const span = field.type === 'chips' ? { gridColumn: '1 / -1' as const } : undefined;
+        const span = field.type === 'chips' || isYesNoActive(field) ? { gridColumn: '1 / -1' as const } : undefined;
         const overrideOpts = selectOptions?.[field.key];
         const baseOpts: SelectOption[] = overrideOpts || (field.options || []);
         const hasValue = !!value && baseOpts.some((o) => (typeof o === 'string' ? o : o.value) === value);
@@ -60,14 +66,35 @@ export function FormGrid({
             {field.required && <span style={{ color: C.danger }}> *</span>}
             {field.manual && !disabled && <span style={{ color: C.warn }}> ·직접</span>}
             {field.max ? <span style={{ color: C.faint }}> ·최대 {field.max}</span> : null}
-            {field.type === 'select' ? (
-              <Select
+            {isYesNoActive(field) ? (
+              <div style={{
+                marginTop: 3,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 12,
+                minHeight: ctrlH(mobile),
+                padding: mobile ? '0 4px 0 0' : '0 2px 0 0',
+                boxSizing: 'border-box',
+              }}>
+                <span style={{ fontSize: FS.body, color: C.ink }}>{value === '아니오' ? '비활성' : '활성'}</span>
+                <Switch
+                  title={field.label}
+                  checked={value !== '아니오'}
+                  disabled={disabled}
+                  onChange={(on) => onChange(field.key, on ? '예' : '아니오')}
+                />
+              </div>
+            ) : field.type === 'select' ? (
+              <SheetSelect
                 value={value}
                 disabled={disabled}
                 full
                 placeholder="—"
+                title={field.label}
                 onChange={(v) => onChange(field.key, v)}
                 options={selectOpts}
+                searchable={selectOpts.length > 8}
                 style={{ marginTop: 3, background, opacity: disabled ? 0.85 : 1 }}
               />
             ) : field.type === 'chips' ? (
