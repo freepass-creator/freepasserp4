@@ -242,7 +242,7 @@ export function WorkPage({
           paddingBottom: 'env(safe-area-inset-bottom)',
           flex: '0 0 auto',
         }}>
-          <BottomNav embedded backKind="list" onBack={onBack} actions={actions} />
+          <BottomNav embedded backKind="list" backShowLabel onBack={onBack} actions={actions} />
         </div>
       </div>
     );
