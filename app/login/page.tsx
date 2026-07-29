@@ -54,7 +54,7 @@ export default function LoginPage() {
   const [msg, setMsg] = useState<{ text: string; tone: 'muted' | 'ok' | 'err' }>({ text: '', tone: 'muted' });
   // 필드
   const [email, setEmail] = useState(''); const [pw, setPw] = useState('');
-  const [su, setSu] = useState({ email: '', pw: '', pw2: '', name: '', phone: '', company: '', bizNo: '' });
+  const [su, setSu] = useState({ email: '', pw: '', pw2: '', name: '', phone: '', company: '', bizNo: '', type: '' });
   const [bizMatch, setBizMatch] = useState<{ text: string; cls: '' | 'ok' | 'miss' }>({ text: '', cls: '' });
   const [rpEmail, setRpEmail] = useState('');
   const bizTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -97,6 +97,7 @@ export default function LoginPage() {
     e.preventDefault(); if (busy) return;
     if (!su.email.trim() || !su.pw || su.pw.length < 6) { say('이메일·비밀번호(6자 이상) 필수', 'err'); return; }
     if (su.pw !== su.pw2) { say('비밀번호가 일치하지 않습니다', 'err'); return; }
+    if (!su.type) { say('가입 유형(공급사/영업/개인영업)을 선택하세요', 'err'); return; }
     setBusy(true); say('');
     let authUser: User;
     try { authUser = await signup(su.email.trim(), su.pw); }
@@ -110,7 +111,7 @@ export default function LoginPage() {
     }
     try {
       // 프로필 저장 — 실패 시 Auth 계정 삭제(같은 이메일 재가입 가능)
-      await writeUserProfile(authUser, { name: su.name.trim(), phone: su.phone.trim(), company_name: su.company.trim(), business_no: su.bizNo.trim() });
+      await writeUserProfile(authUser, { name: su.name.trim(), phone: su.phone.trim(), company_name: su.company.trim(), business_no: su.bizNo.trim(), requested_type: su.type });
     } catch (err) {
       await authUser.delete().catch(() => {});
       const m = koreanAuthMsg(err, '가입 실패');
@@ -180,6 +181,7 @@ export default function LoginPage() {
               <div className="login-field"><label htmlFor="suName">이름</label><input id="suName" placeholder="홍길동" value={su.name} onChange={(e) => setSu({ ...su, name: e.target.value })} required /></div>
               <div className="login-field"><label htmlFor="suPhone">연락처</label><input id="suPhone" type="tel" placeholder="010-0000-0000" value={su.phone} onChange={(e) => setSu({ ...su, phone: fmtPhone(e.target.value) })} /></div>
               <div className="login-field"><label htmlFor="suCompany">소속 회사명 (참고)</label><input id="suCompany" placeholder="회사명" value={su.company} onChange={(e) => setSu({ ...su, company: e.target.value })} /></div>
+              <div className="login-field"><label htmlFor="suType">가입 유형</label><select id="suType" value={su.type} onChange={(e) => setSu({ ...su, type: e.target.value })} required><option value="">선택하세요</option><option value="공급">공급사</option><option value="영업">영업(소속)</option><option value="개인">개인영업</option></select></div>
               <div className="login-field"><label htmlFor="suBizNo">소속 사업자번호</label><input id="suBizNo" inputMode="numeric" placeholder="000-00-00000" autoComplete="off" value={su.bizNo} onChange={(e) => onBizNo(e.target.value)} />{bizMatch.text && <p className={`biz-no-match${bizMatch.cls ? ` is-${bizMatch.cls}` : ''}`}>{bizMatch.text}</p>}</div>
               <p className="login-msg" style={{ margin: '4px 0 8px', color: C.mute, fontSize: FS.sub, lineHeight: 1.4, textAlign: 'left' }}>가입 신청 후 관리자 승인이 필요합니다. 승인되면 사업자번호에 맞는 회사·역할이 부여됩니다.</p>
               <button type="submit" className="login-submit" disabled={busy}>계정 만들기</button>
@@ -228,10 +230,10 @@ const LOGIN_CSS = `
 .fp-login .login-form{display:grid;gap:16px;}
 .fp-login .login-field{display:grid;gap:6px;}
 .fp-login .login-field label{font-size:12px;font-weight:500;color:var(--text-sub);line-height:1.4;}
-.fp-login .login-field input{width:100%;height:44px;padding:0 12px;border:1px solid var(--border);border-radius:2px;background:var(--bg-card);font-size:13px;color:var(--text-main);outline:none;box-sizing:border-box;letter-spacing:-0.01em;transition:border-color 100ms;}
+.fp-login .login-field input,.fp-login .login-field select{width:100%;height:44px;padding:0 12px;border:1px solid var(--border);border-radius:2px;background:var(--bg-card);font-size:13px;color:var(--text-main);outline:none;box-sizing:border-box;letter-spacing:-0.01em;transition:border-color 100ms;}
 .fp-login .login-field input::placeholder{color:var(--text-weak);}
-.fp-login .login-field input:hover{border-color:var(--border-strong);}
-.fp-login .login-field input:focus{border-color:var(--brand);}
+.fp-login .login-field input:hover,.fp-login .login-field select:hover{border-color:var(--border-strong);}
+.fp-login .login-field input:focus,.fp-login .login-field select:focus{border-color:var(--brand);}
 .fp-login .login-submit{width:100%;height:44px;margin-top:4px;padding:0 12px;border:0;border-radius:2px;background:var(--brand);color:var(--text-inverse);font-size:13px;font-weight:600;cursor:pointer;letter-spacing:-0.01em;transition:background-color 100ms,box-shadow 100ms;}
 .fp-login .login-submit:hover{background:var(--brand-h);box-shadow:var(--shadow-sm);}
 .fp-login .login-submit:active{background:var(--brand-h);filter:brightness(0.92);}
@@ -251,7 +253,7 @@ const LOGIN_CSS = `
 .fp-login .login-brand,.fp-login .login-brand span{font-size:22px;text-align:center;}
 .fp-login .login-brand{padding:0 24px;}
 .fp-login .login-card{box-shadow:none;border:0;border-radius:0;padding:0 24px;gap:20px;max-width:none;}
-.fp-login .login-field input{height:48px;font-size:16px;border-radius:4px;padding:0 16px;}
+.fp-login .login-field input,.fp-login .login-field select{height:48px;font-size:16px;border-radius:4px;padding:0 16px;}
 .fp-login .login-field label{font-size:13px;}
 .fp-login .login-submit{height:48px;font-size:16px;border-radius:4px;}
 .fp-login .login-links{font-size:13px;gap:12px;}

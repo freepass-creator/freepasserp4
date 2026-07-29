@@ -182,7 +182,7 @@ function resolveAgentChannel(role: string, company_code: string, fromIdentity: s
  * 가입 프로필 쓰기 — Path B(승인제): 신원(company/channel)은 자가쓰기 금지 → 관리자 approveUser 가 확정.
  *  본인은 role(non-admin)·status:'pending'·연락처만. 승인 전 앱 게이트(isPending)에 막힘.
  */
-export async function writeUserProfile(user: User, info: { name: string; phone: string; company_name: string; business_no: string }): Promise<void> {
+export async function writeUserProfile(user: User, info: { name: string; phone: string; company_name: string; business_no: string; requested_type?: string }): Promise<void> {
   const db = getRtdb(); if (!db) throw new Error('DB가 설정되지 않았습니다');
   const bizNo = String(info.business_no || '').replace(/\D/g, '');
   let step = '초기화'; // 실패 단계 표기(가입 오류 위치 추적)
@@ -208,6 +208,8 @@ export async function writeUserProfile(user: User, info: { name: string; phone: 
     const rec: Record<string, unknown> = {
       uid, name: info.name || '', phone: info.phone || '',
       company_name: info.company_name || '', business_no: bizNo, user_code,
+      // 가입 신청 유형(공급/영업/개인) — 미등록 사업자 최초가입 시 승인 가드·파트너 생성 힌트. 신원 아님(승인이 확정).
+      requested_type: String(info.requested_type || ''),
       // Path B: 승인 대기. company_code·agent_channel_code 미기록(규칙 admin-only + 승인 시 배정).
       status: 'pending',
       role: safeRole,
@@ -318,6 +320,13 @@ export async function approveUser(uid: string, active = true, opts?: { rematch?:
     const bizNo = String((u && u.business_no) || '').replace(/\D/g, '');
     const user_code = String((u && u.user_code) || uid).trim();
     const { role, company_code, agent_channel_code, matched_partner_code } = await resolveIdentity(bizNo);
+    // 가드: 공급/영업으로 신청했는데 매칭 파트너가 없으면 승인 차단(조용한 개인영업 SP999 오배정 방지).
+    //  → 관리자가 파트너사(공급/영업)를 먼저 등록해 사업자번호가 매칭되게 한 뒤 다시 승인.
+    //  개인영업(requested_type='개인') 또는 requested_type 미기록(구가입)은 기존대로 통과.
+    const requested = String((u && u.requested_type) || '');
+    if ((requested === '공급' || requested === '영업') && !matched_partner_code) {
+      throw new Error('미등록 사업자번호입니다. 파트너사(공급/영업)를 먼저 등록해 사업자번호를 매칭한 뒤 승인하세요.');
+    }
     const channel = resolveAgentChannel(role, company_code, agent_channel_code, user_code, uid);
     patch = {
       status: 'active', role, company_code, agent_channel_code: channel,
