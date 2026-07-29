@@ -238,26 +238,21 @@ export function MobilePageShell({
         </span>
       ) : null}
       {lt?.action ? (
-        mobile ? (
-          <IconBtn
-            title={lt.action.label}
-            disabled={lt.action.disabled}
-            onClick={() => { haptic.tap(); lt.action!.onClick(); }}
-          >
+        // 컨트롤 규격: CTA(등록 등)는 결정적 액션 → 모바일도 아이콘+텍스트(라벨 소거 금지).
+        <Btn
+          size="sm"
+          disabled={lt.action.disabled}
+          title={lt.action.label}
+          onClick={() => { haptic.tap(); lt.action!.onClick(); }}
+        >
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
             {(() => {
               const ActionIcon = lt.action!.icon || Plus;
-              return <ActionIcon size={18} />;
+              return <ActionIcon size={16} />;
             })()}
-          </IconBtn>
-        ) : (
-          <Btn
-            size="sm"
-            disabled={lt.action.disabled}
-            onClick={() => { haptic.tap(); lt.action!.onClick(); }}
-          >
             {lt.action.label}
-          </Btn>
-        )
+          </span>
+        </Btn>
       ) : null}
     </div>
   ) : null;
