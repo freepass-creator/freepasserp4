@@ -189,6 +189,7 @@ export function WorkPage({
             borderTop: `1px solid ${C.line}`, background: 'var(--bg-card)',
             boxShadow: SH.dock,
             paddingBottom: 'env(safe-area-inset-bottom)',
+            flex: '0 0 auto',
           }}>
             <BottomNav
               embedded
