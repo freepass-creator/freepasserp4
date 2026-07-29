@@ -60,7 +60,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             페인트 전에 걸리게. 부트스크립트가 모바일 감지→fp-pending-m 붙이면 데스크톱 콘텐츠가 안 그려짐(FOUC 차단). */}
         <style dangerouslySetInnerHTML={{ __html: 'html.fp-pending-m .fp-shell{visibility:hidden!important;pointer-events:none!important}html.fp-pending-m,html.fp-pending-m body{background:var(--bg-card,#fff)}' }} />
         <script dangerouslySetInnerHTML={{ __html: BP_BOOT }} />
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+        {/* 가변(Variable) 빌드 — CSS 스택 1순위가 'Pretendard Variable'인데 static만 불러오면
+            그 패밀리가 없어 고정굵기로 폴백하고, FW의 반 단계(550·650)가 600·700으로 올림돼 전체가 더 두꺼워진다.
+            dynamic-subset = 유니코드 범위별 분할 로드(한글 용량 절감). */}
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         {/* CI 워드마크: Exo 2 — 명함과 동일 300(light)·600(bold). 500은 레거시 호환 */}
