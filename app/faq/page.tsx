@@ -1,7 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { getRole } from '@/lib/domain/deal';
-import { House } from 'lucide-react';
 import { Page, Section, DetailGrid, SectionLabel, Disclosure, CopyBlock, CenterNote, Loading, Btn, C, FW, FS } from '@/components/ui';
 import { GUIDE, FAQ, matchFaq } from '@/lib/domain/faq';
 import { NAV_LABEL } from '@/lib/tabbar';
@@ -34,7 +33,7 @@ export default function Faq() {
       <Page title={NAV_LABEL.faq}>
         <CenterNote>영업자·관리자에게 제공되는 안내입니다</CenterNote>
         <div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}>
-          <Btn mobileIcon={<House size={18} />} title="홈으로" href="/" size="sm">홈으로</Btn>
+          <Btn title="홈으로" href="/" size="sm">홈으로</Btn>
         </div>
       </Page>
     );

@@ -9,8 +9,6 @@ import {
   type RawVehicle,
   type SnapHistoryEntry,
 } from '@/lib/domain/vehicle-master-match';
-import { History } from 'lucide-react';
-
 /**
  * 재고 상세 — 공급사 원본(증거) vs 마스터 규격(표준).
  * 원본 = 공급사가 준 거친 표기(_raw_vehicle). 현재 = 마스터 트리에 맞춘 표준.
@@ -84,7 +82,7 @@ export function SnapTrace({ form, onRematch }: { form: EntityRecord; onRematch?:
 
       {hist.length > 0 && (
         <div style={{ borderTop: `1px solid ${C.line2}`, paddingTop: 6, display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <Btn mobileIcon={<History size={18} />} title={openHist ? '변환 이력 접기' : `변환 이력 ${hist.length}건 보기`} size="sm" variant="ghost" onClick={() => setOpenHist((v) => !v)}>
+          <Btn title={openHist ? '변환 이력 접기' : `변환 이력 ${hist.length}건 보기`} size="sm" variant="ghost" onClick={() => setOpenHist((v) => !v)}>
             {openHist ? '이력 접기' : `변환 이력 ${hist.length}건`}
           </Btn>
           {openHist && [...hist].reverse().map((h, i) => (

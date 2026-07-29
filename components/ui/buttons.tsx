@@ -6,7 +6,10 @@ import { C, FW, R, ctrlFs, ctrlH, SH } from './tokens';
 
 export function Btn({ children, mobileIcon, onClick, variant = 'solid', size = 'md', disabled, href, style, full, type = 'button', className, title, 'aria-label': ariaLabel, 'aria-pressed': ariaPressed, 'data-active': dataActive }: {
   children: React.ReactNode;
-  /** 모바일 표면 액션을 아이콘 전용으로 축약한다. 웹은 children 텍스트를 유지한다. */
+  /**
+   * 모바일 아이콘 only — 화이트리스트(뒤로·닫기·메뉴·검색·필터·정렬·공유·더보기·새로고침)만.
+   * 그 외 결정적 액션은 children 라벨(아이콘+텍스트) 필수. MOBILE_REDESIGN.md 컨트롤 규격.
+   */
   mobileIcon?: React.ReactNode;
   onClick?: () => void;
   variant?: 'solid' | 'ghost' | 'danger' | 'bare';

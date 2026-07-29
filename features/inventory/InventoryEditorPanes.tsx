@@ -10,7 +10,7 @@ import { VehicleMasterPicker } from '@/components/VehicleMasterPicker';
 import { SnapTrace } from '@/components/SnapTrace';
 import { PhotoUpload } from '@/components/PhotoUpload';
 import { PriceMatrix } from '@/components/PriceMatrix';
-import { ClipboardPaste, Copy, RotateCcw, ScanLine } from 'lucide-react';
+import { ScanLine } from 'lucide-react';
 
 type MasterPick = Parameters<NonNullable<ComponentProps<typeof VehicleMasterPicker>['onPick']>>[0];
 type Price = ComponentProps<typeof PriceMatrix>['price'];
@@ -79,9 +79,9 @@ export function InventoryFixedPane({ model }: { model: InventoryEditorModel }) {
           </div>
           {canEdit ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 2 }}>
-              <Btn mobileIcon={<RotateCcw size={18} />} title="입력 초기화" variant="ghost" size="sm" onClick={model.onReset}>초기화</Btn>
-              {!model.creating && <Btn mobileIcon={<Copy size={18} />} title="상품 복사" variant="ghost" size="sm" onClick={model.onCopy}>복사</Btn>}
-              <Btn mobileIcon={<ClipboardPaste size={18} />} title="상품 붙여넣기" variant="ghost" size="sm" onClick={model.onPaste} disabled={!model.clipboardAvailable}>붙여넣기</Btn>
+              <Btn title="입력 초기화" variant="ghost" size="sm" onClick={model.onReset}>초기화</Btn>
+              {!model.creating && <Btn title="상품 복사" variant="ghost" size="sm" onClick={model.onCopy}>복사</Btn>}
+              <Btn title="상품 붙여넣기" variant="ghost" size="sm" onClick={model.onPaste} disabled={!model.clipboardAvailable}>붙여넣기</Btn>
             </div>
           ) : null}
           <div style={{

@@ -8,7 +8,7 @@ import { type EntityRecord } from '@/lib/intake/entities';
 import { getProgress, isContractInProgress } from '@/lib/domain/contract';
 import { createSettlement } from '@/lib/domain/settlement-engine';
 import { downloadSettlementsExcel } from '@/lib/excel-export';
-import { Download, Files, ListChecks, Plus, RotateCcw, WalletCards } from 'lucide-react';
+import { Download, Files, ListChecks, WalletCards } from 'lucide-react';
 import { getRole, actor, ensureRoomForContract, type Role } from '@/lib/domain/deal';
 import { getSession } from '@/lib/auth-session';
 import { canAccessOwnedRecord } from '@/lib/domain/authorization';
@@ -211,7 +211,7 @@ export default function ContractsSettlement() {
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
           <span>{q || filterActive > 0 ? '검색 결과 없음' : '진행·완료 계약이 없습니다.'}</span>
           {(q || filterActive > 0) ? (
-            <Btn mobileIcon={<RotateCcw size={18} />} title="조건 해제" size="sm" variant="ghost" onClick={() => { setQInput(''); setQ(''); setFlt('진행'); setMonthFlt(''); }}>조건 해제</Btn>
+            <Btn title="조건 해제" size="sm" variant="ghost" onClick={() => { setQInput(''); setQ(''); setFlt('진행'); setMonthFlt(''); }}>조건 해제</Btn>
           ) : null}
         </div>
       </CenterNote>
@@ -229,7 +229,6 @@ export default function ContractsSettlement() {
         {moreCount > 0 && (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 14px' }}>
             <Btn
-              mobileIcon={<Plus size={18} />}
               title={`더보기 ${Math.min(PAGE, moreCount)}건`}
               variant="ghost"
               size="sm"

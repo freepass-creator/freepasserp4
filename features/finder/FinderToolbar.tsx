@@ -103,6 +103,7 @@ export function FinderToolbar(props: Props) {
             {props.sidebarActiveCount > 0 && <span className="fp-icon-count"><CountPill n={props.sidebarActiveCount} tone="accent" /></span>}
           </span>
           <IconSeg
+            showLabel
             value={props.view}
             onChange={props.onView}
             options={VIEWS.map(({ key, label, Icon }) => ({ key, label, icon: <Icon size={16} /> }))}

@@ -8,7 +8,7 @@ import {
   uploadManagedFile,
   type ManagedFile,
 } from '@/lib/firebase/storage-files';
-import { ChevronLeft, ChevronRight, Images, PanelTop, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 const LONG_MS = 480;
 const MOVE_PX = 10;
@@ -290,15 +290,15 @@ export function PhotoUpload({
             onClick={(e) => e.stopPropagation()}
             style={{ position: 'fixed', left: 0, right: 0, bottom: 0, padding: '12px 14px calc(12px + env(safe-area-inset-bottom))', display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center', background: C.head, zIndex: 1 }}
           >
-            <Btn mobileIcon={<Images size={18} />} title={fullIsCover ? '대표사진' : '대표사진으로 지정'} size="sm" variant="ghost" disabled={fullIsCover} onClick={() => { if (fullIdx != null) { makeCover(fullIdx); setFull(0); } }}>
+            <Btn title={fullIsCover ? '대표사진' : '대표사진으로 지정'} size="sm" variant="ghost" disabled={fullIsCover} onClick={() => { if (fullIdx != null) { makeCover(fullIdx); setFull(0); } }}>
               {fullIsCover ? '대표사진' : '대표로'}
             </Btn>
             {onInteriorChange && (
-              <Btn mobileIcon={<PanelTop size={18} />} title={fullIsInterior ? '실내사진 해제' : '실내사진으로 지정'} size="sm" variant="ghost" onClick={() => { if (fullIdx != null) makeInterior(fullIdx); }}>
+              <Btn title={fullIsInterior ? '실내사진 해제' : '실내사진으로 지정'} size="sm" variant="ghost" onClick={() => { if (fullIdx != null) makeInterior(fullIdx); }}>
                 {fullIsInterior ? '실내 해제' : '실내로'}
               </Btn>
             )}
-            <Btn mobileIcon={<Trash2 size={18} />} title="사진 삭제" size="sm" variant="danger" onClick={() => { if (fullIdx != null) del(fullIdx); }}>
+            <Btn title="사진 삭제" size="sm" variant="danger" onClick={() => { if (fullIdx != null) del(fullIdx); }}>
               삭제
             </Btn>
           </div>

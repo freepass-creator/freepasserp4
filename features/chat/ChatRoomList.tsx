@@ -4,8 +4,6 @@ import type { Role } from '@/lib/domain/deal';
 import { unreadFor } from '@/lib/domain/messaging';
 import { Btn, CenterNote } from '@/components/ui';
 import { ChatRoomRow } from '@/components/list-rows';
-import { RotateCcw } from 'lucide-react';
-
 export function ChatRoomList({ rooms, role, selected, query, filterActive, displayName, providerName, contract, counter, onSelect, onReset }: {
   rooms: EntityRecord[];
   role: Role;
@@ -21,7 +19,7 @@ export function ChatRoomList({ rooms, role, selected, query, filterActive, displ
 }) {
   if (!rooms.length) return <CenterNote><div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
     <span>{query || filterActive ? '검색 결과 없음' : role === 'provider' ? '들어온 문의가 없습니다.' : role === 'admin' ? '처리할 문의가 없습니다.' : '채팅 중인 문의가 없습니다.'}</span>
-    {(query || filterActive) && <Btn mobileIcon={<RotateCcw size={18} />} title="조건 해제" size="sm" variant="ghost" onClick={onReset}>조건 해제</Btn>}
+    {(query || filterActive) && <Btn title="조건 해제" size="sm" variant="ghost" onClick={onReset}>조건 해제</Btn>}
   </div></CenterNote>;
   return <div>{rooms.map((room) => <ChatRoomRow
     key={String(room._key)}

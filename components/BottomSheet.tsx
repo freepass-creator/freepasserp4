@@ -3,7 +3,6 @@ import { useEffect, useState, useRef, type ReactNode } from 'react';
 import { Btn, C, FW, FS, R, SCRIM, SH, ctrlH } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
-import { Check, RotateCcw, Undo2, X } from 'lucide-react';
 
 const EXIT_MS = 220; // sheetUp .22s와 대칭
 
@@ -116,27 +115,25 @@ export function BottomSheet({
       )}
       {isCommit ? (
         <Btn
-          mobileIcon={<Undo2 size={18} />}
           title={cancelLabel}
           variant="ghost"
           disabled={!cancelVisible}
           onClick={() => { if (!cancelVisible || !onCancel) return; haptic.back(); onCancel(); }}
           style={{
-            minWidth: mobile ? ctrlH(mobile) : 72,
+            minWidth: 72,
             visibility: cancelVisible ? 'visible' : 'hidden',
             pointerEvents: cancelVisible ? 'auto' : 'none',
           }}
         >{cancelLabel}</Btn>
       ) : null}
       <Btn
-        mobileIcon={isCommit && dirty ? <Check size={18} /> : <X size={18} />}
         title={isCommit ? (dirty ? commitLabel : closeLabel) : closeLabel}
         onClick={() => {
           haptic.nav();
           if (isCommit && dirty && onCommit) onCommit();
           else onClose();
         }}
-        style={{ minWidth: mobile ? ctrlH(mobile) : isCommit ? 96 : 100 }}
+        style={{ minWidth: isCommit ? 96 : 100 }}
       >
         {isCommit ? (dirty ? commitLabel : closeLabel) : closeLabel}
       </Btn>
@@ -216,7 +213,6 @@ export function BottomSheet({
             {/* 초기화 슬롯 항상 예약 — 보일 때만 보이게(레이아웃 불변) */}
             {(isCommit || onClear) ? (
               <Btn
-                mobileIcon={<RotateCcw size={18} />}
                 title={clearLabel}
                 variant="bare"
                 disabled={!clearVisible}

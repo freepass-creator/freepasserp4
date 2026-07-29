@@ -27,7 +27,6 @@ import {
   summarizeSheetDiff,
   type SheetDiffSummary,
 } from '@/lib/domain/sheet-diff';
-import { Database, Download, RefreshCw, Save } from 'lucide-react';
 
 /** 아이카식 표준 양식 — autoMapHeaders 별칭과 정합. 컬럼명 변경 금지. */
 const STANDARD_SHEET_HEADERS = [
@@ -452,7 +451,6 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
               허브 URL 동기
             </Btn>
             <Btn
-              mobileIcon={<RefreshCw size={18} />}
               title={busy ? '검증 중' : `데이터 검증 ${roster.length}개`}
               variant="ghost"
               onClick={validateAll}
@@ -461,7 +459,6 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
               {busy && !pending ? '검증 중…' : `데이터 검증 (${roster.length})`}
             </Btn>
             <Btn
-              mobileIcon={<Save size={18} />}
               title={pending ? `동기화 · 검증 ${pending.fetched.products.length}대` : '먼저 데이터 검증'}
               onClick={commitPending}
               disabled={busy || !pending}
@@ -471,7 +468,6 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
                 : `동기화 (${roster.length})`}
             </Btn>
             <Btn
-              mobileIcon={<Download size={18} />}
               title="아이카식 표준 양식 CSV"
               variant="ghost"
               onClick={downloadStandardSheetTemplate}
@@ -560,9 +556,8 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
             </div>
           )}
           <div style={{ display: 'flex', gap: 6 }}>
-            <Btn mobileIcon={<Database size={18} />} title="매핑과 URL 저장" size="sm" variant="ghost" onClick={saveMapping} disabled={busy}>매핑·URL 저장</Btn>
+            <Btn title="매핑과 URL 저장" size="sm" variant="ghost" onClick={saveMapping} disabled={busy}>매핑·URL 저장</Btn>
             <Btn
-              mobileIcon={<Save size={18} />}
               title={`동기화 ${preview?.products.length ?? 0}건`}
               size="sm"
               onClick={convertAndSave}

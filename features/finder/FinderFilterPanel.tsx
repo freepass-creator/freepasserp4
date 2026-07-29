@@ -9,7 +9,6 @@ import {
 import { toggleInSet } from '@/lib/set';
 import { haptic } from '@/lib/haptics';
 import { VehicleMasterFilter } from '@/components/VehicleMasterFilter';
-import { RotateCcw, Trash2 } from 'lucide-react';
 import {
   Badge, Btn, C, CountPill, FilterGroup, FS, FW, Select, ToggleChips, ctrlH,
 } from '@/components/ui';
@@ -87,12 +86,12 @@ export function FinderFilterPanel({ model }: { model: FinderFilterPanelModel }) 
                   padding: mobile ? '0 8px' : '0 6px',
                 };
                 if (value.interest.size > 0) {
-                  return <Btn variant="bare" mobileIcon={<RotateCcw size={18} />} title="해제" onClick={() => { haptic.select(); update({ interest: new Set() }); }} style={{ ...style, color: C.accent }}>해제</Btn>;
+                  return <Btn variant="bare" title="해제" onClick={() => { haptic.select(); update({ interest: new Set() }); }} style={{ ...style, color: C.accent }}>해제</Btn>;
                 }
                 return (
                   <>
-                    <Btn variant="bare" mobileIcon={<Trash2 size={18} />} title="최근 비우기" disabled={recentCount === 0} onClick={() => { haptic.impact(); clearRecent(); }} style={{ ...style, color: C.mute }}>최근 비우기</Btn>
-                    <Btn variant="bare" mobileIcon={<Trash2 size={18} />} title="관심 비우기" disabled={favoriteCount === 0} onClick={() => { haptic.impact(); clearFavorites(); }} style={{ ...style, color: C.mute }}>관심 비우기</Btn>
+                    <Btn variant="bare" title="최근 비우기" disabled={recentCount === 0} onClick={() => { haptic.impact(); clearRecent(); }} style={{ ...style, color: C.mute }}>최근 비우기</Btn>
+                    <Btn variant="bare" title="관심 비우기" disabled={favoriteCount === 0} onClick={() => { haptic.impact(); clearFavorites(); }} style={{ ...style, color: C.mute }}>관심 비우기</Btn>
                   </>
                 );
               })()}

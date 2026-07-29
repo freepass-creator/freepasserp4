@@ -6,12 +6,12 @@ import { seedIfEmpty } from '@/lib/seed';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { getRole, actor, type Role } from '@/lib/domain/deal';
 import { sendText, sendFile as sendFileMsg, markRead, listMessages, isMine } from '@/lib/domain/messaging';
-import { Btn, C, R, FW, FS, Loading, CenterNote, Input, IconBtn, ctrlH, NavBack, Dropzone, SCRIM } from '@/components/ui';
+import { Btn, C, R, FW, FS, Loading, CenterNote, Input, ctrlH, NavBack, Dropzone, SCRIM } from '@/components/ui';
 import { toast } from '@/components/Toaster';
 import { ChatSenderLabel } from '@/components/ChatSenderLabel';
 import { useIsMobile } from '@/lib/use-mobile';
 import { msgClock } from '@/lib/format';
-import { ListChecks, LoaderCircle, Paperclip, Send } from 'lucide-react';
+import { LoaderCircle, Paperclip, Send } from 'lucide-react';
 
 /** 📎 accept와 동일 — image/* · application/pdf */
 function isAcceptedChatFile(file: File): boolean {
@@ -181,7 +181,7 @@ export function ChatThread({ roomId, onBack, onVehicle, onContract }: { roomId: 
           {onBack && <NavBack kind="list" onClick={onBack} />}
           <span style={{ fontSize: FS.title, fontWeight: FW.title, minWidth: 0, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{String(room.vehicle_name || room.car_number || room.vehicle_number || '대화')}</span>
           {onVehicle && <Btn title="차량 보기" variant="ghost" size="sm" onClick={() => onVehicle(String(room.product_code))}>차량</Btn>}
-          {onContract && <Btn mobileIcon={<ListChecks size={18} />} title="계약 진행" size="sm" onClick={() => onContract(String(room.product_code))}>계약진행</Btn>}
+          {onContract && <Btn title="계약 진행" size="sm" onClick={() => onContract(String(room.product_code))}>계약진행</Btn>}
         </div>
       ) : null}
 
@@ -258,16 +258,20 @@ export function ChatThread({ roomId, onBack, onVehicle, onContract }: { roomId: 
         borderTop: `1px solid ${C.line}`,
       }}>
         <input ref={fileRef} type="file" accept="image/*,application/pdf" onChange={(e) => onPickFile(e.target.files)} style={{ display: 'none' }} />
-        <IconBtn onClick={() => fileRef.current?.click()} title="사진·파일 첨부" disabled={busy}><Paperclip size={18} /></IconBtn>
+        <Btn size="sm" variant="ghost" onClick={() => fileRef.current?.click()} title="사진·파일 첨부" disabled={busy}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+            <Paperclip size={16} aria-hidden />
+            첨부
+          </span>
+        </Btn>
         {/* embedded 모바일 autoFocus 금지 — 키보드가 뷰를 밀면 메시지 영역이 사라짐. 탭해서 입력. */}
         <Input value={text} onChange={setText} onEnter={send} placeholder="메시지 입력" full style={{ flex: 1 }} autoFocus={mobile && !embedded} disabled={busy} />
-        {mobile ? (
-          <IconBtn onClick={send} title={busy ? '전송 중' : '보내기'} disabled={busy || !text.trim()}>
-            {busy ? <LoaderCircle size={18} /> : <Send size={18} />}
-          </IconBtn>
-        ) : (
-          <Btn onClick={send} disabled={busy || !text.trim()}>{busy ? '전송 중…' : '보내기'}</Btn>
-        )}
+        <Btn size="sm" onClick={send} disabled={busy || !text.trim()} title={busy ? '전송 중' : '보내기'}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+            {busy ? <LoaderCircle size={16} aria-hidden /> : <Send size={16} aria-hidden />}
+            {busy ? '전송 중…' : '보내기'}
+          </span>
+        </Btn>
       </div>
 
       {full && <div onClick={() => setFull(null)} style={{ position: 'fixed', inset: 0, zIndex: 90, background: SCRIM.black, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}><img src={full} alt="" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: R }} /></div>}

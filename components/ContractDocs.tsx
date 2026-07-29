@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { getRole, actor, ROLE_LABEL, type Role } from '@/lib/domain/deal';
-import { C, R, FS, FW, IconBtn, Btn, Dropzone, SCRIM } from '@/components/ui';
+import { C, R, FS, FW, Btn, Dropzone, SCRIM } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { Paperclip, FileText, X, Download } from 'lucide-react';
 import { toast } from '@/components/Toaster';
@@ -250,7 +250,9 @@ export function ContractDocs({ contractCode, roomId }: { contractCode: string; r
                   ? <span style={{ fontSize: FS.micro, fontWeight: FW.label, color: C.brand, background: C.selected, borderRadius: R, padding: '1px 5px', flex: '0 0 auto' }}>채팅</span>
                   : null}
                 {a.url && <a href={a.url} download={a.name} aria-label="다운로드" style={{ color: C.faint, display: 'flex', flex: '0 0 auto' }}><Download size={13} /></a>}
-                {!a.fromChat && <IconBtn title="삭제" onClick={() => remove(a)}><X size={13} /></IconBtn>}
+                {!a.fromChat && (
+                  <Btn size="sm" variant="danger" title="삭제" onClick={() => remove(a)}>삭제</Btn>
+                )}
               </div>
             );
           })}

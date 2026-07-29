@@ -3,7 +3,7 @@ import { useState, type CSSProperties } from 'react';
 import { C, R, NUM, FW, FS, Input, Btn, thFlat, thFlatR } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { PERIODS as STD_PERIODS, isOperatedPeriod, isStandardPeriod } from '@/lib/domain/product';
-import { Plus, X } from 'lucide-react';
+import { X } from 'lucide-react';
 
 /**
  * 대여료·보증금 편집 = 상세(/m) 요금표와 같은 표 언어.
@@ -192,7 +192,7 @@ export function PriceMatrix({ price, onChange }: { price: unknown; onChange: (p:
           style={{ textAlign: 'right', fontFamily: NUM }}
         />
         <span style={{ fontSize: FS.sub, color: C.mute }}>개월</span>
-        <Btn mobileIcon={<Plus size={18} />} title="별도 기간 추가" size="sm" variant="ghost" onClick={addExtra}>추가</Btn>
+        <Btn title="별도 기간 추가" size="sm" variant="ghost" onClick={addExtra}>추가</Btn>
         {hint ? (
           <span style={{ fontSize: FS.cap, color: C.danger, width: '100%' }}>{hint}</span>
         ) : (

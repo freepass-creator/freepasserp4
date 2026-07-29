@@ -8,8 +8,6 @@ import { C, R, FS, FW, Btn, Input } from '@/components/ui';
 import { toast } from '@/components/Toaster';
 import { ChatSenderLabel } from '@/components/ChatSenderLabel';
 import { msgClock } from '@/lib/format';
-import { Send } from 'lucide-react';
-
 /**
  * 간단 문의 — 상세 하단. 방 = CH_매물_{나}, channel='간단'.
  * 전송·목록 = messaging SSOT. UI는 간단 채널만 표시.
@@ -69,7 +67,7 @@ export function SimpleInquiry({ p }: { p: EntityRecord }) {
     }}>
       <Input full value={text} onChange={setText} onEnter={send} placeholder="여기에 바로 문의하세요"
         style={{ flex: 1, border: 'none', background: 'transparent' }} />
-      <Btn mobileIcon={<Send size={18} />} title="문의 보내기" size="sm" onClick={send} disabled={busy || !text.trim()}>문의</Btn>
+      <Btn title="문의 보내기" size="sm" onClick={send} disabled={busy || !text.trim()}>문의</Btn>
     </div>
   );
 

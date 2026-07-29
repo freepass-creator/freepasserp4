@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import { Check, Copy } from 'lucide-react';
 import { haptic } from '@/lib/haptics';
 import { copyText } from '@/lib/clipboard';
 import { Btn } from './buttons';
@@ -25,7 +24,6 @@ export function CopyBlock({ text, label = '양식 복사' }: { text: string; lab
         <Btn
           size="sm"
           variant={done ? 'solid' : 'ghost'}
-          mobileIcon={done ? <Check size={18} /> : <Copy size={18} />}
           title={done ? '복사됨' : label}
           onClick={copy}
         >{done ? '복사됨' : label}</Btn>

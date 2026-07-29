@@ -11,8 +11,6 @@ import { ProductCard } from '@/components/ProductCard';
 import { RENT_BANDS, CREDITS, CATALOG_PERKS, hasPerk } from '@/lib/domain/product-filters';
 import { Btn, C, FW, FS, Loading, CenterNote, SearchInput, Select, ToggleChips } from '@/components/ui';
 import { toggleInSet } from '@/lib/set';
-import { Plus } from 'lucide-react';
-
 // 손님 공개 카탈로그(화이트라벨) — 영업 공유의 착지점. ERP 크롬 없음.
 // 필터 축 = 홈과 동일 SSOT (심사 CREDITS · 혜택 CATALOG_PERKS · 월대여료=matchProduct와 동일 밴드 판정).
 
@@ -99,7 +97,6 @@ export default function Catalog() {
           {moreCount > 0 && (
             <div style={{ display: 'flex', justifyContent: 'center', marginTop: 16 }}>
               <Btn
-                mobileIcon={<Plus size={18} />}
                 title={`더보기 ${Math.min(PAGE, moreCount)}대`}
                 variant="ghost"
                 onClick={() => setLimit((n) => n + PAGE)}
