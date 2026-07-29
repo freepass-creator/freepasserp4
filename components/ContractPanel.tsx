@@ -11,7 +11,6 @@ import { Btn, Badge, C, R, NUM, Input, fmtPhone, actorColor, FW, FS } from '@/co
 import { ContractMemos } from '@/components/ContractMemos';
 import { ContractSign } from '@/components/ContractSign';
 import { confirmDialog, toast } from '@/components/Toaster';
-import { haptic } from '@/lib/haptics';
 import { useIsMobile } from '@/lib/use-mobile';
 import { Check } from 'lucide-react';
 
@@ -65,7 +64,6 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
     if (!contract || busy) return;
     setBusy(true);
     try {
-      haptic.select();
       await applyStepCheck(contract, key, value);
       await load(); onChange?.();
     } catch (e) { toast(String((e as Error)?.message || e), 'error'); }
@@ -181,6 +179,7 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
                         title={opt}
                         size="sm"
                         variant={cur === opt ? 'solid' : 'ghost'}
+                        haptic="select"
                         disabled={!mine || busy}
                         onClick={() => setCheck(ch.key, cur === opt ? '' : opt)}
                       >{mobile ? String(opt).replace(/^출고\s*/, '') : opt}</Btn>
@@ -189,6 +188,7 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
                         title={done ? '완료 해제' : mine ? '체크' : '대기'}
                         size="sm"
                         variant={done ? 'solid' : 'ghost'}
+                        haptic="select"
                         disabled={!mine || busy}
                         onClick={() => setCheck(ch.key, done ? '' : 'yes')}
                       >{done ? '완료' : mine ? '체크' : '대기'}</Btn>
