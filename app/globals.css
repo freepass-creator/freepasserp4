@@ -224,7 +224,7 @@ button, input, select, textarea { font-family: inherit; }
 }
 @media (prefers-reduced-motion: reduce) {
   [style*="menuDrop"], [style*="sheetUp"], [style*="sheetDown"], [style*="scrimIn"] { animation: none !important; }
-  .attn-pulse, .fp-badge-pulse, .fp-page-fresh,
+  .attn-dot, .attn-pulse, .fp-badge-pulse, .fp-page-fresh,
   [class*="attn-pulse"], [class*="fp-badge-pulse"], [class*="fp-spin"],
   [style*="fp-spin"], [style*="attn-pulse"] {
     animation: none !important;
@@ -695,6 +695,14 @@ button, input, select, textarea { font-family: inherit; }
 }
 .fp-card.fp-card-bookmark:active {
   box-shadow: 0 1px 4px rgba(15, 23, 42, 0.12);
+}
+/* 목록 행(하단선만) = 그림자가 안 보임 → 배경 눌림감으로 앱 같은 탭 피드백(스케일 금지 정책 유지). */
+.fp-card.fp-card-row:active {
+  background: var(--bg-hover);
+}
+/* 전역 탭 하이라이트 억제 — 모바일 기본 파란 플래시 제거(버튼·링크·터치 행). */
+button, a, [role="button"], .fp-press, .fp-chip {
+  -webkit-tap-highlight-color: transparent;
 }
 /* 목록 지브라 — 짝수 행에 옅은 배경 틴트(행 경계·스캔성). selected 인라인이 덮고, accent 좌측 바는 유지. */
 .fp-card.fp-card-row:nth-child(even) {

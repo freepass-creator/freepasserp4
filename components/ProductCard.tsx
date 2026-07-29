@@ -3,6 +3,7 @@ import { memo } from 'react';
 import Link from 'next/link';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { useIsMobile } from '@/lib/use-mobile';
+import { haptic } from '@/lib/haptics';
 import { C, R, SH } from '@/components/ui';
 import {
   CardTitle, CardSpecs, CardThumb,
@@ -33,7 +34,7 @@ export const ProductCard = memo(function ProductCard({ p, audience = 'agent', hr
   const gap = mobile ? 5 : 6; // = ProductRowCard rowGap SSOT
 
   return (
-    <Link href={to}
+    <Link href={to} onClick={() => haptic.nav()}
       className="fp-card"
       style={{
         display: 'flex', flexDirection: 'column', borderRadius: R, overflow: 'hidden',

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import type { CSSProperties, ReactNode } from 'react';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { useIsMobile } from '@/lib/use-mobile';
+import { haptic } from '@/lib/haptics';
 import { C, R, SH } from '@/components/ui';
 import {
   CardTitle, CardSpecs, CardPerkLine, CardThumb, CardRailBadges,
@@ -67,7 +68,7 @@ function PerkPeriodRow({ p }: { p: EntityRecord }) {
 function WebRow({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) {
   const href = `/m/${encodeURIComponent(String(p.product_code))}`;
   return (
-    <Link href={href} className="fp-card" style={{
+    <Link href={href} onClick={() => haptic.nav()} className="fp-card" style={{
       display: 'flex', gap: 14, alignItems: 'stretch',
       borderRadius: R,
       padding: '10px 12px',
@@ -114,7 +115,7 @@ function WebRow({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) {
 function MobileRow({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) {
   const href = `/m/${encodeURIComponent(String(p.product_code))}`;
   return (
-    <Link href={href} className="fp-card fp-card-row" style={{
+    <Link href={href} onClick={() => haptic.nav()} className="fp-card fp-card-row" style={{
       display: 'flex', gap: 12, alignItems: 'stretch',
       borderRadius: 0,
       padding: '10px 12px',

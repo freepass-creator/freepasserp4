@@ -2,6 +2,7 @@
 import type { CSSProperties, ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { useIsMobile } from '@/lib/use-mobile';
+import { haptic } from '@/lib/haptics';
 import { C, R, FS, FW } from '@/components/ui/tokens';
 import { type BadgeTone, toneSoft, toneText } from '@/components/ui/badges';
 
@@ -119,12 +120,12 @@ export function FeedListRow({
     </>
   );
   if (href) {
-    return <a href={href} className="fp-card fp-card-row" style={style}>{body}</a>;
+    return <a href={href} className="fp-card fp-card-row" style={style} onClick={() => haptic.nav()}>{body}</a>;
   }
   return (
     <div role={onClick ? 'button' : undefined} tabIndex={onClick ? 0 : undefined}
       className="fp-card fp-card-row"
-      onClick={onClick}
+      onClick={onClick ? () => { haptic.tap(); onClick(); } : undefined}
       onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } } : undefined}
       style={style}
     >
