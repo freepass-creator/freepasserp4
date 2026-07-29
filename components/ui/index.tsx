@@ -9,6 +9,7 @@ export * from './table';
 export * from './badges';
 export * from './objcard';
 export * from './detail';
+export * from './detail-group';
 export * from './ContextMenu';
 export * from './feedrow';
 export * from './overlays';

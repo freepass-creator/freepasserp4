@@ -30,7 +30,12 @@ export function DetailGrid({ rows }: { rows: [string, unknown][] }) {
     </div>
   );
 }
-export function DetailRow({ main, sub, right, rightColor = C.mute }: { main: React.ReactNode; sub: React.ReactNode; right?: React.ReactNode; rightColor?: string }) {
+export function DetailEmpty({ children }: { children: React.ReactNode }) {
+  return <div style={{ padding: 14, fontSize: FS.body, color: C.faint }}>{children}</div>;
+}
+
+/** 집계·요약 행(메인+서브+우측) — 그룹리스트 DetailRow(label/value)와 별개. */
+export function MetricRow({ main, sub, right, rightColor = C.mute }: { main: React.ReactNode; sub: React.ReactNode; right?: React.ReactNode; rightColor?: string }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 12px', borderTop: `1px solid ${C.line2}` }}>
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -40,9 +45,6 @@ export function DetailRow({ main, sub, right, rightColor = C.mute }: { main: Rea
       {right != null && <div style={{ fontSize: FS.body, fontWeight: FW.strong, color: rightColor, fontVariantNumeric: 'tabular-nums' }}>{right}</div>}
     </div>
   );
-}
-export function DetailEmpty({ children }: { children: React.ReactNode }) {
-  return <div style={{ padding: 14, fontSize: FS.body, color: C.faint }}>{children}</div>;
 }
 /* 섹션 소제목(테두리 없음) — 상세·폼 내부. Section(박스형)과 별개. 손롤 secTitle 금지. */
 export function SectionLabel({ children, mt = 2, mb = 5 }: { children: React.ReactNode; mt?: number; mb?: number }) {

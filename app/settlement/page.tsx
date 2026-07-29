@@ -10,8 +10,8 @@ import { isAdminUiAllowed } from '@/lib/auth-gate';
 import { parseSettlementHistory } from '@/lib/domain/settlement-import';
 import { downloadSettlementReport } from '@/lib/excel-export';
 import {
-  Badge, Btn, C, CenterNote, DetailGrid, DetailRow, DetailShell, FilterChips, FilterGroup,
-  FormCard, FS, FW, IconBtn, Loading, NUM, PaneBody, PaneHead, R, Select,
+  Badge, Btn, C, CenterNote, DetailRow, DetailShell, FilterChips, FilterGroup,
+  FS, FW, IconBtn, ListGroup, Loading, MetricRow, NUM, PaneBody, PaneHead, R, Select,
   SETTLEMENT_STATUS_TONE, won,
 } from '@/components/ui';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
@@ -243,17 +243,15 @@ export default function MonthlySettlement() {
                 {String(selected.settlement_code || '')}
               </span>
             </div>
-            <FormCard>
-              <DetailGrid rows={[
-                ['계약번호', selected.contract_code],
-                ['계약일', selected.contract_date],
-                ['계약자', selected.customer_name],
-                ['차량번호', selected.car_number],
-                ['공급사', selected.provider_company_code],
-                ['영업자', selected.agent_code],
-                ['영업채널', selected.agent_channel_code],
-              ]} />
-            </FormCard>
+            <ListGroup header="정산 정보">
+              <DetailRow label="계약번호" value={String(selected.contract_code || '')} />
+              <DetailRow label="계약일" value={String(selected.contract_date || '')} />
+              <DetailRow label="계약자" value={String(selected.customer_name || '')} />
+              <DetailRow label="차량번호" value={String(selected.car_number || '')} />
+              <DetailRow label="공급사" value={String(selected.provider_company_code || '')} />
+              <DetailRow label="영업자" value={String(selected.agent_code || '')} />
+              <DetailRow label="영업채널" value={String(selected.agent_channel_code || '')} />
+            </ListGroup>
           </>
         ) : <CenterNote>목록에서 정산 건을 선택하세요.</CenterNote>}
       </PaneBody>
@@ -266,22 +264,18 @@ export default function MonthlySettlement() {
       <PaneBody pad>
         {selected ? (
           <>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              <MoneyCard label="월대여료" value={selected.rent_amount} />
-              <MoneyCard label="공급사 청구 R1" value={selected.fee_amount} />
-              <MoneyCard label="영업자 지급 R2" value={selected.agent_payout} />
-              <MoneyCard label="순수익" value={selected.net_amount} tone={C.brand} />
-            </div>
-            <FormCard>
-              <DetailGrid rows={[
-                ['공급사율', rateLabel(selected.fee_rate)],
-                ['환수액', numberOf(selected.clawback_amount) ? won(selected.clawback_amount) : '—'],
-                ['정산식', 'R1 − R2'],
-              ]} />
-            </FormCard>
-            <div style={{ fontSize: FS.cap, color: C.faint, lineHeight: 1.55 }}>
-              공급사청구(R1)=월대여료×공급사율 · 영업지급(R2)=계약 시점 지급율 · 순수익=R1−R2
-            </div>
+            <ListGroup
+              header="금액"
+              footer="공급사청구(R1)=월대여료×공급사율 · 영업지급(R2)=계약 시점 지급율 · 순수익=R1−R2"
+            >
+              <DetailRow label="월대여료" value={won(selected.rent_amount)} />
+              <DetailRow label="공급사 청구 R1" value={won(selected.fee_amount)} />
+              <DetailRow label="영업자 지급 R2" value={won(selected.agent_payout)} />
+              <DetailRow label="순수익" value={won(selected.net_amount)} valueColor={C.brand} />
+              <DetailRow label="환수" value={numberOf(selected.clawback_amount) ? won(selected.clawback_amount) : '—'} />
+              <DetailRow label="공급사율" value={rateLabel(selected.fee_rate)} />
+              <DetailRow label="정산식" value="R1 − R2" />
+            </ListGroup>
           </>
         ) : <CenterNote>선택한 정산 건의 청구·지급 금액이 표시됩니다.</CenterNote>}
       </PaneBody>
@@ -305,7 +299,7 @@ export default function MonthlySettlement() {
         />
         <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg, overflow: 'hidden' }}>
           {grouped.length ? grouped.map((item) => (
-            <DetailRow
+            <MetricRow
               key={item.name}
               main={item.name}
               sub={`${item.count}건 · 청구 ${won(item.r1)} · 지급 ${won(item.r2)}${item.clawback ? ` · 환수 ${won(item.clawback)}` : ''}`}
