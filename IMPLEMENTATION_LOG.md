@@ -1,5 +1,24 @@
 # 구현 로그
 
+## 2026-07-28 — 오토플러스 2탭 병합·가격 라벨·diff 미리보기 배선
+
+### 완료한 작업
+
+- `lib/domain/sheet-autoplus.ts` — main(gid=284963459)+프로모션(2018553731) 병합 · 재고(출고가능+보류) 집계
+- `sheet-adapters` autoplus.prepareTable — col6/7/11~14 → 최초등록·주행·12/24/36/48개월 라벨 · 헤더 자동탐지
+- `sheet-sync-all` — 오토플러스 2탭 `importAutoplusMerged` · `commitFetchedPartnerSheets`로 fetch/저장 분리
+- `SheetSync` — 저장 전 `summarizeSheetDiff`/`formatSheetDiffBanner` 배너 · 일괄은 fetch→diff confirm→commit
+- `sheet-diff` — 전이 그룹핑·배너 포맷 헬퍼(commit/merge/absent 미변경)
+
+### 검증
+
+- `npx tsc --noEmit` PASS
+- `npm run check:fonts` PASS
+- `npx tsx scripts/sim-sheet-diff.mts` PASS (배너 포함)
+- `npx tsx scripts/count-autoplus-ingress.mts` — 2탭 108대·가격 108/108 · 재고(출고가능+보류) **실측 ~100** (실무 목표 99와 근사 — 시트 라이브 변동)
+
+---
+
 ## 2026-07-28 — 모바일 데스크탑 도구 추가 숨김
 
 ### 완료한 작업
