@@ -11,7 +11,7 @@ import { toast } from '@/components/Toaster';
 import { ChatSenderLabel } from '@/components/ChatSenderLabel';
 import { useIsMobile } from '@/lib/use-mobile';
 import { msgClock } from '@/lib/format';
-import { LoaderCircle, Paperclip, Send } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, LoaderCircle, Paperclip, Send, X } from 'lucide-react';
 
 /** 📎 accept와 동일 — image/* · application/pdf */
 function isAcceptedChatFile(file: File): boolean {
@@ -40,7 +40,9 @@ export function ChatThread({
   const [role, setRoleS] = useState<Role>('agent');
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
-  const [full, setFull] = useState<string | null>(null);
+  // 첨부 뷰어 = 방 안 사진 전체를 하나의 갤러리로(통상 채팅과 동일). 인덱스로 좌우 이동.
+  const [full, setFull] = useState<number | null>(null);
+  const [viewSwipeX, setViewSwipeX] = useState<number | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const threadRef = useRef<HTMLDivElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
@@ -81,6 +83,19 @@ export function ChatThread({
     };
   }, [load]);
   useEffect(() => { const on = (e: Event) => setRoleS((e as CustomEvent).detail as Role); window.addEventListener('fp:role', on); return () => window.removeEventListener('fp:role', on); }, []);
+  // 첨부 뷰어 — 데스크톱 키보드(Esc=닫기 · ←→=이동). 모바일은 버튼·스와이프.
+  const galleryLen = (msgs || []).filter((m) => m.image_url).length;
+  useEffect(() => {
+    if (full == null) return;
+    const step = (d: number) => setFull((i) => (i == null || !galleryLen ? i : (i + d + galleryLen) % galleryLen));
+    const on = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setFull(null);
+      else if (e.key === 'ArrowLeft') step(-1);
+      else if (e.key === 'ArrowRight') step(1);
+    };
+    window.addEventListener('keydown', on);
+    return () => window.removeEventListener('keydown', on);
+  }, [full, galleryLen]);
   // 스레드 박스 안에서만 스크롤 — rAF 후 적용(이미지 로드 점프 완화). scrollIntoView는 .fp-main-pad까지 끌어올림.
   useEffect(() => {
     const el = threadRef.current;
@@ -185,6 +200,11 @@ export function ChatThread({
   }
 
   const me = actor(role);
+  // 방 안 사진 전체 = 뷰어 갤러리(올린 순서). 사진 하나를 열어도 좌우로 나머지를 다 볼 수 있어야 한다.
+  const gallery = (msgs || [])
+    .filter((m) => m.image_url)
+    .map((m) => ({ url: String(m.image_url), name: String(m.file_name || '') }));
+  const stepView = (d: number) => setFull((i) => (i == null || !gallery.length ? i : (i + d + gallery.length) % gallery.length));
   // WorkPage 선택(swap) = TopBar·BottomNav가 크롬 담당 → 스레드 헤더·컴포저 safe-area 생략(이중 여백·차명 중복 방지).
   const embedded = !onBack && !onVehicle && !onContract;
   const headTitle = (title || '').trim()
@@ -242,7 +262,7 @@ export function ChatThread({
               height={220}
               loading="lazy"
               decoding="async"
-              onClick={() => setFull(String(m.image_url))}
+              onClick={() => setFull(gallery.findIndex((g) => g.url === String(m.image_url)))}
               style={{ maxWidth: 200, maxHeight: 220, width: 'auto', height: 'auto', aspectRatio: '10 / 11', objectFit: 'cover', borderRadius: R, cursor: 'zoom-in', display: 'block', border: `1px solid ${C.line}` }}
             />
           ) : m.file_url ? (
@@ -318,7 +338,93 @@ export function ChatThread({
         )}
       </div>
 
-      {full && <div onClick={() => setFull(null)} style={{ position: 'fixed', inset: 0, zIndex: 90, background: SCRIM.black, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}><img src={full} alt="" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: R }} /></div>}
+      {/* 첨부 뷰어 — 통상 채팅 규격: 좌우 넘김(버튼·스와이프) · 카운터 · 다운로드 · 닫기(→채팅으로 복귀) */}
+      {full != null && gallery[full] && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="첨부 사진"
+          onPointerDown={(e) => {
+            if ((e.target as HTMLElement).closest('button, a')) return;
+            setViewSwipeX(e.clientX);
+          }}
+          onPointerUp={(e) => {
+            const sx = viewSwipeX; setViewSwipeX(null);
+            if ((e.target as HTMLElement).closest('button, a')) return; // 버튼 탭은 제스처가 아님
+            if (sx != null && Math.abs(e.clientX - sx) > 40) { stepView(e.clientX < sx ? 1 : -1); return; }
+            setFull(null); // 빈 곳 탭 = 닫기(채팅으로)
+          }}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 90, background: SCRIM.black,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '56px 12px', touchAction: 'pan-y', userSelect: 'none',
+          }}
+        >
+          <img
+            src={gallery[full].url}
+            alt=""
+            draggable={false}
+            style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: R, pointerEvents: 'none' }}
+          />
+
+          {/* 상단 바 — 카운터 · 다운로드 · 닫기 */}
+          <div style={{
+            position: 'absolute', top: 0, left: 0, right: 0,
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: `calc(env(safe-area-inset-top, 0px) + 8px) 12px 8px`,
+          }}>
+            <span style={{ flex: 1, color: C.inverse, fontSize: FS.sub, fontVariantNumeric: 'tabular-nums' }}>
+              {full + 1} / {gallery.length}
+            </span>
+            <a
+              href={gallery[full].url}
+              download={gallery[full].name || 'photo'}
+              title="다운로드"
+              aria-label="다운로드"
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                width: ctrlH(mobile), height: ctrlH(mobile), borderRadius: R,
+                background: SCRIM.heavy, color: C.inverse, textDecoration: 'none',
+              }}
+            >
+              <Download size={ICON.lg} aria-hidden />
+            </a>
+            <IconBtn
+              title="닫기"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={() => setFull(null)}
+              style={{ border: 'none', background: SCRIM.heavy, color: C.inverse }}
+            >
+              <X size={ICON.lg} aria-hidden />
+            </IconBtn>
+          </div>
+
+          {/* 좌우 넘김 — 2장 이상일 때만 */}
+          {gallery.length > 1 && (
+            <>
+              <IconBtn
+                title="이전 사진"
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => stepView(-1)}
+                style={{
+                  position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)',
+                  border: 'none', background: SCRIM.heavy, color: C.inverse, borderRadius: '50%',
+                }}
+              ><ChevronLeft size={ICON.xl} strokeWidth={2.5} /></IconBtn>
+              <IconBtn
+                title="다음 사진"
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => stepView(1)}
+                style={{
+                  position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
+                  border: 'none', background: SCRIM.heavy, color: C.inverse, borderRadius: '50%',
+                }}
+              ><ChevronRight size={ICON.xl} strokeWidth={2.5} /></IconBtn>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }

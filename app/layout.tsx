@@ -16,6 +16,11 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
+  // 입력 엔진 SSOT — 키보드가 뜨면 레이아웃 뷰포트를 줄인다(기본 resizes-visual은 줄이지 않음).
+  //  · 하단바·컴포저가 키보드 뒤로 숨지 않고 키보드 바로 위에 붙는다
+  //  · 포커스된 입력만 위로 올라오고 화면 골격은 그대로
+  //  · 전 화면 동일 동작(화면마다 다르게 보이던 원인 제거)
+  interactiveWidget: 'resizes-content',
 };
 
 // 플랫폼 = BRAND(ERP·운영자 화면 기본 타이틀). 손님 공개페이지(q/catalog/sign)는 각자 화이트라벨 title 오버라이드.
