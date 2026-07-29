@@ -19,7 +19,7 @@ export type WorkMobileLayout = 'stack' | 'swap';
 
 export function WorkPage({
   title, statusLabel, statusCount, listCount, list, listHeader, panes, selected, onBack, search, actions,
-  mobileLayout = 'stack', mobileSwapKey, onMobileSwapKeyChange, countSuffix = '건',
+  mobileLayout = 'stack', mobileSwapKey, onMobileSwapKeyChange, countSuffix = '건', hideDock,
   listTools, contextTitle,
   attentionLabel, attentionCount,
 }: {
@@ -36,6 +36,8 @@ export function WorkPage({
   search?: { value: string; onChange: (v: string) => void; placeholder?: string };
   actions?: ReactNode;
   mobileLayout?: WorkMobileLayout;
+  /** 모바일 상세에서 하단독 일시 숨김(채팅 입력 중 작성 공간 확보). 해제되면 다시 나타남. */
+  hideDock?: boolean;
   mobileSwapKey?: string;
   onMobileSwapKeyChange?: (key: string) => void;
   countSuffix?: string;
@@ -190,6 +192,7 @@ export function WorkPage({
             boxShadow: SH.dock,
             paddingBottom: 'env(safe-area-inset-bottom)',
             flex: '0 0 auto',
+            ...(hideDock ? { display: 'none' } : null),
           }}>
             <BottomNav
               embedded

@@ -6,7 +6,7 @@ import { seedIfEmpty } from '@/lib/seed';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { getRole, actor, type Role } from '@/lib/domain/deal';
 import { sendText, sendFile as sendFileMsg, markRead, listMessages, isMine } from '@/lib/domain/messaging';
-import { Btn, IconBtn, C, R, FW, FS, Loading, CenterNote, Input, ctrlH, NavBack, Dropzone, SCRIM } from '@/components/ui';
+import { Btn, IconBtn, C, R, FW, FS, ICON, Loading, CenterNote, Input, ctrlH, NavBack, Dropzone, SCRIM } from '@/components/ui';
 import { toast } from '@/components/Toaster';
 import { ChatSenderLabel } from '@/components/ChatSenderLabel';
 import { useIsMobile } from '@/lib/use-mobile';
@@ -20,12 +20,14 @@ function isAcceptedChatFile(file: File): boolean {
 
 // 대화창 = 공통 원자(방 하나의 스레드+입력). 전송·안읽음 = messaging SSOT.
 export function ChatThread({
-  roomId, onBack, onVehicle, onContract, title, chatCode,
+  roomId, onBack, onVehicle, onContract, title, chatCode, onComposeFocus,
 }: {
   roomId: string;
   onBack?: () => void;
   onVehicle?: (productCode: string) => void;
   onContract?: (productCode: string) => void;
+  /** 입력창 포커스 알림 — 껍데기(WorkPage)가 하단독을 숨겼다 되돌리는 용도. */
+  onComposeFocus?: (focused: boolean) => void;
   /** 목록·contextTitle과 동일 「차량번호 차량명」. 없으면 방 필드 폴백. */
   title?: string;
   /** erp3 대화코드(CH-차번-영업자). 스레드 단독 헤더에만 노출(WorkPage contextTitle이 담당할 때는 생략 가능). */
@@ -279,8 +281,10 @@ export function ChatThread({
         {/* 모바일 = 아이콘 전용(첨부·보내기). 라벨을 달면 입력창 폭이 죽는다 —
             "아이콘 only 화이트리스트"의 채팅 입력행 예외(입력 폭 우선). 웹은 라벨 유지. */}
         {mobile ? (
-          <IconBtn onClick={() => fileRef.current?.click()} title="사진·파일 첨부" disabled={busy}>
-            <Paperclip size={18} aria-hidden />
+          // pointerdown preventDefault = 입력창 포커스 유지. 안 막으면 blur→하단독이 다시 나타나며
+          // 버튼이 위로 밀려 탭이 빗나간다(전송·첨부 둘 다 동일).
+          <IconBtn onPointerDown={(e) => e.preventDefault()} onClick={() => fileRef.current?.click()} title="사진·파일 첨부" disabled={busy}>
+            <Paperclip size={ICON.lg} aria-hidden />
           </IconBtn>
         ) : (
           <Btn size="sm" variant="ghost" onClick={() => fileRef.current?.click()} title="사진·파일 첨부" disabled={busy}>
@@ -291,10 +295,18 @@ export function ChatThread({
           </Btn>
         )}
         {/* embedded 모바일 autoFocus 금지 — 키보드가 뷰를 밀면 메시지 영역이 사라짐. 탭해서 입력. */}
-        <Input value={text} onChange={setText} onEnter={send} placeholder="메시지 입력" full style={{ flex: 1, minWidth: 0 }} autoFocus={mobile && !embedded} disabled={busy} />
+        {/* noAutofill = 키보드 위 열쇠·카드·주소 자동완성 툴바 차단(자유 텍스트 입력이라 무의미).
+            onComposeFocus = 입력 중 하단독 숨김(작성 공간 확보) → 취소·전송하면 다시 나타남. */}
+        <Input
+          value={text} onChange={setText} onEnter={send} placeholder="메시지 입력" full
+          style={{ flex: 1, minWidth: 0 }} autoFocus={mobile && !embedded} disabled={busy}
+          noAutofill enterKeyHint="send"
+          onFocus={() => onComposeFocus?.(true)}
+          onBlur={() => onComposeFocus?.(false)}
+        />
         {mobile ? (
-          <IconBtn onClick={send} disabled={busy || !text.trim()} title={busy ? '전송 중' : '보내기'} active={!busy && !!text.trim()}>
-            {busy ? <LoaderCircle size={18} aria-hidden /> : <Send size={18} aria-hidden />}
+          <IconBtn onPointerDown={(e) => e.preventDefault()} onClick={send} disabled={busy || !text.trim()} title={busy ? '전송 중' : '보내기'} active={!busy && !!text.trim()}>
+            {busy ? <LoaderCircle size={ICON.lg} aria-hidden /> : <Send size={ICON.lg} aria-hidden />}
           </IconBtn>
         ) : (
           <Btn size="sm" onClick={send} disabled={busy || !text.trim()} title={busy ? '전송 중' : '보내기'}>

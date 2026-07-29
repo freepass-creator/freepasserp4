@@ -59,6 +59,8 @@ export default function Chat() {
   const [qInput, setQInput] = useState(''); // 검색창 즉시 반영
   const [q, setQ] = useState(''); // 디바운스된 검색
   const [swapKey, setSwapKey] = useState('chat');
+  // 메시지 작성 중 = 하단독 숨김(키보드 위 공간 확보). 입력 취소·전송하면 다시 나와 목록으로 갈 수 있다.
+  const [composing, setComposing] = useState(false);
   const [sort, setSort] = useState<ChatSort | ''>('');
   const [flt, setFlt] = useState<ChatFilter>(CHAT_FILTER_DEFAULT);
   const [draftFlt, setDraftFlt] = useState<ChatFilter>(CHAT_FILTER_DEFAULT);
@@ -261,7 +263,7 @@ export default function Chat() {
   const chatHead = selRoom ? roomTitle(selRoom) : '';
   const chatCode = selRoom ? roomChatCode(selRoom) : '';
   const chatNode = sel
-    ? <ChatThread roomId={sel} title={chatHead} chatCode={chatCode} />
+    ? <ChatThread roomId={sel} title={chatHead} chatCode={chatCode} onComposeFocus={setComposing} />
     : emptyPane('채팅', '왼쪽에서 대화를 선택하세요.');
 
   // 모바일 계약진행 = /contract 모바일 스택과 동일(진행 → 서류). 상품상세·정산은 각 페이지 규격.
@@ -344,6 +346,8 @@ export default function Chat() {
         : undefined}
       search={{ value: qInput, onChange: setQInput, placeholder: '차번·상품·영업…' }}
       mobileLayout="swap"
+      // 채팅 탭에서 입력 중일 때만 하단독 숨김(계약진행 탭은 유지)
+      hideDock={composing && swapKey === 'chat'}
       mobileSwapKey={swapKey}
       onMobileSwapKeyChange={setSwapKey}
       countSuffix="건"

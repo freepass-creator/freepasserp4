@@ -45,7 +45,7 @@ export function Select({ value, onChange, options, groups, placeholder, size = '
   );
 }
 
-export function Input({ value, onChange, placeholder, size = 'md', type = 'text', inputMode, width, full, style, onEnter, onKeyDown, autoFocus, disabled }: {
+export function Input({ value, onChange, placeholder, size = 'md', type = 'text', inputMode, width, full, style, onEnter, onKeyDown, onFocus, onBlur, autoFocus, disabled, noAutofill, enterKeyHint }: {
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
@@ -57,11 +57,22 @@ export function Input({ value, onChange, placeholder, size = 'md', type = 'text'
   style?: React.CSSProperties;
   onEnter?: () => void;
   onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+  onFocus?: () => void;
+  onBlur?: () => void;
   autoFocus?: boolean;
   disabled?: boolean;
+  /** 자동완성 차단 — 브라우저·비밀번호관리자가 키보드 위에 열쇠·카드·주소 툴바를 띄우는 것 방지(채팅 등 자유입력). */
+  noAutofill?: boolean;
+  /** 모바일 키보드 확인키 라벨(채팅=send). */
+  enterKeyHint?: 'enter' | 'done' | 'go' | 'next' | 'previous' | 'search' | 'send';
 }) {
   const mobile = useIsMobile();
   return <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} type={type} inputMode={inputMode} autoFocus={autoFocus} disabled={disabled}
+    onFocus={onFocus} onBlur={onBlur} enterKeyHint={enterKeyHint}
+    {...(noAutofill ? {
+      autoComplete: 'off', autoCorrect: 'off', autoCapitalize: 'none', spellCheck: false,
+      name: 'fp-freetext', 'data-lpignore': 'true', 'data-1p-ignore': '', 'data-form-type': 'other',
+    } : null)}
     onKeyDown={(e) => { onKeyDown?.(e); if (onEnter && e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); onEnter(); } }}
     style={{ height: ctrlH(mobile, size), boxSizing: 'border-box', padding: mobile ? '0 12px' : '0 10px', border: `1px solid ${C.line}`, borderRadius: R, fontSize: ctrlInputFs(mobile, size), background: disabled ? C.head : C.taupeBg, color: C.ink, opacity: disabled ? 0.7 : 1, cursor: disabled ? 'default' : undefined, ...(full ? { width: '100%' } : width ? { width } : {}), ...style }} />;
 }
