@@ -4,13 +4,16 @@ import { useRouter } from 'next/navigation';
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
-import { ENTITIES, type EntityRecord, type Field } from '@/lib/intake/entities';
+import { ENTITIES, ROLE_LABEL_RAW, type EntityRecord, type Field } from '@/lib/intake/entities';
 import { isAdminUiAllowed } from '@/lib/auth-gate';
 import { approveUser, backfillPersonalAgentChannels, adminUpdateUserIdentity } from '@/lib/firebase/auth';
 import { readAllPartnersPrivate, readAllUsersPrivate, writePartnerPrivate } from '@/lib/domain/private-fields';
 import { migrateSensitiveToPrivate } from '@/lib/firebase/migrate-private';
 import { newId } from '@/lib/domain/ids';
-import { PaneHead, PaneBody, Btn, Badge, FormGrid, FormCard, C, R, NUM, Loading, CenterNote, FilterChips, FilterGroup, Message, PageActions, PillTabs, FW, FS } from '@/components/ui';
+import {
+  ACTOR_TONE, PaneHead, PaneBody, Btn, Badge, DetailRow, FormGrid, FormCard, ListGroup,
+  C, R, NUM, Loading, CenterNote, FilterChips, FilterGroup, Message, PageActions, PillTabs, FW, FS,
+} from '@/components/ui';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
 import { confirmDialog, toast } from '@/components/Toaster';
 import { haptic } from '@/lib/haptics';
@@ -31,6 +34,12 @@ import { MembersList } from '@/features/members/MembersList';
 // 사용자·파트너 관리(관리자) — 역할·활성·영업지급율(user) / 유형·공급사수수료율(partner). 여기 율이 정산 R1/R2 SSOT.
 // status(가입승인)는 폼에서 제외 — v4 오버레이가 아니라 approveUser 로 "최상위"에 기록해야 게이트가 인식. 아래 승인 버튼 전용.
 const idFieldOf = (t: Tab) => (t === 'user' ? 'uid' : 'partner_code');
+const ratePct = (value: unknown) => {
+  const n = Number(value);
+  if (value == null || value === '' || !Number.isFinite(n)) return '';
+  return `${Math.round(n * 100)}%`;
+};
+const strOf = (value: unknown) => String(value ?? '');
 
 export default function Members() {
   const co = getCompanyId();
@@ -280,71 +289,128 @@ export default function Members() {
   ) : sel ? (
     <PageActions edit={{ onClick: startEdit }} remove={{ onClick: removeRec }} />
   ) : null;
-  const basicPane = (
+
+  const roleKey = strOf(form.role);
+  const inactive = strOf(form.is_active) === '아니오';
+  const pending = strOf(form.status) === 'pending';
+  const accessTitle = tab === 'user' ? '소속·권한' : '정산·운영';
+  const basicHint = tab === 'user' ? '사용자 식별정보와 소속 회사를 관리합니다.' : '파트너 식별정보와 기본 연락처를 관리합니다.';
+  const accessHint = tab === 'user'
+    ? '역할과 활성 상태는 메뉴 접근 및 데이터 범위의 기준입니다.'
+    : '공급사 수수료율(0~1)은 정산 R1 계산 기준입니다.';
+  const operationHint = tab === 'user'
+    ? '영업지급율(0~1)은 월대여료 대비 영업자 지급 비율이며 정산 R2 기준입니다.'
+    : '구글시트 URL을 넣으면 재고·시트 연동에서 관리자가 일괄 가져올 수 있습니다.';
+
+  const approveBar = tab === 'user' && strOf(form.status) === 'pending' ? (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: C.selected, borderRadius: R, marginBottom: 8 }}>
+      <Badge tone="amber" variant="solid">승인대기</Badge>
+      <span style={{ fontSize: FS.sub, color: C.mute, flex: 1, minWidth: 0 }}>승인하면 이 사용자가 앱을 사용할 수 있습니다.</span>
+      <Btn title={approveBusy ? '가입 승인 처리 중' : '가입 승인'} size="sm" onClick={() => doApprove(true)} disabled={approveBusy}>{approveBusy ? '처리 중…' : '가입 승인'}</Btn>
+    </div>
+  ) : tab === 'user' && strOf(form.status) === 'active' ? (
+    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+      <Btn title={approveBusy ? '승인 취소 처리 중' : '승인 취소 후 대기로 변경'} size="sm" variant="ghost" onClick={() => doApprove(false)} disabled={approveBusy}>{approveBusy ? '처리 중…' : '승인 취소(대기로)'}</Btn>
+    </div>
+  ) : null;
+
+  const readGroups = (
     <>
-      <PaneHead title="기본정보" />
+      <ListGroup header="기본정보" footer={basicHint}>
+        {tab === 'user' ? (
+          <>
+            <DetailRow label="이름" value={strOf(form.name)} />
+            <DetailRow label="회원번호" value={strOf(form.user_code)} />
+            <DetailRow label="회사명" value={strOf(form.company_name)} />
+          </>
+        ) : (
+          <>
+            <DetailRow label="상호/이름" value={strOf(form.name)} />
+            <DetailRow
+              label="유형"
+              value={strOf(form.partner_type)
+                ? <Badge tone={strOf(form.partner_type) === '공급사' ? 'blue' : 'gray'}>{strOf(form.partner_type)}</Badge>
+                : ''}
+            />
+            <DetailRow label="연락처" value={strOf(form.contact)} />
+          </>
+        )}
+      </ListGroup>
+      {approveBar}
+      <ListGroup header={accessTitle} footer={accessHint}>
+        {tab === 'user' ? (
+          <>
+            <DetailRow
+              label="역할"
+              value={roleKey
+                ? <Badge tone={ACTOR_TONE[roleKey] || (roleKey.startsWith('agent') ? 'blue' : 'gray')}>{ROLE_LABEL_RAW[roleKey as keyof typeof ROLE_LABEL_RAW] || roleKey}</Badge>
+                : ''}
+            />
+            <DetailRow
+              label="상태"
+              value={pending
+                ? <Badge tone="amber" variant="solid">승인대기</Badge>
+                : <Badge tone={inactive ? 'gray' : 'green'} variant="quiet">{inactive ? '비활성' : '활성'}</Badge>}
+            />
+            <DetailRow label="회사코드" value={strOf(form.company_code)} />
+          </>
+        ) : (
+          <DetailRow label="공급사 수수료율" value={ratePct(form.fee_rate)} />
+        )}
+      </ListGroup>
+      <ListGroup header="운영" footer={operationHint}>
+        {tab === 'user' ? (
+          <>
+            <DetailRow label="영업채널" value={strOf(form.agent_channel_code)} />
+            <DetailRow label="영업지급율" value={ratePct(form.agent_payout_rate)} />
+            <DetailRow label="팀매니저" value={strOf(form.is_team_manager)} />
+          </>
+        ) : (
+          <>
+            <DetailRow label="구글시트 URL" value={strOf(form.sheet_url)} stacked={!!strOf(form.sheet_url)} />
+            <DetailRow label="시트 gid" value={strOf(form.sheet_tab)} />
+            <DetailRow label="헤더 행" value={strOf(form.header_row)} />
+            <DetailRow label="시트 어댑터" value={strOf(form.adapter_id)} />
+          </>
+        )}
+      </ListGroup>
+    </>
+  );
+
+  const editGroups = (
+    <>
+      {approveBar}
+      <FormCard title="기본정보" hint={basicHint}>
+        <FormGrid fields={basicFields} form={form} onChange={onChange} cols={2} />
+      </FormCard>
+      <div style={{ marginTop: 12 }}>
+        <FormCard title={accessTitle} hint={accessHint}>
+          <FormGrid fields={accessFields} form={form} onChange={onChange} cols={2} />
+        </FormCard>
+      </div>
+      <div style={{ marginTop: 12 }}>
+        <FormCard title="운영" hint={operationHint}>
+          <FormGrid fields={operationFields} form={form} onChange={onChange} cols={2} />
+        </FormCard>
+      </div>
+    </>
+  );
+
+  const detailPane = (
+    <>
+      <PaneHead title={tab === 'user' ? '회원 상세' : '파트너 상세'} />
       <PaneBody pad>
         {sel ? (
           <>
             {modeBanner}
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: FS.cap, color: C.faint }}>
-              <span style={{ fontFamily: NUM, fontWeight: FW.strong, color: C.mute }}>{String(form[idFieldOf(tab)] || '')}</span>
+              <span style={{ fontFamily: NUM, fontWeight: FW.strong, color: C.mute }}>{strOf(form[idFieldOf(tab)])}</span>
             </div>
-            <FormCard hint={tab === 'user' ? '사용자 식별정보와 소속 회사를 관리합니다.' : '파트너 식별정보와 기본 연락처를 관리합니다.'}>
-              <FormGrid fields={basicFields} form={form} onChange={onChange} cols={2} disabled={!canEdit} />
-            </FormCard>
+            {canEdit ? editGroups : readGroups}
           </>
         ) : (
-          <CenterNote>{tab === 'user' ? '사용자' : '파트너'}를 선택하거나 신규로 추가하세요.</CenterNote>
-        )}
-      </PaneBody>
-    </>
-  );
-  const accessPane = (
-    <>
-      <PaneHead title={tab === 'user' ? '소속·권한' : '정산·운영'} />
-      <PaneBody pad>
-        {sel ? (
           <>
-            {tab === 'user' && String(form.status || '') === 'pending' && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: C.selected, borderRadius: R, marginBottom: 8 }}>
-                <Badge tone="amber" variant="solid">승인대기</Badge>
-                <span style={{ fontSize: FS.sub, color: C.mute, flex: 1, minWidth: 0 }}>승인하면 이 사용자가 앱을 사용할 수 있습니다.</span>
-                <Btn title={approveBusy ? '가입 승인 처리 중' : '가입 승인'} size="sm" onClick={() => doApprove(true)} disabled={approveBusy}>{approveBusy ? '처리 중…' : '가입 승인'}</Btn>
-              </div>
-            )}
-            {tab === 'user' && String(form.status || '') === 'active' && (
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
-                <Btn title={approveBusy ? '승인 취소 처리 중' : '승인 취소 후 대기로 변경'} size="sm" variant="ghost" onClick={() => doApprove(false)} disabled={approveBusy}>{approveBusy ? '처리 중…' : '승인 취소(대기로)'}</Btn>
-              </div>
-            )}
-            <FormCard hint={tab === 'user'
-              ? '역할과 활성 상태는 메뉴 접근 및 데이터 범위의 기준입니다.'
-              : '공급사 수수료율(0~1)은 정산 R1 계산 기준입니다.'}
-            >
-              <FormGrid fields={accessFields} form={form} onChange={onChange} cols={2} disabled={!canEdit} />
-            </FormCard>
-          </>
-        ) : (
-          <CenterNote>목록에서 대상을 선택하면 {tab === 'user' ? '권한' : '정산 기준'}을 확인할 수 있습니다.</CenterNote>
-        )}
-      </PaneBody>
-    </>
-  );
-  const operationPane = (
-    <>
-      <PaneHead title={tab === 'user' ? '영업설정' : '데이터연동'} />
-      <PaneBody pad>
-        {sel ? (
-          <FormCard hint={tab === 'user'
-            ? '영업지급율(0~1)은 월대여료 대비 영업자 지급 비율이며 정산 R2 기준입니다.'
-            : '구글시트 URL을 넣으면 재고·시트 연동에서 관리자가 일괄 가져올 수 있습니다.'}
-          >
-            <FormGrid fields={operationFields} form={form} onChange={onChange} cols={2} disabled={!canEdit} />
-          </FormCard>
-        ) : (
-          <>
-            <CenterNote>목록에서 대상을 선택하면 업무 연동 설정을 확인할 수 있습니다.</CenterNote>
+            <CenterNote>{tab === 'user' ? '사용자' : '파트너'}를 선택하거나 신규로 추가하세요.</CenterNote>
             {tab === 'user' && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12, justifyContent: 'center' }}>
                 <Btn title="개인채널 백필 미리보기" size="sm" variant="ghost" onClick={() => doBackfillChannels(true)}>개인채널 백필 미리보기</Btn>
@@ -362,9 +428,7 @@ export default function Members() {
   );
 
   const panes: WorkPane[] = [
-    { key: 'basic', title: '기본', node: basicPane },
-    { key: 'access', title: tab === 'user' ? '권한' : '정산', node: accessPane },
-    { key: 'operation', title: tab === 'user' ? '영업' : '연동', node: operationPane },
+    { key: 'detail', title: '상세', node: detailPane },
   ];
 
   const fltCount = tab === 'user'
