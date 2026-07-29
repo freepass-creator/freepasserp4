@@ -30,7 +30,7 @@ export const ProductCard = memo(function ProductCard({ p, audience = 'agent', hr
   focusMonth?: number;
 }) {
   const mobile = useIsMobile();
-  const to = href ?? `/m/${encodeURIComponent(String(p.product_code))}`;
+  const to = href ?? `/m/${encodeURIComponent(String(p.product_code || p._key))}`;
   const gap = mobile ? 5 : 6; // = ProductRowCard rowGap SSOT
 
   return (

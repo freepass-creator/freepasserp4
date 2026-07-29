@@ -31,7 +31,7 @@ export const metadata: Metadata = {
  * 페인트 전 — 쿠키·폭 확정 + 테마(FOUC 방지).
  * 모바일이면 무조건 pending(웹 격자 깜빡임 차단). MobileBoot가 폭=훅 일치 후 해제.
  */
-const BP_BOOT = `(function(){try{var m=window.innerWidth<760;var v=m?'1':'0';document.documentElement.dataset.fpM=v;document.cookie='fp_m='+v+';path=/;max-age=31536000;SameSite=Lax';var ssr=document.documentElement.getAttribute('data-fp-m');if(m||((ssr==='0'||ssr==='1')&&v!==ssr))document.documentElement.classList.add('fp-pending-m');var th=localStorage.getItem('fp4_theme')||'light';var dark=th==='dark'||(th==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.dataset.theme=dark?'dark':'light';}catch(e){}})();`;
+const BP_BOOT = `(function(){try{var ssr=document.documentElement.getAttribute('data-fp-m');var m=window.innerWidth<760;var v=m?'1':'0';document.documentElement.dataset.fpM=v;document.cookie='fp_m='+v+';path=/;max-age=31536000;SameSite=Lax';if(m||((ssr==='0'||ssr==='1')&&v!==ssr))document.documentElement.classList.add('fp-pending-m');var th=localStorage.getItem('fp4_theme')||'light';var dark=th==='dark'||(th==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.dataset.theme=dark?'dark':'light';var ff=localStorage.getItem('fp4_finder_filter');if(ff==='0')document.documentElement.dataset.fpFilter='0';}catch(e){}})();`;
 
 function resolveSsrMobile(tip: string | undefined, chMobile: string | null): boolean | null {
   if (tip === '1') return true;

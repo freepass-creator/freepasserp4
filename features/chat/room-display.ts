@@ -1,5 +1,5 @@
 import type { EntityRecord } from '@/lib/intake/entities';
-import { vehicleName } from '@/lib/domain/product';
+import { isHiddenFromCatalog, vehicleName } from '@/lib/domain/product';
 
 export type ProductLookup = {
   byId: Map<string, EntityRecord>;
@@ -29,9 +29,13 @@ export function buildProductLookup(products: EntityRecord[]): ProductLookup {
   for (const product of products) {
     const code = String(product.product_code || '');
     const key = String(product._key || '');
+    // erp3 방은 상품의 RTDB 키를 product_uid로 들고 있다(erp3 조인: p._key === room.product_uid).
+    // erp4는 상품을 product_code로 리키잉하므로 원본 키(product_uid)도 같이 색인해야 예전 문의가 차를 찾는다.
+    const uid = String(product.product_uid || '');
     const car = String(product.car_number || '');
     if (code) byId.set(code, product);
     if (key && !byId.has(key)) byId.set(key, product);
+    if (uid && !byId.has(uid)) byId.set(uid, product);
     if (car) byCar.set(car, product);
   }
   return { byId, byCar };
@@ -58,7 +62,8 @@ export function roomTitle(
   const product = productForRoom(products, room);
   if (product) {
     const name = vehicleName(product);
-    if (name) return name;
+    // 출고불가 = 삭제가 아니라 살아있는 차 → 상태를 그대로 알린다.
+    if (name) return isHiddenFromCatalog(product) ? `${name} (출고불가)` : name;
   }
   const productCode = String(room.product_code || '');
   const contract = productCode
@@ -77,7 +82,9 @@ export function roomTitle(
     const name = vehicleName(deleted);
     if (name) return car ? `${name} (삭제)` : name;
   }
-  return car ? `${car} (삭제된 차량)` : '삭제된 차량';
+  // 삭제 단정 금지 — 출고불가·중복정리·카탈로그 미로드 등 "살아있는데 조회만 안 되는" 경우가 있다.
+  // 차량번호는 끝까지 보존하고, 삭제로 확인된 건(위 deletedProducts)만 삭제로 표기.
+  return car || '차량 조회불가';
 }
 
 export function providerForRoom(room: EntityRecord, products: ProductLookup): { code: string; name: string } {

@@ -1,10 +1,10 @@
 'use client';
 import { useEffect, useState, useRef, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
-import { BottomNav, SearchInput, IconBtn, CountPill, Btn, Select, FilterGroup, C, NUM, FS, FW } from '@/components/ui';
+import { BottomNav, SearchInput, IconBtn, CountPill, Btn, Select, FilterGroup, C, NUM, FS } from '@/components/ui';
 import { PageToolBar, type PageToolItem } from '@/components/PageToolBar';
 import { MobileListDock } from '@/components/MobileListDock';
-import { BottomSheet } from '@/components/BottomSheet';
+import { BottomSheet, SheetTitle } from '@/components/BottomSheet';
 import { useIsMobile } from '@/lib/use-mobile';
 import { isTabRoute, useTabBarHidden } from '@/lib/tabbar';
 import { routeKey } from '@/lib/page-refresh';
@@ -54,16 +54,6 @@ export type ListToolsConfig = {
 
 type SheetKind = 'search' | 'sort' | 'filter' | null;
 
-function SheetTitle({ label, count, unit }: { label: string; count: number; unit: string }) {
-  return (
-    <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 6, minWidth: 0 }}>
-      <span>{label}</span>
-      <span style={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums', fontWeight: FW.head, color: C.brand }}>
-        {count.toLocaleString()}{unit}
-      </span>
-    </span>
-  );
-}
 
 export function MobilePageShell({
   title,

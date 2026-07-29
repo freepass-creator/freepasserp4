@@ -82,7 +82,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!allowed) router.replace('/login');
   }, [active, ready, allowed, router]);
 
-  if (mounted && active && !allowed && !ready) return <AuthLoading />;
+  // 비허용 = 자식(설정 데모 플래시 등) 그리지 않음. ready 전이든 로그아웃 직후든 동일.
+  if (mounted && active && !allowed) return <AuthLoading />;
 
   // 가입 승인 대기 — 로그인은 됐지만 아직 관리자 승인 전. 공개면(/q·/catalog·/sign)과 /login 은 통과.
   if (mounted && active && isPending(session) && !onLogin && !publicPage) {

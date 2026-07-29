@@ -75,6 +75,7 @@ export function PriceMonth({ align = 'end' }: { align?: 'start' | 'end' }) {
       color: peeking ? C.ink : C.mute,
       textAlign: end ? 'right' : undefined,
       whiteSpace: 'nowrap',
+      fontVariantNumeric: 'tabular-nums',
       transition: 'color 0.12s ease',
     }}>{focus.m}개월</span>
   );
@@ -96,11 +97,13 @@ export function PriceRentDep({ align = 'end' }: { align?: 'start' | 'end' }) {
         <span style={{ fontSize: FS.micro, fontWeight: FW.body, color: peeking ? C.mute : C.faint, transition: 'color 0.12s ease' }}>월</span>
         <span style={{
           fontSize: FS.page, fontWeight: FW.head, fontFamily: NUM, letterSpacing: '-0.02em',
+          fontVariantNumeric: 'tabular-nums',
           color: peeking ? C.brand : C.ink, transition: 'color 0.12s ease',
         }}>{man(focus.rent)}</span>
       </span>
       <span style={{
         fontSize: FS.cap, fontWeight: FW.meta,
+        fontVariantNumeric: 'tabular-nums',
         color: peeking ? C.mute : C.faint, transition: 'color 0.12s ease',
       }}>
         {focus.deposit > 0 ? `보증 ${man(focus.deposit)}` : '무보증'}
@@ -130,6 +133,7 @@ export function PriceAmounts({ align = 'start' }: {
       <span style={{
         fontSize: FS.cap, fontWeight: FW.strong,
         color: peeking ? C.ink : C.mute, whiteSpace: 'nowrap',
+        fontVariantNumeric: 'tabular-nums',
         transition: 'color 0.12s ease',
       }}>{focus.m}개월</span>
       <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 3, whiteSpace: 'nowrap' }}>
@@ -139,6 +143,7 @@ export function PriceAmounts({ align = 'start' }: {
         }}>월</span>
         <span style={{
           fontSize: FS.title, fontWeight: FW.head, fontFamily: NUM, letterSpacing: '-0.02em',
+          fontVariantNumeric: 'tabular-nums',
           // 모바일: 기간칩 없을 때 큰 금액 ascent 보정(웹 Cell은 기본 lh 유지). 칩 있는 행은 MobileRow marginTop=-1
           ...(mobile ? { lineHeight: 1.05 } : null),
           color: peeking ? C.brand : C.ink, transition: 'color 0.12s ease',
@@ -147,6 +152,7 @@ export function PriceAmounts({ align = 'start' }: {
       <span style={{
         fontSize: FS.cap, fontWeight: FW.meta,
         color: peeking ? C.mute : C.faint, whiteSpace: 'nowrap',
+        fontVariantNumeric: 'tabular-nums',
         transition: 'color 0.12s ease',
       }}>
         {focus.deposit > 0 ? `보증 ${man(focus.deposit)}` : '무보증'}
@@ -283,9 +289,11 @@ export function PeriodPerkBand({ p, dense, gap = 6 }: {
     );
   }
 
+  // gap 고정 — yieldSlot(칩 줄바꿈 측정)은 페인트 후 확정. gap까지 바뀌면 카드 높이가 한 프레임 뒤 붕괴(튐).
+  // 조건줄 가로 배치만 바뀌고 세로 리듬은 유지.
   return (
     <div style={{
-      display: 'flex', flexDirection: 'column', gap: yieldSlot ? 0 : gap,
+      display: 'flex', flexDirection: 'column', gap,
       minWidth: 0, width: '100%', flex: '0 0 auto',
     }}>
       <div ref={wrapRef} style={{ minWidth: 0, width: '100%' }}>

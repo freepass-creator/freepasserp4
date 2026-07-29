@@ -97,12 +97,14 @@ export function MobileBoot() {
       document.cookie = `fp_m=${actual ? '1' : '0'};path=/;max-age=31536000;SameSite=Lax`;
     } catch { /* */ }
     const clear = () => document.documentElement.classList.remove('fp-pending-m');
-    // tip을 실폭에 맞춘 뒤, 훅 일치 시 즉시 해제. 불일치 고착 방지용 failsafe.
+    // 훅=실폭 일치(=교정 렌더 커밋 완료) 확인 후, 한 프레임 더 그린 뒤 해제.
+    // 단일 rAF는 교정 뷰가 페인트되기 전 마스크가 벗겨져 SSR힌트(모바일 카드) 잔상이 새는 창이 있음 → 이중 rAF.
+    let raf2 = 0;
     const id = requestAnimationFrame(() => {
-      if (mobile === actual) clear();
+      if (mobile === actual) raf2 = requestAnimationFrame(clear);
     });
-    const t = window.setTimeout(clear, 320);
-    return () => { cancelAnimationFrame(id); window.clearTimeout(t); };
+    const t = window.setTimeout(clear, 320); // 불일치 고착 방지용 failsafe
+    return () => { cancelAnimationFrame(id); if (raf2) cancelAnimationFrame(raf2); window.clearTimeout(t); };
   }, [mobile]);
   return null;
 }

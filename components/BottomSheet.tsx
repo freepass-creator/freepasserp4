@@ -1,10 +1,22 @@
 'use client';
 import { useEffect, useState, useRef, type ReactNode } from 'react';
-import { Btn, C, FW, FS, R, SCRIM, SH, ctrlH } from '@/components/ui';
+import { Btn, C, FW, FS, NUM, R, SCRIM, SH, ctrlH } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
 
 const EXIT_MS = 220; // sheetUp .22s와 대칭
+
+/** 하단 시트 제목 SSOT — 라벨 + 결과 건수(파랑 강조). 검색·정렬·필터 시트 공용. */
+export function SheetTitle({ label, count, unit }: { label: string; count: number; unit: string }) {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 6, minWidth: 0 }}>
+      <span>{label}</span>
+      <span style={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums', fontWeight: FW.head, color: C.brand }}>
+        {count.toLocaleString()}{unit}
+      </span>
+    </span>
+  );
+}
 
 /**
  * 하단 시트 SSOT — 화면 바닥에서 슬라이드업.

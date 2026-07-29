@@ -1,6 +1,5 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import {
   Page, Btn, C, SectionLabel, DetailGrid, ListRow, FilterChips, NUM, Input, FS, fmtPhone,
 } from '@/components/ui';
@@ -46,7 +45,6 @@ const IDLE_OPTS: { key: string; label: string }[] = [
 
 /** 설정 — 계정·화면·피드백·관심·숨김·앱정보. 박스 중첩 없음. */
 export default function Settings() {
-  const router = useRouter();
   const session = useSession();
   const [mounted, setMounted] = useState(false);
   const visibleSession = mounted ? session : null;
@@ -131,7 +129,8 @@ export default function Settings() {
     haptic.impact();
     try { const { logout } = await import('@/lib/firebase/auth'); await logout(); } catch { /* noop */ }
     setGuest(false);
-    router.replace('/login');
+    // soft replace면 세션 null 설정이 데모 UI로 한 프레임 그려진 뒤 /login — 하드 이동으로 스킵.
+    window.location.href = '/login';
   };
 
   const switchRole = (r: Role) => {

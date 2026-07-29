@@ -134,7 +134,6 @@ export function ProductCardSkeleton({ count = 4, dense }: { count?: number; dens
         dense ? (
           <div
             key={i}
-            className="fp-card-row"
             style={{
               display: 'flex', gap: 12, alignItems: 'stretch',
               padding: '10px 12px', borderBottom: `1px solid ${C.line}`,

@@ -13,6 +13,18 @@ export type FilterBag = {
   interest: Set<InterestKey>;
 };
 
+/** 정렬 옵션 SSOT — 툴바 드롭다운·필터패널 Select 공용. 키는 useFinderResults 정렬 switch와 일치. */
+export const FINDER_SORTS: { value: string; label: string }[] = [
+  { value: 'asc', label: '대여료 낮은순' },
+  { value: 'desc', label: '대여료 높은순' },
+  { value: 'dep_asc', label: '보증금 낮은순' },
+  { value: 'dep_desc', label: '보증금 높은순' },
+  { value: 'mile_asc', label: '주행 짧은순' },
+  { value: 'mile_desc', label: '주행 많은순' },
+  { value: 'new', label: '연식 최신순' },
+  { value: 'old', label: '연식 오래된순' },
+];
+
 export type SavedFinderFilters = {
   q: string;
   periods: number[];

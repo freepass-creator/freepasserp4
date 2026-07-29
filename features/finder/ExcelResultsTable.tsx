@@ -54,7 +54,8 @@ export function ExcelResultsTable({
   const mobile = useIsMobile();
   const sheetRef = useRef<HTMLDivElement>(null);
   const [sheetW, setSheetW] = useState(0);
-  const hasOpts = useMemo(() => rows.some((p) => productOptions(p).length > 0), [rows]);
+  // 옵션열 유무·열폭은 페이지네이션된 rows(shown)가 아니라 전체 결과(list) 기준 — 더보기 눌러도 열 구성·폭 안 바뀜.
+  const hasOpts = useMemo(() => list.some((p) => productOptions(p).length > 0), [list]);
   const exMode = excelColMode(filterOpen);
   const exFilterCols = excelShowFilterCols(exMode);
   const makerChars = excelMakerChars(exMode);
@@ -68,6 +69,8 @@ export function ExcelResultsTable({
   const cellPad = { padding: `${excelPadY()}px ${padX}px` } as const;
   const nameSqueeze = hasOpts;
 
+  // 측정은 페인트 후(useEffect) — layout effect로 앞당기면 열폭↔시트폭이 동기 되먹임(RO 재측정)으로
+  // 진동하며 화면이 얼어붙는다. 진입 시 한 프레임 열 잔상은 감수(프리즈보다 나음).
   useEffect(() => {
     const el = sheetRef.current;
     if (!el || typeof ResizeObserver === 'undefined') return;

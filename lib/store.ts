@@ -20,6 +20,12 @@ export interface StoreAdapter {
   list(entityKey: string, companyId: string): Promise<EntityRecord[]>;
   /** 방 하나 메시지 스코프 조회(전 방 list 회피). 미구현 어댑터는 list+필터로 폴백. */
   listMessagesForRoom?(companyId: string, roomId: string): Promise<EntityRecord[]>;
+  /**
+   * 참조 조회용 원본 목록 — 판매용 가공(중복정리·제외공급사·출고상태) 없이 erp3∪erp4 원본 그대로.
+   * 문의·계약이 예전/비노출 매물을 가리켜도 차량을 찾아내야 하므로 list와 분리한다.
+   * 미구현 어댑터는 list로 폴백.
+   */
+  listRaw?(entityKey: string, companyId: string): Promise<EntityRecord[]>;
   get(entityKey: string, companyId: string, key: string): Promise<EntityRecord | null>;
   update(entityKey: string, companyId: string, key: string, patch: EntityRecord): Promise<void>;
   bulkPatch(entityKey: string, companyId: string, patches: { key: string; patch: EntityRecord }[]): Promise<number>; // 다건 부분갱신(멀티패스) — 일괄 차종 재구현 등
@@ -300,6 +306,24 @@ class DispatchStore implements StoreAdapter {
   async listDeleted(entityKey: string, companyId: string) {
     if (!this.all(companyId)) return this.base.listDeleted(entityKey, companyId);
     return (await Promise.all(COMPANIES.map((c) => this.base.listDeleted(entityKey, c)))).flat();
+  }
+  /** 참조 조회용 원본 — 미구현 어댑터는 list 폴백. 캐시는 list와 분리(가공 여부가 다름). */
+  async listRaw(entityKey: string, companyId: string): Promise<EntityRecord[]> {
+    const base = this.base;
+    const call = (co: string) => (typeof base.listRaw === 'function'
+      ? base.listRaw(entityKey, co)
+      : base.list(entityKey, co));
+    const ck = `raw::${entityKey}::${companyId}`;
+    let p = _listCache.get(ck);
+    if (!p) {
+      p = (this.all(companyId)
+        ? Promise.all(COMPANIES.map(call)).then((a) => a.flat())
+        : call(companyId)
+      ).then((rows) => { _listResolved.set(ck, rows); return rows; });
+      _listCache.set(ck, p);
+      p.catch(() => { _listCache.delete(ck); _listResolved.delete(ck); });
+    }
+    return p;
   }
   async get(entityKey: string, companyId: string, key: string) {
     // 홈 list 캐시 우선 — RTDB get이 전량 재다운로드하는 비용 회피(홈→상세 즉시).

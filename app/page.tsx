@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState, useCallback, useTransition, type CSSProperties, type MouseEvent } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback, useDeferredValue, type CSSProperties, type MouseEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { getCompanyId } from '@/lib/tenant';
 import { useIsMobile } from '@/lib/use-mobile';
@@ -9,13 +9,13 @@ import { activeCount, EMPTY_VEHICLE_FILTER, type VehicleFilter } from '@/lib/dom
 import { InterestPanel, useInterestLists, useInterestTab, useInterestTabGuard } from '@/components/InterestRail';
 import { clearRecent, clearFavs } from '@/lib/product-interest';
 import { confirmDialog, toast } from '@/components/Toaster';
-import { C, R, NUM, FW, FS, CenterNote, ContextMenu, useContextMenu, ProductCardSkeleton } from '@/components/ui';
+import { C, R, FS, CenterNote, ContextMenu, useContextMenu } from '@/components/ui';
 import { useAuthReady, useSession } from '@/lib/auth-context';
 import { isGuest } from '@/lib/auth-session';
 import { useAppBar } from '@/lib/appbar';
 import { FINDER_RESET_LIMIT } from '@/lib/finder-session';
 import { FinderStatus } from '@/components/FinderStatus';
-import { BottomSheet } from '@/components/BottomSheet';
+import { BottomSheet, SheetTitle } from '@/components/BottomSheet';
 import {
   clearSavedFilters,
   cloneBag,
@@ -41,19 +41,10 @@ type HomeTool = 'filter';
 /** 드래프트 dirty 판정 — 최근·관심·정렬 포함(빠지면 취소해도 회귀 안 됨). */
 const PAGE = 100; // 첫 화면·더보기 단위
 const PAGE_HARD = 500; // 전체 보기 상한(가상스크롤 전 안전장치)
+// SSR 경고 없이 페인트 전 실행 — localStorage 복원처럼 첫 페인트에 맞아야 하는 상태용.
+const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 /** 필터·검색·정렬만 유지. limit(더보기/전체보기)는 절대 저장하지 않음. */
 
-// 하단시트 제목 SSOT — 라벨 + 결과 건수(드래프트 미리보기).
-function SheetTitle({ label, count, unit }: { label: string; count: number; unit: string }) {
-  return (
-    <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 6, minWidth: 0 }}>
-      <span>{label}</span>
-      <span style={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums', fontWeight: FW.head, color: C.brand }}>
-        {count.toLocaleString()}{unit}
-      </span>
-    </span>
-  );
-}
 
 export default function Finder() {
   const [qInput, setQInput] = useState(''); // 검색창 즉시 반영
@@ -82,7 +73,10 @@ export default function Finder() {
   const [filterOpen, setFilterOpenState] = useState(true); // 웹 사이드바 필터 표시
   const setFilterOpen = (v: boolean) => {
     setFilterOpenState(v);
-    if (typeof window !== 'undefined') localStorage.setItem('fp4_finder_filter', v ? '1' : '0');
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('fp4_finder_filter', v ? '1' : '0');
+      document.documentElement.dataset.fpFilter = v ? '1' : '0'; // 페인트 전 CSS(html[data-fp-filter])와 동기 — 새로고침 잔상 방지
+    }
   };
   const [colFilter, setColFilter] = useState<Record<string, Set<string>>>({}); // 엑셀 헤더 필터(사이드와 분리)
   const [colSort, setColSort] = useState<ColSort>(null);
@@ -169,16 +163,16 @@ export default function Finder() {
     authReady,
     sessionUid: session?.uid,
   });
-  const [viewPending, startViewTransition] = useTransition();
   // 보기모드 = 새로고침해도 유지(localStorage). 서버·최초렌더는 'card' → effect에서 복원(하이드레이션 mismatch 방지).
+  // 선택(하이라이트)은 즉시(urgent), 무거운 목록 렌더만 useDeferredValue로 뒤로 → 토글 딱 반응, 논블로킹.
   const setView = (v: string) => {
-    startViewTransition(() => {
-      setViewState(v);
-      if (typeof window !== 'undefined') localStorage.setItem('fp4_finder_view', v);
-    });
+    setViewState(v);
+    if (typeof window !== 'undefined') localStorage.setItem('fp4_finder_view', v);
   };
-  // 엑셀보기 = 넓은 화면 전용 배열. 모바일은 카드만(뷰·다운로드 미제공).
+  const deferredView = useDeferredValue(view);
+  // effView = 툴바 하이라이트용(즉시) · renderView = 목록·데이터용(지연). 모바일은 카드만(뷰·다운로드 미제공).
   const effView = mobile ? 'card' : view;
+  const renderView = mobile ? 'card' : deferredView;
 
   // 필터·정렬 복원(세션). 상세 다녀오면 limit만 PAGE(필터 유지).
   useEffect(() => {
@@ -244,8 +238,8 @@ export default function Finder() {
     return () => clearTimeout(t);
   }, [qInput]);
 
-  // 보기 설정 복원은 데이터 로드와 독립적이다.
-  useEffect(() => {
+  // 보기 설정 복원 = 페인트 전(layout effect) → 새로고침 시 저장된 뷰·필터상태 그대로, "기본값(엑셀·필터열림)" 깜빡임 없음.
+  useIsoLayoutEffect(() => {
     const v = typeof window !== 'undefined' ? localStorage.getItem('fp4_finder_view') : null; if (v) setViewState(v);
     const f = typeof window !== 'undefined' ? localStorage.getItem('fp4_finder_filter') : null;
     if (f === '0') setFilterOpenState(false);
@@ -299,47 +293,38 @@ export default function Finder() {
     columnSort: colSort,
   });
 
+  // 상단바 카운트 = 지금 보는 뷰 기준(엑셀=헤더필터 반영 excelRows / 그 외=list) → 화면·푸터와 일치.
+  const headlineCount = renderView === 'excel' ? excelRows.length : list.length;
   // 상단바 상태창 = PageStatus SSOT (웹·모바일 동일)
   useAppBar({
-    title: <FinderStatus count={list.length} />,
-  }, [list.length]);
+    title: <FinderStatus count={headlineCount} />,
+  }, [headlineCount]);
 
   // 기간 필터 1개만 = 카드 앵커 가격. 복수/전체 = 최저가.
   const focusMonth = periods.size === 1 ? [...periods][0] : undefined;
 
   // 필터·정렬·관심탭 바뀌면 더보기 리셋
-  useEffect(() => { setLimit(PAGE); }, [q, periods, rent, dep, mile, fuel, ptype, credit, perks, promo, dyn, vehicle, sort, colFilter, colSort, interestTab, models, interestFlt]);
+  // interestTab(레일 뷰어 토글)은 목록 필터가 아님(list는 interestFlt로 필터) → 리셋 deps에서 제외(레일 열 때 페이지네이션 초기화 방지).
+  useEffect(() => { setLimit(PAGE); }, [q, periods, rent, dep, mile, fuel, ptype, credit, perks, promo, dyn, vehicle, sort, colFilter, colSort, models, interestFlt]);
 
-  // 본문/엑셀시트 세로막대 폭 → 툴바·관심바 오른쪽 패딩(--fp-pane-sb). 헤더·본문 끝선 맞춤.
+  // 툴바·관심바 오른쪽 패딩(--fp-pane-sb) = 세로막대 폭. 카드·엑셀 둘 다 scrollbar-gutter:stable이라
+  // 막대 폭은 OS 상수 → 뷰마다 재측정하면 값이 순간 튀어 버튼이 꿀렁임. 1회 측정 + resize만.
   useEffect(() => {
     const main = finderMainRef.current;
-    const body = finderBodyRef.current;
-    if (!main || !body) return;
+    if (!main) return;
     const apply = () => {
-      if (mobile) {
-        main.style.setProperty('--fp-pane-sb', '0px');
-        return;
-      }
-      // 엑셀 = 시트 스크롤 · 카드/리스트 = 본문 스크롤
-      const port = (effView === 'excel'
-        ? body.querySelector('.fp-excel-sheet')
-        : body) as HTMLElement | null;
-      if (!port) {
-        main.style.setProperty('--fp-pane-sb', '0px');
-        return;
-      }
-      main.style.setProperty('--fp-pane-sb', `${Math.max(0, port.offsetWidth - port.clientWidth)}px`);
+      if (mobile) { main.style.setProperty('--fp-pane-sb', '0px'); return; }
+      const probe = document.createElement('div');
+      probe.style.cssText = 'overflow-y:scroll;position:absolute;top:-9999px;width:60px;height:60px;visibility:hidden;';
+      document.body.appendChild(probe);
+      const sb = probe.offsetWidth - probe.clientWidth;
+      document.body.removeChild(probe);
+      main.style.setProperty('--fp-pane-sb', `${Math.max(0, sb)}px`);
     };
     apply();
-    requestAnimationFrame(apply);
-    const ro = new ResizeObserver(() => { apply(); requestAnimationFrame(apply); });
-    ro.observe(body);
-    const sheet = body.querySelector('.fp-excel-sheet');
-    if (sheet) ro.observe(sheet);
-    return () => ro.disconnect();
-  }, [effView, mobile, list.length, filterOpen, limit, months.length, excelRows.length]);
-
-  if (!rows) return <ProductCardSkeleton dense count={8} />;
+    window.addEventListener('resize', apply);
+    return () => window.removeEventListener('resize', apply);
+  }, [mobile]);
 
   const v: FilterBag = filterDraft ?? {
     periods, rent, dep, mile, fuel, ptype, credit, perks, promo, dyn, vehicle, models, sort, interest: interestFlt,
@@ -361,11 +346,6 @@ export default function Finder() {
     ? activeCount({ q: '', periods: v.periods, rent: v.rent, dep: v.dep, mile: v.mile, fuel: v.fuel, ptype: v.ptype, credit: v.credit, perks: v.perks, promo: v.promo, dyn: v.dyn, vehicle: v.vehicle }) + v.models.size + v.interest.size + (v.sort ? 1 : 0) + colFilterN
     : activeCount(s) + models.size + colFilterN;
 
-  const toggleDyn = (key: string, val: string) => bump((b) => {
-    const cur = new Set(b.dyn[key] || []);
-    cur.has(val) ? cur.delete(val) : cur.add(val);
-    return { ...b, dyn: { ...b.dyn, [key]: cur } };
-  });
   const reset = () => {
     // 사이드 초기화 = 엑셀 헤더 필터·정렬도 전부 해제
     setColFilter({});
@@ -380,10 +360,10 @@ export default function Finder() {
   };
   const filterBadge = activeCount(s) + models.size + interestFlt.size + (sort ? 1 : 0) + colFilterN;
   // 더보기 = 지금 보고 있는 목록 기준(엑셀=헤더필터·정렬 반영분). 100개 미만이면 버튼 없음.
-  const activeList = effView === 'excel' ? excelRows : list;
-  const shown = activeList.slice(0, limit);
+  const activeList = renderView === 'excel' ? excelRows : list;
+  const shown = useMemo(() => activeList.slice(0, limit), [activeList, limit]);
   const moreN = Math.max(0, activeList.length - shown.length);
-  const go = (p: EntityRecord) => router.push(`/m/${encodeURIComponent(String(p.product_code))}`);
+  const go = (p: EntityRecord) => router.push(`/m/${encodeURIComponent(String(p.product_code || p._key))}`);
   const productCtxItems = (p: EntityRecord) => buildProductContextItems(p, router.push);
   const onProductCtx = (e: MouseEvent, p: EntityRecord) => {
     if (mobile) return;
@@ -412,7 +392,7 @@ export default function Finder() {
     activeCount: sidebarAc,
     draftOpen: filterDraft != null,
     value: v,
-    rows,
+    rows: rows || [],
     cascadeProducts,
     popularModels: popModels,
     present,
@@ -450,7 +430,7 @@ export default function Finder() {
           filterOpen={filterOpen}
           onToggleFilter={() => setFilterOpen(!filterOpen)}
           sidebarActiveCount={sidebarAc}
-          resultCount={list.length}
+          resultCount={headlineCount}
           sort={sort}
           onSort={setSort}
           view={effView}
@@ -482,7 +462,7 @@ export default function Finder() {
             shown={shown}
             excelRows={excelRows}
             months={months}
-            view={effView}
+            view={renderView}
             mobile={mobile}
             focusMonth={focusMonth}
             filterOpen={filterOpen}
@@ -498,7 +478,6 @@ export default function Finder() {
             setOpenCol={setOpenCol}
             moreCount={moreN}
             onMore={() => setLimit((current) => current + PAGE)}
-            pending={viewPending}
             onShowAll={() => {
               if (activeList.length > PAGE_HARD) {
                 setLimit(PAGE_HARD);

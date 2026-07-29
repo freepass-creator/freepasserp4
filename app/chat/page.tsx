@@ -107,18 +107,23 @@ export default function Chat() {
     setRooms(sortByRecent(mine)); // ← 즉시 페인트
     void (async () => {
       try {
+        // 차명 조인은 원본(listRaw) 기준 — 판매용 목록은 중복정리·제외로 예전 문의 차를 놓친다(= 전부 "삭제된 차량").
+        const store = getStore();
         const [cts, prods, del, partners] = await Promise.all([
-          getStore().list('contract', co),
-          getStore().list('product', co),
-          getStore().listDeleted('product', co).catch(() => []),
-          getStore().list('partner', co).catch(() => []),
+          store.list('contract', co),
+          typeof store.listRaw === 'function' ? store.listRaw('product', co) : store.list('product', co),
+          store.listDeleted('product', co).catch(() => []),
+          store.list('partner', co).catch(() => []),
         ]);
         setContracts(cts);
         setProducts(withProviderNames(prods, partners));
         setDeletedProducts(del);
         const withUnread = await roomsWithUnread(mine, r);
         setRooms(sortByRecent(withUnread));
-      } catch { /* 보강 실패해도 1차 목록 유지 */ }
+      } catch (e) {
+        // 무음 실패 금지 — 여기서 죽으면 방의 차명이 전부 코드/번호 폴백으로 남아 "차량 조회불가"처럼 보인다.
+        console.error('[chat] 카탈로그 보강 실패(상품·계약·파트너 로드):', e);
+      }
     })();
     return sortByRecent(mine);
   };

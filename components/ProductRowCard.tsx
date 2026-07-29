@@ -66,7 +66,7 @@ function PerkPeriodRow({ p }: { p: EntityRecord }) {
 }
 
 function WebRow({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) {
-  const href = `/m/${encodeURIComponent(String(p.product_code))}`;
+  const href = `/m/${encodeURIComponent(String(p.product_code || p._key))}`;
   return (
     <Link href={href} onClick={() => haptic.nav()} className="fp-card" style={{
       display: 'flex', gap: 14, alignItems: 'stretch',
@@ -113,7 +113,7 @@ function WebRow({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) {
  * 출고·상품·심사·연료·주행·옵션 = /m.
  */
 function MobileRow({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) {
-  const href = `/m/${encodeURIComponent(String(p.product_code))}`;
+  const href = `/m/${encodeURIComponent(String(p.product_code || p._key))}`;
   return (
     <Link href={href} onClick={() => haptic.nav()} className="fp-card fp-card-row" style={{
       display: 'flex', gap: 12, alignItems: 'stretch',

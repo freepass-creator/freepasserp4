@@ -8,6 +8,7 @@ import {
 } from '@/lib/domain/product-filters';
 import { toggleInSet } from '@/lib/set';
 import { VehicleMasterFilter } from '@/components/VehicleMasterFilter';
+import { FINDER_SORTS } from './filter-state';
 import {
   Badge, Btn, C, CountPill, FilterGroup, FS, FW, Select, ToggleChips, ctrlH,
 } from '@/components/ui';
@@ -110,12 +111,7 @@ export function FinderFilterPanel({ model }: { model: FinderFilterPanelModel }) 
                 <Select
                   full value={value.sort || ''} onChange={(key) => update({ sort: key })}
                   placeholder="기본"
-                  options={[
-                    { value: 'asc', label: '대여료 낮은순' }, { value: 'desc', label: '대여료 높은순' },
-                    { value: 'dep_asc', label: '보증금 낮은순' }, { value: 'dep_desc', label: '보증금 높은순' },
-                    { value: 'mile_asc', label: '주행 짧은순' }, { value: 'mile_desc', label: '주행 많은순' },
-                    { value: 'new', label: '연식 최신순' }, { value: 'old', label: '연식 오래된순' },
-                  ]}
+                  options={FINDER_SORTS}
                 />
               </div>
             </FilterGroup>

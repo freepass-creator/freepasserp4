@@ -306,6 +306,9 @@ button, input, select, textarea { font-family: inherit; }
 /* 웹 필터 접기 — 목록 풀폭. 모바일 시트(is-open)와 무관. */
 .fp-finder.is-nofilter { grid-template-columns: 1fr; }
 .fp-finder.is-nofilter > .fp-sidebar { display: none; }
+/* 페인트 전 필터접힘 — 부트스크립트가 localStorage 기준 data-fp-filter='0' 세팅 → 하이드레이션 전 "필터 열림" 잔상 차단. is-nofilter와 동일 효과. */
+html[data-fp-filter="0"] .fp-finder { grid-template-columns: 1fr; }
+html[data-fp-filter="0"] .fp-finder > .fp-sidebar { display: none; }
 /* subgrid = 좌·우 1행(헤더) 높이를 하나로. 어긋남 원천 차단. */
 .fp-sidebar,
 .fp-finder-main {
@@ -730,6 +733,9 @@ button, input, select, textarea { font-family: inherit; }
 /* 전역 탭 하이라이트 억제 — 모바일 기본 파란 플래시 제거(버튼·링크·터치 행). */
 button, a, [role="button"], .fp-press, .fp-chip {
   -webkit-tap-highlight-color: transparent;
+  /* 더블탭-줌·300ms 탭지연 제거 → 탭이 페이지 팬/줌 제스처로 안 새고 버튼만 즉각 눌림.
+     manipulation = 일반 스크롤·핀치줌은 유지(접근성). 연타 토글(간단/상세/엑셀) 줌 유발 차단. */
+  touch-action: manipulation;
 }
 /* 목록 지브라 — 짝수 행에 옅은 배경 틴트(행 경계·스캔성). selected 인라인이 덮고, accent 좌측 바는 유지. */
 .fp-card.fp-card-row:nth-child(even) {

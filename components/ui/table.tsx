@@ -45,7 +45,7 @@ const EXCEL_PAD_Y = 5;
 const EXCEL_PAD_X = 6;
 /** filter(사이드 열림) — 칸 좌우 패딩만 양보(글자수·항목 구성은 유지). */
 const EXCEL_PAD_X_FILTER = 4;
-const EXCEL_ROW_H = EXCEL_PAD_Y * 2 + EXCEL_BODY_H; // 55
+export const EXCEL_ROW_H = EXCEL_PAD_Y * 2 + EXCEL_BODY_H; // 55
 
 export type ExcelColMode = 'filter' | 'full';
 export function excelPadX(mode: ExcelColMode = 'full'): number {

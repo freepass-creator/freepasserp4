@@ -4,18 +4,8 @@ import { Download, LayoutGrid, List, SlidersHorizontal, Table } from 'lucide-rea
 import type { EntityRecord } from '@/lib/intake/entities';
 import { downloadProductsExcel } from '@/lib/excel-export';
 import { InterestTriggers, type InterestTab } from '@/components/InterestRail';
-import { C, FS, CountPill, IconBtn, IconSeg, SearchInput, Select } from '@/components/ui';
-
-const SORTS = [
-  { k: 'asc', label: '대여료 낮은순' },
-  { k: 'desc', label: '대여료 높은순' },
-  { k: 'dep_asc', label: '보증금 낮은순' },
-  { k: 'dep_desc', label: '보증금 높은순' },
-  { k: 'mile_asc', label: '주행 짧은순' },
-  { k: 'mile_desc', label: '주행 많은순' },
-  { k: 'new', label: '연식 최신순' },
-  { k: 'old', label: '연식 오래된순' },
-];
+import { C, FS, NUM, CountPill, IconBtn, IconSeg, SearchInput, Select } from '@/components/ui';
+import { FINDER_SORTS } from './filter-state';
 
 const VIEWS = [
   { key: 'card', label: '간단', Icon: LayoutGrid },
@@ -78,20 +68,21 @@ export function FinderToolbar(props: Props) {
   return (
     <div className="fp-finder-toolbar">
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', minWidth: 0, flexWrap: 'nowrap' }}>
-        <span style={{ fontSize: FS.sub, color: C.mute, whiteSpace: 'nowrap' }}>
-          상품 <b style={{ color: C.ink }}>{props.resultCount.toLocaleString()}</b>대
+        <span style={{ fontSize: FS.sub, color: C.mute, whiteSpace: 'nowrap', flex: '0 0 auto' }}>
+          상품 <b style={{ color: C.ink, fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{props.resultCount.toLocaleString()}</b>대
         </span>
-        <Select value={props.sort} onChange={props.onSort} placeholder="정렬" width={118} options={SORTS.map((item) => ({ value: item.k, label: item.label }))} />
+        <Select value={props.sort} onChange={props.onSort} placeholder="정렬" width={118} options={FINDER_SORTS} />
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '1 1 0', minWidth: 0, maxWidth: 360 }}>
           {search}
           <InterestTriggers recentN={props.recentCount} favN={props.favoriteCount} tab={props.interestTab} onTab={props.onInterestTab} />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto', flex: '0 0 auto' }}>
-          {props.view === 'excel' && (
-            <IconBtn title="엑셀 다운로드" onClick={() => downloadProductsExcel(props.excelRows, new Date().toISOString().slice(0, 10))}>
+          {/* 다운로드 자리 상시 예약 — 뷰 전환 시 우측 그룹 폭이 변해 검색창이 점프하는 것 방지. */}
+          <span style={{ display: 'inline-flex', visibility: props.view === 'excel' ? undefined : 'hidden' }} aria-hidden={props.view !== 'excel'}>
+            <IconBtn title="엑셀 다운로드" onClick={() => { if (props.view === 'excel') downloadProductsExcel(props.excelRows, new Date().toISOString().slice(0, 10)); }}>
               <Download size={16} />
             </IconBtn>
-          )}
+          </span>
           <span style={{ position: 'relative', display: 'inline-flex', flex: '0 0 auto' }}>
             <IconBtn
               title={props.filterOpen ? '필터 숨기기' : (props.sidebarActiveCount ? `조건 ${props.sidebarActiveCount}개 · 필터 보기` : '필터 보기')}

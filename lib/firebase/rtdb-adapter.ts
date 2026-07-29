@@ -437,6 +437,17 @@ export class RtdbAdapter implements StoreAdapter {
     return [...map.values()].filter((r) => !r._deleted && !r.deletedAt);
   }
 
+  /**
+   * 참조 조회용 원본 — erp3(v3) ∪ erp4(v4) 병합 그대로. 판매용 가공(중복정리·금강제외·status) 없음.
+   * 문의·계약이 가리키는 차는 출고불가·중복정리된 쌍둥이여도 "살아있는 차"로 찾아져야 한다.
+   * 삭제 톰스톤만 제외(그건 listDeleted 담당). 원가 노출 규칙은 list와 동일하게 유지.
+   */
+  async listRaw(entity: string, co: string): Promise<EntityRecord[]> {
+    const rows = (await this.merged(entity, co)).filter((r) => !r._deleted && !r.deletedAt);
+    if (entity !== 'product') return rows;
+    return rows.map((r) => (canSeeProductCost(r) ? r : stripProductCost(r)));
+  }
+
   async listDeleted(entity: string, co: string): Promise<EntityRecord[]> {
     return (await this.merged(entity, co)).filter((r) => r._deleted || r.deletedAt);
   }
