@@ -21,3 +21,5 @@ npm-debug.log*
 /partners.json
 /hn.json
 /*-rtdb-*.json
+
+tmp/
