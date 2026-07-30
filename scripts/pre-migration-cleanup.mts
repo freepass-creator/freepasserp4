@@ -159,6 +159,24 @@ const manual: string[] = [];
   }
 }
 
+// ── ③-2 소속 없는 활성 영업자 → SP999(개인 영업자) 부여 ────────────────
+//  소속이 비면 그 사람이 만든 방·계약이 규칙의 소유필드(agent_channel_code)를 못 채워
+//  이관 후 쓰기가 영구 거부된다. SP999가 정확히 이 경우를 위한 채널이다.
+{
+  let n = 0;
+  for (const [k, u] of Object.entries(db.users || {}) as [string, Rec][]) {
+    if (!isObj(u) || u._deleted === true || S(u.status) === 'deleted') continue;
+    if (!S(u.role).startsWith('agent')) continue;
+    if (S(u.agent_channel_code) || S(u.company_code)) continue;
+    patch[`users/${k}/agent_channel_code`] = 'SP999';
+    patch[`users/${k}/updated_at`] = Date.now();
+    n++;
+    plan.push(`소속 없는 활성 영업자 '${S(u.name) || S(u.email) || k.slice(0, 10)}' → 채널 SP999 부여 (${k})`);
+    if (!S(u.user_code)) warn.push(`  ⚠ 위 계정은 user_code도 없다 — 정산 스코프(agent_code 쿼리)에 잡히지 않는다. 코드 부여 필요`);
+  }
+  if (n) warn.push(`  ℹ 소속 없는 활성 영업자 ${n}명에게 SP999 부여 — 이들이 만든 방·계약이 이관 후 쓰기 거부되는 것을 막는다`);
+}
+
 // ── ④ 만료 전자서명 삭제 (평문 PII) ────────────────────────────────────
 {
   const t = Date.now();

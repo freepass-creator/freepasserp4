@@ -90,6 +90,44 @@ const vehicleNameOf = (r: Rec): string =>
   }
 }
 
+// ── 회원 인덱스 — 소유필드 백필용 ─────────────────────────────────────
+//  v4/rooms·contracts 규칙(.validate)이 소유 3필드를 요구한다. 결손이면 이관 후 그 레코드에
+//  **쓰기가 영구 거부**된다(읽기만 됨). 회원 소속에서 채울 수 있는 건 여기서 채운다.
+const userByUid = new Map<string, Rec>();
+const userByCode = new Map<string, Rec>();
+for (const [k, u] of entries('users')) {
+  // childKey가 곧 Auth uid다. 레코드에 uid 필드가 없는 건도 있어 명시적으로 실어둔다.
+  const withUid = { ...u, _uid: S(u.uid) || k };
+  userByUid.set(k, withUid);
+  const c = S(u.user_code); if (c) userByCode.set(c, withUid);
+}
+/**
+ * 방의 영업 측 당사자를 메시지 발신자에서 복원.
+ * 관리자↔공급사 방은 영업자가 애초에 없다 — 그 경우 관리자를 영업 측 당사자로 본다
+ * (erp3도 관리자에게 채널 'admin'/'MASTER'를 부여한다). 이러면 규칙의 소유 3필드를 채울 수 있어
+ * 이관 후에도 그 방에 쓰기(마지막 메시지 갱신 등)가 가능하다.
+ */
+function agentFromMessages(roomKey: string): Rec | undefined {
+  const bucket = (db.messages || {})[roomKey];
+  if (!isObj(bucket)) return undefined;
+  const senders = [...new Set(Object.values(bucket)
+    .filter(isObj).map((m) => S(m.sender_uid)).filter(Boolean))];
+  // 공급사가 아닌 발신자 = 영업 측(영업자 우선, 없으면 관리자)
+  const cands = senders.map((uid) => userByUid.get(uid)).filter(Boolean) as Rec[];
+  return cands.find((u) => S(u.role).startsWith('agent')) || cands.find((u) => S(u.role) === 'admin');
+}
+
+/** 소유필드 보정 — 원본 값이 있으면 그대로, 없으면 회원 소속·메시지 발신자·파트너코드에서 승계. */
+function fillOwner(r: Rec, roomKey?: string): { agent_uid: string; agent_channel_code: string; provider_company_code: string } {
+  let u = userByUid.get(S(r.agent_uid)) || userByCode.get(S(r.agent_code));
+  if (!u && roomKey) u = agentFromMessages(roomKey);
+  return {
+    agent_uid: S(r.agent_uid) || S(u?._uid) || '',
+    agent_channel_code: S(r.agent_channel_code) || S(u?.agent_channel_code) || S(u?.company_code),
+    provider_company_code: S(r.provider_company_code) || S(r.partner_code),
+  };
+}
+
 // ── 매물 인덱스 (이관은 안 하지만 차명·차번 굳히기에 참조) ──────────────
 const productByKey = new Map<string, Rec>();
 for (const [k, p] of entries('products')) {
@@ -139,9 +177,12 @@ for (const [k, r] of entries('rooms')) {
   if (!isAdmin && !car && !name) {
     skip('rooms', k, '차량 식별정보 없음 — 목록에 빈 줄로 뜬다', `product_uid=${S(r.product_uid)}`);
   }
-  // 규칙(v4/rooms/$id .validate)이 소유 3필드를 요구한다. 없으면 이관 후 그 방에 쓰기가 영구 거부된다.
-  const need = ['agent_uid', 'agent_channel_code', 'provider_company_code'].filter((f) => !S(r[f]));
-  if (need.length && !isAdmin) skip('rooms', k, `소유필드 결손(${need.join(',')}) — 이관 후 쓰기 거부됨`, '보정 필요');
+  const owner = fillOwner(r, k);
+  // 규칙(v4/rooms/$id .validate)이 소유 3필드를 요구한다. 보정 후에도 비면 쓰기가 영구 거부된다.
+  // 보정 결과(owner) 기준으로 판정한다 — 원본이 비어도 회원·메시지에서 채웠으면 통과.
+  const need = ['agent_uid', 'agent_channel_code', 'provider_company_code']
+    .filter((f) => !S((owner as Rec)[f]));
+  if (need.length && !isAdmin) skip('rooms', k, `소유필드 결손(${need.join(',')}) — 이관 후 쓰기 거부(읽기만 가능)`, '원본·회원 어디에도 값 없음');
   roomAlive.add(k);
   v4rooms[k] = {
     ...r, _key: k, room_code: S(r.room_code) || k,
@@ -149,6 +190,7 @@ for (const [k, r] of entries('rooms')) {
     car_number: car,
     vehicle_name: name,
     product_code: S(r.product_code) || S(src.product_code) || S(r.product_uid),
+    ...owner,
   };
 }
 
@@ -179,6 +221,7 @@ for (const [k, c] of entries('contracts')) {
   const src = lookupProduct(c) || {};
   const rec = {
     ...c, _key: code, contract_code: code,
+    ...fillOwner(c),
     // 계약 다수가 삭제 매물을 가리킨다 → 스냅샷을 굳혀 조인 의존을 끊는다.
     car_number_snapshot: S(c.car_number_snapshot) || S(src.car_number),
     vehicle_name_snapshot: S(c.vehicle_name_snapshot)
