@@ -40,10 +40,21 @@ const NODE: Record<string, string> = {
   customer: 'customers', // ← 누락 시 단수 'customer' 경로로 새어 v4/$other(오픈) 규칙에 걸림. 복수 노드로 강제.
 };
 const OVERLAY = 'v4'; // 쓰기 격리 루트
-// v3 라이브에서 당겨오는 엔티티 = 매물·회원·채팅·계약·감사(+매물 표시에 필요한 정책·공급사).
-//  정산은 v4 네이티브(오버레이만). 업무 데이터 쓰기는 v4/ 오버레이(v3 라이브 무변경)이며
-//  감사만 기존 운영 Rules와 관리자 화면이 공유하는 루트 audit_logs를 유지한다.
-const BRIDGE_FROM_V3 = new Set(['product', 'policy', 'partner', 'user', 'room', 'message', 'contract', 'audit_log']);
+/**
+ * v3 라이브에서 당겨오는 엔티티 — erp3 절연 전환의 스위치(MIGRATION_PLAN.md 8단계).
+ *  · 기본값 = 기존 8종(전환 전 동작 그대로)
+ *  · `NEXT_PUBLIC_BRIDGE_V3=''`(빈값) → v4 단독. 이관 완료 후 이 한 줄로 끄고, 문제 시 되돌린다(롤백 1분)
+ *  · 쉼표 구분으로 일부만 남길 수도 있다(단계적 축소)
+ * 주의: 여기를 비우기 전에 v4로 이관이 끝나 있어야 한다. 데이터 없이 끄면 화면이 빈다.
+ */
+const BRIDGE_DEFAULT = 'product,policy,partner,user,room,message,contract,audit_log';
+const BRIDGE_ENV = process.env.NEXT_PUBLIC_BRIDGE_V3;
+const BRIDGE_FROM_V3 = new Set(
+  (BRIDGE_ENV === undefined ? BRIDGE_DEFAULT : BRIDGE_ENV)
+    .split(',').map((s) => s.trim()).filter(Boolean),
+);
+/** 진단·검증용 — /diag에서 현재 브리지 상태를 눈으로 확인한다. */
+export function bridgedEntities(): string[] { return [...BRIDGE_FROM_V3]; }
 
 // 카슝(구독차량 연동)만 카탈로그서 제외 — 연동 끊겨 현재 0대. 빌린카(RP021 자체매물)는 포함(erp3도 포함).
 //  ※ 과거엔 RP021(빌린카)까지 묶어 뺐으나 오분류였음 — 빌린카는 정상 공급사(자체매물). 카슝=PT-0024.
@@ -336,8 +347,17 @@ export class RtdbAdapter implements StoreAdapter {
       //  partnersForNames는 내부에서 .catch(() => []) 처리 → 아래 흐름이 먼저 throw해도 미처리 reject 없음.
       const partnersP = entity === 'product' ? this.partnersForNames(co) : undefined;
       let joinMap: Rec | undefined;
-      if (entity === 'product') joinMap = (await get(ref(this.db(), 'policies'))).val() || {};
-      else if (entity === 'settlement') {
+      if (entity === 'product') {
+        // 정책 조인 — 브리지 설정을 따른다. 예전엔 루트 'policies'를 무조건 읽어 절연 후에도 v3 의존이 남았다.
+        //  브리지 ON = v3 ∪ v4(오버레이 우선) · OFF = v4 단독.
+        const [livePol, overPol] = await Promise.all([
+          BRIDGE_FROM_V3.has('policy')
+            ? get(ref(this.db(), 'policies')).then((s) => (s.val() || {}) as Rec).catch(() => ({} as Rec))
+            : Promise.resolve({} as Rec),
+          get(ref(this.db(), `${OVERLAY}/policies`)).then((s) => (s.val() || {}) as Rec).catch(() => ({} as Rec)),
+        ]);
+        joinMap = { ...livePol, ...overPol };
+      } else if (entity === 'settlement') {
         // 계약 규칙은 역할별 쿼리 스코프를 요구한다. 전체 get은 비관리자에서 거부되므로
         // 같은 역할 스코프 계약 목록으로 contract_date 조인 맵을 만든다.
         const contracts = await this.merged('contract', co);
@@ -352,8 +372,10 @@ export class RtdbAdapter implements StoreAdapter {
       const bridge = BRIDGE_FROM_V3.has(entity);
 
       // message = 방 목록 먼저 → roomId별 messages/$id (rules 스코프)
+      //  ★ bridge 조건을 걸면 안 된다 — v4 오버레이 메시지 조회도 roomIds를 순회하므로(readMessages),
+      //    브리지를 끄는 순간 roomIds=[]가 되어 v4 메시지까지 0건이 된다(대화 전량 소실).
       let roomIds: string[] = [];
-      if (entity === 'message' && bridge) {
+      if (entity === 'message') {
         const rooms = await this.merged('room', co);
         roomIds = rooms.map((r) => String(r._key)).filter(Boolean);
       }
@@ -608,13 +630,14 @@ export class RtdbAdapter implements StoreAdapter {
     await this.update(entity, co, key, { _deleted: false, deletedAt: null });
   }
 
-  // 전 write 감사 — 운영 Rules가 actor_uid 본인 쓰기를 허용하는 루트 audit_logs.
+  // 전 write 감사 — 쓰기는 v4 오버레이로(절연). 읽기는 브리지가 켜져 있는 동안 v3 ∪ v4로 합쳐 보인다.
+  //  예전엔 루트 audit_logs에 계속 쌓아 "erp3 노드에 쓰지 않는다" 원칙을 위반했다.
   // audit_log 자기제외. 메시지도 기록(채팅 관장).
   private writeAuditRec(entry: EntityRecord | null): void {
     if (!entry) return;
     try {
       const id = String(entry._key);
-      void dbUpdate(ref(this.db(), `audit_logs/${id}`), stripUndef(entry as Rec)).catch(() => {});
+      void dbUpdate(ref(this.db(), `${OVERLAY}/audit_logs/${id}`), stripUndef(entry as Rec)).catch(() => {});
     } catch { /* best-effort */ }
   }
   private writeAudit(entity: string, co: string, key: string, action: string, before: EntityRecord | null, after: EntityRecord | null): void {

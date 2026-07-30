@@ -144,3 +144,24 @@ if (failed.length) {
   process.exit(1);
 }
 console.log('전 케이스 통과 — 게시 가능');
+
+// ── 2단계 코드 변경이 요구하는 규칙 (감사 v4 이전) ──
+console.log('\n── 감사로그 v4 이전 ──');
+check('A1 본인 actor_uid 감사 기록',
+  (await db(`v4/audit_logs/AL-${Date.now()}`, {
+    method: 'PUT', token: agent.token,
+    body: { actor_uid: agent.uid, action: 'update', collection: 'product', ts: Date.now() },
+  })).status, 200, '규칙 없으면 v4/$other(write:false)에 막힌다');
+check('A2 타인 사칭 감사 기록',
+  (await db(`v4/audit_logs/AL-fake-${Date.now()}`, {
+    method: 'PUT', token: agent.token,
+    body: { actor_uid: admin.uid, action: 'update', collection: 'product', ts: Date.now() },
+  })).status, 401);
+check('A3 감사 읽기 — admin',
+  (await db('v4/audit_logs', { token: admin.token })).status, 200);
+check('A4 감사 읽기 — 영업자',
+  (await db('v4/audit_logs', { token: agent.token })).status, 401);
+
+const failed2 = results.filter((r) => !r.ok);
+console.log(`\n최종 ${results.length - failed2.length}/${results.length} PASS`);
+if (failed2.length) process.exit(1);

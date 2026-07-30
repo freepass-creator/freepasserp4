@@ -585,6 +585,17 @@
       "$other": {
         ".read": false,
         ".write": false
+      },
+      "audit_logs": {
+        ".read": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'",
+        ".indexOn": [
+          "ts",
+          "actor_uid",
+          "collection"
+        ],
+        "$auto": {
+          ".write": "auth != null && newData.exists() && newData.child('actor_uid').val() === auth.uid"
+        }
       }
     }
   }
