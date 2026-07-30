@@ -232,11 +232,32 @@ class FirestoreAdapter implements StoreAdapter {
 // 저장/수정/삭제 시 해당 엔티티 캐시만 무효화(다음 list에서 신선하게 재조회). 세션 한정(새로고침 시 초기화).
 const _listCache = new Map<string, Promise<EntityRecord[]>>();
 const _listResolved = new Map<string, EntityRecord[]>(); // Promise settle 후 동기 peek용(홈→상세 즉시 페인팅)
+const _listAt = new Map<string, number>();               // 실조회 시각 — LIVE 엔티티 TTL 판정용
 function _invalidate(entityKey: string) {
   for (const k of [..._listCache.keys()]) if (k.startsWith(entityKey + '::')) _listCache.delete(k);
   for (const k of [..._listResolved.keys()]) if (k.startsWith(entityKey + '::')) _listResolved.delete(k);
+  for (const k of [..._listAt.keys()]) if (k.startsWith(entityKey + '::')) _listAt.delete(k);
 }
-export function clearStoreCache() { _listCache.clear(); _listResolved.clear(); }
+export function clearStoreCache() { _listCache.clear(); _listResolved.clear(); _listAt.clear(); }
+
+/**
+ * **상대가 계속 쓰는 엔티티** — 세션 영구 캐시 금지.
+ * 내 조작(save/update)만 캐시를 무효화하므로, 상대가 보낸 새 문의·새 메시지·계약 진행은
+ * 무효화 계기가 없다. 포커스 복귀·fp:unread 로 refreshRooms·refreshBadges 가 다시 물어봐도
+ * 같은 옛 배열이 그대로 돌아와, 새 대화가 세션 내내 목록·뱃지에 안 붙었다(QA CACHE-1/SYNC-1).
+ * TTL이 지나면 다음 list()가 실조회한다. _listResolved 는 지우지 않는다 —
+ * 옛 값으로 즉시 그리고(peekList) 새 값이 도착하면 갈아끼우는 stale-while-revalidate.
+ */
+// message 만 TTL이 긴 이유: roomsWithUnread 의 열람 보정 스캔이 전량 list('message') 라
+//  같은 주기로 두면 폴링마다 메시지 노드를 통째로 다시 받는다(모바일 데이터). 새 메시지 도착
+//  자체는 방 레코드의 unread_for_* 카운터가 들고 오므로, 방(10초)만 빨리 돌면 목록·뱃지는 따라온다.
+//  열린 대화방 본문은 listMessagesForRoom(캐시 없음·5초 폴링)이 따로 최신을 유지한다.
+const LIVE_TTL_MS: Record<string, number> = { room: 10_000, contract: 10_000, settlement: 10_000, message: 60_000 };
+function _isStale(ck: string, entityKey: string): boolean {
+  const ttl = LIVE_TTL_MS[entityKey];
+  if (ttl == null) return false;
+  return Date.now() - (_listAt.get(ck) ?? 0) > ttl;
+}
 
 /** list 캐시 부분 패치 — update 후 전량 무효화 대신 해당 레코드만 병합. 캐시 없으면 no-op(다음 list가 신선 조회). */
 export function patchListCache(entityKey: string, companyId: string, key: string, patch: EntityRecord): void {
@@ -275,8 +296,10 @@ class DispatchStore implements StoreAdapter {
   }
   async list(entityKey: string, companyId: string) {
     const ck = `${entityKey}::${companyId}`;
+    if (_isStale(ck, entityKey)) _listCache.delete(ck); // resolved 는 남긴다 — 옛 값으로 즉시 그리고 새 값이 오면 교체
     let p = _listCache.get(ck);
     if (!p) {
+      _listAt.set(ck, Date.now());
       p = (this.all(companyId)
         ? Promise.all(COMPANIES.map((c) => this.base.list(entityKey, c))).then((a) => a.flat())
         : this.base.list(entityKey, companyId)

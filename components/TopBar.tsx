@@ -185,12 +185,23 @@ function NavMenu({ mobile, open: openProp, setOpen: setOpenProp }: {
     };
   }, [session]);
   useEffect(() => {
-    const stop = refreshBadges(role);
-    const onFocus = () => refreshBadges(role);
-    const onUnread = () => refreshBadges(role);
-    window.addEventListener('focus', onFocus);
-    window.addEventListener('fp:unread', onUnread);
-    return () => { stop(); window.removeEventListener('focus', onFocus); window.removeEventListener('fp:unread', onUnread); };
+    // 앞선 요청은 취소하고 다시 — 취소자를 버리면 언마운트 뒤 늦은 응답이 setState 한다.
+    let cancel = refreshBadges(role);
+    const run = () => { cancel(); cancel = refreshBadges(role); };
+    // 보이는 동안만 주기 갱신 — 상대가 보낸 새 문의는 이쪽에 알릴 계기가 없다(QA SYNC-1).
+    //  focus 만으로는 모바일에서 앱 전환 복귀가 안 잡혀 visibilitychange 도 같이 듣는다.
+    const tick = () => { if (document.visibilityState === 'visible') run(); };
+    const id = window.setInterval(tick, 30_000);
+    window.addEventListener('focus', run);
+    document.addEventListener('visibilitychange', tick);
+    window.addEventListener('fp:unread', run);
+    return () => {
+      cancel();
+      window.clearInterval(id);
+      window.removeEventListener('focus', run);
+      document.removeEventListener('visibilitychange', tick);
+      window.removeEventListener('fp:unread', run);
+    };
   }, [role, refreshBadges]);
   useEffect(() => {
     if (open) refreshBadges(role);

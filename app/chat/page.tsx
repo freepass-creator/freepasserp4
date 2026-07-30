@@ -222,6 +222,21 @@ export default function Chat() {
     /* eslint-disable-next-line */
   }, []);
 
+  // 상대가 보낸 새 문의·새 메시지는 이쪽에 알릴 계기가 없다 — 화면이 보이는 동안만 주기적으로,
+  //  그리고 앱·탭 복귀 즉시 다시 읽는다. store 의 LIVE TTL(10초)이 실조회를 열어주므로 실제로 새 값이 온다(QA SYNC-1).
+  useEffect(() => {
+    const tick = () => { if (document.visibilityState === 'visible') void refreshRooms(getRole()); };
+    const id = window.setInterval(tick, 20_000);
+    document.addEventListener('visibilitychange', tick);
+    window.addEventListener('focus', tick);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener('visibilitychange', tick);
+      window.removeEventListener('focus', tick);
+    };
+    /* eslint-disable-next-line */
+  }, []);
+
   // 방목록 필터·정렬 — 실제 사용값(rooms·q·flt·sort·role·계약인덱스)이 바뀔 때만 재계산.
   //  contractOf는 contractIndex를 읽으므로 deps에 contractIndex 포함(값 의미는 원본 find와 동일).
   const shownRooms = useMemo(() => filterChatRooms({
