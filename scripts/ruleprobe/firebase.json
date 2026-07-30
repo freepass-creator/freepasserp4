@@ -1,5 +1,5 @@
 {
-  "database": { "rules": "probe2.rules.json" },
+  "database": { "rules": "step1.rules.json" },
   "emulators": {
     "auth": { "port": 9099 },
     "database": { "port": 9000 },
