@@ -3,11 +3,11 @@ import { useEffect, useState, Fragment, type ReactNode } from 'react';
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { type EntityRecord } from '@/lib/intake/entities';
-import { STEPS, contractTone, isDone } from '@/lib/domain/contract';
+import { STEPS, contractTone, isDone, isRejected } from '@/lib/domain/contract';
 import { applyStepCheck, cancelContract, finalizeContractIfReady } from '@/lib/domain/settlement-engine';
 import { createContractRequest, getRole, type Role } from '@/lib/domain/deal';
 import { cheapest, priceList } from '@/lib/domain/product';
-import { Btn, Badge, C, R, NUM, Input, fmtPhone, actorColor, DetailRow, ListGroup, ToggleChips, FW, FS, won } from '@/components/ui';
+import { Btn, Badge, C, R, NUM, ICON, Input, fmtPhone, actorColor, DetailRow, ListGroup, ToggleChips, FW, FS, won } from '@/components/ui';
 import { ContractMemos } from '@/components/ContractMemos';
 import { ContractSign } from '@/components/ContractSign';
 import { confirmDialog, toast } from '@/components/Toaster';
@@ -162,6 +162,14 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
               const done = isDone(cur);
               const mine = (ch.actor === role || role === 'admin') && stepUnlocked;
               const label = <>{actorLabel(ch.actor)}{ch.key === 'agent_delivery_inquiry' ? '출고 문의' : ch.key === 'provider_agreement_done' ? '약정 작성완료' : ch.label}</>;
+              // 완료 표기는 카드 전체에서 한 가지만 쓴다. 예전엔 '문의함 ✓'(초록 텍스트)와
+              //  남색 채움 「완료」 버튼이 섞여, 같은 '끝났음'이 행마다 다른 모습으로 보였다.
+              const doneMark = (
+                <span style={{ color: C.ok, fontWeight: FW.strong, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  완료 <Check size={ICON.sm} aria-hidden />
+                </span>
+              );
+              const waitMark = <span style={{ color: C.faint }}>대기</span>;
 
               if (ch.key === 'agent_delivery_inquiry') {
                 // 계약이 아직 없으면 = 금액·기간이 여기서 동결된다. 기간을 명시적으로 고르게 한다.
@@ -171,12 +179,13 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
                 return (
                   <Fragment key={ch.key}>
                     <DetailRow
+                      control
                       label={label}
                       value={done
-                        ? <span style={{ color: C.ok, fontWeight: FW.strong, display: 'inline-flex', alignItems: 'center', gap: 4 }}>문의함 <Check size={14} aria-hidden /></span>
+                        ? doneMark
                         : mine
                           ? <Btn title="출고 문의하기" size="sm" onClick={doInquiry} disabled={busy || !product}>출고 문의하기</Btn>
-                          : <span style={{ color: C.faint }}>대기</span>}
+                          : waitMark}
                     />
                     {/* 기간 선택 — 계약 생성 전에만. 이 값이 정산·계약서·손님 서명 금액의 기준이 된다. */}
                     {!c && mine && periods.length > 1 ? (
@@ -200,6 +209,7 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
                     {/* 계약 생성 후 = 동결된 값을 보여줘 무엇으로 정산·청구되는지 명확히 */}
                     {c && Number(c.rent_month_snapshot) ? (
                       <DetailRow
+                        control
                         label="동결 금액"
                         value={`${String(c.rent_month_snapshot)}개월 · 월 ${won(Number(c.rent_amount_snapshot) || 0)} · ${Number(c.deposit_amount_snapshot) > 0 ? `보증 ${won(Number(c.deposit_amount_snapshot))}` : '무보증'}`}
                       />
@@ -212,12 +222,9 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
                 return (
                   <Fragment key={ch.key}>
                     <DetailRow
+                      control
                       label={label}
-                      value={done
-                        ? <span style={{ color: C.ok, fontWeight: FW.strong, display: 'inline-flex', alignItems: 'center', gap: 4 }}>완료 <Check size={14} aria-hidden /></span>
-                        : !mine
-                          ? <span style={{ color: C.faint }}>대기</span>
-                          : <></>}
+                      value={done ? doneMark : !mine ? waitMark : <></>}
                     />
                     {!done && mine && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '8px 12px 10px', boxSizing: 'border-box' }}>
@@ -233,7 +240,7 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
                       </div>
                     )}
                     {done && (c?.customer_name || c?.customer_phone) ? (
-                      <DetailRow label="손님" value={[c?.customer_name, c?.customer_phone].filter(Boolean).join(' · ')} />
+                      <DetailRow control label="손님" value={[c?.customer_name, c?.customer_phone].filter(Boolean).join(' · ')} />
                     ) : null}
                   </Fragment>
                 );
@@ -245,12 +252,32 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
                   title={opt}
                   size="sm"
                   full={mobile}
-                  variant={cur === opt ? 'solid' : 'ghost'}
+                  // 거부(출고 불가·부결)가 선택되면 빨강. 예전엔 승인과 똑같은 남색으로 칠해져
+                  //  카드를 훑을 때 '부결'이 '승인'처럼 보였다.
+                  variant={cur === opt ? (isRejected(opt) ? 'danger' : 'solid') : 'ghost'}
                   haptic="select"
                   disabled={!mine || busy}
                   onClick={() => setCheck(ch.key, cur === opt ? '' : opt)}
                 >{mobile ? String(opt).replace(/^출고\s*/, '') : opt}</Btn>
               ));
+
+              // 내 차례가 아니면 선택지를 흐리게 늘어놓지 않는다 — 누를 수 없는 버튼 3개보다
+              //  결과 한 줄이 읽기 쉽고, 행마다 버튼 수가 달라 생기던 우측 들쭉날쭉도 사라진다.
+              if (ch.choices && !mine) {
+                const rejected = isRejected(cur);
+                return (
+                  <DetailRow
+                    key={ch.key}
+                    control
+                    label={label}
+                    value={rejected
+                      ? <span style={{ color: C.danger, fontWeight: FW.strong }}>{String(cur)}</span>
+                      : done
+                        ? <span style={{ color: C.ok, fontWeight: FW.strong, display: 'inline-flex', alignItems: 'center', gap: 4 }}>{String(cur)} <Check size={ICON.sm} aria-hidden /></span>
+                        : waitMark}
+                  />
+                );
+              }
 
               // 모바일 선택지(가능·협의·불가 등) = 라벨 아래 전폭 균등분할.
               //  좁은 폭에서 라벨과 버튼이 한 줄을 다투면 버튼이 오른쪽 끝에 짓눌려 붙고,
@@ -277,17 +304,27 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
               return (
                 <DetailRow
                   key={ch.key}
+                  control
                   label={label}
-                  value={ch.choices ? <>{choiceBtns}</> : (
+                  value={ch.choices ? <>{choiceBtns}</> : done ? (
+                    // 끝난 행은 버튼이 아니라 결과다. 예전엔 남색 채움 「완료」 버튼이라
+                    //  아직 눌러야 하는 「체크」와 생김새만 다르고 역할이 같아 보였다.
+                    mine ? (
+                      <>
+                        {doneMark}
+                        <Btn title="완료 해제" size="sm" variant="ghost" haptic="select" disabled={busy} onClick={() => setCheck(ch.key, '')}>해제</Btn>
+                      </>
+                    ) : doneMark
+                  ) : mine ? (
                     <Btn
-                      title={done ? '완료 해제' : mine ? '체크' : '대기'}
+                      title="완료로 표시"
                       size="sm"
-                      variant={done ? 'solid' : 'ghost'}
+                      variant="ghost"
                       haptic="select"
-                      disabled={!mine || busy}
-                      onClick={() => setCheck(ch.key, done ? '' : 'yes')}
-                    >{done ? '완료' : mine ? '체크' : '대기'}</Btn>
-                  )}
+                      disabled={busy}
+                      onClick={() => setCheck(ch.key, 'yes')}
+                    >완료 표시</Btn>
+                  ) : waitMark}
                 />
               );
             })}

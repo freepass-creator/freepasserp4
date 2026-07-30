@@ -97,6 +97,17 @@ export function ctrlH(mobile: boolean, size: CtrlSize = 'md'): number {
   return mobile ? CTRL[size].mobile : CTRL[size].web;
 }
 
+/**
+ * 컨트롤이 들어가는 행의 세로 패딩 SSOT.
+ * 모바일은 CTRL.md=CTRL.sm=36 이라 행 높이(ctrlH)와 버튼 높이가 같아진다 —
+ * 세로 패딩이 없으면 버튼 테두리가 행 구분선에 0px로 맞닿아 "표 안에 끼인" 것처럼 보인다.
+ * 웹은 행 32 vs 버튼 28 이라 이미 상하 2px가 남으므로 0(현행 렌더 보존).
+ * 값 8 = 스택형 DetailRow·FeedListRow·MetricRow가 이미 쓰는 세로 패딩과 동일.
+ */
+export function rowPadY(mobile: boolean): number {
+  return mobile ? R * 2 : 0;
+}
+
 /** 버튼·칩·탭 글자 — 모바일은 검색/입력과 같이 16 (독·필터 통일) */
 export function ctrlFs(mobile: boolean, size: CtrlSize = 'md'): number {
   if (mobile) return 16;

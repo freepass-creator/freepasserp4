@@ -29,7 +29,8 @@ const DONE = ['가능', '승인', '출고 가능', '출고 협의'];
 const REJECT = ['불가', '부결', '출고 불가'];
 /** 체크값 완료 판정 SSOT — UI·목록·패널 공통. 로컬 DONE_VALS 복붙 금지. */
 export function isDone(v: unknown): boolean { if (v === true || v === 'yes') return true; return typeof v === 'string' && DONE.includes(v); }
-function isRejected(v: unknown): boolean { return typeof v === 'string' && REJECT.includes(v); }
+/** 거부 판정 SSOT — '출고 불가'·'부결'. 화면에서 완료와 같은 색으로 칠하지 않기 위해 필요하다. */
+export function isRejected(v: unknown): boolean { return typeof v === 'string' && REJECT.includes(v); }
 
 /** 스텝키 → 담당 actor(엔진 인가 강제용 SSOT). 비스텝 필드면 undefined.
  *  key 접두(provider_*)가 아니라 STEPS의 actor 를 본다 — provider_agreement_done 처럼 이름은 provider지만 actor=agent 인 예외를 정확히 반영. */

@@ -45,20 +45,23 @@ type Agree = { terms: boolean; privacy: boolean };
  */
 function ConsentBox({ agree, setAgree }: { agree: Agree; setAgree: (a: Agree) => void }) {
   const all = agree.terms && agree.privacy;
-  const row: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, fontSize: FS.sub, color: C.ink, lineHeight: 1.5, cursor: 'pointer' };
-  const link: React.CSSProperties = { color: C.accent, textDecoration: 'underline', textUnderlineOffset: 2 };
+  // 기본 체크박스는 13px라 손가락으로 누르기 어렵다. 상자를 키우고 행 자체를 눌러도 켜지게 한다.
+  const row: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 10, minHeight: 34, fontSize: FS.sub, color: C.ink, lineHeight: 1.5, cursor: 'pointer' };
+  const box: React.CSSProperties = { width: 18, height: 18, flex: '0 0 auto', accentColor: C.brand, cursor: 'pointer' };
+  // 링크는 글자 높이(16px)뿐이라 위아래로 여백을 줘 실제로 누를 수 있게 만든다.
+  const link: React.CSSProperties = { color: C.accent, textDecoration: 'underline', textUnderlineOffset: 2, padding: '6px 2px', display: 'inline-block' };
   return (
     <div style={{ border: `1px solid ${C.line}`, borderRadius: 8, padding: '10px 12px', margin: '0 0 10px', display: 'flex', flexDirection: 'column', gap: 8, textAlign: 'left' }}>
       <label style={{ ...row, fontWeight: 600, paddingBottom: 8, borderBottom: `1px solid ${C.line}` }}>
-        <input type="checkbox" checked={all} onChange={(e) => setAgree({ terms: e.target.checked, privacy: e.target.checked })} />
+        <input type="checkbox" style={box} checked={all} onChange={(e) => setAgree({ terms: e.target.checked, privacy: e.target.checked })} />
         전체 동의
       </label>
       <label style={row}>
-        <input type="checkbox" checked={agree.terms} onChange={(e) => setAgree({ ...agree, terms: e.target.checked })} />
+        <input type="checkbox" style={box} checked={agree.terms} onChange={(e) => setAgree({ ...agree, terms: e.target.checked })} />
         <span>[필수] <a href="/terms" target="_blank" rel="noopener noreferrer" style={link} onClick={(e) => e.stopPropagation()}>이용약관</a>에 동의합니다</span>
       </label>
       <label style={row}>
-        <input type="checkbox" checked={agree.privacy} onChange={(e) => setAgree({ ...agree, privacy: e.target.checked })} />
+        <input type="checkbox" style={box} checked={agree.privacy} onChange={(e) => setAgree({ ...agree, privacy: e.target.checked })} />
         <span>[필수] <a href="/privacy" target="_blank" rel="noopener noreferrer" style={link} onClick={(e) => e.stopPropagation()}>개인정보 수집·이용</a>에 동의합니다</span>
       </label>
       <p style={{ margin: 0, fontSize: FS.cap, color: C.faint, lineHeight: 1.5 }}>

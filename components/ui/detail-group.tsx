@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
 import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
-import { C, FS, FW, R, ctrlH } from './tokens';
+import { C, FS, FW, R, ctrlH, rowPadY } from './tokens';
 
 /** 카드 밖 섹션 캡션 — 그룹리스트 헤더. */
 export function GroupHeader({ children }: { children: ReactNode }) {
@@ -193,14 +193,23 @@ export function DetailRow({
   value,
   stacked,
   valueColor,
+  control,
 }: {
   label: ReactNode;
   value?: ReactNode;
   stacked?: boolean;
   /** 금액 강조 등 — 기본 C.mute */
   valueColor?: string;
+  /**
+   * 값 자리에 버튼 같은 컨트롤이 오는 행. 세로 패딩(rowPadY)을 넣어 준다.
+   * 모바일은 행 높이(ctrlH=36)와 버튼 높이(sm=36)가 같아서, 이걸 안 주면
+   * 버튼 테두리가 행 구분선에 0px로 맞닿아 표 안에 끼인 것처럼 보인다.
+   * 텍스트만 있는 행도 같은 카드 안이면 같이 켜야 행 높이가 섞이지 않는다.
+   */
+  control?: boolean;
 }) {
   const mobile = useIsMobile();
+  const padY = control ? rowPadY(mobile) : 0;
   const shown = displayValue(value);
   const plain = typeof value === 'string' || typeof value === 'number' || value == null || value === '';
   if (stacked) {
@@ -231,8 +240,10 @@ export function DetailRow({
       display: 'flex',
       alignItems: 'center',
       gap: 12,
-      minHeight: ctrlH(mobile),
-      padding: '0 12px',
+      // boxSizing: border-box라 padding만 주고 minHeight를 안 올리면 텍스트 행이 36으로 접혀
+      //  같은 카드 안에서 버튼 행(52)과 높이가 섞인다. 둘을 항상 같이 움직인다.
+      minHeight: ctrlH(mobile) + padY * 2,
+      padding: `${padY}px 12px`,
       boxSizing: 'border-box',
     }}>
       {/* 정보행 SSOT — 라벨 mute / 값 ink(강조는 값에). 다른 정보행 구현들도 이 규격으로 수렴. */}

@@ -2,7 +2,7 @@
 
 /* 공용 UI 키트 — 전 페이지가 이걸 써서 통일. 기업형: 각지게(저radius)·고밀도·색 절제. */
 // 토큰(C/R/NUM)=tokens.ts SSOT. 리프 분리: 접이식섹션=sec, 데이터표=table, 상태·라벨=badges, 카드원자=objcard. 여기서 배럴 재export.
-export { C, R, NUM, FS, FW, CTRL, ICON, ctrlH, ctrlFs, ctrlInputFs, ctrlChipH, ctrlPadX, SH, SCRIM, THUMB_W } from './tokens';
+export { C, R, NUM, FS, FW, CTRL, ICON, ctrlH, ctrlFs, ctrlInputFs, ctrlChipH, ctrlPadX, rowPadY, SH, SCRIM, THUMB_W } from './tokens';
 export type { CtrlSize } from './tokens';
 export * from './sec';
 export * from './table';
