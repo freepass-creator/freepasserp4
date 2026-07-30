@@ -124,7 +124,12 @@ export default function Detail() {
           공급사도 이전 수단이 있다(예전엔 canDeal일 때만 렌더돼 공급사는 하단바 자체가 없었음).
           이전도 라벨 표기 — 다른 상세의 「목록」과 동일한 어포던스. */}
       <BottomNav maxWidth={920} padX={16} backShowLabel actions={canDeal ? <>
-        <Btn mobileIcon={<Share2 size={ICON.lg} />} title="공유" variant="ghost" size="sm" onClick={sendLink}>공유</Btn>
+        <Btn title="공유" variant="ghost" size="sm" onClick={sendLink}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+            <Share2 size={ICON.md} aria-hidden />
+            공유
+          </span>
+        </Btn>
         <Btn title="계약문의" size="sm" onClick={inquire}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
             <MessageCircle size={ICON.md} aria-hidden />
