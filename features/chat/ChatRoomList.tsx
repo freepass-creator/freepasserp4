@@ -4,13 +4,16 @@ import type { Role } from '@/lib/domain/deal';
 import { unreadFor } from '@/lib/domain/messaging';
 import { Btn, CenterNote } from '@/components/ui';
 import { ChatRoomRow } from '@/components/list-rows';
-export function ChatRoomList({ rooms, role, selected, query, filterActive, displayName, providerName, contract, counter, onSelect, onReset }: {
+export function ChatRoomList({ rooms, role, selected, query, filterActive, displayName, plate, providerName, contract, counter, onSelect, onReset }: {
   rooms: EntityRecord[];
   role: Role;
   selected: string | null;
   query: string;
   filterActive: boolean;
+  /** ①줄 = 차량명 */
   displayName: (room: EntityRecord) => string;
+  /** ②줄 = 차량번호 */
+  plate: (room: EntityRecord) => string;
   providerName: (room: EntityRecord) => string | undefined;
   contract: (room: EntityRecord) => EntityRecord | undefined;
   counter: (room: EntityRecord) => string;
@@ -25,6 +28,7 @@ export function ChatRoomList({ rooms, role, selected, query, filterActive, displ
     key={String(room._key)}
     room={room}
     displayName={displayName(room)}
+    plate={plate(room)}
     providerSuffix={providerName(room)}
     stageContract={contract(room)}
     counter={counter(room)}

@@ -28,6 +28,7 @@ import {
   contractForRoom,
   providerForRoom,
   roomPlate,
+  roomModel as resolveRoomModel,
   roomTitle as resolveRoomTitle,
 } from '@/features/chat/room-display';
 import {
@@ -87,8 +88,9 @@ export default function Chat() {
     chatCodeOf(rm, roomPlate(rm, productLookup, deletedLookup, contracts, contractOf(rm)));
   /** 매물 공급사 표기 — 관리자 응대용(이름 우선, 없으면 코드). */
   const providerOf = (rm: EntityRecord) => providerForRoom(rm, productLookup);
-  /** 목록·헤더 1줄 = erp3과 동일 「차량번호 차량명」(roomTitle). 관리자 공급사는 providerSuffix로 뒤에 붙음. */
-  const roomHead = (rm: EntityRecord): string => roomTitle(rm);
+  /** 목록 규격 — ①줄=차량명 ②줄=차번. 헤더(contextTitle)는 합본 roomTitle을 그대로 쓴다. */
+  const roomHead = (rm: EntityRecord): string => resolveRoomModel(rm, productLookup, deletedLookup, contracts, contractOf(rm));
+  const roomPlateOf = (rm: EntityRecord): string => roomPlate(rm, productLookup, deletedLookup, contracts, contractOf(rm));
   const roomCounter = (rm: EntityRecord): string => {
     const ag = String(rm.agent_code || '').trim();
     const pv = providerOf(rm);
@@ -235,6 +237,7 @@ export default function Chat() {
     query={qInput}
     filterActive={flt !== CHAT_FILTER_DEFAULT}
     displayName={roomHead}
+    plate={roomPlateOf}
     providerName={(room) => {
       if (role !== 'admin') return undefined;
       const provider = providerOf(room);

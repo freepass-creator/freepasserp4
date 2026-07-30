@@ -102,7 +102,7 @@ function inventoryStatusIcon(p: EntityRecord): { icon: LucideIcon; tone: BadgeTo
  *   3 마지막 메시지 · 안읽음
  */
 export const ChatRoomRow = memo(function ChatRoomRow({
-  room, stageContract, counter, unread, selected, onClick, displayName, providerSuffix,
+  room, stageContract, counter, unread, selected, onClick, displayName, plate, providerSuffix,
 }: {
   room: EntityRecord;
   stageContract?: EntityRecord | null;
@@ -110,8 +110,11 @@ export const ChatRoomRow = memo(function ChatRoomRow({
   unread: number;
   selected?: boolean;
   onClick: (room: EntityRecord) => void; // 항목을 인자로 받는 안정 핸들러(부모 useCallback) — memo 유효화
+  /** ①줄 = 차량명만(차번은 ②줄로). 목록 규격 SSOT */
   displayName?: string;
-  /** 관리자만 — 제목(차번 차명) 뒤 공급사(제목 말줄임, 공급사는 유지) */
+  /** ②줄 = 차량번호. 관리자 상담방은 빈 값 */
+  plate?: string;
+  /** 관리자만 — 제목 뒤 공급사(제목 말줄임, 공급사는 유지) */
   providerSuffix?: string;
 }) {
   const stage = contractStage(stageContract);
@@ -141,6 +144,8 @@ export const ChatRoomRow = memo(function ChatRoomRow({
       selected={selected}
       onClick={() => onClick(room)}
       thumb={<FeedThumbIcon icon={ic.icon} tone={ic.tone} title={ic.title} />}
+      // 목록 규격 = ①주제(차량명)/시각 ②식별(차번·상대방) ③맥락(마지막 메시지)/안읽음.
+      //  전 화면 동일 구조. 차번은 ②로 내려 ①이 차명만 갖게 한다(매물 카드와 같은 리듬).
       lines={[
         <FeedTitleRow
           key="t"
@@ -149,6 +154,9 @@ export const ChatRoomRow = memo(function ChatRoomRow({
         />,
         <FeedBadges key="b">
           <Badge tone={stage.tone}>{stage.label}</Badge>
+          {plate ? (
+            <span style={{ fontSize: FS.sub, fontWeight: FW.strong, color: C.mute, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{plate}</span>
+          ) : null}
           {counter ? <span style={{ fontSize: FS.sub, color: C.faint, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{counter}</span> : null}
         </FeedBadges>,
         <div key="m" style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, width: '100%' }}>

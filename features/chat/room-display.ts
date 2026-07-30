@@ -151,6 +151,42 @@ export function roomPlate(
   return resolveRoomCar(room, product, contract, fromKey);
 }
 
+/**
+ * 목록 1줄용 차명만 — roomPlate(차번)의 짝. 목록 규격이 ①차량명 ②차번·상대방이라
+ * roomTitle(차번+차명 합본)을 쪼개 쓸 수 있어야 한다.
+ * 관리자 상담방은 차량이 없으므로 상담 제목을 그대로 돌려준다(목록에서 빈 줄 방지).
+ */
+export function roomModel(
+  room: EntityRecord,
+  products: ProductLookup,
+  deletedProducts: ProductLookup,
+  contracts: EntityRecord[],
+  activeContract?: EntityRecord,
+): string {
+  if (room.is_admin_chat || String(room._key || '').startsWith('ADMIN_')) {
+    const subject = String(room.subject || '').trim();
+    const who = String(room.agent_name || room.agent_code || '').trim();
+    return subject || (who ? `${who} · 관리자 상담` : '관리자 상담');
+  }
+  const fromKey = idFromRoomKey(room);
+  const product = productForRoom(products, room) || productForRoom(deletedProducts, room);
+  const productCode = String(room.product_code || '') || (fromKey.code || '');
+  const contract = productCode
+    ? activeContract
+      || contracts.find((candidate) => String(candidate.product_code) === productCode && String(candidate.contract_status || '') !== '계약취소')
+      || contracts.find((candidate) => String(candidate.product_code) === productCode)
+    : undefined;
+
+  const name = roomModelName(room)
+    || (product ? (String(product.sub_model || '').trim() || vehicleName(product)) : '')
+    || [contract?.maker_snapshot, contract?.sub_model_snapshot].filter(Boolean).join(' ').trim();
+  if (!name) return resolveRoomCar(room, product, contract, fromKey) || '-';
+  // 상태 꼬리표는 차명 옆에 — 출고불가는 살아있는 차(삭제 아님)
+  if (product && isHiddenFromCatalog(product)) return `${name} (출고불가)`;
+  if (product && (product._deleted || product.deletedAt)) return `${name} (삭제)`;
+  return name;
+}
+
 export function providerForRoom(room: EntityRecord, products: ProductLookup): { code: string; name: string } {
   const code = String(room.provider_company_code || '').trim();
   const product = productForRoom(products, room);
