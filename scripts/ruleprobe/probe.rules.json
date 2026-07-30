@@ -1,0 +1,64 @@
+{
+  "rules": {
+    "users": {
+      ".read": "auth != null",
+      "$uid": { ".write": "auth != null" }
+    },
+
+    "usersT": {
+      "$uid": {
+        ".read": "auth != null && ($uid === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+        ".write": "auth != null && ($uid === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin') && newData.exists()"
+      }
+    },
+
+    "v4": {
+      "contracts": {
+        ".read": "auth != null",
+        "$c": { ".write": "auth != null" }
+      },
+
+      "products": {
+        ".read": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous'",
+        ".indexOn": ["provider_company_code", "vehicle_status"],
+        "$code": {
+          ".write": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous' && root.child('users').child(auth.uid).child('status').val() === 'active' && (root.child('users').child(auth.uid).child('role').val() === 'admin' || ((root.child('users').child(auth.uid).child('role').val() === 'provider' || root.child('users').child(auth.uid).child('role').val() === 'provider_admin') && root.child('users').child(auth.uid).child('company_code').val() !== null && root.child('users').child(auth.uid).child('company_code').val() !== '' && newData.child('provider_company_code').val() === root.child('users').child(auth.uid).child('company_code').val()))",
+          "vehicle_status": { ".write": "auth != null && root.child('users').child(auth.uid).child('status').val() === 'active' && (root.child('users').child(auth.uid).child('role').val() === 'agent' || root.child('users').child(auth.uid).child('role').val() === 'agent_admin' || root.child('users').child(auth.uid).child('role').val() === 'agent_manager')" },
+          "locked_by_contract": { ".write": "auth != null && root.child('users').child(auth.uid).child('status').val() === 'active' && (root.child('users').child(auth.uid).child('role').val() === 'agent' || root.child('users').child(auth.uid).child('role').val() === 'agent_admin' || root.child('users').child(auth.uid).child('role').val() === 'agent_manager')" },
+          "_key": { ".write": "auth != null && root.child('users').child(auth.uid).child('status').val() === 'active' && (root.child('users').child(auth.uid).child('role').val() === 'agent' || root.child('users').child(auth.uid).child('role').val() === 'agent_admin' || root.child('users').child(auth.uid).child('role').val() === 'agent_manager')" },
+          "updatedAt": { ".write": "auth != null && root.child('users').child(auth.uid).child('status').val() === 'active' && (root.child('users').child(auth.uid).child('role').val() === 'agent' || root.child('users').child(auth.uid).child('role').val() === 'agent_admin' || root.child('users').child(auth.uid).child('role').val() === 'agent_manager')" }
+        }
+      },
+
+      "productsV": {
+        ".read": "auth != null",
+        "$code": {
+          ".write": "auth != null && root.child('users').child(auth.uid).child('status').val() === 'active' && (root.child('users').child(auth.uid).child('role').val() === 'admin' || ((root.child('users').child(auth.uid).child('role').val() === 'provider' || root.child('users').child(auth.uid).child('role').val() === 'provider_admin') && newData.child('provider_company_code').val() === root.child('users').child(auth.uid).child('company_code').val()))",
+          "vehicle_status": {
+            ".write": "auth != null && root.child('users').child(auth.uid).child('status').val() === 'active' && root.child('users').child(auth.uid).child('role').val() === 'agent'",
+            ".validate": "newData.val() === '계약중' || newData.val() === '출고불가' || newData.val() === '출고가능' || newData.val() === '상품화중' || newData.val() === '출고협의'"
+          },
+          "locked_by_contract": {
+            ".write": "auth != null && root.child('users').child(auth.uid).child('status').val() === 'active' && root.child('users').child(auth.uid).child('role').val() === 'agent'",
+            ".validate": "root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'provider' || newData.val() === '' || root.child('v4').child('contracts').child(newData.val()).child('agent_uid').val() === auth.uid"
+          },
+          "_key": { ".write": "auth != null && root.child('users').child(auth.uid).child('status').val() === 'active' && root.child('users').child(auth.uid).child('role').val() === 'agent'" },
+          "updatedAt": { ".write": "auth != null && root.child('users').child(auth.uid).child('status').val() === 'active' && root.child('users').child(auth.uid).child('role').val() === 'agent'" }
+        }
+      },
+
+      "products_private": {
+        ".read": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'",
+        ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'",
+        "$product": {
+          ".read": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'provider' || root.child('users').child(auth.uid).child('role').val() === 'provider_admin') && root.child('users').child(auth.uid).child('company_code').val() !== null && root.child('users').child(auth.uid).child('company_code').val() !== '' && data.child('provider_company_code').val() === root.child('users').child(auth.uid).child('company_code').val()",
+          ".write": "auth != null && root.child('users').child(auth.uid).child('status').val() !== 'pending' && (root.child('users').child(auth.uid).child('role').val() === 'provider' || root.child('users').child(auth.uid).child('role').val() === 'provider_admin') && root.child('users').child(auth.uid).child('company_code').val() !== null && root.child('users').child(auth.uid).child('company_code').val() !== '' && ((data.exists() && data.child('provider_company_code').val() === root.child('users').child(auth.uid).child('company_code').val()) || (!data.exists() && newData.child('provider_company_code').val() === root.child('users').child(auth.uid).child('company_code').val()))"
+        }
+      },
+
+      "$other": { ".read": false, ".write": false }
+    },
+
+    "$other": { ".read": false, ".write": false }
+  }
+}
