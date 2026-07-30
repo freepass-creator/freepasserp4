@@ -14,6 +14,26 @@ import { readPartnerPrivate, readUserPrivate } from '@/lib/domain/private-fields
 const REJECT_VALS = ['불가', '부결', '출고 불가'];
 const isReject = (v: unknown) => typeof v === 'string' && REJECT_VALS.includes(v);
 
+/**
+ * 율 정규화 — 0~1 범위만 유효. 벗어나면 **기본값으로 되돌리고 크게 남긴다**.
+ * 예전엔 `Number(raw)`를 그대로 써서 '10'(10% 의도) 입력이 1000%로 청구되고,
+ * 비숫자면 NaN이 금액 전체를 오염시켰다(QA RATE-1). 조용히 보정하지 않고 로그를 남기는 이유는
+ * 잘못된 값이 어딘가에 저장돼 있다는 사실 자체가 고쳐야 할 문제이기 때문이다.
+ */
+function normalizeRate(raw: unknown, fallback: number, where: string): number {
+  if (raw == null || raw === '') return fallback;
+  const n = Number(raw);
+  if (!Number.isFinite(n)) {
+    console.error(`[정산] ${where} 값이 숫자가 아님(${String(raw)}) — 기본값 ${fallback} 사용. 데이터 수정 필요`);
+    return fallback;
+  }
+  if (n < 0 || n > 1) {
+    console.error(`[정산] ${where} 값이 0~1 범위 밖(${n}) — 기본값 ${fallback} 사용. 0.1=10% 형식으로 입력해야 한다`);
+    return fallback;
+  }
+  return n;
+}
+
 /** 수수료율 SSOT — 공급사율(partner.fee_rate, 기본 0.1) · 영업자지급율(user.agent_payout_rate, 기본 0.04). 신차=공급사 우대 0%. */
 export async function resolveRates(contract: EntityRecord, product: EntityRecord | null): Promise<{ feeRate: number; payoutRate: number }> {
   const co = getCompanyId(); const store = getStore();
@@ -27,8 +47,8 @@ export async function resolveRates(contract: EntityRecord, product: EntityRecord
   const up = await readUserPrivate(String(user?.uid ?? user?.user_code ?? contract.agent_code ?? ''));
   const rawFee = pp?.fee_rate ?? partner?.fee_rate;
   const rawPayout = up?.agent_payout_rate ?? user?.agent_payout_rate;
-  let feeRate = rawFee != null ? Number(rawFee) : 0.1;
-  const payoutRate = rawPayout != null ? Number(rawPayout) : 0.04;
+  let feeRate = normalizeRate(rawFee, 0.1, `공급사 ${String(contract.provider_company_code || '')} fee_rate`);
+  const payoutRate = normalizeRate(rawPayout, 0.04, `영업자 ${String(contract.agent_code || '')} agent_payout_rate`);
   if (String(product?.product_type || '').startsWith('신차')) feeRate = 0; // 신차(렌트·구독) 파트너 우대(공급사 수수료 0)
   return { feeRate, payoutRate };
 }

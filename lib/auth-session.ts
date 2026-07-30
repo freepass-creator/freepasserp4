@@ -18,11 +18,33 @@ export interface Session {
   user_code: string;          // 사람키 — /q?a= · CH_{매물}_{user_code}
   /** 가입 승인 상태. 'pending' = 관리자 승인 대기(앱 사용 차단). 값 없음 = 이 필드 이전 회원 → 정상. */
   status?: string;
+  /** 관리자가 끈 계정. '아니오'/false = 비활성 — 로그인은 되지만 앱 사용은 막아야 한다. */
+  is_active?: string;
 }
 
-/** 승인 대기 여부 — 'pending' 만 차단한다. 값이 없는 기존 회원을 잠그지 않기 위해 화이트리스트가 아닌 블랙리스트. */
+/** 승인 대기 여부 — 'pending' 만. 값이 없는 기존 회원을 잠그지 않기 위해 블랙리스트. */
 export function isPending(s: Session | null): boolean {
   return String(s?.status || '') === 'pending';
+}
+
+/**
+ * 앱 사용 차단 여부 — 승인대기 + **비활성·삭제·반려**.
+ * 예전엔 isPending('pending')만 봐서 관리자가 회원을 비활성/삭제해도 그 계정이 그대로
+ * 로그인해 데이터를 봤다(QA AUTH-6). 퇴사자·차단 대상이 계속 접근하는 구멍.
+ * 비활성은 문자열('아니오')·불리언(false) 양쪽으로 저장돼 있어 둘 다 본다.
+ */
+export function isBlocked(s: Session | null): boolean {
+  if (!s) return false;
+  const st = String(s.status || '');
+  if (st === 'pending' || st === 'deleted' || st === 'rejected') return true;
+  const act = String(s.is_active ?? '');
+  return act === '아니오' || act === 'false';
+}
+
+/** 차단 사유 — 화면 문구 분기용. */
+export function blockReason(s: Session | null): 'pending' | 'inactive' | null {
+  if (!isBlocked(s)) return null;
+  return String(s?.status || '') === 'pending' ? 'pending' : 'inactive';
 }
 
 const CACHE = 'fp4_session';

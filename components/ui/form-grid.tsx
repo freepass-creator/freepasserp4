@@ -52,6 +52,12 @@ export function FormGrid({
         const empty = value === '' || value == null;
         const background = disabled ? C.head : empty ? (field.manual || field.required ? C.warnBg : C.head) : C.taupeBg;
         const numeric = field.type === 'number';
+        // range 지정 = 소수 입력 필드(율). 여기서 fmtNumber(toLocaleString)를 태우면
+        // "0." 이 "0" 으로 되접혀 소수점을 아예 못 찍는다 → 0.1 을 치면 1 이 저장된다(QA RATE-1의 입력측 원인).
+        const decimal = numeric && !!field.range;
+        const num = value === '' ? NaN : Number(value);
+        const outOfRange = !!field.range && value !== ''
+          && (!Number.isFinite(num) || num < field.range[0] || num > field.range[1]);
         const phone = /phone|연락처|전화/.test(field.key);
         const span = field.type === 'chips' || isYesNoActive(field) ? { gridColumn: '1 / -1' as const } : undefined;
         const overrideOpts = selectOptions?.[field.key];
@@ -128,17 +134,30 @@ export function FormGrid({
                 })()}
               </div>
             ) : (
-              <input
-                type={field.type === 'date' ? 'date' : 'text'}
-                inputMode={numeric ? 'numeric' : phone ? 'tel' : undefined}
-                value={numeric ? fmtNumber(value) : phone ? fmtPhone(value) : value}
-                disabled={disabled}
-                onChange={(event) => onChange(
-                  field.key,
-                  numeric ? event.target.value.replace(/[^\d.]/g, '') : phone ? fmtPhone(event.target.value) : event.target.value,
+              <>
+                <input
+                  type={field.type === 'date' ? 'date' : 'text'}
+                  inputMode={decimal ? 'decimal' : numeric ? 'numeric' : phone ? 'tel' : undefined}
+                  value={decimal ? value : numeric ? fmtNumber(value) : phone ? fmtPhone(value) : value}
+                  disabled={disabled}
+                  onChange={(event) => onChange(
+                    field.key,
+                    numeric ? event.target.value.replace(/[^\d.]/g, '') : phone ? fmtPhone(event.target.value) : event.target.value,
+                  )}
+                  style={{
+                    ...inputStyle,
+                    background: outOfRange ? C.warnBg : background,
+                    borderColor: outOfRange ? C.danger : C.line,
+                    cursor: disabled ? 'default' : undefined,
+                    opacity: disabled ? 0.85 : 1,
+                  }}
+                />
+                {outOfRange && field.range && (
+                  <span style={{ display: 'block', marginTop: 3, fontSize: FS.cap, color: C.danger }}>
+                    {field.range[0]}~{field.range[1]} 범위로 입력하세요 (예: 10% → 0.1)
+                  </span>
                 )}
-                style={{ ...inputStyle, background, cursor: disabled ? 'default' : undefined, opacity: disabled ? 0.85 : 1 }}
-              />
+              </>
             )}
           </label>
         );

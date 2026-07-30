@@ -93,6 +93,9 @@ export function initAuth(): Promise<void> {
               name: String(profile.name || user.email || ''), code,
               company_code, agent_channel_code, user_code: user_code || user.uid,
               status: String(profile.status || ''),
+              // 관리자가 끈 계정을 앱 게이트가 판정할 수 있게 세션에 싣는다(예전엔 status만 실려
+              // 비활성·삭제 계정이 그대로 사용됐다 — QA AUTH-6)
+              is_active: profile.is_active == null ? '' : String(profile.is_active),
             });
           } catch (e) {
             console.warn('[auth] users 프로필 읽기 실패 — 최소 세션 진행:', (e as Error)?.message || e);

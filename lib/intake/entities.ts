@@ -12,8 +12,34 @@
 import { EXT_COLORS, INT_COLORS } from '@/lib/domain/color-master';
 
 export type FieldType = 'text' | 'number' | 'date' | 'select' | 'chips';
-export type Field = { key: string; label: string; type: FieldType; required?: boolean; options?: string[]; disabledOptions?: string[]; max?: number; ocrFrom?: string; manual?: boolean; note?: string };
+export type Field = {
+  key: string; label: string; type: FieldType; required?: boolean;
+  options?: string[]; disabledOptions?: string[];
+  /** chips 전용 — 최대 선택 개수. 숫자 범위는 range를 쓴다(이름 충돌 주의). */
+  max?: number;
+  /** number 전용 — 허용 범위 [min, max]. 벗어나면 폼이 경고한다(율 오입력 방지). */
+  range?: [number, number];
+  ocrFrom?: string; manual?: boolean; note?: string;
+};
 export type Entity = { key: string; label: string; ocrType?: string; source: string; idFrom: string; keyFields?: string[]; fields: Field[] };
+
+/**
+ * range 위반 목록 — 저장 직전 게이트. 폼은 빨간 테두리로 알려줄 뿐 막지 않으므로
+ * 저장 핸들러가 이걸 불러 막는다. 잘못된 율이 들어가면 정산액이 통째로 틀어진다(QA RATE-1).
+ */
+export function rangeErrors(fields: Field[], record: Record<string, unknown>): string[] {
+  const out: string[] = [];
+  for (const f of fields) {
+    if (!f.range) continue;
+    const raw = record[f.key];
+    if (raw === '' || raw == null) continue;
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n < f.range[0] || n > f.range[1]) {
+      out.push(`${f.label} — ${f.range[0]}~${f.range[1]} 범위로 입력하세요 (예: 10% → 0.1)`);
+    }
+  }
+  return out;
+}
 
 /* ── enum SSOT (freepasserp3 실측) ── */
 export const ROLES = ['agent', 'agent_admin', 'agent_manager', 'provider', 'provider_admin', 'admin'] as const;
@@ -325,7 +351,7 @@ export const ENTITIES: Record<string, Entity> = {
       { key: 'name', label: '상호/이름', type: 'text', required: true, manual: true, note: '정식 상호(풀네임)' },
       { key: 'alias', label: '별칭', type: 'text', manual: true, note: 'UI 표기. 비우면 주식회사·렌트카·렌터카·모빌리티 자동 제거' },
       { key: 'partner_type', label: '유형', type: 'select', options: ['공급사', '영업채널'], manual: true },
-      { key: 'fee_rate', label: '공급사 수수료율(0~1)', type: 'number', manual: true, note: 'R1 공급사→프리패스: 정산 fee = 월대여료×이 값. 미설정 시 기본 0.1' },
+      { key: 'fee_rate', label: '공급사 수수료율(0~1)', type: 'number', manual: true, range: [0, 1], note: 'R1 공급사→프리패스: 정산 fee = 월대여료×이 값. 미설정 시 기본 0.1' },
       { key: 'contact', label: '담당/연락처', type: 'text', manual: true },
       // ── 쉽게 올리고: 렌트사 자체 구글시트 연동(ERP 안 써도 자기 시트만 관리하면 매물화) ──
       { key: 'sheet_url', label: '구글시트 URL', type: 'text', manual: true, note: '공급사 고유 재고 시트' },
@@ -365,7 +391,7 @@ export const ENTITIES: Record<string, Entity> = {
       { key: 'agent_channel_code', label: '영업채널코드', type: 'text', manual: true },
       { key: 'company_code', label: '회사코드', type: 'text', manual: true },
       { key: 'company_name', label: '회사명', type: 'text', manual: true },
-      { key: 'agent_payout_rate', label: '영업자 지급율(0~1)', type: 'number', manual: true, note: 'R2 프리패스→영업자: 지급 = 월대여료×이 값' },
+      { key: 'agent_payout_rate', label: '영업자 지급율(0~1)', type: 'number', manual: true, range: [0, 1], note: 'R2 프리패스→영업자: 지급 = 월대여료×이 값' },
       { key: 'is_team_manager', label: '팀매니저', type: 'select', options: ['예', '아니오'], manual: true },
       { key: 'is_active', label: '활성', type: 'select', options: ['예', '아니오'], manual: true },
       // 가입 승인 상태 — is_active(운영상 on/off)와 별개다.

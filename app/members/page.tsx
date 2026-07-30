@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
-import { ENTITIES, ROLE_LABEL_RAW, ROLES, type EntityRecord, type Field } from '@/lib/intake/entities';
+import { ENTITIES, ROLE_LABEL_RAW, ROLES, rangeErrors, type EntityRecord, type Field } from '@/lib/intake/entities';
 import { isAdminUiAllowed } from '@/lib/auth-gate';
 import { approveUser, backfillPersonalAgentChannels, adminUpdateUserIdentity } from '@/lib/firebase/auth';
 import { readAllPartnersPrivate, readAllUsersPrivate, writePartnerPrivate } from '@/lib/domain/private-fields';
@@ -169,6 +169,10 @@ export default function Members() {
   const startEdit = () => { setEditing(true); haptic.tap(); };
   const save = async () => {
     const id = idFieldOf(tab); if (!String(form[id] || '').trim()) { toast('식별자는 필수입니다', 'error'); return; }
+    // 율 범위 게이트 — 수수료율(0.1) 자리에 10 이 들어가면 정산액이 100배로 나간다(QA RATE-1).
+    //  엔진(normalizeRate)은 최후 방어일 뿐이고, 잘못된 값이 저장되는 것 자체를 여기서 막는다.
+    const badRange = rangeErrors(ENTITIES[tab].fields, form);
+    if (badRange.length) { toast(badRange[0], 'error'); return; }
     if (saving) return;
     setSaving(true);
     try {
