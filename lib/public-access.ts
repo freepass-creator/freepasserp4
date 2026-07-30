@@ -4,8 +4,9 @@
  */
 export const PUBLIC_PATH_PREFIXES = ['/q/', '/sign/'] as const;
 
-/** 로그인 없이 열리는 단일 경로(임베드 견적/구독 앱 등). 접두 프리픽스와 별도. */
-const PUBLIC_EXACT = ['/welrix', '/sonogong'] as const;
+/** 로그인 없이 열리는 단일 경로(임베드 견적/구독 앱 등). 접두 프리픽스와 별도.
+ *  /terms·/privacy 는 가입 화면에서 동의하기 전에 읽어야 하므로 반드시 비로그인 통과. */
+const PUBLIC_EXACT = ['/welrix', '/sonogong', '/terms', '/privacy'] as const;
 
 export function isPublicPath(pathname: string | null | undefined): boolean {
   if (!pathname) return false;

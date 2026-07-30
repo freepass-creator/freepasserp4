@@ -185,7 +185,11 @@ function resolveAgentChannel(role: string, company_code: string, fromIdentity: s
  * 가입 프로필 쓰기 — Path B(승인제): 신원(company/channel)은 자가쓰기 금지 → 관리자 approveUser 가 확정.
  *  본인은 role(non-admin)·status:'pending'·연락처만. 승인 전 앱 게이트(isPending)에 막힘.
  */
-export async function writeUserProfile(user: User, info: { name: string; phone: string; company_name: string; business_no: string; requested_type?: string }): Promise<void> {
+export async function writeUserProfile(user: User, info: {
+  name: string; phone: string; company_name: string; business_no: string; requested_type?: string;
+  /** 가입 필수 동의(약관·개인정보). 없으면 개인정보 수집 근거가 없다(QA AUTH-7). */
+  consent?: { terms: boolean; privacy: boolean; version: string };
+}): Promise<void> {
   const db = getRtdb(); if (!db) throw new Error('DB가 설정되지 않았습니다');
   const bizNo = String(info.business_no || '').replace(/\D/g, '');
   let step = '초기화'; // 실패 단계 표기(가입 오류 위치 추적)
@@ -218,6 +222,10 @@ export async function writeUserProfile(user: User, info: { name: string; phone: 
       role: safeRole,
       created_at: Date.now(),
       ...(emailMoved ? {} : { email: user.email || '' }),
+      // 동의 기록 — "언제·어느 버전에" 동의했는지가 남아야 증명이 된다. 버전만 있고 시각이 없으면 소용없다.
+      ...(info.consent?.terms ? { terms_agreed_at: Date.now() } : {}),
+      ...(info.consent?.privacy ? { privacy_agreed_at: Date.now() } : {}),
+      ...(info.consent ? { legal_version: String(info.consent.version || '') } : {}),
     };
     await set(ref(db, `users/${uid}`), rec);
   } catch (e) {

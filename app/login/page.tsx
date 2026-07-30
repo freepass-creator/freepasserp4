@@ -11,6 +11,7 @@ import { login, signup, logout, resetPassword, writeUserProfile } from '@/lib/fi
 import { setGuest, getSession, firebaseReadySafe } from '@/lib/login-helpers';
 import { fmtPhone, C, FS } from '@/components/ui';
 import { BRAND_MAIN, BRAND_SUB } from '@/lib/brand';
+import { LEGAL_VERSION } from '@/lib/legal';
 import { toast } from '@/components/Toaster';
 /** 로그인은 v3 CSS 섬(44/48·브랜드 hex). Input/Btn 원자 높이(32/40)와 충돌 → raw 유지. */
 
@@ -36,6 +37,37 @@ function koreanAuthMsg(err: unknown, fallback: string): string {
   return (code && AUTH_MSG[code]) || (err as { message?: string })?.message || fallback;
 }
 
+type Agree = { terms: boolean; privacy: boolean };
+
+/**
+ * 가입 동의 — 이용약관·개인정보 수집·이용 둘 다 필수.
+ * 링크는 새 창으로 연다: 작성 중인 가입 폼을 잃지 않고 본문을 읽을 수 있어야 동의가 의미를 갖는다.
+ */
+function ConsentBox({ agree, setAgree }: { agree: Agree; setAgree: (a: Agree) => void }) {
+  const all = agree.terms && agree.privacy;
+  const row: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, fontSize: FS.sub, color: C.ink, lineHeight: 1.5, cursor: 'pointer' };
+  const link: React.CSSProperties = { color: C.accent, textDecoration: 'underline', textUnderlineOffset: 2 };
+  return (
+    <div style={{ border: `1px solid ${C.line}`, borderRadius: 8, padding: '10px 12px', margin: '0 0 10px', display: 'flex', flexDirection: 'column', gap: 8, textAlign: 'left' }}>
+      <label style={{ ...row, fontWeight: 600, paddingBottom: 8, borderBottom: `1px solid ${C.line}` }}>
+        <input type="checkbox" checked={all} onChange={(e) => setAgree({ terms: e.target.checked, privacy: e.target.checked })} />
+        전체 동의
+      </label>
+      <label style={row}>
+        <input type="checkbox" checked={agree.terms} onChange={(e) => setAgree({ ...agree, terms: e.target.checked })} />
+        <span>[필수] <a href="/terms" target="_blank" rel="noopener noreferrer" style={link} onClick={(e) => e.stopPropagation()}>이용약관</a>에 동의합니다</span>
+      </label>
+      <label style={row}>
+        <input type="checkbox" checked={agree.privacy} onChange={(e) => setAgree({ ...agree, privacy: e.target.checked })} />
+        <span>[필수] <a href="/privacy" target="_blank" rel="noopener noreferrer" style={link} onClick={(e) => e.stopPropagation()}>개인정보 수집·이용</a>에 동의합니다</span>
+      </label>
+      <p style={{ margin: 0, fontSize: FS.cap, color: C.faint, lineHeight: 1.5 }}>
+        수집 항목: 이메일·이름·소속 회사명·사업자등록번호(필수), 연락처(선택) · 목적: 회원 식별과 서비스 제공 · 보유: 이용계약 종료 시까지(관계 법령이 정한 기간은 그에 따름)
+      </p>
+    </div>
+  );
+}
+
 // 로그인 후 세션 확정 대기 — onAuthStateChanged 프로필 로드까지.
 function waitForSession(ms = 5000): Promise<void> {
   if (getSession()) return Promise.resolve();
@@ -55,6 +87,8 @@ export default function LoginPage() {
   // 필드
   const [email, setEmail] = useState(''); const [pw, setPw] = useState('');
   const [su, setSu] = useState({ email: '', pw: '', pw2: '', name: '', phone: '', company: '', bizNo: '', type: '' });
+  // 필수 동의 — 둘 다 받아야 가입. 동의 시각·버전은 프로필에 남긴다(무엇에 동의했는지 증명).
+  const [agree, setAgree] = useState({ terms: false, privacy: false });
   const [bizMatch, setBizMatch] = useState<{ text: string; cls: '' | 'ok' | 'miss' }>({ text: '', cls: '' });
   const [rpEmail, setRpEmail] = useState('');
   const bizTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -98,6 +132,7 @@ export default function LoginPage() {
     if (!su.email.trim() || !su.pw || su.pw.length < 6) { say('이메일·비밀번호(6자 이상) 필수', 'err'); return; }
     if (su.pw !== su.pw2) { say('비밀번호가 일치하지 않습니다', 'err'); return; }
     if (!su.type) { say('가입 유형(공급사/영업/개인영업)을 선택하세요', 'err'); return; }
+    if (!agree.terms || !agree.privacy) { say('이용약관·개인정보 수집·이용에 모두 동의해야 가입할 수 있습니다', 'err'); return; }
     setBusy(true); say('');
     let authUser: User;
     try { authUser = await signup(su.email.trim(), su.pw); }
@@ -111,7 +146,12 @@ export default function LoginPage() {
     }
     try {
       // 프로필 저장 — 실패 시 Auth 계정 삭제(같은 이메일 재가입 가능)
-      await writeUserProfile(authUser, { name: su.name.trim(), phone: su.phone.trim(), company_name: su.company.trim(), business_no: su.bizNo.trim(), requested_type: su.type });
+      await writeUserProfile(authUser, {
+        name: su.name.trim(), phone: su.phone.trim(), company_name: su.company.trim(),
+        business_no: su.bizNo.trim(), requested_type: su.type,
+        // 동의 사실은 프로필 저장과 같은 트랜잭션에 들어가야 한다 — 실패하면 계정도 지워지므로 어긋나지 않는다.
+        consent: { terms: agree.terms, privacy: agree.privacy, version: LEGAL_VERSION },
+      });
     } catch (err) {
       await authUser.delete().catch(() => {});
       const m = koreanAuthMsg(err, '가입 실패');
@@ -184,7 +224,8 @@ export default function LoginPage() {
               <div className="login-field"><label htmlFor="suType">가입 유형</label><select id="suType" value={su.type} onChange={(e) => setSu({ ...su, type: e.target.value })} required><option value="">선택하세요</option><option value="공급">공급사</option><option value="영업">영업(소속)</option><option value="개인">개인영업</option></select></div>
               <div className="login-field"><label htmlFor="suBizNo">소속 사업자번호</label><input id="suBizNo" inputMode="numeric" placeholder="000-00-00000" autoComplete="off" value={su.bizNo} onChange={(e) => onBizNo(e.target.value)} />{bizMatch.text && <p className={`biz-no-match${bizMatch.cls ? ` is-${bizMatch.cls}` : ''}`}>{bizMatch.text}</p>}</div>
               <p className="login-msg" style={{ margin: '4px 0 8px', color: C.mute, fontSize: FS.sub, lineHeight: 1.4, textAlign: 'left' }}>가입 신청 후 관리자 승인이 필요합니다. 승인되면 사업자번호에 맞는 회사·역할이 부여됩니다.</p>
-              <button type="submit" className="login-submit" disabled={busy}>계정 만들기</button>
+              <ConsentBox agree={agree} setAgree={setAgree} />
+              <button type="submit" className="login-submit" disabled={busy || !agree.terms || !agree.privacy}>계정 만들기</button>
             </div>
             <div className="login-links"><a href="#" onClick={(e) => { e.preventDefault(); switchMode('login'); }}>로그인으로 돌아가기</a></div>
             {msg.text && <p className="login-msg" style={{ color: msgColor }} aria-live="polite">{msg.text}</p>}
