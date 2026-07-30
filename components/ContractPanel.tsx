@@ -203,25 +203,46 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
                 );
               }
 
+              const choiceBtns = ch.choices?.map((opt) => (
+                <Btn
+                  key={opt}
+                  title={opt}
+                  size="sm"
+                  full={mobile}
+                  variant={cur === opt ? 'solid' : 'ghost'}
+                  haptic="select"
+                  disabled={!mine || busy}
+                  onClick={() => setCheck(ch.key, cur === opt ? '' : opt)}
+                >{mobile ? String(opt).replace(/^출고\s*/, '') : opt}</Btn>
+              ));
+
+              // 모바일 선택지(가능·협의·불가 등) = 라벨 아래 전폭 균등분할.
+              //  좁은 폭에서 라벨과 버튼이 한 줄을 다투면 버튼이 오른쪽 끝에 짓눌려 붙고,
+              //  행마다 버튼 수(1~3)가 달라 오른쪽 끝이 들쭉날쭉해진다.
+              if (mobile && ch.choices && ch.choices.length > 1) {
+                return (
+                  <DetailRow
+                    key={ch.key}
+                    label={label}
+                    stacked
+                    value={(
+                      <span style={{
+                        display: 'grid',
+                        gridTemplateColumns: `repeat(${ch.choices.length}, 1fr)`,
+                        gap: 6, width: '100%',
+                      }}>
+                        {choiceBtns}
+                      </span>
+                    )}
+                  />
+                );
+              }
+
               return (
                 <DetailRow
                   key={ch.key}
                   label={label}
-                  value={ch.choices ? (
-                    <>
-                      {ch.choices.map((opt) => (
-                        <Btn
-                          key={opt}
-                          title={opt}
-                          size="sm"
-                          variant={cur === opt ? 'solid' : 'ghost'}
-                          haptic="select"
-                          disabled={!mine || busy}
-                          onClick={() => setCheck(ch.key, cur === opt ? '' : opt)}
-                        >{mobile ? String(opt).replace(/^출고\s*/, '') : opt}</Btn>
-                      ))}
-                    </>
-                  ) : (
+                  value={ch.choices ? <>{choiceBtns}</> : (
                     <Btn
                       title={done ? '완료 해제' : mine ? '체크' : '대기'}
                       size="sm"

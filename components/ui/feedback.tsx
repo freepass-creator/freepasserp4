@@ -52,7 +52,10 @@ export function Loading({
           animation: 'fp-spin 0.7s linear infinite',
         }}
       />
-      {label != null && label !== '' && <span style={{ fontSize: FS.sub, color: C.faint }}>{label}</span>}
+      {/* 스피너 위 · 문구 아래 가운데정렬. 여러 줄로 접혀도 가운데 유지(textAlign 없으면 왼쪽으로 붙는다). */}
+      {label != null && label !== '' && (
+        <span style={{ fontSize: FS.sub, color: C.faint, textAlign: 'center', lineHeight: 1.45 }}>{label}</span>
+      )}
     </div>
   );
 }
