@@ -220,10 +220,10 @@ export function ContractListRow({
 }
 
 /**
- * 재고 목록 3줄 (문의·계약과 동일 골격)
- *   1 차명
- *   2 상태·상품유형 뱃지 (+검수)
- *   3 차번 · 스펙 · 공급사
+ * 재고 목록 3줄 — 목록 규격(①주제 ②식별 ③맥락) SSOT
+ *   ① 차량명
+ *   ② 상태·상품유형 뱃지 · 차번 · 연식 · 연료 · 주행 (식별)
+ *   ③ 공급사 (+검수·변환)
  * 좌측 = 출고/판매 상태 아이콘(색)
  */
 export const InventoryListRow = memo(function InventoryListRow({
@@ -244,26 +244,25 @@ export const InventoryListRow = memo(function InventoryListRow({
       thumb={<FeedThumbIcon icon={ic.icon} tone={ic.tone} title={ic.title} />}
       lines={[
         <FeedTitle key="t">{vehicleName(p) || String(p.car_number || '상품')}</FeedTitle>,
-        <FeedBadges key="b">
+        // ② 식별 — 상태뱃지 + 차번·스펙. 문의(②=상태·차번·상대방)와 같은 자리·같은 순서.
+        <div key="b" style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden' }}>
           {st ? <Badge tone={vehicleTone(st)} variant={st === '계약중' ? 'solid' : 'line'} pulse={st === '계약중'}>{st}</Badge> : null}
           {pt ? (() => { const c = canonProductType(pt) || pt; const pts = productTypeStyle(c); return <Badge tone={pts.tone} variant={pts.variant}>{c}</Badge>; })() : null}
-          {p._needs_master_review ? <Badge tone="amber" variant="solid">검수</Badge>
-            : p._snapped ? <Badge tone="blue" variant="quiet">변환</Badge> : null}
-        </FeedBadges>,
-        <div key="s" style={{ display: 'flex', alignItems: 'center', minWidth: 0, overflow: 'hidden' }}>
           <div style={{ flex: '1 1 auto', minWidth: 0, overflow: 'hidden' }}>
             <CardSpecs p={p} dense />
           </div>
+        </div>,
+        // ③ 맥락 — 이 화면에서 중요한 것 = 어느 공급사 물건인가 + 검수 필요 여부
+        <div key="s" style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden' }}>
           {provider ? (
-            <>
-              <span style={{ color: C.faint, margin: '0 5px', flex: '0 0 auto' }}>·</span>
-              <span style={{
-                flex: '0 1 auto', maxWidth: '42%',
-                fontSize: FS.sub, color: C.faint, fontWeight: FW.meta,
-                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-              }}>{provider}</span>
-            </>
+            <span style={{
+              flex: '0 1 auto', minWidth: 0,
+              fontSize: FS.sub, color: C.faint, fontWeight: FW.meta,
+              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            }}>{provider}</span>
           ) : null}
+          {p._needs_master_review ? <Badge tone="amber" variant="solid">검수</Badge>
+            : p._snapped ? <Badge tone="blue" variant="quiet">변환</Badge> : null}
         </div>,
       ]}
     />
@@ -331,7 +330,8 @@ export function MemberListRow({
       thumb={<FeedThumbIcon icon={ic.icon} tone={ic.tone} title={ic.title} />}
       lines={[
         <FeedTitle key="t">{String(row.name || code || (kind === 'user' ? '사용자' : '파트너'))}</FeedTitle>,
-        <FeedBadges key="b">
+        // ② 식별 — 상태뱃지 + 코드·소속. 문의·계약·재고와 같은 자리·같은 순서(뱃지가 앞).
+        <div key="b" style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden' }}>
           {kind === 'user' ? (
             <>
               <Badge tone={ACTOR_TONE[role] || (role.startsWith('agent') ? 'blue' : 'gray')}>
@@ -346,13 +346,20 @@ export function MemberListRow({
               <Badge tone="gray" variant="quiet">수수료 {rateLabel}</Badge>
             </>
           )}
-        </FeedBadges>,
+          <div style={{ flex: '1 1 auto', minWidth: 0, overflow: 'hidden' }}>
+            <FeedSub>
+              {dotJoin([
+                code ? <span key="c" style={{ fontFamily: NUM }}>{code}</span> : null,
+                kind === 'user' ? (company || String(row.agent_channel_code || '')) : null,
+              ]) || ''}
+            </FeedSub>
+          </div>
+        </div>,
+        // ③ 맥락 — 회원관리에서 필요한 건 연락 수단
         <FeedSub key="s">
           {dotJoin([
-            code ? <span key="c" style={{ fontFamily: NUM }}>{code}</span> : null,
-            kind === 'user'
-              ? (company || String(row.agent_channel_code || ''))
-              : String(row.contact || ''),
+            String(row.phone || row.contact || '') || null,
+            String(row.email || '') || null,
           ]) || '—'}
         </FeedSub>,
       ]}
