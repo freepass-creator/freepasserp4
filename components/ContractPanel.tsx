@@ -7,7 +7,7 @@ import { STEPS, contractTone, isDone } from '@/lib/domain/contract';
 import { applyStepCheck, cancelContract, finalizeContractIfReady } from '@/lib/domain/settlement-engine';
 import { createContractRequest, getRole, type Role } from '@/lib/domain/deal';
 import { cheapest, priceList } from '@/lib/domain/product';
-import { Btn, Badge, C, R, NUM, Input, fmtPhone, actorColor, DetailRow, ListGroup, FW, FS } from '@/components/ui';
+import { Btn, Badge, C, R, NUM, Input, fmtPhone, actorColor, DetailRow, ListGroup, ToggleChips, FW, FS, won } from '@/components/ui';
 import { ContractMemos } from '@/components/ContractMemos';
 import { ContractSign } from '@/components/ContractSign';
 import { confirmDialog, toast } from '@/components/Toaster';
@@ -32,6 +32,8 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
   const [role, setRoleS] = useState<Role>('agent');
   const [cust, setCust] = useState({ name: '', phone: '' });
   const [busy, setBusy] = useState(false);
+  /** 계약 생성 시 동결할 대여기간. 미선택이면 최저가 기간을 쓴다(기존 동작). */
+  const [period, setPeriod] = useState<number>(0);
 
   const load = async () => {
     const all = await getStore().list('contract', co);
@@ -51,7 +53,10 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
     try {
       let cc = contract || null;
       if (!cc && product) {
-        const m = cheapest(product)?.m || priceList(product)[0]?.m || 0;
+        // 계약 생성 = 금액·기간이 이 시점에 **동결**된다(정산·계약서·손님 서명 금액의 기준).
+        //  예전엔 손님 합의와 무관하게 '최저가 기간'을 자동으로 박았고 이후 수정 경로가 없었다.
+        //  → 영업자가 고른 기간(period)을 쓰고, 안 골랐으면 최저가를 기본으로 둔다.
+        const m = period || cheapest(product)?.m || priceList(product)[0]?.m || 0;
         const code = await createContractRequest(product, { period: m, customerName: '', customerPhone: '' }, roomId);
         cc = (await getStore().get('contract', co, code)) || null;
       }
@@ -159,16 +164,47 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
               const label = <>{actorLabel(ch.actor)}{ch.key === 'agent_delivery_inquiry' ? '출고 문의' : ch.key === 'provider_agreement_done' ? '약정 작성완료' : ch.label}</>;
 
               if (ch.key === 'agent_delivery_inquiry') {
+                // 계약이 아직 없으면 = 금액·기간이 여기서 동결된다. 기간을 명시적으로 고르게 한다.
+                const periods = !c && product ? priceList(product) : [];
+                const picked = period || cheapest(product as EntityRecord)?.m || periods[0]?.m || 0;
+                const pickedPrice = periods.find((x) => x.m === picked);
                 return (
-                  <DetailRow
-                    key={ch.key}
-                    label={label}
-                    value={done
-                      ? <span style={{ color: C.ok, fontWeight: FW.strong, display: 'inline-flex', alignItems: 'center', gap: 4 }}>문의함 <Check size={14} aria-hidden /></span>
-                      : mine
-                        ? <Btn title="출고 문의하기" size="sm" onClick={doInquiry} disabled={busy || !product}>출고 문의하기</Btn>
-                        : <span style={{ color: C.faint }}>대기</span>}
-                  />
+                  <Fragment key={ch.key}>
+                    <DetailRow
+                      label={label}
+                      value={done
+                        ? <span style={{ color: C.ok, fontWeight: FW.strong, display: 'inline-flex', alignItems: 'center', gap: 4 }}>문의함 <Check size={14} aria-hidden /></span>
+                        : mine
+                          ? <Btn title="출고 문의하기" size="sm" onClick={doInquiry} disabled={busy || !product}>출고 문의하기</Btn>
+                          : <span style={{ color: C.faint }}>대기</span>}
+                    />
+                    {/* 기간 선택 — 계약 생성 전에만. 이 값이 정산·계약서·손님 서명 금액의 기준이 된다. */}
+                    {!c && mine && periods.length > 1 ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '8px 12px 10px' }}>
+                        <span style={{ fontSize: FS.micro, color: C.faint }}>
+                          대여기간 선택 — 계약 생성 시 이 기간의 금액으로 <b style={{ color: C.warn }}>동결</b>됩니다
+                        </span>
+                        <ToggleChips
+                          size="sm"
+                          selected={new Set([String(picked)])}
+                          options={periods.map((x) => ({ key: String(x.m), label: `${x.m}개월` }))}
+                          onToggle={(k) => setPeriod(Number(k))}
+                        />
+                        {pickedPrice ? (
+                          <span style={{ fontSize: FS.sub, color: C.mute, fontVariantNumeric: 'tabular-nums' }}>
+                            월 {won(pickedPrice.rent)} · {pickedPrice.deposit > 0 ? `보증 ${won(pickedPrice.deposit)}` : '무보증'}
+                          </span>
+                        ) : null}
+                      </div>
+                    ) : null}
+                    {/* 계약 생성 후 = 동결된 값을 보여줘 무엇으로 정산·청구되는지 명확히 */}
+                    {c && Number(c.rent_month_snapshot) ? (
+                      <DetailRow
+                        label="동결 금액"
+                        value={`${String(c.rent_month_snapshot)}개월 · 월 ${won(Number(c.rent_amount_snapshot) || 0)} · ${Number(c.deposit_amount_snapshot) > 0 ? `보증 ${won(Number(c.deposit_amount_snapshot))}` : '무보증'}`}
+                      />
+                    ) : null}
+                  </Fragment>
                 );
               }
 
