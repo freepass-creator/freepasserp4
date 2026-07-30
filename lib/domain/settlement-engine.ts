@@ -243,7 +243,9 @@ export async function applyStepCheck(contract: EntityRecord, key: string, value:
     if (rival) throw new Error(`이미 계약금이 확인된 계약(${rival})이 있는 차량입니다 — 선점 불가`);
     // 2차 방어 — 계약목록 조회가 권한/캐시로 실패해 rival 을 못 봤을 때를 대비해 상품의 락 소유자로 재확인.
     // 소유자가 본 계약이면 통과(체크 재클릭·잔금확인 등 후속). 소유자 없는 '계약중'만 구데이터 잔재로 보고 막지 않음(데드락 방지) — 소유자 없는 '출고불가'는 공급사 수기 보류라 아래에서 차단.
-    const p = await store.get('product', co, productCode);
+    // ★캐시 우회 필수 — store.get()은 세션 영구 list 캐시를 먼저 본다. 캐시를 읽으면
+    //  "다른 영업자가 방금 건 락"이 안 보여 가드가 통과하고 같은 차가 두 번 팔린다(QA RACE-1).
+    const p = await (store.getFresh ? store.getFresh('product', co, productCode) : store.get('product', co, productCode));
     const st = String(p?.vehicle_status || '');
     const owner = String(p?.locked_by_contract || '');
     // 남의 락(출고불가·계약중)이면 선점 불가.
@@ -263,6 +265,13 @@ export async function applyStepCheck(contract: EntityRecord, key: string, value:
     if (hypo.done === hypo.total && contract.contract_status !== '계약완료') {
       const dup = contracts.find((c) => String(c.product_code) === productCode && String(c.contract_code) !== code && c.contract_status === '계약완료');
       if (dup) throw new Error(`이미 완료된 계약(${dup.contract_code})이 있는 차량입니다 — 이중판매 불가`);
+      // 계약목록은 역할 스코프(영업자=본인 것만) + 세션 캐시라 남의 완료가 안 보인다.
+      //  완료 직전에 매물 락을 캐시 우회로 재확인 — 이게 교차 영업자 이중판매의 마지막 방어선이다.
+      const pf = await (store.getFresh ? store.getFresh('product', co, productCode) : store.get('product', co, productCode));
+      const ownerF = String(pf?.locked_by_contract || '');
+      if (ownerF && ownerF !== code && String(pf?.vehicle_status || '') === '출고불가') {
+        throw new Error(`이 차량은 이미 다른 계약(${ownerF})으로 출고 완료됐습니다 — 이중판매 불가`);
+      }
     }
   }
   await store.update('contract', co, code, { [key]: value });

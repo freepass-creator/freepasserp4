@@ -27,6 +27,11 @@ export interface StoreAdapter {
    */
   listRaw?(entityKey: string, companyId: string): Promise<EntityRecord[]>;
   get(entityKey: string, companyId: string, key: string): Promise<EntityRecord | null>;
+  /**
+   * 캐시 우회 단건 조회 — 경합 판정 전용(이중판매 가드 등).
+   * 캐시가 없는 어댑터는 get과 동일하다. 디스패처가 구현을 덮어쓴다.
+   */
+  getFresh?(entityKey: string, companyId: string, key: string): Promise<EntityRecord | null>;
   update(entityKey: string, companyId: string, key: string, patch: EntityRecord): Promise<void>;
   bulkPatch(entityKey: string, companyId: string, patches: { key: string; patch: EntityRecord }[]): Promise<number>; // 다건 부분갱신(멀티패스) — 일괄 차종 재구현 등
   remove(entityKey: string, companyId: string, key: string, reason?: string): Promise<void>;   // #6 소프트삭제
@@ -332,6 +337,17 @@ class DispatchStore implements StoreAdapter {
     if (synced) { const hit = findCached(synced, key); if (hit) return hit; }
     const pending = _listCache.get(ck);
     if (pending) { const hit = findCached(await pending, key); if (hit) return hit; }
+    if (!this.all(companyId)) return this.base.get(entityKey, companyId, key);
+    for (const c of COMPANIES) { const r = await this.base.get(entityKey, c, key); if (r) return r; }
+    return null;
+  }
+  /**
+   * 캐시 우회 단건 조회 — **경합 판정 전용**.
+   * list 캐시는 세션 내내 유지되므로 `get()`은 다른 사용자가 방금 만든 변화를 못 본다.
+   * 이중판매 가드처럼 "남이 방금 선점했는가"를 물어야 하는 자리에서 캐시를 읽으면
+   * 가드가 통과해 같은 차가 두 번 팔린다. 그런 자리에서만 이걸 쓴다(비용이 크다).
+   */
+  async getFresh(entityKey: string, companyId: string, key: string) {
     if (!this.all(companyId)) return this.base.get(entityKey, companyId, key);
     for (const c of COMPANIES) { const r = await this.base.get(entityKey, c, key); if (r) return r; }
     return null;
