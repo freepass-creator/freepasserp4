@@ -111,6 +111,21 @@ _생성: Claude Code 검수. B2·B3는 반영 완료, B1·B4·B5는 실행/결�
 | RATE-1 | 수수료율 오입력이 정산액 100배로 이어짐 | 코드 반영 | — |
 | CACHE-1/SYNC-1 | 상대가 보낸 새 문의·새 메시지가 세션 내내 목록·뱃지에 안 붙음 | 코드 반영 | — |
 | AUTH-7 | 가입에 약관·개인정보 동의 절차 부재(개인정보보호법 §15) | 코드 반영 | **아래 2건 — 오픈 전 필수** |
+| STOR-1 | `contract-signed/**` 무인증 업로드·덮어쓰기(계약서 위조) | 규칙 수정 | **게시 필요** — `firebase deploy --only storage` |
+
+### STOR-1 상세
+
+`contract-signed` · `contract-unsigned` 는 v3·v4 어느 코드도 쓰지 않는 유령 경로였다(전수 grep 0건).
+그런데 signed 쪽 `allow create, update` 에는 `request.auth != null` 조건 자체가 없어서, 로그인 없이
+Storage REST 로 임의 경로에 파일을 올리고 **기존 서명본을 같은 경로로 덮어쓸 수 있었다.**
+쓰는 코드가 없으므로 쓰기를 닫고(`allow write: if false`) 읽기는 인증으로 좁혔다.
+**규칙 파일만 고쳤을 뿐 아직 게시되지 않았다** — 게시해야 실제로 막힌다.
+
+남은 것(별건, 규칙만으로는 못 고침): v3 호환 경로 `contract-files/{contractId}` · `chat-files/{roomId}` 는
+**로그인한 아무나** 남의 계약 첨부(면허증 사본 등)와 남의 방 파일을 읽을 수 있다.
+Storage 규칙은 RTDB 를 못 읽으므로 소속 검사가 불가능하다. 해결하려면 Auth 커스텀 클레임에
+`company_code`·`role` 을 실어 규칙에서 대조하거나, 다운로드를 서버 라우트로 우회시켜야 한다.
+v4 신규 경로(`erp/{companyId}/...`)는 이미 업로더 본인만 읽도록 좁혀져 있어 신규 업로드는 영향 없음.
 
 ### AUTH-7 잔여 — 사람이 정해야 하는 것
 
