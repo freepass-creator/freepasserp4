@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
@@ -69,6 +69,7 @@ export default function ContractsSettlement() {
   const [selProduct, setSelProduct] = useState<EntityRecord | null>(null);
   const [roomId, setRoomId] = useState<string | null>(null);
   const [setts, setSetts] = useState<EntityRecord[]>([]);
+  const settsRef = useRef<EntityRecord[]>([]);
   const [role, setRoleS] = useState<Role>('agent');
   const [qInput, setQInput] = useState(''); // 검색창 즉시 반영
   const [q, setQ] = useState(''); // 디바운스된 검색
@@ -98,7 +99,7 @@ export default function ContractsSettlement() {
     const mine = all.filter((c) => canAccessOwnedRecord(getSession(), c));
     mine.sort((a, b) => String(b.contract_date || '').localeCompare(String(a.contract_date || '')));
     const mineS = allS.filter((s) => canAccessOwnedRecord(getSession(), s));
-    setRows(mine); setSetts(mineS); return mine;
+    setRows(mine); setSetts(mineS); settsRef.current = mineS; return mine;
   };
   const settlementForContract = (items: EntityRecord[], contractCode: unknown) => {
     const code = String(contractCode || '').trim();
@@ -120,7 +121,8 @@ export default function ContractsSettlement() {
         return null;
       }),
     ]);
-    let s = settlementForContract(settsList, c.contract_code);
+    let s = settlementForContract(settsRef.current, c.contract_code)
+      || settlementForContract(settsList, c.contract_code);
     // lazy create = admin·소유 공급사만(영업자 채널 불일치 시 permission_denied로 pane abort 방지)
     if (!s && c.contract_status === '계약완료') {
       const r = getRole();
