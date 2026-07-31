@@ -100,6 +100,15 @@ export default function ContractsSettlement() {
     const mineS = allS.filter((s) => canAccessOwnedRecord(getSession(), s));
     setRows(mine); setSetts(mineS); return mine;
   };
+  const settlementForContract = (items: EntityRecord[], contractCode: unknown) => {
+    const code = String(contractCode || '').trim();
+    if (!code) return null;
+    const settlementCode = `ST_${code}`;
+    return items.find((item) => (
+      String(item.contract_code || '').trim() === code
+      || String(item.settlement_code || item._key || '').trim() === settlementCode
+    )) || null;
+  };
   const selectContract = async (c: EntityRecord) => {
     setSel(String(c.contract_code)); setSelC(c);
     setSwapKey(String(c.contract_status || '') === '계약완료' ? 'settle' : 'progress');
@@ -108,7 +117,7 @@ export default function ContractsSettlement() {
       getStore().get('product', co, String(c.product_code)),
       ensureRoomForContract(c),
     ]);
-    let s = settsList.find((x) => String(x.contract_code) === String(c.contract_code)) || null;
+    let s = settlementForContract(settsList, c.contract_code);
     // lazy create = admin·소유 공급사만(영업자 채널 불일치 시 permission_denied로 pane abort 방지)
     if (!s && c.contract_status === '계약완료') {
       const r = getRole();
@@ -118,7 +127,7 @@ export default function ContractsSettlement() {
         try {
           await createSettlement(c);
           const again = await getStore().list('settlement', co);
-          s = again.find((x) => String(x.contract_code) === String(c.contract_code)) || null;
+          s = settlementForContract(again, c.contract_code);
         } catch (e) {
           toast(`정산 생성 실패: ${String((e as Error)?.message || e)}`, 'error');
         }
@@ -147,7 +156,7 @@ export default function ContractsSettlement() {
       setSelC(c);
       if (String(c.contract_status || '') === '계약완료') setSwapKey('settle');
       const settsList = await getStore().list('settlement', co);
-      let s = settsList.find((x) => String(x.contract_code) === sel) || null;
+      let s = settlementForContract(settsList, sel);
       if (!s && c.contract_status === '계약완료') {
         const r = getRole();
         const canCreate = r === 'admin'
@@ -156,7 +165,7 @@ export default function ContractsSettlement() {
           try {
             await createSettlement(c);
             const again = await getStore().list('settlement', co);
-            s = again.find((x) => String(x.contract_code) === sel) || null;
+            s = settlementForContract(again, sel);
           } catch (e) {
             toast(`정산 생성 실패: ${String((e as Error)?.message || e)}`, 'error');
           }
