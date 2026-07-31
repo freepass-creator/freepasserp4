@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 # 매 push/PR = typecheck + 폰트 토큰 가드 + 도메인 시뮬레이션 + 프로덕션 빌드.
-#  다중 도구 동시 작업의 회귀를 자동 차단. 시크릿 불필요(sim=LocalAdapter, build=NEXT_PUBLIC 미설정 시 Local 폴백).
+#  다중 도구 동시 작업의 회귀를 자동 차단. 시크릿 불필요(sim=LocalAdapter, build=비운영 CI placeholder).
 jobs:
   verify:
     runs-on: ubuntu-latest
@@ -27,6 +27,9 @@ jobs:
       - name: Font token guard
         run: npm run check:fonts
 
+      - name: Design token guard
+        run: npm run check:tokens
+
       - name: Sim — 시트 병합(soft-merge·락 보호)
         run: npx tsx scripts/sim-sheet-merge.mts
 
@@ -36,5 +39,16 @@ jobs:
       - name: Sim — 3자 정산 E2E(공급등록→계약→정산→월정산)
         run: npx tsx scripts/sim-e2e-settlement.mts
 
+      - name: Sim — 출시 차단(0원 정산·역할 미지정)
+        run: npx tsx scripts/sim-release-blockers.mts
+
       - name: Production build
         run: npm run build
+        # Next production build는 필수 공개 Firebase 설정이 없으면 의도적으로 실패한다.
+        # CI는 외부 연결을 실행하지 않으므로 운영 시크릿 대신 형식만 유효한 placeholder를 사용한다.
+        env:
+          NEXT_PUBLIC_FIREBASE_API_KEY: ci-placeholder
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ci.invalid
+          NEXT_PUBLIC_FIREBASE_DATABASE_URL: https://ci-placeholder-default-rtdb.firebaseio.com
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: ci-placeholder
+          NEXT_PUBLIC_FIREBASE_APP_ID: 1:000000000000:web:ci
