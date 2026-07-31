@@ -152,11 +152,11 @@ export default function ContractsSettlement() {
     setRoomId(room);
     setSettlementLoading(false);
   };
-  const clearSel = () => {
+  const clearSel = (preserveQuery = false) => {
     selectionEpoch.current += 1;
     setSel(null); setSelC(null); setSelS(null); setSelProduct(null); setRoomId(null); setSwapKey('progress');
     setSettlementLoading(false);
-    if (typeof window !== 'undefined') {
+    if (!preserveQuery && typeof window !== 'undefined') {
       const u = new URL(window.location.href);
       if (u.searchParams.has('c')) {
         u.searchParams.delete('c');
@@ -218,7 +218,15 @@ export default function ContractsSettlement() {
     if (target) void selectContract(target);
   }, [rows, sel]);
 
-  useEffect(() => { const on = (e: Event) => { const r = (e as CustomEvent).detail as Role; (async () => { const all = await load(r); clearSel(); if (!mobile && all.length) selectContract(all.find((c) => isContractInProgress(c)) || all[0]); })(); }; window.addEventListener('fp:role', on); return () => window.removeEventListener('fp:role', on); /* eslint-disable-next-line */ }, [mobile]);
+  useEffect(() => { const on = (e: Event) => { const r = (e as CustomEvent).detail as Role; (async () => {
+    const wanted = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('c') : null;
+    const all = await load(r);
+    clearSel(true);
+    if (!mobile && all.length) {
+      selectContract((wanted ? all.find((c) => String(c.contract_code) === wanted) : undefined)
+        || all.find((c) => isContractInProgress(c)) || all[0]);
+    }
+  })(); }; window.addEventListener('fp:role', on); return () => window.removeEventListener('fp:role', on); /* eslint-disable-next-line */ }, [mobile]);
 
   useEffect(() => {
     const on = (e: Event) => {
@@ -328,6 +336,7 @@ export default function ContractsSettlement() {
     </div>
   );
   const detailSettle = () => {
+    if (!selC) return <CenterNote>계약 완료 시 정산이 자동 생성됩니다.</CenterNote>;
     if (settlementLoading) return <CenterNote>정산 기록 확인 중…</CenterNote>;
     if (!selS) return <CenterNote>{selC?.contract_status === '계약완료' ? '정산 기록 없음' : '계약 완료 시 정산이 자동 생성됩니다.'}</CenterNote>;
     const s = selS; const st = String(s.settlement_status); const cb = Number(s.clawback_amount) || 0;
