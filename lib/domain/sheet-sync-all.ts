@@ -104,11 +104,12 @@ export async function fetchAllPartnerSheets(
   master: MasterEntry[],
 ): Promise<PartnerSheetsFetch> {
   if (!master?.length) throw new Error('차종마스터 없음');
-  const partners = (await getStore().list('partner', companyId)).filter((p) => {
-    if (!String(p.sheet_url || '').trim()) return false;
-    const t = String(p.partner_type || '');
-    return !t || t === '공급사';
-  });
+  // 대상 선정은 listSheetPartners 하나로 — 여기 따로 filter 를 두면 목록과 어긋난다.
+  //  실제로 그랬다: 화면 목록엔 16곳이 나오는데 여기서 한글 '공급사'만 통과시켜 2곳만 가져왔다.
+  const roster = await listSheetPartners(companyId);
+  const codes = new Set(roster.map((r) => r.code));
+  const partners = (await getStore().list('partner', companyId))
+    .filter((p) => codes.has(String(p.partner_code || p._key || '')));
   const lines = await mapPool(partners, CONCURRENCY, async (p): Promise<PartnerFetchLine> => {
     const label = String(p.name || p.partner_name || p.partner_code);
     const code = String(p.partner_code || p._key || '');
@@ -270,11 +271,12 @@ export async function syncAllPartnerSheets(
   failCount: number;
 }> {
   const store = getStore();
-  const partners = (await store.list('partner', companyId)).filter((p) => {
-    if (!String(p.sheet_url || '').trim()) return false;
-    const t = String(p.partner_type || '');
-    return !t || t === '공급사';
-  });
+  // 대상 선정은 listSheetPartners 하나로 — 여기 따로 filter 를 두면 fetch 대상과 어긋나
+  //  가져오지도 않은 공급사의 매물을 부재(→출고불가) 처리해 버린다.
+  const roster = await listSheetPartners(companyId);
+  const codes = new Set(roster.map((r) => r.code));
+  const partners = (await store.list('partner', companyId))
+    .filter((p) => codes.has(String(p.partner_code || p._key || '')));
   const existing = await store.list('product', companyId);
   const prevForGuard = buildPrevForGuard(partners, existing);
   const fetched = await fetchAllPartnerSheets(companyId, master);
