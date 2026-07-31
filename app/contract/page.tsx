@@ -123,6 +123,9 @@ export default function ContractsSettlement() {
     ]);
     let s = settlementForContract(settsRef.current, c.contract_code)
       || settlementForContract(settsList, c.contract_code);
+    if (!s) {
+      s = await getStore().get('settlement', co, `ST_${String(c.contract_code || '').trim()}`).catch(() => null);
+    }
     // lazy create = admin·소유 공급사만(영업자 채널 불일치 시 permission_denied로 pane abort 방지)
     if (!s && c.contract_status === '계약완료') {
       const r = getRole();
@@ -162,6 +165,9 @@ export default function ContractsSettlement() {
       if (String(c.contract_status || '') === '계약완료') setSwapKey('settle');
       const settsList = await getStore().list('settlement', co);
       let s = settlementForContract(settsList, sel);
+      if (!s) {
+        s = await getStore().get('settlement', co, `ST_${sel.trim()}`).catch(() => null);
+      }
       if (!s && c.contract_status === '계약완료') {
         const r = getRole();
         const canCreate = r === 'admin'
