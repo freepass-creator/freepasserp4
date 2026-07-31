@@ -535,8 +535,12 @@ export class RtdbAdapter implements StoreAdapter {
     // room·contract·settlement·product = v4 오버레이 규칙이 소유필드 기반.
     //  부분 패치엔 소유필드가 없어 레거시(v3전용) 레코드를 처음 오버레이에 쓸 때 생성분기가 소유필드 null → permission_denied.
     //  기존(merged) 레코드에서 소유필드를 승계 스탬프해 자기기술형으로 유지.
+    //  ⚠ contract_status 는 **일부러 넣지 않는다.** 넣으면 레거시 계약완료 12건이 상태 leaf validate
+    //   (11게이트 전부 'yes')에 걸린다 — v3 게이트는 boolean true 이고 agent_final_paid 는 아예 없다.
+    //   그 조건을 맞추려면 "잔금 완납"을 지어내야 하므로, 상태는 v3 에 그대로 두고(필드병합이라 화면엔 보인다)
+    //   규칙 쪽 hasChildren 에서 contract_status 를 뺐다.
     if ((entity === 'room' || entity === 'contract' || entity === 'settlement') && before) {
-      for (const f of ['agent_uid', 'agent_code', 'agent_channel_code', 'provider_company_code', 'provider_uid', 'product_code'] as const) {
+      for (const f of ['contract_code', 'agent_uid', 'agent_code', 'agent_channel_code', 'provider_company_code', 'provider_uid', 'product_code'] as const) {
         if (p[f] === undefined && (before as Rec)[f] != null && (before as Rec)[f] !== '') p[f] = (before as Rec)[f];
       }
     }
