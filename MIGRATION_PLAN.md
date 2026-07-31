@@ -141,3 +141,63 @@
 - **안정성 우선.** 각 단계는 되돌릴 수 있어야 하고, 이관 스크립트는 멱등(재실행 안전)이어야 한다.
 - 이관 전 **드라이런 + 건수·참조 무결성 리포트**를 통과해야 실행한다.
 - erp3는 전환 후에도 **읽기 참고용으로 살려두되**(진행 계약 30건 마무리), erp4는 절대 참조하지 않는다.
+
+---
+
+## 7. 실행 현황 (2026-07-31)
+
+| 단계 | 상태 |
+|---|---|
+| 0 백업 | ✅ `tmp/migration/pre-apply-20260731-113136.json` (26.1MB) |
+| 1~4 | ✅ |
+| **5 적용** | ✅ 1차 1,391경로 + 델타 84경로. 기존값은 전부 보존(덮어쓰지 않음) |
+| **6 검증** | ✅ **10/10 PASS** — 금액 전건 일치·필드손실 0·PII 0·소유필드 전건 충족 |
+| 7 배포(브리지 유지) | ✅ |
+| **8 브리지 제거** | ⛔ **보류** — 아래 게이트 미충족 |
+| 9~11 | 대기 |
+
+### v4 에 들어간 것 (실측)
+
+방 180 · 메시지 1,220 · 계약 38 · 정산 15 · 고객 39 · 정책 25 · 파트너 40 · 서명 3
+
+### 8단계를 막는 것 — `scripts/bridge-readiness.mts` 로 언제든 재측정
+
+| 엔티티 | v3에만 있음 | 끌 수 있나 |
+|---|---|---|
+| policy · partner · room · message | 0 | ✅ |
+| **product** | **302대(판매가능 상태)** | ⛔ 시트로 v4 에 채워야 함 |
+| **user** | 149 | ⛔ **설계상 미이관** — 루트 공유. 끄면 회원목록·발신자 이름이 빈다 |
+| audit_log | 16,759 | ⛔ 미이관(PII). 끄면 과거 감사이력이 안 보인다 |
+
+**게이트**: 매물 302대가 시트 동기화로 v4 에 들어오면 `product` 를 뺄 수 있다.
+`user` 는 영구히 브리지 유지가 정답이다(루트 공유가 설계).
+
+```bash
+# 준비되면 (되돌리기 = 이 값 원복, 1분)
+npx vercel env add NEXT_PUBLIC_BRIDGE_V3 production
+#   값: user,audit_log
+```
+
+### 재측정 명령
+
+```bash
+export GOOGLE_APPLICATION_CREDENTIALS=tmp/firebase-auth/sa.json
+npx tsx scripts/bridge-readiness.mts    # 엔티티별 해제 가능 여부
+npx tsx scripts/product-gap.mts         # 사라질 차가 무엇인지(차량번호·공급사·상태)
+npx tsx scripts/preflight-migration.mts # 백업 + 선정리 반영 + 충돌
+```
+
+### 델타 재이관 (erp3 에서 새 활동이 생겼을 때)
+
+```bash
+npx tsx scripts/preflight-migration.mts                                    # 새 백업
+npx tsx scripts/migrate-v3-to-v4.mts tmp/migration/pre-apply-<stamp>.json tmp/migration/delta
+npx tsx scripts/apply-v4-migration.mts tmp/migration/delta/v4-payload.json --apply
+```
+기존 경로는 자동으로 건너뛰므로 몇 번 돌려도 안전하다.
+
+### 미해결 별건
+
+- **채널 없는 활성 영업자 34명.** 선정리 패치는 그중 1명에게만, 그것도 `auth.ts` 가 금지한
+  **공유 SP999 채널**을 주려 했다(규칙 게시 시 개인끼리 방·계약·정산 교차열람).
+  전원을 `user_code` 기반 고유 채널로 배정해야 한다. 이관과 무관한 별건.
