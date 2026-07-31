@@ -285,7 +285,7 @@ export default function MonthlySettlement() {
 
   const summaryPane = (
     <>
-      <PaneHead title={`${month || '월'} 집계`} count={`${monthRows.length}건`} />
+      <PaneHead title={`${month || '월'} 집계`} count={monthRows.length} />
       <PaneBody pad>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
           <MoneyCard label="공급사 청구 R1" value={totals.r1} />
@@ -298,8 +298,9 @@ export default function MonthlySettlement() {
           onChange={setGroup}
           options={[{ key: 'provider', label: '공급사별' }, { key: 'channel', label: '영업채널별' }]}
         />
+        {grouped.length ? (
         <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg, overflow: 'hidden' }}>
-          {grouped.length ? grouped.map((item) => (
+          {grouped.map((item) => (
             <MetricRow
               key={item.name}
               main={item.name}
@@ -307,8 +308,9 @@ export default function MonthlySettlement() {
               right={won(item.net)}
               rightColor={item.net > 0 ? C.brand : C.mute}
             />
-          )) : <CenterNote>집계할 정산 내역이 없습니다.</CenterNote>}
+          ))}
         </div>
+        ) : <CenterNote>집계할 정산 내역이 없습니다.</CenterNote>}
       </PaneBody>
     </>
   );
@@ -374,11 +376,11 @@ export default function MonthlySettlement() {
           },
           filter: {
             count: status === 'all' ? 0 : 1,
-            title: '정산 상태',
+            title: '정산상태',
             onClear: () => setStatus('all'),
             body: (
               <FilterGroup
-                title="정산 상태"
+                title="정산상태"
                 count={status === 'all' ? 0 : 1}
                 defaultOpen
                 first

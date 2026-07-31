@@ -175,6 +175,14 @@ export function ProductCardSkeleton({ count = 4, dense }: { count?: number; dens
   );
 }
 
+/**
+ * 빈 상태 문구 — 패널 본문 한가운데.
+ * minHeight '100%' = **PaneBody 안**에서 스크롤 박스를 채워 세로 중앙에 놓이기 위한 값이다.
+ * 그래서 두 가지를 지켜야 한다(안 지키면 문구가 위로 붙거나 뒤 형제가 화면 밖으로 밀린다).
+ *   · PaneHead의 형제로 두지 말 것 — 헤더 높이까지 먹어 문구 중심이 헤더 절반만큼 내려간다.
+ *   · 뒤에 형제를 두지 말 것 — 이게 열을 다 먹어 형제가 스크롤 밖으로 밀린다. 함께 보여야 하면
+ *     children 안에 넣는다(app/members/page.tsx 관리자 도구가 그렇게 눌리지 않았다).
+ */
 export function CenterNote({
   children,
   minHeight = '100%',

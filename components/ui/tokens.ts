@@ -98,6 +98,12 @@ export function ctrlH(mobile: boolean, size: CtrlSize = 'md'): number {
 }
 
 /**
+ * 라벨-값 2열 행의 라벨 폭 SSOT. 화면마다 110/116/120으로 갈리면
+ * 나란한 카드끼리 값 시작선이 어긋나 열이 삐뚤어 보인다.
+ */
+export const KV_LABEL_W = 116;
+
+/**
  * 컨트롤이 들어가는 행의 세로 패딩 SSOT.
  * 모바일은 CTRL.md=CTRL.sm=36 이라 행 높이(ctrlH)와 버튼 높이가 같아진다 —
  * 세로 패딩이 없으면 버튼 테두리가 행 구분선에 0px로 맞닿아 "표 안에 끼인" 것처럼 보인다.

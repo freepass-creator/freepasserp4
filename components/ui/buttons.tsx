@@ -131,13 +131,15 @@ export function IconSeg<T extends string>({ value, onChange, options, showLabel 
   const h = ctrlH(mobile);
   const fs = ctrlFs(mobile);
   return (
-    <div style={{ display: 'flex', border: `1px solid ${C.line}`, borderRadius: R, overflow: 'hidden', width: showLabel ? '100%' : undefined }}>
+    // 컨테이너 테두리 1px×2가 더해져 총 h+2 가 되면 옆에 선 Btn(h)과 위·아래로 1px씩 어긋난다.
+    //  높이를 h로 고정하고 border를 그 안으로 넣는다.
+    <div style={{ display: 'flex', height: h, boxSizing: 'border-box', border: `1px solid ${C.line}`, borderRadius: R, overflow: 'hidden', width: showLabel ? '100%' : undefined }}>
       {options.map((o, i) => {
         const on = value === o.key;
         return (
           <button key={o.key} type="button" className="fp-press" onClick={() => onChange(o.key)} title={o.label} aria-label={o.label} aria-pressed={on}
             style={{
-              height: h,
+              height: '100%',
               ...(showLabel
                 ? { flex: '1 1 0', minWidth: 0, padding: '0 10px', gap: 5 }
                 : { width: h, padding: 0 }),

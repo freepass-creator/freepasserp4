@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { Badge, Btn, C, FS, FW, R, SectionLabel } from '@/components/ui';
+import { Badge, Btn, C, FS, FW, R, SectionLabel, fmtAt } from '@/components/ui';
 import { type EntityRecord } from '@/lib/intake/entities';
 import {
   isNoTrimLabel,
@@ -25,10 +25,6 @@ export function SnapTrace({ form, onRematch }: { form: EntityRecord; onRematch?:
 
   const conf = String(form._snap_confidence || '');
   const confTone = conf === 'high' ? 'green' : conf === 'medium' ? 'amber' : conf === 'low' ? 'orange' : 'gray';
-  const fmtAt = (ms: number) => {
-    try { return new Date(ms).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }); }
-    catch { return '—'; }
-  };
   const trimNow = String(form.trim_name || '').trim();
   const noTrim = !trimNow || isNoTrimLabel(trimNow);
 

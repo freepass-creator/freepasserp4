@@ -232,7 +232,11 @@ export function ExcelResultsTable({
             )}
             {visMonths.map((m) => { const e = pl.find((x) => x.m === m); return (
               <td key={m} className="fp-excel-price" style={{ ...tdXR, ...cellPad, ...colLock(priceW), background: bg, lineHeight: 1.2 }}>
-                    {e ? <><div style={{ color: C.brand, fontWeight: FW.head, whiteSpace: 'nowrap' }}>{man(e.rent)}</div><div style={{ color: C.faint, fontWeight: FW.body, whiteSpace: 'nowrap' }}>{e.deposit ? man(e.deposit) : '0'}</div></> : DASH}
+                    {/* 빈 칸도 값 칸과 같은 2줄 골격으로 — DASH만 홀로 놓으면 세로 가운데로 내려앉아
+                        열을 세로로 훑을 때 첫 줄 기준선이 어긋난다. */}
+                    {e
+                      ? <><div style={{ color: C.brand, fontWeight: FW.head, whiteSpace: 'nowrap' }}>{man(e.rent)}</div><div style={{ color: C.faint, fontWeight: FW.body, whiteSpace: 'nowrap' }}>{e.deposit ? man(e.deposit) : '0'}</div></>
+                      : <><div style={{ color: C.faint, whiteSpace: 'nowrap' }}>{DASH}</div><div aria-hidden>&nbsp;</div></>}
               </td>
             ); })}
           </tr>

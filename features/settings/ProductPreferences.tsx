@@ -6,7 +6,7 @@ import { clearFavs, clearRecent } from '@/lib/product-interest';
 import { clearHidden, unhideProduct } from '@/lib/product-hide';
 import { clearPassed, unpassProduct } from '@/lib/product-pass';
 import { toast } from '@/components/Toaster';
-import { Btn, C, DetailGrid, FS, ListRow, NUM, SectionLabel } from '@/components/ui';
+import { Btn, C, DetailGrid, FS, ListGroup, ListRow, NUM, SectionLabel } from '@/components/ui';
 
 function ManagedProducts({ title, emptyText, rows, action, actionLabel, clear, clearLabel }: {
   title: string;
@@ -21,7 +21,7 @@ function ManagedProducts({ title, emptyText, rows, action, actionLabel, clear, c
     <div>
       <SectionLabel mt={0}>{title}{rows.length ? ` · ${rows.length}` : ''}</SectionLabel>
       {!rows.length ? (
-        <div style={{ padding: '10px 0 4px', fontSize: FS.body, color: C.faint, lineHeight: 1.45 }}>{emptyText}</div>
+        <div style={{ padding: '10px 0 4px', fontSize: FS.sub, color: C.faint, lineHeight: 1.45 }}>{emptyText}</div>
       ) : (
         <>
           {rows.map((row) => (
@@ -51,7 +51,10 @@ export function ProductPreferences({ recentCount, favoriteCount, passed, hidden 
     <>
       <div>
         <SectionLabel mt={0}>관심함{recentCount + favoriteCount ? ` · ${recentCount + favoriteCount}` : ''}</SectionLabel>
-        <DetailGrid rows={[['최근 본', `${recentCount}건`], ['찜', `${favoriteCount}건`]]} />
+        {/* DetailGrid 는 카드 안 규격(행 좌우 12) — 카드 없이 두면 라벨만 안으로 밀려 섹션 제목과 어긋난다. */}
+        <ListGroup>
+          <DetailGrid rows={[['최근 본', `${recentCount}건`], ['찜', `${favoriteCount}건`]]} />
+        </ListGroup>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
           <Btn title="최근 본 비우기" size="sm" variant="ghost" haptic="impact" disabled={!recentCount} onClick={() => { clearRecent(); toast('최근 본을 비웠습니다', 'info'); }}>최근 비우기</Btn>
           <Btn title="찜 비우기" size="sm" variant="ghost" haptic="impact" disabled={!favoriteCount} onClick={() => { clearFavs(); toast('찜을 비웠습니다', 'info'); }}>찜 비우기</Btn>

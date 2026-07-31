@@ -7,7 +7,7 @@ import { ENTITIES, type EntityRecord } from '@/lib/intake/entities';
 import { newId } from '@/lib/domain/ids';
 import { getRole, actor, type Role } from '@/lib/domain/deal';
 import { PaneHead, PaneBody, Btn, FormGrid, FormCard, C, Loading, CenterNote, Page, FilterChips, FilterGroup, Message, PageActions, FeedRowSkeleton } from '@/components/ui';
-import { PolicyListRow } from '@/components/list-rows';
+import { PolicyCreateRow, PolicyListRow } from '@/components/list-rows';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
 import { confirmDialog, toast } from '@/components/Toaster';
 import { matchPolicyQuery } from '@/lib/domain/search';
@@ -228,14 +228,20 @@ export default function PolicyMgmt() {
         || String(a.policy_name || '').localeCompare(String(b.policy_name || ''), 'ko');
       return String(a.policy_name || a.policy_code || '').localeCompare(String(b.policy_name || b.policy_code || ''), 'ko');
     });
-  const listEl = shown.length === 0
-    ? <CenterNote>{q || scope !== 'all' ? '검색 결과 없음' : '정책 없음 — 등록하거나 공용 정책은 재고에서 연결'}</CenterNote>
-    : <div>{shown.map((p) => {
-        const on = String(p.policy_code) === sel;
-        return (
-          <PolicyListRow key={String(p.policy_code)} selected={on} onClick={() => { haptic.tap(); selectP(p); }} p={p} />
-        );
-      })}</div>;
+  // 등록 진입점은 목록 맨 위 행 하나로(재고·회원과 동일). 헤더 우측 버튼과 두 갈래로 두지 않는다.
+  const listEl = (
+    <>
+      <PolicyCreateRow onClick={newP} />
+      {shown.length === 0
+        ? <CenterNote>{q || scope !== 'all' ? '검색 결과 없음.' : '등록된 정책이 없습니다. 공용 정책은 재고에서 연결합니다.'}</CenterNote>
+        : <div>{shown.map((p) => {
+            const on = String(p.policy_code) === sel;
+            return (
+              <PolicyListRow key={String(p.policy_code)} selected={on} onClick={() => { haptic.tap(); selectP(p); }} p={p} />
+            );
+          })}</div>}
+    </>
+  );
 
   const grouped = new Set([...G_BASIC, ...G_TERMS]);
   const fieldsIn = (keys: string[]) => {
@@ -288,7 +294,7 @@ export default function PolicyMgmt() {
         actions={dockActions}
         listTools={{
           search: { value: q, onChange: setQ, placeholder: '정책명·코드·심사·지역…' },
-          action: { label: '등록', onClick: newP },
+          // 등록은 목록 맨 위 PolicyCreateRow 하나로 — 헤더 우측 버튼과 두 갈래로 두지 않는다.
           sort: { value: sort, onChange: (v) => setSort(v as PolSort | ''), options: POL_SORTS },
           filter: {
             count: scope === 'all' ? 0 : 1,

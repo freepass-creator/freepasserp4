@@ -120,9 +120,11 @@ export function PriceMatrix({ price, onChange }: { price: unknown; onChange: (p:
               >
                 <td style={{ padding: cellPad, verticalAlign: 'middle' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 0 }}>
+                    {/* 「최저」 배지는 flex:0 0 auto라 축소가 안 된다 — 개월 텍스트가 안 줄면 배지가 셀 밖으로 밀려
+                        그 행만 우측 여백이 깎였다. 축소 부담은 텍스트가 진다. */}
                     <span style={{
                       fontWeight: FW.head, color: C.ink, fontFamily: NUM, fontVariantNumeric: 'tabular-nums',
-                      whiteSpace: 'nowrap',
+                      whiteSpace: 'nowrap', minWidth: 0, overflow: 'hidden',
                     }}>
                       {k}<span style={{ fontWeight: FW.strong, color: C.mute, fontSize: mobile ? FS.sub : FS.cap }}>개월</span>
                     </span>

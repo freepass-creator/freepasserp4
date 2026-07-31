@@ -9,7 +9,7 @@ import { Store } from 'lucide-react';
 import { type User } from 'firebase/auth';
 import { login, signup, logout, resetPassword, writeUserProfile } from '@/lib/firebase/auth';
 import { setGuest, getSession, firebaseReadySafe } from '@/lib/login-helpers';
-import { fmtPhone, C, FS } from '@/components/ui';
+import { fmtPhone, C, FS, R, ctrlPadX } from '@/components/ui';
 import { BRAND_MAIN, BRAND_SUB } from '@/lib/brand';
 import { LEGAL_VERSION } from '@/lib/legal';
 import { toast } from '@/components/Toaster';
@@ -51,7 +51,7 @@ function ConsentBox({ agree, setAgree }: { agree: Agree; setAgree: (a: Agree) =>
   // 링크는 글자 높이(16px)뿐이라 위아래로 여백을 줘 실제로 누를 수 있게 만든다.
   const link: React.CSSProperties = { color: C.accent, textDecoration: 'underline', textUnderlineOffset: 2, padding: '6px 2px', display: 'inline-block' };
   return (
-    <div style={{ border: `1px solid ${C.line}`, borderRadius: 8, padding: '10px 12px', margin: '0 0 10px', display: 'flex', flexDirection: 'column', gap: 8, textAlign: 'left' }}>
+    <div style={{ border: `1px solid ${C.line}`, borderRadius: R, padding: `10px ${ctrlPadX(true)}px`, margin: '0 0 10px', display: 'flex', flexDirection: 'column', gap: 8, textAlign: 'left' }}>
       <label style={{ ...row, fontWeight: 600, paddingBottom: 8, borderBottom: `1px solid ${C.line}` }}>
         <input type="checkbox" style={box} checked={all} onChange={(e) => setAgree({ terms: e.target.checked, privacy: e.target.checked })} />
         전체 동의
@@ -278,11 +278,11 @@ const LOGIN_CSS = `
 .fp-login .login-field input::placeholder{color:var(--text-weak);}
 .fp-login .login-field input:hover,.fp-login .login-field select:hover{border-color:var(--border-strong);}
 .fp-login .login-field input:focus,.fp-login .login-field select:focus{border-color:var(--brand);}
-.fp-login .login-submit{width:100%;height:44px;margin-top:4px;padding:0 12px;border:0;border-radius:2px;background:var(--brand);color:var(--text-inverse);font-size:13px;font-weight:600;cursor:pointer;letter-spacing:-0.01em;transition:background-color 100ms,box-shadow 100ms;}
+.fp-login .login-submit{width:100%;height:44px;margin-top:4px;padding:0 12px;border:0;border-radius:4px;background:var(--brand);color:var(--text-inverse);font-size:13px;font-weight:600;cursor:pointer;letter-spacing:-0.01em;transition:background-color 100ms,box-shadow 100ms;}
 .fp-login .login-submit:hover{background:var(--brand-h);box-shadow:var(--shadow-sm);}
 .fp-login .login-submit:active{background:var(--brand-h);filter:brightness(0.92);}
 .fp-login .login-submit:disabled{background:var(--bg-disabled);color:var(--text-weak);cursor:default;box-shadow:none;}
-.fp-login .login-guest{width:100%;height:42px;margin-top:8px;padding:0 12px;border:1px solid var(--border-strong);border-radius:2px;background:transparent;color:var(--text-sub);font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;transition:background-color 100ms,border-color 100ms;}
+.fp-login .login-guest{width:100%;height:44px;margin-top:8px;padding:0 12px;border:1px solid var(--border-strong);border-radius:4px;background:transparent;color:var(--text-sub);font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;transition:background-color 100ms,border-color 100ms;}
 .fp-login .login-guest:hover{background:var(--bg-hover);border-color:var(--brand);color:var(--brand);}
 .fp-login .login-links{display:flex;align-items:center;justify-content:center;gap:8px;font-size:11px;color:var(--text-weak);}
 .fp-login .login-links a{color:var(--brand);font-weight:500;text-decoration:none;}
@@ -299,7 +299,7 @@ const LOGIN_CSS = `
 .fp-login .login-card{box-shadow:none;border:0;border-radius:0;padding:0 24px;gap:20px;max-width:none;}
 .fp-login .login-field input,.fp-login .login-field select{height:48px;font-size:16px;border-radius:4px;padding:0 16px;}
 .fp-login .login-field label{font-size:13px;}
-.fp-login .login-submit{height:48px;font-size:16px;border-radius:4px;}
+.fp-login .login-submit,.fp-login .login-guest{height:48px;font-size:16px;border-radius:4px;}
 .fp-login .login-links{font-size:13px;gap:12px;}
 }
 `;

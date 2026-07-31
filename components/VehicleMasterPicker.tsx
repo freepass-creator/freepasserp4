@@ -206,9 +206,9 @@ export function VehicleMasterPicker({
       </div>
       <div style={{ marginTop: 6 }}>
         <div style={{ fontSize: FS.micro, color: C.mute, marginBottom: 3 }}>추가표기 · 마스터 밖 자유입력 (런칭·휠·패키지 등)</div>
+        {/* 같은 카드의 Select 5개가 기본(md)이라 여기만 sm이면 바닥선이 4px 어긋난다. */}
         <Input
           full
-          size="sm"
           placeholder={variant ? '예: 20인치+ECS 런칭' : '파워트레인 선택 후 입력'}
           value={extra}
           disabled={!variant}

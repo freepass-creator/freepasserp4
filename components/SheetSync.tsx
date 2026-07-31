@@ -494,14 +494,14 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
       )}
       {isAdmin && <Input value={prov} onChange={(v) => setProv(v)} placeholder="공급사 코드(단일·매핑학습용)" full />}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-        <Select value={adapterId} onChange={(v) => setAdapterId((v as SheetAdapterId) || 'generic')} options={ADAPTER_OPTIONS} size="sm" full placeholder="어댑터" />
+        <Select value={adapterId} onChange={(v) => setAdapterId((v as SheetAdapterId) || 'generic')} options={ADAPTER_OPTIONS} full placeholder="어댑터" />
         <Input value={headerRow} onChange={setHeaderRow} placeholder="헤더 행(0=첫줄)" full />
       </div>
       {tab === 'sheet' ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <div style={{ display: 'flex', gap: 6 }}>
             <Input value={url} onChange={(v) => setUrl(v)} placeholder="구글시트 URL" full style={{ flex: 1, minWidth: 0 }} />
-            <Btn title="구글시트 불러오기" size="sm" variant="ghost" onClick={loadSheet} disabled={busy}>불러오기</Btn>
+            <Btn title="구글시트 불러오기" variant="ghost" onClick={loadSheet} disabled={busy}>불러오기</Btn>
           </div>
           <Input value={gid} onChange={setGid} placeholder="gid(선택·탭)" full />
         </div>

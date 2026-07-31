@@ -13,8 +13,9 @@ export const CONTRACT_SORT_OPTIONS: { value: ContractSort; label: string }[] = [
 ];
 
 export const CONTRACT_FILTER_OPTIONS: { key: ContractFilter; label: string }[] = [
-  { key: '진행', label: '진행' },
+  // 칩 선두는 다른 화면과 같이 '전체'. 기본 선택값은 '진행' 그대로라 동작은 안 바뀐다.
   { key: 'all', label: '전체' },
+  { key: '진행', label: '진행' },
   ...CONTRACT_STATES.map((state) => ({ key: state, label: state })),
 ];
 

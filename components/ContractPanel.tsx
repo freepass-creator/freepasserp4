@@ -25,6 +25,16 @@ function actorLabel(actor: 'agent' | 'provider'): ReactNode {
   );
 }
 
+/** 액터 칩이 없는 정보행 — 칩 자리를 비워 둔다. 안 그러면 그 행만 칩 폭만큼 왼쪽으로 튀어나와 라벨 시작선이 지그재그가 된다. */
+function infoLabel(text: string): ReactNode {
+  return (
+    <>
+      <span style={{ fontSize: FS.micro, fontWeight: FW.label, marginRight: 6, visibility: 'hidden' }} aria-hidden>영업</span>
+      {text}
+    </>
+  );
+}
+
 export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange }: { product: EntityRecord | null; roomId: string; linkedCode?: string; agentCode?: string; onChange?: () => void }) {
   const co = getCompanyId();
   const mobile = useIsMobile();
@@ -210,7 +220,7 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
                     {c && Number(c.rent_month_snapshot) ? (
                       <DetailRow
                         control
-                        label="동결 금액"
+                        label={infoLabel('동결 금액')}
                         value={`${String(c.rent_month_snapshot)}개월 · 월 ${won(Number(c.rent_amount_snapshot) || 0)} · ${Number(c.deposit_amount_snapshot) > 0 ? `보증 ${won(Number(c.deposit_amount_snapshot))}` : '무보증'}`}
                       />
                     ) : null}
@@ -240,7 +250,7 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
                       </div>
                     )}
                     {done && (c?.customer_name || c?.customer_phone) ? (
-                      <DetailRow control label="손님" value={[c?.customer_name, c?.customer_phone].filter(Boolean).join(' · ')} />
+                      <DetailRow control label={infoLabel('손님')} value={[c?.customer_name, c?.customer_phone].filter(Boolean).join(' · ')} />
                     ) : null}
                   </Fragment>
                 );

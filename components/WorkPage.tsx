@@ -19,6 +19,7 @@ export type WorkMobileLayout = 'stack' | 'swap';
 
 export function WorkPage({
   title, statusLabel, statusCount, listCount, list, listHeader, panes, selected, onBack, search, actions,
+  headerActions,
   mobileLayout = 'stack', mobileSwapKey, onMobileSwapKeyChange, countSuffix = '건', hideDock,
   listTools, contextTitle,
   attentionLabel, attentionCount,
@@ -34,12 +35,16 @@ export function WorkPage({
   listHeader?: ReactNode;
   panes: WorkPane[]; selected: boolean; onBack: () => void;
   search?: { value: string; onChange: (v: string) => void; placeholder?: string };
+  /** 하단 독 액션(수정·저장 등). */
   actions?: ReactNode;
+  /** 상단바 우측(erp3 headerRight). 선택 상세에서만 노출. */
+  headerActions?: ReactNode;
   mobileLayout?: WorkMobileLayout;
   /** 모바일 상세에서 하단독 일시 숨김(채팅 입력 중 작성 공간 확보). 해제되면 다시 나타남. */
   hideDock?: boolean;
   mobileSwapKey?: string;
   onMobileSwapKeyChange?: (key: string) => void;
+  /** 건수 단위. 상단바와 목록 헤더가 같은 단위를 쓰도록 여기서 한 번만 붙인다('0' vs '0건' 혼재 방지). */
   countSuffix?: string;
   listTools?: ListToolsConfig;
   contextTitle?: ReactNode;
@@ -96,7 +101,10 @@ export function WorkPage({
     );
   }
 
-  useAppBar({ title: barTitle }, [selected, title, barLabel, contextTitle, countNum, att, attentionLabel, countSuffix]);
+  useAppBar(
+    { title: barTitle, actions: selected ? headerActions : undefined },
+    [selected, title, barLabel, contextTitle, countNum, att, attentionLabel, countSuffix, headerActions],
+  );
 
   useEffect(() => {
     if (!selected) return;
@@ -153,7 +161,8 @@ export function WorkPage({
       ) : null}
       {resolvedTools?.hints && resolvedTools.hints.length > 0 ? (
         <div style={{
-          padding: '0 12px 8px', display: 'flex', alignItems: 'center', gap: 8,
+          // 위 8 / 아래 8 대칭. 예전엔 위 0이라 필터 블록이 아니라 목록 구분선에 붙어 보였다.
+          padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8,
           fontSize: FS.sub, color: C.mute, minWidth: 0,
         }}>
           <span style={{ flex: '0 0 auto', fontWeight: FW.head, color: C.faint }}>적용</span>
@@ -262,7 +271,7 @@ export function WorkPage({
     <>
       <div style={{ display: 'flex', height: 'calc(100dvh - var(--topbar-h) - var(--fp-bar-h))', borderTop: `1px solid ${C.line}`, overflowX: 'hidden', background: C.bg }}>
         <div style={col('1 1 0', { minWidth: 0, overflow: 'hidden' })}>
-          <PaneHead title={title} count={listCount} right={resolvedTools?.action ? (
+          <PaneHead title={title} count={listCount == null || listCount === '' ? undefined : `${listCount}${countSuffix}`} right={resolvedTools?.action ? (
             <Btn size="sm" disabled={resolvedTools.action.disabled} onClick={resolvedTools.action.onClick}>{resolvedTools.action.label}</Btn>
           ) : undefined} />
           {listHeader}

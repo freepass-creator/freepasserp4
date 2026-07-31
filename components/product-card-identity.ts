@@ -67,7 +67,11 @@ function cardEngineCc(product: EntityRecord): string {
 }
 
 export function specLineCard(product: EntityRecord): string {
-  return [cardYear(product), cardFuel(product), cardMileage(product), cardEngineCc(product)].join(' · ');
+  // 값 없는 칸은 구분자째 뺀다. '-'를 고정 출력하면 모든 행이 '· -'로 끝나고
+  //  그 폭 때문에 앞의 주행거리가 잘린다. 대시 폴백은 표(DetailGrid·KV)에서만 쓴다.
+  return [cardYear(product), cardFuel(product), cardMileage(product), cardEngineCc(product)]
+    .filter((v) => v && v !== '-')
+    .join(' · ');
 }
 
 export function cardTitle(product: EntityRecord, mobileNarrow = false): string {

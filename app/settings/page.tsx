@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import {
-  Page, Btn, C, SectionLabel, DetailGrid, ListRow, FilterChips, NUM, Input, FS, fmtPhone,
+  Page, Btn, C, SectionLabel, DetailGrid, ListGroup, ListRow, FilterChips, NUM, Input, FS, fmtPhone,
 } from '@/components/ui';
 import { useSession } from '@/lib/auth-context';
 import { getRole, setRole, actor, ROLE_LABEL, type Role } from '@/lib/domain/deal';
@@ -199,7 +199,7 @@ export default function Settings() {
     <Page title="설정">
       {/* 웹 = 폭 활용 2단(섹션 원자는 그대로, 배열만 컬럼) · 모바일 = 단일 세로 스크롤. */}
       <style>{`
-        .fp-settings-grid { max-width: 560px; width: 100%; box-sizing: border-box; margin: 0 auto; padding: 12px 14px; display: flex; flex-direction: column; gap: 20px; }
+        .fp-settings-grid { max-width: 560px; width: 100%; box-sizing: border-box; margin: 0 auto; padding: 12px 0; display: flex; flex-direction: column; gap: 20px; }
         @media (min-width: 760px) {
           .fp-settings-grid { max-width: 960px; padding: 18px 16px 28px; display: block; column-count: 2; column-gap: 30px; }
           .fp-settings-grid > * { break-inside: avoid; -webkit-column-break-inside: avoid; margin-bottom: 22px; }
@@ -223,20 +223,25 @@ export default function Settings() {
               </div>
             </div>
           ) : null}
-          <DetailGrid rows={[
-            ...(visibleSession ? [] : [['이름', name] as [string, string]]),
-            ['역할', ROLE_LABEL[role] || role],
-            ['이메일', email],
-            ...(company ? [['회사', company] as [string, string]] : []),
-            ['상태', statusLabel],
-          ]} />
+          {/* DetailGrid 는 카드 안에 사는 규격(행 좌우 12). 카드 없이 두면 라벨만 안으로 밀려
+              섹션 제목·버튼과 좌측 기준선이 두 갈래가 된다. */}
+          <ListGroup>
+            <DetailGrid rows={[
+              ...(visibleSession ? [] : [['이름', name] as [string, string]]),
+              ['역할', ROLE_LABEL[role] || role],
+              ['이메일', email],
+              ...(company ? [['회사', company] as [string, string]] : []),
+              ['상태', statusLabel],
+            ]} />
+          </ListGroup>
           <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
             {visibleSession ? (
               <Btn title={pwdBusy ? '재설정 메일 전송 중' : '비밀번호 변경'} variant="ghost" full onClick={changePassword} disabled={pwdBusy}>
                 {pwdBusy ? '메일 전송 중…' : '비밀번호 변경 (재설정 메일)'}
               </Btn>
             ) : null}
-            <Btn title={visibleSession || guest ? '로그아웃' : '로그인'} variant="danger" full onClick={doLogout}>
+            {/* danger 빨강은 파괴적 동작(로그아웃)에만. 미로그인 상태의 '로그인'은 주 액션이다. */}
+            <Btn title={visibleSession || guest ? '로그아웃' : '로그인'} variant={visibleSession || guest ? 'danger' : 'solid'} full onClick={doLogout}>
               {visibleSession || guest ? '로그아웃' : '로그인'}
             </Btn>
           </div>
@@ -318,11 +323,13 @@ export default function Settings() {
 
         <div>
           <SectionLabel mt={0}>앱</SectionLabel>
-          <DetailGrid rows={[
-            ['이름', BRAND],
-            ['버전', VERSION],
-            ['환경', appEnv],
-          ]} />
+          <ListGroup>
+            <DetailGrid rows={[
+              ['이름', BRAND],
+              ['버전', VERSION],
+              ['환경', appEnv],
+            ]} />
+          </ListGroup>
           <div style={{ marginTop: 10, fontSize: FS.sub, color: C.faint, lineHeight: 1.5 }}>
             화이트라벨 렌터카 중개 ERP.
           </div>

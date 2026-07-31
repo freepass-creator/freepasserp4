@@ -14,7 +14,7 @@ import { getSession } from '@/lib/auth-session';
 import { canAccessOwnedRecord } from '@/lib/domain/authorization';
 import { initAuth } from '@/lib/firebase/auth';
 import { man } from '@/lib/format';
-import { PaneHead, PaneBody, Badge, Btn, Input, won, C, R, NUM, Loading, CenterNote, SETTLEMENT_STATUS_TONE, FilterChips, FilterGroup, Select, FW, FS, FeedRowSkeleton } from '@/components/ui';
+import { PaneHead, PaneBody, Badge, Btn, Input, won, C, R, NUM, Loading, CenterNote, ListGroup, SETTLEMENT_STATUS_TONE, FilterChips, FilterGroup, Select, FW, FS, FeedRowSkeleton, KV_LABEL_W, rowPadY } from '@/components/ui';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
 import { ContractPanel } from '@/components/ContractPanel';
 import { ContractDocs } from '@/components/ContractDocs';
@@ -241,9 +241,11 @@ export default function ContractsSettlement() {
       </div>
     );
 
+  // 라벨 열 폭은 DetailGrid(116)와 같은 값 하나로. 110/120 두 갈래라 값 시작선이 10px 어긋났다.
+  //  구분선은 ListGroup이 자식마다 그어 주므로 여기서 borderTop을 또 긋지 않는다(카드선과 2겹).
   const kv = (k: string, v: React.ReactNode, strong?: boolean) => (
-    <div style={{ display: 'flex', padding: '8px 14px', borderTop: `1px solid ${C.line2}`, fontSize: FS.sub }}>
-      <span style={{ width: 110, flex: '0 0 110px', color: C.mute }}>{k}</span>
+    <div style={{ display: 'flex', padding: '8px 12px', fontSize: FS.sub }}>
+      <span style={{ width: KV_LABEL_W, flex: `0 0 ${KV_LABEL_W}px`, color: C.mute }}>{k}</span>
       <span style={{ fontWeight: strong ? FW.head : FW.strong, color: strong ? C.brand : C.ink, fontFamily: NUM }}>{v}</span>
     </div>
   );
@@ -276,8 +278,8 @@ export default function ContractsSettlement() {
     return true;
   };
   const amtRow = (label: string, field: 'fee_amount' | 'agent_payout', val: number, code: string) => (
-    <div style={{ display: 'flex', alignItems: 'center', padding: '7px 14px', borderTop: `1px solid ${C.line2}`, fontSize: FS.sub }}>
-      <span style={{ width: 120, flex: '0 0 120px', color: C.mute }}>{label}</span>
+    <div style={{ display: 'flex', alignItems: 'center', padding: '8px 12px', fontSize: FS.sub }}>
+      <span style={{ width: KV_LABEL_W, flex: `0 0 ${KV_LABEL_W}px`, color: C.mute }}>{label}</span>
       {role === 'admin'
         ? <AmtInput key={`${code}-${field}`} val={val} onCommit={(n) => setAmount(field, n)} />
         : <span style={{ fontWeight: FW.head, color: C.brand, fontFamily: NUM }}>{won(val)}원</span>}
@@ -288,8 +290,10 @@ export default function ContractsSettlement() {
     const s = selS; const st = String(s.settlement_status); const cb = Number(s.clawback_amount) || 0;
     return (
       <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 14px' }}>
-          <span style={{ fontSize: FS.body, fontWeight: FW.title, fontFamily: NUM }}>{String(s.settlement_code)}</span>
+        {/* 형제(뱃지·버튼)가 전부 nowrap 이라 축소 부담을 코드 혼자 져서 'ST_…-01' 이 두 줄로 쪼개졌다.
+            코드는 말줄임으로 접고, 액션이 안 들어가면 줄을 바꾼다. */}
+        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, rowGap: rowPadY(true), padding: '12px 12px' }}>
+          <span style={{ fontSize: FS.body, fontWeight: FW.title, fontFamily: NUM, minWidth: 0, flex: '0 1 auto', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{String(s.settlement_code)}</span>
           <Badge tone={SETTLEMENT_STATUS_TONE[st] || 'gray'}>{st}</Badge>
           <span style={{ flex: 1 }} />
           {role === 'admin' && st === '정산대기' && <Btn title="정산 보류" variant="ghost" size="sm" onClick={() => setStatus('정산보류')}>보류</Btn>}
@@ -297,13 +301,15 @@ export default function ContractsSettlement() {
           {role === 'admin' && st === '정산보류' && <Btn title="정산 대기로 변경" size="sm" onClick={() => setStatus('정산대기')}>대기로</Btn>}
           {role === 'admin' && st === '환수대기' && <Btn title="환수 확정" size="sm" onClick={() => setStatus('환수결정')}>환수 확정</Btn>}
         </div>
-        <div style={{ margin: '0 14px', border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg, overflow: 'hidden' }}>
+        <div style={{ margin: '0 12px' }}>
+        <ListGroup>
           {role !== 'agent' && amtRow('공급사 청구 (R1)', 'fee_amount', Number(s.fee_amount) || 0, String(s.settlement_code))}
           {role !== 'provider' && amtRow('영업자 지급 (R2)', 'agent_payout', Number(s.agent_payout) || 0, String(s.settlement_code))}
           {role === 'admin' && kv('순수익 (R1−R2)', `${won((Number(s.fee_amount) || 0) - (Number(s.agent_payout) || 0))}원`, true)}
           {cb > 0 ? kv('환수액', `${won(cb)}원`) : null}
+        </ListGroup>
         </div>
-        <div style={{ padding: '10px 14px', fontSize: FS.cap, color: C.faint, lineHeight: 1.6 }}>공급사에서 <b>받은 금액(R1)</b>·영업자에 <b>준 금액(R2)</b>을 실측 기록(관리자 편집, 율=기본값). 순수익=R1−R2. 중도취소 시 환수(경과비례).</div>
+        <div style={{ padding: '10px 12px', fontSize: FS.cap, color: C.faint, lineHeight: 1.6 }}>공급사에서 <b>받은 금액(R1)</b>·영업자에 <b>준 금액(R2)</b>을 실측 기록(관리자 편집, 율=기본값). 순수익=R1−R2. 중도취소 시 환수(경과비례).</div>
       </div>
     );
   };

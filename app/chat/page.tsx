@@ -9,7 +9,7 @@ import { getRole, actor, type Role } from '@/lib/domain/deal';
 import { roomsWithUnread, unreadFor, unreadRoomCount } from '@/lib/domain/messaging';
 import { getProgress, isInquiryOnly } from '@/lib/domain/contract';
 import { withProviderNames } from '@/lib/domain/identity';
-import { PaneHead, Btn, C, Loading, CenterNote, PaneBody, FilterChips, FilterGroup, FS, FW, NUM, FeedRowSkeleton } from '@/components/ui';
+import { PaneHead, Btn, IconBtn, C, Loading, CenterNote, PaneBody, FilterChips, FilterGroup, FS, FW, NUM, FeedRowSkeleton } from '@/components/ui';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
 import { ChatThread } from '@/components/ChatThread';
 import { ProductDetail } from '@/components/ProductDetail';
@@ -41,7 +41,7 @@ import {
   type ChatFilter,
   type ChatSort,
 } from '@/features/chat/room-filter';
-import { ListChecks, MessageCircle } from 'lucide-react';
+import { ListChecks, MessageCircle, ClipboardList } from 'lucide-react';
 import { ChatRoomList } from '@/features/chat/ChatRoomList';
 
 // 문의 = 단순 채팅 목록 | 채팅 | 상품상세 | 계약(진행 전환).
@@ -264,25 +264,40 @@ export default function Chat() {
     onReset={() => { setQInput(''); setQ(''); setFlt(CHAT_FILTER_DEFAULT); }}
   />;
 
-  const emptyPane = (t: string, msg: string) => <><PaneHead title={t} /><CenterNote>{msg}</CenterNote></>;
+  // CenterNote는 PaneBody 안에 둔다 — 헤더의 형제로 두면 헤더 높이까지 먹어
+  //  문구 중심이 헤더 절반(16px)만큼 내려가 옆 패널과 눈높이가 안 맞았다.
+  const emptyPane = (t: string, msg: string) => <><PaneHead title={t} /><PaneBody><CenterNote>{msg}</CenterNote></PaneBody></>;
   const linked = selRoom?.linked_contract ? String(selRoom.linked_contract) : undefined;
   const selContract = selRoom ? contractOf(selRoom) : undefined;
   const inContract = !!selContract && getProgress(selContract).done >= 1;
   const docCode = selContract ? String(selContract.contract_code) : linked;
   const scroll = (n: ReactNode) => <PaneBody>{n}</PaneBody>;
   const reloadContracts = async () => setContracts(await getStore().list('contract', co));
-  const contractBody = sel ? <ContractPanel product={selProduct} roomId={sel} linkedCode={linked} agentCode={selRoom ? String(selRoom.agent_code || '') : undefined} onChange={reloadContracts} /> : <div style={{ padding: 16, color: C.faint, fontSize: FS.sub }}>—</div>;
-  const docsBody = docCode ? <ContractDocs contractCode={docCode} roomId={sel || undefined} /> : <div style={{ padding: 16, color: C.faint, fontSize: FS.sub }}>계약문의를 시작하면 서류를 첨부할 수 있습니다.</div>;
+  // 빈 상태는 CenterNote 완결문 한 종류로 — '—' 한 글자만 놓으면 데이터가 깨진 것처럼 읽힌다.
+  const contractBody = sel ? <ContractPanel product={selProduct} roomId={sel} linkedCode={linked} agentCode={selRoom ? String(selRoom.agent_code || '') : undefined} onChange={reloadContracts} /> : <CenterNote>대화를 선택하세요.</CenterNote>;
+  const docsBody = docCode ? <ContractDocs contractCode={docCode} roomId={sel || undefined} /> : <CenterNote>계약문의를 시작하면 서류를 첨부할 수 있습니다.</CenterNote>;
   const vehicleBlock = selProduct
     ? <>{selProduct._fromHistory ? <div style={{ fontSize: FS.cap, color: C.faint, marginBottom: 8 }}>재고에서 내려간 매물 · 계약 이력 기준</div> : null}<ProductDetail p={selProduct} /></>
     : <CenterNote>이 매물의 이력이 없습니다.</CenterNote>;
 
-  // 계약진행 이동 = 하단 swap 바([채팅][계약진행])가 담당.
+  // 계약진행 이동 = 하단 swap + 상단 우측(erp3 headerRight 클립보드).
   const chatHead = selRoom ? roomTitle(selRoom) : '';
   const chatCode = selRoom ? roomChatCode(selRoom) : '';
   const chatNode = sel
     ? <ChatThread roomId={sel} title={chatHead} chatCode={chatCode} onComposeFocus={setComposing} />
     : emptyPane('채팅', '왼쪽에서 대화를 선택하세요.');
+
+  const headerActions = sel && mobile ? (
+    <IconBtn
+      title={swapKey === 'chat' ? '계약진행' : '채팅'}
+      haptic="nav"
+      onClick={() => setSwapKey(swapKey === 'chat' ? 'progress' : 'chat')}
+    >
+      {swapKey === 'chat'
+        ? <ClipboardList size={18} strokeWidth={2.25} aria-hidden />
+        : <MessageCircle size={18} strokeWidth={2.25} aria-hidden />}
+    </IconBtn>
+  ) : undefined;
 
   // 모바일 계약진행 = /contract 모바일 스택과 동일(진행 → 서류). 상품상세·정산은 각 페이지 규격.
   const progressNode = (
@@ -364,6 +379,7 @@ export default function Chat() {
         : undefined}
       search={{ value: qInput, onChange: setQInput, placeholder: '차번·상품·영업…' }}
       mobileLayout="swap"
+      headerActions={headerActions}
       // 채팅 탭에서 입력 중일 때만 하단독 숨김(계약진행 탭은 유지)
       hideDock={composing && swapKey === 'chat'}
       mobileSwapKey={swapKey}

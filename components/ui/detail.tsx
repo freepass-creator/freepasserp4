@@ -2,7 +2,7 @@
 import React from 'react';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { ChevronDown } from 'lucide-react';
-import { C, R, ctrlH, ctrlInputFs, FW, FS, SH } from './tokens';
+import { C, R, ctrlH, ctrlInputFs, FW, FS, SH, KV_LABEL_W } from './tokens';
 import { useIsMobile } from '@/lib/use-mobile';
 
 /* 상세 — 섹션/그리드/행 */
@@ -22,7 +22,7 @@ export function DetailGrid({ rows }: { rows: [string, unknown][] }) {
         const node = (typeof val === 'object' ? val : filled ? String(val) : '—') as React.ReactNode;
         return (
           <div key={i} style={{ display: 'flex', padding: '6px 12px', fontSize: FS.body, borderTop: i ? `1px solid ${C.line2}` : 'none' }}>
-            <span style={{ width: 116, color: C.mute, flex: '0 0 116px' }}>{k}</span>
+            <span style={{ width: KV_LABEL_W, color: C.mute, flex: `0 0 ${KV_LABEL_W}px` }}>{k}</span>
             <span style={{ color: filled ? C.ink : C.faint, fontVariantNumeric: 'tabular-nums' }}>{node}</span>
           </div>
         );
@@ -104,7 +104,7 @@ export function KV({ rows, editing, form, onChange }: { rows: KVRow[]; editing?:
   return (
     <div style={{ border: `1px solid ${editing ? C.accent : C.line}`, borderRadius: R, background: editing ? 'var(--bg-card)' : C.taupeBg, boxShadow: editing ? `0 0 0 3px ${C.focusRing}` : SH.cardRest, transition: 'box-shadow .15s, border-color .15s' }}>
       {rows.map(([k, key, val], i) => (
-        <div key={i} style={{ display: 'flex', alignItems: 'center', minHeight: ctrlH(mobile), padding: mobile ? '0 14px' : '0 12px', fontSize: mobile ? FS.title : FS.body, borderTop: i ? `1px solid var(--border-soft)` : 'none' }}>
+        <div key={i} style={{ display: 'flex', alignItems: 'center', minHeight: ctrlH(mobile), padding: '0 12px', fontSize: mobile ? FS.title : FS.body, borderTop: i ? `1px solid var(--border-soft)` : 'none' }}>
           <span style={{ width: mobile ? 104 : 96, flex: `0 0 ${mobile ? 104 : 96}px`, color: C.mute }}>{k}</span>
           {editing && key
             ? <input value={String(form?.[key] ?? '')} onChange={(e) => onChange?.(key, e.target.value)}

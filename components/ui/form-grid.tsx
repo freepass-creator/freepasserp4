@@ -44,6 +44,9 @@ export function FormGrid({
     border: `1px solid ${C.line}`,
     borderRadius: R,
     fontSize: ctrlInputFs(mobile),
+    // 조회(disabled) 모드에서 브라우저 기본 회색이 얹히면 입력된 값이 placeholder처럼 읽힌다.
+    //  흐림은 아래 opacity 하나로만 표현한다(Input 원자와 같은 규칙).
+    color: C.ink,
   };
   return (
     <div style={{ display: 'grid', gridTemplateColumns: `repeat(${columns},1fr)`, gap: 9 }}>

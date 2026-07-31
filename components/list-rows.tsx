@@ -355,16 +355,22 @@ export function MemberListRow({
             </FeedSub>
           </div>
         </div>,
-        // ③ 맥락 — 회원관리에서 필요한 건 연락 수단
+        // ③ 맥락 — 회원관리에서 필요한 건 연락 수단.
+        //  값이 없으면 줄을 비운다(②줄과 같은 규칙). 대시 폴백은 표에서만 — 목록에 '—' 하나만 남으면 뜬금없다.
         <FeedSub key="s">
           {dotJoin([
             String(row.phone || row.contact || '') || null,
             String(row.email || '') || null,
-          ]) || '—'}
+          ]) || null}
         </FeedSub>,
       ]}
     />
   );
+}
+
+/** 정책 목록 맨 위 — 재고·회원과 같은 신규 등록 규격(헤더 버튼과 두 갈래로 두지 않는다). */
+export function PolicyCreateRow({ onClick }: { onClick: () => void }) {
+  return <CreateListRow label="정책 등록" hint="심사·계약조건·보험 조건을 등록합니다" ariaLabel="정책 등록" onClick={onClick} />;
 }
 
 /** 회원·파트너 목록 맨 위 — 재고의 상품등록 행과 같은 신규 등록 규격. */
@@ -416,7 +422,7 @@ function CreateListRow({
         display: 'flex',
         alignItems: 'center',
         gap: mobile ? 10 : 11,
-        padding: mobile ? '8px 14px' : '7px 14px',
+        padding: mobile ? '8px 12px' : '7px 12px',
         minHeight: (mobile ? 16 : 14) + bodyH,
         borderBottom: `1px solid ${C.line}`,
         boxSizing: 'border-box',
@@ -433,12 +439,12 @@ function CreateListRow({
           fontSize: FS.title, fontWeight: FW.head, color: C.ink, letterSpacing: '-0.02em',
           lineHeight: 1, flex: '0 0 auto',
         }}>{label}</span>
-        {mobile && (
-          <span style={{
-            fontSize: FS.cap, fontWeight: FW.meta, color: C.faint, lineHeight: 1.2,
-            minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          }}>{hint}</span>
-        )}
+        {/* 힌트는 웹에도 그린다. 높이(bodyH)는 이 줄을 포함해 잡히므로 모바일에만 그리면
+            웹은 폭이 더 넓은데 정보는 적고, 안 그려지는 줄 높이만큼 빈 밴드가 남는다. */}
+        <span style={{
+          fontSize: FS.cap, fontWeight: FW.meta, color: C.faint, lineHeight: 1.2,
+          minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }}>{hint}</span>
       </span>
     </div>
   );

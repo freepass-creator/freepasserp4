@@ -417,19 +417,23 @@ export default function Members() {
             {canEdit ? editGroups : readGroups}
           </>
         ) : (
-          <>
-            <CenterNote>{tab === 'user' ? '사용자' : '파트너'}를 선택하거나 신규로 추가하세요.</CenterNote>
-            {tab === 'user' && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12, justifyContent: 'center' }}>
-                <Btn title="개인채널 백필 미리보기" size="sm" variant="ghost" onClick={() => doBackfillChannels(true)}>개인채널 백필 미리보기</Btn>
-                <Btn title="개인채널 백필 실행" size="sm" variant="ghost" onClick={() => doBackfillChannels(false)}>개인채널 백필 실행</Btn>
+          // 관리자 도구는 CenterNote 안에 둔다 — 밖에 두면 CenterNote가 열을 다 먹어
+          //  버튼들이 스크롤 밖으로 밀려 아예 눌리지 않았다.
+          <CenterNote>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+              <span>{tab === 'user' ? '사용자' : '파트너'}를 선택하거나 신규로 추가하세요.</span>
+              {tab === 'user' && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
+                  <Btn title="개인채널 백필 미리보기" size="sm" variant="ghost" onClick={() => doBackfillChannels(true)}>개인채널 백필 미리보기</Btn>
+                  <Btn title="개인채널 백필 실행" size="sm" variant="ghost" onClick={() => doBackfillChannels(false)}>개인채널 백필 실행</Btn>
+                </div>
+              )}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
+                <Btn title="민감정보 분리 미리보기" size="sm" variant="ghost" onClick={() => doMigratePrivate(true)}>민감정보 분리 미리보기</Btn>
+                <Btn title="민감정보 분리 실행" size="sm" variant="ghost" onClick={() => doMigratePrivate(false)}>민감정보 분리 실행</Btn>
               </div>
-            )}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12, justifyContent: 'center' }}>
-              <Btn title="민감정보 분리 미리보기" size="sm" variant="ghost" onClick={() => doMigratePrivate(true)}>민감정보 분리 미리보기</Btn>
-              <Btn title="민감정보 분리 실행" size="sm" variant="ghost" onClick={() => doMigratePrivate(false)}>민감정보 분리 실행</Btn>
             </div>
-          </>
+          </CenterNote>
         )}
       </PaneBody>
     </>

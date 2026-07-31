@@ -366,11 +366,17 @@ export default function TopBar() {
             }}
           >{status}</div>
         </div>
-        {!mobile && actions != null && <span style={{ flex: '0 0 auto' }}>{actions}</span>}
+        {/* 페이지별 우측 액션 — erp3 m-topbar-actions. 웹·모바일 공통(메뉴 왼쪽). */}
+        {actions != null && (
+          <span style={{ flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', gap: 4, minWidth: 0 }}>
+            {actions}
+          </span>
+        )}
         {!mobile && <WebSessionMeta />}
         {mobile && <NavMenu mobile open={menuOpen} setOpen={setMenuOpen} />}
       </header>
-      {mobile && (back || actions != null) && (
+      {/* 모바일 이전만 하단독 — 우측 액션은 상단(위)으로. 액션 중복 금지. */}
+      {mobile && back && (
         <div style={{
           position: 'fixed', left: 0, right: 0,
           bottom: 'var(--fp-tabbar-h, 0px)',
@@ -382,7 +388,6 @@ export default function TopBar() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: 'var(--fp-bar-h)', boxSizing: 'border-box', padding: '0 var(--fp-bar-pad-x)' }}>
             {backBtn}
             <span style={{ flex: 1 }} />
-            {actions}
           </div>
         </div>
       )}
