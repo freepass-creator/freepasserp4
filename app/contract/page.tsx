@@ -7,6 +7,7 @@ import { useIsMobile, isMobileViewport } from '@/lib/use-mobile';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { getProgress, isContractInProgress } from '@/lib/domain/contract';
 import { createSettlement } from '@/lib/domain/settlement-engine';
+import { requirePositiveRentAmount } from '@/lib/domain/contract-money';
 import { downloadSettlementsExcel } from '@/lib/excel-export';
 import { Download, Files, ListChecks, WalletCards } from 'lucide-react';
 import { getRole, actor, ensureRoomForContract, type Role } from '@/lib/domain/deal';
@@ -252,6 +253,14 @@ export default function ContractsSettlement() {
 
   const setStatus = async (to: string) => {
     if (!selS || role !== 'admin') return;
+    if (to === '정산완료') {
+      try {
+        requirePositiveRentAmount(selS.rent_amount, '정산 확정');
+      } catch (e) {
+        toast(String((e as Error)?.message || e), 'error');
+        return;
+      }
+    }
     try {
       await getStore().update('settlement', co, String(selS.settlement_code), { settlement_status: to });
     } catch (e) {

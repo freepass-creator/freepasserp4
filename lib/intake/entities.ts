@@ -428,6 +428,9 @@ export const ENTITIES: Record<string, Entity> = {
       { key: 'agent_channel_code', label: '영업채널코드', type: 'text' },
       { key: 'rent_amount', label: '월대여료(원)', type: 'number' },
       { key: 'fee_rate', label: '수수료율', type: 'number' },
+      // 공급사 요율이 미정이라 기본 0.1 로 만든 정산 — 요율 확정 후 관리자가 재계산해야 한다.
+      //  계약의 fee_rate_snapshot 은 규칙상 못 고치지만 정산 금액은 고칠 수 있다(여기가 복구 지점).
+      { key: 'fee_rate_unresolved', label: '요율 미확정', type: 'text', note: 'yes = 공급사 수수료율 미입력 상태로 생성됨. 요율 확정 후 재계산 필요' },
       { key: 'fee_amount', label: '공급사수수료(원)', type: 'number', note: 'R1 = 월대여료×공급사율. 프리패스 수취' },
       { key: 'agent_payout', label: '영업자지급(원)', type: 'number', note: 'R2 = 월대여료×영업자지급율. 프리패스→영업자' },
       { key: 'net_amount', label: '프리패스 순수익(원)', type: 'number', note: 'R1 − R2' },

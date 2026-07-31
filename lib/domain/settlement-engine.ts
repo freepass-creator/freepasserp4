@@ -10,6 +10,7 @@ import { currentActor } from '@/lib/session';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { getProgress, hasDepositClaim, DEPOSIT_CLAIM_KEYS, isDone, stepActorOf } from '@/lib/domain/contract';
 import { readPartnerPrivate, readUserPrivate } from '@/lib/domain/private-fields';
+import { requirePositiveRentAmount } from '@/lib/domain/contract-money';
 
 const REJECT_VALS = ['불가', '부결', '출고 불가'];
 const isReject = (v: unknown) => typeof v === 'string' && REJECT_VALS.includes(v);
@@ -34,8 +35,21 @@ function normalizeRate(raw: unknown, fallback: number, where: string): number {
   return n;
 }
 
-/** 수수료율 SSOT — 공급사율(partner.fee_rate, 기본 0.1) · 영업자지급율(user.agent_payout_rate, 기본 0.04). 신차=공급사 우대 0%. */
-export async function resolveRates(contract: EntityRecord, product: EntityRecord | null): Promise<{ feeRate: number; payoutRate: number }> {
+/**
+ * 수수료율 SSOT — 공급사율(partner.fee_rate, 기본 0.1) · 영업자지급율(user.agent_payout_rate, 기본 0.04).
+ * 신차 = 공급사 우대 0%.
+ *
+ * `feeResolved` = **공급사율을 실제로 찾았는가.** 못 찾아 기본 0.1 로 때운 경우와 구분해야 한다.
+ * 계약의 fee_rate_snapshot 은 규칙상 생성 시 1회 확정이고 그 뒤엔 관리자도 못 고친다
+ * (database.rules.json fee_rate_snapshot .validate). 그래서 못 찾은 값을 굽는 순간
+ * 그 계약은 영구히 10% 로 남는다. 실측(2026-07-31): 공급사 40곳 중 fee_rate 보유 0곳 —
+ * 요율이 아직 미정이라 지금 만들어지는 계약이 전부 그 상태다.
+ * 신차는 조회와 무관하게 0% 가 규칙이므로 '해석됨'으로 본다.
+ */
+export async function resolveRates(
+  contract: EntityRecord,
+  product: EntityRecord | null,
+): Promise<{ feeRate: number; payoutRate: number; feeResolved: boolean }> {
   const co = getCompanyId(); const store = getStore();
   const partners = await store.list('partner', co);
   const users = await store.list('user', co);
@@ -49,8 +63,10 @@ export async function resolveRates(contract: EntityRecord, product: EntityRecord
   const rawPayout = up?.agent_payout_rate ?? user?.agent_payout_rate;
   let feeRate = normalizeRate(rawFee, 0.1, `공급사 ${String(contract.provider_company_code || '')} fee_rate`);
   const payoutRate = normalizeRate(rawPayout, 0.04, `영업자 ${String(contract.agent_code || '')} agent_payout_rate`);
-  if (String(product?.product_type || '').startsWith('신차')) feeRate = 0; // 신차(렌트·구독) 파트너 우대(공급사 수수료 0)
-  return { feeRate, payoutRate };
+  const isNewCar = String(product?.product_type || '').startsWith('신차');
+  if (isNewCar) feeRate = 0; // 신차(렌트·구독) 파트너 우대(공급사 수수료 0)
+  const feeResolved = isNewCar || (rawFee != null && rawFee !== '');
+  return { feeRate, payoutRate, feeResolved };
 }
 
 /** 정산 원자 생성(멱등 ST_{계약}). 율·금액 계약시점 동결. */
@@ -58,12 +74,25 @@ export async function createSettlement(contract: EntityRecord): Promise<string> 
   const co = getCompanyId(); const store = getStore();
   const code = `ST_${contract.contract_code}`;
   if (await store.get('settlement', co, code)) return code;
+  // 레거시 계약·직접 호출도 0원 정산으로 승격되지 않게 최종 writer에서 재검증한다.
+  const rent = requirePositiveRentAmount(contract.rent_amount_snapshot, '정산 생성');
   const product = contract.product_code ? await store.get('product', co, String(contract.product_code)) : null;
-  // 율 = 계약시점 동결 스냅샷 우선(핸드셰이크 중 율 변경 무관). 스냅샷 없는 레거시 계약만 live 해석.
-  let feeRate: number, payoutRate: number;
-  if (contract.fee_rate_snapshot != null && contract.payout_rate_snapshot != null) { feeRate = Number(contract.fee_rate_snapshot); payoutRate = Number(contract.payout_rate_snapshot); }
-  else { const r = await resolveRates(contract, product); feeRate = r.feeRate; payoutRate = r.payoutRate; }
-  const rent = Number(contract.rent_amount_snapshot) || 0;
+  // 율 = 계약시점 동결 스냅샷 우선(핸드셰이크 중 율 변경 무관). 스냅샷 없으면 live 해석.
+  //  ⚠ 둘을 **따로** 본다. 예전엔 "둘 다 있어야 스냅샷 채택"이라, 공급사율 하나가 없다는 이유로
+  //   멀쩡히 동결돼 있던 영업자지급율까지 버리고 다시 해석했다.
+  const feeSnap = contract.fee_rate_snapshot != null && contract.fee_rate_snapshot !== '' ? Number(contract.fee_rate_snapshot) : null;
+  const payoutSnap = contract.payout_rate_snapshot != null && contract.payout_rate_snapshot !== '' ? Number(contract.payout_rate_snapshot) : null;
+  let feeRate = feeSnap ?? 0.1;
+  let payoutRate = payoutSnap ?? 0.04;
+  let feeResolved = feeSnap != null;
+  if (feeSnap == null || payoutSnap == null) {
+    const r = await resolveRates(contract, product);
+    if (feeSnap == null) { feeRate = r.feeRate; feeResolved = r.feeResolved; }
+    if (payoutSnap == null) payoutRate = r.payoutRate;
+  }
+  // 공급사율을 끝내 못 구했으면 금액은 만들되(정산 누락 제로가 상위 원칙) 표식을 남긴다.
+  //  계약 스냅샷과 달리 **정산의 fee_rate·fee_amount 는 관리자가 고칠 수 있다** — 여기가 복구 지점이다.
+  if (!feeResolved) console.error(`[정산] ${code} 공급사율 미해석 — 기본 0.1 로 생성. 요율 입력 후 관리자 재계산 필요`);
   const fee = Math.round(rent * feeRate);
   const payout = Math.round(rent * payoutRate);
   try {
@@ -72,6 +101,8 @@ export async function createSettlement(contract: EntityRecord): Promise<string> 
       customer_name: contract.customer_name, provider_company_code: contract.provider_company_code, partner_code: contract.provider_company_code,
       agent_code: contract.agent_code, agent_channel_code: contract.agent_channel_code,
       rent_amount: rent, fee_rate: feeRate, fee_amount: fee, agent_payout: payout, net_amount: fee - payout, clawback_amount: 0,
+      // 공급사율 미해석 표식 — 화면에서 "요율 확정 후 재계산 필요"로 보여 준다. 해석됐으면 남기지 않는다.
+      ...(feeResolved ? {} : { fee_rate_unresolved: 'yes' }),
       settlement_status: '정산대기', contract_date: contract.contract_date,
       rent_month_snapshot: contract.rent_month_snapshot, sub_model_snapshot: contract.sub_model_snapshot,
     }]);

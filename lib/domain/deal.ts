@@ -11,6 +11,7 @@ import { vehicleName, priceAt, creditDisplay } from '@/lib/domain/product';
 import { resolveRates } from '@/lib/domain/settlement-engine';
 import { getSession } from '@/lib/auth-session';
 import { BRAND_MAIN } from '@/lib/brand';
+import { requirePositiveRentAmount } from '@/lib/domain/contract-money';
 
 export type Role = 'agent' | 'provider' | 'admin';
 // v4 3역할 라벨 = 원본 5역할 라벨(entities.ROLE_LABEL_RAW SSOT)에서 파생. 값 복붙 금지.
@@ -147,7 +148,10 @@ export async function createContractRequest(product: EntityRecord, opt: { period
     }
   }
   const pr = priceAt(product, opt.period);
-  const { feeRate, payoutRate } = await resolveRates({ provider_company_code: product.provider_company_code, agent_code: ag.code }, product); // 율 계약시점 동결
+  // 가격이 없는 기간을 0원 계약으로 저장하면 완료 시 0원 정산까지 생성된다.
+  // 계약 생성 입구에서 먼저 막고, 정산 엔진에서도 레거시·우회 호출을 다시 막는다.
+  const rentAmount = requirePositiveRentAmount(pr?.rent, '계약 생성');
+  const { feeRate, payoutRate, feeResolved } = await resolveRates({ provider_company_code: product.provider_company_code, agent_code: ag.code }, product); // 율 계약시점 동결
   const d = new Date();
   const p2 = (n: number) => String(n).padStart(2, '0');
   const yymmdd = `${String(d.getFullYear()).slice(2)}${p2(d.getMonth() + 1)}${p2(d.getDate())}`;
@@ -164,11 +168,16 @@ export async function createContractRequest(product: EntityRecord, opt: { period
   await store.save('contract', co, [{
     contract_code: code, contract_status: '계약요청', contract_date: `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`,
     product_code: product.product_code, car_number_snapshot: product.car_number, maker_snapshot: product.maker, sub_model_snapshot: product.sub_model,
-    rent_month_snapshot: opt.period, rent_amount_snapshot: pr?.rent ?? 0, deposit_amount_snapshot: pr?.deposit ?? 0,
+    rent_month_snapshot: opt.period, rent_amount_snapshot: rentAmount, deposit_amount_snapshot: pr?.deposit ?? 0,
     customer_name: opt.customerName, customer_phone: opt.customerPhone,
     agent_uid: parties.agent_uid, agent_code: ag.code, agent_name: ag.name, agent_channel_code: parties.agent_channel_code,
     provider_company_code: parties.provider_company_code,
-    credit_grade_snapshot: creditDisplay(product), fee_rate_snapshot: feeRate, payout_rate_snapshot: payoutRate,
+    credit_grade_snapshot: creditDisplay(product), payout_rate_snapshot: payoutRate,
+    // ⚠ 공급사율을 못 찾았으면 **굽지 않는다.** fee_rate_snapshot 은 규칙상 생성 시 1회 확정이라
+    //  기본 0.1 을 넣는 순간 그 계약은 영구히 10% 다(관리자도 못 고침). 요율이 아직 미정인 지금
+    //  이걸 그대로 두면 오픈 첫날 계약이 전부 10% 로 굳는다.
+    //  비워 두면 정산 생성 시점에 다시 해석하고, 정산 금액은 관리자가 고칠 수 있다.
+    ...(feeResolved ? { fee_rate_snapshot: feeRate } : {}),
     // 출고문의를 소통에서 이미 마쳤으면 계약 1단계(출고문의·출고응답) 프리필 → 계약 진행은 서류부터.
     ...(deliveryResponse ? { agent_delivery_inquiry: 'yes', provider_delivery_response: deliveryResponse } : {}),
   }]);

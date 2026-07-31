@@ -96,15 +96,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 }
 
 /** 사용 차단 안내 — 데이터에 접근시키지 않고 여기서 멈춘다. */
-function PendingApproval({ email, reason }: { email: string; reason: 'pending' | 'inactive' }) {
+function PendingApproval({ email, reason }: { email: string; reason: 'pending' | 'inactive' | 'unassigned' }) {
   const inactive = reason === 'inactive';
+  const unassigned = reason === 'unassigned';
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, background: C.taupeBg, padding: 24, textAlign: 'center' }}>
       <div style={{ fontSize: FS.page, fontWeight: FW.head, color: C.brand }}>
-        {inactive ? '이용이 중지된 계정입니다' : '가입 승인 대기 중입니다'}
+        {unassigned ? '역할 지정이 필요한 계정입니다' : inactive ? '이용이 중지된 계정입니다' : '가입 승인 대기 중입니다'}
       </div>
       <div style={{ fontSize: FS.body, color: C.mute, lineHeight: 1.7, maxWidth: 380 }}>
-        {inactive ? (
+        {unassigned ? (
+          <>관리자가 영업자·공급사·운영자 역할을 지정해야 이용할 수 있습니다.<br />담당자에게 역할 지정을 요청해 주세요.</>
+        ) : inactive ? (
           <>이 계정은 관리자가 이용을 중지했습니다.<br />문의가 필요하면 담당자에게 연락해 주세요.</>
         ) : (
           <>가입 신청이 접수되었습니다. 관리자가 사업자·소속을 확인한 뒤 승인하면 이용할 수 있습니다.<br />승인이 끝나면 다시 로그인해 주세요.</>

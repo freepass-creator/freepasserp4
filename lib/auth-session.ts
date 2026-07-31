@@ -4,6 +4,7 @@
  * v3 users/{uid} 프로필(role·company_code·agent_channel_code·name)을 v4 3역할로 투영.
  */
 export type V4Role = 'agent' | 'provider' | 'admin';
+const ASSIGNED_ROLES = new Set(['agent', 'agent_admin', 'agent_manager', 'provider', 'provider_admin', 'admin']);
 
 export interface Session {
   uid: string;
@@ -35,6 +36,8 @@ export function isPending(s: Session | null): boolean {
  */
 export function isBlocked(s: Session | null): boolean {
   if (!s) return false;
+  // 알 수 없는 역할을 agent로 취급하면 역할 미지정 활성 계정이 앱에 들어오는 fail-open이 된다.
+  if (!ASSIGNED_ROLES.has(String(s.rawRole || ''))) return true;
   const st = String(s.status || '');
   if (st === 'pending' || st === 'deleted' || st === 'rejected') return true;
   const act = String(s.is_active ?? '');
@@ -42,8 +45,9 @@ export function isBlocked(s: Session | null): boolean {
 }
 
 /** 차단 사유 — 화면 문구 분기용. */
-export function blockReason(s: Session | null): 'pending' | 'inactive' | null {
+export function blockReason(s: Session | null): 'pending' | 'inactive' | 'unassigned' | null {
   if (!isBlocked(s)) return null;
+  if (!ASSIGNED_ROLES.has(String(s?.rawRole || ''))) return 'unassigned';
   return String(s?.status || '') === 'pending' ? 'pending' : 'inactive';
 }
 

@@ -24,7 +24,7 @@ const { getStore } = await import('../lib/store');
 const { getCompanyId } = await import('../lib/tenant');
 const { newId } = await import('../lib/domain/ids');
 const { ensureRoom, createContractRequest, setRole } = await import('../lib/domain/deal');
-const { applyStepCheck } = await import('../lib/domain/settlement-engine');
+const { applyStepCheck, createSettlement } = await import('../lib/domain/settlement-engine');
 const { importCompletedForMonth } = await import('../lib/domain/admin-settlement');
 import type { EntityRecord } from '../lib/intake/entities';
 
@@ -43,6 +43,18 @@ console.log('backend:', store.backend, '· company:', co, '\n');
 // ── 요율 SSOT 최소 시딩 (seed 샘플 오염 없이 격리) ──
 await store.save('partner', co, [{ partner_code: 'sup_jeil', name: '제일오토렌탈', partner_type: '공급사', fee_rate: 0.1 }]);
 await store.save('user', co, [{ uid: 'usr_park', user_code: 'usr_park', name: '박영업', role: 'agent', agent_channel_code: 'chn_seoul', agent_payout_rate: 0.04 }]);
+
+// ── 0. 출시 차단 회귀: 가격 없는 계약·0원 레거시 정산은 저장 전 거부 ──
+const zeroProduct: EntityRecord = {
+  product_code: 'veh_zero', car_number: '00가0000', maker: 'QA', sub_model: '가격없음',
+  vehicle_status: '출고가능', product_type: '중고렌트', provider_company_code: 'sup_jeil', price: {},
+};
+let zeroContractRejected = false;
+try { await createContractRequest(zeroProduct, { period: 36, customerName: 'QA', customerPhone: '' }); } catch { zeroContractRejected = true; }
+check('0a. 가격 없는 기간의 0원 계약 차단', zeroContractRejected, zeroContractRejected);
+let zeroSettlementRejected = false;
+try { await createSettlement({ contract_code: 'ZERO', rent_amount_snapshot: 0 }); } catch { zeroSettlementRejected = true; }
+check('0b. 레거시 0원 계약의 정산 생성 차단', zeroSettlementRejected, zeroSettlementRejected);
 
 // ── 1. 공급사 차량 등록 ──
 setRole('provider');
