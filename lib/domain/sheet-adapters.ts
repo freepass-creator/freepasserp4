@@ -90,21 +90,31 @@ export function resolveAdapter(partnerOrId?: EntityRecord | string | null): Shee
   return SHEET_ADAPTERS[id] || SHEET_ADAPTERS.generic;
 }
 
-/** partner 레코드에서 시트 연동 옵션 추출. */
+/**
+ * partner 레코드에서 시트 연동 옵션 추출.
+ *
+ * `sheet_tab` 은 **탭을 여러 개 적을 수 있다**(`0,1718488412,1505082236`).
+ * 재고를 탭으로 쪼개 두는 공급사가 실제로 있다 — 빌린카는 3탭에 45대가 나뉘어 있는데
+ * 한 탭만 읽으면 21대만 올라가고 나머지 24대는 "시트에 없음" → 출고불가로 내려간다.
+ */
 export function partnerSheetOpts(p: EntityRecord): {
   url: string;
   gid: string;
+  gids: string[];
   headerRow: number;
   adapter: SheetAdapter;
   providerCode: string;
   profileRaw: unknown;
 } {
   const url = String(p.sheet_url || '').trim();
-  const gid = String(p.sheet_gid || p.sheet_tab || '').trim().replace(/\D/g, '') || '';
+  const raw = String(p.sheet_gid || p.sheet_tab || '').trim();
+  const gids = raw.split(/[,\s|]+/).map((s) => s.replace(/\D/g, '')).filter((s) => s !== '');
+  const gid = gids[0] || '';
   const headerRow = Math.max(0, Number(p.header_row) || 0);
   return {
     url,
     gid,
+    gids,
     headerRow,
     adapter: resolveAdapter(p),
     providerCode: String(p.partner_code || p._key || ''),

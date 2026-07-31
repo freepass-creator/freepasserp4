@@ -292,9 +292,9 @@ function memberStatus(row: EntityRecord, kind: 'user' | 'partner'): {
     return { icon: UserPlus, tone: 'amber', title: '가입 승인대기' };
   }
   if (String(row.is_active || '') === '아니오') {
-    return { icon: UserRoundX, tone: 'gray', title: '비활성 사용자' };
+    return { icon: UserRoundX, tone: 'gray', title: '비활성 계정' };
   }
-  return { icon: UserRoundCheck, tone: 'green', title: '활성 사용자' };
+  return { icon: UserRoundCheck, tone: 'green', title: '활성 계정' };
 }
 
 /** 회원·파트너 — 재고·문의·계약과 동일한 아이콘 + 3줄 목록 규격. */
@@ -329,7 +329,7 @@ export function MemberListRow({
       onClick={onClick}
       thumb={<FeedThumbIcon icon={ic.icon} tone={ic.tone} title={ic.title} />}
       lines={[
-        <FeedTitle key="t">{String(row.name || code || (kind === 'user' ? '사용자' : '파트너'))}</FeedTitle>,
+        <FeedTitle key="t">{String(row.name || code || (kind === 'user' ? '계정' : '회사'))}</FeedTitle>,
         // ② 식별 — 상태뱃지 + 코드·소속. 문의·계약·재고와 같은 자리·같은 순서(뱃지가 앞).
         <div key="b" style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden' }}>
           {kind === 'user' ? (
@@ -380,10 +380,10 @@ export function MemberCreateRow({
   kind: 'user' | 'partner';
   onClick: () => void;
 }) {
-  const label = kind === 'user' ? '사용자 등록' : '파트너 등록';
+  const label = kind === 'user' ? '계정 등록' : '회사 등록';
   const hint = kind === 'user'
-    ? '새 사용자와 권한을 등록합니다'
-    : '새 공급사 또는 영업채널을 등록합니다';
+    ? '로그인 계정과 역할을 등록합니다'
+    : '공급사·영업채널(수수료·시트)을 등록합니다';
   return (
     <CreateListRow
       label={label}

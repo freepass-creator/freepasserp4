@@ -44,7 +44,7 @@ export function MembersList({
       {!rows.length ? (
         <CenterNote>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-            <span>{filtered ? '검색 결과 없음' : `${tab === 'user' ? '사용자' : '파트너'} 없음`}</span>
+            <span>{filtered ? '검색 결과 없음' : `${tab === 'user' ? '계정' : '회사'} 없음`}</span>
             {filtered ? <Btn title="조건 해제" size="sm" variant="ghost" onClick={onClearConditions}>조건 해제</Btn> : null}
           </div>
         </CenterNote>

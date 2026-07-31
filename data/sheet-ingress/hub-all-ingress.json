@@ -1,0 +1,517 @@
+{
+  "at": "2026-07-28T04:00:23.248Z",
+  "masterEntries": 1800,
+  "totals": {
+    "imported": 1603,
+    "catalog": 1599,
+    "blocked": 4,
+    "snap": {
+      "high": 1341,
+      "medium": 134,
+      "low": 128,
+      "none": 0
+    },
+    "confirmed": 1475,
+    "review": 128
+  },
+  "lines": [
+    {
+      "code": "RP023",
+      "name": "오토플러스",
+      "url": "https://docs.google.com/spreadsheets/d/1TJBG4PABgly7EtGG6Os5GcY9La7kDR_yex56KHhXe2U/edit",
+      "gid": "284963459",
+      "ok": true,
+      "message": "headerRow=2",
+      "imported": 97,
+      "catalog": 93,
+      "blocked": 4,
+      "confirmed": 92,
+      "review": 5,
+      "snap": {
+        "high": 0,
+        "medium": 92,
+        "low": 5,
+        "none": 0
+      },
+      "reviewSamples": [
+        {
+          "car": "146오7914",
+          "conf": "low",
+          "maker": "볼보",
+          "model": "XC40"
+        },
+        {
+          "car": "138모8017",
+          "conf": "low",
+          "maker": "볼보",
+          "model": "V60"
+        },
+        {
+          "car": "133라1401",
+          "conf": "low",
+          "maker": "인피니티",
+          "model": "I"
+        },
+        {
+          "car": "192머7372",
+          "conf": "low",
+          "maker": "인피니티",
+          "model": "I"
+        },
+        {
+          "car": "321라9324",
+          "conf": "low",
+          "maker": "인피니티",
+          "model": "I"
+        }
+      ]
+    },
+    {
+      "code": "RP012",
+      "name": "손오공렌터카",
+      "url": "https://docs.google.com/spreadsheets/d/1vBTcj1MpKt44Bzclvgjm23OXFEIY-1hp_g5Wu3bztsQ/edit",
+      "gid": "(default)",
+      "ok": true,
+      "message": "headerRow=0",
+      "imported": 33,
+      "catalog": 33,
+      "blocked": 0,
+      "confirmed": 33,
+      "review": 0,
+      "snap": {
+        "high": 32,
+        "medium": 1,
+        "low": 0,
+        "none": 0
+      },
+      "reviewSamples": []
+    },
+    {
+      "code": "RP004",
+      "name": "아이카",
+      "url": "https://docs.google.com/spreadsheets/d/1AVW2uFy94qLPV4TU-MsgYMIDLrfC6KZhfxVjoFw7sH0/edit",
+      "gid": "(default)",
+      "ok": true,
+      "message": "headerRow=0",
+      "imported": 1307,
+      "catalog": 1307,
+      "blocked": 0,
+      "confirmed": 1198,
+      "review": 109,
+      "snap": {
+        "high": 1180,
+        "medium": 18,
+        "low": 109,
+        "none": 0
+      },
+      "reviewSamples": [
+        {
+          "car": "109호4172",
+          "conf": "low",
+          "maker": "기아",
+          "model": "K7"
+        },
+        {
+          "car": "109호4173",
+          "conf": "low",
+          "maker": "기아",
+          "model": "K7"
+        },
+        {
+          "car": "100신T2L7",
+          "conf": "low",
+          "maker": "기아",
+          "model": "K7"
+        },
+        {
+          "car": "109호4190",
+          "conf": "low",
+          "maker": "현대",
+          "model": "포니"
+        },
+        {
+          "car": "109호4191",
+          "conf": "low",
+          "maker": "현대",
+          "model": "포니"
+        },
+        {
+          "car": "100신T3OS",
+          "conf": "low",
+          "maker": "기아",
+          "model": "K7"
+        }
+      ]
+    },
+    {
+      "code": "RP022",
+      "name": "퍼시픽",
+      "url": "https://docs.google.com/spreadsheets/d/17ptJasUHfkTsTAPV7n09biOUxwON69ga_boY7Lj1YQI/edit",
+      "gid": "(default)",
+      "ok": true,
+      "message": "headerRow=0",
+      "imported": 1,
+      "catalog": 1,
+      "blocked": 0,
+      "confirmed": 1,
+      "review": 0,
+      "snap": {
+        "high": 1,
+        "medium": 0,
+        "low": 0,
+        "none": 0
+      },
+      "reviewSamples": []
+    },
+    {
+      "code": "RP008",
+      "name": "리더스",
+      "url": "https://docs.google.com/spreadsheets/d/1JzkGriOncxVC0CiQlL18uiHW-iyzvMNyJkJN4BPGoqI/edit",
+      "gid": "(default)",
+      "ok": true,
+      "message": "headerRow=0",
+      "imported": 3,
+      "catalog": 3,
+      "blocked": 0,
+      "confirmed": 3,
+      "review": 0,
+      "snap": {
+        "high": 3,
+        "medium": 0,
+        "low": 0,
+        "none": 0
+      },
+      "reviewSamples": []
+    },
+    {
+      "code": "RP018",
+      "name": "스타",
+      "url": "https://docs.google.com/spreadsheets/d/1IP7uES-NrxS58JK9UCtD3ppGZGeSL9STpT2jHJO5JIM/edit",
+      "gid": "(default)",
+      "ok": true,
+      "message": "headerRow=0",
+      "imported": 23,
+      "catalog": 23,
+      "blocked": 0,
+      "confirmed": 23,
+      "review": 0,
+      "snap": {
+        "high": 21,
+        "medium": 2,
+        "low": 0,
+        "none": 0
+      },
+      "reviewSamples": []
+    },
+    {
+      "code": "PT-0001",
+      "name": "렌트존",
+      "url": "https://docs.google.com/spreadsheets/d/1IFV4_rNq4hW_KornQpz1ppBWbziCyklTo6oOH0BaUc8/edit",
+      "gid": "(default)",
+      "ok": true,
+      "message": "headerRow=0",
+      "imported": 6,
+      "catalog": 6,
+      "blocked": 0,
+      "confirmed": 6,
+      "review": 0,
+      "snap": {
+        "high": 6,
+        "medium": 0,
+        "low": 0,
+        "none": 0
+      },
+      "reviewSamples": []
+    },
+    {
+      "code": "RP015",
+      "name": "경진렌트카",
+      "url": "https://docs.google.com/spreadsheets/d/1uxcBiaf9YUokWY6pA6cSQF5dWC_NhAbWzch6rFNPxks/edit",
+      "gid": "(default)",
+      "ok": true,
+      "message": "headerRow=0",
+      "imported": 1,
+      "catalog": 1,
+      "blocked": 0,
+      "confirmed": 0,
+      "review": 1,
+      "snap": {
+        "high": 0,
+        "medium": 0,
+        "low": 1,
+        "none": 0
+      },
+      "reviewSamples": [
+        {
+          "car": "161호8471",
+          "conf": "low",
+          "maker": "아우디",
+          "model": "기타"
+        }
+      ]
+    },
+    {
+      "code": "RP016",
+      "name": "경진카",
+      "url": "https://docs.google.com/spreadsheets/d/1zglJo10nM_oilYzLdk9XAe3SMVPkVf5fd8a3vF1yXHo/edit",
+      "gid": "(default)",
+      "ok": true,
+      "message": "headerRow=0",
+      "imported": 1,
+      "catalog": 1,
+      "blocked": 0,
+      "confirmed": 0,
+      "review": 1,
+      "snap": {
+        "high": 0,
+        "medium": 0,
+        "low": 1,
+        "none": 0
+      },
+      "reviewSamples": [
+        {
+          "car": "161호8342",
+          "conf": "low",
+          "maker": "아우디",
+          "model": "S4"
+        }
+      ]
+    },
+    {
+      "code": "RP020",
+      "name": "우리캐피탈렌터카",
+      "url": "https://docs.google.com/spreadsheets/d/1V4dqn5e8dtTLjX_wnHx5wOup0arU3TAtsvEvuh0sisY/edit",
+      "gid": "(default)",
+      "ok": true,
+      "message": "headerRow=0",
+      "imported": 8,
+      "catalog": 8,
+      "blocked": 0,
+      "confirmed": 7,
+      "review": 1,
+      "snap": {
+        "high": 7,
+        "medium": 0,
+        "low": 1,
+        "none": 0
+      },
+      "reviewSamples": [
+        {
+          "car": "146호1686",
+          "conf": "low",
+          "maker": "쉐보레",
+          "model": "서버밴"
+        }
+      ]
+    },
+    {
+      "code": "RP010",
+      "name": "KH",
+      "url": "https://docs.google.com/spreadsheets/d/1BLoZxJ_5n0N9P4S4tkw6otj0trqGSDpe35jRT9DVs0k/edit",
+      "gid": "(default)",
+      "ok": true,
+      "message": "headerRow=0",
+      "imported": 11,
+      "catalog": 11,
+      "blocked": 0,
+      "confirmed": 11,
+      "review": 0,
+      "snap": {
+        "high": 11,
+        "medium": 0,
+        "low": 0,
+        "none": 0
+      },
+      "reviewSamples": []
+    },
+    {
+      "code": "RP017",
+      "name": "센트로",
+      "url": "https://docs.google.com/spreadsheets/d/1iVCesNhymbW8SsvHU0MysRmsVHGb2PtXzA5c30xqm0I/edit",
+      "gid": "(default)",
+      "ok": true,
+      "message": "headerRow=0",
+      "imported": 2,
+      "catalog": 2,
+      "blocked": 0,
+      "confirmed": 2,
+      "review": 0,
+      "snap": {
+        "high": 2,
+        "medium": 0,
+        "low": 0,
+        "none": 0
+      },
+      "reviewSamples": []
+    },
+    {
+      "code": "RP021",
+      "name": "빌린카",
+      "url": "https://docs.google.com/spreadsheets/d/1Iroh8oZFMqCgTQHwNXp0gOxa-SYOCOgqwcwPCgJzJaA/edit",
+      "gid": "(default)",
+      "ok": true,
+      "message": "headerRow=0",
+      "imported": 22,
+      "catalog": 22,
+      "blocked": 0,
+      "confirmed": 16,
+      "review": 6,
+      "snap": {
+        "high": 13,
+        "medium": 3,
+        "low": 6,
+        "none": 0
+      },
+      "reviewSamples": [
+        {
+          "car": "116하9968",
+          "conf": "low",
+          "maker": "폭스바겐",
+          "model": "멀티밴"
+        },
+        {
+          "car": "116하9977",
+          "conf": "low",
+          "maker": "아우디",
+          "model": "기타"
+        },
+        {
+          "car": "116하9978",
+          "conf": "low",
+          "maker": "아우디",
+          "model": "기타"
+        },
+        {
+          "car": "116하9979",
+          "conf": "low",
+          "maker": "아우디",
+          "model": "기타"
+        },
+        {
+          "car": "116하9980",
+          "conf": "low",
+          "maker": "아우디",
+          "model": "기타"
+        },
+        {
+          "car": "116하9981",
+          "conf": "low",
+          "maker": "아우디",
+          "model": "기타"
+        }
+      ]
+    },
+    {
+      "code": "RP006",
+      "name": "아이언",
+      "url": "https://docs.google.com/spreadsheets/d/1fUC8sok_XKmpgDAvRRi6HEbeAkY-Rbvrt-th8j8G7Ms/edit",
+      "gid": "(default)",
+      "ok": true,
+      "message": "headerRow=0",
+      "imported": 33,
+      "catalog": 33,
+      "blocked": 0,
+      "confirmed": 33,
+      "review": 0,
+      "snap": {
+        "high": 19,
+        "medium": 14,
+        "low": 0,
+        "none": 0
+      },
+      "reviewSamples": []
+    },
+    {
+      "code": "RP013",
+      "name": "웰릭스",
+      "url": "https://docs.google.com/spreadsheets/d/1hfXngq7GcXRF2u7OhmH39PqERQK34r6hq9dfSoI2Sy0/edit",
+      "gid": "(default)",
+      "ok": true,
+      "message": "headerRow=0",
+      "imported": 18,
+      "catalog": 18,
+      "blocked": 0,
+      "confirmed": 18,
+      "review": 0,
+      "snap": {
+        "high": 15,
+        "medium": 3,
+        "low": 0,
+        "none": 0
+      },
+      "reviewSamples": []
+    },
+    {
+      "code": "PT-0023",
+      "name": "SA렌터카",
+      "url": "https://docs.google.com/spreadsheets/d/1C5rRLQOPyFM3UoVfIHN79fud099H6m-_QOtUnlFykvo/edit",
+      "gid": "(default)",
+      "ok": true,
+      "message": "headerRow=0",
+      "imported": 30,
+      "catalog": 30,
+      "blocked": 0,
+      "confirmed": 26,
+      "review": 4,
+      "snap": {
+        "high": 25,
+        "medium": 1,
+        "low": 4,
+        "none": 0
+      },
+      "reviewSamples": [
+        {
+          "car": "133하2383",
+          "conf": "low",
+          "maker": "기아",
+          "model": "EV6"
+        },
+        {
+          "car": "109호3016",
+          "conf": "low",
+          "maker": "기아",
+          "model": "EV6"
+        },
+        {
+          "car": "109호5380",
+          "conf": "low",
+          "maker": "기아",
+          "model": "모닝"
+        },
+        {
+          "car": "109호5381",
+          "conf": "low",
+          "maker": "기아",
+          "model": "모닝"
+        }
+      ]
+    },
+    {
+      "code": "RP030",
+      "name": "J&J렌트카",
+      "url": "https://docs.google.com/spreadsheets/d/1tVEVEZY-6e9y2Gz89eXnIRvsScFv7Y7sAiWw7hr_OFY/edit",
+      "gid": "(default)",
+      "ok": true,
+      "message": "headerRow=0",
+      "imported": 7,
+      "catalog": 7,
+      "blocked": 0,
+      "confirmed": 6,
+      "review": 1,
+      "snap": {
+        "high": 6,
+        "medium": 0,
+        "low": 1,
+        "none": 0
+      },
+      "reviewSamples": [
+        {
+          "car": "142호7629",
+          "conf": "low",
+          "maker": "크라이슬러",
+          "model": "200"
+        }
+      ]
+    }
+  ]
+}

@@ -66,7 +66,7 @@ export type PartnerFetchLine = {
   label: string;
   ok: boolean;
   imported: number;
-  rentedExcluded: number;   // 배차중·렌트중 등 유입 제외 대수
+  excludedCount: number;   // 시트에 '출고불가'로 적혀 있어 안 올린 대수
   message: string;
   products: EntityRecord[];
 };
@@ -126,27 +126,44 @@ export async function fetchAllPartnerSheets(
           headerRow: o.headerRow,
         });
         return {
-          code, label, ok: true, imported: res.imported, rentedExcluded: res.rentedExcluded,
-          message: `✓ ${label} [autoplus 2탭] — ${res.imported}매물 (본 ${res.mainN}+프로모 ${res.promoOnlyN} · 재고 ${res.stock} · 확정 ${res.snap.high + res.snap.medium}·검수 ${res.snap.low + res.snap.none}${res.rentedExcluded ? ` · 배차중 제외 ${res.rentedExcluded}` : ''})`,
+          code, label, ok: true, imported: res.imported, excludedCount: res.excludedCount,
+          message: `✓ ${label} [autoplus 2탭] — ${res.imported}매물 (본 ${res.mainN}+프로모 ${res.promoOnlyN} · 재고 ${res.stock} · 확정 ${res.snap.high + res.snap.medium}·검수 ${res.snap.low + res.snap.none}${res.excludedCount ? ` · 출고불가 제외 ${res.excludedCount}` : ''})`,
           products: res.products,
         };
       }
-      const raw = await fetchSheetTable(o.url, o.gid || undefined);
-      const t = o.adapter.prepareTable(raw, { headerRow: o.headerRow });
-      if (t.length < 2) throw new Error('헤더+데이터 없음');
-      const res = importSheetTable(t, {
-        providerCode: o.providerCode,
-        entries: master,
-        profile,
-      });
+      // 탭이 여러 개면 전부 읽어 합친다. 한 탭만 읽으면 나머지 탭 차량이 「시트에 없음」으로 잡혀
+      //  멀쩡한 매물이 부재처리로 출고불가가 된다 — 조용히 일어나서 더 위험하다.
+      const tabs = o.gids.length ? o.gids : [''];
+      const products: EntityRecord[] = [];
+      const seen = new Set<string>();
+      let imported = 0, excluded = 0, high = 0, low = 0;
+      const tabNotes: string[] = [];
+      for (const g of tabs) {
+        const raw = await fetchSheetTable(o.url, g || undefined);
+        const t = o.adapter.prepareTable(raw, { headerRow: o.headerRow });
+        if (t.length < 2) { tabNotes.push(`gid ${g || '기본'}: 데이터 없음`); continue; }
+        const r = importSheetTable(t, { providerCode: o.providerCode, entries: master, profile });
+        excluded += r.excludedCount;
+        high += r.snap.high + r.snap.medium;
+        low += r.snap.low + r.snap.none;
+        for (const rec of r.products) {
+          // 같은 차가 두 탭에 있으면 먼저 읽은 탭이 이긴다(탭 순서 = 사용자가 적은 순서).
+          const k = String(rec.product_code || rec._key || '');
+          if (k && seen.has(k)) continue;
+          if (k) seen.add(k);
+          products.push(rec);
+          imported++;
+        }
+      }
+      if (!products.length && excluded === 0) throw new Error(tabNotes.join(' · ') || '헤더+데이터 없음');
       return {
-        code, label, ok: true, imported: res.imported, rentedExcluded: res.rentedExcluded,
-        message: `✓ ${label} [${o.adapter.id}] — ${res.imported}매물 (확정 ${res.snap.high + res.snap.medium}·검수 ${res.snap.low + res.snap.none}${res.rentedExcluded ? ` · 배차중 제외 ${res.rentedExcluded}` : ''})`,
-        products: res.products,
+        code, label, ok: true, imported, excludedCount: excluded,
+        message: `✓ ${label} [${o.adapter.id}${tabs.length > 1 ? ` ${tabs.length}탭` : ''}] — ${imported}매물 (확정 ${high}·검수 ${low}${excluded ? ` · 출고불가 제외 ${excluded}` : ''})`,
+        products,
       };
     } catch (e) {
       return {
-        code, label, ok: false, imported: 0, rentedExcluded: 0,
+        code, label, ok: false, imported: 0, excludedCount: 0,
         message: `✗ ${label} — ${String((e as Error).message || e)}`,
         products: [],
       };
@@ -173,9 +190,9 @@ function buildPrevForGuard(
   for (const p of partners) {
     const code = String(p.partner_code || p._key || '');
     if (!code) continue;
-    if (p.last_sheet_imported != null && Number(p.last_sheet_imported) > 0) {
-      prevForGuard.set(code, Number(p.last_sheet_imported));
-    }
+    // last_sheet_rows(읽은 행) 우선 — 없으면 구버전 last_sheet_imported 로 폴백.
+    const rows = Number(p.last_sheet_rows ?? p.last_sheet_imported ?? 0);
+    if (rows > 0) prevForGuard.set(code, rows);
   }
   for (const r of existing) {
     if (r._deleted) continue;
@@ -233,7 +250,12 @@ export async function commitFetchedPartnerSheets(
       continue;
     }
     const prev = guard.get(line.code) || 0;
-    const gate = shouldReconcileAbsent(line.imported, prev);
+    // ⚠ 가드에는 **읽은 행 수**(올린 것 + 출고불가로 걸러낸 것)를 넣는다.
+    //  급감가드는 "시트가 깨졌나"를 보는 장치지 "공급사가 차를 막았나"를 보는 장치가 아니다.
+    //  올린 대수만 넣으면 — 공급사가 절반을 출고불가로 돌린 날 가드가 걸려 부재처리가 통째로 스킵되고,
+    //  그 차들은 유입에도 없으니 ERP 에서 계속 출고가능으로 남는다(정확히 반대 방향의 사고).
+    const rowsRead = line.imported + (line.excludedCount || 0);
+    const gate = shouldReconcileAbsent(rowsRead, prev);
     if (!gate.ok) {
       absent.skipped_guard++;
       absent.notes.push(`${line.label}: 부재처리 스킵(${gate.reason === 'collapse' ? '급감가드' : '유입0'})`);
@@ -250,6 +272,7 @@ export async function commitFetchedPartnerSheets(
       await store.update('partner', companyId, line.code, {
         last_synced_at: now,
         last_sheet_imported: line.imported,
+        last_sheet_rows: rowsRead,   // 급감가드 기준 — imported 와 달리 출고불가분을 포함한다
       } as EntityRecord);
     } catch { /* best-effort */ }
   }

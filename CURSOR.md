@@ -66,8 +66,9 @@
 | 계약정산 (`app/contract`) | 목록 | 진행 | 첨부 | 정산상태 |
 | 재고관리 (`app/inventory`) | 목록 | 기본정보 | 운영정보 | 업로드 |
 | 정책관리 (`app/policy`) | 목록 | 기본·심사 | 계약조건 | 보험 |
+| 회원관리 (`app/members`) | 목록 | 기본정보 | 소속·권한(유) / 정산·운영(파) | 영업설정(유) / 데이터연동(파) |
 
-예외: 회원관리(`app/members`) = WorkPage + **1패널**(편집) · 목록은 `ListRow`(Feed 아님).
+회원 목록 행은 `ListRow`/`MemberListRow`(Feed 아님). 계정(users)·회사(partners) 전환은 `listHeader`가 아니라 필터「목록」(`FilterChips`). 역할 필터는 계정 목록에만.
 
 패널 배치·모바일 전환·목록 도구(검색/정렬/필터)는 **셸이 담당**한다. 페이지는 내용만 넣는다.
 

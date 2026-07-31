@@ -27,8 +27,13 @@ export async function GET(request: Request): Promise<Response> {
   // 이미 게시 CSV(pub?output=csv)면 그대로, 아니면 gviz CSV 로.
   const id = extractSheetId(url);
   const isPubCsv = /\/pub\b/.test(url) && /output=csv/.test(url);
+  // ⚠ gviz 를 쓰면 안 된다 — **행을 조용히 빠뜨린다.**
+  //  gviz 는 첫 행을 헤더로 잡고 열 타입을 추론하는데, 그 과정에서 타입이 안 맞는 뒤쪽 블록을 잘라낸다.
+  //  실측(2026-07-31): 아이언 42대 → 26대(출고불가 16대가 통째로 사라짐) · 손오공 37 → 33.
+  //  더 나쁜 건 "안 읽힌 차"가 「시트에서 사라짐」으로 판정돼 멀쩡한 매물이 출고불가로 내려간다는 점이다.
+  //  export?format=csv 는 시트를 있는 그대로 내보낸다.
   const csvUrl = isPubCsv ? url
-    : id ? `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv${gid ? `&gid=${gid}` : ''}`
+    : id ? `https://docs.google.com/spreadsheets/d/${id}/export?format=csv${gid ? `&gid=${gid}` : ''}`
     : url;
   if (!id && !isPubCsv) return NextResponse.json({ ok: false, error: '구글시트 URL 아님(시트 ID 못 찾음)' }, { status: 400 });
   // ⚠ SSRF 차단: isPubCsv 분기는 raw url을 그대로 fetch → 구글 호스트만 허용(내부주소·임의도메인 차단).

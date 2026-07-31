@@ -63,7 +63,7 @@ const norm = (s: unknown) => String(s ?? '').trim().toLowerCase().replace(/\s+/g
  * 시트 상태 → 상품상태(VEHICLE_STATES 6종). **운영 규칙 2026-07-31 확정.**
  *
  * 큰 원칙: **출고불가가 아니면 다 올린다.** 애매하면 출고협의로 올려 두고 영업자가 확인한다.
- * 예전엔 배차중·운행중을 유입에서 아예 걸렀는데(isSheetRentedOut), 그건 틀렸다 —
+ * 예전엔 배차중·운행중을 유입에서 아예 걸렀는데(isSheetExcluded), 그건 틀렸다 —
  * **배차중 = 단기·월렌트로 잠깐 나가 있는 차**라서 반납 시점 협의가 가능한 상품이다.
  * 실측(16개 공급사 시트)에서 배차중이 1,832대로 최다였고, 그걸 버리면 카탈로그의 대부분이 사라졌다.
  *
@@ -90,13 +90,15 @@ export function canonSheetVehicleStatus(raw: unknown): string {
 }
 
 /**
- * @deprecated 2026-07-31 — 유입에서 행을 버리지 않는다. 상태로만 표현한다.
- * 배차중을 '나간 차'로 보고 skip 하던 시절의 함수. 배차중은 단기·월렌트로 잠깐 나간 것이라
- * 출고협의 상품이고, 진짜 끝난 차(출고완료·폐차 등)는 canonSheetVehicleStatus 가 출고불가로 만든다.
- * 출고불가는 손님 화면에서만 숨고 재고관리에는 남으므로, 버리는 것보다 남기는 편이 추적이 된다.
+ * 유입에서 제외할 행 — **상태가 출고불가로 판정되는 것.**
+ * 운영 규칙(2026-07-31): "출고불가가 아니면 다 올린다" = 출고불가는 올리지 않는다.
+ * 판정은 canonSheetVehicleStatus 하나로 통일한다 —
+ * '출고불가'·'~불가'·'출고완료'·'판매완료'·'폐차'·'말소'가 전부 여기로 모인다.
+ *
+ * ※ 시트에 아예 없는 차를 출고불가로 내리는 **부재처리와는 다른 이야기다**(그건 기존 매물의 상태 변경).
  */
-export function isSheetRentedOut(raw: unknown): boolean {
-  return /판매완료|폐차|말소/.test(String(raw ?? ''));
+export function isSheetExcluded(raw: unknown): boolean {
+  return canonSheetVehicleStatus(raw) === '출고불가';
 }
 
 /** 헤더 자동매핑 — 정확일치 → 정규화일치 → 부분일치(별칭 긴 키 우선). 반환 = {표준필드: 컬럼인덱스}(첫 매칭 우선). */
@@ -156,7 +158,7 @@ export type ImportResult = {
   products: EntityRecord[];
   mapping: MappingProfile;   // 사용된 매핑(자동이면 이걸 프로파일로 저장)
   total: number; imported: number; skipped: number;
-  rentedExcluded: number;    // 배차중·운행중·렌트중 등 '이미 나간 차' — 상품 아님(유입 제외)
+  excludedCount: number;    // 배차중·운행중·렌트중 등 '이미 나간 차' — 상품 아님(유입 제외)
   snap: { high: number; medium: number; low: number; none: number };
 };
 
@@ -229,7 +231,7 @@ export function importSheetTable(table: string[][], opts: {
   const dataRows = table.slice(1);
   const mapping = (opts.profile && Object.keys(opts.profile).length) ? { ...opts.profile } : autoMapHeaders(headers);
   // 저장된 프로파일에 상태열이 없으면(구버전 매핑) 상태열 자동탐지로 보강.
-  // 없으면 rec.vehicle_status가 안 채워져 배차중 제외·상태동기화가 통째로 안 걸림(아이카 "즉시출고" 헤더 케이스).
+  // 없으면 rec.vehicle_status가 안 채워져 출고불가 제외·상태동기화가 통째로 안 걸림(아이카 "즉시출고" 헤더 케이스).
   if (!('vehicle_status' in mapping)) {
     const autoStatus = autoMapHeaders(headers).vehicle_status;
     if (autoStatus !== undefined) mapping.vehicle_status = autoStatus;
@@ -238,15 +240,14 @@ export function importSheetTable(table: string[][], opts: {
   const seen = new Set<string>();
   const snap = { high: 0, medium: 0, low: 0, none: 0 };
   let skipped = 0;
-  let rentedExcluded = 0;
+  let excludedCount = 0;
   for (const cells of dataRows) {
     const rec: EntityRecord = {};
     for (const [field, idx] of Object.entries(mapping)) { const v = String(cells[idx] ?? '').trim(); if (v) rec[field] = v; }
     if (rec.options) rec.options = normalizeProductOptionsText(rec.options);
-    // 행을 버리지 않는다 — 출고불가가 아니면 다 올리고, 상태로만 구분한다(2026-07-31 규칙).
-    //  배차중은 단기·월렌트로 잠깐 나간 차라 출고협의 상품이다. 예전엔 여기서 통째로 버려서
-    //  아이카 1,832대가 통째로 사라졌다. 진짜 끝난 차(폐차·말소·판매완료)만 남긴 채 제외한다.
-    if (isSheetRentedOut(rec.vehicle_status)) { rentedExcluded++; continue; }
+    // **출고불가는 올리지 않는다**(2026-07-31 규칙). 그 외는 다 올린다 —
+    //  배차중은 단기·월렌트로 잠깐 나간 차라 출고협의 상품이다(예전엔 여기서 버려 아이카 1,832대가 사라졌다).
+    if (isSheetExcluded(rec.vehicle_status)) { excludedCount++; continue; }
     let car = String(rec.car_number || '').replace(/\s/g, '');
     // 안내문구·배너가 차량번호 칸에 들어온 경우 버림(오토플러스 ★★★프로모션… 등)
     if (car && !isRealPlate(car)) {
@@ -292,7 +293,7 @@ export function importSheetTable(table: string[][], opts: {
     if (price) rec.price = price;
     products.push(rec);
   }
-  return { products, mapping, total: dataRows.length, imported: products.length, skipped, rentedExcluded, snap };
+  return { products, mapping, total: dataRows.length, imported: products.length, skipped, excludedCount, snap };
 }
 
 /**

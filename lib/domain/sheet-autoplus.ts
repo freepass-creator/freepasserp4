@@ -133,7 +133,7 @@ export async function importAutoplusMerged(opts: {
       total: 0,
       imported: 0,
       skipped: 0,
-      rentedExcluded: 0,
+      excludedCount: 0,
       snap: { high: 0, medium: 0, low: 0, none: 0 },
     };
 
@@ -145,7 +145,7 @@ export async function importAutoplusMerged(opts: {
     total: main.total + promo.total,
     imported: products.length,
     skipped: main.skipped + promo.skipped,
-    rentedExcluded: main.rentedExcluded + promo.rentedExcluded,
+    excludedCount: main.excludedCount + promo.excludedCount,
     snap: mergeSnap(main.snap, {
       high: promo.snap.high,
       medium: promo.snap.medium,

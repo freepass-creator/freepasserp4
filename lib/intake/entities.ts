@@ -43,9 +43,14 @@ export function rangeErrors(fields: Field[], record: Record<string, unknown>): s
 
 /* ── enum SSOT (freepasserp3 실측) ── */
 export const ROLES = ['agent', 'agent_admin', 'agent_manager', 'provider', 'provider_admin', 'admin'] as const;
-/** 역할 표시 SSOT(v3 원본 5역할). 화면마다 로컬 맵 만들지 말 것 — v4 3역할 라벨(deal.ts ROLE_LABEL)도 여기서 파생한다. */
+/** 역할 표시 SSOT(운영 5역할 + 레거시 1). 화면마다 로컬 맵 만들지 말 것 — v4 3역할 라벨(deal.ts ROLE_LABEL)도 여기서 파생한다. */
 export const ROLE_LABEL_RAW: Record<(typeof ROLES)[number], string> = {
-  agent: '영업자', agent_admin: '영업채널 관리자', agent_manager: '영업관리자(레거시)', provider: '공급사 직원', provider_admin: '공급사 관리자', admin: '플랫폼 관리자',
+  agent: '영업자',
+  agent_admin: '영업관리자',
+  agent_manager: '영업관리자(레거시)',
+  provider: '공급사',
+  provider_admin: '공급관리자',
+  admin: '운영자',
 };
 export const CONTRACT_STATES = ['계약요청', '계약대기', '계약발송', '계약완료', '계약취소'] as const; // contract-status.js
 export const SETTLEMENT_STATES = ['정산대기', '정산완료', '정산보류', '환수대기', '환수결정'] as const; // settlement-status.js
@@ -365,6 +370,8 @@ export const ENTITIES: Record<string, Entity> = {
       { key: 'adapter_id', label: '시트 어댑터', type: 'select', options: ['generic', 'autoplus'], manual: true, note: '기본 generic=헤더학습. 병적 양식만 autoplus' },
       { key: 'mapping_profile', label: '컬럼 매핑 프로필', type: 'text', manual: true, note: '컬럼→표준 필드 매핑(학습)' },
       { key: 'last_synced_at', label: '최근 동기화', type: 'number' },
+      { key: 'last_sheet_rows', label: '최근 시트 행수', type: 'number', note: '올린 것 + 출고불가로 걸러낸 것. 급감가드 기준' },
+      { key: 'last_sheet_imported', label: '최근 유입 대수', type: 'number', note: '실제로 올라간 매물 수' },
     ],
   },
 

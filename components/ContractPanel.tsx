@@ -184,7 +184,8 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
               if (ch.key === 'agent_delivery_inquiry') {
                 // 계약이 아직 없으면 = 금액·기간이 여기서 동결된다. 기간을 명시적으로 고르게 한다.
                 const periods = !c && product ? priceList(product) : [];
-                const picked = period || cheapest(product as EntityRecord)?.m || periods[0]?.m || 0;
+                // product 없으면(이력·삭제 매물) cheapest/priceList 호출 금지 — null cast가 렌더 크래시.
+                const picked = period || (product ? cheapest(product)?.m : undefined) || periods[0]?.m || 0;
                 const pickedPrice = periods.find((x) => x.m === picked);
                 return (
                   <Fragment key={ch.key}>

@@ -96,7 +96,7 @@ const CANON = ['즉시출고', '출고가능', '출고협의', '상품화중', '
  *   · 6종에 매칭되면 그대로
  *   · '불가'가 들어 있으면 출고불가
  *   · 나머지는 전부 **출고협의** — 배차중·운행중도 올린다(반납 예정이면 협의 가능하므로 노출 우선)
- * 예전 규칙은 배차중·운행중을 유입에서 아예 걸렀다(sheet-import.isSheetRentedOut). 그건 폐기.
+ * 예전 규칙은 배차중·운행중을 유입에서 아예 걸렀다(sheet-import.isSheetExcluded). 그건 폐기.
  */
 function statusOf(raw: string): string {
   const s = S(raw);

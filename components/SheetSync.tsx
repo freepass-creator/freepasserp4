@@ -64,20 +64,12 @@ function downloadStandardSheetTemplate() {
 /** 공급사 한 곳의 수정범위 한 줄. 실패한 곳도 남긴다 — 조용히 빠지면 "원래 0대였나" 하고 넘어간다. */
 type PartnerDiffRow = {
   code: string; label: string; ok: boolean;
-  sheet: number;                                  // 시트에서 읽은 매물
-  sellable: number; blocked: number;              // 그중 판매 가능 · 출고불가
+  sheet: number;                                  // 시트에서 읽어 올릴 매물(출고불가 제외 후)
   new: number; status: number; content: number;   // 신규 · 상태변경 · 내용수정
   absent: number; unchanged: number;              // 시트에 없어 출고불가 · 무변경
-  excluded: number;                               // 유입 제외(폐차·말소·판매완료)
+  excluded: number;                               // 시트에 출고불가로 적혀 있어 안 올린 것
   note: string;
 };
-
-/** 취합된 매물을 판매가능/출고불가로 가른다 — "37대"만 보면 그 안에 뭐가 얼마인지 모른다. */
-function splitByStatus(products: EntityRecord[]): { sellable: number; blocked: number } {
-  let blocked = 0;
-  for (const p of products) if (String(p.vehicle_status || '') === '출고불가') blocked += 1;
-  return { sellable: products.length - blocked, blocked };
-}
 
 export function SheetSync({ co, onImported }: { co: string; onImported: () => void }) {
   const role = getRole();
@@ -104,7 +96,7 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
     banners: string[];
     totals: {
       new: number; status: number; content: number; absent: number;
-      unchanged: number; rentedExcluded: number;
+      unchanged: number; excludedCount: number;
     };
     /** 공급사별 수정범위 — 합계만 보면 어느 업체가 문제인지 안 보인다. */
     perPartner: PartnerDiffRow[];
@@ -229,7 +221,7 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
         confirmed,
         review,
         skipped: 0,
-        rentedExcluded: 0,
+        excludedCount: 0,
         snap,
         mapping,
         total: mergedProducts.length,
@@ -300,7 +292,7 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
     if (!mergedProducts && !('car_number' in mapping)) { toast('차량번호 컬럼을 지정하세요', 'error'); return; }
     const ok = await confirmDialog({
       message: (diffBanner || `취합 ${preview.products.length}건`)
-        + (preview.rentedExcluded > 0 ? `\n배차중 제외 ${preview.rentedExcluded}` : '')
+        + (preview.excludedCount > 0 ? `\n출고불가 제외 ${preview.excludedCount}` : '')
         + '\n\n차종 변환 후 재고에 저장할까요?\n(신규 soft-merge · 부재→출고불가는 일괄 연동에서)',
     });
     if (!ok) return;
@@ -350,16 +342,13 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
       const existing = await getStore().list('product', co);
       const banners: string[] = [];
       const perPartner: PartnerDiffRow[] = [];
-      const totals = { new: 0, status: 0, content: 0, absent: 0, unchanged: 0, rentedExcluded: 0 };
+      const totals = { new: 0, status: 0, content: 0, absent: 0, unchanged: 0, excludedCount: 0 };
       for (const line of fetched.lines) {
-        const re = typeof (line as { rentedExcluded?: number }).rentedExcluded === 'number'
-          ? Number((line as { rentedExcluded?: number }).rentedExcluded)
-          : 0;
-        totals.rentedExcluded += re;
-        const base = { code: line.code, label: line.label, sheet: 0, sellable: 0, blocked: 0, new: 0, status: 0, content: 0, absent: 0, unchanged: 0, excluded: re };
+        const re = line.excludedCount || 0;
+        totals.excludedCount += re;
+        const base = { code: line.code, label: line.label, sheet: 0, new: 0, status: 0, content: 0, absent: 0, unchanged: 0, excluded: re };
         if (!line.ok) { perPartner.push({ ...base, ok: false, note: line.message }); continue; }
         if (!line.products.length) { perPartner.push({ ...base, ok: true, note: '시트에서 읽은 매물 0' }); continue; }
-        const split = splitByStatus(line.products);
         const diff = summarizeSheetDiff({
           incoming: line.products,
           existing,
@@ -370,7 +359,6 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
         perPartner.push({
           ...base, ok: true, note: '',
           sheet: line.products.length,
-          sellable: split.sellable, blocked: split.blocked,
           new: diff.new, status: diff.status, content: diff.content, absent: diff.absent, unchanged: diff.unchanged,
         });
         totals.new += diff.new;
@@ -384,11 +372,9 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
       setPending({ fetched, banners, totals, perPartner, at: Date.now() });
       setBulkLog([...fetched.lines.map((l) => l.message), ...(banners.length ? ['— diff —', ...banners] : [])].join('\n'));
       const okCount = perPartner.filter((x) => x.ok).length;
-      const sellable = perPartner.reduce((a, x) => a + x.sellable, 0);
-      const blocked = perPartner.reduce((a, x) => a + x.blocked, 0);
       toast(
         fetched.products.length
-          ? `검증 완료 — 공급사 ${okCount}/${perPartner.length} · 총 ${fetched.products.length}대(판매가능 ${sellable} · 출고불가 ${blocked})`
+          ? `검증 완료 — 공급사 ${okCount}/${perPartner.length} · 올릴 매물 ${fetched.products.length}대 (출고불가 제외 ${totals.excludedCount})`
           : `검증 완료 — 가져올 매물 없음 (공급사 ${okCount}/${perPartner.length})`,
         fetched.products.length ? 'ok' : 'info',
       );
@@ -404,7 +390,7 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
     if (!masterReady) { toast('차종마스터 로드 실패 — 동기화 불가', 'error'); return; }
     const { totals, banners, fetched } = pending;
     const summary = `신규 ${totals.new} · 상태변경 ${totals.status} · 내용수정 ${totals.content}`
-      + ` · 부재→출고불가 ${totals.absent} · 배차중 제외 ${totals.rentedExcluded} · 무변경 ${totals.unchanged}`;
+      + ` · 부재→출고불가 ${totals.absent} · 출고불가 제외 ${totals.excludedCount} · 무변경 ${totals.unchanged}`;
     const ok = await confirmDialog({
       message: `${summary}\n\n${banners.slice(0, 8).join('\n')}${banners.length > 8 ? `\n…외 ${banners.length - 8}` : ''}`
         + `\n\n등록 시트 ${roster.length}곳 → 재고에 동기화할까요?\n(검증 스냅샷 그대로 · 재조회 없음)`,
@@ -474,10 +460,14 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
             }}>
               <div style={{ fontWeight: FW.title, color: C.brand, marginBottom: 2 }}>
                 검증 결과 {fmtPendingAt(pending.at) ? `· ${fmtPendingAt(pending.at)}` : ''}
-                <span style={{ fontWeight: FW.body, color: C.faint }}> · 취합 {pending.fetched.products.length}대</span>
+                {/* 「시트 몇 행 중 몇 대를 올리고 몇 대를 걸렀나」 — 대수만 보면 시트가 덜 읽힌 건지 걸러진 건지 구분이 안 된다. */}
+                <span style={{ fontWeight: FW.body, color: C.faint }}>
+                  {' '}· 시트 {pending.fetched.products.length + pending.totals.excludedCount}행 → 올림 {pending.fetched.products.length}대
+                  {pending.totals.excludedCount ? ` · 출고불가 제외 ${pending.totals.excludedCount}대` : ''}
+                </span>
               </div>
               신규 {pending.totals.new} · 상태변경 {pending.totals.status} · 내용수정 {pending.totals.content}
-              {' '}· 부재→출고불가 {pending.totals.absent} · 배차중 제외 {pending.totals.rentedExcluded}
+              {' '}· 부재→출고불가 {pending.totals.absent} · 출고불가 제외 {pending.totals.excludedCount}
               {' '}· 무변경 {pending.totals.unchanged}
             </div>
           )}
@@ -528,9 +518,9 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
                   <thead>
                     <tr style={{ color: C.faint, textAlign: 'right' }}>
                       <th style={{ textAlign: 'left', padding: '5px 8px', fontWeight: FW.meta }}>공급사</th>
-                      <th style={{ padding: '5px 8px', fontWeight: FW.meta }}>시트</th>
-                      <th style={{ padding: '5px 8px', fontWeight: FW.meta }}>판매가능</th>
-                      <th style={{ padding: '5px 8px', fontWeight: FW.meta }}>출고불가</th>
+                      {/* 올림 = 실제로 등록될 대수 · 제외 = 시트에 출고불가로 적혀 있어 읽지 않은 대수 */}
+                      <th style={{ padding: '5px 8px', fontWeight: FW.meta }}>올림</th>
+                      <th style={{ padding: '5px 8px', fontWeight: FW.meta }}>제외</th>
                       <th style={{ padding: '5px 8px', fontWeight: FW.meta }}>신규</th>
                       <th style={{ padding: '5px 8px', fontWeight: FW.meta }}>상태변경</th>
                       <th style={{ padding: '5px 8px', fontWeight: FW.meta }}>내용수정</th>
@@ -545,13 +535,13 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
                           {p.label}
                           {p.note ? <span style={{ color: C.faint, fontWeight: FW.meta }}> · {p.note}</span> : null}
                         </td>
-                        <td style={{ padding: '5px 8px', color: C.mute }}>{p.sheet || '—'}</td>
-                        <td style={{ padding: '5px 8px', color: p.sellable ? C.ink : C.faint }}>{p.sellable || '—'}</td>
-                        <td style={{ padding: '5px 8px', color: p.blocked ? C.mute : C.faint }}>{p.blocked || '—'}</td>
+                        <td style={{ padding: '5px 8px', color: p.sheet ? C.ink : C.faint }}>{p.sheet || '—'}</td>
+                        <td style={{ padding: '5px 8px', color: p.excluded ? C.mute : C.faint }}>{p.excluded || '—'}</td>
                         <td style={{ padding: '5px 8px', color: p.new ? C.ok : C.faint, fontWeight: p.new ? FW.strong : FW.body }}>{p.new || '—'}</td>
                         <td style={{ padding: '5px 8px', color: p.status ? C.ink : C.faint }}>{p.status || '—'}</td>
                         <td style={{ padding: '5px 8px', color: p.content ? C.ink : C.faint }}>{p.content || '—'}</td>
-                        {/* 시트에서 사라진 차 — 삭제가 아니라 출고불가로 내린다. 많으면 시트 사고를 의심해야 한다. */}
+                        {/* 시트에서 빠진 차(행 삭제 + 출고불가 표기) — 지우지 않고 출고불가로 내린다.
+                            시트 행수 대비 과하게 크면 시트 사고를 의심해야 한다. */}
                         <td style={{ padding: '5px 8px', color: p.absent ? C.warn : C.faint, fontWeight: p.absent ? FW.strong : FW.body }}>{p.absent || '—'}</td>
                         <td style={{ padding: '5px 8px', color: C.faint }}>{p.unchanged || '—'}</td>
                       </tr>
@@ -559,8 +549,7 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
                     <tr style={{ borderTop: `1px solid ${C.line}`, textAlign: 'right', fontWeight: FW.head }}>
                       <td style={{ textAlign: 'left', padding: '5px 8px' }}>합계</td>
                       <td style={{ padding: '5px 8px' }}>{pending.fetched.products.length}</td>
-                      <td style={{ padding: '5px 8px' }}>{pending.perPartner.reduce((a, x) => a + x.sellable, 0)}</td>
-                      <td style={{ padding: '5px 8px', color: C.mute }}>{pending.perPartner.reduce((a, x) => a + x.blocked, 0)}</td>
+                      <td style={{ padding: '5px 8px', color: C.mute }}>{pending.totals.excludedCount}</td>
                       <td style={{ padding: '5px 8px', color: C.ok }}>{pending.totals.new}</td>
                       <td style={{ padding: '5px 8px' }}>{pending.totals.status}</td>
                       <td style={{ padding: '5px 8px' }}>{pending.totals.content}</td>
@@ -638,8 +627,8 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
                 · 검수 <b style={{ color: preview && preview.review > 0 ? C.warn : C.mute }}>{preview?.review ?? 0}</b>
                 <span style={{ color: C.faint }}> (high {preview?.snap.high ?? 0}·중 {preview?.snap.medium ?? 0}·검토 {preview?.snap.low ?? 0}{preview?.snap.none ? `·미매칭 ${preview.snap.none}` : ''})</span>
                 {preview?.skipped ? ` · 건너뜀 ${preview.skipped}` : ''}
-                {preview && preview.rentedExcluded > 0 ? (
-                  <span style={{ color: C.faint }}> · 배차중 제외 {preview.rentedExcluded}</span>
+                {preview && preview.excludedCount > 0 ? (
+                  <span style={{ color: C.faint }}> · 출고불가 제외 {preview.excludedCount}</span>
                 ) : null}
               </>
             )}

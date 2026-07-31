@@ -1,5 +1,7 @@
 /node_modules
 /.next
+/.next-verify
+/.next-*
 /out
 /build
 next-env.d.ts

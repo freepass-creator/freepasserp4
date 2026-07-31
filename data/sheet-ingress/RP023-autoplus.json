@@ -1,0 +1,3037 @@
+{
+  "at": "2026-07-28T06:58:20.665Z",
+  "provider": "RP023",
+  "sheetId": "1TJBG4PABgly7EtGG6Os5GcY9La7kDR_yex56KHhXe2U",
+  "gids": {
+    "main": "284963459",
+    "promo": "2018553731"
+  },
+  "stock": 100,
+  "stockTarget": 99,
+  "stockOk": false,
+  "byStatus": {
+    "출고가능": 96,
+    "계약중": 8,
+    "출고불가": 4
+  },
+  "mainN": 96,
+  "promoOnlyN": 12,
+  "imported": 108,
+  "withPrice": 108,
+  "snap": {
+    "high": 95,
+    "medium": 10,
+    "low": 3,
+    "none": 0
+  },
+  "products": [
+    {
+      "product_code": "RP023_282나2079",
+      "car_number": "282나2079",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2021",
+      "first_registration_date": "2021-11-15",
+      "mileage": "77,527",
+      "price": {
+        "12": {
+          "rent": 1010000,
+          "deposit": 3030000
+        },
+        "24": {
+          "rent": 920000,
+          "deposit": 2760000
+        },
+        "36": {
+          "rent": 810000,
+          "deposit": 2430000
+        },
+        "48": {
+          "rent": 810000,
+          "deposit": 2430000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_356고3886",
+      "car_number": "356고3886",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2023",
+      "first_registration_date": "2023-09-27",
+      "mileage": "22,628",
+      "price": {
+        "12": {
+          "rent": 1270000,
+          "deposit": 3810000
+        },
+        "24": {
+          "rent": 1170000,
+          "deposit": 3510000
+        },
+        "36": {
+          "rent": 1040000,
+          "deposit": 3120000
+        },
+        "48": {
+          "rent": 1040000,
+          "deposit": 3120000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_146오7914",
+      "car_number": "146오7914",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2021",
+      "first_registration_date": "2021-05-11",
+      "mileage": "10,546",
+      "price": {
+        "12": {
+          "rent": 1010000,
+          "deposit": 3030000
+        },
+        "24": {
+          "rent": 940000,
+          "deposit": 2820000
+        },
+        "36": {
+          "rent": 820000,
+          "deposit": 2460000
+        },
+        "48": {
+          "rent": 820000,
+          "deposit": 2460000
+        }
+      },
+      "_snap_confidence": "medium"
+    },
+    {
+      "product_code": "RP023_138모8017",
+      "car_number": "138모8017",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2021",
+      "first_registration_date": "2021-03-25",
+      "mileage": "44,784",
+      "price": {
+        "12": {
+          "rent": 1100000,
+          "deposit": 3300000
+        },
+        "24": {
+          "rent": 1040000,
+          "deposit": 3120000
+        },
+        "36": {
+          "rent": 950000,
+          "deposit": 2850000
+        },
+        "48": {
+          "rent": 950000,
+          "deposit": 2850000
+        }
+      },
+      "_snap_confidence": "medium"
+    },
+    {
+      "product_code": "RP023_133라1401",
+      "car_number": "133라1401",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2021",
+      "first_registration_date": "2021-08-24",
+      "mileage": "39,287",
+      "price": {
+        "12": {
+          "rent": 870000,
+          "deposit": 1740000
+        },
+        "24": {
+          "rent": 820000,
+          "deposit": 1640000
+        },
+        "36": {
+          "rent": 720000,
+          "deposit": 1440000
+        },
+        "48": {
+          "rent": 720000,
+          "deposit": 1440000
+        }
+      },
+      "_snap_confidence": "low"
+    },
+    {
+      "product_code": "RP023_192머7372",
+      "car_number": "192머7372",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2024",
+      "first_registration_date": "2024-04-17",
+      "mileage": "13,878",
+      "price": {
+        "12": {
+          "rent": 980000,
+          "deposit": 1960000
+        },
+        "24": {
+          "rent": 910000,
+          "deposit": 1820000
+        },
+        "36": {
+          "rent": 800000,
+          "deposit": 1600000
+        },
+        "48": {
+          "rent": 800000,
+          "deposit": 1600000
+        }
+      },
+      "_snap_confidence": "low"
+    },
+    {
+      "product_code": "RP023_321라9324",
+      "car_number": "321라9324",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2021",
+      "first_registration_date": "2021-10-08",
+      "mileage": "14,760",
+      "price": {
+        "12": {
+          "rent": 960000,
+          "deposit": 1920000
+        },
+        "24": {
+          "rent": 890000,
+          "deposit": 1780000
+        },
+        "36": {
+          "rent": 790000,
+          "deposit": 1580000
+        },
+        "48": {
+          "rent": 790000,
+          "deposit": 1580000
+        }
+      },
+      "_snap_confidence": "low"
+    },
+    {
+      "product_code": "RP023_25구1926",
+      "car_number": "25구1926",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2019",
+      "first_registration_date": "2019-02-21",
+      "mileage": "74,956",
+      "price": {
+        "12": {
+          "rent": 830000,
+          "deposit": 2490000
+        },
+        "24": {
+          "rent": 760000,
+          "deposit": 2280000
+        },
+        "36": {
+          "rent": 670000,
+          "deposit": 2010000
+        },
+        "48": {
+          "rent": 670000,
+          "deposit": 2010000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_68머2060",
+      "car_number": "68머2060",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2017",
+      "first_registration_date": "2017-11-24",
+      "mileage": "70,585",
+      "price": {
+        "12": {
+          "rent": 580000,
+          "deposit": 1160000
+        },
+        "24": {
+          "rent": 530000,
+          "deposit": 1060000
+        },
+        "36": {
+          "rent": 480000,
+          "deposit": 960000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_394보5262",
+      "car_number": "394보5262",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2020",
+      "first_registration_date": "2020-11-20",
+      "mileage": "9,762",
+      "price": {
+        "12": {
+          "rent": 670000,
+          "deposit": 1340000
+        },
+        "24": {
+          "rent": 610000,
+          "deposit": 1220000
+        },
+        "36": {
+          "rent": 540000,
+          "deposit": 1080000
+        },
+        "48": {
+          "rent": 540000,
+          "deposit": 1080000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_23루2904",
+      "car_number": "23루2904",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2016",
+      "first_registration_date": "2016-01-11",
+      "mileage": "56,057",
+      "price": {
+        "12": {
+          "rent": 710000,
+          "deposit": 1420000
+        },
+        "24": {
+          "rent": 650000,
+          "deposit": 1300000
+        },
+        "36": {
+          "rent": 590000,
+          "deposit": 1180000
+        },
+        "48": {
+          "rent": 590000,
+          "deposit": 1180000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_195주5304",
+      "car_number": "195주5304",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2021",
+      "first_registration_date": "2021-01-05",
+      "mileage": "112,407",
+      "price": {
+        "12": {
+          "rent": 870000,
+          "deposit": 1740000
+        },
+        "24": {
+          "rent": 800000,
+          "deposit": 1600000
+        },
+        "36": {
+          "rent": 720000,
+          "deposit": 1440000
+        },
+        "48": {
+          "rent": 720000,
+          "deposit": 1440000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_399주5891",
+      "car_number": "399주5891",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2020",
+      "first_registration_date": "2020-05-12",
+      "mileage": "47,957",
+      "price": {
+        "12": {
+          "rent": 940000,
+          "deposit": 1880000
+        },
+        "24": {
+          "rent": 860000,
+          "deposit": 1720000
+        },
+        "36": {
+          "rent": 760000,
+          "deposit": 1520000
+        },
+        "48": {
+          "rent": 760000,
+          "deposit": 1520000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_308마7654",
+      "car_number": "308마7654",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2023",
+      "first_registration_date": "2023-05-16",
+      "mileage": "128,604",
+      "price": {
+        "12": {
+          "rent": 960000,
+          "deposit": 1920000
+        },
+        "24": {
+          "rent": 860000,
+          "deposit": 1720000
+        },
+        "36": {
+          "rent": 760000,
+          "deposit": 1520000
+        },
+        "48": {
+          "rent": 760000,
+          "deposit": 1520000
+        }
+      },
+      "_snap_confidence": "medium"
+    },
+    {
+      "product_code": "RP023_177수3935",
+      "car_number": "177수3935",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2021",
+      "first_registration_date": "2021-12-09",
+      "mileage": "55,521",
+      "price": {
+        "12": {
+          "rent": 980000,
+          "deposit": 1960000
+        },
+        "24": {
+          "rent": 900000,
+          "deposit": 1800000
+        },
+        "36": {
+          "rent": 790000,
+          "deposit": 1580000
+        },
+        "48": {
+          "rent": 790000,
+          "deposit": 1580000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_838다3871",
+      "car_number": "838다3871",
+      "vehicle_status": "계약중",
+      "status_label_raw": "계약중",
+      "year": "2024",
+      "first_registration_date": "2024-03-29",
+      "mileage": "24,763",
+      "price": {
+        "12": {
+          "rent": 750000,
+          "deposit": 1500000
+        },
+        "24": {
+          "rent": 680000,
+          "deposit": 1360000
+        },
+        "36": {
+          "rent": 600000,
+          "deposit": 1200000
+        },
+        "48": {
+          "rent": 600000,
+          "deposit": 1200000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_34거6987",
+      "car_number": "34거6987",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2019",
+      "first_registration_date": "2019-01-07",
+      "mileage": "91,146",
+      "price": {
+        "12": {
+          "rent": 860000,
+          "deposit": 1720000
+        },
+        "24": {
+          "rent": 780000,
+          "deposit": 1560000
+        },
+        "36": {
+          "rent": 680000,
+          "deposit": 1360000
+        },
+        "48": {
+          "rent": 680000,
+          "deposit": 1360000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_358너3578",
+      "car_number": "358너3578",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2020",
+      "first_registration_date": "2020-06-08",
+      "mileage": "45,678",
+      "price": {
+        "12": {
+          "rent": 880000,
+          "deposit": 1760000
+        },
+        "24": {
+          "rent": 790000,
+          "deposit": 1580000
+        },
+        "36": {
+          "rent": 680000,
+          "deposit": 1360000
+        },
+        "48": {
+          "rent": 680000,
+          "deposit": 1360000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_306소2482",
+      "car_number": "306소2482",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2023",
+      "first_registration_date": "2023-02-16",
+      "mileage": "65,218",
+      "price": {
+        "12": {
+          "rent": 1000000,
+          "deposit": 2000000
+        },
+        "24": {
+          "rent": 900000,
+          "deposit": 1800000
+        },
+        "36": {
+          "rent": 770000,
+          "deposit": 1540000
+        },
+        "48": {
+          "rent": 770000,
+          "deposit": 1540000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_133다9983",
+      "car_number": "133다9983",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2022",
+      "first_registration_date": "2022-04-12",
+      "mileage": "71,484",
+      "price": {
+        "12": {
+          "rent": 1000000,
+          "deposit": 2000000
+        },
+        "24": {
+          "rent": 900000,
+          "deposit": 1800000
+        },
+        "36": {
+          "rent": 770000,
+          "deposit": 1540000
+        },
+        "48": {
+          "rent": 770000,
+          "deposit": 1540000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_124저5399",
+      "car_number": "124저5399",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2020",
+      "first_registration_date": "2020-07-20",
+      "mileage": "76,249",
+      "price": {
+        "12": {
+          "rent": 1100000,
+          "deposit": 2200000
+        },
+        "24": {
+          "rent": 990000,
+          "deposit": 1980000
+        },
+        "36": {
+          "rent": 870000,
+          "deposit": 1740000
+        },
+        "48": {
+          "rent": 870000,
+          "deposit": 1740000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_238모4837",
+      "car_number": "238모4837",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2024",
+      "first_registration_date": "2024-03-19",
+      "mileage": "28,082",
+      "price": {
+        "12": {
+          "rent": 1040000,
+          "deposit": 2080000
+        },
+        "24": {
+          "rent": 940000,
+          "deposit": 1880000
+        },
+        "36": {
+          "rent": 810000,
+          "deposit": 1620000
+        },
+        "48": {
+          "rent": 810000,
+          "deposit": 1620000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_351우1897",
+      "car_number": "351우1897",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2022",
+      "first_registration_date": "2022-05-17",
+      "mileage": "110,886",
+      "price": {
+        "12": {
+          "rent": 890000,
+          "deposit": 1780000
+        },
+        "24": {
+          "rent": 820000,
+          "deposit": 1640000
+        },
+        "36": {
+          "rent": 720000,
+          "deposit": 1440000
+        },
+        "48": {
+          "rent": 720000,
+          "deposit": 1440000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_296서6664",
+      "car_number": "296서6664",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2020",
+      "first_registration_date": "2020-12-17",
+      "mileage": "69,447",
+      "price": {
+        "12": {
+          "rent": 840000,
+          "deposit": 1680000
+        },
+        "24": {
+          "rent": 780000,
+          "deposit": 1560000
+        },
+        "36": {
+          "rent": 710000,
+          "deposit": 1420000
+        },
+        "48": {
+          "rent": 710000,
+          "deposit": 1420000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_79모9281",
+      "car_number": "79모9281",
+      "vehicle_status": "계약중",
+      "status_label_raw": "계약중",
+      "year": "2014",
+      "first_registration_date": "2014-10-29",
+      "mileage": "116,797",
+      "price": {
+        "12": {
+          "rent": 600000,
+          "deposit": 1200000
+        },
+        "24": {
+          "rent": 560000,
+          "deposit": 1120000
+        },
+        "36": {
+          "rent": 510000,
+          "deposit": 1020000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_358가5381",
+      "car_number": "358가5381",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2023",
+      "first_registration_date": "2023-06-23",
+      "mileage": "79,424",
+      "price": {
+        "12": {
+          "rent": 1090000,
+          "deposit": 2180000
+        },
+        "24": {
+          "rent": 980000,
+          "deposit": 1960000
+        },
+        "36": {
+          "rent": 850000,
+          "deposit": 1700000
+        },
+        "48": {
+          "rent": 850000,
+          "deposit": 1700000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_67어7609",
+      "car_number": "67어7609",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2016",
+      "first_registration_date": "2016-03-11",
+      "mileage": "131,791",
+      "price": {
+        "12": {
+          "rent": 500000,
+          "deposit": 1000000
+        },
+        "24": {
+          "rent": 470000,
+          "deposit": 940000
+        },
+        "36": {
+          "rent": 440000,
+          "deposit": 880000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_195루9296",
+      "car_number": "195루9296",
+      "vehicle_status": "계약중",
+      "status_label_raw": "계약중",
+      "year": "2025",
+      "first_registration_date": "2025-04-01",
+      "mileage": "2,147",
+      "price": {
+        "12": {
+          "rent": 1100000,
+          "deposit": 2200000
+        },
+        "24": {
+          "rent": 990000,
+          "deposit": 1980000
+        },
+        "36": {
+          "rent": 860000,
+          "deposit": 1720000
+        },
+        "48": {
+          "rent": 860000,
+          "deposit": 1720000
+        }
+      },
+      "_snap_confidence": "medium"
+    },
+    {
+      "product_code": "RP023_132거9888",
+      "car_number": "132거9888",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2021",
+      "first_registration_date": "2021-02-16",
+      "mileage": "33,328",
+      "price": {
+        "12": {
+          "rent": 630000,
+          "deposit": 1260000
+        },
+        "24": {
+          "rent": 580000,
+          "deposit": 1160000
+        },
+        "36": {
+          "rent": 510000,
+          "deposit": 1020000
+        },
+        "48": {
+          "rent": 510000,
+          "deposit": 1020000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_179소4225",
+      "car_number": "179소4225",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2020",
+      "first_registration_date": "2020-05-22",
+      "mileage": "45,626",
+      "price": {
+        "12": {
+          "rent": 850000,
+          "deposit": 1700000
+        },
+        "24": {
+          "rent": 770000,
+          "deposit": 1540000
+        },
+        "36": {
+          "rent": 670000,
+          "deposit": 1340000
+        },
+        "48": {
+          "rent": 670000,
+          "deposit": 1340000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_231라7599",
+      "car_number": "231라7599",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2022",
+      "first_registration_date": "2022-01-26",
+      "mileage": "91,474",
+      "price": {
+        "12": {
+          "rent": 910000,
+          "deposit": 1820000
+        },
+        "24": {
+          "rent": 820000,
+          "deposit": 1640000
+        },
+        "36": {
+          "rent": 720000,
+          "deposit": 1440000
+        },
+        "48": {
+          "rent": 720000,
+          "deposit": 1440000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_258누3726",
+      "car_number": "258누3726",
+      "vehicle_status": "계약중",
+      "status_label_raw": "계약중",
+      "year": "2022",
+      "first_registration_date": "2022-04-04",
+      "mileage": "91,058",
+      "price": {
+        "12": {
+          "rent": 940000,
+          "deposit": 1880000
+        },
+        "24": {
+          "rent": 850000,
+          "deposit": 1700000
+        },
+        "36": {
+          "rent": 750000,
+          "deposit": 1500000
+        },
+        "48": {
+          "rent": 750000,
+          "deposit": 1500000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_150어5939",
+      "car_number": "150어5939",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2025",
+      "first_registration_date": "2025-04-14",
+      "mileage": "8,014",
+      "price": {
+        "12": {
+          "rent": 1090000,
+          "deposit": 2180000
+        },
+        "24": {
+          "rent": 970000,
+          "deposit": 1940000
+        },
+        "36": {
+          "rent": 830000,
+          "deposit": 1660000
+        },
+        "48": {
+          "rent": 830000,
+          "deposit": 1660000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_396조2537",
+      "car_number": "396조2537",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2022",
+      "first_registration_date": "2022-08-09",
+      "mileage": "106,747",
+      "price": {
+        "12": {
+          "rent": 1010000,
+          "deposit": 2020000
+        },
+        "24": {
+          "rent": 940000,
+          "deposit": 1880000
+        },
+        "36": {
+          "rent": 860000,
+          "deposit": 1720000
+        },
+        "48": {
+          "rent": 860000,
+          "deposit": 1720000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_187부1115",
+      "car_number": "187부1115",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2022",
+      "first_registration_date": "2022-12-02",
+      "mileage": "75,756",
+      "price": {
+        "12": {
+          "rent": 1180000,
+          "deposit": 2360000
+        },
+        "24": {
+          "rent": 1110000,
+          "deposit": 2220000
+        },
+        "36": {
+          "rent": 1010000,
+          "deposit": 2020000
+        },
+        "48": {
+          "rent": 1010000,
+          "deposit": 2020000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_322거6961",
+      "car_number": "322거6961",
+      "vehicle_status": "계약중",
+      "status_label_raw": "계약중",
+      "year": "2023",
+      "first_registration_date": "2023-05-30",
+      "mileage": "106,666",
+      "price": {
+        "12": {
+          "rent": 1120000,
+          "deposit": 2240000
+        },
+        "24": {
+          "rent": 1010000,
+          "deposit": 2020000
+        },
+        "36": {
+          "rent": 880000,
+          "deposit": 1760000
+        },
+        "48": {
+          "rent": 880000,
+          "deposit": 1760000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_322거6937",
+      "car_number": "322거6937",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2022",
+      "first_registration_date": "2022-07-12",
+      "mileage": "114,956",
+      "price": {
+        "12": {
+          "rent": 1140000,
+          "deposit": 2280000
+        },
+        "24": {
+          "rent": 1030000,
+          "deposit": 2060000
+        },
+        "36": {
+          "rent": 900000,
+          "deposit": 1800000
+        },
+        "48": {
+          "rent": 900000,
+          "deposit": 1800000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_310수9600",
+      "car_number": "310수9600",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2021",
+      "first_registration_date": "2021-01-25",
+      "mileage": "71,862",
+      "price": {
+        "12": {
+          "rent": 1140000,
+          "deposit": 2280000
+        },
+        "24": {
+          "rent": 1040000,
+          "deposit": 2080000
+        },
+        "36": {
+          "rent": 940000,
+          "deposit": 1880000
+        },
+        "48": {
+          "rent": 940000,
+          "deposit": 1880000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_133다9973",
+      "car_number": "133다9973",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2023",
+      "first_registration_date": "2023-08-24",
+      "mileage": "20,765",
+      "price": {
+        "12": {
+          "rent": 1170000,
+          "deposit": 2340000
+        },
+        "24": {
+          "rent": 1030000,
+          "deposit": 2060000
+        },
+        "36": {
+          "rent": 870000,
+          "deposit": 1740000
+        },
+        "48": {
+          "rent": 870000,
+          "deposit": 1740000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_196주2754",
+      "car_number": "196주2754",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2022",
+      "first_registration_date": "2022-11-25",
+      "mileage": "100,406",
+      "price": {
+        "12": {
+          "rent": 1180000,
+          "deposit": 2360000
+        },
+        "24": {
+          "rent": 1080000,
+          "deposit": 2160000
+        },
+        "36": {
+          "rent": 980000,
+          "deposit": 1960000
+        },
+        "48": {
+          "rent": 980000,
+          "deposit": 1960000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_184두1390",
+      "car_number": "184두1390",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2023",
+      "first_registration_date": "2023-07-31",
+      "mileage": "9,459",
+      "price": {
+        "12": {
+          "rent": 1610000,
+          "deposit": 3220000
+        },
+        "24": {
+          "rent": 1440000,
+          "deposit": 2880000
+        },
+        "36": {
+          "rent": 1240000,
+          "deposit": 2480000
+        },
+        "48": {
+          "rent": 1240000,
+          "deposit": 2480000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_151우9357",
+      "car_number": "151우9357",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2022",
+      "first_registration_date": "2022-07-08",
+      "mileage": "81,366",
+      "price": {
+        "12": {
+          "rent": 1170000,
+          "deposit": 2340000
+        },
+        "24": {
+          "rent": 1040000,
+          "deposit": 2080000
+        },
+        "36": {
+          "rent": 900000,
+          "deposit": 1800000
+        },
+        "48": {
+          "rent": 900000,
+          "deposit": 1800000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_322거6941",
+      "car_number": "322거6941",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2023",
+      "first_registration_date": "2023-03-17",
+      "mileage": "98,717",
+      "price": {
+        "12": {
+          "rent": 1450000,
+          "deposit": 2900000
+        },
+        "24": {
+          "rent": 1320000,
+          "deposit": 2640000
+        },
+        "36": {
+          "rent": 1190000,
+          "deposit": 2380000
+        },
+        "48": {
+          "rent": 1190000,
+          "deposit": 2380000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_227거7813",
+      "car_number": "227거7813",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2022",
+      "first_registration_date": "2022-06-02",
+      "mileage": "146,023",
+      "price": {
+        "12": {
+          "rent": 1050000,
+          "deposit": 2100000
+        },
+        "24": {
+          "rent": 960000,
+          "deposit": 1920000
+        },
+        "36": {
+          "rent": 860000,
+          "deposit": 1720000
+        },
+        "48": {
+          "rent": 860000,
+          "deposit": 1720000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_230보1133",
+      "car_number": "230보1133",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2022",
+      "first_registration_date": "2022-07-14",
+      "mileage": "104,929",
+      "price": {
+        "12": {
+          "rent": 1100000,
+          "deposit": 2200000
+        },
+        "24": {
+          "rent": 990000,
+          "deposit": 1980000
+        },
+        "36": {
+          "rent": 860000,
+          "deposit": 1720000
+        },
+        "48": {
+          "rent": 860000,
+          "deposit": 1720000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_308마7672",
+      "car_number": "308마7672",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2023",
+      "first_registration_date": "2023-07-14",
+      "mileage": "33,313",
+      "price": {
+        "12": {
+          "rent": 1150000,
+          "deposit": 2300000
+        },
+        "24": {
+          "rent": 1060000,
+          "deposit": 2120000
+        },
+        "36": {
+          "rent": 960000,
+          "deposit": 1920000
+        },
+        "48": {
+          "rent": 960000,
+          "deposit": 1920000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_204저3691",
+      "car_number": "204저3691",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2023",
+      "first_registration_date": "2023-01-03",
+      "mileage": "106,417",
+      "price": {
+        "12": {
+          "rent": 1180000,
+          "deposit": 2360000
+        },
+        "24": {
+          "rent": 1060000,
+          "deposit": 2120000
+        },
+        "36": {
+          "rent": 920000,
+          "deposit": 1840000
+        },
+        "48": {
+          "rent": 920000,
+          "deposit": 1840000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_379버3667",
+      "car_number": "379버3667",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2023",
+      "first_registration_date": "2023-05-23",
+      "mileage": "124,536",
+      "price": {
+        "12": {
+          "rent": 1190000,
+          "deposit": 2380000
+        },
+        "24": {
+          "rent": 1070000,
+          "deposit": 2140000
+        },
+        "36": {
+          "rent": 930000,
+          "deposit": 1860000
+        },
+        "48": {
+          "rent": 930000,
+          "deposit": 1860000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_154소9851",
+      "car_number": "154소9851",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2023",
+      "first_registration_date": "2023-05-23",
+      "mileage": "70,581",
+      "price": {
+        "12": {
+          "rent": 1190000,
+          "deposit": 2380000
+        },
+        "24": {
+          "rent": 1070000,
+          "deposit": 2140000
+        },
+        "36": {
+          "rent": 930000,
+          "deposit": 1860000
+        },
+        "48": {
+          "rent": 930000,
+          "deposit": 1860000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_175수1279",
+      "car_number": "175수1279",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2023",
+      "first_registration_date": "2023-07-04",
+      "mileage": "130,179",
+      "price": {
+        "12": {
+          "rent": 1200000,
+          "deposit": 2400000
+        },
+        "24": {
+          "rent": 1100000,
+          "deposit": 2200000
+        },
+        "36": {
+          "rent": 1000000,
+          "deposit": 2000000
+        },
+        "48": {
+          "rent": 1000000,
+          "deposit": 2000000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_361오7758",
+      "car_number": "361오7758",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2022",
+      "first_registration_date": "2022-03-08",
+      "mileage": "73,931",
+      "price": {
+        "12": {
+          "rent": 1250000,
+          "deposit": 2500000
+        },
+        "24": {
+          "rent": 1150000,
+          "deposit": 2300000
+        },
+        "36": {
+          "rent": 1040000,
+          "deposit": 2080000
+        },
+        "48": {
+          "rent": 1040000,
+          "deposit": 2080000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_255거5623",
+      "car_number": "255거5623",
+      "vehicle_status": "계약중",
+      "status_label_raw": "계약중",
+      "year": "2023",
+      "first_registration_date": "2023-04-28",
+      "mileage": "62,144",
+      "price": {
+        "12": {
+          "rent": 1260000,
+          "deposit": 2520000
+        },
+        "24": {
+          "rent": 1140000,
+          "deposit": 2280000
+        },
+        "36": {
+          "rent": 1020000,
+          "deposit": 2040000
+        },
+        "48": {
+          "rent": 1020000,
+          "deposit": 2040000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_129어5743",
+      "car_number": "129어5743",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2021",
+      "first_registration_date": "2021-12-01",
+      "mileage": "128,913",
+      "price": {
+        "12": {
+          "rent": 1270000,
+          "deposit": 2540000
+        },
+        "24": {
+          "rent": 1170000,
+          "deposit": 2340000
+        },
+        "36": {
+          "rent": 1050000,
+          "deposit": 2100000
+        },
+        "48": {
+          "rent": 1050000,
+          "deposit": 2100000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_227거7842",
+      "car_number": "227거7842",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2022",
+      "first_registration_date": "2022-04-12",
+      "mileage": "88,105",
+      "price": {
+        "12": {
+          "rent": 1270000,
+          "deposit": 2540000
+        },
+        "24": {
+          "rent": 1170000,
+          "deposit": 2340000
+        },
+        "36": {
+          "rent": 1050000,
+          "deposit": 2100000
+        },
+        "48": {
+          "rent": 1050000,
+          "deposit": 2100000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_197두2343",
+      "car_number": "197두2343",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2023",
+      "first_registration_date": "2023-05-08",
+      "mileage": "64,619",
+      "price": {
+        "12": {
+          "rent": 1330000,
+          "deposit": 2660000
+        },
+        "24": {
+          "rent": 1200000,
+          "deposit": 2400000
+        },
+        "36": {
+          "rent": 1040000,
+          "deposit": 2080000
+        },
+        "48": {
+          "rent": 1040000,
+          "deposit": 2080000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_384서4141",
+      "car_number": "384서4141",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2023",
+      "first_registration_date": "2023-09-06",
+      "mileage": "66,729",
+      "price": {
+        "12": {
+          "rent": 1360000,
+          "deposit": 2720000
+        },
+        "24": {
+          "rent": 1250000,
+          "deposit": 2500000
+        },
+        "36": {
+          "rent": 1130000,
+          "deposit": 2260000
+        },
+        "48": {
+          "rent": 1130000,
+          "deposit": 2260000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_340모8728",
+      "car_number": "340모8728",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2022",
+      "first_registration_date": "2022-03-29",
+      "mileage": "133,847",
+      "price": {
+        "12": {
+          "rent": 1510000,
+          "deposit": 3020000
+        },
+        "24": {
+          "rent": 1350000,
+          "deposit": 2700000
+        },
+        "36": {
+          "rent": 1180000,
+          "deposit": 2360000
+        },
+        "48": {
+          "rent": 1180000,
+          "deposit": 2360000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_387어6381",
+      "car_number": "387어6381",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "판매중",
+      "year": "2022",
+      "first_registration_date": "2022-01-14",
+      "mileage": "69,315",
+      "price": {
+        "12": {
+          "rent": 1280000,
+          "deposit": 3840000
+        },
+        "24": {
+          "rent": 1170000,
+          "deposit": 3510000
+        },
+        "36": {
+          "rent": 1050000,
+          "deposit": 3150000
+        },
+        "48": {
+          "rent": 1050000,
+          "deposit": 3150000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_176서2754",
+      "car_number": "176서2754",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "판매중",
+      "year": "2022",
+      "first_registration_date": "2022-06-30",
+      "mileage": "46,785",
+      "price": {
+        "12": {
+          "rent": 1300000,
+          "deposit": 3900000
+        },
+        "24": {
+          "rent": 1190000,
+          "deposit": 3570000
+        },
+        "36": {
+          "rent": 1060000,
+          "deposit": 3180000
+        },
+        "48": {
+          "rent": 1060000,
+          "deposit": 3180000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_379거2334",
+      "car_number": "379거2334",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "판매중",
+      "year": "2021",
+      "first_registration_date": "2021-04-13",
+      "mileage": "45,655",
+      "price": {
+        "12": {
+          "rent": 1380000,
+          "deposit": 4140000
+        },
+        "24": {
+          "rent": 1270000,
+          "deposit": 3810000
+        },
+        "36": {
+          "rent": 1140000,
+          "deposit": 3420000
+        },
+        "48": {
+          "rent": 1140000,
+          "deposit": 3420000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_175너3692",
+      "car_number": "175너3692",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "판매중",
+      "year": "2022",
+      "first_registration_date": "2022-01-14",
+      "mileage": "72,893",
+      "price": {
+        "12": {
+          "rent": 1010000,
+          "deposit": 2020000
+        },
+        "24": {
+          "rent": 930000,
+          "deposit": 1860000
+        },
+        "36": {
+          "rent": 830000,
+          "deposit": 1660000
+        },
+        "48": {
+          "rent": 830000,
+          "deposit": 1660000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_141무8714",
+      "car_number": "141무8714",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "판매중",
+      "year": "2020",
+      "first_registration_date": "2020-04-14",
+      "mileage": "92,183",
+      "price": {
+        "12": {
+          "rent": 910000,
+          "deposit": 1820000
+        },
+        "24": {
+          "rent": 850000,
+          "deposit": 1700000
+        },
+        "36": {
+          "rent": 770000,
+          "deposit": 1540000
+        },
+        "48": {
+          "rent": 770000,
+          "deposit": 1540000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_273가2166",
+      "car_number": "273가2166",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "판매중",
+      "year": "2025",
+      "first_registration_date": "2025-08-19",
+      "mileage": "22,653",
+      "price": {
+        "12": {
+          "rent": 1460000,
+          "deposit": 2920000
+        },
+        "24": {
+          "rent": 1330000,
+          "deposit": 2660000
+        },
+        "36": {
+          "rent": 1170000,
+          "deposit": 2340000
+        },
+        "48": {
+          "rent": 1170000,
+          "deposit": 2340000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_53나4472",
+      "car_number": "53나4472",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "판매중",
+      "year": "2019",
+      "first_registration_date": "2019-02-18",
+      "mileage": "56,130",
+      "price": {
+        "12": {
+          "rent": 1010000,
+          "deposit": 2020000
+        },
+        "24": {
+          "rent": 920000,
+          "deposit": 1840000
+        },
+        "36": {
+          "rent": 830000,
+          "deposit": 1660000
+        },
+        "48": {
+          "rent": 830000,
+          "deposit": 1660000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_273가2149",
+      "car_number": "273가2149",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "판매중",
+      "year": "2023",
+      "first_registration_date": "2023-08-28",
+      "mileage": "40,236",
+      "price": {
+        "12": {
+          "rent": 1170000,
+          "deposit": 2340000
+        },
+        "24": {
+          "rent": 1070000,
+          "deposit": 2140000
+        },
+        "36": {
+          "rent": 960000,
+          "deposit": 1920000
+        },
+        "48": {
+          "rent": 960000,
+          "deposit": 1920000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_82조0424",
+      "car_number": "82조0424",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "판매중",
+      "year": "2019",
+      "first_registration_date": "2019-11-29",
+      "mileage": "104,808",
+      "price": {
+        "12": {
+          "rent": 840000,
+          "deposit": 1680000
+        },
+        "24": {
+          "rent": 780000,
+          "deposit": 1560000
+        },
+        "36": {
+          "rent": 720000,
+          "deposit": 1440000
+        },
+        "48": {
+          "rent": 720000,
+          "deposit": 1440000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_166머4128",
+      "car_number": "166머4128",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "판매중",
+      "year": "2018",
+      "first_registration_date": "2018-09-06",
+      "mileage": "99,507",
+      "price": {
+        "12": {
+          "rent": 660000,
+          "deposit": 1320000
+        },
+        "24": {
+          "rent": 600000,
+          "deposit": 1200000
+        },
+        "36": {
+          "rent": 540000,
+          "deposit": 1080000
+        },
+        "48": {
+          "rent": 540000,
+          "deposit": 1080000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_110마3358",
+      "car_number": "110마3358",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "판매중",
+      "year": "2021",
+      "first_registration_date": "2021-12-01",
+      "mileage": "87,274",
+      "price": {
+        "12": {
+          "rent": 830000,
+          "deposit": 1660000
+        },
+        "24": {
+          "rent": 770000,
+          "deposit": 1540000
+        },
+        "36": {
+          "rent": 710000,
+          "deposit": 1420000
+        },
+        "48": {
+          "rent": 710000,
+          "deposit": 1420000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_129로9039",
+      "car_number": "129로9039",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "판매중",
+      "year": "2022",
+      "first_registration_date": "2022-06-09",
+      "mileage": "97,618",
+      "price": {
+        "12": {
+          "rent": 920000,
+          "deposit": 1840000
+        },
+        "24": {
+          "rent": 850000,
+          "deposit": 1700000
+        },
+        "36": {
+          "rent": 780000,
+          "deposit": 1560000
+        },
+        "48": {
+          "rent": 780000,
+          "deposit": 1560000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_215거1394",
+      "car_number": "215거1394",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "판매중",
+      "year": "2025",
+      "first_registration_date": "2025-02-11",
+      "mileage": "11,522",
+      "price": {
+        "12": {
+          "rent": 1600000,
+          "deposit": 3200000
+        },
+        "24": {
+          "rent": 1460000,
+          "deposit": 2920000
+        },
+        "36": {
+          "rent": 1290000,
+          "deposit": 2580000
+        },
+        "48": {
+          "rent": 1290000,
+          "deposit": 2580000
+        }
+      },
+      "_snap_confidence": "medium"
+    },
+    {
+      "product_code": "RP023_159루3211",
+      "car_number": "159루3211",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "판매중",
+      "year": "2021",
+      "first_registration_date": "2021-07-14",
+      "mileage": "92,077",
+      "price": {
+        "12": {
+          "rent": 980000,
+          "deposit": 1960000
+        },
+        "24": {
+          "rent": 900000,
+          "deposit": 1800000
+        },
+        "36": {
+          "rent": 800000,
+          "deposit": 1600000
+        },
+        "48": {
+          "rent": 800000,
+          "deposit": 1600000
+        }
+      },
+      "_snap_confidence": "medium"
+    },
+    {
+      "product_code": "RP023_37무5290",
+      "car_number": "37무5290",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "판매중",
+      "year": "2019",
+      "first_registration_date": "2019-04-01",
+      "mileage": "61,214",
+      "price": {
+        "12": {
+          "rent": 1060000,
+          "deposit": 2120000
+        },
+        "24": {
+          "rent": 1000000,
+          "deposit": 2000000
+        },
+        "36": {
+          "rent": 940000,
+          "deposit": 1880000
+        },
+        "48": {
+          "rent": 940000,
+          "deposit": 1880000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_333버6668",
+      "car_number": "333버6668",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "판매중",
+      "year": "2022",
+      "first_registration_date": "2022-01-06",
+      "mileage": "111,758",
+      "price": {
+        "12": {
+          "rent": 1180000,
+          "deposit": 2360000
+        },
+        "24": {
+          "rent": 1090000,
+          "deposit": 2180000
+        },
+        "36": {
+          "rent": 1000000,
+          "deposit": 2000000
+        },
+        "48": {
+          "rent": 1000000,
+          "deposit": 2000000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_353더3935",
+      "car_number": "353더3935",
+      "vehicle_status": "계약중",
+      "status_label_raw": "계약중",
+      "year": "2023",
+      "first_registration_date": "2023-12-13",
+      "mileage": "51,272",
+      "price": {
+        "12": {
+          "rent": 1320000,
+          "deposit": 2640000
+        },
+        "24": {
+          "rent": 1210000,
+          "deposit": 2420000
+        },
+        "36": {
+          "rent": 1080000,
+          "deposit": 2160000
+        },
+        "48": {
+          "rent": 1080000,
+          "deposit": 2160000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_215거1376",
+      "car_number": "215거1376",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "판매중",
+      "year": "2022",
+      "first_registration_date": "2022-10-21",
+      "mileage": "105,191",
+      "price": {
+        "12": {
+          "rent": 1370000,
+          "deposit": 2740000
+        },
+        "24": {
+          "rent": 1250000,
+          "deposit": 2500000
+        },
+        "36": {
+          "rent": 1110000,
+          "deposit": 2220000
+        },
+        "48": {
+          "rent": 1110000,
+          "deposit": 2220000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_273가2169",
+      "car_number": "273가2169",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "판매중",
+      "year": "2022",
+      "first_registration_date": "2022-06-09",
+      "mileage": "92,524",
+      "price": {
+        "12": {
+          "rent": 1390000,
+          "deposit": 2780000
+        },
+        "24": {
+          "rent": 1290000,
+          "deposit": 2580000
+        },
+        "36": {
+          "rent": 1190000,
+          "deposit": 2380000
+        },
+        "48": {
+          "rent": 1190000,
+          "deposit": 2380000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_273가2137",
+      "car_number": "273가2137",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "판매중",
+      "year": "2023",
+      "first_registration_date": "2023-07-18",
+      "mileage": "54,847",
+      "price": {
+        "12": {
+          "rent": 1560000,
+          "deposit": 3120000
+        },
+        "24": {
+          "rent": 1430000,
+          "deposit": 2860000
+        },
+        "36": {
+          "rent": 1270000,
+          "deposit": 2540000
+        },
+        "48": {
+          "rent": 1270000,
+          "deposit": 2540000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_261조3830",
+      "car_number": "261조3830",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "판매중",
+      "year": "2022",
+      "first_registration_date": "2022-07-13",
+      "mileage": "100,402",
+      "price": {
+        "12": {
+          "rent": 1410000,
+          "deposit": 2820000
+        },
+        "24": {
+          "rent": 1310000,
+          "deposit": 2620000
+        },
+        "36": {
+          "rent": 1200000,
+          "deposit": 2400000
+        },
+        "48": {
+          "rent": 1200000,
+          "deposit": 2400000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_192거5102",
+      "car_number": "192거5102",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "판매중",
+      "year": "2023",
+      "first_registration_date": "2023-12-21",
+      "mileage": "51,624",
+      "price": {
+        "12": {
+          "rent": 1930000,
+          "deposit": 3860000
+        },
+        "24": {
+          "rent": 1750000,
+          "deposit": 3500000
+        },
+        "36": {
+          "rent": 1550000,
+          "deposit": 3100000
+        },
+        "48": {
+          "rent": 1550000,
+          "deposit": 3100000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_215거1381",
+      "car_number": "215거1381",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "판매중",
+      "year": "2024",
+      "first_registration_date": "2024-06-10",
+      "mileage": "63,839",
+      "price": {
+        "12": {
+          "rent": 2220000,
+          "deposit": 4440000
+        },
+        "24": {
+          "rent": 2010000,
+          "deposit": 4020000
+        },
+        "36": {
+          "rent": 1780000,
+          "deposit": 3560000
+        },
+        "48": {
+          "rent": 1780000,
+          "deposit": 3560000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_257너9288",
+      "car_number": "257너9288",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "판매중",
+      "year": "2017",
+      "first_registration_date": "2017-05-17",
+      "mileage": "108,734",
+      "price": {
+        "12": {
+          "rent": 850000,
+          "deposit": 1700000
+        },
+        "24": {
+          "rent": 790000,
+          "deposit": 1580000
+        },
+        "36": {
+          "rent": 730000,
+          "deposit": 1460000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_364도7913",
+      "car_number": "364도7913",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "판매중",
+      "year": "2020",
+      "first_registration_date": "2020-06-17",
+      "mileage": "113,594",
+      "price": {
+        "12": {
+          "rent": 1120000,
+          "deposit": 2240000
+        },
+        "24": {
+          "rent": 1040000,
+          "deposit": 2080000
+        },
+        "36": {
+          "rent": 960000,
+          "deposit": 1920000
+        },
+        "48": {
+          "rent": 960000,
+          "deposit": 1920000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_230오3924",
+      "car_number": "230오3924",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "판매중",
+      "year": "2022",
+      "first_registration_date": "2022-07-01",
+      "mileage": "101,161",
+      "price": {
+        "12": {
+          "rent": 1200000,
+          "deposit": 2400000
+        },
+        "24": {
+          "rent": 1120000,
+          "deposit": 2240000
+        },
+        "36": {
+          "rent": 1020000,
+          "deposit": 2040000
+        },
+        "48": {
+          "rent": 1020000,
+          "deposit": 2040000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_228버7196",
+      "car_number": "228버7196",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "판매중",
+      "year": "2021",
+      "first_registration_date": "2021-04-29",
+      "mileage": "71,556",
+      "price": {
+        "12": {
+          "rent": 1230000,
+          "deposit": 2460000
+        },
+        "24": {
+          "rent": 1120000,
+          "deposit": 2240000
+        },
+        "36": {
+          "rent": 1000000,
+          "deposit": 2000000
+        },
+        "48": {
+          "rent": 1000000,
+          "deposit": 2000000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_384노9995",
+      "car_number": "384노9995",
+      "vehicle_status": "출고불가",
+      "status_label_raw": "보류 7/27",
+      "year": "2022",
+      "first_registration_date": "2022-12-21",
+      "mileage": "84,449",
+      "price": {
+        "12": {
+          "rent": 1250000,
+          "deposit": 2500000
+        },
+        "24": {
+          "rent": 1160000,
+          "deposit": 2320000
+        },
+        "36": {
+          "rent": 1060000,
+          "deposit": 2120000
+        },
+        "48": {
+          "rent": 1060000,
+          "deposit": 2120000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_172다8671",
+      "car_number": "172다8671",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "판매중",
+      "year": "2023",
+      "first_registration_date": "2023-07-04",
+      "mileage": "80,509",
+      "price": {
+        "12": {
+          "rent": 1380000,
+          "deposit": 2760000
+        },
+        "24": {
+          "rent": 1280000,
+          "deposit": 2560000
+        },
+        "36": {
+          "rent": 1180000,
+          "deposit": 2360000
+        },
+        "48": {
+          "rent": 1180000,
+          "deposit": 2360000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_359더3951",
+      "car_number": "359더3951",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "판매중",
+      "year": "2023",
+      "first_registration_date": "2023-11-07",
+      "mileage": "49,215",
+      "price": {
+        "12": {
+          "rent": 1450000,
+          "deposit": 2900000
+        },
+        "24": {
+          "rent": 1320000,
+          "deposit": 2640000
+        },
+        "36": {
+          "rent": 1180000,
+          "deposit": 2360000
+        },
+        "48": {
+          "rent": 1180000,
+          "deposit": 2360000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_215거1315",
+      "car_number": "215거1315",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "판매중",
+      "year": "2023",
+      "first_registration_date": "2023-05-09",
+      "mileage": "83,982",
+      "price": {
+        "12": {
+          "rent": 1490000,
+          "deposit": 2980000
+        },
+        "24": {
+          "rent": 1390000,
+          "deposit": 2780000
+        },
+        "36": {
+          "rent": 1270000,
+          "deposit": 2540000
+        },
+        "48": {
+          "rent": 1270000,
+          "deposit": 2540000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_122무2204",
+      "car_number": "122무2204",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "판매중",
+      "year": "2023",
+      "first_registration_date": "2023-04-17",
+      "mileage": "56,199",
+      "price": {
+        "12": {
+          "rent": 1550000,
+          "deposit": 3100000
+        },
+        "24": {
+          "rent": 1430000,
+          "deposit": 2860000
+        },
+        "36": {
+          "rent": 1310000,
+          "deposit": 2620000
+        },
+        "48": {
+          "rent": 1310000,
+          "deposit": 2620000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_192거5152",
+      "car_number": "192거5152",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "판매중",
+      "year": "2023",
+      "first_registration_date": "2023-05-30",
+      "mileage": "44,498",
+      "price": {
+        "12": {
+          "rent": 1590000,
+          "deposit": 3180000
+        },
+        "24": {
+          "rent": 1480000,
+          "deposit": 2960000
+        },
+        "36": {
+          "rent": 1360000,
+          "deposit": 2720000
+        },
+        "48": {
+          "rent": 1360000,
+          "deposit": 2720000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_357조6761",
+      "car_number": "357조6761",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "판매중",
+      "year": "2023",
+      "first_registration_date": "2023-06-13",
+      "mileage": "78,371",
+      "price": {
+        "12": {
+          "rent": 1660000,
+          "deposit": 3320000
+        },
+        "24": {
+          "rent": 1540000,
+          "deposit": 3080000
+        },
+        "36": {
+          "rent": 1410000,
+          "deposit": 2820000
+        },
+        "48": {
+          "rent": 1410000,
+          "deposit": 2820000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_172다8666",
+      "car_number": "172다8666",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "판매중",
+      "year": "2023",
+      "first_registration_date": "2023-04-04",
+      "mileage": "78,283",
+      "price": {
+        "12": {
+          "rent": 1710000,
+          "deposit": 3420000
+        },
+        "24": {
+          "rent": 1580000,
+          "deposit": 3160000
+        },
+        "36": {
+          "rent": 1450000,
+          "deposit": 2900000
+        },
+        "48": {
+          "rent": 1450000,
+          "deposit": 2900000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_340모8738",
+      "car_number": "340모8738",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "판매중",
+      "year": "2023",
+      "first_registration_date": "2023-05-31",
+      "mileage": "58,621",
+      "price": {
+        "12": {
+          "rent": 1750000,
+          "deposit": 3500000
+        },
+        "24": {
+          "rent": 1590000,
+          "deposit": 3180000
+        },
+        "36": {
+          "rent": 1410000,
+          "deposit": 2820000
+        },
+        "48": {
+          "rent": 1410000,
+          "deposit": 2820000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_211루7793",
+      "car_number": "211루7793",
+      "vehicle_status": "출고불가",
+      "status_label_raw": "보류",
+      "year": "2022",
+      "first_registration_date": "2022-08-09",
+      "mileage": "140,271",
+      "price": {
+        "12": {
+          "rent": 1340000,
+          "deposit": 2680000
+        },
+        "24": {
+          "rent": 1370000,
+          "deposit": 2740000
+        },
+        "36": {
+          "rent": 1190000,
+          "deposit": 2380000
+        },
+        "48": {
+          "rent": 1190000,
+          "deposit": 2380000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_205보7037",
+      "car_number": "205보7037",
+      "vehicle_status": "출고불가",
+      "status_label_raw": "보류",
+      "year": "2021",
+      "first_registration_date": "2021-06-22",
+      "mileage": "109,846",
+      "price": {
+        "12": {
+          "rent": 680000,
+          "deposit": 1360000
+        },
+        "24": {
+          "rent": 630000,
+          "deposit": 1260000
+        },
+        "36": {
+          "rent": 520000,
+          "deposit": 1040000
+        },
+        "48": {
+          "rent": 520000,
+          "deposit": 1040000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_205보7050",
+      "car_number": "205보7050",
+      "vehicle_status": "출고불가",
+      "status_label_raw": "보류",
+      "year": "2021",
+      "first_registration_date": "2021-06-22",
+      "mileage": "95,700",
+      "price": {
+        "12": {
+          "rent": 680000,
+          "deposit": 1360000
+        },
+        "24": {
+          "rent": 630000,
+          "deposit": 1260000
+        },
+        "36": {
+          "rent": 520000,
+          "deposit": 1040000
+        },
+        "48": {
+          "rent": 520000,
+          "deposit": 1040000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_04너5137",
+      "car_number": "04너5137",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2023",
+      "first_registration_date": "2023-04-18",
+      "mileage": "65,093",
+      "price": {
+        "12": {
+          "rent": 740000,
+          "deposit": 1480000
+        },
+        "24": {
+          "rent": 740000,
+          "deposit": 1480000
+        },
+        "36": {
+          "rent": 910000,
+          "deposit": 1820000
+        },
+        "48": {
+          "rent": 790000,
+          "deposit": 1580000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_11오1836",
+      "car_number": "11오1836",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2023",
+      "first_registration_date": "2023-05-19",
+      "mileage": "60,845",
+      "price": {
+        "12": {
+          "rent": 780000,
+          "deposit": 1560000
+        },
+        "24": {
+          "rent": 780000,
+          "deposit": 1560000
+        },
+        "36": {
+          "rent": 950000,
+          "deposit": 1900000
+        },
+        "48": {
+          "rent": 830000,
+          "deposit": 1660000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_05수4134",
+      "car_number": "05수4134",
+      "vehicle_status": "계약중",
+      "status_label_raw": "계약중",
+      "year": "2023",
+      "first_registration_date": "2023-05-17",
+      "mileage": "62,713",
+      "price": {
+        "12": {
+          "rent": 780000,
+          "deposit": 1560000
+        },
+        "24": {
+          "rent": 780000,
+          "deposit": 1560000
+        },
+        "36": {
+          "rent": 950000,
+          "deposit": 1900000
+        },
+        "48": {
+          "rent": 830000,
+          "deposit": 1660000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_11오0537",
+      "car_number": "11오0537",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2023",
+      "first_registration_date": "2023-04-21",
+      "mileage": "64,197",
+      "price": {
+        "12": {
+          "rent": 780000,
+          "deposit": 1560000
+        },
+        "24": {
+          "rent": 780000,
+          "deposit": 1560000
+        },
+        "36": {
+          "rent": 950000,
+          "deposit": 1900000
+        },
+        "48": {
+          "rent": 830000,
+          "deposit": 1660000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_05수4847",
+      "car_number": "05수4847",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2023",
+      "first_registration_date": "2023-04-21",
+      "mileage": "65,125",
+      "price": {
+        "12": {
+          "rent": 780000,
+          "deposit": 1560000
+        },
+        "24": {
+          "rent": 780000,
+          "deposit": 1560000
+        },
+        "36": {
+          "rent": 950000,
+          "deposit": 1900000
+        },
+        "48": {
+          "rent": 830000,
+          "deposit": 1660000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_35서5062",
+      "car_number": "35서5062",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2023",
+      "first_registration_date": "2023-06-13",
+      "mileage": "67,135",
+      "price": {
+        "12": {
+          "rent": 780000,
+          "deposit": 1560000
+        },
+        "24": {
+          "rent": 780000,
+          "deposit": 1560000
+        },
+        "36": {
+          "rent": 950000,
+          "deposit": 1900000
+        },
+        "48": {
+          "rent": 830000,
+          "deposit": 1660000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_05수5100",
+      "car_number": "05수5100",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2023",
+      "first_registration_date": "2023-04-21",
+      "mileage": "67,206",
+      "price": {
+        "12": {
+          "rent": 780000,
+          "deposit": 1560000
+        },
+        "24": {
+          "rent": 780000,
+          "deposit": 1560000
+        },
+        "36": {
+          "rent": 950000,
+          "deposit": 1900000
+        },
+        "48": {
+          "rent": 830000,
+          "deposit": 1660000
+        }
+      },
+      "_snap_confidence": "high"
+    },
+    {
+      "product_code": "RP023_05수5515",
+      "car_number": "05수5515",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2023",
+      "first_registration_date": "2023-05-26",
+      "mileage": "15,613",
+      "price": {
+        "12": {
+          "rent": 690000,
+          "deposit": 1380000
+        },
+        "24": {
+          "rent": 690000,
+          "deposit": 1380000
+        },
+        "36": {
+          "rent": 800000,
+          "deposit": 1600000
+        },
+        "48": {
+          "rent": 730000,
+          "deposit": 1460000
+        }
+      },
+      "_snap_confidence": "medium"
+    },
+    {
+      "product_code": "RP023_05수4761",
+      "car_number": "05수4761",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2023",
+      "first_registration_date": "2023-06-15",
+      "mileage": "21,624",
+      "price": {
+        "12": {
+          "rent": 690000,
+          "deposit": 1380000
+        },
+        "24": {
+          "rent": 690000,
+          "deposit": 1380000
+        },
+        "36": {
+          "rent": 800000,
+          "deposit": 1600000
+        },
+        "48": {
+          "rent": 730000,
+          "deposit": 1460000
+        }
+      },
+      "_snap_confidence": "medium"
+    },
+    {
+      "product_code": "RP023_63주1002",
+      "car_number": "63주1002",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2023",
+      "first_registration_date": "2023-04-20",
+      "mileage": "20,534",
+      "price": {
+        "12": {
+          "rent": 690000,
+          "deposit": 1380000
+        },
+        "24": {
+          "rent": 690000,
+          "deposit": 1380000
+        },
+        "36": {
+          "rent": 800000,
+          "deposit": 1600000
+        },
+        "48": {
+          "rent": 730000,
+          "deposit": 1460000
+        }
+      },
+      "_snap_confidence": "medium"
+    },
+    {
+      "product_code": "RP023_63주1225",
+      "car_number": "63주1225",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2023",
+      "first_registration_date": "2023-05-26",
+      "mileage": "48,072",
+      "price": {
+        "12": {
+          "rent": 690000,
+          "deposit": 1380000
+        },
+        "24": {
+          "rent": 690000,
+          "deposit": 1380000
+        },
+        "36": {
+          "rent": 800000,
+          "deposit": 1600000
+        },
+        "48": {
+          "rent": 730000,
+          "deposit": 1460000
+        }
+      },
+      "_snap_confidence": "medium"
+    },
+    {
+      "product_code": "RP023_47조3171",
+      "car_number": "47조3171",
+      "vehicle_status": "출고가능",
+      "status_label_raw": "할인판매",
+      "year": "2022",
+      "first_registration_date": "2022-11-22",
+      "mileage": "96,408",
+      "price": {
+        "12": {
+          "rent": 760000,
+          "deposit": 1520000
+        },
+        "24": {
+          "rent": 760000,
+          "deposit": 1520000
+        },
+        "36": {
+          "rent": 930000,
+          "deposit": 1860000
+        },
+        "48": {
+          "rent": 810000,
+          "deposit": 1620000
+        }
+      },
+      "_snap_confidence": "high"
+    }
+  ]
+}

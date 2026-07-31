@@ -30,6 +30,15 @@ export const MEMBER_PARTNER_TYPE_OPTIONS = [
   { key: '영업채널', label: '영업채널' },
 ];
 
+/**
+ * 목록 축 — 역할이 아님.
+ * 계정 = users(로그인·역할·지급율) / 회사 = partners(수수료·시트). 필드·저장 노드가 달라 한 목록에 섞지 않는다.
+ */
+export const MEMBER_TAB_OPTIONS: { key: MemberTab; label: string }[] = [
+  { key: 'user', label: '계정' },
+  { key: 'partner', label: '회사' },
+];
+
 type Params = {
   rows: EntityRecord[];
   tab: MemberTab;
