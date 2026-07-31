@@ -182,13 +182,18 @@ const check = (axis: string, ok: boolean, detail: string) => { results.push({ ax
 
 // ── G 라이브 대조 ──────────────────────────────────────────────────────
 async function liveCheck() {
-  let admin: any;
-  try { admin = await import('firebase-admin'); } catch { check('G 라이브', false, 'firebase-admin 없음'); return; }
+  // 모듈러 서브패스 — `import('firebase-admin')` 은 ESM 에서 CJS 네임스페이스라 credential 이 undefined 다.
+  let appMod: typeof import('firebase-admin/app');
+  let dbMod: typeof import('firebase-admin/database');
+  try {
+    appMod = await import('firebase-admin/app');
+    dbMod = await import('firebase-admin/database');
+  } catch { check('G 라이브', false, 'firebase-admin 없음'); return; }
   const dbUrl = process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL || process.env.FIREBASE_DATABASE_URL;
   if (!dbUrl) { check('G 라이브', false, 'DB URL 없음'); return; }
   const svc = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-  const app = admin.initializeApp({
-    credential: svc ? admin.credential.cert(JSON.parse(svc)) : admin.credential.applicationDefault(),
+  const app = appMod.initializeApp({
+    credential: svc ? appMod.cert(JSON.parse(svc)) : appMod.applicationDefault(),
     databaseURL: dbUrl,
   });
   try {
@@ -199,7 +204,7 @@ async function liveCheck() {
       const step = Math.max(1, Math.floor(keysAll.length / 20));
       for (let i = 0; i < keysAll.length; i += step) {
         const k = keysAll[i];
-        const snap = await app.database().ref(`v4/${node}/${k}`).get();
+        const snap = await dbMod.getDatabase(app).ref(`v4/${node}/${k}`).get();
         if (!snap.exists()) { miss++; if (samples.length < 5) samples.push(`v4/${node}/${k}`); }
         else ok++;
       }

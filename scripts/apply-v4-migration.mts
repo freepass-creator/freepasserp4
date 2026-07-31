@@ -70,9 +70,13 @@ async function main() {
   }
 
   // ── 여기부터 실제 적용 ──
-  let admin: any;
+  // 모듈러 서브패스로 받는다. `import('firebase-admin')` 은 ESM 에서 CJS 네임스페이스라
+  //  admin.credential 이 undefined 가 된다(실제 값은 .default 밑에 들어간다).
+  let appMod: typeof import('firebase-admin/app');
+  let dbMod: typeof import('firebase-admin/database');
   try {
-    admin = await import('firebase-admin');
+    appMod = await import('firebase-admin/app');
+    dbMod = await import('firebase-admin/database');
   } catch {
     console.error('firebase-admin 이 없다. `npm i -D firebase-admin` 후 다시 실행할 것.');
     process.exit(1);
@@ -82,10 +86,10 @@ async function main() {
 
   const svcJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
   const credential = svcJson
-    ? admin.credential.cert(JSON.parse(svcJson))
-    : admin.credential.applicationDefault(); // GOOGLE_APPLICATION_CREDENTIALS
-  const app = admin.initializeApp({ credential, databaseURL: dbUrl });
-  const db = app.database();
+    ? appMod.cert(JSON.parse(svcJson))
+    : appMod.applicationDefault(); // GOOGLE_APPLICATION_CREDENTIALS
+  const app = appMod.initializeApp({ credential, databaseURL: dbUrl });
+  const db = dbMod.getDatabase(app);
 
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
   const logPath = join('tmp/migration', `apply-${stamp}.jsonl`);
