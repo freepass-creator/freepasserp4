@@ -70,6 +70,8 @@ export default function ContractsSettlement() {
   const [roomId, setRoomId] = useState<string | null>(null);
   const [setts, setSetts] = useState<EntityRecord[]>([]);
   const settsRef = useRef<EntityRecord[]>([]);
+  const selectionEpoch = useRef(0);
+  const [settlementLoading, setSettlementLoading] = useState(false);
   const [role, setRoleS] = useState<Role>('agent');
   const [qInput, setQInput] = useState(''); // 검색창 즉시 반영
   const [q, setQ] = useState(''); // 디바운스된 검색
@@ -111,7 +113,10 @@ export default function ContractsSettlement() {
     )) || null;
   };
   const selectContract = async (c: EntityRecord) => {
+    const epoch = ++selectionEpoch.current;
+    const cachedSettlement = settlementForContract(settsRef.current, c.contract_code);
     setSel(String(c.contract_code)); setSelC(c);
+    setSelS(cachedSettlement); setSettlementLoading(!cachedSettlement);
     setSwapKey(String(c.contract_status || '') === '계약완료' ? 'settle' : 'progress');
     const [settsList, prod, room] = await Promise.all([
       getStore().list('settlement', co),
@@ -121,8 +126,8 @@ export default function ContractsSettlement() {
         return null;
       }),
     ]);
-    let s = settlementForContract(settsRef.current, c.contract_code)
-      || settlementForContract(settsList, c.contract_code);
+    if (epoch !== selectionEpoch.current) return;
+    let s = cachedSettlement || settlementForContract(settsList, c.contract_code);
     if (!s) {
       s = await getStore().get('settlement', co, `ST_${String(c.contract_code || '').trim()}`).catch(() => null);
     }
@@ -141,12 +146,16 @@ export default function ContractsSettlement() {
         }
       }
     }
+    if (epoch !== selectionEpoch.current) return;
     setSelS(s);
     setSelProduct(prod || null);
     setRoomId(room);
+    setSettlementLoading(false);
   };
   const clearSel = () => {
+    selectionEpoch.current += 1;
     setSel(null); setSelC(null); setSelS(null); setSelProduct(null); setRoomId(null); setSwapKey('progress');
+    setSettlementLoading(false);
     if (typeof window !== 'undefined') {
       const u = new URL(window.location.href);
       if (u.searchParams.has('c')) {
@@ -158,6 +167,8 @@ export default function ContractsSettlement() {
   };
   const reloadSel = async () => {
     if (!sel) return;
+    const epoch = ++selectionEpoch.current;
+    setSettlementLoading(true);
     const all = await load(getRole());
     const c = all.find((x) => String(x.contract_code) === sel);
     if (c) {
@@ -182,8 +193,10 @@ export default function ContractsSettlement() {
           }
         }
       }
+      if (epoch !== selectionEpoch.current) return;
       setSelS(s);
     }
+    if (epoch === selectionEpoch.current) setSettlementLoading(false);
   };
 
   useEffect(() => { (async () => {
@@ -315,6 +328,7 @@ export default function ContractsSettlement() {
     </div>
   );
   const detailSettle = () => {
+    if (settlementLoading) return <CenterNote>정산 기록 확인 중…</CenterNote>;
     if (!selS) return <CenterNote>{selC?.contract_status === '계약완료' ? '정산 기록 없음' : '계약 완료 시 정산이 자동 생성됩니다.'}</CenterNote>;
     const s = selS; const st = String(s.settlement_status); const cb = Number(s.clawback_amount) || 0;
     return (
