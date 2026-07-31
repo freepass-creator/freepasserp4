@@ -24,15 +24,17 @@ function AuditRow({ log }: { log: EntityRecord }) {
   const changes = useMemo(() => parseAuditChanges(log), [log]);
   const samples = Array.isArray(log.samples) ? (log.samples as string[]) : [];
   const summary = String(log.summary || '');
-  const act = String(log.action);
+  const act = String(log.action || 'update');
+  const entity = String(log.entity || '').trim();
+  const targetKey = String(log.target_key || '').trim();
   return (
     <div style={{ borderTop: `1px solid ${C.line2}` }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px' }}>
         <Badge tone={ACT_TONE[act] || 'gray'}>{act === 'chat' ? '채팅' : act === 'master_snap' ? '차종변환' : act}</Badge>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: FS.sub, fontWeight: FW.strong, color: C.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {label(String(log.entity))}{' '}
-            <span style={{ fontFamily: NUM, color: C.mute, fontWeight: FW.body }}>{String(log.target_key || '')}</span>
+            {entity ? label(entity) : '기록'}{' '}
+            <span style={{ fontFamily: NUM, color: C.mute, fontWeight: FW.body }}>{targetKey || '대상 미기록'}</span>
           </div>
           <div style={{ fontSize: FS.cap, color: C.faint, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {String(log.actor_name || '?')} · {String(log.actor_role || '')}
