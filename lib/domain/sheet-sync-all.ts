@@ -10,6 +10,7 @@ import { type MasterEntry } from '@/lib/domain/vehicle-master-match';
 import { fetchSheetTable, importSheetTable, type MappingProfile } from '@/lib/domain/sheet-import';
 import { commitSupplierProducts, type MasterIngressCommit } from '@/lib/domain/master-ingress';
 import { partnerSheetOpts } from '@/lib/domain/sheet-adapters';
+import { createPlateAllocator, type PendingPlateMap } from '@/lib/domain/pending-plate';
 import {
   applyAbsentBlocked,
   shouldReconcileAbsent,
@@ -68,6 +69,8 @@ export type PartnerFetchLine = {
   imported: number;
   excludedCount: number;   // 시트에 '출고불가'로 적혀 있어 안 올린 대수
   noPriceCount: number;    // 대여료가 없어 안 올린 대수 — 값 없는 매물은 게시하지 않는다
+  /** 번호미정 신차에 새 임시번호를 뽑았으면 저장할 값(없으면 undefined) */
+  plateAlloc?: { pending_plates: PendingPlateMap; pending_plate_seq: number };
   message: string;
   products: EntityRecord[];
 };
@@ -134,6 +137,11 @@ export async function fetchAllPartnerSheets(
       }
       // 탭이 여러 개면 전부 읽어 합친다. 한 탭만 읽으면 나머지 탭 차량이 「시트에 없음」으로 잡혀
       //  멀쩡한 매물이 부재처리로 출고불가가 된다 — 조용히 일어나서 더 위험하다.
+      // 번호미정 신차 임시번호 — 저장된 부여기록 위에서 이어 뽑는다(같은 차는 같은 번호 유지).
+      const allocator = createPlateAllocator(
+        (p.pending_plates as PendingPlateMap | undefined),
+        Number(p.pending_plate_seq) || 0,
+      );
       const tabs = o.gids.length ? o.gids : [''];
       const products: EntityRecord[] = [];
       const seen = new Set<string>();
@@ -143,7 +151,7 @@ export async function fetchAllPartnerSheets(
         const raw = await fetchSheetTable(o.url, g || undefined);
         const t = o.adapter.prepareTable(raw, { headerRow: o.headerRow });
         if (t.length < 2) { tabNotes.push(`gid ${g || '기본'}: 데이터 없음`); continue; }
-        const r = importSheetTable(t, { providerCode: o.providerCode, entries: master, profile, depositRule: o.depositRule });
+        const r = importSheetTable(t, { providerCode: o.providerCode, entries: master, profile, depositRule: o.depositRule, plateAllocator: allocator });
         excluded += r.excludedCount;
         noPrice += r.noPriceCount;
         high += r.snap.high + r.snap.medium;
@@ -160,6 +168,7 @@ export async function fetchAllPartnerSheets(
       if (!products.length && excluded === 0) throw new Error(tabNotes.join(' · ') || '헤더+데이터 없음');
       return {
         code, label, ok: true, imported, excludedCount: excluded, noPriceCount: noPrice,
+        plateAlloc: allocator.dirty() ? allocator.snapshot() : undefined,
         message: `✓ ${label} [${o.adapter.id}${tabs.length > 1 ? ` ${tabs.length}탭` : ''}] — ${imported}매물 (확정 ${high}·검수 ${low}${excluded ? ` · 출고불가 제외 ${excluded}` : ''}${noPrice ? ` · 가격없어 제외 ${noPrice}` : ''})`,
         products,
       };
@@ -275,6 +284,10 @@ export async function commitFetchedPartnerSheets(
         last_synced_at: now,
         last_sheet_imported: line.imported,
         last_sheet_rows: rowsRead,   // 급감가드 기준 — imported 와 달리 출고불가분을 포함한다
+        // 번호미정 신차에 새로 뽑은 임시번호 — **반드시 저장한다.**
+        //  안 남기면 다음 동기화 때 같은 차가 다른 번호를 받아 매물이 통째로 새로 생기고,
+        //  옛 레코드는 부재처리로 출고불가가 된다(계약이 걸려 있으면 그것도 못 해 중복 판매가 된다).
+        ...(line.plateAlloc || {}),
       } as EntityRecord);
     } catch { /* best-effort */ }
   }

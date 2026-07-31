@@ -8,6 +8,7 @@ import { snapToMaster, applySnap, fuelDisplay, fuelEmbeddedCc, type MasterEntry 
 import { applyColors } from '@/lib/domain/color-master';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { normalizeProductOptionsText, isRealPlate } from '@/lib/domain/product';
+import { pendingSignature, previewPlateAllocator, type PlateAllocator } from '@/lib/domain/pending-plate';
 
 // ── 헤더 별칭 사전 ── 렌트사 시트 컬럼명 → 프리패스 표준 필드. 국산 렌트 시트는 대동소이 → 자동 90%.
 export const HEADER_ALIASES: Record<string, string> = {
@@ -320,6 +321,8 @@ export function importSheetTable(table: string[][], opts: {
   providerCode: string; entries: MasterEntry[]; profile?: MappingProfile;
   /** partner.deposit_rule — 시트 보증금 칸이 빌 때 채우는 공급사 규칙 */
   depositRule?: DepositRule;
+  /** 번호미정 신차 임시번호 할당기. **저장 경로는 반드시 주입할 것**(미주입 = 미리보기용) */
+  plateAllocator?: PlateAllocator;
 }): ImportResult {
   if (!opts.entries?.length) throw new Error('차종마스터 필수 — importSheetTable');
   const headers = table[0] || [];
@@ -337,6 +340,8 @@ export function importSheetTable(table: string[][], opts: {
   let skipped = 0;
   let excludedCount = 0;
   let noPriceCount = 0;
+  const allocator = opts.plateAllocator || previewPlateAllocator();
+  const pendingSeen = new Map<string, number>();   // 스펙서명 → 이 시트에서 몇 번째인지
   for (const cells of dataRows) {
     const rec: EntityRecord = {};
     for (const [field, idx] of Object.entries(mapping)) { const v = String(cells[idx] ?? '').trim(); if (v) rec[field] = v; }
@@ -351,10 +356,16 @@ export function importSheetTable(table: string[][], opts: {
       car = '';
     }
     if (!car) {
-      // 번호없는 신차 구제(v3 이식) — 차종정보 있으면 100신XXXX 임시번호(멱등: 공급사+신원 해시)+신차렌트. 진짜 빈행만 skip.
+      // 번호미정 = 신차. 버리지 않고 100신0001 순번 임시번호를 준다.
+      //  ⚠ 같은 스펙 차가 여러 줄이면 **줄마다 다른 번호**여야 한다 — 예전엔 신원 해시 하나로
+      //    묶어서 우리캐피탈 그랑 콜레오스 10대 중 9대가 중복제거로 사라졌다.
+      //    번호 자체는 allocator 가 관리한다(부여기록을 partner 에 저장해 재사용 — pending-plate.ts).
       const ident = `${rec.maker || ''}${rec.model || ''}${rec.sub_model || ''}${rec.trim_name || ''}${rec.year || ''}`.replace(/\s/g, '');
       if (!ident) { skipped++; continue; }
-      car = `100신${shortHash(opts.providerCode + ident)}`;
+      const sig = pendingSignature(rec);
+      const idx = pendingSeen.get(sig) ?? 0;
+      pendingSeen.set(sig, idx + 1);
+      car = allocator.assign(sig, idx);
       rec.car_number = car;
       rec.is_pending_plate = true;
       rec.product_type = '신차렌트';
