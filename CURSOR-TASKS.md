@@ -41,7 +41,7 @@
 | 태스크 | 상태 | 비고 |
 |---|---|---|
 | C-1 이관 5~8단계 | 🔒 | 서비스계정 키 = 사람이 발급. 키 생기면 해제 |
-| C-2 규칙 게시 2건 | ⬜ | **가장 급함** — 코드는 고쳤는데 게시가 안 돼 실제로는 안 막혀 있다 |
+| C-2 규칙 게시 2건 | ✅ | 2026-07-31 게시 완료 (Storage 200→403 확인 · RTDB 32곳 반영) |
 | C-3 모바일 터치타깃 | ⬜ | |
 | C-4 숫자 컬럼 tabular-nums | ⬜ | |
 | C-5 AUTH-5 사업자번호 입력 경로 | ⬜ | |
@@ -60,35 +60,25 @@ MIGRATION_PLAN.md   LAUNCH_GONOGO.md   HANDOFF.md
 
 ---
 
-## C-2. 규칙 게시 2건 ⬜ ← 먼저 해라
+## C-2. 규칙 게시 2건 ✅ (2026-07-31 완료)
 
-**배경**: 규칙 파일은 이미 고쳐져 커밋됐는데 **게시가 안 돼서 실제로는 안 막혀 있다.**
-
-### 2-1. Storage 게시
+**Storage** — `contract-signed/**` 무인증 업로드·덮어쓰기 차단. 게시 전 200 → 게시 후 **403** 확인.
+`contract-signed/` 잔여 파일 0개(구멍이 악용된 흔적 없음).
 ```
-firebase deploy --only storage
-```
-게시 후 확인 — 로그인 없이 아래가 **403** 이어야 한다(지금은 성공한다):
-```
-curl -X POST "https://firebasestorage.googleapis.com/v0/b/freepasserp3.firebasestorage.app/o?name=contract-signed/probe/x.txt" --data "x"
+GOOGLE_APPLICATION_CREDENTIALS=tmp/firebase-auth/sa.json \
+  npx firebase-tools@13 deploy --only storage --project freepasserp3 --non-interactive
 ```
 
-### 2-2. RTDB — 비활성 계정 차단을 서버에도
-앱 게이트(`lib/auth-session.ts` isBlocked)만 막고 있어 **서버는 여전히 열려 있다.**
-업무 노드 조건에 이미 있는
-`root.child('users').child(auth.uid).child('status').val() !== 'pending'`
-옆에 다음을 AND 로 추가한다.
+**RTDB** — 비활성·삭제·반려 계정을 서버에서 차단. 32곳에 주입, 라이브 반영 확인.
 ```
-root.child('users').child(auth.uid).child('is_active').val() !== '아니오'
+npx tsx scripts/rules-add-inactive-gate.mts database.rules.json tmp/rules/next.json
+npx tsx scripts/rtdb-rules.mts put tmp/rules/next.json   # 직전 라이브를 자동 백업
 ```
-대상: `products` · `policies` · `rooms` · `messages` · `contracts` · `settlements` 의 read/write 조건.
 
-⛔ **`users` 노드 자체의 `.read` 는 건드리지 마라** — RTDB는 자식 `.read` 가 부모 읽기를 만들지 못해
-관리자 회원목록이 통째로 빈다(에뮬레이터 실증, 401을 catch가 삼켜 "빈 목록"으로 보인다).
+검증: `scripts/ruleprobe/probe-inactive.mjs` 10/10 · 기존 24케이스 회귀 0.
 
-게시 전 `scripts/ruleprobe` 를 돌려 통과시킨다.
-
-**완료 판정**: curl 403 · 비활성 계정으로 로그인 시 방·계약 조회가 **서버에서** 거부.
+⚠ **에뮬레이터 함정** — `scripts/ruleprobe/firebase.json` 이 `step1.rules.json` 을 본다.
+`probe2.rules.json` 만 바꾸면 **규칙이 안 실린 채 통과한다.** 검증 대상 규칙은 `step1.rules.json` 에 넣어라.
 
 ---
 
