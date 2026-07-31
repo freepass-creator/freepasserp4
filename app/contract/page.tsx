@@ -114,8 +114,11 @@ export default function ContractsSettlement() {
     setSwapKey(String(c.contract_status || '') === '계약완료' ? 'settle' : 'progress');
     const [settsList, prod, room] = await Promise.all([
       getStore().list('settlement', co),
-      getStore().get('product', co, String(c.product_code)),
-      ensureRoomForContract(c),
+      getStore().get('product', co, String(c.product_code)).catch(() => null),
+      ensureRoomForContract(c).catch((error) => {
+        toast(`채팅방 연결 실패: ${String((error as Error)?.message || error)}`, 'error');
+        return null;
+      }),
     ]);
     let s = settlementForContract(settsList, c.contract_code);
     // lazy create = admin·소유 공급사만(영업자 채널 불일치 시 permission_denied로 pane abort 방지)
