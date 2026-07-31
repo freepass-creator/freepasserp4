@@ -469,6 +469,8 @@ export function SettlementListRow({
   const status = String(settlement.settlement_status || '정산대기');
   const ic = settlementStatusIcon(settlement);
   const net = Number(settlement.net_amount) || 0;
+  const invalidRent = !Number.isFinite(Number(settlement.rent_amount)) || Number(settlement.rent_amount) <= 0;
+  const unresolvedRate = String(settlement.fee_rate_unresolved || '') === 'yes';
   const title = String(settlement.customer_name || settlement.car_number || settlement.settlement_code || '정산');
   return (
     <FeedListRow
@@ -483,6 +485,8 @@ export function SettlementListRow({
         />,
         <FeedBadges key="b">
           <Badge tone={SETTLEMENT_STATUS_TONE[status] || 'gray'}>{status}</Badge>
+          {invalidRent ? <Badge tone="red" variant="solid">금액 확인</Badge> : null}
+          {!invalidRent && unresolvedRate ? <Badge tone="amber" variant="solid">요율 확인</Badge> : null}
           {plateSpan(String(settlement.car_number || ''))}
           <span style={{ fontSize: FS.cap, fontFamily: NUM, color: C.faint, fontWeight: FW.strong }}>{String(settlement.contract_date || '')}</span>
         </FeedBadges>,

@@ -240,6 +240,10 @@ export default function MonthlySettlement() {
               <Badge tone={SETTLEMENT_STATUS_TONE[String(selected.settlement_status)] || 'gray'} variant="solid">
                 {String(selected.settlement_status || '정산대기')}
               </Badge>
+              {Number(selected.rent_amount) <= 0 ? <Badge tone="red" variant="solid">월대여료 확인 필요</Badge> : null}
+              {Number(selected.rent_amount) > 0 && String(selected.fee_rate_unresolved || '') === 'yes'
+                ? <Badge tone="amber" variant="solid">공급사율 확인 필요</Badge>
+                : null}
               <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', fontFamily: NUM, fontSize: FS.cap, color: C.faint }}>
                 {String(selected.settlement_code || '')}
               </span>

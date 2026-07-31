@@ -185,7 +185,22 @@ export function ExcelResultsTable({
             return <span title={full !== shown ? full : undefined}>{shown}</span>;
           };
           return (
-          <tr key={String(p.product_code || p._key || i)} className="fp-sheet-row" onClick={() => onRowClick(p)} onContextMenu={(e) => onRowContextMenu(e, p)} style={{ cursor: 'pointer', background: bg }}>
+          <tr
+            key={String(p.product_code || p._key || i)}
+            className="fp-sheet-row"
+            role="link"
+            tabIndex={0}
+            aria-label={`${String(p.car_number || '')} ${String(p.sub_model || p.model || '')} 상품 상세`}
+            onClick={() => onRowClick(p)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onRowClick(p);
+              }
+            }}
+            onContextMenu={(e) => onRowContextMenu(e, p)}
+            style={{ cursor: 'pointer', background: bg }}
+          >
             <td style={{ ...tdX, ...cellPad, ...colLock(EXCEL_MAX.plate, padX), background: bg, fontFamily: NUM, fontWeight: FW.strong }} title={String(p.car_number || '') || undefined}>{String(p.car_number || '') || DASH}</td>
             {show('vehicle_status') && <td style={{ ...tdX, ...cellPad, ...colLock(EXCEL_W.status) }}>{st ? <Badge tone={vehicleTone(st)} variant={st === '계약중' ? 'solid' : 'line'} pulse={st === '계약중'}>{st}</Badge> : DASH}</td>}
             {show('product_type') && <td style={{ ...tdX, ...cellPad, ...colLock(EXCEL_W.ptype) }}>{pt ? (() => { const c = canonProductType(pt) || pt; const s = productTypeStyle(c); return <Badge tone={s.tone} variant={s.variant}>{c}</Badge>; })() : DASH}</td>}

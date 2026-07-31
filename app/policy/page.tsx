@@ -289,7 +289,7 @@ export default function PolicyMgmt() {
   ];
   return (
     <>
-      <WorkPage title={NAV_LABEL.policy} listCount={shown.length} list={rows === null ? <FeedRowSkeleton /> : listEl} panes={panes} selected={!!sel} onBack={clearSel}
+      <WorkPage title={NAV_LABEL.policy} listCount={rows === null ? null : shown.length} list={rows === null ? <FeedRowSkeleton /> : listEl} panes={panes} selected={!!sel} onBack={clearSel}
         contextTitle={sel ? (creating ? '신규 정책' : String(form.policy_name || form.policy_code || '')) : undefined}
         actions={dockActions}
         listTools={{

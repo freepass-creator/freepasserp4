@@ -270,12 +270,12 @@ export default function Inventory() {
     <>
       {/* 상단바 라벨은 상태칩과 동명이면 안 된다 — 칩 「출고가능」은 한 상태고, 이 수는 즉시출고+출고가능 합계다. */}
       <WorkPage title={NAV_LABEL.inventory} statusLabel="가용재고"
-        statusCount={(rows || []).filter((p) => {
+        statusCount={rows === null ? null : rows.filter((p) => {
           const st = String(p.vehicle_status || '');
           return st === '즉시출고' || st === '출고가능';
         }).length}
         countSuffix="대"
-        listCount={filtered.length}
+        listCount={rows === null ? null : filtered.length}
         list={rows === null ? <FeedRowSkeleton /> : listEl} panes={panes} selected={!!sel} onBack={clearSel}
         contextTitle={sel ? (creating ? '신규 상품' : (vehicleName(form) || String(form.car_number || '상품'))) : undefined}
         search={{ value: q, onChange: setQ, placeholder: '차번·차명·옵션·공급사·메모…' }}

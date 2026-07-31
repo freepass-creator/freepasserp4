@@ -348,8 +348,8 @@ export default function Chat() {
     <WorkPage
       title={NAV_LABEL.chat}
       statusLabel="문의 미확인"
-      statusCount={inquiryUnreadN}
-      listCount={shownRooms.length}
+      statusCount={rooms === null ? null : inquiryUnreadN}
+      listCount={rooms === null ? null : shownRooms.length}
       list={rooms === null ? <FeedRowSkeleton /> : roomListEl}
       panes={mobile ? mobilePanes : webPanes}
       selected={!!sel}

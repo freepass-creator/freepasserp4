@@ -355,8 +355,8 @@ export default function ContractsSettlement() {
   return (
     <>
       <WorkPage title={NAV_LABEL.contract || '계약'} statusLabel="계약진행중"
-        statusCount={rows?.filter((c) => isContractInProgress(c)).length ?? 0}
-        listCount={shownAll.length}
+        statusCount={rows === null ? null : rows.filter((c) => isContractInProgress(c)).length}
+        listCount={rows === null ? null : shownAll.length}
         list={rows === null ? <FeedRowSkeleton /> : listEl} panes={panes} selected={!!sel} onBack={clearSel}
         contextTitle={selC ? String(selC.customer_name || selC.vehicle_name || selC.car_number || selC.contract_code || '') : undefined}
         search={{ value: qInput, onChange: setQInput, placeholder: '계약·차번·계약자·전화·영업·공급…' }}
