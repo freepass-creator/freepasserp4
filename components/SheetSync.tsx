@@ -68,6 +68,7 @@ type PartnerDiffRow = {
   new: number; status: number; content: number;   // 신규 · 상태변경 · 내용수정
   absent: number; unchanged: number;              // 시트에 없어 출고불가 · 무변경
   excluded: number;                               // 시트에 출고불가로 적혀 있어 안 올린 것
+  noPrice: number;                                // 대여료가 없어 안 올린 것 — 게시하면 손님에게 보여줄 값이 없다
   note: string;
 };
 
@@ -96,7 +97,7 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
     banners: string[];
     totals: {
       new: number; status: number; content: number; absent: number;
-      unchanged: number; excludedCount: number;
+      unchanged: number; excludedCount: number; noPriceCount: number;
     };
     /** 공급사별 수정범위 — 합계만 보면 어느 업체가 문제인지 안 보인다. */
     perPartner: PartnerDiffRow[];
@@ -342,11 +343,13 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
       const existing = await getStore().list('product', co);
       const banners: string[] = [];
       const perPartner: PartnerDiffRow[] = [];
-      const totals = { new: 0, status: 0, content: 0, absent: 0, unchanged: 0, excludedCount: 0 };
+      const totals = { new: 0, status: 0, content: 0, absent: 0, unchanged: 0, excludedCount: 0, noPriceCount: 0 };
       for (const line of fetched.lines) {
         const re = line.excludedCount || 0;
+        const np = line.noPriceCount || 0;
+        totals.noPriceCount += np;
         totals.excludedCount += re;
-        const base = { code: line.code, label: line.label, sheet: 0, new: 0, status: 0, content: 0, absent: 0, unchanged: 0, excluded: re };
+        const base = { code: line.code, label: line.label, sheet: 0, new: 0, status: 0, content: 0, absent: 0, unchanged: 0, excluded: re, noPrice: np };
         if (!line.ok) { perPartner.push({ ...base, ok: false, note: line.message }); continue; }
         if (!line.products.length) { perPartner.push({ ...base, ok: true, note: '시트에서 읽은 매물 0' }); continue; }
         const diff = summarizeSheetDiff({
@@ -521,6 +524,7 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
                       {/* 올림 = 실제로 등록될 대수 · 제외 = 시트에 출고불가로 적혀 있어 읽지 않은 대수 */}
                       <th style={{ padding: '5px 8px', fontWeight: FW.meta }}>올림</th>
                       <th style={{ padding: '5px 8px', fontWeight: FW.meta }}>제외</th>
+                      <th style={{ padding: '5px 8px', fontWeight: FW.meta }}>가격없음</th>
                       <th style={{ padding: '5px 8px', fontWeight: FW.meta }}>신규</th>
                       <th style={{ padding: '5px 8px', fontWeight: FW.meta }}>상태변경</th>
                       <th style={{ padding: '5px 8px', fontWeight: FW.meta }}>내용수정</th>
@@ -537,6 +541,7 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
                         </td>
                         <td style={{ padding: '5px 8px', color: p.sheet ? C.ink : C.faint }}>{p.sheet || '—'}</td>
                         <td style={{ padding: '5px 8px', color: p.excluded ? C.mute : C.faint }}>{p.excluded || '—'}</td>
+                        <td style={{ padding: '5px 8px', color: p.noPrice ? C.warn : C.faint, fontWeight: p.noPrice ? FW.strong : FW.body }}>{p.noPrice || '—'}</td>
                         <td style={{ padding: '5px 8px', color: p.new ? C.ok : C.faint, fontWeight: p.new ? FW.strong : FW.body }}>{p.new || '—'}</td>
                         <td style={{ padding: '5px 8px', color: p.status ? C.ink : C.faint }}>{p.status || '—'}</td>
                         <td style={{ padding: '5px 8px', color: p.content ? C.ink : C.faint }}>{p.content || '—'}</td>
@@ -550,6 +555,7 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
                       <td style={{ textAlign: 'left', padding: '5px 8px' }}>합계</td>
                       <td style={{ padding: '5px 8px' }}>{pending.fetched.products.length}</td>
                       <td style={{ padding: '5px 8px', color: C.mute }}>{pending.totals.excludedCount}</td>
+                      <td style={{ padding: '5px 8px', color: C.warn }}>{pending.totals.noPriceCount}</td>
                       <td style={{ padding: '5px 8px', color: C.ok }}>{pending.totals.new}</td>
                       <td style={{ padding: '5px 8px' }}>{pending.totals.status}</td>
                       <td style={{ padding: '5px 8px' }}>{pending.totals.content}</td>

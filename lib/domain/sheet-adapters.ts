@@ -4,6 +4,7 @@
  * v3 공용 source(autoplus|general) enum 금지 — partner.adapter_id 로 지정.
  */
 import { type EntityRecord } from '@/lib/intake/entities';
+import { type DepositRule } from '@/lib/domain/sheet-import';
 
 export type SheetAdapterId = 'generic' | 'autoplus';
 
@@ -133,6 +134,7 @@ export function partnerSheetOpts(p: EntityRecord): {
   adapter: SheetAdapter;
   providerCode: string;
   profileRaw: unknown;
+  depositRule: DepositRule;
 } {
   const url = String(p.sheet_url || '').trim();
   const raw = String(p.sheet_gid || p.sheet_tab || '').trim();
@@ -147,5 +149,7 @@ export function partnerSheetOpts(p: EntityRecord): {
     adapter: resolveAdapter(p),
     providerCode: String(p.partner_code || p._key || ''),
     profileRaw: p.mapping_profile,
+    // 시트 보증금 칸이 빌 때 채우는 공급사 규칙(손오공 구독 = N개월치). 미설정이면 안 채운다.
+    depositRule: String(p.deposit_rule || '') as DepositRule,
   };
 }

@@ -67,6 +67,7 @@ export type PartnerFetchLine = {
   ok: boolean;
   imported: number;
   excludedCount: number;   // 시트에 '출고불가'로 적혀 있어 안 올린 대수
+  noPriceCount: number;    // 대여료가 없어 안 올린 대수 — 값 없는 매물은 게시하지 않는다
   message: string;
   products: EntityRecord[];
 };
@@ -126,7 +127,7 @@ export async function fetchAllPartnerSheets(
           headerRow: o.headerRow,
         });
         return {
-          code, label, ok: true, imported: res.imported, excludedCount: res.excludedCount,
+          code, label, ok: true, imported: res.imported, excludedCount: res.excludedCount, noPriceCount: res.noPriceCount,
           message: `✓ ${label} [autoplus 2탭] — ${res.imported}매물 (본 ${res.mainN}+프로모 ${res.promoOnlyN} · 재고 ${res.stock} · 확정 ${res.snap.high + res.snap.medium}·검수 ${res.snap.low + res.snap.none}${res.excludedCount ? ` · 출고불가 제외 ${res.excludedCount}` : ''})`,
           products: res.products,
         };
@@ -136,14 +137,15 @@ export async function fetchAllPartnerSheets(
       const tabs = o.gids.length ? o.gids : [''];
       const products: EntityRecord[] = [];
       const seen = new Set<string>();
-      let imported = 0, excluded = 0, high = 0, low = 0;
+      let imported = 0, excluded = 0, noPrice = 0, high = 0, low = 0;
       const tabNotes: string[] = [];
       for (const g of tabs) {
         const raw = await fetchSheetTable(o.url, g || undefined);
         const t = o.adapter.prepareTable(raw, { headerRow: o.headerRow });
         if (t.length < 2) { tabNotes.push(`gid ${g || '기본'}: 데이터 없음`); continue; }
-        const r = importSheetTable(t, { providerCode: o.providerCode, entries: master, profile });
+        const r = importSheetTable(t, { providerCode: o.providerCode, entries: master, profile, depositRule: o.depositRule });
         excluded += r.excludedCount;
+        noPrice += r.noPriceCount;
         high += r.snap.high + r.snap.medium;
         low += r.snap.low + r.snap.none;
         for (const rec of r.products) {
@@ -157,13 +159,13 @@ export async function fetchAllPartnerSheets(
       }
       if (!products.length && excluded === 0) throw new Error(tabNotes.join(' · ') || '헤더+데이터 없음');
       return {
-        code, label, ok: true, imported, excludedCount: excluded,
-        message: `✓ ${label} [${o.adapter.id}${tabs.length > 1 ? ` ${tabs.length}탭` : ''}] — ${imported}매물 (확정 ${high}·검수 ${low}${excluded ? ` · 출고불가 제외 ${excluded}` : ''})`,
+        code, label, ok: true, imported, excludedCount: excluded, noPriceCount: noPrice,
+        message: `✓ ${label} [${o.adapter.id}${tabs.length > 1 ? ` ${tabs.length}탭` : ''}] — ${imported}매물 (확정 ${high}·검수 ${low}${excluded ? ` · 출고불가 제외 ${excluded}` : ''}${noPrice ? ` · 가격없어 제외 ${noPrice}` : ''})`,
         products,
       };
     } catch (e) {
       return {
-        code, label, ok: false, imported: 0, excludedCount: 0,
+        code, label, ok: false, imported: 0, excludedCount: 0, noPriceCount: 0,
         message: `✗ ${label} — ${String((e as Error).message || e)}`,
         products: [],
       };

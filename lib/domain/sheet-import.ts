@@ -184,7 +184,8 @@ export type ImportResult = {
   products: EntityRecord[];
   mapping: MappingProfile;   // 사용된 매핑(자동이면 이걸 프로파일로 저장)
   total: number; imported: number; skipped: number;
-  excludedCount: number;    // 배차중·운행중·렌트중 등 '이미 나간 차' — 상품 아님(유입 제외)
+  excludedCount: number;    // 시트에 '출고불가'로 적혀 있어 안 올린 대수
+  noPriceCount: number;     // 대여료가 하나도 없어 안 올린 대수 — 값 없는 매물은 게시하지 않는다
   snap: { high: number; medium: number; low: number; none: number };
 };
 
@@ -225,7 +226,33 @@ function shortHash(s: string): string {
  * 보증금: 단기/장기보증·보증금 컬럼 있으면 그 값, 없으면(오토플러스식) 대여료×배율(수입3·국산2, isImportBrand 판정).
  * 원단위 정규화·이상치는 priceList가 read-time으로 처리 → 여기선 원시 추출만.
  */
-export function parsePriceColumns(headers: string[], cells: string[], rec: EntityRecord): Record<string, { rent: number; deposit: number }> | null {
+/**
+ * 공급사 보증금 규칙 — 시트 보증금 칸이 비어 있을 때 무엇으로 채울지.
+ *
+ * 시트에 금액을 안 적고 "규칙"으로 운영하는 공급사가 있다. 손오공 구독차량이 그렇다:
+ *   1년 1개월치 · 2년 2개월치 · 3년 3개월치 …  (= 대여료 × 기간/12)
+ * 실제로 종합시트 장기보증 칸에 그 문장이 적혀 있고, 개별시트에선 아예 빈칸이다.
+ * 검산: 375어8056 인수형 36개월 1,050,000 × 3 = 시트 보증금 3,150,000 ✓
+ *
+ * 규칙은 **공급사마다 다르므로 코드에 박지 않고 partner.deposit_rule 로 둔다.**
+ *   'months_per_year' — 대여료 × round(기간/12)개월치 (최소 1)
+ *   'rent_multiple'   — 대여료 × 수입3·국산2 (오토플러스식)
+ *   미설정            — 채우지 않는다(그 기간은 게시 안 함)
+ */
+export type DepositRule = 'months_per_year' | 'rent_multiple' | '';
+
+function depositByRule(rule: DepositRule, rent: number, period: number, importMult: number): number {
+  if (rule === 'months_per_year') return rent * Math.max(1, Math.round(period / 12));
+  if (rule === 'rent_multiple') return rent * importMult;
+  return 0;
+}
+
+export function parsePriceColumns(
+  headers: string[],
+  cells: string[],
+  rec: EntityRecord,
+  depositRule: DepositRule = '',
+): Record<string, { rent: number; deposit: number }> | null {
   // 보증 컬럼은 **자기 뒤의 기간 컬럼들을 관할한다**(블록 스코프).
   //  실측 레이아웃이 전부 이 모양이다:
   //   아이카/우리캐피탈  단기보증 | 1·6·12개월 | 장기보증 | 24·36·48·60개월
@@ -265,14 +292,18 @@ export function parsePriceColumns(headers: string[], cells: string[], rec: Entit
   //  (실측 375어8056: 종합 12개월 907,000 = 개별시트 반납형 값). 차마다 한쪽만 채우기도 해서
   //  "행에 값이 있는 쪽"을 골라야 한다 — 헤더만 보고 한 블록을 통째로 버리면 161허1397 처럼
   //  반납형에만 값이 있는 차가 가격 없이 올라간다.
-  for (const { key, idx, dep } of cols) {
+  for (const { key, period, idx, dep } of cols) {
     const rent = digits(cells[idx]);
     if (!rent) continue;
     const colDep = dep >= 0 ? depositCell(cells[dep]) : 0;
     if (colDep) { price[key] = { rent, deposit: colDep }; continue; }
     // 보증 컬럼이 시트에 **아예 없으면** 오토플러스식 — 대여료×배율(수입3·국산2)이 그 시트의 규칙이다.
     if (!anyDepCol) { price[key] = { rent, deposit: rent * depMult }; continue; }
-    // 보증 컬럼은 있는데 이 행·이 블록만 비었다 → **숫자를 만들어내지 않는다.**
+    // 보증 컬럼은 있는데 이 행·이 블록만 비었다.
+    //  공급사 규칙이 지정돼 있으면 그 규칙으로 채운다(손오공 구독 = N개월치).
+    const ruled = depositByRule(depositRule, rent, period, depMult);
+    if (ruled) { price[key] = { rent, deposit: ruled }; continue; }
+    // 규칙도 없으면 **숫자를 만들어내지 않는다.**
     //  deposit:0 은 화면에서 무보증을 뜻하므로(product.ts isDepositFree) 0으로도 쓰면 안 된다.
     //  예전엔 여기서 rent×배율로 채워 시트에 없는 보증금을 게시했다
     //  (375어8056: 시트 3,150,000 → 저장 1,814,000). 보증금을 말할 수 없는 기간은 빼고 간다.
@@ -287,6 +318,8 @@ export function parsePriceColumns(headers: string[], cells: string[], rec: Entit
  */
 export function importSheetTable(table: string[][], opts: {
   providerCode: string; entries: MasterEntry[]; profile?: MappingProfile;
+  /** partner.deposit_rule — 시트 보증금 칸이 빌 때 채우는 공급사 규칙 */
+  depositRule?: DepositRule;
 }): ImportResult {
   if (!opts.entries?.length) throw new Error('차종마스터 필수 — importSheetTable');
   const headers = table[0] || [];
@@ -303,6 +336,7 @@ export function importSheetTable(table: string[][], opts: {
   const snap = { high: 0, medium: 0, low: 0, none: 0 };
   let skipped = 0;
   let excludedCount = 0;
+  let noPriceCount = 0;
   for (const cells of dataRows) {
     const rec: EntityRecord = {};
     for (const [field, idx] of Object.entries(mapping)) { const v = String(cells[idx] ?? '').trim(); if (v) rec[field] = v; }
@@ -348,14 +382,19 @@ export function importSheetTable(table: string[][], opts: {
     }
     // 값 정규화 = 차종마스터 스냅 — 항상(entries 필수)
     const res = snapToMaster(rec, opts.entries);
-    if (res) { Object.assign(rec, applySnap(rec, res, { source: 'ingress' })); snap[res.confidence]++; } else snap.none++;
     Object.assign(rec, applyColors(rec));
-    // 가격 — 기간별 대여료 컬럼 파싱(+보증금 컬럼 or 오토플러스식 배율 파생). snap 후 maker 확정 시점.
-    const price = parsePriceColumns(headers, cells, rec);
-    if (price) rec.price = price;
+    // 가격 — 기간별 대여료 컬럼 파싱(+보증금 컬럼 or 공급사 규칙). snap 후 maker 확정 시점.
+    const price = parsePriceColumns(headers, cells, rec, opts.depositRule || '');
+    // **값 없는 매물은 게시하지 않는다.** 대여료가 하나도 없으면 손님에게 보여줄 게 없고,
+    //  가격 없는 카드가 목록에 섞이면 영업이 매번 공급사에 되물어야 한다.
+    //  실측(2026-07-31): 오토플러스 프로모탭 전용 7대는 그 탭에 요율 컬럼 자체가 없다.
+    //  조용히 빼면 "왜 없지"가 되므로 noPriceCount 로 세어 화면에 올린다.
+    if (!price) { noPriceCount++; seen.delete(car); continue; }
+    rec.price = price;
+    if (res) { Object.assign(rec, applySnap(rec, res, { source: 'ingress' })); snap[res.confidence]++; } else snap.none++;
     products.push(rec);
   }
-  return { products, mapping, total: dataRows.length, imported: products.length, skipped, excludedCount, snap };
+  return { products, mapping, total: dataRows.length, imported: products.length, skipped, excludedCount, noPriceCount, snap };
 }
 
 /**
