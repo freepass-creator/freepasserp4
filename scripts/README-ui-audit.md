@@ -67,3 +67,15 @@ node scripts/check-jsx-comments.mjs
 
 JSX 자식 위치의 `//` 주석은 **화면에 글자로 그대로 찍힌다.** 2026-07-31 재고관리에서 실제로
 배포까지 나갔다. `return (` 바로 뒤 주석은 JSX 밖이라 정상이다(그건 오탐).
+
+## NEXT_DIST_DIR 빌드 후 tsconfig.json 을 확인할 것
+
+`NEXT_DIST_DIR=.next-verify npm run build` 는 **tsconfig.json 을 자동으로 고쳐 쓴다** —
+`include` 의 `.next/types/**/*.ts` 를 `.next-verify/types/**/*.ts` 로 바꾸고 `next-env.d.ts` 를 빼버린다.
+그대로 커밋하면 검증용 dist 경로가 리포에 박힌다. 커밋 전에:
+
+```
+git checkout -- tsconfig.json
+```
+
+`.next-verify/` 는 .gitignore 에 있다(2026-07-31 추가). 없던 시절 한 번 push 가 100MB 파일로 막혔다.
