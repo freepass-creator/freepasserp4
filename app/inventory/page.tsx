@@ -158,6 +158,9 @@ export default function Inventory() {
     draftProductType: draftTypeFlt,
     sort,
   });
+  const selectedIsVisible = creating || editing || !!(sel && filtered.some((product) => (
+    String(product.product_code) === sel
+  )));
 
   const copyJonghap = async () => {
     const role = getRole();
@@ -205,7 +208,7 @@ export default function Inventory() {
   const listEl = <InventoryListPanel model={listPanelModel} />;
 
   const editorModel: InventoryEditorModel = {
-    selected: !!sel,
+    selected: selectedIsVisible,
     selectedCode: sel,
     form,
     creating,
@@ -262,7 +265,7 @@ export default function Inventory() {
   // 하단바 = 편집 컨텍스트만(수정·삭제 / 취소·저장). 등록 = 목록 맨 위 행(InventoryCreateRow).
   const dockActions = creating || editing ? (
     <PageActions cancel={{ onClick: cancelEdit, disabled: saving }} save={{ onClick: save, disabled: !dirty || saving, label: saving ? '저장 중…' : undefined }} />
-  ) : sel ? (
+  ) : selectedIsVisible ? (
     <PageActions edit={{ onClick: startEdit }} remove={{ onClick: removeP }} />
   ) : undefined;
   const fltCount = (stFlt !== 'all' ? 1 : 0) + (typeFlt !== 'all' ? 1 : 0);
@@ -276,8 +279,8 @@ export default function Inventory() {
         }).length}
         countSuffix="대"
         listCount={rows === null ? null : filtered.length}
-        list={rows === null ? <FeedRowSkeleton /> : listEl} panes={panes} selected={!!sel} onBack={clearSel}
-        contextTitle={sel ? (creating ? '신규 상품' : (vehicleName(form) || String(form.car_number || '상품'))) : undefined}
+        list={rows === null ? <FeedRowSkeleton /> : listEl} panes={panes} selected={selectedIsVisible} onBack={clearSel}
+        contextTitle={selectedIsVisible ? (creating ? '신규 상품' : (vehicleName(form) || String(form.car_number || '상품'))) : undefined}
         search={{ value: q, onChange: setQ, placeholder: '차번·차명·옵션·공급사·메모…' }}
         actions={dockActions}
         listTools={{
