@@ -37,12 +37,19 @@ async function main() {
   const partners: Rec = { ...(pSnap.val() || {}), ...(p4Snap.val() || {}) };
 
   // 이름 → 코드. 같은 이름이 둘 이상이면 **자동 매핑하지 않는다**(어느 쪽인지 사람이 정해야 한다).
+  //  `alias` 도 같이 본다 — 시트·현장에서 쓰는 통칭("엘씨렌트")이 등기 상호("주식회사 엘씨")와
+  //  다른 경우가 흔하다. 그때마다 스크립트에 하드코딩하지 말고 파트너에 별칭을 등록해 두면
+  //  다음에 같은 표기가 또 들어와도 자동으로 풀린다.
   const byName = new Map<string, string[]>();
+  const put = (raw: string, code: string) => {
+    const n = norm(raw);
+    if (!n) return;
+    const arr = byName.get(n); if (arr) { if (!arr.includes(code)) arr.push(code); } else byName.set(n, [code]);
+  };
   for (const [code, p] of Object.entries(partners)) {
     if (!isObj(p) || dead(p)) continue;
-    const n = norm(S(p.name) || S(p.partner_name));
-    if (!n) continue;
-    const arr = byName.get(n); if (arr) arr.push(code); else byName.set(n, [code]);
+    put(S(p.name) || S(p.partner_name), code);
+    for (const a of S(p.alias).split(/[,/|]/)) put(a, code);
   }
 
   const patch: Rec = {};
@@ -56,12 +63,21 @@ async function main() {
       if (!cur || isCode(cur)) continue;
       seen[cur] = (seen[cur] || 0) + 1;
       const hit = byName.get(norm(cur));
-      if (!hit || hit.length !== 1) {
-        unresolved.push(`${node}/${key} · "${cur}" → ${!hit ? '이름 일치 파트너 없음' : `후보 ${hit.length}곳(${hit.join(', ')}) — 사람이 정해야 함`}`);
+      if (!hit) { unresolved.push(`${node}/${key} · "${cur}" → 이름 일치 파트너 없음`); continue; }
+      // 후보가 여럿이면 **공급사 쪽**을 고른다 — 지금 고치는 필드가 provider_company_code 다.
+      //  같은 회사가 공급사(RP·시트연동)이자 영업 파트너(PT)로 둘 다 등록된 경우가 있고,
+      //  매물의 공급사 자리에는 공급사 코드가 들어가야 한다.
+      const providers = hit.filter((c) => {
+        const p = partners[c];
+        return /provider|공급/.test(S(p?.partner_type)) || !!S(p?.sheet_url) || /^RP/.test(c);
+      });
+      const pick = hit.length === 1 ? hit[0] : providers.length === 1 ? providers[0] : '';
+      if (!pick) {
+        unresolved.push(`${node}/${key} · "${cur}" → 후보 ${hit.length}곳(${hit.join(', ')}) · 공급사 후보 ${providers.length}곳 — 사람이 정해야 함`);
         continue;
       }
-      patch[`${node}/${key}/provider_company_code`] = hit[0];
-      rows.push(`${node}/${key} · "${cur}" → ${hit[0]}`);
+      patch[`${node}/${key}/provider_company_code`] = pick;
+      rows.push(`${node}/${key} · "${cur}" → ${pick}${hit.length > 1 ? ` (후보 ${hit.join('/')} 중 공급사)` : ''}`);
     }
   }
 
