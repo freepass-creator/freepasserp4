@@ -70,20 +70,48 @@ export type UpsertPlan = {
   unchanged: number;
 };
 
-/** 유입 매물 vs 기존 → create / soft-merge patch / unchanged. 키 = product_code(_key). */
+const plateOf = (r: EntityRecord): string =>
+  String(r.car_number || r.car_number_snapshot || '').replace(/\s/g, '');
+
+/**
+ * 유입 매물 vs 기존 → create / soft-merge patch / unchanged.
+ *
+ * 1차 키 = product_code(_key). **2차 키 = 공급사+차량번호.**
+ * 키 규약이 한 가지가 아니다 — v3 이관분은 `02하9002_RP006`(차번_공급사), 시트 유입은
+ * `RP006_02하9002`(공급사_차번)로 만든다. 키만 보면 같은 실물 차가 신규로 하나 더 생기고,
+ * 뒤이어 부재처리가 옛 레코드를 출고불가로 내린다. 계약이 걸려 있으면 그것도 못 해서
+ * **같은 차가 계약중 하나 · 출고가능 하나로 동시에 남는다**(트윈 중복판매).
+ * 실측(2026-07-31): 403대 중 23대가 이 경우 — 오플 6 · 아이언 5 · 우리캐피탈 4 · 손오공 3 · 웰릭스 2 · 스타 2 · 리더스 1.
+ * 차번이 같으면 같은 차다. 기존 키를 그대로 쓰고 patch 로 간다.
+ */
 export function planProductUpsert(incoming: EntityRecord[], existing: EntityRecord[]): UpsertPlan {
   const byKey = new Map<string, EntityRecord>();
+  const byPlate = new Map<string, EntityRecord>();
   for (const r of existing) {
     const k = String(r._key || r.product_code || '');
     if (k) byKey.set(k, r);
+    const plate = plateOf(r);
+    if (!plate || r._deleted) continue;
+    const pk = `${String(r.provider_company_code || '')}|${plate}`;
+    // 같은 차가 여러 레코드면 먼저 만난 쪽(=운영에서 쓰던 것)을 남긴다.
+    if (!byPlate.has(pk)) byPlate.set(pk, r);
   }
   const creates: EntityRecord[] = [];
   const patches: { key: string; patch: EntityRecord }[] = [];
   let unchanged = 0;
   for (const rec of incoming) {
-    const key = String(rec.product_code || rec._key || '');
+    let key = String(rec.product_code || rec._key || '');
     if (!key) continue;
-    const prev = byKey.get(key);
+    let prev = byKey.get(key);
+    if (!prev) {
+      // 키가 안 맞으면 공급사+차번으로 한 번 더 본다.
+      //  임시번호(100신…)는 실물 차번이 아니므로 이 경로를 태우면 안 된다 — 서로 다른 신차가 물린다.
+      const plate = plateOf(rec);
+      if (plate && !rec.is_pending_plate) {
+        const alt = byPlate.get(`${String(rec.provider_company_code || '')}|${plate}`);
+        if (alt) { prev = alt; key = String(alt._key || alt.product_code || key); }
+      }
+    }
     if (!prev) {
       creates.push(rec);
       continue;
@@ -146,6 +174,8 @@ export function planAbsentBlocked(opts: {
   existing: EntityRecord[];
   providerCode: string;
   presentKeys: Set<string>;
+  /** 이번 유입에 있던 차량번호. 키 규약이 달라도 **차번이 같으면 시트에 있는 차다.** */
+  presentPlates?: Set<string>;
 }): AbsentPlan {
   const provider = opts.providerCode;
   let skipped_locked = 0;
@@ -159,6 +189,10 @@ export function planAbsentBlocked(opts: {
     if (pc !== provider && !key.startsWith(`${provider}_`)) continue;
     const pcode = String(r.product_code || '');
     if (opts.presentKeys.has(key) || (pcode && opts.presentKeys.has(pcode))) continue;
+    // 키가 옛 규약(`차번_공급사`)이라 못 맞은 것뿐인데 출고불가로 내리면
+    //  멀쩡한 매물이 죽고, 새 키 레코드와 함께 같은 차가 둘이 된다.
+    const plate = plateOf(r);
+    if (plate && opts.presentPlates?.has(plate)) continue;
     if (String(r.vehicle_status || '') === '출고불가') {
       already_blocked++;
       continue;
@@ -196,10 +230,11 @@ export async function applyAbsentBlocked(
   companyId: string,
   providerCode: string,
   presentKeys: Set<string>,
+  presentPlates?: Set<string>,
 ): Promise<{ absent_blocked: number; skipped_locked: number; already_blocked: number }> {
   const store = getStore();
   const existing = await store.list('product', companyId);
-  const plan = planAbsentBlocked({ existing, providerCode, presentKeys });
+  const plan = planAbsentBlocked({ existing, providerCode, presentKeys, presentPlates });
   let absent_blocked = 0;
   if (plan.patches.length) {
     absent_blocked = await store.bulkPatch('product', companyId, plan.patches);

@@ -184,6 +184,17 @@ export async function fetchAllPartnerSheets(
   return { lines, products, partnerCount: partners.length };
 }
 
+/** 이번 유입 차량번호 — 키 규약이 달라도 차번이 같으면 시트에 있는 차다(부재처리 오작동 방지). */
+function presentPlateSet(products: EntityRecord[]): Set<string> {
+  const s = new Set<string>();
+  for (const p of products) {
+    if (p.is_pending_plate) continue;   // 임시번호는 실물 차번이 아니다
+    const v = String(p.car_number || '').replace(/s/g, '');
+    if (v) s.add(v);
+  }
+  return s;
+}
+
 function presentKeySet(products: EntityRecord[]): Set<string> {
   const s = new Set<string>();
   for (const p of products) {
@@ -271,7 +282,7 @@ export async function commitFetchedPartnerSheets(
       absent.skipped_guard++;
       absent.notes.push(`${line.label}: 부재처리 스킵(${gate.reason === 'collapse' ? '급감가드' : '유입0'})`);
     } else {
-      const a = await applyAbsentBlocked(companyId, line.code, presentKeySet(line.products));
+      const a = await applyAbsentBlocked(companyId, line.code, presentKeySet(line.products), presentPlateSet(line.products));
       absent.blocked += a.absent_blocked;
       absent.skipped_locked += a.skipped_locked;
       if (a.absent_blocked) {
