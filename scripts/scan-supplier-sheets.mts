@@ -88,14 +88,30 @@ function parseCsv(text: string): string[][] {
   return rows;
 }
 
-/** 표 어디에 있든 실번호판을 전부 긁는다 — 헤더 위치·컬럼 순서에 의존하지 않는다. */
-function platesIn(table: string[][]): Set<string> {
-  const out = new Set<string>();
-  for (const row of table) for (const cell of row) {
-    const p = normPlate(cell);
-    if (PLATE.test(p)) out.add(p);
+/**
+ * 이미 나간 차 — 유입에서 걸러지는 상태(sheet-import.isSheetRentedOut 과 같은 규칙).
+ * 이걸 안 보면 "시트에 1,875대"처럼 보이지만 실제로는 대부분 배차중이라 상품이 아니다.
+ */
+const RENTED_OUT = /배차중|운행중|렌트중|대여중|판매완료|반납|폐차|말소/;
+
+/**
+ * 표 어디에 있든 실번호판을 긁되, **그 행이 이미 나간 차면 뺀다.**
+ * 헤더 위치·컬럼 순서에 의존하지 않으려고 행 전체에서 상태어를 찾는다
+ * (공급사마다 상태 컬럼 위치가 다르고, 아예 헤더가 상태값인 시트도 있다).
+ */
+function platesIn(table: string[][]): { live: Set<string>; out: Set<string> } {
+  const live = new Set<string>(); const out = new Set<string>();
+  for (const row of table) {
+    const rented = row.some((c) => RENTED_OUT.test(S(c)));
+    for (const cell of row) {
+      const p = normPlate(cell);
+      if (!PLATE.test(p)) continue;
+      (rented ? out : live).add(p);
+    }
   }
-  return out;
+  // 같은 차가 두 행에 있으면(예: 이력행) 살아있는 쪽을 우선한다.
+  for (const p of live) out.delete(p);
+  return { live, out };
 }
 
 async function main() {
@@ -117,8 +133,9 @@ async function main() {
     .sort((a, b) => a.code.localeCompare(b.code));
 
   console.log(`시트 연결 공급사 ${targets.length}곳 · v4 살아있는 매물 ${v4Plates.size}대\n`);
-  const csv: string[] = ['공급사코드,공급사명,탭이름,gid,차량수,v4에없음'];
-  let grand = new Set<string>(); const perSupplier: string[] = [];
+  const csv: string[] = ['공급사코드,공급사명,탭이름,gid,판매가능,이미나감,v4에없음'];
+  const grand = new Set<string>();   // 판매 가능(상품이 되는 차)
+  const goneAll = new Set<string>(); // 이미 나간 차 — 상품 아님. 몇 대가 걸러지는지 보이려고 센다.
 
   for (const t of targets) {
     const id = (t.url.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/) || [])[1];
@@ -129,23 +146,26 @@ async function main() {
     const all = new Set<string>();
     const lines: string[] = [];
     for (const tab of tabs) {
-      let plates = new Set<string>();
+      let live = new Set<string>(); let gone = new Set<string>();
       try {
         const r = await fetch(`https://docs.google.com/spreadsheets/d/${id}/export?format=csv&gid=${tab.gid}`, { redirect: 'follow' });
-        if (r.ok) plates = platesIn(parseCsv(await r.text()));
+        if (r.ok) { const p = platesIn(parseCsv(await r.text())); live = p.live; gone = p.out; }
       } catch { /* 탭 하나 실패가 전체를 막지 않는다 */ }
-      const notIn = [...plates].filter((p) => !v4Plates.has(p)).length;
-      plates.forEach((p) => { all.add(p); grand.add(p); });
-      if (plates.size) lines.push(`    ${String(plates.size).padStart(5)}대  v4없음 ${String(notIn).padStart(5)}  「${tab.title}」`);
-      csv.push([t.code, t.name, tab.title.replace(/,/g, ' '), tab.gid, plates.size, notIn].join(','));
+      const notIn = [...live].filter((p) => !v4Plates.has(p)).length;
+      live.forEach((p) => { all.add(p); grand.add(p); });
+      gone.forEach((p) => goneAll.add(p));
+      if (live.size || gone.size) {
+        lines.push(`    판매가능 ${String(live.size).padStart(5)}  이미나감 ${String(gone.size).padStart(5)}  v4없음 ${String(notIn).padStart(5)}  「${tab.title}」`);
+      }
+      csv.push([t.code, t.name, tab.title.replace(/,/g, ' '), tab.gid, live.size, gone.size, notIn].join(','));
     }
     const notInAll = [...all].filter((p) => !v4Plates.has(p)).length;
-    console.log(`${t.code} ${t.name} — 탭 ${tabs.length}개 · 차량 ${all.size}대 · v4에 없음 ${notInAll}대${all.size === 0 ? '  ⚠ 전 탭에서 차번 0' : ''}`);
+    console.log(`${t.code} ${t.name} — 탭 ${tabs.length}개 · 판매가능 ${all.size}대 · v4에 없음 ${notInAll}대${all.size === 0 ? '  ⚠ 전 탭에서 판매가능 0' : ''}`);
     lines.forEach((l) => console.log(l));
-    perSupplier.push(`${t.code} ${all.size}`);
   }
 
-  console.log(`\n전체 고유 차량 ${grand.size}대 · v4에 없는 것 ${[...grand].filter((p) => !v4Plates.has(p)).length}대`);
+  const newCars = [...grand].filter((p) => !v4Plates.has(p)).length;
+  console.log(`\n판매가능 ${grand.size}대 · 그중 v4에 없는 것 ${newCars}대 · 이미 나간 차 ${goneAll.size}대(상품 아님)`);
   if (CSV_OUT) { writeFileSync(CSV_OUT, csv.join('\n'), 'utf8'); console.log(`탭별 상세 → ${CSV_OUT}`); }
   console.log('\n※ 읽기만 했다. 적재는 diff 확인 후.');
   process.exit(0);
