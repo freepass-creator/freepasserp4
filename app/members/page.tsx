@@ -181,10 +181,25 @@ export default function Members() {
       let mainForm: EntityRecord = form;
       if (tab === 'partner') {
         const code = String(form.partner_code || form._key || '').trim();
-        const moved = await writePartnerPrivate(code, { fee_rate: form.fee_rate });
+        // 사업자번호는 숫자만 저장한다 — 가입 매칭(matchBizNo)이 숫자 기준으로 찾으므로
+        //  '123-45-67890' 로 저장하면 입력해도 영영 매칭되지 않는다.
+        const biz = String(form.business_number || '').replace(/\D/g, '');
+        if (biz) {
+          mainForm = { ...form, business_number: biz };
+          // 같은 번호를 가진 다른 파트너가 있으면 알린다. **막지는 않는다** — 지점·역할분리(공급사/영업채널)로
+          //  정당하게 겹칠 수 있다. 다만 모르고 두 벌 만드는 걸 막아야 한다(실제로 11쌍이 그렇게 생겼다).
+          const dup = (rows || []).filter((r) => String(r._key) !== code
+            && String(r.business_number || '').replace(/\D/g, '') === biz
+            && r._deleted !== true && String(r.status || '') !== 'deleted');
+          if (dup.length) {
+            toast(`사업자번호 ${biz} 를 쓰는 파트너가 이미 있습니다 — ${dup.map((d) => String(d.name || d._key)).join(', ')}. 역할이 다르면 그대로 두고, 같은 역할이면 한쪽으로 합치세요.`, 'info');
+          }
+        }
+        const moved = await writePartnerPrivate(code, { fee_rate: (mainForm as EntityRecord).fee_rate });
         // 이관 성공 시 본노드(v4)에서 fee_rate를 null로 제거 — 단순 제외(delete)는 merge라 옛값이 잔존해
         //  base/private divergence + 마이그레이션 revert를 유발. null로 명시 삭제. (resolveRates·마이그레이션 모두 private-first)
-        if (moved) mainForm = { ...form, fee_rate: null };
+        //  ※ form 이 아니라 mainForm 을 이어받아야 한다 — form 으로 되돌리면 위에서 정규화한 사업자번호가 날아간다.
+        if (moved) mainForm = { ...mainForm, fee_rate: null };
       }
       await getStore().save(tab, co, [mainForm]); await getStore().update(tab, co, String(form[id]), mainForm);
       // 신원 게이트 필드(role/company_code/agent_channel_code)는 세션(initAuth)·RLS·approveUser 가 읽는 "최상위" users/{uid} 에 직접 반영.
@@ -274,7 +289,7 @@ export default function Members() {
   const fieldsIn = (keys: string[]) => keys.map((k) => byKey[k]).filter(Boolean) as Field[];
   const basicFields = tab === 'user'
     ? fieldsIn(creating ? ['uid', 'name', 'user_code', 'company_code', 'company_name'] : ['name', 'user_code', 'company_code', 'company_name'])
-    : fieldsIn(['name', 'partner_type', 'contact']);
+    : fieldsIn(['name', 'partner_type', 'business_number', 'contact']);
   const accessFields = tab === 'user'
     ? fieldsIn(['role', 'is_active'])
     : fieldsIn(['fee_rate']);

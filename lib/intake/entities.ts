@@ -351,6 +351,11 @@ export const ENTITIES: Record<string, Entity> = {
       { key: 'name', label: '상호/이름', type: 'text', required: true, manual: true, note: '정식 상호(풀네임)' },
       { key: 'alias', label: '별칭', type: 'text', manual: true, note: 'UI 표기. 비우면 주식회사·렌트카·렌터카·모빌리티 자동 제거' },
       { key: 'partner_type', label: '유형', type: 'select', options: ['공급사', '영업채널'], manual: true },
+      // 가입 매칭의 열쇠 — 신규 회원이 이 번호로 소속을 찾는다(auth.ts resolveIdentity · login-helpers matchBizNo).
+      //  ⚠ 필드명은 `business_number` 다. 회원(users)은 `business_no` 를 쓰지만 파트너는 다르고,
+      //    매칭 로직도 파트너 쪽은 business_number 를 본다. 여기서 이름을 맞추지 않으면
+      //    입력해도 매칭이 안 되어 신규 공급사가 영원히 SP999(임시소속)에 머문다(QA AUTH-5).
+      { key: 'business_number', label: '사업자등록번호', type: 'text', manual: true, note: '가입 시 소속 매칭 기준. 숫자만 저장' },
       { key: 'fee_rate', label: '공급사 수수료율(0~1)', type: 'number', manual: true, range: [0, 1], note: 'R1 공급사→프리패스: 정산 fee = 월대여료×이 값. 미설정 시 기본 0.1' },
       { key: 'contact', label: '담당/연락처', type: 'text', manual: true },
       // ── 쉽게 올리고: 렌트사 자체 구글시트 연동(ERP 안 써도 자기 시트만 관리하면 매물화) ──
