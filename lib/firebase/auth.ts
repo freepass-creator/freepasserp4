@@ -22,7 +22,7 @@ async function writeIdentityAudit(uid: string, action: string, before: Record<st
   if (!db) return;
   try {
     const entry = buildAuditEntry('user', getCompanyId(), uid, action, (before as EntityRecord | null), (after as EntityRecord | null), currentActor(), { summary });
-    if (entry) await update(ref(db, `audit_logs/${String(entry._key)}`), entry as Record<string, unknown>);
+    if (entry) await update(ref(db, `v4/audit_logs/${String(entry._key)}`), entry as Record<string, unknown>);
   } catch { /* best-effort */ }
 }
 import { writeUserPrivate } from '../domain/private-fields';

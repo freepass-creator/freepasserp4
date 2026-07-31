@@ -107,7 +107,7 @@ check('adapter queries provider rooms by company', adapter.includes("orderByChil
 check('adapter queries agent rooms by uid', adapter.includes("orderByChild('agent_uid'), equalTo(auth.uid)"), true);
 check('adapter queries agent rooms by channel', adapter.includes("orderByChild('agent_channel_code'), equalTo(sess.agent_channel_code)"), true);
 check('audit writes bind actor uid to auth uid', rules.audit_logs.$auto['.write'].includes("newData.child('actor_uid').val() === auth.uid"), true);
-check('store audit writes use the deployed root audit path', adapter.includes('`audit_logs/${id}`') && !adapter.includes('`${OVERLAY}/audit_logs/${id}`'), true);
-check('auth audit writes use the deployed root audit path', firebaseAuth.includes('`audit_logs/${String(entry._key)}`'), true);
+check('store audit writes use the v4 overlay path', adapter.includes('`${OVERLAY}/audit_logs/${id}`'), true);
+check('auth audit writes use the v4 overlay path', firebaseAuth.includes('`v4/audit_logs/${String(entry._key)}`'), true);
 
 console.log(`chat rules simulation: ${passed}/${passed} PASS`);

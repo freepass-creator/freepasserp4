@@ -2,6 +2,7 @@
 import { useEffect, useState, type ReactNode, type CSSProperties } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { useIsMobile } from '@/lib/use-mobile';
+import { useKeyboardOpen } from '@/lib/use-keyboard';
 import { haptic } from '@/lib/haptics';
 import { useAppBar } from '@/lib/appbar';
 import { useHideTabBar } from '@/lib/tabbar';
@@ -53,6 +54,10 @@ export function WorkPage({
   attentionCount?: number | null;
 }) {
   const mobile = useIsMobile();
+  // 키보드가 올라오면 하단독을 접는다 — 입력칸 바로 위에 독이 겹쳐 앉는 걸 막는다.
+  //  focus 가 아니라 시각 뷰포트로 재는 이유는 use-keyboard.ts 참고(뒤로가기로 키보드만 내리면
+  //  입력칸은 계속 focus 라 독이 안 돌아온다). 호출부의 hideDock 과 OR 로 합친다.
+  const kb = useKeyboardOpen();
   useHideTabBar(mobile && selected);
   const [innerSwap, setInnerSwap] = useState(panes[0]?.key || '');
   const paneKeySig = panes.map((p) => p.key).join('|');
@@ -201,7 +206,7 @@ export function WorkPage({
             boxShadow: SH.dock,
             paddingBottom: 'env(safe-area-inset-bottom)',
             flex: '0 0 auto',
-            ...(hideDock ? { display: 'none' } : null),
+            ...(hideDock || kb.open ? { display: 'none' } : null),
           }}>
             <BottomNav
               embedded
@@ -254,6 +259,7 @@ export function WorkPage({
           boxShadow: SH.dock,
           paddingBottom: 'env(safe-area-inset-bottom)',
           flex: '0 0 auto',
+          ...(hideDock || kb.open ? { display: 'none' } : null),
         }}>
           <BottomNav embedded backKind="list" backShowLabel onBack={onBack} actions={actions} />
         </div>

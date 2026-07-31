@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState, useCallback } from 'react';
 import { useIsMobile } from '@/lib/use-mobile';
+import { useKeyboardOpen } from '@/lib/use-keyboard';
 import { haptic } from '@/lib/haptics';
 import { C, CountPill, FS, FW, SH } from '@/components/ui';
 import { getRole, type Role } from '@/lib/domain/deal';
@@ -33,6 +34,7 @@ export default function AppTabBar() {
   const path = usePathname();
   const hidden = useTabBarHidden();
   const session = useSession();
+  const kb = useKeyboardOpen();
   // null = 역할 미확정(첫 페인트). agent 가정으로 탭 수 점프 금지.
   const [role, setRole] = useState<Role | null>(null);
   const [badges, setBadges] = useState<MenuBadgeMap>({});
@@ -82,8 +84,14 @@ export default function AppTabBar() {
   }, [tabRole, refreshBadges]);
 
   const tabs = tabRole ? appTabsFor(tabRole) : [];
+  // 키보드가 올라오면 하단탭을 접는다. 키보드가 탭바를 밀어 올려 입력칸 바로 위에 겹쳐 앉고,
+  //  오타 한 번에 다른 화면으로 튄다. 접으면 --fp-tabbar-h 도 0이 돼 본문이 그 자리를 되찾는다.
+  //  ⚠ **focus 가 아니라 시각 뷰포트 축소로 잰다**(use-keyboard.ts) — 뒤로가기로 키보드만 내려도
+  //    입력칸은 계속 focus 상태라, focus 기준이면 탭바가 영영 안 돌아와 화면을 빠져나갈 수 없다.
+  //    visualViewport 미지원 환경은 kb.open 이 항상 false → 종전 동작 그대로.
   const show = !!tabRole
     && mobile
+    && !kb.open
     && isTabRoute(path, tabRole)
     && !hidden
     && path !== '/login'

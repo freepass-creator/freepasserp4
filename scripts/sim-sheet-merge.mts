@@ -77,7 +77,7 @@ check('가드: 급감 스킵', shouldReconcileAbsent(3, 20).ok === false);
 check('가드: 정상 통과', shouldReconcileAbsent(18, 20).ok === true);
 
 const ad = resolveAdapter('generic');
-const table = [['안내'], ['차량번호', '제조사'], ['1가1', '현대']];
+const table = [['안내'], ['차량번호', '제조사', '상태'], ['1가1', '현대', '사용']];
 const prep = ad.prepareTable(table, { headerRow: 1 });
 check('header_row 스킵', prep[0][0] === '차량번호' && prep.length === 2);
 
