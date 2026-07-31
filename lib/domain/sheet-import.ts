@@ -59,26 +59,44 @@ const norm = (s: unknown) => String(s ?? '').trim().toLowerCase().replace(/\s+/g
  *  · 판매중·할인판매·가능·빈값 → 출고가능 (오토플러스 등)
  *  · 이미 규격값이면 그대로
  */
+/**
+ * 시트 상태 → 상품상태(VEHICLE_STATES 6종). **운영 규칙 2026-07-31 확정.**
+ *
+ * 큰 원칙: **출고불가가 아니면 다 올린다.** 애매하면 출고협의로 올려 두고 영업자가 확인한다.
+ * 예전엔 배차중·운행중을 유입에서 아예 걸렀는데(isSheetRentedOut), 그건 틀렸다 —
+ * **배차중 = 단기·월렌트로 잠깐 나가 있는 차**라서 반납 시점 협의가 가능한 상품이다.
+ * 실측(16개 공급사 시트)에서 배차중이 1,832대로 최다였고, 그걸 버리면 카탈로그의 대부분이 사라졌다.
+ *
+ * 판정 순서(위가 우선):
+ *   1. 6종 정확 일치 → 그대로
+ *   2. 이미 나간 차(출고완·판매완료·반납·폐차·말소) → 출고불가
+ *   3. '불가' 포함 → 출고불가
+ *   4. 지금 팔 수 있다는 표현(판매중·할인판매) → 출고가능   ← 오토플러스 87대
+ *   5. 상품화 → 상품화중                                  ← "상품화 준비중"
+ *   6. 계약 → 계약중
+ *   7. 나머지 전부 → 출고협의  (배차중·배차대기·보류·재렌트·"8월3일이후출고가능" 등)
+ */
 export function canonSheetVehicleStatus(raw: unknown): string {
   const s = String(raw ?? '').trim();
-  if (!s) return '출고가능';
+  if (!s) return '출고협의'; // 상태칸이 없는 시트 — 함부로 출고가능으로 보지 않는다
   if (s === '즉시출고' || s === '출고가능' || s === '상품화중' || s === '출고협의' || s === '계약중' || s === '출고불가') return s;
+  // '출고완료'·'출고완' 은 '불가' 가 없지만 이미 나간 차다. '출고가능' 보다 먼저 걸러야 한다.
+  if (/출고완|판매완료|반납|폐차|말소|sold/i.test(s)) return '출고불가';
+  if (/불가/.test(s)) return '출고불가';
+  if (/판매중|할인판매|promo/i.test(s)) return '출고가능';
+  if (/상품화/.test(s)) return '상품화중';
   if (/^계약/.test(s)) return '계약중';
-  // 배차대기·입고대기·재고확인 = 곧 나올 수 있음/확인 필요(협의) → 출고협의. (이안카 등 "재고확인" 포함)
-  if (/배차대기|입고대기|재고확인/.test(s)) return '출고협의';
-  if (/보류|불가|완료|마감|종료|sold|hold/i.test(s)) return '출고불가';
-  if (/판매중|할인판매|즉시|가능|판매|promo|할인/i.test(s)) return '출고가능';
-  // 기본값 = 출고협의. 출고불가/명확한 판매가능(위)/계약중이 아닌 '모르는 값'은 함부로
-  // 출고가능으로 가정하지 않고 협의로 둔다(사용자 규칙 2026-07). 재고확인 등 미지 상태 포함.
   return '출고협의';
 }
 
 /**
- * 시트 원문 상태가 '이미 나간 차'(배차중·운행중·렌트중·대여중·판매완료·반납·폐차·말소) 여부.
- * → 상품이 아니므로 유입에서 skip. (배차대기는 출고협의로 상품에 포함 — 이 함수 대상 아님)
+ * @deprecated 2026-07-31 — 유입에서 행을 버리지 않는다. 상태로만 표현한다.
+ * 배차중을 '나간 차'로 보고 skip 하던 시절의 함수. 배차중은 단기·월렌트로 잠깐 나간 것이라
+ * 출고협의 상품이고, 진짜 끝난 차(출고완료·폐차 등)는 canonSheetVehicleStatus 가 출고불가로 만든다.
+ * 출고불가는 손님 화면에서만 숨고 재고관리에는 남으므로, 버리는 것보다 남기는 편이 추적이 된다.
  */
 export function isSheetRentedOut(raw: unknown): boolean {
-  return /배차중|운행중|렌트중|대여중|판매완료|반납|폐차|말소/.test(String(raw ?? ''));
+  return /판매완료|폐차|말소/.test(String(raw ?? ''));
 }
 
 /** 헤더 자동매핑 — 정확일치 → 정규화일치 → 부분일치(별칭 긴 키 우선). 반환 = {표준필드: 컬럼인덱스}(첫 매칭 우선). */
@@ -225,8 +243,9 @@ export function importSheetTable(table: string[][], opts: {
     const rec: EntityRecord = {};
     for (const [field, idx] of Object.entries(mapping)) { const v = String(cells[idx] ?? '').trim(); if (v) rec[field] = v; }
     if (rec.options) rec.options = normalizeProductOptionsText(rec.options);
-    // 이미 나간 차(배차중·운행중·렌트중·판매완료·반납·폐차) = 상품 아님 → 유입 제외.
-    // (배차대기는 canonSheetVehicleStatus에서 출고협의로 상품에 포함 — 여기 대상 아님)
+    // 행을 버리지 않는다 — 출고불가가 아니면 다 올리고, 상태로만 구분한다(2026-07-31 규칙).
+    //  배차중은 단기·월렌트로 잠깐 나간 차라 출고협의 상품이다. 예전엔 여기서 통째로 버려서
+    //  아이카 1,832대가 통째로 사라졌다. 진짜 끝난 차(폐차·말소·판매완료)만 남긴 채 제외한다.
     if (isSheetRentedOut(rec.vehicle_status)) { rentedExcluded++; continue; }
     let car = String(rec.car_number || '').replace(/\s/g, '');
     // 안내문구·배너가 차량번호 칸에 들어온 경우 버림(오토플러스 ★★★프로모션… 등)

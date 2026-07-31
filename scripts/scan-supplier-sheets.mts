@@ -88,28 +88,49 @@ function parseCsv(text: string): string[][] {
   return rows;
 }
 
-/**
- * 이미 나간 차 — 유입에서 걸러지는 상태(sheet-import.isSheetRentedOut 과 같은 규칙).
- * 이걸 안 보면 "시트에 1,875대"처럼 보이지만 실제로는 대부분 배차중이라 상품이 아니다.
- */
-const RENTED_OUT = /배차중|운행중|렌트중|대여중|판매완료|반납|폐차|말소/;
+/** 상품상태 6종(VEHICLE_STATES). 시트값이 여기 정확히 맞으면 그대로 쓴다. */
+const CANON = ['즉시출고', '출고가능', '출고협의', '상품화중', '계약중', '출고불가'];
 
 /**
- * 표 어디에 있든 실번호판을 긁되, **그 행이 이미 나간 차면 뺀다.**
+ * 시트 상태 → 상품상태. **운영 규칙(2026-07-31 확정)**
+ *   · 6종에 매칭되면 그대로
+ *   · '불가'가 들어 있으면 출고불가
+ *   · 나머지는 전부 **출고협의** — 배차중·운행중도 올린다(반납 예정이면 협의 가능하므로 노출 우선)
+ * 예전 규칙은 배차중·운행중을 유입에서 아예 걸렀다(sheet-import.isSheetRentedOut). 그건 폐기.
+ */
+function statusOf(raw: string): string {
+  const s = S(raw);
+  if (!s) return '출고협의';
+  const hit = CANON.find((c) => s === c);
+  if (hit) return hit;
+  if (/출고완|판매완료|반납|폐차|말소|sold/i.test(s)) return '출고불가';
+  if (/불가/.test(s)) return '출고불가';
+  if (/판매중|할인판매|promo/i.test(s)) return '출고가능';
+  if (/상품화/.test(s)) return '상품화중';
+  if (/^계약/.test(s)) return '계약중';
+  return '출고협의';
+}
+
+/** 상태어로 보이는 칸 — 행에서 상태를 찾을 때 쓴다(공급사마다 컬럼 위치가 다르다). */
+const STATUS_HINT = /출고|배차|입고|재고|계약|상품화|판매|운행|렌트|대여|반납|폐차|말소|보류|마감|종료/;
+
+/**
+ * 표 어디에 있든 실번호판을 긁고, 그 행의 상태를 판정한다.
  * 헤더 위치·컬럼 순서에 의존하지 않으려고 행 전체에서 상태어를 찾는다
  * (공급사마다 상태 컬럼 위치가 다르고, 아예 헤더가 상태값인 시트도 있다).
  */
 function platesIn(table: string[][]): { live: Set<string>; out: Set<string> } {
   const live = new Set<string>(); const out = new Set<string>();
   for (const row of table) {
-    const rented = row.some((c) => RENTED_OUT.test(S(c)));
+    const raw = row.map((c) => S(c)).find((c) => STATUS_HINT.test(c)) || '';
+    const st = statusOf(raw);
     for (const cell of row) {
       const p = normPlate(cell);
       if (!PLATE.test(p)) continue;
-      (rented ? out : live).add(p);
+      (st === '출고불가' ? out : live).add(p);
     }
   }
-  // 같은 차가 두 행에 있으면(예: 이력행) 살아있는 쪽을 우선한다.
+  // 같은 차가 두 행에 있으면(예: 이력행) 올라가는 쪽을 우선한다.
   for (const p of live) out.delete(p);
   return { live, out };
 }
@@ -133,7 +154,7 @@ async function main() {
     .sort((a, b) => a.code.localeCompare(b.code));
 
   console.log(`시트 연결 공급사 ${targets.length}곳 · v4 살아있는 매물 ${v4Plates.size}대\n`);
-  const csv: string[] = ['공급사코드,공급사명,탭이름,gid,판매가능,이미나감,v4에없음'];
+  const csv: string[] = ['공급사코드,공급사명,탭이름,gid,올림,출고불가,v4에없음'];
   const grand = new Set<string>();   // 판매 가능(상품이 되는 차)
   const goneAll = new Set<string>(); // 이미 나간 차 — 상품 아님. 몇 대가 걸러지는지 보이려고 센다.
 
@@ -155,12 +176,12 @@ async function main() {
       live.forEach((p) => { all.add(p); grand.add(p); });
       gone.forEach((p) => goneAll.add(p));
       if (live.size || gone.size) {
-        lines.push(`    판매가능 ${String(live.size).padStart(5)}  이미나감 ${String(gone.size).padStart(5)}  v4없음 ${String(notIn).padStart(5)}  「${tab.title}」`);
+        lines.push(`    올림 ${String(live.size).padStart(5)}  출고불가 ${String(gone.size).padStart(5)}  v4없음 ${String(notIn).padStart(5)}  「${tab.title}」`);
       }
       csv.push([t.code, t.name, tab.title.replace(/,/g, ' '), tab.gid, live.size, gone.size, notIn].join(','));
     }
     const notInAll = [...all].filter((p) => !v4Plates.has(p)).length;
-    console.log(`${t.code} ${t.name} — 탭 ${tabs.length}개 · 판매가능 ${all.size}대 · v4에 없음 ${notInAll}대${all.size === 0 ? '  ⚠ 전 탭에서 판매가능 0' : ''}`);
+    console.log(`${t.code} ${t.name} — 탭 ${tabs.length}개 · 올림 ${all.size}대 · v4에 없음 ${notInAll}대${all.size === 0 ? '  ⚠ 전 탭에서 차번 0' : ''}`);
     lines.forEach((l) => console.log(l));
   }
 
