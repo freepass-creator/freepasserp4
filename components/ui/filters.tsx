@@ -202,14 +202,18 @@ export function FilterChips<T extends string>({
   value,
   onChange,
   options,
+  clearKey,
 }: {
   value: T;
   onChange: (value: T) => void;
   options: ChipOpt<T>[];
+  /** 재클릭 시 돌아갈 키. 미지정이면 옵션에 `all`이 있을 때 `all`. 없으면 재클릭 유지(설정 칩 등). */
+  clearKey?: T;
 }) {
   const mobile = useIsMobile();
   const height = ctrlChipH(mobile);
   const fontSize = ctrlFs(mobile);
+  const clear = clearKey ?? (options.some((o) => o.key === ('all' as T)) ? ('all' as T) : undefined);
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: mobile ? 8 : 6, marginTop: 0 }}>
       {options.map((option) => {
@@ -219,6 +223,11 @@ export function FilterChips<T extends string>({
             key={option.key}
             onClick={() => {
               haptic.select();
+              // 선택 칩 재클릭 = 해제(전체). 「전체」 재클릭은 이미 해제 상태라 no-op.
+              if (active && clear !== undefined) {
+                if (option.key !== clear) onChange(clear);
+                return;
+              }
               onChange(option.key);
             }}
             aria-pressed={active}

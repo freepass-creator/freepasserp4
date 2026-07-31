@@ -20,11 +20,41 @@ function sliceFromHeader(table: string[][], headerRow = 0): string[][] {
   return table.slice(i);
 }
 
+/**
+ * 그 행이 진짜 헤더인가.
+ *
+ * ⚠ "차량번호를 **포함**하는 행"으로 보면 안 된다 — 오토플러스 시트는 진짜 헤더(7행) 위에
+ *   `★★★ 차량번호 클릭 후 차량이미지 다운로드 가능합니다. ★★★` 배너(5행)가 있어서
+ *   그 배너가 헤더로 잡히고 본탭 94대가 통째로 유실됐다.
+ * 판정: 칸 하나가 **차량번호/차번 그 자체**여야 하고, 그 행에 라벨이 3칸 이상 있어야 한다
+ *   (배너는 보통 한 칸짜리 문장이다). 두 조건을 같이 걸어 '차량 번호'(공백)·'차번호' 변형도 살린다.
+ */
+function looksLikeHeader(row: string[] | undefined): boolean {
+  const cells = (row || []).map((c) => String(c ?? '').trim());
+  const labeled = cells.filter(Boolean).length;
+  if (labeled < 3) return false;
+  return cells.some((c) => /^(차량번호|차번|차번호|등록번호)$/.test(c.replace(/\s/g, '')));
+}
+
 function findPlateHeaderRow(table: string[][]): number {
   for (let i = 0; i < Math.min(25, table.length); i++) {
-    if ((table[i] || []).some((c) => /차량번호|차번/.test(String(c)))) return i;
+    if (looksLikeHeader(table[i])) return i;
   }
   return 0;
+}
+
+/**
+ * 지정 헤더행을 쓰되, 거기에 차량번호가 없으면 **찾아서 쓴다.**
+ *
+ * 실측(2026-07-31): 손오공·웰릭스 시트는 1행이 안내배너("구독 보증금 : 개월수 X 대여료"),
+ * 2행이 빈 줄, **3행이 진짜 헤더**다. header_row 가 0이라 1행을 헤더로 읽어 매핑이 전멸했고
+ * 손오공 37대·웰릭스 20대가 통째로 0대가 됐다. erp3 는 '차량번호'가 있는 행을 찾아 쓴다
+ * (external-sheet.js syncFromSheet). 공급사가 상단에 안내문을 한 줄 더 넣어도 안 깨져야 한다.
+ */
+function resolveHeaderRow(table: string[][], headerRow?: number): number {
+  const want = Math.max(0, headerRow ?? 0);
+  if (looksLikeHeader(table[want])) return want;
+  return findPlateHeaderRow(table);
 }
 
 /** 무라벨 데이터 col11~14 → 개월 헤더 */
@@ -49,7 +79,7 @@ export const SHEET_ADAPTERS: Record<SheetAdapterId, SheetAdapter> = {
   generic: {
     id: 'generic',
     label: '일반(헤더 학습)',
-    prepareTable: (table, opts) => sliceFromHeader(table, opts?.headerRow ?? 0),
+    prepareTable: (table, opts) => sliceFromHeader(table, resolveHeaderRow(table, opts?.headerRow)),
   },
   /**
    * 오토플러스식 — 판매차량리스트: 헤더 자동탐지(또는 headerRow>0).
@@ -60,9 +90,7 @@ export const SHEET_ADAPTERS: Record<SheetAdapterId, SheetAdapter> = {
     id: 'autoplus',
     label: '오토플러스식',
     prepareTable: (table, opts) => {
-      const headerRow = (opts?.headerRow && opts.headerRow > 0)
-        ? opts.headerRow
-        : findPlateHeaderRow(table);
+      const headerRow = resolveHeaderRow(table, opts?.headerRow);
       const sliced = sliceFromHeader(table, headerRow);
       if (!sliced.length) return sliced;
       let body = sliced.slice(1);

@@ -21,7 +21,8 @@ export const MEMBER_ACTIVE_OPTIONS: { key: MemberActiveFilter; label: string }[]
 
 export const MEMBER_ROLE_OPTIONS = [
   { key: 'all', label: '전체' },
-  ...ROLES.map((role) => ({ key: role, label: ROLE_LABEL_RAW[role] })),
+  // agent_manager(레거시)는 필터에서 숨김 — 목록「전체」에서 골라 agent_admin으로 재설정.
+  ...ROLES.filter((role) => role !== 'agent_manager').map((role) => ({ key: role, label: ROLE_LABEL_RAW[role] })),
 ];
 
 export const MEMBER_PARTNER_TYPE_OPTIONS = [

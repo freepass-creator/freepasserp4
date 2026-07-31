@@ -336,7 +336,11 @@ export default function Members() {
   ) : null;
 
   const roleSelectOptions = tab === 'user'
-    ? { role: ROLES.map((r) => ({ value: r, label: ROLE_LABEL_RAW[r] })) }
+    ? {
+        role: ROLES
+          .filter((r) => r !== 'agent_manager' || roleKey === 'agent_manager')
+          .map((r) => ({ value: r, label: ROLE_LABEL_RAW[r] })),
+      }
     : undefined;
 
   const basicRead = tab === 'user' ? (
