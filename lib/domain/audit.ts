@@ -91,6 +91,37 @@ const META_SKIP = new Set([
   '_raw_vehicle', '_snap_history', '_key',
 ]);
 
+/**
+ * 감사 로그에 **값을 남기면 안 되는 필드.**
+ *
+ * 감사 로그의 목적은 "무엇이 언제 누구에 의해 바뀌었나"지 "값이 뭐였나"가 아니다.
+ * 계약 서명 제출(sign.ts signSubmissionPatch)이 주민등록번호·면허번호·주소를 한꺼번에
+ * 계약에 쓰는데, 그 update 가 감사 로그로 흘러 before/after JSON 에 **평문으로 영구 적재**됐다.
+ * 계약 본문은 파기 요구에 대응할 수 있어도 감사 로그엔 만료·마스킹이 없어 유출면만 하나 더 늘었다.
+ * 값 대신 마스킹만 남긴다 — "무엇이 바뀌었는지"는 그대로 보인다.
+ */
+const PII_FIELDS = new Set([
+  'customer_id',            // 주민등록번호
+  'driver_license_no',
+  'customer_address',
+  'customer_phone',
+  'customer_name',
+  'emergency_name', 'emergency_phone',
+  'sign_signature',         // 서명 이미지(dataURL)
+  'account_number', 'bank_account', 'resident_id', 'passport_no',
+]);
+
+/** 민감필드 값을 지운 사본 — before/after 직렬화 전에 반드시 통과시킨다. */
+function scrubPii(rec: EntityRecord | null | undefined): EntityRecord | null {
+  if (!rec || typeof rec !== 'object') return rec ?? null;
+  const out: EntityRecord = {};
+  for (const [k, v] of Object.entries(rec)) {
+    if (PII_FIELDS.has(k)) { if (v != null && v !== '') out[k] = '***'; continue; }
+    out[k] = v;
+  }
+  return out;
+}
+
 function fmtVal(v: unknown): string {
   if (v == null) return '';
   if (typeof v === 'object') {
@@ -155,6 +186,13 @@ export function fieldChanges(before: EntityRecord | null, after: EntityRecord | 
   for (const k of keys) {
     if (META_SKIP.has(k)) continue;
     if (k.startsWith('_') && !k.startsWith('_snap') && k !== '_needs_master_review' && k !== '_snapped') continue;
+    // 민감필드는 **바뀌었다는 사실만** 남긴다. 값 비교는 원본으로 하되 기록은 마스킹.
+    if (PII_FIELDS.has(k)) {
+      if (same(before?.[k], after[k])) continue;
+      out.push({ key: k, label: labelOf(k), from: before?.[k] ? '***' : '—', to: after[k] ? '***' : '—' });
+      if (out.length >= limit) break;
+      continue;
+    }
     const from = before ? fmtVal(before[k]) : '';
     const to = fmtVal(after[k]);
     if (from === to) continue;
@@ -310,8 +348,9 @@ export function buildAuditEntry(
     actor_name: actor.name,
     summary,
     changes,
-    before: before ? JSON.stringify(before).slice(0, 1200) : '',
-    after: after ? JSON.stringify(after).slice(0, 1200) : '',
+    // ⚠ 원본을 그대로 직렬화하면 안 된다 — 계약 서명 제출이 주민번호·면허번호·주소를 여기로 흘린다.
+    before: before ? JSON.stringify(scrubPii(before)).slice(0, 1200) : '',
+    after: after ? JSON.stringify(scrubPii(after)).slice(0, 1200) : '',
   };
 }
 
