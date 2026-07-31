@@ -6,7 +6,7 @@ import { seedIfEmpty } from '@/lib/seed';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { getRole, actor, type Role } from '@/lib/domain/deal';
 import { sendText, sendFile as sendFileMsg, markRead, listMessages, isMine } from '@/lib/domain/messaging';
-import { Btn, IconBtn, C, R, FW, FS, ICON, Loading, CenterNote, Input, ctrlH, NavBack, Dropzone, SCRIM } from '@/components/ui';
+import { Btn, IconBtn, C, R, FW, FS, ICON, Loading, CenterNote, Input, ctrlH, ctrlInputFs, NavBack, Dropzone, SCRIM } from '@/components/ui';
 import { toast } from '@/components/Toaster';
 import { ChatSenderLabel } from '@/components/ChatSenderLabel';
 import { useIsMobile } from '@/lib/use-mobile';
@@ -46,6 +46,7 @@ export function ChatThread({
   const [dragActive, setDragActive] = useState(false);
   const threadRef = useRef<HTMLDivElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const composerRef = useRef<HTMLTextAreaElement | null>(null);
   const dragDepth = useRef(0);
 
   const load = useCallback(async (mark = true) => {
@@ -364,15 +365,36 @@ export function ChatThread({
             </span>
           </Btn>
         )}
-        {/* embedded 모바일 autoFocus 금지 — 키보드가 뷰를 밀면 메시지 영역이 사라짐. 탭해서 입력. */}
-        {/* noAutofill = 키보드 위 열쇠·카드·주소 자동완성 툴바 차단(자유 텍스트 입력이라 무의미).
-            onComposeFocus = 입력 중 하단독 숨김(작성 공간 확보) → 취소·전송하면 다시 나타남. */}
-        <Input
-          value={text} onChange={setText} onEnter={send} placeholder="메시지 입력" full
-          style={{ flex: 1, minWidth: 0 }} autoFocus={mobile && !embedded} disabled={busy}
-          noAutofill enterKeyHint="send"
+        {/* embedded 모바일 autoFocus 금지 — 키보드가 뷰를 밀면 메시지 영역이 사라짐. 탭해서 입력.
+            textarea 인 이유: <input> 이면 크롬이 이 칸을 비밀번호·카드·주소 후보로 보고 키보드 위에
+            열쇠·카드·위치 칩을 띄운다. autocomplete='off' 로는 안 막힌다 — textarea 에는 그 자동완성이 없다.
+            줄바꿈(Shift+Enter)도 덤으로 되고, 내용에 따라 4줄까지 늘어난다. */}
+        <textarea
+          ref={composerRef}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send(); }
+          }}
+          placeholder="메시지 입력"
+          rows={1}
+          disabled={busy}
+          autoFocus={mobile && !embedded}
+          enterKeyHint="send"
+          autoComplete="off" autoCorrect="off" autoCapitalize="sentences" spellCheck={false}
+          name="fp-chat-text" data-lpignore="true" data-1p-ignore="" data-form-type="other"
           onFocus={() => onComposeFocus?.(true)}
           onBlur={() => onComposeFocus?.(false)}
+          style={{
+            flex: 1, minWidth: 0, resize: 'none', overflowY: 'auto',
+            minHeight: ctrlH(mobile), maxHeight: ctrlH(mobile) * 3,
+            boxSizing: 'border-box',
+            // 한 줄일 때 세로 가운데로 보이게 — textarea 는 input 과 달리 위쪽 정렬이다.
+            padding: `${Math.max(0, (ctrlH(mobile) - Math.round(ctrlInputFs(mobile) * 1.4)) / 2)}px 12px`,
+            border: `1px solid ${C.line}`, borderRadius: R,
+            fontSize: ctrlInputFs(mobile), fontFamily: 'inherit', lineHeight: 1.4,
+            background: busy ? C.head : C.taupeBg, color: C.ink,
+          }}
         />
         {mobile ? (
           <IconBtn onPointerDown={(e) => e.preventDefault()} onClick={send} disabled={busy || !text.trim()} title={busy ? '전송 중' : '보내기'} active={!busy && !!text.trim()}>

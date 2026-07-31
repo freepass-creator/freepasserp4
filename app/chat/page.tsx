@@ -4,6 +4,7 @@ import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
 import { useIsMobile, isMobileViewport } from '@/lib/use-mobile';
+import { useKeyboardOpen } from '@/lib/use-keyboard';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { getRole, actor, type Role } from '@/lib/domain/deal';
 import { roomsWithUnread, unreadFor, unreadRoomCount } from '@/lib/domain/messaging';
@@ -62,6 +63,7 @@ export default function Chat() {
   const [swapKey, setSwapKey] = useState('chat');
   // 메시지 작성 중 = 하단독 숨김(키보드 위 공간 확보). 입력 취소·전송하면 다시 나와 목록으로 갈 수 있다.
   const [composing, setComposing] = useState(false);
+  const kb = useKeyboardOpen();
   const [sort, setSort] = useState<ChatSort | ''>('');
   const [flt, setFlt] = useState<ChatFilter>(CHAT_FILTER_DEFAULT);
   const [draftFlt, setDraftFlt] = useState<ChatFilter>(CHAT_FILTER_DEFAULT);
@@ -380,8 +382,10 @@ export default function Chat() {
       search={{ value: qInput, onChange: setQInput, placeholder: '차번·상품·영업…' }}
       mobileLayout="swap"
       headerActions={headerActions}
-      // 채팅 탭에서 입력 중일 때만 하단독 숨김(계약진행 탭은 유지)
-      hideDock={composing && swapKey === 'chat'}
+      // 하단독은 **키보드가 실제로 올라와 있을 때만** 숨긴다(채팅 탭 한정).
+      //  포커스 기준으로 두면 뒤로가기로 키보드만 내렸을 때 입력칸은 계속 포커스라
+      //  하단독이 영영 안 돌아와 목록으로 나갈 수가 없다. visualViewport 미지원 환경만 포커스로 폴백.
+      hideDock={(kb.supported ? kb.open : composing) && swapKey === 'chat'}
       mobileSwapKey={swapKey}
       onMobileSwapKeyChange={setSwapKey}
       countSuffix="건"

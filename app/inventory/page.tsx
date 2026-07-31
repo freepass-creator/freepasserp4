@@ -268,7 +268,7 @@ export default function Inventory() {
   const fltCount = (stFlt !== 'all' ? 1 : 0) + (typeFlt !== 'all' ? 1 : 0);
   return (
     <>
-      // 상단바 라벨은 상태칩과 동명이면 안 된다 — 칩 「출고가능」은 한 상태고, 이 수는 즉시출고+출고가능 합계다.
+      {/* 상단바 라벨은 상태칩과 동명이면 안 된다 — 칩 「출고가능」은 한 상태고, 이 수는 즉시출고+출고가능 합계다. */}
       <WorkPage title={NAV_LABEL.inventory} statusLabel="가용재고"
         statusCount={(rows || []).filter((p) => {
           const st = String(p.vehicle_status || '');
