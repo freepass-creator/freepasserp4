@@ -42,7 +42,8 @@ const STANDARD_SHEET_EXAMPLE = [
 ] as const;
 
 const STANDARD_SHEET_HINT =
-  '상태=출고가능/출고협의/계약중/출고불가, 배차중은 자동 제외됨. 대여료는 개월 열에 월 렌트료(원), 보증금은 단기(12개월↓)/장기(24개월↑).';
+  '출고불가가 아니면 다 올라갑니다. 배차중·배차대기는 출고협의, 판매중·할인판매는 출고가능, 출고완료·폐차는 출고불가. '
+  + '대여료는 개월 열에 월 렌트료(원), 보증금은 단기(12개월↓)/장기(24개월↑).';
 
 function downloadStandardSheetTemplate() {
   const csv = `\uFEFF${STANDARD_SHEET_HEADERS.join(',')}\n${STANDARD_SHEET_EXAMPLE.join(',')}\n`;
@@ -60,6 +61,16 @@ function downloadStandardSheetTemplate() {
  * 공급사 매물 취합 — 공급사마다 고유 시트 + 매핑 학습.
  * 관리자: 시트 URL 등록된 공급사 일괄 가져오기+저장. 단일/엑셀도 동일 엔진.
  */
+/** 공급사 한 곳의 수정범위 한 줄. 실패한 곳도 남긴다 — 조용히 빠지면 "원래 0대였나" 하고 넘어간다. */
+type PartnerDiffRow = {
+  code: string; label: string; ok: boolean;
+  sheet: number;                                  // 시트에서 읽은 매물
+  new: number; status: number; content: number;   // 신규 · 상태변경 · 내용수정
+  absent: number; unchanged: number;              // 시트에 없어 출고불가 · 무변경
+  excluded: number;                               // 유입 제외(폐차·말소·판매완료)
+  note: string;
+};
+
 export function SheetSync({ co, onImported }: { co: string; onImported: () => void }) {
   const role = getRole();
   const isAdmin = role === 'admin';
@@ -87,6 +98,8 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
       new: number; status: number; content: number; absent: number;
       unchanged: number; rentedExcluded: number;
     };
+    /** 공급사별 수정범위 — 합계만 보면 어느 업체가 문제인지 안 보인다. */
+    perPartner: PartnerDiffRow[];
     at: number;
   } | null>(null);
 
@@ -328,14 +341,16 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
       const fetched = await fetchAllPartnerSheets(co, master!);
       const existing = await getStore().list('product', co);
       const banners: string[] = [];
+      const perPartner: PartnerDiffRow[] = [];
       const totals = { new: 0, status: 0, content: 0, absent: 0, unchanged: 0, rentedExcluded: 0 };
       for (const line of fetched.lines) {
-        if (!line.ok) continue;
         const re = typeof (line as { rentedExcluded?: number }).rentedExcluded === 'number'
           ? Number((line as { rentedExcluded?: number }).rentedExcluded)
           : 0;
         totals.rentedExcluded += re;
-        if (!line.products.length) continue;
+        const base = { code: line.code, label: line.label, sheet: 0, new: 0, status: 0, content: 0, absent: 0, unchanged: 0, excluded: re };
+        if (!line.ok) { perPartner.push({ ...base, ok: false, note: line.message }); continue; }
+        if (!line.products.length) { perPartner.push({ ...base, ok: true, note: '시트에서 읽은 매물 0' }); continue; }
         const diff = summarizeSheetDiff({
           incoming: line.products,
           existing,
@@ -343,13 +358,20 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
         });
         const stock = countAutoplusStock(line.products);
         banners.push(`${line.label}: ${formatSheetDiffBanner(diff, stock)}`);
+        perPartner.push({
+          ...base, ok: true, note: '',
+          sheet: line.products.length,
+          new: diff.new, status: diff.status, content: diff.content, absent: diff.absent, unchanged: diff.unchanged,
+        });
         totals.new += diff.new;
         totals.status += diff.status;
         totals.content += diff.content;
         totals.absent += diff.absent;
         totals.unchanged += diff.unchanged;
       }
-      setPending({ fetched, banners, totals, at: Date.now() });
+      // 바뀌는 게 많은 순 — 검수할 곳부터 위로.
+      perPartner.sort((a, b) => (b.new + b.status + b.content + b.absent) - (a.new + a.status + a.content + a.absent));
+      setPending({ fetched, banners, totals, perPartner, at: Date.now() });
       setBulkLog([...fetched.lines.map((l) => l.message), ...(banners.length ? ['— diff —', ...banners] : [])].join('\n'));
       toast(
         fetched.products.length || totals.rentedExcluded
@@ -479,12 +501,70 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
           <div style={{ fontSize: FS.cap, color: C.faint, lineHeight: 1.45, marginTop: 6 }} title={STANDARD_SHEET_HINT}>
             {STANDARD_SHEET_HINT}
           </div>
+
+          {/* 공급사별 수정범위 — 합계 한 줄로 뭉개면 어느 업체가 문제인지 안 보인다.
+              동기화를 누르기 전에 "어디가 몇 대 바뀌는지"를 업체 단위로 확인하는 자리다. */}
+          {pending && pending.perPartner.length > 0 && (
+            <div style={{ marginTop: 10, border: `1px solid ${C.line}`, borderRadius: R, overflow: 'hidden', background: C.taupeBg }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderBottom: `1px solid ${C.line}`, fontSize: FS.cap, fontWeight: FW.head, color: C.mute }}>
+                <span style={{ flex: 1 }}>업체별 수정범위</span>
+                <span style={{ fontFamily: NUM, color: C.faint }}>동기화 전 확인</span>
+              </div>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: FS.cap, fontVariantNumeric: 'tabular-nums' }}>
+                  <thead>
+                    <tr style={{ color: C.faint, textAlign: 'right' }}>
+                      <th style={{ textAlign: 'left', padding: '5px 8px', fontWeight: FW.meta }}>공급사</th>
+                      <th style={{ padding: '5px 8px', fontWeight: FW.meta }}>시트</th>
+                      <th style={{ padding: '5px 8px', fontWeight: FW.meta }}>신규</th>
+                      <th style={{ padding: '5px 8px', fontWeight: FW.meta }}>상태변경</th>
+                      <th style={{ padding: '5px 8px', fontWeight: FW.meta }}>내용수정</th>
+                      <th style={{ padding: '5px 8px', fontWeight: FW.meta }}>→출고불가</th>
+                      <th style={{ padding: '5px 8px', fontWeight: FW.meta }}>무변경</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pending.perPartner.map((p) => (
+                      <tr key={p.code} style={{ borderTop: `1px solid ${C.line2}`, textAlign: 'right' }}>
+                        <td style={{ textAlign: 'left', padding: '5px 8px', color: p.ok ? C.ink : C.danger, whiteSpace: 'nowrap' }}>
+                          {p.label}
+                          {p.note ? <span style={{ color: C.faint, fontWeight: FW.meta }}> · {p.note}</span> : null}
+                        </td>
+                        <td style={{ padding: '5px 8px', color: C.mute }}>{p.sheet || '—'}</td>
+                        <td style={{ padding: '5px 8px', color: p.new ? C.ok : C.faint, fontWeight: p.new ? FW.strong : FW.body }}>{p.new || '—'}</td>
+                        <td style={{ padding: '5px 8px', color: p.status ? C.ink : C.faint }}>{p.status || '—'}</td>
+                        <td style={{ padding: '5px 8px', color: p.content ? C.ink : C.faint }}>{p.content || '—'}</td>
+                        {/* 시트에서 사라진 차 — 삭제가 아니라 출고불가로 내린다. 많으면 시트 사고를 의심해야 한다. */}
+                        <td style={{ padding: '5px 8px', color: p.absent ? C.warn : C.faint, fontWeight: p.absent ? FW.strong : FW.body }}>{p.absent || '—'}</td>
+                        <td style={{ padding: '5px 8px', color: C.faint }}>{p.unchanged || '—'}</td>
+                      </tr>
+                    ))}
+                    <tr style={{ borderTop: `1px solid ${C.line}`, textAlign: 'right', fontWeight: FW.head }}>
+                      <td style={{ textAlign: 'left', padding: '5px 8px' }}>합계</td>
+                      <td style={{ padding: '5px 8px' }}>{pending.fetched.products.length}</td>
+                      <td style={{ padding: '5px 8px', color: C.ok }}>{pending.totals.new}</td>
+                      <td style={{ padding: '5px 8px' }}>{pending.totals.status}</td>
+                      <td style={{ padding: '5px 8px' }}>{pending.totals.content}</td>
+                      <td style={{ padding: '5px 8px', color: C.warn }}>{pending.totals.absent}</td>
+                      <td style={{ padding: '5px 8px', color: C.mute }}>{pending.totals.unchanged}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           {bulkLog && (
             <pre style={{ margin: '8px 0 0', fontSize: FS.cap, color: C.mute, whiteSpace: 'pre-wrap', maxHeight: 130, overflowY: 'auto', fontFamily: NUM }}>{bulkLog}</pre>
           )}
         </div>
       )}
 
+      {/* 단일 시트·엑셀 업로드는 **공급사 본인 연습용**이다. 관리자 화면에서는 감춘다 —
+          운영 유입은 「등록된 공급사 일괄」 한 경로로만 간다. 손으로 올린 건이 섞이면
+          어느 매물이 어느 시트에서 왔는지 추적이 끊기고, 같은 차가 두 코드로 앉는다. */}
+      {!isAdmin && (
+      <>
       <PillTabs tabs={[{ key: 'sheet', label: '단일 시트' }, { key: 'excel', label: '엑셀 업로드' }]} value={tab} onChange={(k) => { setTab(k); clear(); }} size="sm" />
       {!isAdmin && (
         <div style={{ fontSize: FS.cap, color: C.mute, lineHeight: 1.45, padding: '6px 8px', background: C.head, borderRadius: R }}>
@@ -567,6 +647,8 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
             </Btn>
           </div>
         </div>
+      )}
+      </>
       )}
     </div>
   );

@@ -34,14 +34,21 @@ export type PartnerSheetRow = {
   lastSyncedAt: number | null;
 };
 
-/** 시트가 지정된 공급사만 (영업채널 제외). */
+/**
+ * 시트가 지정된 공급사만 (영업채널 제외).
+ *
+ * ⚠ partner_type 은 실데이터에 **한글·영문이 섞여 있다**(`공급사` / `provider` / `영업채널` / `sales_channel`).
+ * 예전엔 한글 '공급사'만 통과시켜서 `provider` 로 저장된 공급사가 전부 목록에서 빠졌다
+ * (2026-07-31 실측: 시트 등록 16곳 중 2곳만 보였다). 그래서 **영업채널만 걸러내는 방식**으로 뒤집는다 —
+ * 새 표기가 생겨도 공급사가 조용히 사라지지 않는다.
+ */
 export async function listSheetPartners(companyId: string): Promise<PartnerSheetRow[]> {
   const rows = await getStore().list('partner', companyId);
   return rows
     .filter((p) => {
       if (!String(p.sheet_url || '').trim()) return false;
-      const t = String(p.partner_type || '');
-      return !t || t === '공급사';
+      if (p._deleted === true || String(p.status || '') === 'deleted') return false;
+      return !/영업|sales/i.test(String(p.partner_type || ''));
     })
     .map((p) => ({
       code: String(p.partner_code || p._key || ''),
