@@ -27,6 +27,13 @@ const nextConfig = {
       headers: [
         { key: 'Accept-CH', value: 'Sec-CH-UA-Mobile' },
         { key: 'Critical-CH', value: 'Sec-CH-UA-Mobile' },
+        { key: 'Strict-Transport-Security', value: 'max-age=31536000' },
+        { key: 'X-Content-Type-Options', value: 'nosniff' },
+        { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+        {
+          key: 'Permissions-Policy',
+          value: 'camera=(), microphone=(), geolocation=(self "https://sonogong-estimator.vercel.app" "https://welrixmobility.netlify.app")',
+        },
       ],
     }];
   },

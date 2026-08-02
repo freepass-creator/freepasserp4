@@ -6,6 +6,7 @@ import type { EntityRecord } from '@/lib/intake/entities';
 import { priceList, vehicleName, creditDisplay, isOperatedPeriod, parseProductOptions } from '@/lib/domain/product';
 import { fuelDisplay, yearDisplay } from '@/lib/domain/vehicle-master-match';
 import { kmDisplay } from '@/lib/format';
+import { vehicleNameOf } from '@/lib/domain/vehicle-name';
 
 function optsOf(p: EntityRecord): string[] {
   return parseProductOptions(p.options);
@@ -38,9 +39,11 @@ export type CopyAgent = { name?: string; phone?: string; company?: string; roleL
 export function formatProductForCopy(p: EntityRecord, agent?: CopyAgent): string {
   const lines: string[] = [];
   const carNo = String(p.car_number || '');
-  const model = [p.maker, p.sub_model || p.model].filter(Boolean).join(' ');
-  const trim = String(p.trim_name || '');
-  lines.push(`[${carNo}] ${model}${trim ? ` ${trim}` : ''}`.trim() || vehicleName(p));
+  // ⚠ 예전 식은 `[${carNo}] ${model}…`.trim() || vehicleName(p) 였는데, 대괄호 때문에 앞부분이
+  //  절대 빈 문자열이 될 수 없어 **폴백이 영영 안 걸렸다** — 차명이 통째로 비면 손님에게 `[]` 만 나갔다.
+  //  차명은 SSOT(T2)로 만들고, 차번은 있을 때만 대괄호로 붙인다.
+  const title = vehicleNameOf({ kind: 'product', product: p }, { tier: 'full', fallback: 'none' });
+  lines.push([carNo ? `[${carNo}]` : '', title || '미등록 차량'].filter(Boolean).join(' '));
 
   const specs: string[] = [];
   const y = yearDisplay(p.year);

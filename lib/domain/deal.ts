@@ -48,13 +48,23 @@ export function actor(r: Role): { uid: string; code: string; name: string; chann
   return { ...ACTORS[r], channel: r === 'agent' ? 'chn_seoul' : undefined };
 }
 
-/** 채팅 표기명 — 역할 라벨 없이. 관리자=`freepass.이름`, 그 외=유저코드(없으면 이름). */
+/** 채팅 표기명 — 내부 코드보다 사람이 알아보는 이름 우선. 관리자=`freepass.이름`. */
 export function chatDisplayName(role: Role | string, name: string, code?: string): string {
   if (role === 'admin') {
     const n = String(name || '').trim();
     return n ? `${BRAND_MAIN}.${n}` : BRAND_MAIN;
   }
-  return String(code || name || '').trim();
+  const clean = (value: unknown) => {
+    const text = String(value ?? '').trim();
+    return text === 'undefined' || text === 'null' ? '' : text;
+  };
+  const displayName = clean(name);
+  const internalCode = clean(code);
+  if (displayName && displayName !== internalCode) return displayName;
+  // 이름 없는 이관 메시지는 UID/조직코드를 노출하지 않고 역할을 알려 준다.
+  if (role === 'provider') return '공급사';
+  if (role === 'agent') return '영업 담당자';
+  return '담당자';
 }
 
 /** 당사자 3필드 — 빈 문자열 금지(전환 후 스코프 접근 불가). 누락 시 저장하지 않고 throw. */

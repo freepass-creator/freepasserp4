@@ -16,27 +16,53 @@ export function ListRow({ badge, badgeTone = 'gray', main, sub, right, href, onC
   onClick?: () => void;
   selected?: boolean;
 }) {
-  const inner = (
-    <div onClick={onClick} style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: 10,
-      padding: '11px 14px',
-      borderBottom: `1px solid ${C.line2}`,
-      background: selected ? C.selected : 'transparent',
-      textDecoration: 'none',
-      color: 'inherit',
-      cursor: href || onClick ? 'pointer' : 'default',
-    }}>
+  const style: React.CSSProperties = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    padding: '11px 14px',
+    borderBottom: `1px solid ${C.line2}`,
+    background: selected ? C.selected : 'transparent',
+    textDecoration: 'none',
+    color: 'inherit',
+    cursor: href || onClick ? 'pointer' : 'default',
+  };
+  const content = (
+    <>
       {badge != null && <Badge tone={badgeTone}>{badge}</Badge>}
       <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
         <div style={{ fontSize: FS.body, fontWeight: FW.title, color: C.ink, minWidth: 0, overflow: 'hidden' }}>{main}</div>
         {sub != null && <div style={{ fontSize: FS.cap, color: C.mute, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sub}</div>}
       </div>
       {right}
-    </div>
+    </>
   );
-  return href ? <a href={href} style={{ textDecoration: 'none', color: 'inherit' }}>{inner}</a> : inner;
+  if (href) {
+    return (
+      <a href={href} aria-current={selected ? 'true' : undefined} onClick={onClick} style={style}>
+        {content}
+      </a>
+    );
+  }
+  if (onClick) {
+    return (
+      <div
+        role="button"
+        tabIndex={0}
+        aria-current={selected ? 'true' : undefined}
+        onClick={onClick}
+        onKeyDown={(event) => {
+          if (event.key !== 'Enter' && event.key !== ' ') return;
+          event.preventDefault();
+          onClick();
+        }}
+        style={style}
+      >
+        {content}
+      </div>
+    );
+  }
+  return <div style={style}>{content}</div>;
 }
 
 export function ListBox({ children }: { children: React.ReactNode }) {

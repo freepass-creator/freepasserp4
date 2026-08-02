@@ -8,8 +8,8 @@ import { useKeyboardOpen } from '@/lib/use-keyboard';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { getRole, actor, type Role } from '@/lib/domain/deal';
 import { roomsWithUnread, unreadFor, unreadRoomCount } from '@/lib/domain/messaging';
-import { getProgress, isInquiryOnly } from '@/lib/domain/contract';
-import { withProviderNames } from '@/lib/domain/identity';
+import { contractStage, isInquiryOnly, isContractCancelled } from '@/lib/domain/contract';
+import { providerNameMap, withProviderNames } from '@/lib/domain/identity';
 import { PaneHead, Btn, IconBtn, C, Loading, CenterNote, PaneBody, FilterChips, FilterGroup, FS, FW, NUM, FeedRowSkeleton } from '@/components/ui';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
 import { ChatThread } from '@/components/ChatThread';
@@ -20,13 +20,14 @@ import { haptic } from '@/lib/haptics';
 import { ChatRoomRow } from '@/components/list-rows';
 import { NAV_LABEL } from '@/lib/tabbar';
 import { getSession } from '@/lib/auth-session';
-import { canAccessOwnedRecord } from '@/lib/domain/authorization';
+import { canAccessOwnedRecord, organizationRole } from '@/lib/domain/authorization';
 import { initAuth } from '@/lib/firebase/auth';
 import {
   buildContractIndex,
   buildProductLookup,
   chatCodeOf,
   contractForRoom,
+  productForRoom,
   providerForRoom,
   roomPlate,
   roomModel as resolveRoomModel,
@@ -36,12 +37,14 @@ import {
   CHAT_FILTER_DEFAULT,
   CHAT_FILTERS,
   CHAT_SORTS,
+  chatRowContract,
   chatRoomPreviewCount,
   filterChatRooms,
   isWorkspaceChatRoom,
   type ChatFilter,
   type ChatSort,
 } from '@/features/chat/room-filter';
+import { joinMetaText, retainVisibleSelection, workPartyParts } from '@/features/work-list-display';
 import { ListChecks, MessageCircle, ClipboardList } from 'lucide-react';
 import { ChatRoomList } from '@/features/chat/ChatRoomList';
 
@@ -55,9 +58,11 @@ export default function Chat() {
   const [contracts, setContracts] = useState<EntityRecord[]>([]);
   const [products, setProducts] = useState<EntityRecord[]>([]);
   const [deletedProducts, setDeletedProducts] = useState<EntityRecord[]>([]);
+  const [providerAliases, setProviderAliases] = useState<Record<string, string>>({});
   const [sel, setSel] = useState<string | null>(null);
   const [selRoom, setSelRoom] = useState<EntityRecord | null>(null);
   const [selProduct, setSelProduct] = useState<EntityRecord | null>(null);
+  const selectionEpoch = useRef(0);
   const [qInput, setQInput] = useState(''); // 검색창 즉시 반영
   const [q, setQ] = useState(''); // 디바운스된 검색
   const [swapKey, setSwapKey] = useState('chat');
@@ -74,7 +79,7 @@ export default function Chat() {
     return () => clearTimeout(t);
   }, [qInput]);
 
-  // 계약 인덱스 — `product_code|agent_code` → 계약. 현행 contracts.find 순서를 정확 재현:
+  // 계약 인덱스 — linked_contract 우선, 레거시 product_uid·차번·agent_uid까지 같은 resolver로 연결.
   //  · '계약취소'는 후보에서 제외(find의 `c.contract_status !== '계약취소'`).
   //  · 같은 키에 비취소 계약이 여럿이면 배열에서 먼저 나온 것 우선(find가 먼저 만나는 원소).
   const contractIndex = useMemo(() => buildContractIndex(contracts, false), [contracts]);
@@ -85,20 +90,21 @@ export default function Chat() {
   const productLookup = useMemo(() => buildProductLookup(products), [products]);
   const deletedLookup = useMemo(() => buildProductLookup(deletedProducts), [deletedProducts]);
   /** 방 제목 = 실차명 해석. v3 방은 product_uid(=매물 _key)·car_number로 연결. 방값→매물→계약스냅샷→차번 순. (표시만, 데이터 미변경) */
-  const roomTitle = (rm: EntityRecord): string => resolveRoomTitle(rm, productLookup, deletedLookup, contracts, contractOf(rm));
+  const roomContract = (rm: EntityRecord) => contractOf(rm) || cancelledOf(rm);
+  const roomTitle = (rm: EntityRecord): string => resolveRoomTitle(rm, productLookup, deletedLookup, contracts, roomContract(rm));
   const roomChatCode = (rm: EntityRecord): string =>
-    chatCodeOf(rm, roomPlate(rm, productLookup, deletedLookup, contracts, contractOf(rm)));
+    chatCodeOf(rm, roomPlate(rm, productLookup, deletedLookup, contracts, roomContract(rm)));
   /** 매물 공급사 표기 — 관리자 응대용(이름 우선, 없으면 코드). */
-  const providerOf = (rm: EntityRecord) => providerForRoom(rm, productLookup);
+  const providerOf = (rm: EntityRecord) => providerForRoom(rm, productLookup, deletedLookup, providerAliases);
   /** 목록 규격 — ①줄=차량명 ②줄=차번. 헤더(contextTitle)는 합본 roomTitle을 그대로 쓴다. */
-  const roomHead = (rm: EntityRecord): string => resolveRoomModel(rm, productLookup, deletedLookup, contracts, contractOf(rm));
-  const roomPlateOf = (rm: EntityRecord): string => roomPlate(rm, productLookup, deletedLookup, contracts, contractOf(rm));
+  const roomHead = (rm: EntityRecord): string => resolveRoomModel(rm, productLookup, deletedLookup, contracts, roomContract(rm));
+  const roomPlateOf = (rm: EntityRecord): string => roomPlate(rm, productLookup, deletedLookup, contracts, roomContract(rm));
   const roomCounter = (rm: EntityRecord): string => {
-    const ag = String(rm.agent_code || '').trim();
     const pv = providerOf(rm);
-    if (role === 'provider') return ag;
-    if (role === 'admin') return ag;
-    return pv.name || pv.code;
+    return joinMetaText(workPartyParts(organizationRole(getSession()) || role, rm, {
+      agentFallback: contractOf(rm) || cancelledOf(rm),
+      providerName: pv.name || pv.code,
+    }));
   };
   const sortByRecent = (arr: EntityRecord[]) => arr.slice().sort((a, b) => Number(b.last_message_at || 0) - Number(a.last_message_at || 0));
   // 점진 로딩 — 1차: 방 목록만 즉시 페인트(저장된 안읽음 카운터·차명은 코드 폴백).
@@ -124,6 +130,7 @@ export default function Chat() {
         setContracts(cts);
         setProducts(withProviderNames(prods, partners));
         setDeletedProducts(del);
+        setProviderAliases(providerNameMap(partners));
         const withUnread = await roomsWithUnread(mine, r);
         setRooms(sortByRecent(withUnread));
       } catch (e) {
@@ -145,14 +152,34 @@ export default function Chat() {
     return sorted;
   };
   const resolveProduct = async (rm: EntityRecord): Promise<EntityRecord | null> => {
-    const live = await getStore().get('product', co, String(rm.product_code));
+    const store = getStore();
+    // 목록에서 이미 복원한 레거시 product_uid를 canonical product_code로 바꿔 상세도 같은 차를 연다.
+    // get(product_uid)는 RTDB 정규화 후 _key=product_code라 miss할 수 있으므로 raw uid를 곧장 쓰지 않는다.
+    let indexed = productForRoom(productLookup, rm);
+    let productId = String(indexed?.product_code || indexed?._key || rm.product_code || rm.product_uid || rm.product_id || '').trim();
+    let live = productId ? await store.get('product', co, productId) : null;
     if (live) return live;
-    const cts = await getStore().list('contract', co);
-    const c = cts.find((x) => String(x.product_code) === String(rm.product_code) && String(x.agent_code) === String(rm.agent_code) && x.contract_status !== '계약취소')
-      || cts.find((x) => String(x.product_code) === String(rm.product_code));
+
+    // 방이 먼저 페인트되고 카탈로그가 아직 도착하지 않은 클릭도, 이미 진행 중인 listRaw를 기다려 같은 조인으로 복구한다.
+    if (!indexed) {
+      const catalog = typeof store.listRaw === 'function'
+        ? await store.listRaw('product', co)
+        : await store.list('product', co);
+      indexed = productForRoom(buildProductLookup(catalog), rm);
+      const restoredId = String(indexed?.product_code || indexed?._key || '').trim();
+      if (restoredId && restoredId !== productId) {
+        productId = restoredId;
+        live = await store.get('product', co, productId);
+        if (live) return live;
+      }
+    }
+
+    const cts = await store.list('contract', co);
+    const c = contractForRoom(buildContractIndex(cts, false), rm)
+      || contractForRoom(buildContractIndex(cts, true), rm);
     if (!c && !rm.vehicle_name) return null;
     return {
-      product_code: rm.product_code,
+      product_code: c?.product_code || productId,
       car_number: rm.car_number || c?.car_number_snapshot || '',
       maker: c?.maker_snapshot || '', sub_model: c?.sub_model_snapshot || '', vehicle_name: rm.vehicle_name || '',
       ...(c && Number(c.rent_month_snapshot) ? { price: { [String(c.rent_month_snapshot)]: { rent: Number(c.rent_amount_snapshot) || 0, deposit: Number(c.deposit_amount_snapshot) || 0 } } } : {}),
@@ -160,12 +187,16 @@ export default function Chat() {
     } as EntityRecord;
   };
   const selectRoom = async (rm: EntityRecord) => {
+    const epoch = ++selectionEpoch.current;
     setSel(String(rm._key));
     setSelRoom(rm);
-    setSelProduct(await resolveProduct(rm));
+    setSelProduct(null);
     setSwapKey('chat');
+    const product = await resolveProduct(rm);
+    if (epoch === selectionEpoch.current) setSelProduct(product);
   };
   const clearSel = () => {
+    selectionEpoch.current += 1;
     setSel(null); setSelRoom(null); setSelProduct(null); setSwapKey('chat');
     // 목록 복귀 후 새로고침이 ?room=으로 다시 열리지 않게
     if (typeof window !== 'undefined') {
@@ -177,13 +208,23 @@ export default function Chat() {
       }
     }
   };
+
+  // 계약 생성·링크 변경 뒤 방 목록이 갱신되면 선택 중인 방 스냅샷도 최신값으로 교체한다.
+  // 별도 selRoom이 예전 linked_contract를 계속 들고 있으면 새 계약을 다시 못 찾는다.
+  useEffect(() => {
+    if (!rooms || !sel) return;
+    const fresh = rooms.find((room) => String(room._key) === sel);
+    if (!fresh) return;
+    setSelRoom((previous) => previous === fresh ? previous : fresh);
+  }, [rooms, sel]);
   // 방행 클릭 = 최신 selectRoom을 안정 참조로 호출. handleRoomClick 참조가 렌더마다 바뀌지 않아
   //  ChatRoomRow(React.memo)가 검색 타이핑·선택 변경 등 리렌더에 전량 재렌더되지 않는다.
   const selectRoomRef = useRef(selectRoom);
   selectRoomRef.current = selectRoom;
   const handleRoomClick = useCallback((rm: EntityRecord) => selectRoomRef.current(rm), []);
   const firstInquiry = (list: EntityRecord[], cts: EntityRecord[]) => {
-    const of = (rm: EntityRecord) => cts.find((c) => String(c.product_code) === String(rm.product_code) && String(c.agent_code) === String(rm.agent_code) && c.contract_status !== '계약취소');
+    const index = buildContractIndex(cts, false);
+    const of = (rm: EntityRecord) => contractForRoom(index, rm);
     return list.find((rm) => isInquiryOnly(of(rm))) || list[0];
   };
   useEffect(() => { (async () => {
@@ -243,10 +284,34 @@ export default function Chat() {
   //  contractOf는 contractIndex를 읽으므로 deps에 contractIndex 포함(값 의미는 원본 find와 동일).
   const shownRooms = useMemo(() => filterChatRooms({
     rooms: rooms || [], query: q, filter: flt, sort, role, contractIndex, cancelledIndex,
-  }), [rooms, q, flt, sort, role, contractIndex, cancelledIndex]);
+    searchText: (room) => joinMetaText([
+      roomHead(room), roomPlateOf(room),
+      contractStage(chatRowContract(room, flt, contractIndex, cancelledIndex)).label,
+      roomCounter(room),
+    ]),
+    nameOf: roomHead,
+  }), [rooms, q, flt, sort, role, contractIndex, cancelledIndex, productLookup, deletedLookup, providerAliases]);
   const draftPreviewCount = useMemo(() => chatRoomPreviewCount({
     rooms: rooms || [], query: q, filter: draftFlt, role, contractIndex, cancelledIndex,
-  }), [rooms, q, draftFlt, role, contractIndex, cancelledIndex]);
+    searchText: (room) => joinMetaText([
+      roomHead(room), roomPlateOf(room),
+      contractStage(chatRowContract(room, draftFlt, contractIndex, cancelledIndex)).label,
+      roomCounter(room),
+    ]),
+    nameOf: roomHead,
+  }), [rooms, q, draftFlt, role, contractIndex, cancelledIndex, productLookup, deletedLookup, providerAliases]);
+  const rowContract = (room: EntityRecord) => chatRowContract(room, flt, contractIndex, cancelledIndex);
+
+  // 필터·검색에서 선택행이 사라지면 상세도 함께 비운다. 숨은 이전 행을 계속 보여주지 않는다.
+  useEffect(() => {
+    if (!rooms || !sel) return;
+    const visible = shownRooms.map((room) => String(room._key));
+    if (retainVisibleSelection(sel, visible) === sel) return;
+    clearSel();
+    // clearSel은 최신 선택 epoch와 URL room 파라미터를 함께 정리한다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rooms, shownRooms, sel]);
+
   const roomListEl = <ChatRoomList
     rooms={shownRooms}
     role={role}
@@ -255,12 +320,7 @@ export default function Chat() {
     filterActive={flt !== CHAT_FILTER_DEFAULT}
     displayName={roomHead}
     plate={roomPlateOf}
-    providerName={(room) => {
-      if (role !== 'admin') return undefined;
-      const provider = providerOf(room);
-      return provider.name || provider.code || undefined;
-    }}
-    contract={contractOf}
+    contract={rowContract}
     counter={roomCounter}
     onSelect={handleRoomClick}
     onReset={() => { setQInput(''); setQ(''); setFlt(CHAT_FILTER_DEFAULT); }}
@@ -269,15 +329,24 @@ export default function Chat() {
   // CenterNote는 PaneBody 안에 둔다 — 헤더의 형제로 두면 헤더 높이까지 먹어
   //  문구 중심이 헤더 절반(16px)만큼 내려가 옆 패널과 눈높이가 안 맞았다.
   const emptyPane = (t: string, msg: string) => <><PaneHead title={t} /><PaneBody><CenterNote>{msg}</CenterNote></PaneBody></>;
-  const linked = selRoom?.linked_contract ? String(selRoom.linked_contract) : undefined;
-  const selContract = selRoom ? contractOf(selRoom) : undefined;
-  const inContract = !!selContract && getProgress(selContract).done >= 1;
-  const docCode = selContract ? String(selContract.contract_code) : linked;
+  const selContract = selRoom ? rowContract(selRoom) : undefined;
+  const inContract = !!selContract;
+  // 원본 명시 링크가 있으면 resolver가 현재 인덱스에서 못 찾더라도 버리지 않는다.
+  // ContractPanel도 이 링크가 존재할 때 다른 차량·담당자 계약으로 재추정하지 않는다.
+  const rawLinked = String(selRoom?.linked_contract || '').trim();
+  const linked = rawLinked || (selContract ? String(selContract.contract_code) : undefined);
+  const docCode = linked;
   const scroll = (n: ReactNode) => <PaneBody>{n}</PaneBody>;
   const reloadContracts = async () => setContracts(await getStore().list('contract', co));
   // 빈 상태는 CenterNote 완결문 한 종류로 — '—' 한 글자만 놓으면 데이터가 깨진 것처럼 읽힌다.
-  const contractBody = sel ? <ContractPanel product={selProduct} roomId={sel} linkedCode={linked} agentCode={selRoom ? String(selRoom.agent_code || '') : undefined} onChange={reloadContracts} /> : <CenterNote>대화를 선택하세요.</CenterNote>;
-  const docsBody = docCode ? <ContractDocs contractCode={docCode} roomId={sel || undefined} /> : <CenterNote>계약문의를 시작하면 서류를 첨부할 수 있습니다.</CenterNote>;
+  const contractBody = !sel
+    ? <CenterNote>대화를 선택하세요.</CenterNote>
+    : isContractCancelled(selContract)
+      ? <CenterNote>{joinMetaText([selContract?.contract_code, '취소된 계약입니다.'])}</CenterNote>
+      : <ContractPanel key={String(sel)} product={selProduct} roomId={sel || undefined} linkedCode={linked} agentCode={selRoom ? String(selRoom.agent_code || '') : undefined} onChange={reloadContracts} />;
+  const docsBody = docCode
+    ? <ContractDocs key={`${String(sel)}:${docCode}`} contractCode={docCode} roomId={sel || undefined} readOnly={isContractCancelled(selContract)} />
+    : <CenterNote>계약문의를 시작하면 서류를 첨부할 수 있습니다.</CenterNote>;
   const vehicleBlock = selProduct
     ? <>{selProduct._fromHistory ? <div style={{ fontSize: FS.cap, color: C.faint, marginBottom: 8 }}>재고에서 내려간 매물 · 계약 이력 기준</div> : null}<ProductDetail p={selProduct} /></>
     : <CenterNote>이 매물의 이력이 없습니다.</CenterNote>;
@@ -356,23 +425,21 @@ export default function Chat() {
       onBack={clearSel}
       contextTitle={selRoom
         ? (() => {
-            const head = roomTitle(selRoom);
+            // 선택 헤더는 목록 ①줄과 같은 차량명을 먼저 보여준다. 차번은 우측 대화코드와 중복하지 않는다.
+            const head = roomHead(selRoom);
             const code = roomChatCode(selRoom);
-            const pv = role === 'admin' ? providerOf(selRoom) : null;
-            const suf = pv ? (pv.name || pv.code) : '';
             return (
               <span style={{ display: 'inline-flex', alignItems: 'baseline', minWidth: 0, maxWidth: '100%' }}>
                 <span style={{
                   minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                 }}>
                   {head}
-                  {suf ? <span style={{ color: C.mute, fontWeight: FW.strong }}> · {suf}</span> : null}
                 </span>
                 {code ? (
                   <span style={{
                     flex: '0 0 auto', marginLeft: 8, color: C.faint, fontWeight: FW.label,
                     fontSize: FS.sub, fontFamily: NUM, fontVariantNumeric: 'tabular-nums',
-                    whiteSpace: 'nowrap',
+                    whiteSpace: 'nowrap', maxWidth: '40%', overflow: 'hidden', textOverflow: 'ellipsis',
                   }}>{code}</span>
                 ) : null}
               </span>

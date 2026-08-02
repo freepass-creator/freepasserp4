@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
@@ -32,6 +32,7 @@ import {
   type MemberTab as Tab,
 } from '@/features/members/member-filter';
 import { MembersList } from '@/features/members/MembersList';
+import { retainVisibleSelection } from '@/features/work-list-display';
 // 사용자·파트너 관리(관리자) — 역할·활성·영업지급율(user) / 유형·공급사수수료율(partner). 여기 율이 정산 R1/R2 SSOT.
 // status(가입승인)는 폼에서 제외 — v4 오버레이가 아니라 approveUser 로 "최상위"에 기록해야 게이트가 인식. 아래 승인 버튼 전용.
 const idFieldOf = (t: Tab) => (t === 'user' ? 'uid' : 'partner_code');
@@ -254,11 +255,22 @@ export default function Members() {
     toast('삭제되었습니다', 'ok');
   };
 
+  const shown = useMemo(() => filterMembers({
+    rows, tab, query: q, sort, role: roleFlt, active: activeFlt, partnerType: ptypeFlt,
+  }), [rows, tab, q, sort, roleFlt, activeFlt, ptypeFlt]);
+
+  // 검색·필터에서 선택 행이 사라지면 읽기 상세도 함께 정리한다.
+  // 신규/수정 중 값과 저장 중 상태는 자동으로 버리지 않는다.
+  useEffect(() => {
+    if (!sel || dirty || creating || saving) return;
+    const visible = shown.map((row) => String(row._key));
+    if (retainVisibleSelection(sel, visible) === sel) return;
+    clearSel();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shown, sel, dirty, creating, saving]);
+
   if (ok === null) return <Loading />;
 
-  const shown = filterMembers({
-    rows, tab, query: q, sort, role: roleFlt, active: activeFlt, partnerType: ptypeFlt,
-  });
   const listEl = (
     <MembersList
       tab={tab}

@@ -42,6 +42,11 @@ export function checkInventory(products: EntityRecord[]): CheckGroup[] {
     if (GARBAGE_MAKER.has(String(p.maker ?? '').trim())) add('bad_maker', '제조사 이상 (개인/사업자 등)', 'high', '오입력 — 실제 제조사로 수정', hit(String(p.maker)));
     const md = String(p.model ?? '').trim();
     if (COLORS.has(md) || /^\d{2,3}[가-힣]\d{3,4}$/.test(md)) add('bad_model', '모델칸에 색상/차번 (오입력)', 'high', '세부모델에 실모델 있으면 매칭됨', hit(md));
+    // 제조사·모델·세부모델이 **전부** 빈 껍데기 — 화면에서는 차번으로 폴백돼 조용히 넘어간다.
+    //  bad_maker(값이 이상함)·bad_model(칸이 뒤바뀜) 어느 쪽에도 안 걸려 지금까지 어디에도 안 잡혔다(실측 8건).
+    if (!String(p.maker ?? '').trim() && !md && !String(p.sub_model ?? '').trim()) {
+      add('no_vehicle', '차종 정보 없음 (제조사·모델 전부 공란)', 'high', '차종마스터에서 지정 — 지금은 차번으로만 보인다', hit());
+    }
     if (!hasPhoto(p)) add('no_photo', '사진 없음', 'mid', '공급사에 사진 요청', hit());
     else {
       const pl = String(p.photo_link ?? '');

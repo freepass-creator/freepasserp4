@@ -22,6 +22,7 @@ import { matchSettlementQuery } from '@/lib/domain/search';
 import { NAV_LABEL } from '@/lib/tabbar';
 import { Banknote, ChartNoAxesCombined, ChevronLeft, ChevronRight, FileText } from 'lucide-react';
 import { useIsMobile } from '@/lib/use-mobile';
+import { retainVisibleSelection } from '@/features/work-list-display';
 
 type SettlementSort = '' | 'date_desc' | 'customer' | 'amount_desc' | 'status';
 type SettlementGroup = 'provider' | 'channel';
@@ -157,6 +158,14 @@ export default function MonthlySettlement() {
       return String(left.settlement_code || '').localeCompare(String(right.settlement_code || ''), 'ko');
     });
   }, [monthRows, query, sort, status]);
+
+  // 검색·상태 필터에서 사라진 행의 상세를 계속 보여주지 않는다.
+  useEffect(() => {
+    if (!selectedKey) return;
+    const visible = shown.map((settlement) => String(settlement._key || settlement.settlement_code));
+    if (retainVisibleSelection(selectedKey, visible) === selectedKey) return;
+    setSelectedKey(null);
+  }, [shown, selectedKey]);
 
   const selected = selectedKey
     ? monthRows.find((settlement) => String(settlement._key || settlement.settlement_code) === selectedKey) || null

@@ -1,26 +1,84 @@
 import type { EntityRecord } from '@/lib/intake/entities';
-import { isHiddenFromCatalog, vehicleName } from '@/lib/domain/product';
+import { isHiddenFromCatalog } from '@/lib/domain/product';
+import { isContractCancelled } from '@/lib/domain/contract';
+import { roomVehicleLabel } from '@/lib/domain/vehicle-label';
+import { isOpaqueIdentity, safeBusinessCode } from '@/lib/domain/work-identity';
 
 export type ProductLookup = {
   byId: Map<string, EntityRecord>;
   byCar: Map<string, EntityRecord>;
 };
 
-const roomKey = (record: EntityRecord) => `${String(record.product_code)}|${String(record.agent_code)}`;
+function values(items: unknown[]): string[] {
+  return [...new Set(items.map((item) => String(item || '').trim()).filter(Boolean))];
+}
+
+function pairKeys(products: string[], cars: string[], agents: string[]): string[] {
+  if (!agents.length) return [];
+  return [
+    ...products.flatMap((product) => agents.map((agent) => `product:${product}|agent:${agent}`)),
+    ...cars.flatMap((car) => agents.map((agent) => `car:${car}|agent:${agent}`)),
+  ];
+}
+
+function contractJoinKeys(contract: EntityRecord): string[] {
+  const code = String(contract.contract_code || '').trim();
+  return [
+    ...(code ? [`contract:${code}`] : []),
+    ...pairKeys(
+      values([contract.product_code, contract.product_uid, contract.product_id]),
+      values([contract.car_number_snapshot, contract.car_number, contract.vehicle_number]),
+      values([contract.agent_code, contract.agent_uid, contract.user_code]),
+    ),
+  ];
+}
+
+function roomJoinKeys(room: EntityRecord): string[] {
+  const parsed = idFromRoomKey(room);
+  return pairKeys(
+    values([room.product_code, room.product_uid, room.product_id, parsed.code]),
+    values([room.car_number, room.vehicle_number, parsed.car]),
+    values([room.agent_code, room.agent_uid, room.user_code, parsed.agent]),
+  );
+}
 
 export function buildContractIndex(contracts: EntityRecord[], cancelled: boolean): Map<string, EntityRecord> {
   const index = new Map<string, EntityRecord>();
   for (const contract of contracts) {
-    const isCancelled = contract.contract_status === '계약취소';
+    const isCancelled = isContractCancelled(contract);
     if (isCancelled !== cancelled) continue;
-    const key = roomKey(contract);
-    if (!index.has(key)) index.set(key, contract);
+    for (const key of contractJoinKeys(contract)) {
+      if (!index.has(key)) index.set(key, contract);
+    }
   }
   return index;
 }
 
 export function contractForRoom(index: Map<string, EntityRecord>, room: EntityRecord): EntityRecord | undefined {
-  return index.get(roomKey(room));
+  const linked = String(room.linked_contract || '').trim();
+  // 명시 연결은 차량·담당자 추정보다 강하다. 이 인덱스(활성/취소)에 없다고
+  // 같은 차량의 다른 계약으로 갈아타면 목록 상태와 상세 계약이 서로 달라진다.
+  if (linked) return index.get(`contract:${linked}`);
+  for (const key of roomJoinKeys(room)) {
+    const match = index.get(key);
+    if (match) return match;
+  }
+  return undefined;
+}
+
+/** 계약 선택은 읽기 동작이다. 기존 방만 찾고 새 방을 만들지 않는다. */
+export function findRoomForContract(rooms: EntityRecord[], contract: EntityRecord): EntityRecord | undefined {
+  const code = String(contract.contract_code || '').trim();
+  if (code) {
+    const linked = rooms.find((room) => String(room.linked_contract || '').trim() === code);
+    if (linked) return linked;
+  }
+  const contractKeys = new Set(contractJoinKeys(contract));
+  return rooms.find((room) => {
+    const linked = String(room.linked_contract || '').trim();
+    if (linked && linked !== code) return false;
+    return roomJoinKeys(room).some((key) => contractKeys.has(key));
+  });
 }
 
 export function buildProductLookup(products: EntityRecord[]): ProductLookup {
@@ -49,18 +107,23 @@ export function buildProductLookup(products: EntityRecord[]): ProductLookup {
  *  · 표시용 코드    : `CH-{차량번호}-{영업자코드}` → 차량번호
  * 매물코드에 '_'가 들어갈 수 있으므로 마지막 구분자 기준으로 자른다.
  */
-function idFromRoomKey(room: EntityRecord): { code?: string; car?: string } {
+function idFromRoomKey(room: EntityRecord): { code?: string; car?: string; agent?: string } {
   const raw = String(room.chat_code || room.room_code || room.room_id || room._key || '');
   const sep = raw.startsWith('CH_') ? '_' : raw.startsWith('CH-') ? '-' : '';
   if (!sep) return {};
   const body = raw.slice(3);
-  const cut = body.lastIndexOf(sep);
+  const knownAgent = values([room.agent_code, room.agent_uid, room.user_code])
+    .sort((a, b) => b.length - a.length)
+    .find((agent) => body.endsWith(`${sep}${agent}`));
+  const cut = knownAgent ? body.length - knownAgent.length - 1 : body.lastIndexOf(sep);
   const head = cut > 0 ? body.slice(0, cut) : body;
+  const agent = knownAgent || (cut > 0 ? body.slice(cut + 1) : '');
   if (!head) return {};
-  return sep === '_' ? { code: head } : { car: head };
+  return sep === '_' ? { code: head, agent } : { car: head, agent };
 }
 
-function productForRoom(lookup: ProductLookup, room: EntityRecord): EntityRecord | undefined {
+/** 목록·상세가 같은 레거시 product_uid/차번 복원 규칙을 쓰게 하는 상품 조인 SSOT. */
+export function productForRoom(lookup: ProductLookup, room: EntityRecord): EntityRecord | undefined {
   const car = String(room.car_number || room.vehicle_number || '');
   const direct = lookup.byId.get(String(room.product_code))
     || lookup.byId.get(String(room.product_uid))
@@ -70,15 +133,6 @@ function productForRoom(lookup: ProductLookup, room: EntityRecord): EntityRecord
   const fromKey = idFromRoomKey(room);
   return (fromKey.code ? lookup.byId.get(fromKey.code) : undefined)
     || (fromKey.car ? lookup.byCar.get(fromKey.car) : undefined);
-}
-
-/** 방 레코드 차명 — erp3 formatMainLine은 sub_model 우선(maker+model+sub 중복 금지). */
-function roomModelName(room: EntityRecord): string {
-  const assembled = String(room.vehicle_name || '').trim();
-  if (assembled) return assembled;
-  const sub = String(room.sub_model || '').trim();
-  if (sub) return sub;
-  return [room.maker, room.model, room.trim_name].filter(Boolean).join(' ').trim();
 }
 
 function resolveRoomCar(
@@ -112,22 +166,20 @@ export function roomTitle(
   const productCode = String(room.product_code || '') || (fromKey.code || '');
   const contract = productCode
     ? activeContract
-      || contracts.find((candidate) => String(candidate.product_code) === productCode && String(candidate.contract_status || '') !== '계약취소')
+      || contracts.find((candidate) => String(candidate.product_code) === productCode && !isContractCancelled(candidate))
       || contracts.find((candidate) => String(candidate.product_code) === productCode)
     : undefined;
 
   const car = resolveRoomCar(room, product, contract, fromKey);
 
-  const name = roomModelName(room)
-    || (product ? (String(product.sub_model || '').trim() || vehicleName(product)) : '')
-    || [contract?.maker_snapshot, contract?.sub_model_snapshot].filter(Boolean).join(' ').trim();
+  const name = roomVehicleLabel(room, product, contract);
 
   // erp3 = 조각 없으면 '-'. "차량 조회불가"는 erp3에 없는 표기라 목록 톤이 갈린다.
   const title = [car, name].filter(Boolean).join(' ');
   if (!title) return '-';
   // 상태 꼬리표 — 출고불가는 살아있는 차(삭제 아님), 삭제는 확인된 경우만.
-  if (product && isHiddenFromCatalog(product)) return `${title} (출고불가)`;
   if (product && (product._deleted || product.deletedAt)) return `${title} (삭제)`;
+  if (product && isHiddenFromCatalog(product)) return `${title} (출고불가)`;
   return title;
 }
 
@@ -145,7 +197,7 @@ export function roomPlate(
   const productCode = String(room.product_code || '') || (fromKey.code || '');
   const contract = productCode
     ? activeContract
-      || contracts.find((candidate) => String(candidate.product_code) === productCode && String(candidate.contract_status || '') !== '계약취소')
+      || contracts.find((candidate) => String(candidate.product_code) === productCode && !isContractCancelled(candidate))
       || contracts.find((candidate) => String(candidate.product_code) === productCode)
     : undefined;
   return resolveRoomCar(room, product, contract, fromKey);
@@ -173,25 +225,34 @@ export function roomModel(
   const productCode = String(room.product_code || '') || (fromKey.code || '');
   const contract = productCode
     ? activeContract
-      || contracts.find((candidate) => String(candidate.product_code) === productCode && String(candidate.contract_status || '') !== '계약취소')
+      || contracts.find((candidate) => String(candidate.product_code) === productCode && !isContractCancelled(candidate))
       || contracts.find((candidate) => String(candidate.product_code) === productCode)
     : undefined;
 
-  const name = roomModelName(room)
-    || (product ? (String(product.sub_model || '').trim() || vehicleName(product)) : '')
-    || [contract?.maker_snapshot, contract?.sub_model_snapshot].filter(Boolean).join(' ').trim();
-  if (!name) return resolveRoomCar(room, product, contract, fromKey) || '-';
+  const name = roomVehicleLabel(room, product, contract);
+  if (!name) return '차량명 미확인';
   // 상태 꼬리표는 차명 옆에 — 출고불가는 살아있는 차(삭제 아님)
-  if (product && isHiddenFromCatalog(product)) return `${name} (출고불가)`;
   if (product && (product._deleted || product.deletedAt)) return `${name} (삭제)`;
+  if (product && isHiddenFromCatalog(product)) return `${name} (출고불가)`;
   return name;
 }
 
-export function providerForRoom(room: EntityRecord, products: ProductLookup): { code: string; name: string } {
-  const code = String(room.provider_company_code || '').trim();
-  const product = productForRoom(products, room);
-  const name = String(product?.provider_name || product?.provider_name_full || room.provider_name || '').trim();
-  return { code, name: name || code };
+export function providerForRoom(
+  room: EntityRecord,
+  products: ProductLookup,
+  deletedProducts?: ProductLookup,
+  aliases: Record<string, string> = {},
+): { code: string; name: string } {
+  const product = productForRoom(products, room)
+    || (deletedProducts ? productForRoom(deletedProducts, room) : undefined);
+  const code = String(room.provider_company_code || product?.provider_company_code || '').trim();
+  const name = values([
+    aliases[code],
+    product?.provider_name,
+    room.provider_name,
+    product?.provider_name_full,
+  ]).find((candidate) => candidate !== code && !isOpaqueIdentity(candidate)) || '';
+  return { code, name };
 }
 
 /**
@@ -203,14 +264,18 @@ export function providerForRoom(room: EntityRecord, products: ProductLookup): { 
 export function chatCodeOf(room: EntityRecord | null | undefined, carOverride?: string): string {
   if (!room) return '';
   const car = String(carOverride || room.vehicle_number || room.car_number || '').trim();
-  const agent = String(room.agent_code || '').trim();
+  const agent = safeBusinessCode(room.agent_code, room.agent_uid);
   if (car && agent) return `CH-${car}-${agent}`;
+  if (car) return `CH-${car}`;
   const explicit = String(room.chat_code || room.room_code || room.room_id || '').trim();
   // push id / 방 키를 chat_code에 넣어 둔 레거시는 표시용 코드로 쓰지 않는다.
   if (explicit && !explicit.startsWith('-')) {
-    if (/^CH_/.test(explicit)) return explicit.replace(/_/g, '-');
-    return explicit;
+    if (/^CH[_-]/.test(explicit)) {
+      const parsed = idFromRoomKey(room);
+      if (!safeBusinessCode(parsed.agent)) return '';
+      return explicit.replace(/_/g, '-');
+    }
+    return isOpaqueIdentity(explicit) ? '' : explicit;
   }
-  const key = String(room._key || '');
-  return key ? `CH-${key.replace(/^-/, '').slice(0, 8)}` : '';
+  return '';
 }

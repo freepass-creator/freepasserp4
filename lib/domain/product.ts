@@ -6,6 +6,7 @@ import type { EntityRecord } from '@/lib/intake/entities';
 import { MAX_PROMO_BADGES as PROMO_MAX, PROMO_BADGES_ACTIVE, PROMO_BADGES_PLANNED, PROMO_BADGE_LEGACY, PRODUCT_TYPES, PRODUCT_TYPE_LEGACY } from '@/lib/intake/entities';
 import { fuelDisplay, fuelEmbeddedCc, yearDisplay, makerDisplay } from '@/lib/domain/vehicle-master-match';
 import { kmDisplay } from '@/lib/format';
+import { vehicleNameOf } from '@/lib/domain/vehicle-name';
 export { PROMO_BADGES, PROMO_BADGES_ACTIVE, PROMO_BADGES_PLANNED, MAX_PROMO_BADGES } from '@/lib/intake/entities';
 
 /**
@@ -137,8 +138,14 @@ export function priceAt(p: EntityRecord, target: number): Price | null {
   return l.find((e) => e.m === target) || l.slice().sort((a, b) => Math.abs(a.m - target) - Math.abs(b.m - target))[0];
 }
 
+/**
+ * 목록·칩·앱바·정렬키의 차명 = T1.
+ * **조립은 vehicle-name.ts 가 SSOT — 여기서 직접 만들지 않는다.**
+ * 예전엔 trim_name 에 isNoTrimLabel 필터가 없어 '… 없음'이 제목에 그대로 찍혔고,
+ * 빈 차명 폴백이 '차량'이라 다른 화면의 '상품'·'—'·'-'·'[]' 와 어긋났다.
+ */
 export function vehicleName(p: EntityRecord): string {
-  return [makerDisplay(p.maker) || p.maker, p.sub_model || p.model, p.trim_name].filter(Boolean).join(' ') || String(p.car_number || '차량');
+  return vehicleNameOf({ kind: 'product', product: p }, { tier: 'short' });
 }
 
 /** 심사표기 — 무심사 / 소득확 (3글자 뱃지 SSOT. 정책 screening_criteria 우선) */

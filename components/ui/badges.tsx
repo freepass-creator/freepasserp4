@@ -201,8 +201,8 @@ export const SETTLEMENT_STATUS_TONE: Record<string, BadgeTone> = {
 };
 
 /** 필터 선택 개수 — erp3 m-filter-section-count. 작게 유지(헤더 늘어남 방지). */
-export function CountPill({ n, tone = 'brand', max = 999 }: {
-  n: number; tone?: BadgeTone | 'brand' | 'red' | 'accent'; max?: number;
+export function CountPill({ n, tone = 'brand', max = 999, title }: {
+  n: number; tone?: BadgeTone | 'brand' | 'red' | 'accent'; max?: number; title?: string;
 }) {
   const mobile = useIsMobile();
   if (!n) return null;
@@ -211,7 +211,8 @@ export function CountPill({ n, tone = 'brand', max = 999 }: {
   if (tone === 'brand' || tone === 'blue' || tone === 'accent') {
     return (
       <span
-        title={`${n}개 선택`}
+        title={title || `${n}개 선택`}
+        aria-label={title || undefined}
         style={{
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
           flex: '0 0 auto',
@@ -228,5 +229,5 @@ export function CountPill({ n, tone = 'brand', max = 999 }: {
     );
   }
   const t: BadgeTone = tone === 'red' ? 'red' : 'gray';
-  return <Badge tone={t} variant="solid" title={`${n}개 선택`}>{label}</Badge>;
+  return <Badge tone={t} variant="solid" title={title || `${n}개 선택`}>{label}</Badge>;
 }

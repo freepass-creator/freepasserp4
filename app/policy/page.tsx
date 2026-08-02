@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { getStore, peekList } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
@@ -14,6 +14,7 @@ import { matchPolicyQuery } from '@/lib/domain/search';
 import { haptic } from '@/lib/haptics';
 import { useIsMobile } from '@/lib/use-mobile';
 import { NAV_LABEL } from '@/lib/tabbar';
+import { retainVisibleSelection } from '@/features/work-list-display';
 
 type PolSort = 'name' | 'code' | 'type';
 type PolScope = 'all' | 'mine' | 'shared';
@@ -145,10 +146,10 @@ export default function PolicyMgmt() {
       toast(`저장 실패: ${String((e as Error)?.message || e)}`, 'error');
       return;
     }
+    await load(role);
     setDirty(false);
     setCreating(false);
     setEditing(false);
-    await load(role);
     setSel(String(patch.policy_code));
     setForm(patch);
     haptic.success();
@@ -201,19 +202,7 @@ export default function PolicyMgmt() {
   };
   const startEdit = () => { setEditing(true); haptic.tap(); };
 
-  if (ok === false) {
-    return (
-      <Page title={NAV_LABEL.policy}>
-        <CenterNote>공급사·관리자만 정책을 관리할 수 있습니다</CenterNote>
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 12 }}>
-          <Btn title="홈으로" href="/" size="sm">홈으로</Btn>
-        </div>
-      </Page>
-    );
-  }
-  if (ok !== true) return <Loading />;
-
-  const shown = (rows || [])
+  const shown = useMemo(() => (rows || [])
     .filter((p) => matchPolicyQuery(p, q))
     .filter((p) => {
       if (scope === 'all') return true;
@@ -227,7 +216,30 @@ export default function PolicyMgmt() {
       if (sort === 'type') return String(a.policy_type || '').localeCompare(String(b.policy_type || ''), 'ko')
         || String(a.policy_name || '').localeCompare(String(b.policy_name || ''), 'ko');
       return String(a.policy_name || a.policy_code || '').localeCompare(String(b.policy_name || b.policy_code || ''), 'ko');
-    });
+    }), [rows, q, scope, sort]);
+
+  // 검색·필터에서 선택 행이 사라지면 읽기 상세도 함께 정리한다.
+  // 신규/수정 중 값은 자동으로 버리지 않는다.
+  useEffect(() => {
+    if (!sel || dirty || creating) return;
+    const visible = shown.map((policy) => String(policy.policy_code));
+    if (retainVisibleSelection(sel, visible) === sel) return;
+    clearSel();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shown, sel, dirty, creating]);
+
+  if (ok === false) {
+    return (
+      <Page title={NAV_LABEL.policy}>
+        <CenterNote>공급사·관리자만 정책을 관리할 수 있습니다</CenterNote>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 12 }}>
+          <Btn title="홈으로" href="/" size="sm">홈으로</Btn>
+        </div>
+      </Page>
+    );
+  }
+  if (ok !== true) return <Loading />;
+
   // 등록 진입점은 목록 맨 위 행 하나로(재고·회원과 동일). 헤더 우측 버튼과 두 갈래로 두지 않는다.
   const listEl = (
     <>

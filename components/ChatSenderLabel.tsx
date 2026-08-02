@@ -8,7 +8,7 @@ import { C, FS, FW } from '@/components/ui';
  * 채팅 발신 라벨
  *  · 관리자: 문자열 "freepass" 자체가 명함 CI 워드마크(Exo 2·600·네이비). 뒤에 CI 장식/뱃지 없음.
  *  · `.이름` = 일반 캡션
- *  · 그 외 역할 = 유저코드 평문
+ *  · 그 외 역할 = 발신자명(없으면 역할명, 내부코드 비노출)
  */
 export function ChatSenderLabel({
   role, name, code, style,
@@ -18,7 +18,7 @@ export function ChatSenderLabel({
   code?: string;
   style?: CSSProperties;
 }) {
-  const base: CSSProperties = { fontSize: FS.cap, color: C.faint, lineHeight: 1, ...style };
+  const base: CSSProperties = { fontSize: FS.cap, color: C.mute, lineHeight: 1, ...style };
   if (role === 'admin') {
     const n = String(name || '').trim();
     return (

@@ -23,6 +23,7 @@ import { useInventoryVehicleTools } from '@/features/inventory/useInventoryVehic
 import { useInventoryEditorLifecycle } from '@/features/inventory/useInventoryEditorLifecycle';
 import { useInventoryAccessEffects, useInventoryData } from '@/features/inventory/useInventoryData';
 import { copyText } from '@/lib/clipboard';
+import { retainVisibleSelection } from '@/features/work-list-display';
 const INV_SORTS: { value: InvSort; label: string }[] = [
   { value: 'status', label: '상태순' },
   { value: 'name', label: '차명순' },
@@ -158,6 +159,17 @@ export default function Inventory() {
     draftProductType: draftTypeFlt,
     sort,
   });
+
+  // 검색·필터에서 선택 행이 사라지면 읽기 상세도 함께 정리한다.
+  // 신규/수정 값과 저장 중 상태는 자동으로 버리지 않는다.
+  useEffect(() => {
+    if (!sel || dirty || creating || saving) return;
+    const visible = filtered.map((product) => String(product.product_code));
+    if (retainVisibleSelection(sel, visible) === sel) return;
+    clearSel();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtered, sel, dirty, creating, saving]);
+
   const selectedIsVisible = creating || editing || !!(sel && filtered.some((product) => (
     String(product.product_code) === sel
   )));

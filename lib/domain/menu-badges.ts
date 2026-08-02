@@ -1,6 +1,6 @@
 /**
  * 메뉴·탭 뱃지
- *   /chat(문의) = 내 안읽음 방 수
+ *   /chat(문의) = 아직 계약으로 넘어가지 않은 문의 중 내 안읽음 방 수
  *   /contract(계약) = 진행 중 — 하단탭만 (햄버거·합산에 안 넣음)
  *   /settlement = 정산대기·환수대기(관리자)
  */
@@ -12,6 +12,7 @@ import { canAccessOwnedRecord } from '@/lib/domain/authorization';
 import { roomsWithUnread, unreadRoomCount } from '@/lib/domain/messaging';
 import { isInquiryOnly, isContractInProgress } from '@/lib/domain/contract';
 import { isWorkspaceChatRoom } from '@/features/chat/room-filter';
+import { buildContractIndex, contractForRoom } from '@/features/chat/room-display';
 
 export type MenuBadgeMap = Record<string, number>;
 
@@ -26,8 +27,10 @@ export async function loadMenuBadges(role: Role, co = getCompanyId()): Promise<M
     const [rooms, contracts] = await Promise.all([store.list('room', co), store.list('contract', co)]);
     const session = getSession();
     const mineRooms = rooms.filter((room) => canAccessOwnedRecord(session, room) && isWorkspaceChatRoom(room, role));
-    const contractOf = (rm: (typeof rooms)[number]) =>
-      contracts.find((c) => String(c.product_code) === String(rm.product_code) && String(c.agent_code) === String(rm.agent_code) && c.contract_status !== '계약취소');
+    // 페이지 목록과 같은 resolver를 써야 product_uid 레거시 방·linked_contract 충돌에서도
+    // 메뉴의 "문의 안읽음" 숫자와 실제 문의 필터 결과가 어긋나지 않는다.
+    const activeContractIndex = buildContractIndex(contracts, false);
+    const contractOf = (room: (typeof rooms)[number]) => contractForRoom(activeContractIndex, room);
     const inquiryRooms = mineRooms.filter((r) => isInquiryOnly(contractOf(r)));
     const withUnread = await roomsWithUnread(inquiryRooms, role);
     // 뱃지 = 카운터만(soft 폴백·전량 메시지 스캔 결과 중 양수). roomsWithUnread가 열람 후 재계산.

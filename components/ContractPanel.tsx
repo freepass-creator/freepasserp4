@@ -1,9 +1,9 @@
 'use client';
-import { useEffect, useState, Fragment, type ReactNode } from 'react';
+import { useEffect, useRef, useState, Fragment, type ReactNode } from 'react';
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { type EntityRecord } from '@/lib/intake/entities';
-import { STEPS, contractTone, isDone, isRejected } from '@/lib/domain/contract';
+import { STEPS, contractStage, isContractCancelled, isDone, isRejected, needsContractFinalization } from '@/lib/domain/contract';
 import { applyStepCheck, cancelContract, finalizeContractIfReady } from '@/lib/domain/settlement-engine';
 import { createContractRequest, getRole, type Role } from '@/lib/domain/deal';
 import { cheapest, priceList } from '@/lib/domain/product';
@@ -13,6 +13,7 @@ import { ContractSign } from '@/components/ContractSign';
 import { confirmDialog, toast } from '@/components/Toaster';
 import { useIsMobile } from '@/lib/use-mobile';
 import { Check } from 'lucide-react';
+import { runContractMutation } from '@/features/contract/contract-mutation';
 
 // 계약 패널 = 5단계 핸드셰이크 진행. 계약 없으면 계약문의로 시작 → 서류·입금·약정·출고.
 // 첨부 서류는 별도 패널(계약패널 밑, 위아래 리사이즈). 손님 연락처는 약정(계약서 발송) 단계에서.
@@ -35,92 +36,125 @@ function infoLabel(text: string): ReactNode {
   );
 }
 
-export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange }: { product: EntityRecord | null; roomId: string; linkedCode?: string; agentCode?: string; onChange?: () => void }) {
+export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange }: { product: EntityRecord | null; roomId?: string; linkedCode?: string; agentCode?: string; onChange?: (contractCode?: string) => void }) {
   const co = getCompanyId();
   const mobile = useIsMobile();
   const [contract, setContract] = useState<EntityRecord | null | undefined>(undefined);
   const [role, setRoleS] = useState<Role>('agent');
   const [cust, setCust] = useState({ name: '', phone: '' });
   const [busy, setBusy] = useState(false);
+  const selectionEpoch = useRef(0);
   /** 계약 생성 시 동결할 대여기간. 미선택이면 최저가 기간을 쓴다(기존 동작). */
   const [period, setPeriod] = useState<number>(0);
 
-  const load = async () => {
+  /** 상세·목록과 전역 메뉴 숫자를 같은 프레임에 갱신한다. */
+  const notifyChange = () => {
+    onChange?.(String(contract?.contract_code || linkedCode || '').trim() || undefined);
+    window.dispatchEvent(new Event('fp:unread'));
+  };
+
+  const load = async (epoch = selectionEpoch.current) => {
     const all = await getStore().list('contract', co);
     let c: EntityRecord | undefined;
     // 취소계약 제외 + 같은 영업자(agentCode)로 한정 — 같은 매물 타 영업자 계약 오바인딩 방지(contractOf와 동일 기준).
-    if (linkedCode) c = all.find((x) => x.contract_code === linkedCode && x.contract_status !== '계약취소');
-    if (!c && product) c = all.find((x) => String(x.product_code) === String(product.product_code) && (!agentCode || String(x.agent_code) === agentCode) && x.contract_status !== '계약취소');
-    setContract(c || null);
+    if (linkedCode) c = all.find((x) => x.contract_code === linkedCode && !isContractCancelled(x));
+    else if (product) c = all.find((x) => String(x.product_code) === String(product.product_code) && (!agentCode || String(x.agent_code) === agentCode) && !isContractCancelled(x));
+    if (epoch === selectionEpoch.current) setContract(c || null);
   };
-  useEffect(() => { setRoleS(getRole()); load(); /* eslint-disable-next-line */ }, [roomId, product?.product_code, linkedCode, agentCode]);
+  useEffect(() => {
+    const epoch = ++selectionEpoch.current;
+    setRoleS(getRole());
+    setContract(undefined);
+    setCust({ name: '', phone: '' });
+    setPeriod(0);
+    setBusy(false);
+    void load(epoch);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomId, product?.product_code, linkedCode, agentCode]);
   useEffect(() => { const on = (e: Event) => setRoleS((e as CustomEvent).detail as Role); window.addEventListener('fp:role', on); return () => window.removeEventListener('fp:role', on); }, []);
   useEffect(() => { if (contract) setCust({ name: String(contract.customer_name || ''), phone: String(contract.customer_phone || '') }); /* eslint-disable-next-line */ }, [contract?.contract_code]);
 
   // 계약문의 = 계약 시작. 계약 없으면 가계약 자동생성. 손님 연락처는 가부 확인 후 완료 직전(출고)에만 입력.
   const doInquiry = async () => {
-    if (busy) return; setBusy(true);
+    if (busy) return;
+    const epoch = selectionEpoch.current;
+    setBusy(true);
     try {
-      let cc = contract || null;
-      if (!cc && product) {
-        // 계약 생성 = 금액·기간이 이 시점에 **동결**된다(정산·계약서·손님 서명 금액의 기준).
-        //  예전엔 손님 합의와 무관하게 '최저가 기간'을 자동으로 박았고 이후 수정 경로가 없었다.
-        //  → 영업자가 고른 기간(period)을 쓰고, 안 골랐으면 최저가를 기본으로 둔다.
-        const m = period || cheapest(product)?.m || priceList(product)[0]?.m || 0;
-        const code = await createContractRequest(product, { period: m, customerName: '', customerPhone: '' }, roomId);
-        cc = (await getStore().get('contract', co, code)) || null;
-      }
-      if (cc) await applyStepCheck(cc, 'agent_delivery_inquiry', 'yes');
-      await load(); onChange?.();
-    } catch (e) { toast(String((e as Error)?.message || e), 'error'); } finally { setBusy(false); }
+      await runContractMutation(async () => {
+        let cc = contract || null;
+        if (!cc && product) {
+          // 계약 생성 = 금액·기간이 이 시점에 **동결**된다(정산·계약서·손님 서명 금액의 기준).
+          //  예전엔 손님 합의와 무관하게 '최저가 기간'을 자동으로 박았고 이후 수정 경로가 없었다.
+          //  → 영업자가 고른 기간(period)을 쓰고, 안 골랐으면 최저가를 기본으로 둔다.
+          const m = period || cheapest(product)?.m || priceList(product)[0]?.m || 0;
+          const code = await createContractRequest(product, { period: m, customerName: '', customerPhone: '' }, roomId || undefined);
+          cc = (await getStore().get('contract', co, code)) || null;
+        }
+        if (cc) await applyStepCheck(cc, 'agent_delivery_inquiry', 'yes');
+      }, () => load(epoch), notifyChange);
+    } catch (e) { toast(String((e as Error)?.message || e), 'error'); } finally {
+      if (epoch === selectionEpoch.current) setBusy(false);
+    }
   };
   // 약정 작성완료 = 계약서(약정) 발송 직전 손님 연락처 확인 + 체크. (연락처 모르니 가부 먼저, 계약서 날리기 전에만 입력)
   const doAgreement = async () => {
-    if (!contract || busy) return; setBusy(true);
+    if (!contract || busy) return;
+    const epoch = selectionEpoch.current;
+    setBusy(true);
     try {
-      await getStore().update('contract', co, String(contract.contract_code), { customer_name: cust.name.trim(), customer_phone: cust.phone.trim() });
-      await applyStepCheck(contract, 'provider_agreement_done', 'yes');
-      await load(); onChange?.();
-    } catch (e) { toast(String((e as Error)?.message || e), 'error'); } finally { setBusy(false); }
+      await runContractMutation(async () => {
+        await getStore().update('contract', co, String(contract.contract_code), { customer_name: cust.name.trim(), customer_phone: cust.phone.trim() });
+        await applyStepCheck(contract, 'provider_agreement_done', 'yes');
+      }, () => load(epoch), notifyChange);
+    } catch (e) { toast(String((e as Error)?.message || e), 'error'); } finally {
+      if (epoch === selectionEpoch.current) setBusy(false);
+    }
   };
   const setCheck = async (key: string, value: string) => {
     if (!contract || busy) return;
+    const epoch = selectionEpoch.current;
     setBusy(true);
     try {
-      await applyStepCheck(contract, key, value);
-      await load(); onChange?.();
+      await runContractMutation(() => applyStepCheck(contract, key, value), () => load(epoch), notifyChange);
     } catch (e) { toast(String((e as Error)?.message || e), 'error'); }
-    finally { setBusy(false); }
+    finally { if (epoch === selectionEpoch.current) setBusy(false); }
   };
   // 계약취소 — 어느 단계든(진행중·완료). 재고 출고가능 복원 + 완료건이면 환수. 영업자·관리자만.
   const doCancel = async () => {
     if (!contract || busy) return;
+    const epoch = selectionEpoch.current;
+    const target = contract;
     if (!await confirmDialog({ title: '계약 취소', message: '이 계약을 취소하시겠습니까?\n재고는 출고가능으로 복원되고, 완료 계약이면 환수가 진행됩니다.', danger: true, okLabel: '계약 취소' })) return;
+    if (epoch !== selectionEpoch.current) return;
     setBusy(true);
-    try { await cancelContract(contract); await load(); onChange?.(); } catch (e) { toast(String((e as Error)?.message || e), 'error'); } finally { setBusy(false); }
+    try { await runContractMutation(() => cancelContract(target), () => load(epoch), notifyChange); } catch (e) { toast(String((e as Error)?.message || e), 'error'); } finally {
+      if (epoch === selectionEpoch.current) setBusy(false);
+    }
   };
   const retryFinalize = async () => {
     if (!contract || busy) return;
+    const epoch = selectionEpoch.current;
     setBusy(true);
     try {
-      await finalizeContractIfReady(contract);
-      await load(); onChange?.();
+      await runContractMutation(async () => { await finalizeContractIfReady(contract); }, () => load(epoch), notifyChange);
       toast('계약 완료·정산 처리를 마쳤습니다.', 'ok');
     } catch (e) {
       toast(String((e as Error)?.message || e), 'error');
     } finally {
-      setBusy(false);
+      if (epoch === selectionEpoch.current) setBusy(false);
     }
   };
 
   if (contract === undefined) return <div style={{ padding: 20, color: C.faint, fontSize: FS.sub }}>불러오는 중…</div>;
 
   const c = contract; // null = 아직 계약 전(출고문의로 시작)
+  const cancelled = isContractCancelled(c);
+  const stage = contractStage(c);
   const cval = (k: string) => (c ? c[k] : undefined);
   const stepDoneArr = STEPS.map((s) => s.checks.every((ch) => isDone(cval(ch.key))));
   const activeIdx = stepDoneArr.findIndex((d) => !d);
   const doneCount = stepDoneArr.filter(Boolean).length;
-  const needsFinalize = Boolean(c && doneCount === STEPS.length && String(c.contract_status) !== '계약완료');
+  const needsFinalize = needsContractFinalization(c);
   const agreementDone = isDone(cval('provider_agreement_done'));
 
   return (
@@ -131,13 +165,13 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
           {c ? (
             <>
               <span style={{ fontSize: FS.title, fontWeight: FW.head, fontFamily: NUM, color: C.ink }}>{String(c.contract_code)}</span>
-              <Badge tone={contractTone(String(c.contract_status))}>{String(c.contract_status)}</Badge>
+              <Badge tone={stage.tone}>{stage.label}</Badge>
             </>
           ) : (
             <span style={{ fontSize: FS.title, fontWeight: FW.title, color: C.ink }}>새 계약 — 출고문의로 시작</span>
           )}
           <span style={{ flex: 1, minWidth: 8 }} />
-          {c && String(c.contract_status) !== '계약취소' && (role === 'agent' || role === 'admin') && (
+          {c && !cancelled && (role === 'agent' || role === 'admin') && (
             <Btn title="계약 취소" size="sm" variant="ghost" haptic="impact" onClick={doCancel} disabled={busy}>계약취소</Btn>
           )}
         </div>
@@ -170,7 +204,7 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
             {s.checks.map((ch) => {
               const cur = cval(ch.key);
               const done = isDone(cur);
-              const mine = (ch.actor === role || role === 'admin') && stepUnlocked;
+              const mine = !cancelled && (ch.actor === role || role === 'admin') && stepUnlocked;
               const label = <>{actorLabel(ch.actor)}{ch.key === 'agent_delivery_inquiry' ? '출고 문의' : ch.key === 'provider_agreement_done' ? '약정 작성완료' : ch.label}</>;
               // 완료 표기는 카드 전체에서 한 가지만 쓴다. 예전엔 '문의함 ✓'(초록 텍스트)와
               //  남색 채움 「완료」 버튼이 섞여, 같은 '끝났음'이 행마다 다른 모습으로 보였다.

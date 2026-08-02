@@ -55,6 +55,19 @@ export function getProgress(c: EntityRecord): { done: number; total: number } {
   return { done, total: STEPS.length };
 }
 
+/** 저장 상태 비교 전 공백만 정리한다. 레거시 `계약철회`는 사업 결정 전 임의로 취소 변환하지 않는다. */
+export function normalizeContractStatus(raw: unknown): string {
+  return String(raw ?? '').trim();
+}
+
+export function isContractCancelled(c: EntityRecord | null | undefined): boolean {
+  return !!c && normalizeContractStatus(c.contract_status) === '계약취소';
+}
+
+export function isContractCompleted(c: EntityRecord | null | undefined): boolean {
+  return !!c && normalizeContractStatus(c.contract_status) === '계약완료';
+}
+
 /**
  * 목록 분류 SSOT
  *   문의 = 단순 채팅(활성 계약 없음·취소만)
@@ -62,23 +75,52 @@ export function getProgress(c: EntityRecord): { done: number; total: number } {
  */
 export function isInquiryOnly(c: EntityRecord | null | undefined): boolean {
   if (!c || c._deleted === true) return true;
-  const st = String(c.contract_status || '');
-  return !st || st === '계약취소';
+  const st = normalizeContractStatus(c.contract_status);
+  // 계약 레코드가 있는데 상태가 비어 있으면 단순 문의가 아니라 데이터 확인 대상이다.
+  return st === '계약취소';
 }
 export function isContractInProgress(c: EntityRecord | null | undefined): boolean {
   if (!c || c._deleted === true) return false;
-  const st = String(c.contract_status || '');
+  const st = normalizeContractStatus(c.contract_status);
   return !!st && st !== '계약완료' && st !== '계약취소';
 }
 
-/** 딜 진행 뱃지 — 문의 목록용. 계약 없으면 '상담', 있으면 현재 단계/완료/취소. */
+/** 5/5 체크는 저장됐지만 정산·계약완료 전이가 남은 복구 대상인지 판정한다. */
+export function needsContractFinalization(c: EntityRecord | null | undefined): boolean {
+  if (!c || isContractCancelled(c)) return false;
+  const allDone = STEPS.every((step) => step.checks.every((check) => isDone(c[check.key])));
+  return allDone && normalizeContractStatus(c.contract_status) !== '계약완료';
+}
+
+/** 딜 진행 표시 — 문의·계약 목록 공통. 계약 없으면 문의, 있으면 현재 단계/완료/취소. */
 export function contractStage(c: EntityRecord | null | undefined): { label: string; tone: 'gray' | 'blue' | 'amber' | 'green' | 'red' } {
-  if (!c) return { label: '상담', tone: 'gray' };
-  const st = String(c.contract_status || '');
-  if (st === '계약취소') return { label: '취소', tone: 'red' };
+  if (!c) return { label: '문의', tone: 'gray' };
+  const st = normalizeContractStatus(c.contract_status);
+  if (!st) return { label: '상태 확인', tone: 'red' };
+  if (st === '계약취소') return { label: '계약취소', tone: 'red' };
+  // 운영 이관 건의 의미·차량 복원 여부가 미결이다. 엔진과 다르게 취소로 간주하지 않고 경고한다.
+  if (st === '계약철회') return { label: '계약철회', tone: 'red' };
+  // 새 엔진은 계약요청→완료/취소만 쓴다. 대기·발송 등 레거시 저장상태를
+  // 정상 단계처럼 보이면 필터의 '확인 필요'와 행 뱃지가 다시 어긋난다.
+  if (st !== '계약요청' && st !== '계약완료') return { label: '상태 확인', tone: 'red' };
+  // 상세 패널은 거부를 빨강으로 보여 준다. 목록도 같은 의미여야 하므로
+  // 첫 미완료 단계를 파랑/주황 "진행"으로 오인시키지 않는다.
+  for (const step of STEPS) {
+    const rejected = step.checks.find((check) => isRejected(c[check.key]));
+    if (!rejected) continue;
+    const value = String(c[rejected.key] || '').trim();
+    const label = value === '부결'
+      ? `${step.label} 부결`
+      : value === '불가' && step.id === 'inquiry'
+        ? '출고 불가'
+        : value || `${step.label} 거부`;
+    return { label, tone: 'red' };
+  }
+  if (st === '계약완료') return { label: '계약완료', tone: 'green' };
   const doneArr = STEPS.map((s) => s.checks.every((ch) => isDone(c[ch.key])));
   const idx = doneArr.findIndex((d) => !d);
-  if (idx === -1 || st === '계약완료') return { label: '계약완료', tone: 'green' };
+  // 체크는 끝났지만 정산/상태 전이가 실패한 경우. 상세의 재시도 경고와 같은 의미를 쓴다.
+  if (idx === -1) return { label: '완료 처리 대기', tone: 'amber' };
   const done = doneArr.filter(Boolean).length;
   return { label: `${STEPS[idx].label} 진행`, tone: done === 0 ? 'blue' : 'amber' };
 }
@@ -86,7 +128,7 @@ export function contractStage(c: EntityRecord | null | undefined): { label: stri
 /* ── 계약상태 ── */
 export const CONTRACT_STATES = ['계약요청', '계약대기', '계약발송', '계약완료', '계약취소'] as const;
 export function contractTone(s: string): 'blue' | 'amber' | 'green' | 'red' | 'gray' {
-  return ({ 계약요청: 'blue', 계약대기: 'amber', 계약발송: 'amber', 계약완료: 'green', 계약취소: 'red' } as Record<string, 'blue' | 'amber' | 'green' | 'red' | 'gray'>)[s] || 'gray';
+  return ({ 계약요청: 'blue', 계약대기: 'amber', 계약발송: 'amber', 계약완료: 'green', 계약취소: 'red', 계약철회: 'red' } as Record<string, 'blue' | 'amber' | 'green' | 'red' | 'gray'>)[normalizeContractStatus(s)] || 'gray';
 }
 
 /* ── 정산 2단: 공급사 → 프리패스 → 영업자 ──

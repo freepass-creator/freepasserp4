@@ -1,34 +1,26 @@
 import type { EntityRecord } from '@/lib/intake/entities';
 import { kmDisplay } from '@/lib/format';
+import { vehicleNameOf, vehicleNameParts } from '@/lib/domain/vehicle-name';
 import {
   fuelDisplay, fuelEmbeddedCc, yearDisplay, makerDisplay, isNoTrimLabel,
 } from '@/lib/domain/vehicle-master-match';
 
+/** 카드 2줄 표기 — 굵은 줄(제조사+모델) + 회색 보조줄(파워트레인·트림·추가표기). 조립은 vehicle-name.ts SSOT. */
 export function idParts(product: EntityRecord): { idMain: string; idExt: string } {
-  const trim = String(product.trim_name || '').trim();
-  const extra = String(product.trim_extra || '').trim();
-  return {
-    idMain: [
-      makerDisplay(product.maker) || product.maker,
-      product.sub_model || product.model,
-    ].filter(Boolean).join(' ') || String(product.car_number || '차량'),
-    idExt: [
-      product.variant,
-      trim && !isNoTrimLabel(trim) ? trim : '',
-      extra,
-    ].filter(Boolean).join(' '),
-  };
+  const p = vehicleNameParts({ kind: 'product', product }, { tier: 'full' });
+  const main = [p.maker, p.main].filter(Boolean).join(' ');
+  return { idMain: main || p.plate || '미등록 차량', idExt: p.ext };
 }
 
+/**
+ * 좁은 화면 한 줄 표기 = T2.
+ *
+ * ⚠ 예전엔 여기서 **제조사 토큰을 통째로 뺐다.** 파인더는 모바일이면 무조건 이 경로라
+ * 폰에서는 제조사가 구조적으로 절대 안 보였고, 같은 차가 손님 카탈로그(데스크톱 경로)에서는
+ * 제조사와 함께 보였다. 폭 문제는 제조사를 지워서가 아니라 **등급을 낮춰서** 푼다.
+ */
 export function idMobile(product: EntityRecord): string {
-  const trim = String(product.trim_name || '').trim();
-  const extra = String(product.trim_extra || '').trim();
-  return [
-    product.sub_model || product.model,
-    product.variant,
-    trim && !isNoTrimLabel(trim) ? trim : '',
-    extra,
-  ].filter(Boolean).join(' ') || String(product.car_number || '차량');
+  return vehicleNameOf({ kind: 'product', product }, { tier: 'full' });
 }
 
 export function specLine(product: EntityRecord): string {

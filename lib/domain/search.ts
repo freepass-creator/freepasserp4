@@ -5,6 +5,7 @@
 import type { EntityRecord } from '@/lib/intake/entities';
 import { vehicleName, creditDisplay, policyOf, canonProductType } from '@/lib/domain/product';
 import { fuelDisplay, fuelEmbeddedCc } from '@/lib/domain/vehicle-master-match';
+import { isOpaqueIdentity, safeBusinessCode } from '@/lib/domain/work-identity';
 
 // 검색어 토큰화 1엔트리 메모 — 한 번의 필터 패스에서 매 항목이 같은 q로 queryTokens를 재계산하던 것을 1회로.
 // 같은 q면 같은 배열 참조 반환. 반환 배열은 읽기 전용으로만 소비됨(matchHay는 every로 순회만).
@@ -75,14 +76,15 @@ export function matchProductQuery(p: EntityRecord, q: string): boolean {
 
 /** 계약문의 방 */
 export function roomHaystack(rm: EntityRecord): string {
+  const agentName = isOpaqueIdentity(rm.agent_name) ? '' : rm.agent_name;
+  const providerName = isOpaqueIdentity(rm.provider_name) ? '' : rm.provider_name;
   return parts(
-    rm._key, rm.product_code, rm.product_uid,
+    rm.product_code,
     rm.vehicle_name, rm.car_number, rm.vehicle_number,
     rm.maker, rm.model, rm.sub_model,
-    rm.agent_code, rm.agent_name, rm.agent_channel_code, rm.agent_uid,
-    rm.provider_company_code, rm.provider_uid, rm.provider_name,
-    rm.linked_contract, rm.last_message, rm.last_sender_code, rm.last_sender_name,
-    rm.last_sender_role,
+    safeBusinessCode(rm.agent_code, rm.agent_uid), agentName,
+    safeBusinessCode(rm.provider_company_code, rm.provider_uid), providerName,
+    rm.linked_contract, rm.last_message,
   );
 }
 
@@ -92,18 +94,19 @@ export function matchRoomQuery(rm: EntityRecord, q: string): boolean {
 
 /** 계약 */
 export function contractHaystack(c: EntityRecord): string {
+  const agentName = isOpaqueIdentity(c.agent_name) ? '' : c.agent_name;
+  const providerName = isOpaqueIdentity(c.provider_name) ? '' : c.provider_name;
   return parts(
-    c.contract_code, c.contract_status, c.contract_date, c.is_draft,
-    c.product_code, c.product_uid,
+    c.contract_code, c.contract_date, c.is_draft,
+    c.product_code,
     c.car_number_snapshot, c.maker_snapshot, c.model_snapshot, c.sub_model_snapshot,
     c.vehicle_name_snapshot, c.year_snapshot, c.fuel_type_snapshot,
-    c.customer_name, c.customer_phone, c.customer_birth,
-    c.customer_company_name, c.customer_business_number, c.customer_address,
-    c.delivery_region, c.driver_license_no, c.residence_type,
-    c.agent_code, c.agent_name, c.agent_channel_code,
-    c.provider_company_code, c.provider_name, c.partner_code, c.partner_name,
-    c.policy_code, c.policy_name_snapshot, c.sign_status, c.sign_token,
-    c.rent_month_snapshot, c.rent_amount_snapshot, c.deposit_amount_snapshot,
+    // 전화 검색은 계약 화면 placeholder가 명시한 업무 기능이라 유지한다.
+    c.customer_name, c.customer_phone, c.customer_company_name,
+    safeBusinessCode(c.agent_code, c.agent_uid), agentName,
+    safeBusinessCode(c.provider_company_code, c.provider_uid), providerName,
+    safeBusinessCode(c.partner_code, c.provider_uid), c.partner_name,
+    c.policy_code, c.policy_name_snapshot, c.sign_status,
   );
 }
 

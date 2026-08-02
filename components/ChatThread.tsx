@@ -236,7 +236,7 @@ export function ChatThread({
           <span style={{ fontSize: FS.title, fontWeight: FW.title, minWidth: 0, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {headTitle}
             {chatCode ? (
-              <span style={{ marginLeft: 8, color: C.faint, fontWeight: FW.label, fontSize: FS.sub }}>{chatCode}</span>
+              <span style={{ marginLeft: 8, color: C.mute, fontWeight: FW.label, fontSize: FS.sub }}>{chatCode}</span>
             ) : null}
           </span>
           {onVehicle && <Btn title="차량 보기" variant="ghost" size="sm" onClick={() => onVehicle(String(room.product_code))}>차량</Btn>}
@@ -330,7 +330,7 @@ export function ChatThread({
               <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, flexDirection: mine ? 'row-reverse' : 'row' }}>
                 {bubble}
                 {clock ? (
-                  <span style={{ flex: '0 0 auto', fontSize: FS.micro, color: C.faint, fontVariantNumeric: 'tabular-nums', lineHeight: 1, paddingBottom: 2 }}>
+                  <span style={{ flex: '0 0 auto', fontSize: FS.micro, color: C.mute, fontVariantNumeric: 'tabular-nums', lineHeight: 1, paddingBottom: 2 }}>
                     {clock}
                   </span>
                 ) : null}

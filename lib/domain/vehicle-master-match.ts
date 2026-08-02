@@ -25,6 +25,7 @@
  */
 import { type EntityRecord } from '@/lib/intake/entities';
 import { classifyVehicleClass } from '@/lib/domain/vehicle-class';
+import { vehicleNameOf } from '@/lib/domain/vehicle-name';
 import {
   normFuel,
   parseYear,
@@ -489,14 +490,15 @@ export function snapToMaster(p: EntityRecord, entries: MasterEntry[]): SnapResul
   };
 }
 
+/**
+ * 검수 트레이스·감사로그 **전용** 원문 표기 = T3.
+ * 조립은 vehicle-name.ts 가 SSOT. 여기만 model 과 sub_model 을 둘 다 붙이고
+ * makerDisplay 를 안 거친다 — 증거 보존이 목적이라 원문 그대로여야 한다.
+ * (그래서 목록의 `기아 쏘렌토 MQ4` 가 여기선 `기아자동차 쏘렌토 쏘렌토 MQ4 2.2 디젤` 로 보인다.
+ *  같은 화면에 두 등급을 나란히 놓지 말 것 — 그게 "양식이 다르다"의 원인이었다.)
+ */
 export function vehicleIdentityLine(p: EntityRecord | RawVehicle | null | undefined): string {
-  if (!p) return '—';
-  const parts = [p.maker, p.model, p.sub_model, p.variant]
-    .map((x) => String(x || '').trim())
-    .filter(Boolean);
-  const trim = String(p.trim_name || '').trim();
-  if (trim && !isNoTrimLabel(trim)) parts.push(trim);
-  return parts.join(' ') || '—';
+  return vehicleNameOf({ kind: 'raw', raw: p as EntityRecord | null | undefined }, { tier: 'raw', fallback: 'dash' });
 }
 
 /**

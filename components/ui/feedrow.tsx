@@ -22,19 +22,24 @@ export function FeedThumbIcon({
   tone = 'gray',
   size,
   title,
+  decorative = false,
 }: {
   icon: LucideIcon;
   tone?: BadgeTone;
   size?: number;
   /** 접근성 — 상태 요약 */
   title?: string;
+  /** 같은 상태가 행 안의 텍스트로 이미 제공되면 중복 낭독하지 않는다. */
+  decorative?: boolean;
 }) {
   const mobile = useIsMobile();
   // 상태 칩(목록 레일) — 28/32. 40+면 피드·답답.
   const w = size ?? (mobile ? 28 : 32);
   return (
     <div
-      aria-hidden={title ? undefined : true}
+      role={title && !decorative ? 'img' : undefined}
+      aria-label={title && !decorative ? title : undefined}
+      aria-hidden={!title || decorative ? true : undefined}
       title={title}
       style={{
         position: 'relative',
@@ -124,6 +129,7 @@ export function FeedListRow({
   }
   return (
     <div role={onClick ? 'button' : undefined} tabIndex={onClick ? 0 : undefined}
+      aria-current={onClick && selected ? 'true' : undefined}
       className="fp-card fp-card-row"
       onClick={onClick ? () => { haptic.tap(); onClick(); } : undefined}
       onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } } : undefined}
@@ -158,7 +164,7 @@ export function FeedSub({ children, strong }: { children: ReactNode; strong?: bo
     <div style={{
       fontSize: FS.sub,
       fontWeight: strong ? FW.strong : FW.meta,
-      color: strong ? C.mute : C.faint,
+      color: C.mute,
       lineHeight: `${LINE.sub}px`, height: LINE.sub,
       whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
       width: '100%',

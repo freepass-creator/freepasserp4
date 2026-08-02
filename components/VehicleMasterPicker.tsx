@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { C, R, Select, Input, FW, FS } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import {
+  makerDisplay,
   masterVariantLabel,
   masterVariantOptionLabel,
   variantSeatsDiffer,
@@ -215,9 +216,13 @@ export function VehicleMasterPicker({
           onChange={commitExtra}
         />
       </div>
+      {/* 확정된 규격 요약. **제조사부터 쓴다** — 바로 아래 차종변환 줄이 제조사를 포함하는데
+          여기만 세부모델부터 시작해서, 같은 패널 위아래로 표기가 갈려 보였다.
+          제조사·모델은 위 드롭다운이 이미 확정한 값이라 값 자체는 중복이지만,
+          "이 줄이 무슨 차를 가리키는지"가 줄 하나로 읽혀야 한다. */}
       {variant && (
         <div style={{ marginTop: 6, fontSize: FS.cap, color: C.mute }}>
-          마스터 · {sub?.sub_model} · {masterVariantLabel(variant)}
+          마스터 · {[makerDisplay(maker) || maker, sub?.sub_model].filter(Boolean).join(' ')} · {masterVariantLabel(variant)}
           {variant.drivetrain ? ` · ${variant.drivetrain}` : ''}
           {noTrimGrade ? ' · 세부트림 없음' : (trim ? ` · ${trim}` : ' · 세부트림 미선택')}
           {extra ? ` · +${extra}` : ''}

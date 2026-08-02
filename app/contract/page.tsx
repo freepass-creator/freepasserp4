@@ -5,14 +5,16 @@ import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
 import { useIsMobile, isMobileViewport } from '@/lib/use-mobile';
 import { type EntityRecord } from '@/lib/intake/entities';
-import { getProgress, isContractInProgress } from '@/lib/domain/contract';
+import { contractStage, getProgress, isContractCancelled, isContractCompleted, isContractInProgress } from '@/lib/domain/contract';
+import { contractVehicleLabel } from '@/lib/domain/vehicle-label';
 import { createSettlement } from '@/lib/domain/settlement-engine';
 import { requirePositiveRentAmount } from '@/lib/domain/contract-money';
 import { downloadSettlementsExcel } from '@/lib/excel-export';
 import { Download, Files, ListChecks, WalletCards } from 'lucide-react';
-import { getRole, actor, ensureRoomForContract, type Role } from '@/lib/domain/deal';
+import { getRole, actor, type Role } from '@/lib/domain/deal';
 import { getSession } from '@/lib/auth-session';
-import { canAccessOwnedRecord } from '@/lib/domain/authorization';
+import { canAccessOwnedRecord, organizationRole } from '@/lib/domain/authorization';
+import { withProviderNames } from '@/lib/domain/identity';
 import { initAuth } from '@/lib/firebase/auth';
 import { man } from '@/lib/format';
 import { PaneHead, PaneBody, Badge, Btn, Input, won, C, R, NUM, Loading, CenterNote, ListGroup, SETTLEMENT_STATUS_TONE, FilterChips, FilterGroup, Select, FW, FS, FeedRowSkeleton, KV_LABEL_W, rowPadY } from '@/components/ui';
@@ -33,6 +35,8 @@ import {
   type ContractFilter as ContFilter,
   type ContractSort as ContSort,
 } from '@/features/contract/contract-filter';
+import { joinMetaText, retainVisibleSelection, workPartyParts } from '@/features/work-list-display';
+import { findRoomForContract } from '@/features/chat/room-display';
 
 const PAGE = 100; // 파인더와 동일 — 첫 화면·더보기 단위
 
@@ -69,8 +73,11 @@ export default function ContractsSettlement() {
   const [selProduct, setSelProduct] = useState<EntityRecord | null>(null);
   const [roomId, setRoomId] = useState<string | null>(null);
   const [setts, setSetts] = useState<EntityRecord[]>([]);
+  const [catalogProducts, setCatalogProducts] = useState<EntityRecord[]>([]);
   const settsRef = useRef<EntityRecord[]>([]);
+  const catalogLoading = useRef(false);
   const selectionEpoch = useRef(0);
+  const selectedCodeRef = useRef<string | null>(null);
   const [settlementLoading, setSettlementLoading] = useState(false);
   const [role, setRoleS] = useState<Role>('agent');
   const [qInput, setQInput] = useState(''); // 검색창 즉시 반영
@@ -95,9 +102,76 @@ export default function ContractsSettlement() {
 
   const monthOptions = useMemo(() => contractMonthOptions(rows || []), [rows]);
 
+  const productIndex = useMemo(() => {
+    const byId = new Map<string, EntityRecord>();
+    const byCar = new Map<string, EntityRecord>();
+    const providerByCode = new Map<string, string>();
+    for (const product of catalogProducts) {
+      for (const raw of [product.product_code, product.product_uid, product._key, product._rtdb_key]) {
+        const key = String(raw || '').trim();
+        if (key) byId.set(key, product);
+      }
+      const car = String(product.car_number || '').trim();
+      if (car) byCar.set(car, product);
+      const providerCode = String(product.provider_company_code || product.partner_code || '').trim();
+      const providerName = String(product.provider_name || product.provider_name_full || '').trim();
+      if (providerCode && providerName && providerName !== providerCode) providerByCode.set(providerCode, providerName);
+    }
+    return { byId, byCar, providerByCode };
+  }, [catalogProducts]);
+  const productForContract = (contract: EntityRecord): EntityRecord | undefined => (
+    productIndex.byId.get(String(contract.product_code || ''))
+    || productIndex.byId.get(String(contract.product_uid || ''))
+    || productIndex.byCar.get(String(contract.car_number_snapshot || ''))
+  );
+  const contractName = (contract: EntityRecord) => contractVehicleLabel(contract, productForContract(contract));
+  const contractPlate = (contract: EntityRecord) => String(
+    contract.car_number_snapshot || productForContract(contract)?.car_number || '',
+  ).trim();
+  const contractParty = (contract: EntityRecord) => {
+    const product = productForContract(contract);
+    const providerCode = String(contract.provider_company_code || contract.partner_code || product?.provider_company_code || '').trim();
+    // 이관 데이터는 provider_name 칸에도 코드(RP013)가 들어 있다. 실제 파트너명을
+    // 찾았는데 앞선 코드값이 가리는 일이 없도록 코드와 같은 후보를 전부 건너뛴다.
+    const providerName = [
+      product?.provider_name,
+      product?.provider_name_full,
+      contract.provider_name,
+      contract.provider_company_name,
+      productIndex.providerByCode.get(providerCode),
+    ]
+      .map((value) => String(value || '').trim())
+      .find((value) => value && value !== providerCode) || '';
+    return workPartyParts(organizationRole(getSession()) || role, contract, { providerName });
+  };
+
   const load = async (r: Role): Promise<EntityRecord[]> => {
     setRoleS(r);
-    const [all, allS] = await Promise.all([getStore().list('contract', co), getStore().list('settlement', co)]);
+    const store = getStore();
+    if (!catalogLoading.current && catalogProducts.length === 0) {
+      catalogLoading.current = true;
+      void Promise.all([
+        typeof store.listRaw === 'function' ? store.listRaw('product', co) : store.list('product', co),
+        store.listDeleted('product', co).catch(() => []),
+      ]).then(async ([products, deleted]) => {
+        // 삭제 이력 먼저, 현재 상품을 나중에 두어 같은 식별자는 현재 값이 이긴다.
+        let catalog = [...deleted, ...products];
+        const needsProviderName = catalog.some((product) => {
+          const code = String(product.provider_company_code || product.partner_code || '').trim();
+          const name = String(product.provider_name || product.provider_name_full || '').trim();
+          return !!code && (!name || name === code);
+        });
+        if (needsProviderName) {
+          const partners = await store.list('partner', co).catch(() => []);
+          catalog = withProviderNames(catalog, partners);
+        }
+        setCatalogProducts(catalog);
+      }).catch((error) => {
+        catalogLoading.current = false;
+        console.error('[contract] 차량명 보강 실패(상품·삭제이력):', error);
+      });
+    }
+    const [all, allS] = await Promise.all([store.list('contract', co), store.list('settlement', co)]);
     const mine = all.filter((c) => canAccessOwnedRecord(getSession(), c));
     mine.sort((a, b) => String(b.contract_date || '').localeCompare(String(a.contract_date || '')));
     const mineS = allS.filter((s) => canAccessOwnedRecord(getSession(), s));
@@ -113,16 +187,21 @@ export default function ContractsSettlement() {
     )) || null;
   };
   const selectContract = async (c: EntityRecord) => {
+    const selectedCode = String(c.contract_code || '').trim();
+    selectedCodeRef.current = selectedCode;
     const epoch = ++selectionEpoch.current;
     const cachedSettlement = settlementForContract(settsRef.current, c.contract_code);
-    setSel(String(c.contract_code)); setSelC(c);
+    setSel(selectedCode); setSelC(c);
+    setSelProduct(null); setRoomId(null);
     setSelS(cachedSettlement); setSettlementLoading(!cachedSettlement);
-    setSwapKey(String(c.contract_status || '') === '계약완료' ? 'settle' : 'progress');
+    setSwapKey(isContractCompleted(c) ? 'settle' : 'progress');
     const [settsList, prod, room] = await Promise.all([
       getStore().list('settlement', co),
       getStore().get('product', co, String(c.product_code)).catch(() => null),
-      ensureRoomForContract(c).catch((error) => {
-        toast(`채팅방 연결 실패: ${String((error as Error)?.message || error)}`, 'error');
+      getStore().list('room', co).then((rooms) => (
+        findRoomForContract(rooms, c)?._key as string | undefined
+      )).catch((error) => {
+        console.warn('[contract] 기존 채팅방 조회 실패:', error);
         return null;
       }),
     ]);
@@ -132,7 +211,7 @@ export default function ContractsSettlement() {
       s = await getStore().get('settlement', co, `ST_${String(c.contract_code || '').trim()}`).catch(() => null);
     }
     // lazy create = admin·소유 공급사만(영업자 채널 불일치 시 permission_denied로 pane abort 방지)
-    if (!s && c.contract_status === '계약완료') {
+    if (!s && isContractCompleted(c)) {
       const r = getRole();
       const canCreate = r === 'admin'
         || (r === 'provider' && String(c.provider_company_code) === actor('provider').code);
@@ -148,11 +227,12 @@ export default function ContractsSettlement() {
     }
     if (epoch !== selectionEpoch.current) return;
     setSelS(s);
-    setSelProduct(prod || null);
-    setRoomId(room);
+    setSelProduct(prod || productForContract(c) || null);
+    setRoomId(room || null);
     setSettlementLoading(false);
   };
   const clearSel = (preserveQuery = false) => {
+    selectedCodeRef.current = null;
     selectionEpoch.current += 1;
     setSel(null); setSelC(null); setSelS(null); setSelProduct(null); setRoomId(null); setSwapKey('progress');
     setSettlementLoading(false);
@@ -165,48 +245,64 @@ export default function ContractsSettlement() {
       }
     }
   };
-  const reloadSel = async () => {
-    if (!sel) return;
-    const epoch = ++selectionEpoch.current;
+  const reloadSel = async (changedCode?: string) => {
+    const selectedCode = selectedCodeRef.current;
+    // A의 늦은 완료 콜백이 이미 선택한 B의 상세·정산을 되돌리지 못하게 한다.
+    if (!selectedCode || (changedCode && changedCode !== selectedCode)) {
+      await load(getRole());
+      return;
+    }
+    const epoch = selectionEpoch.current;
+    const isCurrent = () => epoch === selectionEpoch.current && selectedCodeRef.current === selectedCode;
     setSettlementLoading(true);
     const all = await load(getRole());
-    const c = all.find((x) => String(x.contract_code) === sel);
+    if (!isCurrent()) return;
+    const c = all.find((x) => String(x.contract_code) === selectedCode);
     if (c) {
       setSelC(c);
-      if (String(c.contract_status || '') === '계약완료') setSwapKey('settle');
+      if (isContractCompleted(c)) setSwapKey('settle');
       const settsList = await getStore().list('settlement', co);
-      let s = settlementForContract(settsList, sel);
+      if (!isCurrent()) return;
+      let s = settlementForContract(settsList, selectedCode);
       if (!s) {
-        s = await getStore().get('settlement', co, `ST_${sel.trim()}`).catch(() => null);
+        s = await getStore().get('settlement', co, `ST_${selectedCode}`).catch(() => null);
       }
-      if (!s && c.contract_status === '계약완료') {
+      if (!isCurrent()) return;
+      if (!s && isContractCompleted(c)) {
         const r = getRole();
         const canCreate = r === 'admin'
           || (r === 'provider' && String(c.provider_company_code) === actor('provider').code);
-        if (canCreate) {
+        if (canCreate && isCurrent()) {
           try {
             await createSettlement(c);
             const again = await getStore().list('settlement', co);
-            s = settlementForContract(again, sel);
+            s = settlementForContract(again, selectedCode);
           } catch (e) {
             toast(`정산 생성 실패: ${String((e as Error)?.message || e)}`, 'error');
           }
         }
       }
-      if (epoch !== selectionEpoch.current) return;
+      if (!isCurrent()) return;
       setSelS(s);
     }
-    if (epoch === selectionEpoch.current) setSettlementLoading(false);
+    if (isCurrent()) setSettlementLoading(false);
   };
 
   useEffect(() => { (async () => {
     await initAuth();
     await seedIfEmpty(co); const all = await load(getRole());
     const wanted = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('c') : null;
-    const first = all.find((c) => isContractInProgress(c)) || all[0];
+    const first = all.find((c) => isContractInProgress(c))
+      || all.find((c) => isContractCompleted(c));
     // 모바일은 '목록 먼저' — 첫 계약 자동선택은 웹만. mobile 첫 렌더 스테일 회피(isMobileViewport).
     const target = wanted ? all.find((x) => String(x.contract_code) === wanted) : (!isMobileViewport() ? first : undefined);
-    if (target) selectContract(target);
+    if (target) {
+      if (wanted && isContractCancelled(target)) {
+        setFlt('계약취소');
+        setDraftFlt('계약취소');
+      }
+      if (target) selectContract(target);
+    }
   })(); /* eslint-disable-next-line */ }, []);
 
   // ?c= 계약이 첫 load에 없으면 목록 갱신 시 재시도(이미 다른 건 선택 중이면 스킵).
@@ -215,7 +311,13 @@ export default function ContractsSettlement() {
     const wanted = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('c') : null;
     if (!wanted) return;
     const target = rows.find((x) => String(x.contract_code) === wanted);
-    if (target) void selectContract(target);
+    if (target) {
+      if (isContractCancelled(target)) {
+        setFlt('계약취소');
+        setDraftFlt('계약취소');
+      }
+      void selectContract(target);
+    }
   }, [rows, sel]);
 
   useEffect(() => { const on = (e: Event) => { const r = (e as CustomEvent).detail as Role; (async () => {
@@ -223,8 +325,14 @@ export default function ContractsSettlement() {
     const all = await load(r);
     clearSel(true);
     if (!mobile && all.length) {
-      selectContract((wanted ? all.find((c) => String(c.contract_code) === wanted) : undefined)
-        || all.find((c) => isContractInProgress(c)) || all[0]);
+      const target = (wanted ? all.find((c) => String(c.contract_code) === wanted) : undefined)
+        || all.find((c) => isContractInProgress(c))
+        || all.find((c) => isContractCompleted(c));
+      if (wanted && target && isContractCancelled(target)) {
+        setFlt('계약취소');
+        setDraftFlt('계약취소');
+      }
+      if (target) selectContract(target);
     }
   })(); }; window.addEventListener('fp:role', on); return () => window.removeEventListener('fp:role', on); /* eslint-disable-next-line */ }, [mobile]);
 
@@ -238,12 +346,28 @@ export default function ContractsSettlement() {
 
   const shownAll = useMemo(() => filterContracts({
     contracts: rows || [], query: q, filter: flt, month: monthFlt, sort,
-  }), [rows, q, flt, monthFlt, sort]);
+    searchText: (contract) => joinMetaText([
+      contractName(contract), contractPlate(contract), contractStage(contract).label, ...contractParty(contract),
+    ]),
+  }), [rows, q, flt, monthFlt, sort, productIndex, role]);
+
+  // 필터·검색·월 조건에서 사라진 행의 상세는 남기지 않는다. 페이지네이션은 가시성 조건이 아니다.
+  useEffect(() => {
+    if (!rows || !sel) return;
+    const visible = shownAll.map((contract) => String(contract.contract_code));
+    if (retainVisibleSelection(sel, visible) === sel) return;
+    clearSel();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, shownAll, sel]);
+
   const shown = shownAll.slice(0, limit);
   const moreCount = Math.max(0, shownAll.length - shown.length);
   const draftPreviewCount = useMemo(() => contractPreviewCount({
     contracts: rows || [], query: q, filter: draftFlt, month: draftMonthFlt,
-  }), [rows, q, draftFlt, draftMonthFlt]);
+    searchText: (contract) => joinMetaText([
+      contractName(contract), contractPlate(contract), contractStage(contract).label, ...contractParty(contract),
+    ]),
+  }), [rows, q, draftFlt, draftMonthFlt, productIndex, role]);
   const filterActive = (flt !== '진행' ? 1 : 0) + (monthFlt ? 1 : 0);
   const uiFlt = mobile ? draftFlt : flt;
   const uiMonth = mobile ? draftMonthFlt : monthFlt;
@@ -251,7 +375,7 @@ export default function ContractsSettlement() {
     ? (
       <CenterNote>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-          <span>{q || filterActive > 0 ? '검색 결과 없음' : '진행·완료 계약이 없습니다.'}</span>
+          <span>{q || filterActive > 0 ? '검색 결과 없음' : '표시할 계약이 없습니다.'}</span>
           {(q || filterActive > 0) ? (
             <Btn title="조건 해제" size="sm" variant="ghost" onClick={() => { setQInput(''); setQ(''); setFlt('진행'); setMonthFlt(''); }}>조건 해제</Btn>
           ) : null}
@@ -264,6 +388,9 @@ export default function ContractsSettlement() {
           <ContractListRow
             key={String(c.contract_code)}
             c={c}
+            displayName={contractName(c)}
+            plate={contractPlate(c)}
+            party={contractParty(c)}
             selected={String(c.contract_code) === sel}
             onClick={() => { haptic.tap(); selectContract(c); }}
           />
@@ -338,7 +465,7 @@ export default function ContractsSettlement() {
   const detailSettle = () => {
     if (!selC) return <CenterNote>계약 완료 시 정산이 자동 생성됩니다.</CenterNote>;
     if (settlementLoading) return <CenterNote>정산 기록 확인 중…</CenterNote>;
-    if (!selS) return <CenterNote>{selC?.contract_status === '계약완료' ? '정산 기록 없음' : '계약 완료 시 정산이 자동 생성됩니다.'}</CenterNote>;
+    if (!selS) return <CenterNote>{isContractCompleted(selC) ? '정산 기록 없음' : '계약 완료 시 정산이 자동 생성됩니다.'}</CenterNote>;
     const s = selS; const st = String(s.settlement_status); const cb = Number(s.clawback_amount) || 0;
     return (
       <div>
@@ -366,10 +493,13 @@ export default function ContractsSettlement() {
     );
   };
 
-  const progressBody = sel && roomId
+  const progressBody = selC && isContractCancelled(selC)
+    ? <CenterNote>{joinMetaText([selC.contract_code, '취소된 계약입니다.'])}</CenterNote>
+    : sel
     ? <ContractPanel
+        key={sel}
         product={selProduct}
-        roomId={roomId}
+        roomId={roomId || undefined}
         linkedCode={sel}
         agentCode={selC ? String(selC.agent_code || '') : undefined}
         onChange={reloadSel}
@@ -377,7 +507,7 @@ export default function ContractsSettlement() {
     : <CenterNote>계약을 선택하세요.</CenterNote>;
 
   const docsBody = sel
-    ? <ContractDocs contractCode={sel} roomId={roomId || undefined} />
+    ? <ContractDocs key={sel} contractCode={sel} roomId={roomId || undefined} readOnly={isContractCancelled(selC)} />
     : <CenterNote>계약을 선택하세요.</CenterNote>;
 
   // 웹 = 3패널 나란히(+목록 = 4프레임) → 어느 칸이 무엇인지 PaneHead로 구분.
@@ -401,7 +531,10 @@ export default function ContractsSettlement() {
         statusCount={rows === null ? null : rows.filter((c) => isContractInProgress(c)).length}
         listCount={rows === null ? null : shownAll.length}
         list={rows === null ? <FeedRowSkeleton /> : listEl} panes={panes} selected={!!sel} onBack={clearSel}
-        contextTitle={selC ? String(selC.customer_name || selC.vehicle_name || selC.car_number || selC.contract_code || '') : undefined}
+        contextTitle={selC ? joinMetaText([
+          contractVehicleLabel(selC, selProduct || productForContract(selC)),
+          selC.customer_name,
+        ]) : undefined}
         search={{ value: qInput, onChange: setQInput, placeholder: '계약·차번·계약자·전화·영업·공급…' }}
         mobileLayout="swap"
         mobileSwapKey={swapKey}
@@ -443,7 +576,7 @@ export default function ContractsSettlement() {
                   </div>
                 </FilterGroup>
                 <FilterGroup
-                  title="계약상태"
+                  title="업무단계"
                   count={uiFlt === '진행' ? 0 : 1}
                   defaultOpen
                   onClear={() => mobile ? setDraftFlt('진행') : setFlt('진행')}
@@ -457,7 +590,7 @@ export default function ContractsSettlement() {
             ...(q.trim() ? [q.trim().length > 12 ? `${q.trim().slice(0, 12)}…` : q.trim()] : []),
             ...(sort ? [CONT_SORTS.find((o) => o.value === sort)?.label || sort] : []),
             ...(monthFlt ? [labelMonth(monthFlt)] : []),
-            ...(flt !== '진행' ? [flt === 'all' ? '전체' : flt] : []),
+            ...(flt !== '진행' ? [CONT_FILTERS.find((option) => option.key === flt)?.label || flt] : []),
           ],
           onClearHints: () => { setQInput(''); setQ(''); setSort(''); setFlt('진행'); setMonthFlt(''); },
         }}

@@ -3,11 +3,13 @@ import { useEffect, useRef, useState } from 'react';
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { getRole, actor, ROLE_LABEL, type Role } from '@/lib/domain/deal';
+import { isContractCancelled } from '@/lib/domain/contract';
 import { C, R, FS, FW, Btn, Dropzone, SCRIM } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { Paperclip, FileText, X, Download } from 'lucide-react';
 import { toast } from '@/components/Toaster';
 import { deleteManagedFile, uploadManagedFile, type DriveBackupStatus } from '@/lib/firebase/storage-files';
+import { findRoomForContract } from '@/features/chat/room-display';
 
 // 신규 파일은 Storage 원본 + Drive 백업으로 저장한다. 기존 data URL 레코드는 계속 읽는다.
 type Att = {
@@ -76,7 +78,7 @@ function coerceAtt(raw: unknown): Att | null {
   };
 }
 
-export function ContractDocs({ contractCode, roomId }: { contractCode: string; roomId?: string }) {
+export function ContractDocs({ contractCode, roomId, readOnly = false }: { contractCode: string; roomId?: string; readOnly?: boolean }) {
   const mobile = useIsMobile();
   const co = getCompanyId();
   const thumb = mobile ? 40 : 34;
@@ -84,22 +86,38 @@ export function ContractDocs({ contractCode, roomId }: { contractCode: string; r
   const [chatAtts, setChatAtts] = useState<Att[]>([]);
   const [drag, setDrag] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [loadState, setLoadState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [preview, setPreview] = useState<Att | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const selectionEpoch = useRef(0);
+  const operationRef = useRef(false);
 
-  const load = async () => {
+  const getWritableContract = async (targetCode: string, epoch: number) => {
+    const store = getStore();
+    const latest = store.getFresh
+      ? await store.getFresh('contract', co, targetCode)
+      : await store.get('contract', co, targetCode);
+    if (epoch !== selectionEpoch.current) throw new Error('선택이 변경되어 첨부 작업을 중단했습니다.');
+    if (!latest) throw new Error('계약 정보를 찾을 수 없습니다.');
+    if (isContractCancelled(latest)) throw new Error('취소된 계약에는 첨부를 변경할 수 없습니다.');
+    return latest;
+  };
+
+  const load = async (epoch = selectionEpoch.current) => {
     const c = await getStore().get('contract', co, contractCode);
+    if (!c) throw new Error('계약 정보를 찾을 수 없습니다.');
     const raw = Array.isArray(c?.attachments) ? (c!.attachments as unknown[]) : [];
-    setAtts(raw.map(coerceAtt).filter((a): a is Att => !!a));
+    const nextAtts = raw.map(coerceAtt).filter((a): a is Att => !!a);
     // 채팅 첨부 자동 미러링 — 이 계약의 방(매물+영업자)에 올린 사진·파일을 첨부 서류에 자동 노출(중복 저장 없이).
     let rid = roomId;
+    let nextChatAtts: Att[] = [];
     if (!rid && c) {
       const rms = await getStore().list('room', co);
-      rid = rms.find((r) => String(r.product_code) === String(c.product_code) && String(r.agent_code) === String(c.agent_code))?._key as string | undefined;
+      rid = findRoomForContract(rms, c)?._key as string | undefined;
     }
     if (rid) {
       const msgs = (await getStore().list('message', co)).filter((m) => m.room_id === rid && (m.image_url || m.file_url));
-      setChatAtts(msgs.map((m) => {
+      nextChatAtts = msgs.map((m) => {
         const url = String(m.image_url || m.file_url || '');
         const fileName = String(m.file_name || '').trim();
         const name = m.image_url
@@ -115,13 +133,35 @@ export function ContractDocs({ contractCode, roomId }: { contractCode: string; r
           by_name: String(m.sender_name || ''),
           fromChat: true,
         } satisfies Att;
-      }));
-    } else setChatAtts([]);
+      });
+    }
+    if (epoch !== selectionEpoch.current) return;
+    setAtts(nextAtts);
+    setChatAtts(nextChatAtts);
+    setLoadState('ready');
   };
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [contractCode, roomId]);
+  useEffect(() => {
+    const epoch = ++selectionEpoch.current;
+    setAtts([]);
+    setChatAtts([]);
+    setDrag(false);
+    setBusy(false);
+    operationRef.current = false;
+    setLoadState('loading');
+    setPreview(null);
+    void load(epoch).catch((error) => {
+      if (epoch !== selectionEpoch.current) return;
+      setLoadState('error');
+      toast(`첨부 서류 조회 실패: ${String((error as Error)?.message || error)}`, 'error');
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contractCode]);
 
   const addFiles = async (files: FileList | null) => {
-    if (!files || !files.length || busy) return;
+    if (readOnly || loadState !== 'ready' || !files || !files.length || operationRef.current) return;
+    const epoch = selectionEpoch.current;
+    const targetCode = contractCode;
+    operationRef.current = true;
     setBusy(true);
     try {
       const me = actor(getRole());
@@ -132,7 +172,7 @@ export function ContractDocs({ contractCode, roomId }: { contractCode: string; r
         try {
           const uploaded = await uploadManagedFile(f, {
             kind: 'contract',
-            entityId: contractCode,
+            entityId: targetCode,
             backupToDrive: true,
           });
           added.push({
@@ -153,38 +193,70 @@ export function ContractDocs({ contractCode, roomId }: { contractCode: string; r
         }
       }
       if (!added.length) return;
-      const next = [...atts, ...added];
       try {
-        await getStore().update('contract', co, contractCode, { attachments: next });
+        const latest = await getWritableContract(targetCode, epoch);
+        const latestAtts = Array.isArray(latest.attachments)
+          ? (latest.attachments as unknown[]).map(coerceAtt).filter((a): a is Att => !!a)
+          : [];
+        const seen = new Set(latestAtts.map((file) => file.storage_path || file.url || `${file.name}:${file.at}`));
+        const next = [...latestAtts, ...added.filter((file) => {
+          const key = file.storage_path || file.url || `${file.name}:${file.at}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        })];
+        await getStore().update('contract', co, targetCode, { attachments: next });
+        if (epoch === selectionEpoch.current) setAtts(next);
       } catch (error) {
         await Promise.all(added.map((file) =>
           deleteManagedFile(file.storage_path || file.url || '').catch(() => undefined)
         ));
         throw error;
       }
-      setAtts(next);
       const saved = added.filter((file) => file.drive_backup_status === 'saved').length;
       const disabled = added.some((file) => file.drive_backup_status === 'disabled');
       const failed = added.some((file) => file.drive_backup_status === 'failed');
-      if (failed) toast(`${added.length}건 첨부됨 · Drive 백업 일부 실패`, 'error');
-      else if (disabled) toast(`${added.length}건 첨부됨 · Drive 백업 미설정`, 'ok');
-      else toast(`${added.length}건 첨부됨${saved ? ` · Drive 백업 ${saved}건` : ''}`, 'ok');
+      if (epoch === selectionEpoch.current) {
+        if (failed) toast(`${added.length}건 첨부됨 · Drive 백업 일부 실패`, 'error');
+        else if (disabled) toast(`${added.length}건 첨부됨 · Drive 백업 미설정`, 'ok');
+        else toast(`${added.length}건 첨부됨${saved ? ` · Drive 백업 ${saved}건` : ''}`, 'ok');
+      }
     } catch (e) {
-      toast(`첨부 실패: ${String((e as Error)?.message || e)}`, 'error');
-    } finally { setBusy(false); if (inputRef.current) inputRef.current.value = ''; }
+      if (epoch === selectionEpoch.current) toast(`첨부 실패: ${String((e as Error)?.message || e)}`, 'error');
+    } finally {
+      if (epoch === selectionEpoch.current) {
+        operationRef.current = false;
+        setBusy(false);
+        if (inputRef.current) inputRef.current.value = '';
+      }
+    }
   };
   const remove = async (target: Att) => {
-    const next = atts.filter((a) => !(a.url === target.url && a.at === target.at));
+    if (readOnly || loadState !== 'ready' || operationRef.current) return;
+    const epoch = selectionEpoch.current;
+    const targetCode = contractCode;
+    operationRef.current = true;
+    setBusy(true);
     try {
-      await getStore().update('contract', co, contractCode, { attachments: next });
-      setAtts(next);
+      const latest = await getWritableContract(targetCode, epoch);
+      const latestAtts = Array.isArray(latest.attachments)
+        ? (latest.attachments as unknown[]).map(coerceAtt).filter((a): a is Att => !!a)
+        : [];
+      const next = latestAtts.filter((a) => !(a.url === target.url && a.at === target.at));
+      await getStore().update('contract', co, targetCode, { attachments: next });
+      if (epoch === selectionEpoch.current) setAtts(next);
       try {
         await deleteManagedFile(target.storage_path || target.url || '');
       } catch (error) {
-        toast(`목록에서는 삭제됐지만 Storage 원본 삭제 실패: ${String((error as Error)?.message || error)}`, 'error');
+        if (epoch === selectionEpoch.current) toast(`목록에서는 삭제됐지만 Storage 원본 삭제 실패: ${String((error as Error)?.message || error)}`, 'error');
       }
     } catch (e) {
-      toast(`첨부 삭제 실패: ${String((e as Error)?.message || e)}`, 'error');
+      if (epoch === selectionEpoch.current) toast(`첨부 삭제 실패: ${String((e as Error)?.message || e)}`, 'error');
+    } finally {
+      if (epoch === selectionEpoch.current) {
+        operationRef.current = false;
+        setBusy(false);
+      }
     }
   };
   const sz = (n: number) => {
@@ -202,28 +274,34 @@ export function ContractDocs({ contractCode, roomId }: { contractCode: string; r
     <div style={{ padding: '12px 14px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
         <span style={{ fontSize: FS.sub, fontWeight: FW.title, color: C.ink }}>첨부 서류</span>
-        <span style={{ fontSize: FS.cap, color: C.faint }}>{merged.length}</span>
+        <span style={{ fontSize: FS.cap, color: C.faint }}>{loadState === 'ready' ? merged.length : '—'}</span>
         <span style={{ flex: 1 }} />
-        <span style={{ fontSize: FS.cap, color: C.faint }}>Storage 원본 · Drive 백업(설정 시)</span>
+        <span style={{ fontSize: FS.cap, color: C.faint }}>{readOnly ? '취소 계약 · 읽기 전용' : 'Storage 원본 · Drive 백업(설정 시)'}</span>
       </div>
 
-      <Dropzone
-        variant="file"
-        active={drag}
-        onClick={() => inputRef.current?.click()}
-        onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
-        onDragLeave={() => setDrag(false)}
-        onDrop={(e) => { e.preventDefault(); setDrag(false); addFiles(e.dataTransfer.files); }}
-        style={{ marginBottom: 8 }}
-        title={busy ? '첨부 중…' : '파일 첨부'}
-      >
-        <Paperclip size={16} color={drag ? C.brand : C.faint} />
-        <span style={{ fontSize: FS.cap, color: drag ? C.brand : C.mute, fontWeight: FW.strong }}>{busy ? '첨부 중…' : '파일을 여기로 끌어놓거나 클릭'}</span>
-        <span style={{ fontSize: FS.micro, color: C.faint }}>이미지·PDF 등 · 4MB/파일</span>
-        <input ref={inputRef} type="file" multiple disabled={busy} onChange={(e) => void addFiles(e.target.files)} style={{ display: 'none' }} onClick={(e) => e.stopPropagation()} />
-      </Dropzone>
+      {!readOnly && loadState === 'ready' ? (
+        <Dropzone
+          variant="file"
+          active={drag}
+          onClick={() => inputRef.current?.click()}
+          onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
+          onDragLeave={() => setDrag(false)}
+          onDrop={(e) => { e.preventDefault(); setDrag(false); addFiles(e.dataTransfer.files); }}
+          style={{ marginBottom: 8 }}
+          title={busy ? '첨부 중…' : '파일 첨부'}
+        >
+          <Paperclip size={16} color={drag ? C.brand : C.faint} />
+          <span style={{ fontSize: FS.cap, color: drag ? C.brand : C.mute, fontWeight: FW.strong }}>{busy ? '첨부 중…' : '파일을 여기로 끌어놓거나 클릭'}</span>
+          <span style={{ fontSize: FS.micro, color: C.faint }}>이미지·PDF 등 · 4MB/파일</span>
+          <input ref={inputRef} type="file" multiple disabled={busy} onChange={(e) => void addFiles(e.target.files)} style={{ display: 'none' }} onClick={(e) => e.stopPropagation()} />
+        </Dropzone>
+      ) : !readOnly ? (
+        <div style={{ marginBottom: 8, padding: '12px 10px', textAlign: 'center', border: `1px solid ${C.line}`, borderRadius: R, color: loadState === 'error' ? C.danger : C.faint, fontSize: FS.cap }}>
+          {loadState === 'error' ? '첨부 서류를 불러오지 못했습니다. 새로고침 후 다시 시도하세요.' : '첨부 서류 불러오는 중…'}
+        </div>
+      ) : null}
 
-      {merged.length === 0 ? <div style={{ fontSize: FS.cap, color: C.faint, textAlign: 'center', padding: '6px 0' }}>첨부된 서류가 없습니다.</div> :
+      {loadState !== 'ready' ? null : merged.length === 0 ? <div style={{ fontSize: FS.cap, color: C.faint, textAlign: 'center', padding: '6px 0' }}>첨부된 서류가 없습니다.</div> :
         <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
           {merged.map((a, i) => {
             const sizeLabel = sz(a.size);
@@ -250,9 +328,7 @@ export function ContractDocs({ contractCode, roomId }: { contractCode: string; r
                   ? <span style={{ fontSize: FS.micro, fontWeight: FW.label, color: C.brand, background: C.selected, borderRadius: R, padding: '1px 5px', flex: '0 0 auto' }}>채팅</span>
                   : null}
                 {a.url && <a href={a.url} download={a.name} aria-label="다운로드" style={{ color: C.faint, display: 'flex', flex: '0 0 auto' }}><Download size={13} /></a>}
-                {!a.fromChat && (
-                  <Btn size="sm" variant="danger" title="삭제" onClick={() => remove(a)}>삭제</Btn>
-                )}
+                {!a.fromChat && !readOnly ? <Btn size="sm" variant="danger" title="삭제" disabled={busy} onClick={() => remove(a)}>삭제</Btn> : null}
               </div>
             );
           })}

@@ -79,7 +79,7 @@ export default function SignPage() {
   return (
     <main style={wrap}>
       <div style={{ fontSize: FS.sub, color: C.mute, letterSpacing: '0.04em' }}>렌터카 대여 계약 · 전자서명</div>
-      <h1 style={{ fontSize: FS.page, fontWeight: FW.title, letterSpacing: '-0.02em', margin: '4px 0 12px' }}>{String(c.vehicle_name_snapshot || c.sub_model_snapshot || '차량')}</h1>
+      <h1 style={{ fontSize: FS.page, fontWeight: FW.title, letterSpacing: '-0.02em', margin: '4px 0 12px' }}>{String(c.vehicle_name_snapshot || c.sub_model_snapshot || c.car_number_snapshot || '미등록 차량')}</h1>
       {c.reject_reason || c.sign_reject_reason ? (
         <div style={{ margin: '0 0 12px', padding: '10px 12px', borderRadius: R, background: C.warnBg, color: C.warn, fontSize: FS.sub, fontWeight: FW.strong }}>
           이전 제출이 반려되었습니다{String(c.reject_reason || c.sign_reject_reason) ? ` — ${String(c.reject_reason || c.sign_reject_reason)}` : ''}. 정보를 확인해 다시 작성해 주세요.
