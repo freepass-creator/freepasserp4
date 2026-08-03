@@ -6,7 +6,7 @@
  *   · 카운터 unread_for_{role} + last_read_at_{role}
  *   · v3 레거시(카운터 없음) = 마지막 말이 상대이고 내가 안 열람 → 최소 1
  */
-import { getStore } from '@/lib/store';
+import { getStore, type StoreAdapter } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { actor, getRole, type Role } from '@/lib/domain/deal';
@@ -163,21 +163,22 @@ export async function sendFile(opts: SendFileOpts): Promise<EntityRecord> {
   return rec;
 }
 
-/** 방 열람 — 내 역할 안읽음 0 + 열람시각. */
-export async function markRead(roomId: string, role?: Role): Promise<void> {
+/** 방 열람 — 내 역할 안읽음 0 + 열람시각. shouldCommit은 빠른 방 전환·언마운트 시 쓰기를 막는 UI 세대 가드. */
+export async function markRead(roomId: string, role?: Role, shouldCommit: () => boolean = () => true): Promise<void> {
   const co = getCompanyId();
   const store = getStore();
   const r = role ?? getRole();
   const field = unreadField(r);
   const lr = lastReadField(r);
   const rm = await store.get('room', co, roomId);
-  if (!rm) return;
+  if (!rm || !shouldCommit()) return;
   const now = Date.now();
   const lastAt = Number(rm.last_message_at) || now;
   const patch: EntityRecord = { [field]: 0, [lr]: Math.max(now, lastAt) };
   const cur = Number(rm[field]) || 0;
   const prevRead = Number(rm[lr]) || 0;
   if (cur > 0 || prevRead < lastAt) {
+    if (!shouldCommit()) return;
     await store.update('room', co, roomId, patch);
     notifyUnread();
   }
@@ -236,30 +237,62 @@ export function unreadRoomCount(rooms: EntityRecord[], role: Role): number {
  *   · 없음 = 저장된 카운터만(soft 폴백 금지 — 뱃지 99 폭주 방지)
  * soft(최근 상대말·미열람→1) = unreadFor 가 목록 점용으로만 처리.
  */
-export async function roomsWithUnread(rooms: EntityRecord[], role: Role): Promise<EntityRecord[]> {
+type MessageListReader = Pick<StoreAdapter, 'list' | 'listMessagesForRoom'>;
+
+export async function roomsWithUnread(
+  rooms: EntityRecord[],
+  role: Role,
+  reader: MessageListReader = getStore(),
+): Promise<EntityRecord[]> {
   if (!rooms.length) return rooms;
-  const me = actor(role);
   const co = getCompanyId();
   const field = unreadField(role);
   const lr = lastReadField(role);
-  // last_read 없는 방 = 저장된 카운터만. 전부 해당이면 전량 메시지 list 스킵.
-  const needScan = rooms.some((rm) => Number(rm[lr]) > 0);
-  if (!needScan) {
-    return rooms.map((rm) => ({ ...rm, [field]: Number(rm[field]) || 0 }));
+  const scanRooms = rooms.filter((rm) => {
+    const readAt = Number(rm[lr]) || 0;
+    const lastAt = Number(rm.last_message_at) || 0;
+    // 마지막 메시지보다 이미 늦게 읽은 방은 요약값만으로 0을 확정할 수 있다.
+    // last_message_at 없는 legacy 방은 저장 카운터를 보존해 대량 조회와 오판을 함께 피한다.
+    // 저장 카운터 또는 최근 상대 발신 요약이 미확인을 가리키는 방만 정확 개수를 보정한다.
+    // 요약상 0인 오래된 방까지 전부 조회하면 방마다 v3+v4 요청이 발생해 목록 로딩을 막는다.
+    return readAt > 0 && lastAt > readAt && unreadFor(rm, role) > 0;
+  });
+  // 실제 미확인 가능 방이 없으면 메시지 조회 자체를 스킵.
+  if (!scanRooms.length) {
+    return rooms.map((rm) => {
+      const readAt = Number(rm[lr]) || 0;
+      const lastAt = Number(rm.last_message_at) || 0;
+      return { ...rm, [field]: readAt > 0 && lastAt > 0 && readAt >= lastAt ? 0 : Number(rm[field]) || 0 };
+    });
   }
+  const me = actor(role);
+  const byRoom = new Map<string, EntityRecord[] | null>();
 
-  let msgs: EntityRecord[] = [];
-  try { msgs = await getStore().list('message', co); }
-  catch { return rooms.map((rm) => ({ ...rm, [field]: Number(rm[field]) || 0 })); }
-
-  const roomIds = new Set(rooms.map((rm) => String(rm._key)));
-  const byRoom = new Map<string, EntityRecord[]>();
-  for (const m of msgs) {
-    const id = String(m.room_id || '');
-    if (!id || !roomIds.has(id)) continue;
-    const arr = byRoom.get(id);
-    if (arr) arr.push(m);
-    else byRoom.set(id, [m]);
+  if (typeof reader.listMessagesForRoom === 'function') {
+    await Promise.all(scanRooms.map(async (room) => {
+      const roomId = String(room._key || '');
+      if (!roomId) return;
+      try {
+        byRoom.set(roomId, await reader.listMessagesForRoom!(co, roomId));
+      } catch {
+        // A failed room must retain its stored counter; do not treat failed lookup as zero messages.
+        byRoom.set(roomId, null);
+      }
+    }));
+  } else {
+    // Legacy/fallback adapters without a scoped API keep the previous one-shot full read.
+    let messages: EntityRecord[];
+    try { messages = await reader.list('message', co); }
+    catch { return rooms.map((rm) => ({ ...rm, [field]: Number(rm[field]) || 0 })); }
+    const roomIds = new Set(scanRooms.map((room) => String(room._key)));
+    for (const roomId of roomIds) if (roomId) byRoom.set(roomId, []);
+    for (const message of messages) {
+      const roomId = String(message.room_id || '');
+      if (!roomId || !roomIds.has(roomId)) continue;
+      const list = byRoom.get(roomId);
+      if (list) list.push(message);
+      else byRoom.set(roomId, [message]);
+    }
   }
 
   return rooms.map((rm) => {
@@ -267,7 +300,10 @@ export async function roomsWithUnread(rooms: EntityRecord[], role: Role): Promis
     if (!readAt) {
       return { ...rm, [field]: Number(rm[field]) || 0 };
     }
-    const list = byRoom.get(String(rm._key)) || [];
+    const lastAt = Number(rm.last_message_at) || 0;
+    if (lastAt > 0 && readAt >= lastAt) return { ...rm, [field]: 0 };
+    const list = byRoom.get(String(rm._key));
+    if (list == null) return { ...rm, [field]: Number(rm[field]) || 0 };
     const n = list.filter((m) => !isMine(m, me, role) && Number(m.created_at || 0) > readAt).length;
     return { ...rm, [field]: n };
   });

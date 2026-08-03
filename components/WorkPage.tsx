@@ -6,9 +6,10 @@ import { useKeyboardOpen } from '@/lib/use-keyboard';
 import { haptic } from '@/lib/haptics';
 import { useAppBar } from '@/lib/appbar';
 import { useHideTabBar } from '@/lib/tabbar';
-import { PaneHead, BottomNav, SearchInput, Btn, IconSeg, Select, C, FS, FW, SH } from '@/components/ui';
+import { PaneHead, BottomNav, Btn, IconSeg, C, FS, FW, SH } from '@/components/ui';
 import { MobilePageShell, type ListToolsConfig } from '@/components/MobilePageShell';
 import { PageStatus, statusIconFor } from '@/components/PageStatus';
+import { WebListTools } from '@/components/WebListTools';
 
 /**
  * 업무 페이지 = [목록 | 패널].
@@ -124,64 +125,6 @@ export function WorkPage({
     search ? { search } : undefined
   );
 
-  const webSearchCfg = resolvedTools?.search || search;
-  const webSort = resolvedTools?.sort;
-  const webFilter = resolvedTools?.filter;
-  const webHasTools = !!(webSearchCfg || webSort || webFilter);
-  const webSearchBar = webHasTools ? (
-    <div style={{ flex: '0 0 auto', borderBottom: `1px solid ${C.line2}` }}>
-      <div style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        {webSearchCfg ? (
-          <SearchInput
-            value={webSearchCfg.value}
-            onChange={webSearchCfg.onChange}
-            placeholder={webSearchCfg.placeholder || '검색'}
-            full
-            style={{ flex: '1 1 160px', minWidth: 0 }}
-          />
-        ) : <span style={{ flex: 1, minWidth: 0 }} />}
-        {webSort ? (
-          <Select
-            size="md"
-            value={webSort.value}
-            onChange={webSort.onChange}
-            placeholder={webSort.placeholder || '정렬'}
-            options={[
-              { value: '', label: '기본' },
-              ...webSort.options.map((o) => ({ value: o.value, label: o.label })),
-            ]}
-            width={118}
-          />
-        ) : null}
-      </div>
-      {webFilter ? (
-        <div style={{ padding: '0 12px 10px' }}>
-          {webFilter.body}
-          {webFilter.count > 0 && webFilter.onClear ? (
-            <div style={{ marginTop: 8 }}>
-              <Btn size="sm" variant="ghost" haptic="select" onClick={() => { webFilter.onClear?.(); }}>필터 해제</Btn>
-            </div>
-          ) : null}
-        </div>
-      ) : null}
-      {resolvedTools?.hints && resolvedTools.hints.length > 0 ? (
-        <div style={{
-          // 위 8 / 아래 8 대칭. 예전엔 위 0이라 필터 블록이 아니라 목록 구분선에 붙어 보였다.
-          padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8,
-          fontSize: FS.sub, color: C.mute, minWidth: 0,
-        }}>
-          <span style={{ flex: '0 0 auto', fontWeight: FW.head, color: C.faint }}>적용</span>
-          <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {resolvedTools.hints.join(' · ')}
-          </span>
-          {resolvedTools.onClearHints ? (
-            <Btn size="sm" variant="ghost" haptic="select" onClick={() => { resolvedTools.onClearHints?.(); }}>해제</Btn>
-          ) : null}
-        </div>
-      ) : null}
-    </div>
-  ) : null;
-
   if (mobile) {
     if (!selected) {
       return (
@@ -281,7 +224,7 @@ export function WorkPage({
             <Btn size="sm" disabled={resolvedTools.action.disabled} onClick={resolvedTools.action.onClick}>{resolvedTools.action.label}</Btn>
           ) : undefined} />
           {listHeader}
-          {webSearchBar}
+          <WebListTools tools={resolvedTools} />
           <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', minHeight: 0, background: C.taupeBg }}>{list}</div>
         </div>
         {panes.map((p, i) => (

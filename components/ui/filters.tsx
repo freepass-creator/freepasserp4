@@ -6,7 +6,7 @@ import { haptic } from '@/lib/haptics';
 import { useIsMobile } from '@/lib/use-mobile';
 import { CountPill } from './badges';
 import { Btn } from './buttons';
-import { C, FS, FW, R, ctrlChipH, ctrlFs, ctrlH } from './tokens';
+import { C, FS, FW, ICON, R, ctrlChipH, ctrlFs, ctrlH } from './tokens';
 
 export function PillTabs<T extends string>({
   tabs,
@@ -30,6 +30,7 @@ export function PillTabs<T extends string>({
         return (
           <button
             key={tab.key}
+            type="button"
             onClick={() => onChange(tab.key)}
             title={tab.title}
             className="fp-chip"
@@ -156,15 +157,17 @@ export function FilterGroup({
     <div style={{ borderTop: first ? 'none' : `1px solid ${C.line2}` }}>
       <div style={{ display: 'flex', alignItems: 'center', minHeight: height }}>
         <button
+          type="button"
+          aria-expanded={open}
           onClick={() => {
             haptic.tap();
             setOpen((current) => !current);
           }}
           style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6, padding: mobile ? '10px 0' : '8px 0', background: 'none', border: 'none', cursor: 'pointer', minHeight: height, minWidth: 0 }}
         >
-          <ChevronDown size={mobile ? 18 : 15} color={C.faint} style={{ flex: '0 0 auto', transform: open ? 'none' : 'rotate(-90deg)', transition: 'transform .12s' }} />
+          <ChevronDown size={mobile ? ICON.lg : ICON.sm} color={C.faint} style={{ flex: '0 0 auto', transform: open ? 'none' : 'rotate(-90deg)', transition: 'transform .12s' }} />
           <span style={{ fontSize: mobile ? FS.title : FS.body, fontWeight: FW.title, color: C.ink, letterSpacing: '-0.01em', lineHeight: 1.2 }}>{title}</span>
-          <span style={{ display: 'inline-flex', visibility: count > 0 ? 'visible' : 'hidden', pointerEvents: 'none', minWidth: 22 }}>
+          <span aria-hidden={count <= 0} style={{ display: 'inline-flex', visibility: count > 0 ? 'visible' : 'hidden', pointerEvents: 'none', minWidth: 22 }}>
             <CountPill n={count > 0 ? count : 1} tone="accent" />
           </span>
           <span style={{ flex: 1 }} />
@@ -221,6 +224,7 @@ export function FilterChips<T extends string>({
         return (
           <button
             key={option.key}
+            type="button"
             onClick={() => {
               haptic.select();
               // 선택 칩 재클릭 = 해제(전체). 「전체」 재클릭은 이미 해제 상태라 no-op.

@@ -4,7 +4,8 @@
  * v3 공용 source(autoplus|general) enum 금지 — partner.adapter_id 로 지정.
  */
 import { type EntityRecord } from '@/lib/intake/entities';
-import { type DepositRule } from '@/lib/domain/sheet-import';
+import { parseDepositRule, type DepositRule } from '@/lib/domain/sheet-import';
+import { isExactRealPlate } from '@/lib/domain/product';
 
 export type SheetAdapterId = 'generic' | 'autoplus';
 
@@ -98,9 +99,12 @@ export const SHEET_ADAPTERS: Record<SheetAdapterId, SheetAdapter> = {
       if (body.length >= 1) {
         const maybeGuide = body[0] || [];
         const guideBlank = !maybeGuide.some((c) => String(c || '').trim());
-        const plateCell = String(maybeGuide[1] || maybeGuide[0] || '').replace(/\s/g, '');
+        const plateCell = String(maybeGuide[1] || '').replace(/\s/g, '');
+        const pendingPlate = /^(?:-|–|—|0|미정|번호미정|차량미정|신차|미등록|미발급)$/i.test(plateCell)
+          || (!plateCell && maybeGuide.slice(2, 9).some((cell) => String(cell || '').trim()));
         const guideNoPlate = !/차량번호|차번/.test(String(maybeGuide[0] || ''))
-          && !/^\d{2,3}[가-힣]/.test(plateCell);
+          && !isExactRealPlate(plateCell)
+          && !pendingPlate;
         if (guideBlank || guideNoPlate) body = body.slice(1);
       }
       return [labelAutoplusHeaderRow(sliced[0] || []), ...body];
@@ -112,11 +116,22 @@ export const ADAPTER_OPTIONS: { value: SheetAdapterId; label: string }[] = (
   Object.values(SHEET_ADAPTERS).map((a) => ({ value: a.id, label: a.label }))
 );
 
+/** 명시 설정을 최우선하고, 레거시 미설정 AutoPlus만 코드·이름으로 보정한다. */
+export function effectiveSheetAdapterId(partner: EntityRecord): SheetAdapterId {
+  const explicit = String(partner.adapter_id || '').trim();
+  if (explicit === 'generic' || explicit === 'autoplus') return explicit;
+  if (explicit) throw new Error(`시트 어댑터 설정 오류 — ${explicit}`);
+  return /autoplus|오토플러스|RP023/i.test(
+    `${partner.partner_code || partner._key || ''} ${partner.name || ''} ${partner.partner_name || ''}`,
+  ) ? 'autoplus' : 'generic';
+}
+
 export function resolveAdapter(partnerOrId?: EntityRecord | string | null): SheetAdapter {
-  const id = (typeof partnerOrId === 'string'
-    ? partnerOrId
-    : String(partnerOrId?.adapter_id || 'generic')) as SheetAdapterId;
-  return SHEET_ADAPTERS[id] || SHEET_ADAPTERS.generic;
+  const id = typeof partnerOrId === 'string'
+    ? partnerOrId.trim()
+    : effectiveSheetAdapterId(partnerOrId || {});
+  if (id !== 'generic' && id !== 'autoplus') throw new Error(`시트 어댑터 설정 오류 — ${id}`);
+  return SHEET_ADAPTERS[id];
 }
 
 /**
@@ -138,7 +153,10 @@ export function partnerSheetOpts(p: EntityRecord): {
 } {
   const url = String(p.sheet_url || '').trim();
   const raw = String(p.sheet_gid || p.sheet_tab || '').trim();
-  const gids = raw.split(/[,\s|]+/).map((s) => s.replace(/\D/g, '')).filter((s) => s !== '');
+  const gidTokens = raw ? raw.split(/[,\s|]+/).filter(Boolean) : [];
+  const invalidGid = gidTokens.find((token) => !/^\d+$/.test(token));
+  if (invalidGid) throw new Error(`시트 gid 설정 오류 — ${invalidGid}`);
+  const gids = gidTokens;
   const gid = gids[0] || '';
   const headerRow = Math.max(0, Number(p.header_row) || 0);
   return {
@@ -150,6 +168,6 @@ export function partnerSheetOpts(p: EntityRecord): {
     providerCode: String(p.partner_code || p._key || ''),
     profileRaw: p.mapping_profile,
     // 시트 보증금 칸이 빌 때 채우는 공급사 규칙(손오공 구독 = N개월치). 미설정이면 안 채운다.
-    depositRule: String(p.deposit_rule || '') as DepositRule,
+    depositRule: parseDepositRule(p.deposit_rule),
   };
 }

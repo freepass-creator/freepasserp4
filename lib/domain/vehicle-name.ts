@@ -60,25 +60,206 @@ export type NameParts = {
 const S = (v: unknown): string => String(v ?? '').trim();
 const trimOf = (v: unknown): string => (isNoTrimLabel(v) ? '' : S(v));
 
-/** 계약 스냅샷이 쓸 만한가 — 제조사·세부모델이 **둘 다** 비면 결손으로 본다. */
+function text(value: unknown): string {
+  return S(value).replace(/\s+/g, ' ');
+}
+
+function comparable(value: unknown): string {
+  return text(value).toLocaleLowerCase('ko').replace(/[\s\-_/·.,()]+/g, '');
+}
+
+function containsPart(base: unknown, part: unknown): boolean {
+  const baseKey = comparable(base);
+  const partKey = comparable(part);
+  return !!baseKey && !!partKey && baseKey.includes(partKey);
+}
+
+const FLEX_SEPARATOR = '[\\s\\-_/·.,()]*';
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * 공백·구두점 차이를 무시하고 이미 알려진 차명 조각을 blob에서 제거한다.
+ *
+ * ⚠ **영숫자 경계를 반드시 건다.** 경계 없이 지우면 배기량 토큰이 트림 코드를 파먹는다 —
+ * `comparable('2.0')` 은 `'20'` 이고, 그게 `'420d'` 안의 `20` 에 부분일치해
+ * `BMW 3시리즈 G20 2.0 디젤 420d` → `BMW 3시리즈 G20 디젤 4 d` 가 됐다(실측).
+ * 그 문자열은 deal.ts 가 계약의 trim_name_snapshot·vehicle_name_snapshot 으로 **굽고**,
+ * 손님 서명화면(app/sign/[token]/page.tsx)에 그대로 게시된 뒤 되돌릴 수단이 없다.
+ *
+ * 한글 쪽은 경계를 열어 둔다 — `기아자동차` 에서 `기아` 를 걷어내는 기존 동작이 유지돼야 한다.
+ */
+function removeKnownPhrases(valueRaw: unknown, phrases: unknown[]): string {
+  let value = text(valueRaw);
+  const keys = [...new Set(phrases.map(comparable).filter(Boolean))]
+    .sort((a, b) => b.length - a.length);
+  for (const key of keys) {
+    const body = Array.from(key).map(escapeRegExp).join(FLEX_SEPARATOR);
+    const pattern = `(?<![0-9A-Za-z])${body}(?![0-9A-Za-z])`;
+    value = value.replace(new RegExp(pattern, 'giu'), ' ');
+  }
+  return text(value);
+}
+
+/** 제원 blob 간 부분 중복 제거용 토큰. `디젤 2.2` ↔ `2.2 노블레스`도 한 번만 남긴다. */
+function phraseTokens(...values: unknown[]): string[] {
+  return [...new Set(values
+    .flatMap((value) => text(value).split(' '))
+    .filter((value) => comparable(value).length >= 2))];
+}
+
+/**
+ * 일부 v3 계약은 maker_snapshot 없이 완성명만 남았다. 현재 상품을 끌어오지 않고,
+ * 저장된 완성명에서 저장된 차종이 처음 시작하기 전의 짧은 접두어만 제조사로 복원한다.
+ */
+function inferLeadingMaker(nameRaw: unknown, identityValues: unknown[]): string {
+  const name = text(nameRaw);
+  if (!name) return '';
+  const generic = new Set(['더', '뉴', '올', '디', 'the', 'new', 'all']);
+  const candidates = phraseTokens(...identityValues)
+    .filter((value) => !generic.has(value.toLocaleLowerCase('ko')));
+  let first = Number.POSITIVE_INFINITY;
+  for (const candidate of candidates) {
+    const key = comparable(candidate);
+    if (!key) continue;
+    const pattern = Array.from(key).map(escapeRegExp).join(FLEX_SEPARATOR);
+    const match = new RegExp(pattern, 'iu').exec(name);
+    if (match && match.index > 0) first = Math.min(first, match.index);
+  }
+  if (!Number.isFinite(first)) return '';
+  const parts = text(name.slice(0, first)).split(' ').filter(Boolean);
+  while (parts.length && generic.has(parts[parts.length - 1].toLocaleLowerCase('ko'))) parts.pop();
+  const maker = parts.join(' ').replace(/[\-_/·.,()]+$/g, '').trim();
+  return parts.length <= 3 && maker.length <= 24 ? maker : '';
+}
+
+/** 완성명 blob을 걷어낸 뒤 가장자리에 남은 모델명 파편도 중복으로 제거한다. */
+function removeIdentityEdges(valueRaw: unknown, identityRaw: unknown): string {
+  const identity = comparable(identityRaw);
+  const parts = text(valueRaw).split(' ').filter(Boolean);
+  const isIdentityPart = (part: string) => {
+    const key = comparable(part);
+    return key.length >= 2 && identity.includes(key);
+  };
+  while (parts.length && isIdentityPart(parts[0])) parts.shift();
+  while (parts.length && isIdentityPart(parts[parts.length - 1])) parts.pop();
+  return parts.join(' ');
+}
+
+function residualText(valueRaw: unknown, phrases: unknown[], identityRaw: unknown): string {
+  return removeIdentityEdges(removeKnownPhrases(valueRaw, phrases), identityRaw);
+}
+
+/** 제조사가 이미 들어간 레거시/구조화 차명에는 같은 제조사를 다시 붙이지 않는다. */
+export function withVehicleMaker(makerRaw: unknown, nameRaw: unknown): string {
+  const rawMaker = text(makerRaw);
+  const maker = text(makerDisplay(rawMaker) || rawMaker);
+  const name = text(nameRaw);
+  if (!maker) return name;
+  if (!name) return maker;
+  return containsPart(name, maker) ? name : `${maker} ${name}`;
+}
+
+function appendUnique(baseRaw: unknown, valueRaw: unknown): string {
+  const base = text(baseRaw);
+  const value = text(valueRaw);
+  if (!base) return value;
+  if (!value || containsPart(base, value)) return base;
+  return `${base} ${value}`;
+}
+
+/** 제조사만 있는 스냅샷은 차량 식별값이 아니므로 현재 상품/레거시명으로 보강한다. */
 function snapshotUsable(c: EntityRecord): boolean {
-  return !!(S(c.maker_snapshot) || S(c.sub_model_snapshot));
+  return !!(S(c.vehicle_name_snapshot) || S(c.sub_model_snapshot) || S(c.model_snapshot));
 }
 
 function partsOfRecord(p: EntityRecord, tier: NameTier, omitMaker: boolean): Omit<NameParts, 'origin'> {
   const rawMaker = S(p.maker);
-  const maker = omitMaker ? '' : (tier === 'raw' ? rawMaker : (makerDisplay(rawMaker) || rawMaker));
+  const maker = tier === 'raw' ? rawMaker : (makerDisplay(rawMaker) || rawMaker);
   const model = S(p.model);
   const sub = S(p.sub_model);
-  // T3 만 둘 다. T1/T2 는 세부모델이 있으면 그것만(모델 중복 방지).
-  const main = tier === 'raw' ? [model, sub].filter(Boolean).join(' ') : (sub || model);
   const trim = trimOf(p.trim_name);
-  const ext = tier === 'short'
-    ? trim                                   // T1 = 오늘의 목록 표기 그대로(트림까지)
-    : tier === 'full'
-      ? [S(p.variant), trim, S(p.trim_extra)].filter(Boolean).join(' ')
-      : [S(p.variant), trim].filter(Boolean).join(' ');   // raw = 증거, 추가표기는 별도 줄
-  return { maker, main, ext, plate: S(p.car_number) || S(p.car_number_snapshot) };
+  const plate = S(p.car_number) || S(p.car_number_snapshot);
+
+  // T3는 감사 증거다. 정규화·제조사 중복 제거·필드 간 중복 제거를 하지 않는다.
+  if (tier === 'raw') {
+    return {
+      maker: omitMaker ? '' : rawMaker,
+      main: [model, sub, S(p.vehicle_name)].filter(Boolean).join(' '),
+      ext: [S(p.variant), trim].filter(Boolean).join(' '),
+      plate,
+    };
+  }
+
+  const makerAliases = [rawMaker, maker];
+  const rawMain = text(sub || model);
+  let main = removeKnownPhrases(rawMain, makerAliases);
+  // 실데이터: maker=테슬라, 차종 공란, variant=EV RWD, trim="테슬라 모델Y RWD".
+  // 제조사가 들어간 완성형 trim에 한해서만 제원 토큰을 걷어 모델명을 복원한다.
+  if (!main && makerAliases.some((alias) => alias && containsPart(trim, alias))) {
+    const inferred = removeKnownPhrases(
+      removeKnownPhrases(trim, makerAliases),
+      phraseTokens(p.variant, p.trim_extra),
+    );
+    if (inferred) main = inferred;
+  }
+  const identity = [maker, main].filter(Boolean).join(' ');
+  const variant = residualText(p.variant, makerAliases.concat(main), identity);
+  const variantTokens = phraseTokens(p.variant);
+  // short는 트림 원문 안의 제원 표기도 보존하고, full에서만 별도 variant와 겹치는 조각을 걷는다.
+  const shortTrim = residualText(trim, makerAliases.concat(main), identity);
+  const fullTrim = residualText(trim, [...makerAliases, main, p.variant, ...variantTokens], identity);
+  const cleanTrim = tier === 'short' ? shortTrim : fullTrim;
+  const extra = residualText(
+    p.trim_extra,
+    [...makerAliases, main, p.variant, ...variantTokens, trim, ...phraseTokens(trim)],
+    identity,
+  );
+
+  let ext = '';
+  if (tier === 'short') {
+    ext = cleanTrim;
+  } else {
+    ext = appendUnique(ext, variant);
+    ext = appendUnique(ext, cleanTrim);
+    ext = appendUnique(ext, extra);
+  }
+
+  const legacy = text(p.vehicle_name);
+  if (legacy) {
+    if (!main) {
+      // 구조화 차종이 전혀 없는 레거시 행은 완성명을 유일한 정본으로 보존한다.
+      const legacyMain = removeKnownPhrases(legacy, makerAliases);
+      return {
+        maker: omitMaker ? '' : maker,
+        main: legacyMain,
+        ext,
+        plate,
+      };
+    }
+
+    // 구조화 snapshot을 뼈대로 쓰고 레거시 완성명에서는 아직 없는 제원·트림만 보강한다.
+    const legacyExtra = residualText(
+      legacy,
+      [
+        ...makerAliases, model, sub, main,
+        p.variant, ...phraseTokens(p.variant),
+        trim, ...phraseTokens(trim),
+        p.trim_extra, ...phraseTokens(p.trim_extra),
+      ],
+      identity,
+    );
+    if (tier === 'full' || !cleanTrim) ext = appendUnique(ext, legacyExtra);
+  }
+
+  return {
+    maker: omitMaker ? '' : maker,
+    main,
+    ext,
+    plate,
+  };
 }
 
 /** 2줄·2색 렌더가 필요한 자리(카드 제목+회색 보조, 상세 h1+span)용 분해형. */
@@ -98,17 +279,51 @@ export function vehicleNameParts(src: NameSource, opt: NameOptions = {}): NamePa
     // **스냅샷이 정본.** 매물 이름은 계약 뒤에도 바뀐다(차종 재매칭이 maker·model·sub_model 을
     //  마스터 문자열로 갈아친다). 라이브를 보여주면 계약서와 화면이 어긋난다.
     if (snapshotUsable(c)) {
+      const snapshotName = S(c.vehicle_name_snapshot);
+      const snapshotOrContainedLive = (snapshotValue: unknown, liveValue: unknown): string => {
+        const stored = S(snapshotValue);
+        if (stored) return stored;
+        const live = S(liveValue);
+        return live && containsPart(snapshotName, live) ? live : '';
+      };
+      const contractModel = c.model_snapshot || c.model;
+      const contractSubModel = c.sub_model_snapshot || c.sub_model;
       const shaped: EntityRecord = {
-        maker: c.maker_snapshot, model: c.model_snapshot, sub_model: c.sub_model_snapshot,
-        variant: c.variant_snapshot, trim_name: c.trim_name_snapshot, trim_extra: c.trim_extra_snapshot,
-        car_number: c.car_number_snapshot,
+        // 계약 자체의 v3 필드도 계약 당시 값이다. 그것마저 없을 때만 완성명 접두어/연결 상품을 쓴다.
+        maker: c.maker_snapshot || c.maker
+          || inferLeadingMaker(snapshotName, [contractModel, contractSubModel])
+          || src.product?.maker,
+        model: contractModel, sub_model: contractSubModel,
+        // 레거시 완성명 안에 실제로 존재하는 라이브 조각만 구조 복원 힌트로 쓴다.
+        // 현재 상품의 새 값을 snapshot에 새로 보태지는 않는다.
+        variant: snapshotOrContainedLive(c.variant_snapshot || c.variant, src.product?.variant),
+        trim_name: snapshotOrContainedLive(c.trim_name_snapshot || c.trim_name, src.product?.trim_name),
+        trim_extra: snapshotOrContainedLive(c.trim_extra_snapshot || c.trim_extra, src.product?.trim_extra),
+        vehicle_name: snapshotName,
+        car_number: c.car_number_snapshot || src.product?.car_number,
       };
       return { ...partsOfRecord(shaped, tier, omitMaker), origin: 'snapshot' };
+    }
+    // 일부 레거시 계약은 *_snapshot 없이 계약 자체의 완성 차명만 보존한다.
+    if (S(c.vehicle_name)) {
+      const legacy: EntityRecord = {
+        maker: c.maker_snapshot || c.maker
+          || inferLeadingMaker(c.vehicle_name, [c.model, c.sub_model])
+          || src.product?.maker,
+        model: c.model,
+        sub_model: c.sub_model,
+        variant: c.variant,
+        trim_name: c.trim_name,
+        trim_extra: c.trim_extra,
+        vehicle_name: c.vehicle_name,
+        car_number: c.car_number_snapshot || src.product?.car_number,
+      };
+      return { ...partsOfRecord(legacy, tier, omitMaker), origin: 'snapshot' };
     }
     // 스냅샷 결손(레거시 계약) → 매물로 보강.
     if (src.product) {
       const live = partsOfRecord(src.product, tier, omitMaker);
-      return { ...live, plate: live.plate || S(c.car_number_snapshot), origin: 'live' };
+      return { ...live, plate: S(c.car_number_snapshot) || live.plate, origin: 'live' };
     }
     return { maker: '', main: '', ext: '', plate: S(c.car_number_snapshot), origin: 'none' };
   }

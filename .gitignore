@@ -25,3 +25,7 @@ npm-debug.log*
 /*-rtdb-*.json
 
 tmp/
+
+# Firebase Rules 후보·에뮬레이터 생성물 — builder/probe 소스만 버전관리
+/scripts/ruleprobe/release-candidate.rules.json
+/scripts/ruleprobe/firebase-debug.log

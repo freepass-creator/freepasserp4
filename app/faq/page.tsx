@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { getRole } from '@/lib/domain/deal';
-import { Page, Section, DetailGrid, SectionLabel, Disclosure, CopyBlock, CenterNote, Loading, Btn, C, FW, FS } from '@/components/ui';
+import { Page, Section, DetailGrid, SectionLabel, Disclosure, CopyBlock, CenterNote, Loading, Btn, C, FW, FS, R } from '@/components/ui';
 import { GUIDE, FAQ, matchFaq } from '@/lib/domain/faq';
 import { NAV_LABEL } from '@/lib/tabbar';
 
@@ -96,7 +96,7 @@ export default function Faq() {
                   </div>
                 ) : null}
                 {it.rows?.length ? (
-                  <div style={{ marginTop: it.a?.length ? 8 : 0, border: `1px solid ${C.line}`, borderRadius: 4, overflow: 'hidden', background: C.taupeBg }}>
+                  <div style={{ marginTop: it.a?.length ? 8 : 0, border: `1px solid ${C.line}`, borderRadius: R, overflow: 'hidden', background: C.taupeBg }}>
                     <DetailGrid rows={it.rows} />
                   </div>
                 ) : null}

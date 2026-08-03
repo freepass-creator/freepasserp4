@@ -109,7 +109,11 @@ check('fully checked contract can become complete', canWrite(admin, done, { ...d
 check('unknown contract status is denied', canWrite(admin, { ...base, contract_status: '임의완료' }, base), false);
 check('admin can correct either role step', canWrite(admin, { ...base, provider_docs_review: '승인', agent_docs_submitted: 'yes' }, base), true);
 
-const rules = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'database.rules.json'), 'utf8')).rules;
+const rulesArg = process.argv.find((arg) => arg.startsWith('--rules='));
+const rulesFile = rulesArg ? rulesArg.slice('--rules='.length) : 'database.rules.json';
+const rulesPath = path.resolve(process.cwd(), rulesFile);
+const rules = JSON.parse(fs.readFileSync(rulesPath, 'utf8')).rules;
+if (rulesFile !== 'database.rules.json') console.log(`INFO Rules 후보 점검: ${rulesFile}`);
 const v4 = rules.v4.contracts;
 check('contract collection has no broad write', v4['.write'], undefined);
 check('contract writes are record-scoped', typeof v4.$contract_id['.write'], 'string');
@@ -121,5 +125,13 @@ check('cross-role agent step is guarded at child', v4.$contract_id.agent_docs_su
 check('cross-role provider step is guarded at child', v4.$contract_id.provider_docs_review['.validate'].includes("role').val() === 'provider'"), true);
 check('completion requires final provider step', v4.$contract_id.contract_status['.validate'].includes("provider_release_completed"), true);
 check('agreement exception requires signed state', v4.$contract_id.provider_agreement_sent['.validate'].includes("sign_status").valueOf(), true);
+const vehicleSnapshotFields = [
+  'car_number_snapshot', 'maker_snapshot', 'model_snapshot', 'sub_model_snapshot',
+  'variant_snapshot', 'trim_name_snapshot', 'trim_extra_snapshot', 'vehicle_name_snapshot',
+  'year_snapshot', 'fuel_type_snapshot',
+];
+check('contract vehicle snapshots are immutable after creation', vehicleSnapshotFields.every((field) =>
+  String(v4.$contract_id[field]?.['.validate'] || '').includes('newData.val() === data.val()')
+), true);
 
 console.log(`contract rules simulation: ${passed}/${passed} PASS`);

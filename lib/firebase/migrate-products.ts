@@ -5,7 +5,7 @@
  *   · RTDB 금지문자(. # $ / [ ]) 키·빈 키는 건너뜀(경로 안전). v3 내부 동일 product_code 중복도 1건만.
  *   · 배치 500건씩 멀티로케이션 update. v3 라이브(products)는 절대 변경하지 않음(쓰기 대상은 v4/ 만).
  */
-import { ref, get, update } from 'firebase/database';
+import { ref, get } from 'firebase/database';
 import { getRtdb } from './client';
 import { vehicleIdentity, isRealPlate, isHiddenFromCatalog } from '@/lib/domain/product';
 import { carYear } from '@/lib/domain/vehicle-master-match';
@@ -29,7 +29,12 @@ export type MigrateProductsResult = {
 
 const FORBIDDEN_KEY = /[.#$/[\]]/; // RTDB 경로 금지문자
 
-export async function migrateV3ProductsToV4(dryRun = false): Promise<MigrateProductsResult> {
+export async function migrateV3ProductsToV4(dryRun = true): Promise<MigrateProductsResult> {
+  if (!dryRun) {
+    throw new Error(
+      'v3→v4 직접 복사는 잠겨 있습니다. 차량번호 중복·계약·채팅 참조를 포함한 승인된 이관 계획으로만 처리하세요.',
+    );
+  }
   const db = getRtdb();
   if (!db) throw new Error('DB가 설정되지 않았습니다');
   const [v3snap, v4snap] = await Promise.all([
@@ -52,14 +57,6 @@ export async function migrateV3ProductsToV4(dryRun = false): Promise<MigrateProd
     if (has(v4, key) || has(updates, path)) { skippedExists++; continue; } // v4 편집본·v3 내부중복 보존
     updates[path] = rec; // v3 원본 그대로
     copied++;
-  }
-
-  if (!dryRun && copied > 0) {
-    const entries = Object.entries(updates);
-    const BATCH = 500;
-    for (let i = 0; i < entries.length; i += BATCH) {
-      await update(ref(db), Object.fromEntries(entries.slice(i, i + BATCH)));
-    }
   }
 
   return {

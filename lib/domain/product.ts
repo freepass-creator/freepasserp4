@@ -3,7 +3,7 @@
  * product는 정책(_policy, ~30필드)을 물고 옴 → 검색·상세가 정책조건까지 포함.
  */
 import type { EntityRecord } from '@/lib/intake/entities';
-import { MAX_PROMO_BADGES as PROMO_MAX, PROMO_BADGES_ACTIVE, PROMO_BADGES_PLANNED, PROMO_BADGE_LEGACY, PRODUCT_TYPES, PRODUCT_TYPE_LEGACY } from '@/lib/intake/entities';
+import { MAX_PROMO_BADGES as PROMO_MAX, PROMO_BADGES_ACTIVE, PROMO_BADGES_PLANNED, PROMO_BADGE_LEGACY, PRODUCT_TYPES, PRODUCT_TYPE_LEGACY, VEHICLE_STATES } from '@/lib/intake/entities';
 import { fuelDisplay, fuelEmbeddedCc, yearDisplay, makerDisplay } from '@/lib/domain/vehicle-master-match';
 import { kmDisplay } from '@/lib/format';
 import { vehicleNameOf } from '@/lib/domain/vehicle-name';
@@ -42,6 +42,17 @@ export const PLATE_RE = /\d{2,3}[가-힣]\d{4}/;
 export function isRealPlate(carNumber: unknown): boolean {
   const s = String(carNumber ?? '').replace(/\s/g, '').toUpperCase();
   return !!s && PLATE_RE.test(s);
+}
+
+/**
+ * 외부 입고용 exact 번호판. 레거시 지역 접두는 실제 17개 시·도 표기만 허용한다.
+ * 임의 한글 prefix를 허용하면 `차량12가3456` 같은 설명문이 실차번으로 저장된다.
+ * 기존 화면/레거시 복원에서 쓰는 관대한 isRealPlate는 호환성 때문에 그대로 둔다.
+ */
+export const EXACT_PLATE_RE = /^(?:(?:서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주))?\d{2,3}[가-힣]\d{4}$/;
+export function isExactRealPlate(carNumber: unknown): boolean {
+  const s = String(carNumber ?? '').replace(/\s/g, '').toUpperCase();
+  return !!s && EXACT_PLATE_RE.test(s) && !/^100신\d{4,}$/.test(s);
 }
 /**
  * 매물 실물 유일신원 — 중복제거 키. 실번호판 → 없으면 VIN(11자↑) → 둘 다 없으면 null(개별 유지).
@@ -269,13 +280,36 @@ export const VEHICLE_STATUS_TONES = {
   즉시출고: 'green', 출고가능: 'green', 상품화중: 'amber', 출고협의: 'blue', 계약중: 'orange', 출고불가: 'red',
 } as const satisfies Record<string, 'green' | 'blue' | 'amber' | 'gray' | 'red' | 'orange'>;
 
+export const UNKNOWN_VEHICLE_STATUS = '상태 확인' as const;
+export const VEHICLE_DISPLAY_STATUSES = [...VEHICLE_STATES, UNKNOWN_VEHICLE_STATUS] as const;
+
+const VEHICLE_STATUS_SET = new Set<string>(VEHICLE_STATES);
+
+/** 운영 재고 목록·필터의 표시 상태. 원본 값은 변경하지 않고 누락·지원외만 드러낸다. */
+export function normalizeVehicleDisplayStatus(value: unknown): (typeof VEHICLE_DISPLAY_STATUSES)[number] {
+  const status = String(value ?? '').replace(/\s+/g, '');
+  return VEHICLE_STATUS_SET.has(status)
+    ? status as (typeof VEHICLE_STATES)[number]
+    : UNKNOWN_VEHICLE_STATUS;
+}
+
 /** 상품찾기·카탈로그 — 출고불가만 숨김. 계약중은 마크 노출. */
 export function isHiddenFromCatalog(p: { vehicle_status?: unknown; _deleted?: unknown }): boolean {
   if (p._deleted === true) return true;
-  return String(p.vehicle_status || '') === '출고불가';
+  return String(p.vehicle_status || '').replace(/\s+/g, '') === '출고불가';
+}
+
+/**
+ * 상품찾기·손님 카탈로그에서 실제 견적 가능한 상품.
+ * 상태뿐 아니라 읽기 SSOT(priceList)를 통과한 유효 대여료가 하나 이상 있어야 한다.
+ * 관리자 재고·데이터점검의 정정 대상 노출에는 사용하지 않는다.
+ */
+export function isOfferableProduct(p: EntityRecord): boolean {
+  return !isHiddenFromCatalog(p) && priceList(p).length > 0;
 }
 
 export function vehicleTone(s: string): 'green' | 'blue' | 'amber' | 'gray' | 'red' | 'orange' {
+  if (s === UNKNOWN_VEHICLE_STATUS) return 'red';
   const k = s.replace(/\s+/g, '') as keyof typeof VEHICLE_STATUS_TONES;
   return VEHICLE_STATUS_TONES[k] || 'gray';
 }

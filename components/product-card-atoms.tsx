@@ -72,7 +72,7 @@ export { CardKind, CardRailBadges } from '@/components/product-card-badge-view';
  */
 
 function fmtCardYear(p: EntityRecord): string {
-  return yearDisplay(p.year) || '-';
+  return yearDisplay(p.year) || '';
 }
 
 /** CardSpecs — 객관 스펙 한 줄.
@@ -98,16 +98,16 @@ export function CardSpecs({ p, dense, audience = 'agent', plateYear }: {
       minWidth: 0, width: '100%',
       overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
     }}>
-      {showPlateSlot && (
+      {showPlateSlot && plate ? (
         <>
           <span style={{
             fontWeight: FW.strong, color: C.ink, fontFamily: NUM,
             letterSpacing: '-0.2px', fontVariantNumeric: 'tabular-nums',
-          }}>{plate || '-'}</span>
-          <span style={{ color: C.faint }}> · </span>
+          }}>{plate}</span>
+          {body ? <span style={{ color: C.faint }}> · </span> : null}
         </>
-      )}
-      <span>{body}</span>
+      ) : null}
+      <span>{body || (!plate ? '-' : '')}</span>
     </div>
   );
 }

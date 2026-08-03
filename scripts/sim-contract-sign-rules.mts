@@ -100,7 +100,12 @@ check('recovery rejects completed state without evidence', canResumeApprovedSign
   provider_agreement_sent: '',
 }), false);
 
-const rules = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'database.rules.json'), 'utf8')).rules.contract_sign.$token;
+const rulesArg = process.argv.find((arg) => arg.startsWith('--rules='));
+const rulesFile = rulesArg ? rulesArg.slice('--rules='.length) : 'database.rules.json';
+const rulesPath = path.resolve(process.cwd(), rulesFile);
+const rulesRoot = JSON.parse(fs.readFileSync(rulesPath, 'utf8')).rules;
+if (rulesFile !== 'database.rules.json') console.log(`INFO Rules 후보 점검: ${rulesFile}`);
+const rules = rulesRoot.contract_sign.$token;
 check('anonymous write requires sent state', rules['.write'].includes("data.child('status').val() === 'sent'"), true);
 check('anonymous write requires pending review target', rules['.write'].includes("newData.child('status').val() === 'pending_review'"), true);
 check('agent write requires owned uid', rules['.write'].includes("data.child('agent_uid').val() === auth.uid"), true);
@@ -118,9 +123,11 @@ check('anonymous submission requires exact consent set', rules['.write'].include
 check('anonymous submission requires consent version', rules['.write'].includes("sign_consent_version').val() === 'v1'"), true);
 check('expiry becomes immutable', rules['.validate'].includes("newData.child('expires_at').val() === data.child('expires_at').val()"), true);
 
-const contractRules = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'database.rules.json'), 'utf8')).rules.v4.contracts.$contract_id;
+const contractRules = rulesRoot.v4.contracts.$contract_id;
 check('contract approval requires pending public submission', contractRules.sign_status['.validate'].includes("child('status').val() === 'pending_review'"), true);
 check('contract approval requires public signature', contractRules.sign_status['.validate'].includes("child('sign_signature').isString()"), true);
 check('agreement step requires signed public slot', contractRules.provider_agreement_sent['.validate'].includes("child('status').val() === 'signed'"), true);
+check('anonymous read is limited to pre-submission sent state',
+  rules['.read'].includes("child('status').val() === 'sent'"), true);
 
 console.log(`contract sign rules simulation: ${passed}/${passed} PASS`);

@@ -5,7 +5,7 @@ import type { EntityRecord } from '@/lib/intake/entities';
 import type { ColSort } from './excel-columns';
 import { ProductCard } from '@/components/ProductCard';
 import { ProductRowCard } from '@/components/ProductRowCard';
-import { Btn, C, CenterNote, EXCEL_ROW_H, FS, R, SH, Skeleton } from '@/components/ui';
+import { Btn, C, CenterNote, EXCEL_ROW_H, FS, R, SH, Skeleton, ctrlH } from '@/components/ui';
 import { isGuest } from '@/lib/auth-session';
 import { ExcelResultsTable } from './ExcelResultsTable';
 
@@ -134,7 +134,7 @@ const EXCEL_PRICE_COLS = [64, 64, 64];
 function ExcelSkeleton({ count }: { count: number }) {
   return (
     <div role="status" aria-label="불러오는 중" style={{ width: '100%' }}>
-      <div style={{ display: 'flex', gap: 6, alignItems: 'center', height: 28, padding: '0 6px', boxSizing: 'border-box', background: C.head, borderBottom: `1px solid ${C.line}` }}>
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center', height: ctrlH(false, 'sm'), padding: '0 6px', boxSizing: 'border-box', background: C.head, borderBottom: `1px solid ${C.line}` }}>
         {EXCEL_COLS.map((w, i) => <Skeleton key={i} width={w} height={12} />)}
         <div style={{ flex: 1 }} />
         {EXCEL_PRICE_COLS.map((w, i) => <Skeleton key={`p${i}`} width={w} height={12} />)}

@@ -24,7 +24,7 @@ const { getStore } = await import('../lib/store');
 const { getCompanyId } = await import('../lib/tenant');
 const { newId } = await import('../lib/domain/ids');
 const { ensureRoom, createContractRequest, setRole } = await import('../lib/domain/deal');
-const { applyStepCheck, createSettlement } = await import('../lib/domain/settlement-engine');
+const { applyStepCheck, cancelContract, createSettlement } = await import('../lib/domain/settlement-engine');
 const { importCompletedForMonth } = await import('../lib/domain/admin-settlement');
 import type { EntityRecord } from '../lib/intake/entities';
 
@@ -129,6 +129,35 @@ check('4d. 공급 부가세 10%', Number(asRow?.provider_vat) === Math.round(exp
 const expProviderBill = expFee + Math.round(expFee * 0.1);
 const expAgencyPay = expPayout + Math.round(expPayout * 0.1);
 check('4e. 월 순이익(청구−지급)', Number(asRow?.monthly_profit) === expProviderBill - expAgencyPay, { got: asRow?.monthly_profit, exp: expProviderBill - expAgencyPay });
+
+// ── 5. 완료 계약 취소·환수 권한 ──
+setRole('agent');
+let agentCompletedCancelRejected = false;
+try { await cancelContract(contract); } catch { agentCompletedCancelRejected = true; }
+const afterAgentCancelContract = await store.get('contract', co, contractCode);
+const afterAgentCancelProduct = await store.get('product', co, productCode);
+const afterAgentCancelSettlement = await store.get('settlement', co, stCode);
+check('5a. 영업자 완료계약 취소 차단', agentCompletedCancelRejected, agentCompletedCancelRejected);
+check('5b. 차단 시 계약·차량·정산 무변경',
+  afterAgentCancelContract?.contract_status === '계약완료'
+  && afterAgentCancelProduct?.vehicle_status === '출고불가'
+  && afterAgentCancelSettlement?.settlement_status === '정산완료',
+  {
+    contract: afterAgentCancelContract?.contract_status,
+    product: afterAgentCancelProduct?.vehicle_status,
+    settlement: afterAgentCancelSettlement?.settlement_status,
+  });
+
+setRole('admin');
+await cancelContract(contract);
+const afterAdminCancelContract = await store.get('contract', co, contractCode);
+const afterAdminCancelProduct = await store.get('product', co, productCode);
+const afterAdminCancelSettlement = await store.get('settlement', co, stCode);
+check('5c. 관리자 완료계약 취소 허용', afterAdminCancelContract?.contract_status === '계약취소', afterAdminCancelContract?.contract_status);
+check('5d. 관리자 취소 시 차량 잠금 해제', afterAdminCancelProduct?.vehicle_status === '출고가능' && !afterAdminCancelProduct?.locked_by_contract, afterAdminCancelProduct);
+check('5e. 관리자 취소 시 환수대기·R1 기준 환수액',
+  afterAdminCancelSettlement?.settlement_status === '환수대기' && Number(afterAdminCancelSettlement?.clawback_amount) > 0,
+  { status: afterAdminCancelSettlement?.settlement_status, clawback: afterAdminCancelSettlement?.clawback_amount });
 
 // ── 결과 ──
 const failed = cases.filter((c) => !c.ok);

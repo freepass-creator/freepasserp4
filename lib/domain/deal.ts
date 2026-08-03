@@ -7,11 +7,12 @@
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { type EntityRecord, ROLE_LABEL_RAW } from '@/lib/intake/entities';
-import { vehicleName, priceAt, creditDisplay } from '@/lib/domain/product';
+import { priceAt, creditDisplay } from '@/lib/domain/product';
 import { resolveRates } from '@/lib/domain/settlement-engine';
 import { getSession } from '@/lib/auth-session';
 import { BRAND_MAIN } from '@/lib/brand';
 import { requirePositiveRentAmount } from '@/lib/domain/contract-money';
+import { vehicleNameOf } from '@/lib/domain/vehicle-name';
 
 export type Role = 'agent' | 'provider' | 'admin';
 // v4 3역할 라벨 = 원본 5역할 라벨(entities.ROLE_LABEL_RAW SSOT)에서 파생. 값 복붙 금지.
@@ -106,7 +107,14 @@ export async function ensureRoom(product: EntityRecord, asker?: { uid: string; c
   await store.save('room', co, [{
     _key: roomKey, room_code: roomKey,
     product_uid: String(product.product_code), product_code: String(product.product_code),
-    car_number: product.car_number, vehicle_name: vehicleName(product),
+    car_number: String(product.car_number || ''),
+    vehicle_name: vehicleNameOf({ kind: 'product', product }, { tier: 'short', fallback: 'none' }),
+    maker: String(product.maker || ''),
+    model: String(product.model || ''),
+    sub_model: String(product.sub_model || ''),
+    variant: String(product.variant || ''),
+    trim_name: String(product.trim_name || ''),
+    trim_extra: String(product.trim_extra || ''),
     agent_uid: parties.agent_uid, agent_code: ag.code, agent_name: ag.name,
     agent_channel_code: parties.agent_channel_code,
     provider_company_code: parties.provider_company_code,
@@ -130,7 +138,14 @@ export async function ensureRoomForContract(c: EntityRecord): Promise<string> {
     await store.save('room', co, [{
       _key: roomKey, room_code: roomKey,
       product_uid: String(c.product_code), product_code: String(c.product_code),
-      car_number: c.car_number_snapshot, vehicle_name: [c.maker_snapshot, c.sub_model_snapshot].filter(Boolean).join(' '),
+      car_number: String(c.car_number_snapshot || ''),
+      vehicle_name: vehicleNameOf({ kind: 'contract', contract: c }, { tier: 'short', fallback: 'none' }),
+      maker: String(c.maker_snapshot || c.maker || ''),
+      model: String(c.model_snapshot || c.model || ''),
+      sub_model: String(c.sub_model_snapshot || c.sub_model || ''),
+      variant: String(c.variant_snapshot || c.variant || ''),
+      trim_name: String(c.trim_name_snapshot || c.trim_name || ''),
+      trim_extra: String(c.trim_extra_snapshot || c.trim_extra || ''),
       agent_uid: parties.agent_uid, agent_code: c.agent_code, agent_name: c.agent_name,
       agent_channel_code: parties.agent_channel_code,
       provider_company_code: parties.provider_company_code, linked_contract: c.contract_code,
@@ -177,7 +192,17 @@ export async function createContractRequest(product: EntityRecord, opt: { period
   }, '계약 생성');
   await store.save('contract', co, [{
     contract_code: code, contract_status: '계약요청', contract_date: `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`,
-    product_code: product.product_code, car_number_snapshot: product.car_number, maker_snapshot: product.maker, sub_model_snapshot: product.sub_model,
+    product_code: String(product.product_code || ''),
+    car_number_snapshot: String(product.car_number || ''),
+    maker_snapshot: String(product.maker || ''),
+    model_snapshot: String(product.model || ''),
+    sub_model_snapshot: String(product.sub_model || ''),
+    variant_snapshot: String(product.variant || ''),
+    trim_name_snapshot: String(product.trim_name || ''),
+    trim_extra_snapshot: String(product.trim_extra || ''),
+    vehicle_name_snapshot: vehicleNameOf({ kind: 'product', product }, { tier: 'full', fallback: 'none' }),
+    year_snapshot: String(product.year || product.model_year || ''),
+    fuel_type_snapshot: String(product.fuel_type || ''),
     rent_month_snapshot: opt.period, rent_amount_snapshot: rentAmount, deposit_amount_snapshot: pr?.deposit ?? 0,
     customer_name: opt.customerName, customer_phone: opt.customerPhone,
     agent_uid: parties.agent_uid, agent_code: ag.code, agent_name: ag.name, agent_channel_code: parties.agent_channel_code,

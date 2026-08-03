@@ -47,6 +47,12 @@ export function splitProductPrivate(product: EntityRecord): {
     privateRecord.vin = product.vin;
     delete publicRecord.vin;
   }
+  // 레거시 상품에 섞인 정산계좌. canonical 소유자는 partner이지만, 소유권 확인 전에는
+  // 값을 버리거나 자동 이관하지 않고 상품 private에 격리해 public 재저장·영업자 노출만 막는다.
+  if (hasOwn(source, 'account_number')) {
+    privateRecord.account_number = product.account_number;
+    delete publicRecord.account_number;
+  }
   if (hasOwn(source, 'price')) {
     const { publicPrice, privatePrice } = splitPrice(product.price);
     if (publicPrice) publicRecord.price = publicPrice;
@@ -64,6 +70,7 @@ export function mergeProductPrivate(product: EntityRecord, privateRecord?: Entit
   const output = { ...product };
   if (hasOwn(privateRecord as RecordValue, 'vehicle_price')) output.vehicle_price = privateRecord.vehicle_price;
   if (hasOwn(privateRecord as RecordValue, 'vin')) output.vin = privateRecord.vin;
+  if (hasOwn(privateRecord as RecordValue, 'account_number')) output.account_number = privateRecord.account_number;
   if (privateRecord.price && typeof privateRecord.price === 'object' && !Array.isArray(privateRecord.price)) {
     const mergedPrice: RecordValue = { ...((output.price as RecordValue | undefined) || {}) };
     for (const [period, rawPrivateTerms] of Object.entries(privateRecord.price as RecordValue)) {

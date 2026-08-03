@@ -1,9 +1,9 @@
 'use client';
 import { useCallback, useEffect, useRef, useState, useMemo, type ReactNode } from 'react';
-import { getStore } from '@/lib/store';
+import { getStore, type StoreAdapter } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
-import { useIsMobile, isMobileViewport } from '@/lib/use-mobile';
+import { useIsMobile } from '@/lib/use-mobile';
 import { useKeyboardOpen } from '@/lib/use-keyboard';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { getRole, actor, type Role } from '@/lib/domain/deal';
@@ -30,9 +30,10 @@ import {
   productForRoom,
   providerForRoom,
   roomPlate,
+  roomProductDetail,
   roomModel as resolveRoomModel,
-  roomTitle as resolveRoomTitle,
 } from '@/features/chat/room-display';
+import { roomVehicleDetailLabel } from '@/lib/domain/vehicle-label';
 import {
   CHAT_FILTER_DEFAULT,
   CHAT_FILTERS,
@@ -41,12 +42,40 @@ import {
   chatRoomPreviewCount,
   filterChatRooms,
   isWorkspaceChatRoom,
+  requestedChatRoom,
   type ChatFilter,
   type ChatSort,
 } from '@/features/chat/room-filter';
 import { joinMetaText, retainVisibleSelection, workPartyParts } from '@/features/work-list-display';
 import { ListChecks, MessageCircle, ClipboardList } from 'lucide-react';
 import { ChatRoomList } from '@/features/chat/ChatRoomList';
+import {
+  collapseDuplicateEmptyRooms,
+  duplicateEmptyRoomFamilies,
+  verifyDuplicateRoomMessages,
+  type EmptyRoomDedupeEvidence,
+} from '@/features/chat/room-dedupe';
+
+async function emptyRoomDedupeEvidence(
+  rooms: EntityRecord[],
+  contracts: EntityRecord[],
+  store: StoreAdapter,
+  companyId: string,
+): Promise<EmptyRoomDedupeEvidence> {
+  const active = buildContractIndex(contracts, false);
+  const cancelled = buildContractIndex(contracts, true);
+  const contractOf = (room: EntityRecord) => (
+    contractForRoom(active, room) || contractForRoom(cancelled, room)
+  );
+  const families = duplicateEmptyRoomFamilies(rooms, { contractOf });
+  const messageState = await verifyDuplicateRoomMessages(families, {
+    listForRoom: typeof store.listMessagesForRoom === 'function'
+      ? (roomId) => store.listMessagesForRoom!(companyId, roomId)
+      : undefined,
+    listAll: () => store.list('message', companyId),
+  });
+  return { messageState, contractOf };
+}
 
 // 문의 = 단순 채팅 목록 | 채팅 | 상품상세 | 계약(진행 전환).
 //   계약진행으로 넘어간 방은 /contract. 웹=4열 / 모바일=채팅↔계약진행.
@@ -80,18 +109,16 @@ export default function Chat() {
   }, [qInput]);
 
   // 계약 인덱스 — linked_contract 우선, 레거시 product_uid·차번·agent_uid까지 같은 resolver로 연결.
-  //  · '계약취소'는 후보에서 제외(find의 `c.contract_status !== '계약취소'`).
-  //  · 같은 키에 비취소 계약이 여럿이면 배열에서 먼저 나온 것 우선(find가 먼저 만나는 원소).
+  // 같은 fallback 키는 진행 중 계약 우선, 그다음 최신 계약으로 결정적으로 고른다.
   const contractIndex = useMemo(() => buildContractIndex(contracts, false), [contracts]);
-  // 취소 필터 전용 — 취소된 계약만(동일 키 first-wins). contractIndex와 분리(취소 제외 인덱스는 항상 빈결과였음).
+  // 취소 이력 fallback — 활성 계약이 없을 때만 같은 최신성 규칙으로 사용한다.
   const cancelledIndex = useMemo(() => buildContractIndex(contracts, true), [contracts]);
   const contractOf = (rm: EntityRecord) => contractForRoom(contractIndex, rm);
   const cancelledOf = (rm: EntityRecord) => contractForRoom(cancelledIndex, rm);
   const productLookup = useMemo(() => buildProductLookup(products), [products]);
   const deletedLookup = useMemo(() => buildProductLookup(deletedProducts), [deletedProducts]);
-  /** 방 제목 = 실차명 해석. v3 방은 product_uid(=매물 _key)·car_number로 연결. 방값→매물→계약스냅샷→차번 순. (표시만, 데이터 미변경) */
+  /** v3 방도 product_uid·차번으로 연결하되 표시는 방 snapshot → 계약 snapshot → 매물 순으로 복원한다. */
   const roomContract = (rm: EntityRecord) => contractOf(rm) || cancelledOf(rm);
-  const roomTitle = (rm: EntityRecord): string => resolveRoomTitle(rm, productLookup, deletedLookup, contracts, roomContract(rm));
   const roomChatCode = (rm: EntityRecord): string =>
     chatCodeOf(rm, roomPlate(rm, productLookup, deletedLookup, contracts, roomContract(rm)));
   /** 매물 공급사 표기 — 관리자 응대용(이름 우선, 없으면 코드). */
@@ -107,47 +134,58 @@ export default function Chat() {
     }));
   };
   const sortByRecent = (arr: EntityRecord[]) => arr.slice().sort((a, b) => Number(b.last_message_at || 0) - Number(a.last_message_at || 0));
-  // 점진 로딩 — 1차: 방 목록만 즉시 페인트(저장된 안읽음 카운터·차명은 코드 폴백).
-  //  2차(백그라운드): 상품카탈로그·계약·전체 메시지 안읽음 보강 → 차명·필터·안읽음 채움.
-  //  전량 선반입을 첫 페인트 뒤로 미뤄 계약진행만큼 빠르게 목록이 뜸.
+  // 방과 계약·상품·파트너를 원자적으로 준비한다. 방만 먼저 그리면 계약 인덱스가 빈 첫 프레임에서
+  // 진행/완료/취소 방이 잠깐 '문의'로 보이므로, 의미 보강이 끝날 때까지 목록 skeleton을 유지한다.
   const load = async (r: Role): Promise<EntityRecord[]> => {
+    setRooms(null);
     const store = getStore();
-    // 카탈로그를 방 목록과 "동시에" 출발 — 방을 받은 뒤 시작하면 네트워크 왕복이 한 번 더 붙어
-    // 목록이 뜬 다음 차량번호·차명이 뒤늦게 따라붙는 게 눈에 보인다.
-    // 차명 조인은 원본(listRaw) 기준 — 판매용 목록은 중복정리·제외로 예전 문의 차를 놓친다.
+    // 방과 카탈로그는 동시에 출발하고, 계약 lifecycle까지 모두 준비된 뒤에만 목록을 연다.
+    // 차명 조인은 원본 기준 — 판매용 목록은 중복정리·제외로 예전 문의 차를 놓친다.
     const catalogP = Promise.all([
       store.list('contract', co),
       typeof store.listRaw === 'function' ? store.listRaw('product', co) : store.list('product', co),
       store.listDeleted('product', co).catch(() => []),
       store.list('partner', co).catch(() => []),
-    ]);
+    ]).catch((e) => {
+      // 의미 보강 실패를 빈 계약/상품으로 오인 렌더하지 않는다. skeleton을 유지하고 원인을 남긴다.
+      console.error('[chat] 카탈로그 보강 실패(상품·계약·파트너 로드):', e);
+      throw e;
+    });
     const all = await store.list('room', co);
     const mine = all.filter((x) => canAccessOwnedRecord(getSession(), x) && isWorkspaceChatRoom(x, r));
-    setRooms(sortByRecent(mine)); // ← 즉시 페인트
-    void (async () => {
-      try {
-        const [cts, prods, del, partners] = await catalogP;
-        setContracts(cts);
-        setProducts(withProviderNames(prods, partners));
-        setDeletedProducts(del);
-        setProviderAliases(providerNameMap(partners));
-        const withUnread = await roomsWithUnread(mine, r);
-        setRooms(sortByRecent(withUnread));
-      } catch (e) {
-        // 무음 실패 금지 — 여기서 죽으면 방의 차명이 전부 코드/번호 폴백으로 남아 "차량 조회불가"처럼 보인다.
-        console.error('[chat] 카탈로그 보강 실패(상품·계약·파트너 로드):', e);
-      }
-    })();
-    return sortByRecent(mine);
+    const [cts, prods, del, partners] = await catalogP;
+    const [withUnread, dedupeEvidence] = await Promise.all([
+      roomsWithUnread(mine, r, store).catch((e) => {
+        // 안읽음 보강 실패는 lifecycle·차량명 의미를 바꾸지 않으므로 방의 저장 카운터로 안전하게 표시한다.
+        console.error('[chat] 안읽음 보강 실패:', e);
+        return mine;
+      }),
+      emptyRoomDedupeEvidence(mine, cts, store, co),
+    ]);
+    const sorted = sortByRecent(collapseDuplicateEmptyRooms(withUnread, dedupeEvidence));
+    // React 18 자동 batching: 의미를 구성하는 상태를 같은 tick에 반영하고 rooms를 마지막에 연다.
+    setContracts(cts);
+    setProducts(withProviderNames(prods, partners));
+    setDeletedProducts(del);
+    setProviderAliases(providerNameMap(partners));
+    setRooms(sorted);
+    return sorted;
   };
   // 방목록·안읽음(+계약)만 부분 갱신 — products/deletedProducts 카탈로그는 재조회하지 않음(fp:unread 경량 경로).
   //  메시지 열람/전송으로 카탈로그는 변하지 않으므로 최초 load에서 받은 products·deletedProducts(삭제매물 이름복원)를 재사용.
   const refreshRooms = async (r: Role): Promise<EntityRecord[]> => {
-    const [all, cts] = await Promise.all([getStore().list('room', co), getStore().list('contract', co)]);
+    const store = getStore();
+    const [all, cts] = await Promise.all([
+      store.list('room', co),
+      store.list('contract', co),
+    ]);
     setContracts(cts);
     const mine = all.filter((x) => canAccessOwnedRecord(getSession(), x) && isWorkspaceChatRoom(x, r));
-    const withUnread = await roomsWithUnread(mine, r);
-    const sorted = withUnread.sort((a, b) => Number(b.last_message_at || 0) - Number(a.last_message_at || 0));
+    const [withUnread, dedupeEvidence] = await Promise.all([
+      roomsWithUnread(mine, r, store),
+      emptyRoomDedupeEvidence(mine, cts, store, co),
+    ]);
+    const sorted = sortByRecent(collapseDuplicateEmptyRooms(withUnread, dedupeEvidence));
     setRooms(sorted);
     return sorted;
   };
@@ -155,10 +193,9 @@ export default function Chat() {
     const store = getStore();
     // 목록에서 이미 복원한 레거시 product_uid를 canonical product_code로 바꿔 상세도 같은 차를 연다.
     // get(product_uid)는 RTDB 정규화 후 _key=product_code라 miss할 수 있으므로 raw uid를 곧장 쓰지 않는다.
-    let indexed = productForRoom(productLookup, rm);
+    let indexed = productForRoom(productLookup, rm) || productForRoom(deletedLookup, rm);
     let productId = String(indexed?.product_code || indexed?._key || rm.product_code || rm.product_uid || rm.product_id || '').trim();
     let live = productId ? await store.get('product', co, productId) : null;
-    if (live) return live;
 
     // 방이 먼저 페인트되고 카탈로그가 아직 도착하지 않은 클릭도, 이미 진행 중인 listRaw를 기다려 같은 조인으로 복구한다.
     if (!indexed) {
@@ -170,21 +207,16 @@ export default function Chat() {
       if (restoredId && restoredId !== productId) {
         productId = restoredId;
         live = await store.get('product', co, productId);
-        if (live) return live;
       }
     }
 
-    const cts = await store.list('contract', co);
-    const c = contractForRoom(buildContractIndex(cts, false), rm)
-      || contractForRoom(buildContractIndex(cts, true), rm);
-    if (!c && !rm.vehicle_name) return null;
-    return {
-      product_code: c?.product_code || productId,
-      car_number: rm.car_number || c?.car_number_snapshot || '',
-      maker: c?.maker_snapshot || '', sub_model: c?.sub_model_snapshot || '', vehicle_name: rm.vehicle_name || '',
-      ...(c && Number(c.rent_month_snapshot) ? { price: { [String(c.rent_month_snapshot)]: { rent: Number(c.rent_amount_snapshot) || 0, deposit: Number(c.deposit_amount_snapshot) || 0 } } } : {}),
-      _fromHistory: true,
-    } as EntityRecord;
+    let c = roomContract(rm);
+    if (!c) {
+      const cts = await store.list('contract', co);
+      c = contractForRoom(buildContractIndex(cts, false), rm)
+        || contractForRoom(buildContractIndex(cts, true), rm);
+    }
+    return roomProductDetail(rm, live || indexed, c);
   };
   const selectRoom = async (rm: EntityRecord) => {
     const epoch = ++selectionEpoch.current;
@@ -222,19 +254,13 @@ export default function Chat() {
   const selectRoomRef = useRef(selectRoom);
   selectRoomRef.current = selectRoom;
   const handleRoomClick = useCallback((rm: EntityRecord) => selectRoomRef.current(rm), []);
-  const firstInquiry = (list: EntityRecord[], cts: EntityRecord[]) => {
-    const index = buildContractIndex(cts, false);
-    const of = (rm: EntityRecord) => contractForRoom(index, rm);
-    return list.find((rm) => isInquiryOnly(of(rm))) || list[0];
-  };
   useEffect(() => { (async () => {
     await initAuth();
     await seedIfEmpty(co); const r = getRole(); setRoleS(r); const s = await load(r);
-    const cts = await getStore().list('contract', co);
     const wanted = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('room') : null;
-    // 모바일은 '목록 먼저' — 첫 방 자동선택은 웹만. mobile(첫 렌더 SSR힌트)이 데스크톱으로 어긋나
-    //  모바일서도 방이 열리던 버그 → 마운트 시점 신뢰되는 isMobileViewport()로 직접 판정.
-    const target = wanted ? s.find((x) => String(x._key) === wanted) : (!isMobileViewport() ? firstInquiry(s, cts) : undefined);
+    // 일반 진입은 데스크톱도 목록만 연다. 첫 방 자동선택은 ChatThread의 markRead를 호출해
+    // 사용자가 보지 않은 실데이터를 읽음 처리하므로, 명시적인 ?room= 딥링크만 선택한다.
+    const target = requestedChatRoom(s, wanted);
     if (target) selectRoom(target);
   })(); /* eslint-disable-next-line */ }, []);
 
@@ -247,7 +273,7 @@ export default function Chat() {
     if (target) void selectRoomRef.current(target);
   }, [rooms, sel]);
 
-  useEffect(() => { const on = (e: Event) => { const r = (e as CustomEvent).detail as Role; setRoleS(r); (async () => { const s = await load(r); clearSel(); if (!mobile && s.length) { const cts = await getStore().list('contract', co); selectRoom(firstInquiry(s, cts)); } })(); }; window.addEventListener('fp:role', on); return () => window.removeEventListener('fp:role', on); /* eslint-disable-next-line */ }, [mobile]);
+  useEffect(() => { const on = (e: Event) => { const r = (e as CustomEvent).detail as Role; setRoleS(r); (async () => { await load(r); clearSel(); })(); }; window.addEventListener('fp:role', on); return () => window.removeEventListener('fp:role', on); /* eslint-disable-next-line */ }, []);
 
   useEffect(() => {
     const on = (e: Event) => {
@@ -352,7 +378,12 @@ export default function Chat() {
     : <CenterNote>이 매물의 이력이 없습니다.</CenterNote>;
 
   // 계약진행 이동 = 하단 swap + 상단 우측(erp3 headerRight 클립보드).
-  const chatHead = selRoom ? roomTitle(selRoom) : '';
+  const selectedVehicleName = selRoom
+    ? roomVehicleDetailLabel(selRoom, selProduct, selContract) || roomHead(selRoom)
+    : '';
+  const chatHead = selRoom
+    ? [roomPlateOf(selRoom), selectedVehicleName].filter(Boolean).join(' ')
+    : '';
   const chatCode = selRoom ? roomChatCode(selRoom) : '';
   const chatNode = sel
     ? <ChatThread roomId={sel} title={chatHead} chatCode={chatCode} onComposeFocus={setComposing} />
@@ -408,7 +439,10 @@ export default function Chat() {
   ];
 
   const inquiryUnreadN = unreadRoomCount(
-    (rooms || []).filter((rm) => isInquiryOnly(contractOf(rm))),
+    (rooms || []).filter((rm) => {
+      const contract = roomContract(rm);
+      return !isContractCancelled(contract) && isInquiryOnly(contract);
+    }),
     role,
   );
 
@@ -425,8 +459,8 @@ export default function Chat() {
       onBack={clearSel}
       contextTitle={selRoom
         ? (() => {
-            // 선택 헤더는 목록 ①줄과 같은 차량명을 먼저 보여준다. 차번은 우측 대화코드와 중복하지 않는다.
-            const head = roomHead(selRoom);
+            // 목록과 같은 snapshot을 쓰되 상세 헤더는 T2 전체 사양. 차번은 우측 대화코드와 중복하지 않는다.
+            const head = selectedVehicleName;
             const code = roomChatCode(selRoom);
             return (
               <span style={{ display: 'inline-flex', alignItems: 'baseline', minWidth: 0, maxWidth: '100%' }}>

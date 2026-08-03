@@ -1,7 +1,7 @@
 /**
  * 시트 유입 dry-run diff — 저장 전 미리보기용. 순수 함수(write 없음).
  * 기존 planProductUpsert / planAbsentBlocked(sheet-merge) 위에 얇게 얹어,
- * 유입 시트를 커밋하기 전에 "신규 / 상태변경 / 내용수정 / 부재(출고불가) / 무변경"을 집계·상세화한다.
+ * 유입 시트를 커밋하기 전에 "신규 / 상태변경 / 내용만 수정 / 재고차단 / 무변경"을 집계·상세화한다.
  * UI(SheetSync)는 이 결과를 배너·목록으로 보여주고 사용자가 확인 후 commitSheetProducts.
  */
 import { planProductUpsert, planAbsentBlocked } from './sheet-merge';
@@ -22,8 +22,8 @@ export type SheetDiffItem = {
 export type SheetDiffSummary = {
   new: number;          // 신규 차번(create)
   status: number;       // 기존 차번 · vehicle_status 변경
-  content: number;      // 기존 차번 · 상태 외 필드만 변경
-  absent: number;       // 시트에 없어짐 → 출고불가(삭제 아님)
+  content: number;      // 기존 차번 · 상태 외 필드만 변경(상태와 동시 변경은 status에 포함)
+  absent: number;       // 시트 삭제·출고불가·가격없음 → 기존 재고 출고불가(삭제 아님)
   unchanged: number;    // 변경 없음
   skippedLocked: number;// 부재지만 계약락으로 출고불가 스킵
   total: number;        // 유입 총 건
@@ -73,11 +73,16 @@ export function summarizeSheetDiff(opts: {
   }
 
   const presentKeys = new Set<string>();
+  const presentPlates = new Set<string>();
   for (const rec of incoming) {
     const k = String(rec.product_code || rec._key || '');
     if (k) presentKeys.add(k);
+    if (!rec.is_pending_plate) {
+      const plate = String(rec.car_number || rec.car_number_snapshot || '').replace(/\s/g, '');
+      if (plate) presentPlates.add(plate);
+    }
   }
-  const absentPlan = planAbsentBlocked({ existing, providerCode, presentKeys });
+  const absentPlan = planAbsentBlocked({ existing, providerCode, presentKeys, presentPlates });
   for (const { key } of absentPlan.patches) {
     const prev = byKey.get(key) || {};
     items.push({
@@ -121,10 +126,35 @@ export function countStatusTransitions(diff: SheetDiffSummary): {
   return { availToBlocked, blockedToAvail, availToContract, otherStatus };
 }
 
+/** 공급사별 검증표에 노출할 실제 상태 전이. 합계만으로는 대량 변경 방향을 판단할 수 없다. */
+export function sheetStatusTransitionCounts(diff: SheetDiffSummary): { label: string; count: number }[] {
+  const counts = new Map<string, number>();
+  for (const item of diff.items) {
+    if (item.kind !== 'status') continue;
+    const label = `${String(item.statusFrom || '미지정')}→${String(item.statusTo || '미지정')}`;
+    counts.set(label, (counts.get(label) || 0) + 1);
+  }
+  return [...counts.entries()]
+    .map(([label, count]) => ({ label, count }))
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'ko'));
+}
+
+/** 상태 외 실제 patch 필드 상위 목록. volatile 메타는 sheet-merge 단계에서 이미 제거된다. */
+export function sheetChangedFieldCounts(diff: SheetDiffSummary): { field: string; count: number }[] {
+  const counts = new Map<string, number>();
+  for (const item of diff.items) {
+    if (item.kind !== 'status' && item.kind !== 'content') continue;
+    for (const field of item.fields || []) counts.set(field, (counts.get(field) || 0) + 1);
+  }
+  return [...counts.entries()]
+    .map(([field, count]) => ({ field, count }))
+    .sort((a, b) => b.count - a.count || a.field.localeCompare(b.field));
+}
+
 /**
  * 저장 전 배너 문구.
  * 신규등록 · 출고가능→출고불가 · 출고불가→출고가능 · 출고가능→계약중 ·
- * 내용수정 · 부재→출고불가 · 무변경 · (+ 재고 대수)
+ * 내용만 수정 · 재고차단 · 무변경 · (+ 재고 대수)
  */
 export function formatSheetDiffBanner(diff: SheetDiffSummary, stock?: number): string {
   const t = countStatusTransitions(diff);
@@ -133,8 +163,9 @@ export function formatSheetDiffBanner(diff: SheetDiffSummary, stock?: number): s
     `출고가능→출고불가 ${t.availToBlocked}`,
     `출고불가→출고가능 ${t.blockedToAvail}`,
     `출고가능→계약중 ${t.availToContract}`,
-    `내용수정 ${diff.content}`,
-    `부재→출고불가 ${diff.absent}`,
+    `기타 상태변경 ${t.otherStatus}`,
+    `내용만 수정 ${diff.content}`,
+    `재고차단 ${diff.absent}`,
     `무변경 ${diff.unchanged}`,
   ];
   if (stock != null) parts.push(`재고 대수(출고가능+보류) ${stock}`);

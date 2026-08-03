@@ -1,69 +1,104 @@
 import type { EntityRecord } from '@/lib/intake/entities';
-import { makerDisplay } from '@/lib/domain/vehicle-master-match';
+import { vehicleNameOf } from '@/lib/domain/vehicle-name';
+export { withVehicleMaker } from '@/lib/domain/vehicle-name';
 
-function text(value: unknown): string {
-  return String(value ?? '').replace(/\s+/g, ' ').trim();
-}
+const text = (value: unknown): string => String(value ?? '').replace(/\s+/g, ' ').trim();
+const comparable = (value: unknown): string => text(value).toLocaleLowerCase('ko').replace(/[\s\-_/·.,()]+/g, '');
 
-function comparable(value: string): string {
-  return value.toLocaleLowerCase('ko').replace(/[\s\-_/·.,()]+/g, '');
-}
+/**
+ * 문의 당시 차량 식별 스냅샷을 상품 모양으로 복원한다.
+ * `vehicle_name === car_number`인 레거시 방은 차명을 차번으로 채운 데이터이므로 이름 snapshot으로 보지 않는다.
+ */
+export function roomVehicleSnapshot(
+  room: EntityRecord,
+  product?: EntityRecord | null,
+  contract?: EntityRecord | null,
+): EntityRecord | null {
+  const storedName = text(room.vehicle_name);
+  const plateKeys = [
+    room.car_number,
+    room.vehicle_number,
+    contract?.car_number_snapshot,
+    product?.car_number,
+  ].map(comparable).filter(Boolean);
+  const usableName = storedName && !plateKeys.includes(comparable(storedName)) ? storedName : '';
+  const hasStructuredIdentity = [
+    room.model,
+    room.sub_model,
+    room.variant,
+    room.trim_name,
+    room.trim_extra,
+  ].some((value) => !!text(value));
+  if (!usableName && !hasStructuredIdentity) return null;
 
-/** 제조사가 이미 포함된 레거시 차량명에는 다시 붙이지 않는다. */
-export function withVehicleMaker(makerRaw: unknown, nameRaw: unknown): string {
-  const maker = text(makerDisplay(makerRaw) || makerRaw);
-  const name = text(nameRaw);
-  if (!maker) return name;
-  if (!name) return maker;
-  const makerKey = comparable(maker);
-  const nameKey = comparable(name);
-  return nameKey.includes(makerKey) ? name : `${maker} ${name}`;
-}
-
-function appendIfMissing(baseRaw: unknown, suffixRaw: unknown): string {
-  const base = text(baseRaw);
-  const suffix = text(suffixRaw);
-  if (!base) return suffix;
-  if (!suffix) return base;
-  return comparable(base).includes(comparable(suffix)) ? base : `${base} ${suffix}`;
+  return {
+    maker: text(room.maker) || text(contract?.maker_snapshot) || text(contract?.maker) || text(product?.maker),
+    model: text(room.model),
+    sub_model: text(room.sub_model),
+    variant: text(room.variant),
+    trim_name: text(room.trim_name),
+    trim_extra: text(room.trim_extra),
+    vehicle_name: usableName,
+    car_number: text(room.car_number)
+      || text(room.vehicle_number)
+      || text(contract?.car_number_snapshot)
+      || text(product?.car_number),
+  };
 }
 
 /** 업무 목록용 상품 차량명 — 제조사·세부모델·트림을 빠뜨리지 않고 중복만 제거한다. */
 export function productVehicleLabel(product: EntityRecord | null | undefined): string {
-  if (!product) return '';
-  const structured = appendIfMissing(text(product.sub_model) || text(product.model), product.trim_name);
-  const legacyFull = text(product.vehicle_name);
-  // 레거시 full name이 구조화 필드보다 더 구체적이면(엔진·트림 포함) 축약하지 않는다.
-  const name = comparable(legacyFull).length > comparable(structured).length ? legacyFull : (structured || legacyFull);
-  return withVehicleMaker(product.maker, name);
+  return vehicleNameOf({ kind: 'product', product }, { tier: 'short', fallback: 'none' });
 }
 
-/** 계약 스냅샷 차량명 — 상품이 있으면 현재/삭제 상품의 정정된 차량명을 우선한다. */
+/** 계약 목록 차량명 — 계약 당시 snapshot이 정본이고, 결손 필드만 연결 상품으로 보강한다. */
 export function contractVehicleLabel(
   contract: EntityRecord | null | undefined,
   product?: EntityRecord | null,
 ): string {
-  if (!contract && !product) return '';
-  const productName = productVehicleLabel(product);
-  if (productName) return withVehicleMaker(product?.maker || contract?.maker_snapshot, productName);
-  if (!contract) return '';
-  const snapshot = text(contract.vehicle_name_snapshot)
-    || text(contract.vehicle_name)
-    || text(contract.sub_model_snapshot)
-    || text(contract.model_snapshot);
-  return withVehicleMaker(contract.maker_snapshot, snapshot);
+  if (!contract) return productVehicleLabel(product);
+  return vehicleNameOf({ kind: 'contract', contract, product }, { tier: 'short', fallback: 'none' });
 }
 
-/** 문의방 차량명 — 상품 → 계약 스냅샷 → 방 스냅샷 순으로 복원한다. */
+/** 문의방 차량명 — 문의 당시 방 snapshot → 계약 snapshot → 현재 상품 순으로 복원한다. */
 export function roomVehicleLabel(
   room: EntityRecord,
   product?: EntityRecord,
   contract?: EntityRecord,
 ): string {
-  const productName = productVehicleLabel(product);
-  if (productName) return withVehicleMaker(product?.maker || contract?.maker_snapshot || room.maker, productName);
-  const contractName = contractVehicleLabel(contract);
+  const roomSnapshot = roomVehicleSnapshot(room, product, contract);
+  if (roomSnapshot) {
+    const roomName = productVehicleLabel(roomSnapshot);
+    if (roomName) return roomName;
+  }
+  const contractName = contractVehicleLabel(contract, product);
   if (contractName) return contractName;
-  const roomName = text(room.vehicle_name) || text(room.sub_model) || text(room.model);
-  return withVehicleMaker(room.maker, appendIfMissing(roomName, room.trim_name));
+  return productVehicleLabel(product);
+}
+
+/** 문의 상세·헤더용 차량명 — 목록과 같은 snapshot을 쓰되 T2 전체 사양까지 복원한다. */
+export function roomVehicleDetailLabel(
+  room: EntityRecord,
+  product?: EntityRecord | null,
+  contract?: EntityRecord | null,
+): string {
+  const roomSnapshot = roomVehicleSnapshot(room, product, contract);
+  if (roomSnapshot) {
+    const roomName = vehicleNameOf(
+      { kind: 'product', product: roomSnapshot },
+      { tier: 'full', fallback: 'none' },
+    );
+    if (roomName) return roomName;
+  }
+  if (contract) {
+    const contractName = vehicleNameOf(
+      { kind: 'contract', contract, product },
+      { tier: 'full', fallback: 'none' },
+    );
+    if (contractName) return contractName;
+  }
+  return vehicleNameOf(
+    { kind: 'product', product },
+    { tier: 'full', fallback: 'none' },
+  );
 }

@@ -20,9 +20,11 @@ import { contractHaystack, matchHay, roomHaystack } from '../lib/domain/search';
 import {
   contractVehicleLabel,
   productVehicleLabel,
+  roomVehicleDetailLabel,
   roomVehicleLabel,
   withVehicleMaker,
 } from '../lib/domain/vehicle-label';
+import { vehicleNameOf, vehicleNameParts } from '../lib/domain/vehicle-name';
 import {
   buildContractIndex,
   buildProductLookup,
@@ -31,9 +33,11 @@ import {
   findRoomForContract,
   productForRoom,
   roomModel,
+  roomPlate,
+  roomProductDetail,
   roomTitle,
 } from '../features/chat/room-display';
-import { chatRowContract, filterChatRooms } from '../features/chat/room-filter';
+import { chatRowContract, filterChatRooms, requestedChatRoom } from '../features/chat/room-filter';
 import {
   CONTRACT_FILTER_OPTIONS,
   contractWorkflowGroup,
@@ -80,18 +84,182 @@ check('A3 이름 중간의 제조사도 중복 금지', withVehicleMaker('기아
 check('A4 더 구체적인 레거시 전체 차명 보존', productVehicleLabel({
   maker: '기아', sub_model: 'K5', vehicle_name: '기아 K5 1.6T 시그니처',
 }) === '기아 K5 1.6T 시그니처');
-check('A5 상품이 방·계약 스냅샷보다 우선', roomVehicleLabel(room, product, baseContract) === '기아 스포티지 노블레스');
+check('A5 문의 당시 방 snapshot이 현재 상품보다 우선', roomVehicleLabel(room, product, baseContract) === '기아 스포티지');
 check('A6 계약 snapshot 전체 차명 보존', contractVehicleLabel({
   maker_snapshot: '제네시스', vehicle_name_snapshot: '제네시스 G80 2.5T',
 }) === '제네시스 G80 2.5T');
 check('A7 계약 maker+model fallback', contractVehicleLabel({ maker_snapshot: '현대', model_snapshot: '그랜저' }) === '현대 그랜저');
+check('A7-1 새 SSOT도 제조사 중복 제거', vehicleNameOf({
+  kind: 'product', product: { maker: '폴스타', sub_model: '폴스타 2', trim_name: '롱레인지' },
+}, { tier: 'full' }) === '폴스타 2 롱레인지');
+check('A7-2 새 SSOT도 레거시 전체 차명 보존', vehicleNameOf({
+  kind: 'product', product: { maker: '기아', sub_model: 'K5', vehicle_name: '기아 K5 1.6T 시그니처' },
+}, { tier: 'full' }) === '기아 K5 1.6T 시그니처');
+check('A7-3 계약은 라이브 상품보다 snapshot 우선', contractVehicleLabel(
+  { maker_snapshot: '기아', sub_model_snapshot: 'K5' },
+  { maker: '현대', sub_model: '아반떼', trim_name: '인스퍼레이션' },
+) === '기아 K5');
+check('A7-4 snapshot 제조사 결손만 상품에서 보강', contractVehicleLabel(
+  { sub_model_snapshot: '그랜저 GN7 22~' },
+  { maker: '현대', sub_model: '그랜저 GN7', trim_name: '프리미엄' },
+) === '현대 그랜저 GN7 22~');
+check('A7-5 vehicle_name_snapshot-only 계약 보존', contractVehicleLabel(
+  { vehicle_name_snapshot: '기아 쏘렌토 MQ4 디젤 2.2 노블레스' },
+  { maker: '기아', sub_model: '쏘렌토 MQ4' },
+) === '기아 쏘렌토 MQ4 디젤 2.2 노블레스');
+check('A7-6 문의방 legacy vehicle_name 보존', roomVehicleLabel({
+  vehicle_name: 'BMW X4 G02 xDrive20d M 스포츠', car_number: '12가3456',
+}) === 'BMW X4 G02 xDrive20d M 스포츠');
+const contractPlateParts = vehicleNameParts({
+  kind: 'contract', contract: { car_number_snapshot: '11가1111' }, product: { car_number: '22나2222' },
+});
+check('A7-7 계약 차번은 라이브 차번보다 snapshot 우선', contractPlateParts.plate === '11가1111', contractPlateParts);
+const dirtyTesla: EntityRecord = {
+  maker: '테슬라', model: '모델 Y', sub_model: '모델 Y',
+  variant: 'EV RWD', trim_name: '테슬라 모델Y RWD',
+};
+check('A7-8 완성명 blob 트림의 제조사·차종 중복 제거(short)',
+  productVehicleLabel(dirtyTesla) === '테슬라 모델 Y RWD', productVehicleLabel(dirtyTesla));
+check('A7-9 완성명 blob 트림의 제조사·차종·제원 중복 제거(full)', vehicleNameOf({
+  kind: 'product', product: dirtyTesla,
+}, { tier: 'full' }) === '테슬라 모델 Y EV RWD', vehicleNameOf({ kind: 'product', product: dirtyTesla }, { tier: 'full' }));
+const actualMainlessTesla: EntityRecord = {
+  maker: '테슬라', sub_model: '', variant: 'EV RWD', trim_name: '테슬라 모델Y RWD',
+};
+check('A7-9b 실데이터 main 결손 Tesla short 복원', productVehicleLabel(actualMainlessTesla) === '테슬라 모델Y RWD', productVehicleLabel(actualMainlessTesla));
+check('A7-9c 실데이터 main 결손 Tesla full 순서·중복 제거', vehicleNameOf({
+  kind: 'product', product: actualMainlessTesla,
+}, { tier: 'full' }) === '테슬라 모델Y EV RWD', vehicleNameOf({ kind: 'product', product: actualMainlessTesla }, { tier: 'full' }));
+check('A7-9d 부분 중첩 제원·트림은 한 번만 표시', vehicleNameOf({
+  kind: 'product', product: { maker: '현대', sub_model: '그랜저', variant: '하이브리드', trim_name: '하이브리드 프레스티지' },
+}, { tier: 'full' }) === '현대 그랜저 하이브리드 프레스티지');
+check('A7-9e 숫자 제원 부분 중첩도 한 번만 표시', vehicleNameOf({
+  kind: 'product', product: { maker: '기아', sub_model: '쏘렌토', variant: '디젤 2.2', trim_name: '2.2 노블레스' },
+}, { tier: 'full' }) === '기아 쏘렌토 디젤 2.2 노블레스');
+const legacyContract: EntityRecord = {
+  contract_code: 'CT26041401', sub_model_snapshot: '그랜저 GN7 22~',
+  vehicle_name_snapshot: '현대 그랜저 그랜저 GN7 22~ 2.5가솔린 2WD 익스클루시브 그랜저 GN7 22~',
+};
+check('A7-10 레거시 계약 완성명의 내부 모델 중복 제거', vehicleNameOf({
+  kind: 'contract', contract: legacyContract,
+  product: { maker: '현대', model: '그랜저', variant: '2.5가솔린 2WD', trim_name: '익스클루시브' },
+}, { tier: 'full' }) === '현대 그랜저 GN7 22~ 2.5가솔린 2WD 익스클루시브', vehicleNameOf({
+  kind: 'contract', contract: legacyContract,
+  product: { maker: '현대', model: '그랜저', variant: '2.5가솔린 2WD', trim_name: '익스클루시브' },
+}, { tier: 'full' }));
+check('A7-10b 레거시 계약 목록은 snapshot에 존재하는 live trim만 구조 복원', contractVehicleLabel(
+  legacyContract,
+  { maker: '현대', model: '그랜저', variant: '2.5가솔린 2WD', trim_name: '익스클루시브' },
+) === '현대 그랜저 GN7 22~ 익스클루시브');
+check('A7-10c 레거시 계약은 product 없이도 저장 완성명에서 제조사 복원', vehicleNameOf({
+  kind: 'contract', contract: legacyContract,
+}, { tier: 'full', fallback: 'none' }) === '현대 그랜저 GN7 22~ 2.5가솔린 2WD 익스클루시브', vehicleNameOf({
+  kind: 'contract', contract: legacyContract,
+}, { tier: 'full', fallback: 'none' }));
+check('A7-10d v3 계약 maker 필드는 product 없는 공개 경로에서도 보존', vehicleNameOf({
+  kind: 'contract', contract: {
+    maker: '기아', sub_model_snapshot: '스포티지 NQ5 21~',
+    trim_name_snapshot: '1.6T 가솔린 2WD 프레스티지',
+    vehicle_name_snapshot: '기아 스포티지 스포티지 NQ5 21~ 1.6T 가솔린 2WD 프레스티지',
+  },
+}, { tier: 'full', fallback: 'none' }) === '기아 스포티지 NQ5 21~ 1.6T 가솔린 2WD 프레스티지');
+check('A7-11 raw는 제조사·모델·트림 중복까지 원문 보존', vehicleNameOf({
+  kind: 'raw', raw: {
+    maker: '폴스타', model: '폴스타', sub_model: '폴스타 2',
+    variant: '롱레인지', trim_name: '롱레인지',
+  },
+}, { tier: 'raw' }) === '폴스타 폴스타 폴스타 2 롱레인지 롱레인지');
+check('A7-12 main 없는 제원·트림도 소실하지 않음', vehicleNameOf({
+  kind: 'product', product: { maker: '기아', variant: '1.6T', trim_name: '노블레스' },
+}, { tier: 'full' }) === '기아 1.6T 노블레스');
+check('A7-13 목록 라벨은 full 제원 대신 short 규격', productVehicleLabel({
+  maker: '기아', sub_model: '쏘렌토 MQ4', variant: '디젤 2.2 2WD', trim_name: '노블레스',
+}) === '기아 쏘렌토 MQ4 노블레스');
+check('A7-14 계약이 없으면 연결 상품 목록 라벨로 fallback', contractVehicleLabel(null, product) === '기아 스포티지 노블레스');
+check('A7-14b 목록 차량명은 차번을 차명으로 재사용하지 않음', productVehicleLabel({ car_number: '12가3456' }) === '');
+check('A7-15 문의 당시 트림은 현재 상품 트림으로 덮지 않음', roomVehicleLabel({
+  vehicle_name: '현대 더 뉴 아반떼 CN7 모던',
+}, {
+  maker: '현대', sub_model: '더 뉴 아반떼 CN7', variant: '가솔린 1.6', trim_name: '스마트',
+}) === '현대 더 뉴 아반떼 CN7 모던');
+const auditedRoom: EntityRecord = {
+  product_code: 'p-audit', car_number: '125하2867',
+  vehicle_name: '현대 더 뉴 아반떼 CN7 모던', maker: '현대',
+  sub_model: '더 뉴 아반떼 CN7', variant: '가솔린 1.6', trim_name: '모던',
+};
+const auditedLive: EntityRecord = {
+  product_code: 'p-audit', car_number: '125하2867', maker: '현대',
+  sub_model: '더 뉴 아반떼 CN7', variant: '가솔린 1.6', trim_name: '스마트',
+  price: { '36': { rent: 390000, deposit: 0 } },
+};
+const auditedDetail = roomProductDetail(auditedRoom, auditedLive);
+check('A7-16 감사방 목록은 문의 당시 모던', roomVehicleLabel(auditedRoom, auditedLive) === '현대 더 뉴 아반떼 CN7 모던');
+check('A7-17 감사방 상세는 문의 당시 full 사양',
+  roomVehicleDetailLabel(auditedRoom, auditedLive) === '현대 더 뉴 아반떼 CN7 가솔린 1.6 모던',
+  roomVehicleDetailLabel(auditedRoom, auditedLive));
+check('A7-18 상세 identity overlay가 live 스마트를 제거하고 가격은 유지', !!auditedDetail
+  && String(auditedDetail.trim_name) === '모던'
+  && vehicleNameOf({ kind: 'product', product: auditedDetail }, { tier: 'full' }) === '현대 더 뉴 아반떼 CN7 가솔린 1.6 모던'
+  && Number((auditedDetail.price as Record<string, { rent?: number }>)?.['36']?.rent) === 390000,
+auditedDetail);
+const legacyDetail = roomProductDetail(
+  { product_code: 'p-audit', car_number: '125하2867', vehicle_name: '현대 더 뉴 아반떼 CN7 모던' },
+  auditedLive,
+);
+check('A7-19 legacy vehicle_name-only 상세도 live 스마트로 덮지 않음', !!legacyDetail
+  && vehicleNameOf({ kind: 'product', product: legacyDetail }, { tier: 'full' }) === '현대 더 뉴 아반떼 CN7 모던',
+legacyDetail);
+const contractSnapshotDetail = roomProductDetail(
+  { product_code: 'p-audit' },
+  auditedLive,
+  {
+    product_code: 'p-audit', maker_snapshot: '기아', sub_model_snapshot: 'K5 DL3',
+    trim_name_snapshot: '노블레스', vehicle_name_snapshot: '기아 K5 DL3 노블레스',
+    car_number_snapshot: '11가1111',
+  },
+);
+check('A7-20 방 snapshot 결손 시 계약 identity가 live 상품보다 우선', !!contractSnapshotDetail
+  && vehicleNameOf({ kind: 'product', product: contractSnapshotDetail }, { tier: 'full' }) === '기아 K5 DL3 노블레스'
+  && String(contractSnapshotDetail.car_number) === '11가1111'
+  && Number((contractSnapshotDetail.price as Record<string, { rent?: number }>)?.['36']?.rent) === 390000,
+contractSnapshotDetail);
 const liveLookup = buildProductLookup([product]);
 const emptyLookup = buildProductLookup([]);
-check('A8 문의 roomModel canonical', roomModel(room, liveLookup, emptyLookup, [baseContract], baseContract) === '기아 스포티지 노블레스');
-check('A9 문의 roomTitle 차번+canonical', roomTitle(room, liveLookup, emptyLookup, [baseContract], baseContract) === '12가3456 기아 스포티지 노블레스');
+check('A8 문의 roomModel canonical', roomModel(room, liveLookup, emptyLookup, [baseContract], baseContract) === '기아 스포티지');
+check('A9 문의 roomTitle 차번+canonical', roomTitle(room, liveLookup, emptyLookup, [baseContract], baseContract) === '12가3456 기아 스포티지');
 const deletedLookup = buildProductLookup([{ ...product, _deleted: true }]);
-check('A10 삭제상품 이름·상태 보존', roomModel(room, emptyLookup, deletedLookup, [], undefined) === '기아 스포티지 노블레스 (삭제)');
+check('A10 삭제상품 이름·상태 보존', roomModel(room, emptyLookup, deletedLookup, [], undefined) === '기아 스포티지 (삭제)');
 check('A11 차번만 있으면 차명으로 재사용하지 않음', roomModel({ car_number: '12가3456' }, emptyLookup, emptyLookup, [], undefined) === '차량명 미확인');
+const plateOnlyRoom: EntityRecord = {
+  _key: 'CH_veh_nbbb6vveg5_QA-2-qKGcudkM', car_number: '99하0727', vehicle_name: '99하0727',
+};
+check('A11b 차번으로 채운 room vehicle_name은 차명으로 취급하지 않음',
+  roomModel(plateOnlyRoom, emptyLookup, emptyLookup, [], undefined) === '차량명 미확인');
+check('A11c 차번-only roomTitle은 차번을 한 번만 표시',
+  roomTitle(plateOnlyRoom, emptyLookup, emptyLookup, [], undefined) === '99하0727');
+check('A11d room 차번 결손 시 계약 snapshot이 live 상품보다 우선', roomPlate(
+  { product_code: 'p-plate' },
+  buildProductLookup([{ product_code: 'p-plate', car_number: '22나2222' }]),
+  emptyLookup,
+  [{ product_code: 'p-plate', car_number_snapshot: '11가1111', contract_status: '계약요청' }],
+) === '11가1111');
+const carOnlyLegacyRoom: EntityRecord = {
+  _key: 'legacy-car-only', car_number: '77하7777', agent_code: 'U0077',
+};
+const carOnlyActiveContract: EntityRecord = {
+  contract_code: 'C-CAR-ONLY', contract_status: '계약요청', contract_date: '2026-08-02',
+  car_number_snapshot: '77하7777', agent_code: 'U0077', maker_snapshot: '현대',
+  sub_model_snapshot: '캐스퍼', trim_name_snapshot: '인스퍼레이션',
+};
+const carOnlyActive = contractForRoom(buildContractIndex([carOnlyActiveContract], false), carOnlyLegacyRoom);
+check('A11e product_code 없는 car-only 레거시 방도 활성 계약 조인',
+  carOnlyActive?.contract_code === 'C-CAR-ONLY', carOnlyActive);
+check('A11f car-only 레거시 방 목록은 찾은 계약 snapshot 차량명 표시', roomModel(
+  carOnlyLegacyRoom, emptyLookup, emptyLookup, [carOnlyActiveContract], carOnlyActive,
+) === '현대 캐스퍼 인스퍼레이션');
+check('A11g car-only 레거시 방 합본 제목도 같은 계약 snapshot 사용', roomTitle(
+  carOnlyLegacyRoom, emptyLookup, emptyLookup, [carOnlyActiveContract], carOnlyActive,
+) === '77하7777 현대 캐스퍼 인스퍼레이션');
 check('A12 복원 차량명 검색', filterChatRooms({
   rooms: [room], query: '기아 노블레스', filter: 'all', sort: '', role: 'admin',
   contractIndex: new Map(), cancelledIndex: new Map(),
@@ -192,26 +360,83 @@ const active: EntityRecord = { ...baseContract, contract_code: 'C-A', contract_s
 const cancelled: EntityRecord = { ...baseContract, contract_code: 'C-X', contract_status: '계약취소' };
 const activeIndex = buildContractIndex([active, cancelled], false);
 const cancelledIndex = buildContractIndex([active, cancelled], true);
+check('C0 일반 /chat 진입은 첫 방을 자동선택하지 않음', requestedChatRoom([room], null) === undefined);
+check('C0b 명시 ?room= 딥링크만 해당 방 선택', requestedChatRoom([room], String(room._key)) === room);
 check('C1 active index는 활성 계약', contractForRoom(activeIndex, room)?.contract_code === 'C-A');
 check('C2 cancelled index는 취소 계약', contractForRoom(cancelledIndex, room)?.contract_code === 'C-X');
 check('C3 전체 행은 활성 상태', chatRowContract(room, 'all', activeIndex, cancelledIndex)?.contract_code === 'C-A');
-check('C4 취소 행은 취소 이력', chatRowContract(room, '취소', activeIndex, cancelledIndex)?.contract_code === 'C-X');
+check('C4 취소 필터에서도 같은 방의 resolved 계약은 활성 상태로 고정',
+  chatRowContract(room, '취소', activeIndex, cancelledIndex)?.contract_code === 'C-A');
+check('C4a 전체·문의·취소 어느 필터에서도 행 계약이 바뀌지 않음',
+  (['all', '문의', '취소'] as const).every((filter) => (
+    chatRowContract(room, filter, activeIndex, cancelledIndex)?.contract_code === 'C-A'
+  )));
 check('C4b 전체에서도 명시 연결된 취소 계약을 문의로 오인하지 않음', chatRowContract(
   { ...room, linked_contract: 'C-X' }, 'all', activeIndex, cancelledIndex,
 )?.contract_code === 'C-X');
-check('C4c 연결 없는 문의를 과거 취소 계약으로 추정하지 않음', chatRowContract(
+check('C4c 활성 계약 없는 링크 없는 레거시 방은 최신 취소 이력 fallback', chatRowContract(
   room, 'all', new Map(), cancelledIndex,
-) === undefined);
-check('C5 취소 필터 실제 포함', filterChatRooms({ rooms: [room], query: '', filter: '취소', sort: '', role: 'admin', contractIndex: activeIndex, cancelledIndex }).length === 1);
+)?.contract_code === 'C-X');
+const explicitlyCancelledRoom: EntityRecord = { ...room, linked_contract: 'C-X', unread_for_admin: 2 };
+check('C4d 명시 연결된 취소방은 문의 필터에 섞이지 않음', filterChatRooms({
+  rooms: [explicitlyCancelledRoom], query: '', filter: '문의', sort: '', role: 'admin',
+  contractIndex: activeIndex, cancelledIndex,
+}).length === 0);
+check('C4e 명시 연결된 취소방은 미확인 필터에 섞이지 않음', filterChatRooms({
+  rooms: [explicitlyCancelledRoom], query: '', filter: '미확인', sort: '', role: 'admin',
+  contractIndex: activeIndex, cancelledIndex,
+}).length === 0);
+check('C5 활성 계약이 있는 링크 없는 방은 과거 취소 필터에 중복되지 않음', filterChatRooms({
+  rooms: [room], query: '', filter: '취소', sort: '', role: 'admin', contractIndex: activeIndex, cancelledIndex,
+}).length === 0);
+check('C5b 활성 계약 없는 링크 없는 취소방은 문의 필터에 중복되지 않음', filterChatRooms({
+  rooms: [room], query: '', filter: '문의', sort: '', role: 'admin', contractIndex: new Map(), cancelledIndex,
+}).length === 0);
+check('C5c 활성 계약 없는 링크 없는 취소방은 취소 필터 한 곳에만 포함', filterChatRooms({
+  rooms: [room], query: '', filter: '취소', sort: '', role: 'admin', contractIndex: new Map(), cancelledIndex,
+}).length === 1);
 const uidOnlyRoom: EntityRecord = { _key: 'legacy-room', product_uid: 'p1', agent_code: 'U0001' };
 check('C6 product_uid 레거시 방도 계약 조인', contractForRoom(activeIndex, uidOnlyRoom)?.contract_code === 'C-A');
 const conflictA: EntityRecord = { ...baseContract, contract_code: 'C-A', contract_status: '계약요청' };
 const conflictB: EntityRecord = { ...baseContract, contract_code: 'C-B', contract_status: '계약요청' };
 const conflictIndex = buildContractIndex([conflictA, conflictB], false);
 check('C7 linked_contract가 동일 차량 fallback보다 우선', contractForRoom(conflictIndex, { ...room, linked_contract: 'C-B' })?.contract_code === 'C-B');
-check('C7b 명시 연결이 현재 인덱스에 없으면 다른 계약으로 추정하지 않음', contractForRoom(
+check('C7a 같은 fallback key 동률은 계약코드로 결정적 선택',
+  contractForRoom(conflictIndex, room)?.contract_code === 'C-B');
+check('C7b 명시 linked_contract는 fallback 우선 계약보다 항상 우선',
+  contractForRoom(conflictIndex, { ...room, linked_contract: 'C-A' })?.contract_code === 'C-A');
+check('C7b-1 명시 연결이 현재 인덱스에 없으면 다른 계약으로 추정하지 않음', contractForRoom(
   conflictIndex, { ...room, linked_contract: 'C-MISSING' },
 ) === undefined);
+const newerCompleted: EntityRecord = {
+  ...baseContract, contract_code: 'C-NEW-DONE', contract_status: '계약완료', contract_date: '2026-08-02',
+};
+const olderProgress: EntityRecord = {
+  ...baseContract, contract_code: 'C-OLD-PROGRESS', contract_status: '계약요청', contract_date: '2026-07-01',
+};
+check('C7c 같은 fallback key는 최신 완료보다 현재 진행 중 계약 우선', contractForRoom(
+  buildContractIndex([newerCompleted, olderProgress], false), room,
+)?.contract_code === 'C-OLD-PROGRESS');
+const olderActive: EntityRecord = {
+  ...baseContract, contract_code: 'C-ACTIVE-OLD', contract_status: '계약요청', contract_date: '2026-07-01',
+};
+const newerActive: EntityRecord = {
+  ...baseContract, contract_code: 'C-ACTIVE-NEW', contract_status: '계약요청', contract_date: '2026-08-02',
+};
+check('C7d 같은 진행 상태면 입력 순서와 무관하게 최신 계약 선택', [
+  buildContractIndex([olderActive, newerActive], false),
+  buildContractIndex([newerActive, olderActive], false),
+].every((index) => contractForRoom(index, room)?.contract_code === 'C-ACTIVE-NEW'));
+const olderCancelled: EntityRecord = {
+  ...baseContract, contract_code: 'C-CANCEL-OLD', contract_status: '계약취소', contract_date: '2026-07-01',
+};
+const newerCancelled: EntityRecord = {
+  ...baseContract, contract_code: 'C-CANCEL-NEW', contract_status: '계약취소', contract_date: '2026-08-02',
+};
+check('C7e 취소 fallback도 입력 순서와 무관하게 최신 이력 선택', [
+  buildContractIndex([olderCancelled, newerCancelled], true),
+  buildContractIndex([newerCancelled, olderCancelled], true),
+].every((index) => contractForRoom(index, room)?.contract_code === 'C-CANCEL-NEW'));
 check('C8 기존 방 찾기', findRoomForContract([room], active)?._key === room._key);
 check('C8b 다른 계약에 명시 연결된 방을 동일 차량 fallback으로 재사용하지 않음', findRoomForContract([
   { ...room, linked_contract: 'C-B' },

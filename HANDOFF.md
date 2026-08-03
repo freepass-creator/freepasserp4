@@ -1,5 +1,125 @@
 # 규격통일 핸드오프 (Claude ↔ Cursor)
 
+## 2026-08-03 신원·미확정 차량별 판단 원장
+
+- `lib/domain/sheet-identity-decision.ts`와 `/api/sheet/identity-decisions`를 추가했다. admin 전용이며 현재 v3+v4 상품·계약을 서버에서 다시 확인하고 계약 차량과 해석 불가능한 원문을 fail-closed한다.
+- `components/SheetSync.tsx`의 16대 신원 검토 모달에 유형별 `동일 차량 / 다른 차량 / Sheet 오류` 결정과 철회를 연결했다. 공급사·기존키·Sheet키가 각각 하나가 아니거나 계약보호인 행은 선택 불가다.
+- 저장은 PII 없는 `v4/sheet_identity_decisions`와 `v4/audit_logs`뿐이다. raw·차번은 저장하지 않고 원문 전체 지문, 유형, 결정, 공급사, 기존키, Sheet키, 관리자, 시각만 남긴다. 운영 원장 read-only 집계는 0/0/0이며 실제 POST/DELETE는 실행하지 않았다.
+- 중요: 판단 원장은 기록 전용이다. 자동/수동 Sheet 계획과 커밋은 이 타입을 import하지 않으며 복구·신규 생성·임시번호 유지/재발급·유입 제외·차단 해제 작업은 모두 0건이다. 적용기를 임의 연결하지 말 것.
+- 신원 결정 15/15, 신원 검토 17/17, 기존 결정 15/15, 결정 dry-run 16/16, 가격승인 10/10, 가격행렬 29/29, 일일 21/21, Sheet merge 126/126, type/fonts/tokens/UI, production build 정적 페이지 30/30 PASS. 브라우저 콘솔 error 0이며 관리자 인증 E2E는 남았다.
+- 다음 게이트: 공급사/운영자가 실제 15개 비계약 행을 판단 → 현재 Sheet·ERP·계약 재조회 dry-run → 결정 유형별 비파괴 v4 patch/참조 계획 → 사람·Claude 승인. 계약보호 1건은 별도 계약 상태 확인 전 계속 금지다.
+
+## 2026-08-03 미확정 삭제·임시번호 신원 검토
+
+- `lib/domain/sheet-identity-conflict-review.ts`가 공급사 미확정 삭제, 번호미정 식별변경, 같은 임시번호 신원서명 불일치를 제조사·모델·세부모델·트림·내외장색·최초등록/연식·연료 원자로 분해한다.
+- 최신 read-only 결과는 전체 16대: 미확정 삭제 8, 식별변경 1, 신원불일치 7, 계약보호 1, 실행작업 0이다. 미확정 삭제 8대는 모두 삭제 1건↔Sheet 1행 단일 연결 후보이고 대상모호는 0이다.
+- 미확정 삭제 변경원자는 최초등록/연식 8·세부모델 6·외장색 5·내장색 4·제조사 1이다. 식별변경 1대는 트림·내외장색·연료·최초등록/연식이 다르다. 신원불일치 7대는 트림·내외장색·연료 전부가 달라 자동 동일차 판정 금지다.
+- 관리자 검증 화면에 16대 전용 모달과 TSV를 추가했다. 기존키·Sheet키·변경원자·계약보호·다음 확인만 표시하고 결정/적용 버튼은 없다. 모든 행은 applyAllowed=false다.
+- 신규 sim 17/17, 결정 15/15, 결정 dry-run 16/16, 가격 10/10, 일일 21/21, Sheet merge 126/126, type/fonts/tokens/UI, production build 30/30 routes PASS. 운영 write·v3/Rules 변경 0건이다.
+- 다음 작업자는 미확정 삭제 8대의 실소유·삭제의도와 임시번호 8대의 실제 동일차 여부를 사람/공급사 원본으로 확정하기 전 승인 원장이나 자동복구/재번호 로직을 추가하지 말 것.
+
+## 2026-08-03 Sheet 소유권·삭제 결정 dry-run
+
+- `lib/domain/sheet-conflict-decision-dry-run.ts`가 현재 검증 대상과 결정 원장을 대조해 미결정, 계약보호, 대상모호, 원장불일치, 과거원장, 기존귀속 유지, 참조이관 필요, 삭제유지, 복구후보, 병합별칭 복구금지로 분류한다.
+- 소유권을 Sheet 공급사로 바꾸는 건 단순 상품 patch가 아니다. 상품키와 계약·채팅·견적·비공개 원가 참조 이관계획이 필요하다. 기존귀속 유지/삭제유지는 Sheet 유입 제외 정책 후보이고, 동일키 복구만 v4 overlay 후보 경로를 낸다.
+- 모든 행은 `applyAllowed=false`, 요약은 `executableOperations=0`으로 고정했다. 수동·자동 Sheet 커밋은 여전히 결정 원장을 읽지 않으므로 hard block을 해제하지 않는다.
+- 관리자 검토 모달에 dry-run 분류 수와 `실행작업 0`, `결정 dry-run TSV`를 추가했다. 병합 별칭 tombstone은 복구 선택지도 숨긴다.
+- 운영 결정 원장을 Firebase CLI로 read-only 집계한 결과 total 0 / recorded 0 / revoked 0이다. 최신 96대는 비계약 미결정 94, 계약보호 2이며 현재 실행후보 0이다.
+- 신규 dry-run sim 16/16, 결정 sim 15/15, 가격 10/10, 일일 21/21, Sheet merge 126/126, type/fonts/tokens/UI, production build 30/30 routes PASS. 운영 write·v3/Rules 변경은 0건이다.
+
+## 2026-08-03 Sheet 소유권·삭제 건별 판단 원장
+
+- 관리자 Sheet 검증 결과에 `소유권·삭제 결정` 검토 모달을 추가했다. 원본 충돌별 한 행으로 묶어 현재 ERP 공급사, 현재 Sheet 공급사, 관련 상품키, 계약보호/모호성, 기록된 결정을 표시한다.
+- 선택지는 소유권 `기존 공급사 유지`/`현재 Sheet 공급사로 변경`, 삭제 `삭제 유지`/`동일 상품키 복구`다. 상품키 1개와 단일 Sheet 공급사가 확인되지 않거나 계약보호면 선택할 수 없다.
+- `/api/sheet/conflict-decisions` GET/POST/DELETE는 admin Bearer와 서버의 현재 v3+v4 상품·계약 재검증을 요구한다. 저장은 PII 없는 `v4/sheet_conflict_decisions`와 `v4/audit_logs`뿐이고 v3·운영 Rules는 미변경이다.
+- 중요: 이 원장은 판단 기록 전용이다. 수동·자동 Sheet 계획/커밋은 이 값을 읽지 않으므로 기록 후에도 소유권 39·삭제 57 hard block과 재고/tombstone 상태가 그대로다. 적용기나 차단 해제 로직을 임의 추가하지 말 것.
+- 최신 후보는 비계약 소유권 38대와 동일 상품키 삭제 56대, 계약보호 선택불가 2대다. 실제 판단 수집 후 현재 데이터 재조회 dry-run과 차량별 v4 patch 계획을 만들고 사람/Claude 게이트를 받아야 한다.
+- `sim-sheet-conflict-decision` 15/15, 가격승인 10/10, 일일 동기화 21/21, Sheet merge 126/126, type/fonts/tokens/UI, production build 30/30 routes PASS. 관리자 브라우저 인증이 없어 실데이터 모달·POST/DELETE E2E는 preview 운영 게이트로 남겼다.
+
+## 2026-08-03 Sheet 가격기간 유지 승인 워크플로
+
+- `기존 가격기간 누락` 가운데 계약과 무관한 차량만 관리자가 `기존 가격 유지`로 승인할 수 있다. soft-merge는 시트에서 빠진 과거 요율을 삭제하지 않고 ERP 값으로 보존한다.
+- 승인 지문은 원문 전체에 묶여 있어 기간·차량·공급사 내용이 바뀌면 자동 무효다. 승인 원문/차번은 원장과 감사로그에 저장하지 않는다.
+- 관리자 API: `/api/sheet/conflict-resolutions` GET/POST/DELETE. 활성 admin Bearer 인증과 서버의 현재 v3+v4 상품·계약 재검증을 요구하며, 계약락·계약중·진행계약은 승인 자체를 409로 차단한다.
+- 저장은 `v4/sheet_conflict_resolutions`와 PII 없는 `v4/audit_logs`뿐이다. 운영 Rules와 v3는 건드리지 않았다.
+- 수동 Sheet 커밋과 02:00 KST 일일 자동 동기화가 같은 승인 로직을 사용한다. 소유권·삭제 재등장·미확정 삭제·임시신원·서명 충돌은 승인 대상이 아니며 계속 hard block이다.
+- 관리자 재고 화면은 승인대기/적용/계약보호 수, 공급사·영향별 승인 버튼, 철회 버튼, 전체 TSV를 검증 결과와 함께 표시한다. 서로 다른 95건을 한 번에 승인하던 전역 버튼은 제거했다.
+- 최신 운영 read-only 결과는 가격 충돌 96건: RP023 새 기본가격 적용 확인 70, RP023 누락기간 유지 20, RP018 누락기간 유지 6이다. 계약보호 1건을 제외한 실제 승인가능 묶음은 각각 69·20·6건이다.
+- 95건 승인 가정 후에도 소유권 39·삭제 재등장 57·미확정 삭제 8·번호미정 변경 1·임시번호 서명 7·계약보호 가격 1건 때문에 전체 동기화는 BLOCKED다.
+- 소유권 39대는 단일 현재 Sheet vs 기존 타공급사 38대, 계약보호 1대다. 삭제 재등장 57대는 동일 상품키 삭제이력 56대, 계약보호 1대이며 관련 삭제 레코드 77건 모두 사유·처리자 표식이 없다.
+- 소유권·삭제의 안전한 자동처리 후보는 0건이다. 현재 Sheet 우선이나 삭제 tombstone 자동복구를 임의 구현하지 말고 실소유·삭제의도 결정 후 별도 참조/복구 계획을 만든다.
+- sim 승인 10/10, 일일 동기화 21/21, Sheet merge 126/126, type/fonts/tokens/UI, production build 30 routes PASS다.
+- 로컬 브라우저는 관리자 인증이 없어 새 버튼의 실데이터 조작은 하지 않았다. preview 관리자 세션에서 세 승인 묶음과 승인→재검증→철회 E2E를 확인한 뒤 운영 활성화할 것.
+- 현재 전체 출시 판정은 여전히 NO-GO다. 법적 운영자 사실값 6개, v3→v4 절연, 운영 Rules 사람/Claude 실데이터 게이트가 남아 있다.
+
+## 2026-08-03 출시 보안 후보 Rules
+
+- 운영 `database.rules.json`은 변경·게시하지 않았다. `scripts/ruleprobe/build-release-candidate.mjs`가 별도 비게시 후보를 만든다.
+- 후보 정적 보안 13/13, 계약 26/26, 서명 58/58, Firebase Auth+RTDB Emulator 26/26 PASS다.
+- `lib/firebase/rtdb-settlements.ts` private R1/R2 공통 메타에 `contract_code`를 추가해 원자 multi-location update 상태에서 계약 동결 금액·율 검증이 가능해졌다.
+- 완료 전 계약은 영업자 취소를 유지하고 완료 계약은 관리자만 취소·환수하도록 UI·엔진을 함께 막았다. 영업자 차단 무변경과 관리자 환수까지 정산 E2E 22/22 PASS다.
+- 남은 정적 출시차단은 법적 운영자 사실값 6개다. 운영 Rules 게시는 별도로 v3→v4 절연 이관이 끝나야 한다.
+- 관리자 SDK 전수대조 결과 활성 v3 443건·v4 644건, 차량번호 v3-only 288개, 판매 가능 v3-only 289대다. child key 공통은 1개뿐이며 overlay 합산 기준 v3-only 재고가 계약 5건·채팅방 40건과 연결돼 단순 복사·삭제 금지다.
+- 공통 1:1 차량 59대도 트림 57·연식 51·배기량/카탈로그 50·연료 37·공개가격 13대가 다르다. `policy`, `partner`만 v3-only 업무키 0이고 나머지 product/user/room/contract/audit_log 브리지는 유지해야 한다.
+- 관리자 화면의 기존 child-key 기준 직접 복사 버튼은 제거했고 `migrateV3ProductsToV4(false)`도 즉시 차단한다. 승인된 자연키·참조 이관계획 없이는 다시 열지 말 것.
+- 시트 없는 레거시 partner 껍데기가 같은 코드의 실행대상에 재유입되던 결함을 수정했고 Sheet merge 124/124 PASS다.
+- 사용자 승인으로 운영 `v4/partners/RP023.deposit_rule=rent_multiple`을 CAS 저장했고 감사로그 `AL-1785729521849-rp023-deposit-rule`·재조회 일치를 확인했다. v3·재고 write는 없다.
+- 최신 운영 설정 dry-run에서 16개 공급사·388대 수집은 PASS했다. v3-only 292건/288대는 Sheet현재 238대, 참조만 7대, Sheet·참조없음 47건/43대로 분류됐다.
+- v3 절연 게이트는 진행계약 보호 4대, 시트 충돌 104대, 승인 후 동일 legacy key overlay 후보 132대, 시트 없음·이력참조 브리지 유지 5대, 시트·참조 없음 공급사 확인 43대다. 전체 커밋은 fail-closed라 적용 작업은 0건이다.
+- 실제 서버와 같은 product_code overlay 병합 기준으로 활성 중복은 0건이다. 저장은 공급사 소유 충돌 39, 삭제 재등장 57, 미확정 삭제 8, 번호미정 변경 1, 임시번호 서명 7, 가격기간 누락 96건 때문에 BLOCKED다. 운영 설정·재고 write는 0건이다.
+- 상세 작업량은 가격기간 96행·공급사 소유 90행·삭제 재등장 77행·미확정 삭제 8행·임시번호 서명 7행·번호미정 변경 1행이며 계약보호 4행은 자동수정 금지다. RP021은 실제 24대다.
+- `audit-v3-only-sheet-coverage.mts --firebase-cli`는 서비스계정 없이 로그인된 Firebase CLI의 `database:get`만 사용해 같은 읽기 전용 감사를 실행한다. 원본 값·PII는 출력하지 않는다.
+- 사람/Claude 실데이터 게이트 전 Rules 게시 금지. 상세: `docs/SECURITY_RELEASE_GATE_2026-08-03.md`.
+
+## 2026-08-03 중복 재고 v4 patch dry-run
+
+- 참조 기준 후보 62그룹을 공개 상품·비공개 원가까지 대조한 최종 dry-run은 적용후보 0그룹, 작업 0건이다. 차단 그룹에는 patch 작업 자체를 내보내지 않는다.
+- 상품값 충돌은 81그룹이다. 연식 69, 연료 55, 배기량 47, 트림 27, 카탈로그 26, 파워트레인 25, 세부모델 13, 가격 8, 차량상태 7그룹이 주요 원인이다.
+- 상품 account_number와 파트너 bank_account 불일치는 124그룹, 동일 중복값은 0그룹이다. 값은 출력하지 않았고 자동 복사·폐기하지 않는다.
+- 명시 상품 allowlist의 빈 필드만 fill 후보가 되며, 레거시 원가·VIN·수수료는 public/private 분리 후 검사한다.
+- 계약 snapshot, 채팅방 ID, messages 경로는 유지한다. 향후 중복 tombstone에는 _merged_into가 필수이며 상품 단건 조회는 예전 URL·찜 키를 대표 상품으로 복원한다.
+- 관리자 화면에 중복 patch dry-run TSV를 추가했다. 파괴적 작업과 계약·비공개 원가 작업은 Claude 게이트로 표시하지만 현재 생성된 적용 작업은 0건이다.
+- sim-product-duplicate-migration 25/25, sheet-merge 123/123, type/fonts/tokens, production build PASS. 운영 write·삭제·병합과 배포·커밋은 0건이다.
+- 다음 순서: product.account_number 정본·폐기 정책 확정 → 81그룹의 차량정보·가격·상태 정본 확정 → dry-run 재실행 → preview 사후조회 → 별도 적용 승인.
+
+## 2026-08-03 중복 재고 대표키·참조 이관계획
+
+- 동일 공급사 중복 하위그룹 148개·300레코드를 계약·채팅방·견적·비공개 원가까지 읽기 전용으로 전수 확인했다. 공급사 간 충돌 차번의 동일 공급사 하위그룹도 포함한 수치라 앞선 전체차번 단위 84그룹보다 크다.
+- 대표키 후보는 114그룹(공급사_차번 표준키 109, 정확 참조 최다 기존키 5)이며 추가 차단사유 없는 검토 후보는 62그룹이다. 자동삭제 승인 수가 아니다.
+- 정확 참조는 계약 4, 채팅방 34, 견적 0, 비공개 원가 106레코드다. 차번만 남은 참조는 13그룹·17건으로 자동이관 금지다.
+- 대표키 불명확 34그룹, 다중 진행계약 보호 1그룹, 공급사 소유권 충돌 하위그룹 63개가 남았다. 사유는 서로 겹칠 수 있다.
+- lib/domain/product-duplicate-migration.ts, 관리자 인증 전용 GET /api/inventory/duplicate-plan, 재고 화면의 중복 이관계획 TSV 버튼을 추가했다. 쓰기 endpoint가 아니며 비공개 값은 반환하지 않는다.
+- sim-product-duplicate-migration 13/13, sheet-merge 123/123, type/fonts/tokens, production build PASS. 운영 write·삭제·병합과 배포·커밋은 0건이다.
+- 다음 게이트는 62그룹의 대표키 후보를 사람·Claude가 승인하고, 계약·채팅방·비공개 원가 참조별 v4 이관 patch와 사후검증을 별도 계획하는 것이다. 승인 전 삭제 금지.
+
+## 2026-08-03 재고 중복·공급사 귀속 충돌 게이트
+
+- Firebase 활성 재고 1,095대를 읽기 전용으로 전수 대조했다. 중복 차번은 129그룹·326레코드이며 같은 공급사 정리 후보 84그룹, 공급사 소유권 판단 43그룹, 계약보호 충돌 2그룹이다.
+- lib/domain/sheet-conflict-report.ts와 관리자 Sheet 검증 화면에 상세 충돌 TSV를 추가했다. 각 행에 유형·판단·권장조치·차번·공급사·상품키·상태·출처·계약보호·원본충돌이 들어간다.
+- 계약락 또는 진행 중 계약이 있으면 계약보호 · 자동수정 금지로 표시한다. 이 보고서는 삭제 실행기가 아니며 실제 write·삭제·병합은 0건이다.
+- 처리 순서는 계약보호 8행 → 같은 공급사 84그룹의 대표키·참조 이관 → 공급사 소유권 43그룹 → 삭제/임시번호/서명/가격기간과 RP004·RP016·RP023 원본 문제 → 충돌 0 및 연속 두 번째 dry-run diff 0 확인이다.
+- sim-sheet-merge 123/123, 일일 동기화 18/18, 재고 표시 27/27, fonts/tokens, production build는 PASS다. 사람·Claude의 참조 이관 및 소유권 결정 전 자동 중복 정리와 운영 동기화 활성화는 NO-GO다.
+
+## 2026-08-03 매일 Sheet → 자체 재고 동기화
+
+- 단건 업로드가 아니라 매일 02:00 KST 실행되는 서버 동기화를 추가했다: `vercel.json` → `/api/sheet/sync-daily` → `lib/server/sheet-daily-sync.ts`.
+- 신규 Sheet 행은 `v4/products` 자체 재고가 되고 기존 행은 soft-merge된다. 빠진 행은 삭제하지 않고 시트 소유 `출고불가`, 재등장하면 복원한다.
+- 재고 화면에서 사람이 바꾼 시트 상품 필드는 `_sheet_manual_fields`로 표시해 이후 Sheet 갱신보다 내부 값을 우선한다. 미수정 필드와 신규 필드는 계속 연동된다.
+- 상품 create/patch 전체는 `v4/products` 부모 transaction 하나에서 CAS 검증 후 한꺼번에 반영한다. 한 건 충돌이면 부분 저장 없이 전체 취소한다.
+- 실행 인증은 `CRON_SECRET`, 서버 자격증명은 `FIREBASE_SERVICE_ACCOUNT_JSON`, 회사는 `SHEET_SYNC_COMPANY_ID`, 활성 스위치는 `SHEET_DAILY_SYNC_ENABLED`다. `.env.example` 기본값은 false다.
+- 관리자 전용 `/api/sheet/sync-status`와 재고 화면 상태 표시를 추가했다. 마지막 실행의 정상/실행 중/차단/실패/비활성, 시각, 신규·수정·부재 건수와 차단 사유를 보여준다. Firebase ID token + 활성 admin 역할을 서버에서 검증한다.
+- 일일 sim 18/18, 기존 Sheet merge 123/123, 가격 29/29, 재고 표시 27/27, 업무목록 142/142, type/fonts/tokens, production build와 실행 API 401·상태 API 403·비활성 API 503 fail-closed를 통과했다.
+- 운영 데이터와 Rules는 쓰지 않았다. 기존 실제 데이터 충돌과 `check:release` 차단 13개가 남아 있으므로 preview dry-run + 사람/Claude 승인 전에는 flag를 켜지 말 것. 상세는 `VERIFICATION.md` 최상단 참조.
+
+## 2026-08-03 Claude 후속 검토 반영·현재 출시 게이트
+
+- Claude가 찾은 레거시 `출고불가` 오판을 Codex가 수정했다. `출고불가 + status_label=시트에서 제거됨 + source=external_sheet|sheet`만 과거 시트 자동차단으로 복원하며, `일괄 출고불가`와 계약락·출처 없는 보류는 유지한다.
+- 판정은 `sheet-merge`와 `sheet-sync-all`이 같은 helper를 사용한다. 사람이 상태를 바꾸면 레거시 라벨도 정리한다.
+- `sim-sheet-merge` 120/120, 업무목록 142/142, 가격 29/29, type/fonts/tokens, production build 30 routes는 PASS다.
+- 전체 sim 25종 중 22종 PASS. Rules 전용 3종(`contract-rules`, `contract-sign-rules`, `release-security-rules`)은 계속 FAIL이며 `check:release`는 차단 13·경고 2다.
+- 출시 후보 `freepasserp4.vercel.app/inventory`의 16개 시트 읽기 전용 검증은 439행→406대, 신규 104, 상태변경 68, 내용수정 234, 부재차단 15로 나왔다. 현재 배포본의 동기화 버튼이 활성화돼도 누르지 말 것. 실제 write는 0건이다.
+- 다음 순서: Rules 후보의 레거시 실데이터 사람/Claude 게이트 → 로컬 변경 preview 배포 → 16개 시트 재검증 → 레거시 자동차단 14대와 `일괄 출고불가` 2대 건별 확인 → 대량 diff 운영 승인. 상세 근거는 `VERIFICATION.md` 최상단 참조.
+
 ## 2026-07-27 파일 저장·Drive 백업 전환
 
 - 신규 상품 사진·계약 서류·채팅 첨부의 본문을 RTDB data URL이 아니라 Firebase Storage에 저장한다.
@@ -776,3 +896,31 @@ Claude Code(설계) → Cursor(구현) → Codex(독립 검증·수정·완료)�
 - 웹에서는 기존 텍스트 버튼을 유지한다.
 - 모바일 상품 엑셀, 계약 엑셀, 월정산 정산서, 재고 종합표 내보내기를 숨겼다.
 - 선택 칩·탭과 확인 대화상자는 텍스트를 유지한다.
+# UI 출시 검수 최신 진입점 (2026-08-03)
+
+- 페이지별 버튼·입력·뱃지·필터·목록 정보의 존재 이유와 통일 결과는 `docs/UI_LAUNCH_AUDIT_2026-08-03.md`를 먼저 본다.
+- UI 규격과 production build는 PASS다. 공개 출시는 최신 `docs/SECURITY_RELEASE_GATE_2026-08-03.md`의 법적 정보·운영 데이터·Rules 게이트 해제 전 NO-GO다.
+- 새 UI 작업은 `npm run check:ui`를 포함해 type/fonts/tokens/build 게이트를 다시 실행한다.
+
+## 2026-08-03 계약보호 충돌·브라우저 재검수
+
+- Sheet 충돌의 계약보호 3행은 차량 `54나7852` / 계약 `TMP-260712-01` 한 건이다. 최신 Sheet는 RP021, 계약은 PT-0024를 가리킨다. 과거 6행 집계는 감사 스크립트의 v3/v4 child-key 거짓 중복이 포함된 값이다.
+- 계약은 문의 체크 1개만 완료됐고 서명·채팅 메시지는 없지만 자동 만료 규칙이 없다. 운영자가 유지/취소를 결정하기 전 자동 동기화·병합·소유자 교체 금지다.
+- Chrome `/contract` 재검수에서 `aria-expanded`가 텍스트로 노출되는 공통 `FilterGroup` 결함을 수정했다.
+- `check:ui`가 동일 회귀를 정적으로 차단한다.
+
+## 2026-08-03 Sheet 충돌 감사 병합 기준 정정
+
+- 감사 스크립트가 v3/v4를 RTDB child key로 먼저 합쳐 `EXT_*` 원본과 `공급사_차번` overlay를 별도 활성 상품으로 계산하던 오류를 수정했다.
+- 실제 앱·일일동기화처럼 정규화 후 `product_code` 논리키로 overlay 병합한다. 활성 중복 97건은 0건으로 정정됐다.
+- RP021은 138행이 아니라 실제 충돌 24대다. 최신 Sheet 소유자는 전부 RP021이며 23대는 과거 PT-0024/PT-0026/엘씨렌트 상품과 소유 충돌, 1대는 진행계약까지 보호한다.
+- 과거 공급사 키 22대에는 비공개 원가가 남아 있어 RP021로 복사 금지다. 기존 공개 상품만 tombstone하고 private·이력을 원래 키에 보존하는 정책은 사람/Claude 승인 전 실행 금지다.
+- 중복 이관 도구가 `계약철회`를 종료로 보던 불일치를 수정해 미결 보호하도록 했고 시뮬레이션 26/26 PASS다.
+
+## 2026-08-03 가격기간 충돌의 실제 사용자 영향
+
+- 가격기간 누락 97대는 RP023 90대 + RP018 7대다. RP004의 54행은 삭제 재등장 작업량이므로 가격 충돌로 오해하지 않는다.
+- `priceList` 기준 70대는 화면 기본가격 변경, 27대는 계약기간 자체 삭제다. 단순 키 이름 교체로 일괄 승인할 수 없다.
+- RP023 `195주5304`는 진행계약 `TMP-260722-01`과 겹쳐 별도 운영 판단 전 자동수정 금지다.
+- 관리자 시트 검증의 `상세 충돌 TSV`가 이제 `가격영향`과 `영향기간`을 포함한다. 이 TSV를 기준으로 공급사별 승인 여부를 결정한다.
+- 승인 workflow 없이 hard block을 제거하거나 과거 가격키를 일괄 삭제하지 않는다. 가격·계약·데이터 정책 결정은 사람/Claude 게이트 대상이다.

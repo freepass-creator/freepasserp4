@@ -3,12 +3,14 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
-import { useIsMobile, isMobileViewport } from '@/lib/use-mobile';
+import { useIsMobile } from '@/lib/use-mobile';
 import { type EntityRecord } from '@/lib/intake/entities';
-import { contractStage, getProgress, isContractCancelled, isContractCompleted, isContractInProgress } from '@/lib/domain/contract';
+import { contractStage, getProgress, isContractCancelled, isContractCompleted } from '@/lib/domain/contract';
 import { contractVehicleLabel } from '@/lib/domain/vehicle-label';
+import { vehicleNameOf } from '@/lib/domain/vehicle-name';
 import { createSettlement } from '@/lib/domain/settlement-engine';
 import { requirePositiveRentAmount } from '@/lib/domain/contract-money';
+import { settlementNetTone } from '@/lib/domain/settlement-display';
 import { downloadSettlementsExcel } from '@/lib/excel-export';
 import { Download, Files, ListChecks, WalletCards } from 'lucide-react';
 import { getRole, actor, type Role } from '@/lib/domain/deal';
@@ -21,7 +23,6 @@ import { PaneHead, PaneBody, Badge, Btn, Input, won, C, R, NUM, Loading, CenterN
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
 import { ContractPanel } from '@/components/ContractPanel';
 import { ContractDocs } from '@/components/ContractDocs';
-import { haptic } from '@/lib/haptics';
 import { ContractListRow } from '@/components/list-rows';
 import { NAV_LABEL } from '@/lib/tabbar';
 import { toast } from '@/components/Toaster';
@@ -31,6 +32,7 @@ import {
   contractMonthLabel as labelMonth,
   contractMonthOptions,
   contractPreviewCount,
+  contractWorkflowGroup,
   filterContracts,
   type ContractFilter as ContFilter,
   type ContractSort as ContSort,
@@ -43,22 +45,38 @@ const PAGE = 100; // 파인더와 동일 — 첫 화면·더보기 단위
 // 계약 = [목록 | 계약진행상황 | 첨부서류 | 정산상태] 4프레임.
 // 진행상황은 문의(/chat) ContractPanel과 동일 SSOT. 발송·단계는 패널 안.
 
-// R1/R2 금액 편집 원자 — blur 시 커밋. 실패하면 onCommit이 false/throw → draft를 val로 롤백.
-function AmtInput({ val, onCommit }: { val: number; onCommit: (n: number) => Promise<boolean> | boolean }) {
+// R1/R2 금액 편집 원자 — 입력은 로컬 draft, 명시적 저장 버튼에서만 커밋.
+// 실패하면 onCommit이 false/throw → draft를 val로 롤백한다.
+function AmtInput({ val, label, onCommit }: { val: number; label: string; onCommit: (n: number) => Promise<boolean> | boolean }) {
   const [draft, setDraft] = useState(val ? val.toLocaleString() : '');
+  const [saving, setSaving] = useState(false);
   useEffect(() => { setDraft(val ? val.toLocaleString() : ''); }, [val]);
+  const parsed = Number(draft.replace(/[^\d]/g, '')) || 0;
+  const dirty = parsed !== val;
+  const commit = async () => {
+    if (!dirty || saving) return;
+    setSaving(true);
+    try {
+      const ok = await onCommit(parsed);
+      if (!ok) setDraft(val ? val.toLocaleString() : '');
+    } finally {
+      setSaving(false);
+    }
+  };
   return (
-    <div style={{ flex: 1, minWidth: 0, display: 'flex' }}
-      onBlur={() => {
-        const n = Number(draft.replace(/[^\d]/g, '')) || 0;
-        if (n === val) return;
-        void (async () => {
-          const ok = await onCommit(n);
-          if (!ok) setDraft(val ? val.toLocaleString() : '');
-        })();
-      }}>
-      <Input value={draft} onChange={setDraft} placeholder="0" inputMode="numeric" size="sm" full
-        style={{ fontFamily: NUM, textAlign: 'right', background: C.warnBg }} />
+    <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+      <Input value={draft} onChange={setDraft} placeholder="0" ariaLabel={`${label} 금액`} inputMode="numeric" size="sm" full
+        disabled={saving}
+        style={{ fontFamily: NUM, textAlign: 'right', background: dirty ? C.warnBg : undefined }} />
+      <Btn
+        title={`${label} 저장`}
+        size="sm"
+        variant={dirty ? 'solid' : 'ghost'}
+        disabled={!dirty || saving}
+        onClick={() => { void commit(); }}
+      >
+        {saving ? '저장 중…' : '저장'}
+      </Btn>
     </div>
   );
 }
@@ -210,21 +228,7 @@ export default function ContractsSettlement() {
     if (!s) {
       s = await getStore().get('settlement', co, `ST_${String(c.contract_code || '').trim()}`).catch(() => null);
     }
-    // lazy create = admin·소유 공급사만(영업자 채널 불일치 시 permission_denied로 pane abort 방지)
-    if (!s && isContractCompleted(c)) {
-      const r = getRole();
-      const canCreate = r === 'admin'
-        || (r === 'provider' && String(c.provider_company_code) === actor('provider').code);
-      if (canCreate) {
-        try {
-          await createSettlement(c);
-          const again = await getStore().list('settlement', co);
-          s = settlementForContract(again, c.contract_code);
-        } catch (e) {
-          toast(`정산 생성 실패: ${String((e as Error)?.message || e)}`, 'error');
-        }
-      }
-    }
+    // 상세 조회는 read-only다. 정산 생성은 계약 단계 완료 직후 reloadSel 경로에서만 수행한다.
     if (epoch !== selectionEpoch.current) return;
     setSelS(s);
     setSelProduct(prod || productForContract(c) || null);
@@ -292,10 +296,8 @@ export default function ContractsSettlement() {
     await initAuth();
     await seedIfEmpty(co); const all = await load(getRole());
     const wanted = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('c') : null;
-    const first = all.find((c) => isContractInProgress(c))
-      || all.find((c) => isContractCompleted(c));
-    // 모바일은 '목록 먼저' — 첫 계약 자동선택은 웹만. mobile 첫 렌더 스테일 회피(isMobileViewport).
-    const target = wanted ? all.find((x) => String(x.contract_code) === wanted) : (!isMobileViewport() ? first : undefined);
+    // 페이지 진입은 목록 조회만 한다. ?c= 명시 링크만 해당 계약을 연다.
+    const target = wanted ? all.find((x) => String(x.contract_code) === wanted) : undefined;
     if (target) {
       if (wanted && isContractCancelled(target)) {
         setFlt('계약취소');
@@ -324,10 +326,8 @@ export default function ContractsSettlement() {
     const wanted = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('c') : null;
     const all = await load(r);
     clearSel(true);
-    if (!mobile && all.length) {
-      const target = (wanted ? all.find((c) => String(c.contract_code) === wanted) : undefined)
-        || all.find((c) => isContractInProgress(c))
-        || all.find((c) => isContractCompleted(c));
+    if (!mobile && all.length && wanted) {
+      const target = all.find((c) => String(c.contract_code) === wanted);
       if (wanted && target && isContractCancelled(target)) {
         setFlt('계약취소');
         setDraftFlt('계약취소');
@@ -392,7 +392,7 @@ export default function ContractsSettlement() {
             plate={contractPlate(c)}
             party={contractParty(c)}
             selected={String(c.contract_code) === sel}
-            onClick={() => { haptic.tap(); selectContract(c); }}
+            onClick={() => { void selectContract(c); }}
           />
         ))}
         {moreCount > 0 && (
@@ -412,10 +412,10 @@ export default function ContractsSettlement() {
 
   // 라벨 열 폭은 DetailGrid(116)와 같은 값 하나로. 110/120 두 갈래라 값 시작선이 10px 어긋났다.
   //  구분선은 ListGroup이 자식마다 그어 주므로 여기서 borderTop을 또 긋지 않는다(카드선과 2겹).
-  const kv = (k: string, v: React.ReactNode, strong?: boolean) => (
+  const kv = (k: string, v: React.ReactNode, valueColor?: string) => (
     <div style={{ display: 'flex', padding: '8px 12px', fontSize: FS.sub }}>
       <span style={{ width: KV_LABEL_W, flex: `0 0 ${KV_LABEL_W}px`, color: C.mute }}>{k}</span>
-      <span style={{ fontWeight: strong ? FW.head : FW.strong, color: strong ? C.brand : C.ink, fontFamily: NUM }}>{v}</span>
+      <span style={{ fontWeight: valueColor ? FW.head : FW.strong, color: valueColor || C.ink, fontFamily: NUM }}>{v}</span>
     </div>
   );
 
@@ -439,26 +439,31 @@ export default function ContractsSettlement() {
     setSetts(allS.filter((s) => canAccessOwnedRecord(getSession(), s)));
     setSelS(allS.find((x) => String(x.settlement_code) === String(selS.settlement_code)) || null);
   };
-  const setAmount = async (field: 'fee_amount' | 'agent_payout', value: number): Promise<boolean> => {
-    if (!selS) return false;
+  const setAmount = async (settlementCode: string, field: 'fee_amount' | 'agent_payout', value: number): Promise<boolean> => {
+    const targetSettlementCode = String(settlementCode || '').trim();
+    const targetContractCode = selectedCodeRef.current;
+    const epoch = selectionEpoch.current;
+    if (!selS || !targetContractCode || String(selS.settlement_code) !== targetSettlementCode) return false;
     const fee = field === 'fee_amount' ? value : Number(selS.fee_amount) || 0;
     const payout = field === 'agent_payout' ? value : Number(selS.agent_payout) || 0;
     try {
-      await getStore().update('settlement', co, String(selS.settlement_code), { [field]: value, net_amount: fee - payout });
+      await getStore().update('settlement', co, targetSettlementCode, { [field]: value, net_amount: fee - payout });
     } catch (e) {
       toast(`정산 금액 저장 실패: ${String((e as Error)?.message || e)}`, 'error');
       return false;
     }
     const allS = await getStore().list('settlement', co);
     setSetts(allS.filter((s) => canAccessOwnedRecord(getSession(), s)));
-    setSelS(allS.find((x) => String(x.settlement_code) === String(selS.settlement_code)) || null);
+    if (epoch === selectionEpoch.current && selectedCodeRef.current === targetContractCode) {
+      setSelS(allS.find((x) => String(x.settlement_code) === targetSettlementCode) || null);
+    }
     return true;
   };
   const amtRow = (label: string, field: 'fee_amount' | 'agent_payout', val: number, code: string) => (
     <div style={{ display: 'flex', alignItems: 'center', padding: '8px 12px', fontSize: FS.sub }}>
       <span style={{ width: KV_LABEL_W, flex: `0 0 ${KV_LABEL_W}px`, color: C.mute }}>{label}</span>
       {role === 'admin'
-        ? <AmtInput key={`${code}-${field}`} val={val} onCommit={(n) => setAmount(field, n)} />
+        ? <AmtInput key={`${code}-${field}`} val={val} label={label} onCommit={(n) => setAmount(code, field, n)} />
         : <span style={{ fontWeight: FW.head, color: C.brand, fontFamily: NUM }}>{won(val)}원</span>}
     </div>
   );
@@ -467,6 +472,7 @@ export default function ContractsSettlement() {
     if (settlementLoading) return <CenterNote>정산 기록 확인 중…</CenterNote>;
     if (!selS) return <CenterNote>{isContractCompleted(selC) ? '정산 기록 없음' : '계약 완료 시 정산이 자동 생성됩니다.'}</CenterNote>;
     const s = selS; const st = String(s.settlement_status); const cb = Number(s.clawback_amount) || 0;
+    const net = (Number(s.fee_amount) || 0) - (Number(s.agent_payout) || 0);
     return (
       <div>
         {/* 형제(뱃지·버튼)가 전부 nowrap 이라 축소 부담을 코드 혼자 져서 'ST_…-01' 이 두 줄로 쪼개졌다.
@@ -484,7 +490,7 @@ export default function ContractsSettlement() {
         <ListGroup>
           {role !== 'agent' && amtRow('공급사 청구 (R1)', 'fee_amount', Number(s.fee_amount) || 0, String(s.settlement_code))}
           {role !== 'provider' && amtRow('영업자 지급 (R2)', 'agent_payout', Number(s.agent_payout) || 0, String(s.settlement_code))}
-          {role === 'admin' && kv('순수익 (R1−R2)', `${won((Number(s.fee_amount) || 0) - (Number(s.agent_payout) || 0))}원`, true)}
+          {role === 'admin' && kv('순수익 (R1−R2)', `${won(net)}원`, C[settlementNetTone(net)])}
           {cb > 0 ? kv('환수액', `${won(cb)}원`) : null}
         </ListGroup>
         </div>
@@ -527,12 +533,16 @@ export default function ContractsSettlement() {
 
   return (
     <>
-      <WorkPage title={NAV_LABEL.contract || '계약'} statusLabel="계약진행중"
-        statusCount={rows === null ? null : rows.filter((c) => isContractInProgress(c)).length}
+      <WorkPage title={NAV_LABEL.contract || '계약'} statusLabel="처리 대기"
+        statusCount={rows === null ? null : rows.filter((c) => !['계약완료', '계약취소'].includes(contractWorkflowGroup(c))).length}
         listCount={rows === null ? null : shownAll.length}
         list={rows === null ? <FeedRowSkeleton /> : listEl} panes={panes} selected={!!sel} onBack={clearSel}
         contextTitle={selC ? joinMetaText([
-          contractVehicleLabel(selC, selProduct || productForContract(selC)),
+          vehicleNameOf({
+            kind: 'contract',
+            contract: selC,
+            product: selProduct || productForContract(selC),
+          }, { tier: 'full', fallback: 'none' }),
           selC.customer_name,
         ]) : undefined}
         search={{ value: qInput, onChange: setQInput, placeholder: '계약·차번·계약자·전화·영업·공급…' }}
@@ -540,7 +550,7 @@ export default function ContractsSettlement() {
         mobileSwapKey={swapKey}
         onMobileSwapKeyChange={setSwapKey}
         listTools={{
-          search: { value: qInput, onChange: setQInput, placeholder: '계약·차번·계약자·전화·영업…' },
+          search: { value: qInput, onChange: setQInput, placeholder: '계약·차번·계약자·전화·영업·공급…' },
           action: !mobile && setts.length ? { label: '엑셀', icon: Download, onClick: () => downloadSettlementsExcel(setts, new Date().toISOString().slice(0, 10), role) } : undefined,
           sort: { value: sort, onChange: (v) => setSort(v as ContSort | ''), options: CONT_SORTS },
           filter: {

@@ -1,6 +1,6 @@
 import type { EntityRecord } from '@/lib/intake/entities';
 import type { Role } from '@/lib/domain/deal';
-import { isInquiryOnly, normalizeContractStatus } from '@/lib/domain/contract';
+import { isContractCancelled, isInquiryOnly, normalizeContractStatus } from '@/lib/domain/contract';
 import { unreadFor } from '@/lib/domain/messaging';
 import { matchHay, roomHaystack } from '@/lib/domain/search';
 import { contractForRoom } from './room-display';
@@ -37,6 +37,15 @@ export function isWorkspaceChatRoom(room: EntityRecord, role: Role): boolean {
   return true;
 }
 
+/** 일반 진입은 목록만 연다. 명시적인 `?room=` 딥링크가 있을 때만 해당 방을 선택한다. */
+export function requestedChatRoom(
+  rooms: EntityRecord[],
+  requestedRoom: string | null | undefined,
+): EntityRecord | undefined {
+  const key = String(requestedRoom || '').trim();
+  return key ? rooms.find((room) => String(room._key) === key) : undefined;
+}
+
 type Params = {
   rooms: EntityRecord[];
   query: string;
@@ -51,26 +60,26 @@ type Params = {
   nameOf?: (room: EntityRecord) => string;
 };
 
-/** 취소 필터는 취소 이력을, 전체는 활성 우선 후 명시 연결된 취소 이력을 행 상태로 표시한다. */
+/** 행 상태는 필터와 무관하게 고정한다. 활성 계약 우선, 없으면 취소 이력을 fallback한다. */
 export function chatRowContract(
   room: EntityRecord,
-  filter: ChatFilter,
+  _filter: ChatFilter,
   contractIndex: Map<string, EntityRecord>,
   cancelledIndex: Map<string, EntityRecord>,
 ): EntityRecord | undefined {
-  if (filter === '취소') return contractForRoom(cancelledIndex, room);
   const active = contractForRoom(contractIndex, room);
-  // 전체 목록에서도 명시 연결된 취소 계약을 단순 문의로 오인하지 않는다.
-  // 진행/문의/완료 필터에서는 기존처럼 취소 계약을 섞지 않는다.
-  const explicitlyLinked = !!String(room.linked_contract || '').trim();
-  return active || (filter === 'all' && explicitlyLinked ? contractForRoom(cancelledIndex, room) : undefined);
+  // 명시 linked_contract는 contractForRoom이 fallback 추정보다 우선한다. 링크가 없을 때만
+  // 현재 활성 계약을 먼저 쓰고, 활성 계약이 전혀 없으면 가장 최신 취소 이력을 한 번만 쓴다.
+  return active || contractForRoom(cancelledIndex, room);
 }
 
 function matchesFilter(room: EntityRecord, params: Params): boolean {
   if (params.filter === 'all') return true;
-  if (params.filter === '취소') return !!contractForRoom(params.cancelledIndex, room);
   const contract = chatRowContract(room, params.filter, params.contractIndex, params.cancelledIndex);
+  if (params.filter === '취소') return isContractCancelled(contract);
   if (params.filter === '완료') return normalizeContractStatus(contract?.contract_status) === '계약완료';
+  // 취소 이력은 전용 탭에만 둔다. 새 문의로 재개하려면 새 방/새 연결을 만들어 lifecycle을 분리해야 한다.
+  if (normalizeContractStatus(contract?.contract_status) === '계약취소') return false;
   if (params.filter === '미확인') return isInquiryOnly(contract) && unreadFor(room, params.role) > 0;
   return params.filter !== '문의' || isInquiryOnly(contract);
 }

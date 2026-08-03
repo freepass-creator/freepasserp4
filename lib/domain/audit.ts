@@ -75,6 +75,10 @@ const FIELD_LABEL: Record<string, string> = {
   payout_rate: '지급율',
   credit_grade: '심사',
   name: '이름',
+  phone: '연락처',
+  birth: '생년월일',
+  email: '이메일',
+  business_number: '사업자번호',
   partner_type: '유형',
   sheet_url: '시트URL',
 };
@@ -91,6 +95,24 @@ const META_SKIP = new Set([
   '_raw_vehicle', '_snap_history', '_key',
 ]);
 
+const LEGACY_COLLECTION_ENTITY: Record<string, string> = {
+  products: 'product', product: 'product',
+  contracts: 'contract', contract: 'contract',
+  settlements: 'settlement', settlement: 'settlement',
+  admin_settlements: 'admin_settlement', admin_settlement: 'admin_settlement',
+  rooms: 'room', room: 'room',
+  messages: 'message', message: 'message',
+  policies: 'policy', policy: 'policy',
+  partners: 'partner', partner: 'partner',
+  users: 'user', user: 'user',
+  customers: 'customer', customer: 'customer',
+};
+
+const LEGACY_ROOM_NOISE = new Set([
+  ...ROOM_NOISE,
+  'updated_at', 'last_read_at',
+]);
+
 /**
  * 감사 로그에 **값을 남기면 안 되는 필드.**
  *
@@ -100,26 +122,49 @@ const META_SKIP = new Set([
  * 계약 본문은 파기 요구에 대응할 수 있어도 감사 로그엔 만료·마스킹이 없어 유출면만 하나 더 늘었다.
  * 값 대신 마스킹만 남긴다 — "무엇이 바뀌었는지"는 그대로 보인다.
  */
-const PII_FIELDS = new Set([
+export const AUDIT_SENSITIVE_FIELDS = [
   'customer_id',            // 주민등록번호
   'driver_license_no',
+  'license_no',
   'customer_address',
+  'delivery_address',
   'customer_phone',
   'customer_name',
+  'customer_birth',
+  'customer_email',
+  'customer_business_number',
   'emergency_name', 'emergency_phone',
   'sign_signature',         // 서명 이미지(dataURL)
-  'account_number', 'bank_account', 'resident_id', 'passport_no',
-]);
+  'doc_license', 'signed_pdf_url', 'unsigned_pdf_url',
+  'attachments', 'doc_attachments', 'customer_docs',
+  'account_number', 'bank_account', 'rent_bank_account', 'bank_holder',
+  'resident_id', 'passport_no', 'card_url', 'ci_url', 'fcm_tokens',
+  // v3 고객·회원 별칭
+  'name', 'phone', 'birth', 'email', 'sender_email', 'business_no', 'business_number',
+  'address', 'rrn', 'resident_registration_number',
+ ] as const;
+
+const PII_FIELDS = new Set<string>(AUDIT_SENSITIVE_FIELDS);
+
+export function isAuditSensitiveField(key: string): boolean {
+  return PII_FIELDS.has(String(key || '').trim());
+}
 
 /** 민감필드 값을 지운 사본 — before/after 직렬화 전에 반드시 통과시킨다. */
-function scrubPii(rec: EntityRecord | null | undefined): EntityRecord | null {
-  if (!rec || typeof rec !== 'object') return rec ?? null;
+function scrubPiiValue(value: unknown, key = '', depth = 0): unknown {
+  if (isAuditSensitiveField(key)) return value == null || value === '' ? value : '***';
+  if (depth >= 8 || value == null || typeof value !== 'object') return value;
+  if (Array.isArray(value)) return value.map((item) => scrubPiiValue(item, '', depth + 1));
   const out: EntityRecord = {};
-  for (const [k, v] of Object.entries(rec)) {
-    if (PII_FIELDS.has(k)) { if (v != null && v !== '') out[k] = '***'; continue; }
-    out[k] = v;
+  for (const [childKey, childValue] of Object.entries(value as EntityRecord)) {
+    out[childKey] = scrubPiiValue(childValue, childKey, depth + 1);
   }
   return out;
+}
+
+function scrubPii(rec: EntityRecord | null | undefined): EntityRecord | null {
+  if (!rec || typeof rec !== 'object') return rec ?? null;
+  return scrubPiiValue(rec) as EntityRecord;
 }
 
 function fmtVal(v: unknown): string {
@@ -169,6 +214,54 @@ function labelOf(k: string): string {
   return FIELD_LABEL[k] || k;
 }
 
+/**
+ * 운영 v3 감사로그(collection/record_key/ts/fields/values)를 현재 표시 규격으로 읽는다.
+ * 데이터는 변경하지 않으며, room unread 부산물은 신규 감사와 같은 원칙으로 화면에서 제외한다.
+ */
+export function normalizeAuditRecord(log: EntityRecord): EntityRecord | null {
+  const legacyCollection = String(log.collection ?? '').trim();
+  if (!legacyCollection) return log;
+
+  const entity = LEGACY_COLLECTION_ENTITY[legacyCollection] || legacyCollection;
+  const action = String(log.action || 'update');
+  const fields = Array.isArray(log.fields)
+    ? (log.fields as unknown[]).map((field) => String(field || '').trim()).filter(Boolean)
+    : [];
+  if (entity === 'room' && action === 'update' && fields.length
+    && fields.every((field) => LEGACY_ROOM_NOISE.has(field) || field.startsWith('unread_'))) return null;
+
+  const values = log.values && typeof log.values === 'object'
+    ? log.values as Record<string, unknown>
+    : {};
+  const changes: AuditChange[] = fields.slice(0, 40).map((key) => {
+    const hasValue = Object.prototype.hasOwnProperty.call(values, key);
+    const raw = hasValue ? values[key] : undefined;
+    const to = isAuditSensitiveField(key)
+      ? (raw == null || raw === '' ? '변경됨' : '***')
+      : (hasValue ? (fmtVal(raw) || '—') : '변경됨');
+    return { key, label: labelOf(key), from: '—', to };
+  });
+  const useful = fields.filter((field) => !META_SKIP.has(field) && !LEGACY_ROOM_NOISE.has(field));
+  const summary = useful.length
+    ? `${useful.slice(0, 3).map(labelOf).join(' · ')}${useful.length > 3 ? ` 외 ${useful.length - 3}개` : ''}`
+    : `${action} · ${entity}`;
+
+  const normalized: EntityRecord = { ...log };
+  delete normalized.values;
+  normalized.entity = entity;
+  normalized.target_key = String(log.target_key ?? '').trim()
+    || String(log.record_key ?? '').trim()
+    || String(log._key ?? '').trim();
+  const currentAt = Number(log.at);
+  const legacyAt = Number(log.ts);
+  normalized.at = Number.isFinite(currentAt) && currentAt > 0
+    ? currentAt
+    : Number.isFinite(legacyAt) && legacyAt > 0 ? legacyAt : 0;
+  normalized.summary = String(log.summary || summary);
+  normalized.changes = changes;
+  return normalized;
+}
+
 /** before→after 필드 diff. */
 export function fieldChanges(before: EntityRecord | null, after: EntityRecord | null, limit = 40): AuditChange[] {
   if (!after) return [];
@@ -187,7 +280,7 @@ export function fieldChanges(before: EntityRecord | null, after: EntityRecord | 
     if (META_SKIP.has(k)) continue;
     if (k.startsWith('_') && !k.startsWith('_snap') && k !== '_needs_master_review' && k !== '_snapped') continue;
     // 민감필드는 **바뀌었다는 사실만** 남긴다. 값 비교는 원본으로 하되 기록은 마스킹.
-    if (PII_FIELDS.has(k)) {
+    if (isAuditSensitiveField(k)) {
       if (same(before?.[k], after[k])) continue;
       out.push({ key: k, label: labelOf(k), from: before?.[k] ? '***' : '—', to: after[k] ? '***' : '—' });
       if (out.length >= limit) break;
@@ -272,7 +365,7 @@ export function auditSummary(entity: string, action: string, before: EntityRecor
     return `${action} · ${id} · ${line}`.slice(0, 200);
   }
   if (entity === 'contract' && after) {
-    return `${after.contract_status || action} · ${after.customer_name || ''} · ${after.car_number_snapshot || after.contract_code || ''}`.slice(0, 200);
+    return `${after.contract_status || action} · ${after.car_number_snapshot || after.contract_code || ''}`.slice(0, 200);
   }
   if (entity === 'settlement' && after) {
     return `${after.settlement_status || action} · ${after.contract_code || after._key || ''}`.slice(0, 200);

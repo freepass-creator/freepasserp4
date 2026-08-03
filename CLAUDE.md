@@ -90,6 +90,7 @@
 
 ## 데이터·엔진
 - 저장 = `getStore().save/update`(audit 자동). 계약↔차량 상태동기화 = `settlement-engine.applyStepCheck`. 직접 상태변경 금지.
+- **사업자등록번호 읽기 SSOT** = `lib/domain/business-identity.ts`. 저장 정본은 partner=`business_number`, user/customer=`business_no`, contract=`customer_business_number`를 유지한다. 레거시 alias는 읽기 fallback만 허용하며, 서로 다른 alias 값은 자동 덮어쓰기·이관하지 말고 `scripts/audit-business-identity.mts`로 충돌 건수를 먼저 확인한다.
 - **차량 락** — 계약금 입금(확인) 선점 = `계약중`(목록 노출·마크) · 계약완료 = `출고불가`(목록 숨김). 문의·서류만으로는 잠그지 않는다(여러 영업 병행, 입금 선점이 이김).
   락 주인은 `product.locked_by_contract`. 락 쓰기는 `syncVehicleLock` 한 곳(매 체크마다 재계산 — 분기를 늘리면 해제 누락이 생긴다). 삭제보호는 `blockingContractFor`(락보다 넓음).
 - 식별코드 = `lib/domain/ids.ts`(`usr_/sup_/veh_/pol_/chn_`).

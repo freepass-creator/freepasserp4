@@ -159,6 +159,12 @@ export async function cancelContract(contract: EntityRecord): Promise<void> {
   const code = String(contract.contract_code);
   const fresh = (await store.get('contract', co, code)) || contract;
   if (fresh.contract_status === '계약취소') return;
+  // 완료 계약은 R1(private 공급사 수수료)을 기준으로 환수액을 계산한다.
+  // 영업자 세션에는 R1이 노출되지 않으므로 클라이언트에서 취소하면 0원 환수 또는
+  // 계약·차량만 먼저 바뀐 부분완료가 생길 수 있다. 완료 후 취소·환수는 관리자만 처리한다.
+  if (fresh.contract_status === '계약완료' && currentActor().role !== 'admin') {
+    throw new Error('완료된 계약의 취소·환수는 관리자만 처리할 수 있습니다');
+  }
   await store.update('contract', co, code, { contract_status: '계약취소' });
   // 재고 = 이 계약 취소 후 재계산(다른 계약중/완료 있으면 유지). 무조건 출고가능 복원 금지.
   if (fresh.product_code) await syncVehicleLock(String(fresh.product_code), code);

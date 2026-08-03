@@ -10,11 +10,15 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import { ROLE_LABEL_RAW, type EntityRecord } from '@/lib/intake/entities';
 import { contractStage, getProgress, isContractInProgress } from '@/lib/domain/contract';
-import { vehicleName, canonProductType } from '@/lib/domain/product';
-import { contractVehicleLabel } from '@/lib/domain/vehicle-label';
+import {
+  UNKNOWN_VEHICLE_STATUS,
+  canonProductType,
+  normalizeVehicleDisplayStatus,
+} from '@/lib/domain/product';
+import { contractVehicleLabel, productVehicleLabel } from '@/lib/domain/vehicle-label';
 import {
   ACTOR_TONE, Badge, CountPill, NUM, C, FS, FW, productTypeStyle, VEHICLE_STATUS_TONE,
-  SETTLEMENT_STATUS_TONE, won, type BadgeTone,
+  won, type BadgeTone,
 } from '@/components/ui';
 import {
   FeedListRow, FeedThumbIcon, FeedTitle, FeedSub, FeedBadges, FeedTitleRow,
@@ -25,8 +29,20 @@ import { vehicleTone } from '@/lib/domain/product';
 import { msgClock } from '@/lib/format';
 import { haptic } from '@/lib/haptics';
 import { partnerTypeLabel } from '@/lib/domain/partner';
+import { memberAccountState } from '@/features/members/member-filter';
+import { joinMetaText } from '@/features/work-list-display';
+import {
+  SETTLEMENT_RATE_WARNING,
+  SETTLEMENT_RENT_WARNING,
+  settlementNetTone,
+  settlementWarning,
+  type SettlementListDisplay,
+} from '@/lib/domain/settlement-display';
 
 const MEMBER_ROLE_LABEL: Record<string, string> = ROLE_LABEL_RAW;
+
+/** 레거시 공백-only 값이 빈 제목·배지로 남지 않게 목록 문구를 정규화한다. */
+const listText = (value: unknown) => joinMetaText([value]);
 
 function plateSpan(plate: string) {
   const value = String(plate || '').trim();
@@ -61,14 +77,12 @@ function dotJoin(parts: (ReactNode | string | false | null | undefined)[]) {
 function chatStatusIcon(stage: { label: string; tone: BadgeTone }, unread: number): {
   icon: LucideIcon; tone: BadgeTone; title: string;
 } {
-  if (unread > 0) {
-    return { icon: MessageCircleWarning, tone: 'amber', title: `확인 필요 · 안읽음 ${unread}` };
-  }
-  if (stage.label === '문의') return { icon: MessageCircle, tone: 'gray', title: '문의' };
   if (stage.label === '계약완료') return { icon: MessageCircleCheck, tone: 'green', title: '계약완료' };
   if (stage.label === '계약취소') return { icon: MessageCircleX, tone: 'red', title: '계약취소' };
-  // 단계 진행
-  return { icon: MessageCircleMore, tone: stage.tone, title: stage.label };
+  // 좌측 아이콘은 업무 lifecycle 전용이다. 안읽음은 CountPill·행 accent가 이미 표시한다.
+  if (stage.label !== '문의') return { icon: MessageCircleMore, tone: stage.tone, title: stage.label };
+  if (unread > 0) return { icon: MessageCircleWarning, tone: 'amber', title: `확인 필요 · 안읽음 ${unread}` };
+  return { icon: MessageCircle, tone: 'gray', title: '문의' };
 }
 
 /** 계약 — 문의·재고와 동일: 좌측=상태 아이콘+색 · 진행숫자는 우측 메타 */
@@ -86,9 +100,10 @@ function contractStatusIcon(c: EntityRecord): { icon: LucideIcon; tone: BadgeTon
 
 /** 재고 — 아이콘 모양만 로컬. 색 = VEHICLE_STATUS_TONE SSOT. */
 function inventoryStatusIcon(p: EntityRecord): { icon: LucideIcon; tone: BadgeTone; title: string } {
-  const st = String(p.vehicle_status || '');
-  const key = st.replace(/\s+/g, '');
-  const tone = ((VEHICLE_STATUS_TONE as Record<string, BadgeTone>)[key] || 'gray');
+  const st = normalizeVehicleDisplayStatus(p.vehicle_status);
+  const tone = st === UNKNOWN_VEHICLE_STATUS
+    ? 'red'
+    : ((VEHICLE_STATUS_TONE as Record<string, BadgeTone>)[st] || 'gray');
   if (st === '즉시출고' || st === '출고가능') {
     return { icon: CircleCheck, tone, title: `${st} · 판매중` };
   }
@@ -96,6 +111,7 @@ function inventoryStatusIcon(p: EntityRecord): { icon: LucideIcon; tone: BadgeTo
   if (st === '출고협의') return { icon: Handshake, tone, title: '출고협의' };
   if (st === '계약중') return { icon: FileText, tone, title: '계약중' };
   if (st === '출고불가') return { icon: Ban, tone, title: '출고불가' };
+  if (st === UNKNOWN_VEHICLE_STATUS) return { icon: FileX2, tone: 'red', title: st };
   if (p._needs_master_review) return { icon: ClipboardList, tone: 'amber', title: '검수 필요' };
   return { icon: Car, tone, title: st || '재고' };
 }
@@ -121,11 +137,11 @@ export const ChatRoomRow = memo(function ChatRoomRow({
   plate?: string;
 }) {
   const stage = contractStage(stageContract);
-  const msg = String(room.last_message || '대화를 시작하세요').replace(/\s+/g, ' ').trim();
+  const msg = listText(room.last_message) || '대화를 시작하세요';
   const ic = chatStatusIcon(stage, unread);
   const inProg = !!stageContract && !['문의', '계약완료', '계약취소'].includes(stage.label);
   const accent: BadgeTone | undefined = unread > 0 ? 'amber' : inProg ? (stage.tone === 'red' ? 'red' : 'blue') : undefined;
-  const head = displayName || String(room.vehicle_name || '상품');
+  const head = listText(displayName) || listText(room.vehicle_name) || '상품';
   const plateText = String(plate || '').trim();
   const counterText = String(counter || '').replace(/\s+/g, ' ').trim();
   return (
@@ -179,10 +195,12 @@ export function ContractListRow({
   party?: string[];
 }) {
   const pr = getProgress(c);
-  const title = displayName || contractVehicleLabel(c) || '차량명 미확인';
+  const title = listText(displayName) || contractVehicleLabel(c) || '차량명 미확인';
   const ic = contractStatusIcon(c);
   const stage = contractStage(c);
   const inProgress = isContractInProgress(c);
+  // 철회·부결·알 수 없는 상태는 단계 진행률이 아니라 상태 확인이 우선이다.
+  const showProgress = inProgress && stage.tone !== 'red';
   const contractCode = String(c.contract_code || '').trim();
   return (
     <FeedListRow
@@ -193,8 +211,8 @@ export function ContractListRow({
         <FeedTitleRow
           key="t"
           title={<FeedTitle>{title}</FeedTitle>}
-          meta={inProgress ? (
-            <span style={{ fontSize: FS.sub, fontWeight: FW.head, color: C.brand, fontFamily: NUM }}>{pr.done}/{pr.total}</span>
+          meta={showProgress ? (
+            <span style={{ fontSize: FS.sub, fontWeight: FW.head, color: stage.tone === 'amber' ? C.warn : C.brand, fontFamily: NUM }}>{pr.done}/{pr.total}</span>
           ) : null}
         />,
         <FeedBadges key="b">
@@ -230,20 +248,20 @@ export const InventoryListRow = memo(function InventoryListRow({
   selected?: boolean;
   onClick: (p: EntityRecord) => void; // 항목을 인자로 받는 안정 핸들러(부모 useCallback) — memo 유효화
 }) {
-  const st = String(p.vehicle_status || '');
-  const pt = String(p.product_type || '');
-  const provider = String(p.provider_name || p.provider_company_code || '').trim();
+  const st = normalizeVehicleDisplayStatus(p.vehicle_status);
+  const pt = listText(p.product_type);
+  const provider = listText(p.provider_name) || listText(p.provider_company_code);
   const ic = inventoryStatusIcon(p);
   return (
     <FeedListRow
       selected={selected}
       onClick={() => onClick(p)}
-      thumb={<FeedThumbIcon icon={ic.icon} tone={ic.tone} title={ic.title} decorative={!!st} />}
+      thumb={<FeedThumbIcon icon={ic.icon} tone={ic.tone} title={ic.title} decorative />}
       lines={[
-        <FeedTitle key="t">{vehicleName(p) || String(p.car_number || '상품')}</FeedTitle>,
+        <FeedTitle key="t">{productVehicleLabel(p) || '차량명 미확인'}</FeedTitle>,
         // ② 식별 — 상태뱃지 + 차번·스펙. 문의(②=상태·차번·상대방)와 같은 자리·같은 순서.
         <div key="b" style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden' }}>
-          {st ? <Badge tone={vehicleTone(st)} variant={st === '계약중' ? 'solid' : 'line'} pulse={st === '계약중'}>{st}</Badge> : null}
+          <Badge tone={vehicleTone(st)} variant={st === '계약중' || st === UNKNOWN_VEHICLE_STATUS ? 'solid' : 'line'} pulse={st === '계약중'}>{st}</Badge>
           {pt ? (() => { const c = canonProductType(pt) || pt; const pts = productTypeStyle(c); return <Badge tone={pts.tone} variant={pts.variant}>{c}</Badge>; })() : null}
           <div style={{ flex: '1 1 auto', minWidth: 0, overflow: 'hidden' }}>
             <CardSpecs p={p} dense />
@@ -257,7 +275,7 @@ export const InventoryListRow = memo(function InventoryListRow({
               fontSize: FS.sub, color: C.mute, fontWeight: FW.meta,
               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             }}>{provider}</span>
-          ) : null}
+          ) : <Badge tone="red">공급사 미지정</Badge>}
           {p._needs_master_review ? <Badge tone="amber" variant="solid">검수</Badge>
             : p._snapped ? <Badge tone="blue" variant="quiet">변환</Badge> : null}
         </div>,
@@ -283,12 +301,13 @@ function memberStatus(row: EntityRecord, kind: 'user' | 'partner'): {
 } {
   if (kind === 'partner') {
     const partnerType = partnerTypeLabel(row.partner_type, row.partner_code || row._key);
-    return { icon: Building2, tone: partnerType === '공급사' ? 'blue' : 'gray', title: partnerType };
+    return { icon: Building2, tone: partnerType === '공급사' ? 'blue' : partnerType === '분류 필요' ? 'red' : 'gray', title: partnerType };
   }
-  if (String(row.status || '') === 'pending') {
+  const state = memberAccountState(row);
+  if (state === 'pending') {
     return { icon: UserPlus, tone: 'amber', title: '가입 승인대기' };
   }
-  if (String(row.is_active || '') === '아니오') {
+  if (state === 'inactive') {
     return { icon: UserRoundX, tone: 'gray', title: '비활성 계정' };
   }
   return { icon: UserRoundCheck, tone: 'green', title: '활성 계정' };
@@ -303,21 +322,22 @@ export function MemberListRow({
   selected?: boolean;
   onClick?: () => void;
 }) {
-  const role = String(row.role || '');
-  const pending = kind === 'user' && String(row.status || '') === 'pending';
-  const inactive = kind === 'user' && String(row.is_active || '') === '아니오';
+  const role = listText(row.role);
+  const accountState = kind === 'user' ? memberAccountState(row) : null;
+  const pending = accountState === 'pending';
+  const inactive = accountState === 'inactive';
   const partnerType = partnerTypeLabel(row.partner_type, row.partner_code || row._key);
   const code = kind === 'user'
     ? (String(row.user_code || '').trim() || String(row.uid || '').trim())
     : String(row.partner_code || '').trim();
-  const company = String(row.company_name || row.company_code || '').trim();
-  const channel = String(row.agent_channel_code || '').trim();
+  const company = listText(row.company_name) || listText(row.company_code);
+  const channel = listText(row.agent_channel_code);
   const ic = memberStatus(row, kind);
   const rate = kind === 'user'
     ? row.agent_payout_rate
     : row.fee_rate;
   const rateNumber = Number(rate);
-  const rateLabel = rate != null && rate !== '' && Number.isFinite(rateNumber)
+  const rateLabel = rate != null && listText(rate) !== '' && Number.isFinite(rateNumber)
     ? `${Math.round(rateNumber * 100)}%`
     : '기본';
 
@@ -327,7 +347,7 @@ export function MemberListRow({
       onClick={onClick}
       thumb={<FeedThumbIcon icon={ic.icon} tone={ic.tone} title={ic.title} decorative />}
       lines={[
-        <FeedTitle key="t">{String(row.name || code || (kind === 'user' ? '계정' : '회사'))}</FeedTitle>,
+        <FeedTitle key="t">{listText(row.name) || code || (kind === 'user' ? '계정' : '회사')}</FeedTitle>,
         // ② 식별 — 상태뱃지 + 코드·소속. 문의·계약·재고와 같은 자리·같은 순서(뱃지가 앞).
         <div key="b" style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden' }}>
           {kind === 'user' ? (
@@ -340,7 +360,7 @@ export function MemberListRow({
             </>
           ) : (
             <>
-              <Badge tone={partnerType === '공급사' ? 'blue' : 'gray'}>{partnerType}</Badge>
+              <Badge tone={partnerType === '공급사' ? 'blue' : partnerType === '분류 필요' ? 'red' : 'gray'}>{partnerType}</Badge>
               <Badge tone="gray" variant="quiet">수수료 {rateLabel}</Badge>
             </>
           )}
@@ -448,31 +468,28 @@ function CreateListRow({
   );
 }
 
-function settlementStatusIcon(s: EntityRecord): { icon: LucideIcon; tone: BadgeTone; title: string } {
-  const status = String(s.settlement_status || '정산대기');
-  const tone = SETTLEMENT_STATUS_TONE[status] || 'gray';
-  if (status === '정산완료') return { icon: CircleCheck, tone, title: status };
-  if (status === '환수대기' || status === '환수결정') return { icon: Ban, tone, title: status };
-  return { icon: FileClock, tone, title: status };
+function settlementStatusIcon(display: SettlementListDisplay): { icon: LucideIcon; tone: BadgeTone; title: string } {
+  if (display.status === '정산완료') return { icon: CircleCheck, tone: display.tone, title: display.status };
+  if (display.status === '환수대기' || display.status === '환수결정') {
+    return { icon: Ban, tone: display.tone, title: display.status };
+  }
+  if (display.status === '상태 확인') return { icon: FileX2, tone: 'red', title: display.status };
+  return { icon: FileClock, tone: display.tone, title: display.status };
 }
 
-/** 월별 정산 목록 — 정산 상태·계약/차량·관계자·순수익을 3줄 규격으로 표시. */
+/** 월별 정산 목록 — 차량명 / 상태·차번·날짜 / 관계자·정산코드 3줄 규격. */
 export function SettlementListRow({
-  settlement, selected, onClick,
+  settlement, display, selected, onClick,
 }: {
   settlement: EntityRecord;
+  display: SettlementListDisplay;
   selected?: boolean;
   onClick: () => void;
 }) {
-  const status = String(settlement.settlement_status || '정산대기');
-  const ic = settlementStatusIcon(settlement);
+  const ic = settlementStatusIcon(display);
   const net = Number(settlement.net_amount) || 0;
-  const invalidRent = !Number.isFinite(Number(settlement.rent_amount)) || Number(settlement.rent_amount) <= 0;
-  const unresolvedRate = String(settlement.fee_rate_unresolved || '') === 'yes';
-  const title = String(settlement.customer_name || settlement.car_number || settlement.settlement_code || '정산');
-  const contractDate = String(settlement.contract_date || '').trim();
-  const providerCode = String(settlement.provider_company_code || '').trim();
-  const agentCode = String(settlement.agent_code || '').trim();
+  const netColor = C[settlementNetTone(settlement.net_amount)];
+  const { invalidRent, unresolvedRate } = settlementWarning(settlement);
   const settlementCode = String(settlement.settlement_code || '').trim();
   return (
     <FeedListRow
@@ -482,20 +499,23 @@ export function SettlementListRow({
       lines={[
         <FeedTitleRow
           key="t"
-          title={<FeedTitle>{title}</FeedTitle>}
-          meta={<span style={{ fontSize: FS.sub, fontWeight: FW.head, color: net > 0 ? C.brand : C.mute, fontFamily: NUM }}>{won(net)}</span>}
+          title={<FeedTitle>{display.vehicleName}</FeedTitle>}
+          meta={<span style={{ fontSize: FS.sub, fontWeight: FW.head, color: netColor, fontFamily: NUM }}>{won(net)}</span>}
         />,
         <FeedBadges key="b">
-          <Badge tone={SETTLEMENT_STATUS_TONE[status] || 'gray'}>{status}</Badge>
-          {invalidRent ? <Badge tone="red" variant="solid">금액 확인</Badge> : null}
-          {!invalidRent && unresolvedRate ? <Badge tone="amber" variant="solid">요율 확인</Badge> : null}
-          {plateSpan(String(settlement.car_number || ''))}
-          {contractDate ? <span style={{ fontSize: FS.cap, fontFamily: NUM, color: C.mute, fontWeight: FW.strong }}>{contractDate}</span> : null}
+          <Badge tone={display.tone}>{display.status}</Badge>
+          {invalidRent ? <Badge tone="red" variant="solid">{SETTLEMENT_RENT_WARNING}</Badge> : null}
+          {unresolvedRate ? <Badge tone="amber" variant="solid">{SETTLEMENT_RATE_WARNING}</Badge> : null}
+          {dotJoin([
+            plateSpan(display.plate),
+            display.contractDate ? <span key="d" style={{ fontSize: FS.cap, fontFamily: NUM, color: C.mute, fontWeight: FW.strong }}>{display.contractDate}</span> : null,
+          ])}
         </FeedBadges>,
         <FeedSub key="s">
           {dotJoin([
-            providerCode || null,
-            agentCode || null,
+            display.customerName || null,
+            display.providerName || null,
+            display.agentName || null,
             settlementCode ? <span key="c" style={{ fontFamily: NUM }}>{settlementCode}</span> : null,
           ]) || '—'}
         </FeedSub>,
@@ -506,21 +526,28 @@ export function SettlementListRow({
 
 /** 정책 — 전용/공용 아이콘 · 유형뱃지 · 코드·심사 (문의·계약·재고와 동일 3줄) */
 function policyStatusIcon(p: EntityRecord): { icon: LucideIcon; tone: BadgeTone; title: string } {
+  if (!listText(p.policy_name)) {
+    return { icon: FileX2, tone: 'red', title: '정책명 확인' };
+  }
   const shared = !String(p.provider_company_code || '').trim();
   return { icon: ShieldCheck, tone: shared ? 'gray' : 'blue', title: shared ? '공용 정책' : '전용 정책' };
 }
 
 export function PolicyListRow({
-  p, selected, onClick,
+  p, providerName: resolvedProviderName, selected, onClick,
 }: {
   p: EntityRecord;
+  providerName?: string;
   selected?: boolean;
   onClick: () => void;
 }) {
   const ic = policyStatusIcon(p);
-  const ptype = String(p.policy_type || '').trim();
-  const providerCode = String(p.provider_company_code || '').trim();
+  const ptype = listText(p.policy_type);
+  const providerCode = listText(p.provider_company_code);
+  const providerName = listText(resolvedProviderName) || listText(p.provider_name) || providerCode;
   const policyCode = String(p.policy_code || '').trim();
+  const policyName = listText(p.policy_name);
+  const missingName = !policyName;
   const screeningCriteria = String(p.screening_criteria || '').trim();
   const shared = !providerCode;
   return (
@@ -529,10 +556,11 @@ export function PolicyListRow({
       onClick={onClick}
       thumb={<FeedThumbIcon icon={ic.icon} tone={ic.tone} title={ic.title} decorative />}
       lines={[
-        <FeedTitle key="t">{String(p.policy_name || p.policy_code || '정책')}</FeedTitle>,
+        <FeedTitle key="t">{policyName || '정책명 미지정'}</FeedTitle>,
         <FeedBadges key="b">
+          {missingName ? <Badge tone="red" variant="solid">정보 확인</Badge> : null}
           {ptype ? <Badge tone="blue">{ptype}</Badge> : null}
-          <Badge tone={shared ? 'gray' : 'blue'} variant="quiet">{shared ? '공용' : providerCode}</Badge>
+          <Badge tone={shared ? 'gray' : 'blue'} variant="quiet">{shared ? '공용' : providerName}</Badge>
         </FeedBadges>,
         <FeedSub key="s">
           {dotJoin([

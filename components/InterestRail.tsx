@@ -4,7 +4,7 @@ import { useEffect, useState, type MouseEvent } from 'react';
 import { Star, History, X } from 'lucide-react';
 import { C, R, Btn, IconBtn, NUM, ctrlH, ctrlFs, FW, FS } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
-import { vehicleName, cheapest } from '@/lib/domain/product';
+import { vehicleName, cheapest, isOfferableProduct } from '@/lib/domain/product';
 import {
   listRecent, listFavs, clearRecent, clearFavs, removeRecent, removeFav, subscribeInterest,
   type InterestSnap,
@@ -220,14 +220,21 @@ export function InterestPanel({
   const mobile = useIsMobile();
   if (!tab) return null;
 
-  const items = tab === 'recent' ? recent : favs;
-  const byCode = new Map(rows.map((p) => [String(p.product_code || p._key), p]));
+  const storedItems = tab === 'recent' ? recent : favs;
+  const allByCode = new Map(rows.map((p) => [String(p.product_code || p._key), p]));
+  // 현재 데이터에 존재하지만 판매조건을 잃은 상품은 최근·관심 우회 링크로 다시 노출하지 않는다.
+  // 이미 삭제되어 live 데이터가 없는 스냅은 사용자가 직접 제거할 수 있게 기존대로 남긴다.
+  const items = storedItems.filter((snapshot) => {
+    const live = allByCode.get(snapshot.code);
+    return !live || isOfferableProduct(live);
+  });
+  const byCode = new Map(rows.filter(isOfferableProduct).map((p) => [String(p.product_code || p._key), p]));
 
   return (
     <div className="fp-finder-interest" style={{ width: '100%', marginBottom: mobile ? 10 : 8 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
         <span style={{ fontSize: FS.sub, fontWeight: FW.title, color: C.brand }}>
-          {tab === 'recent' ? `최근 ${recent.length}` : `관심 ${favs.length}`}
+          {tab === 'recent' ? `최근 ${items.length}` : `관심 ${items.length}`}
         </span>
         <span style={{ flex: 1 }} />
         {tab === 'recent' && recent.length > 0 && (

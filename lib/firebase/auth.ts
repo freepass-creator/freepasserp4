@@ -14,6 +14,7 @@ import { buildAuditEntry } from '@/lib/domain/audit';
 import { currentActor } from '@/lib/session';
 import { getCompanyId } from '@/lib/tenant';
 import type { EntityRecord } from '@/lib/intake/entities';
+import { businessRegistrationNumberOf, normalizeBusinessRegistrationNumber } from '@/lib/domain/business-identity';
 
 /** 관리자 신원 조작(승인·역할재배정·채널백필) 감사기록 — store를 안 거치는 top-level users 쓰기라 별도 기록.
  *  best-effort(감사 실패가 원 작업을 막지 않음). audit_logs 규칙: actor_uid === auth.uid(=현재 관리자). */
@@ -160,7 +161,7 @@ async function resolveIdentity(bizNo: string): Promise<{ role: string; company_c
       const partners = (await get(ref(db, 'partners'))).val() || {};
       for (const [k, p] of Object.entries<Record<string, unknown>>(partners)) {
         if (!p || p._deleted) continue;
-        const pn = String(p.business_number || '').replace(/\D/g, '');
+        const pn = businessRegistrationNumberOf(p, 'partner');
         if (pn && pn === bizNo) {
           matched_partner_code = String(p.partner_code || k);
           const pt = String(p.partner_type || '');
@@ -191,7 +192,7 @@ export async function writeUserProfile(user: User, info: {
   consent?: { terms: boolean; privacy: boolean; version: string };
 }): Promise<void> {
   const db = getRtdb(); if (!db) throw new Error('DB가 설정되지 않았습니다');
-  const bizNo = String(info.business_no || '').replace(/\D/g, '');
+  const bizNo = normalizeBusinessRegistrationNumber(info.business_no);
   let step = '초기화'; // 실패 단계 표기(가입 오류 위치 추적)
   try {
     step = 'uid 확인';
@@ -328,7 +329,7 @@ export async function approveUser(uid: string, active = true, opts?: { rematch?:
     summary = '가입 승인(기존 신원 보존)';
   } else {
     // 최초 승인(또는 명시적 재매칭) — bizNo로 신원 파생·배정.
-    const bizNo = String((u && u.business_no) || '').replace(/\D/g, '');
+    const bizNo = businessRegistrationNumberOf(u, 'user');
     const user_code = String((u && u.user_code) || uid).trim();
     const { role, company_code, agent_channel_code, matched_partner_code } = await resolveIdentity(bizNo);
     // 가드: 공급/영업으로 신청했는데 매칭 파트너가 없으면 승인 차단(조용한 개인영업 SP999 오배정 방지).

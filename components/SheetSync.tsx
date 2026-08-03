@@ -3,17 +3,36 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getStore } from '@/lib/store';
 import { getRole, actor } from '@/lib/domain/deal';
 import { confirmDialog, toast } from '@/components/Toaster';
-import { Btn, C, FS, FW, Input, PillTabs, R, Select, SectionLabel, Textarea, NUM } from '@/components/ui';
+import { Btn, C, FS, FW, Input, Modal, PillTabs, R, Select, SectionLabel, Textarea, NUM, td, th } from '@/components/ui';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { type MasterEntry } from '@/lib/domain/vehicle-master-match';
-import { fetchSheetTable, parseDelimited, autoMapHeaders, IMPORT_FIELDS, prepareMasterIngress, type MappingProfile } from '@/lib/domain/sheet-import';
+import {
+  autoMapHeaders,
+  buildMappingHeaderSignature,
+  fetchSheetTable,
+  IMPORT_FIELDS,
+  parseDepositRule,
+  parseDelimited,
+  parseMappingHeaderSignature,
+  parseMappingProfile,
+  prepareMasterIngress,
+  type DepositRule,
+  type MappingHeaderSignature,
+  type MappingProfile,
+} from '@/lib/domain/sheet-import';
 import { commitSupplierProducts, previewSupplierTable } from '@/lib/domain/master-ingress';
 import { loadVehicleMaster, peekVehicleMaster } from '@/lib/domain/vehicle-master-load';
 import { ADAPTER_OPTIONS, resolveAdapter, type SheetAdapterId } from '@/lib/domain/sheet-adapters';
 import {
   listSheetPartners,
+  listSheetPartnerRecords,
   fetchAllPartnerSheets,
   commitFetchedPartnerSheets,
+  buildPrevForGuard,
+  findSheetSyncExistingConflicts,
+  sheetSyncExistingConflictReason,
+  sheetSyncCommitBlockReason,
+  sheetPartnerRosterRevision,
   type PartnerSheetRow,
 } from '@/lib/domain/sheet-sync-all';
 import { DEFAULT_SUPPLIER_HUB_URL, syncHubSheetUrls } from '@/lib/domain/sheet-hub-sync';
@@ -21,12 +40,69 @@ import {
   countAutoplusStock,
   importAutoplusMerged,
   AUTOPLUS_GID_MAIN,
+  type AutoplusImportResult,
 } from '@/lib/domain/sheet-autoplus';
 import {
   formatSheetDiffBanner,
+  sheetChangedFieldCounts,
+  sheetStatusTransitionCounts,
   summarizeSheetDiff,
   type SheetDiffSummary,
 } from '@/lib/domain/sheet-diff';
+import {
+  listProductsForSheetReconcile,
+  listSheetReconcileState,
+  sheetReconcileStateRevision,
+  shouldReconcileAbsent,
+} from '@/lib/domain/sheet-merge';
+import { copyText } from '@/lib/clipboard';
+import { getAuthClient } from '@/lib/firebase/client';
+import {
+  buildSheetConflictReportRows,
+  sheetConflictReportTsv,
+  type SheetConflictReportRow,
+} from '@/lib/domain/sheet-conflict-report';
+import {
+  KEEP_EXISTING_PRICES,
+  PRICE_PERIOD_CONFLICT,
+  applySheetConflictResolutions,
+  isPriceConflictProtected,
+  sheetConflictFingerprint,
+  type SheetConflictResolution,
+  type SheetConflictResolutionInput,
+} from '@/lib/domain/sheet-conflict-resolution';
+import {
+  ASSIGN_SHEET_OWNER,
+  DELETED_REAPPEARANCE_CONFLICT,
+  KEEP_DELETED,
+  KEEP_EXISTING_OWNER,
+  OWNERSHIP_CONFLICT,
+  RESTORE_DELETED,
+  sheetConflictDecisionLabel,
+  type SheetConflictDecision,
+  type SheetConflictDecisionInput,
+  type SheetConflictDecisionValue,
+} from '@/lib/domain/sheet-conflict-decision';
+import {
+  buildSheetConflictDecisionTargets,
+  planSheetConflictDecisionDryRun,
+  sheetConflictDecisionDryRunTsv,
+  sheetConflictDecisionTargetBlockReason,
+  type SheetConflictDecisionTarget,
+} from '@/lib/domain/sheet-conflict-decision-dry-run';
+import {
+  planSheetIdentityConflictReview,
+  sheetIdentityConflictReviewTsv,
+  type SheetIdentityConflictReview,
+  type SheetIdentityReviewRow,
+} from '@/lib/domain/sheet-identity-conflict-review';
+import {
+  sheetIdentityDecisionLabel,
+  sheetIdentityDecisionOptions,
+  type SheetIdentityDecision,
+  type SheetIdentityDecisionInput,
+  type SheetIdentityDecisionValue,
+} from '@/lib/domain/sheet-identity-decision';
 
 /** 아이카식 표준 양식 — autoMapHeaders 별칭과 정합. 컬럼명 변경 금지. */
 const STANDARD_SHEET_HEADERS = [
@@ -42,8 +118,14 @@ const STANDARD_SHEET_EXAMPLE = [
 ] as const;
 
 const STANDARD_SHEET_HINT =
-  '출고불가가 아니면 다 올라갑니다. 배차중·배차대기는 출고협의, 판매중·할인판매는 출고가능, 출고완료·폐차는 출고불가. '
+  '출고불가가 아니면 다 올라갑니다. 배차중·배차대기는 출고협의, 판매중·할인판매는 출고가능, 계약·출고완료·폐차는 출고불가. '
   + '대여료는 개월 열에 월 렌트료(원), 보증금은 단기(12개월↓)/장기(24개월↑).';
+
+const DEPOSIT_RULE_OPTIONS = [
+  { value: '', label: '시트 보증금만 사용' },
+  { value: 'months_per_year', label: '기간 1년당 월대여료 1개월치' },
+  { value: 'rent_multiple', label: '국산 2·수입 3개월치' },
+] as const;
 
 function downloadStandardSheetTemplate() {
   const csv = `\uFEFF${STANDARD_SHEET_HEADERS.join(',')}\n${STANDARD_SHEET_EXAMPLE.join(',')}\n`;
@@ -66,11 +148,126 @@ type PartnerDiffRow = {
   code: string; label: string; ok: boolean;
   sheet: number;                                  // 시트에서 읽어 올릴 매물(출고불가 제외 후)
   new: number; status: number; content: number;   // 신규 · 상태변경 · 내용수정
-  absent: number; unchanged: number;              // 시트에 없어 출고불가 · 무변경
+  absent: number; guarded: number; unchanged: number; // 재고차단 · 급감가드 보류 · 무변경
   excluded: number;                               // 시트에 출고불가로 적혀 있어 안 올린 것
   noPrice: number;                                // 대여료가 없어 안 올린 것 — 게시하면 손님에게 보여줄 값이 없다
+  skipped: number;                                // 중복·무효·신원없는 행
+  duplicate: number; invalid: number;
+  issues: string;
+  statusDetail: string;                           // 실제 상태 전이 상위
+  fieldDetail: string;                            // 실제 내용 변경 필드 상위
   note: string;
 };
+
+type DailySyncStatus = {
+  enabled: boolean;
+  schedule: string;
+  lastRun: null | {
+    run_id?: string;
+    status?: 'running' | 'blocked' | 'completed' | 'failed' | 'dry_run';
+    started_at?: number;
+    finished_at?: number;
+    block_reason?: string;
+    error?: string;
+    counts?: {
+      created?: number;
+      updated?: number;
+      absentBlocked?: number;
+      imported?: number;
+    };
+  };
+};
+
+type DuplicatePlanResponse = {
+  generatedAt: number;
+  summary: {
+    duplicateGroups: number;
+    relatedProducts: number;
+    representativeCandidates: number;
+    candidateGroupsWithoutDetectedBlocker: number;
+    blockedGroups: number;
+    exactContractReferences: number;
+    exactRoomReferences: number;
+    exactQuoteReferences: number;
+    privateProductRecords: number;
+    plateOnlyReferenceGroups: number;
+    plateOnlyReferences: number;
+    dryRunEligibleGroups: number;
+    dataConflictGroups: number;
+    eligibleOperations: number;
+    eligibleDestructiveOperations: number;
+    eligibleClaudeGateOperations: number;
+    accountMismatchGroups: number;
+    redundantAccountGroups: number;
+  };
+  tsv: string;
+  dryRunTsv: string;
+};
+
+async function fetchSheetConflictResolutions(): Promise<SheetConflictResolution[]> {
+  const user = getAuthClient()?.currentUser;
+  if (!user) throw new Error('로그인 확인 필요');
+  const response = await fetch('/api/sheet/conflict-resolutions', {
+    headers: { Authorization: `Bearer ${await user.getIdToken()}` },
+    cache: 'no-store',
+  });
+  const body = await response.json().catch(() => ({})) as {
+    resolutions?: SheetConflictResolution[];
+    error?: string;
+  };
+  if (!response.ok) throw new Error(body.error || `승인 원장 확인 실패 ${response.status}`);
+  return Array.isArray(body.resolutions) ? body.resolutions : [];
+}
+
+async function fetchSheetConflictDecisions(): Promise<SheetConflictDecision[]> {
+  const user = getAuthClient()?.currentUser;
+  if (!user) throw new Error('로그인 확인 필요');
+  const response = await fetch('/api/sheet/conflict-decisions', {
+    headers: { Authorization: `Bearer ${await user.getIdToken()}` },
+    cache: 'no-store',
+  });
+  const body = await response.json().catch(() => ({})) as {
+    decisions?: SheetConflictDecision[];
+    error?: string;
+  };
+  if (!response.ok) throw new Error(body.error || `소유권·삭제 결정 조회 실패 ${response.status}`);
+  return Array.isArray(body.decisions) ? body.decisions : [];
+}
+
+async function fetchSheetIdentityDecisions(): Promise<SheetIdentityDecision[]> {
+  const user = getAuthClient()?.currentUser;
+  if (!user) throw new Error('로그인 확인 필요');
+  const response = await fetch('/api/sheet/identity-decisions', {
+    headers: { Authorization: `Bearer ${await user.getIdToken()}` },
+    cache: 'no-store',
+  });
+  const body = await response.json().catch(() => ({})) as {
+    decisions?: SheetIdentityDecision[];
+    error?: string;
+  };
+  if (!response.ok) throw new Error(body.error || `신원 결정 조회 실패 ${response.status}`);
+  return Array.isArray(body.decisions) ? body.decisions : [];
+}
+
+const SHEET_FIELD_LABEL: Record<string, string> = {
+  price: '가격', maker: '제조사', model: '모델', sub_model: '세부모델', variant: '파워트레인',
+  trim_name: '트림', trim_extra: '추가표기', year: '연식', fuel_type: '연료', engine_cc: '배기량',
+  mileage: '주행거리', ext_color: '외장색', int_color: '내장색', options: '옵션', photo_link: '사진',
+  product_type: '상품구분', partner_memo: '공급사메모', status_label_raw: '원문상태',
+  _snap_confidence: '매칭신뢰', _needs_master_review: '검수필요', _snapped: '마스터변환',
+};
+
+function changeDetail(diff: SheetDiffSummary): { statusDetail: string; fieldDetail: string } {
+  const statusDetail = sheetStatusTransitionCounts(diff)
+    .slice(0, 3)
+    .map((x) => `${x.label} ${x.count}`)
+    .join(' · ');
+  const fieldDetail = sheetChangedFieldCounts(diff)
+    .slice(0, 4)
+    .map((x) => `${SHEET_FIELD_LABEL[x.field] || x.field} ${x.count}`)
+    .join(' · ');
+  return { statusDetail, fieldDetail };
+}
 
 export function SheetSync({ co, onImported }: { co: string; onImported: () => void }) {
   const role = getRole();
@@ -79,17 +276,29 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
   const [url, setUrl] = useState('');
   const [gid, setGid] = useState('');
   const [headerRow, setHeaderRow] = useState('0');
-  const [adapterId, setAdapterId] = useState<SheetAdapterId>('autoplus');
+  const [adapterId, setAdapterId] = useState<SheetAdapterId>('generic');
   const [prov, setProv] = useState(isAdmin ? '' : (actor('provider').code || ''));
   const [paste, setPaste] = useState('');
   const [table, setTable] = useState<string[][] | null>(null);
   const [mapping, setMapping] = useState<MappingProfile>({});
+  const [mappingHeaders, setMappingHeaders] = useState<MappingHeaderSignature | undefined>();
+  const [depositRule, setDepositRule] = useState<DepositRule>('');
+  const [mappingReloadRequired, setMappingReloadRequired] = useState(false);
   /** 오토플러스 2탭 병합 유입 — table 미리보기 대신 이 배열 사용 */
   const [mergedProducts, setMergedProducts] = useState<EntityRecord[] | null>(null);
+  const [mergedDiagnostics, setMergedDiagnostics] = useState<AutoplusImportResult | null>(null);
   const [diffBanner, setDiffBanner] = useState('');
   const [busy, setBusy] = useState(false);
   const [master, setMaster] = useState<MasterEntry[] | null>(() => peekVehicleMaster());
   const [roster, setRoster] = useState<PartnerSheetRow[]>([]);
+  const [rosterError, setRosterError] = useState('');
+  const [dailyStatus, setDailyStatus] = useState<DailySyncStatus | null>(null);
+  const [dailyStatusError, setDailyStatusError] = useState('');
+  const [dailyStatusLoading, setDailyStatusLoading] = useState(false);
+  const [duplicatePlanLoading, setDuplicatePlanLoading] = useState(false);
+  const [duplicateDryRunLoading, setDuplicateDryRunLoading] = useState(false);
+  const [decisionQueueOpen, setDecisionQueueOpen] = useState(false);
+  const [identityReviewOpen, setIdentityReviewOpen] = useState(false);
   const [bulkLog, setBulkLog] = useState<string>('');
   const [partnerHint, setPartnerHint] = useState('');
   const [pending, setPending] = useState<{
@@ -97,26 +306,87 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
     banners: string[];
     totals: {
       new: number; status: number; content: number; absent: number;
-      unchanged: number; excludedCount: number; noPriceCount: number;
+      guarded: number; unchanged: number; excludedCount: number; noPriceCount: number;
+      skippedCount: number; duplicateCount: number; invalidCount: number; sourceRowCount: number;
     };
     /** 공급사별 수정범위 — 합계만 보면 어느 업체가 문제인지 안 보인다. */
     perPartner: PartnerDiffRow[];
+    prevForGuard: Map<string, number>;
+    existingRevision: string;
+    rosterRevision: string;
+    existingConflictReason: string;
+    existingConflictDetail: string;
+    existingConflictReport: string;
+    existingConflictRows: SheetConflictReportRow[];
+    priceResolutionCandidates: SheetConflictResolutionInput[];
+    approvedPriceFingerprints: string[];
+    conflictDecisions: SheetConflictDecision[];
+    identityDecisions: SheetIdentityDecision[];
+    decisionRecords: EntityRecord[];
+    identityConflictReview: SheetIdentityConflictReview;
+    resolvedPriceCount: number;
+    protectedPriceCount: number;
     at: number;
   } | null>(null);
 
   const refreshRoster = useCallback(async () => {
     if (!isAdmin) return;
-    try { setRoster(await listSheetPartners(co)); } catch { setRoster([]); }
+    try {
+      // 관리자 검증 대상은 캐시·부분 merge 결과를 정상 roster로 승인하면 안 된다.
+      // 특히 부분 read가 []로 축약되면 검증 버튼까지 사라져 재시도할 길이 막힌다.
+      setRoster(await listSheetPartners(co, true));
+      setRosterError('');
+    } catch (error) {
+      setRoster([]);
+      setRosterError(String((error as Error).message || error));
+    }
   }, [co, isAdmin]);
+
+  const refreshDailyStatus = useCallback(async () => {
+    if (!isAdmin) return;
+    setDailyStatusLoading(true);
+    try {
+      const user = getAuthClient()?.currentUser;
+      if (!user) throw new Error('로그인 확인 필요');
+      const response = await fetch('/api/sheet/sync-status', {
+        headers: { Authorization: `Bearer ${await user.getIdToken()}` },
+        cache: 'no-store',
+      });
+      if (!response.ok) throw new Error(`상태 조회 실패 ${response.status}`);
+      setDailyStatus(await response.json() as DailySyncStatus);
+      setDailyStatusError('');
+    } catch (error) {
+      setDailyStatus(null);
+      setDailyStatusError(String((error as Error).message || error));
+    } finally {
+      setDailyStatusLoading(false);
+    }
+  }, [isAdmin]);
 
   // roster 바뀌면 검증 스냅샷 무효
   useEffect(() => { setPending(null); }, [roster]);
 
+  /**
+   * 공급사 설정 단건도 일괄 검증과 같은 strict fresh source에서 찾는다.
+   * tolerant get()은 live/overlay 일부 read 실패를 "설정 없음"으로 축약할 수 있어,
+   * 저장 매핑·보증금 규칙을 잃은 자동매핑으로 실행하거나 다시 저장하게 만들 수 있다.
+   */
+  const readPartnerConfig = useCallback(async (code: string): Promise<EntityRecord | null> => {
+    const target = code.trim();
+    if (!target) return null;
+    const rows = await listSheetPartnerRecords(co, true);
+    return rows.find((row) => String(row.partner_code || row._key || '').trim() === target) || null;
+  }, [co]);
+
   /** 공급사: partner에 저장된 시트 URL·어댑터·헤더·매핑 자동 채움. */
   const hydrateFromPartner = useCallback(async (code: string) => {
     if (!code.trim()) return;
+    // 계정/회사 전환 뒤 이전 공급사의 설정이 잠시라도 남지 않게 먼저 비운다.
+    setUrl(''); setGid(''); setHeaderRow('0'); setAdapterId('generic'); setDepositRule('');
+    setTable(null); setMapping({}); setMappingHeaders(undefined); setMergedProducts(null); setMergedDiagnostics(null);
+    setMappingReloadRequired(false); setDiffBanner(''); setBulkLog('');
     try {
-      const p = await getStore().get('partner', co, code.trim());
+      const p = await readPartnerConfig(code);
       if (!p) {
         setPartnerHint(`파트너 ${code} 없음 — URL을 직접 넣고「매핑·URL 저장」하면 다음에 자동 채움`);
         return;
@@ -124,25 +394,26 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
       const savedUrl = String(p.sheet_url || '').trim();
       const savedGid = String(p.sheet_tab || '').trim();
       const savedHeader = p.header_row != null && p.header_row !== '' ? String(p.header_row) : '';
-      const savedAdapter = (String(p.adapter_id || '') as SheetAdapterId) || 'autoplus';
+      const savedAdapter = resolveAdapter(p).id;
       if (savedUrl && !/^https:\/\/docs\.google\.com\/…/.test(savedUrl)) {
         setUrl(savedUrl);
         setPartnerHint(`${String(p.name || code)} 시트 불러옴`);
       } else {
-        const cached = typeof window !== 'undefined' ? localStorage.getItem('fp4_sheet_' + role) : '';
-        if (cached) setUrl(cached);
+        // 구글시트 URL은 링크 자체가 접근권한일 수 있다. role 공용 localStorage에 캐시하면
+        // 같은 브라우저에서 공급사 A 로그아웃→B 로그인 시 A의 URL이 B에게 노출된다.
+        setUrl('');
         setPartnerHint(savedUrl
           ? '시드 placeholder URL — 실제 구글시트 주소를 넣고「매핑·URL 저장」하세요'
           : '등록된 시트 없음 — URL 입력 후「매핑·URL 저장」하면 다음에 자동');
       }
       if (savedGid) setGid(savedGid);
       if (savedHeader) setHeaderRow(savedHeader);
-      if (savedAdapter === 'generic' || savedAdapter === 'autoplus') setAdapterId(savedAdapter);
-      else setAdapterId('autoplus');
-    } catch {
-      setPartnerHint('파트너 시트 정보를 읽지 못했습니다');
+      setAdapterId(savedAdapter);
+      setDepositRule(parseDepositRule(p.deposit_rule));
+    } catch (error) {
+      setPartnerHint(`파트너 시트 설정을 읽지 못했습니다 — ${String((error as Error).message || error)}`);
     }
-  }, [co, role]);
+  }, [readPartnerConfig]);
 
   useEffect(() => {
     loadVehicleMaster()
@@ -153,11 +424,18 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
       });
   }, []);
   useEffect(() => { refreshRoster(); }, [refreshRoster]);
+  useEffect(() => { void refreshDailyStatus(); }, [refreshDailyStatus]);
   useEffect(() => {
     if (!isAdmin && prov) void hydrateFromPartner(prov);
   }, [isAdmin, prov, hydrateFromPartner]);
 
-  const clear = () => { setTable(null); setMapping({}); setBulkLog(''); setMergedProducts(null); setDiffBanner(''); };
+  const clear = () => {
+    setTable(null); setMapping({}); setMappingHeaders(undefined);
+    // 보증금 규칙은 partner 설정이다. URL·gid·붙여넣기 원문을 바꿔 preview를
+    // 무효화해도 실제 저장 설정 표시까지 빈값으로 되돌리면 실행 규칙과 화면이 어긋난다.
+    setMappingReloadRequired(false);
+    setBulkLog(''); setMergedProducts(null); setMergedDiagnostics(null); setDiffBanner('');
+  };
   const prepared = (raw: string[][]) => resolveAdapter(adapterId).prepareTable(raw, { headerRow: Math.max(0, Number(headerRow) || 0) });
   const masterReady = !!(master && master.length);
 
@@ -167,75 +445,206 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
       toast('차종마스터 로드 후 오토플러스 2탭을 불러올 수 있습니다', 'error');
       return;
     }
-    setBusy(true); setBulkLog(''); setMergedProducts(null); setDiffBanner('');
+    // 소스 설정을 바꾼 후 fetch가 실패해도 이전 시트를 저장하지 못하게 먼저 무효화한다.
+    setBusy(true); setBulkLog(''); setTable(null); setMapping({}); setMappingHeaders(undefined);
+    setMappingReloadRequired(false); setMergedProducts(null); setMergedDiagnostics(null); setDiffBanner('');
     try {
       if (adapterId === 'autoplus') {
-        const res = await importAutoplusMerged({
-          url: url.trim(),
-          providerCode: prov.trim() || 'preview',
-          entries: master!,
-          profile: Object.keys(mapping).length ? mapping : undefined,
-          fetchTable: fetchSheetTable,
-          headerRow: Math.max(0, Number(headerRow) || 0),
-        });
+        let savedProfile: Awaited<ReturnType<typeof loadProfile>>;
+        try {
+          savedProfile = await loadProfile(prov);
+        } catch (error) {
+          // 깨진 JSON/enum 때문에 profile 자체를 못 읽어도 원본 본탭은 보여줘야
+          // 운영자가 매핑·규칙을 다시 저장해 복구할 수 있다. 이 상태에서는 동기화 금지.
+          const recoveryRaw = await fetchSheetTable(url.trim(), AUTOPLUS_GID_MAIN);
+          const recoveryTable = prepared(recoveryRaw);
+          if (recoveryTable.length < 2) throw error;
+          const recoveryMapping = autoMapHeaders(recoveryTable[0]);
+          setTable(recoveryTable);
+          setMapping(recoveryMapping);
+          setMappingHeaders(buildMappingHeaderSignature(recoveryTable[0], recoveryMapping));
+          setDepositRule('');
+          setMappingReloadRequired(true);
+          setBulkLog(`시트 설정 오류 — 매핑과 보증금 규칙을 확인·저장한 뒤 다시 불러오세요. (${String((error as Error).message || error)})`);
+          toast('저장된 시트 설정이 깨져 복구 모드로 열었습니다. 저장 후 다시 불러오세요.', 'info');
+          return;
+        }
+        const activeMapping = Object.keys(mapping).length ? mapping : savedProfile?.mapping;
+        const activeHeaders = Object.keys(mapping).length ? mappingHeaders : savedProfile?.headers;
+        const activeDepositRule = savedProfile?.depositRule ?? depositRule;
+        let res: AutoplusImportResult;
+        try {
+          res = await importAutoplusMerged({
+            url: url.trim(),
+            providerCode: prov.trim() || 'preview',
+            entries: master!,
+            profile: activeMapping,
+            profileHeaders: activeHeaders,
+            depositRule: activeDepositRule,
+            fetchTable: fetchSheetTable,
+            headerRow: Math.max(0, Number(headerRow) || 0),
+          });
+        } catch (error) {
+          const message = String((error as Error).message || error);
+          if (!/매핑을 다시 저장|헤더 (?:변경|이동|검증)/.test(message)) throw error;
+          const driftRaw = await fetchSheetTable(url.trim(), AUTOPLUS_GID_MAIN);
+          const driftTable = prepared(driftRaw);
+          if (driftTable.length < 2) throw error;
+          const remap = autoMapHeaders(driftTable[0]);
+          setTable(driftTable);
+          setMapping(remap);
+          setMappingHeaders(buildMappingHeaderSignature(driftTable[0], remap));
+          setDepositRule(activeDepositRule);
+          setMappingReloadRequired(true);
+          setBulkLog(`헤더 변경 감지 — 자동 재매핑을 확인·저장한 뒤 2탭을 다시 불러오세요. (${message})`);
+          toast('오토플러스 헤더가 바뀌어 저장은 차단했습니다. 재매핑을 확인하세요.', 'info');
+          return;
+        }
         // 매핑 UI용 = 본탭 prepare 결과(라벨 적용됨)
         const rawMain = await fetchSheetTable(url.trim(), AUTOPLUS_GID_MAIN);
         const t = prepared(rawMain);
         setTable(t.length >= 2 ? t : [['차량번호'], ...res.products.slice(0, 1).map((p) => [String(p.car_number || '')])]);
-        setMapping(await loadProfile(prov) || autoMapHeaders(t[0] || ['차량번호']));
+        const nextMapping = activeMapping || autoMapHeaders(t[0] || ['차량번호']);
+        setMapping(nextMapping);
+        setMappingHeaders(activeHeaders || buildMappingHeaderSignature(t[0] || [], nextMapping));
+        setDepositRule(activeDepositRule);
         setMergedProducts(res.products);
+        setMergedDiagnostics(res);
+        setMappingReloadRequired(false);
         setBulkLog(`오토플러스 2탭 — 본 ${res.mainN}+프로모 ${res.promoOnlyN}=${res.imported} · 재고(출고가능+보류) ${res.stock}`);
-        if (typeof window !== 'undefined') localStorage.setItem('fp4_sheet_' + role, url.trim());
       } else {
+        const gidTokens = gid.trim() ? gid.trim().split(/[,\s|]+/).filter(Boolean) : [];
+        if (gidTokens.some((token) => !/^\d+$/.test(token))) {
+          throw new Error('gid는 숫자 탭 ID만 입력하세요');
+        }
+        if (gidTokens.length > 1) {
+          throw new Error('다중 탭 시트는 관리자 일괄 검증에서만 동일 기준으로 병합합니다');
+        }
         const raw = await fetchSheetTable(url.trim(), gid.trim() || undefined);
         const t = prepared(raw);
         if (t.length < 2) { toast('헤더 + 데이터 행이 필요합니다(헤더 행 번호 확인)', 'error'); return; }
         setTable(t);
-        setMapping(await loadProfile(prov) || autoMapHeaders(t[0]));
-        if (typeof window !== 'undefined') localStorage.setItem('fp4_sheet_' + role, url.trim());
+        const saved = await loadProfile(prov);
+        let nextMapping = saved?.mapping || autoMapHeaders(t[0]);
+        if (saved?.mapping) {
+          try {
+            previewSupplierTable(t, {
+              providerCode: prov.trim() || 'preview', master: master!,
+              profile: saved.mapping, profileHeaders: saved.headers,
+              depositRule: saved.depositRule,
+            });
+          } catch (error) {
+            const message = String((error as Error).message || error);
+            if (!/매핑을 다시 저장|헤더 (?:변경|이동|검증)/.test(message)) throw error;
+            nextMapping = autoMapHeaders(t[0]);
+            setMappingReloadRequired(true);
+            setBulkLog(`헤더 변경 감지 — 자동 재매핑을 전체 확인·저장한 뒤 다시 불러오세요. (${message})`);
+          }
+        }
+        setMapping(nextMapping);
+        setMappingHeaders(buildMappingHeaderSignature(t[0], nextMapping));
+        setDepositRule(saved?.depositRule || '');
+        if (!saved?.mapping) setMappingReloadRequired(false);
       }
     } catch (e) { toast('시트 불러오기 실패: ' + String((e as Error).message || e), 'error'); } finally { setBusy(false); }
   };
   const loadExcel = async () => {
     if (!paste.trim()) { toast('엑셀 내용을 붙여넣으세요', 'error'); return; }
-    const t = prepared(parseDelimited(paste, '\t'));
-    if (t.length < 2) { toast('헤더 + 데이터 행이 필요합니다', 'error'); return; }
-    setBulkLog(''); setMergedProducts(null); setDiffBanner(''); setTable(t); setMapping(await loadProfile(prov) || autoMapHeaders(t[0]));
+    setTable(null); setMapping({}); setMappingHeaders(undefined);
+    setMappingReloadRequired(false); setBulkLog('');
+    setMergedProducts(null); setMergedDiagnostics(null); setDiffBanner('');
+    try {
+      const t = prepared(parseDelimited(paste, '\t'));
+      if (t.length < 2) throw new Error('헤더 + 데이터 행이 필요합니다');
+      const saved = await loadProfile(prov);
+      let nextMapping = saved?.mapping || autoMapHeaders(t[0]);
+      if (saved?.mapping) {
+        try {
+          previewSupplierTable(t, {
+            providerCode: prov.trim() || 'preview', master: master!,
+            profile: saved.mapping, profileHeaders: saved.headers,
+            depositRule: saved.depositRule,
+          });
+        } catch (error) {
+          const message = String((error as Error).message || error);
+          if (!/매핑을 다시 저장|헤더 (?:변경|이동|검증)/.test(message)) throw error;
+          // 저장 index가 현재 붙여넣기 헤더와 다르면 옛 index를 새 signature로
+          // 재승인하지 않는다. 현재 헤더 자동매핑에서 다시 시작하고 저장→재로드를 강제한다.
+          nextMapping = autoMapHeaders(t[0]);
+          setMappingReloadRequired(true);
+          setBulkLog(`헤더 변경 감지 — 자동 재매핑을 전체 확인·저장한 뒤 엑셀을 다시 불러오세요. (${message})`);
+        }
+      }
+      setTable(t); setMapping(nextMapping);
+      setMappingHeaders(buildMappingHeaderSignature(t[0], nextMapping));
+      setDepositRule(saved?.depositRule || '');
+      if (!saved?.mapping) setMappingReloadRequired(false);
+    } catch (error) {
+      toast('엑셀 불러오기 실패: ' + String((error as Error).message || error), 'error');
+    }
   };
-  const loadProfile = async (code: string): Promise<MappingProfile | null> => {
+  const loadProfile = async (code: string): Promise<{
+    mapping?: MappingProfile;
+    headers?: MappingHeaderSignature;
+    depositRule?: DepositRule;
+  } | null> => {
     if (!code.trim()) return null;
-    try { const p = await getStore().get('partner', co, code.trim()); return p?.mapping_profile ? (safeProfile(p.mapping_profile) ?? null) : null; } catch { return null; }
+    const p = await readPartnerConfig(code);
+    const saved = parseMappingProfile(p?.mapping_profile);
+    return p ? {
+      mapping: saved,
+      headers: parseMappingHeaderSignature(p?.mapping_header_signature),
+      depositRule: parseDepositRule(p?.deposit_rule),
+    } : null;
   };
 
-  const preview = useMemo(() => {
-    if (mergedProducts && masterReady) {
-      const { products, confirmed, review } = prepareMasterIngress(mergedProducts);
-      const snap = { high: 0, medium: 0, low: 0, none: 0 };
-      for (const p of mergedProducts) {
-        const c = String(p._snap_confidence || '');
-        if (c === 'high' || c === 'medium' || c === 'low') snap[c]++;
-        else snap.none++;
+  const previewState = useMemo(() => {
+    try {
+      if (mergedProducts && masterReady) {
+        const { products, confirmed, review } = prepareMasterIngress(mergedProducts);
+        const snap = { high: 0, medium: 0, low: 0, none: 0 };
+        for (const p of mergedProducts) {
+          const c = String(p._snap_confidence || '');
+          if (c === 'high' || c === 'medium' || c === 'low') snap[c]++;
+          else snap.none++;
+        }
+        return {
+          value: {
+            products,
+            imported: mergedProducts.length,
+            confirmed,
+            review,
+            skipped: mergedDiagnostics?.skipped || 0,
+            duplicateCount: mergedDiagnostics?.duplicateCount || 0,
+            blockingDuplicateCount: mergedDiagnostics?.blockingDuplicateCount || 0,
+            invalidCount: mergedDiagnostics?.invalidCount || 0,
+            issueSamples: mergedDiagnostics?.issueSamples || [],
+            excludedCount: mergedDiagnostics?.excludedCount || 0,
+            noPriceCount: mergedDiagnostics?.noPriceCount || 0,
+            snap,
+            mapping,
+            total: mergedDiagnostics?.total || mergedProducts.length,
+          },
+          error: '',
+        };
       }
       return {
-        products,
-        imported: mergedProducts.length,
-        confirmed,
-        review,
-        skipped: 0,
-        excludedCount: 0,
-        snap,
-        mapping,
-        total: mergedProducts.length,
+        value: table && masterReady
+          ? previewSupplierTable(table, {
+              providerCode: prov.trim() || 'preview',
+              master: master!,
+              profile: Object.keys(mapping).length ? mapping : undefined,
+              profileHeaders: mappingHeaders,
+              depositRule,
+            })
+          : null,
+        error: '',
       };
+    } catch (error) {
+      return { value: null, error: String((error as Error).message || error) };
     }
-    return table && masterReady
-      ? previewSupplierTable(table, {
-          providerCode: prov.trim() || 'preview',
-          master: master!,
-          profile: Object.keys(mapping).length ? mapping : undefined,
-        })
-      : null;
-  }, [mergedProducts, table, mapping, master, masterReady, prov]);
+  }, [mergedProducts, mergedDiagnostics, table, mapping, mappingHeaders, depositRule, master, masterReady, prov]);
+  const preview = previewState.value;
 
   /** 저장 전 diff 배너 — 유입 대비 기존 재고 */
   useEffect(() => {
@@ -246,7 +655,7 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
         return;
       }
       try {
-        const existing = await getStore().list('product', co);
+        const existing = await listProductsForSheetReconcile(co, true);
         const diff: SheetDiffSummary = summarizeSheetDiff({
           incoming: preview.products,
           existing,
@@ -268,18 +677,23 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
     for (const f of Object.keys(next)) if (next[f] === i) delete next[f];
     if (field) next[field] = i;
     setMapping(next);
+    if (table?.[0]) setMappingHeaders(buildMappingHeaderSignature(table[0], next));
+    if (mergedProducts) setMappingReloadRequired(true);
   };
 
   const saveMapping = async () => {
     if (!prov.trim()) { toast('공급사 코드를 지정해야 매핑을 저장합니다', 'error'); return; }
     setBusy(true);
     try {
+      const checkedMapping = parseMappingProfile(mapping) || {};
       await getStore().update('partner', co, prov.trim(), {
-        mapping_profile: JSON.stringify(mapping),
-        sheet_url: url.trim() || undefined,
-        sheet_tab: gid.trim() || undefined,
+        mapping_profile: JSON.stringify(checkedMapping),
+        mapping_header_signature: JSON.stringify(buildMappingHeaderSignature(table?.[0] || [], checkedMapping)),
+        sheet_url: url.trim() || null,
+        sheet_tab: gid.trim() || null,
         header_row: Number(headerRow) || 0,
         adapter_id: adapterId,
+        deposit_rule: depositRule || null,
       } as EntityRecord);
       toast(`매핑 저장됨 — ${prov.trim()}`, 'ok');
       await refreshRoster();
@@ -290,22 +704,79 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
   const convertAndSave = async () => {
     if (!masterReady) { toast('차종마스터가 없습니다 — 변환 불가', 'error'); return; }
     if (!preview?.products.length) return;
+    if (mappingReloadRequired) {
+      toast('저장 중단 — 매핑·보증금 규칙을 저장한 뒤 시트를 다시 불러와 전체를 재검증하세요.', 'error');
+      return;
+    }
     if (!mergedProducts && !('car_number' in mapping)) { toast('차량번호 컬럼을 지정하세요', 'error'); return; }
-    const ok = await confirmDialog({
-      message: (diffBanner || `취합 ${preview.products.length}건`)
-        + (preview.excludedCount > 0 ? `\n출고불가 제외 ${preview.excludedCount}` : '')
-        + '\n\n차종 변환 후 재고에 저장할까요?\n(신규 soft-merge · 부재→출고불가는 일괄 연동에서)',
-    });
-    if (!ok) return;
+    if (preview.products.some((product) => product.is_pending_plate)) {
+      toast('저장 중단 — 번호미정 차량은 공급사 일괄 검증 경로에서 영구 임시번호를 부여해야 합니다.', 'error');
+      return;
+    }
+    const providerCode = prov.trim();
+    if (!providerCode) { toast('공급사 코드가 없어 저장할 수 없습니다', 'error'); return; }
+    const singleFetched = {
+      partnerCount: 1,
+      rosterRevision: `manual:${providerCode}`,
+      products: preview.products,
+      lines: [{
+        code: providerCode,
+        label: providerCode,
+        ok: true,
+        sourceRowCount: Number(preview.total) || preview.products.length,
+        imported: preview.products.length,
+        excludedCount: Number(preview.excludedCount) || 0,
+        noPriceCount: Number('noPriceCount' in preview ? preview.noPriceCount : 0) || 0,
+        skippedCount: Number(preview.skipped) || 0,
+        duplicateCount: Number(preview.duplicateCount) || 0,
+        blockingDuplicateCount: Number('blockingDuplicateCount' in preview ? preview.blockingDuplicateCount : preview.duplicateCount) || 0,
+        invalidCount: Number(preview.invalidCount) || 0,
+        issueSamples: preview.issueSamples || [],
+        message: '수동 업로드',
+        products: preview.products,
+      }],
+    };
+    const sourceBlock = sheetSyncCommitBlockReason(singleFetched);
+    if (sourceBlock) {
+      toast(`저장 중단 — ${sourceBlock}. 원본 시트를 정리하고 다시 불러오세요.`, 'error');
+      return;
+    }
     setBusy(true);
     try {
+      const beforeState = await listSheetReconcileState(co, true);
+      const beforeConflict = sheetSyncExistingConflictReason(
+        findSheetSyncExistingConflicts(singleFetched, beforeState.active, beforeState.deleted),
+      );
+      if (beforeConflict) {
+        toast(`저장 중단 — ${beforeConflict}. 관리자 일괄 검증에서 충돌을 먼저 정리하세요.`, 'error');
+        return;
+      }
+      const beforeRevision = sheetReconcileStateRevision(beforeState);
+      const ok = await confirmDialog({
+        message: (diffBanner || `취합 ${preview.products.length}건`)
+          + (preview.excludedCount > 0 ? `\n출고불가 제외 ${preview.excludedCount}` : '')
+          + '\n\n차종 변환 후 재고에 저장할까요?\n(신규 soft-merge · 부재→출고불가는 관리자 일괄 연동에서만)',
+      });
+      if (!ok) return;
+      const afterConfirmState = await listSheetReconcileState(co, true);
+      if (sheetReconcileStateRevision(afterConfirmState) !== beforeRevision) {
+        toast('저장 중단 — 확인 중 ERP 재고가 변경됐습니다. 다시 불러오세요.', 'error');
+        return;
+      }
+      const afterConflict = sheetSyncExistingConflictReason(
+        findSheetSyncExistingConflicts(singleFetched, afterConfirmState.active, afterConfirmState.deleted),
+      );
+      if (afterConflict) {
+        toast(`저장 중단 — ${afterConflict}. 관리자 일괄 검증에서 충돌을 먼저 정리하세요.`, 'error');
+        return;
+      }
       const r = await commitSupplierProducts(co, preview.products, master!);
       toast(
         `변환 저장: 확정 ${r.confirmed} · 검수 ${r.review} · 신규 ${r.created} · 갱신 ${r.updated}`,
         r.review ? 'info' : 'ok',
       );
-      if (prov.trim()) {
-        try { await getStore().update('partner', co, prov.trim(), { last_synced_at: Date.now() } as EntityRecord); } catch { /* best-effort */ }
+      if (providerCode) {
+        try { await getStore().update('partner', co, providerCode, { last_synced_at: Date.now() } as EntityRecord); } catch { /* best-effort */ }
       }
       clear(); await refreshRoster(); onImported();
     } catch (e) { toast('저장 실패: ' + String((e as Error).message || e), 'error'); } finally { setBusy(false); }
@@ -336,22 +807,124 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
   const validateAll = async () => {
     if (busy) return;
     if (!masterReady) { toast('차종마스터 로드 실패 — 검증 불가', 'error'); return; }
+    if (rosterError) { toast(`시트 설정 오류 — ${rosterError}`, 'error'); return; }
     if (!roster.length) { toast('시트 URL이 등록된 공급사가 없습니다 — 허브 URL 동기 또는 파트너에 주소를 넣으세요', 'info'); return; }
     setBusy(true); setBulkLog(''); setPending(null);
     try {
-      const fetched = await fetchAllPartnerSheets(co, master!);
-      const existing = await getStore().list('product', co);
+      const fetchedRaw = await fetchAllPartnerSheets(co, master!);
+      const [reconcileState, partnerRows, contracts, conflictResolutions, conflictDecisions, identityDecisions] = await Promise.all([
+        listSheetReconcileState(co, true),
+        listSheetPartnerRecords(co, true),
+        getStore().list('contract', co).catch(() => []),
+        fetchSheetConflictResolutions(),
+        fetchSheetConflictDecisions(),
+        fetchSheetIdentityDecisions(),
+      ]);
+      const existing = reconcileState.active;
+      const deleted = reconcileState.deleted;
+      const fetched = {
+        ...fetchedRaw,
+        reconcileRevision: sheetReconcileStateRevision(reconcileState),
+      };
+      const prevForGuard = buildPrevForGuard(partnerRows, existing);
+      const rawExistingConflicts = findSheetSyncExistingConflicts(fetched, existing, deleted);
+      const resolutionResult = applySheetConflictResolutions({
+        conflicts: rawExistingConflicts,
+        resolutions: conflictResolutions,
+        existing,
+        contracts,
+      });
+      const existingConflicts = resolutionResult.conflicts;
+      const existingConflictReason = sheetSyncExistingConflictReason(existingConflicts);
+      const existingConflictDetail = [
+        existingConflicts.activeTwins.length
+          ? `중복차번: ${existingConflicts.activeTwins.slice(0, 4).join(' / ')}` : '',
+        existingConflicts.crossProviderPlateConflicts.length
+          ? `공급사 간 차번 소유 충돌: ${existingConflicts.crossProviderPlateConflicts.slice(0, 8).join(', ')}` : '',
+        existingConflicts.deletedCollisions.length
+          ? `삭제 재등장: ${existingConflicts.deletedCollisions.slice(0, 8).join(', ')}` : '',
+        existingConflicts.unownedDeletedMatches.length
+          ? `공급사 미확정 삭제이력: ${existingConflicts.unownedDeletedMatches.slice(0, 8).join(', ')}` : '',
+        existingConflicts.manualReactivations.length
+          ? `수기 출고불가: ${existingConflicts.manualReactivations.slice(0, 8).join(', ')}` : '',
+        existingConflicts.manualHoldsPreserved.length
+          ? `수기 출고불가 유지: ${existingConflicts.manualHoldsPreserved.slice(0, 8).join(', ')}` : '',
+        existingConflicts.pendingIdentityTransitions.length
+          ? `임시→실차번: ${existingConflicts.pendingIdentityTransitions.slice(0, 8).join(', ')}` : '',
+        existingConflicts.pendingIdentityDrifts.length
+          ? `번호미정 식별변경: ${existingConflicts.pendingIdentityDrifts.slice(0, 8).join(', ')}` : '',
+        existingConflicts.pendingSignatureConflicts.length
+          ? `임시번호 신원불일치: ${existingConflicts.pendingSignatureConflicts.slice(0, 8).join(', ')}` : '',
+        existingConflicts.missingPricePeriods.length
+          ? `가격기간 누락: ${existingConflicts.missingPricePeriods.slice(0, 8).join(', ')}` : '',
+        existingConflicts.unownedLegacyMatches.length
+          ? `공급사 미확정: ${existingConflicts.unownedLegacyMatches.slice(0, 8).join(', ')}` : '',
+      ].filter(Boolean).join('\n');
+      const existingConflictRows = buildSheetConflictReportRows({
+        conflicts: rawExistingConflicts,
+        existing,
+        deleted,
+        incoming: fetched.products,
+        contracts,
+        providerCodes: fetched.lines.map((line) => line.code),
+      });
+      const existingConflictReport = sheetConflictReportTsv(existingConflictRows);
+      const identityConflictReview = planSheetIdentityConflictReview({
+        conflicts: rawExistingConflicts,
+        existing,
+        deleted,
+        incoming: fetched.products,
+        contracts,
+        providerCodes: fetched.lines.map((line) => line.code),
+      });
+      const reportByRaw = new Map(existingConflictRows.map((row) => [row.raw, row]));
+      const priceResolutionCandidates = rawExistingConflicts.missingPricePeriods
+        .filter((raw) => !isPriceConflictProtected(raw, existing, contracts))
+        .map((raw): SheetConflictResolutionInput => {
+          const report = reportByRaw.get(raw);
+          return {
+            fingerprint: sheetConflictFingerprint(PRICE_PERIOD_CONFLICT, raw),
+            category: PRICE_PERIOD_CONFLICT,
+            decision: KEEP_EXISTING_PRICES,
+            raw,
+            provider: report?.provider,
+            productKey: report?.productKey,
+            storageKey: report?.storageKey,
+          };
+        });
+      const activeApproved = new Set(conflictResolutions
+        .filter((item) => item.status === 'approved')
+        .map((item) => item.fingerprint));
+      const approvedPriceFingerprints = priceResolutionCandidates
+        .map((item) => item.fingerprint)
+        .filter((fingerprint) => activeApproved.has(fingerprint));
+      const protectedPriceCount = rawExistingConflicts.missingPricePeriods
+        .filter((raw) => isPriceConflictProtected(raw, existing, contracts)).length;
       const banners: string[] = [];
       const perPartner: PartnerDiffRow[] = [];
-      const totals = { new: 0, status: 0, content: 0, absent: 0, unchanged: 0, excludedCount: 0, noPriceCount: 0 };
+      const totals = {
+        new: 0, status: 0, content: 0, absent: 0, guarded: 0, unchanged: 0,
+        excludedCount: 0, noPriceCount: 0, skippedCount: 0,
+        duplicateCount: 0, invalidCount: 0, sourceRowCount: 0,
+      };
       for (const line of fetched.lines) {
         const re = line.excludedCount || 0;
         const np = line.noPriceCount || 0;
+        const sk = line.skippedCount || 0;
         totals.noPriceCount += np;
         totals.excludedCount += re;
-        const base = { code: line.code, label: line.label, sheet: 0, new: 0, status: 0, content: 0, absent: 0, unchanged: 0, excluded: re, noPrice: np };
+        totals.skippedCount += sk;
+        totals.duplicateCount += line.duplicateCount || 0;
+        totals.invalidCount += line.invalidCount || 0;
+        totals.sourceRowCount += line.sourceRowCount || line.imported + re + np + sk;
+        const base = {
+          code: line.code, label: line.label, sheet: line.imported, new: 0, status: 0, content: 0,
+          absent: 0, guarded: 0, unchanged: 0, excluded: re, noPrice: np, skipped: sk,
+          duplicate: line.duplicateCount || 0, invalid: line.invalidCount || 0,
+          issues: line.issueSamples.slice(0, 4).join(' · '),
+          statusDetail: '', fieldDetail: '',
+        };
         if (!line.ok) { perPartner.push({ ...base, ok: false, note: line.message }); continue; }
-        if (!line.products.length) { perPartner.push({ ...base, ok: true, note: '시트에서 읽은 매물 0' }); continue; }
         const diff = summarizeSheetDiff({
           incoming: line.products,
           existing,
@@ -359,27 +932,68 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
         });
         const stock = countAutoplusStock(line.products);
         banners.push(`${line.label}: ${formatSheetDiffBanner(diff, stock)}`);
+        const detail = changeDetail(diff);
+        const rowsRead = line.sourceRowCount || line.imported + re + np + sk;
+        const absentGate = shouldReconcileAbsent(rowsRead, prevForGuard.get(line.code) || 0);
+        const guarded = absentGate.ok ? 0 : diff.absent;
+        const note = [
+          line.products.length ? '' : '올림 0대 — 기존 비게시 범위 확인',
+          guarded ? `급감가드로 재고차단 ${guarded}대 보류` : '',
+        ].filter(Boolean).join(' · ');
         perPartner.push({
-          ...base, ok: true, note: '',
+          ...base, ok: true, note,
           sheet: line.products.length,
-          new: diff.new, status: diff.status, content: diff.content, absent: diff.absent, unchanged: diff.unchanged,
+          new: diff.new, status: diff.status, content: diff.content,
+          absent: absentGate.ok ? diff.absent : 0, guarded, unchanged: diff.unchanged,
+          ...detail,
         });
         totals.new += diff.new;
         totals.status += diff.status;
         totals.content += diff.content;
-        totals.absent += diff.absent;
+        totals.absent += absentGate.ok ? diff.absent : 0;
+        totals.guarded += guarded;
         totals.unchanged += diff.unchanged;
       }
       // 바뀌는 게 많은 순 — 검수할 곳부터 위로.
-      perPartner.sort((a, b) => (b.new + b.status + b.content + b.absent) - (a.new + a.status + a.content + a.absent));
-      setPending({ fetched, banners, totals, perPartner, at: Date.now() });
+      perPartner.sort((a, b) => {
+        const risk = (row: PartnerDiffRow) => (
+          (row.ok ? 0 : 1_000_000)
+          + row.guarded * 10_000
+          + row.invalid * 1_000
+          + row.noPrice * 100
+          + row.absent * 10
+          + row.new + row.status + row.content
+        );
+        return risk(b) - risk(a);
+      });
+      setPending({
+        fetched, banners, totals, perPartner, prevForGuard,
+        existingRevision: sheetReconcileStateRevision(reconcileState),
+        rosterRevision: fetched.rosterRevision,
+        existingConflictReason,
+        existingConflictDetail,
+        existingConflictReport,
+        existingConflictRows,
+        priceResolutionCandidates,
+        approvedPriceFingerprints,
+        conflictDecisions,
+        identityDecisions,
+        decisionRecords: [...existing, ...deleted],
+        identityConflictReview,
+        resolvedPriceCount: resolutionResult.resolvedPricePeriods,
+        protectedPriceCount,
+        at: Date.now(),
+      });
       setBulkLog([...fetched.lines.map((l) => l.message), ...(banners.length ? ['— diff —', ...banners] : [])].join('\n'));
       const okCount = perPartner.filter((x) => x.ok).length;
+      const validationBlock = sheetSyncCommitBlockReason(fetched) || existingConflictReason;
       toast(
-        fetched.products.length
-          ? `검증 완료 — 공급사 ${okCount}/${perPartner.length} · 올릴 매물 ${fetched.products.length}대 (출고불가 제외 ${totals.excludedCount})`
-          : `검증 완료 — 가져올 매물 없음 (공급사 ${okCount}/${perPartner.length})`,
-        fetched.products.length ? 'ok' : 'info',
+        validationBlock
+          ? `검증 차단 — ${validationBlock}`
+          : fetched.products.length
+            ? `검증 완료 — 공급사 ${okCount}/${perPartner.length} · 올릴 매물 ${fetched.products.length}대 (출고불가 제외 ${totals.excludedCount})`
+            : `검증 완료 — 가져올 매물 없음 (공급사 ${okCount}/${perPartner.length})`,
+        validationBlock ? 'error' : fetched.products.length ? 'ok' : 'info',
       );
     } catch (e) {
       setPending(null);
@@ -387,21 +1001,79 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
     } finally { setBusy(false); }
   };
 
-  /** 관리자: 검증 스냅샷 그대로 커밋(재fetch 금지). */
+  /** 관리자: 공급사 시트 fetch 스냅샷을 커밋. ERP/대상 roster는 직전에 revision 재확인. */
   const commitPending = async () => {
     if (busy || !pending) return;
     if (!masterReady) { toast('차종마스터 로드 실패 — 동기화 불가', 'error'); return; }
     const { totals, banners, fetched } = pending;
-    const summary = `신규 ${totals.new} · 상태변경 ${totals.status} · 내용수정 ${totals.content}`
-      + ` · 부재→출고불가 ${totals.absent} · 출고불가 제외 ${totals.excludedCount} · 무변경 ${totals.unchanged}`;
-    const ok = await confirmDialog({
-      message: `${summary}\n\n${banners.slice(0, 8).join('\n')}${banners.length > 8 ? `\n…외 ${banners.length - 8}` : ''}`
-        + `\n\n등록 시트 ${roster.length}곳 → 재고에 동기화할까요?\n(검증 스냅샷 그대로 · 재조회 없음)`,
-    });
-    if (!ok) return;
+    const blockReason = sheetSyncCommitBlockReason(fetched) || pending.existingConflictReason;
+    if (blockReason) {
+      toast(`동기화 중단 — ${blockReason}. 충돌을 정리하고 데이터 검증을 다시 실행하세요.`, 'error');
+      return;
+    }
+    if (Date.now() - pending.at > 10 * 60 * 1000) {
+      setPending(null);
+      toast('동기화 중단 — 검증 후 10분이 지났습니다. 데이터 검증을 다시 실행하세요.', 'error');
+      return;
+    }
     setBusy(true);
     try {
-      const r = await commitFetchedPartnerSheets(co, master!, fetched);
+      const verifyFreshSnapshot = async () => {
+        const store = getStore();
+        const [currentState, currentRoster, contracts, resolutions] = await Promise.all([
+          listSheetReconcileState(co, true),
+          listSheetPartners(co, true),
+          store.listFresh ? store.listFresh('contract', co) : store.list('contract', co),
+          fetchSheetConflictResolutions(),
+        ]);
+        if (sheetReconcileStateRevision(currentState) !== pending.existingRevision
+          || sheetPartnerRosterRevision(currentRoster) !== pending.rosterRevision
+          || sheetPartnerRosterRevision(currentRoster) !== fetched.rosterRevision) {
+          throw new Error('검증 후 ERP 재고 또는 시트 대상·탭·매핑·급감 기준이 변경됐습니다. 다시 검증하세요.');
+        }
+        const freshConflict = sheetSyncExistingConflictReason(applySheetConflictResolutions({
+          conflicts: findSheetSyncExistingConflicts(fetched, currentState.active, currentState.deleted),
+          resolutions,
+          existing: currentState.active,
+          contracts,
+        }).conflicts);
+        if (freshConflict) throw new Error(`${freshConflict}. 충돌을 정리하고 다시 검증하세요.`);
+        return { currentRoster, contracts, resolutions };
+      };
+      const { currentRoster } = await verifyFreshSnapshot();
+
+      const summary = `시트 행: 올림 ${fetched.products.length} · 출고불가 ${totals.excludedCount}`
+        + ` · 가격없음 ${totals.noPriceCount} · 중복 ${totals.duplicateCount} · 무효 ${totals.invalidCount}`
+        + `\n기존 재고: 신규 ${totals.new} · 상태변경 ${totals.status} · 내용만 수정 ${totals.content}`
+        + ` · 재고차단 ${totals.absent} · 가드보류 ${totals.guarded} · 무변경 ${totals.unchanged}`;
+      const ok = await confirmDialog({
+        message: `${summary}\n\n${banners.join('\n')}`
+          + `\n\n등록 시트 ${currentRoster.length}곳 → 재고에 동기화할까요?`
+          + '\n(공급사 시트 재조회 없음 · ERP 현재 상태 재확인 완료)',
+      });
+      if (!ok) return;
+
+      // 확인창이 열린 동안에도 다른 관리자·탭이 상태를 바꿀 수 있다. 승인 직후 다시 읽고,
+      // 도메인 커밋 경계에서도 한 번 더 확인한다.
+      if (Date.now() - pending.at > 10 * 60 * 1000) {
+        setPending(null);
+        toast('동기화 중단 — 확인 중 검증 유효시간이 지났습니다. 다시 검증하세요.', 'error');
+        return;
+      }
+      const finalSnapshot = await verifyFreshSnapshot();
+
+      const r = await commitFetchedPartnerSheets(co, master!, fetched, {
+        resolutions: finalSnapshot.resolutions,
+        contracts: finalSnapshot.contracts,
+        loadConflictContext: async () => {
+          const store = getStore();
+          const [contracts, resolutions] = await Promise.all([
+            store.listFresh ? store.listFresh('contract', co) : store.list('contract', co),
+            fetchSheetConflictResolutions(),
+          ]);
+          return { contracts, resolutions };
+        },
+      });
       const logLines = [
         ...r.lines.map((l) => l.message),
         ...(r.absent.notes.length ? ['— 부재처리 —', ...r.absent.notes] : []),
@@ -413,9 +1085,10 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
         toast(
           `동기화 완료 — 공급사 ${r.okCount}/${r.partnerCount}`
           + (r.commit ? ` · 신규 ${r.commit.created} · 갱신 ${r.commit.updated}` : '')
-          + (r.absent.blocked ? ` · 부재→출고불가 ${r.absent.blocked}` : '')
+          + (r.commit?.duplicates ? ` · 중복충돌 ${r.commit.duplicates}` : '')
+          + (r.absent.blocked ? ` · 재고차단 ${r.absent.blocked}` : '')
           + (r.ingress ? ` · 확정 ${r.ingress.confirmed}·검수 ${r.ingress.review}` : ''),
-          r.failCount || r.absent.skipped_guard || (r.ingress && r.ingress.review > 0) ? 'info' : 'ok',
+          r.failCount || r.commit?.duplicates || r.absent.skipped_guard || (r.ingress && r.ingress.review > 0) ? 'info' : 'ok',
         );
         onImported();
       }
@@ -435,16 +1108,472 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
     try { return new Date(t).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }); } catch { return ''; }
   };
 
+  const pendingBlockReason = pending
+    ? sheetSyncCommitBlockReason(pending.fetched) || pending.existingConflictReason
+    : '';
+  const pendingPriceApprovalGroups = (() => {
+    if (!pending) return [];
+    const approved = new Set(pending.approvedPriceFingerprints);
+    const reportByRaw = new Map(pending.existingConflictRows.map((row) => [row.raw, row]));
+    const groups = new Map<string, {
+      key: string;
+      label: string;
+      periods: string;
+      candidates: SheetConflictResolutionInput[];
+    }>();
+    for (const candidate of pending.priceResolutionCandidates) {
+      if (approved.has(candidate.fingerprint)) continue;
+      const report = reportByRaw.get(candidate.raw);
+      const provider = report?.provider || candidate.provider || '미확정';
+      const impact = report?.priceImpact || '가격 구조 확인 필요';
+      const key = `${provider}|${impact}`;
+      const current = groups.get(key) || {
+        key,
+        label: `${provider} · ${impact}`,
+        periods: '',
+        candidates: [],
+      };
+      current.candidates.push(candidate);
+      current.periods = [...new Set([
+        ...current.periods.split(',').map((value) => value.trim()).filter(Boolean),
+        ...(report?.affectedPricePeriods || '').split(',').map((value) => value.trim()).filter(Boolean),
+      ])].join(', ');
+      groups.set(key, current);
+    }
+    return [...groups.values()].sort((a, b) => b.candidates.length - a.candidates.length || a.label.localeCompare(b.label, 'ko'));
+  })();
+  const decisionQueueRows = (() => {
+    if (!pending) return [] as SheetConflictDecisionTarget[];
+    return buildSheetConflictDecisionTargets({
+      reportRows: pending.existingConflictRows,
+      incoming: pending.fetched.products,
+      records: pending.decisionRecords,
+      providerCodes: pending.fetched.lines.map((line) => line.code),
+    });
+  })();
+  const decisionDryRun = planSheetConflictDecisionDryRun({
+    targets: decisionQueueRows,
+    decisions: pending?.conflictDecisions || [],
+    now: pending?.at,
+  });
+  const activeDecisionByFingerprint = new Map((pending?.conflictDecisions || [])
+    .filter((item) => item.status === 'recorded')
+    .map((item) => [item.fingerprint, item]));
+  const recordedDecisionCount = decisionQueueRows
+    .filter((row) => activeDecisionByFingerprint.has(row.fingerprint)).length;
+  const protectedDecisionCount = decisionQueueRows
+    .filter((row) => row.contractProtections.length > 0).length;
+  const activeIdentityDecisionByFingerprint = new Map((pending?.identityDecisions || [])
+    .filter((item) => item.status === 'recorded')
+    .map((item) => [item.fingerprint, item]));
+  const recordedIdentityDecisionCount = (pending?.identityConflictReview.rows || [])
+    .filter((row) => activeIdentityDecisionByFingerprint.has(row.fingerprint)).length;
+  const identityDecisionBlockReason = (row: SheetIdentityReviewRow): string => {
+    if (row.contractProtection || row.status === 'contract_protected') {
+      return row.contractProtection || '계약보호 차량';
+    }
+    if (row.status === 'unowned_deleted_ambiguous') return '삭제·Sheet 대표 대상이 하나로 특정되지 않음';
+    if (!row.provider) return 'Sheet 공급사 미확정';
+    if (row.existingKeys.length !== 1) return `기존 상품키 ${row.existingKeys.length}개 · 단일 대상 필요`;
+    if (row.incomingKeys.length !== 1) return `현재 Sheet 키 ${row.incomingKeys.length}개 · 단일 대상 필요`;
+    return '';
+  };
+  const lastDailyRun = dailyStatus?.lastRun;
+  const dailyRunLabel = dailyStatusError
+    ? '자동연동 상태 확인 필요'
+    : dailyStatusLoading
+      ? '자동연동 상태 확인 중'
+      : !dailyStatus?.enabled
+        ? '자동연동 비활성'
+        : lastDailyRun?.status === 'completed'
+          ? '자동연동 정상'
+          : lastDailyRun?.status === 'running'
+            ? '자동연동 실행 중'
+            : lastDailyRun?.status === 'dry_run'
+              ? '자동연동 시험 완료'
+              : lastDailyRun?.status === 'blocked'
+                ? '자동연동 차단'
+                : lastDailyRun?.status === 'failed'
+                  ? '자동연동 실패'
+                  : '자동연동 실행 전';
+  const dailyRunColor = dailyStatusError || lastDailyRun?.status === 'failed'
+    ? C.danger
+    : lastDailyRun?.status === 'blocked' || !dailyStatus?.enabled
+      ? C.warn
+      : C.brand;
+
+  const copyConflictReport = async () => {
+    if (!pending?.existingConflictRows.length) return;
+    const copied = await copyText(pending.existingConflictReport);
+    toast(copied ? '충돌 목록 TSV가 복사됐습니다.' : '충돌 목록 복사에 실패했습니다.', copied ? 'ok' : 'error');
+  };
+
+  const refreshConflictDecisions = async () => {
+    const decisions = await fetchSheetConflictDecisions();
+    setPending((current) => current ? { ...current, conflictDecisions: decisions } : current);
+  };
+
+  const refreshIdentityDecisions = async () => {
+    const decisions = await fetchSheetIdentityDecisions();
+    setPending((current) => current ? { ...current, identityDecisions: decisions } : current);
+  };
+
+  const recordConflictDecision = async (
+    row: SheetConflictDecisionTarget,
+    decision: SheetConflictDecisionValue,
+  ) => {
+    if (busy || !pending) return;
+    const blockReason = sheetConflictDecisionTargetBlockReason(row)
+      || (decision === RESTORE_DELETED && row.mergedAlias ? '병합 별칭 tombstone은 원본 상품으로 복구할 수 없음' : '');
+    if (blockReason) {
+      toast(`결정 기록 불가 — ${blockReason}`, 'error');
+      return;
+    }
+    const targetProvider = decision === ASSIGN_SHEET_OWNER ? row.sheetProviders[0] : row.providers[0];
+    const consequence = decision === KEEP_EXISTING_OWNER
+      ? `기존 공급사 ${row.providers[0] || '확인필요'} 귀속을 유지하는 판단입니다.`
+      : decision === ASSIGN_SHEET_OWNER
+        ? `현재 Sheet 공급사 ${targetProvider || '확인필요'}로 귀속을 변경하는 판단입니다.`
+        : decision === KEEP_DELETED
+          ? '삭제 상태를 유지하고 현재 Sheet 행을 동기화 대상에서 제외하는 판단입니다.'
+          : `삭제 상품키 ${row.productKeys[0]}를 복구하는 판단입니다.`;
+    const ok = await confirmDialog({
+      message: `${row.carNumber} · ${sheetConflictDecisionLabel(decision)}로 기록할까요?`
+        + `\n${consequence}`
+        + '\n\n이번 단계는 관리자 판단만 기록합니다. 재고·삭제이력은 바꾸지 않으며 동기화 차단도 그대로 유지됩니다.',
+    });
+    if (!ok) return;
+    setBusy(true);
+    try {
+      const user = getAuthClient()?.currentUser;
+      if (!user) throw new Error('로그인 확인 필요');
+      const input: SheetConflictDecisionInput = {
+        fingerprint: row.fingerprint,
+        category: row.category,
+        decision,
+        raw: row.raw,
+        provider: targetProvider,
+        productKey: row.productKeys[0],
+      };
+      const response = await fetch('/api/sheet/conflict-decisions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${await user.getIdToken()}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ decisions: [input] }),
+      });
+      const body = await response.json().catch(() => ({})) as { recorded?: number; error?: string };
+      if (!response.ok) throw new Error(body.error || `결정 기록 실패 ${response.status}`);
+      await refreshConflictDecisions();
+      toast(`${row.carNumber} 결정 기록 완료 — 동기화 차단 유지`, 'ok');
+    } catch (error) {
+      toast(`소유권·삭제 결정 기록 실패: ${String((error as Error).message || error)}`, 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const revokeConflictDecision = async (row: SheetConflictDecisionTarget) => {
+    if (busy || !activeDecisionByFingerprint.has(row.fingerprint)) return;
+    const ok = await confirmDialog({
+      message: `${row.carNumber}의 기록된 결정을 철회할까요?\n재고와 동기화 상태에는 변화가 없습니다.`,
+    });
+    if (!ok) return;
+    setBusy(true);
+    try {
+      const user = getAuthClient()?.currentUser;
+      if (!user) throw new Error('로그인 확인 필요');
+      const response = await fetch('/api/sheet/conflict-decisions', {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${await user.getIdToken()}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ fingerprints: [row.fingerprint] }),
+      });
+      const body = await response.json().catch(() => ({})) as { revoked?: number; error?: string };
+      if (!response.ok) throw new Error(body.error || `결정 철회 실패 ${response.status}`);
+      await refreshConflictDecisions();
+      toast(`${row.carNumber} 결정 철회 완료`, 'ok');
+    } catch (error) {
+      toast(`소유권·삭제 결정 철회 실패: ${String((error as Error).message || error)}`, 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const recordIdentityDecision = async (
+    row: SheetIdentityReviewRow,
+    decision: SheetIdentityDecisionValue,
+  ) => {
+    if (busy || !pending) return;
+    const blockReason = identityDecisionBlockReason(row);
+    if (blockReason) {
+      toast(`신원 결정 기록 불가 — ${blockReason}`, 'error');
+      return;
+    }
+    const ok = await confirmDialog({
+      message: `${row.carNumbers.join(' ↔ ')} · ${sheetIdentityDecisionLabel(decision)}로 기록할까요?`
+        + `\n공급사 ${row.provider} · 기존키 ${row.existingKeys[0]} · Sheet키 ${row.incomingKeys[0]}`
+        + '\n\n이번 단계는 관리자 판단만 기록합니다. 재고 복구·신규 생성·번호 변경·Sheet 유입 제외를 실행하지 않으며 동기화 차단도 유지됩니다.',
+    });
+    if (!ok) return;
+    setBusy(true);
+    try {
+      const user = getAuthClient()?.currentUser;
+      if (!user) throw new Error('로그인 확인 필요');
+      const input: SheetIdentityDecisionInput = {
+        fingerprint: row.fingerprint,
+        category: row.category,
+        decision,
+        raw: row.raw,
+        provider: row.provider,
+        existingKey: row.existingKeys[0],
+        incomingKey: row.incomingKeys[0],
+      };
+      const response = await fetch('/api/sheet/identity-decisions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${await user.getIdToken()}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ decisions: [input] }),
+      });
+      const body = await response.json().catch(() => ({})) as { recorded?: number; error?: string };
+      if (!response.ok) throw new Error(body.error || `신원 결정 기록 실패 ${response.status}`);
+      await refreshIdentityDecisions();
+      toast(`${row.carNumbers.join(' ↔ ')} 신원 결정 기록 완료 — 동기화 차단 유지`, 'ok');
+    } catch (error) {
+      toast(`신원 결정 기록 실패: ${String((error as Error).message || error)}`, 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const revokeIdentityDecision = async (row: SheetIdentityReviewRow) => {
+    if (busy || !activeIdentityDecisionByFingerprint.has(row.fingerprint)) return;
+    const ok = await confirmDialog({
+      message: `${row.carNumbers.join(' ↔ ')}의 기록된 신원 결정을 철회할까요?\n재고와 동기화 상태에는 변화가 없습니다.`,
+    });
+    if (!ok) return;
+    setBusy(true);
+    try {
+      const user = getAuthClient()?.currentUser;
+      if (!user) throw new Error('로그인 확인 필요');
+      const response = await fetch('/api/sheet/identity-decisions', {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${await user.getIdToken()}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ fingerprints: [row.fingerprint] }),
+      });
+      const body = await response.json().catch(() => ({})) as { revoked?: number; error?: string };
+      if (!response.ok) throw new Error(body.error || `신원 결정 철회 실패 ${response.status}`);
+      await refreshIdentityDecisions();
+      toast(`${row.carNumbers.join(' ↔ ')} 신원 결정 철회 완료`, 'ok');
+    } catch (error) {
+      toast(`신원 결정 철회 실패: ${String((error as Error).message || error)}`, 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const copyConflictDecisionDryRun = async () => {
+    if (!pending || !decisionDryRun.rows.length) return;
+    const copied = await copyText(sheetConflictDecisionDryRunTsv(decisionDryRun));
+    const { summary } = decisionDryRun;
+    toast(
+      copied
+        ? `판단 dry-run 복사 · 현재 ${summary.currentTargets} · 기록 ${summary.recordedCurrent} · 미결정 ${summary.undecided} · 실행작업 0`
+        : '판단 dry-run 복사에 실패했습니다.',
+      copied ? 'ok' : 'error',
+    );
+  };
+
+  const copyIdentityConflictReview = async () => {
+    if (!pending?.identityConflictReview.rows.length) return;
+    const copied = await copyText(sheetIdentityConflictReviewTsv(pending.identityConflictReview));
+    const { summary } = pending.identityConflictReview;
+    toast(
+      copied
+        ? `신원·미확정 검토 복사 · 전체 ${summary.total} · 공급사 미확정 삭제 ${summary.unownedDeleted} · 임시번호 ${summary.pendingIdentityDrift + summary.pendingSignature} · 실행작업 0`
+        : '신원·미확정 검토 목록 복사에 실패했습니다.',
+      copied ? 'ok' : 'error',
+    );
+  };
+
+  const approvePricePeriodPreservation = async (group: (typeof pendingPriceApprovalGroups)[number]) => {
+    if (busy || !pending) return;
+    const candidates = group.candidates;
+    if (!candidates.length) {
+      toast('새로 승인할 가격기간 누락이 없습니다.', 'info');
+      return;
+    }
+    if (candidates.length > 200) {
+      toast('한 번에 승인 가능한 200건을 초과했습니다. 충돌 원인을 먼저 나눠 확인하세요.', 'error');
+      return;
+    }
+    const ok = await confirmDialog({
+      message: `${group.label} ${candidates.length}건을 승인할까요?`
+        + `${group.periods ? `\n영향 기간: ${group.periods}` : ''}`
+        + '\n\n시트 누락기간은 ERP 기존가로 보존하고, 시트에 새 표준가격이 있으면 그 가격이 화면 기본가가 될 수 있습니다.'
+        + '\n계약락·진행계약 차량은 승인되지 않으며 시트 원문이 바뀌면 승인은 자동 무효가 됩니다.',
+    });
+    if (!ok) return;
+    setBusy(true);
+    try {
+      const user = getAuthClient()?.currentUser;
+      if (!user) throw new Error('로그인 확인 필요');
+      const response = await fetch('/api/sheet/conflict-resolutions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${await user.getIdToken()}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ resolutions: candidates }),
+      });
+      const body = await response.json().catch(() => ({})) as { approved?: number; error?: string };
+      if (!response.ok) throw new Error(body.error || `승인 실패 ${response.status}`);
+      toast(`${group.label} ${body.approved || candidates.length}건 승인 완료`, 'ok');
+      await validateAll();
+    } catch (error) {
+      toast(`가격기간 유지 승인 실패: ${String((error as Error).message || error)}`, 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const revokePricePeriodPreservation = async () => {
+    if (busy || !pending?.approvedPriceFingerprints.length) return;
+    const ok = await confirmDialog({
+      message: `현재 검증에 적용된 기존 가격 유지 승인 ${pending.approvedPriceFingerprints.length}건을 철회할까요?`
+        + '\n철회 즉시 해당 가격기간 누락은 다시 동기화 차단 사유가 됩니다.',
+    });
+    if (!ok) return;
+    setBusy(true);
+    try {
+      const user = getAuthClient()?.currentUser;
+      if (!user) throw new Error('로그인 확인 필요');
+      const response = await fetch('/api/sheet/conflict-resolutions', {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${await user.getIdToken()}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ fingerprints: pending.approvedPriceFingerprints }),
+      });
+      const body = await response.json().catch(() => ({})) as { revoked?: number; error?: string };
+      if (!response.ok) throw new Error(body.error || `철회 실패 ${response.status}`);
+      toast(`기존 가격기간 유지 승인 ${body.revoked || 0}건 철회`, 'ok');
+      await validateAll();
+    } catch (error) {
+      toast(`가격기간 유지 승인 철회 실패: ${String((error as Error).message || error)}`, 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const copyDuplicateMigrationPlan = async () => {
+    if (duplicatePlanLoading) return;
+    setDuplicatePlanLoading(true);
+    try {
+      const user = getAuthClient()?.currentUser;
+      if (!user) throw new Error('로그인 확인 필요');
+      const response = await fetch('/api/inventory/duplicate-plan', {
+        headers: { Authorization: `Bearer ${await user.getIdToken()}` },
+        cache: 'no-store',
+      });
+      if (!response.ok) throw new Error(`이관계획 조회 실패 ${response.status}`);
+      const result = await response.json() as DuplicatePlanResponse;
+      const copied = await copyText(result.tsv);
+      if (!copied) throw new Error('클립보드 복사 실패');
+      toast(
+        `중복 이관계획 복사 · ${result.summary.duplicateGroups}그룹 · 후보 ${result.summary.representativeCandidates} · 추가판단 ${result.summary.blockedGroups}`,
+        'ok',
+      );
+    } catch (error) {
+      toast(String((error as Error).message || error), 'error');
+    } finally {
+      setDuplicatePlanLoading(false);
+    }
+  };
+
+  const copyDuplicateDryRun = async () => {
+    if (duplicateDryRunLoading) return;
+    setDuplicateDryRunLoading(true);
+    try {
+      const user = getAuthClient()?.currentUser;
+      if (!user) throw new Error('로그인 확인 필요');
+      const response = await fetch('/api/inventory/duplicate-plan', {
+        headers: { Authorization: `Bearer ${await user.getIdToken()}` },
+        cache: 'no-store',
+      });
+      if (!response.ok) throw new Error(`patch dry-run 조회 실패 ${response.status}`);
+      const result = await response.json() as DuplicatePlanResponse;
+      const copied = await copyText(result.dryRunTsv);
+      if (!copied) throw new Error('클립보드 복사 실패');
+      toast(
+        `patch dry-run 복사 · 적용후보 ${result.summary.dryRunEligibleGroups}그룹 · 작업 ${result.summary.eligibleOperations} · 데이터충돌 ${result.summary.dataConflictGroups} · 계좌확인 ${result.summary.accountMismatchGroups}`,
+        'ok',
+      );
+    } catch (error) {
+      toast(String((error as Error).message || error), 'error');
+    } finally {
+      setDuplicateDryRunLoading(false);
+    }
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       {isAdmin && (
         <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: C.selected, padding: 10 }}>
           <div style={{ fontSize: FS.sub, fontWeight: FW.title, color: C.brand, marginBottom: 3 }}>공급사 시트 일괄 변환</div>
-          <div style={{ fontSize: FS.cap, color: C.faint, lineHeight: 1.5, marginBottom: 8 }}>
-            관리자가 버튼으로 실행(자동 아님). 신규·기존 soft-merge · 시트에 없는 차는 출고불가(삭제 없음). fetch 실패·급감 시 부재처리 스킵.
+          <div style={{
+            display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6,
+            marginBottom: 6, padding: '6px 8px', borderRadius: R, background: C.bg,
+            border: `1px solid ${C.line}`, fontSize: FS.cap,
+          }}>
+            <span style={{ color: dailyRunColor, fontWeight: FW.title }}>{dailyRunLabel}</span>
+            <span style={{ color: C.faint }}>· {dailyStatus?.schedule || '매일 02:00 KST'}</span>
+            {lastDailyRun?.finished_at ? <span style={{ color: C.mute }}>· 최근 {fmtSync(lastDailyRun.finished_at)}</span> : null}
+            {lastDailyRun?.counts ? (
+              <span style={{ color: C.ink }}>
+                · 유입 {lastDailyRun.counts.imported || 0} · 신규 {lastDailyRun.counts.created || 0}
+                {' '}· 수정 {lastDailyRun.counts.updated || 0} · 부재차단 {lastDailyRun.counts.absentBlocked || 0}
+              </span>
+            ) : null}
+            <Btn title="자동연동 상태 다시 읽기" size="sm" variant="ghost" onClick={refreshDailyStatus} disabled={dailyStatusLoading}>
+              상태 새로고침
+            </Btn>
           </div>
-          {roster.length === 0 ? (
-            <div style={{ fontSize: FS.cap, color: C.mute, marginBottom: 8 }}>등록된 시트 없음 → 「허브 URL 동기」또는 `/members`에 구글시트 URL</div>
+          {(dailyStatusError || lastDailyRun?.block_reason || lastDailyRun?.error) ? (
+            <div style={{ fontSize: FS.micro, color: C.danger, lineHeight: 1.45, marginBottom: 6 }}>
+              {dailyStatusError || lastDailyRun?.block_reason || lastDailyRun?.error}
+            </div>
+          ) : null}
+          <div style={{ fontSize: FS.cap, color: C.faint, lineHeight: 1.5, marginBottom: 8 }}>
+          운영 자동 연동 활성화 시 매일 오전 2시에 검증·저장합니다. 신규는 자체 재고로 등록하고 기존은 soft-merge하며, 재고 화면에서 사람이 수정한 필드는 이후에도 내부 값을 우선합니다. 시트에 없는 차는 삭제하지 않고 출고불가로 전환하며, 조회 실패·급감·소유 충돌 시 자동 저장을 중단합니다. 관리자는 아래에서 즉시 검증할 수 있습니다.
+          </div>
+          {rosterError ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <div style={{ fontSize: FS.cap, color: C.danger, fontWeight: FW.strong, flex: 1, minWidth: 0 }}>
+                시트 설정 오류 · {rosterError} — 회원·파트너에서 해당 공급사 설정을 수정하세요.
+              </div>
+              <Btn title="공급사 시트 설정 다시 읽기" size="sm" variant="ghost" onClick={refreshRoster} disabled={busy}>
+                설정 다시 읽기
+              </Btn>
+            </div>
+          ) : roster.length === 0 ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <div style={{ fontSize: FS.cap, color: C.mute, flex: 1, minWidth: 0 }}>
+                등록된 시트 없음 → 「설정 다시 읽기」 후에도 0개면 `/members`에서 구글시트 URL을 확인하세요.
+              </div>
+              <Btn title="공급사 시트 설정 다시 읽기" size="sm" variant="ghost" onClick={refreshRoster} disabled={busy}>
+                설정 다시 읽기
+              </Btn>
+            </div>
           ) : (
             <div style={{ maxHeight: 120, overflowY: 'auto', marginBottom: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
               {roster.map((p) => (
@@ -463,15 +1592,59 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
             }}>
               <div style={{ fontWeight: FW.title, color: C.brand, marginBottom: 2 }}>
                 검증 결과 {fmtPendingAt(pending.at) ? `· ${fmtPendingAt(pending.at)}` : ''}
-                {/* 「시트 몇 행 중 몇 대를 올리고 몇 대를 걸렀나」 — 대수만 보면 시트가 덜 읽힌 건지 걸러진 건지 구분이 안 된다. */}
+                {/* 「판독 몇 행 중 몇 대를 올리고 몇 대를 걸렀나」 — 빈 서식행은 제외한다. */}
                 <span style={{ fontWeight: FW.body, color: C.faint }}>
-                  {' '}· 시트 {pending.fetched.products.length + pending.totals.excludedCount}행 → 올림 {pending.fetched.products.length}대
+                  {' '}· 판독 {pending.totals.sourceRowCount}행 → 올림 {pending.fetched.products.length}대
                   {pending.totals.excludedCount ? ` · 출고불가 제외 ${pending.totals.excludedCount}대` : ''}
+                  {pending.totals.noPriceCount ? ` · 가격없음 ${pending.totals.noPriceCount}대` : ''}
+                  {pending.totals.duplicateCount ? ` · 중복 ${pending.totals.duplicateCount}행` : ''}
+                  {pending.totals.invalidCount ? ` · 무효 ${pending.totals.invalidCount}행` : ''}
                 </span>
               </div>
-              신규 {pending.totals.new} · 상태변경 {pending.totals.status} · 내용수정 {pending.totals.content}
-              {' '}· 부재→출고불가 {pending.totals.absent} · 출고불가 제외 {pending.totals.excludedCount}
-              {' '}· 무변경 {pending.totals.unchanged}
+              <div>
+                시트 행 처리 · 올림 {pending.fetched.products.length} · 출고불가 {pending.totals.excludedCount}
+                {' '}· 가격없음 {pending.totals.noPriceCount} · 중복 {pending.totals.duplicateCount} · 무효 {pending.totals.invalidCount}
+              </div>
+              <div>
+                기존 재고 반영 · 신규 {pending.totals.new} · 상태변경 {pending.totals.status} · 내용만 수정 {pending.totals.content}
+                {' '}· 재고차단 {pending.totals.absent} · 가드보류 {pending.totals.guarded} · 무변경 {pending.totals.unchanged}
+              </div>
+              {pendingBlockReason && (
+                <div style={{ color: C.danger, fontWeight: FW.strong, marginTop: 4 }}>
+                  동기화 중단 · {pendingBlockReason} — 원인을 정리하고 다시 검증해야 저장할 수 있습니다.
+                  {pending.existingConflictReason && pending.existingConflictReason !== pendingBlockReason ? (
+                    <span style={{ display: 'block', marginTop: 2 }}>
+                      기존 ERP 충돌 · {pending.existingConflictReason}
+                    </span>
+                  ) : null}
+                  {pending.existingConflictDetail ? (
+                    <span style={{ display: 'block', fontWeight: FW.meta, whiteSpace: 'pre-wrap', marginTop: 2 }}>
+                      {pending.existingConflictDetail}
+                    </span>
+                  ) : null}
+                </div>
+              )}
+              {!pendingBlockReason && pending.existingConflictDetail ? (
+                <div style={{ color: C.mute, marginTop: 4, whiteSpace: 'pre-wrap' }}>
+                  보호 처리 · {pending.existingConflictDetail}
+                </div>
+              ) : null}
+              {pending.priceResolutionCandidates.length || pending.protectedPriceCount ? (
+                <div style={{ color: C.mute, marginTop: 4 }}>
+                  가격기간 유지 승인 · 적용 {pending.resolvedPriceCount}건
+                  {' '}· 승인대기 {Math.max(0, pending.priceResolutionCandidates.length - pending.approvedPriceFingerprints.length)}건
+                  {' '}· 계약보호 {pending.protectedPriceCount}건
+                </div>
+              ) : null}
+              {pending.identityConflictReview.summary.total ? (
+                <div style={{ color: C.mute, marginTop: 4 }}>
+                  신원·미확정 검토 · 공급사 미확정 삭제 {pending.identityConflictReview.summary.unownedDeleted}건
+                  {' '}· 번호미정 식별변경 {pending.identityConflictReview.summary.pendingIdentityDrift}건
+                  {' '}· 임시번호 신원불일치 {pending.identityConflictReview.summary.pendingSignature}건
+                  {' '}· 결정기록 {recordedIdentityDecisionCount}/{pending.identityConflictReview.summary.total}건
+                  {' '}· 실행작업 0건
+                </div>
+              ) : null}
             </div>
           )}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
@@ -482,18 +1655,85 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
               title={busy ? '검증 중' : `데이터 검증 ${roster.length}개`}
               variant="ghost"
               onClick={validateAll}
-              disabled={busy || !masterReady || !roster.length}
+              disabled={busy || !masterReady || !roster.length || !!rosterError}
             >
               {busy && !pending ? '검증 중…' : `데이터 검증 (${roster.length})`}
             </Btn>
             <Btn
-              title={pending ? `동기화 · 검증 ${pending.fetched.products.length}대` : '먼저 데이터 검증'}
+              title={pendingBlockReason || (pending ? `동기화 · 검증 ${pending.fetched.products.length}대` : '먼저 데이터 검증')}
               onClick={commitPending}
-              disabled={busy || !pending}
+              disabled={busy || !pending || Boolean(pendingBlockReason)}
             >
               {pending
                 ? `동기화 (${roster.length}) · ${pending.fetched.products.length}대`
                 : `동기화 (${roster.length})`}
+            </Btn>
+            {pendingPriceApprovalGroups.map((group) => (
+              <Btn
+                key={group.key}
+                title={`${group.label}. 누락기간 기존가 보존·새 표준가격 기본가 적용 가능·계약 차량 제외·원문 변경 시 자동 무효`}
+                variant="ghost"
+                onClick={() => approvePricePeriodPreservation(group)}
+                disabled={busy}
+              >
+                {group.label} 승인 ({group.candidates.length})
+              </Btn>
+            ))}
+            {pending?.approvedPriceFingerprints.length ? (
+              <Btn title="현재 검증에 적용된 기존 가격 유지 승인을 철회" variant="ghost" onClick={revokePricePeriodPreservation} disabled={busy}>
+                가격 유지 승인 철회 ({pending.approvedPriceFingerprints.length})
+              </Btn>
+            ) : null}
+            {decisionQueueRows.length ? (
+              <Btn
+                title="소유권 충돌과 삭제이력 재등장을 차량별로 검토합니다. 결정 기록만 하며 재고는 변경하지 않습니다."
+                variant="ghost"
+                onClick={() => setDecisionQueueOpen(true)}
+                disabled={busy}
+              >
+                소유권·삭제 결정 ({recordedDecisionCount}/{decisionQueueRows.length})
+              </Btn>
+            ) : null}
+            {decisionQueueRows.length ? (
+              <Btn
+                title="현재 검증 스냅샷과 기록된 결정을 대조한 무저장 계획입니다. 실행 가능한 patch는 만들지 않습니다."
+                variant="ghost"
+                onClick={copyConflictDecisionDryRun}
+                disabled={busy}
+              >
+                결정 dry-run TSV
+              </Btn>
+            ) : null}
+            {pending?.identityConflictReview.rows.length ? (
+              <Btn
+                title="공급사 미확정 삭제와 임시번호 충돌을 변경 원자별로 검토합니다."
+                variant="ghost"
+                onClick={() => setIdentityReviewOpen(true)}
+                disabled={busy}
+              >
+                신원·미확정 결정 ({recordedIdentityDecisionCount}/{pending.identityConflictReview.summary.total})
+              </Btn>
+            ) : null}
+            {pending?.existingConflictRows.length ? (
+              <Btn title="레코드 키·공급사·상태·출처·계약보호·권장조치가 포함된 TSV" variant="ghost" onClick={copyConflictReport} disabled={busy}>
+                상세 충돌 TSV 복사
+              </Btn>
+            ) : null}
+            <Btn
+              title="읽기 전용으로 계약·채팅방·견적·비공개 원가 참조를 전수 확인한 대표키 이관계획 TSV"
+              variant="ghost"
+              onClick={copyDuplicateMigrationPlan}
+              disabled={busy || duplicatePlanLoading}
+            >
+              {duplicatePlanLoading ? '이관계획 확인 중…' : '중복 이관계획 TSV'}
+            </Btn>
+            <Btn
+              title="실제 저장 없이 v4 참조 patch·별칭 tombstone·원가 이관 경로와 추가 데이터 충돌을 계산"
+              variant="ghost"
+              onClick={copyDuplicateDryRun}
+              disabled={busy || duplicateDryRunLoading}
+            >
+              {duplicateDryRunLoading ? 'patch 계산 중…' : '중복 patch dry-run'}
             </Btn>
             <Btn
               title="아이카식 표준 양식 CSV"
@@ -525,10 +1765,13 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
                       <th style={{ padding: '5px 8px', fontWeight: FW.meta }}>올림</th>
                       <th style={{ padding: '5px 8px', fontWeight: FW.meta }}>제외</th>
                       <th style={{ padding: '5px 8px', fontWeight: FW.meta }}>가격없음</th>
+                      <th style={{ padding: '5px 8px', fontWeight: FW.meta }}>중복</th>
+                      <th style={{ padding: '5px 8px', fontWeight: FW.meta }}>무효</th>
                       <th style={{ padding: '5px 8px', fontWeight: FW.meta }}>신규</th>
                       <th style={{ padding: '5px 8px', fontWeight: FW.meta }}>상태변경</th>
-                      <th style={{ padding: '5px 8px', fontWeight: FW.meta }}>내용수정</th>
-                      <th style={{ padding: '5px 8px', fontWeight: FW.meta }}>→출고불가</th>
+                      <th style={{ padding: '5px 8px', fontWeight: FW.meta }}>내용만 수정</th>
+                      <th style={{ padding: '5px 8px', fontWeight: FW.meta }} title="시트 삭제·출고불가·가격없음으로 기존 재고를 출고불가 처리">재고차단</th>
+                      <th style={{ padding: '5px 8px', fontWeight: FW.meta }} title="급감가드가 차단한 재고차단 후보">가드보류</th>
                       <th style={{ padding: '5px 8px', fontWeight: FW.meta }}>무변경</th>
                     </tr>
                   </thead>
@@ -538,16 +1781,31 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
                         <td style={{ textAlign: 'left', padding: '5px 8px', color: p.ok ? C.ink : C.danger, whiteSpace: 'nowrap' }}>
                           {p.label}
                           {p.note ? <span style={{ color: C.faint, fontWeight: FW.meta }}> · {p.note}</span> : null}
+                          {(p.statusDetail || p.fieldDetail) ? (
+                            <span style={{ display: 'block', color: C.faint, fontWeight: FW.meta, fontSize: FS.micro }}>
+                              {p.statusDetail ? `상태 ${p.statusDetail}` : ''}
+                              {p.statusDetail && p.fieldDetail ? ' · ' : ''}
+                              {p.fieldDetail ? `필드 ${p.fieldDetail}` : ''}
+                            </span>
+                          ) : null}
+                          {p.issues ? (
+                            <span style={{ display: 'block', color: C.warn, fontWeight: FW.meta, fontSize: FS.micro }}>
+                              원본 확인 · {p.issues}
+                            </span>
+                          ) : null}
                         </td>
                         <td style={{ padding: '5px 8px', color: p.sheet ? C.ink : C.faint }}>{p.sheet || '—'}</td>
                         <td style={{ padding: '5px 8px', color: p.excluded ? C.mute : C.faint }}>{p.excluded || '—'}</td>
                         <td style={{ padding: '5px 8px', color: p.noPrice ? C.warn : C.faint, fontWeight: p.noPrice ? FW.strong : FW.body }}>{p.noPrice || '—'}</td>
+                        <td style={{ padding: '5px 8px', color: p.duplicate ? C.warn : C.faint, fontWeight: p.duplicate ? FW.strong : FW.body }}>{p.duplicate || '—'}</td>
+                        <td style={{ padding: '5px 8px', color: p.invalid ? C.danger : C.faint, fontWeight: p.invalid ? FW.strong : FW.body }}>{p.invalid || '—'}</td>
                         <td style={{ padding: '5px 8px', color: p.new ? C.ok : C.faint, fontWeight: p.new ? FW.strong : FW.body }}>{p.new || '—'}</td>
                         <td style={{ padding: '5px 8px', color: p.status ? C.ink : C.faint }}>{p.status || '—'}</td>
                         <td style={{ padding: '5px 8px', color: p.content ? C.ink : C.faint }}>{p.content || '—'}</td>
                         {/* 시트에서 빠진 차(행 삭제 + 출고불가 표기) — 지우지 않고 출고불가로 내린다.
                             시트 행수 대비 과하게 크면 시트 사고를 의심해야 한다. */}
                         <td style={{ padding: '5px 8px', color: p.absent ? C.warn : C.faint, fontWeight: p.absent ? FW.strong : FW.body }}>{p.absent || '—'}</td>
+                        <td style={{ padding: '5px 8px', color: p.guarded ? C.danger : C.faint, fontWeight: p.guarded ? FW.strong : FW.body }}>{p.guarded || '—'}</td>
                         <td style={{ padding: '5px 8px', color: C.faint }}>{p.unchanged || '—'}</td>
                       </tr>
                     ))}
@@ -556,10 +1814,13 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
                       <td style={{ padding: '5px 8px' }}>{pending.fetched.products.length}</td>
                       <td style={{ padding: '5px 8px', color: C.mute }}>{pending.totals.excludedCount}</td>
                       <td style={{ padding: '5px 8px', color: C.warn }}>{pending.totals.noPriceCount}</td>
+                      <td style={{ padding: '5px 8px', color: C.warn }}>{pending.totals.duplicateCount}</td>
+                      <td style={{ padding: '5px 8px', color: C.danger }}>{pending.totals.invalidCount}</td>
                       <td style={{ padding: '5px 8px', color: C.ok }}>{pending.totals.new}</td>
                       <td style={{ padding: '5px 8px' }}>{pending.totals.status}</td>
                       <td style={{ padding: '5px 8px' }}>{pending.totals.content}</td>
                       <td style={{ padding: '5px 8px', color: C.warn }}>{pending.totals.absent}</td>
+                      <td style={{ padding: '5px 8px', color: C.danger }}>{pending.totals.guarded}</td>
                       <td style={{ padding: '5px 8px', color: C.mute }}>{pending.totals.unchanged}</td>
                     </tr>
                   </tbody>
@@ -574,7 +1835,232 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
         </div>
       )}
 
-      {/* 단일 시트·엑셀 업로드는 **공급사 본인 연습용**이다. 관리자 화면에서는 감춘다 —
+      <Modal
+        open={decisionQueueOpen}
+        title="소유권·삭제 결정 검토"
+        meta={`기록 ${recordedDecisionCount}/${decisionQueueRows.length} · 계약보호 ${protectedDecisionCount}`}
+        onClose={() => setDecisionQueueOpen(false)}
+        width={1080}
+        footer={<Btn variant="ghost" onClick={() => setDecisionQueueOpen(false)}>닫기</Btn>}
+      >
+        <div style={{
+          padding: '9px 10px', marginBottom: 10, border: `1px solid ${C.line}`, borderRadius: R,
+          background: C.selected, color: C.mute, fontSize: FS.cap, lineHeight: 1.5,
+        }}>
+          이 화면은 차량별 관리자 판단을 기록하는 검토함입니다. 기록만으로 재고·삭제이력·공급사 귀속은 바뀌지 않으며,
+          동기화 차단도 해제되지 않습니다. 계약보호 또는 관련 상품이 하나로 특정되지 않는 건은 선택할 수 없습니다.
+        </div>
+        <div style={{
+          display: 'flex', flexWrap: 'wrap', gap: '4px 12px', marginBottom: 10,
+          color: C.mute, fontSize: FS.cap, lineHeight: 1.5,
+        }}>
+          <span>미결정 {decisionDryRun.summary.undecided}</span>
+          <span>계약보호 {decisionDryRun.summary.protected}</span>
+          <span>대상모호 {decisionDryRun.summary.ambiguous}</span>
+          <span>기존귀속 유지 {decisionDryRun.summary.keepExistingReady}</span>
+          <span>참조이관 필요 {decisionDryRun.summary.assignOwnerMigration}</span>
+          <span>삭제유지 {decisionDryRun.summary.keepDeletedReady}</span>
+          <span>복구후보 {decisionDryRun.summary.restoreCandidates}</span>
+          <span style={{ color: C.danger, fontWeight: FW.strong }}>실행작업 0</span>
+        </div>
+        {decisionQueueRows.length ? (
+          <div style={{ maxHeight: '62vh', overflow: 'auto', border: `1px solid ${C.line}`, borderRadius: R }}>
+            <table style={{ width: '100%', minWidth: 920, borderCollapse: 'collapse', background: C.taupeBg }}>
+              <thead>
+                <tr>
+                  <th style={th}>구분</th>
+                  <th style={th}>차량</th>
+                  <th style={th}>현재 ERP</th>
+                  <th style={th}>현재 Sheet</th>
+                  <th style={th}>관련 상품</th>
+                  <th style={th}>보호·확인</th>
+                  <th style={{ ...th, minWidth: 210 }}>관리자 결정</th>
+                </tr>
+              </thead>
+              <tbody>
+                {decisionQueueRows.map((row) => {
+                  const active = activeDecisionByFingerprint.get(row.fingerprint);
+                  const blockReason = sheetConflictDecisionTargetBlockReason(row);
+                  const displayReason = blockReason
+                    || (row.mergedAlias ? '병합 별칭 · 삭제 유지 결정만 가능' : '');
+                  const options = row.category === OWNERSHIP_CONFLICT
+                    ? [
+                      { value: KEEP_EXISTING_OWNER, label: sheetConflictDecisionLabel(KEEP_EXISTING_OWNER) },
+                      { value: ASSIGN_SHEET_OWNER, label: sheetConflictDecisionLabel(ASSIGN_SHEET_OWNER) },
+                    ]
+                    : [
+                      { value: KEEP_DELETED, label: sheetConflictDecisionLabel(KEEP_DELETED) },
+                      ...(row.mergedAlias ? [] : [
+                        { value: RESTORE_DELETED, label: sheetConflictDecisionLabel(RESTORE_DELETED) },
+                      ]),
+                    ];
+                  return (
+                    <tr key={row.fingerprint} style={{ borderTop: `1px solid ${C.line2}` }}>
+                      <td style={td}>{row.category === OWNERSHIP_CONFLICT ? '소유권' : '삭제이력'}</td>
+                      <td style={{ ...td, fontFamily: NUM, fontWeight: FW.strong }}>{row.carNumber || '확인 필요'}</td>
+                      <td style={td}>{row.providers.join(', ') || '미확정'}</td>
+                      <td style={td}>{row.sheetProviders.join(', ') || '미확정'}</td>
+                      <td style={{ ...td, color: C.mute }}>
+                        {row.productKeys.length === 1 ? row.productKeys[0] : `${row.productKeys.length}개`}
+                      </td>
+                      <td style={{ ...td, whiteSpace: 'normal', minWidth: 180, color: displayReason ? C.danger : C.ok }}>
+                        {displayReason || '건별 결정 가능'}
+                      </td>
+                      <td style={{ ...td, minWidth: 210 }}>
+                        {active ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                            <span style={{ color: C.brand, fontWeight: FW.strong }}>
+                              {sheetConflictDecisionLabel(active.decision)}
+                            </span>
+                            <Btn
+                              size="sm"
+                              variant="ghost"
+                              title="기록된 판단 철회"
+                              onClick={() => revokeConflictDecision(row)}
+                              disabled={busy}
+                            >
+                              철회
+                            </Btn>
+                          </div>
+                        ) : (
+                          <Select
+                            value=""
+                            placeholder="결정 선택"
+                            ariaLabel={`${row.carNumber} 관리자 결정`}
+                            options={options}
+                            onChange={(value) => value && recordConflictDecision(row, value as SheetConflictDecisionValue)}
+                            disabled={busy || Boolean(blockReason)}
+                            size="sm"
+                            full
+                          />
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div style={{ padding: 20, textAlign: 'center', color: C.faint, fontSize: FS.sub }}>
+            현재 검증 스냅샷에 소유권·삭제 결정 대상이 없습니다.
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        open={identityReviewOpen}
+        title="신원·미확정 충돌 검토"
+        meta={`기록 ${recordedIdentityDecisionCount}/${pending?.identityConflictReview.summary.total || 0} · 계약보호 ${pending?.identityConflictReview.summary.protected || 0} · 실행작업 0`}
+        onClose={() => setIdentityReviewOpen(false)}
+        width={1120}
+        footer={(
+          <>
+            <Btn
+              variant="ghost"
+              onClick={copyIdentityConflictReview}
+              disabled={!pending?.identityConflictReview.rows.length}
+            >
+              dry-run TSV 복사
+            </Btn>
+            <Btn variant="ghost" onClick={() => setIdentityReviewOpen(false)}>닫기</Btn>
+          </>
+        )}
+      >
+        <div style={{
+          padding: '9px 10px', marginBottom: 10, border: `1px solid ${C.line}`, borderRadius: R,
+          background: C.selected, color: C.mute, fontSize: FS.cap, lineHeight: 1.5,
+        }}>
+          공급사 없는 삭제이력과 임시번호의 신원 원자를 현재 Sheet와 대조해 차량별 관리자 판단을 기록합니다.
+          동일 차량 수정인지 다른 실물 교체인지는 자동 판단하지 않습니다. 결정은 별도 원장에만 남고 재고·번호·삭제이력·동기화 차단은 바뀌지 않습니다.
+        </div>
+        {pending?.identityConflictReview.rows.length ? (
+          <div style={{ maxHeight: '62vh', overflow: 'auto', border: `1px solid ${C.line}`, borderRadius: R }}>
+            <table style={{ width: '100%', minWidth: 1280, borderCollapse: 'collapse', background: C.taupeBg }}>
+              <thead>
+                <tr>
+                  <th style={th}>구분</th>
+                  <th style={th}>차량</th>
+                  <th style={th}>현재 Sheet 공급사</th>
+                  <th style={th}>기존 상품키</th>
+                  <th style={th}>현재 Sheet 키</th>
+                  <th style={th}>변경 원자</th>
+                  <th style={th}>보호·판정</th>
+                  <th style={{ ...th, minWidth: 230 }}>다음 확인</th>
+                  <th style={{ ...th, minWidth: 250 }}>관리자 결정</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pending.identityConflictReview.rows.map((row, index) => {
+                  const active = activeIdentityDecisionByFingerprint.get(row.fingerprint);
+                  const blockReason = identityDecisionBlockReason(row);
+                  const targetMismatch = active && (
+                    active.provider !== row.provider
+                    || active.existing_key !== row.existingKeys[0]
+                    || active.incoming_key !== row.incomingKeys[0]
+                  );
+                  const options = sheetIdentityDecisionOptions(row.category)
+                    .map((value) => ({ value, label: sheetIdentityDecisionLabel(value) }));
+                  return (
+                    <tr key={`${row.category}|${row.fingerprint}|${index}`} style={{ borderTop: `1px solid ${C.line2}` }}>
+                      <td style={td}>{row.category}</td>
+                      <td style={{ ...td, fontFamily: NUM, fontWeight: FW.strong }}>{row.carNumbers.join(' ↔ ') || '확인 필요'}</td>
+                      <td style={td}>{row.provider || '미확정'}</td>
+                      <td style={{ ...td, whiteSpace: 'normal', maxWidth: 180 }}>{row.existingKeys.join(', ') || '없음'}</td>
+                      <td style={{ ...td, whiteSpace: 'normal', maxWidth: 180 }}>{row.incomingKeys.join(', ') || '없음'}</td>
+                      <td style={{ ...td, whiteSpace: 'normal', color: row.changedAtoms.length ? C.warn : C.mute }}>
+                        {row.changedAtoms.join(', ') || '변경 없음'}
+                      </td>
+                      <td style={{
+                        ...td, whiteSpace: 'normal', minWidth: 180,
+                        color: blockReason || targetMismatch ? C.danger : C.mute,
+                      }}>
+                        {blockReason || (targetMismatch ? '기록 대상키 불일치 · 철회 후 재검토' : row.reason)}
+                      </td>
+                      <td style={{ ...td, whiteSpace: 'normal', minWidth: 230 }}>{row.nextAction}</td>
+                      <td style={{ ...td, minWidth: 250 }}>
+                        {active ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                            <span style={{ color: targetMismatch ? C.danger : C.brand, fontWeight: FW.strong }}>
+                              {sheetIdentityDecisionLabel(active.decision)}
+                            </span>
+                            <Btn
+                              size="sm"
+                              variant="ghost"
+                              title="기록된 신원 판단 철회"
+                              onClick={() => revokeIdentityDecision(row)}
+                              disabled={busy}
+                            >
+                              철회
+                            </Btn>
+                          </div>
+                        ) : (
+                          <Select
+                            value=""
+                            placeholder="결정 선택"
+                            ariaLabel={`${row.carNumbers.join(' ↔ ')} 신원 관리자 결정`}
+                            options={options}
+                            onChange={(value) => value && recordIdentityDecision(row, value as SheetIdentityDecisionValue)}
+                            disabled={busy || Boolean(blockReason)}
+                            size="sm"
+                            full
+                          />
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div style={{ padding: 20, textAlign: 'center', color: C.faint, fontSize: FS.sub }}>
+            현재 검증 스냅샷에 신원·미확정 검토 대상이 없습니다.
+          </div>
+        )}
+      </Modal>
+
+      {/* 단일 시트·엑셀 업로드는 **공급사 본인 수동 업로드**다. 관리자 화면에서는 감춘다 —
           운영 유입은 「등록된 공급사 일괄」 한 경로로만 간다. 손으로 올린 건이 섞이면
           어느 매물이 어느 시트에서 왔는지 추적이 끊기고, 같은 차가 두 코드로 앉는다. */}
       {!isAdmin && (
@@ -582,27 +2068,37 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
       <PillTabs tabs={[{ key: 'sheet', label: '단일 시트' }, { key: 'excel', label: '엑셀 업로드' }]} value={tab} onChange={(k) => { setTab(k); clear(); }} size="sm" />
       {!isAdmin && (
         <div style={{ fontSize: FS.cap, color: C.mute, lineHeight: 1.45, padding: '6px 8px', background: C.head, borderRadius: R }}>
-          <b style={{ color: C.ink }}>연습</b> — 어댑터 <b>오토플러스식</b> · 구글시트 URL → 불러오기 → 차량번호 매핑 → 차종 변환 후 저장.
+          <b style={{ color: C.ink }}>수동 업로드</b> — 구글시트/엑셀 → 불러오기 → 차량번호 매핑 → 차종 변환 후 저장. 삭제·중복 충돌과 저장 직전 재고 변경은 자동 차단합니다.
           {partnerHint ? <span style={{ display: 'block', marginTop: 4, color: C.faint }}>{partnerHint}</span> : null}
         </div>
       )}
       {isAdmin && <Input value={prov} onChange={(v) => setProv(v)} placeholder="공급사 코드(단일·매핑학습용)" full />}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-        <Select value={adapterId} onChange={(v) => setAdapterId((v as SheetAdapterId) || 'generic')} options={ADAPTER_OPTIONS} full placeholder="어댑터" />
-        <Input value={headerRow} onChange={setHeaderRow} placeholder="헤더 행(0=첫줄)" full />
+        <Select value={adapterId} onChange={(v) => { clear(); setAdapterId((v as SheetAdapterId) || 'generic'); }} options={ADAPTER_OPTIONS} full placeholder="어댑터" />
+        <Input value={headerRow} onChange={(v) => { clear(); setHeaderRow(v); }} placeholder="헤더 행(0=첫줄)" full />
       </div>
+      <Select
+        value={depositRule}
+        onChange={(v) => {
+          setDepositRule(parseDepositRule(v));
+          if (mergedProducts) setMappingReloadRequired(true);
+        }}
+        options={[...DEPOSIT_RULE_OPTIONS]}
+        full
+        placeholder="보증금 규칙"
+      />
       {tab === 'sheet' ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <div style={{ display: 'flex', gap: 6 }}>
-            <Input value={url} onChange={(v) => setUrl(v)} placeholder="구글시트 URL" full style={{ flex: 1, minWidth: 0 }} />
+            <Input value={url} onChange={(v) => { clear(); setUrl(v); }} placeholder="구글시트 URL" full style={{ flex: 1, minWidth: 0 }} />
             <Btn title="구글시트 불러오기" variant="ghost" onClick={loadSheet} disabled={busy}>불러오기</Btn>
           </div>
-          <Input value={gid} onChange={setGid} placeholder="gid(선택·탭)" full />
+          <Input value={gid} onChange={(v) => { clear(); setGid(v); }} placeholder="gid(선택·탭)" full />
         </div>
       ) : (
         <>
           {/* 엑셀 붙여넣기 = 열 정렬이 보여야 하므로 고정폭 폰트가 의도적(원자 규격 위에 mono만 덮음) */}
-          <Textarea full rows={4} value={paste} onChange={setPaste}
+          <Textarea full rows={4} value={paste} onChange={(v) => { clear(); setPaste(v); }}
             placeholder={'엑셀 복사→붙여넣기 (첫 줄=헤더, 탭)\n차량번호\t제조사\t모델\t연식'}
             style={{ fontFamily: NUM }} />
           <Btn title="엑셀 붙여넣기 불러오기" size="sm" variant="ghost" onClick={loadExcel} disabled={busy}>불러오기</Btn>
@@ -625,7 +2121,9 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
             ))}
           </div>
           <div style={{ fontSize: FS.cap, color: C.mute, borderTop: `1px solid ${C.line2}`, paddingTop: 6, lineHeight: 1.55 }}>
-            {!masterReady ? (
+            {previewState.error ? (
+              <span style={{ color: C.danger }}>미리보기 중단 — {previewState.error}</span>
+            ) : !masterReady ? (
               <span style={{ color: C.danger }}>차종마스터 없음 — 변환 저장 불가</span>
             ) : (
               <>
@@ -655,7 +2153,7 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
               title={`동기화 ${preview?.products.length ?? 0}건`}
               size="sm"
               onClick={convertAndSave}
-              disabled={busy || !masterReady || !preview?.products.length || (!mergedProducts && !('car_number' in mapping))}
+              disabled={busy || mappingReloadRequired || !masterReady || !preview?.products.length || (!mergedProducts && !('car_number' in mapping))}
             >
               {`동기화 (${preview?.products.length ?? 0})`}
             </Btn>
@@ -666,8 +2164,4 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
       )}
     </div>
   );
-}
-
-function safeProfile(v: unknown): MappingProfile | undefined {
-  try { const o = typeof v === 'string' ? JSON.parse(v) : v; return o && typeof o === 'object' ? (o as MappingProfile) : undefined; } catch { return undefined; }
 }

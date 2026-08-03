@@ -4,7 +4,7 @@ import { useDeferredValue, useMemo } from 'react';
 import type { EntityRecord } from '@/lib/intake/entities';
 import type { InterestSnap } from '@/lib/product-interest';
 import {
-  depositForSort, installmentOk, isHiddenFromCatalog, minAge, noDeposit, rentForSort,
+  depositForSort, installmentOk, isOfferableProduct, minAge, noDeposit, rentForSort,
 } from '@/lib/domain/product';
 import {
   activeCount, aggregateDyn, EMPTY_VEHICLE_FILTER, excelMonths, matchProduct,
@@ -63,7 +63,7 @@ export function useFinderResults(params: Params) {
   const popularModels = useMemo(() => {
     const counts = new Map<string, number>();
     for (const product of rows || []) {
-      if (isHiddenFromCatalog(product)) continue;
+      if (!isOfferableProduct(product)) continue;
       const model = String(product.model || '').trim();
       if (model) counts.set(model, (counts.get(model) || 0) + 1);
     }
@@ -147,7 +147,7 @@ export function useFinderResults(params: Params) {
   }, [filterDraft, rows, query, hiddenCodes, recent, favorites, list.length]);
 
   const totalVisible = useMemo(() => {
-    const visible = (rows || []).filter((product) => !isHiddenFromCatalog(product));
+    const visible = (rows || []).filter(isOfferableProduct);
     if (!hiddenCodes.size) return visible.length;
     return visible.filter((product) => !hiddenCodes.has(String(product.product_code || product._key || ''))).length;
   }, [rows, hiddenCodes]);

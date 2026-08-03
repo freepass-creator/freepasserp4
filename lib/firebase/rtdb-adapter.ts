@@ -8,16 +8,21 @@
  *   · 조인 enrich: product._policy(policies 조인), settlement.contract_date(contracts 조인), room.vehicle_name 합성.
  * 스키마 매핑 근거 = 워크플로 wgt6khvjq(6도메인 매핑→v4 실사용 대조검증→합성).
  */
-import { ref, get, query, orderByChild, equalTo, update as dbUpdate, type DataSnapshot } from 'firebase/database';
+import { ref, get, query, orderByChild, equalTo, update as dbUpdate, runTransaction, type DataSnapshot } from 'firebase/database';
 import { getRtdb, getAuthClient } from './client';
 import { ENTITIES, type EntityRecord } from '../intake/entities';
 import { withProviderNames } from '@/lib/domain/identity';
 import { currentActor } from '../session';
 import { getSession } from '../auth-session';
 import { isAgentOrgAdmin } from '@/lib/domain/authorization';
-import type { StoreAdapter, SaveResult } from '../store';
+import type { FreshListHealth, StoreAdapter, SaveResult } from '../store';
 import { buildAuditEntry, buildMasterSnapBulkEntry } from '@/lib/domain/audit';
 import { toV4Record } from './rtdb-records';
+import {
+  productPatchPreconditionMatches,
+  type GuardedProductPatch,
+  type GuardedProductPatchResult,
+} from '@/lib/domain/product-write-guard';
 import {
   canSeeProductCost,
   dedupeProductsByVehicle,
@@ -27,6 +32,7 @@ import {
   stripProductCost,
 } from './rtdb-products';
 import { mergeSettlementPrivate, splitSettlementPrivate } from './rtdb-settlements';
+import { resolveMergedProduct } from '@/lib/domain/product-alias';
 
 type Rec = Record<string, any>;
 
@@ -294,7 +300,7 @@ export class RtdbAdapter implements StoreAdapter {
   }
 
   /** 관리자·자기 회사 공급사만 private 상품 원자를 읽어 공개 레코드에 병합한다. */
-  private async readProductPrivate(): Promise<Map<string, EntityRecord>> {
+  private async readProductPrivate(strict = false): Promise<Map<string, EntityRecord>> {
     const auth = getAuthClient()?.currentUser;
     const session = getSession();
     const role = session?.role || 'agent';
@@ -322,6 +328,7 @@ export class RtdbAdapter implements StoreAdapter {
         } as EntityRecord);
       }
     } catch (error) {
+      if (strict) throw error;
       console.warn('RTDB products_private 조회 실패:', (error as Error).message);
     }
     return output;
@@ -341,21 +348,28 @@ export class RtdbAdapter implements StoreAdapter {
   }
 
   // v3 라이브 ∪ v4 오버레이 필드단위 병합(같은 _key는 오버레이 필드 우선). 필터 전 전량.
-  private async merged(entity: string, co: string): Promise<EntityRecord[]> {
+  private async merged(entity: string, co: string, strict = false): Promise<EntityRecord[]> {
     try {
       // 매물 = 공급사이름 부착용 파트너 목록을 정책·매물 조회와 동시에 선발사(직렬 워터폴 제거).
       //  partnersForNames는 내부에서 .catch(() => []) 처리 → 아래 흐름이 먼저 throw해도 미처리 reject 없음.
-      const partnersP = entity === 'product' ? this.partnersForNames(co) : undefined;
+      const partnersP = entity === 'product'
+        ? (strict ? this.merged('partner', co, true) : this.partnersForNames(co))
+        : undefined;
       let joinMap: Rec | undefined;
       if (entity === 'product') {
         // 정책 조인 — 브리지 설정을 따른다. 예전엔 루트 'policies'를 무조건 읽어 절연 후에도 v3 의존이 남았다.
         //  브리지 ON = v3 ∪ v4(오버레이 우선) · OFF = v4 단독.
-        const [livePol, overPol] = await Promise.all([
-          BRIDGE_FROM_V3.has('policy')
-            ? get(ref(this.db(), 'policies')).then((s) => (s.val() || {}) as Rec).catch(() => ({} as Rec))
-            : Promise.resolve({} as Rec),
-          get(ref(this.db(), `${OVERLAY}/policies`)).then((s) => (s.val() || {}) as Rec).catch(() => ({} as Rec)),
-        ]);
+        const livePolicyRead = BRIDGE_FROM_V3.has('policy')
+          ? get(ref(this.db(), 'policies')).then((s) => (s.val() || {}) as Rec)
+          : Promise.resolve({} as Rec);
+        const overlayPolicyRead = get(ref(this.db(), `${OVERLAY}/policies`))
+          .then((s) => (s.val() || {}) as Rec);
+        const [livePol, overPol] = strict
+          ? await Promise.all([livePolicyRead, overlayPolicyRead])
+          : await Promise.all([
+              livePolicyRead.catch(() => ({} as Rec)),
+              overlayPolicyRead.catch(() => ({} as Rec)),
+            ]);
         joinMap = { ...livePol, ...overPol };
       } else if (entity === 'settlement') {
         // 계약 규칙은 역할별 쿼리 스코프를 요구한다. 전체 get은 비관리자에서 거부되므로
@@ -380,10 +394,16 @@ export class RtdbAdapter implements StoreAdapter {
         roomIds = rooms.map((r) => String(r._key)).filter(Boolean);
       }
 
-      const [live, over] = await Promise.all([
-        bridge ? this.readNode(entity, co, false, joinMap, roomIds).catch(() => [] as EntityRecord[]) : Promise.resolve([] as EntityRecord[]),
-        this.readNode(entity, co, true, joinMap, roomIds).catch(() => [] as EntityRecord[]),
-      ]);
+      const liveRead = bridge
+        ? this.readNode(entity, co, false, joinMap, roomIds)
+        : Promise.resolve([] as EntityRecord[]);
+      const overlayRead = this.readNode(entity, co, true, joinMap, roomIds);
+      const [live, over] = strict
+        ? await Promise.all([liveRead, overlayRead])
+        : await Promise.all([
+            liveRead.catch(() => [] as EntityRecord[]),
+            overlayRead.catch(() => [] as EntityRecord[]),
+          ]);
       const map = new Map<string, EntityRecord>();
       for (const r of live) map.set(String(r._key), r);
       for (const r of over) {
@@ -409,7 +429,7 @@ export class RtdbAdapter implements StoreAdapter {
       }
       // 매물엔 공급사 한글이름(provider_name) 부착 — 상세·목록 SSOT(파인더와 동일). 코드만 보이던 문제 해결.
       if (entity === 'product') {
-        const privateMap = await this.readProductPrivate();
+        const privateMap = await this.readProductPrivate(strict);
         const mergedProducts = result.map((product) => mergeProductPrivate(
           product,
           privateMap.get(String(product.product_code || product._key)),
@@ -418,6 +438,7 @@ export class RtdbAdapter implements StoreAdapter {
       }
       return result;
     } catch (e) {
+      if (strict) throw e;
       console.warn(`RTDB merged(${entity}) 실패(로그인·규칙 확인):`, (e as Error).message);
       return [];
     }
@@ -471,7 +492,62 @@ export class RtdbAdapter implements StoreAdapter {
   }
 
   async listDeleted(entity: string, co: string): Promise<EntityRecord[]> {
-    return (await this.merged(entity, co)).filter((r) => r._deleted || r.deletedAt);
+    const rows = (await this.merged(entity, co)).filter((r) => r._deleted || r.deletedAt);
+    if (entity !== 'product') return rows;
+    // v3 products는 모든 인증 직원이 읽는 공개 노드이고 레거시 원가·VIN이 섞여 있다.
+    // live/raw 목록과 같은 역할별 마스킹을 삭제 목록에도 적용하지 않으면, 채팅·계약의
+    // 삭제매물 이름 복원 경로만으로 영업자/타 공급사에 비공개 원가가 다시 노출된다.
+    return rows.map((row) => (canSeeProductCost(row) ? row : stripProductCost(row)));
+  }
+
+  private async strictHealth(entity: string, co: string): Promise<FreshListHealth> {
+    try {
+      return { rows: await this.merged(entity, co, true), complete: true };
+    } catch (error) {
+      return {
+        rows: [],
+        complete: false,
+        failures: [String((error as Error).message || error)],
+      };
+    }
+  }
+
+  /**
+   * ⚠ fresh 계열도 **원가 마스킹을 반드시 거친다.**
+   * merged() 는 v3 라이브 `products` 를 회사 스코프 없이 전량 읽으므로, 마스킹을 빼면
+   * 공급사 세션에 **타 공급사 매입원가·VIN·수수료**가 그대로 내려간다.
+   * 다른 읽기 경로(list·listRaw·listDeleted·listFreshWithHealth·get)는 전부 적용하는데
+   * 이 둘만 빠져 있었고, 하필 시트 저장 경로(sheet-merge)가 쓰는 게 이 둘이다.
+   */
+  private maskCost(health: FreshListHealth, entity: string): FreshListHealth {
+    if (!health.complete || entity !== 'product') return health;
+    return { ...health, rows: health.rows.map((row) => (canSeeProductCost(row) ? row : stripProductCost(row))) };
+  }
+
+  async listAllFreshWithHealth(entity: string, co: string): Promise<FreshListHealth> {
+    return this.maskCost(await this.strictHealth(entity, co), entity);
+  }
+
+  async listRawFreshWithHealth(entity: string, co: string): Promise<FreshListHealth> {
+    const health = await this.strictHealth(entity, co);
+    if (!health.complete) return health;
+    return this.maskCost(
+      { ...health, rows: health.rows.filter((row) => !row._deleted && !row.deletedAt) },
+      entity,
+    );
+  }
+
+  async listFreshWithHealth(entity: string, co: string): Promise<FreshListHealth> {
+    const health = await this.strictHealth(entity, co);
+    if (!health.complete) return health;
+    const rows = health.rows.filter((row) => !row._deleted && !row.deletedAt);
+    if (entity !== 'product') return { ...health, rows };
+    const live = rows.filter((row) => String((row as Rec).status) !== 'deleted');
+    const shown = dedupeProductsByVehicle(live.filter((row) => !isExcludedProduct(row as Rec)));
+    return {
+      ...health,
+      rows: shown.map((row) => (canSeeProductCost(row) ? row : stripProductCost(row))),
+    };
   }
 
   /**
@@ -480,7 +556,10 @@ export class RtdbAdapter implements StoreAdapter {
    */
   async get(entity: string, co: string, key: string): Promise<EntityRecord | null> {
     // ※ keyed get 최적화는 야간검증서 revert(HIGH) — v3 라이브 childKey≠product_code 매물을 miss(merged 폴백은 throw만 탐). merged 전량 스캔이 정합 SSOT.
-    const r = (await this.merged(entity, co)).find((row) => String(row._key) === key && !row._deleted && !row.deletedAt) || null;
+    const rows = await this.merged(entity, co);
+    const r = entity === 'product'
+      ? resolveMergedProduct(rows, key)
+      : rows.find((row) => String(row._key) === key && !row._deleted && !row.deletedAt) || null;
     if (!r || entity !== 'product') return r;
     if (String((r as Rec).status) === 'deleted') return null;
     if (isExcludedProduct(r as Rec)) return null;
@@ -626,6 +705,72 @@ export class RtdbAdapter implements StoreAdapter {
     if (snapish && done) this.writeAuditRec(buildMasterSnapBulkEntry(co, patches, currentActor()));
     else this.writeAudit(entity, co, `bulk:${done}`, 'update', null, { count: done } as EntityRecord);
     return done;
+  }
+  /**
+   * 시트 병합용 상품 CAS. 공개 상품 레코드 transaction이 계약 엔진의 상태 leaf write와
+   * 같은 서버 경로에서 경합하므로, 검증 직후 계약 잠금이 생기면 transaction 재시도에서
+   * expected 불일치로 중단한다. v3는 쓰지 않고 v4 오버레이만 갱신한다.
+   */
+  async bulkPatchGuardedProduct(co: string, patches: GuardedProductPatch[]): Promise<GuardedProductPatchResult> {
+    const conflicts: string[] = [];
+    let updated = 0;
+    for (const { key, patch, expected } of patches) {
+      const now = new Date().toISOString();
+      const { publicRecord, privateRecord } = splitProductPrivate(patch);
+      const expectedSplit = splitProductPrivate(expected);
+      const publicResult = await runTransaction(
+        ref(this.db(), `${OVERLAY}/products/${key}`),
+        (raw) => {
+          const current = raw && typeof raw === 'object' ? raw as EntityRecord : null;
+          if (!productPatchPreconditionMatches(current, expectedSplit.publicRecord, publicRecord, { overlayFallback: true })) {
+            return undefined;
+          }
+          return stripUndef({ ...(current || {}), ...publicRecord, _key: key, updatedAt: now });
+        },
+        { applyLocally: false },
+      );
+      if (!publicResult.committed) {
+        conflicts.push(key);
+        break;
+      }
+
+      if (privateRecord) {
+        const expectedPrivate = expectedSplit.privateRecord || {};
+        const privateResult = await runTransaction(
+          ref(this.db(), `${OVERLAY}/products_private/${key}`),
+          (raw) => {
+            const current = raw && typeof raw === 'object' ? raw as EntityRecord : null;
+            if (!productPatchPreconditionMatches(current, expectedPrivate, privateRecord, {
+              overlayFallback: true,
+              guardFields: [],
+            })) return undefined;
+            return stripUndef({
+              ...(current || {}),
+              ...privateRecord,
+              _key: key,
+              product_code: expected.product_code || key,
+              provider_company_code: privateRecord.provider_company_code || expected.provider_company_code,
+              updatedAt: now,
+            });
+          },
+          { applyLocally: false },
+        );
+        if (!privateResult.committed) {
+          conflicts.push(key);
+          // ⚠ 공개 트랜잭션은 **이미 커밋됐다.** 여기서 updated 를 안 올리면
+          //  (1) 호출부가 updated===0 을 보고 "저장 안 됨"으로 보고하는데 실제로는 공개 가격·스펙이
+          //      서버에 반영돼 손님·영업자 화면에 게시된 상태이고,
+          //  (2) store 의 _invalidate('product') 가 안 돌아 운영자 화면이 저장 전 값을 계속 보여
+          //      그 오판을 확증해 준다.
+          //  절반이라도 반영된 사실은 반드시 올려 보낸다. 충돌은 conflicts 로 따로 알린다.
+          updated++;
+          break;
+        }
+      }
+      updated++;
+    }
+    if (updated) this.writeAudit('product', co, `guarded-bulk:${updated}`, 'update', null, { count: updated } as EntityRecord);
+    return { updated, conflicts };
   }
   async remove(entity: string, co: string, key: string, reason = ''): Promise<void> {
     await this.update(entity, co, key, { _deleted: true, deletedAt: new Date().toISOString(), deletedReason: reason });

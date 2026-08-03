@@ -23,13 +23,13 @@ const { getStore } = await import('../lib/store');
 const { getCompanyId } = await import('../lib/tenant');
 const { seedIfEmpty } = await import('../lib/seed');
 const { newId } = await import('../lib/domain/ids');
-const { ensureRoom, setRole, actor, createContractRequest, ROLE_LABEL } = await import('../lib/domain/deal');
+const { ensureRoom, ensureRoomForContract, setRole, actor, createContractRequest, ROLE_LABEL } = await import('../lib/domain/deal');
 type Role = 'agent' | 'provider' | 'admin';
 const { sendText, markRead, listMessages, unreadFor } = await import('../lib/domain/messaging');
 const { applyStepCheck } = await import('../lib/domain/settlement-engine');
 const { getProgress, contractStage, STEPS, isDone } = await import('../lib/domain/contract');
 const { guestShareUrl, formatProductForCopy } = await import('../lib/domain/product-share');
-const { sendContractLink } = await import('../lib/domain/contract-send');
+const { buildContractPayload, sendContractLink } = await import('../lib/domain/contract-send');
 const { getContractByToken } = await import('../lib/domain/sign');
 const { matchProduct, presentFilterOptions, EMPTY_VEHICLE_FILTER } = await import('../lib/domain/product-filters');
 const { detailSections } = await import('../lib/domain/product');
@@ -116,6 +116,7 @@ check('1.7 손님 상세에 원가·파트너메모 없음', !/vehicle_price|par
     ...sample,
     vehicle_price: 25000000,
     vin: 'KMH12345678901234',
+    account_number: 'PRIVATE-ACCOUNT',
     price: {
       '36': {
         rent: 390000,
@@ -132,6 +133,7 @@ check('1.7 손님 상세에 원가·파트너메모 없음', !/vehicle_price|par
     '1.7b 영업자 원가·VIN·수수료 객체 마스킹',
     masked.vehicle_price == null
       && masked.vin == null
+      && masked.account_number == null
       && terms.rent === 390000
       && terms.deposit === 0
       && terms.fee == null
@@ -147,13 +149,16 @@ check('1.7 손님 상세에 원가·파트너메모 없음', !/vehicle_price|par
     '1.7c public/private 분리·권한 병합 왕복',
     split.publicRecord.vehicle_price == null
       && split.publicRecord.vin == null
+      && split.publicRecord.account_number == null
       && publicTerms.rent === 390000
       && publicTerms.fee == null
       && split.privateRecord?.vehicle_price === 25000000
       && split.privateRecord?.vin === 'KMH12345678901234'
+      && split.privateRecord?.account_number === 'PRIVATE-ACCOUNT'
       && privateTerms.fee === 39000
       && restored.vehicle_price === 25000000
       && restored.vin === 'KMH12345678901234'
+      && restored.account_number === 'PRIVATE-ACCOUNT'
       && restoredTerms.rent === 390000
       && restoredTerms.fee === 39000,
   );
@@ -182,6 +187,36 @@ await store.save('product', co, [product]);
 setRole('agent');
 const roomId = await ensureRoom(product);
 check('2.1 방 키=CH_매물_영업', roomId === `CH_${productCode}_${me.code}`, roomId);
+const createdRoom = (await store.get('room', co, roomId))!;
+check('2.1b 일반 문의방 차량 구조 snapshot 저장',
+  String(createdRoom.vehicle_name) === '현대 아반떼 CN7 인스퍼레이션'
+    && String(createdRoom.maker) === '현대'
+    && String(createdRoom.model) === '아반떼'
+    && String(createdRoom.sub_model) === '아반떼 CN7'
+    && String(createdRoom.variant) === ''
+    && String(createdRoom.trim_name) === '인스퍼레이션'
+    && String(createdRoom.trim_extra) === '',
+  createdRoom,
+);
+const contractOnlyRoomId = await ensureRoomForContract({
+  contract_code: 'C-ROOM-SNAPSHOT', product_code: 'veh_contract_snapshot',
+  agent_uid: me.uid, agent_code: me.code, agent_name: me.name, agent_channel_code: me.channel,
+  provider_company_code: 'sup_jeil', car_number_snapshot: '77하7777',
+  maker_snapshot: '현대', model_snapshot: '투싼', sub_model_snapshot: '투싼 NX4',
+  variant_snapshot: '가솔린 1.6T', trim_name_snapshot: '프리미엄', trim_extra_snapshot: '컴포트',
+  vehicle_name_snapshot: '현대 투싼 NX4 가솔린 1.6T 프리미엄 컴포트',
+});
+const contractOnlyRoom = (await store.get('room', co, contractOnlyRoomId))!;
+check('2.1c 계약 문의방도 차량 구조 snapshot 저장',
+  String(contractOnlyRoom.vehicle_name) === '현대 투싼 NX4 프리미엄'
+    && String(contractOnlyRoom.maker) === '현대'
+    && String(contractOnlyRoom.model) === '투싼'
+    && String(contractOnlyRoom.sub_model) === '투싼 NX4'
+    && String(contractOnlyRoom.variant) === '가솔린 1.6T'
+    && String(contractOnlyRoom.trim_name) === '프리미엄'
+    && String(contractOnlyRoom.trim_extra) === '컴포트',
+  contractOnlyRoom,
+);
 
 await sendText({ roomId, text: '36개월 즉시출고 가능한가요?', channel: '간단', role: 'agent' });
 const simple = await listMessages(roomId, '간단');
@@ -225,6 +260,51 @@ let contract = (await store.get('contract', co, contractCode))!;
 check('3.1 가계약 생성', !!contract && String(contract.agent_code) === me.code, contract.contract_code);
 check('3.2 요율 스냅샷', Number(contract.fee_rate_snapshot) >= 0 && Number(contract.rent_amount_snapshot) === 390000, {
   fee: contract.fee_rate_snapshot, rent: contract.rent_amount_snapshot,
+});
+check('3.2b 차량 식별 스냅샷 동결',
+  String(contract.car_number_snapshot) === '88어8888'
+    && String(contract.maker_snapshot) === '현대'
+    && String(contract.model_snapshot) === '아반떼'
+    && String(contract.sub_model_snapshot) === '아반떼 CN7'
+    && String(contract.trim_name_snapshot) === '인스퍼레이션'
+    && String(contract.vehicle_name_snapshot) === '현대 아반떼 CN7 인스퍼레이션'
+    && String(contract.year_snapshot) === '2023'
+    && String(contract.fuel_type_snapshot) === '가솔린',
+  contract.vehicle_name_snapshot,
+);
+await store.update('product', co, productCode, {
+  maker: '기아', model: 'K5', sub_model: 'K5 DL3', trim_name: '노블레스',
+  year: '2026', fuel_type: '하이브리드',
+});
+const payloadAfterLiveRename = (await buildContractPayload(contractCode)).payload;
+check('3.2c 계약서 payload는 현재 상품 변경 후에도 snapshot 유지',
+  payloadAfterLiveRename.vehicle_name === '현대 아반떼 CN7 인스퍼레이션'
+    && payloadAfterLiveRename.model_year === '2023년식'
+    && payloadAfterLiveRename.fuel === '가솔린',
+  {
+    vehicle_name: payloadAfterLiveRename.vehicle_name,
+    model_year: payloadAfterLiveRename.model_year,
+    fuel: payloadAfterLiveRename.fuel,
+  },
+);
+await store.update('contract', co, contractCode, {
+  contract_draft: JSON.stringify({
+    vehicle_name: '현재 계약과 다른 과거 차명', car_number: '00가0000', fuel: '경유', model_year: '1900년식',
+    delivery_location: '초안 배송지',
+  }),
+});
+const payloadAfterStaleDraft = (await buildContractPayload(contractCode)).payload;
+check('3.2e 과거 draft가 계약 차량 정본을 덮지 않음',
+  payloadAfterStaleDraft.vehicle_name === '현대 아반떼 CN7 인스퍼레이션'
+    && payloadAfterStaleDraft.car_number === '88어8888'
+    && payloadAfterStaleDraft.fuel === '가솔린'
+    && payloadAfterStaleDraft.model_year === '2023년식'
+    && payloadAfterStaleDraft.delivery_location === '초안 배송지',
+  payloadAfterStaleDraft,
+);
+await store.update('product', co, productCode, {
+  maker: product.maker, model: product.model, sub_model: product.sub_model, trim_name: product.trim_name,
+  year: product.year, fuel_type: product.fuel_type,
 });
 
 await applyStepCheck(contract, 'agent_delivery_inquiry', 'yes');

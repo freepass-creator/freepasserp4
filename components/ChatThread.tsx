@@ -48,31 +48,55 @@ export function ChatThread({
   const fileRef = useRef<HTMLInputElement | null>(null);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
   const dragDepth = useRef(0);
+  const activeRoomRef = useRef<string | null>(null);
+  const roomGenerationRef = useRef(0);
 
-  const load = useCallback(async (mark = true) => {
-    const rm = await getStore().get('room', co, roomId);
+  const load = useCallback(async (mark: boolean, isCurrent: () => boolean) => {
+    const targetRoom = roomId;
+    const rm = await getStore().get('room', co, targetRoom);
+    const nextMsgs = await listMessages(targetRoom);
+    if (!isCurrent()) return;
     setRoom(rm);
-    if (mark) await markRead(roomId, getRole());
-    setMsgs(await listMessages(roomId));
+    setMsgs(nextMsgs);
+    if (mark && isCurrent()) {
+      try {
+        await markRead(targetRoom, getRole(), isCurrent);
+      } catch (error) {
+        console.warn('메시지 읽음 처리 실패:', error);
+      }
+    }
   }, [co, roomId]);
   useEffect(() => {
-    let alive = true;
+    const generation = ++roomGenerationRef.current;
+    activeRoomRef.current = roomId;
+    const isCurrent = () => (
+      activeRoomRef.current === roomId && roomGenerationRef.current === generation
+    );
     setMsgs(undefined);
     (async () => {
       await seedIfEmpty(co);
-      if (!alive) return;
+      if (!isCurrent()) return;
       setRoleS(getRole());
-      await load();
+      await load(true, isCurrent);
     })().catch((e) => {
       console.error('메시지 조회 실패:', e);
-      if (alive) setMsgs([]);
+      if (isCurrent()) setMsgs([]);
     });
-    return () => { alive = false; };
-  }, [co, load]);
+    return () => {
+      if (roomGenerationRef.current === generation) {
+        activeRoomRef.current = null;
+        roomGenerationRef.current += 1;
+      }
+    };
+  }, [co, load, roomId]);
   useEffect(() => {
     const refresh = () => {
       if (document.visibilityState === 'hidden') return;
-      load(false).catch((e) => console.warn('메시지 새로고침 실패:', e));
+      const generation = roomGenerationRef.current;
+      const isCurrent = () => (
+        activeRoomRef.current === roomId && roomGenerationRef.current === generation
+      );
+      load(false, isCurrent).catch((e) => console.warn('메시지 새로고침 실패:', e));
     };
     const id = window.setInterval(refresh, 5000);
     window.addEventListener('focus', refresh);
@@ -82,7 +106,7 @@ export function ChatThread({
       window.removeEventListener('focus', refresh);
       window.removeEventListener('fp:unread', refresh);
     };
-  }, [load]);
+  }, [load, roomId]);
   useEffect(() => { const on = (e: Event) => setRoleS((e as CustomEvent).detail as Role); window.addEventListener('fp:role', on); return () => window.removeEventListener('fp:role', on); }, []);
   // 첨부 뷰어 — 데스크톱 키보드(Esc=닫기 · ←→=이동). 모바일은 버튼·스와이프.
   const galleryLen = (msgs || []).filter((m) => m.image_url).length;

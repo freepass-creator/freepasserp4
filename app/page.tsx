@@ -6,6 +6,7 @@ import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { activeCount, EMPTY_VEHICLE_FILTER, type VehicleFilter } from '@/lib/domain/product-filters';
+import { isOfferableProduct } from '@/lib/domain/product';
 import { InterestPanel, useInterestLists, useInterestTab, useInterestTabGuard } from '@/components/InterestRail';
 import { clearRecent, clearFavs } from '@/lib/product-interest';
 import { confirmDialog, toast } from '@/components/Toaster';
@@ -83,7 +84,7 @@ export default function Finder() {
   const [openCol, setOpenCol] = useState<{ field: string; x: number; y: number } | null>(null);
   const [limit, setLimit] = useState(PAGE); // 목록·엑셀 공통 페이징(더보기)
   const [interestTab, setInterestTab] = useInterestTab();
-  const { recent: interestRecent, favs: interestFavs } = useInterestLists();
+  const { recent: storedInterestRecent, favs: storedInterestFavs } = useInterestLists();
 
   const liveBag = useCallback((): FilterBag => ({
     periods, rent, dep, mile, fuel, ptype, credit, perks, promo, dyn, vehicle, models, sort, interest: interestFlt,
@@ -155,7 +156,6 @@ export default function Finder() {
   const co = getCompanyId();
   const router = useRouter();
   const mobile = useIsMobile();
-  useInterestTabGuard(interestTab, setInterestTab, interestRecent.length, interestFavs.length, !mobile);
   const authReady = useAuthReady();
   const session = useSession(); // 로그인 순간 매물 재조회 트리거(uid 변화 → 아래 로드 effect 재실행)
   const { rows, hiddenCodes, passedCodes } = useFinderData({
@@ -163,6 +163,25 @@ export default function Finder() {
     authReady,
     sessionUid: session?.uid,
   });
+  const interestProductIndex = useMemo(
+    () => new Map((rows || []).map((product) => [String(product.product_code || product._key), product])),
+    [rows],
+  );
+  const interestRecent = useMemo(() => {
+    if (rows === null) return [];
+    return storedInterestRecent.filter((snapshot) => {
+      const live = interestProductIndex.get(snapshot.code);
+      return !live || isOfferableProduct(live);
+    });
+  }, [rows, storedInterestRecent, interestProductIndex]);
+  const interestFavs = useMemo(() => {
+    if (rows === null) return [];
+    return storedInterestFavs.filter((snapshot) => {
+      const live = interestProductIndex.get(snapshot.code);
+      return !live || isOfferableProduct(live);
+    });
+  }, [rows, storedInterestFavs, interestProductIndex]);
+  useInterestTabGuard(interestTab, setInterestTab, interestRecent.length, interestFavs.length, !mobile);
   // 보기모드 = 새로고침해도 유지(localStorage). 서버·최초렌더는 'card' → effect에서 복원(하이드레이션 mismatch 방지).
   // 선택(하이라이트)은 즉시(urgent), 무거운 목록 렌더만 useDeferredValue로 뒤로 → 토글 딱 반응, 논블로킹.
   const setView = (v: string) => {

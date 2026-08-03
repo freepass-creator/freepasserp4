@@ -1,8 +1,7 @@
 'use client';
 import { useEffect } from 'react';
-import Link from 'next/link';
 import { AlertTriangle } from 'lucide-react';
-import { C, FS, FW, R } from '@/components/ui/tokens';
+import { Btn, C, FS, FW } from '@/components/ui';
 import { logClientError } from '@/lib/observability/log-error';
 
 /** 페이지 렌더 에러 바운더리 — 백스크린 대신 친절 UI + 다시시도. 에러는 관측 로거로 수집. */
@@ -25,20 +24,8 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
         <div style={{ fontSize: FS.cap, color: C.faint, fontFamily: 'monospace' }}>오류코드 {error.digest}</div>
       ) : null}
       <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
-        <button
-          onClick={() => reset()}
-          style={{
-            padding: '10px 18px', borderRadius: R, border: 'none',
-            background: C.brand, color: '#fff', fontSize: FS.body, fontWeight: FW.strong, cursor: 'pointer',
-          }}
-        >다시 시도</button>
-        <Link
-          href="/"
-          style={{
-            padding: '10px 18px', borderRadius: R, border: `1px solid ${C.line}`,
-            background: C.taupeBg, color: C.ink, fontSize: FS.body, fontWeight: FW.meta, textDecoration: 'none',
-          }}
-        >홈으로</Link>
+        <Btn onClick={() => reset()}>다시 시도</Btn>
+        <Btn href="/" variant="ghost">홈으로</Btn>
       </div>
     </div>
   );

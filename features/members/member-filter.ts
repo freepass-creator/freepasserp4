@@ -1,7 +1,7 @@
 import type { EntityRecord } from '@/lib/intake/entities';
 import { ROLES, ROLE_LABEL_RAW } from '@/lib/intake/entities';
 import { matchMemberQuery } from '@/lib/domain/search';
-import { partnerTypeLabel } from '@/lib/domain/partner';
+import { partnerTypeLabel, UNCLASSIFIED_PARTNER_TYPE } from '@/lib/domain/partner';
 
 export type MemberTab = 'user' | 'partner';
 export type MemberSort = 'name' | 'role' | 'code';
@@ -17,6 +17,7 @@ export const MEMBER_ACTIVE_OPTIONS: { key: MemberActiveFilter; label: string }[]
   { key: 'all', label: '전체' },
   { key: 'active', label: '활성' },
   { key: 'inactive', label: '비활성' },
+  { key: 'pending', label: '승인대기' },
 ];
 
 export const MEMBER_ROLE_OPTIONS = [
@@ -29,6 +30,7 @@ export const MEMBER_PARTNER_TYPE_OPTIONS = [
   { key: 'all', label: '전체' },
   { key: '공급사', label: '공급사' },
   { key: '영업채널', label: '영업채널' },
+  { key: UNCLASSIFIED_PARTNER_TYPE, label: UNCLASSIFIED_PARTNER_TYPE },
 ];
 
 /**
@@ -39,6 +41,16 @@ export const MEMBER_TAB_OPTIONS: { key: MemberTab; label: string }[] = [
   { key: 'user', label: '계정' },
   { key: 'partner', label: '회사' },
 ];
+
+/** 인증 게이트와 같은 계정 상태 판정 — boolean false·삭제·반려도 활성으로 보이면 안 된다. */
+export function memberAccountState(row: EntityRecord): Exclude<MemberActiveFilter, 'all'> {
+  const status = String(row.status || '').trim();
+  if (status === 'pending') return 'pending';
+  const active = String(row.is_active ?? '').trim().toLowerCase();
+  return active === '아니오' || active === 'false' || status === 'deleted' || status === 'rejected'
+    ? 'inactive'
+    : 'active';
+}
 
 type Params = {
   rows: EntityRecord[];
@@ -56,9 +68,8 @@ export function filterMembers(params: Params): EntityRecord[] {
     .filter((row) => {
       if (params.tab === 'user') {
         if (params.role !== 'all' && String(row.role || '') !== params.role) return false;
-        if (params.active === 'active' && row.is_active === '아니오') return false;
-        if (params.active === 'inactive' && row.is_active !== '아니오') return false;
-        if (params.active === 'pending' && String(row.status || '') !== 'pending') return false;
+        const displayState = memberAccountState(row);
+        if (params.active !== 'all' && displayState !== params.active) return false;
       } else if (
         params.partnerType !== 'all'
         && partnerTypeLabel(row.partner_type, row.partner_code || row._key) !== params.partnerType

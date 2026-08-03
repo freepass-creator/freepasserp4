@@ -17,6 +17,7 @@
 import { initializeApp, cert, applicationDefault } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
 import { readFileSync, writeFileSync } from 'node:fs';
+import { AUDIT_SENSITIVE_FIELDS } from '../lib/domain/audit';
 
 const saPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
 initializeApp({
@@ -28,26 +29,40 @@ const APPLY = process.argv.includes('--apply');
 /** 대상 노드. 기본 v4. v3 라이브(audit_logs)는 erp3 가 아직 쓰는 노드라 명시해야 건드린다. */
 const NODE = (process.argv.find((a) => a.startsWith('--node=')) || '--node=v4/audit_logs').split('=')[1];
 
-const PII_FIELDS = [
-  'customer_id', 'driver_license_no', 'customer_address', 'customer_phone', 'customer_name',
-  'emergency_name', 'emergency_phone', 'sign_signature',
-  'account_number', 'bank_account', 'resident_id', 'passport_no',
-];
+const PII_FIELDS = [...AUDIT_SENSITIVE_FIELDS];
 const PII_SET = new Set(PII_FIELDS);
+
+function scrubObject(value: unknown, key = '', depth = 0): { out: unknown; hit: boolean } {
+  if (PII_SET.has(key)) {
+    const hit = value != null && value !== '' && value !== '***';
+    return { out: hit ? '***' : value, hit };
+  }
+  if (depth >= 8 || value == null || typeof value !== 'object') return { out: value, hit: false };
+  if (Array.isArray(value)) {
+    let hit = false;
+    const out = value.map((item) => {
+      const next = scrubObject(item, '', depth + 1);
+      hit ||= next.hit;
+      return next.out;
+    });
+    return { out, hit };
+  }
+  let hit = false;
+  const out: Rec = {};
+  for (const [childKey, childValue] of Object.entries(value as Rec)) {
+    const next = scrubObject(childValue, childKey, depth + 1);
+    hit ||= next.hit;
+    out[childKey] = next.out;
+  }
+  return { out, hit };
+}
 
 /** JSON 문자열 안의 민감키 값을 *** 로. 파싱 실패하면 정규식 폴백(잘린 JSON 대비 — slice(0,1200) 때문에 흔하다). */
 function scrubJsonText(s: string): { out: string; hit: boolean } {
   if (!s) return { out: s, hit: false };
   try {
-    const o = JSON.parse(s);
-    let hit = false;
-    if (o && typeof o === 'object') {
-      for (const k of Object.keys(o)) {
-        if (PII_SET.has(k) && o[k] != null && o[k] !== '' && o[k] !== '***') { o[k] = '***'; hit = true; }
-      }
-      if (hit) return { out: JSON.stringify(o), hit };
-    }
-    return { out: s, hit: false };
+    const scrubbed = scrubObject(JSON.parse(s));
+    return scrubbed.hit ? { out: JSON.stringify(scrubbed.out), hit: true } : { out: s, hit: false };
   } catch {
     let out = s; let hit = false;
     for (const k of PII_FIELDS) {

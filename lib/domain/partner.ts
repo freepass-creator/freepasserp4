@@ -1,4 +1,6 @@
 /** V3 영문값과 V4 한글값을 하나의 파트너 유형 표기로 정규화한다. */
+export const UNCLASSIFIED_PARTNER_TYPE = '분류 필요';
+
 export function partnerTypeLabel(value: unknown, partnerCode?: unknown): string {
   const raw = String(value || '').trim();
   const normalized = raw.toLowerCase().replace(/[\s-]+/g, '_');
@@ -11,7 +13,8 @@ export function partnerTypeLabel(value: unknown, partnerCode?: unknown): string 
   if (!raw || raw === '파트너') {
     if (code.startsWith('RP')) return '공급사';
     if (code.startsWith('SP')) return '영업채널';
+    return UNCLASSIFIED_PARTNER_TYPE;
   }
 
-  return raw || '파트너';
+  return raw || UNCLASSIFIED_PARTNER_TYPE;
 }

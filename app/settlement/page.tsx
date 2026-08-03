@@ -5,32 +5,47 @@ import { useRouter } from 'next/navigation';
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
-import { SETTLEMENT_STATES, type EntityRecord } from '@/lib/intake/entities';
+import type { EntityRecord } from '@/lib/intake/entities';
 import { isAdminUiAllowed } from '@/lib/auth-gate';
 import { parseSettlementHistory } from '@/lib/domain/settlement-import';
 import { downloadSettlementReport } from '@/lib/excel-export';
 import {
   Badge, Btn, C, CenterNote, DetailRow, DetailShell, FilterChips, FilterGroup,
   FS, FW, IconBtn, ListGroup, Loading, MetricRow, NUM, PaneBody, PaneHead, R, Select,
-  SETTLEMENT_STATUS_TONE, won,
+  won,
 } from '@/components/ui';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
 import { SettlementListRow } from '@/components/list-rows';
 import { toast } from '@/components/Toaster';
 import { AdminSettlementSheet } from '@/components/AdminSettlementSheet';
-import { matchSettlementQuery } from '@/lib/domain/search';
+import { matchHay, matchSettlementQuery } from '@/lib/domain/search';
 import { NAV_LABEL } from '@/lib/tabbar';
 import { Banknote, ChartNoAxesCombined, ChevronLeft, ChevronRight, FileText } from 'lucide-react';
 import { useIsMobile } from '@/lib/use-mobile';
 import { retainVisibleSelection } from '@/features/work-list-display';
+import {
+  SETTLEMENT_DISPLAY_STATUSES,
+  SETTLEMENT_RATE_WARNING,
+  SETTLEMENT_RENT_WARNING,
+  buildSettlementDisplayIndex,
+  compareSettlementDisplayStatus,
+  matchesSettlementDisplayStatus,
+  normalizeSettlementDisplayStatus,
+  settlementListDisplay,
+  settlementNetTone,
+  settlementNeedsAttention,
+  settlementWarning,
+  type SettlementListDisplay,
+} from '@/lib/domain/settlement-display';
 
 type SettlementSort = '' | 'date_desc' | 'customer' | 'amount_desc' | 'status';
 type SettlementGroup = 'provider' | 'channel';
 
 const monthOf = (settlement: EntityRecord) => String(settlement.contract_date || '').slice(0, 7);
 const numberOf = (value: unknown) => Number(value) || 0;
+const netColor = (value: unknown) => C[settlementNetTone(value)];
 const netProfitOf = (list: EntityRecord[]) => list.reduce(
-  (sum, settlement) => String(settlement.settlement_status) === '정산완료'
+  (sum, settlement) => normalizeSettlementDisplayStatus(settlement.settlement_status) === '정산완료'
     ? sum + numberOf(settlement.net_amount)
     : sum,
   0,
@@ -65,6 +80,9 @@ export default function MonthlySettlement() {
   const mobile = useIsMobile();
   const [ok, setOk] = useState<boolean | null>(null);
   const [rows, setRows] = useState<EntityRecord[]>([]);
+  const [contracts, setContracts] = useState<EntityRecord[]>([]);
+  const [partners, setPartners] = useState<EntityRecord[]>([]);
+  const [users, setUsers] = useState<EntityRecord[]>([]);
   const [month, setMonth] = useState('');
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [queryInput, setQueryInput] = useState(''); // 검색창 즉시 반영
@@ -88,8 +106,17 @@ export default function MonthlySettlement() {
         router.replace('/contract');
         return;
       }
-      const all = await getStore().list('settlement', co);
+      const store = getStore();
+      const [all, contractRows, partnerRows, userRows] = await Promise.all([
+        store.list('settlement', co),
+        store.list('contract', co).catch(() => []),
+        store.list('partner', co).catch(() => []),
+        store.list('user', co).catch(() => []),
+      ]);
       setRows(all);
+      setContracts(contractRows);
+      setPartners(partnerRows);
+      setUsers(userRows);
       const availableMonths = [...new Set(all.map(monthOf).filter(Boolean))].sort();
       setMonth(availableMonths.at(-1) || new Date().toISOString().slice(0, 7));
       setOk(true);
@@ -134,30 +161,50 @@ export default function MonthlySettlement() {
     return [...values].sort();
   }, [rows]);
 
+  const displayIndex = useMemo(
+    () => buildSettlementDisplayIndex(contracts, partners, users),
+    [contracts, partners, users],
+  );
+  const displayBySettlement = useMemo(() => new Map<EntityRecord, SettlementListDisplay>(
+    rows.map((settlement) => [settlement, settlementListDisplay(settlement, displayIndex)]),
+  ), [displayIndex, rows]);
+  const displayOf = (settlement: EntityRecord) => (
+    displayBySettlement.get(settlement) || settlementListDisplay(settlement, displayIndex)
+  );
+
   const monthRows = useMemo(
     () => rows.filter((settlement) => monthOf(settlement) === month),
     [rows, month],
   );
 
   const shown = useMemo(() => {
-    const filtered = monthRows.filter((settlement) => (
-      (status === 'all' || String(settlement.settlement_status) === status)
-      && matchSettlementQuery(settlement, query)
-    ));
+    const filtered = monthRows.filter((settlement) => {
+      const display = displayBySettlement.get(settlement);
+      const displayHaystack = display
+        ? [display.vehicleName, display.customerName, display.providerName, display.agentName, display.channelName].join(' ')
+        : '';
+      return matchesSettlementDisplayStatus(settlement, status)
+        && (matchSettlementQuery(settlement, query) || matchHay(displayHaystack, query));
+    });
     return [...filtered].sort((left, right) => {
       if (sort === 'customer') {
-        return String(left.customer_name || '').localeCompare(String(right.customer_name || ''), 'ko');
+        return String(displayBySettlement.get(left)?.customerName || '').localeCompare(
+          String(displayBySettlement.get(right)?.customerName || ''),
+          'ko',
+        );
       }
       if (sort === 'amount_desc') return numberOf(right.net_amount) - numberOf(left.net_amount);
       if (sort === 'status') {
-        return String(left.settlement_status || '').localeCompare(String(right.settlement_status || ''), 'ko');
+        return compareSettlementDisplayStatus(left.settlement_status, right.settlement_status);
       }
       if (sort === 'date_desc') {
-        return String(right.contract_date || '').localeCompare(String(left.contract_date || ''));
+        return String(displayBySettlement.get(right)?.contractDate || '').localeCompare(
+          String(displayBySettlement.get(left)?.contractDate || ''),
+        );
       }
       return String(left.settlement_code || '').localeCompare(String(right.settlement_code || ''), 'ko');
     });
-  }, [monthRows, query, sort, status]);
+  }, [displayBySettlement, monthRows, query, sort, status]);
 
   // 검색·상태 필터에서 사라진 행의 상세를 계속 보여주지 않는다.
   useEffect(() => {
@@ -170,6 +217,8 @@ export default function MonthlySettlement() {
   const selected = selectedKey
     ? monthRows.find((settlement) => String(settlement._key || settlement.settlement_code) === selectedKey) || null
     : null;
+  const selectedDisplay = selected ? displayOf(selected) : null;
+  const selectedWarning = selected ? settlementWarning(selected) : null;
 
   const totals = useMemo(() => ({
     rent: monthRows.reduce((sum, settlement) => sum + numberOf(settlement.rent_amount), 0),
@@ -183,7 +232,9 @@ export default function MonthlySettlement() {
     const field = group === 'provider' ? 'provider_company_code' : 'agent_channel_code';
     const buckets = new Map<string, EntityRecord[]>();
     for (const settlement of monthRows) {
-      const name = String(settlement[field] || '(미지정)');
+      const display = displayBySettlement.get(settlement);
+      const resolvedName = group === 'provider' ? display?.providerName : display?.channelName;
+      const name = String(resolvedName || settlement[field] || '(미지정)');
       const bucket = buckets.get(name);
       if (bucket) bucket.push(settlement);
       else buckets.set(name, [settlement]);
@@ -196,7 +247,7 @@ export default function MonthlySettlement() {
       net: netProfitOf(list),
       clawback: list.reduce((sum, settlement) => sum + numberOf(settlement.clawback_amount), 0),
     })).sort((left, right) => right.net - left.net);
-  }, [group, monthRows]);
+  }, [displayBySettlement, group, monthRows]);
 
   if (ok === null) return <Loading />;
 
@@ -219,17 +270,16 @@ export default function MonthlySettlement() {
     setSort('');
     setStatus('all');
   };
-  const pendingCount = monthRows.filter((settlement) => (
-    String(settlement.settlement_status) === '정산대기'
-    || String(settlement.settlement_status) === '환수대기'
-  )).length;
+  const pendingCount = monthRows.filter(settlementNeedsAttention).length;
 
   const list = shown.length ? shown.map((settlement) => {
     const key = String(settlement._key || settlement.settlement_code);
+    const display = displayOf(settlement);
     return (
       <SettlementListRow
         key={key}
         settlement={settlement}
+        display={display}
         selected={key === selectedKey}
         onClick={() => selectSettlement(settlement)}
       />
@@ -246,12 +296,12 @@ export default function MonthlySettlement() {
         {selected ? (
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Badge tone={SETTLEMENT_STATUS_TONE[String(selected.settlement_status)] || 'gray'} variant="solid">
-                {String(selected.settlement_status || '정산대기')}
+              <Badge tone={selectedDisplay?.tone || 'red'} variant="solid">
+                {selectedDisplay?.status || normalizeSettlementDisplayStatus(selected.settlement_status)}
               </Badge>
-              {Number(selected.rent_amount) <= 0 ? <Badge tone="red" variant="solid">월대여료 확인 필요</Badge> : null}
-              {Number(selected.rent_amount) > 0 && String(selected.fee_rate_unresolved || '') === 'yes'
-                ? <Badge tone="amber" variant="solid">공급사율 확인 필요</Badge>
+              {selectedWarning?.invalidRent ? <Badge tone="red" variant="solid">{SETTLEMENT_RENT_WARNING}</Badge> : null}
+              {selectedWarning?.unresolvedRate
+                ? <Badge tone="amber" variant="solid">{SETTLEMENT_RATE_WARNING}</Badge>
                 : null}
               <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', fontFamily: NUM, fontSize: FS.cap, color: C.faint }}>
                 {String(selected.settlement_code || '')}
@@ -259,12 +309,13 @@ export default function MonthlySettlement() {
             </div>
             <ListGroup header="정산 정보">
               <DetailRow label="계약번호" value={String(selected.contract_code || '')} />
-              <DetailRow label="계약일" value={String(selected.contract_date || '')} />
-              <DetailRow label="계약자" value={String(selected.customer_name || '')} />
-              <DetailRow label="차량번호" value={String(selected.car_number || '')} />
-              <DetailRow label="공급사" value={String(selected.provider_company_code || '')} />
-              <DetailRow label="영업자" value={String(selected.agent_code || '')} />
-              <DetailRow label="영업채널" value={String(selected.agent_channel_code || '')} />
+              <DetailRow label="계약일" value={selectedDisplay?.contractDate || ''} />
+              <DetailRow label="계약자" value={selectedDisplay?.customerName || ''} />
+              <DetailRow label="차량" value={selectedDisplay?.vehicleName || '차량명 미확인'} />
+              <DetailRow label="차량번호" value={selectedDisplay?.plate || ''} />
+              <DetailRow label="공급사" value={selectedDisplay?.providerName || String(selected.provider_company_code || '')} />
+              <DetailRow label="영업자" value={selectedDisplay?.agentName || String(selected.agent_code || '')} />
+              <DetailRow label="영업채널" value={selectedDisplay?.channelName || String(selected.agent_channel_code || '')} />
             </ListGroup>
           </>
         ) : <CenterNote>목록에서 정산 건을 선택하세요.</CenterNote>}
@@ -285,7 +336,7 @@ export default function MonthlySettlement() {
               <DetailRow label="월대여료" value={won(selected.rent_amount)} />
               <DetailRow label="공급사 청구 R1" value={won(selected.fee_amount)} />
               <DetailRow label="영업자 지급 R2" value={won(selected.agent_payout)} />
-              <DetailRow label="순수익" value={won(selected.net_amount)} valueColor={C.brand} />
+              <DetailRow label="순수익" value={won(selected.net_amount)} valueColor={netColor(selected.net_amount)} />
               <DetailRow label="환수" value={numberOf(selected.clawback_amount) ? won(selected.clawback_amount) : '—'} />
               <DetailRow label="공급사율" value={rateLabel(selected.fee_rate)} />
               <DetailRow label="정산식" value="R1 − R2" />
@@ -303,7 +354,7 @@ export default function MonthlySettlement() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
           <MoneyCard label="공급사 청구 R1" value={totals.r1} />
           <MoneyCard label="영업자 지급 R2" value={totals.r2} />
-          <MoneyCard label="확정 순수익" value={totals.net} tone={C.brand} />
+          <MoneyCard label="확정 순수익" value={totals.net} tone={netColor(totals.net)} />
           <MoneyCard label="환수" value={totals.clawback} tone={totals.clawback ? C.danger : C.mute} />
         </div>
         <FilterChips
@@ -319,7 +370,7 @@ export default function MonthlySettlement() {
               main={item.name}
               sub={`${item.count}건 · 청구 ${won(item.r1)} · 지급 ${won(item.r2)}${item.clawback ? ` · 환수 ${won(item.clawback)}` : ''}`}
               right={won(item.net)}
-              rightColor={item.net > 0 ? C.brand : C.mute}
+              rightColor={netColor(item.net)}
             />
           ))}
         </div>
@@ -372,7 +423,7 @@ export default function MonthlySettlement() {
         panes={panes}
         selected={!!selected}
         onBack={clearSelection}
-        contextTitle={selected ? String(selected.customer_name || selected.car_number || selected.settlement_code || '') : undefined}
+        contextTitle={selectedDisplay?.vehicleName}
         actions={actions}
         mobileLayout="swap"
         listTools={{
@@ -404,7 +455,7 @@ export default function MonthlySettlement() {
                   onChange={setStatus}
                   options={[
                     { key: 'all', label: '전체' },
-                    ...SETTLEMENT_STATES.map((value) => ({ key: value, label: value })),
+                    ...SETTLEMENT_DISPLAY_STATUSES.map((value) => ({ key: value, label: value })),
                   ]}
                 />
               </FilterGroup>

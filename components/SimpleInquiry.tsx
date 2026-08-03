@@ -3,7 +3,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { getRole, actor, ensureRoom, type Role } from '@/lib/domain/deal';
-import { sendText, listMessages, isMine, markRead } from '@/lib/domain/messaging';
+import { sendText, listMessages, isMine } from '@/lib/domain/messaging';
 import { C, R, FS, FW, Btn, Input } from '@/components/ui';
 import { toast } from '@/components/Toaster';
 import { ChatSenderLabel } from '@/components/ChatSenderLabel';
@@ -25,8 +25,6 @@ export function SimpleInquiry({ p }: { p: EntityRecord }) {
   const load = async () => {
     const list = await listMessages(roomKey, '간단');
     setMsgs(list);
-    // 상대 문의 확인 = 열람
-    if (list.some((m) => !isMine(m, me, role))) await markRead(roomKey, role);
   };
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [p.product_code, me.code]);
   // 스레드 박스 안에서만 스크롤 — scrollIntoView는 .fp-main-pad까지 끌어내려 상세가 아래로 점프함

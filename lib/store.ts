@@ -11,13 +11,26 @@ import { getFirebaseApp, firebaseReady } from './firebase/client';
 import { RtdbAdapter } from './firebase/rtdb-adapter';
 import { COMPANIES, ALL_COMPANIES } from './companies';
 import { buildAuditEntry, buildMasterSnapBulkEntry } from './domain/audit';
+import {
+  productPatchPreconditionMatches,
+  type GuardedProductPatch,
+  type GuardedProductPatchResult,
+} from './domain/product-write-guard';
 
 export type SaveResult = { saved: number; duplicates: number; backend: string };
-
+export type FreshListHealth = {
+  rows: EntityRecord[];
+  complete: boolean;
+  failures?: string[];
+};
 export interface StoreAdapter {
   backend: string;
   save(entityKey: string, companyId: string, records: EntityRecord[]): Promise<SaveResult>;
   list(entityKey: string, companyId: string): Promise<EntityRecord[]>;
+  /** 경합 판정용 목록 — DispatchStore의 세션 캐시를 우회한다. */
+  listFresh?(entityKey: string, companyId: string): Promise<EntityRecord[]>;
+  /** 쓰기 전 검증용: 원본 source 일부가 실패했는지 함께 반환한다. */
+  listFreshWithHealth?(entityKey: string, companyId: string): Promise<FreshListHealth>;
   /** 방 하나 메시지 스코프 조회(전 방 list 회피). 미구현 어댑터는 list+필터로 폴백. */
   listMessagesForRoom?(companyId: string, roomId: string): Promise<EntityRecord[]>;
   /**
@@ -26,6 +39,14 @@ export interface StoreAdapter {
    * 미구현 어댑터는 list로 폴백.
    */
   listRaw?(entityKey: string, companyId: string): Promise<EntityRecord[]>;
+  /**
+   * 경합 판정용 원본 목록 — DispatchStore의 세션 캐시를 우회한다.
+   * 시트 검증→커밋 사이 다른 사용자의 재고 변경을 확인할 때만 사용한다.
+   */
+  listRawFresh?(entityKey: string, companyId: string): Promise<EntityRecord[]>;
+  listRawFreshWithHealth?(entityKey: string, companyId: string): Promise<FreshListHealth>;
+  /** 삭제 tombstone까지 같은 source snapshot에서 받은 전체 원본. */
+  listAllFreshWithHealth?(entityKey: string, companyId: string): Promise<FreshListHealth>;
   get(entityKey: string, companyId: string, key: string): Promise<EntityRecord | null>;
   /**
    * 캐시 우회 단건 조회 — 경합 판정 전용(이중판매 가드 등).
@@ -34,6 +55,8 @@ export interface StoreAdapter {
   getFresh?(entityKey: string, companyId: string, key: string): Promise<EntityRecord | null>;
   update(entityKey: string, companyId: string, key: string, patch: EntityRecord): Promise<void>;
   bulkPatch(entityKey: string, companyId: string, patches: { key: string; patch: EntityRecord }[]): Promise<number>; // 다건 부분갱신(멀티패스) — 일괄 차종 재구현 등
+  /** 시트 병합 전용: 검증 때 읽은 상품이 그대로일 때만 patch(CAS). */
+  bulkPatchGuardedProduct(companyId: string, patches: GuardedProductPatch[]): Promise<GuardedProductPatchResult>;
   remove(entityKey: string, companyId: string, key: string, reason?: string): Promise<void>;   // #6 소프트삭제
   listDeleted(entityKey: string, companyId: string): Promise<EntityRecord[]>;
   restore(entityKey: string, companyId: string, key: string): Promise<void>;
@@ -90,6 +113,30 @@ class LocalAdapter implements StoreAdapter {
     if (snapish && n) this.pushAudit(buildMasterSnapBulkEntry(companyId, patches.slice(0, n), currentActor()));
     else this.logAudit(entityKey, companyId, `bulk:${n}`, 'update', null, { count: n } as EntityRecord);
     return n;
+  }
+  async bulkPatchGuardedProduct(companyId: string, patches: GuardedProductPatch[]): Promise<GuardedProductPatchResult> {
+    const arr = this.read('product', companyId);
+    const idx = new Map(arr.map((r, i) => [String(r._key), i]));
+    const now = new Date().toISOString();
+    const conflict = patches.find(({ key, patch, expected }) => {
+      const i = idx.get(key);
+      return !productPatchPreconditionMatches(i == null ? null : arr[i], expected, patch);
+    });
+    if (conflict) return { updated: 0, conflicts: [conflict.key] };
+    let updated = 0;
+    for (const { key, patch, expected } of patches) {
+      const i = idx.get(key);
+      const current = i == null ? null : arr[i];
+      // 위 preflight와 같은 동기 localStorage snapshot. 여기서 불일치할 수 없다.
+      if (!productPatchPreconditionMatches(current, expected, patch)) return { updated: 0, conflicts: [key] };
+      arr[i!] = { ...current, ...patch, updatedAt: now };
+      updated++;
+    }
+    if (updated) {
+      localStorage.setItem(this.k('product', companyId), JSON.stringify(arr));
+      this.logAudit('product', companyId, `guarded-bulk:${updated}`, 'update', null, { count: updated } as EntityRecord);
+    }
+    return { updated, conflicts: [] };
   }
   async save(entityKey: string, companyId: string, records: EntityRecord[]) {
     const existing = this.read(entityKey, companyId);
@@ -192,6 +239,29 @@ class FirestoreAdapter implements StoreAdapter {
     else this.logAudit(entityKey, companyId, `bulk:${n}`, 'update', null, { count: n } as EntityRecord);
     return n;
   }
+  async bulkPatchGuardedProduct(companyId: string, patches: GuardedProductPatch[]): Promise<GuardedProductPatchResult> {
+    const { getFirestore, doc, runTransaction } = await import('firebase/firestore');
+    const db = getFirestore(getFirebaseApp()!);
+    const conflicts: string[] = [];
+    let updated = 0;
+    for (const { key, patch, expected } of patches) {
+      const applied = await runTransaction(db, async (tx) => {
+        const target = doc(db, 'product', `${companyId}__${key}`);
+        const snapshot = await tx.get(target);
+        const current = snapshot.exists() ? snapshot.data() as EntityRecord : null;
+        if (!productPatchPreconditionMatches(current, expected, patch)) return false;
+        tx.set(target, { ...patch, updatedAt: new Date().toISOString() }, { merge: true });
+        return true;
+      });
+      if (applied) updated++;
+      else {
+        conflicts.push(key);
+        break;
+      }
+    }
+    if (updated) this.logAudit('product', companyId, `guarded-bulk:${updated}`, 'update', null, { count: updated } as EntityRecord);
+    return { updated, conflicts };
+  }
   async remove(entityKey: string, companyId: string, key: string, reason = ''): Promise<void> {
     await this.update(entityKey, companyId, key, { deletedAt: new Date().toISOString(), deletedReason: reason });
   }
@@ -233,12 +303,40 @@ class FirestoreAdapter implements StoreAdapter {
 const _listCache = new Map<string, Promise<EntityRecord[]>>();
 const _listResolved = new Map<string, EntityRecord[]>(); // Promise settle 후 동기 peek용(홈→상세 즉시 페인팅)
 const _listAt = new Map<string, number>();               // 실조회 시각 — LIVE 엔티티 TTL 판정용
+// 인증 전환·write 무효화 뒤 이전 권한으로 시작한 Promise가 늦게 끝나 캐시를 되살리지 못하게 한다.
+// key별 token이 현재 요청과 같을 때만 resolved/cache cleanup을 허용한다.
+const _listToken = new Map<string, symbol>();
+const _matchesEntityCacheKey = (key: string, entityKey: string) => (
+  key.startsWith(`${entityKey}::`) || key.startsWith(`raw::${entityKey}::`)
+);
 function _invalidate(entityKey: string) {
-  for (const k of [..._listCache.keys()]) if (k.startsWith(entityKey + '::')) _listCache.delete(k);
-  for (const k of [..._listResolved.keys()]) if (k.startsWith(entityKey + '::')) _listResolved.delete(k);
-  for (const k of [..._listAt.keys()]) if (k.startsWith(entityKey + '::')) _listAt.delete(k);
+  const keys = new Set([
+    ..._listCache.keys(), ..._listResolved.keys(), ..._listAt.keys(), ..._listToken.keys(),
+  ]);
+  for (const key of keys) {
+    if (!_matchesEntityCacheKey(key, entityKey)) continue;
+    _listCache.delete(key);
+    _listResolved.delete(key);
+    _listAt.delete(key);
+    _listToken.delete(key);
+  }
 }
-export function clearStoreCache() { _listCache.clear(); _listResolved.clear(); _listAt.clear(); }
+function _invalidateRaw(entityKey: string) {
+  const prefix = `raw::${entityKey}::`;
+  const keys = new Set([..._listCache.keys(), ..._listResolved.keys(), ..._listToken.keys()]);
+  for (const key of keys) {
+    if (!key.startsWith(prefix)) continue;
+    _listCache.delete(key);
+    _listResolved.delete(key);
+    _listToken.delete(key);
+  }
+}
+export function clearStoreCache() {
+  _listCache.clear();
+  _listResolved.clear();
+  _listAt.clear();
+  _listToken.clear();
+}
 
 /**
  * **상대가 계속 쓰는 엔티티** — 세션 영구 캐시 금지.
@@ -248,9 +346,8 @@ export function clearStoreCache() { _listCache.clear(); _listResolved.clear(); _
  * TTL이 지나면 다음 list()가 실조회한다. _listResolved 는 지우지 않는다 —
  * 옛 값으로 즉시 그리고(peekList) 새 값이 도착하면 갈아끼우는 stale-while-revalidate.
  */
-// message 만 TTL이 긴 이유: roomsWithUnread 의 열람 보정 스캔이 전량 list('message') 라
-//  같은 주기로 두면 폴링마다 메시지 노드를 통째로 다시 받는다(모바일 데이터). 새 메시지 도착
-//  자체는 방 레코드의 unread_for_* 카운터가 들고 오므로, 방(10초)만 빨리 돌면 목록·뱃지는 따라온다.
+// message 전량 fallback만 TTL을 길게 둔다. 일반 RTDB 경로의 roomsWithUnread는 last_read가 있는
+//  방만 listMessagesForRoom으로 조회하고, scoped API가 없는 어댑터에서만 이 캐시를 사용한다.
 //  열린 대화방 본문은 listMessagesForRoom(캐시 없음·5초 폴링)이 따로 최신을 유지한다.
 const LIVE_TTL_MS: Record<string, number> = { room: 10_000, contract: 10_000, settlement: 10_000, message: 60_000 };
 function _isStale(ck: string, entityKey: string): boolean {
@@ -261,9 +358,18 @@ function _isStale(ck: string, entityKey: string): boolean {
 
 /** list 캐시 부분 패치 — update 후 전량 무효화 대신 해당 레코드만 병합. 캐시 없으면 no-op(다음 list가 신선 조회). */
 export function patchListCache(entityKey: string, companyId: string, key: string, patch: EntityRecord): void {
+  // listRaw는 판매용 가공 전 원본이라 일반 list와 별도 cache key를 쓴다. write 뒤 함께 폐기해야 한다.
+  _invalidateRaw(entityKey);
   const ck = `${entityKey}::${companyId}`;
+  // 아직 resolved가 없는 진행중 read도 세대를 끊는다. 그렇지 않으면 write 전 snapshot이
+  // write 완료 뒤 도착해 새 값처럼 캐시될 수 있다.
+  _listToken.set(ck, Symbol(ck));
   const rows = _listResolved.get(ck);
-  if (!rows) return;
+  if (!rows) {
+    _listCache.delete(ck);
+    _listAt.delete(ck);
+    return;
+  }
   const i = rows.findIndex((r) => String(r._key) === key);
   // 캐시에 없으면 얇은(부분필드) 행 주입 금지 — 무효화해 다음 list가 신선 전량 재조회(반쪽 레코드 오염 방지).
   if (i < 0) { _invalidate(entityKey); return; }
@@ -299,13 +405,23 @@ class DispatchStore implements StoreAdapter {
     if (_isStale(ck, entityKey)) _listCache.delete(ck); // resolved 는 남긴다 — 옛 값으로 즉시 그리고 새 값이 오면 교체
     let p = _listCache.get(ck);
     if (!p) {
+      const token = Symbol(ck);
+      _listToken.set(ck, token);
       _listAt.set(ck, Date.now());
       p = (this.all(companyId)
         ? Promise.all(COMPANIES.map((c) => this.base.list(entityKey, c))).then((a) => a.flat())
         : this.base.list(entityKey, companyId)
-      ).then((rows) => { _listResolved.set(ck, rows); return rows; });
+      ).then((rows) => {
+        if (_listToken.get(ck) === token) _listResolved.set(ck, rows);
+        return rows;
+      });
       _listCache.set(ck, p);
-      p.catch(() => { _listCache.delete(ck); _listResolved.delete(ck); }); // 실패는 캐시 안 함(다음에 재시도)
+      p.catch(() => {
+        if (_listToken.get(ck) !== token) return;
+        _listCache.delete(ck);
+        _listResolved.delete(ck);
+        _listToken.delete(ck);
+      }); // 실패는 캐시 안 함(다음에 재시도)
     }
     return p;
   }
@@ -314,18 +430,29 @@ class DispatchStore implements StoreAdapter {
     let p = _listCache.get(ck);
     if (!p) {
       const base = this.base;
+      const token = Symbol(ck);
+      _listToken.set(ck, token);
       p = (typeof base.listMessagesForRoom === 'function'
         ? base.listMessagesForRoom(companyId, roomId)
-        : base.list('message', companyId).then((all) => all.filter((m) => String(m.room_id) === roomId))
-      ).then((rows) => { _listResolved.set(ck, rows); return rows; });
+        : this.list('message', companyId).then((all) => all.filter((m) => String(m.room_id) === roomId))
+      ).then((rows) => {
+        if (_listToken.get(ck) === token) _listResolved.set(ck, rows);
+        return rows;
+      });
       _listCache.set(ck, p);
       // 채팅은 다른 사용자가 계속 추가하므로 일반 목록처럼 성공 결과를 영구 캐시하면
       // 열린 대화방이 새 메시지를 다시 읽지 못한다. 동시 호출만 합치고 완료 후 새 조회를 허용한다.
       p.then(
-        () => { if (_listCache.get(ck) === p) _listCache.delete(ck); },
         () => {
-          if (_listCache.get(ck) === p) _listCache.delete(ck);
+          if (_listToken.get(ck) !== token || _listCache.get(ck) !== p) return;
+          _listCache.delete(ck);
+          _listToken.delete(ck);
+        },
+        () => {
+          if (_listToken.get(ck) !== token || _listCache.get(ck) !== p) return;
+          _listCache.delete(ck);
           _listResolved.delete(ck);
+          _listToken.delete(ck);
         },
       );
     }
@@ -344,14 +471,102 @@ class DispatchStore implements StoreAdapter {
     const ck = `raw::${entityKey}::${companyId}`;
     let p = _listCache.get(ck);
     if (!p) {
+      const token = Symbol(ck);
+      _listToken.set(ck, token);
       p = (this.all(companyId)
         ? Promise.all(COMPANIES.map(call)).then((a) => a.flat())
         : call(companyId)
-      ).then((rows) => { _listResolved.set(ck, rows); return rows; });
+      ).then((rows) => {
+        if (_listToken.get(ck) === token) _listResolved.set(ck, rows);
+        return rows;
+      });
       _listCache.set(ck, p);
-      p.catch(() => { _listCache.delete(ck); _listResolved.delete(ck); });
+      p.catch(() => {
+        if (_listToken.get(ck) !== token) return;
+        _listCache.delete(ck);
+        _listResolved.delete(ck);
+        _listToken.delete(ck);
+      });
     }
     return p;
+  }
+  /** 일반 목록 캐시 우회 — roster처럼 커밋 직전 최신 설정을 확인할 때 사용한다. */
+  async listFresh(entityKey: string, companyId: string): Promise<EntityRecord[]> {
+    return this.all(companyId)
+      ? (await Promise.all(COMPANIES.map((c) => this.base.list(entityKey, c)))).flat()
+      : this.base.list(entityKey, companyId);
+  }
+  /** 원본 목록 캐시 우회 — base adapter를 직접 호출해 다른 세션의 최신 write를 본다. */
+  async listRawFresh(entityKey: string, companyId: string): Promise<EntityRecord[]> {
+    const base = this.base;
+    const call = (co: string) => (typeof base.listRawFresh === 'function'
+      ? base.listRawFresh(entityKey, co)
+      : typeof base.listRaw === 'function'
+        ? base.listRaw(entityKey, co)
+        : base.list(entityKey, co));
+    return this.all(companyId)
+      ? (await Promise.all(COMPANIES.map(call))).flat()
+      : call(companyId);
+  }
+  async listFreshWithHealth(entityKey: string, companyId: string): Promise<FreshListHealth> {
+    const base = this.base;
+    const call = async (company: string): Promise<FreshListHealth> => (
+      typeof base.listFreshWithHealth === 'function'
+        ? base.listFreshWithHealth(entityKey, company)
+        : { rows: await base.list(entityKey, company), complete: true }
+    );
+    if (!this.all(companyId)) return call(companyId);
+    const results = await Promise.all(COMPANIES.map(call));
+    return {
+      rows: results.flatMap((result) => result.rows),
+      complete: results.every((result) => result.complete),
+      failures: results.flatMap((result) => result.failures || []),
+    };
+  }
+  async listRawFreshWithHealth(entityKey: string, companyId: string): Promise<FreshListHealth> {
+    const base = this.base;
+    const call = async (company: string): Promise<FreshListHealth> => {
+      if (typeof base.listRawFreshWithHealth === 'function') {
+        return base.listRawFreshWithHealth(entityKey, company);
+      }
+      const rows = typeof base.listRawFresh === 'function'
+        ? await base.listRawFresh(entityKey, company)
+        : typeof base.listRaw === 'function'
+          ? await base.listRaw(entityKey, company)
+          : await base.list(entityKey, company);
+      return { rows, complete: true };
+    };
+    if (!this.all(companyId)) return call(companyId);
+    const results = await Promise.all(COMPANIES.map(call));
+    return {
+      rows: results.flatMap((result) => result.rows),
+      complete: results.every((result) => result.complete),
+      failures: results.flatMap((result) => result.failures || []),
+    };
+  }
+  async listAllFreshWithHealth(entityKey: string, companyId: string): Promise<FreshListHealth> {
+    const base = this.base;
+    const call = async (company: string): Promise<FreshListHealth> => {
+      if (typeof base.listAllFreshWithHealth === 'function') {
+        return base.listAllFreshWithHealth(entityKey, company);
+      }
+      const [active, deleted] = await Promise.all([
+        typeof base.listRawFresh === 'function'
+          ? base.listRawFresh(entityKey, company)
+          : typeof base.listRaw === 'function'
+            ? base.listRaw(entityKey, company)
+            : base.list(entityKey, company),
+        base.listDeleted(entityKey, company),
+      ]);
+      return { rows: [...active, ...deleted], complete: true };
+    };
+    if (!this.all(companyId)) return call(companyId);
+    const results = await Promise.all(COMPANIES.map(call));
+    return {
+      rows: results.flatMap((result) => result.rows),
+      complete: results.every((result) => result.complete),
+      failures: results.flatMap((result) => result.failures || []),
+    };
   }
   async get(entityKey: string, companyId: string, key: string) {
     // 홈 list 캐시 우선 — RTDB get이 전량 재다운로드하는 비용 회피(홈→상세 즉시).
@@ -393,6 +608,12 @@ class DispatchStore implements StoreAdapter {
   async bulkPatch(entityKey: string, companyId: string, patches: { key: string; patch: EntityRecord }[]) {
     if (this.all(companyId)) throw new Error('전체 합본에서는 대상 회사를 먼저 선택하세요.');
     const n = await this.base.bulkPatch(entityKey, companyId, patches); _invalidate(entityKey); return n;
+  }
+  async bulkPatchGuardedProduct(companyId: string, patches: GuardedProductPatch[]) {
+    if (this.all(companyId)) throw new Error('전체 합본에서는 대상 회사를 먼저 선택하세요.');
+    const result = await this.base.bulkPatchGuardedProduct(companyId, patches);
+    if (result.updated) _invalidate('product');
+    return result;
   }
   async remove(entityKey: string, companyId: string, key: string, reason = '') {
     if (!this.all(companyId)) { const r = await this.base.remove(entityKey, companyId, key, reason); _invalidate(entityKey); return r; }

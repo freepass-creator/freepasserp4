@@ -5,6 +5,7 @@
 import { type EntityRecord } from '@/lib/intake/entities';
 import { EXT_COLORS } from '@/lib/domain/color-master';
 import { hasDepositClaim } from '@/lib/domain/contract';
+import { priceList } from '@/lib/domain/product';
 
 export type CheckHit = { car: string; code: string; note?: string };
 export type CheckGroup = { key: string; label: string; severity: 'high' | 'mid' | 'low'; hint: string; hits: CheckHit[] };
@@ -39,7 +40,10 @@ export function checkInventory(products: EntityRecord[]): CheckGroup[] {
     const hit = (note?: string): CheckHit => ({ car: car || '(차번없음)', code, note });
     if (!car) add('no_car', '차량번호 없음', 'high', '식별 불가 — 확인 필요', hit());
     else if ((carCount.get(car) || 0) > 1) add('dup_car', '차번 중복 (같은 차 여러 줄)', 'high', '어느 줄이 최신인지 골라 나머지 삭제', hit());
-    if (GARBAGE_MAKER.has(String(p.maker ?? '').trim())) add('bad_maker', '제조사 이상 (개인/사업자 등)', 'high', '오입력 — 실제 제조사로 수정', hit(String(p.maker)));
+    if (GARBAGE_MAKER.has(String(p.maker ?? '').trim())) {
+      const makerNote = String(p.maker ?? '').trim() || undefined;
+      add('bad_maker', '제조사 이상 (개인/사업자 등)', 'high', '오입력 — 실제 제조사로 수정', hit(makerNote));
+    }
     const md = String(p.model ?? '').trim();
     if (COLORS.has(md) || /^\d{2,3}[가-힣]\d{3,4}$/.test(md)) add('bad_model', '모델칸에 색상/차번 (오입력)', 'high', '세부모델에 실모델 있으면 매칭됨', hit(md));
     // 제조사·모델·세부모델이 **전부** 빈 껍데기 — 화면에서는 차번으로 폴백돼 조용히 넘어간다.
@@ -53,8 +57,8 @@ export function checkInventory(products: EntityRecord[]): CheckGroup[] {
       if (/drive\.google\.com\/open\b/.test(pl) && !driveFolder(pl) && !/[?&]id=/.test(pl)) add('broken_photo', '사진 링크 깨짐 (폴더ID 없음)', 'mid', 'v3에서 폴더 다시 링크', hit());
       else if (sharedFolders.has(driveFolder(pl))) add('shared_photo', '사진 폴더 공유 (뒤섞임 위험)', 'mid', '엉뚱한 차 사진일 수 있음 — 폴더 분리', hit());
     }
-    const pr = p.price;
-    if (!(pr && typeof pr === 'object' && Object.keys(pr).length)) add('no_price', '대여료 없음', 'mid', '가격 입력 or 손님화면 숨김', hit());
+    // 키만 있고 0원·이상치라 priceList에서 전부 탈락한 경우도 손님 판매가는 없는 상태다.
+    if (!priceList(p).length) add('no_price', '대여료 없음', 'mid', '가격 입력 or 손님화면 숨김', hit());
     const km = parseKm(p.mileage);
     if (km >= 150000) add('high_km', '초과주행 (15만km↑)', 'low', '폐차급 후보 — 확인', hit(`${Math.round(km / 10000)}만km`));
     const y = parseYear(p);

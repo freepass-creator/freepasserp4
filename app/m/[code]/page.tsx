@@ -5,7 +5,7 @@ import { getStore, peekCached } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
 import { type EntityRecord } from '@/lib/intake/entities';
-import { vehicleName } from '@/lib/domain/product';
+import { isOfferableProduct, vehicleName } from '@/lib/domain/product';
 import { MessageCircle, Share2 } from 'lucide-react';
 import { Btn, BottomNav, Loading, CenterNote, C, ICON } from '@/components/ui';
 import { toast } from '@/components/Toaster';
@@ -43,7 +43,7 @@ export default function Detail() {
     if (el) el.scrollTop = 0;
   }, [key]);
 
-  const detailName = p
+  const detailName = p && isOfferableProduct(p)
     ? (vehicleName(p) || String(p.car_number || '상품'))
     : null;
   useAppBar(
@@ -79,14 +79,14 @@ export default function Detail() {
     return () => { alive = false; };
   }, [key, co, authReady]);
 
-  useEffect(() => { if (p) touchRecent(p); }, [p]);
+  useEffect(() => { if (p && isOfferableProduct(p)) touchRecent(p); }, [p]);
 
   if (!authReady || p === undefined) return <Loading />;
-  if (!p) {
+  if (!p || !isOfferableProduct(p)) {
     return (
       <CenterNote>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
-          <div>매물을 찾을 수 없습니다.</div>
+          <div>{p ? '현재 판매 가능한 상품이 아닙니다.' : '매물을 찾을 수 없습니다.'}</div>
           <Btn variant="ghost" size="sm" onClick={() => router.push('/')}>매물 찾기로</Btn>
         </div>
       </CenterNote>

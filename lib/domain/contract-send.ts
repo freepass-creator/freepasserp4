@@ -7,6 +7,8 @@ import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { createSignToken } from '@/lib/domain/sign';
+import { vehicleNameOf } from '@/lib/domain/vehicle-name';
+import { businessRegistrationNumberOf } from '@/lib/domain/business-identity';
 
 export type ContractPayload = Record<string, string>;
 
@@ -35,11 +37,6 @@ function addMonthsEnd(start: string, months: number): string {
   d.setDate(d.getDate() - 1);
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-
-function vehicleName(p: EntityRecord): string {
-  return [p.maker, p.model, p.sub_model, p.variant, p.trim_name]
-    .filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
 }
 
 /** 계약(+매물·정책·파트너) → 템플릿 setData 페이로드. */
@@ -79,7 +76,7 @@ export async function buildContractPayload(contractCode: string): Promise<{
     companyInject.company_name = String(partner.name || partner.partner_name || partner.company_name || provName || '');
     companyInject.company_ceo = String(partner.ceo_name || '');
     companyInject.company_ceo_title = '대표';
-    companyInject.company_biz_no = String(partner.business_number || '');
+    companyInject.company_biz_no = businessRegistrationNumberOf(partner, 'partner');
     companyInject.payment_bank = String(partner.bank_name || '');
     companyInject.payment_account_no = String(partner.bank_account || '');
     companyInject.payment_account_holder = String(partner.bank_holder || partner.name || partner.partner_name || '');
@@ -88,7 +85,7 @@ export async function buildContractPayload(contractCode: string): Promise<{
   const ins = /별도|개인/.test(String(pol.insurance_included || '')) ? '별도' : '포함';
   const months = Number(contract.rent_month_snapshot) || 0;
   const start = String(contract.contract_date || '');
-  const yr = String(product?.year || product?.model_year || '').trim();
+  const yr = String(contract.year_snapshot || product?.year || product?.model_year || '').trim();
 
   const saved = parseDraft(contract.contract_draft);
   const base: ContractPayload = {
@@ -97,8 +94,8 @@ export async function buildContractPayload(contractCode: string): Promise<{
     ...companyInject,
     contract_code: String(contract.contract_code || ''),
     car_number: car || String(product?.car_number || ''),
-    vehicle_name: String(contract.vehicle_name_snapshot || (product ? vehicleName(product) : '') || ''),
-    fuel: String(product?.fuel_type || ''),
+    vehicle_name: vehicleNameOf({ kind: 'contract', contract, product }, { tier: 'full', fallback: 'none' }),
+    fuel: String(contract.fuel_type_snapshot || product?.fuel_type || ''),
     model_year: yr ? (/년식/.test(yr) ? yr : `${yr}년식`) : '',
     options: Array.isArray(product?.options) ? (product!.options as string[]).join(', ') : String(product?.options || ''),
     vehicle_price: product ? priceText(product.price) : '',
@@ -127,7 +124,17 @@ export async function buildContractPayload(contractCode: string): Promise<{
     self_damage_deductible_max: String(pol.own_damage_max_deductible || ''),
   };
 
-  return { contract, product, payload: { ...base, ...saved } };
+  // 편집 draft는 문구·조건을 이어 쓰되 계약 정본 식별값을 과거 초안이 되돌리지 못하게 한다.
+  const payload = {
+    ...base,
+    ...saved,
+    contract_code: base.contract_code,
+    car_number: base.car_number,
+    vehicle_name: base.vehicle_name,
+    fuel: base.fuel,
+    model_year: base.model_year,
+  };
+  return { contract, product, payload };
 }
 
 export function parseDraft(raw: unknown): ContractPayload {

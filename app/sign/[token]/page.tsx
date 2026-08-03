@@ -75,11 +75,12 @@ export default function SignPage() {
 
   const inpStyle: CSSProperties = { display: 'block', marginTop: 4 };
   const label: CSSProperties = { fontSize: FS.sub, color: C.mute, fontWeight: FW.strong };
+  const signVehicleName = String(c.vehicle_name_snapshot || c.sub_model_snapshot || '').trim();
 
   return (
     <main style={wrap}>
       <div style={{ fontSize: FS.sub, color: C.mute, letterSpacing: '0.04em' }}>렌터카 대여 계약 · 전자서명</div>
-      <h1 style={{ fontSize: FS.page, fontWeight: FW.title, letterSpacing: '-0.02em', margin: '4px 0 12px' }}>{String(c.vehicle_name_snapshot || c.sub_model_snapshot || c.car_number_snapshot || '미등록 차량')}</h1>
+      <h1 style={{ fontSize: FS.page, fontWeight: FW.title, letterSpacing: '-0.02em', margin: '4px 0 12px' }}>{signVehicleName || String(c.car_number_snapshot || '미등록 차량')}</h1>
       {c.reject_reason || c.sign_reject_reason ? (
         <div style={{ margin: '0 0 12px', padding: '10px 12px', borderRadius: R, background: C.warnBg, color: C.warn, fontSize: FS.sub, fontWeight: FW.strong }}>
           이전 제출이 반려되었습니다{String(c.reject_reason || c.sign_reject_reason) ? ` — ${String(c.reject_reason || c.sign_reject_reason)}` : ''}. 정보를 확인해 다시 작성해 주세요.
@@ -87,7 +88,7 @@ export default function SignPage() {
       ) : null}
 
       <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: '#fff', overflow: 'hidden', marginBottom: 18 }}>
-        {[['차량', [c.car_number_snapshot, c.sub_model_snapshot].filter(Boolean).join(' · ')], ['대여기간', `${c.rent_month_snapshot || '—'}개월`], ['월 대여료', `${won(c.rent_amount_snapshot)}원`], ['보증금', `${won(c.deposit_amount_snapshot)}원`]].map(([k, v], i) => (
+        {[['차량', [c.car_number_snapshot, signVehicleName].filter(Boolean).join(' · ')], ['대여기간', `${c.rent_month_snapshot || '—'}개월`], ['월 대여료', `${won(c.rent_amount_snapshot)}원`], ['보증금', `${won(c.deposit_amount_snapshot)}원`]].map(([k, v], i) => (
           <div key={String(k)} style={{ display: 'flex', padding: '10px 14px', borderTop: i ? `1px solid ${C.line2}` : 'none' }}>
             <span style={{ width: 90, flex: '0 0 90px', color: C.mute, fontSize: FS.body }}>{k}</span>
             <span style={{ fontSize: FS.body, fontWeight: FW.strong, color: C.ink }}>{String(v) || '—'}</span>

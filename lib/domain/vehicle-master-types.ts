@@ -28,6 +28,8 @@ export type SnapResult = {
   model: string;
   sub_model: string;
   gen_code: string;
+  /** 차종마스터 원산지 SSOT. 금액 규칙처럼 국산/수입 구분이 필요한 후속 처리에서 사용한다. */
+  origin?: string;
   year_start?: string;
   year_end?: string;
   variant?: string;

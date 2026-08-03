@@ -30,7 +30,7 @@ import { productHaystack, matchHay, queryTokens } from '@/lib/domain/search';
 export { productHaystack, matchProductQuery } from '@/lib/domain/search';
 export type { VehicleFilter } from '@/lib/domain/vehicle-master-match';
 export { EMPTY_VEHICLE_FILTER, vehicleFilterCount } from '@/lib/domain/vehicle-master-match';
-import { priceList, creditDisplay, noDeposit, minAge, shortExperience, installmentOk, parseEventTags, isOperatedPeriod, isStandardPeriod, PERIODS, isHiddenFromCatalog, canonProductType } from '@/lib/domain/product';
+import { priceList, creditDisplay, noDeposit, minAge, shortExperience, installmentOk, parseEventTags, isOperatedPeriod, isStandardPeriod, PERIODS, isOfferableProduct, canonProductType } from '@/lib/domain/product';
 import { makerDisplay } from '@/lib/domain/vehicle-master-match';
 
 /** 매물에 항상 있는 축 — 카드 필수와 1:1. */
@@ -179,8 +179,8 @@ export function presentFilterOptions(products: EntityRecord[]): {
   promo: PresentChip[];
   hasVehicle: boolean;
 } {
-  // 상품목록 모수 = 출고불가 제외(계약중은 포함·마크 노출).
-  const listed = products.filter((p) => !isHiddenFromCatalog(p));
+  // 상품목록 모수 = 출고불가·유효 대여료 없음 제외(계약중+가격 있음은 포함·마크 노출).
+  const listed = products.filter(isOfferableProduct);
   // 단일패스 — 매물당 priceList 1회 + 밴드·enum·혜택 카운터 동시 누적(구 countBand×N 반복스캔 제거).
   //  밴드 의미 불변: 매물이 밴드에 해당하는 값(lo < x ≤ hi)을 하나라도 가지면 +1.
   const rentCnt = RENT_BANDS.map(() => 0);
@@ -308,7 +308,7 @@ export function aggregateVehicleCascade(products: EntityRecord[], v: VehicleFilt
 }
 
 export function aggregateDyn(products: EntityRecord[]): Record<string, [string, number][]> {
-  const listed = products.filter((p) => !isHiddenFromCatalog(p));
+  const listed = products.filter(isOfferableProduct);
   const out: Record<string, [string, number][]> = {};
   for (const d of DYN_ALL) {
     const m = new Map<string, number>();
@@ -320,7 +320,7 @@ export function aggregateDyn(products: EntityRecord[]): Record<string, [string, 
 }
 
 export function matchProduct(p: EntityRecord, s: FState): boolean {
-  if (isHiddenFromCatalog(p)) return false; // 출고불가 = 상품목록 제외(계약중은 노출)
+  if (!isOfferableProduct(p)) return false; // 출고불가·유효 대여료 없음 = 판매목록 제외(계약중+가격 있음은 노출)
   const pl = priceList(p);
   // 검색어 없으면 haystack 생성 자체를 생략(matchHay는 빈 토큰이면 어차피 true). 토큰은 queryTokens 메모로 패스당 1회.
   if (queryTokens(s.q).length && !matchHay(productHaystack(p), s.q)) return false;

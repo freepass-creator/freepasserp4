@@ -5,7 +5,7 @@ import { getStore, peekCached } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
 import { type EntityRecord } from '@/lib/intake/entities';
-import { vehicleName } from '@/lib/domain/product';
+import { isOfferableProduct, vehicleName } from '@/lib/domain/product';
 import { matchAgentByShareCode } from '@/lib/domain/product-share';
 import { ProductDetail } from '@/components/ProductDetail';
 import { C, R, Loading, CenterNote, Btn, FW, FS } from '@/components/ui';
@@ -34,10 +34,10 @@ export default function Quote() {
     setP(await getStore().get('product', co, key));
   })(); /* eslint-disable-next-line */ }, [key]);
 
-  useEffect(() => { if (p) document.title = `${vehicleName(p)} · 렌터카 견적`; }, [p]);
+  useEffect(() => { if (p && isOfferableProduct(p)) document.title = `${vehicleName(p)} · 렌터카 견적`; }, [p]);
 
   if (p === undefined) return <Loading />;
-  if (!p) return <CenterNote>견적을 찾을 수 없습니다.</CenterNote>;
+  if (!p || !isOfferableProduct(p)) return <CenterNote>현재 견적 가능한 상품이 아닙니다.</CenterNote>;
 
   const agentName = agent ? String(agent.name || '') : '';
   const phone = agent

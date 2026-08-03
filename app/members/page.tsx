@@ -26,6 +26,7 @@ import {
   MEMBER_SORT_OPTIONS as MEM_SORTS,
   MEMBER_TAB_OPTIONS as MEM_TABS,
   filterMembers,
+  memberAccountState,
   pendingMemberCount,
   type MemberActiveFilter as MemActive,
   type MemberSort as MemSort,
@@ -33,6 +34,10 @@ import {
 } from '@/features/members/member-filter';
 import { MembersList } from '@/features/members/MembersList';
 import { retainVisibleSelection } from '@/features/work-list-display';
+import { partnerTypeLabel } from '@/lib/domain/partner';
+import { businessRegistrationNumberOf, normalizeBusinessRegistrationNumber } from '@/lib/domain/business-identity';
+import { parseDepositRule } from '@/lib/domain/sheet-import';
+import { isAutoplusPartner } from '@/lib/domain/sheet-autoplus';
 // 사용자·파트너 관리(관리자) — 역할·활성·영업지급율(user) / 유형·공급사수수료율(partner). 여기 율이 정산 R1/R2 SSOT.
 // status(가입승인)는 폼에서 제외 — v4 오버레이가 아니라 approveUser 로 "최상위"에 기록해야 게이트가 인식. 아래 승인 버튼 전용.
 const idFieldOf = (t: Tab) => (t === 'user' ? 'uid' : 'partner_code');
@@ -42,6 +47,12 @@ const ratePct = (value: unknown) => {
   return `${Math.round(n * 100)}%`;
 };
 const strOf = (value: unknown) => String(value ?? '');
+const depositRuleLabel = (value: unknown) => {
+  const rule = String(value ?? '');
+  if (rule === 'months_per_year') return '기간 1년당 월대여료 1개월치';
+  if (rule === 'rent_multiple') return '국산 2개월치 · 수입 3개월치';
+  return '미설정 · 시트 보증금만 사용';
+};
 
 export default function Members() {
   const co = getCompanyId();
@@ -123,6 +134,12 @@ export default function Members() {
   };
   /** 규칙 게시 전 — SP999/빈 채널 개인 영업자를 user_code 채널로 고유화. */
   const doBackfillChannels = async (dry: boolean) => {
+    if (!dry && !await confirmDialog({
+      title: '개인채널 백필',
+      message: '대상 회원의 영업채널 값을 일괄 변경합니다. 먼저 미리보기 결과를 확인했나요?',
+      danger: true,
+      okLabel: '백필 실행',
+    })) return;
     try {
       haptic.select();
       const r = await backfillPersonalAgentChannels({ dryRun: dry });
@@ -160,7 +177,6 @@ export default function Members() {
     setDirty(true);
     setCreating(true);
     setEditing(true);
-    haptic.tap();
   };
   const cancelEdit = () => {
     if (creating) { clearSel(); return; }
@@ -182,16 +198,18 @@ export default function Members() {
       //  실패(규칙 미게시·no-db)면 본노드에 그대로 남긴다(유실·머니율 누락 방지) — 폴백이 기존 동작 보존.
       let mainForm: EntityRecord = form;
       if (tab === 'partner') {
+        const depositRule = parseDepositRule(form.deposit_rule);
+        mainForm = { ...form, deposit_rule: depositRule || null };
         const code = String(form.partner_code || form._key || '').trim();
         // 사업자번호는 숫자만 저장한다 — 가입 매칭(matchBizNo)이 숫자 기준으로 찾으므로
         //  '123-45-67890' 로 저장하면 입력해도 영영 매칭되지 않는다.
-        const biz = String(form.business_number || '').replace(/\D/g, '');
+        const biz = normalizeBusinessRegistrationNumber(form.business_number);
         if (biz) {
           mainForm = { ...form, business_number: biz };
           // 같은 번호를 가진 다른 파트너가 있으면 알린다. **막지는 않는다** — 지점·역할분리(공급사/영업채널)로
           //  정당하게 겹칠 수 있다. 다만 모르고 두 벌 만드는 걸 막아야 한다(실제로 11쌍이 그렇게 생겼다).
           const dup = (rows || []).filter((r) => String(r._key) !== code
-            && String(r.business_number || '').replace(/\D/g, '') === biz
+            && businessRegistrationNumberOf(r, 'partner') === biz
             && r._deleted !== true && String(r.status || '') !== 'deleted');
           if (dup.length) {
             toast(`사업자번호 ${biz} 를 쓰는 파트너가 이미 있습니다 — ${dup.map((d) => String(d.name || d._key)).join(', ')}. 역할이 다르면 그대로 두고, 같은 역할이면 한쪽으로 합치세요.`, 'info');
@@ -255,6 +273,34 @@ export default function Members() {
     toast('삭제되었습니다', 'ok');
   };
 
+  const resetSheetMapping = async () => {
+    if (tab !== 'partner' || !sel || saving) return;
+    const code = String(form.partner_code || form._key || '').trim();
+    if (!code) return;
+    if (!await confirmDialog({
+      title: '시트 컬럼 매핑 초기화',
+      message: `${String(form.name || code)}의 저장된 컬럼 매핑과 헤더 서명을 지울까요?\n구글시트 원본은 변경되지 않으며, 다음 불러오기에서 헤더를 다시 판독합니다.`,
+      danger: true,
+      okLabel: '매핑 초기화',
+    })) return;
+    setSaving(true);
+    try {
+      await getStore().update('partner', co, code, {
+        mapping_profile: null,
+        mapping_header_signature: null,
+      });
+      const all = await load('partner');
+      const row = all.find((item) => String(item._key || item.partner_code || '') === code);
+      if (row) setForm({ ...row });
+      setDirty(false);
+      toast('시트 매핑을 초기화했습니다. 재고 화면에서 데이터 검증을 다시 실행하세요.', 'ok');
+    } catch (error) {
+      toast(`매핑 초기화 실패: ${String((error as Error).message || error)}`, 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const shown = useMemo(() => filterMembers({
     rows, tab, query: q, sort, role: roleFlt, active: activeFlt, partnerType: ptypeFlt,
   }), [rows, tab, q, sort, roleFlt, activeFlt, ptypeFlt]);
@@ -308,7 +354,7 @@ export default function Members() {
     : fieldsIn(['fee_rate']);
   const operationFields = tab === 'user'
     ? fieldsIn(['agent_channel_code', 'agent_payout_rate', 'is_team_manager'])
-    : fieldsIn(['sheet_url', 'sheet_tab', 'header_row', 'adapter_id']);
+    : fieldsIn(['sheet_url', 'sheet_tab', 'header_row', 'adapter_id', 'deposit_rule']);
   const canEdit = creating || editing;
   const modeBanner = creating ? (
     <Message variant="info">신규 {tab === 'user' ? '계정' : '회사'} — 필수 항목을 입력한 뒤 저장하세요.</Message>
@@ -323,17 +369,21 @@ export default function Members() {
   ) : null;
 
   const roleKey = strOf(form.role);
-  const inactive = strOf(form.is_active) === '아니오';
-  const pending = strOf(form.status) === 'pending';
+  const accountState = memberAccountState(form);
+  const inactive = accountState === 'inactive';
+  const pending = accountState === 'pending';
   const accessTitle = tab === 'user' ? '소속·권한' : '정산·운영';
   const operationTitle = tab === 'user' ? '영업설정' : '데이터연동';
   const basicHint = tab === 'user' ? '계정 식별정보와 소속 회사를 관리합니다.' : '회사 식별정보와 기본 연락처를 관리합니다.';
   const accessHint = tab === 'user'
     ? '역할과 활성 상태는 메뉴 접근 및 데이터 범위의 기준입니다.'
     : '공급사 수수료율(0~1)은 정산 R1 계산 기준입니다.';
+  const autoplusForm = tab === 'partner' && isAutoplusPartner(form);
   const operationHint = tab === 'user'
     ? '영업지급율(0~1)은 월대여료 대비 영업자 지급 비율이며 정산 R2 기준입니다.'
-    : '구글시트 URL을 넣으면 재고·시트 연동에서 관리자가 일괄 가져올 수 있습니다.';
+    : autoplusForm
+      ? '오토플러스 시트는 보증금 열이 없으므로 「국산 2개월치 · 수입 3개월치」 규칙이 필수입니다. 미설정하면 가격없음으로 동기화가 차단됩니다.'
+      : '구글시트 URL을 넣으면 재고·시트 연동에서 관리자가 일괄 가져올 수 있습니다.';
 
   const approveBar = tab === 'user' && pending ? (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: C.selected, borderRadius: R, marginBottom: 8 }}>
@@ -367,11 +417,12 @@ export default function Members() {
       <DetailRow label="상호/이름" value={strOf(form.name)} />
       <DetailRow
         label="유형"
-        value={strOf(form.partner_type)
-          ? <Badge tone={strOf(form.partner_type) === '공급사' ? 'blue' : 'gray'}>{strOf(form.partner_type)}</Badge>
-          : ''}
+        value={(() => {
+          const type = partnerTypeLabel(form.partner_type, form.partner_code || form._key);
+          return <Badge tone={type === '공급사' ? 'blue' : type === '분류 필요' ? 'red' : 'gray'}>{type}</Badge>;
+        })()}
       />
-      <DetailRow label="사업자번호" value={strOf(form.business_number)} />
+      <DetailRow label="사업자번호" value={businessRegistrationNumberOf(form, 'partner')} />
       <DetailRow label="연락처" value={strOf(form.contact)} />
     </>
   );
@@ -406,7 +457,8 @@ export default function Members() {
       <DetailRow label="구글시트 URL" value={strOf(form.sheet_url)} stacked={!!strOf(form.sheet_url)} />
       <DetailRow label="시트 gid" value={strOf(form.sheet_tab)} />
       <DetailRow label="헤더 행" value={strOf(form.header_row)} />
-      <DetailRow label="시트 어댑터" value={strOf(form.adapter_id)} />
+      <DetailRow label="시트 어댑터" value={strOf(form.adapter_id) || (autoplusForm ? '오토플러스식 · 자동' : '일반 · 기본')} />
+      <DetailRow label="보증금 계산규칙" value={depositRuleLabel(form.deposit_rule)} />
     </>
   );
 
@@ -434,7 +486,7 @@ export default function Members() {
             )}
           </>
         ) : (
-          <CenterNote>{tab === 'user' ? '계정' : '회사'}를 선택하거나 신규로 추가하세요.</CenterNote>
+          <CenterNote>{tab === 'user' ? '계정을' : '회사를'} 선택하거나 신규로 추가하세요.</CenterNote>
         )}
       </PaneBody>
     </>
@@ -482,13 +534,36 @@ export default function Members() {
       <PaneHead title={operationTitle} />
       <PaneBody pad>
         {sel ? (
-          canEdit ? (
-            <FormCard hint={operationHint}>
-              <FormGrid fields={operationFields} form={form} onChange={onChange} cols={2} />
-            </FormCard>
-          ) : (
-            <>{operationRead}{paneHint(operationHint)}</>
-          )
+          <>
+            {canEdit ? (
+              <FormCard hint={operationHint}>
+                <FormGrid
+                  fields={operationFields}
+                  form={form}
+                  onChange={onChange}
+                  cols={2}
+                  selectOptions={tab === 'partner' ? {
+                    deposit_rule: [
+                      { value: '', label: '미설정 · 시트 보증금만 사용' },
+                      { value: 'months_per_year', label: '기간 1년당 월대여료 1개월치' },
+                      { value: 'rent_multiple', label: autoplusForm
+                        ? '국산 2개월치 · 수입 3개월치 · 오토플러스'
+                        : '국산 2개월치 · 수입 3개월치' },
+                    ],
+                  } : undefined}
+                />
+              </FormCard>
+            ) : (
+              <>{operationRead}{paneHint(operationHint)}</>
+            )}
+            {tab === 'partner' ? (
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
+                <Btn title="깨진 컬럼 매핑과 헤더 서명만 초기화" size="sm" variant="ghost" onClick={resetSheetMapping} disabled={saving}>
+                  시트 매핑 초기화
+                </Btn>
+              </div>
+            ) : null}
+          </>
         ) : (
           <>
             <CenterNote>목록에서 대상을 선택하면 업무 연동 설정을 확인할 수 있습니다.</CenterNote>
@@ -541,7 +616,7 @@ export default function Members() {
                       <FilterChips value={roleFlt} onChange={setRoleFlt} options={MEM_ROLES} />
                     </FilterGroup>
                     <FilterGroup
-                      title="활성"
+                      title="상태"
                       count={activeFlt === 'all' ? 0 : 1}
                       defaultOpen
                       onClear={() => setActiveFlt('all')}

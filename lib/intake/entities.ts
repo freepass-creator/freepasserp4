@@ -263,6 +263,9 @@ export const ENTITIES: Record<string, Entity> = {
       { key: 'maker_snapshot', label: '제조사', type: 'text' },
       { key: 'model_snapshot', label: '모델', type: 'text' },
       { key: 'sub_model_snapshot', label: '세부모델', type: 'text' },
+      { key: 'variant_snapshot', label: '파워트레인', type: 'text' },
+      { key: 'trim_name_snapshot', label: '트림', type: 'text' },
+      { key: 'trim_extra_snapshot', label: '추가표기', type: 'text' },
       { key: 'vehicle_name_snapshot', label: '차량명', type: 'text' },
       { key: 'year_snapshot', label: '연식', type: 'text' },
       { key: 'fuel_type_snapshot', label: '연료', type: 'text' },
@@ -368,6 +371,7 @@ export const ENTITIES: Record<string, Entity> = {
       { key: 'sheet_tab', label: '시트 gid', type: 'text', manual: true, note: '탭 gid(숫자). URL에 gid 있으면 생략 가능' },
       { key: 'header_row', label: '헤더 행(0부터)', type: 'number', manual: true, note: '위쪽 안내행 스킵' },
       { key: 'adapter_id', label: '시트 어댑터', type: 'select', options: ['generic', 'autoplus'], manual: true, note: '기본 generic=헤더학습. 병적 양식만 autoplus' },
+      { key: 'deposit_rule', label: '보증금 계산규칙', type: 'select', options: ['months_per_year', 'rent_multiple'], manual: true, note: '시트에 보증금이 없을 때만 적용. 미설정이면 가격을 임의 생성하지 않음' },
       { key: 'mapping_profile', label: '컬럼 매핑 프로필', type: 'text', manual: true, note: '컬럼→표준 필드 매핑(학습)' },
       { key: 'last_synced_at', label: '최근 동기화', type: 'number' },
       { key: 'last_sheet_rows', label: '최근 시트 행수', type: 'number', note: '올린 것 + 출고불가로 걸러낸 것. 급감가드 기준' },
@@ -516,7 +520,16 @@ export function mapOcrToEntity(entityKey: string, ocr: Record<string, unknown>):
   const e = ENTITIES[entityKey];
   const rec: EntityRecord = {};
   if (!e) return rec;
-  for (const f of e.fields) if (f.ocrFrom && ocr[f.ocrFrom] != null && ocr[f.ocrFrom] !== '') rec[f.key] = ocr[f.ocrFrom];
+  for (const f of e.fields) {
+    if (!f.ocrFrom) continue;
+    // OCR 엔진이 canonical key(year/engine_cc/usage)를 바로 반환하는 현재 규격과
+    // 과거 source key(car_year_month/displacement/usage_type)를 모두 입력 경계에서 흡수한다.
+    // 엔티티에 OCR 대상으로 선언되지 않은 임의 키는 폼에 넣지 않는다.
+    const direct = ocr[f.key];
+    const legacy = ocr[f.ocrFrom];
+    const value = direct != null && direct !== '' ? direct : legacy;
+    if (value != null && value !== '') rec[f.key] = value;
+  }
   return rec;
 }
 

@@ -45,31 +45,25 @@ export function useInventoryData(companyId: string) {
 
 type InventoryAccessOptions = {
   companyId: string;
-  mobile: boolean;
   loadProducts: (role: Role) => Promise<EntityRecord[]>;
   setPolicies: (policies: EntityRecord[]) => void;
   setAccess: (access: boolean) => void;
   setGateMessage: (message: string) => void;
   loadMaster: () => Promise<unknown>;
-  selectProduct: (product: EntityRecord) => Promise<void>;
   clearSelection: () => void;
 };
 
 export function useInventoryAccessEffects({
   companyId,
-  mobile,
   loadProducts,
   setPolicies,
   setAccess,
   setGateMessage,
   loadMaster,
-  selectProduct,
   clearSelection,
 }: InventoryAccessOptions) {
-  const selectProductRef = useRef(selectProduct);
   const clearSelectionRef = useRef(clearSelection);
   const loadMasterRef = useRef(loadMaster);
-  selectProductRef.current = selectProduct;
   clearSelectionRef.current = clearSelection;
   loadMasterRef.current = loadMaster;
 
@@ -84,10 +78,11 @@ export function useInventoryAccessEffects({
           return;
         }
         setPolicies(await getStore().list('policy', companyId));
-        const all = await loadProducts(role);
+        await loadProducts(role);
         setAccess(true);
         void loadMasterRef.current().catch(() => {});
-        if (!mobile && all.length) void selectProductRef.current(all[0]);
+        // 업무 목록 공통 규격: 화면 진입은 목록부터 시작하고, 사용자가 행을 선택해야 상세를 연다.
+        clearSelectionRef.current();
       } catch (error) {
         setGateMessage('재고 로드 실패: ' + String((error as Error).message || error));
         setAccess(false);
@@ -108,14 +103,13 @@ export function useInventoryAccessEffects({
         }
         setAccess(true);
         setGateMessage('');
-        const all = await loadProducts(role);
+        await loadProducts(role);
         clearSelectionRef.current();
-        if (!mobile && all.length) void selectProductRef.current(all[0]);
       })();
     };
     window.addEventListener('fp:role', onRole);
     return () => window.removeEventListener('fp:role', onRole);
-  }, [loadProducts, mobile, setAccess, setGateMessage]);
+  }, [loadProducts, setAccess, setGateMessage]);
 
   useEffect(() => {
     const onWorkList = (event: Event) => {

@@ -6,9 +6,8 @@ import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
 import { ENTITIES, type EntityRecord } from '@/lib/intake/entities';
 import { isAdminUiAllowed } from '@/lib/auth-gate';
-import { parseAuditChanges, auditDomainOf, AUDIT_DOMAIN_OPTS } from '@/lib/domain/audit';
-import { Page, Btn, Badge, PillTabs, FilterChips, FilterGroup, SearchInput, C, R, Loading, CenterNote, FW, FS, NUM } from '@/components/ui';
-import { useIsMobile } from '@/lib/use-mobile';
+import { parseAuditChanges, auditDomainOf, normalizeAuditRecord, AUDIT_DOMAIN_OPTS } from '@/lib/domain/audit';
+import { Page, Btn, Badge, PillTabs, FilterChips, FilterGroup, C, R, Loading, CenterNote, FW, FS, NUM } from '@/components/ui';
 
 // 감사·휴지통 — 전 데이터 write 관장(매물·대여료·계약·정산·채팅·회원). store 자동 기록.
 const TRASH_ENTITIES = ['product', 'contract', 'settlement', 'policy', 'partner', 'user', 'room', 'customer'];
@@ -68,7 +67,6 @@ function AuditRow({ log }: { log: EntityRecord }) {
 export default function AuditTrash() {
   const co = getCompanyId();
   const router = useRouter();
-  const mobile = useIsMobile();
   const [ok, setOk] = useState<boolean | null>(null);
   const [tab, setTab] = useState<'audit' | 'trash'>('audit');
   const [logs, setLogs] = useState<EntityRecord[]>([]);
@@ -84,7 +82,8 @@ export default function AuditTrash() {
   };
   const load = async () => {
     const al = await getStore().list('audit_log', co);
-    setLogs([...al].sort((a, b) => Number(b.at) - Number(a.at)));
+    const normalized = al.map(normalizeAuditRecord).filter((log): log is EntityRecord => !!log);
+    setLogs(normalized.sort((a, b) => Number(b.at) - Number(a.at)));
     await loadTrash();
   };
   useEffect(() => { (async () => { await seedIfEmpty(co); if (!isAdminUiAllowed()) { router.replace('/'); return; } await load(); setOk(true); })(); /* eslint-disable-next-line */ }, []);
@@ -132,12 +131,6 @@ export default function AuditTrash() {
 
       {tab === 'audit' ? (
         <>
-          {!mobile && (
-            <div style={{ marginBottom: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <FilterChips value={domain} onChange={setDomain} options={AUDIT_DOMAIN_OPTS} />
-              <SearchInput value={q} onChange={setQ} placeholder="차번·계약·채팅·행위자 검색" full />
-            </div>
-          )}
           <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg, overflow: 'hidden' }}>
             {shownLogs.length === 0 ? <CenterNote>기록이 없습니다.</CenterNote> :
               shownLogs.map((l, i) => <AuditRow key={String(l._key) || i} log={l} />)}

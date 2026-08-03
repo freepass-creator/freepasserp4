@@ -1,7 +1,7 @@
 import type { EntityRecord } from '@/lib/intake/entities';
 import { isHiddenFromCatalog } from '@/lib/domain/product';
-import { isContractCancelled } from '@/lib/domain/contract';
-import { roomVehicleLabel } from '@/lib/domain/vehicle-label';
+import { isContractCancelled, isContractInProgress } from '@/lib/domain/contract';
+import { roomVehicleLabel, roomVehicleSnapshot } from '@/lib/domain/vehicle-label';
 import { isOpaqueIdentity, safeBusinessCode } from '@/lib/domain/work-identity';
 
 export type ProductLookup = {
@@ -33,6 +33,37 @@ function contractJoinKeys(contract: EntityRecord): string[] {
   ];
 }
 
+function dateRank(value: unknown): number {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  const raw = String(value || '').trim();
+  if (!raw) return 0;
+  const numeric = Number(raw);
+  if (Number.isFinite(numeric) && numeric > 0) return numeric;
+  const parsed = Date.parse(raw);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+/** 같은 레거시 조인키의 후보는 입력 배열 순서가 아니라 업무 의미와 최신성으로 고른다. */
+function compareContractPriority(a: EntityRecord, b: EntityRecord): number {
+  const progress = Number(isContractInProgress(a)) - Number(isContractInProgress(b));
+  if (progress) return progress;
+
+  const ranks: [unknown, unknown][] = [
+    [a.contract_date, b.contract_date],
+    [a.createdAt ?? a.created_at, b.createdAt ?? b.created_at],
+    [a.cancelled_at, b.cancelled_at],
+    [a.updatedAt ?? a.updated_at, b.updatedAt ?? b.updated_at],
+  ];
+  for (const [aValue, bValue] of ranks) {
+    const diff = dateRank(aValue) - dateRank(bValue);
+    if (diff) return diff;
+  }
+
+  const aCode = String(a.contract_code || a._key || '').trim();
+  const bCode = String(b.contract_code || b._key || '').trim();
+  return aCode === bCode ? 0 : aCode > bCode ? 1 : -1;
+}
+
 function roomJoinKeys(room: EntityRecord): string[] {
   const parsed = idFromRoomKey(room);
   return pairKeys(
@@ -48,7 +79,8 @@ export function buildContractIndex(contracts: EntityRecord[], cancelled: boolean
     const isCancelled = isContractCancelled(contract);
     if (isCancelled !== cancelled) continue;
     for (const key of contractJoinKeys(contract)) {
-      if (!index.has(key)) index.set(key, contract);
+      const previous = index.get(key);
+      if (!previous || compareContractPriority(contract, previous) > 0) index.set(key, contract);
     }
   }
   return index;
@@ -143,8 +175,76 @@ function resolveRoomCar(
 ): string {
   return String(room.car_number || room.vehicle_number || '').trim()
     || (fromKey.car || '').trim()
-    || String(product?.car_number || '').trim()
-    || String(contract?.car_number_snapshot || '').trim();
+    || String(contract?.car_number_snapshot || '').trim()
+    || String(product?.car_number || '').trim();
+}
+
+/**
+ * 문의 상세용 상품 레코드. 가격·사진·정책은 현재/삭제 상품에서 유지하고 차량 식별값만
+ * 방 snapshot → 계약 snapshot → 상품 순으로 덮어 목록과 상세가 서로 다른 트림을 보이지 않게 한다.
+ */
+export function roomProductDetail(
+  room: EntityRecord,
+  product?: EntityRecord | null,
+  contract?: EntityRecord | null,
+): EntityRecord | null {
+  const roomSnapshot = roomVehicleSnapshot(room, product, contract);
+  const contractName = String(contract?.vehicle_name_snapshot || contract?.vehicle_name || '').trim();
+  const contractPlate = String(contract?.car_number_snapshot || '').trim();
+  const usableContractName = contractName && contractName.replace(/[\s-]+/g, '') !== contractPlate.replace(/[\s-]+/g, '')
+    ? contractName
+    : '';
+  const hasContractIdentity = !!contract && [
+    usableContractName,
+    contract.model_snapshot || contract.model,
+    contract.sub_model_snapshot || contract.sub_model,
+    contract.variant_snapshot || contract.variant,
+    contract.trim_name_snapshot || contract.trim_name,
+    contract.trim_extra_snapshot || contract.trim_extra,
+  ].some((value) => String(value || '').trim());
+  const contractSnapshot: EntityRecord | null = hasContractIdentity ? {
+    maker: String(contract?.maker_snapshot || contract?.maker || product?.maker || ''),
+    model: String(contract?.model_snapshot || contract?.model || ''),
+    sub_model: String(contract?.sub_model_snapshot || contract?.sub_model || ''),
+    variant: String(contract?.variant_snapshot || contract?.variant || ''),
+    trim_name: String(contract?.trim_name_snapshot || contract?.trim_name || ''),
+    trim_extra: String(contract?.trim_extra_snapshot || contract?.trim_extra || ''),
+    vehicle_name: usableContractName,
+  } : null;
+  const identity = roomSnapshot || contractSnapshot;
+  if (!product && !identity) return null;
+
+  const month = Number(contract?.rent_month_snapshot) || 0;
+  const historicalPrice = month > 0 ? {
+    price: {
+      [String(month)]: {
+        rent: Number(contract?.rent_amount_snapshot) || 0,
+        deposit: Number(contract?.deposit_amount_snapshot) || 0,
+      },
+    },
+  } : {};
+  const base: EntityRecord = product ? { ...product } : {
+    product_code: String(contract?.product_code || room.product_code || room.product_uid || ''),
+    ...historicalPrice,
+    _fromHistory: true,
+  };
+  const carNumber = String(room.car_number || room.vehicle_number || '').trim()
+    || String(idFromRoomKey(room).car || '').trim()
+    || contractPlate
+    || String(product?.car_number || '').trim();
+
+  if (!identity) return { ...base, car_number: carNumber || base.car_number };
+  return {
+    ...base,
+    maker: String(identity.maker || ''),
+    model: String(identity.model || ''),
+    sub_model: String(identity.sub_model || ''),
+    variant: String(identity.variant || ''),
+    trim_name: String(identity.trim_name || ''),
+    trim_extra: String(identity.trim_extra || ''),
+    vehicle_name: String(identity.vehicle_name || ''),
+    car_number: carNumber,
+  };
 }
 
 export function roomTitle(
@@ -164,11 +264,11 @@ export function roomTitle(
   const fromKey = idFromRoomKey(room);
   const product = productForRoom(products, room) || productForRoom(deletedProducts, room);
   const productCode = String(room.product_code || '') || (fromKey.code || '');
-  const contract = productCode
-    ? activeContract
-      || contracts.find((candidate) => String(candidate.product_code) === productCode && !isContractCancelled(candidate))
+  const contract = activeContract
+    || (productCode
+      ? contracts.find((candidate) => String(candidate.product_code) === productCode && !isContractCancelled(candidate))
       || contracts.find((candidate) => String(candidate.product_code) === productCode)
-    : undefined;
+      : undefined);
 
   const car = resolveRoomCar(room, product, contract, fromKey);
 
@@ -195,11 +295,11 @@ export function roomPlate(
   const fromKey = idFromRoomKey(room);
   const product = productForRoom(products, room) || productForRoom(deletedProducts, room);
   const productCode = String(room.product_code || '') || (fromKey.code || '');
-  const contract = productCode
-    ? activeContract
-      || contracts.find((candidate) => String(candidate.product_code) === productCode && !isContractCancelled(candidate))
+  const contract = activeContract
+    || (productCode
+      ? contracts.find((candidate) => String(candidate.product_code) === productCode && !isContractCancelled(candidate))
       || contracts.find((candidate) => String(candidate.product_code) === productCode)
-    : undefined;
+      : undefined);
   return resolveRoomCar(room, product, contract, fromKey);
 }
 
@@ -223,11 +323,11 @@ export function roomModel(
   const fromKey = idFromRoomKey(room);
   const product = productForRoom(products, room) || productForRoom(deletedProducts, room);
   const productCode = String(room.product_code || '') || (fromKey.code || '');
-  const contract = productCode
-    ? activeContract
-      || contracts.find((candidate) => String(candidate.product_code) === productCode && !isContractCancelled(candidate))
+  const contract = activeContract
+    || (productCode
+      ? contracts.find((candidate) => String(candidate.product_code) === productCode && !isContractCancelled(candidate))
       || contracts.find((candidate) => String(candidate.product_code) === productCode)
-    : undefined;
+      : undefined);
 
   const name = roomVehicleLabel(room, product, contract);
   if (!name) return '차량명 미확인';

@@ -24,7 +24,7 @@ export const CONTRACT_SORT_OPTIONS: { value: ContractSort; label: string }[] = [
 export const CONTRACT_FILTER_OPTIONS: { key: ContractFilter; label: string }[] = [
   { key: 'all', label: '전체' },
   // 기존 기본 동작(상태 없는 레코드·계약취소 제외)은 유지하되 실제 범위를 정확히 쓴다.
-  { key: '진행', label: '취소 제외' },
+  { key: '진행', label: '계약취소 제외' },
   { key: '확인 필요', label: '확인 필요' },
   { key: '계약문의', label: '계약문의 진행' },
   { key: '서류', label: '서류 진행' },

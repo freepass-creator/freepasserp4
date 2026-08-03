@@ -1,10 +1,9 @@
 'use client';
 
 import { useCallback, useRef, useState, type Dispatch, type SetStateAction } from 'react';
-import { getStore, patchListCache } from '@/lib/store';
-import type { EntityRecord } from '@/lib/intake/entities';
+import { mapOcrToEntity, type EntityRecord } from '@/lib/intake/entities';
 import {
-  applySnap, resolveExactMasterPath, snapToMaster, SNAP_TRACK_KEYS, type MasterEntry,
+  applySnap, resolveExactMasterPath, snapToMaster, type MasterEntry,
 } from '@/lib/domain/vehicle-master-match';
 import { applyColors } from '@/lib/domain/color-master';
 import { toast } from '@/components/Toaster';
@@ -12,22 +11,20 @@ import { toast } from '@/components/Toaster';
 type StateSetter<T> = Dispatch<SetStateAction<T>>;
 
 type VehicleToolsOptions = {
-  companyId: string;
   form: EntityRecord;
+  selectedCode: string | null;
   setSelectedCode: StateSetter<string | null>;
   setForm: StateSetter<EntityRecord>;
-  setRows: StateSetter<EntityRecord[] | null>;
   setDirty: StateSetter<boolean>;
   setCreating: StateSetter<boolean>;
   setEditing: StateSetter<boolean>;
 };
 
 export function useInventoryVehicleTools({
-  companyId,
   form,
+  selectedCode,
   setSelectedCode,
   setForm,
-  setRows,
   setDirty,
   setCreating,
   setEditing,
@@ -36,6 +33,8 @@ export function useInventoryVehicleTools({
   const [master, setMaster] = useState<MasterEntry[] | null>(null);
   const ocrInputRef = useRef<HTMLInputElement | null>(null);
   const selectionGeneration = useRef(0);
+  const selectedCodeRef = useRef<string | null>(selectedCode);
+  selectedCodeRef.current = selectedCode;
 
   const loadMaster = useCallback(async (): Promise<MasterEntry[]> => {
     if (master?.length) return master;
@@ -48,6 +47,7 @@ export function useInventoryVehicleTools({
   const selectProduct = async (product: EntityRecord) => {
     const code = String(product.product_code);
     const generation = ++selectionGeneration.current;
+    selectedCodeRef.current = code;
     setSelectedCode(code);
     setForm({ ...product });
     setDirty(false);
@@ -55,91 +55,17 @@ export function useInventoryVehicleTools({
     setEditing(false);
     try {
       const entries = await loadMaster();
-      if (generation !== selectionGeneration.current) return;
+      if (generation !== selectionGeneration.current || selectedCodeRef.current !== code) return;
 
-      const persistColors = async (source: EntityRecord): Promise<EntityRecord> => {
-        const colored = applyColors(source);
-        const colorChanged = String(source.ext_color ?? '') !== String(colored.ext_color ?? '')
-          || String(source.int_color ?? '') !== String(colored.int_color ?? '');
-        if (!colorChanged) return colored;
-        setForm(colored);
-        const colorPatch: EntityRecord = {
-          ext_color: colored.ext_color,
-          int_color: colored.int_color,
-          _raw_ext_color: colored._raw_ext_color,
-          _raw_int_color: colored._raw_int_color,
-          _colors_snapped: colored._colors_snapped,
-        };
-        try {
-          await getStore().update('product', companyId, code, colorPatch);
-        } catch (error) {
-          console.warn('[inventory] 색상 자동저장 거부:', error);
-          toast(`상품 자동보정 저장 실패: ${String((error as Error)?.message || error)}`, 'error');
-          return colored;
-        }
-        if (generation !== selectionGeneration.current) return colored;
-        const mergedColor = { ...source, ...colorPatch };
-        patchListCache('product', companyId, code, mergedColor);
-        setRows((previous) => (previous || []).map((row) => (
-          String(row.product_code) === code ? { ...row, ...colorPatch } : row
-        )));
-        setForm(mergedColor);
-        return mergedColor;
-      };
-
-      if (resolveExactMasterPath(entries, product)) {
-        await persistColors(product);
-        return;
-      }
-      const result = snapToMaster(product, entries);
-      if (!result) {
-        await persistColors(product);
-        return;
-      }
-      const applied = applyColors(applySnap(product, result, { source: 'select' }));
-      if (generation !== selectionGeneration.current) return;
-      const exact = resolveExactMasterPath(entries, applied);
-      setForm(applied);
-      if (!exact || (result.confidence !== 'high' && result.confidence !== 'medium')) {
-        if (result.confidence === 'low') setDirty(true);
-        return;
-      }
-      const trackChanged = SNAP_TRACK_KEYS.some(
-        (key) => String(product[key] ?? '').trim() !== String(applied[key] ?? '').trim(),
-      );
-      const colorChanged = String(product.ext_color ?? '') !== String(applied.ext_color ?? '')
-        || String(product.int_color ?? '') !== String(applied.int_color ?? '');
-      const needsWrite = trackChanged || colorChanged || !product._snapped
-        || product._snap_confidence !== result.confidence
-        || (!!product._needs_master_review !== !!applied._needs_master_review);
-      if (!needsWrite) return;
-      const patch: EntityRecord = {
-        maker: applied.maker, model: applied.model, sub_model: applied.sub_model, catalog_id: applied.catalog_id,
-        gen_year_start: applied.gen_year_start, gen_year_end: applied.gen_year_end,
-        variant: applied.variant, trim_name: applied.trim_name,
-        fuel_type: applied.fuel_type, engine_cc: applied.engine_cc, seats: applied.seats, drive_type: applied.drive_type,
-        year: applied.year, vehicle_class: applied.vehicle_class,
-        ext_color: applied.ext_color, int_color: applied.int_color,
-        _raw_ext_color: applied._raw_ext_color, _raw_int_color: applied._raw_int_color,
-        _colors_snapped: applied._colors_snapped,
-        _snap_confidence: applied._snap_confidence, _snapped: true,
-        _raw_vehicle: applied._raw_vehicle, _snap_at: applied._snap_at, _snap_history: applied._snap_history,
-        _needs_master_review: false,
-      };
-      try {
-        await getStore().update('product', companyId, code, patch);
-      } catch (error) {
-        console.warn('[inventory] 마스터스냅 자동저장 거부:', error);
-        toast(`상품 자동보정 저장 실패: ${String((error as Error)?.message || error)}`, 'error');
-        return;
-      }
-      if (generation !== selectionGeneration.current) return;
-      const mergedSnap = { ...product, ...patch };
-      patchListCache('product', companyId, code, mergedSnap);
-      setRows((previous) => (previous || []).map((row) => (
-        String(row.product_code) === code ? { ...row, ...patch } : row
-      )));
-      setForm(mergedSnap);
+      // 목록 조회·행 선택은 반드시 read-only다. 정규화 결과는 화면에만 미리
+      // 보여주고, 실제 저장은 사용자가 수정 모드에서 저장할 때만 수행한다.
+      const colored = applyColors(product);
+      const result = resolveExactMasterPath(entries, product) ? null : snapToMaster(product, entries);
+      const preview = result
+        ? applyColors(applySnap(product, result, { source: 'select' }))
+        : colored;
+      if (generation !== selectionGeneration.current || selectedCodeRef.current !== code) return;
+      setForm(preview);
       setDirty(false);
     } catch {
       // 마스터 로드 실패 시 원본 폼 유지
@@ -187,7 +113,7 @@ export function useInventoryVehicleTools({
         toast('OCR 실패: ' + (data.error || response.status), 'error');
         return;
       }
-      const fields: Record<string, string> = data.fields || {};
+      const fields = mapOcrToEntity('product', data.fields || {});
       const keys = Object.keys(fields);
       setForm((previous) => {
         const next = { ...previous };

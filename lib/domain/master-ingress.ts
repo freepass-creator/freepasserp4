@@ -16,6 +16,8 @@ import {
   importSheetTable,
   prepareMasterIngress,
   type ImportResult,
+  type DepositRule,
+  type MappingHeaderSignature,
   type MappingProfile,
 } from '@/lib/domain/sheet-import';
 import { commitSheetProducts, type CommitSheetResult } from '@/lib/domain/sheet-merge';
@@ -71,13 +73,21 @@ export async function commitSupplierProducts(
  */
 export function previewSupplierTable(
   table: string[][],
-  opts: { providerCode: string; master: MasterEntry[]; profile?: MappingProfile },
+  opts: {
+    providerCode: string;
+    master: MasterEntry[];
+    profile?: MappingProfile;
+    profileHeaders?: MappingHeaderSignature;
+    depositRule?: DepositRule;
+  },
 ): ImportResult & { confirmed: number; review: number } {
   const entries = assertMaster(opts.master);
   const res = importSheetTable(table, {
     providerCode: opts.providerCode,
     entries,
     profile: opts.profile,
+    profileHeaders: opts.profileHeaders,
+    depositRule: opts.depositRule,
   });
   const { confirmed, review } = prepareMasterIngress(res.products);
   return { ...res, confirmed, review };

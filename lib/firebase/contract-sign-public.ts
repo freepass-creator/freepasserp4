@@ -55,11 +55,9 @@ export function contractToSignPublic(c: EntityRecord, token: string, status = 's
     contract_code: String(c.contract_code || ''),
     contract_status: c.contract_status,
     car_number: c.car_number_snapshot || c.car_number || '',
-    // ⚠ vehicle_name_snapshot 은 **계약 생성 때 굽지 않는 필드**라 거의 항상 빈 문자열이다.
-    //  그대로 실으면 손님이 서명하는 화면의 제목이 리터럴 '차량'으로 뜬다(실측).
-    //  계약 스냅샷(maker_snapshot·sub_model_snapshot)에서 조립해 채운다 — 계약 스냅샷이 정본.
-    vehicle_name: String(c.vehicle_name_snapshot || '')
-      || vehicleNameOf({ kind: 'contract', contract: c }, { tier: 'full', fallback: 'none' }),
+    // 신규 계약은 완성 차명 snapshot을 저장하고, 레거시는 구조화 snapshot에서 복원한다.
+    // 어느 경우든 계약 당시 snapshot이 정본이며 현재 상품명으로 덮지 않는다.
+    vehicle_name: vehicleNameOf({ kind: 'contract', contract: c }, { tier: 'full', fallback: 'none' }),
     rent_amount_snapshot: c.rent_amount_snapshot,
     deposit_amount_snapshot: c.deposit_amount_snapshot,
     rent_month_snapshot: c.rent_month_snapshot,

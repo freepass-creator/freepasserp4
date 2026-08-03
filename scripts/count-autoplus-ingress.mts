@@ -37,6 +37,9 @@ async function fetchCsv(_url: string, gid?: string): Promise<string[][]> {
     entries,
     fetchTable: fetchCsv,
     headerRow: 0,
+    // 2026-08-03: live Sheet와 2026-07-28 가격 108/108 snapshot 대조로
+    // AutoPlus 운영 규칙이 국산×2·수입×3임을 확인했다.
+    depositRule: 'rent_multiple',
   });
 
   const stock = countAutoplusStock(res.products);

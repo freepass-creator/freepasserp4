@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, Fragment, type ReactNode } from 'react';
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { type EntityRecord } from '@/lib/intake/entities';
-import { STEPS, contractStage, isContractCancelled, isDone, isRejected, needsContractFinalization } from '@/lib/domain/contract';
+import { STEPS, contractStage, isContractCancelled, isContractCompleted, isDone, isRejected, needsContractFinalization } from '@/lib/domain/contract';
 import { applyStepCheck, cancelContract, finalizeContractIfReady } from '@/lib/domain/settlement-engine';
 import { createContractRequest, getRole, type Role } from '@/lib/domain/deal';
 import { cheapest, priceList } from '@/lib/domain/product';
@@ -171,7 +171,7 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
             <span style={{ fontSize: FS.title, fontWeight: FW.title, color: C.ink }}>새 계약 — 출고문의로 시작</span>
           )}
           <span style={{ flex: 1, minWidth: 8 }} />
-          {c && !cancelled && (role === 'agent' || role === 'admin') && (
+          {c && !cancelled && (role === 'admin' || (role === 'agent' && !isContractCompleted(c))) && (
             <Btn title="계약 취소" size="sm" variant="ghost" haptic="impact" onClick={doCancel} disabled={busy}>계약취소</Btn>
           )}
         </div>

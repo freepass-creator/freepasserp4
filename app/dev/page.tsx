@@ -14,7 +14,6 @@ import { confirmDialog, toast } from '@/components/Toaster';
 import { Page, Btn, C, R, Loading, CenterNote, SectionLabel, Badge, FS, NUM } from '@/components/ui';
 import { MasterFitSummary } from '@/components/MasterFitSummary';
 import { NAV_LABEL } from '@/lib/tabbar';
-import Link from 'next/link';
 
 async function saveMigrationBackup(kind: 'products' | 'settlements', backup: unknown): Promise<string> {
   const response = await fetch('/api/dev/migration-backup', {
@@ -89,21 +88,27 @@ export default function DevTools() {
 
   const convertAll = async () => {
     if (busy || !master?.length || !rows) return;
-    setBusy(true);
     setLog('');
-    try {
-      const { patches, high, medium, low, unmatched } = reconcileToMaster(rows, master, { mode: 'auto' });
-      if (!patches.length) {
-        const msg = `변환 0건 / 대상 ${rows.length} · 검토 ${low}·미매칭 ${unmatched}`;
-        setLog(msg);
-        toast(msg, 'info');
-        return;
-      }
-      const n = await getStore().bulkPatch('product', co, patches.map(({ key, patch }) => ({ key, patch })));
-      await reload();
-      const msg = `변환 ${n}건 (high ${high}·중 ${medium}) · 검수 검토 ${low}·미매칭 ${unmatched}`;
+    const plan = reconcileToMaster(rows, master, { mode: 'auto' });
+    if (!plan.patches.length) {
+      const msg = `변환 0건 / 대상 ${rows.length} · 검토 ${plan.low}·미매칭 ${plan.unmatched}`;
       setLog(msg);
-      toast(msg, low || unmatched ? 'info' : 'ok');
+      toast(msg, 'info');
+      return;
+    }
+    if (!await confirmDialog({
+      title: '차종마스터 일괄 변환',
+      message: `${plan.patches.length}대의 차종 필드를 v4 오버레이에 일괄 저장합니다.\n자동확정 high ${plan.high}건 · 중 ${plan.medium}건입니다. 실행할까요?`,
+      danger: true,
+      okLabel: '일괄 변환 실행',
+    })) return;
+    setBusy(true);
+    try {
+      const n = await getStore().bulkPatch('product', co, plan.patches.map(({ key, patch }) => ({ key, patch })));
+      await reload();
+      const msg = `변환 ${n}건 (high ${plan.high}·중 ${plan.medium}) · 검수 검토 ${plan.low}·미매칭 ${plan.unmatched}`;
+      setLog(msg);
+      toast(msg, plan.low || plan.unmatched ? 'info' : 'ok');
     } catch (e) {
       const msg = '변환 오류: ' + String((e as Error).message || e);
       setLog(msg);
@@ -114,7 +119,6 @@ export default function DevTools() {
   // v3 라이브 매물 → v4 오버레이 1회 복사(소스 전환 준비). dryRun=미리보기(쓰기 없음).
   const runMigrate = async (dryRun: boolean) => {
     if (migBusy) return;
-    if (!dryRun && !await confirmDialog({ title: 'V3 매물 이관', message: 'v3 매물을 v4로 복사합니다.\n이미 v4에 있는 건 건너뛰고, v3 원본은 변경하지 않습니다.\n진행할까요?', danger: true, okLabel: '이관 실행' })) return;
     setMigBusy(true); setMigLog('');
     try {
       const { migrateV3ProductsToV4 } = await import('@/lib/firebase/migrate-products');
@@ -282,14 +286,12 @@ export default function DevTools() {
         <div style={{ ...card, background: C.selected }}>
           <SectionLabel mt={0}>v3 매물 → v4 복사 (소스 전환 준비)</SectionLabel>
           <div style={{ fontSize: FS.cap, color: C.faint, lineHeight: 1.5, marginBottom: 10 }}>
-            v3 라이브 매물을 v4 오버레이로 1회 복사합니다. 이미 v4에 있는 건 건너뜀(편집본 보존),
-            v3 원본은 변경 안 함. <b style={{ color: C.mute }}>미리보기로 대수를 먼저 확인</b>하고 복사 실행하세요.
-            복사·검증 후 카탈로그를 v4 전용으로 전환합니다.
+            운영 전수감사에서 child key 공통이 1개뿐이고 차량번호 중복·계약·채팅 참조가 확인됐습니다.
+            직접 복사는 중복 재고와 참조 단절 위험 때문에 잠겨 있으며, 여기서는 읽기 전용 진단만 제공합니다.
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             <Btn variant="ghost" onClick={runDiag} disabled={migBusy}>중복 진단(쓰기 없음)</Btn>
             <Btn variant="ghost" onClick={() => runMigrate(true)} disabled={migBusy}>미리보기(복사 안 함)</Btn>
-            <Btn onClick={() => runMigrate(false)} disabled={migBusy}>{migBusy ? '복사 중…' : 'v3→v4 복사 실행'}</Btn>
           </div>
           {diagLog && <pre style={{ margin: '10px 0 0', fontSize: FS.cap, color: C.mute, whiteSpace: 'pre-wrap', fontFamily: NUM, lineHeight: 1.6 }}>{diagLog}</pre>}
           {migLog && <pre style={{ margin: '10px 0 0', fontSize: FS.cap, color: C.mute, whiteSpace: 'pre-wrap', fontFamily: NUM }}>{migLog}</pre>}
@@ -362,7 +364,7 @@ export default function DevTools() {
         </div>
 
         <div style={{ fontSize: FS.cap, color: C.faint }}>
-          팁: 역할이 영업자면 재고·개발도구가 막힙니다. <Link href="/settings" style={{ color: C.accent }}>설정</Link>에서 관리자로 전환.
+          영업자 계정에서는 재고·개발도구를 사용할 수 없습니다. 관리자 계정으로 로그인하세요.
         </div>
       </div>
     </Page>

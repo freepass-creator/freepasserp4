@@ -97,15 +97,19 @@ const uProv = unreadFor(rmAfterProvider!, 'provider');
 const uAgent = unreadFor(rmAfterProvider!, 'agent');
 check('A6 공급사 unread > 0 (영업 정식 후)', uProv > 0, { uProv, uAgent, last: rmAfterProvider?.last_message });
 
+await markRead(roomId, 'provider', () => false);
+const rmGuarded = await store.get('room', co, roomId);
+check('A7 stale/unmounted 읽음 커밋 차단', unreadFor(rmGuarded!, 'provider') === uProv);
+
 await markRead(roomId, 'provider');
 const rmRead = await store.get('room', co, roomId);
-check('A7 markRead 공급사 → unread 0', unreadFor(rmRead!, 'provider') === 0);
+check('A8 markRead 공급사 → unread 0', unreadFor(rmRead!, 'provider') === 0);
 
 const last = all[all.length - 1];
 const agentMe = actor('agent');
 setRole('agent');
-check('A8 isMine 영업 마지막 말', isMine(last, agentMe, 'agent') === true);
-check('A9 isMine 공급사가 영업 말 보면 false', isMine(last, actor('provider'), 'provider') === false);
+check('A9 isMine 영업 마지막 말', isMine(last, agentMe, 'agent') === true);
+check('A10 isMine 공급사가 영업 말 보면 false', isMine(last, actor('provider'), 'provider') === false);
 
 // ════════════════════════════════════════
 console.log('\n── B. product audience / detailSections ──');
@@ -170,9 +174,17 @@ for (const rel of gone) {
 const chatSrc = fs.readFileSync(path.join(root, 'components/ChatThread.tsx'), 'utf8');
 check('D ChatThread → messaging import', /from '@\/lib\/domain\/messaging'/.test(chatSrc) || /from '\.\.\/lib\/domain\/messaging'/.test(chatSrc) || chatSrc.includes('lib/domain/messaging'));
 check('D ChatThread에 unread_for_ 직접 bump 없음', !/unread_for_agent\s*=\s*\(Number/.test(chatSrc));
+const chatListAt = chatSrc.indexOf('const nextMsgs = await listMessages(targetRoom)');
+const chatMarkAt = chatSrc.indexOf('await markRead(targetRoom, getRole(), isCurrent)');
+check('D ChatThread 메시지 조회 성공 뒤 읽음 커밋', chatListAt >= 0 && chatMarkAt > chatListAt);
+check('D ChatThread 현재 room guard를 markRead에 전달', chatSrc.includes('markRead(targetRoom, getRole(), isCurrent)'));
 const inqSrc = fs.readFileSync(path.join(root, 'components/SimpleInquiry.tsx'), 'utf8');
 check('D SimpleInquiry → messaging import', inqSrc.includes('lib/domain/messaging'));
 check('D SimpleInquiry에 unread bump 인라인 없음', !/unread_for_agent\s*=\s*\(Number/.test(inqSrc));
+check('D SimpleInquiry 진입 자동 markRead 없음', !inqSrc.includes('markRead('));
+const memoSrc = fs.readFileSync(path.join(root, 'components/ContractMemos.tsx'), 'utf8');
+check('D 계약 메모 blur 저장 없음', !memoSrc.includes('onBlur='));
+check('D 계약 메모 명시 저장 액션', memoSrc.includes('메모 저장') && memoSrc.includes('onClick={() => { void save(slot); }}'));
 const catSrc = fs.readFileSync(path.join(root, 'app/catalog/page.tsx'), 'utf8');
 check('D catalog에 CatalogCard 포크 없음', !/function CatalogCard/.test(catSrc) && catSrc.includes('ProductCard'));
 const qSrc = fs.readFileSync(path.join(root, 'app/q/[code]/page.tsx'), 'utf8');
@@ -185,7 +197,14 @@ const navigationSrc = fs.readFileSync(path.join(root, 'components/ui/navigation.
 const buttonsSrc = fs.readFileSync(path.join(root, 'components/ui/buttons.tsx'), 'utf8');
 const settlementPageSrc = fs.readFileSync(path.join(root, 'app/settlement/page.tsx'), 'utf8');
 const inventoryPageSrc = fs.readFileSync(path.join(root, 'app/inventory/page.tsx'), 'utf8');
+const membersPageSrc = fs.readFileSync(path.join(root, 'app/members/page.tsx'), 'utf8');
+const policyPageSrc = fs.readFileSync(path.join(root, 'app/policy/page.tsx'), 'utf8');
+const devPageSrc = fs.readFileSync(path.join(root, 'app/dev/page.tsx'), 'utf8');
 check('D 계약 목록 규격 외 SettlementSummary 제거', !contractPageSrc.includes('SettlementSummary'));
+check('D 정산 금액 blur 저장 없음', !contractPageSrc.includes('onBlur='));
+check('D 정산 금액 명시 저장 액션', contractPageSrc.includes('title={`${label} 저장`}') && contractPageSrc.includes('onClick={() => { void commit(); }}'));
+check('D R1/R2 입력·저장 접근성 이름 구분', contractPageSrc.includes('ariaLabel={`${label} 금액`}') && contractPageSrc.includes('label={label}'));
+check('D 정산 금액 선택 epoch guard', contractPageSrc.includes('epoch === selectionEpoch.current') && contractPageSrc.includes('selectedCodeRef.current === targetContractCode'));
 check('D 모바일 업무 패널은 icon SSOT', workPageSrc.includes('icon?: LucideIcon') && workPageSrc.includes('<IconSeg'));
 check('D 모바일 CRUD는 공통 PageActions', pageActionsSrc.includes("from 'lucide-react'") && pageActionsSrc.includes('<Btn size="sm"'));
 check('D 모바일 툴바 라벨+아이콘 일치', pageToolBarSrc.includes('<Icon size={18}') && pageToolBarSrc.includes('<span>{t.label}</span>'));
@@ -194,6 +213,10 @@ check('D 공통 Btn 모바일 아이콘 전환 SSOT', buttonsSrc.includes('mobil
 check('D 모바일 계약 엑셀 액션 미노출', contractPageSrc.includes('action: !mobile && setts.length'));
 check('D 모바일 월정산 엑셀·정산서 미노출', settlementPageSrc.includes('const actions = mobile ? undefined') && settlementPageSrc.includes('{!mobile && (') && settlementPageSrc.includes('accept=".xlsx,.xls"'));
 check('D 모바일 재고 시트취합 웹전용', inventoryPageSrc.includes("...(mobile ? [] : [{ key: 'sync'") && inventoryPageSrc.includes('<SheetSync'));
+check('D 회원 일괄 백필 실행은 확인 대화상자 필수', membersPageSrc.includes("title: '개인채널 백필'") && membersPageSrc.includes("okLabel: '백필 실행'"));
+check('D 회원 빈 화면 조사 사용', membersPageSrc.includes("'계정을' : '회사를'"));
+check('D 정책관리 진입은 첫 행 자동선택 없음', !policyPageSrc.includes('selectP(all[0])'));
+check('D 차종마스터 일괄 변환은 확인 필수', devPageSrc.includes("title: '차종마스터 일괄 변환'") && devPageSrc.includes("okLabel: '일괄 변환 실행'"));
 
 // ── 요약 ──
 const failed = cases.filter((c) => !c.ok);

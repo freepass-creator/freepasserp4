@@ -4,12 +4,16 @@
  * commit/merge/absent 로직은 건드리지 않음 — 유입 표·제품 배열만 만든다.
  */
 import { type EntityRecord } from '@/lib/intake/entities';
-import { isRealPlate } from '@/lib/domain/product';
+import { isExactRealPlate } from '@/lib/domain/product';
 import {
+  assertDistinctSheetTable,
   importSheetTable,
+  type DepositRule,
   type ImportResult,
+  type MappingHeaderSignature,
   type MappingProfile,
 } from '@/lib/domain/sheet-import';
+import type { PlateAllocator } from '@/lib/domain/pending-plate';
 import {
   AUTOPLUS_PRICE_HEADERS,
   SHEET_ADAPTERS,
@@ -34,14 +38,23 @@ export function isAutoplusPartner(p: { adapter_id?: unknown; partner_code?: unkn
 }
 
 const PROMO_BASE_HEADER = [
-  '순번', '차량번호', '차종', '모델명', '색상', '연료',
+  '순번', '차량번호', '차종', '모델명(트림풀명)', '색상', '연료',
   '최초등록일', '주행거리', '판매상태', '가격',
   '', ...AUTOPLUS_PRICE_HEADERS,
 ];
 
 /** 프로모션 탭 — 위치 컬럼 + 실번호판만. */
 export function prepareAutoplusPromoTable(raw: string[][]): string[][] {
-  const body = raw.filter((r) => isRealPlate(String(r[1] || '').replace(/\s/g, '')));
+  const exactPlate = (value: unknown) => {
+    const plate = String(value ?? '').replace(/\s/g, '');
+    return isExactRealPlate(plate);
+  };
+  const body = raw.filter((r) => exactPlate(r[1]));
+  if (!body.length) {
+    const shifted = raw.some((row) => row.some((cell, index) => index !== 1 && exactPlate(cell)));
+    if (shifted) throw new Error('오토플러스 프로모션 차량번호 열 이동 감지');
+    throw new Error('오토플러스 프로모션 탭 차량 데이터 없음');
+  }
   return [labelAutoplusHeaderRow([...PROMO_BASE_HEADER]), ...body];
 }
 
@@ -71,6 +84,8 @@ export function countAutoplusStock(products: EntityRecord[]): number {
 export type AutoplusImportResult = ImportResult & {
   mainN: number;
   promoOnlyN: number;
+  /** 각 탭 내부의 실제 중복. main↔promo 정상 겹침은 제외한다. */
+  blockingDuplicateCount: number;
   stock: number; // 출고가능+보류
   byStatus: Record<string, number>;
 };
@@ -105,13 +120,23 @@ export async function importAutoplusMerged(opts: {
   providerCode: string;
   entries: MasterEntry[];
   profile?: MappingProfile;
+  profileHeaders?: MappingHeaderSignature;
   fetchTable: (url: string, gid?: string) => Promise<string[][]>;
   /** 메인 헤더 행(0=어댑터 자동탐지) */
   headerRow?: number;
+  /** 일괄 저장 경로의 영구 번호미정 할당기 */
+  plateAllocator?: PlateAllocator;
+  /** 본탭·프로모션 탭이 공유하는 동일스펙 occurrence */
+  pendingOccurrence?: Map<string, number>;
+  /** AutoPlus 보증금 규칙. 미설정은 금액을 추정하지 않고 가격없음으로 차단한다. */
+  depositRule?: DepositRule;
 }): Promise<AutoplusImportResult> {
   const headerRow = opts.headerRow ?? 0;
   const mainRaw = await opts.fetchTable(opts.url, AUTOPLUS_GID_MAIN);
   const promoRaw = await opts.fetchTable(opts.url, AUTOPLUS_GID_PROMO);
+  const tabResponses = new Map<string, string>();
+  assertDistinctSheetTable(tabResponses, mainRaw, `본탭 gid ${AUTOPLUS_GID_MAIN}`);
+  assertDistinctSheetTable(tabResponses, promoRaw, `프로모션 gid ${AUTOPLUS_GID_PROMO}`);
   const mainT = SHEET_ADAPTERS.autoplus.prepareTable(mainRaw, { headerRow });
   const promoT = prepareAutoplusPromoTable(promoRaw);
   if (mainT.length < 2) throw new Error('오토플러스 본탭 헤더+데이터 없음');
@@ -120,32 +145,40 @@ export async function importAutoplusMerged(opts: {
     providerCode: opts.providerCode,
     entries: opts.entries,
     profile: opts.profile,
+    profileHeaders: opts.profileHeaders,
+    depositRule: opts.depositRule,
+    plateAllocator: opts.plateAllocator,
+    pendingOccurrence: opts.pendingOccurrence,
   });
-  const promo = promoT.length >= 2
-    ? importSheetTable(promoT, {
+  const promo = importSheetTable(promoT, {
       providerCode: opts.providerCode,
       entries: opts.entries,
-      profile: opts.profile,
-    })
-    : {
-      products: [] as EntityRecord[],
-      mapping: {},
-      total: 0,
-      imported: 0,
-      skipped: 0,
-      excludedCount: 0,
-      noPriceCount: 0,
-      snap: { high: 0, medium: 0, low: 0, none: 0 },
-    };
+      // 프로모션은 코드가 만든 고정 헤더다. 본탭의 저장 index/signature를 재사용하면
+      // 모델명·트림 열 의미가 달라 정상 2탭이 헤더 변경으로 오인된다.
+      depositRule: opts.depositRule,
+      plateAllocator: opts.plateAllocator,
+      pendingOccurrence: opts.pendingOccurrence,
+    });
 
   const { products, promoOnlyN } = mergeAutoplusProducts(main.products, promo.products);
+  const promoDuplicates = promo.products.length - promoOnlyN;
+  const mainCars = new Set(main.products.map((p) => String(p.car_number || '').replace(/\s/g, '')));
+  const promoDuplicateSamples = promo.products
+    .map((p) => String(p.car_number || '').replace(/\s/g, ''))
+    .filter((plate) => plate && mainCars.has(plate))
+    .slice(0, 6)
+    .map((plate) => `프로모션 중복 · ${plate}`);
   const byStatus = tallyStatus(products);
   return {
     products,
     mapping: main.mapping,
     total: main.total + promo.total,
     imported: products.length,
-    skipped: main.skipped + promo.skipped,
+    skipped: main.skipped + promo.skipped + promoDuplicates,
+    duplicateCount: main.duplicateCount + promo.duplicateCount + promoDuplicates,
+    blockingDuplicateCount: main.duplicateCount + promo.duplicateCount,
+    invalidCount: main.invalidCount + promo.invalidCount,
+    issueSamples: [...main.issueSamples, ...promo.issueSamples, ...promoDuplicateSamples].slice(0, 12),
     excludedCount: main.excludedCount + promo.excludedCount,
     noPriceCount: main.noPriceCount + promo.noPriceCount,
     snap: mergeSnap(main.snap, {

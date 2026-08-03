@@ -12,6 +12,7 @@ import { confirmDialog, toast } from '@/components/Toaster';
 import { haptic } from '@/lib/haptics';
 import { NAV_LABEL } from '@/lib/tabbar';
 import { deleteManagedFile } from '@/lib/firebase/storage-files';
+import { buildSheetManualFieldList, isLegacySheetOwnedBlock } from '@/lib/domain/sheet-merge';
 
 type StateSetter<T> = Dispatch<SetStateAction<T>>;
 
@@ -129,12 +130,36 @@ export function useInventoryEditorLifecycle({
       };
       const colored = applyColors(withPromotion);
       if (colored !== withPromotion) setForm(colored);
-      const patch = locked.status
-        ? { ...colored, vehicle_status: locked.status, locked_by_contract: locked.byContract }
-        : colored;
       const previous = (rows ?? []).find((candidate) =>
         String(candidate.product_code) === String(form.product_code)
       );
+      const statusChangedByUser = !locked.status
+        && previous
+        && String(previous.vehicle_status || '') !== String(colored.vehicle_status || '');
+      const manualFieldCandidate = locked.status && previous
+        ? { ...colored, vehicle_status: previous.vehicle_status }
+        : colored;
+      const sheetManualFields = previous
+        ? buildSheetManualFieldList(previous, manualFieldCandidate)
+        : [];
+      const editableRecord = sheetManualFields.length
+        ? { ...colored, _sheet_manual_fields: sheetManualFields }
+        : colored;
+      const patch = locked.status
+        ? { ...editableRecord, vehicle_status: locked.status, locked_by_contract: locked.byContract }
+        : statusChangedByUser
+          ? {
+              ...editableRecord,
+              // 사람이 상태를 바꾼 순간부터 시트 자동차단 소유권은 끝난다. 이 표식이
+              // 남으면 다음 시트 재등장에서 수기 보류까지 자동 해제될 수 있다.
+              sheet_status_owner: null,
+              sheet_block_reason: null,
+              sheet_blocked_at: null,
+              allow_sheet_reactivate: null,
+              // sheet_status_owner 도입 전 표식도 사람의 상태 변경과 함께 소유권을 끝낸다.
+              status_label: isLegacySheetOwnedBlock(previous) ? null : colored.status_label,
+            }
+          : editableRecord;
       try {
         await getStore().save('product', companyId, [patch]);
         await getStore().update('product', companyId, String(form.product_code), patch);

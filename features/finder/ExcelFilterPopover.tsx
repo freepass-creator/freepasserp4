@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { excelPopEntries, type PopEntry } from '@/lib/domain/excel-col-filter';
 import { excelColumnValues, isNumericExcelColumn, type ColSort } from './excel-columns';
-import { Btn, C, FS, FW, NUM, R, SearchInput, SH } from '@/components/ui';
+import { Btn, C, FS, FW, ICON, NUM, R, SearchInput, SH } from '@/components/ui';
 import { Check } from 'lucide-react';
 
 type Props = {
@@ -71,12 +71,12 @@ export function ExcelFilterPopover({
       aria-hidden
       style={{
         flex: '0 0 auto', width: 14, height: 14, boxSizing: 'border-box',
-        borderRadius: 2, border: `1.5px solid ${on ? C.brand : C.line}`,
+        borderRadius: R, border: `1.5px solid ${on ? C.brand : C.line}`,
         background: on ? C.brand : C.taupeBg, display: 'inline-flex',
         alignItems: 'center', justifyContent: 'center', color: C.taupeBg,
         fontSize: 10, fontWeight: FW.head, lineHeight: 1,
       }}
-    >{on ? <Check size={14} aria-hidden /> : null}</span>
+    >{on ? <Check size={ICON.sm} aria-hidden /> : null}</span>
   );
 
   return (

@@ -2,7 +2,7 @@
  * 메뉴·탭 뱃지
  *   /chat(문의) = 아직 계약으로 넘어가지 않은 문의 중 내 안읽음 방 수
  *   /contract(계약) = 진행 중 — 하단탭만 (햄버거·합산에 안 넣음)
- *   /settlement = 정산대기·환수대기(관리자)
+ *   /settlement = 정산대기·환수대기·상태확인(관리자)
  */
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
@@ -10,9 +10,10 @@ import { type Role } from '@/lib/domain/deal';
 import { getSession } from '@/lib/auth-session';
 import { canAccessOwnedRecord } from '@/lib/domain/authorization';
 import { roomsWithUnread, unreadRoomCount } from '@/lib/domain/messaging';
-import { isInquiryOnly, isContractInProgress } from '@/lib/domain/contract';
-import { isWorkspaceChatRoom } from '@/features/chat/room-filter';
-import { buildContractIndex, contractForRoom } from '@/features/chat/room-display';
+import { isContractCancelled, isInquiryOnly, isContractInProgress } from '@/lib/domain/contract';
+import { chatRowContract, isWorkspaceChatRoom } from '@/features/chat/room-filter';
+import { buildContractIndex } from '@/features/chat/room-display';
+import { settlementNeedsAttention } from '@/lib/domain/settlement-display';
 
 export type MenuBadgeMap = Record<string, number>;
 
@@ -30,10 +31,17 @@ export async function loadMenuBadges(role: Role, co = getCompanyId()): Promise<M
     // 페이지 목록과 같은 resolver를 써야 product_uid 레거시 방·linked_contract 충돌에서도
     // 메뉴의 "문의 안읽음" 숫자와 실제 문의 필터 결과가 어긋나지 않는다.
     const activeContractIndex = buildContractIndex(contracts, false);
-    const contractOf = (room: (typeof rooms)[number]) => contractForRoom(activeContractIndex, room);
-    const inquiryRooms = mineRooms.filter((r) => isInquiryOnly(contractOf(r)));
+    const cancelledContractIndex = buildContractIndex(contracts, true);
+    const contractOf = (room: (typeof rooms)[number]) => chatRowContract(
+      room, '문의', activeContractIndex, cancelledContractIndex,
+    );
+    const inquiryRooms = mineRooms.filter((room) => {
+      const contract = contractOf(room);
+      return !isContractCancelled(contract) && isInquiryOnly(contract);
+    });
     const withUnread = await roomsWithUnread(inquiryRooms, role);
-    // 뱃지 = 카운터만(soft 폴백·전량 메시지 스캔 결과 중 양수). roomsWithUnread가 열람 후 재계산.
+    // 뱃지 = 카운터만(soft 폴백·열람 이력이 있는 방의 메시지 보정 결과 중 양수).
+    // roomsWithUnread는 scoped 조회를 우선하고, 미지원 저장소에서만 전량 fallback을 한 번 사용한다.
     const unread = unreadRoomCount(withUnread, role);
     if (unread > 0) out['/chat'] = unread;
 
@@ -45,11 +53,7 @@ export async function loadMenuBadges(role: Role, co = getCompanyId()): Promise<M
   if (role === 'admin') {
     try {
       const setts = await store.list('settlement', co);
-      const pending = setts.filter((s) => {
-        if (s._deleted === true) return false;
-        const st = String(s.settlement_status || '');
-        return st === '정산대기' || st === '환수대기';
-      }).length;
+      const pending = setts.filter((s) => s._deleted !== true && settlementNeedsAttention(s)).length;
       if (pending > 0) out['/settlement'] = pending;
     } catch { /* ignore */ }
   }

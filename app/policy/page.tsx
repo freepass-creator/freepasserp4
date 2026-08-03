@@ -15,6 +15,7 @@ import { haptic } from '@/lib/haptics';
 import { useIsMobile } from '@/lib/use-mobile';
 import { NAV_LABEL } from '@/lib/tabbar';
 import { retainVisibleSelection } from '@/features/work-list-display';
+import { providerNameMap } from '@/lib/domain/identity';
 
 type PolSort = 'name' | 'code' | 'type';
 type PolScope = 'all' | 'mine' | 'shared';
@@ -49,6 +50,7 @@ export default function PolicyMgmt() {
   const co = getCompanyId();
   const mobile = useIsMobile();
   const [rows, setRows] = useState<EntityRecord[] | null>(null);
+  const [providerAliases, setProviderAliases] = useState<Record<string, string>>({});
   const [sel, setSel] = useState<string | null>(null);
   const [form, setForm] = useState<EntityRecord>({});
   const [dirty, setDirty] = useState(false);
@@ -62,7 +64,13 @@ export default function PolicyMgmt() {
 
   const load = async (r?: Role) => {
     const role = r || getRole();
-    const all = await getStore().list('policy', co);
+    const [all, partners] = await Promise.all([
+      getStore().list('policy', co),
+      getStore().list('partner', co).catch(() => []),
+    ]);
+    // 표시명은 별도 맵으로 보강한다. 행 데이터에 합치면 편집 저장 시 provider_name이
+    // 정책 레코드에 의도치 않게 영속화되므로, 원본 policy는 건드리지 않는다.
+    setProviderAliases(providerNameMap(partners));
     const mine = scopePolicies(all, role);
     setRows(mine);
     return mine;
@@ -92,21 +100,20 @@ export default function PolicyMgmt() {
         return;
       }
       setOk(true);
-      const all = await load(r);
-      // 계약·재고와 동일 — 모바일=목록부터, 웹=첫행
-      if (!mobile && all.length) selectP(all[0]);
-      else clearSel();
+      await load(r);
+      // 업무 목록 공통 규격 — 화면 진입은 목록부터, 사용자가 행을 선택해야 상세를 연다.
+      clearSel();
     })();
     const on = () => {
       const r = getRole();
       if (r !== 'admin' && r !== 'provider') { setOk(false); setRows([]); clearSel(); return; }
       setOk(true);
-      load(r).then((all) => { clearSel(); if (!mobile && all.length) selectP(all[0]); });
+      load(r).then(() => clearSel());
     };
     window.addEventListener('fp:role', on);
     return () => window.removeEventListener('fp:role', on);
     /* eslint-disable-next-line */
-  }, [mobile]);
+  }, []);
 
   // 메뉴에서 정책관리 재진입 → 목록
   useEffect(() => {
@@ -191,7 +198,6 @@ export default function PolicyMgmt() {
     setDirty(true);
     setCreating(true);
     setEditing(true);
-    haptic.tap();
   };
 
   const cancelEdit = () => {
@@ -203,7 +209,10 @@ export default function PolicyMgmt() {
   const startEdit = () => { setEditing(true); haptic.tap(); };
 
   const shown = useMemo(() => (rows || [])
-    .filter((p) => matchPolicyQuery(p, q))
+    .filter((p) => matchPolicyQuery({
+      ...p,
+      provider_name: providerAliases[String(p.provider_company_code || '').trim()] || p.provider_name,
+    }, q))
     .filter((p) => {
       if (scope === 'all') return true;
       const has = !!String(p.provider_company_code || '').trim();
@@ -216,7 +225,7 @@ export default function PolicyMgmt() {
       if (sort === 'type') return String(a.policy_type || '').localeCompare(String(b.policy_type || ''), 'ko')
         || String(a.policy_name || '').localeCompare(String(b.policy_name || ''), 'ko');
       return String(a.policy_name || a.policy_code || '').localeCompare(String(b.policy_name || b.policy_code || ''), 'ko');
-    }), [rows, q, scope, sort]);
+    }), [rows, q, scope, sort, providerAliases]);
 
   // 검색·필터에서 선택 행이 사라지면 읽기 상세도 함께 정리한다.
   // 신규/수정 중 값은 자동으로 버리지 않는다.
@@ -249,7 +258,13 @@ export default function PolicyMgmt() {
         : <div>{shown.map((p) => {
             const on = String(p.policy_code) === sel;
             return (
-              <PolicyListRow key={String(p.policy_code)} selected={on} onClick={() => { haptic.tap(); selectP(p); }} p={p} />
+              <PolicyListRow
+                key={String(p.policy_code)}
+                selected={on}
+                onClick={() => selectP(p)}
+                p={p}
+                providerName={providerAliases[String(p.provider_company_code || '').trim()]}
+              />
             );
           })}</div>}
     </>

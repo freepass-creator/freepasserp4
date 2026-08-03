@@ -476,6 +476,7 @@ export function snapToMaster(p: EntityRecord, entries: MasterEntry[]): SnapResul
   // 결과 스펙 = 마스터 노드만. 신호·최빈값으로 임의 채우기 금지(미선택=공란).
   return {
     maker: e.maker, model: e.model, sub_model: e.sub_model, gen_code: e.gen_code,
+    origin: e.origin,
     year_start: e.year_start, year_end: e.year_end,
     variant: variant ? masterVariantLabel(variant) : undefined,
     trim_name: trim, // '' = 세부트림 없음(정상). undefined 아님 — applySnap이 원본 마케팅 문구를 유지하지 않게.

@@ -146,6 +146,7 @@ export function matchMemberQuery(u: EntityRecord, q: string): boolean {
 export function policyHaystack(pol: EntityRecord): string {
   return parts(
     pol.policy_code, pol.policy_name, pol.policy_type,
+    pol.provider_name, pol.provider_company_code,
     pol.screening_criteria, pol.credit_grade, pol.rental_region,
     pol.payment_method, pol.license_period, pol.annual_mileage,
   );

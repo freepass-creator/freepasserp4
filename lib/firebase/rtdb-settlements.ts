@@ -31,6 +31,9 @@ export function splitSettlementPrivate(settlement: EntityRecord): {
   const common: Rec = {
     _key: settlement._key,
     settlement_code: settlement.settlement_code || settlement._key,
+    // private 금액 최초 생성 Rules가 신뢰 계약의 동결 금액·율과 직접 대조할 수 있게 한다.
+    // public/private는 같은 v4 multi-location update로 저장되므로 public settlement를 경유할 수 없다.
+    contract_code: settlement.contract_code,
   };
   Object.assign(providerRecord, common, {
     provider_company_code: settlement.provider_company_code,

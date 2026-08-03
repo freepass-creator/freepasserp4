@@ -1,0 +1,33 @@
+[debug] [2026-08-03T08:36:54.573Z] ----------------------------------------------------------------------
+[debug] [2026-08-03T08:36:54.575Z] Command:       C:\Program Files\nodejs\node.exe D:\dev-cache\npm-cache\_npx\872b751b2f16d338\node_modules\firebase-tools\lib\bin\firebase.js database:get /v4/sheet_identity_decisions --project freepasserp3 --instance freepasserp3-default-rtdb --non-interactive
+[debug] [2026-08-03T08:36:54.575Z] CLI Version:   13.35.1
+[debug] [2026-08-03T08:36:54.575Z] Platform:      win32
+[debug] [2026-08-03T08:36:54.576Z] Node Version:  v24.18.0
+[debug] [2026-08-03T08:36:54.576Z] Time:          Mon Aug 03 2026 17:36:54 GMT+0900 (한국 표준시)
+[debug] [2026-08-03T08:36:54.576Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-08-03T08:36:54.716Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-08-03T08:36:54.717Z] > authorizing via signed-in user (dudguq@gmail.com)
+[debug] [2026-08-03T08:36:54.717Z] [iam] checking project freepasserp3 for permissions ["firebase.projects.get","firebasedatabase.instances.get"]
+[debug] [2026-08-03T08:36:54.718Z] Checked if tokens are valid: false, expires at: 1785746686580
+[debug] [2026-08-03T08:36:54.718Z] Checked if tokens are valid: false, expires at: 1785746686580
+[debug] [2026-08-03T08:36:54.719Z] > refreshing access token with scopes: []
+[debug] [2026-08-03T08:36:54.720Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2026-08-03T08:36:54.720Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-08-03T08:36:54.921Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 200
+[debug] [2026-08-03T08:36:54.921Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-08-03T08:36:54.927Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/freepasserp3:testIamPermissions [none]
+[debug] [2026-08-03T08:36:54.927Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/freepasserp3:testIamPermissions x-goog-quota-user=projects/freepasserp3
+[debug] [2026-08-03T08:36:54.928Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/freepasserp3:testIamPermissions {"permissions":["firebase.projects.get","firebasedatabase.instances.get"]}
+[debug] [2026-08-03T08:36:55.146Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/freepasserp3:testIamPermissions 200
+[debug] [2026-08-03T08:36:55.146Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/freepasserp3:testIamPermissions {"permissions":["firebase.projects.get","firebasedatabase.instances.get"]}
+[debug] [2026-08-03T08:36:55.146Z] Checked if tokens are valid: true, expires at: 1785749813922
+[debug] [2026-08-03T08:36:55.146Z] Checked if tokens are valid: true, expires at: 1785749813922
+[debug] [2026-08-03T08:36:55.146Z] >>> [apiv2][query] GET https://firebasedatabase.googleapis.com/v1beta/projects/freepasserp3/locations/-/instances/freepasserp3-default-rtdb [none]
+[debug] [2026-08-03T08:36:56.408Z] <<< [apiv2][status] GET https://firebasedatabase.googleapis.com/v1beta/projects/freepasserp3/locations/-/instances/freepasserp3-default-rtdb 200
+[debug] [2026-08-03T08:36:56.408Z] <<< [apiv2][body] GET https://firebasedatabase.googleapis.com/v1beta/projects/freepasserp3/locations/-/instances/freepasserp3-default-rtdb {"name":"projects/172664197996/locations/asia-southeast1/instances/freepasserp3-default-rtdb","project":"projects/172664197996","databaseUrl":"https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app","type":"DEFAULT_DATABASE","state":"ACTIVE"}
+[debug] [2026-08-03T08:36:56.409Z] Checked if tokens are valid: true, expires at: 1785749813922
+[debug] [2026-08-03T08:36:56.409Z] Checked if tokens are valid: true, expires at: 1785749813922
+[debug] [2026-08-03T08:36:56.409Z] >>> [apiv2][query] GET https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app/v4/sheet_identity_decisions.json 
+[debug] [2026-08-03T08:36:56.762Z] <<< [apiv2][status] GET https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app/v4/sheet_identity_decisions.json 200
+[debug] [2026-08-03T08:36:56.762Z] <<< [apiv2][body] GET https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app/v4/sheet_identity_decisions.json [stream]

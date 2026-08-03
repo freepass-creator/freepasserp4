@@ -6,6 +6,7 @@ import { BottomNav, C, NUM, FW, FS, ctrlPadX } from '@/components/ui';
 import { MobilePageShell, type ListToolsConfig } from '@/components/MobilePageShell';
 import type { PageToolItem } from '@/components/PageToolBar';
 import { PageStatus, statusIconFor } from '@/components/PageStatus';
+import { WebListTools } from '@/components/WebListTools';
 
 /**
  * 일반 페이지 껍데기.
@@ -50,6 +51,8 @@ export function Page({
     [title, meta, countSuffix, right],
   );
 
+  const resolvedTools: ListToolsConfig | undefined = listTools ?? (search ? { search } : undefined);
+
   if (mobile) {
     const info = left != null
       ? left
@@ -89,6 +92,7 @@ export function Page({
         )}
         {/* right = TopBar actions만(본문 헤더 중복 금지) */}
       </div>
+      <WebListTools tools={resolvedTools} />
       {children}
     </main>
     <BottomNav actions={bottomActions} />

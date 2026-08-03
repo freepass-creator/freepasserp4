@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import {
-  Page, Btn, C, SectionLabel, DetailGrid, ListGroup, ListRow, FilterChips, NUM, Input, FS, fmtPhone,
+  Page, Btn, C, SectionLabel, DetailGrid, ListGroup, ListRow, FilterChips, NUM, Input, FS, R, fmtPhone,
 } from '@/components/ui';
 import { useSession } from '@/lib/auth-context';
 import { getRole, setRole, actor, ROLE_LABEL, type Role } from '@/lib/domain/deal';
@@ -254,7 +254,7 @@ export default function Settings() {
               이 링크로 들어온 손님 문의는 나에게 귀속됩니다. 카톡·문자로 공유하세요.
             </div>
             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-              <div style={{ flex: 1, minWidth: 0, fontSize: FS.sub, color: C.ink, background: C.head, borderRadius: 6, padding: '8px 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{shareUrl}</div>
+              <div style={{ flex: 1, minWidth: 0, fontSize: FS.sub, color: C.ink, background: C.head, borderRadius: R, padding: '8px 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{shareUrl}</div>
               <Btn title="카탈로그 링크 복사" size="sm" onClick={copyShare}>복사</Btn>
             </div>
           </div>

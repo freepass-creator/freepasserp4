@@ -1,5 +1,4 @@
-import Link from 'next/link';
-import { C, FS, FW, R } from '@/components/ui/tokens';
+import { Btn, C, FS, FW } from '@/components/ui';
 
 /** 없는 경로 — 기본 Next 404 대신 브랜드 톤 안내 + 홈 이동. */
 export default function NotFound() {
@@ -13,13 +12,7 @@ export default function NotFound() {
       <div style={{ fontSize: FS.sub, color: C.mute, maxWidth: 340, lineHeight: 1.6 }}>
         주소가 바뀌었거나 삭제된 페이지일 수 있습니다.
       </div>
-      <Link
-        href="/"
-        style={{
-          marginTop: 6, padding: '10px 18px', borderRadius: R, border: 'none',
-          background: C.brand, color: '#fff', fontSize: FS.body, fontWeight: FW.strong, textDecoration: 'none',
-        }}
-      >홈으로</Link>
+      <Btn href="/" style={{ marginTop: 6 }}>홈으로</Btn>
     </div>
   );
 }

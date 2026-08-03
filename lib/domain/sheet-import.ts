@@ -7,7 +7,7 @@
 import { snapToMaster, applySnap, fuelDisplay, fuelEmbeddedCc, type MasterEntry } from '@/lib/domain/vehicle-master-match';
 import { applyColors } from '@/lib/domain/color-master';
 import { type EntityRecord } from '@/lib/intake/entities';
-import { normalizeProductOptionsText, isRealPlate } from '@/lib/domain/product';
+import { normalizeProductOptionsText, isExactRealPlate, normalizeWonPair } from '@/lib/domain/product';
 import { pendingSignature, previewPlateAllocator, type PlateAllocator } from '@/lib/domain/pending-plate';
 
 // ── 헤더 별칭 사전 ── 렌트사 시트 컬럼명 → 프리패스 표준 필드. 국산 렌트 시트는 대동소이 → 자동 90%.
@@ -56,7 +56,7 @@ const norm = (s: unknown) => String(s ?? '').trim().toLowerCase().replace(/\s+/g
  * 시트 판매상태 → VEHICLE_STATES.
  * 연동 판단 SSOT: 시트에 차번이 있으면 데이터화하고, **출고불가 여부**만 규격 상태로 맞춘다.
  *  · 보류·불가·완료 → 출고불가
- *  · 계약중 → 계약중
+ *  · 공급사 계약중 → 출고불가(ERP의 계약중은 계약금 확인 엔진만 설정)
  *  · 판매중·할인판매·가능·빈값 → 출고가능 (오토플러스 등)
  *  · 이미 규격값이면 그대로
  */
@@ -69,18 +69,18 @@ const norm = (s: unknown) => String(s ?? '').trim().toLowerCase().replace(/\s+/g
  * 실측(16개 공급사 시트)에서 배차중이 1,832대로 최다였고, 그걸 버리면 카탈로그의 대부분이 사라졌다.
  *
  * 판정 순서(위가 우선):
- *   1. 6종 정확 일치 → 그대로
+ *   1. ERP 계약중을 제외한 규격값 정확 일치 → 그대로
  *   2. 이미 나간 차(출고완·판매완료·반납·폐차·말소) → 출고불가
  *   3. '불가' 포함 → 출고불가
  *   4. 지금 팔 수 있다는 표현(판매중·할인판매) → 출고가능   ← 오토플러스 87대
  *   5. 상품화 → 상품화중                                  ← "상품화 준비중"
- *   6. 계약 → 계약중
+ *   6. 외부 계약 → 출고불가 (ERP 계약중은 내부 계약금 확인의 전용 상태)
  *   7. 나머지 전부 → 출고협의  (배차중·배차대기·보류·재렌트·"8월3일이후출고가능" 등)
  */
 export function canonSheetVehicleStatus(raw: unknown): string {
   const s = String(raw ?? '').trim();
   if (!s) return '출고협의'; // 상태칸이 없는 시트 — 함부로 출고가능으로 보지 않는다
-  if (s === '즉시출고' || s === '출고가능' || s === '상품화중' || s === '출고협의' || s === '계약중' || s === '출고불가') return s;
+  if (s === '즉시출고' || s === '출고가능' || s === '상품화중' || s === '출고협의' || s === '출고불가') return s;
   // ① '출고가능'으로 시작하면 뒤에 뭐가 붙어도 출고가능(erp3 이식).
   //    '출고가능(대차중)'·'출고가능3일이내'·'출고가능(정비중)' 이 아래 불가 regex 의 '대차'에
   //    먼저 걸려 뒤집히는 사고를 막는 순서다 — 이 줄을 아래로 내리면 안 된다.
@@ -92,7 +92,9 @@ export function canonSheetVehicleStatus(raw: unknown): string {
   if (/불\s?가|블가|보불가|^출고불$/.test(s)) return '출고불가';
   if (/판매중|할인판매|promo/i.test(s)) return '출고가능';
   if (/상품화/.test(s)) return '상품화중';
-  if (/^계약/.test(s)) return '계약중';
+  // `계약중`은 ERP 계약금 확인 시 settlement-engine만 쓰는 상태다.
+  // 공급사 시트의 계약 표기를 그대로 넣으면 내부 계약 없이 계약중 차량이 생긴다.
+  if (/^계약/.test(s)) return '출고불가';
   return '출고협의';
 }
 
@@ -127,7 +129,10 @@ const STATUS_VALUE_HEADER = /^(즉시출고|출고가능|출고불가|출고협�
 const STATUS_COL_PRIORITY = ['배차상태', '상태', '판매상태', '즉시출고', '재고상태', '출고상태', '출고현황'];
 
 /** 상태 컬럼으로 **쓰면 안 되는** 헤더 — 판매 가능 여부가 아닌 다른 축. */
-const NOT_STATUS_COL = /^(차량상태|정비상태|사고상태)$/;
+const NOT_STATUS_COL = /^(차량상태|정비상태|사고상태)/;
+
+/** 접미 설명이 붙어도 판매 가능여부 축으로 확정할 수 있는 상태 헤더. */
+const DECORATED_SALE_STATUS_COL = /^(배차상태|판매상태|재고상태|출고상태|출고현황)/;
 
 export function autoMapHeaders(headers: string[]): MappingProfile {
   const map: MappingProfile = {};
@@ -137,18 +142,25 @@ export function autoMapHeaders(headers: string[]): MappingProfile {
     const i = norms.indexOf(norm(name));
     if (i >= 0) { map.vehicle_status = i; break; }
   }
+  // `차량상태(정비)`는 물리 컨디션이고 `배차상태(판매)`가 실제 상품 상태다.
+  // 정확일치가 없을 때도 판매·배차·출고 축의 접미형만 허용한다.
+  if (!('vehicle_status' in map)) {
+    const i = norms.findIndex((header) => DECORATED_SALE_STATUS_COL.test(header));
+    if (i >= 0) map.vehicle_status = i;
+  }
   const aliasKeys = Object.keys(HEADER_ALIASES).sort((a, b) => b.length - a.length);
   headers.forEach((h, i) => {
     const t = String(h ?? '').trim();
     if (!t) return;
-    let field = HEADER_ALIASES[t] || HEADER_ALIASES[norm(t)];
+    const exactField = HEADER_ALIASES[t] || HEADER_ALIASES[norm(t)];
+    let field = exactField;
     if (!field) {
       const k = aliasKeys.find((a) => norm(t).includes(norm(a)));
       if (k) field = HEADER_ALIASES[k];
     }
     // 폴백: 헤더가 상태값 자체면 상태 컬럼(아이카 (구)종합: 0번 열 헤더 = "즉시출고").
     if (!field && !('vehicle_status' in map) && STATUS_VALUE_HEADER.test(norm(t))) field = 'vehicle_status';
-    if (field === 'vehicle_status' && NOT_STATUS_COL.test(norm(t))) return;
+    if (field === 'vehicle_status' && (NOT_STATUS_COL.test(norm(t)) || (!exactField && !STATUS_VALUE_HEADER.test(norm(t))))) return;
     if (field && !(field in map)) map[field] = i;
   });
   return map;
@@ -156,10 +168,32 @@ export function autoMapHeaders(headers: string[]): MappingProfile {
 
 /** 클라이언트: 구글시트 URL → 표(table). /api/sheet 경유(CORS 회피). 실패 시 throw(사유 포함). */
 export async function fetchSheetTable(url: string, gid?: string): Promise<string[][]> {
-  const r = await fetch(`/api/sheet?url=${encodeURIComponent(url)}${gid ? `&gid=${encodeURIComponent(gid)}` : ''}`);
+  const r = await fetch(`/api/sheet?url=${encodeURIComponent(url)}${gid ? `&gid=${encodeURIComponent(gid)}` : ''}`, {
+    cache: 'no-store',
+  });
   const d = await r.json().catch(() => ({ ok: false, error: '응답 파싱 실패' }));
   if (!d.ok) throw new Error(d.error || `시트 로드 실패 (${r.status})`);
   return parseDelimited(String(d.csv || ''));
+}
+
+/** 서로 다른 설정 탭이 같은 응답을 돌려준 경우 gid 무시/게시 설정 오류로 보고 차단한다. */
+export function assertDistinctSheetTable(
+  seen: Map<string, string>,
+  table: string[][],
+  label: string,
+): void {
+  const text = JSON.stringify(table);
+  let hash = 2166136261;
+  for (let i = 0; i < text.length; i++) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  const fingerprint = `${text.length}:${(hash >>> 0).toString(36)}`;
+  const previous = seen.get(fingerprint);
+  if (previous) {
+    throw new Error(`서로 다른 시트 탭 응답이 동일함 (${previous} / ${label}) — gid·게시 설정 확인`);
+  }
+  seen.set(fingerprint, label);
 }
 
 /** CSV/TSV 파서 — 따옴표 안 콤마·개행 처리. 빈 행 제거. */
@@ -180,11 +214,75 @@ export function parseDelimited(text: string, delim = ','): string[][] {
 
 /** 매핑 프로파일 = {표준필드: 컬럼인덱스}. partner.mapping_profile 에 JSON 저장 → 다음 당길 때 재사용(학습). */
 export type MappingProfile = Record<string, number>;
+export type MappingHeaderSignature = Record<string, string>;
+
+const IMPORT_FIELD_KEYS = new Set(IMPORT_FIELDS.map((field) => field.key));
+
+/** partner에 저장된 매핑은 사용자 입력이다. 허용 필드·정수 index·1:1 열만 받는다. */
+export function parseMappingProfile(value: unknown): MappingProfile | undefined {
+  if (value == null || (typeof value === 'string' && !value.trim())) return undefined;
+  let parsed: unknown;
+  try { parsed = typeof value === 'string' ? JSON.parse(value) : value; }
+  catch { throw new Error('시트 매핑 설정 JSON 오류 — 다시 저장하세요'); }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('시트 매핑 설정 형식 오류 — 다시 저장하세요');
+  }
+  const mapping: MappingProfile = {};
+  const usedIndexes = new Set<number>();
+  for (const [field, rawIndex] of Object.entries(parsed as Record<string, unknown>)) {
+    if (!IMPORT_FIELD_KEYS.has(field)) {
+      throw new Error(`시트 매핑 허용외 필드 — ${field}`);
+    }
+    if (!Number.isInteger(rawIndex) || Number(rawIndex) < 0) {
+      throw new Error(`시트 매핑 index 오류 — ${field}`);
+    }
+    const index = Number(rawIndex);
+    if (usedIndexes.has(index)) {
+      throw new Error(`시트 매핑 열 중복 — ${index + 1}번째 열`);
+    }
+    usedIndexes.add(index);
+    mapping[field] = index;
+  }
+  return Object.keys(mapping).length ? mapping : undefined;
+}
+
+export function parseMappingHeaderSignature(value: unknown): MappingHeaderSignature | undefined {
+  if (value == null || (typeof value === 'string' && !value.trim())) return undefined;
+  let parsed: unknown;
+  try { parsed = typeof value === 'string' ? JSON.parse(value) : value; }
+  catch { throw new Error('시트 헤더 서명 JSON 오류 — 매핑을 다시 저장하세요'); }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('시트 헤더 서명 형식 오류 — 매핑을 다시 저장하세요');
+  }
+  const signature: MappingHeaderSignature = {};
+  for (const [field, header] of Object.entries(parsed as Record<string, unknown>)) {
+    if (!IMPORT_FIELD_KEYS.has(field)) throw new Error(`시트 헤더 서명 허용외 필드 — ${field}`);
+    if (typeof header !== 'string' || !header.trim()) throw new Error(`시트 헤더 서명 오류 — ${field}`);
+    signature[field] = header;
+  }
+  return Object.keys(signature).length ? signature : undefined;
+}
+
+export const normalizeSheetHeader = (value: unknown): string =>
+  String(value ?? '').trim().toLowerCase().replace(/\s+/g, '');
+
+export function buildMappingHeaderSignature(
+  headers: string[],
+  mapping: MappingProfile,
+): MappingHeaderSignature {
+  return Object.fromEntries(Object.entries(mapping).map(([field, index]) => [
+    field,
+    normalizeSheetHeader(headers[index]),
+  ]).filter(([, header]) => !!header));
+}
 
 export type ImportResult = {
   products: EntityRecord[];
   mapping: MappingProfile;   // 사용된 매핑(자동이면 이걸 프로파일로 저장)
   total: number; imported: number; skipped: number;
+  duplicateCount: number;
+  invalidCount: number;
+  issueSamples: string[];    // 행번호·차번·사유 샘플(운영자가 원본 시트를 고칠 근거)
   excludedCount: number;    // 시트에 '출고불가'로 적혀 있어 안 올린 대수
   noPriceCount: number;     // 대여료가 하나도 없어 안 올린 대수 — 값 없는 매물은 게시하지 않는다
   snap: { high: number; medium: number; low: number; none: number };
@@ -194,27 +292,100 @@ export type ImportResult = {
 const IMPORT_BRANDS = ['bmw', 'benz', 'mercedes', '벤츠', 'audi', '아우디', 'volvo', '볼보', 'lexus', '렉서스',
   'porsche', '포르쉐', 'jaguar', '재규어', 'land rover', '랜드로버', 'mini', '미니', 'volkswagen', '폭스바겐', 'peugeot',
   '푸조', 'maserati', '마세라티', 'bentley', '벤틀리', 'rolls', '롤스', 'ferrari', '페라리', 'lamborghini', '람보르기니',
-  'tesla', '테슬라', 'lincoln', '링컨'];
+  'tesla', '테슬라', 'lincoln', '링컨', 'toyota', '토요타', 'honda', '혼다', 'nissan', '닛산',
+  'infiniti', '인피니티', 'jeep', '지프', 'chrysler', '크라이슬러', 'ford', '포드', 'cadillac', '캐딜락',
+  'polestar', '폴스타', 'citroen', '시트로엥', 'fiat', '피아트', 'alfa romeo', '알파로메오',
+  'dodge', '닷지', 'gmc', 'ram'];
+const DOMESTIC_BRANDS = ['현대', '기아', '제네시스', '르노코리아', '르노삼성', '르노', '쉐보레', '한국gm', 'kg모빌리티', 'kgm', '쌍용'];
 export function isImportBrand(name: string): boolean {
   const nl = String(name || '').toLowerCase();
   return IMPORT_BRANDS.some((b) => nl.includes(b));
 }
-const digits = (s: unknown) => Number(String(s ?? '').replace(/[^\d]/g, '')) || 0;
+function brandDepositMultiplier(rec: EntityRecord): 0 | 2 | 3 {
+  // 차종마스터에 스냅된 행은 origin을 SSOT로 쓴다. 제조사 키워드 목록은
+  // 미스냅·레거시 행을 위한 보수적 폴백일 뿐이며, 모르는 브랜드를 국산으로 추정하지 않는다.
+  const origin = String(rec.origin ?? '').trim().toLowerCase();
+  const confidence = String(rec._snap_confidence ?? '');
+  const trustedOrigin = confidence === 'high' || confidence === 'medium'
+    || rec._deposit_origin_trusted === true;
+  if (trustedOrigin && (origin === '국산' || origin === 'domestic')) return 2;
+  if (trustedOrigin && (origin === '수입' || origin === 'import' || origin === 'imported')) return 3;
+  // low 스냅의 maker는 마스터 후보 하나를 임의 선택한 결과일 수 있다. 이때는 스냅된
+  // maker가 아니라 공급사 원문 maker만 신뢰해야 마스터 배열 순서에 따라 금액이 바뀌지 않는다.
+  const rawVehicle = rec._raw_vehicle && typeof rec._raw_vehicle === 'object'
+    ? rec._raw_vehicle as Record<string, unknown>
+    : null;
+  // AutoPlus may put the maker in the model cell (`BMW X1`) and leave maker blank.
+  // Use only the original identity text, never a low-confidence snapped maker.
+  const rawIdentity = rec._snapped
+    ? `${rawVehicle?.maker ?? ''} ${rawVehicle?.model ?? ''} ${rawVehicle?.sub_model ?? ''}`
+    : `${rec.maker ?? ''} ${rec.model ?? ''} ${rec.sub_model ?? ''}`;
+  const identity = rawIdentity.trim().toLowerCase();
+  if (!identity) return 0;
+  if (DOMESTIC_BRANDS.some((brand) => identity.includes(brand))) return 2;
+  if (IMPORT_BRANDS.some((brand) => identity.includes(brand))) return 3;
+  return 0; // 미확정 브랜드를 국산으로 추정해 금액을 만들지 않는다.
+}
+
+function canonicalOrigin(value: unknown): '국산' | '수입' | '' {
+  const origin = String(value ?? '').trim().toLowerCase();
+  if (origin === '국산' || origin === 'domestic') return '국산';
+  if (origin === '수입' || origin === 'import' || origin === 'imported') return '수입';
+  return '';
+}
+
+/** low 스냅이라도 원문 모델과 정확히 맞는 모든 마스터 후보의 origin이 하나일 때만 금액 판정에 사용. */
+function unambiguousMasterOrigin(raw: EntityRecord, entries: MasterEntry[]): '국산' | '수입' | '' {
+  if (String(raw.maker ?? '').trim()) return '';
+  const norm = (value: unknown) => String(value ?? '').trim().replace(/\s+/g, '').toLowerCase();
+  const sub = norm(raw.sub_model);
+  const model = norm(raw.model);
+  if (!sub && !model) return '';
+  // 세부모델 exact가 있으면 모델명 전체 후보보다 강한 신호다. 없을 때만 모델로 넓힌다.
+  const subCandidates = sub ? entries.filter((entry) => norm(entry.sub_model) === sub) : [];
+  const candidates = subCandidates.length
+    ? subCandidates
+    : entries.filter((entry) => norm(entry.model) === model || norm(entry.sub_model) === model);
+  if (!candidates.length) return '';
+  const origins = new Set(candidates.map((entry) => canonicalOrigin(entry.origin)));
+  return origins.size === 1 && !origins.has('') ? [...origins][0] : '';
+}
+/** 월 대여료 칸 — 한 개의 양수 금액만 허용한다. 설명문·음수·복수금액 결합은 0(오류) 처리. */
+export function rentCell(s: unknown): number {
+  const t = String(s ?? '').trim();
+  if (!t) return 0;
+  const match = /^(\d{1,3}(?:,\d{3})+|\d+)\s*(원|만원)?$/.exec(t);
+  if (!match) return 0;
+  let value = Number(match[1].replace(/,/g, ''));
+  if (!Number.isSafeInteger(value) || value <= 0) return 0;
+  if (match[2] === '만원') value *= 10_000;
+  // 무단위 1~9,999만 기존 시트의 만원 단위 원자로 허용한다.
+  // 명시적 `원` suffix(예: 650원)를 같은 방식으로 확대하면 650만원으로 변조된다.
+  const normalized = !match[2] && value < 10_000 ? value * 10_000 : value;
+  if (normalized < 100_000 || normalized > 20_000_000) return 0;
+  return value;
+}
 
 /**
  * 보증금 칸 — **숫자 칸일 때만** 값으로 인정한다.
  *
  * 실측(손오공·종합시트): 장기보증 칸에 금액이 아니라 규칙 문장이 들어 있다 —
  *   "12개월 : 1개월치 / 24개월 : 2개월치 / 36개월 : 3개월치 …"
- * digits() 를 그대로 먹이면 1212243364485605 같은 숫자가 보증금으로 게시된다.
+ * 숫자만 긁어 합치면 1212243364485605 같은 값이 보증금으로 게시된다.
  * 그래서 콤마·공백·원/만원 정도만 붙은 순수 금액 칸만 통과시킨다.
  */
 function depositCell(s: unknown): number {
   const t = String(s ?? '').trim();
   if (!t) return 0;
-  if (!/^[\d,\s]+(원|만원)?$/.test(t)) return 0;
-  const n = digits(t);
-  return n > 0 && n <= 100_000_000 ? n : 0;
+  const match = /^(\d{1,3}(?:,\d{3})+|\d+)\s*(원|만원)?$/.exec(t);
+  if (!match) return 0;
+  let value = Number(match[1].replace(/,/g, ''));
+  if (!Number.isSafeInteger(value) || value <= 0) return 0;
+  if (match[2] === '만원') value *= 10_000;
+  // normalizeWonPair가 1~9,999를 만원 단위로 해석한다. 명시적 `원` 소액은
+  // 그 경로에 보내지 말고 무효 처리해야 금액이 10,000배로 부풀지 않는다.
+  if (match[2] === '원' && value < 10_000) return 0;
+  return value <= 100_000_000 ? value : 0;
 }
 // 결정적 짧은 해시 — 번호없는 신차 임시번호(재동기화 멱등: 같은 신원 → 같은 번호).
 function shortHash(s: string): string {
@@ -242,6 +413,12 @@ function shortHash(s: string): string {
  */
 export type DepositRule = 'months_per_year' | 'rent_multiple' | '';
 
+export function parseDepositRule(value: unknown): DepositRule {
+  const rule = String(value ?? '').trim();
+  if (rule === '' || rule === 'months_per_year' || rule === 'rent_multiple') return rule;
+  throw new Error(`보증금 규칙 설정 오류 — ${rule}`);
+}
+
 function depositByRule(rule: DepositRule, rent: number, period: number, importMult: number): number {
   if (rule === 'months_per_year') return rent * Math.max(1, Math.round(period / 12));
   if (rule === 'rent_multiple') return rent * importMult;
@@ -263,8 +440,20 @@ export function parsePriceColumns(
   //  **시트 어디에도 없는 보증금이 만들어졌다**(375어8056: 시트 3,150,000 → 저장 1,814,000).
   const cols: { key: string; period: number; idx: number; dep: number }[] = [];
   let curDep = -1;          // 지금 블록을 관할하는 보증 컬럼
-  let shortDep = -1, longDep = -1;
-  let anyDepCol = false;
+  // 명시적 단기/장기 보증 컬럼은 위치와 무관하게 먼저 찾는다.
+  // 관리자 화면이 내려주는 표준 CSV는 기간 열 뒤에 단기/장기보증이 오는데, 한 번에 왼쪽→오른쪽으로
+  // 훑으면 기간 열을 만났을 때 보증 열을 아직 몰라 가격 전부가 사라졌다.
+  const normalizedHeaders = headers.map((h) => String(h ?? '').trim().replace(/\s+/g, ''));
+  let shortDep = normalizedHeaders.findIndex((h) => /단기.*보증/.test(h));
+  let longDep = normalizedHeaders.findIndex((h) => /장기.*보증/.test(h));
+  const genericDeps = normalizedHeaders
+    .map((header, index) => ({ header, index }))
+    .filter(({ header }) => /보증/.test(header) && !/단기|장기/.test(header));
+  if (shortDep < 0 && longDep < 0 && genericDeps.length === 1) {
+    shortDep = genericDeps[0].index;
+    longDep = genericDeps[0].index;
+  }
+  let anyDepCol = normalizedHeaders.some((h) => /보증/.test(h));
   headers.forEach((h, i) => {
     // 공백·슬래시 변형 흡수: "12개월 3만" · "12개월3만" · 오토플러스 "12/3만"
     const t = String(h ?? '').trim().replace(/\s+/g, '');
@@ -279,14 +468,13 @@ export function parsePriceColumns(
       });
       return;
     }
-    if (/단기.*보증/.test(t)) { shortDep = i; curDep = i; anyDepCol = true; }
-    else if (/장기.*보증/.test(t)) { longDep = i; curDep = i; anyDepCol = true; }
+    if (/단기.*보증/.test(t)) { shortDep = i; curDep = i; }
+    else if (/장기.*보증/.test(t)) { longDep = i; curDep = i; }
     else if (/보증/.test(t)) { curDep = i; anyDepCol = true; }
   });
   if (!cols.length) return null;
   // 수입판정 = 스냅 후 maker + 원본 모델/트림 표기(시트에 제조사칸 없을 때)
-  const brandBlob = `${rec.maker || ''} ${rec.model || ''} ${rec.sub_model || ''} ${rec.trim_name || ''} ${(rec._raw_vehicle as EntityRecord | undefined)?.trim_name || ''}`;
-  const depMult = isImportBrand(brandBlob) ? 3 : 2;
+  const depMult = brandDepositMultiplier(rec);
   const price: Record<string, { rent: number; deposit: number }> = {};
   // 같은 기간이 여러 블록에 있으면 **값이 있는 마지막 블록**을 쓴다.
   //  손오공·웰릭스는 인수형(왼쪽)·반납형(오른쪽) 두 벌인데, 종합시트가 실제로 게시하는 건 반납형이다
@@ -294,21 +482,27 @@ export function parsePriceColumns(
   //  "행에 값이 있는 쪽"을 골라야 한다 — 헤더만 보고 한 블록을 통째로 버리면 161허1397 처럼
   //  반납형에만 값이 있는 차가 가격 없이 올라간다.
   for (const { key, period, idx, dep } of cols) {
-    const rent = digits(cells[idx]);
+    const rent = rentCell(cells[idx]);
     if (!rent) continue;
+    const setPrice = (deposit: number) => {
+      const normalized = normalizeWonPair(rent, deposit);
+      price[key] = { rent: normalized.rent, deposit: normalized.deposit };
+    };
     const colDep = dep >= 0 ? depositCell(cells[dep]) : 0;
-    if (colDep) { price[key] = { rent, deposit: colDep }; continue; }
-    // 보증 컬럼이 시트에 **아예 없으면** 오토플러스식 — 대여료×배율(수입3·국산2)이 그 시트의 규칙이다.
-    if (!anyDepCol) { price[key] = { rent, deposit: rent * depMult }; continue; }
-    // 보증 컬럼은 있는데 이 행·이 블록만 비었다.
-    //  공급사 규칙이 지정돼 있으면 그 규칙으로 채운다(손오공 구독 = N개월치).
+    if (colDep) { setPrice(colDep); continue; }
+    // 보증 컬럼 유무와 무관하게 **명시된 공급사 규칙만** 적용한다. 예전에는 보증 헤더가
+    // 사라진 모든 generic 시트를 오토플러스식 ×2/×3으로 간주해 허위 보증금을 만들었다.
     const ruled = depositByRule(depositRule, rent, period, depMult);
-    if (ruled) { price[key] = { rent, deposit: ruled }; continue; }
-    // 규칙도 없으면 **숫자를 만들어내지 않는다.**
+    if (ruled) { setPrice(ruled); continue; }
+    // 보증 컬럼 자체가 없고 규칙도 없으면 fail-closed. 무보증이라고 추정하지 않는다.
+    if (!anyDepCol) continue;
+    // 보증 컬럼은 있는데 이 행·이 블록만 비었다.
+    // 규칙도 없으면 **숫자를 만들어내지 않는다.** 같은 기간의 앞 블록에 이미 유효한
+    // 값이 있으면 그것까지 지우면 안 된다("값이 있는 마지막 블록" 규칙).
     //  deposit:0 은 화면에서 무보증을 뜻하므로(product.ts isDepositFree) 0으로도 쓰면 안 된다.
     //  예전엔 여기서 rent×배율로 채워 시트에 없는 보증금을 게시했다
     //  (375어8056: 시트 3,150,000 → 저장 1,814,000). 보증금을 말할 수 없는 기간은 빼고 간다.
-    delete price[key];
+    continue;
   }
   return Object.keys(price).length ? price : null;
 }
@@ -319,39 +513,105 @@ export function parsePriceColumns(
  */
 export function importSheetTable(table: string[][], opts: {
   providerCode: string; entries: MasterEntry[]; profile?: MappingProfile;
+  /** 저장 당시 field→헤더 signature. 낡은 index 매핑을 차단한다. */
+  profileHeaders?: MappingHeaderSignature;
   /** partner.deposit_rule — 시트 보증금 칸이 빌 때 채우는 공급사 규칙 */
   depositRule?: DepositRule;
   /** 번호미정 신차 임시번호 할당기. **저장 경로는 반드시 주입할 것**(미주입 = 미리보기용) */
   plateAllocator?: PlateAllocator;
+  /** 여러 탭을 하나의 시트처럼 읽을 때 번호미정 동일스펙 순번을 공유한다. */
+  pendingOccurrence?: Map<string, number>;
 }): ImportResult {
   if (!opts.entries?.length) throw new Error('차종마스터 필수 — importSheetTable');
   const headers = table[0] || [];
   const dataRows = table.slice(1);
-  const mapping = (opts.profile && Object.keys(opts.profile).length) ? { ...opts.profile } : autoMapHeaders(headers);
+  const autoMapping = autoMapHeaders(headers);
+  const savedProfile = parseMappingProfile(opts.profile);
+  const savedHeaders = parseMappingHeaderSignature(opts.profileHeaders);
+  const depositRule = parseDepositRule(opts.depositRule);
+  const hasSavedProfile = !!savedProfile;
+  const mapping = hasSavedProfile ? { ...savedProfile } : { ...autoMapping };
+  // 저장 매핑은 컬럼 index다. 공급사가 열을 삽입·이동했는데 예전 index를 그대로 쓰면
+  // 차번·차종·가격이 서로 다른 열로 밀려도 정상 레코드처럼 보인다. 현재 헤더에서 같은 필드를
+  // 다시 찾을 수 있다면 위치가 달라진 순간 fail-closed하고 명시적 재매핑을 요구한다.
+  if (hasSavedProfile) {
+    for (const [field, savedIndex] of Object.entries(mapping)) {
+      if (!Number.isInteger(savedIndex) || savedIndex < 0 || savedIndex >= headers.length) {
+        throw new Error(`시트 헤더 이동 감지 — ${field} 매핑을 다시 저장하세요`);
+      }
+      const currentHeader = normalizeSheetHeader(headers[savedIndex]);
+      const savedHeader = normalizeSheetHeader(savedHeaders?.[field]);
+      if (savedHeader) {
+        if (currentHeader !== savedHeader) {
+          throw new Error(`시트 헤더 변경 감지 — ${field} 매핑을 다시 저장하세요`);
+        }
+        continue;
+      }
+      // signature 없는 레거시 프로필은 알려진 별칭이 같은 index에서 재탐지될 때만
+      // 허용한다. 커스텀 헤더는 현재 표를 보고 1회 재매핑해야 한다.
+      if (autoMapping[field] !== savedIndex) {
+        throw new Error(`시트 헤더 검증 필요 — ${field} 매핑을 다시 저장하세요`);
+      }
+    }
+  }
+  // 번호가 비어 있는 신차도 '차량번호' 열 자체는 있어야 한다. 열이 사라진 시트를 전 행
+  // 번호미정 신차로 오인해 100신 임시번호를 대량 생성하지 못하게 한다.
+  if (!('car_number' in mapping) && autoMapping.car_number !== undefined) {
+    mapping.car_number = autoMapping.car_number;
+  }
+  const carIndex = mapping.car_number;
+  if (carIndex === undefined || carIndex < 0 || carIndex >= headers.length) {
+    throw new Error('차량번호 열 없음 — 시트 매핑을 확인하세요');
+  }
   // 저장된 프로파일에 상태열이 없으면(구버전 매핑) 상태열 자동탐지로 보강.
   // 없으면 rec.vehicle_status가 안 채워져 출고불가 제외·상태동기화가 통째로 안 걸림(아이카 "즉시출고" 헤더 케이스).
   if (!('vehicle_status' in mapping)) {
-    const autoStatus = autoMapHeaders(headers).vehicle_status;
+    const autoStatus = autoMapping.vehicle_status;
     if (autoStatus !== undefined) mapping.vehicle_status = autoStatus;
   }
   const products: EntityRecord[] = [];
   const seen = new Set<string>();
   const snap = { high: 0, medium: 0, low: 0, none: 0 };
   let skipped = 0;
+  let duplicateCount = 0;
+  let invalidCount = 0;
+  let sourceRowCount = 0;
   let excludedCount = 0;
   let noPriceCount = 0;
+  const issueSamples: string[] = [];
+  const addIssue = (message: string) => { if (issueSamples.length < 12) issueSamples.push(message); };
   const allocator = opts.plateAllocator || previewPlateAllocator();
-  const pendingSeen = new Map<string, number>();   // 스펙서명 → 이 시트에서 몇 번째인지
-  for (const cells of dataRows) {
+  const pendingSeen = opts.pendingOccurrence || new Map<string, number>(); // 스펙서명 → 전체 탭에서 몇 번째인지
+  for (const [rowOffset, cells] of dataRows.entries()) {
+    const rowNo = rowOffset + 2; // prepareTable 기준 헤더 다음 행부터
+    // 구글시트가 서식만 아래로 늘린 완전 빈 행은 데이터가 아니다. 무효행·원문행수에 넣으면
+    // 실제 오류처럼 보이고 급감 기준선도 부풀어난다.
+    if (cells.every((cell) => !String(cell ?? '').trim())) continue;
     const rec: EntityRecord = {};
     for (const [field, idx] of Object.entries(mapping)) { const v = String(cells[idx] ?? '').trim(); if (v) rec[field] = v; }
     if (rec.options) rec.options = normalizeProductOptionsText(rec.options);
-    // **출고불가는 올리지 않는다**(2026-07-31 규칙). 그 외는 다 올린다 —
-    //  배차중은 단기·월렌트로 잠깐 나간 차라 출고협의 상품이다(예전엔 여기서 버려 아이카 1,832대가 사라졌다).
-    if (isSheetExcluded(rec.vehicle_status)) { excludedCount++; continue; }
-    let car = String(rec.car_number || '').replace(/\s/g, '');
-    // 안내문구·배너가 차량번호 칸에 들어온 경우 버림(오토플러스 ★★★프로모션… 등)
-    if (car && !isRealPlate(car)) {
+    const mappedIndexes = new Set(Object.values(mapping));
+    const hasRelevantCell = cells.some((cell, index) => {
+      if (!String(cell ?? '').trim()) return false;
+      return mappedIndexes.has(index) || /\d+\s*(?:개월|[/／])|보증/.test(String(headers[index] || ''));
+    });
+    // 구분 제목·섹션 라벨처럼 **매핑되지 않은 열에만** 값이 있는 행은 데이터가 아니다.
+    // AutoPlus 원본의 `수리중/매각진행중/판매보류` 구간 라벨을 무효 차량으로 세지 않는다.
+    if (!hasRelevantCell) continue;
+    sourceRowCount++;
+    const rawCar = String(rec.car_number || '').trim();
+    let car = rawCar.replace(/\s/g, '');
+    let pendingSig = '';
+    const pendingMarker = !car || /^(?:-|–|—|0|미정|번호미정|차량미정|신차|미등록|미발급)$/i.test(car);
+    // 시트 차번은 전체 셀이 정확한 번호판 형식이어야 한다. 부분일치(12가34567,
+    // "차량 12가3456 확인")를 새 상품키로 만들면 기존 정상차가 부재 차단된다.
+    const exactPlate = isExactRealPlate(car);
+    if (car && !exactPlate) {
+      if (!pendingMarker) {
+        skipped++; invalidCount++;
+        addIssue(`행 ${rowNo} 잘못된 차번 · ${rawCar}`);
+        continue;
+      }
       rec.car_number = '';
       car = '';
     }
@@ -361,28 +621,41 @@ export function importSheetTable(table: string[][], opts: {
       //    묶어서 우리캐피탈 그랑 콜레오스 10대 중 9대가 중복제거로 사라졌다.
       //    번호 자체는 allocator 가 관리한다(부여기록을 partner 에 저장해 재사용 — pending-plate.ts).
       const ident = `${rec.maker || ''}${rec.model || ''}${rec.sub_model || ''}${rec.trim_name || ''}${rec.year || ''}`.replace(/\s/g, '');
-      if (!ident) { skipped++; continue; }
-      const sig = pendingSignature(rec);
-      const idx = pendingSeen.get(sig) ?? 0;
-      pendingSeen.set(sig, idx + 1);
-      car = allocator.assign(sig, idx);
-      rec.car_number = car;
+      if (!ident) {
+        skipped++; invalidCount++;
+        addIssue(`행 ${rowNo} 무효 · ${rawCar || '차번·차명 없음'}`);
+        continue;
+      }
+      // 실제 올릴 수 있는 행(상태·가격 검증 통과)에만 occurrence를 소비한다. 가격없는
+      // 안내행 하나가 앞에 끼었다고 기존 신차의 임시번호가 전부 밀리면 안 된다.
+      pendingSig = pendingSignature(rec);
       rec.is_pending_plate = true;
       rec.product_type = '신차렌트';
     }
-    if (seen.has(car)) { skipped++; continue; }   // 시트 내 차번(임시번호 포함) 중복 제거
-    seen.add(car);
+    // 실차번은 출고상태·가격과 무관하게 먼저 중복을 확정한다. 제외 행을 seen에
+    // 넣지 않으면 같은 출고불가 차번을 반복해 sourceRowCount를 부풀리고 급감가드를
+    // 우회할 수 있다. 중복이 한 건이라도 있으면 커밋 경계에서 fail-closed 한다.
+    if (car) {
+      if (seen.has(car)) {
+        skipped++; duplicateCount++;
+        addIssue(`행 ${rowNo} 중복 · ${car}`);
+        continue;
+      }
+      seen.add(car);
+    }
+    // **출고불가는 올리지 않는다**. 단, 먼저 차량 신원을 검증해야 한다.
+    // 차번·차명이 없는 안내행에 상태 글자만 있다고 "전 행 명시적 출고불가"로 오인하면
+    // 기존 공급사 재고 전체가 차단될 수 있다.
+    if (isSheetExcluded(rec.vehicle_status)) { excludedCount++; continue; }
     rec.provider_company_code = opts.providerCode;
     rec.partner_code = opts.providerCode;
-    rec.product_code = `${opts.providerCode}_${car}`;      // 식별 = 공급사_차번(오플식)
     rec.source = 'sheet';
     rec.source_schema = opts.providerCode;                 // 공급사별 소스 태깅 → "이 렌트사만 빼기" 한방
-    if (rec.vehicle_status) {
-      rec.status_label_raw = String(rec.vehicle_status);
-      rec.vehicle_status = canonSheetVehicleStatus(rec.vehicle_status);
-    } else {
-      rec.vehicle_status = '출고가능';
-    }
+    const rawStatus = String(rec.vehicle_status || '').trim();
+    if (rawStatus) rec.status_label_raw = rawStatus;
+    // 상태 컬럼이 없거나 빈 행도 canon SSOT를 거친다. 별도 기본값 분기를 두면
+    // canon의 안전 기본값(출고협의)과 다시 어긋난다.
+    rec.vehicle_status = canonSheetVehicleStatus(rawStatus);
     if (!rec.product_type) rec.product_type = '중고렌트';
     // 연료칸 "가솔린1.0"·"LPG3.0" → 연료/배기 분리
     if (rec.fuel_type) {
@@ -392,20 +665,67 @@ export function importSheetTable(table: string[][], opts: {
       if (cc > 0 && !rec.engine_cc) rec.engine_cc = String(cc);
     }
     // 값 정규화 = 차종마스터 스냅 — 항상(entries 필수)
+    const rawPriceIdentity: EntityRecord = {
+      maker: rec.maker, model: rec.model, sub_model: rec.sub_model,
+    };
     const res = snapToMaster(rec, opts.entries);
+    if (res) Object.assign(rec, applySnap(rec, res, { source: 'ingress' }));
     Object.assign(rec, applyColors(rec));
     // 가격 — 기간별 대여료 컬럼 파싱(+보증금 컬럼 or 공급사 규칙). snap 후 maker 확정 시점.
-    const price = parsePriceColumns(headers, cells, rec, opts.depositRule || '');
+    const rawMakerPresent = !!String(rawPriceIdentity.maker ?? '').trim();
+    // For maker-less labels such as `K5 HEV`, use the snapped canonical path only
+    // when every exact master candidate agrees on origin. Mixed-origin names still
+    // fail closed, independent of master array order.
+    const consensusIdentity = !rawMakerPresent && res
+      // Do not use a snapped sub-model here: a low-confidence candidate can invent
+      // one side of an otherwise mixed-origin model and make array order affect money.
+      ? { model: res.model }
+      : rawPriceIdentity;
+    const consensusOrigin = !rawMakerPresent
+      ? unambiguousMasterOrigin(consensusIdentity, opts.entries)
+      : '';
+    const priceRecord = res?.origin ? {
+      ...rec,
+      // 제조사 원문이 없으면 confidence와 무관하게 동일 raw model 후보들의 origin 합의가
+      // 있어야 한다. 같은 모델명이 국산·수입 마스터에 함께 있으면 배열 첫 후보를 믿지 않는다.
+      origin: rawMakerPresent
+        ? (res.confidence === 'high' || res.confidence === 'medium' ? res.origin : '')
+        : consensusOrigin,
+      _deposit_origin_trusted: !!consensusOrigin,
+    } : rec;
+    const price = parsePriceColumns(headers, cells, priceRecord, depositRule);
     // **값 없는 매물은 게시하지 않는다.** 대여료가 하나도 없으면 손님에게 보여줄 게 없고,
     //  가격 없는 카드가 목록에 섞이면 영업이 매번 공급사에 되물어야 한다.
     //  실측(2026-07-31): 오토플러스 프로모탭 전용 7대는 그 탭에 요율 컬럼 자체가 없다.
     //  조용히 빼면 "왜 없지"가 되므로 noPriceCount 로 세어 화면에 올린다.
-    if (!price) { noPriceCount++; seen.delete(car); continue; }
+    if (!price) {
+      noPriceCount++;
+      addIssue(`행 ${rowNo} 가격없음 · ${car || rawCar || '번호미정'}`);
+      continue;
+    }
+    if (!car) {
+      const idx = pendingSeen.get(pendingSig) ?? 0;
+      pendingSeen.set(pendingSig, idx + 1);
+      car = allocator.assign(pendingSig, idx);
+      rec.car_number = car;
+      rec._pending_signature = pendingSig;
+      if (seen.has(car)) {
+        skipped++; duplicateCount++;
+        addIssue(`행 ${rowNo} 중복 · ${car}`);
+        continue;
+      }
+      seen.add(car);
+    }   // 시트 내 차번(임시번호 포함) 중복 제거
+    rec.product_code = `${opts.providerCode}_${car}`;      // 식별 = 공급사_차번(오플식)
     rec.price = price;
-    if (res) { Object.assign(rec, applySnap(rec, res, { source: 'ingress' })); snap[res.confidence]++; } else snap.none++;
+    if (res) snap[res.confidence]++; else snap.none++;
     products.push(rec);
   }
-  return { products, mapping, total: dataRows.length, imported: products.length, skipped, excludedCount, noPriceCount, snap };
+  return {
+    products, mapping, total: sourceRowCount, imported: products.length,
+    skipped, duplicateCount, invalidCount, issueSamples,
+    excludedCount, noPriceCount, snap,
+  };
 }
 
 /**

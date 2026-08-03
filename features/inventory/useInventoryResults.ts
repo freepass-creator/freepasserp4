@@ -2,8 +2,12 @@
 
 import { useMemo } from 'react';
 import type { EntityRecord } from '@/lib/intake/entities';
-import { VEHICLE_STATES } from '@/lib/intake/entities';
-import { canonProductType, vehicleName } from '@/lib/domain/product';
+import {
+  VEHICLE_DISPLAY_STATUSES,
+  canonProductType,
+  normalizeVehicleDisplayStatus,
+  vehicleName,
+} from '@/lib/domain/product';
 import { matchProductQuery } from '@/lib/domain/search';
 
 export type InventorySort = 'status' | 'name' | 'plate' | 'code';
@@ -20,7 +24,7 @@ type Params = {
 };
 
 function matchesFilters(product: EntityRecord, status: string, productType: string): boolean {
-  return (status === 'all' || String(product.vehicle_status || '') === status)
+  return (status === 'all' || normalizeVehicleDisplayStatus(product.vehicle_status) === status)
     && (productType === 'all' || canonProductType(product.product_type) === productType);
 }
 
@@ -36,8 +40,8 @@ export function useInventoryResults({
       if (sort === 'name') return vehicleName(a).localeCompare(vehicleName(b), 'ko');
       if (sort === 'plate') return String(a.car_number || '').localeCompare(String(b.car_number || ''), 'ko');
       if (sort === 'code') return String(a.product_code || '').localeCompare(String(b.product_code || ''), 'ko');
-      const aIndex = VEHICLE_STATES.indexOf(String(a.vehicle_status || '') as typeof VEHICLE_STATES[number]);
-      const bIndex = VEHICLE_STATES.indexOf(String(b.vehicle_status || '') as typeof VEHICLE_STATES[number]);
+      const aIndex = VEHICLE_DISPLAY_STATUSES.indexOf(normalizeVehicleDisplayStatus(a.vehicle_status));
+      const bIndex = VEHICLE_DISPLAY_STATUSES.indexOf(normalizeVehicleDisplayStatus(b.vehicle_status));
       return (aIndex < 0 ? 99 : aIndex) - (bIndex < 0 ? 99 : bIndex)
         || vehicleName(a).localeCompare(vehicleName(b), 'ko');
     }), [rows, query, status, productType, sort]);

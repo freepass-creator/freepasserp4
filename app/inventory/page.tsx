@@ -2,13 +2,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
-import { VEHICLE_STATES, PRODUCT_TYPES, type EntityRecord } from '@/lib/intake/entities';
+import { PRODUCT_TYPES, type EntityRecord } from '@/lib/intake/entities';
 import { getRole, actor } from '@/lib/domain/deal';
-import { vehicleName } from '@/lib/domain/product';
+import { VEHICLE_DISPLAY_STATUSES, normalizeVehicleDisplayStatus, vehicleName } from '@/lib/domain/product';
 import { PaneHead, PaneBody, Btn, C, Loading, CenterNote, Badge, Page, FilterChips, FilterGroup, PageActions, FW, FS, FeedRowSkeleton } from '@/components/ui';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
 import { toast } from '@/components/Toaster';
-import { haptic } from '@/lib/haptics';
 import { buildJonghapTsv } from '@/lib/domain/jonghap';
 import { useResolvedLinkPhotos } from '@/components/use-product-photos';
 import dynamic from 'next/dynamic';
@@ -33,7 +32,7 @@ const INV_SORTS: { value: InvSort; label: string }[] = [
 const PAGE = 100; // 첫 화면·더보기 단위(파인더와 동일)
 const INV_STATUS_CHIPS = [
   { key: 'all' as const, label: '전체' },
-  ...VEHICLE_STATES.map((s) => ({ key: s, label: s })),
+  ...VEHICLE_DISPLAY_STATUSES.map((s) => ({ key: s, label: s })),
 ];
 const INV_TYPE_CHIPS = [
   { key: 'all' as const, label: '전체' },
@@ -46,7 +45,7 @@ const SheetSync = dynamic(() => import('@/components/SheetSync').then((m) => m.S
 });
 
 // 재고관리 = [매물 목록 | 매물 편집 | 공급사 소스 연동]. 파인더와 같은 데이터의 "편집 렌즈".
-// 목록에서 선택 = 차종마스터 규격으로 맞춤(high·중 DB 반영). 공급사=자기 매물만.
+// 목록 선택은 읽기 전용 미리보기. 저장은 명시적인 수정→저장에서만 수행. 공급사=자기 매물만.
 
 export default function Inventory() {
   const co = getCompanyId();
@@ -87,11 +86,10 @@ export default function Inventory() {
     ocrBusy,
     ocrInputRef: ocrRef,
   } = useInventoryVehicleTools({
-    companyId: co,
     form,
+    selectedCode: sel,
     setSelectedCode: setSel,
     setForm,
-    setRows,
     setDirty,
     setCreating,
     setEditing,
@@ -127,16 +125,15 @@ export default function Inventory() {
   //  InventoryListRow(React.memo)가 편집 폼 타이핑(form state 변경) 리렌더에 딸려 재렌더되지 않는다.
   const selectPRef = useRef(selectP);
   selectPRef.current = selectP;
-  const handleRowClick = useCallback((p: EntityRecord) => { haptic.tap(); selectPRef.current(p); }, []);
+  // FeedListRow가 목록 공통 햅틱을 한 번 제공한다. 여기서는 선택만 수행해 중복 진동을 피한다.
+  const handleRowClick = useCallback((p: EntityRecord) => { selectPRef.current(p); }, []);
   useInventoryAccessEffects({
     companyId: co,
-    mobile,
     loadProducts: load,
     setPolicies,
     setAccess: setOk,
     setGateMessage: setGateMsg,
     loadMaster,
-    selectProduct: selectP,
     clearSelection: clearSel,
   });
 
@@ -286,7 +283,7 @@ export default function Inventory() {
       {/* 상단바 라벨은 상태칩과 동명이면 안 된다 — 칩 「출고가능」은 한 상태고, 이 수는 즉시출고+출고가능 합계다. */}
       <WorkPage title={NAV_LABEL.inventory} statusLabel="가용재고"
         statusCount={rows === null ? null : rows.filter((p) => {
-          const st = String(p.vehicle_status || '');
+          const st = normalizeVehicleDisplayStatus(p.vehicle_status);
           return st === '즉시출고' || st === '출고가능';
         }).length}
         countSuffix="대"
