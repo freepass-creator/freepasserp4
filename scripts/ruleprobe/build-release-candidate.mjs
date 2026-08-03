@@ -24,6 +24,7 @@ const active = `auth != null && auth.token.firebase.sign_in_provider !== 'anonym
 const admin = `${role} === 'admin'`;
 const agentRoles = `(${role} === 'agent' || ${role} === 'agent_admin' || ${role} === 'agent_manager')`;
 const providerRoles = `(${role} === 'provider' || ${role} === 'provider_admin')`;
+const assignedRoles = `(${admin} || ${agentRoles} || ${providerRoles})`;
 
 // v3는 운영 원본이다. 쓰기는 폐쇄하고, products 원문은 이관 완료 전 관리자만 읽는다.
 // 이 read 전환은 v3/v4 키·필드 대조가 끝난 뒤에만 게시할 수 있다.
@@ -31,6 +32,10 @@ rules.products['.write'] = false;
 rules.products['.read'] = `${active} && ${admin}`;
 rules.partners['.write'] = `${active} && ${admin}`;
 rules.policies['.write'] = `${active} && ${admin}`;
+
+// v4 공개 상품도 "Firebase 로그인만 됨"과 "사용 가능한 B2B 계정"을 구분한다.
+// 앱 화면 게이트를 우회해 SDK로 직접 읽는 승인대기·비활성·삭제·반려·미배정 역할을 차단한다.
+rules.v4.products['.read'] = `${active} && ${assignedRoles}`;
 
 // 공개서명은 제출 전(sent)에만 익명 조회. 제출 후 PII·서명 재조회는 소유 영업조직만 가능하다.
 const sign = rules.contract_sign.$token;
@@ -65,6 +70,45 @@ product._key['.validate'] = "newData.val() === $code";
 
 // 계약 생성 스냅샷과 정산 기준일은 생성 뒤 절대 변경하지 않는다.
 const contract = rules.v4.contracts.$contract_id;
+
+/**
+ * 레거시(v3 전용) 계약의 **첫 v4 오버레이 쓰기**를 허용한다.
+ *
+ * 현행 `.validate` 는 hasChildren 에 `contract_status` 를 요구하고, 생성 조건이
+ * `data.exists() || newData.contract_status === '계약요청'` 뿐이다. 레거시 계약은 v4 노드가 없어
+ * `data.exists()` 가 false 이고, 단계 진행 patch 는 단일 필드라 `contract_status` 가 없다.
+ * rtdb-adapter 의 승계 스탬프에서 `contract_status` 는 **일부러 뺐다** — 넣으면 레거시 계약완료건이
+ * 상태 leaf validate(11게이트 전부 'yes')에 걸리는데, v3 게이트는 boolean true 이고
+ * `agent_final_paid` 는 아예 없어 통과시키려면 "잔금 완납"을 지어내야 한다. 그래서 규칙에서 열어 준다.
+ *
+ * 실측(2026-08-04 운영 데이터): 이 절이 없으면 v4 에 없는 v3 계약 **32건이 0/32 전건 차단**되어
+ * 단계 진행·취소·서명 발송이 전부 permission_denied 다(그중 계약요청 17건).
+ * 에뮬레이터 32/32·계약 26/26 은 통과한다 — 그 테스트들이 실제 v3 레코드로 승격을 시도하지 않기 때문이다.
+ * `docs/AI_COLLABORATION.md` 가 경고한 **"로컬 에뮬레이터 통과 ≠ 실데이터 안전"** 의 정확한 사례다.
+ *
+ * 위조 우려가 없는 근거: v3 `contracts` 노드에는 `.write` 가 **아예 없다**(기본 거부).
+ * 아무도 v3 계약을 만들 수 없으므로 이 존재검사는 신뢰할 수 있는 레거시 마커다.
+ * 신규 계약이 `계약요청` 이어야 하는 강제도 그대로 남는다.
+ */
+{
+  let cur = String(contract['.validate'] || '');
+  const legacyMarker = "root.child('contracts').child($contract_id).exists()";
+  // ① 생성 가드에 레거시 마커 추가.
+  if (cur.includes('data.exists() ||') && !cur.includes(legacyMarker)) {
+    cur = cur.replace('data.exists() ||', `data.exists() || ${legacyMarker} ||`);
+  }
+  // ② hasChildren 에서 contract_status 를 뺀다. ①만으로는 부족하다 —
+  //   레거시 승격 patch 에는 contract_status 가 없어서 hasChildren 이 먼저 걸린다(실측 0/32).
+  //   빼도 **신규 계약이 '계약요청' 이어야 하는 강제는 그대로다** — 마지막 절이 그걸 본다.
+  //   레거시의 실제 상태는 v3 노드에 그대로 있고, 어댑터의 필드병합으로 화면에도 그대로 보인다.
+  cur = cur.replace(/newData\.hasChildren\(\[([^\]]*)\]\)/, (_m, list) => {
+    const kept = String(list).split(',').map((s) => s.trim())
+      .filter((s) => s && s !== "'contract_status'");
+    return `newData.hasChildren([${kept.join(', ')}])`;
+  });
+  contract['.validate'] = cur;
+}
+
 const immutable = "!data.parent().exists() || newData.val() === data.val()";
 for (const field of [
   'car_number_snapshot', 'maker_snapshot', 'model_snapshot', 'sub_model_snapshot',
