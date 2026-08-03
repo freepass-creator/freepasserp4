@@ -59,6 +59,13 @@ for (const path of files) {
   const source = readFileSync(path, 'utf8');
   const sourceFile = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
 
+  // components/ui 배럴은 'use client' 경계다. 서버 컴포넌트가 여기서 C/FW 같은
+  // 객체 토큰을 꺼내 속성 접근하면 배포 런타임에서 client reference 직렬화 오류가 난다.
+  const clientComponent = /^\s*['"]use client['"];/.test(source);
+  if (file.startsWith('app/') && !clientComponent && /from\s+['"]@\/components\/ui['"]/.test(source)) {
+    hits.push(`${file}: 서버 컴포넌트의 client UI 배럴 import → 토큰은 components/ui/tokens, 컴포넌트는 리프 모듈 사용`);
+  }
+
   // aria-* 속성이 여는 태그 밖으로 빠지면 JSX 텍스트가 되어 화면과 스크린리더에
   // 그대로 노출된다. 브라우저 검수에서 발견한 회귀를 정적으로 차단한다.
   const visitAriaText = (node: ts.Node) => {

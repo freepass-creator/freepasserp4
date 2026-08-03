@@ -103,6 +103,14 @@ import {
   type SheetIdentityDecisionInput,
   type SheetIdentityDecisionValue,
 } from '@/lib/domain/sheet-identity-decision';
+import {
+  planSheetDecisionApplication,
+  sheetDecisionApplicationPlanTsv,
+} from '@/lib/domain/sheet-decision-application-plan';
+import {
+  planSheetDecisionPatchDryRun,
+  sheetDecisionPatchDryRunJson,
+} from '@/lib/domain/sheet-decision-patch-dry-run';
 
 /** 아이카식 표준 양식 — autoMapHeaders 별칭과 정합. 컬럼명 변경 금지. */
 const STANDARD_SHEET_HEADERS = [
@@ -323,6 +331,11 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
     conflictDecisions: SheetConflictDecision[];
     identityDecisions: SheetIdentityDecision[];
     decisionRecords: EntityRecord[];
+    decisionReferences: {
+      contracts: EntityRecord[];
+      rooms: EntityRecord[];
+      quotes: EntityRecord[];
+    };
     identityConflictReview: SheetIdentityConflictReview;
     resolvedPriceCount: number;
     protectedPriceCount: number;
@@ -812,10 +825,15 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
     setBusy(true); setBulkLog(''); setPending(null);
     try {
       const fetchedRaw = await fetchAllPartnerSheets(co, master!);
-      const [reconcileState, partnerRows, contracts, conflictResolutions, conflictDecisions, identityDecisions] = await Promise.all([
+      const [
+        reconcileState, partnerRows, contracts, rooms, quotes,
+        conflictResolutions, conflictDecisions, identityDecisions,
+      ] = await Promise.all([
         listSheetReconcileState(co, true),
         listSheetPartnerRecords(co, true),
         getStore().list('contract', co).catch(() => []),
+        getStore().list('room', co).catch(() => []),
+        getStore().list('quote', co).catch(() => []),
         fetchSheetConflictResolutions(),
         fetchSheetConflictDecisions(),
         fetchSheetIdentityDecisions(),
@@ -979,6 +997,7 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
         conflictDecisions,
         identityDecisions,
         decisionRecords: [...existing, ...deleted],
+        decisionReferences: { contracts, rooms, quotes },
         identityConflictReview,
         resolvedPriceCount: resolutionResult.resolvedPricePeriods,
         protectedPriceCount,
@@ -1156,6 +1175,23 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
     decisions: pending?.conflictDecisions || [],
     now: pending?.at,
   });
+  const decisionApplicationPlan = pending ? planSheetDecisionApplication({
+    conflictPlan: decisionDryRun,
+    identityReview: pending.identityConflictReview,
+    identityDecisions: pending.identityDecisions,
+    incoming: pending.fetched.products,
+    records: pending.decisionRecords,
+    providerCodes: pending.fetched.lines.map((line) => line.code),
+    references: pending.decisionReferences,
+    now: pending.at,
+  }) : null;
+  const decisionPatchDryRun = pending && decisionApplicationPlan ? planSheetDecisionPatchDryRun({
+    applicationPlan: decisionApplicationPlan,
+    records: pending.decisionRecords,
+    incoming: pending.fetched.products,
+    companyId: co,
+    now: pending.at,
+  }) : null;
   const activeDecisionByFingerprint = new Map((pending?.conflictDecisions || [])
     .filter((item) => item.status === 'recorded')
     .map((item) => [item.fingerprint, item]));
@@ -1400,6 +1436,30 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
       copied
         ? `신원·미확정 검토 복사 · 전체 ${summary.total} · 공급사 미확정 삭제 ${summary.unownedDeleted} · 임시번호 ${summary.pendingIdentityDrift + summary.pendingSignature} · 실행작업 0`
         : '신원·미확정 검토 목록 복사에 실패했습니다.',
+      copied ? 'ok' : 'error',
+    );
+  };
+
+  const copyDecisionApplicationPlan = async () => {
+    if (!decisionApplicationPlan?.rows.length) return;
+    const copied = await copyText(sheetDecisionApplicationPlanTsv(decisionApplicationPlan));
+    const { summary } = decisionApplicationPlan;
+    toast(
+      copied
+        ? `적용 계획 복사 · 검토후보 ${summary.candidateReview} · 참조이관 ${summary.referenceMigrations} · 차단 ${summary.blocked} · 실행작업 0`
+        : '적용 계획 복사에 실패했습니다.',
+      copied ? 'ok' : 'error',
+    );
+  };
+
+  const copyDecisionPatchDryRun = async () => {
+    if (!decisionPatchDryRun?.rows.length) return;
+    const copied = await copyText(sheetDecisionPatchDryRunJson(decisionPatchDryRun));
+    const { summary } = decisionPatchDryRun;
+    toast(
+      copied
+        ? `patch dry-run 복사 · 검토후보 ${summary.readyReview} · 작업 ${summary.operationCount} · 차단 ${summary.blocked} · 실행작업 0`
+        : 'patch dry-run JSON 복사에 실패했습니다.',
       copied ? 'ok' : 'error',
     );
   };
@@ -1712,6 +1772,26 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
                 disabled={busy}
               >
                 신원·미확정 결정 ({recordedIdentityDecisionCount}/{pending.identityConflictReview.summary.total})
+              </Btn>
+            ) : null}
+            {decisionApplicationPlan?.rows.length ? (
+              <Btn
+                title="기록된 소유권·삭제·신원 판단을 현재 재고와 대조해 유입제외·복구·신규·참조이관 후보를 계산합니다. 실제 저장은 하지 않습니다."
+                variant="ghost"
+                onClick={copyDecisionApplicationPlan}
+                disabled={busy}
+              >
+                적용 계획 TSV ({decisionApplicationPlan.summary.candidateReview + decisionApplicationPlan.summary.referenceMigrations})
+              </Btn>
+            ) : null}
+            {decisionPatchDryRun?.rows.length ? (
+              <Btn
+                title="적용 계획의 공개 v4 patch와 CAS 기대값을 JSON으로 계산합니다. private 값과 실제 저장 동작은 포함하지 않습니다."
+                variant="ghost"
+                onClick={copyDecisionPatchDryRun}
+                disabled={busy}
+              >
+                patch dry-run JSON ({decisionPatchDryRun.summary.readyReview})
               </Btn>
             ) : null}
             {pending?.existingConflictRows.length ? (

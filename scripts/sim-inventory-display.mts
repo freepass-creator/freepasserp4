@@ -107,5 +107,17 @@ check('공통 정렬·필터 Select는 placeholder 기반 접근성 이름 제�
 check('공통 Input은 명시 라벨 우선·placeholder fallback',
   formControlSource.includes('aria-label={ariaLabel || placeholder}'));
 
+const topBarSource = readFileSync(
+  new URL('../components/TopBar.tsx', import.meta.url),
+  'utf8',
+);
+const webSessionMetaSource = topBarSource.slice(
+  topBarSource.indexOf('function WebSessionMeta()'),
+  topBarSource.indexOf('function NavMenu('),
+);
+check('데모 역할 전환 즉시 상단 계정명이 같은 역할 행위자로 갱신',
+  webSessionMetaSource.includes("window.addEventListener('fp:role', onRole)")
+    && webSessionMetaSource.includes('const role = session?.role ?? demoRole'));
+
 console.log(`\ninventory display: ${passed}/${passed + failed} PASS`);
 if (failed) process.exitCode = 1;

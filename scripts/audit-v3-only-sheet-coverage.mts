@@ -23,6 +23,7 @@ import { planDailySheetSync } from '../lib/domain/sheet-daily-sync';
 import { buildSheetConflictReportRows } from '../lib/domain/sheet-conflict-report';
 import { toV4Record } from '../lib/firebase/rtdb-records';
 import { splitProductPrivate } from '../lib/firebase/rtdb-products';
+import { collectProductBridgeReferences, selectLegacyProductsForBridge } from '../lib/domain/product-bridge';
 import { priceList } from '../lib/domain/product';
 import { sheetProviderOf } from '../lib/domain/sheet-merge';
 import {
@@ -232,6 +233,14 @@ async function main() {
 
   const contracts = mergeRaw(contract3.val(), contract4.val());
   const rooms = mergeRaw(room3.val(), room4.val());
+  const bridgeReferences = collectProductBridgeReferences([
+    Object.fromEntries(contracts),
+    Object.fromEntries(rooms),
+  ]);
+  const bridgeSelected = selectLegacyProductsForBridge(
+    Object.fromEntries(rawRows(p3.val())) as Record<string, EntityRecord>,
+    bridgeReferences,
+  );
   const quotes = mergeRaw(quote3.val(), quote4.val());
   const privateProductKeys = new Set<string>();
   for (const [key, row] of [...rawRows(p3.val()), ...rawRows(p4.val())]) {
@@ -414,6 +423,7 @@ async function main() {
   if (canonical.reason) console.log(`시트 정본 게이트: ${canonical.reason}`);
 
   console.log(`\nv3-only ${v3Only.length}건 / 차량번호 ${v3OnlyPlates.size}개`);
+  console.log(`  서버 브리지 응답 후보 ${Object.keys(bridgeSelected).length}건 (활성 + 계약·문의 참조 삭제이력)`);
   for (const name of ['시트현재+참조보호', '시트현재', '참조만', '시트없음+참조없음']) {
     console.log(`  ${name}: ${categories[name] || 0}건 / ${uniqueCategories[name] || 0}대`);
   }

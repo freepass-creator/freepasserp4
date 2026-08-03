@@ -31,8 +31,8 @@ export default function DataCheck() {
   const loadReports = async () => { try { setReports(await getStore().list('report', co)); } catch { setReports([]); } };
   useEffect(() => {
     (async () => {
-      await seedIfEmpty(co);
       if (!isAdminUiAllowed()) { router.replace('/'); return; }
+      await seedIfEmpty(co);
       setAllowed(true);
       setRows(await getStore().list('product', co));
       // 계약은 권한(관리자·스코프)에 걸려 비면 잠금점검만 건너뛴다 — 다른 점검은 그대로 돌아야 함.

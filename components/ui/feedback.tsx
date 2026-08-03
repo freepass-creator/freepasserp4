@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { C, FS, R } from './tokens';
+import { Btn } from './buttons';
 
 export function EmptyState({ children }: { children: React.ReactNode }) {
   return (
@@ -23,10 +24,21 @@ export function EmptyState({ children }: { children: React.ReactNode }) {
 export function Loading({
   label = '불러오는 중…',
   minHeight = '100%',
+  delayedAfterMs = 12_000,
 }: {
   label?: React.ReactNode;
   minHeight?: string | number;
+  /** 장시간 응답이 없을 때 무한 스피너 대신 사용자가 직접 복구할 수 있게 한다. */
+  delayedAfterMs?: number;
 }) {
+  const [delayed, setDelayed] = React.useState(false);
+
+  React.useEffect(() => {
+    if (delayedAfterMs <= 0) return;
+    const timer = window.setTimeout(() => setDelayed(true), delayedAfterMs);
+    return () => window.clearTimeout(timer);
+  }, [delayedAfterMs]);
+
   return (
     <div style={{
       minHeight,
@@ -55,6 +67,16 @@ export function Loading({
       {/* 스피너 위 · 문구 아래 가운데정렬. 여러 줄로 접혀도 가운데 유지(textAlign 없으면 왼쪽으로 붙는다). */}
       {label != null && label !== '' && (
         <span style={{ fontSize: FS.sub, color: C.faint, textAlign: 'center', lineHeight: 1.45 }}>{label}</span>
+      )}
+      {delayed && (
+        <div role="alert" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: FS.cap, color: C.mute, textAlign: 'center', lineHeight: 1.5 }}>
+            평소보다 오래 걸리고 있습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.
+          </span>
+          <Btn size="sm" variant="ghost" onClick={() => window.location.reload()}>
+            새로고침
+          </Btn>
+        </div>
       )}
     </div>
   );

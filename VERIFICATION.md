@@ -1,5 +1,83 @@
 # 독립 검증 결과
 
+## 2026-08-04 공급사 Sheet exact patch/CAS dry-run 2단계
+
+결과: **후보별 exact 공개 v4 patch·CAS 생성 PASS / private 유입·참조이관 fail-closed / 실제 적용·운영 write 0건**
+
+- `lib/domain/sheet-decision-patch-dry-run.ts`를 추가했다. 1단계 적용계획의 검토 후보를 `Sheet 유입 제외 원장 create-if-absent`, `동일 삭제키 복구 update`, `신규 상품 create-if-absent`, `승인된 신원 원자 update`의 정확한 경로·patch·CAS 기대값으로 변환한다.
+- 삭제 복구는 기존 `softMergeProduct`·`changedPatch`를 재사용한다. 빈 Sheet 값은 수기값을 지우지 않고, `_deleted/deletedAt/deletedReason/legacy status=deleted` 해제만 명시하며 현재 공개상품을 `productPatchPreconditionMatches`와 같은 필드 집합으로 CAS 대조한다.
+- 신규 상품은 현재 Sheet 공개 필드만 사용하고 회사·생성/수정자·결정 지문을 기록하는 create-if-absent 후보를 만든다. 신원 갱신은 관리자가 승인한 제조사·모델·세부모델·트림·내외장색·연식·연료·최초 신원서명 원자만 기존키에 patch하며 상태·가격은 따라오지 않는다.
+- Sheet 입력이나 기존 CAS 출력에 원가·VIN·계좌·기간별 fee/commission/fee_memo가 섞이지 않는다. 신규/복구 Sheet 행에 private 값이 있으면 patch 0건으로 fail-closed한다. 검토 JSON에도 private 값과 원본 충돌 raw는 포함하지 않는다.
+- 공급사 대표키 변경은 계약·채팅·견적·private의 역사 참조 처리 정책이 확정되지 않았으므로 `blocked_reference_migration`으로 유지한다. 상위 적용계획에서 계약보호·원장불일치·키 중복 등으로 차단된 행도 patch 후보로 승격하지 않는다.
+- 관리자 `데이터 검증`에 `patch dry-run JSON` 버튼을 연결했다. 정확한 공개 patch와 최소 CAS 기대값을 복사하지만 저장 API·적용 버튼·동기화 차단 해제는 없다. 모든 행은 `applyAllowed=false`, 요약은 `executableOperations=0`이다.
+- 신규 patch dry-run 적대검증 **21/21 PASS**. 적용계획 **20/20**, Sheet merge **128/128**, 일일동기화 **21/21**, 가격승인 **10/10**, 소유권결정 **15/15**, 결정 dry-run **16/16**, 신원검토 **17/17**, 신원결정 **15/15**, 차량잠금 **23/23** — 관련 회귀 합계 **286/286 PASS**다.
+- `typecheck`, fonts, UI contract, 별도 `NEXT_DIST_DIR=.next-codex-sheet-patch` production build **30/30 routes** PASS다. Next가 자동 추가한 임시 dist include는 `tsconfig.json`에서 원복했다. 운영 데이터·Rules·환경변수는 변경하지 않았다.
+- 다음 게이트: 운영/Preview 실제 판단 원장으로 이 JSON을 생성해 사람/Claude가 공급사 대표키 참조 정책과 각 후보 patch를 승인한다. 그 전에는 적용 API를 만들거나 `planDailySheetSync`가 제외 원장을 소비하게 해서는 안 되며 `SHEET_DAILY_SYNC_ENABLED=false`를 유지한다.
+
+## 2026-08-04 공급사 Sheet 판단 원장 적용계획 1단계
+
+결과: **판단 원장 → 차량별 비파괴 적용계획 PASS / 실제 patch·동기화 차단 해제·운영 write 0건**
+
+- `lib/domain/sheet-decision-application-plan.ts`를 추가했다. 현재 검증 스냅샷과 소유권·삭제 결정 원장, 신원 결정 원장을 함께 읽어 `Sheet 유입 제외`, `삭제키 복구`, `신규 상품 생성`, `공급사 대표키·참조 이관`, `동일차 신원 원자 갱신` 후보로 분류한다.
+- 공급사 변경 후보는 상품의 `v4/products`만 바꾸지 않는다. `v4/products_private`와 계약·채팅방·견적의 상품 참조 건수를 계산하고 `requires_reference_migration`으로 분리한다. 실제 참조 patch는 생성·실행하지 않는다.
+- 계약보호, 공급사·기존키·Sheet키 다중/누락, 병합 별칭 tombstone, 현재 데이터와 원장 불일치, 신규키 기존 존재, 서로 다른 판단의 동일 상품키 중복, 현재 충돌에 없는 stale 원장을 모두 fail-closed한다.
+- 모든 계획 행은 `applyAllowed=false`, 전체 요약은 `executableOperations=0`으로 고정했다. 후보 경로·필드·참조 수는 다음 단계의 검토 근거일 뿐 저장 payload가 아니다.
+- 관리자 재고 `데이터 검증`은 기존 계약과 함께 채팅방·견적을 병렬 read하고, `적용 계획 TSV`에서 후보작업·상태·계약/채팅/견적 참조 수·후보경로·다음조치를 복사할 수 있다. 버튼은 저장이나 동기화 차단 해제를 수행하지 않는다.
+- 신규 적대 시뮬레이션 **20/20 PASS**. 기존 Sheet merge **128/128**, 일일 동기화 **21/21**, 가격승인 **10/10**, 소유권·삭제 결정 **15/15**, 결정 dry-run **16/16**, 신원검토 **17/17**, 신원결정 **15/15**도 재통과했다.
+- `typecheck`, fonts, UI contract, 별도 `NEXT_DIST_DIR=.next-codex-sheet-application` production build **30/30 routes** PASS다. 빌드가 dev 산출물을 덮지 않아 `http://localhost:4004/login` HTTP 200, PID 49616을 유지했다.
+- 중요: 이 계획기는 아직 `planDailySheetSync`나 `commitFetchedPartnerSheets`가 소비하지 않는다. `SHEET_DAILY_SYNC_ENABLED`는 계속 false여야 한다. 다음 게이트는 후보별 정확한 v4 patch/CAS payload를 **무저장으로만** 생성하고 사람/Claude가 참조 이관·복구 정책을 승인하는 것이다.
+
+## 2026-08-04 버벅임·먹통 오픈 최종점검
+
+결과: **성능·응답성 게이트 PASS / 전체 오픈은 법적 정보·수정본 Preview·실계정·Rules 승인 전 NO-GO**
+
+- 정상 Ready Preview `dpl_9H8TtHymfPhUcocr1gbvpnim66FQ`에서 직접 경로 전환을 데스크톱 24회, 모바일 15회 반복했다. 총 **39회 중 실패·먹통 0**, 데스크톱 평균 606ms/최대 1,590ms, 모바일 평균 677ms/최대 1,565ms였다. 가로 overflow와 console error/warning도 0건이다.
+- 최초 진입은 로그인 1,762ms, 공개 상품찾기 1,542ms, 공급사 재고 1.4~1.6초가 상대적으로 느렸고 나머지 주요 업무 화면은 약 0.35~0.7초였다. 2초를 넘은 직접 경로 전환은 0건이다.
+- 모바일 계약 필터는 실제 dialog가 정상 열리고 닫혔다. 자동화 locator가 한 차례 3초 timeout을 냈지만 화면·DOM은 계속 응답했고 재시도는 289ms였다. 닫기 후 220ms exit animation 때문에 자동화 시간이 길게 잡힐 수 있으나 실제 고정 overlay나 먹통은 재현되지 않았다.
+- 로컬 관리자 실데이터 355대 기준 재고 hard reload는 shell 표시 약 **0.50초**, 전체 행 도착 약 **4.75초**였다. 빈 화면은 아니지만 네트워크/브리지 최초 read가 가장 큰 체감 지연이다. warm 재진입은 즉시 수준이다.
+- `features/inventory/useInventoryData.ts`에서 권한 확인 직후 4패널 shell을 먼저 표시하고 정책·상품(내부 파트너 보강 포함) read를 병렬화했다. 기존 정책 → 상품 → 파트너 순차 대기를 제거했으며 write·v3·Rules·정산 엔진은 건드리지 않았다.
+- 공통 `Loading`은 12초 이상 지속되면 지연 안내와 `새로고침` 복구 버튼을 표시한다. 관리·공개 상세 페이지의 미종료 통신도 더 이상 설명 없는 무한 스피너로만 남지 않는다.
+- 수정 후 `npm run typecheck`, `npm run check:fonts`, `npm run check:ui`, 재고 표시 **28/28**, `git diff --check`, Next production build **30/30 routes**가 PASS다. production build와 dev가 같은 `.next`를 사용해 기존 dev가 500이 된 것을 즉시 발견했고, 서버를 재기동해 `http://localhost:4004/login` HTTP 200을 재확인했다. 현재 포트 4004 listener는 PID 49616이다.
+- 이 최적화와 장시간 로딩 복구 UI는 현재 로컬 소스에만 있으며 위 Ready Preview에는 포함되지 않았다. 새 정상 Preview 배포 후 355대 실계정 재고 hard reload와 역할별 화면을 다시 확인해야 한다. Production 별칭·데이터·Rules는 변경하지 않았다.
+- 전체 오픈 차단은 성능 문제가 아니라 기존의 약관/개인정보 운영자 사실값 6개, 영업자·공급사 QA 토큰 smoke, 사람/Claude의 후보 Rules·실데이터 승인이다.
+
+## 2026-08-03 Chrome 초정밀 오픈 전 검수
+
+결과: **화면·기능·빌드·비게시 Rules 후보 PASS / 법적 운영자 정보·운영 Rules 승인·역할별 실계정 smoke 전 전체 오픈 NO-GO**
+
+- Chrome에서 Ready Preview `dpl_9H8TtHymfPhUcocr1gbvpnim66FQ` (`freepasserp4-48ikovxat-freepass-projects.vercel.app`)를 직접 검수했다. 로그인·회원가입·비밀번호 재설정·둘러보기·상품찾기·FAQ·약관·개인정보, 영업자 `/chat`·`/contract`, 공급사 `/inventory`·`/policy`·`/chat`·`/contract`, 권한 제한 경로를 실제 탐색했고 console error/warning은 0건이다.
+- 데스크톱 1920×889에서 재고·정책·채팅·계약의 4패널, 검색·정렬·필터, 빈 상태, 공급사 상품등록 폼 진입·취소를 확인했다. 저장·업로드·삭제 등 운영 write는 실행하지 않았다.
+- 모바일 390×844에서 가로 overflow 0, 접근성 이름 없는 버튼 0, 엑셀 버튼 미노출, 계약 화면의 비규격 `대기·완료·환수·순수익` 지표 미노출을 확인했다. 계약 필터 dialog와 공급사 재고 하단탭·아이콘 툴바도 실제 클릭/시각 검수했다.
+- 직접 URL 검수에서 관리자 전용 `/data-check`·회원·감사 화면이 권한 판정보다 `seedIfEmpty`를 먼저 기다리고, `/diag`가 비로그인에도 RTDB 노드 진단 UI를 노출하는 문제를 발견했다. `app/data-check/page.tsx`, `app/members/page.tsx`, `app/audit/page.tsx`, `app/dev/page.tsx`는 권한 확인을 초기화보다 앞으로 옮겼고 `app/diag/page.tsx`에는 관리자 게이트를 추가했다.
+- 수정 후 `tsc --noEmit`, fonts, tokens, UI contract, Next production build(정적 페이지 30/30)가 PASS다. 전체 `sim-*.mts` 38개 중 기능 시뮬 35개가 PASS했고, 운영 `database.rules.json`을 일부러 검사한 보안 3개는 기존 운영 Rules 미게시 상태 때문에 예상대로 실패했다.
+- 같은 3개 검사를 비게시 `scripts/ruleprobe/release-candidate.rules.json`에 적용하면 보안 **14/14**, 계약 **26/26**, 전자서명 **58/58** PASS다. 기존 9000/9099 서버를 끄지 않고 9100/9199 격리 포트에서 Firebase Emulator **32/32 PASS**를 재확인했다. 운영 `database.rules.json`은 수정·게시하지 않았다.
+- `check-release --rules=...release-candidate...`의 유일한 차단은 약관·개인정보의 **상호, 대표자, 주소, 사업자등록번호, 문의 이메일, 개인정보 보호책임자** 6필드 누락이다. 192/512 PNG 아이콘과 서비스워커는 PWA 범위 경고 2건이다.
+- UI 권한 수정본 새 Preview 업로드를 시도해 `dpl_6MUEdmNbgKp5Ng5oEL9cffn98r8S`가 생겼지만 Vercel CLI 업로드가 완료되지 않아 status `UNKNOWN`, build 0ms다. 이 배포는 검수·사용 금지이며 정상 Preview는 위 Ready 배포다. Production 환경·별칭·데이터는 변경하지 않았다.
+- 로컬 개발 서버는 `http://localhost:4004`에 숨김 백그라운드로 다시 기동해 유지했다. 로컬 Chrome에는 기존 관리자 세션이 있어 사용자 세션을 지우는 비로그인 재현은 하지 않았고, 수정본 런타임 배포 재확인은 다음 정상 Preview에서 수행한다.
+- 전체 오픈 조건: 법적 6필드 입력 → 새 Ready Preview에서 비로그인 `/data-check`·`/diag` 홈 전환 재확인 → 전용 영업자·공급사 QA 토큰 bridge 200/private 격리 smoke → 사람/Claude의 Rules·실데이터 승인 → 운영 Rules 게시 및 역할별 write/read smoke.
+
+## 2026-08-03 영업자·공급사 B2B 운영 오픈 재판정
+
+결과: **기능·화면·비게시 후보 Rules·Preview 비인증 스모크 PASS / Preview 역할별 실계정 smoke·사람 Rules 승인 전 B2B 오픈 NO-GO / 손님 공개 페이지·법적 고지는 후속 범위**
+
+- 오픈 범위를 실로그인 영업자·공급사의 상품조회, 계약문의, 계약진행, 공급사 재고·정책, 계약별 정산조회로 한정해 다시 검증했다. 관리자 월별정산은 운영 지원 기능으로 포함하고 손님 공유/서명 화면 정비는 다음 범위로 분리했다.
+- 영업자 전체 여정 **44/44**, 공통 문의·계약 **48/48**, 역할·소유권 **44/44**, 채팅 Rules **43/43**, 계약 업무목록 **142/142**, 재고표시 **28/28**, 회원표시 **10/10**, 정산표시 **30/30**, 차량 생애주기 PASS, 차량잠금 **23/23**, 3자 계약→정산 **22/22**, 삭제상품 보안 **10/10**, 정산 private write **8/8**을 통과했다.
+- `sheet-merge.ts`에서 Sheet 가격 soft-merge에 따라오던 `fee/commission/fee_memo`와 원가·VIN·계좌 원자를 CAS 패치 전에 제거했다. Sheet는 공개 재고·대여조건만 갱신하고 private 원자는 건드리지 않으므로, 공개 가격만 먼저 저장된 뒤 화면이 실패로 보고하는 부분 성공 경로를 제거했다. Sheet merge는 **128/128 PASS**다.
+- 브라우저에서 영업자 `/chat`·`/contract`, 공급사 `/inventory`·`/policy`·`/contract`를 직접 렌더했다. 역할을 공급사로 바꿔도 상단 계정명이 `박영업`으로 남던 결함을 `TopBar`의 `fp:role` 구독으로 수정했고, `둘러보기·제일오토렌탈` 즉시 반영과 콘솔 error 0을 확인했다.
+- type/fonts/tokens/UI contract와 production build 정적 페이지 **30/30 PASS**다. 로컬/기본 설정에서 `SHEET_DAILY_SYNC_ENABLED`는 true가 아니므로, 미결 Sheet 충돌이 있는 자동 저장은 활성화되지 않는다.
+- 현재 운영 `database.rules.json`은 B2B 보안 차단 12개가 남는다. v3 원문 광역 read/write, v4 소유권, 계약 스냅샷·고객 PII·전자서명·메모, 공급사 취소, settlement/private 금액 위조가 운영 규칙에서 아직 닫히지 않았다. 실제 `sim-contract-rules`도 계약 차량 스냅샷 불변에서 실패한다.
+- 비게시 후보에서 기존 검사가 놓친 `v4/products` read 계정상태 우회를 발견했다. 후보 생성기에 활성·배정 역할 제한을 추가하고 승인대기·비활성·삭제·반려·미배정 역할의 실제 Emulator read 차단을 보강했다. 현재 후보는 보안 **14/14**, 계약 **26/26**, 전자서명 **58/58**, 격리 Emulator **32/32 PASS**다. 운영 `database.rules.json`은 수정·게시하지 않았고 이 후보는 사람/Claude 실데이터 게이트 전 머지·게시 금지다.
+- 최신 운영 read-only 대조는 공급사 Sheet 16곳·389대, v3-only **292건/288대**를 확인했다. 이 가운데 현재 Sheet 연결 239대(참조보호 31대 포함), 참조만 7대, Sheet·참조 없음 42대다. 따라서 후보 Rules만 먼저 게시하면 영업자·공급사 화면에서 정당한 레거시 재고가 사라지는 것이 확정됐다.
+- 데이터 강제이관 대신 `/api/products/bridge` 읽기 전용 호환층을 추가했다. 서버가 ID token과 현재 `users/{uid}`의 역할·승인·활성 상태를 매 요청 재검증하고, 영업자·타 공급사 매물에서는 원가·VIN·계좌·기간별 내부 수수료를 제거한다. 공급사는 자기 회사 원문만, 관리자는 운영 원문을 받는다. 클라이언트는 이 API를 먼저 사용하고 현재 Rules/로컬 서버 미설정 때만 기존 직접 read로 복구한다. v3/v4 write 경로는 바꾸지 않았다.
+- 서버 응답은 활성 재고와 계약·문의가 실제 참조하는 삭제 이력만 선별한다. 최신 운영 read-only 계산은 원시 약 5,700건 중 **740건**으로 응답 상한 2,000건 안이다. 상품 서버 브리지 적대검증 **16/16 PASS**, 비인증 API HTTP **403**, typecheck 및 production build 정적 페이지 **30/30 PASS**다. 브라우저에서 영업자·공급사 역할 전환과 `/catalog`·`/chat`·`/contract`·`/inventory`·`/policy`를 재검수했고 콘솔 로그 0건이다. 둘러보기에는 실계정 토큰이 없어 인증 성공 API E2E는 운영 전 smoke gate로 남겼다.
+- Vercel Preview에만 서버 전용 `FIREBASE_SERVICE_ACCOUNT_JSON`을 Sensitive로 등록하고 격리 소스 스냅샷을 배포했다. 첫 Preview에서 `firebase-admin@14.2.0 → jwks-rsa@4 → jose@6`의 CJS/ESM 충돌로 Admin SDK 사용 API가 500이 되는 것을 실런타임 로그로 확인했다. `firebase-admin`을 마지막 13.x인 `13.10.0`으로 고정해 `jwks-rsa@3.2.2 / jose@4.15.9`로 복구했다.
+- Next 자체 고위험 Server Actions/SSRF 패치를 위해 `next@15.5.21`을 고정했다. 이어 서버 `not-found`가 client UI 배럴의 `FW/C` 객체 속성을 접근해 `/login` 로그에 남기던 React 직렬화 오류를 리프 import로 수정하고 UI 계약 게이트에 재발 검사를 추가했다. SheetJS 보안 교체까지 포함한 최종 Preview `dpl_9H8TtHymfPhUcocr1gbvpnim66FQ` (`freepasserp4-48ikovxat-freepass-projects.vercel.app`)는 Ready이며 로그인 200, 존재하지 않는 경로 404, Admin API 3종 비인증 403, 요청 후 Vercel error 로그 0건이다.
+- 중단된 npm `xlsx@0.18.5`는 SheetJS 공식 설치 지침에 따라 보안 수정본 `0.20.3` 공식 CDN tarball로 고정했다. 메모리 workbook write/read roundtrip, 정산표시 30/30, 정산 E2E 22/22, private 8/8, Phase12 48/48, Sheet merge 128/128 PASS다. production 의존성 감사는 critical 0, high 3, moderate 8로 감소했고 남은 high는 Next가 아직 고정한 `postcss/sharp` 전이 항목과 그 집계다. Next upstream 호환 전 무검증 override·강제 major 수정은 하지 않는다.
+- 수정 Preview에서 `/login` GET은 200, `/api/products/bridge`·`/api/inventory/duplicate-plan`·`/api/sheet/sync-status` 비인증 요청은 모두 500 없이 403으로 fail-closed했다. Production 환경변수와 별칭은 변경하지 않았으며 공개 Production `/api/products/bridge`는 계속 404다.
+- `npm run check:b2b-release`는 Vercel Node 함수와 호환되지 않는 Admin SDK 하위 의존성 조합도 차단한다. 서비스계정을 현재 프로세스에만 주입한 실제 결과는 **23 PASS / 0 FAIL**이고, 비밀값은 저장소·명령 출력에 남기지 않았다.
+- `smoke-b2b-product-bridge.mts`는 배포 URL과 환경변수로 받은 영업자·공급사 ID token을 사용해 비인증 403, 양 역할 200, 상품 집합·count, 영업자 private 0, 공급사 타회사 private 0, 공개내용 일치를 검사한다. 전용 QA 토큰 2개가 없어 인증 성공 부분은 아직 미실행이며 실제 운영 사용자를 임의로 가장하지 않았다.
+- 최종 조건: 전용 영업자·공급사 QA 토큰으로 Preview 브리지 목록·원가 격리 smoke → 사람/Claude가 보강된 후보 Rules와 실데이터 호환성 승인 → 운영 Rules 게시 → 문의·계약 단계 write·정산 read smoke. 서버 브리지보다 Rules를 먼저 게시하면 안 된다.
+
 ## 2026-08-03 신원·미확정 충돌 차량별 결정 원장
 
 결과: **남은 16대 관리자 판단 기록 PASS / 계약보호·원문변경·대상모호 fail-closed / 복구·신규·재번호·유입제외 실행 0건 / 운영 동기화 NO-GO 유지**

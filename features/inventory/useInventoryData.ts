@@ -77,9 +77,15 @@ export function useInventoryAccessEffects({
           setAccess(false);
           return;
         }
-        setPolicies(await getStore().list('policy', companyId));
-        await loadProducts(role);
+        // 권한이 확인되면 4패널 골격을 먼저 보여주고, 독립 read는 병렬 실행한다.
+        // 정책 → 상품 → 파트너 순차 대기는 공급사 재고 진입을 매번 1초 이상 늦췄다.
         setAccess(true);
+        setGateMessage('');
+        const [loadedPolicies] = await Promise.all([
+          getStore().list('policy', companyId),
+          loadProducts(role),
+        ]);
+        setPolicies(loadedPolicies);
         void loadMasterRef.current().catch(() => {});
         // 업무 목록 공통 규격: 화면 진입은 목록부터 시작하고, 사용자가 행을 선택해야 상세를 연다.
         clearSelectionRef.current();

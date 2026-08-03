@@ -3,7 +3,8 @@
  * 진단 — RTDB 연결·권한·건수를 한 화면에서 확인. 문제 생겼을 때 콘솔 대신 여기를 본다.
  * 원칙: 아무것도 기다리지 않고 뜬다. 각 노드는 개별 타임아웃 → 하나가 멈춰도 나머지는 결과가 나온다.
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { ref, get } from 'firebase/database';
 import { getRtdb, getAuthClient, firebaseReady } from '@/lib/firebase/client';
 import { getSession } from '@/lib/auth-session';
@@ -11,7 +12,8 @@ import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { productImages, productExternalImages, scrapableSources, productPhotos } from '@/lib/domain/product-photos';
-import { Page, Btn, Input, C, R, NUM, SectionLabel, Badge, CenterNote, FW, FS } from '@/components/ui';
+import { isAdminUiAllowed } from '@/lib/auth-gate';
+import { Page, Btn, Input, C, R, NUM, SectionLabel, Badge, CenterNote, Loading, FW, FS } from '@/components/ui';
 
 type Probe = { path: string; state: 'ok' | 'denied' | 'timeout' | 'error'; count: number; detail: string; ms: number };
 
@@ -27,6 +29,8 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T | { __timeout: tru
 
 export default function Diag() {
   const co = getCompanyId();
+  const router = useRouter();
+  const [allowed, setAllowed] = useState<boolean | null>(null);
   const [probes, setProbes] = useState<Probe[] | null>(null);
   const [storeInfo, setStoreInfo] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
@@ -34,6 +38,11 @@ export default function Diag() {
   const auth = firebaseReady() ? getAuthClient() : null;
   const user = auth?.currentUser || null;
   const sess = getSession();
+
+  useEffect(() => {
+    if (!isAdminUiAllowed()) { router.replace('/'); return; }
+    setAllowed(true);
+  }, [router]);
 
   const run = async () => {
     if (busy) return;
@@ -149,6 +158,8 @@ export default function Diag() {
       <span style={{ color: C.ink, fontFamily: NUM, wordBreak: 'break-all' }}>{v}</span>
     </div>
   );
+
+  if (allowed !== true) return <Loading />;
 
   return (
     <Page title="진단" meta="RTDB 연결·권한·건수">

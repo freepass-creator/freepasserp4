@@ -334,6 +334,55 @@ export class RtdbAdapter implements StoreAdapter {
     return output;
   }
 
+  /**
+   * v3 products 보안 브리지.
+   *
+   * 후보 Rules에서는 비관리자 원문 read가 닫히므로, 실 로그인은 서버가 users/{uid}를 재검증하고
+   * 원가·VIN을 역할별 제거한 API를 우선 사용한다. 현재 운영 Rules/로컬에서 서버 자격증명이 아직
+   * 준비되지 않은 경우에만 기존 직접 read로 되돌아가며, 후보 Rules 적용 뒤에는 그 fallback도
+   * permission_denied가 되어 상위 strict health가 불완전 상태로 보고한다(빈 목록 성공 오판 금지).
+   */
+  private async readLegacyProducts(co: string, joinMap?: Rec): Promise<EntityRecord[]> {
+    const auth = getAuthClient()?.currentUser;
+    if (!auth || auth.isAnonymous) return this.readNode('product', co, false, joinMap);
+    // 관리자는 후보 Rules에서도 v3 원문 직접 read가 허용된다. 삭제 이력까지 필요한 운영·Sheet 검증은
+    // 서버 축약 응답이 아니라 기존 strict 원문을 유지한다. 강등 직후처럼 직접 read가 거부되면 아래
+    // 활성 프로필 재검증 API로 이어져 fail-closed한다.
+    if (getSession()?.role === 'admin') {
+      try {
+        return await this.readNode('product', co, false, joinMap);
+      } catch { /* 서버 브리지로 재검증 */ }
+    }
+    try {
+      const token = await auth.getIdToken();
+      const response = await fetch('/api/products/bridge', {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store',
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const payload = await response.json() as { products?: Rec };
+      if (!payload.products || typeof payload.products !== 'object' || Array.isArray(payload.products)) {
+        throw new Error('응답 형식 오류');
+      }
+      return Object.entries<any>(payload.products).flatMap(([childKey, record]) => (
+        record && typeof record === 'object'
+          ? [toV4Record('product', childKey, record, co, joinMap)]
+          : []
+      ));
+    } catch (apiError) {
+      try {
+        const rows = await this.readNode('product', co, false, joinMap);
+        console.warn('상품 서버 브리지 미사용 — 현재 Rules 직접 read로 복구:', (apiError as Error).message);
+        return rows;
+      } catch (directError) {
+        throw new Error(
+          `상품 서버 브리지와 v3 직접 read 모두 실패: ${(apiError as Error).message}; ${(directError as Error).message}`,
+        );
+      }
+    }
+  }
+
   private async readNode(entity: string, co: string, overlay: boolean, joinMap?: Rec, roomIds?: string[]): Promise<EntityRecord[]> {
     if (entity === 'message') return this.readMessages(co, overlay, roomIds || []);
     if (entity === 'room') return this.readRoomsScoped(co, overlay);
@@ -395,7 +444,9 @@ export class RtdbAdapter implements StoreAdapter {
       }
 
       const liveRead = bridge
-        ? this.readNode(entity, co, false, joinMap, roomIds)
+        ? (entity === 'product'
+            ? this.readLegacyProducts(co, joinMap)
+            : this.readNode(entity, co, false, joinMap, roomIds))
         : Promise.resolve([] as EntityRecord[]);
       const overlayRead = this.readNode(entity, co, true, joinMap, roomIds);
       const [live, over] = strict

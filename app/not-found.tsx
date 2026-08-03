@@ -1,4 +1,5 @@
-import { Btn, C, FS, FW } from '@/components/ui';
+import { Btn } from '@/components/ui/buttons';
+import { C, FS, FW } from '@/components/ui/tokens';
 
 /** 없는 경로 — 기본 Next 404 대신 브랜드 톤 안내 + 홈 이동. */
 export default function NotFound() {

@@ -89,8 +89,20 @@ function WebSessionMeta() {
   // SSR·첫 클라 렌더 동일 — getRole()/actor()/isGuest()는 localStorage 의존이라 서버엔 값이 없다.
   // 렌더 중에 읽으면 서버 폴백(박영업)과 클라 실제세션(박영협)이 어긋나 hydration mismatch. NavMenu와 동일하게 마운트 후에만 읽는다.
   const [mounted, setMounted] = useState(false);
-  useEffect(() => { setMounted(true); }, []);
-  const role = session?.role ?? (mounted ? getRole() : 'agent');
+  const [demoRole, setDemoRole] = useState<Role>('agent');
+  useEffect(() => {
+    setMounted(true);
+    setDemoRole(getRole());
+    const onRole = (event: Event) => setDemoRole((event as CustomEvent).detail as Role);
+    const onSession = () => setDemoRole(getRole());
+    window.addEventListener('fp:role', onRole);
+    window.addEventListener('fp:session', onSession);
+    return () => {
+      window.removeEventListener('fp:role', onRole);
+      window.removeEventListener('fp:session', onSession);
+    };
+  }, []);
+  const role = session?.role ?? demoRole;
   const me = mounted ? actor(role) : null;
   const guest = mounted ? isGuest() : false;
   const [date, setDate] = useState(() => todayLabel());

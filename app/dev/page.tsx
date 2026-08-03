@@ -51,10 +51,10 @@ export default function DevTools() {
 
   useEffect(() => {
     (async () => {
-      await seedIfEmpty(co);
       const r = getRole();
       setRoleLocal(r);
       if (!isAdminUiAllowed()) { setOk(false); return; }
+      await seedIfEmpty(co);
       await reload();
       setOk(true);
     })();

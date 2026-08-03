@@ -36,22 +36,54 @@ export function firebaseAdminDatabase(): Database {
   return getDatabase(firebaseAdminApp());
 }
 
-export async function verifyAdminBearer(request: Request): Promise<{ uid: string } | null> {
+export type ActiveBearer = {
+  uid: string;
+  role: 'agent' | 'provider' | 'admin';
+  rawRole: string;
+  companyCode: string;
+};
+
+const ACTIVE_ROLES = new Set(['agent', 'agent_admin', 'agent_manager', 'provider', 'provider_admin', 'admin']);
+
+/**
+ * 서버 API 공통 인증 게이트.
+ *
+ * ID 토큰만 믿지 않고 운영 권한 SSOT인 users/{uid}를 매 요청 재확인한다. 역할 강등·퇴사 처리 뒤
+ * 만료 전 토큰이 남아 있어도 서버 투영 API를 계속 읽는 일을 막기 위해서다. status가 없는 기존
+ * 정상 회원은 현재 RTDB rules와 동일하게 허용하되, 미배정 역할·익명·대기·삭제·반려·비활성은 닫는다.
+ */
+export async function verifyActiveBearer(request: Request): Promise<ActiveBearer | null> {
   const token = request.headers.get('authorization')?.match(/^Bearer\s+(.+)$/i)?.[1] || '';
   if (!token) return null;
   try {
     const decoded = await getAuth(firebaseAdminApp()).verifyIdToken(token);
+    if (decoded.firebase?.sign_in_provider === 'anonymous') return null;
     const snapshot = await firebaseAdminDatabase().ref(`users/${decoded.uid}`).get();
     const profile = snapshot.val() as {
       role?: string;
       status?: string;
       is_active?: boolean | string;
+      company_code?: string;
     } | null;
-    if (!profile || profile.role !== 'admin') return null;
+    const rawRole = String(profile?.role || '');
+    if (!profile || !ACTIVE_ROLES.has(rawRole)) return null;
     if (['pending', 'deleted', 'rejected'].includes(String(profile.status || ''))) return null;
     if (profile.is_active === false || profile.is_active === '아니오') return null;
-    return { uid: decoded.uid };
+    const role = rawRole === 'admin'
+      ? 'admin'
+      : (rawRole === 'provider' || rawRole === 'provider_admin' ? 'provider' : 'agent');
+    return {
+      uid: decoded.uid,
+      role,
+      rawRole,
+      companyCode: String(profile.company_code || '').trim(),
+    };
   } catch {
     return null;
   }
+}
+
+export async function verifyAdminBearer(request: Request): Promise<{ uid: string } | null> {
+  const active = await verifyActiveBearer(request);
+  return active?.role === 'admin' ? { uid: active.uid } : null;
 }

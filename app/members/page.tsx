@@ -93,7 +93,7 @@ export default function Members() {
   // 회원·파트너 = 관리자 전용(요율·역할을 바꾸는 화면).
   // 둘러보기는 세션이 없어 getRole()이 localStorage 값을 읽는다 → fp4_role 조작으로 통과 가능하므로 함께 차단.
   // ※ 화면 게이트는 방어의 일부일 뿐 — 실제 강제는 RTDB 규칙에서 해야 한다(현재 v4 오버레이 규칙 미비, 별도 과제).
-  useEffect(() => { (async () => { await seedIfEmpty(co); if (!isAdminUiAllowed()) { router.replace('/'); return; } await load('user'); setOk(true); })(); /* eslint-disable-next-line */ }, []);
+  useEffect(() => { (async () => { if (!isAdminUiAllowed()) { router.replace('/'); return; } await seedIfEmpty(co); await load('user'); setOk(true); })(); /* eslint-disable-next-line */ }, []);
 
   const switchTab = async (t: Tab) => {
     if (t === tab) return;

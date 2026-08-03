@@ -33,6 +33,18 @@ check('SEC-R4 v3 products 원가·VIN 포함 원문은 모든 인증 사용자�
   v3ProductRead);
 
 const v4Products = rules.v4?.products as Rule | undefined;
+const v4ProductRead = text(v4Products?.['.read']);
+const activeAssignedProductRead = (
+  v4ProductRead.includes("child('status').val() !== 'pending'")
+  && v4ProductRead.includes("child('status').val() !== 'deleted'")
+  && v4ProductRead.includes("child('status').val() !== 'rejected'")
+  && v4ProductRead.includes("child('is_active').val() !== '아니오'")
+  && v4ProductRead.includes("child('is_active').val() !== false")
+  && ['agent', 'agent_admin', 'agent_manager', 'provider', 'provider_admin', 'admin']
+    .every((role) => v4ProductRead.includes(`child('role').val() === '${role}'`))
+);
+check('SEC-R4b v4 공개 products도 활성·배정 사용자만 read',
+  activeAssignedProductRead, v4ProductRead);
 const productGuardSurface = JSON.stringify(v4Products?.$code || {});
 const broadProductFields = ['vehicle_status', 'locked_by_contract'].filter((field) => {
   const write = text(v4Products?.$code?.[field]?.['.write']);

@@ -12,7 +12,7 @@ export type GuardedProductPatchResult = {
   conflicts: string[];
 };
 
-const DEFAULT_GUARD_FIELDS = [
+export const PRODUCT_PATCH_GUARD_FIELDS = [
   'updatedAt',
   'updated_at',
   '_deleted',
@@ -49,7 +49,7 @@ export function productPatchPreconditionMatches(
   if (!current && !opts.overlayFallback) return false;
   const fields = new Set<string>([
     ...Object.keys(patch),
-    ...(opts.guardFields ?? DEFAULT_GUARD_FIELDS),
+    ...(opts.guardFields ?? PRODUCT_PATCH_GUARD_FIELDS),
   ]);
   for (const field of fields) {
     const actual = opts.overlayFallback && !hasOwn(current, field)

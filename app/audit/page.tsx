@@ -86,7 +86,7 @@ export default function AuditTrash() {
     setLogs(normalized.sort((a, b) => Number(b.at) - Number(a.at)));
     await loadTrash();
   };
-  useEffect(() => { (async () => { await seedIfEmpty(co); if (!isAdminUiAllowed()) { router.replace('/'); return; } await load(); setOk(true); })(); /* eslint-disable-next-line */ }, []);
+  useEffect(() => { (async () => { if (!isAdminUiAllowed()) { router.replace('/'); return; } await seedIfEmpty(co); await load(); setOk(true); })(); /* eslint-disable-next-line */ }, []);
 
   const shownLogs = useMemo(() => {
     const qq = q.trim().toLowerCase();

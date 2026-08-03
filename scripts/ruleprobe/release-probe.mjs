@@ -44,6 +44,11 @@ const providerA = await signUp('release-provider-a');
 const providerB = await signUp('release-provider-b');
 const agent = await signUp('release-agent');
 const agentOther = await signUp('release-agent-other');
+const pendingAgent = await signUp('release-pending-agent');
+const inactiveAgent = await signUp('release-inactive-agent');
+const deletedAgent = await signUp('release-deleted-agent');
+const rejectedAgent = await signUp('release-rejected-agent');
+const unassignedUser = await signUp('release-unassigned');
 
 await db('users', { method: 'PUT', body: {
   [admin.uid]: { uid: admin.uid, role: 'admin', status: 'active', user_code: 'ADM' },
@@ -51,6 +56,11 @@ await db('users', { method: 'PUT', body: {
   [providerB.uid]: { uid: providerB.uid, role: 'provider', status: 'active', user_code: 'PB', company_code: 'SUP-B' },
   [agent.uid]: { uid: agent.uid, role: 'agent', status: 'active', user_code: 'AG-A', agent_channel_code: 'CH-A' },
   [agentOther.uid]: { uid: agentOther.uid, role: 'agent', status: 'active', user_code: 'AG-B', agent_channel_code: 'CH-B' },
+  [pendingAgent.uid]: { uid: pendingAgent.uid, role: 'agent', status: 'pending', user_code: 'AG-PENDING' },
+  [inactiveAgent.uid]: { uid: inactiveAgent.uid, role: 'agent', status: 'active', is_active: '아니오', user_code: 'AG-INACTIVE' },
+  [deletedAgent.uid]: { uid: deletedAgent.uid, role: 'agent', status: 'deleted', user_code: 'AG-DELETED' },
+  [rejectedAgent.uid]: { uid: rejectedAgent.uid, role: 'agent', status: 'rejected', user_code: 'AG-REJECTED' },
+  [unassignedUser.uid]: { uid: unassignedUser.uid, role: '', status: 'active', user_code: 'UNASSIGNED' },
 } });
 
 const doneContract = {
@@ -85,6 +95,14 @@ check('admin v3 products 이관 점검 read 허용', (await db('products', { tok
 check('agent v3 products write 차단', (await db('products/LEGACY', { method: 'PATCH', token: agent.token, body: { vehicle_status: '출고불가' } })).status, 401);
 check('provider v3 partners 광역 write 차단', (await db('partners/SUP-A', { method: 'PATCH', token: providerA.token, body: { name: '탈취' } })).status, 401);
 check('provider v3 policies 광역 write 차단', (await db('policies/OLD', { method: 'PATCH', token: providerA.token, body: { name: '탈취' } })).status, 401);
+
+console.log('\n=== v4 공개 재고 계정상태 게이트 ===');
+check('활성 배정 영업자 v4 products read 허용', (await db('v4/products', { token: agent.token })).status, 200);
+check('승인대기 영업자 v4 products read 차단', (await db('v4/products', { token: pendingAgent.token })).status, 401);
+check('비활성 영업자 v4 products read 차단', (await db('v4/products', { token: inactiveAgent.token })).status, 401);
+check('삭제 영업자 v4 products read 차단', (await db('v4/products', { token: deletedAgent.token })).status, 401);
+check('반려 영업자 v4 products read 차단', (await db('v4/products', { token: rejectedAgent.token })).status, 401);
+check('미배정 역할 v4 products read 차단', (await db('v4/products', { token: unassignedUser.token })).status, 401);
 
 console.log('\n=== v4 기준정보 소유권 ===');
 check('provider 자기 partner 수정 허용', (await db('v4/partners/SUP-A', { method: 'PATCH', token: providerA.token, body: { name: 'A2' } })).status, 200);
