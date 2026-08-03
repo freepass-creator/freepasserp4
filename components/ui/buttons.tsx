@@ -12,6 +12,16 @@ function fireHaptic(kind: BtnHaptic) {
   hapticApi[kind]();
 }
 
+/** 결정적 액션의 아이콘+텍스트 조합 SSOT. 선택칩·아이콘-only 툴에는 사용하지 않는다. */
+export function ButtonLabel({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+      {icon}
+      <span>{children}</span>
+    </span>
+  );
+}
+
 export function Btn({ children, mobileIcon, onClick, variant = 'solid', size = 'md', disabled, href, style, full, type = 'button', className, title, haptic = 'tap', 'aria-label': ariaLabel, 'aria-pressed': ariaPressed, 'data-active': dataActive }: {
   children: React.ReactNode;
   /**

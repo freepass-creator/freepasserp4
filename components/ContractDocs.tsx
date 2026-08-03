@@ -4,9 +4,9 @@ import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { getRole, actor, ROLE_LABEL, type Role } from '@/lib/domain/deal';
 import { isContractCancelled } from '@/lib/domain/contract';
-import { C, R, FS, FW, Btn, Dropzone, SCRIM } from '@/components/ui';
+import { C, R, FS, FW, Btn, ButtonLabel, Dropzone, SCRIM, ICON } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
-import { Paperclip, FileText, X, Download } from 'lucide-react';
+import { Paperclip, FileText, X, Download, Trash2 } from 'lucide-react';
 import { toast } from '@/components/Toaster';
 import { deleteManagedFile, uploadManagedFile, type DriveBackupStatus } from '@/lib/firebase/storage-files';
 import { findRoomForContract } from '@/features/chat/room-display';
@@ -328,7 +328,11 @@ export function ContractDocs({ contractCode, roomId, readOnly = false }: { contr
                   ? <span style={{ fontSize: FS.micro, fontWeight: FW.label, color: C.brand, background: C.selected, borderRadius: R, padding: '1px 5px', flex: '0 0 auto' }}>채팅</span>
                   : null}
                 {a.url && <a href={a.url} download={a.name} aria-label="다운로드" style={{ color: C.faint, display: 'flex', flex: '0 0 auto' }}><Download size={13} /></a>}
-                {!a.fromChat && !readOnly ? <Btn size="sm" variant="danger" title="삭제" disabled={busy} onClick={() => remove(a)}>삭제</Btn> : null}
+                {!a.fromChat && !readOnly ? (
+                  <Btn size="sm" variant="danger" title="삭제" disabled={busy} onClick={() => remove(a)}>
+                    <ButtonLabel icon={<Trash2 size={ICON.md} aria-hidden />}>삭제</ButtonLabel>
+                  </Btn>
+                ) : null}
               </div>
             );
           })}

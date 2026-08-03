@@ -3,8 +3,9 @@ import { useEffect, useRef, useState } from 'react';
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { getRole, type Role } from '@/lib/domain/deal';
-import { Btn, C, actorColor, Textarea, FW, FS, R } from '@/components/ui';
+import { Btn, ButtonLabel, C, actorColor, Textarea, FW, FS, R, ICON } from '@/components/ui';
 import { toast } from '@/components/Toaster';
+import { Save } from 'lucide-react';
 
 // 계약 역할별 메모 3슬롯(영업/공급/관리자). 본인 역할 슬롯만 편집, 나머지는 열람. 관리자는 전부 편집.
 // 필드: memo_agent / memo_provider / memo_admin (명시적 저장 버튼으로만 저장).
@@ -98,7 +99,9 @@ export function ContractMemos({ contractCode }: { contractCode: string }) {
                     disabled={!dirty[slot] || saving[slot]}
                     onClick={() => { void save(slot); }}
                   >
-                    {saving[slot] ? '저장 중…' : '저장'}
+                    <ButtonLabel icon={<Save size={ICON.md} aria-hidden />}>
+                      {saving[slot] ? '저장 중…' : '저장'}
+                    </ButtonLabel>
                   </Btn>
                 </div>
               </>

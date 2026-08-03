@@ -329,6 +329,15 @@ export const ENTITIES: Record<string, Entity> = {
       { key: 'sign_consents', label: '동의 항목', type: 'text', note: '콤마 구분' },
       { key: 'contract_draft', label: '계약서 초안 JSON', type: 'text', manual: true, note: '템플릿 setData 스냅샷' },
       { key: 'sign_draft_at', label: '초안 저장시각', type: 'number' },
+      // ── 외부 전자계약(착한거래) 연동 예약 — docs/ESIGN_CHAKHANDEAL_INTEGRATION.md ──
+      //  지금은 전부 self(자체 서명)이고 값이 비어 있다. **필드를 지금 예약하는 이유**는
+      //  출시 후보 Rules 가 계약 하위키를 `!data.parent().exists() || newData.val() === data.val()`
+      //  로 잠그기 때문이다 — 규칙 게시 뒤에 새 필드를 기존 계약에 넣으려 하면 거부된다.
+      //  전환 시점에 값만 채우면 되도록 스키마 자리를 먼저 잡아 둔다.
+      { key: 'esign_provider', label: '전자계약 제공자', type: 'select', options: ['self', 'chakhandeal'], note: '기본 self(자체 서명). 착한거래 전환 시 chakhandeal' },
+      { key: 'esign_id', label: '외부 서명ID', type: 'text', note: '착한거래 signId' },
+      { key: 'esign_verify_url', label: '검증 링크', type: 'text', note: '착한거래 /v?id= — 파일이 아니라 사실을 증명하는 링크' },
+      { key: 'esign_seal_hash', label: '문서 봉인 해시', type: 'text', note: 'sha256. 계약 원문은 우리가 보관하고 해시만 봉인한다' },
       { key: 'memo_agent', label: '영업자메모', type: 'text', manual: true },
       { key: 'memo_provider', label: '공급사메모', type: 'text', manual: true },
       { key: 'memo_admin', label: '관리자메모', type: 'text', manual: true },

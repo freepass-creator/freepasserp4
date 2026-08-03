@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { getStore } from '@/lib/store';
+import { getStore, peekList } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
 import { useIsMobile } from '@/lib/use-mobile';
@@ -12,14 +12,14 @@ import { createSettlement } from '@/lib/domain/settlement-engine';
 import { requirePositiveRentAmount } from '@/lib/domain/contract-money';
 import { settlementNetTone } from '@/lib/domain/settlement-display';
 import { downloadSettlementsExcel } from '@/lib/excel-export';
-import { Download, Files, ListChecks, WalletCards } from 'lucide-react';
+import { CheckCircle2, Download, Files, ListChecks, PauseCircle, RotateCcw, Save, ShieldCheck, WalletCards } from 'lucide-react';
 import { getRole, actor, type Role } from '@/lib/domain/deal';
 import { getSession } from '@/lib/auth-session';
 import { canAccessOwnedRecord, organizationRole } from '@/lib/domain/authorization';
-import { withProviderNames } from '@/lib/domain/identity';
+import { providerNameMap, withProviderNames } from '@/lib/domain/identity';
 import { initAuth } from '@/lib/firebase/auth';
 import { man } from '@/lib/format';
-import { PaneHead, PaneBody, Badge, Btn, Input, won, C, R, NUM, Loading, CenterNote, ListGroup, SETTLEMENT_STATUS_TONE, FilterChips, FilterGroup, Select, FW, FS, FeedRowSkeleton, KV_LABEL_W, rowPadY } from '@/components/ui';
+import { PaneHead, PaneBody, Badge, Btn, ButtonLabel, Input, won, C, R, NUM, Loading, CenterNote, ListGroup, SETTLEMENT_STATUS_TONE, FilterChips, FilterGroup, Select, FW, FS, FeedRowSkeleton, KV_LABEL_W, rowPadY, ICON } from '@/components/ui';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
 import { ContractPanel } from '@/components/ContractPanel';
 import { ContractDocs } from '@/components/ContractDocs';
@@ -75,7 +75,9 @@ function AmtInput({ val, label, onCommit }: { val: number; label: string; onComm
         disabled={!dirty || saving}
         onClick={() => { void commit(); }}
       >
-        {saving ? '저장 중…' : '저장'}
+        <ButtonLabel icon={<Save size={ICON.md} aria-hidden />}>
+          {saving ? '저장 중…' : '저장'}
+        </ButtonLabel>
       </Btn>
     </div>
   );
@@ -84,15 +86,27 @@ function AmtInput({ val, label, onCommit }: { val: number; label: string; onComm
 export default function ContractsSettlement() {
   const co = getCompanyId();
   const mobile = useIsMobile();
-  const [rows, setRows] = useState<EntityRecord[] | null>(null);
+  // 같은 세션의 문의→계약 이동에서는 이미 권한 스코프로 읽은 계약 캐시를 즉시 그린다.
+  // 백그라운드 load가 곧 최신값으로 교체하므로 목록 전환 때 골격 화면으로 되돌아가지 않는다.
+  const [rows, setRows] = useState<EntityRecord[] | null>(() => {
+    const cached = peekList('contract', co);
+    if (!cached) return null;
+    return cached
+      .filter((contract) => canAccessOwnedRecord(getSession(), contract))
+      .slice()
+      .sort((a, b) => String(b.contract_date || '').localeCompare(String(a.contract_date || '')));
+  });
   const [sel, setSel] = useState<string | null>(null);
   const [selC, setSelC] = useState<EntityRecord | null>(null);
   const [selS, setSelS] = useState<EntityRecord | null>(null);
   const [selProduct, setSelProduct] = useState<EntityRecord | null>(null);
   const [roomId, setRoomId] = useState<string | null>(null);
-  const [setts, setSetts] = useState<EntityRecord[]>([]);
+  const [setts, setSetts] = useState<EntityRecord[]>(() => (
+    peekList('settlement', co)?.filter((settlement) => canAccessOwnedRecord(getSession(), settlement)) || []
+  ));
   const [catalogProducts, setCatalogProducts] = useState<EntityRecord[]>([]);
-  const settsRef = useRef<EntityRecord[]>([]);
+  const [partnerRows, setPartnerRows] = useState<EntityRecord[]>(() => peekList('partner', co) || []);
+  const settsRef = useRef<EntityRecord[]>(setts);
   const catalogLoading = useRef(false);
   const selectionEpoch = useRef(0);
   const selectedCodeRef = useRef<string | null>(null);
@@ -135,8 +149,11 @@ export default function ContractsSettlement() {
       const providerName = String(product.provider_name || product.provider_name_full || '').trim();
       if (providerCode && providerName && providerName !== providerCode) providerByCode.set(providerCode, providerName);
     }
+    for (const [providerCode, providerName] of Object.entries(providerNameMap(partnerRows))) {
+      if (providerCode && providerName && providerName !== providerCode) providerByCode.set(providerCode, providerName);
+    }
     return { byId, byCar, providerByCode };
-  }, [catalogProducts]);
+  }, [catalogProducts, partnerRows]);
   const productForContract = (contract: EntityRecord): EntityRecord | undefined => (
     productIndex.byId.get(String(contract.product_code || ''))
     || productIndex.byId.get(String(contract.product_uid || ''))
@@ -166,6 +183,9 @@ export default function ContractsSettlement() {
   const load = async (r: Role): Promise<EntityRecord[]> => {
     setRoleS(r);
     const store = getStore();
+    // 공급사 표시명은 대용량 상품·삭제이력보다 먼저 독립 조회한다. 계약 캐시를 즉시
+    // 그릴 때 RP013 같은 내부코드가 수 초간 노출되지 않게 한다.
+    void store.list('partner', co).then(setPartnerRows).catch(() => {});
     if (!catalogLoading.current && catalogProducts.length === 0) {
       catalogLoading.current = true;
       void Promise.all([
@@ -189,11 +209,21 @@ export default function ContractsSettlement() {
         console.error('[contract] 차량명 보강 실패(상품·삭제이력):', error);
       });
     }
-    const [all, allS] = await Promise.all([store.list('contract', co), store.list('settlement', co)]);
+    // 목록 표시를 정산 조회가 막지 않게 분리한다. 정산은 목록 행에 필요하지 않고
+    // 상세 선택 시 같은 store Promise를 재사용하므로 백그라운드 선조회만 해두면 된다.
+    const settlementsP = store.list('settlement', co);
+    const all = await store.list('contract', co);
     const mine = all.filter((c) => canAccessOwnedRecord(getSession(), c));
     mine.sort((a, b) => String(b.contract_date || '').localeCompare(String(a.contract_date || '')));
-    const mineS = allS.filter((s) => canAccessOwnedRecord(getSession(), s));
-    setRows(mine); setSetts(mineS); settsRef.current = mineS; return mine;
+    setRows(mine);
+    void settlementsP.then((allS) => {
+      const mineS = allS.filter((s) => canAccessOwnedRecord(getSession(), s));
+      setSetts(mineS);
+      settsRef.current = mineS;
+    }).catch((error) => {
+      console.warn('[contract] 정산 목록 선조회 실패:', (error as Error).message);
+    });
+    return mine;
   };
   const settlementForContract = (items: EntityRecord[], contractCode: unknown) => {
     const code = String(contractCode || '').trim();
@@ -481,10 +511,26 @@ export default function ContractsSettlement() {
           <span style={{ fontSize: FS.body, fontWeight: FW.title, fontFamily: NUM, minWidth: 0, flex: '0 1 auto', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{String(s.settlement_code)}</span>
           <Badge tone={SETTLEMENT_STATUS_TONE[st] || 'gray'}>{st}</Badge>
           <span style={{ flex: 1 }} />
-          {role === 'admin' && st === '정산대기' && <Btn title="정산 보류" variant="ghost" size="sm" onClick={() => setStatus('정산보류')}>보류</Btn>}
-          {role === 'admin' && st === '정산대기' && <Btn title="정산 확정" size="sm" onClick={() => setStatus('정산완료')}>정산 확정</Btn>}
-          {role === 'admin' && st === '정산보류' && <Btn title="정산 대기로 변경" size="sm" onClick={() => setStatus('정산대기')}>대기로</Btn>}
-          {role === 'admin' && st === '환수대기' && <Btn title="환수 확정" size="sm" onClick={() => setStatus('환수결정')}>환수 확정</Btn>}
+          {role === 'admin' && st === '정산대기' && (
+            <Btn title="정산 보류" variant="ghost" size="sm" onClick={() => setStatus('정산보류')}>
+              <ButtonLabel icon={<PauseCircle size={ICON.md} aria-hidden />}>보류</ButtonLabel>
+            </Btn>
+          )}
+          {role === 'admin' && st === '정산대기' && (
+            <Btn title="정산 확정" size="sm" onClick={() => setStatus('정산완료')}>
+              <ButtonLabel icon={<CheckCircle2 size={ICON.md} aria-hidden />}>정산 확정</ButtonLabel>
+            </Btn>
+          )}
+          {role === 'admin' && st === '정산보류' && (
+            <Btn title="정산 대기로 변경" size="sm" onClick={() => setStatus('정산대기')}>
+              <ButtonLabel icon={<RotateCcw size={ICON.md} aria-hidden />}>대기로</ButtonLabel>
+            </Btn>
+          )}
+          {role === 'admin' && st === '환수대기' && (
+            <Btn title="환수 확정" size="sm" onClick={() => setStatus('환수결정')}>
+              <ButtonLabel icon={<ShieldCheck size={ICON.md} aria-hidden />}>환수 확정</ButtonLabel>
+            </Btn>
+          )}
         </div>
         <div style={{ margin: '0 12px' }}>
         <ListGroup>

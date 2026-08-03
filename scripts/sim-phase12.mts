@@ -195,6 +195,10 @@ const pageActionsSrc = fs.readFileSync(path.join(root, 'components/PageActions.t
 const pageToolBarSrc = fs.readFileSync(path.join(root, 'components/PageToolBar.tsx'), 'utf8');
 const navigationSrc = fs.readFileSync(path.join(root, 'components/ui/navigation.tsx'), 'utf8');
 const buttonsSrc = fs.readFileSync(path.join(root, 'components/ui/buttons.tsx'), 'utf8');
+const contractPanelSrc = fs.readFileSync(path.join(root, 'components/ContractPanel.tsx'), 'utf8');
+const contractMemosSrc = fs.readFileSync(path.join(root, 'components/ContractMemos.tsx'), 'utf8');
+const contractDocsSrc = fs.readFileSync(path.join(root, 'components/ContractDocs.tsx'), 'utf8');
+const contractSignSrc = fs.readFileSync(path.join(root, 'components/ContractSign.tsx'), 'utf8');
 const settlementPageSrc = fs.readFileSync(path.join(root, 'app/settlement/page.tsx'), 'utf8');
 const inventoryPageSrc = fs.readFileSync(path.join(root, 'app/inventory/page.tsx'), 'utf8');
 const membersPageSrc = fs.readFileSync(path.join(root, 'app/members/page.tsx'), 'utf8');
@@ -210,6 +214,11 @@ check('D 모바일 CRUD는 공통 PageActions', pageActionsSrc.includes("from 'l
 check('D 모바일 툴바 라벨+아이콘 일치', pageToolBarSrc.includes('<Icon size={18}') && pageToolBarSrc.includes('<span>{t.label}</span>'));
 check('D 모바일 목록복귀는 공통 BottomNav', navigationSrc.includes("backKind?: 'history' | 'list'") && navigationSrc.includes('backShowLabel'));
 check('D 공통 Btn 모바일 아이콘 전환 SSOT', buttonsSrc.includes('mobileIcon?: React.ReactNode') && buttonsSrc.includes('iconOnly ? mobileIcon : children'));
+check('D 결정적 액션 아이콘+텍스트 SSOT', buttonsSrc.includes('export function ButtonLabel'));
+check('D 계약 진행 주요 액션 아이콘+텍스트', contractPanelSrc.includes('ButtonLabel') && contractPanelSrc.includes('CheckCircle2') && contractPanelSrc.includes('FileSignature'));
+check('D 계약 메모 저장 아이콘+텍스트', contractMemosSrc.includes('ButtonLabel') && contractMemosSrc.includes('<Save'));
+check('D 계약 서류 삭제 아이콘+텍스트', contractDocsSrc.includes('ButtonLabel') && contractDocsSrc.includes('<Trash2'));
+check('D 전자서명 주요 액션 아이콘+텍스트', contractSignSrc.includes('ButtonLabel') && contractSignSrc.includes('<Send') && contractSignSrc.includes('<CheckCircle2'));
 check('D 모바일 계약 엑셀 액션 미노출', contractPageSrc.includes('action: !mobile && setts.length'));
 check('D 모바일 월정산 엑셀·정산서 미노출', settlementPageSrc.includes('const actions = mobile ? undefined') && settlementPageSrc.includes('{!mobile && (') && settlementPageSrc.includes('accept=".xlsx,.xls"'));
 check('D 모바일 재고 시트취합 웹전용', inventoryPageSrc.includes("...(mobile ? [] : [{ key: 'sync'") && inventoryPageSrc.includes('<SheetSync'));

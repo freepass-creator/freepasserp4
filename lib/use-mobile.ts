@@ -51,17 +51,14 @@ function subscribe(cb: () => void) {
 
 function readWidthMobile(bp = MOBILE_BP): boolean {
   if (typeof window === 'undefined') return false;
-  const tip = document.documentElement.dataset.fpM;
-  if (bp === MOBILE_BP) {
-    if (tip === '1') return true;
-    if (tip === '0') return false;
-  }
+  // data-fp-m is a first-paint SSR/boot hint only. After mount, the live
+  // viewport is the source of truth so resize and orientation changes work.
   return window.innerWidth < bp;
 }
 
 /**
- * 훅 밖(effect·핸들러)에서 즉시 모바일 여부 — 부트스크립트가 세팅한 data-fp-m 우선(마운트 시점도 신뢰).
- * useIsMobile의 첫 렌더 SSR힌트가 데스크톱으로 어긋나는 타이밍 이슈를 피할 때 사용.
+ * 훅 밖(effect·핸들러)에서 즉시 모바일 여부 — 마운트 후 실제 viewport 폭을 기준으로 판정.
+ * 첫 렌더의 SSR 힌트는 MobileBpProvider/useIsMobile이 담당한다.
  */
 export function isMobileViewport(bp = MOBILE_BP): boolean {
   return readWidthMobile(bp);

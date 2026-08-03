@@ -68,7 +68,6 @@ export function FeedListRow({
   selected,
   onClick,
   href,
-  accent,
 }: {
   thumb?: ReactNode;
   /** 일반 목록 = 3줄 SSOT. (상품 파인더 ProductRowCard는 별도) */
@@ -76,8 +75,6 @@ export function FeedListRow({
   selected?: boolean;
   onClick?: () => void;
   href?: string;
-  /** 주의환기 좌측 액센트 바 — 안읽음(amber)·진행중(blue) 등. 레이아웃 불변(inset). */
-  accent?: BadgeTone;
 }) {
   const mobile = useIsMobile();
   const gap = 3;
@@ -88,8 +85,8 @@ export function FeedListRow({
     alignItems: 'center',
     padding: mobile ? '8px 12px' : '7px 14px', // 모바일 좌우 12 = 툴바·독과 좌측 정렬 일치
     borderBottom: `1px solid ${C.line}`,
+    // 선택은 배경으로만 표시한다. 상태는 썸네일 아이콘·배지·카운트로 전달한다.
     background: selected ? C.selected : undefined, // 짝수 행 지브라는 globals.css(.fp-card-row:nth-child(even))가 담당
-    boxShadow: accent ? `inset 3px 0 0 0 ${toneText(accent)}` : undefined,
     textDecoration: 'none',
     color: 'inherit',
     cursor: href || onClick ? 'pointer' : 'default',

@@ -741,7 +741,7 @@ button, a, [role="button"], .fp-press, .fp-chip {
      manipulation = 일반 스크롤·핀치줌은 유지(접근성). 연타 토글(간단/상세/엑셀) 줌 유발 차단. */
   touch-action: manipulation;
 }
-/* 목록 지브라 — 짝수 행에 옅은 배경 틴트(행 경계·스캔성). selected 인라인이 덮고, accent 좌측 바는 유지. */
+/* 목록 지브라 — 짝수 행에 옅은 배경 틴트(행 경계·스캔성). selected 인라인이 덮는다. 좌측 상태 바는 사용하지 않는다. */
 .fp-card.fp-card-row:nth-child(even) {
   background: var(--bg-stripe);
 }

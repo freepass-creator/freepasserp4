@@ -7,12 +7,12 @@ import { STEPS, contractStage, isContractCancelled, isContractCompleted, isDone,
 import { applyStepCheck, cancelContract, finalizeContractIfReady } from '@/lib/domain/settlement-engine';
 import { createContractRequest, getRole, type Role } from '@/lib/domain/deal';
 import { cheapest, priceList } from '@/lib/domain/product';
-import { Btn, Badge, C, R, NUM, ICON, Input, fmtPhone, actorColor, DetailRow, ListGroup, ToggleChips, FW, FS, won } from '@/components/ui';
+import { Btn, ButtonLabel, Badge, C, R, NUM, ICON, Input, fmtPhone, actorColor, DetailRow, ListGroup, ToggleChips, FW, FS, won } from '@/components/ui';
 import { ContractMemos } from '@/components/ContractMemos';
 import { ContractSign } from '@/components/ContractSign';
 import { confirmDialog, toast } from '@/components/Toaster';
 import { useIsMobile } from '@/lib/use-mobile';
-import { Check } from 'lucide-react';
+import { Ban, Check, CheckCircle2, FileSignature, RefreshCw, RotateCcw, Send } from 'lucide-react';
 import { runContractMutation } from '@/features/contract/contract-mutation';
 
 // 계약 패널 = 5단계 핸드셰이크 진행. 계약 없으면 계약문의로 시작 → 서류·입금·약정·출고.
@@ -172,7 +172,9 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
           )}
           <span style={{ flex: 1, minWidth: 8 }} />
           {c && !cancelled && (role === 'admin' || (role === 'agent' && !isContractCompleted(c))) && (
-            <Btn title="계약 취소" size="sm" variant="ghost" haptic="impact" onClick={doCancel} disabled={busy}>계약취소</Btn>
+            <Btn title="계약 취소" size="sm" variant="ghost" haptic="impact" onClick={doCancel} disabled={busy}>
+              <ButtonLabel icon={<Ban size={ICON.md} aria-hidden />}>계약취소</ButtonLabel>
+            </Btn>
           )}
         </div>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
@@ -184,7 +186,11 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
       {needsFinalize && (
         <div style={{ border: `1px solid ${C.warn}`, borderRadius: R, padding: '9px 10px', background: C.warnBg, display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
           <span style={{ flex: 1, fontSize: FS.cap, color: C.ink, lineHeight: 1.5 }}>5단계 체크는 끝났지만 정산·완료 처리가 남았습니다.</span>
-          {(role === 'admin' || role === 'provider') && <Btn title="완료 처리 재시도" size="sm" onClick={retryFinalize} disabled={busy}>완료 처리 재시도</Btn>}
+          {(role === 'admin' || role === 'provider') && (
+            <Btn title="완료 처리 재시도" size="sm" onClick={retryFinalize} disabled={busy}>
+              <ButtonLabel icon={<RefreshCw size={ICON.md} aria-hidden />}>완료 처리 재시도</ButtonLabel>
+            </Btn>
+          )}
         </div>
       )}
 
@@ -229,7 +235,11 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
                       value={done
                         ? doneMark
                         : mine
-                          ? <Btn title="출고 문의하기" size="sm" onClick={doInquiry} disabled={busy || !product}>출고 문의하기</Btn>
+                          ? (
+                            <Btn title="출고 문의하기" size="sm" onClick={doInquiry} disabled={busy || !product}>
+                              <ButtonLabel icon={<Send size={ICON.md} aria-hidden />}>출고 문의하기</ButtonLabel>
+                            </Btn>
+                          )
                           : waitMark}
                     />
                     {/* 기간 선택 — 계약 생성 전에만. 이 값이 정산·계약서·손님 서명 금액의 기준이 된다. */}
@@ -280,7 +290,9 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
                             <Input value={cust.name} onChange={(v) => setCust((s) => ({ ...s, name: v }))} placeholder="손님명" size="sm" width={mobile ? undefined : 82} style={mobile ? { flex: '0 1 92px', minWidth: 72 } : undefined} />
                             <Input value={cust.phone} onChange={(v) => setCust((s) => ({ ...s, phone: fmtPhone(v) }))} placeholder="연락처" inputMode="tel" size="sm" style={{ flex: '1 1 auto', minWidth: 0 }} />
                           </div>
-                          <Btn title="약정 완료" size="sm" onClick={doAgreement} disabled={busy || !cust.name.trim() || !cust.phone.trim()}>약정완료</Btn>
+                          <Btn title="약정 완료" size="sm" onClick={doAgreement} disabled={busy || !cust.name.trim() || !cust.phone.trim()}>
+                            <ButtonLabel icon={<FileSignature size={ICON.md} aria-hidden />}>약정완료</ButtonLabel>
+                          </Btn>
                         </div>
                       </div>
                     )}
@@ -357,7 +369,9 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
                     mine ? (
                       <>
                         {doneMark}
-                        <Btn title="완료 해제" size="sm" variant="ghost" haptic="select" disabled={busy} onClick={() => setCheck(ch.key, '')}>해제</Btn>
+                        <Btn title="완료 해제" size="sm" variant="ghost" haptic="select" disabled={busy} onClick={() => setCheck(ch.key, '')}>
+                          <ButtonLabel icon={<RotateCcw size={ICON.md} aria-hidden />}>해제</ButtonLabel>
+                        </Btn>
                       </>
                     ) : doneMark
                   ) : mine ? (
@@ -368,7 +382,9 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
                       haptic="select"
                       disabled={busy}
                       onClick={() => setCheck(ch.key, 'yes')}
-                    >완료 표시</Btn>
+                    >
+                      <ButtonLabel icon={<CheckCircle2 size={ICON.md} aria-hidden />}>완료 표시</ButtonLabel>
+                    </Btn>
                   ) : waitMark}
                 />
               );

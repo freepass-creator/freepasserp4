@@ -1,7 +1,7 @@
 'use client';
 import type { ReactNode } from 'react';
 import { Pencil, Plus, Save, Trash2, X } from 'lucide-react';
-import { Btn } from '@/components/ui';
+import { Btn, ButtonLabel } from '@/components/ui';
 
 /**
  * 하단 액션 슬롯 SSOT.
@@ -44,10 +44,7 @@ export function PageActions({
     const label = spec.label || fallback;
     return (
       <Btn size="sm" variant={variant} disabled={spec.disabled} title={label} haptic={haptic} onClick={spec.onClick}>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-          {icon}
-          {label}
-        </span>
+        <ButtonLabel icon={icon}>{label}</ButtonLabel>
       </Btn>
     );
   };

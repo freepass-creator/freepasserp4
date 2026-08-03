@@ -10,7 +10,7 @@ import { useIsMobile } from '@/lib/use-mobile';
  */
 export type BadgeTone = 'gray' | 'green' | 'red' | 'amber' | 'blue' | 'orange' | 'purple' | 'teal';
 
-/** [text, softBg, accent] — accent=왼쪽 바·솔리드 틴트용.
+/** [text, softBg, accent] — accent=아이콘·점·솔리드 틴트용.
  * 값 = globals.css --bdg-* 변수(라이트/다크 SSOT). 여기 hex 직접 금지(다크모드 깨짐 원흉이었음). */
 const BADGE: Record<BadgeTone, [string, string, string]> = {
   gray: ['var(--bdg-gray-fg)', 'var(--bdg-gray-bg)', 'var(--bdg-gray-ac)'],

@@ -112,6 +112,37 @@ for (const path of files) {
   }
 }
 
+// 목록 상태·선택은 좌측 색상 바에 의존하지 않는다. 상태는 아이콘·배지·카운트,
+// 선택은 C.selected 배경이라는 모바일/웹 공통 목록 SSOT를 정적 게이트로 고정한다.
+const feedRowSource = readFileSync(join(ROOT, 'components/ui/feedrow.tsx'), 'utf8');
+const listRowsSource = readFileSync(join(ROOT, 'components/list-rows.tsx'), 'utf8');
+if (/\baccent\s*\??:\s*BadgeTone|boxShadow\s*:\s*accent/.test(feedRowSource)) {
+  hits.push('components/ui/feedrow.tsx: 목록 좌측 accent 바 금지 — 상태는 아이콘·배지·카운트 사용');
+}
+if (/\baccent\s*=/.test(listRowsSource)) {
+  hits.push('components/list-rows.tsx: FeedListRow 좌측 accent 바 전달 금지');
+}
+
+// data-fp-m은 첫 페인트 힌트일 뿐이며 마운트 후 판정은 실제 viewport를 따라야 한다.
+// 그렇지 않으면 회전·리사이즈 시 데스크톱 패널이 모바일 폭에 압축된다.
+const mobileSource = readFileSync(join(ROOT, 'lib/use-mobile.ts'), 'utf8');
+const liveWidthReader = mobileSource.match(/function readWidthMobile[\s\S]*?\n}/)?.[0] || '';
+if (!liveWidthReader.includes('window.innerWidth') || liveWidthReader.includes('dataset.fpM')) {
+  hits.push('lib/use-mobile.ts: 마운트 후 모바일 판정은 data-fp-m이 아닌 현재 window.innerWidth를 사용');
+}
+
+// 문의→계약 이동은 같은 권한 스코프의 계약 캐시를 즉시 보여주고, 목록과 무관한 정산 read가
+// 계약 행 표시를 막지 않아야 한다. 모바일 탭 전환이 매번 skeleton으로 돌아가는 회귀를 막는다.
+const contractPageSource = readFileSync(join(ROOT, 'app/contract/page.tsx'), 'utf8');
+if (!contractPageSource.includes("peekList('contract', co)")) {
+  hits.push('app/contract/page.tsx: 같은 세션 계약 캐시로 목록 첫 페인트 유지');
+}
+const contractRowsReadyAt = contractPageSource.indexOf('setRows(mine);');
+const settlementBackgroundAt = contractPageSource.indexOf('void settlementsP.then');
+if (contractRowsReadyAt < 0 || settlementBackgroundAt < 0 || contractRowsReadyAt > settlementBackgroundAt) {
+  hits.push('app/contract/page.tsx: 계약 목록 표시는 정산 선조회 완료보다 먼저 처리');
+}
+
 if (hits.length) {
   console.error(`✗ UI 계약 드리프트 ${hits.length}건\n\n${hits.map((hit) => `  ${hit}`).join('\n')}`);
   process.exit(1);

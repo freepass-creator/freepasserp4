@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState, useRef, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
-import { BottomNav, SearchInput, IconBtn, CountPill, Btn, Select, FilterGroup, C, NUM, FS } from '@/components/ui';
+import { BottomNav, SearchInput, IconBtn, CountPill, Btn, ButtonLabel, Select, FilterGroup, C, NUM, FS } from '@/components/ui';
 import { PageToolBar, type PageToolItem } from '@/components/PageToolBar';
 import { MobileListDock } from '@/components/MobileListDock';
 import { BottomSheet, SheetTitle } from '@/components/BottomSheet';
@@ -235,13 +235,10 @@ export function MobilePageShell({
           title={lt.action.label}
           onClick={() => { lt.action!.onClick(); }}
         >
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-            {(() => {
-              const ActionIcon = lt.action!.icon || Plus;
-              return <ActionIcon size={16} />;
-            })()}
-            {lt.action.label}
-          </span>
+          {(() => {
+            const ActionIcon = lt.action!.icon || Plus;
+            return <ButtonLabel icon={<ActionIcon size={16} aria-hidden />}>{lt.action!.label}</ButtonLabel>;
+          })()}
         </Btn>
       ) : null}
     </div>

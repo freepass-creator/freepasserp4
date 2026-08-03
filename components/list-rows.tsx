@@ -79,7 +79,7 @@ function chatStatusIcon(stage: { label: string; tone: BadgeTone }, unread: numbe
 } {
   if (stage.label === '계약완료') return { icon: MessageCircleCheck, tone: 'green', title: '계약완료' };
   if (stage.label === '계약취소') return { icon: MessageCircleX, tone: 'red', title: '계약취소' };
-  // 좌측 아이콘은 업무 lifecycle 전용이다. 안읽음은 CountPill·행 accent가 이미 표시한다.
+  // 좌측 아이콘은 업무 lifecycle 전용이다. 안읽음은 경고 아이콘과 CountPill로 표시한다.
   if (stage.label !== '문의') return { icon: MessageCircleMore, tone: stage.tone, title: stage.label };
   if (unread > 0) return { icon: MessageCircleWarning, tone: 'amber', title: `확인 필요 · 안읽음 ${unread}` };
   return { icon: MessageCircle, tone: 'gray', title: '문의' };
@@ -139,14 +139,11 @@ export const ChatRoomRow = memo(function ChatRoomRow({
   const stage = contractStage(stageContract);
   const msg = listText(room.last_message) || '대화를 시작하세요';
   const ic = chatStatusIcon(stage, unread);
-  const inProg = !!stageContract && !['문의', '계약완료', '계약취소'].includes(stage.label);
-  const accent: BadgeTone | undefined = unread > 0 ? 'amber' : inProg ? (stage.tone === 'red' ? 'red' : 'blue') : undefined;
   const head = listText(displayName) || listText(room.vehicle_name) || '상품';
   const plateText = String(plate || '').trim();
   const counterText = String(counter || '').replace(/\s+/g, ' ').trim();
   return (
     <FeedListRow
-      accent={accent}
       selected={selected}
       onClick={() => onClick(room)}
       thumb={<FeedThumbIcon icon={ic.icon} tone={ic.tone} title={ic.title} decorative={stage.label !== '문의' || unread > 0} />}

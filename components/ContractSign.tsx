@@ -6,9 +6,10 @@ import { type EntityRecord } from '@/lib/intake/entities';
 import { getRole, type Role } from '@/lib/domain/deal';
 import { canResumeApprovedSign, createSignToken, approveSign, rejectSign, revokeSignLink } from '@/lib/domain/sign';
 import { isContractSignActive, readContractSign, signPublicToContract } from '@/lib/firebase/contract-sign-public';
-import { Btn, C, toneText, DetailRow, ListGroup, FW, FS, R } from '@/components/ui';
+import { Btn, ButtonLabel, C, toneText, DetailRow, ListGroup, FW, FS, R, ICON } from '@/components/ui';
 import { toast } from '@/components/Toaster';
 import { copyText } from '@/lib/clipboard';
+import { CheckCircle2, Copy, Link2, Link2Off, RefreshCw, RotateCcw, Send, XCircle } from 'lucide-react';
 
 // 계약서 서명 진행(계약 패널) — 발송 → 손님(/sign) → 검토대기 → 승인. 공개 슬롯(contract_sign) 상태 병합.
 export function ContractSign({ contractCode }: { contractCode: string }) {
@@ -97,11 +98,43 @@ export function ContractSign({ contractCode }: { contractCode: string }) {
             : undefined;
   const actions = (
     <>
-      {canAct && st === '미발송' && <Btn title="계약서 발송" size="sm" onClick={send} disabled={busy}>계약서 발송</Btn>}
-      {canAct && st === '발송' && active && <><Btn title="링크 복사" variant="ghost" size="sm" onClick={copy}>링크</Btn><Btn title="계약서 재발송" variant="ghost" size="sm" onClick={send} disabled={busy}>재발송</Btn><Btn title="서명 링크 해지" variant="ghost" size="sm" onClick={revoke} disabled={busy}>해지</Btn><Btn title="서명 상태 새로고침" variant="ghost" size="sm" onClick={load}>새로고침</Btn></>}
-      {canAct && st === '발송' && !active && <Btn title="새 서명 링크 발급" size="sm" onClick={send} disabled={busy}>새 링크 발급</Btn>}
-      {canAct && st === '검토대기' && <><Btn title="전자서명 반려" variant="ghost" size="sm" onClick={reject} disabled={busy}>반려</Btn><Btn title="전자서명 승인" size="sm" onClick={approve} disabled={busy}>승인</Btn></>}
-      {canRecover && <Btn title="약정 단계 복구" size="sm" onClick={approve} disabled={busy}>약정 단계 복구</Btn>}
+      {canAct && st === '미발송' && (
+        <Btn title="계약서 발송" size="sm" onClick={send} disabled={busy}>
+          <ButtonLabel icon={<Send size={ICON.md} aria-hidden />}>계약서 발송</ButtonLabel>
+        </Btn>
+      )}
+      {canAct && st === '발송' && active && <>
+        <Btn title="링크 복사" variant="ghost" size="sm" onClick={copy}>
+          <ButtonLabel icon={<Copy size={ICON.md} aria-hidden />}>링크</ButtonLabel>
+        </Btn>
+        <Btn title="계약서 재발송" variant="ghost" size="sm" onClick={send} disabled={busy}>
+          <ButtonLabel icon={<Send size={ICON.md} aria-hidden />}>재발송</ButtonLabel>
+        </Btn>
+        <Btn title="서명 링크 해지" variant="ghost" size="sm" onClick={revoke} disabled={busy}>
+          <ButtonLabel icon={<Link2Off size={ICON.md} aria-hidden />}>해지</ButtonLabel>
+        </Btn>
+        <Btn title="서명 상태 새로고침" variant="ghost" size="sm" onClick={load}>
+          <ButtonLabel icon={<RefreshCw size={ICON.md} aria-hidden />}>새로고침</ButtonLabel>
+        </Btn>
+      </>}
+      {canAct && st === '발송' && !active && (
+        <Btn title="새 서명 링크 발급" size="sm" onClick={send} disabled={busy}>
+          <ButtonLabel icon={<Link2 size={ICON.md} aria-hidden />}>새 링크 발급</ButtonLabel>
+        </Btn>
+      )}
+      {canAct && st === '검토대기' && <>
+        <Btn title="전자서명 반려" variant="ghost" size="sm" onClick={reject} disabled={busy}>
+          <ButtonLabel icon={<XCircle size={ICON.md} aria-hidden />}>반려</ButtonLabel>
+        </Btn>
+        <Btn title="전자서명 승인" size="sm" onClick={approve} disabled={busy}>
+          <ButtonLabel icon={<CheckCircle2 size={ICON.md} aria-hidden />}>승인</ButtonLabel>
+        </Btn>
+      </>}
+      {canRecover && (
+        <Btn title="약정 단계 복구" size="sm" onClick={approve} disabled={busy}>
+          <ButtonLabel icon={<RotateCcw size={ICON.md} aria-hidden />}>약정 단계 복구</ButtonLabel>
+        </Btn>
+      )}
     </>
   );
   const hasActions = canAct && (st === '미발송' || st === '발송' || st === '검토대기' || canRecover);

@@ -1,5 +1,27 @@
 # 독립 검증 결과
 
+## 2026-08-04 모바일 계약 목록 첫 페인트·표시명 보강
+
+결과: **문의→계약 전환 skeleton 재등장 제거 / 정산 read 비차단 / 공급사 내부코드 깜빡임 제거 PASS**
+
+- 모바일 cold 직접 진입을 다시 계측하니 재고 실데이터는 약 2초, 계약은 약 9초에 도착해 이전 20~27초가 항상 재현되지는 않았다. 네트워크·개발 서버 변동과 별개로, 문의에서 이미 읽은 계약 캐시가 있어도 `/contract`가 `rows=null`로 시작하고 정산 read까지 기다린 뒤 행을 그리는 확정 병목을 수정했다.
+- 계약 화면은 같은 인증 세션에서 권한 스코프로 읽은 `peekList('contract')`를 첫 렌더에 사용하고 곧바로 live read로 갱신한다. 인증 변경 시 전역 store cache가 비워지는 기존 안전장치는 유지했다.
+- 계약 행은 계약 read 완료 즉시 표시하고, 목록에 필요 없는 정산 목록은 백그라운드 선조회로 분리했다. 상세 선택은 같은 pending/cache Promise를 재사용하므로 정산 기능·단일 writer·금액 로직은 변경하지 않았다.
+- 공급사 파트너 목록을 대용량 상품·삭제이력 보강보다 먼저 독립 조회하고 `providerNameMap`을 목록 인덱스에 합쳤다. 캐시 계약이 먼저 보일 때 `RP018` 같은 내부코드가 잠시 노출되지 않고 첫 계약 프레임부터 `스타` 등 실제 표시명이 나온다.
+- 390×844 실제 하단 독에서 `/chat` 176행을 읽은 뒤 `계약진행`을 클릭했다. `/contract` 첫 관찰 프레임에 실제 43행·공급사명·상태 배지가 함께 표시됐고 skeleton 0, 좌측 inset 0, 문서 폭 390/390이었다.
+- UI 계약 게이트에 계약 캐시 첫 페인트와 `setRows`가 정산 완료보다 앞서야 한다는 조건을 추가했다. `typecheck`, UI contract, fonts, 계약 업무목록 142/142, 별도 production build 30/30 routes PASS다. 운영 데이터·Rules·계약/정산 write·배포는 변경하지 않았다.
+
+## 2026-08-04 모바일 목록 좌측 바·반응형 정밀 검수
+
+결과: **좌측 상태 바 제거 PASS / 모바일 단일 목록·가로 overflow 0 PASS / 실데이터 주요 목록 표시 PASS**
+
+- 실제 390×844 로컬 관리자 세션에서 `/chat`을 확인해 미확인·진행 행에 남아 있던 주황/파랑 좌측 inset 바를 재현했다. `FeedListRow`의 `accent` API와 `ChatRoomRow` 전달을 제거해 상태는 썸네일 아이콘·배지·안읽음 숫자로만, 선택은 `C.selected` 배경으로만 표현하도록 공통 SSOT를 고정했다.
+- 같은 검수에서 데스크톱으로 진입한 뒤 폭을 390px로 바꾸면 4패널이 좁은 화면에 압축되는 결함을 발견했다. `data-fp-m`이 부트 이후에도 live viewport보다 우선하던 것이 원인이며, 마운트 후 모바일 판정은 `window.innerWidth`를 단일 기준으로 사용하도록 수정했다. 초기 SSR 힌트·쿠키 동기화는 그대로 유지한다.
+- 수정 후 `/chat` 실제 176행에서 좌측 inset 0, `/contract` 43행, `/inventory` 101행, `/members` 101행, `/settlement` 11행, `/policy` 26행을 순회했다. 전 화면 `innerWidth=scrollWidth=390`, 공통 목록 좌측 inset 0이며 데스크톱 다중 패널 대신 모바일 단일 목록·하단 독으로 표시됐다.
+- 회원·파트너의 긴 UID/회사 정보는 행 내부에서 잘리고 문서 가로 스크롤은 생기지 않았다. 계약·재고·회원·정산·정책의 3줄 정보 구조와 상태 아이콘·배지 표현은 유지됐다.
+- `check-ui-contract.mts`에 좌측 `accent` 재도입 금지와 live viewport 판정 계약을 추가했다. `typecheck`, UI contract, fonts, 재고 표시 28/28, 회원 표시 10/10, 정산 표시 30/30, 별도 `NEXT_DIST_DIR=.next-codex-mobile-list` production build 30/30 routes가 PASS다. 빌드가 자동 변경한 `tsconfig.json`은 원복했다.
+- 관찰사항: 로컬 cold 직접 진입에서 계약·재고 실데이터 도착이 약 20~27초까지 걸린 사례가 있었다. 무한 로딩은 아니었고 데이터 도착 후 정상 표시됐지만, 새 Preview에서 역할별 실계정으로 초기 read 시간을 다시 계측해야 한다. 운영 데이터·Rules·배포·write는 변경하지 않았다.
+
 ## 2026-08-04 공급사 Sheet exact patch/CAS dry-run 2단계
 
 결과: **후보별 exact 공개 v4 patch·CAS 생성 PASS / private 유입·참조이관 fail-closed / 실제 적용·운영 write 0건**
