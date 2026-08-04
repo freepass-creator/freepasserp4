@@ -9,6 +9,7 @@
 - 후보 Rules 실제 Auth+RTDB HTTP 검증은 본인 동의 갱신 허용, 역할 탈취 혼합 차단, 타 회원 대리 갱신 차단을 포함해 **40/40 PASS**다. 운영 Rules는 수정·게시하지 않았다.
 - 검증: 재동의/출시 순수 시뮬레이션 **17/17**, 권한 **44/44**, phase12 **69/69**, type/UI/fonts, 재동의 플래그 ON 별도 production build **30/30 pages PASS**다. 정상 임시 운영자 정보+재동의 ON+후보 Rules에서 출시 차단 0/경고 1이며, 실제 현재 환경은 운영자 6필드 누락 차단 1과 재동의 OFF·서비스워커 경고 2다.
 - 활성화 순서는 확정 운영자 6필드 입력 → 약관/방침 법률·내용 확인 → Preview에서 전용 기존 회원 1명으로 1회 표시·저장·재로그인 미표시 확인 → Production flag ON이다. 사용자가 이 순서를 승인하기 전 Vercel 환경·운영 데이터·Production은 변경하지 않는다.
+- 코드 체크포인트 `dd1590a`의 Git Preview `dpl_6zTsgwzqjULNNc7MH6cZyG2g8bun` / `https://freepasserp4-ibid81aup-freepass-projects.vercel.app`는 **READY**다. Preview 환경에 운영자·재동의 환경변수가 없음을 이름 검색으로 확인해 기본 OFF이며, 실제 Chrome에서 비인증 루트는 `/login`으로 이동하고 `/terms`·`/privacy`는 공개 접근·버전/운영자 경고 표시·console error 0이다. 최근 Vercel runtime error 로그도 0건이다. Production과 `origin/main`은 변경하지 않았다.
 
 ## 2026-08-04 법정 운영자 정보 배포 설정 전환
 
