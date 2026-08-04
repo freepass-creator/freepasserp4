@@ -12,8 +12,9 @@ import { migrateSensitiveToPrivate } from '@/lib/firebase/migrate-private';
 import { newId } from '@/lib/domain/ids';
 import {
   ACTOR_TONE, PaneHead, PaneBody, Btn, Badge, DetailRow, FormGrid, FormCard,
-  C, R, NUM, Loading, CenterNote, FilterChips, FilterGroup, Message, PageActions, FW, FS,
+  ButtonLabel, C, R, NUM, Loading, CenterNote, FilterChips, FilterGroup, Message, PageActions, FW, FS, ICON,
 } from '@/components/ui';
+import { Eye, Play, RotateCcw, ShieldCheck, UserCheck, UserRoundX } from 'lucide-react';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
 import { confirmDialog, toast } from '@/components/Toaster';
 import { haptic } from '@/lib/haptics';
@@ -389,11 +390,15 @@ export default function Members() {
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: C.selected, borderRadius: R, marginBottom: 8 }}>
       <Badge tone="amber" variant="solid">승인대기</Badge>
       <span style={{ fontSize: FS.sub, color: C.mute, flex: 1, minWidth: 0 }}>승인하면 이 계정이 앱을 사용할 수 있습니다.</span>
-      <Btn title={approveBusy ? '가입 승인 처리 중' : '가입 승인'} size="sm" onClick={() => doApprove(true)} disabled={approveBusy}>{approveBusy ? '처리 중…' : '가입 승인'}</Btn>
+      <Btn title={approveBusy ? '가입 승인 처리 중' : '가입 승인'} size="sm" onClick={() => doApprove(true)} disabled={approveBusy}>
+        <ButtonLabel icon={<UserCheck size={ICON.md} aria-hidden />}>{approveBusy ? '처리 중…' : '가입 승인'}</ButtonLabel>
+      </Btn>
     </div>
   ) : tab === 'user' && strOf(form.status) === 'active' ? (
     <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
-      <Btn title={approveBusy ? '승인 취소 처리 중' : '승인 취소 후 대기로 변경'} size="sm" variant="ghost" onClick={() => doApprove(false)} disabled={approveBusy}>{approveBusy ? '처리 중…' : '승인 취소(대기로)'}</Btn>
+      <Btn title={approveBusy ? '승인 취소 처리 중' : '승인 취소 후 대기로 변경'} size="sm" variant="ghost" onClick={() => doApprove(false)} disabled={approveBusy}>
+        <ButtonLabel icon={<UserRoundX size={ICON.md} aria-hidden />}>{approveBusy ? '처리 중…' : '승인 취소(대기로)'}</ButtonLabel>
+      </Btn>
     </div>
   ) : null;
 
@@ -518,13 +523,21 @@ export default function Members() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
       {tab === 'user' && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
-          <Btn title="개인채널 백필 미리보기" size="sm" variant="ghost" onClick={() => doBackfillChannels(true)}>개인채널 백필 미리보기</Btn>
-          <Btn title="개인채널 백필 실행" size="sm" variant="ghost" onClick={() => doBackfillChannels(false)}>개인채널 백필 실행</Btn>
+          <Btn title="개인채널 백필 미리보기" size="sm" variant="ghost" onClick={() => doBackfillChannels(true)}>
+            <ButtonLabel icon={<Eye size={ICON.md} aria-hidden />}>개인채널 백필 미리보기</ButtonLabel>
+          </Btn>
+          <Btn title="개인채널 백필 실행" size="sm" variant="ghost" onClick={() => doBackfillChannels(false)}>
+            <ButtonLabel icon={<Play size={ICON.md} aria-hidden />}>개인채널 백필 실행</ButtonLabel>
+          </Btn>
         </div>
       )}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
-        <Btn title="민감정보 분리 미리보기" size="sm" variant="ghost" onClick={() => doMigratePrivate(true)}>민감정보 분리 미리보기</Btn>
-        <Btn title="민감정보 분리 실행" size="sm" variant="ghost" onClick={() => doMigratePrivate(false)}>민감정보 분리 실행</Btn>
+        <Btn title="민감정보 분리 미리보기" size="sm" variant="ghost" onClick={() => doMigratePrivate(true)}>
+          <ButtonLabel icon={<Eye size={ICON.md} aria-hidden />}>민감정보 분리 미리보기</ButtonLabel>
+        </Btn>
+        <Btn title="민감정보 분리 실행" size="sm" variant="ghost" onClick={() => doMigratePrivate(false)}>
+          <ButtonLabel icon={<ShieldCheck size={ICON.md} aria-hidden />}>민감정보 분리 실행</ButtonLabel>
+        </Btn>
       </div>
     </div>
   );
@@ -559,7 +572,7 @@ export default function Members() {
             {tab === 'partner' ? (
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
                 <Btn title="깨진 컬럼 매핑과 헤더 서명만 초기화" size="sm" variant="ghost" onClick={resetSheetMapping} disabled={saving}>
-                  시트 매핑 초기화
+                  <ButtonLabel icon={<RotateCcw size={ICON.md} aria-hidden />}>시트 매핑 초기화</ButtonLabel>
                 </Btn>
               </div>
             ) : null}

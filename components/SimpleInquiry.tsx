@@ -4,7 +4,8 @@ import { useRouter } from 'next/navigation';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { getRole, actor, ensureRoom, type Role } from '@/lib/domain/deal';
 import { sendText, listMessages, isMine } from '@/lib/domain/messaging';
-import { C, R, FS, FW, Btn, Input } from '@/components/ui';
+import { C, R, FS, FW, Btn, ButtonLabel, Input, ICON } from '@/components/ui';
+import { MessagesSquare, Send } from 'lucide-react';
 import { toast } from '@/components/Toaster';
 import { ChatSenderLabel } from '@/components/ChatSenderLabel';
 import { msgClock } from '@/lib/format';
@@ -65,7 +66,15 @@ export function SimpleInquiry({ p }: { p: EntityRecord }) {
     }}>
       <Input full value={text} onChange={setText} onEnter={send} placeholder="여기에 바로 문의하세요"
         style={{ flex: 1, border: 'none', background: 'transparent' }} />
-      <Btn title="문의 보내기" size="sm" onClick={send} disabled={busy || !text.trim()}>문의</Btn>
+      <Btn
+        title="문의 보내기"
+        mobileIcon={<Send size={ICON.md} aria-hidden />}
+        size="sm"
+        onClick={send}
+        disabled={busy || !text.trim()}
+      >
+        <ButtonLabel icon={<Send size={ICON.md} aria-hidden />}>문의</ButtonLabel>
+      </Btn>
     </div>
   );
 
@@ -124,7 +133,9 @@ export function SimpleInquiry({ p }: { p: EntityRecord }) {
           {msgs.length ? (
             <>
               <span>주고받은 {msgs.length}건 · 계약문의로 이어집니다</span>
-              <Btn title="전체 대화 보기" variant="ghost" size="sm" onClick={openFull}>전체 대화 보기 →</Btn>
+              <Btn title="전체 대화 보기" variant="ghost" size="sm" onClick={openFull}>
+                <ButtonLabel icon={<MessagesSquare size={ICON.md} aria-hidden />}>전체 대화 보기</ButtonLabel>
+              </Btn>
             </>
           ) : '출고·조건 뭐든 여기에 바로 문의하세요. 계약문의로 이어집니다.'}
         </div>

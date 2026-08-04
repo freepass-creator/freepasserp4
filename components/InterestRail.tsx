@@ -1,8 +1,8 @@
 'use client';
 import Link from 'next/link';
 import { useEffect, useState, type MouseEvent } from 'react';
-import { Star, History, X } from 'lucide-react';
-import { C, R, Btn, IconBtn, NUM, ctrlH, ctrlFs, FW, FS } from '@/components/ui';
+import { Star, History, StarOff, Trash2, X } from 'lucide-react';
+import { C, R, Btn, ButtonLabel, IconBtn, NUM, ctrlH, ctrlFs, FW, FS, ICON } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { vehicleName, cheapest, isOfferableProduct } from '@/lib/domain/product';
 import {
@@ -238,10 +238,14 @@ export function InterestPanel({
         </span>
         <span style={{ flex: 1 }} />
         {tab === 'recent' && recent.length > 0 && (
-          <Btn title="최근 본 비우기" size="sm" variant="ghost" haptic="impact" onClick={clearRecent}>비우기</Btn>
+          <Btn title="최근 본 비우기" size="sm" variant="ghost" haptic="impact" onClick={clearRecent}>
+            <ButtonLabel icon={<Trash2 size={ICON.md} aria-hidden />}>비우기</ButtonLabel>
+          </Btn>
         )}
         {tab === 'fav' && favs.length > 0 && (
-          <Btn title="관심 상품 비우기" size="sm" variant="ghost" haptic="impact" onClick={clearFavs}>비우기</Btn>
+          <Btn title="관심 상품 비우기" size="sm" variant="ghost" haptic="impact" onClick={clearFavs}>
+            <ButtonLabel icon={<StarOff size={ICON.md} aria-hidden />}>비우기</ButtonLabel>
+          </Btn>
         )}
         <Btn mobileIcon={<X size={18} />} title="관심함 닫기" size="sm" variant="ghost" haptic="back" onClick={onClose}>닫기</Btn>
       </div>

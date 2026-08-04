@@ -6,7 +6,8 @@ import { clearFavs, clearRecent } from '@/lib/product-interest';
 import { clearHidden, unhideProduct } from '@/lib/product-hide';
 import { clearPassed, unpassProduct } from '@/lib/product-pass';
 import { toast } from '@/components/Toaster';
-import { Btn, C, DetailGrid, FS, ListGroup, ListRow, NUM, SectionLabel } from '@/components/ui';
+import { Btn, ButtonLabel, C, DetailGrid, FS, ListGroup, ListRow, NUM, SectionLabel, ICON } from '@/components/ui';
+import { History, RotateCcw, StarOff, Trash2 } from 'lucide-react';
 
 function ManagedProducts({ title, emptyText, rows, action, actionLabel, clear, clearLabel }: {
   title: string;
@@ -29,11 +30,17 @@ function ManagedProducts({ title, emptyText, rows, action, actionLabel, clear, c
               key={row.code}
               main={row.name || row.code}
               sub={row.plate ? <span style={{ fontFamily: NUM }}>{row.plate}</span> : undefined}
-              right={<Btn title={actionLabel} size="sm" variant="ghost" haptic="select" onClick={() => { action(row.code); }}>{actionLabel}</Btn>}
+              right={(
+                <Btn title={actionLabel} size="sm" variant="ghost" haptic="select" onClick={() => { action(row.code); }}>
+                  <ButtonLabel icon={<RotateCcw size={ICON.md} aria-hidden />}>{actionLabel}</ButtonLabel>
+                </Btn>
+              )}
             />
           ))}
           <div style={{ paddingTop: 8 }}>
-            <Btn title={clearLabel} size="sm" variant="ghost" haptic="impact" onClick={() => { clear(); }}>{clearLabel}</Btn>
+            <Btn title={clearLabel} size="sm" variant="ghost" haptic="impact" onClick={() => { clear(); }}>
+              <ButtonLabel icon={<Trash2 size={ICON.md} aria-hidden />}>{clearLabel}</ButtonLabel>
+            </Btn>
           </div>
         </>
       )}
@@ -56,8 +63,12 @@ export function ProductPreferences({ recentCount, favoriteCount, passed, hidden 
           <DetailGrid rows={[['최근 본', `${recentCount}건`], ['찜', `${favoriteCount}건`]]} />
         </ListGroup>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
-          <Btn title="최근 본 비우기" size="sm" variant="ghost" haptic="impact" disabled={!recentCount} onClick={() => { clearRecent(); toast('최근 본을 비웠습니다', 'info'); }}>최근 비우기</Btn>
-          <Btn title="찜 비우기" size="sm" variant="ghost" haptic="impact" disabled={!favoriteCount} onClick={() => { clearFavs(); toast('찜을 비웠습니다', 'info'); }}>찜 비우기</Btn>
+          <Btn title="최근 본 비우기" size="sm" variant="ghost" haptic="impact" disabled={!recentCount} onClick={() => { clearRecent(); toast('최근 본을 비웠습니다', 'info'); }}>
+            <ButtonLabel icon={<History size={ICON.md} aria-hidden />}>최근 비우기</ButtonLabel>
+          </Btn>
+          <Btn title="찜 비우기" size="sm" variant="ghost" haptic="impact" disabled={!favoriteCount} onClick={() => { clearFavs(); toast('찜을 비웠습니다', 'info'); }}>
+            <ButtonLabel icon={<StarOff size={ICON.md} aria-hidden />}>찜 비우기</ButtonLabel>
+          </Btn>
         </div>
       </div>
       <ManagedProducts title="관심없음" emptyText="「관심없음」한 상품은 목록 맨 뒤로 보냅니다." rows={passed}

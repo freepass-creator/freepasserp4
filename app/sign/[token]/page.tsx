@@ -5,8 +5,8 @@ import { seedIfEmpty } from '@/lib/seed';
 import { getCompanyId } from '@/lib/tenant';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { getContractByToken, SIGN_REQUIRED_CONSENTS, submitSign } from '@/lib/domain/sign';
-import { Check } from 'lucide-react';
-import { won, C, R, Input, fmtPhone, Loading, Btn, Dropzone, FW, FS } from '@/components/ui';
+import { Check, Eraser, Send } from 'lucide-react';
+import { won, C, R, Input, fmtPhone, Loading, Btn, ButtonLabel, Dropzone, FW, FS, ICON } from '@/components/ui';
 import { toast } from '@/components/Toaster';
 
 // 손님 전자서명 페이지(공개·화이트라벨). 계약요약 → 본인확인 → 약관동의 → 전자서명 → 제출(검토대기).
@@ -34,7 +34,7 @@ export default function SignPage() {
 
   const pos = (e: PointerEvent) => { const cv = canvasRef.current!; const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * (cv.width / r.width), y: (e.clientY - r.top) * (cv.height / r.height) }; };
   const start = (e: React.PointerEvent) => { drawing.current = true; const ctx = canvasRef.current!.getContext('2d')!; const { x, y } = pos(e.nativeEvent); ctx.beginPath(); ctx.moveTo(x, y); canvasRef.current!.setPointerCapture(e.pointerId); };
-  const move = (e: React.PointerEvent) => { if (!drawing.current) return; e.preventDefault(); const ctx = canvasRef.current!.getContext('2d')!; const { x, y } = pos(e.nativeEvent); ctx.lineTo(x, y); ctx.strokeStyle = '#0f1830'; ctx.lineWidth = 2.4; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke(); inked.current = true; };
+  const move = (e: React.PointerEvent) => { if (!drawing.current) return; e.preventDefault(); const cv = canvasRef.current!; const ctx = cv.getContext('2d')!; const { x, y } = pos(e.nativeEvent); ctx.lineTo(x, y); ctx.strokeStyle = getComputedStyle(cv).color; ctx.lineWidth = 2.4; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke(); inked.current = true; };
   const end = () => { drawing.current = false; };
   const clearSig = () => { const cv = canvasRef.current; if (cv) cv.getContext('2d')!.clearRect(0, 0, cv.width, cv.height); inked.current = false; };
 
@@ -87,7 +87,7 @@ export default function SignPage() {
         </div>
       ) : null}
 
-      <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: '#fff', overflow: 'hidden', marginBottom: 18 }}>
+      <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg, overflow: 'hidden', marginBottom: 18 }}>
         {[['차량', [c.car_number_snapshot, signVehicleName].filter(Boolean).join(' · ')], ['대여기간', `${c.rent_month_snapshot || '—'}개월`], ['월 대여료', `${won(c.rent_amount_snapshot)}원`], ['보증금', `${won(c.deposit_amount_snapshot)}원`]].map(([k, v], i) => (
           <div key={String(k)} style={{ display: 'flex', padding: '10px 14px', borderTop: i ? `1px solid ${C.line2}` : 'none' }}>
             <span style={{ width: 90, flex: '0 0 90px', color: C.mute, fontSize: FS.body }}>{k}</span>
@@ -103,9 +103,9 @@ export default function SignPage() {
         <label style={label}>주민등록번호<Input value={form.customer_id} onChange={(v) => set('customer_id', v)} inputMode="numeric" placeholder="본인확인용" full style={inpStyle} /></label>
         <label style={label}>운전면허번호<Input value={form.driver_license_no} onChange={(v) => set('driver_license_no', v)} full style={inpStyle} /></label>
         <label style={label}>주소<Input value={form.customer_address} onChange={(v) => set('customer_address', v)} full style={inpStyle} /></label>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <label style={{ ...label, flex: 1 }}>비상연락 성명<Input value={form.emergency_name} onChange={(v) => set('emergency_name', v)} full style={inpStyle} /></label>
-          <label style={{ ...label, flex: 1 }}>비상연락처<Input value={form.emergency_phone} onChange={(v) => set('emergency_phone', fmtPhone(v))} inputMode="tel" full style={inpStyle} /></label>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 10 }}>
+          <label style={label}>비상연락 성명<Input value={form.emergency_name} onChange={(v) => set('emergency_name', v)} full style={inpStyle} /></label>
+          <label style={label}>비상연락처<Input value={form.emergency_phone} onChange={(v) => set('emergency_phone', fmtPhone(v))} inputMode="tel" full style={inpStyle} /></label>
         </div>
       </div>
 
@@ -113,7 +113,7 @@ export default function SignPage() {
         <span style={{ fontSize: FS.title, fontWeight: FW.title, flex: 1 }}>약관 동의</span>
         <Btn title="전체 동의" size="sm" variant={allC ? 'solid' : 'ghost'} onClick={() => setConsents(allC ? new Set() : new Set(CONSENTS))}>전체 동의</Btn>
       </div>
-      <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: '#fff', overflow: 'hidden', marginBottom: 20 }}>
+      <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg, overflow: 'hidden', marginBottom: 20 }}>
         {CONSENTS.map((x, i) => {
           const on = consents.has(x);
           return (
@@ -142,14 +142,15 @@ export default function SignPage() {
         })}
       </div>
 
-      <div style={{ fontSize: FS.title, fontWeight: FW.title, marginBottom: 8, display: 'flex', alignItems: 'center' }}>전자서명 <span style={{ flex: 1 }} /><Btn title="서명 지우기" size="sm" variant="ghost" onClick={clearSig}>지우기</Btn></div>
-      <Dropzone variant="sign" style={{ background: '#fff', width: '100%', padding: 0, overflow: 'hidden' }}>
+      <div style={{ fontSize: FS.title, fontWeight: FW.title, marginBottom: 8, display: 'flex', alignItems: 'center' }}>전자서명 <span style={{ flex: 1 }} /><Btn title="서명 지우기" size="sm" variant="ghost" onClick={clearSig}><ButtonLabel icon={<Eraser size={ICON.md} aria-hidden />}>지우기</ButtonLabel></Btn></div>
+      <Dropzone variant="sign" style={{ background: C.taupeBg, width: '100%', padding: 0, overflow: 'hidden' }}>
         <canvas ref={canvasRef} width={600} height={180} onPointerDown={start} onPointerMove={move} onPointerUp={end} onPointerLeave={end}
-          style={{ width: '100%', height: 'auto', aspectRatio: '600 / 180', display: 'block', border: 'none', background: 'transparent', touchAction: 'none', cursor: 'crosshair' }} />
+          aria-label="전자서명 입력 영역"
+          style={{ width: '100%', height: 'auto', aspectRatio: '600 / 180', display: 'block', border: 'none', background: 'transparent', color: C.ink, touchAction: 'none', cursor: 'crosshair' }} />
       </Dropzone>
       <div style={{ fontSize: FS.cap, color: C.faint, marginTop: 4 }}>위 칸에 손가락 또는 마우스로 서명해 주세요.</div>
 
-      <div style={{ marginTop: 22 }}><Btn onClick={submit} disabled={busy}>{busy ? '제출 중…' : '동의하고 서명 제출'}</Btn></div>
+      <div style={{ marginTop: 22 }}><Btn full onClick={submit} disabled={busy}><ButtonLabel icon={<Send size={ICON.md} aria-hidden />}>{busy ? '제출 중…' : '동의하고 서명 제출'}</ButtonLabel></Btn></div>
       <div style={{ marginTop: 12, fontSize: FS.cap, color: C.faint, lineHeight: 1.6 }}>제출 시 위 약관에 동의하고 전자서명한 것으로 간주됩니다. 입력 정보는 계약·본인확인 목적에만 사용됩니다.</div>
     </main>
   );

@@ -23,6 +23,7 @@ export function PhotoUpload({
   interiorUrl,
   onInteriorChange,
   productCode,
+  readOnly = false,
   title = '차량 사진',
   hideTitle,
 }: {
@@ -31,6 +32,7 @@ export function PhotoUpload({
   interiorUrl?: string;
   onInteriorChange?: (url: string | null) => void;
   productCode: string;
+  readOnly?: boolean;
   title?: string;
   hideTitle?: boolean;
 }) {
@@ -122,6 +124,7 @@ export function PhotoUpload({
 
   const onPointerDown = (i: number, e: React.PointerEvent) => {
     if (!mobile) return;
+    if (readOnly) return;
     if (e.button != null && e.button !== 0) return;
     clearPress();
     const pid = e.pointerId;
@@ -163,13 +166,13 @@ export function PhotoUpload({
       {!hideTitle && (
         <div style={{ fontSize: FS.sub, fontWeight: FW.title, color: C.ink, marginBottom: 7 }}>{title} <span style={{ color: C.faint, fontWeight: FW.strong }}>{list.length}</span>
           <span style={{ fontSize: FS.micro, color: C.faint, fontWeight: FW.body, marginLeft: 6 }}>
-            {mobile ? '· 탭=크게 · 꾹=메뉴' : '· 클릭=크게 · 메뉴는 확대 화면'}
+            {readOnly ? '· 탭=크게' : mobile ? '· 탭=크게 · 꾹=메뉴' : '· 클릭=크게 · 메뉴는 확대 화면'}
           </span>
         </div>
       )}
       {list.length === 0 && (
         <div style={{ fontSize: FS.sub, color: C.mute, marginBottom: 8, lineHeight: 1.45 }}>
-          사진 없음 — <b style={{ color: C.brand }}>+</b> 칸을 눌러 추가하세요
+          {readOnly ? '사진 없음' : <>사진 없음 — <b style={{ color: C.brand }}>+</b> 칸을 눌러 추가하세요</>}
         </div>
       )}
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'stretch' }}>
@@ -208,7 +211,7 @@ export function PhotoUpload({
             </div>
           );
         })}
-        <div style={{ width: THUMB_W, flex: '0 0 auto' }}>
+        {!readOnly ? <div style={{ width: THUMB_W, flex: '0 0 auto' }}>
           <AddTile
             aspect="4/3"
             disabled={busy}
@@ -217,12 +220,12 @@ export function PhotoUpload({
             onClick={() => !busy && fileRef.current?.click()}
           />
           <input ref={fileRef} type="file" accept="image/*" multiple disabled={busy} onChange={(e) => void add(e.target.files)} style={{ display: 'none' }} />
-        </div>
+        </div> : null}
       </div>
       <div style={{ marginTop: 6, fontSize: FS.micro, color: C.faint }}>이미지 · 3MB/장 · Storage 원본 + Drive 백업(설정 시)</div>
 
       {/* 모바일 꾹 메뉴 */}
-      {sheet != null && sheetUrl && (
+      {!readOnly && sheet != null && sheetUrl && (
         <div
           style={{ position: 'fixed', inset: 0, zIndex: 100 }}
           onClick={() => { haptic.back(); setSheet(null); }}
@@ -286,7 +289,7 @@ export function PhotoUpload({
               <IconBtn onClick={() => setFull(fullIdx + 1)} title="다음"><ChevronRight size={18} strokeWidth={2.25} aria-hidden /></IconBtn>
             </div>
           )}
-          <div
+          {!readOnly ? <div
             onClick={(e) => e.stopPropagation()}
             style={{ position: 'fixed', left: 0, right: 0, bottom: 0, padding: '12px 14px calc(12px + env(safe-area-inset-bottom))', display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center', background: C.head, zIndex: 1 }}
           >
@@ -301,7 +304,7 @@ export function PhotoUpload({
             <Btn title="사진 삭제" size="sm" variant="danger" onClick={() => { if (fullIdx != null) del(fullIdx); }}>
               삭제
             </Btn>
-          </div>
+          </div> : null}
           <img src={list[fullIdx]} alt="" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: R }} />
         </div>
       )}

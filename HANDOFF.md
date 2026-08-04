@@ -1,5 +1,15 @@
 # 규격통일 핸드오프 (Claude ↔ Cursor)
 
+> **Codex 비게시 Rules 후보 재검증(2026-08-04):** 현재 Rules에서 후보를 재생성해도 SHA-256이 동일했고, 후보 보안 14/14·계약 26/26·전자서명 58/58·채팅 43/43·격리 Firebase Emulator 32/32 PASS다. 최신 읽기 전용 실데이터/Sheet 대조는 16곳·388대, v3-only 292건/288대, 브리지 후보 740건, overlay 후보 236대·브리지 유지 5대·공급사 확인 43대다. B2B 게이트는 로컬 서비스계정 부재만 1 FAIL, 일반 출시는 법적 운영자 정보 6개 때문에 1 FAIL이다. 운영 Rules·데이터·배포/write 변경 0. 새 Preview 역할별 QA 브리지 smoke→사람/Claude 승인→백업/롤백 전 후보 게시 금지. 상세는 `VERIFICATION.md` 최상단 참조.
+
+> **Codex 공개 전자서명 모바일 재검수(2026-08-04):** `/sign/[token]`의 지우기·제출을 공통 icon+text로 통일하고 제출 전폭, 비상연락 반응형 1열 전환, 색상 토큰, canvas 접근성 이름을 적용했다. 390×844 실제 오류 토큰 화면의 한글·폭을 확인했고 type/UI/fonts, phase12 67/67, build 30/30 PASS다. 현재 `database.rules.json`은 익명 read에 `status === 'sent'` 제한이 없어 보안 게이트 FAIL이며, 기존 비게시 후보는 전자서명 Rules 58/58 PASS다. Rules·계약 write·운영 데이터·배포는 변경하지 않았다. 사람/Claude 실데이터 승인→후보 게시→정상/완료/폐기 토큰 smoke 전 전체 오픈 NO-GO. 상세는 `VERIFICATION.md` 최상단 참조.
+
+> **Codex 모바일 재고·정책 조회/편집 분리(2026-08-04):** 공통 `FormReadList`를 추가해 모바일 조회는 `ListGroup + DetailRow`, 수정 시에만 `FormGrid`가 나오도록 했다. 재고 차종/신원/공급사/제원/운영정보와 정책 3패널에 적용했고, 가격표 readOnly는 입력·기간추가·삭제 없이 값 있는 기간만 표시하며 사진 readOnly는 추가·편집을 숨기고 확대만 허용한다. 실제 390×844에서 재고 조회 input/select/사진추가 0, 정책 조회 input 0, 폭 390/390; 수정 진입 시 재고 29 input+6 select, 정책 39 컨트롤 복원을 확인하고 저장 없이 취소했다. phase12 64/64, type/UI/fonts/build 30/30 PASS. 저장 로직/write·Rules·배포 변경 없음. 상세는 `VERIFICATION.md` 최상단 참조.
+
+> **Codex 모바일 비계약 실행 버튼 전수 보강(2026-08-04):** 회원 승인/승인취소·백필/분리 도구, 설정 저장·비밀번호·로그인/로그아웃·복사·관심목록 정리, 상품 검수 요청, 재고 초기화·복사·붙여넣기를 공통 icon+text로 통일했다. 간단문의 입력행만 입력폭 규격에 따라 모바일 icon-only/웹 icon+text다. 390×844 실제 회원·설정에서 대상 버튼 SVG 1개, 폭 390/390, 엑셀 노출 0 확인. phase12 59/59, 계약 142/142, type/UI/fonts/build 30/30 PASS. 로직/write·Rules·배포 변경 없음. 상세는 `VERIFICATION.md` 최상단 참조.
+
+> **Codex 모바일 상세 실행 버튼 규격 검수(2026-08-04):** 모바일의 모든 버튼을 아이콘-only로 만들지 않고, 탐색/도구만 icon-only, 저장·삭제·승인·정산·문의 등 결정적 실행은 icon+text, 가능·협의·불가 등 선택지는 text 유지로 SSOT를 확정했다. 공통 `ButtonLabel`을 계약 진행·전자서명·메모·서류·금액·정산 액션에 적용했고 390×844 실제 계약 상세 DOM에서 주요 실행 버튼 SVG 1개, 선택지 SVG 0개, 하단 탭 icon+label, 모바일 엑셀 미노출을 확인했다. phase12 53/53, 계약 142/142, type/UI/fonts/build 30/30 PASS. 계약·정산 로직/write·Rules·배포는 변경하지 않았다. 상세는 `VERIFICATION.md` 최상단 참조.
+
 > **Codex 모바일 계약 첫 페인트 보강(2026-08-04):** 문의에서 이미 권한 스코프로 읽은 계약 캐시를 `/contract` 첫 렌더에 재사용하고 live read로 갱신한다. 계약 행 표시를 정산 read 완료와 분리했으며 정산은 백그라운드 선조회·상세 시 같은 Promise 재사용 구조다. 파트너 표시명도 상품 원본보다 먼저 읽어 캐시 행에 `RP018` 대신 `스타`가 첫 프레임부터 나온다. 390×844 실제 하단 독 이동에서 계약 첫 프레임 43행, skeleton 0·좌측 inset 0·overflow 0을 확인했다. type/UI/fonts/계약 142/142/build 30/30 PASS. 계약·정산 로직/write·Rules·배포는 변경하지 않았다. 상세는 `VERIFICATION.md` 최상단 참조.
 
 > **Codex 모바일 목록 정밀 검수(2026-08-04):** 390×844 실데이터 검수에서 채팅 행의 금지된 좌측 상태 바와, `data-fp-m` 고정값 때문에 리사이즈 후 데스크톱 4패널이 모바일 폭에 압축되는 결함을 발견했다. 공통 `FeedListRow`의 `accent` API를 제거하고 상태는 아이콘·배지·카운트, 선택은 `C.selected` 배경으로 고정했다. 마운트 후 모바일 판정은 live `window.innerWidth`를 따른다. `/chat` 176행, 계약 43행, 재고·회원 각 101행, 정산 11행, 정책 26행에서 좌측 inset 0·가로 overflow 0·모바일 단일 목록을 확인했다. type/UI/fonts/표시 sim/build 30/30 PASS. 로컬 cold 계약·재고 데이터 도착이 20~27초까지 걸린 관찰은 새 Preview 실계정 성능 재검수 대상으로 남겼다. 상세는 `VERIFICATION.md` 최상단 참조.

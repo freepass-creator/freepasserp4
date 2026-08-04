@@ -1,8 +1,9 @@
 'use client';
 import { useEffect, useState } from 'react';
 import {
-  Page, Btn, C, SectionLabel, DetailGrid, ListGroup, ListRow, FilterChips, NUM, Input, FS, R, fmtPhone,
+  Page, Btn, ButtonLabel, C, SectionLabel, DetailGrid, ListGroup, ListRow, FilterChips, NUM, Input, FS, R, fmtPhone, ICON,
 } from '@/components/ui';
+import { Copy, KeyRound, LogIn, LogOut, Save } from 'lucide-react';
 import { useSession } from '@/lib/auth-context';
 import { getRole, setRole, actor, ROLE_LABEL, type Role } from '@/lib/domain/deal';
 import { setGuest, isGuest } from '@/lib/auth-session';
@@ -218,7 +219,7 @@ export default function Settings() {
               </label>
               <div>
                 <Btn title={savingProfile ? '내 정보 저장 중' : '내 정보 저장'} size="sm" onClick={saveProfile} disabled={!profileDirty || savingProfile}>
-                  {savingProfile ? '저장 중…' : '내 정보 저장'}
+                  <ButtonLabel icon={<Save size={ICON.md} aria-hidden />}>{savingProfile ? '저장 중…' : '내 정보 저장'}</ButtonLabel>
                 </Btn>
               </div>
             </div>
@@ -237,12 +238,14 @@ export default function Settings() {
           <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
             {visibleSession ? (
               <Btn title={pwdBusy ? '재설정 메일 전송 중' : '비밀번호 변경'} variant="ghost" full onClick={changePassword} disabled={pwdBusy}>
-                {pwdBusy ? '메일 전송 중…' : '비밀번호 변경 (재설정 메일)'}
+                <ButtonLabel icon={<KeyRound size={ICON.md} aria-hidden />}>{pwdBusy ? '메일 전송 중…' : '비밀번호 변경 (재설정 메일)'}</ButtonLabel>
               </Btn>
             ) : null}
             {/* danger 빨강은 파괴적 동작(로그아웃)에만. 미로그인 상태의 '로그인'은 주 액션이다. */}
             <Btn title={visibleSession || guest ? '로그아웃' : '로그인'} variant={visibleSession || guest ? 'danger' : 'solid'} full onClick={doLogout}>
-              {visibleSession || guest ? '로그아웃' : '로그인'}
+              <ButtonLabel icon={visibleSession || guest ? <LogOut size={ICON.md} aria-hidden /> : <LogIn size={ICON.md} aria-hidden />}>
+                {visibleSession || guest ? '로그아웃' : '로그인'}
+              </ButtonLabel>
             </Btn>
           </div>
         </div>
@@ -255,7 +258,9 @@ export default function Settings() {
             </div>
             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
               <div style={{ flex: 1, minWidth: 0, fontSize: FS.sub, color: C.ink, background: C.head, borderRadius: R, padding: '8px 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{shareUrl}</div>
-              <Btn title="카탈로그 링크 복사" size="sm" onClick={copyShare}>복사</Btn>
+              <Btn title="카탈로그 링크 복사" size="sm" onClick={copyShare}>
+                <ButtonLabel icon={<Copy size={ICON.md} aria-hidden />}>복사</ButtonLabel>
+              </Btn>
             </div>
           </div>
         ) : null}

@@ -6,7 +6,7 @@ import { seedIfEmpty } from '@/lib/seed';
 import { ENTITIES, type EntityRecord } from '@/lib/intake/entities';
 import { newId } from '@/lib/domain/ids';
 import { getRole, actor, type Role } from '@/lib/domain/deal';
-import { PaneHead, PaneBody, Btn, FormGrid, FormCard, C, Loading, CenterNote, Page, FilterChips, FilterGroup, Message, PageActions, FeedRowSkeleton } from '@/components/ui';
+import { PaneHead, PaneBody, Btn, FormGrid, FormReadList, FormCard, C, Loading, CenterNote, Page, FilterChips, FilterGroup, Message, PageActions, FeedRowSkeleton } from '@/components/ui';
 import { PolicyCreateRow, PolicyListRow } from '@/components/list-rows';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
 import { confirmDialog, toast } from '@/components/Toaster';
@@ -299,9 +299,13 @@ export default function PolicyMgmt() {
         {sel ? (
           <>
             {modeBanner}
-            <FormCard hint={hint}>
-              <FormGrid fields={fields} form={form} onChange={onChange} cols={2} disabled={!canEdit} />
-            </FormCard>
+            {mobile && !canEdit ? (
+              <FormReadList fields={fields} form={form} footer={hint} />
+            ) : (
+              <FormCard hint={hint}>
+                <FormGrid fields={fields} form={form} onChange={onChange} cols={2} disabled={!canEdit} />
+              </FormCard>
+            )}
           </>
         ) : (
           <CenterNote>정책을 선택하세요.</CenterNote>

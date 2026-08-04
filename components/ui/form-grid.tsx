@@ -6,9 +6,42 @@ import { useIsMobile } from '@/lib/use-mobile';
 import { ToggleChips } from './filters';
 import { fmtNumber, fmtPhone } from './formatters';
 import { SheetSelect, Switch } from './native-form';
+import { DetailRow, ListGroup } from './detail-group';
 import { C, FS, R, ctrlH, ctrlInputFs, ctrlPadX } from './tokens';
 
 type SelectOption = string | { value: string; label: string };
+
+function readValue(field: Field, raw: unknown, selectOptions?: Record<string, SelectOption[]>): string {
+  if (raw == null || raw === '') return '';
+  const value = Array.isArray(raw) ? raw.join(',') : String(raw);
+  const options = selectOptions?.[field.key] || field.options || [];
+  const matched = options.find((option) => (typeof option === 'string' ? option : option.value) === value);
+  if (matched && typeof matched !== 'string') return matched.label;
+  if (isYesNoActive(field)) return value === '아니오' ? '비활성' : '활성';
+  if (field.type === 'number') return fmtNumber(value);
+  if (/phone|연락처|전화/.test(`${field.key} ${field.label}`)) return fmtPhone(value);
+  if (field.type === 'chips') return value.split(/[,/#|]/).map((item) => item.trim()).filter(Boolean).join(' · ');
+  return value;
+}
+
+/** 조회 모드 스키마 필드 — 비활성 입력폼 대신 모바일 정보행으로 표시한다. */
+export function FormReadList({ fields, form, selectOptions, header, footer }: {
+  fields: Field[];
+  form: EntityRecord;
+  selectOptions?: Record<string, SelectOption[]>;
+  header?: React.ReactNode;
+  footer?: React.ReactNode;
+}) {
+  return (
+    <ListGroup header={header} footer={footer}>
+      {fields.map((field) => {
+        const value = readValue(field, form[field.key], selectOptions);
+        const stacked = value.length > 36 || /options|memo|condition|criteria|scope|service/.test(field.key);
+        return <DetailRow key={field.key} label={field.label} value={value} stacked={stacked} />;
+      })}
+    </ListGroup>
+  );
+}
 
 function isYesNoActive(field: Field): boolean {
   if (field.key !== 'is_active') return false;
