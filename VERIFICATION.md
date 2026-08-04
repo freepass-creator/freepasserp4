@@ -1,5 +1,16 @@
 # 독립 검증 결과
 
+## 2026-08-04 원자 선점 후보 Vercel Preview 브라우저 검수
+
+결과: **안전 플래그 OFF Preview READY·기본/모바일 smoke PASS / 역할별 활성화 검수 전 Production NO-GO**
+
+- 검증 완료 체크포인트 `7e5fa8e`를 `codex/atomic-claim-preview` 브랜치로 push했다. Git Preview는 `dpl_8uxH95BGoUa36M7Fae3bJoBPdc2P` / `https://freepasserp4-9913fs0fb-freepass-projects.vercel.app`에서 **READY**다. `origin/main`과 Production alias는 변경하지 않았다.
+- Preview 환경에는 `FIREBASE_SERVICE_ACCOUNT_JSON`이 존재하지만 `VEHICLE_CLAIM_SERVER_ENABLED`, `NEXT_PUBLIC_ATOMIC_VEHICLE_CLAIMS`가 없으므로 기본값 **OFF**다. 원자 선점 API는 활성화 전 실패-폐쇄하고, 현재 계약 UI는 기존 경로를 유지한다. `database.rules.json`은 게시하지 않았다.
+- Vercel 보호를 통과한 실제 Chrome에서 `로그인 없이 둘러보기`로 진입했다. 데스크톱 `/`, `/contract`, `/inventory`, `/members`, `/settlement`를 확인했고 console error **0**, 문서 가로 overflow **0**이다. 둘러보기 영업자 역할에서 `/inventory`는 공급사·관리자 제한 안내, `/members`는 홈, `/settlement`는 통합 `/contract`로 이동해 현재 권한/라우팅 정책대로 동작했다.
+- 390×844 모바일 `/`와 `/contract`는 `scrollWidth=390`, 좌측 `aside`는 `display:none`·0×0으로 비노출이다. 상단 도구는 아이콘, 하단 주요 메뉴는 아이콘+라벨이며 모바일 엑셀 버튼과 비규격 `대기/완료/환수/순수익` 요약 바는 보이지 않았다. 화면 캡처에서도 검색·필터·빈 목록·하단 내비게이션이 겹치지 않았다.
+- 같은 Preview의 최근 Vercel runtime error 로그는 **0건**이다. 로컬 `http://localhost:4004`도 200으로 유지했다. CLI 직접 업로드 중 생긴 `dpl_6T8mQQDR3NV3RpDxhdoT9NwiRboj`는 build 0ms `UNKNOWN`이므로 사용 금지다.
+- 이번 smoke는 쓰기 없는 둘러보기 역할 검수다. 원자 선점 활성화와 전체 오픈 전에는 후보 Rules·두 플래그를 한 묶음으로 적용한 별도 Preview에서 전용 영업자/영업관리자/공급사/공급관리자/플랫폼 관리자 계정으로 1승/1충돌·취소 해제·공급사 확인을 검증하고, 사람 또는 Claude의 Rules 위험 게이트를 받아야 한다.
+
 ## 2026-08-04 차량 원자 선점 후보 구현 후 전체 오픈 게이트
 
 결과: **원자 claim·권한·Rules Emulator·빌드 PASS / 후보 비활성·승인 전 — 전체 오픈 NO-GO 유지**
