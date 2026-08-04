@@ -23,7 +23,7 @@ process.env.NEXT_PUBLIC_DATA_BACKEND = ''; // LocalAdapter 강제
 const { getStore } = await import('../lib/store');
 const { getCompanyId } = await import('../lib/tenant');
 const { newId } = await import('../lib/domain/ids');
-const { applyStepCheck, vehicleLockedBy, blockingContractFor, cancelContract } = await import('../lib/domain/settlement-engine');
+const { applyStepCheck, vehicleLockedBy, blockingContractFor, cancelContract, finalizeContractIfReady } = await import('../lib/domain/settlement-engine');
 import type { EntityRecord } from '../lib/intake/entities';
 
 const co = getCompanyId();
@@ -52,11 +52,13 @@ const owner = async (code: string) => String((await store.get('product', co, cod
 const ct = async (code: string) => (await store.get('contract', co, code)) as EntityRecord;
 
 let _fxSeq = 0; // 계약코드 전역 고유 카운터(하네스)
+let _vehSeq = 0; // 서로 다른 fixture를 트윈으로 오인하지 않도록 차량번호도 고유하게 만든다.
 /** 매물 1대 + 계약 n건 생성. */
-async function fixture(n: number, productStatus = '출고가능') {
+async function fixture(n: number, productStatus = '출고가능', carNumber?: string) {
   const pc = newId('product');
+  const plate = carNumber ?? `99시${String(1000 + _vehSeq++).padStart(4, '0')}`;
   await store.save('product', co, [{
-    product_code: pc, car_number: '99시9999', maker: '현대', model: '쏘나타',
+    product_code: pc, car_number: plate, maker: '현대', model: '쏘나타',
     vehicle_status: productStatus, product_type: '중고렌트', provider_company_code: 'sup_jeil',
     price: { '36': { rent: 550000, deposit: 0, fee: 55000 } },
   } as EntityRecord]);
@@ -72,6 +74,14 @@ async function fixture(n: number, productStatus = '출고가능') {
   }
   return { pc, codes };
 }
+
+const allDone = {
+  agent_delivery_inquiry: 'yes', provider_delivery_response: '출고 가능',
+  agent_docs_submitted: 'yes', provider_docs_review: '승인',
+  agent_balance_paid: 'yes', agent_final_paid: 'yes', provider_balance_confirmed: 'yes',
+  provider_agreement_done: 'yes', provider_agreement_sent: 'yes',
+  agent_handover_confirmed: 'yes', provider_release_completed: 'yes',
+};
 
 // ── 1. 선점 → 계약중 + 주인 각인 ──
 head('1. 계약금 입금 → 계약중 선점');
@@ -173,6 +183,63 @@ head('9. 주인 없는 계약중(소유필드 이전 잔재) — 자기잠금 �
   catch (e) { threw = (e as Error).message; }
   check('선점 통과(구데이터에 막히지 않음)', threw === '', threw);
   check('주인 각인됨', (await owner(pc)) === c1, await owner(pc));
+}
+
+// ── 10. 트윈 코드 선점 차단 ──
+head('10. 같은 실차의 다른 매물코드 — 중복 선점 차단');
+{
+  const sharedPlate = '88하8801';
+  const { pc: pc1, codes: [c1] } = await fixture(1, '출고가능', sharedPlate);
+  const { pc: pc2, codes: [c2] } = await fixture(1, '출고가능', sharedPlate);
+  await applyStepCheck(await ct(c1), 'agent_balance_paid', 'yes');
+  let threw = '';
+  try { await applyStepCheck(await ct(c2), 'agent_balance_paid', 'yes'); }
+  catch (e) { threw = (e as Error).message; }
+  check('트윈 2번째 선점은 예외', /선점 불가|중복 계약 불가/.test(threw), threw);
+  check('첫 코드 락 유지', (await owner(pc1)) === c1, await owner(pc1));
+  check('둘째 코드는 출고가능 유지', (await vehStatus(pc2)) === '출고가능', await vehStatus(pc2));
+}
+
+// ── 11. placeholder 번호는 서로 다른 차량 ──
+head('11. 번호 미정 차량 — 서로 트윈으로 묶지 않음');
+{
+  const { codes: [c1] } = await fixture(1, '출고가능', '-');
+  const { pc: pc2, codes: [c2] } = await fixture(1, '출고가능', '-');
+  await applyStepCheck(await ct(c1), 'agent_balance_paid', 'yes');
+  let threw = '';
+  try { await applyStepCheck(await ct(c2), 'agent_balance_paid', 'yes'); }
+  catch (e) { threw = (e as Error).message; }
+  check('번호 미정 2번째 차량 선점 허용', threw === '', threw);
+  check('둘째 차량이 자기 계약으로 잠김', (await owner(pc2)) === c2, await owner(pc2));
+}
+
+// ── 12. 취소된 5/5 계약 재완료 금지 ──
+head('12. 취소된 완료대기 계약 — 재시도로 되살리지 않음');
+{
+  const { pc, codes: [c1] } = await fixture(1);
+  await store.update('contract', co, c1, { ...allDone, contract_status: '계약취소' });
+  const finalized = await finalizeContractIfReady(await ct(c1));
+  check('완료 처리 결과 false', finalized === false, finalized);
+  check('계약취소 유지', (await ct(c1)).contract_status === '계약취소', (await ct(c1)).contract_status);
+  check('정산 미생성', (await store.get('settlement', co, `ST_${c1}`)) == null);
+  check('차량 잠금 없음', (await vehStatus(pc)) === '출고가능', await vehStatus(pc));
+}
+
+// ── 13. 완료처리 재시도도 트윈 중복완료 차단 ──
+head('13. 완료처리 재시도 — 트윈의 기존 완료계약 우회 차단');
+{
+  const sharedPlate = '77호7701';
+  const { codes: [doneCode] } = await fixture(1, '출고가능', sharedPlate);
+  const { pc: retryProduct, codes: [retryCode] } = await fixture(1, '출고가능', sharedPlate);
+  await store.update('contract', co, doneCode, { contract_status: '계약완료' });
+  await store.update('contract', co, retryCode, { ...allDone, contract_status: '계약요청' });
+  let threw = '';
+  try { await finalizeContractIfReady(await ct(retryCode)); }
+  catch (e) { threw = (e as Error).message; }
+  check('트윈 완료 재시도는 예외', /이중판매 불가/.test(threw), threw);
+  check('재시도 계약은 완료되지 않음', (await ct(retryCode)).contract_status === '계약요청', (await ct(retryCode)).contract_status);
+  check('재시도 정산 미생성', (await store.get('settlement', co, `ST_${retryCode}`)) == null);
+  check('재시도 차량 잠금 없음', (await vehStatus(retryProduct)) === '출고가능', await vehStatus(retryProduct));
 }
 
 console.log(`\n━━ 결과: ${pass}/${pass + fail} 통과`);
