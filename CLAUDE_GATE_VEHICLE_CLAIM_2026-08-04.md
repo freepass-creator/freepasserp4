@@ -174,3 +174,64 @@ const direct = vehicleIdentity({ car_number: contract.car_number_snapshot || con
 
 **코드는 통과. 순서 문서를 고치기 전에는 게시 금지.**
 차단 1을 반영해 런북 순서를 뒤집고, 주의 1은 오픈 전에 넣는 편이 낫다(변경이 작고 회수 전용이라 위험이 없다).
+
+---
+
+# 후보 Rules 실데이터 게이트 (2026-08-04, Claude)
+
+코덱스가 모든 핸드오프에 남긴 상시 오더 — 「`database.rules.json` 은 사람/Claude 실데이터
+게이트 전 게시 금지」 · `OPEN_RUNSHEET` §6 — 에 대한 판정이다.
+
+## 물은 것
+
+에뮬레이터 통과는 코덱스가 이미 냈다(40/40). 내가 볼 것은 다른 질문 하나다 —
+**후보 규칙이 실제 코드 경로와 실제 레거시 데이터에서 정당한 write 를 막지 않는가.**
+
+## ① 선점 3필드를 쓰는 경로 전수
+
+`agent_balance_paid` · `provider_balance_confirmed` · `vehicle_identity_hash` 는
+`newData.val() === data.val()` 로 잠긴다. 이 필드를 건드리는 **모든** 쓰기 경로를 훑었다.
+
+| 경로 | 선점 필드 포함 | 판정 |
+|---|---|---|
+| `deal.ts:193` 계약 생성 | **없음** | ✅ 리프가 newData 에 없으면 `.validate` 자체가 안 돈다 |
+| `sign.ts` 서명 파이프라인 4곳 | 없음 | ✅ |
+| `contract-send.ts` 발송 | 없음 | ✅ |
+| `ContractDocs`·`ContractMemos`·`ContractPanel` | 없음(첨부·메모·고객정보만) | ✅ |
+| `settlement-engine.ts:480` 단계 체크 | **있음** | ⚠ 플래그 ON 이면 그 앞에서 claim API 로 분기해 여기 도달하지 않음 |
+
+`entities.ts:312·316` 에 이 필드가 `manual: true` 로 있어 수기 편집 폼을 의심했으나,
+`manual` 은 `form-grid.tsx:109` 의 «·직접» 라벨용 UI 힌트일 뿐이고
+`FormGrid` 는 `members`·`policy` 화면에서만 쓴다. **계약을 이 폼으로 저장하는 경로는 없다.**
+
+→ **정당한 클라이언트 write 중 규칙에 막히는 것은 없다. 단, 플래그 ON 이 전제다**(차단 1의 그 조건).
+
+## ② 레거시 계약 승격 — 서버가 오버레이를 먼저 만들어도 되는가
+
+내가 CONTRACT-1 에서 넣은 레거시 escape 가 **깨지지 않는지**가 쟁점이었다.
+서버 claim API 는 v3-only 계약에도 `v4/contracts/{code}/…` 를 먼저 쓰므로,
+escape 가 「v4 오버레이가 아직 없을 것」에 의존했다면 그 순간 무효가 된다.
+
+```js
+// build-release-candidate.mjs:103
+const legacyMarker = "root.child('contracts').child($contract_id).exists()";
+```
+
+**v3 존재 여부로 판정한다.** v4 오버레이 유무와 무관하므로 서버 선write 가 escape 를 깨지 않는다. ✅
+
+## ③ 판정
+
+**후보 Rules 자체 = 조건부 GO.** 실데이터·코드 경로와 호환된다.
+조건은 하나이고 이미 문서화돼 있다 — **Production 플래그·서비스계정이 게시보다 먼저**
+(`LAUNCH_GONOGO` §1-1, 차량선점 경로 + 재고 브리지 경로 둘 다).
+
+**단, `OPEN_RUNSHEET` §6 의 전체 go/no-go 는 아직 낼 수 없다.**
+1~5단계(Production env·재배포·실계정 baseline·백업)가 **아직 실행되지 않았고**,
+그 증거가 이 게이트의 나머지 절반이기 때문이다. 실행 뒤 다음 두 줄만 확인하면 최종 GO 다.
+
+```
+③ 계약금 체크 1건 성공 로그   ← 차량선점 경로 생존
+③ 영업자 재고 목록 정상 대수   ← 브리지 경로 생존
+```
+
+내 쪽에서 게시를 막는 항목은 **없다.**
