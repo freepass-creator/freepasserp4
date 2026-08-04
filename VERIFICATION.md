@@ -3452,3 +3452,6 @@ Next 개발 서버와 production build가 같은 `.next`를 사용하면 실행 
 - 비인증 preview 요청은 403, 실행 중 4004 루트는 200이며 서버를 재시작하지 않았다.
 - 운영 데이터·Rules·외부 사이트 write는 0건이다. 적용은 중복 3그룹 정리와 후보 승인, 시트 중지 후 별도 v4 CAS 경로로 진행해야 한다.
 - 상세 결정과 활성화 순서는 `docs/IRONRENTCAR_WEB_INTEGRATION_2026-08-04.md`를 따른다.
+- 체크포인트 `7f700a0`을 `codex/atomic-claim-preview`에만 push했다. Vercel Preview `dpl_ACpiQM8aFQ3BCP3yyW4Syvemgnt4`는 Ready이며 Production은 변경하지 않았다.
+- Preview 보호를 통과한 `vercel curl` 비인증 호출은 앱의 `{\"error\":\"forbidden\"}`을 반환해 관리자 인증 경계를 재확인했다.
+- `npm audit --omit=dev`는 기존 기준선과 같은 Critical 0, High 3, Moderate 8이다. 이번 의존성 추가로 건수가 늘지 않았다.

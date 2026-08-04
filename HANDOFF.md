@@ -993,3 +993,4 @@ Claude Code(설계) → Cursor(구현) → Codex(독립 검증·수정·완료)�
 - 최신 실측은 홈페이지 49대, ERP 안전 매칭 27대, 신규 활성 1대, 웹 부재 차단 후보 7대, 중복차번 차단 3그룹이다.
 - 기존 시트와 홈페이지 가격은 같지 않다. 비교기간 61개 중 월대여료 동일 0개라 전환 시 홈페이지 가격 전체를 사용해야 한다.
 - 다음 작업자는 `docs/IRONRENTCAR_WEB_INTEGRATION_2026-08-04.md`의 승인 순서를 먼저 읽고, 중복 3그룹 확정 전 apply를 만들거나 실행하지 않는다.
+- 구현 체크포인트는 `7f700a0`, Ready 상태의 Vercel Preview는 `dpl_ACpiQM8aFQ3BCP3yyW4Syvemgnt4`다. Production은 건드리지 않았다.
