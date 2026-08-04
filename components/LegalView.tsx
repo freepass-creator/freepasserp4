@@ -21,7 +21,7 @@ export function LegalView({ doc }: { doc: 'terms' | 'privacy' }) {
           // 사실 정보라 임의로 채울 수 없다. 비어 있는 채로 공개되면 문서가 효력을 갖지 못하므로 크게 알린다.
           <div style={{ border: `1px solid ${C.danger}`, background: C.warnBg, borderRadius: R, padding: '10px 12px', marginBottom: 16, fontSize: FS.sub, color: C.ink, lineHeight: 1.6 }}>
             <b style={{ color: C.danger }}>공개 전 필수</b> — 운영자 정보가 비어 있습니다: {missing.join(' · ')}
-            <br />lib/legal.ts 의 OPERATOR 를 채우고 배포해야 문서가 효력을 갖습니다.
+            <br />Vercel의 NEXT_PUBLIC_OPERATOR_* 환경변수를 입력하고 재배포해야 문서에 반영됩니다.
           </div>
         )}
 

@@ -1,5 +1,14 @@
 # 독립 검증 결과
 
+## 2026-08-04 법정 운영자 정보 배포 설정 전환
+
+결과: **코드 하드코딩 제거·Vercel 환경변수 SSOT·형식 게이트 PASS / 실제 6필드 입력 전 NO-GO 유지**
+
+- 저장소·기존 약관·오픈 문서를 검색했지만 상호·대표자·주소·사업자등록번호·문의 이메일·개인정보 보호책임자의 확정 사실값은 없었다. 임의 추정이나 기존 파트너 정보 전용은 하지 않았다.
+- `lib/legal.ts`의 공개 운영자 정보를 `NEXT_PUBLIC_OPERATOR_COMPANY/CEO/ADDRESS/BIZ_NO/EMAIL/PHONE/PRIVACY_OFFICER` 빌드 환경변수에서 읽도록 바꿨다. 공개 문서에 표시될 정보이므로 `NEXT_PUBLIC_` 사용이 의도이며 변경 후 재배포가 필요하다.
+- `check:release`는 `.env.local` 또는 현재 프로세스 환경에서 실제 값을 읽어 필수 6필드 누락, 사업자등록번호 10자리 형식, 이메일 형식을 fail-closed한다. 정상 임시값+후보 Rules는 **차단 0 / 경고 1**, 잘못된 번호·메일은 **차단 2**, 현재 실제 미입력 환경은 **차단 1(6필드) / 경고 1**로 확인했다. 임시값은 프로세스 안에서만 사용했고 파일·Vercel에 저장하지 않았다.
+- type/UI/fonts PASS다. 운영 Firebase·Rules·Vercel 환경·Production은 변경하지 않았다. 실제 사실값을 사용자가 확인해 Preview/Production에 입력한 뒤 재배포하고 `/terms`·`/privacy`를 눈으로 확인해야 이 차단을 해제할 수 있다.
+
 ## 2026-08-04 B2B 5역할 Preview 읽기 게이트 준비
 
 결과: **5역할 자동 smoke·비식별 역할 확인 API·격리 HTTP PASS / 실계정 토큰 주입 전 NO-GO 유지**

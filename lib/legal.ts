@@ -2,7 +2,7 @@
  * 약관·개인정보처리방침 SSOT — /terms · /privacy · 가입 동의가 모두 여기서 파생한다.
  *
  * ⚠ 두 가지를 지켜야 법적 효력이 있다.
- *   1) OPERATOR 의 빈 값은 공개 전에 반드시 채운다. 비어 있으면 문서 상단에 경고가 뜬다.
+ *   1) NEXT_PUBLIC_OPERATOR_* 환경변수의 빈 값은 공개 전에 반드시 채운다. 비어 있으면 문서 상단에 경고가 뜬다.
  *   2) 본문을 고치면 LEGAL_VERSION 을 올린다. 회원 프로필에 동의한 버전을 남기므로
  *      버전을 안 올리면 "무엇에 동의했는지"를 나중에 증명할 수 없다.
  *
@@ -17,18 +17,18 @@ export const LEGAL_VERSION = '2026-08-01';
 export const LEGAL_EFFECTIVE_DATE = '2026년 8월 1일';
 
 /**
- * 운영자 정보. **빈 값 = 공개 불가.**
- * 상호·대표자·주소·사업자등록번호·연락처는 사실이라 임의로 만들어 넣을 수 없다.
+ * 운영자 정보. **빈 값 = 공개 불가.** 공개 문서에 표시되는 사실정보이므로 Vercel의
+ * NEXT_PUBLIC_OPERATOR_* 빌드 환경변수에서만 주입한다. 값 변경은 재배포가 필요하다.
  */
 export const OPERATOR = {
   service: '프리패스(freepass)',
-  company: '',        // 상호(법인명)
-  ceo: '',            // 대표자
-  address: '',        // 사업장 주소
-  bizNo: '',          // 사업자등록번호
-  email: '',          // 문의·개인정보 관련 접수 메일
-  phone: '',          // 대표 전화
-  privacyOfficer: '', // 개인정보 보호책임자 성명·직위
+  company: String(process.env.NEXT_PUBLIC_OPERATOR_COMPANY || '').trim(),
+  ceo: String(process.env.NEXT_PUBLIC_OPERATOR_CEO || '').trim(),
+  address: String(process.env.NEXT_PUBLIC_OPERATOR_ADDRESS || '').trim(),
+  bizNo: String(process.env.NEXT_PUBLIC_OPERATOR_BIZ_NO || '').trim(),
+  email: String(process.env.NEXT_PUBLIC_OPERATOR_EMAIL || '').trim(),
+  phone: String(process.env.NEXT_PUBLIC_OPERATOR_PHONE || '').trim(),
+  privacyOfficer: String(process.env.NEXT_PUBLIC_OPERATOR_PRIVACY_OFFICER || '').trim(),
 };
 
 /** 채워야 할 운영자 항목 — 비어 있으면 문서·가입 화면이 경고한다. */

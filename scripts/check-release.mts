@@ -1,23 +1,28 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { missingOperatorFields } from '../lib/legal';
 
 const root = process.cwd();
 const failures: string[] = [];
 const warnings: string[] = [];
 
-function envKeys(file: string): Set<string> {
-  const out = new Set<string>();
+function envValues(file: string): Record<string, string> {
+  const out: Record<string, string> = {};
   if (!fs.existsSync(file)) return out;
   for (const line of fs.readFileSync(file, 'utf8').split(/\r?\n/)) {
     const m = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/);
-    if (m && m[2].trim() && !/^(["'])?\1$/.test(m[2].trim())) out.add(m[1]);
+    if (!m) continue;
+    let value = m[2].trim();
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+    out[m[1]] = value;
   }
   return out;
 }
 
-const localEnv = envKeys(path.join(root, '.env.local'));
-const hasEnv = (key: string) => Boolean(process.env[key]) || localEnv.has(key);
+const localEnv = envValues(path.join(root, '.env.local'));
+const envValue = (key: string) => String(process.env[key] ?? localEnv[key] ?? '').trim();
+const hasEnv = (key: string) => envValue(key).length > 0;
 const firebaseKeys = [
   'NEXT_PUBLIC_FIREBASE_API_KEY',
   'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN',
@@ -26,8 +31,24 @@ const firebaseKeys = [
   'NEXT_PUBLIC_FIREBASE_APP_ID',
 ];
 
-const missingLegal = missingOperatorFields();
+const operatorFields = [
+  ['NEXT_PUBLIC_OPERATOR_COMPANY', '상호'],
+  ['NEXT_PUBLIC_OPERATOR_CEO', '대표자'],
+  ['NEXT_PUBLIC_OPERATOR_ADDRESS', '주소'],
+  ['NEXT_PUBLIC_OPERATOR_BIZ_NO', '사업자등록번호'],
+  ['NEXT_PUBLIC_OPERATOR_EMAIL', '문의 이메일'],
+  ['NEXT_PUBLIC_OPERATOR_PRIVACY_OFFICER', '개인정보 보호책임자'],
+] as const;
+const missingLegal = operatorFields.filter(([key]) => !hasEnv(key)).map(([, label]) => label);
 if (missingLegal.length) failures.push(`약관·개인정보 운영자 정보 미기재: ${missingLegal.join(', ')}`);
+const operatorBizNo = envValue('NEXT_PUBLIC_OPERATOR_BIZ_NO');
+const operatorEmail = envValue('NEXT_PUBLIC_OPERATOR_EMAIL');
+if (operatorBizNo && !/^\d{3}-?\d{2}-?\d{5}$/.test(operatorBizNo)) {
+  failures.push('약관·개인정보 사업자등록번호 형식 오류: 숫자 10자리 또는 000-00-00000');
+}
+if (operatorEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(operatorEmail)) {
+  failures.push('약관·개인정보 문의 이메일 형식 오류');
+}
 
 const missingFirebase = firebaseKeys.filter((key) => !hasEnv(key));
 if (missingFirebase.length) failures.push(`Firebase 필수 환경변수 누락: ${missingFirebase.join(', ')}`);
