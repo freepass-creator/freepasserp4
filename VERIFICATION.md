@@ -10,6 +10,7 @@
 - B2B 정적 게이트에 두 파일과 5개 토큰 구성을 결속했다. 현재 로컬은 **37 PASS / 3 FAIL**이며 실패는 서비스계정 미설정과 서버/클라이언트 원자 선점 플래그 OFF뿐이다. 토큰 없는 smoke preflight는 URL·조직코드·5개 토큰 누락 8개를 모두 명시해 fail-closed한다.
 - 격리 Auth+RTDB Emulator와 실제 Next API에서 역할 확인+원자 선점 통합 **16/16 PASS**다. 권한 **44/44**, 상품 브리지 **16/16**, claim **11/11**, 차량 락 **38/38**, phase12 **69/69**, type/UI/fonts, production build **30/30 pages PASS**다.
 - 운영 Rules·Firebase 데이터·Vercel 환경·Production은 변경하지 않았다. 다음 실행은 전용 5역할 QA 토큰을 현재 셸에만 주입해 안전 플래그 OFF Preview에서 `smoke:b2b-roles`를 실행하는 것이며, 그 결과와 사람의 실데이터 확인 전 Rules 게시·플래그 활성화는 금지다.
+- 체크포인트 `2393586`을 `codex/atomic-claim-preview`에 push한 Git Preview `dpl_6D34V44eJWfeCvdqxAqhzQz83CXx` / `https://freepasserp4-palnz4r61-freepass-projects.vercel.app`는 **READY**다. Vercel 보호 우회 요청에서 `/api/auth/session`과 `/api/products/bridge` 비인증 응답이 모두 403·`private, no-store`·`Vary: Authorization`이며 새 Preview runtime error 로그는 0건이다. 실제 Chrome 로그인 화면도 console error 0이다.
 
 ## 2026-08-04 원자 선점 후보 Vercel Preview 브라우저 검수
 
