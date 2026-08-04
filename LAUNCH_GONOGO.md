@@ -15,7 +15,7 @@
 | 법적 운영자 정보 | 🟡 Preview 5필드+전화 확인·보호책임자 미설정 | 개인정보 보호책임자 확정 후 Preview 입력·약관/개인정보 최종 확인, 이후 Production 환경 반영 |
 | Firebase Admin 서버 경로 | 🟡 Preview 정상·Production 미설정 | Preview 무인증 403 실측 완료. 5역할 smoke 통과 후 Production에도 `FIREBASE_SERVICE_ACCOUNT_JSON` 설정 |
 | 차량 원자 선점 | 🟡 Preview 두 플래그 ON | Preview 무인증 claim이 로그인 게이트까지 진입함을 실측. 실계정 경쟁·취소 smoke 통과 후 Production 반영 |
-| RTDB 후보 Rules | 🟡 후보 Emulator 40/40·운영 미게시 | 현재 Rules와 RTDB 백업 → 사람/Claude 실데이터 게이트 → 후보 게시 → 5역할 실제 읽기/쓰기 smoke |
+| RTDB 후보 Rules | 🟡 후보 Emulator 40/40·운영 미게시 | **⚠ Production 차량선점 플래그 ON + 실계정 계약금 체크 1건 성공이 선행**(§1-1) → 현재 Rules·RTDB 백업 → 사람/Claude 실데이터 게이트 → 후보 게시 → 5역할 실제 읽기/쓰기 smoke |
 | 아이언 홈페이지 재고 | 🟡 Preview 플래그 ON·실관리자 적용 대기 | Preview 관리자 미리보기에서 49/24/25·수정21·신규3·부재차단4 확인 → 명시 적용 28건 → RP006 활성 24대·시트 제외·감사로그 확인 |
 | Production 도메인 전환 | ❌ `freepasserp.com`은 기존 `freepasserp3`에 연결 | 최신 fp4 Production 고유 URL smoke 완료 → 마지막에 custom-domain alias 전환. 기존 fp3 배포 ID를 롤백 대상으로 보존 |
 
@@ -25,6 +25,46 @@
 2. Production `NEXT_PUBLIC_REQUIRE_LEGAL_RECONSENT=true` 적용 여부 최종 승인
 3. 배포 직전 RTDB export와 직전 정상 Vercel 배포 ID 확보 — 2026-08-04 13:15 RTDB/Rules 백업 완료, 실제 게시가 지연되면 재실행
 4. 관리자·영업관리자·영업자·공급사관리자·공급사직원 5역할 핵심 여정 확인
+
+### 1-1. ⚠ 후보 Rules 게시는 Production 플래그보다 **뒤**여야 한다
+
+Claude 위험영역 게이트(`CLAUDE_GATE_VEHICLE_CLAIM_2026-08-04.md`) 차단 1.
+
+후보 Rules 는 선점 3필드를 서버 단일 writer 로 잠근다 —
+`agent_balance_paid`·`provider_balance_confirmed`·`vehicle_identity_hash` 의 `.validate` 가
+`newData.val() === data.val()` 라 **클라이언트는 `''` → `'yes'` 를 영영 못 쓴다**
+(`release-probe.mjs` 의 «선점 필드 직접 write 차단 → 401» 이 이걸 확인한다).
+
+클라이언트가 서버 API 로 우회하는 조건은 **플래그 두 개가 모두 ON** 일 때뿐이다
+(`vehicle-claim-client.ts:15`). OFF 면 기존 직접쓰기 경로로 내려가 `.validate` 에 막힌다.
+
+**RTDB 는 `freepasserp3` 하나뿐이고 Preview·Production 이 같은 인스턴스를 본다.**
+따라서 콘솔 게시는 Production 에 **즉시** 적용된다. 그 시점 Production 플래그가 OFF 면 —
+
+```
+영업자 「계약금 입금」 → 401
+공급사 「입금 확인」   → 401
+→ 딜이 한 건도 진행되지 않는다
+```
+
+Preview 는 플래그가 ON 이라 이 사고가 **Preview 검증으로는 절대 안 잡힌다.**
+
+올바른 순서:
+
+```
+① 운영자 6필드 (Production/Preview 동일)
+② Production 에 FIREBASE_SERVICE_ACCOUNT_JSON
+              + VEHICLE_CLAIM_SERVER_ENABLED=true
+              + NEXT_PUBLIC_ATOMIC_VEHICLE_CLAIMS=true
+③ Production 재배포 → 실계정 계약금 체크 1건 성공 확인   ← 서버 경로가 살아있다는 증거
+④ 현재 Rules 백업
+⑤ 후보 Rules 게시
+⑥ 게시 후 계약금 체크 1건 재확인 + 5역할 smoke
+```
+
+**②③ 이 ⑤ 보다 반드시 앞이다.** 플래그를 먼저 켜는 것은 부작용이 없다 —
+서버는 Admin SDK 라 구 Rules 에서도 통과하고 클라이언트는 API 만 부른다.
+롤백은 ④ 백업 재게시이며, 그것만으로 구 경로가 되살아난다.
 
 아이언렌트카 웹 연동은 사용자의 오픈 범위 확정에 따라 출시 필수다. `IRONRENTCAR_SYNC_ENABLED`는 Preview 관리자 화면 검수 때만 켜고, revision·예상 28건이 일치하는 명시 적용을 통과한 뒤 Production 반영 여부를 확정한다.
 

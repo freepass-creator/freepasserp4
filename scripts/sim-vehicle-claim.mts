@@ -2,6 +2,7 @@ import {
   canTransitionVehicleClaim,
   markVehicleClaimReleasing,
   reserveVehicleClaim,
+  STALE_VEHICLE_CLAIM_MS,
   type VehicleClaimActor,
   type VehicleClaimRecord,
 } from '../lib/domain/vehicle-claim';
@@ -52,6 +53,25 @@ check('다른 계약 재시도 차단', reserveVehicleClaim(current, {
 }, Date.now()) === null);
 check('소유 계약만 releasing 전환', !!markVehicleClaimReleasing(current, owner, Date.now())
   && markVehicleClaimReleasing(current, 'C-OTHER', Date.now()) === null);
+
+// ── 중간에 죽은 선점 회수 ──
+// 선점은 transaction('claiming') → multipath update('active') 두 단계다. 그 사이에서 죽으면
+// 'claiming' 이 남아 그 차를 아무도 못 판다. 반대로 정상 선점을 시간으로 뺏으면 그게 이중판매다.
+// 두 방향을 같이 고정한다.
+const t0 = 1_000_000_000_000;
+const rival = { contract_code: 'C-OTHER', product_code: 'P-OTHER', identity_hash: 'HASH-1', actor_uid: 'U-OTHER' };
+const deadClaiming: VehicleClaimRecord = {
+  contract_code: 'C-DEAD', product_code: 'P-DEAD', identity_hash: 'HASH-1',
+  status: 'claiming', updated_at: t0, actor_uid: 'U-DEAD',
+};
+check('죽은 claiming 은 유예 뒤 회수', !!reserveVehicleClaim(deadClaiming, rival, t0 + STALE_VEHICLE_CLAIM_MS + 1));
+check('유예 안 지난 claiming 은 보호', reserveVehicleClaim(deadClaiming, rival, t0 + STALE_VEHICLE_CLAIM_MS - 1) === null);
+check('죽은 releasing 도 유예 뒤 회수', !!reserveVehicleClaim({ ...deadClaiming, status: 'releasing' }, rival, t0 + STALE_VEHICLE_CLAIM_MS + 1));
+check('active 선점은 아무리 오래돼도 안 뺏김',
+  reserveVehicleClaim({ ...deadClaiming, status: 'active' }, rival, t0 + STALE_VEHICLE_CLAIM_MS * 1000) === null);
+check('회수된 원장은 새 계약 소유', reserveVehicleClaim(deadClaiming, rival, t0 + STALE_VEHICLE_CLAIM_MS + 1)?.contract_code === 'C-OTHER');
+check('updated_at 없는 구데이터도 회수 가능',
+  !!reserveVehicleClaim({ ...deadClaiming, updated_at: undefined as unknown as number }, rival, t0));
 
 console.log(`\n━━ 결과: ${pass}/${pass + fail} 통과`);
 if (fail) process.exit(1);
