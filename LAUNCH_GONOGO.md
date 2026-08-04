@@ -66,11 +66,33 @@ Preview 는 플래그가 ON 이라 이 사고가 **Preview 검증으로는 절�
 서버는 Admin SDK 라 구 Rules 에서도 통과하고 클라이언트는 API 만 부른다.
 롤백은 ④ 백업 재게시이며, 그것만으로 구 경로가 되살아난다.
 
+#### 같은 함정이 하나 더 — 재고(상품 브리지)
+
+후보 Rules 는 v3 `products` 원문 read 를 **관리자 한정**으로 좁힌다.
+게시 후 영업자·공급사가 v3 레거시 재고를 보는 경로는 `/api/products/bridge` **하나뿐**인데,
+이 라우트는 `firebaseAdminDatabase()` 를 쓰므로 **`FIREBASE_SERVICE_ACCOUNT_JSON` 이 없으면 죽는다.**
+
+```
+Rules 게시 + Production 서비스계정 없음
+  → 영업자·공급사 화면에서 v3-only 재고 292건/288대가 사라진다
+```
+
+차량선점 플래그와 **원인도 시점도 같다**(게시는 즉시 전역, 환경변수는 배포 단위).
+그래서 ②의 서비스계정은 플래그와 한 묶음이고, ③의 확인에 재고 대수까지 포함해야 한다.
+
+```
+③ 확인 항목 · 실계정 계약금 체크 1건 성공          ← 차량선점 경로
+            · 영업자 계정 재고 목록이 정상 대수      ← 브리지 경로
+```
+
+`check:b2b-release` 가 서비스계정·두 플래그·`NEXT_PUBLIC_BRIDGE_V3` 의 product 유지를 함께 본다.
+**Production 환경으로 이 게이트를 통과시킨 뒤에 게시한다.**
+
 아이언렌트카 웹 연동은 사용자의 오픈 범위 확정에 따라 출시 필수다. `IRONRENTCAR_SYNC_ENABLED`는 Preview 관리자 화면 검수 때만 켜고, revision·예상 28건이 일치하는 명시 적용을 통과한 뒤 Production 반영 여부를 확정한다.
 
-최신 검증 Preview는 `dpl_9QhCsihjXUcAb3pRAMMfyMfbHNGm` / `https://freepasserp4-7du1f5c2r-freepass-projects.vercel.app`다. 기준 커밋은 `242de54`이며 Production과 운영 Rules는 변경하지 않았다. 법적 환경+재동의 ON+후보 Rules의 release는 차단 0/서비스워커 경고 1, B2B는 41/41 PASS다. 정적·도메인·build 게이트도 PASS이고, `npm audit --omit=dev` 잔여는 Critical 0 / High 3 / Moderate 8이다. High 완전수정은 Next 16 메이저 업그레이드를 요구하므로 별도 호환 검증 없이 `npm audit fix --force`를 실행하지 않는다.
+최신 검증 Preview는 `dpl_AmdZSFwVEaW1RxpPExvTGteFvMLr` / `https://freepasserp4-ooijoten9-freepass-projects.vercel.app`다. 기준 코드는 `ad2b180`의 stale claim 회수와 `f89da00` 문서를 포함하며 Production Rules는 변경하지 않았다. 법적 환경+재동의 ON+후보 Rules의 release는 차단 0/서비스워커 경고 1, B2B는 41/41 PASS다. claim 17/17·차량락 38/38·정적·도메인·build 30/30도 PASS이고, `npm audit --omit=dev` 잔여는 Critical 0 / High 3 / Moderate 8이다. High 완전수정은 Next 16 메이저 업그레이드를 요구하므로 별도 호환 검증 없이 `npm audit fix --force`를 실행하지 않는다.
 
-현재 실서비스 도메인 `freepasserp.com`·`www.freepasserp.com`은 Vercel 프로젝트 `freepasserp3`의 `dpl_4K9TWPGwomjKnLmS2fc4VYFPmaJ5`에 연결돼 있다. `freepasserp4`의 기존 Production `dpl_89iS1W6cP2MYd2egoqQFMJFSt6Xq`는 최신 후보 이전 빌드라 새 서버 API가 404다. 최종 오픈 때는 최신 fp4 Production을 먼저 고유 URL로 완전히 검수한 뒤 alias만 마지막에 전환하며, DNS·domain ownership을 미리 제거하지 않는다.
+현재 실서비스 도메인 `freepasserp.com`·`www.freepasserp.com`은 Vercel 프로젝트 `freepasserp3`의 `dpl_4K9TWPGwomjKnLmS2fc4VYFPmaJ5`에 연결돼 있다. 이후 `origin/main` 자동배포로 fp4 Production `dpl_3ZrY5dJgZgd41TtPcGHWPw8zAtAt`이 추가됐지만 Production 운영자 환경 6필드와 서비스계정·두 claim 플래그가 미설정이다. `freepasserp4.vercel.app`의 약관은 공개 전 경고를 표시하고 claim API는 기능 OFF를 반환하므로 custom-domain alias 전환 금지다. 환경을 완성하고 고유 URL 실계정 smoke를 끝낸 새 Production만 전환 후보로 사용하며, DNS·domain ownership을 미리 제거하지 않는다.
 
 ### 과거 2026-07 판정 기록
 
