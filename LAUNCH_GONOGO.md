@@ -12,7 +12,7 @@
 
 | 오픈 필수 게이트 | 현재 | 완료 조건 |
 |---|---|---|
-| 법적 운영자 정보 | ❌ 6개 모두 미설정 | 상호·대표자·주소·사업자등록번호·문의 이메일·개인정보 보호책임자를 Preview/Production 환경변수에 입력하고 약관·개인정보 화면 확인 |
+| 법적 운영자 정보 | 🟡 Preview 5필드+전화 확인·보호책임자 미설정 | 개인정보 보호책임자 확정 후 Preview 입력·약관/개인정보 최종 확인, 이후 Production 환경 반영 |
 | Firebase Admin 서버 경로 | 🟡 Preview 정상·Production 미설정 | Preview 무인증 403 실측 완료. 5역할 smoke 통과 후 Production에도 `FIREBASE_SERVICE_ACCOUNT_JSON` 설정 |
 | 차량 원자 선점 | 🟡 Preview 두 플래그 ON | Preview 무인증 claim이 로그인 게이트까지 진입함을 실측. 실계정 경쟁·취소 smoke 통과 후 Production 반영 |
 | RTDB 후보 Rules | 🟡 후보 Emulator 40/40·운영 미게시 | 현재 Rules와 RTDB 백업 → 사람/Claude 실데이터 게이트 → 후보 게시 → 5역할 실제 읽기/쓰기 smoke |
@@ -28,7 +28,7 @@
 
 아이언렌트카 웹 연동은 사용자의 오픈 범위 확정에 따라 출시 필수다. `IRONRENTCAR_SYNC_ENABLED`는 Preview 관리자 화면 검수 때만 켜고, revision·예상 28건이 일치하는 명시 적용을 통과한 뒤 Production 반영 여부를 확정한다.
 
-최신 검증 Preview는 `dpl_CvmrL7vtnYfVtTh2mbEvZTXz6cc5` / `https://freepasserp4-b2apnu51l-freepass-projects.vercel.app`다. 기준 커밋은 `242de54`이며 Production과 운영 Rules는 변경하지 않았다. 정적·도메인·build 게이트는 PASS이고, `npm audit --omit=dev` 잔여는 Critical 0 / High 3 / Moderate 8이다. High 완전수정은 Next 16 메이저 업그레이드를 요구하므로 별도 호환 검증 없이 `npm audit fix --force`를 실행하지 않는다.
+최신 검증 Preview는 `dpl_DTapfRfjPhQxz5TABkvo715c7V4y` / `https://freepasserp4-5u6c3gc56-freepass-projects.vercel.app`다. 기준 커밋은 `242de54`이며 Production과 운영 Rules는 변경하지 않았다. 정적·도메인·build 게이트는 PASS이고, `npm audit --omit=dev` 잔여는 Critical 0 / High 3 / Moderate 8이다. High 완전수정은 Next 16 메이저 업그레이드를 요구하므로 별도 호환 검증 없이 `npm audit fix --force`를 실행하지 않는다.
 
 현재 실서비스 도메인 `freepasserp.com`·`www.freepasserp.com`은 Vercel 프로젝트 `freepasserp3`의 `dpl_4K9TWPGwomjKnLmS2fc4VYFPmaJ5`에 연결돼 있다. `freepasserp4`의 기존 Production `dpl_89iS1W6cP2MYd2egoqQFMJFSt6Xq`는 최신 후보 이전 빌드라 새 서버 API가 404다. 최종 오픈 때는 최신 fp4 Production을 먼저 고유 URL로 완전히 검수한 뒤 alias만 마지막에 전환하며, DNS·domain ownership을 미리 제거하지 않는다.
 
