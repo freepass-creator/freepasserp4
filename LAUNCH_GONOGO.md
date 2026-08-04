@@ -13,19 +13,21 @@
 | 오픈 필수 게이트 | 현재 | 완료 조건 |
 |---|---|---|
 | 법적 운영자 정보 | ❌ 6개 모두 미설정 | 상호·대표자·주소·사업자등록번호·문의 이메일·개인정보 보호책임자를 Preview/Production 환경변수에 입력하고 약관·개인정보 화면 확인 |
-| Firebase Admin 서버 경로 | 🟡 Preview만 서비스계정 있음 | Preview 5역할 smoke 통과 후 Production에도 `FIREBASE_SERVICE_ACCOUNT_JSON` 설정 |
-| 차량 원자 선점 | ❌ 두 기능 플래그 미설정 | Preview에서 `VEHICLE_CLAIM_SERVER_ENABLED=true`, `NEXT_PUBLIC_ATOMIC_VEHICLE_CLAIMS=true` 후 적대 probe·실계정 smoke 통과, 이후 Production 반영 |
-| RTDB 후보 Rules | ❌ 운영 미게시 | 현재 Rules 백업 → 최신 운영 스냅샷 Emulator → 사람 게이트 → 후보 게시 → 5역할 실제 읽기/쓰기 smoke |
-| 아이언 홈페이지 재고 | 🟡 코드·관리자 미리보기 구현, 적용 OFF | Preview 관리자 미리보기에서 49/24/25·수정21·신규3·부재차단4 확인 → 명시 적용 → RP006 활성 24대·시트 제외·감사로그 확인 |
+| Firebase Admin 서버 경로 | 🟡 Preview 정상·Production 미설정 | Preview 무인증 403 실측 완료. 5역할 smoke 통과 후 Production에도 `FIREBASE_SERVICE_ACCOUNT_JSON` 설정 |
+| 차량 원자 선점 | 🟡 Preview 두 플래그 ON | Preview 무인증 claim이 로그인 게이트까지 진입함을 실측. 실계정 경쟁·취소 smoke 통과 후 Production 반영 |
+| RTDB 후보 Rules | 🟡 후보 Emulator 40/40·운영 미게시 | 현재 Rules와 RTDB 백업 → 사람/Claude 실데이터 게이트 → 후보 게시 → 5역할 실제 읽기/쓰기 smoke |
+| 아이언 홈페이지 재고 | 🟡 Preview 플래그 ON·실관리자 적용 대기 | Preview 관리자 미리보기에서 49/24/25·수정21·신규3·부재차단4 확인 → 명시 적용 28건 → RP006 활성 24대·시트 제외·감사로그 확인 |
 
 추가 필수 순서:
 
 1. 운영자 정보 확정 뒤 Preview에서 기존 회원 재동의 1회 검수
 2. Production `NEXT_PUBLIC_REQUIRE_LEGAL_RECONSENT=true` 적용 여부 최종 승인
-3. 배포 직전 RTDB export와 직전 정상 Vercel 배포 ID 확보
+3. 배포 직전 RTDB export와 직전 정상 Vercel 배포 ID 확보 — 2026-08-04 13:15 RTDB/Rules 백업 완료, 실제 게시가 지연되면 재실행
 4. 관리자·영업관리자·영업자·공급사관리자·공급사직원 5역할 핵심 여정 확인
 
 아이언렌트카 웹 연동은 사용자의 오픈 범위 확정에 따라 출시 필수다. `IRONRENTCAR_SYNC_ENABLED`는 Preview 관리자 화면 검수 때만 켜고, revision·예상 28건이 일치하는 명시 적용을 통과한 뒤 Production 반영 여부를 확정한다.
+
+최신 검증 Preview는 `dpl_CvmrL7vtnYfVtTh2mbEvZTXz6cc5` / `https://freepasserp4-b2apnu51l-freepass-projects.vercel.app`다. 기준 커밋은 `242de54`이며 Production과 운영 Rules는 변경하지 않았다. 정적·도메인·build 게이트는 PASS이고, `npm audit --omit=dev` 잔여는 Critical 0 / High 3 / Moderate 8이다. High 완전수정은 Next 16 메이저 업그레이드를 요구하므로 별도 호환 검증 없이 `npm audit fix --force`를 실행하지 않는다.
 
 ### 과거 2026-07 판정 기록
 

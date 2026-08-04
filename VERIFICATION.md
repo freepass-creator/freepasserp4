@@ -1,5 +1,19 @@
 # 독립 검증 결과
 
+## 2026-08-04 오픈 직전 전수 게이트 재검증
+
+결과: **코드·도메인·후보 Rules·Preview 서버 런타임 PASS / 법적 정보·실계정·Rules 게시 게이트 미완료로 Production NO-GO**
+
+- 검증 기준 커밋은 `242de54`다. `npx tsc --noEmit`, fonts/tokens/UI, agent·권한·계약/정산·차량 claim·아이언 source/reconcile/apply·Sheet merge 시뮬레이션과 분리 production build 30/30 routes가 PASS했다. 로컬 `http://localhost:4004`는 검증 중 재시작하지 않았고 200을 유지했다.
+- 현재 게시용 `database.rules.json`은 보안 정적 게이트 0/14라 그대로 게시·오픈할 수 없다. 생성된 비게시 후보는 보안 14/14, 계약 26/26, 전자서명 58/58, 실제 Firebase Auth+RTDB Emulator 40/40 PASS다. 후보는 운영에 게시하지 않았다.
+- Preview에 유효한 `FIREBASE_SERVICE_ACCOUNT_JSON`, `VEHICLE_CLAIM_SERVER_ENABLED=true`, `NEXT_PUBLIC_ATOMIC_VEHICLE_CLAIMS=true`, `IRONRENTCAR_SYNC_ENABLED=true`를 설정하고 재배포했다. Ready deployment는 `dpl_CvmrL7vtnYfVtTh2mbEvZTXz6cc5`, URL은 `https://freepasserp4-b2apnu51l-freepass-projects.vercel.app`다. Production 환경과 배포는 변경하지 않았다.
+- 새 Preview 런타임에서 무인증 `/api/auth/session`과 아이언 preview는 403, 차량 claim POST는 기능 OFF 문구가 아니라 `로그인이 필요합니다`를 반환했다. 즉 서버 Admin 초기화와 두 claim 플래그가 실제 배포에서 동작하며, 관리자·사용자 인증 경계는 닫혀 있다.
+- 실제 브라우저에서 `/login`, `/terms`, `/privacy`, `/`, `/contract`, `/inventory`를 열어 렌더를 확인했다. 공개 약관·개인정보 화면에는 운영자 정보 6개 미입력 경고가 실제 노출된다. 게스트 화면은 열리지만 로그인 역할 검증을 대신하지 않는다.
+- `npm audit --omit=dev`는 Critical 0, High 3, Moderate 8이다. High는 현재 Next 15.5.21 전이 `postcss`·`sharp` 항목이며 자동 완전수정은 Next 16.3.0 메이저 변경을 요구한다. 오픈 직전 `--force` 업그레이드는 하지 않았고 별도 호환 검증 과제로 남겼다.
+- 오픈 전 백업을 새로 만들었다. `backup-20260804-prelaunch-1315.json`은 27,589,451바이트, SHA-256 `85667AAEFC4495F1025DC50F7B18FACF5036CBF037DF9F124FF7AA81B3535BCA`이며 JSON과 핵심 노드 구조를 확인했다. 현재 라이브 Rules도 `tmp/rules/live-prelaunch-20260804-1317.json`에 백업했고 SHA-256은 `B296C3BA57C738213723547C9FC079B47A1E7325D49659BA5EEE57D3249A4143`이다. 둘 다 Git ignore 대상이며 내용은 출력·커밋하지 않았다.
+- 오픈 전 필수 잔여는 ① 확정 운영자 6필드 입력과 공개 문서 확인 ② Preview 기존회원 재동의 1회 ③ 5역할 실계정 읽기·쓰기 smoke ④ 사람/Claude 후보 Rules 실데이터 승인·게시·게시후 smoke ⑤ 관리자 아이언 49/24/25·21/3/4 확인 후 28건 반영과 활성 24대·Sheet 제외·감사로그 확인 ⑥ Production 서비스계정·플래그·최종 배포다. 실제 게시가 지연되면 직전에 백업을 다시 갱신한다.
+- 환경 점검에 사용한 임시 `.env` 파일은 삭제했고 비밀값은 문서·Git에 저장하지 않았다. 작업 종료 시점에 운영 데이터·운영 Rules·Production write는 0건이다.
+
 ## 2026-08-04 기존 회원 약관 재동의 안전 게이트
 
 결과: **구현·권한 경계·플래그 ON production build PASS / 기본 OFF·운영자 정보 입력 전 NO-GO 유지**
