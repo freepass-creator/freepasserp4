@@ -58,7 +58,7 @@ check('상품 transaction 성공 뒤 감사표식 실패는 Sheet source로 롤�
 check('웹 단일 정본 공급사는 시트 roster에서 제외', sheetSource.includes('if (isWebInventoryPartner(p)) return false'));
 check('관리자 화면은 Iron 읽기전용 preview를 제공',
   sheetUiSource.includes("fetch('/api/inventory/ironrentcar/preview'")
-  && sheetUiSource.includes('미리보기 새로고침'));
+  && sheetUiSource.includes('상품 검증'));
 check('Iron 적용은 preview revision과 세 가지 예상건수를 전달',
   sheetUiSource.includes('revision: ironPreview.revision')
   && sheetUiSource.includes('patches: ironPreview.reconciliation.patchCandidates')
@@ -70,5 +70,9 @@ check('Iron 적용은 사용자 확인 뒤 서버 확인문구로 요청',
 check('Iron UI는 중복·차단 계획 적용 버튼을 비활성화',
   sheetUiSource.includes('ironPreview.reconciliation.duplicatePlateGroups')
   && sheetUiSource.includes('ironPreview.reconciliation.blocked'));
+check('홈페이지·Sheet 커넥터를 같은 상품 연동 용어로 표시',
+  sheetUiSource.includes('전체 공급사 상품 연동')
+  && sheetUiSource.includes('상품 검증')
+  && sheetUiSource.includes('상품 반영'));
 
 console.log(`ironrentcar apply: ${pass}/${pass} PASS`);
