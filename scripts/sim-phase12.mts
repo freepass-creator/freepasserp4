@@ -196,6 +196,9 @@ const pageToolBarSrc = fs.readFileSync(path.join(root, 'components/PageToolBar.t
 const navigationSrc = fs.readFileSync(path.join(root, 'components/ui/navigation.tsx'), 'utf8');
 const buttonsSrc = fs.readFileSync(path.join(root, 'components/ui/buttons.tsx'), 'utf8');
 const contractPanelSrc = fs.readFileSync(path.join(root, 'components/ContractPanel.tsx'), 'utf8');
+const chakhandealButtonSrc = fs.readFileSync(path.join(root, 'components/ChakhandealEsignButton.tsx'), 'utf8');
+const chakhandealRouteSrc = fs.readFileSync(path.join(root, 'app/api/chakhandeal/contracts/send/route.ts'), 'utf8');
+const chakhandealServerSrc = fs.readFileSync(path.join(root, 'lib/server/chakhandeal-esign.ts'), 'utf8');
 const contractMemosSrc = fs.readFileSync(path.join(root, 'components/ContractMemos.tsx'), 'utf8');
 const contractDocsSrc = fs.readFileSync(path.join(root, 'components/ContractDocs.tsx'), 'utf8');
 const contractSignSrc = fs.readFileSync(path.join(root, 'components/ContractSign.tsx'), 'utf8');
@@ -224,6 +227,13 @@ check('D 모바일 목록복귀는 공통 BottomNav', navigationSrc.includes("ba
 check('D 공통 Btn 모바일 아이콘 전환 SSOT', buttonsSrc.includes('mobileIcon?: React.ReactNode') && buttonsSrc.includes('iconOnly ? mobileIcon : children'));
 check('D 결정적 액션 아이콘+텍스트 SSOT', buttonsSrc.includes('export function ButtonLabel'));
 check('D 계약 진행 주요 액션 아이콘+텍스트', contractPanelSrc.includes('ButtonLabel') && contractPanelSrc.includes('CheckCircle2') && contractPanelSrc.includes('FileSignature'));
+check('D ERP 자체 전자서명 발송 진입점 미노출', !contractPanelSrc.includes('<ContractSign'));
+check('D 전자계약 발송은 착한거래 서버 연동', contractPanelSrc.includes('<ChakhandealEsignButton')
+  && chakhandealButtonSrc.includes("fetch('/api/chakhandeal/contracts/send'")
+  && chakhandealRouteSrc.includes('verifyActiveBearer')
+  && chakhandealRouteSrc.includes('canSendChakhandealContract')
+  && chakhandealServerSrc.includes('CHAKHANDEAL_API_KEY')
+  && !chakhandealButtonSrc.includes('/sign/'));
 check('D 계약 메모 저장 아이콘+텍스트', contractMemosSrc.includes('ButtonLabel') && contractMemosSrc.includes('<Save'));
 check('D 계약 서류 삭제 아이콘+텍스트', contractDocsSrc.includes('ButtonLabel') && contractDocsSrc.includes('<Trash2'));
 check('D 전자서명 주요 액션 아이콘+텍스트', contractSignSrc.includes('ButtonLabel') && contractSignSrc.includes('<Send') && contractSignSrc.includes('<CheckCircle2'));

@@ -176,3 +176,26 @@ B 가 5/5 에 도달하려면 계약금 선점을 통과해야 한다(`getProgre
 
 **차단 아님.** 순차 경로는 전부 닫혔고, 남은 것은 두 번 연속 동시성이 겹치는 경우다.
 이 수정으로 오픈이 막히지 않고, 오픈이 만드는 위험의 큰 쪽을 닫았다.
+
+## 9. Codex 후속 — 서버 원자 claim 후보 구현 (같은 날)
+
+위 7~8절의 판단은 사용자 승인 뒤 진행한 후속 구현으로 **대체됐다**. 현재 후보는 번호판/VIN
+정규화 신원의 SHA-256을 키로 `v4/vehicle_claims/{identityHash}`를 서버 RTDB transaction에서 먼저
+선점한다. 선점 성공 뒤에만 v4 계약 단계·상품 락·claim 활성 상태를 한 번의 multipath update로 기록한다.
+
+- 브라우저는 `POST /api/contracts/vehicle-claim`만 호출하고 Firebase ID token을 보낸다.
+- 서버가 영업자 본인/같은 채널 관리자/해당 공급사/플랫폼 관리자 권한과 계약 귀속을 다시 확인한다.
+- v3 계약·상품은 충돌 판정용으로만 읽고 쓰지 않는다.
+- 같은 신원의 다른 계약금·완료 계약뿐 아니라 다른 상품코드의 주인 있는 `계약중/출고불가` 락도 차단한다.
+- 후보 Rules는 claim의 클라이언트 write를 닫고, 두 계약금 필드와 신원 해시를 서버 단일 writer로 묶는다.
+- 로컬 Map은 단일 프로세스 적대 시뮬레이션 전용이며 운영 안전장치가 아니다.
+
+검증 결과는 claim 역할·동시성 **11/11**, 차량 락 **38/38**, 계약 Rules **26/26**,
+권한 **44/44**, 정산 E2E **22/22**, 격리 Auth+RTDB Emulator **37/37**다. 별도 Next dev 서버를
+같은 에뮬레이터에 연결한 실제 API 통합 probe도 서버 kill switch OFF 503, 동시 1승/1충돌,
+역할 차단, 공급사 후속 확인, 취소 해제·claim 삭제·재고 복원을 포함해 **14/14 PASS**다.
+
+아직 활성화하지 않았다. `VEHICLE_CLAIM_SERVER_ENABLED=false`,
+`NEXT_PUBLIC_ATOMIC_VEHICLE_CLAIMS=false`, 로컬 서비스계정 미설정이며
+`database.rules.json`도 그대로다. 서비스계정이 있는 Preview에서 기능 플래그와 후보 Rules를 함께 적용하고
+역할별 실계정 smoke를 통과한 뒤 사람/Claude 위험 게이트를 받아야 한다. 그 전에는 커밋·게시·운영 배포 금지다.

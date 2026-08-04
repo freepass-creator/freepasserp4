@@ -1,0 +1,8 @@
+{
+  "database": { "rules": "release-candidate.rules.json" },
+  "emulators": {
+    "auth": { "port": 9199 },
+    "database": { "port": 9100 },
+    "singleProjectMode": true
+  }
+}

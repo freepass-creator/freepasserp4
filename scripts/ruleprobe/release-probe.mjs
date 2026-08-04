@@ -74,6 +74,7 @@ const doneContract = {
   agent_balance_paid: 'yes', agent_final_paid: 'yes', provider_balance_confirmed: 'yes',
   provider_agreement_done: 'yes', provider_agreement_sent: 'yes',
   agent_handover_confirmed: 'yes', provider_release_completed: 'yes',
+  vehicle_identity_hash: 'HASH-CAR-1',
 };
 await db('products', { method: 'PUT', body: { LEGACY: { product_code: 'LEGACY', vin: 'SECRET', vehicle_price: 1 } } });
 await db('partners', { method: 'PUT', body: { 'SUP-A': { partner_code: 'SUP-A' } } });
@@ -86,6 +87,10 @@ await db('v4', { method: 'PUT', body: {
     'C-OK': doneContract,
     'C-PROGRESS': { ...doneContract, contract_code: 'C-PROGRESS', contract_status: '계약요청', product_code: 'CAR-1', provider_docs_review: '' },
     'C-OTHER-CAR': { ...doneContract, contract_code: 'C-OTHER-CAR', product_code: 'CAR-2' },
+    'C-CLAIM': { ...doneContract, contract_code: 'C-CLAIM', contract_status: '계약요청', product_code: 'CAR-2', agent_balance_paid: null, provider_balance_confirmed: null, vehicle_identity_hash: null },
+  },
+  vehicle_claims: {
+    'HASH-CAR-1': { contract_code: 'C-OK', product_code: 'CAR-1', identity_hash: 'HASH-CAR-1', status: 'active', updated_at: Date.now(), actor_uid: admin.uid },
   },
 } });
 
@@ -117,6 +122,14 @@ check('sent 링크 익명 read 허용', (await db('contract_sign/T-SENT', { toke
 check('pending_review 익명 재조회 차단', (await db('contract_sign/T-PENDING', { token: 'none' })).status, 401);
 
 console.log('\n=== 계약 불변·역할 격리 ===');
+const newContract = {
+  contract_code: 'C-NEW', contract_status: '계약요청', contract_date: '2026-08-04',
+  product_code: 'CAR-2', agent_uid: agent.uid, agent_code: 'AG-A', agent_channel_code: 'CH-A',
+  provider_company_code: 'SUP-A', rent_amount_snapshot: 500000,
+  customer_name: '신규고객', customer_phone: '010-1234-5678',
+  car_number_snapshot: '22나2222', maker_snapshot: '기아', model_snapshot: 'K5',
+};
+check('선점 필드 없는 정상 신규 계약 생성 허용', (await db('v4/contracts/C-NEW', { method: 'PUT', token: agent.token, body: newContract })).status, 200);
 check('agent 자기 계약 고객 연락처 수정 허용', (await db('v4/contracts/C-PROGRESS/customer_phone', { method: 'PUT', token: agent.token, body: '010-1111-2222' })).status, 200);
 check('provider 고객 연락처 수정 차단', (await db('v4/contracts/C-PROGRESS/customer_phone', { method: 'PUT', token: providerA.token, body: '010-9999-9999' })).status, 401);
 check('agent 계약 차량 스냅샷 수정 차단', (await db('v4/contracts/C-PROGRESS/maker_snapshot', { method: 'PUT', token: agent.token, body: '기아' })).status, 401);
@@ -126,6 +139,10 @@ check('provider 공급 메모 수정 허용', (await db('v4/contracts/C-PROGRESS
 check('provider 임의 계약취소 차단', (await db('v4/contracts/C-PROGRESS/contract_status', { method: 'PUT', token: providerA.token, body: '계약취소' })).status, 401);
 check('provider 출고불가 기록 허용', (await db('v4/contracts/C-PROGRESS/provider_delivery_response', { method: 'PUT', token: providerA.token, body: '출고 불가' })).status, 200);
 check('provider 출고불가에 결속된 취소 허용', (await db('v4/contracts/C-PROGRESS/contract_status', { method: 'PUT', token: providerA.token, body: '계약취소' })).status, 200);
+check('agent 선점 필드 직접 write 차단', (await db('v4/contracts/C-CLAIM/agent_balance_paid', { method: 'PUT', token: agent.token, body: 'yes' })).status, 401);
+check('provider 선점 필드 직접 write 차단', (await db('v4/contracts/C-CLAIM/provider_balance_confirmed', { method: 'PUT', token: providerA.token, body: 'yes' })).status, 401);
+check('agent 차량 claim 원장 read 차단', (await db('v4/vehicle_claims', { token: agent.token })).status, 401);
+check('admin 외 client claim write 차단', (await db('v4/vehicle_claims/FAKE', { method: 'PUT', token: admin.token, body: { contract_code: 'FAKE' } })).status, 401);
 
 console.log('\n=== 차량 잠금 계약 결속 ===');
 check('계약 없는 agent raw lock 차단', (await db('v4', { method: 'PATCH', token: agent.token, body: {

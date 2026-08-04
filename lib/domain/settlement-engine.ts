@@ -12,9 +12,19 @@ import { getProgress, hasDepositClaim, DEPOSIT_CLAIM_KEYS, isDone, stepActorOf }
 import { readPartnerPrivate, readUserPrivate } from '@/lib/domain/private-fields';
 import { requirePositiveRentAmount } from '@/lib/domain/contract-money';
 import { vehicleIdentity } from '@/lib/domain/product';
+import { isVehicleClaimStepKey } from '@/lib/domain/vehicle-claim';
+import {
+  atomicVehicleClaimsEnabled,
+  releaseCancelledVehicleClaimFromClient,
+  transitionVehicleClaimFromClient,
+} from '@/lib/firebase/vehicle-claim-client';
 
 const REJECT_VALS = ['불가', '부결', '출고 불가'];
 const isReject = (v: unknown) => typeof v === 'string' && REJECT_VALS.includes(v);
+
+// LocalAdapter 시뮬레이션 전용 단일 프로세스 claim. 운영 RTDB는 반드시 서버 transaction 경로를 쓴다.
+// 브라우저 mutex를 운영 안전장치로 오인하지 않도록 backend가 local일 때만 사용한다.
+const localVehicleClaims = new Map<string, string>();
 
 /**
  * 율 정규화 — 0~1 범위만 유효. 벗어나면 **기본값으로 되돌리고 크게 남긴다**.
@@ -167,7 +177,11 @@ export async function cancelContract(contract: EntityRecord): Promise<void> {
   const co = getCompanyId(); const store = getStore();
   const code = String(contract.contract_code);
   const fresh = (await store.get('contract', co, code)) || contract;
-  if (fresh.contract_status === '계약취소') return;
+  if (fresh.contract_status === '계약취소') {
+    if (atomicVehicleClaimsEnabled(store.backend)) await releaseCancelledVehicleClaimFromClient(co, code);
+    else await releaseLocalVehicleClaim(fresh, code);
+    return;
+  }
   // 완료 계약은 R1(private 공급사 수수료)을 기준으로 환수액을 계산한다.
   // 영업자 세션에는 R1이 노출되지 않으므로 클라이언트에서 취소하면 0원 환수 또는
   // 계약·차량만 먼저 바뀐 부분완료가 생길 수 있다. 완료 후 취소·환수는 관리자만 처리한다.
@@ -176,7 +190,9 @@ export async function cancelContract(contract: EntityRecord): Promise<void> {
   }
   await store.update('contract', co, code, { contract_status: '계약취소' });
   // 재고 = 이 계약 취소 후 재계산(다른 계약중/완료 있으면 유지). 무조건 출고가능 복원 금지.
-  if (fresh.product_code) await syncVehicleLock(String(fresh.product_code), code);
+  if (atomicVehicleClaimsEnabled(store.backend)) await releaseCancelledVehicleClaimFromClient(co, code);
+  else if (fresh.product_code) await syncVehicleLock(String(fresh.product_code), code);
+  await releaseLocalVehicleClaim(fresh, code);
   await onContractCancel(fresh); // 정산 존재(완료건) → 환수대기+환수액. 없으면 no-op.
 }
 
@@ -273,7 +289,7 @@ export async function blockingContractFor(productCode: string): Promise<string> 
  * **락 상태를 전혀 보지 않는다.** 시트 동기화가 패자 쪽에 가격을 채우면 승자가 뒤집혀
  * 이미 팔린 차가 다시 매물로 뜬다. 그래서 화면이 아니라 가드에서 막아야 한다.
  */
-type TwinSet = { codes: Set<string>; rows: EntityRecord[] };
+type TwinSet = { codes: Set<string>; rows: EntityRecord[]; identity: string | null };
 
 /**
  * listRawFresh 를 쓰는 이유 둘 —
@@ -285,23 +301,32 @@ type TwinSet = { codes: Set<string>; rows: EntityRecord[] };
  */
 async function twinsOf(productCode: string): Promise<TwinSet> {
   const codes = new Set<string>([productCode]);
-  if (!productCode) return { codes, rows: [] };
+  if (!productCode) return { codes, rows: [], identity: null };
   const co = getCompanyId(); const store = getStore();
   let all: EntityRecord[] = [];
   try {
     if (store.listRawFresh) all = await store.listRawFresh('product', co);
     else if (store.listRaw) all = await store.listRaw('product', co);
     else all = await store.list('product', co);
-  } catch { return { codes, rows: [] }; }
+  } catch { return { codes, rows: [], identity: null }; }
   const self = all.find((r) => String(r.product_code) === productCode || String(r._key) === productCode);
   const id = self ? vehicleIdentity(self) : null;
-  if (!id) return { codes, rows: [] };
+  if (!id) return { codes, rows: [], identity: null };
   const rows = all.filter((r) => vehicleIdentity(r) === id);
   for (const r of rows) {
     const c = String(r.product_code || r._key || '');
     if (c) codes.add(c);
   }
-  return { codes, rows };
+  return { codes, rows, identity: id };
+}
+
+async function releaseLocalVehicleClaim(contract: EntityRecord, contractCode: string): Promise<void> {
+  const store = getStore();
+  const productCode = String(contract.product_code || '');
+  if (!store.backend.startsWith('local') || !productCode) return;
+  const twin = await twinsOf(productCode);
+  const claimKey = twin.identity || `CODE:${productCode}`;
+  if (localVehicleClaims.get(claimKey) === contractCode) localVehicleClaims.delete(claimKey);
 }
 
 /** 같은 실물(트윈 코드 포함)에 이미 계약금 선점한 다른 계약(또는 완료)이 있으면 그 코드. */
@@ -379,6 +404,17 @@ export async function applyStepCheck(contract: EntityRecord, key: string, value:
     }
   }
 
+  // 운영 RTDB 입금 선점은 서버가 차량 신원 hash claim을 transaction으로 선점한 뒤 계약·재고를 갱신한다.
+  // 기존 클라이언트 check-then-act 경로로 내려가면 서로 다른 브라우저가 동시에 통과하므로 여기서 완전히 분기한다.
+  if (productCode && isVehicleClaimStepKey(key) && atomicVehicleClaimsEnabled(store.backend)) {
+    await transitionVehicleClaimFromClient(co, code, key, value);
+    const fresh = (await (store.getFresh ? store.getFresh('contract', co, code) : store.get('contract', co, code)))
+      || ({ ...contract, [key]: value } as EntityRecord);
+    const progress = getProgress(fresh);
+    if (progress.done === progress.total && fresh.contract_status !== '계약완료') await finalizeContractIfReady(fresh);
+    return;
+  }
+
   // 계약목록 1회 조회 — rival/dup/락 재계산이 공유(체크마다 전량 list×N 제거). 판정 로직 불변.
   const contracts = await store.list('contract', co);
 
@@ -430,7 +466,22 @@ export async function applyStepCheck(contract: EntityRecord, key: string, value:
       if (reason) throw new Error(reason);
     }
   }
-  await store.update('contract', co, code, { [key]: value });
+  // LocalAdapter 적대 시뮬레이션도 같은 tick의 두 요청 중 하나만 통과시킨다.
+  // 운영 브라우저에는 이 Map을 쓰지 않으며 위 서버 transaction이 유일한 동시성 경계다.
+  let localClaimKey = '';
+  if (claimingDeposit && store.backend.startsWith('local')) {
+    const twin = await twins();
+    localClaimKey = twin.identity || `CODE:${productCode}`;
+    const owner = localVehicleClaims.get(localClaimKey);
+    if (owner && owner !== code) throw new Error(`같은 차량을 다른 계약(${owner})이 먼저 선점했습니다.`);
+    localVehicleClaims.set(localClaimKey, code);
+  }
+  try {
+    await store.update('contract', co, code, { [key]: value });
+  } catch (error) {
+    if (localClaimKey && localVehicleClaims.get(localClaimKey) === code) localVehicleClaims.delete(localClaimKey);
+    throw error;
+  }
   // store.update 가 delta 로 캐시를 정확히 패치 — 호출자 stale 스냅샷(contract 전체)으로 덮지 않는다(캐시 되돌림→락 오해제·중복판매 방지).
   const fresh = (await store.get('contract', co, code)) || ({ ...contract, [key]: value } as EntityRecord);
   // 공유 list에 방금 패치 반영한 사본(락 재계산 first-wins가 최신 체크값 보도록).
@@ -438,7 +489,12 @@ export async function applyStepCheck(contract: EntityRecord, key: string, value:
 
   if (isReject(value)) {
     if (fresh.contract_status !== '계약취소') await store.update('contract', co, code, { contract_status: '계약취소' });
-    if (productCode) await syncVehicleLock(productCode, code, { contracts: contractsFresh.map((c) => String(c.contract_code) === code ? { ...fresh, contract_status: '계약취소' } : c) });
+    if (atomicVehicleClaimsEnabled(store.backend)) await releaseCancelledVehicleClaimFromClient(co, code);
+    else if (productCode) await syncVehicleLock(productCode, code, { contracts: contractsFresh.map((c) => String(c.contract_code) === code ? { ...fresh, contract_status: '계약취소' } : c) });
+    if (store.backend.startsWith('local')) {
+      const twin = await twins(); const claimKey = twin.identity || `CODE:${productCode}`;
+      if (localVehicleClaims.get(claimKey) === code) localVehicleClaims.delete(claimKey);
+    }
     await onContractCancel(fresh);
     return;
   }
@@ -451,5 +507,9 @@ export async function applyStepCheck(contract: EntityRecord, key: string, value:
     // 락 재계산 — 선점·해제 양방향. 체크 해제('')로 선점이 풀린 경우도 반드시 여기서 상품에 반영된다.
     // (구현: 해제를 별도 분기로 두면 매번 새 누락 경로가 생김 → 매 체크마다 무조건 재계산이 SSOT)
     await syncVehicleLock(productCode, code, { contracts: contractsFresh });
+  }
+  if (store.backend.startsWith('local') && isVehicleClaimStepKey(key) && !hasDepositClaim(fresh)) {
+    const twin = await twins(); const claimKey = twin.identity || `CODE:${productCode}`;
+    if (localVehicleClaims.get(claimKey) === code) localVehicleClaims.delete(claimKey);
   }
 }

@@ -75,6 +75,8 @@ check(serviceAccountValid, '서버 전용 FIREBASE_SERVICE_ACCOUNT_JSON 유효 �
 if (serviceAccountValid) {
   check(serviceProject === String(envValue('NEXT_PUBLIC_FIREBASE_PROJECT_ID') || '').trim(), '클라이언트·서버 Firebase project_id 일치');
 }
+check(String(envValue('VEHICLE_CLAIM_SERVER_ENABLED') || '').trim().toLowerCase() === 'true', '차량 원자 선점 서버 kill switch ON');
+check(String(envValue('NEXT_PUBLIC_ATOMIC_VEHICLE_CLAIMS') || '').trim().toLowerCase() === 'true', '차량 원자 선점 클라이언트 경로 ON');
 
 const daily = String(envValue('SHEET_DAILY_SYNC_ENABLED') || '').trim().toLowerCase();
 check(daily !== 'true', '미결 Sheet 충돌 동안 일일 자동동기화 OFF');
@@ -110,6 +112,9 @@ if (!existsSync(rulesFile)) {
     const legacyProducts = (rules.products || {}) as Rec;
     const v4 = (rules.v4 || {}) as Rec;
     const v4Products = (v4.products || {}) as Rec;
+    const v4Claims = (v4.vehicle_claims || {}) as Rec;
+    const v4Contracts = (v4.contracts || {}) as Rec;
+    const contractLeaf = (v4Contracts.$contract_id || {}) as Rec;
     const legacyRead = String(legacyProducts['.read'] || '');
     const v4Read = String(v4Products['.read'] || '');
     check(legacyProducts['.write'] === false, '후보 Rules v3 products write 폐쇄');
@@ -119,6 +124,13 @@ if (!existsSync(rulesFile)) {
         && /anonymous/.test(v4Read)
         && hasActiveAssignedUserGate(v4Read),
       '후보 Rules v4 공개 products read 활성·배정 사용자 한정',
+    );
+    check(v4Claims['.write'] === false, '후보 Rules vehicle_claims client write 폐쇄');
+    check(
+      ['vehicle_identity_hash', 'agent_balance_paid', 'provider_balance_confirmed'].every((field) => (
+        String(((contractLeaf[field] || {}) as Rec)['.validate'] || '') === 'newData.val() === data.val()'
+      )),
+      '후보 Rules 차량 선점 필드 서버 단일 writer',
     );
   } catch {
     fail(`후보 Rules JSON 판독: ${rulesFile}`);
@@ -130,6 +142,10 @@ const requiredFiles = [
   'lib/domain/product-bridge.ts',
   'lib/server/firebase-admin.ts',
   'lib/firebase/rtdb-adapter.ts',
+  'app/api/contracts/vehicle-claim/route.ts',
+  'lib/server/vehicle-claim.ts',
+  'lib/firebase/vehicle-claim-client.ts',
+  'scripts/ruleprobe/vehicle-claim-api-probe.mjs',
 ];
 for (const path of requiredFiles) check(existsSync(path), `브리지 구성 파일 ${path}`);
 
@@ -138,12 +154,22 @@ if (requiredFiles.every(existsSync)) {
   const projection = readFileSync(requiredFiles[1], 'utf8');
   const auth = readFileSync(requiredFiles[2], 'utf8');
   const adapter = readFileSync(requiredFiles[3], 'utf8');
+  const claimRoute = readFileSync(requiredFiles[4], 'utf8');
+  const claimServer = readFileSync(requiredFiles[5], 'utf8');
+  const claimClient = readFileSync(requiredFiles[6], 'utf8');
+  const claimProbe = readFileSync(requiredFiles[7], 'utf8');
   check(route.includes('verifyActiveBearer(request)'), '브리지 API 활성 사용자 재검증');
   check(route.includes('selectLegacyProductsForBridge') && route.includes('MAX_RESPONSE_PRODUCTS'), '브리지 API 활성·참조 이력 응답 상한');
   check(!/\b(set|update|remove|push|runTransaction)\s*\(/.test(route), '브리지 API read-only');
   check(projection.includes('stripProductCost(product)'), '역할별 상품 private 원자 제거');
   check(auth.includes("sign_in_provider === 'anonymous'") && auth.includes('ACTIVE_ROLES'), '익명·미배정 역할 fail-closed');
   check(adapter.includes("fetch('/api/products/bridge'") && adapter.includes("cache: 'no-store'"), '비관리자 클라이언트 서버 브리지 우선');
+  check(claimRoute.includes('vehicleClaimServerEnabled()') && claimRoute.includes('verifyActiveBearer') && claimRoute.includes('transitionVehicleClaim'), '차량 claim API kill switch·활성 사용자·서버 transaction 연결');
+  check(claimServer.includes("transaction((raw)") && claimServer.includes("v4/vehicle_claims/"), '차량 claim RTDB transaction SSOT');
+  check(claimServer.includes('lockedProductRival') && claimServer.includes('vehicleIdentity(product)'), '차량 claim 트윈 상품 소유 락 재검증');
+  check(claimClient.includes("fetch('/api/contracts/vehicle-claim'") && claimClient.includes('getIdToken()'), '차량 claim 클라이언트 인증 호출');
+  check(auth.includes('demoEmulatorProjectId') && auth.includes("startsWith('demo-')"), '서버 무자격증명 초기화 demo 격리 한정');
+  check(claimProbe.includes('동시 API 선점 정확히 1건 성공') && claimProbe.includes('claim 원장 제거'), '차량 claim 실제 Next API 통합 적대 probe');
 }
 
 console.log(`B2B 출시 게이트 · env=${envFile} · rules=${rulesFile}`);

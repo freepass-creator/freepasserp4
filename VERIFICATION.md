@@ -1,5 +1,37 @@
 # 독립 검증 결과
 
+## 2026-08-04 차량 원자 선점 후보 구현 후 전체 오픈 게이트
+
+결과: **원자 claim·권한·Rules Emulator·빌드 PASS / 후보 비활성·승인 전 — 전체 오픈 NO-GO 유지**
+
+- 번호판/VIN 정규화 SHA-256을 키로 `v4/vehicle_claims/{identityHash}`를 서버 RTDB transaction에서 선점하는 API를 추가했다. 브라우저는 Firebase ID token을 붙여 서버만 호출하고, 서버가 역할·계약 귀속·기존 계약금/완료 계약·동일 신원의 다른 상품 소유 락을 다시 확인한다. 성공 뒤 계약 단계·상품 락·claim 상태를 v4 multipath update로 기록하며 v3는 읽기만 한다.
+- 서버는 `VEHICLE_CLAIM_SERVER_ENABLED=true`, 클라이언트 계약금 단계는 RTDB와 `NEXT_PUBLIC_ATOMIC_VEHICLE_CLAIMS=true`일 때만 원자 선점 경로를 쓴다. 둘 중 하나라도 준비되지 않은 배포는 신규 선점을 열지 않는다. 후보 Rules는 claim client write를 닫고 `vehicle_identity_hash`, `agent_balance_paid`, `provider_balance_confirmed`를 서버 단일 writer로 묶으며 상품 락을 active claim에 결속한다.
+- 검증: claim 역할·동시성 **11/11**, 차량 락 **38/38**, 계약 Rules **26/26**, 권한 **44/44**, 생애주기 PASS, 정산 E2E **22/22**, phase12 **69/69**, 착한거래 **9/9**, 격리 Auth+RTDB Emulator **37/37**, 실제 Next API 통합 **14/14**, type/UI/tokens/fonts, 별도 production build **30/30 pages PASS**다. 통합 probe는 서버 kill switch OFF 503, 두 영업자의 동시 API 요청 1승/1충돌, 계약·claim·상품 원장 결속, 공급사 후속 확인, 타 역할 차단, 취소 해제까지 검증한다.
+- 서버 공통 인증이 구성/RTDB 장애를 잘못된 로그인으로 숨기던 경계를 보강했다. 유효하지 않은 토큰만 401/403으로 정규화하고 Admin 초기화·프로필 read 장애는 API가 503으로 응답한다. 무자격증명 초기화는 `demo-*` project와 Auth+Database emulator host가 모두 있는 격리 검증에서만 허용한다. 기존 4004의 미설정 환경에 가짜 토큰으로 호출해 **503**을 확인했다.
+- 로컬 B2B 게이트는 통합 probe 정적 결속 추가 후 **33 PASS / 3 FAIL**이다. 실패는 `FIREBASE_SERVICE_ACCOUNT_JSON` 미설정, 서버 kill switch OFF, 클라이언트 원자 선점 플래그 OFF이며 모두 후보를 의도적으로 비활성화한 상태다. 후보 Rules 일반 게이트는 법정 운영자 정보 6개 미기재 **1 FAIL**, 서비스 워커 **1 WARN**이다.
+- `database.rules.json`, 운영 데이터, Production, 외부 착한거래에는 변경·write·배포가 없다. 후보는 서비스계정이 있는 새 Preview에서 플래그+Rules를 함께 적용해 역할별 실계정 smoke를 통과하고 사람/Claude 위험 게이트를 받은 뒤에만 게시·커밋한다. 현재 개발 서버 `http://localhost:4004`는 200으로 유지된다.
+
+## 2026-08-04 착한거래 전자계약 발송 이음매
+
+결과: **ERP 자체 서명 신규 발송 차단 / 착한거래 발송 버튼·서버 어댑터 PASS / 외부 설정 전 실패-폐쇄**
+
+- 사용자 최신 결정에 따라 약정 작성완료 뒤 영업자·영업채널 관리자·플랫폼 관리자에게 `전자계약 발송` 버튼을 노출한다. 기존 `ContractSign`은 계약 패널에서 제거해 신규 `/sign` 토큰을 만들지 않으며, 레거시 코드·기존 데이터·공개 라우트는 삭제하지 않았다.
+- 버튼은 Firebase ID 토큰을 붙여 `POST /api/chakhandeal/contracts/send`만 호출한다. 서버가 활성 계정과 계약 귀속을 다시 확인한 뒤 착한거래 `계약 발행 → SMS 발송`을 호출하며 API 키는 서버 환경변수에만 둔다. 발행 성공 후 외부 ID·검증 URL·봉인 해시는 `v4/contracts` 오버레이에만 기록하고 v3에는 쓰지 않는다.
+- 역할 적대 시뮬레이션은 플랫폼 관리자·계약 소유 영업자·같은 채널 관리자 허용, 다른 영업자·다른 채널·공급사 차단을 포함해 **9/9 PASS**다. 착한거래 payload에 자체 서명 토큰과 면허번호가 포함되지 않는 것도 확인했다.
+- 현재 로컬의 착한거래 URL·API 키·회원사·템플릿 설정은 비어 있다. 따라서 버튼 클릭 시 **503 준비 중**으로 종료되고 외부 요청·계약 write는 발생하지 않는다. 실제 착한거래 API/실 IdV가 준비되기 전 값을 넣거나 실발송 smoke하지 않았다.
+- `typecheck`, UI contract, tokens, fonts, phase12 **69/69**, 별도 `NEXT_DIST_DIR=.next-codex-chakhandeal-final` production build **30/30 pages PASS**다. 빌드가 자동 변경한 `tsconfig.json`은 원복했다. 완료 웹훅과 서명 완료→계약 단계 반영은 착한거래의 서명 검증 규격 확정 뒤 위험 게이트를 거쳐 추가해야 한다.
+
+## 2026-08-04 정산엔진 트윈 가드 독립검증 — 당시 동시 선점 FAIL (상단 원자 후보로 해소)
+
+결과(당시): **순차 트윈·재완료 방어 PASS / 실제 동시 선점 2건 모두 성공 — 이후 상단 서버 원자 claim 후보에서 38/38 PASS**
+
+- 로컬 UI 체크포인트 커밋 직후 다른 작업자가 `lib/domain/settlement-engine.ts`에 같은 실차의 복수 `product_code`를 번호판/VIN으로 묶어 선점·중복완료를 차단하는 변경을 추가했고 커밋 `4f9d64b`로 반영했다. 잔여 원자성 위험은 후속 문서 커밋 `8df5c9c`에 기록됐다.
+- 기존 `sim-vehicle-lock` fixture가 모든 테스트 차량에 같은 번호판을 써 새 트윈 판정에서 테스트 간 오염되던 문제를 고쳤다. 같은 번호판의 다른 코드 선점 차단, 번호 미정 차량 비병합, 취소된 5/5 계약의 재완료 금지, 완료처리 재시도의 트윈 중복완료 차단을 추가했다. 순차 시나리오는 **36/36 PASS**다.
+- 적대 동시 실행을 추가하자 같은 차량의 두 `applyStepCheck(..., 'agent_balance_paid', 'yes')`가 모두 fulfilled됐다. 두 계약 모두 `agent_balance_paid=yes`이고 상품 `locked_by_contract`만 마지막 계약으로 덮여 **36/38 FAIL**이다. 사전 fresh read는 stale cache를 줄일 뿐 read→계약 update→상품 update 사이의 경쟁을 원자화하지 못한다.
+- 비게시 후보 Rules의 `agent_balance_paid`·`provider_balance_confirmed` validation은 역할만 확인하고 단일 차량 신원 락/CAS를 요구하지 않는다. 현재 product lock Rules도 각 `product_code`와 계약 결속만 검사하므로 같은 코드 동시선점과 트윈 코드 경쟁을 한 번에 직렬화하지 못한다.
+- 관련 회귀는 typecheck, 정산 E2E **22/22**, 생애주기 PASS, private 정산 **8/8 PASS**다. 즉 일반 순차 흐름은 유지되지만 실제 다중 사용자 경쟁 안전성은 미충족이다.
+- 안전한 해결에는 서버/RTDB의 원자적 차량 신원 claim SSOT가 필요하다. 권장안은 번호판/VIN 정규화 해시를 불변 계약 스냅샷으로 두고 서버 transaction으로 `v4/vehicle_claims/{identityHash}`를 선점한 뒤 계약·상품 전이를 수행하며, Rules가 claim 소유 계약과 일치하지 않는 계약금/완료 write를 거부하는 구조다. 클라이언트 메모리 mutex는 브라우저 간 경쟁을 막지 못하므로 금지한다. 데이터 계약·Rules·정산엔진 위험영역이므로 사용자 승인과 사람/Claude 게이트 전 구현·게시·커밋하지 않는다.
+
 ## 2026-08-04 비게시 Rules 후보 재생성·실데이터 읽기 전용 게이트
 
 결과: **후보 정적·Emulator PASS / 현재 재고 브리지 유지 가능 / 실계정 smoke·운영자 정보 전 게시·전체 오픈 NO-GO**

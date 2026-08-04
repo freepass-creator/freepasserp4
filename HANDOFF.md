@@ -1,5 +1,11 @@
 # 규격통일 핸드오프 (Claude ↔ Cursor)
 
+> **Codex 차량 원자 선점 후보 완료(2026-08-04):** 사용자 승인에 따라 번호판/VIN 해시 기반 `v4/vehicle_claims` 서버 RTDB transaction, 인증 API, 클라이언트 기능 플래그, claim 결속 후보 Rules를 구현했다. 같은 신원의 다른 계약금/완료 계약과 트윈 상품의 주인 있는 락을 서버에서 차단하고 v3에는 쓰지 않는다. claim 11/11·차량 38/38·계약 Rules 26/26·권한 44/44·정산 22/22·phase12 69/69·착한거래 9/9·Rules Emulator 37/37·실제 Next API 통합 14/14·type/UI/tokens/fonts·build 30/30 PASS다. 서버 인증은 토큰 실패와 구성/RTDB 장애를 분리해 후자를 503으로 닫고, 무자격증명 초기화는 demo 에뮬레이터 조합에만 한정한다. 서버 전용 kill switch까지 추가해 URL 직접 호출도 명시적 활성화 전 503이다. 현재 B2B 게이트는 서비스계정 없음+서버/클라이언트 플래그 OFF로 33 PASS/3 FAIL, 법정 운영자 정보 6개도 미기재다. `database.rules.json`·운영 데이터·Production은 미변경이며 위험영역이라 새 Preview 역할별 smoke와 사람/Claude 승인 전 커밋·게시·배포 금지. 상세는 `VERIFICATION.md` 최상단과 `docs/DOUBLE_SALE_GUARD_2026-08-04.md` §9 참조.
+
+> **Codex 착한거래 전자계약 이음매(2026-08-04):** 약정 작성완료 뒤 `전자계약 발송` 버튼을 탑재하고 자체 `ContractSign` 신규 발송 진입점은 제거했다. 버튼은 인증된 서버 API만 호출하며 영업자 본인·같은 채널 관리자·플랫폼 관리자만 계약 귀속 검증 뒤 착한거래 계약 발행→SMS 발송이 가능하다. 공급사·타인·타채널은 차단한다. API 키는 서버 전용이고 v3 write는 없다. 현재 착한거래 4개 환경변수는 비어 있어 503 실패-폐쇄하며 외부 호출·운영 write 0이다. 역할/payload 9/9, phase12 69/69, type/UI/tokens/fonts, build 30/30 PASS. 실제 API/IdV 준비 뒤 환경변수와 웹훅 규격을 별도 게이트할 것. 상세는 `VERIFICATION.md` 최상단 참조.
+
+> **과거 RACE-2 기록(2026-08-04, 상단으로 대체):** `8df5c9c` 시점의 클라이언트 check-then-act는 36/38 FAIL이었다. 적대 테스트는 그대로 보존했고 현재 서버 원자 claim 후보에서 38/38 PASS다. 운영 브라우저 mutex가 아니라 서버 RTDB transaction이 유일한 동시성 경계다.
+
 > **Codex 비게시 Rules 후보 재검증(2026-08-04):** 현재 Rules에서 후보를 재생성해도 SHA-256이 동일했고, 후보 보안 14/14·계약 26/26·전자서명 58/58·채팅 43/43·격리 Firebase Emulator 32/32 PASS다. 최신 읽기 전용 실데이터/Sheet 대조는 16곳·388대, v3-only 292건/288대, 브리지 후보 740건, overlay 후보 236대·브리지 유지 5대·공급사 확인 43대다. B2B 게이트는 로컬 서비스계정 부재만 1 FAIL, 일반 출시는 법적 운영자 정보 6개 때문에 1 FAIL이다. 운영 Rules·데이터·배포/write 변경 0. 새 Preview 역할별 QA 브리지 smoke→사람/Claude 승인→백업/롤백 전 후보 게시 금지. 상세는 `VERIFICATION.md` 최상단 참조.
 
 > **Codex 공개 전자서명 모바일 재검수(2026-08-04):** `/sign/[token]`의 지우기·제출을 공통 icon+text로 통일하고 제출 전폭, 비상연락 반응형 1열 전환, 색상 토큰, canvas 접근성 이름을 적용했다. 390×844 실제 오류 토큰 화면의 한글·폭을 확인했고 type/UI/fonts, phase12 67/67, build 30/30 PASS다. 현재 `database.rules.json`은 익명 read에 `status === 'sent'` 제한이 없어 보안 게이트 FAIL이며, 기존 비게시 후보는 전자서명 Rules 58/58 PASS다. Rules·계약 write·운영 데이터·배포는 변경하지 않았다. 사람/Claude 실데이터 승인→후보 게시→정상/완료/폐기 토큰 smoke 전 전체 오픈 NO-GO. 상세는 `VERIFICATION.md` 최상단 참조.

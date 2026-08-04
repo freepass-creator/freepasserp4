@@ -242,5 +242,19 @@ head('13. 완료처리 재시도 — 트윈의 기존 완료계약 우회 차단
   check('재시도 차량 잠금 없음', (await vehStatus(retryProduct)) === '출고가능', await vehStatus(retryProduct));
 }
 
+// ── 14. 동시 선점은 정확히 하나만 성공해야 함 ──
+head('14. 같은 차량 동시 선점 — 한 계약만 성공');
+{
+  const { pc, codes: [c1, c2] } = await fixture(2);
+  const results = await Promise.allSettled([
+    applyStepCheck(await ct(c1), 'agent_balance_paid', 'yes'),
+    applyStepCheck(await ct(c2), 'agent_balance_paid', 'yes'),
+  ]);
+  const fulfilled = results.filter((result) => result.status === 'fulfilled').length;
+  const claims = [await ct(c1), await ct(c2)].filter((contract) => contract.agent_balance_paid === 'yes').length;
+  check('동시 요청 성공은 1건', fulfilled === 1, { fulfilled, results: results.map((result) => result.status) });
+  check('계약금 선점 기록도 1건', claims === 1, { claims, owner: await owner(pc) });
+}
+
 console.log(`\n━━ 결과: ${pass}/${pass + fail} 통과`);
 if (fail) { console.log(`   ✗ 실패 ${fail}건`); process.exit(1); }

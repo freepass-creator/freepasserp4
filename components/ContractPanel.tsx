@@ -9,7 +9,7 @@ import { createContractRequest, getRole, type Role } from '@/lib/domain/deal';
 import { cheapest, priceList } from '@/lib/domain/product';
 import { Btn, ButtonLabel, Badge, C, R, NUM, ICON, Input, fmtPhone, actorColor, DetailRow, ListGroup, ToggleChips, FW, FS, won } from '@/components/ui';
 import { ContractMemos } from '@/components/ContractMemos';
-import { ContractSign } from '@/components/ContractSign';
+import { ChakhandealEsignButton } from '@/components/ChakhandealEsignButton';
 import { confirmDialog, toast } from '@/components/Toaster';
 import { useIsMobile } from '@/lib/use-mobile';
 import { Ban, Check, CheckCircle2, FileSignature, RefreshCw, RotateCcw, Send } from 'lucide-react';
@@ -393,7 +393,11 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
         );
       })}
 
-      {c && agreementDone ? <ContractSign contractCode={String(c.contract_code)} /> : null}
+      {c && agreementDone && !cancelled && (role === 'agent' || role === 'admin') ? (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 8 }}>
+          <ChakhandealEsignButton contractCode={String(c.contract_code)} onSent={() => load(selectionEpoch.current)} />
+        </div>
+      ) : null}
 
       {c && <div style={{ borderTop: `1px solid ${C.line2}`, paddingTop: 9, marginTop: 8 }}><ContractMemos contractCode={String(c.contract_code)} /></div>}
     </div>

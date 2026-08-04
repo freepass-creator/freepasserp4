@@ -26,6 +26,13 @@ const agentRoles = `(${role} === 'agent' || ${role} === 'agent_admin' || ${role}
 const providerRoles = `(${role} === 'provider' || ${role} === 'provider_admin')`;
 const assignedRoles = `(${admin} || ${agentRoles} || ${providerRoles})`;
 
+// 차량 신원 claim은 서버 Admin SDK transaction의 전용 SSOT다. 클라이언트 SDK는 읽기·쓰기 모두 금지하고
+// 운영자가 사고 조사할 때만 읽는다. Admin SDK는 Rules를 우회하므로 서버 정상 흐름은 영향받지 않는다.
+rules.v4.vehicle_claims = {
+  '.read': `${active} && ${admin}`,
+  '.write': false,
+};
+
 // v3는 운영 원본이다. 쓰기는 폐쇄하고, products 원문은 이관 완료 전 관리자만 읽는다.
 // 이 read 전환은 v3/v4 키·필드 대조가 끝난 뒤에만 게시할 수 있다.
 rules.products['.write'] = false;
@@ -58,8 +65,9 @@ policies.$policy_id.provider_company_code = {
 const product = rules.v4.products.$code;
 const newLock = "root.child('v4').child('contracts').child(newData.parent().child('locked_by_contract').val())";
 const oldLock = "root.child('v4').child('contracts').child(data.parent().child('locked_by_contract').val())";
+const newVehicleClaim = `root.child('v4').child('vehicle_claims').child(${newLock}.child('vehicle_identity_hash').val())`;
 const participant = (contract) => `(${admin} || (${agentRoles} && (${contract}.child('agent_uid').val() === auth.uid || (${user}.child('agent_channel_code').val() !== null && ${user}.child('agent_channel_code').val() !== '' && ${contract}.child('agent_channel_code').val() === ${user}.child('agent_channel_code').val()))) || (${providerRoles} && ${contract}.child('provider_company_code').val() === ${user}.child('company_code').val()))`;
-const lockSet = `newData.parent().child('locked_by_contract').isString() && newData.parent().child('locked_by_contract').val() !== '' && ${newLock}.exists() && ${newLock}.child('product_code').val() === $code && ${participant(newLock)} && ((newData.parent().child('vehicle_status').val() === '출고불가' && ${newLock}.child('contract_status').val() === '계약완료') || (newData.parent().child('vehicle_status').val() === '계약중' && (${newLock}.child('agent_balance_paid').val() === 'yes' || ${newLock}.child('provider_balance_confirmed').val() === 'yes')))`;
+const lockSet = `newData.parent().child('locked_by_contract').isString() && newData.parent().child('locked_by_contract').val() !== '' && ${newLock}.exists() && ${newLock}.child('product_code').val() === $code && ${participant(newLock)} && ${newVehicleClaim}.child('contract_code').val() === newData.parent().child('locked_by_contract').val() && ${newVehicleClaim}.child('status').val() === 'active' && ((newData.parent().child('vehicle_status').val() === '출고불가' && ${newLock}.child('contract_status').val() === '계약완료') || (newData.parent().child('vehicle_status').val() === '계약중' && (${newLock}.child('agent_balance_paid').val() === 'yes' || ${newLock}.child('provider_balance_confirmed').val() === 'yes')))`;
 const lockRelease = `data.parent().child('locked_by_contract').isString() && data.parent().child('locked_by_contract').val() !== '' && newData.parent().child('locked_by_contract').val() === '' && newData.parent().child('vehicle_status').val() === '출고가능' && ${oldLock}.child('contract_status').val() === '계약취소' && ${oldLock}.child('product_code').val() === $code && ${participant(oldLock)}`;
 const lockWrite = `${active} && newData.exists() && (${lockSet} || ${lockRelease})`;
 for (const field of ['vehicle_status', 'locked_by_contract', '_key', 'updatedAt']) {
@@ -115,6 +123,13 @@ for (const field of [
   'variant_snapshot', 'trim_name_snapshot', 'trim_extra_snapshot', 'vehicle_name_snapshot',
   'year_snapshot', 'fuel_type_snapshot', 'contract_date',
 ]) contract[field] = { '.validate': immutable };
+
+// 차량 신원 해시와 두 선점 필드는 서버 원자 claim API의 단일 writer다.
+// `!data.parent().exists()`를 허용하면 레거시 첫 overlay write에서 직접 선점할 수 있으므로 동일값만 허용한다.
+const serverClaimOnly = "newData.val() === data.val()";
+contract.vehicle_identity_hash = { '.validate': serverClaimOnly };
+contract.agent_balance_paid = { '.validate': serverClaimOnly };
+contract.provider_balance_confirmed = { '.validate': serverClaimOnly };
 
 const agentControlled = `!newData.exists() || newData.val() === data.val() || ${admin} || ${role} === 'agent' || ${role} === 'agent_admin' || ${role} === 'agent_manager'`;
 const originalContractSignStatus = contract.sign_status['.validate'];

@@ -150,6 +150,25 @@ if (legacySignRead && !legacySignReadIsAuthOnly && !legacySignAnonIsSentOnly) {
 }
 
 const contractRule = rulesRoot?.v4?.contracts?.$contract_id as Record<string, any> | undefined;
+const vehicleClaimsRule = rulesRoot?.v4?.vehicle_claims as Record<string, any> | undefined;
+const claimWrite = vehicleClaimsRule?.['.write'];
+const claimRead = String(vehicleClaimsRule?.['.read'] || '');
+const serverClaimFields = ['vehicle_identity_hash', 'agent_balance_paid', 'provider_balance_confirmed'];
+const mutableServerClaimFields = serverClaimFields.filter((field) => {
+  const validate = String(contractRule?.[field]?.['.validate'] || '');
+  return validate.trim() !== 'newData.val() === data.val()';
+});
+const productClaimBound = v4ProductGuardSurface.includes("child('vehicle_claims')")
+  && v4ProductGuardSurface.includes("child('vehicle_identity_hash')")
+  && v4ProductGuardSurface.includes("child('status').val() === 'active'");
+if (claimWrite !== false || !claimRead.includes("role').val() === 'admin'") || mutableServerClaimFields.length || !productClaimBound) {
+  failures.push(`차량 원자 claim Rules 결속 누락: ${[
+    claimWrite !== false && 'claim client write 폐쇄',
+    !claimRead.includes("role').val() === 'admin'") && 'claim read 관리자 한정',
+    mutableServerClaimFields.length && `서버 단일 writer(${mutableServerClaimFields.join(', ')})`,
+    !productClaimBound && '상품 lock-claim 결속',
+  ].filter(Boolean).join(', ')}`);
+}
 const vehicleSnapshotFields = [
   'car_number_snapshot', 'maker_snapshot', 'model_snapshot', 'sub_model_snapshot',
   'variant_snapshot', 'trim_name_snapshot', 'trim_extra_snapshot', 'vehicle_name_snapshot',
