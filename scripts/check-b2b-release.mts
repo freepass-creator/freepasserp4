@@ -52,9 +52,35 @@ for (const name of [
   'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN',
   'NEXT_PUBLIC_FIREBASE_DATABASE_URL',
   'NEXT_PUBLIC_FIREBASE_PROJECT_ID',
+  'NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET',
   'NEXT_PUBLIC_FIREBASE_APP_ID',
 ]) {
   check(present(name), `환경변수 ${name}`);
+}
+check(String(envValue('NEXT_PUBLIC_DATA_BACKEND') || '').trim() === 'rtdb', '운영 데이터 백엔드 RTDB');
+
+for (const [name, label] of [
+  ['NEXT_PUBLIC_OPERATOR_COMPANY', '상호'],
+  ['NEXT_PUBLIC_OPERATOR_CEO', '대표자'],
+  ['NEXT_PUBLIC_OPERATOR_ADDRESS', '주소'],
+  ['NEXT_PUBLIC_OPERATOR_BIZ_NO', '사업자등록번호'],
+  ['NEXT_PUBLIC_OPERATOR_EMAIL', '문의 이메일'],
+  ['NEXT_PUBLIC_OPERATOR_PRIVACY_OFFICER', '개인정보 보호책임자'],
+] as const) {
+  check(present(name), `법적 운영자 정보 ${label}`);
+}
+check(
+  String(envValue('NEXT_PUBLIC_REQUIRE_LEGAL_RECONSENT') || '').trim().toLowerCase() === 'true',
+  '기존 회원 약관 재동의 게이트 ON',
+);
+
+for (const name of [
+  'GOOGLE_DRIVE_CLIENT_ID',
+  'GOOGLE_DRIVE_CLIENT_SECRET',
+  'GOOGLE_DRIVE_REFRESH_TOKEN',
+  'GOOGLE_DRIVE_BACKUP_FOLDER_ID',
+]) {
+  check(present(name), `Drive 백업 환경변수 ${name}`);
 }
 let serviceProject = '';
 let serviceAccountValid = false;
@@ -77,6 +103,7 @@ if (serviceAccountValid) {
 }
 check(String(envValue('VEHICLE_CLAIM_SERVER_ENABLED') || '').trim().toLowerCase() === 'true', '차량 원자 선점 서버 kill switch ON');
 check(String(envValue('NEXT_PUBLIC_ATOMIC_VEHICLE_CLAIMS') || '').trim().toLowerCase() === 'true', '차량 원자 선점 클라이언트 경로 ON');
+check(String(envValue('IRONRENTCAR_SYNC_ENABLED') || '').trim().toLowerCase() === 'true', '아이언 홈페이지 재고 연동 ON');
 
 const daily = String(envValue('SHEET_DAILY_SYNC_ENABLED') || '').trim().toLowerCase();
 check(daily !== 'true', '미결 Sheet 충돌 동안 일일 자동동기화 OFF');

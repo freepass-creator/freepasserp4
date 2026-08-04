@@ -110,7 +110,7 @@ Rules 게시 + Production 서비스계정 없음
 
 ## 2. 배포 절차 (코드)
 
-- **배포**: `main` 푸시 → Vercel 자동빌드 → `freepasserp.com`. 빌드게이트 = `tsc`(엄격) · 린트는 설정없어 스킵.
+- **배포**: `main` 푸시 → `freepasserp4` Vercel Production 자동빌드. 현재 `freepasserp.com`은 별도 `freepasserp3` 프로젝트에 남아 있으므로, 검증된 fp4 배포에 custom-domain alias를 마지막으로 전환하기 전에는 실서비스가 바뀌지 않는다. 빌드게이트 = `tsc`(엄격) · 린트는 설정없어 스킵.
 - **버전확인**: 상단바 메뉴 하단 `v4.0.0 · #빌드번호`(git 커밋수 자동증가). 배포 반영 확인용.
 - **프리뷰**: PR/브랜치 푸시 → Vercel 프리뷰 URL(운영 데이터 접근 주의 — 같은 Firebase 봄).
 
@@ -132,7 +132,7 @@ Rules 게시 + Production 서비스계정 없음
 
 **순서(반드시 준수):**
 1. [ ] **현재 게시된 규칙 텍스트 백업** → 로컬 저장(롤백용).
-2. [ ] `database.rules.json`(244줄+)을 규칙 시뮬레이터에서 **읽기/쓰기 시뮬레이션**:
+2. [ ] `scripts/ruleprobe/release-candidate.rules.json`을 규칙 시뮬레이터에서 **읽기/쓰기 시뮬레이션**:
    - admin uid로 settlements read → 허용
    - provider A uid로 provider B의 settlements read → **거부** 확인
    - 비로그인으로 customers read → **거부** 확인
@@ -153,7 +153,7 @@ Rules 게시 + Production 서비스계정 없음
 
 ## 6. B5 — 돈흐름 (너 결정 + 나 수정)
 
-- [ ] **H1**: 승인 시 관리자지정 신원 덮어씀([lib/firebase/auth.ts](lib/firebase/auth.ts) approveUser) — **지정보존 vs 재매칭** 결정 필요. 결정 주면 수정.
+- [x] **H1**: 승인 시 관리자지정 신원 보존([lib/firebase/auth.ts](lib/firebase/auth.ts) `approveUser`)으로 결정·반영 완료.
 - [ ] 정산 확정액션 부재 · 취소시 환수 로직 · 계약/정산 **중복제출 방지**(idempotency) 점검.
 
 ## 7. 관측 (B3 구축분 — 오픈 후 볼 것)

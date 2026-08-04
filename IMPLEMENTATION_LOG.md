@@ -1,5 +1,28 @@
 # 구현 로그
 
+## 2026-08-04 — Production 오픈 환경 게이트 보완
+
+### 완료한 작업
+
+- 실제 `app`·`lib`의 `process.env` 참조와 `check-release`·`check-b2b-release`를 기계적으로 대조했다.
+- `check-b2b-release`가 다음 오배포를 명시적으로 NO-GO 처리하도록 보완했다.
+  - `NEXT_PUBLIC_DATA_BACKEND=rtdb`가 아닌 로컬 시드 오픈
+  - Firebase Storage 버킷 미설정으로 상품 사진·계약 서류 업로드 불능
+  - 법적 운영자 필수 6필드 또는 기존 회원 재동의 게이트 누락
+  - Google Drive 백업 4개 서버 환경변수 누락
+  - 오픈 필수로 확정된 아이언 홈페이지 재고 연동 플래그 OFF
+- 기존 차량 claim 서버·클라이언트 플래그, 서비스계정, product v3 브리지, Sheet 자동동기화 OFF 검사는 유지했다.
+- 대표전화는 기존 법적 SSOT대로 선택값이라 강제하지 않았고, 착한거래는 오픈 후 실 API 준비 사항이라 강제하지 않았다.
+- Rules·정산엔진·RTDB adapter·배포·운영 데이터는 변경하지 않았다.
+
+### 검증
+
+- 확정 환경 모형 + 비게시 Rules 후보: `check-b2b-release` **55/55 PASS**
+- 누락 음성대조(Storage·RTDB backend·법적 상호·재동의·Drive·아이언): **6/6 차단 PASS**
+- `npx tsc --noEmit`: PASS
+
+---
+
 ## 2026-07-28 — 오토플러스 2탭 병합·가격 라벨·diff 미리보기 배선
 
 ### 완료한 작업
