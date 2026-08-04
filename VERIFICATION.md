@@ -3477,3 +3477,16 @@ Next 개발 서버와 production build가 같은 `.next`를 사용하면 실행 
 - `LAUNCH_GONOGO.md` 상단을 2026-08-04 기준으로 갱신해 과거 2026-07 GO 판정을 최신 판정으로 오인하지 않게 했다.
 - 구현 체크포인트 `0b525e7`을 Preview 브랜치에만 push했다. Vercel Preview `dpl_HJWJFvP7m4pSXXGCU93yA1Z4EZtZ`는 Ready이고 Production은 변경하지 않았다.
 - Preview 보호를 통과한 비인증 preview/apply 호출은 모두 앱의 `forbidden`을 반환했다. 아이언 기능 플래그·공급사 source·상품 운영 write는 0건이다.
+
+## 2026-08-04 — 아이언 연동 오픈 필수 전환 및 관리자 적용 UI
+
+결과: **관리자 preview→명시 적용 UI·회귀검증 PASS / Preview 실관리자 적용·24대 확인 전 전체 오픈 NO-GO**
+
+- 사용자가 아이언 홈페이지 연동을 포함해 오픈한다고 확정해 `LAUNCH_GONOGO.md`의 필수 게이트를 4개에서 5개로 변경했다.
+- `SheetSync` 관리자 화면에 홈페이지 전체/활성/판매완료/신차/중고, 수정·신규·부재차단·판매완료 무시·중복과 revision을 표시하는 read-only 미리보기를 추가했다.
+- 재고관리의 4번째 패널을 `연동·반영`으로 고정했다. 관리자 표에는 아이언 홈페이지와 전체 Sheet 공급사를 함께 나열하고 검증 전/후 신규·상태변경·정보수정을 표시한다. 공급사 역할 화면은 기존 actor 회사 범위를 유지한다.
+- 신규 3대와 홈페이지 부재 4대의 키를 직접 노출한다. 불완전 카탈로그·중복차번·차단 후보가 있으면 적용 버튼을 비활성화한다.
+- 적용은 확인 대화상자 뒤 미리보기 revision과 세 종류 예상 건수, 정확한 서버 확인문구를 POST한다. 서버가 재수집한 revision/건수와 다르면 409로 전체 거부한다.
+- 적용 성공 뒤 공급사 roster와 재고 화면을 새로고침한다. 기능 플래그 OFF 응답은 Preview 설정 확인 안내로 표시한다.
+- `sim-ironrentcar-apply` 19/19, source 17/17, reconcile 17/17, sheet merge 129/129, `tsc --noEmit`, fonts, tokens, UI 계약 PASS다.
+- 아직 `IRONRENTCAR_SYNC_ENABLED`를 켜거나 apply를 호출하지 않아 운영 write는 0건이다. 새 Ready Preview에서 관리자 미리보기 49/24/25·21/3/4 확인 → 명시 적용 28건 → 활성 24대·RP006 Sheet 제외·감사로그 확인이 남았다.

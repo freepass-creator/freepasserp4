@@ -213,6 +213,43 @@ type DuplicatePlanResponse = {
   dryRunTsv: string;
 };
 
+type IronRentcarPreview = {
+  source: string;
+  authority: string;
+  providerCode: string;
+  fetchedAt: number;
+  revision: string;
+  complete: boolean;
+  catalog: {
+    listings: number;
+    active: number;
+    sold: number;
+    newCount: number;
+    usedCount: number;
+    errors: string[];
+  };
+  reconciliation: {
+    matched: number;
+    patchCandidates: number;
+    unchanged: number;
+    createCandidates: number;
+    ignoredSoldNew: number;
+    webAbsentErp: number;
+    absentBlockCandidates: number;
+    protectedErpOnly: number;
+    alreadyUnavailableErpOnly: number;
+    duplicatePlateGroups: number;
+    blocked: number;
+    candidateOperations: number;
+    executableOperations: number;
+  };
+  candidates: {
+    patches: Array<{ key: string; fields: string[]; vehicleStatus?: string }>;
+    creates: Array<{ key: string; vehicleStatus?: string; sourceUrl?: string }>;
+    absentBlocks: Array<{ key: string; fields: string[]; vehicleStatus?: string }>;
+  };
+};
+
 async function fetchSheetConflictResolutions(): Promise<SheetConflictResolution[]> {
   const user = getAuthClient()?.currentUser;
   if (!user) throw new Error('로그인 확인 필요');
@@ -306,6 +343,10 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
   const [dailyStatusLoading, setDailyStatusLoading] = useState(false);
   const [duplicatePlanLoading, setDuplicatePlanLoading] = useState(false);
   const [duplicateDryRunLoading, setDuplicateDryRunLoading] = useState(false);
+  const [ironPreview, setIronPreview] = useState<IronRentcarPreview | null>(null);
+  const [ironPreviewLoading, setIronPreviewLoading] = useState(false);
+  const [ironApplying, setIronApplying] = useState(false);
+  const [ironMessage, setIronMessage] = useState('');
   const [decisionQueueOpen, setDecisionQueueOpen] = useState(false);
   const [identityReviewOpen, setIdentityReviewOpen] = useState(false);
   const [bulkLog, setBulkLog] = useState<string>('');
@@ -1591,11 +1632,163 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
     }
   };
 
+  const refreshIronRentcarPreview = async () => {
+    if (ironPreviewLoading || ironApplying) return;
+    setIronPreviewLoading(true);
+    setIronMessage('');
+    try {
+      const user = getAuthClient()?.currentUser;
+      if (!user) throw new Error('로그인 확인 필요');
+      const response = await fetch('/api/inventory/ironrentcar/preview', {
+        headers: { Authorization: `Bearer ${await user.getIdToken()}` },
+        cache: 'no-store',
+      });
+      const body = await response.json().catch(() => ({})) as IronRentcarPreview & {
+        error?: string;
+        detail?: string;
+      };
+      if (!response.ok) throw new Error(body.detail || body.error || `미리보기 실패 ${response.status}`);
+      setIronPreview(body);
+      setIronMessage(`미리보기 완료 · 홈페이지 ${body.catalog.listings}대 · 적용후보 ${body.reconciliation.candidateOperations}건`);
+    } catch (error) {
+      setIronPreview(null);
+      setIronMessage(`미리보기 실패 · ${String((error as Error).message || error)}`);
+    } finally {
+      setIronPreviewLoading(false);
+    }
+  };
+
+  const applyIronRentcarPreview = async () => {
+    if (!ironPreview || ironApplying || ironPreviewLoading) return;
+    const expected = {
+      patches: ironPreview.reconciliation.patchCandidates,
+      creates: ironPreview.reconciliation.createCandidates,
+      absentBlocks: ironPreview.reconciliation.absentBlockCandidates,
+    };
+    const ok = await confirmDialog({
+      message: `아이언렌트카 홈페이지를 재고 단일 원본으로 전환할까요?\n\n수정 ${expected.patches} · 신규 ${expected.creates} · 홈페이지 부재 차단 ${expected.absentBlocks} · 합계 ${ironPreview.reconciliation.candidateOperations}건\n\n판매완료 ${ironPreview.catalog.sold}대는 신규 등록하지 않으며, 기존 계약 스냅샷은 바꾸지 않습니다. 적용 후 아이언 공급사 시트 연동은 중지됩니다.`,
+    });
+    if (!ok) return;
+    setIronApplying(true);
+    setIronMessage('아이언 홈페이지 연동 적용 중…');
+    try {
+      const user = getAuthClient()?.currentUser;
+      if (!user) throw new Error('로그인 확인 필요');
+      const response = await fetch('/api/inventory/ironrentcar/apply', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${await user.getIdToken()}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          revision: ironPreview.revision,
+          confirmation: '아이언 홈페이지 연동 적용',
+          expected,
+        }),
+      });
+      const body = await response.json().catch(() => ({})) as {
+        applied?: boolean;
+        auditCompleted?: boolean;
+        patches?: number;
+        creates?: number;
+        absentBlocks?: number;
+        error?: string;
+        revision?: string;
+      };
+      if (!response.ok || !body.applied) {
+        const disabledHint = body.error === 'ironrentcar sync disabled'
+          ? 'Preview 환경의 IRONRENTCAR_SYNC_ENABLED 설정을 먼저 확인하세요.'
+          : '';
+        throw new Error([body.error || `적용 실패 ${response.status}`, disabledHint].filter(Boolean).join(' · '));
+      }
+      setIronMessage(`적용 완료 · 수정 ${body.patches || 0} · 신규 ${body.creates || 0} · 부재차단 ${body.absentBlocks || 0}${body.auditCompleted === false ? ' · 감사 완료표식 확인 필요' : ''}`);
+      toast('아이언렌트카 홈페이지 연동 적용 완료', 'ok');
+      await refreshRoster();
+      onImported();
+      setIronPreview(null);
+    } catch (error) {
+      const message = String((error as Error).message || error);
+      setIronMessage(`적용 실패 · ${message}`);
+      toast(`아이언 홈페이지 연동 적용 실패: ${message}`, 'error');
+    } finally {
+      setIronApplying(false);
+    }
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       {isAdmin && (
+        <>
         <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: C.selected, padding: 10 }}>
-          <div style={{ fontSize: FS.sub, fontWeight: FW.title, color: C.brand, marginBottom: 3 }}>공급사 시트 일괄 변환</div>
+          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 5 }}>
+            <div style={{ fontSize: FS.sub, fontWeight: FW.title, color: C.brand, flex: 1, minWidth: 180 }}>
+              RP006 · 아이언렌트카 <span style={{ color: C.faint, fontWeight: FW.body }}>홈페이지</span>
+            </div>
+            <Btn
+              title="아이언렌트카 홈페이지와 현재 ERP 재고를 읽기 전용으로 비교"
+              size="sm"
+              variant="ghost"
+              onClick={refreshIronRentcarPreview}
+              disabled={ironPreviewLoading || ironApplying}
+            >
+              {ironPreviewLoading ? '미리보기 확인 중…' : '미리보기 새로고침'}
+            </Btn>
+            <Btn
+              title={ironPreview ? `검증된 변경 ${ironPreview.reconciliation.candidateOperations}건 적용` : '먼저 미리보기를 확인하세요'}
+              size="sm"
+              onClick={applyIronRentcarPreview}
+              disabled={!ironPreview || ironPreviewLoading || ironApplying || !ironPreview.complete
+                || Boolean(ironPreview.reconciliation.duplicatePlateGroups)
+                || Boolean(ironPreview.reconciliation.blocked)}
+            >
+              {ironApplying ? '적용 중…' : `홈페이지 연동 적용${ironPreview ? ` (${ironPreview.reconciliation.candidateOperations})` : ''}`}
+            </Btn>
+          </div>
+          <div style={{ fontSize: FS.cap, color: C.mute, lineHeight: 1.5 }}>
+            아이언 홈페이지를 RP006 재고의 단일 원본으로 사용합니다. 미리보기는 저장하지 않으며, 적용 시 공개 v4 재고만 원자적으로 변경하고 아이언 시트 연동을 중지합니다. 홈페이지 매매가는 비공개 원가로 저장하지 않고 기존 계약 스냅샷도 유지합니다.
+          </div>
+          {ironMessage ? (
+            <div style={{
+              marginTop: 7, padding: '7px 9px', borderRadius: R, border: `1px solid ${C.line}`,
+              background: C.bg, color: ironMessage.includes('실패') ? C.danger : C.ink,
+              fontSize: FS.cap, lineHeight: 1.45,
+            }}>
+              {ironMessage}
+            </div>
+          ) : null}
+          {ironPreview ? (
+            <div style={{ marginTop: 8, border: `1px solid ${C.line}`, borderRadius: R, overflow: 'hidden', background: C.taupeBg }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 14px', padding: '7px 9px', fontSize: FS.cap, color: C.ink }}>
+                <span>전체 <b>{ironPreview.catalog.listings}</b></span>
+                <span>판매중 <b style={{ color: C.ok }}>{ironPreview.catalog.active}</b></span>
+                <span>판매완료 <b>{ironPreview.catalog.sold}</b></span>
+                <span>신차 <b>{ironPreview.catalog.newCount}</b></span>
+                <span>중고 <b>{ironPreview.catalog.usedCount}</b></span>
+                <span>매칭 <b>{ironPreview.reconciliation.matched}</b></span>
+                <span>중복 <b style={{ color: ironPreview.reconciliation.duplicatePlateGroups ? C.danger : C.ok }}>{ironPreview.reconciliation.duplicatePlateGroups}</b></span>
+              </div>
+              <div style={{ borderTop: `1px solid ${C.line}`, padding: '7px 9px', fontSize: FS.cap, color: C.ink, lineHeight: 1.55 }}>
+                <div>
+                  적용후보 <b>{ironPreview.reconciliation.candidateOperations}</b>건 · 수정 <b>{ironPreview.reconciliation.patchCandidates}</b>
+                  {' '}· 신규 <b style={{ color: C.ok }}>{ironPreview.reconciliation.createCandidates}</b>
+                  {' '}· 홈페이지 부재 차단 <b style={{ color: C.warn }}>{ironPreview.reconciliation.absentBlockCandidates}</b>
+                  {' '}· 판매완료 신규 무시 <b>{ironPreview.reconciliation.ignoredSoldNew}</b>
+                </div>
+                {ironPreview.candidates.creates.length ? (
+                  <div style={{ color: C.mute }}>신규 · {ironPreview.candidates.creates.map((row) => row.key).join(', ')}</div>
+                ) : null}
+                {ironPreview.candidates.absentBlocks.length ? (
+                  <div style={{ color: C.mute }}>부재 차단 · {ironPreview.candidates.absentBlocks.map((row) => row.key).join(', ')}</div>
+                ) : null}
+                <div style={{ color: C.faint, fontFamily: NUM, fontSize: FS.micro }}>
+                  revision {ironPreview.revision} · {new Date(ironPreview.fetchedAt).toLocaleString('ko-KR')}
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </div>
+        <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: C.selected, padding: 10 }}>
+          <div style={{ fontSize: FS.sub, fontWeight: FW.title, color: C.brand, marginBottom: 3 }}>전체 공급사 연동·반영</div>
           <div style={{
             display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6,
             marginBottom: 6, padding: '6px 8px', borderRadius: R, background: C.bg,
@@ -1641,14 +1834,57 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
               </Btn>
             </div>
           ) : (
-            <div style={{ maxHeight: 120, overflowY: 'auto', marginBottom: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {roster.map((p) => (
-                <div key={p.code} style={{ display: 'flex', gap: 8, alignItems: 'baseline', fontSize: FS.cap, minWidth: 0 }}>
-                  <span style={{ fontWeight: FW.strong, color: C.ink, flex: '0 0 auto' }}>{p.name}</span>
-                  <span style={{ color: C.faint, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0, flex: 1 }} title={p.url}>{p.url}</span>
-                  <span style={{ color: C.mute, flex: '0 0 auto', fontFamily: NUM, fontSize: FS.micro }}>{fmtSync(p.lastSyncedAt)}</span>
-                </div>
-              ))}
+            <div style={{ maxHeight: 190, overflow: 'auto', marginBottom: 8, border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg }}>
+              <table style={{ width: '100%', minWidth: 650, borderCollapse: 'collapse', fontSize: FS.cap }}>
+                <thead>
+                  <tr>
+                    <th style={th}>공급사</th>
+                    <th style={th}>연동 원본</th>
+                    <th style={th}>신규</th>
+                    <th style={th}>상태변경</th>
+                    <th style={th}>정보수정</th>
+                    <th style={th}>최근 확인·반영</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr style={{ borderTop: `1px solid ${C.line2}` }}>
+                    <td style={{ ...td, fontWeight: FW.strong, color: C.ink }}>아이언렌트카 <span style={{ color: C.faint, fontWeight: FW.body }}>(RP006)</span></td>
+                    <td style={{ ...td, color: C.mute }}>홈페이지</td>
+                    <td style={{ ...td, color: ironPreview?.reconciliation.createCandidates ? C.ok : C.faint }}>
+                      {ironPreview ? ironPreview.reconciliation.createCandidates : '검증 전'}
+                    </td>
+                    <td style={{ ...td, color: ironPreview ? C.warn : C.faint }}>
+                      {ironPreview
+                        ? ironPreview.candidates.patches.filter((row) => row.fields.includes('vehicle_status')).length
+                          + ironPreview.reconciliation.absentBlockCandidates
+                        : '—'}
+                    </td>
+                    <td style={{ ...td, color: ironPreview ? C.ink : C.faint }}>
+                      {ironPreview
+                        ? ironPreview.candidates.patches.filter((row) => row.fields.some((field) => field !== 'vehicle_status')).length
+                        : '—'}
+                    </td>
+                    <td style={{ ...td, color: C.mute, fontFamily: NUM, fontSize: FS.micro }}>
+                      {ironPreview ? new Date(ironPreview.fetchedAt).toLocaleString('ko-KR') : '—'}
+                    </td>
+                  </tr>
+                  {roster.filter((p) => p.code !== 'RP006').map((p) => {
+                    const diff = pending?.perPartner.find((row) => row.code === p.code);
+                    return (
+                      <tr key={p.code} style={{ borderTop: `1px solid ${C.line2}` }}>
+                        <td style={{ ...td, fontWeight: FW.strong, color: C.ink }}>{p.name}</td>
+                        <td style={{ ...td, color: C.mute, maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis' }} title={p.url}>
+                          Google Sheet
+                        </td>
+                        <td style={{ ...td, color: diff?.new ? C.ok : C.faint }}>{diff ? diff.new : '검증 전'}</td>
+                        <td style={{ ...td, color: diff?.status ? C.warn : C.faint }}>{diff ? diff.status : '—'}</td>
+                        <td style={{ ...td, color: diff?.content ? C.ink : C.faint }}>{diff ? diff.content : '—'}</td>
+                        <td style={{ ...td, color: C.mute, fontFamily: NUM, fontSize: FS.micro }}>{fmtSync(p.lastSyncedAt)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
           {pending && (
@@ -1919,6 +2155,7 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
             <pre style={{ margin: '8px 0 0', fontSize: FS.cap, color: C.mute, whiteSpace: 'pre-wrap', maxHeight: 130, overflowY: 'auto', fontFamily: NUM }}>{bulkLog}</pre>
           )}
         </div>
+        </>
       )}
 
       <Modal

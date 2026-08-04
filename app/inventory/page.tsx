@@ -44,12 +44,13 @@ const SheetSync = dynamic(() => import('@/components/SheetSync').then((m) => m.S
   loading: () => <CenterNote>시트 연동 불러오는 중…</CenterNote>,
 });
 
-// 재고관리 = [매물 목록 | 매물 편집 | 공급사 소스 연동]. 파인더와 같은 데이터의 "편집 렌즈".
+// 재고관리 4프레임 = [매물 목록 | 기본 | 운영 | 연동·반영]. 파인더와 같은 데이터의 "편집 렌즈".
 // 목록 선택은 읽기 전용 미리보기. 저장은 명시적인 수정→저장에서만 수행. 공급사=자기 매물만.
 
 export default function Inventory() {
   const co = getCompanyId();
   const mobile = useIsMobile();
+  const isAdmin = getRole() === 'admin';
   const {
     rows,
     setRows,
@@ -229,7 +230,7 @@ export default function Inventory() {
     policies,
     partners,
     supplierPhotos,
-    isAdmin: getRole() === 'admin',
+    isAdmin,
     onReset: resetForm,
     onCopy: copyForm,
     onPaste: pasteForm,
@@ -254,10 +255,12 @@ export default function Inventory() {
   const varPane = <InventoryVariablePane model={editorModel} />;
   const syncPane = (
     <>
-      <PaneHead title="공급사 업로드" />
+      <PaneHead title={isAdmin ? '전체 공급사 연동·반영' : '내 공급사 연동·반영'} />
       <PaneBody pad>
-        {/* 전수 차종변환 = /dev 개발도구. 여기는 공급사 시트 취합만. 모바일 panes에서 제외. */}
-        <div style={{ fontSize: FS.cap, fontWeight: FW.strong, color: C.mute }}>공급사 시트 취합</div>
+        {/* 관리자=전체 공급사, 공급사 역할=자기 회사만. 모바일 panes에서는 제외한다. */}
+        <div style={{ fontSize: FS.cap, fontWeight: FW.strong, color: C.mute }}>
+          {isAdmin ? '전체 공급사 원본 검증 후 일괄 반영' : '내 회사 원본 검증 후 반영'}
+        </div>
         <SheetSync co={co} onImported={() => load(getRole())} />
         <div style={{ height: 1, background: C.line2, margin: '2px 0' }} />
         <Btn size="sm" variant="ghost" onClick={copyJonghap}>종합표 TSV 복사 (ERP→시트)</Btn>
@@ -265,11 +268,11 @@ export default function Inventory() {
     </>
   );
 
-  // 데스크톱 = 기본·운영·업로드 3패널. 모바일 = 업로드 페인 제외(시트 취합은 웹).
+  // 목록을 포함한 4번째 프레임이 연동·반영이다. 모바일은 해당 페인을 제외한다.
   const panes: WorkPane[] = [
     { key: 'fixed', title: '기본', node: fixedPane },
     { key: 'var', title: '운영', node: varPane },
-    ...(mobile ? [] : [{ key: 'sync', title: '업로드', node: syncPane }]),
+    ...(mobile ? [] : [{ key: 'sync', title: '연동·반영', node: syncPane }]),
   ];
   // 하단바 = 편집 컨텍스트만(수정·삭제 / 취소·저장). 등록 = 목록 맨 위 행(InventoryCreateRow).
   const dockActions = creating || editing ? (

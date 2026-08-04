@@ -8,7 +8,7 @@
 
 ## 1. 현재 상태 (2026-08-04 기준)
 
-> **최신 판정: 🔴 NO-GO.** 아래 4개 운영 게이트가 끝나기 전 Production 오픈 금지.
+> **최신 판정: 🔴 NO-GO.** 아래 5개 운영 게이트가 끝나기 전 Production 오픈 금지.
 
 | 오픈 필수 게이트 | 현재 | 완료 조건 |
 |---|---|---|
@@ -16,6 +16,7 @@
 | Firebase Admin 서버 경로 | 🟡 Preview만 서비스계정 있음 | Preview 5역할 smoke 통과 후 Production에도 `FIREBASE_SERVICE_ACCOUNT_JSON` 설정 |
 | 차량 원자 선점 | ❌ 두 기능 플래그 미설정 | Preview에서 `VEHICLE_CLAIM_SERVER_ENABLED=true`, `NEXT_PUBLIC_ATOMIC_VEHICLE_CLAIMS=true` 후 적대 probe·실계정 smoke 통과, 이후 Production 반영 |
 | RTDB 후보 Rules | ❌ 운영 미게시 | 현재 Rules 백업 → 최신 운영 스냅샷 Emulator → 사람 게이트 → 후보 게시 → 5역할 실제 읽기/쓰기 smoke |
+| 아이언 홈페이지 재고 | 🟡 코드·관리자 미리보기 구현, 적용 OFF | Preview 관리자 미리보기에서 49/24/25·수정21·신규3·부재차단4 확인 → 명시 적용 → RP006 활성 24대·시트 제외·감사로그 확인 |
 
 추가 필수 순서:
 
@@ -24,7 +25,7 @@
 3. 배포 직전 RTDB export와 직전 정상 Vercel 배포 ID 확보
 4. 관리자·영업관리자·영업자·공급사관리자·공급사직원 5역할 핵심 여정 확인
 
-아이언렌트카 웹 연동은 출시 필수 블로커가 아니다. 적용 API와 단일 정본 차단은 구현됐지만 `IRONRENTCAR_SYNC_ENABLED`는 승인 전 OFF로 유지한다.
+아이언렌트카 웹 연동은 사용자의 오픈 범위 확정에 따라 출시 필수다. `IRONRENTCAR_SYNC_ENABLED`는 Preview 관리자 화면 검수 때만 켜고, revision·예상 28건이 일치하는 명시 적용을 통과한 뒤 Production 반영 여부를 확정한다.
 
 ### 과거 2026-07 판정 기록
 
