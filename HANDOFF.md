@@ -1003,3 +1003,4 @@ Claude Code(설계) → Cursor(구현) → Codex(독립 검증·수정·완료)�
 - Vercel 서비스계정은 Preview에만 있고 Production에는 없다. 차량 claim 서버/클라이언트 플래그도 아직 없다.
 - 운영 Rules는 후보가 게시되지 않아 현재 규칙 기준 보안 14건 FAIL이다. 백업·실데이터 확인·사람 게이트 없이 게시하지 않는다.
 - 다음 순서는 운영자 정보 → Preview claim 플래그/5역할 smoke → 후보 Rules 게시/게시후 smoke → Production 서비스계정·플래그·재동의 → 최종 배포다.
+- 아이언 적용/오픈 런북 구현은 `0b525e7`, Ready Preview는 `dpl_HJWJFvP7m4pSXXGCU93yA1Z4EZtZ`다. Production과 운영 데이터는 변경하지 않았다.

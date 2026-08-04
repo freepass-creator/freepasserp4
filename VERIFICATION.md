@@ -3475,3 +3475,5 @@ Next 개발 서버와 production build가 같은 `.next`를 사용하면 실행 
 - Vercel 환경 이름을 값 미출력으로 확인했다. `FIREBASE_SERVICE_ACCOUNT_JSON`은 Preview에만 있고 Production에는 없으며, 두 claim 플래그와 법적 운영자 변수는 등록되지 않았다.
 - 현재 판정은 NO-GO다. 운영자 정보 입력, Preview claim smoke, Production 서비스계정, 후보 Rules 사람 검증·게시·5역할 smoke가 필수다.
 - `LAUNCH_GONOGO.md` 상단을 2026-08-04 기준으로 갱신해 과거 2026-07 GO 판정을 최신 판정으로 오인하지 않게 했다.
+- 구현 체크포인트 `0b525e7`을 Preview 브랜치에만 push했다. Vercel Preview `dpl_HJWJFvP7m4pSXXGCU93yA1Z4EZtZ`는 Ready이고 Production은 변경하지 않았다.
+- Preview 보호를 통과한 비인증 preview/apply 호출은 모두 앱의 `forbidden`을 반환했다. 아이언 기능 플래그·공급사 source·상품 운영 write는 0건이다.
