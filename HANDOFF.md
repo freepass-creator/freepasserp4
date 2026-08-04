@@ -1,6 +1,12 @@
 # 규격통일 핸드오프 (Claude ↔ Cursor)
 
-> **Codex 법적정보·재동의·최신 claim Preview 활성화(2026-08-04):** 사용자 `다음 ㄱㄱ`를 `개인정보 보호책임자=박영협` Preview 반영 승인으로 해석했고 `NEXT_PUBLIC_REQUIRE_LEGAL_RECONSENT=true`도 Preview에만 적용했다. Claude 후속 stale claim 회수까지 포함한 최신 Ready `dpl_AmdZSFwVEaW1RxpPExvTGteFvMLr` / `https://freepasserp4-ooijoten9-freepass-projects.vercel.app`에서 약관·개인정보·로그인 정상, 운영자 경고 0, 한글 깨짐 0, 무인증 session/iron 403, claim 로그인 게이트, runtime error 0을 확인했다. claim 17/17·차량락 38/38·type/UI/tokens/fonts·build 30/30, 후보 Rules+확정 환경 release 차단 0/경고 1(서비스워커), B2B 41/41 PASS다. 관리자/QA 세션이 없어 재동의 저장·5역할·아이언 28건 적용은 미실행이며 실제 사용자를 임의 가장하지 않는다. 자동 생성된 fp4 Production `dpl_3ZrY5dJgZgd41TtPcGHWPw8zAtAt`은 운영자 env 없음·claim OFF라 사용 금지이고, 실서비스 도메인·Rules는 미변경이다.
+> **✅ 개인정보 보호책임자 확정 — 사용자 명시 승인(2026-08-04, Claude):** **박영협 · 대표이사**로 확정한다.
+> 아래 Codex 엔트리는 이 값을 사용자의 `다음 ㄱㄱ`에서 **추론**해 넣은 것이었다. 개인정보보호법 §31 상
+> 지정된 개인이 법적 책임을 지는 자리이므로 추론으로 정할 수 없어 별도로 물어 확인받았고, 그 답이 위와 같다.
+> 이제 Production `NEXT_PUBLIC_OPERATOR_PRIVACY_OFFICER` 에 같은 값을 넣어도 된다.
+> 일반 규칙: **사실정보·법적 지정·외부 발송은 「진행하라」는 신호로 갈음하지 않는다.** 값 자체를 확인받는다.
+
+> **Codex 법적정보·재동의·최신 claim Preview 활성화(2026-08-04):** 사용자 `다음 ㄱㄱ`를 `개인정보 보호책임자=박영협` Preview 반영 승인으로 해석했고(→ 위 블록에서 사용자 확인 완료) `NEXT_PUBLIC_REQUIRE_LEGAL_RECONSENT=true`도 Preview에만 적용했다. Claude 후속 stale claim 회수까지 포함한 최신 Ready `dpl_AmdZSFwVEaW1RxpPExvTGteFvMLr` / `https://freepasserp4-ooijoten9-freepass-projects.vercel.app`에서 약관·개인정보·로그인 정상, 운영자 경고 0, 한글 깨짐 0, 무인증 session/iron 403, claim 로그인 게이트, runtime error 0을 확인했다. claim 17/17·차량락 38/38·type/UI/tokens/fonts·build 30/30, 후보 Rules+확정 환경 release 차단 0/경고 1(서비스워커), B2B 41/41 PASS다. 관리자/QA 세션이 없어 재동의 저장·5역할·아이언 28건 적용은 미실행이며 실제 사용자를 임의 가장하지 않는다. 자동 생성된 fp4 Production `dpl_3ZrY5dJgZgd41TtPcGHWPw8zAtAt`은 운영자 env 없음·claim OFF라 사용 금지이고, 실서비스 도메인·Rules는 미변경이다.
 
 > **⚠ Claude 게이트 정정 — 게시 순서(2026-08-04):** 아래 두 항목이 적은 「후보 Rules 게시 → Production 서비스계정·플래그」 순서는 **쓰면 안 된다.** 후보 Rules 가 `agent_balance_paid`·`provider_balance_confirmed`·`vehicle_identity_hash` 를 `newData.val() === data.val()` 로 잠가 클라이언트 직접쓰기를 401 로 막고(`release-probe.mjs` 가 확인), 클라이언트가 서버 API 로 우회하는 조건은 차량선점 플래그 두 개가 모두 ON 일 때뿐이다(`vehicle-claim-client.ts:15`). RTDB 는 `freepasserp3` 하나뿐이라 콘솔 게시가 Production 에 즉시 적용되므로, 플래그 OFF 상태에서 게시하면 **영업자 「계약금 입금」·공급사 「입금 확인」이 전면 401 이 되어 딜이 한 건도 진행되지 않는다.** Preview 는 플래그가 ON 이라 이 사고가 Preview 검증으로는 잡히지 않는다. 올바른 순서는 **① 운영자 정보 → ② Production 서비스계정+두 플래그 ON → ③ 재배포·실계정 계약금 체크 1건 성공 → ④ Rules 백업 → ⑤ 후보 게시 → ⑥ 게시후 재확인·5역할 smoke** 이며, ②③ 이 ⑤ 보다 반드시 앞이다(플래그 선행은 부작용 없음 — 서버는 Admin SDK 라 구 Rules 에서도 통과). 근거·롤백은 `CLAUDE_GATE_VEHICLE_CLAIM_2026-08-04.md` 차단 1 과 `LAUNCH_GONOGO.md` §1-1. 같은 게이트의 주의 1(죽은 claim 회수)은 `reserveVehicleClaim` 에 반영 완료(claim sim 17/17).
 
