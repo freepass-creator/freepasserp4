@@ -1,5 +1,16 @@
 # 독립 검증 결과
 
+## 2026-08-04 B2B 5역할 Preview 읽기 게이트 준비
+
+결과: **5역할 자동 smoke·비식별 역할 확인 API·격리 HTTP PASS / 실계정 토큰 주입 전 NO-GO 유지**
+
+- 플랫폼 관리자·영업채널 관리자·영업자·공급사 관리자·공급사 직원의 실제 Preview 권한을 한 번에 검사하는 `npm run smoke:b2b-roles`를 추가했다. 토큰은 환경변수로만 받고 값·uid·상품키·원가를 출력하지 않는다.
+- 새 `GET /api/auth/session`은 `verifyActiveBearer`로 운영 `users/{uid}` 역할을 다시 확인하고 정규 역할·세부 역할·조직 범위 코드만 반환한다. 비인증 403, 인증/RTDB 구성 장애 503, 응답은 `private, no-store`이며 uid·이메일·이름은 반환하지 않는다.
+- 역할 smoke는 위 endpoint와 읽기 전용 상품 브리지만 호출해 5역할 HTTP 200·역할/조직 일치·동일 공개 상품 집합·영업 민감원자 0·공급사 타회사 민감원자 0·캐시 격리를 검사한다. 실제 계약·정산·재고 write는 하지 않는다.
+- B2B 정적 게이트에 두 파일과 5개 토큰 구성을 결속했다. 현재 로컬은 **37 PASS / 3 FAIL**이며 실패는 서비스계정 미설정과 서버/클라이언트 원자 선점 플래그 OFF뿐이다. 토큰 없는 smoke preflight는 URL·조직코드·5개 토큰 누락 8개를 모두 명시해 fail-closed한다.
+- 격리 Auth+RTDB Emulator와 실제 Next API에서 역할 확인+원자 선점 통합 **16/16 PASS**다. 권한 **44/44**, 상품 브리지 **16/16**, claim **11/11**, 차량 락 **38/38**, phase12 **69/69**, type/UI/fonts, production build **30/30 pages PASS**다.
+- 운영 Rules·Firebase 데이터·Vercel 환경·Production은 변경하지 않았다. 다음 실행은 전용 5역할 QA 토큰을 현재 셸에만 주입해 안전 플래그 OFF Preview에서 `smoke:b2b-roles`를 실행하는 것이며, 그 결과와 사람의 실데이터 확인 전 Rules 게시·플래그 활성화는 금지다.
+
 ## 2026-08-04 원자 선점 후보 Vercel Preview 브라우저 검수
 
 결과: **안전 플래그 OFF Preview READY·기본/모바일 smoke PASS / 역할별 활성화 검수 전 Production NO-GO**

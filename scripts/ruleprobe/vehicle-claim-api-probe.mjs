@@ -42,6 +42,14 @@ async function api(body, token = '', base = apiBase) {
   return { status: response.status, payload };
 }
 
+async function sessionApi(token = '', base = apiBase) {
+  const response = await fetch(`${base}/api/auth/session`, {
+    headers: token ? { authorization: `Bearer ${token}` } : {},
+  });
+  const payload = await response.json().catch(() => ({}));
+  return { status: response.status, payload };
+}
+
 let pass = 0;
 function check(name, condition, detail) {
   if (!condition) throw new Error(`${name}: ${JSON.stringify(detail)}`);
@@ -96,14 +104,18 @@ try {
   await Promise.all([waitForNext(next), waitForNext(offNext)]);
   const disabled = await api({ contractCode: 'C-A', key: 'agent_balance_paid', value: 'yes' }, '', offNext.base);
   check('서버 kill switch OFF API 503', disabled.status === 503, disabled);
-  const [agentA, agentB, provider, outsider] = await Promise.all([
+  const [agentA, agentB, provider, outsider, agentAdmin, providerAdmin, admin] = await Promise.all([
     signUp('claim-agent-a'), signUp('claim-agent-b'), signUp('claim-provider'), signUp('claim-outsider'),
+    signUp('claim-agent-admin'), signUp('claim-provider-admin'), signUp('claim-platform-admin'),
   ]);
   await db('users', { method: 'PUT', body: {
     [agentA.uid]: { role: 'agent', status: 'active', user_code: 'AG-A', agent_channel_code: 'CH-A' },
     [agentB.uid]: { role: 'agent', status: 'active', user_code: 'AG-B', agent_channel_code: 'CH-B' },
     [provider.uid]: { role: 'provider', status: 'active', user_code: 'PV-A', company_code: 'SUP-A' },
     [outsider.uid]: { role: 'agent', status: 'active', user_code: 'AG-X', agent_channel_code: 'CH-X' },
+    [agentAdmin.uid]: { role: 'agent_admin', status: 'active', user_code: 'AG-M', agent_channel_code: 'CH-A' },
+    [providerAdmin.uid]: { role: 'provider_admin', status: 'active', user_code: 'PV-M', company_code: 'SUP-A' },
+    [admin.uid]: { role: 'admin', status: 'active', user_code: 'ADM' },
   } });
   const contract = (code, productCode, agent) => ({
     contract_code: code, contract_status: '계약요청', contract_date: '2026-08-04',
@@ -119,6 +131,25 @@ try {
     },
     contracts: { 'C-A': contract('C-A', 'P-A', agentA), 'C-B': contract('C-B', 'P-B', agentB) },
   } });
+
+  const unauthSession = await sessionApi();
+  check('무인증 역할 확인 API 차단', unauthSession.status === 403, unauthSession);
+  const sessionMatrix = await Promise.all([
+    [agentA, 'agent', 'agent', 'CH-A'],
+    [agentAdmin, 'agent', 'agent_admin', 'CH-A'],
+    [provider, 'provider', 'provider', 'SUP-A'],
+    [providerAdmin, 'provider', 'provider_admin', 'SUP-A'],
+    [admin, 'admin', 'admin', ''],
+  ].map(async ([account, role, rawRole, organizationCode]) => ({
+    expected: { role, rawRole, organizationCode },
+    actual: await sessionApi(account.token),
+  })));
+  check('5역할 확인 API 정규 역할·조직 범위', sessionMatrix.every(({ expected, actual }) => (
+    actual.status === 200
+      && actual.payload.role === expected.role
+      && actual.payload.rawRole === expected.rawRole
+      && actual.payload.organizationCode === expected.organizationCode
+  )), sessionMatrix);
 
   const unauth = await api({ contractCode: 'C-A', key: 'agent_balance_paid', value: 'yes' });
   check('무인증 API 차단', unauth.status === 401, unauth);

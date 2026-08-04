@@ -146,6 +146,8 @@ const requiredFiles = [
   'lib/server/vehicle-claim.ts',
   'lib/firebase/vehicle-claim-client.ts',
   'scripts/ruleprobe/vehicle-claim-api-probe.mjs',
+  'app/api/auth/session/route.ts',
+  'scripts/smoke-b2b-role-matrix.mts',
 ];
 for (const path of requiredFiles) check(existsSync(path), `브리지 구성 파일 ${path}`);
 
@@ -158,6 +160,8 @@ if (requiredFiles.every(existsSync)) {
   const claimServer = readFileSync(requiredFiles[5], 'utf8');
   const claimClient = readFileSync(requiredFiles[6], 'utf8');
   const claimProbe = readFileSync(requiredFiles[7], 'utf8');
+  const sessionRoute = readFileSync(requiredFiles[8], 'utf8');
+  const roleSmoke = readFileSync(requiredFiles[9], 'utf8');
   check(route.includes('verifyActiveBearer(request)'), '브리지 API 활성 사용자 재검증');
   check(route.includes('selectLegacyProductsForBridge') && route.includes('MAX_RESPONSE_PRODUCTS'), '브리지 API 활성·참조 이력 응답 상한');
   check(!/\b(set|update|remove|push|runTransaction)\s*\(/.test(route), '브리지 API read-only');
@@ -170,6 +174,14 @@ if (requiredFiles.every(existsSync)) {
   check(claimClient.includes("fetch('/api/contracts/vehicle-claim'") && claimClient.includes('getIdToken()'), '차량 claim 클라이언트 인증 호출');
   check(auth.includes('demoEmulatorProjectId') && auth.includes("startsWith('demo-')"), '서버 무자격증명 초기화 demo 격리 한정');
   check(claimProbe.includes('동시 API 선점 정확히 1건 성공') && claimProbe.includes('claim 원장 제거'), '차량 claim 실제 Next API 통합 적대 probe');
+  check(sessionRoute.includes('verifyActiveBearer(request)') && !sessionRoute.includes('actor.uid'), '역할 smoke API 활성 사용자·비식별 응답');
+  check(
+    ['B2B_PLATFORM_ADMIN_ID_TOKEN', 'B2B_AGENT_ADMIN_ID_TOKEN', 'B2B_AGENT_ID_TOKEN', 'B2B_PROVIDER_ADMIN_ID_TOKEN', 'B2B_PROVIDER_ID_TOKEN']
+      .every((name) => roleSmoke.includes(name))
+      && roleSmoke.includes("get<SessionPayload>('/api/auth/session'")
+      && roleSmoke.includes("get<BridgePayload>('/api/products/bridge'"),
+    '5역할 Preview 읽기 smoke 구성',
+  );
 }
 
 console.log(`B2B 출시 게이트 · env=${envFile} · rules=${rulesFile}`);

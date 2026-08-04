@@ -129,10 +129,16 @@
 
 ```powershell
 npm run check:b2b-release
-# Preview 배포 후 토큰은 현재 셸의 B2B_AGENT_ID_TOKEN/B2B_PROVIDER_ID_TOKEN에만 주입한다.
+# Preview 배포 후 토큰은 파일·명령행이 아니라 현재 셸에만 주입한다.
 $env:B2B_BASE_URL='https://<preview-host>'
+$env:B2B_PLATFORM_ADMIN_ID_TOKEN='<플랫폼 관리자 QA 토큰>'
+$env:B2B_AGENT_ADMIN_ID_TOKEN='<영업채널 관리자 QA 토큰>'
+$env:B2B_AGENT_ID_TOKEN='<영업자 QA 토큰>'
+$env:B2B_PROVIDER_ADMIN_ID_TOKEN='<공급사 관리자 QA 토큰>'
+$env:B2B_PROVIDER_ID_TOKEN='<공급사 직원 QA 토큰>'
+$env:B2B_AGENT_CHANNEL_CODE='<두 영업 QA 계정의 동일 채널 코드>'
 $env:B2B_PROVIDER_COMPANY_CODE='<QA 공급사 코드>'
-npx tsx scripts/smoke-b2b-product-bridge.mts
+npm run smoke:b2b-roles
 node scripts/ruleprobe/build-release-candidate.mjs
 npx tsx scripts/check-release.mts --rules=scripts/ruleprobe/release-candidate.rules.json
 npx tsx scripts/sim-release-security-rules.mts --rules=scripts/ruleprobe/release-candidate.rules.json
@@ -141,6 +147,10 @@ npx tsx scripts/sim-contract-sign-rules.mts --rules=scripts/ruleprobe/release-ca
 cd scripts/ruleprobe
 npx firebase-tools@13 emulators:exec --config firebase.release.json --project demo-freepasserp4 --only auth,database "node release-probe.mjs"
 ```
+
+`smoke:b2b-roles`는 `GET /api/auth/session`과 `GET /api/products/bridge`만 호출한다. uid·토큰·상품키·원가를
+출력하지 않고, 5역할의 세부 역할/조직 범위, 브리지 200, 공개 상품 집합, 영업 민감값 0,
+공급사 타회사 민감값 0, `private/no-store` 헤더를 검사한다. 검증 뒤 위 토큰 환경변수를 모두 제거한다.
 
 ## 계약보호 재고 충돌 1건 확인
 

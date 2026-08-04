@@ -12,7 +12,8 @@
     "check:tokens": "tsx scripts/check-tokens.mts",
     "check:ui": "tsx scripts/check-ui-contract.mts",
     "check:release": "tsx scripts/check-release.mts",
-    "check:b2b-release": "tsx scripts/check-b2b-release.mts"
+    "check:b2b-release": "tsx scripts/check-b2b-release.mts",
+    "smoke:b2b-roles": "tsx scripts/smoke-b2b-role-matrix.mts"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
