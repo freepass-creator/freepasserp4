@@ -8,6 +8,7 @@
 - `lib/legal.ts`의 공개 운영자 정보를 `NEXT_PUBLIC_OPERATOR_COMPANY/CEO/ADDRESS/BIZ_NO/EMAIL/PHONE/PRIVACY_OFFICER` 빌드 환경변수에서 읽도록 바꿨다. 공개 문서에 표시될 정보이므로 `NEXT_PUBLIC_` 사용이 의도이며 변경 후 재배포가 필요하다.
 - `check:release`는 `.env.local` 또는 현재 프로세스 환경에서 실제 값을 읽어 필수 6필드 누락, 사업자등록번호 10자리 형식, 이메일 형식을 fail-closed한다. 정상 임시값+후보 Rules는 **차단 0 / 경고 1**, 잘못된 번호·메일은 **차단 2**, 현재 실제 미입력 환경은 **차단 1(6필드) / 경고 1**로 확인했다. 임시값은 프로세스 안에서만 사용했고 파일·Vercel에 저장하지 않았다.
 - type/UI/fonts PASS다. 운영 Firebase·Rules·Vercel 환경·Production은 변경하지 않았다. 실제 사실값을 사용자가 확인해 Preview/Production에 입력한 뒤 재배포하고 `/terms`·`/privacy`를 눈으로 확인해야 이 차단을 해제할 수 있다.
+- 체크포인트 `84626dd`의 Git Preview `dpl_GKwAp17Qw4phW8KmiWnu9md13vdH` / `https://freepasserp4-tqzqmqa61-freepass-projects.vercel.app`는 **READY**다. Preview에 `NEXT_PUBLIC_OPERATOR_*`가 아직 없음을 이름 목록으로 확인했고, 보호 우회 실제 `/terms`·`/privacy` HTML에서 6필드 경고와 새 환경변수 안내가 표시되며 runtime error 로그는 0건이다.
 
 ## 2026-08-04 B2B 5역할 Preview 읽기 게이트 준비
 
