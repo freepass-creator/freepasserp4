@@ -18,9 +18,11 @@
 - 환경 점검에 사용한 임시 `.env` 파일은 삭제했고 비밀값은 문서·Git에 저장하지 않았다. 작업 종료 시점에 운영 데이터·운영 Rules·Production write는 0건이다.
 - 추가 도메인 감사를 통해 `freepasserp.com`·`www.freepasserp.com`이 현재 Vercel 프로젝트 `freepasserp3`의 Production `dpl_4K9TWPGwomjKnLmS2fc4VYFPmaJ5`를 가리키는 것을 확인했다. `freepasserp4` 자체 최신 Production은 `dpl_89iS1W6cP2MYd2egoqQFMJFSt6Xq` / `freepasserp4.vercel.app`이지만 검증 기준보다 오래되어 auth session·vehicle claim·iron preview API가 모두 404다. 이 배포를 도메인에 연결하면 안 된다.
 - 최종 오픈은 최신 코드와 Production 필수 환경변수로 새 `freepasserp4` Production을 만들고 고유 URL에서 전체 smoke를 끝낸 뒤, 마지막 단계에서 같은 Vercel 팀의 custom-domain alias를 `freepasserp3`에서 검증된 새 배포로 전환해야 한다. 직전 안정 롤백 대상은 위 `freepasserp3` 배포다. 도메인·DNS·alias는 이번 검증에서 변경하지 않았다.
-- 사용자 `다음 ㄱㄱ`를 앞서 제시한 `개인정보 보호책임자=박영협`의 Preview 반영 승인으로 해석해 UTF-8 등록했고, 기존회원 재동의 플래그도 Preview에만 ON으로 전환했다. 최신 Ready는 `dpl_9QhCsihjXUcAb3pRAMMfyMfbHNGm` / `https://freepasserp4-7du1f5c2r-freepass-projects.vercel.app`다.
+- 사용자 `다음 ㄱㄱ`를 앞서 제시한 `개인정보 보호책임자=박영협`의 Preview 반영 승인으로 해석해 UTF-8 등록했고, 기존회원 재동의 플래그도 Preview에만 ON으로 전환했다. Claude 후속 죽은 claim 회수까지 포함한 최신 Ready는 `dpl_AmdZSFwVEaW1RxpPExvTGteFvMLr` / `https://freepasserp4-ooijoten9-freepass-projects.vercel.app`다.
 - 최신 약관·개인정보·로그인 공개 경로는 정상이고 운영자 경고 0, 깨진 `?` 0, 개인정보 보호책임자·문의처 표시 PASS다. 무인증 session·iron은 403, claim은 `로그인이 필요합니다`이며 최근 Vercel error log 0이다. 확정 환경+재동의 ON+후보 Rules의 `check:release`는 차단 0·서비스워커 경고 1, `check:b2b-release`는 41/41 PASS다.
 - Preview 재동의 1회 저장·재로그인 미표시, 5역할 smoke, 아이언 명시 적용은 전용 QA/관리자 로그인 세션이 없어 실행하지 않았다. 실제 운영 사용자를 임의 가장하거나 서버 인증을 우회하지 않는다.
+- Claude 후속 `ad2b180`의 stale `claiming/releasing` 2분 회수는 type/UI/tokens/fonts, claim 17/17, 차량락 38/38, production build 30/30 PASS다. `active` claim은 시간과 무관하게 회수 금지하며 4004 서버는 빌드 전후 200을 유지했다.
+- `origin/main` 후속 push로 fp4 Production `dpl_3ZrY5dJgZgd41TtPcGHWPw8zAtAt`이 자동 생성됐지만 Production 운영자 환경은 모두 비어 있고 claim 서버 플래그도 OFF다. 따라서 `freepasserp4.vercel.app`은 공개 전 경고와 기능 OFF 상태이며 custom domain 전환 후보로 사용 금지다. 실서비스 `freepasserp.com`은 기존 fp3에 남아 있어 사용자 영향은 없다.
 
 ## 2026-08-04 기존 회원 약관 재동의 안전 게이트
 
