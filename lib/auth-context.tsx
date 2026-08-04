@@ -7,10 +7,14 @@
  */
 import { createContext, useContext, useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import { CheckCircle2, LogOut, ShieldCheck } from 'lucide-react';
 import { firebaseReady } from '@/lib/firebase/client';
-import { getSession, subscribeSession, isGuest, isBlocked, blockReason, type Session } from '@/lib/auth-session';
+import { getSession, subscribeSession, isGuest, isBlocked, blockReason, needsLegalReconsent, type Session } from '@/lib/auth-session';
 import { isPublicPath, setPublicAccess } from '@/lib/public-access';
-import { Btn, C, FS, FW, R } from '@/components/ui';
+import { LEGAL_VERSION } from '@/lib/legal';
+import { Btn, ButtonLabel, C, FS, FW, ICON, R, SH } from '@/components/ui';
+
+const REQUIRE_LEGAL_RECONSENT = process.env.NEXT_PUBLIC_REQUIRE_LEGAL_RECONSENT === 'true';
 
 const Ctx = createContext<{ session: Session | null; ready: boolean }>({ session: null, ready: false });
 export function useSession(): Session | null { return useContext(Ctx).session; }
@@ -92,7 +96,87 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return <PendingApproval email={session?.email || ''} reason={blockReason(session) || 'pending'} />;
   }
 
+  // 기존 회원 재동의는 운영자 정보 확정·Preview 검증 후 환경변수로 켠다. 캐시 세션만 보고
+  // 오판하지 않도록 Firebase 프로필 로드가 끝난 ready 상태에서만 게이트한다.
+  if (mounted && active && ready && REQUIRE_LEGAL_RECONSENT && session && !isGuest()
+    && !onLogin && !publicPage && needsLegalReconsent(session, LEGAL_VERSION)) {
+    return <LegalReconsent email={session.email} />;
+  }
+
   return <Ctx.Provider value={{ session, ready }}>{children}</Ctx.Provider>;
+}
+
+function LegalReconsent({ email }: { email: string }) {
+  const [terms, setTerms] = useState(false);
+  const [privacy, setPrivacy] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const canSubmit = terms && privacy && !busy;
+
+  const submit = async () => {
+    if (!canSubmit) return;
+    setBusy(true);
+    setError('');
+    try {
+      const { recordCurrentLegalConsent } = await import('@/lib/firebase/auth');
+      await recordCurrentLegalConsent();
+    } catch (e) {
+      setError((e as Error)?.message || '동의 기록을 저장하지 못했습니다. 다시 시도해 주세요.');
+      setBusy(false);
+    }
+  };
+
+  const consentRow = (checked: boolean, setChecked: (value: boolean) => void, href: string, label: string) => (
+    <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: 12, border: `1px solid ${C.line}`, borderRadius: R, cursor: 'pointer', color: C.ink, fontSize: FS.body, lineHeight: 1.5 }}>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(event) => setChecked(event.target.checked)}
+        style={{ marginTop: 3, accentColor: C.brand }}
+      />
+      <span style={{ flex: 1 }}>
+        <strong style={{ fontWeight: FW.strong }}>[필수] {label}에 동의합니다.</strong>
+        {' '}
+        <a href={href} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()} style={{ color: C.accent }}>
+          내용 보기
+        </a>
+      </span>
+    </label>
+  );
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: C.bg, padding: 20 }}>
+      <div style={{ width: '100%', maxWidth: 460, display: 'flex', flexDirection: 'column', gap: 16, padding: 24, background: C.taupeBg, border: `1px solid ${C.line}`, borderRadius: R, boxShadow: SH.modal }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: C.brand }}>
+          <ShieldCheck size={ICON.xl} aria-hidden />
+          <h1 style={{ margin: 0, fontSize: FS.page, fontWeight: FW.head }}>약관 확인이 필요합니다</h1>
+        </div>
+        <p style={{ margin: 0, color: C.mute, fontSize: FS.body, lineHeight: 1.7 }}>
+          서비스 이용을 계속하려면 현재 이용약관과 개인정보 처리방침을 확인하고 동의해 주세요.
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {consentRow(terms, setTerms, '/terms', '이용약관')}
+          {consentRow(privacy, setPrivacy, '/privacy', '개인정보 처리방침')}
+        </div>
+        {error && <div role="alert" style={{ color: C.danger, fontSize: FS.sub }}>{error}</div>}
+        <Btn full disabled={!canSubmit} onClick={() => { void submit(); }} haptic="success">
+          <ButtonLabel icon={<CheckCircle2 size={ICON.md} aria-hidden />}>
+            {busy ? '저장 중…' : '동의하고 계속하기'}
+          </ButtonLabel>
+        </Btn>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+          <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', color: C.faint, fontSize: FS.cap }}>{email}</span>
+          <Btn
+            size="sm"
+            variant="bare"
+            onClick={() => { void import('@/lib/firebase/auth').then((m) => m.logout()).then(() => { window.location.href = '/login'; }); }}
+          >
+            <ButtonLabel icon={<LogOut size={ICON.sm} aria-hidden />}>로그아웃</ButtonLabel>
+          </Btn>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /** 사용 차단 안내 — 데이터에 접근시키지 않고 여기서 멈춘다. */

@@ -109,6 +109,17 @@ check('삭제 영업자 v4 products read 차단', (await db('v4/products', { tok
 check('반려 영업자 v4 products read 차단', (await db('v4/products', { token: rejectedAgent.token })).status, 401);
 check('미배정 역할 v4 products read 차단', (await db('v4/products', { token: unassignedUser.token })).status, 401);
 
+console.log('\n=== 본인 약관 재동의 증적 ===');
+check('활성 회원 본인 동의 증적 갱신 허용', (await db(`users/${agent.uid}`, { method: 'PATCH', token: agent.token, body: {
+  terms_agreed_at: Date.now(), privacy_agreed_at: Date.now(), legal_version: '2026-08-01',
+} })).status, 200);
+check('동의 갱신에 역할 탈취 혼합 차단', (await db(`users/${agent.uid}`, { method: 'PATCH', token: agent.token, body: {
+  terms_agreed_at: Date.now(), privacy_agreed_at: Date.now(), legal_version: '2026-08-01', role: 'admin',
+} })).status, 401);
+check('타 회원 동의 증적 대리 갱신 차단', (await db(`users/${agentOther.uid}`, { method: 'PATCH', token: agent.token, body: {
+  terms_agreed_at: Date.now(), privacy_agreed_at: Date.now(), legal_version: '2026-08-01',
+} })).status, 401);
+
 console.log('\n=== v4 기준정보 소유권 ===');
 check('provider 자기 partner 수정 허용', (await db('v4/partners/SUP-A', { method: 'PATCH', token: providerA.token, body: { name: 'A2' } })).status, 200);
 check('provider 타 partner 수정 차단', (await db('v4/partners/SUP-B', { method: 'PATCH', token: providerA.token, body: { name: '탈취' } })).status, 401);

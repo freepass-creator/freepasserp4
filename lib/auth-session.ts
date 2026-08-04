@@ -21,6 +21,20 @@ export interface Session {
   status?: string;
   /** 관리자가 끈 계정. '아니오'/false = 비활성 — 로그인은 되지만 앱 사용은 막아야 한다. */
   is_active?: string;
+  /** 약관·개인정보 처리방침 동의 증적. 기존 회원은 값이 없을 수 있다. */
+  terms_agreed_at?: number;
+  privacy_agreed_at?: number;
+  legal_version?: string;
+}
+
+/** 현재 법적 문서에 다시 동의해야 하는지 판정하는 순수 함수. */
+export function needsLegalReconsent(s: Session | null, currentVersion: string): boolean {
+  if (!s) return false;
+  const termsAt = Number(s.terms_agreed_at || 0);
+  const privacyAt = Number(s.privacy_agreed_at || 0);
+  return String(s.legal_version || '') !== String(currentVersion || '')
+    || !Number.isFinite(termsAt) || termsAt <= 0
+    || !Number.isFinite(privacyAt) || privacyAt <= 0;
 }
 
 /** 승인 대기 여부 — 'pending' 만. 값이 없는 기존 회원을 잠그지 않기 위해 블랙리스트. */

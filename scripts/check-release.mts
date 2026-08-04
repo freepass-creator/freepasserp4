@@ -49,6 +49,9 @@ if (operatorBizNo && !/^\d{3}-?\d{2}-?\d{5}$/.test(operatorBizNo)) {
 if (operatorEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(operatorEmail)) {
   failures.push('약관·개인정보 문의 이메일 형식 오류');
 }
+if (envValue('NEXT_PUBLIC_REQUIRE_LEGAL_RECONSENT') !== 'true') {
+  warnings.push('기존 회원 약관 재동의 게이트 OFF — 기존 계정 동의 증적 수집 전');
+}
 
 const missingFirebase = firebaseKeys.filter((key) => !hasEnv(key));
 if (missingFirebase.length) failures.push(`Firebase 필수 환경변수 누락: ${missingFirebase.join(', ')}`);

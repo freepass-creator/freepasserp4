@@ -15,6 +15,7 @@ import { currentActor } from '@/lib/session';
 import { getCompanyId } from '@/lib/tenant';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { businessRegistrationNumberOf, normalizeBusinessRegistrationNumber } from '@/lib/domain/business-identity';
+import { LEGAL_VERSION } from '@/lib/legal';
 
 /** 관리자 신원 조작(승인·역할재배정·채널백필) 감사기록 — store를 안 거치는 top-level users 쓰기라 별도 기록.
  *  best-effort(감사 실패가 원 작업을 막지 않음). audit_logs 규칙: actor_uid === auth.uid(=현재 관리자). */
@@ -97,6 +98,9 @@ export function initAuth(): Promise<void> {
               // 관리자가 끈 계정을 앱 게이트가 판정할 수 있게 세션에 싣는다(예전엔 status만 실려
               // 비활성·삭제 계정이 그대로 사용됐다 — QA AUTH-6)
               is_active: profile.is_active == null ? '' : String(profile.is_active),
+              terms_agreed_at: Number(profile.terms_agreed_at || 0),
+              privacy_agreed_at: Number(profile.privacy_agreed_at || 0),
+              legal_version: String(profile.legal_version || ''),
             });
           } catch (e) {
             console.warn('[auth] users 프로필 읽기 실패 — 최소 세션 진행:', (e as Error)?.message || e);
@@ -261,6 +265,22 @@ export async function updateMyProfile(fields: { name?: string; phone?: string; c
   await update(ref(db, `users/${uid}`), patch);
   const s = getSession(); // 상단바·설정에 이름 즉시 반영
   if (s && patch.name != null) setSession({ ...s, name: String(patch.name) });
+}
+
+/** 현재 버전 약관·개인정보 처리방침 재동의 증적을 본인 프로필에 기록한다. */
+export async function recordCurrentLegalConsent(): Promise<void> {
+  const db = getRtdb(); const auth = getAuthClient();
+  const uid = auth?.currentUser?.uid;
+  if (!db || !uid) throw new Error('로그인이 필요합니다.');
+  const agreedAt = Date.now();
+  const consent = {
+    terms_agreed_at: agreedAt,
+    privacy_agreed_at: agreedAt,
+    legal_version: LEGAL_VERSION,
+  };
+  await update(ref(db, `users/${uid}`), consent);
+  const s = getSession();
+  if (s?.uid === uid) setSession({ ...s, ...consent });
 }
 
 /**

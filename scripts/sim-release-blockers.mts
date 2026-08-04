@@ -1,4 +1,4 @@
-import { isBlocked, blockReason, mapRole, type Session } from '../lib/auth-session';
+import { isBlocked, blockReason, mapRole, needsLegalReconsent, type Session } from '../lib/auth-session';
 import { requirePositiveRentAmount } from '../lib/domain/contract-money';
 
 let pass = 0;
@@ -19,6 +19,16 @@ check('역할 미지정 차단 사유', blockReason({ ...base, rawRole: '' }), '
 check('레거시 영업관리자 허용', isBlocked({ ...base, rawRole: 'agent_manager' }), false);
 check('화면 호환 역할 투영 유지', mapRole('agent_manager'), 'agent');
 check('정상 월대여료 허용', requirePositiveRentAmount(550000, 'QA'), 550000);
+check('최신 약관 동의 회원 통과', needsLegalReconsent({
+  ...base, legal_version: '2026-08-01', terms_agreed_at: 1, privacy_agreed_at: 1,
+}, '2026-08-01'), false);
+check('구버전 약관 회원 재동의', needsLegalReconsent({
+  ...base, legal_version: '2026-01-01', terms_agreed_at: 1, privacy_agreed_at: 1,
+}, '2026-08-01'), true);
+check('동의 시각 없는 기존 회원 재동의', needsLegalReconsent({
+  ...base, legal_version: '2026-08-01', terms_agreed_at: 0, privacy_agreed_at: 1,
+}, '2026-08-01'), true);
+check('비로그인 재동의 없음', needsLegalReconsent(null, '2026-08-01'), false);
 
 for (const bad of [0, -1, '', null, undefined, 'not-a-number']) {
   let rejected = false;
