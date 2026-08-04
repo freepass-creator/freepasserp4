@@ -3444,14 +3444,34 @@ Next 개발 서버와 production build가 같은 `.next`를 사용하면 실행 
 - 사용자 확인에 따라 연동 활성화 후 `RP006`은 기존 Google Sheet를 중지하고 아이언렌트카 홈페이지를 단일 정본으로 사용한다.
 - 신차·중고 누적 목록과 상세를 읽는 전용 서버 어댑터, 단일 정본 대조 플래너, 관리자 전용 read-only preview API를 추가했다.
 - 실측 홈페이지 49대(활성 24·판매완료 25, 신차 20·중고 29)를 49/49 변환했다. 오류·차번/가격/사진 누락·중복차번·공개원가 누수는 0이다.
-- 운영 v3+v4 읽기 대조: 안전 매칭 27, 신규 활성 1, 판매완료 신규 제외 18, 웹 부재 차단 후보 7, ERP 중복차번 차단 3그룹, 계약보호 0, 실행 0건이다.
-- 기존 ERP 시트 가격과 홈페이지 가격은 동일하지 않다. 비교기간 61개에서 월대여료 동일 0, 보증금 동일 56, 쌍 동일 0, 웹 전용 기간 14, ERP 전용 기간 2다.
+- 운영 v3+v4 논리키 읽기 대조: 안전 매칭 21, 신규 활성 3, 판매완료 신규 제외 25, 웹 부재 차단 후보 4, 실제 중복차번 0, 계약보호 0, 실행 0건이다.
+- 기존 ERP 시트 가격과 홈페이지 가격은 동일하지 않다. 비교기간 50개에서 월대여료 동일 0, 보증금 동일 45, 쌍 동일 0, 웹 전용 기간 13, ERP 전용 기간 2다.
 - 단일 정본 규칙에 따라 후보 patch는 홈페이지 가격 전체를 사용하며 과거 시트 전용 기간을 혼합 보존하지 않는다. 기존 계약 금액 snapshot은 건드리지 않는다.
 - `sim-ironrentcar-source` 17/17, `sim-ironrentcar-reconcile` 15/15, `sim-sheet-merge` 128/128, `sim-phase12` 69/69 PASS.
 - typecheck, fonts, UI 계약, 분리 production build 30/30 PASS. 새 preview route 포함을 확인했고 build의 `tsconfig.json` 자동 변경은 복구했다.
 - 비인증 preview 요청은 403, 실행 중 4004 루트는 200이며 서버를 재시작하지 않았다.
-- 운영 데이터·Rules·외부 사이트 write는 0건이다. 적용은 중복 3그룹 정리와 후보 승인, 시트 중지 후 별도 v4 CAS 경로로 진행해야 한다.
+- 운영 데이터·Rules·외부 사이트 write는 0건이다. 적용은 후보 28건 승인 후 서버 기능 플래그를 켜야 한다.
 - 상세 결정과 활성화 순서는 `docs/IRONRENTCAR_WEB_INTEGRATION_2026-08-04.md`를 따른다.
 - 체크포인트 `7f700a0`을 `codex/atomic-claim-preview`에만 push했다. Vercel Preview `dpl_ACpiQM8aFQ3BCP3yyW4Syvemgnt4`는 Ready이며 Production은 변경하지 않았다.
 - Preview 보호를 통과한 `vercel curl` 비인증 호출은 앱의 `{\"error\":\"forbidden\"}`을 반환해 관리자 인증 경계를 재확인했다.
 - `npm audit --omit=dev`는 기존 기준선과 같은 Critical 0, High 3, Moderate 8이다. 이번 의존성 추가로 건수가 늘지 않았다.
+
+## 2026-08-04 — 아이언 논리키 정정 및 적용 경로
+
+- 최초 보고의 중복 3그룹은 v3 `EXT_*` 저장키와 v4 canonical child를 별개로 병합한 감사 오탐이었다. 앱의 `product_code` 논리키 병합으로 재검증해 실제 중복 0으로 정정했다.
+- 공용 `mergeV3V4Records()`를 추가하고 아이언 preview와 중복상품 감사 서버가 이 경계를 쓰게 했다.
+- 최신 후보는 기존 21대 보강, 신규 3대, 웹 부재 4대 차단으로 총 28건이다. 홈페이지 판매완료만 있는 25대는 생성하지 않는다.
+- 관리자 POST apply 경로를 추가했다. `IRONRENTCAR_SYNC_ENABLED` 기본 OFF, 명시 확인문구·revision·예상 건수 일치가 필수다.
+- 적용 시 진행 중 Sheet sync를 차단하고 `RP006.inventory_source=ironrentcar_web`으로 바꾼다. 실패 시 source를 복구하며 성공 후 Sheet roster에서 RP006을 제외한다.
+- 공개 상품 28건은 `v4/products` 부모 transaction 하나에서 CAS 검증 후 전부 적용하거나 전부 중단한다. v3·Rules·private 차량가는 쓰지 않는다.
+- `sim-ironrentcar-apply` 15/15, `sim-ironrentcar-reconcile` 17/17, `sim-sheet-merge` 129/129, 상품 중복 이관 26/26, Phase1·2 69/69 PASS. 운영 write는 0건이다.
+- 분리 production build 30/30 PASS이며 `/api/inventory/ironrentcar/apply`·`preview` 두 route를 확인했다. build가 자동 변경한 `tsconfig.json`은 복구했고 4004 서버는 재시작하지 않았다.
+
+## 2026-08-04 — 오픈 게이트 재판정
+
+- 운영 `database.rules.json` 기준 `check:release`는 보안 14건 FAIL이라 그대로 오픈 금지다.
+- 최신 후보 Rules 기준 `check:release`는 법적 운영자 정보 6개만 FAIL, 기존회원 재동의 OFF와 서비스워커 부재 2건 WARN이다.
+- `check:b2b-release`는 로컬 기준 서비스계정·차량 claim 서버 플래그·클라이언트 플래그 3건 FAIL이다.
+- Vercel 환경 이름을 값 미출력으로 확인했다. `FIREBASE_SERVICE_ACCOUNT_JSON`은 Preview에만 있고 Production에는 없으며, 두 claim 플래그와 법적 운영자 변수는 등록되지 않았다.
+- 현재 판정은 NO-GO다. 운영자 정보 입력, Preview claim smoke, Production 서비스계정, 후보 Rules 사람 검증·게시·5역할 smoke가 필수다.
+- `LAUNCH_GONOGO.md` 상단을 2026-08-04 기준으로 갱신해 과거 2026-07 GO 판정을 최신 판정으로 오인하지 않게 했다.

@@ -102,3 +102,33 @@ export function toV4Record(entity: string, childKey: string, record: RtdbRecord,
     default: return { ...base, _key: String(record._key || childKey) } as EntityRecord;
   }
 }
+
+/**
+ * RTDB v3 원본과 v4 overlay를 저장 child key가 아니라 앱의 논리키로 병합한다.
+ * 특히 상품은 v3 `EXT_*` child가 `product_code=RP006_차번`일 수 있으므로 child key로
+ * 합치면 같은 상품을 활성 중복으로 오판한다. 실제 RtdbStore.merged()와 같은 순서다.
+ */
+export function mergeV3V4Records(
+  entity: string,
+  v3: unknown,
+  v4: unknown,
+  companyId = 'freepass',
+  joinMap?: RtdbRecord,
+): EntityRecord[] {
+  const normalized = (raw: unknown): EntityRecord[] => Object.entries(
+    (raw || {}) as Record<string, RtdbRecord>,
+  ).flatMap(([childKey, record]) => (
+    record && typeof record === 'object' && !Array.isArray(record)
+      ? [toV4Record(entity, childKey, record, companyId, joinMap)]
+      : []
+  ));
+  const merged = new Map<string, EntityRecord>();
+  for (const row of normalized(v3)) merged.set(String(row._key), row);
+  for (const row of normalized(v4)) {
+    const key = String(row._key);
+    const current: EntityRecord = { ...(merged.get(key) || {}) };
+    for (const [field, value] of Object.entries(row)) if (value !== undefined) current[field] = value;
+    merged.set(key, current);
+  }
+  return [...merged.values()];
+}

@@ -6,7 +6,27 @@
 
 ---
 
-## 1. 현재 상태 (2026-07 기준)
+## 1. 현재 상태 (2026-08-04 기준)
+
+> **최신 판정: 🔴 NO-GO.** 아래 4개 운영 게이트가 끝나기 전 Production 오픈 금지.
+
+| 오픈 필수 게이트 | 현재 | 완료 조건 |
+|---|---|---|
+| 법적 운영자 정보 | ❌ 6개 모두 미설정 | 상호·대표자·주소·사업자등록번호·문의 이메일·개인정보 보호책임자를 Preview/Production 환경변수에 입력하고 약관·개인정보 화면 확인 |
+| Firebase Admin 서버 경로 | 🟡 Preview만 서비스계정 있음 | Preview 5역할 smoke 통과 후 Production에도 `FIREBASE_SERVICE_ACCOUNT_JSON` 설정 |
+| 차량 원자 선점 | ❌ 두 기능 플래그 미설정 | Preview에서 `VEHICLE_CLAIM_SERVER_ENABLED=true`, `NEXT_PUBLIC_ATOMIC_VEHICLE_CLAIMS=true` 후 적대 probe·실계정 smoke 통과, 이후 Production 반영 |
+| RTDB 후보 Rules | ❌ 운영 미게시 | 현재 Rules 백업 → 최신 운영 스냅샷 Emulator → 사람 게이트 → 후보 게시 → 5역할 실제 읽기/쓰기 smoke |
+
+추가 필수 순서:
+
+1. 운영자 정보 확정 뒤 Preview에서 기존 회원 재동의 1회 검수
+2. Production `NEXT_PUBLIC_REQUIRE_LEGAL_RECONSENT=true` 적용 여부 최종 승인
+3. 배포 직전 RTDB export와 직전 정상 Vercel 배포 ID 확보
+4. 관리자·영업관리자·영업자·공급사관리자·공급사직원 5역할 핵심 여정 확인
+
+아이언렌트카 웹 연동은 출시 필수 블로커가 아니다. 적용 API와 단일 정본 차단은 구현됐지만 `IRONRENTCAR_SYNC_ENABLED`는 승인 전 OFF로 유지한다.
+
+### 과거 2026-07 판정 기록
 
 | 블로커 | 상태 | 조치 |
 |---|---|---|
@@ -16,7 +36,7 @@
 | **B4** 일방향 이관·백업 미검증 | ✅ 검증됨 | 전체 26MB export + 복구 리허설(주입→확인→삭제) 통과 (2026-07-28) |
 | **B5** 돈흐름 정합성(H1 등) | 🟡 H1 반영 | H1 지정보존 코드 반영([auth.ts](lib/firebase/auth.ts) `approveUser`) · idempotency 등 부수항목은 오픈 후 |
 
-**결론: 🟢 Go (2026-07-28).** B1~B5 전부 통과 · 코드 배포 완료(main `c82208f` → Vercel). 오픈 후 §7 관측 수동 관찰(당일 `v4/_client_errors`·Vercel 에러율·Firebase 사용량 수시 확인).
+**당시 결론: 🟢 Go (2026-07-28).** 이후 후보 Rules·서버 차량 선점·법적 정보 게이트가 추가됐으므로 현재 판정에는 사용하지 않는다.
 
 ---
 

@@ -1,6 +1,7 @@
 import { planIronRentcarReconcile } from '../lib/domain/ironrentcar-reconcile';
 import type { IronRentcarCatalogItem } from '../lib/server/ironrentcar-source';
 import type { EntityRecord } from '../lib/intake/entities';
+import { mergeV3V4Records } from '../lib/firebase/rtdb-records';
 
 let pass = 0;
 function check(name: string, actual: unknown, expected: unknown): void {
@@ -59,5 +60,13 @@ const incomplete = planIronRentcarReconcile({
   webItems: [web('match', '11가1111')],
 });
 check('불완전 웹 스냅샷은 부재 차단 금지', incomplete.absentBlockCandidates.length, 0);
+
+const overlayMerged = mergeV3V4Records('product', {
+  EXT_legacy: { product_code: 'RP006_88아8888', car_number: '88아8888', provider_company_code: 'RP006', price: { 48: { rent: 400000 } } },
+}, {
+  'RP006_88아8888': { product_code: 'RP006_88아8888', vehicle_status: '출고가능', updatedAt: 'now' },
+});
+check('v3 EXT child와 v4 canonical child는 논리 상품 한 건', overlayMerged.length, 1);
+check('논리 overlay는 v3 차번과 v4 상태를 함께 보존', `${overlayMerged[0].car_number}|${overlayMerged[0].vehicle_status}`, '88아8888|출고가능');
 
 console.log(`ironrentcar reconcile: ${pass}/${pass} PASS`);

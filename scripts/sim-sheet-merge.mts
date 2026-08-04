@@ -907,6 +907,13 @@ const duplicateShellRoster = await fetchAllPartnerSheets('freepass', [{} as any]
       partner_type: '공급사',
       sheet_url: 'https://docs.google.com/spreadsheets/d/test/edit',
     },
+    {
+      _key: 'web-source',
+      partner_code: 'RP-WEB',
+      partner_type: '공급사',
+      inventory_source: 'ironrentcar_web',
+      sheet_url: 'https://docs.google.com/spreadsheets/d/old/edit',
+    },
   ],
   fetchTable: async () => [[]],
 });
@@ -915,6 +922,8 @@ check('같은 공급사 코드의 시트 없는 레거시 껍데기는 fetch 실
   && duplicateShellRoster.lines.length === 1
   && duplicateShellRoster.lines[0].code === 'RP-X',
   { partnerCount: duplicateShellRoster.partnerCount, lines: duplicateShellRoster.lines.length });
+check('홈페이지 단일 정본 공급사는 기존 sheet_url이 남아도 시트 roster에서 제외',
+  !duplicateShellRoster.lines.some((line) => line.code === 'RP-WEB'));
 
 const failed = cases.filter((c) => !c.ok);
 console.log('\n════════ 결과 ════════');

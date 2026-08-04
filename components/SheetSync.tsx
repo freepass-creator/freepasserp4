@@ -33,6 +33,7 @@ import {
   sheetSyncExistingConflictReason,
   sheetSyncCommitBlockReason,
   sheetPartnerRosterRevision,
+  isWebInventoryPartner,
   type PartnerSheetRow,
 } from '@/lib/domain/sheet-sync-all';
 import { DEFAULT_SUPPLIER_HUB_URL, syncHubSheetUrls } from '@/lib/domain/sheet-hub-sync';
@@ -402,6 +403,11 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
       const p = await readPartnerConfig(code);
       if (!p) {
         setPartnerHint(`파트너 ${code} 없음 — URL을 직접 넣고「매핑·URL 저장」하면 다음에 자동 채움`);
+        return;
+      }
+      if (isWebInventoryPartner(p)) {
+        setUrl('');
+        setPartnerHint(`${String(p.name || code)} 홈페이지 연동 사용 중 — Google Sheet 입고 비활성`);
         return;
       }
       const savedUrl = String(p.sheet_url || '').trim();

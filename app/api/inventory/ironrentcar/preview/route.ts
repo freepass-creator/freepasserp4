@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { firebaseAdminDatabase, verifyAdminBearer } from '@/lib/server/firebase-admin';
 import { fetchIronRentcarCatalog } from '@/lib/server/ironrentcar-source';
 import { planIronRentcarReconcile } from '@/lib/domain/ironrentcar-reconcile';
-import type { EntityRecord } from '@/lib/intake/entities';
+import { mergeV3V4Records } from '@/lib/firebase/rtdb-records';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -23,16 +23,10 @@ export async function GET(request: Request): Promise<Response> {
       database.ref('products').get(),
       database.ref('v4/products').get(),
     ]);
-    const merged = new Map<string, EntityRecord>();
-    for (const [key, value] of Object.entries<EntityRecord>((v3Snapshot.val() || {}) as Record<string, EntityRecord>)) {
-      merged.set(key, { ...value, _key: key });
-    }
-    for (const [key, value] of Object.entries<EntityRecord>((v4Snapshot.val() || {}) as Record<string, EntityRecord>)) {
-      merged.set(key, { ...(merged.get(key) || {}), ...value, _key: key });
-    }
+    const existing = mergeV3V4Records('product', v3Snapshot.val(), v4Snapshot.val());
     const plan = planIronRentcarReconcile({
       webItems: catalog.items,
-      existing: [...merged.values()],
+      existing,
       sourceComplete: catalog.complete,
     });
     return NextResponse.json({

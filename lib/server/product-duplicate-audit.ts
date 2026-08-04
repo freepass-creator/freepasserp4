@@ -11,6 +11,7 @@ import {
 } from '@/lib/domain/product-duplicate-dry-run';
 import { firebaseAdminDatabase } from '@/lib/server/firebase-admin';
 import { splitProductPrivate } from '@/lib/firebase/rtdb-products';
+import { mergeV3V4Records } from '@/lib/firebase/rtdb-records';
 
 function mergeNodes(v3: unknown, v4: unknown): EntityRecord[] {
   const rows = new Map<string, EntityRecord>();
@@ -75,7 +76,7 @@ export async function auditProductDuplicateReferences(): Promise<{
     db.ref('partners').get(),
     db.ref('v4/partners').get(),
   ]);
-  const rawProducts = mergeNodes(productsV3.val(), productsV4.val());
+  const rawProducts = mergeV3V4Records('product', productsV3.val(), productsV4.val());
   const legacyPrivate = new Map<string, EntityRecord>();
   const products = rawProducts.map((product) => {
     const split = splitProductPrivate(product);

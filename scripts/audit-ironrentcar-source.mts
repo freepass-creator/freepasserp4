@@ -3,6 +3,7 @@ import { fetchIronRentcarCatalog } from '../lib/server/ironrentcar-source';
 import { ironRentcarExistingRows, planIronRentcarReconcile } from '../lib/domain/ironrentcar-reconcile';
 import { readFileSync } from 'node:fs';
 import type { EntityRecord } from '../lib/intake/entities';
+import { mergeV3V4Records } from '../lib/firebase/rtdb-records';
 
 const catalog = await fetchIronRentcarCatalog({ cacheMs: 0 });
 const products = catalog.items.map((item) => item.product);
@@ -26,15 +27,14 @@ const arg = (name: string): string => {
 };
 const v3File = arg('--v3');
 const v4File = arg('--v4');
+const showCandidates = process.argv.includes('--show-candidates');
 if (v3File && v4File) {
   const v3 = JSON.parse(readFileSync(v3File, 'utf8')) as Record<string, EntityRecord> | null;
   const v4 = JSON.parse(readFileSync(v4File, 'utf8')) as Record<string, EntityRecord> | null;
-  const merged = new Map<string, EntityRecord>();
-  for (const [key, value] of Object.entries(v3 || {})) merged.set(key, { ...value, _key: key });
-  for (const [key, value] of Object.entries(v4 || {})) merged.set(key, { ...(merged.get(key) || {}), ...value, _key: key });
+  const existing = mergeV3V4Records('product', v3, v4);
   const plan = planIronRentcarReconcile({
     webItems: catalog.items,
-    existing: [...merged.values()],
+    existing,
     sourceComplete: catalog.complete,
   });
   console.log(`ERP 대조: 일치 ${plan.matched} · patch후보 ${plan.patchCandidates.length} · 무변경 ${plan.unchanged} · 신규활성후보 ${plan.createCandidates.length} · 신규판매완료제외 ${plan.ignoredSoldNew} · 웹부재 ${plan.webAbsentErp} · 부재차단후보 ${plan.absentBlockCandidates.length} · 계약보호 ${plan.protectedErpOnly} · 중복차번그룹 ${plan.duplicatePlateGroups} · 실행작업 ${plan.executableOperations}`);
@@ -44,7 +44,7 @@ if (v3File && v4File) {
     row.price && typeof row.price === 'object' ? row.price as Record<string, Terms> : {};
   const plateOf = (row: EntityRecord): string => String(row.car_number || row.vehicle_number || '').replace(/\s/g, '');
   const existingByPlate = new Map<string, EntityRecord[]>();
-  for (const row of ironRentcarExistingRows([...merged.values()])) {
+  for (const row of ironRentcarExistingRows(existing)) {
     const plate = plateOf(row);
     if (plate) existingByPlate.set(plate, [...(existingByPlate.get(plate) || []), row]);
   }
@@ -82,4 +82,9 @@ if (v3File && v4File) {
     if (exact) exactVehicles++;
   }
   console.log(`대여조건 대조(${plan.matched}대): 차량전체동일 ${exactVehicles} · 비교기간 ${comparedCells} · 월대여료동일 ${rentMatches} · 보증금동일 ${depositMatches} · 쌍동일 ${pairMatches} · 웹에만있는기간 ${webOnlyPeriods} · ERP에만있는기간 ${erpOnlyPeriods}`);
+  if (showCandidates) {
+    console.log(`보강후보: ${plan.patchCandidates.map((item) => item.key).sort().join(', ') || '없음'}`);
+    console.log(`신규후보: ${plan.createCandidates.map((item) => String(item.product_code || item._key)).sort().join(', ') || '없음'}`);
+    console.log(`웹부재차단후보: ${plan.absentBlockCandidates.map((item) => item.key).sort().join(', ') || '없음'}`);
+  }
 }

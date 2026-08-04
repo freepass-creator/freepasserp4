@@ -87,6 +87,7 @@ export function sheetPartnerSyncRevision(p: EntityRecord): string {
     partner_name: p.partner_name || '',
     partner_type: p.partner_type || '',
     status: p.status || '',
+    inventory_source: p.inventory_source || '',
     _deleted: p._deleted || false,
     deletedAt: p.deletedAt || null,
     sheet_url: p.sheet_url || '',
@@ -104,8 +105,13 @@ export function sheetPartnerSyncRevision(p: EntityRecord): string {
   });
 }
 
+export function isWebInventoryPartner(p: EntityRecord): boolean {
+  return String(p.inventory_source || '').trim() === 'ironrentcar_web';
+}
+
 function isSheetPartnerRecord(p: EntityRecord): boolean {
   if (!String(p.sheet_url || '').trim()) return false;
+  if (isWebInventoryPartner(p)) return false;
   if (p._deleted === true || p.deletedAt || String(p.status || '') === 'deleted') return false;
   return !/영업|sales/i.test(String(p.partner_type || ''));
 }
