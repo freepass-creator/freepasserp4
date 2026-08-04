@@ -1014,3 +1014,5 @@ Claude Code(설계) → Cursor(구현) → Codex(독립 검증·수정·완료)�
 - 적용 버튼은 카탈로그 불완전·중복차번·차단 후보가 있으면 비활성이다. 적용 성공 뒤 roster와 재고를 갱신하며 RP006 Sheet 제외를 확인할 수 있다.
 - `sim-ironrentcar-apply` 19/19, source 17/17, reconcile 17/17, sheet merge 129/129, type/fonts/tokens/UI PASS다.
 - 남은 순서: 새 Preview 배포 → Preview에 `IRONRENTCAR_SYNC_ENABLED=true` → 관리자 로그인 미리보기 → 28건 명시 적용 → 활성 24대·RP006 시트 제외·감사로그 확인. Production과 운영 데이터는 아직 변경하지 않았다.
+- 구현 커밋 `d295f60`을 Preview 브랜치에만 push했다. Preview 전용 `IRONRENTCAR_SYNC_ENABLED=true`를 추가해 재배포한 `dpl_FK3AaEaBcq1HqqCBzemeRYW6xgp7` / `https://freepasserp4-p3yv6tvbv-freepass-projects.vercel.app`가 Ready다. Production env·배포는 미변경이다.
+- Preview 보호 통과 뒤 비인증 preview/apply는 모두 앱 403 `forbidden`, 브라우저 console error/warn 0이다. 새 Preview origin에 관리자 로그인 세션이 없어 실미리보기와 28건 적용은 실행하지 않았고 로그인 탭을 인계했다.

@@ -3489,4 +3489,6 @@ Next 개발 서버와 production build가 같은 `.next`를 사용하면 실행 
 - 적용은 확인 대화상자 뒤 미리보기 revision과 세 종류 예상 건수, 정확한 서버 확인문구를 POST한다. 서버가 재수집한 revision/건수와 다르면 409로 전체 거부한다.
 - 적용 성공 뒤 공급사 roster와 재고 화면을 새로고침한다. 기능 플래그 OFF 응답은 Preview 설정 확인 안내로 표시한다.
 - `sim-ironrentcar-apply` 19/19, source 17/17, reconcile 17/17, sheet merge 129/129, `tsc --noEmit`, fonts, tokens, UI 계약 PASS다.
-- 아직 `IRONRENTCAR_SYNC_ENABLED`를 켜거나 apply를 호출하지 않아 운영 write는 0건이다. 새 Ready Preview에서 관리자 미리보기 49/24/25·21/3/4 확인 → 명시 적용 28건 → 활성 24대·RP006 Sheet 제외·감사로그 확인이 남았다.
+- UI 회귀검증 시점에는 `IRONRENTCAR_SYNC_ENABLED`를 켜거나 apply를 호출하지 않아 운영 write가 0건이었다. 새 Ready Preview에서 관리자 미리보기 49/24/25·21/3/4 확인 → 명시 적용 28건 → 활성 24대·RP006 Sheet 제외·감사로그 확인이 남았다.
+- 이후 Preview 환경에만 `IRONRENTCAR_SYNC_ENABLED=true`를 추가하고 동일 커밋을 재배포했다. Ready deployment는 `dpl_FK3AaEaBcq1HqqCBzemeRYW6xgp7`, URL은 `https://freepasserp4-p3yv6tvbv-freepass-projects.vercel.app`다. Production 환경변수와 배포는 변경하지 않았다.
+- Preview 보호를 통과한 비인증 GET preview와 POST apply는 모두 403 `forbidden`이며 브라우저 console error/warn 0이다. 새 Preview origin에 관리자 세션이 없어 실미리보기/apply는 실행하지 않았고 운영 write는 계속 0건이다.
