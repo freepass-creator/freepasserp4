@@ -13,6 +13,8 @@
 - 오픈 전 백업을 새로 만들었다. `backup-20260804-prelaunch-1315.json`은 27,589,451바이트, SHA-256 `85667AAEFC4495F1025DC50F7B18FACF5036CBF037DF9F124FF7AA81B3535BCA`이며 JSON과 핵심 노드 구조를 확인했다. 현재 라이브 Rules도 `tmp/rules/live-prelaunch-20260804-1317.json`에 백업했고 SHA-256은 `B296C3BA57C738213723547C9FC079B47A1E7325D49659BA5EEE57D3249A4143`이다. 둘 다 Git ignore 대상이며 내용은 출력·커밋하지 않았다.
 - 오픈 전 필수 잔여는 ① 확정 운영자 6필드 입력과 공개 문서 확인 ② Preview 기존회원 재동의 1회 ③ 5역할 실계정 읽기·쓰기 smoke ④ 사람/Claude 후보 Rules 실데이터 승인·게시·게시후 smoke ⑤ 관리자 아이언 49/24/25·21/3/4 확인 후 28건 반영과 활성 24대·Sheet 제외·감사로그 확인 ⑥ Production 서비스계정·플래그·최종 배포다. 실제 게시가 지연되면 직전에 백업을 다시 갱신한다.
 - 환경 점검에 사용한 임시 `.env` 파일은 삭제했고 비밀값은 문서·Git에 저장하지 않았다. 작업 종료 시점에 운영 데이터·운영 Rules·Production write는 0건이다.
+- 추가 도메인 감사를 통해 `freepasserp.com`·`www.freepasserp.com`이 현재 Vercel 프로젝트 `freepasserp3`의 Production `dpl_4K9TWPGwomjKnLmS2fc4VYFPmaJ5`를 가리키는 것을 확인했다. `freepasserp4` 자체 최신 Production은 `dpl_89iS1W6cP2MYd2egoqQFMJFSt6Xq` / `freepasserp4.vercel.app`이지만 검증 기준보다 오래되어 auth session·vehicle claim·iron preview API가 모두 404다. 이 배포를 도메인에 연결하면 안 된다.
+- 최종 오픈은 최신 코드와 Production 필수 환경변수로 새 `freepasserp4` Production을 만들고 고유 URL에서 전체 smoke를 끝낸 뒤, 마지막 단계에서 같은 Vercel 팀의 custom-domain alias를 `freepasserp3`에서 검증된 새 배포로 전환해야 한다. 직전 안정 롤백 대상은 위 `freepasserp3` 배포다. 도메인·DNS·alias는 이번 검증에서 변경하지 않았다.
 
 ## 2026-08-04 기존 회원 약관 재동의 안전 게이트
 

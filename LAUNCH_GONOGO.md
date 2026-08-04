@@ -8,7 +8,7 @@
 
 ## 1. 현재 상태 (2026-08-04 기준)
 
-> **최신 판정: 🔴 NO-GO.** 아래 5개 운영 게이트가 끝나기 전 Production 오픈 금지.
+> **최신 판정: 🔴 NO-GO.** 아래 6개 운영 게이트가 끝나기 전 Production 오픈 금지.
 
 | 오픈 필수 게이트 | 현재 | 완료 조건 |
 |---|---|---|
@@ -17,6 +17,7 @@
 | 차량 원자 선점 | 🟡 Preview 두 플래그 ON | Preview 무인증 claim이 로그인 게이트까지 진입함을 실측. 실계정 경쟁·취소 smoke 통과 후 Production 반영 |
 | RTDB 후보 Rules | 🟡 후보 Emulator 40/40·운영 미게시 | 현재 Rules와 RTDB 백업 → 사람/Claude 실데이터 게이트 → 후보 게시 → 5역할 실제 읽기/쓰기 smoke |
 | 아이언 홈페이지 재고 | 🟡 Preview 플래그 ON·실관리자 적용 대기 | Preview 관리자 미리보기에서 49/24/25·수정21·신규3·부재차단4 확인 → 명시 적용 28건 → RP006 활성 24대·시트 제외·감사로그 확인 |
+| Production 도메인 전환 | ❌ `freepasserp.com`은 기존 `freepasserp3`에 연결 | 최신 fp4 Production 고유 URL smoke 완료 → 마지막에 custom-domain alias 전환. 기존 fp3 배포 ID를 롤백 대상으로 보존 |
 
 추가 필수 순서:
 
@@ -28,6 +29,8 @@
 아이언렌트카 웹 연동은 사용자의 오픈 범위 확정에 따라 출시 필수다. `IRONRENTCAR_SYNC_ENABLED`는 Preview 관리자 화면 검수 때만 켜고, revision·예상 28건이 일치하는 명시 적용을 통과한 뒤 Production 반영 여부를 확정한다.
 
 최신 검증 Preview는 `dpl_CvmrL7vtnYfVtTh2mbEvZTXz6cc5` / `https://freepasserp4-b2apnu51l-freepass-projects.vercel.app`다. 기준 커밋은 `242de54`이며 Production과 운영 Rules는 변경하지 않았다. 정적·도메인·build 게이트는 PASS이고, `npm audit --omit=dev` 잔여는 Critical 0 / High 3 / Moderate 8이다. High 완전수정은 Next 16 메이저 업그레이드를 요구하므로 별도 호환 검증 없이 `npm audit fix --force`를 실행하지 않는다.
+
+현재 실서비스 도메인 `freepasserp.com`·`www.freepasserp.com`은 Vercel 프로젝트 `freepasserp3`의 `dpl_4K9TWPGwomjKnLmS2fc4VYFPmaJ5`에 연결돼 있다. `freepasserp4`의 기존 Production `dpl_89iS1W6cP2MYd2egoqQFMJFSt6Xq`는 최신 후보 이전 빌드라 새 서버 API가 404다. 최종 오픈 때는 최신 fp4 Production을 먼저 고유 URL로 완전히 검수한 뒤 alias만 마지막에 전환하며, DNS·domain ownership을 미리 제거하지 않는다.
 
 ### 과거 2026-07 판정 기록
 
