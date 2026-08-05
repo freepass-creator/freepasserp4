@@ -125,11 +125,13 @@ try {
   fail('Firebase Admin 런타임 의존성 판독: package-lock.json');
 }
 
+// 2026-08-05 product 브리지 폐기 후 뒤집은 검사.
+//  예전엔 «product 브리지가 유지되는가»를 봤고, env 미설정이면 ['product'] 로 «가정»했다.
+//  그 가정 때문에 브리지를 없앤 뒤에도 계속 PASS 가 떴다 — 실패보다 나쁜 «거짓 통과»다.
+//  이제는 반대를 본다: 환경변수에 product 를 적어도 브리지가 열리지 않아야 한다.
 const bridgeSetting = envValue('NEXT_PUBLIC_BRIDGE_V3');
-const bridged = bridgeSetting == null
-  ? ['product']
-  : bridgeSetting.split(',').map((value) => value.trim()).filter(Boolean);
-check(bridged.includes('product'), '후보 Rules 전환 동안 product v3 브리지 유지');
+const bridged = (bridgeSetting || '').split(',').map((value) => value.trim()).filter(Boolean);
+check(!bridged.includes('product'), 'product v3 브리지 미설정(폐기 상태 유지)');
 
 if (!existsSync(rulesFile)) {
   fail(`후보 Rules 파일 존재: ${rulesFile}`);
@@ -189,12 +191,19 @@ if (requiredFiles.every(existsSync)) {
   const claimProbe = readFileSync(requiredFiles[7], 'utf8');
   const sessionRoute = readFileSync(requiredFiles[8], 'utf8');
   const roleSmoke = readFileSync(requiredFiles[9], 'utf8');
-  check(route.includes('verifyActiveBearer(request)'), '브리지 API 활성 사용자 재검증');
-  check(route.includes('selectLegacyProductsForBridge') && route.includes('MAX_RESPONSE_PRODUCTS'), '브리지 API 활성·참조 이력 응답 상한');
+  // 2026-08-05 레거시 상품 브리지 «폐기». ERP4 상품은 v4/products 단독 정본이다.
+  //  예전 검사는 브리지가 살아 있다는 전제로 그 안전장치(활성 사용자 재검증·응답 상한)를 찾았다.
+  //  브리지 자체가 없어졌으니 그 검사는 통과할 수 없고, 그대로 두면 게이트가 «영구 빨간불»이 된다.
+  //  상시 빨간 게이트는 아무도 안 본다 — 오탐이 쌓이면 목록이 죽는다.
+  //  그래서 검사를 뒤집는다: «브리지가 정말 닫혀 있는가»를 본다. 닫힌 문이 지켜진 문보다 안전하다.
+  check(/status:\s*410/.test(route), '레거시 상품 브리지 폐기(410)');
+  check(!/firebase|Database|getDatabase|ref\(/i.test(route), '폐기된 브리지에 DB 접근 없음');
   check(!/\b(set|update|remove|push|runTransaction)\s*\(/.test(route), '브리지 API read-only');
   check(projection.includes('stripProductCost(product)'), '역할별 상품 private 원자 제거');
   check(auth.includes("sign_in_provider === 'anonymous'") && auth.includes('ACTIVE_ROLES'), '익명·미배정 역할 fail-closed');
-  check(adapter.includes("fetch('/api/products/bridge'") && adapter.includes("cache: 'no-store'"), '비관리자 클라이언트 서버 브리지 우선');
+  // 어댑터도 브리지를 부르지 않아야 한다 — 부르면 전량 410 을 받아 재고가 빈다.
+  check(!adapter.includes("fetch('/api/products/bridge'"), '클라이언트가 폐기된 브리지를 부르지 않음');
+  check(/BRIDGE_FROM_V3[\s\S]{0,400}!==\s*'product'/.test(adapter), 'product 브리지 환경변수로도 재개방 불가');
   check(claimRoute.includes('vehicleClaimServerEnabled()') && claimRoute.includes('verifyActiveBearer') && claimRoute.includes('transitionVehicleClaim'), '차량 claim API kill switch·활성 사용자·서버 transaction 연결');
   check(claimServer.includes("transaction((raw)") && claimServer.includes("v4/vehicle_claims/"), '차량 claim RTDB transaction SSOT');
   check(claimServer.includes('lockedProductRival') && claimServer.includes('vehicleIdentity(product)'), '차량 claim 트윈 상품 소유 락 재검증');
