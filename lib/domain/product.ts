@@ -50,9 +50,11 @@ export function isRealPlate(carNumber: unknown): boolean {
  * 기존 화면/레거시 복원에서 쓰는 관대한 isRealPlate는 호환성 때문에 그대로 둔다.
  */
 export const EXACT_PLATE_RE = /^(?:(?:서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주))?\d{2,3}[가-힣]\d{4}$/;
+/** 번호 미정 신차에 우리가 붙이는 임시번호(`100신0001`). 실번호가 아니라 자리표시다. */
+export const TEMP_PLATE_RE = /^100신\d{4,}$/;
 export function isExactRealPlate(carNumber: unknown): boolean {
   const s = String(carNumber ?? '').replace(/\s/g, '').toUpperCase();
-  return !!s && EXACT_PLATE_RE.test(s) && !/^100신\d{4,}$/.test(s);
+  return !!s && EXACT_PLATE_RE.test(s) && !TEMP_PLATE_RE.test(s);
 }
 /**
  * 매물 실물 유일신원 — 중복제거 키. 실번호판 → 없으면 VIN(11자↑) → 둘 다 없으면 null(개별 유지).
@@ -61,9 +63,15 @@ export function isExactRealPlate(carNumber: unknown): boolean {
  */
 export function vehicleIdentity(p: { car_number?: unknown; vin?: unknown }): string | null {
   const plate = String(p.car_number ?? '').replace(/\s/g, '').toUpperCase();
-  if (plate && PLATE_RE.test(plate)) return 'P:' + plate;
+  // 임시번호(100신NNNN)는 우리가 붙인 «자리표시»지 그 차의 신원이 아니다. 실번호가 나오거나
+  // 시트 행 순서가 바뀌면 흔들린다. 그래서 실번호판 → VIN → (둘 다 없을 때만) 임시번호 순으로 본다.
+  //  VIN 은 번호판이 나오기 전에도 변하지 않으므로 신차의 진짜 신원이다.
+  const temp = TEMP_PLATE_RE.test(plate);
+  if (plate && PLATE_RE.test(plate) && !temp) return 'P:' + plate;
   const vin = String(p.vin ?? '').replace(/\s/g, '').toUpperCase();
   if (vin.length >= 11) return 'V:' + vin;
+  // VIN 이 없으면 임시번호라도 쓴다 — null(합치지 않음)보다 낫다. 최소한 같은 임시번호끼리는 묶인다.
+  if (temp) return 'P:' + plate;
   return null;
 }
 

@@ -13,6 +13,10 @@ import { pendingSignature, previewPlateAllocator, type PlateAllocator } from '@/
 // ── 헤더 별칭 사전 ── 렌트사 시트 컬럼명 → 프리패스 표준 필드. 국산 렌트 시트는 대동소이 → 자동 90%.
 export const HEADER_ALIASES: Record<string, string> = {
   차량번호: 'car_number', 차번: 'car_number', 번호판: 'car_number', 등록번호: 'car_number',
+  // 차대번호 = 번호판 없는 신차의 유일 신원. 번호판이 나오기 전에도 같은 차를 같은 차로 붙잡는다.
+  //  이게 없으면 신차는 스펙서명 기반 임시번호(100신)에만 의존하는데, 시트 행 순서·표기가 바뀌면
+  //  임시번호가 흔들려 같은 차가 새 매물로 갈라진다. VIN 이 있으면 그 흔들림이 사라진다.
+  차대번호: 'vin', 차대: 'vin', vin: 'vin', 차대번호vin: 'vin', 제조번호: 'vin',
   제조사: 'maker', 메이커: 'maker', 브랜드: 'maker', 제조회사: 'maker',
   모델: 'model', 차명: 'model',
   // 오토플러스: 차종=숏모델, 모델명(트림풀명)=풀표기→트림. 일반시트 모델명만 있으면 model(아래 정확키 우선).
@@ -41,7 +45,8 @@ export const HEADER_ALIASES: Record<string, string> = {
 
 // 매핑 대상 표준 필드(에디터 드롭다운). 라벨=한글, key=매물 필드.
 export const IMPORT_FIELDS: { key: string; label: string }[] = [
-  { key: 'car_number', label: '차량번호' }, { key: 'maker', label: '제조사' }, { key: 'model', label: '모델' },
+  { key: 'car_number', label: '차량번호' }, { key: 'vin', label: '차대번호' },
+  { key: 'maker', label: '제조사' }, { key: 'model', label: '모델' },
   { key: 'sub_model', label: '세부모델' }, { key: 'trim_name', label: '트림' }, { key: 'trim_extra', label: '추가표기' }, { key: 'year', label: '연식' },
   { key: 'first_registration_date', label: '최초등록일' }, { key: 'fuel_type', label: '연료' }, { key: 'engine_cc', label: '배기량' },
   { key: 'mileage', label: '주행거리' }, { key: 'ext_color', label: '외장색' }, { key: 'int_color', label: '내장색' },
