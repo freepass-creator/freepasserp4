@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * RtdbAdapter — freepasserp3 라이브 RTDB를 v4 StoreAdapter로 브리지(회원·데이터 그대로 반영).
- *   · 읽기 = v3 라이브 노드 직접(products/policies/partners/users/contracts/rooms/messages/settlements) — read-only 무해.
+ * RtdbAdapter — ERP4 네이티브 데이터 + 필요한 ERP3 업무이력만 v4 StoreAdapter로 브리지.
+ *   · ERP4 직접 정본 = products. 재고는 공급사 원본에서 v4로 새로 구축한다.
+ *   · ERP3 브리지 = 회원·파트너·정책과 채팅/계약/정산/감사 등 기존 비재고 자료를 이어 쓴다.
  *   · 쓰기 = v4 네임스페이스 오버레이 `v4/{node}/{key}` (라이브 v3 무변경, 프로덕션 보호).
  *   · list = merge(v3 라이브 ∪ v4 오버레이, 같은 _key는 필드단위 v4 우선).
  *   · soft-delete = 오버레이 톰스톤 `_deleted/deletedAt`. v3 boolean `_deleted`도 함께 필터.
@@ -48,12 +49,23 @@ const NODE: Record<string, string> = {
 const OVERLAY = 'v4'; // 쓰기 격리 루트
 /**
  * v3 라이브에서 당겨오는 엔티티 — erp3 절연 전환의 스위치(MIGRATION_PLAN.md 8단계).
- *  · 기본값 = 기존 8종(전환 전 동작 그대로)
  *  · `NEXT_PUBLIC_BRIDGE_V3=''`(빈값) → v4 단독. 이관 완료 후 이 한 줄로 끄고, 문제 시 되돌린다(롤백 1분)
  *  · 쉼표 구분으로 일부만 남길 수도 있다(단계적 축소)
- * 주의: 여기를 비우기 전에 v4로 이관이 끝나 있어야 한다. 데이터 없이 끄면 화면이 빈다.
+ * 주의: 여기서 빼기 전에 v4로 이관이 끝나 있어야 한다. 데이터 없이 끄면 화면이 빈다.
+ *
+ * 2026-08-05 «채팅·계약·정산 독자화» — room·message·contract·settlement 를 뺐다.
+ *   근거는 키가 아니라 **필드**까지 맞춘 감사다(scripts/audit-v4-standalone-core.mts):
+ *   키 누락 0 · 필드 누락 0 · 메시지 room_id 전량 실체화.
+ *   그 전에 걸림돌이 둘 있었고 둘 다 닫았다 —
+ *     ① 계약 6건·문의방 46건의 v4 레코드가 «agent_channel_code 한 필드»뿐인 부분 오버레이였다.
+ *        merged() 의 필드 단위 병합이 v3 로 빈칸을 메워 정상으로 보였을 뿐, 끄면 껍데기가 된다.
+ *        → backfill-v4-core-fields.mts 로 v3 값을 v4 에 굳혔다(v4 에 «키가 있으면» 안 건드림 — '' 는 의도적 클리어).
+ *     ② 방이 v4 에 없는 메시지 724건은 전부 v3 에서 «삭제된» 방의 것 → 지금도 화면에 못 온다(어댑터가 방 목록으로 읽는다).
+ *   남은 policy·partner·user 는 계약·문의 화면이 이름을 조인하는 참조라 유지한다. audit_log 는 이력이라 유지.
+ *   product 는 손대지 않는다 — 시트 기반 재고 재구축이 끝나야 뺄 수 있다.
+ *   지금 빼면 시트 없는 공급사의 게시분이 프로덕션에서 사라진다(main 푸시 = Vercel 배포).
  */
-const BRIDGE_DEFAULT = 'product,policy,partner,user,room,message,contract,audit_log';
+const BRIDGE_DEFAULT = 'product,policy,partner,user,audit_log';
 const BRIDGE_ENV = process.env.NEXT_PUBLIC_BRIDGE_V3;
 const BRIDGE_FROM_V3 = new Set(
   (BRIDGE_ENV === undefined ? BRIDGE_DEFAULT : BRIDGE_ENV)
