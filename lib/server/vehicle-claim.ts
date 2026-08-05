@@ -49,13 +49,13 @@ function identityHash(identity: string): string {
 }
 
 async function loadSnapshot(db: Database) {
-  const [legacyContracts, overlayContracts, legacyProducts, overlayProducts] = await Promise.all([
+  const [legacyContracts, overlayContracts, overlayProducts] = await Promise.all([
     db.ref('contracts').get(), db.ref('v4/contracts').get(),
-    db.ref('products').get(), db.ref('v4/products').get(),
+    db.ref('v4/products').get(),
   ]);
   return {
     contracts: mergeMaps(legacyContracts.val(), overlayContracts.val()),
-    products: mergeMaps(legacyProducts.val(), overlayProducts.val()),
+    products: mergeMaps({}, overlayProducts.val()),
   };
 }
 

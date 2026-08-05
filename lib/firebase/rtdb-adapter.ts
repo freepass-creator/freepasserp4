@@ -2,9 +2,9 @@
 /**
  * RtdbAdapter — ERP4 네이티브 데이터 + 필요한 ERP3 업무이력만 v4 StoreAdapter로 브리지.
  *   · ERP4 직접 정본 = products. 재고는 공급사 원본에서 v4로 새로 구축한다.
- *   · ERP3 브리지 = 회원·파트너·정책과 채팅/계약/정산/감사 등 기존 비재고 자료를 이어 쓴다.
+ *   · ERP3 브리지 = 회원·파트너·정책과 채팅/계약/정산/감사 등 기존 비재고 자료만 이어 쓴다.
  *   · 쓰기 = v4 네임스페이스 오버레이 `v4/{node}/{key}` (라이브 v3 무변경, 프로덕션 보호).
- *   · list = merge(v3 라이브 ∪ v4 오버레이, 같은 _key는 필드단위 v4 우선).
+ *   · 상품 list = v4 단독. 그 밖의 브리지 대상만 v3 라이브 ∪ v4 오버레이.
  *   · soft-delete = 오버레이 톰스톤 `_deleted/deletedAt`. v3 boolean `_deleted`도 함께 필터.
  *   · 조인 enrich: product._policy(policies 조인), settlement.contract_date(contracts 조인), room.vehicle_name 합성.
  * 스키마 매핑 근거 = 워크플로 wgt6khvjq(6도메인 매핑→v4 실사용 대조검증→합성).
@@ -62,14 +62,14 @@ const OVERLAY = 'v4'; // 쓰기 격리 루트
  *        → backfill-v4-core-fields.mts 로 v3 값을 v4 에 굳혔다(v4 에 «키가 있으면» 안 건드림 — '' 는 의도적 클리어).
  *     ② 방이 v4 에 없는 메시지 724건은 전부 v3 에서 «삭제된» 방의 것 → 지금도 화면에 못 온다(어댑터가 방 목록으로 읽는다).
  *   남은 policy·partner·user 는 계약·문의 화면이 이름을 조인하는 참조라 유지한다. audit_log 는 이력이라 유지.
- *   product 는 손대지 않는다 — 시트 기반 재고 재구축이 끝나야 뺄 수 있다.
- *   지금 빼면 시트 없는 공급사의 게시분이 프로덕션에서 사라진다(main 푸시 = Vercel 배포).
+ * 2026-08-05 사용자 승인으로 product 브리지는 영구 제외한다. 환경변수에 product를 적어도
+ * 다시 열리지 않는다. ERP4 상품은 공급사 원본에서 v4/products로 독립 구축한다.
  */
-const BRIDGE_DEFAULT = 'product,policy,partner,user,audit_log';
+const BRIDGE_DEFAULT = 'policy,partner,user,audit_log';
 const BRIDGE_ENV = process.env.NEXT_PUBLIC_BRIDGE_V3;
 const BRIDGE_FROM_V3 = new Set(
   (BRIDGE_ENV === undefined ? BRIDGE_DEFAULT : BRIDGE_ENV)
-    .split(',').map((s) => s.trim()).filter(Boolean),
+    .split(',').map((s) => s.trim()).filter((entity) => !!entity && entity !== 'product'),
 );
 /** 진단·검증용 — /diag에서 현재 브리지 상태를 눈으로 확인한다. */
 export function bridgedEntities(): string[] { return [...BRIDGE_FROM_V3]; }
@@ -346,55 +346,6 @@ export class RtdbAdapter implements StoreAdapter {
     return output;
   }
 
-  /**
-   * v3 products 보안 브리지.
-   *
-   * 후보 Rules에서는 비관리자 원문 read가 닫히므로, 실 로그인은 서버가 users/{uid}를 재검증하고
-   * 원가·VIN을 역할별 제거한 API를 우선 사용한다. 현재 운영 Rules/로컬에서 서버 자격증명이 아직
-   * 준비되지 않은 경우에만 기존 직접 read로 되돌아가며, 후보 Rules 적용 뒤에는 그 fallback도
-   * permission_denied가 되어 상위 strict health가 불완전 상태로 보고한다(빈 목록 성공 오판 금지).
-   */
-  private async readLegacyProducts(co: string, joinMap?: Rec): Promise<EntityRecord[]> {
-    const auth = getAuthClient()?.currentUser;
-    if (!auth || auth.isAnonymous) return this.readNode('product', co, false, joinMap);
-    // 관리자는 후보 Rules에서도 v3 원문 직접 read가 허용된다. 삭제 이력까지 필요한 운영·Sheet 검증은
-    // 서버 축약 응답이 아니라 기존 strict 원문을 유지한다. 강등 직후처럼 직접 read가 거부되면 아래
-    // 활성 프로필 재검증 API로 이어져 fail-closed한다.
-    if (getSession()?.role === 'admin') {
-      try {
-        return await this.readNode('product', co, false, joinMap);
-      } catch { /* 서버 브리지로 재검증 */ }
-    }
-    try {
-      const token = await auth.getIdToken();
-      const response = await fetch('/api/products/bridge', {
-        method: 'GET',
-        headers: { Authorization: `Bearer ${token}` },
-        cache: 'no-store',
-      });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const payload = await response.json() as { products?: Rec };
-      if (!payload.products || typeof payload.products !== 'object' || Array.isArray(payload.products)) {
-        throw new Error('응답 형식 오류');
-      }
-      return Object.entries<any>(payload.products).flatMap(([childKey, record]) => (
-        record && typeof record === 'object'
-          ? [toV4Record('product', childKey, record, co, joinMap)]
-          : []
-      ));
-    } catch (apiError) {
-      try {
-        const rows = await this.readNode('product', co, false, joinMap);
-        console.warn('상품 서버 브리지 미사용 — 현재 Rules 직접 read로 복구:', (apiError as Error).message);
-        return rows;
-      } catch (directError) {
-        throw new Error(
-          `상품 서버 브리지와 v3 직접 read 모두 실패: ${(apiError as Error).message}; ${(directError as Error).message}`,
-        );
-      }
-    }
-  }
-
   private async readNode(entity: string, co: string, overlay: boolean, joinMap?: Rec, roomIds?: string[]): Promise<EntityRecord[]> {
     if (entity === 'message') return this.readMessages(co, overlay, roomIds || []);
     if (entity === 'room') return this.readRoomsScoped(co, overlay);
@@ -456,9 +407,7 @@ export class RtdbAdapter implements StoreAdapter {
       }
 
       const liveRead = bridge
-        ? (entity === 'product'
-            ? this.readLegacyProducts(co, joinMap)
-            : this.readNode(entity, co, false, joinMap, roomIds))
+        ? this.readNode(entity, co, false, joinMap, roomIds)
         : Promise.resolve([] as EntityRecord[]);
       const overlayRead = this.readNode(entity, co, true, joinMap, roomIds);
       const [live, over] = strict
@@ -544,7 +493,7 @@ export class RtdbAdapter implements StoreAdapter {
   }
 
   /**
-   * 참조 조회용 원본 — erp3(v3) ∪ erp4(v4) 병합 그대로. 판매용 가공(중복정리·금강제외·status) 없음.
+   * 참조 조회용 원본. 상품은 v4 단독, 다른 브리지 대상은 v3∪v4. 판매용 가공 없음.
    * 문의·계약이 가리키는 차는 출고불가·중복정리된 쌍둥이여도 "살아있는 차"로 찾아져야 한다.
    * 삭제 톰스톤만 제외(그건 listDeleted 담당). 원가 노출 규칙은 list와 동일하게 유지.
    */
@@ -557,8 +506,8 @@ export class RtdbAdapter implements StoreAdapter {
   async listDeleted(entity: string, co: string): Promise<EntityRecord[]> {
     const rows = (await this.merged(entity, co)).filter((r) => r._deleted || r.deletedAt);
     if (entity !== 'product') return rows;
-    // v3 products는 모든 인증 직원이 읽는 공개 노드이고 레거시 원가·VIN이 섞여 있다.
-    // live/raw 목록과 같은 역할별 마스킹을 삭제 목록에도 적용하지 않으면, 채팅·계약의
+    // 삭제 상품에도 원가·VIN이 섞일 수 있다. live/raw 목록과 같은 역할별 마스킹을
+    // 삭제 목록에도 적용하지 않으면, 채팅·계약의
     // 삭제매물 이름 복원 경로만으로 영업자/타 공급사에 비공개 원가가 다시 노출된다.
     return rows.map((row) => (canSeeProductCost(row) ? row : stripProductCost(row)));
   }
@@ -577,8 +526,7 @@ export class RtdbAdapter implements StoreAdapter {
 
   /**
    * ⚠ fresh 계열도 **원가 마스킹을 반드시 거친다.**
-   * merged() 는 v3 라이브 `products` 를 회사 스코프 없이 전량 읽으므로, 마스킹을 빼면
-   * 공급사 세션에 **타 공급사 매입원가·VIN·수수료**가 그대로 내려간다.
+   * v4 공개 상품과 private 조인 결과도 역할별 원가 마스킹을 반드시 거친다.
    * 다른 읽기 경로(list·listRaw·listDeleted·listFreshWithHealth·get)는 전부 적용하는데
    * 이 둘만 빠져 있었고, 하필 시트 저장 경로(sheet-merge)가 쓰는 게 이 둘이다.
    */

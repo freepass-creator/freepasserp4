@@ -52,7 +52,6 @@ export async function auditProductDuplicateReferences(): Promise<{
 }> {
   const db = firebaseAdminDatabase();
   const [
-    productsV3,
     productsV4,
     contractsV3,
     contractsV4,
@@ -64,7 +63,6 @@ export async function auditProductDuplicateReferences(): Promise<{
     partnersV3,
     partnersV4,
   ] = await Promise.all([
-    db.ref('products').get(),
     db.ref('v4/products').get(),
     db.ref('contracts').get(),
     db.ref('v4/contracts').get(),
@@ -76,7 +74,7 @@ export async function auditProductDuplicateReferences(): Promise<{
     db.ref('partners').get(),
     db.ref('v4/partners').get(),
   ]);
-  const rawProducts = mergeV3V4Records('product', productsV3.val(), productsV4.val());
+  const rawProducts = mergeV3V4Records('product', {}, productsV4.val());
   const legacyPrivate = new Map<string, EntityRecord>();
   const products = rawProducts.map((product) => {
     const split = splitProductPrivate(product);

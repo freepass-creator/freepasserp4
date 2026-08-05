@@ -19,6 +19,7 @@ import {
   type DepositRule,
   type MappingHeaderSignature,
   type MappingProfile,
+  type SheetTableFetchOptions,
 } from '@/lib/domain/sheet-import';
 import { commitSupplierProducts, previewSupplierTable } from '@/lib/domain/master-ingress';
 import { loadVehicleMaster, peekVehicleMaster } from '@/lib/domain/vehicle-master-load';
@@ -36,7 +37,6 @@ import {
   isWebInventoryPartner,
   type PartnerSheetRow,
 } from '@/lib/domain/sheet-sync-all';
-import { DEFAULT_SUPPLIER_HUB_URL, syncHubSheetUrls } from '@/lib/domain/sheet-hub-sync';
 import {
   countAutoplusStock,
   importAutoplusMerged,
@@ -113,40 +113,11 @@ import {
   sheetDecisionPatchDryRunJson,
 } from '@/lib/domain/sheet-decision-patch-dry-run';
 
-/** 아이카식 표준 양식 — autoMapHeaders 별칭과 정합. 컬럼명 변경 금지. */
-const STANDARD_SHEET_HEADERS = [
-  '차량번호', '제조사', '모델', '세부모델', '트림', '연식', '최초등록일', '연료', '배기량', '주행거리',
-  '외장', '내장', '인승', '변속기', '상태', '구분', '옵션',
-  '1개월', '6개월', '12개월', '24개월', '36개월', '48개월', '60개월', '단기보증', '장기보증',
-] as const;
-
-const STANDARD_SHEET_EXAMPLE = [
-  '12가3456', '현대', '쏘나타', 'DN8', '인스퍼레이션', '2022', '2022-03', '가솔린', '2000', '35000',
-  '흰색', '검정', '5', '자동', '출고가능', '중고렌트', '파노라마선루프',
-  '', '', '650000', '', '580000', '', '540000', '3000000', '5000000',
-] as const;
-
-const STANDARD_SHEET_HINT =
-  '출고불가가 아니면 다 올라갑니다. 배차중·배차대기는 출고협의, 판매중·할인판매는 출고가능, 계약·출고완료·폐차는 출고불가. '
-  + '대여료는 개월 열에 월 렌트료(원), 보증금은 단기(12개월↓)/장기(24개월↑).';
-
 const DEPOSIT_RULE_OPTIONS = [
   { value: '', label: '시트 보증금만 사용' },
   { value: 'months_per_year', label: '기간 1년당 월대여료 1개월치' },
   { value: 'rent_multiple', label: '국산 2·수입 3개월치' },
 ] as const;
-
-function downloadStandardSheetTemplate() {
-  const csv = `\uFEFF${STANDARD_SHEET_HEADERS.join(',')}\n${STANDARD_SHEET_EXAMPLE.join(',')}\n`;
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-  const href = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = href;
-  a.download = '프리패스_공급사_표준양식.csv';
-  a.click();
-  URL.revokeObjectURL(href);
-  toast('표준 양식 다운로드됨');
-}
 
 /**
  * 공급사 매물 취합 — 공급사마다 고유 시트 + 매핑 학습.
@@ -185,32 +156,6 @@ type DailySyncStatus = {
       imported?: number;
     };
   };
-};
-
-type DuplicatePlanResponse = {
-  generatedAt: number;
-  summary: {
-    duplicateGroups: number;
-    relatedProducts: number;
-    representativeCandidates: number;
-    candidateGroupsWithoutDetectedBlocker: number;
-    blockedGroups: number;
-    exactContractReferences: number;
-    exactRoomReferences: number;
-    exactQuoteReferences: number;
-    privateProductRecords: number;
-    plateOnlyReferenceGroups: number;
-    plateOnlyReferences: number;
-    dryRunEligibleGroups: number;
-    dataConflictGroups: number;
-    eligibleOperations: number;
-    eligibleDestructiveOperations: number;
-    eligibleClaudeGateOperations: number;
-    accountMismatchGroups: number;
-    redundantAccountGroups: number;
-  };
-  tsv: string;
-  dryRunTsv: string;
 };
 
 type IronRentcarPreview = {
@@ -315,6 +260,19 @@ function changeDetail(diff: SheetDiffSummary): { statusDetail: string; fieldDeta
   return { statusDetail, fieldDetail };
 }
 
+async function fetchAdminSheetTable(
+  url: string,
+  gid?: string,
+  options: SheetTableFetchOptions = {},
+): Promise<string[][]> {
+  const user = getAuthClient()?.currentUser;
+  if (!user) throw new Error('관리자 로그인 세션이 필요합니다');
+  return fetchSheetTable(url, gid, {
+    ...options,
+    authorization: await user.getIdToken(),
+  });
+}
+
 export function SheetSync({ co, onImported }: { co: string; onImported: () => void }) {
   const role = getRole();
   const isAdmin = role === 'admin';
@@ -341,8 +299,6 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
   const [dailyStatus, setDailyStatus] = useState<DailySyncStatus | null>(null);
   const [dailyStatusError, setDailyStatusError] = useState('');
   const [dailyStatusLoading, setDailyStatusLoading] = useState(false);
-  const [duplicatePlanLoading, setDuplicatePlanLoading] = useState(false);
-  const [duplicateDryRunLoading, setDuplicateDryRunLoading] = useState(false);
   const [ironPreview, setIronPreview] = useState<IronRentcarPreview | null>(null);
   const [ironPreviewLoading, setIronPreviewLoading] = useState(false);
   const [ironApplying, setIronApplying] = useState(false);
@@ -407,8 +363,14 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
         headers: { Authorization: `Bearer ${await user.getIdToken()}` },
         cache: 'no-store',
       });
-      if (!response.ok) throw new Error(`상태 조회 실패 ${response.status}`);
-      setDailyStatus(await response.json() as DailySyncStatus);
+      const body = await response.json().catch(() => ({})) as DailySyncStatus & { error?: string };
+      if (!response.ok) {
+        const detail = body.error === 'server auth unavailable'
+          ? '서버 인증 설정 필요'
+          : (body.error || `HTTP ${response.status}`);
+        throw new Error(`Google Sheet 자동연동 상태 조회 실패 · ${detail}`);
+      }
+      setDailyStatus(body);
       setDailyStatusError('');
     } catch (error) {
       setDailyStatus(null);
@@ -516,7 +478,7 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
         } catch (error) {
           // 깨진 JSON/enum 때문에 profile 자체를 못 읽어도 원본 본탭은 보여줘야
           // 운영자가 매핑·규칙을 다시 저장해 복구할 수 있다. 이 상태에서는 동기화 금지.
-          const recoveryRaw = await fetchSheetTable(url.trim(), AUTOPLUS_GID_MAIN);
+          const recoveryRaw = await fetchAdminSheetTable(url.trim(), AUTOPLUS_GID_MAIN, { visibleRowsOnly: true });
           const recoveryTable = prepared(recoveryRaw);
           if (recoveryTable.length < 2) throw error;
           const recoveryMapping = autoMapHeaders(recoveryTable[0]);
@@ -541,13 +503,13 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
             profile: activeMapping,
             profileHeaders: activeHeaders,
             depositRule: activeDepositRule,
-            fetchTable: fetchSheetTable,
+            fetchTable: fetchAdminSheetTable,
             headerRow: Math.max(0, Number(headerRow) || 0),
           });
         } catch (error) {
           const message = String((error as Error).message || error);
           if (!/매핑을 다시 저장|헤더 (?:변경|이동|검증)/.test(message)) throw error;
-          const driftRaw = await fetchSheetTable(url.trim(), AUTOPLUS_GID_MAIN);
+          const driftRaw = await fetchAdminSheetTable(url.trim(), AUTOPLUS_GID_MAIN, { visibleRowsOnly: true });
           const driftTable = prepared(driftRaw);
           if (driftTable.length < 2) throw error;
           const remap = autoMapHeaders(driftTable[0]);
@@ -561,7 +523,7 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
           return;
         }
         // 매핑 UI용 = 본탭 prepare 결과(라벨 적용됨)
-        const rawMain = await fetchSheetTable(url.trim(), AUTOPLUS_GID_MAIN);
+        const rawMain = await fetchAdminSheetTable(url.trim(), AUTOPLUS_GID_MAIN, { visibleRowsOnly: true });
         const t = prepared(rawMain);
         setTable(t.length >= 2 ? t : [['차량번호'], ...res.products.slice(0, 1).map((p) => [String(p.car_number || '')])]);
         const nextMapping = activeMapping || autoMapHeaders(t[0] || ['차량번호']);
@@ -832,7 +794,8 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
       }
       const r = await commitSupplierProducts(co, preview.products, master!);
       toast(
-        `변환 저장: 확정 ${r.confirmed} · 검수 ${r.review} · 신규 ${r.created} · 갱신 ${r.updated}`,
+        `변환 저장: 확정 ${r.confirmed} · 검수 ${r.review} · 신규 ${r.created} · 갱신 ${r.updated}`
+          + (r.revived ? ` · 되살림 ${r.revived}` : ''),
         r.review ? 'info' : 'ok',
       );
       if (providerCode) {
@@ -842,36 +805,15 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
     } catch (e) { toast('저장 실패: ' + String((e as Error).message || e), 'error'); } finally { setBusy(false); }
   };
 
-  /** 관리자: 허브 시트 → partner.sheet_url만 (매물 파싱 없음). */
-  const syncHubUrls = async () => {
-    if (busy) return;
-    const ok = await confirmDialog({
-      message: '공급사 허브 시트에서 URL을 읽어 파트너 sheet_url에 반영할까요?\n(매물은 가져오지 않습니다. erp에 없는 코드는 생성하지 않습니다.)',
-    });
-    if (!ok) return;
-    setBusy(true); setBulkLog('');
-    try {
-      const r = await syncHubSheetUrls(co, DEFAULT_SUPPLIER_HUB_URL);
-      setBulkLog(r.lines.map((l) => l.message).join('\n'));
-      toast(
-        `허브 URL 동기 — 갱신 ${r.updated} · 동일 ${r.unchanged} · 파트너없음 ${r.missingPartner} (허브 ${r.hubCount})`,
-        r.missingPartner || r.updated === 0 ? 'info' : 'ok',
-      );
-      await refreshRoster();
-    } catch (e) {
-      toast('허브 동기 실패: ' + String((e as Error).message || e), 'error');
-    } finally { setBusy(false); }
-  };
-
   /** 관리자: 전체 시트 fetch+diff만(쓰기 없음). 스냅샷을 pending에 보관. */
   const validateAll = async () => {
     if (busy) return;
     if (!masterReady) { toast('차종마스터 로드 실패 — 검증 불가', 'error'); return; }
     if (rosterError) { toast(`시트 설정 오류 — ${rosterError}`, 'error'); return; }
-    if (!roster.length) { toast('시트 URL이 등록된 공급사가 없습니다 — 허브 URL 동기 또는 파트너에 주소를 넣으세요', 'info'); return; }
+    if (!roster.length) { toast('시트 URL이 등록된 공급사가 없습니다 — 회원·파트너에서 공급사 원본을 설정하세요', 'info'); return; }
     setBusy(true); setBulkLog(''); setPending(null);
     try {
-      const fetchedRaw = await fetchAllPartnerSheets(co, master!);
+      const fetchedRaw = await fetchAllPartnerSheets(co, master!, { fetchTable: fetchAdminSheetTable });
       const [
         reconcileState, partnerRows, contracts, rooms, quotes,
         conflictResolutions, conflictDecisions, identityDecisions,
@@ -1151,6 +1093,7 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
         toast(
           `동기화 완료 — 공급사 ${r.okCount}/${r.partnerCount}`
           + (r.commit ? ` · 신규 ${r.commit.created} · 갱신 ${r.commit.updated}` : '')
+          + (r.commit?.revived ? ` · 되살림 ${r.commit.revived}` : '')
           + (r.commit?.duplicates ? ` · 중복충돌 ${r.commit.duplicates}` : '')
           + (r.absent.blocked ? ` · 재고차단 ${r.absent.blocked}` : '')
           + (r.ingress ? ` · 확정 ${r.ingress.confirmed}·검수 ${r.ingress.review}` : ''),
@@ -1582,56 +1525,6 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
     }
   };
 
-  const copyDuplicateMigrationPlan = async () => {
-    if (duplicatePlanLoading) return;
-    setDuplicatePlanLoading(true);
-    try {
-      const user = getAuthClient()?.currentUser;
-      if (!user) throw new Error('로그인 확인 필요');
-      const response = await fetch('/api/inventory/duplicate-plan', {
-        headers: { Authorization: `Bearer ${await user.getIdToken()}` },
-        cache: 'no-store',
-      });
-      if (!response.ok) throw new Error(`이관계획 조회 실패 ${response.status}`);
-      const result = await response.json() as DuplicatePlanResponse;
-      const copied = await copyText(result.tsv);
-      if (!copied) throw new Error('클립보드 복사 실패');
-      toast(
-        `중복 이관계획 복사 · ${result.summary.duplicateGroups}그룹 · 후보 ${result.summary.representativeCandidates} · 추가판단 ${result.summary.blockedGroups}`,
-        'ok',
-      );
-    } catch (error) {
-      toast(String((error as Error).message || error), 'error');
-    } finally {
-      setDuplicatePlanLoading(false);
-    }
-  };
-
-  const copyDuplicateDryRun = async () => {
-    if (duplicateDryRunLoading) return;
-    setDuplicateDryRunLoading(true);
-    try {
-      const user = getAuthClient()?.currentUser;
-      if (!user) throw new Error('로그인 확인 필요');
-      const response = await fetch('/api/inventory/duplicate-plan', {
-        headers: { Authorization: `Bearer ${await user.getIdToken()}` },
-        cache: 'no-store',
-      });
-      if (!response.ok) throw new Error(`patch dry-run 조회 실패 ${response.status}`);
-      const result = await response.json() as DuplicatePlanResponse;
-      const copied = await copyText(result.dryRunTsv);
-      if (!copied) throw new Error('클립보드 복사 실패');
-      toast(
-        `patch dry-run 복사 · 적용후보 ${result.summary.dryRunEligibleGroups}그룹 · 작업 ${result.summary.eligibleOperations} · 데이터충돌 ${result.summary.dataConflictGroups} · 계좌확인 ${result.summary.accountMismatchGroups}`,
-        'ok',
-      );
-    } catch (error) {
-      toast(String((error as Error).message || error), 'error');
-    } finally {
-      setDuplicateDryRunLoading(false);
-    }
-  };
-
   const refreshIronRentcarPreview = async () => {
     if (ironPreviewLoading || ironApplying) return;
     setIronPreviewLoading(true);
@@ -1647,7 +1540,12 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
         error?: string;
         detail?: string;
       };
-      if (!response.ok) throw new Error(body.detail || body.error || `미리보기 실패 ${response.status}`);
+      if (!response.ok) {
+        const detail = body.error === 'server auth unavailable'
+          ? '서버 인증 설정 필요'
+          : (body.detail || body.error || `HTTP ${response.status}`);
+        throw new Error(detail);
+      }
       setIronPreview(body);
       setIronMessage(`상품 검증 완료 · 원본 ${body.catalog.listings}대 · 반영후보 ${body.reconciliation.candidateOperations}건`);
     } catch (error) {
@@ -1726,7 +1624,7 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
             marginBottom: 6, padding: '6px 8px', borderRadius: R, background: C.bg,
             border: `1px solid ${C.line}`, fontSize: FS.cap,
           }}>
-            <span style={{ color: dailyRunColor, fontWeight: FW.title }}>{dailyRunLabel}</span>
+            <span style={{ color: dailyRunColor, fontWeight: FW.title }}>Google Sheet 자동연동 · {dailyRunLabel}</span>
             <span style={{ color: C.faint }}>· {dailyStatus?.schedule || '매일 02:00 KST'}</span>
             {lastDailyRun?.finished_at ? <span style={{ color: C.mute }}>· 최근 {fmtSync(lastDailyRun.finished_at)}</span> : null}
             {lastDailyRun?.counts ? (
@@ -1746,6 +1644,50 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
           ) : null}
           <div style={{ fontSize: FS.cap, color: C.faint, lineHeight: 1.5, marginBottom: 8 }}>
           공급사마다 등록된 전용 원본을 같은 상품 연동 절차로 처리합니다. 먼저 검증해 신규·상태변경·정보수정을 확인한 뒤 반영하며, 원본에 없는 차량은 삭제하지 않고 출고불가로 전환합니다. 조회 실패·급감·소유 충돌은 자동 차단하고 기존 계약 스냅샷은 바꾸지 않습니다.
+          </div>
+          <div style={{ marginBottom: 8, border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg, overflow: 'hidden' }}>
+            <div style={{ padding: '7px 9px', background: C.head, borderBottom: `1px solid ${C.line}`, fontSize: FS.cap, fontWeight: FW.title, color: C.ink }}>
+              홈페이지 직접 연동
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '8px 9px' }}>
+              <div style={{ flex: 1, minWidth: 180 }}>
+                <div style={{ fontSize: FS.body, fontWeight: FW.strong, color: C.ink }}>
+                  아이언렌트카 <span style={{ color: C.faint, fontWeight: FW.body }}>(RP006)</span>
+                </div>
+                <div style={{ marginTop: 2, fontSize: FS.cap, color: C.mute, lineHeight: 1.45 }}>
+                  홈페이지 49대 전체를 차량번호로 맞추고, 판매중만 신규 등록합니다. 기존 상품은 대여료·보증금·사진·상태를 원본과 비교해 변경분만 반영합니다.
+                </div>
+                <div style={{ marginTop: 3, fontSize: FS.cap, color: C.faint, fontFamily: NUM }}>
+                  {ironPreview
+                    ? `원본 ${ironPreview.catalog.listings} · 판매중 ${ironPreview.catalog.active} · 판매완료 ${ironPreview.catalog.sold} · 매칭 ${ironPreview.reconciliation.matched} · 반영후보 ${ironPreview.reconciliation.candidateOperations}`
+                    : '검증 전 · 홈페이지 전체수량·판매상태·ERP 매칭은 검증 후 표시'}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                <Btn
+                  title="아이언렌트카 홈페이지 원본과 ERP 상품을 읽기 전용으로 정확 비교"
+                  size="sm"
+                  variant="ghost"
+                  onClick={refreshIronRentcarPreview}
+                  disabled={ironPreviewLoading || ironApplying}
+                >
+                  {ironPreviewLoading ? '검증 중…' : '데이터 검증'}
+                </Btn>
+                <Btn
+                  title={ironPreview ? `검증된 변경 ${ironPreview.reconciliation.candidateOperations}건 반영` : '먼저 홈페이지 검증을 실행하세요'}
+                  size="sm"
+                  onClick={applyIronRentcarPreview}
+                  disabled={!ironPreview || ironPreviewLoading || ironApplying || !ironPreview.complete
+                    || Boolean(ironPreview.reconciliation.duplicatePlateGroups)
+                    || Boolean(ironPreview.reconciliation.blocked)}
+                >
+                  {ironApplying ? '반영 중…' : '검증 결과 반영'}
+                </Btn>
+              </div>
+            </div>
+          </div>
+          <div style={{ marginBottom: 5, fontSize: FS.cap, fontWeight: FW.title, color: C.ink }}>
+            Google Sheet 연동 공급사 · {roster.length}곳
           </div>
           {rosterError ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
@@ -1780,51 +1722,7 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
                   </tr>
                 </thead>
                 <tbody>
-                  <tr style={{ borderTop: `1px solid ${C.line2}` }}>
-                    <td style={{ ...td, fontWeight: FW.strong, color: C.ink }}>아이언렌트카 <span style={{ color: C.faint, fontWeight: FW.body }}>(RP006)</span></td>
-                    <td style={{ ...td, color: C.mute }}>홈페이지</td>
-                    <td style={{ ...td, color: ironPreview?.reconciliation.createCandidates ? C.ok : C.faint }}>
-                      {ironPreview ? ironPreview.reconciliation.createCandidates : '검증 전'}
-                    </td>
-                    <td style={{ ...td, color: ironPreview ? C.warn : C.faint }}>
-                      {ironPreview
-                        ? ironPreview.candidates.patches.filter((row) => row.fields.includes('vehicle_status')).length
-                          + ironPreview.reconciliation.absentBlockCandidates
-                        : '—'}
-                    </td>
-                    <td style={{ ...td, color: ironPreview ? C.ink : C.faint }}>
-                      {ironPreview
-                        ? ironPreview.candidates.patches.filter((row) => row.fields.some((field) => field !== 'vehicle_status')).length
-                        : '—'}
-                    </td>
-                    <td style={{ ...td, color: C.mute, fontFamily: NUM, fontSize: FS.micro }}>
-                      {ironPreview ? new Date(ironPreview.fetchedAt).toLocaleString('ko-KR') : '—'}
-                    </td>
-                    <td style={td}>
-                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                        <Btn
-                          title="등록된 아이언렌트카 원본과 ERP 상품을 읽기 전용으로 비교"
-                          size="sm"
-                          variant="ghost"
-                          onClick={refreshIronRentcarPreview}
-                          disabled={ironPreviewLoading || ironApplying}
-                        >
-                          {ironPreviewLoading ? '검증 중…' : '상품 검증'}
-                        </Btn>
-                        <Btn
-                          title={ironPreview ? `검증된 변경 ${ironPreview.reconciliation.candidateOperations}건 반영` : '먼저 상품 검증을 실행하세요'}
-                          size="sm"
-                          onClick={applyIronRentcarPreview}
-                          disabled={!ironPreview || ironPreviewLoading || ironApplying || !ironPreview.complete
-                            || Boolean(ironPreview.reconciliation.duplicatePlateGroups)
-                            || Boolean(ironPreview.reconciliation.blocked)}
-                        >
-                          {ironApplying ? '반영 중…' : '상품 반영'}
-                        </Btn>
-                      </div>
-                    </td>
-                  </tr>
-                  {roster.filter((p) => p.code !== 'RP006').map((p) => {
+                  {roster.map((p) => {
                     const diff = pending?.perPartner.find((row) => row.code === p.code);
                     return (
                       <tr key={p.code} style={{ borderTop: `1px solid ${C.line2}` }}>
@@ -1947,25 +1845,20 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
             </div>
           )}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-            <Btn title="허브 시트 → partner.sheet_url" variant="ghost" onClick={syncHubUrls} disabled={busy}>
-              허브 URL 동기
-            </Btn>
             <Btn
               title={busy ? '검증 중' : `등록된 공급사 상품 검증 ${roster.length}개`}
               variant="ghost"
               onClick={validateAll}
               disabled={busy || !masterReady || !roster.length || !!rosterError}
             >
-              {busy && !pending ? '검증 중…' : `상품 검증 (${roster.length})`}
+              {busy && !pending ? '검증 중…' : '데이터 검증'}
             </Btn>
             <Btn
               title={pendingBlockReason || (pending ? `상품 반영 · 검증 ${pending.fetched.products.length}대` : '먼저 상품 검증')}
               onClick={commitPending}
               disabled={busy || !pending || Boolean(pendingBlockReason)}
             >
-              {pending
-                ? `상품 반영 (${roster.length}) · ${pending.fetched.products.length}대`
-                : `상품 반영 (${roster.length})`}
+              {busy && pending ? '반영 중…' : '검증 결과 반영'}
             </Btn>
             {pendingPriceApprovalGroups.map((group) => (
               <Btn
@@ -2038,33 +1931,6 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
                 상세 충돌 TSV 복사
               </Btn>
             ) : null}
-            <Btn
-              title="읽기 전용으로 계약·채팅방·견적·비공개 원가 참조를 전수 확인한 대표키 이관계획 TSV"
-              variant="ghost"
-              onClick={copyDuplicateMigrationPlan}
-              disabled={busy || duplicatePlanLoading}
-            >
-              {duplicatePlanLoading ? '이관계획 확인 중…' : '중복 이관계획 TSV'}
-            </Btn>
-            <Btn
-              title="실제 저장 없이 v4 참조 patch·별칭 tombstone·원가 이관 경로와 추가 데이터 충돌을 계산"
-              variant="ghost"
-              onClick={copyDuplicateDryRun}
-              disabled={busy || duplicateDryRunLoading}
-            >
-              {duplicateDryRunLoading ? 'patch 계산 중…' : '중복 patch dry-run'}
-            </Btn>
-            <Btn
-              title="아이카식 표준 양식 CSV"
-              variant="ghost"
-              onClick={downloadStandardSheetTemplate}
-              disabled={busy}
-            >
-              표준 템플릿
-            </Btn>
-          </div>
-          <div style={{ fontSize: FS.cap, color: C.faint, lineHeight: 1.45, marginTop: 6 }} title={STANDARD_SHEET_HINT}>
-            {STANDARD_SHEET_HINT}
           </div>
 
           {/* 공급사별 수정범위 — 합계 한 줄로 뭉개면 어느 업체가 문제인지 안 보인다.

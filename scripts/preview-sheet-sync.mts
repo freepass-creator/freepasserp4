@@ -125,7 +125,10 @@ async function main() {
       profileHeaders: parseMappingHeaderSignature(p.mapping_header_signature),
       headerRow: Math.max(0, Number(p.header_row) || 0),
       depositRule: parseDepositRule(p.deposit_rule),
-      fetchTable: async (url: string, gid?: string) => {
+      fetchTable: async (url: string, gid?: string, options: { visibleRowsOnly?: boolean } = {}) => {
+        if (options.visibleRowsOnly) {
+          throw new Error('오토플러스 숨김 행 제외는 관리자 상품 검증/API 경로로 검증하세요');
+        }
         const sid = (url.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/) || [])[1];
         const res = await fetch(`https://docs.google.com/spreadsheets/d/${sid}/export?format=csv${gid ? `&gid=${gid}` : ''}`, { redirect: 'follow' });
         if (!res.ok) throw new Error(`CSV ${res.status}`);

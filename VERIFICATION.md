@@ -1,5 +1,27 @@
 # 독립 검증 결과
 
+## 2026-08-05 ERP3 무의존 전체 연동 감사
+
+결과: **공급사 source 판독 PASS / ERP4 단독 정본 전환 NO-GO**
+
+- 운영 설정 그대로 읽은 15개 공급사 시트는 원본 389행·반영 347대, 전 공급사 PASS다. 아이언 홈페이지는 49건 전체를 상세 변환했고 활성 18·판매완료 31, 오류·차번/가격/사진 누락·중복·원가누수 0이다.
+- 이안카 `RP031`은 source override로 161대 판독 PASS지만 운영 `v4/partners` 설정에는 아직 반영하지 않았다. 링크 장부의 렌트존 `PT-0001`도 현재 시트 roster에 없다. 따라서 공급사 링크 장부 전체가 운영 연결된 상태가 아니다.
+- `bridge-readiness.mts` 실데이터 결과 v3-only 업무키는 product 421, partner 1(`RP031`), user 155, room 1, audit_log 17,397이다. policy와 contract는 v3-only 0이다.
+- `audit-v4-standalone-core.mts`의 필드/스코프 감사에서 계약과 정산은 누락 0이지만 문의방 1건과 메시지 3건이 v4에 없다. 이 상태에서 브리지를 끄면 실제 이력이 사라진다.
+- `rtdb-adapter` 기본 브리지는 `product,policy,partner,user,audit_log`이며 `NEXT_PUBLIC_BRIDGE_V3`가 미설정이면 활성화된다. 재고 Sheet 저장은 `v4/products`만 쓰지만 기존 재고 조회·충돌/부재 판단은 v3∪v4 병합을 사용한다. 즉 **v3 write는 없지만 v3 read 의존은 남아 있다.**
+- ERP3 무의존 완료 조건은 RP031/렌트존 연결, 공급원본 기준 v4 재고 초기 적재와 충돌 해소, 문의방·메시지·partner/user 참조 누락 이관, v3-only 0 재감사, `NEXT_PUBLIC_BRIDGE_V3=''` Preview 5역할 smoke다. 자동 Sheet 동기화는 이 게이트 전 OFF를 유지한다.
+
+## 2026-08-05 공급사 링크 장부·이안카 2탭 연동 검증
+
+결과: **코드 및 실제 원본 dry-run PASS / 운영 RP031 설정 미적용**
+
+- 사용자가 제공한 공급사 링크 장부를 `docs/SUPPLIER_SOURCE_REGISTRY.md`에 인수인계 SSOT로 기록했다. 장부는 링크 인덱스이며 공급사별 실제 정본은 ERP4 source 설정과 검증 결과로 확정한다. 특히 아이언 `RP006`은 장부에 과거 시트가 있어도 홈페이지 정본을 유지한다.
+- 이안카 `RP031` 실제 시트는 메인 `gid=2008897223`와 재렌트 `gid=126495265` 두 탭이다. 메인 탭 중간부터 상태·입고일자 칸이 빠져 행이 왼쪽으로 밀리는 구조를 `ianka` 어댑터가 실제 `구분` 헤더 위치를 기준으로 복원한다.
+- 같은 차량 5대가 두 탭에 있으나 값이 같지 않다. 메인 탭은 선출고 신차·10km 조건이고 재렌트 탭은 실제 주행거리와 재렌트 요금이므로 재렌트 탭을 우선한다. 탭 간 겹침은 보고하되 저장 차단 중복에서 제외하고, 동일 탭 내부 중복은 계속 차단한다.
+- 실제 ERP4 동기화 경로의 읽기 전용 override 감사는 이안카 원본 243행, 반영 161대, 출고불가 제외 77, 무효 0, 탭 겹침 5, 차단 중복 0이다. 전체 공급사 16곳은 원본 632행, 반영 508대, 상태 PASS다.
+- `npx tsc --noEmit`, `npm run check:fonts`, `sim-sheet-merge` 139/139, `sim-sheet-price` 31/31, production build 30/30 routes가 PASS했다. 운영 데이터·Rules·배포 write는 0이다. `RP031`의 `sheet_url/sheet_tab/adapter_id`는 아직 운영 v4 설정에 쓰지 않았다.
+- 링크 장부에는 렌트존 `PT-0001`이 있으나 현재 실제 시트 감사 roster 16곳에는 없다. 비활성/레거시 파트너인지 설정 누락인지 확인 후 별도 연결해야 한다.
+
 ## 2026-08-04 오픈 직전 전수 게이트 재검증
 
 결과: **코드·도메인·후보 Rules·Preview 서버 런타임 PASS / 법적 정보·실계정·Rules 게시 게이트 미완료로 Production NO-GO**
@@ -3517,3 +3539,13 @@ Next 개발 서버와 production build가 같은 `.next`를 사용하면 실행 
 - UI 회귀검증 시점에는 `IRONRENTCAR_SYNC_ENABLED`를 켜거나 apply를 호출하지 않아 운영 write가 0건이었다. 새 Ready Preview에서 관리자 미리보기 49/24/25·21/3/4 확인 → 명시 적용 28건 → 활성 24대·RP006 Sheet 제외·감사로그 확인이 남았다.
 - 이후 Preview 환경에만 `IRONRENTCAR_SYNC_ENABLED=true`를 추가하고 동일 커밋을 재배포했다. Ready deployment는 `dpl_FK3AaEaBcq1HqqCBzemeRYW6xgp7`, URL은 `https://freepasserp4-p3yv6tvbv-freepass-projects.vercel.app`다. Production 환경변수와 배포는 변경하지 않았다.
 - Preview 보호를 통과한 비인증 GET preview와 POST apply는 모두 403 `forbidden`이며 브라우저 console error/warn 0이다. 새 Preview origin에 관리자 세션이 없어 실미리보기/apply는 실행하지 않았고 운영 write는 계속 0건이다.
+
+## 2026-08-05 — 포맷 소실분 Codex 세션 로그 복구 검증
+
+- `C:\Users\user\.codex\sessions`의 성공한 `patch_apply_end` 원문을 현재 복구 커밋 `d69efdf`에 재생하고, 이후 Claude 커밋과 충돌하는 과거 패치는 제외했다. `.env.local`·서비스계정·Firebase 디버그 로그는 복구 대상에 포함하지 않았다.
+- 복원 범위는 아이언 검증/반영/원자 롤백, Google Sheets 가시 행 판독, 오토플러스 연속 블록, 이안카 다중 탭 우선순위, 공급사 원본 감사, ERP4 상품 단독 정본, 상품 사진 공용 대체 UI다.
+- `npx tsc --noEmit`, `check:fonts`, `check:tokens`, `check:ui`, `git diff --check` PASS.
+- Iron source 19/19, reconcile 30/30, apply 25/25, rollback 28/28 PASS.
+- Sheet merge 139/139, revive 12/12, daily sync 22/22, price 31/31 PASS.
+- 분리 `NEXT_DIST_DIR=.next-codex-recovery` production build가 정적 30페이지와 신규 `/api/inventory/ironrentcar/rollback`을 포함해 PASS했다. Next가 자동 변경한 `tsconfig.json`은 빌드 전 해시 `68b2e974...`로 복구했다.
+- 운영 RTDB·Google Sheet·아이언 홈페이지 write, Rules 게시, Production 배포는 실행하지 않았다. 기존 미추적 `tmp-install.log`도 보존했다.

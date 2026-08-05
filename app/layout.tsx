@@ -29,7 +29,14 @@ export const metadata: Metadata = {
   description: `${BRAND} — 렌터카 중개 플랫폼.`,
   manifest: '/manifest.webmanifest',
   appleWebApp: { capable: true, statusBarStyle: 'default', title: BRAND },
-  icons: { icon: '/icon.svg', apple: '/icon.svg' },
+  icons: {
+    icon: [
+      { url: '/icon.svg', type: 'image/svg+xml' },
+      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+    ],
+    shortcut: '/icon-192.png',
+    apple: [{ url: '/icon-192.png', sizes: '192x192', type: 'image/png' }],
+  },
 };
 
 /**

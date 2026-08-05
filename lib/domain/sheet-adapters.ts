@@ -7,7 +7,7 @@ import { type EntityRecord } from '@/lib/intake/entities';
 import { parseDepositRule, type DepositRule } from '@/lib/domain/sheet-import';
 import { isExactRealPlate } from '@/lib/domain/product';
 
-export type SheetAdapterId = 'generic' | 'autoplus';
+export type SheetAdapterId = 'generic' | 'autoplus' | 'ianka';
 
 export type SheetAdapter = {
   id: SheetAdapterId;
@@ -38,11 +38,13 @@ function looksLikeHeader(row: string[] | undefined): boolean {
   return cells.some((c) => /^(차량번호|차번|차번호|등록번호)$/.test(c.replace(/\s/g, '')));
 }
 
-function findPlateHeaderRow(table: string[][]): number {
-  for (let i = 0; i < Math.min(25, table.length); i++) {
+export function findPlateHeaderRow(table: string[][]): number {
+  // 공급사가 공지·요율표를 위에 추가해도 행 번호 설정에 의존하지 않는다.
+  // 전체 1,000행을 훑어 본문의 반복 라벨을 헤더로 오인하지 않도록 상단 200행까지만 본다.
+  for (let i = 0; i < Math.min(200, table.length); i++) {
     if (looksLikeHeader(table[i])) return i;
   }
-  return 0;
+  return -1;
 }
 
 /**
@@ -56,7 +58,9 @@ function findPlateHeaderRow(table: string[][]): number {
 function resolveHeaderRow(table: string[][], headerRow?: number): number {
   const want = Math.max(0, headerRow ?? 0);
   if (looksLikeHeader(table[want])) return want;
-  return findPlateHeaderRow(table);
+  const detected = findPlateHeaderRow(table);
+  if (detected >= 0) return detected;
+  throw new Error('차량번호 헤더 행 없음 — 원본 시트의 헤더 이름을 확인하세요');
 }
 
 /** 무라벨 데이터 col11~14 → 개월 헤더 */
@@ -110,6 +114,32 @@ export const SHEET_ADAPTERS: Record<SheetAdapterId, SheetAdapter> = {
       return [labelAutoplusHeaderRow(sliced[0] || []), ...body];
     },
   },
+  /**
+   * 이안카 — 같은 탭 중간부터 상태·입고일자 칸이 빠져 행이 왼쪽으로 밀리는 원본 보정.
+   * 실제 `구분` 헤더 위치를 찾아 행 첫 칸이 상품구분일 때만 앞 빈 칸을 복원한다.
+   */
+  ianka: {
+    id: 'ianka',
+    label: '이안카식',
+    prepareTable: (table, opts) => {
+      const headerRow = resolveHeaderRow(table, opts?.headerRow);
+      const sliced = sliceFromHeader(table, headerRow);
+      if (!sliced.length) return sliced;
+      const header = sliced[0] || [];
+      const productTypeColumn = header.findIndex((cell) => /^(구분|상품구분|렌트구분)$/.test(String(cell || '').replace(/\s/g, '')));
+      if (productTypeColumn < 0) throw new Error('이안카 구분 헤더 열 없음');
+      const isProductType = (value: unknown) => /^(?:신차(?:\(선출고\))?|신차렌트|신차구독|재렌트|재구독|중고렌트|중고구독)$/i.test(
+        String(value ?? '').replace(/\s/g, ''),
+      );
+      const body = sliced.slice(1).map((row) => {
+        if (productTypeColumn > 0 && isProductType(row[0]) && !isProductType(row[productTypeColumn])) {
+          return [...Array.from({ length: productTypeColumn }, () => ''), ...row];
+        }
+        return row;
+      });
+      return [header, ...body];
+    },
+  },
 };
 
 export const ADAPTER_OPTIONS: { value: SheetAdapterId; label: string }[] = (
@@ -119,7 +149,7 @@ export const ADAPTER_OPTIONS: { value: SheetAdapterId; label: string }[] = (
 /** 명시 설정을 최우선하고, 레거시 미설정 AutoPlus만 코드·이름으로 보정한다. */
 export function effectiveSheetAdapterId(partner: EntityRecord): SheetAdapterId {
   const explicit = String(partner.adapter_id || '').trim();
-  if (explicit === 'generic' || explicit === 'autoplus') return explicit;
+  if (explicit === 'generic' || explicit === 'autoplus' || explicit === 'ianka') return explicit;
   if (explicit) throw new Error(`시트 어댑터 설정 오류 — ${explicit}`);
   return /autoplus|오토플러스|RP023/i.test(
     `${partner.partner_code || partner._key || ''} ${partner.name || ''} ${partner.partner_name || ''}`,
@@ -130,8 +160,27 @@ export function resolveAdapter(partnerOrId?: EntityRecord | string | null): Shee
   const id = typeof partnerOrId === 'string'
     ? partnerOrId.trim()
     : effectiveSheetAdapterId(partnerOrId || {});
-  if (id !== 'generic' && id !== 'autoplus') throw new Error(`시트 어댑터 설정 오류 — ${id}`);
+  if (id !== 'generic' && id !== 'autoplus' && id !== 'ianka') throw new Error(`시트 어댑터 설정 오류 — ${id}`);
   return SHEET_ADAPTERS[id];
+}
+
+/**
+ * 멀티탭 공급사의 정본 우선순위.
+ *
+ * 이안카는 같은 차량이 메인 탭(신차 선출고 조건)과 재렌트 탭(실차 주행거리·재렌트 요금)에
+ * 함께 존재할 수 있다. 이 경우 재렌트 탭이 더 구체적인 현재값이므로 설정에 적힌 순서와
+ * 무관하게 먼저 읽는다. 그 밖의 공급사는 관리자가 지정한 탭 순서를 그대로 보존한다.
+ */
+export function orderSheetGids(adapter: SheetAdapter, gids: string[]): string[] {
+  if (adapter.id !== 'ianka') return [...gids];
+  const priority = new Map([
+    ['126495265', 0], // 이안카 재렌트
+    ['2008897223', 1], // 이안카 메인
+  ]);
+  return gids
+    .map((gid, index) => ({ gid, index, priority: priority.get(gid) ?? 100 }))
+    .sort((a, b) => a.priority - b.priority || a.index - b.index)
+    .map(({ gid }) => gid);
 }
 
 /**
@@ -156,7 +205,8 @@ export function partnerSheetOpts(p: EntityRecord): {
   const gidTokens = raw ? raw.split(/[,\s|]+/).filter(Boolean) : [];
   const invalidGid = gidTokens.find((token) => !/^\d+$/.test(token));
   if (invalidGid) throw new Error(`시트 gid 설정 오류 — ${invalidGid}`);
-  const gids = gidTokens;
+  const adapter = resolveAdapter(p);
+  const gids = orderSheetGids(adapter, gidTokens);
   const gid = gids[0] || '';
   const headerRow = Math.max(0, Number(p.header_row) || 0);
   return {
@@ -164,7 +214,7 @@ export function partnerSheetOpts(p: EntityRecord): {
     gid,
     gids,
     headerRow,
-    adapter: resolveAdapter(p),
+    adapter,
     providerCode: String(p.partner_code || p._key || ''),
     profileRaw: p.mapping_profile,
     // 시트 보증금 칸이 빌 때 채우는 공급사 규칙(손오공 구독 = N개월치). 미설정이면 안 채운다.

@@ -27,7 +27,12 @@ const priceOf = (value: unknown): Price => (
   value && typeof value === 'object' ? value as Price : {}
 );
 
-async function fetchCsv(_url: string, gid?: string): Promise<string[][]> {
+async function fetchCsv(
+  _url: string,
+  gid?: string,
+  options: { visibleRowsOnly?: boolean } = {},
+): Promise<string[][]> {
+  if (options.visibleRowsOnly) throw new Error('CSV/gviz는 숨김 행을 포함하므로 오토플러스 감사에 사용할 수 없습니다');
   const activeGid = gid || AUTOPLUS_GID_MAIN;
   const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${activeGid}`;
   const response = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });

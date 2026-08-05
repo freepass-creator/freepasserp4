@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { cert, getApps, initializeApp, type App, type ServiceAccount } from 'firebase-admin/app';
+import { applicationDefault, cert, getApps, initializeApp, type App, type Credential, type ServiceAccount } from 'firebase-admin/app';
 import { getAuth, type DecodedIdToken } from 'firebase-admin/auth';
 import { getDatabase, type Database } from 'firebase-admin/database';
 
@@ -24,6 +24,15 @@ function serviceAccount(): ServiceAccount {
   };
 }
 
+function serverCredential(): Credential {
+  const raw = String(process.env.FIREBASE_SERVICE_ACCOUNT_JSON || '').trim();
+  if (raw) return cert(serviceAccount());
+  // 로컬 감사/검증기는 파일 기반 ADC를 쓴다. 경로가 명시된 경우에만 허용해
+  // Vercel 운영환경에서 우연한 무자격증명 초기화로 빠지지 않게 한다.
+  if (String(process.env.GOOGLE_APPLICATION_CREDENTIALS || '').trim()) return applicationDefault();
+  throw new Error('FIREBASE_SERVICE_ACCOUNT_JSON 또는 GOOGLE_APPLICATION_CREDENTIALS 미설정');
+}
+
 function demoEmulatorProjectId(): string {
   if (!process.env.FIREBASE_AUTH_EMULATOR_HOST || !process.env.FIREBASE_DATABASE_EMULATOR_HOST) return '';
   const projectId = String(process.env.GCLOUD_PROJECT || process.env.GOOGLE_CLOUD_PROJECT || '').trim();
@@ -39,7 +48,7 @@ export function firebaseAdminApp(): App {
   // 운영 환경이 우연히 한 변수만 가진 경우에는 아래 서비스계정 검증으로 fail-closed한다.
   const emulatorProjectId = demoEmulatorProjectId();
   if (emulatorProjectId) return initializeApp({ projectId: emulatorProjectId, databaseURL }, APP_NAME);
-  return initializeApp({ credential: cert(serviceAccount()), databaseURL }, APP_NAME);
+  return initializeApp({ credential: serverCredential(), databaseURL }, APP_NAME);
 }
 
 export function firebaseAdminDatabase(): Database {

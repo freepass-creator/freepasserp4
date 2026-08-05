@@ -6,10 +6,11 @@ import { C, R, NUM, Badge, FW, FS, SCRIM } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { useFirstPhoto } from '@/components/use-product-photos';
 import { FavHeart } from '@/components/FavHeart';
+import { ProductPhotoImage } from '@/components/ProductPhoto';
 import { yearDisplay } from '@/lib/domain/vehicle-master-match';
 export { productOptions, OptionChips, OptionsInline } from '@/components/product-card-options';
 import {
-  CarGlyph, badgeTip, badgeSpecs, photoMarkSpecs,
+  badgeTip, badgeSpecs, photoMarkSpecs,
   type BadgeSpec,
 } from '@/components/product-card-badges';
 import type { BadgeTone } from '@/components/ui/badges';
@@ -137,7 +138,6 @@ export function CardThumb({ p, audience = 'agent', fill, w, h, heart = false, ma
   const photo = useFirstPhoto(p, 480);
   const promos = eventSignals(p);
   const showHeart = heart && audience !== 'customer';
-  const glyph = fill ? (mobile ? 40 : 36) : 24;
   const pad = fill ? 6 : 5;
   const promoFs = fill ? (mobile ? FS.cap : FS.micro) : FS.micro;
   // 모바일 목록 피드 썸네일(w=56, !fill) = 긴 스크롤. blur는 스크롤 합성비용이 커서 반투명 단색으로 대체.
@@ -204,9 +204,14 @@ export function CardThumb({ p, audience = 'agent', fill, w, h, heart = false, ma
 
   return (
     <div style={box}>
-      {photo
-        ? <img src={photo} alt="" loading="lazy" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }} />
-        : <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><CarGlyph size={glyph} /></span>}
+      <ProductPhotoImage
+        src={photo}
+        alt=""
+        loading="lazy"
+        decoding="async"
+        compactPlaceholder
+        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }}
+      />
 
       {/* frosted Badge 가독용 — 옅은 하단만 */}
       {hasCore && (

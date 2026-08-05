@@ -198,7 +198,8 @@ export function parseIronRentcarDetail(
     provider_name: '아이언렌트카',
     price,
     image_urls: images,
-    photo_link: sourceUrl,
+    // 상세 HTML URL은 이미지가 아니다. 사진은 image_urls, 원본 추적은 source_url로 분리한다.
+    photo_link: '',
     source: 'ironrentcar_web',
     source_schema: providerCode,
     source_external_id: listing.id,

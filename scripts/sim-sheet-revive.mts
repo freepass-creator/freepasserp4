@@ -96,5 +96,39 @@ check('두 번째엔 되살릴 게 없다', (again.revived ?? 0) === 0, again.re
 const after2 = await listProductsForSheetReconcile(co, true);
 check('매물 수 그대로 2대', after2.filter((r) => String(r.provider_company_code) === 'RP999').length === 2);
 
+// ── 검증 직후 다른 관리자가 같은 삭제 매물을 바꾸면 되살림으로 덮지 않는다.
+head('경합 — 검증 직후 삭제 매물이 바뀌면 되살림 중단');
+await store.save('product', co, [product('RP999_44라4444', '44라4444')]);
+await store.update('product', co, 'RP999_44라4444', { _deleted: true, status: 'deleted' } as EntityRecord);
+
+const dispatchPrototype = Object.getPrototypeOf(store) as {
+  bulkPatchGuardedProduct: typeof store.bulkPatchGuardedProduct;
+};
+const originalGuard = dispatchPrototype.bulkPatchGuardedProduct;
+let injectedRace = false;
+dispatchPrototype.bulkPatchGuardedProduct = async function (companyId, patches) {
+  if (!injectedRace && patches.some((item) => item.key === 'RP999_44라4444')) {
+    injectedRace = true;
+    await store.update('product', co, 'RP999_44라4444', { vehicle_status: '계약진행' } as EntityRecord);
+  }
+  return originalGuard.call(this, companyId, patches);
+};
+let conflictMessage = '';
+try {
+  await commitSheetProducts(co, [product('RP999_44라4444', '44라4444')]);
+} catch (error) {
+  conflictMessage = error instanceof Error ? error.message : String(error);
+} finally {
+  dispatchPrototype.bulkPatchGuardedProduct = originalGuard;
+}
+check('경합을 사용자에게 알림', conflictMessage.includes('데이터 검증을 다시 실행'), conflictMessage);
+const afterConflict = await store.get('product', co, 'RP999_44라4444');
+check('경합난 삭제 매물을 되살리지 않음', afterConflict?._deleted === true && afterConflict?.status === 'deleted', {
+  _deleted: afterConflict?._deleted,
+  status: afterConflict?.status,
+  vehicle_status: afterConflict?.vehicle_status,
+});
+check('다른 관리자의 변경을 보존', afterConflict?.vehicle_status === '계약진행', afterConflict?.vehicle_status);
+
 console.log(`\n━━ 결과: ${pass}/${pass + fail} 통과`);
 process.exit(fail ? 1 : 0);

@@ -240,6 +240,10 @@ check('Vercel Cron은 매일 02:00 KST에 일일 동기화 API 호출',
 const syncRouteSource = readFileSync('app/api/sheet/sync-daily/route.ts', 'utf8');
 check('일일 동기화 API는 CRON_SECRET과 활성 flag를 모두 요구',
   syncRouteSource.includes('CRON_SECRET') && syncRouteSource.includes('SHEET_DAILY_SYNC_ENABLED'));
+const dailyServerSource = readFileSync('lib/server/sheet-daily-sync.ts', 'utf8');
+check('시트 일일 연동은 ERP3 products를 읽지 않고 ERP4 재고만 비교',
+  !dailyServerSource.includes("db.ref('products').get()")
+  && dailyServerSource.includes("db.ref('v4/products').get()"));
 const statusRouteSource = readFileSync('app/api/sheet/sync-status/route.ts', 'utf8');
 check('운영 상태 API는 Firebase 관리자 인증을 요구', statusRouteSource.includes('verifyAdminBearer'));
 const resolutionRouteSource = readFileSync('app/api/sheet/conflict-resolutions/route.ts', 'utf8');

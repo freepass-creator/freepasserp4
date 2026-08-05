@@ -9,7 +9,7 @@ import {
   stripSheetPrivatePatchFields,
   planAbsentBlocked, sheetReconcileRevision, sheetReconcileStateRevision, shouldReconcileAbsent,
 } from '../lib/domain/sheet-merge';
-import { resolveAdapter, partnerSheetOpts } from '../lib/domain/sheet-adapters';
+import { orderSheetGids, resolveAdapter, partnerSheetOpts } from '../lib/domain/sheet-adapters';
 import {
   assertDistinctSheetTable,
   autoMapHeaders,
@@ -20,6 +20,7 @@ import {
   rentCell,
 } from '../lib/domain/sheet-import';
 import { resolveGoogleSheetCsvUrl } from '../lib/domain/sheet-url';
+import { visibleRowsFromGridResponse } from '../lib/domain/sheet-visible-grid';
 import {
   buildPrevForGuard,
   buildSheetSyncCheckpoint,
@@ -182,6 +183,68 @@ try {
 } catch (error) { driftBlocked = String(error).includes('시트 헤더'); }
 check('저장 매핑과 현재 헤더 index 이동은 fail-closed', driftBlocked);
 
+const movedSignedHeader = importSheetTable([
+  ['상태', '차량번호', '모델'],
+], {
+  providerCode: 'RP', entries: [{} as never],
+  profile: { car_number: 0, model: 1, vehicle_status: 2 },
+  profileHeaders: { car_number: '차량번호', model: '모델', vehicle_status: '상태' },
+});
+check('저장 위치가 아니라 헤더 이름으로 이동한 열을 다시 찾음',
+  movedSignedHeader.mapping.car_number === 1
+  && movedSignedHeader.mapping.model === 2
+  && movedSignedHeader.mapping.vehicle_status === 0,
+  movedSignedHeader.mapping);
+
+const deepHeaderPrepared = resolveAdapter('generic').prepareTable([
+  ...Array.from({ length: 40 }, (_, index) => [`공지 ${index + 1}`]),
+  ['순번', '차량번호', '모델', '판매상태'],
+  ['1', '12가3456', '모닝', '판매중'],
+]);
+check('고정 행번호 없이 차량번호 헤더 행을 찾고 그 아래부터 읽음',
+  deepHeaderPrepared[0]?.[1] === '차량번호'
+  && deepHeaderPrepared[1]?.[1] === '12가3456');
+
+const visibleGrid = visibleRowsFromGridResponse({
+  sheets: [{
+    properties: { sheetId: 284963459, title: '판매차량리스트' },
+    data: [{
+      startRow: 8,
+      rowData: [
+        { values: [{ formattedValue: '차량번호' }, { formattedValue: '판매상태' }] },
+        { values: [{ formattedValue: '11가1111' }, { formattedValue: '판매중' }] },
+        { values: [{ formattedValue: '22나2222' }, { formattedValue: '판매중' }] },
+        { values: [{ formattedValue: '33다3333' }, { formattedValue: '판매중' }] },
+      ],
+      rowMetadata: [{}, {}, { hiddenByFilter: true }, { hiddenByUser: true }],
+    }],
+  }],
+}, '284963459');
+check('Sheets 필터·수동 숨김 행은 공급사 연동 대상에서 제외',
+  visibleGrid.rows.length === 2
+  && visibleGrid.rows[1]?.[0] === '11가1111'
+  && visibleGrid.hiddenRowCount === 2,
+  visibleGrid);
+
+const visibleGridWithSeparator = visibleRowsFromGridResponse({
+  sheets: [{
+    properties: { sheetId: 2018553731, title: '전기차 프로모션' },
+    data: [{
+      startRow: 2,
+      rowData: [
+        { values: [{ formattedValue: '순번' }, { formattedValue: '차량번호' }, { formattedValue: '모델' }] },
+        { values: [{ formattedValue: '1' }, { formattedValue: '11가1111' }, { formattedValue: '현재차' }] },
+        {},
+        { values: [{ formattedValue: '99' }, { formattedValue: '99하9999' }, { formattedValue: '과거차' }] },
+      ],
+    }],
+  }],
+}, '2018553731');
+check('Sheets의 비숨김 빈 행은 데이터 블록 경계로 보존',
+  visibleGridWithSeparator.rows.length === 4
+  && visibleGridWithSeparator.rows[2]?.length === 0,
+  visibleGridWithSeparator.rows);
+
 let removedHeaderBlocked = false;
 try {
   importSheetTable([['차량번호', '제조사', '모델', '비고', '12개월', '보증금']], {
@@ -197,7 +260,7 @@ try {
     profile: { car_number: 0, vehicle_status: 3 },
     profileHeaders: { car_number: '차량번호', vehicle_status: '커스텀상태' },
   });
-} catch (error) { signedHeaderChangedBlocked = String(error).includes('시트 헤더 변경 감지'); }
+} catch (error) { signedHeaderChangedBlocked = String(error).includes('시트 헤더 없음'); }
 check('저장 header signature와 현재 커스텀 헤더 불일치 차단', signedHeaderChangedBlocked);
 let protectedMappingBlocked = false;
 try {
@@ -297,6 +360,36 @@ const pendingB = importSheetTable([pendingHeader, pendingRow], {
 check('멀티탭 동일스펙 번호미정 occurrence를 공유해 서로 다른 임시번호 부여',
   pendingA.products[0]?.car_number === '100신0001'
   && pendingB.products[0]?.car_number === '100신0002');
+const pendingPreReleased = importSheetTable([
+  pendingHeader,
+  ['신차(선출고)', '현대', '아반떼', '500000', '1000000'],
+], {
+  providerCode: 'RP', entries: [{} as never],
+  plateAllocator: createPlateAllocator(undefined, 0),
+});
+check('이안카 신차(선출고)는 설명문 오타가 아니라 번호미정 신차로 제한 허용',
+  pendingPreReleased.imported === 1
+  && pendingPreReleased.invalidCount === 0
+  && pendingPreReleased.products[0]?.car_number === '100신0001'
+  && pendingPreReleased.products[0]?.is_pending_plate === true);
+const pendingNamedPreReleased = importSheetTable([
+  ['구분', '차량번호', '제조사', '모델', '12개월', '단기보증'],
+  ['신차(선출고)', '쿠퍼 C 5도어', '미니', '쿠퍼', '700000', '2500000'],
+], {
+  providerCode: 'RP', entries: [{} as never],
+  plateAllocator: createPlateAllocator(undefined, 0),
+});
+check('명시적 선출고 신차의 차번 칸 차명은 임시번호로 제한 허용',
+  pendingNamedPreReleased.imported === 1
+  && pendingNamedPreReleased.invalidCount === 0
+  && pendingNamedPreReleased.products[0]?.car_number === '100신0001');
+const malformedNamedPreReleased = importSheetTable([
+  ['구분', '차량번호', '제조사', '모델', '12개월', '단기보증'],
+  ['신차(선출고)', '12가345', '현대', '아반떼', '500000', '1000000'],
+], { providerCode: 'RP', entries: [{} as never] });
+check('명시적 선출고여도 번호판 오타 형태는 임시번호로 숨기지 않고 차단',
+  malformedNamedPreReleased.imported === 0
+  && malformedNamedPreReleased.invalidCount === 1);
 const allocationSnapshot = allocator.snapshot();
 const allocatorAgain = createPlateAllocator(allocationSnapshot.pending_plates, allocationSnapshot.pending_plate_seq);
 const occurrenceAgain = new Map<string, number>();
@@ -801,6 +894,18 @@ const autoplusPreparedRegional = resolveAdapter('autoplus').prepareTable([
   ['1', '서울12가3456', '아반떼', '모던'],
 ]);
 check('AutoPlus 안내행 판정이 지역 접두 첫 실차를 버리지 않음', autoplusPreparedRegional.length === 2);
+const iankaPrepared = resolveAdapter('ianka').prepareTable([
+  ['상태', '입고일자', '구분', '차량번호', '차종분류', '세부모델', '12개월', '단기보증'],
+  ['재고확인', '재고확인', '신차(선출고)', '133호6165', '미니 쿠퍼', '쿠퍼 C 5도어', '700000', '2500000'],
+  ['신차(선출고)', '133호5330', '미니 쿠퍼', '쿠퍼 C 5도어', '가솔린', '화이트', '700000', '2500000'],
+]);
+check('이안카 중간 행 왼쪽 밀림은 구분 헤더 위치만큼 복원하고 정상 행은 유지',
+  iankaPrepared[1]?.[0] === '재고확인'
+  && iankaPrepared[1]?.[3] === '133호6165'
+  && iankaPrepared[2]?.[0] === ''
+  && iankaPrepared[2]?.[1] === ''
+  && iankaPrepared[2]?.[2] === '신차(선출고)'
+  && iankaPrepared[2]?.[3] === '133호5330');
 
 const pubOverride = resolveGoogleSheetCsvUrl(
   'https://docs.google.com/spreadsheets/d/e/PUB/pub?output=csv&gid=111',
@@ -914,6 +1019,12 @@ const duplicateShellRoster = await fetchAllPartnerSheets('freepass', [{} as any]
       inventory_source: 'ironrentcar_web',
       sheet_url: 'https://docs.google.com/spreadsheets/d/old/edit',
     },
+    {
+      _key: 'RP006',
+      partner_code: 'RP006',
+      partner_type: '공급사',
+      sheet_url: 'https://docs.google.com/spreadsheets/d/iron-old/edit',
+    },
   ],
   fetchTable: async () => [[]],
 });
@@ -923,7 +1034,37 @@ check('같은 공급사 코드의 시트 없는 레거시 껍데기는 fetch 실
   && duplicateShellRoster.lines[0].code === 'RP-X',
   { partnerCount: duplicateShellRoster.partnerCount, lines: duplicateShellRoster.lines.length });
 check('홈페이지 단일 정본 공급사는 기존 sheet_url이 남아도 시트 roster에서 제외',
-  !duplicateShellRoster.lines.some((line) => line.code === 'RP-WEB'));
+  !duplicateShellRoster.lines.some((line) => line.code === 'RP-WEB')
+  && !duplicateShellRoster.lines.some((line) => line.code === 'RP006'));
+
+check('이안카 탭은 설정 순서와 무관하게 재렌트 정본을 먼저 읽음',
+  orderSheetGids(resolveAdapter('ianka'), ['2008897223', '126495265'])
+    .join(',') === '126495265,2008897223');
+const iankaHeader = ['상태', '입고일자', '구분', '차량번호', '제조사', '모델', '36개월', '장기보증'];
+const iankaOverlapFetch = await fetchAllPartnerSheets('freepass', [{} as any], {
+  partnerRows: [{
+    _key: 'RP031', partner_code: 'RP031', partner_type: '공급사', name: '이안카',
+    sheet_url: 'https://docs.google.com/spreadsheets/d/ianka/edit',
+    sheet_tab: '2008897223,126495265', adapter_id: 'ianka',
+  }],
+  fetchTable: async (_url, gid) => gid === '126495265'
+    ? [iankaHeader, ['재고확인', '', '재렌트', '11가1111', '현대', '아반떼', '400000', '1000000']]
+    : [
+        iankaHeader,
+        ['판매가능', '', '신차', '11가1111', '현대', '아반떼', '500000', '1000000'],
+        ['판매가능', '', '신차', '22나2222', '기아', 'K5', '600000', '1000000'],
+      ],
+});
+const iankaOverlapLine = iankaOverlapFetch.lines[0];
+const iankaOverlapPrice = iankaOverlapFetch.products
+  .find((product) => product.car_number === '11가1111')?.price as Record<string, { rent?: number }> | undefined;
+check('이안카 탭 간 겹침은 재렌트 값을 유지하고 커밋을 막지 않음',
+  iankaOverlapLine.imported === 2
+  && iankaOverlapLine.duplicateCount === 1
+  && iankaOverlapLine.blockingDuplicateCount === 0
+  && iankaOverlapPrice?.['36']?.rent === 400000
+  && sheetSyncCommitBlockReason(iankaOverlapFetch) === '',
+  iankaOverlapLine);
 
 const failed = cases.filter((c) => !c.ok);
 console.log('\n════════ 결과 ════════');

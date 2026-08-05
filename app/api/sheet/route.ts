@@ -12,6 +12,8 @@ import {
   isPublishedGoogleCsv,
   resolveGoogleSheetCsvUrl,
 } from '@/lib/domain/sheet-url';
+import { fetchVisibleGoogleSheetTable } from '@/lib/server/google-sheet-visible';
+import { verifyAdminBearer } from '@/lib/server/firebase-admin';
 
 export const runtime = 'nodejs';
 
@@ -19,11 +21,31 @@ export async function GET(request: Request): Promise<Response> {
   const params = new URL(request.url).searchParams;
   const url = (params.get('url') || '').trim();
   const gid = params.get('gid') || extractGoogleSheetGid(url);
+  const visibleRowsOnly = params.get('visible') === '1';
   if (!url) return NextResponse.json({ ok: false, error: 'url 필요' }, { status: 400 });
 
   // 이미 게시 CSV(pub?output=csv)면 그대로, 아니면 gviz CSV 로.
   const id = extractGoogleSheetId(url);
   const isPubCsv = isPublishedGoogleCsv(url);
+  if (visibleRowsOnly) {
+    if (!id || !gid) return NextResponse.json({ ok: false, error: '숨김 행 제외 연동은 일반 시트 URL과 gid가 필요합니다' }, { status: 400 });
+    let admin;
+    try {
+      admin = await verifyAdminBearer(request);
+    } catch (error) {
+      return NextResponse.json({ ok: false, error: `관리자 인증 서비스 오류 — ${String((error as Error).message || error)}` }, { status: 503 });
+    }
+    if (!admin) return NextResponse.json({ ok: false, error: '관리자 인증 필요' }, { status: 401 });
+    try {
+      const result = await fetchVisibleGoogleSheetTable(id, gid);
+      return NextResponse.json(
+        { ok: true, rows: result.rows, source: 'sheets-api-visible', title: result.title, hiddenRowCount: result.hiddenRowCount },
+        { headers: { 'Cache-Control': 'private, no-store', Vary: 'Authorization' } },
+      );
+    } catch (error) {
+      return NextResponse.json({ ok: false, error: String((error as Error).message || error) }, { status: 502 });
+    }
+  }
   // ⚠ gviz 를 쓰면 안 된다 — **행을 조용히 빠뜨린다.**
   //  gviz 는 첫 행을 헤더로 잡고 열 타입을 추론하는데, 그 과정에서 타입이 안 맞는 뒤쪽 블록을 잘라낸다.
   //  실측(2026-07-31): 아이언 42대 → 26대(출고불가 16대가 통째로 사라짐) · 손오공 37 → 33.

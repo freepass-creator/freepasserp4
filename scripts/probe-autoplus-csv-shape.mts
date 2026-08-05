@@ -45,7 +45,10 @@ const imported = await importAutoplusMerged({
   providerCode: 'RP023',
   entries,
   depositRule: 'rent_multiple',
-  fetchTable: async (_url, gid) => {
+  fetchTable: async (_url, gid, options) => {
+    if (options?.visibleRowsOnly) {
+      throw new Error('CSV export는 숨김 행을 포함하므로 실제 오토플러스 유입 정본이 아닙니다');
+    }
     const response = await fetch(
       `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${gid}`,
       { headers: { 'User-Agent': 'freepasserp4-autoplus-export-benchmark/1.0' }, signal: AbortSignal.timeout(30_000) },

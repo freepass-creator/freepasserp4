@@ -9,7 +9,9 @@ import type { MasterEntry } from '../lib/domain/vehicle-master-types';
 
 type PriceMap = Record<string, { rent: number; deposit: number }> | null;
 const failures: string[] = [];
+let checks = 0;
 const check = (name: string, ok: boolean, detail?: unknown) => {
+  checks++;
   console.log(`${ok ? '✓' : '✗'} ${name}${detail == null ? '' : ` — ${JSON.stringify(detail)}`}`);
   if (!ok) failures.push(name);
 };
@@ -113,13 +115,46 @@ check('AUTO-PRICE 차량가격 col9 무시·가격 4열만 수집',
 
 const promoRow = Array.from({ length: 15 }, () => '');
 promoRow[1] = '12가3456'; promoRow[11] = '650000';
-const promo = prepareAutoplusPromoTable([['안내'], promoRow]);
+const promoHeader = [
+  '순번', '차량번호', '차종', '모델명(트림풀명)', '색상', '연료',
+  '최초등록일', '주행거리', '판매상태', '가격', '', '', '', '', '',
+];
+const promo = prepareAutoplusPromoTable([['안내'], promoHeader, promoRow]);
 check('AUTO-PROMO 프로모션도 같은 4개 가격 라벨',
   promo.length === 2 && promo[0].slice(11, 15).join('|') === '12개월|24개월|36개월|48개월');
 const promoMapping = autoMapHeaders(promo[0]);
 check('AUTO-PROMO 차종·모델명은 모델·트림으로 각각 고정 매핑',
   promoMapping.model === 2 && promoMapping.trim_name === 3,
   promoMapping);
+
+const promoRow2 = [...promoRow];
+promoRow2[1] = '34나5678';
+const stalePromoRow = [...promoRow];
+stalePromoRow[1] = '99하9999';
+const promoBlock = prepareAutoplusPromoTable([
+  ['상단 공지'],
+  promoHeader,
+  promoRow,
+  promoRow2,
+  [],
+  stalePromoRow,
+]);
+check('AUTO-PROMO 헤더 바로 아래 연속 블록만 읽고 하단 과거 이력은 제외',
+  promoBlock.length === 3
+  && promoBlock[1]?.[1] === '12가3456'
+  && promoBlock[2]?.[1] === '34나5678'
+  && !promoBlock.some((row) => row[1] === '99하9999'));
+
+const shiftedPromoRow = [...promoRow];
+shiftedPromoRow[1] = '';
+shiftedPromoRow[2] = '12가3456';
+let shiftedPromoBlocked = false;
+try {
+  prepareAutoplusPromoTable([promoHeader, shiftedPromoRow]);
+} catch (error) {
+  shiftedPromoBlocked = String(error).includes('차량번호 열 이동 감지');
+}
+check('AUTO-PROMO 헤더 아래 차량번호 열 이동은 저장 전 차단', shiftedPromoBlocked);
 
 const noPrice = importSheetTable([
   ['차량번호', '제조사', '모델', '12개월', '보증금'],
@@ -192,7 +227,7 @@ check('RULE-MULT-CANONICAL-CONSENSUS 제조사 없는 모델도 정식 모델 �
   (blankMakerDomestic.products[0]?.price as Record<string, { deposit: number }> | undefined)?.['36']?.deposit === 1_000_000,
   blankMakerDomestic.products[0]?.price);
 
-console.log(`\n${29 - failures.length}/29 PASS`);
+console.log(`\n${checks - failures.length}/${checks} PASS`);
 if (failures.length) {
   console.error('FAIL:', failures.join(', '));
   process.exit(1);

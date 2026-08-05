@@ -1,6 +1,5 @@
 import type { EntityRecord } from '@/lib/intake/entities';
 import type { IronRentcarCatalogItem } from '@/lib/server/ironrentcar-source';
-import { planProductUpsert } from '@/lib/domain/sheet-merge';
 import type { GuardedProductPatch } from '@/lib/domain/product-write-guard';
 
 export type IronRentcarReconcilePlan = {
@@ -24,6 +23,17 @@ export type IronRentcarReconcilePlan = {
 
 const plateOf = (row: EntityRecord): string => String(row.car_number || row.vehicle_number || '').replace(/\s/g, '');
 
+/**
+ * 아이언 홈페이지가 직접 소유하는 공개 상품 필드.
+ * 식별키·계약락·원가/VIN/계좌/수수료는 포함하지 않는다.
+ */
+export const IRONRENTCAR_WEB_OWNED_FIELDS = [
+  'maker', 'model', 'sub_model', 'variant', 'trim_name', 'year', 'fuel_type', 'mileage',
+  'ext_color', 'int_color', 'options', 'vehicle_status', 'product_type',
+  'provider_company_code', 'provider_name', 'price', 'image_urls', 'photo_link',
+  'source', 'source_schema', 'source_external_id', 'source_url', '_raw_vehicle',
+] as const;
+
 function same(left: unknown, right: unknown): boolean {
   if (left === right) return true;
   try { return JSON.stringify(left) === JSON.stringify(right); } catch { return false; }
@@ -33,9 +43,59 @@ function providerOf(row: EntityRecord): string {
   return String(row.provider_company_code || row.source_schema || row.partner_code || '');
 }
 
+function explicitProviderOf(row: EntityRecord): string {
+  return String(row.provider_company_code || row.partner_code || '').trim();
+}
+
+function active(row: EntityRecord): boolean {
+  return row._deleted !== true && !row.deletedAt && String(row.status || '').trim() !== 'deleted';
+}
+
+function emptyWebValue(field: typeof IRONRENTCAR_WEB_OWNED_FIELDS[number]): unknown {
+  // RTDB에 null을 쓰면 해당 child가 삭제되어 v3의 옛 값이 다시 드러난다.
+  // 홈페이지가 값을 제공하지 않았다는 사실은 저장 가능한 빈 값으로 overlay한다.
+  if (field === 'image_urls') return [];
+  return '';
+}
+
+function exactWebPatch(existing: EntityRecord, incoming: EntityRecord): EntityRecord {
+  const patch: EntityRecord = {};
+  const engineLocked = !!String(existing.locked_by_contract || '').trim()
+    || String(existing.vehicle_status || '').trim() === '계약중';
+  const existingStatus = String(existing.vehicle_status || '').trim();
+  const incomingStatus = String(incoming.vehicle_status || '').trim();
+  const webOwnedBlock = existingStatus === '출고불가'
+    && existing.ironrentcar_status_owner === 'web'
+    && existing.ironrentcar_block_reason === 'missing_from_complete_catalog';
+
+  for (const field of IRONRENTCAR_WEB_OWNED_FIELDS) {
+    if (field === 'vehicle_status') {
+      // 계약엔진 락과 운영자가 직접 건 출고불가는 홈페이지 재등장만으로 풀지 않는다.
+      if (engineLocked || (existingStatus === '출고불가' && incomingStatus !== '출고불가' && !webOwnedBlock)) continue;
+    }
+    const hasIncoming = Object.prototype.hasOwnProperty.call(incoming, field);
+    const next = hasIncoming ? incoming[field] : undefined;
+    if (next === undefined) {
+      const empty = emptyWebValue(field);
+      if (!same(existing[field], empty)) patch[field] = empty;
+      continue;
+    }
+    if (!same(existing[field], next)) patch[field] = next;
+  }
+
+  if (webOwnedBlock && incomingStatus !== '출고불가' && !engineLocked) {
+    patch.ironrentcar_status_owner = null;
+    patch.ironrentcar_block_reason = null;
+    patch.ironrentcar_blocked_at = null;
+  }
+  return patch;
+}
+
 export function ironRentcarExistingRows(rows: EntityRecord[], providerCode = 'RP006'): EntityRecord[] {
   return rows.filter((row) => {
-    if (row._deleted || row.deletedAt || String(row.status || '') === 'deleted') return false;
+    if (!active(row)) return false;
+    const explicitProvider = explicitProviderOf(row);
+    if (explicitProvider) return explicitProvider === providerCode;
     const key = String(row._key || row.product_code || '');
     return providerOf(row) === providerCode || key.startsWith(`${providerCode}_`) || key.endsWith(`_${providerCode}`);
   });
@@ -54,6 +114,15 @@ export function planIronRentcarReconcile(input: {
 }): IronRentcarReconcilePlan {
   const providerCode = input.providerCode || 'RP006';
   const existing = ironRentcarExistingRows(input.existing, providerCode);
+  const foreignByPlate = new Map<string, EntityRecord[]>();
+  for (const row of input.existing) {
+    if (!active(row)) continue;
+    const explicitProvider = explicitProviderOf(row);
+    if (!explicitProvider || explicitProvider === providerCode) continue;
+    const plate = plateOf(row);
+    if (!plate) continue;
+    foreignByPlate.set(plate, [...(foreignByPlate.get(plate) || []), row]);
+  }
   const byPlate = new Map<string, EntityRecord[]>();
   for (const row of existing) {
     const plate = plateOf(row);
@@ -72,6 +141,10 @@ export function planIronRentcarReconcile(input: {
 
   for (const item of input.webItems) {
     const plate = plateOf(item.product);
+    if ((foreignByPlate.get(plate) || []).length) {
+      blockedExternalIds.push(item.externalId);
+      continue;
+    }
     const group = byPlate.get(plate) || [];
     if (group.length > 1) {
       blockedExternalIds.push(item.externalId);
@@ -81,35 +154,11 @@ export function planIronRentcarReconcile(input: {
     if (group.length === 1) {
       matched++;
       seenExistingPlates.add(plate);
-      const upsert = planProductUpsert([item.product], group);
       const existingRow = group[0];
       const existingKey = String(existingRow._key || existingRow.product_code || '');
-      let candidate = upsert.patches.find((patch) => patch.key === existingKey) || upsert.patches[0];
-      const ensureCandidate = (): GuardedProductPatch => {
-        if (candidate) return candidate;
-        candidate = { key: existingKey, expected: existingRow, patch: { provider_company_code: providerCode } };
-        upsert.patches.push(candidate);
-        upsert.unchanged = Math.max(0, upsert.unchanged - 1);
-        return candidate;
-      };
-      // 아이언 웹이 단일 정본이므로 시트 soft-merge와 달리 사라진 기간도 제거한다.
-      // 계약 금액은 별도 snapshot이라 기존 계약에는 영향을 주지 않는다.
-      if (!same(existingRow.price, item.product.price)) {
-        ensureCandidate().patch.price = item.product.price;
-      }
-      const incomingStatus = String(item.product.vehicle_status || '').trim();
-      const webOwnedBlock = String(existingRow.vehicle_status || '').trim() === '출고불가'
-        && existingRow.ironrentcar_status_owner === 'web'
-        && existingRow.ironrentcar_block_reason === 'missing_from_complete_catalog';
-      if (webOwnedBlock && incomingStatus !== '출고불가'
-        && !existingRow.locked_by_contract && String(existingRow.vehicle_status || '') !== '계약중') {
-        const reactivation = ensureCandidate();
-        reactivation.patch.vehicle_status = incomingStatus;
-        reactivation.patch.ironrentcar_status_owner = null;
-        reactivation.patch.ironrentcar_block_reason = null;
-      }
-      patchCandidates.push(...upsert.patches);
-      unchanged += upsert.unchanged;
+      const patch = exactWebPatch(existingRow, item.product);
+      if (Object.keys(patch).length) patchCandidates.push({ key: existingKey, expected: existingRow, patch });
+      else unchanged++;
       continue;
     }
     if (item.sold || String(item.product.vehicle_status || '') === '출고불가') {

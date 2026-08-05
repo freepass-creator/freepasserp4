@@ -12,11 +12,13 @@ import {
   type ImportResult,
   type MappingHeaderSignature,
   type MappingProfile,
+  type SheetTableFetcher,
 } from '@/lib/domain/sheet-import';
 import type { PlateAllocator } from '@/lib/domain/pending-plate';
 import {
   AUTOPLUS_PRICE_HEADERS,
   SHEET_ADAPTERS,
+  findPlateHeaderRow,
   labelAutoplusHeaderRow,
 } from '@/lib/domain/sheet-adapters';
 import type { MasterEntry } from '@/lib/domain/vehicle-master-match';
@@ -43,16 +45,40 @@ const PROMO_BASE_HEADER = [
   '', ...AUTOPLUS_PRICE_HEADERS,
 ];
 
-/** 프로모션 탭 — 위치 컬럼 + 실번호판만. */
+const normalizeHeader = (value: unknown): string => String(value ?? '').replace(/\s/g, '');
+const isPlateHeader = (value: unknown): boolean => /^(차량번호|차번|차번호|등록번호)$/.test(normalizeHeader(value));
+
+/**
+ * 프로모션 탭 — 차량번호 헤더 바로 아래의 첫 연속 데이터 블록만 읽는다.
+ * 공급사가 하단에 과거 이력을 남겨도 빈 행/비데이터 행을 경계로 그 뒤는 연동하지 않는다.
+ */
 export function prepareAutoplusPromoTable(raw: string[][]): string[][] {
   const exactPlate = (value: unknown) => {
     const plate = String(value ?? '').replace(/\s/g, '');
     return isExactRealPlate(plate);
   };
-  const body = raw.filter((r) => exactPlate(r[1]));
+  const headerRow = findPlateHeaderRow(raw);
+  if (headerRow < 0) throw new Error('오토플러스 프로모션 차량번호 헤더 행 없음');
+
+  const plateColumn = (raw[headerRow] || []).findIndex(isPlateHeader);
+  if (plateColumn < 0) throw new Error('오토플러스 프로모션 차량번호 열 없음');
+
+  const body: string[][] = [];
+  for (let index = headerRow + 1; index < raw.length; index++) {
+    const row = raw[index] || [];
+    if (exactPlate(row[plateColumn])) {
+      body.push(row);
+      continue;
+    }
+
+    const shiftedColumn = row.findIndex((cell, column) => column !== plateColumn && exactPlate(cell));
+    if (!body.length && shiftedColumn >= 0) {
+      throw new Error('오토플러스 프로모션 차량번호 열 이동 감지');
+    }
+    // 첫 데이터 전이든 후든, 헤더 바로 아래의 연속 블록이 끝나면 탐색도 끝낸다.
+    break;
+  }
   if (!body.length) {
-    const shifted = raw.some((row) => row.some((cell, index) => index !== 1 && exactPlate(cell)));
-    if (shifted) throw new Error('오토플러스 프로모션 차량번호 열 이동 감지');
     throw new Error('오토플러스 프로모션 탭 차량 데이터 없음');
   }
   return [labelAutoplusHeaderRow([...PROMO_BASE_HEADER]), ...body];
@@ -121,7 +147,7 @@ export async function importAutoplusMerged(opts: {
   entries: MasterEntry[];
   profile?: MappingProfile;
   profileHeaders?: MappingHeaderSignature;
-  fetchTable: (url: string, gid?: string) => Promise<string[][]>;
+  fetchTable: SheetTableFetcher;
   /** 메인 헤더 행(0=어댑터 자동탐지) */
   headerRow?: number;
   /** 일괄 저장 경로의 영구 번호미정 할당기 */
@@ -132,8 +158,10 @@ export async function importAutoplusMerged(opts: {
   depositRule?: DepositRule;
 }): Promise<AutoplusImportResult> {
   const headerRow = opts.headerRow ?? 0;
-  const mainRaw = await opts.fetchTable(opts.url, AUTOPLUS_GID_MAIN);
-  const promoRaw = await opts.fetchTable(opts.url, AUTOPLUS_GID_PROMO);
+  // 오토플러스는 공급사가 행을 숨기거나 필터로 내리는 방식으로 판매 목록을 운영한다.
+  // CSV export는 그 행까지 되살리므로, 이 어댑터만 Sheets 행 메타데이터 경로를 강제한다.
+  const mainRaw = await opts.fetchTable(opts.url, AUTOPLUS_GID_MAIN, { visibleRowsOnly: true });
+  const promoRaw = await opts.fetchTable(opts.url, AUTOPLUS_GID_PROMO, { visibleRowsOnly: true });
   const tabResponses = new Map<string, string>();
   assertDistinctSheetTable(tabResponses, mainRaw, `본탭 gid ${AUTOPLUS_GID_MAIN}`);
   assertDistinctSheetTable(tabResponses, promoRaw, `프로모션 gid ${AUTOPLUS_GID_PROMO}`);

@@ -434,17 +434,35 @@ export async function commitSheetProducts(companyId: string, products: EntityRec
   if (plan.creates.length) {
     const deleted = await listDeletedProductsForSheetReconcile(companyId, true);
     if (deleted.length) {
-      const deadKeys = new Set(deleted.map((r) => String(r._key || r.product_code || '')).filter(Boolean));
+      const deadByKey = new Map(
+        deleted
+          .map((row) => [String(row._key || row.product_code || ''), row] as const)
+          .filter(([key]) => !!key),
+      );
       const now = new Date().toISOString();
+      const revivePatches: GuardedProductPatch[] = [];
       for (const row of plan.creates) {
         const key = String(row.product_code || row._key || '');
-        if (!key || !deadKeys.has(key)) continue;
-        await store.update('product', companyId, key, {
-          ...row,
-          _deleted: null, deletedAt: null, status: null,
-          revived_at: now,
-        } as EntityRecord);
-        revivedKeys.add(key);
+        const expected = deadByKey.get(key);
+        if (!key || !expected) continue;
+        revivePatches.push({
+          key,
+          expected,
+          patch: {
+            // Sheet는 공개 재고 writer다. 되살림도 수수료·원가·VIN·계좌 private 원자를
+            // 건드리지 않아 공개/비공개 2단 트랜잭션의 부분 성공을 만들지 않는다.
+            ...stripSheetPrivatePatchFields(row),
+            _deleted: null, deletedAt: null, status: null,
+            revived_at: now,
+          } as EntityRecord,
+        });
+      }
+      if (revivePatches.length) {
+        const guarded = await store.bulkPatchGuardedProduct(companyId, revivePatches);
+        for (const item of revivePatches.slice(0, guarded.updated)) revivedKeys.add(item.key);
+        if (guarded.conflicts.length) {
+          throw new Error(`삭제 재고가 저장 중 변경됐습니다(${guarded.conflicts.slice(0, 5).join(', ')}). 데이터 검증을 다시 실행하세요.`);
+        }
       }
     }
   }

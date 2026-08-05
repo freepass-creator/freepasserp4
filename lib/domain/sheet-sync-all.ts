@@ -106,7 +106,11 @@ export function sheetPartnerSyncRevision(p: EntityRecord): string {
 }
 
 export function isWebInventoryPartner(p: EntityRecord): boolean {
-  return String(p.inventory_source || '').trim() === 'ironrentcar_web';
+  const code = String(p.partner_code || p._key || '').trim();
+  // RP006은 첫 홈페이지 반영 전에도 이미 홈페이지 전용 검증 UI를 사용한다.
+  // inventory_source 표식은 첫 apply가 성공해야 저장되므로 그것만 보면, 전환 직전의
+  // 낡은 sheet_url이 전체 시트 roster에 다시 들어와 홈페이지와 이중 정본이 된다.
+  return code === 'RP006' || String(p.inventory_source || '').trim() === 'ironrentcar_web';
 }
 
 function isSheetPartnerRecord(p: EntityRecord): boolean {
@@ -740,7 +744,8 @@ export async function fetchAllPartnerSheets(
       const products: EntityRecord[] = [];
       const seen = new Set<string>();
       let sourceRows = 0, imported = 0, excluded = 0, noPrice = 0, skipped = 0;
-      let duplicate = 0, invalid = 0, high = 0, low = 0;
+      let duplicate = 0, blockingDuplicate = 0, crossTabOverlap = 0;
+      let invalid = 0, high = 0, low = 0;
       const issueSamples: string[] = [];
       const tabNotes: string[] = [];
       const tabResponses = new Map<string, string>();
@@ -764,6 +769,7 @@ export async function fetchAllPartnerSheets(
           noPrice += r.noPriceCount;
           skipped += r.skipped;
           duplicate += r.duplicateCount;
+          blockingDuplicate += r.duplicateCount;
           invalid += r.invalidCount;
           for (const issue of r.issueSamples) {
             if (issueSamples.length < 12) issueSamples.push(`${g ? `gid ${g} · ` : ''}${issue}`);
@@ -775,6 +781,8 @@ export async function fetchAllPartnerSheets(
             const k = String(rec.product_code || rec._key || '');
             if (k && seen.has(k)) {
               skipped++; duplicate++;
+              if (o.adapter.id === 'ianka') crossTabOverlap++;
+              else blockingDuplicate++;
               if (issueSamples.length < 12) issueSamples.push(`${g ? `gid ${g} · ` : ''}탭 중복 · ${String(rec.car_number || k)}`);
               continue;
             }
@@ -798,11 +806,11 @@ export async function fetchAllPartnerSheets(
         code, label, ok: !zeroUpload && !partialTabFailure, sourceRowCount: sourceRows, imported,
         excludedCount: excluded, noPriceCount: noPrice, skippedCount: skipped,
         duplicateCount: duplicate, invalidCount: invalid, issueSamples,
-        blockingDuplicateCount: duplicate,
+        blockingDuplicateCount: blockingDuplicate,
         // 기존 map을 그대로 재사용하면 dirty=false다. 그래도 번호미정 매물이 있으면
         // 영구 매핑이 존재한다는 증거를 commit snapshot에 반드시 포함한다.
         plateAlloc: products.some(isPendingSheetRow) ? allocator.snapshot() : undefined,
-        message: `${zeroUpload || partialTabFailure ? '✗' : '✓'} ${label} [${o.adapter.id}${tabs.length > 1 ? ` ${tabs.length}탭` : ''}] — ${imported}매물 (확정 ${high}·검수 ${low}${excluded ? ` · 출고불가 제외 ${excluded}` : ''}${noPrice ? ` · 가격없어 제외 ${noPrice}` : ''}${duplicate ? ` · 중복 ${duplicate}` : ''}${invalid ? ` · 무효 ${invalid}` : ''}${zeroUpload ? ' · 올림0 안전차단' : ''}${partialTabFailure ? ` · 탭 실패: ${tabNotes.join(' · ')}` : ''})`,
+        message: `${zeroUpload || partialTabFailure ? '✗' : '✓'} ${label} [${o.adapter.id}${tabs.length > 1 ? ` ${tabs.length}탭` : ''}] — ${imported}매물 (확정 ${high}·검수 ${low}${excluded ? ` · 출고불가 제외 ${excluded}` : ''}${noPrice ? ` · 가격없어 제외 ${noPrice}` : ''}${crossTabOverlap ? ` · 탭 겹침 ${crossTabOverlap}(우선탭 유지)` : ''}${blockingDuplicate ? ` · 차단 중복 ${blockingDuplicate}` : ''}${invalid ? ` · 무효 ${invalid}` : ''}${zeroUpload ? ' · 올림0 안전차단' : ''}${partialTabFailure ? ` · 탭 실패: ${tabNotes.join(' · ')}` : ''})`,
         products,
       };
     } catch (e) {

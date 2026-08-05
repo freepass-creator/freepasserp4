@@ -171,13 +171,34 @@ export function autoMapHeaders(headers: string[]): MappingProfile {
   return map;
 }
 
+export type SheetTableFetchOptions = {
+  /** CSV가 감추는 Sheets 필터·숨김 행 메타데이터를 적용한다. */
+  visibleRowsOnly?: boolean;
+  /** privileged Sheets API 경로의 관리자 Firebase ID token. */
+  authorization?: string;
+};
+
+export type SheetTableFetcher = (
+  url: string,
+  gid?: string,
+  options?: SheetTableFetchOptions,
+) => Promise<string[][]>;
+
 /** 클라이언트: 구글시트 URL → 표(table). /api/sheet 경유(CORS 회피). 실패 시 throw(사유 포함). */
-export async function fetchSheetTable(url: string, gid?: string): Promise<string[][]> {
-  const r = await fetch(`/api/sheet?url=${encodeURIComponent(url)}${gid ? `&gid=${encodeURIComponent(gid)}` : ''}`, {
+export async function fetchSheetTable(
+  url: string,
+  gid?: string,
+  options: SheetTableFetchOptions = {},
+): Promise<string[][]> {
+  const r = await fetch(`/api/sheet?url=${encodeURIComponent(url)}${gid ? `&gid=${encodeURIComponent(gid)}` : ''}${options.visibleRowsOnly ? '&visible=1' : ''}`, {
     cache: 'no-store',
+    headers: options.authorization ? { Authorization: `Bearer ${options.authorization}` } : undefined,
   });
   const d = await r.json().catch(() => ({ ok: false, error: '응답 파싱 실패' }));
   if (!d.ok) throw new Error(d.error || `시트 로드 실패 (${r.status})`);
+  if (Array.isArray(d.rows)) {
+    return d.rows.map((row: unknown) => Array.isArray(row) ? row.map((cell) => String(cell ?? '')) : []);
+  }
   return parseDelimited(String(d.csv || ''));
 }
 
@@ -536,24 +557,26 @@ export function importSheetTable(table: string[][], opts: {
   const depositRule = parseDepositRule(opts.depositRule);
   const hasSavedProfile = !!savedProfile;
   const mapping = hasSavedProfile ? { ...savedProfile } : { ...autoMapping };
-  // 저장 매핑은 컬럼 index다. 공급사가 열을 삽입·이동했는데 예전 index를 그대로 쓰면
-  // 차번·차종·가격이 서로 다른 열로 밀려도 정상 레코드처럼 보인다. 현재 헤더에서 같은 필드를
-  // 다시 찾을 수 있다면 위치가 달라진 순간 fail-closed하고 명시적 재매핑을 요구한다.
+  // 저장 index는 과거 위치일 뿐 정본이 아니다. signature가 있으면 현재 헤더 이름을 다시 찾아
+  // 새 위치로 매핑한다. 공급사가 열을 삽입·이동해도 같은 이름이면 계속 연동되고,
+  // 이름이 없어지거나 중복되면 다른 열을 잘못 읽지 않도록 fail-closed한다.
   if (hasSavedProfile) {
     for (const [field, savedIndex] of Object.entries(mapping)) {
-      if (!Number.isInteger(savedIndex) || savedIndex < 0 || savedIndex >= headers.length) {
-        throw new Error(`시트 헤더 이동 감지 — ${field} 매핑을 다시 저장하세요`);
-      }
-      const currentHeader = normalizeSheetHeader(headers[savedIndex]);
       const savedHeader = normalizeSheetHeader(savedHeaders?.[field]);
       if (savedHeader) {
-        if (currentHeader !== savedHeader) {
-          throw new Error(`시트 헤더 변경 감지 — ${field} 매핑을 다시 저장하세요`);
-        }
+        const matches = headers
+          .map((header, index) => normalizeSheetHeader(header) === savedHeader ? index : -1)
+          .filter((index) => index >= 0);
+        if (!matches.length) throw new Error(`시트 헤더 없음 — ${field}(${savedHeaders?.[field]}) 매핑을 확인하세요`);
+        if (matches.length > 1) throw new Error(`시트 헤더 중복 — ${field}(${savedHeaders?.[field]}) 열을 하나로 정리하세요`);
+        mapping[field] = matches[0];
         continue;
       }
       // signature 없는 레거시 프로필은 알려진 별칭이 같은 index에서 재탐지될 때만
       // 허용한다. 커스텀 헤더는 현재 표를 보고 1회 재매핑해야 한다.
+      if (!Number.isInteger(savedIndex) || savedIndex < 0 || savedIndex >= headers.length) {
+        throw new Error(`시트 헤더 이동 감지 — ${field} 매핑을 다시 저장하세요`);
+      }
       if (autoMapping[field] !== savedIndex) {
         throw new Error(`시트 헤더 검증 필요 — ${field} 매핑을 다시 저장하세요`);
       }
@@ -607,7 +630,15 @@ export function importSheetTable(table: string[][], opts: {
     const rawCar = String(rec.car_number || '').trim();
     let car = rawCar.replace(/\s/g, '');
     let pendingSig = '';
-    const pendingMarker = !car || /^(?:-|–|—|0|미정|번호미정|차량미정|신차|미등록|미발급)$/i.test(car);
+    const explicitPreReleased = /^(?:신차(?:\(선출고\))?|신차렌트|신차구독)$/i.test(
+      String(rec.product_type || '').replace(/\s/g, ''),
+    );
+    // 이안카처럼 번호판 미발급 신차의 차번 칸에 차명을 적는 양식이 있다. 일반 설명문을
+    // 전부 허용하지 않고, 구분이 명시적 신차이며 번호판 오타 형태도 아닐 때만 pending 처리한다.
+    const looksLikeMalformedPlate = /\d{2,3}[가-힣]\d{3,5}/.test(car);
+    const pendingMarker = !car
+      || /^(?:-|–|—|0|미정|번호미정|차량미정|신차(?:\(선출고\))?|미등록|미발급)$/i.test(car)
+      || (explicitPreReleased && !looksLikeMalformedPlate);
     // 시트 차번은 전체 셀이 정확한 번호판 형식이어야 한다. 부분일치(12가34567,
     // "차량 12가3456 확인")를 새 상품키로 만들면 기존 정상차가 부재 차단된다.
     const exactPlate = isExactRealPlate(car);

@@ -33,14 +33,13 @@ function mergeRows(v3: EntityRecord[], v4: EntityRecord[]): EntityRecord[] {
 
 async function protectionState(): Promise<{ products: EntityRecord[]; contracts: EntityRecord[] }> {
   const db = firebaseAdminDatabase();
-  const [v3Products, v4Products, v3Contracts, v4Contracts] = await Promise.all([
-    db.ref('products').get(),
+  const [v4Products, v3Contracts, v4Contracts] = await Promise.all([
     db.ref('v4/products').get(),
     db.ref('contracts').get(),
     db.ref('v4/contracts').get(),
   ]);
   return {
-    products: mergeRows(rows(v3Products.val()), rows(v4Products.val())),
+    products: rows(v4Products.val()),
     contracts: mergeRows(rows(v3Contracts.val()), rows(v4Contracts.val())),
   };
 }

@@ -18,12 +18,12 @@ export async function GET(request: Request): Promise<Response> {
   if (!admin) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   try {
     const database = firebaseAdminDatabase();
-    const [catalog, v3Snapshot, v4Snapshot] = await Promise.all([
+    const [catalog, v4Snapshot] = await Promise.all([
       fetchIronRentcarCatalog(),
-      database.ref('products').get(),
       database.ref('v4/products').get(),
     ]);
-    const existing = mergeV3V4Records('product', v3Snapshot.val(), v4Snapshot.val());
+    // 홈페이지 재고는 ERP4 독립 정본이다. ERP3 products를 합치면 초기화한 구 재고가 재유입된다.
+    const existing = mergeV3V4Records('product', null, v4Snapshot.val());
     const plan = planIronRentcarReconcile({
       webItems: catalog.items,
       existing,

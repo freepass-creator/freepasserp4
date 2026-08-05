@@ -16,6 +16,24 @@ const privateLeak = products.filter((product) => 'vehicle_price' in product).len
 console.log(`아이언 웹 read-only: 전체 ${catalog.listings} · 활성 ${catalog.active} · 판매완료 ${catalog.sold} · 신차 ${catalog.newCount} · 중고 ${catalog.usedCount}`);
 console.log(`상세 변환: ${catalog.items.length}/${catalog.listings} · 오류 ${catalog.errors.length} · 차번누락 ${missingPlate} · 가격누락 ${missingPrice} · 사진누락 ${missingImage} · 중복차번 ${duplicatePlates} · 공개원가누수 ${privateLeak}`);
 console.log(`revision=${catalog.revision} complete=${catalog.complete}`);
+if (process.argv.includes('--show-source')) {
+  for (const item of catalog.items) {
+    const raw = item.product._raw_vehicle && typeof item.product._raw_vehicle === 'object'
+      ? item.product._raw_vehicle as Record<string, unknown>
+      : {};
+    console.log([
+      item.externalId,
+      item.product.car_number,
+      raw.title,
+      `maker=${item.product.maker || ''}`,
+      `model=${item.product.model || ''}`,
+      `sub=${item.product.sub_model || ''}`,
+      `variant=${item.product.variant || ''}`,
+      `trim=${item.product.trim_name || ''}`,
+      `periods=${Object.keys((item.product.price || {}) as object).sort().join('/')}`,
+    ].join(' · '));
+  }
+}
 if (!catalog.complete || missingPlate || missingPrice || missingImage || duplicatePlates || privateLeak) {
   if (catalog.errors.length) console.error(catalog.errors.slice(0, 5));
   process.exit(1);
@@ -27,10 +45,19 @@ const arg = (name: string): string => {
 };
 const v3File = arg('--v3');
 const v4File = arg('--v4');
+const backupFile = arg('--backup');
 const showCandidates = process.argv.includes('--show-candidates');
-if (v3File && v4File) {
-  const v3 = JSON.parse(readFileSync(v3File, 'utf8')) as Record<string, EntityRecord> | null;
-  const v4 = JSON.parse(readFileSync(v4File, 'utf8')) as Record<string, EntityRecord> | null;
+if ((v3File && v4File) || backupFile) {
+  const backup = backupFile
+    ? JSON.parse(readFileSync(backupFile, 'utf8')) as {
+      products?: Record<string, EntityRecord> | null;
+      v4?: { products?: Record<string, EntityRecord> | null };
+    }
+    : null;
+  const v3 = backup?.products
+    || JSON.parse(readFileSync(v3File, 'utf8')) as Record<string, EntityRecord> | null;
+  const v4 = backup?.v4?.products
+    || JSON.parse(readFileSync(v4File, 'utf8')) as Record<string, EntityRecord> | null;
   const existing = mergeV3V4Records('product', v3, v4);
   const plan = planIronRentcarReconcile({
     webItems: catalog.items,

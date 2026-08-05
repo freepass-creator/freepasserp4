@@ -10,6 +10,7 @@ import {
   badges, Plate, idParts, CardBenefits, CardEvents, OptionChips,
 } from '@/components/product-card-atoms';
 import { FavHeart } from '@/components/FavHeart';
+import { ProductPhotoImage, ProductPhotoPlaceholder } from '@/components/ProductPhoto';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 /**
@@ -93,7 +94,12 @@ export function ProductDetail({ p, audience }: { p: EntityRecord; audience?: Aud
             }}
             style={{ position: 'relative', aspectRatio: '16 / 10', background: C.placeholder, borderRadius: R, overflow: 'hidden', cursor: 'zoom-in', touchAction: 'pan-y', userSelect: 'none' }}
           >
-            <img src={photos[mainIdx]} alt="" draggable={false} style={{ width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none' }} />
+            <ProductPhotoImage
+              src={photos[mainIdx]}
+              alt=""
+              draggable={false}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none' }}
+            />
             {photos.length > 1 && (
               <>
                 <IconBtn
@@ -139,15 +145,21 @@ export function ProductDetail({ p, audience }: { p: EntityRecord; audience?: Aud
                     padding: 0, background: C.placeholder, cursor: 'inherit',
                   }}
                 >
-                  <img src={ph} alt="" draggable={false} style={{ width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none' }} />
+                  <ProductPhotoImage
+                    src={ph}
+                    alt=""
+                    draggable={false}
+                    compactPlaceholder
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none' }}
+                  />
                 </IconBtn>
               ))}
             </div>
           )}
         </div>
       ) : (
-        <div style={{ position: 'relative', aspectRatio: '16 / 10', background: C.placeholder, borderRadius: R, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.faint, fontSize: FS.sub }}>
-          사진 준비중
+        <div style={{ position: 'relative', aspectRatio: '16 / 10', background: C.placeholder, borderRadius: R, overflow: 'hidden' }}>
+          <ProductPhotoPlaceholder style={{ position: 'absolute', inset: 0 }} />
           {aud !== 'customer' && <span style={{ position: 'absolute', top: 8, right: 8 }}><FavHeart p={p} onPhoto /></span>}
         </div>
       )}
@@ -230,7 +242,15 @@ export function ProductDetail({ p, audience }: { p: EntityRecord; audience?: Aud
             }}
           />
           <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: 880, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {photos.map((ph, i) => <img key={i} src={ph} alt="" style={{ width: '100%', height: 'auto', borderRadius: R, display: 'block' }} />)}
+            {photos.map((ph, i) => (
+              <ProductPhotoImage
+                key={i}
+                src={ph}
+                alt=""
+                style={{ width: '100%', height: 'auto', borderRadius: R, display: 'block' }}
+                fallbackStyle={{ aspectRatio: '16 / 10' }}
+              />
+            ))}
           </div>
         </div>
       )}

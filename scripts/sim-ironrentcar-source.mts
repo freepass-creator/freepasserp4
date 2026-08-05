@@ -36,6 +36,8 @@ check('36개월 만원 변환', (detail.product.price as Record<string, { rent: 
 check('보증금 변환', (detail.product.price as Record<string, { deposit: number }>)['48'].deposit, 1_400_000);
 check('사진 원본 URL 복원', (detail.product.image_urls as string[])[0], 'https://cdn.example.test/car/01.jpeg');
 check('사진 중복 없이 두 장', (detail.product.image_urls as string[]).length, 2);
+check('상세 HTML URL은 사진링크에 넣지 않음', detail.product.photo_link, '');
+check('상세 원본은 source_url로 보존', detail.product.source_url, 'https://ironrentcar.com/vehicles/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb?condition=new');
 check('옵션 결합', detail.product.options, '현대스마트센스1, 파킹어시스트');
 check('차량가 공개상품 제외', 'vehicle_price' in detail.product, false);
 check('차량가 private 분리', detail.privateProduct.vehicle_price, 45_600_000);

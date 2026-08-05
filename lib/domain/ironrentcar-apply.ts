@@ -25,14 +25,16 @@ function active(row: EntityRecord): boolean {
 }
 
 /**
- * `v4/products` 부모 transaction 안에서만 호출하는 순수 적용기다.
- * 공개 상품 전체가 한 번에 commit되거나, 한 건의 CAS/중복 충돌에도 전부 중단된다.
+ * 서버가 준비 원장을 만든 뒤 실행하는 `v4` root transaction의 상품 계산용 순수 적용기다.
+ * affected 공개 상품이 한 번에 commit되거나, 한 건의 CAS/중복 충돌에도 전부 중단된다.
  * 차량가·VIN·계좌·수수료는 이 경로에 들어오지 않는다.
  */
 export function applyIronRentcarPublicOverlay(input: {
   currentOverlay: unknown;
   plan: IronRentcarReconcilePlan;
   now: string;
+  runId?: string;
+  revision?: string;
 }): IronRentcarOverlayApplyResult {
   const overlay = { ...((input.currentOverlay || {}) as Record<string, EntityRecord>) };
   const conflicts: string[] = [];
@@ -58,6 +60,9 @@ export function applyIronRentcarPublicOverlay(input: {
       product_code: text(candidate.expected.product_code || candidate.key),
       provider_company_code: publicPatch.provider_company_code || candidate.expected.provider_company_code,
       updatedAt: input.now,
+      ...(input.runId ? { ironrentcar_sync_run_id: input.runId } : {}),
+      ...(input.revision ? { ironrentcar_sync_revision: input.revision } : {}),
+      ...(input.runId || input.revision ? { ironrentcar_synced_at: input.now } : {}),
       ...(absent ? { ironrentcar_blocked_at: input.now } : {}),
     });
   }
@@ -66,7 +71,10 @@ export function applyIronRentcarPublicOverlay(input: {
     const publicProduct = splitProductPrivate(product).publicRecord;
     const key = text(publicProduct.product_code || publicProduct._key);
     const plate = plateOf(publicProduct);
-    if (!key || !plate || overlay[key]) {
+    const currentAtKey = overlay[key] && typeof overlay[key] === 'object' ? overlay[key] : null;
+    // 같은 canonical key의 삭제 tombstone은 홈페이지에서 차량이 다시 판매중으로
+    // 등장했을 때 새 활성 overlay로 교체한다. 활성 row가 있으면 기존대로 CAS 충돌이다.
+    if (!key || !plate || (currentAtKey && active(currentAtKey))) {
       conflicts.push(key || `plate:${plate || 'missing'}`);
       continue;
     }
@@ -84,6 +92,9 @@ export function applyIronRentcarPublicOverlay(input: {
       provider_company_code: input.plan.providerCode,
       createdAt: input.now,
       updatedAt: input.now,
+      ...(input.runId ? { ironrentcar_sync_run_id: input.runId } : {}),
+      ...(input.revision ? { ironrentcar_sync_revision: input.revision } : {}),
+      ...(input.runId || input.revision ? { ironrentcar_synced_at: input.now } : {}),
     });
   }
 

@@ -82,7 +82,10 @@ async function main() {
     if (!id) continue;
     const adapter = resolveAdapter(p as never);
     const gids = (S(p.sheet_gid) || S(p.sheet_tab) || '').split(/[,\s|]+/).filter(Boolean);
-    const fetchTable = async (url: string, gid?: string) => {
+    const fetchTable = async (url: string, gid?: string, options: { visibleRowsOnly?: boolean } = {}) => {
+      if (options.visibleRowsOnly) {
+        throw new Error('오토플러스 숨김 행 제외는 관리자 상품 검증/API 경로로만 실행하세요');
+      }
       const sid = (url.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/) || [])[1] || id;
       const res = await fetch(`https://docs.google.com/spreadsheets/d/${sid}/export?format=csv${gid ? `&gid=${gid}` : ''}`, { redirect: 'follow' });
       if (!res.ok) throw new Error(`CSV ${res.status}`);

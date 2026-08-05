@@ -6,6 +6,9 @@ import { join } from 'node:path';
 import { allowedHost } from '@/lib/net/proxy-hosts';
 import { resolveGoogleSheetCsvUrl } from '@/lib/domain/sheet-url';
 import { parseDelimited } from '@/lib/domain/sheet-import';
+import type { SheetTableFetchOptions } from '@/lib/domain/sheet-import';
+import { extractGoogleSheetId } from '@/lib/domain/sheet-url';
+import { fetchVisibleGoogleSheetTable } from '@/lib/server/google-sheet-visible';
 import { fetchAllPartnerSheets } from '@/lib/domain/sheet-sync-all';
 import { planDailySheetSync, type DailySheetSyncPlan } from '@/lib/domain/sheet-daily-sync';
 import { productPatchPreconditionMatches } from '@/lib/domain/product-write-guard';
@@ -41,7 +44,16 @@ const clean = <T>(value: T): T => {
   return value;
 };
 
-async function fetchSheetTableDirect(url: string, gid?: string): Promise<string[][]> {
+async function fetchSheetTableDirect(
+  url: string,
+  gid?: string,
+  options: SheetTableFetchOptions = {},
+): Promise<string[][]> {
+  if (options.visibleRowsOnly) {
+    const spreadsheetId = extractGoogleSheetId(url);
+    if (!spreadsheetId || !gid) throw new Error('숨김 행 제외 연동은 일반 시트 URL과 gid가 필요합니다');
+    return (await fetchVisibleGoogleSheetTable(spreadsheetId, gid)).rows;
+  }
   const csvUrl = resolveGoogleSheetCsvUrl(url, gid);
   if (!allowedHost(csvUrl, 'sheet')) throw new Error('허용되지 않은 Google Sheet 호스트');
   const response = await fetch(csvUrl, {
@@ -90,8 +102,9 @@ async function readProducts(db: Database, companyId: string): Promise<{
   active: EntityRecord[];
   deleted: EntityRecord[];
 }> {
-  const [v3, v4, privateSnap] = await Promise.all([
-    db.ref('products').get(),
+  // ERP4 재고는 공급사 원본에서 독립 구축한다. ERP3 products는 채팅·계약·정산 이력과 달리
+  // 연동 정본도 fallback도 아니다. 여기서 섞으면 초기화한 낡은 재고가 다시 살아난다.
+  const [v4, privateSnap] = await Promise.all([
     db.ref('v4/products').get(),
     db.ref('v4/products_private').get(),
   ]);
@@ -100,10 +113,8 @@ async function readProducts(db: Database, companyId: string): Promise<{
     if (!row || typeof row !== 'object') continue;
     privateByCode.set(String(row.product_code || key), { ...row, _key: key, product_code: row.product_code || key });
   }
-  const all = mergeRows(
-    normalizedRows('product', v3.val(), companyId),
-    normalizedRows('product', v4.val(), companyId),
-  ).map((row) => mergeProductPrivate(row, privateByCode.get(String(row.product_code || row._key))));
+  const all = normalizedRows('product', v4.val(), companyId)
+    .map((row) => mergeProductPrivate(row, privateByCode.get(String(row.product_code || row._key))));
   return {
     active: all.filter((row) => row._deleted !== true && !row.deletedAt && String(row.status || '') !== 'deleted'),
     deleted: all.filter((row) => row._deleted === true || !!row.deletedAt || String(row.status || '') === 'deleted'),

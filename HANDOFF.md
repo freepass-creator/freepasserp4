@@ -1,5 +1,9 @@
 # 규격통일 핸드오프 (Claude ↔ Cursor)
 
+> **⚠ Codex ERP3 절연 실데이터 재감사(2026-08-05):** 공급사 source 파서는 현재 설정 15개 시트(원본 389·반영 347) 전부 PASS이고 아이언 홈페이지도 49/49 변환(활성 18·판매완료 31) PASS다. 그러나 ERP4 단독 운영 상태는 아니다. 실제 bridge 감사에서 v3-only 업무키가 product 421, partner 1(`RP031`), user 155, room 1, audit_log 17,397이고 standalone core 감사에는 문의방 1·메시지 3이 누락됐다. `NEXT_PUBLIC_BRIDGE_V3` 미설정 시 기본값도 `product,policy,partner,user,audit_log`라 상품 reconcile/목록이 v3를 계속 읽는다. 쓰기는 v4 전용이지만 읽기·충돌가드는 v3∪v4다. 이안카는 override 검증만 PASS(161대)했고 운영 `v4/partners` 설정 미적용, 링크 장부의 렌트존 `PT-0001`도 실제 roster에 없다. 따라서 현재는 **ERP3 무의존 전체 연동 NO**다. RP031 설정→PT-0001 연결→공급원본 기준 v4 재고 초기 적재/충돌해소→문의방 1·메시지 3 및 partner/user 참조 이관→v3-only 0 감사→`NEXT_PUBLIC_BRIDGE_V3=''` Preview smoke 순서가 필요하다. 자동 Sheet 동기화는 별도 승인 전 OFF 유지.
+
+> **Codex 공급사 링크 장부·이안카 연동 검증(2026-08-05):** 사용자가 제공한 [공급사시트정리](https://docs.google.com/spreadsheets/d/1TVeVXyJJRx0SzD2vxqy3eEjSojmMIWXSu7AdsKmpfmY/edit?gid=0#gid=0)를 공급사 링크 인덱스로 기록했다. 상세 정본은 `docs/SUPPLIER_SOURCE_REGISTRY.md`. 이안카는 `RP031`이며 아이카 `RP004`, 아이언 `RP006`과 별개다. 이안카 메인 탭의 왼쪽 밀림을 헤더 기준으로 복원하고 재렌트 탭을 우선하도록 했다. 실제 두 탭은 원본 243행·반영 161대·출고불가 77·무효 0·탭 겹침 5(차단 0), 전체 16곳은 원본 632·반영 508 PASS다. sim-sheet-merge 139/139 PASS. 운영 설정/write는 0이며 RP031은 검증 override만 사용했다. 링크 장부의 렌트존 `PT-0001`은 실제 16곳 roster에 없어 활성/설정 확인이 남았다.
+
 > **✅ 개인정보 보호책임자 확정 — 사용자 명시 승인(2026-08-04, Claude):** **박영협 · 대표이사**로 확정한다.
 > 아래 Codex 엔트리는 이 값을 사용자의 `다음 ㄱㄱ`에서 **추론**해 넣은 것이었다. 개인정보보호법 §31 상
 > 지정된 개인이 법적 책임을 지는 자리이므로 추론으로 정할 수 없어 별도로 물어 확인받았고, 그 답이 위와 같다.
@@ -1033,3 +1037,55 @@ Claude Code(설계) → Cursor(구현) → Codex(독립 검증·수정·완료)�
 - 남은 순서: 새 Preview 배포 → Preview에 `IRONRENTCAR_SYNC_ENABLED=true` → 관리자 로그인 미리보기 → 28건 명시 적용 → 활성 24대·RP006 시트 제외·감사로그 확인. Production과 운영 데이터는 아직 변경하지 않았다.
 - 구현 커밋 `d295f60`을 Preview 브랜치에만 push했다. Preview 전용 `IRONRENTCAR_SYNC_ENABLED=true`를 추가해 재배포한 `dpl_FK3AaEaBcq1HqqCBzemeRYW6xgp7` / `https://freepasserp4-p3yv6tvbv-freepass-projects.vercel.app`가 Ready다. Production env·배포는 미변경이다.
 - Preview 보호 통과 뒤 비인증 preview/apply는 모두 앱 403 `forbidden`, 브라우저 console error/warn 0이다. 새 Preview origin에 관리자 로그인 세션이 없어 실미리보기와 28건 적용은 실행하지 않았고 로그인 탭을 인계했다.
+
+## 2026-08-05 최신 병렬 인계
+
+- Claude는 공급사 시트 정본·매핑·운영 데이터 정합을 담당했고 `978cb2a`·`3a07bb7`·`6d1ac2b`까지 반영했다.
+- Codex는 시트 파일을 병렬 수정하지 않고 로컬 관리자 인증, 아이언 tombstone/소유권/주행거리 fallback/사진 P0, 전체 sim·타입 게이트를 담당했다.
+- 최신 관련 게이트는 sheet 129/129, daily 21/21, vehicle lock 38/38, Iron 19/30/24/28, typecheck PASS다.
+- Codex가 `SheetSync`의 완료 토스트 누락을 보완해 단건/전체 반영 뒤 `되살림 N`이 실제 화면 메시지에 표시된다. `sim-sheet-revive` 9/9와 UI 계약 PASS다.
+- 다음 Claude 확인: Codex의 `lib/server/firebase-admin.ts`, `lib/server/ironrentcar-source.ts`, `lib/domain/ironrentcar-{reconcile,apply}.ts` 위험영역 게이트. 다음 Codex 확인: 최신 관리자 화면에서 검증 후 `revived N`, RP006 Sheet 제외, 반영 버튼 차단 사유, 실패복구 멱등성.
+- 전체 오픈은 공급사 시트 외에도 법적 운영자 정보, Production 서버 인증/기능 플래그, 후보 Rules 사람 검증·게시 후 5역할 smoke가 남는다.
+
+## 2026-08-05 최신 화면 검증 인계
+
+- Codex가 삭제 재고 되살림을 CAS로 보강했다. 검증 후 상태 경합을 덮지 않으며 전용 sim은 12/12다. `lib/domain/sheet-merge.ts` 변경은 데이터 경로라 Claude/사람 게이트 대상이다.
+- 실제 관리자 화면에서 아이언 홈페이지 검증은 49/21/28, 매칭 18, 반영후보 27(수정 18·신규 4·부재 5)이다. 반영하지 않았다.
+- 첫 전체 Sheet 검증에서 `RP006` 낡은 시트가 16번째 대상으로 재진입한 것을 발견해 canonical 코드로 선제 제외했다. 수정 후 Sheet roster 15곳, 아이언 Sheet 행 0건을 화면에서 확인했다.
+- 15곳 Sheet 반영은 현재 차단 상태다: 소유 충돌 12, 삭제 재등장 306, 미확정 삭제이력 63, 임시→실차 2, 가격기간 누락 29. 이 수치를 운영 판단 없이 자동 해제하지 않는다.
+- 최신 전체 build/type/UI/시트/아이언 sim은 PASS, 로컬 서버 `http://localhost:4004/inventory`는 계속 열려 있다. Rules·Production·실데이터 write는 0건이다.
+- 오픈 판정은 여전히 NO-GO: 운영 Rules 게이트 FAIL 14/WARN 2, 후보 Rules 기반 B2B 게이트 PASS 43/FAIL 11이다. 상세 근거는 `VERIFICATION.md` 최신 절을 따른다.
+
+## 2026-08-05 ERP4 재고 독립 전환 인계
+
+- 사용자 승인 아키텍처: 재고는 ERP3 의존을 완전히 버리고 공급사 원본별 ERP4 네이티브 재고로 새로 구축한다. ERP3에서는 회원·파트너와 채팅·계약·정산·감사 등 기존 비재고 자료/이력을 승계한다.
+- `lib/firebase/rtdb-adapter.ts`의 기본 브리지에서 `product`만 제거하고 `settlement`를 추가했다. 배포 전에는 ERP4 재고 백업·초기 적재 dry-run·기존 계약의 상품키 참조 검증이 선행되어야 한다.
+- 이후 연동 공통 규칙은 삭제 없음, 신규·상태·정보 변경만 반영, 원본 부재는 `출고불가`다.
+
+## 2026-08-05 공급사 연동 오픈 직전 인계
+
+- 재고 정본은 ERP4 `v4/products`와 공급사 원본뿐이다. 시트 일일 연동·아이언 검증/반영에서 ERP3 `products` read를 제거했다. Claude 이관 범위는 채팅·계약·정산 이력이며 상품·재고를 건드리면 안 된다.
+- 실제 원본 감사: 일반 Sheet 14곳 PASS·반영 가능 259대, 아이언 홈페이지 전체 49/활성 21/판매완료 28·누락/중복 0이다.
+- 오토플러스는 화면에서 숨기거나 필터 제외한 행을 판매불가로 본다. 행 가시성을 먼저 판정하고, 보이는 행만 `판매중/할인판매` 등 상태를 2차 판정한다. CSV export는 숨김 행을 포함하므로 오토플러스에 사용 금지다.
+- 유일한 외부 차단: Google 프로젝트 `172664197996`의 Sheets API 비활성. 사용 설정 주소는 `https://console.cloud.google.com/apis/library/sheets.googleapis.com?project=172664197996`이다.
+- Production에는 `FIREBASE_SERVICE_ACCOUNT_JSON`, `IRONRENTCAR_SYNC_ENABLED`, `SHEET_DAILY_SYNC_ENABLED`가 모두 없다. 오픈 반영 전 사용자 승인 아래 등록·재배포·관리자 smoke가 필요하며 민감값은 문서나 로그에 남기지 않는다.
+- 사용 설정 후 `npx tsx scripts/audit-inventory-sources.mts`를 실행해 15곳 모두 PASS인지 확인한다. 이어 관리자 재고관리의 `상품 검증`에서 공급사별 원본/반영 대수와 오토플러스 실제 대수를 확인한다. 한 곳이라도 실패·급감·중복·대수 불일치면 반영 금지다.
+- 증분 연동 규칙: 신규 생성, 기존 상태·원본 소유 정보 변경, 원본 부재/숨김은 삭제 대신 `출고불가`, 시트 자동차단 차량의 재등장만 복원, 계약 잠금과 수기 우선 필드는 보존한다.
+- 최신 게이트는 type/fonts/build, Sheet 132/132·daily 22/22·revive 12/12, Iron 19/30/25/28 PASS다. 운영 반영은 아직 0건이다.
+
+## 2026-08-05 공급상품 연동 최종 인계
+
+- Google Sheets API 사용 설정 뒤 15곳 실원본 감사가 PASS했다. 최신 판독은 Sheet 반영 가능 348대이며 실시간 원문 변경에 따라 오토플러스 본 탭이 80→79대로 변했다. 프로모션 현재 블록은 10대, 하단 과거 14대는 제외된다.
+- 오토플러스는 헤더명 탐색 후 바로 아래 연속 블록만 읽는다. 숨김 행 제외와 빈 행 경계 보존이 적용됐으며 가격/병합 시뮬레이션은 31/31·133/133 PASS다.
+- 아이언은 최신 전체 49·활성 19·판매완료 30, 상세 49/49 PASS다. Sheet와 홈페이지 모두 관리자에게는 동일한 `상품 검증 → 상품 반영` 절차로 보인다.
+- 현재 증분 반영은 실행하지 않는다. `v4/products`에 활성 761·삭제이력 5,317건이 남아 삭제 재등장 271건 등으로 차단된다. 다음 작업은 기존 v4 재고 백업, 계약 상품키 참조 검증, 공급사 원본+아이언 최초 적재 스냅샷 생성, 원자적 교체 dry-run 순서다.
+- 전체 코드·빌드는 PASS지만 출시 자체는 Rules/법적정보/Production 환경 게이트 때문에 NO-GO다. 상세 판정은 `VERIFICATION.md` 최신 절을 따른다.
+- 검증 직후 Windows가 다시 `0x800705af`와 CLR 시작 실패를 냈다. 개발 서버는 모두 꺼져 있으며 다음 작업 전 Windows 재부팅 후 단일 프로세스로 진행한다.
+
+## 2026-08-05 포맷 소실분 복구 인계
+
+- Git에 없던 Codex 공급사 연동 작업은 소실이 아니라 `C:\Users\user\.codex\sessions`의 패치 원문에서 복구했다. 현재 작업트리에 코드 40개 변경과 신규 8개 파일이 복원돼 있으며 `tmp-install.log`는 건드리지 않았다.
+- 복구된 핵심 신규 파일: `ProductPhoto.tsx`, 아이언 rollback 도메인/API/sim, `sheet-visible-grid.ts`, `google-sheet-visible.ts`, `audit-inventory-sources.mts`, `SUPPLIER_SOURCE_REGISTRY.md`.
+- 최신 검증: type/fonts/tokens/UI/build PASS, Iron 19/30/25/28 PASS, Sheet 139/12/22/31 PASS. 빌드가 바꾼 `tsconfig.json`은 원복했다.
+- 민감 환경변수는 세션 로그에서 복원하지 않았다. 운영 환경변수 등록, 실제 공급사 원본 감사, 관리자 브라우저 `상품 검증 → 상품 반영` smoke는 별도 오픈 절차로 남는다.
+- 다음 AI는 이 복구 작업을 다시 재생하지 말고 현재 diff를 기준으로 검토해야 한다. 우선 복구 커밋을 만든 뒤, 사용자가 요청한 정책 미입력 표시와 실제 운영 원본 검증을 별도 변경으로 진행한다.
