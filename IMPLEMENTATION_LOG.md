@@ -1,5 +1,47 @@
 # 구현 로그
 
+## 2026-08-04 — 아이언 홈페이지 연동 서버 원장·안전 롤백
+
+### 완료한 작업
+
+- `v4/inventory_sync_runs/ironrentcar/{runId}` 서버 원장과
+  `v4/inventory_sync_control/ironrentcar` 최신 적용 포인터를 추가했다.
+- 적용 전에 patch/create/absent 대상 키를 합집합·정렬하고, 중복 또는 counts 합 불일치를 차단한다.
+- 적용 전후 affected `v4/products` 전체 객체, RP006 overlay, sync control을 snapshot하고
+  SHA-256 before/after digest, revision, counts, actor, 감사 ID와 함께 `prepared` 상태로 보존한다.
+- affected 상품·RP006·control의 exact before가 유지될 때만 `v4` 서버 transaction으로
+  상품·파트너·control·run=`applied`·완료 감사를 함께 확정한다. 무관 상품은 그대로 보존한다.
+- 상품·RP006에 run ID·revision·적용시각 진단필드를 기록한다.
+- 관리자 전용 `POST /api/inventory/ironrentcar/rollback`을 추가했다.
+  - 확인문·runId·revision·after digest·사유 필수
+  - 최신 적용 run, exact after, 계약 lock 없음일 때만 before 복원
+  - 생성 상품은 v4 child 삭제, v3-only 상품도 v4 child 삭제, 기존 v4 상품은 전체 preimage 복원
+  - 상품 복원 후 파트너 복원 실패 시 `rollback_products_restored`에서 안전하게 재개
+  - 성공 시 RP006와 control을 이전 snapshot으로 복원하고 run=`rolled_back`
+- 적용·롤백 감사에는 run/revision/digest/reason/actor만 결속하고 상품 원문·차번·가격은 넣지 않았다.
+- UI, v3, Rules, 정산엔진, RTDB adapter, `products_private`, 배포, 운영 데이터는 변경하지 않았다.
+
+### Codex 독립검토 후 보완
+
+- 실백업 v4 크기(10,805,856 bytes)와 Firebase single write 한계 사이에 여유를 두고,
+  적용 1곳·롤백 2단계의 proposed `v4` root가 UTF-8 **14MB를 초과하면 409로 차단**한다.
+- 적용 원장 저장 후 CAS 충돌·예외가 나면 원장이 여전히 `prepared`일 때만
+  `apply_failed`·실패시각·비민감 실패코드를 기록하고 별도 실패 감사를 남긴다.
+  이미 `applied`인 run은 실패로 덮지 않는다.
+- rollback preflight와 두 transaction 모두 최신 run ID/revision뿐 아니라
+  저장된 `control_after` 전체 snapshot의 exact 일치도 요구한다.
+
+### 검증
+
+- `npx tsc --noEmit`: PASS
+- `npm run check:fonts`: PASS
+- `npm run check:tokens`: PASS
+- `npm run check:ui`: PASS
+- `npx tsx scripts/sim-ironrentcar-apply.mts`: **22/22 PASS**
+- `npx tsx scripts/sim-ironrentcar-rollback.mts`: **28/28 PASS**
+
+---
+
 ## 2026-08-04 — Production 오픈 환경 게이트 보완
 
 ### 완료한 작업
@@ -1151,3 +1193,37 @@ HTTP 스모크, 전체 자동 시뮬레이션과 production build는 통과한 �
 - 핵심 업무 화면의 표면 액션을 공통 규격으로 전환했다.
 - 모바일 엑셀·정산서·종합표 다운로드/내보내기 액션을 제거했다.
 - 선택 칩·탭·확인 대화상자는 오조작 방지를 위해 텍스트를 유지한다.
+
+## 2026-08-04 — 공급사 시트 매핑 고정 (Claude)
+
+### 한 일
+
+- `scripts/learn-sheet-mapping.mts` 로 16곳 중 **15곳에 `mapping_profile`·`mapping_header_signature` 저장**.
+- 오토플러스는 제외 — 본탭 20열 / 프로모션탭 18열로 헤더가 실제로 다르다.
+  하나로 고정하면 나머지 탭이 드리프트로 막히므로 전용 어댑터에 맡긴다.
+
+### 왜
+
+저장된 프로파일이 **0/16** 이라 동기화할 때마다 헤더 행·컬럼 매핑·어댑터를 매번 다시 추측했다.
+유입 사고(손오공·웰릭스 0대, 오토플러스 18대, 아이카 종합시트)가 반복된 근원이다.
+
+저장하면 `sheet-import.ts:537-555` 의 **fail-closed 드리프트 감지**가 켜진다 —
+공급사가 열을 옮기거나 이름을 바꾸면 조용히 잘못 읽는 대신 던진다.
+그 보호가 지금까지 한 곳도 안 걸려 있었다.
+
+### 검증 (`tmp/verify-pinned-mapping.mts`)
+
+고정 매핑과 자동추측으로 **각각 실제 유입을 돌려 대수를 대조**했다. 고정이 결과를 바꾸면 안 된다.
+
+```
+RP030 7=7 · PT-0023 30=30 · RP004 74=74 · RP006 28=28 · RP008 3=3 · RP010 11=11
+RP012 32=32 · RP013 17=17 · RP015 1=1 · RP016 0=0 · RP017 2=2 · RP018 20=20
+RP020 19=19 · RP021 45=45 · RP022 1=1
+✓ 전부 일치 — 고정해도 유입 결과 동일
+```
+
+### 남은 것
+
+- 공급사가 시트 열을 바꾸면 이제 동기화가 **막힌다**(조용한 오유입 대신). 그때 재학습:
+  `npx tsx scripts/learn-sheet-mapping.mts --only=<코드> --apply`
+- 오토플러스는 전용 어댑터 유지.
