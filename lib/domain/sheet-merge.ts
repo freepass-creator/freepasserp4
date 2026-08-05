@@ -279,6 +279,8 @@ export type CommitSheetResult = {
   unchanged: number;
   duplicates: number;
   backend: string;
+  /** 톰스톤을 걷어내고 되살린 대수 — 시트에 있는데 삭제 상태로 묻혀 있던 것. */
+  revived?: number;
 };
 
 /**
@@ -416,12 +418,46 @@ export async function commitSheetProducts(companyId: string, products: EntityRec
       throw new Error(`ERP 재고가 저장 중 변경됐습니다(${guarded.conflicts.slice(0, 5).join(', ')}). 데이터 검증을 다시 실행하세요.`);
     }
   }
+  // ── 톰스톤 해제 — 시트에 살아 있는 차는 되살린다.
+  //
+  //  `store.save` 는 dedup 집합에 **소프트삭제 키까지** 넣는다(rtdb-adapter:622).
+  //  자연키 재저장으로 아무 삭제 매물이나 부활하는 걸 막으려는 의도이고 그건 맞다.
+  //  그런데 그 때문에 «시트에 멀쩡히 있는 차»가 예전 일괄정리의 톰스톤에 걸려
+  //  영영 안 올라온다 — 실측(2026-08-05): 아이카 6대가 시트에 판매가능인데 화면에 없었다.
+  //
+  //  그래서 부활을 일반 규칙으로 열지 않고 **이 경로에서만** 연다.
+  //  조건 둘을 모두 만족해야 한다 —
+  //    ① 지금 시트가 그 차를 올리고 있다(= plan.creates 에 있다)
+  //    ② 그 키가 삭제 상태다
+  //  시트가 원본이라는 원칙의 직접 귀결이다. 흔적은 `revived_at` 으로 남긴다.
+  const revivedKeys = new Set<string>();
   if (plan.creates.length) {
-    const r: SaveResult = await store.save('product', companyId, plan.creates);
+    const deleted = await listDeletedProductsForSheetReconcile(companyId, true);
+    if (deleted.length) {
+      const deadKeys = new Set(deleted.map((r) => String(r._key || r.product_code || '')).filter(Boolean));
+      const now = new Date().toISOString();
+      for (const row of plan.creates) {
+        const key = String(row.product_code || row._key || '');
+        if (!key || !deadKeys.has(key)) continue;
+        await store.update('product', companyId, key, {
+          ...row,
+          _deleted: null, deletedAt: null, status: null,
+          revived_at: now,
+        } as EntityRecord);
+        revivedKeys.add(key);
+      }
+    }
+  }
+  const freshCreates = revivedKeys.size
+    ? plan.creates.filter((row) => !revivedKeys.has(String(row.product_code || row._key || '')))
+    : plan.creates;
+
+  if (freshCreates.length) {
+    const r: SaveResult = await store.save('product', companyId, freshCreates);
     created = r.saved;
     duplicates = r.duplicates;
   }
-  return { created, updated, unchanged: plan.unchanged, duplicates, backend: store.backend };
+  return { created, updated, unchanged: plan.unchanged, duplicates, backend: store.backend, revived: revivedKeys.size };
 }
 
 export type AbsentPlan = {
