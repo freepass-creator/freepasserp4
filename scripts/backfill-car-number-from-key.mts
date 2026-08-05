@@ -41,6 +41,8 @@ const APPLY = process.argv.includes('--apply');
 const PRICED_ONLY = process.argv.includes('--priced-only');
 /** 번호판 충돌분(=이미 트윈인데 한쪽이 번호판 공란이라 안 잡히던 것)을 대상으로 삼는다. */
 const COLLISIONS = process.argv.includes('--collisions');
+/** 공급사 하나씩 검수·반영하기 위한 한정자. 전량을 한 번에 건드리지 않는다. */
+const CODE = (process.argv.find((a) => a.startsWith('--code=')) || '').slice('--code='.length).trim();
 const S = (v: unknown) => String(v ?? '').trim();
 const PLATE = /^(?:[가-힣]{2})?\d{2,3}[가-힣]\d{4}$/;
 const TEMP = /^100신\d{4,}$/;
@@ -82,6 +84,7 @@ async function main() {
     if (pl && PLATE.test(pl) && !ownerOfPlate.has(pl)) ownerOfPlate.set(pl, S(p._key));
   }
   for (const p of all) {
+    if (CODE && S(p.provider_company_code) !== CODE && !S(p._key).startsWith(`${CODE}_`)) continue;
     const cur = S(p.car_number).replace(/\s/g, '');
     if (cur && PLATE.test(cur)) { skipHasPlate++; continue; }
     if (S(p.vin).length >= 11) { skipHasPlate++; continue; }
