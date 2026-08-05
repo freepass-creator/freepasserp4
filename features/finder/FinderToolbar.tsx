@@ -1,8 +1,7 @@
 'use client';
 
-import { Download, LayoutGrid, List, SlidersHorizontal, Table } from 'lucide-react';
-import type { EntityRecord } from '@/lib/intake/entities';
-import { downloadProductsExcel } from '@/lib/excel-export';
+import { FileSpreadsheet, LayoutGrid, List, SlidersHorizontal, Table } from 'lucide-react';
+import { PRODUCT_SHEET_URL } from '@/lib/product-sheet';
 import { InterestTriggers, type InterestTab } from '@/components/InterestRail';
 import { C, FS, NUM, CountPill, IconBtn, IconSeg, SearchInput, Select } from '@/components/ui';
 import { FINDER_SORTS } from './filter-state';
@@ -28,7 +27,6 @@ type Props = {
   onSort: (value: string) => void;
   view: string;
   onView: (value: string) => void;
-  excelRows: EntityRecord[];
   recentCount: number;
   favoriteCount: number;
   interestTab: InterestTab | null;
@@ -77,10 +75,15 @@ export function FinderToolbar(props: Props) {
           <InterestTriggers recentN={props.recentCount} favN={props.favoriteCount} tab={props.interestTab} onTab={props.onInterestTab} />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto', flex: '0 0 auto' }}>
-          {/* 다운로드 자리 상시 예약 — 뷰 전환 시 우측 그룹 폭이 변해 검색창이 점프하는 것 방지. */}
+          {/* 자리 상시 예약 — 뷰 전환 시 우측 그룹 폭이 변해 검색창이 점프하는 것 방지. */}
+          {/* 엑셀 다운로드를 없애고 구글시트로 보낸다. 시트가 상품리스트의 배포처이고,
+              엑셀 받기·필터·공유가 거기서 다 된다 — 우리가 파일을 만들어 줄 이유가 없다. */}
           <span style={{ display: 'inline-flex', visibility: props.view === 'excel' ? undefined : 'hidden' }} aria-hidden={props.view !== 'excel'}>
-            <IconBtn title="엑셀 다운로드" onClick={() => { if (props.view === 'excel') downloadProductsExcel(props.excelRows, new Date().toISOString().slice(0, 10)); }}>
-              <Download size={16} />
+            <IconBtn
+              title="구글시트로 열기 — 전체 상품 · 엑셀 받기"
+              onClick={() => { if (props.view === 'excel') window.open(PRODUCT_SHEET_URL, '_blank', 'noopener,noreferrer'); }}
+            >
+              <FileSpreadsheet size={16} />
             </IconBtn>
           </span>
           <span style={{ position: 'relative', display: 'inline-flex', flex: '0 0 auto' }}>

@@ -9,7 +9,8 @@ import { activeCount, EMPTY_VEHICLE_FILTER, type VehicleFilter } from '@/lib/dom
 import { isOfferableProduct } from '@/lib/domain/product';
 import { InterestPanel, useInterestLists, useInterestTab, useInterestTabGuard } from '@/components/InterestRail';
 import { clearRecent, clearFavs } from '@/lib/product-interest';
-import { confirmDialog, toast } from '@/components/Toaster';
+import { toast } from '@/components/Toaster';
+import { StartGuide, useStartGuide } from '@/components/StartGuide';
 import { C, R, FS, CenterNote, ContextMenu, useContextMenu } from '@/components/ui';
 import { useAuthReady, useSession } from '@/lib/auth-context';
 import { isGuest } from '@/lib/auth-session';
@@ -264,23 +265,11 @@ export default function Finder() {
     if (f === '0') setFilterOpenState(false);
   }, []);
 
-  // 로그인 후 최초 1회 — 우측 상단 보기(간단·상세·엑셀) 안내. 취소 없음 · 다음에 안보기만.
-  const viewTipAsked = useRef(false);
-  useEffect(() => {
-    if (!authReady || !session || isGuest()) return;
-    if (viewTipAsked.current) return;
-    if (typeof window === 'undefined' || localStorage.getItem('fp4_finder_view_tip')) return;
-    viewTipAsked.current = true;
-    void (async () => {
-      const ok = await confirmDialog({
-        title: '웹 보기',
-        message: '목록 보기(간단·상세·엑셀)는 화면 우측 상단에서 바꿀 수 있습니다.\n기본은 엑셀입니다.',
-        okLabel: '다음에 안보기',
-        hideCancel: true,
-      });
-      if (ok) localStorage.setItem('fp4_finder_view_tip', '1');
-    })();
-  }, [authReady, session?.uid]);
+  // 로그인 후 최초 1회 — 역할별 시작안내(무엇을 어떤 순서로 하는가).
+  //  전에는 확인창을 빌려 「보기 전환」 한 문장만 띄웠다. 처음 온 사람에게 정작 필요한
+  //  «상품 → 문의 → 서류 → 계약» 순서가 어디에도 없었다. 내용 SSOT = lib/domain/onboarding.ts
+  const guideReady = authReady && !!session && !isGuest();
+  const startGuide = useStartGuide(guideReady ? (session?.role || 'agent') : null, guideReady);
 
   const {
     state: s, aggregate: agg, months, present, cascadeProducts,
@@ -454,7 +443,6 @@ export default function Finder() {
           onSort={setSort}
           view={effView}
           onView={setView}
-          excelRows={excelRows}
           recentCount={interestRecent.length}
           favoriteCount={interestFavs.length}
           interestTab={interestTab}
@@ -539,6 +527,9 @@ export default function Finder() {
           </div>
         </BottomSheet>
       )}
+
+      {/* 시작안내 — 웹·모바일 같은 내용(Modal 이 모바일에서 시트로 뜬다). */}
+      <StartGuide role={session?.role} open={startGuide.open} onClose={startGuide.close} />
     </div>
   );
 }
