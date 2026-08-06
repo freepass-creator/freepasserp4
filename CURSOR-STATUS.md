@@ -18,11 +18,11 @@ Claude는 읽기만 하고 수정하지 않는다. (지시서는 `CURSOR-TASKS.m
 | T7 | `36c38e1` | 1 | 0 | 카탈로그 월대여료=priceList 밴드(홈 matchProduct와 동일). 최저가만 보던 로컬 비교 삭제 → 필터 결과 늘어날 수 있음(의도) |
 | T8 | `e6107f0` | 1 | 0 | inventoryStatusIcon 색=VEHICLE_STATUS_TONE SSOT (아이콘 모양만 로컬). 맵=기존 하드코드와 동일 → 색 변화 없음 |
 | T9 | `13bf969` | 1 | n/a | 죽은 원자 실사 표 (코드 변경 0, STATUS만 커밋) |
-| C-3 | _(미커밋)_ | 2 | 0 | TopBar 상태탭 height=ctrlH(mobile) · login-links a padding 8×4 |
-| C-4 | _(미커밋)_ | 3 | 0 | list-rows·PriceMatrix·ExcelResultsTable 금액/차번/코드 tabular-nums |
+| C-3 | `9d8b964` | 2 | 0 | TopBar 상태탭 height=ctrlH(mobile) · login-links a padding 8×4 |
+| C-4 | `9d8b964` | 3 | 0 | list-rows·PriceMatrix·ExcelResultsTable 금액/차번/코드 tabular-nums |
 | C-5 | — | 0 | — | 이미 완료(partners basicFields에 business_number + 숫자정규화·중복 toast) |
-| C-6 | _(미커밋)_ | 2 | 0 | 모바일 채팅 헤더에서 roomChatCode 숨김(웹 유지) |
-| C-7 | _(미커밋)_ | 1 | 0 | ChatThread 말풍선 maxWidth 100%+minWidth 0(패딩 14 대칭) |
+| C-6 | `9d8b964` | 2 | 0 | 모바일 채팅 헤더에서 roomChatCode 숨김(웹 유지) |
+| C-7 | `9d8b964` | 1 | 0 | ChatThread 말풍선 maxWidth 100%+minWidth 0(패딩 14 대칭) |
 
 ---
 
@@ -79,5 +79,5 @@ _(아직 없음)_
 
 ## 현재 상태
 
-`진행중` — Claude 시트/HANDOFF/VERIFICATION/도메인 WIP와 겹치지 않는 레인만.
-잠금 파일·시트 연동 미터치. C-3~C-7 진행 (커밋은 사용자 승인 후).
+`대기중` — C-3~C-7 커밋 `9d8b964`. 열린 ⬜ 없음(C-1·C-8 🔒).
+Claude 시트/HANDOFF/VERIFICATION/도메인 WIP는 미터치. 다음 오더는 Claude가 CURSOR-TASKS에 넣을 것.
