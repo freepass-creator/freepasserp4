@@ -35,6 +35,7 @@ import {
   sheetSyncCommitBlockReason,
   sheetPartnerRosterRevision,
   isWebInventoryPartner,
+  partnerSourceReadiness,
   type PartnerSheetRow,
 } from '@/lib/domain/sheet-sync-all';
 import {
@@ -126,6 +127,7 @@ const DEPOSIT_RULE_OPTIONS = [
 /** 공급사 한 곳의 수정범위 한 줄. 실패한 곳도 남긴다 — 조용히 빠지면 "원래 0대였나" 하고 넘어간다. */
 type PartnerDiffRow = {
   code: string; label: string; ok: boolean;
+  readiness: 'ready' | 'review' | 'blocked'; readinessReason: string;
   sheet: number;                                  // 시트에서 읽어 올릴 매물(출고불가 제외 후)
   new: number; status: number; content: number;   // 신규 · 상태변경 · 내용수정
   absent: number; guarded: number; unchanged: number; // 재고차단 · 급감가드 보류 · 무변경
@@ -915,6 +917,7 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
         duplicateCount: 0, invalidCount: 0, sourceRowCount: 0,
       };
       for (const line of fetched.lines) {
+        const readiness = partnerSourceReadiness(line);
         const re = line.excludedCount || 0;
         const np = line.noPriceCount || 0;
         const sk = line.skippedCount || 0;
@@ -926,6 +929,7 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
         totals.sourceRowCount += line.sourceRowCount || line.imported + re + np + sk;
         const base = {
           code: line.code, label: line.label, sheet: line.imported, new: 0, status: 0, content: 0,
+          readiness: readiness.status, readinessReason: readiness.reasons.join(' · '),
           absent: 0, guarded: 0, unchanged: 0, excluded: re, noPrice: np, skipped: sk,
           duplicate: line.duplicateCount || 0, invalid: line.invalidCount || 0,
           issues: line.issueSamples.slice(0, 4).join(' · '),
@@ -1645,49 +1649,8 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
           <div style={{ fontSize: FS.cap, color: C.faint, lineHeight: 1.5, marginBottom: 8 }}>
           공급사마다 등록된 전용 원본을 같은 상품 연동 절차로 처리합니다. 먼저 검증해 신규·상태변경·정보수정을 확인한 뒤 반영하며, 원본에 없는 차량은 삭제하지 않고 출고불가로 전환합니다. 조회 실패·급감·소유 충돌은 자동 차단하고 기존 계약 스냅샷은 바꾸지 않습니다.
           </div>
-          <div style={{ marginBottom: 8, border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg, overflow: 'hidden' }}>
-            <div style={{ padding: '7px 9px', background: C.head, borderBottom: `1px solid ${C.line}`, fontSize: FS.cap, fontWeight: FW.title, color: C.ink }}>
-              홈페이지 직접 연동
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '8px 9px' }}>
-              <div style={{ flex: 1, minWidth: 180 }}>
-                <div style={{ fontSize: FS.body, fontWeight: FW.strong, color: C.ink }}>
-                  아이언렌트카 <span style={{ color: C.faint, fontWeight: FW.body }}>(RP006)</span>
-                </div>
-                <div style={{ marginTop: 2, fontSize: FS.cap, color: C.mute, lineHeight: 1.45 }}>
-                  홈페이지 49대 전체를 차량번호로 맞추고, 판매중만 신규 등록합니다. 기존 상품은 대여료·보증금·사진·상태를 원본과 비교해 변경분만 반영합니다.
-                </div>
-                <div style={{ marginTop: 3, fontSize: FS.cap, color: C.faint, fontFamily: NUM }}>
-                  {ironPreview
-                    ? `원본 ${ironPreview.catalog.listings} · 판매중 ${ironPreview.catalog.active} · 판매완료 ${ironPreview.catalog.sold} · 매칭 ${ironPreview.reconciliation.matched} · 반영후보 ${ironPreview.reconciliation.candidateOperations}`
-                    : '검증 전 · 홈페이지 전체수량·판매상태·ERP 매칭은 검증 후 표시'}
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                <Btn
-                  title="아이언렌트카 홈페이지 원본과 ERP 상품을 읽기 전용으로 정확 비교"
-                  size="sm"
-                  variant="ghost"
-                  onClick={refreshIronRentcarPreview}
-                  disabled={ironPreviewLoading || ironApplying}
-                >
-                  {ironPreviewLoading ? '검증 중…' : '데이터 검증'}
-                </Btn>
-                <Btn
-                  title={ironPreview ? `검증된 변경 ${ironPreview.reconciliation.candidateOperations}건 반영` : '먼저 홈페이지 검증을 실행하세요'}
-                  size="sm"
-                  onClick={applyIronRentcarPreview}
-                  disabled={!ironPreview || ironPreviewLoading || ironApplying || !ironPreview.complete
-                    || Boolean(ironPreview.reconciliation.duplicatePlateGroups)
-                    || Boolean(ironPreview.reconciliation.blocked)}
-                >
-                  {ironApplying ? '반영 중…' : '검증 결과 반영'}
-                </Btn>
-              </div>
-            </div>
-          </div>
           <div style={{ marginBottom: 5, fontSize: FS.cap, fontWeight: FW.title, color: C.ink }}>
-            Google Sheet 연동 공급사 · {roster.length}곳
+            공급사 상품 연동 · {roster.filter((p) => p.code !== 'RP006').length + 1}곳
           </div>
           {rosterError ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
@@ -1722,7 +1685,48 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
                   </tr>
                 </thead>
                 <tbody>
-                  {roster.map((p) => {
+                  <tr style={{ borderTop: `1px solid ${C.line2}` }}>
+                    <td style={{ ...td, fontWeight: FW.strong, color: C.ink }}>
+                      아이언렌트카 <span style={{ color: C.faint, fontWeight: FW.body }}>(RP006)</span>
+                    </td>
+                    <td style={{ ...td, color: C.mute }}>홈페이지</td>
+                    <td style={{ ...td, color: ironPreview?.reconciliation.createCandidates ? C.ok : C.faint }}>
+                      {ironPreview ? ironPreview.reconciliation.createCandidates : '검증 전'}
+                    </td>
+                    <td style={{ ...td, color: ironPreview?.reconciliation.absentBlockCandidates ? C.warn : C.faint }}>
+                      {ironPreview ? ironPreview.reconciliation.absentBlockCandidates : '—'}
+                    </td>
+                    <td style={{ ...td, color: ironPreview?.reconciliation.patchCandidates ? C.ink : C.faint }}>
+                      {ironPreview ? ironPreview.reconciliation.patchCandidates : '—'}
+                    </td>
+                    <td style={{ ...td, color: C.mute, fontFamily: NUM, fontSize: FS.micro }}>
+                      {ironPreview ? new Date(ironPreview.fetchedAt).toLocaleString('ko-KR') : '—'}
+                    </td>
+                    <td style={td}>
+                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                        <Btn
+                          title="아이언렌트카 홈페이지 원본과 ERP 상품을 읽기 전용으로 정확 비교"
+                          size="sm"
+                          variant="ghost"
+                          onClick={refreshIronRentcarPreview}
+                          disabled={ironPreviewLoading || ironApplying}
+                        >
+                          {ironPreviewLoading ? '검증 중…' : '데이터 검증'}
+                        </Btn>
+                        <Btn
+                          title={ironPreview ? `검증된 변경 ${ironPreview.reconciliation.candidateOperations}건 반영` : '먼저 홈페이지 검증을 실행하세요'}
+                          size="sm"
+                          onClick={applyIronRentcarPreview}
+                          disabled={!ironPreview || ironPreviewLoading || ironApplying || !ironPreview.complete
+                            || Boolean(ironPreview.reconciliation.duplicatePlateGroups)
+                            || Boolean(ironPreview.reconciliation.blocked)}
+                        >
+                          {ironApplying ? '반영 중…' : '검증 결과 반영'}
+                        </Btn>
+                      </div>
+                    </td>
+                  </tr>
+                  {roster.filter((p) => p.code !== 'RP006').map((p) => {
                     const diff = pending?.perPartner.find((row) => row.code === p.code);
                     return (
                       <tr key={p.code} style={{ borderTop: `1px solid ${C.line2}` }}>
@@ -1946,6 +1950,7 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
                   <thead>
                     <tr style={{ color: C.faint, textAlign: 'right' }}>
                       <th style={{ textAlign: 'left', padding: '5px 8px', fontWeight: FW.meta }}>공급사</th>
+                      <th style={{ padding: '5px 8px', fontWeight: FW.meta }}>판정</th>
                       {/* 올림 = 실제로 등록될 대수 · 제외 = 시트에 출고불가로 적혀 있어 읽지 않은 대수 */}
                       <th style={{ padding: '5px 8px', fontWeight: FW.meta }}>올림</th>
                       <th style={{ padding: '5px 8px', fontWeight: FW.meta }}>제외</th>
@@ -1979,6 +1984,9 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
                             </span>
                           ) : null}
                         </td>
+                        <td style={{ padding: '5px 8px', whiteSpace: 'nowrap', color: p.readiness === 'blocked' ? C.danger : p.readiness === 'review' ? C.warn : C.ok }} title={p.readinessReason}>
+                          {p.readiness === 'blocked' ? '차단' : p.readiness === 'review' ? '확인 필요' : '반영 가능'}
+                        </td>
                         <td style={{ padding: '5px 8px', color: p.sheet ? C.ink : C.faint }}>{p.sheet || '—'}</td>
                         <td style={{ padding: '5px 8px', color: p.excluded ? C.mute : C.faint }}>{p.excluded || '—'}</td>
                         <td style={{ padding: '5px 8px', color: p.noPrice ? C.warn : C.faint, fontWeight: p.noPrice ? FW.strong : FW.body }}>{p.noPrice || '—'}</td>
@@ -1996,6 +2004,7 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
                     ))}
                     <tr style={{ borderTop: `1px solid ${C.line}`, textAlign: 'right', fontWeight: FW.head }}>
                       <td style={{ textAlign: 'left', padding: '5px 8px' }}>합계</td>
+                      <td style={{ padding: '5px 8px' }}>—</td>
                       <td style={{ padding: '5px 8px' }}>{pending.fetched.products.length}</td>
                       <td style={{ padding: '5px 8px', color: C.mute }}>{pending.totals.excludedCount}</td>
                       <td style={{ padding: '5px 8px', color: C.warn }}>{pending.totals.noPriceCount}</td>
