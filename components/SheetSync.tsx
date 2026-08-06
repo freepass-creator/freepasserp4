@@ -1650,7 +1650,7 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
           공급사마다 등록된 전용 원본을 같은 상품 연동 절차로 처리합니다. 먼저 검증해 신규·상태변경·정보수정을 확인한 뒤 반영하며, 원본에 없는 차량은 삭제하지 않고 출고불가로 전환합니다. 조회 실패·급감·소유 충돌은 자동 차단하고 기존 계약 스냅샷은 바꾸지 않습니다.
           </div>
           <div style={{ marginBottom: 5, fontSize: FS.cap, fontWeight: FW.title, color: C.ink }}>
-            공급사 상품 연동 · {roster.filter((p) => p.code !== 'RP006').length + 1}곳
+            공급사 상품 연동 · {roster.length + 1}곳
           </div>
           {rosterError ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
@@ -1685,7 +1685,13 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
                   </tr>
                 </thead>
                 <tbody>
-                  <tr style={{ borderTop: `1px solid ${C.line2}` }}>
+                  {/* 연동 방식은 «행의 한 칸»이지 목록을 가르는 기준이 아니다.
+                      홈페이지(아이언)를 맨 위에 박아두면 방식이 늘어날 때마다 표 위에 특례가 쌓인다.
+                      한 목록에 이름순으로 세우고, 방식별 차이는 「연동 방식」칸과 버튼에서만 낸다.
+                      roster 는 isWebInventoryPartner 로 RP006 을 이미 빼므로 여기서 다시 거르지 않는다. */}
+                  {(() => {
+                    const ironRow = (
+                  <tr key="RP006" style={{ borderTop: `1px solid ${C.line2}` }}>
                     <td style={{ ...td, fontWeight: FW.strong, color: C.ink }}>
                       아이언렌트카 <span style={{ color: C.faint, fontWeight: FW.body }}>(RP006)</span>
                     </td>
@@ -1726,9 +1732,10 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
                       </div>
                     </td>
                   </tr>
-                  {roster.filter((p) => p.code !== 'RP006').map((p) => {
+                    );
+                    const sheetRows = roster.map((p) => {
                     const diff = pending?.perPartner.find((row) => row.code === p.code);
-                    return (
+                    return { name: p.name, node: (
                       <tr key={p.code} style={{ borderTop: `1px solid ${C.line2}` }}>
                         <td style={{ ...td, fontWeight: FW.strong, color: C.ink }}>{p.name}</td>
                         <td style={{ ...td, color: C.mute, maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis' }} title={p.url}>
@@ -1740,8 +1747,12 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
                         <td style={{ ...td, color: C.mute, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', fontSize: FS.micro }}>{fmtSync(p.lastSyncedAt)}</td>
                         <td style={{ ...td, color: C.faint }}>일괄 검증·반영</td>
                       </tr>
-                    );
-                  })}
+                    ) };
+                  });
+                    return [{ name: '아이언렌트카', node: ironRow }, ...sheetRows]
+                      .sort((a, b) => a.name.localeCompare(b.name, 'ko'))
+                      .map((r) => r.node);
+                  })()}
                 </tbody>
               </table>
             </div>

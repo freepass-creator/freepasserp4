@@ -38,10 +38,19 @@ function assertMaster(entries: MasterEntry[] | null | undefined): MasterEntry[] 
   return entries;
 }
 
-/** 미변환 행이 있으면 마스터·색상 규격으로 한 번 더 스냅(우회 입고 방어). */
+/**
+ * 미변환 행이 있으면 마스터·색상 규격으로 한 번 더 스냅(우회 입고 방어).
+ *
+ * ★`low` 는 «스냅 완료»가 아니다 — 다시 시도한다.
+ *   규칙 4가 정한 확정선은 high·medium 이고, low 는 검수 대상(`_needs_master_review`)이다.
+ *   그런데 여기서 low 까지 «이미 스냅됨»으로 건너뛰면, 옛 매처나 마스터 없던 시점에 low 로
+ *   굳은 레코드가 영원히 복구되지 않는다. 실측(2026-08-06): 검토대기 396대를 지금 매처에
+ *   다시 물리자 363대(92%)가 high·medium 으로 확정됐다 — 데이터가 아니라 이 가드가 막고 있었다.
+ *   재스냅은 `_raw_vehicle` 원본을 우선하므로 이미 맞은 값을 망치지 않는다.
+ */
 function ensureSnapped(products: EntityRecord[], entries: MasterEntry[]): EntityRecord[] {
   return products.map((p) => {
-    if (p._snapped && (p._snap_confidence === 'high' || p._snap_confidence === 'medium' || p._snap_confidence === 'low')) {
+    if (p._snapped && (p._snap_confidence === 'high' || p._snap_confidence === 'medium')) {
       return applyColors(p);
     }
     const res = snapToMaster(p, entries);

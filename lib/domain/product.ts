@@ -311,8 +311,14 @@ export function isHiddenFromCatalog(p: { vehicle_status?: unknown; _deleted?: un
  * 상품찾기·손님 카탈로그에서 실제 견적 가능한 상품.
  * 상태뿐 아니라 읽기 SSOT(priceList)를 통과한 유효 대여료가 하나 이상 있어야 한다.
  * 관리자 재고·데이터점검의 정정 대상 노출에는 사용하지 않는다.
+ *
+ * ★차종이 확정되지 않은 매물은 판매목록에서 뺀다(2026-08-06 결정 · `INVENTORY_SPEC.md` §5).
+ *   차종마스터에 못 붙으면 제조사·차명이 공란이라 목록에 «빈 줄»로 뜨고 영업자가 팔 수 없다.
+ *   그런데도 판매가능으로 집계돼 대수가 실제와 어긋났다(실측 401 vs 공급사 확인분 363).
+ *   검수 대상은 관리자 재고 화면에서는 그대로 보인다 — 손님·영업 목록에서만 감춘다.
  */
 export function isOfferableProduct(p: EntityRecord): boolean {
+  if ((p as Record<string, unknown>)._needs_master_review === true) return false;
   return !isHiddenFromCatalog(p) && priceList(p).length > 0;
 }
 

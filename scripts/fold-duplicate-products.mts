@@ -115,6 +115,27 @@ async function main() {
     patch[`products/${k}/_merged_reason`] = `${CODE} 중복 정리 — 같은 번호판 ${g.plate}`;
     patch[`products/${k}/updatedAt`] = now;
   }
+
+  // ★접히는 쪽에만 있는 값을 남는 쪽으로 옮긴다.
+  //   `--prefer=ext` 는 트림·연료가 풍부한 EXT_ 를 남기는데 그쪽에 차번·상태가 없는 경우가 많다.
+  //   옮기지 않으면 남은 레코드가 «차번으로 검색 안 되고 상태 뱃지도 없는» 상태가 된다.
+  //   실측(2026-08-06): 차번 잃은 생존자 310건 · 상태 잃은 생존자 다수 — 이 누락이 원인이었다.
+  //   덮어쓰지 않는다. 남는 쪽이 이미 가진 필드는 건드리지 않는다.
+  const CARRY = ['car_number', 'vehicle_status', 'first_registration_date', 'mileage'] as const;
+  const mergedNow = mergeNodes(p3.val(), p4.val()) as Record<string, EntityRecord>;
+  let carried = 0;
+  for (const g of plan) {
+    const keep = mergedNow[g.keep] || ({} as EntityRecord);
+    for (const f of CARRY) {
+      if (S(keep[f])) continue;                    // 남는 쪽에 이미 있으면 유지
+      const donor = g.fold.map((k) => mergedNow[k]).find((r) => r && S(r[f]));
+      if (!donor) continue;
+      patch[`products/${g.keep}/${f}`] = S(donor[f]);
+      carried++;
+    }
+  }
+  if (carried) console.log(`  빈 필드 이관 ${carried}건 (${CARRY.join(' · ')})`);
+
   await db.ref('v4').update(patch);
   const foldedCount = plan.reduce((a, g) => a + g.fold.length, 0);
   console.log(`\n반영 완료 — ${plan.length}그룹 ${foldedCount}건 접음`);
