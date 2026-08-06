@@ -808,20 +808,37 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
   };
 
   /** 관리자: 전체 시트 fetch+diff만(쓰기 없음). 스냅샷을 pending에 보관. */
-  const validateAll = async () => {
+  /**
+   * 상품 검증 — 전체(인자 없음) 또는 공급사 하나(`onlyCodes`).
+   *
+   * 단건도 **같은 엔진**을 탄다. 대상만 좁힌다 — `fetchAllPartnerSheets` 안에 따로 filter 를
+   * 두면 화면 목록과 어긋난다(주석에 남은 실제 사고: 목록 16곳인데 2곳만 가져갔다).
+   * 그래서 여기서 fresh partner 스냅샷을 한 번 뜨고, 좁힌 것을 `deps.partnerRows` 로 넘긴다.
+   * 대상 목록과 fetch 레코드가 같은 스냅샷에서 나온다는 원래 계약도 그대로 지켜진다.
+   */
+  const validateAll = async (onlyCodes?: string[]) => {
     if (busy) return;
     if (!masterReady) { toast('차종마스터 로드 실패 — 검증 불가', 'error'); return; }
     if (rosterError) { toast(`시트 설정 오류 — ${rosterError}`, 'error'); return; }
     if (!roster.length) { toast('시트 URL이 등록된 공급사가 없습니다 — 회원·파트너에서 공급사 원본을 설정하세요', 'info'); return; }
     setBusy(true); setBulkLog(''); setPending(null);
     try {
-      const fetchedRaw = await fetchAllPartnerSheets(co, master!, { fetchTable: fetchAdminSheetTable });
+      const freshPartners = await listSheetPartnerRecords(co, true);
+      const scoped = onlyCodes?.length
+        ? freshPartners.filter((r) => onlyCodes.includes(String(r.partner_code || r._key || '')))
+        : freshPartners;
+      if (onlyCodes?.length && !scoped.length) {
+        toast(`${onlyCodes.join(', ')} 공급사 원본을 찾지 못했습니다 — 설정 다시 읽기`, 'error');
+        setBusy(false);
+        return;
+      }
+      const fetchedRaw = await fetchAllPartnerSheets(co, master!, { fetchTable: fetchAdminSheetTable, partnerRows: scoped });
       const [
         reconcileState, partnerRows, contracts, rooms, quotes,
         conflictResolutions, conflictDecisions, identityDecisions,
       ] = await Promise.all([
         listSheetReconcileState(co, true),
-        listSheetPartnerRecords(co, true),
+        Promise.resolve(freshPartners),
         getStore().list('contract', co).catch(() => []),
         getStore().list('room', co).catch(() => []),
         getStore().list('quote', co).catch(() => []),
@@ -1745,7 +1762,31 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
                         <td style={{ ...td, color: diff?.status ? C.warn : C.faint }}>{diff ? diff.status : '—'}</td>
                         <td style={{ ...td, color: diff?.content ? C.ink : C.faint }}>{diff ? diff.content : '—'}</td>
                         <td style={{ ...td, color: C.mute, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', fontSize: FS.micro }}>{fmtSync(p.lastSyncedAt)}</td>
-                        <td style={{ ...td, color: C.faint }}>일괄 검증·반영</td>
+                        {/* 연동 절차는 원본 종류와 무관하게 «검증 → 반영» 한 가지다.
+                            홈페이지(아이언)만 행에서 되고 시트는 표 밖 일괄뿐이면, 공급사 하나를
+                            고쳐도 전체를 다시 돌려야 한다. 같은 엔진에 대상만 좁혀 넘긴다. */}
+                        <td style={td}>
+                          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                            <Btn
+                              title={`${p.name} 원본만 읽어 신규·상태변경·정보수정을 확인`}
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => validateAll([p.code])}
+                              disabled={busy || !masterReady || !!rosterError}
+                            >
+                              {busy && !pending ? '검증 중…' : '데이터 검증'}
+                            </Btn>
+                            <Btn
+                              title={pendingBlockReason
+                                || (pending ? `검증된 ${pending.fetched.products.length}대 반영` : '먼저 데이터 검증')}
+                              size="sm"
+                              onClick={commitPending}
+                              disabled={busy || !pending || Boolean(pendingBlockReason)}
+                            >
+                              {busy && pending ? '반영 중…' : '검증 결과 반영'}
+                            </Btn>
+                          </div>
+                        </td>
                       </tr>
                     ) };
                   });
