@@ -76,7 +76,8 @@ async function main() {
         }
       }
       coRows += rows; coFound += found;
-      if (found) perTab.push(`${tab} ${found}/${rows}${sample ? ` — ${sample.slice(0, 60)}` : ''}`);
+      // ⚠ 링크는 자르지 않는다. 잘린 주소를 그대로 붙여넣어 «없는 폴더»를 조회하는 사고가 있었다.
+      if (found) perTab.push(`${tab} ${found}/${rows}${sample ? `\n        ${sample}` : ''}`);
     }
     total += coRows; withLink += coFound;
     console.log(`${coFound ? '✅' : '❌'} ${code.padEnd(9)} ${name.padEnd(18).slice(0, 18)} 사진링크 ${coFound}/${coRows}`);
