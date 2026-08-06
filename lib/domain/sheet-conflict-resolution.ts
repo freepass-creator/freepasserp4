@@ -91,6 +91,11 @@ export function applySheetConflictResolutions(input: {
   resolutions?: SheetConflictResolution[];
   existing: EntityRecord[];
   contracts?: EntityRecord[];
+  /**
+   * 「반영하면 가격이 실제로 바뀌는가」 판정. 값이 안 바뀌는 건은 승인 없이 통과시킨다.
+   * 넘기지 않으면 예전처럼 전부 승인을 요구한다(기존 호출부 동작 보존).
+   */
+  priceChangesValue?: (raw: string) => boolean;
 }): { conflicts: SheetSyncExistingConflicts; resolvedPricePeriods: number } {
   const approved = new Set((input.resolutions || [])
     .filter((item) => item.status === 'approved'
@@ -99,7 +104,13 @@ export function applySheetConflictResolutions(input: {
     .map((item) => item.fingerprint));
   let resolvedPricePeriods = 0;
   const missingPricePeriods = input.conflicts.missingPricePeriods.filter((raw) => {
-    if (!approved.has(sheetConflictFingerprint(PRICE_PERIOD_CONFLICT, raw))) return true;
+    // ★값이 안 바뀌면 승인을 받지 않는다.
+    //  결정값이 KEEP_EXISTING_PRICES 이고 soft-merge 는 누락기간을 지우지 않고 기존값을
+    //  보존한다 — 승인하든 안 하든 결과가 같은데 반영 버튼을 통째로 잠가 두고 있었다
+    //  (실측 2026-08-06: 97건 중 40건이 이런 무변화 건이었다).
+    //  계약 보호는 아래 줄에서 그대로 유지한다. 완화가 그쪽까지 번지면 안 된다.
+    const noValueChange = input.priceChangesValue ? !input.priceChangesValue(raw) : false;
+    if (!noValueChange && !approved.has(sheetConflictFingerprint(PRICE_PERIOD_CONFLICT, raw))) return true;
     if (isPriceConflictProtected(raw, input.existing, input.contracts || [])) return true;
     resolvedPricePeriods++;
     return false;
