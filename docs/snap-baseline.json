@@ -1,0 +1,4235 @@
+{
+ "savedAt": "2026-08-06",
+ "entries": [
+  {
+   "provider": "PT-0023",
+   "plate": "133하2383",
+   "maker": "벤츠",
+   "model": "E-클래스",
+   "sub_model": "E-클래스 W213",
+   "trim": "E250 아방가르드",
+   "confidence": "medium",
+   "verified": false
+  },
+  {
+   "provider": "PT-0023",
+   "plate": "109호1739",
+   "maker": "제네시스",
+   "model": "GV70",
+   "sub_model": "GV70 JK1",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "PT-0023",
+   "plate": "109호1749",
+   "maker": "기아",
+   "model": "K5",
+   "sub_model": "K5 DL3",
+   "trim": "트렌디",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "PT-0023",
+   "plate": "109호1870",
+   "maker": "기아",
+   "model": "K8",
+   "sub_model": "K8 GL3",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "PT-0023",
+   "plate": "109호1983",
+   "maker": "BMW",
+   "model": "5시리즈",
+   "sub_model": "5시리즈 G30",
+   "trim": "520i M 스포츠",
+   "confidence": "medium",
+   "verified": false
+  },
+  {
+   "provider": "PT-0023",
+   "plate": "10호3517",
+   "maker": "기아",
+   "model": "EV6",
+   "sub_model": "EV6 CV1",
+   "trim": "GT라인",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "PT-0023",
+   "plate": "109호2306",
+   "maker": "기아",
+   "model": "K9",
+   "sub_model": "K9 RJ",
+   "trim": "플래티넘",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "PT-0023",
+   "plate": "109호2514",
+   "maker": "기아",
+   "model": "모닝",
+   "sub_model": "모닝 어반 JA",
+   "trim": "프레스티지",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "PT-0023",
+   "plate": "109호2547",
+   "maker": "기아",
+   "model": "K5",
+   "sub_model": "K5 DL3",
+   "trim": "프레스티지",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "PT-0023",
+   "plate": "109호2576",
+   "maker": "기아",
+   "model": "K5",
+   "sub_model": "K5 DL3",
+   "trim": "프레스티지",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "PT-0023",
+   "plate": "109호2607",
+   "maker": "기아",
+   "model": "K5",
+   "sub_model": "K5 DL3",
+   "trim": "프레스티지",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "PT-0023",
+   "plate": "109호2857",
+   "maker": "기아",
+   "model": "K5",
+   "sub_model": "더 뉴 K5 DL3",
+   "trim": "트렌디",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "PT-0023",
+   "plate": "109호3016",
+   "maker": "벤츠",
+   "model": "E-클래스",
+   "sub_model": "E-클래스 W213",
+   "trim": "E250 AMG Line",
+   "confidence": "medium",
+   "verified": false
+  },
+  {
+   "provider": "PT-0023",
+   "plate": "109호3020",
+   "maker": "현대",
+   "model": "싼타페",
+   "sub_model": "디 올 뉴 싼타페 MX5",
+   "trim": "프레스티지",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "PT-0023",
+   "plate": "109호3081",
+   "maker": "아우디",
+   "model": "A6",
+   "sub_model": "A6 C8",
+   "trim": "45 TFSI",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "PT-0023",
+   "plate": "109호3082",
+   "maker": "아우디",
+   "model": "A6",
+   "sub_model": "A6 C8",
+   "trim": "45 TFSI",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "PT-0023",
+   "plate": "109호3245",
+   "maker": "기아",
+   "model": "쏘렌토",
+   "sub_model": "더 뉴 쏘렌토 MQ4",
+   "trim": "노블레스",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "PT-0023",
+   "plate": "109호3701",
+   "maker": "기아",
+   "model": "카니발",
+   "sub_model": "더 뉴 카니발 KA4",
+   "trim": "그래비티",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "PT-0023",
+   "plate": "109호3835",
+   "maker": "기아",
+   "model": "K5",
+   "sub_model": "더 뉴 K5 DL3",
+   "trim": "프레스티지",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "PT-0023",
+   "plate": "109호3861",
+   "maker": "현대",
+   "model": "그랜저",
+   "sub_model": "그랜저 GN7",
+   "trim": "익스클루시브",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "PT-0023",
+   "plate": "109호3862",
+   "maker": "현대",
+   "model": "그랜저",
+   "sub_model": "그랜저 GN7",
+   "trim": "익스클루시브",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "PT-0023",
+   "plate": "109호3994",
+   "maker": "현대",
+   "model": "쏘나타",
+   "sub_model": "쏘나타 디 엣지 DN8",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "PT-0023",
+   "plate": "109호3995",
+   "maker": "현대",
+   "model": "쏘나타",
+   "sub_model": "쏘나타 디 엣지 DN8",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "PT-0023",
+   "plate": "109호4274",
+   "maker": "기아",
+   "model": "K5",
+   "sub_model": "더 뉴 K5 DL3",
+   "trim": "노블레스",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "PT-0023",
+   "plate": "109호4373",
+   "maker": "기아",
+   "model": "셀토스",
+   "sub_model": "더 뉴 셀토스 SP2",
+   "trim": "트렌디",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "PT-0023",
+   "plate": "109호4374",
+   "maker": "기아",
+   "model": "셀토스",
+   "sub_model": "더 뉴 셀토스 SP2",
+   "trim": "프레스티지",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "PT-0023",
+   "plate": "109호4733",
+   "maker": "기아",
+   "model": "니로",
+   "sub_model": "디 올 뉴 니로 SG2",
+   "trim": "프레스티지",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "PT-0023",
+   "plate": "109호4734",
+   "maker": "기아",
+   "model": "니로",
+   "sub_model": "디 올 뉴 니로 SG2",
+   "trim": "프레스티지",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "PT-0023",
+   "plate": "109호5380",
+   "maker": "기아",
+   "model": "모닝",
+   "sub_model": "모닝 JA",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "PT-0023",
+   "plate": "109호5381",
+   "maker": "기아",
+   "model": "모닝",
+   "sub_model": "모닝 JA",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호4042",
+   "maker": "BMW",
+   "model": "3시리즈",
+   "sub_model": "3시리즈 G20",
+   "trim": "320i",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호4100",
+   "maker": "BMW",
+   "model": "i5",
+   "sub_model": "i5 G60",
+   "trim": "",
+   "confidence": "low",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호2149",
+   "maker": "기아",
+   "model": "K5",
+   "sub_model": "K5 DL3",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "116하4157",
+   "maker": "기아",
+   "model": "K5",
+   "sub_model": "K5 DL3",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호1916",
+   "maker": "기아",
+   "model": "K5",
+   "sub_model": "K5 DL3",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호2540",
+   "maker": "기아",
+   "model": "K5",
+   "sub_model": "K5 DL3",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호2557",
+   "maker": "기아",
+   "model": "K5",
+   "sub_model": "K5 DL3",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호2736",
+   "maker": "기아",
+   "model": "K5",
+   "sub_model": "K5 DL3",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호1816",
+   "maker": "기아",
+   "model": "K5",
+   "sub_model": "K5 DL3",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호1924",
+   "maker": "기아",
+   "model": "K5",
+   "sub_model": "K5 DL3",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "146하4623",
+   "maker": "기아",
+   "model": "K5",
+   "sub_model": "K5 DL3",
+   "trim": "트렌디",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호2596",
+   "maker": "기아",
+   "model": "K5",
+   "sub_model": "K5 DL3",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호3892",
+   "maker": "벤츠",
+   "model": "C-클래스",
+   "sub_model": "C-클래스 W205",
+   "trim": "",
+   "confidence": "low",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호1041",
+   "maker": "기아",
+   "model": "K7",
+   "sub_model": "K7 프리미어 YG",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호4024",
+   "maker": "기아",
+   "model": "K8",
+   "sub_model": "더 뉴 K8 GL3",
+   "trim": "노블레스",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호4044",
+   "maker": "현대",
+   "model": "팰리세이드",
+   "sub_model": "더 뉴 팰리세이드 LX2",
+   "trim": "익스클루시브",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "141호4798",
+   "maker": "제네시스",
+   "model": "G80",
+   "sub_model": "G80 RG3",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호4842",
+   "maker": "기아",
+   "model": "K8",
+   "sub_model": "더 뉴 K8 GL3",
+   "trim": "노블레스",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호4772",
+   "maker": "기아",
+   "model": "니로",
+   "sub_model": "디 올 뉴 니로 SG2",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호4637",
+   "maker": "기아",
+   "model": "K5",
+   "sub_model": "더 뉴 K5 DL3",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호5357",
+   "maker": "현대",
+   "model": "베뉴",
+   "sub_model": "베뉴 QX1",
+   "trim": "스마트",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "124하2119",
+   "maker": "현대",
+   "model": "그랜저",
+   "sub_model": "더 뉴 그랜저 IG",
+   "trim": "프리미엄 초이스",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "150호7845",
+   "maker": "현대",
+   "model": "그랜저",
+   "sub_model": "더 뉴 그랜저 IG",
+   "trim": "모던",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호5142",
+   "maker": "기아",
+   "model": "K5",
+   "sub_model": "더 뉴 K5 DL3",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호5173",
+   "maker": "기아",
+   "model": "레이",
+   "sub_model": "더 뉴 레이 TAM",
+   "trim": "프레스티지",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호5209",
+   "maker": "기아",
+   "model": "레이",
+   "sub_model": "더 뉴 레이 TAM",
+   "trim": "프레스티지",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호4171",
+   "maker": "기아",
+   "model": "레이",
+   "sub_model": "더 뉴 레이 TAM",
+   "trim": "프레스티지",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "10호3817",
+   "maker": "테슬라",
+   "model": "모델 3",
+   "sub_model": "모델 3",
+   "trim": "RWD",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "10호3819",
+   "maker": "테슬라",
+   "model": "모델 3",
+   "sub_model": "모델 3",
+   "trim": "RWD",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호5153",
+   "maker": "기아",
+   "model": "카니발",
+   "sub_model": "더 뉴 카니발 KA4",
+   "trim": "프레스티지",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호5154",
+   "maker": "기아",
+   "model": "카니발",
+   "sub_model": "더 뉴 카니발 KA4",
+   "trim": "프레스티지",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호5171",
+   "maker": "기아",
+   "model": "카니발",
+   "sub_model": "더 뉴 카니발 KA4",
+   "trim": "프레스티지",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호5283",
+   "maker": "현대",
+   "model": "싼타페",
+   "sub_model": "디 올 뉴 싼타페 MX5",
+   "trim": "익스클루시브",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호5286",
+   "maker": "현대",
+   "model": "싼타페",
+   "sub_model": "디 올 뉴 싼타페 MX5",
+   "trim": "익스클루시브",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호5287",
+   "maker": "현대",
+   "model": "싼타페",
+   "sub_model": "디 올 뉴 싼타페 MX5",
+   "trim": "익스클루시브",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호5281",
+   "maker": "기아",
+   "model": "셀토스",
+   "sub_model": "더 뉴 셀토스 SP2",
+   "trim": "트렌디",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호5348",
+   "maker": "기아",
+   "model": "셀토스",
+   "sub_model": "더 뉴 셀토스 SP2",
+   "trim": "프레스티지",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호5349",
+   "maker": "기아",
+   "model": "셀토스",
+   "sub_model": "더 뉴 셀토스 SP2",
+   "trim": "프레스티지",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호5350",
+   "maker": "기아",
+   "model": "셀토스",
+   "sub_model": "더 뉴 셀토스 SP2",
+   "trim": "트렌디",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호5351",
+   "maker": "기아",
+   "model": "셀토스",
+   "sub_model": "더 뉴 셀토스 SP2",
+   "trim": "트렌디",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호5352",
+   "maker": "기아",
+   "model": "셀토스",
+   "sub_model": "더 뉴 셀토스 SP2",
+   "trim": "트렌디",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호5353",
+   "maker": "기아",
+   "model": "셀토스",
+   "sub_model": "더 뉴 셀토스 SP2",
+   "trim": "트렌디",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호5354",
+   "maker": "기아",
+   "model": "셀토스",
+   "sub_model": "더 뉴 셀토스 SP2",
+   "trim": "트렌디",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호5355",
+   "maker": "기아",
+   "model": "셀토스",
+   "sub_model": "더 뉴 셀토스 SP2",
+   "trim": "트렌디",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호5356",
+   "maker": "기아",
+   "model": "셀토스",
+   "sub_model": "더 뉴 셀토스 SP2",
+   "trim": "트렌디",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호3893",
+   "maker": "벤츠",
+   "model": "C-클래스",
+   "sub_model": "C-클래스 W205",
+   "trim": "",
+   "confidence": "low",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호4587",
+   "maker": "기아",
+   "model": "K8",
+   "sub_model": "더 뉴 K8 GL3",
+   "trim": "노블레스",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호3719",
+   "maker": "벤츠",
+   "model": "C-클래스",
+   "sub_model": "C-클래스 W205",
+   "trim": "",
+   "confidence": "low",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호4773",
+   "maker": "기아",
+   "model": "니로",
+   "sub_model": "디 올 뉴 니로 SG2",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "124하2114",
+   "maker": "현대",
+   "model": "그랜저",
+   "sub_model": "더 뉴 그랜저 IG",
+   "trim": "프리미엄 초이스",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호4289",
+   "maker": "기아",
+   "model": "쏘렌토",
+   "sub_model": "더 뉴 쏘렌토 MQ4",
+   "trim": "프레스티지",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호4040",
+   "maker": "BMW",
+   "model": "3시리즈",
+   "sub_model": "3시리즈 G20",
+   "trim": "320d",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "146하4723",
+   "maker": "현대",
+   "model": "그랜저",
+   "sub_model": "그랜저 GN7",
+   "trim": "프리미엄",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호4680",
+   "maker": "기아",
+   "model": "카니발",
+   "sub_model": "더 뉴 카니발 KA4",
+   "trim": "프레스티지",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호3535",
+   "maker": "기아",
+   "model": "카니발",
+   "sub_model": "더 뉴 카니발 KA4",
+   "trim": "프레스티지",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호4080",
+   "maker": "기아",
+   "model": "카니발",
+   "sub_model": "더 뉴 카니발 KA4",
+   "trim": "프레스티지",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호4296",
+   "maker": "BMW",
+   "model": "3시리즈",
+   "sub_model": "3시리즈 G20",
+   "trim": "320i",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호3005",
+   "maker": "기아",
+   "model": "카니발",
+   "sub_model": "카니발 KA4",
+   "trim": "노블레스",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "10호3899",
+   "maker": "현대",
+   "model": "아이오닉5",
+   "sub_model": "아이오닉5 NE",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호4117",
+   "maker": "벤츠",
+   "model": "C-클래스",
+   "sub_model": "C-클래스 W206",
+   "trim": "",
+   "confidence": "low",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호3473",
+   "maker": "벤츠",
+   "model": "C-클래스",
+   "sub_model": "C-클래스 W205",
+   "trim": "",
+   "confidence": "low",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호3398",
+   "maker": "현대",
+   "model": "팰리세이드",
+   "sub_model": "더 뉴 팰리세이드 LX2",
+   "trim": "르블랑",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호3677",
+   "maker": "제네시스",
+   "model": "G80",
+   "sub_model": "G80 RG3",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "13호2735",
+   "maker": "제네시스",
+   "model": "G80",
+   "sub_model": "G80 DH",
+   "trim": "럭셔리",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호3486",
+   "maker": "제네시스",
+   "model": "G90",
+   "sub_model": "G90 RS4",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "49하0528",
+   "maker": "제네시스",
+   "model": "G90",
+   "sub_model": "G90 HI",
+   "trim": "럭셔리",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "52호0653",
+   "maker": "제네시스",
+   "model": "G90",
+   "sub_model": "G90 HI",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "104호3665",
+   "maker": "제네시스",
+   "model": "GV80",
+   "sub_model": "GV80 JX1",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호3716",
+   "maker": "벤츠",
+   "model": "C-클래스",
+   "sub_model": "C-클래스 W205",
+   "trim": "",
+   "confidence": "low",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "182허5109",
+   "maker": "제네시스",
+   "model": "G80",
+   "sub_model": "G80 RG3",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호3581",
+   "maker": "기아",
+   "model": "K3",
+   "sub_model": "더 뉴 K3 쿱 YK",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호2288",
+   "maker": "르노코리아",
+   "model": "QM6",
+   "sub_model": "더 뉴 QM6 HZG",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호2282",
+   "maker": "르노코리아",
+   "model": "QM6",
+   "sub_model": "더 뉴 QM6 HZG",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP004",
+   "plate": "109호4064",
+   "maker": "BMW",
+   "model": "X4",
+   "sub_model": "X4 G02",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP006",
+   "plate": "151호2230",
+   "maker": "현대",
+   "model": "그랜저",
+   "sub_model": "그랜저 L",
+   "trim": "",
+   "confidence": "medium",
+   "verified": false
+  },
+  {
+   "provider": "RP006",
+   "plate": "151호2232",
+   "maker": "현대",
+   "model": "그랜저",
+   "sub_model": "그랜저 L",
+   "trim": "",
+   "confidence": "medium",
+   "verified": false
+  },
+  {
+   "provider": "RP006",
+   "plate": "151호2290",
+   "maker": "기아",
+   "model": "카니발",
+   "sub_model": "더 뉴 카니발 KA4",
+   "trim": "노블레스",
+   "confidence": "medium",
+   "verified": false
+  },
+  {
+   "provider": "RP006",
+   "plate": "151호2279",
+   "maker": "현대",
+   "model": "아반떼",
+   "sub_model": "아반떼 J2",
+   "trim": "",
+   "confidence": "medium",
+   "verified": false
+  },
+  {
+   "provider": "RP006",
+   "plate": "151호2280",
+   "maker": "현대",
+   "model": "아반떼",
+   "sub_model": "아반떼 J2",
+   "trim": "",
+   "confidence": "medium",
+   "verified": false
+  },
+  {
+   "provider": "RP006",
+   "plate": "151호2281",
+   "maker": "현대",
+   "model": "아반떼",
+   "sub_model": "아반떼 J2",
+   "trim": "",
+   "confidence": "medium",
+   "verified": false
+  },
+  {
+   "provider": "RP006",
+   "plate": "151호2284",
+   "maker": "현대",
+   "model": "아반떼",
+   "sub_model": "아반떼 J2",
+   "trim": "",
+   "confidence": "medium",
+   "verified": false
+  },
+  {
+   "provider": "RP006",
+   "plate": "151호2285",
+   "maker": "현대",
+   "model": "아반떼",
+   "sub_model": "아반떼 J2",
+   "trim": "",
+   "confidence": "medium",
+   "verified": false
+  },
+  {
+   "provider": "RP006",
+   "plate": "151호2305",
+   "maker": "기아",
+   "model": "K5",
+   "sub_model": "K5 TF",
+   "trim": "",
+   "confidence": "medium",
+   "verified": false
+  },
+  {
+   "provider": "RP006",
+   "plate": "151호2312",
+   "maker": "기아",
+   "model": "레이",
+   "sub_model": "레이 TAM",
+   "trim": "",
+   "confidence": "medium",
+   "verified": false
+  },
+  {
+   "provider": "RP006",
+   "plate": "151호2311",
+   "maker": "기아",
+   "model": "셀토스",
+   "sub_model": "셀토스 SP2",
+   "trim": "트렌디",
+   "confidence": "medium",
+   "verified": false
+  },
+  {
+   "provider": "RP006",
+   "plate": "100신0001",
+   "maker": "현대",
+   "model": "싼타페",
+   "sub_model": "더 뉴 싼타페 TM",
+   "trim": "",
+   "confidence": "medium",
+   "verified": false
+  },
+  {
+   "provider": "RP006",
+   "plate": "151호2309",
+   "maker": "기아",
+   "model": "카니발",
+   "sub_model": "더 뉴 카니발 KA4",
+   "trim": "노블레스",
+   "confidence": "medium",
+   "verified": false
+  },
+  {
+   "provider": "RP006",
+   "plate": "151호2310",
+   "maker": "기아",
+   "model": "카니발",
+   "sub_model": "더 뉴 카니발 KA4",
+   "trim": "노블레스",
+   "confidence": "medium",
+   "verified": false
+  },
+  {
+   "provider": "RP006",
+   "plate": "01하6459",
+   "maker": "기아",
+   "model": "EV3",
+   "sub_model": "EV3",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP006",
+   "plate": "125하2867",
+   "maker": "현대",
+   "model": "아반떼",
+   "sub_model": "더 뉴 아반떼 CN7",
+   "trim": "스마트",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP006",
+   "plate": "142호1891",
+   "maker": "기아",
+   "model": "셀토스",
+   "sub_model": "더 뉴 셀토스 SP2",
+   "trim": "프레스티지",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP006",
+   "plate": "125호6281",
+   "maker": "기아",
+   "model": "K8",
+   "sub_model": "K8 GL3",
+   "trim": "프레스티지",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP006",
+   "plate": "142호9461",
+   "maker": "기아",
+   "model": "쏘렌토",
+   "sub_model": "더 뉴 쏘렌토 MQ4",
+   "trim": "시그니처",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP006",
+   "plate": "142호1490",
+   "maker": "현대",
+   "model": "아반떼",
+   "sub_model": "더 뉴 아반떼 CN7",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP006",
+   "plate": "142호9543",
+   "maker": "현대",
+   "model": "그랜저",
+   "sub_model": "그랜저 GN7",
+   "trim": "프리미엄",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP006",
+   "plate": "125하4135",
+   "maker": "현대",
+   "model": "싼타페",
+   "sub_model": "디 올 뉴 싼타페 MX5",
+   "trim": "프레스티지",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP006",
+   "plate": "125하3389",
+   "maker": "현대",
+   "model": "싼타페",
+   "sub_model": "디 올 뉴 싼타페 MX5",
+   "trim": "프레스티지",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP006",
+   "plate": "142호9472",
+   "maker": "아우디",
+   "model": "Q5",
+   "sub_model": "Q5 FY",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP008",
+   "plate": "125호2615",
+   "maker": "기아",
+   "model": "K8",
+   "sub_model": "K8 GL3",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP008",
+   "plate": "125호1238",
+   "maker": "기아",
+   "model": "K8",
+   "sub_model": "K8 GL3",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP008",
+   "plate": "125호1918",
+   "maker": "기아",
+   "model": "쏘렌토",
+   "sub_model": "쏘렌토 MQ4",
+   "trim": "트렌디",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP010",
+   "plate": "182허6203",
+   "maker": "현대",
+   "model": "쏘나타",
+   "sub_model": "쏘나타 DN8",
+   "trim": "프리미엄 플러스",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP010",
+   "plate": "109호3622",
+   "maker": "기아",
+   "model": "셀토스",
+   "sub_model": "더 뉴 셀토스 SP2",
+   "trim": "트렌디",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP010",
+   "plate": "109호3493",
+   "maker": "현대",
+   "model": "캐스퍼",
+   "sub_model": "캐스퍼 AX1",
+   "trim": "디 에센셜",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP010",
+   "plate": "109호3788",
+   "maker": "현대",
+   "model": "싼타페",
+   "sub_model": "디 올 뉴 싼타페 MX5",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP010",
+   "plate": "109호3148",
+   "maker": "현대",
+   "model": "쏘나타",
+   "sub_model": "쏘나타 디 엣지 DN8",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP010",
+   "plate": "109호3197",
+   "maker": "현대",
+   "model": "코나",
+   "sub_model": "디 올 뉴 코나 SX2",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP010",
+   "plate": "150호7396",
+   "maker": "현대",
+   "model": "쏘나타",
+   "sub_model": "쏘나타 DN8",
+   "trim": "프리미엄",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP010",
+   "plate": "182호5134",
+   "maker": "현대",
+   "model": "쏘나타",
+   "sub_model": "쏘나타 DN8",
+   "trim": "스마트",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP010",
+   "plate": "109하1261",
+   "maker": "기아",
+   "model": "K5",
+   "sub_model": "K5 DL3",
+   "trim": "트렌디",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP010",
+   "plate": "109호3498",
+   "maker": "제네시스",
+   "model": "G90",
+   "sub_model": "G90 RS4",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP010",
+   "plate": "109호3228",
+   "maker": "기아",
+   "model": "니로",
+   "sub_model": "디 올 뉴 니로 SG2",
+   "trim": "트렌디",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP012",
+   "plate": "375어8056",
+   "maker": "기아",
+   "model": "카니발",
+   "sub_model": "카니발 KA4",
+   "trim": "프레스티지",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP012",
+   "plate": "316라1593",
+   "maker": "제네시스",
+   "model": "G80",
+   "sub_model": "G80 RG3",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP012",
+   "plate": "375어8058",
+   "maker": "기아",
+   "model": "카니발",
+   "sub_model": "카니발 KA4",
+   "trim": "프레스티지",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP012",
+   "plate": "375어8059",
+   "maker": "현대",
+   "model": "그랜저",
+   "sub_model": "더 뉴 그랜저 IG",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP012",
+   "plate": "317무5737",
+   "maker": "기아",
+   "model": "카니발",
+   "sub_model": "카니발 KA4",
+   "trim": "시그니처",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP012",
+   "plate": "170구8289",
+   "maker": "KG모빌리티",
+   "model": "토레스",
+   "sub_model": "토레스 J100",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP012",
+   "plate": "308너3403",
+   "maker": "기아",
+   "model": "스포티지",
+   "sub_model": "스포티지 NQ5",
+   "trim": "시그니처 그래비티",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP012",
+   "plate": "347루9504",
+   "maker": "현대",
+   "model": "쏘나타",
+   "sub_model": "쏘나타 DN8",
+   "trim": "프리미엄 플러스",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP012",
+   "plate": "347루9526",
+   "maker": "르노코리아",
+   "model": "QM6",
+   "sub_model": "더 뉴 QM6 HZG",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP012",
+   "plate": "190거4260",
+   "maker": "현대",
+   "model": "캐스퍼",
+   "sub_model": "캐스퍼 AX1",
+   "trim": "스마트",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP012",
+   "plate": "245두6240",
+   "maker": "미니",
+   "model": "컨트리맨",
+   "sub_model": "쿠퍼 S 컨트리맨 U25",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP012",
+   "plate": "190거4278",
+   "maker": "현대",
+   "model": "아반떼",
+   "sub_model": "아반떼 CN7",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP012",
+   "plate": "47가1703",
+   "maker": "현대",
+   "model": "캐스퍼",
+   "sub_model": "캐스퍼 AX1",
+   "trim": "인스퍼레이션",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP012",
+   "plate": "144어9683",
+   "maker": "현대",
+   "model": "투싼",
+   "sub_model": "투싼 NX4",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP012",
+   "plate": "156두1484",
+   "maker": "기아",
+   "model": "스포티지",
+   "sub_model": "스포티지 NQ5",
+   "trim": "시그니처 그래비티",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP012",
+   "plate": "175부9051",
+   "maker": "현대",
+   "model": "캐스퍼",
+   "sub_model": "캐스퍼 AX1",
+   "trim": "스마트",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP012",
+   "plate": "175부9064",
+   "maker": "현대",
+   "model": "캐스퍼",
+   "sub_model": "캐스퍼 AX1",
+   "trim": "스마트",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP012",
+   "plate": "340무7399",
+   "maker": "기아",
+   "model": "스포티지",
+   "sub_model": "스포티지 더 볼드 QL",
+   "trim": "시그니처",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP012",
+   "plate": "159무8252",
+   "maker": "기아",
+   "model": "카니발",
+   "sub_model": "더 뉴 카니발 YP",
+   "trim": "노블레스",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP012",
+   "plate": "308너3485",
+   "maker": "기아",
+   "model": "카니발",
+   "sub_model": "카니발 KA4",
+   "trim": "프레스티지",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP012",
+   "plate": "375어8051",
+   "maker": "현대",
+   "model": "싼타페",
+   "sub_model": "더 뉴 싼타페 TM",
+   "trim": "프리미엄",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP012",
+   "plate": "340무7348",
+   "maker": "현대",
+   "model": "아반떼",
+   "sub_model": "아반떼 CN7",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP012",
+   "plate": "161허1397",
+   "maker": "현대",
+   "model": "쏘나타",
+   "sub_model": "쏘나타 디 엣지 DN8",
+   "trim": "익스클루시브",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP012",
+   "plate": "161하1268",
+   "maker": "현대",
+   "model": "팰리세이드",
+   "sub_model": "팰리세이드 LX2",
+   "trim": "프레스티지",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP012",
+   "plate": "161호1057",
+   "maker": "제네시스",
+   "model": "GV80",
+   "sub_model": "GV80 JX1",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP012",
+   "plate": "161허1398",
+   "maker": "현대",
+   "model": "싼타페",
+   "sub_model": "디 올 뉴 싼타페 MX5",
+   "trim": "캘리그래피",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP012",
+   "plate": "161하1687",
+   "maker": "현대",
+   "model": "아반떼",
+   "sub_model": "아반떼 CN7",
+   "trim": "",
+   "confidence": "medium",
+   "verified": false
+  },
+  {
+   "provider": "RP012",
+   "plate": "161하1705",
+   "maker": "제네시스",
+   "model": "GV70",
+   "sub_model": "GV70 JK1",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP012",
+   "plate": "116하2305",
+   "maker": "현대",
+   "model": "그랜저",
+   "sub_model": "더 뉴 그랜저 IG",
+   "trim": "프리미엄",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP012",
+   "plate": "104허3046",
+   "maker": "기아",
+   "model": "K7",
+   "sub_model": "K7 프리미어 YG",
+   "trim": "GDI X 에디션",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP012",
+   "plate": "161호1015",
+   "maker": "현대",
+   "model": "그랜저",
+   "sub_model": "그랜저 GN7",
+   "trim": "익스클루시브",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP013",
+   "plate": "161허1339",
+   "maker": "기아",
+   "model": "카니발",
+   "sub_model": "더 뉴 카니발 KA4",
+   "trim": "프레스티지",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP013",
+   "plate": "142호1165",
+   "maker": "현대",
+   "model": "팰리세이드",
+   "sub_model": "더 뉴 팰리세이드 LX2",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP013",
+   "plate": "161허1334",
+   "maker": "기아",
+   "model": "K8",
+   "sub_model": "더 뉴 K8 GL3",
+   "trim": "노블레스",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP013",
+   "plate": "125하2120",
+   "maker": "기아",
+   "model": "셀토스",
+   "sub_model": "셀토스 SP2",
+   "trim": "시그니처",
+   "confidence": "medium",
+   "verified": false
+  },
+  {
+   "provider": "RP013",
+   "plate": "142호1040",
+   "maker": "현대",
+   "model": "쏘나타",
+   "sub_model": "쏘나타 DN8",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP013",
+   "plate": "20호0840",
+   "maker": "기아",
+   "model": "카니발",
+   "sub_model": "카니발 KA4",
+   "trim": "노블레스",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP013",
+   "plate": "161허1699",
+   "maker": "현대",
+   "model": "아반떼",
+   "sub_model": "아반떼 J2",
+   "trim": "",
+   "confidence": "medium",
+   "verified": false
+  },
+  {
+   "provider": "RP013",
+   "plate": "162허2357",
+   "maker": "기아",
+   "model": "K7",
+   "sub_model": "K7 프리미어 YG",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP013",
+   "plate": "142호1068",
+   "maker": "기아",
+   "model": "카니발",
+   "sub_model": "카니발 R VQ",
+   "trim": "프리미엄",
+   "confidence": "medium",
+   "verified": false
+  },
+  {
+   "provider": "RP013",
+   "plate": "161허1331",
+   "maker": "제네시스",
+   "model": "G80",
+   "sub_model": "G80 RG3",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP013",
+   "plate": "161허1360",
+   "maker": "기아",
+   "model": "쏘렌토",
+   "sub_model": "더 뉴 쏘렌토 MQ4",
+   "trim": "시그니처",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP013",
+   "plate": "142호1184",
+   "maker": "기아",
+   "model": "카니발",
+   "sub_model": "카니발 KA4",
+   "trim": "노블레스",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP013",
+   "plate": "271루7538",
+   "maker": "현대",
+   "model": "쏘나타",
+   "sub_model": "쏘나타 DN8",
+   "trim": "프리미엄 패밀리",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP013",
+   "plate": "132로4674",
+   "maker": "현대",
+   "model": "쏘나타",
+   "sub_model": "쏘나타 DN8",
+   "trim": "프리미엄",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP013",
+   "plate": "52부9200",
+   "maker": "제네시스",
+   "model": "G80",
+   "sub_model": "G80 DH",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP013",
+   "plate": "217루7633",
+   "maker": "제네시스",
+   "model": "EQ900",
+   "sub_model": "EQ900 HI",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP013",
+   "plate": "04모4866",
+   "maker": "아우디",
+   "model": "A3",
+   "sub_model": "뉴 A3",
+   "trim": "",
+   "confidence": "low",
+   "verified": false
+  },
+  {
+   "provider": "RP015",
+   "plate": "161호8471",
+   "maker": "아우디",
+   "model": "기타",
+   "sub_model": "기타",
+   "trim": "",
+   "confidence": "low",
+   "verified": false
+  },
+  {
+   "provider": "RP016",
+   "plate": "161호8337",
+   "maker": "현대",
+   "model": "쏘나타",
+   "sub_model": "쏘나타 디 엣지 DN8",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP016",
+   "plate": "161호8340",
+   "maker": "현대",
+   "model": "쏘나타",
+   "sub_model": "쏘나타 디 엣지 DN8",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP017",
+   "plate": "133하4269",
+   "maker": "르노코리아",
+   "model": "아르카나",
+   "sub_model": "아르카나",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP017",
+   "plate": "133하4265",
+   "maker": "르노코리아",
+   "model": "아르카나",
+   "sub_model": "아르카나",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP018",
+   "plate": "125호7613",
+   "maker": "기아",
+   "model": "K8",
+   "sub_model": "K8 GL3",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP018",
+   "plate": "101하1394",
+   "maker": "기아",
+   "model": "K5",
+   "sub_model": "K5 TF",
+   "trim": "",
+   "confidence": "medium",
+   "verified": false
+  },
+  {
+   "provider": "RP018",
+   "plate": "142호8434",
+   "maker": "제네시스",
+   "model": "GV80",
+   "sub_model": "GV80 JX1",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP018",
+   "plate": "125호5168",
+   "maker": "제네시스",
+   "model": "GV70",
+   "sub_model": "GV70 JK1",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP018",
+   "plate": "125하2544",
+   "maker": "제네시스",
+   "model": "G80",
+   "sub_model": "G80 RG3",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP018",
+   "plate": "101호7613",
+   "maker": "제네시스",
+   "model": "G80",
+   "sub_model": "G80 RG3",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP018",
+   "plate": "142호8463",
+   "maker": "현대",
+   "model": "팰리세이드",
+   "sub_model": "팰리세이드 LX3",
+   "trim": "프레스티지",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP018",
+   "plate": "125하2545",
+   "maker": "제네시스",
+   "model": "G80",
+   "sub_model": "G80 RG3",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP018",
+   "plate": "142호3587",
+   "maker": "현대",
+   "model": "팰리세이드",
+   "sub_model": "더 뉴 팰리세이드 LX2",
+   "trim": "캘리그래피",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP018",
+   "plate": "101허2546",
+   "maker": "현대",
+   "model": "팰리세이드",
+   "sub_model": "팰리세이드 LX2",
+   "trim": "익스클루시브",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP018",
+   "plate": "125호5192",
+   "maker": "기아",
+   "model": "카니발",
+   "sub_model": "카니발 KA4",
+   "trim": "시그니처",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP018",
+   "plate": "101호5187",
+   "maker": "기아",
+   "model": "카니발",
+   "sub_model": "카니발 KA4",
+   "trim": "노블레스",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP018",
+   "plate": "101하8578",
+   "maker": "기아",
+   "model": "쏘렌토",
+   "sub_model": "쏘렌토 MQ4",
+   "trim": "프레스티지",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP018",
+   "plate": "142호2072",
+   "maker": "기아",
+   "model": "쏘렌토",
+   "sub_model": "더 뉴 쏘렌토 MQ4",
+   "trim": "그래비티",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP018",
+   "plate": "125호5190",
+   "maker": "현대",
+   "model": "그랜저",
+   "sub_model": "그랜저 GN7",
+   "trim": "프리미엄",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP018",
+   "plate": "142호3601",
+   "maker": "현대",
+   "model": "그랜저",
+   "sub_model": "그랜저 GN7",
+   "trim": "익스클루시브",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP018",
+   "plate": "125호9038",
+   "maker": "현대",
+   "model": "그랜저",
+   "sub_model": "그랜저 GN7",
+   "trim": "프리미엄",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP020",
+   "plate": "133하4554",
+   "maker": "현대",
+   "model": "그랜저",
+   "sub_model": "그랜저 GN7",
+   "trim": "익스클루시브",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP020",
+   "plate": "133하4558",
+   "maker": "기아",
+   "model": "모닝",
+   "sub_model": "모닝 JA",
+   "trim": "시그니처",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP020",
+   "plate": "133호1993",
+   "maker": "르노코리아",
+   "model": "그랑 콜레오스",
+   "sub_model": "그랑 콜레오스",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP020",
+   "plate": "133하4534",
+   "maker": "르노코리아",
+   "model": "그랑 콜레오스",
+   "sub_model": "그랑 콜레오스",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP020",
+   "plate": "133하4565",
+   "maker": "르노코리아",
+   "model": "그랑 콜레오스",
+   "sub_model": "그랑 콜레오스",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP020",
+   "plate": "133하4566",
+   "maker": "르노코리아",
+   "model": "그랑 콜레오스",
+   "sub_model": "그랑 콜레오스",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP020",
+   "plate": "133하4567",
+   "maker": "르노코리아",
+   "model": "그랑 콜레오스",
+   "sub_model": "그랑 콜레오스",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP020",
+   "plate": "133하4568",
+   "maker": "르노코리아",
+   "model": "그랑 콜레오스",
+   "sub_model": "그랑 콜레오스",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP020",
+   "plate": "133하4569",
+   "maker": "르노코리아",
+   "model": "그랑 콜레오스",
+   "sub_model": "그랑 콜레오스",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP020",
+   "plate": "133하4530",
+   "maker": "르노코리아",
+   "model": "그랑 콜레오스",
+   "sub_model": "그랑 콜레오스",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP020",
+   "plate": "133하4531",
+   "maker": "르노코리아",
+   "model": "그랑 콜레오스",
+   "sub_model": "그랑 콜레오스",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP020",
+   "plate": "133하4532",
+   "maker": "르노코리아",
+   "model": "그랑 콜레오스",
+   "sub_model": "그랑 콜레오스",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP020",
+   "plate": "133하4533",
+   "maker": "르노코리아",
+   "model": "그랑 콜레오스",
+   "sub_model": "그랑 콜레오스",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP020",
+   "plate": "133하4535",
+   "maker": "기아",
+   "model": "카니발",
+   "sub_model": "더 뉴 카니발 KA4",
+   "trim": "노블레스",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP020",
+   "plate": "133하4536",
+   "maker": "기아",
+   "model": "카니발",
+   "sub_model": "더 뉴 카니발 KA4",
+   "trim": "노블레스",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP020",
+   "plate": "146호1869",
+   "maker": "기아",
+   "model": "카니발",
+   "sub_model": "더 뉴 카니발 KA4",
+   "trim": "프레스티지",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP020",
+   "plate": "146호1686",
+   "maker": "캐딜락",
+   "model": "XT6",
+   "sub_model": "XT6",
+   "trim": "",
+   "confidence": "low",
+   "verified": false
+  },
+  {
+   "provider": "RP021",
+   "plate": "116하9968",
+   "maker": "폭스바겐",
+   "model": "파사트",
+   "sub_model": "더 뉴 파사트",
+   "trim": "",
+   "confidence": "low",
+   "verified": false
+  },
+  {
+   "provider": "RP021",
+   "plate": "116하9977",
+   "maker": "아우디",
+   "model": "기타",
+   "sub_model": "기타",
+   "trim": "",
+   "confidence": "low",
+   "verified": false
+  },
+  {
+   "provider": "RP021",
+   "plate": "116하9978",
+   "maker": "아우디",
+   "model": "기타",
+   "sub_model": "기타",
+   "trim": "",
+   "confidence": "low",
+   "verified": false
+  },
+  {
+   "provider": "RP021",
+   "plate": "116하9979",
+   "maker": "아우디",
+   "model": "기타",
+   "sub_model": "기타",
+   "trim": "",
+   "confidence": "low",
+   "verified": false
+  },
+  {
+   "provider": "RP021",
+   "plate": "116하9980",
+   "maker": "아우디",
+   "model": "기타",
+   "sub_model": "기타",
+   "trim": "",
+   "confidence": "low",
+   "verified": false
+  },
+  {
+   "provider": "RP021",
+   "plate": "116하9981",
+   "maker": "아우디",
+   "model": "기타",
+   "sub_model": "기타",
+   "trim": "",
+   "confidence": "low",
+   "verified": false
+  },
+  {
+   "provider": "RP021",
+   "plate": "116하9955",
+   "maker": "현대",
+   "model": "쏘나타",
+   "sub_model": "쏘나타 디 엣지 DN8",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP021",
+   "plate": "116하9956",
+   "maker": "현대",
+   "model": "쏘나타",
+   "sub_model": "쏘나타 디 엣지 DN8",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP021",
+   "plate": "116하9957",
+   "maker": "현대",
+   "model": "쏘나타",
+   "sub_model": "쏘나타 디 엣지 DN8",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP021",
+   "plate": "116하9958",
+   "maker": "현대",
+   "model": "쏘나타",
+   "sub_model": "쏘나타 디 엣지 DN8",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP021",
+   "plate": "116하9959",
+   "maker": "현대",
+   "model": "쏘나타",
+   "sub_model": "쏘나타 디 엣지 DN8",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP021",
+   "plate": "116호2056",
+   "maker": "현대",
+   "model": "팰리세이드",
+   "sub_model": "팰리세이드 LX3",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP021",
+   "plate": "222호3260",
+   "maker": "제네시스",
+   "model": "G80",
+   "sub_model": "G80 RG3",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP021",
+   "plate": "104허2655",
+   "maker": "현대",
+   "model": "아반떼",
+   "sub_model": "더 뉴 아반떼 AD",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP021",
+   "plate": "116호2184",
+   "maker": "르노코리아",
+   "model": "그랑 콜레오스",
+   "sub_model": "그랑 콜레오스",
+   "trim": "E-TECH 에스프리 알핀",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP021",
+   "plate": "116호2185",
+   "maker": "르노코리아",
+   "model": "그랑 콜레오스",
+   "sub_model": "그랑 콜레오스",
+   "trim": "E-TECH 에스프리 알핀",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP021",
+   "plate": "116호2186",
+   "maker": "르노코리아",
+   "model": "그랑 콜레오스",
+   "sub_model": "그랑 콜레오스",
+   "trim": "E-TECH 에스프리 알핀",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP021",
+   "plate": "116호2187",
+   "maker": "르노코리아",
+   "model": "그랑 콜레오스",
+   "sub_model": "그랑 콜레오스",
+   "trim": "E-TECH 에스프리 알핀",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP021",
+   "plate": "116호2183",
+   "maker": "르노코리아",
+   "model": "그랑 콜레오스",
+   "sub_model": "그랑 콜레오스",
+   "trim": "E-TECH 에스프리 알핀",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP021",
+   "plate": "116호2193",
+   "maker": "기아",
+   "model": "셀토스",
+   "sub_model": "더 2026 셀토스 SP3",
+   "trim": "",
+   "confidence": "medium",
+   "verified": false
+  },
+  {
+   "provider": "RP021",
+   "plate": "116호2194",
+   "maker": "기아",
+   "model": "셀토스",
+   "sub_model": "더 2026 셀토스 SP3",
+   "trim": "",
+   "confidence": "medium",
+   "verified": false
+  },
+  {
+   "provider": "RP021",
+   "plate": "145하4239",
+   "maker": "현대",
+   "model": "그랜저",
+   "sub_model": "더 뉴 그랜저 IG",
+   "trim": "프리미엄",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP021",
+   "plate": "195하4426",
+   "maker": "현대",
+   "model": "그랜저",
+   "sub_model": "그랜저 GN7",
+   "trim": "익스클루시브",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP021",
+   "plate": "178호4067",
+   "maker": "기아",
+   "model": "카니발",
+   "sub_model": "카니발 KA4",
+   "trim": "시그니처",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP021",
+   "plate": "161허1400",
+   "maker": "현대",
+   "model": "싼타페",
+   "sub_model": "디 올 뉴 싼타페 MX5",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP021",
+   "plate": "161허1402",
+   "maker": "현대",
+   "model": "싼타페",
+   "sub_model": "디 올 뉴 싼타페 MX5",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP021",
+   "plate": "161호1256",
+   "maker": "아우디",
+   "model": "A4",
+   "sub_model": "A4 B9",
+   "trim": "",
+   "confidence": "low",
+   "verified": false
+  },
+  {
+   "provider": "RP021",
+   "plate": "161호1257",
+   "maker": "아우디",
+   "model": "A4",
+   "sub_model": "A4 B9",
+   "trim": "",
+   "confidence": "low",
+   "verified": false
+  },
+  {
+   "provider": "RP021",
+   "plate": "161호1272",
+   "maker": "현대",
+   "model": "팰리세이드",
+   "sub_model": "더 뉴 팰리세이드 LX2",
+   "trim": "익스클루시브",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP021",
+   "plate": "161호1273",
+   "maker": "현대",
+   "model": "팰리세이드",
+   "sub_model": "더 뉴 팰리세이드 LX2",
+   "trim": "익스클루시브",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP021",
+   "plate": "170호2325",
+   "maker": "제네시스",
+   "model": "GV80",
+   "sub_model": "GV80 JX1",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP021",
+   "plate": "182하4240",
+   "maker": "제네시스",
+   "model": "G80",
+   "sub_model": "G80 RG3",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP021",
+   "plate": "182하4880",
+   "maker": "제네시스",
+   "model": "G80",
+   "sub_model": "G80 DH",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP021",
+   "plate": "08주6722",
+   "maker": "아우디",
+   "model": "Q7",
+   "sub_model": "Q7 4M",
+   "trim": "",
+   "confidence": "low",
+   "verified": false
+  },
+  {
+   "provider": "RP021",
+   "plate": "23누8273",
+   "maker": "벤츠",
+   "model": "C-클래스",
+   "sub_model": "C-클래스 W205",
+   "trim": "C220 d 아방가르드",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP021",
+   "plate": "13수0234",
+   "maker": "벤츠",
+   "model": "A-클래스",
+   "sub_model": "A-클래스 W176",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP021",
+   "plate": "29부7772",
+   "maker": "현대",
+   "model": "아반떼",
+   "sub_model": "더 뉴 아반떼 CN7",
+   "trim": "스마트",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP021",
+   "plate": "35우0775",
+   "maker": "쉐보레",
+   "model": "스파크",
+   "sub_model": "스파크 M300",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP021",
+   "plate": "32루9318",
+   "maker": "아우디",
+   "model": "A4",
+   "sub_model": "A4 B9",
+   "trim": "",
+   "confidence": "low",
+   "verified": false
+  },
+  {
+   "provider": "RP021",
+   "plate": "69주5498",
+   "maker": "쉐보레",
+   "model": "스파크",
+   "sub_model": "더 뉴 스파크 M400",
+   "trim": "",
+   "confidence": "low",
+   "verified": false
+  },
+  {
+   "provider": "RP021",
+   "plate": "51어4471",
+   "maker": "르노코리아",
+   "model": "SM7",
+   "sub_model": "SM7",
+   "trim": "",
+   "confidence": "low",
+   "verified": false
+  },
+  {
+   "provider": "RP021",
+   "plate": "54나7852",
+   "maker": "아우디",
+   "model": "S8",
+   "sub_model": "S8",
+   "trim": "",
+   "confidence": "low",
+   "verified": false
+  },
+  {
+   "provider": "RP021",
+   "plate": "333모5593",
+   "maker": "기아",
+   "model": "카니발",
+   "sub_model": "올 뉴 카니발 YP",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP021",
+   "plate": "20어4099",
+   "maker": "현대",
+   "model": "엑센트",
+   "sub_model": "엑센트(신형)",
+   "trim": "",
+   "confidence": "low",
+   "verified": false
+  },
+  {
+   "provider": "RP021",
+   "plate": "58마8818",
+   "maker": "르노코리아",
+   "model": "SM3",
+   "sub_model": "SM3 Z.E. L38",
+   "trim": "",
+   "confidence": "medium",
+   "verified": false
+  },
+  {
+   "provider": "RP022",
+   "plate": "161하3805",
+   "maker": "제네시스",
+   "model": "GV80",
+   "sub_model": "GV80 JX1",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133호5714",
+   "maker": "벤츠",
+   "model": "E-클래스",
+   "sub_model": "E-클래스 W213",
+   "trim": "E200 아방가르드",
+   "confidence": "low",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133호5716",
+   "maker": "벤츠",
+   "model": "E-클래스",
+   "sub_model": "E-클래스 W213",
+   "trim": "E200 아방가르드",
+   "confidence": "low",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133호6030",
+   "maker": "벤츠",
+   "model": "E-클래스",
+   "sub_model": "E-클래스 W213",
+   "trim": "E200 아방가르드",
+   "confidence": "low",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "125호8529",
+   "maker": "벤츠",
+   "model": "E-클래스",
+   "sub_model": "E-클래스 W213",
+   "trim": "E200 아방가르드",
+   "confidence": "low",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "142호2254",
+   "maker": "벤츠",
+   "model": "E-클래스",
+   "sub_model": "E-클래스 W213",
+   "trim": "E200 아방가르드",
+   "confidence": "low",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "125호8592",
+   "maker": "기아",
+   "model": "K8",
+   "sub_model": "K8 GL3",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133호5753",
+   "maker": "기아",
+   "model": "K5",
+   "sub_model": "더 뉴 K5 DL3",
+   "trim": "프레스티지",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133호5755",
+   "maker": "기아",
+   "model": "K5",
+   "sub_model": "더 뉴 K5 DL3",
+   "trim": "프레스티지",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "177하7173",
+   "maker": "기아",
+   "model": "K8",
+   "sub_model": "더 뉴 K8 GL3",
+   "trim": "노블레스",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133호6592",
+   "maker": "기아",
+   "model": "K8",
+   "sub_model": "더 뉴 K8 GL3",
+   "trim": "노블레스 라이트",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133호5909",
+   "maker": "기아",
+   "model": "레이",
+   "sub_model": "더 뉴 레이 TAM",
+   "trim": "트렌디",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133호6492",
+   "maker": "기아",
+   "model": "쏘렌토",
+   "sub_model": "더 뉴 쏘렌토 MQ4",
+   "trim": "프레스티지",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133하6936",
+   "maker": "현대",
+   "model": "그랜저",
+   "sub_model": "그랜저 GN7",
+   "trim": "익스클루시브",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "10하8034",
+   "maker": "미니",
+   "model": "에이스맨",
+   "sub_model": "에이스맨 1세대",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133호5476",
+   "maker": "르노코리아",
+   "model": "아르카나",
+   "sub_model": "아르카나",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133호6113",
+   "maker": "KG모빌리티",
+   "model": "액티언",
+   "sub_model": "액티언 2세대",
+   "trim": "S8",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "142호2325",
+   "maker": "현대",
+   "model": "캐스퍼",
+   "sub_model": "캐스퍼 AX1",
+   "trim": "디 에센셜 라이트",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133호5472",
+   "maker": "미니",
+   "model": "컨트리맨",
+   "sub_model": "쿠퍼 컨트리맨 R60/F60",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133호6164",
+   "maker": "미니",
+   "model": "쿠퍼",
+   "sub_model": "쿠퍼 C F66/F65",
+   "trim": "클래식",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133호6170",
+   "maker": "미니",
+   "model": "쿠퍼",
+   "sub_model": "쿠퍼 C F66/F65",
+   "trim": "클래식",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133호5492",
+   "maker": "KG모빌리티",
+   "model": "토레스",
+   "sub_model": "더 뉴 토레스 J116/J140",
+   "trim": "T5",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133허5345",
+   "maker": "기아",
+   "model": "K5",
+   "sub_model": "더 뉴 K5 DL3",
+   "trim": "베스트 셀렉션",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133호6551",
+   "maker": "기아",
+   "model": "모닝",
+   "sub_model": "모닝 JA",
+   "trim": "트렌디",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133호5521",
+   "maker": "르노코리아",
+   "model": "아르카나",
+   "sub_model": "아르카나",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133허5371",
+   "maker": "르노코리아",
+   "model": "아르카나",
+   "sub_model": "아르카나",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "33허0461",
+   "maker": "지프",
+   "model": "어벤저",
+   "sub_model": "어벤저",
+   "trim": "알티튜드",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133호6548",
+   "maker": "기아",
+   "model": "모닝",
+   "sub_model": "모닝 JA",
+   "trim": "트렌디",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133호5868",
+   "maker": "현대",
+   "model": "아반떼",
+   "sub_model": "더 뉴 아반떼 CN7",
+   "trim": "스마트",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "10하8191",
+   "maker": "BYD",
+   "model": "돌핀",
+   "sub_model": "돌핀",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133호6395",
+   "maker": "르노코리아",
+   "model": "아르카나",
+   "sub_model": "아르카나",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133호5674",
+   "maker": "현대",
+   "model": "아반떼",
+   "sub_model": "더 뉴 아반떼 CN7",
+   "trim": "모던",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133호6482",
+   "maker": "현대",
+   "model": "쏘나타",
+   "sub_model": "쏘나타 디 엣지 DN8",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133하7558",
+   "maker": "기아",
+   "model": "레이",
+   "sub_model": "더 뉴 레이 TAM",
+   "trim": "트렌디",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133하7553",
+   "maker": "기아",
+   "model": "레이",
+   "sub_model": "더 뉴 레이 TAM",
+   "trim": "트렌디",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133호6165",
+   "maker": "미니",
+   "model": "쿠퍼",
+   "sub_model": "쿠퍼 C F66/F65",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133호5330",
+   "maker": "미니",
+   "model": "쿠퍼",
+   "sub_model": "쿠퍼 C F66/F65",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133호5348",
+   "maker": "미니",
+   "model": "쿠퍼",
+   "sub_model": "쿠퍼 C F66/F65",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133호5374",
+   "maker": "미니",
+   "model": "쿠퍼",
+   "sub_model": "쿠퍼 C F66/F65",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133호6587",
+   "maker": "기아",
+   "model": "셀토스",
+   "sub_model": "더 2026 셀토스 SP3",
+   "trim": "",
+   "confidence": "low",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133하7578",
+   "maker": "현대",
+   "model": "베뉴",
+   "sub_model": "베뉴 QX1",
+   "trim": "스마트",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133하7579",
+   "maker": "현대",
+   "model": "베뉴",
+   "sub_model": "베뉴 QX1",
+   "trim": "스마트",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133하7580",
+   "maker": "현대",
+   "model": "베뉴",
+   "sub_model": "베뉴 QX1",
+   "trim": "스마트",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133하7581",
+   "maker": "현대",
+   "model": "베뉴",
+   "sub_model": "베뉴 QX1",
+   "trim": "스마트",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133하7582",
+   "maker": "현대",
+   "model": "베뉴",
+   "sub_model": "베뉴 QX1",
+   "trim": "스마트",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133하7583",
+   "maker": "현대",
+   "model": "베뉴",
+   "sub_model": "베뉴 QX1",
+   "trim": "스마트",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133하7584",
+   "maker": "현대",
+   "model": "베뉴",
+   "sub_model": "베뉴 QX1",
+   "trim": "스마트",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133하7585",
+   "maker": "현대",
+   "model": "베뉴",
+   "sub_model": "베뉴 QX1",
+   "trim": "스마트",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133하7595",
+   "maker": "현대",
+   "model": "베뉴",
+   "sub_model": "베뉴 QX1",
+   "trim": "스마트",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133하7551",
+   "maker": "현대",
+   "model": "맥스크루즈",
+   "sub_model": "맥스크루즈",
+   "trim": "",
+   "confidence": "low",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133호6597",
+   "maker": "현대",
+   "model": "맥스크루즈",
+   "sub_model": "맥스크루즈",
+   "trim": "",
+   "confidence": "low",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133호6598",
+   "maker": "현대",
+   "model": "맥스크루즈",
+   "sub_model": "맥스크루즈",
+   "trim": "",
+   "confidence": "low",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133호6599",
+   "maker": "현대",
+   "model": "맥스크루즈",
+   "sub_model": "맥스크루즈",
+   "trim": "",
+   "confidence": "low",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133하7565",
+   "maker": "기아",
+   "model": "카니발",
+   "sub_model": "더 뉴 카니발 KA4",
+   "trim": "프레스티지",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133호6488",
+   "maker": "현대",
+   "model": "맥스크루즈",
+   "sub_model": "맥스크루즈",
+   "trim": "",
+   "confidence": "low",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133호6590",
+   "maker": "기아",
+   "model": "셀토스",
+   "sub_model": "더 2026 셀토스 SP3",
+   "trim": "",
+   "confidence": "low",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133호6589",
+   "maker": "기아",
+   "model": "셀토스",
+   "sub_model": "더 2026 셀토스 SP3",
+   "trim": "",
+   "confidence": "low",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133호6585",
+   "maker": "기아",
+   "model": "셀토스",
+   "sub_model": "더 2026 셀토스 SP3",
+   "trim": "",
+   "confidence": "low",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133호6584",
+   "maker": "기아",
+   "model": "셀토스",
+   "sub_model": "더 2026 셀토스 SP3",
+   "trim": "",
+   "confidence": "low",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133호6582",
+   "maker": "기아",
+   "model": "셀토스",
+   "sub_model": "더 2026 셀토스 SP3",
+   "trim": "",
+   "confidence": "low",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133허5377",
+   "maker": "르노코리아",
+   "model": "아르카나",
+   "sub_model": "아르카나",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133호5389",
+   "maker": "폭스바겐",
+   "model": "골프",
+   "sub_model": "골프 8세대",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133호5390",
+   "maker": "폭스바겐",
+   "model": "골프",
+   "sub_model": "골프 8세대",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133호6591",
+   "maker": "기아",
+   "model": "셀토스",
+   "sub_model": "더 2026 셀토스 SP3",
+   "trim": "",
+   "confidence": "low",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133하7586",
+   "maker": "현대",
+   "model": "베뉴",
+   "sub_model": "베뉴 QX1",
+   "trim": "스마트",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133하7587",
+   "maker": "현대",
+   "model": "베뉴",
+   "sub_model": "베뉴 QX1",
+   "trim": "스마트",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133하7588",
+   "maker": "현대",
+   "model": "베뉴",
+   "sub_model": "베뉴 QX1",
+   "trim": "스마트",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133하7589",
+   "maker": "현대",
+   "model": "베뉴",
+   "sub_model": "베뉴 QX1",
+   "trim": "스마트",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133하7590",
+   "maker": "현대",
+   "model": "베뉴",
+   "sub_model": "베뉴 QX1",
+   "trim": "스마트",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133하7591",
+   "maker": "현대",
+   "model": "베뉴",
+   "sub_model": "베뉴 QX1",
+   "trim": "스마트",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133하7592",
+   "maker": "현대",
+   "model": "베뉴",
+   "sub_model": "베뉴 QX1",
+   "trim": "스마트",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133하7593",
+   "maker": "현대",
+   "model": "베뉴",
+   "sub_model": "베뉴 QX1",
+   "trim": "스마트",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133하7594",
+   "maker": "현대",
+   "model": "베뉴",
+   "sub_model": "베뉴 QX1",
+   "trim": "스마트",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "10하8171",
+   "maker": "테슬라",
+   "model": "모델 Y",
+   "sub_model": "모델 Y",
+   "trim": "RWD",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "10하8175",
+   "maker": "테슬라",
+   "model": "모델 Y",
+   "sub_model": "모델 Y",
+   "trim": "RWD",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "10하8172",
+   "maker": "테슬라",
+   "model": "모델 Y",
+   "sub_model": "모델 Y",
+   "trim": "RWD",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "10하8173",
+   "maker": "테슬라",
+   "model": "모델 Y",
+   "sub_model": "모델 Y",
+   "trim": "RWD",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "10하8174",
+   "maker": "테슬라",
+   "model": "모델 Y",
+   "sub_model": "모델 Y",
+   "trim": "RWD",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133허5344",
+   "maker": "기아",
+   "model": "K5",
+   "sub_model": "더 뉴 K5 DL3",
+   "trim": "베스트 셀렉션",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133허5346",
+   "maker": "기아",
+   "model": "K5",
+   "sub_model": "더 뉴 K5 DL3",
+   "trim": "베스트 셀렉션",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133허5347",
+   "maker": "기아",
+   "model": "K5",
+   "sub_model": "더 뉴 K5 DL3",
+   "trim": "베스트 셀렉션",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133허5348",
+   "maker": "기아",
+   "model": "K5",
+   "sub_model": "더 뉴 K5 DL3",
+   "trim": "베스트 셀렉션",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133허5349",
+   "maker": "기아",
+   "model": "K5",
+   "sub_model": "더 뉴 K5 DL3",
+   "trim": "베스트 셀렉션",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133허5350",
+   "maker": "기아",
+   "model": "K5",
+   "sub_model": "더 뉴 K5 DL3",
+   "trim": "베스트 셀렉션",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133허5351",
+   "maker": "기아",
+   "model": "K5",
+   "sub_model": "더 뉴 K5 DL3",
+   "trim": "베스트 셀렉션",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133허5352",
+   "maker": "기아",
+   "model": "K5",
+   "sub_model": "더 뉴 K5 DL3",
+   "trim": "베스트 셀렉션",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133허5353",
+   "maker": "기아",
+   "model": "K5",
+   "sub_model": "더 뉴 K5 DL3",
+   "trim": "베스트 셀렉션",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133허5378",
+   "maker": "기아",
+   "model": "모닝",
+   "sub_model": "모닝 JA",
+   "trim": "트렌디",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133허5379",
+   "maker": "기아",
+   "model": "모닝",
+   "sub_model": "모닝 JA",
+   "trim": "트렌디",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133허5380",
+   "maker": "기아",
+   "model": "모닝",
+   "sub_model": "모닝 JA",
+   "trim": "트렌디",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133허5381",
+   "maker": "기아",
+   "model": "모닝",
+   "sub_model": "모닝 JA",
+   "trim": "트렌디",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133허5382",
+   "maker": "기아",
+   "model": "모닝",
+   "sub_model": "모닝 JA",
+   "trim": "트렌디",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133허5383",
+   "maker": "기아",
+   "model": "모닝",
+   "sub_model": "모닝 JA",
+   "trim": "트렌디",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133허5384",
+   "maker": "기아",
+   "model": "모닝",
+   "sub_model": "모닝 JA",
+   "trim": "트렌디",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133허5385",
+   "maker": "기아",
+   "model": "모닝",
+   "sub_model": "모닝 JA",
+   "trim": "트렌디",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133허5386",
+   "maker": "기아",
+   "model": "모닝",
+   "sub_model": "모닝 JA",
+   "trim": "트렌디",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133허5387",
+   "maker": "기아",
+   "model": "모닝",
+   "sub_model": "모닝 JA",
+   "trim": "트렌디",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133호5524",
+   "maker": "쉐보레",
+   "model": "트랙스",
+   "sub_model": "트랙스 크로스오버 9BQC",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133허5368",
+   "maker": "르노코리아",
+   "model": "아르카나",
+   "sub_model": "아르카나",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133허5369",
+   "maker": "르노코리아",
+   "model": "아르카나",
+   "sub_model": "아르카나",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133허5370",
+   "maker": "르노코리아",
+   "model": "아르카나",
+   "sub_model": "아르카나",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133호5531",
+   "maker": "쉐보레",
+   "model": "트랙스",
+   "sub_model": "트랙스 크로스오버 9BQC",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133호5534",
+   "maker": "쉐보레",
+   "model": "트랙스",
+   "sub_model": "트랙스 크로스오버 9BQC",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133허5373",
+   "maker": "르노코리아",
+   "model": "아르카나",
+   "sub_model": "아르카나",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133허5374",
+   "maker": "르노코리아",
+   "model": "아르카나",
+   "sub_model": "아르카나",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133허5375",
+   "maker": "르노코리아",
+   "model": "아르카나",
+   "sub_model": "아르카나",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133허5376",
+   "maker": "르노코리아",
+   "model": "아르카나",
+   "sub_model": "아르카나",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133호5535",
+   "maker": "쉐보레",
+   "model": "트랙스",
+   "sub_model": "트랙스 크로스오버 9BQC",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "10하8189",
+   "maker": "BYD",
+   "model": "돌핀",
+   "sub_model": "돌핀",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "10하8190",
+   "maker": "BYD",
+   "model": "돌핀",
+   "sub_model": "돌핀",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "10하8192",
+   "maker": "BYD",
+   "model": "돌핀",
+   "sub_model": "돌핀",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "10하8193",
+   "maker": "BYD",
+   "model": "돌핀",
+   "sub_model": "돌핀",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133호5371",
+   "maker": "미니",
+   "model": "컨트리맨",
+   "sub_model": "쿠퍼 컨트리맨 R60/F60",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133호5392",
+   "maker": "미니",
+   "model": "컨트리맨",
+   "sub_model": "쿠퍼 컨트리맨 R60/F60",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133호5542",
+   "maker": "쉐보레",
+   "model": "트랙스",
+   "sub_model": "트랙스 크로스오버 9BQC",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133호5566",
+   "maker": "쉐보레",
+   "model": "트랙스",
+   "sub_model": "트랙스 크로스오버 9BQC",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133호5567",
+   "maker": "쉐보레",
+   "model": "트랙스",
+   "sub_model": "트랙스 크로스오버 9BQC",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "10하8199",
+   "maker": "BYD",
+   "model": "돌핀",
+   "sub_model": "돌핀",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "10하8200",
+   "maker": "BYD",
+   "model": "돌핀",
+   "sub_model": "돌핀",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "10하8201",
+   "maker": "BYD",
+   "model": "돌핀",
+   "sub_model": "돌핀",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "10하8202",
+   "maker": "BYD",
+   "model": "돌핀",
+   "sub_model": "돌핀",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "10하8203",
+   "maker": "BYD",
+   "model": "돌핀",
+   "sub_model": "돌핀",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "10하8209",
+   "maker": "테슬라",
+   "model": "모델 Y",
+   "sub_model": "모델 Y",
+   "trim": "롱 레인지",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "10하8210",
+   "maker": "테슬라",
+   "model": "모델 Y",
+   "sub_model": "모델 Y",
+   "trim": "롱 레인지",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "181하5350",
+   "maker": "기아",
+   "model": "레이",
+   "sub_model": "더 뉴 레이 TAM",
+   "trim": "트렌디",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "181하5351",
+   "maker": "기아",
+   "model": "레이",
+   "sub_model": "더 뉴 레이 TAM",
+   "trim": "트렌디",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "181하5352",
+   "maker": "기아",
+   "model": "레이",
+   "sub_model": "더 뉴 레이 TAM",
+   "trim": "트렌디",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133호5574",
+   "maker": "쉐보레",
+   "model": "트랙스",
+   "sub_model": "트랙스 크로스오버 9BQC",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133호5575",
+   "maker": "쉐보레",
+   "model": "트랙스",
+   "sub_model": "트랙스 크로스오버 9BQC",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "133호5578",
+   "maker": "쉐보레",
+   "model": "트랙스",
+   "sub_model": "트랙스 크로스오버 9BQC",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "181하5361",
+   "maker": "현대",
+   "model": "베뉴",
+   "sub_model": "베뉴 QX1",
+   "trim": "스마트",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "181하5362",
+   "maker": "현대",
+   "model": "베뉴",
+   "sub_model": "베뉴 QX1",
+   "trim": "스마트",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "181하5363",
+   "maker": "현대",
+   "model": "베뉴",
+   "sub_model": "베뉴 QX1",
+   "trim": "스마트",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "181하5364",
+   "maker": "현대",
+   "model": "베뉴",
+   "sub_model": "베뉴 QX1",
+   "trim": "스마트",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "181하5366",
+   "maker": "현대",
+   "model": "베뉴",
+   "sub_model": "베뉴 QX1",
+   "trim": "스마트",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "181하5367",
+   "maker": "현대",
+   "model": "베뉴",
+   "sub_model": "베뉴 QX1",
+   "trim": "스마트",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "181호5380",
+   "maker": "현대",
+   "model": "베뉴",
+   "sub_model": "베뉴 QX1",
+   "trim": "스마트",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "181호5382",
+   "maker": "현대",
+   "model": "베뉴",
+   "sub_model": "베뉴 QX1",
+   "trim": "스마트",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "181호5388",
+   "maker": "현대",
+   "model": "베뉴",
+   "sub_model": "베뉴 QX1",
+   "trim": "스마트",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "181호5392",
+   "maker": "현대",
+   "model": "베뉴",
+   "sub_model": "베뉴 QX1",
+   "trim": "스마트",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "181호5398",
+   "maker": "현대",
+   "model": "베뉴",
+   "sub_model": "베뉴 QX1",
+   "trim": "스마트",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP031",
+   "plate": "181호5400",
+   "maker": "현대",
+   "model": "베뉴",
+   "sub_model": "베뉴 QX1",
+   "trim": "스마트",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP030",
+   "plate": "700호2228",
+   "maker": "현대",
+   "model": "스타리아",
+   "sub_model": "더 뉴 스타리아 US4",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP030",
+   "plate": "101허2357",
+   "maker": "현대",
+   "model": "싼타페",
+   "sub_model": "디 올 뉴 싼타페 MX5",
+   "trim": "익스클루시브",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP030",
+   "plate": "142호7629",
+   "maker": "크라이슬러",
+   "model": "200",
+   "sub_model": "200 1세대",
+   "trim": "",
+   "confidence": "low",
+   "verified": false
+  },
+  {
+   "provider": "RP030",
+   "plate": "125호9126",
+   "maker": "현대",
+   "model": "그랜저",
+   "sub_model": "그랜저 GN7",
+   "trim": "익스클루시브",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP030",
+   "plate": "125호9162",
+   "maker": "현대",
+   "model": "그랜저",
+   "sub_model": "그랜저 GN7",
+   "trim": "익스클루시브",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP030",
+   "plate": "125호9163",
+   "maker": "현대",
+   "model": "그랜저",
+   "sub_model": "그랜저 GN7",
+   "trim": "익스클루시브",
+   "confidence": "high",
+   "verified": false
+  },
+  {
+   "provider": "RP030",
+   "plate": "125하1829",
+   "maker": "제네시스",
+   "model": "G80",
+   "sub_model": "G80 RG3",
+   "trim": "",
+   "confidence": "high",
+   "verified": false
+  }
+ ]
+}
