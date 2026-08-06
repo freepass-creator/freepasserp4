@@ -22,6 +22,7 @@ import {
   type SheetTableFetchOptions,
 } from '@/lib/domain/sheet-import';
 import { commitSupplierProducts, previewSupplierTable } from '@/lib/domain/master-ingress';
+import { SyncPreview } from '@/components/SyncPreview';
 import { loadVehicleMaster, peekVehicleMaster } from '@/lib/domain/vehicle-master-load';
 import { ADAPTER_OPTIONS, resolveAdapter, type SheetAdapterId } from '@/lib/domain/sheet-adapters';
 import {
@@ -2099,6 +2100,22 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
             </div>
           )}
 
+          {/* 검증된 매물을 «영업자가 볼 화면 그대로» 미리 본다 — 숫자 요약만으로는
+              제조사가 비었는지 사진이 안 왔는지 반영 후에야 알게 된다. */}
+          {pending && pending.fetched.products.length > 0 && (
+            <div style={{ marginTop: 10, border: `1px solid ${C.line}`, borderRadius: R, padding: 10, background: C.bg }}>
+              <div style={{ fontSize: FS.cap, fontWeight: FW.head, color: C.mute, marginBottom: 8 }}>
+                반영 전 미리보기 · 저장하지 않은 상태
+              </div>
+              <SyncPreview
+                products={pending.fetched.products}
+                sources={pending.fetched.lines
+                  .filter((line) => line.ok && line.products.length)
+                  .map((line) => ({ code: line.code, label: line.label, products: line.products }))}
+              />
+            </div>
+          )}
+
           {bulkLog && (
             <pre style={{ margin: '8px 0 0', fontSize: FS.cap, color: C.mute, whiteSpace: 'pre-wrap', maxHeight: 130, overflowY: 'auto', fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{bulkLog}</pre>
           )}
@@ -2417,6 +2434,10 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
               <div style={{ fontWeight: FW.title, color: C.brand, marginBottom: 2 }}>저장 전 변경 요약</div>
               {diffBanner}
             </div>
+          )}
+          {/* 한 장짜리 원본도 저장 전에 실제 화면으로 본다 — 매핑이 틀리면 여기서 바로 드러난다. */}
+          {preview && preview.products.length > 0 && (
+            <SyncPreview products={preview.products} />
           )}
           <div style={{ display: 'flex', gap: 6 }}>
             <Btn title="매핑과 URL 저장" size="sm" variant="ghost" onClick={saveMapping} disabled={busy}>매핑·URL 저장</Btn>

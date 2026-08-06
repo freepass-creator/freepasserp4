@@ -13,7 +13,15 @@ import { checkInventory } from '@/lib/domain/data-check';
 import { confirmDialog, toast } from '@/components/Toaster';
 import { Page, Btn, C, R, Loading, CenterNote, SectionLabel, Badge, FS, NUM } from '@/components/ui';
 import { MasterFitSummary } from '@/components/MasterFitSummary';
+import { DevWorkbench, type DevTool } from '@/components/DevWorkbench';
 import { NAV_LABEL } from '@/lib/tabbar';
+import dynamic from 'next/dynamic';
+
+// 공급사 연동은 무겁다(시트 파서·차종마스터). 도구를 고를 때 불러온다.
+const SheetSync = dynamic(() => import('@/components/SheetSync').then((m) => m.SheetSync), {
+  ssr: false,
+  loading: () => <Loading />,
+});
 
 async function saveMigrationBackup(kind: 'products' | 'settlements', backup: unknown): Promise<string> {
   const response = await fetch('/api/dev/migration-backup', {
@@ -258,31 +266,64 @@ export default function DevTools() {
   const masterReady = !!(master && master.length);
   const card: CSSProperties = { border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg, padding: 14 };
 
-  return (
-    <Page title="개발도구">
-      <div style={{ maxWidth: 720, margin: '0 auto', padding: '12px 0 40px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <div style={{ fontSize: FS.sub, color: C.mute, lineHeight: 1.5 }}>
-          수집된 차량 원자(시트·OCR·등록증·옵션·메모)를 전부 신호로 써서 차종마스터 규격에 맞춥니다.
-          손님·영업에 보이는 차종은 마스터 표준. 원본은 보존.
-        </div>
-
-        <div style={{ ...card, background: C.selected }}>
-          <SectionLabel mt={0}>지금 있는 매물 → 차종마스터</SectionLabel>
-          <div style={{ fontSize: FS.cap, color: C.faint, lineHeight: 1.5, marginBottom: 10 }}>
-            거친 표기·흩어진 칸을 모아 마스터 트리(제조사→모델→세대→파워→트림)에 스냅.
-            high·중만 저장, 애매하면 미선택·검수. 임의 재조합 금지.
+  /**
+   * 도구 목록 — 왼쪽 1/4 에 서고, 고른 것이 오른쪽 3/4 에 열린다.
+   *
+   * 예전엔 720px 한 장에 카드를 세로로 쌓았다. 도구가 늘면서 «어디에 뭐가 있는지»를 잃었고,
+   * 무엇보다 공급사 연동처럼 **표를 넓게 펼쳐야 하는** 도구가 그 폭에서 못 살았다.
+   */
+  const tools: DevTool[] = [
+    {
+      key: 'sync',
+      label: '공급사 상품 연동',
+      hint: '시트·홈페이지 검증 → 들어올 상품 확인 → 반영',
+      render: () => (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
+          <div style={{ fontSize: FS.sub, color: C.mute, lineHeight: 1.5 }}>
+            원본이 시트든 홈페이지든 절차는 하나입니다 — 검증하고, 들어올 상품을 눈으로 보고, 반영합니다.
           </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            <Btn onClick={convertAll} disabled={busy || !masterReady || !rows?.length}>
-              {busy ? '변환 중…' : `지금 매물 변환하기${rows ? ` (${rows.length})` : ''}`}
-            </Btn>
-            <Badge tone={masterReady ? 'green' : 'red'} variant="solid">
-              {master === null ? '마스터 로딩' : masterReady ? `마스터 ${master!.length.toLocaleString()}세대` : '마스터 실패'}
-            </Badge>
-          </div>
-          {log && <pre style={{ margin: '10px 0 0', fontSize: FS.cap, color: C.mute, whiteSpace: 'pre-wrap', fontFamily: NUM }}>{log}</pre>}
+          <SheetSync co={co} onImported={() => { void reload(); }} />
         </div>
-
+      ),
+    },
+    {
+      key: 'master',
+      label: '차종마스터',
+      hint: '거친 표기를 마스터 트리에 스냅 · 정합 현황',
+      render: () => (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ ...card, background: C.selected }}>
+            <SectionLabel mt={0}>지금 있는 매물 → 차종마스터</SectionLabel>
+            <div style={{ fontSize: FS.cap, color: C.faint, lineHeight: 1.5, marginBottom: 10 }}>
+              거친 표기·흩어진 칸을 모아 마스터 트리(제조사→모델→세대→파워→트림)에 스냅.
+              high·중만 저장, 애매하면 미선택·검수. 임의 재조합 금지.
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              <Btn onClick={convertAll} disabled={busy || !masterReady || !rows?.length}>
+                {busy ? '변환 중…' : `지금 매물 변환하기${rows ? ` (${rows.length})` : ''}`}
+              </Btn>
+              <Badge tone={masterReady ? 'green' : 'red'} variant="solid">
+                {master === null ? '마스터 로딩' : masterReady ? `마스터 ${master!.length.toLocaleString()}세대` : '마스터 실패'}
+              </Badge>
+            </div>
+            {log && <pre style={{ margin: '10px 0 0', fontSize: FS.cap, color: C.mute, whiteSpace: 'pre-wrap', fontFamily: NUM }}>{log}</pre>}
+          </div>
+          <div style={card}>
+            <SectionLabel mt={0}>마스터 정합 현황</SectionLabel>
+            {!fit ? (
+              <div style={{ fontSize: FS.sub, color: C.faint }}>{rows === null ? '매물 로딩…' : '집계 중…'}</div>
+            ) : (
+              <MasterFitSummary fit={fit} />
+            )}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'migrate',
+      label: 'v3 → v4 이관',
+      hint: '중복 진단 · 복사 미리보기 (읽기 전용)',
+      render: () => (
         <div style={{ ...card, background: C.selected }}>
           <SectionLabel mt={0}>v3 매물 → v4 복사 (소스 전환 준비)</SectionLabel>
           <div style={{ fontSize: FS.cap, color: C.faint, lineHeight: 1.5, marginBottom: 10 }}>
@@ -296,48 +337,50 @@ export default function DevTools() {
           {diagLog && <pre style={{ margin: '10px 0 0', fontSize: FS.cap, color: C.mute, whiteSpace: 'pre-wrap', fontFamily: NUM, lineHeight: 1.6 }}>{diagLog}</pre>}
           {migLog && <pre style={{ margin: '10px 0 0', fontSize: FS.cap, color: C.mute, whiteSpace: 'pre-wrap', fontFamily: NUM }}>{migLog}</pre>}
         </div>
-
-        <div style={{ ...card, background: C.warnBg }}>
-          <SectionLabel mt={0}>민감 매물 필드 → private 이동</SectionLabel>
-          <div style={{ fontSize: FS.cap, color: C.mute, lineHeight: 1.6, marginBottom: 10 }}>
-            원가·VIN·기간별 내부 수수료를 <code>v4/products_private</code>에 보존한 뒤
-            v3/v4 공개 상품에서 제거합니다. 먼저 미리보기로 대상과 삭제 경로 수를 확인하세요.
+      ),
+    },
+    {
+      key: 'private',
+      label: '민감 필드 분리',
+      hint: '원가·VIN·정산 금액을 private 노드로',
+      render: () => (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ ...card, background: C.warnBg }}>
+            <SectionLabel mt={0}>민감 매물 필드 → private 이동</SectionLabel>
+            <div style={{ fontSize: FS.cap, color: C.mute, lineHeight: 1.6, marginBottom: 10 }}>
+              원가·VIN·기간별 내부 수수료를 <code>v4/products_private</code>에 보존한 뒤
+              v3/v4 공개 상품에서 제거합니다. 먼저 미리보기로 대상과 삭제 경로 수를 확인하세요.
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <Btn variant="ghost" onClick={() => runPrivateMigration(true)} disabled={migBusy}>민감 필드 미리보기</Btn>
+              <Btn variant="danger" onClick={() => runPrivateMigration(false)} disabled={migBusy}>
+                {migBusy ? '처리 중…' : 'private 이동 실행'}
+              </Btn>
+            </div>
+            {privateMigLog && <pre style={{ margin: '10px 0 0', fontSize: FS.cap, color: C.mute, whiteSpace: 'pre-wrap', fontFamily: NUM }}>{privateMigLog}</pre>}
           </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <Btn variant="ghost" onClick={() => runPrivateMigration(true)} disabled={migBusy}>
-              민감 필드 미리보기
-            </Btn>
-            <Btn variant="danger" onClick={() => runPrivateMigration(false)} disabled={migBusy}>
-              {migBusy ? '처리 중…' : 'private 이동 실행'}
-            </Btn>
+          <div style={{ ...card, background: C.warnBg }}>
+            <SectionLabel mt={0}>정산 금액 → 역할별 private 이동</SectionLabel>
+            <div style={{ fontSize: FS.cap, color: C.mute, lineHeight: 1.6, marginBottom: 10 }}>
+              공급사 청구(R1), 영업 지급(R2), 관리자 순수익을 각 private 노드에 보존한 뒤 공개 정산에서 제거합니다.
+              실제 실행 전 미리보기와 RTDB 백업이 필요합니다.
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <Btn variant="ghost" onClick={() => runSettlementMigration(true)} disabled={migBusy}>정산 이동 미리보기</Btn>
+              <Btn variant="danger" onClick={() => runSettlementMigration(false)} disabled={migBusy}>
+                {migBusy ? '처리 중…' : '정산 private 이동 실행'}
+              </Btn>
+            </div>
+            {settlementMigLog && <pre style={{ margin: '10px 0 0', fontSize: FS.cap, color: C.mute, whiteSpace: 'pre-wrap', fontFamily: NUM }}>{settlementMigLog}</pre>}
           </div>
-          {privateMigLog && <pre style={{ margin: '10px 0 0', fontSize: FS.cap, color: C.mute, whiteSpace: 'pre-wrap', fontFamily: NUM }}>{privateMigLog}</pre>}
         </div>
-
-        <div style={{ ...card, background: C.warnBg }}>
-          <SectionLabel mt={0}>정산 금액 → 역할별 private 이동</SectionLabel>
-          <div style={{ fontSize: FS.cap, color: C.mute, lineHeight: 1.6, marginBottom: 10 }}>
-            공급사 청구(R1), 영업 지급(R2), 관리자 순수익을 각 private 노드에 보존한 뒤 공개 정산에서 제거합니다.
-            실제 실행 전 미리보기와 RTDB 백업이 필요합니다.
-          </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <Btn variant="ghost" onClick={() => runSettlementMigration(true)} disabled={migBusy}>정산 이동 미리보기</Btn>
-            <Btn variant="danger" onClick={() => runSettlementMigration(false)} disabled={migBusy}>
-              {migBusy ? '처리 중…' : '정산 private 이동 실행'}
-            </Btn>
-          </div>
-          {settlementMigLog && <pre style={{ margin: '10px 0 0', fontSize: FS.cap, color: C.mute, whiteSpace: 'pre-wrap', fontFamily: NUM }}>{settlementMigLog}</pre>}
-        </div>
-
-        <div style={card}>
-          <SectionLabel mt={0}>마스터 정합 현황</SectionLabel>
-          {!fit ? (
-            <div style={{ fontSize: FS.sub, color: C.faint }}>{rows === null ? '매물 로딩…' : '집계 중…'}</div>
-          ) : (
-            <MasterFitSummary fit={fit} />
-          )}
-        </div>
-
+      ),
+    },
+    {
+      key: 'check',
+      label: '데이터 점검',
+      hint: `자동감지 ${issues.length}종 · 표시 ${issueHits}건`,
+      render: () => (
         <div style={card}>
           <SectionLabel mt={0}>데이터 이상</SectionLabel>
           <div style={{ fontSize: FS.sub, color: C.mute, marginBottom: 8 }}>
@@ -345,7 +388,13 @@ export default function DevTools() {
           </div>
           <Btn href="/data-check" size="sm" variant="ghost">데이터 점검 상세</Btn>
         </div>
-
+      ),
+    },
+    {
+      key: 'links',
+      label: '바로가기',
+      hint: '재고·감사로그·회원 · 캐시 비우기',
+      render: () => (
         <div style={card}>
           <SectionLabel mt={0}>바로가기</SectionLabel>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
@@ -356,17 +405,22 @@ export default function DevTools() {
             <Btn
               size="sm"
               variant="ghost"
-              onClick={() => { clearStoreCache(); toast('목록 캐시 비움 — 다시 불러오세요', 'ok'); reload(); }}
+              onClick={() => { clearStoreCache(); toast('목록 캐시 비움 — 다시 불러오세요', 'ok'); void reload(); }}
             >
               스토어 캐시 비우기
             </Btn>
           </div>
         </div>
+      ),
+    },
+  ];
 
-        <div style={{ fontSize: FS.cap, color: C.faint }}>
-          영업자 계정에서는 재고·개발도구를 사용할 수 없습니다. 관리자 계정으로 로그인하세요.
-        </div>
+  return (
+    <Page title="개발도구">
+      <div style={{ padding: '12px 0 40px' }}>
+        <DevWorkbench tools={tools} />
       </div>
     </Page>
   );
 }
+
