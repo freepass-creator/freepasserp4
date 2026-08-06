@@ -112,7 +112,7 @@ export function InventoryFixedPane({ model }: { model: InventoryEditorModel }) {
               title={model.ocrBusy ? '등록증 인식 중' : '등록증 올리기'}
               style={{ padding: '12px 10px', width: '100%' }}
             >
-              <ScanLine size={16} color={C.brand} aria-hidden />
+              <ScanLine size={ICON.md} color={C.brand} aria-hidden />
               <span style={{ fontSize: FS.cap, fontWeight: FW.strong, color: C.brand }}>
                 {model.ocrBusy ? '인식 중…' : '등록증 올리기'}
               </span>

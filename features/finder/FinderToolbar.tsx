@@ -3,7 +3,7 @@
 import { FileSpreadsheet, LayoutGrid, List, SlidersHorizontal, Table } from 'lucide-react';
 import { PRODUCT_SHEET_URL } from '@/lib/product-sheet';
 import { InterestTriggers, type InterestTab } from '@/components/InterestRail';
-import { C, FS, NUM, CountPill, IconBtn, IconSeg, SearchInput, Select } from '@/components/ui';
+import { C, FS, NUM, CountPill, IconBtn, IconSeg, SearchInput, Select, ICON } from '@/components/ui';
 import { FINDER_SORTS } from './filter-state';
 
 const VIEWS = [
@@ -55,7 +55,7 @@ export function FinderToolbar(props: Props) {
             active={props.filterSheetOpen}
             onClick={props.onToggleFilterSheet}
           >
-            <SlidersHorizontal size={16} />
+            <SlidersHorizontal size={ICON.md} />
           </IconBtn>
           {props.filterBadge > 0 && <span className="fp-icon-count"><CountPill n={props.filterBadge} tone="accent" /></span>}
         </span>
@@ -83,7 +83,7 @@ export function FinderToolbar(props: Props) {
               title="구글시트로 열기 — 전체 상품 · 엑셀 받기"
               onClick={() => { if (props.view === 'excel') window.open(PRODUCT_SHEET_URL, '_blank', 'noopener,noreferrer'); }}
             >
-              <FileSpreadsheet size={16} />
+              <FileSpreadsheet size={ICON.md} />
             </IconBtn>
           </span>
           <span style={{ position: 'relative', display: 'inline-flex', flex: '0 0 auto' }}>
@@ -92,7 +92,7 @@ export function FinderToolbar(props: Props) {
               active={props.filterOpen}
               onClick={props.onToggleFilter}
             >
-              <SlidersHorizontal size={16} />
+              <SlidersHorizontal size={ICON.md} />
             </IconBtn>
             {props.sidebarActiveCount > 0 && <span className="fp-icon-count"><CountPill n={props.sidebarActiveCount} tone="accent" /></span>}
           </span>
@@ -100,7 +100,7 @@ export function FinderToolbar(props: Props) {
             showLabel
             value={props.view}
             onChange={props.onView}
-            options={VIEWS.map(({ key, label, Icon }) => ({ key, label, icon: <Icon size={16} /> }))}
+            options={VIEWS.map(({ key, label, Icon }) => ({ key, label, icon: <Icon size={ICON.md} /> }))}
           />
         </div>
       </div>

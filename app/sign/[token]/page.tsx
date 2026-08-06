@@ -135,7 +135,7 @@ export default function SignPage() {
                 fontWeight: FW.strong,
               }}
             >
-              <span style={{ flex: '0 0 18px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{on ? <Check size={14} aria-hidden /> : null}</span>
+              <span style={{ flex: '0 0 18px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{on ? <Check size={ICON.sm} aria-hidden /> : null}</span>
               <span style={{ textAlign: 'left' }}>{CONSENT_LABELS[x]} <span style={{ color: on ? 'rgba(255,255,255,0.85)' : C.danger }}>(필수)</span></span>
             </Btn>
           );

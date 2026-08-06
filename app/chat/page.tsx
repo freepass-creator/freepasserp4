@@ -10,7 +10,7 @@ import { getRole, actor, type Role } from '@/lib/domain/deal';
 import { roomsWithUnread, unreadFor, unreadRoomCount } from '@/lib/domain/messaging';
 import { contractStage, isInquiryOnly, isContractCancelled } from '@/lib/domain/contract';
 import { providerNameMap, withProviderNames } from '@/lib/domain/identity';
-import { PaneHead, Btn, IconBtn, C, Loading, CenterNote, PaneBody, FilterChips, FilterGroup, FS, FW, NUM, FeedRowSkeleton } from '@/components/ui';
+import { PaneHead, Btn, IconBtn, C, Loading, CenterNote, PaneBody, FilterChips, FilterGroup, FS, FW, NUM, ICON, FeedRowSkeleton } from '@/components/ui';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
 import { ChatThread } from '@/components/ChatThread';
 import { ProductDetail } from '@/components/ProductDetail';
@@ -396,8 +396,8 @@ export default function Chat() {
       onClick={() => setSwapKey(swapKey === 'chat' ? 'progress' : 'chat')}
     >
       {swapKey === 'chat'
-        ? <ClipboardList size={18} strokeWidth={2.25} aria-hidden />
-        : <MessageCircle size={18} strokeWidth={2.25} aria-hidden />}
+        ? <ClipboardList size={ICON.lg} strokeWidth={2.25} aria-hidden />
+        : <MessageCircle size={ICON.lg} strokeWidth={2.25} aria-hidden />}
     </IconBtn>
   ) : undefined;
 

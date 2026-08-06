@@ -11,7 +11,7 @@ import { parseSettlementHistory } from '@/lib/domain/settlement-import';
 import { downloadSettlementReport } from '@/lib/excel-export';
 import {
   Badge, Btn, C, CenterNote, DetailRow, DetailShell, FilterChips, FilterGroup,
-  FS, FW, IconBtn, ListGroup, Loading, MetricRow, NUM, PaneBody, PaneHead, R, Select,
+  FS, FW, IconBtn, ICON, ListGroup, Loading, MetricRow, NUM, PaneBody, PaneHead, R, Select,
   won,
 } from '@/components/ui';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
@@ -408,7 +408,7 @@ export default function MonthlySettlement() {
             padding: '8px 12px', borderBottom: `1px solid ${C.line2}`,
             display: 'flex', alignItems: 'center', gap: 6,
           }}>
-            <IconBtn onClick={() => stepMonth(-1)} disabled={monthIndex <= 0} title="이전 달"><ChevronLeft size={18} /></IconBtn>
+            <IconBtn onClick={() => stepMonth(-1)} disabled={monthIndex <= 0} title="이전 달"><ChevronLeft size={ICON.lg} /></IconBtn>
             <Select
               value={month}
               onChange={changeMonth}
@@ -417,7 +417,7 @@ export default function MonthlySettlement() {
               full
               style={{ flex: 1, minWidth: 0, fontFamily: NUM }}
             />
-            <IconBtn onClick={() => stepMonth(1)} disabled={monthIndex >= months.length - 1} title="다음 달"><ChevronRight size={18} /></IconBtn>
+            <IconBtn onClick={() => stepMonth(1)} disabled={monthIndex >= months.length - 1} title="다음 달"><ChevronRight size={ICON.lg} /></IconBtn>
           </div>
         )}
         panes={panes}
