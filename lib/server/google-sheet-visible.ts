@@ -117,9 +117,11 @@ export async function fetchVisibleGoogleSheetTable(
   if (!target?.properties) throw new Error(`Google Sheet 탭 없음(gid ${gid})`);
   if (target.properties.hidden) throw new Error(`숨김 탭은 연동할 수 없습니다(${target.properties.title || gid})`);
   const a1Title = `'${String(target.properties.title || '').replace(/'/g, "''")}'`;
+  // hyperlink·chipRuns 를 함께 받는다 — 공급사는 사진을 «열»이 아니라 차번 셀 링크로 준다
+  // (아이카=상세페이지 하이퍼링크, 오플=드라이브 폴더 스마트칩). 호출 수는 그대로다.
   const fields = [
     'sheets(properties(sheetId,title,hidden)',
-    'data(startRow,rowData(values(formattedValue,effectiveValue)),rowMetadata(hiddenByFilter,hiddenByUser)))',
+    'data(startRow,rowData(values(formattedValue,effectiveValue,hyperlink,chipRuns(chip(richLinkProperties(uri))))),rowMetadata(hiddenByFilter,hiddenByUser)))',
   ].join(',');
   const body = await requestJson(
     `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?includeGridData=true&ranges=${encodeURIComponent(a1Title)}&fields=${encodeURIComponent(fields)}`,
