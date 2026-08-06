@@ -23,6 +23,7 @@ Claude는 읽기만 하고 수정하지 않는다. (지시서는 `CURSOR-TASKS.m
 | C-5 | — | 0 | — | 이미 완료(partners basicFields에 business_number + 숫자정규화·중복 toast) |
 | C-6 | `9d8b964` | 2 | 0 | 모바일 채팅 헤더에서 roomChatCode 숨김(웹 유지) |
 | C-7 | `9d8b964` | 1 | 0 | ChatThread 말풍선 maxWidth 100%+minWidth 0(패딩 14 대칭) |
+| U-1 | `669f3ce` | 7 | 0 | 규격통일: metrics/global-error/login FW·FS · MetaIcon/FavHeart ICON·ctrlH |
 
 ---
 
@@ -79,6 +80,11 @@ _(아직 없음)_
 
 ## 현재 상태
 
-`대기중` — C-3~C-7 커밋 `9d8b964`(+STATUS `e56bd03`). 열린 ⬜ 없음(C-1·C-8 🔒).
-Claude 시트/HANDOFF/VERIFICATION/도메인 WIP는 미터치. `UIUX_AUDIT_RESULTS.md` 기존 산출물 있음(재스캔 안 함).
-다음 오더는 Claude가 `CURSOR-TASKS.md`에 넣을 것.
+`대기중` — C-3~C-7 `9d8b964` · 규격통일 U-1 `669f3ce`. 열린 ⬜ 없음(C-1·C-8 🔒).
+감사 high 다수는 이미 반영돼 있었음. 남은 예외(디자인 판단·손대지 않음):
+- `not-found` 404 장식 `fontSize:40` (FS 대응값 없음)
+- `native-form` Switch 51×31 / radius 16 (iOS 관례)
+- `global-error` TOKEN_CSS hex 미러 · `login` CI 서피스 (의도적)
+- `sec` 숨기기 22×22 · badge 점 radius 1 (판단필요)
+
+Claude 시트/HANDOFF/VERIFICATION/도메인 WIP 미터치.
