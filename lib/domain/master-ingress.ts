@@ -3,7 +3,8 @@
  *
  * 규칙 (앞으로 고정):
  *  1. 시트/엑셀/일괄 연동 저장은 이 모듈만 경유한다.
- *  2. 차종마스터(entries) 없이 커밋 불가.
+ *  2. 차종마스터는 **선택**이다 — 붙일 수 있는 차만 붙이고, 못 붙은 차도 원문 그대로 입고한다
+ *     (2026-08-06 사장님 결정). 마스터가 비면 스냅을 건너뛸 뿐 입고를 막지 않는다.
  *  3. 수집 원자(연식·연료·배기·인승·구동·등록증·옵션·OCR…)를 전부 신호로 써 snapToMaster.
  *  4. high·중 = 규격 확정(마스터 노드), 검토·미매칭 = _needs_master_review.
  *  5. soft-merge 저장은 sheet-merge.commitSheetProducts (빈칸으로 수기 덮지 않음).
@@ -33,9 +34,15 @@ export type MasterIngressCommit = CommitSheetResult & {
   review: number;
 };
 
-function assertMaster(entries: MasterEntry[] | null | undefined): MasterEntry[] {
-  if (!entries?.length) throw new Error('차종마스터 필수 — 외부 매물은 마스터 틀로만 입고');
-  return entries;
+/**
+ * 차종마스터는 선택이다 — 없으면 «스냅 없이» 간다.
+ *
+ * 예전엔 여기서 던져 입고를 통째로 막았다. 그러면 마스터 로드가 한 번 실패했다는 이유로
+ * 공급사 시트가 하나도 안 들어온다. 차종을 못 붙이는 건 우리 데이터가 덜 정리된 것이지
+ * 그 차가 없다는 뜻이 아니다 — 원문(제조사·차명)은 그대로 저장되고 검수 표시만 붙는다.
+ */
+function optionalMaster(entries: MasterEntry[] | null | undefined): MasterEntry[] {
+  return entries?.length ? entries : [];
 }
 
 /**
@@ -67,7 +74,7 @@ export async function commitSupplierProducts(
   products: EntityRecord[],
   master: MasterEntry[],
 ): Promise<MasterIngressCommit> {
-  const entries = assertMaster(master);
+  const entries = optionalMaster(master);
   if (!products.length) {
     return { created: 0, updated: 0, unchanged: 0, duplicates: 0, backend: '', confirmed: 0, review: 0 };
   }
@@ -90,7 +97,7 @@ export function previewSupplierTable(
     depositRule?: DepositRule;
   },
 ): ImportResult & { confirmed: number; review: number } {
-  const entries = assertMaster(opts.master);
+  const entries = optionalMaster(opts.master);
   const res = importSheetTable(table, {
     providerCode: opts.providerCode,
     entries,

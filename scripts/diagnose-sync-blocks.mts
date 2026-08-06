@@ -21,6 +21,11 @@ import {
 } from '../lib/domain/sheet-sync-all';
 import { visibleRowsFromGridResponse, type SheetsGridResponse } from '../lib/domain/sheet-visible-grid';
 import { buildSheetConflictReportRows } from '../lib/domain/sheet-conflict-report';
+import {
+  buildMasterIndex, classifyMasterMisfit,
+  MASTER_MISFIT_LABEL, MASTER_MISFIT_OWNER, type MasterMisfitKind,
+} from '../lib/domain/master-misfit';
+import type { MasterEntry } from '../lib/domain/vehicle-master-match';
 import { applySheetConflictResolutions } from '../lib/domain/sheet-conflict-resolution';
 import type { EntityRecord } from '../lib/intake/entities';
 
@@ -172,6 +177,47 @@ async function main() {
     const rv = line.products.filter(review).length;
     if (!rv) continue;
     console.log(`      ${line.label.padEnd(18).slice(0, 18)} 검수 ${rv}/${line.products.length}`);
+  }
+  // 트림 확보율 — 확신도를 끌어올리는 마지막 신호다. 트림이 비면 세대까지 붙고도 low 로 떨어지고,
+  // 손님에게는 같은 차가 등급 구분 없이 나간다. «어디서» 비는지가 곧 고칠 자리다.
+  const trimOf = (r: EntityRecord) => S((r as Rec).trim_name) || S((r as Rec).variant);
+  const noTrim = all.products.filter((r) => !trimOf(r));
+  console.log(`   트림 있음 ${all.products.length - noTrim.length}대 · 트림 없음 ${noTrim.length}대`);
+  for (const line of all.lines) {
+    const nt = line.products.filter((r) => !trimOf(r)).length;
+    if (!nt) continue;
+    const rv = line.products.filter((r) => !trimOf(r) && review(r)).length;
+    console.log(`      ${line.label.padEnd(18).slice(0, 18)} 트림없음 ${nt}/${line.products.length}  (그중 검수 ${rv})`);
+  }
+  // 검수대기를 «한 덩어리»로 두면 아무도 손을 못 댄다. 손볼 사람이 다른 축으로 가른다
+  // (master-misfit SSOT — DB 감사 audit-master-misfit 과 같은 규칙).
+  const index = buildMasterIndex(master as MasterEntry[]);
+  const kinds = new Map<MasterMisfitKind, EntityRecord[]>();
+  for (const r of all.products.filter(review)) {
+    const kind = classifyMasterMisfit(r, index, S((r as Rec)._snap_confidence) || undefined);
+    kinds.set(kind, [...(kinds.get(kind) || []), r]);
+  }
+  if (kinds.size) {
+    console.log('   검수대기를 갈라 보면:');
+    for (const [kind, rows] of [...kinds.entries()].sort((a, b) => b[1].length - a[1].length)) {
+      console.log(`      ${String(rows.length).padStart(3)}대  ${MASTER_MISFIT_LABEL[kind].padEnd(30).slice(0, 30)} [손볼 곳: ${MASTER_MISFIT_OWNER[kind]}]`);
+    }
+  }
+
+  if (process.argv.includes('--review')) {
+    console.log('\n   검수대기 실물 — 무엇이 모자라 low 인지:');
+    for (const line of all.lines) {
+      const rows = line.products.filter(review);
+      if (!rows.length) continue;
+      console.log(`
+   [${line.label}]`);
+      for (const r of rows) {
+        const g = r as Rec;
+        console.log(`     ${S(g.car_number).padEnd(10)} 제조사=${S(g.maker) || '(없음)'} 모델=${S(g.model) || '(없음)'} 세부=${S(g.sub_model) || '-'} 트림=${S(g.trim_name) || '-'} 연식=${S(g.year) || '-'} 연료=${S(g.fuel_type) || '-'}`);
+        const raw = S(g._raw_vehicle);
+        if (raw) console.log(`                원문: ${raw.slice(0, 120)}`);
+      }
+    }
   }
   console.log('');
 

@@ -23,7 +23,7 @@ export function WorkPage({
   title, statusLabel, statusCount, listCount, list, listHeader, panes, selected, onBack, search, actions,
   headerActions,
   mobileLayout = 'stack', mobileSwapKey, onMobileSwapKeyChange, countSuffix = '건', hideDock,
-  listTools, contextTitle, paneRatio,
+  listTools, contextTitle, paneRatio, listMaxWidth,
   attentionLabel, attentionCount,
 }: {
   title: string;
@@ -58,6 +58,11 @@ export function WorkPage({
    * 개발도구처럼 패널에 넓은 표를 펼쳐야 하는 화면이 3 을 쓴다(목록 1/4 · 패널 3/4).
    */
   paneRatio?: number;
+  /**
+   * 목록 열 상한(px). 넓은 모니터에서 1/4 이 그대로 커지면 짧은 목록 옆에 빈 공간만 늘고
+   * 정작 표를 펼쳐야 할 패널이 그만큼 좁아진다. 상한을 두면 남는 폭이 전부 패널로 간다.
+   */
+  listMaxWidth?: number;
 }) {
   const mobile = useIsMobile();
   // 키보드가 올라오면 하단독을 접는다 — 입력칸 바로 위에 독이 겹쳐 앉는 걸 막는다.
@@ -224,7 +229,7 @@ export function WorkPage({
   return (
     <>
       <div style={{ display: 'flex', height: 'calc(100dvh - var(--topbar-h) - var(--fp-bar-h))', borderTop: `1px solid ${C.line}`, overflowX: 'hidden', background: C.bg }}>
-        <div style={col('1 1 0', { minWidth: 0, overflow: 'hidden' })}>
+        <div style={col('1 1 0', { minWidth: 0, overflow: 'hidden', ...(listMaxWidth ? { maxWidth: listMaxWidth } : null) })}>
           <PaneHead title={title} count={listCount == null || listCount === '' ? undefined : `${listCount}${countSuffix}`} right={resolvedTools?.action ? (
             <Btn size="sm" disabled={resolvedTools.action.disabled} onClick={resolvedTools.action.onClick}>{resolvedTools.action.label}</Btn>
           ) : undefined} />

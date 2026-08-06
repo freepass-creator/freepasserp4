@@ -475,7 +475,10 @@ export default function DevTools() {
       onBack={() => setSel(null)}
       contextTitle={current?.label}
       // 목록 1/4 · 도구 3/4 — 공급사 연동처럼 표를 넓게 펼쳐야 하는 도구가 반반에서는 못 산다.
+      // 넓은 모니터에서는 목록을 320 에서 멈춘다. 도구 6개짜리 목록이 640px 로 늘어나 봐야
+      // 빈 공간만 생기고, 그만큼 표가 좁아진다 — 남는 폭은 전부 도구가 쓴다.
       paneRatio={3}
+      listMaxWidth={320}
     />
   );
 }
