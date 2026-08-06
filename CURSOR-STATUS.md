@@ -26,6 +26,7 @@ Claude는 읽기만 하고 수정하지 않는다. (지시서는 `CURSOR-TASKS.m
 | U-1 | `669f3ce` | 7 | 0 | 규격통일: metrics/global-error/login FW·FS · MetaIcon/FavHeart ICON·ctrlH |
 | U-2 | `d221a73` | 18 | 0 | 규격통일: lucide size→ICON · PageStatus 칩→ctrlH(sm) |
 | U-3 | `ab06f88` | 6 | 0 | 규격통일: app/features 잔여 lucide size→ICON |
+| U-4 | `0638afc` | 18 | 0 | 규격통일: NUM 열스캔 숫자 tabular-nums 보강 |
 
 ---
 
@@ -82,6 +83,6 @@ _(아직 없음)_
 
 ## 현재 상태
 
-`대기중` — C-3~C-7 `9d8b964` · U-1~U-3(`669f3ce`/`d221a73`/`ab06f88`). 열린 ⬜ 없음.
-ICON 기계 치환(앱·features·components) 소진. 남은 예외만(디자인/잠금/의도적).
+`대기중` — C-3~C-7 · U-1~U-4(`669f3ce`/`d221a73`/`ab06f88`/`0638afc`). 열린 ⬜ 없음.
+규격통일 기계 치환(FS/FW/ICON/ctrlH/tabular) 소진. 예외·잠금만 남음.
 Claude WIP 미터치.
