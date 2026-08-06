@@ -1,14 +1,14 @@
 'use client';
 import { useEffect, useState, type MouseEvent } from 'react';
 import { Star } from 'lucide-react';
-import { C, R, IconBtn, ctrlH, SH } from '@/components/ui';
+import { C, R, IconBtn, ctrlH, ICON, SH } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { isFav, toggleFav, subscribeInterest, type InterestSnap } from '@/lib/product-interest';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { toast } from '@/components/Toaster';
 
 /** 찜 — 상세 공용(+웹 가로카드 thumb). 모바일 목록 썸네일에는 안 씀. stopPropagation으로 카드 Link와 충돌 없음. */
-export function FavHeart({ p, size = 16, onPhoto = false, compact = false }: {
+export function FavHeart({ p, size = ICON.md, onPhoto = false, compact = false }: {
   p: EntityRecord | InterestSnap; size?: number; onPhoto?: boolean; compact?: boolean;
 }) {
   const mobile = useIsMobile();
@@ -21,10 +21,10 @@ export function FavHeart({ p, size = 16, onPhoto = false, compact = false }: {
     return subscribeInterest(() => setOn(isFav(code)));
   }, [code]);
 
-  // 터치 ≥ ctrlH. compact/onPhoto도 모바일은 md(40) 유지(타깃 축소 금지).
+  // 터치 ≥ ctrlH. 웹은 md/sm 헬퍼만(치수 숫자 금지).
   const h = mobile
     ? ctrlH(true)
-    : compact ? 24 : onPhoto ? 30 : 32;
+    : compact ? ctrlH(false, 'sm') : ctrlH(false);
   const click = (e: MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();

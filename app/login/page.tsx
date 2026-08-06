@@ -9,7 +9,7 @@ import { Store } from 'lucide-react';
 import { type User } from 'firebase/auth';
 import { login, signup, logout, resetPassword, writeUserProfile } from '@/lib/firebase/auth';
 import { setGuest, getSession, firebaseReadySafe } from '@/lib/login-helpers';
-import { fmtPhone, C, FS, R, ctrlPadX } from '@/components/ui';
+import { fmtPhone, C, FS, FW, R, ctrlPadX } from '@/components/ui';
 import { BRAND_MAIN, BRAND_SUB } from '@/lib/brand';
 import { LEGAL_VERSION } from '@/lib/legal';
 import { toast } from '@/components/Toaster';
@@ -52,7 +52,7 @@ function ConsentBox({ agree, setAgree }: { agree: Agree; setAgree: (a: Agree) =>
   const link: React.CSSProperties = { color: C.accent, textDecoration: 'underline', textUnderlineOffset: 2, padding: '6px 2px', display: 'inline-block' };
   return (
     <div style={{ border: `1px solid ${C.line}`, borderRadius: R, padding: `10px ${ctrlPadX(true)}px`, margin: '0 0 10px', display: 'flex', flexDirection: 'column', gap: 8, textAlign: 'left' }}>
-      <label style={{ ...row, fontWeight: 600, paddingBottom: 8, borderBottom: `1px solid ${C.line}` }}>
+      <label style={{ ...row, fontWeight: FW.strong, paddingBottom: 8, borderBottom: `1px solid ${C.line}` }}>
         <input type="checkbox" style={box} checked={all} onChange={(e) => setAgree({ terms: e.target.checked, privacy: e.target.checked })} />
         전체 동의
       </label>
@@ -216,7 +216,7 @@ export default function LoginPage() {
         {mode === 'signup' && (
           <form className={`login-card${busy ? ' is-loading' : ''}`} onSubmit={doSignup} noValidate>
             <header className="login-head"><h2 className="login-title">계정 만들기</h2><p className="login-sub">사업자번호로 소속을 확인한 뒤 관리자 승인으로 이용합니다.</p></header>
-            {msg.text && <p className="login-msg" style={{ margin: 0, color: msgColor, textAlign: 'center', fontWeight: 600 }} aria-live="polite">{msg.text}</p>}
+            {msg.text && <p className="login-msg" style={{ margin: 0, color: msgColor, textAlign: 'center', fontWeight: FW.strong }} aria-live="polite">{msg.text}</p>}
             <div className="login-form">
               <div className="login-field"><label htmlFor="suEmail">이메일 (필수)</label><input id="suEmail" type="email" placeholder="name@company.com" autoComplete="username" value={su.email} onChange={(e) => setSu({ ...su, email: e.target.value })} required /></div>
               <div className="login-field"><label htmlFor="suPw">비밀번호</label><input id="suPw" type="password" placeholder="6자 이상" autoComplete="new-password" value={su.pw} onChange={(e) => setSu({ ...su, pw: e.target.value })} required /></div>

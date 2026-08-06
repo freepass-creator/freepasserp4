@@ -2,7 +2,7 @@
 import { type CSSProperties } from 'react';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { eventSignals, type Audience } from '@/lib/domain/product';
-import { C, R, NUM, Badge, FW, FS, SCRIM } from '@/components/ui';
+import { C, R, NUM, Badge, FW, FS, ICON, SCRIM } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { useFirstPhoto } from '@/components/use-product-photos';
 import { FavHeart } from '@/components/FavHeart';
@@ -268,7 +268,7 @@ export function CardThumb({ p, audience = 'agent', fill, w, h, heart = false, ma
 
       {showHeart && (
         <span style={{ position: 'absolute', top: pad, right: pad, zIndex: 2 }}>
-          <FavHeart p={p} size={fill ? 16 : 13} onPhoto />
+          <FavHeart p={p} size={fill ? ICON.md : ICON.sm} onPhoto />
         </span>
       )}
     </div>

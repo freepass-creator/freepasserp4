@@ -2,6 +2,7 @@
 import { useEffect } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { logClientError } from '@/lib/observability/log-error';
+import { C, FS, FW, NUM, R } from '@/components/ui/tokens';
 
 /**
  * 루트 레이아웃까지 터졌을 때의 최종 방어선 — <html><body> 직접 렌더(globals.css 미적용).
@@ -53,27 +54,27 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
       <head>
         <style dangerouslySetInnerHTML={{ __html: TOKEN_CSS }} />
       </head>
-      <body style={{ margin: 0, fontFamily: 'Pretendard, system-ui, sans-serif', background: 'var(--bg-page)', color: 'var(--text-main)' }}>
+      <body style={{ margin: 0, fontFamily: 'Pretendard, system-ui, sans-serif', background: C.bg, color: C.ink }}>
         <div style={{
           minHeight: '100vh', display: 'flex', flexDirection: 'column',
           alignItems: 'center', justifyContent: 'center', gap: 14, padding: 24, textAlign: 'center',
         }}>
-          <div style={{ color: '#a16207', display: 'flex', lineHeight: 1 }}><AlertTriangle size={40} aria-hidden /></div>
-          <div style={{ fontSize: 18, fontWeight: 650 }}>일시적인 오류가 발생했습니다</div>
-          <div style={{ fontSize: 13, color: 'var(--text-sub)', maxWidth: 360, lineHeight: 1.6 }}>
+          <div style={{ color: C.warn, display: 'flex', lineHeight: 1 }}><AlertTriangle size={40} aria-hidden /></div>
+          <div style={{ fontSize: FS.page, fontWeight: FW.title }}>일시적인 오류가 발생했습니다</div>
+          <div style={{ fontSize: FS.body, color: C.mute, maxWidth: 360, lineHeight: 1.6 }}>
             페이지를 새로고침하거나 잠시 후 다시 접속해 주세요.
           </div>
           {error?.digest ? (
-            <div style={{ fontSize: 11, color: 'var(--text-weak)', fontFamily: 'monospace' }}>오류코드 {error.digest}</div>
+            <div style={{ fontSize: FS.cap, color: C.faint, fontFamily: NUM }}>오류코드 {error.digest}</div>
           ) : null}
           <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
             <button
               onClick={() => reset()}
-              style={{ padding: '10px 18px', borderRadius: 4, border: 'none', background: 'var(--brand)', color: 'var(--text-inverse)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+              style={{ padding: '10px 18px', borderRadius: R, border: 'none', background: C.brand, color: C.inverse, fontSize: FS.body, fontWeight: FW.strong, cursor: 'pointer' }}
             >다시 시도</button>
             <button
               onClick={() => { window.location.href = '/'; }}
-              style={{ padding: '10px 18px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-main)', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}
+              style={{ padding: '10px 18px', borderRadius: R, border: `1px solid ${C.line}`, background: C.taupeBg, color: C.ink, fontSize: FS.body, fontWeight: FW.meta, cursor: 'pointer' }}
             >홈으로</button>
           </div>
         </div>

@@ -4,12 +4,12 @@ import type { CSSProperties } from 'react';
 import { Wallet, UserRound, Briefcase, ShieldCheck, Sparkles, Coins, type LucideIcon } from 'lucide-react';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { benefitSignals, eventSignals } from '@/lib/domain/product';
-import { C, FW, FS } from '@/components/ui';
+import { C, FW, FS, ICON } from '@/components/ui';
 import { toneText } from '@/components/ui/badges';
 import { benefitTip } from '@/components/product-card-badges';
 
 /** MetaIcon — 혜택용. iconColor로 아이콘만 색(혜택 신호). */
-export function MetaIcon({ icon: Icon, text, size = 12, strong, iconColor, title }: {
+export function MetaIcon({ icon: Icon, text, size = ICON.sm, strong, iconColor, title }: {
   icon: LucideIcon; text: string; size?: number; strong?: boolean; iconColor?: string; title?: string;
 }) {
   return (
@@ -75,7 +75,7 @@ export function CardBenefits({ p, dense, clamp, inline }: {
       }}>조건없음</div>
     );
   }
-  const ico = dense ? 12 : 13;
+  const ico = ICON.sm;
   return (
     <div style={metaRow(!!dense, false, true, clamp, inline)}>
       {items.map((s) => (
@@ -99,7 +99,7 @@ export function CardEvents({ p, dense, clamp, inline }: {
 }) {
   const items = eventSignals(p);
   if (!items.length) return null;
-  const ico = dense ? 11 : 12;
+  const ico = ICON.sm;
   return (
     <div style={{ ...metaRow(!!dense, false, true, clamp, inline), color: C.brand }}>
       {items.map((s) => (
@@ -136,7 +136,7 @@ export function CardPerkLine({ p, dense, inline }: {
       }}>조건없음</div>
     );
   }
-  const ico = dense ? 12 : 13;
+  const ico = ICON.sm;
   return (
     <div style={{
       ...metaRow(!!dense, false, true, !inline),

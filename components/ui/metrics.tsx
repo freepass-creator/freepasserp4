@@ -34,10 +34,10 @@ export function Card({
       display: 'flex',
       flexDirection: 'column',
       justifyContent: 'space-between',
-      boxShadow: '0 10px 28px rgba(15,23,42,0.04)',
+      boxShadow: SH.cardRest,
     }}>
       <div style={{ fontSize: FS.sub, color: C.mute, fontWeight: FW.label, marginBottom: 10 }}>{title}</div>
-      <div style={{ fontSize: 24, fontWeight: FW.head, color: toneColor(tone), fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{value}</div>
+      <div style={{ fontSize: FS.page, fontWeight: FW.head, color: toneColor(tone), fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{value}</div>
       {note && <div style={{ fontSize: FS.sub, color: C.faint, marginTop: 8 }}>{note}</div>}
     </div>
   );
@@ -88,7 +88,7 @@ export function Kpi({
   const inner = (
     <div style={{ border: `1px solid ${C.line}`, borderRadius: R, padding: '9px 14px', minWidth: 128, background: C.taupeBg }}>
       <div style={{ fontSize: FS.cap, color: C.mute, fontWeight: FW.strong }}>{label}</div>
-      <div style={{ fontSize: 19, fontWeight: FW.head, marginTop: 2, color: toneColor(tone), fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{value}</div>
+      <div style={{ fontSize: FS.page, fontWeight: FW.head, marginTop: 2, color: toneColor(tone), fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{value}</div>
     </div>
   );
   return href ? <a href={href} style={{ textDecoration: 'none', color: 'inherit' }}>{inner}</a> : inner;
