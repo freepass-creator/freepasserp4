@@ -921,9 +921,22 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
       const activeApproved = new Set(conflictResolutions
         .filter((item) => item.status === 'approved')
         .map((item) => item.fingerprint));
+      /**
+       * 「시트 누락기간 기존가 유지」는 승인을 받지 않는다 — **값이 안 바뀌기 때문이다.**
+       *
+       * 결정값이 KEEP_EXISTING_PRICES 이고 soft-merge 는 누락기간을 삭제하지 않고 기존값을
+       * 보존한다(`sheet-conflict-report.ts` 주석). 즉 승인하든 안 하든 결과가 같은데
+       * 사람을 세워두고 있었다. 실측(2026-08-06): 97건 중 40건이 이런 무변화 건이었고,
+       * 그 40건 때문에 반영 버튼이 통째로 잠겼다.
+       *
+       * 승인은 **가격이 실제로 바뀌는 것**(`새 기본가격 적용 확인 필요`)에만 받는다.
+       * 계약이 걸린 건은 위 `isPriceConflictProtected` 에서 이미 후보에서 빠져 있다.
+       */
+      const priceChangesValue = (raw: string) =>
+        String(reportByRaw.get(raw)?.priceImpact || '').includes('새 기본가격 적용');
       const approvedPriceFingerprints = priceResolutionCandidates
-        .map((item) => item.fingerprint)
-        .filter((fingerprint) => activeApproved.has(fingerprint));
+        .filter((item) => activeApproved.has(item.fingerprint) || !priceChangesValue(item.raw))
+        .map((item) => item.fingerprint);
       const protectedPriceCount = rawExistingConflicts.missingPricePeriods
         .filter((raw) => isPriceConflictProtected(raw, existing, contracts)).length;
       const banners: string[] = [];
