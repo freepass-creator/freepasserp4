@@ -115,6 +115,29 @@ export function isSheetExcluded(raw: unknown): boolean {
   return canonSheetVehicleStatus(raw) === '출고불가';
 }
 
+/**
+ * 그 칸이 «차를 설명하는 글»인가 — 트림 추출용 신호 수집 기준.
+ *
+ * 트림은 시트에 열이 없다. 차명 칸이나 이름 없는 설명 칸에 문장으로 섞여 온다
+ * (「2.0 가솔린 프레스티지」·「AWD 롱레인지」·「인스퍼레이션」). 한글/영문 글자가 있어야 하고,
+ * 숫자만 있는 칸은 신호가 아니다.
+ */
+const VEHICLE_TEXT_RE = /[가-힣A-Za-z]/;
+
+/**
+ * 넣으면 안 되는 칸 — 넣으면 모델명·트림과 겹쳐 «다른 차»로 붙는다.
+ * 금액(1,650,000) · 날짜 · 차번 · 기간(36개월) · 주행(3만km) · 상태말 · 지역/사람 이름.
+ * 실측(2026-08-07)에서 매핑 안 된 열은 전부 이 부류였다 — 보증금·기간요금·연주행·차고지.
+ */
+const NON_VEHICLE_TEXT_RE = new RegExp([
+  '^\\d{1,3}(,\\d{3})+$',
+  '^\\d{4}[-./]\\d{1,2}([-./]\\d{1,2})?$',
+  '^\\d{2,3}[가-힣]\\d{4}$',
+  '^\\d+\\s*(개월|년|만?\\s*km|킬로|인승|원|만원)$',
+  '^(가능|불가|유|무|없음|있음|-|—|–)$',
+  '출고|판매|계약|보류|매각|재고확인|상담|문의|보증|납부|분납|위약|면책|차고지|운전자',
+].join('|'), 'i');
+
 /** 헤더 자동매핑 — 정확일치 → 정규화일치 → 부분일치(별칭 긴 키 우선). 반환 = {표준필드: 컬럼인덱스}(첫 매칭 우선). */
 /**
  * 헤더칸이 상태 컬럼명이 아니라 상태값 자체인 경우(아이카: 0번 열 헤더 = "즉시출고").
@@ -645,6 +668,20 @@ export function importSheetTable(table: string[][], opts: {
       if (linked) rec.photo_link = linked;
     }
     const mappedIndexes = new Set(Object.values(mapping));
+    // 차종을 설명하는 글만 모은다 — 트림은 열이 없고 차명·설명 칸에 문장으로 섞여 온다.
+    // 금액·날짜·차번·기간은 넣지 않는다. 모델명과 겹치는 숫자가 들어가면 오매칭이 된다.
+    {
+      const text: string[] = [];
+      for (let i = 0; i < cells.length; i++) {
+        if (mappedIndexes.has(i)) continue;
+        const v = String(cells[i] ?? '').trim();
+        if (!v || v.length > 60) continue;
+        if (!VEHICLE_TEXT_RE.test(v)) continue;
+        if (NON_VEHICLE_TEXT_RE.test(v)) continue;
+        text.push(v);
+      }
+      if (text.length) rec._row_text = text.join(' ');
+    }
     const hasRelevantCell = cells.some((cell, index) => {
       if (!String(cell ?? '').trim()) return false;
       return mappedIndexes.has(index) || /\d+\s*(?:개월|[/／])|보증/.test(String(headers[index] || ''));
