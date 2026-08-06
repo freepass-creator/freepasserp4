@@ -22,12 +22,14 @@ async function main() {
     initializeApp({ credential: cert(sa), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });
   }
   const db = getDatabase();
-  const [v4s, pols, pl, po] = await Promise.all([
-    db.ref('v4/products').get(), db.ref('policies').get(),
+  const [v4s, p3s, p4s, pl, po] = await Promise.all([
+    db.ref('v4/products').get(), db.ref('policies').get(), db.ref('v4/policies').get(),
     db.ref('partners').get(), db.ref('v4/partners').get(),
   ]);
   const v4 = (v4s.val() || {}) as Record<string, Rec>;
-  const policies = (pols.val() || {}) as Record<string, Rec>;
+  // ★정책도 v3+v4 병합으로 봐야 한다 — 화면이 그렇게 읽는다.
+  //  v4 전용 정책(예: 새로 만든 POL-0047)을 v3 만 보고 «끊어진 참조»로 오판했다.
+  const policies: Record<string, Rec> = { ...((p3s.val() || {}) as Rec), ...((p4s.val() || {}) as Rec) };
   const live = (pl.val() || {}) as Record<string, Rec>;
   const over = (po.val() || {}) as Record<string, Rec>;
   const partners: Record<string, Rec> = {};
