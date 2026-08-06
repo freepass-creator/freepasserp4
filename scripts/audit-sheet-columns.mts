@@ -116,8 +116,11 @@ async function main() {
         const rate = vals.filter((x) => isExactRealPlate(x.replace(/\s/g, ''))).length / vals.length;
         if (rate > best) { best = rate; anchor = i; }
       }
+      // 실제 유입과 같은 합성 규칙을 써야 한다 — 저장 프로필만 보면 자동매핑이 새로 배운 열이
+      // «안 쓰는 정보»로 잘못 보인다(importSheetTable 과 같은 우선순위: auto ← saved).
       const saved = parseMappingProfile(p.mapping_profile);
-      const mapping = saved && Object.keys(saved).length ? saved : autoMapHeaders(headers);
+      const auto = autoMapHeaders(headers);
+      const mapping = saved && Object.keys(saved).length ? { ...auto, ...saved } : auto;
       const fieldByIdx = new Map<number, string>();
       for (const [f, i] of Object.entries(mapping)) if (typeof i === 'number') fieldByIdx.set(i, f);
 
