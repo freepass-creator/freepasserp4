@@ -20,7 +20,15 @@ export const HEADER_ALIASES: Record<string, string> = {
   제조사: 'maker', 메이커: 'maker', 브랜드: 'maker', 제조회사: 'maker',
   모델: 'model', 차명: 'model',
   // 오토플러스: 차종=숏모델, 모델명(트림풀명)=풀표기→트림. 일반시트 모델명만 있으면 model(아래 정확키 우선).
-  '모델명(트림풀명)': 'trim_name', 모델명: 'model',
+  //
+  // ★「모델명(트림)」 계열은 트림이다 — 이름이 «모델명»으로 시작한다고 model 로 보내면 안 된다.
+  //   빌린카 시트는 차종=「아반떼」, 모델명(트림)=「더뉴아반떼 25MY 자가용 가솔린 1.6 N라인
+  //   인스퍼레이션」인데 이 열이 어느 별칭에도 안 걸려 통째로 버려졌다. 차종만 남으니 매처가
+  //   짧은 이름으로 모델을 잠그고 트림·세대를 못 정해 검수로 떨어졌다(실측 2026-08-07 · 16대).
+  '모델명(트림풀명)': 'trim_name',
+  '모델명(트림)': 'trim_name', '모델명(풀명)': 'trim_name', '모델명(상세)': 'trim_name',
+  '차명(트림)': 'trim_name', '모델(트림)': 'trim_name', 모델명트림: 'trim_name',
+  모델명: 'model',
   세부모델: 'sub_model', 세부: 'sub_model', 상세모델: 'sub_model', 세부차명: 'sub_model',
   트림: 'trim_name', 세부트림: 'trim_name', 등급: 'trim_name', 세부등급: 'trim_name',
   추가표기: 'trim_extra', 추가입력: 'trim_extra', 부가표기: 'trim_extra',
@@ -599,7 +607,16 @@ export function importSheetTable(table: string[][], opts: {
   const savedHeaders = parseMappingHeaderSignature(opts.profileHeaders);
   const depositRule = parseDepositRule(opts.depositRule);
   const hasSavedProfile = !!savedProfile;
-  const mapping = hasSavedProfile ? { ...savedProfile } : { ...autoMapping };
+  /**
+   * 저장 프로필이 «덮는» 게 아니라 «우선»한다 — 프로필에 없는 필드는 자동매핑으로 채운다.
+   *
+   * 프로필은 사람이 고친 기록이라 같은 필드에서는 이겨야 한다. 하지만 프로필에 아예 없는
+   * 필드까지 막으면, 별칭을 새로 배워도 그 공급사만 영영 못 읽는다 —
+   * 실측(2026-08-07): 빌린카 「모델명(트림)」 열에 트림 풀표기가 있는데 옛 프로필에 그 필드가
+   * 없어 통째로 버려졌고, 별칭을 추가해도 아무 변화가 없었다(검수 16대).
+   * 프로필에 있는 필드는 그대로 두므로, 사람이 «일부러 뺀» 선택은 유지된다.
+   */
+  const mapping = hasSavedProfile ? { ...autoMapping, ...savedProfile } : { ...autoMapping };
   // 저장 index는 과거 위치일 뿐 정본이 아니다. signature가 있으면 현재 헤더 이름을 다시 찾아
   // 새 위치로 매핑한다. 공급사가 열을 삽입·이동해도 같은 이름이면 계속 연동되고,
   // 이름이 없어지거나 중복되면 다른 열을 잘못 읽지 않도록 fail-closed한다.
