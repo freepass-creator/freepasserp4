@@ -3,7 +3,7 @@
  * erp3 formatProductForCopy / searchActionShare 이관.
  */
 import type { EntityRecord } from '@/lib/intake/entities';
-import { priceList, vehicleName, creditDisplay, isOperatedPeriod, parseProductOptions } from '@/lib/domain/product';
+import { priceList, vehicleName, creditDisplay, isOperatedPeriod, parseProductOptions, CREDIT_UNSET } from '@/lib/domain/product';
 import { fuelDisplay, yearDisplay } from '@/lib/domain/vehicle-master-match';
 import { kmDisplay } from '@/lib/format';
 import { vehicleNameOf } from '@/lib/domain/vehicle-name';
@@ -69,8 +69,10 @@ export function formatProductForCopy(p: EntityRecord, agent?: CopyAgent): string
     }
   }
 
+  // 심사조건을 모르면 손님에게 아무 말도 하지 않는다 — «미입력»을 적으면 조건인 줄 안다.
+  // 영업자는 화면 뱃지로 미입력을 본다(creditDisplay). 손님 문구에서만 뺀다.
   const credit = creditDisplay(p);
-  if (credit) {
+  if (credit && credit !== CREDIT_UNSET) {
     lines.push('');
     lines.push(`심사: ${credit}`);
   }

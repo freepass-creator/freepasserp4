@@ -27,4 +27,6 @@ async function main() {
   console.log(`\n백업 위치: ${dir}\n`);
 }
 
-main().catch((e) => { console.error(e); process.exit(1); });
+// firebase-admin 은 RTDB 연결을 열어둔 채라 node 가 스스로 안 끝난다.
+// `backup && apply` 로 이어 쓰면 뒤가 영영 시작을 안 한다 — 명시적으로 끝낸다.
+main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });

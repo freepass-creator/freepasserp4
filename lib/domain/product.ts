@@ -167,12 +167,22 @@ export function vehicleName(p: EntityRecord): string {
   return vehicleNameOf({ kind: 'product', product: p }, { tier: 'short' });
 }
 
-/** 심사표기 — 무심사 / 소득확 (3글자 뱃지 SSOT. 정책 screening_criteria 우선) */
+/** 심사조건이 아직 안 들어온 매물의 표기 — «없음»이 아니라 «모름»이다. */
+export const CREDIT_UNSET = '미입력';
+
+/**
+ * 심사표기 — 무심사 / 소득확인 (3글자 뱃지 SSOT. 정책 screening_criteria 우선)
+ *
+ * ★신호가 없으면 «무심사»가 아니라 `미입력` 이다(2026-08-06).
+ *   예전 기본값은 '무심사' 였다. 그런데 정책코드가 없는 매물이 366대 중 338대(92%)라,
+ *   근거 없이 «무심사»가 손님 카톡 문구와 **계약 스냅샷**(`deal.ts` credit_grade_snapshot)까지
+ *   흘러갔다. 심사조건은 돈이 걸린 약속이므로 모르면 모른다고 해야 한다.
+ */
 export function creditDisplay(p: EntityRecord): string {
   const v = String(policyOf(p).screening_criteria || p.screening_criteria || p.credit_grade || '');
   if (/무심사|신용 *무관|소득 *무관|저신용/.test(v)) return '무심사';
   if (/신용 *조회|신용 *필요|소득 *확인|소득 *조회|등급|심사\s*필|심사\s*필요|소득확/.test(v)) return '소득확인';
-  return v || '무심사';
+  return v || CREDIT_UNSET;
 }
 /** 무보증(보증금 0 상품) — 저신용 손님의 핵심 진입장벽 해소. 영업자 셀링포인트. */
 export function noDeposit(p: EntityRecord): boolean {
