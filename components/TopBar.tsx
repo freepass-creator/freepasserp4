@@ -147,7 +147,7 @@ function WebSessionMeta() {
       }}
     >
       <span style={{
-        flex: '0 0 auto', fontFamily: NUM, fontSize: FS.sub, fontWeight: FW.strong,
+        flex: '0 0 auto', fontFamily: NUM, fontVariantNumeric: 'tabular-nums', fontSize: FS.sub, fontWeight: FW.strong,
         color: C.mute, letterSpacing: '-0.01em', whiteSpace: 'nowrap',
       }}>{date}</span>
       {bits.length > 0 && (
@@ -284,7 +284,7 @@ function NavMenu({ mobile, open: openProp, setOpen: setOpenProp }: {
             </div>
           ))}
           {/* 배포 버전(설정 항목 바로 아래) — 배포 확인용. lib/brand VERSION SSOT. */}
-          <div style={{ borderTop: `1px solid ${line}`, padding: mobile ? '10px 20px' : '7px 14px', fontSize: FS.micro, color: weak, fontFamily: NUM, letterSpacing: '0.02em' }}>
+          <div style={{ borderTop: `1px solid ${line}`, padding: mobile ? '10px 20px' : '7px 14px', fontSize: FS.micro, color: weak, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', letterSpacing: '0.02em' }}>
             {BRAND} · v{VERSION}{BUILD ? ` · ${BUILD}` : ''}
           </div>
         </div>

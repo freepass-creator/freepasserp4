@@ -123,7 +123,7 @@ export function ProductDetail({ p, audience }: { p: EntityRecord; audience?: Aud
               </>
             )}
             {aud !== 'customer' && <span style={{ position: 'absolute', top: 8, right: 8, zIndex: 2 }}><FavHeart p={p} onPhoto /></span>}
-            <span style={{ position: 'absolute', right: 8, bottom: 8, background: SCRIM.heavy, color: C.inverse, fontSize: FS.cap, fontWeight: FW.strong, padding: '2px 8px', borderRadius: R, fontFamily: NUM, pointerEvents: 'none' }}>{mainIdx + 1} / {photos.length}</span>
+            <span style={{ position: 'absolute', right: 8, bottom: 8, background: SCRIM.heavy, color: C.inverse, fontSize: FS.cap, fontWeight: FW.strong, padding: '2px 8px', borderRadius: R, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', pointerEvents: 'none' }}>{mainIdx + 1} / {photos.length}</span>
           </div>
           {photos.length > 1 && (
             <div
@@ -178,8 +178,8 @@ export function ProductDetail({ p, audience }: { p: EntityRecord; audience?: Aud
                     return (
                       <tr key={pr.m} style={{ borderTop: i ? `1px solid ${C.line2}` : 'none', background: isCheap ? C.selected : 'transparent' }}>
                         <td style={{ padding: '6px 10px' }}>{pr.m}개월{isCheap && <span style={{ marginLeft: 5, fontSize: FS.micro, fontWeight: FW.label, color: C.taupeBg, background: C.brand, borderRadius: R, padding: '1px 5px', verticalAlign: 'middle' }}>최저</span>}</td>
-                        <td style={{ padding: '6px 10px', textAlign: 'center', fontWeight: FW.head, color: C.brand, fontFamily: NUM }}>{won(pr.rent)}</td>
-                        <td style={{ padding: '6px 10px', textAlign: 'right', fontFamily: NUM }}>{pr.deposit > 0 ? won(pr.deposit) : '무보증'}</td>
+                        <td style={{ padding: '6px 10px', textAlign: 'center', fontWeight: FW.head, color: C.brand, fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{won(pr.rent)}</td>
+                        <td style={{ padding: '6px 10px', textAlign: 'right', fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{pr.deposit > 0 ? won(pr.deposit) : '무보증'}</td>
                       </tr>
                     );
                   })}</tbody>

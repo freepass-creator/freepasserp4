@@ -47,7 +47,7 @@ export function MasterFitSummary({
         {cells.map((x) => (
           <div key={x.k} style={{ border: `1px solid ${C.line2}`, borderRadius: R, padding: '8px 10px' }}>
             <div style={{ fontSize: FS.micro, color: C.mute }}>{x.k}</div>
-            <div style={{ fontSize: FS.page, fontWeight: FW.head, fontFamily: NUM, color: x.c }}>{x.n.toLocaleString()}</div>
+            <div style={{ fontSize: FS.page, fontWeight: FW.head, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', color: x.c }}>{x.n.toLocaleString()}</div>
           </div>
         ))}
       </div>
@@ -65,7 +65,7 @@ export function MasterFitSummary({
             <div style={{ fontSize: FS.cap, fontWeight: FW.strong, color: C.mute, marginBottom: 4 }}>{label}</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
               {list.map((s) => (
-                <Link key={s.key || s.car} href={`/m/${encodeURIComponent(s.key)}`} style={{ fontSize: FS.cap, color: C.ink, textDecoration: 'none', fontFamily: NUM }}>
+                <Link key={s.key || s.car} href={`/m/${encodeURIComponent(s.key)}`} style={{ fontSize: FS.cap, color: C.ink, textDecoration: 'none', fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>
                   {s.car}
                   <span style={{ color: C.faint, fontWeight: FW.body }}> · {s.before}{s.after ? ` → ${s.after}` : ''}{s.year ? ` · ${s.year}` : ''}</span>
                 </Link>

@@ -8,7 +8,7 @@ export function Plate({ p }: { p: EntityRecord }) {
   if (!p.car_number) return null;
   return (
     <span style={{
-      fontSize: FS.cap, fontWeight: FW.strong, color: C.ink, fontFamily: NUM,
+      fontSize: FS.cap, fontWeight: FW.strong, color: C.ink, fontFamily: NUM, fontVariantNumeric: 'tabular-nums',
       letterSpacing: '-0.2px', whiteSpace: 'nowrap', flex: '0 0 auto',
     }}>{String(p.car_number)}</span>
   );

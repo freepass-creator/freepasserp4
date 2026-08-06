@@ -303,7 +303,7 @@ export default function MonthlySettlement() {
               {selectedWarning?.unresolvedRate
                 ? <Badge tone="amber" variant="solid">{SETTLEMENT_RATE_WARNING}</Badge>
                 : null}
-              <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', fontFamily: NUM, fontSize: FS.cap, color: C.faint }}>
+              <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', fontFamily: NUM, fontVariantNumeric: 'tabular-nums', fontSize: FS.cap, color: C.faint }}>
                 {String(selected.settlement_code || '')}
               </span>
             </div>
@@ -415,7 +415,7 @@ export default function MonthlySettlement() {
               options={months.map((value) => ({ value, label: value }))}
               size="sm"
               full
-              style={{ flex: 1, minWidth: 0, fontFamily: NUM }}
+              style={{ flex: 1, minWidth: 0, fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}
             />
             <IconBtn onClick={() => stepMonth(1)} disabled={monthIndex >= months.length - 1} title="다음 달"><ChevronRight size={ICON.lg} /></IconBtn>
           </div>

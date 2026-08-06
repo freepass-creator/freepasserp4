@@ -93,12 +93,12 @@ export function InterestTriggers({
           border: `1px solid ${on ? accent : C.line}`,
           background: on ? accentBg : C.taupeBg,
           color: on ? accent : C.mute, fontWeight: FW.label, fontSize: ctrlFs(mobile),
-          fontFamily: NUM, boxShadow: 'none', gap: 4,
+          fontFamily: NUM, fontVariantNumeric: 'tabular-nums', boxShadow: 'none', gap: 4,
         }}
       >
         <Icon size={ICON.sm} strokeWidth={2.2} />
         <span style={{ whiteSpace: 'nowrap' }}>{label}</span>
-        <span style={{ fontFamily: NUM }}>{n}</span>
+        <span style={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{n}</span>
       </Btn>
     );
   };
@@ -159,7 +159,7 @@ export function InterestSummaryCard({ live, snap, tab }: {
           fontSize: mobile ? FS.body : FS.sub, lineHeight: 1.25, color: C.ink,
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>
-          {plate ? <span style={{ fontFamily: NUM, fontWeight: FW.head }}>{plate}</span> : null}
+          {plate ? <span style={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums', fontWeight: FW.head }}>{plate}</span> : null}
           {plate ? <span style={{ color: C.faint }}> · </span> : null}
           <span style={{ fontWeight: FW.strong }}>{name}</span>
         </div>
@@ -171,11 +171,11 @@ export function InterestSummaryCard({ live, snap, tab }: {
             <>
               <span style={{ color: C.faint }}>{focus.m}개월</span>
               {' · '}
-              <span style={{ fontFamily: NUM, fontWeight: FW.head, color: C.brand }}>{man(focus.rent)}</span>
+              <span style={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums', fontWeight: FW.head, color: C.brand }}>{man(focus.rent)}</span>
               {' · '}
               {focus.deposit > 0 ? (
                 <span style={{ color: C.mute }}>
-                  보증 <span style={{ fontFamily: NUM, fontWeight: FW.strong }}>{man(focus.deposit)}</span>
+                  보증 <span style={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums', fontWeight: FW.strong }}>{man(focus.deposit)}</span>
                 </span>
               ) : (
                 <span style={{ color: C.faint }}>무보증</span>

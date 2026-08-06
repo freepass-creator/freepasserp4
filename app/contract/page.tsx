@@ -67,7 +67,7 @@ function AmtInput({ val, label, onCommit }: { val: number; label: string; onComm
     <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
       <Input value={draft} onChange={setDraft} placeholder="0" ariaLabel={`${label} 금액`} inputMode="numeric" size="sm" full
         disabled={saving}
-        style={{ fontFamily: NUM, textAlign: 'right', background: dirty ? C.warnBg : undefined }} />
+        style={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums', textAlign: 'right', background: dirty ? C.warnBg : undefined }} />
       <Btn
         title={`${label} 저장`}
         size="sm"
@@ -445,7 +445,7 @@ export default function ContractsSettlement() {
   const kv = (k: string, v: React.ReactNode, valueColor?: string) => (
     <div style={{ display: 'flex', padding: '8px 12px', fontSize: FS.sub }}>
       <span style={{ width: KV_LABEL_W, flex: `0 0 ${KV_LABEL_W}px`, color: C.mute }}>{k}</span>
-      <span style={{ fontWeight: valueColor ? FW.head : FW.strong, color: valueColor || C.ink, fontFamily: NUM }}>{v}</span>
+      <span style={{ fontWeight: valueColor ? FW.head : FW.strong, color: valueColor || C.ink, fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{v}</span>
     </div>
   );
 
@@ -494,7 +494,7 @@ export default function ContractsSettlement() {
       <span style={{ width: KV_LABEL_W, flex: `0 0 ${KV_LABEL_W}px`, color: C.mute }}>{label}</span>
       {role === 'admin'
         ? <AmtInput key={`${code}-${field}`} val={val} label={label} onCommit={(n) => setAmount(code, field, n)} />
-        : <span style={{ fontWeight: FW.head, color: C.brand, fontFamily: NUM }}>{won(val)}원</span>}
+        : <span style={{ fontWeight: FW.head, color: C.brand, fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{won(val)}원</span>}
     </div>
   );
   const detailSettle = () => {
@@ -508,7 +508,7 @@ export default function ContractsSettlement() {
         {/* 형제(뱃지·버튼)가 전부 nowrap 이라 축소 부담을 코드 혼자 져서 'ST_…-01' 이 두 줄로 쪼개졌다.
             코드는 말줄임으로 접고, 액션이 안 들어가면 줄을 바꾼다. */}
         <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, rowGap: rowPadY(true), padding: '12px 12px' }}>
-          <span style={{ fontSize: FS.body, fontWeight: FW.title, fontFamily: NUM, minWidth: 0, flex: '0 1 auto', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{String(s.settlement_code)}</span>
+          <span style={{ fontSize: FS.body, fontWeight: FW.title, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', minWidth: 0, flex: '0 1 auto', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{String(s.settlement_code)}</span>
           <Badge tone={SETTLEMENT_STATUS_TONE[st] || 'gray'}>{st}</Badge>
           <span style={{ flex: 1 }} />
           {role === 'admin' && st === '정산대기' && (

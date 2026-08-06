@@ -30,13 +30,13 @@ export function PriceMini({ m, rent, deposit = 0, on = false }: {
       <span style={{ fontSize: mobile ? FS.cap : FS.micro, fontWeight: FW.strong, color: on ? C.brand : C.mute, lineHeight: 1.1 }}>{m}개월</span>
       <span style={{
         fontSize: mobile ? FS.sub : FS.cap,
-        fontFamily: NUM, fontWeight: FW.head, letterSpacing: '-0.02em', lineHeight: 1.1,
+        fontFamily: NUM, fontVariantNumeric: 'tabular-nums', fontWeight: FW.head, letterSpacing: '-0.02em', lineHeight: 1.1,
         color: on ? C.brand : C.ink,
       }}>
         <span style={{ fontSize: FS.micro, fontFamily: 'inherit', fontWeight: FW.strong, color: C.faint }}>월 </span>
         {man(rent)}
       </span>
-      <span style={{ fontSize: FS.micro, fontFamily: NUM, fontWeight: FW.strong, color: C.faint, lineHeight: 1.1 }}>
+      <span style={{ fontSize: FS.micro, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', fontWeight: FW.strong, color: C.faint, lineHeight: 1.1 }}>
         보증 {deposit > 0 ? man(deposit) : '없음'}
       </span>
     </div>

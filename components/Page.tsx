@@ -60,7 +60,7 @@ export function Page({
         ? (
           <span style={{ fontSize: FS.body, color: C.mute, whiteSpace: 'nowrap' }}>
             {title}
-            {meta != null && meta !== '' ? <>{' '}<b style={{ color: C.ink, fontFamily: NUM }}>{meta}</b></> : null}
+            {meta != null && meta !== '' ? <>{' '}<b style={{ color: C.ink, fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{meta}</b></> : null}
           </span>
         )
         : undefined;

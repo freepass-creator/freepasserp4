@@ -104,11 +104,11 @@ export function AdminSettlementSheet({ month }: { month: string }) {
                       {f.type === 'select' ? (
                         <Select value={String(form[f.k] ?? '')} onChange={(v) => setField(f.k, v)} options={(f.opts || []).map((o) => ({ value: o, label: o }))} size="sm" full />
                       ) : f.calc ? (
-                        <div style={{ height: ctrlH(mobile, 'sm'), display: 'flex', alignItems: 'center', padding: '0 8px', borderRadius: R, background: C.head, fontFamily: NUM, fontSize: FS.body, fontWeight: FW.head }}>{String(form[f.k] ?? '')}</div>
+                        <div style={{ height: ctrlH(mobile, 'sm'), display: 'flex', alignItems: 'center', padding: '0 8px', borderRadius: R, background: C.head, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', fontSize: FS.body, fontWeight: FW.head }}>{String(form[f.k] ?? '')}</div>
                       ) : (
                         <Input value={form[f.k] == null ? '' : String(form[f.k])} onChange={(v) => setField(f.k, v)}
                           size="sm" full inputMode={f.type === 'num' ? 'numeric' : undefined}
-                          style={f.type === 'num' ? { fontFamily: NUM } : undefined} />
+                          style={f.type === 'num' ? { fontFamily: NUM, fontVariantNumeric: 'tabular-nums' } : undefined} />
                       )}
                     </div>
                   ))}

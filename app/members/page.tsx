@@ -480,7 +480,7 @@ export default function Members() {
           <>
             {modeBanner}
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: FS.cap, color: C.faint, marginBottom: 8 }}>
-              <span style={{ fontFamily: NUM, fontWeight: FW.strong, color: C.mute }}>{strOf(form[idFieldOf(tab)])}</span>
+              <span style={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums', fontWeight: FW.strong, color: C.mute }}>{strOf(form[idFieldOf(tab)])}</span>
             </div>
             {canEdit ? (
               <FormCard hint={basicHint}>

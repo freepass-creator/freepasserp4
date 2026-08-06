@@ -164,7 +164,7 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           {c ? (
             <>
-              <span style={{ fontSize: FS.title, fontWeight: FW.head, fontFamily: NUM, color: C.ink }}>{String(c.contract_code)}</span>
+              <span style={{ fontSize: FS.title, fontWeight: FW.head, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', color: C.ink }}>{String(c.contract_code)}</span>
               <Badge tone={stage.tone}>{stage.label}</Badge>
             </>
           ) : (

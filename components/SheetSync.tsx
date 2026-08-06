@@ -1699,7 +1699,7 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
                     <td style={{ ...td, color: ironPreview?.reconciliation.patchCandidates ? C.ink : C.faint }}>
                       {ironPreview ? ironPreview.reconciliation.patchCandidates : '—'}
                     </td>
-                    <td style={{ ...td, color: C.mute, fontFamily: NUM, fontSize: FS.micro }}>
+                    <td style={{ ...td, color: C.mute, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', fontSize: FS.micro }}>
                       {ironPreview ? new Date(ironPreview.fetchedAt).toLocaleString('ko-KR') : '—'}
                     </td>
                     <td style={td}>
@@ -1737,7 +1737,7 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
                         <td style={{ ...td, color: diff?.new ? C.ok : C.faint }}>{diff ? diff.new : '검증 전'}</td>
                         <td style={{ ...td, color: diff?.status ? C.warn : C.faint }}>{diff ? diff.status : '—'}</td>
                         <td style={{ ...td, color: diff?.content ? C.ink : C.faint }}>{diff ? diff.content : '—'}</td>
-                        <td style={{ ...td, color: C.mute, fontFamily: NUM, fontSize: FS.micro }}>{fmtSync(p.lastSyncedAt)}</td>
+                        <td style={{ ...td, color: C.mute, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', fontSize: FS.micro }}>{fmtSync(p.lastSyncedAt)}</td>
                         <td style={{ ...td, color: C.faint }}>일괄 검증·반영</td>
                       </tr>
                     );
@@ -1780,7 +1780,7 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
                 {ironPreview.candidates.absentBlocks.length ? (
                   <div style={{ color: C.mute }}>상태변경 · {ironPreview.candidates.absentBlocks.map((row) => row.key).join(', ')}</div>
                 ) : null}
-                <div style={{ color: C.faint, fontFamily: NUM, fontSize: FS.micro }}>
+                <div style={{ color: C.faint, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', fontSize: FS.micro }}>
                   revision {ironPreview.revision} · {new Date(ironPreview.fetchedAt).toLocaleString('ko-KR')}
                 </div>
               </div>
@@ -1943,7 +1943,7 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
             <div style={{ marginTop: 10, border: `1px solid ${C.line}`, borderRadius: R, overflow: 'hidden', background: C.taupeBg }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderBottom: `1px solid ${C.line}`, fontSize: FS.cap, fontWeight: FW.head, color: C.mute }}>
                 <span style={{ flex: 1 }}>업체별 수정범위</span>
-                <span style={{ fontFamily: NUM, color: C.faint }}>동기화 전 확인</span>
+                <span style={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums', color: C.faint }}>동기화 전 확인</span>
               </div>
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: FS.cap, fontVariantNumeric: 'tabular-nums' }}>
@@ -2024,7 +2024,7 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
           )}
 
           {bulkLog && (
-            <pre style={{ margin: '8px 0 0', fontSize: FS.cap, color: C.mute, whiteSpace: 'pre-wrap', maxHeight: 130, overflowY: 'auto', fontFamily: NUM }}>{bulkLog}</pre>
+            <pre style={{ margin: '8px 0 0', fontSize: FS.cap, color: C.mute, whiteSpace: 'pre-wrap', maxHeight: 130, overflowY: 'auto', fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{bulkLog}</pre>
           )}
         </div>
         </>
@@ -2092,7 +2092,7 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
                   return (
                     <tr key={row.fingerprint} style={{ borderTop: `1px solid ${C.line2}` }}>
                       <td style={td}>{row.category === OWNERSHIP_CONFLICT ? '소유권' : '삭제이력'}</td>
-                      <td style={{ ...td, fontFamily: NUM, fontWeight: FW.strong }}>{row.carNumber || '확인 필요'}</td>
+                      <td style={{ ...td, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', fontWeight: FW.strong }}>{row.carNumber || '확인 필요'}</td>
                       <td style={td}>{row.providers.join(', ') || '미확정'}</td>
                       <td style={td}>{row.sheetProviders.join(', ') || '미확정'}</td>
                       <td style={{ ...td, color: C.mute }}>
@@ -2199,7 +2199,7 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
                   return (
                     <tr key={`${row.category}|${row.fingerprint}|${index}`} style={{ borderTop: `1px solid ${C.line2}` }}>
                       <td style={td}>{row.category}</td>
-                      <td style={{ ...td, fontFamily: NUM, fontWeight: FW.strong }}>{row.carNumbers.join(' ↔ ') || '확인 필요'}</td>
+                      <td style={{ ...td, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', fontWeight: FW.strong }}>{row.carNumbers.join(' ↔ ') || '확인 필요'}</td>
                       <td style={td}>{row.provider || '미확정'}</td>
                       <td style={{ ...td, whiteSpace: 'normal', maxWidth: 180 }}>{row.existingKeys.join(', ') || '없음'}</td>
                       <td style={{ ...td, whiteSpace: 'normal', maxWidth: 180 }}>{row.incomingKeys.join(', ') || '없음'}</td>
@@ -2295,7 +2295,7 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
           {/* 엑셀 붙여넣기 = 열 정렬이 보여야 하므로 고정폭 폰트가 의도적(원자 규격 위에 mono만 덮음) */}
           <Textarea full rows={4} value={paste} onChange={(v) => { clear(); setPaste(v); }}
             placeholder={'엑셀 복사→붙여넣기 (첫 줄=헤더, 탭)\n차량번호\t제조사\t모델\t연식'}
-            style={{ fontFamily: NUM }} />
+            style={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }} />
           <Btn title="엑셀 붙여넣기 불러오기" size="sm" variant="ghost" onClick={loadExcel} disabled={busy}>불러오기</Btn>
         </>
       )}

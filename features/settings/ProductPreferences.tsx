@@ -29,7 +29,7 @@ function ManagedProducts({ title, emptyText, rows, action, actionLabel, clear, c
             <ListRow
               key={row.code}
               main={row.name || row.code}
-              sub={row.plate ? <span style={{ fontFamily: NUM }}>{row.plate}</span> : undefined}
+              sub={row.plate ? <span style={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{row.plate}</span> : undefined}
               right={(
                 <Btn title={actionLabel} size="sm" variant="ghost" haptic="select" onClick={() => { action(row.code); }}>
                   <ButtonLabel icon={<RotateCcw size={ICON.md} aria-hidden />}>{actionLabel}</ButtonLabel>

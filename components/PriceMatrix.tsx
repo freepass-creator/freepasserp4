@@ -82,8 +82,7 @@ export function PriceMatrix({ price, onChange, readOnly = false }: { price: unkn
 
   const cellInp = (filledRent: boolean): CSSProperties => ({
     textAlign: 'right',
-    fontFamily: NUM,
-    fontVariantNumeric: 'tabular-nums',
+    fontFamily: NUM, fontVariantNumeric: 'tabular-nums',
     fontWeight: FW.head,
     color: filledRent ? C.brand : C.ink,
     border: 'none',

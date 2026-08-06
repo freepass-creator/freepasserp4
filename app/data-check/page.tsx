@@ -116,7 +116,7 @@ export default function DataCheck() {
                 >
                   <Link
                     href={`/m/${encodeURIComponent(String(r.product_code))}`}
-                    style={{ fontSize: FS.sub, fontWeight: FW.strong, color: C.ink, textDecoration: 'none', fontFamily: NUM }}
+                    style={{ fontSize: FS.sub, fontWeight: FW.strong, color: C.ink, textDecoration: 'none', fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}
                   >
                     {String(r.car_number || r.product_code)}
                   </Link>
@@ -172,7 +172,7 @@ export default function DataCheck() {
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', width: '100%' }}>
                       <span>{g.label}</span>
                       <Badge tone={tone}>{sevLabel(g.severity)}</Badge>
-                      <span style={{ fontFamily: NUM, fontWeight: FW.head, color: toneText(tone) }}>{g.hits.length}건</span>
+                      <span style={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums', fontWeight: FW.head, color: toneText(tone) }}>{g.hits.length}건</span>
                       <span style={{ marginLeft: 'auto' }}>
                         <Btn size="sm" variant="ghost" onClick={() => toggle(g.key)}>
                           {on ? '접기' : '펼치기'}
@@ -194,7 +194,7 @@ export default function DataCheck() {
                             style={{
                               fontSize: FS.cap, color: C.ink, background: C.head,
                               border: `1px solid ${C.line}`, borderRadius: R,
-                              padding: '3px 8px', textDecoration: 'none', fontFamily: NUM,
+                              padding: '3px 8px', textDecoration: 'none', fontFamily: NUM, fontVariantNumeric: 'tabular-nums',
                             }}
                           >
                             {h.car}{h.note ? <span style={{ color: C.faint }}> · {h.note}</span> : ''}

@@ -126,7 +126,7 @@ export function ExcelFilterPopover({
               >
                 {checkbox(on)}
                 <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{entry.label}</span>
-                <span style={{ flex: '0 0 auto', fontFamily: NUM, color: C.faint, fontSize: FS.cap }}>{entry.count}</span>
+                <span style={{ flex: '0 0 auto', fontFamily: NUM, fontVariantNumeric: 'tabular-nums', color: C.faint, fontSize: FS.cap }}>{entry.count}</span>
               </Btn>
             );
           })}
