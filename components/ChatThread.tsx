@@ -19,10 +19,11 @@ function isAcceptedChatFile(file: File): boolean {
 }
 
 // 대화창 = 공통 원자(방 하나의 스레드+입력). 전송·안읽음 = messaging SSOT.
+// roomId 없으면 셸만(견적기 상담 패널) — 입력·첨부 규격 동일, 전송은 막음.
 export function ChatThread({
   roomId, onBack, onVehicle, onContract, title, chatCode, onComposeFocus,
 }: {
-  roomId: string;
+  roomId?: string | null;
   onBack?: () => void;
   onVehicle?: (productCode: string) => void;
   onContract?: (productCode: string) => void;
@@ -35,8 +36,9 @@ export function ChatThread({
 }) {
   const mobile = useIsMobile();
   const co = getCompanyId();
-  const [room, setRoom] = useState<EntityRecord | null | undefined>(undefined);
-  const [msgs, setMsgs] = useState<EntityRecord[] | undefined>(undefined);
+  const inactive = !roomId;
+  const [room, setRoom] = useState<EntityRecord | null | undefined>(inactive ? null : undefined);
+  const [msgs, setMsgs] = useState<EntityRecord[] | undefined>(inactive ? [] : undefined);
   const [role, setRoleS] = useState<Role>('agent');
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
@@ -52,6 +54,7 @@ export function ChatThread({
   const roomGenerationRef = useRef(0);
 
   const load = useCallback(async (mark: boolean, isCurrent: () => boolean) => {
+    if (!roomId) return;
     const targetRoom = roomId;
     const rm = await getStore().get('room', co, targetRoom);
     const nextMsgs = await listMessages(targetRoom);
@@ -67,6 +70,11 @@ export function ChatThread({
     }
   }, [co, roomId]);
   useEffect(() => {
+    if (!roomId) {
+      setRoom(null);
+      setMsgs([]);
+      return;
+    }
     const generation = ++roomGenerationRef.current;
     activeRoomRef.current = roomId;
     const isCurrent = () => (
@@ -90,6 +98,7 @@ export function ChatThread({
     };
   }, [co, load, roomId]);
   useEffect(() => {
+    if (!roomId) return;
     const refresh = () => {
       if (document.visibilityState === 'hidden') return;
       const generation = roomGenerationRef.current;
@@ -130,6 +139,10 @@ export function ChatThread({
   }, [msgs?.length, roomId]);
 
   const send = async () => {
+    if (!roomId) {
+      toast('상담 방이 아직 없습니다', 'info');
+      return;
+    }
     const t = text.trim(); if (!t || busy) return;
     const meNow = actor(role);
     const tempKey = `_tmp_${Date.now()}`;
@@ -161,6 +174,10 @@ export function ChatThread({
   };
 
   const onPickFile = async (files: FileList | null) => {
+    if (!roomId) {
+      toast('상담 방이 아직 없습니다', 'info');
+      return;
+    }
     if (!files || !files.length || busy) return;
     setBusy(true);
     // 한 번에 여러 장 = 같은 batchId → 한 말풍선(앨범)으로 표시. 낱장은 batchId 없음 → 각각 표시.
@@ -223,8 +240,8 @@ export function ChatThread({
     void onPickFile(files);
   };
 
-  if (room === undefined) return <Loading label="불러오는 중…" minHeight="100%" />;
-  if (!room) {
+  if (!inactive && room === undefined) return <Loading label="불러오는 중…" minHeight="100%" />;
+  if (!inactive && !room) {
     return (
       <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
         {onBack && <div style={{ padding: 12 }}><NavBack kind="list" onClick={onBack} /></div>}
@@ -263,8 +280,8 @@ export function ChatThread({
               <span style={{ marginLeft: 8, color: C.mute, fontWeight: FW.label, fontSize: FS.sub }}>{chatCode}</span>
             ) : null}
           </span>
-          {onVehicle && <Btn title="차량 보기" variant="ghost" size="sm" onClick={() => onVehicle(String(room.product_code))}>차량</Btn>}
-          {onContract && <Btn title="계약 진행" size="sm" onClick={() => onContract(String(room.product_code))}>계약진행</Btn>}
+          {onVehicle && room && <Btn title="차량 보기" variant="ghost" size="sm" onClick={() => onVehicle(String(room.product_code))}>차량</Btn>}
+          {onContract && room && <Btn title="계약 진행" size="sm" onClick={() => onContract(String(room.product_code))}>계약진행</Btn>}
         </div>
       ) : null}
 
@@ -291,7 +308,11 @@ export function ChatThread({
           </Dropzone>
         ) : null}
         {msgs === undefined && <Loading label="메시지를 불러오는 중…" minHeight={80} />}
-        {msgs?.length === 0 && <div style={{ textAlign: 'center', color: C.faint, fontSize: FS.sub, marginTop: 20 }}>첫 메시지를 남겨보세요.</div>}
+        {msgs?.length === 0 && (
+          <div style={{ textAlign: 'center', color: C.faint, fontSize: FS.sub, marginTop: 20 }}>
+            {inactive ? '상담 방이 연결되면 대화가 시작됩니다.' : '첫 메시지를 남겨보세요.'}
+          </div>
+        )}
         {rows.map((row) => {
           const m = row.lead;
           const mine = isMine(m, me, role);
@@ -378,11 +399,11 @@ export function ChatThread({
         {mobile ? (
           // pointerdown preventDefault = 입력창 포커스 유지. 안 막으면 blur→하단독이 다시 나타나며
           // 버튼이 위로 밀려 탭이 빗나간다(전송·첨부 둘 다 동일).
-          <IconBtn onPointerDown={(e) => e.preventDefault()} onClick={() => fileRef.current?.click()} title="사진·파일 첨부" disabled={busy}>
+          <IconBtn onPointerDown={(e) => e.preventDefault()} onClick={() => fileRef.current?.click()} title="사진·파일 첨부" disabled={busy || inactive}>
             <Paperclip size={ICON.lg} aria-hidden />
           </IconBtn>
         ) : (
-          <Btn size="sm" variant="ghost" onClick={() => fileRef.current?.click()} title="사진·파일 첨부" disabled={busy}>
+          <Btn size="sm" variant="ghost" onClick={() => fileRef.current?.click()} title="사진·파일 첨부" disabled={busy || inactive}>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
               <Paperclip size={ICON.md} aria-hidden />
               첨부
@@ -400,10 +421,10 @@ export function ChatThread({
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send(); }
           }}
-          placeholder="메시지 입력"
+          placeholder={inactive ? '상담 방 연결 후 입력' : '메시지 입력'}
           rows={1}
-          disabled={busy}
-          autoFocus={mobile && !embedded}
+          disabled={busy || inactive}
+          autoFocus={mobile && !embedded && !inactive}
           enterKeyHint="send"
           autoComplete="off" autoCorrect="off" autoCapitalize="sentences" spellCheck={false}
           name="fp-chat-text" data-lpignore="true" data-1p-ignore="" data-form-type="other"
@@ -417,15 +438,15 @@ export function ChatThread({
             padding: `${Math.max(0, (ctrlH(mobile) - Math.round(ctrlInputFs(mobile) * 1.4)) / 2)}px 12px`,
             border: `1px solid ${C.line}`, borderRadius: R,
             fontSize: ctrlInputFs(mobile), fontFamily: 'inherit', lineHeight: 1.4,
-            background: busy ? C.head : C.taupeBg, color: C.ink,
+            background: busy || inactive ? C.head : C.taupeBg, color: C.ink,
           }}
         />
         {mobile ? (
-          <IconBtn onPointerDown={(e) => e.preventDefault()} onClick={send} disabled={busy || !text.trim()} title={busy ? '전송 중' : '보내기'} active={!busy && !!text.trim()}>
+          <IconBtn onPointerDown={(e) => e.preventDefault()} onClick={send} disabled={busy || inactive || !text.trim()} title={busy ? '전송 중' : '보내기'} active={!busy && !inactive && !!text.trim()}>
             {busy ? <LoaderCircle size={ICON.lg} aria-hidden /> : <Send size={ICON.lg} aria-hidden />}
           </IconBtn>
         ) : (
-          <Btn size="sm" onClick={send} disabled={busy || !text.trim()} title={busy ? '전송 중' : '보내기'}>
+          <Btn size="sm" onClick={send} disabled={busy || inactive || !text.trim()} title={busy ? '전송 중' : '보내기'}>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
               {busy ? <LoaderCircle size={ICON.md} aria-hidden /> : <Send size={ICON.md} aria-hidden />}
               {busy ? '전송 중…' : '보내기'}

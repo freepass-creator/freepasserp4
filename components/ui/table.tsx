@@ -62,6 +62,8 @@ export const thX: React.CSSProperties = {
   borderBottom: `1px solid ${C.line}`,
 };
 export const thXR: React.CSSProperties = { ...thX, textAlign: 'right', fontFamily: NUM, fontVariantNumeric: 'tabular-nums' };
+/** 짧은 코드·상태·분류 헤더 — 차번·상태·상품·심사. */
+export const thXC: React.CSSProperties = { ...thX, textAlign: 'center' };
 export const thXPin: React.CSSProperties = { ...thX, left: 0, zIndex: 5, boxShadow: `1px 0 0 ${C.line}` };
 export const tdX: React.CSSProperties = {
   ...td, padding: `${EXCEL_PAD_Y}px ${EXCEL_PAD_X}px`, fontSize: FS.sub,
@@ -69,6 +71,8 @@ export const tdX: React.CSSProperties = {
   boxSizing: 'border-box', overflow: 'hidden',
 };
 export const tdXR: React.CSSProperties = { ...tdX, textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontFamily: NUM, fontWeight: FW.strong };
+/** 짧은 코드·상태·분류 본문 — 차번·상태·상품·심사. */
+export const tdXC: React.CSSProperties = { ...tdX, textAlign: 'center' };
 export const tdXPin: React.CSSProperties = { ...tdX, position: 'sticky', left: 0, zIndex: 1, boxShadow: `1px 0 0 ${C.line}` };
 
 /** 엑셀 OptionChips lines=2 박스 높이. 행 본문칸(EXCEL_BODY_H) 안에 들어감. */

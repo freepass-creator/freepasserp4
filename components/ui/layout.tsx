@@ -5,6 +5,7 @@ import { useIsMobile } from '@/lib/use-mobile';
 import { C, FS, FW, NUM, ctrlH, ctrlPadX } from './tokens';
 
 // 패널 헤더 — CTRL.md 높이(웹32/모바일40).
+// minHeight 잠금 = flex 기본 min-height:auto 가 자식 Btn/칩에 밀려 헤더가 커지는 것 방지(견적기 옆 상담패널 정렬).
 export function PaneHead({ title, count, right }: {
   title: React.ReactNode;
   count?: React.ReactNode;
@@ -13,10 +14,16 @@ export function PaneHead({ title, count, right }: {
   const mobile = useIsMobile();
   const h = ctrlH(mobile);
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: h, flex: `0 0 ${h}px`, padding: `0 ${ctrlPadX(mobile)}px`, borderBottom: `1px solid ${C.line}`, background: C.taupeBg, boxSizing: 'border-box' }}>
-      <span style={{ fontSize: mobile ? FS.title : FS.body, fontWeight: FW.title, color: C.ink, whiteSpace: 'nowrap', letterSpacing: mobile ? '-0.01em' : 0 }}>{title}</span>
-      {count != null && count !== '' && <span style={{ fontSize: mobile ? FS.sub : FS.cap, color: C.faint, fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{count}</span>}
-      {right != null && <><span style={{ flex: 1 }} />{right}</>}
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 8,
+      height: h, minHeight: h, maxHeight: h, flex: `0 0 ${h}px`,
+      padding: `0 ${ctrlPadX(mobile)}px`,
+      borderBottom: `1px solid ${C.line}`, background: C.taupeBg,
+      boxSizing: 'border-box', overflow: 'hidden',
+    }}>
+      <span style={{ fontSize: mobile ? FS.title : FS.body, fontWeight: FW.title, color: C.ink, whiteSpace: 'nowrap', letterSpacing: mobile ? '-0.01em' : 0, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</span>
+      {count != null && count !== '' && <span style={{ fontSize: mobile ? FS.sub : FS.cap, color: C.faint, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', flex: '0 0 auto' }}>{count}</span>}
+      {right != null && <><span style={{ flex: 1, minWidth: 0 }} />{right}</>}
     </div>
   );
 }
@@ -46,26 +53,33 @@ export function CardGrid({ children }: { children: React.ReactNode }) {
 }
 
 // 위·아래 분할 패널 — 드래그로 상하 비율 조정(계약패널 밑 첨부서류 등). storageKey로 비율 유지.
-export function VSplit({ top, bottom, initial = 0.6, storageKey }: {
+export function VSplit({ top, bottom, initial = 0.6, min = 0.15, max = 0.85, storageKey }: {
   top: React.ReactNode;
   bottom: React.ReactNode;
   initial?: number;
+  /** 위 패널 최소 비율(기본 0.15). */
+  min?: number;
+  /** 위 패널 최대 비율(기본 0.85). 상담첨부 등 위칸 제한에 사용. */
+  max?: number;
   storageKey?: string;
 }) {
+  const lo = Math.min(min, max);
+  const hi = Math.max(min, max);
+  const clamp = (n: number) => Math.min(hi, Math.max(lo, n));
   const ref = React.useRef<HTMLDivElement | null>(null);
-  const [ratio, setRatio] = React.useState(initial);
+  const [ratio, setRatio] = React.useState(() => clamp(initial));
   const dragging = React.useRef(false);
   React.useEffect(() => {
     if (!storageKey || typeof window === 'undefined') return;
     const s = localStorage.getItem(storageKey);
     const n = s ? Number(s) : NaN;
-    if (n > 0.1 && n < 0.9) setRatio(n);
-  }, [storageKey]);
+    if (Number.isFinite(n)) setRatio(clamp(n));
+  }, [storageKey, lo, hi]);
   React.useEffect(() => {
     const move = (cy: number) => {
       if (!dragging.current || !ref.current) return;
       const r = ref.current.getBoundingClientRect();
-      setRatio(Math.min(0.85, Math.max(0.15, (cy - r.top) / r.height)));
+      setRatio(clamp((cy - r.top) / r.height));
     };
     const mm = (e: MouseEvent) => move(e.clientY);
     const tm = (e: TouchEvent) => { if (e.touches[0]) move(e.touches[0].clientY); };
@@ -83,7 +97,7 @@ export function VSplit({ top, bottom, initial = 0.6, storageKey }: {
       window.removeEventListener('touchmove', tm);
       window.removeEventListener('touchend', up);
     };
-  }, [ratio, storageKey]);
+  }, [ratio, storageKey, lo, hi]);
   const start = (e: React.SyntheticEvent) => { dragging.current = true; e.preventDefault(); };
   const pane = (f: number): React.CSSProperties => ({ flex: `${f} 1 0`, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' });
   return (

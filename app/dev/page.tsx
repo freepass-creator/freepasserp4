@@ -11,9 +11,14 @@ import { auditMasterFit, reconcileToMaster, type MasterEntry } from '@/lib/domai
 import { loadVehicleMaster } from '@/lib/domain/vehicle-master-load';
 import { checkInventory } from '@/lib/domain/data-check';
 import { confirmDialog, toast } from '@/components/Toaster';
-import { Page, Btn, C, R, Loading, CenterNote, SectionLabel, Badge, FS, NUM } from '@/components/ui';
+import {
+  Page, Btn, C, R, Loading, CenterNote, SectionLabel, Badge, FS, NUM,
+  PaneHead, PaneBody, FeedListRow, FeedThumbIcon, FeedTitle, FeedSub,
+} from '@/components/ui';
 import { MasterFitSummary } from '@/components/MasterFitSummary';
-import { DevWorkbench, type DevTool } from '@/components/DevWorkbench';
+import { WorkPage, type WorkPane } from '@/components/WorkPage';
+import { RefreshCw, Car, ArrowLeftRight, ShieldCheck, Stethoscope, Link2, type LucideIcon } from 'lucide-react';
+import type { BadgeTone } from '@/components/ui';
 import { NAV_LABEL } from '@/lib/tabbar';
 import dynamic from 'next/dynamic';
 
@@ -48,6 +53,7 @@ export default function DevTools() {
   const [privateMigLog, setPrivateMigLog] = useState('');
   const [settlementMigLog, setSettlementMigLog] = useState('');
   const [diagLog, setDiagLog] = useState('');
+  const [sel, setSel] = useState<string | null>(null);
   const [role, setRoleLocal] = useState<Role>(() => (typeof window !== 'undefined' ? getRole() : 'agent'));
 
   const reload = useCallback(async () => {
@@ -267,16 +273,19 @@ export default function DevTools() {
   const card: CSSProperties = { border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg, padding: 14 };
 
   /**
-   * 도구 목록 — 왼쪽 1/4 에 서고, 고른 것이 오른쪽 3/4 에 열린다.
+   * 도구 목록 — 계약·문의·정책과 같은 [목록 | 패널] 규격(WorkPage).
    *
    * 예전엔 720px 한 장에 카드를 세로로 쌓았다. 도구가 늘면서 «어디에 뭐가 있는지»를 잃었고,
-   * 무엇보다 공급사 연동처럼 **표를 넓게 펼쳐야 하는** 도구가 그 폭에서 못 살았다.
+   * 공급사 연동처럼 표를 넓게 펼쳐야 하는 도구가 그 폭에서 못 살았다. 화면 규격을 따로 만들지 않고
+   * 다른 업무 페이지와 같은 목록행·패널을 쓴다 — 개발도구만 다르게 생길 이유가 없다.
    */
   const tools: DevTool[] = [
     {
       key: 'sync',
       label: '공급사 상품 연동',
       hint: '시트·홈페이지 검증 → 들어올 상품 확인 → 반영',
+      icon: RefreshCw,
+      tone: 'blue' as const,
       render: () => (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
           <div style={{ fontSize: FS.sub, color: C.mute, lineHeight: 1.5 }}>
@@ -290,6 +299,8 @@ export default function DevTools() {
       key: 'master',
       label: '차종마스터',
       hint: '거친 표기를 마스터 트리에 스냅 · 정합 현황',
+      icon: Car,
+      tone: 'green' as const,
       render: () => (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ ...card, background: C.selected }}>
@@ -323,6 +334,8 @@ export default function DevTools() {
       key: 'migrate',
       label: 'v3 → v4 이관',
       hint: '중복 진단 · 복사 미리보기 (읽기 전용)',
+      icon: ArrowLeftRight,
+      tone: 'amber' as const,
       render: () => (
         <div style={{ ...card, background: C.selected }}>
           <SectionLabel mt={0}>v3 매물 → v4 복사 (소스 전환 준비)</SectionLabel>
@@ -343,6 +356,8 @@ export default function DevTools() {
       key: 'private',
       label: '민감 필드 분리',
       hint: '원가·VIN·정산 금액을 private 노드로',
+      icon: ShieldCheck,
+      tone: 'red' as const,
       render: () => (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ ...card, background: C.warnBg }}>
@@ -380,6 +395,8 @@ export default function DevTools() {
       key: 'check',
       label: '데이터 점검',
       hint: `자동감지 ${issues.length}종 · 표시 ${issueHits}건`,
+      icon: Stethoscope,
+      tone: 'gray' as const,
       render: () => (
         <div style={card}>
           <SectionLabel mt={0}>데이터 이상</SectionLabel>
@@ -394,6 +411,8 @@ export default function DevTools() {
       key: 'links',
       label: '바로가기',
       hint: '재고·감사로그·회원 · 캐시 비우기',
+      icon: Link2,
+      tone: 'gray' as const,
       render: () => (
         <div style={card}>
           <SectionLabel mt={0}>바로가기</SectionLabel>
@@ -415,12 +434,58 @@ export default function DevTools() {
     },
   ];
 
+  const current = tools.find((t) => t.key === sel) || null;
+  const listEl = (
+    <div>
+      {tools.map((t) => (
+        <FeedListRow
+          key={t.key}
+          selected={t.key === sel}
+          onClick={() => setSel(t.key)}
+          thumb={<FeedThumbIcon icon={t.icon} tone={t.tone} decorative />}
+          lines={[
+            <FeedTitle key="t">{t.label}</FeedTitle>,
+            <FeedSub key="h">{t.hint}</FeedSub>,
+          ]}
+        />
+      ))}
+    </div>
+  );
+  const panes: WorkPane[] = [{
+    key: current?.key || 'none',
+    title: current?.label || '개발도구',
+    node: (
+      <>
+        <PaneHead title={current?.label || '개발도구'} />
+        <PaneBody>
+          {current ? current.render() : <CenterNote>도구를 선택하세요.</CenterNote>}
+        </PaneBody>
+      </>
+    ),
+  }];
+
   return (
-    <Page title="개발도구">
-      <div style={{ padding: '12px 0 40px' }}>
-        <DevWorkbench tools={tools} />
-      </div>
-    </Page>
+    <WorkPage
+      title="개발도구"
+      listCount={tools.length}
+      countSuffix="개"
+      list={listEl}
+      panes={panes}
+      selected={!!sel}
+      onBack={() => setSel(null)}
+      contextTitle={current?.label}
+    />
   );
 }
+
+/** 개발도구 한 칸 — 목록행 3줄 규격(제목·설명)과 패널 본문. */
+type DevTool = {
+  key: string;
+  label: string;
+  /** 목록에서 한 줄로 «무엇을 하는 도구인지» */
+  hint: string;
+  icon: LucideIcon;
+  tone: BadgeTone;
+  render: () => React.ReactNode;
+};
 
