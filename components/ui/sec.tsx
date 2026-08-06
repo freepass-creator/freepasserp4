@@ -1,7 +1,7 @@
 'use client';
 import React from 'react';
 import { ChevronDown, EyeOff, GripVertical } from 'lucide-react';
-import { C, NUM, FW, FS } from './tokens';
+import { C, NUM, FW, FS, ICON } from './tokens';
 import { Dropzone } from './dropzone';
 
 /* ── 카드 우선 레이아웃 — 박스 그룹 대신 "섹션 텍스트 + 카드들". 모든 데이터=카드 객체. ── */
@@ -39,7 +39,7 @@ export function Sec({ id, title, n, desc, tone, right, hideable = true, onReorde
         boxShadow: over ? `inset 0 2px 0 0 ${C.accent}` : 'none' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 9, flexWrap: 'wrap' }}>
         <button onClick={() => set(state === 'open' ? 'collapsed' : 'open')} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, border: 'none', background: 'none', cursor: 'pointer', padding: 0 }}>
-          <ChevronDown size={15} color={C.sub} style={{ transform: state === 'open' ? 'none' : 'rotate(-90deg)', transition: 'transform .15s' }} />
+          <ChevronDown size={ICON.sm} color={C.sub} style={{ transform: state === 'open' ? 'none' : 'rotate(-90deg)', transition: 'transform .15s' }} />
           <span style={{ fontSize: FS.title, fontWeight: FW.title, letterSpacing: '-0.01em', color: C.ink }}>{title}</span>
           {n != null && <span style={{ fontSize: FS.body, fontWeight: FW.strong, color: nc, fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{n}</span>}
           {tone === 'danger' && n != null && n > 0 && <span className="attn-dot" style={{ marginLeft: 4 }} title="처리 필요" />}
@@ -49,9 +49,9 @@ export function Sec({ id, title, n, desc, tone, right, hideable = true, onReorde
         {state !== 'collapsed' && right}
         {id && onReorder && (
           <span draggable onDragStart={() => { dragSecId = id; setDragging(true); }} onDragEnd={() => { dragSecId = null; setDragging(false); setOver(false); }} title="드래그해서 순서 변경"
-            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 22, flexShrink: 0, cursor: dragging ? 'grabbing' : 'grab', color: dragging ? C.accent : C.sub }}><GripVertical size={14} /></span>
+            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 22, flexShrink: 0, cursor: dragging ? 'grabbing' : 'grab', color: dragging ? C.accent : C.sub }}><GripVertical size={ICON.sm} /></span>
         )}
-        {hideable && id && <button onClick={() => set('hidden')} title="이 섹션 숨기기(맨 아래로)" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 22, border: 'none', background: 'none', cursor: 'pointer', color: C.faint }}><EyeOff size={13} /></button>}
+        {hideable && id && <button onClick={() => set('hidden')} title="이 섹션 숨기기(맨 아래로)" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 22, border: 'none', background: 'none', cursor: 'pointer', color: C.faint }}><EyeOff size={ICON.sm} /></button>}
       </div>
       {state === 'open' && children}
     </section>
@@ -83,7 +83,7 @@ export function HiddenSecs() {
             color: C.mute,
           }}
         >
-          <EyeOff size={12} /> {htitle} · 표시
+          <EyeOff size={ICON.sm} /> {htitle} · 표시
         </Dropzone>
       ))}
     </div>

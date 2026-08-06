@@ -6,7 +6,7 @@ import { useKeyboardOpen } from '@/lib/use-keyboard';
 import { haptic } from '@/lib/haptics';
 import { useAppBar } from '@/lib/appbar';
 import { useHideTabBar } from '@/lib/tabbar';
-import { PaneHead, BottomNav, Btn, IconSeg, C, FS, FW, SH } from '@/components/ui';
+import { PaneHead, BottomNav, Btn, IconSeg, C, FS, FW, SH, ICON } from '@/components/ui';
 import { MobilePageShell, type ListToolsConfig } from '@/components/MobilePageShell';
 import { PageStatus, statusIconFor } from '@/components/PageStatus';
 import { WebListTools } from '@/components/WebListTools';
@@ -166,7 +166,7 @@ export function WorkPage({
                     return {
                       key: p.key,
                       label: p.title,
-                      icon: PaneIcon ? <PaneIcon size={16} /> : <span>{p.title.slice(0, 1)}</span>,
+                      icon: PaneIcon ? <PaneIcon size={ICON.md} /> : <span>{p.title.slice(0, 1)}</span>,
                     };
                   })}
                 />

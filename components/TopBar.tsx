@@ -10,7 +10,7 @@ import { getRole, actor, type Role } from '@/lib/domain/deal';
 import { useSession } from '@/lib/auth-context';
 import { isGuest } from '@/lib/auth-session';
 import { loadMenuBadges, menuItemBadge, type MenuBadgeMap } from '@/lib/domain/menu-badges';
-import { C, R, CountPill, NUM, ctrlH, ctrlFs, FW, FS, Btn, IconBtn, SH } from '@/components/ui';
+import { C, R, CountPill, NUM, ctrlH, ctrlFs, FW, FS, Btn, IconBtn, SH, ICON } from '@/components/ui';
 import { NAV_ICON, NAV_LABEL } from '@/lib/tabbar';
 import { refreshCurrentPage } from '@/lib/page-refresh';
 import { PageStatus, statusIconFor } from '@/components/PageStatus';
@@ -245,7 +245,7 @@ function NavMenu({ mobile, open: openProp, setOpen: setOpenProp }: {
           ? { marginRight: -6, border: 'none', background: 'none', color: ink, width: ctrlH(true), height: ctrlH(true) }
           : { background: open ? C.hover : C.taupeBg, color: ink, border: `1px solid ${line}` }}
       >
-        {mobile && open ? <X size={24} /> : <Menu size={mobile ? 23 : 17} />}
+        {mobile && open ? <X size={24} /> : <Menu size={mobile ? 23 : ICON.lg} />}
       </IconBtn>
       {open && (<>
         {!mobile && <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 74 }} />}

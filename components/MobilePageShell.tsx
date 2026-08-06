@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState, useRef, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
-import { BottomNav, SearchInput, IconBtn, CountPill, Btn, ButtonLabel, Select, FilterGroup, C, NUM, FS } from '@/components/ui';
+import { BottomNav, SearchInput, IconBtn, CountPill, Btn, ButtonLabel, Select, FilterGroup, C, NUM, FS, ICON } from '@/components/ui';
 import { PageToolBar, type PageToolItem } from '@/components/PageToolBar';
 import { MobileListDock } from '@/components/MobileListDock';
 import { BottomSheet, SheetTitle } from '@/components/BottomSheet';
@@ -218,7 +218,7 @@ export function MobilePageShell({
             active={sheet === 'filter'}
             onClick={() => { if (sheet === 'filter') discardFilter(); else openFilter(); }}
           >
-            <SlidersHorizontal size={18} />
+            <SlidersHorizontal size={ICON.lg} />
           </IconBtn>
           {filterBadge > 0 ? (
             <span className="fp-icon-count">
@@ -237,7 +237,7 @@ export function MobilePageShell({
         >
           {(() => {
             const ActionIcon = lt.action!.icon || Plus;
-            return <ButtonLabel icon={<ActionIcon size={16} aria-hidden />}>{lt.action!.label}</ButtonLabel>;
+            return <ButtonLabel icon={<ActionIcon size={ICON.md} aria-hidden />}>{lt.action!.label}</ButtonLabel>;
           })()}
         </Btn>
       ) : null}

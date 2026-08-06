@@ -290,7 +290,7 @@ export function ContractDocs({ contractCode, roomId, readOnly = false }: { contr
           style={{ marginBottom: 8 }}
           title={busy ? '첨부 중…' : '파일 첨부'}
         >
-          <Paperclip size={16} color={drag ? C.brand : C.faint} />
+          <Paperclip size={ICON.md} color={drag ? C.brand : C.faint} />
           <span style={{ fontSize: FS.cap, color: drag ? C.brand : C.mute, fontWeight: FW.strong }}>{busy ? '첨부 중…' : '파일을 여기로 끌어놓거나 클릭'}</span>
           <span style={{ fontSize: FS.micro, color: C.faint }}>이미지·PDF 등 · 4MB/파일</span>
           <input ref={inputRef} type="file" multiple disabled={busy} onChange={(e) => void addFiles(e.target.files)} style={{ display: 'none' }} onClick={(e) => e.stopPropagation()} />
@@ -309,7 +309,7 @@ export function ContractDocs({ contractCode, roomId, readOnly = false }: { contr
               <div key={`${a.url || a.name}-${a.at}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 9px', border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg }}>
                 {isImg(a) && a.url
                   ? <img src={a.url} alt="" onClick={() => setPreview(a)} style={{ width: thumb, height: thumb, objectFit: 'cover', borderRadius: R, cursor: 'zoom-in', flex: '0 0 auto', background: C.placeholder }} />
-                  : <span onClick={() => canPreview(a) && setPreview(a)} style={{ display: 'flex', flex: '0 0 auto', cursor: canPreview(a) ? 'pointer' : 'default' }}>{isPdf(a) ? <FileText size={16} color={C.danger} /> : <FileText size={14} color={C.mute} />}</span>}
+                  : <span onClick={() => canPreview(a) && setPreview(a)} style={{ display: 'flex', flex: '0 0 auto', cursor: canPreview(a) ? 'pointer' : 'default' }}>{isPdf(a) ? <FileText size={ICON.md} color={C.danger} /> : <FileText size={ICON.sm} color={C.mute} />}</span>}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <span
                     onClick={() => canPreview(a) ? setPreview(a) : a.url && window.open(a.url, '_blank')}
@@ -327,7 +327,7 @@ export function ContractDocs({ contractCode, roomId, readOnly = false }: { contr
                 {a.fromChat
                   ? <span style={{ fontSize: FS.micro, fontWeight: FW.label, color: C.brand, background: C.selected, borderRadius: R, padding: '1px 5px', flex: '0 0 auto' }}>채팅</span>
                   : null}
-                {a.url && <a href={a.url} download={a.name} aria-label="다운로드" style={{ color: C.faint, display: 'flex', flex: '0 0 auto' }}><Download size={13} /></a>}
+                {a.url && <a href={a.url} download={a.name} aria-label="다운로드" style={{ color: C.faint, display: 'flex', flex: '0 0 auto' }}><Download size={ICON.sm} /></a>}
                 {!a.fromChat && !readOnly ? (
                   <Btn size="sm" variant="danger" title="삭제" disabled={busy} onClick={() => remove(a)}>
                     <ButtonLabel icon={<Trash2 size={ICON.md} aria-hidden />}>삭제</ButtonLabel>
@@ -342,9 +342,9 @@ export function ContractDocs({ contractCode, roomId, readOnly = false }: { contr
         <div onClick={() => setPreview(null)} style={{ position: 'fixed', inset: 0, zIndex: 90, background: SCRIM.black, display: 'flex', flexDirection: 'column', padding: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: C.inverse, padding: '4px 6px 8px' }}>
             <span style={{ fontSize: FS.sub, fontWeight: FW.title, flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{preview.name}</span>
-            <a href={preview.url} download={preview.name} onClick={(e) => e.stopPropagation()} aria-label="다운로드" style={{ color: C.inverse, display: 'flex' }}><Download size={17} /></a>
+            <a href={preview.url} download={preview.name} onClick={(e) => e.stopPropagation()} aria-label="다운로드" style={{ color: C.inverse, display: 'flex' }}><Download size={ICON.lg} /></a>
             <Btn
-              mobileIcon={<X size={18} />}
+              mobileIcon={<X size={ICON.lg} />}
               title="미리보기 닫기"
               size="sm"
               variant="ghost"

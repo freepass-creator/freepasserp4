@@ -341,7 +341,7 @@ export function ChatThread({
               style={{ maxWidth: 200, maxHeight: 220, width: 'auto', height: 'auto', aspectRatio: '10 / 11', objectFit: 'cover', borderRadius: R, cursor: 'zoom-in', display: 'block', border: `1px solid ${C.line}` }}
             />
           ) : m.file_url ? (
-            <a href={String(m.file_url)} download={String(m.file_name || 'file')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, maxWidth: 220, padding: '8px 11px', borderRadius: R, fontSize: FS.sub, background: mine ? C.brand : C.taupeBg, color: mine ? C.taupeBg : C.ink, border: mine ? 'none' : `1px solid ${C.line}`, textDecoration: 'none' }}><Paperclip size={14} aria-hidden /><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{String(m.file_name || '파일')}</span></a>
+            <a href={String(m.file_url)} download={String(m.file_name || 'file')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, maxWidth: 220, padding: '8px 11px', borderRadius: R, fontSize: FS.sub, background: mine ? C.brand : C.taupeBg, color: mine ? C.taupeBg : C.ink, border: mine ? 'none' : `1px solid ${C.line}`, textDecoration: 'none' }}><Paperclip size={ICON.sm} aria-hidden /><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{String(m.file_name || '파일')}</span></a>
           ) : (
             <div style={{ padding: '8px 11px', borderRadius: R, fontSize: FS.body, lineHeight: 1.45, background: mine ? C.brand : isAdmin ? C.warnBg : C.taupeBg, color: mine ? C.taupeBg : C.ink, border: mine ? 'none' : `1px solid ${C.line}`, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{String(m.text)}</div>
           );
@@ -384,7 +384,7 @@ export function ChatThread({
         ) : (
           <Btn size="sm" variant="ghost" onClick={() => fileRef.current?.click()} title="사진·파일 첨부" disabled={busy}>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-              <Paperclip size={16} aria-hidden />
+              <Paperclip size={ICON.md} aria-hidden />
               첨부
             </span>
           </Btn>
@@ -427,7 +427,7 @@ export function ChatThread({
         ) : (
           <Btn size="sm" onClick={send} disabled={busy || !text.trim()} title={busy ? '전송 중' : '보내기'}>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-              {busy ? <LoaderCircle size={16} aria-hidden /> : <Send size={16} aria-hidden />}
+              {busy ? <LoaderCircle size={ICON.md} aria-hidden /> : <Send size={ICON.md} aria-hidden />}
               {busy ? '전송 중…' : '보내기'}
             </span>
           </Btn>

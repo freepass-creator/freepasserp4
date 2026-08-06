@@ -1,7 +1,7 @@
 'use client';
 import type { LucideIcon } from 'lucide-react';
 import { FileText, ScrollText, Users, History, Search, Wrench } from 'lucide-react';
-import { C, NUM, FW, FS, R } from '@/components/ui';
+import { C, NUM, FW, FS, R, ICON, ctrlH } from '@/components/ui';
 import { NAV_ICON } from '@/lib/tabbar';
 
 /**
@@ -28,6 +28,7 @@ export function PageStatus({
   const n = count == null || count === '' ? null : count;
   const sn = secondaryCount == null || secondaryCount === '' ? null : secondaryCount;
   const sUnit = secondaryUnit ?? unit;
+  const chip = ctrlH(false, 'sm');
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 8,
@@ -35,10 +36,10 @@ export function PageStatus({
     }}>
       <span style={{
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        width: 28, height: 28, flex: '0 0 auto', borderRadius: R,
+        width: chip, height: chip, flex: '0 0 auto', borderRadius: R,
         background: C.head, color: C.mute,
       }}>
-        <Icon size={15} strokeWidth={2.25} />
+        <Icon size={ICON.sm} strokeWidth={2.25} />
       </span>
       <div style={{
         display: 'flex', alignItems: 'baseline', gap: 6,

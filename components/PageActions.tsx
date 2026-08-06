@@ -1,7 +1,7 @@
 'use client';
 import type { ReactNode } from 'react';
 import { Pencil, Plus, Save, Trash2, X } from 'lucide-react';
-import { Btn, ButtonLabel } from '@/components/ui';
+import { Btn, ButtonLabel, ICON } from '@/components/ui';
 
 /**
  * 하단 액션 슬롯 SSOT.
@@ -51,11 +51,11 @@ export function PageActions({
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
       {extra}
-      {action(cancel, '취소', <X size={16} aria-hidden />, 'ghost')}
-      {action(edit, '수정', <Pencil size={16} aria-hidden />, 'ghost')}
-      {action(remove, '삭제', <Trash2 size={16} aria-hidden />, 'danger', 'impact')}
-      {action(save, '저장', <Save size={16} aria-hidden />, 'solid')}
-      {action(primary, '등록', <Plus size={16} aria-hidden />, 'solid')}
+      {action(cancel, '취소', <X size={ICON.md} aria-hidden />, 'ghost')}
+      {action(edit, '수정', <Pencil size={ICON.md} aria-hidden />, 'ghost')}
+      {action(remove, '삭제', <Trash2 size={ICON.md} aria-hidden />, 'danger', 'impact')}
+      {action(save, '저장', <Save size={ICON.md} aria-hidden />, 'solid')}
+      {action(primary, '등록', <Plus size={ICON.md} aria-hidden />, 'solid')}
     </span>
   );
 }

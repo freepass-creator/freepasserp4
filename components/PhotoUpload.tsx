@@ -1,6 +1,6 @@
 'use client';
 import { useRef, useState } from 'react';
-import { AddTile, Btn, CloseBtn, IconBtn, C, R, FS, FW, THUMB_W } from '@/components/ui';
+import { AddTile, Btn, CloseBtn, IconBtn, C, R, FS, FW, THUMB_W, ICON } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
 import { toast } from '@/components/Toaster';
@@ -281,12 +281,12 @@ export function PhotoUpload({
           </div>
           {fullIdx > 0 && (
             <div style={{ position: 'fixed', left: 12, top: '50%', transform: 'translateY(-50%)', zIndex: 1 }} onClick={(e) => e.stopPropagation()}>
-              <IconBtn onClick={() => setFull(fullIdx - 1)} title="이전"><ChevronLeft size={18} strokeWidth={2.25} aria-hidden /></IconBtn>
+              <IconBtn onClick={() => setFull(fullIdx - 1)} title="이전"><ChevronLeft size={ICON.lg} strokeWidth={2.25} aria-hidden /></IconBtn>
             </div>
           )}
           {fullIdx < list.length - 1 && (
             <div style={{ position: 'fixed', right: 12, top: '50%', transform: 'translateY(-50%)', zIndex: 1 }} onClick={(e) => e.stopPropagation()}>
-              <IconBtn onClick={() => setFull(fullIdx + 1)} title="다음"><ChevronRight size={18} strokeWidth={2.25} aria-hidden /></IconBtn>
+              <IconBtn onClick={() => setFull(fullIdx + 1)} title="다음"><ChevronRight size={ICON.lg} strokeWidth={2.25} aria-hidden /></IconBtn>
             </div>
           )}
           {!readOnly ? <div

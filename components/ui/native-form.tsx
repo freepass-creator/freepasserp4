@@ -6,7 +6,7 @@ import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
 import { BottomSheet } from '../BottomSheet';
 import { Select, SearchInput } from './form-controls';
-import { C, FS, FW, R, SH, ctrlH, ctrlInputFs } from './tokens';
+import { C, FS, FW, R, SH, ctrlH, ctrlInputFs, ICON } from './tokens';
 
 type Option = string | { value: string; label: string };
 
@@ -130,7 +130,7 @@ export function RadioRow({
       }}>
         {label}
       </span>
-      {selected ? <Check size={18} strokeWidth={2.4} color={C.brand} aria-hidden style={{ flex: '0 0 auto' }} /> : null}
+      {selected ? <Check size={ICON.lg} strokeWidth={2.4} color={C.brand} aria-hidden style={{ flex: '0 0 auto' }} /> : null}
     </button>
   );
 }
@@ -241,7 +241,7 @@ export function SheetSelect({
         <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {selectedLabel || placeholder}
         </span>
-        <ChevronDown size={16} strokeWidth={2.2} color={C.faint} aria-hidden style={{ flex: '0 0 auto' }} />
+        <ChevronDown size={ICON.md} strokeWidth={2.2} color={C.faint} aria-hidden style={{ flex: '0 0 auto' }} />
       </button>
       <BottomSheet
         open={open}

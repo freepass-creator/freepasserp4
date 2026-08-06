@@ -2,7 +2,7 @@
 import { useEffect, useState, type MouseEvent, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { MoreVertical, Star, ThumbsDown, EyeOff, MessageCircleMore, Share2 } from 'lucide-react';
-import { C, R, FW, FS, Btn, IconBtn, ctrlH, SH, SCRIM } from '@/components/ui';
+import { C, R, FW, FS, Btn, IconBtn, ctrlH, SH, SCRIM, ICON } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
 import { isFav, toggleFav, removeFav, subscribeInterest } from '@/lib/product-interest';
@@ -92,7 +92,7 @@ export function ProductMoreMenu({ p }: { p: EntityRecord }) {
                 toast(e instanceof Error ? e.message : '계약문의 실패', 'error');
               }
             },
-            { icon: <MessageCircleMore size={18} color={C.brand} />, haptic: 'nav' },
+            { icon: <MessageCircleMore size={ICON.lg} color={C.brand} />, haptic: 'nav' },
           )}
           {item(
             '공유',
@@ -106,7 +106,7 @@ export function ProductMoreMenu({ p }: { p: EntityRecord }) {
               if (await copyText(url)) toast('손님용 매물 링크 복사됨', 'ok');
               else prompt('링크', url);
             },
-            { icon: <Share2 size={18} color={C.brand} />, haptic: 'select' },
+            { icon: <Share2 size={ICON.lg} color={C.brand} />, haptic: 'select' },
           )}
         </>
       ) : null}
@@ -119,7 +119,7 @@ export function ProductMoreMenu({ p }: { p: EntityRecord }) {
           toast(next ? '관심 상품에 추가' : '관심 해제', next ? 'ok' : 'info');
         },
         {
-          icon: <Star size={18} strokeWidth={2.2} fill={fav ? C.brand : 'none'} color={fav ? C.brand : C.mute} />,
+          icon: <Star size={ICON.lg} strokeWidth={2.2} fill={fav ? C.brand : 'none'} color={fav ? C.brand : C.mute} />,
           haptic: 'select',
         },
       )}
@@ -139,7 +139,7 @@ export function ProductMoreMenu({ p }: { p: EntityRecord }) {
         },
         {
           muted: !passed,
-          icon: <ThumbsDown size={18} color={passed ? C.brand : C.mute} />,
+          icon: <ThumbsDown size={ICON.lg} color={passed ? C.brand : C.mute} />,
           haptic: 'select',
         },
       )}
@@ -151,7 +151,7 @@ export function ProductMoreMenu({ p }: { p: EntityRecord }) {
         },
         {
           danger: true,
-          icon: <EyeOff size={18} color={C.danger} />,
+          icon: <EyeOff size={ICON.lg} color={C.danger} />,
           haptic: 'impact',
         },
       )}

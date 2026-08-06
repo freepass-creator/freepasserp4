@@ -5,7 +5,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useIsMobile } from '@/lib/use-mobile';
 import { useKeyboardOpen } from '@/lib/use-keyboard';
 import { haptic } from '@/lib/haptics';
-import { C, CountPill, FS, FW, SH } from '@/components/ui';
+import { C, CountPill, FS, FW, SH, ICON } from '@/components/ui';
 import { getRole, type Role } from '@/lib/domain/deal';
 import { useSession } from '@/lib/auth-context';
 import { loadMenuBadges, type MenuBadgeMap } from '@/lib/domain/menu-badges';
@@ -162,7 +162,7 @@ export default function AppTabBar() {
                 WebkitTapHighlightColor: 'transparent',
               }}
             >
-              <t.icon size={20} strokeWidth={2.2} />
+              <t.icon size={ICON.xl} strokeWidth={2.2} />
               {/* 라벨이 4글자(계약문의 등) — 좁은 화면에서 줄바꿈되면 탭 높이가 깨지므로 한 줄 고정. */}
               <span style={{ whiteSpace: 'nowrap' }}>{t.label}</span>
               {n != null && n > 0 ? (

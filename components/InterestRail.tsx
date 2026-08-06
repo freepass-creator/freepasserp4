@@ -96,7 +96,7 @@ export function InterestTriggers({
           fontFamily: NUM, boxShadow: 'none', gap: 4,
         }}
       >
-        <Icon size={14} strokeWidth={2.2} />
+        <Icon size={ICON.sm} strokeWidth={2.2} />
         <span style={{ whiteSpace: 'nowrap' }}>{label}</span>
         <span style={{ fontFamily: NUM }}>{n}</span>
       </Btn>
@@ -247,7 +247,7 @@ export function InterestPanel({
             <ButtonLabel icon={<StarOff size={ICON.md} aria-hidden />}>비우기</ButtonLabel>
           </Btn>
         )}
-        <Btn mobileIcon={<X size={18} />} title="관심함 닫기" size="sm" variant="ghost" haptic="back" onClick={onClose}>닫기</Btn>
+        <Btn mobileIcon={<X size={ICON.lg} />} title="관심함 닫기" size="sm" variant="ghost" haptic="back" onClick={onClose}>닫기</Btn>
       </div>
       {items.length === 0 ? (
         <div style={{ fontSize: FS.sub, color: C.faint, padding: '4px 0' }}>

@@ -4,7 +4,7 @@ import React from 'react';
 import { Plus } from 'lucide-react';
 import { Dropzone } from './dropzone';
 import { useIsMobile } from '@/lib/use-mobile';
-import { C, FS, FW } from './tokens';
+import { C, FS, FW, ICON } from './tokens';
 
 /** 점선 추가 타일 — 박스 자체가 버튼(내부 IconBtn 금지). Dropzone photo SSOT 공유.
  *  모바일: 컨트롤 규격상 '사진 추가'는 결정적 액션 → 작은 4/3 타일 대신 풀폭 아이콘+텍스트 버튼. */
@@ -44,7 +44,7 @@ export function AddTile({
           ...style,
         }}
       >
-        <Plus size={18} strokeWidth={2.25} aria-hidden />
+        <Plus size={ICON.lg} strokeWidth={2.25} aria-hidden />
         <span style={{ fontSize: FS.body, fontWeight: FW.strong, color: C.brand }}>{label || '사진 추가'}</span>
       </Dropzone>
     );
@@ -65,7 +65,7 @@ export function AddTile({
         ...style,
       }}
     >
-      <Plus size={18} strokeWidth={2.25} aria-hidden />
+      <Plus size={ICON.lg} strokeWidth={2.25} aria-hidden />
       {label ? <span style={{ fontSize: FS.micro, fontWeight: FW.strong, color: C.brand }}>{label}</span> : null}
     </Dropzone>
   );

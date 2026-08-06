@@ -1,7 +1,7 @@
 'use client';
 import type { LucideIcon } from 'lucide-react';
 import { X } from 'lucide-react';
-import { CountPill, C, Btn, FS, FW, ctrlH } from '@/components/ui';
+import { CountPill, C, Btn, FS, FW, ctrlH, ICON } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 
 /**
@@ -55,7 +55,7 @@ export function PageToolBar({
               data-active={on ? '1' : undefined}
               onClick={() => { t.onClick(); }}
             >
-              <Icon size={18} strokeWidth={2.2} />
+              <Icon size={ICON.lg} strokeWidth={2.2} />
               <span>{t.label}</span>
               {badge != null ? (
                 <span className="fp-page-tool-badge"><CountPill n={badge} tone={t.badgeTone} /></span>
@@ -80,7 +80,7 @@ export function PageToolBar({
                 minHeight: ctrlH(mobile), padding: mobile ? '0 10px' : '0 6px',
               }}
             >
-              {mobile ? <X size={18} /> : clearLabel}
+              {mobile ? <X size={ICON.lg} /> : clearLabel}
             </Btn>
           ) : null}
         </div>
