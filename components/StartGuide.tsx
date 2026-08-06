@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Modal, Btn, C, FS, FW, R } from '@/components/ui';
-import { startGuideFor, startGuideSeenKey } from '@/lib/domain/onboarding';
+import { startGuide, START_GUIDE_SEEN_KEY } from '@/lib/domain/onboarding';
 
 /**
  * 시작안내 — 첫 로그인 1회, 이후엔 필요할 때만.
@@ -14,13 +14,12 @@ import { startGuideFor, startGuideSeenKey } from '@/lib/domain/onboarding';
  * B2B 화면이라 조밀하게 간다 — 큰 히어로·삽화 없이 번호와 한 줄 설명만.
  */
 export function StartGuide({
-  role, open, onClose,
+  open, onClose,
 }: {
-  role: string | null | undefined;
   open: boolean;
   onClose: (dontShowAgain: boolean) => void;
 }) {
-  const g = startGuideFor(role);
+  const g = startGuide();
   if (!open) return null;
 
   return (
@@ -76,23 +75,26 @@ export function StartGuide({
 }
 
 /**
- * 첫 로그인 1회 자동 노출 — 역할이 정해진 뒤에 뜬다.
- * 역할을 모른 채 띄우면 영업자 안내가 공급사에게 가는 사고가 난다.
+ * 첫 로그인 1회 자동 노출.
+ *
+ * 안내가 화면 설명 한 벌이 되면서 역할을 기다릴 이유가 없어졌다 — 예전엔 역할을 모른 채
+ * 띄우면 영업자 안내가 공급사에게 가는 사고가 났다. `ready` 는 여전히 필요하다.
+ * 로그인 전(세션 확정 전)에 띄우면 로그인 화면 위에 안내가 겹친다.
  */
-export function useStartGuide(role: string | null | undefined, ready: boolean) {
+export function useStartGuide(ready: boolean) {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    if (!ready || !role) return;
+    if (!ready) return;
     if (typeof window === 'undefined') return;
-    if (localStorage.getItem(startGuideSeenKey(role))) return;
+    if (localStorage.getItem(START_GUIDE_SEEN_KEY)) return;
     setOpen(true);
-  }, [ready, role]);
+  }, [ready]);
 
   const close = (dontShowAgain: boolean) => {
     setOpen(false);
-    if (dontShowAgain && typeof window !== 'undefined' && role) {
-      localStorage.setItem(startGuideSeenKey(role), '1');
+    if (dontShowAgain && typeof window !== 'undefined') {
+      localStorage.setItem(START_GUIDE_SEEN_KEY, '1');
     }
   };
 

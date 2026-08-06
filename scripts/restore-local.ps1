@@ -25,11 +25,16 @@ $secrets = @(
   @{ Path = 'tmp\firebase-auth\sa.json'; From = 'Firebase 콘솔 새 비공개 키 또는 미러' }
 )
 
+# 미러가 아예 안 붙어 있을 수 있다(드라이브 미마운트·구글드라이브 미로그인).
+# Join-Path 는 없는 드라이브에 예외를 던지므로 여기서 한 번 걸러낸다.
+$hasMirror = Test-Path -LiteralPath $Mirror -ErrorAction SilentlyContinue
+if (-not $hasMirror) { Write-Host "  미러 없음  $Mirror`n" }
+
 foreach ($s in $secrets) {
   $dest = Join-Path $root $s.Path
   if (Test-Path $dest) { Write-Host "  이미 있음  $($s.Path)"; continue }
-  $src = Join-Path $Mirror $s.Path
-  if (Test-Path $src) {
+  $src = if ($hasMirror) { Join-Path $Mirror $s.Path } else { $null }
+  if ($src -and (Test-Path -LiteralPath $src)) {
     $dir = Split-Path $dest -Parent
     if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
     Copy-Item $src $dest -Force

@@ -265,11 +265,12 @@ export default function Finder() {
     if (f === '0') setFilterOpenState(false);
   }, []);
 
-  // 로그인 후 최초 1회 — 역할별 시작안내(무엇을 어떤 순서로 하는가).
-  //  전에는 확인창을 빌려 「보기 전환」 한 문장만 띄웠다. 처음 온 사람에게 정작 필요한
-  //  «상품 → 문의 → 서류 → 계약» 순서가 어디에도 없었다. 내용 SSOT = lib/domain/onboarding.ts
+  // 로그인 후 최초 1회 — 이 화면(상품 목록) 보는 법.
+  //  역할별 업무 흐름이었으나, 로그인 직후 처음 만나는 것은 이 목록이고 기본이 엑셀(표)이라
+  //  «이게 뭔지·어떻게 바꾸는지»가 먼저다. 업무 흐름은 「자주 묻는 질문」이 다룬다.
+  //  내용 SSOT = lib/domain/onboarding.ts
   const guideReady = authReady && !!session && !isGuest();
-  const startGuide = useStartGuide(guideReady ? (session?.role || 'agent') : null, guideReady);
+  const startGuide = useStartGuide(guideReady);
 
   const {
     state: s, aggregate: agg, months, present, cascadeProducts,
@@ -529,7 +530,7 @@ export default function Finder() {
       )}
 
       {/* 시작안내 — 웹·모바일 같은 내용(Modal 이 모바일에서 시트로 뜬다). */}
-      <StartGuide role={session?.role} open={startGuide.open} onClose={startGuide.close} />
+      <StartGuide open={startGuide.open} onClose={startGuide.close} />
     </div>
   );
 }
