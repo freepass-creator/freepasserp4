@@ -98,10 +98,14 @@ check(
 );
 
 const source = (relative: string) => readFileSync(new URL(`../${relative}`, import.meta.url), 'utf8');
+// 판정은 둘로 갈린다(2026-08-06):
+//   목록(카탈로그·상품찾기·최근·관심) = isListableProduct — 견적조건 + 차종 확정
+//   단건(공유링크 /q · 상세 /m)        = isOfferableProduct — 견적조건만
+// 영업자가 이미 골라 손님에게 보낸 링크를 «우리 차종 매칭이 덜 됐다»는 이유로 끊으면 안 된다.
 const catalogSource = source('app/catalog/page.tsx');
 check(
   '공개 카탈로그는 로드와 캐시 첫 페인트 모두 SSOT 적용',
-  (catalogSource.match(/isOfferableProduct/g) || []).length >= 3,
+  (catalogSource.match(/isListableProduct/g) || []).length >= 3,
 );
 check('공개 견적 직접 URL도 판매조건 확인', source('app/q/[code]/page.tsx').includes('!isOfferableProduct(p)'));
 const detailSource = source('app/m/[code]/page.tsx');
@@ -110,11 +114,21 @@ check(
   detailSource.includes('!isOfferableProduct(p)')
     && detailSource.includes('p && isOfferableProduct(p)'),
 );
-check('최근·관심 우회 링크도 판매조건 확인', source('components/InterestRail.tsx').includes('isOfferableProduct(live)'));
+check('최근·관심 우회 링크도 판매조건 확인', source('components/InterestRail.tsx').includes('isListableProduct(live)'));
 check(
   '관리자 정정 화면은 판매 필터를 적용하지 않음',
-  !source('app/inventory/page.tsx').includes('isOfferableProduct')
-    && !source('app/data-check/page.tsx').includes('isOfferableProduct'),
+  !source('app/inventory/page.tsx').includes('ableProduct')
+    && !source('app/data-check/page.tsx').includes('ableProduct'),
+);
+// ★단건 경로가 목록 판정으로 바뀌면 손님 공유 링크가 끊긴다 — 회귀 방지.
+check(
+  '공유링크·상세는 목록 판정(차종 확정)을 쓰지 않는다',
+  !source('app/q/[code]/page.tsx').includes('isListableProduct')
+    && !detailSource.includes('isListableProduct'),
+);
+check(
+  '손님 견적서에 차량번호가 실린다',
+  source('lib/domain/product.ts').includes("['차량번호', pv('car_number')]"),
 );
 
 console.log(`\nproduct offerability: ${passed}/${passed + failed} PASS`);

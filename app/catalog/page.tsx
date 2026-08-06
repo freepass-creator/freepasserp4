@@ -4,7 +4,7 @@ import { getStore, peekList } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
 import { type EntityRecord } from '@/lib/intake/entities';
-import { cheapestRent, creditDisplay, isOfferableProduct, priceList } from '@/lib/domain/product';
+import { cheapestRent, creditDisplay, isListableProduct, priceList } from '@/lib/domain/product';
 import { matchProductQuery } from '@/lib/domain/search';
 import { withProviderNames } from '@/lib/domain/identity';
 import { ProductCard } from '@/components/ProductCard';
@@ -36,7 +36,7 @@ export default function Catalog() {
     const all = await getStore().list('product', co);
     const partners = await getStore().list('partner', co);
     setRows(withProviderNames(
-      all.filter(isOfferableProduct),
+      all.filter(isListableProduct),
       partners,
     ));
   })(); /* eslint-disable-next-line */ }, []);
@@ -52,7 +52,7 @@ export default function Catalog() {
   const list = useMemo(() => {
     const l = (rows || []).filter((p) => {
       // peekList 캐시도 같은 판매조건을 다시 통과시켜 첫 페인트 누출을 막는다.
-      if (!isOfferableProduct(p)) return false;
+      if (!isListableProduct(p)) return false;
       if (!matchProductQuery(p, q)) return false;
       // 월대여료 = 홈 matchProduct SSOT (모든 기간 중 하나라도 밴드에 들면 통과)
       if (rent) {

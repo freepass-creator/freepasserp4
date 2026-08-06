@@ -308,18 +308,29 @@ export function isHiddenFromCatalog(p: { vehicle_status?: unknown; _deleted?: un
 }
 
 /**
- * 상품찾기·손님 카탈로그에서 실제 견적 가능한 상품.
+ * 실제 견적 가능한 상품 — **단건 접근의 기준**(공유 링크 `/q`, 상세 `/m`).
  * 상태뿐 아니라 읽기 SSOT(priceList)를 통과한 유효 대여료가 하나 이상 있어야 한다.
  * 관리자 재고·데이터점검의 정정 대상 노출에는 사용하지 않는다.
- *
- * ★차종이 확정되지 않은 매물은 판매목록에서 뺀다(2026-08-06 결정 · `INVENTORY_SPEC.md` §5).
- *   차종마스터에 못 붙으면 제조사·차명이 공란이라 목록에 «빈 줄»로 뜨고 영업자가 팔 수 없다.
- *   그런데도 판매가능으로 집계돼 대수가 실제와 어긋났다(실측 401 vs 공급사 확인분 363).
- *   검수 대상은 관리자 재고 화면에서는 그대로 보인다 — 손님·영업 목록에서만 감춘다.
  */
 export function isOfferableProduct(p: EntityRecord): boolean {
-  if ((p as Record<string, unknown>)._needs_master_review === true) return false;
   return !isHiddenFromCatalog(p) && priceList(p).length > 0;
+}
+
+/**
+ * **목록에 실을 수 있는 상품** — 상품찾기·카탈로그·최근·관심.
+ *
+ * 견적 가능(`isOfferableProduct`)에 «차종 확정»을 더한다(2026-08-06 결정 · `INVENTORY_SPEC.md` §5).
+ * 차종마스터에 못 붙으면 제조사·차명이 공란이라 목록에 «빈 줄»로 뜨고 영업자가 고를 수 없다.
+ * 그런데도 대수에 잡혀 실제와 어긋났다(실측 401 vs 공급사 확인분 363).
+ *
+ * ★목록에서만 감춘다. 단건은 막지 않는다 —
+ *   영업자가 이미 골라서 손님에게 보낸 공유 링크를 우리 차종 매칭이 덜 됐다는 이유로
+ *   「현재 견적 가능한 상품이 아닙니다」로 끊으면 안 된다. 그 차는 실재하고 가격도 있다.
+ *   관리자 재고 화면에도 그대로 보인다.
+ */
+export function isListableProduct(p: EntityRecord): boolean {
+  if ((p as Record<string, unknown>)._needs_master_review === true) return false;
+  return isOfferableProduct(p);
 }
 
 export function vehicleTone(s: string): 'green' | 'blue' | 'amber' | 'gray' | 'red' | 'orange' {
@@ -357,6 +368,10 @@ export function detailSections(p: EntityRecord, audience: Audience = 'agent'): D
   })();
   // 1) 차량 세부정보 = 신원 → 옵션칩 → 연식·주행 / 동력 / 색상 / 분류 / 최초등록
   const carRows: KvRow[] = [
+    // 차량번호는 손님에게도 보인다 — 공유 견적서에서 «어느 차인지»를 특정하는 유일한 값이다.
+    //  (없는 매물이 있다: 재렌트·재구독은 공급사 시트에 번호판을 안 적는 경우가 있어
+    //   빈 줄을 만들지 않도록 값이 있을 때만 넣는다. 나머지 행의 `-` 규칙과 다른 이유다.)
+    ...(pv('car_number') ? [['차량번호', pv('car_number')] as KvRow] : []),
     ['차량', [pv('maker'), pv('sub_model') || pv('model'), pv('variant'), pv('trim_name')].filter(Boolean).join(' ') || '-'],
     ['연식 · 주행', (() => {
       const base = gSlots([yearDisplay(p.year), kmDisplay(p.mileage)]);

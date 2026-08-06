@@ -1,5 +1,6 @@
 'use client';
 
+import { CarFront } from 'lucide-react';
 import { useEffect, useState, type CSSProperties, type ImgHTMLAttributes } from 'react';
 import { C, FS, FW, R } from '@/components/ui';
 
@@ -9,7 +10,16 @@ type PlaceholderProps = {
   style?: CSSProperties;
 };
 
-/** 상품찾기(CarFront) 아이콘을 공용 마스코트로 쓰는 차량 사진 빈 상태. */
+/**
+ * 상품찾기(CarFront) 아이콘을 공용 마스코트로 쓰는 차량 사진 빈 상태.
+ *
+ * 글리프를 «직접» 그린다 — `/icon.svg` 를 쓰면 그 파일에 박힌 `rect fill=#1B2A4A rx=96`
+ * 배경판까지 따라와 사진 자리에 짙은 라운드 사각형이 얹힌다. 그 배경판은 파비콘·PWA
+ * 아이콘에는 필요하므로(app/layout.tsx · app/manifest.ts · scripts/build-icons.mjs)
+ * 파일에서 뺄 수 없다. 여기서만 배경 없는 글리프를 쓴다.
+ *
+ * 색은 부모의 `color`(C.faint)를 currentColor 로 물려받아 톤이 저절로 맞는다.
+ */
 export function ProductPhotoPlaceholder({ compact = false, label = '사진 준비중', style }: PlaceholderProps) {
   return (
     <span
@@ -29,16 +39,14 @@ export function ProductPhotoPlaceholder({ compact = false, label = '사진 준�
         color: C.faint,
       }}
     >
-      <img
-        src="/icon.svg"
-        alt=""
+      <CarFront
         aria-hidden
-        draggable={false}
+        strokeWidth={1.5}
         style={{
           display: 'block',
           width: compact ? '44%' : 'min(24%, 112px)',
+          height: 'auto',
           maxHeight: compact ? '68%' : '112px',
-          objectFit: 'contain',
           opacity: compact ? 0.72 : 0.82,
         }}
       />
