@@ -62,7 +62,11 @@ async function main() {
     return m;
   };
   const partnerRows = Object.values(merge(t3.val(), t4.val())) as EntityRecord[];
-  const master = Object.values(merge(m3.val(), m4.val())).filter(Boolean);
+  // ⚠ 차종마스터는 RTDB 가 아니라 `public/data/vehicle-master.json` 이 정본이다(화면도 여기서 읽는다).
+  //   RTDB 노드로 재면 전량 «검수»로 나와 진단이 통째로 거짓이 된다 — 실제로 그렇게 한 번 틀렸다.
+  const masterFile = JSON.parse(readFileSync('public/data/vehicle-master.json', 'utf8')) as { entries?: unknown[] };
+  const master = (masterFile.entries || []) as unknown[];
+  if (!master.length) throw new Error('차종마스터 로드 실패');
 
   const jwt = new JWT({ email: sa.client_email, key: sa.private_key, scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'] });
   await jwt.authorize();
@@ -154,6 +158,20 @@ async function main() {
   if (groups.size) {
     console.log(`   ⤷ 남은 가격건은 ${groups.size}번 승인하면 끝난다:`);
     for (const [k, n] of [...groups.entries()].sort((a, b) => b[1] - a[1])) console.log(`        ${String(n).padStart(3)}건  ${k}`);
+  }
+  console.log('');
+
+  // 차종마스터 통과 현황 — 저장은 commitSupplierProducts 하나뿐이라 여기를 거치지 않고 들어오는 길은 없다.
+  // high·medium 만 규격 확정이고 low·미매칭은 `_needs_master_review`(목록에서 빠진다).
+  const conf = (r: EntityRecord) => S((r as Rec)._snap_confidence);
+  const review = (r: EntityRecord) => (r as Rec)._needs_master_review === true;
+  console.log('★ 차종마스터 통과 현황 (반영되면 이렇게 등록된다)');
+  console.log(`   확정 ${all.products.filter((r) => !review(r)).length}대 (high ${all.products.filter((r) => conf(r) === 'high').length} · medium ${all.products.filter((r) => conf(r) === 'medium').length})`);
+  console.log(`   검수대기 ${all.products.filter(review).length}대 (low ${all.products.filter((r) => conf(r) === 'low').length} · 미매칭 ${all.products.filter((r) => !conf(r)).length}) — 목록에는 안 뜬다`);
+  for (const line of all.lines) {
+    const rv = line.products.filter(review).length;
+    if (!rv) continue;
+    console.log(`      ${line.label.padEnd(18).slice(0, 18)} 검수 ${rv}/${line.products.length}`);
   }
   console.log('');
 
