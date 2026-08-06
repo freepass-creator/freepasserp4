@@ -20,6 +20,10 @@ import {
   findSheetSyncExistingConflicts, sheetSyncExistingConflictReason,
 } from '../lib/domain/sheet-sync-all';
 import { visibleRowsFromGridResponse, type SheetsGridResponse } from '../lib/domain/sheet-visible-grid';
+import { planProductUpsert, planAbsentBlocked, shouldReconcileAbsent } from '../lib/domain/sheet-merge';
+import { buildPrevForGuard } from '../lib/domain/sheet-sync-all';
+import { dedupeProductsByVehicle } from '../lib/firebase/rtdb-products';
+import { isListableProduct } from '../lib/domain/product';
 import { buildSheetConflictReportRows } from '../lib/domain/sheet-conflict-report';
 import {
   buildMasterIndex, classifyMasterMisfit,
@@ -220,6 +224,53 @@ async function main() {
     }
   }
   console.log('');
+
+  // ★ 반영하면 상품 목록에 몇 대가 되나 — 실제 반영 경로(planProductUpsert · planAbsentBlocked)를
+  //   그대로 태워 «반영 후 상태»를 만든 뒤, 목록 판정(isListableProduct)으로 센다.
+  //   여기 숫자와 실제 결과가 갈리면 이 미리보기가 무의미하므로 별도 계산식을 두지 않는다.
+  {
+    const prevForGuard = buildPrevForGuard(partnerRows, existing);
+    const after = new Map<string, EntityRecord>();
+    for (const r of existing) after.set(S((r as Rec)._key), { ...r });
+    let creates = 0, patched = 0, blocked = 0, guarded = 0;
+    for (const line of all.lines) {
+      if (!line.ok) continue;
+      const plan = planProductUpsert(line.products, existing);
+      for (const c of plan.creates) { after.set(S((c as Rec).product_code) || S((c as Rec)._key), c); creates++; }
+      for (const pt of plan.patches) {
+        const cur = after.get(S(pt.key));
+        if (cur) { after.set(S(pt.key), { ...cur, ...pt.patch }); patched++; }
+      }
+      const presentKeys = new Set(line.products.map((x) => S((x as Rec).product_code) || S((x as Rec)._key)).filter(Boolean));
+      const presentPlates = new Set(line.products.map((x) => S((x as Rec).car_number).replace(/\s/g, '')).filter(Boolean));
+      const absent = planAbsentBlocked({ existing, providerCode: line.code, presentKeys, presentPlates });
+      // 급감가드 — 시트가 무너진 날 멀쩡한 재고를 통째로 내리지 않는다.
+      const rowsRead = line.sourceRowCount || line.imported;
+      const gate = shouldReconcileAbsent(rowsRead, prevForGuard.get(line.code) || 0);
+      if (!gate.ok) { guarded += absent.patches.length; continue; }
+      for (const ab of absent.patches) {
+        const cur = after.get(S(ab.key));
+        if (cur) { after.set(S(ab.key), { ...cur, ...ab.patch }); blocked++; }
+      }
+    }
+    const before = dedupeProductsByVehicle(existing).filter(isListableProduct);
+    const afterRows = dedupeProductsByVehicle([...after.values()]).filter(isListableProduct);
+    console.log('★ 반영 누르면 상품 목록이 이렇게 된다');
+    console.log(`   지금 ${before.length}대  →  반영 후 ${afterRows.length}대   (${afterRows.length - before.length >= 0 ? '+' : ''}${afterRows.length - before.length})`);
+    console.log(`   신규 ${creates} · 수정 ${patched} · 시트에서 빠져 출고불가 ${blocked} · 급감가드로 보류 ${guarded}`);
+    // 시트에서 온 것과 «시트 없는 공급사» 재고를 갈라 본다 — 합계만 보면 346 과 안 맞아 보인다.
+    const sheetCodes = new Set(all.lines.map((l) => l.code));
+    const byProv = new Map<string, number>();
+    for (const r of afterRows) {
+      const c = S((r as Rec).provider_company_code) || '(미지정)';
+      byProv.set(c, (byProv.get(c) || 0) + 1);
+    }
+    const linked = [...byProv.entries()].filter(([c]) => sheetCodes.has(c)).reduce((a, [, n]) => a + n, 0);
+    console.log(`   ⤷ 시트 연동 공급사 ${linked}대 · 시트 없는 공급사 ${afterRows.length - linked}대`);
+    const noSheet = [...byProv.entries()].filter(([c]) => !sheetCodes.has(c)).sort((a, b) => b[1] - a[1]);
+    if (noSheet.length) console.log(`      시트 없음: ${noSheet.slice(0, 8).map(([c, n]) => `${c} ${n}`).join(' · ')}`);
+    console.log('');
+  }
 
   console.log(`① 전체 ${all.lines.length}곳 한 번에 검증`);
   console.log(`   올림 ${all.products.length}대 → ${allBlock ? `❌ 차단 · ${allBlock}` : '✅ 반영 가능'}\n`);
