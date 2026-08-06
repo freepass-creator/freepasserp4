@@ -474,6 +474,8 @@ export default function DevTools() {
       selected={!!sel}
       onBack={() => setSel(null)}
       contextTitle={current?.label}
+      // 목록 1/4 · 도구 3/4 — 공급사 연동처럼 표를 넓게 펼쳐야 하는 도구가 반반에서는 못 산다.
+      paneRatio={3}
     />
   );
 }

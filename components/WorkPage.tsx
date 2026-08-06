@@ -23,7 +23,7 @@ export function WorkPage({
   title, statusLabel, statusCount, listCount, list, listHeader, panes, selected, onBack, search, actions,
   headerActions,
   mobileLayout = 'stack', mobileSwapKey, onMobileSwapKeyChange, countSuffix = '건', hideDock,
-  listTools, contextTitle,
+  listTools, contextTitle, paneRatio,
   attentionLabel, attentionCount,
 }: {
   title: string;
@@ -53,6 +53,11 @@ export function WorkPage({
   /** 처리·안읽음 등 보조 건수(상품검색 「검색 M」자리) */
   attentionLabel?: string;
   attentionCount?: number | null;
+  /**
+   * 웹 폭 배분 — 목록 1 : 패널 paneRatio. 기본 1(반반).
+   * 개발도구처럼 패널에 넓은 표를 펼쳐야 하는 화면이 3 을 쓴다(목록 1/4 · 패널 3/4).
+   */
+  paneRatio?: number;
 }) {
   const mobile = useIsMobile();
   // 키보드가 올라오면 하단독을 접는다 — 입력칸 바로 위에 독이 겹쳐 앉는 걸 막는다.
@@ -229,7 +234,7 @@ export function WorkPage({
         </div>
         {panes.map((p, i) => (
           <div key={p.key} style={col(
-            p.width ? `0 0 ${p.width}px` : '1 1 0',
+            p.width ? `0 0 ${p.width}px` : `${paneRatio && paneRatio > 0 ? paneRatio : 1} 1 0`,
             {
               ...(p.width ? { width: p.width, minWidth: p.width, maxWidth: p.width, flexShrink: 0, overflow: 'hidden' } : { minWidth: 0 }),
               ...(i === panes.length - 1 ? { borderRight: 'none' } : {}),

@@ -327,20 +327,28 @@ export function isOfferableProduct(p: EntityRecord): boolean {
 }
 
 /**
+ * **매물 등록 최소 요건** — 차량번호(번호미정 신차는 임시번호)와 대여료.
+ *
+ * 그 둘이면 실재하는 차고 팔 수 있는 차다. 차종이 마스터에 아직 안 붙었다는 건
+ * «우리 데이터가 덜 정리됐다»는 뜻이지 그 차가 없다는 뜻이 아니다(2026-08-06 사장님 결정).
+ */
+export function hasMinimumListingFields(p: EntityRecord): boolean {
+  const plate = String((p as Record<string, unknown>).car_number ?? '').replace(/\s+/g, '');
+  return Boolean(plate) && priceList(p).length > 0;
+}
+
+/**
  * **목록에 실을 수 있는 상품** — 상품찾기·카탈로그·최근·관심.
  *
- * 견적 가능(`isOfferableProduct`)에 «차종 확정»을 더한다(2026-08-06 결정 · `INVENTORY_SPEC.md` §5).
- * 차종마스터에 못 붙으면 제조사·차명이 공란이라 목록에 «빈 줄»로 뜨고 영업자가 고를 수 없다.
- * 그런데도 대수에 잡혀 실제와 어긋났다(실측 401 vs 공급사 확인분 363).
+ * 요건은 차번 + 대여료다. 차종 검수 대기(`_needs_master_review`)는 목록에서 빼지 않는다 —
+ * 한때 뺐다가(2026-08-06 오전) 되돌렸다. 차종을 아직 못 붙였다는 이유로 실재하는 매물을
+ * 영업자에게 숨기면, 재고는 있는데 팔 수 없는 상태가 된다. 차종 미확정은 «표시»로 알린다.
  *
- * ★목록에서만 감춘다. 단건은 막지 않는다 —
- *   영업자가 이미 골라서 손님에게 보낸 공유 링크를 우리 차종 매칭이 덜 됐다는 이유로
- *   「현재 견적 가능한 상품이 아닙니다」로 끊으면 안 된다. 그 차는 실재하고 가격도 있다.
- *   관리자 재고 화면에도 그대로 보인다.
+ * ★단건(공유 링크 `/q`, 상세 `/m`)은 `isOfferableProduct` 가 따로 판단한다 —
+ *   목록 요건이 단건 접근을 끊으면 이미 손님에게 보낸 링크가 죽는다.
  */
 export function isListableProduct(p: EntityRecord): boolean {
-  if ((p as Record<string, unknown>)._needs_master_review === true) return false;
-  return isOfferableProduct(p);
+  return isOfferableProduct(p) && hasMinimumListingFields(p);
 }
 
 export function vehicleTone(s: string): 'green' | 'blue' | 'amber' | 'gray' | 'red' | 'orange' {

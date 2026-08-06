@@ -12,6 +12,7 @@ import { resolveRates } from '@/lib/domain/settlement-engine';
 import { getSession } from '@/lib/auth-session';
 import { BRAND_MAIN } from '@/lib/brand';
 import { requirePositiveRentAmount } from '@/lib/domain/contract-money';
+import { safeBusinessCode } from '@/lib/domain/work-identity';
 import { vehicleNameOf } from '@/lib/domain/vehicle-name';
 
 export type Role = 'agent' | 'provider' | 'admin';
@@ -49,7 +50,15 @@ export function actor(r: Role): { uid: string; code: string; name: string; chann
   return { ...ACTORS[r], channel: r === 'agent' ? 'chn_seoul' : undefined };
 }
 
-/** 채팅 표기명 — 내부 코드보다 사람이 알아보는 이름 우선. 관리자=`freepass.이름`. */
+/**
+ * 채팅 표기명 — **업무코드로만** 부른다(2026-08-06 사장님 결정). 관리자=`freepass.이름`.
+ *
+ * 계약문의는 공급사·영업자·관리자가 한 방에서 만난다. 거기에 실명이 줄줄이 남으면
+ * 회사 밖 사람에게 우리 직원·거래처 담당자 이름이 그대로 쌓인다. 대화 목록도 같은 규격이다
+ * (`work-list-display.agentLabel` preferCode).
+ *
+ * 코드가 없거나 UID 형태면 이름 대신 역할로 부른다 — UID 는 사람이 읽을 것도, 노출할 것도 아니다.
+ */
 export function chatDisplayName(role: Role | string, name: string, code?: string): string {
   if (role === 'admin') {
     const n = String(name || '').trim();
@@ -59,10 +68,8 @@ export function chatDisplayName(role: Role | string, name: string, code?: string
     const text = String(value ?? '').trim();
     return text === 'undefined' || text === 'null' ? '' : text;
   };
-  const displayName = clean(name);
-  const internalCode = clean(code);
-  if (displayName && displayName !== internalCode) return displayName;
-  // 이름 없는 이관 메시지는 UID/조직코드를 노출하지 않고 역할을 알려 준다.
+  const businessCode = safeBusinessCode(clean(code));
+  if (businessCode) return businessCode;
   if (role === 'provider') return '공급사';
   if (role === 'agent') return '영업 담당자';
   return '담당자';

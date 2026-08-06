@@ -14,7 +14,10 @@ export function isSafeBusinessCode(value: unknown): boolean {
   const raw = String(value ?? '').trim();
   if (!raw || raw.length > 40 || isOpaqueIdentity(raw)) return false;
   return /^(?:usr|user|agt|agent|sup|chn|channel)[_-][A-Za-z0-9][A-Za-z0-9_-]{1,30}$/i.test(raw)
-    || /^(?:A|AG|U|US|SP|RP|CH|CHN)\d{2,}$/i.test(raw);
+    // 실제 발급 코드는 U0045·S0006·R0001 처럼 「영문 1~3자 + 숫자」다. 예전 목록은 U…·SP… 계열만
+    // 인정해 169명 중 57명이 코드 대신 역할명(「영업 담당자」)으로 불렸다 — 실측하고 넓혔다.
+    // UID 는 20자 이상 뒤섞인 문자열이라 이 형식에 걸리지 않는다(isOpaqueIdentity 가 먼저 막는다).
+    || /^[A-Za-z]{1,3}\d{2,6}$/.test(raw);
 }
 
 export function safeBusinessCode(value: unknown, identityValue?: unknown): string {

@@ -5,6 +5,7 @@
 import { readFileSync } from 'node:fs';
 import type { EntityRecord } from '../lib/intake/entities';
 import {
+  isListableProduct,
   isOfferableProduct,
   priceList,
 } from '../lib/domain/product';
@@ -129,6 +130,20 @@ check(
 check(
   '손님 견적서에 차량번호가 실린다',
   source('lib/domain/product.ts').includes("['차량번호', pv('car_number')]"),
+);
+// ★매물 등록 최소 요건 = 차번 + 대여료(2026-08-06 결정). 차종 검수대기는 «표시»일 뿐
+//  목록에서 빼지 않는다 — 한 번 뺐다가 실재 매물이 영업자에게 안 보여 되돌렸다.
+check(
+  '차종 검수대기여도 차번·대여료가 있으면 목록에 뜬다',
+  isListableProduct({ car_number: '12가3456', vehicle_status: '출고가능', _needs_master_review: true, price: { 36: { rent: 500000 } } } as unknown as EntityRecord),
+);
+check(
+  '차번이 없으면 목록에서 뺀다',
+  !isListableProduct({ car_number: '', vehicle_status: '출고가능', price: { 36: { rent: 500000 } } } as unknown as EntityRecord),
+);
+check(
+  '번호미정 신차는 임시번호가 차번이라 목록에 뜬다',
+  isListableProduct({ car_number: '100신0001', is_pending_plate: true, vehicle_status: '출고가능', price: { 36: { rent: 500000 } } } as unknown as EntityRecord),
 );
 
 console.log(`\nproduct offerability: ${passed}/${passed + failed} PASS`);
