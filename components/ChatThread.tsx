@@ -259,7 +259,7 @@ export function ChatThread({
           {onBack && <NavBack kind="list" onClick={onBack} />}
           <span style={{ fontSize: FS.title, fontWeight: FW.title, minWidth: 0, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {headTitle}
-            {chatCode ? (
+            {!mobile && chatCode ? (
               <span style={{ marginLeft: 8, color: C.mute, fontWeight: FW.label, fontSize: FS.sub }}>{chatCode}</span>
             ) : null}
           </span>
@@ -346,7 +346,7 @@ export function ChatThread({
             <div style={{ padding: '8px 11px', borderRadius: R, fontSize: FS.body, lineHeight: 1.45, background: mine ? C.brand : isAdmin ? C.warnBg : C.taupeBg, color: mine ? C.taupeBg : C.ink, border: mine ? 'none' : `1px solid ${C.line}`, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{String(m.text)}</div>
           );
           return (
-            <div key={String(m._key)} style={{ alignSelf: mine ? 'flex-end' : 'flex-start', maxWidth: '78%' }}>
+            <div key={String(m._key)} style={{ alignSelf: mine ? 'flex-end' : 'flex-start', maxWidth: '100%', minWidth: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 5, margin: '0 0 2px 3px', justifyContent: mine ? 'flex-end' : 'flex-start' }}>
                 {!mine && <ChatSenderLabel role={String(m.sender_role)} name={String(m.sender_name)} code={String(m.sender_code || m.sender_uid || '')} />}
                 {simple && <span style={{ fontSize: FS.micro, fontWeight: FW.label, color: C.brand, background: C.selected, padding: '1px 5px', borderRadius: R }}>간단</span>}

@@ -48,7 +48,7 @@ function plateSpan(plate: string) {
   const value = String(plate || '').trim();
   if (!value) return null;
   return (
-    <span style={{ fontFamily: NUM, fontWeight: FW.strong, fontSize: FS.sub, color: C.mute }}>{value}</span>
+    <span style={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums', fontWeight: FW.strong, fontSize: FS.sub, color: C.mute }}>{value}</span>
   );
 }
 
@@ -209,14 +209,14 @@ export function ContractListRow({
           key="t"
           title={<FeedTitle>{title}</FeedTitle>}
           meta={showProgress ? (
-            <span style={{ fontSize: FS.sub, fontWeight: FW.head, color: stage.tone === 'amber' ? C.warn : C.brand, fontFamily: NUM }}>{pr.done}/{pr.total}</span>
+            <span style={{ fontSize: FS.sub, fontWeight: FW.head, color: stage.tone === 'amber' ? C.warn : C.brand, fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{pr.done}/{pr.total}</span>
           ) : null}
         />,
         <FeedBadges key="b">
           <Badge tone={stage.tone}>{stage.label}</Badge>
           {dotJoin([
             plateSpan(String(plate || c.car_number_snapshot || '')),
-            contractCode ? <span style={{ fontSize: FS.cap, fontFamily: NUM, color: C.mute, fontWeight: FW.strong }}>{contractCode}</span> : null,
+            contractCode ? <span style={{ fontSize: FS.cap, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', color: C.mute, fontWeight: FW.strong }}>{contractCode}</span> : null,
           ])}
         </FeedBadges>,
         <FeedSub key="s">
@@ -364,7 +364,7 @@ export function MemberListRow({
           <div style={{ flex: '1 1 auto', minWidth: 0, overflow: 'hidden' }}>
             <FeedSub>
               {dotJoin([
-                code ? <span key="c" style={{ fontFamily: NUM }}>{code}</span> : null,
+                code ? <span key="c" style={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{code}</span> : null,
                 kind === 'user' ? (company || channel) : null,
               ]) || ''}
             </FeedSub>
@@ -497,7 +497,7 @@ export function SettlementListRow({
         <FeedTitleRow
           key="t"
           title={<FeedTitle>{display.vehicleName}</FeedTitle>}
-          meta={<span style={{ fontSize: FS.sub, fontWeight: FW.head, color: netColor, fontFamily: NUM }}>{won(net)}</span>}
+          meta={<span style={{ fontSize: FS.sub, fontWeight: FW.head, color: netColor, fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{won(net)}</span>}
         />,
         <FeedBadges key="b">
           <Badge tone={display.tone}>{display.status}</Badge>
@@ -505,7 +505,7 @@ export function SettlementListRow({
           {unresolvedRate ? <Badge tone="amber" variant="solid">{SETTLEMENT_RATE_WARNING}</Badge> : null}
           {dotJoin([
             plateSpan(display.plate),
-            display.contractDate ? <span key="d" style={{ fontSize: FS.cap, fontFamily: NUM, color: C.mute, fontWeight: FW.strong }}>{display.contractDate}</span> : null,
+            display.contractDate ? <span key="d" style={{ fontSize: FS.cap, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', color: C.mute, fontWeight: FW.strong }}>{display.contractDate}</span> : null,
           ])}
         </FeedBadges>,
         <FeedSub key="s">
@@ -513,7 +513,7 @@ export function SettlementListRow({
             display.customerName || null,
             display.providerName || null,
             display.agentName || null,
-            settlementCode ? <span key="c" style={{ fontFamily: NUM }}>{settlementCode}</span> : null,
+            settlementCode ? <span key="c" style={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{settlementCode}</span> : null,
           ]) || '—'}
         </FeedSub>,
       ]}
@@ -561,7 +561,7 @@ export function PolicyListRow({
         </FeedBadges>,
         <FeedSub key="s">
           {dotJoin([
-            policyCode ? <span key="c" style={{ fontFamily: NUM }}>{policyCode}</span> : null,
+            policyCode ? <span key="c" style={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{policyCode}</span> : null,
             screeningCriteria || null,
           ]) || '—'}
         </FeedSub>,

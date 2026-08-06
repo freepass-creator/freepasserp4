@@ -201,7 +201,7 @@ export function ExcelResultsTable({
             onContextMenu={(e) => onRowContextMenu(e, p)}
             style={{ cursor: 'pointer', background: bg }}
           >
-            <td style={{ ...tdX, ...cellPad, ...colLock(EXCEL_MAX.plate, padX), background: bg, fontFamily: NUM, fontWeight: FW.strong }} title={String(p.car_number || '') || undefined}>{String(p.car_number || '') || DASH}</td>
+            <td style={{ ...tdX, ...cellPad, ...colLock(EXCEL_MAX.plate, padX), background: bg, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', fontWeight: FW.strong }} title={String(p.car_number || '') || undefined}>{String(p.car_number || '') || DASH}</td>
             {show('vehicle_status') && <td style={{ ...tdX, ...cellPad, ...colLock(EXCEL_W.status) }}>{st ? <Badge tone={vehicleTone(st)} variant={st === '계약중' ? 'solid' : 'line'} pulse={st === '계약중'}>{st}</Badge> : DASH}</td>}
             {show('product_type') && <td style={{ ...tdX, ...cellPad, ...colLock(EXCEL_W.ptype) }}>{pt ? (() => { const c = canonProductType(pt) || pt; const s = productTypeStyle(c); return <Badge tone={s.tone} variant={s.variant}>{c}</Badge>; })() : DASH}</td>}
             {show('maker') && <td style={{ ...tdX, ...cellPad, ...colLockChars(makerChars, true, padX) }}>{clipMax(makerDisplay(p.maker) || p.maker, makerChars)}</td>}
@@ -216,8 +216,8 @@ export function ExcelResultsTable({
             )}
             {show('ext_color') && <td style={{ ...tdX, ...cellPad, ...colLockChars(colorChars, true, padX) }}>{clipMax(p.ext_color, colorChars)}</td>}
             {show('int_color') && <td style={{ ...tdX, ...cellPad, ...colLockChars(colorChars, true, padX) }}>{clipMax(p.int_color, colorChars)}</td>}
-            {show('year') && <td style={{ ...tdX, ...cellPad, ...colLock(EXCEL_MAX.year, padX) }}>{yearDisplay(p.year) || DASH}</td>}
-            {show('mileage') && <td style={{ ...tdXR, ...cellPad, ...colLock(EXCEL_MAX.mile, padX) }}>{kmDisplay(p.mileage) || DASH}</td>}
+            {show('year') && <td style={{ ...tdX, ...cellPad, ...colLock(EXCEL_MAX.year, padX), fontVariantNumeric: 'tabular-nums' }}>{yearDisplay(p.year) || DASH}</td>}
+            {show('mileage') && <td style={{ ...tdXR, ...cellPad, ...colLock(EXCEL_MAX.mile, padX), fontVariantNumeric: 'tabular-nums' }}>{kmDisplay(p.mileage) || DASH}</td>}
             {show('fuel_type') && <td style={{ ...tdX, ...cellPad, ...colLockChars(fuelChars, true, padX) }}>{fuel ? clipMax(fuel, fuelChars) : DASH}</td>}
             {showProv && <td style={{ ...tdX, ...cellPad, ...colLockChars(EXCEL_MAX.provider, true, padX) }}>{clipMax(p.provider_name || p.provider_company_code, EXCEL_MAX.provider)}</td>}
             {showCredit && <td style={{ ...tdX, ...cellPad, ...colLock(EXCEL_W.credit) }}>{(() => { const c = creditDisplay(p); return c ? <Badge tone={CREDIT_TONE(c)}>{c}</Badge> : DASH; })()}</td>}
@@ -246,7 +246,7 @@ export function ExcelResultsTable({
             </td>
             )}
             {visMonths.map((m) => { const e = pl.find((x) => x.m === m); return (
-              <td key={m} className="fp-excel-price" style={{ ...tdXR, ...cellPad, ...colLock(priceW), background: bg, lineHeight: 1.2 }}>
+              <td key={m} className="fp-excel-price" style={{ ...tdXR, ...cellPad, ...colLock(priceW), background: bg, lineHeight: 1.2, fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>
                     {/* 빈 칸도 값 칸과 같은 2줄 골격으로 — DASH만 홀로 놓으면 세로 가운데로 내려앉아
                         열을 세로로 훑을 때 첫 줄 기준선이 어긋난다. */}
                     {e

@@ -460,8 +460,9 @@ export default function Chat() {
       contextTitle={selRoom
         ? (() => {
             // 목록과 같은 snapshot을 쓰되 상세 헤더는 T2 전체 사양. 차번은 우측 대화코드와 중복하지 않는다.
+            // 모바일은 폭이 좁아 차명·차번이 잘리고 내부 방키만 남는 일이 있어 코드를 숨긴다.
             const head = selectedVehicleName;
-            const code = roomChatCode(selRoom);
+            const code = mobile ? '' : roomChatCode(selRoom);
             return (
               <span style={{ display: 'inline-flex', alignItems: 'baseline', minWidth: 0, maxWidth: '100%' }}>
                 <span style={{

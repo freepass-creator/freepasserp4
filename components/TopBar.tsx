@@ -368,6 +368,7 @@ export default function TopBar() {
             style={{
               minWidth: 0, flex: 1,
               display: 'flex', alignItems: 'center',
+              height: mobile ? ctrlH(true) : undefined,
               cursor: 'pointer',
               WebkitTapHighlightColor: 'transparent',
               ...(typeof status === 'string' ? {

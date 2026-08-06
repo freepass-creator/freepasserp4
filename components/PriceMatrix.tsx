@@ -83,6 +83,7 @@ export function PriceMatrix({ price, onChange, readOnly = false }: { price: unkn
   const cellInp = (filledRent: boolean): CSSProperties => ({
     textAlign: 'right',
     fontFamily: NUM,
+    fontVariantNumeric: 'tabular-nums',
     fontWeight: FW.head,
     color: filledRent ? C.brand : C.ink,
     border: 'none',
@@ -154,7 +155,7 @@ export function PriceMatrix({ price, onChange, readOnly = false }: { price: unkn
                 </td>
                 <td style={{ padding: cellPad, verticalAlign: 'middle', background: rentN > 0 ? 'transparent' : undefined }}>
                   {readOnly ? (
-                    <span style={{ display: 'block', textAlign: 'right', fontFamily: NUM, fontWeight: FW.head, color: rentN > 0 ? C.brand : C.faint }}>
+                    <span style={{ display: 'block', textAlign: 'right', fontFamily: NUM, fontVariantNumeric: 'tabular-nums', fontWeight: FW.head, color: rentN > 0 ? C.brand : C.faint }}>
                       {fmt(rentN) || '—'}
                     </span>
                   ) : (
@@ -174,7 +175,7 @@ export function PriceMatrix({ price, onChange, readOnly = false }: { price: unkn
                 </td>
                 <td style={{ padding: cellPad, verticalAlign: 'middle' }}>
                   {readOnly ? (
-                    <span style={{ display: 'block', textAlign: 'right', fontFamily: NUM, fontWeight: FW.head, color: depN > 0 ? C.ink : C.faint }}>
+                    <span style={{ display: 'block', textAlign: 'right', fontFamily: NUM, fontVariantNumeric: 'tabular-nums', fontWeight: FW.head, color: depN > 0 ? C.ink : C.faint }}>
                       {fmt(depN) || '—'}
                     </span>
                   ) : (
@@ -212,7 +213,7 @@ export function PriceMatrix({ price, onChange, readOnly = false }: { price: unkn
           onEnter={addExtra}
           width={64}
           size="sm"
-          style={{ textAlign: 'right', fontFamily: NUM }}
+          style={{ textAlign: 'right', fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}
         />
         <span style={{ fontSize: FS.sub, color: C.mute }}>개월</span>
         <Btn title="별도 기간 추가" size="sm" variant="ghost" onClick={addExtra}>추가</Btn>

@@ -285,7 +285,7 @@ const LOGIN_CSS = `
 .fp-login .login-guest{width:100%;height:44px;margin-top:8px;padding:0 12px;border:1px solid var(--border-strong);border-radius:4px;background:transparent;color:var(--text-sub);font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;transition:background-color 100ms,border-color 100ms;}
 .fp-login .login-guest:hover{background:var(--bg-hover);border-color:var(--brand);color:var(--brand);}
 .fp-login .login-links{display:flex;align-items:center;justify-content:center;gap:8px;font-size:11px;color:var(--text-weak);}
-.fp-login .login-links a{color:var(--brand);font-weight:500;text-decoration:none;}
+.fp-login .login-links a{color:var(--brand);font-weight:500;text-decoration:none;padding:8px 4px;display:inline-block;}
 .fp-login .login-links a:hover{color:var(--brand-h);}
 .fp-login .login-links-sep{color:var(--text-muted);}
 .fp-login .login-msg{margin:0;min-height:16px;font-size:11px;color:var(--text-weak);text-align:center;}
