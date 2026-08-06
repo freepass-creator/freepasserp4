@@ -1554,6 +1554,22 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
     }
   };
 
+  /**
+   * 「데이터 검증」(전체) — 시트와 홈페이지를 **둘 다** 돌린다.
+   *
+   * 원본이 무엇이든 관리자가 하는 일은 «전부 검증하고 이상 없으면 반영»이다. 그런데 시트는
+   * 구글시트 fetch → sheet-merge, 홈페이지는 서버 API → ironrentcar-reconcile 로 엔진이
+   * 갈려 있어 전체 버튼이 시트만 돌았다. 그래서 아이언은 매번 따로 눌러야 했다.
+   *
+   * 결과 구조가 서로 달라 «반영»은 한 트랜잭션으로 못 묶는다(각자 반영 버튼을 쓴다).
+   * 검증만이라도 한 번에 끝내 관리자가 두 곳을 기억하지 않게 한다.
+   * 홈페이지 검증이 실패해도 시트 검증은 그대로 진행한다 — 한쪽 장애가 전체를 막지 않는다.
+   */
+  const validateEverySource = async () => {
+    await validateAll();
+    try { await refreshIronRentcarPreview(); } catch { /* 홈페이지 실패는 시트 결과를 덮지 않는다 */ }
+  };
+
   const refreshIronRentcarPreview = async () => {
     if (ironPreviewLoading || ironApplying) return;
     setIronPreviewLoading(true);
@@ -1910,10 +1926,10 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
           )}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
             <Btn
-              title={busy ? '검증 중' : `등록된 공급사 상품 검증 ${roster.length}개`}
+              title={busy ? '검증 중' : `등록된 공급사 상품 검증 ${roster.length + 1}개(홈페이지 포함)`}
               variant="ghost"
-              onClick={validateAll}
-              disabled={busy || !masterReady || !roster.length || !!rosterError}
+              onClick={validateEverySource}
+              disabled={busy || !masterReady || !!rosterError}
             >
               {busy && !pending ? '검증 중…' : '데이터 검증'}
             </Btn>
