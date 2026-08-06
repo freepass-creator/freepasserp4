@@ -135,17 +135,45 @@ export function unpackVehicleSignalsEngine(
     out.partner_memo,
     out.engine_type,
   ].map((value) => String(value ?? '').trim()).filter(Boolean).join(' '));
+  /**
+   * 띄어쓰기를 살린 원문 — 짧은 모델명의 «단어 경계»를 보려면 필요하다.
+   * `norm` 은 공백을 지우므로 여기서는 소문자화만 한다.
+   */
+  const modelProbeSpaced = [
+    out.model, out.sub_model, out.cert_car_name, out.vehicle_name,
+    out.trim_name, out.variant, out.options, out.partner_memo, out.engine_type,
+  ].map((value) => String(value ?? '').trim()).filter(Boolean).join(' ').toLowerCase();
+
+  /**
+   * 「S3」·「A3」처럼 짧은 영숫자 모델명은 **부분일치로 찾으면 안 된다.**
+   * 실측(2026-08-07): 벤츠 S클래스 행의 트림 「S350 d 4매틱」 안에 든 「S3」가 걸려
+   * 아우디 S3/A3 로 붙었다. 트림·옵션 글에는 배기량·등급 코드가 널려 있어 반드시 오탐이 난다.
+   * 그래서 짧은 이름은 앞뒤가 영숫자가 아닐 때(=한 낱말일 때)만 인정한다.
+   */
+  const shortAlnum = (value: string) => /^[a-z]{0,3}\d{1,3}[a-z]?$/.test(value) || value.length <= 3;
+  const hitsShortModel = (normalizedModel: string) => {
+    const escaped = normalizedModel.replace(/[.*+?^${}()|[\]\\-]/g, '\\$&');
+    return new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`).test(modelProbeSpaced);
+  };
+
   const models = [...new Set(entries.map((entry) => entry.model))].sort((a, b) => b.length - a.length);
   let hitModel = '';
   if (modelProbe) {
     for (const model of models) {
       const normalizedModel = deps.norm(model);
-      if (normalizedModel.length >= 2 && modelProbe.includes(normalizedModel)) {
+      if (normalizedModel.length < 2) continue;
+      const hit = shortAlnum(normalizedModel)
+        ? hitsShortModel(normalizedModel)
+        : modelProbe.includes(normalizedModel);
+      if (hit) {
         hitModel = model;
         break;
       }
     }
     if (!hitModel) {
+      // 별칭은 «못 찾았을 때»가 아니라 진작 봤어야 한다 — 「S클래스」(하이픈 없음)는 마스터의
+      // 「S-클래스」에 문자열 포함으로 닿지 않는다. 실측: 그 사이에 짧은 오탐이 먼저 걸려
+      // 벤츠 S클래스가 아우디로 갔다. 짧은 이름 경계 검사를 넣은 지금은 여기까지 내려온다.
       for (const [alias, canonical] of Object.entries(deps.modelAlias)) {
         if (!modelProbe.includes(alias)) continue;
         const real = models.find((model) => deps.norm(model) === deps.norm(canonical))
