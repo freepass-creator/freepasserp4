@@ -160,8 +160,17 @@ export async function importAutoplusMerged(opts: {
   const headerRow = opts.headerRow ?? 0;
   // 오토플러스는 공급사가 행을 숨기거나 필터로 내리는 방식으로 판매 목록을 운영한다.
   // CSV export는 그 행까지 되살리므로, 이 어댑터만 Sheets 행 메타데이터 경로를 강제한다.
-  const mainRaw = await opts.fetchTable(opts.url, AUTOPLUS_GID_MAIN, { visibleRowsOnly: true });
-  const promoRaw = await opts.fetchTable(opts.url, AUTOPLUS_GID_PROMO, { visibleRowsOnly: true });
+  // 사진은 열이 아니라 차번 셀 링크(드라이브 폴더 스마트칩)에 있다 — 같은 fetch 에서 받는다.
+  let mainPhotos: Record<string, string> | undefined;
+  let promoPhotos: Record<string, string> | undefined;
+  const mainRaw = await opts.fetchTable(opts.url, AUTOPLUS_GID_MAIN, {
+    visibleRowsOnly: true,
+    onPhotoByPlate: (map) => { mainPhotos = map; },
+  });
+  const promoRaw = await opts.fetchTable(opts.url, AUTOPLUS_GID_PROMO, {
+    visibleRowsOnly: true,
+    onPhotoByPlate: (map) => { promoPhotos = map; },
+  });
   const tabResponses = new Map<string, string>();
   assertDistinctSheetTable(tabResponses, mainRaw, `본탭 gid ${AUTOPLUS_GID_MAIN}`);
   assertDistinctSheetTable(tabResponses, promoRaw, `프로모션 gid ${AUTOPLUS_GID_PROMO}`);
@@ -177,6 +186,7 @@ export async function importAutoplusMerged(opts: {
     depositRule: opts.depositRule,
     plateAllocator: opts.plateAllocator,
     pendingOccurrence: opts.pendingOccurrence,
+    photoByPlate: mainPhotos,
   });
   const promo = importSheetTable(promoT, {
       providerCode: opts.providerCode,
@@ -186,6 +196,8 @@ export async function importAutoplusMerged(opts: {
       depositRule: opts.depositRule,
       plateAllocator: opts.plateAllocator,
       pendingOccurrence: opts.pendingOccurrence,
+      // 프로모션 탭에 링크가 없으면 본탭 지도로 메운다 — 같은 차라 차번 키가 같다.
+      photoByPlate: { ...(mainPhotos || {}), ...(promoPhotos || {}) },
     });
 
   const { products, promoOnlyN } = mergeAutoplusProducts(main.products, promo.products);

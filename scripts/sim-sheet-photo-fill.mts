@@ -15,6 +15,7 @@ import { getDatabase } from 'firebase-admin/database';
 import { readFileSync } from 'node:fs';
 import { importSheetTable, parseMappingProfile, parseMappingHeaderSignature, parseDepositRule } from '../lib/domain/sheet-import';
 import { resolveAdapter } from '../lib/domain/sheet-adapters';
+import { importAutoplusMerged } from '../lib/domain/sheet-autoplus';
 // 서버 래퍼(lib/server/google-sheet-visible)는 'server-only' 라 스크립트에서 못 부른다.
 // 정작 검증하려는 «그리드 → 행+사진링크» 변환은 도메인 함수라 그대로 쓴다 — OAuth/fetch만 여기서 한다.
 import { visibleRowsFromGridResponse, type SheetsGridResponse } from '../lib/domain/sheet-visible-grid';
@@ -81,9 +82,35 @@ async function main() {
     if (ONLY && code !== ONLY) continue;
     if (!S(p.sheet_url) || p._deleted === true || S(p.status) === 'deleted') continue;
     const adapter = resolveAdapter(p);
-    // 숨김행 판정·셀 링크는 Sheets API 경로에서만 온다. autoplus 전용 병합 경로는 대상 밖.
-    if (adapter.id === 'autoplus') { console.log(`⏭  ${code.padEnd(9)} 오토플러스 전용 경로 — 관리자 검증 화면에서 확인`); continue; }
     const id = (S(p.sheet_url).match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/) || [])[1];
+
+    // 오토플러스는 본탭∪프로모션을 한 번에 병합하는 전용 경로가 정본이다 — 탭별로 돌리면
+    // 프로모션 전용 가격이 안 붙어 전량 «가격없음»이 된다. 화면과 같은 경로로 태운다.
+    if (adapter.id === 'autoplus') {
+      if (!id) { console.log(`⏭  ${code.padEnd(9)} 시트 ID 없음`); continue; }
+      try {
+        const r = await importAutoplusMerged({
+          url: S(p.sheet_url), providerCode: code, entries: master as never,
+          profile: parseMappingProfile(p.mapping_profile),
+          profileHeaders: parseMappingHeaderSignature(p.mapping_header_signature),
+          headerRow: Math.max(0, Number(p.header_row) || 0),
+          depositRule: parseDepositRule(p.deposit_rule),
+          fetchTable: async (url, gid, options = {}) => {
+            const grid = await fetchGrid((url.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/) || [])[1] || '', String(gid || '0'));
+            options.onPhotoByPlate?.(grid.photoByPlate || {});
+            return grid.rows;
+          },
+        });
+        const withPhoto = r.products.filter((x) => S(x.photo_link)).length;
+        allIn += r.products.length; allPhoto += withPhoto;
+        console.log(`${withPhoto ? '✅' : '❌'} ${code.padEnd(9)} ${(S(p.name) || S(p.partner_name)).padEnd(16).slice(0, 16)} 사진 ${withPhoto}/${r.products.length}대  (본탭∪프로모)`);
+        for (const x of r.products.filter((y) => S(y.photo_link)).slice(0, 2)) console.log(`      ${S(x.car_number)}  ${S(x.photo_link)}`);
+      } catch (e) {
+        console.log(`❌ ${code.padEnd(9)} 오토플러스 경로 실패 — ${String((e as Error).message || e)}`);
+      }
+      continue;
+    }
+
     const gids = (S(p.sheet_gid) || S(p.sheet_tab) || '').split(/[,\s|]+/).filter(Boolean);
     if (!id || !gids.length) { console.log(`⏭  ${code.padEnd(9)} gid 미설정 — 숨김행 제외 경로 불가`); continue; }
 
