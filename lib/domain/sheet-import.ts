@@ -653,8 +653,26 @@ export function importSheetTable(table: string[][], opts: {
     // AutoPlus 원본의 `수리중/매각진행중/판매보류` 구간 라벨을 무효 차량으로 세지 않는다.
     if (!hasRelevantCell) continue;
     sourceRowCount++;
-    const rawCar = String(rec.car_number || '').trim();
+    let rawCar = String(rec.car_number || '').trim();
     let car = rawCar.replace(/\s/g, '');
+    // 열이 밀린 시트 구제 — 지정된 차번 칸이 번호판이 아니면 **그 행에서 번호판을 찾는다.**
+    //  시트마다 열 순서가 다르고, 같은 시트 안에서도 중간부터 칸이 빠져 밀리는 원본이 있다
+    //  (실측 2026-08-07: 이안카 차번 칸에 「쿠퍼c5도어」·「1.6가솔린터보2WD트렌디」 같은 스펙 문자열).
+    //  번호판 형식(00가0000·000가0000)은 스펙 문자열과 겹치지 않아 그 행의 차를 안전하게 집어낸다.
+    //  ★첫 칸만 취한다 — 메모에 다른 차번이 적힌 행에서 뒤쪽 값을 주워 오면 남의 차가 된다.
+    // 표 중간에 헤더가 한 번 더 들어간 원본이 있다(구간을 나눠 적는 시트). 그 행의 차번 칸에는
+    // 「차량번호」라는 라벨이 그대로 있어 무효 차번으로 잡히고, 무효 하나가 커밋 전체를 막는다.
+    // 데이터가 아니라 라벨이므로 조용히 건너뛴다 — 무효로 세면 원문에 고칠 게 없는데 계속 막힌다.
+    if (/^(차량번호|차번|차번호|등록번호)$/.test(car)) { sourceRowCount--; continue; }
+    if (car && !isExactRealPlate(car)) {
+      const found = cells.map((cell) => String(cell ?? '').replace(/\s/g, '')).find(isExactRealPlate);
+      if (found) {
+        addIssue(`행 ${rowNo} 차번 칸 밀림 · ${rawCar.slice(0, 20)} → ${found}`);
+        rec.car_number = found;
+        rawCar = found;
+        car = found;
+      }
+    }
     let pendingSig = '';
     const explicitPreReleased = /^(?:신차(?:\(선출고\))?|신차렌트|신차구독)$/i.test(
       String(rec.product_type || '').replace(/\s/g, ''),
