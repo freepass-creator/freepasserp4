@@ -214,6 +214,34 @@ export type PartnerSheetsFetch = {
   reconcileRevision?: string;
 };
 
+export type PartnerSourceReadiness = {
+  status: 'ready' | 'review' | 'blocked';
+  reasons: string[];
+  masterReviewCount: number;
+};
+
+/** 공급사 한 곳만 떼어 봐도 안전한지 판정한다. 전체 커밋 게이트와 별도로 UI·감사가 공유한다. */
+export function partnerSourceReadiness(line: PartnerFetchLine): PartnerSourceReadiness {
+  const reasons: string[] = [];
+  const blockingDuplicates = line.blockingDuplicateCount ?? line.duplicateCount;
+  const masterReviewCount = line.products.filter((row) => row._needs_master_review === true).length;
+  if (!line.ok) reasons.push('원본 조회 실패');
+  if (line.invalidCount > 0) reasons.push(`무효 차번 ${line.invalidCount}`);
+  if (blockingDuplicates > 0) reasons.push(`차단 중복 ${blockingDuplicates}`);
+  if (line.imported === 0 && !isExplicitAllExcluded(line)) reasons.push('안전하지 않은 올림 0대');
+  if (line.sourceRowCount !== line.imported + line.excludedCount + line.noPriceCount + line.skippedCount) {
+    reasons.push('판독 행 집계 불일치');
+  }
+  if (line.skippedCount !== line.duplicateCount + line.invalidCount) reasons.push('중복·무효 집계 불일치');
+  if (line.sourceRowCount >= 10 && line.noPriceCount + line.skippedCount >= line.sourceRowCount * 0.5) {
+    reasons.push('가격없음·무효 비율 50% 이상');
+  }
+  if (reasons.length) return { status: 'blocked', reasons, masterReviewCount };
+  if (line.noPriceCount > 0) reasons.push(`가격 누락 ${line.noPriceCount}`);
+  if (masterReviewCount > 0) reasons.push(`차종 검수 ${masterReviewCount}`);
+  return { status: reasons.length ? 'review' : 'ready', reasons, masterReviewCount };
+}
+
 export function isExplicitAllExcluded(line: Pick<PartnerFetchLine,
   'sourceRowCount' | 'imported' | 'excludedCount' | 'noPriceCount' | 'skippedCount'>): boolean {
   return line.imported === 0
