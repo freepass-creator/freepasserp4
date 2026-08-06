@@ -779,7 +779,11 @@ export async function fetchAllPartnerSheets(
       const tabResponses = new Map<string, string>();
       for (const g of tabs) {
         try {
-          const raw = await readTable(o.url, g || undefined);
+          // 사진은 셀 링크에 있어 표에 안 담긴다 — 같은 fetch 에서 차번→링크 지도로 받는다.
+          let photoByPlate: Record<string, string> | undefined;
+          const raw = await readTable(o.url, g || undefined, {
+            onPhotoByPlate: (map) => { photoByPlate = map; },
+          });
           if (tabs.length > 1) assertDistinctSheetTable(tabResponses, raw, `gid ${g || '기본'}`);
           const t = o.adapter.prepareTable(raw, { headerRow: o.headerRow });
           if (t.length < 2) { tabNotes.push(`gid ${g || '기본'}: 데이터 없음`); continue; }
@@ -791,6 +795,7 @@ export async function fetchAllPartnerSheets(
             depositRule: o.depositRule,
             plateAllocator: allocator,
             pendingOccurrence,
+            photoByPlate,
           });
           sourceRows += r.total;
           excluded += r.excludedCount;

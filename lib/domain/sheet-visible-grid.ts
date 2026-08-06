@@ -50,9 +50,18 @@ export type VisibleSheetTable = {
   rows: string[][];
   title: string;
   hiddenRowCount: number;
-  /** 보이는 행 기준 인덱스 → 그 행에서 발견한 사진 링크. 없는 행은 키가 없다. */
-  photoByRow?: Record<number, string>;
+  /**
+   * 차량번호 → 사진 링크.
+   *
+   * 행 «인덱스»로 묶지 않는다. 어댑터의 `prepareTable` 이 헤더 앞 안내행을 잘라내면 인덱스가
+   * 밀려 **남의 차 사진이 붙는다.** 링크는 어차피 차번 셀에 걸려 있으므로 같은 행의 번호판을
+   * 키로 쓴다 — 표가 어떻게 잘리든 어긋나지 않는다.
+   */
+  photoByPlate?: Record<string, string>;
 };
+
+/** 한국 번호판 — `12가3456` · `123가4567` · 영업용 `34호9160`. 앞 지역명은 떼고 본다. */
+const PLATE_RE = /(\d{2,3}[가-힣]\d{4})/;
 
 function cellText(cell: SheetGridCell | undefined): string {
   if (!cell) return '';
@@ -75,7 +84,7 @@ export function visibleRowsFromGridResponse(
   if (sheet.properties.hidden) throw new Error(`숨김 탭은 연동할 수 없습니다(${sheet.properties.title || gid})`);
 
   const byIndex = new Map<number, string[]>();
-  const photoByAbsRow = new Map<number, string>();
+  const photoByPlate: Record<string, string> = {};
   let hiddenRowCount = 0;
   for (const grid of sheet.data || []) {
     const start = Number(grid.startRow) || 0;
@@ -88,12 +97,22 @@ export function visibleRowsFromGridResponse(
         if (rowData[index]?.values?.some((cell) => cellText(cell).trim())) hiddenRowCount++;
         continue;
       }
-      // 사진 링크는 어느 칸에 걸려 있을지 모른다(대개 차번 칸). 먼저 찾은 것을 그 행의 사진으로 본다.
-      for (const cell of rowData[index]?.values || []) {
-        const url = photoUrlFromCell(cell);
-        if (url) { photoByAbsRow.set(start + index, url); break; }
-      }
       const row = (rowData[index]?.values || []).map(cellText);
+      // 링크는 대개 차번 셀에 걸린다. 같은 행의 번호판을 키로 잡아 표가 잘려도 안 어긋나게 한다.
+      // 한 행에 링크가 여럿이면 먼저 찾은 것을 쓴다(공급사가 두 개를 거는 경우는 없었다).
+      {
+        let url = '';
+        for (const cell of rowData[index]?.values || []) {
+          const found = photoUrlFromCell(cell);
+          if (found) { url = found; break; }
+        }
+        if (url) {
+          for (const text of row) {
+            const plate = String(text || '').replace(/\s/g, '').match(PLATE_RE)?.[1];
+            if (plate) { if (!photoByPlate[plate]) photoByPlate[plate] = url; break; }
+          }
+        }
+      }
       while (row.length && !String(row[row.length - 1] || '').trim()) row.pop();
       // 빈 행도 실제 행 경계다. 특히 공급사가 현재 매물 블록 아래에 과거 이력을
       // 보관하는 시트는 빈 행을 제거하면 두 블록이 붙어 과거 매물이 되살아난다.
@@ -101,21 +120,10 @@ export function visibleRowsFromGridResponse(
       byIndex.set(start + index, row);
     }
   }
-  // 절대 행번호를 유지한 채 정렬하고, 앞뒤 빈 행을 깎은 «만큼»만 사진 인덱스를 옮긴다.
-  // 사진을 행 순서와 따로 담으면 한 칸만 밀려도 남의 차 사진이 붙는다.
-  const ordered = [...byIndex.entries()].sort(([a], [b]) => a - b);
+  const rows = [...byIndex.entries()].sort(([a], [b]) => a - b).map(([, row]) => row);
   const hasValue = (row: string[]) => row.some((cell) => String(cell || '').trim());
-  let head = 0;
-  while (head < ordered.length && !hasValue(ordered[head][1])) head++;
-  let tail = ordered.length;
-  while (tail > head && !hasValue(ordered[tail - 1][1])) tail--;
-  const kept = ordered.slice(head, tail);
-  const rows = kept.map(([, row]) => row);
+  while (rows.length && !hasValue(rows[0])) rows.shift();
+  while (rows.length && !hasValue(rows[rows.length - 1])) rows.pop();
   if (!rows.length) throw new Error(`Google Sheet 데이터 없음(${sheet.properties.title || gid})`);
-  const photoByRow: Record<number, string> = {};
-  kept.forEach(([absRow], i) => {
-    const url = photoByAbsRow.get(absRow);
-    if (url) photoByRow[i] = url;
-  });
-  return { rows, title: sheet.properties.title || gid, hiddenRowCount, photoByRow };
+  return { rows, title: sheet.properties.title || gid, hiddenRowCount, photoByPlate };
 }

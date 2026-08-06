@@ -176,6 +176,11 @@ export type SheetTableFetchOptions = {
   visibleRowsOnly?: boolean;
   /** privileged Sheets API 경로의 관리자 Firebase ID token. */
   authorization?: string;
+  /**
+   * 차량번호 → 사진 링크. 표(`string[][]`)에는 담을 수 없어 콜백으로 준다 —
+   * 공급사가 사진을 열이 아니라 차번 셀 링크로 주기 때문이다(`visible=1` 경로에서만 온다).
+   */
+  onPhotoByPlate?: (map: Record<string, string>) => void;
 };
 
 export type SheetTableFetcher = (
@@ -196,6 +201,11 @@ export async function fetchSheetTable(
   });
   const d = await r.json().catch(() => ({ ok: false, error: '응답 파싱 실패' }));
   if (!d.ok) throw new Error(d.error || `시트 로드 실패 (${r.status})`);
+  // 사진 링크는 표에 담을 수 없다(열이 아니라 셀 링크다). 호출부가 원하면 콜백으로 넘긴다 —
+  // 반환 타입을 string[][] 로 유지해 기존 호출부를 건드리지 않는다.
+  if (options.onPhotoByPlate && d.photoByPlate && typeof d.photoByPlate === 'object') {
+    options.onPhotoByPlate(d.photoByPlate as Record<string, string>);
+  }
   if (Array.isArray(d.rows)) {
     return d.rows.map((row: unknown) => Array.isArray(row) ? row.map((cell) => String(cell ?? '')) : []);
   }
@@ -547,6 +557,16 @@ export function importSheetTable(table: string[][], opts: {
   plateAllocator?: PlateAllocator;
   /** 여러 탭을 하나의 시트처럼 읽을 때 번호미정 동일스펙 순번을 공유한다. */
   pendingOccurrence?: Map<string, number>;
+  /**
+   * 차량번호 → 사진 링크(셀 하이퍼링크·스마트칩에서 뽑은 것).
+   *
+   * 공급사는 사진을 «열»로 주지 않는다. 차량번호 셀에 링크를 건다 —
+   * 아이카는 상세페이지, 오플·리더스는 드라이브 폴더다. 그래서 헤더 매핑으로는 못 잡고
+   * 그리드 메타데이터에서 따로 받아 여기로 넘긴다(`sheet-visible-grid.photoUrlFromCell`).
+   * 행 인덱스가 아니라 «차번»으로 묶는다 — 어댑터가 헤더 앞 안내행을 잘라내면 인덱스가
+   * 밀려 남의 차 사진이 붙기 때문이다.
+   */
+  photoByPlate?: Record<string, string>;
 }): ImportResult {
   if (!opts.entries?.length) throw new Error('차종마스터 필수 — importSheetTable');
   const headers = table[0] || [];
@@ -618,6 +638,12 @@ export function importSheetTable(table: string[][], opts: {
     const rec: EntityRecord = {};
     for (const [field, idx] of Object.entries(mapping)) { const v = String(cells[idx] ?? '').trim(); if (v) rec[field] = v; }
     if (rec.options) rec.options = normalizeProductOptionsText(rec.options);
+    // 셀 링크에서 온 사진 — 시트에 사진 «열»이 따로 있으면 그쪽이 우선이다(공급사가 명시한 값).
+    if (!String(rec.photo_link || '').trim() && opts.photoByPlate) {
+      const key = String(rec.car_number || '').replace(/\s/g, '').match(/\d{2,3}[가-힣]\d{4}/)?.[0];
+      const linked = key ? opts.photoByPlate[key] : '';
+      if (linked) rec.photo_link = linked;
+    }
     const mappedIndexes = new Set(Object.values(mapping));
     const hasRelevantCell = cells.some((cell, index) => {
       if (!String(cell ?? '').trim()) return false;

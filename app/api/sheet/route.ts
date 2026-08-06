@@ -39,7 +39,15 @@ export async function GET(request: Request): Promise<Response> {
     try {
       const result = await fetchVisibleGoogleSheetTable(id, gid);
       return NextResponse.json(
-        { ok: true, rows: result.rows, source: 'sheets-api-visible', title: result.title, hiddenRowCount: result.hiddenRowCount },
+        {
+          ok: true,
+          rows: result.rows,
+          source: 'sheets-api-visible',
+          title: result.title,
+          hiddenRowCount: result.hiddenRowCount,
+          // 사진은 셀 «값»이 아니라 차번 셀의 하이퍼링크·스마트칩에 있다. 차번을 키로 같이 넘긴다.
+          photoByPlate: result.photoByPlate || {},
+        },
         { headers: { 'Cache-Control': 'private, no-store', Vary: 'Authorization' } },
       );
     } catch (error) {
