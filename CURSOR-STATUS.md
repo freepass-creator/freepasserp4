@@ -79,5 +79,6 @@ _(아직 없음)_
 
 ## 현재 상태
 
-`대기중` — C-3~C-7 커밋 `9d8b964`. 열린 ⬜ 없음(C-1·C-8 🔒).
-Claude 시트/HANDOFF/VERIFICATION/도메인 WIP는 미터치. 다음 오더는 Claude가 CURSOR-TASKS에 넣을 것.
+`대기중` — C-3~C-7 커밋 `9d8b964`(+STATUS `e56bd03`). 열린 ⬜ 없음(C-1·C-8 🔒).
+Claude 시트/HANDOFF/VERIFICATION/도메인 WIP는 미터치. `UIUX_AUDIT_RESULTS.md` 기존 산출물 있음(재스캔 안 함).
+다음 오더는 Claude가 `CURSOR-TASKS.md`에 넣을 것.
