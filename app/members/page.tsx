@@ -7,7 +7,7 @@ import { seedIfEmpty } from '@/lib/seed';
 import { ENTITIES, ROLE_LABEL_RAW, ROLES, rangeErrors, type EntityRecord, type Field } from '@/lib/intake/entities';
 import { isAdminUiAllowed } from '@/lib/auth-gate';
 import { approveUser, backfillPersonalAgentChannels, adminUpdateUserIdentity } from '@/lib/firebase/auth';
-import { readAllPartnersPrivate, readAllUsersPrivate, writePartnerPrivate } from '@/lib/domain/private-fields';
+import { readAllPartnersPrivate, readAllUsersPrivate, writePartnerPrivate, writeUserPrivate } from '@/lib/domain/private-fields';
 import { migrateSensitiveToPrivate } from '@/lib/firebase/migrate-private';
 import { newId } from '@/lib/domain/ids';
 import {
@@ -221,6 +221,14 @@ export default function Members() {
         //  base/private divergence + 마이그레이션 revert를 유발. null로 명시 삭제. (resolveRates·마이그레이션 모두 private-first)
         //  ※ form 이 아니라 mainForm 을 이어받아야 한다 — form 으로 되돌리면 위에서 정규화한 사업자번호가 날아간다.
         if (moved) mainForm = { ...mainForm, fee_rate: null };
+      }
+      if (tab === 'user') {
+        // 이메일(PII)도 같은 계약이다. 이 화면은 private 을 «병합해» 폼을 채우므로 그대로 저장하면
+        // 이관해 둔 이메일이 본노드로 되돌아온다 — 회원 한 명 고칠 때마다 조용히 다시 새는 셈이다.
+        const uid = String(form.uid || form._key || '').trim();
+        const movedEmail = await writeUserPrivate(uid, { email: (mainForm as EntityRecord).email });
+        // 실패(규칙 미게시·no-db)면 본노드에 그대로 둔다 — 폴백 계약(유실 방지)이 먼저다.
+        if (movedEmail) mainForm = { ...mainForm, email: null };
       }
       await getStore().save(tab, co, [mainForm]); await getStore().update(tab, co, String(form[id]), mainForm);
       // 신원 게이트 필드(role/company_code/agent_channel_code)는 세션(initAuth)·RLS·approveUser 가 읽는 "최상위" users/{uid} 에 직접 반영.
