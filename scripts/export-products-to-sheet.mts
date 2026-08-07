@@ -59,7 +59,7 @@ async function main() {
   ]);
   const policies = policyMap(pol3, pol4);
   const partners: Record<string, Rec> = {};
-  for (const k of new Set([...Object.keys(live), ...Object.keys(over)])) partners[k] = { ...(live[k] || {}), ...(over[k] || {}) };
+  for (const k of new Set([...Object.keys(live), ...Object.keys(over)])) partners[k] = { ...(live[k] || {}), ...(over[k] || {}), _key: k };
 
   const idOf = (url: string) => (url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/) || [])[1] || '';
   for (const p of Object.values(partners)) {
@@ -67,7 +67,9 @@ async function main() {
       throw new Error(`중단 — 이 시트는 ${S(p.partner_name || p.company_name) || S(p.partner_code)} 의 운영 원본이다. 덮어쓰면 재고 정본이 사라진다.`);
     }
   }
+  // 코드가 비면 «아무 공급사나» 걸리므로 먼저 끊는다 — API 경로(app/api/inventory/sheet-export)와 같은 규칙.
   const nameOf = (code: string) => {
+    if (!code) return '';
     const hit = Object.values(partners).find((p) => S(p.partner_code) === code || S(p._key) === code);
     return S(hit?.partner_name || hit?.company_name);
   };

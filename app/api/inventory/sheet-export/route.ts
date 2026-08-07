@@ -50,7 +50,7 @@ export async function POST(request: Request) {
     const partners: Record<string, Rec> = {};
     for (const raw of [v3Partners.val() || {}, v4Partners.val() || {}] as Record<string, Rec>[]) {
       for (const [key, row] of Object.entries(raw)) {
-        if (row && typeof row === 'object') partners[key] = { ...(partners[key] || {}), ...row };
+        if (row && typeof row === 'object') partners[key] = { ...(partners[key] || {}), ...row, _key: key };
       }
     }
     // ★대상이 공급사 원본 시트면 중단한다 — 덮어쓰면 재고 정본이 사라진다.
@@ -60,7 +60,9 @@ export async function POST(request: Request) {
         return json({ error: '중단 — 내보내기 대상이 공급사 원본 시트입니다. 설정을 확인하세요.' }, 409);
       }
     }
+    // 코드가 비면 «아무 공급사나» 걸리므로 먼저 끊는다 — 빈 문자열은 _key·partner_code 어느 쪽과도 매칭시키지 않는다.
     const nameOf = (code: string) => {
+      if (!code) return '';
       const hit = Object.values(partners).find((p) => S(p.partner_code) === code || S(p._key) === code);
       return S(hit?.partner_name || hit?.company_name);
     };
