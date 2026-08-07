@@ -7,13 +7,14 @@ import { seedIfEmpty } from '@/lib/seed';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { isOfferableProduct, vehicleName } from '@/lib/domain/product';
 import { MessageCircle, Share2 } from 'lucide-react';
-import { Btn, BottomNav, Loading, CenterNote, C, ICON } from '@/components/ui';
+import { Btn, BottomNav, Loading, CenterNote, C, R, ICON } from '@/components/ui';
 import { toast } from '@/components/Toaster';
 import { ProductDetail } from '@/components/ProductDetail';
 import { SimpleInquiry } from '@/components/SimpleInquiry';
 import { ReportButton } from '@/components/ReportButton';
 import { actor, getRole, ensureRoom } from '@/lib/domain/deal';
 import { ContractPanel } from '@/components/ContractPanel';
+import { ChatThread } from '@/components/ChatThread';
 import { guestShareUrl } from '@/lib/domain/product-share';
 import { touchRecent } from '@/lib/product-interest';
 import { useAuthReady } from '@/lib/auth-context';
@@ -82,6 +83,22 @@ export default function Detail() {
 
   useEffect(() => { if (p && isOfferableProduct(p)) touchRecent(p); }, [p]);
 
+  // ★훅은 early return 위에 있어야 한다 — 아래에 두면 p 가 undefined→정의 로 바뀔 때
+  //   렌더마다 훅 개수가 달라져 「Rendered fewer hooks than expected」로 터진다.
+  const [roomId, setRoomId] = useState<string>('');
+  const role = getRole();
+  const canDeal = role === 'agent' || role === 'admin';
+  // 대화를 이 화면에서 편다 — 방은 영업자·관리자일 때만, 매물당 한 번 보장한다.
+  useEffect(() => {
+    if (!p || !isOfferableProduct(p) || !canDeal) return;
+    let alive = true;
+    void ensureRoom(p, actor(role))
+      .then((key) => { if (alive) setRoomId(key); })
+      .catch(() => { /* 방 보장 실패는 화면을 막지 않는다 — 하단 계약문의로 우회 가능 */ });
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [p?._key, canDeal, role]);
+
   if (!authReady || p === undefined) return <Loading />;
   if (!p || !isOfferableProduct(p)) {
     return (
@@ -94,8 +111,6 @@ export default function Detail() {
     );
   }
 
-  const role = getRole();
-  const canDeal = role === 'agent' || role === 'admin';
   const sendLink = () => {
     const a = actor(role);
     const url = guestShareUrl(p, a.code || a.uid);
@@ -140,8 +155,19 @@ export default function Detail() {
         <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
           {/* 「궁금한 게 있으신가요?」 — 이미 있는 문의 진입점을 그대로 쓴다. 새로 만들지 않는다. */}
           <SimpleInquiry p={p} />
+          {/*
+            대화 — 여기서 끝나야 하므로 /chat 으로 보내지 않고 이 자리에 편다.
+            파일 첨부도 ChatThread 가 이미 갖고 있어 따로 만들 게 없다.
+            방은 열릴 때 한 번만 보장한다(ensureRoom) — 상세를 열자마자 만들면
+            둘러보기만 해도 빈 방이 쌓인다.
+          */}
+          {canDeal && roomId ? (
+            <div style={{ border: `1px solid ${C.line}`, borderRadius: R, overflow: 'hidden', height: 520, display: 'flex', flexDirection: 'column' }}>
+              <ChatThread roomId={roomId} title={vehicleName(p) || String(p.car_number || '')} />
+            </div>
+          ) : null}
           {/* 계약 진행상황 — 문의하러 나가지 않고 여기서 확인하고 진행한다. */}
-          {canDeal ? <ContractPanel product={p} /> : null}
+          {canDeal ? <ContractPanel product={p} roomId={roomId || undefined} /> : null}
         </div>
       </main>
       {/* 하단독 = [이전] + 액션 — 전 화면 공통 규격. 액션 권한(canDeal)과 무관하게 항상 노출해야
