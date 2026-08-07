@@ -11,7 +11,7 @@ import { toast } from '@/components/Toaster';
 import { ChatSenderLabel } from '@/components/ChatSenderLabel';
 import { useIsMobile } from '@/lib/use-mobile';
 import { msgClock } from '@/lib/format';
-import { ChevronLeft, ChevronRight, Download, LoaderCircle, Paperclip, Send, X } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, Download, LoaderCircle, Paperclip, Send, X } from 'lucide-react';
 
 /** 📎 accept와 동일 — image/* · application/pdf */
 function isAcceptedChatFile(file: File): boolean {
@@ -45,6 +45,9 @@ export function ChatThread({
   // 첨부 뷰어 = 방 안 사진 전체를 하나의 갤러리로(통상 채팅과 동일). 인덱스로 좌우 이동.
   const [full, setFull] = useState<number | null>(null);
   const [viewSwipeX, setViewSwipeX] = useState<number | null>(null);
+  // 📎 모아보기 = 이 방에서 오간 파일만 목록으로. 계약 하나에 등록증·신분증·사업자등록증·계약서가
+  //  오가는데 대화 흐름에 흩어지면 출고 직전에 못 찾는다. 새로 저장하는 게 아니라 메시지를 걸러 보여줄 뿐.
+  const [filesOpen, setFilesOpen] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const threadRef = useRef<HTMLDivElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
@@ -81,6 +84,7 @@ export function ChatThread({
       activeRoomRef.current === roomId && roomGenerationRef.current === generation
     );
     setMsgs(undefined);
+    setFilesOpen(false); // 방을 바꾸면 접어 둔다 — 앞 방에서 펼친 상태가 따라오면 대화가 밀린다
     (async () => {
       await seedIfEmpty(co);
       if (!isCurrent()) return;
@@ -257,6 +261,10 @@ export function ChatThread({
     .map((m) => ({ url: String(m.image_url), name: String(m.file_name || '') }));
   const stepView = (d: number) => setFull((i) => (i == null || !gallery.length ? i : (i + d + gallery.length) % gallery.length));
   const openView = (url: unknown) => setFull(gallery.findIndex((g) => g.url === String(url)));
+  // 모아보기 목록 = 최신이 위. 서류를 찾을 땐 방금 받은 것부터 본다.
+  const attachments = (msgs || []).filter((m) => m.image_url || m.file_url).slice().reverse();
+  const attachPhotoN = attachments.filter((m) => m.image_url).length;
+  const attachDocN = attachments.length - attachPhotoN;
   // 같은 batch_id로 연속 도착한 사진 = 한 번에 올린 묶음 → 말풍선 하나(앨범). 낱장은 그대로 각각.
   const rows: { lead: EntityRecord; items: EntityRecord[] }[] = [];
   for (const m of msgs || []) {
@@ -282,6 +290,83 @@ export function ChatThread({
           </span>
           {onVehicle && room && <Btn title="차량 보기" variant="ghost" size="sm" onClick={() => onVehicle(String(room.product_code))}>차량</Btn>}
           {onContract && room && <Btn title="계약 진행" size="sm" onClick={() => onContract(String(room.product_code))}>계약진행</Btn>}
+        </div>
+      ) : null}
+
+      {/* 📎 파일 모아보기 — 파일이 하나도 없으면 줄 자체를 만들지 않는다(빈 줄이 대화 높이를 먹지 않게).
+          누르면 이 방 파일만 최신순 목록. 사진은 기존 갤러리 뷰어로, 문서는 바로 내려받기. */}
+      {attachments.length > 0 ? (
+        <div style={{ flex: '0 0 auto', borderBottom: `1px solid ${C.line}`, background: C.head }}>
+          <button
+            type="button"
+            className="fp-press"
+            onClick={() => setFilesOpen((v) => !v)}
+            aria-expanded={filesOpen}
+            title="이 방에서 오간 파일"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8, width: '100%', boxSizing: 'border-box',
+              minHeight: ctrlH(mobile), padding: '0 14px',
+              border: 'none', background: 'none', cursor: 'pointer', textAlign: 'left',
+            }}
+          >
+            <Paperclip size={ICON.sm} color={C.mute} aria-hidden />
+            <span style={{ fontSize: FS.sub, fontWeight: FW.label, color: C.ink, flex: '0 0 auto' }}>파일</span>
+            <span style={{ fontSize: FS.cap, color: C.mute, fontVariantNumeric: 'tabular-nums', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {[attachPhotoN ? `사진 ${attachPhotoN}` : '', attachDocN ? `문서 ${attachDocN}` : ''].filter(Boolean).join(' · ')}
+            </span>
+            <span style={{ flex: 1, minWidth: 4 }} />
+            <ChevronDown
+              size={ICON.sm}
+              color={filesOpen ? C.ink : C.faint}
+              style={{ flex: '0 0 auto', transform: filesOpen ? 'none' : 'rotate(-90deg)', transition: 'transform .15s' }}
+              aria-hidden
+            />
+          </button>
+          {filesOpen ? (
+            <div style={{ maxHeight: '30dvh', overflowY: 'auto', borderTop: `1px solid ${C.line2}`, background: C.taupeBg }}>
+              {attachments.map((m) => {
+                const isImg = !!m.image_url;
+                const url = String(m.image_url || m.file_url || '');
+                const name = String(m.file_name || (isImg ? '사진' : '파일'));
+                const meta = [String(m.sender_name || ''), msgClock(m.created_at)].filter(Boolean).join(' · ');
+                const inner = (
+                  <>
+                    {isImg ? (
+                      <img
+                        src={url}
+                        alt=""
+                        loading="lazy"
+                        decoding="async"
+                        style={{ flex: '0 0 auto', width: ICON.xl, height: ICON.xl, objectFit: 'cover', borderRadius: R, border: `1px solid ${C.line}` }}
+                      />
+                    ) : (
+                      <span style={{ flex: '0 0 auto', width: ICON.xl, height: ICON.xl, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: R, border: `1px solid ${C.line}`, color: C.mute }}>
+                        <Paperclip size={ICON.sm} aria-hidden />
+                      </span>
+                    )}
+                    <span style={{ flex: 1, minWidth: 0, fontSize: FS.sub, color: C.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
+                    <span style={{ flex: '0 0 auto', fontSize: FS.cap, color: C.faint, fontVariantNumeric: 'tabular-nums' }}>{meta}</span>
+                  </>
+                );
+                const rowStyle = {
+                  display: 'flex', alignItems: 'center', gap: 8, width: '100%', boxSizing: 'border-box' as const,
+                  minHeight: ctrlH(mobile), padding: '4px 14px',
+                  border: 'none', borderTop: `1px solid ${C.line2}`, background: 'none',
+                  cursor: 'pointer', textAlign: 'left' as const, textDecoration: 'none', color: C.ink,
+                };
+                return isImg ? (
+                  <button key={String(m._key)} type="button" className="fp-press" onClick={() => openView(url)} title={`${name} 크게보기`} style={rowStyle}>
+                    {inner}
+                  </button>
+                ) : (
+                  // 문서는 새 탭 — 같은 탭에서 열면 3열 작업화면을 통째로 벗어나 쓰던 입력까지 날아간다.
+                  <a key={String(m._key)} className="fp-press" href={url} download={name} target="_blank" rel="noreferrer" title={`${name} 열기`} style={rowStyle}>
+                    {inner}
+                  </a>
+                );
+              })}
+            </div>
+          ) : null}
         </div>
       ) : null}
 
@@ -362,7 +447,7 @@ export function ChatThread({
               style={{ maxWidth: 200, maxHeight: 220, width: 'auto', height: 'auto', aspectRatio: '10 / 11', objectFit: 'cover', borderRadius: R, cursor: 'zoom-in', display: 'block', border: `1px solid ${C.line}` }}
             />
           ) : m.file_url ? (
-            <a href={String(m.file_url)} download={String(m.file_name || 'file')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, maxWidth: 220, padding: '8px 11px', borderRadius: R, fontSize: FS.sub, background: mine ? C.brand : C.taupeBg, color: mine ? C.taupeBg : C.ink, border: mine ? 'none' : `1px solid ${C.line}`, textDecoration: 'none' }}><Paperclip size={ICON.sm} aria-hidden /><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{String(m.file_name || '파일')}</span></a>
+            <a href={String(m.file_url)} download={String(m.file_name || 'file')} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, maxWidth: 220, padding: '8px 11px', borderRadius: R, fontSize: FS.sub, background: mine ? C.brand : C.taupeBg, color: mine ? C.taupeBg : C.ink, border: mine ? 'none' : `1px solid ${C.line}`, textDecoration: 'none' }}><Paperclip size={ICON.sm} aria-hidden /><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{String(m.file_name || '파일')}</span></a>
           ) : (
             <div style={{ padding: '8px 11px', borderRadius: R, fontSize: FS.body, lineHeight: 1.45, background: mine ? C.brand : isAdmin ? C.warnBg : C.taupeBg, color: mine ? C.taupeBg : C.ink, border: mine ? 'none' : `1px solid ${C.line}`, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{String(m.text)}</div>
           );
