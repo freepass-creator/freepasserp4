@@ -39,7 +39,16 @@ function KvRow({ label, children, first }: { label: string; children: ReactNode;
   );
 }
 
-export function ProductDetail({ p, audience }: { p: EntityRecord; audience?: Audience }) {
+/**
+ * `brochure` = 손님에게 보여주는 순서(사진 먼저). `/q`·공급사·손님 화면의 문법.
+ * `work` = 영업자가 일하는 순서 — **가격 → 조건 칩 → 스펙 → 사진(썸네일)**.
+ *   영업자는 사진을 보러 오지 않는다. 손님이 묻는 순서가 가격이고, 사진은 «있으면 보낸다»다.
+ *   사진 없는 매물이 절반 가까워 고정 16:10 히어로를 두면 그 자리가 통째로 죽는다.
+ *   원자·타이포는 동일하다 — 바뀌는 것은 **순서와 사진 크기**뿐.
+ */
+export type DetailLayout = 'brochure' | 'work';
+
+export function ProductDetail({ p, audience, layout = 'brochure' }: { p: EntityRecord; audience?: Audience; layout?: DetailLayout }) {
   const [lb, setLb] = useState<number | null>(null);
   const [main, setMain] = useState(0);
   const photos = useProductPhotos(p);
@@ -47,6 +56,7 @@ export function ProductDetail({ p, audience }: { p: EntityRecord; audience?: Aud
   useEffect(() => { setMain(0); }, [p.product_code]);
   const mainIdx = Math.min(main, Math.max(0, photos.length - 1));
   const aud: Audience = audience || (getRole() === 'admin' ? 'admin' : 'agent');
+  const work = layout === 'work';
   const [swipeX, setSwipeX] = useState<number | null>(null); // 메인 사진 좌우 스와이프
   const stepPhoto = (dir: number) => { if (photos.length > 1) setMain((m) => (m + dir + photos.length) % photos.length); };
   const secs = detailSections(p, aud);
@@ -58,25 +68,30 @@ export function ProductDetail({ p, audience }: { p: EntityRecord; audience?: Aud
 
   return (
     <div>
-      {/* 1 헤더 — 차명 → 차번·상태·상품·심사 → 우대·이벤트 (원자 공용) */}
+      {/* 1 헤더 — 차명 → 차번·상태·상품·심사 → 우대·이벤트 (원자 공용).
+          work 에서는 차명·차번을 상단 요약바(ProductWorkBar)가 이미 고정으로 들고 있어 제목 줄을 뺀다.
+          대신 사진 위에 얹혀 있던 관심(하트)이 사라지지 않게 칩 줄로 내려 붙인다. */}
       <div style={{ marginBottom: 11 }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
-          <h1 style={{ fontSize: FS.page, fontWeight: FW.title, letterSpacing: '-0.02em', margin: 0, lineHeight: 1.25 }}>{idMain}</h1>
-          {idExt && <span style={{ fontSize: FS.title, fontWeight: FW.meta, color: C.mute }}>{idExt}</span>}
-        </div>
+        {!work && (
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+            <h1 style={{ fontSize: FS.page, fontWeight: FW.title, letterSpacing: '-0.02em', margin: 0, lineHeight: 1.25 }}>{idMain}</h1>
+            {idExt && <span style={{ fontSize: FS.title, fontWeight: FW.meta, color: C.mute }}>{idExt}</span>}
+          </div>
+        )}
         <div style={{
           display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap',
-          marginTop: 8, rowGap: 6,
+          marginTop: work ? 0 : 8, rowGap: 6,
         }}>
-          {aud !== 'customer' && <Plate p={p} />}
+          {aud !== 'customer' && !work && <Plate p={p} />}
           {badges(p, false, false, false, aud)}
           <CardBenefits p={p} inline />
           <CardEvents p={p} inline />
+          {work && aud !== 'customer' && <FavHeart p={p} compact />}
         </div>
       </div>
 
-      {/* 2 사진 */}
-      {photos.length ? (
+      {/* 2 사진 — brochure 만. work 는 섹션 뒤 썸네일 줄로 내린다. */}
+      {work ? null : photos.length ? (
         <div>
           <div
             onPointerDown={(e) => {
@@ -230,6 +245,44 @@ export function ProductDetail({ p, audience }: { p: EntityRecord; audience?: Aud
           )}
         </div>
       ))}
+
+      {/* work 사진 = 맨 아래 썸네일 한 줄. 누르면 기존 라이트박스로 전부 크게 본다.
+          사진이 없으면 아무것도 그리지 않는다 — 빈 회색 박스가 칸을 잡아먹지 않게. */}
+      {work && photos.length > 0 && (
+        <div style={{ marginTop: 11 }}>
+          <div style={{ fontSize: FS.title, fontWeight: FW.title, color: C.ink, marginBottom: 4 }}>
+            사진 <span style={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{photos.length}</span>장
+          </div>
+          <div
+            ref={thumbs.ref}
+            onPointerDown={thumbs.onPointerDown}
+            onPointerMove={thumbs.onPointerMove}
+            onPointerUp={thumbs.onPointerUp}
+            onPointerCancel={thumbs.onPointerUp}
+            style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 2, cursor: 'grab', touchAction: 'pan-y', userSelect: 'none', WebkitOverflowScrolling: 'touch' }}
+          >
+            {photos.map((ph, i) => (
+              <IconBtn
+                key={i}
+                title={`사진 ${i + 1} 크게보기`}
+                onClick={() => { if (thumbs.consumeClick()) return; setLb(i); }}
+                style={{
+                  flex: '0 0 auto', width: 74, height: 48, borderRadius: R, overflow: 'hidden',
+                  border: `1px solid ${C.line}`, padding: 0, background: C.placeholder, cursor: 'inherit',
+                }}
+              >
+                <ProductPhotoImage
+                  src={ph}
+                  alt=""
+                  draggable={false}
+                  compactPlaceholder
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none' }}
+                />
+              </IconBtn>
+            ))}
+          </div>
+        </div>
+      )}
 
       {lb !== null && photos.length > 0 && (
         <div onClick={() => setLb(null)} style={{ position: 'fixed', inset: 0, zIndex: 80, background: SCRIM.black, overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: '48px 12px' }}>

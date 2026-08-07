@@ -12,7 +12,7 @@ import { ContractMemos } from '@/components/ContractMemos';
 import { ChakhandealEsignButton } from '@/components/ChakhandealEsignButton';
 import { confirmDialog, toast } from '@/components/Toaster';
 import { useIsMobile } from '@/lib/use-mobile';
-import { Ban, Check, CheckCircle2, FileSignature, RefreshCw, RotateCcw, Send } from 'lucide-react';
+import { Ban, Check, CheckCircle2, ChevronLeft, ChevronRight, FileSignature, RefreshCw, RotateCcw, Send } from 'lucide-react';
 import { runContractMutation } from '@/features/contract/contract-mutation';
 
 // 계약 패널 = 5단계 핸드셰이크 진행. 계약 없으면 계약문의로 시작 → 서류·입금·약정·출고.
@@ -36,7 +36,16 @@ function infoLabel(text: string): ReactNode {
   );
 }
 
-export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange }: { product: EntityRecord | null; roomId?: string; linkedCode?: string; agentCode?: string; onChange?: (contractCode?: string) => void }) {
+/**
+ * 단계 표시 방식.
+ * - `all`   = 5단계 전부 펼침. 관리자·공급사의 문법(전체를 감독·확인한다).
+ * - `focus` = **지금 단계 하나만** + ‹이전/다음› + 3/5. 영업자 전용.
+ *   영업자에게 5단계 나열은 «내가 지금 뭘 해야 하나»를 가리는 소음이다.
+ *   영업자에게만 접히므로 관리자가 같은 화면을 봐도 감독 시야는 그대로다.
+ */
+export type ContractStepView = 'all' | 'focus';
+
+export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange, stepView = 'all' }: { product: EntityRecord | null; roomId?: string; linkedCode?: string; agentCode?: string; onChange?: (contractCode?: string) => void; stepView?: ContractStepView }) {
   const co = getCompanyId();
   const mobile = useIsMobile();
   const [contract, setContract] = useState<EntityRecord | null | undefined>(undefined);
@@ -46,6 +55,8 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
   const selectionEpoch = useRef(0);
   /** 계약 생성 시 동결할 대여기간. 미선택이면 최저가 기간을 쓴다(기존 동작). */
   const [period, setPeriod] = useState<number>(0);
+  /** focus 모드에서 «앞뒤로 넘겨 본» 단계. null = 지금 단계를 따라간다. */
+  const [stepIdx, setStepIdx] = useState<number | null>(null);
 
   /** 상세·목록과 전역 메뉴 숫자를 같은 프레임에 갱신한다. */
   const notifyChange = () => {
@@ -145,15 +156,25 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
     }
   };
 
-  if (contract === undefined) return <div style={{ padding: 20, color: C.faint, fontSize: FS.sub }}>불러오는 중…</div>;
-
-  const c = contract; // null = 아직 계약 전(출고문의로 시작)
-  const cancelled = isContractCancelled(c);
-  const stage = contractStage(c);
+  // ★단계 파생값은 early return 위에서 만든다 — 아래 focus 리셋 이펙트가 activeIdx 를 본다.
+  //   훅이 조건부 아래로 내려가면 렌더마다 훅 개수가 달라져 터진다.
+  const c = contract || null; // null = 아직 계약 전(출고문의로 시작)
   const cval = (k: string) => (c ? c[k] : undefined);
   const stepDoneArr = STEPS.map((s) => s.checks.every((ch) => isDone(cval(ch.key))));
   const activeIdx = stepDoneArr.findIndex((d) => !d);
+  // 단계가 넘어가면 «지금 단계»로 되돌아온다 — 앞뒤로 넘겨 본 자리에 갇히지 않게.
+  useEffect(() => { setStepIdx(null); }, [activeIdx]);
+
+  if (contract === undefined) return <div style={{ padding: 20, color: C.faint, fontSize: FS.sub }}>불러오는 중…</div>;
+
+  const cancelled = isContractCancelled(c);
+  const stage = contractStage(c);
   const doneCount = stepDoneArr.filter(Boolean).length;
+  // 영업자만 접는다. 취소된 계약은 «지금 단계»가 없으니 전부 펼쳐 이력으로 읽게 둔다.
+  const focus = stepView === 'focus' && role === 'agent' && !cancelled;
+  // 다 끝났으면 마지막 단계를 보여 준다(활성 단계 없음 = activeIdx -1).
+  const focusIdx = Math.min(STEPS.length - 1, Math.max(0, stepIdx ?? (activeIdx < 0 ? STEPS.length - 1 : activeIdx)));
+  const nowIdx = activeIdx < 0 ? STEPS.length - 1 : activeIdx;
   const needsFinalize = needsContractFinalization(c);
   const agreementDone = isDone(cval('provider_agreement_done'));
 
@@ -194,7 +215,27 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
         </div>
       )}
 
-      {STEPS.map((s, i) => {
+      {/* focus = 지금 단계 하나만. 앞뒤는 넘겨서 본다 — 5개를 늘어놓으면 «내 차례»가 묻힌다. */}
+      {focus && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '2px 0 6px' }}>
+          <Btn title="이전 단계" size="sm" variant="ghost" disabled={focusIdx === 0} onClick={() => setStepIdx(focusIdx - 1)}>
+            <ButtonLabel icon={<ChevronLeft size={ICON.md} aria-hidden />}>이전</ButtonLabel>
+          </Btn>
+          <span style={{ flex: 1, minWidth: 0, textAlign: 'center', fontSize: FS.cap, color: C.faint }}>
+            <span style={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums', color: C.ink, fontWeight: FW.head }}>{focusIdx + 1}</span>
+            {' / '}{STEPS.length}
+          </span>
+          {focusIdx === nowIdx ? null : (
+            <Btn title="지금 단계로" size="sm" variant="ghost" onClick={() => setStepIdx(null)}>지금 단계</Btn>
+          )}
+          <Btn title="다음 단계" size="sm" variant="ghost" disabled={focusIdx === STEPS.length - 1} onClick={() => setStepIdx(focusIdx + 1)}>
+            <ButtonLabel icon={<ChevronRight size={ICON.md} aria-hidden />}>다음</ButtonLabel>
+          </Btn>
+        </div>
+      )}
+
+      {(focus ? [focusIdx] : STEPS.map((_, i) => i)).map((i) => {
+        const s = STEPS[i];
         const stepDone = stepDoneArr[i];
         const active = i === activeIdx;
         const locked = !stepDone && !active;

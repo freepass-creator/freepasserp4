@@ -10,6 +10,7 @@ import { MessageCircle, Share2 } from 'lucide-react';
 import { Btn, BottomNav, Loading, CenterNote, C, R, ICON } from '@/components/ui';
 import { toast } from '@/components/Toaster';
 import { ProductDetail } from '@/components/ProductDetail';
+import { ProductWorkBar } from '@/components/ProductWorkBar';
 import { SimpleInquiry } from '@/components/SimpleInquiry';
 import { ReportButton } from '@/components/ReportButton';
 import { actor, getRole, ensureRoom } from '@/lib/domain/deal';
@@ -90,6 +91,8 @@ export default function Detail() {
   const [roomId, setRoomId] = useState<string>('');
   const role = getRole();
   const canDeal = role === 'agent' || role === 'admin';
+  /** 영업자·관리자의 «일하는 화면» 3열 배열. 모바일은 세로로 쌓으므로 여기 해당 없음. */
+  const workWeb = canDeal && !mobile;
   // 대화를 이 화면에서 편다 — 방은 영업자·관리자일 때만, 매물당 한 번 보장한다.
   useEffect(() => {
     if (!p || !isOfferableProduct(p) || !canDeal) return;
@@ -132,31 +135,12 @@ export default function Detail() {
     <>
       {/*
         ────────────────────────────────────────────────────────────────
-        TODO (2026-08-07 사장님과 합의 · 다음 작업) — 영업자 웹 화면 UI/UX
+        영업자 작업화면(2026-08-07 사장님과 합의) — 넷만 본다: ①상품확인 ②문의대화 ③파일첨부 ④계약진행상황.
+        1·2·3·5 반영 완료 = 상단 요약바 고정 · 좌측을 가격→칩→스펙→사진(썸네일) 순으로 · 계약은 지금 단계만 · 3열 1:1.4:0.9.
 
-        영업자가 보고 싶은 것은 넷뿐이다: ①상품확인 ②문의대화 ③파일첨부 ④계약진행상황.
-        화면도 그 네 덩어리로 간다.
-
-        1. 상단 요약바(고정)  — 차명·차번·상태·최저가 한 줄.
-           지금은 매물 칸을 스크롤하면 차명도 가격도 사라진다. 손님과 통화 중엔 치명적이다.
-           효과가 가장 크고 위험이 작다 → 먼저 한다.
-
-        2. 좌측 칸 순서를 뒤집는다 — 지금은 브로슈어 순서(사진 먼저)라 거꾸로다.
-           영업자가 보는 순서: 가격 → 조건 칩 → 스펙 → 사진.
-           사진은 큰 박스 대신 **썸네일 줄 + 누르면 확대**. 사진 없는 차가 절반 가까이라
-           고정 400px 를 주면 그 공간이 통째로 죽는다.
-
-        3. 계약은 «지금 단계» 하나만 + ‹이전 / 다음› + 3/5 표기.
-           ContractPanel 에 표시 모드를 받아 영업자만 접고, 관리자·공급사는 지금처럼 펼친다.
-           영업자에게 5단계 나열은 «내가 지금 뭘 해야 하나»를 가리는 소음이다.
-
-        4. 첨부는 자리가 둘이다 — «보내기»(입력창 옆, 이미 있음)와 «모아보기»(미구현).
-           계약 하나에 등록증·신분증·사업자등록증·계약서가 오간다. 대화 흐름에 흩어지면
-           나중에 못 찾는다. 이 방에서 오간 파일만 목록으로 접이식 제공.
-           ※ 사장님 확인 필요 — «첨부가 되기만 하면 된다»면 4번은 안 해도 된다.
-
-        5. 3열 비율을 1.1 : 1 : 1 → **1 : 1.4 : 0.9** 로. 대화가 가장 오래 머무는 칸이고,
-           계약은 한 단계만 보이므로 좁아도 된다.
+        남은 것 4. 첨부 «모아보기» — 보내기(입력창 옆)는 이미 있다. 계약 하나에 등록증·신분증·
+        사업자등록증·계약서가 오가는데 대화 흐름에 흩어지면 나중에 못 찾는다. 이 방 파일만
+        접이식 목록으로.  ※ 사장님 확인 대기 — «첨부가 되기만 하면 된다»면 안 해도 된다.
 
         상세 배경은 docs/ROLE_NAVIGATION.md.
         ────────────────────────────────────────────────────────────────
@@ -169,39 +153,53 @@ export default function Detail() {
         공급사·손님은 지금 그대로 한 칸 브로슈어다 — 그들에겐 그게 맞는 문법이다.
       */}
       <main style={{
-        flex: 1, width: '100%', maxWidth: canDeal && !mobile ? 'none' : 920, margin: '0 auto',
+        flex: 1, width: '100%', maxWidth: workWeb ? 'none' : 920, margin: '0 auto',
         padding: '14px 16px calc(76px + env(safe-area-inset-bottom))', boxSizing: 'border-box',
-        ...(canDeal && !mobile ? {
-          display: 'grid',
-          gridTemplateColumns: 'minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1fr)',
+        ...(workWeb ? {
+          display: 'flex',
+          flexDirection: 'column',
           height: 'calc(100dvh - var(--topbar-h) - var(--fp-bar-h))',
           overflow: 'hidden',
-          gap: 20,
-          alignItems: 'start',
         } : null),
       }}>
-        {/* 상품상세는 길다 — 페이지를 통째로 굴리지 않고 이 칸만 상하로 스크롤한다. */}
-        <div style={{ minWidth: 0, ...(canDeal && !mobile ? { overflowY: 'auto', height: '100%', paddingRight: 6 } : null) }}>
-          <ProductDetail p={p} />
-          {/* 검수요청 = 매물 정보 쪽 맨 아래. 정보에 대한 이의제기라 정보 칸에 붙는다. */}
-          <div style={{ marginTop: 20, paddingTop: 14, borderTop: `1px solid ${C.line}`, width: '100%' }}>
-            <ReportButton p={p} />
-          </div>
-        </div>
-        {/* 가운데 = 대화. 첨부도 여기 있다. 방이 없으면 문의 입구를 대신 보여준다. */}
-        <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16, ...(canDeal && !mobile ? { height: '100%', overflow: 'hidden' } : null) }}>
-          {canDeal && roomId ? (
-            <div style={{ border: `1px solid ${C.line}`, borderRadius: R, overflow: 'hidden', ...(mobile ? { height: '55dvh' } : { flex: 1, minHeight: 0 }), display: 'flex', flexDirection: 'column' }}>
-              <ChatThread roomId={roomId} title={vehicleName(p) || String(p.car_number || '')} />
+        {/* 요약바 = 스크롤해도 «어느 차인가»가 남는 유일한 줄. 3열 전체 위에 걸친다. */}
+        {canDeal ? <ProductWorkBar p={p} /> : null}
+        <div style={{
+          minWidth: 0,
+          ...(workWeb ? {
+            display: 'grid',
+            // 대화가 가장 오래 머무는 칸이라 제일 넓다. 계약은 «지금 단계» 하나만 보여 좁아도 산다.
+            gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 0.9fr)',
+            gridTemplateRows: '1fr', // 행이 내용 높이로 줄면 칸별 스크롤(height:100%)이 무너진다
+            gap: 20,
+            flex: 1,
+            minHeight: 0,
+          } : null),
+        }}>
+          {/* 상품상세는 길다 — 페이지를 통째로 굴리지 않고 이 칸만 상하로 스크롤한다. */}
+          <div style={{ minWidth: 0, ...(workWeb ? { overflowY: 'auto', height: '100%', paddingRight: 6 } : null) }}>
+            <ProductDetail p={p} layout={canDeal ? 'work' : 'brochure'} />
+            {/* 검수요청 = 매물 정보 쪽 맨 아래. 정보에 대한 이의제기라 정보 칸에 붙는다. */}
+            <div style={{ marginTop: 20, paddingTop: 14, borderTop: `1px solid ${C.line}`, width: '100%' }}>
+              <ReportButton p={p} />
             </div>
-          ) : <SimpleInquiry p={p} />}
-        </div>
-        {/* 오른쪽 = 계약 진행상황. 문의하러 나가지 않고 여기서 확인하고 진행한다. */}
-        {canDeal ? (
-          <div style={{ minWidth: 0, ...(mobile ? null : { height: '100%', overflowY: 'auto', paddingRight: 6 }) }}>
-            <ContractPanel product={p} roomId={roomId || undefined} />
           </div>
-        ) : null}
+          {/* 가운데 = 대화. 첨부도 여기 있다. 방이 없으면 문의 입구를 대신 보여준다. */}
+          <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16, ...(workWeb ? { height: '100%', overflow: 'hidden' } : null) }}>
+            {canDeal && roomId ? (
+              <div style={{ border: `1px solid ${C.line}`, borderRadius: R, overflow: 'hidden', ...(mobile ? { height: '55dvh' } : { flex: 1, minHeight: 0 }), display: 'flex', flexDirection: 'column' }}>
+                <ChatThread roomId={roomId} title={vehicleName(p) || String(p.car_number || '')} />
+              </div>
+            ) : <SimpleInquiry p={p} />}
+          </div>
+          {/* 오른쪽 = 계약 진행상황. 문의하러 나가지 않고 여기서 확인하고 진행한다.
+              영업자는 «지금 단계»만(focus) — 관리자는 5단계 그대로 본다(감독 시야). */}
+          {canDeal ? (
+            <div style={{ minWidth: 0, ...(mobile ? null : { height: '100%', overflowY: 'auto', paddingRight: 6 }) }}>
+              <ContractPanel product={p} roomId={roomId || undefined} stepView="focus" />
+            </div>
+          ) : null}
+        </div>
       </main>
       {/* 하단독 = [이전] + 액션 — 전 화면 공통 규격. 액션 권한(canDeal)과 무관하게 항상 노출해야
           공급사도 이전 수단이 있다(예전엔 canDeal일 때만 렌더돼 공급사는 하단바 자체가 없었음).
