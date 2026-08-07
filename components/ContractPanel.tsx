@@ -182,8 +182,29 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
   const agreementDone = isDone(cval('provider_agreement_done'));
 
   return (
-    <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-      {/* 히어로 — 코드·상태·진행률 */}
+    <div style={{ padding: focus ? '8px 10px' : '12px 14px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+      {/* focus(상세 옆 보조패널) 머리 = 한 줄. 큰 숫자 히어로는 여기서 과하다 —
+          좁은 칸에서 「무슨 계약·어디까지」만 알면 되고, 할 일은 아래 단계 카드가 말한다. */}
+      {focus ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+          {c ? (
+            <>
+              <span style={{ fontSize: FS.sub, fontWeight: FW.strong, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', color: C.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>{String(c.contract_code)}</span>
+              <Badge tone={stage.tone}>{stage.label}</Badge>
+            </>
+          ) : (
+            <span style={{ fontSize: FS.sub, color: C.mute, whiteSpace: 'nowrap' }}>새 계약 — 출고문의로 시작</span>
+          )}
+          <span style={{ flex: 1, minWidth: 4 }} />
+          <span style={{ fontSize: FS.cap, color: C.faint, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+            <span style={{ color: C.ink, fontWeight: FW.strong, fontFamily: NUM }}>{doneCount}</span>/{STEPS.length}
+          </span>
+          {c && !cancelled && (role === 'admin' || (role === 'agent' && !isContractCompleted(c))) && (
+            <IconBtn title="계약 취소" onClick={doCancel} disabled={busy}><Ban size={ICON.md} aria-hidden /></IconBtn>
+          )}
+        </div>
+      ) : (
+      /* 히어로 — 코드·상태·진행률 */
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingBottom: 4 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           {c ? (
@@ -206,6 +227,7 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
           <span style={{ fontSize: FS.cap, color: C.faint }}>/ {STEPS.length} 단계 완료</span>
         </div>
       </div>
+      )}
 
       {needsFinalize && (
         <div style={{ border: `1px solid ${C.warn}`, borderRadius: R, padding: '9px 10px', background: C.warnBg, display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>

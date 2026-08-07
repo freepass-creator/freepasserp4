@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { getStore, peekCached } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
@@ -7,7 +7,7 @@ import { seedIfEmpty } from '@/lib/seed';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { isOfferableProduct, vehicleName } from '@/lib/domain/product';
 import { MessageCircle, Share2 } from 'lucide-react';
-import { Btn, BottomNav, Loading, CenterNote, C, R, ICON } from '@/components/ui';
+import { Btn, BottomNav, Loading, CenterNote, C, R, ICON, FS, FW } from '@/components/ui';
 import { toast } from '@/components/Toaster';
 import { ProductDetail } from '@/components/ProductDetail';
 import { ProductWorkBar } from '@/components/ProductWorkBar';
@@ -25,6 +25,40 @@ import { PageStatus } from '@/components/PageStatus';
 import { NAV_ICON } from '@/lib/tabbar';
 import { copyText } from '@/lib/clipboard';
 import { useIsMobile } from '@/lib/use-mobile';
+
+/**
+ * 작업화면 최대 폭 — 화면을 끝까지 다 쓰면 세 칸이 다 «주인공»이 되어 어디를 봐야 할지 흩어진다.
+ * 주인공은 상품상세다(2026-08-07 사장님 지시).
+ */
+const WORK_MAX_W = 1440;
+/** 보조패널 폭 — **고정**. 화면이 넓어지면 상세만 넓어진다. 도구는 커질 이유가 없다. */
+const SIDE_W = 380;
+
+/**
+ * 상세 옆에 «붙어 있는» 도구 카드.
+ * 제목 줄 + 테두리로 묶어야 한 화면 안의 독립 패널이 아니라 상세에 딸린 보조수단으로 읽힌다.
+ */
+function SidePanel({ title, children, workWeb, grow, maxHeightPct }: {
+  title: string; children: ReactNode; workWeb: boolean; grow?: boolean; maxHeightPct?: number;
+}) {
+  return (
+    <section style={{
+      border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg, overflow: 'hidden',
+      display: 'flex', flexDirection: 'column', minHeight: 0,
+      ...(workWeb
+        ? (grow ? { flex: 1 } : { flex: '0 0 auto', maxHeight: `${maxHeightPct ?? 50}%` })
+        // 모바일은 세로로 쌓는다 — 대화만 화면 절반을 잡고 계약은 내용만큼.
+        : (grow ? { height: '55dvh' } : null)),
+    }}>
+      <div style={{
+        flex: '0 0 auto', padding: '5px 10px', borderBottom: `1px solid ${C.line2}`, background: C.head,
+        fontSize: FS.cap, fontWeight: FW.label, color: C.mute,
+      }}>{title}</div>
+      {/* 대화는 스스로 스크롤한다(입력창 고정) — 여기서 또 굴리면 스크롤이 둘이 된다. */}
+      <div style={{ flex: 1, minHeight: 0, overflowY: grow ? 'hidden' : 'auto' }}>{children}</div>
+    </section>
+  );
+}
 
 // 매물 상세(전체화면) = ProductDetail 원자 + 하단 액션바(이전·소통·손님공유·계약).
 export default function Detail() {
@@ -132,6 +166,17 @@ export default function Detail() {
       toast(e instanceof Error ? e.message : '계약문의 실패', 'error');
     }
   };
+  const contractPane = canDeal ? (
+    <SidePanel title="계약 진행" workWeb={workWeb} maxHeightPct={46}>
+      <ContractPanel product={p} roomId={roomId || undefined} stepView="focus" />
+    </SidePanel>
+  ) : null;
+  const chatPane = canDeal && roomId ? (
+    <SidePanel title="대화" workWeb={workWeb} grow>
+      <ChatThread roomId={roomId} title={vehicleName(p) || String(p.car_number || '')} />
+    </SidePanel>
+  ) : <SimpleInquiry p={p} />;
+
   return (
     <>
       {/*
@@ -153,7 +198,7 @@ export default function Detail() {
         공급사·손님은 지금 그대로 한 칸 브로슈어다 — 그들에겐 그게 맞는 문법이다.
       */}
       <main style={{
-        flex: 1, width: '100%', maxWidth: workWeb ? 'none' : 920, margin: '0 auto',
+        flex: 1, width: '100%', maxWidth: workWeb ? WORK_MAX_W : 920, margin: '0 auto',
         padding: '14px 16px calc(76px + env(safe-area-inset-bottom))', boxSizing: 'border-box',
         ...(workWeb ? {
           display: 'flex',
@@ -162,16 +207,17 @@ export default function Detail() {
           overflow: 'hidden',
         } : null),
       }}>
-        {/* 요약바 = 스크롤해도 «어느 차인가»가 남는 유일한 줄. 3열 전체 위에 걸친다. */}
+        {/* 요약바 = 스크롤해도 «어느 차인가»가 남는 유일한 줄. 상세와 보조패널 위에 걸친다. */}
         {canDeal ? <ProductWorkBar p={p} /> : null}
         <div style={{
           minWidth: 0,
           ...(workWeb ? {
             display: 'grid',
-            // 대화가 가장 오래 머무는 칸이라 제일 넓다. 계약은 «지금 단계» 하나만 보여 좁아도 산다.
-            gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 0.9fr)',
+            // 주인공은 상품상세다. 대화·계약은 폭이 고정된 «옆에 붙은 도구»다 —
+            //  화면이 넓어지면 상세만 넓어지고 보조패널은 그대로 있는다(3등분하면 셋 다 주인공처럼 보인다).
+            gridTemplateColumns: `minmax(0, 1fr) ${SIDE_W}px`,
             gridTemplateRows: '1fr', // 행이 내용 높이로 줄면 칸별 스크롤(height:100%)이 무너진다
-            gap: 20,
+            gap: 16,
             flex: 1,
             minHeight: 0,
           } : null),
@@ -184,21 +230,11 @@ export default function Detail() {
               <ReportButton p={p} />
             </div>
           </div>
-          {/* 가운데 = 대화. 첨부도 여기 있다. 방이 없으면 문의 입구를 대신 보여준다. */}
-          <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16, ...(workWeb ? { height: '100%', overflow: 'hidden' } : null) }}>
-            {canDeal && roomId ? (
-              <div style={{ border: `1px solid ${C.line}`, borderRadius: R, overflow: 'hidden', ...(mobile ? { height: '55dvh' } : { flex: 1, minHeight: 0 }), display: 'flex', flexDirection: 'column' }}>
-                <ChatThread roomId={roomId} title={vehicleName(p) || String(p.car_number || '')} />
-              </div>
-            ) : <SimpleInquiry p={p} />}
+          {/* 보조패널 = 계약 + 대화. 카드로 묶어 «상세 옆에 붙은 도구»로 보이게 한다.
+              웹: 계약(위·짧다) → 대화(남는 높이 전부).  모바일: 상세 끝나는 자리에 대화 → 계약(기존 순서 유지). */}
+          <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: workWeb ? 10 : 16, ...(workWeb ? { height: '100%', overflow: 'hidden' } : null) }}>
+            {workWeb ? <>{contractPane}{chatPane}</> : <>{chatPane}{contractPane}</>}
           </div>
-          {/* 오른쪽 = 계약 진행상황. 문의하러 나가지 않고 여기서 확인하고 진행한다.
-              영업자는 «지금 단계»만(focus) — 관리자는 5단계 그대로 본다(감독 시야). */}
-          {canDeal ? (
-            <div style={{ minWidth: 0, ...(mobile ? null : { height: '100%', overflowY: 'auto', paddingRight: 6 }) }}>
-              <ContractPanel product={p} roomId={roomId || undefined} stepView="focus" />
-            </div>
-          ) : null}
         </div>
       </main>
       {/* 하단독 = [이전] + 액션 — 전 화면 공통 규격. 액션 권한(canDeal)과 무관하게 항상 노출해야
