@@ -5,8 +5,8 @@ import { getCompanyId } from '@/lib/tenant';
 import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
 import { type EntityRecord } from '@/lib/intake/entities';
-import { activeCount, EMPTY_VEHICLE_FILTER, type VehicleFilter } from '@/lib/domain/product-filters';
-import { isOfferableProduct } from '@/lib/domain/product';
+import { activeCount, EMPTY_VEHICLE_FILTER, normalizeVehicleFilter, type VehicleFilter } from '@/lib/domain/product-filters';
+import { isListableProduct } from '@/lib/domain/product';
 import { InterestPanel, useInterestLists, useInterestTab, useInterestTabGuard } from '@/components/InterestRail';
 import { clearRecent, clearFavs } from '@/lib/product-interest';
 import {
@@ -121,7 +121,7 @@ export default function Finder() {
     const dynNext: Record<string, Set<string>> = {};
     for (const [k, set] of Object.entries(b.dyn)) dynNext[k] = new Set(set);
     setDyn(dynNext);
-    setVehicle({ ...EMPTY_VEHICLE_FILTER, ...b.vehicle });
+    setVehicle(normalizeVehicleFilter(b.vehicle));
     setModels(new Set(b.models));
     setSort(b.sort);
     setInterestFlt(new Set(b.interest));
@@ -189,14 +189,14 @@ export default function Finder() {
     if (rows === null) return [];
     return storedInterestRecent.filter((snapshot) => {
       const live = interestProductIndex.get(snapshot.code);
-      return !live || isOfferableProduct(live);
+      return !live || isListableProduct(live);
     });
   }, [rows, storedInterestRecent, interestProductIndex]);
   const interestFavs = useMemo(() => {
     if (rows === null) return [];
     return storedInterestFavs.filter((snapshot) => {
       const live = interestProductIndex.get(snapshot.code);
-      return !live || isOfferableProduct(live);
+      return !live || isListableProduct(live);
     });
   }, [rows, storedInterestFavs, interestProductIndex]);
   useInterestTabGuard(interestTab, setInterestTab, interestRecent.length, interestFavs.length, !mobile);
@@ -229,7 +229,7 @@ export default function Finder() {
       const dynNext: Record<string, Set<string>> = {};
       for (const [k, arr] of Object.entries(saved.dyn || {})) dynNext[k] = setFromArr(arr);
       setDyn(dynNext);
-      setVehicle({ ...EMPTY_VEHICLE_FILTER, ...(saved.vehicle || {}) });
+      setVehicle(normalizeVehicleFilter(saved.vehicle));
       setModels(setFromArr(saved.models));
       setSort(saved.sort || '');
     }

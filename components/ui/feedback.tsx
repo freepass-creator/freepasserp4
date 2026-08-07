@@ -112,7 +112,7 @@ export function Skeleton({
   );
 }
 
-/** FeedListRow 3줄 골격 — title18 / badges20 / sub15. */
+/** FeedListRow 2줄 골격 — title18 / sub20 · 상태칩 ctrlH. */
 export function FeedRowSkeleton({ count = 6 }: { count?: number }) {
   return (
     <div role="status" aria-label="목록 불러오는 중" style={{ width: '100%' }}>
@@ -129,11 +129,10 @@ export function FeedRowSkeleton({ count = 6 }: { count?: number }) {
             boxSizing: 'border-box',
           }}
         >
-          <Skeleton width={28} height={28} radius={R} style={{ flex: '0 0 28px' }} />
+          <Skeleton width={32} height={32} radius={R} style={{ flex: '0 0 32px' }} />
           <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
             <Skeleton width="72%" height={18} />
-            <Skeleton width="48%" height={20} />
-            <Skeleton width="58%" height={15} />
+            <Skeleton width="58%" height={20} />
           </div>
         </div>
       ))}

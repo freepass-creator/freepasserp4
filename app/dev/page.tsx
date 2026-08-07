@@ -41,6 +41,9 @@ async function saveMigrationBackup(kind: 'products' | 'settlements', backup: unk
   return `${result.path} · SHA-256 ${result.sha256}`;
 }
 
+/** 재고관리 등에서 `/dev?tool=` 로 바로 열 수 있는 도구 키. */
+const DEV_TOOL_KEYS = new Set(['sync', 'master', 'migrate', 'private', 'check', 'links']);
+
 export default function DevTools() {
   const co = getCompanyId();
   const [ok, setOk] = useState<boolean | null>(null);
@@ -53,7 +56,12 @@ export default function DevTools() {
   const [privateMigLog, setPrivateMigLog] = useState('');
   const [settlementMigLog, setSettlementMigLog] = useState('');
   const [diagLog, setDiagLog] = useState('');
-  const [sel, setSel] = useState<string | null>(null);
+  // /dev?tool=sync 등 — 재고관리 진입 버튼이 바로 이 도구를 연다.
+  const [sel, setSel] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const tool = new URLSearchParams(window.location.search).get('tool');
+    return tool && DEV_TOOL_KEYS.has(tool) ? tool : null;
+  });
   const [role, setRoleLocal] = useState<Role>(() => (typeof window !== 'undefined' ? getRole() : 'agent'));
 
   const reload = useCallback(async () => {
@@ -62,6 +70,15 @@ export default function DevTools() {
     setRows(list);
     return list;
   }, [co]);
+
+  const openTool = useCallback((key: string | null) => {
+    setSel(key);
+    if (typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    if (key) url.searchParams.set('tool', key);
+    else url.searchParams.delete('tool');
+    window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -283,13 +300,14 @@ export default function DevTools() {
     {
       key: 'sync',
       label: '공급사 상품 연동',
-      hint: '시트·홈페이지 검증 → 들어올 상품 확인 → 반영',
+      hint: '시트·홈페이지 검증 → 확인 → 재고 반영 (관리 SSOT)',
       icon: RefreshCw,
       tone: 'blue' as const,
       render: () => (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
           <div style={{ fontSize: FS.sub, color: C.mute, lineHeight: 1.5 }}>
             원본이 시트든 홈페이지든 절차는 하나입니다 — 검증하고, 들어올 상품을 눈으로 보고, 반영합니다.
+            재고관리에서는 이 도구로 들어오는 버튼만 둡니다.
           </div>
           <SheetSync co={co} onImported={() => { void reload(); }} />
         </div>
@@ -441,7 +459,7 @@ export default function DevTools() {
         <FeedListRow
           key={t.key}
           selected={t.key === sel}
-          onClick={() => setSel(t.key)}
+          onClick={() => openTool(t.key)}
           thumb={<FeedThumbIcon icon={t.icon} tone={t.tone} decorative />}
           lines={[
             <FeedTitle key="t">{t.label}</FeedTitle>,
@@ -472,7 +490,7 @@ export default function DevTools() {
       list={listEl}
       panes={panes}
       selected={!!sel}
-      onBack={() => setSel(null)}
+      onBack={() => openTool(null)}
       contextTitle={current?.label}
       // 목록 1/4 · 도구 3/4 — 공급사 연동처럼 표를 넓게 펼쳐야 하는 도구가 반반에서는 못 산다.
       // 넓은 모니터에서는 목록을 320 에서 멈춘다. 도구 6개짜리 목록이 640px 로 늘어나 봐야
@@ -483,7 +501,7 @@ export default function DevTools() {
   );
 }
 
-/** 개발도구 한 칸 — 목록행 3줄 규격(제목·설명)과 패널 본문. */
+/** 개발도구 한 칸 — 목록행 2줄 규격(제목·설명)과 패널 본문. */
 type DevTool = {
   key: string;
   label: string;

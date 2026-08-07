@@ -3,19 +3,22 @@ import type { CSSProperties, ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
-import { C, R, FS, FW } from '@/components/ui/tokens';
+import { C, R, FS, FW, ICON, ctrlH } from '@/components/ui/tokens';
 import { type BadgeTone, toneSoft, toneText } from '@/components/ui/badges';
 
-/** 업무 목록 3줄 — 스캔성·한 화면에 많이. 행·아이콘을 키우면 피드가 되어 답답해진다. */
-const LINE = {
-  title: 18,   // FeedTitle
-  badges: 20,  // Badge 레일 — Badge 실제 높이(20)와 일치시켜 삐져나옴·어긋남 제거
-  sub: 15,     // FeedSub
+/**
+ * 업무 목록 2줄(카톡형) — ①주제·메타 ②맥락·안읽음.
+ * 상태는 왼쪽 아이콘 색이 맡고, 중간 뱃지 레일(구 3줄의②)은 접는다.
+ */
+export const FEED_LINE = {
+  title: 18, // FeedTitle
+  sub: 20,   // FeedSub·Badge·CountPill — 뱃지 실높이(20)와 맞춤
+  gap: 3,
 } as const;
 
 /**
- * 목록행 SSOT — 문의·계약·재고·정책.
- *   [상태 칩] + 3줄 본문. 상태칩은 작을수록 목록다움(B2C 큰 썸네일 금지).
+ * 목록행 SSOT — 문의·계약·재고·정책·회원·정산.
+ *   [상태 칩] + 2줄 본문. 칩 = ctrlH(웹32/모바일36) — 2줄 본문과 눈높이 맞춤.
  */
 export function FeedThumbIcon({
   icon: Icon,
@@ -33,8 +36,7 @@ export function FeedThumbIcon({
   decorative?: boolean;
 }) {
   const mobile = useIsMobile();
-  // 상태 칩(목록 레일) — 28/32. 40+면 피드·답답.
-  const w = size ?? (mobile ? 28 : 32);
+  const w = size ?? ctrlH(mobile);
   return (
     <div
       role={title && !decorative ? 'img' : undefined}
@@ -57,7 +59,7 @@ export function FeedThumbIcon({
       }}
     >
       {/* SVG=인라인이라 baseline 여백이 껴 미세하게 떠 보임 → block 으로 제거(정중앙 고정). */}
-      <Icon size={mobile ? 14 : 15} strokeWidth={2.25} style={{ display: 'block' }} />
+      <Icon size={mobile ? ICON.lg : ICON.md} strokeWidth={2.25} style={{ display: 'block' }} />
     </div>
   );
 }
@@ -70,15 +72,14 @@ export function FeedListRow({
   href,
 }: {
   thumb?: ReactNode;
-  /** 일반 목록 = 3줄 SSOT. (상품 파인더 ProductRowCard는 별도) */
+  /** 일반 목록 = 2줄 SSOT. (상품 파인더 ProductRowCard는 별도) */
   lines: ReactNode[];
   selected?: boolean;
   onClick?: () => void;
   href?: string;
 }) {
   const mobile = useIsMobile();
-  const gap = 3;
-  const lineH = [LINE.title, LINE.badges, LINE.sub];
+  const lineH = [FEED_LINE.title, FEED_LINE.sub];
   const style: CSSProperties = {
     display: 'flex',
     gap: mobile ? 10 : 11,
@@ -98,18 +99,18 @@ export function FeedListRow({
       <div style={{
         display: 'flex',
         flexDirection: 'column',
-        gap,
+        gap: FEED_LINE.gap,
         flex: '1 1 auto',
         minWidth: 0,
         justifyContent: 'center',
       }}>
-        {lines.slice(0, 3).map((line, i) => (
+        {lines.slice(0, 2).map((line, i) => (
           <div
             key={i}
             style={{
               minWidth: 0,
               width: '100%',
-              height: lineH[i] ?? LINE.sub,
+              height: lineH[i] ?? FEED_LINE.sub,
               overflow: 'hidden',
               display: 'flex',
               alignItems: 'center',
@@ -142,7 +143,7 @@ export function FeedTitle({ children, mono }: { children: ReactNode; mono?: bool
   return (
     <div style={{
       fontSize: FS.title, fontWeight: FW.title, color: C.ink, letterSpacing: '-0.02em',
-      lineHeight: `${LINE.title}px`, height: LINE.title,
+      lineHeight: `${FEED_LINE.title}px`, height: FEED_LINE.title,
       whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
       fontFamily: mono ? 'var(--font-mono)' : undefined,
       width: '100%',
@@ -162,7 +163,7 @@ export function FeedSub({ children, strong }: { children: ReactNode; strong?: bo
       fontSize: FS.sub,
       fontWeight: strong ? FW.strong : FW.meta,
       color: C.mute,
-      lineHeight: `${LINE.sub}px`, height: LINE.sub,
+      lineHeight: `${FEED_LINE.sub}px`, height: FEED_LINE.sub,
       whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
       width: '100%',
     }}>
@@ -171,12 +172,12 @@ export function FeedSub({ children, strong }: { children: ReactNode; strong?: bo
   );
 }
 
-/** 뱃지·칩 가로 레일 — 한 줄 고정, 넘치면 잘림 */
+/** 뱃지·칩 가로 레일 — 한 줄 고정, 넘치면 잘림(2줄 행의 ②에 얹을 때) */
 export function FeedBadges({ children }: { children: ReactNode }) {
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 7,
-      minWidth: 0, width: '100%', height: LINE.badges,
+      minWidth: 0, width: '100%', height: FEED_LINE.sub,
       overflow: 'hidden', flexWrap: 'nowrap',
     }}>
       {children}
@@ -189,7 +190,7 @@ export function FeedTitleRow({ title, meta }: { title: ReactNode; meta?: ReactNo
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, width: '100%',
-      height: LINE.title,
+      height: FEED_LINE.title,
     }}>
       <div style={{ flex: '1 1 0', minWidth: 0, overflow: 'hidden' }}>{title}</div>
       {meta != null ? <div style={{ flex: '0 0 auto', lineHeight: 1 }}>{meta}</div> : null}

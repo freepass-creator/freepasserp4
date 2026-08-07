@@ -4,7 +4,7 @@
  */
 'use client';
 
-import { activeCount, activeFilterHints, EMPTY_VEHICLE_FILTER, type VehicleFilter } from '@/lib/domain/product-filters';
+import { activeCount, activeFilterHints, EMPTY_VEHICLE_FILTER, normalizeVehicleFilter, type VehicleFilter } from '@/lib/domain/product-filters';
 import { cloneBag, emptyBag, sameBag, type FilterBag } from '@/features/finder/filter-state';
 
 export type FinderPresetBag = {
@@ -72,7 +72,7 @@ function normalizeBag(raw: FinderPresetBag): FinderPresetBag {
       if (Array.isArray(values) && values.length) dyn[key] = values.map(String);
     }
   }
-  const vehicle = { ...EMPTY_VEHICLE_FILTER, ...(raw?.vehicle || {}) };
+  const vehicle = normalizeVehicleFilter(raw?.vehicle);
   return {
     periods: Array.isArray(raw?.periods) ? raw.periods.map(Number).filter(Number.isFinite) : [],
     rent: Array.isArray(raw?.rent) ? raw.rent.map(String) : [],
@@ -114,7 +114,7 @@ export function bagFromFilter(bag: FilterBag): FinderPresetBag {
     perks: [...bag.perks],
     promo: [...bag.promo],
     dyn,
-    vehicle: { ...EMPTY_VEHICLE_FILTER, ...bag.vehicle },
+    vehicle: normalizeVehicleFilter(bag.vehicle),
     models: [...bag.models],
   };
 }
@@ -135,7 +135,7 @@ export function filterFromBag(bag: FinderPresetBag, meta?: Pick<FilterBag, 'sort
     perks: new Set(bag.perks || []),
     promo: new Set(bag.promo || []),
     dyn,
-    vehicle: { ...EMPTY_VEHICLE_FILTER, ...(bag.vehicle || {}) },
+    vehicle: normalizeVehicleFilter(bag.vehicle),
     models: new Set(bag.models || []),
     sort: meta?.sort ?? '',
     interest: meta?.interest ? new Set(meta.interest) : new Set(),

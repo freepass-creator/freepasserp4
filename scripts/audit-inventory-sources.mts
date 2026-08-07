@@ -15,8 +15,9 @@ import {
   sheetSyncCommitBlockReason,
 } from '../lib/domain/sheet-sync-all';
 import { applySheetConflictResolutions } from '../lib/domain/sheet-conflict-resolution';
+import { buildPriceChangesValue } from '../lib/domain/sheet-conflict-report';
 import { findPlateHeaderRow, SHEET_ADAPTERS } from '../lib/domain/sheet-adapters';
-import { isExactRealPlate } from '../lib/domain/product';
+import { isExactRealPlate, TEMP_PLATE_RE } from '../lib/domain/product';
 import { AUTOPLUS_GID_MAIN, AUTOPLUS_GID_PROMO } from '../lib/domain/sheet-autoplus';
 import { canonSheetVehicleStatus } from '../lib/domain/sheet-import';
 import { planDailySheetSync } from '../lib/domain/sheet-daily-sync';
@@ -73,7 +74,11 @@ async function sheetsToken(): Promise<string> {
   return body.access_token;
 }
 
-async function visibleTable(url: string, gid?: string): Promise<string[][]> {
+async function visibleTable(
+  url: string,
+  gid?: string,
+  options: SheetTableFetchOptions = {},
+): Promise<string[][]> {
   const id = extractGoogleSheetId(url);
   if (!id || !gid) throw new Error('숨김 행 제외 연동은 일반 시트 URL과 gid가 필요합니다');
   if (!token) token = await sheetsToken();
@@ -93,14 +98,19 @@ async function visibleTable(url: string, gid?: string): Promise<string[][]> {
   if (!target?.properties) throw new Error(`Google Sheet 탭 없음(gid ${gid})`);
   if (target.properties.hidden) throw new Error(`숨김 탭은 연동할 수 없습니다(${target.properties.title || gid})`);
   const a1Title = `'${String(target.properties.title || '').replace(/'/g, "''")}'`;
+  // hyperlink·chipRuns — 차번 셀 사진 링크. 서버 google-sheet-visible 과 동일 필드.
   const fields = [
     'sheets(properties(sheetId,title,hidden)',
-    'data(startRow,rowData(values(formattedValue,effectiveValue)),rowMetadata(hiddenByFilter,hiddenByUser)))',
+    'data(startRow,rowData(values(formattedValue,effectiveValue,hyperlink,chipRuns(chip(richLinkProperties(uri))))),rowMetadata(hiddenByFilter,hiddenByUser)))',
   ].join(',');
   const body = await getJson(
     `https://sheets.googleapis.com/v4/spreadsheets/${id}?includeGridData=true&ranges=${encodeURIComponent(a1Title)}&fields=${encodeURIComponent(fields)}`,
   );
-  return visibleRowsFromGridResponse(body, gid).rows;
+  const result = visibleRowsFromGridResponse(body, gid);
+  if (options.onPhotoByPlate && result.photoByPlate) {
+    options.onPhotoByPlate(result.photoByPlate);
+  }
+  return result.rows;
 }
 
 async function fetchTable(
@@ -108,7 +118,7 @@ async function fetchTable(
   gid?: string,
   options: SheetTableFetchOptions = {},
 ): Promise<string[][]> {
-  if (options.visibleRowsOnly) return visibleTable(url, gid);
+  if (options.visibleRowsOnly) return visibleTable(url, gid, options);
   const response = await fetch(resolveGoogleSheetCsvUrl(url, gid), {
     redirect: 'follow',
     headers: { 'User-Agent': 'freepasserp4-inventory-source-audit/1.0' },
@@ -294,6 +304,101 @@ const requiredBlockReason = missingRequired.length
 console.log(`\n합계 원본 ${sourceRows} · 반영 ${fetched.products.length} · 상태 ${blockReason || requiredBlockReason ? 'BLOCKED' : 'PASS'}`);
 if (blockReason || requiredBlockReason) console.log(`차단 사유: ${[blockReason, requiredBlockReason].filter(Boolean).join(' · ')}`);
 
+// ── 차번 크로스체크 — 실차번 / 임시번호(100신·번호미정 신차) / 그 외 ─────────────────
+{
+  const plateOf = (row: EntityRecord) => String(row.car_number || '').replace(/\s/g, '');
+  const isTemp = (row: EntityRecord) => {
+    const plate = plateOf(row);
+    return row.is_pending_plate === true || TEMP_PLATE_RE.test(plate);
+  };
+  type Bucket = { real: number; temp: number; other: number; plates: Set<string>; tempPlates: Set<string> };
+  const empty = (): Bucket => ({ real: 0, temp: 0, other: 0, plates: new Set(), tempPlates: new Set() });
+  const total = empty();
+  const per = new Map<string, Bucket>();
+  for (const line of fetched.lines) {
+    const bucket = empty();
+    for (const row of line.products) {
+      const plate = plateOf(row);
+      if (isTemp(row)) {
+        bucket.temp += 1;
+        if (plate) bucket.tempPlates.add(plate);
+        total.temp += 1;
+        if (plate) total.tempPlates.add(plate);
+      } else if (isExactRealPlate(plate)) {
+        bucket.real += 1;
+        bucket.plates.add(plate);
+        total.real += 1;
+        total.plates.add(plate);
+      } else {
+        bucket.other += 1;
+        total.other += 1;
+      }
+    }
+    per.set(line.code, bucket);
+  }
+  console.log('\n══ 차번 크로스체크 (반영분만 · 출고불가·계약중 제외 후) ══');
+  console.log('  공급사                 실차번  임시번호  기타  실차번고유  임시고유');
+  for (const line of fetched.lines) {
+    const b = per.get(line.code) || empty();
+    if (!b.real && !b.temp && !b.other) continue;
+    const label = `${line.code} ${line.label}`.padEnd(22).slice(0, 22);
+    console.log(
+      `  ${label} ${String(b.real).padStart(6)} ${String(b.temp).padStart(8)} ${String(b.other).padStart(4)}`
+      + ` ${String(b.plates.size).padStart(10)} ${String(b.tempPlates.size).padStart(8)}`,
+    );
+  }
+  const realDup = total.real - total.plates.size;
+  const tempDup = total.temp - total.tempPlates.size;
+  console.log(
+    `\n  합계  실차번 ${total.real}대(고유 ${total.plates.size}`
+    + `${realDup > 0 ? ` · 중복표기 ${realDup}` : ''})`
+    + ` · 임시번호 ${total.temp}대(고유 ${total.tempPlates.size}`
+    + `${tempDup > 0 ? ` · 중복표기 ${tempDup}` : ''})`
+    + ` · 기타 ${total.other}`
+    + ` · 총 ${total.real + total.temp + total.other}대`,
+  );
+  console.log('  ※ 임시번호 = 시트 번호미정·구매예정 신차에 붙인 100신NNNN (실번호 아님, 재고엔 포함)');
+  console.log('  ※ 아이언 홈페이지(RP006)는 시트 roster 밖 — 별도 홈페이지 검증 숫자와 합산');
+
+  // ERP에 이미 저장된 매물과 대조 (부재차단·미반영분 포함해 임시번호가 남아 있는지)
+  const productsV4 = await db.ref('v4/products').get();
+  const erpRows = Object.entries((productsV4.val() || {}) as Record<string, EntityRecord>)
+    .map(([key, row]) => ({ ...row, _key: key }))
+    .filter((row) => row && typeof row === 'object'
+      && row._deleted !== true
+      && !row.deletedAt
+      && String(row.status || '') !== 'deleted');
+  let erpReal = 0;
+  let erpTemp = 0;
+  let erpOther = 0;
+  const erpTempByProv = new Map<string, number>();
+  for (const row of erpRows) {
+    const plate = plateOf(row);
+    const prov = String(row.provider_company_code || row.partner_code || '?');
+    if (isTemp(row)) {
+      erpTemp += 1;
+      erpTempByProv.set(prov, (erpTempByProv.get(prov) || 0) + 1);
+    } else if (isExactRealPlate(plate)) erpReal += 1;
+    else erpOther += 1;
+  }
+  console.log('\n══ ERP v4 활성 매물 차번 (저장본 · 시트 반영 전 상태) ══');
+  console.log(
+    `  활성 ${erpRows.length} · 실차번 ${erpReal} · 임시번호 ${erpTemp} · 기타 ${erpOther}`,
+  );
+  if (erpTempByProv.size) {
+    const bits = [...erpTempByProv.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([code, n]) => `${code} ${n}`);
+    console.log(`  임시번호 공급사별: ${bits.join(' · ')}`);
+  } else {
+    console.log('  임시번호 0 — 저장본에도 번호미정(100신) 매물 없음');
+  }
+  console.log(
+    `  대조: 시트반영 ${total.real + total.temp} (실 ${total.real}+임 ${total.temp})`
+    + ` vs ERP활성 ${erpRows.length} (실 ${erpReal}+임 ${erpTemp}+기 ${erpOther})`,
+  );
+}
+
 let planBlocked = false;
 if (process.argv.includes('--plan')) {
   const [productsV4, contractsV3, contractsV4, resolutionsV4] = await Promise.all([
@@ -335,9 +440,32 @@ if (process.argv.includes('--plan')) {
   // 사유 문자열만 보면 운영자가 원본에서 무엇을 고쳐야 할지 알 수 없어 매번 재조사를 반복하게 된다.
   if (process.argv.includes('--conflict-detail')) {
     const raw = findSheetSyncExistingConflicts(fetched, activeProducts, deletedProducts);
+    // 미리보기·커밋 경계·일일동기화와 **같은 판정**(2026-08-07 이후 SSOT = buildPriceChangesValue).
+    const priceChangesValue = buildPriceChangesValue({
+      conflicts: raw,
+      existing: activeProducts,
+      deleted: deletedProducts,
+      incoming: fetched.products,
+      contracts: [...mergedContracts.values()],
+      providerCodes: fetched.lines.map((line) => line.code),
+    });
     const resolved = applySheetConflictResolutions({
       conflicts: raw, resolutions, existing: activeProducts, contracts: [...mergedContracts.values()],
+      priceChangesValue,
     }).conflicts;
+
+    // 승인이 필요한 건과 자동 통과한 건을 갈라 보여준다. 예전엔 이 판정이 화면에만 있어
+    // 「화면에선 승인할 것도 없는데 반영은 막히는」 데드락이 났다(2026-08-07 수정).
+    const rawMissing = raw.missingPricePeriods || [];
+    const stillBlocking = resolved.missingPricePeriods || [];
+    const autoPassed = rawMissing.filter((item) => !stillBlocking.includes(item));
+    console.log('\n■ 가격기간 누락 — 승인이 필요한가');
+    console.log(`   원본 충돌                                    ${rawMissing.length}건`);
+    console.log(`   자동 통과(금액 무변화·승인 이력)               ${autoPassed.length}건`);
+    console.log(`   ★남은 차단 — 승인 필요                        ${stillBlocking.length}건`);
+    for (const item of stillBlocking.slice(0, 20)) {
+      console.log(`       ${item}${priceChangesValue(item) ? ' · 금액 변경 있음(승인 후보)' : ' · 계약보호 등 다른 사유'}`);
+    }
     console.log('\n충돌 상세 · 승인 반영 후 (괄호는 승인 전 원본 건수)');
     for (const [label, key] of [
       ['활성 중복차번', 'activeTwins'],

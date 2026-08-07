@@ -232,6 +232,36 @@ check('가격 유지 승인이 있어도 계약보호 차량은 자동 연동 �
   !protectedPricePlan.ok && protectedPricePlan.blockReason.includes('가격기간 누락'),
   protectedPricePlan);
 
+/* ── 무변화 완화가 «지속 연동»에도 같이 걸려 있는가 ─────────────────────────────
+   2026-08-07 데드락은 완화를 미리보기에만 넣어서 생겼다. 그때는 사람이 버튼을 눌러
+   막힌 걸 알았지만, 일일 자동연동은 **아무도 안 보는 새벽에 조용히 멈춘다.**
+   그래서 여기 자물쇠를 채운다 — 손으로 한 번 맞춘 것이 매일도 맞는지. */
+const noChangePlan = planDailySheetSync({
+  fetched: priceFetched,
+  existing: [existingWithHistoricalPrice],
+  deleted: [],
+  partners,
+  resolutions: [], // 승인 없음
+});
+check('금액이 안 바뀌는 가격기간 누락은 승인 없이도 자동 연동 통과',
+  noChangePlan.ok && !noChangePlan.blockReason,
+  noChangePlan);
+
+// 완화가 «금액이 바뀌는 건»으로 번지면 안 된다 — 손님에게 나가는 값이 조용히 달라진다.
+const priceChangedFetched = fetched([sheetProduct('77가7777', {
+  price: { '36': { rent: 590_000, deposit: 1_000_000 } },
+})]);
+const changedPlan = planDailySheetSync({
+  fetched: priceChangedFetched,
+  existing: [existingWithHistoricalPrice],
+  deleted: [],
+  partners,
+  resolutions: [],
+});
+check('금액이 바뀌는 가격기간 누락은 승인 없이는 자동 연동도 차단',
+  !changedPlan.ok && changedPlan.blockReason.includes('가격기간 누락'),
+  changedPlan);
+
 const cron = JSON.parse(readFileSync('vercel.json', 'utf8')) as {
   crons?: Array<{ path?: string; schedule?: string }>;
 };

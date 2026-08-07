@@ -88,23 +88,29 @@ export async function fetchVisibleGoogleSheetTable(
   if (!/^\d+$/.test(gid)) throw new Error('Google Sheet gid 형식 오류');
 
   const accessToken = await sheetsAccessToken();
+  /** Sheets 분당 Read quota에 걸리면 잠깐 쉬고 재시도 — visible=1 전면화 후 전체 검증이 여기서 자주 터진다. */
   const requestJson = async (url: string): Promise<SheetsGridResponse & { error?: { message?: string; status?: string } }> => {
-    const response = await fetch(url, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-      cache: 'no-store',
-      signal: AbortSignal.timeout(20_000),
-    });
-    const body = await response.json().catch(() => ({})) as SheetsGridResponse & {
-      error?: { message?: string; status?: string };
-    };
-    if (!response.ok) {
+    let lastMessage = '';
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        cache: 'no-store',
+        signal: AbortSignal.timeout(20_000),
+      });
+      const body = await response.json().catch(() => ({})) as SheetsGridResponse & {
+        error?: { message?: string; status?: string };
+      };
+      if (response.ok) return body;
       const message = body.error?.message || `Google Sheets API ${response.status}`;
+      lastMessage = message;
       if (/has not been used|disabled/i.test(message)) {
         throw new Error('Google Sheets API 사용 설정 필요 — 숨김 행 제외 연동을 안전하게 실행할 수 없습니다');
       }
-      throw new Error(message);
+      const quota = /quota exceeded|rate limit|429/i.test(message) || response.status === 429;
+      if (!quota || attempt === 3) throw new Error(message);
+      await new Promise((resolve) => setTimeout(resolve, 1_500 * (attempt + 1)));
     }
-    return body;
+    throw new Error(lastMessage || 'Google Sheets API 실패');
   };
 
   // getByDataFilter는 읽기 작업인데도 일부 Google 프로젝트에서 쓰기 scope를 요구한다.

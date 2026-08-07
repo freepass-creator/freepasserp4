@@ -66,6 +66,20 @@ function ensureSnapped(products: EntityRecord[], entries: MasterEntry[]): Entity
 }
 
 /**
+ * 커밋·사후검증이 같은 형태로 매물을 본다.
+ * ensureSnapped → prepareMasterIngress 를 거치지 않은 fetch 원본으로 사후검증하면
+ * soft-merge 유령 diff 로 「동기화 사후검증 실패」가 영구 반복된다.
+ */
+export function productsForSheetCommit(
+  products: EntityRecord[],
+  master: MasterEntry[] | null | undefined,
+): { products: EntityRecord[]; confirmed: number; review: number } {
+  const entries = optionalMaster(master);
+  const snapped = ensureSnapped(products, entries);
+  return prepareMasterIngress(snapped);
+}
+
+/**
  * 이미 import·스냅된 매물 배열 → 검수 플래그 → soft-merge 저장.
  * SheetSync 단일 저장 · sync-all 공용.
  */
@@ -74,12 +88,10 @@ export async function commitSupplierProducts(
   products: EntityRecord[],
   master: MasterEntry[],
 ): Promise<MasterIngressCommit> {
-  const entries = optionalMaster(master);
   if (!products.length) {
     return { created: 0, updated: 0, unchanged: 0, duplicates: 0, backend: '', confirmed: 0, review: 0 };
   }
-  const snapped = ensureSnapped(products, entries);
-  const { products: gated, confirmed, review } = prepareMasterIngress(snapped);
+  const { products: gated, confirmed, review } = productsForSheetCommit(products, master);
   const r = await commitSheetProducts(companyId, gated);
   return { ...r, confirmed, review };
 }

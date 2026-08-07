@@ -49,11 +49,11 @@ export type ExactMasterPath = {
 };
 
 export type VehicleFilter = {
-  maker: string;
-  model: string;
-  sub_model: string;
-  variant: string;
-  trim_name: string;
+  maker: string[];
+  model: string[];
+  sub_model: string[];
+  variant: string[];
+  trim_name: string[];
 };
 
 export type MasterFitBucket = 'ok' | 'high' | 'medium' | 'low' | 'none' | 'no_signal';

@@ -23,7 +23,7 @@ const { getStore } = await import('../lib/store');
 const { getCompanyId } = await import('../lib/tenant');
 const { seedIfEmpty } = await import('../lib/seed');
 const { newId } = await import('../lib/domain/ids');
-const { ensureRoom, createContractRequest, setRole } = await import('../lib/domain/deal');
+const { ensureRoom, createContractRequest, freezeContractTerm, setRole } = await import('../lib/domain/deal');
 const { applyStepCheck } = await import('../lib/domain/settlement-engine');
 const { getProgress, STEPS } = await import('../lib/domain/contract');
 import type { EntityRecord } from '../lib/intake/entities';
@@ -79,7 +79,7 @@ log('2a. 채팅방', roomId);
 
 const contractCode = await createContractRequest(
   product,
-  { period: 36, customerName: '', customerPhone: '' },
+  { customerName: '', customerPhone: '' },
   roomId,
 );
 let contract = (await store.get('contract', co, contractCode))!;
@@ -95,16 +95,16 @@ log('2b. 계약문의(영업)', {
   month: contract.rent_month_snapshot,
 });
 
-// ── 3. 공급/영업 5단계 핸드셰이크 ──
+// ── 3. 공급/영업 5단계 핸드셰이크 (문의→서류→약정→입금→출고) ──
 const checks: [string, string, string][] = [
   ['provider', 'provider_delivery_response', '출고 가능'],
   ['agent', 'agent_docs_submitted', 'yes'],
   ['provider', 'provider_docs_review', '승인'],
+  ['agent', 'provider_agreement_done', 'yes'],
+  ['provider', 'provider_agreement_sent', 'yes'],
   ['agent', 'agent_balance_paid', 'yes'],
   ['agent', 'agent_final_paid', 'yes'],
   ['provider', 'provider_balance_confirmed', 'yes'],
-  ['agent', 'provider_agreement_done', 'yes'], // UI상 actor=agent
-  ['provider', 'provider_agreement_sent', 'yes'],
   ['agent', 'agent_handover_confirmed', 'yes'],
   ['provider', 'provider_release_completed', 'yes'],
 ];
@@ -113,6 +113,8 @@ const trail: { who: string; key: string; value: string; progress: string; status
 for (const [who, key, value] of checks) {
   setRole(who as 'agent' | 'provider');
   if (key === 'provider_agreement_done') {
+    contract = (await store.get('contract', co, contractCode))!;
+    await freezeContractTerm(contract, product, 36);
     await store.update('contract', co, contractCode, {
       customer_name: '시뮬손님',
       customer_phone: '010-5555-1212',

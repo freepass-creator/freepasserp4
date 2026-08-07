@@ -1,3 +1,5 @@
+import { hasTermFrozen } from '@/lib/domain/contract';
+
 export type ChakhandealActor = {
   uid: string;
   role: 'agent' | 'provider' | 'admin';
@@ -23,6 +25,9 @@ export function chakhandealIssuePayload(
   identity: { memberCompany: string; templateId: string },
   contract: RecordValue,
 ): RecordValue {
+  if (!hasTermFrozen(contract as Parameters<typeof hasTermFrozen>[0])) {
+    throw new Error('약정에서 대여기간·금액을 먼저 확정해 주세요');
+  }
   const birth = text(contract.customer_birth || contract.birth);
   return {
     templateId: identity.templateId,

@@ -19,6 +19,7 @@ import {
   applySheetConflictResolutions,
   type SheetConflictResolution,
 } from '@/lib/domain/sheet-conflict-resolution';
+import { buildPriceChangesValue } from '@/lib/domain/sheet-conflict-report';
 
 export type DailySheetSyncPlan = {
   ok: boolean;
@@ -94,6 +95,15 @@ export function planDailySheetSync(input: {
   const rawConflicts = findSheetSyncExistingConflicts(input.fetched, input.existing, input.deleted);
   const resolutionResult = applySheetConflictResolutions({
     conflicts: rawConflicts,
+    // 미리보기와 같은 판정을 쓴다 — 빠뜨리면 화면엔 승인할 것이 없는데 여기서만 막힌다.
+    priceChangesValue: buildPriceChangesValue({
+      conflicts: rawConflicts,
+      existing: input.existing,
+      deleted: input.deleted,
+      incoming: input.fetched.products,
+      contracts: input.contracts,
+      providerCodes: input.fetched.lines.map((line) => line.code),
+    }),
     resolutions: input.resolutions,
     existing: input.existing,
     contracts: input.contracts,

@@ -14,6 +14,7 @@ import {
   EMPTY_VEHICLE_FILTER,
   matchProduct,
   presentFilterOptions,
+  presentFilterOptionsFaceted,
   type FState,
 } from '../lib/domain/product-filters';
 import { checkInventory } from '../lib/domain/data-check';
@@ -82,27 +83,39 @@ const emptyState: FState = {
   dyn: {},
   vehicle: { ...EMPTY_VEHICLE_FILTER },
 };
-check('필터 미선택이어도 무가격 상품은 matchProduct에서 제외', !matchProduct(noPrice, emptyState));
+check('필터 미선택이어도 무가격 상품은 목록에 뜬다', matchProduct(noPrice, emptyState));
 check('필터 미선택 유효 상품은 matchProduct 통과', matchProduct(valid, emptyState));
+check('출고불가는 matchProduct에서 제외', !matchProduct(unavailable, emptyState));
 
 const options = presentFilterOptions([valid, noPrice]);
 check(
-  '필터 옵션 집계도 판매가능 상품만 계산',
+  '필터 옵션 집계는 목록 대상(출고불가 제외) 기준 — 무가격도 포함되나 개월 칸은 가격 있는 쪽만',
   options.months.length === 1 && options.months[0]?.count === 1,
   options.months,
 );
 const dynamic = aggregateDyn([valid, noPrice]);
 check(
-  '동적 옵션 집계에서 무가격 공급사 제외',
-  !(dynamic.provider || []).some(([name]) => name === '무가격공급사'),
+  '동적 옵션 집계에 무가격 공급사도 포함',
+  (dynamic.provider || []).some(([name]) => name === '무가격공급사'),
   dynamic.provider,
 );
 
+{
+  const hyundai = product({ product_code: 'P-H', maker: '현대', model: '쏘나타', fuel_type: '가솔린', provider_name: '현대만', price: { '36': { rent: 400_000, deposit: 0 } } });
+  const kia = product({ product_code: 'P-K', maker: '기아', model: 'K5', fuel_type: '디젤', provider_name: '기아만', price: { '12': { rent: 350_000, deposit: 0 }, '36': { rent: 390_000, deposit: 0 } } });
+  const withMaker: FState = { ...emptyState, vehicle: { ...EMPTY_VEHICLE_FILTER, maker: ['현대'] } };
+  const faceted = presentFilterOptionsFaceted([hyundai, kia], withMaker, new Set());
+  check('제조사 현대 선택 시 기간 칩은 현대 매물 개월만', faceted.months.map((m) => m.key).join(',') === '36', faceted.months);
+  check('제조사 현대 선택 시 연료 칩은 현대 매물만', faceted.fuel.map((f) => f.key).join(',') === '가솔린', faceted.fuel);
+  const kiaFuelStill = presentFilterOptionsFaceted([hyundai, kia], emptyState, new Set()).fuel.some((f) => f.key === '디젤');
+  check('제조사 미선택이면 기아 디젤 칩도 보임', kiaFuelStill);
+}
+
 const source = (relative: string) => readFileSync(new URL(`../${relative}`, import.meta.url), 'utf8');
-// 판정은 둘로 갈린다(2026-08-06):
-//   목록(카탈로그·상품찾기·최근·관심) = isListableProduct — 견적조건 + 차종 확정
-//   단건(공유링크 /q · 상세 /m)        = isOfferableProduct — 견적조건만
-// 영업자가 이미 골라 손님에게 보낸 링크를 «우리 차종 매칭이 덜 됐다»는 이유로 끊으면 안 된다.
+// 판정은 둘로 갈린다(2026-08-07):
+//   목록(카탈로그·상품찾기·최근·관심) = isListableProduct — 재고 − 출고불가
+//   단건(공유링크 /q · 상세 /m)        = isOfferableProduct — 유효 대여료 필요
+// 목록에 가격 없는 차가 떠도, 손님 견적 링크는 대여료 없으면 막는다.
 const catalogSource = source('app/catalog/page.tsx');
 check(
   '공개 카탈로그는 로드와 캐시 첫 페인트 모두 SSOT 적용',
@@ -131,20 +144,25 @@ check(
   '손님 견적서에 차량번호가 실린다',
   source('lib/domain/product.ts').includes("['차량번호', pv('car_number')]"),
 );
-// ★매물 등록 최소 요건 = 차번 + 대여료(2026-08-06 결정). 차종 검수대기는 «표시»일 뿐
-//  목록에서 빼지 않는다 — 한 번 뺐다가 실재 매물이 영업자에게 안 보여 되돌렸다.
+// ★목록 = 재고 − 출고불가(2026-08-07). 차번·대여료·차종 검수대기는 목록에서 빼지 않는다.
 check(
-  '차종 검수대기여도 차번·대여료가 있으면 목록에 뜬다',
+  '차종 검수대기여도 목록에 뜬다',
   isListableProduct({ car_number: '12가3456', vehicle_status: '출고가능', _needs_master_review: true, price: { 36: { rent: 500000 } } } as unknown as EntityRecord),
 );
 check(
-  '차번이 없으면 목록에서 뺀다',
-  !isListableProduct({ car_number: '', vehicle_status: '출고가능', price: { 36: { rent: 500000 } } } as unknown as EntityRecord),
+  '차번이 없어도 출고불가가 아니면 목록에 뜬다',
+  isListableProduct({ car_number: '', vehicle_status: '출고가능', price: { 36: { rent: 500000 } } } as unknown as EntityRecord),
 );
 check(
-  '번호미정 신차는 임시번호가 차번이라 목록에 뜬다',
+  '대여료가 없어도 출고불가가 아니면 목록에 뜬다',
+  isListableProduct(noPrice),
+);
+check(
+  '번호미정 신차도 목록에 뜬다',
   isListableProduct({ car_number: '100신0001', is_pending_plate: true, vehicle_status: '출고가능', price: { 36: { rent: 500000 } } } as unknown as EntityRecord),
 );
+check('출고불가는 목록에서 뺀다', !isListableProduct(unavailable));
+check('삭제는 목록에서 뺀다', !isListableProduct(deleted));
 
 console.log(`\nproduct offerability: ${passed}/${passed + failed} PASS`);
 if (failed) process.exitCode = 1;

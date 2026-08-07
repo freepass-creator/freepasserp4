@@ -140,7 +140,7 @@ try {
 console.log('\n── C. 계약 최소 경로 (문의→출고응답) ──');
 // ════════════════════════════════════════
 setRole('agent');
-const cCode = await createContractRequest(product, { period: 36, customerName: '', customerPhone: '' }, roomId);
+const cCode = await createContractRequest(product, { customerName: '', customerPhone: '' }, roomId);
 let c = (await store.get('contract', co, cCode))!;
 await applyStepCheck(c, 'agent_delivery_inquiry', 'yes');
 c = (await store.get('contract', co, cCode))!;

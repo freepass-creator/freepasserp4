@@ -52,7 +52,11 @@ async function fetchSheetTableDirect(
   if (options.visibleRowsOnly) {
     const spreadsheetId = extractGoogleSheetId(url);
     if (!spreadsheetId || !gid) throw new Error('숨김 행 제외 연동은 일반 시트 URL과 gid가 필요합니다');
-    return (await fetchVisibleGoogleSheetTable(spreadsheetId, gid)).rows;
+    const result = await fetchVisibleGoogleSheetTable(spreadsheetId, gid);
+    if (options.onPhotoByPlate && result.photoByPlate) {
+      options.onPhotoByPlate(result.photoByPlate);
+    }
+    return result.rows;
   }
   const csvUrl = resolveGoogleSheetCsvUrl(url, gid);
   if (!allowedHost(csvUrl, 'sheet')) throw new Error('허용되지 않은 Google Sheet 호스트');

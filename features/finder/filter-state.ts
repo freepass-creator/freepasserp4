@@ -1,4 +1,4 @@
-import { EMPTY_VEHICLE_FILTER, type VehicleFilter } from '@/lib/domain/product-filters';
+import { EMPTY_VEHICLE_FILTER, normalizeVehicleFilter, type VehicleFilter } from '@/lib/domain/product-filters';
 import { FILTER_SS } from '@/lib/finder-session';
 
 export type InterestKey = 'recent' | 'fav';
@@ -51,7 +51,7 @@ export function cloneBag(bag: FilterBag): FilterBag {
     periods: new Set(bag.periods), rent: new Set(bag.rent), dep: new Set(bag.dep),
     mile: new Set(bag.mile), fuel: new Set(bag.fuel), ptype: new Set(bag.ptype),
     credit: new Set(bag.credit), perks: new Set(bag.perks), promo: new Set(bag.promo),
-    dyn, vehicle: { ...EMPTY_VEHICLE_FILTER, ...bag.vehicle }, models: new Set(bag.models),
+    dyn, vehicle: normalizeVehicleFilter(bag.vehicle), models: new Set(bag.models),
     sort: bag.sort, interest: new Set(bag.interest),
   };
 }
@@ -67,11 +67,13 @@ export function sameBag(a: FilterBag, b: FilterBag): boolean {
   const dynA = Object.keys(a.dyn).filter((key) => a.dyn[key]?.size).sort();
   const dynB = Object.keys(b.dyn).filter((key) => b.dyn[key]?.size).sort();
   if (dynA.length !== dynB.length || dynA.some((key, index) => key !== dynB[index] || setKey(a.dyn[key] || []) !== setKey(b.dyn[key] || []))) return false;
-  return a.vehicle.maker === b.vehicle.maker
-    && a.vehicle.model === b.vehicle.model
-    && a.vehicle.sub_model === b.vehicle.sub_model
-    && a.vehicle.variant === b.vehicle.variant
-    && a.vehicle.trim_name === b.vehicle.trim_name;
+  const va = normalizeVehicleFilter(a.vehicle);
+  const vb = normalizeVehicleFilter(b.vehicle);
+  return setKey(va.maker) === setKey(vb.maker)
+    && setKey(va.model) === setKey(vb.model)
+    && setKey(va.sub_model) === setKey(vb.sub_model)
+    && setKey(va.variant) === setKey(vb.variant)
+    && setKey(va.trim_name) === setKey(vb.trim_name);
 }
 
 export function readSavedFilters(): SavedFinderFilters | null {

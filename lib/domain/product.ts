@@ -340,15 +340,14 @@ export function hasMinimumListingFields(p: EntityRecord): boolean {
 /**
  * **목록에 실을 수 있는 상품** — 상품찾기·카탈로그·최근·관심.
  *
- * 요건은 차번 + 대여료다. 차종 검수 대기(`_needs_master_review`)는 목록에서 빼지 않는다 —
- * 한때 뺐다가(2026-08-06 오전) 되돌렸다. 차종을 아직 못 붙였다는 이유로 실재하는 매물을
- * 영업자에게 숨기면, 재고는 있는데 팔 수 없는 상태가 된다. 차종 미확정은 «표시»로 알린다.
+ * = 재고 전체매물 − 출고불가(·삭제). 차번·대여료 없어도 목록에 올린다(2026-08-07 사장님).
+ * 차종 검수 대기(`_needs_master_review`)도 빼지 않는다 — 미확정은 «표시»로 알린다.
  *
  * ★단건(공유 링크 `/q`, 상세 `/m`)은 `isOfferableProduct` 가 따로 판단한다 —
- *   목록 요건이 단건 접근을 끊으면 이미 손님에게 보낸 링크가 죽는다.
+ *   견적·상세는 유효 대여료가 있을 때만.
  */
 export function isListableProduct(p: EntityRecord): boolean {
-  return isOfferableProduct(p) && hasMinimumListingFields(p);
+  return !isHiddenFromCatalog(p);
 }
 
 export function vehicleTone(s: string): 'green' | 'blue' | 'amber' | 'gray' | 'red' | 'orange' {

@@ -1,117 +1,191 @@
 /**
- * 「프리패스 상품리스트」 시트에 우리 재고를 «우리 규격»으로 쓴다.
+ * 현재 ERP 재고를 **영업자용 공유 시트**로 내보낸다. 기본 dry-run, 실제 쓰기는 --apply.
  *
- * 화면의 «반영하기» 가 붙을 자리와 같은 코드를 쓴다(lib/domain/product-sheet-export + lib/server/google-sheets).
- * 스크립트로 먼저 두는 이유는 UI 를 건드리지 않고 끝까지 검증하기 위해서다 —
- * SheetSync.tsx 는 지금 재고 연동 작업이 물고 있어서 같이 손대면 충돌한다.
+ * 표 정의(열·서식·탭 이름)는 `lib/domain/inventory-sheet-export.ts` 하나만 쓴다 —
+ * 관리자 화면의 「영업자 시트 반영」 버튼(`/api/inventory/sheet-export`)과 **같은 코드**다.
+ * 두 경로가 각자 표를 만들면 영업자가 보는 시트가 갈린다.
  *
- * 대상 판정은 화면과 같은 함수(isOfferableProduct)를 쓴다. 스크립트가 자기만의 기준을 만들면
- * 시트와 화면의 대수가 달라지고, 그 차이를 나중에 아무도 설명 못 한다.
+ * ★안전 계약
+ *   · **운영 공급사 시트에는 쓰지 않는다.** 대상 시트 ID가 어느 파트너의 `sheet_url` 과
+ *     같으면 즉시 중단한다 — 공급사 시트는 재고의 «정본»이라 덮어쓰면 원본이 사라진다.
+ *   · **내부 원가·수수료·차대번호·내부메모는 내보내지 않는다**(도메인 HEADERS 가 전부).
+ *   · RTDB 는 읽기만 한다(REST GET).
  *
- *   npx tsx scripts/export-products-to-sheet.mts            대상 집계만(쓰기 없음)
- *   npx tsx scripts/export-products-to-sheet.mts --apply    시트에 쓴다
- *   ... --sheet=<스프레드시트ID>  ... --tab=<탭이름>
+ *   npx tsx scripts/export-products-to-sheet.mts --sheet=<ID>
+ *   npx tsx scripts/export-products-to-sheet.mts --sheet=<ID> --apply
+ *   npx tsx scripts/export-products-to-sheet.mts --sheet=<ID> --gid=0 --apply
+ *
+ *   기본은 **새 탭을 맨 왼쪽에** 만든다(최신이 왼쪽, 지난 회차는 이력).
+ *   --gid=<번호> / --tab=<이름>  그 탭을 덮어쓴다
+ *   --scope=listable(기본) | offerable | active
+ *   --headers-only   표 틀만 올린다(권한 확인용)
  */
 import { readFileSync } from 'node:fs';
-import { isOfferableProduct } from '../lib/domain/product.ts';
+import { JWT } from 'google-auth-library';
 import {
-  PRODUCT_SHEET_COLUMNS, PRODUCT_SHEET_HEADER, STATUS_COLUMN_INDEX,
-  productSheetRow, sortForSheet,
-} from '../lib/domain/product-sheet-export.ts';
-import { writeSheetTable, sheetsServiceAccountEmail } from '../lib/server/google-sheets.ts';
+  attachPolicy, buildInventorySheet, exportTabName, policyMap, sortForSales,
+} from '../lib/domain/inventory-sheet-export';
+import { isListableProduct, isOfferableProduct } from '../lib/domain/product';
+import type { EntityRecord } from '../lib/intake/entities';
 
-// 로컬 실행용 자격증명 — 다른 감사 스크립트와 같은 기본 경로.
-// 라이브러리(lib/server/google-sheets)는 환경변수만 본다. 운영에서 파일 경로에 기대지 않게 하려는 것이라
-// 기본값은 여기(스크립트)에서만 채운다.
-process.env.GOOGLE_APPLICATION_CREDENTIALS ||= 'tmp/firebase-auth/sa.json';
-
-const APPLY = process.argv.includes('--apply');
-const arg = (k: string, d: string) => (process.argv.find((a) => a.startsWith(`--${k}=`)) || `--${k}=${d}`).slice(k.length + 3);
-const SHEET_ID = arg('sheet', '1G0tPyFI4JIfc-Ijd5qJNbgPGzcs2Ek5hQJwDHuml8VU');
-const TAB = arg('tab', '시트1');
-
+type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
-type Rec = Record<string, unknown>;
+const DB_URL = 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app';
+const arg = (name: string, fallback = '') =>
+  (process.argv.find((a) => a.startsWith(`--${name}=`)) || '').slice(name.length + 3) || fallback;
+const dead = (p: Rec) => p._deleted === true || !!p.deletedAt || S(p.status) === 'deleted';
 
 async function main() {
+  const sheetId = arg('sheet');
+  const tab = arg('tab');
+  const scope = arg('scope', 'listable');
+  const apply = process.argv.includes('--apply');
+  const headersOnly = process.argv.includes('--headers-only');
+  if (!sheetId) throw new Error('--sheet=<스프레드시트ID> 필요');
+
+  const sa = JSON.parse(readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS || 'tmp/firebase-auth/sa.json', 'utf8'));
   const { initializeApp, cert, getApps } = await import('firebase-admin/app');
-  const { getDatabase } = await import('firebase-admin/database');
-  if (!getApps().length) {
-    const sa = process.env.FIREBASE_SERVICE_ACCOUNT_JSON
-      ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON)
-      : JSON.parse(readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS || 'tmp/firebase-auth/sa.json', 'utf8'));
-    initializeApp({ credential: cert(sa), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });
-  }
-  const db = getDatabase();
-
-  const [p3, p4, t3, t4] = await Promise.all([
-    db.ref('products').get(), db.ref('v4/products').get(),
-    db.ref('partners').get(), db.ref('v4/partners').get(),
-  ]);
-
-  // 필드 단위 병합 — 키 단위로 합치면 v4 부분패치가 v3 필드를 통째로 날린다(실제로 겪은 사고).
-  const merge = (a: unknown, b: unknown) => {
-    const m = new Map<string, Rec>();
-    for (const [k, v] of Object.entries((a || {}) as Record<string, Rec>)) m.set(k, { ...v, _key: k });
-    for (const [k, v] of Object.entries((b || {}) as Record<string, Rec>)) m.set(k, { ...(m.get(k) || {}), ...v, _key: k });
-    return m;
+  if (!getApps().length) initializeApp({ credential: cert(sa), databaseURL: DB_URL });
+  const dbToken = (await getApps()[0].options.credential!.getAccessToken()).access_token;
+  const get = async (node: string): Promise<Record<string, Rec>> => {
+    const res = await fetch(`${DB_URL}/${node}.json?access_token=${dbToken}`);
+    if (!res.ok) throw new Error(`${node} 읽기 실패 ${res.status}`);
+    return (JSON.parse(await res.text()) || {}) as Record<string, Rec>;
   };
 
-  const partners = merge(t3.val(), t4.val());
-  const nameOf = new Map<string, string>();
-  for (const p of partners.values()) {
-    const code = S(p.company_code || p.partner_code || p._key);
-    const name = S(p.company_name || p.name || p.partner_name);
-    if (code && name) nameOf.set(code, name);
+  // 정책(연령·보험·심사)은 별도 노드다 — 조인하지 않으면 그 열이 통째로 빈다.
+  const [products, live, over, pol3, pol4] = await Promise.all([
+    get('v4/products'), get('partners'), get('v4/partners'), get('policies'), get('v4/policies'),
+  ]);
+  const policies = policyMap(pol3, pol4);
+  const partners: Record<string, Rec> = {};
+  for (const k of new Set([...Object.keys(live), ...Object.keys(over)])) partners[k] = { ...(live[k] || {}), ...(over[k] || {}), _key: k };
+
+  const idOf = (url: string) => (url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/) || [])[1] || '';
+  for (const p of Object.values(partners)) {
+    if (S(p.sheet_url) && idOf(S(p.sheet_url)) === sheetId) {
+      throw new Error(`중단 — 이 시트는 ${S(p.partner_name || p.company_name) || S(p.partner_code)} 의 운영 원본이다. 덮어쓰면 재고 정본이 사라진다.`);
+    }
+  }
+  // 코드가 비면 «아무 공급사나» 걸리므로 먼저 끊는다 — API 경로(app/api/inventory/sheet-export)와 같은 규칙.
+  const nameOf = (code: string) => {
+    if (!code) return '';
+    const hit = Object.values(partners).find((p) => S(p.partner_code) === code || S(p._key) === code);
+    return S(hit?.partner_name || hit?.company_name);
+  };
+
+  const alive = Object.entries(products).filter(([, p]) => !dead(p))
+    .map(([k, p]) => ({ ...p, _key: k, product_code: p.product_code || k } as EntityRecord));
+  const rows = sortForSales(scope === 'listable' ? alive.filter(isListableProduct)
+    : scope === 'offerable' ? alive.filter(isOfferableProduct) : alive)
+    .map((p) => attachPolicy(p, policies));
+
+  console.log(`\n══ 재고 → 시트 내보내기 ${apply ? '반영' : '미리보기(dry-run)'} ══\n`);
+  console.log(`  대상 시트 ${sheetId}`);
+  console.log(`  범위 ${scope} — 활성 ${alive.length}대 중 ${rows.length}대`);
+
+  const jwt = new JWT({
+    email: sa.client_email, key: sa.private_key,
+    scopes: [apply ? 'https://www.googleapis.com/auth/spreadsheets' : 'https://www.googleapis.com/auth/spreadsheets.readonly'],
+  });
+  await jwt.authorize();
+  const token = (await jwt.getAccessToken()).token;
+  const api = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}`;
+  const head = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+
+  const metaRes = await fetch(`${api}?fields=properties.title,sheets(properties,bandedRanges,conditionalFormats,merges,filterViews,columnGroups)`, { headers: head });
+  if (!metaRes.ok) {
+    throw new Error(metaRes.status === 403
+      ? `접근 권한 없음(403) — 시트 공유에 ${sa.client_email} 를 «편집자»로 추가해야 한다.`
+      : `시트 메타 조회 실패 ${metaRes.status} ${(await metaRes.text()).slice(0, 200)}`);
+  }
+  const meta = await metaRes.json() as {
+    properties: { title: string };
+    sheets: {
+      properties: { title: string; sheetId: number };
+      bandedRanges?: { bandedRangeId: number }[];
+      conditionalFormats?: unknown[];
+      merges?: unknown[];
+      filterViews?: { filterViewId: number }[];
+      columnGroups?: { range: { startIndex?: number; endIndex?: number } }[];
+    }[];
+  };
+  console.log(`  문서 「${meta.properties.title}」 · 탭 ${meta.sheets.length}개`);
+
+  const sheetRows = headersOnly ? [] : rows;
+  const tabName = exportTabName(sheetRows.length);
+  console.log(`\n  쓸 내용 — 조회바 + 결과 수식 + 숨긴 원본 ${sheetRows.length}대`);
+
+  const gidArg = arg('gid');
+  const overwrite = gidArg
+    ? meta.sheets.find((s) => String(s.properties.sheetId) === gidArg)
+    : tab ? meta.sheets.find((s) => s.properties.title === tab) : undefined;
+  if ((gidArg || tab) && !overwrite) throw new Error(`덮어쓸 탭 없음 — ${gidArg ? `gid ${gidArg}` : `「${tab}」`}`);
+  console.log(overwrite
+    ? `  대상 — 기존 탭 「${overwrite.properties.title}」 덮어쓰기 → 「${tabName}」`
+    : `  대상 — 새 탭 「${tabName}」 을 맨 왼쪽에 생성 (기존 ${meta.sheets.length}개 유지)`);
+
+  if (!apply) { console.log('\n※ dry-run. 실제 쓰기는 --apply\n'); return; }
+
+  let gid = overwrite?.properties.sheetId;
+  let title = overwrite?.properties.title || '';
+  if (gid === undefined) {
+    // 같은 분에 두 번 돌리면 이름이 겹친다 — Sheets 는 중복 이름을 거부하므로 접미를 붙인다.
+    let name = tabName;
+    for (let i = 2; meta.sheets.some((s) => s.properties.title === name); i++) name = `${tabName} (${i})`;
+    const made = await fetch(`${api}:batchUpdate`, {
+      method: 'POST', headers: head,
+      body: JSON.stringify({ requests: [{ addSheet: { properties: { title: name, index: 0 } } }] }),
+    });
+    if (!made.ok) throw new Error(`탭 생성 실패 ${made.status} ${(await made.text()).slice(0, 300)}`);
+    gid = (await made.json() as Rec).replies[0].addSheet.properties.sheetId;
+    title = name;
+    console.log(`  탭 「${name}」 생성 (맨 왼쪽)`);
+  } else {
+    const clear = await fetch(`${api}/values/${encodeURIComponent(title)}!A:BZ:clear`, { method: 'POST', headers: head, body: '{}' });
+    if (!clear.ok) throw new Error(`탭 비우기 실패 ${clear.status} ${(await clear.text()).slice(0, 300)}`);
   }
 
-  const products = [...merge(p3.val(), p4.val()).values()]
-    .filter((p) => p._deleted !== true && S(p.status) !== 'deleted');
+  const prevSheet = meta.sheets.find((s) => s.properties.sheetId === gid);
+  // 카탈로그 링크 주소 — 지금 fp4 를 서비스하는 곳. 도메인 전환 전엔 freepasserp.com 이
+  // erp3 를 가리키므로 그걸 쓰면 링크가 죽는다(--origin= 또는 INVENTORY_EXPORT_ORIGIN).
+  const linkOrigin = arg('origin', S(process.env.INVENTORY_EXPORT_ORIGIN));
+  if (!linkOrigin) console.log('  ⚠ 링크 주소 미지정 — 카탈로그 칸을 비운다 (--origin=https://… 로 지정)');
+  // 사진 지도 — scripts/build-photo-map.mts 가 만든 캐시. 없으면 사진 칸이 빈다.
+  const photoByPlate: Record<string, string> = (() => {
+    try {
+      const cache = JSON.parse(readFileSync('tmp/photo-map.json', 'utf8')) as Record<string, { url?: string }>;
+      const out: Record<string, string> = {};
+      for (const [plate, v] of Object.entries(cache)) if (v?.url) out[plate] = v.url;
+      console.log(`  사진 지도 ${Object.keys(out).length}건`);
+      return out;
+    } catch {
+      console.log('  ⚠ 사진 지도 없음 — npx tsx scripts/build-photo-map.mts 로 만든다');
+      return {};
+    }
+  })();
+  const built = buildInventorySheet(gid!, sheetRows, nameOf, {
+    bandedRangeIds: (prevSheet?.bandedRanges || []).map((b) => b.bandedRangeId),
+    conditionalCount: (prevSheet?.conditionalFormats || []).length,
+    merges: (prevSheet?.merges || []).length,
+    filterViewIds: (prevSheet?.filterViews || []).map((v) => v.filterViewId),
+  }, linkOrigin, photoByPlate);
 
-  // 테스트 데이터는 «남에게 보여주는» 시트에 절대 나가면 안 된다.
-  // 한 번 지우는 것으로는 재발한다 — QA 공급사는 오픈 스모크용으로 계속 살아 있기 때문이다.
-  // 그래서 지우는 것과 별개로, 내보내는 길목에서 항상 막는다.
-  const TEST_MARK = /(\[QA\]|^QA[\s_-]|테스트|test\b|샘플|sample|dummy|더미)/i;
-  const testCodes = new Set<string>();
-  for (const p of partners.values()) {
-    const code = S(p.company_code || p.partner_code || p._key);
-    if (code && (TEST_MARK.test(S(p.company_name || p.name || p.partner_name)) || TEST_MARK.test(code))) testCodes.add(code);
-  }
+  // 결과 수식은 값이 아니라 «수식»으로 들어가야 한다 → USER_ENTERED.
+  const put = await fetch(`${api}/values/${encodeURIComponent(title)}!A1?valueInputOption=USER_ENTERED`, {
+    method: 'PUT', headers: head, body: JSON.stringify({ values: built.values }),
+  });
+  if (!put.ok) throw new Error(`쓰기 실패 ${put.status} ${(await put.text()).slice(0, 300)}`);
 
-  const offerable = products.filter((p) => isOfferableProduct(p as never));
-  const excluded = offerable.filter((p) => testCodes.has(S(p.provider_company_code)));
-  const clean = offerable.filter((p) => !testCodes.has(S(p.provider_company_code)));
-  if (excluded.length) console.log(`\n  ⚠ 테스트 공급사 매물 ${excluded.length}대 제외: ${excluded.map((p) => S(p._key)).join(' · ')}`);
-  const rows = sortForSheet(clean.map((p) => productSheetRow(p as never, nameOf.get(S(p.provider_company_code)) || '')));
-
-  const byProvider = new Map<string, number>();
-  for (const r of rows) byProvider.set(String(r[0] || '(미상)'), (byProvider.get(String(r[0] || '(미상)')) || 0) + 1);
-
-  console.log(`\n══ 프리패스 상품리스트 ══\n`);
-  console.log(`  살아있는 매물 ${products.length}대 · 게시 가능 ${rows.length}대 · 열 ${PRODUCT_SHEET_HEADER.length}개`);
-  console.log(`  대상 시트 ${SHEET_ID} · 탭 「${TAB}」\n`);
-  console.log('  공급사별');
-  for (const [name, n] of [...byProvider.entries()].sort((a, b) => b[1] - a[1])) {
-    console.log(`     ${name.padEnd(16)} ${String(n).padStart(4)}대`);
-  }
-
-  if (!APPLY) {
-    console.log(`\n  표본 1행: ${rows[0]?.slice(0, 8).join(' · ')}`);
-    console.log(`\n※ dry-run. 시트에 쓰려면 --apply`);
-    console.log(`   서비스계정 ${sheetsServiceAccountEmail()} 가 편집자여야 한다.\n`);
+  // 서식은 값과 별개다. 실패해도 값은 이미 들어갔으므로 오류를 삼키지 말고 그대로 알린다.
+  const requests = built.requests;
+  if (overwrite) requests.push({ updateSheetProperties: { properties: { sheetId: gid, title: tabName, index: 0 }, fields: 'title,index' } });
+  const fmt = await fetch(`${api}:batchUpdate`, { method: 'POST', headers: head, body: JSON.stringify({ requests }) });
+  if (!fmt.ok) {
+    console.log(`\n  ⚠ 값은 들어갔으나 서식 적용 실패 ${fmt.status} — ${(await fmt.text()).slice(0, 400)}\n`);
     return;
   }
-
-  const stamp = new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
-  const res = await writeSheetTable({
-    spreadsheetId: SHEET_ID,
-    tabTitle: TAB,
-    columns: PRODUCT_SHEET_COLUMNS,
-    rows,
-    statusColumnIndex: STATUS_COLUMN_INDEX,
-    caption: `프리패스 상품리스트 — ${rows.length}대 · ${stamp} 기준 (자동 생성, 직접 수정하면 다음 반영 때 덮어써집니다)`,
-  });
-  console.log(`\n✅ 시트 반영 완료 — 「${res.tabTitle}」 ${res.rows}행\n`);
+  console.log(`\n  반영 완료 — 탭 「${tabName}」 · ${built.values.length}행 · 조회바·서식 적용됨\n`);
 }
 
-main().then(() => process.exit(0)).catch((e) => { console.error(`\n실패: ${e.message}\n`); process.exit(1); });
+main().catch((e) => { console.error(String(e?.message || e)); process.exit(1); });

@@ -16,24 +16,32 @@ type Params = {
   rows: EntityRecord[] | null;
   query: string;
   liveQuery: string;
-  status: string;
-  productType: string;
-  draftStatus: string;
-  draftProductType: string;
+  /** 빈 Set = 전체. 값이 있으면 OR 매칭. */
+  statuses: Set<string>;
+  productTypes: Set<string>;
+  draftStatuses: Set<string>;
+  draftProductTypes: Set<string>;
   sort: InventorySort | '';
 };
 
-function matchesFilters(product: EntityRecord, status: string, productType: string): boolean {
-  return (status === 'all' || normalizeVehicleDisplayStatus(product.vehicle_status) === status)
-    && (productType === 'all' || canonProductType(product.product_type) === productType);
+function matchesFilters(
+  product: EntityRecord,
+  statuses: Set<string>,
+  productTypes: Set<string>,
+): boolean {
+  const statusOk = statuses.size === 0
+    || statuses.has(normalizeVehicleDisplayStatus(product.vehicle_status));
+  const typeOk = productTypes.size === 0
+    || productTypes.has(canonProductType(product.product_type));
+  return statusOk && typeOk;
 }
 
 export function useInventoryResults({
-  rows, query, liveQuery, status, productType, draftStatus, draftProductType, sort,
+  rows, query, liveQuery, statuses, productTypes, draftStatuses, draftProductTypes, sort,
 }: Params) {
   const filtered = useMemo(() => (rows || [])
     .filter((product) => matchProductQuery(product, query))
-    .filter((product) => matchesFilters(product, status, productType))
+    .filter((product) => matchesFilters(product, statuses, productTypes))
     .slice()
     .sort((a, b) => {
       if (!sort) return 0;
@@ -44,12 +52,12 @@ export function useInventoryResults({
       const bIndex = VEHICLE_DISPLAY_STATUSES.indexOf(normalizeVehicleDisplayStatus(b.vehicle_status));
       return (aIndex < 0 ? 99 : aIndex) - (bIndex < 0 ? 99 : bIndex)
         || vehicleName(a).localeCompare(vehicleName(b), 'ko');
-    }), [rows, query, status, productType, sort]);
+    }), [rows, query, statuses, productTypes, sort]);
 
   const draftPreviewCount = useMemo(() => (rows || [])
     .filter((product) => matchProductQuery(product, liveQuery))
-    .filter((product) => matchesFilters(product, draftStatus, draftProductType))
-    .length, [rows, liveQuery, draftStatus, draftProductType]);
+    .filter((product) => matchesFilters(product, draftStatuses, draftProductTypes))
+    .length, [rows, liveQuery, draftStatuses, draftProductTypes]);
 
   return { filtered, draftPreviewCount };
 }

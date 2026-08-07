@@ -21,11 +21,10 @@ import {
   won, type BadgeTone,
 } from '@/components/ui';
 import {
-  FeedListRow, FeedThumbIcon, FeedTitle, FeedSub, FeedBadges, FeedTitleRow,
+  FEED_LINE, FeedListRow, FeedThumbIcon, FeedTitle, FeedSub, FeedTitleRow,
 } from '@/components/ui/feedrow';
 import { useIsMobile } from '@/lib/use-mobile';
 import { CardSpecs } from '@/components/product-card-atoms';
-import { vehicleTone } from '@/lib/domain/product';
 import { msgClock } from '@/lib/format';
 import { haptic } from '@/lib/haptics';
 import { partnerTypeLabel } from '@/lib/domain/partner';
@@ -117,10 +116,9 @@ function inventoryStatusIcon(p: EntityRecord): { icon: LucideIcon; tone: BadgeTo
 }
 
 /**
- * 문의 목록 3줄
- *   1 차량명 · 날짜
- *   2 필요한 단계뱃지 · 차번 · 역할별 상대방
- *   3 마지막 메시지 · 안읽음
+ * 문의 목록 2줄(카톡형)
+ *   1 차량명 · 차번 · 상대방 / 시각 — 단계는 왼쪽 아이콘
+ *   2 마지막 메시지 / 안읽음
  */
 export const ChatRoomRow = memo(function ChatRoomRow({
   room, stageContract, counter, unread, selected, onClick, displayName, plate,
@@ -131,9 +129,9 @@ export const ChatRoomRow = memo(function ChatRoomRow({
   unread: number;
   selected?: boolean;
   onClick: (room: EntityRecord) => void; // 항목을 인자로 받는 안정 핸들러(부모 useCallback) — memo 유효화
-  /** ①줄 = 차량명만(차번은 ②줄로). 목록 규격 SSOT */
+  /** ①줄 주제 = 차량명. 차번·상대방은 같은 줄에 뮤트로 붙인다. */
   displayName?: string;
-  /** ②줄 = 차량번호. 관리자 상담방은 빈 값 */
+  /** 차량번호. 관리자 상담방은 빈 값 */
   plate?: string;
 }) {
   const stage = contractStage(stageContract);
@@ -142,26 +140,18 @@ export const ChatRoomRow = memo(function ChatRoomRow({
   const head = listText(displayName) || listText(room.vehicle_name) || '상품';
   const plateText = String(plate || '').trim();
   const counterText = String(counter || '').replace(/\s+/g, ' ').trim();
+  const titleText = [head, plateText, counterText].filter(Boolean).join(' · ');
   return (
     <FeedListRow
       selected={selected}
       onClick={() => onClick(room)}
       thumb={<FeedThumbIcon icon={ic.icon} tone={ic.tone} title={ic.title} decorative={stage.label !== '문의' || unread > 0} />}
-      // 목록 규격 = ①주제(차량명)/시각 ②식별(차번·상대방) ③맥락(마지막 메시지)/안읽음.
-      //  전 화면 동일 구조. 차번은 ②로 내려 ①이 차명만 갖게 한다(매물 카드와 같은 리듬).
       lines={[
         <FeedTitleRow
           key="t"
-          title={<FeedTitle>{head}</FeedTitle>}
+          title={<FeedTitle>{titleText}</FeedTitle>}
           meta={<span style={{ fontSize: FS.cap, color: C.mute, fontVariantNumeric: 'tabular-nums' }}>{msgClock(room.last_message_at, { dateOnly: true })}</span>}
         />,
-        <FeedBadges key="b">
-          {stage.label !== '문의' ? <Badge tone={stage.tone}>{stage.label}</Badge> : null}
-          {dotJoin([
-            plateText ? <span style={{ fontSize: FS.sub, fontWeight: FW.strong, color: C.mute, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{plateText}</span> : null,
-            counterText ? <span style={{ fontSize: FS.sub, color: C.mute }}>{counterText}</span> : null,
-          ])}
-        </FeedBadges>,
         <div key="m" style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, width: '100%' }}>
           <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
             <FeedSub strong={unread > 0}>{msg}</FeedSub>
@@ -174,11 +164,9 @@ export const ChatRoomRow = memo(function ChatRoomRow({
 });
 
 /**
- * 계약 목록 3줄
- *   1 차량명 · 진행 n/5
- *   2 상태뱃지 · 차번 · 계약코드
- *   3 계약자 · 역할별 상대방 · 계약일
- * 좌측 = 상태 아이콘(색) — 문의·재고와 동일 규격(액센트 바 없음)
+ * 계약 목록 2줄
+ *   1 차량명 · 진행 n/5 — 단계는 왼쪽 아이콘
+ *   2 차번 · 계약코드 · 계약자 · 상대방 · 계약일
  */
 export function ContractListRow({
   c, selected, onClick, displayName, plate, party = [],
@@ -212,15 +200,10 @@ export function ContractListRow({
             <span style={{ fontSize: FS.sub, fontWeight: FW.head, color: stage.tone === 'amber' ? C.warn : C.brand, fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{pr.done}/{pr.total}</span>
           ) : null}
         />,
-        <FeedBadges key="b">
-          <Badge tone={stage.tone}>{stage.label}</Badge>
+        <FeedSub key="s">
           {dotJoin([
             plateSpan(String(plate || c.car_number_snapshot || '')),
             contractCode ? <span style={{ fontSize: FS.cap, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', color: C.mute, fontWeight: FW.strong }}>{contractCode}</span> : null,
-          ])}
-        </FeedBadges>,
-        <FeedSub key="s">
-          {dotJoin([
             c.customer_name ? String(c.customer_name) : null,
             ...party,
             c.contract_date ? String(c.contract_date) : null,
@@ -232,11 +215,9 @@ export function ContractListRow({
 }
 
 /**
- * 재고 목록 3줄 — 목록 규격(①주제 ②식별 ③맥락) SSOT
- *   ① 차량명
- *   ② 상태·상품유형 뱃지 · 차번 · 연식 · 연료 · 주행 (식별)
- *   ③ 공급사 (+검수·변환)
- * 좌측 = 출고/판매 상태 아이콘(색)
+ * 재고 목록 2줄
+ *   1 차량명 — 출고상태는 왼쪽 아이콘
+ *   2 상품유형 · 차번·스펙 · 공급사 (+검수·변환)
  */
 export const InventoryListRow = memo(function InventoryListRow({
   p, selected, onClick,
@@ -245,10 +226,11 @@ export const InventoryListRow = memo(function InventoryListRow({
   selected?: boolean;
   onClick: (p: EntityRecord) => void; // 항목을 인자로 받는 안정 핸들러(부모 useCallback) — memo 유효화
 }) {
-  const st = normalizeVehicleDisplayStatus(p.vehicle_status);
   const pt = listText(p.product_type);
   const provider = listText(p.provider_name) || listText(p.provider_company_code);
   const ic = inventoryStatusIcon(p);
+  const ptCanon = pt ? (canonProductType(pt) || pt) : '';
+  const pts = ptCanon ? productTypeStyle(ptCanon) : null;
   return (
     <FeedListRow
       selected={selected}
@@ -256,19 +238,14 @@ export const InventoryListRow = memo(function InventoryListRow({
       thumb={<FeedThumbIcon icon={ic.icon} tone={ic.tone} title={ic.title} decorative />}
       lines={[
         <FeedTitle key="t">{productVehicleLabel(p) || '차량명 미확인'}</FeedTitle>,
-        // ② 식별 — 상태뱃지 + 차번·스펙. 문의(②=상태·차번·상대방)와 같은 자리·같은 순서.
-        <div key="b" style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden' }}>
-          <Badge tone={vehicleTone(st)} variant={st === '계약중' || st === UNKNOWN_VEHICLE_STATUS ? 'solid' : 'line'} pulse={st === '계약중'}>{st}</Badge>
-          {pt ? (() => { const c = canonProductType(pt) || pt; const pts = productTypeStyle(c); return <Badge tone={pts.tone} variant={pts.variant}>{c}</Badge>; })() : null}
+        <div key="s" style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden', width: '100%' }}>
+          {pts ? <Badge tone={pts.tone} variant={pts.variant}>{ptCanon}</Badge> : null}
           <div style={{ flex: '1 1 auto', minWidth: 0, overflow: 'hidden' }}>
             <CardSpecs p={p} dense />
           </div>
-        </div>,
-        // ③ 맥락 — 이 화면에서 중요한 것 = 어느 공급사 물건인가 + 검수 필요 여부
-        <div key="s" style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden' }}>
           {provider ? (
             <span style={{
-              flex: '0 1 auto', minWidth: 0,
+              flex: '0 1 auto', maxWidth: '28%', minWidth: 0,
               fontSize: FS.sub, color: C.mute, fontWeight: FW.meta,
               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             }}>{provider}</span>
@@ -310,7 +287,7 @@ function memberStatus(row: EntityRecord, kind: 'user' | 'partner'): {
   return { icon: UserRoundCheck, tone: 'green', title: '활성 계정' };
 }
 
-/** 회원·파트너 — 재고·문의·계약과 동일한 아이콘 + 3줄 목록 규격. */
+/** 회원·파트너 — 문의·계약·재고와 동일한 아이콘 + 2줄 목록 규격. */
 export function MemberListRow({
   row, kind, selected, onClick,
 }: {
@@ -345,15 +322,14 @@ export function MemberListRow({
       thumb={<FeedThumbIcon icon={ic.icon} tone={ic.tone} title={ic.title} decorative />}
       lines={[
         <FeedTitle key="t">{listText(row.name) || code || (kind === 'user' ? '계정' : '회사')}</FeedTitle>,
-        // ② 식별 — 상태뱃지 + 코드·소속. 문의·계약·재고와 같은 자리·같은 순서(뱃지가 앞).
-        <div key="b" style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden' }}>
+        <div key="s" style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden', width: '100%' }}>
           {kind === 'user' ? (
             <>
               <Badge tone={ACTOR_TONE[role] || (role.startsWith('agent') ? 'blue' : 'gray')}>
                 {MEMBER_ROLE_LABEL[role] || role || '역할 미지정'}
               </Badge>
               {pending ? <Badge tone="amber" variant="solid">승인대기</Badge>
-                : <Badge tone={inactive ? 'gray' : 'green'} variant="quiet">{inactive ? '비활성' : '활성'}</Badge>}
+                : inactive ? <Badge tone="gray" variant="quiet">비활성</Badge> : null}
             </>
           ) : (
             <>
@@ -366,18 +342,12 @@ export function MemberListRow({
               {dotJoin([
                 code ? <span key="c" style={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{code}</span> : null,
                 kind === 'user' ? (company || channel) : null,
+                String(row.phone || row.contact || '') || null,
+                String(row.email || '') || null,
               ]) || ''}
             </FeedSub>
           </div>
         </div>,
-        // ③ 맥락 — 회원관리에서 필요한 건 연락 수단.
-        //  값이 없으면 줄을 비운다(②줄과 같은 규칙). 대시 폴백은 표에서만 — 목록에 '—' 하나만 남으면 뜬금없다.
-        <FeedSub key="s">
-          {dotJoin([
-            String(row.phone || row.contact || '') || null,
-            String(row.email || '') || null,
-          ]) || null}
-        </FeedSub>,
       ]}
     />
   );
@@ -418,7 +388,7 @@ function CreateListRow({
   onClick: () => void;
 }) {
   const mobile = useIsMobile();
-  const bodyH = 18 + 20 + 15 + 6;
+  const bodyH = FEED_LINE.title + FEED_LINE.sub + FEED_LINE.gap;
   return (
     <div
       role="button"
@@ -474,7 +444,7 @@ function settlementStatusIcon(display: SettlementListDisplay): { icon: LucideIco
   return { icon: FileClock, tone: display.tone, title: display.status };
 }
 
-/** 월별 정산 목록 — 차량명 / 상태·차번·날짜 / 관계자·정산코드 3줄 규격. */
+/** 월별 정산 목록 — 차량명·금액 / 상태경고·차번·날짜·관계자 2줄. */
 export function SettlementListRow({
   settlement, display, selected, onClick,
 }: {
@@ -499,29 +469,28 @@ export function SettlementListRow({
           title={<FeedTitle>{display.vehicleName}</FeedTitle>}
           meta={<span style={{ fontSize: FS.sub, fontWeight: FW.head, color: netColor, fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{won(net)}</span>}
         />,
-        <FeedBadges key="b">
-          <Badge tone={display.tone}>{display.status}</Badge>
+        <div key="s" style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden', width: '100%' }}>
           {invalidRent ? <Badge tone="red" variant="solid">{SETTLEMENT_RENT_WARNING}</Badge> : null}
           {unresolvedRate ? <Badge tone="amber" variant="solid">{SETTLEMENT_RATE_WARNING}</Badge> : null}
-          {dotJoin([
-            plateSpan(display.plate),
-            display.contractDate ? <span key="d" style={{ fontSize: FS.cap, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', color: C.mute, fontWeight: FW.strong }}>{display.contractDate}</span> : null,
-          ])}
-        </FeedBadges>,
-        <FeedSub key="s">
-          {dotJoin([
-            display.customerName || null,
-            display.providerName || null,
-            display.agentName || null,
-            settlementCode ? <span key="c" style={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{settlementCode}</span> : null,
-          ]) || '—'}
-        </FeedSub>,
+          <div style={{ flex: '1 1 auto', minWidth: 0, overflow: 'hidden' }}>
+            <FeedSub>
+              {dotJoin([
+                plateSpan(display.plate),
+                display.contractDate ? <span key="d" style={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums', fontWeight: FW.strong }}>{display.contractDate}</span> : null,
+                display.customerName || null,
+                display.providerName || null,
+                display.agentName || null,
+                settlementCode ? <span key="c" style={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{settlementCode}</span> : null,
+              ]) || '—'}
+            </FeedSub>
+          </div>
+        </div>,
       ]}
     />
   );
 }
 
-/** 정책 — 전용/공용 아이콘 · 유형뱃지 · 코드·심사 (문의·계약·재고와 동일 3줄) */
+/** 정책 — 전용/공용 아이콘 · 유형·소속 · 코드·심사 2줄 */
 function policyStatusIcon(p: EntityRecord): { icon: LucideIcon; tone: BadgeTone; title: string } {
   if (!listText(p.policy_name)) {
     return { icon: FileX2, tone: 'red', title: '정책명 확인' };
@@ -554,17 +523,19 @@ export function PolicyListRow({
       thumb={<FeedThumbIcon icon={ic.icon} tone={ic.tone} title={ic.title} decorative />}
       lines={[
         <FeedTitle key="t">{policyName || '정책명 미지정'}</FeedTitle>,
-        <FeedBadges key="b">
+        <div key="s" style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden', width: '100%' }}>
           {missingName ? <Badge tone="red" variant="solid">정보 확인</Badge> : null}
           {ptype ? <Badge tone="blue">{ptype}</Badge> : null}
           <Badge tone={shared ? 'gray' : 'blue'} variant="quiet">{shared ? '공용' : providerName}</Badge>
-        </FeedBadges>,
-        <FeedSub key="s">
-          {dotJoin([
-            policyCode ? <span key="c" style={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{policyCode}</span> : null,
-            screeningCriteria || null,
-          ]) || '—'}
-        </FeedSub>,
+          <div style={{ flex: '1 1 auto', minWidth: 0, overflow: 'hidden' }}>
+            <FeedSub>
+              {dotJoin([
+                policyCode ? <span key="c" style={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{policyCode}</span> : null,
+                screeningCriteria || null,
+              ]) || ''}
+            </FeedSub>
+          </div>
+        </div>,
       ]}
     />
   );

@@ -48,6 +48,7 @@
 | C-6 채팅방 헤더 방키 노출 | ⬜ | |
 | C-7 말풍선 우측 여백 | ⬜ | |
 | C-8 SEC-2·MONEY-1·PII-2·CONTRACT-1 | 🔒 | 설계 판단 필요 — Claude가 먼저 정한다 |
+| **S-1 시트 연동 데드락** | ⬜ | **오픈 차단. 최우선.** 2026-08-06 Claude 전수조사 |
 
 ### 동시 편집 중이라 열지 마라
 ```
@@ -79,6 +80,67 @@ npx tsx scripts/rtdb-rules.mts put tmp/rules/next.json   # 직전 라이브를 �
 
 ⚠ **에뮬레이터 함정** — `scripts/ruleprobe/firebase.json` 이 `step1.rules.json` 을 본다.
 `probe2.rules.json` 만 바꾸면 **규칙이 안 실린 채 통과한다.** 검증 대상 규칙은 `step1.rules.json` 에 넣어라.
+
+---
+
+## S-1. 시트 연동이 «승인할 수 없는 차단»에 걸려 있다 ⬜ — 최우선
+
+**증상**: 관리자 재고관리 → 상품 검증까지는 통과하는데 **상품 반영을 누르면**
+`기존 가격기간 누락 39건. 충돌을 정리하고 다시 검증하세요.` 로 막힌다.
+그런데 **화면의 승인 후보 목록엔 0건**이라 운영자가 손쓸 방법이 없다. 완전한 데드락이다.
+
+**실측 (2026-08-06, `npx tsx scripts/audit-inventory-sources.mts --plan --conflict-detail`)**
+```
+시트 16곳 원본 437 → 반영 388 · 무효 0 · 중복 0 · 조회실패 0   ← 1단계는 전부 PASS
+ERP 대조:  BLOCKED · 기존 가격기간 누락 39건
+  금액 변경 있음 → 승인 후보로 표시됨    0건
+  금액 변경 없음 → 승인 후보에 안 뜸    39건   ← 전부 이것
+```
+
+**원인**: 「금액이 안 바뀌면 승인 없이 통과」 완화가 **미리보기에만** 들어갔다.
+
+| 위치 | `priceChangesValue` | 결과 |
+|---|---|---|
+| `components/SheetSync.tsx:941` 미리보기 | **넘김** | 39건 통과 → 화면은 "반영 가능", 승인 후보 0건 |
+| `components/SheetSync.tsx:1141` `verifyFreshSnapshot` | 안 넘김 | 39건 부활 → **여기서 throw** |
+| `lib/domain/sheet-sync-all.ts:991` 커밋 경계 | 안 넘김 | 통과해도 여기서 또 차단 |
+| `lib/domain/sheet-daily-sync.ts:95` 일일 자동연동 | 안 넘김 | 매일 밤 같은 이유로 실패 |
+
+완화가 안전한 근거는 이미 코드에 있다 — soft-merge 는 누락 기간을 **삭제하지 않고 기존값으로 보존**한다
+(`lib/domain/sheet-conflict-report.ts:94`). 승인하든 안 하든 결과가 같다.
+
+**조치** — 판정을 한 곳에서 만들어 네 군데가 **같은 값**을 쓰게 한다.
+
+1. `lib/domain/sheet-conflict-report.ts` 에 헬퍼를 추가한다(이 파일이 이미 `priceImpact` 를 갖고 있다):
+   ```ts
+   /** 「반영하면 손님에게 나가는 금액이 바뀌는가」 — 승인 요구 여부의 SSOT. */
+   export function buildPriceChangesValue(input: Parameters<typeof buildSheetConflictReportRows>[0]): (raw: string) => boolean {
+     const byRaw = new Map(buildSheetConflictReportRows(input).map((row) => [row.raw, String(row.priceImpact || '')]));
+     return (raw) => (byRaw.get(raw) || '').includes('새 기본가격 적용');
+   }
+   ```
+2. 위 표의 **나머지 세 곳**에서 이 헬퍼로 만든 `priceChangesValue` 를 `applySheetConflictResolutions` 에 넘긴다.
+   입력은 네 곳 모두 동일해야 한다 — `conflicts`(raw), `existing`, `deleted`, `incoming = fetched.products`,
+   `contracts`, `providerCodes = fetched.lines.map(l => l.code)`.
+3. `components/SheetSync.tsx:939` 의 인라인 정의도 이 헬퍼로 교체한다(중복 정의 금지).
+
+**하지 마라**
+- `missingPricePeriods` 판정 자체를 약화시키지 마라. 고치는 건 «누가 그 판정을 보느냐» 뿐이다.
+- `isPriceConflictProtected`(계약락·진행계약 보호)는 **절대 건드리지 마라.** 완화가 그쪽에 번지면 이중판매가 난다.
+- 승인 이력(`v4/sheet_conflict_resolutions`)을 지우거나 일괄 승인으로 우회하지 마라.
+
+**회귀 시험** — `scripts/sim-sheet-merge.mts` 에 3건 추가:
+- 금액 무변화 + 미승인 → 미리보기·커밋 경계·일일동기화 **모두 통과**
+- 금액 변경 + 미승인 → 네 곳 **모두 차단**
+- 계약락 걸린 차 + 금액 무변화 → 완화와 무관하게 **차단 유지**
+
+**완료 판정**
+```
+npx tsx scripts/audit-inventory-sources.mts --plan
+→ 결과 PASS (지금은 BLOCKED · 기존 가격기간 누락 39건)
+npm run typecheck · npx tsx scripts/sim-sheet-merge.mts   # 145/145 이상
+```
+운영 write 는 하지 마라. 반영 실행은 사람·Claude 게이트다.
 
 ---
 
@@ -184,4 +246,4 @@ npx tsx scripts/verify-v4-migration.mts
 
 ---
 
-_갱신: 2026-07-31 — Claude Code_
+_갱신: 2026-08-06 — Claude Code (S-1 추가)_

@@ -7,8 +7,8 @@ import {
   depositForSort, installmentOk, isListableProduct, minAge, noDeposit, rentForSort,
 } from '@/lib/domain/product';
 import {
-  activeCount, aggregateDyn, EMPTY_VEHICLE_FILTER, excelMonths, matchProduct,
-  presentFilterOptions, type FState, type VehicleFilter,
+  activeCount, aggregateDynFaceted, excelMonths, facetPool,
+  matchPopularModel, matchProduct, presentFilterOptionsFaceted, type FState, type VehicleFilter,
 } from '@/lib/domain/product-filters';
 import { excelColumnMatches, excelColumnSortValue, isNumericExcelColumn, type ColSort } from './excel-columns';
 import { numOr, type FilterBag, type InterestKey } from './filter-state';
@@ -53,17 +53,42 @@ export function useFinderResults(params: Params) {
   const deferredState = useDeferredValue(state);
   const deferredModels = useDeferredValue(models);
 
-  const aggregate = useMemo(() => aggregateDyn(rows || []), [rows]);
+  // 칩·연쇄 모수 = 시트(draft) 편집 중이면 draft, 아니면 적용된 조건.
+  const facetState: FState = useMemo(() => (filterDraft
+    ? {
+      q: query,
+      periods: filterDraft.periods,
+      rent: filterDraft.rent,
+      dep: filterDraft.dep,
+      mile: filterDraft.mile,
+      fuel: filterDraft.fuel,
+      ptype: filterDraft.ptype,
+      credit: filterDraft.credit,
+      perks: filterDraft.perks,
+      promo: filterDraft.promo,
+      dyn: filterDraft.dyn,
+      vehicle: filterDraft.vehicle,
+    }
+    : deferredState), [filterDraft, query, deferredState]);
+  const facetModels = filterDraft ? filterDraft.models : deferredModels;
+
+  const aggregate = useMemo(
+    () => aggregateDynFaceted(rows || [], facetState, facetModels),
+    [rows, facetState, facetModels],
+  );
   const months = useMemo(() => effectiveView === 'excel' ? excelMonths(rows || []) : [], [rows, effectiveView]);
-  const present = useMemo(() => presentFilterOptions(rows || []), [rows]);
-  const cascadeProducts = useMemo(() => {
-    const base: FState = { ...deferredState, vehicle: { ...EMPTY_VEHICLE_FILTER } };
-    return (rows || []).filter((product) => matchProduct(product, base));
-  }, [rows, deferredState]);
+  const present = useMemo(
+    () => presentFilterOptionsFaceted(rows || [], facetState, facetModels),
+    [rows, facetState, facetModels],
+  );
+  const cascadeProducts = useMemo(
+    () => facetPool(rows || [], facetState, facetModels, { vehicle: true }),
+    [rows, facetState, facetModels],
+  );
   const popularModels = useMemo(() => {
+    const pool = facetPool(rows || [], facetState, facetModels, { models: true });
     const counts = new Map<string, number>();
-    for (const product of rows || []) {
-      if (!isListableProduct(product)) continue;
+    for (const product of pool) {
       const model = String(product.model || '').trim();
       if (model) counts.set(model, (counts.get(model) || 0) + 1);
     }
@@ -71,13 +96,13 @@ export function useFinderResults(params: Params) {
       .sort((a, b) => b[1] - a[1])
       .slice(0, 10)
       .map(([model]) => ({ key: model, label: model }));
-  }, [rows]);
+  }, [rows, facetState, facetModels]);
 
   const list = useMemo(() => {
     let result = (rows || []).filter((product) => {
       const code = String(product.product_code || product._key || '');
       if (code && hiddenCodes.has(code)) return false;
-      if (deferredModels.size && !deferredModels.has(String(product.model || '').trim())) return false;
+      if (!matchPopularModel(product, deferredModels)) return false;
       return matchProduct(product, deferredState);
     });
     if (interest.size > 0) {
@@ -139,7 +164,7 @@ export function useFinderResults(params: Params) {
     for (const product of rows) {
       const code = String(product.product_code || product._key || '');
       if (code && hiddenCodes.has(code)) continue;
-      if (filterDraft.models.size && !filterDraft.models.has(String(product.model || '').trim())) continue;
+      if (!matchPopularModel(product, filterDraft.models)) continue;
       if (interestCodes && (!code || !interestCodes.has(code))) continue;
       if (matchProduct(product, draftState)) count += 1;
     }
