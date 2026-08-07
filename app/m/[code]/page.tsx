@@ -136,7 +136,7 @@ export default function Detail() {
         공급사·손님은 지금 그대로 한 칸 브로슈어다 — 그들에겐 그게 맞는 문법이다.
       */}
       <main style={{
-        flex: 1, width: '100%', maxWidth: canDeal ? 1440 : 920, margin: '0 auto',
+        flex: 1, width: '100%', maxWidth: canDeal ? 'none' : 920, margin: '0 auto',
         padding: '14px 16px calc(76px + env(safe-area-inset-bottom))', boxSizing: 'border-box',
         ...(canDeal ? {
           display: 'grid',
@@ -153,8 +153,12 @@ export default function Detail() {
           </div>
         </div>
         <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {/* 「궁금한 게 있으신가요?」 — 이미 있는 문의 진입점을 그대로 쓴다. 새로 만들지 않는다. */}
-          <SimpleInquiry p={p} />
+          {/*
+            「궁금한 게 있으신가요?」는 «대화로 들어가는 입구»다.
+            대화가 이미 이 자리에 펼쳐져 있으면 입구가 필요 없다 — 입력창이 둘이 되어
+            어디에 써야 하는지 헷갈린다(실물 확인 2026-08-07). 대화가 없을 때만 보여준다.
+          */}
+          {canDeal && roomId ? null : <SimpleInquiry p={p} />}
           {/*
             대화 — 여기서 끝나야 하므로 /chat 으로 보내지 않고 이 자리에 편다.
             파일 첨부도 ChatThread 가 이미 갖고 있어 따로 만들 게 없다.
@@ -173,7 +177,7 @@ export default function Detail() {
       {/* 하단독 = [이전] + 액션 — 전 화면 공통 규격. 액션 권한(canDeal)과 무관하게 항상 노출해야
           공급사도 이전 수단이 있다(예전엔 canDeal일 때만 렌더돼 공급사는 하단바 자체가 없었음).
           이전도 라벨 표기 — 다른 상세의 「목록」과 동일한 어포던스. */}
-      <BottomNav maxWidth={920} padX={16} backShowLabel actions={canDeal ? <>
+      <BottomNav maxWidth={canDeal ? 100000 : 920} padX={16} backShowLabel actions={canDeal ? <>
         <Btn title="공유" variant="ghost" size="sm" onClick={sendLink}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
             <Share2 size={ICON.md} aria-hidden />
