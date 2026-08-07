@@ -63,6 +63,24 @@ function bumpUnreadPatch(rm: EntityRecord | null, senderRole: Role, preview: str
   return patch;
 }
 
+/**
+ * 상대편이 이 방을 마지막으로 읽은 시각 — 내가 보낸 말의 «읽음» 판정 기준.
+ *
+ * 편이 여럿이면(공급사·관리자) **아무나 읽었으면 읽은 것**이다. 안읽음과 같은 규칙이라야
+ * 「안읽음은 사라졌는데 상대는 아직 안 읽었다고 나오는」 모순이 안 생긴다.
+ *
+ * ★0 = **알 수 없음**(열람시각이 없는 레거시 방)이지 «안 읽음»이 아니다.
+ *   화면은 0이면 아무 표시도 하지 않는다 — 모르는 것을 «안읽음»이라고 단정하면 안 된다.
+ */
+export function otherSideReadAt(rm: EntityRecord | null | undefined, role: Role): number {
+  if (!rm) return 0;
+  const mine = sideOf(role);
+  const times = (['agent', 'provider', 'admin'] as const)
+    .filter((s) => s !== mine)
+    .map((s) => Number(rm[lastReadField(s)]) || 0);
+  return Math.max(0, ...times);
+}
+
 function msgKey(roomId: string, now: number): string {
   return `${roomId}_${now}_${Math.random().toString(36).slice(2, 6)}`;
 }

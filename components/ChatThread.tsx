@@ -5,7 +5,7 @@ import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { getRole, actor, type Role } from '@/lib/domain/deal';
-import { sendText, sendFile as sendFileMsg, markRead, listMessages, isMine } from '@/lib/domain/messaging';
+import { sendText, sendFile as sendFileMsg, markRead, listMessages, isMine, otherSideReadAt } from '@/lib/domain/messaging';
 import { Btn, IconBtn, C, R, FW, FS, ICON, Loading, CenterNote, Input, ctrlH, ctrlInputFs, NavBack, Dropzone, SCRIM } from '@/components/ui';
 import { toast } from '@/components/Toaster';
 import { ChatSenderLabel } from '@/components/ChatSenderLabel';
@@ -273,6 +273,10 @@ export function ChatThread({
   const attachments = (msgs || []).filter((m) => m.image_url || m.file_url).slice().reverse();
   const attachPhotoN = attachments.filter((m) => m.image_url).length;
   const attachDocN = attachments.length - attachPhotoN;
+  // 읽음 표시 — 상대편이 이 방을 마지막으로 읽은 시각. 편이 여럿이면 아무나 읽으면 읽은 것(안읽음과 같은 규칙).
+  const readAt = otherSideReadAt(room, role);
+  const mineMsgs = (msgs || []).filter((m) => isMine(m, actor(role), role));
+  const lastMineKey = mineMsgs.length ? String(mineMsgs[mineMsgs.length - 1]._key) : '';
   // 같은 batch_id로 연속 도착한 사진 = 한 번에 올린 묶음 → 말풍선 하나(앨범). 낱장은 그대로 각각.
   const rows: { lead: EntityRecord; items: EntityRecord[] }[] = [];
   for (const m of msgs || []) {
@@ -488,11 +492,21 @@ export function ChatThread({
               </div>
               <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, flexDirection: mine ? 'row-reverse' : 'row' }}>
                 {bubble}
-                {clock ? (
-                  <span style={{ flex: '0 0 auto', fontSize: FS.micro, color: C.mute, fontVariantNumeric: 'tabular-nums', lineHeight: 1, paddingBottom: 2 }}>
-                    {clock}
-                  </span>
-                ) : null}
+                <span style={{ flex: '0 0 auto', display: 'flex', flexDirection: 'column', alignItems: mine ? 'flex-end' : 'flex-start', gap: 2, paddingBottom: 2 }}>
+                  {/* 읽음 표시 = 내가 마지막으로 보낸 말에만. 모든 말풍선에 붙이면 대화가 표처럼 시끄러워지고,
+                      가운데 것들은 어차피 마지막 것과 같은 답을 되풀이한다.
+                      상대 열람시각이 없는 방(레거시)은 «모른다» — 아무것도 적지 않는다. */}
+                  {mine && readAt > 0 && String(m._key) === lastMineKey ? (
+                    <span style={{ fontSize: FS.micro, lineHeight: 1, color: Number(m.created_at) <= readAt ? C.brand : C.faint }}>
+                      {Number(m.created_at) <= readAt ? '읽음' : '안읽음'}
+                    </span>
+                  ) : null}
+                  {clock ? (
+                    <span style={{ fontSize: FS.micro, color: C.mute, fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
+                      {clock}
+                    </span>
+                  ) : null}
+                </span>
               </div>
             </div>
           );
