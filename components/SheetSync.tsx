@@ -36,6 +36,8 @@ const IRONRENTCAR_SITE_URL = 'https://ironrentcar.com';
  */
 const ADMIN_FETCH_TIMEOUT_MS = 20_000;
 const IRON_FETCH_TIMEOUT_MS = 90_000;
+/** 재고 스냅샷은 서버가 6천 건을 훑어 투영한다 — 다른 관리자 API 보다 넉넉히 준다. */
+const RECONCILE_FETCH_TIMEOUT_MS = 60_000;
 import { SyncPreview } from '@/components/SyncPreview';
 import { loadVehicleMaster, peekVehicleMaster } from '@/lib/domain/vehicle-master-load';
 import { ADAPTER_OPTIONS, resolveAdapter, type SheetAdapterId } from '@/lib/domain/sheet-adapters';
@@ -211,6 +213,55 @@ type IronRentcarPreview = {
     absentBlocks: Array<{ key: string; fields: string[]; vehicleStatus?: string }>;
   };
 };
+
+/**
+ * 검증용 재고 스냅샷 — 관리자는 **서버 투영**을, 그 외에는 기존 클라이언트 경로를 쓴다.
+ *
+ * 브라우저가 `v4/products` 전량(실측 6,128건 · 약 8MB)을 RTDB 로 직접 읽던 게
+ * 「검증 중…」 영구 고착의 뿌리였다 — 클라이언트 `get()` 에는 타임아웃이 없다.
+ * 서버로 옮기면 평범한 `fetch` 가 되어 상한을 걸 수 있고, 늦으면 «왜»가 화면에 뜬다.
+ * erp3 도 이 대조를 브라우저에서 하지 않았다.
+ *
+ * ★`listSheetReconcileState` 자체는 **건드리지 않는다.** 그 함수는 톰스톤 되살림의
+ *   CAS(`expected`)로도 쓰이는데(sheet-merge.ts:315 → :435-459), 투영 레코드를 거기 흘리면
+ *   `productPatchPreconditionMatches` 가 필드 누락으로 전건 실패해 되살림이 죽는다.
+ *   그래서 «읽고 판정만 하는» 이 자리에서만 갈아탄다.
+ *
+ * 관리자가 아니면(공급사도 /inventory 에서 이 화면을 쓴다) 기존 경로 그대로다 —
+ * 새 API 가 관리자 전용이기 때문이다. 공급사 쪽 8MB 는 남은 숙제로 둔다.
+ */
+async function loadReconcileState(
+  companyId: string,
+  isAdmin: boolean,
+): Promise<{ active: EntityRecord[]; deleted: EntityRecord[] }> {
+  const user = isAdmin ? getAuthClient()?.currentUser : null;
+  if (!user) return listSheetReconcileState(companyId, true);
+  let response: Response;
+  try {
+    response = await fetch(`/api/inventory/reconcile-state?company=${encodeURIComponent(companyId)}`, {
+      headers: { Authorization: `Bearer ${await user.getIdToken()}` },
+      cache: 'no-store',
+      signal: AbortSignal.timeout(RECONCILE_FETCH_TIMEOUT_MS),
+    });
+  } catch (error) {
+    const name = (error as Error)?.name;
+    throw new Error(name === 'TimeoutError' || name === 'AbortError'
+      ? `ERP 재고 조회 ${RECONCILE_FETCH_TIMEOUT_MS / 1000}초 초과 — 다시 시도하세요`
+      : `ERP 재고 조회 실패 — ${String((error as Error)?.message || error)}`);
+  }
+  const body = await response.json().catch(() => ({})) as {
+    active?: EntityRecord[];
+    deleted?: EntityRecord[];
+    complete?: boolean;
+    error?: string;
+    detail?: string;
+  };
+  // 부분 결과를 «완전»으로 받아들이지 않는다 — strict 계약이 여기서도 그대로다.
+  if (!response.ok || body.complete !== true || !Array.isArray(body.active) || !Array.isArray(body.deleted)) {
+    throw new Error(`ERP 재고·삭제 이력 조회 불완전 — ${body.detail || body.error || `HTTP ${response.status}`}`);
+  }
+  return { active: body.active, deleted: body.deleted };
+}
 
 async function fetchSheetConflictResolutions(): Promise<SheetConflictResolution[]> {
   const user = getAuthClient()?.currentUser;
@@ -856,7 +907,7 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
         reconcileState, partnerRows, contracts, rooms, quotes,
         conflictResolutions, conflictDecisions, identityDecisions,
       ] = await Promise.all([
-        listSheetReconcileState(co, true),
+        loadReconcileState(co, isAdmin),
         Promise.resolve(freshPartners),
         getStore().list('contract', co).catch(() => []),
         getStore().list('room', co).catch(() => []),
