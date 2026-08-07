@@ -907,7 +907,7 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
         reconcileState, partnerRows, contracts, rooms, quotes,
         conflictResolutions, conflictDecisions, identityDecisions,
       ] = await Promise.all([
-        loadReconcileState(co, isAdmin),
+        listSheetReconcileState(co, true), // TODO 투영 전환은 revision 을 서버에서 받도록 고친 뒤
         Promise.resolve(freshPartners),
         getStore().list('contract', co).catch(() => []),
         getStore().list('room', co).catch(() => []),
