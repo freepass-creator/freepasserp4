@@ -1,11 +1,11 @@
 'use client';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { PRODUCT_TYPES, type EntityRecord } from '@/lib/intake/entities';
 import { getRole, actor } from '@/lib/domain/deal';
-import { VEHICLE_DISPLAY_STATUSES, normalizeVehicleDisplayStatus, vehicleName } from '@/lib/domain/product';
-import { PaneHead, PaneBody, Btn, C, Loading, CenterNote, Badge, Page, FilterChips, FilterGroup, PageActions, FW, FS, FeedRowSkeleton } from '@/components/ui';
+import { VEHICLE_DISPLAY_STATUSES, canonProductType, normalizeVehicleDisplayStatus, vehicleName } from '@/lib/domain/product';
+import { PaneHead, PaneBody, Btn, ButtonLabel, C, Loading, CenterNote, Badge, Page, ToggleChips, FilterGroup, PageActions, FW, FS, ICON, FeedRowSkeleton } from '@/components/ui';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
 import { toast } from '@/components/Toaster';
 import { buildJonghapTsv } from '@/lib/domain/jonghap';
@@ -13,6 +13,7 @@ import { useResolvedLinkPhotos } from '@/components/use-product-photos';
 import dynamic from 'next/dynamic';
 import { useIsMobile } from '@/lib/use-mobile';
 import { NAV_LABEL } from '@/lib/tabbar';
+import { toggleInSet } from '@/lib/set';
 import { useInventoryResults, type InventorySort as InvSort } from '@/features/inventory/useInventoryResults';
 import { InventoryListPanel, type InventoryListPanelModel } from '@/features/inventory/InventoryListPanel';
 import {
@@ -23,6 +24,8 @@ import { useInventoryEditorLifecycle } from '@/features/inventory/useInventoryEd
 import { useInventoryAccessEffects, useInventoryData } from '@/features/inventory/useInventoryData';
 import { copyText } from '@/lib/clipboard';
 import { retainVisibleSelection } from '@/features/work-list-display';
+import { RefreshCw, Table2 } from 'lucide-react';
+import { exportInventoryToSheet } from '@/lib/firebase/inventory-sheet-export-client';
 const INV_SORTS: { value: InvSort; label: string }[] = [
   { value: 'status', label: '상태순' },
   { value: 'name', label: '차명순' },
@@ -30,22 +33,21 @@ const INV_SORTS: { value: InvSort; label: string }[] = [
   { value: 'code', label: '코드순' },
 ];
 const PAGE = 100; // 첫 화면·더보기 단위(파인더와 동일)
-const INV_STATUS_CHIPS = [
-  { key: 'all' as const, label: '전체' },
-  ...VEHICLE_DISPLAY_STATUSES.map((s) => ({ key: s, label: s })),
-];
-const INV_TYPE_CHIPS = [
-  { key: 'all' as const, label: '전체' },
-  ...PRODUCT_TYPES.map((t) => ({ key: t, label: t })),
-];
 
+function sameStringSet(a: Set<string>, b: Set<string>): boolean {
+  if (a.size !== b.size) return false;
+  for (const value of a) if (!b.has(value)) return false;
+  return true;
+}
+
+/** 공급사 역할만 임베드 — 관리자 일괄 연동 SSOT는 /dev?tool=sync. */
 const SheetSync = dynamic(() => import('@/components/SheetSync').then((m) => m.SheetSync), {
   ssr: false,
   loading: () => <CenterNote>시트 연동 불러오는 중…</CenterNote>,
 });
 
-// 재고관리 4프레임 = [매물 목록 | 기본 | 운영 | 연동·반영]. 파인더와 같은 데이터의 "편집 렌즈".
-// 목록 선택은 읽기 전용 미리보기. 저장은 명시적인 수정→저장에서만 수행. 공급사=자기 매물만.
+// 재고관리 4프레임 = [매물 목록 | 기본 | 운영 | 연동·반영].
+// 관리자 연동 본체는 개발도구. 여기 4번째 패널은 진입 버튼(+종합표)만.
 
 export default function Inventory() {
   const co = getCompanyId();
@@ -69,10 +71,10 @@ export default function Inventory() {
   const [q, setQ] = useState(''); // 검색창 즉시 반영(입력·힌트·조건해제)
   const [debouncedQ, setDebouncedQ] = useState(''); // 디바운스된 검색 — 목록 필터에만 사용
   const [sort, setSort] = useState<InvSort | ''>('');
-  const [stFlt, setStFlt] = useState<string>('all');
-  const [typeFlt, setTypeFlt] = useState<string>('all');
-  const [draftStFlt, setDraftStFlt] = useState<string>('all');
-  const [draftTypeFlt, setDraftTypeFlt] = useState<string>('all');
+  const [stFlt, setStFlt] = useState<Set<string>>(() => new Set());
+  const [typeFlt, setTypeFlt] = useState<Set<string>>(() => new Set());
+  const [draftStFlt, setDraftStFlt] = useState<Set<string>>(() => new Set());
+  const [draftTypeFlt, setDraftTypeFlt] = useState<Set<string>>(() => new Set());
   const [limit, setLimit] = useState(PAGE);
   /** 신규 작성 중(아직 DB 없음). 기존 = 보기 → 수정 눌러야 편집. */
   const [creating, setCreating] = useState(false);
@@ -147,14 +149,42 @@ export default function Inventory() {
   // 검색·필터·정렬 바뀌면 더보기 리셋
   useEffect(() => { setLimit(PAGE); }, [debouncedQ, stFlt, typeFlt, sort]);
 
+  /** 상품상태·구분 칩 건수 — 목록 rows 기준(출고불가 포함). 복수선택(ToggleChips). */
+  const statusChips = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const product of rows || []) {
+      const status = normalizeVehicleDisplayStatus(product.vehicle_status);
+      counts.set(status, (counts.get(status) || 0) + 1);
+    }
+    return VEHICLE_DISPLAY_STATUSES.map((status) => ({
+      key: status,
+      label: status,
+      count: counts.get(status) || 0,
+    }));
+  }, [rows]);
+
+  const typeChips = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const product of rows || []) {
+      const type = canonProductType(product.product_type) || String(product.product_type || '').trim();
+      if (!type) continue;
+      counts.set(type, (counts.get(type) || 0) + 1);
+    }
+    return PRODUCT_TYPES.map((type) => ({
+      key: type,
+      label: type,
+      count: counts.get(type) || 0,
+    }));
+  }, [rows]);
+
   const { filtered, draftPreviewCount } = useInventoryResults({
     rows,
     query: debouncedQ,
     liveQuery: q,
-    status: stFlt,
-    productType: typeFlt,
-    draftStatus: draftStFlt,
-    draftProductType: draftTypeFlt,
+    statuses: stFlt,
+    productTypes: typeFlt,
+    draftStatuses: draftStFlt,
+    draftProductTypes: draftTypeFlt,
     sort,
   });
 
@@ -171,6 +201,22 @@ export default function Inventory() {
   const selectedIsVisible = creating || editing || !!(sel && filtered.some((product) => (
     String(product.product_code) === sel
   )));
+
+  // 재고 → 영업자용 구글시트. 누를 때마다 새 탭이 맨 왼쪽에 생기고 지난 회차는 이력으로 남는다.
+  const [exporting, setExporting] = useState(false);
+  const exportToSheet = async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const result = await exportInventoryToSheet();
+      toast(`시트 반영 완료 — ${result.count}대 · 「${result.tab}」 탭`, 'ok');
+      window.open(result.url, '_blank', 'noopener');
+    } catch (error) {
+      toast(error instanceof Error ? error.message : '시트 반영에 실패했습니다.', 'error');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const copyJonghap = async () => {
     const role = getRole();
@@ -209,10 +255,10 @@ export default function Inventory() {
     selectedCode: sel,
     creating,
     draft: form,
-    hasConditions: !!(q || stFlt !== 'all' || typeFlt !== 'all'),
+    hasConditions: !!(q || stFlt.size || typeFlt.size),
     onSelect: handleRowClick,
     onCreate: newP,
-    onClearConditions: () => { setQ(''); setStFlt('all'); setTypeFlt('all'); },
+    onClearConditions: () => { setQ(''); setStFlt(new Set()); setTypeFlt(new Set()); },
     onLimitChange: setLimit,
   };
   const listEl = <InventoryListPanel model={listPanelModel} />;
@@ -253,13 +299,35 @@ export default function Inventory() {
   };
   const fixedPane = <InventoryFixedPane model={editorModel} />;
   const varPane = <InventoryVariablePane model={editorModel} />;
-  const syncPane = (
+  const syncPane = isAdmin ? (
     <>
-      <PaneHead title={isAdmin ? '전체 공급사 연동·반영' : '내 공급사 연동·반영'} />
+      <PaneHead title="공급사 연동" />
       <PaneBody pad>
-        {/* 관리자=전체 공급사, 공급사 역할=자기 회사만. 모바일 panes에서는 제외한다. */}
+        <div style={{ fontSize: FS.cap, color: C.mute, lineHeight: 1.5, marginBottom: 12 }}>
+          전체 공급사 시트·홈페이지 검증과 반영은 개발도구에서 합니다.
+          거기서 확인한 뒤 재고에 반영하세요.
+        </div>
+        <Btn href="/dev?tool=sync" size="md">
+          <ButtonLabel icon={<RefreshCw size={ICON.md} aria-hidden />}>개발도구 · 공급사 상품 연동</ButtonLabel>
+        </Btn>
+        <div style={{ height: 1, background: C.line2, margin: '14px 0' }} />
+        <Btn size="md" onClick={exportToSheet} disabled={exporting}>
+          <ButtonLabel icon={<Table2 size={ICON.md} aria-hidden />}>
+            {exporting ? '시트 반영 중…' : '영업자 시트 반영 (ERP→구글시트)'}
+          </ButtonLabel>
+        </Btn>
+        <div style={{ fontSize: FS.cap, color: C.mute, lineHeight: 1.5, margin: '8px 0 14px' }}>
+          누를 때마다 새 탭이 맨 왼쪽에 생깁니다. 지난 탭은 그대로 남으니 필요 없으면 지우세요.
+        </div>
+        <Btn size="sm" variant="ghost" onClick={copyJonghap}>종합표 TSV 복사 (ERP→시트)</Btn>
+      </PaneBody>
+    </>
+  ) : (
+    <>
+      <PaneHead title="내 공급사 연동·반영" />
+      <PaneBody pad>
         <div style={{ fontSize: FS.cap, fontWeight: FW.strong, color: C.mute }}>
-          {isAdmin ? '전체 공급사 원본 검증 후 일괄 반영' : '내 회사 원본 검증 후 반영'}
+          내 회사 원본 검증 후 반영
         </div>
         <SheetSync co={co} onImported={() => load(getRole())} />
         <div style={{ height: 1, background: C.line2, margin: '2px 0' }} />
@@ -280,15 +348,12 @@ export default function Inventory() {
   ) : selectedIsVisible ? (
     <PageActions edit={{ onClick: startEdit }} remove={{ onClick: removeP }} />
   ) : undefined;
-  const fltCount = (stFlt !== 'all' ? 1 : 0) + (typeFlt !== 'all' ? 1 : 0);
+  const fltCount = (stFlt.size ? 1 : 0) + (typeFlt.size ? 1 : 0);
   return (
     <>
-      {/* 상단바 라벨은 상태칩과 동명이면 안 된다 — 칩 「출고가능」은 한 상태고, 이 수는 즉시출고+출고가능 합계다. */}
-      <WorkPage title={NAV_LABEL.inventory} statusLabel="가용재고"
-        statusCount={rows === null ? null : rows.filter((p) => {
-          const st = normalizeVehicleDisplayStatus(p.vehicle_status);
-          return st === '즉시출고' || st === '출고가능';
-        }).length}
+      {/* 상단 = 이 목록에 올라온 전체 매물(출고불가 포함). 공급사는 자기 회사분만. */}
+      <WorkPage title={NAV_LABEL.inventory} statusLabel="전체매물"
+        statusCount={rows === null ? null : rows.length}
         countSuffix="대"
         listCount={rows === null ? null : filtered.length}
         list={rows === null ? <FeedRowSkeleton /> : listEl} panes={panes} selected={selectedIsVisible} onBack={clearSel}
@@ -303,46 +368,54 @@ export default function Inventory() {
             title: '조건 검색',
             previewCount: draftPreviewCount,
             previewUnit: '대',
-            dirty: draftStFlt !== stFlt || draftTypeFlt !== typeFlt,
+            dirty: !sameStringSet(draftStFlt, stFlt) || !sameStringSet(draftTypeFlt, typeFlt),
             capture: () => {
-              setDraftStFlt(stFlt);
-              setDraftTypeFlt(typeFlt);
+              setDraftStFlt(new Set(stFlt));
+              setDraftTypeFlt(new Set(typeFlt));
             },
             restore: () => {
-              setDraftStFlt(stFlt);
-              setDraftTypeFlt(typeFlt);
+              setDraftStFlt(new Set(stFlt));
+              setDraftTypeFlt(new Set(typeFlt));
             },
             commit: () => {
-              setStFlt(draftStFlt);
-              setTypeFlt(draftTypeFlt);
+              setStFlt(new Set(draftStFlt));
+              setTypeFlt(new Set(draftTypeFlt));
             },
             onClear: () => {
               if (mobile) {
-                setDraftStFlt('all');
-                setDraftTypeFlt('all');
+                setDraftStFlt(new Set());
+                setDraftTypeFlt(new Set());
               } else {
-                setStFlt('all');
-                setTypeFlt('all');
+                setStFlt(new Set());
+                setTypeFlt(new Set());
               }
             },
             body: (
               <>
                 <FilterGroup
                   title="상품상태"
-                  count={(mobile ? draftStFlt : stFlt) === 'all' ? 0 : 1}
+                  count={(mobile ? draftStFlt : stFlt).size}
                   defaultOpen
                   first={!mobile}
-                  onClear={() => mobile ? setDraftStFlt('all') : setStFlt('all')}
+                  onClear={() => mobile ? setDraftStFlt(new Set()) : setStFlt(new Set())}
                 >
-                  <FilterChips value={mobile ? draftStFlt : stFlt} onChange={mobile ? setDraftStFlt : setStFlt} options={INV_STATUS_CHIPS} />
+                  <ToggleChips
+                    selected={mobile ? draftStFlt : stFlt}
+                    onToggle={(key) => (mobile ? setDraftStFlt : setStFlt)((prev) => toggleInSet(prev, key))}
+                    options={statusChips}
+                  />
                 </FilterGroup>
                 <FilterGroup
                   title="상품구분"
-                  count={(mobile ? draftTypeFlt : typeFlt) === 'all' ? 0 : 1}
+                  count={(mobile ? draftTypeFlt : typeFlt).size}
                   defaultOpen
-                  onClear={() => mobile ? setDraftTypeFlt('all') : setTypeFlt('all')}
+                  onClear={() => mobile ? setDraftTypeFlt(new Set()) : setTypeFlt(new Set())}
                 >
-                  <FilterChips value={mobile ? draftTypeFlt : typeFlt} onChange={mobile ? setDraftTypeFlt : setTypeFlt} options={INV_TYPE_CHIPS} />
+                  <ToggleChips
+                    selected={mobile ? draftTypeFlt : typeFlt}
+                    onToggle={(key) => (mobile ? setDraftTypeFlt : setTypeFlt)((prev) => toggleInSet(prev, key))}
+                    options={typeChips}
+                  />
                 </FilterGroup>
               </>
             ),
@@ -350,10 +423,16 @@ export default function Inventory() {
           hints: [
             ...(q.trim() ? [q.trim().length > 12 ? `${q.trim().slice(0, 12)}…` : q.trim()] : []),
             ...(sort ? [INV_SORTS.find((o) => o.value === sort)?.label || sort] : []),
-            ...(stFlt !== 'all' ? [stFlt] : []),
-            ...(typeFlt !== 'all' ? [typeFlt] : []),
+            ...[...stFlt],
+            ...[...typeFlt],
           ],
-          onClearHints: () => { setQ(''); setSort(''); setStFlt('all'); setTypeFlt('all'); setLimit(PAGE); },
+          onClearHints: () => {
+            setQ('');
+            setSort('');
+            setStFlt(new Set());
+            setTypeFlt(new Set());
+            setLimit(PAGE);
+          },
         }}
       />
     </>

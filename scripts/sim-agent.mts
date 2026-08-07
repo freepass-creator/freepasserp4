@@ -253,12 +253,15 @@ check('2.8 타영업 방 존재(격리대상)', otherRooms.length === 1);
 // ── 3. 계약문의 + 영업자 스텝 ──
 const contractCode = await createContractRequest(
   product,
-  { period: 36, customerName: '', customerPhone: '' },
+  { customerName: '', customerPhone: '' },
   roomId,
 );
 let contract = (await store.get('contract', co, contractCode))!;
 check('3.1 가계약 생성', !!contract && String(contract.agent_code) === me.code, contract.contract_code);
-check('3.2 요율 스냅샷', Number(contract.fee_rate_snapshot) >= 0 && Number(contract.rent_amount_snapshot) === 390000, {
+const { freezeContractTerm } = await import('../lib/domain/deal');
+await freezeContractTerm(contract, product, 36);
+contract = (await store.get('contract', co, contractCode))!;
+check('3.2 요율·약정 금액 스냅샷', Number(contract.fee_rate_snapshot) >= 0 && Number(contract.rent_amount_snapshot) === 390000, {
   fee: contract.fee_rate_snapshot, rent: contract.rent_amount_snapshot,
 });
 check('3.2b 차량 식별 스냅샷 동결',
@@ -326,13 +329,6 @@ contract = (await store.get('contract', co, contractCode))!;
 await applyStepCheck(contract, 'provider_docs_review', '승인');
 setRole('agent');
 contract = (await store.get('contract', co, contractCode))!;
-await applyStepCheck(contract, 'agent_balance_paid', 'yes');
-await applyStepCheck((await store.get('contract', co, contractCode))!, 'agent_final_paid', 'yes');
-setRole('provider');
-await applyStepCheck((await store.get('contract', co, contractCode))!, 'provider_balance_confirmed', 'yes');
-
-// 약정 직전 — 손님 연락처(영업자)
-setRole('agent');
 await store.update('contract', co, contractCode, { customer_name: '김손님', customer_phone: '010-1111-2222' });
 await applyStepCheck((await store.get('contract', co, contractCode))!, 'provider_agreement_done', 'yes');
 
@@ -344,6 +340,11 @@ check('3.7 토큰→계약 조회', !!byToken && String(byToken.contract_code) =
 
 setRole('provider');
 await applyStepCheck((await store.get('contract', co, contractCode))!, 'provider_agreement_sent', 'yes');
+setRole('agent');
+await applyStepCheck((await store.get('contract', co, contractCode))!, 'agent_balance_paid', 'yes');
+await applyStepCheck((await store.get('contract', co, contractCode))!, 'agent_final_paid', 'yes');
+setRole('provider');
+await applyStepCheck((await store.get('contract', co, contractCode))!, 'provider_balance_confirmed', 'yes');
 setRole('agent');
 await applyStepCheck((await store.get('contract', co, contractCode))!, 'agent_handover_confirmed', 'yes');
 setRole('provider');

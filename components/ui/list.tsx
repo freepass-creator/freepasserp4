@@ -5,7 +5,7 @@ import { Badge } from './badges';
 import { C, FS, FW, R } from './tokens';
 
 /* 링크·선택형 리스트 행 — WorkPage 목록 SSOT. selected = C.selected. */
-/* 업무 목록행 = FeedListRow(ui/feedrow) + list-rows 도메인행. 이 2줄 ListRow는 보조/단순용. */
+/* 업무 목록행 = FeedListRow(ui/feedrow) + list-rows 도메인행(2줄 카톡형). 이 ListRow는 보조/단순용. */
 export function ListRow({ badge, badgeTone = 'gray', main, sub, right, href, onClick, selected }: {
   badge?: React.ReactNode;
   badgeTone?: 'gray' | 'green' | 'red' | 'amber' | 'blue';

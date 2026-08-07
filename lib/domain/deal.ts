@@ -12,8 +12,10 @@ import { resolveRates } from '@/lib/domain/settlement-engine';
 import { getSession } from '@/lib/auth-session';
 import { BRAND_MAIN } from '@/lib/brand';
 import { requirePositiveRentAmount } from '@/lib/domain/contract-money';
+import { hasTermFrozen } from '@/lib/domain/contract';
 import { safeBusinessCode } from '@/lib/domain/work-identity';
 import { vehicleNameOf } from '@/lib/domain/vehicle-name';
+import { CONSULT_LABEL } from '@/features/chat/room-display';
 
 export type Role = 'agent' | 'provider' | 'admin';
 // v4 3역할 라벨 = 원본 5역할 라벨(entities.ROLE_LABEL_RAW SSOT)에서 파생. 값 복붙 금지.
@@ -130,10 +132,14 @@ export async function ensureRoom(product: EntityRecord, asker?: { uid: string; c
   return roomKey;
 }
 
-/** 견적기 상담방 공급사·제목 — 손오공=중고(RP012) · 웰릭스=신차(RP013). */
+/**
+ * 견적기 상담방 공급사 — 손오공=중고(RP012) · 웰릭스=신차(RP013).
+ * 제목은 CONSULT_LABEL(room-display) 에서 가져온다 — 목록이 만드는 이름과 저장값을 같게 둔다.
+ * (목록은 저장된 subject 를 믿지 않고 공급사로 다시 만든다. 여기서 저장하는 건 기록용이다.)
+ */
 const CONSULT_APP = {
-  sonogong: { provider: 'RP012', subject: '중고구독 상담' },
-  welrix: { provider: 'RP013', subject: '신차구독 상담' },
+  sonogong: { provider: 'RP012' },
+  welrix: { provider: 'RP013' },
 } as const;
 export type ConsultApp = keyof typeof CONSULT_APP;
 
@@ -208,7 +214,7 @@ export async function ensureConsultRoom(app: ConsultApp): Promise<string | Consu
     _key: roomKey,
     room_code: roomKey,
     room_kind: 'consult',
-    subject: cfg.subject,
+    subject: CONSULT_LABEL[provider] || '구독견적기',
     agent_uid: parties.agent_uid,
     agent_channel_code: parties.agent_channel_code,
     provider_company_code: parties.provider_company_code,
@@ -252,8 +258,14 @@ export async function ensureRoomForContract(c: EntityRecord): Promise<string> {
   return roomKey;
 }
 
-/** 가계약 생성 — TMP-YYMMDD-NN 채번 + 스냅샷 + 계약요청. */
-export async function createContractRequest(product: EntityRecord, opt: { period: number; customerName: string; customerPhone: string }, roomId?: string, deliveryResponse?: string): Promise<string> {
+/** 가계약 생성 — TMP-YYMMDD-NN 채번 + 차량 스냅샷 + 계약요청.
+ *  기간·월대여료·보증금은 여기 안 굳힌다 → 약정(`freezeContractTerm`)에서. */
+export async function createContractRequest(
+  product: EntityRecord,
+  opt: { customerName?: string; customerPhone?: string } = {},
+  roomId?: string,
+  deliveryResponse?: string,
+): Promise<string> {
   const co = getCompanyId();
   const store = getStore();
   // 계약의 영업자 = 그 방(딜)의 영업자에 귀속(공급사·관리자가 눌러 만들어도 방 영업자에 붙음). 방 없으면 세션 영업자(actor) fallback.
@@ -269,11 +281,7 @@ export async function createContractRequest(product: EntityRecord, opt: { period
       };
     }
   }
-  const pr = priceAt(product, opt.period);
-  // 가격이 없는 기간을 0원 계약으로 저장하면 완료 시 0원 정산까지 생성된다.
-  // 계약 생성 입구에서 먼저 막고, 정산 엔진에서도 레거시·우회 호출을 다시 막는다.
-  const rentAmount = requirePositiveRentAmount(pr?.rent, '계약 생성');
-  const { feeRate, payoutRate, feeResolved } = await resolveRates({ provider_company_code: product.provider_company_code, agent_code: ag.code }, product); // 율 계약시점 동결
+  const { feeRate, payoutRate, feeResolved } = await resolveRates({ provider_company_code: product.provider_company_code, agent_code: ag.code }, product); // 율은 생성 시 스냅샷(공급사율 해석 가능할 때만)
   const d = new Date();
   const p2 = (n: number) => String(n).padStart(2, '0');
   const yymmdd = `${String(d.getFullYear()).slice(2)}${p2(d.getMonth() + 1)}${p2(d.getDate())}`;
@@ -300,8 +308,7 @@ export async function createContractRequest(product: EntityRecord, opt: { period
     vehicle_name_snapshot: vehicleNameOf({ kind: 'product', product }, { tier: 'full', fallback: 'none' }),
     year_snapshot: String(product.year || product.model_year || ''),
     fuel_type_snapshot: String(product.fuel_type || ''),
-    rent_month_snapshot: opt.period, rent_amount_snapshot: rentAmount, deposit_amount_snapshot: pr?.deposit ?? 0,
-    customer_name: opt.customerName, customer_phone: opt.customerPhone,
+    customer_name: String(opt.customerName || ''), customer_phone: String(opt.customerPhone || ''),
     agent_uid: parties.agent_uid, agent_code: ag.code, agent_name: ag.name, agent_channel_code: parties.agent_channel_code,
     provider_company_code: parties.provider_company_code,
     credit_grade_snapshot: creditDisplay(product), payout_rate_snapshot: payoutRate,
@@ -315,4 +322,26 @@ export async function createContractRequest(product: EntityRecord, opt: { period
   }]);
   if (roomId) await store.update('room', co, roomId, { linked_contract: code });
   return code;
+}
+
+/** 약정 직전 — 대여기간으로 월대여료·보증금 1회 동결. 이미 굳힌 계약은 덮어쓰지 않는다. */
+export async function freezeContractTerm(
+  contract: EntityRecord,
+  product: EntityRecord,
+  period: number,
+): Promise<void> {
+  const code = String(contract.contract_code || '').trim();
+  if (!code) throw new Error('약정 동결: 계약코드 없음');
+  if (hasTermFrozen(contract)) {
+    throw new Error('약정 동결: 이미 기간·금액이 확정된 계약입니다.');
+  }
+  const m = Number(period) || 0;
+  if (m <= 0) throw new Error('약정 동결: 대여기간을 선택해 주세요.');
+  const pr = priceAt(product, m);
+  const rentAmount = requirePositiveRentAmount(pr?.rent, '약정 동결');
+  await getStore().update('contract', getCompanyId(), code, {
+    rent_month_snapshot: m,
+    rent_amount_snapshot: rentAmount,
+    deposit_amount_snapshot: pr?.deposit ?? 0,
+  });
 }

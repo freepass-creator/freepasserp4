@@ -23,7 +23,7 @@ process.env.NEXT_PUBLIC_DATA_BACKEND = ''; // LocalAdapter 강제
 const { getStore } = await import('../lib/store');
 const { getCompanyId } = await import('../lib/tenant');
 const { newId } = await import('../lib/domain/ids');
-const { ensureRoom, createContractRequest, setRole } = await import('../lib/domain/deal');
+const { ensureRoom, createContractRequest, freezeContractTerm, setRole } = await import('../lib/domain/deal');
 const { applyStepCheck, cancelContract, createSettlement } = await import('../lib/domain/settlement-engine');
 const { importCompletedForMonth } = await import('../lib/domain/admin-settlement');
 import type { EntityRecord } from '../lib/intake/entities';
@@ -50,8 +50,12 @@ const zeroProduct: EntityRecord = {
   vehicle_status: '출고가능', product_type: '중고렌트', provider_company_code: 'sup_jeil', price: {},
 };
 let zeroContractRejected = false;
-try { await createContractRequest(zeroProduct, { period: 36, customerName: 'QA', customerPhone: '' }); } catch { zeroContractRejected = true; }
-check('0a. 가격 없는 기간의 0원 계약 차단', zeroContractRejected, zeroContractRejected);
+try {
+  const zeroCode = await createContractRequest(zeroProduct, { customerName: 'QA', customerPhone: '' });
+  const zeroC = (await store.get('contract', co, zeroCode))!;
+  await freezeContractTerm(zeroC, zeroProduct, 36);
+} catch { zeroContractRejected = true; }
+check('0a. 가격 없는 기간의 0원 약정 동결 차단', zeroContractRejected, zeroContractRejected);
 let zeroSettlementRejected = false;
 try { await createSettlement({ contract_code: 'ZERO', rent_amount_snapshot: 0 }); } catch { zeroSettlementRejected = true; }
 check('0b. 레거시 0원 계약의 정산 생성 차단', zeroSettlementRejected, zeroSettlementRejected);
@@ -72,7 +76,7 @@ check('1. 공급사 차량 등록', !!savedProd && String(savedProd.provider_com
 // ── 2. 영업자 계약 5단계 완주 ──
 setRole('agent');
 const roomId = await ensureRoom(product);
-const contractCode = await createContractRequest(product, { period: 36, customerName: '', customerPhone: '' }, roomId);
+const contractCode = await createContractRequest(product, { customerName: '', customerPhone: '' }, roomId);
 let contract = (await store.get('contract', co, contractCode))!;
 check('2a. 계약 생성(계약요청)', contract.contract_status === '계약요청', contractCode);
 check('2b. 요율 동결(스냅샷)', Number(contract.fee_rate_snapshot) === 0.1 && Number(contract.payout_rate_snapshot) === 0.04,
@@ -83,17 +87,21 @@ const steps: [string, string, string][] = [
   ['provider', 'provider_delivery_response', '출고 가능'],
   ['agent', 'agent_docs_submitted', 'yes'],
   ['provider', 'provider_docs_review', '승인'],
+  ['agent', 'provider_agreement_done', 'yes'],
+  ['provider', 'provider_agreement_sent', 'yes'],
   ['agent', 'agent_balance_paid', 'yes'],
   ['agent', 'agent_final_paid', 'yes'],
   ['provider', 'provider_balance_confirmed', 'yes'],
-  ['agent', 'provider_agreement_done', 'yes'],
-  ['provider', 'provider_agreement_sent', 'yes'],
   ['agent', 'agent_handover_confirmed', 'yes'],
   ['provider', 'provider_release_completed', 'yes'],
 ];
 for (const [who, key, value] of steps) {
   setRole(who as 'agent' | 'provider');
-  if (key === 'provider_agreement_done') await store.update('contract', co, contractCode, { customer_name: '시뮬손님', customer_phone: '010-5555-1212' });
+  if (key === 'provider_agreement_done') {
+    contract = (await store.get('contract', co, contractCode))!;
+    await freezeContractTerm(contract, product, 36);
+    await store.update('contract', co, contractCode, { customer_name: '시뮬손님', customer_phone: '010-5555-1212' });
+  }
   contract = (await store.get('contract', co, contractCode))!;
   await applyStepCheck(contract, key, value);
 }

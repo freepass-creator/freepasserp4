@@ -8,7 +8,7 @@ import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { currentActor } from '@/lib/session';
 import { type EntityRecord } from '@/lib/intake/entities';
-import { getProgress, hasDepositClaim, DEPOSIT_CLAIM_KEYS, isDone, stepActorOf } from '@/lib/domain/contract';
+import { getProgress, hasDepositClaim, hasTermFrozen, DEPOSIT_CLAIM_KEYS, isDone, stepActorOf } from '@/lib/domain/contract';
 import { readPartnerPrivate, readUserPrivate } from '@/lib/domain/private-fields';
 import { requirePositiveRentAmount } from '@/lib/domain/contract-money';
 import { vehicleIdentity } from '@/lib/domain/product';
@@ -402,6 +402,16 @@ export async function applyStepCheck(contract: EntityRecord, key: string, value:
     if (stepActor && role !== 'admin' && role !== stepActor) {
       throw new Error(`${stepActor === 'provider' ? '공급사' : '영업자'} 단계는 해당 역할만 진행할 수 있습니다`);
     }
+  }
+
+  // 입금은 약정에서 기간·금액이 굳힌 뒤에만.
+  if (
+    value
+    && !isReject(value)
+    && (key === 'agent_balance_paid' || key === 'agent_final_paid' || key === 'provider_balance_confirmed')
+    && !hasTermFrozen(contract)
+  ) {
+    throw new Error('약정에서 대여기간·금액을 먼저 확정해 주세요');
   }
 
   // 운영 RTDB 입금 선점은 서버가 차량 신원 hash claim을 transaction으로 선점한 뒤 계약·재고를 갱신한다.

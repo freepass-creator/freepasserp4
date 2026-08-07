@@ -185,6 +185,34 @@ export function sheetProviderOf(
   return matches.length === 1 ? matches[0] : '';
 }
 
+/**
+ * 시트 create → 되살릴 삭제 톰스톤.
+ * 1차 product_code/_key, 2차 공급사+차번(EXT_ 우선). 임시번호는 2차 금지.
+ */
+export function resolveSheetReviveTarget(
+  create: EntityRecord,
+  deleted: EntityRecord[],
+): { key: string; expected: EntityRecord } | null {
+  const createKey = String(create.product_code || create._key || '');
+  if (createKey) {
+    const byKey = deleted.find((row) => String(row._key || row.product_code || '') === createKey);
+    if (byKey) return { key: createKey, expected: byKey };
+  }
+  const plate = plateOf(create);
+  if (!plate || create.is_pending_plate) return null;
+  const provider = sheetProviderOf(create);
+  if (!provider) return null;
+  const same = deleted.filter((row) => {
+    if (plateOf(row) !== plate) return false;
+    if (row.is_pending_plate) return false;
+    return sheetProviderOf(row) === provider;
+  });
+  if (!same.length) return null;
+  const preferred = same.find((row) => String(row._key || row.product_code || '').startsWith('EXT_')) || same[0];
+  const key = String(preferred._key || preferred.product_code || '');
+  return key ? { key, expected: preferred } : null;
+}
+
 const SHEET_PRIVATE_PRODUCT_FIELDS = new Set(['vehicle_price', 'vin', 'account_number']);
 const SHEET_PRIVATE_PRICE_FIELDS = new Set(['fee', 'commission', 'fee_memo']);
 
@@ -423,31 +451,30 @@ export async function commitSheetProducts(companyId: string, products: EntityRec
   //  `store.save` 는 dedup 집합에 **소프트삭제 키까지** 넣는다(rtdb-adapter:622).
   //  자연키 재저장으로 아무 삭제 매물이나 부활하는 걸 막으려는 의도이고 그건 맞다.
   //  그런데 그 때문에 «시트에 멀쩡히 있는 차»가 예전 일괄정리의 톰스톤에 걸려
-  //  영영 안 올라온다 — 실측(2026-08-05): 아이카 6대가 시트에 판매가능인데 화면에 없었다.
+  //  영영 안 올라온다 — 실측(2026-08-05): 아이카 6대 · (2026-08-07): 아이카 21대.
   //
-  //  그래서 부활을 일반 규칙으로 열지 않고 **이 경로에서만** 연다.
-  //  조건 둘을 모두 만족해야 한다 —
-  //    ① 지금 시트가 그 차를 올리고 있다(= plan.creates 에 있다)
-  //    ② 그 키가 삭제 상태다
-  //  시트가 원본이라는 원칙의 직접 귀결이다. 흔적은 `revived_at` 으로 남긴다.
+  //  매칭 키만 `product_code` 로 보면 실패한다. 시트 유입은 `RP004_109호4042` 인데
+  //  톰스톤은 `EXT_…` 인 경우가 대부분이다. **1차=키 · 2차=공급사+차번**(활성 upsert와 동일).
+  //  조건: ① 시트가 올린다(=creates) ② 같은 공급사 삭제 톰스톤이 있다.
+  //  시트가 원본. 흔적=`revived_at`.
   const revivedKeys = new Set<string>();
+  const revivedPlates = new Set<string>();
   if (plan.creates.length) {
     const deleted = await listDeletedProductsForSheetReconcile(companyId, true);
     if (deleted.length) {
-      const deadByKey = new Map(
-        deleted
-          .map((row) => [String(row._key || row.product_code || ''), row] as const)
-          .filter(([key]) => !!key),
-      );
       const now = new Date().toISOString();
       const revivePatches: GuardedProductPatch[] = [];
+      const claimedPlates = new Set<string>();
       for (const row of plan.creates) {
-        const key = String(row.product_code || row._key || '');
-        const expected = deadByKey.get(key);
-        if (!key || !expected) continue;
+        const target = resolveSheetReviveTarget(row, deleted);
+        if (!target) continue;
+        const plate = plateOf(row);
+        const plateKey = plate ? `${sheetProviderOf(row)}|${plate}` : '';
+        if (plateKey && claimedPlates.has(plateKey)) continue;
+        if (plateKey) claimedPlates.add(plateKey);
         revivePatches.push({
-          key,
-          expected,
+          key: target.key,
+          expected: target.expected,
           patch: {
             // Sheet는 공개 재고 writer다. 되살림도 수수료·원가·VIN·계좌 private 원자를
             // 건드리지 않아 공개/비공개 2단 트랜잭션의 부분 성공을 만들지 않는다.
@@ -456,6 +483,7 @@ export async function commitSheetProducts(companyId: string, products: EntityRec
             revived_at: now,
           } as EntityRecord,
         });
+        if (plateKey) revivedPlates.add(plateKey);
       }
       if (revivePatches.length) {
         const guarded = await store.bulkPatchGuardedProduct(companyId, revivePatches);
@@ -466,8 +494,14 @@ export async function commitSheetProducts(companyId: string, products: EntityRec
       }
     }
   }
-  const freshCreates = revivedKeys.size
-    ? plan.creates.filter((row) => !revivedKeys.has(String(row.product_code || row._key || '')))
+  const freshCreates = (revivedKeys.size || revivedPlates.size)
+    ? plan.creates.filter((row) => {
+      const key = String(row.product_code || row._key || '');
+      if (revivedKeys.has(key)) return false;
+      const plate = plateOf(row);
+      if (plate && revivedPlates.has(`${sheetProviderOf(row)}|${plate}`)) return false;
+      return true;
+    })
     : plan.creates;
 
   if (freshCreates.length) {

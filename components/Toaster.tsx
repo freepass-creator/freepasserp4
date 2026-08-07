@@ -70,10 +70,20 @@ export function Toaster() {
         onClick={() => close(confirm.hideCancel ? true : false)}
         style={{ position: 'fixed', inset: 0, zIndex: 210, background: SCRIM.heavy, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
       >
-        <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: 360, width: '100%', background: C.taupeBg, borderRadius: R, padding: '18px 18px 14px', boxShadow: SH.modal }}>
-          {confirm.title && <div style={{ fontSize: FS.title, fontWeight: FW.title, marginBottom: 6, color: C.ink }}>{confirm.title}</div>}
-          <div style={{ fontSize: FS.body, color: C.mute, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{confirm.message}</div>
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            maxWidth: 440, width: '100%', maxHeight: 'min(80vh, 640px)',
+            background: C.taupeBg, borderRadius: R, padding: '18px 18px 14px', boxShadow: SH.modal,
+            display: 'flex', flexDirection: 'column', minHeight: 0,
+          }}
+        >
+          {confirm.title && <div style={{ fontSize: FS.title, fontWeight: FW.title, marginBottom: 6, color: C.ink, flex: '0 0 auto' }}>{confirm.title}</div>}
+          <div style={{
+            fontSize: FS.body, color: C.mute, lineHeight: 1.5, whiteSpace: 'pre-wrap',
+            overflowY: 'auto', flex: '1 1 auto', minHeight: 0, WebkitOverflowScrolling: 'touch',
+          }}>{confirm.message}</div>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16, flex: '0 0 auto' }}>
             {!confirm.hideCancel && (
               <Btn variant="ghost" onClick={() => close(false)}>취소</Btn>
             )}

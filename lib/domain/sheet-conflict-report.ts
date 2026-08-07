@@ -214,9 +214,21 @@ export function buildSheetConflictReportRows(input: {
 export function buildPriceChangesValue(
   input: Parameters<typeof buildSheetConflictReportRows>[0],
 ): (raw: string) => boolean {
-  const impactByRaw = new Map(
-    buildSheetConflictReportRows(input).map((row) => [row.raw, String(row.priceImpact || '')]),
-  );
+  return priceChangesValueFromRows(buildSheetConflictReportRows(input));
+}
+
+/**
+ * 이미 만들어 둔 리포트 행에서 같은 판정을 뽑는다(화면용).
+ *
+ * 미리보기는 표를 그리려고 행을 이미 계산해 뒀다. 그렇다고 판정식을 그 자리에 다시 쓰면
+ * **규칙이 두 벌이 된다** — 「새 기본가격 적용」이라는 문구가 바뀌는 날 한쪽만 고쳐지고,
+ * 그때 다시 「화면엔 승인할 것이 없는데 반영은 막히는」 데드락으로 돌아온다.
+ * 계산은 재사용하고 **판정은 한 곳**에 둔다.
+ */
+export function priceChangesValueFromRows(
+  rows: { raw: string; priceImpact?: string }[],
+): (raw: string) => boolean {
+  const impactByRaw = new Map(rows.map((row) => [row.raw, String(row.priceImpact || '')]));
   return (raw: string) => (impactByRaw.get(raw) || '').includes('새 기본가격 적용');
 }
 

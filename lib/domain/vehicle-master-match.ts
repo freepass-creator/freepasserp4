@@ -111,6 +111,8 @@ export {
   masterModels,
   masterSubs,
   matchVehicleFilter,
+  normalizeVehicleFilter,
+  productsForVehicleStep,
   vehicleFilterCount,
 } from '@/lib/domain/vehicle-master-filter';
 export {

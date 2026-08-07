@@ -6,7 +6,7 @@ import { haptic } from '@/lib/haptics';
 import { useIsMobile } from '@/lib/use-mobile';
 import { CountPill } from './badges';
 import { Btn } from './buttons';
-import { C, FS, FW, ICON, R, ctrlChipH, ctrlFs, ctrlH } from './tokens';
+import { C, FS, FW, ICON, NUM, R, ctrlChipH, ctrlFs, ctrlH } from './tokens';
 
 export function PillTabs<T extends string>({
   tabs,
@@ -114,6 +114,21 @@ export function ToggleChips<T extends string>({
             title={locked ? '운영예정' : undefined}
           >
             {option.label}
+            {option.count != null ? (
+              <span
+                style={{
+                  marginLeft: 6,
+                  fontFamily: NUM,
+                  fontVariantNumeric: 'tabular-nums',
+                  fontSize: FS.cap,
+                  fontWeight: FW.meta,
+                  color: active ? C.taupeBg : C.faint,
+                  opacity: active ? 0.9 : 1,
+                }}
+              >
+                {option.count}
+              </span>
+            ) : null}
           </button>
         );
       })}
@@ -256,6 +271,21 @@ export function FilterChips<T extends string>({
             }}
           >
             {option.label}
+            {option.count != null ? (
+              <span
+                style={{
+                  marginLeft: 6,
+                  fontFamily: NUM,
+                  fontVariantNumeric: 'tabular-nums',
+                  fontSize: FS.cap,
+                  fontWeight: FW.meta,
+                  color: active ? C.taupeBg : C.faint,
+                  opacity: active ? 0.9 : 1,
+                }}
+              >
+                {option.count}
+              </span>
+            ) : null}
           </button>
         );
       })}

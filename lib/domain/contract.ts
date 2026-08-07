@@ -6,20 +6,21 @@ import type { EntityRecord } from '@/lib/intake/entities';
 /* ── 5단계 2자 핸드셰이크 (영업자↔공급사) ── */
 export type StepCheck = { actor: 'agent' | 'provider'; key: string; label: string; choices?: string[] };
 export type Step = { id: string; label: string; checks: StepCheck[] };
+/** 순서 = 출고문의 → 서류 → 약정(기간·금액 동결) → 입금 → 출고. 금액은 약정에서 굳힌다. */
 export const STEPS: Step[] = [
-  { id: 'inquiry', label: '계약문의', checks: [
-    { actor: 'agent', key: 'agent_delivery_inquiry', label: '계약문의' },
+  { id: 'inquiry', label: '출고문의', checks: [
+    { actor: 'agent', key: 'agent_delivery_inquiry', label: '출고문의' },
     { actor: 'provider', key: 'provider_delivery_response', label: '출고응답', choices: ['출고 가능', '출고 협의', '출고 불가'] }] },
   { id: 'docs', label: '서류', checks: [
     { actor: 'agent', key: 'agent_docs_submitted', label: '서류제출' },
     { actor: 'provider', key: 'provider_docs_review', label: '서류확인', choices: ['승인', '부결'] }] },
+  { id: 'agreement', label: '약정', checks: [
+    { actor: 'agent', key: 'provider_agreement_done', label: '약정작성완료' }, // 기간·금액 동결 + 손님 연락처 후 계약서(key명은 레거시 provider지만 actor=agent)
+    { actor: 'provider', key: 'provider_agreement_sent', label: '약정발송' }] },
   { id: 'payment', label: '입금', checks: [
     { actor: 'agent', key: 'agent_balance_paid', label: '계약금 입금' },
     { actor: 'agent', key: 'agent_final_paid', label: '잔금 입금' },
     { actor: 'provider', key: 'provider_balance_confirmed', label: '입금 확인' }] },
-  { id: 'agreement', label: '약정', checks: [
-    { actor: 'agent', key: 'provider_agreement_done', label: '약정작성완료' }, // 손님 연락처 확인 후 계약서 발송(key명은 레거시 provider지만 actor=agent)
-    { actor: 'provider', key: 'provider_agreement_sent', label: '약정발송' }] },
   { id: 'release', label: '출고', checks: [
     { actor: 'agent', key: 'agent_handover_confirmed', label: '인도확인' },
     { actor: 'provider', key: 'provider_release_completed', label: '출고완료' }] },
@@ -43,6 +44,14 @@ export function stepActorOf(key: string): 'agent' | 'provider' | undefined {
 export const DEPOSIT_CLAIM_KEYS = ['agent_balance_paid', 'provider_balance_confirmed'] as const;
 export function hasDepositClaim(c: EntityRecord): boolean {
   return DEPOSIT_CLAIM_KEYS.some((k) => isDone(c[k]));
+}
+
+/** 약정에서 굳힌 기간·월대여료가 있는지. 출고문의 셸은 비어 있다. */
+export function hasTermFrozen(c: EntityRecord | null | undefined): boolean {
+  if (!c) return false;
+  const months = Number(c.rent_month_snapshot) || 0;
+  const rent = Number(c.rent_amount_snapshot) || 0;
+  return months > 0 && rent > 0;
 }
 
 /** 단계 진행률 N/5 (단계 내 모든 체크 done & rejected 없음 = 단계 완료) */

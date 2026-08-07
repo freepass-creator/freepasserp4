@@ -61,10 +61,8 @@ function KvRow({ label, children, first }: { label: string; children: ReactNode;
 
 /**
  * `brochure` = 손님에게 보여주는 순서(사진 먼저). `/q`·공급사·손님 화면의 문법.
- * `work` = 영업자가 일하는 순서 — **가격 → 조건 칩 → 스펙 → 사진(썸네일)**.
- *   영업자는 사진을 보러 오지 않는다. 손님이 묻는 순서가 가격이고, 사진은 «있으면 보낸다»다.
- *   사진 없는 매물이 절반 가까워 고정 16:10 히어로를 두면 그 자리가 통째로 죽는다.
- *   원자·타이포는 동일하다 — 바뀌는 것은 **순서와 사진 크기**뿐.
+ * `work` = 영업자 작업화면. 사진도 헤더 바로 아래(폭만 WORK_PHOTO_W).
+ *   아래로 숨기면 «사진 없음»으로 오해한다.
  */
 export type DetailLayout = 'brochure' | 'work';
 
@@ -116,30 +114,23 @@ export function ProductDetail({ p, audience, layout = 'brochure' }: { p: EntityR
         </div>
       </div>
 
-      {/* 2 사진 — 원자는 하나(웹·모바일·work 동일). 차이는 둘뿐이다.
-          ① work 는 높이를 제한한다(WORK_PHOTO_H) — 가격표가 첫 화면에서 밀려나지 않게.
-          ② 사진이 없을 때 brochure 는 회색 자리를 남기고, work 는 **자리를 아예 안 잡는다**.
-             (사진 없는 차가 절반 가까워서, 고정 박스를 두면 그 공간이 통째로 죽는다.)
-
-          ★사진을 썸네일 줄로만 줄였다가 «차량사진이 없어졌다»는 지적을 받고 되돌렸다(2026-08-07).
-            영업자도 차를 눈으로 확인한다 — 줄이더라도 «사진»으로 보여야 한다. */}
-      {photos.length ? (
-        // work = **폭**을 잡는다. 높이만 잘랐더니 폭 1000짜리 띠가 돼서 사진이 우스워졌다(2026-08-07).
-        //  비율은 그대로 두고 폭만 제한하면 사진은 사진답게 나오고, 가격표도 첫 화면에 남는다.
-        <div style={work ? { maxWidth: WORK_PHOTO_W } : undefined}>
+      {/* 2 사진 — 웹·work 모두 헤더 바로 아래(안 보이면 없다고 판단함).
+          work만 폭 상한(WORK_PHOTO_W)으로 가격표가 같이 보이게. */}
+      {(photos.length ? (
+        <div style={work ? { maxWidth: WORK_PHOTO_W, marginBottom: 4 } : undefined}>
+          {work ? (
+            <div style={{ fontSize: FS.title, fontWeight: FW.title, color: C.ink, marginBottom: 4 }}>차량사진</div>
+          ) : null}
           <div
             onPointerDown={(e) => {
-              // 버튼(좌우 화살표·관심) 위에서 시작한 포인터는 사진 제스처가 아니다.
               if ((e.target as HTMLElement).closest('button, a')) return;
               setSwipeX(e.clientX);
             }}
             onPointerUp={(e) => {
               const sx = swipeX; setSwipeX(null);
-              // 화살표·관심 위에서 뗀 것은 사진 탭이 아님 — 여기서 안 거르면 화살표를 눌러도
-              // 크게보기가 먼저 열려 "좌우로 안 넘어간다"처럼 보인다(자식의 stopPropagation은 pointerup을 못 막음).
               if ((e.target as HTMLElement).closest('button, a')) return;
-              if (sx != null && Math.abs(e.clientX - sx) > 40) { stepPhoto(e.clientX < sx ? 1 : -1); return; } // 스와이프=넘김
-              setLb(mainIdx); // 탭=크게보기
+              if (sx != null && Math.abs(e.clientX - sx) > 40) { stepPhoto(e.clientX < sx ? 1 : -1); return; }
+              setLb(mainIdx);
             }}
             style={{ position: 'relative', aspectRatio: '16 / 10', background: C.placeholder, borderRadius: R, overflow: 'hidden', cursor: 'zoom-in', touchAction: 'pan-y', userSelect: 'none' }}
           >
@@ -171,7 +162,9 @@ export function ProductDetail({ p, audience, layout = 'brochure' }: { p: EntityR
                 ><ChevronRight size={20} strokeWidth={2.5} /></IconBtn>
               </>
             )}
-            {aud !== 'customer' && <span style={{ position: 'absolute', top: 8, right: 8, zIndex: 2 }}><FavHeart p={p} onPhoto /></span>}
+            {aud !== 'customer' && !work && (
+              <span style={{ position: 'absolute', top: 8, right: 8, zIndex: 2 }}><FavHeart p={p} onPhoto /></span>
+            )}
             <span style={{ position: 'absolute', right: 8, bottom: 8, background: SCRIM.heavy, color: C.inverse, fontSize: FS.cap, fontWeight: FW.strong, padding: '2px 8px', borderRadius: R, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', pointerEvents: 'none' }}>{mainIdx + 1} / {photos.length}</span>
           </div>
           {photos.length > 1 && (
@@ -207,15 +200,13 @@ export function ProductDetail({ p, audience, layout = 'brochure' }: { p: EntityR
           )}
         </div>
       ) : work ? (
-        // 링크(드라이브·오플·모던렌트카)로 오는 사진은 서버가 풀어줄 때까지 목록이 비어 있다.
-        //  그 사이를 «없음»이라고 말하면 있는 사진을 없다고 하는 것이다 — 「모른다」와 「없다」를 구분한다.
-        pending ? <div style={{ fontSize: FS.cap, color: C.faint }}>사진 불러오는 중…</div> : null
+        pending ? <div style={{ fontSize: FS.cap, color: C.faint, marginBottom: 4 }}>사진 불러오는 중…</div> : null
       ) : (
         <div style={{ position: 'relative', aspectRatio: '16 / 10', background: C.placeholder, borderRadius: R, overflow: 'hidden' }}>
           <ProductPhotoPlaceholder style={{ position: 'absolute', inset: 0 }} />
           {aud !== 'customer' && <span style={{ position: 'absolute', top: 8, right: 8 }}><FavHeart p={p} onPhoto /></span>}
         </div>
-      )}
+      ))}
 
       {/* 3 섹션 — 데이터=detailSections. 표기 원자=웹·모바일 동일 */}
       {secs.map((sec) => (

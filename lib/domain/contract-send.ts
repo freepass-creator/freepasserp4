@@ -7,6 +7,7 @@ import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { createSignToken } from '@/lib/domain/sign';
+import { hasTermFrozen } from '@/lib/domain/contract';
 import { vehicleNameOf } from '@/lib/domain/vehicle-name';
 import { businessRegistrationNumberOf } from '@/lib/domain/business-identity';
 
@@ -49,6 +50,9 @@ export async function buildContractPayload(contractCode: string): Promise<{
   const store = getStore();
   const contract = await store.get('contract', co, contractCode);
   if (!contract) throw new Error('계약을 찾을 수 없습니다');
+  if (!hasTermFrozen(contract)) {
+    throw new Error('약정에서 대여기간·금액을 먼저 확정해 주세요');
+  }
 
   const car = String(contract.car_number_snapshot || contract.car_number || '').trim();
   const pCode = String(contract.product_code || '').trim();
@@ -178,6 +182,9 @@ export async function sendContractLink(contractCode: string, payload?: ContractP
   if (payload) await saveContractDraft(contractCode, payload);
   const c = await getStore().get('contract', co, contractCode);
   if (!c) throw new Error('계약 없음');
+  if (!hasTermFrozen(c)) {
+    throw new Error('약정에서 대여기간·금액을 먼저 확정해 주세요');
+  }
   return createSignToken(c);
 }
 

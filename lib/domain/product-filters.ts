@@ -22,6 +22,8 @@ import {
   parseYear,
   EMPTY_VEHICLE_FILTER,
   matchVehicleFilter,
+  normalizeVehicleFilter,
+  productsForVehicleStep,
   vehicleFilterCount,
   type VehicleFilter,
 } from '@/lib/domain/vehicle-master-match';
@@ -29,7 +31,7 @@ import { colorDisplay } from '@/lib/domain/color-master';
 import { productHaystack, matchHay, queryTokens } from '@/lib/domain/search';
 export { productHaystack, matchProductQuery } from '@/lib/domain/search';
 export type { VehicleFilter } from '@/lib/domain/vehicle-master-match';
-export { EMPTY_VEHICLE_FILTER, vehicleFilterCount } from '@/lib/domain/vehicle-master-match';
+export { EMPTY_VEHICLE_FILTER, normalizeVehicleFilter, vehicleFilterCount } from '@/lib/domain/vehicle-master-match';
 import { priceList, creditDisplay, noDeposit, minAge, shortExperience, installmentOk, parseEventTags, isOperatedPeriod, isStandardPeriod, PERIODS, isListableProduct, canonProductType } from '@/lib/domain/product';
 import { makerDisplay } from '@/lib/domain/vehicle-master-match';
 
@@ -232,7 +234,8 @@ export function presentFilterOptions(products: EntityRecord[]): {
     rent: bandChips(RENT_BANDS, rentCnt),
     dep: bandChips(DEP_BANDS, depCnt),
     mile: bandChips(MILE_BANDS, mileCnt),
-    ptype: PTYPES.map((t) => ({ key: t, label: t, count: ptypeCnt.get(t) || 0 })), // 4분류 항상 노출(재렌트→중고렌트 캐논 포함)
+    // 상품구분도 모수에 있는 것만(연쇄 필터 — 빈 칩 숨김). 캐논은 canonProductType.
+    ptype: PTYPES.filter((t) => (ptypeCnt.get(t) || 0) > 0).map((t) => ({ key: t, label: t, count: ptypeCnt.get(t)! })),
     credit: CREDITS.filter((v) => (creditCnt.get(v) || 0) > 0).map((v) => ({ key: v, label: v, count: creditCnt.get(v)! })),
     fuel: FUELS.filter((v) => (fuelCnt.get(v) || 0) > 0).map((v) => ({ key: v, label: v, count: fuelCnt.get(v)! })),
     perks: PERKS.map((pk) => ({ key: pk, label: pk, count: perkCnt.get(pk) || 0 })).filter((o) => o.count > 0),
@@ -265,20 +268,20 @@ function isDomesticMaker(raw: string): boolean {
 }
 
 export type CascadeOpt = { value: string; count: number };
-/** 매물에만 있는 값으로 차종 5단 계단 옵션 집계(상위 선택으로 하위 좁힘). */
-export function aggregateVehicleCascade(products: EntityRecord[], v: VehicleFilter): {
+/** 매물에만 있는 값으로 차종 5단 옵션 집계(상위 복수 선택으로 하위 좁힘). */
+export function aggregateVehicleCascade(products: EntityRecord[], filter: VehicleFilter): {
   makers: { origin: string; options: CascadeOpt[] }[];
   models: CascadeOpt[];
   subs: CascadeOpt[];
   variants: CascadeOpt[];
   trims: CascadeOpt[];
 } {
-  const countField = (list: EntityRecord[], field: keyof VehicleFilter): CascadeOpt[] => {
+  const v = normalizeVehicleFilter(filter);
+  const countField = (list: EntityRecord[], field: 'maker' | 'model' | 'sub_model' | 'variant' | 'trim_name'): CascadeOpt[] => {
     const m = new Map<string, number>();
     for (const p of list) {
       let raw = String(p[field] || '').trim();
       if (!raw) continue;
-      // 제조사 = 표시명으로 묶어 르노코리아→르노 국산 집계
       if (field === 'maker') raw = makerDisplay(raw) || raw;
       m.set(raw, (m.get(raw) || 0) + 1);
     }
@@ -287,7 +290,7 @@ export function aggregateVehicleCascade(products: EntityRecord[], v: VehicleFilt
       .sort((a, b) => b.count - a.count || a.value.localeCompare(b.value, 'ko'));
   };
 
-  const makersAll = countField(products, 'maker');
+  const makersAll = countField(productsForVehicleStep(products, v, 'maker'), 'maker');
   const dom = makersAll.filter((o) => isDomesticMaker(o.value));
   const imp = makersAll.filter((o) => !isDomesticMaker(o.value));
   const makers = [
@@ -295,14 +298,10 @@ export function aggregateVehicleCascade(products: EntityRecord[], v: VehicleFilt
     ...(imp.length ? [{ origin: '수입', options: imp }] : []),
   ];
 
-  const byMaker = v.maker ? products.filter((p) => String(p.maker || '') === v.maker) : [];
-  const models = countField(byMaker, 'model');
-  const byModel = v.model ? byMaker.filter((p) => String(p.model || '') === v.model) : [];
-  const subs = countField(byModel, 'sub_model');
-  const bySub = v.sub_model ? byModel.filter((p) => String(p.sub_model || '') === v.sub_model) : [];
-  const variants = countField(bySub, 'variant');
-  const byVar = v.variant ? bySub.filter((p) => String(p.variant || '') === v.variant) : [];
-  const trims = countField(byVar, 'trim_name');
+  const models = countField(productsForVehicleStep(products, v, 'model'), 'model');
+  const subs = countField(productsForVehicleStep(products, v, 'sub_model'), 'sub_model');
+  const variants = countField(productsForVehicleStep(products, v, 'variant'), 'variant');
+  const trims = countField(productsForVehicleStep(products, v, 'trim_name'), 'trim_name');
 
   return { makers, models, subs, variants, trims };
 }
@@ -319,8 +318,92 @@ export function aggregateDyn(products: EntityRecord[]): Record<string, [string, 
   return out;
 }
 
+/** 인기차종 빠른필터(모델명) — FState 밖 축. */
+export function matchPopularModel(p: EntityRecord, models: Set<string>): boolean {
+  if (!models.size) return true;
+  return models.has(String(p.model || '').trim());
+}
+
+/**
+ * 연쇄 필터 모수 — 지정 축만 비운 상태로 매칭.
+ * 결과 목록은 전 축 AND, 칩 선택지는 «그 축을 뺀 나머지»로 집계(같은 축 복수선택 유지).
+ */
+export function facetPool(
+  products: EntityRecord[],
+  state: FState,
+  models: Set<string>,
+  clear: {
+    periods?: boolean;
+    rent?: boolean;
+    dep?: boolean;
+    mile?: boolean;
+    fuel?: boolean;
+    ptype?: boolean;
+    credit?: boolean;
+    perks?: boolean;
+    promo?: boolean;
+    vehicle?: boolean;
+    models?: boolean;
+    dynKey?: string;
+  } = {},
+): EntityRecord[] {
+  const dyn = { ...state.dyn };
+  if (clear.dynKey) dyn[clear.dynKey] = new Set();
+  const narrowed: FState = {
+    q: state.q,
+    periods: clear.periods ? new Set() : state.periods,
+    rent: clear.rent ? new Set() : state.rent,
+    dep: clear.dep ? new Set() : state.dep,
+    mile: clear.mile ? new Set() : state.mile,
+    fuel: clear.fuel ? new Set() : state.fuel,
+    ptype: clear.ptype ? new Set() : state.ptype,
+    credit: clear.credit ? new Set() : state.credit,
+    perks: clear.perks ? new Set() : state.perks,
+    promo: clear.promo ? new Set() : state.promo,
+    dyn,
+    vehicle: clear.vehicle ? { ...EMPTY_VEHICLE_FILTER } : state.vehicle,
+  };
+  const modelSet = clear.models ? new Set<string>() : models;
+  return products.filter((p) => matchPopularModel(p, modelSet) && matchProduct(p, narrowed));
+}
+
+/** 사이드바 칩 — 축마다 자기 선택을 제외한 모수로 집계. */
+export function presentFilterOptionsFaceted(
+  products: EntityRecord[],
+  state: FState,
+  models: Set<string>,
+): ReturnType<typeof presentFilterOptions> {
+  const pick = (clear: Parameters<typeof facetPool>[3]) =>
+    presentFilterOptions(facetPool(products, state, models, clear));
+  return {
+    months: pick({ periods: true }).months,
+    rent: pick({ rent: true }).rent,
+    dep: pick({ dep: true }).dep,
+    mile: pick({ mile: true }).mile,
+    ptype: pick({ ptype: true }).ptype,
+    credit: pick({ credit: true }).credit,
+    fuel: pick({ fuel: true }).fuel,
+    perks: pick({ perks: true }).perks,
+    promo: pick({ promo: true }).promo,
+    hasVehicle: pick({ vehicle: true }).hasVehicle,
+  };
+}
+
+/** 동적·공급사 칩 — 키마다 자기 선택을 제외한 모수. */
+export function aggregateDynFaceted(
+  products: EntityRecord[],
+  state: FState,
+  models: Set<string>,
+): Record<string, [string, number][]> {
+  const out: Record<string, [string, number][]> = {};
+  for (const d of DYN_ALL) {
+    out[d.key] = aggregateDyn(facetPool(products, state, models, { dynKey: d.key }))[d.key] || [];
+  }
+  return out;
+}
+
 export function matchProduct(p: EntityRecord, s: FState): boolean {
-  if (!isListableProduct(p)) return false; // 출고불가·유효 대여료 없음 = 판매목록 제외(계약중+가격 있음은 노출)
+  if (!isListableProduct(p)) return false; // 출고불가·삭제만 제외(재고 전체 − 출고불가)
   const pl = priceList(p);
   // 검색어 없으면 haystack 생성 자체를 생략(matchHay는 빈 토큰이면 어차피 true). 토큰은 queryTokens 메모로 패스당 1회.
   if (queryTokens(s.q).length && !matchHay(productHaystack(p), s.q)) return false;
@@ -359,11 +442,12 @@ export function activeFilterHints(s: FState): string[] {
   for (const b of RENT_BANDS) if (s.rent.has(b.k)) h.push(b.label);
   for (const b of DEP_BANDS) if (s.dep.has(b.k)) h.push(b.label);
   s.ptype.forEach((v) => h.push(v));
-  const vf = s.vehicle || EMPTY_VEHICLE_FILTER;
-  if (vf.maker) {
-    const parts = [vf.maker, vf.model, vf.sub_model, vf.variant, vf.trim_name].filter(Boolean);
-    h.push(parts.join(' '));
-  }
+  const vf = normalizeVehicleFilter(s.vehicle || EMPTY_VEHICLE_FILTER);
+  if (vf.maker.length) h.push(vf.maker.join('·'));
+  if (vf.model.length) h.push(vf.model.join('·'));
+  if (vf.sub_model.length) h.push(vf.sub_model.join('·'));
+  if (vf.variant.length) h.push(vf.variant.join('·'));
+  if (vf.trim_name.length) h.push(vf.trim_name.join('·'));
   s.credit.forEach((v) => h.push(v));
   s.fuel.forEach((v) => h.push(v));
   s.perks.forEach((v) => h.push(v));

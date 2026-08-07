@@ -258,10 +258,32 @@ export function isVehicleLessRoom(room: EntityRecord | null | undefined): boolea
   );
 }
 
+/**
+ * 견적기 상담방 목록 표기 — 공급사 코드로 만든다.
+ *   담당자가 목록에서 "어느 견적기에서 온 문의인지" 바로 알아야 한다(차번이 없는 방이라 더 그렇다).
+ *   ⚠ 방에 저장된 subject 를 쓰지 않는다. subject 는 생성 시점 문구가 박제되므로,
+ *     문구를 바꾸면 옛 방만 옛 이름으로 남아 목록에 두 이름이 섞인다.
+ *     여기서 만들면 옛 방·새 방이 같이 바뀐다. deal.ts 가 저장할 subject 도 이걸 쓴다.
+ */
+export const CONSULT_LABEL: Record<string, string> = {
+  RP012: '중고 구독견적기',   // 손오공
+  RP013: '신차 구독견적기',   // 웰릭스
+};
+const CONSULT_LABEL_FALLBACK = '구독견적기';
+
+function isConsultRoom(room: EntityRecord): boolean {
+  return room.room_kind === 'consult' || String(room._key || '').startsWith('CS_');
+}
+
 function vehicleLessSubject(room: EntityRecord): string {
+  if (isConsultRoom(room)) {
+    return CONSULT_LABEL[String(room.provider_company_code || '').trim()]
+      || String(room.subject || '').trim()
+      || CONSULT_LABEL_FALLBACK;
+  }
   const subject = String(room.subject || '').trim();
   if (subject) return subject;
-  // ADMIN_ 레거시(제목 없음)만 폴백. 상담방(CS_)은 subject 가 정본.
+  // ADMIN_ 레거시(제목 없음)만 폴백.
   if (room.is_admin_chat || String(room._key || '').startsWith('ADMIN_')) {
     const who = String(room.agent_name || room.agent_code || '').trim();
     return who ? `${who} · 관리자 상담` : '관리자 상담';
@@ -322,7 +344,7 @@ export function roomPlate(
 }
 
 /**
- * 목록 1줄용 차명만 — roomPlate(차번)의 짝. 목록 규격이 ①차량명 ②차번·상대방이라
+ * 목록 1줄용 차명만 — roomPlate(차번)의 짝. 목록 2줄 규격에서 차명·차번·상대방은 ①에 붙인다.
  * roomTitle(차번+차명 합본)을 쪼개 쓸 수 있어야 한다.
  * 관리자 상담방은 차량이 없으므로 상담 제목을 그대로 돌려준다(목록에서 빈 줄 방지).
  */
