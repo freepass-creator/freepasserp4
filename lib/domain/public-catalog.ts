@@ -7,10 +7,14 @@
  *   규칙을 열어 해결하면 원가·수수료·회원까지 함께 새므로, erp3(`api/catalog-feed.js`)와 같이
  *   **서버가 서비스계정으로 읽고 걸러서** 준다. RTDB 규칙은 한 줄도 건드리지 않는다.
  *
- * ★불변 규칙 — 아래 목록에 다음을 추가하지 마라.
- *   원가(`vehicle_price`) · 차대번호(`vin`) · 내부메모(`partner_memo`) · 공급사코드(`provider_company_code`)
- *   · 수수료율(`fee_rate`) · 지급률(`agent_payout_rate`) · 정책코드 원문.
- *   손님 화면이 그 값을 쓰지 않는다. 넣는 순간 링크만 아는 사람에게 전부 공개된다.
+ * ★막아야 하는 것은 **영업 수수료**다 — `fee_rate`(공급사율) · `agent_payout_rate`(영업자 지급율).
+ *   이 둘은 매물이 아니라 **파트너·회원**에 있고(`settlement-engine.resolveRates`), 이 API 는
+ *   파트너를 아예 읽지 않으며 회원에서는 담당자 표시용(이름·전화)만 뽑는다 — 구조적으로 못 샌다.
+ *   그래도 화이트리스트를 유지하는 이유는 나중에 매물에 그런 필드가 생겨도 자동으로 막히게 하려는 것이다.
+ *
+ * ★내부메모(`partner_memo`)·공급사코드(`provider_company_code`)는 손님이 볼 값이 아니라 뺀다.
+ *   원가(`vehicle_price`)는 이 사업에 아예 없는 개념이고 실제로도 683대 전부 비어 있다(실측 2026-08-08).
+ *   차대번호(`vin`)는 손님에게 보여도 되는 값이다(사장님 확인) — 실차를 특정하는 정보다.
  */
 import type { EntityRecord } from '@/lib/intake/entities';
 
@@ -42,7 +46,7 @@ const PUBLIC_POLICY_FIELDS = [
 
 /** 손님에게 보여도 되는 매물 필드 — 차량 스펙과 대여 조건. */
 const PUBLIC_PRODUCT_FIELDS = [
-  'car_number', 'maker', 'model', 'sub_model', 'trim_name', 'trim_extra', 'variant',
+  'car_number', 'vin', 'maker', 'model', 'sub_model', 'trim_name', 'trim_extra', 'variant',
   'vehicle_class', 'year', 'first_registration_date', 'fuel_type', 'engine_type',
   'ext_color', 'int_color', 'drive_type', 'seats', 'transmission', 'usage',
   'options', 'product_type', 'vehicle_status', 'accident_history',
