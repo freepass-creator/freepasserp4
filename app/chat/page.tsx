@@ -37,8 +37,10 @@ import {
 import { roomVehicleDetailLabel } from '@/lib/domain/vehicle-label';
 import {
   CHAT_FILTER_DEFAULT,
-  CHAT_FILTERS,
   CHAT_SORTS,
+  chatFilterDefaultFor,
+  chatFiltersFor,
+  chatSortDefaultFor,
   chatRowContract,
   chatRoomPreviewCount,
   filterChatRooms,
@@ -47,6 +49,7 @@ import {
   type ChatFilter,
   type ChatSort,
 } from '@/features/chat/room-filter';
+import { deskItemOf } from '@/features/chat/admin-queue';
 import { joinMetaText, retainVisibleSelection, workPartyParts } from '@/features/work-list-display';
 import { ListChecks, MessageCircle, ClipboardList } from 'lucide-react';
 import { ChatRoomList } from '@/features/chat/ChatRoomList';
@@ -102,6 +105,16 @@ export default function Chat() {
   const [sort, setSort] = useState<ChatSort | ''>('');
   const [flt, setFlt] = useState<ChatFilter>(CHAT_FILTER_DEFAULT);
   const [draftFlt, setDraftFlt] = useState<ChatFilter>(CHAT_FILTER_DEFAULT);
+  /** 역할이 정해진 뒤 한 번만 — 관리자는 «내 차례 · 오래 기다린 순»으로 연다(응대 대기함).
+   *  사용자가 필터를 바꾼 뒤에 역할 이벤트가 와도 그 선택을 덮지 않도록 최초 1회로 못 박는다. */
+  const rolePresetDone = useRef(false);
+  useEffect(() => {
+    if (rolePresetDone.current || role !== 'admin') return;
+    rolePresetDone.current = true;
+    setFlt(chatFilterDefaultFor(role));
+    setDraftFlt(chatFilterDefaultFor(role));
+    setSort(chatSortDefaultFor(role));
+  }, [role]);
 
   // 검색 디바운스 — 타이핑마다 방목록 filter 전량 재계산 방지
   useEffect(() => {
@@ -129,12 +142,16 @@ export default function Chat() {
   const roomPlateOf = (rm: EntityRecord): string => roomPlate(rm, productLookup, deletedLookup, contracts, roomContract(rm));
   const roomCounter = (rm: EntityRecord): string => {
     const pv = providerOf(rm);
-    return joinMetaText(workPartyParts(organizationRole(getSession()) || role, rm, {
+    // 관리자는 «누가 · 내가 뭘 해야 하나»가 한 줄에 있어야 목록만 훑고 우선순위가 잡힌다.
+    //  (영업자·공급사는 종전대로 상대방 표기만 — 그들에겐 처리 큐라는 개념이 없다.)
+    const turn = role === 'admin' ? deskItemOf(rm, roomContract(rm) || null) : null;
+    const base = joinMetaText(workPartyParts(organizationRole(getSession()) || role, rm, {
       agentFallback: contractOf(rm) || cancelledOf(rm),
       providerName: pv.name || pv.code,
       // 채팅 목록은 사람 이름 대신 업무코드로 — 목록에 실명이 줄줄이 늘어서는 것을 막는다.
       preferCode: true,
     }));
+    return turn ? [base, turn.nextLabel].filter(Boolean).join(' · ') : base;
   };
   const sortByRecent = (arr: EntityRecord[]) => arr.slice().sort((a, b) => Number(b.last_message_at || 0) - Number(a.last_message_at || 0));
   // 방과 계약·상품·파트너를 원자적으로 준비한다. 방만 먼저 그리면 계약 인덱스가 빈 첫 프레임에서
@@ -450,13 +467,20 @@ export default function Chat() {
     }),
     role,
   );
+  // 관리자 = 내가 눌러야 넘어가는 건 수. 상단바 KPI·필터 칩이 같은 숫자를 쓴다.
+  const myTurnN = role === 'admin'
+    ? (rooms || []).filter((rm) => deskItemOf(rm, roomContract(rm) || null).bucket === 'mine').length
+    : 0;
 
   return (
     <>
     <WorkPage
       title={NAV_LABEL.chat}
-      statusLabel="문의 미확인"
-      statusCount={rooms === null ? null : inquiryUnreadN}
+      // 상단 KPI도 역할에 따라 뜻이 다르다 — 관리자는 «내가 처리할 건», 나머지는 «안 읽은 문의».
+      statusLabel={role === 'admin' ? '내 차례' : '문의 미확인'}
+      statusCount={rooms === null ? null : (role === 'admin' ? myTurnN : inquiryUnreadN)}
+      attentionLabel={role === 'admin' ? '미확인' : undefined}
+      attentionCount={role === 'admin' && rooms !== null ? inquiryUnreadN : undefined}
       listCount={rooms === null ? null : shownRooms.length}
       list={rooms === null ? <FeedRowSkeleton /> : roomListEl}
       panes={mobile ? mobilePanes : webPanes}
@@ -520,10 +544,12 @@ export default function Chat() {
                 <FilterChips
                   value={mobile ? draftFlt : flt}
                   onChange={mobile ? setDraftFlt : setFlt}
-                  options={CHAT_FILTERS.map((o) => (
+                  options={chatFiltersFor(role).map((o) => (
                     o.key === '미확인' && inquiryUnreadN > 0
                       ? { ...o, label: `미확인 ${inquiryUnreadN}` }
-                      : o
+                      : o.key === '내차례' && myTurnN > 0
+                        ? { ...o, label: `내 차례 ${myTurnN}` }
+                        : o
                   ))}
                 />
               </FilterGroup>
@@ -532,9 +558,10 @@ export default function Chat() {
         hints: [
           ...(q.trim() ? [q.trim().length > 12 ? `${q.trim().slice(0, 12)}…` : q.trim()] : []),
           ...(sort ? [CHAT_SORTS.find((o) => o.value === sort)?.label || sort] : []),
-          ...(flt !== CHAT_FILTER_DEFAULT ? [CHAT_FILTERS.find((o) => o.key === flt)?.label || flt] : []),
+          ...(flt !== CHAT_FILTER_DEFAULT ? [chatFiltersFor(role).find((o) => o.key === flt)?.label || flt] : []),
         ],
-        onClearHints: () => { setQInput(''); setQ(''); setSort(''); setFlt(CHAT_FILTER_DEFAULT); },
+        // 「지우기」는 역할 기본값으로 돌아간다 — 관리자를 전체 목록에 떨어뜨리면 대기함을 다시 찾아야 한다.
+        onClearHints: () => { setQInput(''); setQ(''); setSort(chatSortDefaultFor(role)); setFlt(chatFilterDefaultFor(role)); },
       }}
     />
     </>

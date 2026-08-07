@@ -4,11 +4,13 @@ import { isContractCancelled, isInquiryOnly, normalizeContractStatus } from '@/l
 import { unreadFor } from '@/lib/domain/messaging';
 import { matchHay, roomHaystack } from '@/lib/domain/search';
 import { contractForRoom } from './room-display';
+import { deskItemOf } from './admin-queue';
 
-export type ChatSort = 'unread' | 'name';
-export type ChatFilter = '미확인' | '문의' | 'all' | '완료' | '취소';
+export type ChatSort = 'unread' | 'name' | 'wait';
+export type ChatFilter = '미확인' | '문의' | 'all' | '완료' | '취소' | '내차례';
 
 export const CHAT_SORTS: { value: ChatSort; label: string }[] = [
+  { value: 'wait', label: '오래 기다린 순' },
   { value: 'unread', label: '안읽음' },
   { value: 'name', label: '차명순' },
 ];
@@ -23,6 +25,29 @@ export const CHAT_FILTERS: { key: ChatFilter; label: string }[] = [
   { key: '완료', label: '완료' },
   { key: '취소', label: '취소' },
 ];
+
+/**
+ * 같은 화면이 역할마다 다른 얼굴을 갖는다 — 관리자에게 계약문의는 **응대 대기함**이다.
+ *
+ * 공급사가 앱에 안 들어오므로 계약의 공급 몫은 운영자가 처리한다.
+ * 그래서 관리자에게 필요한 첫 화면은 «내 차례»(내가 눌러야 넘어가는 건)다.
+ * 안읽음(말이 왔나)과는 다른 축이라 필터를 따로 둔다 — 섞으면 둘 다 못 쓴다.
+ */
+export function chatFiltersFor(role: Role): { key: ChatFilter; label: string }[] {
+  return role === 'admin'
+    ? [{ key: '내차례' as ChatFilter, label: '내 차례' }, ...CHAT_FILTERS]
+    : CHAT_FILTERS;
+}
+
+/** 관리자는 «내 차례»로 열린다. 하루의 시작이 대화 목록이 아니라 처리 목록이어야 한다. */
+export function chatFilterDefaultFor(role: Role): ChatFilter {
+  return role === 'admin' ? '내차례' : CHAT_FILTER_DEFAULT;
+}
+
+/** 관리자 기본 정렬 = 오래 기다린 순. 최신순이면 오래된 건이 영원히 목록 아래에 깔린다. */
+export function chatSortDefaultFor(role: Role): ChatSort | '' {
+  return role === 'admin' ? 'wait' : '';
+}
 
 /**
  * erp3 workspace 목록 가시성 — `!_deleted && !is_admin_chat && !hidden_for_*`.
@@ -76,6 +101,8 @@ export function chatRowContract(
 function matchesFilter(room: EntityRecord, params: Params): boolean {
   if (params.filter === 'all') return true;
   const contract = chatRowContract(room, params.filter, params.contractIndex, params.cancelledIndex);
+  // 내 차례 = 계약 단계에서 «공급 몫»이 걸려 있는 방(= 운영자가 처리한다) + 아직 답 못 한 첫 문의.
+  if (params.filter === '내차례') return deskItemOf(room, contract || null).bucket === 'mine';
   if (params.filter === '취소') return isContractCancelled(contract);
   if (params.filter === '완료') return normalizeContractStatus(contract?.contract_status) === '계약완료';
   // 취소 이력은 전용 탭에만 둔다. 새 문의로 재개하려면 새 방/새 연결을 만들어 lifecycle을 분리해야 한다.
@@ -94,6 +121,13 @@ export function filterChatRooms(params: Params): EntityRecord[] {
     .slice()
     .sort((a, b) => {
       if (!params.sort) return 0;
+      if (params.sort === 'wait') {
+        // 오래 기다린 것 먼저. 대화가 없는 방(0)은 기다림의 대상이 아니라 맨 뒤로.
+        const av = Number(a.last_message_at || 0);
+        const bv = Number(b.last_message_at || 0);
+        if (!av !== !bv) return av ? -1 : 1;
+        return av - bv;
+      }
       if (params.sort === 'unread') {
         return unreadFor(b, params.role) - unreadFor(a, params.role)
           || Number(b.last_message_at || 0) - Number(a.last_message_at || 0);

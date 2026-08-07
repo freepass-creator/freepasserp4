@@ -1,10 +1,10 @@
-/**
- * 관리자 응대 큐 판정 시험 — 쓰기 없음, 순수 함수만.
+﻿/**
+ * 관리자 응대 큐 판정 시험(계약문의 화면의 「내 차례」) — 쓰기 없음, 순수 함수만.
  *   npx tsx scripts/sim-desk-queue.mts
  *
  * 이 규칙이 조용히 바뀌면 관리자의 하루가 바뀐다(안 뜨는 건 = 안 하는 건).
  */
-import { deskItemOf, sortDeskQueue } from '../features/desk/queue';
+import { deskItemOf, sortDeskQueue } from '../features/chat/admin-queue';
 import type { EntityRecord } from '../lib/intake/entities';
 
 let fail = 0;

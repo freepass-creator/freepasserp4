@@ -1,7 +1,7 @@
 'use client';
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import {
-  CarFront, MessageCircleMore, Headset, FileText, Box, Settings, type LucideIcon,
+  CarFront, MessageCircleMore, FileText, Box, Settings, type LucideIcon,
 } from 'lucide-react';
 import type { Role } from '@/lib/domain/deal';
 
@@ -33,7 +33,6 @@ export function useHideTabBar(hide: boolean) {
 export const NAV_ICON = {
   product: CarFront,
   chat: MessageCircleMore,
-  desk: Headset,
   contract: FileText,
   inventory: Box,
   settings: Settings,
@@ -49,8 +48,6 @@ export const NAV_ICON = {
 export const NAV_LABEL = {
   product: '상품찾기',
   chat: '계약문의',
-  /** 관리자 전용 — 들어온 문의를 «처리할 일»로 세워 놓고 한 화면에서 끝내는 곳(docs/ADMIN_DESK.md). */
-  desk: '응대',
   contract: '계약진행 및 정산',
   inventory: '재고관리',
   settings: '설정',
@@ -82,13 +79,11 @@ export type AppTab = {
 
 /** 하단 탭 항목 — 공급사·관리자만 재고 추가 */
 export function appTabsFor(role: Role): AppTab[] {
-  // 관리자에게 정본은 «응대»다 — 대화함이 아니라 대기함에서 하루를 시작한다.
-  //  /chat 은 지우지 않는다(URL·딥링크 유지). 뱃지도 안읽음이 아니라 «내 차례» 수다.
+  // 계약문의는 역할마다 «맞는 화면»이 나온다(관리자=응대 큐). 탭을 쪼개지 않는다 —
+  //  같은 방을 두 입구로 두면 어느 쪽이 정본인지가 흐려진다(2026-08-08 결정).
   const tabs: AppTab[] = [
     { href: '/', label: tabLabel('product'), icon: NAV_ICON.product },
-    role === 'admin'
-      ? { href: '/desk', label: tabLabel('desk'), icon: NAV_ICON.desk, badgeKey: '/desk' }
-      : { href: '/chat', label: tabLabel('chat'), icon: NAV_ICON.chat, badgeKey: '/chat' },
+    { href: '/chat', label: tabLabel('chat'), icon: NAV_ICON.chat, badgeKey: '/chat' },
     { href: '/contract', label: tabLabel('contract'), icon: NAV_ICON.contract, badgeKey: '/contract' },
   ];
   if (role === 'provider' || role === 'admin') {
@@ -101,7 +96,6 @@ export function appTabsFor(role: Role): AppTab[] {
 export function isTabRoute(path: string, role?: Role): boolean {
   if (path === '/') return true;
   if (path === '/chat' || path.startsWith('/chat/')) return true;
-  if (path === '/desk' || path.startsWith('/desk/')) return role == null || role === 'admin';
   if (path === '/contract' || path.startsWith('/contract/')) return true;
   if (path === '/settings' || path.startsWith('/settings/')) return true;
   if (path === '/inventory' || path.startsWith('/inventory/')) {

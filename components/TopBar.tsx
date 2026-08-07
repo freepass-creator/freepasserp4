@@ -25,9 +25,7 @@ const ALL_ROLES: Role[] = ['agent', 'provider', 'admin'];
 const GROUPS: { title: string; items: { href?: string; label: string; icon: LucideIcon; soon?: boolean; roles?: Role[]; hideMobile?: boolean }[] }[] = [
   { title: '', items: [{ href: '/', label: NAV_LABEL.product, icon: NAV_ICON.product, roles: ALL_ROLES }] },
   { title: '영업', items: [
-    // 관리자는 «응대»에서 하루를 시작한다 — 대화함이 아니라 대기함이 정본이다(docs/ADMIN_DESK.md).
-    //  /chat 은 그대로 남긴다. 같은 방을 다른 문법으로 보는 화면이라 지우면 딥링크가 죽는다.
-    { href: '/desk', label: NAV_LABEL.desk, icon: NAV_ICON.desk, roles: ['admin'] },
+    // 계약문의 하나로 간다 — 관리자에게는 이 안에서 «응대 큐»가 열린다(docs/ADMIN_DESK.md).
     { href: '/chat', label: NAV_LABEL.chat, icon: NAV_ICON.chat, roles: ALL_ROLES },
     { href: '/contract', label: NAV_LABEL.contract, icon: NAV_ICON.contract, roles: ['agent', 'provider', 'admin'] },
   ] },
