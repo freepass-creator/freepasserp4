@@ -201,6 +201,25 @@ export function buildSheetConflictReportRows(input: {
   return rows;
 }
 
+/**
+ * 「반영하면 손님에게 나가는 금액이 실제로 바뀌는가」 — 가격기간 충돌의 승인 요구 여부 SSOT.
+ *
+ * soft-merge 는 시트에서 사라진 기간을 **삭제하지 않고 기존값으로 보존**한다(위 `priceImpact` 주석).
+ * 그래서 금액이 안 바뀌는 건은 승인해도 결과가 같다 — 승인을 요구할 이유가 없다.
+ *
+ * ★네 곳(미리보기·반영 전 재검증·커밋 경계·일일 자동연동)이 **같은 판정**을 써야 한다.
+ *   한 곳만 이 함수를 안 쓰면 「화면엔 승인할 것이 없는데 반영은 막히는」 데드락이 된다
+ *   (실측 2026-08-07: 차단 39건 전부가 무변화 건이라 승인 후보가 0건이었다).
+ */
+export function buildPriceChangesValue(
+  input: Parameters<typeof buildSheetConflictReportRows>[0],
+): (raw: string) => boolean {
+  const impactByRaw = new Map(
+    buildSheetConflictReportRows(input).map((row) => [row.raw, String(row.priceImpact || '')]),
+  );
+  return (raw: string) => (impactByRaw.get(raw) || '').includes('새 기본가격 적용');
+}
+
 export function sheetConflictReportTsv(rows: SheetConflictReportRow[]): string {
   return [
     ['구분', '판단', '차량번호', '공급사', '상품키', '저장키', '차량상태', '출처', '계약보호', '가격영향', '영향기간', '원본충돌'],

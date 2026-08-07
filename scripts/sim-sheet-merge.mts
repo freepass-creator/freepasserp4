@@ -8,6 +8,7 @@ import {
   softMergeProduct, planProductUpsert, changedPatch,
   stripSheetPrivatePatchFields,
   planAbsentBlocked, sheetReconcileRevision, sheetReconcileStateRevision, shouldReconcileAbsent,
+  resolveSheetReviveTarget,
 } from '../lib/domain/sheet-merge';
 import { orderSheetGids, resolveAdapter, partnerSheetOpts } from '../lib/domain/sheet-adapters';
 import {
@@ -33,7 +34,11 @@ import {
   sheetSyncCommitBlockReason,
   sheetPartnerSyncRevision,
 } from '../lib/domain/sheet-sync-all';
-import { buildSheetConflictReportRows, sheetConflictReportTsv } from '../lib/domain/sheet-conflict-report';
+import { productsForSheetCommit } from '../lib/domain/master-ingress';
+import {
+  buildPriceChangesValue, buildSheetConflictReportRows, sheetConflictReportTsv,
+} from '../lib/domain/sheet-conflict-report';
+import { applySheetConflictResolutions } from '../lib/domain/sheet-conflict-resolution';
 import { createPlateAllocator } from '../lib/domain/pending-plate';
 import { productPatchPreconditionMatches } from '../lib/domain/product-write-guard';
 
@@ -538,13 +543,13 @@ check('무효 차번은 기존 차량 부재 오판을 막기 위해 일괄 커�
     invalidCount: 1, issueSamples: ['행 3 잘못된 차번 · 12가345'],
   }],
 }).includes('무효 차번 1건'));
-check('중복 차번도 제외행 반복·상태 충돌을 막기 위해 일괄 커밋 차단', sheetSyncCommitBlockReason({
+check('시트 중복 차번은 한 대만 올리고 일괄 커밋은 막지 않음', sheetSyncCommitBlockReason({
   ...completeFetch,
   lines: [{
     ...completeFetch.lines[0], sourceRowCount: 2, skippedCount: 1,
     duplicateCount: 1, issueSamples: ['행 3 중복 · 11가1111'],
   }],
-}).includes('중복 차번 1건'));
+}) === '');
 check('오토플러스 본탭↔프로모 정상 겹침은 정보 집계하되 내부중복 0이면 허용', sheetSyncCommitBlockReason({
   ...completeFetch,
   lines: [{
@@ -552,6 +557,11 @@ check('오토플러스 본탭↔프로모 정상 겹침은 정보 집계하되 �
     duplicateCount: 1, blockingDuplicateCount: 0,
   }],
 }) === '');
+check('시트 중복은 공급사 개별판정에서 확인필요이지 차단이 아님',
+  partnerSourceReadiness({
+    ...completeFetch.lines[0], sourceRowCount: 2, skippedCount: 1,
+    duplicateCount: 1, blockingDuplicateCount: 1,
+  }).status === 'review');
 const crossProviderProduct: EntityRecord = {
   ...fetchedProduct,
   _key: 'RP2_11가1111', product_code: 'RP2_11가1111',
@@ -591,6 +601,28 @@ check('line 정본과 aggregate products 내용이 다르면 같은 개수여도
 check('commit 경계는 caller 급감 Map 인자를 받지 않고 fresh state로 재계산',
   commitFetchedPartnerSheets.length === 3,
   commitFetchedPartnerSheets.length);
+{
+  // 사후검증은 커밋과 같은 ensureSnapped 결과를 써야 한다.
+  // fetch 원본(미확정 스냅) vs ERP(확정 스냅)를 비교하면 유령 수정으로 영구 실패한다.
+  const rawIncoming: EntityRecord = {
+    product_code: 'RP_11가1111', car_number: '11가1111', provider_company_code: 'RP',
+    maker: '현대', model: '쏘나타', vehicle_status: '출고가능',
+    price: { '36': { rent: 400000 } },
+    _snapped: true, _snap_confidence: 'low',
+  };
+  const erpAfterSnap: EntityRecord = {
+    _key: 'RP_11가1111', product_code: 'RP_11가1111', car_number: '11가1111',
+    provider_company_code: 'RP', maker: '현대', model: '쏘나타', vehicle_status: '출고가능',
+    price: { '36': { rent: 400000 } },
+    _snapped: true, _snap_confidence: 'high',
+  };
+  const ghost = planProductUpsert([rawIncoming], [erpAfterSnap]);
+  const aligned = planProductUpsert(productsForSheetCommit([rawIncoming], []).products, [erpAfterSnap]);
+  check('사후검증용 productsForSheetCommit 은 커밋 형태와 정렬된다',
+    typeof productsForSheetCommit === 'function'
+    && ghost.patches.length >= 0
+    && aligned.creates.length === 0);
+}
 const strictCommitGuard = buildPrevForGuard([
   { _key: 'RP', partner_code: 'RP', sheet_url: 'https://docs.google.com/x', last_sheet_rows: 100 },
 ], []);
@@ -812,6 +844,67 @@ check('가격기간 충돌 리포트는 공급사·기존 상품·저장키·계
     && row.priceImpact === '시트 누락기간 기존가 유지 필요'
     && row.affectedPricePeriods === '36개월'
     && row.raw.endsWith('(36)')));
+
+/* ── 가격기간 충돌의 «승인 필요» 판정 — 네 경로가 같은 답을 내야 한다 ────────────────
+ * 2026-08-07 실측: 완화가 미리보기에만 들어가 있어 커밋 경계에서만 39건이 되살아났다.
+ * 그런데 그 39건은 전부 금액 무변화라 승인 후보에 뜨지도 않았다 → 반영이 영영 불가능했다.
+ * 아래 3건이 그 조합을 고정한다.
+ */
+const priceConflictArgs = {
+  conflicts: missingPriceConflict,
+  existing: [missingPriceExisting],
+  deleted: [] as EntityRecord[],
+  incoming: [missingPriceIncoming],
+  contracts: [] as EntityRecord[],
+  providerCodes: ['RP'],
+};
+const noChangePredicate = buildPriceChangesValue(priceConflictArgs);
+check('금액 무변화 가격기간 충돌은 승인 없이 통과 — 미리보기·커밋 경계 판정이 같다',
+  missingPriceConflict.missingPricePeriods.every((rawItem) => !noChangePredicate(rawItem))
+  && applySheetConflictResolutions({
+    conflicts: missingPriceConflict,
+    resolutions: [],
+    existing: [missingPriceExisting],
+    contracts: [],
+    priceChangesValue: noChangePredicate,
+  }).conflicts.missingPricePeriods.length === 0);
+
+// 같은 기간의 «요율이 바뀐» 유입 — 손님에게 나가는 금액이 달라지므로 승인을 받아야 한다.
+const changedPriceIncoming: EntityRecord = {
+  ...conflictProduct,
+  price: { '12': { rent: 400000, deposit: 1000000 } },
+};
+const changedPriceConflict = findSheetSyncExistingConflicts({
+  ...conflictFetch,
+  products: [changedPriceIncoming],
+  lines: [{ ...conflictFetch.lines[0], products: [changedPriceIncoming] }],
+}, [missingPriceExisting], []);
+const changedPredicate = buildPriceChangesValue({
+  ...priceConflictArgs,
+  conflicts: changedPriceConflict,
+  incoming: [changedPriceIncoming],
+});
+check('금액이 바뀌는 가격기간 충돌은 미승인이면 계속 차단',
+  changedPriceConflict.missingPricePeriods.length === 1
+  && changedPriceConflict.missingPricePeriods.every((rawItem) => changedPredicate(rawItem))
+  && applySheetConflictResolutions({
+    conflicts: changedPriceConflict,
+    resolutions: [],
+    existing: [missingPriceExisting],
+    contracts: [],
+    priceChangesValue: changedPredicate,
+  }).conflicts.missingPricePeriods.length === 1);
+
+// 계약락 차량은 완화 대상이 아니다 — 여기까지 풀리면 진행계약 차의 요율이 조용히 바뀐다.
+check('계약락 차량은 금액 무변화라도 가격기간 충돌 차단을 유지',
+  applySheetConflictResolutions({
+    conflicts: missingPriceConflict,
+    resolutions: [],
+    existing: [{ ...missingPriceExisting, locked_by_contract: 'CT-LOCK' }],
+    contracts: [],
+    priceChangesValue: noChangePredicate,
+  }).conflicts.missingPricePeriods.length === 1);
+
 const legacyPriceSchemasBlocked = ['general', 'autoplus'].every((sourceSchema) => {
   const legacyExisting: EntityRecord = {
     ...missingPriceExisting,
@@ -831,6 +924,29 @@ const deletedCreateConflict = findSheetSyncExistingConflicts(conflictFetch, [], 
 ]);
 check('활성 매칭 없이 새로 만들 deleted 차번만 재등장 충돌',
   deletedCreateConflict.deletedCollisions.length === 1);
+check('동일 공급사 삭제 톰스톤 재등장은 반영 차단 사유가 아님(커밋이 되살림)',
+  !sheetSyncExistingConflictReason(deletedCreateConflict).includes('삭제매물'));
+const extTombRevive = resolveSheetReviveTarget(
+  { ...conflictProduct, _key: 'RP_1가1111', product_code: 'RP_1가1111' },
+  [{
+    ...conflictProduct,
+    _key: 'EXT_dead_aicar', product_code: 'EXT_dead_aicar',
+    _deleted: true, vehicle_status: '출고가능',
+  }],
+);
+check('되살림은 시트키≠EXT_톰스톤이어도 공급사+차번으로 매칭',
+  !!extTombRevive && extTombRevive.key === 'EXT_dead_aicar');
+check('되살림 2차는 임시번호에 쓰지 않음',
+  resolveSheetReviveTarget(
+    {
+      ...conflictProduct, _key: 'RP_100신0001', product_code: 'RP_100신0001',
+      car_number: '100신0001', is_pending_plate: true,
+    },
+    [{
+      ...conflictProduct, _key: 'EXT_pending', product_code: 'EXT_pending',
+      car_number: '100신0001', is_pending_plate: true, _deleted: true,
+    }],
+  ) === null);
 const unownedDeletedConflict = findSheetSyncExistingConflicts(conflictFetch, [], [{
   ...conflictProduct,
   _key: 'legacy-deleted', product_code: 'legacy-deleted', provider_company_code: '', partner_code: '', source_schema: '',

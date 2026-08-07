@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getStore } from '@/lib/store';
 import { getRole, actor } from '@/lib/domain/deal';
 import { confirmDialog, toast } from '@/components/Toaster';
-import { Btn, C, FS, FW, ICON, Input, Modal, PillTabs, R, Select, SectionLabel, Textarea, NUM, td, th } from '@/components/ui';
+import { Btn, C, FS, FW, ICON, Input, Modal, PillTabs, R, SCRIM, SH, Select, SectionLabel, Textarea, NUM, td, th } from '@/components/ui';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { type MasterEntry } from '@/lib/domain/vehicle-master-match';
 import {
@@ -77,6 +77,7 @@ import {
 import { copyText } from '@/lib/clipboard';
 import { getAuthClient } from '@/lib/firebase/client';
 import {
+  buildPriceChangesValue,
   buildSheetConflictReportRows,
   sheetConflictReportTsv,
   type SheetConflictReportRow,
@@ -364,6 +365,12 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
   const [mergedDiagnostics, setMergedDiagnostics] = useState<AutoplusImportResult | null>(null);
   const [diffBanner, setDiffBanner] = useState('');
   const [busy, setBusy] = useState(false);
+  /**
+   * 행별 「검증 중…」표시 — 예전엔 busy 하나만 봐서 손오공 한 곳만 눌러도
+   * 표의 모든 「데이터 검증」이 검증 중으로 바뀌었다.
+   * null = 검증 안 함 · 'all' = 전체 · string[] = 그 공급사 코드만.
+   */
+  const [validatingCodes, setValidatingCodes] = useState<string[] | 'all' | null>(null);
   const [master, setMaster] = useState<MasterEntry[] | null>(() => peekVehicleMaster());
   const [roster, setRoster] = useState<PartnerSheetRow[]>([]);
   const [rosterError, setRosterError] = useState('');
@@ -891,7 +898,10 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
     if (!masterReady) { toast('차종마스터 로드 실패 — 검증 불가', 'error'); return; }
     if (rosterError) { toast(`시트 설정 오류 — ${rosterError}`, 'error'); return; }
     if (!roster.length) { toast('시트 URL이 등록된 공급사가 없습니다 — 회원·파트너에서 공급사 원본을 설정하세요', 'info'); return; }
-    setBusy(true); setBulkLog(''); setPending(null);
+    setBusy(true);
+    setValidatingCodes(onlyCodes?.length ? onlyCodes : 'all');
+    setBulkLog('');
+    setPending(null);
     try {
       const freshPartners = await listSheetPartnerRecords(co, true);
       const scoped = onlyCodes?.length
@@ -1105,7 +1115,10 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
     } catch (e) {
       setPending(null);
       toast('검증 실패: ' + String((e as Error).message || e), 'error');
-    } finally { setBusy(false); }
+    } finally {
+      setBusy(false);
+      setValidatingCodes(null);
+    }
   };
 
   /** 관리자: 공급사 시트 fetch 스냅샷을 커밋. ERP/대상 roster는 직전에 revision 재확인. */
@@ -1123,6 +1136,24 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
       toast('동기화 중단 — 검증 후 10분이 지났습니다. 데이터 검증을 다시 실행하세요.', 'error');
       return;
     }
+    // 확인창을 busy 전에 연다. 예전엔 fresh 재고 조회가 끝난 뒤에야 창이 떠
+    // 「반영 중…」만 길다가, 공급사 배너 전체가 들어간 창이 화면을 넘어
+    // 확인 버튼이 안 보이고 바깥 클릭=취소로 조용히 끝났다.
+    const summary = `시트 행: 올림 ${fetched.products.length} · 출고불가 ${totals.excludedCount}`
+      + ` · 가격없음 ${totals.noPriceCount} · 중복 ${totals.duplicateCount} · 무효 ${totals.invalidCount}`
+      + `\n기존 재고: 신규 ${totals.new} · 상태변경 ${totals.status} · 내용만 수정 ${totals.content}`
+      + ` · 재고차단 ${totals.absent} · 가드보류 ${totals.guarded} · 무변경 ${totals.unchanged}`;
+    const ok = await confirmDialog({
+      title: '재고에 동기화',
+      okLabel: '반영',
+      message: `${summary}`
+        + `\n\n등록 시트 ${roster.length}곳 → Firebase 재고에 저장합니다.`
+        + '\n확인 후 ERP 상태를 재확인하고 씁니다. 공급사별 상세는 아래 검증 표에 있습니다.',
+    });
+    if (!ok) {
+      toast('반영 취소됨 — 확인창에서 취소해 Firebase에 저장하지 않았습니다. 다시 반영하려면 「반영」을 누르세요.', 'info');
+      return;
+    }
     setBusy(true);
     try {
       const verifyFreshSnapshot = async () => {
@@ -1138,30 +1169,27 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
           || sheetPartnerRosterRevision(currentRoster) !== fetched.rosterRevision) {
           throw new Error('검증 후 ERP 재고 또는 시트 대상·탭·매핑·급감 기준이 변경됐습니다. 다시 검증하세요.');
         }
+        const freshConflicts = findSheetSyncExistingConflicts(fetched, currentState.active, currentState.deleted);
         const freshConflict = sheetSyncExistingConflictReason(applySheetConflictResolutions({
-          conflicts: findSheetSyncExistingConflicts(fetched, currentState.active, currentState.deleted),
+          conflicts: freshConflicts,
           resolutions,
           existing: currentState.active,
           contracts,
+          // ★미리보기와 같은 판정을 쓴다. 빠뜨리면 «화면엔 승인할 것이 없는데 반영은 막히는»
+          //  데드락이 된다 — 무변화 건은 승인 후보에 뜨지도 않기 때문이다.
+          priceChangesValue: buildPriceChangesValue({
+            conflicts: freshConflicts,
+            existing: currentState.active,
+            deleted: currentState.deleted,
+            incoming: fetched.products,
+            contracts,
+            providerCodes: fetched.lines.map((line) => line.code),
+          }),
         }).conflicts);
         if (freshConflict) throw new Error(`${freshConflict}. 충돌을 정리하고 다시 검증하세요.`);
         return { currentRoster, contracts, resolutions };
       };
-      const { currentRoster } = await verifyFreshSnapshot();
 
-      const summary = `시트 행: 올림 ${fetched.products.length} · 출고불가 ${totals.excludedCount}`
-        + ` · 가격없음 ${totals.noPriceCount} · 중복 ${totals.duplicateCount} · 무효 ${totals.invalidCount}`
-        + `\n기존 재고: 신규 ${totals.new} · 상태변경 ${totals.status} · 내용만 수정 ${totals.content}`
-        + ` · 재고차단 ${totals.absent} · 가드보류 ${totals.guarded} · 무변경 ${totals.unchanged}`;
-      const ok = await confirmDialog({
-        message: `${summary}\n\n${banners.join('\n')}`
-          + `\n\n등록 시트 ${currentRoster.length}곳 → 재고에 동기화할까요?`
-          + '\n(공급사 시트 재조회 없음 · ERP 현재 상태 재확인 완료)',
-      });
-      if (!ok) return;
-
-      // 확인창이 열린 동안에도 다른 관리자·탭이 상태를 바꿀 수 있다. 승인 직후 다시 읽고,
-      // 도메인 커밋 경계에서도 한 번 더 확인한다.
       if (Date.now() - pending.at > 10 * 60 * 1000) {
         setPending(null);
         toast('동기화 중단 — 확인 중 검증 유효시간이 지났습니다. 다시 검증하세요.', 'error');
@@ -1184,6 +1212,7 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
       const logLines = [
         ...r.lines.map((l) => l.message),
         ...(r.absent.notes.length ? ['— 부재처리 —', ...r.absent.notes] : []),
+        ...(banners.length ? ['— diff —', ...banners] : []),
       ];
       setBulkLog(logLines.join('\n'));
       if (!r.commit && !r.absent.blocked) {
@@ -1195,7 +1224,10 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
           + (r.commit?.revived ? ` · 되살림 ${r.commit.revived}` : '')
           + (r.commit?.duplicates ? ` · 중복충돌 ${r.commit.duplicates}` : '')
           + (r.absent.blocked ? ` · 재고차단 ${r.absent.blocked}` : '')
-          + (r.ingress ? ` · 확정 ${r.ingress.confirmed}·검수 ${r.ingress.review}` : ''),
+          + (r.ingress
+            ? ` · 차종확정 ${r.ingress.confirmed}·차종검수 ${r.ingress.review}`
+              + (r.ingress.review > 0 ? '(트림미매칭=입고됨·마스터보강 대상)' : '')
+            : ''),
           r.failCount || r.commit?.duplicates || r.absent.skipped_guard || (r.ingress && r.ingress.review > 0) ? 'info' : 'ok',
         );
         onImported();
@@ -1203,7 +1235,19 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
       setPending(null);
       await refreshRoster();
     } catch (e) {
-      toast('동기화 실패: ' + String((e as Error).message || e), 'error');
+      const msg = String((e as Error).message || e);
+      // 층 라벨 = 플랜 「커밋 throw 1–6층」을 토스트에서 바로 고르게 한다.
+      // revision 메시지는 재고·설정이 한 문장에 같이 올 수 있어 둘 다 보면 「revision」로 묶는다.
+      const layer = /사후검증/.test(msg) ? '사후검증'
+        : (/ERP 재고|reconcileRevision/.test(msg) && /시트 대상|탭·매핑|급감|rosterRevision/.test(msg))
+          || /검증 후 ERP 재고 또는 시트/.test(msg) ? 'revision'
+        : /ERP 재고가 변경|reconcileRevision|검증 revision/.test(msg) ? '재고revision'
+        : /시트 대상·탭·매핑·급감|rosterRevision/.test(msg) ? '설정revision'
+        : /충돌/.test(msg) ? '충돌'
+        : /전체 동기화 중단|조회 실패|올림 0|무효 차번|공급사 간 동일|번호미정|집계 불일치|canonical|provenance/.test(msg)
+          ? '커밋차단'
+        : '예외';
+      toast(`동기화 실패 [${layer}]: ${msg}`, 'error');
     } finally { setBusy(false); }
   };
 
@@ -1215,6 +1259,22 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
   const fmtPendingAt = (t: number) => {
     try { return new Date(t).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }); } catch { return ''; }
   };
+
+  /** 검증·반영 중 화면 피드백 — 버튼 글자만 바뀌면 스크롤 밖이라 「멈춘 것처럼」 보인다. */
+  const workInProgress = busy || !!validatingCodes || ironPreviewLoading || ironApplying;
+  const workLabel = ironApplying
+    ? '아이언렌트카 상품 반영 중… Firebase에 쓰는 중입니다.'
+    : ironPreviewLoading
+      ? '아이언렌트카 홈페이지 검증 중…'
+      : validatingCodes === 'all'
+        ? `전체 공급사 시트 검증 중… (${roster.length}곳 · 사진·숨김행 포함 · 1~2분 걸릴 수 있음)`
+        : Array.isArray(validatingCodes) && validatingCodes.length
+          ? `${validatingCodes.join(', ')} 시트 검증 중…`
+          : busy && pending
+            ? '검증 결과 Firebase 반영 중… 재고 확인·저장·부재처리까지 진행합니다.'
+            : busy
+              ? '처리 중…'
+              : '';
 
   const pendingBlockReason = pending
     ? sheetSyncCommitBlockReason(pending.fetched) || pending.existingConflictReason
@@ -1734,10 +1794,44 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }} aria-busy={workInProgress}>
+      {workInProgress && workLabel ? (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            position: 'sticky', top: 0, zIndex: 40,
+            display: 'flex', alignItems: 'center', gap: 10,
+            padding: '10px 12px', borderRadius: R,
+            border: `1px solid ${C.line}`, background: C.selected,
+            boxShadow: SH.cardRest,
+          }}
+        >
+          <span
+            aria-hidden
+            style={{
+              flex: '0 0 auto', width: 18, height: 18,
+              border: `2px solid ${C.line}`, borderTopColor: C.brand,
+              borderRadius: '50%', animation: 'fp-spin 0.7s linear infinite',
+            }}
+          />
+          <div style={{ flex: 1, minWidth: 0, fontSize: FS.cap, color: C.ink, lineHeight: 1.45, fontWeight: FW.strong }}>
+            {workLabel}
+          </div>
+        </div>
+      ) : null}
       {isAdmin && (
         <>
-        <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: C.selected, padding: 10 }}>
+        <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: C.selected, padding: 10, position: 'relative' }}>
+          {workInProgress ? (
+            <div
+              aria-hidden
+              style={{
+                position: 'absolute', inset: 0, borderRadius: R,
+                background: SCRIM.light, pointerEvents: 'none', zIndex: 1,
+              }}
+            />
+          ) : null}
           <div style={{ fontSize: FS.sub, fontWeight: FW.title, color: C.brand, marginBottom: 3 }}>전체 공급사 상품 연동</div>
           <div style={{
             display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6,
@@ -1864,6 +1958,11 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
                     );
                     const sheetRows = roster.map((p) => {
                     const diff = pending?.perPartner.find((row) => row.code === p.code);
+                    const rowValidating = validatingCodes === 'all'
+                      || (Array.isArray(validatingCodes) && validatingCodes.includes(p.code));
+                    // 이 행 공급사가 이번 검증 결과에 있을 때만 반영 — 예전엔 pending 하나면
+                    // 모든 행의 「반영」이 살아 손오공 검증 뒤 웰릭스 버튼도 눌리는 것처럼 보였다.
+                    const rowPending = !!diff;
                     return { name: p.name, node: (
                       <tr key={p.code} style={{ borderTop: `1px solid ${C.line2}` }}>
                         <td style={{ ...td, fontWeight: FW.strong, color: C.ink }}>{p.name}</td>
@@ -1899,16 +1998,17 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
                               onClick={() => validateAll([p.code])}
                               disabled={busy || !masterReady || !!rosterError}
                             >
-                              {busy && !pending ? '검증 중…' : '데이터 검증'}
+                              {rowValidating ? '검증 중…' : '데이터 검증'}
                             </Btn>
                             <Btn
-                              title={pendingBlockReason
-                                || (pending ? `검증된 ${pending.fetched.products.length}대 반영` : '먼저 데이터 검증')}
+                              title={!rowPending
+                                ? `${p.name} 먼저 데이터 검증`
+                                : (pendingBlockReason || `${p.name} 검증 결과 반영`)}
                               size="sm"
                               onClick={commitPending}
-                              disabled={busy || !pending || Boolean(pendingBlockReason)}
+                              disabled={busy || !rowPending || Boolean(pendingBlockReason)}
                             >
-                              {busy && pending ? '반영 중…' : '검증 결과 반영'}
+                              {busy && pending && rowPending ? '반영 중…' : '검증 결과 반영'}
                             </Btn>
                           </div>
                         </td>
@@ -2032,7 +2132,7 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
               onClick={validateEverySource}
               disabled={busy || !masterReady || !!rosterError}
             >
-              {busy && !pending ? '검증 중…' : '데이터 검증'}
+              {validatingCodes === 'all' ? '검증 중…' : '데이터 검증'}
             </Btn>
             <Btn
               title={pendingBlockReason || (pending ? `상품 반영 · 검증 ${pending.fetched.products.length}대` : '먼저 상품 검증')}

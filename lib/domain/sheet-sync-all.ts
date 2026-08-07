@@ -16,7 +16,7 @@ import {
   type MappingHeaderSignature,
   type MappingProfile,
 } from '@/lib/domain/sheet-import';
-import { commitSupplierProducts, type MasterIngressCommit } from '@/lib/domain/master-ingress';
+import { commitSupplierProducts, productsForSheetCommit, type MasterIngressCommit } from '@/lib/domain/master-ingress';
 import { partnerSheetOpts, resolveAdapter } from '@/lib/domain/sheet-adapters';
 import { createPlateAllocator, storedPendingSignature, type PendingPlateMap } from '@/lib/domain/pending-plate';
 import {
@@ -37,6 +37,7 @@ import {
   applySheetConflictResolutions,
   type SheetConflictResolution,
 } from '@/lib/domain/sheet-conflict-resolution';
+import { buildPriceChangesValue } from '@/lib/domain/sheet-conflict-report';
 
 function safeProfile(v: unknown): MappingProfile | undefined {
   return parseMappingProfile(v);
@@ -223,11 +224,10 @@ export type PartnerSourceReadiness = {
 /** 공급사 한 곳만 떼어 봐도 안전한지 판정한다. 전체 커밋 게이트와 별도로 UI·감사가 공유한다. */
 export function partnerSourceReadiness(line: PartnerFetchLine): PartnerSourceReadiness {
   const reasons: string[] = [];
-  const blockingDuplicates = line.blockingDuplicateCount ?? line.duplicateCount;
+  const sheetDuplicates = line.blockingDuplicateCount ?? line.duplicateCount;
   const masterReviewCount = line.products.filter((row) => row._needs_master_review === true).length;
   if (!line.ok) reasons.push('원본 조회 실패');
   if (line.invalidCount > 0) reasons.push(`무효 차번 ${line.invalidCount}`);
-  if (blockingDuplicates > 0) reasons.push(`차단 중복 ${blockingDuplicates}`);
   if (line.imported === 0 && !isExplicitAllExcluded(line)) reasons.push('안전하지 않은 올림 0대');
   if (line.sourceRowCount !== line.imported + line.excludedCount + line.noPriceCount + line.skippedCount) {
     reasons.push('판독 행 집계 불일치');
@@ -236,7 +236,9 @@ export function partnerSourceReadiness(line: PartnerFetchLine): PartnerSourceRea
   if (line.sourceRowCount >= 10 && line.noPriceCount + line.skippedCount >= line.sourceRowCount * 0.5) {
     reasons.push('가격없음·무효 비율 50% 이상');
   }
+  // 시트 중복은 커밋을 막지 않는다(한 대는 이미 올림). 확인만 필요.
   if (reasons.length) return { status: 'blocked', reasons, masterReviewCount };
+  if (sheetDuplicates > 0) reasons.push(`시트 중복 ${sheetDuplicates}(올린 매물은 반영)`);
   if (line.noPriceCount > 0) reasons.push(`가격 누락 ${line.noPriceCount}`);
   if (masterReviewCount > 0) reasons.push(`차종 검수 ${masterReviewCount}`);
   return { status: reasons.length ? 'review' : 'ready', reasons, masterReviewCount };
@@ -354,16 +356,14 @@ export function sheetSyncCommitBlockReason(fetched: PartnerSheetsFetch): string 
   // 차번 오타·설명문처럼 신원을 확정하지 못한 행을 빼고 부재처리를 계속하면,
   // 같은 기존 차량이 "시트에서 사라짐"으로 오판되어 출고불가로 내려간다.
   // 구조용 섹션 행은 파서에서 이미 제외하므로 남은 무효 행은 운영자가 원문을
-  // 고친 뒤 다시 검증하게 fail-closed 한다. 중복은 정상 차번 한 행이 present에
-  // 남아 부재 오판이 없지만, 무효 차번은 대응할 present key/plate 자체가 없다.
+  // 고친 뒤 다시 검증하게 fail-closed 한다.
+  //
+  // 시트 안 중복 차번: 파서가 이미 한 대만 products에 남긴다. 예전엔 중복이 있으면
+  // 검증된 나머지 전체 커밋까지 막았는데, 운영 요청은 «중복이 있어도 올린 매물은 반영».
+  // 중복 행 자체는 여전히 제외되고, 커밋만 막지 않는다.
   const invalidIdentity = fetched.lines.find((line) => line.invalidCount > 0);
   if (invalidIdentity) {
     return `${invalidIdentity.label} 무효 차번 ${invalidIdentity.invalidCount}건 (원문 수정 필요)`;
-  }
-  const duplicateIdentity = fetched.lines.find((line) =>
-    (line.blockingDuplicateCount ?? line.duplicateCount) > 0);
-  if (duplicateIdentity) {
-    return `${duplicateIdentity.label} 중복 차번 ${duplicateIdentity.blockingDuplicateCount ?? duplicateIdentity.duplicateCount}건 (원문 정리 필요)`;
   }
   const crossProviderPlate = [...incomingProvidersByPlate(fetched).entries()]
     .find(([, providers]) => providers.size > 1);
@@ -671,7 +671,9 @@ export function sheetSyncExistingConflictReason(conflicts: SheetSyncExistingConf
   const parts: string[] = [];
   if (conflicts.activeTwins.length) parts.push(`활성 중복차번 ${conflicts.activeTwins.length}건`);
   if (conflicts.crossProviderPlateConflicts.length) parts.push(`공급사 간 차번 소유 충돌 ${conflicts.crossProviderPlateConflicts.length}건`);
-  if (conflicts.deletedCollisions.length) parts.push(`삭제매물 재등장 ${conflicts.deletedCollisions.length}건`);
+  // 동일 공급사 삭제 톰스톤 재등장(deletedCollisions)은 commitSheetProducts가
+  // 공급사+차번으로 되살린다. 예전엔 승인 UI도 없이 여기 남겨 반영만 막았고,
+  // 키 불일치(RP004_… vs EXT_…)로 되살림도 스킵돼 아이카 21대가 고착됐다.
   if (conflicts.unownedDeletedMatches.length) parts.push(`공급사 미확정 삭제이력 충돌 ${conflicts.unownedDeletedMatches.length}건`);
   if (conflicts.manualReactivations.length) parts.push(`수기 출고불가 해제 후보 ${conflicts.manualReactivations.length}건`);
   if (conflicts.pendingIdentityTransitions.length) parts.push(`임시번호→실차번 연결 후보 ${conflicts.pendingIdentityTransitions.length}건`);
@@ -682,7 +684,8 @@ export function sheetSyncExistingConflictReason(conflicts: SheetSyncExistingConf
   return parts.join(' · ');
 }
 
-const CONCURRENCY = 4;
+/** visible=1(Grid+사진) 전면화 후 공급사 병렬 4는 Sheets 분당 quota에 자주 걸린다. */
+const CONCURRENCY = 2;
 
 async function mapPool<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
   const out: R[] = new Array(items.length);
@@ -779,9 +782,13 @@ export async function fetchAllPartnerSheets(
       const tabResponses = new Map<string, string>();
       for (const g of tabs) {
         try {
-          // 사진은 셀 링크에 있어 표에 안 담긴다 — 같은 fetch 에서 차번→링크 지도로 받는다.
+          // 사진은 셀 링크에 있어 표에 안 담긴다 — CSV엔 링크가 없고 visible=1(Grid)만
+          // hyperlink·스마트칩을 준다. 오토플러스는 어댑터에서 이미 visible 강제.
+          // 여기 generic/ianka 경로가 CSV만 타면 검증 미리보기「사진 없음」이 전부다.
           let photoByPlate: Record<string, string> | undefined;
           const raw = await readTable(o.url, g || undefined, {
+            // gid 없으면 Sheets Grid visible 경로 불가(API가 gid 요구) → CSV 유지.
+            visibleRowsOnly: Boolean(g),
             onPhotoByPlate: (map) => { photoByPlate = map; },
           });
           if (tabs.length > 1) assertDistinctSheetTable(tabResponses, raw, `gid ${g || '기본'}`);
@@ -988,11 +995,21 @@ export async function commitFetchedPartnerSheets(
   const conflictContext = options.loadConflictContext
     ? await options.loadConflictContext()
     : { resolutions: options.resolutions, contracts: options.contracts };
+  const commitConflicts = findSheetSyncExistingConflicts(fetched, currentExisting, currentDeleted);
   const existingConflict = sheetSyncExistingConflictReason(applySheetConflictResolutions({
-    conflicts: findSheetSyncExistingConflicts(fetched, currentExisting, currentDeleted),
+    conflicts: commitConflicts,
     resolutions: conflictContext.resolutions,
     existing: currentExisting,
     contracts: conflictContext.contracts,
+    // 미리보기와 같은 판정을 쓴다 — 빠뜨리면 화면은 통과인데 여기서만 막혀 반영이 영영 안 된다.
+    priceChangesValue: buildPriceChangesValue({
+      conflicts: commitConflicts,
+      existing: currentExisting,
+      deleted: currentDeleted,
+      incoming: fetched.products,
+      contracts: conflictContext.contracts,
+      providerCodes: fetched.lines.map((line) => line.code),
+    }),
   }).conflicts);
   if (existingConflict) throw new Error(`전체 동기화 중단 — ${existingConflict}. 충돌 매물을 먼저 정리하세요.`);
   const currentCodes = new Set(currentRoster.map((row) => row.code));
@@ -1051,22 +1068,31 @@ export async function commitFetchedPartnerSheets(
 
   // 비원자 다단계 쓰기이므로 마지막에 반드시 실제 ERP를 다시 읽어 잔여 반영분을 확인한다.
   // 네트워크가 중간에 끊겨 일부 청크만 남았으면 성공 토스트 대신 오류로 올려 재검증/재시도하게 한다.
+  // ⚠ 사후검증 incoming 은 커밋과 같은 ensureSnapped·prepareMasterIngress 결과여야 한다.
+  //    fetch 원본을 그대로 넣으면 soft-merge 유령 diff 로 사후검증이 영구 실패한다.
   const after = (await listSheetReconcileState(companyId, true)).active;
   const incomplete: string[] = [];
   for (const line of lines) {
-    const upsert = planProductUpsert(line.products, after);
+    const ready = productsForSheetCommit(line.products, master).products;
+    const upsert = planProductUpsert(ready, after);
     const rowsRead = line.sourceRowCount
       || line.imported + line.excludedCount + line.noPriceCount + line.skippedCount;
     const gate = shouldReconcileAbsent(rowsRead, guard.get(line.code) || 0);
     const absentPlan = planAbsentBlocked({
       existing: after,
       providerCode: line.code,
-      presentKeys: presentKeySet(line.products),
-      presentPlates: presentPlateSet(line.products),
+      presentKeys: presentKeySet(ready),
+      presentPlates: presentPlateSet(ready),
     });
     const remainingAbsent = gate.ok ? absentPlan.patches.length : 0;
     if (upsert.creates.length || upsert.patches.length || remainingAbsent) {
-      incomplete.push(`${line.label}(신규 ${upsert.creates.length}·수정 ${upsert.patches.length}·차단 ${remainingAbsent})`);
+      const sample = [
+        ...upsert.creates.slice(0, 2).map((row) => `신규:${String(row.product_code || row.car_number || '?')}`),
+        ...upsert.patches.slice(0, 2).map((row) => `수정:${row.key}[${Object.keys(row.patch).slice(0, 4).join(',')}]`),
+      ].join(' ');
+      incomplete.push(
+        `${line.label}(신규 ${upsert.creates.length}·수정 ${upsert.patches.length}·차단 ${remainingAbsent}${sample ? ` · ${sample}` : ''})`,
+      );
     }
   }
   if (incomplete.length) {
