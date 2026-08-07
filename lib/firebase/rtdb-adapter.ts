@@ -34,6 +34,7 @@ import {
 } from './rtdb-products';
 import { mergeSettlementPrivate, splitSettlementPrivate } from './rtdb-settlements';
 import { resolveMergedProduct } from '@/lib/domain/product-alias';
+import { dedupeContractsByCode } from '@/lib/domain/contract-dedupe';
 
 type Rec = Record<string, any>;
 
@@ -204,7 +205,9 @@ export class RtdbAdapter implements StoreAdapter {
       console.warn(`RTDB contracts(${node}) 스코프 조회 실패:`, (e as Error).message);
     }
     const map = new Map(out.map((r) => [String(r._key), r]));
-    return [...map.values()];
+    // 이관 잔재로 같은 계약이 두 키에 들어와 있다(2026-08-05 v3→v4). 세는 자리에서 한 벌로 합친다.
+    //  데이터는 건드리지 않는다 — 삭제는 되돌릴 수 없어 사람 승인·백업 뒤 별건이다.
+    return dedupeContractsByCode([...map.values()]);
   }
 
   /**
@@ -426,7 +429,10 @@ export class RtdbAdapter implements StoreAdapter {
         for (const [kk, vv] of Object.entries(r)) if (vv !== undefined) cur[kk] = vv;
         map.set(k, cur as EntityRecord);
       }
-      const result = [...map.values()];
+      const result = entity === 'contract'
+        // v3 라이브 ∪ v4 오버레이를 합친 뒤에도 같은 계약이 두 키로 남는다(이관 잔재) → 코드 기준 한 벌.
+        ? dedupeContractsByCode([...map.values()])
+        : [...map.values()];
       if (entity === 'settlement') {
         const privateMaps = await this.readSettlementPrivate();
         return result.map((settlement) => {
