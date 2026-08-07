@@ -1,26 +1,21 @@
 /**
- * 사진이 시트에서 ERP 로 들어오나 — 채움률과 유입 경로. 읽기 전용.
+ * 사진 결손 진단(읽기 전용) — 공급사별로 «사진 없는 매물»이 몇 대인가.
+ *   GOOGLE_APPLICATION_CREDENTIALS=... npx tsx scripts/audit-photo-coverage.mts
  *
- * 엑셀 보기에는 사진 열이 없다. 사진은 간단·상세 보기와 상세 페이지에서만 보인다.
- * 그래서 「사진이 꽂혔는지」는 화면으로 확인이 어렵다 — 데이터로 센다.
+ * 배경(2026-08-08): 영업자 상세에서 「사진없음」이 자주 뜬다는 지적 → 실측했더니 화면이 아니라
+ * 재고 문제였다. 사진 판정은 **앱과 같은 함수**를 쓴다(lib/domain/product-photos) —
+ * 리포트와 화면이 다른 기준을 쓰면 「여긴 있다는데 화면엔 없다」가 된다.
  *
- * npx tsx scripts/audit-photo-coverage.mts
+ * 사진의 출처는 둘이다.
+ *   · 직접        = image_urls/images/photos 등 저장된 URL — 화면에 바로 뜬다
+ *   · 링크(해석)  = photo_link(드라이브 폴더·모던렌트카·오플) — 서버가 풀어야 뜬다
+ * 링크만 있는 차는 «있는데 늦게 뜨는» 차라 결손과 구분해서 센다.
  */
 import { readFileSync } from 'node:fs';
-import { isListableProduct } from '../lib/domain/product';
+import { productPhotos, scrapableSources } from '../lib/domain/product-photos';
+import type { EntityRecord } from '../lib/intake/entities';
 
-type Rec = Record<string, any>;
-const S = (v: unknown) => String(v ?? '').trim();
-const dead = (r: Rec) => r?._deleted === true || S(r?.status) === 'deleted';
-const PHOTO_FIELDS = ['photo_link', 'photo_url', 'photos', 'image_url', 'images', 'thumbnail'] as const;
-const photoOf = (p: Rec) => {
-  for (const f of PHOTO_FIELDS) {
-    const v = p?.[f];
-    if (Array.isArray(v) && v.length) return String(v[0]);
-    if (S(v)) return S(v);
-  }
-  return '';
-};
+const SELLABLE = new Set(['즉시출고', '출고가능', '출고협의', '상품화중']);
 
 async function main() {
   const { initializeApp, cert, getApps } = await import('firebase-admin/app');
@@ -30,50 +25,52 @@ async function main() {
     initializeApp({ credential: cert(sa), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });
   }
   const db = getDatabase();
-  const [v4s, v3s, pl, po] = await Promise.all([
-    db.ref('v4/products').get(), db.ref('products').get(),
-    db.ref('partners').get(), db.ref('v4/partners').get(),
+  const [pSnap, partnerSnap] = await Promise.all([
+    db.ref('v4/products').get(),
+    db.ref('v4/partners').get(),
   ]);
-  const v4 = (v4s.val() || {}) as Record<string, Rec>;
-  const v3 = (v3s.val() || {}) as Record<string, Rec>;
-  const parts = [...Object.values((pl.val() || {}) as Rec), ...Object.values((po.val() || {}) as Rec)];
-  const nameOf = (c: string) => S(parts.find((x: Rec) => S(x.partner_code) === c)?.partner_name
-    || parts.find((x: Rec) => S(x.partner_code) === c)?.company_name) || c;
-
-  const rows = Object.values(v4).filter((p) => !dead(p) && isListableProduct(p as any));
-  const withPhoto = rows.filter((p) => photoOf(p));
-
-  console.log('\n══ 사진이 들어와 있나 ══\n');
-  console.log(`  목록 노출 ${rows.length}대 · 사진 있음 ${withPhoto.length}대 (${rows.length ? Math.round(withPhoto.length / rows.length * 100) : 0}%)\n`);
-
-  const by = new Map<string, { t: number; p: number }>();
-  for (const r of rows) {
-    const c = S(r.provider_company_code) || '(없음)';
-    const e = by.get(c) || { t: 0, p: 0 };
-    e.t++; if (photoOf(r)) e.p++;
-    by.set(c, e);
-  }
-  console.log('■ 공급사별 — 전체 / 사진 있음');
-  for (const [c, e] of [...by].sort((a, b) => b[1].t - a[1].t)) {
-    const mark = e.p === e.t ? '✅' : e.p ? '⚠' : '❌';
-    console.log(`   ${mark} ${c.padEnd(9)} ${String(e.t).padStart(4)} / ${String(e.p).padStart(4)}   ${nameOf(c)}`);
+  const products = Object.values((pSnap.val() || {}) as Record<string, EntityRecord>);
+  const partners = Object.values((partnerSnap.val() || {}) as Record<string, Record<string, unknown>>);
+  const nameOf = new Map<string, string>();
+  for (const p of partners) {
+    const code = String(p.partner_code || p.code || p._key || '');
+    if (code) nameOf.set(code, String(p.name || code));
   }
 
-  // v3 대비
-  const PLATE = /\d{2,3}[가-힣]\d{4}/;
-  const plate = (p: Rec, k = '') => {
-    for (const s of [p?.car_number, k, p?.product_code]) { const m = S(s).replace(/\s/g, '').match(PLATE); if (m) return m[0]; }
-    return '';
-  };
-  const p3 = new Map<string, string>();
-  for (const [k, r] of Object.entries(v3)) { if (dead(r)) continue; const pn = plate(r, k); const ph = photoOf(r); if (pn && ph) p3.set(pn, ph); }
-  let onlyV3 = 0;
-  for (const r of rows) { const pn = plate(r); if (pn && !photoOf(r) && p3.get(pn)) onlyV3++; }
-  console.log(`\n■ erp3 대비 — v3 엔 사진이 있는데 v4 엔 없는 것 ${onlyV3}대`);
+  type Row = { total: number; direct: number; link: number; none: number };
+  const byProvider = new Map<string, Row>();
+  let all: Row = { total: 0, direct: 0, link: 0, none: 0 };
 
-  console.log('\n■ 사진 값 표본');
-  for (const r of withPhoto.slice(0, 5)) console.log(`   ${S(r.car_number) || '(차번없음)'} ${photoOf(r).slice(0, 80)}`);
-  console.log('');
+  for (const p of products) {
+    if (p._deleted === true) continue;
+    const status = String(p.vehicle_status || '').replace(/\s+/g, '');
+    if (!SELLABLE.has(status)) continue; // 출고불가·이력은 사진 과제가 아니다
+    const code = String(p.provider_company_code || '(미지정)');
+    const row = byProvider.get(code) || { total: 0, direct: 0, link: 0, none: 0 };
+    const direct = productPhotos(p).length > 0;
+    const link = !direct && scrapableSources(p).length > 0;
+    row.total += 1;
+    all.total += 1;
+    if (direct) { row.direct += 1; all.direct += 1; }
+    else if (link) { row.link += 1; all.link += 1; }
+    else { row.none += 1; all.none += 1; }
+    byProvider.set(code, row);
+  }
+
+  const pct = (n: number, d: number) => (d ? `${Math.round((n / d) * 100)}%` : '-');
+  const rows = [...byProvider.entries()].sort((a, b) => b[1].none - a[1].none);
+
+  console.log(`\n판매 가능한 매물 ${all.total}대 — 직접사진 ${all.direct}(${pct(all.direct, all.total)}) · 링크만 ${all.link}(${pct(all.link, all.total)}) · 없음 ${all.none}(${pct(all.none, all.total)})`);
+  console.log('\n공급사              전체   직접   링크   없음   없음비율');
+  console.log('─'.repeat(62));
+  for (const [code, r] of rows) {
+    const label = `${code} ${nameOf.get(code) || ''}`.trim().slice(0, 18).padEnd(18);
+    console.log(`${label} ${String(r.total).padStart(5)} ${String(r.direct).padStart(6)} ${String(r.link).padStart(6)} ${String(r.none).padStart(6)}   ${pct(r.none, r.total).padStart(5)}`);
+  }
+  console.log('─'.repeat(62));
+  console.log(`${'합계'.padEnd(17)} ${String(all.total).padStart(5)} ${String(all.direct).padStart(6)} ${String(all.link).padStart(6)} ${String(all.none).padStart(6)}   ${pct(all.none, all.total).padStart(5)}\n`);
+  console.log('링크만 = photo_link 는 있는데 저장된 이미지가 없는 차(서버 해석으로 뜬다).');
+  console.log('없음   = 사진 경로가 아예 없는 차. 이 숫자가 영업자 화면의 「사진없음」이다.\n');
 }
 
 main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
