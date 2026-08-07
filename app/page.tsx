@@ -9,6 +9,17 @@ import { activeCount, EMPTY_VEHICLE_FILTER, type VehicleFilter } from '@/lib/dom
 import { isOfferableProduct } from '@/lib/domain/product';
 import { InterestPanel, useInterestLists, useInterestTab, useInterestTabGuard } from '@/components/InterestRail';
 import { clearRecent, clearFavs } from '@/lib/product-interest';
+import {
+  clearAxesKeepMeta,
+  filterFromBag,
+  listPresets,
+  presetAxesCount,
+  removePreset,
+  samePresetAxes,
+  savePreset,
+  subscribePresets,
+  type FinderFilterPreset,
+} from '@/lib/finder-filter-presets';
 import { toast } from '@/components/Toaster';
 import { StartGuide, useStartGuide } from '@/components/StartGuide';
 import { C, R, FS, CenterNote, ContextMenu, useContextMenu } from '@/components/ui';
@@ -86,6 +97,12 @@ export default function Finder() {
   const [limit, setLimit] = useState(PAGE); // 목록·엑셀 공통 페이징(더보기)
   const [interestTab, setInterestTab] = useInterestTab();
   const { recent: storedInterestRecent, favs: storedInterestFavs } = useInterestLists();
+  const [presets, setPresets] = useState<FinderFilterPreset[]>([]);
+
+  useEffect(() => {
+    setPresets(listPresets());
+    return subscribePresets(() => { setPresets(listPresets()); });
+  }, []);
 
   const liveBag = useCallback((): FilterBag => ({
     periods, rent, dep, mile, fuel, ptype, credit, perks, promo, dyn, vehicle, models, sort, interest: interestFlt,
@@ -395,10 +412,43 @@ export default function Finder() {
     });
     toast(kind === 'recent' ? '최근 본을 비웠습니다' : '관심을 비웠습니다', 'info');
   };
+
+  const presetSaveCount = presetAxesCount(v);
+  const activePresetId = useMemo(() => {
+    const hit = presets.find((preset) => samePresetAxes(filterFromBag(preset.bag), v));
+    return hit?.id ?? null;
+  }, [presets, v]);
+
+  const onSavePreset = () => {
+    const saved = savePreset(v);
+    if (!saved) {
+      toast(presetSaveCount <= 0 ? '저장할 조건이 없습니다' : '같은 조건이 이미 있습니다', 'info');
+      return;
+    }
+    toast('즐겨찾는 조건에 저장했습니다', 'ok');
+  };
+
+  const onApplyPreset = (id: string) => {
+    const preset = presets.find((item) => item.id === id);
+    if (!preset) return;
+    const meta = { sort: v.sort, interest: v.interest };
+    if (activePresetId === id) {
+      bump(() => clearAxesKeepMeta(v));
+      return;
+    }
+    bump(() => filterFromBag(preset.bag, meta));
+  };
+
+  const onRemovePreset = (id: string) => {
+    removePreset(id);
+    toast('즐겨찾는 조건을 삭제했습니다', 'info');
+  };
+
   const filterPanelModel: FinderFilterPanelModel = {
     mobile,
     totalVisible,
     activeCount: sidebarAc,
+    presetSaveCount,
     draftOpen: filterDraft != null,
     value: v,
     rows: rows || [],
@@ -408,6 +458,11 @@ export default function Finder() {
     aggregate: agg,
     recentCount: interestRecent.length,
     favoriteCount: interestFavs.length,
+    presets,
+    activePresetId,
+    onSavePreset,
+    onApplyPreset,
+    onRemovePreset,
     update: bump,
     reset,
     clearRecent: () => clearInterestList('recent'),

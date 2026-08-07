@@ -2,6 +2,7 @@
  * ERP4 공급사 시트 전수 read-only 감사.
  * 실제 관리자/cron과 같은 fetchAllPartnerSheets 경로를 호출하며 RTDB write는 하지 않는다.
  */
+// `--override-virtual`은 운영 roster에 없는 공급원을 메모리에만 주입해 검증한다.
 import { readFileSync } from 'node:fs';
 import { sign } from 'node:crypto';
 import { cert, getApps, initializeApp } from 'firebase-admin/app';
@@ -9,8 +10,11 @@ import { getDatabase } from 'firebase-admin/database';
 import nextEnv from '@next/env';
 import {
   fetchAllPartnerSheets,
+  findSheetSyncExistingConflicts,
+  partnerSourceReadiness,
   sheetSyncCommitBlockReason,
 } from '../lib/domain/sheet-sync-all';
+import { applySheetConflictResolutions } from '../lib/domain/sheet-conflict-resolution';
 import { findPlateHeaderRow, SHEET_ADAPTERS } from '../lib/domain/sheet-adapters';
 import { isExactRealPlate } from '../lib/domain/product';
 import { AUTOPLUS_GID_MAIN, AUTOPLUS_GID_PROMO } from '../lib/domain/sheet-autoplus';
@@ -140,8 +144,21 @@ const overrideUrl = (process.argv.find((arg) => arg.startsWith('--override-url='
 const overrideGids = (process.argv.find((arg) => arg.startsWith('--override-gids=')) || '').slice('--override-gids='.length).trim();
 const overrideAdapter = (process.argv.find((arg) => arg.startsWith('--override-adapter=')) || '').slice('--override-adapter='.length).trim();
 if (overrideCode && overrideUrl) {
-  const target = partnerRows.find((partner) => String(partner.partner_code || partner._key || '') === overrideCode);
-  if (!target) throw new Error(`공급사 설정 없음(${overrideCode})`);
+  let target = partnerRows.find((partner) => String(partner.partner_code || partner._key || '') === overrideCode);
+  if (!target && process.argv.includes('--override-virtual')) {
+    target = {
+      _key: overrideCode,
+      partner_code: overrideCode,
+      name: overrideCode,
+      partner_name: overrideCode,
+      partner_type: '공급사',
+      status: 'active',
+    } as EntityRecord;
+    partnerRows.push(target);
+  }
+  if (!target) {
+    throw new Error(`공급사 설정 없음(${overrideCode}) — 운영 write 없이 원본만 검증하려면 --override-virtual 사용`);
+  }
   target.sheet_url = overrideUrl;
   target.sheet_gid = overrideGids;
   target.sheet_tab = overrideGids;
@@ -161,10 +178,10 @@ const requiredSupplierCodes = new Set(
     .filter(Boolean),
 );
 if (process.argv.includes('--list-target-partners')) {
-  const targets = partnerRows.filter((partner) => /아이카|이안카|아이언/i.test(
+  const targets = partnerRows.filter((partner) => /아이카|이안카|아이언|렌트존/i.test(
     `${String(partner.name || '')} ${String(partner.partner_name || '')}`,
   ));
-  console.log('\n아이카·이안카·아이언 공급사 설정 · 쓰기 없음');
+  console.log('\n아이카·이안카·아이언·렌트존 공급사 설정 · 쓰기 없음');
   for (const partner of targets) {
     console.log([
       String(partner.partner_code || partner._key || '(코드없음)'),
@@ -223,6 +240,17 @@ if (process.argv.includes('--inspect-autoplus')) {
     const preparedHeader = prepared[0] || [];
     const preparedPlateColumn = preparedHeader.findIndex((cell) => /^(차량번호|차번|차번호|등록번호)$/.test(String(cell || '').replace(/\s/g, '')));
     const statusColumn = preparedHeader.findIndex((cell) => /^(배차상태|판매상태|상태|재고상태|출고상태|출고현황|즉시출고)$/.test(String(cell || '').replace(/\s/g, '')));
+    const malformedRows = prepared.slice(1).flatMap((row, rowOffset) => {
+      const expected = String(row[preparedPlateColumn] || '').trim();
+      if (!expected || isExactRealPlate(expected)) return [];
+      const otherPlateColumns = row.flatMap((cell, column) => isExactRealPlate(cell) ? [column] : []);
+      return [{
+        row: rowOffset + headerRow + 2,
+        expectedKind: /^https?:\/\//i.test(expected) ? 'url' : 'text',
+        otherPlateColumns,
+        nonEmptyColumns: row.flatMap((cell, column) => String(cell || '').trim() ? [column] : []),
+      }];
+    });
     const statuses = new Map<string, { total: number; excluded: number }>();
     for (const row of prepared.slice(1)) {
       if (!isExactRealPlate(row[preparedPlateColumn])) continue;
@@ -233,11 +261,13 @@ if (process.argv.includes('--inspect-autoplus')) {
       statuses.set(rawStatus, item);
     }
     console.log(`       상태: ${[...statuses.entries()].map(([status, count]) => `${status} ${count.total}${count.excluded ? `(제외 ${count.excluded})` : ''}`).join(' · ')}`);
+    if (malformedRows.length) console.log(`       비정상 행 구조(값 마스킹): ${JSON.stringify(malformedRows.slice(0, 12))}`);
   }
 }
 
 console.log(`\n공급사 시트 ${fetched.lines.length}곳 · 실제 ERP4 동기화 경로 · 쓰기 없음\n`);
 for (const line of fetched.lines) {
+  const readiness = partnerSourceReadiness(line);
   console.log([
     line.ok ? 'PASS' : 'FAIL',
     line.code,
@@ -248,6 +278,7 @@ for (const line of fetched.lines) {
     `가격없음 ${line.noPriceCount}`,
     `무효 ${line.invalidCount}`,
     `중복 ${line.duplicateCount}`,
+    `개별판정 ${readiness.status === 'ready' ? '반영가능' : readiness.status === 'review' ? `확인필요(${readiness.reasons.join('·')})` : `차단(${readiness.reasons.join('·')})`}`,
     line.message,
   ].join(' · '));
   for (const issue of line.issueSamples || []) console.log(`       - ${issue}`);
@@ -299,6 +330,36 @@ if (process.argv.includes('--plan')) {
   console.log(`  결과 ${plan.ok ? 'PASS' : 'BLOCKED'}${plan.blockReason ? ` · ${plan.blockReason}` : ''}`);
   for (const note of (plan.notes || []).slice(0, 20)) console.log(`       - ${note}`);
   planBlocked = !plan.ok;
+
+  // `--conflict-detail` — 차단 사유를 요약이 아니라 «어느 차 무엇 때문인지»로 펼친다.
+  // 사유 문자열만 보면 운영자가 원본에서 무엇을 고쳐야 할지 알 수 없어 매번 재조사를 반복하게 된다.
+  if (process.argv.includes('--conflict-detail')) {
+    const raw = findSheetSyncExistingConflicts(fetched, activeProducts, deletedProducts);
+    const resolved = applySheetConflictResolutions({
+      conflicts: raw, resolutions, existing: activeProducts, contracts: [...mergedContracts.values()],
+    }).conflicts;
+    console.log('\n충돌 상세 · 승인 반영 후 (괄호는 승인 전 원본 건수)');
+    for (const [label, key] of [
+      ['활성 중복차번', 'activeTwins'],
+      ['공급사 간 차번 소유 충돌', 'crossProviderPlateConflicts'],
+      ['삭제매물 재등장', 'deletedCollisions'],
+      ['공급사 미확정 삭제이력 충돌', 'unownedDeletedMatches'],
+      ['수기 출고불가 해제 후보', 'manualReactivations'],
+      ['임시번호→실차번 연결 후보', 'pendingIdentityTransitions'],
+      ['번호미정 식별자 변경 후보', 'pendingIdentityDrifts'],
+      ['임시번호 신원서명 불일치', 'pendingSignatureConflicts'],
+      ['기존 가격기간 누락', 'missingPricePeriods'],
+      ['공급사 미확정 기존차 충돌', 'unownedLegacyMatches'],
+      ['수기 출고불가 보존(차단 아님)', 'manualHoldsPreserved'],
+    ] as const) {
+      const after = (resolved[key] || []) as string[];
+      const before = (raw[key] || []) as string[];
+      if (!before.length && !after.length) continue;
+      console.log(`\n  ■ ${label} — ${after.length}건 (${before.length})`);
+      for (const item of after.slice(0, 60)) console.log(`       ${item}`);
+      if (after.length > 60) console.log(`       … 그 외 ${after.length - 60}건`);
+    }
+  }
 }
 
 process.exit(blockReason || requiredBlockReason || planBlocked ? 1 : 0);

@@ -28,6 +28,7 @@ import {
   fetchAllPartnerSheets,
   findSheetSyncExistingConflicts,
   isExplicitAllExcluded,
+  partnerSourceReadiness,
   sheetSyncExistingConflictReason,
   sheetSyncCommitBlockReason,
   sheetPartnerSyncRevision,
@@ -1065,6 +1066,33 @@ check('이안카 탭 간 겹침은 재렌트 값을 유지하고 커밋을 막�
   && iankaOverlapPrice?.['36']?.rent === 400000
   && sheetSyncCommitBlockReason(iankaOverlapFetch) === '',
   iankaOverlapLine);
+check('공급사별 판정은 정상 원본을 반영 가능으로 분류',
+  partnerSourceReadiness({
+    ...iankaOverlapLine,
+    duplicateCount: 0,
+    blockingDuplicateCount: 0,
+    skippedCount: 0,
+    sourceRowCount: iankaOverlapLine.imported,
+    products: iankaOverlapLine.products.map((row) => ({ ...row, _needs_master_review: false })),
+  }).status === 'ready');
+check('공급사별 판정은 가격 누락·차종 검수를 확인 필요로 분류',
+  partnerSourceReadiness({
+    ...iankaOverlapLine,
+    duplicateCount: 0,
+    blockingDuplicateCount: 0,
+    noPriceCount: 1,
+    skippedCount: 0,
+    sourceRowCount: iankaOverlapLine.imported + 1,
+  }).status === 'review');
+check('공급사별 판정은 무효 차번을 해당 공급사 차단으로 분류',
+  partnerSourceReadiness({
+    ...iankaOverlapLine,
+    duplicateCount: 0,
+    blockingDuplicateCount: 0,
+    invalidCount: 1,
+    skippedCount: 1,
+    sourceRowCount: iankaOverlapLine.imported + 1,
+  }).status === 'blocked');
 
 const failed = cases.filter((c) => !c.ok);
 console.log('\n════════ 결과 ════════');
