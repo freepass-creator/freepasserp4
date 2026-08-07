@@ -4,7 +4,7 @@ import { type EntityRecord } from '@/lib/intake/entities';
 import { priceList, detailSections, cheapest, type Audience } from '@/lib/domain/product';
 import { useProductPhotos } from '@/components/use-product-photos';
 import { getRole } from '@/lib/domain/deal';
-import { won, C, R, NUM, FW, FS, CloseBtn, IconBtn, SCRIM } from '@/components/ui';
+import { won, Badge, C, R, NUM, FW, FS, CloseBtn, IconBtn, SCRIM } from '@/components/ui';
 import { useDragScroll } from '@/lib/use-drag-scroll';
 import {
   badges, Plate, idParts, CardBenefits, CardEvents, OptionChips,
@@ -25,6 +25,24 @@ const lab: CSSProperties = {
 const box: CSSProperties = {
   border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg, overflow: 'hidden',
 };
+
+/**
+ * 빈 슬롯(`-`)을 흐리게 — 지우지는 않는다.
+ * 「가솔린 · - · 1,000cc · 5인승」의 `-`는 «구동방식을 모른다»는 정보다. 지우면 그 축이 있었다는 것조차
+ * 안 보여 영업자가 손님에게 «없다»고 잘못 말한다. 그래서 **정보는 남기고 무게만 낮춘다.**
+ * 구분자는 gSlots 가 만든 ` · ` 하나뿐이라 쪼개도 값이 깨지지 않는다.
+ */
+function dimDashes(v: ReactNode): ReactNode {
+  if (typeof v !== 'string' || !v.includes('-')) return v;
+  const parts = v.split(' · ');
+  if (parts.length < 2 || !parts.some((x) => x === '-')) return v;
+  return parts.map((x, i) => (
+    <span key={i}>
+      {i > 0 && <span style={{ color: C.faint }}> · </span>}
+      {x === '-' ? <span style={{ color: C.faint }}>-</span> : x}
+    </span>
+  ));
+}
 
 function KvRow({ label, children, first }: { label: string; children: ReactNode; first?: boolean }) {
   return (
@@ -65,6 +83,8 @@ export function ProductDetail({ p, audience, layout = 'brochure' }: { p: EntityR
   const pol = (p._policy || {}) as Record<string, unknown>;
   const caption = [pol.basic_driver_age, pol.annual_mileage, pol.insurance_included].filter(Boolean).join(' · ');
   const { idMain, idExt } = idParts(p);
+  /** work = 차량번호를 요약바가 이미 들고 있다. 세부표에서 한 번 더 찍지 않는다(같은 값 세 번 → 표가 길어 보인다). */
+  const kvRows = (rows: [string, string][]) => (work ? rows.filter(([k]) => k !== '차량번호') : rows);
 
   return (
     <div>
@@ -83,9 +103,13 @@ export function ProductDetail({ p, audience, layout = 'brochure' }: { p: EntityR
           marginTop: work ? 0 : 8, rowGap: 6,
         }}>
           {aud !== 'customer' && !work && <Plate p={p} />}
-          {badges(p, false, false, false, aud)}
+          {/* work = 차번·상태를 요약바가 이미 들고 있다. 같은 값을 두 번 찍지 않는다. */}
+          {badges(p, false, false, false, aud, { hideStatus: work })}
           <CardBenefits p={p} inline />
           <CardEvents p={p} inline />
+          {/* 사진 없음도 매물의 성질이다 — 별도 줄을 잡아먹지 않게 칩으로 붙인다.
+              (안 그리면 «없는 건지 안 뜬 건지»를 모른다. 사진 없는 차가 절반 가까이다.) */}
+          {work && photos.length === 0 && <Badge tone="gray" variant="quiet" title="등록된 사진이 없습니다">사진없음</Badge>}
           {work && aud !== 'customer' && <FavHeart p={p} compact />}
         </div>
       </div>
@@ -124,9 +148,7 @@ export function ProductDetail({ p, audience, layout = 'brochure' }: { p: EntityR
               </IconBtn>
             ))}
           </div>
-        ) : (
-          <div style={{ fontSize: FS.cap, color: C.faint }}>사진 없음</div>
-        )
+        ) : null
       ) : photos.length ? (
         <div>
           <div
@@ -260,10 +282,10 @@ export function ProductDetail({ p, audience, layout = 'brochure' }: { p: EntityR
           ) : (
             // kv — 행·옵션 칩 원자 동일. chipsAfter=1이면 첫 행 뒤에 OptionChips(all).
             <div style={box}>
-              {sec.rows.map(([k, v], i) => (
+              {kvRows(sec.rows).map(([k, v], i) => (
                 <div key={`${k}-${i}`}>
                   <KvRow label={k} first={i === 0}>
-                    {v || <span style={{ color: C.faint }}>—</span>}
+                    {v ? dimDashes(v) : <span style={{ color: C.faint }}>—</span>}
                   </KvRow>
                   {sec.chips && sec.chipsAfter === 1 && i === 0 && (
                     <KvRow label={sec.chipsLabel || '선택옵션'}>
@@ -273,7 +295,7 @@ export function ProductDetail({ p, audience, layout = 'brochure' }: { p: EntityR
                 </div>
               ))}
               {sec.chips && sec.chips.length > 0 && sec.chipsAfter == null && (
-                <KvRow label={sec.chipsLabel || '선택옵션'} first={sec.rows.length === 0}>
+                <KvRow label={sec.chipsLabel || '선택옵션'} first={kvRows(sec.rows).length === 0}>
                   <OptionChips p={p} expand />
                 </KvRow>
               )}

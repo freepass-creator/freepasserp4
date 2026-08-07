@@ -7,7 +7,7 @@ import { STEPS, contractStage, isContractCancelled, isContractCompleted, isDone,
 import { applyStepCheck, cancelContract, finalizeContractIfReady } from '@/lib/domain/settlement-engine';
 import { createContractRequest, getRole, type Role } from '@/lib/domain/deal';
 import { cheapest, priceList } from '@/lib/domain/product';
-import { Btn, ButtonLabel, Badge, C, R, NUM, ICON, Input, fmtPhone, actorColor, DetailRow, ListGroup, ToggleChips, FW, FS, won } from '@/components/ui';
+import { Btn, ButtonLabel, IconBtn, Badge, C, R, NUM, ICON, Input, fmtPhone, actorColor, DetailRow, ListGroup, ToggleChips, FW, FS, won } from '@/components/ui';
 import { ContractMemos } from '@/components/ContractMemos';
 import { ChakhandealEsignButton } from '@/components/ChakhandealEsignButton';
 import { confirmDialog, toast } from '@/components/Toaster';
@@ -57,6 +57,8 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
   const [period, setPeriod] = useState<number>(0);
   /** focus 모드에서 «앞뒤로 넘겨 본» 단계. null = 지금 단계를 따라간다. */
   const [stepIdx, setStepIdx] = useState<number | null>(null);
+  /** 5단계를 한꺼번에 펼쳐 본다 — 감독·확인용. focus 화면에서도 언제든 뒤집을 수 있다. */
+  const [expandAll, setExpandAll] = useState(false);
 
   /** 상세·목록과 전역 메뉴 숫자를 같은 프레임에 갱신한다. */
   const notifyChange = () => {
@@ -170,8 +172,9 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
   const cancelled = isContractCancelled(c);
   const stage = contractStage(c);
   const doneCount = stepDoneArr.filter(Boolean).length;
-  // 영업자만 접는다. 취소된 계약은 «지금 단계»가 없으니 전부 펼쳐 이력으로 읽게 둔다.
-  const focus = stepView === 'focus' && role === 'agent' && !cancelled;
+  // 취소된 계약은 «지금 단계»가 없으니 전부 펼쳐 이력으로 읽게 둔다.
+  //  관리자도 이 화면에서는 «한 건을 진행»한다 — 감독 시야가 필요하면 «전체» 한 번이면 된다(역할로 가르지 않는다).
+  const focus = stepView === 'focus' && !expandAll && !cancelled;
   // 다 끝났으면 마지막 단계를 보여 준다(활성 단계 없음 = activeIdx -1).
   const focusIdx = Math.min(STEPS.length - 1, Math.max(0, stepIdx ?? (activeIdx < 0 ? STEPS.length - 1 : activeIdx)));
   const nowIdx = activeIdx < 0 ? STEPS.length - 1 : activeIdx;
@@ -215,22 +218,34 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
         </div>
       )}
 
-      {/* focus = 지금 단계 하나만. 앞뒤는 넘겨서 본다 — 5개를 늘어놓으면 «내 차례»가 묻힌다. */}
-      {focus && (
+      {/* focus = 지금 단계 하나만. 앞뒤는 넘겨서 본다 — 5개를 늘어놓으면 «내 차례»가 묻힌다.
+          펼쳐 보고 싶으면 «전체» 한 번. 역할로 가르지 않는다 — 관리자도 여기선 한 건을 진행한다. */}
+      {stepView === 'focus' && !cancelled && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '2px 0 6px' }}>
-          <Btn title="이전 단계" size="sm" variant="ghost" disabled={focusIdx === 0} onClick={() => setStepIdx(focusIdx - 1)}>
-            <ButtonLabel icon={<ChevronLeft size={ICON.md} aria-hidden />}>이전</ButtonLabel>
-          </Btn>
-          <span style={{ flex: 1, minWidth: 0, textAlign: 'center', fontSize: FS.cap, color: C.faint }}>
-            <span style={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums', color: C.ink, fontWeight: FW.head }}>{focusIdx + 1}</span>
-            {' / '}{STEPS.length}
-          </span>
-          {focusIdx === nowIdx ? null : (
-            <Btn title="지금 단계로" size="sm" variant="ghost" onClick={() => setStepIdx(null)}>지금 단계</Btn>
+          {focus ? (
+            <>
+              <IconBtn title="이전 단계" disabled={focusIdx === 0} onClick={() => setStepIdx(focusIdx - 1)}>
+                <ChevronLeft size={ICON.md} aria-hidden />
+              </IconBtn>
+              <span style={{ fontSize: FS.cap, color: C.faint }}>
+                <span style={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums', color: C.ink, fontWeight: FW.head }}>{focusIdx + 1}</span>
+                {' / '}{STEPS.length}
+              </span>
+              <IconBtn title="다음 단계" disabled={focusIdx === STEPS.length - 1} onClick={() => setStepIdx(focusIdx + 1)}>
+                <ChevronRight size={ICON.md} aria-hidden />
+              </IconBtn>
+              <span style={{ flex: 1, minWidth: 4 }} />
+              {focusIdx === nowIdx ? null : (
+                <Btn title="지금 단계로 돌아가기" size="sm" variant="ghost" onClick={() => setStepIdx(null)}>지금 단계</Btn>
+              )}
+              <Btn title="5단계 모두 보기" size="sm" variant="ghost" onClick={() => setExpandAll(true)}>전체</Btn>
+            </>
+          ) : (
+            <>
+              <span style={{ flex: 1, minWidth: 0, fontSize: FS.cap, color: C.faint }}>5단계 전체</span>
+              <Btn title="지금 단계만 보기" size="sm" variant="ghost" onClick={() => { setExpandAll(false); setStepIdx(null); }}>지금 단계만</Btn>
+            </>
           )}
-          <Btn title="다음 단계" size="sm" variant="ghost" disabled={focusIdx === STEPS.length - 1} onClick={() => setStepIdx(focusIdx + 1)}>
-            <ButtonLabel icon={<ChevronRight size={ICON.md} aria-hidden />}>다음</ButtonLabel>
-          </Btn>
         </div>
       )}
 

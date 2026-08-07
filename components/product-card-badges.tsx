@@ -105,8 +105,9 @@ export function photoMarkSpecs(product: EntityRecord, audience: Audience = 'agen
   return badgeSpecs(product, false, true, audience).filter((spec) => spec.key === 'st' || spec.key === 'cd');
 }
 
-export function badges(product: EntityRecord, overlay = false, hideCredit = false, short = false, audience: Audience = 'agent'): ReactNode {
-  return (<>{badgeSpecs(product, hideCredit, short, audience).map((spec) => (
+/** hideStatus = 차량상태를 다른 곳(작업화면 상단 요약바)이 이미 들고 있을 때. 같은 배지를 두 번 찍지 않는다. */
+export function badges(product: EntityRecord, overlay = false, hideCredit = false, short = false, audience: Audience = 'agent', opts?: { hideStatus?: boolean }): ReactNode {
+  return (<>{badgeSpecs(product, hideCredit, short, audience).filter((spec) => !(opts?.hideStatus && spec.key === 'st')).map((spec) => (
     <Badge key={spec.key} tone={spec.tone} variant={spec.variant || 'line'} overlay={overlay} pulse={spec.pulse} title={badgeTip(spec.key, spec.label)}>{spec.label}</Badge>
   ))}</>);
 }

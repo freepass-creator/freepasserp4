@@ -50,17 +50,23 @@ export default function Detail() {
   const detailName = p && isOfferableProduct(p)
     ? (vehicleName(p) || String(p.car_number || '상품'))
     : null;
+  const mobile = useIsMobile();
+  const role = getRole();
+  const canDeal = role === 'agent' || role === 'admin';
+  /** 영업자·관리자의 «일하는 화면» 3열 배열. 모바일은 세로로 쌓으므로 여기 해당 없음. */
+  const workWeb = canDeal && !mobile;
+  // 작업화면에서는 차명을 요약바가 고정으로 들고 있다 — 앱바까지 찍으면 같은 차명이 위아래로 둘이다.
   useAppBar(
     {
       title: (
         <PageStatus
           icon={NAV_ICON.product}
           label="상품상세"
-          secondaryLabel={detailName || undefined}
+          secondaryLabel={canDeal ? undefined : (detailName || undefined)}
         />
       ),
     },
-    [detailName],
+    [detailName, canDeal],
   );
 
   useEffect(() => {
@@ -87,12 +93,7 @@ export default function Detail() {
 
   // ★훅은 early return 위에 있어야 한다 — 아래에 두면 p 가 undefined→정의 로 바뀔 때
   //   렌더마다 훅 개수가 달라져 「Rendered fewer hooks than expected」로 터진다.
-  const mobile = useIsMobile();
   const [roomId, setRoomId] = useState<string>('');
-  const role = getRole();
-  const canDeal = role === 'agent' || role === 'admin';
-  /** 영업자·관리자의 «일하는 화면» 3열 배열. 모바일은 세로로 쌓으므로 여기 해당 없음. */
-  const workWeb = canDeal && !mobile;
   // 대화를 이 화면에서 편다 — 방은 영업자·관리자일 때만, 매물당 한 번 보장한다.
   useEffect(() => {
     if (!p || !isOfferableProduct(p) || !canDeal) return;
@@ -210,12 +211,16 @@ export default function Detail() {
             공유
           </span>
         </Btn>
-        <Btn title="계약문의" size="sm" onClick={inquire}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-            <MessageCircle size={ICON.md} aria-hidden />
-            계약문의
-          </span>
-        </Btn>
+        {/* 3열에서는 대화가 이미 화면 안(가운데 칸)에 있다 — 같은 방으로 나가는 버튼은 잉여다.
+            모바일은 아래로 한참 굴려야 대화가 나오므로 바로 가는 입구를 남긴다. */}
+        {workWeb ? null : (
+          <Btn title="계약문의" size="sm" onClick={inquire}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+              <MessageCircle size={ICON.md} aria-hidden />
+              계약문의
+            </span>
+          </Btn>
+        )}
       </> : undefined} />
     </>
   );
