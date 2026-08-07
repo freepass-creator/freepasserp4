@@ -41,6 +41,12 @@ function notifyUnread() {
 /**
  * 상대방 안읽음만 +1.
  *   보낸 사람 제외 전 역할(+관리자). 내가 보낸 건 내 안읽음에 안 잡힘.
+ *
+ * ★안읽음은 **사람이 아니라 편(側) 단위**다 — 공급사·관리자는 여러 명이 한 편이다.
+ *   직원 누구라도 답을 달면 그 편에는 더 이상 «안 읽은 말»이 없다. 그래서 보내는 순간
+ *   보낸 편의 카운터를 0으로 내리고 열람시각도 지금으로 올린다.
+ *   (방을 열면 markRead 가 같은 일을 하지만, 그 쓰기가 실패했거나 목록에서 바로 답하는 경로가
+ *    생기면 카운터가 남는다. «썼다 = 읽었다»를 보내는 쪽에서 한 번 더 못 박는다.)
  */
 function bumpUnreadPatch(rm: EntityRecord | null, senderRole: Role, preview: string, at: number): EntityRecord {
   const side = sideOf(senderRole);
@@ -48,6 +54,8 @@ function bumpUnreadPatch(rm: EntityRecord | null, senderRole: Role, preview: str
     last_message: preview,
     last_message_at: at,
     last_sender_role: senderRole,
+    [unreadField(side)]: 0,
+    [lastReadField(side)]: at,
   };
   if (side !== 'agent') patch.unread_for_agent = (Number(rm?.unread_for_agent) || 0) + 1;
   if (side !== 'provider') patch.unread_for_provider = (Number(rm?.unread_for_provider) || 0) + 1;
