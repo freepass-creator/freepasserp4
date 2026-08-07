@@ -140,39 +140,35 @@ export default function Detail() {
         padding: '14px 16px calc(76px + env(safe-area-inset-bottom))', boxSizing: 'border-box',
         ...(canDeal ? {
           display: 'grid',
-          gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)',
+          gridTemplateColumns: 'minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1fr)',
+          height: 'calc(100dvh - var(--topbar-h) - var(--fp-bar-h))',
+          overflow: 'hidden',
           gap: 20,
           alignItems: 'start',
         } : null),
       }}>
-        <div style={{ minWidth: 0 }}>
+        {/* 상품상세는 길다 — 페이지를 통째로 굴리지 않고 이 칸만 상하로 스크롤한다. */}
+        <div style={{ minWidth: 0, ...(canDeal ? { overflowY: 'auto', height: '100%', paddingRight: 6 } : null) }}>
           <ProductDetail p={p} />
           {/* 검수요청 = 매물 정보 쪽 맨 아래. 정보에 대한 이의제기라 정보 칸에 붙는다. */}
           <div style={{ marginTop: 20, paddingTop: 14, borderTop: `1px solid ${C.line}`, width: '100%' }}>
             <ReportButton p={p} />
           </div>
         </div>
-        <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {/*
-            「궁금한 게 있으신가요?」는 «대화로 들어가는 입구»다.
-            대화가 이미 이 자리에 펼쳐져 있으면 입구가 필요 없다 — 입력창이 둘이 되어
-            어디에 써야 하는지 헷갈린다(실물 확인 2026-08-07). 대화가 없을 때만 보여준다.
-          */}
-          {canDeal && roomId ? null : <SimpleInquiry p={p} />}
-          {/*
-            대화 — 여기서 끝나야 하므로 /chat 으로 보내지 않고 이 자리에 편다.
-            파일 첨부도 ChatThread 가 이미 갖고 있어 따로 만들 게 없다.
-            방은 열릴 때 한 번만 보장한다(ensureRoom) — 상세를 열자마자 만들면
-            둘러보기만 해도 빈 방이 쌓인다.
-          */}
+        {/* 가운데 = 대화. 첨부도 여기 있다. 방이 없으면 문의 입구를 대신 보여준다. */}
+        <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16, ...(canDeal ? { height: '100%', overflow: 'hidden' } : null) }}>
           {canDeal && roomId ? (
-            <div style={{ border: `1px solid ${C.line}`, borderRadius: R, overflow: 'hidden', height: 520, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ border: `1px solid ${C.line}`, borderRadius: R, overflow: 'hidden', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
               <ChatThread roomId={roomId} title={vehicleName(p) || String(p.car_number || '')} />
             </div>
-          ) : null}
-          {/* 계약 진행상황 — 문의하러 나가지 않고 여기서 확인하고 진행한다. */}
-          {canDeal ? <ContractPanel product={p} roomId={roomId || undefined} /> : null}
+          ) : <SimpleInquiry p={p} />}
         </div>
+        {/* 오른쪽 = 계약 진행상황. 문의하러 나가지 않고 여기서 확인하고 진행한다. */}
+        {canDeal ? (
+          <div style={{ minWidth: 0, height: '100%', overflowY: 'auto', paddingRight: 6 }}>
+            <ContractPanel product={p} roomId={roomId || undefined} />
+          </div>
+        ) : null}
       </main>
       {/* 하단독 = [이전] + 액션 — 전 화면 공통 규격. 액션 권한(canDeal)과 무관하게 항상 노출해야
           공급사도 이전 수단이 있다(예전엔 canDeal일 때만 렌더돼 공급사는 하단바 자체가 없었음).
