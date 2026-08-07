@@ -78,6 +78,7 @@ import { copyText } from '@/lib/clipboard';
 import { getAuthClient } from '@/lib/firebase/client';
 import {
   buildPriceChangesValue,
+  priceChangesValueFromRows,
   buildSheetConflictReportRows,
   sheetConflictReportTsv,
   type SheetConflictReportRow,
@@ -945,9 +946,10 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
         providerCodes: fetched.lines.map((line) => line.code),
       });
       const reportByRaw = new Map(existingConflictRows.map((row) => [row.raw, row]));
-      /** 반영하면 손님에게 나가는 금액이 바뀌는 건만 승인을 받는다. */
-      const priceChangesValue = (raw: string) =>
-        String(reportByRaw.get(raw)?.priceImpact || '').includes('새 기본가격 적용');
+      /** 반영하면 손님에게 나가는 금액이 바뀌는 건만 승인을 받는다.
+       *  ★판정식을 여기 다시 쓰지 않는다 — 네 곳(미리보기·재검증·커밋 경계·일일 자동연동)이
+       *   같은 함수를 써야 한 번 고친 게 계속 유지된다. 이미 만든 행은 그대로 재사용한다. */
+      const priceChangesValue = priceChangesValueFromRows(existingConflictRows);
       const resolutionResult = applySheetConflictResolutions({
         conflicts: rawExistingConflicts,
         resolutions: conflictResolutions,
