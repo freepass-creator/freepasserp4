@@ -5,7 +5,7 @@
 import type { EntityRecord } from '@/lib/intake/entities';
 import { MAX_PROMO_BADGES as PROMO_MAX, PROMO_BADGES_ACTIVE, PROMO_BADGES_PLANNED, PROMO_BADGE_LEGACY, PRODUCT_TYPES, PRODUCT_TYPE_LEGACY, VEHICLE_STATES } from '@/lib/intake/entities';
 import { fuelDisplay, fuelEmbeddedCc, yearDisplay, makerDisplay } from '@/lib/domain/vehicle-master-match';
-import { kmDisplay } from '@/lib/format';
+import { kmDisplay, ymdDisplay } from '@/lib/format';
 import { vehicleNameOf } from '@/lib/domain/vehicle-name';
 export { PROMO_BADGES, PROMO_BADGES_ACTIVE, PROMO_BADGES_PLANNED, MAX_PROMO_BADGES } from '@/lib/intake/entities';
 
@@ -407,7 +407,8 @@ export function detailSections(p: EntityRecord, audience: Audience = 'agent'): D
       pv('int_color') ? `내장 ${pv('int_color')}` : '',
     ])],
     ['분류', gSlots([pv('vehicle_class'), pv('usage'), canonProductType(p.product_type)])],
-    ['최초등록', pv('first_registration_date') || '-'],
+    // 공급사 원본이 `25-11-5` 처럼 들쭉날쭉해서 표기만 YYYY-MM-DD 로 맞춘다(못 읽으면 원본 그대로).
+    ['최초등록', ymdDisplay(pv('first_registration_date')) || '-'],
   ];
 
   // 2) 보험 3열 [구분, 한도, 면책금] — 6항목 항상 노출(값 없으면 뷰에서 '—')
@@ -459,7 +460,7 @@ export function detailSections(p: EntityRecord, audience: Audience = 'agent'): D
   // 기타정보(관리자) = 원가·이력·등록증·코드·정산. 역할별 묶음.
   if (isAdmin) out.push({ title: '기타정보', tier: 'sub', kind: 'kv', rows: [
     ['원가 · 위치', g([money(p.vehicle_price, '원'), pv('location') && `위치 ${pv('location')}`])],
-    ['차령 · 차대', g([pv('vehicle_age_expiry_date') && `만료 ${pv('vehicle_age_expiry_date')}`, pv('vin')])],
+    ['차령 · 차대', g([pv('vehicle_age_expiry_date') && `만료 ${ymdDisplay(pv('vehicle_age_expiry_date'))}`, pv('vin')])],
     ['등록증', g([pv('transmission'), pv('cert_car_name'), pv('type_number'), pv('engine_type')])],
     ['정책', g([String(pol.policy_name ?? p.policy_name ?? ''), String(pol.policy_code ?? p.policy_code ?? ''), String(pol.policy_type ?? '')])],
     ['공급사', pv('provider_name') || pv('provider_company_code') || '-'],

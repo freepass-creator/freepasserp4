@@ -393,9 +393,27 @@ export function ChatThread({
           </Dropzone>
         ) : null}
         {msgs === undefined && <Loading label="메시지를 불러오는 중…" minHeight={80} />}
+        {/* 빈 방 = 세로로 텅 빈다. «첫 메시지를 남겨보세요» 한 줄로는 여기서 뭘 주고받는 자리인지,
+            상대가 누구인지 알 수 없다. 새 기능을 넣지 않고 «이 방이 무엇인가»만 말해 준다. */}
         {msgs?.length === 0 && (
-          <div style={{ textAlign: 'center', color: C.faint, fontSize: FS.sub, marginTop: 20 }}>
-            {inactive ? '상담 방이 연결되면 대화가 시작됩니다.' : '첫 메시지를 남겨보세요.'}
+          <div style={{
+            flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column',
+            alignItems: 'center', justifyContent: 'center', gap: 6, padding: 20, textAlign: 'center',
+          }}>
+            {inactive ? (
+              <span style={{ color: C.faint, fontSize: FS.sub }}>상담 방이 연결되면 대화가 시작됩니다.</span>
+            ) : (
+              <>
+                <span style={{ color: C.mute, fontSize: FS.body, fontWeight: FW.title }}>
+                  {role === 'provider' ? '영업자와 연결된 방입니다.' : role === 'admin' ? '영업자·공급사와 연결된 방입니다.' : '공급사와 연결된 방입니다.'}
+                </span>
+                <span style={{ color: C.faint, fontSize: FS.sub, lineHeight: 1.6 }}>
+                  출고 가능 여부 · 서류 · 일정을 여기서 주고받습니다.
+                  <br />
+                  사진·PDF는 아래 «첨부»로 보냅니다.
+                </span>
+              </>
+            )}
           </div>
         )}
         {rows.map((row) => {
