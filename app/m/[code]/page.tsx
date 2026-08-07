@@ -23,6 +23,7 @@ import { useAppBar } from '@/lib/appbar';
 import { PageStatus } from '@/components/PageStatus';
 import { NAV_ICON } from '@/lib/tabbar';
 import { copyText } from '@/lib/clipboard';
+import { useIsMobile } from '@/lib/use-mobile';
 
 // 매물 상세(전체화면) = ProductDetail 원자 + 하단 액션바(이전·소통·손님공유·계약).
 export default function Detail() {
@@ -85,6 +86,7 @@ export default function Detail() {
 
   // ★훅은 early return 위에 있어야 한다 — 아래에 두면 p 가 undefined→정의 로 바뀔 때
   //   렌더마다 훅 개수가 달라져 「Rendered fewer hooks than expected」로 터진다.
+  const mobile = useIsMobile();
   const [roomId, setRoomId] = useState<string>('');
   const role = getRole();
   const canDeal = role === 'agent' || role === 'admin';
@@ -136,9 +138,9 @@ export default function Detail() {
         공급사·손님은 지금 그대로 한 칸 브로슈어다 — 그들에겐 그게 맞는 문법이다.
       */}
       <main style={{
-        flex: 1, width: '100%', maxWidth: canDeal ? 'none' : 920, margin: '0 auto',
+        flex: 1, width: '100%', maxWidth: canDeal && !mobile ? 'none' : 920, margin: '0 auto',
         padding: '14px 16px calc(76px + env(safe-area-inset-bottom))', boxSizing: 'border-box',
-        ...(canDeal ? {
+        ...(canDeal && !mobile ? {
           display: 'grid',
           gridTemplateColumns: 'minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1fr)',
           height: 'calc(100dvh - var(--topbar-h) - var(--fp-bar-h))',
@@ -148,7 +150,7 @@ export default function Detail() {
         } : null),
       }}>
         {/* 상품상세는 길다 — 페이지를 통째로 굴리지 않고 이 칸만 상하로 스크롤한다. */}
-        <div style={{ minWidth: 0, ...(canDeal ? { overflowY: 'auto', height: '100%', paddingRight: 6 } : null) }}>
+        <div style={{ minWidth: 0, ...(canDeal && !mobile ? { overflowY: 'auto', height: '100%', paddingRight: 6 } : null) }}>
           <ProductDetail p={p} />
           {/* 검수요청 = 매물 정보 쪽 맨 아래. 정보에 대한 이의제기라 정보 칸에 붙는다. */}
           <div style={{ marginTop: 20, paddingTop: 14, borderTop: `1px solid ${C.line}`, width: '100%' }}>
@@ -156,16 +158,16 @@ export default function Detail() {
           </div>
         </div>
         {/* 가운데 = 대화. 첨부도 여기 있다. 방이 없으면 문의 입구를 대신 보여준다. */}
-        <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16, ...(canDeal ? { height: '100%', overflow: 'hidden' } : null) }}>
+        <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16, ...(canDeal && !mobile ? { height: '100%', overflow: 'hidden' } : null) }}>
           {canDeal && roomId ? (
-            <div style={{ border: `1px solid ${C.line}`, borderRadius: R, overflow: 'hidden', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ border: `1px solid ${C.line}`, borderRadius: R, overflow: 'hidden', ...(mobile ? { height: '55dvh' } : { flex: 1, minHeight: 0 }), display: 'flex', flexDirection: 'column' }}>
               <ChatThread roomId={roomId} title={vehicleName(p) || String(p.car_number || '')} />
             </div>
           ) : <SimpleInquiry p={p} />}
         </div>
         {/* 오른쪽 = 계약 진행상황. 문의하러 나가지 않고 여기서 확인하고 진행한다. */}
         {canDeal ? (
-          <div style={{ minWidth: 0, height: '100%', overflowY: 'auto', paddingRight: 6 }}>
+          <div style={{ minWidth: 0, ...(mobile ? null : { height: '100%', overflowY: 'auto', paddingRight: 6 }) }}>
             <ContractPanel product={p} roomId={roomId || undefined} />
           </div>
         ) : null}
