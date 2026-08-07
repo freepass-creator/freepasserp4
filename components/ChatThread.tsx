@@ -413,8 +413,10 @@ export function ChatThread({
               <span style={{ color: C.faint, fontSize: FS.sub }}>상담 방이 연결되면 대화가 시작됩니다.</span>
             ) : (
               <>
+                {/* 공급사는 시트로 관리한다 — 앱에서 영업자가 실제로 마주 앉는 상대는 프리패스 운영자다.
+                    «공급사와 연결된 방»이라고 적으면 앱에 있지도 않은 회사를 기다리게 만든다. */}
                 <span style={{ color: C.mute, fontSize: FS.body, fontWeight: FW.title }}>
-                  {role === 'provider' ? '영업자와 연결된 방입니다.' : role === 'admin' ? '영업자·공급사와 연결된 방입니다.' : '공급사와 연결된 방입니다.'}
+                  {role === 'agent' ? '프리패스 운영자와 연결된 방입니다.' : '영업자와 연결된 방입니다.'}
                 </span>
                 <span style={{ color: C.faint, fontSize: FS.sub, lineHeight: 1.6 }}>
                   출고 가능 여부 · 서류 · 일정을 여기서 주고받습니다.

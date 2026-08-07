@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useEffect, useRef, useState, Fragment, type ReactNode } from 'react';
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
@@ -12,19 +12,40 @@ import { ContractMemos } from '@/components/ContractMemos';
 import { ChakhandealEsignButton } from '@/components/ChakhandealEsignButton';
 import { confirmDialog, toast } from '@/components/Toaster';
 import { useIsMobile } from '@/lib/use-mobile';
-import { Ban, Check, CheckCircle2, ChevronLeft, ChevronRight, FileSignature, RefreshCw, RotateCcw, Send } from 'lucide-react';
+import { Ban, Check, CheckCircle2, FileSignature, RefreshCw, RotateCcw, Send } from 'lucide-react';
 import { runContractMutation } from '@/features/contract/contract-mutation';
 
 // 계약 패널 = 5단계 핸드셰이크 진행. 계약 없으면 계약문의로 시작 → 서류·입금·약정·출고.
 // 첨부 서류는 별도 패널(계약패널 밑, 위아래 리사이즈). 손님 연락처는 약정(계약서 발송) 단계에서.
 
-function actorLabel(actor: 'agent' | 'provider'): ReactNode {
+/**
+ * 누구 몫인가 — 두 글자.
+ *
+ * 공급사는 시트로 관리한다(앱에 들어오지 않는다, 2026-08-07 사장님 결정).
+ * 그래서 «공급 몫» 체크는 실제로는 **프리패스 운영자가 처리**한다 — 영업자에게 「공급 대기」라고
+ * 적으면 앱에 있지도 않은 회사를 기다리는 것처럼 읽힌다. 그래서 보는 사람이 공급사 계정일 때만
+ * 「공급」이고, 그 외에는 「운영」이다. **데이터의 actor 는 그대로다** — 바뀌는 건 표기뿐.
+ */
+function actorLabel(actor: 'agent' | 'provider', viewer: Role): ReactNode {
+  const text = actor === 'agent' ? '영업' : viewer === 'provider' ? '공급' : '운영';
   return (
     <span style={{ fontSize: FS.micro, fontWeight: FW.label, color: actorColor(actor), marginRight: 6 }}>
-      {actor === 'agent' ? '영업' : '공급'}
+      {text}
     </span>
   );
 }
+
+type ContractCheck = (typeof STEPS)[number]['checks'][number];
+
+/** 화면 표기가 엔진 키와 다른 둘(레거시 키명 보정) — 라벨은 한 곳에서만 만든다. */
+function checkLabel(ch: ContractCheck): string {
+  if (ch.key === 'agent_delivery_inquiry') return '출고 문의';
+  if (ch.key === 'provider_agreement_done') return '약정 작성완료';
+  return ch.label;
+}
+
+/** 「내가 할 일」·「기다리는 중」 같은 묶음 이름 — 읽는 글자가 아니라 이정표라 가장 작게. */
+const sectionLabel = { fontSize: FS.micro, fontWeight: FW.label, color: C.faint, padding: '9px 2px 3px' } as const;
 
 /** 액터 칩이 없는 정보행 — 칩 자리를 비워 둔다. 안 그러면 그 행만 칩 폭만큼 왼쪽으로 튀어나와 라벨 시작선이 지그재그가 된다. */
 function infoLabel(text: string): ReactNode {
@@ -38,10 +59,10 @@ function infoLabel(text: string): ReactNode {
 
 /**
  * 단계 표시 방식.
- * - `all`   = 5단계 전부 펼침. 관리자·공급사의 문법(전체를 감독·확인한다).
- * - `focus` = **지금 단계 하나만** + ‹이전/다음› + 3/5. 영업자 전용.
- *   영업자에게 5단계 나열은 «내가 지금 뭘 해야 하나»를 가리는 소음이다.
- *   영업자에게만 접히므로 관리자가 같은 화면을 봐도 감독 시야는 그대로다.
+ * - `all`   = 5단계 전부 펼침. 지난 기록·감독용(계약 전용 화면의 기본).
+ * - `focus` = **할 일 카드**. 지금 단계에서 «내 몫이면서 아직 안 끝난» 것만 버튼으로 내놓고,
+ *   상대 몫은 «기다리는 중» 한 줄로 적는다. 5단계 나열은 «내가 지금 뭘 해야 하나»를 가린다.
+ *   같은 계약을 영업자와 운영자가 **서로 다른 모양으로** 본다 — 각자 자기 할 일만.
  */
 export type ContractStepView = 'all' | 'focus';
 
@@ -55,9 +76,7 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
   const selectionEpoch = useRef(0);
   /** 계약 생성 시 동결할 대여기간. 미선택이면 최저가 기간을 쓴다(기존 동작). */
   const [period, setPeriod] = useState<number>(0);
-  /** focus 모드에서 «앞뒤로 넘겨 본» 단계. null = 지금 단계를 따라간다. */
-  const [stepIdx, setStepIdx] = useState<number | null>(null);
-  /** 5단계를 한꺼번에 펼쳐 본다 — 감독·확인용. focus 화면에서도 언제든 뒤집을 수 있다. */
+  /** 5단계를 한꺼번에 펼쳐 본다 — 지난 기록·감독용. 「할 일 카드」에서 언제든 뒤집을 수 있다. */
   const [expandAll, setExpandAll] = useState(false);
 
   /** 상세·목록과 전역 메뉴 숫자를 같은 프레임에 갱신한다. */
@@ -164,8 +183,6 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
   const cval = (k: string) => (c ? c[k] : undefined);
   const stepDoneArr = STEPS.map((s) => s.checks.every((ch) => isDone(cval(ch.key))));
   const activeIdx = stepDoneArr.findIndex((d) => !d);
-  // 단계가 넘어가면 «지금 단계»로 되돌아온다 — 앞뒤로 넘겨 본 자리에 갇히지 않게.
-  useEffect(() => { setStepIdx(null); }, [activeIdx]);
 
   if (contract === undefined) return <div style={{ padding: 20, color: C.faint, fontSize: FS.sub }}>불러오는 중…</div>;
 
@@ -176,120 +193,23 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
   //  관리자도 이 화면에서는 «한 건을 진행»한다 — 감독 시야가 필요하면 «전체» 한 번이면 된다(역할로 가르지 않는다).
   const focus = stepView === 'focus' && !expandAll && !cancelled;
   // 다 끝났으면 마지막 단계를 보여 준다(활성 단계 없음 = activeIdx -1).
-  const focusIdx = Math.min(STEPS.length - 1, Math.max(0, stepIdx ?? (activeIdx < 0 ? STEPS.length - 1 : activeIdx)));
   const nowIdx = activeIdx < 0 ? STEPS.length - 1 : activeIdx;
+  // 「할 일 카드」의 세 묶음 — 내 몫(아직) · 상대 몫(아직) · 이 단계에서 끝난 것.
+  //  관리자는 양쪽을 다 대행하므로 전부 «내가 할 일»로 들어온다(공급사는 시트로 관리 = 앱에 안 들어온다).
+  const focusStep = STEPS[nowIdx];
+  const isMyCheck = (ch: ContractCheck) => !cancelled && (ch.actor === role || role === 'admin');
+  const myTodo = focusStep.checks.filter((ch) => !isDone(cval(ch.key)) && isMyCheck(ch));
+  const theirTodo = focusStep.checks.filter((ch) => !isDone(cval(ch.key)) && !isMyCheck(ch));
+  const stepDoneChecks = focusStep.checks.filter((ch) => isDone(cval(ch.key)));
   const needsFinalize = needsContractFinalization(c);
   const agreementDone = isDone(cval('provider_agreement_done'));
 
-  return (
-    <div style={{ padding: focus ? '8px 10px' : '12px 14px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-      {/* focus(상세 옆 보조패널) 머리 = 한 줄. 큰 숫자 히어로는 여기서 과하다 —
-          좁은 칸에서 「무슨 계약·어디까지」만 알면 되고, 할 일은 아래 단계 카드가 말한다. */}
-      {focus ? (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-          {c ? (
-            <>
-              <span style={{ fontSize: FS.sub, fontWeight: FW.strong, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', color: C.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>{String(c.contract_code)}</span>
-              <Badge tone={stage.tone}>{stage.label}</Badge>
-            </>
-          ) : (
-            <span style={{ fontSize: FS.sub, color: C.mute, whiteSpace: 'nowrap' }}>새 계약 — 출고문의로 시작</span>
-          )}
-          <span style={{ flex: 1, minWidth: 4 }} />
-          <span style={{ fontSize: FS.cap, color: C.faint, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
-            <span style={{ color: C.ink, fontWeight: FW.strong, fontFamily: NUM }}>{doneCount}</span>/{STEPS.length}
-          </span>
-          {c && !cancelled && (role === 'admin' || (role === 'agent' && !isContractCompleted(c))) && (
-            <IconBtn title="계약 취소" onClick={doCancel} disabled={busy}><Ban size={ICON.md} aria-hidden /></IconBtn>
-          )}
-        </div>
-      ) : (
-      /* 히어로 — 코드·상태·진행률 */
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingBottom: 4 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          {c ? (
-            <>
-              <span style={{ fontSize: FS.title, fontWeight: FW.head, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', color: C.ink }}>{String(c.contract_code)}</span>
-              <Badge tone={stage.tone}>{stage.label}</Badge>
-            </>
-          ) : (
-            <span style={{ fontSize: FS.title, fontWeight: FW.title, color: C.ink }}>새 계약 — 출고문의로 시작</span>
-          )}
-          <span style={{ flex: 1, minWidth: 8 }} />
-          {c && !cancelled && (role === 'admin' || (role === 'agent' && !isContractCompleted(c))) && (
-            <Btn title="계약 취소" size="sm" variant="ghost" haptic="impact" onClick={doCancel} disabled={busy}>
-              <ButtonLabel icon={<Ban size={ICON.md} aria-hidden />}>계약취소</ButtonLabel>
-            </Btn>
-          )}
-        </div>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-          <span style={{ fontSize: FS.page, fontWeight: FW.head, color: C.brand, fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{doneCount}</span>
-          <span style={{ fontSize: FS.cap, color: C.faint }}>/ {STEPS.length} 단계 완료</span>
-        </div>
-      </div>
-      )}
-
-      {needsFinalize && (
-        <div style={{ border: `1px solid ${C.warn}`, borderRadius: R, padding: '9px 10px', background: C.warnBg, display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
-          <span style={{ flex: 1, fontSize: FS.cap, color: C.ink, lineHeight: 1.5 }}>5단계 체크는 끝났지만 정산·완료 처리가 남았습니다.</span>
-          {(role === 'admin' || role === 'provider') && (
-            <Btn title="완료 처리 재시도" size="sm" onClick={retryFinalize} disabled={busy}>
-              <ButtonLabel icon={<RefreshCw size={ICON.md} aria-hidden />}>완료 처리 재시도</ButtonLabel>
-            </Btn>
-          )}
-        </div>
-      )}
-
-      {/* focus = 지금 단계 하나만. 앞뒤는 넘겨서 본다 — 5개를 늘어놓으면 «내 차례»가 묻힌다.
-          펼쳐 보고 싶으면 «전체» 한 번. 역할로 가르지 않는다 — 관리자도 여기선 한 건을 진행한다. */}
-      {stepView === 'focus' && !cancelled && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '2px 0 6px' }}>
-          {focus ? (
-            <>
-              <IconBtn title="이전 단계" disabled={focusIdx === 0} onClick={() => setStepIdx(focusIdx - 1)}>
-                <ChevronLeft size={ICON.md} aria-hidden />
-              </IconBtn>
-              <span style={{ fontSize: FS.cap, color: C.faint }}>
-                <span style={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums', color: C.ink, fontWeight: FW.head }}>{focusIdx + 1}</span>
-                {' / '}{STEPS.length}
-              </span>
-              <IconBtn title="다음 단계" disabled={focusIdx === STEPS.length - 1} onClick={() => setStepIdx(focusIdx + 1)}>
-                <ChevronRight size={ICON.md} aria-hidden />
-              </IconBtn>
-              <span style={{ flex: 1, minWidth: 4 }} />
-              {focusIdx === nowIdx ? null : (
-                <Btn title="지금 단계로 돌아가기" size="sm" variant="ghost" onClick={() => setStepIdx(null)}>지금 단계</Btn>
-              )}
-              <Btn title="5단계 모두 보기" size="sm" variant="ghost" onClick={() => setExpandAll(true)}>전체</Btn>
-            </>
-          ) : (
-            <>
-              <span style={{ flex: 1, minWidth: 0, fontSize: FS.cap, color: C.faint }}>5단계 전체</span>
-              <Btn title="지금 단계만 보기" size="sm" variant="ghost" onClick={() => { setExpandAll(false); setStepIdx(null); }}>지금 단계만</Btn>
-            </>
-          )}
-        </div>
-      )}
-
-      {(focus ? [focusIdx] : STEPS.map((_, i) => i)).map((i) => {
-        const s = STEPS[i];
-        const stepDone = stepDoneArr[i];
-        const active = i === activeIdx;
-        const locked = !stepDone && !active;
-        const stepUnlocked = role === 'admin' || active;
-        const statusNote = stepDone ? '완료' : active ? '진행 중' : '잠김';
-        return (
-          <ListGroup
-            key={s.id}
-            header={`${i + 1}. ${s.label}`}
-            footer={statusNote}
-            style={{ opacity: locked ? 0.55 : 1 }}
-          >
-            {s.checks.map((ch) => {
-              const cur = cval(ch.key);
+  /** 체크 한 줄 — 「할 일 카드」와 「전체 보기」가 같은 원자를 쓴다. 두 벌로 갈라지면 곧 어긋난다. */
+  const renderCheck = (ch: ContractCheck, stepUnlocked: boolean) => {
+    const cur = cval(ch.key);
               const done = isDone(cur);
               const mine = !cancelled && (ch.actor === role || role === 'admin') && stepUnlocked;
-              const label = <>{actorLabel(ch.actor)}{ch.key === 'agent_delivery_inquiry' ? '출고 문의' : ch.key === 'provider_agreement_done' ? '약정 작성완료' : ch.label}</>;
+              const label = <>{actorLabel(ch.actor, role)}{ch.key === 'agent_delivery_inquiry' ? '출고 문의' : ch.key === 'provider_agreement_done' ? '약정 작성완료' : ch.label}</>;
               // 완료 표기는 카드 전체에서 한 가지만 쓴다. 예전엔 '문의함 ✓'(초록 텍스트)와
               //  남색 채움 「완료」 버튼이 섞여, 같은 '끝났음'이 행마다 다른 모습으로 보였다.
               const doneMark = (
@@ -466,7 +386,160 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
                   ) : waitMark}
                 />
               );
-            })}
+  };
+
+  return (
+    <div style={{ padding: focus ? '8px 10px' : '12px 14px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+      {/* focus(상세 옆 보조패널) 머리 = 한 줄. 큰 숫자 히어로는 여기서 과하다 —
+          좁은 칸에서 「무슨 계약·어디까지」만 알면 되고, 할 일은 아래 단계 카드가 말한다. */}
+      {focus ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+          {c ? (
+            <>
+              <span style={{ fontSize: FS.sub, fontWeight: FW.strong, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', color: C.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>{String(c.contract_code)}</span>
+              <Badge tone={stage.tone}>{stage.label}</Badge>
+            </>
+          ) : (
+            <span style={{ fontSize: FS.sub, color: C.mute, whiteSpace: 'nowrap' }}>새 계약 — 출고문의로 시작</span>
+          )}
+          <span style={{ flex: 1, minWidth: 4 }} />
+          <span style={{ fontSize: FS.cap, color: C.faint, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+            <span style={{ color: C.ink, fontWeight: FW.strong, fontFamily: NUM }}>{doneCount}</span>/{STEPS.length}
+          </span>
+          {c && !cancelled && (role === 'admin' || (role === 'agent' && !isContractCompleted(c))) && (
+            <IconBtn title="계약 취소" onClick={doCancel} disabled={busy}><Ban size={ICON.md} aria-hidden /></IconBtn>
+          )}
+        </div>
+      ) : (
+      /* 히어로 — 코드·상태·진행률 */
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingBottom: 4 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          {c ? (
+            <>
+              <span style={{ fontSize: FS.title, fontWeight: FW.head, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', color: C.ink }}>{String(c.contract_code)}</span>
+              <Badge tone={stage.tone}>{stage.label}</Badge>
+            </>
+          ) : (
+            <span style={{ fontSize: FS.title, fontWeight: FW.title, color: C.ink }}>새 계약 — 출고문의로 시작</span>
+          )}
+          <span style={{ flex: 1, minWidth: 8 }} />
+          {c && !cancelled && (role === 'admin' || (role === 'agent' && !isContractCompleted(c))) && (
+            <Btn title="계약 취소" size="sm" variant="ghost" haptic="impact" onClick={doCancel} disabled={busy}>
+              <ButtonLabel icon={<Ban size={ICON.md} aria-hidden />}>계약취소</ButtonLabel>
+            </Btn>
+          )}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+          <span style={{ fontSize: FS.page, fontWeight: FW.head, color: C.brand, fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{doneCount}</span>
+          <span style={{ fontSize: FS.cap, color: C.faint }}>/ {STEPS.length} 단계 완료</span>
+        </div>
+      </div>
+      )}
+
+      {needsFinalize && (
+        <div style={{ border: `1px solid ${C.warn}`, borderRadius: R, padding: '9px 10px', background: C.warnBg, display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+          <span style={{ flex: 1, fontSize: FS.cap, color: C.ink, lineHeight: 1.5 }}>5단계 체크는 끝났지만 정산·완료 처리가 남았습니다.</span>
+          {(role === 'admin' || role === 'provider') && (
+            <Btn title="완료 처리 재시도" size="sm" onClick={retryFinalize} disabled={busy}>
+              <ButtonLabel icon={<RefreshCw size={ICON.md} aria-hidden />}>완료 처리 재시도</ButtonLabel>
+            </Btn>
+          )}
+        </div>
+      )}
+
+      {/* 「지난 단계 보기」로 펼친 상태 — 되돌아가는 문을 위에 둔다. */}
+      {stepView === 'focus' && !cancelled && !focus && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '2px 0 6px' }}>
+          <span style={{ flex: 1, minWidth: 0, fontSize: FS.cap, color: C.faint }}>5단계 전체</span>
+          <Btn title="지금 할 일만 보기" size="sm" variant="ghost" onClick={() => setExpandAll(false)}>지금 할 일</Btn>
+        </div>
+      )}
+
+      {focus ? (
+        <>
+          {/* 진행 점 — 라벨 다섯 개를 늘어놓지 않는다. 어디까지 왔는지는 점으로 족하다. */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '2px 0 8px' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              {STEPS.map((s, i) => (
+                <span
+                  key={s.id}
+                  title={`${i + 1} ${s.label}${stepDoneArr[i] ? ' · 완료' : i === nowIdx ? ' · 지금' : ''}`}
+                  style={{
+                    width: i === nowIdx ? 9 : 7, height: i === nowIdx ? 9 : 7, borderRadius: '50%',
+                    background: stepDoneArr[i] ? C.ok : i === nowIdx ? C.brand : C.line2,
+                    border: i === nowIdx ? `1px solid ${C.brand}` : 'none',
+                  }}
+                />
+              ))}
+            </span>
+            <span style={{ fontSize: FS.cap, color: C.mute, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {activeIdx < 0
+                ? '5단계 모두 완료'
+                : <>지금 · <b style={{ color: C.ink, fontWeight: FW.title }}>{nowIdx + 1} {STEPS[nowIdx].label}</b></>}
+            </span>
+          </div>
+
+          {/* 내가 할 일 = 지금 단계에서 «내 몫이면서 아직 안 끝난» 것만. 이게 이 패널의 존재 이유다. */}
+          {myTodo.length > 0 ? (
+            <>
+              <div style={sectionLabel}>내가 할 일</div>
+              <ListGroup>{myTodo.map((ch) => renderCheck(ch, true))}</ListGroup>
+            </>
+          ) : (
+            <div style={{ fontSize: FS.sub, color: C.mute, padding: '6px 2px' }}>
+              {activeIdx < 0 ? '내가 할 일은 없습니다. 정산·완료 처리만 남았습니다.' : '내 몫은 끝났습니다.'}
+            </div>
+          )}
+
+          {/* 기다리는 중 = 상대 몫. 누를 수 없는 버튼을 흐리게 늘어놓지 않고 «무엇을 기다리는지»만 적는다. */}
+          {theirTodo.length > 0 ? (
+            <>
+              <div style={sectionLabel}>기다리는 중</div>
+              <ListGroup>
+                {theirTodo.map((ch) => {
+                  const cur = cval(ch.key);
+                  return (
+                    <DetailRow
+                      key={ch.key}
+                      control
+                      label={<>{actorLabel(ch.actor, role)}{checkLabel(ch)}</>}
+                      value={isRejected(cur)
+                        ? <span style={{ color: C.danger, fontWeight: FW.strong }}>{String(cur)}</span>
+                        : <span style={{ color: C.faint }}>대기</span>}
+                    />
+                  );
+                })}
+              </ListGroup>
+            </>
+          ) : null}
+
+          {/* 이 단계에서 끝낸 것 — 되돌릴 수단(해제)이 사라지면 안 되니 접어서 남긴다. */}
+          {stepDoneChecks.length > 0 ? (
+            <>
+              <div style={sectionLabel}>이 단계 완료</div>
+              <ListGroup>{stepDoneChecks.map((ch) => renderCheck(ch, true))}</ListGroup>
+            </>
+          ) : null}
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 8 }}>
+            <Btn title="5단계 전체 보기" size="sm" variant="ghost" onClick={() => setExpandAll(true)}>지난 단계 보기</Btn>
+          </div>
+        </>
+      ) : STEPS.map((_, i) => {
+        const s = STEPS[i];
+        const stepDone = stepDoneArr[i];
+        const active = i === activeIdx;
+        const locked = !stepDone && !active;
+        const stepUnlocked = role === 'admin' || active;
+        const statusNote = stepDone ? '완료' : active ? '진행 중' : '잠김';
+        return (
+          <ListGroup
+            key={s.id}
+            header={`${i + 1}. ${s.label}`}
+            footer={statusNote}
+            style={{ opacity: locked ? 0.55 : 1 }}
+          >
+            {s.checks.map((ch) => renderCheck(ch, stepUnlocked))}
           </ListGroup>
         );
       })}
