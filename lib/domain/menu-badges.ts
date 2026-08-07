@@ -13,6 +13,7 @@ import { roomsWithUnread, unreadRoomCount } from '@/lib/domain/messaging';
 import { isContractCancelled, isInquiryOnly, isContractInProgress } from '@/lib/domain/contract';
 import { chatRowContract, isWorkspaceChatRoom } from '@/features/chat/room-filter';
 import { buildContractIndex } from '@/features/chat/room-display';
+import { deskItemOf } from '@/features/desk/queue';
 import { settlementNeedsAttention } from '@/lib/domain/settlement-display';
 
 export type MenuBadgeMap = Record<string, number>;
@@ -44,6 +45,16 @@ export async function loadMenuBadges(role: Role, co = getCompanyId()): Promise<M
     // roomsWithUnread는 scoped 조회를 우선하고, 미지원 저장소에서만 전량 fallback을 한 번 사용한다.
     const unread = unreadRoomCount(withUnread, role);
     if (unread > 0) out['/chat'] = unread;
+
+    // 관리자 응대 탭 = **내 차례 수**(안읽음 아님). 관리자가 알아야 하는 건 «말이 왔나»가 아니라
+    //  «내가 눌러야 넘어가는 게 몇 건인가»다. 판정은 화면과 같은 순수 함수를 쓴다(두 벌 금지).
+    if (role === 'admin') {
+      const mineTurn = mineRooms.filter((room) => {
+        const contract = contractOf(room) || null;
+        return deskItemOf(room, contract).bucket === 'mine';
+      }).length;
+      if (mineTurn > 0) out['/desk'] = mineTurn;
+    }
 
     const mineContracts = contracts.filter((contract) => canAccessOwnedRecord(session, contract));
     const inProgress = mineContracts.filter((c) => isContractInProgress(c)).length;
