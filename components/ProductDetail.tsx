@@ -2,7 +2,7 @@
 import { useState, useEffect, type CSSProperties, type ReactNode } from 'react';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { priceList, detailSections, cheapest, type Audience } from '@/lib/domain/product';
-import { useProductPhotos } from '@/components/use-product-photos';
+import { useProductPhotoState } from '@/components/use-product-photos';
 import { getRole } from '@/lib/domain/deal';
 import { won, Badge, C, R, NUM, FW, FS, CloseBtn, IconBtn, SCRIM } from '@/components/ui';
 import { useDragScroll } from '@/lib/use-drag-scroll';
@@ -19,6 +19,8 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
  * /m · 소통·계약 패널 · /q 공용.
  */
 const LAB_W = 92;
+/** work(영업자 작업화면) 사진 높이 상한 — 사진은 «보이되» 가격표를 첫 화면 밖으로 밀지 않는다. */
+const WORK_PHOTO_H = 200;
 const lab: CSSProperties = {
   width: LAB_W, flex: `0 0 ${LAB_W}px`, color: C.mute, fontSize: FS.body,
 };
@@ -69,7 +71,7 @@ export type DetailLayout = 'brochure' | 'work';
 export function ProductDetail({ p, audience, layout = 'brochure' }: { p: EntityRecord; audience?: Audience; layout?: DetailLayout }) {
   const [lb, setLb] = useState<number | null>(null);
   const [main, setMain] = useState(0);
-  const photos = useProductPhotos(p);
+  const { photos, pending } = useProductPhotoState(p);
   const thumbs = useDragScroll();
   useEffect(() => { setMain(0); }, [p.product_code]);
   const mainIdx = Math.min(main, Math.max(0, photos.length - 1));
@@ -109,47 +111,19 @@ export function ProductDetail({ p, audience, layout = 'brochure' }: { p: EntityR
           <CardEvents p={p} inline />
           {/* 사진 없음도 매물의 성질이다 — 별도 줄을 잡아먹지 않게 칩으로 붙인다.
               (안 그리면 «없는 건지 안 뜬 건지»를 모른다. 사진 없는 차가 절반 가까이다.) */}
-          {work && photos.length === 0 && <Badge tone="gray" variant="quiet" title="등록된 사진이 없습니다">사진없음</Badge>}
+          {work && photos.length === 0 && !pending && <Badge tone="gray" variant="quiet" title="등록된 사진이 없습니다">사진없음</Badge>}
           {work && aud !== 'customer' && <FavHeart p={p} compact />}
         </div>
       </div>
 
-      {/* 2-work 사진 = 칩 줄 바로 아래 썸네일 한 줄(48px). 누르면 기존 라이트박스로 전부 크게 본다.
-          히어로 400px 은 없앴지만 **맨 아래로 내렸더니 사진이 사라진 것처럼 읽혔다**(2026-08-07 실사용 지적).
-          영업자에게 사진은 «가격 다음»이지 «맨 마지막»이 아니다 — 위에 두되 자리는 한 줄만 쓴다.
-          사진이 없으면 그 사실을 한 줄로 말한다. 아무것도 안 그리면 «없는 건지 안 뜬 건지»를 모른다. */}
-      {work ? (
-        photos.length > 0 ? (
-          <div
-            ref={thumbs.ref}
-            onPointerDown={thumbs.onPointerDown}
-            onPointerMove={thumbs.onPointerMove}
-            onPointerUp={thumbs.onPointerUp}
-            onPointerCancel={thumbs.onPointerUp}
-            style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 2, cursor: 'grab', touchAction: 'pan-y', userSelect: 'none', WebkitOverflowScrolling: 'touch' }}
-          >
-            {photos.map((ph, i) => (
-              <IconBtn
-                key={i}
-                title={`사진 ${i + 1} 크게보기`}
-                onClick={() => { if (thumbs.consumeClick()) return; setLb(i); }}
-                style={{
-                  flex: '0 0 auto', width: 74, height: 48, borderRadius: R, overflow: 'hidden',
-                  border: `1px solid ${C.line}`, padding: 0, background: C.placeholder, cursor: 'inherit',
-                }}
-              >
-                <ProductPhotoImage
-                  src={ph}
-                  alt=""
-                  draggable={false}
-                  compactPlaceholder
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none' }}
-                />
-              </IconBtn>
-            ))}
-          </div>
-        ) : null
-      ) : photos.length ? (
+      {/* 2 사진 — 원자는 하나(웹·모바일·work 동일). 차이는 둘뿐이다.
+          ① work 는 높이를 제한한다(WORK_PHOTO_H) — 가격표가 첫 화면에서 밀려나지 않게.
+          ② 사진이 없을 때 brochure 는 회색 자리를 남기고, work 는 **자리를 아예 안 잡는다**.
+             (사진 없는 차가 절반 가까워서, 고정 박스를 두면 그 공간이 통째로 죽는다.)
+
+          ★사진을 썸네일 줄로만 줄였다가 «차량사진이 없어졌다»는 지적을 받고 되돌렸다(2026-08-07).
+            영업자도 차를 눈으로 확인한다 — 줄이더라도 «사진»으로 보여야 한다. */}
+      {photos.length ? (
         <div>
           <div
             onPointerDown={(e) => {
@@ -165,7 +139,7 @@ export function ProductDetail({ p, audience, layout = 'brochure' }: { p: EntityR
               if (sx != null && Math.abs(e.clientX - sx) > 40) { stepPhoto(e.clientX < sx ? 1 : -1); return; } // 스와이프=넘김
               setLb(mainIdx); // 탭=크게보기
             }}
-            style={{ position: 'relative', aspectRatio: '16 / 10', background: C.placeholder, borderRadius: R, overflow: 'hidden', cursor: 'zoom-in', touchAction: 'pan-y', userSelect: 'none' }}
+            style={{ position: 'relative', aspectRatio: '16 / 10', ...(work ? { maxHeight: WORK_PHOTO_H } : null), background: C.placeholder, borderRadius: R, overflow: 'hidden', cursor: 'zoom-in', touchAction: 'pan-y', userSelect: 'none' }}
           >
             <ProductPhotoImage
               src={photos[mainIdx]}
@@ -230,6 +204,10 @@ export function ProductDetail({ p, audience, layout = 'brochure' }: { p: EntityR
             </div>
           )}
         </div>
+      ) : work ? (
+        // 링크(드라이브·오플·모던렌트카)로 오는 사진은 서버가 풀어줄 때까지 목록이 비어 있다.
+        //  그 사이를 «없음»이라고 말하면 있는 사진을 없다고 하는 것이다 — 「모른다」와 「없다」를 구분한다.
+        pending ? <div style={{ fontSize: FS.cap, color: C.faint }}>사진 불러오는 중…</div> : null
       ) : (
         <div style={{ position: 'relative', aspectRatio: '16 / 10', background: C.placeholder, borderRadius: R, overflow: 'hidden' }}>
           <ProductPhotoPlaceholder style={{ position: 'absolute', inset: 0 }} />
