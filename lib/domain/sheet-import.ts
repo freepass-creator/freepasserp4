@@ -226,10 +226,32 @@ export async function fetchSheetTable(
   gid?: string,
   options: SheetTableFetchOptions = {},
 ): Promise<string[][]> {
-  const r = await fetch(`/api/sheet?url=${encodeURIComponent(url)}${gid ? `&gid=${encodeURIComponent(gid)}` : ''}${options.visibleRowsOnly ? '&visible=1' : ''}`, {
-    cache: 'no-store',
-    headers: options.authorization ? { Authorization: `Bearer ${options.authorization}` } : undefined,
-  });
+  /**
+   * ★상한이 없으면 화면이 **조용히 영구 고착**된다.
+   *
+   * 서버 쪽은 전부 상한이 걸려 있는데(app/api/sheet/route.ts 의 12초, google-sheet-visible 의 12·20초)
+   * 정작 «브라우저 → 우리 서버» 한 홉만 무방비였다. 그 fetch 가 안 끝나면 `mapPool` 워커가 멈추고,
+   * `fetchAllPartnerSheets` 가 settle 되지 않아 `validateAll` 의 finally 에 **도달조차 못 한다** —
+   * reject 가 아니므로 catch 도 안 돌아 토스트도 없다. 그게 「검증 중…」이 안 풀리던 이유다.
+   *
+   * 상한을 걸면 reject 가 되고, 공급사 단위 try/catch 가 «✗ 공급사명 — 사유»로 흡수해
+   * **어디서 멈췄는지가 화면에 찍힌다.** 값은 서버 최악 경로(visible=메타 20초 + 그리드 20초)보다
+   * 커야 서버가 스스로 502 를 돌려줄 기회를 뺏지 않는다.
+   */
+  const timeoutMs = options.visibleRowsOnly ? 50_000 : 20_000;
+  let r: Response;
+  try {
+    r = await fetch(`/api/sheet?url=${encodeURIComponent(url)}${gid ? `&gid=${encodeURIComponent(gid)}` : ''}${options.visibleRowsOnly ? '&visible=1' : ''}`, {
+      cache: 'no-store',
+      headers: options.authorization ? { Authorization: `Bearer ${options.authorization}` } : undefined,
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+  } catch (error) {
+    const name = (error as Error)?.name;
+    throw new Error(name === 'TimeoutError' || name === 'AbortError'
+      ? `시트 서버 무응답 ${timeoutMs / 1000}초 초과`
+      : `시트 요청 실패 — ${String((error as Error)?.message || error)}`);
+  }
   const d = await r.json().catch(() => ({ ok: false, error: '응답 파싱 실패' }));
   if (!d.ok) throw new Error(d.error || `시트 로드 실패 (${r.status})`);
   // 사진 링크는 표에 담을 수 없다(열이 아니라 셀 링크다). 호출부가 원하면 콜백으로 넘긴다 —

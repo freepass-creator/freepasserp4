@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getStore } from '@/lib/store';
 import { getRole, actor } from '@/lib/domain/deal';
 import { confirmDialog, toast } from '@/components/Toaster';
-import { Btn, C, FS, FW, Input, Modal, PillTabs, R, Select, SectionLabel, Textarea, NUM, td, th } from '@/components/ui';
+import { Btn, C, FS, FW, ICON, Input, Modal, PillTabs, R, Select, SectionLabel, Textarea, NUM, td, th } from '@/components/ui';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { type MasterEntry } from '@/lib/domain/vehicle-master-match';
 import {
@@ -21,7 +21,21 @@ import {
   type MappingProfile,
   type SheetTableFetchOptions,
 } from '@/lib/domain/sheet-import';
+import { ExternalLink } from 'lucide-react';
 import { commitSupplierProducts, previewSupplierTable } from '@/lib/domain/master-ingress';
+/**
+ * 아이언 홈페이지 주소 — 화면 표시용 사본.
+ * SSOT 는 `lib/server/ironrentcar-source.IRONRENTCAR_SITE_URL` 인데 그 모듈은 스크래퍼(cheerio)를
+ * 끌고 와서 클라이언트 번들에 넣지 않는다. 주소가 바뀌면 두 곳을 같이 고쳐야 한다.
+ */
+const IRONRENTCAR_SITE_URL = 'https://ironrentcar.com';
+/**
+ * 관리자 API 호출 상한 — 상한 없는 fetch 는 화면을 «조용히» 영구 고착시킨다.
+ * reject 가 아니라 pending 이라 catch 도 finally 도 안 돌아 「검증 중…」이 안 풀린다(실측).
+ * 아이언은 홈페이지를 크롤링하므로 따로 길게 준다.
+ */
+const ADMIN_FETCH_TIMEOUT_MS = 20_000;
+const IRON_FETCH_TIMEOUT_MS = 90_000;
 import { SyncPreview } from '@/components/SyncPreview';
 import { loadVehicleMaster, peekVehicleMaster } from '@/lib/domain/vehicle-master-load';
 import { ADAPTER_OPTIONS, resolveAdapter, type SheetAdapterId } from '@/lib/domain/sheet-adapters';
@@ -204,6 +218,7 @@ async function fetchSheetConflictResolutions(): Promise<SheetConflictResolution[
   const response = await fetch('/api/sheet/conflict-resolutions', {
     headers: { Authorization: `Bearer ${await user.getIdToken()}` },
     cache: 'no-store',
+    signal: AbortSignal.timeout(ADMIN_FETCH_TIMEOUT_MS),
   });
   const body = await response.json().catch(() => ({})) as {
     resolutions?: SheetConflictResolution[];
@@ -219,6 +234,7 @@ async function fetchSheetConflictDecisions(): Promise<SheetConflictDecision[]> {
   const response = await fetch('/api/sheet/conflict-decisions', {
     headers: { Authorization: `Bearer ${await user.getIdToken()}` },
     cache: 'no-store',
+    signal: AbortSignal.timeout(ADMIN_FETCH_TIMEOUT_MS),
   });
   const body = await response.json().catch(() => ({})) as {
     decisions?: SheetConflictDecision[];
@@ -234,6 +250,7 @@ async function fetchSheetIdentityDecisions(): Promise<SheetIdentityDecision[]> {
   const response = await fetch('/api/sheet/identity-decisions', {
     headers: { Authorization: `Bearer ${await user.getIdToken()}` },
     cache: 'no-store',
+    signal: AbortSignal.timeout(ADMIN_FETCH_TIMEOUT_MS),
   });
   const body = await response.json().catch(() => ({})) as {
     decisions?: SheetIdentityDecision[];
@@ -365,6 +382,7 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
       const response = await fetch('/api/sheet/sync-status', {
         headers: { Authorization: `Bearer ${await user.getIdToken()}` },
         cache: 'no-store',
+        signal: AbortSignal.timeout(ADMIN_FETCH_TIMEOUT_MS),
       });
       const body = await response.json().catch(() => ({})) as DailySyncStatus & { error?: string };
       if (!response.ok) {
@@ -1564,11 +1582,15 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
    *
    * 결과 구조가 서로 달라 «반영»은 한 트랜잭션으로 못 묶는다(각자 반영 버튼을 쓴다).
    * 검증만이라도 한 번에 끝내 관리자가 두 곳을 기억하지 않게 한다.
-   * 홈페이지 검증이 실패해도 시트 검증은 그대로 진행한다 — 한쪽 장애가 전체를 막지 않는다.
+   *
+   * ★둘을 «순서»로 묶지 않는다. 예전엔 `await validateAll()` 뒤에 홈페이지를 불렀는데,
+   *   시트 16곳을 읽는 동안 홈페이지 칸은 그대로 멈춰 있었고 — 시트가 오래 걸리거나 한 곳이
+   *   응답하지 않으면 홈페이지는 **시작조차 못 했다**(실측: 「검증 중…」인 채로 홈페이지 미검증).
+   *   원본이 서로 무관하니 동시에 출발시킨다. 상태(busy · ironPreviewLoading)도 서로 다른 칸이라
+   *   겹치지 않는다. `allSettled` 라 한쪽이 실패해도 다른 쪽 결과를 덮지 않는다.
    */
   const validateEverySource = async () => {
-    await validateAll();
-    try { await refreshIronRentcarPreview(); } catch { /* 홈페이지 실패는 시트 결과를 덮지 않는다 */ }
+    await Promise.allSettled([validateAll(), refreshIronRentcarPreview()]);
   };
 
   const refreshIronRentcarPreview = async () => {
@@ -1581,6 +1603,7 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
       const response = await fetch('/api/inventory/ironrentcar/preview', {
         headers: { Authorization: `Bearer ${await user.getIdToken()}` },
         cache: 'no-store',
+        signal: AbortSignal.timeout(IRON_FETCH_TIMEOUT_MS),
       });
       const body = await response.json().catch(() => ({})) as IronRentcarPreview & {
         error?: string;
@@ -1713,7 +1736,9 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
               </Btn>
             </div>
           ) : (
-            <div style={{ maxHeight: 190, overflow: 'auto', marginBottom: 8, border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg }}>
+            // 공급사가 17곳인데 190px 면 네 줄만 보인다 — 어느 곳이 «미연동»인지 확인하려고
+            // 매번 안쪽 스크롤을 뒤져야 했다. 화면 높이를 쓰되 상한을 둬 아래 요약이 안 밀리게 한다.
+            <div style={{ maxHeight: '58vh', minHeight: 240, overflow: 'auto', marginBottom: 8, border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg }}>
               <table style={{ width: '100%', minWidth: 860, borderCollapse: 'collapse', fontSize: FS.cap }}>
                 <thead>
                   <tr>
@@ -1737,7 +1762,18 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
                     <td style={{ ...td, fontWeight: FW.strong, color: C.ink }}>
                       아이언렌트카 <span style={{ color: C.faint, fontWeight: FW.body }}>(RP006)</span>
                     </td>
-                    <td style={{ ...td, color: C.mute }}>홈페이지</td>
+                    <td style={{ ...td, color: C.mute }}>
+                      <a
+                        href={IRONRENTCAR_SITE_URL}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title={IRONRENTCAR_SITE_URL}
+                        style={{ color: C.brand, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 3 }}
+                      >
+                        홈페이지
+                        <ExternalLink size={ICON.sm} aria-hidden />
+                      </a>
+                    </td>
                     <td style={{ ...td, color: ironPreview?.reconciliation.createCandidates ? C.ok : C.faint }}>
                       {ironPreview ? ironPreview.reconciliation.createCandidates : '검증 전'}
                     </td>
@@ -1780,8 +1816,21 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
                     return { name: p.name, node: (
                       <tr key={p.code} style={{ borderTop: `1px solid ${C.line2}` }}>
                         <td style={{ ...td, fontWeight: FW.strong, color: C.ink }}>{p.name}</td>
-                        <td style={{ ...td, color: C.mute, maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis' }} title={p.url}>
-                          Google Sheet
+                        {/* 연동 방식 = 그 원본으로 가는 문이다. 주소를 툴팁에만 두면 «어디를 읽고
+                            있는지» 확인하려고 매번 회원·파트너 설정을 열어야 했다. 눌러서 바로 연다. */}
+                        <td style={{ ...td, color: C.mute, maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {p.url ? (
+                            <a
+                              href={p.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title={p.url}
+                              style={{ color: C.brand, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 3 }}
+                            >
+                              Google Sheet
+                              <ExternalLink size={ICON.sm} aria-hidden />
+                            </a>
+                          ) : 'Google Sheet'}
                         </td>
                         <td style={{ ...td, color: diff?.new ? C.ok : C.faint }}>{diff ? diff.new : '검증 전'}</td>
                         <td style={{ ...td, color: diff?.status ? C.warn : C.faint }}>{diff ? diff.status : '—'}</td>
