@@ -236,12 +236,20 @@ export function ChatThread({
     setDragActive(false);
     const files = e.dataTransfer?.files ?? null;
     if (!files?.length) return;
-    const file = files[0];
-    if (!isAcceptedChatFile(file)) {
+    // 여러 개를 한 번에 끌어다 놓는다. 예전엔 **첫 파일만 보고** 판정해서, 앞이 사진이면
+    //  뒤에 섞인 다른 형식까지 그대로 올라갔고(반대면 사진까지 통째로 막혔다).
+    //  이제 받을 수 있는 것만 골라 올리고, 걸러낸 게 있으면 몇 개인지 말해 준다.
+    const list = Array.from(files);
+    const ok = list.filter(isAcceptedChatFile);
+    const skipped = list.length - ok.length;
+    if (!ok.length) {
       toast('이미지 또는 PDF만 첨부할 수 있습니다', 'error');
       return;
     }
-    void onPickFile(files);
+    if (skipped) toast(`이미지·PDF ${ok.length}개만 올립니다 (${skipped}개 제외)`, 'info');
+    const dt = new DataTransfer();
+    ok.forEach((f) => dt.items.add(f));
+    void onPickFile(dt.files);
   };
 
   if (!inactive && room === undefined) return <Loading label="불러오는 중…" minHeight="100%" />;
@@ -294,8 +302,9 @@ export function ChatThread({
       ) : null}
 
       {/* 📎 파일 모아보기 — 파일이 하나도 없으면 줄 자체를 만들지 않는다(빈 줄이 대화 높이를 먹지 않게).
-          누르면 이 방 파일만 최신순 목록. 사진은 기존 갤러리 뷰어로, 문서는 바로 내려받기. */}
-      {attachments.length > 0 ? (
+          누르면 이 방 파일만 최신순 목록. 사진은 기존 갤러리 뷰어로, 문서는 바로 내려받기.
+          ★상세 안(embedded)에서는 안 그린다 — 거기선 옆에 «파일» 칸(RoomFiles)이 같은 목록을 이미 들고 있다. */}
+      {attachments.length > 0 && !embedded ? (
         <div style={{ flex: '0 0 auto', borderBottom: `1px solid ${C.line}`, background: C.head }}>
           <button
             type="button"

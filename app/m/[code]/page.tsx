@@ -16,6 +16,7 @@ import { ReportButton } from '@/components/ReportButton';
 import { actor, getRole, ensureRoom } from '@/lib/domain/deal';
 import { ContractPanel } from '@/components/ContractPanel';
 import { ChatThread } from '@/components/ChatThread';
+import { RoomFiles } from '@/components/RoomFiles';
 import { guestShareUrl } from '@/lib/domain/product-share';
 import { touchRecent } from '@/lib/product-interest';
 import { useAuthReady } from '@/lib/auth-context';
@@ -128,6 +129,8 @@ export default function Detail() {
   // ★훅은 early return 위에 있어야 한다 — 아래에 두면 p 가 undefined→정의 로 바뀔 때
   //   렌더마다 훅 개수가 달라져 「Rendered fewer hooks than expected」로 터진다.
   const [roomId, setRoomId] = useState<string>('');
+  /** 「파일 3」 칸 제목의 개수 — RoomFiles 가 같은 조회에서 알려준다(중복 조회 없음). */
+  const [fileCount, setFileCount] = useState(0);
   // 대화를 이 화면에서 편다 — 방은 영업자·관리자일 때만, 매물당 한 번 보장한다.
   useEffect(() => {
     if (!p || !isOfferableProduct(p) || !canDeal) return;
@@ -167,8 +170,14 @@ export default function Detail() {
     }
   };
   const contractPane = canDeal ? (
-    <SidePanel title="계약 진행" workWeb={workWeb} maxHeightPct={46}>
+    <SidePanel title="계약 진행" workWeb={workWeb} maxHeightPct={40}>
       <ContractPanel product={p} roomId={roomId || undefined} stepView="focus" />
+    </SidePanel>
+  ) : null;
+  // 첨부는 «대화창에 올리고, 목록은 옆에서 본다»(2026-08-07 사장님 지시).
+  const filesPane = canDeal && roomId ? (
+    <SidePanel title={fileCount ? `파일 ${fileCount}` : '파일'} workWeb={workWeb} maxHeightPct={26}>
+      <RoomFiles roomId={roomId} onCount={setFileCount} />
     </SidePanel>
   ) : null;
   const chatPane = canDeal && roomId ? (
@@ -233,7 +242,7 @@ export default function Detail() {
           {/* 보조패널 = 계약 + 대화. 카드로 묶어 «상세 옆에 붙은 도구»로 보이게 한다.
               웹: 계약(위·짧다) → 대화(남는 높이 전부).  모바일: 상세 끝나는 자리에 대화 → 계약(기존 순서 유지). */}
           <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: workWeb ? 10 : 16, ...(workWeb ? { height: '100%', overflow: 'hidden' } : null) }}>
-            {workWeb ? <>{contractPane}{chatPane}</> : <>{chatPane}{contractPane}</>}
+            {workWeb ? <>{contractPane}{filesPane}{chatPane}</> : <>{chatPane}{filesPane}{contractPane}</>}
           </div>
         </div>
       </main>
