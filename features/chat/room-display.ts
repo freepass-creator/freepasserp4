@@ -247,6 +247,28 @@ export function roomProductDetail(
   };
 }
 
+/** 차량 없는 방 — 관리자 상담(ADMIN_) · 견적기 상담(CS_/consult). 차번·차량명·대화코드 경로 우회. */
+export function isVehicleLessRoom(room: EntityRecord | null | undefined): boolean {
+  if (!room) return false;
+  return !!(
+    room.is_admin_chat
+    || String(room._key || '').startsWith('ADMIN_')
+    || room.room_kind === 'consult'
+    || String(room._key || '').startsWith('CS_')
+  );
+}
+
+function vehicleLessSubject(room: EntityRecord): string {
+  const subject = String(room.subject || '').trim();
+  if (subject) return subject;
+  // ADMIN_ 레거시(제목 없음)만 폴백. 상담방(CS_)은 subject 가 정본.
+  if (room.is_admin_chat || String(room._key || '').startsWith('ADMIN_')) {
+    const who = String(room.agent_name || room.agent_code || '').trim();
+    return who ? `${who} · 관리자 상담` : '관리자 상담';
+  }
+  return '상담';
+}
+
 export function roomTitle(
   room: EntityRecord,
   products: ProductLookup,
@@ -254,12 +276,8 @@ export function roomTitle(
   contracts: EntityRecord[],
   activeContract?: EntityRecord,
 ): string {
-  // 관리자 1:1 상담방(ADMIN_*, is_admin_chat) = 매물이 없는 방 → 차량으로 오인 표기 금지.
-  if (room.is_admin_chat || String(room._key || '').startsWith('ADMIN_')) {
-    const subject = String(room.subject || '').trim();
-    const who = String(room.agent_name || room.agent_code || '').trim();
-    return subject || (who ? `${who} · 관리자 상담` : '관리자 상담');
-  }
+  // 매물 없는 방 = 차량으로 오인 표기 금지 → subject.
+  if (isVehicleLessRoom(room)) return vehicleLessSubject(room);
   // erp3 formatMainLine = [차번, 세부모델, …] 있는 것만. 방 필드 → 키복원 → 매물 → 계약스냅샷.
   const fromKey = idFromRoomKey(room);
   const product = productForRoom(products, room) || productForRoom(deletedProducts, room);
@@ -291,7 +309,7 @@ export function roomPlate(
   contracts: EntityRecord[],
   activeContract?: EntityRecord,
 ): string {
-  if (room.is_admin_chat || String(room._key || '').startsWith('ADMIN_')) return '';
+  if (isVehicleLessRoom(room)) return '';
   const fromKey = idFromRoomKey(room);
   const product = productForRoom(products, room) || productForRoom(deletedProducts, room);
   const productCode = String(room.product_code || '') || (fromKey.code || '');
@@ -315,11 +333,7 @@ export function roomModel(
   contracts: EntityRecord[],
   activeContract?: EntityRecord,
 ): string {
-  if (room.is_admin_chat || String(room._key || '').startsWith('ADMIN_')) {
-    const subject = String(room.subject || '').trim();
-    const who = String(room.agent_name || room.agent_code || '').trim();
-    return subject || (who ? `${who} · 관리자 상담` : '관리자 상담');
-  }
+  if (isVehicleLessRoom(room)) return vehicleLessSubject(room);
   const fromKey = idFromRoomKey(room);
   const product = productForRoom(products, room) || productForRoom(deletedProducts, room);
   const productCode = String(room.product_code || '') || (fromKey.code || '');
@@ -363,6 +377,8 @@ export function providerForRoom(
  */
 export function chatCodeOf(room: EntityRecord | null | undefined, carOverride?: string): string {
   if (!room) return '';
+  // 상담방 내부키(CS_/ADMIN_)를 헤더 대화코드로 노출하지 않는다.
+  if (isVehicleLessRoom(room)) return '';
   const car = String(carOverride || room.vehicle_number || room.car_number || '').trim();
   const agent = safeBusinessCode(room.agent_code, room.agent_uid);
   if (car && agent) return `CH-${car}-${agent}`;

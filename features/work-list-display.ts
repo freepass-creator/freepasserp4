@@ -22,17 +22,19 @@ function visibleName(values: unknown[], identityValues: unknown[]): string {
   )) || '';
 }
 
-function agentLabel(record: EntityRecord, fallback?: EntityRecord): string {
+function agentLabel(record: EntityRecord, fallback?: EntityRecord, preferCode = false): string {
   const identities = [record.agent_uid, fallback?.agent_uid, record.agent_code, fallback?.agent_code];
   // 마지막 발신자는 공유 채널의 응대자일 수 있어 계약 담당자 fallback으로 쓰지 않는다.
   const name = visibleName([record.agent_name, fallback?.agent_name], identities);
-  if (name) return name;
   const code = [
     safeBusinessCode(record.agent_code, record.agent_uid),
     safeBusinessCode(fallback?.agent_code, fallback?.agent_uid),
   ]
     .find(Boolean);
-  return code || '담당자 미확인';
+  // preferCode = 목록에 사람 이름 대신 업무코드를 노출한다(개인정보 축소).
+  // 코드가 없으면 이름으로 떨어진다 — 상대가 누구인지 아예 모르는 상태보다 낫다.
+  if (preferCode) return code || name || '담당자 미확인';
+  return name || code || '담당자 미확인';
 }
 
 function providerLabel(record: EntityRecord, resolved?: string): string {
@@ -59,9 +61,9 @@ function providerLabel(record: EntityRecord, resolved?: string): string {
 export function workPartyParts(
   role: OrganizationRole | null,
   record: EntityRecord,
-  options: { agentFallback?: EntityRecord; providerName?: string } = {},
+  options: { agentFallback?: EntityRecord; providerName?: string; preferCode?: boolean } = {},
 ): string[] {
-  const agent = agentLabel(record, options.agentFallback);
+  const agent = agentLabel(record, options.agentFallback, options.preferCode);
   const provider = providerLabel(record, options.providerName);
   if (role === 'agent') return [provider];
   if (role === 'provider' || role === 'provider_admin') return [agent];

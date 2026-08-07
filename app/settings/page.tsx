@@ -20,6 +20,7 @@ import { toast } from '@/components/Toaster';
 import { NAV_LABEL } from '@/lib/tabbar';
 import { copyText } from '@/lib/clipboard';
 import { ProductPreferences } from '@/features/settings/ProductPreferences';
+import { MyFiles } from '@/features/settings/MyFiles';
 /** 미로그인 데모 — 관리자 승격 금지(둘러보기·권한 구멍 차단). */
 const DEMO_ROLES: { key: Role; label: string }[] = [
   { key: 'agent', label: '영업자' },
@@ -294,6 +295,9 @@ export default function Settings() {
             </div>
           </div>
         ) : null}
+
+        {/* 내가 올린 파일 — 읽기 전용. 로그인 사용자만(둘러보기엔 uid 가 없다) */}
+        {visibleSession?.uid ? <div><MyFiles uid={visibleSession.uid} /></div> : null}
 
         <ProductPreferences
           recentCount={recentN}

@@ -27,6 +27,7 @@ import {
   buildProductLookup,
   chatCodeOf,
   contractForRoom,
+  isVehicleLessRoom,
   productForRoom,
   providerForRoom,
   roomPlate,
@@ -131,6 +132,8 @@ export default function Chat() {
     return joinMetaText(workPartyParts(organizationRole(getSession()) || role, rm, {
       agentFallback: contractOf(rm) || cancelledOf(rm),
       providerName: pv.name || pv.code,
+      // 채팅 목록은 사람 이름 대신 업무코드로 — 목록에 실명이 줄줄이 늘어서는 것을 막는다.
+      preferCode: true,
     }));
   };
   const sortByRecent = (arr: EntityRecord[]) => arr.slice().sort((a, b) => Number(b.last_message_at || 0) - Number(a.last_message_at || 0));
@@ -190,6 +193,8 @@ export default function Chat() {
     return sorted;
   };
   const resolveProduct = async (rm: EntityRecord): Promise<EntityRecord | null> => {
+    // 상담방(CS_/consult·ADMIN_) = 매물 없음 → 전량 재조회 낭비·오인 조인 방지.
+    if (isVehicleLessRoom(rm)) return null;
     const store = getStore();
     // 목록에서 이미 복원한 레거시 product_uid를 canonical product_code로 바꿔 상세도 같은 차를 연다.
     // get(product_uid)는 RTDB 정규화 후 _key=product_code라 miss할 수 있으므로 raw uid를 곧장 쓰지 않는다.

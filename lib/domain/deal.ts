@@ -130,6 +130,96 @@ export async function ensureRoom(product: EntityRecord, asker?: { uid: string; c
   return roomKey;
 }
 
+/** 견적기 상담방 공급사·제목 — 손오공=중고(RP012) · 웰릭스=신차(RP013). */
+const CONSULT_APP = {
+  sonogong: { provider: 'RP012', subject: '중고구독 상담' },
+  welrix: { provider: 'RP013', subject: '신차구독 상담' },
+} as const;
+export type ConsultApp = keyof typeof CONSULT_APP;
+
+/** 예측 불가 CS_ 키 접미사 — 고정키 선점 시 삭제·소유자변경 불가. */
+function consultRoomSuffix(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+    const a = new Uint8Array(8);
+    crypto.getRandomValues(a);
+    return Array.from(a, (b) => b.toString(16).padStart(2, '0')).join('');
+  }
+  return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+}
+
+/** 상담방을 열 수 없는 사유 — 화면이 조용히 비지 않게 호출부가 그대로 보여준다. */
+export type ConsultBlock =
+  | { ok: false; reason: 'signin' }      // 미로그인
+  | { ok: false; reason: 'pending' }     // 가입 승인 대기
+  | { ok: false; reason: 'provider' };   // 공급사 본인 — 자기 자신과의 대화
+
+/**
+ * 견적기 상담방 보장 — 키 CS_{PROVIDER}_{랜덤}.
+ * 찾기 = (공급사, 로그인 uid) 스코프 목록에서 consult 방. 없으면 생성.
+ *
+ * ⚠ 역할을 'agent' 로 고정하지 않는다. erp4 는 3자 구조라 상담 조합이 둘이다 —
+ *    영업자↔공급사, **관리자↔공급사**. actor('agent') 를 쓰면 관리자로 들어왔을 때
+ *    데모 스텁으로 떨어져 uid 누락 throw → 채팅이 껍데기로 뜬다(2026-08-06 게이트 차단 1).
+ *    방의 상대편 당사자 자리(agent_uid)에 로그인한 사람이 앉는 구조이므로 역할만 안 박으면 된다.
+ *    uid 가 사람마다 달라 방은 자연히 분리되고, 공급사는 provider 스코프로 한 목록에서 본다.
+ *
+ * · 공급사 본인은 만들지 않는다(자기 자신과의 대화). /chat 에서 기존 방을 본다.
+ * · is_admin_chat 세우지 않음(select 예/아니오 — '아니오' 저장 시 목록에서 사라짐).
+ * · agent_channel_code = uid (실제 채널코드 금지 — SP999 등 채널 관리자 경쟁사 열람 방지).
+ * · provider_company_code · name · uid 비면 저장하지 않고 throw.
+ */
+export async function ensureConsultRoom(app: ConsultApp): Promise<string | ConsultBlock> {
+  const cfg = CONSULT_APP[app];
+  const provider = String(cfg.provider || '').trim();
+  if (!provider) throw new Error('상담방 생성: provider_company_code 누락');
+
+  const s = getSession();
+  if (!s) return { ok: false, reason: 'signin' };
+  if (String(s.status || '') === 'pending') return { ok: false, reason: 'pending' };
+  if (s.role === 'provider') return { ok: false, reason: 'provider' };
+
+  const co = getCompanyId();
+  const store = getStore();
+  const agentName = String(s.name || '').trim();
+  if (!agentName) throw new Error('상담방 생성: 이름 누락');
+  const agentUid = String(s.uid || '').trim();
+  if (!agentUid) throw new Error('상담방 생성: uid 누락');
+  const agentCode = String(s.user_code || s.code || s.uid || '').trim();
+
+  const rooms = await store.list('room', co);
+  const existing = rooms.find((r) => {
+    if (r._deleted) return false;
+    const kindOk = r.room_kind === 'consult' || String(r._key || '').startsWith('CS_');
+    if (!kindOk) return false;
+    return String(r.provider_company_code || '') === provider
+      && String(r.agent_uid || '') === agentUid;
+  });
+  if (existing) return String(existing._key);
+
+  // 채널코드 자리에 agent_uid — 실제 채널(chn_/SP999)을 넣으면 그 채널 관리자가 상담 전문을 읽게 됨.
+  const parties = requireParties({
+    agent_uid: agentUid,
+    agent_channel_code: agentUid,
+    provider_company_code: provider,
+  }, '상담방 생성');
+
+  const roomKey = `CS_${provider}_${consultRoomSuffix()}`;
+  await store.save('room', co, [{
+    _key: roomKey,
+    room_code: roomKey,
+    room_kind: 'consult',
+    subject: cfg.subject,
+    agent_uid: parties.agent_uid,
+    agent_channel_code: parties.agent_channel_code,
+    provider_company_code: parties.provider_company_code,
+    agent_code: agentCode,
+    agent_name: agentName,
+    last_message: '',
+    last_message_at: 0,
+  }]);
+  return roomKey;
+}
+
 /** 계약에서 방 보장 — 계약의 매물×영업자 결정키로 방이 없으면 생성(계약페이지 채팅용). */
 export async function ensureRoomForContract(c: EntityRecord): Promise<string> {
   const co = getCompanyId();
