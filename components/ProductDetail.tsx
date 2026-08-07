@@ -90,8 +90,44 @@ export function ProductDetail({ p, audience, layout = 'brochure' }: { p: EntityR
         </div>
       </div>
 
-      {/* 2 사진 — brochure 만. work 는 섹션 뒤 썸네일 줄로 내린다. */}
-      {work ? null : photos.length ? (
+      {/* 2-work 사진 = 칩 줄 바로 아래 썸네일 한 줄(48px). 누르면 기존 라이트박스로 전부 크게 본다.
+          히어로 400px 은 없앴지만 **맨 아래로 내렸더니 사진이 사라진 것처럼 읽혔다**(2026-08-07 실사용 지적).
+          영업자에게 사진은 «가격 다음»이지 «맨 마지막»이 아니다 — 위에 두되 자리는 한 줄만 쓴다.
+          사진이 없으면 그 사실을 한 줄로 말한다. 아무것도 안 그리면 «없는 건지 안 뜬 건지»를 모른다. */}
+      {work ? (
+        photos.length > 0 ? (
+          <div
+            ref={thumbs.ref}
+            onPointerDown={thumbs.onPointerDown}
+            onPointerMove={thumbs.onPointerMove}
+            onPointerUp={thumbs.onPointerUp}
+            onPointerCancel={thumbs.onPointerUp}
+            style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 2, cursor: 'grab', touchAction: 'pan-y', userSelect: 'none', WebkitOverflowScrolling: 'touch' }}
+          >
+            {photos.map((ph, i) => (
+              <IconBtn
+                key={i}
+                title={`사진 ${i + 1} 크게보기`}
+                onClick={() => { if (thumbs.consumeClick()) return; setLb(i); }}
+                style={{
+                  flex: '0 0 auto', width: 74, height: 48, borderRadius: R, overflow: 'hidden',
+                  border: `1px solid ${C.line}`, padding: 0, background: C.placeholder, cursor: 'inherit',
+                }}
+              >
+                <ProductPhotoImage
+                  src={ph}
+                  alt=""
+                  draggable={false}
+                  compactPlaceholder
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none' }}
+                />
+              </IconBtn>
+            ))}
+          </div>
+        ) : (
+          <div style={{ fontSize: FS.cap, color: C.faint }}>사진 없음</div>
+        )
+      ) : photos.length ? (
         <div>
           <div
             onPointerDown={(e) => {
@@ -245,44 +281,6 @@ export function ProductDetail({ p, audience, layout = 'brochure' }: { p: EntityR
           )}
         </div>
       ))}
-
-      {/* work 사진 = 맨 아래 썸네일 한 줄. 누르면 기존 라이트박스로 전부 크게 본다.
-          사진이 없으면 아무것도 그리지 않는다 — 빈 회색 박스가 칸을 잡아먹지 않게. */}
-      {work && photos.length > 0 && (
-        <div style={{ marginTop: 11 }}>
-          <div style={{ fontSize: FS.title, fontWeight: FW.title, color: C.ink, marginBottom: 4 }}>
-            사진 <span style={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{photos.length}</span>장
-          </div>
-          <div
-            ref={thumbs.ref}
-            onPointerDown={thumbs.onPointerDown}
-            onPointerMove={thumbs.onPointerMove}
-            onPointerUp={thumbs.onPointerUp}
-            onPointerCancel={thumbs.onPointerUp}
-            style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 2, cursor: 'grab', touchAction: 'pan-y', userSelect: 'none', WebkitOverflowScrolling: 'touch' }}
-          >
-            {photos.map((ph, i) => (
-              <IconBtn
-                key={i}
-                title={`사진 ${i + 1} 크게보기`}
-                onClick={() => { if (thumbs.consumeClick()) return; setLb(i); }}
-                style={{
-                  flex: '0 0 auto', width: 74, height: 48, borderRadius: R, overflow: 'hidden',
-                  border: `1px solid ${C.line}`, padding: 0, background: C.placeholder, cursor: 'inherit',
-                }}
-              >
-                <ProductPhotoImage
-                  src={ph}
-                  alt=""
-                  draggable={false}
-                  compactPlaceholder
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none' }}
-                />
-              </IconBtn>
-            ))}
-          </div>
-        </div>
-      )}
 
       {lb !== null && photos.length > 0 && (
         <div onClick={() => setLb(null)} style={{ position: 'fixed', inset: 0, zIndex: 80, background: SCRIM.black, overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: '48px 12px' }}>
