@@ -19,8 +19,8 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
  * /m · 소통·계약 패널 · /q 공용.
  */
 const LAB_W = 92;
-/** work(영업자 작업화면) 사진 높이 상한 — 사진은 «보이되» 가격표를 첫 화면 밖으로 밀지 않는다. */
-const WORK_PHOTO_H = 200;
+/** work(영업자 작업화면) 사진 **폭** 상한 — 16:10 그대로 460×288. 상세 칸이 넓어져도 사진만 커지진 않는다. */
+const WORK_PHOTO_W = 460;
 const lab: CSSProperties = {
   width: LAB_W, flex: `0 0 ${LAB_W}px`, color: C.mute, fontSize: FS.body,
 };
@@ -124,7 +124,9 @@ export function ProductDetail({ p, audience, layout = 'brochure' }: { p: EntityR
           ★사진을 썸네일 줄로만 줄였다가 «차량사진이 없어졌다»는 지적을 받고 되돌렸다(2026-08-07).
             영업자도 차를 눈으로 확인한다 — 줄이더라도 «사진»으로 보여야 한다. */}
       {photos.length ? (
-        <div>
+        // work = **폭**을 잡는다. 높이만 잘랐더니 폭 1000짜리 띠가 돼서 사진이 우스워졌다(2026-08-07).
+        //  비율은 그대로 두고 폭만 제한하면 사진은 사진답게 나오고, 가격표도 첫 화면에 남는다.
+        <div style={work ? { maxWidth: WORK_PHOTO_W } : undefined}>
           <div
             onPointerDown={(e) => {
               // 버튼(좌우 화살표·관심) 위에서 시작한 포인터는 사진 제스처가 아니다.
@@ -139,7 +141,7 @@ export function ProductDetail({ p, audience, layout = 'brochure' }: { p: EntityR
               if (sx != null && Math.abs(e.clientX - sx) > 40) { stepPhoto(e.clientX < sx ? 1 : -1); return; } // 스와이프=넘김
               setLb(mainIdx); // 탭=크게보기
             }}
-            style={{ position: 'relative', aspectRatio: '16 / 10', ...(work ? { maxHeight: WORK_PHOTO_H } : null), background: C.placeholder, borderRadius: R, overflow: 'hidden', cursor: 'zoom-in', touchAction: 'pan-y', userSelect: 'none' }}
+            style={{ position: 'relative', aspectRatio: '16 / 10', background: C.placeholder, borderRadius: R, overflow: 'hidden', cursor: 'zoom-in', touchAction: 'pan-y', userSelect: 'none' }}
           >
             <ProductPhotoImage
               src={photos[mainIdx]}
