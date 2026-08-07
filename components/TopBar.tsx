@@ -25,6 +25,9 @@ const ALL_ROLES: Role[] = ['agent', 'provider', 'admin'];
 const GROUPS: { title: string; items: { href?: string; label: string; icon: LucideIcon; soon?: boolean; roles?: Role[]; hideMobile?: boolean }[] }[] = [
   { title: '', items: [{ href: '/', label: NAV_LABEL.product, icon: NAV_ICON.product, roles: ALL_ROLES }] },
   { title: '영업', items: [
+    // 관리자는 «응대»에서 하루를 시작한다 — 대화함이 아니라 대기함이 정본이다(docs/ADMIN_DESK.md).
+    //  /chat 은 그대로 남긴다. 같은 방을 다른 문법으로 보는 화면이라 지우면 딥링크가 죽는다.
+    { href: '/desk', label: NAV_LABEL.desk, icon: NAV_ICON.desk, roles: ['admin'] },
     { href: '/chat', label: NAV_LABEL.chat, icon: NAV_ICON.chat, roles: ALL_ROLES },
     { href: '/contract', label: NAV_LABEL.contract, icon: NAV_ICON.contract, roles: ['agent', 'provider', 'admin'] },
   ] },
@@ -56,7 +59,7 @@ function statusFromPath(path: string): ReactNode {
   if (path.startsWith('/m/')) return <PageStatus icon={NAV_ICON.product} label="상품 상세" />;
   if (path.startsWith('/chat')) return <PageStatus icon={NAV_ICON.chat} label="문의 미확인" />;
   if (path.startsWith('/contract')) return <PageStatus icon={NAV_ICON.contract} label="계약진행중" />;
-  if (path.startsWith('/inventory')) return <PageStatus icon={NAV_ICON.inventory} label="출고가능" />;
+  if (path.startsWith('/inventory')) return <PageStatus icon={NAV_ICON.inventory} label="전체매물" />;
   if (path.startsWith('/sonogong')) return <PageStatus icon={RefreshCw} label="중고차 렌트구독 견적기" />;
   if (path.startsWith('/welrix')) return <PageStatus icon={Sparkles} label="신차장기렌터카 견적기" />;
   if (path.startsWith('/policy')) return <PageStatus icon={statusIconFor('정책')} label={NAV_LABEL.policy} />;

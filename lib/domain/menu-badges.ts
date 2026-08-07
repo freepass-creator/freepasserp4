@@ -18,8 +18,8 @@ import { settlementNeedsAttention } from '@/lib/domain/settlement-display';
 
 export type MenuBadgeMap = Record<string, number>;
 
-/** 햄버거 아이콘·메뉴행 = 문의 안읽음만. 정산·계약은 탭/해당 페이지. */
-const HAMBURGER_KEYS = new Set(['/chat']);
+/** 햄버거 아이콘·메뉴행 = 문의 안읽음 + 관리자 응대 «내 차례». 정산·계약은 탭/해당 페이지. */
+const HAMBURGER_KEYS = new Set(['/chat', '/desk']);
 
 export async function loadMenuBadges(role: Role, co = getCompanyId()): Promise<MenuBadgeMap> {
   const store = getStore();
