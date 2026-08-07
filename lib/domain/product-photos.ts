@@ -8,7 +8,15 @@
 import { type EntityRecord } from '@/lib/intake/entities';
 
 const NEEDS_SERVER_RE = /drive\.google\.com\/(drive\/folders\/|drive\/u\/\d+\/folders\/)|moderentcar\.co\.kr|autoplus\.co\.kr/;
-const PROXY_HOSTS_RE = /(^|\.)(googleusercontent\.com|drive\.google\.com|autoplus\.co\.kr|moderentcar\.co\.kr|moren-images\.s3[^.]*\.amazonaws\.com)$/;
+/**
+ * 프록시로 보낼 외부 이미지 호스트 — **서버 화이트리스트(lib/net/proxy-hosts.ts)와 같은 집합**이어야 한다.
+ *
+ * ⚠ 예전 패턴은 `moren-images\.s3[^.]*\.amazonaws\.com` 이었는데 `[^.]*` 가 점을 못 넘어
+ *   실제 호스트 `moren-images.s3.ap-northeast-2.amazonaws.com` 에서 **매칭에 실패**했다.
+ *   서버는 허용하는데 클라이언트가 프록시로 안 보내니, 모던렌트카(아이카·손오공·웰릭스) 사진이
+ *   원본 주소로 직접 로드돼 안 떴다(실측 2026-08-07). 리전이 들어간 S3 주소를 그대로 받는다.
+ */
+const PROXY_HOSTS_RE = /(^|\.)(googleusercontent\.com|drive\.google\.com|autoplus\.co\.kr|moderentcar\.co\.kr)$|^moren-images\.s3[a-z0-9.-]*\.amazonaws\.com$/i;
 
 /** 외부 이미지 URL → /api/img 프록시(cross-origin referrer/CORS/rate-limit 회피). data:/blob:/동일오리진/화이트리스트외는 그대로. */
 export function toProxiedImage(url: string): string {
