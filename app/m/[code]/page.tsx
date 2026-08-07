@@ -13,6 +13,7 @@ import { ProductDetail } from '@/components/ProductDetail';
 import { SimpleInquiry } from '@/components/SimpleInquiry';
 import { ReportButton } from '@/components/ReportButton';
 import { actor, getRole, ensureRoom } from '@/lib/domain/deal';
+import { ContractPanel } from '@/components/ContractPanel';
 import { guestShareUrl } from '@/lib/domain/product-share';
 import { touchRecent } from '@/lib/product-interest';
 import { useAuthReady } from '@/lib/auth-context';
@@ -112,12 +113,35 @@ export default function Detail() {
   };
   return (
     <>
-      <main style={{ flex: 1, width: '100%', maxWidth: 920, margin: '0 auto', padding: '14px 16px calc(76px + env(safe-area-inset-bottom))', boxSizing: 'border-box' }}>
-        <ProductDetail p={p} />
-        <SimpleInquiry p={p} />
-        {/* 검수요청 = 페이지 맨 하단. 본문과 같은 가로폭. */}
-        <div style={{ marginTop: 20, paddingTop: 14, borderTop: `1px solid ${C.line}`, width: '100%' }}>
-          <ReportButton p={p} />
+      {/*
+        영업자·관리자에게는 **일하는 화면**이다.
+        이 상세는 원래 손님에게 보여줄 브로슈어(공개 견적 /q 와 같은 얼굴)인데 그걸 영업자에게도
+        그대로 쓰게 해서, 좌우가 비고 대화·계약하러 다른 화면으로 나가야 했다(2026-08-07 결정).
+        폭을 넓혀 두 칸으로 가르고 오른쪽에 «문의»와 «계약 진행상황»을 붙여 여기서 끝나게 한다.
+        공급사·손님은 지금 그대로 한 칸 브로슈어다 — 그들에겐 그게 맞는 문법이다.
+      */}
+      <main style={{
+        flex: 1, width: '100%', maxWidth: canDeal ? 1440 : 920, margin: '0 auto',
+        padding: '14px 16px calc(76px + env(safe-area-inset-bottom))', boxSizing: 'border-box',
+        ...(canDeal ? {
+          display: 'grid',
+          gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)',
+          gap: 20,
+          alignItems: 'start',
+        } : null),
+      }}>
+        <div style={{ minWidth: 0 }}>
+          <ProductDetail p={p} />
+          {/* 검수요청 = 매물 정보 쪽 맨 아래. 정보에 대한 이의제기라 정보 칸에 붙는다. */}
+          <div style={{ marginTop: 20, paddingTop: 14, borderTop: `1px solid ${C.line}`, width: '100%' }}>
+            <ReportButton p={p} />
+          </div>
+        </div>
+        <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* 「궁금한 게 있으신가요?」 — 이미 있는 문의 진입점을 그대로 쓴다. 새로 만들지 않는다. */}
+          <SimpleInquiry p={p} />
+          {/* 계약 진행상황 — 문의하러 나가지 않고 여기서 확인하고 진행한다. */}
+          {canDeal ? <ContractPanel product={p} /> : null}
         </div>
       </main>
       {/* 하단독 = [이전] + 액션 — 전 화면 공통 규격. 액션 권한(canDeal)과 무관하게 항상 노출해야
