@@ -83,6 +83,12 @@ const POLICY_COLUMNS: { name: string; note: string; field?: string; values?: str
   { name: '법인운전자범위', note: '', field: 'business_driver_scope', values: ['계약사업자 임직원 및 관계자', '대표자 본인만', '협의'] },
   { name: '추가운전자', note: '', field: 'additional_driver_allowance_count', values: ['1인', '2인', '불가'] },
   // ── 그 밖의 조건 ──
+  // ── 주행 ──
+  // 대부분의 공급사는 «정책 한 줄»이면 끝난다 — 기본 주행거리와 1만km 추가 요율.
+  // 오토플러스만 매물마다 정액이 달라(실측 54대: 3만·4만·5만 …) 상품리스트에 열을 따로 둔다.
+  { name: '기본주행', note: '연 1만km · 연 2만km · 무제한', values: ['연 1만km', '연 2만km', '연 3만km', '무제한', '협의'] },
+  { name: '추가주행 방식', note: '1만km 더 탈 때 어떻게 올리는가', values: ['정액', '대여료 비례', '불가', '협의'] },
+  { name: '추가주행 금액', note: '정액이면 40000 · 비례면 10%', values: ['30000', '40000', '50000', '5%', '10%'] },
   { name: '정비', note: '', field: 'maintenance_service', values: ['협의', '불포함', '포함'] },
   { name: '대여지역', note: '', field: 'rental_region', values: ['전국', '제주도불가', '협의'] },
   { name: '보증금카드결제', note: '', field: 'deposit_card_payment', values: ['협의', '가능', '불가'] },
@@ -142,6 +148,13 @@ const FRONT_COLUMNS: { name: string; note: string; required?: boolean }[] = [
 const DETAIL_COLUMNS: { name: string; note: string; required?: boolean }[] = [
   { name: '최초등록일', note: '2024-03-15' },
   { name: '사진링크', note: '드라이브 폴더 또는 이미지 URL — 비면 카탈로그에 사진이 안 붙는다' },
+  /**
+   * 매물마다 1만km 증액이 다른 곳을 위한 칸(오토플러스).
+   * 비어 있으면 정책의 「추가주행 금액」을 쓴다 — 보증금과 같은 구조다.
+   * 대여료표에는 **가장 낮은 주행 기준 요금만** 적는다. 주행마다 열을 늘리면
+   * 오플만 요금 칸이 760개가 된다(실측) — 접으면 391개로 준다.
+   */
+  { name: '1만km증액', note: '이 차만 다르면 적는다. 비면 정책값을 쓴다' },
   { name: '차대번호', note: 'KMHxxxxxxxxxxxxxx — 번호판 나오기 전 신차를 붙잡는 유일한 신원' },
   { name: '비고', note: '' },
 ];
@@ -356,9 +369,17 @@ const POLICY_BLANK_COLS = 3;      // 새 정책을 적을 빈 칸
  * 맨 아래 「특이사항」은 우리 항목으로 못 담는 조건을 자유롭게 적는 칸이다
  * (예: 주말 출고 불가 · 제주 탁송 불가 · 선납 할인).
  */
+/**
+ * 정책 탭에 싣는 줄.
+ *
+ * ★`field`(ERP 정책 필드) 가 없다고 빼면 안 된다. 주행 조건(기본주행·추가주행 방식·금액)은
+ *   ERP 정책에 대응 필드가 아직 없지만 **공급사가 반드시 답해야 하는 값**이다.
+ *   빼면 물어볼 자리가 사라져 아무도 안 적는다(실측 2026-08-08: 세 줄이 통째로 누락됐다).
+ *   미리 채워 줄 수는 없을 뿐이고, 물어보는 것과 채워 주는 것은 다른 일이다.
+ */
 export const POLICY_TAB_FIELD_ROWS: { name: string; values?: string[] }[] = [
   { name: '정책명' },
-  ...POLICY_COLUMNS.filter((c) => c.field).map((c) => ({ name: c.name, values: c.values })),
+  ...POLICY_COLUMNS.filter((c) => c.name !== '정책코드').map((c) => ({ name: c.name, values: c.values })),
   { name: '특이사항' },
 ];
 

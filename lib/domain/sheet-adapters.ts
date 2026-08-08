@@ -67,18 +67,39 @@ function resolveHeaderRow(table: string[][], headerRow?: number): number {
 export const AUTOPLUS_PRICE_HEADERS = ['12개월', '24개월', '36개월', '48개월'] as const;
 
 /**
- * 오토플러스 헤더 행 라벨 고정.
- * col6=최초등록 · col7=주행거리 · col11~14=12/24/36/48개월.
+ * 오토플러스 헤더는 **두 줄**이다 — 윗줄이 기간, 아랫줄이 약정주행.
+ *
+ *   열 11      12       13       14       15       16       17
+ *   12개월    18개월   24개월   36개월   18개월   24개월   36개월
+ *   3만km     2만km    2만km    2만km    3만km    3만km    3만km
+ *
+ * 예전에는 아랫줄을 «안내행»으로 보고 버린 뒤 열 11~14 를 12/24/36/48개월로 **못 박았다.**
+ * 그래서 기간도 주행도 어긋났다 — 열 12(18개월 2만)가 24개월로 읽혀
+ * 손님에게 「24개월 81만원」이 떴는데 실제 24개월은 72만원이었다(실측 2026-08-08 · 53나4472).
+ * 두 줄을 합쳐 「18개월2만」 꼴로 만든다. 그러면 파서의 기간·주행 규칙이 그대로 먹는다.
  */
-export function labelAutoplusHeaderRow(header: string[]): string[] {
-  const h = header.map((c) => String(c ?? ''));
-  while (h.length < 15) h.push('');
-  h[6] = '최초등록';
-  h[7] = '주행거리';
-  for (let i = 0; i < AUTOPLUS_PRICE_HEADERS.length; i++) {
-    h[11 + i] = AUTOPLUS_PRICE_HEADERS[i];
+export function mergeAutoplusHeaderRows(top: string[], sub: string[]): string[] {
+  const out = top.map((c) => String(c ?? '').trim());
+  while (out.length < 15) out.push('');
+  out[6] = '최초등록';
+  out[7] = '주행거리';
+  for (let i = 0; i < out.length; i++) {
+    // 한 칸 안에 줄바꿈으로 들어온 경우 — 실제 오플 시트가 이 모양이다(「12개월 / 3만km」 한 셀).
+    const cell = out[i].replace(/\s+/g, ' ').trim();
+    const inCell = /^(\d+)\s*개월\s*(\d+)\s*만\s*km$/i.exec(cell);
+    if (inCell) { out[i] = `${inCell[1]}개월${inCell[2]}만`; continue; }
+    const period = /^(\d+)\s*개월$/.exec(cell);
+    if (!period) continue;
+    // 두 행으로 갈려 온 경우 — 아랫줄에서 주행을 가져온다.
+    const km = /(\d+)\s*만\s*km/i.exec(String(sub?.[i] ?? ''));
+    out[i] = km ? `${period[1]}개월${km[1]}만` : `${period[1]}개월`;
   }
-  return h;
+  return out;
+}
+
+/** @deprecated 두 줄 헤더를 합치는 `mergeAutoplusHeaderRows` 를 쓴다. */
+export function labelAutoplusHeaderRow(header: string[]): string[] {
+  return mergeAutoplusHeaderRows(header, []);
 }
 
 export const SHEET_ADAPTERS: Record<SheetAdapterId, SheetAdapter> = {
@@ -100,7 +121,15 @@ export const SHEET_ADAPTERS: Record<SheetAdapterId, SheetAdapter> = {
       const sliced = sliceFromHeader(table, headerRow);
       if (!sliced.length) return sliced;
       let body = sliced.slice(1);
-      if (body.length >= 1) {
+      /**
+       * 헤더 다음 줄이 «약정주행»이면 그건 안내행이 아니라 **헤더의 두 번째 줄**이다.
+       * 버리면 「18개월 2만/3만」을 가를 근거가 사라진다.
+       */
+      const second = body[0] || [];
+      const isKmRow = second.some((c) => /\d+\s*만\s*km/i.test(String(c ?? '')));
+      const header = mergeAutoplusHeaderRows(sliced[0] || [], isKmRow ? second : []);
+      if (isKmRow) body = body.slice(1);
+      else if (body.length >= 1) {
         const maybeGuide = body[0] || [];
         const guideBlank = !maybeGuide.some((c) => String(c || '').trim());
         const plateCell = String(maybeGuide[1] || '').replace(/\s/g, '');
@@ -111,7 +140,7 @@ export const SHEET_ADAPTERS: Record<SheetAdapterId, SheetAdapter> = {
           && !pendingPlate;
         if (guideBlank || guideNoPlate) body = body.slice(1);
       }
-      return [labelAutoplusHeaderRow(sliced[0] || []), ...body];
+      return [header, ...body];
     },
   },
   /**
