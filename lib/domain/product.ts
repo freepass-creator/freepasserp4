@@ -346,8 +346,29 @@ export function hasMinimumListingFields(p: EntityRecord): boolean {
  * ★단건(공유 링크 `/q`, 상세 `/m`)은 `isOfferableProduct` 가 따로 판단한다 —
  *   견적·상세는 유효 대여료가 있을 때만.
  */
+/**
+ * 손님·영업에게 **목록으로 내보낼 수 있는가.**
+ *
+ * 출고불가·삭제를 거르는 것만으로는 부족하다. 실측(2026-08-08 · 손님 카탈로그 431대):
+ * 차번도 상태도 가격도 없는 **빈 껍데기 22대**가 그대로 노출되고 있었다
+ * (`EXT_*` 키에 `variant` 만 남은 잔재 — 손님 화면에 「가솔린 2.5 2WD」로만 떴다).
+ *
+ * 목록에 서려면 **그 차가 실재한다는 최소 근거**가 있어야 한다 — 차번(번호미정 신차는 임시번호)과
+ * 대여료. 그게 이미 `hasMinimumListingFields` 로 정의돼 있는데 카탈로그가 안 쓰고 있었다.
+ *
+ * ※ 차종이 마스터에 아직 안 붙은 것은 거르지 않는다. 그건 «우리 데이터가 덜 정리됐다»는 뜻이지
+ *   그 차가 없다는 뜻이 아니다(2026-08-06 결정).
+ */
 export function isListableProduct(p: EntityRecord): boolean {
-  return !isHiddenFromCatalog(p);
+  if (isHiddenFromCatalog(p)) return false;
+  /**
+   * **팔 수 있다는 최소 근거**는 대여료다.
+   *
+   * 차번을 요구하면 안 된다 — 번호미정 신차는 임시번호가 아직 안 붙은 채로도 팔린다
+   * (실측: 차종·가격이 멀쩡한 8대가 차번만 없었다). 그건 «차가 없다»는 뜻이 아니다.
+   * 대여료가 하나도 없으면 그건 팔 물건이 아니라 잔재다.
+   */
+  return priceList(p).length > 0;
 }
 
 export function vehicleTone(s: string): 'green' | 'blue' | 'amber' | 'gray' | 'red' | 'orange' {
