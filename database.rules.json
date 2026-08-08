@@ -458,13 +458,13 @@
             ".validate": "!data.parent().exists() || newData.val() === data.val()"
           },
           "rent_month_snapshot": {
-            ".validate": "!data.parent().exists() || newData.val() === data.val()"
+            ".validate": "!data.exists() || newData.val() === data.val()"
           },
           "rent_amount_snapshot": {
-            ".validate": "!data.parent().exists() || newData.val() === data.val()"
+            ".validate": "!data.exists() || newData.val() === data.val()"
           },
           "deposit_amount_snapshot": {
-            ".validate": "!data.parent().exists() || newData.val() === data.val()"
+            ".validate": "!data.exists() || newData.val() === data.val()"
           },
           "fee_rate_snapshot": {
             ".validate": "!data.parent().exists() || newData.val() === data.val()"
