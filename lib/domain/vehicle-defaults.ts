@@ -172,8 +172,17 @@ export function composeVehicleName(
     drive && !has(drive) ? drive : '',
   ].filter(Boolean).join(' ');
 
+  /**
+   * 트림에 세부모델이 다시 들어 있는 경우가 있다 — 「A6 e-트론」의 트림이 「기본 A6 e-트론」이다.
+   * 그대로 이으면 「A6 e-트론 … 기본 A6 e-트론」이 된다. 마스터를 고치는 대신 조립에서 걷는다 —
+   * 「HG220 프리미엄」·「GT 320d」처럼 모델 조각을 품은 «진짜 트림»이 많아 데이터로는 못 가른다.
+   */
+  const main = S(p.sub_model) || S(p.model);
+  let trim = S(p.trim_name);
+  if (main && trim.includes(main)) trim = trim.replace(main, '').replace(/\s+/g, ' ').trim();
+
   const parts: string[] = [];
-  for (const part of [S(p.sub_model) || S(p.model), power, S(p.trim_name)]) {
+  for (const part of [main, power, trim]) {
     if (!part) continue;
     if (parts.some((x) => x.includes(part))) continue;
     parts.push(part);
