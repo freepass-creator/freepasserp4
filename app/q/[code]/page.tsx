@@ -5,6 +5,7 @@ import { type EntityRecord } from '@/lib/intake/entities';
 import { vehicleName } from '@/lib/domain/product';
 import { ProductDetail } from '@/components/ProductDetail';
 import { ProductPriceTable } from '@/components/ProductPriceTable';
+import { AsideCard } from '@/components/ProductAssistPanel';
 import { useIsMobile } from '@/lib/use-mobile';
 import { C, R, Loading, CenterNote, Btn, FW, FS } from '@/components/ui';
 import { haptic } from '@/lib/haptics';
@@ -57,16 +58,41 @@ export default function Quote() {
   const telHref = phone ? `tel:${phone.replace(/[^0-9+]/g, '')}` : '';
   const inverse = 'var(--text-inverse)';
 
-  // 손님도 영업자와 **같은 골격**을 본다 — 본문은 차 설명, 우측은 돈(2026-08-08 결정).
-  //  넓으면 기간별 대여료가 우측에 붙어 스크롤 내내 따라오고, 좁으면 본문 제자리로 돌아간다.
+  // 손님 상담 안내 — 넓으면 우측 카드로, 좁으면 본문 아래로. 내용은 한 벌이다.
+  const contactBody = (
+    <div style={{ padding: '12px 14px' }}>
+      <div style={{ fontSize: FS.body, color: C.mute }}>
+        {agentName ? `담당 영업자 ${agentName}` : '담당 영업자'}
+      </div>
+      {telHref ? (
+        <div style={{ marginTop: 10 }}>
+          <Btn href={telHref} onClick={() => haptic.nav()} full>
+            전화하기{phone ? ` · ${phone}` : ''}
+          </Btn>
+        </div>
+      ) : (
+        <div style={{ marginTop: 6, fontSize: FS.cap, color: C.faint }}>연락처가 등록되지 않았습니다.</div>
+      )}
+    </div>
+  );
+
+  // 손님도 영업자와 **같은 골격**을 본다 — 본문은 차 설명, 우측은 돈과 행동(2026-08-08 결정).
+  //  대여료까지는 네 역할이 같고, 그 밑에 붙는 카드만 다르다.
+  //  영업자 자리에 계약진행·대화가 오는 그 자리에, 손님에게는 **담당자**가 온다.
   const priceAside = (
     <aside
-      aria-label="기간별 대여료"
-      style={{ flex: '0 0 300px', width: 300, position: 'sticky', top: 18, alignSelf: 'flex-start' }}
+      aria-label="대여료·담당자"
+      style={{
+        flex: '0 0 300px', width: 300, position: 'sticky', top: 18, alignSelf: 'flex-start',
+        marginTop: 'var(--fp-detail-head-h, 0px)', // 카드 윗선 = 사진 윗선
+        display: 'flex', flexDirection: 'column', gap: 10,
+      }}
     >
-      <div style={{ fontSize: FS.title, fontWeight: FW.title, color: C.ink, marginBottom: 4 }}>대여료 / 보증금</div>
-      <ProductPriceTable p={p} />
-      <div style={{ marginTop: 8, fontSize: FS.cap, color: C.faint, lineHeight: 1.5 }}>
+      <AsideCard title="대여료 / 보증금">
+        <ProductPriceTable p={p} bare />
+      </AsideCard>
+      <AsideCard title="상담 문의">{contactBody}</AsideCard>
+      <div style={{ fontSize: FS.cap, color: C.faint, lineHeight: 1.5 }}>
         심사·재고에 따라 변동될 수 있습니다.
       </div>
     </aside>
@@ -77,6 +103,8 @@ export default function Quote() {
     <main style={{ flex: '1 1 auto', minWidth: 0, maxWidth: 620 }}>
       <div style={{ fontSize: FS.sub, color: C.mute, letterSpacing: '0.04em', marginBottom: 10 }}>대여 견적서</div>
       <ProductDetail p={p} audience="customer" priceAside={wide} />
+      {/* 좁은 화면에는 우측 카드가 없다 — 그때만 본문 아래에 상담 문의를 그린다(중복 금지). */}
+      {wide ? null : (
       <div style={{ marginTop: 24, padding: '14px 16px', background: C.brand, color: inverse, borderRadius: R }}>
         <div style={{ fontSize: FS.body, fontWeight: FW.title }}>상담 문의</div>
         <div style={{ fontSize: FS.body, marginTop: 4, opacity: 0.9 }}>
@@ -94,7 +122,10 @@ export default function Quote() {
           </div>
         ) : null}
       </div>
-      <div style={{ marginTop: 14, fontSize: FS.cap, color: C.faint }}>본 견적은 참고용이며 심사·재고에 따라 변동될 수 있습니다.</div>
+      )}
+      {wide ? null : (
+        <div style={{ marginTop: 14, fontSize: FS.cap, color: C.faint }}>본 견적은 참고용이며 심사·재고에 따라 변동될 수 있습니다.</div>
+      )}
     </main>
     {wide ? priceAside : null}
     </div>

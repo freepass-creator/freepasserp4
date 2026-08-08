@@ -138,7 +138,7 @@ export function ProductAssistPanel({ product, role }: { product: EntityRecord; r
  * 한 상자에 칸막이로 나누지 않고 **카드를 따로 세운다** — 역할마다 붙는 카드가 다르기 때문이다
  * (2026-08-08 사장님). 손님에게는 대여료 하나만 서는데, 그때 칸막이 상자면 아래가 빈 채로 남는다.
  */
-function AsideCard({ title, right, children, grow, cap }: {
+export function AsideCard({ title, right, children, grow, cap }: {
   title: string;
   right?: ReactNode;
   children: ReactNode;
