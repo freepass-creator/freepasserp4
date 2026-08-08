@@ -273,9 +273,8 @@ export function unpackVehicleSignalsEngine(
     }
   }
 
-  if (isNoTrimLabel(out.trim_name) || String(out.trim_name || '').trim().length > 40) {
-    out.trim_name = '';
-  } else if (String(out.trim_name || '').trim()) {
+  {
+    const rawTrim = String(out.trim_name || '').trim();
     const pool: string[] = [];
     const hint = String(out.model || hitModel || '').trim();
     for (const entry of entries) {
@@ -285,8 +284,36 @@ export function unpackVehicleSignalsEngine(
         for (const trim of realMasterTrims(variant.trims)) pool.push(trim);
       }
     }
-    const canonical = deps.canonMasterTrim(out.trim_name, pool.length ? pool : null);
-    if (canonical) out.trim_name = canonical;
+    /**
+     * 트림은 **원문에서 규격값을 뽑아낸다.** 문장을 그대로 남기지 않는다.
+     *
+     * 예전에는 두 갈래로 새고 있었다.
+     *   · 40자 넘으면 통째로 버렸다 — 「팰리세이드 … 7인승 캘리그래피 캘리전용퀼팅나파(블랙)」
+     *     안의 「캘리그래피」까지 같이 사라졌다.
+     *   · 40자 이하인데 캐논 매칭이 안 되면 문장이 그대로 트림이 됐다 —
+     *     「G90 자가용 세단 5인승 5.0 프레스티지」가 트림 이름으로 박혔다.
+     * 둘 다 «마스터에 있는 트림을 스스로 못 알아본» 것이다. 순서를 하나로 세운다.
+     */
+    const canonical = rawTrim && !isNoTrimLabel(rawTrim)
+      ? deps.canonMasterTrim(rawTrim, pool.length ? pool : null)
+      : '';
+    const embedded = () => [...new Set(pool)]
+      .filter((t) => deps.norm(t).length >= 2)
+      .sort((a, b) => b.length - a.length)
+      .find((t) => deps.norm(rawTrim).includes(deps.norm(t))) || '';
+    const picked = (!rawTrim || isNoTrimLabel(rawTrim)) ? ''
+      : canonical || embedded()
+      // 마스터가 그 모델의 트림을 모르는 경우가 있다(1,800종 중 32%). 짧은 낱말이면 원문을 살린다 —
+      // 그건 진짜 트림일 가능성이 높다. 문장이면 이름이 아니다.
+      || (rawTrim.length <= 12 && !/\s/.test(rawTrim) ? rawTrim : '');
+    /**
+     * ★이름에서 뺀 원문은 **버리지 말고 `trim_extra` 로 넘긴다.**
+     * 여기서 그냥 지우면 세대를 가르는 글자가 통째로 사라져 매처가 헤맨다 —
+     * 실측(2026-08-08): 트림 정리 직후 E-클래스가 W213 에서 1984년 W124 로 떨어졌다.
+     * 이름에는 안 쓰지만 판정 근거로는 읽어야 한다(`vehicle-master-signals` 에 등록돼 있다).
+     */
+    if (rawTrim && rawTrim !== picked && !String(out.trim_extra ?? '').trim()) out.trim_extra = rawTrim;
+    out.trim_name = picked;
   }
 
   if (hitModel) {

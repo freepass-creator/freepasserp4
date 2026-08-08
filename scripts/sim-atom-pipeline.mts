@@ -30,6 +30,9 @@ const EXPECT: { col: string; write: string; check: (p: any) => string }[] = [
   { col: '주행거리', write: '12000', check: (p) => S(p.mileage) },
   { col: '연료', write: '가솔린', check: (p) => S(p.fuel_type) },
   { col: '배기량', write: '1998', check: (p) => S(p.engine_cc) },
+  { col: '인승', write: '9', check: (p) => S(p.seats) },
+  // 열만 만들고 별칭이 없으면 공급사가 채워도 버려진다 — 그 회귀를 막는다.
+  { col: '구동', write: '4WD', check: (p) => S(p.drive_type) },
   { col: '단기보증', write: '1200000', check: (p) => S(p.price?.['12']?.deposit) },
   { col: '12개월', write: '900000', check: (p) => S(p.price?.['12']?.rent) },
   { col: '장기보증', write: '1800000', check: (p) => S(p.price?.['36']?.deposit) },

@@ -81,8 +81,15 @@ export function selectMasterEntry(
     || deps.extractGen(product.trim_name, codes)
     || deps.extractGen(product.vehicle_name, codes)
     || deps.extractGen(product.cert_car_name, codes);
+  /**
+   * 「E클래스(6세대)」처럼 **원문에 박힌 세대 순번**은 세대를 곧바로 확정하는 신호다.
+   * 트림을 규격화하면서 원문이 `trim_extra` 로 옮겨지는데 여기서 그걸 안 읽어
+   * 「(6세대)」를 잃고 최고령 W124 로 떨어졌다(실측 2026-08-08 · E-클래스 4대).
+   * 원문도 같이 읽는다 — 이름에는 안 쓰지만 판정에는 쓴다.
+   */
   const ordinal = deps.ordinalGen(product.sub_model)
     || deps.ordinalGen(product.trim_name)
+    || deps.ordinalGen(product.trim_extra)
     || deps.ordinalGen(product.cert_car_name);
   const order = lockedModel ? deps.genOrder(entries).get(lockedModel) || [] : [];
   const targetGen = ordinal >= 1 && ordinal <= order.length ? order[ordinal - 1] : null;
@@ -100,6 +107,13 @@ export function selectMasterEntry(
         + deps.similarity(String(product.sub_model), entry.title || '') * 0.5;
     }
     if (product.trim_name) score += deps.similarity(String(product.trim_name), entry.sub_model) * 1;
+    /**
+     * 트림 칸에 들어온 «원문 문장»도 세대를 가르는 근거다.
+     * 규격 트림만 `trim_name` 에 남기고 원문을 `trim_extra` 로 옮기면서 이 신호가 끊겼고,
+     * 그 순간 E-클래스가 W213 에서 1984년 W124 로 떨어졌다(실측 2026-08-08 · 5대).
+     * 이름에는 안 쓰지만 판정에는 읽는다 — 가중치는 trim_name 보다 낮게 둔다(원문은 잡음이 섞인다).
+     */
+    if (product.trim_extra) score += deps.similarity(String(product.trim_extra), entry.sub_model) * 0.8;
     if (product.cert_car_name) {
       score += deps.similarity(String(product.cert_car_name), entry.sub_model) * 0.8
         + deps.similarity(String(product.cert_car_name), entry.title || '') * 0.4;
@@ -114,7 +128,15 @@ export function selectMasterEntry(
     const yearStart = Number(entry.year_start) || 0;
     const yearEnd = /\d{4}/.test(String(entry.year_end)) ? Number(entry.year_end) : 9999;
     if (year && yearStart && !genLock) {
-      if (year >= yearStart && year <= yearEnd) score += 3;
+      if (year >= yearStart && year <= yearEnd) {
+        /**
+         * 세대 구간은 **경계에서 겹친다** — 22년식은 IG(2019~2022)와 GN7(2022~2026)에 둘 다 든다.
+         * 둘 다 +3 이면 동점이 되고, 동점 규칙(오래된 쪽)이 구형을 골라
+         * 「22년식 그랜저」가 GN7 이 아니라 더 뉴 그랜저 IG 가 됐다(실측 2026-08-08).
+         * 구간에 «든» 것들끼리만 새 세대에 아주 작은 가점을 준다 — 다른 판정은 건드리지 않는다.
+         */
+        score += 3 + Math.min(0.9, yearStart / 10000);
+      }
       else if (year >= yearStart - 1 && year <= yearEnd + 1) score += 1.2;
       else score -= Math.min(3, (year < yearStart ? yearStart - year : year - yearEnd) * 0.6);
     } else if (year && yearStart && genLock && year >= yearStart && year <= yearEnd) {
@@ -141,6 +163,9 @@ export function selectMasterEntry(
     return { entry, score };
   }).sort((left, right) => {
     if (right.score !== left.score) return right.score - left.score;
+    // 동점이면 예전대로 «오래된 쪽». 여기서 최신을 밀면 연식이 말해 주는 것까지 뒤집힌다
+    // (실측: W213→W214 · G80 DH→RG3 로 244대가 흔들리고 신뢰도가 11건 내려갔다).
+    // 경계 연도 문제는 아래 점수에서 «연식 구간 안에 든 것 중 새 세대»에 가점해 푼다.
     return (Number(left.entry.year_start) || 0) - (Number(right.entry.year_start) || 0);
   });
 

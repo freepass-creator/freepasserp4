@@ -15,10 +15,10 @@
  */
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
-import { makerDisplay } from '../lib/domain/vehicle-master-format';
+import { HANDLED_MAKER_OPTIONS } from '../lib/domain/handled-makers';
 import {
-  TEMPLATE_COLUMNS, buildTemplateFormat, buildTemplateValues,
-  yearOptions,
+  ROW_HEADER, TEMPLATE_COLUMNS, buildNumberFormats, buildTableRequest,
+  buildTemplateFormat, buildTemplateValues, yearOptions,
 } from '../lib/domain/supplier-template-sheet';
 
 type Rec = Record<string, any>;
@@ -70,7 +70,7 @@ async function main() {
   // 드롭다운 선택지는 ERP SSOT 에서 온다 — 제조사는 차종마스터, 나머지는 상수(색상·연료·상태·분류).
   const masterRaw = JSON.parse(readFileSync('public/data/vehicle-master.json', 'utf8')) as any;
   const masterEntries = (Array.isArray(masterRaw) ? masterRaw : masterRaw.entries) || [];
-  const makers = [...new Set(masterEntries.map((e: any) => makerDisplay(e.maker) || S(e.maker)).filter(Boolean))] as string[];
+  const makers = [...HANDLED_MAKER_OPTIONS];   // 취급 브랜드만 · 짧은 표기 · 흔한 순서
   const dropdownExtras = { 제조사: makers, 연식: yearOptions(new Date().getFullYear()) };
 
   const values = buildTemplateValues();
@@ -118,8 +118,27 @@ async function main() {
     method: 'PUT', body: JSON.stringify({ values }),
   });
   await call(`${api}:batchUpdate`, {
-    method: 'POST', body: JSON.stringify({ requests: buildTemplateFormat(gid, TEMPLATE_COLUMNS, dropdownExtras) }),
+    method: 'POST', body: JSON.stringify({ requests: buildTemplateFormat(gid, TEMPLATE_COLUMNS, dropdownExtras, { asTable: true }) }),
   });
+
+  // 표(Table)로 만들어야 드롭다운이 칩으로 뜬다. 순서를 지켜야 한다 —
+  // 필터가 남아 있으면 변환이 거부되고, 표를 만든 뒤에야 필터·정렬을 걸 수 있다.
+  const ROWS = 300;
+  await call(`${api}:batchUpdate`, {
+    method: 'POST',
+    body: JSON.stringify({ requests: [
+      { clearBasicFilter: { sheetId: gid } },
+      buildTableRequest(gid, TEMPLATE_COLUMNS, dropdownExtras, ROWS),
+      { setBasicFilter: { filter: { range: {
+        sheetId: gid, startRowIndex: ROW_HEADER, endRowIndex: ROWS,
+        startColumnIndex: 0, endColumnIndex: TEMPLATE_COLUMNS.length,
+      } } } },
+    ] }),
+  });
+  await call(`${api}:batchUpdate`, {
+    method: 'POST', body: JSON.stringify({ requests: buildNumberFormats(gid, TEMPLATE_COLUMNS, ROWS) }),
+  });
+  console.log('  표(Table) 적용 — 칩 + 머리행 필터 + 우측정렬');
 
   console.log(`\n  탭 「${title}」(gid ${gid}) 생성·반영 완료`);
   console.log(`  https://docs.google.com/spreadsheets/d/${sheetId}/edit#gid=${gid}\n`);

@@ -2,7 +2,15 @@ import type { EntityRecord } from '@/lib/intake/entities';
 
 /** 차종 규격화에 사용하는 수집 신호 SSOT. */
 export const VEHICLE_SIGNAL_KEYS = [
-  'maker', 'model', 'sub_model', 'variant', 'trim_name', 'catalog_id',
+  'maker', 'model', 'sub_model', 'variant', 'trim_name',
+  /**
+   * 트림 칸에 들어온 «원문 문장». 규격 트림만 `trim_name` 에 남기고 원문은 여기로 옮기는데,
+   * 신호에서 빠져 있으면 그 글자를 매처가 아예 못 본다 —
+   * 실측(2026-08-08): 트림 정리 후 E-클래스가 W213 에서 1984년 W124 로 떨어졌다.
+   * 이름에는 안 쓰지만 «세대를 가르는 근거»로는 반드시 읽어야 한다.
+   */
+  'trim_extra',
+  'catalog_id',
   'vehicle_name', 'cert_car_name', 'type_number', 'engine_type',
   'year', 'first_registration_date',
   'fuel_type', 'engine_cc', 'seats', 'drive_type', 'transmission',

@@ -127,6 +127,11 @@ const FRONT_COLUMNS: { name: string; note: string; required?: boolean }[] = [
   { name: '주행거리', note: '12000 (km, 숫자만)' },
   { name: '연료', note: '가솔린 · 디젤 · 하이브리드 · 전기 · LPG' },
   { name: '배기량', note: '1998 (cc)' },
+  // 승합·SUV 는 인승이 곧 상품이다 — 카니발 9인승과 7인승은 손님에게 다른 차다.
+  // 재고 701대 중 307대(44%)에 이미 담겨 있는데 담을 칸이 없어 시트로 못 나가고 있었다(실측 2026-08-08).
+  { name: '인승', note: '5 · 7 · 9 …' },
+  // 표기가 6가지로 갈려 있었다(2WD·AWD·4WD·xDrive·콰트로·4MATIC) — 두 값으로 세운다.
+  { name: '구동', note: '2WD · 4WD — 안 적으면 2WD 로 본다' },
 ];
 
 /**
@@ -218,11 +223,18 @@ export const VALUE_LISTS: Record<string, readonly string[]> = {
   연료: FUEL_TYPES,
   외부색상: EXT_COLORS,
   내부색상: INT_COLORS,
+  // 실측 분포(2026-08-08): 5 · 9 · 7 · 4 · 8 · 11 · 6 · 12 · 15
+  인승: ['5', '7', '9', '4', '6', '8', '11', '12', '15'],
+  구동: ['2WD', '4WD'],
 };
 
-/** 연식 — 올해+1 부터 15년 전까지. 목록을 손으로 적으면 해가 바뀔 때 낡는다. */
+/**
+ * 연식 — 올해+1(선출고 신차) 부터 **10년 전까지**.
+ * 렌터카로 도는 차가 그 안이다. 목록이 길면 고르기만 힘들고, 더 오래된 차는 손으로 치면 된다
+ * (`strict: false` 라 목록 밖 값도 들어간다). 손으로 적으면 해가 바뀔 때 낡으므로 계산한다.
+ */
 export function yearOptions(thisYear: number): string[] {
-  return Array.from({ length: 17 }, (_, i) => String(thisYear + 1 - i));
+  return Array.from({ length: 12 }, (_, i) => String(thisYear + 1 - i));
 }
 
 /**
@@ -246,6 +258,9 @@ export function buildTemplateFormat(
   gid: number,
   columns = TEMPLATE_COLUMNS,
   extra: Record<string, readonly string[]> = {},
+  /** 표(Table)로 만들 예정이면 개별 데이터확인은 걸지 않는다 —
+   *  표의 열 타입이 그걸 소유해서 「typed columns 에는 허용되지 않는다」로 거부된다. */
+  opts: { asTable?: boolean } = {},
 ): Rec[] {
   const width = columns.length;
   const out: Rec[] = [];
@@ -291,10 +306,12 @@ export function buildTemplateFormat(
       fields: 'gridProperties(frozenRowCount,frozenColumnCount)',
     },
   });
-  out.push({ setBasicFilter: { filter: { range: grid(gid, ROW_HEADER, 500, 0, width) } } });
+  // ★기본 필터를 걸지 않는다. 표(Table)로 바꿀 때 «겹치는 필터가 있으면» 변환이 거부된다
+  //   ("please remove the filter that overlaps with the conversion area", 실측 2026-08-08).
+  //   표는 열 이름 필터를 스스로 제공하므로 잃는 것도 없다.
 
   // 값이 정해진 열 → 드롭다운. 오타 하나가 매물 유실이 된다.
-  for (const [name, values] of Object.entries({ ...VALUE_LISTS, ...extra })) {
+  for (const [name, values] of Object.entries(opts.asTable ? {} : { ...VALUE_LISTS, ...extra })) {
     if (!values?.length) continue;
     const c = columns.findIndex((x) => x.name === name);
     if (c < 0) continue;
@@ -305,18 +322,6 @@ export function buildTemplateFormat(
           condition: { type: 'ONE_OF_LIST', values: values.map((v) => ({ userEnteredValue: v })) },
           showCustomUi: true, strict: false,
         },
-      },
-    });
-  }
-
-  // 금액 열은 천단위 — 눈으로 자리수를 세지 않게.
-  for (const [i, c] of columns.entries()) {
-    if (!/보증|개월/.test(c.name)) continue;
-    out.push({
-      repeatCell: {
-        range: grid(gid, ROW_DATA, 500, i, i + 1),
-        cell: { userEnteredFormat: { numberFormat: { type: 'NUMBER', pattern: '#,##0' }, horizontalAlignment: 'RIGHT' } },
-        fields: 'userEnteredFormat(numberFormat,horizontalAlignment)',
       },
     });
   }
@@ -397,19 +402,38 @@ export function buildPolicyTabFormat(gid: number, policyCount: number): Rec[] {
         userEnteredFormat: {
           backgroundColor: { red: 0.90, green: 0.91, blue: 0.93 },
           textFormat: { bold: true, fontSize: 10 }, verticalAlignment: 'MIDDLE',
+          horizontalAlignment: 'LEFT',
         },
       },
-      fields: 'userEnteredFormat(backgroundColor,textFormat,verticalAlignment)',
+      fields: 'userEnteredFormat(backgroundColor,textFormat,verticalAlignment,horizontalAlignment)',
     },
   });
-  // 값 칸은 노랑 — 여기 쓰라는 뜻.
+  // 값 칸 — 재고 탭과 같은 규격(10pt · 가운데 세로정렬 · 줄무늬 없음).
+  // 두 탭의 글자 크기가 다르면 같은 시트인데 다른 문서처럼 보인다.
   out.push({
     repeatCell: {
       range: grid(gid, 1, rows, 1, width),
-      cell: { userEnteredFormat: { backgroundColor: { red: 1, green: 0.99, blue: 0.93 }, verticalAlignment: 'MIDDLE' } },
-      fields: 'userEnteredFormat(backgroundColor,verticalAlignment)',
+      cell: {
+        userEnteredFormat: {
+          backgroundColor: { red: 1, green: 1, blue: 1 },
+          textFormat: { fontSize: 10 },
+          verticalAlignment: 'MIDDLE',
+          wrapStrategy: 'CLIP',
+        },
+      },
+      fields: 'userEnteredFormat(backgroundColor,textFormat,verticalAlignment,wrapStrategy)',
     },
   });
+  // 한 줄 걸러 옅은 회색 — 가로로 눈이 미끄러지지 않게. 재고 탭 줄무늬와 같은 색.
+  for (let r = 2; r < rows; r += 2) {
+    out.push({
+      repeatCell: {
+        range: grid(gid, r, r + 1, 0, width),
+        cell: { userEnteredFormat: { backgroundColor: { red: 0.97, green: 0.97, blue: 0.98 } } },
+        fields: 'userEnteredFormat.backgroundColor',
+      },
+    });
+  }
 
   // 항목마다 «가로 한 줄» 드롭다운.
   for (const [i, f] of POLICY_TAB_FIELD_ROWS.entries()) {
@@ -438,6 +462,12 @@ export function buildPolicyTabFormat(gid: number, policyCount: number): Rec[] {
     updateSheetProperties: {
       properties: { sheetId: gid, gridProperties: { frozenRowCount: 1, frozenColumnCount: 1 } },
       fields: 'gridProperties(frozenRowCount,frozenColumnCount)',
+    },
+  });
+  out.push({
+    updateDimensionProperties: {
+      range: { sheetId: gid, dimension: 'ROWS', startIndex: 0, endIndex: rows },
+      properties: { pixelSize: 28 }, fields: 'pixelSize',
     },
   });
   out.push({
@@ -473,4 +503,80 @@ export function resetSheetRequests(gid: number): Rec[] {
         fields: 'gridProperties(frozenRowCount,frozenColumnCount)',
     } },
   ];
+}
+
+
+/**
+ * 구글시트 **「표(Table)」** 로 만든다 — 드롭다운이 «칩(알약)» 으로 뜨는 유일한 길이다.
+ *
+ * 일반 데이터확인(`setDataValidation`)은 화살표로만 나온다. 규칙에 표시 스타일을 담는 자리가
+ * 아예 없다(`DataValidationRule` = strict·condition·showCustomUi·inputMessage, 실측 2026-08-08).
+ * 표의 열 타입 `DROPDOWN` 이 칩 렌더링을 맡는다. 덤으로 머리행 고정·줄무늬·열 이름 필터가 딸려온다.
+ */
+export function buildTableRequest(
+  gid: number,
+  columns = TEMPLATE_COLUMNS,
+  extra: Record<string, readonly string[]> = {},
+  rowCount = 500,
+): Rec {
+  const lists: Record<string, readonly string[]> = { ...VALUE_LISTS, ...extra };
+  return {
+    addTable: {
+      table: {
+        name: '재고',
+        range: { sheetId: gid, startRowIndex: ROW_HEADER, endRowIndex: rowCount, startColumnIndex: 0, endColumnIndex: columns.length },
+        rowsProperties: {
+          headerColorStyle: { rgbColor: { red: 0.13, green: 0.20, blue: 0.33 } },
+          firstBandColorStyle: { rgbColor: { red: 1, green: 1, blue: 1 } },
+          secondBandColorStyle: { rgbColor: { red: 0.97, green: 0.97, blue: 0.98 } },
+        },
+        columnProperties: columns.map((c, i) => {
+          const values = lists[c.name];
+          if (values?.length) {
+            return {
+              columnIndex: i,
+              columnName: c.name,
+              columnType: 'DROPDOWN',
+              dataValidationRule: {
+                condition: { type: 'ONE_OF_LIST', values: values.map((v) => ({ userEnteredValue: v })) },
+              },
+            };
+          }
+          /**
+           * 금액·주행은 **글자**로 둔다.
+           *
+           * 표(Table)에서는 열 타입만 표시를 정한다 — `repeatCell` 숫자서식이 통째로 무시된다
+           * (실측 2026-08-08). DOUBLE 은 「1070000」로 붙어 자리수를 눈으로 세야 하고,
+           * CURRENCY 는 「₩1,070,000.00」로 소수점까지 강제한다.
+           * 글자로 두고 우리가 「1,070,000」을 써 넣으면 제일 읽기 쉽다.
+           * 재유입은 문제없다 — 파서가 숫자 아닌 글자를 걷어내고 읽는다(sim-atom-pipeline 로 지킨다).
+           * 대신 시트 안에서 숫자 정렬·합계는 못 한다. 공급사가 그걸 하는 칸이 아니다.
+           */
+          return { columnIndex: i, columnName: c.name, columnType: 'TEXT' };
+        }),
+      },
+    },
+  };
+}
+
+
+/**
+ * 숫자 칸 **우측 정렬** — 표를 만든 «뒤»에 건다.
+ *
+ * 표에서는 숫자서식(`numberFormat`)이 통째로 무시되므로 쉼표는 값에 넣어 두고(글자 열),
+ * 정렬만 서식으로 맞춘다. 자리수가 세로로 떨어져야 금액을 눈으로 비교할 수 있다.
+ */
+export function buildNumberFormats(gid: number, columns = TEMPLATE_COLUMNS, rowCount = 500): Rec[] {
+  const out: Rec[] = [];
+  for (const [i, c] of columns.entries()) {
+    if (!/보증|개월|주행거리|배기량|연식|인승/.test(c.name)) continue;
+    out.push({
+      repeatCell: {
+        range: grid(gid, ROW_DATA, rowCount, i, i + 1),
+        cell: { userEnteredFormat: { horizontalAlignment: 'RIGHT' } },
+        fields: 'userEnteredFormat.horizontalAlignment',
+      },
+    });
+  }
+  return out;
 }

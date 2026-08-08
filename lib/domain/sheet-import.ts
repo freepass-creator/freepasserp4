@@ -44,6 +44,8 @@ export const HEADER_ALIASES: Record<string, string> = {
   외부색상: 'ext_color', 내부색상: 'int_color',
   인승: 'seats', 승차인원: 'seats', 승차: 'seats',
   변속기: 'transmission', 변속: 'transmission', 미션: 'transmission',
+  // 표준양식 헤더(2026-08-08). 열은 만들어 놓고 별칭이 없어 값이 통째로 버려지고 있었다.
+  구동: 'drive_type', 구동방식: 'drive_type', 사륜: 'drive_type', 굴림: 'drive_type',
   // 렌트시트 「차종」=모델명(쏘나타). 세그먼트×차형 = 차종분류(구 차급).
   차종: 'model',
   차종분류: 'vehicle_class', 차급: 'vehicle_class',
@@ -66,7 +68,7 @@ export const IMPORT_FIELDS: { key: string; label: string }[] = [
   { key: 'sub_model', label: '세부모델' }, { key: 'trim_name', label: '트림' }, { key: 'trim_extra', label: '추가표기' }, { key: 'year', label: '연식' },
   { key: 'first_registration_date', label: '최초등록일' }, { key: 'fuel_type', label: '연료' }, { key: 'engine_cc', label: '배기량' },
   { key: 'mileage', label: '주행거리' }, { key: 'ext_color', label: '외장색' }, { key: 'int_color', label: '내장색' },
-  { key: 'seats', label: '인승' }, { key: 'transmission', label: '변속기' }, { key: 'vehicle_class', label: '차종분류' },
+  { key: 'seats', label: '인승' }, { key: 'drive_type', label: '구동' }, { key: 'transmission', label: '변속기' }, { key: 'vehicle_class', label: '차종분류' },
   { key: 'vehicle_status', label: '상태' }, { key: 'product_type', label: '구분' }, { key: 'photo_link', label: '사진링크' },
   { key: 'options', label: '옵션' }, { key: 'partner_memo', label: '메모' },
   { key: 'policy_code', label: '정책코드' },

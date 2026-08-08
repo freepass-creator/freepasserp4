@@ -34,24 +34,33 @@ import {
 import { extractGoogleSheetId } from '../lib/domain/sheet-url';
 import { visibleRowsFromGridResponse, type SheetsGridResponse } from '../lib/domain/sheet-visible-grid';
 import {
-  POLICY_COLUMN_FIELDS, POLICY_TAB_NAME, buildColumns,
+  POLICY_COLUMN_FIELDS, POLICY_TAB_NAME, ROW_HEADER, buildColumns, buildNumberFormats, buildTableRequest,
   buildPolicyTabFormat, buildPolicyTabValues, buildTemplateFormat, periodColumnName,
   resetSheetRequests,
   yearOptions,
 } from '../lib/domain/supplier-template-sheet';
 import { canonProductType } from '../lib/domain/product';
+import { HANDLED_MAKER_OPTIONS } from '../lib/domain/handled-makers';
 import { makerDisplay } from '../lib/domain/vehicle-master-format';
+import { composeVehicleName, driveValue, seatsForName, seatsValue } from '../lib/domain/vehicle-defaults';
 import type { MasterEntry } from '../lib/domain/vehicle-master-types';
 
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
 const N = (v: unknown) => { const n = Number(String(v ?? '').replace(/[^\d.-]/g, '')); return Number.isFinite(n) ? n : 0; };
+/** 표에서는 열 타입만 표시를 정한다 — 쉼표는 우리가 «값에» 넣어 준다. */
+const comma = (n: number) => (n ? n.toLocaleString('ko-KR') : '');
 const DB = 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app';
 const arg = (n: string, d = '') => (process.argv.find((a) => a.startsWith(`--${n}=`)) || '').slice(n.length + 3) || d;
 
 /** 공급사가 직접 만들어 쓰는 시트 — 우리 표준을 밀어 넣으면 안 된다. */
 const SUPPLIER_OWNED = new Set(['RP004', 'RP023', 'RP031']);
-const TAB_NAME = '표준';
+/**
+ * 공급사 시트의 상품 탭 이름은 **「재고」**다.
+ * 「상품리스트」는 프리패스 쪽 이름이다 — 그건 상품찾기와 연동되는 «읽기 전용» 목록이라
+ * 방향도 주인도 다르다. 같은 말을 쓰면 어느 쪽을 고쳐야 하는지 헷갈린다.
+ */
+const TAB_NAME = '재고';
 /** 번호미정 신차에 붙는 ERP 내부 임시번호 — 공급사 시트에 나가면 안 되는 값. */
 const TEMP_PLATE = /^\d{3}신\d{4}$/;
 /** 보증금이 «값»이 아니라 «규칙»인 공급사(손오공 등) — 정책 블록에 문장으로 적는다. */
@@ -158,7 +167,7 @@ async function migrateOne(code: string, o: { apply: boolean; useTarget: boolean 
   const masterRaw = JSON.parse(readFileSync('public/data/vehicle-master.json', 'utf8')) as { entries?: MasterEntry[] } | MasterEntry[];
   const master = (Array.isArray(masterRaw) ? masterRaw : masterRaw.entries) || [];
 
-  const makers = [...new Set((master as any[]).map((e) => makerDisplay(e.maker) || S(e.maker)).filter(Boolean))] as string[];
+  const makers = [...HANDLED_MAKER_OPTIONS];   // 취급 브랜드만 · 짧은 표기 · 흔한 순서
   const dropdownExtras = { 제조사: makers, 연식: yearOptions(new Date().getFullYear()) };
 
   const api = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}`;
@@ -272,15 +281,30 @@ async function migrateOne(code: string, o: { apply: boolean; useTarget: boolean 
     set('분류', canonProductType(p.product_type) || S(p.product_type));
     // 시트에는 짧은 표기로 — 르노코리아→르노 · KG모빌리티→KGM.
     set('제조사', makerDisplay(p.maker) || S(p.maker));
-    // 차명은 «가장 긴 이름»으로, 트림까지 한 칸에 이어 준다 — 매처는 짧은 이름일수록 헤맨다.
-    const baseName = S(p.sub_model) || S(p.model);
-    const trim = S(p.trim_name) || S(p.trim_extra);
-    set('차명(트림)', trim && !baseName.includes(trim) ? `${baseName} ${trim}` : baseName);
+    /**
+     * 차명 = **차종마스터 세 조각을 붙인 것.** 그 이상도 이하도 아니다.
+     *
+     *   세부모델  +  파워트레인(인승)  +  세부트림
+     *   더 뉴 카니발 KA4   디젤 2.2 9인승   프레스티지
+     *
+     * ⚠ `vehicle-name.ts` 의 T2 full 을 쓰면 안 된다. 그건 «화면용»이라 원문 잔여물까지 끌어와
+     *   「쏘나타 디 엣지 DN8 LPG 2.0 디 엣지 사업용 (렌트) 비즈니스 2」·「5인승 7인승」 같은
+     *   겹말을 만든다(전 차량 701대 실측: 28건). 시트는 마스터 값만 붙인다.
+     * ⚠ `trim_extra` 는 트림이 아니라 원본 문장이므로 넣지 않는다.
+     *
+     * 인승은 파워트레인에 딸린다. 5인승은 붙이지 않는다 — 당연한 값이라 이름만 길어진다.
+     * 카니발 9인승·팰리세이드 7인승처럼 인승이 곧 다른 상품인 것만 드러낸다.
+     */
+    // 차명 조립은 `vehicle-defaults.composeVehicleName` 하나만 쓴다 —
+    // 스크립트마다 따로 이으면 같은 차가 곳곳에서 다르게 보인다.
+    set('차명(트림)', composeVehicleName(p as never, master as never[]));
     set('연식', p.year);
     set('최초등록일', p.first_registration_date);
     set('연료', p.fuel_type);
-    set('배기량', p.engine_cc);
-    set('주행거리', p.mileage);
+    set('배기량', comma(N(p.engine_cc)));
+    set('인승', seatsValue(p.seats, p.sub_model, master as never[]) || seatsForName(p.seats, p.sub_model, master as never[]));
+    set('구동', driveValue(p.drive_type, p.sub_model, master as never[]));
+    set('주행거리', comma(N(p.mileage)));
     set('외부색상', p.ext_color);
     set('내부색상', p.int_color);
     set('옵션', p.options);
@@ -307,24 +331,24 @@ async function migrateOne(code: string, o: { apply: boolean; useTarget: boolean 
     for (const key of Object.keys(price)) {
       const c = cellByKey(p, key);
       if (!c) continue;
-      set(periodColumnName(key), N(c.rent) || '');
+      set(periodColumnName(key), comma(N(c.rent)));
       const d = N(c.deposit);
       if (d) (Number(key.split('_')[0]) < 24 ? shortDeps : longDeps).add(d);
     }
-    if (!ruleText && shortDeps.size >= 1) set('단기보증', [...shortDeps][0]);
+    if (!ruleText && shortDeps.size >= 1) set('단기보증', comma([...shortDeps][0]));
     if (!ruleText && shortDeps.size > 1) depositConflict++;
     // 보증금이 규칙으로 정해지는 공급사는 칸을 «비운다». 값을 박으면 규칙과 두 벌이 되고,
     // 기간마다 다른 금액을 두 칸에 뭉개려다 없던 보증금을 만들어낸다.
     if (!ruleText) {
       if (longDeps.size > 1) depositConflict++;
-      if (longDeps.size >= 1) set('장기보증', [...longDeps][0]);
+      if (longDeps.size >= 1) set('장기보증', comma([...longDeps][0]));
     }
     rows.push(r);
   }
 
   console.log(`\n  표준 표: ${rows.length}행 · ${TEMPLATE_COLUMNS.length}열`);
   const filled = (n: string) => rows.filter((r) => S(r[idx(n)])).length;
-  console.log('  채워진 칸 — ' + ['차량번호','상태','분류','제조사','차명(트림)','옵션','외부색상','내부색상','연식','주행거리','연료','배기량','정책코드','사진링크','차대번호']
+  console.log('  채워진 칸 — ' + ['차량번호','상태','분류','제조사','차명(트림)','옵션','외부색상','내부색상','연식','주행거리','연료','배기량','인승','구동','정책코드','사진링크','차대번호']
     .map((n) => `${n} ${filled(n)}`).join(' · '));
   console.log(`  정책 — 연결된 매물 ${policySeeded}/${products.length} · 쓰는 정책 ${usedPolicies.size}종`);
   console.log('  요금     — ' + TEMPLATE_COLUMNS.filter((c) => /보증|개월|기타기간/.test(c.name))
@@ -423,11 +447,12 @@ async function migrateOne(code: string, o: { apply: boolean; useTarget: boolean 
     const t = await r.text();
     if (!r.ok) {
       if (r.status === 403) throw new Error(`쓰기 권한 없음 — ${writeId} 에 ${sa.client_email} 를 편집자로 공유하세요.`);
-      throw new Error(`Sheets ${r.status} ${t.slice(0, 300)}`);
+      throw new Error(`Sheets ${r.status} ${t.slice(0, 800)}`);
     }
     return t ? JSON.parse(t) : {};
   };
 
+  const wTables = (await wCall(`${wApi}?fields=${encodeURIComponent('sheets(properties(sheetId),tables(tableId,range))')}`) as any).sheets || [];
   const wMeta = useTarget
     ? (await wCall(`${wApi}?fields=${encodeURIComponent('sheets(properties(sheetId,title))')}`) as any).sheets
         .map((s: any) => ({ gid: String(s.properties.sheetId), title: S(s.properties.title) }))
@@ -443,6 +468,15 @@ async function migrateOne(code: string, o: { apply: boolean; useTarget: boolean 
     await wCall(`${wApi}/values/${encodeURIComponent(title)}!A:BZ:clear`, { method: 'POST', body: '{}' });
     // 값만 지우면 옛 서식·드롭다운·셀메모가 남아 데이터 줄이 헤더처럼 보인다.
     await wCall(`${wApi}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests: resetSheetRequests(gid) }) });
+    // 표가 남아 있으면 열 타입이 값·서식·규칙을 붙잡아 다시 못 쓴다. 먼저 푼다.
+    const olds = (wTables.find((x: any) => x.properties?.sheetId === gid)?.tables || []) as { tableId: string }[];
+    if (olds.length) {
+      await wCall(`${wApi}:batchUpdate`, {
+        method: 'POST',
+        body: JSON.stringify({ requests: olds.map((t) => ({ deleteTable: { tableId: t.tableId } })) }),
+      });
+      console.log(`  기존 표 ${olds.length}개 해제`);
+    }
     console.log(`  기존 탭 「${title}」(${gid}) 를 서식까지 갈아엎는다`);
   } else {
     title = TAB_NAME;
@@ -456,7 +490,31 @@ async function migrateOne(code: string, o: { apply: boolean; useTarget: boolean 
   await wCall(`${wApi}/values/${encodeURIComponent(title)}!A1?valueInputOption=USER_ENTERED`, {
     method: 'PUT', body: JSON.stringify({ values }),
   });
-  await wCall(`${wApi}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests: buildTemplateFormat(gid, TEMPLATE_COLUMNS, dropdownExtras) }) });
+  await wCall(`${wApi}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests: buildTemplateFormat(gid, TEMPLATE_COLUMNS, dropdownExtras, { asTable: true }) }) });
+  // 표로 만들어야 드롭다운이 «칩»으로 뜬다. 이미 표면 그대로 두고, 실패해도 표만 없을 뿐 값은 멀쩡하다.
+  try {
+    await wCall(`${wApi}:batchUpdate`, {
+      method: 'POST',
+      body: JSON.stringify({ requests: [
+        { clearBasicFilter: { sheetId: gid } },     // 남아 있는 필터가 표 변환을 막는다
+        buildTableRequest(gid, TEMPLATE_COLUMNS, dropdownExtras, Math.max(50, rows.length + 30)),
+        // 필터는 «표를 만든 뒤에» 건다. 먼저 걸면 표 변환이 거부되고,
+        // 표만 만들면 머리행에 필터 단추가 없다. 순서가 곧 기능이다(실측 2026-08-08).
+        { setBasicFilter: { filter: { range: {
+          sheetId: gid, startRowIndex: ROW_HEADER, endRowIndex: Math.max(50, rows.length + 30),
+          startColumnIndex: 0, endColumnIndex: TEMPLATE_COLUMNS.length,
+        } } } },
+      ] }),
+    });
+    // 정렬은 표를 만든 뒤에 — 숫자 칸이 우측으로 떨어져야 자리수가 세로로 맞는다.
+    await wCall(`${wApi}:batchUpdate`, {
+      method: 'POST',
+      body: JSON.stringify({ requests: buildNumberFormats(gid, TEMPLATE_COLUMNS, Math.max(50, rows.length + 30)) }),
+    });
+    console.log('  표(Table) 적용 — 칩 + 머리행 필터 + 천단위 + 우측정렬');
+  } catch (e) {
+    console.log(`  ⚠ 표 적용 실패 — ${String((e as Error)?.message || e).replace(/\s+/g, ' ').slice(0, 600)}`);
+  }
   console.log(`  탭 「${title}」(gid ${gid}) 생성 완료 — 검증은 쓰기 전에 이미 통과했다`);
 
   // ── 「정책」 탭 — 상품리스트가 가리키는 코드의 «뜻»을 여기서 정의한다 ────────
