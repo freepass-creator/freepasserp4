@@ -24,7 +24,7 @@ import { useInventoryEditorLifecycle } from '@/features/inventory/useInventoryEd
 import { useInventoryAccessEffects, useInventoryData } from '@/features/inventory/useInventoryData';
 import { copyText } from '@/lib/clipboard';
 import { retainVisibleSelection } from '@/features/work-list-display';
-import { RefreshCw, Table2 } from 'lucide-react';
+import { Table2 } from 'lucide-react';
 import { exportInventoryToSheet } from '@/lib/firebase/inventory-sheet-export-client';
 const INV_SORTS: { value: InvSort; label: string }[] = [
   { value: 'status', label: '상태순' },
@@ -303,13 +303,13 @@ export default function Inventory() {
     <>
       <PaneHead title="공급사 연동" />
       <PaneBody pad>
-        <div style={{ fontSize: FS.cap, color: C.mute, lineHeight: 1.5, marginBottom: 12 }}>
-          전체 공급사 시트·홈페이지 검증과 반영은 개발도구에서 합니다.
-          거기서 확인한 뒤 재고에 반영하세요.
-        </div>
-        <Btn href="/dev?tool=sync" size="md">
-          <ButtonLabel icon={<RefreshCw size={ICON.md} aria-hidden />}>개발도구 · 공급사 상품 연동</ButtonLabel>
-        </Btn>
+        {/*
+          재고를 보는 자리에서 **바로** 연동한다.
+          예전에는 관리자만 개발도구로 내보냈는데(공급사는 여기서 바로 했다), 재고를 고치는 사람이
+          매번 화면을 옮겨야 했고 «개발도구»라는 이름이 운영 작업을 실험처럼 보이게 했다.
+          같은 `SheetSync` 를 여기 붙인다 — 검증·충돌 차단은 그 안에 그대로 있다.
+        */}
+        <SheetSync co={co} onImported={() => load(getRole())} />
         <div style={{ height: 1, background: C.line2, margin: '14px 0' }} />
         <Btn size="md" onClick={exportToSheet} disabled={exporting}>
           <ButtonLabel icon={<Table2 size={ICON.md} aria-hidden />}>
