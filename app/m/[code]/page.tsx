@@ -12,7 +12,7 @@ import { toast } from '@/components/Toaster';
 import { ProductDetail } from '@/components/ProductDetail';
 import { SimpleInquiry } from '@/components/SimpleInquiry';
 import { ReportButton } from '@/components/ReportButton';
-import { ProductAssistPanel, ASSIST_GAP, ASSIST_W, useAssistColumn } from '@/components/ProductAssistPanel';
+import { ProductAssistPanel, useAssistColumn } from '@/components/ProductAssistPanel';
 import { actor, getRole, ensureRoom } from '@/lib/domain/deal';
 import { guestShareUrl } from '@/lib/domain/product-share';
 import { touchRecent } from '@/lib/product-interest';
@@ -115,6 +115,23 @@ export default function Detail() {
       toast(e instanceof Error ? e.message : '계약문의 실패', 'error');
     }
   };
+  const dockActions = canDeal ? (
+    <>
+      <Btn title="공유" variant="ghost" size="sm" onClick={sendLink}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+          <Share2 size={ICON.md} aria-hidden />
+          공유
+        </span>
+      </Btn>
+      <Btn title="계약문의" size="sm" onClick={inquire}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+          <MessageCircle size={ICON.md} aria-hidden />
+          계약문의
+        </span>
+      </Btn>
+    </>
+  ) : undefined;
+
   return (
     <>
       {/* 본문(브로슈어) + 보조 칼럼. 보조는 폭이 남을 때만 그려지고(ASSIST_BP) 본문 920 을 뺏지 않는다.
@@ -122,36 +139,36 @@ export default function Detail() {
       {/* 상단 14 = 보조 sticky top 과 동일 — 본문·보조 윗선이 브라우저 높이와 같이 맞춰진다. */}
       <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', gap: 16, width: '100%', padding: '14px 16px 0', boxSizing: 'border-box' }}>
         {/* minWidth:0 — 없으면 본문이 안 줄어들어 보조 칼럼이 화면 밖으로 밀린다(flex 기본 min-content). */}
-        <main style={{ flex: '1 1 auto', minWidth: 0, width: '100%', maxWidth: 920, padding: '0 0 calc(76px + env(safe-area-inset-bottom))', boxSizing: 'border-box' }}>
+        <main style={{
+          flex: '1 1 auto', minWidth: 0, width: '100%', maxWidth: 920, boxSizing: 'border-box',
+          // 보조 칼럼이 서면 액션은 이 칼럼 안에서 따라다닌다 → 화면 고정독 자리를 비워 둘 필요가 없다.
+          padding: assistShown ? 0 : '0 0 calc(76px + env(safe-area-inset-bottom))',
+        }}>
           <ProductDetail p={p} />
           <SimpleInquiry p={p} />
           {/* 검수요청 = 페이지 맨 하단. 본문과 같은 가로폭. */}
           <div style={{ marginTop: 20, paddingTop: 14, borderTop: `1px solid ${C.line}`, width: '100%' }}>
             <ReportButton p={p} />
           </div>
+          {/* 이전·공유·계약문의는 **상세를 따라다닌다** — 화면 한가운데 고정독으로 두면
+              옆에 보조 칼럼이 선 만큼 본문이 왼쪽으로 밀려 «상세 밑»이 아니게 된다(2026-08-08 지적).
+              sticky bottom = 스크롤 중엔 화면 아래에 붙고, 상세 끝에 오면 거기서 멈춘다. */}
+          {assistShown ? (
+            <div style={{
+              position: 'sticky', bottom: 0, zIndex: 2, marginTop: 14,
+              background: C.bg, borderTop: `1px solid ${C.line}`,
+            }}>
+              <BottomNav embedded backShowLabel actions={dockActions} />
+            </div>
+          ) : null}
         </main>
         {canDeal && <ProductAssistPanel product={p} role={role} />}
       </div>
-      {/* 하단독 = [이전] + 액션 — 전 화면 공통 규격. 액션 권한(canDeal)과 무관하게 항상 노출해야
-          공급사도 이전 수단이 있다(예전엔 canDeal일 때만 렌더돼 공급사는 하단바 자체가 없었음).
-          이전도 라벨 표기 — 다른 상세의 「목록」과 동일한 어포던스. */}
-      {/* 독은 «본문 칼럼 아래»에 선다. 보조 칼럼이 서 있으면 본문이 화면 중앙에서 왼쪽으로
-          밀리므로 독도 같은 만큼 민다 — 안 그러면 이전·공유·계약문의가 상세가 아니라
-          보조 칼럼 밑에 붙은 것처럼 보인다(2026-08-08 지적). */}
-      <BottomNav maxWidth={920} padX={16} backShowLabel offsetX={assistShown ? -(ASSIST_W + ASSIST_GAP) / 2 : 0} actions={canDeal ? <>
-        <Btn title="공유" variant="ghost" size="sm" onClick={sendLink}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-            <Share2 size={ICON.md} aria-hidden />
-            공유
-          </span>
-        </Btn>
-        <Btn title="계약문의" size="sm" onClick={inquire}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-            <MessageCircle size={ICON.md} aria-hidden />
-            계약문의
-          </span>
-        </Btn>
-      </> : undefined} />
+      {/* 보조 칼럼이 없을 때(모바일·좁은 웹·손님·공급사)는 전 화면 공통 규격인 고정독 그대로.
+          액션 권한(canDeal)과 무관하게 항상 노출해야 공급사도 이전 수단이 있다. */}
+      {assistShown ? null : (
+        <BottomNav maxWidth={920} padX={16} backShowLabel actions={dockActions} />
+      )}
     </>
   );
 }
