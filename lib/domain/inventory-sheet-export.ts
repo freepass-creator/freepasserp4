@@ -39,26 +39,35 @@ function insLine(q: Rec, kind: 'limit' | 'deductible'): string {
       `자손 ${v('self_body_accident')}`, `무보험 ${v('uninsured_damage')}`,
       `자차 ${v('own_damage_compensation')}`].join(' · ');
   }
-  // 자차는 「자차수리비」 한 칸에서 따로 말한다 — 여기 또 쓰면 같은 값이 두 벌이 된다.
+  // 자차는 「자차면책금」 한 칸에서 따로 말한다 — 여기 또 쓰면 같은 값이 두 벌이 된다.
   return [`대인 ${v('injury_deductible')}`, `대물 ${v('property_deductible')}`,
     `자손 ${v('self_body_deductible')}`, `무보험 ${v('uninsured_deductible')}`].join(' · ');
 }
 
 /**
- * 자차 수리비 — **자기부담률과 금액을 한 칸에.** 「20%, 50만원~100만원」
- * 손님은 «내가 얼마 내나»를 한 번에 묻지, 부담률과 면책금을 따로 묻지 않는다.
- *   · 정액(최소=최대)이면 범위를 쓰지 않는다 — 「20%, 100만원」
+ * 자차 면책금 — **손님이 실제로 내는 돈**을 한 칸에. 「수리비 20%, 50~100만원」
+ * 수리비의 몇 %를 물되 그 안에서 최소·최대가 정해진다는 뜻이라, 둘을 떼어 놓으면
+ * 어느 쪽이 실제 부담인지 읽히지 않는다.
+ *   · 정액(최소=최대)이면 범위를 쓰지 않는다 — 「수리비 20%, 100만원」
+ *   · 같은 단위면 앞의 단위를 접는다 — 「50만원~100만원」이 아니라 「50~100만원」
  *   · 부담률이 없으면 금액만, 금액이 없으면 부담률만.
  *   · 「20」처럼 % 가 빠진 입력이 섞여 있어 붙여서 맞춘다(실측 2건).
+ * 값은 전부 정책에서 온다 — 공급사마다 다르다(퍼시픽 50% · 빌린카 100%).
  */
 function ownDamageLine(q: Rec): string {
   let pct = S(q.own_damage_repair_ratio);
   if (pct && /^[\d.]+$/.test(pct)) pct = `${pct}%`;
   const lo = S(q.own_damage_min_deductible);
   const hi = S(q.own_damage_max_deductible);
-  const amount = lo && hi && lo !== hi ? `${lo}~${hi}` : (lo || hi);
-  return [pct, amount].filter(Boolean).join(', ');
+  let amount = lo && hi && lo !== hi ? `${lo}~${hi}` : (lo || hi);
+  // 「50만원~100만원」처럼 단위가 겹치면 앞의 것을 접는다.
+  const unit = /(만원|억원|원)$/.exec(hi)?.[1];
+  if (unit && lo.endsWith(unit) && hi.endsWith(unit) && lo !== hi) {
+    amount = `${lo.slice(0, -unit.length)}~${hi}`;
+  }
+  return [pct && `수리비 ${pct}`, amount].filter(Boolean).join(', ');
 }
+
 
 /**
  * **정책 펼침** — 공급사 뒤에 그대로 이어 붙이는 값들.
@@ -98,7 +107,7 @@ const POLICY_VIEW: { label: string; key?: string; from?: (pol: Rec) => string }[
    */
   { label: '보상한도', from: (q) => insLine(q, 'limit') },
   { label: '면책금', from: (q) => insLine(q, 'deductible') },
-  { label: '자차수리비', from: ownDamageLine },
+  { label: '자차면책금', from: ownDamageLine },
   { label: '개인운전범위', key: 'personal_driver_scope' },
   { label: '사업자운전범위', key: 'business_driver_scope' },
   { label: '추가운전자', key: 'additional_driver_allowance_count' },
@@ -336,7 +345,7 @@ const TABLE_WIDTH: Record<string, number> = {
   옵션: 190, 외장: 60, 내장: 60, 연식: 50, 주행: 78, 연료: 66, 공급사: 84, 심사: 62, 조건: 74,
   // 합친 보험 두 칸은 담보 다섯이 한 줄에 들어간다 — 잘리면 합친 뜻이 없다.
   보상한도: 250, 면책금: 250, 위약금: 150, 탁송비: 200, 결제방식: 130,
-  개인운전범위: 150, 사업자운전범위: 150, 조건설명: 120, 정책명: 120, 정책코드: 100, 자차수리비: 150,
+  개인운전범위: 150, 사업자운전범위: 150, 조건설명: 120, 정책명: 120, 정책코드: 100, 자차면책금: 160,
   약정주행: 84, 심사기준: 74, 신용등급: 74, 기본연령: 84, 연령상한: 84, 출고지: 110,
 };
 
