@@ -145,3 +145,16 @@ export function contractTone(s: string): 'blue' | 'amber' | 'green' | 'red' | 'g
  * (여기 있던 settlementCalc 은 임포터 0인 두 번째 구현이었다 — 돈 계산이 두 벌이면
  *  나중에 요율 로직을 고칠 때 안 쓰이는 쪽을 고칠 위험이 있어 제거. 2026-07-21)
  */
+
+/**
+ * **테스트 계약** — 실계약과 한 목록에 살면서도 섞이지 않아야 한다.
+ * 발송·서명 흐름을 눌러 보려면 계약이 하나 필요한데, 그걸 실계약 사이에 두면
+ * 어느 것이 진짜인지 흐려지고, 실계약을 지워 자리를 비우면 정산·문의가 참조하던
+ * 것이 사라진다. 그래서 «지우지 않고 표식으로 가른다».
+ *
+ * 이 함수 하나만 본다 — 목록·정산·발송이 각자 판정하면 어딘가에서 테스트 건이
+ * 진짜처럼 새어 나간다.
+ */
+export function isTestContract(contract: EntityRecord): boolean {
+  return contract.is_test === true || String(contract.is_test) === 'true';
+}

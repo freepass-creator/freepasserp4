@@ -1,0 +1,16 @@
+import { filterContracts } from '../features/contract/contract-filter';
+import { isTestContract } from '../lib/domain/contract';
+import type { EntityRecord } from '../lib/intake/entities';
+const mk=(o:any)=>({contract_code:o.code,contract_status:o.st||'계약요청',customer_name:o.name||'홍길동',is_test:o.test}) as EntityRecord;
+const rows=[mk({code:'CT-1'}),mk({code:'CT-2',st:'계약완료'}),mk({code:'CT-3',st:'계약취소'}),mk({code:'CT-TEST-01',test:true})];
+const run=(f:any)=>filterContracts({contracts:rows,query:'',filter:f,month:'',sort:''}).map(c=>String(c.contract_code));
+let pass=0,fail=0;
+const t=(name:string,got:string[],want:string[])=>{const ok=JSON.stringify(got)===JSON.stringify(want);ok?pass++:fail++;console.log(`  ${ok?'✓':'✗'} ${name}  ${ok?'':`got ${got} / want ${want}`}`);};
+t('전체에 테스트가 안 섞인다', run('all'), ['CT-1','CT-2','CT-3']);
+t('진행(취소제외)에도 안 섞인다', run('진행'), ['CT-1','CT-2']);
+t('계약완료에도 안 섞인다', run('계약완료'), ['CT-2']);
+t('테스트 칩에서만 나온다', run('테스트'), ['CT-TEST-01']);
+t('판정은 표식 하나로', [String(isTestContract(rows[3])),String(isTestContract(rows[0]))], ['true','false']);
+t('문자열 true 도 테스트', [String(isTestContract({is_test:'true'} as any))], ['true']);
+console.log(`\n  ${pass}/${pass+fail} 통과`);
+process.exit(fail?1:0);

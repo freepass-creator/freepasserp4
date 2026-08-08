@@ -1,5 +1,5 @@
 import type { EntityRecord } from '@/lib/intake/entities';
-import { STEPS, contractStage, getProgress, normalizeContractStatus } from '@/lib/domain/contract';
+import { STEPS, contractStage, getProgress, isTestContract, normalizeContractStatus } from '@/lib/domain/contract';
 import { contractHaystack, matchHay } from '@/lib/domain/search';
 
 export type ContractSort = 'date' | 'status' | 'progress' | 'name';
@@ -13,7 +13,8 @@ export type ContractWorkflowGroup =
   | '출고'
   | '계약완료'
   | '계약취소';
-export type ContractFilter = '진행' | 'all' | ContractWorkflowGroup;
+export type ContractFilter = '진행' | 'all' | '테스트' | ContractWorkflowGroup;
+
 
 export const CONTRACT_SORT_OPTIONS: { value: ContractSort; label: string }[] = [
   { value: 'status', label: '단계순' },
@@ -27,6 +28,7 @@ const STEP_GROUPS = STEPS.map((step) => step.label as ContractWorkflowGroup);
 
 export const CONTRACT_FILTER_OPTIONS: { key: ContractFilter; label: string }[] = [
   { key: 'all', label: '전체' },
+  { key: '테스트', label: '테스트' },
   // 기존 기본 동작(상태 없는 레코드·계약취소 제외)은 유지하되 실제 범위를 정확히 쓴다.
   { key: '진행', label: '계약취소 제외' },
   { key: '확인 필요', label: '확인 필요' },
@@ -76,6 +78,10 @@ export function contractMonthOptions(contracts: EntityRecord[]): { value: string
 }
 
 function matchesFilter(contract: EntityRecord, filter: ContractFilter): boolean {
+  // 테스트 건은 «찾을 때만» 나온다 — 그 밖의 모든 갈래에서는 빠진다.
+  // 「전체」에도 넣지 않는다. 전체가 실계약 수와 달라지면 그 수를 아무도 못 믿는다.
+  if (filter === '테스트') return isTestContract(contract);
+  if (isTestContract(contract)) return false;
   if (filter === '진행') {
     const status = normalizeContractStatus(contract.contract_status);
     // 기본 라벨 '취소 제외' 그대로: 상태 누락도 숨기지 않고 확인 필요로 노출한다.

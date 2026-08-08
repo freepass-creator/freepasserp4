@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { ROLE_LABEL_RAW, type EntityRecord } from '@/lib/intake/entities';
-import { contractStage, getProgress, isContractInProgress } from '@/lib/domain/contract';
+import { contractStage, getProgress, isContractInProgress, isTestContract } from '@/lib/domain/contract';
 import type { EsignStage } from '@/lib/domain/esign-progress';
 import {
   UNKNOWN_VEHICLE_STATUS,
@@ -197,7 +197,13 @@ export function ContractListRow({
       lines={[
         <FeedTitleRow
           key="t"
-          title={<FeedTitle>{title}</FeedTitle>}
+          title={(
+            <FeedTitle>
+              {/* 테스트 건은 «한눈에» 갈려야 한다 — 실계약과 같은 줄에 서면 오해가 그대로 일이 된다. */}
+              {isTestContract(c) ? <Badge tone="amber" variant="line">테스트</Badge> : null}
+              {title}
+            </FeedTitle>
+          )}
           meta={showProgress ? (
             <span style={{ fontSize: FS.sub, fontWeight: FW.head, color: stage.tone === 'amber' ? C.warn : C.brand, fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{pr.done}/{pr.total}</span>
           ) : null}
