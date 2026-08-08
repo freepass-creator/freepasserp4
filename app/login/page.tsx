@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 /**
  * 로그인 — freepasserp3 v3 화면 그대로(똑같이). 실 Firebase Auth(회원 공유).
  *   login / 가입(사업자번호→회사·역할) / 재설정 / 로그인 없이 둘러보기.
@@ -9,7 +9,7 @@ import { Store } from 'lucide-react';
 import { type User } from 'firebase/auth';
 import { login, signup, logout, resetPassword, writeUserProfile } from '@/lib/firebase/auth';
 import { setGuest, getSession, firebaseReadySafe } from '@/lib/login-helpers';
-import { fmtPhone, C, FS, FW, R, ctrlPadX } from '@/components/ui';
+import { fmtPhone, C, FS, FW, ICON, R, ctrlPadX } from '@/components/ui';
 import { BRAND_MAIN, BRAND_SUB } from '@/lib/brand';
 import { LEGAL_VERSION } from '@/lib/legal';
 import { toast } from '@/components/Toaster';
@@ -202,7 +202,7 @@ export default function LoginPage() {
               <div className="login-field"><label htmlFor="loginEmail">이메일</label><input id="loginEmail" type="email" placeholder="name@company.com" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required /></div>
               <div className="login-field"><label htmlFor="loginPw">비밀번호</label><input id="loginPw" type="password" placeholder="비밀번호 입력" autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value)} required /></div>
               <button type="submit" className="login-submit" disabled={busy}>로그인</button>
-              <button type="button" className="login-guest" onClick={doGuest}><Store size={16} /> 로그인 없이 둘러보기</button>
+              <button type="button" className="login-guest" onClick={doGuest}><Store size={ICON.md} /> 로그인 없이 둘러보기</button>
             </div>
             <div className="login-links">
               <a href="#" onClick={(e) => { e.preventDefault(); switchMode('signup'); }}>계정 만들기</a>

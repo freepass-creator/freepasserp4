@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
 import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
-import { C, FS, FW, R, ctrlH, rowPadY } from './tokens';
+import { C, FS, FW, ICON, R, ctrlH, rowPadY } from './tokens';
 
 /** 카드 밖 섹션 캡션 — 그룹리스트 헤더. */
 export function GroupHeader({ children }: { children: ReactNode }) {
@@ -157,7 +157,7 @@ export function NavRow({
         </span>
       ) : null}
       {interactive ? (
-        <ChevronRight size={16} strokeWidth={2.2} color={C.faint} aria-hidden style={{ flex: '0 0 auto' }} />
+        <ChevronRight size={ICON.md} strokeWidth={2.2} color={C.faint} aria-hidden style={{ flex: '0 0 auto' }} />
       ) : null}
     </>
   );

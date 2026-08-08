@@ -4,7 +4,7 @@ import { type EntityRecord } from '@/lib/intake/entities';
 import { priceList, detailSections, cheapest, type Audience } from '@/lib/domain/product';
 import { useProductPhotoState } from '@/components/use-product-photos';
 import { getRole } from '@/lib/domain/deal';
-import { won, Badge, C, R, NUM, FW, FS, CloseBtn, IconBtn, SCRIM } from '@/components/ui';
+import { won, Badge, C, R, NUM, FW, FS, ICON, CloseBtn, IconBtn, SCRIM } from '@/components/ui';
 import { useDragScroll } from '@/lib/use-drag-scroll';
 import {
   badges, Plate, idParts, CardBenefits, CardEvents, OptionChips,
@@ -169,7 +169,7 @@ export function ProductDetail({ p, audience, layout = 'brochure', priceAside = f
                     position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', zIndex: 2,
                     border: 'none', background: C.ink, color: C.taupeBg, opacity: 0.7, borderRadius: '50%',
                   }}
-                ><ChevronLeft size={20} strokeWidth={2.5} /></IconBtn>
+                ><ChevronLeft size={ICON.xl} strokeWidth={2.5} /></IconBtn>
                 <IconBtn
                   title="다음 사진"
                   onPointerDown={(e) => e.stopPropagation()}
@@ -178,7 +178,7 @@ export function ProductDetail({ p, audience, layout = 'brochure', priceAside = f
                     position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', zIndex: 2,
                     border: 'none', background: C.ink, color: C.taupeBg, opacity: 0.7, borderRadius: '50%',
                   }}
-                ><ChevronRight size={20} strokeWidth={2.5} /></IconBtn>
+                ><ChevronRight size={ICON.xl} strokeWidth={2.5} /></IconBtn>
               </>
             )}
             {/* 표시(문의중·최근)는 별표 **왼쪽** — 누르는 자리는 언제나 맨 오른쪽 하나로 고정. */}
