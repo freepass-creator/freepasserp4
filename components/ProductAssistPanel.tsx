@@ -20,6 +20,20 @@ import { useIsMobile } from '@/lib/use-mobile';
  */
 
 export const ASSIST_BP = 1200;
+/** 보조 칼럼 폭·본문과의 간격 — 하단독을 본문 아래로 맞추려면 페이지가 이 치수를 알아야 한다. */
+export const ASSIST_W = 380;
+export const ASSIST_GAP = 16;
+
+/**
+ * 지금 보조 칼럼이 실제로 그려지는가.
+ *
+ * 페이지는 이걸 알아야 **하단독(이전·공유·계약문의)을 본문 칼럼 아래로 맞출 수 있다.**
+ * 모르면 독은 화면 한가운데에 서고, 본문은 보조 칼럼에 밀려 왼쪽에 있으므로
+ * 버튼이 «상세가 아니라 보조 칼럼 밑»에 붙은 것처럼 어긋난다(2026-08-08 지적).
+ */
+export function useAssistColumn(): boolean {
+  return !useIsMobile(ASSIST_BP);
+}
 
 const CONTRACT_HEAD = '계약진행';
 

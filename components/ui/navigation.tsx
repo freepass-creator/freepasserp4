@@ -59,10 +59,13 @@ export function BottomNav({
   embedded,
   zIndex = 45,
   backShowLabel = false,
+  offsetX = 0,
 }: {
   actions?: React.ReactNode;
   maxWidth?: number;
   padX?: number;
+  /** 웹에서 독을 좌우로 미는 양(px). 본문 옆에 보조 칼럼이 있어 본문이 화면 중앙이 아닐 때 쓴다. */
+  offsetX?: number;
   backKind?: 'history' | 'list';
   onBack?: () => void;
   embedded?: boolean;
@@ -89,6 +92,9 @@ export function BottomNav({
     : {
         maxWidth,
         margin: '0 auto',
+        // 본문이 화면 한가운데가 아닐 때(옆에 보조 칼럼이 서 있을 때) 독을 그만큼 밀어
+        // **본문 칼럼 바로 아래**에 세운다. 레이아웃을 건드리지 않게 transform 으로만 옮긴다.
+        ...(offsetX ? { transform: `translateX(${offsetX}px)` } : null),
         display: 'flex',
         alignItems: 'center',
         gap: 8,

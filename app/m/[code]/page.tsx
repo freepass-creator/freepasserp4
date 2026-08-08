@@ -12,7 +12,7 @@ import { toast } from '@/components/Toaster';
 import { ProductDetail } from '@/components/ProductDetail';
 import { SimpleInquiry } from '@/components/SimpleInquiry';
 import { ReportButton } from '@/components/ReportButton';
-import { ProductAssistPanel } from '@/components/ProductAssistPanel';
+import { ProductAssistPanel, ASSIST_GAP, ASSIST_W, useAssistColumn } from '@/components/ProductAssistPanel';
 import { actor, getRole, ensureRoom } from '@/lib/domain/deal';
 import { guestShareUrl } from '@/lib/domain/product-share';
 import { touchRecent } from '@/lib/product-interest';
@@ -44,6 +44,8 @@ export default function Detail() {
     if (el) el.scrollTop = 0;
   }, [key]);
 
+  // ★훅은 early return 위에 — 아래에 두면 p 가 undefined→정의 로 바뀔 때 훅 개수가 달라져 터진다.
+  const assistColumn = useAssistColumn();
   const detailName = p && isOfferableProduct(p)
     ? (vehicleName(p) || String(p.car_number || '상품'))
     : null;
@@ -96,6 +98,8 @@ export default function Detail() {
 
   const role = getRole();
   const canDeal = role === 'agent' || role === 'admin';
+  /** 보조 칼럼이 실제로 그려지는가 — 하단독을 본문 아래로 맞추는 데 쓴다. */
+  const assistShown = canDeal && assistColumn;
   const sendLink = () => {
     const a = actor(role);
     const url = guestShareUrl(p, a.code || a.uid);
@@ -131,7 +135,10 @@ export default function Detail() {
       {/* 하단독 = [이전] + 액션 — 전 화면 공통 규격. 액션 권한(canDeal)과 무관하게 항상 노출해야
           공급사도 이전 수단이 있다(예전엔 canDeal일 때만 렌더돼 공급사는 하단바 자체가 없었음).
           이전도 라벨 표기 — 다른 상세의 「목록」과 동일한 어포던스. */}
-      <BottomNav maxWidth={920} padX={16} backShowLabel actions={canDeal ? <>
+      {/* 독은 «본문 칼럼 아래»에 선다. 보조 칼럼이 서 있으면 본문이 화면 중앙에서 왼쪽으로
+          밀리므로 독도 같은 만큼 민다 — 안 그러면 이전·공유·계약문의가 상세가 아니라
+          보조 칼럼 밑에 붙은 것처럼 보인다(2026-08-08 지적). */}
+      <BottomNav maxWidth={920} padX={16} backShowLabel offsetX={assistShown ? -(ASSIST_W + ASSIST_GAP) / 2 : 0} actions={canDeal ? <>
         <Btn title="공유" variant="ghost" size="sm" onClick={sendLink}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
             <Share2 size={ICON.md} aria-hidden />
