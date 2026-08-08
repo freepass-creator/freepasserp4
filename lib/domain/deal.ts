@@ -29,8 +29,21 @@ const ACTORS: Record<Role, { uid: string; code: string; name: string }> = {
   admin: { uid: 'usr_admin', code: 'usr_admin', name: '관리자' },
 };
 const RKEY = 'fp4_role';
-// 역할: 실 로그인 세션 우선 → 없으면(둘러보기/로컬) localStorage 스텁.
-export function getRole(): Role { const s = getSession(); if (s) return s.role; if (typeof window === 'undefined') return 'agent'; const r = localStorage.getItem(RKEY); return r === 'provider' || r === 'admin' ? r : 'agent'; }
+/**
+ * 역할: **테스트 덮어쓰기** → 실 로그인 세션 → 없으면(둘러보기/로컬) localStorage 스텁.
+ *
+ * 덮어쓰기는 화면 배치를 확인하려고 개발 스위치가 켰을 때만 있다(lib/dev-role).
+ * **권한은 안 바뀐다** — 서버 규칙은 로그인 uid 의 실제 역할로 판단한다.
+ */
+export function getRole(): Role {
+  if (typeof window !== 'undefined') {
+    try {
+      const dev = localStorage.getItem('fp4_dev_role');
+      if (dev === 'agent' || dev === 'provider' || dev === 'admin') return dev;
+    } catch { /* noop */ }
+  }
+  const s = getSession(); if (s) return s.role; if (typeof window === 'undefined') return 'agent'; const r = localStorage.getItem(RKEY); return r === 'provider' || r === 'admin' ? r : 'agent';
+}
 export function setRole(r: Role): void { if (typeof window !== 'undefined') { localStorage.setItem(RKEY, r); window.dispatchEvent(new CustomEvent('fp:role', { detail: r })); } }
 // 행위자: 세션 역할이 요청 역할과 같으면 실 사용자(귀속코드) → 아니면 데모 스텁.
 // 영업자 code = 사람키(user_code). 채널은 session.agent_channel_code 로만.

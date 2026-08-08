@@ -10,6 +10,7 @@ import TopBar from '@/components/TopBar';
 import AppTabBar from '@/components/AppTabBar';
 import { Toaster } from '@/components/Toaster';
 import ClientErrorReporter from '@/components/ClientErrorReporter';
+import { DevRoleSwitch } from '@/components/DevRoleSwitch';
 
 export const viewport: Viewport = {
   themeColor: '#1B2A4A',
@@ -94,6 +95,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   <AppTabBar />
                 </div>
                 <Toaster />
+                {/* 테스트 역할 스위치 — 개발 서버이거나 실제 관리자일 때만 뜬다(lib/dev-role). */}
+                <DevRoleSwitch />
               </TabBarProvider>
             </AppBarProvider>
           </AuthProvider>
