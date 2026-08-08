@@ -346,7 +346,15 @@ async function fetchAdminSheetTable(
   });
 }
 
-export function SheetSync({ co, onImported }: { co: string; onImported: () => void }) {
+/**
+ * 공급사 상품 연동.
+ *
+ * `compact` — **재고관리에서 쓰는 모드.** 버튼 둘(검증·반영)과 한 줄 요약만 남긴다.
+ * 매일 하는 일은 «검증하고 이상 없으면 반영»이 전부라, 공급사별 표·충돌 리포트·TSV 복사까지
+ * 재고 화면에 펼치면 정작 눌러야 할 버튼이 스크롤 밖으로 밀린다.
+ * 자세히 볼 일(어느 공급사가 왜 막혔는지·충돌 원문)은 개발도구에서 본다 — 같은 컴포넌트다.
+ */
+export function SheetSync({ co, onImported, compact = false }: { co: string; onImported: () => void; compact?: boolean }) {
   const role = getRole();
   const isAdmin = role === 'admin';
   const [tab, setTab] = useState<'sheet' | 'excel'>('sheet');
@@ -1836,7 +1844,7 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
           ) : null}
           <div style={{ fontSize: FS.sub, fontWeight: FW.title, color: C.brand, marginBottom: 3 }}>전체 공급사 상품 연동</div>
           <div style={{
-            display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6,
+            display: compact ? 'none' : 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6,
             marginBottom: 6, padding: '6px 8px', borderRadius: R, background: C.bg,
             border: `1px solid ${C.line}`, fontSize: FS.cap,
           }}>
@@ -1858,13 +1866,13 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
               {dailyStatusError || lastDailyRun?.block_reason || lastDailyRun?.error}
             </div>
           ) : null}
-          <div style={{ fontSize: FS.cap, color: C.faint, lineHeight: 1.5, marginBottom: 8 }}>
+          <div style={{ display: compact ? 'none' : 'block', fontSize: FS.cap, color: C.faint, lineHeight: 1.5, marginBottom: 8 }}>
           공급사마다 등록된 전용 원본을 같은 상품 연동 절차로 처리합니다. 먼저 검증해 신규·상태변경·정보수정을 확인한 뒤 반영하며, 원본에 없는 차량은 삭제하지 않고 출고불가로 전환합니다. 조회 실패·급감·소유 충돌은 자동 차단하고 기존 계약 스냅샷은 바꾸지 않습니다.
           </div>
-          <div style={{ marginBottom: 5, fontSize: FS.cap, fontWeight: FW.title, color: C.ink }}>
+          <div style={{ display: compact ? 'none' : 'block', marginBottom: 5, fontSize: FS.cap, fontWeight: FW.title, color: C.ink }}>
             공급사 상품 연동 · {roster.length + 1}곳
           </div>
-          {rosterError ? (
+          {compact ? null : rosterError ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
               <div style={{ fontSize: FS.cap, color: C.danger, fontWeight: FW.strong, flex: 1, minWidth: 0 }}>
                 상품 연동 설정 오류 · {rosterError} — 회원·파트너에서 해당 공급사 설정을 수정하세요.
@@ -2143,6 +2151,30 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
             >
               {busy && pending ? '반영 중…' : '검증 결과 반영'}
             </Btn>
+            {/*
+              재고관리에서는 이 한 줄이 «검증 결과의 전부»다.
+              어느 공급사가 왜 막혔는지·충돌 원문은 개발도구에서 본다.
+            */}
+            {compact && pending ? (
+              <div style={{ flexBasis: '100%', fontSize: FS.cap, lineHeight: 1.6, color: C.mute, marginTop: 4 }}>
+                <b style={{ color: C.ink }}>검증됨</b> · 원본 {pending.fetched.products.length}대
+                {' · '}신규 <b style={{ color: C.ink }}>{pending.totals.new}</b>
+                {' · '}상태변경 <b style={{ color: C.ink }}>{pending.totals.status}</b>
+                {' · '}정보수정 <b style={{ color: C.ink }}>{pending.totals.content}</b>
+                {pending.totals.absent ? ` · 원본에 없어 출고불가 ${pending.totals.absent}` : ''}
+                {pending.totals.guarded ? ` · 계약보호로 건너뜀 ${pending.totals.guarded}` : ''}
+                {pendingBlockReason ? (
+                  <div style={{ color: C.danger, fontWeight: FW.strong, marginTop: 2 }}>
+                    반영 차단 — {pendingBlockReason} · 자세한 것은 개발도구에서 확인하세요.
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+            {compact && !pending ? (
+              <div style={{ flexBasis: '100%', fontSize: FS.cap, color: C.faint, marginTop: 4 }}>
+                「데이터 검증」을 먼저 누르세요 — 공급사 {roster.length + 1}곳의 원본을 읽어 무엇이 바뀌는지 보여줍니다.
+              </div>
+            ) : null}
             {pendingPriceApprovalGroups.map((group) => (
               <Btn
                 key={group.key}

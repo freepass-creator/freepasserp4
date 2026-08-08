@@ -309,7 +309,7 @@ export default function Inventory() {
           매번 화면을 옮겨야 했고 «개발도구»라는 이름이 운영 작업을 실험처럼 보이게 했다.
           같은 `SheetSync` 를 여기 붙인다 — 검증·충돌 차단은 그 안에 그대로 있다.
         */}
-        <SheetSync co={co} onImported={() => load(getRole())} />
+        <SheetSync co={co} compact onImported={() => load(getRole())} />
         <div style={{ height: 1, background: C.line2, margin: '14px 0' }} />
         <Btn size="md" onClick={exportToSheet} disabled={exporting}>
           <ButtonLabel icon={<Table2 size={ICON.md} aria-hidden />}>
