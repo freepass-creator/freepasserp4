@@ -83,11 +83,11 @@ export function ProductAssistPanel({ product, role }: { product: EntityRecord; r
   const chromeGap = 14;
   // 본문 머리(차명·칩)만큼 내려온다 → 대여료 카드 윗선 = 사진 윗선(2026-08-08 사장님).
   const headOffset = 'var(--fp-detail-head-h, 0px)';
-  // 계약·대화가 붙는 역할만 높이를 다 쓴다. **아래는 브라우저 끝까지** 간다 —
-  //  하단독이 본문 안으로 들어가 화면 아래를 막지 않으므로 자리를 비워 둘 이유가 없다.
+  // 계약·대화가 붙는 역할만 높이를 다 쓴다. 위는 사진 윗선, **아래는 하단독 위에서 멈춘다** —
+  //  독(이전·공유·계약문의)이 스크롤 중 화면 아래에 붙어 있으므로 거기까지 내려가면 가려진다.
   //  가격만 있는 역할(공급사·둘러보기)은 내용 높이로 선다. 안 그러면 표 밑이 빈 상자가 된다.
   const paneH = canDeal
-    ? `calc(100dvh - var(--topbar-h) - var(--fp-tabbar-h, 0px) - var(--fp-dock-safe, 0px) - ${chromeGap}px - ${headOffset})`
+    ? `calc(100dvh - var(--topbar-h) - var(--fp-tabbar-h, 0px) - var(--fp-bar-h) - var(--fp-dock-safe, 0px) - ${chromeGap * 2}px - ${headOffset})`
     : undefined;
 
   return (
