@@ -14,7 +14,7 @@
  * ★내보내지 않는 것 — 원가·수수료·차대번호·내부메모.
  *   링크만 있으면 열리는 외부 문서다. HEADERS 에 원가성 필드를 추가하지 마라.
  */
-import { canonProductType, creditDisplay, excelCondSignals, priceList } from '@/lib/domain/product';
+import { canonProductType, creditDisplay, excelCondSignals, noDeposit, priceList } from '@/lib/domain/product';
 import type { EntityRecord } from '@/lib/intake/entities';
 
 type Rec = Record<string, any>;
@@ -223,7 +223,8 @@ const TABLE_COLUMNS = [
  */
 const TABLE_WIDTH: Record<string, number> = {
   차량번호: 88, 상태: 68, 상품: 72, 제조사: 68, 모델: 96, 세부모델: 150, 파워: 92, 트림: 104,
-  옵션: 190, 외장: 60, 내장: 60, 연식: 50, 주행: 78, 연료: 66, 공급사: 132, 심사: 62, 조건: 74,
+  // 공급사는 법인격을 뗀 별칭이라 「오토플러스」가 최장이다 — 132px 는 그만큼 빈다.
+  옵션: 190, 외장: 60, 내장: 60, 연식: 50, 주행: 78, 연료: 66, 공급사: 84, 심사: 62, 조건: 74,
 };
 
 /* 화면 좌표 — 제목줄 없음. 「몇 대·언제」는 탭 이름이 이미 말한다(중복 금지). */
@@ -246,12 +247,18 @@ const COL_BEST_MONTH = 4;   // 최저가가 나오는 기간(개월)
 const COL_BEST_RENT = 5;    // 그 기간의 월대여료
 const COL_BEST_DEP = 6;     // 그 기간의 보증금
 /**
- * 카탈로그 링크·상품코드 칸은 **없앴다.**
- * 링크는 차량번호·사진·차종 셀에 직접 걸린다 — 어디를 눌러도 그 차의 카탈로그로 간다.
- * 「열기」 칸을 따로 두면 같은 문이 넷이 되고, 상품코드는 영업이 쓰지 않는 값이다
- * (필요하면 뒤 숨긴 원본에 그대로 있다).
+ * 보증금 옆 한 칸 — **무보증 가능 여부.**
+ * 보증금을 못 내는 손님이 제일 먼저 묻는 것이고, 그 한마디로 팔 수 있는 차가 갈린다.
+ * 판정은 `noDeposit` 하나만 쓴다(모든 유료기간의 보증금이 0 또는 명시 플래그) —
+ * 여기서 따로 세면 카탈로그의 「무보증」 필터와 답이 달라진다.
  */
-const COL_TABLE = 7;     // 표 시작
+const COL_NO_DEP = 7;
+/**
+ * 카탈로그 링크·상품코드 칸은 **없앴다.**
+ * 링크는 사진 칸에 직접 걸린다 — 「열기」 칸을 따로 두면 같은 문이 둘이 되고,
+ * 상품코드는 영업이 쓰지 않는 값이다(필요하면 뒤 숨긴 원본에 그대로 있다).
+ */
+const COL_TABLE = 8;     // 표 시작
 const ROW_HEAD = 0;
 const ROW_DATA = 1;
 
@@ -309,6 +316,7 @@ export function buildInventorySheet(
   head[COL_BEST_MONTH] = '기간';
   head[COL_BEST_RENT] = '월대여료';
   head[COL_BEST_DEP] = '보증금';
+  head[COL_NO_DEP] = '무보증';
   TABLE_COLUMNS.forEach((name, i) => { head[COL_TABLE + i] = name; });
   values.push(head);
 
@@ -322,15 +330,18 @@ export function buildInventorySheet(
     const plate = S(row[at('차량번호')]).replace(/\s/g, '');
 
     /**
-     * 사진 칸 = **카탈로그로 가는 문 하나.**
-     * 그림(`=IMAGE`)을 `=HYPERLINK` 로 감싸면 링크는 셀에 실제로 들어가지만, 구글시트가
-     * 이미지 셀의 클릭을 «셀 선택»으로 먹어 눌러도 안 가는 것처럼 느껴진다.
-     * 그래서 그림을 걷고 글자 링크만 남긴다 — 사진은 카탈로그에서 크게 본다.
-     * 사진 유무는 그대로 알린다. 「사진없음」은 공급사에 사진을 달라고 할 목록이 된다.
+     * 사진 — **차를 알아보는 건 글자가 아니라 그림이다.**
+     * `=IMAGE(…,1)` 이 셀 크기에 맞춰 줄이므로 행 높이가 곧 사진 크기다.
+     * `=HYPERLINK` 로 감싸면 링크도 셀에 함께 들어간다(API 로 확인).
+     * 사진이 없으면 그림 대신 「사진없음」 글자를 링크로 건다 —
+     * 그 칸은 여전히 상세로 가는 문이고, 공급사에 사진을 달라고 할 목록이 된다.
      */
+    const photo = S(photoByPlate[plate]);
+    const img = photo ? `IMAGE("${photo.replace(/"/g, '""')}",1)` : '';
     const detail = code && base ? `"${base}/q/"&ENCODEURL("${code.replace(/"/g, '""')}")` : '';
-    const hasPhoto = !!S(photoByPlate[plate]);
-    line[COL_PHOTO] = detail ? `=HYPERLINK(${detail},"${hasPhoto ? '사진' : '사진없음'}")` : '';
+    line[COL_PHOTO] = detail
+      ? `=HYPERLINK(${detail},${img || '"사진없음"'})`
+      : (img ? `=${img}` : '');
 
     /**
      * 사진 옆은 **차종 한 마디**다.
@@ -357,6 +368,13 @@ export function buildInventorySheet(
       line[COL_BEST_RENT] = best.rent;
       line[COL_BEST_DEP] = best.dep;
     }
+
+    /**
+     * 무보증 여부는 «가장 싼 기간»이 아니라 **상품 전체**로 판정한다 —
+     * 한 기간만 보증금 0 이어도 무보증이라 말하면 다른 기간에서 말이 뒤집힌다.
+     * 빈칸은 필터에서 「(공백)」으로 잡히므로 두 값이 또렷하게 갈린다.
+     */
+    line[COL_NO_DEP] = noDeposit(rows[r]) ? '무보증' : '';
 
     TABLE_COLUMNS.forEach((name, i) => {
       if (/개월$/.test(name)) {
@@ -433,8 +451,8 @@ export function buildInventorySheet(
     },
     { repeatCell: { range: box(ROW_DATA, lastRow, COL_NO, COL_NO + 1), cell: { userEnteredFormat: { horizontalAlignment: 'CENTER', textFormat: { fontSize: 9, foregroundColor: rgb('94A3B8') } } }, fields: 'userEnteredFormat(horizontalAlignment,textFormat)' } },
     { repeatCell: { range: box(ROW_DATA, lastRow, COL_PLATE, COL_PLATE + 1), cell: { userEnteredFormat: { horizontalAlignment: 'CENTER', textFormat: { fontSize: 10, foregroundColor: rgb(INK) } } }, fields: 'userEnteredFormat(horizontalAlignment,textFormat)' } },
-    // 사진 — 이 표에서 유일하게 «누르는» 칸이라 파랗게 밑줄을 둔다.
-    { repeatCell: { range: box(ROW_DATA, lastRow, COL_PHOTO, COL_PHOTO + 1), cell: { userEnteredFormat: { horizontalAlignment: 'CENTER', verticalAlignment: 'MIDDLE', textFormat: { fontSize: 10, foregroundColor: rgb('1E40AF'), underline: true } } }, fields: 'userEnteredFormat(horizontalAlignment,verticalAlignment,textFormat)' } },
+    // 사진 — 그림은 셀 가운데. 「사진없음」 글자만 남는 칸은 눌리는 값이라 파랗게 둔다.
+    { repeatCell: { range: box(ROW_DATA, lastRow, COL_PHOTO, COL_PHOTO + 1), cell: { userEnteredFormat: { horizontalAlignment: 'CENTER', verticalAlignment: 'MIDDLE', textFormat: { fontSize: 9, foregroundColor: rgb('1E40AF') } } }, fields: 'userEnteredFormat(horizontalAlignment,verticalAlignment,textFormat)' } },
     // 차량명 — 이 표에서 가장 먼저 읽는 칸이라 굵게.
     { repeatCell: { range: box(ROW_DATA, lastRow, COL_NAME, COL_NAME + 1), cell: { userEnteredFormat: { wrapStrategy: 'CLIP', textFormat: { bold: true, fontSize: 10 } } }, fields: 'userEnteredFormat(wrapStrategy,textFormat)' } },
     // 최저 월대여료 — 두 줄(금액↵기간·보증)이라 줄바꿈 허용.
@@ -448,6 +466,8 @@ export function buildInventorySheet(
     { repeatCell: { range: box(ROW_DATA, lastRow, COL_BEST_MONTH, COL_BEST_MONTH + 1), cell: { userEnteredFormat: { horizontalAlignment: 'CENTER', numberFormat: { type: 'NUMBER', pattern: '0"개월"' }, textFormat: { fontSize: 10, foregroundColor: rgb('64748B') } } }, fields: 'userEnteredFormat(horizontalAlignment,numberFormat,textFormat)' } },
     { repeatCell: { range: box(ROW_DATA, lastRow, COL_BEST_RENT, COL_BEST_RENT + 1), cell: { userEnteredFormat: { horizontalAlignment: 'RIGHT', numberFormat: { type: 'NUMBER', pattern: '#,##0' }, textFormat: { bold: true, fontSize: 11, foregroundColor: rgb(INK) } } }, fields: 'userEnteredFormat(horizontalAlignment,numberFormat,textFormat)' } },
     { repeatCell: { range: box(ROW_DATA, lastRow, COL_BEST_DEP, COL_BEST_DEP + 1), cell: { userEnteredFormat: { horizontalAlignment: 'RIGHT', numberFormat: { type: 'NUMBER', pattern: '#,##0' }, textFormat: { fontSize: 9, foregroundColor: rgb('94A3B8') } } }, fields: 'userEnteredFormat(horizontalAlignment,numberFormat,textFormat)' } },
+    // 무보증 — 팔리는 조건이라 초록으로 세운다. 빈칸(=보증금 있음)은 조용히 둔다.
+    { repeatCell: { range: box(ROW_DATA, lastRow, COL_NO_DEP, COL_NO_DEP + 1), cell: { userEnteredFormat: { horizontalAlignment: 'CENTER', textFormat: { fontSize: 9, bold: true, foregroundColor: rgb('166534') } } }, fields: 'userEnteredFormat(horizontalAlignment,textFormat)' } },
     { repeatCell: { range: box(ROW_DATA, lastRow, COL_TABLE, COL_TABLE + 1), cell: { userEnteredFormat: { textFormat: { bold: true, fontSize: 10 } } }, fields: 'userEnteredFormat.textFormat' } },
     { addBanding: { bandedRange: { range: box(ROW_HEAD, lastRow, 0, tableEnd), rowProperties: { headerColor: rgb(INK), firstBandColor: rgb('FFFFFF'), secondBandColor: rgb('F8FAFC') } } } },
     // ★기본 헤더 필터 — 각 열 머리의 화살표로 거른다. 값이 정적이라 정렬도 그대로 된다.
@@ -459,9 +479,12 @@ export function buildInventorySheet(
      */
     { updateDimensionProperties: { range: { sheetId: gid, dimension: 'COLUMNS', startIndex: 0, endIndex: COL_TABLE }, properties: { hiddenByUser: false }, fields: 'hiddenByUser' } },
     { updateDimensionProperties: { range: { sheetId: gid, dimension: 'ROWS', startIndex: ROW_HEAD, endIndex: ROW_HEAD + 1 }, properties: { pixelSize: 30 }, fields: 'pixelSize' } },
-    // 두 줄(대여료·보증금)이 들어가는 최소 높이. 그림을 걷었으니 썸네일 몫은 필요 없다 —
-    // 행이 낮을수록 한 화면에 더 많은 매물이 들어온다.
-    { updateDimensionProperties: { range: { sheetId: gid, dimension: 'ROWS', startIndex: ROW_DATA, endIndex: lastRow }, properties: { pixelSize: 38 }, fields: 'pixelSize' } },
+    /**
+     * 행 높이 = **사진 크기**다(`=IMAGE(…,1)` 이 셀에 맞춰 줄인다).
+     * 62px 는 목록을 훑기엔 컸고, 38px 면 사진이 뭉갠다. 46px 는 차를 알아볼 만하면서
+     * 한 화면에 스무 대쯤 들어오는 자리다. 두 줄(대여료·보증금)도 여기 들어간다.
+     */
+    { updateDimensionProperties: { range: { sheetId: gid, dimension: 'ROWS', startIndex: ROW_DATA, endIndex: lastRow }, properties: { pixelSize: 46 }, fields: 'pixelSize' } },
     { updateDimensionProperties: { range: { sheetId: gid, dimension: 'COLUMNS', startIndex: COL_NO, endIndex: COL_NO + 1 }, properties: { pixelSize: 42 }, fields: 'pixelSize' } },
     { updateDimensionProperties: { range: { sheetId: gid, dimension: 'COLUMNS', startIndex: COL_PHOTO, endIndex: COL_PHOTO + 1 }, properties: { pixelSize: 92 }, fields: 'pixelSize' } },
     // 차종은 «한 마디»다 — 실측 최장이 「그랑 콜레오스」, 중앙값은 세 글자.
@@ -472,6 +495,7 @@ export function buildInventorySheet(
     { updateDimensionProperties: { range: { sheetId: gid, dimension: 'COLUMNS', startIndex: COL_BEST_RENT, endIndex: COL_BEST_RENT + 1 }, properties: { pixelSize: 104 }, fields: 'pixelSize' } },
     { updateDimensionProperties: { range: { sheetId: gid, dimension: 'COLUMNS', startIndex: COL_BEST_DEP, endIndex: COL_BEST_DEP + 1 }, properties: { pixelSize: 92 }, fields: 'pixelSize' } },
     { updateDimensionProperties: { range: { sheetId: gid, dimension: 'COLUMNS', startIndex: COL_PLATE, endIndex: COL_PLATE + 1 }, properties: { pixelSize: 92 }, fields: 'pixelSize' } },
+    { updateDimensionProperties: { range: { sheetId: gid, dimension: 'COLUMNS', startIndex: COL_NO_DEP, endIndex: COL_NO_DEP + 1 }, properties: { pixelSize: 58 }, fields: 'pixelSize' } },
   ];
 
   TABLE_COLUMNS.forEach((name, i) => {
