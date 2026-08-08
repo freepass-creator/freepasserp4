@@ -1,14 +1,46 @@
 'use client';
 
-import { useMemo, useState, type MouseEvent } from 'react';
+import { useMemo, useState, type CSSProperties, type MouseEvent } from 'react';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { excelMonths } from '@/lib/domain/product-filters';
 import { ExcelResultsTable, type ExcelOpenCol } from '@/features/finder/ExcelResultsTable';
 import { CardSpecs, CardThumb } from '@/components/product-card-atoms';
 import { vehicleName } from '@/lib/domain/product';
+import { vehicleIdentityLine } from '@/lib/domain/vehicle-master-match';
+import {
+  buildMasterIndex,
+  classifyMasterMisfit,
+  MASTER_MISFIT_LABEL,
+  type MasterMisfitKind,
+} from '@/lib/domain/master-misfit';
 import type { ColSort } from '@/features/finder/excel-columns';
-import { C, R, FS, FW, ICON, Btn, IconSeg, CenterNote, Select } from '@/components/ui';
-import { LayoutGrid, Table } from 'lucide-react';
+import { C, R, FS, FW, ICON, Btn, IconSeg, CenterNote, Select, Badge } from '@/components/ui';
+import { LayoutGrid, Table, ListTree } from 'lucide-react';
+
+type PreviewView = 'atom' | 'excel' | 'card';
+
+type SnapDefaults = { seats?: boolean; drive_type?: boolean };
+
+function S(v: unknown) {
+  return String(v ?? '').trim();
+}
+
+function atomStatus(p: EntityRecord): { label: string; tone: 'green' | 'amber' | 'red' | 'gray'; reason?: string } {
+  const conf = S(p._snap_confidence);
+  const review = p._needs_master_review === true;
+  if (!p._snapped && !conf) return { label: '미매칭', tone: 'red' };
+  if (conf === 'high' || conf === 'medium') {
+    if (review) return { label: '검수', tone: 'amber', reason: '차종 검수 표시' };
+    return { label: '확정', tone: 'green' };
+  }
+  if (conf === 'low' || review) return { label: '검수', tone: 'amber' };
+  return { label: '미매칭', tone: 'red' };
+}
+
+function withDefault(value: string, inferred?: boolean) {
+  if (!value) return '—';
+  return inferred ? `${value}(조합)` : value;
+}
 
 /**
  * 동기화 미리보기 — 시트에서 «들어올» 매물을 실제 목록 화면 그대로 본다.
@@ -20,18 +52,22 @@ import { LayoutGrid, Table } from 'lucide-react';
  * 여기서는 **영업자가 보게 될 바로 그 화면**으로 그린다 — 엑셀 보기는 `ExcelResultsTable`,
  * 간단 보기는 목록 카드다. 별도 표를 새로 그리면 「미리보기에선 멀쩡했는데」가 반복된다.
  * 사진은 엑셀 보기에 열이 없으므로 간단 보기로 확인한다.
+ * 원자 보기는 원문차명→마스터 확정·기본 조합 선택을 스캔용으로만 보여 준다(엑셀 표는 건드리지 않음).
  */
 export function SyncPreview({
   products,
   sources,
+  masterEntries,
   emptyNote = '먼저 「데이터 검증」을 실행하세요.',
 }: {
   products: EntityRecord[];
   /** 공급사별로 좁혀 보기 — 어느 회사 시트가 비어 들어오는지는 섞어 놓으면 안 보인다. */
   sources?: Array<{ code: string; label: string; products: EntityRecord[] }>;
+  /** 검수 사유(classifyMasterMisfit)용 — 없으면 상태 뱃지만. */
+  masterEntries?: Array<{ maker: string; model: string; sub_model?: string }>;
   emptyNote?: string;
 }) {
-  const [view, setView] = useState<'excel' | 'card'>('excel');
+  const [view, setView] = useState<PreviewView>('atom');
   const [source, setSource] = useState('');
   const [colFilter, setColFilter] = useState<Record<string, Set<string>>>({});
   const [colSort, setColSort] = useState<ColSort>(null);
@@ -47,6 +83,10 @@ export function SyncPreview({
   );
   const months = useMemo(() => excelMonths(list), [list]);
   const shown = useMemo(() => list.slice(0, limit), [list, limit]);
+  const masterIndex = useMemo(
+    () => (masterEntries?.length ? buildMasterIndex(masterEntries as never[]) : null),
+    [masterEntries],
+  );
 
   /** 규격 적합도 — 반영 전에 «무엇이 비어 들어오는지»를 먼저 알려준다. */
   const gaps = useMemo(() => {
@@ -78,6 +118,31 @@ export function SyncPreview({
     </span>
   );
 
+  const th: CSSProperties = {
+    textAlign: 'left',
+    fontSize: FS.micro,
+    color: C.mute,
+    fontWeight: FW.title,
+    padding: '6px 8px',
+    borderBottom: `1px solid ${C.line}`,
+    whiteSpace: 'nowrap',
+    background: C.taupeBg,
+    position: 'sticky',
+    top: 0,
+    zIndex: 1,
+  };
+  const td: CSSProperties = {
+    fontSize: FS.cap,
+    color: C.ink,
+    padding: '5px 8px',
+    borderBottom: `1px solid ${C.line}`,
+    verticalAlign: 'top',
+    maxWidth: 220,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -102,6 +167,7 @@ export function SyncPreview({
             value={view}
             onChange={(v) => { setView(v); setLimit(v === 'card' ? 24 : 100); }}
             options={[
+              { key: 'atom' as const, label: '원자', icon: <ListTree size={ICON.md} aria-hidden /> },
               { key: 'excel' as const, label: '엑셀', icon: <Table size={ICON.md} aria-hidden /> },
               { key: 'card' as const, label: '간단', icon: <LayoutGrid size={ICON.md} aria-hidden /> },
             ]}
@@ -118,7 +184,55 @@ export function SyncPreview({
         {chip('정책 없음', gaps.noPolicy, list.length)}
       </div>
 
-      {view === 'excel' ? (
+      {view === 'atom' ? (
+        <div style={{ overflow: 'auto', border: `1px solid ${C.line}`, borderRadius: R, maxHeight: 480 }}>
+          <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 960 }}>
+            <thead>
+              <tr>
+                <th style={th}>원문차명</th>
+                <th style={th}>확정 세부모델</th>
+                <th style={th}>파워트레인</th>
+                <th style={th}>트림</th>
+                <th style={th}>연료</th>
+                <th style={th}>배기</th>
+                <th style={th}>인승</th>
+                <th style={th}>구동</th>
+                <th style={th}>상태</th>
+              </tr>
+            </thead>
+            <tbody>
+              {shown.map((p, i) => {
+                const defaults = (p._snap_defaults || {}) as SnapDefaults;
+                const st = atomStatus(p);
+                let reason = st.reason;
+                if (masterIndex && (st.label === '검수' || st.label === '미매칭')) {
+                  const kind = classifyMasterMisfit(p, masterIndex, S(p._snap_confidence) || undefined) as MasterMisfitKind;
+                  if (kind !== 'fit') reason = MASTER_MISFIT_LABEL[kind];
+                }
+                const raw = vehicleIdentityLine(p) || S((p._raw_vehicle as { model?: unknown } | undefined)?.model) || '—';
+                return (
+                  <tr key={String(p.product_code || p._key || i)} style={{ background: i % 2 ? C.zebra : undefined }}>
+                    <td style={td} title={raw}>{raw}</td>
+                    <td style={td} title={S(p.sub_model)}>{S(p.sub_model) || '—'}</td>
+                    <td style={td} title={S(p.variant)}>{S(p.variant) || '—'}</td>
+                    <td style={td} title={S(p.trim_name)}>{S(p.trim_name) || '—'}</td>
+                    <td style={td}>{S(p.fuel_type) || '—'}</td>
+                    <td style={td}>{S(p.engine_cc) || '—'}</td>
+                    <td style={td}>{withDefault(S(p.seats), defaults.seats)}</td>
+                    <td style={td}>{withDefault(S(p.drive_type), defaults.drive_type)}</td>
+                    <td style={{ ...td, whiteSpace: 'normal', maxWidth: 160 }}>
+                      <Badge tone={st.tone}>{st.label}</Badge>
+                      {reason ? (
+                        <div style={{ fontSize: FS.micro, color: C.faint, marginTop: 2 }}>{reason}</div>
+                      ) : null}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      ) : view === 'excel' ? (
         <ExcelResultsTable
           rows={shown}
           list={list}

@@ -60,7 +60,7 @@ export const SHEET_RECONCILE_ACTIVE_FIELDS = [
   'ext_color', 'int_color', 'seats', 'transmission', 'vehicle_class',
   'product_type', 'photo_link', 'options', 'partner_memo', '_row_text',
   // 차종마스터 스냅 산출
-  '_raw_vehicle', '_snapped', '_snap_confidence', 'catalog_id',
+  '_raw_vehicle', '_snapped', '_snap_confidence', '_snap_defaults', 'catalog_id',
   'gen_year_start', 'gen_year_end', 'variant', 'drive_type', '_needs_master_review',
   // 색상 스냅 산출
   '_raw_ext_color', '_raw_int_color',

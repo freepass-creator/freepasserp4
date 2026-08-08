@@ -2314,6 +2314,7 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
                 sources={pending.fetched.lines
                   .filter((line) => line.ok && line.products.length)
                   .map((line) => ({ code: line.code, label: line.label, products: line.products }))}
+                masterEntries={master || undefined}
               />
             </div>
           )}
@@ -2639,7 +2640,7 @@ export function SheetSync({ co, onImported }: { co: string; onImported: () => vo
           )}
           {/* 한 장짜리 원본도 저장 전에 실제 화면으로 본다 — 매핑이 틀리면 여기서 바로 드러난다. */}
           {preview && preview.products.length > 0 && (
-            <SyncPreview products={preview.products} />
+            <SyncPreview products={preview.products} masterEntries={master || undefined} />
           )}
           <div style={{ display: 'flex', gap: 6 }}>
             <Btn title="매핑과 URL 저장" size="sm" variant="ghost" onClick={saveMapping} disabled={busy}>매핑·URL 저장</Btn>

@@ -297,30 +297,32 @@ check('B16 공백 포함 완료는 5/5 재처리 대상이 아님', !needsContra
   ...baseContract, ...allChecksDone, contract_status: ' 계약완료 ',
 }));
 check('B17 5/5 raw 미완료는 재처리 대상', needsContractFinalization(transitionPending));
+// 사슬은 STEPS 순서 그대로 쌓는다 — 출고문의 → 서류 → 약정 → 입금 → 출고.
+// 각 픽스처는 «앞 단계까지 끝났고 자기 단계가 진행 중»인 계약이다.
 const inquiryStage: EntityRecord = { ...baseContract, contract_code: 'C-INQ' };
 const docsStage: EntityRecord = {
   ...inquiryStage, contract_code: 'C-DOC',
   agent_delivery_inquiry: 'yes', provider_delivery_response: '출고 가능',
 };
-const paymentStage: EntityRecord = {
-  ...docsStage, contract_code: 'C-PAY',
+const agreementStage: EntityRecord = {
+  ...docsStage, contract_code: 'C-AGR',
   agent_docs_submitted: 'yes', provider_docs_review: '승인',
 };
-const agreementStage: EntityRecord = {
-  ...paymentStage, contract_code: 'C-AGR',
-  agent_balance_paid: 'yes', agent_final_paid: 'yes', provider_balance_confirmed: 'yes',
+const paymentStage: EntityRecord = {
+  ...agreementStage, contract_code: 'C-PAY',
+  provider_agreement_done: 'yes', provider_agreement_sent: 'yes',
 };
 const releaseStage: EntityRecord = {
-  ...agreementStage, contract_code: 'C-REL',
-  provider_agreement_done: 'yes', provider_agreement_sent: 'yes',
+  ...paymentStage, contract_code: 'C-REL',
+  agent_balance_paid: 'yes', agent_final_paid: 'yes', provider_balance_confirmed: 'yes',
 };
 const completedStage: EntityRecord = { ...releaseStage, contract_code: 'C-DONE', ...allChecksDone, contract_status: '계약완료' };
 const cancelledStage: EntityRecord = { ...baseContract, contract_code: 'C-CANCEL', contract_status: '계약취소' };
 const legacyWaiting: EntityRecord = { ...baseContract, contract_code: 'C-LEGACY', contract_status: '계약대기' };
 const legacySent: EntityRecord = { ...baseContract, contract_code: 'C-LEGACY-SENT', contract_status: '계약발송' };
 const missingStatus: EntityRecord = { ...baseContract, contract_code: 'C-MISSING-STATUS', contract_status: '' };
-const workflowRows = [inquiryStage, docsStage, paymentStage, agreementStage, releaseStage, completedStage, cancelledStage];
-const workflowCounts = ['계약문의', '서류', '입금', '약정', '출고', '계약완료', '계약취소'].map((filter) => (
+const workflowRows = [inquiryStage, docsStage, agreementStage, paymentStage, releaseStage, completedStage, cancelledStage];
+const workflowCounts = ['출고문의', '서류', '약정', '입금', '출고', '계약완료', '계약취소'].map((filter) => (
   filterContracts({ contracts: workflowRows, query: '', filter: filter as Parameters<typeof filterContracts>[0]['filter'], month: '', sort: '' }).length
 ));
 check('B18 화면 뱃지와 필터가 5단계·완료·취소를 같은 축으로 분류', workflowCounts.every((count) => count === 1), workflowCounts);
@@ -331,10 +333,26 @@ check('B20 사장된 raw 계약요청·대기·발송 필터를 노출하지 않
   ['계약요청', '계약대기', '계약발송'].includes(option.label)
 )));
 const workflowSorted = filterContracts({
-  contracts: [cancelledStage, completedStage, releaseStage, agreementStage, paymentStage, docsStage, inquiryStage, withdrawn],
+  contracts: [cancelledStage, completedStage, releaseStage, paymentStage, agreementStage, docsStage, inquiryStage, withdrawn],
   query: '', filter: 'all', month: '', sort: 'status',
 }).map((contract) => String(contract.contract_code));
-check('B21 단계순은 확인필요→문의→서류→입금→약정→출고→완료→취소', workflowSorted.join('|') === 'C-W|C-INQ|C-DOC|C-PAY|C-AGR|C-REL|C-DONE|C-CANCEL', workflowSorted);
+check('B21 단계순은 확인필요→출고문의→서류→약정→입금→출고→완료→취소', workflowSorted.join('|') === 'C-W|C-INQ|C-DOC|C-AGR|C-PAY|C-REL|C-DONE|C-CANCEL', workflowSorted);
+// ★분류축이 STEPS 에서 파생되는지 못을 박는다. 단계 라벨·순서를 바꾸면 여기서 먼저 걸린다.
+// (2026-08-08: 1단계가 «계약문의»→«출고문의» 로 바뀌자 앞글자 매칭이 «출고»에 걸려
+//  신규 계약이 마지막 단계로 분류됐다. 손으로 나열한 축과 STEPS 가 따로 놀았던 것.)
+const stepChipKeys = CONTRACT_FILTER_OPTIONS
+  .map((option) => String(option.key))
+  .filter((key) => STEPS.some((step) => step.label === key));
+check('B22 단계 칩은 STEPS 라벨·순서와 글자 그대로 일치', stepChipKeys.join('|') === STEPS.map((step) => step.label).join('|'), {
+  칩: stepChipKeys, STEPS: STEPS.map((step) => step.label),
+});
+check('B23 각 단계 진행 계약은 자기 단계로 분류', [
+  [inquiryStage, '출고문의'], [docsStage, '서류'], [agreementStage, '약정'],
+  [paymentStage, '입금'], [releaseStage, '출고'],
+].every(([contract, group]) => contractWorkflowGroup(contract as EntityRecord) === group), [
+  contractWorkflowGroup(inquiryStage), contractWorkflowGroup(docsStage), contractWorkflowGroup(agreementStage),
+  contractWorkflowGroup(paymentStage), contractWorkflowGroup(releaseStage),
+]);
 const stableSameStage = filterContracts({
   contracts: [
     { ...inquiryStage, contract_code: 'C-00', contract_date: '2026-07-31' },

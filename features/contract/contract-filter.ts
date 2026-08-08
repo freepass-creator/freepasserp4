@@ -1,14 +1,15 @@
 import type { EntityRecord } from '@/lib/intake/entities';
-import { contractStage, getProgress, normalizeContractStatus } from '@/lib/domain/contract';
+import { STEPS, contractStage, getProgress, normalizeContractStatus } from '@/lib/domain/contract';
 import { contractHaystack, matchHay } from '@/lib/domain/search';
 
 export type ContractSort = 'date' | 'status' | 'progress' | 'name';
+/** 단계 그룹은 `STEPS` 라벨과 **글자 그대로** 같다. 여기만 고치면 어긋난다 — 둘을 같이 움직일 것. */
 export type ContractWorkflowGroup =
   | '확인 필요'
-  | '계약문의'
+  | '출고문의'
   | '서류'
-  | '입금'
   | '약정'
+  | '입금'
   | '출고'
   | '계약완료'
   | '계약취소';
@@ -21,22 +22,21 @@ export const CONTRACT_SORT_OPTIONS: { value: ContractSort; label: string }[] = [
   { value: 'date', label: '최근순' },
 ];
 
+/** 단계 칩·정렬축의 순서 = `STEPS` 순서. 손으로 나열하면 단계를 재배치할 때 조용히 어긋난다. */
+const STEP_GROUPS = STEPS.map((step) => step.label as ContractWorkflowGroup);
+
 export const CONTRACT_FILTER_OPTIONS: { key: ContractFilter; label: string }[] = [
   { key: 'all', label: '전체' },
   // 기존 기본 동작(상태 없는 레코드·계약취소 제외)은 유지하되 실제 범위를 정확히 쓴다.
   { key: '진행', label: '계약취소 제외' },
   { key: '확인 필요', label: '확인 필요' },
-  { key: '계약문의', label: '계약문의 진행' },
-  { key: '서류', label: '서류 진행' },
-  { key: '입금', label: '입금 진행' },
-  { key: '약정', label: '약정 진행' },
-  { key: '출고', label: '출고 진행' },
+  ...STEP_GROUPS.map((group) => ({ key: group as ContractFilter, label: `${group} 진행` })),
   { key: '계약완료', label: '계약완료' },
   { key: '계약취소', label: '계약취소' },
 ];
 
 const WORKFLOW_ORDER: ContractWorkflowGroup[] = [
-  '확인 필요', '계약문의', '서류', '입금', '약정', '출고', '계약완료', '계약취소',
+  '확인 필요', ...STEP_GROUPS, '계약완료', '계약취소',
 ];
 
 /**
@@ -53,11 +53,10 @@ export function contractWorkflowGroup(contract: EntityRecord): ContractWorkflowG
   if (status && !['계약요청', '계약완료', '계약취소'].includes(status)) return '확인 필요';
   if (!status || stage.tone === 'red' || stage.label === '완료 처리 대기') return '확인 필요';
   if (stage.label === '계약완료') return '계약완료';
-  if (stage.label.startsWith('계약문의')) return '계약문의';
-  if (stage.label.startsWith('서류')) return '서류';
-  if (stage.label.startsWith('입금')) return '입금';
-  if (stage.label.startsWith('약정')) return '약정';
-  if (stage.label.startsWith('출고')) return '출고';
+  // 앞글자 매칭 금지 — «출고문의 진행»이 «출고»에 먼저 걸려 신규 계약이 마지막 단계로 분류됐다(2026-08-08).
+  // contractStage 의 진행 라벨은 `${STEPS[i].label} 진행` 뿐이므로 통째로 맞춘다.
+  const step = STEPS.find((s) => stage.label === `${s.label} 진행`);
+  if (step) return step.label as ContractWorkflowGroup;
   return '확인 필요';
 }
 

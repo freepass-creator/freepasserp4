@@ -160,6 +160,19 @@ export function selectMasterEntry(
       score -= 6;
     }
     if (productIsCoupe !== bodyPattern.test(`${entry.sub_model || ''} ${entry.title || ''}`)) score -= 6;
+
+    // 레이·모닝: 승용과 밴은 세부모델이 다름(인승 옵션 아님).
+    // 신호에 «밴»·2인승 이하면 밴 서브, 그 외(빈 신호 포함)는 승용 서브를 고른다.
+    {
+      const seats = Number(product.seats) || 0;
+      const wantVan = /밴/.test(signalBlob) || (seats > 0 && seats <= 2);
+      const entryIsVan = /\s밴$/.test(String(entry.sub_model || '')) || /밴/.test(String(entry.title || ''));
+      if (wantVan && entryIsVan) score += 3.2;
+      else if (wantVan && !entryIsVan) score -= 2.4;
+      else if (!wantVan && entryIsVan) score -= 2.8;
+      else if (!wantVan && !entryIsVan && (entry.model === '레이' || entry.model === '모닝')) score += 0.35;
+    }
+
     return { entry, score };
   }).sort((left, right) => {
     if (right.score !== left.score) return right.score - left.score;

@@ -1,5 +1,23 @@
 # 구현 로그
 
+## 2026-08-08 — 시트 차명 원자화 · defaults ↔ snap · SyncPreview 원자 보기
+
+### 완료한 작업
+
+- `vehicle-defaults.snapDefaultHints`를 `snapToMaster`에 연결: 마스터 선택지 축이 있을 때만 빈 인승·구동을 힌트로 채운 뒤 `selectMasterVariant` 점수에 쓴다.
+- 인승 기본 = `modeSeat`(카니발 → 9), 구동 기본 = 2WD(구동 축 있을 때만). 차체유형 문자열 분기 없음.
+- `applySnap`은 스펙 원자를 마스터 노드만 쓰고, 힌트 여부는 `_snap_defaults` 메타로만 남긴다. 매칭 실패로 sync apply를 막지 않음(`_needs_master_review` 유지).
+- `SyncPreview`에 원자 보기(원문차명·세부모델·파워트레인·트림·연료/배기/인승/구동`(기본)`·확정/검수/미매칭) 추가. ExcelResultsTable 미변경.
+- `sim-atom-pipeline`에 카니발·그랜저 기본값 케이스 추가.
+
+### 검증
+
+- `npx tsx scripts/sim-atom-pipeline.mts`: **29/29 PASS**
+- `npx tsc --noEmit`: PASS
+- `npm run check:fonts`: PASS
+
+---
+
 ## 2026-08-04 — 아이언 홈페이지 연동 서버 원장·안전 롤백
 
 ### 완료한 작업

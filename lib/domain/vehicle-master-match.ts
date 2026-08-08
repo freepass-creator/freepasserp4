@@ -15,8 +15,8 @@
  *   · 맞출 수 있으면 맞춤. 억지 추측 금지.
  *   · 대응 불가·모호 → 그 원자는 미선택(공란) + 검수(_needs_master_review).
  *   · 결과 필드(variant·연료·배기·인승·구동·트림) = 마스터 노드 값만. 임의 재조합·기본값 주입 금지.
- *   · 예외(선택 힌트만, 저장값 아님): 구동 2WD|4WD 후보 중 신호 없음 → 2WD 쪽 variant 선호 가점.
- *   · 인승 = 세대 안에서 seat가 갈릴 때만(카니발 7/9 등). 단일 인승 차는 파워트레인에 인승 없음.
+ *   · 예외(선택 힌트만, 저장값 아님): 마스터 variant.default 조합 — 없으면 구동 2WD·인승 modeSeat.
+ *   · 인승 = 세대 안에서 seat가 갈릴 때만(예: 카니발·팰리세이드). 단일·무축 승용은 인승 없음.
  *   · 트림 신호 없거나 사전 미매칭 → 공란 유지.
  *   · 모델·제조사 신호 전무 → 매칭 자체 null(저장 시 검수).
  *   · 표기 오류(가솔린 2 vs 2.0) = 마스터 JSON 라벨을 고친다. 런타임 폴리시 금지.
@@ -60,6 +60,7 @@ import {
   masterVariantLabel,
   realMasterTrims,
 } from '@/lib/domain/vehicle-master-options';
+import { snapDefaultHints } from '@/lib/domain/vehicle-defaults';
 import { resolveExactMasterPathEngine } from '@/lib/domain/vehicle-master-exact';
 import { unpackVehicleSignalsEngine } from '@/lib/domain/vehicle-master-normalize';
 import { selectMasterEntry } from '@/lib/domain/vehicle-master-score';
@@ -410,8 +411,14 @@ export function snapToMaster(p: EntityRecord, entries: MasterEntry[]): SnapResul
     year,
   } = selected;
 
+  // 마스터 기본 조합(또는 축 휴리스틱)으로 빈 인승·구동 신호를 맞춘 뒤 variant 고른다(저장값은 노드만).
+  const hints = snapDefaultHints(p, e, entries);
+  const scored: EntityRecord = { ...p };
+  if (hints.filled.seats) scored.seats = hints.seats;
+  if (hints.filled.drive_type) scored.drive_type = hints.drive_type;
+
   const { variant, seatMatters } = selectMasterVariant(
-    p,
+    scored,
     e,
     entries,
     lockedModel,
@@ -490,6 +497,7 @@ export function snapToMaster(p: EntityRecord, entries: MasterEntry[]): SnapResul
     drive_type: variant?.drivetrain || undefined,
     year: year ? String(year) : (p.year ? String(p.year) : undefined),
     confidence,
+    defaults: Object.keys(hints.filled).length ? hints.filled : undefined,
   };
 }
 
@@ -537,6 +545,9 @@ export function applySnap(rec: EntityRecord, res: SnapResult, opts?: { source?: 
     drive_type: keep(res.drive_type, rec.drive_type),
     year: keep(res.year, rec.year),
   };
+  // 스펙 원자 자체는 마스터 노드만. 기본값 힌트는 미리보기 메타로만 남긴다.
+  if (res.defaults && Object.keys(res.defaults).length) next._snap_defaults = res.defaults;
+  else delete next._snap_defaults;
   next.vehicle_class = classifyVehicleClass(next) || String(rec.vehicle_class ?? '');
   const afterTrack = pickSnapTrack(next);
   next._snap_history = appendSnapHistory(rec, beforeTrack, afterTrack, res.confidence, opts?.source);

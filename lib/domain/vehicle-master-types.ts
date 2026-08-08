@@ -7,6 +7,12 @@ export type MasterVariant = {
   seat: number | null;
   battery_kwh: number | null;
   trims: string[];
+  /**
+   * 세부모델의 **기본 조합**(신호 부족 시 가져올 variant).
+   * 입력을 채우는 값이 아니라 마스터에 미리 정해 둔 대표 파워트레인·인승·구동 한 줄.
+   * 세부모델당 최대 1개.
+   */
+  default?: boolean;
 };
 
 export type MasterEntry = {
@@ -21,6 +27,12 @@ export type MasterEntry = {
   title?: string;
   variants: MasterVariant[];
   trims?: string[];
+};
+
+/** 원문에 없어 마스터 선택지로 힌트 채운 원자(미리보기용). 저장 스펙 값은 아님. */
+export type SnapDefaultAtoms = {
+  seats?: boolean;
+  drive_type?: boolean;
 };
 
 export type SnapResult = {
@@ -40,6 +52,8 @@ export type SnapResult = {
   drive_type?: string;
   year?: string;
   confidence: 'high' | 'medium' | 'low';
+  /** 스냅 점수에만 쓴 기본값 힌트 — applySnap 이 `_snap_defaults` 로 옮긴다. */
+  defaults?: SnapDefaultAtoms;
 };
 
 export type ExactMasterPath = {

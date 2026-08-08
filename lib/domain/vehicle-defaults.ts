@@ -1,16 +1,16 @@
-import type { MasterEntry } from '@/lib/domain/vehicle-master-types';
+import type { MasterEntry, SnapDefaultAtoms } from '@/lib/domain/vehicle-master-types';
+import { seatAxisMatters } from '@/lib/domain/vehicle-master-options';
+import { defaultVariant, modeSeat } from '@/lib/domain/vehicle-master-variant';
+
+export type { SnapDefaultAtoms };
 
 /**
- * 차명에 **무엇까지 적을 것인가** — 차종마스터가 정한다.
+ * 차명·빈 신호일 때 **어느 마스터 조합을 가져올 것인가**.
  *
- * 규칙 하나로 정리된다: **고를 수 있는 것만 적는다.**
- *   · 그랜저 GN7 은 2륜·4륜을 «고를 수 있으므로» 구동을 적는다.
- *   · 카니발 KA4 는 9·7·11·4인승을 «고를 수 있으므로» 인승을 적는다.
- *   · 쏘나타 DN8 은 둘 다 선택지가 없으므로 아무것도 안 적는다 — 적으면 이름만 길어진다.
- *   · 승용에 인승을 안 적는 이유도 「5인승이라서」가 아니라 «고를 게 없어서»다.
- *
- * 판단 근거는 어림짐작이 아니라 마스터의 `variants[].drivetrain` · `variants[].seat` 이다.
- * 모델이 새로 나와 선택지가 생기면 마스터만 고치면 되고 여기 코드는 그대로다.
+ * 규칙: 입력을 채우지 않는다. 마스터에 있는 조합만 고른다.
+ *   · variant.default 가 있으면 그걸 기본 조합으로 쓴다.
+ *   · 없으면 축 휴리스틱(구동≥2 → 2WD, 인승≥2 → modeSeat).
+ *   · 선택지 없는 축(승용 인승 등) → 적지 않는다.
  */
 
 const S = (v: unknown) => String(v ?? '').trim();
@@ -36,14 +36,43 @@ export type VehicleChoices = {
 
 const cache = new Map<string, VehicleChoices>();
 
+function entryOf(subModel: unknown, entries: MasterEntry[]): MasterEntry | undefined {
+  const key = S(subModel);
+  if (!key) return undefined;
+  return entries.find((e) => S(e.sub_model) === key);
+}
+
+/** 마스터 선택지 중 대표 인승 — default 조합 seat → 없으면 최빈(modeSeat). */
+export function representativeSeat(subModel: unknown, entries: MasterEntry[]): string {
+  const entry = entryOf(subModel, entries);
+  if (!entry) return '';
+  const def = defaultVariant(entry);
+  if (def?.seat != null && def.seat > 0) return String(def.seat);
+  const mode = modeSeat(entry.variants || []);
+  return mode != null ? String(mode) : '';
+}
+
+/** 기본 조합의 구동 — default.drivetrain → 없으면 2WD(축 있을 때). */
+export function representativeDrive(subModel: unknown, entries: MasterEntry[]): string {
+  const entry = entryOf(subModel, entries);
+  if (!entry) return '';
+  const { drives } = choicesOf(subModel, entries);
+  if (drives.length < 1) return '';
+  const def = defaultVariant(entry);
+  const fromDef = canonDrive(def?.drivetrain);
+  if (fromDef && drives.includes(fromDef)) return fromDef;
+  if (drives.length === 1) return drives[0];
+  return drives.includes(DRIVE_2WD) ? DRIVE_2WD : drives[0];
+}
+
 /** 세부모델이 무엇을 고를 수 있는가. 마스터에 없으면 빈 목록(=적지 않는다). */
 export function choicesOf(subModel: unknown, entries: MasterEntry[]): VehicleChoices {
   const key = S(subModel);
   if (!key) return { drives: [], seats: [] };
   const hit = cache.get(key);
   if (hit) return hit;
-  const entry = entries.find((e) => S((e as { sub_model?: string }).sub_model) === key);
-  const variants = (entry as { variants?: { drivetrain?: unknown; seat?: unknown }[] } | undefined)?.variants || [];
+  const entry = entryOf(key, entries);
+  const variants = entry?.variants || [];
   const drives = [...new Set(variants.map((v) => canonDrive(v.drivetrain)).filter(Boolean))];
   const seats = [...new Set(variants.map((v) => S(v.seat)).filter((x) => x && x !== '0'))];
   const out: VehicleChoices = { drives, seats };
@@ -63,39 +92,66 @@ export function driveForName(raw: unknown, subModel: unknown, entries: MasterEnt
 }
 
 /**
- * 이름에 적을 인승 — **고를 수 있을 때만.**
- * 적힌 값이 없으면 마스터 선택지 중 가장 흔한 것(첫 값)으로 본다 —
- * 카니발이라고만 적혀 와도 9인승인 게 사실이다.
+ * 이름에 적을 인승 — **인승 축이 있을 때만**(세부모델 variants 인승 ≥2).
+ * 적힌 값이 없으면 그 세부모델 대표 인승(modeSeat). 단일·무축은 공란.
  */
 export function seatsForName(raw: unknown, subModel: unknown, entries: MasterEntry[]): string {
+  const entry = entryOf(subModel, entries);
+  if (entry && !seatAxisMatters(entry)) return '';
   const { seats } = choicesOf(subModel, entries);
   if (seats.length < 2) return '';
-  return S(raw) || seats[0];
+  return S(raw) || representativeSeat(subModel, entries) || seats[0];
 }
 
-/** 시트의 «인승» 칸 — 이름에 안 적는 차라도 값 자체는 채워 준다(거르기·확인용). */
+/**
+ * 시트의 «인승» 칸 — 인승 축(≥2)일 때만 빈 칸을 대표값으로 채운다.
+ * 승용처럼 축이 없으면 비운다(단일 인승도 발명하지 않음).
+ */
 export function seatsValue(raw: unknown, subModel: unknown, entries: MasterEntry[]): string {
   const given = S(raw);
   if (given) return given;
+  const entry = entryOf(subModel, entries);
+  if (entry && !seatAxisMatters(entry)) return '';
   const { seats } = choicesOf(subModel, entries);
-  return seats.length === 1 ? seats[0] : '';
+  if (seats.length < 2) return '';
+  return representativeSeat(subModel, entries) || seats[0];
 }
 
 /** 시트의 «구동» 칸 — 선택지가 있으면 채우고, 없으면 비운다(없는 축을 만들지 않는다). */
 export function driveValue(raw: unknown, subModel: unknown, entries: MasterEntry[]): string {
   const canon = canonDrive(raw);
   if (canon) return canon;
-  const { drives } = choicesOf(subModel, entries);
-  if (drives.length === 1) return drives[0];
-  return drives.length >= 2 ? DRIVE_2WD : '';
+  return representativeDrive(subModel, entries);
 }
 
+/**
+ * snap 전 — 공급사가 비운 축만 마스터 기본 조합에서 가져온다.
+ * 이미 적힌 인승·구동은 그대로 둔다(덮어쓰지 않음). 저장값은 아님.
+ */
+export function snapDefaultHints(
+  product: { seats?: unknown; drive_type?: unknown },
+  entry: MasterEntry,
+  entries: MasterEntry[],
+): { seats: string; drive_type: string; filled: SnapDefaultAtoms } {
+  const sub = entry.sub_model;
+  const filled: SnapDefaultAtoms = {};
+  const givenSeats = S(product.seats);
+  const givenDrive = canonDrive(product.drive_type);
+
+  const seats = givenSeats || seatsValue('', sub, entries);
+  if (!givenSeats && seats) filled.seats = true;
+
+  const drive = givenDrive || driveValue('', sub, entries);
+  if (!givenDrive && drive) filled.drive_type = true;
+
+  return { seats, drive_type: drive, filled };
+}
 
 /**
  * 차명 조립 — **고를 수 있는 것만 적고, 같은 말을 두 번 적지 않는다.**
  *
  *   세부모델 + 파워트레인(연료·배기량 · 고를 수 있으면 인승·구동) + 세부트림
- *   「카니발 KA4 디젤 2.2 9인승 프레스티지」
+ *   예) 「카니발 KA4 디젤 2.2 9인승 프레스티지」·「그랜저 GN7 가솔린 2.5 2WD」
  *
  * 이관 스크립트·검사·화면이 각자 조립하면 같은 차가 곳곳에서 다르게 보인다. 여기 하나만 쓴다.
  */

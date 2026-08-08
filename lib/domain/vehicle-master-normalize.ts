@@ -135,6 +135,12 @@ export function unpackVehicleSignalsEngine(
     out.options,
     out.partner_memo,
     out.engine_type,
+    /**
+     * 공급사가 «차종» 칸에 모델명을 적어 보내는 경우가 있다 —
+     * 이안카는 model 칸에 「2.5 26MY 베스트 셀렉션 2WD」(사양)를 넣고 vehicle_class 에 「K8」을 적는다.
+     * 여기서 안 읽으면 모델 근거가 통째로 사라져 엉뚱한 차로 붙는다(실측 2026-08-08 · 4대가 모닝으로).
+     */
+    out.vehicle_class,
   ].map((value) => String(value ?? '').trim()).filter(Boolean).join(' '));
   /**
    * 띄어쓰기를 살린 원문 — 짧은 모델명의 «단어 경계»를 보려면 필요하다.
@@ -142,7 +148,7 @@ export function unpackVehicleSignalsEngine(
    */
   const modelProbeSpaced = [
     out.model, out.sub_model, out.cert_car_name, out.vehicle_name,
-    out.trim_name, out.variant, out.options, out.partner_memo, out.engine_type,
+    out.trim_name, out.variant, out.options, out.partner_memo, out.engine_type, out.vehicle_class,
   ].map((value) => String(value ?? '').trim()).filter(Boolean).join(' ').toLowerCase();
 
   /**

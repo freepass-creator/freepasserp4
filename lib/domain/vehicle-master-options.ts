@@ -16,6 +16,19 @@ export function variantSeatsDiffer(variants: MasterVariant[] | null | undefined)
   return seats.size > 1;
 }
 
+/**
+ * 인승을 «선택 축»으로 쓸지.
+ * 레이·모닝 승용은 밴과 세부모델이 갈라진 뒤라 인승 옵션이 아님(공급사 명시 없으면 인승 안 씀).
+ * 카니발·팰리처럼 같은 세부모델 안 7/9 선택은 축이다.
+ */
+export function seatAxisMatters(entry: { model?: string; sub_model?: string; variants?: MasterVariant[] } | null | undefined): boolean {
+  if (!entry || !variantSeatsDiffer(entry.variants)) return false;
+  const model = String(entry.model || '');
+  const sub = String(entry.sub_model || '');
+  if ((model === '레이' || model === '모닝') && !/\s밴$/.test(sub)) return false;
+  return true;
+}
+
 /** 인승은 세대 내에서 갈릴 때만, 구동은 기본 라벨에 없을 때만 보강한다. */
 export function masterVariantOptionLabel(
   variant: MasterVariant,
