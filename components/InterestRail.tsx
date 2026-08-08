@@ -1,7 +1,7 @@
 ﻿'use client';
 import Link from 'next/link';
 import { useEffect, useState, type MouseEvent } from 'react';
-import { Star, History, StarOff, Trash2, X } from 'lucide-react';
+import { Star, History, StarOff, Trash2, X, MessageCircle } from 'lucide-react';
 import { C, R, Btn, ButtonLabel, IconBtn, NUM, ctrlH, ctrlFs, FW, FS, ICON } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { vehicleName, cheapest, isListableProduct } from '@/lib/domain/product';
@@ -13,7 +13,15 @@ import { man } from '@/lib/format';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { haptic } from '@/lib/haptics';
 
-export type InterestTab = 'recent' | 'fav';
+/**
+ * 관심함 탭 — 최근 · 관심 · 문의.
+ *
+ * 셋 다 **매물 목록**이다. 문의도 대화창이 아니라 매물 카드로 보여 주고 누르면 상세로 간다
+ * (2026-08-08 사장님) — 최근·관심과 같은 문법이라야 «어디서 이어서 하나»가 흔들리지 않는다.
+ * 다른 점은 출처뿐: 최근·관심은 이 기기(localStorage), 문의는 **방 데이터**(영업자=내가 남긴 문의 /
+ * 공급사·관리자=들어온 문의)라 기기를 바꿔도 따라온다.
+ */
+export type InterestTab = 'recent' | 'fav' | 'inq';
 
 const TAB_KEY = 'fp4_interest_tab';
 
@@ -23,7 +31,7 @@ export function useInterestTab(): [InterestTab | null, (t: InterestTab | null) =
   useEffect(() => {
     try {
       const v = sessionStorage.getItem(TAB_KEY);
-      if (v === 'recent' || v === 'fav') setTabState(v);
+      if (v === 'recent' || v === 'fav' || v === 'inq') setTabState(v);
     } catch { /* noop */ }
   }, []);
   const setTab = (t: InterestTab | null) => {
@@ -55,19 +63,21 @@ export function useInterestTabGuard(
   recentN: number,
   favN: number,
   enabled = true,
+  inqN = 0,
 ) {
   useEffect(() => {
     if (!enabled) return;
     if (tab === 'recent' && recentN === 0) setTab(null);
     else if (tab === 'fav' && favN === 0) setTab(null);
-  }, [tab, recentN, favN, setTab, enabled]);
+    else if (tab === 'inq' && inqN === 0) setTab(null);
+  }, [tab, recentN, favN, inqN, setTab, enabled]);
 }
 
 /** 검색창 옆 숫자 칩 — 최근 N / 찜 N. 0이면 칩만 숨김(슬롯 높이는 유지 → 툴바 상하 간격 고정). */
 export function InterestTriggers({
-  recentN, favN, tab, onTab,
+  recentN, favN, inqN = 0, tab, onTab,
 }: {
-  recentN: number; favN: number; tab: InterestTab | null;
+  recentN: number; favN: number; inqN?: number; tab: InterestTab | null;
   onTab: (t: InterestTab | null) => void;
 }) {
   const mobile = useIsMobile();
@@ -113,6 +123,7 @@ export function InterestTriggers({
     >
       {chip('recent', recentN, History, '최근')}
       {chip('fav', favN, Star, '관심')}
+      {chip('inq', inqN, MessageCircle, '문의')}
     </div>
   );
 }
@@ -187,10 +198,12 @@ export function InterestSummaryCard({ live, snap, tab }: {
         </div>
       </div>
 
+      {/* 문의는 방에서 파생된 목록이라 «제거»가 없다 — 지울 수 있는 건 이 기기에 쌓인 최근·관심뿐이다. */}
       <div style={{
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
         gap: 2, flex: '0 0 auto',
       }}>
+        {tab === 'inq' ? null : (
         <IconBtn
           title={removeLabel}
           onClick={onRemove}
@@ -201,6 +214,7 @@ export function InterestSummaryCard({ live, snap, tab }: {
         >
           <X size={mobile ? 16 : 13} />
         </IconBtn>
+        )}
       </div>
     </Link>
   );
@@ -208,19 +222,21 @@ export function InterestSummaryCard({ live, snap, tab }: {
 
 /** 검색 옆 칩 → 목록 위 틀고정 띠. 얇은 요약카드. */
 export function InterestPanel({
-  rows, tab, recent, favs, onClose,
+  rows, tab, recent, favs, inquiries = [], onClose,
 }: {
   rows: EntityRecord[];
   tab: InterestTab | null;
   recent: InterestSnap[];
   favs: InterestSnap[];
+  /** 문의가 오간 매물 — 방에서 파생(비우기 없음). */
+  inquiries?: InterestSnap[];
   onClose: () => void;
   view?: string;
 }) {
   const mobile = useIsMobile();
   if (!tab) return null;
 
-  const storedItems = tab === 'recent' ? recent : favs;
+  const storedItems = tab === 'recent' ? recent : tab === 'fav' ? favs : inquiries;
   const allByCode = new Map(rows.map((p) => [String(p.product_code || p._key), p]));
   // 현재 데이터에 존재하지만 판매조건을 잃은 상품은 최근·관심 우회 링크로 다시 노출하지 않는다.
   // 이미 삭제되어 live 데이터가 없는 스냅은 사용자가 직접 제거할 수 있게 기존대로 남긴다.
@@ -234,7 +250,7 @@ export function InterestPanel({
     <div className="fp-finder-interest" style={{ width: '100%', marginBottom: mobile ? 10 : 8 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
         <span style={{ fontSize: FS.sub, fontWeight: FW.title, color: C.brand }}>
-          {tab === 'recent' ? `최근 ${items.length}` : `관심 ${items.length}`}
+          {tab === 'recent' ? `최근 ${items.length}` : tab === 'fav' ? `관심 ${items.length}` : `문의 ${items.length}`}
         </span>
         <span style={{ flex: 1 }} />
         {tab === 'recent' && recent.length > 0 && (
@@ -251,7 +267,7 @@ export function InterestPanel({
       </div>
       {items.length === 0 ? (
         <div style={{ fontSize: FS.sub, color: C.faint, padding: '4px 0' }}>
-          {tab === 'recent' ? '아직 본 상품이 없습니다' : '관심 상품이 없습니다'}
+          {tab === 'recent' ? '아직 본 상품이 없습니다' : tab === 'fav' ? '관심 상품이 없습니다' : '문의한 상품이 없습니다'}
         </div>
       ) : (
         <div style={{

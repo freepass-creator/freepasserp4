@@ -6,9 +6,10 @@ import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { activeCount, EMPTY_VEHICLE_FILTER, normalizeVehicleFilter, type VehicleFilter } from '@/lib/domain/product-filters';
-import { isListableProduct } from '@/lib/domain/product';
+import { cheapest, isListableProduct, vehicleName } from '@/lib/domain/product';
 import { InterestPanel, useInterestLists, useInterestTab, useInterestTabGuard } from '@/components/InterestRail';
-import { clearRecent, clearFavs } from '@/lib/product-interest';
+import { clearRecent, clearFavs, type InterestSnap } from '@/lib/product-interest';
+import { useInquiredCodes } from '@/lib/inquiry-marks';
 import {
   clearAxesKeepMeta,
   filterFromBag,
@@ -97,6 +98,8 @@ export default function Finder() {
   const [limit, setLimit] = useState(PAGE); // 목록·엑셀 공통 페이징(더보기)
   const [interestTab, setInterestTab] = useInterestTab();
   const { recent: storedInterestRecent, favs: storedInterestFavs } = useInterestLists();
+  /** 문의가 오간 매물 코드 — 카드의 「문의중」 표시와 같은 출처를 쓴다(두 곳이 다른 답을 내면 안 된다). */
+  const inquiredCodes = useInquiredCodes();
   const [presets, setPresets] = useState<FinderFilterPreset[]>([]);
 
   useEffect(() => {
@@ -199,7 +202,28 @@ export default function Finder() {
       return !live || isListableProduct(live);
     });
   }, [rows, storedInterestFavs, interestProductIndex]);
-  useInterestTabGuard(interestTab, setInterestTab, interestRecent.length, interestFavs.length, !mobile);
+  // 문의 = 방에서 파생. 최근·관심과 **같은 매물 카드**로 보여 주고 누르면 상세로 간다(2026-08-08).
+  //  스냅을 따로 저장하지 않는다 — 살아 있는 매물 데이터에서 그때그때 만든다(옛 이름·옛 가격 방지).
+  const interestInquiries = useMemo(() => {
+    if (rows === null || inquiredCodes.size === 0) return [];
+    const out: InterestSnap[] = [];
+    for (const code of inquiredCodes) {
+      const live = interestProductIndex.get(code);
+      if (!live || !isListableProduct(live)) continue;
+      const cheap = cheapest(live);
+      out.push({
+        code,
+        name: vehicleName(live),
+        plate: String(live.car_number || ''),
+        rent: cheap?.rent || 0,
+        deposit: cheap?.deposit || 0,
+        month: cheap?.m || 0,
+        at: 0,
+      });
+    }
+    return out;
+  }, [rows, inquiredCodes, interestProductIndex]);
+  useInterestTabGuard(interestTab, setInterestTab, interestRecent.length, interestFavs.length, !mobile, interestInquiries.length);
   // 보기모드 = 새로고침해도 유지(localStorage). 서버·최초렌더는 'card' → effect에서 복원(하이드레이션 mismatch 방지).
   // 선택(하이라이트)은 즉시(urgent), 무거운 목록 렌더만 useDeferredValue로 뒤로 → 토글 딱 반응, 논블로킹.
   const setView = (v: string) => {
@@ -501,6 +525,7 @@ export default function Finder() {
           onView={setView}
           recentCount={interestRecent.length}
           favoriteCount={interestFavs.length}
+          inquiryCount={interestInquiries.length}
           interestTab={interestTab}
           onInterestTab={setInterestTab}
         />
@@ -514,6 +539,7 @@ export default function Finder() {
                 tab={interestTab}
                 recent={interestRecent}
                 favs={interestFavs}
+                inquiries={interestInquiries}
                 onClose={() => setInterestTab(null)}
               />
             </div>

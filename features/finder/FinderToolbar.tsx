@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { FileSpreadsheet, LayoutGrid, List, SlidersHorizontal, Table } from 'lucide-react';
 import { PRODUCT_SHEET_URL } from '@/lib/product-sheet';
@@ -28,6 +28,7 @@ type Props = {
   view: string;
   onView: (value: string) => void;
   recentCount: number;
+  inquiryCount?: number;
   favoriteCount: number;
   interestTab: InterestTab | null;
   onInterestTab: (tab: InterestTab | null) => void;
@@ -72,7 +73,7 @@ export function FinderToolbar(props: Props) {
         <Select value={props.sort} onChange={props.onSort} placeholder="정렬" width={118} options={FINDER_SORTS} />
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '1 1 0', minWidth: 0, maxWidth: 360 }}>
           {search}
-          <InterestTriggers recentN={props.recentCount} favN={props.favoriteCount} tab={props.interestTab} onTab={props.onInterestTab} />
+          <InterestTriggers recentN={props.recentCount} favN={props.favoriteCount} inqN={props.inquiryCount || 0} tab={props.interestTab} onTab={props.onInterestTab} />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto', flex: '0 0 auto' }}>
           {/* 자리 상시 예약 — 뷰 전환 시 우측 그룹 폭이 변해 검색창이 점프하는 것 방지. */}
