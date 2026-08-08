@@ -73,7 +73,9 @@ export function ProductAssistPanel({ product, role }: { product: EntityRecord; r
     reloadContract();
   }, [narrow, canDeal, reloadContract]);
 
-  if (narrow) return null;
+  // 좁은 화면 = 본문 아래로 **쌓는다**. 딜을 진행하지 않는 역할에는 쌓을 것이 없다.
+  //  (가격표는 좁을 때 본문 제자리에 있으므로 여기서 또 그리지 않는다.)
+  if (narrow && !canDeal) return null;
 
   const stage = contractStage(contract);
   const stageBadge = contract ? <Badge tone={stage.tone}>{stage.label}</Badge> : null;
@@ -90,30 +92,35 @@ export function ProductAssistPanel({ product, role }: { product: EntityRecord; r
 
   return (
     <aside
-      aria-label="매물 보조 칼럼"
-      style={{
-        position: 'sticky',
-        top: chromeGap,
-        alignSelf: 'flex-start',
-        marginTop: headOffset,
-        height: paneH,
-        maxHeight: paneH,
-        flex: '0 0 380px', width: 380,
-        display: 'flex', flexDirection: 'column', gap: 10,
-        minHeight: 0,
-      }}
+      aria-label={narrow ? '계약·대화' : '매물 보조 칼럼'}
+      style={narrow
+        // 좁은 화면 = 상세 끝나는 자리에 **계약진행 → 채팅** 순으로 쌓는다(2026-08-08 사장님).
+        ? { display: 'flex', flexDirection: 'column', gap: 10, marginTop: 14, width: '100%', minWidth: 0 }
+        : {
+          position: 'sticky',
+          top: chromeGap,
+          alignSelf: 'flex-start',
+          marginTop: headOffset,
+          height: paneH,
+          maxHeight: paneH,
+          flex: '0 0 380px', width: 380,
+          display: 'flex', flexDirection: 'column', gap: 10,
+          minHeight: 0,
+        }}
     >
       {/* 맨 위 = 돈. 헤이딜러처럼 본문은 차 설명, 우측은 «얼마에 · 어떻게 진행»이다.
-          영업자가 손님과 통화하며 스크롤해도 금액은 여기 그대로 있다. */}
-      <AsideCard title="대여료 / 보증금">
-        <ProductPriceTable p={product} bare />
-      </AsideCard>
+          좁은 화면에서는 가격표가 본문 제자리에 있으므로 여기서 또 그리지 않는다. */}
+      {narrow ? null : (
+        <AsideCard title="대여료 / 보증금">
+          <ProductPriceTable p={product} bare />
+        </AsideCard>
+      )}
 
       {/* 대여료까지는 손님·영업·공급·관리자가 **다 같다**. 그 밑에 붙는 것만 역할별이다
           (2026-08-08 결정). 딜을 진행하지 않는 역할에는 아래를 그리지 않는다. */}
       {!canDeal ? null : (
         <>
-          <AsideCard title={CONTRACT_HEAD} right={stageBadge} cap="42%">
+          <AsideCard title={CONTRACT_HEAD} right={stageBadge} cap={narrow ? undefined : '42%'}>
             <ContractPanel
               product={product}
               roomId={roomId || undefined}
@@ -121,7 +128,8 @@ export function ProductAssistPanel({ product, role }: { product: EntityRecord; r
               onChange={reloadContract}
             />
           </AsideCard>
-          <AsideCard title={NAV_LABEL.chat} grow>
+          {/* 쌓을 때 대화는 화면 절반 — 남는 높이를 다 쓰면 페이지가 끝나지 않는다. */}
+          <AsideCard title={NAV_LABEL.chat} grow={!narrow} fixedH={narrow ? '60dvh' : undefined}>
             {roomId
               ? <ChatThread roomId={roomId} />
               : <div style={{ padding: 14, fontSize: FS.cap, color: C.faint }}>대화방 준비 중…</div>}
@@ -138,7 +146,7 @@ export function ProductAssistPanel({ product, role }: { product: EntityRecord; r
  * 한 상자에 칸막이로 나누지 않고 **카드를 따로 세운다** — 역할마다 붙는 카드가 다르기 때문이다
  * (2026-08-08 사장님). 손님에게는 대여료 하나만 서는데, 그때 칸막이 상자면 아래가 빈 채로 남는다.
  */
-export function AsideCard({ title, right, children, grow, cap }: {
+export function AsideCard({ title, right, children, grow, cap, fixedH }: {
   title: string;
   right?: ReactNode;
   children: ReactNode;
@@ -146,16 +154,19 @@ export function AsideCard({ title, right, children, grow, cap }: {
   grow?: boolean;
   /** 내용 높이로 서되 이만큼까지만(계약). */
   cap?: string;
+  /** 세로로 쌓을 때의 고정 높이(모바일 대화) — 안 정하면 대화가 페이지를 끝없이 늘린다. */
+  fixedH?: string;
 }) {
   return (
     <section style={{
       border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg, overflow: 'hidden',
       display: 'flex', flexDirection: 'column', minHeight: 0,
       ...(grow ? { flex: '1 1 auto' } : { flex: '0 0 auto', maxHeight: cap }),
+      ...(fixedH ? { height: fixedH } : null),
     }}>
       <PaneHead title={title} right={right} />
       {/* 대화는 스스로 스크롤한다(입력창 고정) — 여기서 또 굴리면 스크롤이 둘이 된다. */}
-      <div style={{ flex: 1, minHeight: 0, overflowY: grow ? 'hidden' : 'auto', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: grow || fixedH ? 'hidden' : 'auto', display: 'flex', flexDirection: 'column' }}>
         {children}
       </div>
     </section>

@@ -149,7 +149,9 @@ export default function Detail() {
         }}>
           {/* 보조패널이 서면 가격표는 거기(맨 위)로 간다 — 본문은 차 설명만. */}
           <ProductDetail p={p} priceAside={assistShown} />
-          <SimpleInquiry p={p} />
+          {/* 간단문의는 **딜을 진행하지 않는 사람**(손님·공급사)에게만. 영업자·관리자에게는
+              아래에 진짜 계약진행·대화가 붙으므로 간이 입구가 남으면 문의가 두 곳으로 갈린다. */}
+          {canDeal ? null : <SimpleInquiry p={p} />}
           {/* 검수요청 = 페이지 맨 하단. 본문과 같은 가로폭. */}
           <div style={{ marginTop: 20, paddingTop: 14, borderTop: `1px solid ${C.line}`, width: '100%' }}>
             <ReportButton p={p} />
@@ -157,6 +159,8 @@ export default function Detail() {
           {/* 이전·공유·계약문의는 **상세를 따라다닌다** — 화면 한가운데 고정독으로 두면
               옆에 보조 칼럼이 선 만큼 본문이 왼쪽으로 밀려 «상세 밑»이 아니게 된다(2026-08-08 지적).
               sticky bottom = 스크롤 중엔 화면 아래에 붙고, 상세 끝에 오면 거기서 멈춘다. */}
+          {/* 좁은 화면: 상세 끝나는 자리에 계약진행 → 대화 순으로 쌓는다. */}
+          {!assistShown && canDeal ? <ProductAssistPanel product={p} role={role} /> : null}
           {assistShown ? <BottomNav sticky maxWidth={920} padX={16} backShowLabel actions={dockActions} /> : null}
         </main>
         {/* 대여료 패널은 **역할과 무관하게** 뜬다 — 손님·공급사도 같은 자리에서 금액을 본다.
