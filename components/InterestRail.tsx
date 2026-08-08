@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import Link from 'next/link';
 import { useEffect, useState, type MouseEvent } from 'react';
 import { Star, History, StarOff, Trash2, X } from 'lucide-react';
@@ -111,7 +111,7 @@ export function InterestTriggers({
       }}
       aria-hidden={!recentN && !favN}
     >
-      {chip('recent', recentN, History, '최근 본')}
+      {chip('recent', recentN, History, '최근')}
       {chip('fav', favN, Star, '관심')}
     </div>
   );
@@ -238,7 +238,7 @@ export function InterestPanel({
         </span>
         <span style={{ flex: 1 }} />
         {tab === 'recent' && recent.length > 0 && (
-          <Btn title="최근 본 비우기" size="sm" variant="ghost" haptic="impact" onClick={clearRecent}>
+          <Btn title="최근 비우기" size="sm" variant="ghost" haptic="impact" onClick={clearRecent}>
             <ButtonLabel icon={<Trash2 size={ICON.md} aria-hidden />}>비우기</ButtonLabel>
           </Btn>
         )}

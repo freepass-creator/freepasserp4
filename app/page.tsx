@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback, useDeferredValue, type CSSProperties, type MouseEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { getCompanyId } from '@/lib/tenant';
@@ -410,7 +410,7 @@ export default function Finder() {
       interest.delete(kind);
       return { ...snapshot, interest };
     });
-    toast(kind === 'recent' ? '최근 본을 비웠습니다' : '관심을 비웠습니다', 'info');
+    toast(kind === 'recent' ? '최근 목록을 비웠습니다' : '관심을 비웠습니다', 'info');
   };
 
   const presetSaveCount = presetAxesCount(v);

@@ -12,6 +12,10 @@ import { ProductPriceTable } from '@/components/ProductPriceTable';
 import { Badge, C, FS, PaneHead, R } from '@/components/ui';
 import { NAV_LABEL } from '@/lib/tabbar';
 import { useIsMobile } from '@/lib/use-mobile';
+import { getSession } from '@/lib/auth-session';
+import { canAccessOwnedRecord } from '@/lib/domain/authorization';
+import { unreadFor } from '@/lib/domain/messaging';
+import { msgClock } from '@/lib/format';
 
 /**
  * 매물 상세 옆 **보조 칼럼** — 위=대여료·계약 / 아래=채팅.
@@ -58,24 +62,56 @@ export function ProductAssistPanel({ product, role }: { product: EntityRecord; r
       .catch(() => setContract(null));
   }, [co, code]);
 
-  // 대여료 위에 계약·대화가 붙는 건 딜을 진행하는 역할뿐이다. 손님·공급사에게 방을 만들면
-  //  쓰지도 않는 방이 목록에 쌓이고, 손님 화면에서 서버 쓰기가 일어난다.
-  const canDeal = role === 'agent' || role === 'admin';
+  /**
+   * 이 매물에 **문의를 여는 쪽**은 영업자다 — 방은 «매물 × 영업자»로 만들어진다.
+   * 공급사·관리자는 방을 만들지 않고 **들어온 문의를 골라 본다**(2026-08-08 사장님).
+   * 그래서 같은 자리에 영업자는 «내 대화», 공급사·관리자는 «문의 목록»이 선다.
+   */
+  const asksRoom = role === 'agent';
+  const readsInbox = role === 'provider' || role === 'admin';
+  const canDeal = asksRoom || readsInbox;
+  const [inbox, setInbox] = useState<EntityRecord[] | null>(null);
+  const [picked, setPicked] = useState('');
+  /** 지금 보고 있는 방 — 영업자는 자기 방, 공급사·관리자는 목록에서 고른 방. */
+  const activeRoom = asksRoom ? roomId : picked;
 
+  // 모바일도 상세 아래에 계약·대화를 쌓으므로 좁다고 건너뛰지 않는다(2026-08-08).
   useEffect(() => {
-    if (narrow || !canDeal) return;
+    if (!asksRoom) return;
     let ok = true;
     void ensureRoom(product, actor(role))
       .then((key) => { if (ok) setRoomId(key); })
       .catch(() => {});
     return () => { ok = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [code, role, narrow, canDeal]);
+  }, [code, role, asksRoom]);
+
+  // 공급사·관리자 = 이 매물에 들어온 문의만 모아 본다. 방을 새로 만들지 않는다(읽기 전용 조회).
+  const loadInbox = useCallback(() => {
+    if (!readsInbox) return;
+    void getStore().list('room', co)
+      .then((all) => {
+        const mine = all.filter((r) => String(r.product_code || r.product_uid || '') === code
+          && canAccessOwnedRecord(getSession(), r));
+        mine.sort((a, b) => Number(b.last_message_at || 0) - Number(a.last_message_at || 0));
+        setInbox(mine);
+        setPicked((cur) => cur || String(mine[0]?._key || ''));
+      })
+      .catch(() => setInbox([]));
+  }, [co, code, readsInbox]);
 
   useEffect(() => {
-    if (narrow || !canDeal) return;
+    if (!readsInbox) return;
+    loadInbox();
+    const on = () => loadInbox();
+    window.addEventListener('fp:unread', on);
+    return () => window.removeEventListener('fp:unread', on);
+  }, [readsInbox, loadInbox]);
+
+  useEffect(() => {
+    if (!canDeal) return;
     reloadContract();
-  }, [narrow, canDeal, reloadContract]);
+  }, [canDeal, reloadContract]);
 
   // spacer 의 left → fixed 패널이 같은 세로선에 선다(창 리사이즈·스크롤바 대응).
   useEffect(() => {
@@ -113,25 +149,71 @@ export function ProductAssistPanel({ product, role }: { product: EntityRecord; r
   const fixedTop = `calc(var(--topbar-h) + ${CHROME_GAP}px + ${headOffset})`;
   const fixedBottom = `calc(var(--fp-bar-h) + var(--fp-dock-safe, 0px))`;
 
+  const inboxCard = !readsInbox ? null : (
+    <AsideCard title={`문의${inbox?.length ? ` ${inbox.length}` : ''}`} cap="34%">
+      {inbox === null ? (
+        <div style={{ padding: 12, fontSize: FS.cap, color: C.faint }}>불러오는 중…</div>
+      ) : inbox.length === 0 ? (
+        <div style={{ padding: 12, fontSize: FS.cap, color: C.faint, lineHeight: 1.5 }}>
+          아직 이 차에 들어온 문의가 없습니다.
+        </div>
+      ) : inbox.map((r) => {
+        const on = String(r._key) === activeRoom;
+        const n = unreadFor(r, role);
+        return (
+          <button
+            key={String(r._key)}
+            type="button"
+            className="fp-press"
+            onClick={() => setPicked(String(r._key))}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8, width: '100%', boxSizing: 'border-box',
+              padding: '6px 10px', border: 'none', borderBottom: `1px solid ${C.line2}`,
+              background: on ? C.selected : 'none', cursor: 'pointer', textAlign: 'left',
+            }}
+          >
+            <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+              <span style={{ fontSize: FS.sub, color: C.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {String(r.agent_name || r.agent_code || '영업자')}
+              </span>
+              <span style={{ fontSize: FS.micro, color: C.faint, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {String(r.last_message || '대화 없음')}
+              </span>
+            </span>
+            {n > 0 ? <Badge tone="red">{n}</Badge> : null}
+            <span style={{ flex: '0 0 auto', fontSize: FS.micro, color: C.faint, fontVariantNumeric: 'tabular-nums' }}>
+              {msgClock(r.last_message_at, { dateOnly: true })}
+            </span>
+          </button>
+        );
+      })}
+    </AsideCard>
+  );
+
   const body = (
     <>
       <AsideCard title="대여료 / 보증금">
         <ProductPriceTable p={product} bare />
       </AsideCard>
+      {inboxCard}
       {!canDeal ? null : (
         <>
           <AsideCard title={CONTRACT_HEAD} right={stageBadge} cap="42%">
             <ContractPanel
               product={product}
-              roomId={roomId || undefined}
+              roomId={activeRoom || undefined}
+              linkedCode={readsInbox ? String(inbox?.find((r) => String(r._key) === activeRoom)?.linked_contract || '') || undefined : undefined}
+              agentCode={readsInbox ? String(inbox?.find((r) => String(r._key) === activeRoom)?.agent_code || '') || undefined : undefined}
               stepView="focus"
               onChange={reloadContract}
             />
           </AsideCard>
           <AsideCard title={NAV_LABEL.chat} grow>
-            {roomId
-              ? <ChatThread roomId={roomId} />
-              : <div style={{ padding: 14, fontSize: FS.cap, color: C.faint }}>대화방 준비 중…</div>}
+            {activeRoom
+              ? <ChatThread roomId={activeRoom} />
+              : <div style={{ padding: 14, fontSize: FS.cap, color: C.faint }}>
+                {readsInbox ? '문의를 고르면 대화가 열립니다.' : '대화방 준비 중…'}
+              </div>}
           </AsideCard>
         </>
       )}
@@ -147,18 +229,24 @@ export function ProductAssistPanel({ product, role }: { product: EntityRecord; r
       >
         {!canDeal ? null : (
           <>
+            {/* 공급사·관리자는 여기서도 «내 대화»가 아니라 들어온 문의를 고른다. */}
+            {inboxCard}
             <AsideCard title={CONTRACT_HEAD} right={stageBadge}>
               <ContractPanel
                 product={product}
-                roomId={roomId || undefined}
+                roomId={activeRoom || undefined}
+                linkedCode={readsInbox ? String(inbox?.find((r) => String(r._key) === activeRoom)?.linked_contract || '') || undefined : undefined}
+                agentCode={readsInbox ? String(inbox?.find((r) => String(r._key) === activeRoom)?.agent_code || '') || undefined : undefined}
                 stepView="focus"
                 onChange={reloadContract}
               />
             </AsideCard>
             <AsideCard title={NAV_LABEL.chat} fixedH="60dvh">
-              {roomId
-                ? <ChatThread roomId={roomId} />
-                : <div style={{ padding: 14, fontSize: FS.cap, color: C.faint }}>대화방 준비 중…</div>}
+              {activeRoom
+                ? <ChatThread roomId={activeRoom} />
+                : <div style={{ padding: 14, fontSize: FS.cap, color: C.faint }}>
+                  {readsInbox ? '문의를 고르면 대화가 열립니다.' : '대화방 준비 중…'}
+                </div>}
             </AsideCard>
           </>
         )}
