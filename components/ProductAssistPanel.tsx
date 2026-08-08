@@ -1,7 +1,9 @@
 ﻿'use client';
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { ChatRoomRow } from '@/components/list-rows';
+import { vehicleName } from '@/lib/domain/product';
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import type { EntityRecord } from '@/lib/intake/entities';
@@ -47,6 +49,7 @@ const CHROME_GAP = 14;
 
 export function ProductAssistPanel({ product, role }: { product: EntityRecord; role: Role }) {
   const narrow = useIsMobile(ASSIST_BP);
+  const router = useRouter();
   const co = getCompanyId();
   const [roomId, setRoomId] = useState('');
   const [contract, setContract] = useState<EntityRecord | null | undefined>(undefined);
@@ -158,6 +161,8 @@ export function ProductAssistPanel({ product, role }: { product: EntityRecord; r
    * 채팅창은 영업자에게만 준다(그들에겐 매물이 출발점이라 상세에서 끝나야 한다).
    */
   const unreadN = (inbox || []).reduce((sum, r) => sum + (unreadFor(r, role) > 0 ? 1 : 0), 0);
+  /** 응대는 계약문의 페이지에서만 — 행을 누르면 그 방으로 넘긴다. */
+  const openRoom = (r: EntityRecord) => router.push(`/chat?room=${encodeURIComponent(String(r._key))}`);
   /**
    * **배열은 그대로, 채팅창 자리만 문의 목록**(2026-08-08 사장님).
    * 영업자에게 대화가 있던 그 자리에 관리자·공급사는 «누가 문의했는지»를 본다.
@@ -177,35 +182,21 @@ export function ProductAssistPanel({ product, role }: { product: EntityRecord; r
           아직 이 차에 들어온 문의가 없습니다.
         </div>
       ) : (
+        // 계약문의 페이지가 쓰는 **그 행 원자 그대로**(ChatRoomRow) — 같은 문의가 두 화면에서
+        //  다르게 생기면 «같은 것»으로 안 읽힌다. 상태 아이콘·안읽음·시각 규칙도 따라온다.
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
-          {inbox.map((r) => {
-            const n = unreadFor(r, role);
-            return (
-              <Link
-                key={String(r._key)}
-                href={`/chat?room=${encodeURIComponent(String(r._key))}`}
-                className="fp-press"
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 8, width: '100%', boxSizing: 'border-box',
-                  padding: '7px 10px', borderBottom: `1px solid ${C.line2}`,
-                  textDecoration: 'none', color: C.ink,
-                }}
-              >
-                <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-                  <span style={{ fontSize: FS.sub, fontWeight: n > 0 ? FW.title : FW.body, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {String(r.agent_name || r.agent_code || '영업자')}
-                  </span>
-                  <span style={{ fontSize: FS.micro, color: C.faint, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {String(r.last_message || '대화 없음')}
-                  </span>
-                </span>
-                {n > 0 ? <Badge tone="red">{n}</Badge> : null}
-                <span style={{ flex: '0 0 auto', fontSize: FS.micro, color: C.faint, fontVariantNumeric: 'tabular-nums' }}>
-                  {msgClock(r.last_message_at, { dateOnly: true })}
-                </span>
-              </Link>
-            );
-          })}
+          {inbox.map((r) => (
+            <ChatRoomRow
+              key={String(r._key)}
+              room={r}
+              stageContract={contract && String(contract.contract_code) === String(r.linked_contract || '') ? contract : null}
+              counter={String(r.agent_name || r.agent_code || '')}
+              unread={unreadFor(r, role)}
+              onClick={openRoom}
+              displayName={vehicleName(product)}
+              plate={String(product.car_number || '')}
+            />
+          ))}
         </div>
       )}
     </AsideCard>
