@@ -245,9 +245,13 @@ const COL_NAME = 3;      // 차종 — 사진 옆에서 «무슨 차인가»만 
 const COL_BEST_MONTH = 4;   // 최저가가 나오는 기간(개월)
 const COL_BEST_RENT = 5;    // 그 기간의 월대여료
 const COL_BEST_DEP = 6;     // 그 기간의 보증금
-const COL_LINK = 7;      // 손님 카탈로그
-const COL_CODE = 8;      // 상품코드 — 링크 재료. 숨긴다.
-const COL_TABLE = 9;     // 표 시작
+/**
+ * 카탈로그 링크·상품코드 칸은 **없앴다.**
+ * 링크는 차량번호·사진·차종 셀에 직접 걸린다 — 어디를 눌러도 그 차의 카탈로그로 간다.
+ * 「열기」 칸을 따로 두면 같은 문이 넷이 되고, 상품코드는 영업이 쓰지 않는 값이다
+ * (필요하면 뒤 숨긴 원본에 그대로 있다).
+ */
+const COL_TABLE = 7;     // 표 시작
 const ROW_HEAD = 0;
 const ROW_DATA = 1;
 
@@ -305,8 +309,6 @@ export function buildInventorySheet(
   head[COL_BEST_MONTH] = '기간';
   head[COL_BEST_RENT] = '월대여료';
   head[COL_BEST_DEP] = '보증금';
-  head[COL_LINK] = '카탈로그';
-  head[COL_CODE] = '상품코드';
   TABLE_COLUMNS.forEach((name, i) => { head[COL_TABLE + i] = name; });
   values.push(head);
 
@@ -318,7 +320,6 @@ export function buildInventorySheet(
     line[COL_NO] = r + 1;
     const code = S(row[at('상품코드')]);
     const plate = S(row[at('차량번호')]).replace(/\s/g, '');
-    line[COL_PLATE] = plate;
 
     /**
      * 사진 — 셀 안에 맞춰 넣고(mode 1), **누르면 손님 카탈로그로 간다.**
@@ -343,7 +344,19 @@ export function buildInventorySheet(
      * 정작 표 안에도 같은 값이 또 있었다. 사진 옆에서는 「카니발」만 알면 된다 —
      * 제조사·세부모델·트림은 표에서 이어 본다.
      */
-    line[COL_NAME] = S(row[at('모델')]) || S(row[at('세부모델')]);
+    const name = S(row[at('모델')]) || S(row[at('세부모델')]);
+
+    /**
+     * **차량번호·사진·차종 셋 다 카탈로그로 가는 문이다.**
+     * 「열기」 칸 하나만 링크면 영업은 그 칸을 찾아 가로로 밀어야 한다. 눈이 닿는 곳마다
+     * 링크가 있으면 그럴 일이 없다. 특히 이미지 셀은 구글시트가 클릭을 셀 선택으로 먹어
+     * 링크가 살아 있어도 안 눌리는 것처럼 느껴진다 — 글자 칸이 그 보험이다.
+     */
+    const link = (text: string) => (detail && text
+      ? `=HYPERLINK(${detail},"${text.replace(/"/g, '""')}")`
+      : text);
+    line[COL_PLATE] = link(plate);
+    line[COL_NAME] = link(name);
 
     // 최저 월대여료 — 손님이 처음 묻는 값. 기간·보증금까지 한 칸에.
     let best: { m: number; rent: number; dep: number } | null = null;
@@ -359,11 +372,6 @@ export function buildInventorySheet(
       line[COL_BEST_DEP] = best.dep;
     }
 
-    // 손님 카탈로그(/q) — 로그인 없이 열리는 공개 견적. 손님에게 그대로 보내도 된다.
-    line[COL_LINK] = code && base
-      ? `=HYPERLINK("${base}/q/"&ENCODEURL("${code.replace(/"/g, '""')}"),"열기")`
-      : '';
-    line[COL_CODE] = code;
     TABLE_COLUMNS.forEach((name, i) => {
       if (/개월$/.test(name)) {
         // 앱과 같은 두 줄 — 위 대여료, 아래 보증금. 값이 없으면 빈 칸.
@@ -400,10 +408,25 @@ export function buildInventorySheet(
     ...(prev.filterViewIds || []).map((id) => ({ deleteFilterView: { filterId: id } })),
     { clearBasicFilter: { sheetId: gid } },
 
+    /**
+     * **숫자서식을 먼저 판다.** 값은 매번 지우지만 서식은 열에 남는다 —
+     * 열 자리가 한 번 바뀌면 옛 서식이 새 값을 엉뚱하게 그린다.
+     * 실제로 「기간」이 있던 자리가 「차종」이 되자 크라이슬러 200 이 「200개월」로 찍혔다.
+     * 아래에서 숫자 열만 다시 지정하므로 여기서 통째로 되돌려도 안전하다.
+     */
+    {
+      repeatCell: {
+        range: box(ROW_HEAD, lastRow, 0, Math.max(...values.map((r) => r.length), tableEnd)),
+        cell: { userEnteredFormat: { numberFormat: { type: 'TEXT' } } },
+        fields: 'userEnteredFormat.numberFormat',
+      },
+    },
+
     // 격자선을 끄고 제목·헤더·앞 네 칸을 고정한다.
     {
       updateSheetProperties: {
-        properties: { sheetId: gid, gridProperties: { hideGridlines: true, frozenRowCount: ROW_DATA, frozenColumnCount: COL_TABLE + 1 } },
+        // 고정은 **보증금까지.** 상태·상품분류까지 얼려 두면 가로로 밀 때 남는 폭이 없다.
+        properties: { sheetId: gid, gridProperties: { hideGridlines: true, frozenRowCount: ROW_DATA, frozenColumnCount: COL_TABLE } },
         fields: 'gridProperties(hideGridlines,frozenRowCount,frozenColumnCount)',
       },
     },
@@ -423,7 +446,8 @@ export function buildInventorySheet(
       },
     },
     { repeatCell: { range: box(ROW_DATA, lastRow, COL_NO, COL_NO + 1), cell: { userEnteredFormat: { horizontalAlignment: 'CENTER', textFormat: { fontSize: 9, foregroundColor: rgb('94A3B8') } } }, fields: 'userEnteredFormat(horizontalAlignment,textFormat)' } },
-    { repeatCell: { range: box(ROW_DATA, lastRow, COL_LINK, COL_LINK + 1), cell: { userEnteredFormat: { horizontalAlignment: 'CENTER', textFormat: { fontSize: 10, foregroundColor: rgb('1E40AF'), underline: true } } }, fields: 'userEnteredFormat(horizontalAlignment,textFormat)' } },
+    // 차량번호 — 링크가 걸린 칸. 파란 밑줄이면 표가 시끄러워지므로 «누를 수 있다»만 알린다.
+    { repeatCell: { range: box(ROW_DATA, lastRow, COL_PLATE, COL_PLATE + 1), cell: { userEnteredFormat: { horizontalAlignment: 'CENTER', textFormat: { fontSize: 10, foregroundColor: rgb('1E40AF') } } }, fields: 'userEnteredFormat(horizontalAlignment,textFormat)' } },
     // 사진 — 셀 가운데. =IMAGE(…,1) 이 셀 크기에 맞춰 줄인다.
     { repeatCell: { range: box(ROW_DATA, lastRow, COL_PHOTO, COL_PHOTO + 1), cell: { userEnteredFormat: { horizontalAlignment: 'CENTER', verticalAlignment: 'MIDDLE' } }, fields: 'userEnteredFormat(horizontalAlignment,verticalAlignment)' } },
     // 차량명 — 이 표에서 가장 먼저 읽는 칸이라 굵게.
@@ -443,8 +467,12 @@ export function buildInventorySheet(
     { addBanding: { bandedRange: { range: box(ROW_HEAD, lastRow, 0, tableEnd), rowProperties: { headerColor: rgb(INK), firstBandColor: rgb('FFFFFF'), secondBandColor: rgb('F8FAFC') } } } },
     // ★기본 헤더 필터 — 각 열 머리의 화살표로 거른다. 값이 정적이라 정렬도 그대로 된다.
     { setBasicFilter: { filter: { range: box(ROW_HEAD, lastRow, 0, tableEnd) } } },
-    // 상품코드는 링크 재료일 뿐 — 숨긴다.
-    { updateDimensionProperties: { range: { sheetId: gid, dimension: 'COLUMNS', startIndex: COL_CODE, endIndex: COL_CODE + 1 }, properties: { hiddenByUser: true }, fields: 'hiddenByUser' } },
+    /**
+     * 요약 칸은 **매번 펴 준다.**
+     * 손으로 숨긴 열은 자리에 남는데, 열 순서가 한 번 바뀌면 그 숨김이 엉뚱한 칸을 가린다
+     * (실제로 대여료가 사라진 것처럼 보였다). 여기 일곱 칸은 늘 보이는 게 규격이다.
+     */
+    { updateDimensionProperties: { range: { sheetId: gid, dimension: 'COLUMNS', startIndex: 0, endIndex: COL_TABLE }, properties: { hiddenByUser: false }, fields: 'hiddenByUser' } },
     { updateDimensionProperties: { range: { sheetId: gid, dimension: 'ROWS', startIndex: ROW_HEAD, endIndex: ROW_HEAD + 1 }, properties: { pixelSize: 30 }, fields: 'pixelSize' } },
     // 두 줄(대여료·보증금)이 들어가는 높이.
     // 사진이 보이려면 행이 높아야 한다 — 썸네일 기준으로 잡고 기간 두 줄도 여기 들어간다.
@@ -458,7 +486,7 @@ export function buildInventorySheet(
     { updateDimensionProperties: { range: { sheetId: gid, dimension: 'COLUMNS', startIndex: COL_BEST_MONTH, endIndex: COL_BEST_MONTH + 1 }, properties: { pixelSize: 64 }, fields: 'pixelSize' } },
     { updateDimensionProperties: { range: { sheetId: gid, dimension: 'COLUMNS', startIndex: COL_BEST_RENT, endIndex: COL_BEST_RENT + 1 }, properties: { pixelSize: 104 }, fields: 'pixelSize' } },
     { updateDimensionProperties: { range: { sheetId: gid, dimension: 'COLUMNS', startIndex: COL_BEST_DEP, endIndex: COL_BEST_DEP + 1 }, properties: { pixelSize: 92 }, fields: 'pixelSize' } },
-    { updateDimensionProperties: { range: { sheetId: gid, dimension: 'COLUMNS', startIndex: COL_LINK, endIndex: COL_LINK + 1 }, properties: { pixelSize: 58 }, fields: 'pixelSize' } },
+    { updateDimensionProperties: { range: { sheetId: gid, dimension: 'COLUMNS', startIndex: COL_PLATE, endIndex: COL_PLATE + 1 }, properties: { pixelSize: 92 }, fields: 'pixelSize' } },
   ];
 
   TABLE_COLUMNS.forEach((name, i) => {
