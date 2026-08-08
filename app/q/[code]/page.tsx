@@ -59,20 +59,24 @@ export default function Quote() {
   const inverse = 'var(--text-inverse)';
 
   // 손님 상담 안내 — 넓으면 우측 카드로, 좁으면 본문 아래로. 내용은 한 벌이다.
+  //  계약진행 카드와 같은 밀도로 — 담당자는 «누구에게 걸면 되는가» 한 줄이면 된다.
+  //  크게 뽑으면 대여료보다 무거워져 우측 칼럼의 순서가 뒤집힌다(2026-08-08 사장님).
   const contactBody = (
-    <div style={{ padding: '12px 14px' }}>
-      <div style={{ fontSize: FS.body, color: C.mute }}>
-        {agentName ? `담당 영업자 ${agentName}` : '담당 영업자'}
+    <div style={{ padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+        <span style={{ fontSize: FS.sub, color: C.ink, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {agentName || '담당 영업자'}
+        </span>
+        <span style={{ flex: 1, minWidth: 4 }} />
+        {telHref ? (
+          <Btn href={telHref} size="sm" onClick={() => haptic.nav()}>전화</Btn>
+        ) : (
+          <span style={{ fontSize: FS.cap, color: C.faint, whiteSpace: 'nowrap' }}>연락처 미등록</span>
+        )}
       </div>
-      {telHref ? (
-        <div style={{ marginTop: 10 }}>
-          <Btn href={telHref} onClick={() => haptic.nav()} full>
-            전화하기{phone ? ` · ${phone}` : ''}
-          </Btn>
-        </div>
-      ) : (
-        <div style={{ marginTop: 6, fontSize: FS.cap, color: C.faint }}>연락처가 등록되지 않았습니다.</div>
-      )}
+      {phone ? (
+        <span style={{ fontSize: FS.cap, color: C.mute, fontVariantNumeric: 'tabular-nums' }}>{phone}</span>
+      ) : null}
     </div>
   );
 
