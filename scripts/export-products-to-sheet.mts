@@ -122,12 +122,14 @@ async function main() {
     : tab ? meta.sheets.find((s) => s.properties.title === tab) : undefined;
   if ((gidArg || tab) && !overwrite) throw new Error(`덮어쓸 탭 없음 — ${gidArg ? `gid ${gidArg}` : `「${tab}」`}`);
   console.log(overwrite
-    ? `  대상 — 기존 탭 「${overwrite.properties.title}」 덮어쓰기 → 「${tabName}」`
+    ? `  대상 — 기존 탭 「${overwrite.properties.title}」 덮어쓰기 (이름 유지)`
     : `  대상 — 새 탭 「${tabName}」 을 맨 왼쪽에 생성 (기존 ${meta.sheets.length}개 유지)`);
 
   if (!apply) { console.log('\n※ dry-run. 실제 쓰기는 --apply\n'); return; }
 
   let gid = overwrite?.properties.sheetId;
+  // 덮어쓸 때는 **탭 이름을 바꾸지 않는다.** 영업자가 「상품리스트」를 즐겨찾기해 두는데
+  // 반영할 때마다 날짜 이름으로 갈아치우면 그 링크가 매번 낯선 이름이 된다.
   let title = overwrite?.properties.title || '';
   if (gid === undefined) {
     // 같은 분에 두 번 돌리면 이름이 겹친다 — Sheets 는 중복 이름을 거부하므로 접미를 붙인다.
@@ -179,13 +181,14 @@ async function main() {
 
   // 서식은 값과 별개다. 실패해도 값은 이미 들어갔으므로 오류를 삼키지 말고 그대로 알린다.
   const requests = built.requests;
-  if (overwrite) requests.push({ updateSheetProperties: { properties: { sheetId: gid, title: tabName, index: 0 }, fields: 'title,index' } });
+  // 맨 앞으로만 올린다. 이름은 건드리지 않는다 — 영업자가 「상품리스트」로 즐겨찾기해 둔다.
+  if (overwrite) requests.push({ updateSheetProperties: { properties: { sheetId: gid, index: 0 }, fields: 'index' } });
   const fmt = await fetch(`${api}:batchUpdate`, { method: 'POST', headers: head, body: JSON.stringify({ requests }) });
   if (!fmt.ok) {
     console.log(`\n  ⚠ 값은 들어갔으나 서식 적용 실패 ${fmt.status} — ${(await fmt.text()).slice(0, 400)}\n`);
     return;
   }
-  console.log(`\n  반영 완료 — 탭 「${tabName}」 · ${built.values.length}행 · 조회바·서식 적용됨\n`);
+  console.log(`\n  반영 완료 — 탭 「${title || tabName}」 · ${built.values.length}행 · 조회바·서식 적용됨\n`);
 }
 
 main().catch((e) => { console.error(String(e?.message || e)); process.exit(1); });

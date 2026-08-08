@@ -108,6 +108,37 @@ export class SheetsClient {
     return { gid: out.replies[0].addSheet.properties.sheetId, title };
   }
 
+  /**
+   * **같은 탭을 다시 쓴다.** 없으면 맨 왼쪽에 만든다.
+   *
+   * 연동을 반영할 때마다 새 탭을 만들면 영업자 시트에 탭이 끝없이 쌓이고, 영업자는
+   * 어느 것이 «지금»인지 매번 골라야 한다. 「현재 재고」 한 장이 늘 최신이어야 한다.
+   * 값·서식은 쓰기 전에 지운다 — 남아 있으면 옛 행이 새 표 아래 붙어 있는다.
+   */
+  async openOrCreateTab(name: string): Promise<{ gid: number; title: string; reused: boolean }> {
+    const meta = await this.meta();
+    const hit = meta.sheets.find((s) => s.properties.title === name);
+    if (hit) {
+      await this.clear(name);
+      await this.batchUpdate([
+        {
+          repeatCell: {
+            range: { sheetId: hit.properties.sheetId, startRowIndex: 0, endRowIndex: 2000, startColumnIndex: 0, endColumnIndex: 60 },
+            cell: {},
+            fields: 'userEnteredFormat',
+          },
+        },
+        { updateSheetProperties: { properties: { sheetId: hit.properties.sheetId, index: 0 }, fields: 'index' } },
+      ]);
+      return { gid: hit.properties.sheetId, title: name, reused: true };
+    }
+    const out = await this.call(`${this.api}:batchUpdate`, {
+      method: 'POST',
+      body: JSON.stringify({ requests: [{ addSheet: { properties: { title: name, index: 0 } } }] }),
+    }) as { replies: { addSheet: { properties: { sheetId: number } } }[] };
+    return { gid: out.replies[0].addSheet.properties.sheetId, title: name, reused: false };
+  }
+
   async clear(tabTitle: string): Promise<void> {
     await this.call(`${this.api}/values/${encodeURIComponent(tabTitle)}!A:BZ:clear`, { method: 'POST', body: '{}' });
   }

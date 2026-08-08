@@ -5,6 +5,9 @@ import {
   attachPolicy, buildInventorySheet, exportTabName, policyMap, sortForSales,
 } from '@/lib/domain/inventory-sheet-export';
 import { isListableProduct } from '@/lib/domain/product';
+
+/** 영업자가 늘 보는 고정 탭. 이름을 바꾸면 영업자 즐겨찾기가 끊긴다. */
+const AGENT_SHEET_TAB = '상품리스트';
 import type { EntityRecord } from '@/lib/intake/entities';
 
 export const dynamic = 'force-dynamic';
@@ -75,12 +78,18 @@ export async function POST(request: Request) {
     const rows = sortForSales(products);
 
     const client = await SheetsClient.open(spreadsheetId);
+    /**
+     * 영업자가 보는 것은 **한 장**이어야 한다.
+     * 예전에는 누를 때마다 새 탭을 만들어, 연동을 반영할 때마다 탭이 쌓이고 영업자는
+     * 어느 것이 «지금»인지 매번 골라야 했다. 고정 탭 하나를 늘 최신으로 덮어쓴다.
+     * 이력이 필요하면 `?snapshot=1` 로 날짜 탭을 따로 만든다.
+     */
+    const snapshot = new URL(request.url).searchParams.get('snapshot') === '1';
     const meta = await client.meta();
-    const { gid, title } = await client.addLeftmostTab(
-      exportTabName(rows.length),
-      meta.sheets.map((s) => s.properties.title),
-    );
-    // 새 탭이라 이전 서식은 없다. 실패해도 값은 이미 들어갔으므로 오류를 삼키지 않는다.
+    const { gid, title } = snapshot
+      ? await client.addLeftmostTab(exportTabName(rows.length), meta.sheets.map((s) => s.properties.title))
+      : await client.openOrCreateTab(AGENT_SHEET_TAB);
+    // 실패해도 값은 이미 들어갔으므로 오류를 삼키지 않는다.
     // 카탈로그 링크 주소 — 설정이 없으면 이 요청이 들어온 곳(=지금 fp4 를 서비스하는 주소).
     // freepasserp.com 을 박아 두면 도메인 전환 전까지 erp3 로 가서 링크가 죽는다.
     const linkOrigin = S(process.env.INVENTORY_EXPORT_ORIGIN) || new URL(request.url).origin;

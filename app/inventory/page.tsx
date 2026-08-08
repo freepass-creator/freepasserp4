@@ -204,18 +204,32 @@ export default function Inventory() {
 
   // 재고 → 영업자용 구글시트. 누를 때마다 새 탭이 맨 왼쪽에 생기고 지난 회차는 이력으로 남는다.
   const [exporting, setExporting] = useState(false);
-  const exportToSheet = async () => {
+  const exportToSheet = async (opts: { silent?: boolean } = {}) => {
     if (exporting) return;
     setExporting(true);
     try {
       const result = await exportInventoryToSheet();
-      toast(`시트 반영 완료 — ${result.count}대 · 「${result.tab}」 탭`, 'ok');
-      window.open(result.url, '_blank', 'noopener');
+      toast(`영업자 시트 갱신 — ${result.count}대 · 「${result.tab}」 탭`, 'ok');
+      if (!opts.silent) window.open(result.url, '_blank', 'noopener');
     } catch (error) {
-      toast(error instanceof Error ? error.message : '시트 반영에 실패했습니다.', 'error');
+      // 자동 갱신이 실패해도 «연동 반영»은 이미 끝났다. 그 사실을 덮지 않고 따로 말한다.
+      toast(
+        `${error instanceof Error ? error.message : '영업자 시트 갱신 실패'} — 재고는 반영됐습니다. 「영업자 시트 반영」을 눌러 다시 시도하세요.`,
+        'error',
+      );
     } finally {
       setExporting(false);
     }
+  };
+
+  /**
+   * 연동을 반영하면 **영업자 시트도 같이 최신이 된다.**
+   * 예전에는 재고만 바뀌고 시트는 누군가 따로 눌러야 해서, 영업자는 어제 재고를 보고 손님에게
+   * 말했다. 반영과 시트는 «같은 사건»이므로 한 번에 끝낸다(고정 탭을 덮어쓰므로 탭이 안 쌓인다).
+   */
+  const afterSyncImported = () => {
+    load(getRole());
+    void exportToSheet({ silent: true });
   };
 
   const copyJonghap = async () => {
@@ -309,15 +323,16 @@ export default function Inventory() {
           매번 화면을 옮겨야 했고 «개발도구»라는 이름이 운영 작업을 실험처럼 보이게 했다.
           같은 `SheetSync` 를 여기 붙인다 — 검증·충돌 차단은 그 안에 그대로 있다.
         */}
-        <SheetSync co={co} compact onImported={() => load(getRole())} />
+        <SheetSync co={co} compact onImported={afterSyncImported} />
         <div style={{ height: 1, background: C.line2, margin: '14px 0' }} />
-        <Btn size="md" onClick={exportToSheet} disabled={exporting}>
+        <Btn size="md" onClick={() => exportToSheet()} disabled={exporting}>
           <ButtonLabel icon={<Table2 size={ICON.md} aria-hidden />}>
             {exporting ? '시트 반영 중…' : '영업자 시트 반영 (ERP→구글시트)'}
           </ButtonLabel>
         </Btn>
         <div style={{ fontSize: FS.cap, color: C.mute, lineHeight: 1.5, margin: '8px 0 14px' }}>
-          누를 때마다 새 탭이 맨 왼쪽에 생깁니다. 지난 탭은 그대로 남으니 필요 없으면 지우세요.
+          연동을 반영하면 <b>자동으로 같이 갱신</b>됩니다. 「상품리스트」 탭 한 장을 늘 최신으로 덮어씁니다.
+          이 버튼은 재고를 손으로 고친 뒤 바로 반영할 때 씁니다.
         </div>
         <Btn size="sm" variant="ghost" onClick={copyJonghap}>종합표 TSV 복사 (ERP→시트)</Btn>
       </PaneBody>
