@@ -8,6 +8,16 @@ import { isListableProduct } from '@/lib/domain/product';
 
 /** 영업자가 늘 보는 고정 탭. 이름을 바꾸면 영업자 즐겨찾기가 끊긴다. */
 const AGENT_SHEET_TAB = '상품리스트';
+
+/**
+ * 탭 이름이 «언제 것인지·몇 대인지»를 말해야 한다.
+ * 탭을 열지 않고도 최신인지 알 수 있고, 영업자가 어제 것을 붙들고 팔지 않는다.
+ * 앞말은 늘 `상품리스트` 라서 이름이 바뀌어도 같은 탭을 다시 찾는다.
+ */
+function agentTabName(count: number): string {
+  const kst = new Date(Date.now() + 9 * 3600 * 1000).toISOString();
+  return `${AGENT_SHEET_TAB} ${kst.slice(5, 10).replace('-', '.')} ${kst.slice(11, 16)} · ${count}대`;
+}
 import type { EntityRecord } from '@/lib/intake/entities';
 
 export const dynamic = 'force-dynamic';
@@ -88,7 +98,7 @@ export async function POST(request: Request) {
     const meta = await client.meta();
     const { gid, title } = snapshot
       ? await client.addLeftmostTab(exportTabName(rows.length), meta.sheets.map((s) => s.properties.title))
-      : await client.openOrCreateTab(AGENT_SHEET_TAB);
+      : await client.openOrCreateTab(agentTabName(rows.length), AGENT_SHEET_TAB);
     // 실패해도 값은 이미 들어갔으므로 오류를 삼키지 않는다.
     // 카탈로그 링크 주소 — 설정이 없으면 이 요청이 들어온 곳(=지금 fp4 를 서비스하는 주소).
     // freepasserp.com 을 박아 두면 도메인 전환 전까지 erp3 로 가서 링크가 죽는다.

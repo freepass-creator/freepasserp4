@@ -115,11 +115,16 @@ export class SheetsClient {
    * 어느 것이 «지금»인지 매번 골라야 한다. 「현재 재고」 한 장이 늘 최신이어야 한다.
    * 값·서식은 쓰기 전에 지운다 — 남아 있으면 옛 행이 새 표 아래 붙어 있는다.
    */
-  async openOrCreateTab(name: string): Promise<{ gid: number; title: string; reused: boolean }> {
+  /**
+   * `matchPrefix` 를 주면 «그 말로 시작하는» 탭을 찾아 재사용하고 이름만 갈아끼운다 —
+   * 탭 이름에 갱신시각·대수를 실으면서도 gid 는 그대로라 밖에 뿌린 링크가 안 깨진다.
+   */
+  async openOrCreateTab(name: string, matchPrefix?: string): Promise<{ gid: number; title: string; reused: boolean }> {
     const meta = await this.meta();
-    const hit = meta.sheets.find((s) => s.properties.title === name);
+    const hit = meta.sheets.find((s) => s.properties.title === name)
+      || (matchPrefix ? meta.sheets.find((s) => s.properties.title.startsWith(matchPrefix)) : undefined);
     if (hit) {
-      await this.clear(name);
+      await this.clear(hit.properties.title);
       await this.batchUpdate([
         {
           repeatCell: {
@@ -128,7 +133,7 @@ export class SheetsClient {
             fields: 'userEnteredFormat',
           },
         },
-        { updateSheetProperties: { properties: { sheetId: hit.properties.sheetId, index: 0 }, fields: 'index' } },
+        { updateSheetProperties: { properties: { sheetId: hit.properties.sheetId, index: 0, title: name }, fields: 'index,title' } },
       ]);
       return { gid: hit.properties.sheetId, title: name, reused: true };
     }

@@ -458,7 +458,8 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
           </div>
         )}
 
-        {c && agreementDone && !cancelled && (role === 'agent' || role === 'admin') ? (
+        {/* 발송은 관리자만 — 서버 canSendChakhandealContract 와 같은 축. 영업자에게 보였다 403 나는 버튼을 없앤다. */}
+        {c && agreementDone && !cancelled && role === 'admin' ? (
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
             <ChakhandealEsignButton contractCode={String(c.contract_code)} onSent={() => load(selectionEpoch.current)} />
           </div>

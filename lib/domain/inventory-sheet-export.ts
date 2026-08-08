@@ -37,6 +37,8 @@ export const MONTHS = [12, 18, 24, 36, 48, 60];
 export const HEADERS = [
   // 상품코드 = 손님 카탈로그 링크(/q/{코드})를 만드는 데만 쓴다. 표에서는 숨긴다.
   '상품코드',
+  // 숨긴 원본은 **다 담는다.** 표에서 빼는 것과 원본에서 빼는 것은 다른 일이다 —
+  // 여기서 「모델」을 빼면 사진 옆 차종을 채울 값 자체가 없어진다.
   '차량번호', '상태', '상품', '제조사', '모델', '세부모델', '파워', '트림', '옵션',
   '외장', '내장', '연식', '주행', '연료', '공급사', '심사', '조건',
   ...MONTHS.flatMap((m) => [`${m}개월`, `${m}개월 보증금`]),
@@ -198,10 +200,20 @@ function colLetter(index: number): string {
  *
  * 기간 칸은 앱과 같이 **한 칸에 두 줄**(대여료↵보증금)이다. 보증금 별도 열을 만들지 않는다.
  */
+/**
+ * 열 순서 — **영업이 손님과 말하는 순서**다.
+ *   어느 차인가(차번·상태·차종) → 얼마인가(기간별 대여료) → 그 밖의 조건(공급사·심사·조건).
+ *
+ * 예전에는 대여료가 맨 끝이라 가로로 끝까지 밀어야 값이 보였다. 손님이 제일 먼저 묻는 것이
+ * 값인데 그게 화면 밖에 있었다. 연료 다음으로 당긴다.
+ */
 const TABLE_COLUMNS = [
-  '차량번호', '상태', '상품', '제조사', '모델', '세부모델', '파워', '트림', '옵션',
-  '외장', '내장', '연식', '주행', '연료', '공급사', '심사', '조건',
+  // 「모델」은 사진 옆 「차종」으로, 「차량번호」는 요약 맨 앞으로 갔다.
+  // 같은 값을 두 번 두면 가로만 길어진다.
+  '상태', '상품', '제조사', '세부모델', '파워', '트림', '옵션',
+  '외장', '내장', '연식', '주행', '연료',
   ...MONTHS.map((m) => `${m}개월`),
+  '공급사', '심사', '조건',
 ];
 /**
  * 열 너비 — 실제 값 길이에 맞춘다.
@@ -216,12 +228,26 @@ const TABLE_WIDTH: Record<string, number> = {
 
 /* 화면 좌표 — 제목줄 없음. 「몇 대·언제」는 탭 이름이 이미 말한다(중복 금지). */
 const COL_NO = 0;
-const COL_PHOTO = 1;     // 사진 썸네일(=IMAGE)
-const COL_NAME = 2;      // 차량명 — 제조사+모델+세부모델을 한 칸으로
-const COL_BEST = 3;      // 최저 월대여료(기간·보증금 포함)
-const COL_LINK = 4;      // 손님 카탈로그
-const COL_CODE = 5;      // 상품코드 — 링크 재료. 숨긴다.
-const COL_TABLE = 6;     // 표 시작
+const COL_PLATE = 1;     // 차량번호 — 영업이 «이 차»를 부르는 이름. 맨 앞에 둔다.
+const COL_PHOTO = 2;     // 사진 썸네일(=IMAGE)
+const COL_NAME = 3;      // 차종 — 사진 옆에서 «무슨 차인가»만 먼저 말한다
+/**
+ * 최저 대여료를 **세 칸으로 나눈다** — 기간 · 월대여료 · 보증금.
+ *   「아반떼 · 60개월 · 800,000 · 1,500,000」
+ *
+ * 예전에는 한 칸에 「640,000 ⏎ 48개월 · 보증 1,500,000」을 글자로 넣었다. 보기엔 좋았지만
+ * 그 칸이 «글자»라 숫자 필터도 정렬도 안 걸렸다(실측 2026-08-08). 영업이 제일 많이 하는 일이
+ * 「50만 이하로 걸러줘」인데 그게 막혀 있었다.
+ * 숫자서식 안에 줄바꿈을 넣어 두 줄로 보이게 할 수도 있지만(가능함을 확인했다), 둘째 줄 내용이
+ * 매물마다 달라 서식 요청이 매물 수만큼 늘어난다. 요약이니 한 칸에 하나씩 두는 편이 낫다.
+ * 기간별 전체 요금은 뒤 표에 그대로 있다 — 여기는 «가장 싼 하나»만 말한다.
+ */
+const COL_BEST_MONTH = 4;   // 최저가가 나오는 기간(개월)
+const COL_BEST_RENT = 5;    // 그 기간의 월대여료
+const COL_BEST_DEP = 6;     // 그 기간의 보증금
+const COL_LINK = 7;      // 손님 카탈로그
+const COL_CODE = 8;      // 상품코드 — 링크 재료. 숨긴다.
+const COL_TABLE = 9;     // 표 시작
 const ROW_HEAD = 0;
 const ROW_DATA = 1;
 
@@ -273,27 +299,51 @@ export function buildInventorySheet(
 
   const head = blank();
   head[COL_NO] = 'No.';
+  head[COL_PLATE] = '차량번호';
   head[COL_PHOTO] = '사진';
-  head[COL_NAME] = '차량명';
-  head[COL_BEST] = '최저 월대여료';
+  head[COL_NAME] = '차종';
+  head[COL_BEST_MONTH] = '기간';
+  head[COL_BEST_RENT] = '월대여료';
+  head[COL_BEST_DEP] = '보증금';
   head[COL_LINK] = '카탈로그';
   head[COL_CODE] = '상품코드';
   TABLE_COLUMNS.forEach((name, i) => { head[COL_TABLE + i] = name; });
   values.push(head);
+
+  /** 두 줄 칸 자리 — 둘째 줄만 옅게 하려면 셀마다 글자 조각을 따로 보내야 한다. */
+  const twoLine: { r: number; c: number; split: number }[] = [];
 
   raw.forEach((row, r) => {
     const line = blank();
     line[COL_NO] = r + 1;
     const code = S(row[at('상품코드')]);
     const plate = S(row[at('차량번호')]).replace(/\s/g, '');
+    line[COL_PLATE] = plate;
 
-    // 사진 — 셀 안에 맞춰 넣는다(mode 1). 없으면 빈 칸.
+    /**
+     * 사진 — 셀 안에 맞춰 넣고(mode 1), **누르면 손님 카탈로그로 간다.**
+     * 영업이 제일 먼저 누르는 것이 사진인데 거기 링크가 없어 오른쪽 「카탈로그」 칸까지
+     * 가로로 밀어야 했다. 구글시트는 `=IMAGE` 를 `=HYPERLINK` 로 감싸면 그림이 링크가 된다.
+     */
     const photo = S(photoByPlate[plate]);
-    line[COL_PHOTO] = photo ? `=IMAGE("${photo.replace(/"/g, '""')}",1)` : '';
+    const img = photo ? `IMAGE("${photo.replace(/"/g, '""')}",1)` : '';
+    const detail = code && base ? `"${base}/q/"&ENCODEURL("${code.replace(/"/g, '""')}")` : '';
+    /**
+     * 사진이 없어도 **그 칸은 여전히 상세로 가는 문**이다.
+     * 영업은 사진 자리를 누르는 버릇이 드는데 사진 없는 차만 안 열리면 «고장 난 줄» 안다.
+     * 그림 대신 「사진없음」 글자를 링크로 건다.
+     */
+    line[COL_PHOTO] = detail
+      ? `=HYPERLINK(${detail},${img || '"사진없음"'})`
+      : (img ? `=${img}` : '');
 
-    // 차량명 — 제조사·모델·세부모델이 세 칸에 흩어져 있어 한눈에 안 읽힌다. 한 칸으로 합친다.
-    line[COL_NAME] = [S(row[at('제조사')]), S(row[at('모델')]), S(row[at('세부모델')])]
-      .filter(Boolean).join(' ');
+    /**
+     * 사진 옆은 **차종 한 마디**다.
+     * 예전에는 제조사+모델+세부모델을 다 붙여 「기아 카니발 더 뉴 카니발 KA4」처럼 길었고,
+     * 정작 표 안에도 같은 값이 또 있었다. 사진 옆에서는 「카니발」만 알면 된다 —
+     * 제조사·세부모델·트림은 표에서 이어 본다.
+     */
+    line[COL_NAME] = S(row[at('모델')]) || S(row[at('세부모델')]);
 
     // 최저 월대여료 — 손님이 처음 묻는 값. 기간·보증금까지 한 칸에.
     let best: { m: number; rent: number; dep: number } | null = null;
@@ -302,9 +352,12 @@ export function buildInventorySheet(
       if (rent <= 0) continue;
       if (!best || rent < best.rent) best = { m, rent, dep: Number(row[at(`${m}개월 보증금`)]) || 0 };
     }
-    line[COL_BEST] = best
-      ? `${best.rent.toLocaleString('ko-KR')}\n${best.m}개월 · 보증 ${best.dep > 0 ? best.dep.toLocaleString('ko-KR') : '0'}`
-      : '';
+    // 숫자로 넣는다 — 글자로 넣으면 「50만 이하」 같은 필터가 안 걸린다.
+    if (best) {
+      line[COL_BEST_MONTH] = best.m;
+      line[COL_BEST_RENT] = best.rent;
+      line[COL_BEST_DEP] = best.dep;
+    }
 
     // 손님 카탈로그(/q) — 로그인 없이 열리는 공개 견적. 손님에게 그대로 보내도 된다.
     line[COL_LINK] = code && base
@@ -317,7 +370,14 @@ export function buildInventorySheet(
         const rent = won(row[at(name)]);
         if (!rent) { line[COL_TABLE + i] = ''; return; }
         const dep = Number(row[at(`${name} 보증금`)]) || 0;
-        line[COL_TABLE + i] = `${rent}\n${dep > 0 ? dep.toLocaleString('ko-KR') : '0'}`;
+        const text = `${rent}\n${dep > 0 ? dep.toLocaleString('ko-KR') : '0'}`;
+        line[COL_TABLE + i] = text;
+        /**
+         * 한 칸에 두 값이 있으면 **둘의 무게가 달라야** 읽힌다 —
+         * 위(대여료)는 진하게, 아래(보증금)는 옅고 작게.
+         * 셀 단위 서식으로는 못 가른다. 셀 «안»의 글자 조각(textFormatRuns)으로만 갈린다.
+         */
+        twoLine.push({ r: r + ROW_DATA, c: COL_TABLE + i, split: rent.length + 1 });
         return;
       }
       line[COL_TABLE + i] = row[at(name)] ?? '';
@@ -369,7 +429,16 @@ export function buildInventorySheet(
     // 차량명 — 이 표에서 가장 먼저 읽는 칸이라 굵게.
     { repeatCell: { range: box(ROW_DATA, lastRow, COL_NAME, COL_NAME + 1), cell: { userEnteredFormat: { wrapStrategy: 'CLIP', textFormat: { bold: true, fontSize: 10 } } }, fields: 'userEnteredFormat(wrapStrategy,textFormat)' } },
     // 최저 월대여료 — 두 줄(금액↵기간·보증)이라 줄바꿈 허용.
-    { repeatCell: { range: box(ROW_DATA, lastRow, COL_BEST, COL_BEST + 1), cell: { userEnteredFormat: { horizontalAlignment: 'RIGHT', wrapStrategy: 'WRAP', textFormat: { fontSize: 10 } } }, fields: 'userEnteredFormat(horizontalAlignment,wrapStrategy,textFormat)' } },
+    /**
+     * 요약 세 칸은 **한눈에 서열이 보여야** 한다 — 대여료가 주인공이고 기간·보증금은 곁이다.
+     * 셋을 같은 굵기로 두면 눈이 어디부터 볼지 모른다.
+     *   기간    가운데 · 옅게 · 「60개월」로 보이되 값은 숫자
+     *   대여료  진하게 · 굵게 · 조금 크게
+     *   보증금  옅게 · 작게
+     */
+    { repeatCell: { range: box(ROW_DATA, lastRow, COL_BEST_MONTH, COL_BEST_MONTH + 1), cell: { userEnteredFormat: { horizontalAlignment: 'CENTER', numberFormat: { type: 'NUMBER', pattern: '0"개월"' }, textFormat: { fontSize: 10, foregroundColor: rgb('64748B') } } }, fields: 'userEnteredFormat(horizontalAlignment,numberFormat,textFormat)' } },
+    { repeatCell: { range: box(ROW_DATA, lastRow, COL_BEST_RENT, COL_BEST_RENT + 1), cell: { userEnteredFormat: { horizontalAlignment: 'RIGHT', numberFormat: { type: 'NUMBER', pattern: '#,##0' }, textFormat: { bold: true, fontSize: 11, foregroundColor: rgb(INK) } } }, fields: 'userEnteredFormat(horizontalAlignment,numberFormat,textFormat)' } },
+    { repeatCell: { range: box(ROW_DATA, lastRow, COL_BEST_DEP, COL_BEST_DEP + 1), cell: { userEnteredFormat: { horizontalAlignment: 'RIGHT', numberFormat: { type: 'NUMBER', pattern: '#,##0' }, textFormat: { fontSize: 9, foregroundColor: rgb('94A3B8') } } }, fields: 'userEnteredFormat(horizontalAlignment,numberFormat,textFormat)' } },
     { repeatCell: { range: box(ROW_DATA, lastRow, COL_TABLE, COL_TABLE + 1), cell: { userEnteredFormat: { textFormat: { bold: true, fontSize: 10 } } }, fields: 'userEnteredFormat.textFormat' } },
     { addBanding: { bandedRange: { range: box(ROW_HEAD, lastRow, 0, tableEnd), rowProperties: { headerColor: rgb(INK), firstBandColor: rgb('FFFFFF'), secondBandColor: rgb('F8FAFC') } } } },
     // ★기본 헤더 필터 — 각 열 머리의 화살표로 거른다. 값이 정적이라 정렬도 그대로 된다.
@@ -383,7 +452,10 @@ export function buildInventorySheet(
     { updateDimensionProperties: { range: { sheetId: gid, dimension: 'COLUMNS', startIndex: COL_NO, endIndex: COL_NO + 1 }, properties: { pixelSize: 42 }, fields: 'pixelSize' } },
     { updateDimensionProperties: { range: { sheetId: gid, dimension: 'COLUMNS', startIndex: COL_PHOTO, endIndex: COL_PHOTO + 1 }, properties: { pixelSize: 92 }, fields: 'pixelSize' } },
     { updateDimensionProperties: { range: { sheetId: gid, dimension: 'COLUMNS', startIndex: COL_NAME, endIndex: COL_NAME + 1 }, properties: { pixelSize: 190 }, fields: 'pixelSize' } },
-    { updateDimensionProperties: { range: { sheetId: gid, dimension: 'COLUMNS', startIndex: COL_BEST, endIndex: COL_BEST + 1 }, properties: { pixelSize: 116 }, fields: 'pixelSize' } },
+    // 값 길이에 맞춘다 — 「60개월」 3~4글자 · 「1,850,000」 9글자 · 보증금은 9pt 라 조금 좁아도 된다.
+    { updateDimensionProperties: { range: { sheetId: gid, dimension: 'COLUMNS', startIndex: COL_BEST_MONTH, endIndex: COL_BEST_MONTH + 1 }, properties: { pixelSize: 64 }, fields: 'pixelSize' } },
+    { updateDimensionProperties: { range: { sheetId: gid, dimension: 'COLUMNS', startIndex: COL_BEST_RENT, endIndex: COL_BEST_RENT + 1 }, properties: { pixelSize: 104 }, fields: 'pixelSize' } },
+    { updateDimensionProperties: { range: { sheetId: gid, dimension: 'COLUMNS', startIndex: COL_BEST_DEP, endIndex: COL_BEST_DEP + 1 }, properties: { pixelSize: 92 }, fields: 'pixelSize' } },
     { updateDimensionProperties: { range: { sheetId: gid, dimension: 'COLUMNS', startIndex: COL_LINK, endIndex: COL_LINK + 1 }, properties: { pixelSize: 58 }, fields: 'pixelSize' } },
   ];
 
@@ -445,5 +517,37 @@ export function buildInventorySheet(
       },
     },
   });
+  /**
+   * 두 줄 칸의 **둘째 줄만** 옅고 작게 — 셀 안 글자 조각으로 가른다.
+   * 같은 열의 이웃한 칸끼리 묶어 요청 수를 줄인다(칸마다 보내면 수천 건이 된다).
+   */
+  for (const cell of twoLine) {
+    requests.push({
+      updateCells: {
+        range: box(cell.r, cell.r + 1, cell.c, cell.c + 1),
+        rows: [{
+          values: [{
+            textFormatRuns: [
+              { startIndex: 0, format: { bold: true, fontSize: 10, foregroundColor: rgb(INK) } },
+              { startIndex: cell.split, format: { bold: false, fontSize: 8, foregroundColor: rgb('94A3B8') } },
+            ],
+          }],
+        }],
+        fields: 'textFormatRuns',
+      },
+    });
+  }
+
+  /**
+   * 가로줄 — **얇고 연하게.** 줄이 없으면 눈이 옆 행으로 미끄러지고,
+   * 진하면 표가 격자에 갇혀 값보다 선이 먼저 보인다.
+   */
+  requests.push({
+    updateBorders: {
+      range: box(ROW_DATA, lastRow, 0, tableEnd),
+      innerHorizontal: { style: 'SOLID', width: 1, color: rgb('E2E8F0') },
+    },
+  });
+
   return { values, requests };
 }

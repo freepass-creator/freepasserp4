@@ -4,12 +4,14 @@ import type { ReactNode } from 'react';
 import {
   MessageCircleMore, MessageCircle, MessageCircleWarning, MessageCircleCheck, MessageCircleX,
   FileText, FileClock, FileCheck2, FileX2, ClipboardList,
+  FileSignature, Send, MailOpen, PenLine, TimerOff,
   CircleCheck, Package, Handshake, Ban, Car, ShieldCheck, Plus,
   Building2, UserPlus, UserRoundCheck, UserRoundX,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { ROLE_LABEL_RAW, type EntityRecord } from '@/lib/intake/entities';
 import { contractStage, getProgress, isContractInProgress } from '@/lib/domain/contract';
+import type { EsignStage } from '@/lib/domain/esign-progress';
 import {
   UNKNOWN_VEHICLE_STATUS,
   canonProductType,
@@ -481,6 +483,70 @@ export function SettlementListRow({
                 display.providerName || null,
                 display.agentName || null,
                 settlementCode ? <span key="c" style={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{settlementCode}</span> : null,
+              ]) || '—'}
+            </FeedSub>
+          </div>
+        </div>,
+      ]}
+    />
+  );
+}
+
+/**
+ * 계약서관리 목록 — 차량명·진행(n/8) / 상태뱃지·차번·계약번호·고객·발송일 2줄.
+ *
+ * `ContractListRow` 와 나란히 두되 **진행 축이 다르다** — 저긴 우리 5단계, 여긴 손님 8단계.
+ * 같은 화면에 안 섞이므로 «n/8» 이 무엇인지 헷갈리지 않는다(`esign-progress.ts` 머리말).
+ */
+function esignStatusIcon(stage: EsignStage): { icon: LucideIcon; tone: BadgeTone; title: string } {
+  if (stage.state === '서명완료') return { icon: FileCheck2, tone: 'green', title: '서명완료' };
+  if (stage.state === '반려') return { icon: FileX2, tone: 'red', title: '반려' };
+  if (stage.state === '만료') return { icon: TimerOff, tone: 'red', title: '만료' };
+  if (stage.state === '미발송') return { icon: FileSignature, tone: 'gray', title: '미발송' };
+  if (stage.state === '열람') return { icon: MailOpen, tone: 'blue', title: '열람' };
+  if (stage.state === '진행중') return { icon: PenLine, tone: 'amber', title: stage.label };
+  return { icon: Send, tone: 'blue', title: '발행' };
+}
+
+export function EsignListRow({
+  contract, stage, selected, onClick, vehicleName,
+}: {
+  contract: EntityRecord;
+  stage: EsignStage;
+  selected?: boolean;
+  onClick: () => void;
+  vehicleName?: string;
+}) {
+  const ic = esignStatusIcon(stage);
+  const title = vehicleName || contractVehicleLabel(contract) || '차량명 미확정';
+  const contractCode = String(contract.contract_code || '').trim();
+  const sentAt = Number(contract.sign_sent_at) || 0;
+  // 발행 전에는 «0/8» 을 띄우지 않는다 — 아직 시작도 안 한 건과 1단계에서 멈춘 건이 같아 보인다.
+  const showProgress = stage.state === '진행중';
+  return (
+    <FeedListRow
+      selected={selected}
+      onClick={onClick}
+      thumb={<FeedThumbIcon icon={ic.icon} tone={ic.tone} title={ic.title} decorative />}
+      lines={[
+        <FeedTitleRow
+          key="t"
+          title={<FeedTitle>{title}</FeedTitle>}
+          meta={showProgress ? (
+            <span style={{ fontSize: FS.sub, fontWeight: FW.head, color: C.warn, fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>
+              {stage.done}/{stage.total}
+            </span>
+          ) : null}
+        />,
+        <div key="s" style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden', width: '100%' }}>
+          <Badge tone={ic.tone} variant={stage.tone === 'red' ? 'solid' : 'fill'}>{stage.label}</Badge>
+          <div style={{ flex: '1 1 auto', minWidth: 0, overflow: 'hidden' }}>
+            <FeedSub>
+              {dotJoin([
+                plateSpan(String(contract.car_number_snapshot || '')),
+                contractCode ? <span key="c" style={{ fontSize: FS.cap, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', color: C.mute, fontWeight: FW.strong }}>{contractCode}</span> : null,
+                contract.customer_name ? String(contract.customer_name) : null,
+                sentAt ? <span key="d" style={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{new Date(sentAt).toISOString().slice(0, 10)}</span> : null,
               ]) || '—'}
             </FeedSub>
           </div>

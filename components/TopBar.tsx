@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect, useCallback, type CSSProperties, type ReactNode } from 'react';
-import { Menu, X, Search, FileText, ScrollText, Settings, ChevronLeft, List, History, Users, Wrench, HelpCircle, Sparkles, RefreshCw, type LucideIcon } from 'lucide-react';
+import { Menu, X, Search, FileText, FileSignature, ScrollText, Settings, ChevronLeft, List, History, Users, Wrench, HelpCircle, Sparkles, RefreshCw, type LucideIcon } from 'lucide-react';
 import { useAppBarSlots } from '@/lib/appbar';
 import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
@@ -38,6 +38,8 @@ const GROUPS: { title: string; items: { href?: string; label: string; icon: Luci
     { href: '/policy', label: NAV_LABEL.policy, icon: ScrollText, roles: ['provider', 'admin'] },
   ] },
   { title: '관리자', items: [
+    // 발송이 관리자 전용이라 목록도 관리자에게만 연다(canSendChakhandealContract 와 같은 축).
+    { href: '/esign', label: NAV_LABEL.esign, icon: FileSignature, roles: ['admin'] },
     { href: '/settlement', label: NAV_LABEL.settlement, icon: FileText, roles: ['admin'] },
     { href: '/members', label: NAV_LABEL.members, icon: Users, roles: ['admin'] },
     { href: '/audit', label: NAV_LABEL.audit, icon: History, roles: ['admin'] },
@@ -61,6 +63,7 @@ function statusFromPath(path: string): ReactNode {
   if (path.startsWith('/sonogong')) return <PageStatus icon={RefreshCw} label="중고차 렌트구독 견적기" />;
   if (path.startsWith('/welrix')) return <PageStatus icon={Sparkles} label="신차장기렌터카 견적기" />;
   if (path.startsWith('/policy')) return <PageStatus icon={statusIconFor('정책')} label={NAV_LABEL.policy} />;
+  if (path.startsWith('/esign')) return <PageStatus icon={FileSignature} label={NAV_LABEL.esign} />;
   if (path.startsWith('/settlement')) return <PageStatus icon={statusIconFor('정산')} label={NAV_LABEL.settlement} />;
   if (path.startsWith('/members')) return <PageStatus icon={statusIconFor('회원')} label={NAV_LABEL.members} />;
   if (path.startsWith('/audit')) return <PageStatus icon={statusIconFor('감사')} label={NAV_LABEL.audit} />;

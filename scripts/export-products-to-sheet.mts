@@ -119,7 +119,8 @@ async function main() {
   const gidArg = arg('gid');
   const overwrite = gidArg
     ? meta.sheets.find((s) => String(s.properties.sheetId) === gidArg)
-    : tab ? meta.sheets.find((s) => s.properties.title === tab) : undefined;
+    // 탭 이름 뒤에 갱신시각·대수가 붙으므로 «앞말»로 찾는다.
+    : tab ? meta.sheets.find((s) => s.properties.title.startsWith(tab)) : undefined;
   if ((gidArg || tab) && !overwrite) throw new Error(`덮어쓸 탭 없음 — ${gidArg ? `gid ${gidArg}` : `「${tab}」`}`);
   console.log(overwrite
     ? `  대상 — 기존 탭 「${overwrite.properties.title}」 덮어쓰기 (이름 유지)`
@@ -181,8 +182,17 @@ async function main() {
 
   // 서식은 값과 별개다. 실패해도 값은 이미 들어갔으므로 오류를 삼키지 말고 그대로 알린다.
   const requests = built.requests;
-  // 맨 앞으로만 올린다. 이름은 건드리지 않는다 — 영업자가 「상품리스트」로 즐겨찾기해 둔다.
-  if (overwrite) requests.push({ updateSheetProperties: { properties: { sheetId: gid, index: 0 }, fields: 'index' } });
+  /**
+   * 맨 앞으로 올리고, 탭 이름에 **갱신시각·대수**를 싣는다 —
+   * 탭을 열지 않고도 최신인지 알 수 있어야 영업자가 어제 것을 붙들고 팔지 않는다.
+   * 앞말(`상품리스트`)은 그대로라 즐겨찾기해 둔 gid 링크는 안 깨진다.
+   */
+  if (overwrite) {
+    const kst = new Date(Date.now() + 9 * 3600 * 1000).toISOString();
+    const stamped = `${tab || '상품리스트'} ${kst.slice(5, 10).replace('-', '.')} ${kst.slice(11, 16)} · ${sheetRows.length}대`;
+    requests.push({ updateSheetProperties: { properties: { sheetId: gid, index: 0, title: stamped }, fields: 'index,title' } });
+    title = stamped;
+  }
   const fmt = await fetch(`${api}:batchUpdate`, { method: 'POST', headers: head, body: JSON.stringify({ requests }) });
   if (!fmt.ok) {
     console.log(`\n  ⚠ 값은 들어갔으나 서식 적용 실패 ${fmt.status} — ${(await fmt.text()).slice(0, 400)}\n`);

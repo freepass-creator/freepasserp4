@@ -10,7 +10,7 @@ export function routeKey(path: string): string {
   if (path.startsWith('/m/')) return '/';
   const roots = [
     '/chat', '/contract', '/inventory', '/settings', '/policy',
-    '/settlement', '/members', '/audit', '/data-check', '/dev',
+    '/esign', '/settlement', '/members', '/audit', '/data-check', '/dev',
   ];
   for (const r of roots) {
     if (path === r || path.startsWith(`${r}/`)) return r;
