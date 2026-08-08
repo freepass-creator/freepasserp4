@@ -17,6 +17,31 @@ import { useEffect, useState } from 'react';
  */
 const VAR = '--fp-col-l';
 
+/**
+ * 어떤 블록의 높이를 CSS 변수로 알린다 — 다른 칼럼이 그만큼 내려와 **윗선을 맞출** 때 쓴다.
+ *
+ * 상세 본문은 차명·칩 머리가 먼저 오고 그 아래가 사진이다. 우측 대여료 카드는 머리가 없으니
+ * 그냥 두면 사진보다 위에서 시작한다. 머리 높이를 재서 그만큼 내리면 **사진과 같은 선**에 선다.
+ * 글자가 두 줄로 접히면 높이가 달라지므로 상수로 박지 않고 잰다.
+ */
+export function useReportedHeight<T extends HTMLElement>(cssVar: string): (node: T | null) => void {
+  const [node, setNode] = useState<T | null>(null);
+  useEffect(() => {
+    if (!node || typeof window === 'undefined') return;
+    const measure = () => {
+      document.documentElement.style.setProperty(cssVar, `${Math.round(node.getBoundingClientRect().height)}px`);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(node);
+    return () => {
+      ro.disconnect();
+      document.documentElement.style.removeProperty(cssVar);
+    };
+  }, [node, cssVar]);
+  return setNode;
+}
+
 export function useContentColumn<T extends HTMLElement>(): (node: T | null) => void {
   // ref 객체가 아니라 state 로 받는다 — 본문은 로딩이 끝난 뒤에야 붙으므로(early return),
   //  deps [] 이펙트로는 «나중에 생긴 노드»를 영영 못 본다.

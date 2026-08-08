@@ -12,6 +12,7 @@ import {
 import { FavHeart } from '@/components/FavHeart';
 import { ProductPhotoImage, ProductPhotoPlaceholder } from '@/components/ProductPhoto';
 import { ProductPriceTable } from '@/components/ProductPriceTable';
+import { useReportedHeight } from '@/lib/content-column';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 /**
@@ -94,6 +95,8 @@ export function ProductDetail({ p, audience, layout = 'brochure', priceAside = f
   const pol = (p._policy || {}) as Record<string, unknown>;
   const caption = [pol.basic_driver_age, pol.annual_mileage, pol.insurance_included].filter(Boolean).join(' · ');
   const { idMain, idExt } = idParts(p);
+  // 머리(차명·칩) 높이 = 우측 카드가 내려와야 할 만큼. 사진과 윗선을 맞추는 유일한 근거다.
+  const headRef = useReportedHeight<HTMLDivElement>('--fp-detail-head-h');
   /** work = 차량번호를 요약바가 이미 들고 있다. 세부표에서 한 번 더 찍지 않는다(같은 값 세 번 → 표가 길어 보인다). */
   const kvRows = (rows: [string, string][]) => (work ? rows.filter(([k]) => k !== '차량번호') : rows);
 
@@ -102,7 +105,8 @@ export function ProductDetail({ p, audience, layout = 'brochure', priceAside = f
       {/* 1 헤더 — 차명 → 차번·상태·상품·심사 → 우대·이벤트 (원자 공용).
           work 에서는 차명·차번을 상단 요약바(ProductWorkBar)가 이미 고정으로 들고 있어 제목 줄을 뺀다.
           대신 사진 위에 얹혀 있던 관심(하트)이 사라지지 않게 칩 줄로 내려 붙인다. */}
-      <div style={{ marginBottom: 11 }}>
+      {/* 머리 높이를 알린다(--fp-detail-head-h) — 우측 대여료 카드가 그만큼 내려와 사진과 같은 선에 선다. */}
+      <div ref={headRef} style={{ marginBottom: 11 }}>
         {!work && (
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
             <h1 style={{ fontSize: FS.page, fontWeight: FW.title, letterSpacing: '-0.02em', margin: 0, lineHeight: 1.25 }}>{idMain}</h1>
