@@ -176,6 +176,19 @@ export const periodColumnName = (key: string) => {
 };
 
 /**
+ * 기간 열의 «주행 기준»을 사람이 읽을 말로.
+ *
+ * 기간마다 약정주행이 다른 공급사가 있다 — 오토플러스는 12개월만 3만km 기준이고
+ * 18·24·36개월은 2만/3만이 따로 있다. 열 이름만으로는 「12개월」이 무슨 주행인지 알 수 없어
+ * 영업이 손님에게 잘못 말한다. 헤더 셀 메모로 붙여 둔다(행을 안 먹는다).
+ */
+export const periodColumnNote = (key: string): string => {
+  const [months, km] = key.split('_');
+  if (!km) return '월 대여료(원, 숫자만)';
+  return `${months}개월 · 약정주행 연 ${km}km 기준 · 월 대여료(원, 숫자만)`;
+};
+
+/**
  * 기간 열을 만든다. 표준 6종은 늘 두고, **그 공급사가 실제로 쓰는 기간만** 덧붙인다.
  *
  * 왜 덧붙이나 — 오토플러스는 18개월과 주행 변형(24개월2만·24개월3만)을 쓴다(179대, 실측).
@@ -190,9 +203,9 @@ export function buildPeriodColumns(usedKeys: string[] = []): { name: string; not
   const sortKeys = (ks: string[]) => [...new Set(ks)].sort((a, b) => monthOf(a) - monthOf(b) || a.localeCompare(b));
   return [
     { name: '단기보증', note: '보증금(원). 오른쪽 단기 기간을 관할한다', required: true },
-    ...sortKeys(short).map((k) => ({ name: periodColumnName(k), note: k === '12' ? '월 대여료(원, 숫자만)' : '' })),
+    ...sortKeys(short).map((k) => ({ name: periodColumnName(k), note: periodColumnNote(k) })),
     { name: '장기보증', note: '보증금(원). 오른쪽 장기 기간을 관할한다', required: true },
-    ...sortKeys(long).map((k) => ({ name: periodColumnName(k), note: '' })),
+    ...sortKeys(long).map((k) => ({ name: periodColumnName(k), note: periodColumnNote(k) })),
     // 표준 밖 기간을 파는 렌트사를 위한 여백 3칸.
     // 파서는 **헤더 이름**으로 기간을 잡으므로(`\d+개월` + 선택적 `N만`), 렌트사가 이 칸의
     // «제목»을 「18개월」·「24개월2만」 으로 바꿔 쓰면 그대로 연동된다. 비워 두면 무시된다 —
