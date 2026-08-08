@@ -151,7 +151,7 @@
       "name": "오토플러스 주식회사",
       "title": "[프리패스] 오토플러스 주식회사 재고시트",
       "erp_count": 179,
-      "sheet_id": "DRYRUN_RP023",
+      "sheet_id": "",
       "mode": "mirror",
       "source_label": "공급사 시트 연동(보관용)"
     },

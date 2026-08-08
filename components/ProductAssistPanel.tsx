@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import type { EntityRecord } from '@/lib/intake/entities';
@@ -14,10 +14,11 @@ import { NAV_LABEL } from '@/lib/tabbar';
 import { useIsMobile } from '@/lib/use-mobile';
 
 /**
- * 매물 상세 옆 **보조 칼럼** — 위=지금 할 계약 액션(작게) / 아래=계약문의 채팅(나머지).
+ * 매물 상세 옆 **보조 칼럼** — 위=대여료·계약 / 아래=채팅.
  *
- * ★문서 흐름 안의 칼럼(`sticky`). 계약 버튼은 `ContractPanel` focus 만 — 엔진 이중 구현 금지.
- * ★위칸은 내용 높이만. 안쪽에 ListGroup 카드(또 박스)를 얹지 않는다 — aside 테두리 하나면 충분.
+ * ★넓은 화면 = `position:fixed` 뷰포트 고정. 본문(매물정보)이 스크롤돼도 보조패널은 안 움직인다.
+ *   플로우에는 폭만 잡는 spacer 를 두어 본문이 밑으로 파고들지 않게 한다.
+ * ★계약 버튼은 `ContractPanel` focus 만 — 엔진 이중 구현 금지.
  */
 
 export const ASSIST_BP = 1200;
@@ -37,12 +38,15 @@ export function useAssistColumn(): boolean {
 }
 
 const CONTRACT_HEAD = '계약진행';
+const CHROME_GAP = 14;
 
 export function ProductAssistPanel({ product, role }: { product: EntityRecord; role: Role }) {
   const narrow = useIsMobile(ASSIST_BP);
   const co = getCompanyId();
   const [roomId, setRoomId] = useState('');
   const [contract, setContract] = useState<EntityRecord | null | undefined>(undefined);
+  const slotRef = useRef<HTMLDivElement | null>(null);
+  const [fixedBox, setFixedBox] = useState<{ left: number; width: number } | null>(null);
 
   const code = String(product.product_code || '');
 
@@ -73,54 +77,50 @@ export function ProductAssistPanel({ product, role }: { product: EntityRecord; r
     reloadContract();
   }, [narrow, canDeal, reloadContract]);
 
+  // spacer 의 left → fixed 패널이 같은 세로선에 선다(창 리사이즈·스크롤바 대응).
+  useEffect(() => {
+    if (narrow) {
+      setFixedBox(null);
+      return;
+    }
+    const slot = slotRef.current;
+    if (!slot) return;
+    const measure = () => {
+      const r = slot.getBoundingClientRect();
+      setFixedBox({ left: Math.round(r.left), width: Math.round(r.width) });
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(slot);
+    ro.observe(document.documentElement);
+    window.addEventListener('resize', measure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  }, [narrow, code]);
+
   // 좁은 화면 = 본문 아래로 **쌓는다**. 딜을 진행하지 않는 역할에는 쌓을 것이 없다.
-  //  (가격표는 좁을 때 본문 제자리에 있으므로 여기서 또 그리지 않는다.)
   if (narrow && !canDeal) return null;
 
   const stage = contractStage(contract);
   const stageBadge = contract ? <Badge tone={stage.tone}>{stage.label}</Badge> : null;
 
-  const chromeGap = 14;
-  // 본문 머리(차명·칩)만큼 내려온다 → 대여료 카드 윗선 = 사진 윗선(2026-08-08 사장님).
+  // 본문 머리(차명·칩)만큼 — 대여료 카드 윗선 = 사진 윗선(2026-08-08 사장님).
   const headOffset = 'var(--fp-detail-head-h, 0px)';
-  // 계약·대화가 붙는 역할만 높이를 다 쓴다. 위는 사진 윗선, **아래는 하단독 위에서 멈춘다** —
-  //  독(이전·공유·계약문의)이 스크롤 중 화면 아래에 붙어 있으므로 거기까지 내려가면 가려진다.
-  //  가격만 있는 역할(공급사·둘러보기)은 내용 높이로 선다. 안 그러면 표 밑이 빈 상자가 된다.
-  const paneH = canDeal
-    ? `calc(100dvh - var(--topbar-h) - var(--fp-tabbar-h, 0px) - var(--fp-bar-h) - var(--fp-dock-safe, 0px) - ${chromeGap * 2}px - ${headOffset})`
-    : undefined;
+  // fixed 는 뷰포트 기준 — 상단바 아래 + 머리 정렬.
+  // 바닥은 sticky 하단독(이전·공유·계약문의) **윗선에 딱** — 여백 없이 맞닿게.
+  const fixedTop = `calc(var(--topbar-h) + ${CHROME_GAP}px + ${headOffset})`;
+  const fixedBottom = `calc(var(--fp-bar-h) + var(--fp-dock-safe, 0px))`;
 
-  return (
-    <aside
-      aria-label={narrow ? '계약·대화' : '매물 보조 칼럼'}
-      style={narrow
-        // 좁은 화면 = 상세 끝나는 자리에 **계약진행 → 채팅** 순으로 쌓는다(2026-08-08 사장님).
-        ? { display: 'flex', flexDirection: 'column', gap: 10, marginTop: 14, width: '100%', minWidth: 0 }
-        : {
-          position: 'sticky',
-          top: chromeGap,
-          alignSelf: 'flex-start',
-          marginTop: headOffset,
-          height: paneH,
-          maxHeight: paneH,
-          flex: '0 0 380px', width: 380,
-          display: 'flex', flexDirection: 'column', gap: 10,
-          minHeight: 0,
-        }}
-    >
-      {/* 맨 위 = 돈. 헤이딜러처럼 본문은 차 설명, 우측은 «얼마에 · 어떻게 진행»이다.
-          좁은 화면에서는 가격표가 본문 제자리에 있으므로 여기서 또 그리지 않는다. */}
-      {narrow ? null : (
-        <AsideCard title="대여료 / 보증금">
-          <ProductPriceTable p={product} bare />
-        </AsideCard>
-      )}
-
-      {/* 대여료까지는 손님·영업·공급·관리자가 **다 같다**. 그 밑에 붙는 것만 역할별이다
-          (2026-08-08 결정). 딜을 진행하지 않는 역할에는 아래를 그리지 않는다. */}
+  const body = (
+    <>
+      <AsideCard title="대여료 / 보증금">
+        <ProductPriceTable p={product} bare />
+      </AsideCard>
       {!canDeal ? null : (
         <>
-          <AsideCard title={CONTRACT_HEAD} right={stageBadge} cap={narrow ? undefined : '42%'}>
+          <AsideCard title={CONTRACT_HEAD} right={stageBadge} cap="42%">
             <ContractPanel
               product={product}
               roomId={roomId || undefined}
@@ -128,15 +128,80 @@ export function ProductAssistPanel({ product, role }: { product: EntityRecord; r
               onChange={reloadContract}
             />
           </AsideCard>
-          {/* 쌓을 때 대화는 화면 절반 — 남는 높이를 다 쓰면 페이지가 끝나지 않는다. */}
-          <AsideCard title={NAV_LABEL.chat} grow={!narrow} fixedH={narrow ? '60dvh' : undefined}>
+          <AsideCard title={NAV_LABEL.chat} grow>
             {roomId
               ? <ChatThread roomId={roomId} />
               : <div style={{ padding: 14, fontSize: FS.cap, color: C.faint }}>대화방 준비 중…</div>}
           </AsideCard>
         </>
       )}
-    </aside>
+    </>
+  );
+
+  // 좁은 화면 = 상세 끝나는 자리에 **계약진행 → 채팅** 순으로 쌓는다.
+  if (narrow) {
+    return (
+      <aside
+        aria-label="계약·대화"
+        style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 14, width: '100%', minWidth: 0 }}
+      >
+        {!canDeal ? null : (
+          <>
+            <AsideCard title={CONTRACT_HEAD} right={stageBadge}>
+              <ContractPanel
+                product={product}
+                roomId={roomId || undefined}
+                stepView="focus"
+                onChange={reloadContract}
+              />
+            </AsideCard>
+            <AsideCard title={NAV_LABEL.chat} fixedH="60dvh">
+              {roomId
+                ? <ChatThread roomId={roomId} />
+                : <div style={{ padding: 14, fontSize: FS.cap, color: C.faint }}>대화방 준비 중…</div>}
+            </AsideCard>
+          </>
+        )}
+      </aside>
+    );
+  }
+
+  return (
+    <>
+      {/* 플로우 자리만 예약 — 본문이 보조 폭을 침범하지 않게. 실패널은 fixed. */}
+      <div
+        ref={slotRef}
+        aria-hidden
+        style={{
+          flex: `0 0 ${ASSIST_W}px`,
+          width: ASSIST_W,
+          alignSelf: 'stretch',
+          pointerEvents: 'none',
+        }}
+      />
+      <aside
+        aria-label="매물 보조 칼럼"
+        style={{
+          position: 'fixed',
+          top: fixedTop,
+          bottom: canDeal ? fixedBottom : undefined,
+          left: fixedBox ? fixedBox.left : undefined,
+          width: fixedBox ? fixedBox.width : ASSIST_W,
+          // 측정 전엔 화면 밖으로 — 한 프레임 점프 방지
+          visibility: fixedBox ? 'visible' : 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 10,
+          minHeight: 0,
+          maxHeight: canDeal ? undefined : 'none',
+          zIndex: 40,
+          boxSizing: 'border-box',
+          pointerEvents: 'auto',
+        }}
+      >
+        {body}
+      </aside>
+    </>
   );
 }
 

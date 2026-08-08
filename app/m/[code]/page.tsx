@@ -12,7 +12,7 @@ import { toast } from '@/components/Toaster';
 import { ProductDetail } from '@/components/ProductDetail';
 import { SimpleInquiry } from '@/components/SimpleInquiry';
 import { ReportButton } from '@/components/ReportButton';
-import { ProductAssistPanel, useAssistColumn } from '@/components/ProductAssistPanel';
+import { ProductAssistPanel, useAssistColumn, ASSIST_GAP } from '@/components/ProductAssistPanel';
 import { actor, getRole, ensureRoom } from '@/lib/domain/deal';
 import { guestShareUrl } from '@/lib/domain/product-share';
 import { touchRecent } from '@/lib/product-interest';
@@ -136,10 +136,9 @@ export default function Detail() {
 
   return (
     <>
-      {/* 본문(브로슈어) + 보조 칼럼. 보조는 폭이 남을 때만 그려지고(ASSIST_BP) 본문 920 을 뺏지 않는다.
+      {/* 본문(브로슈어) + 보조 spacer. 보조 실패널은 fixed(뷰포트 고정) — 매물정보가 스크롤돼도 안 움직임.
           좁으면 칼럼이 사라지고 하단독 「계약문의」 → /chat 동선 그대로다. */}
-      {/* 상단 14 = 보조 sticky top 과 동일 — 본문·보조 윗선이 브라우저 높이와 같이 맞춰진다. */}
-      <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', gap: 16, width: '100%', padding: '14px 16px 0', boxSizing: 'border-box' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-start', gap: ASSIST_GAP, width: '100%', padding: '14px 16px 0', boxSizing: 'border-box' }}>
         {/* minWidth:0 — 없으면 본문이 안 줄어들어 보조 칼럼이 화면 밖으로 밀린다(flex 기본 min-content). */}
         {/* 본문 칼럼의 위치를 크롬에 알린다 — 상단 햄버거가 이 왼쪽 선을 따라온다. */}
         <main ref={colRef} style={{
