@@ -190,23 +190,25 @@ export function ProductAssistPanel({ product, role }: { product: EntityRecord; r
         <ProductPriceTable p={product} bare />
       </AsideCard>
       {inboxCard}
-      {/* 계약진행·대화는 **영업자만**. 관리자·공급사는 계약문의 페이지에서 응대한다. */}
+      {/* 계약진행은 **네 역할 중 딜을 잡는 셋** 모두에게. 관리자·공급사도 여기서 자기 몫(서류확인·
+          입금확인·출고완료)을 누른다 — 계약문의 페이지로 넘어가야 하는 건 «대화»뿐이다. */}
+      {!canDeal ? null : (
+        <AsideCard title={CONTRACT_HEAD} right={stageBadge} cap={asksRoom ? '42%' : undefined}>
+          <ContractPanel
+            product={product}
+            roomId={asksRoom ? (roomId || undefined) : undefined}
+            stepView="focus"
+            onChange={reloadContract}
+          />
+        </AsideCard>
+      )}
+      {/* 채팅창은 영업자만 — 매물이 출발점이라 상세에서 끝나야 한다. */}
       {!asksRoom ? null : (
-        <>
-          <AsideCard title={CONTRACT_HEAD} right={stageBadge} cap="42%">
-            <ContractPanel
-              product={product}
-              roomId={roomId || undefined}
-              stepView="focus"
-              onChange={reloadContract}
-            />
-          </AsideCard>
-          <AsideCard title={NAV_LABEL.chat} grow>
-            {roomId
-              ? <ChatThread roomId={roomId} />
-              : <div style={{ padding: 14, fontSize: FS.cap, color: C.faint }}>대화방 준비 중…</div>}
-          </AsideCard>
-        </>
+        <AsideCard title={NAV_LABEL.chat} grow>
+          {roomId
+            ? <ChatThread roomId={roomId} />
+            : <div style={{ padding: 14, fontSize: FS.cap, color: C.faint }}>대화방 준비 중…</div>}
+        </AsideCard>
       )}
     </>
   );
@@ -220,24 +222,22 @@ export function ProductAssistPanel({ product, role }: { product: EntityRecord; r
       >
         {!canDeal ? null : (
           <>
-            {/* 관리자·공급사는 여기서도 «몇 건 왔는지»만. 응대는 계약문의 페이지에서. */}
+            {/* 관리자·공급사는 여기서도 «몇 건 왔는지»만. 대화는 계약문의 페이지에서. */}
             {inboxCard}
+            <AsideCard title={CONTRACT_HEAD} right={stageBadge}>
+              <ContractPanel
+                product={product}
+                roomId={asksRoom ? (roomId || undefined) : undefined}
+                stepView="focus"
+                onChange={reloadContract}
+              />
+            </AsideCard>
             {!asksRoom ? null : (
-              <>
-                <AsideCard title={CONTRACT_HEAD} right={stageBadge}>
-                  <ContractPanel
-                    product={product}
-                    roomId={roomId || undefined}
-                    stepView="focus"
-                    onChange={reloadContract}
-                  />
-                </AsideCard>
-                <AsideCard title={NAV_LABEL.chat} fixedH="60dvh">
-                  {roomId
-                    ? <ChatThread roomId={roomId} />
-                    : <div style={{ padding: 14, fontSize: FS.cap, color: C.faint }}>대화방 준비 중…</div>}
-                </AsideCard>
-              </>
+              <AsideCard title={NAV_LABEL.chat} fixedH="60dvh">
+                {roomId
+                  ? <ChatThread roomId={roomId} />
+                  : <div style={{ padding: 14, fontSize: FS.cap, color: C.faint }}>대화방 준비 중…</div>}
+              </AsideCard>
             )}
           </>
         )}
