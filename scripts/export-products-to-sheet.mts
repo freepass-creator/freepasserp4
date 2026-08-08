@@ -26,6 +26,7 @@ import {
   attachPolicy, buildInventorySheet, exportTabName, policyMap, sortForSales,
 } from '../lib/domain/inventory-sheet-export';
 import { isListableProduct, isOfferableProduct } from '../lib/domain/product';
+import { companyAlias } from '../lib/domain/identity';
 import type { EntityRecord } from '../lib/intake/entities';
 
 type Rec = Record<string, any>;
@@ -71,7 +72,8 @@ async function main() {
   const nameOf = (code: string) => {
     if (!code) return '';
     const hit = Object.values(partners).find((p) => S(p.partner_code) === code || S(p._key) === code);
-    return S(hit?.partner_name || hit?.company_name);
+    // 「주식회사」·「(주)」는 법인격이지 회사 이름이 아니다 — companyAlias 하나로 통일한다.
+    return companyAlias(S(hit?.partner_name || hit?.company_name), (hit as any)?.alias);
   };
 
   const alive = Object.entries(products).filter(([, p]) => !dead(p))

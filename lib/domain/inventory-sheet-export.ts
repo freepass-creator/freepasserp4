@@ -322,21 +322,15 @@ export function buildInventorySheet(
     const plate = S(row[at('차량번호')]).replace(/\s/g, '');
 
     /**
-     * 사진 — 셀 안에 맞춰 넣고(mode 1), **누르면 손님 카탈로그로 간다.**
-     * 영업이 제일 먼저 누르는 것이 사진인데 거기 링크가 없어 오른쪽 「카탈로그」 칸까지
-     * 가로로 밀어야 했다. 구글시트는 `=IMAGE` 를 `=HYPERLINK` 로 감싸면 그림이 링크가 된다.
+     * 사진 칸 = **카탈로그로 가는 문 하나.**
+     * 그림(`=IMAGE`)을 `=HYPERLINK` 로 감싸면 링크는 셀에 실제로 들어가지만, 구글시트가
+     * 이미지 셀의 클릭을 «셀 선택»으로 먹어 눌러도 안 가는 것처럼 느껴진다.
+     * 그래서 그림을 걷고 글자 링크만 남긴다 — 사진은 카탈로그에서 크게 본다.
+     * 사진 유무는 그대로 알린다. 「사진없음」은 공급사에 사진을 달라고 할 목록이 된다.
      */
-    const photo = S(photoByPlate[plate]);
-    const img = photo ? `IMAGE("${photo.replace(/"/g, '""')}",1)` : '';
     const detail = code && base ? `"${base}/q/"&ENCODEURL("${code.replace(/"/g, '""')}")` : '';
-    /**
-     * 사진이 없어도 **그 칸은 여전히 상세로 가는 문**이다.
-     * 영업은 사진 자리를 누르는 버릇이 드는데 사진 없는 차만 안 열리면 «고장 난 줄» 안다.
-     * 그림 대신 「사진없음」 글자를 링크로 건다.
-     */
-    line[COL_PHOTO] = detail
-      ? `=HYPERLINK(${detail},${img || '"사진없음"'})`
-      : (img ? `=${img}` : '');
+    const hasPhoto = !!S(photoByPlate[plate]);
+    line[COL_PHOTO] = detail ? `=HYPERLINK(${detail},"${hasPhoto ? '사진' : '사진없음'}")` : '';
 
     /**
      * 사진 옆은 **차종 한 마디**다.
@@ -346,17 +340,9 @@ export function buildInventorySheet(
      */
     const name = S(row[at('모델')]) || S(row[at('세부모델')]);
 
-    /**
-     * **차량번호·사진·차종 셋 다 카탈로그로 가는 문이다.**
-     * 「열기」 칸 하나만 링크면 영업은 그 칸을 찾아 가로로 밀어야 한다. 눈이 닿는 곳마다
-     * 링크가 있으면 그럴 일이 없다. 특히 이미지 셀은 구글시트가 클릭을 셀 선택으로 먹어
-     * 링크가 살아 있어도 안 눌리는 것처럼 느껴진다 — 글자 칸이 그 보험이다.
-     */
-    const link = (text: string) => (detail && text
-      ? `=HYPERLINK(${detail},"${text.replace(/"/g, '""')}")`
-      : text);
-    line[COL_PLATE] = link(plate);
-    line[COL_NAME] = link(name);
+    // 링크는 사진 칸 하나로 족하다 — 차량번호·차종은 «읽는 값»이지 누르는 값이 아니다.
+    line[COL_PLATE] = plate;
+    line[COL_NAME] = name;
 
     // 최저 월대여료 — 손님이 처음 묻는 값. 기간·보증금까지 한 칸에.
     let best: { m: number; rent: number; dep: number } | null = null;
@@ -446,10 +432,9 @@ export function buildInventorySheet(
       },
     },
     { repeatCell: { range: box(ROW_DATA, lastRow, COL_NO, COL_NO + 1), cell: { userEnteredFormat: { horizontalAlignment: 'CENTER', textFormat: { fontSize: 9, foregroundColor: rgb('94A3B8') } } }, fields: 'userEnteredFormat(horizontalAlignment,textFormat)' } },
-    // 차량번호 — 링크가 걸린 칸. 파란 밑줄이면 표가 시끄러워지므로 «누를 수 있다»만 알린다.
-    { repeatCell: { range: box(ROW_DATA, lastRow, COL_PLATE, COL_PLATE + 1), cell: { userEnteredFormat: { horizontalAlignment: 'CENTER', textFormat: { fontSize: 10, foregroundColor: rgb('1E40AF') } } }, fields: 'userEnteredFormat(horizontalAlignment,textFormat)' } },
-    // 사진 — 셀 가운데. =IMAGE(…,1) 이 셀 크기에 맞춰 줄인다.
-    { repeatCell: { range: box(ROW_DATA, lastRow, COL_PHOTO, COL_PHOTO + 1), cell: { userEnteredFormat: { horizontalAlignment: 'CENTER', verticalAlignment: 'MIDDLE' } }, fields: 'userEnteredFormat(horizontalAlignment,verticalAlignment)' } },
+    { repeatCell: { range: box(ROW_DATA, lastRow, COL_PLATE, COL_PLATE + 1), cell: { userEnteredFormat: { horizontalAlignment: 'CENTER', textFormat: { fontSize: 10, foregroundColor: rgb(INK) } } }, fields: 'userEnteredFormat(horizontalAlignment,textFormat)' } },
+    // 사진 — 이 표에서 유일하게 «누르는» 칸이라 파랗게 밑줄을 둔다.
+    { repeatCell: { range: box(ROW_DATA, lastRow, COL_PHOTO, COL_PHOTO + 1), cell: { userEnteredFormat: { horizontalAlignment: 'CENTER', verticalAlignment: 'MIDDLE', textFormat: { fontSize: 10, foregroundColor: rgb('1E40AF'), underline: true } } }, fields: 'userEnteredFormat(horizontalAlignment,verticalAlignment,textFormat)' } },
     // 차량명 — 이 표에서 가장 먼저 읽는 칸이라 굵게.
     { repeatCell: { range: box(ROW_DATA, lastRow, COL_NAME, COL_NAME + 1), cell: { userEnteredFormat: { wrapStrategy: 'CLIP', textFormat: { bold: true, fontSize: 10 } } }, fields: 'userEnteredFormat(wrapStrategy,textFormat)' } },
     // 최저 월대여료 — 두 줄(금액↵기간·보증)이라 줄바꿈 허용.
@@ -474,9 +459,9 @@ export function buildInventorySheet(
      */
     { updateDimensionProperties: { range: { sheetId: gid, dimension: 'COLUMNS', startIndex: 0, endIndex: COL_TABLE }, properties: { hiddenByUser: false }, fields: 'hiddenByUser' } },
     { updateDimensionProperties: { range: { sheetId: gid, dimension: 'ROWS', startIndex: ROW_HEAD, endIndex: ROW_HEAD + 1 }, properties: { pixelSize: 30 }, fields: 'pixelSize' } },
-    // 두 줄(대여료·보증금)이 들어가는 높이.
-    // 사진이 보이려면 행이 높아야 한다 — 썸네일 기준으로 잡고 기간 두 줄도 여기 들어간다.
-    { updateDimensionProperties: { range: { sheetId: gid, dimension: 'ROWS', startIndex: ROW_DATA, endIndex: lastRow }, properties: { pixelSize: 62 }, fields: 'pixelSize' } },
+    // 두 줄(대여료·보증금)이 들어가는 최소 높이. 그림을 걷었으니 썸네일 몫은 필요 없다 —
+    // 행이 낮을수록 한 화면에 더 많은 매물이 들어온다.
+    { updateDimensionProperties: { range: { sheetId: gid, dimension: 'ROWS', startIndex: ROW_DATA, endIndex: lastRow }, properties: { pixelSize: 38 }, fields: 'pixelSize' } },
     { updateDimensionProperties: { range: { sheetId: gid, dimension: 'COLUMNS', startIndex: COL_NO, endIndex: COL_NO + 1 }, properties: { pixelSize: 42 }, fields: 'pixelSize' } },
     { updateDimensionProperties: { range: { sheetId: gid, dimension: 'COLUMNS', startIndex: COL_PHOTO, endIndex: COL_PHOTO + 1 }, properties: { pixelSize: 92 }, fields: 'pixelSize' } },
     // 차종은 «한 마디»다 — 실측 최장이 「그랑 콜레오스」, 중앙값은 세 글자.

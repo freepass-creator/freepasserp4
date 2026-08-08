@@ -18,6 +18,7 @@ import { getStore, peekList } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { BRAND, VERSION, BUILD } from '@/lib/brand';
 import type { EntityRecord } from '@/lib/intake/entities';
+import { companyAlias } from '@/lib/domain/identity';
 
 // 상단바 = 상태창(어디·몇 건). 웹 메뉴=좌측 · 모바일 메뉴=우측.
 // 웹 우측 = 오늘·소속·이름·직책. 주탭 아이콘·워딩 = NAV_ICON / NAV_LABEL SSOT.
@@ -84,7 +85,8 @@ function todayLabel(d = new Date()): string {
 
 function partnerName(rows: EntityRecord[], code: string): string {
   const p = rows.find((r) => String(r.partner_code || r._key) === code);
-  return String(p?.name || p?.partner_name || p?.company_name || code).trim();
+  // 「주식회사」·「(주)」는 법인격이지 회사 이름이 아니다 — 화면 표기는 companyAlias 로 통일.
+  return companyAlias(String(p?.name || p?.partner_name || p?.company_name || code), p?.alias) || code;
 }
 
 /** 웹 우측 — 오늘 · 소속 · 이름 · 직책 (탭 → 설정). */

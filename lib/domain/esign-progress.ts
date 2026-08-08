@@ -120,7 +120,16 @@ export function esignNeedsAttention(contract: EntityRecord): boolean {
   return state === '반려' || state === '만료';
 }
 
-export const ESIGN_FILTERS = ['전체', '미발송', '진행중', '서명완료', '확인 필요'] as const;
+/** 발행된 계약서가 이 노드에 들어왔는지 — 목록에 올릴지 말지의 기준. */
+export function isEsignIssued(contract: EntityRecord | null | undefined): boolean {
+  if (!contract) return false;
+  const c = contract as Rec;
+  return !!S(c.esign_id) || N(c.sign_sent_at) > 0;
+}
+
+// 목록에는 «발송한 것»만 올라온다(2026-08-08 결정) — 계약완료 여부와 다른 축이다.
+// 그래서 «미발송» 필터가 없다. 아직 안 보낸 건은 작업 패널의 «새 계약서 발송»에서 고른다.
+export const ESIGN_FILTERS = ['전체', '진행중', '서명완료', '확인 필요'] as const;
 export type EsignFilter = typeof ESIGN_FILTERS[number];
 
 export function matchesEsignFilter(contract: EntityRecord, filter: EsignFilter): boolean {

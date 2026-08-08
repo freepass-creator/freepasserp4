@@ -5,6 +5,7 @@ import {
   attachPolicy, buildInventorySheet, exportTabName, policyMap, sortForSales,
 } from '@/lib/domain/inventory-sheet-export';
 import { isListableProduct } from '@/lib/domain/product';
+import { companyAlias } from '@/lib/domain/identity';
 
 /** 영업자가 늘 보는 고정 탭. 이름을 바꾸면 영업자 즐겨찾기가 끊긴다. */
 const AGENT_SHEET_TAB = '상품리스트';
@@ -77,7 +78,8 @@ export async function POST(request: Request) {
     const nameOf = (code: string) => {
       if (!code) return '';
       const hit = Object.values(partners).find((p) => S(p.partner_code) === code || S(p._key) === code);
-      return S(hit?.partner_name || hit?.company_name);
+      // 「주식회사」·「(주)」는 법인격이지 회사 이름이 아니다 — 표기는 companyAlias 하나로 통일한다.
+      return companyAlias(S(hit?.partner_name || hit?.company_name), hit?.alias);
     };
 
     const products = Object.entries((productsSnap.val() || {}) as Record<string, Rec>)

@@ -4,6 +4,7 @@ import { sanitizeAgentForGuest, sanitizeProductForGuest } from '@/lib/domain/pub
 import { isListableProduct } from '@/lib/domain/product';
 import { matchAgentByShareCode } from '@/lib/domain/product-share';
 import type { EntityRecord } from '@/lib/intake/entities';
+import { companyAlias } from '@/lib/domain/identity';
 
 export const dynamic = 'force-dynamic';
 type Rec = Record<string, any>;
@@ -64,7 +65,8 @@ export async function GET(request: Request) {
       const hit = Object.entries(pool).find(([key, x]) => x && (
         key === providerCode || S(x.partner_code) === providerCode || S(x.company_code) === providerCode
       ))?.[1];
-      brand = S(hit?.partner_name || hit?.company_name || hit?.name);
+      // 손님이 보는 이름에 법인격을 붙이지 않는다 — 표기 SSOT 는 companyAlias.
+      brand = companyAlias(S(hit?.partner_name || hit?.company_name || hit?.name), hit?.alias);
     }
 
     let agent = null;
