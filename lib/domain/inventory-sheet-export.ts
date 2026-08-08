@@ -28,6 +28,26 @@ const N = (v: unknown) => {
 export const MONTHS = [12, 18, 24, 36, 48, 60];
 
 /**
+ * 보험 한 줄 — 담보 순서는 **손님이 묻는 순서**(대인 → 대물 → 자손 → 무보험 → 자차).
+ * 빈 담보는 「-」로 자리를 지킨다. 자리를 지워 버리면 줄마다 항목 수가 달라져
+ * 두 줄을 나란히 놓고 어디가 다른지 볼 수 없다.
+ */
+function insLine(q: Rec, kind: 'limit' | 'deductible'): string {
+  const v = (k: string) => S(q[k]) || '-';
+  if (kind === 'limit') {
+    return [`대인 ${v('injury_compensation_limit')}`, `대물 ${v('property_compensation_limit')}`,
+      `자손 ${v('self_body_accident')}`, `무보험 ${v('uninsured_damage')}`,
+      `자차 ${v('own_damage_compensation')}`].join(' · ');
+  }
+  const lo = S(q.own_damage_min_deductible);
+  const hi = S(q.own_damage_max_deductible);
+  const own = lo && hi && lo !== hi ? `${lo}~${hi}` : (lo || hi || '-');
+  return [`대인 ${v('injury_deductible')}`, `대물 ${v('property_deductible')}`,
+    `자손 ${v('self_body_deductible')}`, `무보험 ${v('uninsured_deductible')}`,
+    `자차 ${own}`].join(' · ');
+}
+
+/**
  * **정책 펼침** — 공급사 뒤에 그대로 이어 붙이는 값들.
  *
  * 영업이 손님에게 즉답해야 하는 것은 차 자체보다 «조건»이다 — 몇 살부터 되는지,
@@ -38,7 +58,7 @@ export const MONTHS = [12, 18, 24, 36, 48, 60];
  *
  * 순서는 «묻는 순서»다 — 심사 → 나이·면허 → 주행 → 돈(결제·위약·탁송) → 보험 → 정비.
  */
-const POLICY_VIEW: { label: string; key: string }[] = [
+const POLICY_VIEW: { label: string; key?: string; from?: (pol: Rec) => string }[] = [
   { label: '심사기준', key: 'screening_criteria' },
   { label: '신용등급', key: 'credit_grade' },
   { label: '기본연령', key: 'basic_driver_age' },
@@ -55,24 +75,41 @@ const POLICY_VIEW: { label: string; key: string }[] = [
   { label: '대여지역', key: 'rental_region' },
   { label: '탁송비', key: 'delivery_fee' },
   { label: '보험포함', key: 'insurance_included' },
-  { label: '대인한도', key: 'injury_compensation_limit' },
-  { label: '대인면책', key: 'injury_deductible' },
-  { label: '대물한도', key: 'property_compensation_limit' },
-  { label: '대물면책', key: 'property_deductible' },
-  { label: '자손한도', key: 'self_body_accident' },
-  { label: '자손면책', key: 'self_body_deductible' },
-  { label: '무보험한도', key: 'uninsured_damage' },
-  { label: '무보험면책', key: 'uninsured_deductible' },
-  { label: '자차보상', key: 'own_damage_compensation' },
+  /**
+   * 보험은 **한도 한 칸 · 면책 한 칸**으로 합친다.
+   * 담보별로 열두 칸을 펴 두면 가로만 길어지는데, 실측하면 조합은 몇 가지뿐이다 —
+   * 보상한도 8종 · 면책금 10종(409대 기준). 조합이 이만큼 적으면 합쳐도 머리행 필터가
+   * 그대로 산다(드롭다운에 여덟 줄이 뜬다). 「대물 1억 이상만」처럼 담보 하나로 거를 일은
+   * 실제 영업에서 없고, 손님은 늘 «보험 어떻게 되나요»로 통째로 묻는다.
+   * 자차 자기부담률만 따로 둔다 — 숫자라 크기 비교가 되고 손님이 금액으로 묻는다.
+   */
+  { label: '보상한도', from: (q) => insLine(q, 'limit') },
+  { label: '면책금', from: (q) => insLine(q, 'deductible') },
   { label: '자차부담률', key: 'own_damage_repair_ratio' },
-  { label: '자차최소면책', key: 'own_damage_min_deductible' },
-  { label: '자차최대면책', key: 'own_damage_max_deductible' },
   { label: '개인운전범위', key: 'personal_driver_scope' },
   { label: '사업자운전범위', key: 'business_driver_scope' },
   { label: '추가운전자', key: 'additional_driver_allowance_count' },
   { label: '추가운전비', key: 'additional_driver_cost' },
   { label: '정비서비스', key: 'maintenance_service' },
   { label: '긴급출동', key: 'annual_roadside_assistance' },
+  // 환수는 영업 «본인» 조건이라 알아야 한다. 요율은 들어 있지 않다(전 값 확인).
+  { label: '수수료환수', key: 'commission_clawback_condition' },
+  { label: '정책명', key: 'policy_name' },
+  { label: '조건설명', key: 'term_description' },
+  // 공급사에 문의할 때 대는 번호. 이름만으로는 어느 정책인지 못 짚는다.
+  { label: '정책코드', key: 'policy_code' },
+];
+
+/**
+ * 상품 자체에 있는데 아직 안 나가던 값들 — 손님이 실제로 묻는 것만 고른다.
+ * 「어디서 받나요(출고지)」·「몇 cc(배기량)」·「언제 나온 차(최초등록)」·「차급」.
+ * `source`·`catalog_id`·`match_confidence` 같은 처리 흔적은 영업이 볼 값이 아니다.
+ */
+const PRODUCT_VIEW: { label: string; key: string }[] = [
+  { label: '배기량', key: 'engine_cc' },
+  { label: '차급', key: 'vehicle_class' },
+  { label: '최초등록', key: 'first_registration_date' },
+  { label: '출고지', key: 'location' },
 ];
 
 /**
@@ -95,6 +132,7 @@ export const HEADERS = [
   '비고',
   // 펼친 정책 — 한 칸에 한 값. 압축 6칸은 위에 그대로 두고(다른 코드가 COL()로 읽는다) 뒤에 잇는다.
   ...POLICY_VIEW.map((c) => c.label),
+  ...PRODUCT_VIEW.map((c) => c.label),
 ];
 export const COL = (name: string) => HEADERS.indexOf(name);
 
@@ -193,7 +231,11 @@ export function exportRow(p: EntityRecord, providerName: string): (string | numb
     extra,
     ...policyCells((rec._policy && typeof rec._policy === 'object' ? rec._policy : {}) as Rec),
     id.note,
-    ...POLICY_VIEW.map((c) => S(((rec._policy && typeof rec._policy === 'object' ? rec._policy : {}) as Rec)[c.key])),
+    ...POLICY_VIEW.map((c) => {
+      const q = (rec._policy && typeof rec._policy === 'object' ? rec._policy : {}) as Rec;
+      return c.from ? c.from(q) : S(q[c.key as string]);
+    }),
+    ...PRODUCT_VIEW.map((c) => S(rec[c.key])),
   ];
 }
 
@@ -267,6 +309,7 @@ const TABLE_COLUMNS = [
   '공급사', '심사', '조건',
   // 공급사 뒤로는 **조건을 쭉 편다.** 영업이 손님에게 즉답해야 하는 값들이다.
   ...POLICY_VIEW.map((c) => c.label),
+  ...PRODUCT_VIEW.map((c) => c.label),
 ];
 /**
  * 열 너비 — 실제 값 길이에 맞춘다.
@@ -278,6 +321,10 @@ const TABLE_WIDTH: Record<string, number> = {
   차량번호: 88, 상태: 68, 상품: 72, 제조사: 68, 모델: 96, 세부모델: 150, 파워: 92, 트림: 104,
   // 공급사는 법인격을 뗀 별칭이라 「오토플러스」가 최장이다 — 132px 는 그만큼 빈다.
   옵션: 190, 외장: 60, 내장: 60, 연식: 50, 주행: 78, 연료: 66, 공급사: 84, 심사: 62, 조건: 74,
+  // 합친 보험 두 칸은 담보 다섯이 한 줄에 들어간다 — 잘리면 합친 뜻이 없다.
+  보상한도: 250, 면책금: 250, 위약금: 150, 탁송비: 200, 결제방식: 130,
+  개인운전범위: 150, 사업자운전범위: 150, 조건설명: 120, 정책명: 120, 정책코드: 100,
+  약정주행: 84, 심사기준: 74, 신용등급: 74, 기본연령: 84, 연령상한: 84, 출고지: 110,
 };
 
 /* 화면 좌표 — 제목줄 없음. 「몇 대·언제」는 탭 이름이 이미 말한다(중복 금지). */
@@ -560,17 +607,21 @@ export function buildInventorySheet(
         properties: { pixelSize: TABLE_WIDTH[name] || (money ? 84 : 88) }, fields: 'pixelSize',
       },
     });
-    const center = ['상태', '상품', '심사', '연료', '연식'].includes(name);
+    const center = ['상태', '상품', '심사', '연료', '연식', '최초등록', '차급'].includes(name);
     requests.push({
       repeatCell: {
         range: box(ROW_DATA, lastRow, c, c + 1),
         cell: {
           userEnteredFormat: {
-            horizontalAlignment: money || name === '주행' ? 'RIGHT' : center ? 'CENTER' : 'LEFT',
+            horizontalAlignment: money || name === '주행' || name === '배기량' ? 'RIGHT' : center ? 'CENTER' : 'LEFT',
             // 기간 칸은 두 줄이라 줄바꿈을 허용한다. 나머지는 자른다(행 높이가 들쭉날쭉하면 훑을 수 없다).
             wrapStrategy: money ? 'WRAP' : 'CLIP',
             ...(name === '주행' ? { numberFormat: { type: 'NUMBER', pattern: '#,##0"km";;"—"' } } : {}),
             ...(name === '연식' ? { numberFormat: { type: 'NUMBER', pattern: '0;;"—"' } } : {}),
+            // 「22-06-20」을 구글시트가 날짜로 삼키므로 날짜로 그린다 —
+            // 서식을 안 주면 시리얼 숫자(46041)가 그대로 보인다. 날짜로 두면 정렬도 맞는다.
+            ...(name === '최초등록' ? { numberFormat: { type: 'DATE', pattern: 'yy-mm-dd' } } : {}),
+            ...(name === '배기량' ? { numberFormat: { type: 'NUMBER', pattern: '#,##0;;"—"' } } : {}),
           },
         },
         fields: 'userEnteredFormat(horizontalAlignment,wrapStrategy,numberFormat)',
