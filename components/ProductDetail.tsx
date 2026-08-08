@@ -226,25 +226,11 @@ export function ProductDetail({ p, audience, layout = 'brochure', priceAside = f
       ))}
       </div>
 
-      {/* 3 섹션 — 데이터=detailSections. 표기 원자=웹·모바일 동일 */}
+      {/* 3 섹션 — 데이터=detailSections. 표기 원자=웹·모바일 동일.
+          본문은 **아무것도 고정하지 않는다.** 금액은 우측 대여료 카드가 틀고정으로 들고 있고,
+          여기서 또 붙이면 스크롤할 때 사진이 밀려 올라가는 것처럼 보인다(2026-08-08 지적). */}
       {secs.filter((sec) => !(priceAside && sec.kind === 'price')).map((sec) => (
-        <div
-          key={sec.title}
-          style={{
-            marginTop: 11,
-            // 가격표만 **틀고정** — 아래로 내려가며 스펙·보험·조건을 읽는 동안에도 금액이 위에 걸려 있고,
-            //  다시 올라오면 제자리로 돌아온다. 손님과 통화하며 스크롤할 때 「얼마요?」에 바로 답한다.
-            //  상단바(sticky top:0)와 같은 스크롤 안이라 그 높이만큼 내려 붙인다.
-            //  ※ 다른 섹션은 고정하지 않는다 — 둘 이상 걸리면 화면 절반이 머리로 덮인다.
-            ...(sec.kind === 'price' ? {
-              position: 'sticky' as const,
-              top: 'var(--topbar-h)',
-              zIndex: 3,
-              background: C.bg,
-              paddingBottom: 4,
-            } : null),
-          }}
-        >
+        <div key={sec.title} style={{ marginTop: 11 }}>
           <div style={{ fontSize: FS.title, fontWeight: FW.title, color: C.ink, marginBottom: 4 }}>{sec.title}</div>
           {sec.kind === 'price' ? (
             <ProductPriceTable p={p} />
