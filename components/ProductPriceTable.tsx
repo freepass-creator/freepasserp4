@@ -10,13 +10,19 @@ import { won, C, R, NUM, FW, FS } from '@/components/ui';
  * «본문은 차 설명, 우측은 돈과 행동»으로 가르되, 자리만 다르고 표는 하나여야 한다 —
  * 두 벌이면 최저가 표시나 무보증 문구가 곧 어긋난다(2026-08-08 결정).
  */
-export function ProductPriceTable({ p }: { p: EntityRecord }) {
+export function ProductPriceTable({ p, bare = false }: {
+  p: EntityRecord;
+  /** 이미 카드 안에 들어갈 때 — 자기 테두리를 그리지 않는다(테두리 두 겹 방지). */
+  bare?: boolean;
+}) {
   const prices = priceList(p);
   const cheap = cheapest(p);
   const pol = (p._policy || {}) as Record<string, unknown>;
   const caption = [pol.basic_driver_age, pol.annual_mileage, pol.insurance_included].filter(Boolean).join(' · ');
   return (
-    <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg, overflow: 'hidden' }}>
+    <div style={bare
+      ? { background: C.taupeBg, overflow: 'hidden' }
+      : { border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg, overflow: 'hidden' }}>
       <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: FS.body, tableLayout: 'fixed' }}>
         <thead>
           <tr>

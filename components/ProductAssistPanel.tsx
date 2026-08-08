@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import type { EntityRecord } from '@/lib/intake/entities';
@@ -95,48 +95,65 @@ export function ProductAssistPanel({ product, role }: { product: EntityRecord; r
         height: paneH,
         maxHeight: paneH,
         flex: '0 0 380px', width: 380,
-        display: 'flex', flexDirection: 'column',
-        background: C.bg, border: `1px solid ${C.line}`, borderRadius: R, overflow: 'hidden',
+        display: 'flex', flexDirection: 'column', gap: 10,
+        minHeight: 0,
       }}
     >
       {/* 맨 위 = 돈. 헤이딜러처럼 본문은 차 설명, 우측은 «얼마에 · 어떻게 진행»이다.
-          영업자가 손님과 통화하며 스크롤해도 금액은 여기 그대로 있다 —
-          본문에 두면 스펙·보험을 읽는 동안 화면 밖으로 나간다. */}
-      <div style={{ flex: '0 0 auto', padding: 10, borderBottom: `1px solid ${C.line2}` }}>
-        <ProductPriceTable p={product} />
-      </div>
+          영업자가 손님과 통화하며 스크롤해도 금액은 여기 그대로 있다. */}
+      <AsideCard title="대여료 / 보증금">
+        <ProductPriceTable p={product} bare />
+      </AsideCard>
 
       {/* 대여료까지는 손님·영업·공급·관리자가 **다 같다**. 그 밑에 붙는 것만 역할별이다
           (2026-08-08 결정). 딜을 진행하지 않는 역할에는 아래를 그리지 않는다. */}
-      {!canDeal ? null : (<>
-      {/* 그 밑 = 지금 누를 버튼만(내용 높이). 채팅이 아래를 채운다. */}
-      <div style={{
-        flex: '0 0 auto',
-        maxHeight: '42%',
-        minHeight: 0,
-        overflowY: 'auto',
-        borderBottom: `1px solid ${C.line2}`,
-        display: 'flex',
-        flexDirection: 'column',
-      }}>
-        <PaneHead title={CONTRACT_HEAD} right={stageBadge} />
-        <ContractPanel
-          product={product}
-          roomId={roomId || undefined}
-          stepView="focus"
-          onChange={reloadContract}
-        />
-      </div>
-
-      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-        <PaneHead title={NAV_LABEL.chat} />
-        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-          {roomId
-            ? <ChatThread roomId={roomId} />
-            : <div style={{ padding: 14, fontSize: FS.cap, color: C.faint }}>대화방 준비 중…</div>}
-        </div>
-      </div>
-      </>)}
+      {!canDeal ? null : (
+        <>
+          <AsideCard title={CONTRACT_HEAD} right={stageBadge} cap="42%">
+            <ContractPanel
+              product={product}
+              roomId={roomId || undefined}
+              stepView="focus"
+              onChange={reloadContract}
+            />
+          </AsideCard>
+          <AsideCard title={NAV_LABEL.chat} grow>
+            {roomId
+              ? <ChatThread roomId={roomId} />
+              : <div style={{ padding: 14, fontSize: FS.cap, color: C.faint }}>대화방 준비 중…</div>}
+          </AsideCard>
+        </>
+      )}
     </aside>
+  );
+}
+
+/**
+ * 보조 칼럼의 카드 하나.
+ *
+ * 한 상자에 칸막이로 나누지 않고 **카드를 따로 세운다** — 역할마다 붙는 카드가 다르기 때문이다
+ * (2026-08-08 사장님). 손님에게는 대여료 하나만 서는데, 그때 칸막이 상자면 아래가 빈 채로 남는다.
+ */
+function AsideCard({ title, right, children, grow, cap }: {
+  title: string;
+  right?: ReactNode;
+  children: ReactNode;
+  /** 남는 높이를 다 쓴다(대화). */
+  grow?: boolean;
+  /** 내용 높이로 서되 이만큼까지만(계약). */
+  cap?: string;
+}) {
+  return (
+    <section style={{
+      border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg, overflow: 'hidden',
+      display: 'flex', flexDirection: 'column', minHeight: 0,
+      ...(grow ? { flex: '1 1 auto' } : { flex: '0 0 auto', maxHeight: cap }),
+    }}>
+      <PaneHead title={title} right={right} />
+      {/* 대화는 스스로 스크롤한다(입력창 고정) — 여기서 또 굴리면 스크롤이 둘이 된다. */}
+      <div style={{ flex: 1, minHeight: 0, overflowY: grow ? 'hidden' : 'auto', display: 'flex', flexDirection: 'column' }}>
+        {children}
+      </div>
+    </section>
   );
 }
