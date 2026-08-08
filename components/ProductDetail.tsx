@@ -10,6 +10,7 @@ import {
   badges, Plate, idParts, CardBenefits, CardEvents, OptionChips,
 } from '@/components/product-card-atoms';
 import { FavHeart } from '@/components/FavHeart';
+import { ProductStateMarks } from '@/components/ProductStateMarks';
 import { ProductPhotoImage, ProductPhotoPlaceholder } from '@/components/ProductPhoto';
 import { ProductPriceTable } from '@/components/ProductPriceTable';
 import { useReportedTopOffset } from '@/lib/content-column';
@@ -125,6 +126,7 @@ export function ProductDetail({ p, audience, layout = 'brochure', priceAside = f
           {/* 사진 없음도 매물의 성질이다 — 별도 줄을 잡아먹지 않게 칩으로 붙인다.
               (안 그리면 «없는 건지 안 뜬 건지»를 모른다. 사진 없는 차가 절반 가까이다.) */}
           {work && photos.length === 0 && !pending && <Badge tone="gray" variant="quiet" title="등록된 사진이 없습니다">사진없음</Badge>}
+          {work && aud !== 'customer' && <ProductStateMarks p={p} />}
           {work && aud !== 'customer' && <FavHeart p={p} compact />}
         </div>
       </div>
@@ -179,8 +181,12 @@ export function ProductDetail({ p, audience, layout = 'brochure', priceAside = f
                 ><ChevronRight size={20} strokeWidth={2.5} /></IconBtn>
               </>
             )}
+            {/* 표시(문의중·최근)는 별표 **왼쪽** — 누르는 자리는 언제나 맨 오른쪽 하나로 고정. */}
             {aud !== 'customer' && !work && (
-              <span style={{ position: 'absolute', top: 8, right: 8, zIndex: 2 }}><FavHeart p={p} onPhoto /></span>
+              <span style={{ position: 'absolute', top: 8, right: 8, zIndex: 2, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                <ProductStateMarks p={p} onPhoto />
+                <FavHeart p={p} onPhoto />
+              </span>
             )}
             <span style={{ position: 'absolute', right: 8, bottom: 8, background: SCRIM.heavy, color: C.inverse, fontSize: FS.cap, fontWeight: FW.strong, padding: '2px 8px', borderRadius: R, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', pointerEvents: 'none' }}>{mainIdx + 1} / {photos.length}</span>
           </div>

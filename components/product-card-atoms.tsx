@@ -6,6 +6,7 @@ import { C, R, NUM, Badge, FW, FS, ICON, SCRIM } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { useFirstPhoto } from '@/components/use-product-photos';
 import { FavHeart } from '@/components/FavHeart';
+import { ProductStateMarks } from '@/components/ProductStateMarks';
 import { ProductPhotoImage } from '@/components/ProductPhoto';
 import { yearDisplay } from '@/lib/domain/vehicle-master-match';
 export { productOptions, OptionChips, OptionsInline } from '@/components/product-card-options';
@@ -266,8 +267,11 @@ export function CardThumb({ p, audience = 'agent', fill, w, h, heart = false, ma
         </div>
       )}
 
+      {/* 우상단 = 관심(별표, 누르는 것) + 상태 표시(문의중·최근, 못 누르는 것).
+          표시를 별표 왼쪽에 붙여 «누르는 자리»는 언제나 맨 오른쪽 하나로 고정한다. */}
       {showHeart && (
-        <span style={{ position: 'absolute', top: pad, right: pad, zIndex: 2 }}>
+        <span style={{ position: 'absolute', top: pad, right: pad, zIndex: 2, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          <ProductStateMarks p={p} onPhoto size={ICON.sm} />
           <FavHeart p={p} size={fill ? ICON.md : ICON.sm} onPhoto />
         </span>
       )}
