@@ -1,6 +1,7 @@
 ﻿'use client';
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import Link from 'next/link';
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import type { EntityRecord } from '@/lib/intake/entities';
@@ -157,8 +158,18 @@ export function ProductAssistPanel({ product, role }: { product: EntityRecord; r
    * 채팅창은 영업자에게만 준다(그들에겐 매물이 출발점이라 상세에서 끝나야 한다).
    */
   const unreadN = (inbox || []).reduce((sum, r) => sum + (unreadFor(r, role) > 0 ? 1 : 0), 0);
-  const inboxCard = !readsInbox ? null : (
-    <AsideCard title="문의" right={inbox?.length ? <Badge tone={unreadN ? 'red' : 'gray'}>{inbox.length}</Badge> : null}>
+  /**
+   * **배열은 그대로, 채팅창 자리만 문의 목록**(2026-08-08 사장님).
+   * 영업자에게 대화가 있던 그 자리에 관리자·공급사는 «누가 문의했는지»를 본다.
+   * 여기서 답하지는 않는다 — 누르면 계약문의 페이지의 그 방으로 간다(응대는 한 곳에서만).
+   */
+  const inboxCard = (
+    <AsideCard
+      title="문의"
+      right={inbox?.length ? <Badge tone={unreadN ? 'red' : 'gray'}>{inbox.length}</Badge> : null}
+      grow={!narrow}
+      fixedH={narrow ? '40dvh' : undefined}
+    >
       {inbox === null ? (
         <div style={{ padding: 12, fontSize: FS.cap, color: C.faint }}>불러오는 중…</div>
       ) : inbox.length === 0 ? (
@@ -166,19 +177,35 @@ export function ProductAssistPanel({ product, role }: { product: EntityRecord; r
           아직 이 차에 들어온 문의가 없습니다.
         </div>
       ) : (
-        <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div style={{ fontSize: FS.sub, color: C.ink, lineHeight: 1.5 }}>
-            영업자 <b style={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{inbox.length}</b>명이 문의했습니다
-            {unreadN > 0 ? <> · <span style={{ color: C.danger, fontWeight: FW.strong }}>미확인 {unreadN}</span></> : null}
-          </div>
-          <div style={{ fontSize: FS.micro, color: C.faint, lineHeight: 1.5 }}>
-            {inbox.slice(0, 3).map((r) => String(r.agent_name || r.agent_code || '영업자')).join(' · ')}
-            {inbox.length > 3 ? ` 외 ${inbox.length - 3}` : ''}
-          </div>
-          {/* 응대는 계약문의 페이지에서 — 이 매물로 걸러 연다. */}
-          <Btn href={`/chat?q=${encodeURIComponent(String(product.car_number || code))}`} size="sm" full>
-            계약문의에서 응대
-          </Btn>
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+          {inbox.map((r) => {
+            const n = unreadFor(r, role);
+            return (
+              <Link
+                key={String(r._key)}
+                href={`/chat?room=${encodeURIComponent(String(r._key))}`}
+                className="fp-press"
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8, width: '100%', boxSizing: 'border-box',
+                  padding: '7px 10px', borderBottom: `1px solid ${C.line2}`,
+                  textDecoration: 'none', color: C.ink,
+                }}
+              >
+                <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                  <span style={{ fontSize: FS.sub, fontWeight: n > 0 ? FW.title : FW.body, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {String(r.agent_name || r.agent_code || '영업자')}
+                  </span>
+                  <span style={{ fontSize: FS.micro, color: C.faint, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {String(r.last_message || '대화 없음')}
+                  </span>
+                </span>
+                {n > 0 ? <Badge tone="red">{n}</Badge> : null}
+                <span style={{ flex: '0 0 auto', fontSize: FS.micro, color: C.faint, fontVariantNumeric: 'tabular-nums' }}>
+                  {msgClock(r.last_message_at, { dateOnly: true })}
+                </span>
+              </Link>
+            );
+          })}
         </div>
       )}
     </AsideCard>
@@ -189,26 +216,27 @@ export function ProductAssistPanel({ product, role }: { product: EntityRecord; r
       <AsideCard title="대여료 / 보증금">
         <ProductPriceTable p={product} bare />
       </AsideCard>
-      {inboxCard}
-      {/* 계약진행은 **네 역할 중 딜을 잡는 셋** 모두에게. 관리자·공급사도 여기서 자기 몫(서류확인·
-          입금확인·출고완료)을 누른다 — 계약문의 페이지로 넘어가야 하는 건 «대화»뿐이다. */}
+      {/* 배열은 역할과 무관하게 같다: 대여료 → 계약진행 → (대화 | 문의 목록).
+          계약진행 카드는 하나지만 보는 사람마다 «내가 할 일»이 다르다(ContractPanel focus). */}
       {!canDeal ? null : (
-        <AsideCard title={CONTRACT_HEAD} right={stageBadge} cap={asksRoom ? '42%' : undefined}>
-          <ContractPanel
-            product={product}
-            roomId={asksRoom ? (roomId || undefined) : undefined}
-            stepView="focus"
-            onChange={reloadContract}
-          />
-        </AsideCard>
-      )}
-      {/* 채팅창은 영업자만 — 매물이 출발점이라 상세에서 끝나야 한다. */}
-      {!asksRoom ? null : (
-        <AsideCard title={NAV_LABEL.chat} grow>
-          {roomId
-            ? <ChatThread roomId={roomId} />
-            : <div style={{ padding: 14, fontSize: FS.cap, color: C.faint }}>대화방 준비 중…</div>}
-        </AsideCard>
+        <>
+          <AsideCard title={CONTRACT_HEAD} right={stageBadge} cap="42%">
+            <ContractPanel
+              product={product}
+              // 관리자·공급사에는 방을 넘기지 않는다 — 방은 영업자별이라 남의 딜을 잡는다.
+              roomId={asksRoom ? (roomId || undefined) : undefined}
+              stepView="focus"
+              onChange={reloadContract}
+            />
+          </AsideCard>
+          {asksRoom ? (
+            <AsideCard title={NAV_LABEL.chat} grow>
+              {roomId
+                ? <ChatThread roomId={roomId} />
+                : <div style={{ padding: 14, fontSize: FS.cap, color: C.faint }}>대화방 준비 중…</div>}
+            </AsideCard>
+          ) : inboxCard}
+        </>
       )}
     </>
   );
@@ -222,8 +250,7 @@ export function ProductAssistPanel({ product, role }: { product: EntityRecord; r
       >
         {!canDeal ? null : (
           <>
-            {/* 관리자·공급사는 여기서도 «몇 건 왔는지»만. 대화는 계약문의 페이지에서. */}
-            {inboxCard}
+            {/* 좁은 화면도 같은 배열 — 계약진행 → (대화 | 문의 목록). */}
             <AsideCard title={CONTRACT_HEAD} right={stageBadge}>
               <ContractPanel
                 product={product}
@@ -232,13 +259,13 @@ export function ProductAssistPanel({ product, role }: { product: EntityRecord; r
                 onChange={reloadContract}
               />
             </AsideCard>
-            {!asksRoom ? null : (
+            {asksRoom ? (
               <AsideCard title={NAV_LABEL.chat} fixedH="60dvh">
                 {roomId
                   ? <ChatThread roomId={roomId} />
                   : <div style={{ padding: 14, fontSize: FS.cap, color: C.faint }}>대화방 준비 중…</div>}
               </AsideCard>
-            )}
+            ) : inboxCard}
           </>
         )}
       </aside>
