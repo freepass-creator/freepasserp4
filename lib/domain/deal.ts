@@ -44,6 +44,22 @@ export function getRole(): Role {
   }
   const s = getSession(); if (s) return s.role; if (typeof window === 'undefined') return 'agent'; const r = localStorage.getItem(RKEY); return r === 'provider' || r === 'admin' ? r : 'agent';
 }
+/**
+ * 역할 두 글자 표기 SSOT — 계약 단계·메모·목록이 **같은 말**을 쓰게 한다.
+ *
+ * 공급사는 시트로 관리한다(앱에 안 들어온다, 2026-08-07 결정). 그래서 «공급 몫»은 실제로
+ * 운영자가 처리하고, 영업자·관리자 화면에서는 「운영」이라 부른다 — 앱에 있지도 않은 회사를
+ * 기다리는 것처럼 읽히면 안 되기 때문이다. 다만 공급사 계정 본인에게는 그대로 「공급」이다.
+ *
+ * ★이 함수 밖에서 라벨을 만들지 마라. 실제로 갈라진 적이 있다(2026-08-08 점검):
+ *   계약 단계는 「운영」인데 바로 아래 메모칸은 「공급」이라, 한 화면에서 두 이름이 보였다.
+ */
+export function roleSlotLabel(slot: Role, viewer: Role): string {
+  if (slot === 'agent') return '영업';
+  if (slot === 'admin') return '관리자';
+  return viewer === 'provider' ? '공급' : '운영';
+}
+
 export function setRole(r: Role): void { if (typeof window !== 'undefined') { localStorage.setItem(RKEY, r); window.dispatchEvent(new CustomEvent('fp:role', { detail: r })); } }
 // 행위자: 세션 역할이 요청 역할과 같으면 실 사용자(귀속코드) → 아니면 데모 스텁.
 // 영업자 code = 사람키(user_code). 채널은 session.agent_channel_code 로만.

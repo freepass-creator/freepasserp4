@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useState, useEffect, type CSSProperties, type ReactNode } from 'react';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { priceList, detailSections, cheapest, type Audience } from '@/lib/domain/product';
@@ -105,7 +105,7 @@ export function ProductDetail({ p, audience, layout = 'brochure', priceAside = f
   return (
     <div>
       {/* 1 헤더 — 차명 → 차번·상태·상품·심사 → 우대·이벤트 (원자 공용).
-          work 에서는 차명·차번을 상단 요약바(ProductWorkBar)가 이미 고정으로 들고 있어 제목 줄을 뺀다.
+          work 에서는 차명·차번은 우측 카드·상단바가 들고 있어 제목 줄을 뺀다.
           대신 사진 위에 얹혀 있던 관심(하트)이 사라지지 않게 칩 줄로 내려 붙인다. */}
       <div style={{ marginBottom: 11 }}>
         {!work && (

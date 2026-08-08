@@ -2,18 +2,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
-import { getRole, type Role } from '@/lib/domain/deal';
+import { getRole, roleSlotLabel, type Role } from '@/lib/domain/deal';
 import { Btn, ButtonLabel, C, actorColor, Textarea, FW, FS, R, ICON } from '@/components/ui';
 import { toast } from '@/components/Toaster';
 import { Save } from 'lucide-react';
 
 // 계약 역할별 메모 3슬롯(영업/공급/관리자). 본인 역할 슬롯만 편집, 나머지는 열람. 관리자는 전부 편집.
 // 필드: memo_agent / memo_provider / memo_admin (명시적 저장 버튼으로만 저장).
-const SLOTS: { slot: Role; label: string }[] = [
-  { slot: 'agent', label: '영업' },
-  { slot: 'provider', label: '공급' },
-  { slot: 'admin', label: '관리자' },
-];
+// 라벨은 roleSlotLabel(SSOT)이 정한다 — 여기 손으로 적어 두었더니 바로 위 계약 단계는 「운영」,
+//  이 메모칸은 「공급」으로 한 화면에 두 이름이 보였다(2026-08-08 점검에서 발견).
+const SLOTS: Role[] = ['agent', 'provider', 'admin'];
 
 export function ContractMemos({ contractCode }: { contractCode: string }) {
   const co = getCompanyId();
@@ -73,7 +71,8 @@ export function ContractMemos({ contractCode }: { contractCode: string }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
       <span style={{ fontSize: FS.cap, fontWeight: FW.title, color: C.ink }}>메모 <span style={{ fontSize: FS.micro, color: C.faint, fontWeight: FW.strong }}>· 본인 역할만 편집</span></span>
-      {SLOTS.map(({ slot, label }) => {
+      {SLOTS.map((slot) => {
+        const label = roleSlotLabel(slot, role);
         const mine = role === slot || role === 'admin';
         const val = memos[slot] || '';
         return (

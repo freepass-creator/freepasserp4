@@ -5,7 +5,7 @@ import { getCompanyId } from '@/lib/tenant';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { STEPS, contractStage, isContractCancelled, isContractCompleted, isDone, isRejected, needsContractFinalization, hasTermFrozen } from '@/lib/domain/contract';
 import { applyStepCheck, cancelContract, finalizeContractIfReady } from '@/lib/domain/settlement-engine';
-import { createContractRequest, freezeContractTerm, getRole, type Role } from '@/lib/domain/deal';
+import { createContractRequest, freezeContractTerm, getRole, roleSlotLabel, type Role } from '@/lib/domain/deal';
 import { cheapest, priceAt, priceList } from '@/lib/domain/product';
 import { Btn, ButtonLabel, IconBtn, Badge, C, R, NUM, ICON, Input, fmtPhone, actorColor, DetailRow, ListGroup, ToggleChips, FW, FS, won } from '@/components/ui';
 import { ContractMemos } from '@/components/ContractMemos';
@@ -18,16 +18,9 @@ import { runContractMutation } from '@/features/contract/contract-mutation';
 // 계약 패널 = 5단계 핸드셰이크. 출고문의(가능여부) → 서류 → 약정(기간·금액 동결) → 입금 → 출고.
 // 첨부 서류는 별도 패널. 손님 연락처·기간은 약정 단계에서.
 
-/**
- * 누구 몫인가 — 두 글자.
- *
- * 공급사는 시트로 관리한다(앱에 들어오지 않는다, 2026-08-07 사장님 결정).
- * 그래서 «공급 몫» 체크는 실제로는 **프리패스 운영자가 처리**한다 — 영업자에게 「공급 대기」라고
- * 적으면 앱에 있지도 않은 회사를 기다리는 것처럼 읽힌다. 그래서 보는 사람이 공급사 계정일 때만
- * 「공급」이고, 그 외에는 「운영」이다. **데이터의 actor 는 그대로다** — 바뀌는 건 표기뿐.
- */
+/** 누구 몫인가 — 두 글자. 말은 roleSlotLabel(SSOT)이 정하고 여기선 칠하기만 한다. */
 function actorLabel(actor: 'agent' | 'provider', viewer: Role): ReactNode {
-  const text = actor === 'agent' ? '영업' : viewer === 'provider' ? '공급' : '운영';
+  const text = roleSlotLabel(actor, viewer);
   return (
     <span style={{ fontSize: FS.micro, fontWeight: FW.label, color: actorColor(actor), marginRight: 6 }}>
       {text}

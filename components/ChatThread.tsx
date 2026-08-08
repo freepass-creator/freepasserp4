@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useCallback, useEffect, useState, useRef, type DragEvent } from 'react';
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
@@ -307,7 +307,7 @@ export function ChatThread({
 
       {/* 📎 파일 모아보기 — 파일이 하나도 없으면 줄 자체를 만들지 않는다(빈 줄이 대화 높이를 먹지 않게).
           누르면 이 방 파일만 최신순 목록. 사진은 기존 갤러리 뷰어로, 문서는 바로 내려받기.
-          ★상세 안(embedded)에서는 안 그린다 — 거기선 옆에 «파일» 칸(RoomFiles)이 같은 목록을 이미 들고 있다. */}
+          ★상세 안(embedded)에서는 안 그린다 — 거기선 옆 보조 칼럼이 문의·파일을 이미 들고 있다. */}
       {attachments.length > 0 && !embedded ? (
         <div style={{ flex: '0 0 auto', borderBottom: `1px solid ${C.line}`, background: C.head }}>
           <button
