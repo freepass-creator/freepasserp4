@@ -18,27 +18,41 @@ import { useEffect, useState } from 'react';
 const VAR = '--fp-col-l';
 
 /**
- * 어떤 블록의 높이를 CSS 변수로 알린다 — 다른 칼럼이 그만큼 내려와 **윗선을 맞출** 때 쓴다.
+ * 어떤 블록이 **자기 칼럼 맨 위에서 얼마나 내려와 있는지**를 CSS 변수로 알린다.
+ * 옆 칼럼이 그만큼 내려오면 두 윗선이 맞는다.
  *
  * 상세 본문은 차명·칩 머리가 먼저 오고 그 아래가 사진이다. 우측 대여료 카드는 머리가 없으니
- * 그냥 두면 사진보다 위에서 시작한다. 머리 높이를 재서 그만큼 내리면 **사진과 같은 선**에 선다.
- * 글자가 두 줄로 접히면 높이가 달라지므로 상수로 박지 않고 잰다.
+ * 그냥 두면 사진보다 위에서 시작한다.
+ *
+ * ★«머리 높이»가 아니라 **사진의 위치**를 잰다. 높이만 재면 머리의 아래 여백(margin)이 빠져
+ *   딱 그만큼 어긋난다(실제로 11px 어긋났다). 여백·글자 줄바꿈·폰트가 바뀌어도 위치는 정확하다.
  */
-export function useReportedHeight<T extends HTMLElement>(cssVar: string): (node: T | null) => void {
+export function useReportedTopOffset<T extends HTMLElement>(
+  cssVar: string,
+  /** 칼럼의 기준선. 상세는 언제나 <main> 안에 있다. */
+  anchorSelector = 'main',
+): (node: T | null) => void {
   const [node, setNode] = useState<T | null>(null);
   useEffect(() => {
     if (!node || typeof window === 'undefined') return;
     const measure = () => {
-      document.documentElement.style.setProperty(cssVar, `${Math.round(node.getBoundingClientRect().height)}px`);
+      const anchor = node.closest(anchorSelector);
+      if (!anchor) return;
+      const gap = node.getBoundingClientRect().top - anchor.getBoundingClientRect().top;
+      document.documentElement.style.setProperty(cssVar, `${Math.max(0, Math.round(gap))}px`);
     };
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(node);
+    const anchor = node.closest(anchorSelector);
+    if (anchor) ro.observe(anchor);
+    window.addEventListener('resize', measure);
     return () => {
       ro.disconnect();
+      window.removeEventListener('resize', measure);
       document.documentElement.style.removeProperty(cssVar);
     };
-  }, [node, cssVar]);
+  }, [node, cssVar, anchorSelector]);
   return setNode;
 }
 
