@@ -51,17 +51,13 @@ export function useInquiredCodes(): Set<string> {
     if (!loaded) void load();
     const refresh = () => { void load(); };
     window.addEventListener('fp:unread', refresh);
+    // 로그인 계정이 바뀌면 다시 읽는다 — 안 그러면 앞 사람의 «문의중» 표시가 카드에 남는다.
+    window.addEventListener('fp:session', refresh);
     return () => {
       subs.delete(sync);
       window.removeEventListener('fp:unread', refresh);
+      window.removeEventListener('fp:session', refresh);
     };
   }, []);
   return snapshot;
-}
-
-/** 로그아웃·역할 전환 때 — 남의 문의 표시가 남지 않게. */
-export function clearInquiredCache() {
-  codes = new Set();
-  loaded = false;
-  notify();
 }

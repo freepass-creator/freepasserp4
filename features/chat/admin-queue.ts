@@ -84,7 +84,3 @@ export function sortDeskQueue(items: DeskItem[]): DeskItem[] {
   });
 }
 
-/** 탭 뱃지·세그먼트 숫자 — 「내 차례」 개수. */
-export function deskMineCount(items: DeskItem[]): number {
-  return items.filter((x) => x.bucket === 'mine').length;
-}

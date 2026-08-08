@@ -30,7 +30,8 @@ import { msgClock } from '@/lib/format';
 
 export const ASSIST_BP = 1200;
 /** 보조 칼럼 폭·본문과의 간격 — 하단독을 본문 아래로 맞추려면 페이지가 이 치수를 알아야 한다. */
-export const ASSIST_W = 380;
+/** 이 파일 안에서만 쓴다 — 페이지가 폭을 따로 알 필요가 없어졌다(하단독이 본문 안으로 들어갔다). */
+const ASSIST_W = 380;
 export const ASSIST_GAP = 16;
 
 /**
