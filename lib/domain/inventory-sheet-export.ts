@@ -28,6 +28,54 @@ const N = (v: unknown) => {
 export const MONTHS = [12, 18, 24, 36, 48, 60];
 
 /**
+ * **정책 펼침** — 공급사 뒤에 그대로 이어 붙이는 값들.
+ *
+ * 영업이 손님에게 즉답해야 하는 것은 차 자체보다 «조건»이다 — 몇 살부터 되는지,
+ * 연간 몇 km 까지인지, 보험이 어디까지 물어 주는지, 중도해지하면 얼마인지.
+ * 예전에는 이걸 여섯 칸으로 압축해 「만26~70세 · 대인 무한 …」처럼 이어 붙였는데,
+ * 그러면 **거를 수가 없다** — 「연간 2만km 이상만」 같은 필터가 안 걸린다.
+ * 한 칸에 한 값으로 편다(실측: 337대에 정책이 붙어 있고 대부분 100% 채워져 있다).
+ *
+ * 순서는 «묻는 순서»다 — 심사 → 나이·면허 → 주행 → 돈(결제·위약·탁송) → 보험 → 정비.
+ */
+const POLICY_VIEW: { label: string; key: string }[] = [
+  { label: '심사기준', key: 'screening_criteria' },
+  { label: '신용등급', key: 'credit_grade' },
+  { label: '기본연령', key: 'basic_driver_age' },
+  { label: '연령상한', key: 'driver_age_upper_limit' },
+  { label: '연령하향', key: 'driver_age_lowering' },
+  { label: '연령하향비용', key: 'age_lowering_cost' },
+  { label: '면허경력', key: 'license_period' },
+  { label: '약정주행', key: 'annual_mileage' },
+  { label: '1만km추가', key: 'mileage_upcharge_per_10000km' },
+  { label: '결제방식', key: 'payment_method' },
+  { label: '보증금분납', key: 'deposit_installment' },
+  { label: '보증카드', key: 'deposit_card_payment' },
+  { label: '위약금', key: 'penalty_condition' },
+  { label: '대여지역', key: 'rental_region' },
+  { label: '탁송비', key: 'delivery_fee' },
+  { label: '보험포함', key: 'insurance_included' },
+  { label: '대인한도', key: 'injury_compensation_limit' },
+  { label: '대인면책', key: 'injury_deductible' },
+  { label: '대물한도', key: 'property_compensation_limit' },
+  { label: '대물면책', key: 'property_deductible' },
+  { label: '자손한도', key: 'self_body_accident' },
+  { label: '자손면책', key: 'self_body_deductible' },
+  { label: '무보험한도', key: 'uninsured_damage' },
+  { label: '무보험면책', key: 'uninsured_deductible' },
+  { label: '자차보상', key: 'own_damage_compensation' },
+  { label: '자차부담률', key: 'own_damage_repair_ratio' },
+  { label: '자차최소면책', key: 'own_damage_min_deductible' },
+  { label: '자차최대면책', key: 'own_damage_max_deductible' },
+  { label: '개인운전범위', key: 'personal_driver_scope' },
+  { label: '사업자운전범위', key: 'business_driver_scope' },
+  { label: '추가운전자', key: 'additional_driver_allowance_count' },
+  { label: '추가운전비', key: 'additional_driver_cost' },
+  { label: '정비서비스', key: 'maintenance_service' },
+  { label: '긴급출동', key: 'annual_roadside_assistance' },
+];
+
+/**
  * 원본(숨김) 열 구성. 앞 17열은 앱 «엑셀보기»(`features/finder/ExcelResultsTable.tsx`)와
  * **완전히 같은 순서** — 화면과 시트를 나란히 놓고 대조할 수 있어야 한다. 끼워넣지 마라.
  *
@@ -45,6 +93,8 @@ export const HEADERS = [
   '기타기간',
   '운전연령', '연령하향', '면허경력', '보험', '자차부담', '운전범위',
   '비고',
+  // 펼친 정책 — 한 칸에 한 값. 압축 6칸은 위에 그대로 두고(다른 코드가 COL()로 읽는다) 뒤에 잇는다.
+  ...POLICY_VIEW.map((c) => c.label),
 ];
 export const COL = (name: string) => HEADERS.indexOf(name);
 
@@ -143,6 +193,7 @@ export function exportRow(p: EntityRecord, providerName: string): (string | numb
     extra,
     ...policyCells((rec._policy && typeof rec._policy === 'object' ? rec._policy : {}) as Rec),
     id.note,
+    ...POLICY_VIEW.map((c) => S(((rec._policy && typeof rec._policy === 'object' ? rec._policy : {}) as Rec)[c.key])),
   ];
 }
 
@@ -214,6 +265,8 @@ const TABLE_COLUMNS = [
   '외장', '내장', '연식', '주행', '연료',
   ...MONTHS.map((m) => `${m}개월`),
   '공급사', '심사', '조건',
+  // 공급사 뒤로는 **조건을 쭉 편다.** 영업이 손님에게 즉답해야 하는 값들이다.
+  ...POLICY_VIEW.map((c) => c.label),
 ];
 /**
  * 열 너비 — 실제 값 길이에 맞춘다.
