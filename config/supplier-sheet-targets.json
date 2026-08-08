@@ -1,0 +1,168 @@
+{
+  "_note": "공급사 재고시트. pyh@teamjpk.com 이 만들고 서비스계정을 편집자로 공유한 뒤 sheet_id 를 채운다. mode=input 은 공급사가 직접 쓰는 시트, mode=mirror 는 우리가 연동해 모아두는 보관용(공급사는 안 본다).",
+  "_service_account": "firebase-adminsdk-fbsvc@freepasserp3.iam.gserviceaccount.com",
+  "targets": [
+    {
+      "code": "RP006",
+      "name": "(주)아이언렌트카",
+      "title": "[프리패스] (주)아이언렌트카 재고시트",
+      "erp_count": 53,
+      "sheet_id": "DRYRUN_RP006",
+      "mode": "mirror",
+      "source_label": "홈페이지 자동연동(ironrentcar.com)"
+    },
+    {
+      "code": "RP020",
+      "name": "우리캐피탈렌터카",
+      "title": "[프리패스] 우리캐피탈렌터카 재고시트",
+      "erp_count": 50,
+      "sheet_id": "DRYRUN_RP020",
+      "mode": "input",
+      "source_label": "공급사 입력(수기)"
+    },
+    {
+      "code": "RP021",
+      "name": "빌린카",
+      "title": "[프리패스] 빌린카 재고시트",
+      "erp_count": 48,
+      "sheet_id": "DRYRUN_RP021",
+      "mode": "input",
+      "source_label": "공급사 입력(수기)"
+    },
+    {
+      "code": "RP012",
+      "name": "손오공",
+      "title": "[프리패스] 손오공 재고시트",
+      "erp_count": 40,
+      "sheet_id": "DRYRUN_RP012",
+      "mode": "input",
+      "source_label": "공급사 입력(수기)"
+    },
+    {
+      "code": "PT-0023",
+      "name": "주식회사 에스에이렌터카",
+      "title": "[프리패스] 주식회사 에스에이렌터카 재고시트",
+      "erp_count": 34,
+      "sheet_id": "DRYRUN_PT-0023",
+      "mode": "input",
+      "source_label": "공급사 입력(수기)"
+    },
+    {
+      "code": "RP018",
+      "name": "스타",
+      "title": "[프리패스] 스타 재고시트",
+      "erp_count": 30,
+      "sheet_id": "DRYRUN_RP018",
+      "mode": "input",
+      "source_label": "공급사 입력(수기)"
+    },
+    {
+      "code": "RP013",
+      "name": "웰릭스모빌리티",
+      "title": "[프리패스] 웰릭스모빌리티 재고시트",
+      "erp_count": 25,
+      "sheet_id": "",
+      "mode": "input",
+      "source_label": "공급사 입력(수기)"
+    },
+    {
+      "code": "PT-0001",
+      "name": "(주)렌트존",
+      "title": "[프리패스] (주)렌트존 재고시트",
+      "erp_count": 15,
+      "sheet_id": "DRYRUN_PT-0001",
+      "mode": "input",
+      "source_label": "공급사 입력(수기)"
+    },
+    {
+      "code": "RP030",
+      "name": "주식회사 제이앤제이렌트카",
+      "title": "[프리패스] 주식회사 제이앤제이렌트카 재고시트",
+      "erp_count": 13,
+      "sheet_id": "DRYRUN_RP030",
+      "mode": "input",
+      "source_label": "공급사 입력(수기)"
+    },
+    {
+      "code": "RP010",
+      "name": "KH",
+      "title": "[프리패스] KH 재고시트",
+      "erp_count": 12,
+      "sheet_id": "DRYRUN_RP010",
+      "mode": "input",
+      "source_label": "공급사 입력(수기)"
+    },
+    {
+      "code": "RP008",
+      "name": "리더스렌터카",
+      "title": "[프리패스] 리더스렌터카 재고시트",
+      "erp_count": 5,
+      "sheet_id": "DRYRUN_RP008",
+      "mode": "input",
+      "source_label": "공급사 입력(수기)"
+    },
+    {
+      "code": "RP016",
+      "name": "경진카 주식회사",
+      "title": "[프리패스] 경진카 주식회사 재고시트",
+      "erp_count": 3,
+      "sheet_id": "DRYRUN_RP016",
+      "mode": "input",
+      "source_label": "공급사 입력(수기)"
+    },
+    {
+      "code": "RP015",
+      "name": "경진렌트카",
+      "title": "[프리패스] 경진렌트카 재고시트",
+      "erp_count": 2,
+      "sheet_id": "DRYRUN_RP015",
+      "mode": "input",
+      "source_label": "공급사 입력(수기)"
+    },
+    {
+      "code": "RP017",
+      "name": "센트로",
+      "title": "[프리패스] 센트로 재고시트",
+      "erp_count": 2,
+      "sheet_id": "DRYRUN_RP017",
+      "mode": "input",
+      "source_label": "공급사 입력(수기)"
+    },
+    {
+      "code": "RP022",
+      "name": "퍼시픽",
+      "title": "[프리패스] 퍼시픽 재고시트",
+      "erp_count": 2,
+      "sheet_id": "DRYRUN_RP022",
+      "mode": "input",
+      "source_label": "공급사 입력(수기)"
+    },
+    {
+      "code": "RP004",
+      "name": "주식회사 아이카",
+      "title": "[프리패스] 주식회사 아이카 재고시트",
+      "erp_count": 138,
+      "sheet_id": "DRYRUN_RP004",
+      "mode": "mirror",
+      "source_label": "공급사 시트 연동(보관용)"
+    },
+    {
+      "code": "RP023",
+      "name": "오토플러스 주식회사",
+      "title": "[프리패스] 오토플러스 주식회사 재고시트",
+      "erp_count": 179,
+      "sheet_id": "DRYRUN_RP023",
+      "mode": "mirror",
+      "source_label": "공급사 시트 연동(보관용)"
+    },
+    {
+      "code": "RP031",
+      "name": "(주)이안카",
+      "title": "[프리패스] (주)이안카 재고시트",
+      "erp_count": 47,
+      "sheet_id": "DRYRUN_RP031",
+      "mode": "mirror",
+      "source_label": "공급사 시트 연동(보관용)"
+    }
+  ]
+}

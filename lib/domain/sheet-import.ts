@@ -39,6 +39,9 @@ export const HEADER_ALIASES: Record<string, string> = {
   주행: 'mileage', 주행거리: 'mileage', 누적주행: 'mileage', 키로수: 'mileage', km: 'mileage', 미터: 'mileage',
   색상: 'ext_color', 외장: 'ext_color', 외장색: 'ext_color', 외관색: 'ext_color', 컬러: 'ext_color', 외장색상: 'ext_color',
   내장: 'int_color', 내장색: 'int_color', 실내색: 'int_color', 내장색상: 'int_color',
+  // 표준양식 헤더(2026-08-08). **정확일치가 꼭 필요하다** — 없으면 부분일치가 '색상'에 먼저 걸려
+  //   내부색상까지 ext_color 로 가고, 이미 찬 자리라 무시돼 내장색이 통째로 비어 버린다.
+  외부색상: 'ext_color', 내부색상: 'int_color',
   인승: 'seats', 승차인원: 'seats', 승차: 'seats',
   변속기: 'transmission', 변속: 'transmission', 미션: 'transmission',
   // 렌트시트 「차종」=모델명(쏘나타). 세그먼트×차형 = 차종분류(구 차급).
@@ -46,9 +49,14 @@ export const HEADER_ALIASES: Record<string, string> = {
   차종분류: 'vehicle_class', 차급: 'vehicle_class',
   상태: 'vehicle_status', 판매상태: 'vehicle_status', 재고상태: 'vehicle_status',
   구분: 'product_type', 상품구분: 'product_type', 렌트구분: 'product_type',
+  // 표준양식 헤더(2026-08-08). '차종분류'(vehicle_class)와 헷갈리지 않는다 — 정확일치가 먼저다.
+  분류: 'product_type',
   사진: 'photo_link', 사진링크: 'photo_link', 이미지: 'photo_link', 사진url: 'photo_link', 이미지링크: 'photo_link',
   옵션: 'options', 선택옵션: 'options',
   메모: 'partner_memo', 비고: 'partner_memo', 특이사항: 'partner_memo',
+  // 표준양식(2026-08-08). 정책코드를 적으면 **그 정책이 우선**한다 — 면책금·연령·면허를
+  //   칸마다 적을 필요가 없다. 개별 정책 열은 «지금 붙은 정책이 무엇인지» 보여주는 표시일 뿐이다.
+  정책코드: 'policy_code', 정책번호: 'policy_code',
 };
 
 // 매핑 대상 표준 필드(에디터 드롭다운). 라벨=한글, key=매물 필드.
@@ -61,6 +69,7 @@ export const IMPORT_FIELDS: { key: string; label: string }[] = [
   { key: 'seats', label: '인승' }, { key: 'transmission', label: '변속기' }, { key: 'vehicle_class', label: '차종분류' },
   { key: 'vehicle_status', label: '상태' }, { key: 'product_type', label: '구분' }, { key: 'photo_link', label: '사진링크' },
   { key: 'options', label: '옵션' }, { key: 'partner_memo', label: '메모' },
+  { key: 'policy_code', label: '정책코드' },
 ];
 
 const norm = (s: unknown) => String(s ?? '').trim().toLowerCase().replace(/\s+/g, '');

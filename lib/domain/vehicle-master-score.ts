@@ -69,9 +69,18 @@ export function selectMasterEntry(
     ? makerPool.filter((entry) => entry.model === lockedModel)
     : makerPool;
 
+  // 세대코드(DN8·CN7·KA4·W214)는 «어느 칸에 적혔든» 세대를 확정하는 가장 강한 신호다.
+  // 예전엔 sub_model·catalog_id·type_number 만 봤는데, 공급사가 **한 칸에 다 적으면**
+  // 그 값은 model 이나 trim_name 으로 들어와 코드가 통째로 무시됐다 —
+  // 「쏘나타 디 엣지 DN8 2.0 가솔린 인스퍼레이션」이 1990년대 「쏘나타 II Y3」로 붙었다(실측 2026-08-08).
+  // 코드는 마스터 gen_code 집합에 있는 토큰만 인정하므로 아무 글자나 걸리지 않는다.
   const productGen = deps.extractGen(product.sub_model, codes)
     || deps.extractGen(product.catalog_id, codes)
-    || deps.extractGen(product.type_number, codes);
+    || deps.extractGen(product.type_number, codes)
+    || deps.extractGen(product.model, codes)
+    || deps.extractGen(product.trim_name, codes)
+    || deps.extractGen(product.vehicle_name, codes)
+    || deps.extractGen(product.cert_car_name, codes);
   const ordinal = deps.ordinalGen(product.sub_model)
     || deps.ordinalGen(product.trim_name)
     || deps.ordinalGen(product.cert_car_name);

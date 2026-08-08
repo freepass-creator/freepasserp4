@@ -1,5 +1,24 @@
 import { load } from 'cheerio';
+import { readFileSync } from 'node:fs';
+import { snapToMaster, unpackVehicleSignals } from '@/lib/domain/vehicle-master-match';
+import type { MasterEntry } from '@/lib/domain/vehicle-master-types';
 import type { EntityRecord } from '@/lib/intake/entities';
+
+/**
+ * 차종마스터 — 서버에서는 파일로 읽는다.
+ * `vehicle-master-load` 는 브라우저용(`fetch('/data/...')`)이라 여기서는 못 쓴다.
+ */
+let masterCache: MasterEntry[] | null = null;
+function masterEntries(): MasterEntry[] {
+  if (masterCache) return masterCache;
+  try {
+    const raw = JSON.parse(readFileSync('public/data/vehicle-master.json', 'utf8')) as { entries?: MasterEntry[] } | MasterEntry[];
+    masterCache = (Array.isArray(raw) ? raw : raw.entries) || [];
+  } catch {
+    masterCache = [];      // 마스터를 못 읽으면 규격화만 건너뛴다 — 수집 자체를 막지는 않는다.
+  }
+  return masterCache;
+}
 
 export const IRONRENTCAR_BASE_URL = 'https://ironrentcar.com';
 export const IRONRENTCAR_PROVIDER_CODE = 'RP006';
@@ -206,6 +225,23 @@ export function parseIronRentcarDetail(
     source_url: sourceUrl,
     _raw_vehicle: { title, subtitle, maker, model, trim_name: trim, variant, year },
   };
+
+  /**
+   * ★홈페이지 값을 **우리 원자로 규격화**한다 — 시트 유입과 같은 길(차종마스터 스냅)을 쓴다.
+   *
+   * 안 하면 `sub_model` 에 모델명이 그대로 복사돼 「아반떼」·「K5」 로 남는다. 그 값이 반영되면
+   * 재고의 「더 뉴 아반떼 CN7」 이 「아반떼」 로 덮여 세대가 사라진다(실측 2026-08-08: 33대 대상).
+   * 스냅이 세대를 못 찾으면 원본을 그대로 두어 «없던 정보를 지어내지» 않는다.
+   */
+  const entries = masterEntries();
+  const snapped = entries.length ? snapToMaster(unpackVehicleSignals(product, entries), entries) : null;
+  if (snapped) {
+    product.maker = snapped.maker || product.maker;
+    product.model = snapped.model || product.model;
+    product.sub_model = snapped.sub_model || product.sub_model;
+    if (snapped.gen_code) product.catalog_id = snapped.gen_code;
+    product._snap_confidence = snapped.confidence;
+  }
 
   const privateProduct: EntityRecord = {
     product_code: product.product_code,

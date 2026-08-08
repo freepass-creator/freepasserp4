@@ -58,7 +58,8 @@ export function makerDisplay(value: unknown): string {
     .replace(/모빌리티/gi, '')
     .replace(/\s+/g, ' ')
     .trim();
-  if (/^kgm?$/i.test(display)) display = 'KG';
+  // KG모빌리티 → KGM. 「KG」 만 남기면 브랜드로 안 읽힌다(옛 쌍용 표기와도 안 이어진다).
+  if (/^kgm?$/i.test(display)) display = 'KGM';
   return display || source;
 }
 

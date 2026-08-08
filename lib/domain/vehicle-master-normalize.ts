@@ -1,3 +1,4 @@
+import { isHandledMaker } from '@/lib/domain/handled-makers';
 import type { EntityRecord } from '@/lib/intake/entities';
 import {
   FUEL_ALIAS,
@@ -156,20 +157,74 @@ export function unpackVehicleSignalsEngine(
     return new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`).test(modelProbeSpaced);
   };
 
-  const models = [...new Set(entries.map((entry) => entry.model))].sort((a, b) => b.length - a.length);
-  let hitModel = '';
-  if (modelProbe) {
-    for (const model of models) {
+  /**
+   * 후보 모델명은 **우리가 취급하는 브랜드**로 좁힌다. 마스터는 74개 브랜드짜리 사전이라
+   * 그대로 쓰면 짧은 이름이 안 다루는 차에 걸린다(「어드밴티지」 안의 「밴티지」 → 애스턴마틴).
+   * 좁힌 목록에서 아무것도 못 찾으면 아래에서 전체로 되돌아간다 — 막는 게 아니라 뒤로 미루는 것이다.
+   */
+  const handledModels = [...new Set(entries.filter((entry) => isHandledMaker(entry.maker)).map((entry) => entry.model))]
+    .sort((a, b) => b.length - a.length);
+  const allModels = [...new Set(entries.map((entry) => entry.model))].sort((a, b) => b.length - a.length);
+  const models = handledModels.length ? handledModels : allModels;
+  /** 브랜드 이름 자체(제네시스·미니·테슬라)는 모델명으로도 마스터에 있다. 그 구분에 쓴다. */
+  const makerNames = new Set(entries.map((entry) => deps.norm(entry.maker)).filter(Boolean));
+  const findHit = (pool: string[]): string => {
+    const hits: string[] = [];
+    for (const model of pool) {
       const normalizedModel = deps.norm(model);
       if (normalizedModel.length < 2) continue;
       const hit = shortAlnum(normalizedModel)
         ? hitsShortModel(normalizedModel)
         : modelProbe.includes(normalizedModel);
-      if (hit) {
-        hitModel = model;
-        break;
+      if (hit) hits.push(model);
+    }
+    if (!hits.length) return '';
+    /**
+     * 브랜드 이름이 모델명으로도 있으면 «구체적인 쪽»을 고른다.
+     * 「제네시스 G80 RG3」은 제조사 「제네시스」와 현대의 옛 모델 「제네시스」에 둘 다 걸리는데,
+     * 목록이 긴 이름 우선이라 옛 모델이 먼저 잡혀 G80 이 통째로 무시됐다(실측 2026-08-08).
+     */
+    return hits.find((model) => !makerNames.has(deps.norm(model))) || hits[0];
+  };
+
+  let hitModel = '';
+  if (modelProbe) {
+    hitModel = findHit(models);
+    if (!hitModel) {
+      /**
+       * 수입차 «숫자 이름» 구제 — 520i·120i·420d·E200·C300 처럼 실제로 쓰이는 표기는
+       * 마스터 모델명(5시리즈·E-클래스)에 문자열로 닿지 않는다. 그러면 매처가 브랜드를 잃고
+       * 엉뚱한 데로 샌다 — 실측(2026-08-08): 「BMW 120i」→인피니티 I30 · 「E200」→크라이슬러 200 ·
+       * 「BMW 520i」→인피니티 M35. 손님 화면에 다른 차가 뜨는 사고다.
+       *
+       * ⚠ 브랜드 신호가 있을 때만 적용한다. 숫자 표기는 트림·배기량 글에도 널려 있어
+       *   무조건 걸면 국산차가 수입차로 끌려간다.
+       */
+      const brandBlob = `${modelProbeSpaced} ${String(out.maker ?? '')}`.toLowerCase();
+      const isBmw = /bmw|비엠|베엠/.test(brandBlob);
+      // 브랜드 단어가 없어도 「E200·C300·S350·A180」은 그 자체로 벤츠 표기다 —
+      // 맨 앞에 한 글자+세 자리로 서는 이름은 다른 브랜드에 거의 없다. 실측: 「E200 아방가르드」가
+      // 크라이슬러 200 으로 붙고 있었다. 문장 «맨 앞»일 때만 인정해 오탐을 막는다.
+      const benzToken = /^(?:the\s+)?[acegs]\s?\d{3}(?:\s|$|[a-z])/i.test(modelProbeSpaced.trim());
+      const isBenz = /벤츠|메르세데스|benz|mercedes/.test(brandBlob) || benzToken;
+      let importAlias = '';
+      if (isBmw) {
+        // 520i·320d·M340i → N시리즈. X·Z 계열은 이름 그대로라 건드리지 않는다.
+        const m = /(?:^|[^0-9a-z])m?([1-8])\d{2}\s?(?:i|d|e|xdrive)?(?:[^0-9a-z]|$)/i.exec(modelProbeSpaced);
+        if (m) importAlias = `${m[1]}시리즈`;
+      } else if (isBenz) {
+        // E200·C300·S350·GLE450 → X-클래스. GL 계열은 별도 모델이라 제외한다.
+        const m = /(?:^|[^0-9a-z])(?!gl)([acegsv])\s?\d{2,3}\s?(?:d|e)?(?:[^0-9a-z]|$)/i.exec(modelProbeSpaced);
+        if (m) importAlias = `${m[1].toUpperCase()}-클래스`;
+      }
+      if (importAlias) {
+        const real = models.find((model) => deps.norm(model) === deps.norm(importAlias));
+        if (real) hitModel = real;
       }
     }
+    // 별칭까지 해보고도 없으면 그때 전체 마스터를 본다 — 되돌림은 «마지막»이어야 한다.
+    // 먼저 되돌리면 취급하지 않는 브랜드(애스턴마틴·크라이슬러)를 다시 집어 온다.
+    if (!hitModel && models !== allModels) hitModel = findHit(allModels);
     if (!hitModel) {
       // 별칭은 «못 찾았을 때»가 아니라 진작 봤어야 한다 — 「S클래스」(하이픈 없음)는 마스터의
       // 「S-클래스」에 문자열 포함으로 닿지 않는다. 실측: 그 사이에 짧은 오탐이 먼저 걸려
@@ -242,7 +297,21 @@ export function unpackVehicleSignalsEngine(
       && deps.norm(modelRaw).includes(deps.norm(hitModel))
       && deps.norm(modelRaw) !== deps.norm(hitModel)
     );
-    if (!modelRaw || deps.looksCompoundVehicleText(modelRaw) || peeled) out.model = hitModel;
+    if (!modelRaw || deps.looksCompoundVehicleText(modelRaw) || peeled) {
+      /**
+       * ★문장을 모델명으로 갈아끼우기 전에 **원문을 남긴다.**
+       *
+       * 공급사가 한 칸에 다 적으면(「쏘나타 디 엣지 DN8 2.0 가솔린 인스퍼레이션」) 그 값은
+       * model 로 들어온다. 여기서 그냥 덮으면 model=쏘나타 만 남고 «디 엣지 DN8» 이 증발해,
+       * 세대코드 추출도 세부모델 유사도도 볼 것이 없어진다 —
+       * 실측(2026-08-08) 결과 1990년대 「쏘나타 II Y3」로 붙었다.
+       * 같은 문장을 trim_name·sub_model 로 주면 원문이 남아 제대로 붙는다. 그 차이를 없앤다.
+       *
+       * sub_model 이 비어 있을 때만 채운다 — 공급사가 따로 준 세부모델을 덮으면 안 된다.
+       */
+      if (modelRaw && !String(out.sub_model ?? '').trim()) out.sub_model = modelRaw;
+      out.model = hitModel;
+    }
     if (!String(out.maker ?? '').trim()) {
       const maker = entries.find((entry) => entry.model === hitModel)?.maker;
       if (maker) out.maker = maker;
