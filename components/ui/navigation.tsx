@@ -59,10 +59,13 @@ export function BottomNav({
   embedded,
   zIndex = 45,
   backShowLabel = false,
+  sticky = false,
 }: {
   actions?: React.ReactNode;
   maxWidth?: number;
   padX?: number;
+  /** 화면이 아니라 **자기가 속한 칼럼**을 따라다닌다(본문 안에 넣어 쓴다). */
+  sticky?: boolean;
   backKind?: 'history' | 'list';
   onBack?: () => void;
   embedded?: boolean;
@@ -107,19 +110,27 @@ export function BottomNav({
     </div>
   );
   if (embedded) return inner;
+  // 독의 껍데기(배경·윗선·그림자·안전영역)는 **여기 한 곳**에만 있다.
+  //  페이지가 손으로 만들면 배경이 bg-page/bg-card로 갈리고 그림자가 빠진다(실제로 그랬다).
+  const chrome: React.CSSProperties = {
+    zIndex,
+    boxSizing: 'border-box',
+    background: C.taupeBg,
+    borderTop: `1px solid ${C.line}`,
+    boxShadow: SH.dock,
+    paddingBottom: 'var(--fp-dock-safe, env(safe-area-inset-bottom))',
+  };
+  // sticky = 화면이 아니라 **자기가 속한 칼럼**을 따라다닌다. 옆에 보조 칼럼이 서서
+  //  본문이 화면 중앙이 아닐 때 «상세 밑»을 지키는 유일한 방법이다(고정독은 화면 기준이라 어긋난다).
+  if (sticky) return <div style={{ ...chrome, position: 'sticky', bottom: 0 }}>{inner}</div>;
   return (
     <div style={{
+      ...chrome,
       position: 'fixed',
       left: 0,
       right: 0,
       bottom: 'var(--fp-tabbar-h, 0px)',
-      zIndex,
-      boxSizing: 'border-box',
       paddingRight: 'var(--sbw, 0px)',
-      background: C.taupeBg,
-      borderTop: `1px solid ${C.line}`,
-      boxShadow: SH.dock,
-      paddingBottom: 'var(--fp-dock-safe, env(safe-area-inset-bottom))',
     }}>
       {inner}
     </div>
