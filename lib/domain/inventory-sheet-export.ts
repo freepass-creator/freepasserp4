@@ -451,7 +451,9 @@ export function buildInventorySheet(
     { updateDimensionProperties: { range: { sheetId: gid, dimension: 'ROWS', startIndex: ROW_DATA, endIndex: lastRow }, properties: { pixelSize: 62 }, fields: 'pixelSize' } },
     { updateDimensionProperties: { range: { sheetId: gid, dimension: 'COLUMNS', startIndex: COL_NO, endIndex: COL_NO + 1 }, properties: { pixelSize: 42 }, fields: 'pixelSize' } },
     { updateDimensionProperties: { range: { sheetId: gid, dimension: 'COLUMNS', startIndex: COL_PHOTO, endIndex: COL_PHOTO + 1 }, properties: { pixelSize: 92 }, fields: 'pixelSize' } },
-    { updateDimensionProperties: { range: { sheetId: gid, dimension: 'COLUMNS', startIndex: COL_NAME, endIndex: COL_NAME + 1 }, properties: { pixelSize: 190 }, fields: 'pixelSize' } },
+    // 차종은 «한 마디»다 — 실측 최장이 「그랑 콜레오스」, 중앙값은 세 글자.
+    // 190px 는 그 두 배라 뒤 칸들을 화면 밖으로 민다.
+    { updateDimensionProperties: { range: { sheetId: gid, dimension: 'COLUMNS', startIndex: COL_NAME, endIndex: COL_NAME + 1 }, properties: { pixelSize: 106 }, fields: 'pixelSize' } },
     // 값 길이에 맞춘다 — 「60개월」 3~4글자 · 「1,850,000」 9글자 · 보증금은 9pt 라 조금 좁아도 된다.
     { updateDimensionProperties: { range: { sheetId: gid, dimension: 'COLUMNS', startIndex: COL_BEST_MONTH, endIndex: COL_BEST_MONTH + 1 }, properties: { pixelSize: 64 }, fields: 'pixelSize' } },
     { updateDimensionProperties: { range: { sheetId: gid, dimension: 'COLUMNS', startIndex: COL_BEST_RENT, endIndex: COL_BEST_RENT + 1 }, properties: { pixelSize: 104 }, fields: 'pixelSize' } },
