@@ -8,6 +8,7 @@ import { actor, ensureRoom, type Role } from '@/lib/domain/deal';
 import { contractStage, isContractCancelled } from '@/lib/domain/contract';
 import { ChatThread } from '@/components/ChatThread';
 import { ContractPanel } from '@/components/ContractPanel';
+import { ProductPriceTable } from '@/components/ProductPriceTable';
 import { Badge, C, FS, PaneHead, R } from '@/components/ui';
 import { NAV_LABEL } from '@/lib/tabbar';
 import { useIsMobile } from '@/lib/use-mobile';
@@ -53,20 +54,24 @@ export function ProductAssistPanel({ product, role }: { product: EntityRecord; r
       .catch(() => setContract(null));
   }, [co, code]);
 
+  // 대여료 위에 계약·대화가 붙는 건 딜을 진행하는 역할뿐이다. 손님·공급사에게 방을 만들면
+  //  쓰지도 않는 방이 목록에 쌓이고, 손님 화면에서 서버 쓰기가 일어난다.
+  const canDeal = role === 'agent' || role === 'admin';
+
   useEffect(() => {
-    if (narrow) return;
+    if (narrow || !canDeal) return;
     let ok = true;
     void ensureRoom(product, actor(role))
       .then((key) => { if (ok) setRoomId(key); })
       .catch(() => {});
     return () => { ok = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [code, role, narrow]);
+  }, [code, role, narrow, canDeal]);
 
   useEffect(() => {
-    if (narrow) return;
+    if (narrow || !canDeal) return;
     reloadContract();
-  }, [narrow, reloadContract]);
+  }, [narrow, canDeal, reloadContract]);
 
   if (narrow) return null;
 
@@ -74,7 +79,11 @@ export function ProductAssistPanel({ product, role }: { product: EntityRecord; r
   const stageBadge = contract ? <Badge tone={stage.tone}>{stage.label}</Badge> : null;
 
   const chromeGap = 14;
-  const paneH = `calc(100dvh - var(--topbar-h) - var(--fp-tabbar-h, 0px) - var(--bottombar-h) - var(--fp-dock-safe, 0px) - ${chromeGap * 2}px)`;
+  // 계약·대화가 붙는 역할만 화면 높이를 다 쓴다. 가격만 있는 역할(공급사·둘러보기)에서
+  //  같은 높이를 잡으면 표 아래가 통째로 빈 상자가 된다.
+  const paneH = canDeal
+    ? `calc(100dvh - var(--topbar-h) - var(--fp-tabbar-h, 0px) - var(--bottombar-h) - var(--fp-dock-safe, 0px) - ${chromeGap * 2}px)`
+    : undefined;
 
   return (
     <aside
@@ -90,7 +99,17 @@ export function ProductAssistPanel({ product, role }: { product: EntityRecord; r
         background: C.bg, border: `1px solid ${C.line}`, borderRadius: R, overflow: 'hidden',
       }}
     >
-      {/* 위 = 지금 누를 버튼만(내용 높이). 채팅이 아래를 채운다. */}
+      {/* 맨 위 = 돈. 헤이딜러처럼 본문은 차 설명, 우측은 «얼마에 · 어떻게 진행»이다.
+          영업자가 손님과 통화하며 스크롤해도 금액은 여기 그대로 있다 —
+          본문에 두면 스펙·보험을 읽는 동안 화면 밖으로 나간다. */}
+      <div style={{ flex: '0 0 auto', padding: 10, borderBottom: `1px solid ${C.line2}` }}>
+        <ProductPriceTable p={product} />
+      </div>
+
+      {/* 대여료까지는 손님·영업·공급·관리자가 **다 같다**. 그 밑에 붙는 것만 역할별이다
+          (2026-08-08 결정). 딜을 진행하지 않는 역할에는 아래를 그리지 않는다. */}
+      {!canDeal ? null : (<>
+      {/* 그 밑 = 지금 누를 버튼만(내용 높이). 채팅이 아래를 채운다. */}
       <div style={{
         flex: '0 0 auto',
         maxHeight: '42%',
@@ -117,6 +136,7 @@ export function ProductAssistPanel({ product, role }: { product: EntityRecord; r
             : <div style={{ padding: 14, fontSize: FS.cap, color: C.faint }}>대화방 준비 중…</div>}
         </div>
       </div>
+      </>)}
     </aside>
   );
 }

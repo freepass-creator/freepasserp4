@@ -11,6 +11,7 @@ import {
 } from '@/components/product-card-atoms';
 import { FavHeart } from '@/components/FavHeart';
 import { ProductPhotoImage, ProductPhotoPlaceholder } from '@/components/ProductPhoto';
+import { ProductPriceTable } from '@/components/ProductPriceTable';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 /**
@@ -66,7 +67,17 @@ function KvRow({ label, children, first }: { label: string; children: ReactNode;
  */
 export type DetailLayout = 'brochure' | 'work';
 
-export function ProductDetail({ p, audience, layout = 'brochure' }: { p: EntityRecord; audience?: Audience; layout?: DetailLayout }) {
+export function ProductDetail({ p, audience, layout = 'brochure', priceAside = false }: {
+  p: EntityRecord;
+  audience?: Audience;
+  layout?: DetailLayout;
+  /**
+   * 가격표를 본문에서 뺀다 — 넓은 화면에서 **우측 보조패널**이 대신 들고 있을 때.
+   * 헤이딜러 구조: 본문은 차 설명, 우측은 돈과 행동. 손님·영업자·공급사가 같은 골격을 쓴다.
+   * 좁은 화면에는 보조패널이 없으므로 가격은 본문 제자리에 남는다(2026-08-08 결정).
+   */
+  priceAside?: boolean;
+}) {
   const [lb, setLb] = useState<number | null>(null);
   const [main, setMain] = useState(0);
   const { photos, pending } = useProductPhotoState(p);
@@ -209,7 +220,7 @@ export function ProductDetail({ p, audience, layout = 'brochure' }: { p: EntityR
       ))}
 
       {/* 3 섹션 — 데이터=detailSections. 표기 원자=웹·모바일 동일 */}
-      {secs.map((sec) => (
+      {secs.filter((sec) => !(priceAside && sec.kind === 'price')).map((sec) => (
         <div
           key={sec.title}
           style={{
@@ -229,23 +240,7 @@ export function ProductDetail({ p, audience, layout = 'brochure' }: { p: EntityR
         >
           <div style={{ fontSize: FS.title, fontWeight: FW.title, color: C.ink, marginBottom: 4 }}>{sec.title}</div>
           {sec.kind === 'price' ? (
-            <div style={box}>
-              <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: FS.body, tableLayout: 'fixed' }}>
-                <thead><tr>{['기간', '월대여료', '보증금'].map((h, i) => <th key={h} style={{ width: '33.33%', padding: '6px 10px', textAlign: i === 0 ? 'left' : i === 1 ? 'center' : 'right', background: C.head, borderBottom: `1px solid ${C.line}`, fontSize: FS.cap, color: C.mute, fontWeight: FW.strong }}>{h}</th>)}</tr></thead>
-                <tbody>{prices.length === 0 ? <tr><td colSpan={3} style={{ padding: 12, textAlign: 'center', color: C.faint }}>가격 문의</td></tr> :
-                  prices.map((pr, i) => {
-                    const isCheap = !!cheap && pr.m === cheap.m;
-                    return (
-                      <tr key={pr.m} style={{ borderTop: i ? `1px solid ${C.line2}` : 'none', background: isCheap ? C.selected : 'transparent' }}>
-                        <td style={{ padding: '6px 10px' }}>{pr.m}개월{isCheap && <span style={{ marginLeft: 5, fontSize: FS.micro, fontWeight: FW.label, color: C.taupeBg, background: C.brand, borderRadius: R, padding: '1px 5px', verticalAlign: 'middle' }}>최저</span>}</td>
-                        <td style={{ padding: '6px 10px', textAlign: 'center', fontWeight: FW.head, color: C.brand, fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{won(pr.rent)}</td>
-                        <td style={{ padding: '6px 10px', textAlign: 'right', fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{pr.deposit > 0 ? won(pr.deposit) : '무보증'}</td>
-                      </tr>
-                    );
-                  })}</tbody>
-              </table>
-              {caption && <div style={{ padding: '6px 10px', fontSize: FS.cap, color: C.faint, borderTop: `1px solid ${C.line2}` }}>* {caption} 기준</div>}
-            </div>
+            <ProductPriceTable p={p} />
           ) : sec.kind === 'ins' ? (
             <div style={box}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: FS.body, tableLayout: 'fixed' }}>

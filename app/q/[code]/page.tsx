@@ -4,6 +4,8 @@ import { useParams } from 'next/navigation';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { vehicleName } from '@/lib/domain/product';
 import { ProductDetail } from '@/components/ProductDetail';
+import { ProductPriceTable } from '@/components/ProductPriceTable';
+import { useIsMobile } from '@/lib/use-mobile';
 import { C, R, Loading, CenterNote, Btn, FW, FS } from '@/components/ui';
 import { haptic } from '@/lib/haptics';
 
@@ -20,6 +22,8 @@ import { haptic } from '@/lib/haptics';
 export default function Quote() {
   const { code } = useParams<{ code: string }>();
   const key = decodeURIComponent(String(code));
+  // 620(본문) + 20 + 300(가격) + 여백 → 그 아래에서는 우측 칼럼이 본문을 짓눌러 접는다.
+  const wide = !useIsMobile(1000);
   const [p, setP] = useState<EntityRecord | null | undefined>(undefined);
   const [agent, setAgent] = useState<EntityRecord | null>(null);
 
@@ -53,10 +57,26 @@ export default function Quote() {
   const telHref = phone ? `tel:${phone.replace(/[^0-9+]/g, '')}` : '';
   const inverse = 'var(--text-inverse)';
 
+  // 손님도 영업자와 **같은 골격**을 본다 — 본문은 차 설명, 우측은 돈(2026-08-08 결정).
+  //  넓으면 기간별 대여료가 우측에 붙어 스크롤 내내 따라오고, 좁으면 본문 제자리로 돌아간다.
+  const priceAside = (
+    <aside
+      aria-label="기간별 대여료"
+      style={{ flex: '0 0 300px', width: 300, position: 'sticky', top: 18, alignSelf: 'flex-start' }}
+    >
+      <div style={{ fontSize: FS.title, fontWeight: FW.title, color: C.ink, marginBottom: 4 }}>대여료 / 보증금</div>
+      <ProductPriceTable p={p} />
+      <div style={{ marginTop: 8, fontSize: FS.cap, color: C.faint, lineHeight: 1.5 }}>
+        심사·재고에 따라 변동될 수 있습니다.
+      </div>
+    </aside>
+  );
+
   return (
-    <main style={{ maxWidth: 620, margin: '0 auto', padding: '18px 18px 28px' }}>
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-start', gap: 20, padding: '18px 18px 28px' }}>
+    <main style={{ flex: '1 1 auto', minWidth: 0, maxWidth: 620 }}>
       <div style={{ fontSize: FS.sub, color: C.mute, letterSpacing: '0.04em', marginBottom: 10 }}>대여 견적서</div>
-      <ProductDetail p={p} audience="customer" />
+      <ProductDetail p={p} audience="customer" priceAside={wide} />
       <div style={{ marginTop: 24, padding: '14px 16px', background: C.brand, color: inverse, borderRadius: R }}>
         <div style={{ fontSize: FS.body, fontWeight: FW.title }}>상담 문의</div>
         <div style={{ fontSize: FS.body, marginTop: 4, opacity: 0.9 }}>
@@ -76,5 +96,7 @@ export default function Quote() {
       </div>
       <div style={{ marginTop: 14, fontSize: FS.cap, color: C.faint }}>본 견적은 참고용이며 심사·재고에 따라 변동될 수 있습니다.</div>
     </main>
+    {wide ? priceAside : null}
+    </div>
   );
 }

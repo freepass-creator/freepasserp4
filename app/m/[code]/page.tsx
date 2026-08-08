@@ -100,8 +100,8 @@ export default function Detail() {
 
   const role = getRole();
   const canDeal = role === 'agent' || role === 'admin';
-  /** 보조 칼럼이 실제로 그려지는가 — 하단독을 본문 아래로 맞추는 데 쓴다. */
-  const assistShown = canDeal && assistColumn;
+  /** 보조 칼럼이 실제로 그려지는가 — 가격표 자리·하단독 위치가 여기 달렸다(역할 무관). */
+  const assistShown = assistColumn;
   const sendLink = () => {
     const a = actor(role);
     const url = guestShareUrl(p, a.code || a.uid);
@@ -147,7 +147,8 @@ export default function Detail() {
           // 보조 칼럼이 서면 액션은 이 칼럼 안에서 따라다닌다 → 화면 고정독 자리를 비워 둘 필요가 없다.
           padding: assistShown ? 0 : '0 0 calc(76px + env(safe-area-inset-bottom))',
         }}>
-          <ProductDetail p={p} />
+          {/* 보조패널이 서면 가격표는 거기(맨 위)로 간다 — 본문은 차 설명만. */}
+          <ProductDetail p={p} priceAside={assistShown} />
           <SimpleInquiry p={p} />
           {/* 검수요청 = 페이지 맨 하단. 본문과 같은 가로폭. */}
           <div style={{ marginTop: 20, paddingTop: 14, borderTop: `1px solid ${C.line}`, width: '100%' }}>
@@ -158,7 +159,9 @@ export default function Detail() {
               sticky bottom = 스크롤 중엔 화면 아래에 붙고, 상세 끝에 오면 거기서 멈춘다. */}
           {assistShown ? <BottomNav sticky maxWidth={920} padX={16} backShowLabel actions={dockActions} /> : null}
         </main>
-        {canDeal && <ProductAssistPanel product={p} role={role} />}
+        {/* 대여료 패널은 **역할과 무관하게** 뜬다 — 손님·공급사도 같은 자리에서 금액을 본다.
+            그 밑의 계약·대화만 역할별로 붙는다(2026-08-08 결정). */}
+        {assistColumn && <ProductAssistPanel product={p} role={role} />}
       </div>
       {/* 보조 칼럼이 없을 때(모바일·좁은 웹·손님·공급사)는 전 화면 공통 규격인 고정독 그대로.
           액션 권한(canDeal)과 무관하게 항상 노출해야 공급사도 이전 수단이 있다. */}
