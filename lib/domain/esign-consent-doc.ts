@@ -26,6 +26,7 @@ import {
 import {
   AGREEMENT_SECTIONS, AGREEMENT_TITLE, AGREEMENT_VERSION,
 } from '@/lib/domain/esign-agreement-text';
+import { overMileageRateFor } from '@/lib/domain/policy-defaults';
 
 type Rec = Record<string, unknown>;
 const S = (v: unknown): string => String(v ?? '').trim();
@@ -235,7 +236,13 @@ export function buildConsentGroups(
          *   약정 연 30,000km · 실주행 31,000km → 초과 1,000km × 요율
          * 계산·정산 방식은 약관 제15조가 서술하고, 계약서는 그 조문이 참조하는 숫자만 댄다.
          */
-        { label: '초과 주행요금', value: overMileageText(p.over_mileage_rate_per_km), raw: p.over_mileage_rate_per_km, article: '제15조' },
+        // 국산·수입이 다르다 — 이 계약 차량의 제조사로 고른다. 한 칸으로 두면 수입차에 국산 요율이 찍힌다.
+        {
+          label: '초과 주행요금',
+          value: overMileageText(overMileageRateFor(p, S(c.maker_snapshot))),
+          raw: overMileageRateFor(p, S(c.maker_snapshot)),
+          article: '제15조',
+        },
         { label: '현재 주행거리', value: N(c.mileage_snapshot) ? `${N(c.mileage_snapshot).toLocaleString('ko-KR')}km` : '', raw: c.mileage_snapshot },
         { label: '만기 인수가격', value: S(inputs.buyout_price), raw: inputs.buyout_price },
         // 「3회 분납 가능」은 영업 단계의 말이다. 이 계약에서 몇 회로 굳었는지만 적는다.

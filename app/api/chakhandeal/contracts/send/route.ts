@@ -85,7 +85,8 @@ export async function POST(request: Request) {
     const existingId = codeText(contract.esign_id);
     const issue = existingId
       ? { contractId: existingId, verifyUrl: codeText(contract.esign_verify_url), sealHash: codeText(contract.esign_seal_hash) }
-      : await issueChakhandealContract(config, contract, template?.id);
+      // 위에서 게이트로 읽은 정책을 그대로 넘긴다 — 안 넘기면 계약서가 빈칸으로 나간다.
+      : await issueChakhandealContract(config, contract, template?.id, policy);
 
     // 어느 양식으로 나갔는지는 계약에 박는다 — 나중에 «이 손님이 어느 판에 서명했나»를
     // 되짚을 수 있는 유일한 근거다. 발행 식별자와 함께 먼저 저장한다(발송 실패 대비).
