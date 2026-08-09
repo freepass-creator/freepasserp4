@@ -27,7 +27,8 @@
     "backup:list": "tsx scripts/deploy/rtdb-backup.mts list",
     "backup:verify": "tsx scripts/deploy/rtdb-backup.mts verify",
     "backup:rehearse": "tsx scripts/deploy/rtdb-backup.mts rehearse",
-    "backup:restore": "tsx scripts/deploy/rtdb-backup.mts restore"
+    "backup:restore": "tsx scripts/deploy/rtdb-backup.mts restore",
+    "ops:watch": "tsx scripts/deploy/ops-watch.mts"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
