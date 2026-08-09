@@ -15,6 +15,7 @@ import { haptic } from '@/lib/haptics';
 import { useIsMobile } from '@/lib/use-mobile';
 import { NAV_LABEL } from '@/lib/tabbar';
 import { canIssueContract, CONTRACT_LAYER, type PolicyField } from '@/lib/domain/policy-tier';
+import { applyPolicyDefaults } from '@/lib/domain/policy-defaults';
 import { retainVisibleSelection } from '@/features/work-list-display';
 import { providerNameMap } from '@/lib/domain/identity';
 
@@ -294,6 +295,18 @@ export default function PolicyMgmt() {
    * 전자계약 패널의 안내 — «지금 이 정책으로 계약서를 보낼 수 있는가»를 그 자리에서 말한다.
    * 빈칸을 남긴 채 발송하면 서명 뒤에 봉인되어 고치지 못하므로, 여기서 미리 세어 보인다.
    */
+  /**
+   * 프리패스 표준값 채우기 — 지금 나가는 계약서와 «같은 값»을 한 번에 넣는다.
+   * 이미 값이 있는 칸은 덮지 않는다. 공급사가 다르게 정한 것을 표준으로 되돌리면 안 된다.
+   */
+  const fillDefaults = () => {
+    const { next, filled } = applyPolicyDefaults(form);
+    if (!filled.length) { toast('이미 다 채워져 있습니다', 'ok'); return; }
+    setForm(next);
+    setDirty(true);
+    toast(`${filled.length}개 항목에 표준값을 넣었습니다 — 저장해야 반영됩니다`, 'ok');
+  };
+
   const esignGate = canIssueContract(form);
   const esignHint = esignGate.layer !== 'contract'
     ? '상품만 공급하는 정책입니다 — 계약서는 공급사가 직접 작성합니다. 우리가 계약서까지 쓰려면 「정책 단계」를 «계약»으로 두고 아래를 채우세요.'
@@ -329,6 +342,18 @@ export default function PolicyMgmt() {
             */}
             {lead && (
               <p style={{ margin: '0 0 10px', fontSize: 12.5, lineHeight: 1.6, color: C.mute }}>{lead}</p>
+            )}
+            {/*
+              표준값 채우기는 «전자계약 패널에서만». 빈칸을 하나씩 채우는 것은 오래 걸리고,
+              그러다 안 채운 칸이 남으면 계약서가 빈칸으로 나간다.
+              값은 지금 나가는 계약서에서 뽑은 것이라 «새로 정하는 것»이 아니다.
+            */}
+            {title === '전자계약' && canEdit && (
+              <div style={{ marginBottom: 10 }}>
+                <Btn title="프리패스 표준값 채우기" size="sm" variant="ghost" onClick={fillDefaults}>
+                  프리패스 표준값 채우기
+                </Btn>
+              </div>
             )}
             {mobile && !canEdit ? (
               <FormReadList fields={fields} form={form} footer={hint} />
