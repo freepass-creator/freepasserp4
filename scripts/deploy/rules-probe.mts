@@ -145,6 +145,8 @@ async function main() {
   // ★이 검사가 제일 중요하다. 정산 생성 규칙이 조금이라도 빡빡하면 계약완료가 통째로 막히는데,
   //  그건 «막혀야 할 것이 막힌다»만 봐서는 절대 안 잡힌다.
   //  실제 순서를 그대로 흉내낸다 — createSettlement 는 계약완료를 **찍기 전에** 실행된다.
+  // 신원해시는 있는데 선점 원장에는 없는 계약 — 「선점이 끊긴 계약」을 흉내낸다.
+  const hashCode = `TEST-RULES-HASH-${Date.now()}`;
   const doneCode = `TEST-RULES-DONE-${Date.now()}`;
   const doneRef = database.ref(`v4/contracts/${doneCode}`);
   const party = {
@@ -164,6 +166,11 @@ async function main() {
     agent_handover_confirmed: 'yes', provider_release_completed: 'yes',
     rent_amount_snapshot: 690000, rent_month_snapshot: 36,
   });
+  await database.ref(`v4/contracts/${hashCode}`).set({
+    contract_code: hashCode, is_test: true, contract_status: '계약요청',
+    product_code: probeProduct, vehicle_identity_hash: `PROBE-HASH-${Date.now()}`, ...party,
+  });
+
   const settlementBody = {
     settlement_code: `ST_${doneCode}`, contract_code: doneCode, settlement_status: '정산대기',
     ...party, rent_amount: 690000,
@@ -229,6 +236,8 @@ async function main() {
     { name: '선점 원장에 직접 쓰기(영업자)', as: 'agent', method: 'PUT', path: `v4/vehicle_claims/${PROBE_KEY}`, body: { status: 'active' }, expect: 'deny' },
     { name: '선점 원장 읽기(영업자)', as: 'agent', method: 'GET', path: 'v4/vehicle_claims', expect: 'deny' },
     { name: '선점 원장 읽기(관리자)', as: 'admin', method: 'GET', path: 'v4/vehicle_claims', expect: 'allow' },
+    // 선점이 끊긴 계약으로는 매물을 못 잠근다 — 락과 원장이 갈라지면 이중판매가 다시 열린다.
+    { name: '선점 없는 계약으로 잠그기(영업자)', as: 'agent', method: 'PUT', path: `v4/products/${probeProduct}/locked_by_contract`, body: hashCode, expect: 'deny' },
   ];
 
   let failed = 0;
@@ -244,6 +253,7 @@ async function main() {
   } finally {
     await ref.remove();
     await doneRef.remove();
+    await database.ref(`v4/contracts/${hashCode}`).remove();
     await database.ref(`v4/products/${probeProduct}`).remove();
     for (const node of ['settlements', 'settlements_provider_private', 'settlements_agent_private']) {
       await database.ref(`v4/${node}/ST_NOPE-9999`).remove();
