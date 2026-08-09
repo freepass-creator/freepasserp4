@@ -21,6 +21,17 @@ export const PRODUCT_SHEET_COLUMNS: SheetColumn[] = [
   { label: '공급사', kind: 'text', width: 110 },
   { label: '상품코드', kind: 'text', width: 120 },
   { label: '차량번호', kind: 'text', width: 95 },
+  /**
+   * ★차대번호 — 공급사가 채워 주면 차종 매칭이 «추측»에서 «규칙»이 된다(2026-08-09 사장님 지시).
+   *
+   * VIN 17자리는 제조사·차종·연식을 자리로 말해 준다(10번째 자리가 연식).
+   * 지금은 이름 글자를 맞추느라 오탈자·별칭·초성까지 방어하는데, 이 칸이 차면 그게 다 필요 없다.
+   * 차량번호는 바뀌지만 VIN 은 안 바뀌어서 **같은 차를 잇는 열쇠**로도 이게 정답이다.
+   *
+   * 공급사는 이미 갖고 있다 — 자동차등록증에 적혀 있다.
+   * ⚠ 받아서 우리만 쓴다. 손님 카탈로그·영업자 시트 어느 쪽으로도 안 내보낸다.
+   */
+  { label: '차대번호', kind: 'text', width: 175 },
   { label: '제조사', kind: 'text', width: 80 },
   { label: '모델', kind: 'text', width: 110 },
   { label: '세부모델', kind: 'text', width: 150 },
@@ -81,6 +92,7 @@ export function productSheetRow(p: EntityRecord, providerName: string): (string 
     providerName || S(p.provider_company_code),
     S(p.product_code || p._key),
     S(p.car_number),
+    S(p.vin),
     S(p.maker),
     S(p.model),
     S(p.sub_model),

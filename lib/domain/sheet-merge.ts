@@ -229,11 +229,25 @@ export function resolveSheetReviveTarget(
   return key ? { key, expected: preferred } : null;
 }
 
-const SHEET_PRIVATE_PRODUCT_FIELDS = new Set(['vehicle_price', 'vin', 'account_number']);
+/**
+ * ★차대번호(VIN)는 여기서 뺐다 — 시트가 쓸 수 있게 한다(2026-08-09 사장님 지시).
+ *
+ * 원가·계좌와 같이 묶여 있었는데 성격이 다르다. 원가·계좌는 **우리 영업 비밀**이라
+ * 공급사가 쓰면 안 되는 값이고, VIN 은 **그 차의 사실**이라 공급사가 원래 아는 값이다.
+ * 등록증에 적혀 있고, 공급사가 우리에게 알려 주는 쪽이지 우리가 지킬 값이 아니다.
+ *
+ * 왜 받아야 하나 — VIN 17자리는 제조사·차종·연식을 **규칙으로** 준다.
+ * 오늘 하루 씨름한 것(연식 칸의 배기량, 오탈자·별칭·초성, 차번 중복)이 대부분 사라진다.
+ * 차량번호는 바뀌지만 VIN 은 안 바뀌어서 같은 차를 잇는 데도 이게 정답이다.
+ *
+ * ⚠ 대신 **밖으로는 안 나간다.** `public-catalog` 의 손님 노출 목록에서도 뺐고,
+ *   영업자 시트 HEADERS 에도 없다. 받아서 우리만 쓴다.
+ */
+const SHEET_PRIVATE_PRODUCT_FIELDS = new Set(['vehicle_price', 'account_number']);
 const SHEET_PRIVATE_PRICE_FIELDS = new Set(['fee', 'commission', 'fee_memo']);
 
 /**
- * Sheet는 공개 재고·대여조건의 writer일 뿐 원가/VIN/계좌/수수료의 writer가 아니다.
+ * Sheet는 공개 재고·대여조건의 writer일 뿐 원가/계좌/수수료의 writer가 아니다.
  * 기존 price를 기간 병합하면 private 수수료도 객체 안에 따라오므로, CAS 패치 직전에
  * 제거하지 않으면 RTDB 공개/비공개 2단 transaction에서 공개만 먼저 반영되는 부분 성공이 생긴다.
  */

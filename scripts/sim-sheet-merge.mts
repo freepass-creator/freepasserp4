@@ -101,9 +101,17 @@ check('Sheet 가격 patch는 공개 대여조건만 보내고 비공개 수수�
   && !Object.prototype.hasOwnProperty.call(privatePricePatch?.['36'] || {}, 'fee')
   && !Object.prototype.hasOwnProperty.call(privatePricePatch?.['36'] || {}, 'commission')
   && !Object.prototype.hasOwnProperty.call(privatePricePatch?.['36'] || {}, 'fee_memo'));
-check('Sheet patch는 원가·VIN·계좌 최상위 원자도 제거', Object.keys(stripSheetPrivatePatchFields({
-  maker: '현대', vehicle_price: 1, vin: 'secret', account_number: 'secret',
-})).join(',') === 'maker');
+/**
+ * ★VIN 은 2026-08-09 부터 **시트가 쓴다**(사장님 지시).
+ *
+ * 원가·계좌와 성격이 다르다 — 그건 우리 영업 비밀이라 공급사가 쓰면 안 되는 값이고,
+ * VIN 은 그 차의 사실이라 공급사가 원래 아는 값이다(등록증에 적혀 있다).
+ * 받아야 차종 매칭이 «글자 맞추기»에서 «규칙»이 된다.
+ * 밖으로 나가는 길은 따로 막았다 — `sim-vin-flow.mts` 가 지킨다.
+ */
+check('Sheet patch는 원가·계좌 최상위 원자를 제거하고 VIN 은 남긴다', Object.keys(stripSheetPrivatePatchFields({
+  maker: '현대', vehicle_price: 1, vin: 'KMHL341ABPA123456', account_number: 'secret',
+})).sort().join(',') === 'maker,vin');
 
 const casExpected: EntityRecord = {
   _key: 'RP_12가3456', product_code: 'RP_12가3456', updatedAt: 'before',

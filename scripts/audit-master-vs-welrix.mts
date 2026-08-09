@@ -8,33 +8,27 @@
  */
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import type { MasterEntry } from '../lib/domain/vehicle-master-types';
-import { TRIM_ALIAS, TRIM_TYPO } from '../lib/domain/vehicle-trim-resolve';
 import { buildSubIndex, resolveSubModel } from '../lib/domain/vehicle-sub-resolve';
+// ★규칙은 한 벌이다 — 엔카든 견적기든 «무엇이 트림인가»는 같은 표가 정한다.
+import { foldTrim, normalizeTrim } from '../lib/domain/master-learn';
 
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
 const WELRIX = process.env.WELRIX || 'C:/dev/welrixtable/src/data/vehicles.json';
 const NOW = Number(process.env.NOW) || 2026;
 
-const CMP: Record<string, string> = {
-  ...TRIM_ALIAS,
-  line: '라인', black: '블랙', edition: '에디션', plus: '플러스', special: '스페셜',
-  selection: '셀렉션', best: '베스트', active: '액티브', classic: '클래식',
-};
-const fold = (v: string): string => {
-  let t = S(v).toLowerCase();
-  for (const [en, ko] of Object.entries(CMP)) if (t.includes(en)) t = t.split(en).join(ko);
-  for (const [typo, real] of Object.entries(TRIM_TYPO)) if (t.includes(typo)) t = t.split(typo).join(real);
-  return t.replace(/[\s\-_()[\]{}/·.,]/g, '');
-};
-
 const masterRaw = JSON.parse(readFileSync('public/data/vehicle-master.json', 'utf8'));
 const entries: MasterEntry[] = (Array.isArray(masterRaw) ? masterRaw : masterRaw.entries) || [];
 const rows: Rec[] = JSON.parse(readFileSync(WELRIX, 'utf8'));
 const index = buildSubIndex(entries, NOW);
 
-const stripSeats = (v: string) => S(v)
+/**
+ * 견적기는 인승을 트림 칸 **중간**에 넣는다 — 「익스클루시브 · 7인승」.
+ * 엔진의 `normalizeTrim` 은 앞머리 인승만 뗀다(엔카가 그 모양이라). 여기서 먼저 걷어낸다.
+ */
+const stripSeatsAnywhere = (v: string) => S(v)
   .replace(/[·,/]?\s*\d+\s*인승\s*/g, ' ').replace(/\s{2,}/g, ' ').trim();
+const fold = foldTrim;
 
 type Gap = { maker: string; sub: string; trim: string; n: number; ex: string[]; neighbors: string; how: string };
 const gaps = new Map<string, Gap>();
@@ -44,7 +38,7 @@ const mapSamples: Array<{ model: string; sub: string; how: string }> = [];
 
 for (const r of rows) {
   const model = S(r.model) || S(r.model_name_kr) || S(r.name);
-  const trim = stripSeats(S(r.trim_detail));
+  const trim = normalizeTrim(stripSeatsAnywhere(S(r.trim_detail)));
   if (!model || !trim) continue;
   const maker = S(r.brand) || S(r.maker) || '';
   // 신차 = 기준연에 걸리는 세대. 연식으로 구형 TM 등을 민다.

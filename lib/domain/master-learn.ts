@@ -50,7 +50,29 @@ export function inScope(yearEnd: unknown, rules: LearnRules = DEFAULT_RULES): bo
  * 트림이 아닌 값 — 엔카가 트림 칸에 실어 보내지만 우리 축으로는 다른 것.
  * 인승·개조이력·용도는 트림이 아니다.
  */
-const NOT_TRIM = /^\s*(\d+\s*인승|구조변경|특장|하이리무진|리무진|택시|장애인|영업용|자가용|밴|무사고)/;
+// ⚠ 판매경로 접두를 뗀 **뒤에** 본다 — 「렌터카 트렌디」는 「트렌디」가 되고,
+//   홀로 선 「렌터카」만 여기서 걸린다.
+const NOT_TRIM = /^\s*(\d+\s*인승|구조변경|특장|하이리무진|리무진|택시|장애인|영업용|자가용|렌터카|밴|무사고)/;
+
+/**
+ * 「트림 없음」을 다른 말로 적은 것 — 그대로 넣으면 마스터에 «기본»이라는 트림이 생긴다.
+ * 신차견적기는 최저 사양을 「기본」·「기본 모델」이라 부른다(실측 2026-08-09 · 13건).
+ * 우리 마스터는 그 자리에 실제 등급명(스마트·트렌디)을 쓴다. 이름이 아니라 «없음»의 표시다.
+ */
+const MEANS_NO_TRIM = /^(기본|기본\s*모델|기본형\s*모델|없음|미정|해당없음)$/;
+
+/**
+ * 옵션·외장 패키지 — 트림 축이 아니다.
+ * 「Black Exterior」·「Black Ink」는 외장 색상 묶음이고 「스포츠 패키지」는 옵션이다.
+ * 같은 트림에 얹는 것이라 트림 목록에 넣으면 등급이 하나 더 있는 것처럼 보인다.
+ */
+const IS_PACKAGE = /(패키지|package)$|^black\s*(exterior|ink)$/i;
+
+/**
+ * 판매 경로가 **접두**로 오는 경우 — 「렌터카 트렌디」·「택시 프레스티지」.
+ * 괄호형(SALES_TAG)만 떼면 이건 남아서 「렌터카 트렌디」라는 없는 트림이 생긴다.
+ */
+const SALES_PREFIX = /^\s*(렌터카|택시|영업용|법인|개인|자가용)\s+/;
 
 /**
  * 꼬리표 — 같은 트림을 판매 경로로 나눠 부르는 말.
@@ -77,9 +99,12 @@ const GEN_LIKE = /^([1-9]\s*세대|[A-Z]{1,3}\d{1,3}[A-Z]?|\d{3,4})$/;
 export function normalizeTrim(raw: string): string {
   let t = S(raw).replace(SALES_TAG, ' ').replace(/\s{2,}/g, ' ').trim();
   if (!t || /없음/.test(t)) return '';
-  t = t.replace(/^\s*\d+\s*인승\s*/, '').trim();
+  t = t.replace(SALES_PREFIX, '').replace(/^\s*\d+\s*인승\s*/, '').trim();
+  if (!t) return '';
   if (NOT_TRIM.test(t)) return '';
   if (GEN_LIKE.test(t)) return '';
+  if (MEANS_NO_TRIM.test(t)) return '';
+  if (IS_PACKAGE.test(t)) return '';
   return t;
 }
 
@@ -92,6 +117,8 @@ const CMP_WORDS: Array<[RegExp, string]> = [
   [/premium/g, '프리미엄'], [/luxury/g, '럭셔리'], [/signature/g, '시그니처'],
   [/prestige/g, '프레스티지'], [/noblesse/g, '노블레스'], [/exclusive/g, '익스클루시브'],
   [/standard/g, '스탠다드'], [/modern/g, '모던'], [/smart/g, '스마트'], [/trendy/g, '트렌디'],
+  // 신차견적기가 영문으로 적는 것들(실측 2026-08-09)
+  [/honors/g, '아너스'], [/calligraphy/g, '캘리그래피'], [/inspiration/g, '인스퍼레이션'],
 ];
 
 /** 비교용 접기 — 표기 차이를 지운다. 저장은 언제나 마스터 표기로 한다. */

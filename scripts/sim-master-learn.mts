@@ -104,6 +104,16 @@ const genInName = proposeTrims(
 );
 check('세대 이름에 든 「5N」은 트림이 아니다', genInName.length === 0, genInName.map((p) => p.trim));
 
+// ── 신차견적기에서 드러난 노이즈(2026-08-09 · 31건 중 대부분) ──
+check('「기본」은 트림이 아니라 «없음»의 표시', normalizeTrim('기본') === '');
+check('「기본 모델」도 마찬가지', normalizeTrim('기본 모델') === '');
+check('「기본형」은 진짜 트림이라 남긴다', normalizeTrim('기본형') === '기본형');
+check('외장 패키지는 트림이 아니다', normalizeTrim('Black Exterior') === '' && normalizeTrim('Black Ink') === '');
+check('옵션 패키지도 아니다', normalizeTrim('스포츠 패키지') === '');
+check('판매경로 접두를 뗀다 — 「렌터카 트렌디」', normalizeTrim('렌터카 트렌디') === '트렌디');
+check('접두만 있으면 빈값', normalizeTrim('렌터카') === '');
+check('「Honors」와 「아너스」는 같다', foldTrim('Honors') === foldTrim('아너스'));
+
 check('문턱 기본값은 3대', DEFAULT_RULES.minListings === 3);
 
 console.log(`\n━━ 결과: ${pass}/${pass + fail} 통과`);

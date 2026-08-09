@@ -44,9 +44,17 @@ const PUBLIC_POLICY_FIELDS = [
   'maintenance_service',
 ] as const;
 
-/** 손님에게 보여도 되는 매물 필드 — 차량 스펙과 대여 조건. */
+/**
+ * 손님에게 보여도 되는 매물 필드 — 차량 스펙과 대여 조건.
+ *
+ * ★차대번호(VIN)는 여기 두지 않는다(2026-08-09).
+ *   VIN 은 차의 주민번호다 — 그 하나로 사고·정비 이력과 소유 관계 조회가 열린다.
+ *   차를 특정하는 데 **우리한테는 가장 좋은 열쇠**지만 그래서 남에게 주면 안 되는 열쇠다.
+ *   공급사에게 받아 내부 매칭에만 쓰고 밖으로는 내보내지 않는다.
+ *   (영업자 시트 HEADERS 에도 없다 — 두 경로 다 막혀 있어야 한다)
+ */
 const PUBLIC_PRODUCT_FIELDS = [
-  'car_number', 'vin', 'maker', 'model', 'sub_model', 'trim_name', 'trim_extra', 'variant',
+  'car_number', 'maker', 'model', 'sub_model', 'trim_name', 'trim_extra', 'variant',
   'vehicle_class', 'year', 'first_registration_date', 'fuel_type', 'engine_type',
   'ext_color', 'int_color', 'drive_type', 'seats', 'transmission', 'usage',
   'options', 'product_type', 'vehicle_status', 'accident_history',
