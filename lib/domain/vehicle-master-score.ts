@@ -24,6 +24,19 @@ export type MasterEntryScoreResult = {
   year: number;
 };
 
+/**
+ * 영문 세대 표기 → 마스터 한글. 세대코드가 같아도 문구로 갈라야 하는 경우
+ * (실측 2026-08-09: 쏘나타 DN8 vs 디 엣지 DN8 · The New vs 더 뉴).
+ * ★확인된 것만. 상상으로 늘리면 다른 세대 점수가 흔들린다.
+ */
+export function expandGenPhrases(value: unknown): string {
+  const text = String(value ?? '');
+  if (!text) return text;
+  return text
+    .replace(/\bthe\s*edge\b/gi, '디 엣지')
+    .replace(/\bthe\s*new\b/gi, '더 뉴');
+}
+
 export function selectMasterEntry(
   product: EntityRecord,
   entries: MasterEntry[],
@@ -34,6 +47,14 @@ export function selectMasterEntry(
   const model = deps.norm(product.model);
   const sub = deps.norm(product.sub_model);
   const year = deps.carYear(product);
+  // 유사도 전에 영문 세대 문구를 한글로 — 「The Edge」↔「디 엣지」가 안 이어지면
+  // gen_code=DN8 동점에서 구형「쏘나타 DN8」로 붙고 트림「익스클루시브」가 증발한다.
+  const subText = expandGenPhrases(product.sub_model);
+  const trimText = expandGenPhrases(product.trim_name);
+  const trimExtraText = expandGenPhrases(product.trim_extra);
+  const certText = expandGenPhrases(product.cert_car_name);
+  const nameText = expandGenPhrases(product.vehicle_name);
+  const aliasedBlob = expandGenPhrases(signalBlob);
   if (!maker && !model && !sub) return null;
   if (!model && !sub) return null;
 
@@ -65,9 +86,39 @@ export function selectMasterEntry(
       lockedModel = entryModel;
     }
   }
-  const lockedEntries = lockedModel && modelSimilarity > 0.4
+  const modelEntries = lockedModel && modelSimilarity > 0.4
     ? makerPool.filter((entry) => entry.model === lockedModel)
     : makerPool;
+
+  /**
+   * ★세대의 **1차 추출은 연식**이다 (사장님 지적 2026-08-09).
+   *
+   *   「연식과 모델명으로도 세부모델을 1차 추출이 되잖어.」
+   *
+   * 맞다 — 세대는 생산연도로 갈리니, 모델이 정해지면 연식이 세대를 거의 확정한다.
+   * 예전엔 연식을 **점수 가중치로만** 썼다(아래 genLock·연식 가점). 그래서 이름이 조금 더
+   * 닮은 **옛 세대에 밀렸다**: 2024년식 K3 가 2016~2017년 「더 뉴 K3 쿱 YK」에,
+   * 2025년식 E-클래스가 W213 에 붙었다(실측 2026-08-09 · 762대 중 19대가 «생산구간 밖»).
+   *
+   * ★그게 트림 손실의 원인이기도 하다 — 세대가 틀리면 그 아래 트림 목록이 통째로 달라진다.
+   *   `109호3581` 은 원문에 「프레스티지」가 또렷한데 쿱 세대에 붙어 트림이 사라지고 있었다.
+   *
+   * 그래서 **연식이 생산구간에 드는 세대만 먼저 남긴다.** 남은 게 하나면 그게 답이고,
+   * 여럿이면 아래 세대코드·문구·유사도가 가른다(=텍스트 검수). 이름 유사도로 뒤집지 않는다.
+   *
+   * ⚠ 구간에 드는 세대가 **하나도 없으면 좁히지 않는다.** 마스터 연식이 비었거나
+   *   공급사 연식이 엉뚱한 경우인데, 여기서 비우면 멀쩡한 매칭까지 잃는다.
+   *   실측: 「못 가리면 비운다」로 했더니 170대가 공란이 됐고, 「구간 안이면 유지」로
+   *   바꾸니 1대로 줄었다. 근거가 없다는 건 «틀렸다»가 아니다.
+   */
+  const yearFit = year
+    ? modelEntries.filter((entry) => {
+      const start = Number(entry.year_start) || 0;
+      const end = /\d{4}/.test(String(entry.year_end)) ? Number(entry.year_end) : 9999;
+      return (!start || year >= start) && year <= end;
+    })
+    : [];
+  const lockedEntries = yearFit.length ? yearFit : modelEntries;
 
   // 세대코드(DN8·CN7·KA4·W214)는 «어느 칸에 적혔든» 세대를 확정하는 가장 강한 신호다.
   // 예전엔 sub_model·catalog_id·type_number 만 봤는데, 공급사가 **한 칸에 다 적으면**
@@ -102,30 +153,48 @@ export function selectMasterEntry(
   const targetGen = ordinal >= 1 && ordinal <= order.length ? order[ordinal - 1] : null;
   const productFuel = deps.normFuel(product.fuel_type);
   const productIsEv = productFuel === '전기' || productFuel === '수소';
-  const evHint = /전기|일렉트릭|일렉트리파이드|electrified|\bev\b/i.test(signalBlob.toLowerCase());
+  const evHint = /전기|일렉트릭|일렉트리파이드|electrified|\bev\b/i.test(aliasedBlob.toLowerCase());
   const bodyPattern = /쿠페|카브리올레|컨버터블|coupe|cabriolet|convertible/i;
-  const productIsCoupe = bodyPattern.test(signalBlob);
+  const productIsCoupe = bodyPattern.test(aliasedBlob);
   const catalog = String(product.catalog_id || '').trim().toUpperCase();
 
   const scored = lockedEntries.map((entry) => {
     let score = 0;
     if (sub) {
-      score += deps.similarity(String(product.sub_model), entry.sub_model) * 2.2
-        + deps.similarity(String(product.sub_model), entry.title || '') * 0.5;
+      score += deps.similarity(subText, entry.sub_model) * 2.2
+        + deps.similarity(subText, entry.title || '') * 0.5;
     }
-    if (product.trim_name) score += deps.similarity(String(product.trim_name), entry.sub_model) * 1;
+    if (trimText) score += deps.similarity(trimText, entry.sub_model) * 1;
     /**
      * 트림 칸에 들어온 «원문 문장»도 세대를 가르는 근거다.
      * 규격 트림만 `trim_name` 에 남기고 원문을 `trim_extra` 로 옮기면서 이 신호가 끊겼고,
      * 그 순간 E-클래스가 W213 에서 1984년 W124 로 떨어졌다(실측 2026-08-08 · 5대).
      * 이름에는 안 쓰지만 판정에는 읽는다 — 가중치는 trim_name 보다 낮게 둔다(원문은 잡음이 섞인다).
      */
-    if (product.trim_extra) score += deps.similarity(String(product.trim_extra), entry.sub_model) * 0.8;
-    if (product.cert_car_name) {
-      score += deps.similarity(String(product.cert_car_name), entry.sub_model) * 0.8
-        + deps.similarity(String(product.cert_car_name), entry.title || '') * 0.4;
+    if (trimExtraText) score += deps.similarity(trimExtraText, entry.sub_model) * 0.8;
+    if (certText) {
+      score += deps.similarity(certText, entry.sub_model) * 0.8
+        + deps.similarity(certText, entry.title || '') * 0.4;
     }
-    if (product.vehicle_name) score += deps.similarity(String(product.vehicle_name), entry.sub_model) * 0.6;
+    if (nameText) score += deps.similarity(nameText, entry.sub_model) * 0.6;
+
+    /**
+     * 「디 엣지」문구 잠금 — 유사도만으론 안 된다.
+     * 「쏘나타DN8 The Edge …」→ expand 후 「…디 엣지…」인데, 짧은 「쏘나타 DN8」이
+     * includes(0.75)로 이기고 구형으로 붙는다(실측 2026-08-09 · 2023년식 Edge).
+     * 원문에 Edge/디 엣지가 있으면 세부모델에도 있는 쪽을 강하게, 없는 쪽을 민다.
+     *
+     * 「더 뉴」는 여기서 잠그지 않는다 — 싼타페 TM 등 페이스리프트가 같은 gen_code 를
+     * 나눠 쓰는데, 잠그면 구형에만 있는 트림(인스퍼레이션)이 사라짐으로 잡힌다.
+     * The New → 더 뉴 치환은 expandGenPhrases(유사도)로만 돕는다.
+     */
+    {
+      const phraseSrc = `${subText} ${trimText} ${trimExtraText} ${certText} ${nameText} ${aliasedBlob}`;
+      if (/디\s*엣지|the\s*edge/i.test(phraseSrc)) {
+        if (deps.norm(entry.sub_model).includes(deps.norm('디 엣지'))) score += 4.2;
+        else score -= 2.8;
+      }
+    }
 
     const genLock = (productGen && String(entry.gen_code).toUpperCase() === productGen)
       || (targetGen && entry.gen_code === targetGen)
@@ -172,7 +241,7 @@ export function selectMasterEntry(
     // 신호에 «밴»·2인승 이하면 밴 서브, 그 외(빈 신호 포함)는 승용 서브를 고른다.
     {
       const seats = Number(product.seats) || 0;
-      const wantVan = /밴/.test(signalBlob) || (seats > 0 && seats <= 2);
+      const wantVan = /밴/.test(aliasedBlob) || (seats > 0 && seats <= 2);
       const entryIsVan = /\s밴$/.test(String(entry.sub_model || '')) || /밴/.test(String(entry.title || ''));
       if (wantVan && entryIsVan) score += 3.2;
       else if (wantVan && !entryIsVan) score -= 2.4;

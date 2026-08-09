@@ -936,6 +936,37 @@ const extTombRevive = resolveSheetReviveTarget(
 );
 check('되살림은 시트키≠EXT_톰스톤이어도 공급사+차번으로 매칭',
   !!extTombRevive && extTombRevive.key === 'EXT_dead_aicar');
+
+/**
+ * ★공급사 칸이 빈 레거시 톰스톤 — 2차 경로가 여기서 죽어 있었다(실측 2026-08-09).
+ *
+ * v3 이관·일괄정리로 생긴 톰스톤은 `provider_company_code` 가 없다.
+ * `sheetProviderOf` 는 후보 목록 없이는 키 규약 추론을 못 해 ''을 돌려주고,
+ * `'' === provider` 가 거짓이라 되살림이 통째로 건너뛰어졌다.
+ * 1차(키 일치)는 애초에 안 맞는 경우라 — 그게 2차를 만든 이유다 — 차가 영영 안 올라왔다.
+ */
+const legacyTomb = (tombKey: string) => resolveSheetReviveTarget(
+  {
+    ...conflictProduct,
+    _key: 'RP006_02하9002', product_code: 'RP006_02하9002',
+    car_number: '02하9002', provider_company_code: 'RP006',
+  },
+  [{
+    ...conflictProduct,
+    _key: tombKey, product_code: tombKey,
+    car_number: '02하9002',
+    provider_company_code: '', partner_code: '', source_schema: '',
+    _deleted: true, vehicle_status: '출고가능',
+  }],
+);
+check('공급사 칸 빈 톰스톤도 키 규약(차번_공급사)으로 되살린다',
+  legacyTomb('02하9002_RP006')?.key === '02하9002_RP006', legacyTomb('02하9002_RP006'));
+check('공급사 칸 빈 톰스톤도 키 규약(공급사_차번)으로 되살린다',
+  legacyTomb('RP006_02하9002_old')?.key === 'RP006_02하9002_old', legacyTomb('RP006_02하9002_old'));
+// 남의 공급사 톰스톤을 집으면 안 된다 — 후보를 그 차의 공급사로 한정한 이유다.
+check('다른 공급사 키의 톰스톤은 되살리지 않는다',
+  legacyTomb('02하9002_RP099') === null, legacyTomb('02하9002_RP099'));
+
 check('되살림 2차는 임시번호에 쓰지 않음',
   resolveSheetReviveTarget(
     {

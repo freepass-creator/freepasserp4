@@ -355,6 +355,21 @@ export function unpackVehicleSignalsEngine(
       && deps.norm(modelRaw).includes(deps.norm(hitModel))
       && deps.norm(modelRaw) !== deps.norm(hitModel)
     );
+    /**
+     * 공급사가 「아이오닉」만 주고고 문장에 「아이오닉6」이 있으면 findHit 는 이미
+     * hitModel=아이오닉6 을 쥐고 있다. 그런데 modelRaw 가 빈칸·문장이 아니라서
+     * 예전에 그 답을 버렸고, 2016년 「아이오닉 일렉트릭」으로 떨어졌다(2026-08-09).
+     * hitModel 이 같은 계열의 **더 구체적인** 마스터 모델일 때만 올린다 —
+     * startsWith 로 「아반떼」→「파사트」 도약을 구조적으로 막는다.
+     */
+    const nHit = deps.norm(hitModel);
+    const nRaw = deps.norm(modelRaw);
+    const moreSpecific = !!(
+      modelRaw
+      && nHit !== nRaw
+      && nHit.startsWith(nRaw)
+      && entries.some((entry) => entry.model === hitModel)
+    );
     if (!modelRaw || deps.looksCompoundVehicleText(modelRaw) || peeled) {
       /**
        * ★문장을 모델명으로 갈아끼우기 전에 **원문을 남긴다.**
@@ -368,6 +383,9 @@ export function unpackVehicleSignalsEngine(
        * sub_model 이 비어 있을 때만 채운다 — 공급사가 따로 준 세부모델을 덮으면 안 된다.
        */
       if (modelRaw && !String(out.sub_model ?? '').trim()) out.sub_model = modelRaw;
+      out.model = hitModel;
+    } else if (moreSpecific) {
+      // 짧은 공급 모델명(「아이오닉」)은 세부모델로 넣지 않는다 — 세대가 아니다.
       out.model = hitModel;
     }
     if (!String(out.maker ?? '').trim()) {

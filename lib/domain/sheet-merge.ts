@@ -192,7 +192,9 @@ export function sheetProviderOf(
 export function resolveSheetReviveTarget(
   create: EntityRecord,
   deleted: EntityRecord[],
+  candidates: Iterable<string> = [],
 ): { key: string; expected: EntityRecord } | null {
+  const candidateList = [...new Set([...candidates].map(String).filter(Boolean))];
   const createKey = String(create.product_code || create._key || '');
   if (createKey) {
     const byKey = deleted.find((row) => String(row._key || row.product_code || '') === createKey);
@@ -200,12 +202,26 @@ export function resolveSheetReviveTarget(
   }
   const plate = plateOf(create);
   if (!plate || create.is_pending_plate) return null;
-  const provider = sheetProviderOf(create);
+  const provider = sheetProviderOf(create, candidateList);
   if (!provider) return null;
+  /**
+   * ★톰스톤 쪽에도 **후보를 준다.**
+   *
+   * `sheetProviderOf` 는 공급사 칸이 비면 키 규약(`RP006_02하9002` / `02하9002_RP006`)으로
+   * 추론하는데, **후보 목록이 없으면 추론 자체를 못 하고 빈 문자열을 돌려준다.**
+   * 예전 일괄정리로 생긴 v3 이관 톰스톤은 `provider_company_code` 가 비어 있어
+   * 여기서 전부 ''이 됐고, `'' === provider` 가 거짓이라 **2차 경로가 통째로 죽어 있었다.**
+   * 1차(키 일치)만 살아 있었으니 「시트키≠EXT_톰스톤」인 바로 그 경우 — 2차를 만든 이유 —
+   * 를 못 잡았다(실측 2026-08-05 아이카 6대 · 08-07 21대가 그 증상이었다).
+   *
+   * 지금 차의 공급사를 후보로 넣으면 키 규약 추론이 살아난다.
+   * 후보를 그 공급사로 한정하므로 다른 공급사 톰스톤을 잘못 집을 수는 없다.
+   */
+  const rowCandidates = [...new Set([provider, ...candidateList])];
   const same = deleted.filter((row) => {
     if (plateOf(row) !== plate) return false;
     if (row.is_pending_plate) return false;
-    return sheetProviderOf(row) === provider;
+    return sheetProviderOf(row, rowCandidates) === provider;
   });
   if (!same.length) return null;
   const preferred = same.find((row) => String(row._key || row.product_code || '').startsWith('EXT_')) || same[0];

@@ -450,8 +450,30 @@ export function snapToMaster(p: EntityRecord, entries: MasterEntry[]): SnapResul
   if (variant && Array.isArray(e.variants) && e.variants.length > 1) {
     const here = realMasterTrims(variant.trims?.length ? variant.trims : []);
     if (!resolveTrim(signalBlob, here)) {
+      /**
+       * ★공급사가 **명시한 제원을 거스르는** 파워트레인으로는 옮기지 않는다.
+       *
+       * 실측 2026-08-09: 「더 뉴 카니발 KA4 디젤 2.2 7인승 프레스티지」에서
+       * 디젤 2.2 쪽 트림 목록에 「프레스티지」가 없다고 가솔린 3.5·9인승으로 옮겨
+       * **인승이 7 → 9 로 바뀌었다.** 트림 하나 얻자고 인승·연료를 틀리면 손해다.
+       * 공급사가 적어 준 값이 마스터 트림 목록보다 세다.
+       */
+      const digits = (value: unknown) => Number(String(value ?? '').replace(/[^0-9]/g, '')) || 0;
+      const wantFuel = normFuel(p.fuel_type);
+      const wantSeat = digits(p.seats);
+      const wantCc = digits(p.engine_cc);
+      const contradicts = (v: NonNullable<typeof variant>): boolean => {
+        const vFuel = normFuel(v.fuel || masterVariantLabel(v));
+        if (wantFuel && vFuel && !vFuel.includes(wantFuel)) return true;
+        if (wantSeat && v.seat != null && Number(v.seat) !== wantSeat) return true;
+        // 배기량 표기는 반올림이 섞여 0.2L 까지는 같은 것으로 본다.
+        if (wantCc && v.displacement_l != null && v.displacement_l > 0
+          && Math.abs(Math.round(v.displacement_l * 1000) - wantCc) > 200) return true;
+        return false;
+      };
+
       let better = (e.variants as typeof e.variants)
-        .filter((v) => v !== variant && v?.trims?.length)
+        .filter((v) => v !== variant && v?.trims?.length && !contradicts(v))
         .map((v) => ({ v, hit: resolveTrim(signalBlob, realMasterTrims(v.trims)) }))
         .filter((x) => x.hit);
       /**

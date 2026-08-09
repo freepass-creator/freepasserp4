@@ -3,7 +3,7 @@
  * 실행: npx tsx scripts/sim-sheet-price.mts
  */
 import { autoMapHeaders, importSheetTable, parsePriceColumns, rentCell } from '../lib/domain/sheet-import';
-import { labelAutoplusHeaderRow } from '../lib/domain/sheet-adapters';
+import { mergeAutoplusHeaderRows } from '../lib/domain/sheet-adapters';
 import { prepareAutoplusPromoTable } from '../lib/domain/sheet-autoplus';
 import type { MasterEntry } from '../lib/domain/vehicle-master-types';
 
@@ -100,17 +100,45 @@ check('RENT-STRICT 범위·형식 경계',
   && rentCell('10만원') === 100_000
   && rentCell('2000만원') === 20_000_000);
 
-const autoHeader = labelAutoplusHeaderRow(Array.from({ length: 15 }, (_, i) => i === 9 ? '차량가격' : ''));
-check('AUTO-LABEL col11~14 = 12·24·36·48개월',
-  autoHeader.slice(11, 15).join('|') === '12개월|24개월|36개월|48개월', autoHeader.slice(9, 15));
-const autoCells = Array.from({ length: 15 }, () => '');
-autoCells[9] = '99999999';
-autoCells[11] = '650000'; autoCells[12] = '600000'; autoCells[13] = '550000'; autoCells[14] = '500000';
+/**
+ * ★오토플러스 헤더는 **두 줄**이다 — 윗줄 기간, 아랫줄 약정주행.
+ *
+ * 예전엔 아랫줄을 안내행으로 버리고 열 11~14 를 12/24/36/48개월로 **못 박았다.**
+ * 그래서 열 12(18개월 2만)가 24개월로 읽혀 손님 화면에 「24개월 81만원」이 떴는데
+ * 실제 24개월은 72만원이었다(실측 2026-08-08 · 53나4472).
+ * 그 하드코딩은 없앴다 — **이 sim 도 옛 동작을 검사하고 있어 같이 고친다.**
+ *
+ * 지금 규칙: 라벨은 시트가 말하는 대로만 읽는다. 위치로 지어내지 않는다.
+ */
+const autoTop = Array.from({ length: 18 }, (_, i) => (
+  i === 9 ? '차량가격'
+    : i === 11 ? '12개월' : i === 12 ? '18개월' : i === 13 ? '24개월' : i === 14 ? '36개월' : ''));
+const autoSub = Array.from({ length: 18 }, (_, i) => (
+  i === 11 ? '3만km' : i === 12 ? '2만km' : i === 13 ? '2만km' : i === 14 ? '2만km' : ''));
+const autoHeader = mergeAutoplusHeaderRows(autoTop, autoSub);
+check('AUTO-LABEL 두 줄 헤더를 「기간+약정주행」으로 합친다',
+  autoHeader.slice(11, 15).join('|') === '12개월3만|18개월2만|24개월2만|36개월2만',
+  autoHeader.slice(11, 15));
+
+// 라벨 없는 열에 기간을 지어내면 안 된다 — 이게 위 사고의 원인이었다.
+const autoBlank = mergeAutoplusHeaderRows(
+  Array.from({ length: 15 }, (_, i) => (i === 9 ? '차량가격' : '')), []);
+check('AUTO-LABEL 라벨 없는 열에 기간을 지어내지 않는다',
+  autoBlank.slice(11, 15).every((c) => !c), autoBlank.slice(9, 15));
+
+const autoCells = Array.from({ length: 18 }, () => '');
+autoCells[9] = '99999999';   // 차량가격 — 대여료가 아니다
+autoCells[11] = '650000'; autoCells[12] = '620000'; autoCells[13] = '600000'; autoCells[14] = '550000';
 const autoPrice = price(autoHeader, autoCells, '현대', 'rent_multiple');
-check('AUTO-PRICE 차량가격 col9 무시·가격 4열만 수집',
-  Object.keys(autoPrice || {}).join('|') === '12|24|36|48'
-  && autoPrice?.['12']?.rent === 650_000
-  && autoPrice?.['12']?.deposit === 1_300_000,
+/**
+ * 키가 「12_3만」인 것이 요점이다 — 같은 18개월도 2만/3만이 값이 다르다.
+ * 기간만으로 키를 잡으면 뒤 열이 앞 열을 덮어써 손님에게 다른 값이 뜬다.
+ */
+check('AUTO-PRICE 차량가격 col9 무시 · 기간+약정주행 키로 수집',
+  Object.keys(autoPrice || {}).join('|') === '12_3만|18_2만|24_2만|36_2만'
+  && autoPrice?.['12_3만']?.rent === 650_000
+  && autoPrice?.['18_2만']?.rent === 620_000
+  && autoPrice?.['12_3만']?.deposit === 1_300_000,
   autoPrice);
 
 const promoRow = Array.from({ length: 15 }, () => '');
