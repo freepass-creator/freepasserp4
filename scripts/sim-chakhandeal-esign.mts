@@ -54,8 +54,10 @@ check('자체 서명 토큰·면허번호 미전송', !serialized.includes('must
 // ── 손님 여정 페이로드 (ESIGN…INTEGRATION.md §3.1) ──
 type Group = { key: string; rows: { label: string; value: string }[]; confirmLabel: string };
 const groups = payload.consentGroups as Group[];
-check('원자 묶음 4개 · 순서 = 본인정보→차량정보→대여조건→보험',
-  groups.map((g) => g.key).join('|') === 'identity|vehicle|rental|insurance', groups.map((g) => g.key));
+// 섹션 구성·순서는 sim-esign-contract-kind 가 본다. 여기선 «payload 에 실려 나가는가»만.
+check('원자 섹션이 계약서 구성대로 실린다',
+  groups.map((g) => g.key).join('|') === 'identity|vehicle|rental|payment|driver|insurance|accident|service',
+  groups.map((g) => g.key));
 check('묶음마다 동의 문구가 있다', groups.every((g) => !!g.confirmLabel));
 const rowValue = (key: string, label: string) => groups.find((g) => g.key === key)?.rows.find((r) => r.label === label)?.value;
 // 표시 문자열을 우리가 굳혀 보낸다 — 저쪽이 다시 포맷하면 화면과 계약서 숫자가 갈린다.
@@ -79,7 +81,14 @@ check('필수서류 목록 동봉', Array.isArray(payload.requiredDocs) && (payl
 const agreement = payload.agreement as { version: string; isSample: boolean; requireReadThrough: boolean; sections: unknown[] };
 check('약관 통독 강제', agreement.requireReadThrough === true);
 check('약관 버전이 실린다', !!agreement.version);
-check('샘플 약관은 샘플이라고 표시된다', agreement.isSample === true);
+// 약관은 erp3 정본(22개조)이다 — 더 이상 샘플이 아니다.
+check('약관은 정본으로 표시된다', agreement.isSample === false);
+check('약관 22개조가 실린다', agreement.sections.length === 22, agreement.sections.length);
+// 「개인보험형」 조문이 구독 고객직접형의 법적 근거다. 빠지면 그 상품을 팔 수 없다.
+check('제9조의2(개인보험형)이 실린다',
+  agreement.sections.some((s) => (s as { t: string }).t.includes('제9조의2')));
+check('약관 본문이 잘리지 않았다',
+  agreement.sections.every((s) => (s as { b: string }).b.length > 100));
 
 // PII 경계 — 주민번호·면허번호는 우리가 보내지 않는다(§3).
 check('주민번호 필드 미전송', !/residentNumber|jumin|ssn|주민등록번호/i.test(serialized));

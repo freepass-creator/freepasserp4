@@ -1,0 +1,117 @@
+/**
+ * 약관 강조·중복제거 검증 — 「손님이 못 봤다」를 막는 장치가 실제로 작동하는지.
+ * 실행: npx tsx scripts/sim-esign-agreement.mts
+ */
+import { AGREEMENT_SECTIONS } from '../lib/domain/esign-agreement-text';
+import {
+  KEY_CLAUSES, agreementWithEmphasis, keyClauseOf, keyClauseSummaries,
+} from '../lib/domain/esign-agreement-emphasis';
+import { IN_AGREEMENT, KEEP_IN_SECTION, TERMS_ACCIDENT, TERMS_PAYMENT, TERMS_SERVICE } from '../lib/domain/esign-standard-terms';
+import { buildConsentGroups } from '../lib/domain/esign-consent-doc';
+import type { EntityRecord } from '../lib/intake/entities';
+
+let pass = 0;
+let fail = 0;
+const check = (name: string, ok: boolean, detail?: unknown) => {
+  if (ok) { pass++; console.log(`✓ ${name}`); }
+  else { fail++; console.error(`✗ ${name}`, detail ?? ''); }
+};
+
+// ── 조문 매칭 ──
+// 「제9조의2」가 「제9조」에 먼저 걸리면 개인보험형 안내가 사고면책 문구로 바뀐다.
+check('제9조의2가 제9조보다 먼저 잡힌다',
+  keyClauseOf('제9조의2 (개인보험형 — 임차인의 개인 보험 가입 및 유지 의무)')?.clause === '제9조의2',
+  keyClauseOf('제9조의2 (개인보험형)')?.clause);
+check('제9조는 제9조로 잡힌다', keyClauseOf('제9조 (사고처리 및 보험)')?.clause === '제9조');
+check('중요하지 않은 조문은 안 잡힌다', keyClauseOf('제12조 (통지 및 도달 간주)') === null);
+check('띄어쓰기가 달라도 잡는다', keyClauseOf('제 14조 (중도해지수수료 및 승계)')?.clause === '제14조');
+
+// ── 강조 대상 ──
+const marked = agreementWithEmphasis();
+check('약관 22개조 그대로', marked.length === AGREEMENT_SECTIONS.length);
+const emph = marked.filter((s) => s.emphasis);
+check(`강조 조문 ${emph.length}개`, emph.length === KEY_CLAUSES.length, emph.map((s) => s.t.slice(0, 12)));
+// 다 강조하면 아무것도 강조되지 않는다.
+check('강조가 절반을 넘지 않는다', emph.length < marked.length / 2, `${emph.length}/${marked.length}`);
+check('강조 조문엔 요약이 붙는다', emph.every((s) => !!s.summary && !!s.risk));
+check('비강조엔 요약이 없다', marked.filter((s) => !s.emphasis).every((s) => !s.summary));
+check('본문은 손대지 않는다',
+  marked.every((s, i) => s.b === AGREEMENT_SECTIONS[i].b && s.t === AGREEMENT_SECTIONS[i].t));
+
+// ── 요약은 실제 있는 조문만 ──
+// 약관에 없는 조문을 요약에 넣으면 「약관에 없는 걸 동의받았다」가 된다.
+const sums = keyClauseSummaries();
+check('요약은 실재 조문만', sums.every((k) =>
+  AGREEMENT_SECTIONS.some((s) => s.t.replace(/\s/g, '').startsWith(k.clause))), sums.map((k) => k.clause));
+check('요약이 비지 않는다', sums.length > 0 && sums.every((k) => !!k.summary));
+// 미납·운전자·사고 셋 — 분쟁이 실제로 나는 곳(2026-08-09 사장님 지정).
+check('위험 갈래는 미납·운전자·사고',
+  [...new Set(KEY_CLAUSES.map((k) => k.risk))].sort().join('|') === ['미납', '사고', '운전자'].sort().join('|'),
+  [...new Set(KEY_CLAUSES.map((k) => k.risk))]);
+check('갈래마다 조문이 있다',
+  (['미납', '운전자', '사고'] as const).every((r) => KEY_CLAUSES.some((k) => k.risk === r)));
+
+// ── 섹션↔약관 중복 제거 ──
+// 약관에도 없고 섹션에서도 빼면 손님이 그 조건을 «아예» 못 본다. 여기가 제일 위험하다.
+const flat = AGREEMENT_SECTIONS.map((s) => `${s.t} ${s.b}`).join(' ').replace(/[\s·,.()「」'"※]/g, '');
+// ★문장이 아니라 **주제**로 본다. 약관은 같은 내용을 다른 말로 쓴다 —
+//   우리 문구가 통째로 들어 있길 기대하면 안 되고, 그 조건이 «다뤄지는지»를 봐야 한다.
+const TOPIC: Record<string, string[]> = {
+  depositReturn: ['보증금', '반환'],
+  repairShop: ['수리', '정비'],
+  ownDamageRule: ['폐차'],
+  insurer: ['보험'],
+  maintenance: ['정비'],
+  engineOil: ['정비'],
+  loanerCar: ['대차'],
+  deliveryFee: ['반납'],
+  mileageOver: ['초과', '주행'],
+  contactChange: ['통지'],
+  fines: ['과태료'],
+  special: ['GPS'],
+};
+for (const key of IN_AGREEMENT) {
+  const words = TOPIC[key] || [];
+  check(`«${key}» 주제가 약관에서 다뤄진다`,
+    words.length > 0 && words.every((w) => flat.includes(w)), words);
+}
+// 우리 문구에만 있고 약관엔 없는 «값»이 있으면 그건 빼면 안 된다.
+// 예: 「대차서비스 지원 불가」가 약관엔 없고 우리 문구에만 있으면 손님이 대차되는 줄 안다.
+const ALL_TERMS = { ...TERMS_PAYMENT, ...TERMS_ACCIDENT, ...TERMS_SERVICE } as Record<string, string>;
+const numericLeft = IN_AGREEMENT.filter((k) => /\d/.test(String(ALL_TERMS[k] ?? '')));
+check('약관으로 보낸 것 중 숫자 든 문구는 없다', numericLeft.length === 0,
+  numericLeft.map((k) => `${k}: ${String(ALL_TERMS[k]).slice(0, 40)}`));
+check('빼는 것과 남기는 것이 안 겹친다',
+  !IN_AGREEMENT.some((k) => (KEEP_IN_SECTION as readonly string[]).includes(k)),
+  IN_AGREEMENT.filter((k) => (KEEP_IN_SECTION as readonly string[]).includes(k)));
+
+// ── 섹션이 실제로 짧아졌는가 ──
+const contract = { contract_code: 'C-1', rent_month_snapshot: 36, rent_amount_snapshot: 690000, deposit_amount_snapshot: 0 } as unknown as EntityRecord;
+const policy = { basic_driver_age: '만 26세이상', maintenance_service: '정비제외', penalty_condition: '잔여 30%' };
+const groups = buildConsentGroups(contract, policy, '회사포함');
+const rowsOf = (k: string) => groups.find((g) => g.key === k)!.rows;
+// 숫자·기한·연락처·부정조건이 든 건 남아 있어야 한다 — 약관 8,856자에 묻히면 못 본다.
+check('면책금은 섹션에 남는다', rowsOf('accident').some((r) => r.value.includes('30만원')));
+check('지연손해금은 섹션에 남는다', rowsOf('payment').some((r) => r.value.includes('연 12%')));
+check('연체 시동제어는 섹션에 남는다', rowsOf('payment').some((r) => r.value.includes('시동제어')));
+check('보증금 반환 기한은 섹션에 남는다', rowsOf('payment').some((r) => r.value.includes('1주일')));
+check('검사대행은 섹션에 남는다', rowsOf('service').some((r) => r.value.includes('2년 1회')));
+check('엔진오일 횟수는 섹션에 남는다', rowsOf('service').some((r) => r.value.includes('연 1회')));
+check('키 개수는 섹션에 남는다', rowsOf('service').some((r) => r.value.includes('1개만')));
+// 부정조건 — 약관이 대차를 다르게 말하면 손님이 대차되는 줄 안다.
+check('대차 불가는 섹션에 남는다', rowsOf('service').some((r) => r.value.includes('지원 불가')));
+
+// ★보험사는 매년 바뀐다 — 계약서에 이름·번호를 박으면 3년 계약이 1년 뒤부터 거짓말이 된다.
+const insurerRow = rowsOf('accident').find((r) => r.label === '보험사')!;
+check('보험사 칸은 있다', !!insurerRow);
+check('보험사 번호를 계약서에 안 박는다', !/\d{4}-\d{4}|\d{4}-\d{3}/.test(insurerRow.value), insurerRow.value);
+check('보험사는 계약조회로 안내한다', insurerRow.value.includes('계약조회'), insurerRow.value);
+check('현재 보험사 값은 따로 들고 있다', TERMS_ACCIDENT.insurerCurrent.includes('1661-7977'));
+
+// 약관으로 보낸 건 섹션에서 사라져야 한다.
+check('정비 이용 절차는 섹션에서 빠졌다', !rowsOf('service').some((r) => r.label === '정비 이용'));
+check('과태료 절차는 섹션에서 빠졌다', !rowsOf('service').some((r) => r.label === '과태료·차량검사'));
+check('입고·대차 절차는 섹션에서 빠졌다', !rowsOf('accident').some((r) => r.label === '사고 차량 입고·대차'));
+
+console.log(`\n━━ 결과: ${pass}/${pass + fail} 통과`);
+if (fail) process.exit(1);

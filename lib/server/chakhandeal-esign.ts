@@ -63,9 +63,15 @@ async function callJson(config: ChakhandealConfig, path: string, body: RecordVal
   }
 }
 
-export async function issueChakhandealContract(config: ChakhandealConfig, contract: RecordValue): Promise<ChakhandealIssue> {
+/** `templateId` 미지정이면 서버 기본 양식(`CHAKHANDEAL_TEMPLATE_ID`). 지정되면 그 공급사 양식으로 발행한다. */
+export async function issueChakhandealContract(
+  config: ChakhandealConfig,
+  contract: RecordValue,
+  templateId?: string,
+): Promise<ChakhandealIssue> {
   const externalRef = text(contract.contract_code);
-  const result = await callJson(config, '/api/v1/contract/issue', chakhandealIssuePayload(config, contract), `freepass:${externalRef}:issue`);
+  const identity = { ...config, templateId: text(templateId) || config.templateId };
+  const result = await callJson(config, '/api/v1/contract/issue', chakhandealIssuePayload(identity, contract), `freepass:${externalRef}:issue`);
   const contractId = text(result.contractId);
   if (!contractId || contractId.length > 200) throw new Error('착한거래 계약 식별자 누락');
   const rawVerifyUrl = text(result.verifyUrl);
