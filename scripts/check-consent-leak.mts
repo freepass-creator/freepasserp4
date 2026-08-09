@@ -15,13 +15,16 @@ const contract = {
   rent_amount_snapshot: 1000000,
   deposit_amount_snapshot: 1000000,
   customer_name: '홍길동',
+  // 초과 주행요금이 제조사로 갈리므로(국산/수입) 넣어야 그 줄이 만들어진다.
+  maker_snapshot: '제네시스',
   esign_inputs: {},
 } as unknown as Parameters<typeof buildConsentGroups>[0];
 
 const policy: Rec = {
   annual_mileage: '연 30,000km',
   mileage_upcharge_per_10000km: '1만km당 100,000원',
-  over_mileage_rate_per_km: 200,
+  over_mileage_rate_domestic: 200,
+  over_mileage_rate_imported: 400,
   accident_termination_count: 3,
   rental_region: '전국',
   screening_criteria: '중신용 이상',
