@@ -18,18 +18,30 @@ import { getSession } from '@/lib/auth-session';
  */
 const KEY = 'fp4_dev_role';
 
+/**
+ * ⚠ 2026-08-09 — **화면에서 내렸다**(사장님 지시).
+ *
+ * 개발 서버라는 이유만으로 늘 떠 있어서, 실제 화면을 볼 때마다 좌하단에 테스트 딱지가
+ * 걸렸다. 역할 확인은 실제 계정으로 로그인해서 보는 것이 맞다 —
+ * 이 스위치는 «화면만» 바꾸므로 권한 확인에는 쓸 수도 없었다.
+ *
+ * 되살리려면 여기서 `true` 를 돌려주면 된다. 기능 자체는 남겨 둔다.
+ */
 export function canUseDevRole(): boolean {
-  if (typeof window === 'undefined') return false;
-  if (process.env.NODE_ENV !== 'production') return true;
-  return getSession()?.role === 'admin';
+  return false;
 }
 
+/**
+ * 이미 골라 둔 테스트 역할이 있으면 «지우고» 없는 것으로 본다.
+ * 스위치만 숨기면 localStorage 에 남은 값 때문에 계속 그 역할 화면이 보인다 —
+ * 스위치가 없으니 되돌릴 방법도 없어진다.
+ */
 export function getDevRole(): Role | null {
   if (typeof window === 'undefined') return null;
   try {
-    const v = localStorage.getItem(KEY);
-    return v === 'agent' || v === 'provider' || v === 'admin' ? v : null;
-  } catch { return null; }
+    if (localStorage.getItem(KEY)) localStorage.removeItem(KEY);
+  } catch { /* noop */ }
+  return null;
 }
 
 export function setDevRole(role: Role | null): void {

@@ -139,7 +139,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   <AppTabBar />
                 </div>
                 <Toaster />
-                {/* 테스트 역할 스위치 — 개발 서버이거나 실제 관리자일 때만 뜬다(lib/dev-role). */}
+                {/*
+                  테스트 역할 스위치 — 2026-08-09 화면에서 내렸다(`lib/dev-role.ts` canUseDevRole=false).
+                  마운트만 남긴다: 되살릴 때 여기를 다시 찾지 않아도 되게.
+                */}
                 <DevRoleSwitch />
               </TabBarProvider>
             </AppBarProvider>
