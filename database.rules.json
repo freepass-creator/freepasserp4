@@ -197,8 +197,10 @@
       }
     },
     "proposals": {
-      ".read": true,
-      ".write": "auth != null"
+      "$proposal_id": {
+        ".read": true,
+        ".write": "auth != null"
+      }
     },
     "proposal_views": {
       "$id": {
