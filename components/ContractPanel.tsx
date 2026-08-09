@@ -517,7 +517,7 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
         );
       })}
 
-      {c && agreementDone && !cancelled && (role === 'agent' || role === 'admin') ? (
+      {c && agreementDone && !cancelled && role === 'admin' ? (
         <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 8 }}>
           <ChakhandealEsignButton contractCode={String(c.contract_code)} onSent={() => load(selectionEpoch.current)} />
         </div>

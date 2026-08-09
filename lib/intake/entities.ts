@@ -74,6 +74,21 @@ export const PRODUCT_TYPE_LEGACY: Record<string, typeof PRODUCT_TYPES[number]> =
 export const FUEL_TYPES = ['가솔린', '디젤', 'LPG', '하이브리드', '전기', '수소'] as const;
 export const QUOTE_STATES = ['초안', '발송', '열람', '계약전환', '만료'] as const; // v4 신규
 
+/* ── 정책 세 층 (docs/POLICY-LAYERS.md · lib/domain/policy-tier.ts) ── */
+/** 이 공급사 계약서를 누가 쓰는가. 「프리패스가 작성」이라야 전자계약을 보낸다. */
+export const CONTRACT_AUTHORING = ['공급사가 작성', '프리패스가 작성'] as const;
+/**
+ * 기한이익 상실 시 무엇을 청구하는가 — 약관 제11조⑥·제14조.
+ * **둘 중 하나만** 청구하고 중복하지 않는다(약관이 그렇게 못박고 있다).
+ */
+export const CLAIM_BASES = ['잔여 대여료', '중도해지수수료'] as const;
+/** 계약서·약관에 실리는 장착 여부 표기. 「없음」도 조건이므로 빈칸으로 두지 않는다. */
+export const EQUIPPED_STATES = ['장착', '미장착'] as const;
+/** 대차 정책 — 「미제공」도 계약 조건이다. 비워 두면 손님이 대차되는 줄 안다. */
+export const REPLACEMENT_CAR_POLICIES = ['가입자 한정 제공', '전건 제공', '미제공'] as const;
+/** 정비 지정 입고 — 임의 수리 시 보험 처리 불가(약관 제9조③). */
+export const GARAGE_POLICIES = ['지정 협력 정비공장', '제조사 서비스센터', '지정 없음'] as const;
+
 /** 계약 5단계 2자 핸드셰이크 체크 키 (contract-steps.js SSOT — key명은 레거시 그대로, actor 주석 참고) */
 export const STEP_CHECK_KEYS = [
   'agent_delivery_inquiry',      // 1 출고문의 · agent
@@ -158,44 +173,131 @@ export const ENTITIES: Record<string, Entity> = {
     fields: [
       { key: 'policy_code', label: '정책코드', type: 'text', required: true, manual: true },
       { key: 'policy_name', label: '정책명', type: 'text', manual: true },
-      { key: 'provider_company_code', label: '공급사코드', type: 'text', manual: true, note: '비우면 공용(전 공급사 연결 가능). 채우면 해당 공급사 전용' },
-      { key: 'policy_type', label: '정책유형', type: 'text', manual: true },
-      { key: 'screening_criteria', label: '심사기준', type: 'text', manual: true, note: '신용무관/신용조회/저신용 → 무심사·심사필요 판정' },
-      { key: 'credit_grade', label: '신용등급', type: 'text', manual: true },
-      { key: 'basic_driver_age', label: '기본연령', type: 'number', manual: true },
-      { key: 'driver_age_lowering', label: '연령하향', type: 'text', manual: true },
-      { key: 'driver_age_upper_limit', label: '연령상한', type: 'number', manual: true },
-      { key: 'license_period', label: '면허 경력요건', type: 'text', manual: true, note: '제한없음/개월 → shortExperience(경력무관 뱃지)' },
-      { key: 'annual_mileage', label: '약정 주행거리', type: 'text', manual: true },
-      { key: 'mileage_upcharge_per_10000km', label: '1만km 추가', type: 'text', manual: true },
-      { key: 'payment_method', label: '결제방식', type: 'text', manual: true },
-      { key: 'penalty_condition', label: '위약금', type: 'text', manual: true },
-      { key: 'rental_region', label: '대여지역', type: 'text', manual: true },
-      { key: 'delivery_fee', label: '탁송비', type: 'text', manual: true },
-      { key: 'deposit_installment', label: '보증금 분납', type: 'text', manual: true },
-      { key: 'deposit_card_payment', label: '보증카드', type: 'text', manual: true },
-      { key: 'insurance_included', label: '보험 포함', type: 'text', manual: true },
-      { key: 'personal_driver_scope', label: '개인 운전범위', type: 'text', manual: true },
-      { key: 'business_driver_scope', label: '사업자 운전범위', type: 'text', manual: true },
-      { key: 'additional_driver_allowance_count', label: '추가인원', type: 'number', manual: true },
-      { key: 'maintenance_service', label: '정비서비스', type: 'text', manual: true },
-      { key: 'commission_clawback_condition', label: '수수료 환수조건', type: 'text', manual: true },
-      { key: 'age_lowering_cost', label: '연령하향 비용', type: 'text', manual: true },
-      { key: 'additional_driver_cost', label: '추가운전비', type: 'text', manual: true },
+      { key: 'provider_company_code', label: '공급사코드', type: 'text', manual: true, note: '비우면 공용 · 채우면 그 공급사 전용' },
+      { key: 'policy_type', label: '정책유형', type: 'select', options: [...PRODUCT_TYPES], manual: true, note: '신차렌트·중고구독 등' },
+      { key: 'screening_criteria', label: '심사기준', type: 'select', options: ['무심사', '신용무관', '중신용 이상', '고신용 이상', '심사 필요'], manual: true, note: '⚠ 내부용 · 손님에게 안 나감' },
+      { key: 'credit_grade', label: '신용등급', type: 'select', options: ['무관', '1~3등급', '4~6등급', '7등급 이하'], manual: true, note: '⚠ 내부용' },
+      { key: 'basic_driver_age', label: '기본연령', type: 'number', manual: true, note: '면책금 산정 기준' },
+      { key: 'driver_age_lowering', label: '연령하향', type: 'select', options: ['불가', '만 21세까지', '만 23세까지', '만 24세까지', '만 25세까지'], manual: true, note: '선택지 · 계약서엔 확정 나이만' },
+      { key: 'driver_age_upper_limit', label: '연령상한', type: 'number', manual: true, note: '넘으면 계약 불가' },
+      { key: 'license_period', label: '면허 경력요건', type: 'select', options: ['제한없음', '6개월 이상', '1년 이상', '2년 이상'], manual: true, note: '약관 제5조' },
+      { key: 'annual_mileage', label: '약정 주행거리', type: 'select', options: ['연 10,000km', '연 20,000km', '연 30,000km', '연 40,000km', '무제한'], manual: true, note: '초과분은 초과 주행요금' },
+      {
+        key: 'mileage_upcharge_per_10000km', label: '1만km 추가', type: 'number', manual: true,
+        // 약정을 «정할 때»의 가격표(2만km 월 65만 / 3만km 월 75만). 계약이 굳으면 월 대여료에 녹는다.
+        // 계약서·손님 화면에는 오지 않는다 — 아래 초과 요율과 혼동 금지.
+        note: '가격표 · 계약서엔 안 실림',
+      },
+      /*
+       * 초과 주행요금 — 약정을 **넘겨 달린 거리에만** 부과한다.
+       *   약정 연 30,000km · 실주행 31,000km → 초과 1,000km × 요율
+       * 위 「1만km 추가」와 전혀 다른 값이다. 섞으면 계약서에
+       * 「초과 주행요금 : 1만km당 100,000원」이 찍혀 손님이 «1만km 넘으면 10만원»으로 읽는다.
+       *
+       * **국산·수입이 다르다**(프리패스 표준: 국산 200원 / 수입 400원).
+       * 한 칸으로 두면 수입차 계약에 국산 요율이 찍히므로 제조사로 갈라 쓴다(`overMileageRateFor()`).
+       */
+      { key: 'over_mileage_rate_domestic', label: '초과 주행요금 · 국산(1km당)', type: 'number', manual: true, note: '약관 제15조 · 초과분 1km당' },
+      { key: 'over_mileage_rate_imported', label: '초과 주행요금 · 수입(1km당)', type: 'number', manual: true, note: '약관 제15조 · 수입은 국산보다 높다' },
+      { key: 'payment_method', label: '결제방식', type: 'select', options: ['CMS 자동이체', '카드 자동결제', '가상계좌', '직접 이체'], manual: true, note: 'CMS·카드 등' },
+      /*
+       * 중도해지 위약금 — **잔여기간 대여료에 비례**한다(프리패스 표준: 1년 미만 30% / 1년 이상 20%).
+       * 경과 기간이 길수록 낮아진다. 한 값으로 두면 어느 구간인지 알 수 없어 계약서가 거짓말을 한다.
+       */
+      { key: 'early_termination_rate_under1y', label: '중도해지 위약금 · 1년 미만(0~1)', type: 'number', range: [0, 1], manual: true, note: '약관 제14조 · 잔여 대여료 × 이 값. 30% → 0.3' },
+      { key: 'early_termination_rate_over1y', label: '중도해지 위약금 · 1년 이상(0~1)', type: 'number', range: [0, 1], manual: true, note: '약관 제14조 · 20% → 0.2' },
+      {
+        key: 'accident_termination_count', label: '1년 이내 사고 누적(N회)', type: 'number', manual: true,
+        /*
+         * 최근 1년 안에 **임차인 과실 50% 이상** 사고가 이 횟수에 이르면 계약을 해지할 수 있다.
+         * 약관 제11조②가 「계약서에 정한 사고 누적 횟수」를 그대로 참조하므로,
+         * 비어 있으면 그 호는 적용되지 않는다 — 없는 기준으로 해지할 수는 없다.
+         * 상대방 100% 과실 사고까지 세면 손님이 억울한 해지를 당하므로 과실 50% 이상만 센다.
+         */
+        note: '약관 제11조 · 과실 50%↑ N회면 해지',
+      },
+      { key: 'rental_region', label: '대여지역', type: 'select', options: ['전국', '수도권', '지역 제한 있음'], manual: true, note: '안내용 · 계약서엔 안 실림' },
+      { key: 'delivery_fee', label: '탁송비', type: 'number', manual: true, note: '확정 금액만' },
+      { key: 'deposit_installment', label: '보증금 분납', type: 'select', options: ['일시납', '2회까지', '3회까지', '5회까지'], manual: true, note: '선택지 · 계약서엔 확정 회차만' },
+      { key: 'deposit_card_payment', label: '보증카드', type: 'select', options: ['가능', '불가'], manual: true, note: '카드 수납 여부' },
+      { key: 'insurance_included', label: '보험 포함', type: 'select', options: ['포함(회사 가입)', '개인보험형(손님 직접)'], manual: true, note: '포함=회사 / 개인보험형=손님 직접' },
+      { key: 'personal_driver_scope', label: '개인 운전범위', type: 'select', options: ['계약자 본인', '계약자와 배우자', '계약자와 배우자 및 직계가족', '누구나(1인 지정)'], manual: true, note: '약관 제5조 · 범위 밖 사고는 보험 제외' },
+      { key: 'business_driver_scope', label: '사업자 운전범위', type: 'select', options: ['법인 임직원', '법인 임직원 및 계약자 가족', '지정 운전자만'], manual: true, note: '약관 제5조' },
+      { key: 'additional_driver_allowance_count', label: '추가인원', type: 'number', manual: true, note: '등록 가능 인원' },
+      { key: 'maintenance_service', label: '정비서비스', type: 'select', options: ['미제공', '기본형', '표준형', '프리미엄'], manual: true, note: '「미제공」도 조건 · 비우지 말 것' },
+      { key: 'commission_clawback_condition', label: '수수료 환수조건', type: 'select', options: ['없음', '6개월 이내 해지 시', '12개월 이내 해지 시', '별도 약정'], manual: true, note: '⚠ 내부용 · 손님과 무관' },
+      { key: 'age_lowering_cost', label: '연령하향 비용', type: 'number', manual: true, note: '하향한 계약에만 실림' },
+      { key: 'additional_driver_cost', label: '추가운전비', type: 'number', manual: true, note: '지정한 계약에만 실림' },
       // 보험 — 항목별 보상한도 + 면책금 (v3 product-detail-rows 보험표 전수 수집)
-      { key: 'injury_compensation_limit', label: '대인 보상한도', type: 'text', manual: true },
-      { key: 'injury_deductible', label: '대인 면책금', type: 'text', manual: true },
-      { key: 'property_compensation_limit', label: '대물 보상한도', type: 'text', manual: true },
-      { key: 'property_deductible', label: '대물 면책금', type: 'text', manual: true },
-      { key: 'self_body_accident', label: '자손 보상한도', type: 'text', manual: true },
-      { key: 'self_body_deductible', label: '자손 면책금', type: 'text', manual: true },
-      { key: 'uninsured_damage', label: '무보험 보상한도', type: 'text', manual: true },
-      { key: 'uninsured_deductible', label: '무보험 면책금', type: 'text', manual: true },
-      { key: 'own_damage_compensation', label: '자차 보상', type: 'text', manual: true },
-      { key: 'own_damage_repair_ratio', label: '자차 자기부담률', type: 'text', manual: true },
-      { key: 'own_damage_min_deductible', label: '자차 최소 면책금', type: 'text', manual: true },
-      { key: 'own_damage_max_deductible', label: '자차 최대 면책금', type: 'text', manual: true },
-      { key: 'annual_roadside_assistance', label: '긴급출동', type: 'text', manual: true },
+      { key: 'injury_compensation_limit', label: '대인 보상한도', type: 'select', options: ['무한', '1억원', '2억원', '3억원', '5억원'], manual: true, note: '약관 제9조 · 대인 최대' },
+      { key: 'injury_deductible', label: '대인 면책금', type: 'number', manual: true, note: '대인 사고 손님 부담' },
+      { key: 'property_compensation_limit', label: '대물 보상한도', type: 'select', options: ['1억원', '2억원', '3억원', '5억원', '10억원'], manual: true, note: '약관 제9조 · 초과분은 손님 부담' },
+      { key: 'property_deductible', label: '대물 면책금', type: 'number', manual: true, note: '대물 사고 손님 부담' },
+      { key: 'self_body_accident', label: '자손 보상한도', type: 'select', options: ['1천만원', '3천만원', '5천만원', '1억원'], manual: true, note: '운전자·동승자 보상' },
+      { key: 'self_body_deductible', label: '자손 면책금', type: 'number', manual: true, note: '자손 손님 부담' },
+      { key: 'uninsured_damage', label: '무보험 보상한도', type: 'select', options: ['2억원', '5억원'], manual: true, note: '상대가 무보험일 때' },
+      { key: 'uninsured_deductible', label: '무보험 면책금', type: 'number', manual: true, note: '무보험차 손님 부담' },
+      { key: 'own_damage_compensation', label: '자차 보상', type: 'select', options: ['시세 기준', '차량가 기준', '미가입'], manual: true, note: '한도 초과 시 폐차' },
+      { key: 'own_damage_repair_ratio', label: '자차 자기부담률', type: 'select', options: ['10%', '20%', '30%'], manual: true, note: '수리비 중 손님 비율' },
+      { key: 'own_damage_min_deductible', label: '자차 최소 면책금', type: 'number', manual: true, note: '자차 부담 하한' },
+      { key: 'own_damage_max_deductible', label: '자차 최대 면책금', type: 'number', manual: true, note: '자차 부담 상한' },
+      { key: 'annual_roadside_assistance', label: '긴급출동', type: 'select', options: ['미제공', '연 3회', '연 5회', '연 10회', '무제한'], manual: true, note: '연간 무상 횟수' },
+
+      /* ── 전자계약 (층3) ──────────────────────────────────────────────
+       * **전자계약서를 우리가 쓰는 공급사만** 채운다. 상품만 공급하는 곳은 비워 둔다.
+       *
+       * 이 목록은 임의로 정한 것이 아니라 **약관이 「계약서에 정한 ○○」이라고 참조하는 자리**다.
+       * 비면 그 조문이 아무것도 정하지 못한다 — 분쟁에서 「기준이 없었다」가 된다.
+       * 지금까지는 코드·서식에 박혀 있어 공급사마다 다르게 둘 수 없었다.
+       * 설계 근거: `docs/POLICY-LAYERS.md` · SSOT: `lib/domain/policy-tier.ts`
+       */
+      // 「계약」이어야 전자계약을 보낼 수 있다. 비면 상품 층으로 본다 — 안 정해진 곳에 계약을 태우지 않는다.
+      {
+        key: 'contract_authoring', label: '계약서 작성', type: 'select', options: [...CONTRACT_AUTHORING], manual: true,
+        note: '「프리패스가 작성」이라야 전자계약 발송',
+      },
+      // 돈 — 날짜·횟수는 range 로 오입력을 막는다. 잘못 들어가면 정산액이 통째로 틀어진다.
+      { key: 'late_fee_rate', label: '지연손해금율(0~1)', type: 'number', range: [0, 0.2], manual: true, note: '약관 제3조 · 연 12% → 0.12' },
+      { key: 'deposit_return_days', label: '보증금 반환기한(일)', type: 'number', manual: true, note: '약관 제4조 · 반납 후 N일 이내' },
+      { key: 'impound_keep_days', label: '물품 보관기간(일)', type: 'number', manual: true, note: '약관 제13조 · 이후 폐기·매각' },
+      { key: 'impound_fee', label: '물품 보관료(일)', type: 'number', manual: true, note: '약관 제13조 · 1일 금액' },
+      /* ── 미납 제재 ──
+       * 약관 제11조는 **두 기준일을 따로** 부른다. 하나로 뭉치면 조문이 못 걸린다.
+       *   ①    「계약서에 정한 **운행제한 기준일**」까지 미지급 → 운행제한·시동제어
+       *   ②1호 「계약서에 정한 **차량회수 기준일**」까지 미이행 → 기한이익 상실·해지·회수
+       * 여기에 보증금 분납 미납은 **별도 갈래**다(대여료 연체와 날짜 계산이 다르다).
+       * 라벨을 약관 용어에 맞춰 둔다 — 손님이 계약서에서 조문을 바로 찾을 수 있어야 한다. */
+      { key: 'engine_control_overdue_days', label: '운행제한(시동제어) 기준일', type: 'number', manual: true, note: '약관 제11조① · N일 연체 시 시동제어' },
+      { key: 'auto_terminate_overdue_days', label: '차량회수·해지 기준일', type: 'number', manual: true, note: '약관 제11조② · N일 연체 시 해지·회수' },
+      {
+        key: 'deposit_overdue_rounds', label: '보증금 미납 시동제어(회차)', type: 'number', manual: true,
+        // 보증금 분납은 회차로 센다 — 날짜로 세는 대여료 연체와 갈래가 다르다(약관 제11조②2호).
+        note: '약관 제11조② · N회차 미납 시 즉시 제어',
+      },
+      {
+        key: 'claim_basis', label: '청구 기준', type: 'select', options: [...CLAIM_BASES], manual: true,
+        note: '약관 제11·14조 · 둘 중 하나만',
+      },
+      // 만기 — 실권이 걸린 기한
+      { key: 'renewal_notice_days', label: '연장 사전통지기한(일)', type: 'number', manual: true, note: '약관 제2조 · 넘기면 연장 불가' },
+      { key: 'buyout_notice_days', label: '인수 사전통지기한(일)', type: 'number', manual: true, note: '약관 제17조 · 넘기면 인수 불가' },
+      // 계약서에 실명이 박히는 것 — 회사 이름·번호는 자유 입력, 정책 선택지는 드롭다운
+      { key: 'insurer_name', label: '보험사', type: 'text', manual: true, note: '약관 제9조 · 사고 접수처' },
+      { key: 'insurer_phone', label: '보험사 연락처', type: 'text', manual: true, note: '약관 제9조' },
+      {
+        key: 'designated_garage', label: '지정 정비점', type: 'select', options: [...GARAGE_POLICIES], manual: true,
+        note: '약관 제7·9조 · 임의 수리 시 보험 불가',
+      },
+      // 선택지는 계약서 04항에 인쇄되던 문구 그대로 — 임의로 만든 목록이 아니다.
+      { key: 'self_damage_exclusions', label: '자차 처리 제외', type: 'chips', options: ['단독사고', '가해자 불명', '휠·타이어 단독 손상', '전손', '고의·관리 소홀', '침수', '음주·무면허', '한도초과'], manual: true, note: '약관 제9조 · 공제·보험별 상이' },
+      {
+        key: 'replacement_car_policy', label: '대차 정책', type: 'select', options: [...REPLACEMENT_CAR_POLICIES], manual: true,
+        note: '약관 제7조 · 「미제공」도 조건',
+      },
+      {
+        key: 'gps_installed', label: 'GPS 장착', type: 'select', options: [...EQUIPPED_STATES], manual: true,
+        note: '약관 제10조 · 위치 수집 고지',
+      },
     ],
   },
 
@@ -264,7 +366,7 @@ export const ENTITIES: Record<string, Entity> = {
       { key: 'model_snapshot', label: '모델', type: 'text' },
       { key: 'sub_model_snapshot', label: '세부모델', type: 'text' },
       { key: 'variant_snapshot', label: '파워트레인', type: 'text' },
-      { key: 'trim_name_snapshot', label: '트림', type: 'text' },
+      { key: 'trim_name_snapshot', label: '세부트림', type: 'text' },
       { key: 'trim_extra_snapshot', label: '추가표기', type: 'text' },
       { key: 'vehicle_name_snapshot', label: '차량명', type: 'text' },
       { key: 'year_snapshot', label: '연식', type: 'text' },
@@ -322,7 +424,7 @@ export const ENTITIES: Record<string, Entity> = {
       { key: 'unsigned_pdf_url', label: '서명요청본', type: 'text' },
       // ── 전자서명 파이프라인(발송→손님서명→검토→승인) ──
       { key: 'sign_token', label: '서명 토큰', type: 'text' },
-      { key: 'sign_status', label: '서명 상태', type: 'select', options: ['미발송', '발송', '검토대기', '서명완료'], manual: true },
+      { key: 'sign_status', label: '서명 상태', type: 'select', options: ['미발송', '발행', '열람', '진행중', '검토대기', '서명완료', '반려', '만료'], manual: true },
       { key: 'sign_sent_at', label: '발송시각', type: 'number' },
       { key: 'sign_signed_at', label: '서명시각', type: 'number' },
       { key: 'sign_signature', label: '서명 이미지', type: 'text', note: 'data URL' },
@@ -336,8 +438,10 @@ export const ENTITIES: Record<string, Entity> = {
       //  전환 시점에 값만 채우면 되도록 스키마 자리를 먼저 잡아 둔다.
       { key: 'esign_provider', label: '전자계약 제공자', type: 'select', options: ['self', 'chakhandeal'], note: '신규 발송은 chakhandeal. self는 레거시 읽기 호환' },
       { key: 'esign_id', label: '외부 서명ID', type: 'text', note: '착한거래 signId' },
+      { key: 'esign_sign_url', label: '손님 서명 링크', type: 'text', note: '관리자가 복사해 직접 전달' },
       { key: 'esign_verify_url', label: '검증 링크', type: 'text', note: '착한거래 /v?id= — 파일이 아니라 사실을 증명하는 링크' },
       { key: 'esign_seal_hash', label: '문서 봉인 해시', type: 'text', note: '착한거래가 반환한 문서 봉인 해시' },
+      { key: 'esign_document_sha256', label: 'PDF SHA-256', type: 'text', note: '서명 완료 PDF 무결성 검증값' },
       { key: 'memo_agent', label: '영업자메모', type: 'text', manual: true },
       { key: 'memo_provider', label: '공급사메모', type: 'text', manual: true },
       { key: 'memo_admin', label: '관리자메모', type: 'text', manual: true },

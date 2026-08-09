@@ -14,6 +14,8 @@ import { matchPolicyQuery } from '@/lib/domain/search';
 import { haptic } from '@/lib/haptics';
 import { useIsMobile } from '@/lib/use-mobile';
 import { NAV_LABEL } from '@/lib/tabbar';
+import { canIssueContract, CONTRACT_LAYER, type PolicyField } from '@/lib/domain/policy-tier';
+import { applyPolicyDefaults } from '@/lib/domain/policy-defaults';
 import { retainVisibleSelection } from '@/features/work-list-display';
 import { providerNameMap } from '@/lib/domain/identity';
 
@@ -30,11 +32,20 @@ const POL_SCOPE: { key: PolScope; label: string }[] = [
   { key: 'shared', label: '공용' },
 ];
 
-// 정책관리 = [목록 | 기본·심사 | 계약조건 | 보험] 4패널. 스키마 SSOT(ENTITIES.policy) + FormGrid.
+// 정책관리 = [목록 | 기본·심사 | 계약조건 | 보험 | 전자계약] 5패널. 스키마 SSOT(ENTITIES.policy) + FormGrid.
 // 공급사 = 자기 정책만 편집. 공용(provider_company_code 빈값)은 목록에 안 띄움(재고 Select에서만 연결).
 // 필드 그룹 SSOT — detailSections(심사/계약조건/보험)과 동일 골격. 미지정 필드는 보험 패널이 흡수(누락 방지).
 const G_BASIC = ['policy_code', 'policy_name', 'provider_company_code', 'policy_type', 'screening_criteria', 'credit_grade', 'basic_driver_age', 'driver_age_lowering', 'driver_age_upper_limit', 'license_period', 'age_lowering_cost'];
-const G_TERMS = ['annual_mileage', 'mileage_upcharge_per_10000km', 'payment_method', 'penalty_condition', 'rental_region', 'delivery_fee', 'deposit_installment', 'deposit_card_payment', 'insurance_included', 'personal_driver_scope', 'business_driver_scope', 'additional_driver_allowance_count', 'additional_driver_cost', 'maintenance_service', 'commission_clawback_condition'];
+const G_TERMS = ['annual_mileage', 'mileage_upcharge_per_10000km', 'payment_method', 'rental_region', 'delivery_fee', 'deposit_installment', 'deposit_card_payment', 'insurance_included', 'personal_driver_scope', 'business_driver_scope', 'additional_driver_allowance_count', 'additional_driver_cost', 'maintenance_service', 'commission_clawback_condition'];
+/**
+ * 전자계약 패널 — **계약서를 우리가 쓰는 공급사만** 채운다.
+ *
+ * 목록을 여기 손으로 적지 않고 `CONTRACT_LAYER` 에서 뽑는다.
+ * 두 벌로 두면 어긋난다 — 실제로 「초과 주행요금」이 계약 층에 정의돼 있는데
+ * 화면에서는 계약조건 패널에 있었다(패널티인데 가격표 옆에 서 있었다).
+ * 근거: `docs/POLICY-LAYERS.md` · SSOT: `lib/domain/policy-tier.ts`
+ */
+const G_ESIGN = ['contract_authoring', ...CONTRACT_LAYER.map((f) => f.key)];
 
 function scopePolicies(all: EntityRecord[], role: Role): EntityRecord[] {
   if (role === 'admin') return all;
@@ -270,7 +281,8 @@ export default function PolicyMgmt() {
     </>
   );
 
-  const grouped = new Set([...G_BASIC, ...G_TERMS]);
+  // 전자계약 필드를 여기 넣지 않으면 보험 패널이 흡수해 버린다(미지정 필드 흡수 규칙).
+  const grouped = new Set([...G_BASIC, ...G_TERMS, ...G_ESIGN]);
   const fieldsIn = (keys: string[]) => {
     let keys2 = keys;
     // 공급사는 귀속코드 필드 숨김(자동 스탬프)
@@ -278,6 +290,29 @@ export default function PolicyMgmt() {
     return ENTITIES.policy.fields.filter((f) => keys2.includes(f.key));
   };
   const insFields = ENTITIES.policy.fields.filter((f) => !grouped.has(f.key));
+
+  /**
+   * 전자계약 패널의 안내 — «지금 이 정책으로 계약서를 보낼 수 있는가»를 그 자리에서 말한다.
+   * 빈칸을 남긴 채 발송하면 서명 뒤에 봉인되어 고치지 못하므로, 여기서 미리 세어 보인다.
+   */
+  /**
+   * 프리패스 표준값 채우기 — 지금 나가는 계약서와 «같은 값»을 한 번에 넣는다.
+   * 이미 값이 있는 칸은 덮지 않는다. 공급사가 다르게 정한 것을 표준으로 되돌리면 안 된다.
+   */
+  const fillDefaults = () => {
+    const { next, filled } = applyPolicyDefaults(form);
+    if (!filled.length) { toast('이미 다 채워져 있습니다', 'ok'); return; }
+    setForm(next);
+    setDirty(true);
+    toast(`${filled.length}개 항목에 표준값을 넣었습니다 — 저장해야 반영됩니다`, 'ok');
+  };
+
+  const esignGate = canIssueContract(form);
+  const esignHint = esignGate.layer !== 'contract'
+    ? '상품만 공급하는 정책입니다 — 계약서는 공급사가 직접 작성합니다. 우리가 계약서까지 쓰려면 「정책 단계」를 «계약»으로 두고 아래를 채우세요.'
+    : esignGate.ok
+      ? '전자계약 발송 가능 — 아래 값이 계약서와 약관에 그대로 실립니다.'
+      : `전자계약 발송 불가 — ${esignGate.missing.length}개 항목이 비어 있습니다: ${esignGate.missing.map((m: PolicyField) => m.label).join(' · ')}`;
 
   const canEdit = creating || editing;
   const modeBanner = creating ? (
@@ -292,18 +327,44 @@ export default function PolicyMgmt() {
     <PageActions edit={{ onClick: startEdit }} remove={{ onClick: removeP }} />
   ) : undefined;
 
-  const editPane = (title: string, fields: typeof ENTITIES.policy.fields, hint?: string) => (
+  const editPane = (title: string, fields: typeof ENTITIES.policy.fields, hint?: string, lead?: string) => (
     <>
       <PaneHead title={title} />
       <PaneBody pad>
         {sel ? (
           <>
             {modeBanner}
+            {/*
+              «이 패널이 무엇이고 누가 쓰는가»를 먼저 말한다.
+              정책은 한 번 정해 두고 계속 쓰는 값이라 이 화면에 자주 오지 않는다.
+              다음에 왔을 때 「여기가 뭐였더라」가 되면 아예 안 채우고, 안 채운 칸은
+              계약서에서 빈칸이 되어 약관 조문이 공중에 뜬다.
+            */}
+            {lead && (
+              <p style={{ margin: '0 0 10px', fontSize: 12.5, lineHeight: 1.6, color: C.mute }}>{lead}</p>
+            )}
+            {/*
+              표준값 채우기는 «전자계약 패널에서만». 빈칸을 하나씩 채우는 것은 오래 걸리고,
+              그러다 안 채운 칸이 남으면 계약서가 빈칸으로 나간다.
+              값은 지금 나가는 계약서에서 뽑은 것이라 «새로 정하는 것»이 아니다.
+            */}
+            {title === '전자계약' && canEdit && (
+              <div style={{ marginBottom: 10 }}>
+                <Btn title="프리패스 표준값 채우기" size="sm" variant="ghost" onClick={fillDefaults}>
+                  프리패스 표준값 채우기
+                </Btn>
+              </div>
+            )}
             {mobile && !canEdit ? (
               <FormReadList fields={fields} form={form} footer={hint} />
             ) : (
               <FormCard hint={hint}>
-                <FormGrid fields={fields} form={form} onChange={onChange} cols={2} disabled={!canEdit} />
+                {/*
+                  정책은 «한 번 정해 두고 계속 쓰는» 값이라 자주 오지 않는다.
+                  그래서 칸마다 «무슨 뜻이고 어느 약관 조항에 걸리는지»를 그 자리에서 읽게 한다.
+                  (재고·계약처럼 매일 만지는 화면은 조밀해야 하므로 거기선 끈다.)
+                */}
+                <FormGrid fields={fields} form={form} onChange={onChange} cols={2} disabled={!canEdit} showNotes />
               </FormCard>
             )}
           </>
@@ -313,10 +374,35 @@ export default function PolicyMgmt() {
       </PaneBody>
     </>
   );
+  /*
+   * 패널 안내 — 세 층(상품·영업·계약)을 화면 말로 옮긴 것.
+   * 설계 근거: `docs/POLICY-LAYERS.md`
+   */
   const panes: WorkPane[] = [
-    { key: 'basic', title: '기본·심사', node: editPane('기본·심사', fieldsIn(G_BASIC), '정책 신원·심사 기준') },
-    { key: 'terms', title: '계약조건', node: editPane('계약조건', fieldsIn(G_TERMS), '운행·납부·특약') },
-    { key: 'ins', title: '보험', node: editPane('보험', insFields, '보험·부가 조건') },
+    {
+      key: 'basic',
+      title: '기본·심사',
+      node: editPane('기본·심사', fieldsIn(G_BASIC), '정책 신원·심사 기준',
+        '심사기준·신용등급은 내부용 — 손님에게 안 나갑니다.'),
+    },
+    {
+      key: 'terms',
+      title: '계약조건',
+      node: editPane('계약조건', fieldsIn(G_TERMS), '운행·납부·특약',
+        '영업 상담용 가격표. 여기서 정해진 결과만 계약서에 실립니다.'),
+    },
+    {
+      key: 'ins',
+      title: '보험',
+      node: editPane('보험', insFields, '보험·부가 조건',
+        '계약서 04항 · 약관 제9조에 그대로 실립니다.'),
+    },
+    {
+      key: 'esign',
+      title: '전자계약',
+      node: editPane('전자계약', fieldsIn(G_ESIGN), esignHint,
+        '계약서를 우리가 쓰는 공급사만 채웁니다. 비면 약관 조문이 못 걸립니다.'),
+    },
   ];
   return (
     <>

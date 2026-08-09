@@ -3,7 +3,8 @@
  * 실행: npx tsx scripts/sim-esign-progress.mts
  */
 import {
-  ESIGN_STEPS, compareEsign, consentKeys, esignNeedsAttention, esignStage, matchesEsignFilter,
+  ESIGN_STEPS, compareEsign, consentAt, consentKeys, esignDocuments, esignIdentityShots,
+  esignNeedsAttention, esignSeal, esignStage, matchesEsignFilter, sealGaps,
 } from '../lib/domain/esign-progress';
 import type { EntityRecord } from '../lib/intake/entities';
 
@@ -77,6 +78,52 @@ check('전체 필터는 다 통과', [signed, rejected, midway, unsent].every((x
 
 const sorted = [signed, unsent, midway, rejected].sort(compareEsign).map((x) => esignStage(x, NOW).state);
 check('손봐야 할 것이 위로', sorted.join('|') === '반려|진행중|미발송|서명완료', sorted);
+
+// ── 4번 패널: 진행 디테일·첨부 ──
+check('단계 통과 시각을 읽는다', consentAt({ identity: NOW }, 'identity') === NOW);
+check('콤마 문자열엔 시각이 없다', consentAt('identity,vehicle', 'identity') === 0);
+check('시각 없는 키는 0', consentAt({ identity: NOW }, 'vehicle') === 0);
+
+const withDocs = r({
+  ...issued,
+  esign_documents: [
+    { key: 'family_register', label: '가족관계증명서', submittedAt: NOW, sha256: 'abc' },
+    { key: 'extra_note', label: '추가 제출물', submittedAt: NOW },
+    { key: '', label: '키 없는 쓰레기' },
+  ],
+});
+const docs = esignDocuments(withDocs);
+check('첨부 서류를 읽는다', docs.length === 2, docs.map((d) => d.key));
+check('키 없는 행은 버린다', !docs.some((d) => !d.key));
+check('라벨 없으면 키로 대신', esignDocuments(r({ ...issued, esign_documents: [{ key: 'bank_book', submittedAt: NOW }] }))[0].label === 'bank_book');
+// RTDB 는 배열을 객체로 돌려주는 일이 잦다 — 둘 다 읽어야 «첨부 없음»으로 잘못 보이지 않는다.
+check('객체 형태 첨부도 읽는다',
+  esignDocuments(r({ ...issued, esign_documents: { a: { key: 'family_register', submittedAt: NOW } } })).length === 1);
+check('첨부 없으면 빈 배열', esignDocuments(r(issued)).length === 0);
+
+// ── 봉인 ──
+check('서명 전엔 봉인 없음', esignSeal(r(issued)) === null);
+// 봉인은 «서명 + 해시»가 다 있어야 성립한다 — 하나만 있으면 반쪽이다.
+check('해시만 있으면 봉인 아님', esignSeal(r({ ...issued, esign_seal_hash: 'sha256:x' })) === null);
+check('서명만 있고 해시 없으면 봉인 아님', esignSeal(r({ ...issued, sign_signed_at: NOW })) === null);
+const sealed = r({
+  ...issued, sign_signed_at: NOW, esign_seal_hash: 'sha256:abc',
+  esign_verify_url: 'https://chd/v?id=1', esign_document_url: 'https://chd/doc.pdf',
+  esign_template_version: 'sample-v1', sign_consent_version: 'rental-v1-2026-08-08',
+});
+check('봉인 읽기', esignSeal(sealed)?.sealHash === 'sha256:abc');
+check('약관 판이 기록된다', esignSeal(sealed)?.agreementVersion === 'rental-v1-2026-08-08');
+check('완전한 봉인엔 결손 없음', sealGaps(sealed).length === 0, sealGaps(sealed));
+// 봉인은 됐는데 링크·사본이 안 오면 나중에 계약서를 못 연다 — 조용히 넘기면 안 된다.
+check('검증링크 누락을 잡는다',
+  sealGaps(r({ ...sealed, esign_verify_url: '' })).includes('검증링크 없음'));
+check('계약서 사본 누락을 잡는다',
+  sealGaps(r({ ...sealed, esign_document_url: '' })).includes('계약서 사본 없음'));
+check('봉인 안 된 계약은 결손 검사 안 함', sealGaps(r(issued)).length === 0);
+
+check('본인확인 자료 미제출', !esignIdentityShots(r(issued)).idCard);
+const shots = esignIdentityShots(r({ ...issued, esign_identity: { idCardPath: 'a.png', selfieSha256: 'z', verifiedAt: NOW } }));
+check('신분증·셀피 제출 판정', shots.idCard && shots.selfie && shots.verifiedAt === NOW, shots);
 
 console.log(`\n━━ 결과: ${pass}/${pass + fail} 통과`);
 if (fail) process.exit(1);

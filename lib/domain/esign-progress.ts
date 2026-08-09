@@ -114,6 +114,93 @@ export function esignStage(contract: EntityRecord | null | undefined, now = Date
   };
 }
 
+/** 단계별 통과 시각 — `{키: 시각}` 으로 저장된 경우만 나온다(레거시 콤마 문자열엔 시각이 없다). */
+export function consentAt(raw: unknown, key: string): number {
+  if (!raw || typeof raw !== 'object') return 0;
+  return N((raw as Rec)[key]);
+}
+
+/**
+ * 손님이 낸 서류 — 착한거래가 웹훅/조회로 돌려주는 것을 그대로 읽는다.
+ * **원본 파일은 우리에게 오지 않는다.** 제출 여부와 시각·해시만 온다(`ESIGN…INTEGRATION.md` §3.1).
+ */
+export type EsignDocument = { key: string; label: string; submittedAt: number; sha256: string };
+
+export function esignDocuments(contract: EntityRecord | null | undefined): EsignDocument[] {
+  const raw = (contract as Rec | null)?.esign_documents;
+  if (!raw) return [];
+  const rows = Array.isArray(raw) ? raw : Object.values(raw as Rec);
+  return rows
+    .filter((r): r is Rec => !!r && typeof r === 'object')
+    .map((r) => ({
+      key: S(r.key),
+      label: S(r.label) || S(r.key),
+      submittedAt: N(r.submittedAt),
+      sha256: S(r.sha256),
+    }))
+    .filter((d) => !!d.key);
+}
+
+/** 본인확인 산출물(신분증·셀피) 제출 여부. 원본은 착한거래가 갖는다. */
+export function esignIdentityShots(contract: EntityRecord | null | undefined): { idCard: boolean; selfie: boolean; verifiedAt: number } {
+  const raw = (contract as Rec | null)?.esign_identity as Rec | undefined;
+  return {
+    idCard: !!raw && (!!S(raw.idCardPath) || !!S(raw.idCardSha256)),
+    selfie: !!raw && (!!S(raw.selfiePath) || !!S(raw.selfieSha256)),
+    verifiedAt: N(raw?.verifiedAt),
+  };
+}
+
+/**
+ * 봉인·감사추적 — 서명이 끝나면 착한거래가 웹훅으로 돌려주는 것.
+ *
+ * ★**PDF 원본과 PII 는 여기 없다**(2026-08-09 결정).
+ *   착한거래가 서버에서 PDF 를 만들고 해시·타임스탬프로 봉인한다 — 서명을 가진 쪽이 만들어야 한다.
+ *   우리는 **해시·검증링크·본문 사본**만 받는다. 서명이미지·신분증·셀피·서류는 안 받는다.
+ *
+ * ★`consents` 의 시각이 핵심이다
+ *   「강조했다」만으로는 손님의 «못 봤는데요»를 못 막는다.
+ *   **「몇 시 몇 분에 그 섹션을 확인했다」**가 설명의무를 다한 증거다.
+ */
+export type EsignSeal = {
+  sealHash: string;
+  verifyUrl: string;
+  signedAt: number;
+  /** 계약서 본문 PDF(서명·신분증 이미지 제외). 착한거래가 사라져도 계약서는 남아야 한다. */
+  documentUrl: string;
+  /** 어느 판으로 서명했나 — 문구가 바뀌면 되짚을 수 있는 유일한 근거. */
+  templateVersion: string;
+  agreementVersion: string;
+};
+
+export function esignSeal(contract: EntityRecord | null | undefined): EsignSeal | null {
+  const c = contract as Rec | null;
+  if (!c) return null;
+  const hash = S(c.esign_seal_hash);
+  const signedAt = N(c.sign_signed_at);
+  // 봉인은 «서명 + 해시»가 다 있어야 성립한다. 하나만 있으면 반쪽이라 봉인으로 치지 않는다.
+  if (!hash || !signedAt) return null;
+  return {
+    sealHash: hash,
+    verifyUrl: S(c.esign_verify_url),
+    signedAt,
+    documentUrl: S(c.esign_document_url),
+    templateVersion: S(c.esign_template_version),
+    agreementVersion: S(c.sign_consent_version),
+  };
+}
+
+/** 봉인은 됐는데 검증링크·사본이 안 왔다 — 조용히 넘기면 나중에 계약서를 못 연다. */
+export function sealGaps(contract: EntityRecord | null | undefined): string[] {
+  const seal = esignSeal(contract);
+  if (!seal) return [];
+  const out: string[] = [];
+  if (!seal.verifyUrl) out.push('검증링크 없음');
+  if (!seal.documentUrl) out.push('계약서 사본 없음');
+  if (!seal.agreementVersion) out.push('약관 판 기록 없음');
+  return out;
+}
+
 /** 관리자가 손봐야 하는 건 — 목록 기본 필터가 이걸 쓴다. */
 export function esignNeedsAttention(contract: EntityRecord): boolean {
   const { state } = esignStage(contract);

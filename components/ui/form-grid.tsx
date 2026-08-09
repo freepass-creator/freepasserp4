@@ -56,6 +56,7 @@ export function FormGrid({
   cols = 2,
   disabled,
   selectOptions,
+  showNotes,
 }: {
   fields: Field[];
   form: EntityRecord;
@@ -64,6 +65,14 @@ export function FormGrid({
   disabled?: boolean;
   /** 필드별 Select 옵션 오버라이드(정책코드 등 value≠label). */
   selectOptions?: Record<string, SelectOption[]>;
+  /**
+   * 필드의 `note` 를 칸 밑에 설명으로 그린다.
+   *
+   * 기본은 끔 — 재고·계약처럼 매일 만지는 화면은 조밀해야 하고, 거기선 설명이 소음이다.
+   * **정책처럼 «한 번 정해 두고 계속 쓰는» 화면에서만 켠다.** 그런 화면은 자주 안 오기 때문에
+   * 「이 칸이 무슨 뜻이고 어느 약관 조항에 걸리는지」를 그 자리에서 읽을 수 있어야 한다.
+   */
+  showNotes?: boolean;
 }) {
   const mobile = useIsMobile();
   const columns = mobile ? 1 : cols;
@@ -194,6 +203,15 @@ export function FormGrid({
                   </span>
                 )}
               </>
+            )}
+            {/*
+              설명은 «칸 밑»에 둔다. 라벨 옆에 붙이면 라벨이 길어져 그리드가 흔들리고,
+              범위 오류 문구와 자리를 다투게 된다. 오류가 떠 있을 때는 그쪽이 먼저다.
+            */}
+            {showNotes && field.note && !outOfRange && (
+              <span style={{ display: 'block', marginTop: 3, fontSize: FS.cap, color: C.faint, lineHeight: 1.45 }}>
+                {field.note}
+              </span>
             )}
           </label>
         );

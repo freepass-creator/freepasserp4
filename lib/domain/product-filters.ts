@@ -255,7 +255,11 @@ export type FState = {
 
 /** 국산 제조사 — 르노(르노코리아·르노삼성)=국산. 영문 Renault 등 수입 르노는 별도(미포함). */
 const DOMESTIC_MAKERS = new Set(['현대', '기아', '제네시스', '쉐보레', '르노', '르노삼성', '르노코리아', '삼성', 'KGM', 'KG모빌리티', 'KG', '쌍용', '대우', '한국지엠']);
-function isDomesticMaker(raw: string): boolean {
+/**
+ * 국산이냐 — 필터뿐 아니라 **계약 요율**도 이걸로 갈린다(초과 주행요금 국산 200원 / 수입 400원).
+ * 판정을 두 벌로 두면 필터에선 국산인데 계약서엔 수입 요율이 찍힌다.
+ */
+export function isDomesticMaker(raw: string): boolean {
   const v = raw.trim();
   if (!v) return false;
   if (DOMESTIC_MAKERS.has(v)) return true;
