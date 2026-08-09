@@ -221,6 +221,14 @@ async function main() {
     { name: '없는 계약으로 매물 잠그기(영업자)', as: 'agent', method: 'PUT', path: `v4/products/${probeProduct}/locked_by_contract`, body: 'NO-SUCH-CONTRACT', expect: 'deny' },
     { name: '내 계약으로 매물 잠그기(영업자)', as: 'agent', method: 'PUT', path: `v4/products/${probeProduct}/locked_by_contract`, body: code, expect: 'allow' },
     { name: '상품키를 다른 값으로 바꾸기(영업자)', as: 'agent', method: 'PUT', path: `v4/products/${probeProduct}/_key`, body: 'HIJACKED', expect: 'deny' },
+    // 입금 선점 — 클라이언트가 직접 찍으면 서로 다른 브라우저가 동시에 통과한다(이중판매).
+    //  이제 서버(admin SDK)만 쓴다. 아래 셋이 다 막혀야 «서버 단일 writer»가 성립한다.
+    { name: '계약금 입금 직접 찍기(영업자)', as: 'agent', method: 'PUT', path: `${base}/agent_balance_paid`, body: 'yes', expect: 'deny' },
+    { name: '입금 확인 직접 찍기(공급사)', as: 'provider', method: 'PUT', path: `${base}/provider_balance_confirmed`, body: 'yes', expect: 'deny' },
+    { name: '차량 신원해시 위조(영업자)', as: 'agent', method: 'PUT', path: `${base}/vehicle_identity_hash`, body: 'forged', expect: 'deny' },
+    { name: '선점 원장에 직접 쓰기(영업자)', as: 'agent', method: 'PUT', path: `v4/vehicle_claims/${PROBE_KEY}`, body: { status: 'active' }, expect: 'deny' },
+    { name: '선점 원장 읽기(영업자)', as: 'agent', method: 'GET', path: 'v4/vehicle_claims', expect: 'deny' },
+    { name: '선점 원장 읽기(관리자)', as: 'admin', method: 'GET', path: 'v4/vehicle_claims', expect: 'allow' },
   ];
 
   let failed = 0;
@@ -242,6 +250,7 @@ async function main() {
       await database.ref(`v4/${node}/ST_${doneCode}`).remove();
     }
     for (const node of ['products', 'partners', 'policies']) await database.ref(`${node}/${PROBE_KEY}`).remove();
+    await database.ref(`v4/vehicle_claims/${PROBE_KEY}`).remove();
     await database.ref(`v4/partners/${PROBE_KEY}`).remove();
     // 실제 파트너 레코드에 남긴 흔적은 반드시 지운다 — 검사가 데이터를 더럽히면 안 된다.
     await database.ref(`v4/partners/${providerCompany}/_rules_probe`).remove();

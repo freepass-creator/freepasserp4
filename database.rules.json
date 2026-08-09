@@ -534,7 +534,7 @@
             ".validate": "!data.parent().exists() || newData.val() === data.val() || root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'agent' || root.child('users').child(auth.uid).child('role').val() === 'agent_admin' || root.child('users').child(auth.uid).child('role').val() === 'agent_manager'"
           },
           "agent_balance_paid": {
-            ".validate": "!data.parent().exists() || newData.val() === data.val() || root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'agent' || root.child('users').child(auth.uid).child('role').val() === 'agent_admin' || root.child('users').child(auth.uid).child('role').val() === 'agent_manager'"
+            ".validate": "newData.val() === data.val()"
           },
           "agent_final_paid": {
             ".validate": "!data.parent().exists() || newData.val() === data.val() || root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'agent' || root.child('users').child(auth.uid).child('role').val() === 'agent_admin' || root.child('users').child(auth.uid).child('role').val() === 'agent_manager'"
@@ -552,7 +552,7 @@
             ".validate": "!data.parent().exists() || newData.val() === data.val() || root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'provider' || root.child('users').child(auth.uid).child('role').val() === 'provider_admin'"
           },
           "provider_balance_confirmed": {
-            ".validate": "!data.parent().exists() || newData.val() === data.val() || root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'provider' || root.child('users').child(auth.uid).child('role').val() === 'provider_admin'"
+            ".validate": "newData.val() === data.val()"
           },
           "customer_name": {
             ".validate": "newData.val() === data.val() || root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'agent' || root.child('users').child(auth.uid).child('role').val() === 'agent_admin' || root.child('users').child(auth.uid).child('role').val() === 'agent_manager'"
@@ -616,6 +616,9 @@
           },
           "provider_release_completed": {
             ".validate": "!data.parent().exists() || newData.val() === data.val() || root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'provider' || root.child('users').child(auth.uid).child('role').val() === 'provider_admin'"
+          },
+          "vehicle_identity_hash": {
+            ".validate": "newData.val() === data.val()"
           }
         }
       },
@@ -702,6 +705,10 @@
         "$auto": {
           ".write": "auth != null && newData.exists() && newData.child('actor_uid').val() === auth.uid"
         }
+      },
+      "vehicle_claims": {
+        ".write": false,
+        ".read": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous' && root.child('users').child(auth.uid).child('status').val() !== 'pending' && root.child('users').child(auth.uid).child('is_active').val() !== '아니오' && root.child('users').child(auth.uid).child('is_active').val() !== false && root.child('users').child(auth.uid).child('status').val() !== 'deleted' && root.child('users').child(auth.uid).child('status').val() !== 'rejected' && root.child('users').child(auth.uid).child('role').val() === 'admin'"
       }
     }
   }
