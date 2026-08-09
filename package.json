@@ -3,9 +3,9 @@
   "version": "4.0.0-alpha",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 4004 --turbo",
-    "dev:webpack": "next dev -p 4004",
-    "build": "next build",
+    "dev": "node --max-old-space-size=8192 ./node_modules/next/dist/bin/next dev -p 4004 --turbo",
+    "dev:webpack": "node --max-old-space-size=8192 ./node_modules/next/dist/bin/next dev -p 4004",
+    "build": "node --max-old-space-size=8192 ./node_modules/next/dist/bin/next build",
     "start": "next start -p 4004",
     "typecheck": "tsc --noEmit",
     "check:fonts": "tsx scripts/check-fonts.mts",
@@ -14,7 +14,14 @@
     "check:release": "tsx scripts/check-release.mts",
     "check:b2b-release": "tsx scripts/check-b2b-release.mts",
     "smoke:b2b-roles": "tsx scripts/smoke-b2b-role-matrix.mts",
-    "audit:ironrentcar": "tsx scripts/audit-ironrentcar-source.mts"
+    "audit:ironrentcar": "tsx scripts/audit-ironrentcar-source.mts",
+    "rules:status": "tsx scripts/deploy/rtdb-rules.mts status",
+    "rules:diff": "tsx scripts/deploy/rtdb-rules.mts diff",
+    "rules:backup": "tsx scripts/deploy/rtdb-rules.mts backup",
+    "rules:deploy": "tsx scripts/deploy/rtdb-rules.mts deploy",
+    "rules:rollback": "tsx scripts/deploy/rtdb-rules.mts rollback",
+    "env:diff": "tsx scripts/deploy/vercel-env.mts diff",
+    "env:pull": "tsx scripts/deploy/vercel-env.mts pull"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
