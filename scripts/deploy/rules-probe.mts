@@ -112,6 +112,7 @@ async function main() {
   ).trim();
   if (!providerCompany) die('공급사 계정에 company_code 가 없다 — 소유권 검사를 할 수 없다');
   const code = `TEST-RULES-${Date.now()}`;
+  const probeProduct = `TEST-RULES-PROD-${Date.now()}`;
   const ref = database.ref(`v4/contracts/${code}`);
   const agentUser = ((await database.ref(`users/${users.agent.uid}`).get()).val() || {}) as Record<string, any>;
   const providerUser = ((await database.ref(`users/${users.provider.uid}`).get()).val() || {}) as Record<string, any>;
@@ -131,7 +132,13 @@ async function main() {
     agent_code: agentUser.user_code || users.agent.uid,
     agent_channel_code: agentUser.agent_channel_code || '',
     provider_company_code: providerUser.company_code || '',
-    product_code: '',
+    product_code: probeProduct,
+  });
+  // 락 검사용 매물 — 「내 계약으로는 잠기고, 남의·없는 계약으로는 안 잠긴다」를 묻는다.
+  await database.ref(`v4/products/${probeProduct}`).set({
+    _key: probeProduct, product_code: probeProduct, is_test: true,
+    car_number: '00테0000', vehicle_status: '출고가능', locked_by_contract: '',
+    provider_company_code: providerUser.company_code || '',
   });
 
   // 출고까지 끝난 계약 — 「정상 정산이 여전히 만들어지는가」를 묻기 위한 것.
@@ -210,6 +217,10 @@ async function main() {
     { name: '자기 회사 정책 수정(공급사)', as: 'provider', method: 'PUT', path: `v4/policies/${OWN_POLICY}`, body: {
       _key: OWN_POLICY, provider_company_code: providerCompany, policy_name: '내 정책',
     }, expect: 'allow' },
+    // 차량 락 — 이중판매가 나오는 자리. 없는 계약으로 잠그거나 남의 락을 푸는 길을 막았다.
+    { name: '없는 계약으로 매물 잠그기(영업자)', as: 'agent', method: 'PUT', path: `v4/products/${probeProduct}/locked_by_contract`, body: 'NO-SUCH-CONTRACT', expect: 'deny' },
+    { name: '내 계약으로 매물 잠그기(영업자)', as: 'agent', method: 'PUT', path: `v4/products/${probeProduct}/locked_by_contract`, body: code, expect: 'allow' },
+    { name: '상품키를 다른 값으로 바꾸기(영업자)', as: 'agent', method: 'PUT', path: `v4/products/${probeProduct}/_key`, body: 'HIJACKED', expect: 'deny' },
   ];
 
   let failed = 0;
@@ -225,6 +236,7 @@ async function main() {
   } finally {
     await ref.remove();
     await doneRef.remove();
+    await database.ref(`v4/products/${probeProduct}`).remove();
     for (const node of ['settlements', 'settlements_provider_private', 'settlements_agent_private']) {
       await database.ref(`v4/${node}/ST_NOPE-9999`).remove();
       await database.ref(`v4/${node}/ST_${doneCode}`).remove();
