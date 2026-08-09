@@ -19,7 +19,18 @@
  */
 
 const S = (v: unknown): string => String(v ?? '').trim();
-const flat = (v: string): string => v.toLowerCase().replace(/[\s\-_()/·.]/g, '');
+/**
+ * 비교용 접기.
+ *
+ * ★「+」는 「Plus」·「플러스」와 같은 말이다.
+ *   실측 2026-08-09: 원문 「스탠다드 19인치(E-VALUE+)」가 마스터 트림 「E-Value Plus」에
+ *   안 닿았다 — 「+」만 남기고 지우지도 않아 `evalue+` ≠ `evalueplus` 였다.
+ *   세 표기를 모두 `plus` 로 모아 같은 말로 만든다(「프리미엄+」=「프리미엄 플러스」).
+ */
+const flat = (v: string): string => v.toLowerCase()
+  .replace(/플러스/g, 'plus')
+  .replace(/\+/g, 'plus')
+  .replace(/[\s\-_()/·.]/g, '');
 
 /** 영문·외래 표기 → 한글 트림. 공급사가 원문 그대로 적는 경우가 많다. */
 export const TRIM_ALIAS: Record<string, string> = {

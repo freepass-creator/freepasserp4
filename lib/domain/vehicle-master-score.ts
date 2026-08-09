@@ -1,5 +1,7 @@
 import type { EntityRecord } from '@/lib/intake/entities';
 import type { MasterEntry } from '@/lib/domain/vehicle-master-types';
+import { realMasterTrims } from '@/lib/domain/vehicle-master-options';
+import { resolveTrim } from '@/lib/domain/vehicle-trim-resolve';
 
 export type MasterEntryScoreDeps = {
   norm: (value: unknown) => string;
@@ -151,6 +153,8 @@ export function selectMasterEntry(
     || deps.ordinalGen(product.cert_car_name);
   const order = lockedModel ? deps.genOrder(entries).get(lockedModel) || [] : [];
   const targetGen = ordinal >= 1 && ordinal <= order.length ? order[ordinal - 1] : null;
+  /** 트림 소속 판정에 쓸 원문 — 세대·트림·추가표기·원문 blob 전부. */
+  const entryTrimHint = `${trimText} ${trimExtraText} ${subText} ${certText} ${nameText} ${aliasedBlob}`.trim();
   const productFuel = deps.normFuel(product.fuel_type);
   const productIsEv = productFuel === '전기' || productFuel === '수소';
   const evHint = /전기|일렉트릭|일렉트리파이드|electrified|\bev\b/i.test(aliasedBlob.toLowerCase());
@@ -194,6 +198,24 @@ export function selectMasterEntry(
         if (deps.norm(entry.sub_model).includes(deps.norm('디 엣지'))) score += 4.2;
         else score -= 2.8;
       }
+    }
+
+    /**
+     * ★원문의 트림이 **그 세대 목록에만 있으면** 그게 답이다.
+     *
+     * 이름으로도 연식으로도 안 갈리는 세대가 있다 — 「아이오닉5 NE」(2021~)와
+     * 「더 뉴 아이오닉5 NE」(2024~)는 2025년식에서 둘 다 살아 있고, 공급사는 「더 뉴」를 안 적는다.
+     * 그때 «그 트림이 어느 세대에 있는가»가 유일한 근거다:
+     * 원문 「… 19인치(E-VALUE+)」의 「E-Value Plus」는 더 뉴에만 있다(실측 2026-08-09).
+     *
+     * 가점은 세대코드(+5)보다 낮게 둔다 — 코드가 있으면 코드가 이겨야 한다.
+     * 없는 트림을 만들어내지는 않는다. `resolveTrim` 은 목록 안에서만 고른다.
+     */
+    if (entryTrimHint) {
+      const here = realMasterTrims(entry.trims?.length ? entry.trims : []);
+      const inVariants = (entry.variants || []).flatMap((v) => realMasterTrims(v.trims));
+      const pool = here.length || inVariants.length ? [...new Set([...here, ...inVariants])] : [];
+      if (pool.length && resolveTrim(entryTrimHint, pool)) score += 1.6;
     }
 
     const genLock = (productGen && String(entry.gen_code).toUpperCase() === productGen)
