@@ -21,7 +21,7 @@
 import { readFileSync } from 'node:fs';
 import { DATABASE_URL, SA_PATH, die } from './_ctx.mts';
 
-type Role = 'agent' | 'provider' | 'admin';
+type Role = 'agent' | 'provider' | 'admin' | 'newbie';
 type Probe = {
   name: string;
   as: Role;
@@ -84,12 +84,16 @@ async function pickUsers(): Promise<Record<Role, { uid: string; label: string }>
       && u?.is_active !== false && u?.is_active !== '아니오';
     if (!alive) continue;
     if (role === 'agent' && !found.agent) found.agent = { uid, label: String(u.name || u.user_code || uid) };
+    // newbie 는 실계정이 아니라 «아직 아무 프로필도 없는 uid» 다 — 아래에서 채운다.
     if (role === 'admin' && !found.admin) found.admin = { uid, label: String(u.name || u.user_code || uid) };
     if ((role === 'provider' || role === 'provider_admin') && !found.provider) {
       found.provider = { uid, label: String(u.name || u.company_code || uid) };
     }
   }
   if (!found.agent || !found.provider || !found.admin) die('활성 영업자·공급사·관리자 계정을 못 찾았다 — 검사할 세션이 없다');
+  // 동의 증적 쓰기는 «본인 프로필에 직접 쓰기»다. 실직원 기록에 있지도 않은 동의를 찍을 수는
+  // 없으므로, 아무 프로필도 없는 임시 uid 로 같은 규칙 경로를 통과하는지만 본다.
+  found.newbie = { uid: `_RULES_PROBE_UID_${Date.now()}`, label: '임시 uid' };
   return found as Record<Role, { uid: string; label: string }>;
 }
 
@@ -100,6 +104,7 @@ async function main() {
     agent: await idTokenFor(users.agent.uid),
     provider: await idTokenFor(users.provider.uid),
     admin: await idTokenFor(users.admin.uid),
+    newbie: await idTokenFor(users.newbie.uid),
   };
   console.log(`\n  영업자 ${users.agent.label} · 공급사 ${users.provider.label} · 관리자 ${users.admin.label} 세션으로 라이브 규칙에 질의한다.`);
 
@@ -238,6 +243,9 @@ async function main() {
     { name: '선점 원장 읽기(관리자)', as: 'admin', method: 'GET', path: 'v4/vehicle_claims', expect: 'allow' },
     // 선점이 끊긴 계약으로는 매물을 못 잠근다 — 락과 원장이 갈라지면 이중판매가 다시 열린다.
     { name: '선점 없는 계약으로 잠그기(영업자)', as: 'agent', method: 'PUT', path: `v4/products/${probeProduct}/locked_by_contract`, body: hashCode, expect: 'deny' },
+    // 약관 재동의 게이트를 켜면 165명 전원이 이 쓰기를 한다. 여기가 막히면 전원이 잠긴다.
+    { name: '본인 동의 증적 남기기', as: 'newbie', method: 'PUT', path: `users/${users.newbie.uid}/terms_agreed_at`, body: 1786250000000, expect: 'allow' },
+    { name: '남의 동의 증적 조작', as: 'newbie', method: 'PUT', path: `users/${users.agent.uid}/terms_agreed_at`, body: 1786250000000, expect: 'deny' },
   ];
 
   let failed = 0;
@@ -255,6 +263,7 @@ async function main() {
     await doneRef.remove();
     await database.ref(`v4/contracts/${hashCode}`).remove();
     await database.ref(`v4/products/${probeProduct}`).remove();
+    await database.ref(`users/${users.newbie.uid}`).remove();
     for (const node of ['settlements', 'settlements_provider_private', 'settlements_agent_private']) {
       await database.ref(`v4/${node}/ST_NOPE-9999`).remove();
       await database.ref(`v4/${node}/ST_${doneCode}`).remove();
