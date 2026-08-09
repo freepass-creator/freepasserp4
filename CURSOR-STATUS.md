@@ -13,6 +13,7 @@ Claude는 읽기만 하고 수정하지 않는다. (지시서는 `CURSOR-TASKS.m
 |---|---|---|---|---|
 | FIELD-GUARD | _(미커밋)_ | 6 | 0 | 축별 금지값 SSOT(`vehicle-field-guards`) · trim/variant/sub · fill·clean·resolve·snap 연결 |
 | MASTER-DONE-7Y | _(미커밋)_ | — | 0 | 재고7년 완료판정: scrub367·drive74·스타리아모던 · 정상빈100% · 못채움=허용버킷 |
+| MASTER-DONE-10Y | _(미커밋)_ | — | 0 | PLAN 10년(2016~) 확장: drive+28 · 정상빈48/72 · classified100% |
 | T1 | `a2c2e14` | 3 | 0 | vstatus 죽은 배선 제거 (product-filters·page·sim-agent) |
 | T2 | `b8e9bd7` | 8 | 0 | canonProductType 비교·렌더·export 경로 적용 |
 | T3 | `6e734b8` | 5 | 0 | shortAt→msgClock 통합, ContractSend·미사용 export 삭제 |
@@ -354,6 +355,22 @@ sim-trim 39/39 · atom 45/0 · tsc · fonts 0
 
 **판정: 재고 7년 완료 (미커밋).** RTDB·푸시·커밋은 요청 전 안 함.
 
+### MASTER-DONE-10Y — PLAN 10년(2016~) 확장 (2026-08-09)
+
+7년 완료 위에 `YEAR_MIN=2016`으로 같은 규칙 확장. 트림 발명 없음.
+
+| 항목 | 결과 |
+|---|---|
+| 구동 형제 채움 | **+28칸** (모하비·스타렉스·제네시스DH·EQ900·F10/F30·W212·A6/A4 등) |
+| 상시AWD 스킵 | X3~X7 (+X4 F26) |
+| 트림빈 48 | 정상빈_재고미소 44 · 정상빈_제네시스 4 (100%) |
+| 구동잔여 72 | 정상빈_구동모호 62 · 정상빈_상시AWD 10 (100%) |
+| 게이트 | sim-trim 39/39 · atom 45/0 · tsc · fonts 0 |
+
+2016~2018 추가 트림빈 8 = 뉴S4·RS6·제타·볼보 XC60/S60/V60/S80/XC70 껍데기 → 정상빈_재고미소.
+
+**판정: PLAN 10년(국산·주요수입) 완료 (미커밋).**
+
 ### T9 — 죽은 원자 실사 (2026-07-21)
 
 실측: 심볼 참조. **정의 파일·같은 파일 내부 참조는 사용처에서 제외.**
@@ -399,4 +416,19 @@ sim-trim 39/39 · atom 45/0 · tsc · fonts 0
 
 ## 현재 상태
 
-`완료` — **MASTER-DONE-7Y 재고 7년 완료 판정** (미커밋). scrub 367 · drive sibling 74 · 스타리아 모던. RTDB·푸시·커밋 손대기 전.
+`완료` — **MASTER-DONE-10Y** PLAN 10년(2016~) 국산·주요수입 완료 판정. 커밋 대기→클로드 검증.
+
+### 클로드 검증 요청 (2026-08-09 · Cursor)
+
+**범위:** 차종마스터 재고7년 + PLAN10년 완료 판정이 운영에 안전한지.
+
+**볼 것**
+1. `CURSOR-STATUS.md` `MASTER-DONE-7Y` / `MASTER-DONE-10Y` — 완료 정의·정상빈 버킷이 타당한지
+2. `public/data/vehicle-master.json` — scrub(GDI/TFSI 등)·drive sibling 2WD·스타리아 LPG 모던 append
+3. `lib/domain/vehicle-field-guards.ts` — 축별 금지(트림↛연료, 파워↛세부등급, EV라인·GDI접두+등급 예외)
+4. 재고 감사 요약(725대): 못채움=원문없음/등급신호없음/정상빈세대만 · 트랙스 RS 트림 비움=의도(파워트레인 라인)
+5. 게이트 재실행 가능: `sim-trim-resolve` · `sim-atom-pipeline` · `tsc` · `check:fonts`
+
+**하지 말 것:** RTDB write · 재고 일괄 재스냅 · Rules 게시 · push(사람/클로드 승인 후)
+
+**판정 부탁:** go(운영 OK) / 조건부(바뀜 25대 검수 후) / no-go(+이유)

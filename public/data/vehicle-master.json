@@ -4500,11 +4500,11 @@
           ]
         },
         {
-          "label": "가솔린 4.6",
+          "label": "가솔린 4.6 2WD",
           "fuel": "가솔린",
           "displacement_l": 4.6,
           "turbo": false,
-          "drivetrain": null,
+          "drivetrain": "2WD",
           "seat": null,
           "battery_kwh": null,
           "trims": [
@@ -12521,11 +12521,11 @@
       "title": "현대 그랜드 스타렉스 TQ",
       "variants": [
         {
-          "label": "디젤 2.5",
+          "label": "디젤 2.5 2WD",
           "fuel": "디젤",
           "displacement_l": 2.5,
           "turbo": false,
-          "drivetrain": null,
+          "drivetrain": "2WD",
           "seat": 11,
           "battery_kwh": null,
           "trims": [
@@ -12539,11 +12539,11 @@
           ]
         },
         {
-          "label": "디젤 2.5",
+          "label": "디젤 2.5 2WD",
           "fuel": "디젤",
           "displacement_l": 2.5,
           "turbo": false,
-          "drivetrain": null,
+          "drivetrain": "2WD",
           "seat": 12,
           "battery_kwh": null,
           "trims": [
@@ -12557,11 +12557,11 @@
           "default": true
         },
         {
-          "label": "디젤 2.5",
+          "label": "디젤 2.5 2WD",
           "fuel": "디젤",
           "displacement_l": 2.5,
           "turbo": false,
-          "drivetrain": null,
+          "drivetrain": "2WD",
           "seat": 5,
           "battery_kwh": null,
           "trims": [
@@ -12585,11 +12585,11 @@
           ]
         },
         {
-          "label": "디젤 2.5",
+          "label": "디젤 2.5 2WD",
           "fuel": "디젤",
           "displacement_l": 2.5,
           "turbo": false,
-          "drivetrain": null,
+          "drivetrain": "2WD",
           "seat": 3,
           "battery_kwh": null,
           "trims": [
@@ -13697,11 +13697,11 @@
       "title": "현대 제네시스 DH",
       "variants": [
         {
-          "label": "가솔린 3.3",
+          "label": "가솔린 3.3 2WD",
           "fuel": "가솔린",
           "displacement_l": 3.3,
           "turbo": false,
-          "drivetrain": null,
+          "drivetrain": "2WD",
           "seat": null,
           "battery_kwh": null,
           "trims": [
@@ -13724,11 +13724,11 @@
           ]
         },
         {
-          "label": "가솔린 3.8",
+          "label": "가솔린 3.8 2WD",
           "fuel": "가솔린",
           "displacement_l": 3.8,
           "turbo": false,
-          "drivetrain": null,
+          "drivetrain": "2WD",
           "seat": null,
           "battery_kwh": null,
           "trims": [
@@ -17964,11 +17964,11 @@
           ]
         },
         {
-          "label": "가솔린 3.8",
+          "label": "가솔린 3.8 2WD",
           "fuel": "가솔린",
           "displacement_l": 3.8,
           "turbo": false,
-          "drivetrain": null,
+          "drivetrain": "2WD",
           "seat": 5,
           "battery_kwh": null,
           "trims": [
@@ -18010,11 +18010,11 @@
           "trims": []
         },
         {
-          "label": "가솔린 3.3T",
+          "label": "가솔린 3.3T 2WD",
           "fuel": "가솔린",
           "displacement_l": 3.3,
           "turbo": true,
-          "drivetrain": null,
+          "drivetrain": "2WD",
           "seat": 5,
           "battery_kwh": null,
           "trims": [
@@ -26486,11 +26486,11 @@
       "title": "BMW 5시리즈 F10",
       "variants": [
         {
-          "label": "가솔린 2.0",
+          "label": "가솔린 2.0 2WD",
           "fuel": "가솔린",
           "displacement_l": 2,
           "turbo": false,
-          "drivetrain": null,
+          "drivetrain": "2WD",
           "seat": null,
           "battery_kwh": null,
           "trims": [
@@ -26506,11 +26506,11 @@
           "default": true
         },
         {
-          "label": "디젤 2.0",
+          "label": "디젤 2.0 2WD",
           "fuel": "디젤",
           "displacement_l": 2,
           "turbo": false,
-          "drivetrain": null,
+          "drivetrain": "2WD",
           "seat": null,
           "battery_kwh": null,
           "trims": [
@@ -26611,11 +26611,11 @@
           ]
         },
         {
-          "label": "디젤 3.0",
+          "label": "디젤 3.0 2WD",
           "fuel": "디젤",
           "displacement_l": 3,
           "turbo": false,
-          "drivetrain": null,
+          "drivetrain": "2WD",
           "seat": null,
           "battery_kwh": null,
           "trims": [
@@ -27072,11 +27072,11 @@
           ]
         },
         {
-          "label": "디젤 2.0",
+          "label": "디젤 2.0 2WD",
           "fuel": "디젤",
           "displacement_l": 2,
           "turbo": false,
-          "drivetrain": null,
+          "drivetrain": "2WD",
           "seat": null,
           "battery_kwh": null,
           "trims": [
@@ -28560,11 +28560,11 @@
           ]
         },
         {
-          "label": "디젤 3.0",
+          "label": "디젤 3.0 2WD",
           "fuel": "디젤",
           "displacement_l": 3,
           "turbo": false,
-          "drivetrain": null,
+          "drivetrain": "2WD",
           "seat": null,
           "battery_kwh": null,
           "trims": [
@@ -28572,11 +28572,11 @@
           ]
         },
         {
-          "label": "가솔린 3.0",
+          "label": "가솔린 3.0 2WD",
           "fuel": "가솔린",
           "displacement_l": 3,
           "turbo": false,
-          "drivetrain": null,
+          "drivetrain": "2WD",
           "seat": null,
           "battery_kwh": null,
           "trims": [
@@ -32675,11 +32675,11 @@
       "title": "벤츠 E-클래스 W212",
       "variants": [
         {
-          "label": "가솔린 3.5",
+          "label": "가솔린 3.5 2WD",
           "fuel": "가솔린",
           "displacement_l": 3.5,
           "turbo": false,
-          "drivetrain": null,
+          "drivetrain": "2WD",
           "seat": 5,
           "battery_kwh": null,
           "trims": [
@@ -32715,11 +32715,11 @@
           ]
         },
         {
-          "label": "가솔린 3.5",
+          "label": "가솔린 3.5 2WD",
           "fuel": "가솔린",
           "displacement_l": 3.5,
           "turbo": false,
-          "drivetrain": null,
+          "drivetrain": "2WD",
           "seat": 4,
           "battery_kwh": null,
           "trims": [
@@ -32740,11 +32740,11 @@
           ]
         },
         {
-          "label": "디젤 2.1",
+          "label": "디젤 2.1 2WD",
           "fuel": "디젤",
           "displacement_l": 2.1,
           "turbo": false,
-          "drivetrain": null,
+          "drivetrain": "2WD",
           "seat": 5,
           "battery_kwh": null,
           "trims": [
@@ -32818,11 +32818,11 @@
           ]
         },
         {
-          "label": "가솔린 3.0",
+          "label": "가솔린 3.0 2WD",
           "fuel": "가솔린",
           "displacement_l": 3,
           "turbo": false,
-          "drivetrain": null,
+          "drivetrain": "2WD",
           "seat": 4,
           "battery_kwh": null,
           "trims": [
@@ -34879,11 +34879,11 @@
           ]
         },
         {
-          "label": "디젤 2.1",
+          "label": "디젤 2.1 2WD",
           "fuel": "디젤",
           "displacement_l": 2.1,
           "turbo": false,
-          "drivetrain": null,
+          "drivetrain": "2WD",
           "seat": 5,
           "battery_kwh": null,
           "trims": [
@@ -34933,11 +34933,11 @@
           ]
         },
         {
-          "label": "가솔린 5.5",
+          "label": "가솔린 5.5 2WD",
           "fuel": "가솔린",
           "displacement_l": 5.5,
           "turbo": false,
-          "drivetrain": null,
+          "drivetrain": "2WD",
           "seat": 4,
           "battery_kwh": null,
           "trims": [
@@ -34946,11 +34946,11 @@
           ]
         },
         {
-          "label": "디젤 2.1",
+          "label": "디젤 2.1 2WD",
           "fuel": "디젤",
           "displacement_l": 2.1,
           "turbo": false,
-          "drivetrain": null,
+          "drivetrain": "2WD",
           "seat": 4,
           "battery_kwh": null,
           "trims": [
@@ -37809,11 +37809,11 @@
           ]
         },
         {
-          "label": "디젤 2.0",
+          "label": "디젤 2.0 2WD",
           "fuel": "디젤",
           "displacement_l": 2,
           "turbo": false,
-          "drivetrain": null,
+          "drivetrain": "2WD",
           "seat": null,
           "battery_kwh": null,
           "trims": [
@@ -37859,11 +37859,11 @@
           ]
         },
         {
-          "label": "가솔린 2.0",
+          "label": "가솔린 2.0 2WD",
           "fuel": "가솔린",
           "displacement_l": 2,
           "turbo": false,
-          "drivetrain": null,
+          "drivetrain": "2WD",
           "seat": null,
           "battery_kwh": null,
           "trims": [
@@ -38231,11 +38231,11 @@
           ]
         },
         {
-          "label": "디젤 2.0",
+          "label": "디젤 2.0 2WD",
           "fuel": "디젤",
           "displacement_l": 2,
           "turbo": false,
-          "drivetrain": null,
+          "drivetrain": "2WD",
           "seat": null,
           "battery_kwh": null,
           "trims": [
@@ -38255,11 +38255,11 @@
           ]
         },
         {
-          "label": "가솔린 2.0",
+          "label": "가솔린 2.0 2WD",
           "fuel": "가솔린",
           "displacement_l": 2,
           "turbo": false,
-          "drivetrain": null,
+          "drivetrain": "2WD",
           "seat": null,
           "battery_kwh": null,
           "trims": [
@@ -38776,11 +38776,11 @@
           ]
         },
         {
-          "label": "가솔린 2.0",
+          "label": "가솔린 2.0 2WD",
           "fuel": "가솔린",
           "displacement_l": 2,
           "turbo": false,
-          "drivetrain": null,
+          "drivetrain": "2WD",
           "seat": null,
           "battery_kwh": null,
           "trims": [
@@ -44300,11 +44300,11 @@
           ]
         },
         {
-          "label": "디젤 2.0",
+          "label": "디젤 2.0 2WD",
           "fuel": "디젤",
           "displacement_l": 2,
           "turbo": false,
-          "drivetrain": null,
+          "drivetrain": "2WD",
           "seat": null,
           "battery_kwh": null,
           "trims": [

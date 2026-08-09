@@ -4,6 +4,7 @@
  *
  *   npx tsx scripts/fill-master-drive-sibling.mts
  *   APPLY=1 npx tsx scripts/fill-master-drive-sibling.mts
+ *   YEAR_MIN=2016 APPLY=1 npx tsx scripts/fill-master-drive-sibling.mts  (PLAN 10년)
  */
 import { copyFileSync, readFileSync, writeFileSync } from 'node:fs';
 
@@ -11,6 +12,7 @@ type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
 const FILE = 'public/data/vehicle-master.json';
 const apply = S(process.env.APPLY) === '1';
+const YEAR_MIN = Number(process.env.YEAR_MIN) || 2019;
 
 const MAJOR = /^(현대|기아|제네시스|쉐보레|르노|쌍용|KG모빌리티|BMW|벤츠|아우디|테슬라|볼보|미니|폭스바겐)$/i;
 
@@ -29,9 +31,10 @@ let filled = 0;
 const samples: string[] = [];
 const skipped: string[] = [];
 
+console.log(`YEAR_MIN=${YEAR_MIN}`);
 for (const e of doc.entries || []) {
   const end = Number(e.year_end) || 9999;
-  if (end < 2019) continue;
+  if (end < YEAR_MIN) continue;
   if (!MAJOR.test(S(e.maker))) continue;
   const sub = S(e.sub_model);
   if (ALWAYS_AWD.test(sub)) {
