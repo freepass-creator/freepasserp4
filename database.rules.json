@@ -23,7 +23,7 @@
     },
     "partners": {
       ".read": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous'",
-      ".write": "auth != null && root.child('users').child(auth.uid).child('status').val() !== 'pending' && root.child('users').child(auth.uid).child('is_active').val() !== '아니오' && root.child('users').child(auth.uid).child('is_active').val() !== false && root.child('users').child(auth.uid).child('status').val() !== 'deleted' && root.child('users').child(auth.uid).child('status').val() !== 'rejected' && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'provider' || root.child('users').child(auth.uid).child('role').val() === 'provider_admin')",
+      ".write": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous' && root.child('users').child(auth.uid).child('status').val() !== 'pending' && root.child('users').child(auth.uid).child('is_active').val() !== '아니오' && root.child('users').child(auth.uid).child('is_active').val() !== false && root.child('users').child(auth.uid).child('status').val() !== 'deleted' && root.child('users').child(auth.uid).child('status').val() !== 'rejected' && root.child('users').child(auth.uid).child('role').val() === 'admin'",
       ".indexOn": [
         "partner_code",
         "partner_type"
@@ -31,7 +31,7 @@
     },
     "policies": {
       ".read": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous'",
-      ".write": "auth != null && root.child('users').child(auth.uid).child('status').val() !== 'pending' && root.child('users').child(auth.uid).child('is_active').val() !== '아니오' && root.child('users').child(auth.uid).child('is_active').val() !== false && root.child('users').child(auth.uid).child('status').val() !== 'deleted' && root.child('users').child(auth.uid).child('status').val() !== 'rejected' && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'provider' || root.child('users').child(auth.uid).child('role').val() === 'provider_admin')",
+      ".write": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous' && root.child('users').child(auth.uid).child('status').val() !== 'pending' && root.child('users').child(auth.uid).child('is_active').val() !== '아니오' && root.child('users').child(auth.uid).child('is_active').val() !== false && root.child('users').child(auth.uid).child('status').val() !== 'deleted' && root.child('users').child(auth.uid).child('status').val() !== 'rejected' && root.child('users').child(auth.uid).child('role').val() === 'admin'",
       ".indexOn": [
         "policy_code",
         "provider_company_code"
@@ -39,7 +39,7 @@
     },
     "products": {
       ".read": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous' && (root.child('users').child(auth.uid).child('role').val() === 'admin' || ((root.child('users').child(auth.uid).child('role').val() === 'provider' || root.child('users').child(auth.uid).child('role').val() === 'provider_admin') && query.orderByChild === 'provider_company_code' && query.equalTo === root.child('users').child(auth.uid).child('company_code').val()))",
-      ".write": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous' && root.child('users').child(auth.uid).child('status').val() !== 'pending' && root.child('users').child(auth.uid).child('is_active').val() !== '아니오' && root.child('users').child(auth.uid).child('is_active').val() !== false && root.child('users').child(auth.uid).child('status').val() !== 'deleted' && root.child('users').child(auth.uid).child('status').val() !== 'rejected'",
+      ".write": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous' && root.child('users').child(auth.uid).child('status').val() !== 'pending' && root.child('users').child(auth.uid).child('is_active').val() !== '아니오' && root.child('users').child(auth.uid).child('is_active').val() !== false && root.child('users').child(auth.uid).child('status').val() !== 'deleted' && root.child('users').child(auth.uid).child('status').val() !== 'rejected' && root.child('users').child(auth.uid).child('role').val() === 'admin'",
       ".indexOn": [
         "car_number",
         "product_code",

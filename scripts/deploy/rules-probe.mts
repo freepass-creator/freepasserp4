@@ -103,6 +103,8 @@ async function main() {
   };
   console.log(`\n  영업자 ${users.agent.label} · 공급사 ${users.provider.label} · 관리자 ${users.admin.label} 세션으로 라이브 규칙에 질의한다.`);
 
+  // 거부되어야 할 쓰기의 과녁. 규칙이 맞으면 아무것도 안 남고, 틀리면 여기에만 남는다.
+  const PROBE_KEY = `_RULES_PROBE_${Date.now()}`;
   const code = `TEST-RULES-${Date.now()}`;
   const ref = database.ref(`v4/contracts/${code}`);
   const agentUser = ((await database.ref(`users/${users.agent.uid}`).get()).val() || {}) as Record<string, any>;
@@ -188,6 +190,10 @@ async function main() {
     { name: 'v3 상품 원문 통째로 읽기(영업자)', as: 'agent', method: 'GET', path: 'products', expect: 'deny' },
     { name: 'v3 상품 원문 통째로 읽기(공급사)', as: 'provider', method: 'GET', path: 'products', expect: 'deny' },
     { name: 'v3 상품 원문 통째로 읽기(관리자)', as: 'admin', method: 'GET', path: 'products', expect: 'allow' },
+    // v3 운영 노드 직접 쓰기 — erp4 는 v4 로만 쓴다(rtdb-adapter). 여기로 오는 건 우회뿐이다.
+    { name: 'v3 상품에 직접 쓰기(영업자)', as: 'agent', method: 'PUT', path: `products/${PROBE_KEY}/_probe`, body: 1, expect: 'deny' },
+    { name: 'v3 파트너에 직접 쓰기(공급사)', as: 'provider', method: 'PUT', path: `partners/${PROBE_KEY}/_probe`, body: 1, expect: 'deny' },
+    { name: 'v3 정책에 직접 쓰기(공급사)', as: 'provider', method: 'PUT', path: `policies/${PROBE_KEY}/_probe`, body: 1, expect: 'deny' },
   ];
 
   let failed = 0;
@@ -207,6 +213,7 @@ async function main() {
       await database.ref(`v4/${node}/ST_NOPE-9999`).remove();
       await database.ref(`v4/${node}/ST_${doneCode}`).remove();
     }
+    for (const node of ['products', 'partners', 'policies']) await database.ref(`${node}/${PROBE_KEY}`).remove();
     console.log(`\n  검사용 계약·정산(${code} · ${doneCode}) 삭제 완료.`);
   }
 
