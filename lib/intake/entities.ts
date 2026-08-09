@@ -188,19 +188,24 @@ export const ENTITIES: Record<string, Entity> = {
         // 계약서·손님 화면에는 오지 않는다 — 아래 초과 요율과 혼동 금지.
         note: '가격표 · 계약서엔 안 실림',
       },
-      {
-        key: 'over_mileage_rate_per_km', label: '초과 주행요금(1km당)', type: 'number', manual: true,
-        /*
-         * 약정을 **넘겨 달린 거리에만** 부과한다.
-         *   약정 연 30,000km · 실주행 31,000km → 초과 1,000km × 요율
-         * 위 「1만km 추가」와 전혀 다른 값이다. 섞으면 계약서에
-         * 「초과 주행요금 : 1만km당 100,000원」이 찍혀 손님이 «1만km 넘으면 10만원»으로 읽는다.
-         * 요율은 정책마다 다르다(예: 200원 / 400원).
-         */
-        note: '약관 제15조 · 초과분 1km당',
-      },
+      /*
+       * 초과 주행요금 — 약정을 **넘겨 달린 거리에만** 부과한다.
+       *   약정 연 30,000km · 실주행 31,000km → 초과 1,000km × 요율
+       * 위 「1만km 추가」와 전혀 다른 값이다. 섞으면 계약서에
+       * 「초과 주행요금 : 1만km당 100,000원」이 찍혀 손님이 «1만km 넘으면 10만원»으로 읽는다.
+       *
+       * **국산·수입이 다르다**(프리패스 표준: 국산 200원 / 수입 400원).
+       * 한 칸으로 두면 수입차 계약에 국산 요율이 찍히므로 제조사로 갈라 쓴다(`overMileageRateFor()`).
+       */
+      { key: 'over_mileage_rate_domestic', label: '초과 주행요금 · 국산(1km당)', type: 'number', manual: true, note: '약관 제15조 · 초과분 1km당' },
+      { key: 'over_mileage_rate_imported', label: '초과 주행요금 · 수입(1km당)', type: 'number', manual: true, note: '약관 제15조 · 수입은 국산보다 높다' },
       { key: 'payment_method', label: '결제방식', type: 'select', options: ['CMS 자동이체', '카드 자동결제', '가상계좌', '직접 이체'], manual: true, note: 'CMS·카드 등' },
-      { key: 'penalty_condition', label: '중도해지 위약금', type: 'select', options: ['잔여 대여료의 10%', '잔여 대여료의 20%', '잔여 대여료의 30%', '잔여 대여료의 50%', '별도 협의'], manual: true, note: '약관 제14조' },
+      /*
+       * 중도해지 위약금 — **잔여기간 대여료에 비례**한다(프리패스 표준: 1년 미만 30% / 1년 이상 20%).
+       * 경과 기간이 길수록 낮아진다. 한 값으로 두면 어느 구간인지 알 수 없어 계약서가 거짓말을 한다.
+       */
+      { key: 'early_termination_rate_under1y', label: '중도해지 위약금 · 1년 미만(0~1)', type: 'number', range: [0, 1], manual: true, note: '약관 제14조 · 잔여 대여료 × 이 값. 30% → 0.3' },
+      { key: 'early_termination_rate_over1y', label: '중도해지 위약금 · 1년 이상(0~1)', type: 'number', range: [0, 1], manual: true, note: '약관 제14조 · 20% → 0.2' },
       {
         key: 'accident_termination_count', label: '1년 이내 사고 누적(N회)', type: 'number', manual: true,
         /*
@@ -283,7 +288,8 @@ export const ENTITIES: Record<string, Entity> = {
         key: 'designated_garage', label: '지정 정비점', type: 'select', options: [...GARAGE_POLICIES], manual: true,
         note: '약관 제7·9조 · 임의 수리 시 보험 불가',
       },
-      { key: 'self_damage_exclusions', label: '자차 처리 제외', type: 'chips', options: ['침수', '전손', '무단운전', '음주·무면허', '고의사고', '한도초과'], manual: true, note: '약관 제9조 · 공제·보험별 상이' },
+      // 선택지는 계약서 04항에 인쇄되던 문구 그대로 — 임의로 만든 목록이 아니다.
+      { key: 'self_damage_exclusions', label: '자차 처리 제외', type: 'chips', options: ['단독사고', '가해자 불명', '휠·타이어 단독 손상', '전손', '고의·관리 소홀', '침수', '음주·무면허', '한도초과'], manual: true, note: '약관 제9조 · 공제·보험별 상이' },
       {
         key: 'replacement_car_policy', label: '대차 정책', type: 'select', options: [...REPLACEMENT_CAR_POLICIES], manual: true,
         note: '약관 제7조 · 「미제공」도 조건',

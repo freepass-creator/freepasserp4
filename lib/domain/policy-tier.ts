@@ -119,8 +119,15 @@ export const CONTRACT_LAYER: PolicyField[] = [
   /* ── 위반 시 무는 돈(패널티) ──
      약정을 지키지 못했을 때 «더 내는» 것들이다. 상품을 고를 때 정하는 가격이 아니라
      계약을 어겼을 때 붙는 것이므로, 영업 층 가격표와 섞으면 안 된다. */
-  { key: 'over_mileage_rate_per_km', label: '초과 주행요금(1km당)', layer: 'contract', exposure: 'contract', article: '제15조', why: '약정을 넘겨 달린 거리에 붙는다. 1만km 상향(가격표)과 다른 값' },
-  { key: 'penalty_condition', label: '중도해지 위약금', layer: 'contract', exposure: 'contract', article: '제14조', why: '중간에 끊을 때 무는 돈' },
+  { key: 'over_mileage_rate_domestic', label: '초과 주행요금 · 국산(1km당)', layer: 'contract', exposure: 'contract', article: '제15조', why: '약정을 넘겨 달린 거리에 붙는다. 1만km 상향(가격표)과 다른 값' },
+  { key: 'over_mileage_rate_imported', label: '초과 주행요금 · 수입(1km당)', layer: 'contract', exposure: 'contract', article: '제15조', why: '수입은 국산보다 높다 — 한 칸으로 두면 수입차에 국산 요율이 찍힌다' },
+  /*
+   * 중도해지 위약금은 **경과 기간으로 갈린다**(1년 미만 30% / 1년 이상 20%).
+   * 드롭다운 penalty_condition 하나로 두면 어느 구간인지 못 적어 계약서가 거짓말을 한다.
+   * → 요율 두 칸만 계약 층에 둔다. penalty_condition 은 영업 상담 표기로 남긴다.
+   */
+  { key: 'early_termination_rate_under1y', label: '중도해지 위약금 · 1년 미만(0~1)', layer: 'contract', exposure: 'contract', article: '제14조', why: '잔여기간 대여료 × 이 율' },
+  { key: 'early_termination_rate_over1y', label: '중도해지 위약금 · 1년 이상(0~1)', layer: 'contract', exposure: 'contract', article: '제14조', why: '경과가 길수록 낮아진다' },
   { key: 'late_fee_rate', label: '지연손해금율', layer: 'contract', exposure: 'contract', article: '제3조', why: '연체 이자율' },
   { key: 'impound_fee', label: '물품 보관료', layer: 'contract', exposure: 'contract', article: '제13조', why: '안 찾아가면 보증금에서 공제된다' },
 
@@ -236,8 +243,10 @@ export function contractTermsForDetail(
   const p = policy || {};
 
   const GROUP: Record<string, string> = {
-    over_mileage_rate_per_km: '위반 시 부담',
-    penalty_condition: '위반 시 부담',
+    over_mileage_rate_domestic: '위반 시 부담',
+    over_mileage_rate_imported: '위반 시 부담',
+    early_termination_rate_under1y: '위반 시 부담',
+    early_termination_rate_over1y: '위반 시 부담',
     late_fee_rate: '위반 시 부담',
     impound_fee: '위반 시 부담',
     deposit_return_days: '반환·보관',
@@ -266,7 +275,8 @@ export function contractTermsForDetail(
     renewal_notice_days: '일 전까지',
     buyout_notice_days: '일 전까지',
     accident_termination_count: '회 (1년 내 과실 50% 이상)',
-    over_mileage_rate_per_km: '원 / 1km',
+    over_mileage_rate_domestic: '원 / 1km (국산)',
+    over_mileage_rate_imported: '원 / 1km (수입)',
   };
 
   // 묶음 순서를 못박는다 — 정의 순서대로 두면 같은 묶음이 화면에서 두 번 갈라진다.
