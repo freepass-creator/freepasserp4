@@ -13,19 +13,20 @@ import { requirePositiveRentAmount } from '@/lib/domain/contract-money';
 import { settlementNetTone } from '@/lib/domain/settlement-display';
 import { downloadSettlementsExcel } from '@/lib/excel-export';
 import { CheckCircle2, Download, Files, ListChecks, PauseCircle, RotateCcw, Save, ShieldCheck, WalletCards } from 'lucide-react';
-import { getRole, actor, type Role } from '@/lib/domain/deal';
+import { getRole, actor, createBlankContract, type Role } from '@/lib/domain/deal';
 import { getSession } from '@/lib/auth-session';
 import { canAccessOwnedRecord, organizationRole } from '@/lib/domain/authorization';
 import { providerNameMap, withProviderNames } from '@/lib/domain/identity';
 import { initAuth } from '@/lib/firebase/auth';
 import { man } from '@/lib/format';
-import { PaneHead, PaneBody, Badge, Btn, ButtonLabel, Input, won, C, R, NUM, Loading, CenterNote, ListGroup, SETTLEMENT_STATUS_TONE, FilterChips, FilterGroup, Select, FW, FS, FeedRowSkeleton, KV_LABEL_W, rowPadY, ICON } from '@/components/ui';
+import { PaneHead, PaneBody, Badge, Btn, ButtonLabel, Input, won, C, R, NUM, Loading, CenterNote, ListGroup, SETTLEMENT_STATUS_TONE, FilterChips, FilterGroup, Select, FW, FS, FeedRowSkeleton, KV_LABEL_W, rowPadY, ICON, Modal, FormGrid } from '@/components/ui';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
 import { ContractPanel } from '@/components/ContractPanel';
 import { ContractDocs } from '@/components/ContractDocs';
-import { ContractListRow } from '@/components/list-rows';
+import { ContractCreateRow, ContractListRow } from '@/components/list-rows';
 import { NAV_LABEL } from '@/lib/tabbar';
 import { toast } from '@/components/Toaster';
+import { haptic } from '@/lib/haptics';
 import {
   CONTRACT_FILTER_OPTIONS as CONT_FILTERS,
   CONTRACT_SORT_OPTIONS as CONT_SORTS,
@@ -123,6 +124,17 @@ export default function ContractsSettlement() {
   /** 모바일 스왑 — 진행중=계약진행상황 · 계약완료=정산 */
   const [swapKey, setSwapKey] = useState('progress');
   const [limit, setLimit] = useState(PAGE);
+  /**
+   * 매물 없이 계약서만 만드는 창.
+   * 당사자(공급사)는 비울 수 없다 — 비면 그 계약을 아무도 못 본다(역할 스코프).
+   * 그래서 등록 즉시 만들지 않고 최소 정보를 먼저 받는다.
+   */
+  const [blank, setBlank] = useState<null | {
+    providerCompanyCode: string; customerName: string; customerPhone: string;
+    carNumber: string; vehicleName: string;
+  }>(null);
+  const [blankSaving, setBlankSaving] = useState(false);
+  const [providers, setProviders] = useState<{ value: string; label: string }[]>([]);
 
   // 검색 디바운스 — 타이핑마다 계약 필터 전량 재계산 방지
   useEffect(() => {
@@ -335,7 +347,52 @@ export default function ContractsSettlement() {
       }
       if (target) selectContract(target);
     }
+    // 계약등록 창에서 고를 공급사 목록 — 당사자는 비울 수 없으므로 미리 받아 둔다.
+    try {
+      const partners = await getStore().list('partner', co);
+      setProviders(
+        partners
+          .filter((p) => String(p.partner_type || '').includes('공급') || p.provider_company_code)
+          .map((p) => ({
+            value: String(p.partner_code || p._key || ''),
+            label: String(p.name || p.partner_name || p.partner_code || ''),
+          }))
+          .filter((p) => p.value && p.label),
+      );
+    } catch { /* 목록을 못 받아도 화면은 열린다 */ }
   })(); /* eslint-disable-next-line */ }, []);
+
+  /** 계약등록 — 매물 없이 계약서만. 관리자·공급사만 만들 수 있다. */
+  const canCreateBlank = role === 'admin' || role === 'provider';
+  const newBlankContract = async () => {
+    const mine = role === 'provider' ? actor('provider').code : '';
+    setBlank({ providerCompanyCode: mine, customerName: '', customerPhone: '', carNumber: '', vehicleName: '' });
+  };
+  const saveBlankContract = async () => {
+    if (!blank) return;
+    if (!blank.providerCompanyCode.trim()) { toast('공급사를 골라 주세요', 'error'); return; }
+    if (!blank.customerName.trim()) { toast('고객명을 입력해 주세요', 'error'); return; }
+    setBlankSaving(true);
+    try {
+      const code = await createBlankContract({
+        providerCompanyCode: blank.providerCompanyCode,
+        customerName: blank.customerName,
+        customerPhone: blank.customerPhone,
+        carNumber: blank.carNumber,
+        vehicleName: blank.vehicleName,
+      });
+      setBlank(null);
+      const all = await load(getRole());
+      const made = all.find((x) => String(x.contract_code) === code);
+      if (made) selectContract(made);
+      haptic.success();
+      toast('계약이 등록되었습니다', 'ok');
+    } catch (e) {
+      toast(`등록 실패: ${String((e as Error)?.message || e)}`, 'error');
+    } finally {
+      setBlankSaving(false);
+    }
+  };
 
   // ?c= 계약이 첫 load에 없으면 목록 갱신 시 재시도(이미 다른 건 선택 중이면 스킵).
   useEffect(() => {
@@ -414,6 +471,11 @@ export default function ContractsSettlement() {
     )
     : (
       <div>
+        {/*
+          등록은 «목록 맨 위 한 자리»로 — 재고(InventoryCreateRow)·정책(PolicyCreateRow)과 같은 규격.
+          보통 계약은 매물에서 파생되지만, 재고에 없는 차인데 계약서만 보내는 경우가 있다.
+        */}
+        {canCreateBlank && <ContractCreateRow onClick={() => { void newBlankContract(); }} />}
         {shown.map((c) => (
           <ContractListRow
             key={String(c.contract_code)}
@@ -651,6 +713,56 @@ export default function ContractsSettlement() {
           onClearHints: () => { setQInput(''); setQ(''); setSort(''); setFlt('진행'); setMonthFlt(''); },
         }}
       />
+
+      {/*
+        계약등록 — 매물 없이 계약서만 보낼 때.
+        여기서 «공급사»를 반드시 받는다. 당사자가 비면 그 계약을 아무도 못 본다(역할 스코프).
+        차량·금액은 나중에 채운다 — 신차라 번호가 아직 없는 경우와 같은 자리다.
+      */}
+      {blank && (
+        <Modal
+          title="계약등록"
+          meta="매물 없이 계약서만 보낼 때 씁니다"
+          width={520}
+          onClose={() => setBlank(null)}
+          footer={
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <Btn title="취소" variant="ghost" onClick={() => setBlank(null)} disabled={blankSaving}>취소</Btn>
+              <Btn title="등록" onClick={() => { void saveBlankContract(); }} disabled={blankSaving}>
+                {blankSaving ? '등록 중…' : '등록'}
+              </Btn>
+            </div>
+          }
+        >
+          <div style={{ display: 'grid', gap: 10 }}>
+            <FormGrid
+              cols={2}
+              showNotes
+              form={blank as unknown as EntityRecord}
+              onChange={(k: string, v: string) => setBlank((b) => (b ? { ...b, [k]: v } : b))}
+              selectOptions={{ providerCompanyCode: providers }}
+              fields={[
+                {
+                  key: 'providerCompanyCode',
+                  label: '공급사',
+                  type: 'select',
+                  required: true,
+                  options: [],
+                  note: '비우면 그 계약을 아무도 못 봅니다',
+                },
+                { key: 'customerName', label: '고객명', type: 'text', required: true, note: '' },
+                { key: 'customerPhone', label: '연락처', type: 'text', note: '' },
+                { key: 'carNumber', label: '차량번호', type: 'text', note: '신차면 비워 두세요' },
+                { key: 'vehicleName', label: '차명', type: 'text', note: '' },
+              ]}
+            />
+            <p style={{ margin: 0, fontSize: 12, lineHeight: 1.6, color: C.mute }}>
+              대여기간·월 대여료·보증금은 약정에서 확정합니다. 수수료율은 매물이 없어 지금 굳히지 않고
+              정산 시점에 해석합니다.
+            </p>
+          </div>
+        </Modal>
+      )}
     </>
   );
 }

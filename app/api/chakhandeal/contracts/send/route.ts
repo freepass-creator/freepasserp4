@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { firebaseAdminDatabase, verifyActiveBearer } from '@/lib/server/firebase-admin';
 import { canSendChakhandealContract } from '@/lib/domain/chakhandeal-esign';
+import { canIssueContract, type PolicyField } from '@/lib/domain/policy-tier';
 import { findTemplate, templatesForContract } from '@/lib/domain/esign-templates';
 import {
   getChakhandealConfig,
@@ -58,6 +59,26 @@ export async function POST(request: Request) {
   // 그 공급사가 쓸 수 있는 양식인지 서버에서 다시 본다 — 화면이 좁혀 놨어도 요청은 위조된다.
   if (template && !templatesForContract(contract).some((t) => t.id === template.id)) {
     return json({ error: '이 계약의 공급사가 쓸 수 있는 양식이 아닙니다.' }, 403);
+  }
+
+  /*
+   * 정책이 「계약」 층까지 채워졌는지 본다.
+   *   · 상품만 공급하는 공급사면 계약서는 그쪽이 직접 쓴다 — 우리가 보내면 안 된다.
+   *   · 계약 층인데 값이 비면 **빈칸 계약서가 손님에게 나간다.**
+   *     서명이 끝나면 그 빈칸은 봉인되어 고치지 못하므로, 발행이 안 되는 편이 낫다.
+   * 근거: `docs/POLICY-LAYERS.md`
+   */
+  const policyCode = codeText(contract.policy_code);
+  const policySnap = policyCode ? await db.ref(`v4/policies/${policyCode}`).get() : null;
+  const policy = (policySnap?.val() as Record<string, unknown> | null)
+    ?? (policyCode ? ((await db.ref(`policies/${policyCode}`).get()).val() as Record<string, unknown> | null) : null);
+  const gate = canIssueContract(policy);
+  if (!gate.ok) {
+    return json({
+      error: gate.layer !== 'contract'
+        ? '이 공급사는 상품만 공급합니다 — 계약서는 공급사가 직접 작성합니다. 정책관리 「전자계약」에서 정책 단계를 «계약»으로 바꾸세요.'
+        : `정책 「전자계약」 항목이 비어 있어 발송할 수 없습니다: ${gate.missing.map((m: PolicyField) => m.label).join(' · ')}`,
+    }, 409);
   }
 
   try {
