@@ -91,3 +91,50 @@ export function buildJonghapTsv(products: EntityRecord[], policies: EntityRecord
   const body = rows.map((p) => productToRow(p, byCode).map(clean).join('\t'));
   return { tsv: [JONGHAP_COLUMNS.join('\t'), ...body].join('\n'), count: rows.length };
 }
+
+/** 열 이름 → 0-based 위치. 서식이 열 번호를 손으로 세지 않게 한다. */
+export const JONGHAP_COL = (name: string) => JONGHAP_COLUMNS.indexOf(name);
+
+/** 값만 필요한 곳(시트 쓰기)을 위한 2차원 배열. TSV 를 다시 쪼개지 않는다. */
+export function buildJonghapValues(
+  products: EntityRecord[],
+  policies: EntityRecord[],
+  opts: { origin?: string } = {},
+): { values: (string | number)[][]; count: number } {
+  const byCode = new Map(policies.map((p) => [String(p.policy_code || ''), p]));
+  const rows = products
+    .filter((p) => p._deleted !== true)
+    .sort((a, b) => String(a.maker).localeCompare(String(b.maker), 'ko')
+      || String(a.model).localeCompare(String(b.model), 'ko')
+      || String(a.car_number).localeCompare(String(b.car_number), 'ko'));
+  const clean = (v: string) => String(v ?? '').replace(/[\t\r\n]+/g, ' ');
+  /**
+   * ★차량번호 칸에 상세 링크를 건다.
+   *
+   * 붙여넣기 시절엔 글자뿐이라 영업자가 차를 확인하려면 ERP 를 따로 열어야 했다.
+   * 링크가 걸리면 시트에서 바로 그 차로 간다 — 새 표의 사진 칸과 같은 역할이다.
+   * ⚠ 로컬 주소로는 걸지 않는다(공유 시트에 박히면 아무도 못 연다).
+   */
+  const base = String(opts.origin ?? '').trim();
+  const shareable = /^https?:\/\//i.test(base) && !/localhost|127\.0\.0\.1|0\.0\.0\.0/i.test(base);
+  const plateAt = JONGHAP_COL('차량번호');
+  /** 숫자로 둬야 정렬·합계가 되는 칸 — 글자로 두면 「1,030,000」이 문자열로 줄 선다. */
+  const numeric = new Set(['Km', '단기보증', '1개월', '12개월', '장기보증', '24개월', '36개월', '48개월', '60개월', '소비자가격', '배기량']
+    .map((n) => JONGHAP_COL(n)));
+
+  const values = rows.map((p) => {
+    const cells: (string | number)[] = productToRow(p, byCode).map(clean);
+    for (const i of numeric) {
+      const n = Number(String(cells[i] ?? '').replace(/[^\d.-]/g, ''));
+      if (Number.isFinite(n) && String(cells[i] ?? '').trim() !== '') cells[i] = n;
+    }
+    const code = String(p.product_code || p._key || '').trim();
+    const plate = String(cells[plateAt] ?? '').trim();
+    if (shareable && code) {
+      const label = plate || '번호미정';
+      cells[plateAt] = `=HYPERLINK("${base}/q/"&ENCODEURL("${code.replace(/"/g, '""')}"),"${label.replace(/"/g, '""')}")`;
+    }
+    return cells;
+  });
+  return { values: [[...JONGHAP_COLUMNS], ...values], count: rows.length };
+}

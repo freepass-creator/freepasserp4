@@ -17,7 +17,8 @@ import {
 } from '@/lib/domain/inventory-sheet-export';
 import { isListableProduct } from '@/lib/domain/product';
 // 구버전 41열 종합표 — 직원이 손으로 붙여넣던 v3 규격. 새 표 옆 탭으로 같이 올린다.
-import { buildJonghapTsv } from '@/lib/domain/jonghap';
+import { buildJonghapValues } from '@/lib/domain/jonghap';
+import { jonghapFormatRequests } from '@/lib/domain/jonghap-format';
 import { companyAlias } from '@/lib/domain/identity';
 import type { MasterEntry } from '@/lib/domain/vehicle-master-types';
 import type { EntityRecord } from '@/lib/intake/entities';
@@ -140,10 +141,10 @@ export async function publishInventorySheet(
    */
   let jonghap: string | undefined;
   try {
-    const { tsv, count } = buildJonghapTsv(rows, Object.values(policies));
-    const values = tsv.split('\n').filter((line) => line.length).map((line) => line.split('\t'));
+    const { values, count } = buildJonghapValues(rows, Object.values(policies), { origin: S(opts.origin) });
     const jt = await client.openOrCreateTab(jonghapTabName(count), JONGHAP_SHEET_TAB);
     await client.write(jt.title, values);
+    await client.batchUpdate(jonghapFormatRequests(jt.gid, count));
     jonghap = jt.title;
   } catch (error) {
     jonghap = `실패 — ${String((error as Error)?.message || error)}`;

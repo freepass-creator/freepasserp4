@@ -27,7 +27,8 @@ import {
 } from '../lib/domain/inventory-sheet-export';
 import { isListableProduct, isOfferableProduct } from '../lib/domain/product';
 // 구버전 41열 종합표 — 기존 영업자가 익숙한 배치를 그대로 둔다(새 표 옆 탭).
-import { buildJonghapTsv } from '../lib/domain/jonghap';
+import { buildJonghapValues } from '../lib/domain/jonghap';
+import { jonghapFormatRequests } from '../lib/domain/jonghap-format';
 import { companyAlias } from '../lib/domain/identity';
 import type { EntityRecord } from '../lib/intake/entities';
 import type { MasterEntry } from '../lib/domain/vehicle-master-types';
@@ -222,8 +223,7 @@ async function main() {
    * ⚠ 실패해도 본 표는 이미 올라갔다. 통째로 되돌리지 않고 사유만 알린다.
    */
   try {
-    const { tsv, count } = buildJonghapTsv(sheetRows, Object.values(policies));
-    const values = tsv.split('\n').filter((line) => line.length).map((line) => line.split('\t'));
+    const { values, count } = buildJonghapValues(sheetRows, Object.values(policies), { origin: arg('origin') });
     const kst = new Date(Date.now() + 9 * 3600 * 1000).toISOString();
     const jTitle = `종합표 ${kst.slice(5, 10).replace('-', '.')} ${kst.slice(11, 16)} · ${count}대`;
     const fresh = await (await fetch(`${api}?fields=sheets.properties`, { headers: head })).json() as {
@@ -244,11 +244,24 @@ async function main() {
         body: JSON.stringify({ requests: [{ updateSheetProperties: { properties: { sheetId: found.properties.sheetId, title: jTitle }, fields: 'title' } }] }),
       });
     }
-    const putJ = await fetch(`${api}/values/${encodeURIComponent(jTitle)}!A1?valueInputOption=RAW`, {
+    // 차량번호 칸에 `=HYPERLINK` 가 들어가므로 값이 아니라 **수식**으로 넣어야 한다.
+    const putJ = await fetch(`${api}/values/${encodeURIComponent(jTitle)}!A1?valueInputOption=USER_ENTERED`, {
       method: 'PUT', headers: head, body: JSON.stringify({ values }),
     });
     if (!putJ.ok) throw new Error(`쓰기 실패 ${putJ.status} ${(await putJ.text()).slice(0, 200)}`);
-    console.log(`  구버전 종합표 — 탭 「${jTitle}」 · ${values.length}행 (41열)\n`);
+
+    // 서식은 값과 별개다 — 실패해도 값은 이미 들어갔다.
+    const jGid = (await (await fetch(`${api}?fields=sheets.properties`, { headers: head })).json() as {
+      sheets: { properties: { sheetId: number; title: string } }[];
+    }).sheets.find((s) => s.properties.title === jTitle)?.properties.sheetId;
+    if (jGid != null) {
+      const fmtJ = await fetch(`${api}:batchUpdate`, {
+        method: 'POST', headers: head,
+        body: JSON.stringify({ requests: jonghapFormatRequests(jGid, count) }),
+      });
+      if (!fmtJ.ok) console.log(`  ⚠ 종합표 값은 들어갔으나 서식 실패 ${fmtJ.status}`);
+    }
+    console.log(`  구버전 종합표 — 탭 「${jTitle}」 · ${values.length}행 (41열 · 링크·정렬·서식)\n`);
   } catch (error) {
     console.log(`  ⚠ 구버전 종합표 반영 실패 — ${String((error as Error)?.message || error)}\n`);
   }

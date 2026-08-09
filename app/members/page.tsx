@@ -345,11 +345,16 @@ export default function Members() {
     />
   );
 
-  // 승인대기 카운트 + 대기 전용 필터칩(관리자가 신규 가입 처리대상을 한눈에)
+  // 승인대기 카운트는 라벨에만 붙인다(MEM_ACTIVE에 pending 이미 있음 — 추가 append 하면 칩이 두 개).
   const pendingCount = pendingMemberCount(rows, tab);
-  const activeOptions: { key: MemActive; label: string }[] = tab === 'user'
-    ? [...MEM_ACTIVE, { key: 'pending', label: pendingCount ? `승인대기 ${pendingCount}` : '승인대기' }]
-    : MEM_ACTIVE;
+  const activeOptions: { key: MemActive; label: string }[] = (tab === 'user'
+    ? MEM_ACTIVE
+    : MEM_ACTIVE.filter((opt) => opt.key !== 'pending')
+  ).map((opt) => (
+    opt.key === 'pending' && pendingCount
+      ? { ...opt, label: `승인대기 ${pendingCount}` }
+      : opt
+  ));
 
   const byKey = Object.fromEntries(ENTITIES[tab].fields.map((f) => [f.key, f]));
   // 관리자 신규 등록은 이미 생성된 Firebase Auth 계정과 정확히 연결할 수 있어야 한다.
