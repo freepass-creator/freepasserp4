@@ -5476,7 +5476,7 @@
       "title": "기아 더 뉴 EV6 CV1",
       "variants": [
         {
-          "label": "전기 84kWh 4WD",
+          "label": "전기 롱레인지 84kWh 4WD",
           "fuel": "전기",
           "displacement_l": null,
           "turbo": false,
@@ -5491,7 +5491,7 @@
           ]
         },
         {
-          "label": "전기 2WD",
+          "label": "전기 롱레인지 2WD",
           "fuel": "전기",
           "displacement_l": null,
           "turbo": false,
@@ -5527,7 +5527,7 @@
       "title": "기아 EV6 CV1",
       "variants": [
         {
-          "label": "전기 77.4kWh 4WD",
+          "label": "전기 롱레인지 77.4kWh 4WD",
           "fuel": "전기",
           "displacement_l": null,
           "turbo": false,
@@ -5542,7 +5542,7 @@
           ]
         },
         {
-          "label": "전기",
+          "label": "전기 롱레인지",
           "fuel": "전기",
           "displacement_l": null,
           "turbo": false,
@@ -5554,6 +5554,41 @@
             "어스",
             "GT라인"
           ]
+        },
+        {
+          "label": "전기 스탠다드",
+          "fuel": "전기",
+          "displacement_l": null,
+          "turbo": false,
+          "drivetrain": null,
+          "seat": null,
+          "battery_kwh": null,
+          "trims": [
+            "에어",
+            "라이트"
+          ]
+        },
+        {
+          "label": "전기 스탠다드 4WD",
+          "fuel": "전기",
+          "displacement_l": null,
+          "turbo": false,
+          "drivetrain": "4WD",
+          "seat": null,
+          "battery_kwh": null,
+          "trims": [
+            "라이트"
+          ]
+        },
+        {
+          "label": "전기 GT 4WD",
+          "fuel": "전기",
+          "displacement_l": null,
+          "turbo": false,
+          "drivetrain": "4WD",
+          "seat": null,
+          "battery_kwh": null,
+          "trims": []
         }
       ],
       "trims": [
@@ -6541,7 +6576,7 @@
       "title": "기아 EV9",
       "variants": [
         {
-          "label": "전기 4WD",
+          "label": "전기 롱레인지 4WD",
           "fuel": "전기",
           "displacement_l": null,
           "turbo": false,
@@ -6556,7 +6591,7 @@
           "default": true
         },
         {
-          "label": "전기 2WD",
+          "label": "전기 롱레인지 2WD",
           "fuel": "전기",
           "displacement_l": null,
           "turbo": false,
@@ -13401,7 +13436,7 @@
       "title": "현대 더 뉴 아이오닉5 NE",
       "variants": [
         {
-          "label": "전기",
+          "label": "전기 롱레인지",
           "fuel": "전기",
           "displacement_l": null,
           "turbo": false,
@@ -13415,7 +13450,7 @@
           ]
         },
         {
-          "label": "전기 84kWh AWD",
+          "label": "전기 롱레인지 84kWh AWD",
           "fuel": "전기",
           "displacement_l": null,
           "turbo": false,
@@ -13450,7 +13485,7 @@
       "title": "현대 아이오닉5 NE",
       "variants": [
         {
-          "label": "전기",
+          "label": "전기 롱레인지",
           "fuel": "전기",
           "displacement_l": null,
           "turbo": false,
@@ -13464,7 +13499,7 @@
           ]
         },
         {
-          "label": "전기 AWD",
+          "label": "전기 롱레인지 AWD",
           "fuel": "전기",
           "displacement_l": null,
           "turbo": false,
@@ -13474,6 +13509,18 @@
           "trims": [
             "익스클루시브",
             "프레스티지"
+          ]
+        },
+        {
+          "label": "전기 스탠다드",
+          "fuel": "전기",
+          "displacement_l": null,
+          "turbo": false,
+          "drivetrain": null,
+          "seat": null,
+          "battery_kwh": null,
+          "trims": [
+            "익스클루시브"
           ]
         }
       ],
@@ -14791,7 +14838,7 @@
       "title": "현대 아이오닉6",
       "variants": [
         {
-          "label": "전기",
+          "label": "전기 롱레인지",
           "fuel": "전기",
           "displacement_l": null,
           "turbo": false,
@@ -14807,7 +14854,7 @@
           ]
         },
         {
-          "label": "전기 77.4kWh AWD",
+          "label": "전기 롱레인지 77.4kWh AWD",
           "fuel": "전기",
           "displacement_l": null,
           "turbo": false,
@@ -14819,6 +14866,18 @@
             "익스클루시브",
             "익스클루시브 플러스",
             "프레스티지"
+          ]
+        },
+        {
+          "label": "전기 스탠다드",
+          "fuel": "전기",
+          "displacement_l": null,
+          "turbo": false,
+          "drivetrain": null,
+          "seat": null,
+          "battery_kwh": null,
+          "trims": [
+            "익스클루시브"
           ]
         }
       ],
@@ -17356,7 +17415,7 @@
       "title": "제네시스 GV60",
       "variants": [
         {
-          "label": "전기",
+          "label": "전기 스탠다드",
           "fuel": "전기",
           "displacement_l": null,
           "turbo": false,
@@ -17368,7 +17427,7 @@
           ]
         },
         {
-          "label": "전기 AWD",
+          "label": "전기 스탠다드 AWD",
           "fuel": "전기",
           "displacement_l": null,
           "turbo": false,
@@ -17378,6 +17437,16 @@
           "trims": [
             "(세부등급 없음)"
           ]
+        },
+        {
+          "label": "전기 퍼포먼스 AWD",
+          "fuel": "전기",
+          "displacement_l": null,
+          "turbo": false,
+          "drivetrain": "AWD",
+          "seat": null,
+          "battery_kwh": null,
+          "trims": []
         }
       ],
       "trims": [
@@ -20719,6 +20788,30 @@
           "battery_kwh": null,
           "trims": [
             "(세부등급 없음)",
+            "플러스"
+          ]
+        },
+        {
+          "label": "가솔린 1.2 RS",
+          "fuel": "가솔린",
+          "displacement_l": null,
+          "turbo": false,
+          "drivetrain": null,
+          "seat": null,
+          "battery_kwh": null,
+          "trims": [
+            "플러스"
+          ]
+        },
+        {
+          "label": "가솔린 1.2 ACTIV",
+          "fuel": "가솔린",
+          "displacement_l": null,
+          "turbo": false,
+          "drivetrain": null,
+          "seat": null,
+          "battery_kwh": null,
+          "trims": [
             "플러스"
           ]
         }

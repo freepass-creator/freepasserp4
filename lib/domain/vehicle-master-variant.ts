@@ -39,6 +39,31 @@ export function modeSeatForModel(entries: MasterEntry[], model: string): number 
   return modeSeat(entries.filter((entry) => entry.model === model).flatMap((entry) => entry.variants || []));
 }
 
+/**
+ * ★파워트레인 «사양명(라인)» 어휘.
+ *
+ * 공급사와 엔카는 파워트레인을 **용량이 아니라 이 말로** 부른다
+ * (엔카 Badge:「롱레인지 AWD」·「1.2 RS」·「퍼포먼스 AWD」).
+ * 마스터 variant 라벨에도 이 말을 넣었으니, 원문에서도 같은 잣대로 읽어야 이어진다.
+ *
+ * ⚠「GT」는 **「GT라인」과 다른 등급**이다. 뒤에 라인/Line 이 붙으면 그건 트림이므로 제외한다.
+ */
+const LINE_VOCAB: Array<{ key: string; re: RegExp }> = [
+  { key: '롱레인지', re: /롱\s*레인지|long\s*range/i },
+  { key: '스탠다드', re: /스탠\s*다드|스탠\s*더드|standard/i },
+  { key: '퍼포먼스', re: /퍼포먼스|performance/i },
+  { key: 'RS', re: /(^|[^a-z])rs([^a-z]|$)/i },
+  { key: 'ACTIV', re: /(^|[^a-z])activ(e)?([^a-z]|$)|액티브/i },
+  { key: 'GT', re: /(^|[^a-z])gt(?!\s*(라인|line))([^a-z]|$)/i },
+];
+const lineOf = (text: unknown): Set<string> => {
+  const t = String(text ?? '');
+  const out = new Set<string>();
+  if (!t) return out;
+  for (const { key, re } of LINE_VOCAB) if (re.test(t)) out.add(key);
+  return out;
+};
+
 /** 세부모델에 미리 찍어 둔 기본 조합. 없으면 undefined(휴리스틱으로 넘어감). */
 export function defaultVariant(entry: MasterEntry | null | undefined): MasterVariant | undefined {
   const hit = (entry?.variants || []).find((v) => v.default === true);
@@ -60,6 +85,8 @@ export function selectMasterVariant(
   const wantedSeats = Number(product.seats) > 0 ? Number(product.seats) : 0;
   const wantedDrive = deps.normDrive(product.drive_type);
   const seatMatters = seatAxisMatters(entry);
+  /** 원문이 부르는 라인 — 여기 있는 말만 파워트레인 선택에 쓴다. */
+  const blobLines = lineOf(`${signalBlob} ${String(product.variant ?? '')}`);
   // 기본 조합이 마스터에 있으면 그걸 선호(신호 없을 때). 없으면 세부모델 modeSeat.
   // seatAxisMatters=false(레이·모닝 승용)면 인승 힌트·가산 없음.
   const def = defaultVariant(entry);
@@ -92,6 +119,23 @@ export function selectMasterVariant(
         if (def?.drivetrain && deps.normDrive(def.drivetrain) === drive) score += 0.7;
         else if (drive === DRIVE_2WD) score += 0.5;
         else if (drive === DRIVE_4WD) score -= 0.25;
+      }
+
+      /**
+       * ★사양명(라인)을 원문에서 읽어 그 파워트레인으로 보낸다.
+       *
+       * 이게 없으면 트랙스 19대가 라인 구분 없이 「가솔린 1.2」로 뭉친다 —
+       * 마스터에 「가솔린 1.2 RS」를 만들어 놔도 갈 길이 없었다(실측 2026-08-09).
+       * 구동(+2.5)과 같은 무게다. 둘 다 공급사가 «명시»한 축이다.
+       *
+       * 원문에 라인 말이 아예 없으면 아무것도 하지 않는다 — 없는 신호를 만들지 않는다.
+       */
+      if (blobLines.size) {
+        const mine = lineOf(masterVariantLabel(candidate));
+        if (mine.size) {
+          if ([...mine].some((w) => blobLines.has(w))) score += 2.5;
+          else score -= 1.5;   // 원문이 «다른 라인»을 부르고 있다
+        }
       }
 
       if (seatMatters && wantedSeats && candidate.seat) {
