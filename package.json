@@ -20,6 +20,7 @@
     "rules:backup": "tsx scripts/deploy/rtdb-rules.mts backup",
     "rules:deploy": "tsx scripts/deploy/rtdb-rules.mts deploy",
     "rules:rollback": "tsx scripts/deploy/rtdb-rules.mts rollback",
+    "rules:probe": "tsx scripts/deploy/rules-probe.mts",
     "env:diff": "tsx scripts/deploy/vercel-env.mts diff",
     "env:pull": "tsx scripts/deploy/vercel-env.mts pull"
   },
