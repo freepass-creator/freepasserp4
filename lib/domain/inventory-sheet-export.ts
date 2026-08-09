@@ -159,6 +159,23 @@ export const HEADERS = [
 ];
 export const COL = (name: string) => HEADERS.indexOf(name);
 
+/**
+ * 「아반떼 2026」 — 모델과 연식을 한 칸에.
+ *
+ * 연식이 없거나 이상하면 모델만 둔다. 없는 연식을 지어내 붙이면
+ * 영업자가 그 숫자를 믿고 손님에게 말한다.
+ * 이미 뒤에 4자리 연도가 붙어 있으면 두 번 붙이지 않는다.
+ */
+export function modelWithYear(model: unknown, year: unknown): string {
+  const name = String(model ?? '').trim();
+  const y = String(year ?? '').replace(/[^\d]/g, '');
+  if (!name || y.length !== 4) return name;
+  const n = Number(y);
+  if (n < 1980 || n > new Date().getFullYear() + 1) return name;
+  if (new RegExp(`(^|\\s)${y}$`).test(name)) return name;
+  return `${name} ${y}`;
+}
+
 /** 원본이 시작하는 열(0-based) — 결과 표와 겹치지 않게 멀찍이 두고 숨긴다. */
 const RAW_START = 40;
 
@@ -243,7 +260,15 @@ export function exportRow(p: EntityRecord, providerName: string): (string | numb
   return [
     S(rec.product_code || rec._key),
     plateOf(rec), S(rec.vehicle_status), canonProductType(rec.product_type) || S(rec.product_type),
-    id.maker, id.model, id.sub, S(rec.variant), id.trim, S(rec.options),
+    /**
+     * ★모델 칸에 연식을 붙인다 — 「아반떼 2026」(사장님 지시 2026-08-09).
+     *
+     * 영업자는 모델 칸부터 읽는다. 연식이 따로 떨어져 있으면 눈이 오간다.
+     * 「어떤 차인가」는 **모델과 연식이 함께**여야 정해진다 — 같은 아반떼라도
+     * 2016 과 2026 은 다른 차다(세대가 갈린다).
+     * 연식 열은 그대로 둔다. 정렬·필터가 그 열을 쓰기 때문이다 — 여기선 읽기 편하라고 붙인다.
+     */
+    id.maker, modelWithYear(id.model, rec.year), id.sub, S(rec.variant), id.trim, S(rec.options),
     S(rec.ext_color), S(rec.int_color), N(rec.year), N(rec.mileage), S(rec.fuel_type),
     providerName || S(rec.provider_company_code), creditDisplay(p), cond,
     ...MONTHS.flatMap((m) => {
