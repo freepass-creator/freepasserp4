@@ -92,6 +92,29 @@ export function selectMasterEntry(
     ? makerPool.filter((entry) => entry.model === lockedModel)
     : makerPool;
 
+  // 세대코드(DN8·CN7·KA4·W214)는 «어느 칸에 적혔든» 세대를 확정하는 가장 강한 신호다.
+  // 예전엔 sub_model·catalog_id·type_number 만 봤는데, 공급사가 **한 칸에 다 적으면**
+  // 그 값은 model 이나 trim_name 으로 들어와 코드가 통째로 무시됐다 —
+  // 「쏘나타 디 엣지 DN8 2.0 가솔린 인스퍼레이션」이 1990년대 「쏘나타 II Y3」로 붙었다(실측 2026-08-08).
+  // 코드는 마스터 gen_code 집합에 있는 토큰만 인정하므로 아무 글자나 걸리지 않는다.
+  //
+  // ★연식 필터보다 **먼저** 구한다 — 아래에서 「코드가 지목한 세대는 연식으로 빼지 않는다」에 쓴다.
+  const productGen = deps.extractGen(product.sub_model, codes)
+    || deps.extractGen(product.catalog_id, codes)
+    || deps.extractGen(product.type_number, codes)
+    || deps.extractGen(product.model, codes)
+    || deps.extractGen(product.trim_name, codes)
+    || deps.extractGen(product.vehicle_name, codes)
+    || deps.extractGen(product.cert_car_name, codes)
+    /**
+     * 추가표기도 읽는다 — 트림을 규격화하면서 원문이 이리로 옮겨지기 때문이다.
+     * 아래 `ordinalGen` 은 이미 여기를 읽는데 **세대코드만 안 읽고 있었다**:
+     * 원문 「아반떼 CN7 26MY … 인스퍼레이션」이 통째로 `trim_extra` 에 있는데도
+     * 2006년 「아반떼 J2」로 붙었다(실측 2026-08-09).
+     */
+    || deps.extractGen(product.trim_extra, codes);
+  const catalog = String(product.catalog_id || '').trim().toUpperCase();
+
   /**
    * ★세대의 **1차 추출은 연식**이다 (사장님 지적 2026-08-09).
    *
@@ -113,8 +136,23 @@ export function selectMasterEntry(
    *   실측: 「못 가리면 비운다」로 했더니 170대가 공란이 됐고, 「구간 안이면 유지」로
    *   바꾸니 1대로 줄었다. 근거가 없다는 건 «틀렸다»가 아니다.
    */
+  /**
+   * ⚠⚠ **세대코드는 연식보다 강하다.**
+   *
+   * 연식 칸에 배기량이 들어오는 시트가 있다 — 실측 2026-08-09 시트 재동기화 직후,
+   * 「쏘나타 DN8 2.0 가솔린 프리미엄 플러스」가 **연식 2000**(=2000cc)으로 들어와
+   * 1998~2001년 「EF 쏘나타」로 끌려갔다. 연식 1차 추출이 나쁜 값을 그대로 증폭한 것이다.
+   *
+   * 원문에 세대코드가 박혀 있으면 그건 그 차를 **직접 지목한 것**이다.
+   * 연식 구간에서 벗어나더라도 후보에서 빼지 않는다 — 빼면 코드가 가리키는 답이 사라진다.
+   */
+  const codeHit = (entry: MasterEntry): boolean => (
+    (!!productGen && String(entry.gen_code).toUpperCase() === productGen)
+    || (!!catalog && String(entry.gen_code).toUpperCase() === catalog)
+  );
   const yearFit = year
     ? modelEntries.filter((entry) => {
+      if (codeHit(entry)) return true;
       const start = Number(entry.year_start) || 0;
       const end = /\d{4}/.test(String(entry.year_end)) ? Number(entry.year_end) : 9999;
       return (!start || year >= start) && year <= end;
@@ -122,25 +160,6 @@ export function selectMasterEntry(
     : [];
   const lockedEntries = yearFit.length ? yearFit : modelEntries;
 
-  // 세대코드(DN8·CN7·KA4·W214)는 «어느 칸에 적혔든» 세대를 확정하는 가장 강한 신호다.
-  // 예전엔 sub_model·catalog_id·type_number 만 봤는데, 공급사가 **한 칸에 다 적으면**
-  // 그 값은 model 이나 trim_name 으로 들어와 코드가 통째로 무시됐다 —
-  // 「쏘나타 디 엣지 DN8 2.0 가솔린 인스퍼레이션」이 1990년대 「쏘나타 II Y3」로 붙었다(실측 2026-08-08).
-  // 코드는 마스터 gen_code 집합에 있는 토큰만 인정하므로 아무 글자나 걸리지 않는다.
-  const productGen = deps.extractGen(product.sub_model, codes)
-    || deps.extractGen(product.catalog_id, codes)
-    || deps.extractGen(product.type_number, codes)
-    || deps.extractGen(product.model, codes)
-    || deps.extractGen(product.trim_name, codes)
-    || deps.extractGen(product.vehicle_name, codes)
-    || deps.extractGen(product.cert_car_name, codes)
-    /**
-     * 추가표기도 읽는다 — 트림을 규격화하면서 원문이 이리로 옮겨지기 때문이다.
-     * 아래 `ordinalGen` 은 이미 여기를 읽는데 **세대코드만 안 읽고 있었다**:
-     * 원문 「아반떼 CN7 26MY … 인스퍼레이션」이 통째로 `trim_extra` 에 있는데도
-     * 2006년 「아반떼 J2」로 붙었다(실측 2026-08-09).
-     */
-    || deps.extractGen(product.trim_extra, codes);
   /**
    * 「E클래스(6세대)」처럼 **원문에 박힌 세대 순번**은 세대를 곧바로 확정하는 신호다.
    * 트림을 규격화하면서 원문이 `trim_extra` 로 옮겨지는데 여기서 그걸 안 읽어
@@ -160,7 +179,6 @@ export function selectMasterEntry(
   const evHint = /전기|일렉트릭|일렉트리파이드|electrified|\bev\b/i.test(aliasedBlob.toLowerCase());
   const bodyPattern = /쿠페|카브리올레|컨버터블|coupe|cabriolet|convertible/i;
   const productIsCoupe = bodyPattern.test(aliasedBlob);
-  const catalog = String(product.catalog_id || '').trim().toUpperCase();
 
   const scored = lockedEntries.map((entry) => {
     let score = 0;

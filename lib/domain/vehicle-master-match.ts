@@ -264,7 +264,32 @@ export const makerGroup = (m: string): string[] => {
 const trimYear = (t: unknown): number => { const m = /(\d{2})\s?my\b/i.exec(String(t ?? '')) || /(\d{2})년(?!식)/.exec(String(t ?? '')); return m ? 2000 + Number(m[1]) : 0; };
 // 세대 추론 연식 = 연식(모델연도) 우선 → 최초등록일 → 트림MY 순 보조(연식 없을 때만).
 //  최초등록일은 실제 등록 시점이라 모델연도보다 늦을 수 있어 우선하지 않음(사용자 지시: "참고용"). 실측(v3) 둘 다 있을 때 0건 불일치.
-export const carYear = (p: EntityRecord): number => parseYear(p.year) || parseYear(p.first_registration_date) || trimYear(p.trim_name);
+/**
+ * ★연식 칸에 **배기량**이 들어온 경우는 믿지 않는다.
+ *
+ * 실측 2026-08-09(시트 재동기화 후): 「쏘나타」가 `year="2000"` · `engine_cc="2000"` ·
+ * `first_registration_date="21-06-24"` 로 들어왔다. 2000cc 가 연식 칸에 복사된 것이다.
+ * 값 자체는 «있고» 범위(1980~현재)에도 들어서 일반 검사로는 안 걸린다 —
+ * **두 칸이 같다**는 것만이 신호다.
+ *
+ * 연식은 세대의 1차 관문이라(모델+연식 → 세부모델) 여기가 틀리면 그 아래가 통째로 어긋난다.
+ * 실제로 2021년식 DN8 이 1998~2001년 「EF 쏘나타」로 끌려갔다.
+ * 의심스러우면 최초등록일로 넘긴다 — 등록은 모델연도보다 늦을 수 있어도 세대는 맞다.
+ */
+const yearLooksLikeDisplacement = (p: EntityRecord): boolean => {
+  const digits = (v: unknown) => String(v ?? '').replace(/[^\d]/g, '');
+  const year = digits(p.year);
+  const cc = digits(p.engine_cc);
+  return !!year && year === cc && year.length === 4;
+};
+
+// 세대 추론 연식 = 연식(모델연도) 우선 → 최초등록일 → 트림MY 순 보조(연식 없을 때만).
+//  최초등록일은 실제 등록 시점이라 모델연도보다 늦을 수 있어 우선하지 않음(사용자 지시: "참고용").
+export const carYear = (p: EntityRecord): number => (
+  (yearLooksLikeDisplacement(p) ? 0 : parseYear(p.year))
+  || parseYear(p.first_registration_date)
+  || trimYear(p.trim_name)
+);
 
 // ── 모델 정규화 ── 공급사 표기를 마스터 모델명으로. 실측 L2 96%→100%.
 //  · 제조사 접두 제거("벤츠 E클래스"→E클래스, "아우디 A6"→A6) — 수입차 공급사 습관
