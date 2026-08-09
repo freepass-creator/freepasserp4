@@ -24,10 +24,30 @@ export const viewport: Viewport = {
   interactiveWidget: 'resizes-content',
 };
 
-// 플랫폼 = BRAND(ERP·운영자 화면 기본 타이틀). 손님 공개페이지(q/catalog/sign)는 각자 화이트라벨 title 오버라이드.
+/**
+ * 플랫폼 = BRAND(ERP·운영자 화면 기본 타이틀). 손님 공개페이지(q/sign)는 각자 title·robots 오버라이드.
+ *
+ * ★설명을 길게 쓰는 이유
+ *   루트는 매물 검색 화면(app/page.tsx)이고 크롤러는 JS 를 실행한다. 설명이 짧고 일반적이면
+ *   구글은 그걸 버리고 **본문에서 스스로 만든다** — 실제로 브랜드 검색 결과에
+ *   「차량번호, 상태, 구분, 제조사 … 1개월, 12개월」이 떴다. 그 표의 열 제목이다.
+ *   그러니 «구글이 쓸 만한 문장»을 주는 것이 유일한 해법이다(140자 안팎).
+ */
 export const metadata: Metadata = {
-  title: { default: BRAND, template: `%s · ${BRAND}` },
-  description: `${BRAND} — 렌터카 중개 플랫폼.`,
+  metadataBase: new URL(`https://${BRAND}`),
+  title: {
+    default: `${BRAND} — 장기렌터카 영업 통합 ERP`,
+    template: `%s · ${BRAND}`,
+  },
+  description: '여러 렌터카사의 매물을 한 곳에 모아 표준화하고, 견적 산출부터 계약·정산까지 한 화면에서 처리하는 장기렌터카 영업 ERP입니다. 영업 파트너는 영업에만 집중합니다.',
+  applicationName: BRAND,
+  openGraph: {
+    type: 'website',
+    siteName: BRAND,
+    url: `https://${BRAND}`,
+    title: `${BRAND} — 장기렌터카 영업 통합 ERP`,
+    description: '여러 렌터카사의 매물을 한 곳에 모아 표준화하고, 견적 산출부터 계약·정산까지 한 화면에서 처리하는 장기렌터카 영업 ERP입니다.',
+  },
   manifest: '/manifest.webmanifest',
   appleWebApp: { capable: true, statusBarStyle: 'default', title: BRAND },
   icons: {
@@ -83,6 +103,30 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@300;500;600&display=swap" />
       </head>
       <body suppressHydrationWarning>
+        {/*
+          구조화 데이터 — 구글에게 «이게 무엇인지»를 문장이 아니라 형식으로 말한다.
+          본문이 매물 표라 크롤러가 열 제목을 긁어 설명으로 쓰던 것을 대체하는 재료다.
+          서버에서 그려지므로 JS 실행 여부와 무관하게 읽힌다.
+        */}
+        <script
+          type="application/ld+json"
+          // eslint-disable-next-line react/no-danger
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'WebSite',
+              name: BRAND,
+              url: `https://${BRAND}`,
+              inLanguage: 'ko',
+              description: '여러 렌터카사의 매물을 한 곳에 모아 표준화하고, 견적 산출부터 계약·정산까지 처리하는 장기렌터카 영업 ERP.',
+              publisher: {
+                '@type': 'Organization',
+                name: process.env.NEXT_PUBLIC_OPERATOR_COMPANY || BRAND,
+                url: `https://${BRAND}`,
+              },
+            }),
+          }}
+        />
         <MobileBpProvider ssrMobile={ssrMobile}>
           <AuthProvider>
             <AppBarProvider>
