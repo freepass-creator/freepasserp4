@@ -3579,3 +3579,11 @@ Next 개발 서버와 production build가 같은 `.next`를 사용하면 실행 
 - Production 차단 사유 1: 전자계약 서식 메타데이터가 아직 `sample-v1`, `STANDARD_IS_SAMPLE=true`다. 법무/대표 승인 없이 실제 고객 계약에 사용하면 안 된다.
 - Production 차단 사유 2: 현재 정책 54/54건이 모두 `product` 단계라 실제 ERP 전자계약 발행 가능 정책이 0건이다. 공급사별 실제 계약조건을 확인해 `contract` 단계 필수값을 채운 정책만 발행 대상으로 열어야 한다.
 - 최종 판정: 기능과 연동 자체는 Preview에서 끝까지 정상이다. 표준계약서 문안 승인과 실제 계약정책 1건 이상 확정 전에는 Production 배포·키 등록 금지.
+
+### 2026-08-10 최종 코드 통합 게이트
+
+- `isEsignTemplateAllowed()`를 추가해 Preview에서는 샘플 문안 E2E를 허용하되, Vercel Production에서는 `STANDARD_IS_SAMPLE=true`인 동안 발행 API가 `503 표준계약서 최종 승인 전`으로 fail-closed 되게 했다.
+- 전자계약 약관 39/39, 발행 매핑 29/29, 상태 동기화 PASS, 고객입력 43/43, 진행상태 44/44, `tsc --noEmit --incremental false`, fonts, tokens PASS.
+- 분리 `NEXT_DIST_DIR=.next-codex-esign-final` production build가 33개 정적 페이지와 발행·상태·PDF API 3개를 포함해 PASS했다. 빌드가 자동 수정한 `tsconfig.json`은 원본 해시로 복구했다.
+- Preview `dpl_2cuPnpBSnQ7KpuZEqQinhdaJsSaB` Ready. 발행·상태·PDF API 비인증 smoke는 모두 `401 로그인 필요`를 반환했다.
+- 판정: **운영 코드 배포 GO / 실제 고객 발행 NO-GO**. 코드와 관리화면은 통합 가능하지만 Production API 키 등록과 계약 발행 개방은 최종 계약서·실제 계약정책 승인 후 별도 게이트다.
