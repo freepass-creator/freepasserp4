@@ -16,6 +16,8 @@ import {
   attachPolicy, buildInventorySheet, dedupeForSales, exportTabName, policyMap, resnapForSales, sortForSales,
 } from '@/lib/domain/inventory-sheet-export';
 import { isListableProduct } from '@/lib/domain/product';
+// 구버전 41열 종합표 — 직원이 손으로 붙여넣던 v3 규격. 새 표 옆 탭으로 같이 올린다.
+import { buildJonghapTsv } from '@/lib/domain/jonghap';
 import { companyAlias } from '@/lib/domain/identity';
 import type { MasterEntry } from '@/lib/domain/vehicle-master-types';
 import type { EntityRecord } from '@/lib/intake/entities';
@@ -37,7 +39,27 @@ export function agentTabName(count: number): string {
   return `${AGENT_SHEET_TAB} ${kst.slice(5, 10).replace('-', '.')} ${kst.slice(11, 16)} · ${count}대`;
 }
 
-export type PublishResult = { count: number; tab: string; gid: number; url: string };
+/**
+ * 구버전 종합표가 서는 탭.
+ *
+ * 41열 v3 규격(`lib/domain/jonghap.ts`)이다. 직원이 손으로 붙여넣던 그 표인데,
+ * 오래 보던 사람은 이 배치로 읽는 게 빠르다. 새 표와 **나란히** 둔다 —
+ * 갈아치우면 익숙한 눈이 갈 곳을 잃고, 남겨 두면 각자 편한 탭을 본다.
+ *
+ * ⚠ 열 순서는 시트 헤더와 1:1이다. 임의로 바꾸면 옛 수식·필터가 통째로 어긋난다.
+ */
+export const JONGHAP_SHEET_TAB = '종합표';
+
+export function jonghapTabName(count: number): string {
+  const kst = new Date(Date.now() + 9 * 3600 * 1000).toISOString();
+  return `${JONGHAP_SHEET_TAB} ${kst.slice(5, 10).replace('-', '.')} ${kst.slice(11, 16)} · ${count}대`;
+}
+
+export type PublishResult = {
+  count: number; tab: string; gid: number; url: string;
+  /** 구버전 종합표 탭 — 못 올렸으면 사유. */
+  jonghap?: string;
+};
 
 export async function publishInventorySheet(
   db: Database,
@@ -108,10 +130,30 @@ export async function publishInventorySheet(
   await client.write(title, built.values);
   await client.batchUpdate(built.requests);
 
+  /**
+   * ★구버전 종합표를 **같은 시트의 다른 탭**에 같이 올린다(2026-08-10 사장님 지시).
+   *
+   * 오래 보던 사람은 41열 배치로 읽는 게 빠르다. 새 표로 갈아치우면 익숙한 눈이 갈 곳을 잃는다.
+   * 두 탭을 나란히 두고 각자 편한 쪽을 보게 한다.
+   *
+   * ⚠ 실패해도 본 표는 이미 올라갔으므로 통째로 되돌리지 않는다 — 사유만 남긴다.
+   */
+  let jonghap: string | undefined;
+  try {
+    const { tsv, count } = buildJonghapTsv(rows, Object.values(policies));
+    const values = tsv.split('\n').filter((line) => line.length).map((line) => line.split('\t'));
+    const jt = await client.openOrCreateTab(jonghapTabName(count), JONGHAP_SHEET_TAB);
+    await client.write(jt.title, values);
+    jonghap = jt.title;
+  } catch (error) {
+    jonghap = `실패 — ${String((error as Error)?.message || error)}`;
+  }
+
   return {
     count: rows.length,
     tab: title,
     gid,
     url: `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit#gid=${gid}`,
+    jonghap,
   };
 }

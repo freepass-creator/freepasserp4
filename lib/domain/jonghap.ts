@@ -75,8 +75,16 @@ function productToRow(p: EntityRecord, byCode: Map<string, EntityRecord>): strin
 /** 매물+정책 → 종합 41컬럼 TSV(헤더 포함). 삭제·차번없는 매물 제외, 제조사·모델·차번 정렬. */
 export function buildJonghapTsv(products: EntityRecord[], policies: EntityRecord[]): { tsv: string; count: number } {
   const byCode = new Map(policies.map((p) => [String(p.policy_code || ''), p]));
+  /**
+   * ★차량번호가 없다고 빼지 않는다(2026-08-10).
+   *
+   * 옛 규격은 «차번이 곧 차»라 차번 없는 행을 버렸다. 지금은 **번호미정 신차**를 판다 —
+   * 번호가 나오기 전에도 차종·가격이 정해져 있고 실제로 계약이 붙는다.
+   * 실측: 409대 중 8대가 이 경우인데, 버리면 종합표만 401대가 되어
+   * 같은 시트의 두 탭이 서로 다른 대수를 말한다 — 영업자가 어느 쪽을 믿어야 할지 모른다.
+   */
   const rows = products
-    .filter((p) => p.car_number && p._deleted !== true)
+    .filter((p) => p._deleted !== true)
     .sort((a, b) => String(a.maker).localeCompare(String(b.maker), 'ko') || String(a.model).localeCompare(String(b.model), 'ko') || String(a.car_number).localeCompare(String(b.car_number), 'ko'));
   // 셀 정화 — 자유텍스트(비고·옵션)에 탭/개행이 있으면 붙여넣기 행·열이 조용히 밀림. 공백 치환(v3 rowsToTsv clean 이식).
   const clean = (v: string) => String(v ?? '').replace(/[\t\r\n]+/g, ' ');

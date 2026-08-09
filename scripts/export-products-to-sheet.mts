@@ -26,6 +26,8 @@ import {
   attachPolicy, buildInventorySheet, dedupeForSales, exportTabName, policyMap, resnapForSales, sortForSales,
 } from '../lib/domain/inventory-sheet-export';
 import { isListableProduct, isOfferableProduct } from '../lib/domain/product';
+// 구버전 41열 종합표 — 기존 영업자가 익숙한 배치를 그대로 둔다(새 표 옆 탭).
+import { buildJonghapTsv } from '../lib/domain/jonghap';
 import { companyAlias } from '../lib/domain/identity';
 import type { EntityRecord } from '../lib/intake/entities';
 import type { MasterEntry } from '../lib/domain/vehicle-master-types';
@@ -208,7 +210,48 @@ async function main() {
     console.log(`\n  ⚠ 값은 들어갔으나 서식 적용 실패 ${fmt.status} — ${(await fmt.text()).slice(0, 400)}\n`);
     return;
   }
-  console.log(`\n  반영 완료 — 탭 「${title || tabName}」 · ${built.values.length}행 · 조회바·서식 적용됨\n`);
+  console.log(`\n  반영 완료 — 탭 「${title || tabName}」 · ${built.values.length}행 · 조회바·서식 적용됨`);
+
+  /**
+   * ★구버전 종합표를 **같은 시트의 다른 탭**에 같이 올린다(2026-08-10 사장님 지시).
+   *
+   * 41열 v3 규격(`lib/domain/jonghap.ts`) — 직원이 손으로 붙여넣던 그 표다.
+   * 오래 보던 사람은 이 배치로 읽는 게 빠르니 새 표와 나란히 둔다.
+   * 서버 경로(`lib/server/inventory-sheet-publish.ts`)도 같은 두 탭을 만든다 — 갈리면 안 된다.
+   *
+   * ⚠ 실패해도 본 표는 이미 올라갔다. 통째로 되돌리지 않고 사유만 알린다.
+   */
+  try {
+    const { tsv, count } = buildJonghapTsv(sheetRows, Object.values(policies));
+    const values = tsv.split('\n').filter((line) => line.length).map((line) => line.split('\t'));
+    const kst = new Date(Date.now() + 9 * 3600 * 1000).toISOString();
+    const jTitle = `종합표 ${kst.slice(5, 10).replace('-', '.')} ${kst.slice(11, 16)} · ${count}대`;
+    const fresh = await (await fetch(`${api}?fields=sheets.properties`, { headers: head })).json() as {
+      sheets: { properties: { sheetId: number; title: string } }[];
+    };
+    const found = fresh.sheets.find((s) => s.properties.title.startsWith('종합표'));
+    if (!found) {
+      const made = await fetch(`${api}:batchUpdate`, {
+        method: 'POST', headers: head,
+        body: JSON.stringify({ requests: [{ addSheet: { properties: { title: jTitle, index: 1 } } }] }),
+      });
+      if (!made.ok) throw new Error(`탭 생성 실패 ${made.status}`);
+    } else {
+      // 옛 행이 남지 않게 비우고 쓴다 — 대수가 줄면 아래에 유령이 남는다.
+      await fetch(`${api}/values/${encodeURIComponent(found.properties.title)}!A1:BZ5000:clear`, { method: 'POST', headers: head });
+      await fetch(`${api}:batchUpdate`, {
+        method: 'POST', headers: head,
+        body: JSON.stringify({ requests: [{ updateSheetProperties: { properties: { sheetId: found.properties.sheetId, title: jTitle }, fields: 'title' } }] }),
+      });
+    }
+    const putJ = await fetch(`${api}/values/${encodeURIComponent(jTitle)}!A1?valueInputOption=RAW`, {
+      method: 'PUT', headers: head, body: JSON.stringify({ values }),
+    });
+    if (!putJ.ok) throw new Error(`쓰기 실패 ${putJ.status} ${(await putJ.text()).slice(0, 200)}`);
+    console.log(`  구버전 종합표 — 탭 「${jTitle}」 · ${values.length}행 (41열)\n`);
+  } catch (error) {
+    console.log(`  ⚠ 구버전 종합표 반영 실패 — ${String((error as Error)?.message || error)}\n`);
+  }
 }
 
 main().catch((e) => { console.error(String(e?.message || e)); process.exit(1); });
