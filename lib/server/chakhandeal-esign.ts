@@ -68,10 +68,21 @@ export async function issueChakhandealContract(
   config: ChakhandealConfig,
   contract: RecordValue,
   templateId?: string,
+  /**
+   * 이 계약에 걸린 정책. **넘기지 않으면 계약서가 빈칸으로 나간다.**
+   *
+   * `chakhandealIssuePayload` 의 `policy` 가 옵셔널이라 안 넘겨도 타입 오류가 안 났고,
+   * 실제로 안 넘기고 있었다(2026-08-09 발견). 정책관리를 아무리 채워도
+   * 약정 주행거리·초과 요율·면책금·해지 조건이 전부 비어 계약서에 실렸다.
+   * 발송 게이트는 정책을 읽는데 정작 계약서로 가는 통로가 없었다 — 게이트만 있고 길이 없었다.
+   */
+  policy?: RecordValue | null,
 ): Promise<ChakhandealIssue> {
   const externalRef = text(contract.contract_code);
   const identity = { ...config, templateId: text(templateId) || config.templateId };
-  const result = await callJson(config, '/api/v1/contract/issue', chakhandealIssuePayload(identity, contract), `freepass:${externalRef}:issue`);
+  // 보험 방식도 정책에서 갈린다 — 개인보험형이면 약관 제9조의2가 함께 적용된다.
+  const insuranceSide = /별도|개인/.test(text(policy?.insurance_included)) ? '고객직접' : '회사포함';
+  const result = await callJson(config, '/api/v1/contract/issue', chakhandealIssuePayload(identity, contract, policy, insuranceSide), `freepass:${externalRef}:issue`);
   const contractId = text(result.contractId);
   if (!contractId || contractId.length > 200) throw new Error('착한거래 계약 식별자 누락');
   const rawVerifyUrl = text(result.verifyUrl);
