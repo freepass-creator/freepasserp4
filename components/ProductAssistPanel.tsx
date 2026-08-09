@@ -19,6 +19,8 @@ import { getSession } from '@/lib/auth-session';
 import { canAccessOwnedRecord } from '@/lib/domain/authorization';
 import { unreadFor } from '@/lib/domain/messaging';
 import { msgClock } from '@/lib/format';
+import { joinMetaText, workPartyParts } from '@/features/work-list-display';
+import { organizationRole } from '@/lib/domain/authorization';
 
 /**
  * 매물 상세 옆 **보조 칼럼** — 위=대여료·계약 / 아래=채팅.
@@ -165,6 +167,18 @@ export function ProductAssistPanel({ product, role }: { product: EntityRecord; r
   /** 응대는 계약문의 페이지에서만 — 행을 누르면 그 방으로 넘긴다. */
   const openRoom = (r: EntityRecord) => router.push(`/chat?room=${encodeURIComponent(String(r._key))}`);
   /**
+   * 상대 표기 — **계약문의 목록과 같은 규칙**(work-list-display, preferCode).
+   *
+   * 여기 있던 `agent_name || agent_code` 는 공급사가 보는 자리에 우리 영업자 **실명**을
+   * 먼저 내놓고 있었다. 같은 문의가 계약문의 페이지에서는 업무코드로 보이는데 여기서만
+   * 이름으로 보이면, 표기가 갈리는 것보다 **회사 밖으로 이름이 새는 쪽**이 문제다.
+   */
+  const counterOf = (r: EntityRecord): string => joinMetaText(workPartyParts(
+    organizationRole(getSession()) || role,
+    r,
+    { agentFallback: contract || undefined, preferCode: true },
+  ));
+  /**
    * **배열은 그대로, 채팅창 자리만 문의 목록**(2026-08-08 사장님).
    * 영업자에게 대화가 있던 그 자리에 관리자·공급사는 «누가 문의했는지»를 본다.
    * 여기서 답하지는 않는다 — 누르면 계약문의 페이지의 그 방으로 간다(응대는 한 곳에서만).
@@ -191,7 +205,7 @@ export function ProductAssistPanel({ product, role }: { product: EntityRecord; r
               key={String(r._key)}
               room={r}
               stageContract={contract && String(contract.contract_code) === String(r.linked_contract || '') ? contract : null}
-              counter={String(r.agent_name || r.agent_code || '')}
+              counter={counterOf(r)}
               unread={unreadFor(r, role)}
               onClick={openRoom}
               displayName={vehicleName(product)}

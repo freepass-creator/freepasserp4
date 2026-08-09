@@ -4,7 +4,7 @@ import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
 import { type EntityRecord } from '@/lib/intake/entities';
-import { getRole, actor, type Role } from '@/lib/domain/deal';
+import { getRole, actor, chatDisplayName, type Role } from '@/lib/domain/deal';
 import { sendText, sendFile as sendFileMsg, markRead, listMessages, isMine, otherSideReadAt, isAcceptedChatFile, CHAT_FILE_ACCEPT } from '@/lib/domain/messaging';
 import { Btn, IconBtn, C, R, FW, FS, ICON, Loading, CenterNote, Input, ctrlH, ctrlInputFs, NavBack, Dropzone, SCRIM } from '@/components/ui';
 import { toast } from '@/components/Toaster';
@@ -336,7 +336,13 @@ export function ChatThread({
                 const isImg = !!m.image_url;
                 const url = String(m.image_url || m.file_url || '');
                 const name = String(m.file_name || (isImg ? '사진' : '파일'));
-                const meta = [String(m.sender_name || ''), msgClock(m.created_at)].filter(Boolean).join(' · ');
+                // 대화 본문은 chatDisplayName 을 거쳐 업무코드로만 부른다. 여기만 sender_name 을
+                // 날것으로 쓰고 있어서, 같은 방에서 말풍선은 코드인데 첨부 목록만 실명이었다.
+                // 공급사가 보는 자리에 우리 직원 이름이 새는 유일한 구멍이었다 — 같은 함수로 보낸다.
+                const meta = [
+                  chatDisplayName(String(m.sender_role || ''), String(m.sender_name || ''), String(m.sender_code || m.sender_uid || '')),
+                  msgClock(m.created_at),
+                ].filter(Boolean).join(' · ');
                 const inner = (
                   <>
                     {isImg ? (
