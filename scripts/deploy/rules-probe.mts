@@ -124,6 +124,34 @@ async function main() {
     product_code: '',
   });
 
+  // 출고까지 끝난 계약 — 「정상 정산이 여전히 만들어지는가」를 묻기 위한 것.
+  // ★이 검사가 제일 중요하다. 정산 생성 규칙이 조금이라도 빡빡하면 계약완료가 통째로 막히는데,
+  //  그건 «막혀야 할 것이 막힌다»만 봐서는 절대 안 잡힌다.
+  //  실제 순서를 그대로 흉내낸다 — createSettlement 는 계약완료를 **찍기 전에** 실행된다.
+  const doneCode = `TEST-RULES-DONE-${Date.now()}`;
+  const doneRef = database.ref(`v4/contracts/${doneCode}`);
+  const party = {
+    agent_uid: users.agent.uid,
+    agent_code: String(agentUser.user_code || users.agent.uid),
+    agent_channel_code: String(agentUser.agent_channel_code || 'PROBE-CH'),
+    provider_company_code: String(providerUser.company_code || 'PROBE-CO'),
+  };
+  await doneRef.set({
+    // ★product_code 를 빼면 부모 .validate 의 hasChildren 에 걸려 **규칙 탓처럼 보인다**.
+    //  실제로 한 번 그렇게 오진했다 — 계약 필수 6필드는 씨앗에 반드시 넣는다.
+    contract_code: doneCode, is_test: true, contract_status: '계약요청', product_code: 'PROBE-VEH', ...party,
+    agent_delivery_inquiry: 'yes', provider_delivery_response: '출고 가능',
+    agent_docs_submitted: 'yes', provider_docs_review: '승인',
+    provider_agreement_done: 'yes', provider_agreement_sent: 'yes',
+    agent_balance_paid: 'yes', agent_final_paid: 'yes', provider_balance_confirmed: 'yes',
+    agent_handover_confirmed: 'yes', provider_release_completed: 'yes',
+    rent_amount_snapshot: 690000, rent_month_snapshot: 36,
+  });
+  const settlementBody = {
+    settlement_code: `ST_${doneCode}`, contract_code: doneCode, settlement_status: '정산대기',
+    ...party, rent_amount: 690000,
+  };
+
   const base = `v4/contracts/${code}`;
   const probes: Probe[] = [
     // ── 오늘 막은 것들이 정말 막히는가 ──
@@ -144,6 +172,15 @@ async function main() {
     { name: '빈 금액칸 채우기 — 약정 동결(영업자)', as: 'agent', method: 'PUT', path: `${base}/rent_amount_snapshot`, body: 690000, expect: 'allow' },
     { name: '자기 메모 수정(공급사)', as: 'provider', method: 'PUT', path: `${base}/memo_provider`, body: '정상', expect: 'allow' },
     { name: '견적 전체 목록 긁기', as: 'agent', method: 'GET', path: 'proposals', expect: 'deny' },
+    // 출고 끝난 계약의 정산 — 이게 막히면 계약완료가 통째로 멈춘다.
+    { name: '끝난 계약의 정산 생성(영업자)', as: 'agent', method: 'PUT', path: `v4/settlements/ST_${doneCode}`, body: settlementBody, expect: 'allow' },
+    { name: '끝난 계약의 공급사 private(R1)', as: 'agent', method: 'PUT', path: `v4/settlements_provider_private/ST_${doneCode}`, body: {
+      settlement_code: `ST_${doneCode}`, contract_code: doneCode, ...party, fee_rate: 0.1, fee_amount: 69000,
+    }, expect: 'allow' },
+    { name: '끝난 계약의 영업자 private(R2)', as: 'agent', method: 'PUT', path: `v4/settlements_agent_private/ST_${doneCode}`, body: {
+      settlement_code: `ST_${doneCode}`, contract_code: doneCode, ...party, payout_rate: 0.04, agent_payout: 27600,
+    }, expect: 'allow' },
+    { name: '출고완료로 계약완료 전이(공급사)', as: 'provider', method: 'PUT', path: `v4/contracts/${doneCode}/contract_status`, body: '계약완료', expect: 'allow' },
   ];
 
   let failed = 0;
@@ -158,10 +195,12 @@ async function main() {
     }
   } finally {
     await ref.remove();
-    await database.ref('v4/settlements/ST_NOPE-9999').remove();
-    await database.ref('v4/settlements_provider_private/ST_NOPE-9999').remove();
-    await database.ref('v4/settlements_agent_private/ST_NOPE-9999').remove();
-    console.log(`\n  검사용 계약 ${code} 삭제 완료.`);
+    await doneRef.remove();
+    for (const node of ['settlements', 'settlements_provider_private', 'settlements_agent_private']) {
+      await database.ref(`v4/${node}/ST_NOPE-9999`).remove();
+      await database.ref(`v4/${node}/ST_${doneCode}`).remove();
+    }
+    console.log(`\n  검사용 계약·정산(${code} · ${doneCode}) 삭제 완료.`);
   }
 
   console.log(failed ? `\n  ✖ ${failed}건이 규칙과 다르게 동작한다.\n` : `\n  ✔ ${probes.length}건 전부 규칙대로 동작한다.\n`);
