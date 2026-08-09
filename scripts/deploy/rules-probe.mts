@@ -21,7 +21,7 @@
 import { readFileSync } from 'node:fs';
 import { DATABASE_URL, SA_PATH, die } from './_ctx.mts';
 
-type Role = 'agent' | 'provider';
+type Role = 'agent' | 'provider' | 'admin';
 type Probe = {
   name: string;
   as: Role;
@@ -84,11 +84,12 @@ async function pickUsers(): Promise<Record<Role, { uid: string; label: string }>
       && u?.is_active !== false && u?.is_active !== '아니오';
     if (!alive) continue;
     if (role === 'agent' && !found.agent) found.agent = { uid, label: String(u.name || u.user_code || uid) };
+    if (role === 'admin' && !found.admin) found.admin = { uid, label: String(u.name || u.user_code || uid) };
     if ((role === 'provider' || role === 'provider_admin') && !found.provider) {
       found.provider = { uid, label: String(u.name || u.company_code || uid) };
     }
   }
-  if (!found.agent || !found.provider) die('활성 영업자·공급사 계정을 못 찾았다 — 검사할 세션이 없다');
+  if (!found.agent || !found.provider || !found.admin) die('활성 영업자·공급사·관리자 계정을 못 찾았다 — 검사할 세션이 없다');
   return found as Record<Role, { uid: string; label: string }>;
 }
 
@@ -98,8 +99,9 @@ async function main() {
   const tokens: Record<Role, string> = {
     agent: await idTokenFor(users.agent.uid),
     provider: await idTokenFor(users.provider.uid),
+    admin: await idTokenFor(users.admin.uid),
   };
-  console.log(`\n  영업자 ${users.agent.label} · 공급사 ${users.provider.label} 세션으로 라이브 규칙에 질의한다.`);
+  console.log(`\n  영업자 ${users.agent.label} · 공급사 ${users.provider.label} · 관리자 ${users.admin.label} 세션으로 라이브 규칙에 질의한다.`);
 
   const code = `TEST-RULES-${Date.now()}`;
   const ref = database.ref(`v4/contracts/${code}`);
@@ -181,6 +183,11 @@ async function main() {
       settlement_code: `ST_${doneCode}`, contract_code: doneCode, ...party, payout_rate: 0.04, agent_payout: 27600,
     }, expect: 'allow' },
     { name: '출고완료로 계약완료 전이(공급사)', as: 'provider', method: 'PUT', path: `v4/contracts/${doneCode}/contract_status`, body: '계약완료', expect: 'allow' },
+    // v3 상품 원문 — 원가 2001건·계좌 548건이 들어 있는 노드. 관리자만 통째로 볼 수 있어야 한다.
+    // ★관리자까지 막히면 erp3 가 죽는다. 그래서 «막힌다»와 «열린다»를 같이 묻는다.
+    { name: 'v3 상품 원문 통째로 읽기(영업자)', as: 'agent', method: 'GET', path: 'products', expect: 'deny' },
+    { name: 'v3 상품 원문 통째로 읽기(공급사)', as: 'provider', method: 'GET', path: 'products', expect: 'deny' },
+    { name: 'v3 상품 원문 통째로 읽기(관리자)', as: 'admin', method: 'GET', path: 'products', expect: 'allow' },
   ];
 
   let failed = 0;
