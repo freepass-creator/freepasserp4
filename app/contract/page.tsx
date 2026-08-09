@@ -458,24 +458,25 @@ export default function ContractsSettlement() {
   const filterActive = (flt !== '진행' ? 1 : 0) + (monthFlt ? 1 : 0);
   const uiFlt = mobile ? draftFlt : flt;
   const uiMonth = mobile ? draftMonthFlt : monthFlt;
-  const listEl = shownAll.length === 0
-    ? (
-      <CenterNote>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-          <span>{q || filterActive > 0 ? '검색 결과 없음' : '표시할 계약이 없습니다.'}</span>
-          {(q || filterActive > 0) ? (
-            <Btn title="조건 해제" size="sm" variant="ghost" onClick={() => { setQInput(''); setQ(''); setFlt('진행'); setMonthFlt(''); }}>조건 해제</Btn>
-          ) : null}
-        </div>
-      </CenterNote>
-    )
-    : (
+  /*
+   * 등록행은 «목록 밖, 맨 위»에 둔다 — 재고(InventoryListPanel)와 같은 규격.
+   * 목록 안에 넣으면 «계약이 하나도 없을 때» 버튼이 사라져 첫 계약을 못 만든다.
+   * 검색으로 결과가 0이어도 등록은 되어야 한다.
+   */
+  const listEl = (
+    <div>
+      {canCreateBlank && <ContractCreateRow onClick={() => { void newBlankContract(); }} />}
+      {shownAll.length === 0 ? (
+        <CenterNote>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+            <span>{q || filterActive > 0 ? '검색 결과 없음' : '표시할 계약이 없습니다.'}</span>
+            {(q || filterActive > 0) ? (
+              <Btn title="조건 해제" size="sm" variant="ghost" onClick={() => { setQInput(''); setQ(''); setFlt('진행'); setMonthFlt(''); }}>조건 해제</Btn>
+            ) : null}
+          </div>
+        </CenterNote>
+      ) : (
       <div>
-        {/*
-          등록은 «목록 맨 위 한 자리»로 — 재고(InventoryCreateRow)·정책(PolicyCreateRow)과 같은 규격.
-          보통 계약은 매물에서 파생되지만, 재고에 없는 차인데 계약서만 보내는 경우가 있다.
-        */}
-        {canCreateBlank && <ContractCreateRow onClick={() => { void newBlankContract(); }} />}
         {shown.map((c) => (
           <ContractListRow
             key={String(c.contract_code)}
@@ -500,7 +501,9 @@ export default function ContractsSettlement() {
           </div>
         )}
       </div>
-    );
+      )}
+    </div>
+  );
 
   // 라벨 열 폭은 DetailGrid(116)와 같은 값 하나로. 110/120 두 갈래라 값 시작선이 10px 어긋났다.
   //  구분선은 ListGroup이 자식마다 그어 주므로 여기서 borderTop을 또 긋지 않는다(카드선과 2겹).
