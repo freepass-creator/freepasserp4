@@ -1,7 +1,8 @@
-import type { EntityRecord } from '@/lib/intake/entities';
+﻿import type { EntityRecord } from '@/lib/intake/entities';
 import { sheetProviderOf } from '@/lib/domain/sheet-merge';
 import type { SheetSyncExistingConflicts } from '@/lib/domain/sheet-sync-all';
 import { priceList } from '@/lib/domain/product';
+import { isOpenContractRow } from '@/lib/domain/contract';
 
 export type SheetConflictReportRow = {
   category: string;
@@ -29,18 +30,12 @@ const conflictProvider = (value: string): string => {
   return separator > 0 ? head.slice(0, separator) : '';
 };
 
-function isOpenContract(row: EntityRecord): boolean {
-  if (row._deleted === true || row.deletedAt) return false;
-  const status = text(row.contract_status || row.status);
-  return !['계약완료', '완료', '계약취소', '취소'].includes(status);
-}
-
 function contractProtection(row: EntityRecord, contracts: EntityRecord[]): string {
   const lock = text(row.locked_by_contract);
   if (lock) return `계약락 ${lock}`;
   const key = recordKey(row);
   const carNumber = plate(row);
-  const linked = contracts.find((contract) => isOpenContract(contract) && [
+  const linked = contracts.find((contract) => isOpenContractRow(contract) && [
     text(contract.product_uid),
     text(contract.product_code),
     text(contract.car_number_snapshot).replace(/\s/g, ''),

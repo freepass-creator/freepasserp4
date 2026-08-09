@@ -78,6 +78,22 @@ export function isContractCompleted(c: EntityRecord | null | undefined): boolean
 }
 
 /**
+ * 아직 «살아 있는» 계약인가 — 그 차를 잡고 있어 재판매·시트반영을 막아야 하는가.
+ *
+ * 중복정리(product-duplicate-migration)와 시트 충돌리포트가 각자 같은 판정을 들고 있었다.
+ * 결과는 같았지만(실측 2026-08-09: 영문 상태 0건 · status='deleted' 0건) 목록이 서로 달라
+ * 한쪽만 늘리면 «한 화면은 막고 다른 화면은 푸는» 상태가 된다. 넓게 잡던 쪽으로 모은다.
+ *
+ * ★`계약철회`는 여기서 «살아 있음»으로 남는다 — 취소로 볼지는 사업 결정 전이라 임의로 바꾸지
+ *   않는다(normalizeContractStatus 와 같은 이유). 실데이터 5건이 그 상태다.
+ */
+export function isOpenContractRow(row: EntityRecord): boolean {
+  if (row._deleted === true || row.deletedAt || normalizeContractStatus(row.status) === 'deleted') return false;
+  const status = normalizeContractStatus(row.contract_status ?? row.status).toLowerCase();
+  return !['계약완료', '완료', '계약취소', '취소', 'completed', 'complete', 'cancelled', 'canceled'].includes(status);
+}
+
+/**
  * 목록 분류 SSOT
  *   문의 = 단순 채팅(활성 계약 없음·취소만)
  *   계약 = 채팅에서 계약진행으로 넘어간 활성 계약(완료·취소 제외)

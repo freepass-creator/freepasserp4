@@ -1,5 +1,6 @@
-import type { EntityRecord } from '@/lib/intake/entities';
+﻿import type { EntityRecord } from '@/lib/intake/entities';
 import { sheetProviderOf } from '@/lib/domain/sheet-merge';
+import { isOpenContractRow } from '@/lib/domain/contract';
 
 export type DuplicateReferenceScan = {
   contracts: boolean;
@@ -49,15 +50,6 @@ function recordReferenceValues(row: EntityRecord): string[] {
   return [row.product_code, row.product_uid, row.product_id]
     .map(text)
     .filter(Boolean);
-}
-
-function isOpenContract(row: EntityRecord): boolean {
-  if (row._deleted === true || row.deletedAt || text(row.status) === 'deleted') return false;
-  const status = text(row.contract_status || row.status).toLowerCase();
-  return ![
-    '계약완료', '완료', '계약취소', '취소',
-    'completed', 'complete', 'cancelled', 'canceled',
-  ].includes(status);
 }
 
 function referencesForKey(rows: EntityRecord[], productKey: string): EntityRecord[] {
@@ -136,8 +128,8 @@ export function planProductDuplicateMigration(input: {
     const perKey = new Map(products.map((product) => {
       const productKey = keyOf(product);
       const exactContracts = referencesForKey(contracts, productKey);
-      const openContracts = exactContracts.filter(isOpenContract);
-      const historicalContracts = exactContracts.filter((row) => !isOpenContract(row));
+      const openContracts = exactContracts.filter(isOpenContractRow);
+      const historicalContracts = exactContracts.filter((row) => !isOpenContractRow(row));
       const exactRooms = referencesForKey(rooms, productKey);
       const exactQuotes = referencesForKey(quotes, productKey);
       const hasPrivateRecord = productPrivate.some((row) => keyOf(row) === productKey);

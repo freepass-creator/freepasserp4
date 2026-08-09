@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 감사로그 SSOT — 전 엔티티 write 관장(매물·대여료·계약·정산·채팅·회원…).
  * store 어댑터가 buildAuditEntry로 기록. audit_log 자신만 제외.
  */
@@ -175,7 +175,7 @@ function fmtVal(v: unknown): string {
   return String(v).trim();
 }
 
-function fmtWon(n: unknown): string {
+function wonWithUnit(n: unknown): string {
   const x = Number(n);
   if (!Number.isFinite(x)) return String(n ?? '');
   return x.toLocaleString('ko-KR') + '원';
@@ -194,16 +194,16 @@ export function priceChanges(before: unknown, after: unknown): AuditChange[] {
       out.push({
         key: `price.${k}.rent`,
         label: `${k}개월 대여료`,
-        from: br != null ? fmtWon(br) : '—',
-        to: ar != null ? fmtWon(ar) : '—',
+        from: br != null ? wonWithUnit(br) : '—',
+        to: ar != null ? wonWithUnit(ar) : '—',
       });
     }
     if (bd !== ad) {
       out.push({
         key: `price.${k}.deposit`,
         label: `${k}개월 보증금`,
-        from: bd != null ? fmtWon(bd) : '—',
-        to: ad != null ? fmtWon(ad) : '—',
+        from: bd != null ? wonWithUnit(bd) : '—',
+        to: ad != null ? wonWithUnit(ad) : '—',
       });
     }
   }

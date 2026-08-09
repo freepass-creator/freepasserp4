@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 계약서 발송 — 매물·계약·파트너 → 템플릿 payload, draft 저장, 서명 토큰 발송.
  * 템플릿: /contract-template/rental-contract.html?embed=1 + Contract.setData.
  * 서명 상태기계는 sign.ts SSOT.
@@ -25,7 +25,7 @@ function priceText(price: unknown): string {
   return sorted.map((x) => `${x.m}개월 ${x.rent.toLocaleString()}`).join(' / ');
 }
 
-function fmtWon(n: unknown): string {
+function moneyCell(n: unknown): string {
   const v = Number(n) || 0;
   return v ? v.toLocaleString() : '';
 }
@@ -105,8 +105,8 @@ export async function buildContractPayload(contractCode: string): Promise<{
     vehicle_price: product ? priceText(product.price) : '',
     customer_name: String(contract.customer_name || ''),
     customer_phone: String(contract.customer_phone || ''),
-    rent_amount: fmtWon(contract.rent_amount_snapshot),
-    deposit_amount: fmtWon(contract.deposit_amount_snapshot),
+    rent_amount: moneyCell(contract.rent_amount_snapshot),
+    deposit_amount: moneyCell(contract.deposit_amount_snapshot),
     rent_month: months ? `${months} 개월` : '',
     contract_start: start,
     contract_end: addMonthsEnd(start, months),
