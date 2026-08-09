@@ -474,8 +474,50 @@
           "payout_rate_snapshot": {
             ".validate": "!data.parent().exists() || newData.val() === data.val()"
           },
+          "car_number_snapshot": {
+            ".validate": "!data.exists() || data.val() === '' || newData.val() === data.val()"
+          },
+          "maker_snapshot": {
+            ".validate": "!data.exists() || data.val() === '' || newData.val() === data.val()"
+          },
+          "model_snapshot": {
+            ".validate": "!data.exists() || data.val() === '' || newData.val() === data.val()"
+          },
+          "sub_model_snapshot": {
+            ".validate": "!data.exists() || data.val() === '' || newData.val() === data.val()"
+          },
+          "variant_snapshot": {
+            ".validate": "!data.exists() || data.val() === '' || newData.val() === data.val()"
+          },
+          "trim_name_snapshot": {
+            ".validate": "!data.exists() || data.val() === '' || newData.val() === data.val()"
+          },
+          "trim_extra_snapshot": {
+            ".validate": "!data.exists() || data.val() === '' || newData.val() === data.val()"
+          },
+          "vehicle_name_snapshot": {
+            ".validate": "!data.exists() || data.val() === '' || newData.val() === data.val()"
+          },
+          "year_snapshot": {
+            ".validate": "!data.exists() || data.val() === '' || newData.val() === data.val()"
+          },
+          "fuel_type_snapshot": {
+            ".validate": "!data.exists() || data.val() === '' || newData.val() === data.val()"
+          },
+          "contract_date": {
+            ".validate": "!data.exists() || data.val() === '' || newData.val() === data.val()"
+          },
+          "memo_agent": {
+            ".validate": "newData.val() === data.val() || root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'agent' || root.child('users').child(auth.uid).child('role').val() === 'agent_admin' || root.child('users').child(auth.uid).child('role').val() === 'agent_manager'"
+          },
+          "memo_provider": {
+            ".validate": "newData.val() === data.val() || root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'provider' || root.child('users').child(auth.uid).child('role').val() === 'provider_admin'"
+          },
+          "memo_admin": {
+            ".validate": "newData.val() === data.val() || root.child('users').child(auth.uid).child('role').val() === 'admin'"
+          },
           "contract_status": {
-            ".validate": "newData.val() === '계약요청' || newData.val() === '계약취소' || (newData.val() === '계약완료' && newData.parent().child('agent_delivery_inquiry').val() === 'yes' && (newData.parent().child('provider_delivery_response').val() === '출고 가능' || newData.parent().child('provider_delivery_response').val() === '출고 협의') && newData.parent().child('agent_docs_submitted').val() === 'yes' && newData.parent().child('provider_docs_review').val() === '승인' && newData.parent().child('agent_balance_paid').val() === 'yes' && newData.parent().child('agent_final_paid').val() === 'yes' && newData.parent().child('provider_balance_confirmed').val() === 'yes' && newData.parent().child('provider_agreement_done').val() === 'yes' && newData.parent().child('provider_agreement_sent').val() === 'yes' && newData.parent().child('agent_handover_confirmed').val() === 'yes' && newData.parent().child('provider_release_completed').val() === 'yes')"
+            ".validate": "(newData.val() === '계약요청' && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'agent' || root.child('users').child(auth.uid).child('role').val() === 'agent_admin' || root.child('users').child(auth.uid).child('role').val() === 'agent_manager')) || (newData.val() === '계약취소' && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'agent' || root.child('users').child(auth.uid).child('role').val() === 'agent_admin' || root.child('users').child(auth.uid).child('role').val() === 'agent_manager' || ((root.child('users').child(auth.uid).child('role').val() === 'provider' || root.child('users').child(auth.uid).child('role').val() === 'provider_admin') && (newData.parent().child('provider_delivery_response').val() === '출고 불가' || newData.parent().child('provider_delivery_response').val() === '불가' || newData.parent().child('provider_docs_review').val() === '부결')))) || (newData.val() === '계약완료' && newData.parent().child('agent_delivery_inquiry').val() === 'yes' && (newData.parent().child('provider_delivery_response').val() === '출고 가능' || newData.parent().child('provider_delivery_response').val() === '출고 협의') && newData.parent().child('agent_docs_submitted').val() === 'yes' && newData.parent().child('provider_docs_review').val() === '승인' && newData.parent().child('agent_balance_paid').val() === 'yes' && newData.parent().child('agent_final_paid').val() === 'yes' && newData.parent().child('provider_balance_confirmed').val() === 'yes' && newData.parent().child('provider_agreement_done').val() === 'yes' && newData.parent().child('provider_agreement_sent').val() === 'yes' && newData.parent().child('agent_handover_confirmed').val() === 'yes' && newData.parent().child('provider_release_completed').val() === 'yes')"
           },
           "agent_delivery_inquiry": {
             ".validate": "!data.parent().exists() || newData.val() === data.val() || root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'agent' || root.child('users').child(auth.uid).child('role').val() === 'agent_admin' || root.child('users').child(auth.uid).child('role').val() === 'agent_manager'"
