@@ -1,4 +1,4 @@
-import { BRAND } from '@/lib/brand';
+import { BRAND, BRAND_DESCRIPTION, BRAND_TAGLINE } from '@/lib/brand';
 import './globals.css';
 import type { Metadata, Viewport } from 'next';
 import { cookies, headers } from 'next/headers';
@@ -36,17 +36,17 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL(`https://${BRAND}`),
   title: {
-    default: `${BRAND} — 장기렌터카 영업 통합 ERP`,
+    default: `${BRAND} — ${BRAND_TAGLINE}`,
     template: `%s · ${BRAND}`,
   },
-  description: '여러 렌터카사의 매물을 한 곳에 모아 표준화하고, 견적 산출부터 계약·정산까지 한 화면에서 처리하는 장기렌터카 영업 ERP입니다. 영업 파트너는 영업에만 집중합니다.',
+  description: BRAND_DESCRIPTION,
   applicationName: BRAND,
   openGraph: {
     type: 'website',
     siteName: BRAND,
     url: `https://${BRAND}`,
-    title: `${BRAND} — 장기렌터카 영업 통합 ERP`,
-    description: '여러 렌터카사의 매물을 한 곳에 모아 표준화하고, 견적 산출부터 계약·정산까지 한 화면에서 처리하는 장기렌터카 영업 ERP입니다.',
+    title: `${BRAND} — ${BRAND_TAGLINE}`,
+    description: BRAND_DESCRIPTION,
   },
   manifest: '/manifest.webmanifest',
   appleWebApp: { capable: true, statusBarStyle: 'default', title: BRAND },
@@ -118,7 +118,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               name: BRAND,
               url: `https://${BRAND}`,
               inLanguage: 'ko',
-              description: '여러 렌터카사의 매물을 한 곳에 모아 표준화하고, 견적 산출부터 계약·정산까지 처리하는 장기렌터카 영업 ERP.',
+              description: BRAND_DESCRIPTION,
               publisher: {
                 '@type': 'Organization',
                 name: process.env.NEXT_PUBLIC_OPERATOR_COMPANY || BRAND,
