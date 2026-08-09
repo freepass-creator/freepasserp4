@@ -5,18 +5,13 @@ import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { getRole, actor, type Role } from '@/lib/domain/deal';
-import { sendText, sendFile as sendFileMsg, markRead, listMessages, isMine, otherSideReadAt } from '@/lib/domain/messaging';
+import { sendText, sendFile as sendFileMsg, markRead, listMessages, isMine, otherSideReadAt, isAcceptedChatFile, CHAT_FILE_ACCEPT } from '@/lib/domain/messaging';
 import { Btn, IconBtn, C, R, FW, FS, ICON, Loading, CenterNote, Input, ctrlH, ctrlInputFs, NavBack, Dropzone, SCRIM } from '@/components/ui';
 import { toast } from '@/components/Toaster';
 import { ChatSenderLabel } from '@/components/ChatSenderLabel';
 import { useIsMobile } from '@/lib/use-mobile';
 import { msgClock } from '@/lib/format';
 import { ChevronDown, ChevronLeft, ChevronRight, Download, LoaderCircle, Paperclip, Send, X } from 'lucide-react';
-
-/** 📎 accept와 동일 — image/* · application/pdf */
-function isAcceptedChatFile(file: File): boolean {
-  return file.type.startsWith('image/') || file.type === 'application/pdf';
-}
 
 // 대화창 = 공통 원자(방 하나의 스레드+입력). 전송·안읽음 = messaging SSOT.
 // roomId 없으면 셸만(견적기 상담 패널) — 입력·첨부 규격 동일, 전송은 막음.
@@ -521,7 +516,7 @@ export function ChatThread({
           : '6px 10px calc(6px + var(--fp-dock-safe, env(safe-area-inset-bottom, 0px)))',
         borderTop: `1px solid ${C.line}`,
       }}>
-        <input ref={fileRef} type="file" accept="image/*,application/pdf" multiple onChange={(e) => onPickFile(e.target.files)} style={{ display: 'none' }} />
+        <input ref={fileRef} type="file" accept={CHAT_FILE_ACCEPT} multiple onChange={(e) => onPickFile(e.target.files)} style={{ display: 'none' }} />
         {/* 모바일 = 아이콘 전용(첨부·보내기). 라벨을 달면 입력창 폭이 죽는다 —
             "아이콘 only 화이트리스트"의 채팅 입력행 예외(입력 폭 우선). 웹은 라벨 유지. */}
         {mobile ? (

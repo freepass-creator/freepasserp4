@@ -16,6 +16,12 @@ export function kmDisplay(raw: unknown): string {
   return `${v.toFixed(1)}만`;
 }
 
+/** 첨부 크기 표기 SSOT — `1.2MB` / `340KB`. 0·비수는 빈 문자열(자리를 만들지 않는다). */
+export function fileSizeText(n: number): string {
+  if (!Number.isFinite(n) || n <= 0) return '';
+  return n >= 1048576 ? `${(n / 1048576).toFixed(1)}MB` : `${Math.max(1, Math.round(n / 1024))}KB`;
+}
+
 /**
  * 날짜 표기 SSOT — `YYYY-MM-DD`.
  *

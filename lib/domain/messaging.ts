@@ -14,6 +14,15 @@ import { deleteManagedFile, uploadManagedFile } from '@/lib/firebase/storage-fil
 
 export type MsgChannel = '간단' | '정식';
 
+/**
+ * 대화 첨부로 받는 것 — **입력창 accept 와 판정이 같은 값에서 나온다.**
+ * 예전엔 두 화면(대화창·상담 패널)이 각자 같은 함수를 들고 있어, 한쪽만 늘리면 조용히 갈렸다.
+ */
+export const CHAT_FILE_ACCEPT = 'image/*,application/pdf';
+export function isAcceptedChatFile(file: File): boolean {
+  return file.type.startsWith('image/') || file.type === 'application/pdf';
+}
+
 function unreadField(role: Role): 'unread_for_agent' | 'unread_for_provider' | 'unread_for_admin' {
   if (role === 'provider') return 'unread_for_provider';
   if (role === 'admin') return 'unread_for_admin';

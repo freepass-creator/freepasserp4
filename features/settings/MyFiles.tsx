@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -6,6 +6,7 @@ import {
 } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { listMyFiles, MY_FILE_KIND_LABEL, type MyFile, type MyFileKind } from '@/lib/domain/my-files';
+import { fileSizeText } from '@/lib/format';
 import { FileText, Image as ImageIcon, ExternalLink } from 'lucide-react';
 
 type FilterKey = 'all' | MyFileKind;
@@ -16,10 +17,6 @@ const FILTERS: { key: FilterKey; label: string }[] = [
   { key: 'contract', label: MY_FILE_KIND_LABEL.contract },
 ];
 
-function fmtSize(n: number): string {
-  if (!Number.isFinite(n) || n <= 0) return '';
-  return n >= 1048576 ? `${(n / 1048576).toFixed(1)}MB` : `${Math.max(1, Math.round(n / 1024))}KB`;
-}
 function fmtDate(ts: number): string {
   if (!ts) return '';
   const d = new Date(ts);
@@ -89,7 +86,7 @@ export function MyFiles({ uid }: { uid: string }) {
           <div style={{ maxHeight: mobile ? 260 : 380, overflowY: 'auto' }}>
           {shown.map((f) => {
             const isImg = /^image\//.test(f.type);
-            const meta = [MY_FILE_KIND_LABEL[f.kind], f.ownerLabel, fmtSize(f.size), fmtDate(f.at)]
+            const meta = [MY_FILE_KIND_LABEL[f.kind], f.ownerLabel, fileSizeText(f.size), fmtDate(f.at)]
               .filter(Boolean).join(' · ');
             return (
               <div

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useCallback, useEffect, useRef, useState, type DragEvent } from 'react';
 import { ChatThread } from '@/components/ChatThread';
@@ -7,7 +7,8 @@ import {
 } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { getRole, type ConsultApp } from '@/lib/domain/deal';
-import { listMessages, sendFile } from '@/lib/domain/messaging';
+import { listMessages, sendFile, isAcceptedChatFile, CHAT_FILE_ACCEPT } from '@/lib/domain/messaging';
+import { fileSizeText } from '@/lib/format';
 import { toast } from '@/components/Toaster';
 import { ChevronDown, ChevronUp, Download, FileText, Paperclip } from 'lucide-react';
 
@@ -25,15 +26,8 @@ type ChatAtt = {
 };
 
 /** ChatThread 와 동일 — image/* · application/pdf */
-function isAcceptedChatFile(file: File): boolean {
-  return file.type.startsWith('image/') || file.type === 'application/pdf';
-}
 
 /** ContractDocs sz() 와 동일. */
-function fmtSize(n: number): string {
-  if (!Number.isFinite(n) || n <= 0) return '';
-  return n >= 1048576 ? `${(n / 1048576).toFixed(1)}MB` : `${Math.max(1, Math.round(n / 1024))}KB`;
-}
 
 function attFromMessage(m: { _key?: unknown; image_url?: unknown; file_url?: unknown; file_name?: unknown; file_size?: unknown; file_type?: unknown }): ChatAtt | null {
   const url = String(m.image_url || m.file_url || '').trim();
@@ -195,7 +189,7 @@ export function ConsultPanel({
             ref={fileRef}
             type="file"
             multiple
-            accept="image/*,application/pdf"
+            accept={CHAT_FILE_ACCEPT}
             style={{ display: 'none' }}
             onClick={(e) => e.stopPropagation()}
             onChange={(e) => {
@@ -211,7 +205,7 @@ export function ConsultPanel({
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
               {files.map((f) => {
-                const sizeLabel = fmtSize(f.size);
+                const sizeLabel = fileSizeText(f.size);
                 const isPdf = /pdf/i.test(f.type) || /\.pdf$/i.test(f.name);
                 return (
                   <div
