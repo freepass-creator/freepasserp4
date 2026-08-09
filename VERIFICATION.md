@@ -3562,3 +3562,20 @@ Next 개발 서버와 production build가 같은 `.next`를 사용하면 실행 
 - Sheet merge 139/139, revive 12/12, daily sync 22/22, price 31/31 PASS.
 - 분리 `NEXT_DIST_DIR=.next-codex-recovery` production build가 정적 30페이지와 신규 `/api/inventory/ironrentcar/rollback`을 포함해 PASS했다. Next가 자동 변경한 `tsconfig.json`은 빌드 전 해시 `68b2e974...`로 복구했다.
 - 운영 RTDB·Google Sheet·아이언 홈페이지 write, Rules 게시, Production 배포는 실행하지 않았다. 기존 미추적 `tmp-install.log`도 보존했다.
+
+## 2026-08-09 착한거래 전자계약 운영 릴리스 게이트
+
+결과: **Preview E2E PASS / Production NO-GO**
+
+- 검증 브랜치: `codex/esign-production-gate`, 전자계약 릴리스 커밋 `93a64d5`.
+- Freepass Preview: `https://freepasserp4-5atfmrx7h-freepass-projects.vercel.app` Ready.
+- Chakhandeal Preview: `https://chakhandeal-f2ugpyn17-freepass-projects.vercel.app` Ready.
+- 두 Preview 브랜치에만 새 QA 전용 API 키를 동기화했다. Production 환경변수와 배포는 변경하지 않았다.
+- 비인증 발행·상태·PDF API는 각각 의도한 `401 로그인 필요`를 반환했다. 착한거래 Preview의 빈 발행 요청은 앱 검증 단계의 `400 EXTERNAL_REF_REQUIRED`를 반환해 서버 간 통신도 확인했다.
+- QA 전용 `v4/policies/QA-ESIGN-POLICY-*`와 `v4/contracts/QA-ESIGN-*`를 생성해 실제 발행 → 고객 본인확인/동의/필수서류/서명 → ERP 상태 동기화 → 완료 PDF 다운로드를 검증했다.
+- 실제 결과: Freepass `발행` → Chakhandeal `signed` → Freepass `서명완료`. ERP PDF 2,950,163 bytes, `%PDF-` 헤더 정상, Chakhandeal SHA-256과 ERP 프록시 응답 SHA-256 일치.
+- QA Freepass 계약·정책은 검증 직후 삭제했다. 생성한 Chakhandeal QA 계약 2건은 모두 `purged` 처리해 서명·신분·문서 파일과 개인정보를 제거했다.
+- 정적 게이트: `sim-chakhandeal-esign` 29/29, `sim-chakhandeal-sync` PASS, `sim-esign-inputs` 43/43, `sim-esign-progress` 44/44, 정책→계약 및 초과주행거리 분리 검증 PASS, `tsc --noEmit`, fonts, tokens, production build PASS.
+- Production 차단 사유 1: 전자계약 서식 메타데이터가 아직 `sample-v1`, `STANDARD_IS_SAMPLE=true`다. 법무/대표 승인 없이 실제 고객 계약에 사용하면 안 된다.
+- Production 차단 사유 2: 현재 정책 54/54건이 모두 `product` 단계라 실제 ERP 전자계약 발행 가능 정책이 0건이다. 공급사별 실제 계약조건을 확인해 `contract` 단계 필수값을 채운 정책만 발행 대상으로 열어야 한다.
+- 최종 판정: 기능과 연동 자체는 Preview에서 끝까지 정상이다. 표준계약서 문안 승인과 실제 계약정책 1건 이상 확정 전에는 Production 배포·키 등록 금지.
