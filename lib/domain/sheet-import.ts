@@ -854,6 +854,7 @@ export function importSheetTable(table: string[][], opts: {
     };
     const res = snapToMaster(rec, opts.entries);
     if (res) Object.assign(rec, applySnap(rec, res, { source: 'ingress' }));
+    else rec._needs_master_review = true;
     Object.assign(rec, applyColors(rec));
     // 가격 — 기간별 대여료 컬럼 파싱(+보증금 컬럼 or 공급사 규칙). snap 후 maker 확정 시점.
     const rawMakerPresent = !!String(rawPriceIdentity.maker ?? '').trim();

@@ -1,6 +1,6 @@
 'use client';
 import { type EntityRecord } from '@/lib/intake/entities';
-import { cheapest, priceList } from '@/lib/domain/product';
+import { autoplusMileageUpchargeLabel, isAutoplusProduct, priceList } from '@/lib/domain/product';
 import { won, C, R, NUM, FW, FS } from '@/components/ui';
 
 /**
@@ -16,9 +16,16 @@ export function ProductPriceTable({ p, bare = false }: {
   bare?: boolean;
 }) {
   const prices = priceList(p);
-  const cheap = cheapest(p);
+  const cheapRent = prices.length ? Math.min(...prices.map((price) => price.rent)) : 0;
   const pol = (p._policy || {}) as Record<string, unknown>;
-  const caption = [pol.basic_driver_age, pol.annual_mileage, pol.insurance_included].filter(Boolean).join(' · ');
+  const autoplus = isAutoplusProduct(p);
+  const upcharge = autoplus ? autoplusMileageUpchargeLabel(p) : '';
+  const caption = [
+    pol.basic_driver_age,
+    autoplus ? '연 2만km 기준' : pol.annual_mileage,
+    upcharge && `1만km 추가 ${upcharge}`,
+    pol.insurance_included,
+  ].filter(Boolean).join(' · ');
   return (
     <div style={bare
       ? { background: C.taupeBg, overflow: 'hidden' }
@@ -43,7 +50,7 @@ export function ProductPriceTable({ p, bare = false }: {
           {prices.length === 0 ? (
             <tr><td colSpan={3} style={{ padding: 12, textAlign: 'center', color: C.faint }}>가격 문의</td></tr>
           ) : prices.map((pr, i) => {
-            const isCheap = !!cheap && pr.m === cheap.m;
+            const isCheap = cheapRent > 0 && pr.rent === cheapRent;
             return (
               <tr key={pr.m} style={{ borderTop: i ? `1px solid ${C.line2}` : 'none', background: isCheap ? C.selected : 'transparent' }}>
                 <td style={{ padding: '6px 10px' }}>

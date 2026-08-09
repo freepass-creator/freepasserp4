@@ -15,7 +15,8 @@
  *   링크만 있으면 열리는 외부 문서다. HEADERS 에 원가성 필드를 추가하지 마라.
  */
 import {
-  canonProductType, creditDisplay, excelCondSignals, isExactRealPlate, noDeposit, priceList,
+  autoplusMileageUpchargeLabel, canonProductType, creditDisplay, excelCondSignals, isAutoplusProduct,
+  isExactRealPlate, noDeposit, priceList,
 } from '@/lib/domain/product';
 import { applySnap, snapToMaster } from '@/lib/domain/vehicle-master-match';
 import type { MasterEntry } from '@/lib/domain/vehicle-master-types';
@@ -29,7 +30,7 @@ const N = (v: unknown) => {
 };
 
 /** 앱 엑셀보기와 같은 기간열. 그 밖의 기간은 「기타기간」 한 칸에 모은다. */
-export const MONTHS = [12, 18, 24, 36, 48, 60];
+export const MONTHS = [1, 12, 24, 36, 48, 60];
 
 /**
  * 보험 한 줄 — 담보 순서는 **손님이 묻는 순서**(대인 → 대물 → 자손 → 무보험 → 자차).
@@ -164,20 +165,17 @@ export const HEADERS = [
 export const COL = (name: string) => HEADERS.indexOf(name);
 
 /**
- * 「아반떼 2026」 — 모델과 연식을 한 칸에.
+ * 「아반떼 2026」처럼 모델 칸에 연식을 붙이려 했다가 **되돌렸다**(2026-08-09).
  *
- * 연식이 없거나 이상하면 모델만 둔다. 없는 연식을 지어내 붙이면
- * 영업자가 그 숫자를 믿고 손님에게 말한다.
- * 이미 뒤에 4자리 연도가 붙어 있으면 두 번 붙이지 않는다.
+ * 읽기는 편해지는데 **거를 수가 없다** — 모델 칸이 「아반떼 2026」이 되면 드롭다운에
+ * 「아반떼 2021」·「아반떼 2026」이 따로 서고, 「아반떼만」도 「2026년식만」도 못 고른다.
+ * 필터는 **한 칸에 한 값**일 때만 산다(정책 칸을 여섯 개로 압축했다 편 것과 같은 이유).
+ *
+ * 모델과 연식은 각자 칸에 둔다. 둘을 같이 보고 싶으면 시트에서 두 칸을 나란히 보면 된다.
  */
 export function modelWithYear(model: unknown, year: unknown): string {
-  const name = String(model ?? '').trim();
-  const y = String(year ?? '').replace(/[^\d]/g, '');
-  if (!name || y.length !== 4) return name;
-  const n = Number(y);
-  if (n < 1980 || n > new Date().getFullYear() + 1) return name;
-  if (new RegExp(`(^|\\s)${y}$`).test(name)) return name;
-  return `${name} ${y}`;
+  void year;
+  return String(model ?? '').trim();
 }
 
 /** 원본이 시작하는 열(0-based) — 결과 표와 겹치지 않게 멀찍이 두고 숨긴다. */
@@ -257,8 +255,14 @@ function policyCells(pol: Rec): string[] {
 export function exportRow(p: EntityRecord, providerName: string): (string | number)[] {
   const rec = p as Rec;
   const prices = priceList(p);
+  const autoplus = isAutoplusProduct(p);
   const byMonth = new Map(prices.map((e) => [e.m, e]));
-  const extra = prices.filter((e) => !MONTHS.includes(e.m)).map((e) => `${e.m}개월 ${e.rent}`).join(' / ');
+  const extra = autoplus
+    ? prices.filter((e) => !MONTHS.includes(e.m))
+      .map((e) => `${e.m}개월·연2만km ${e.rent.toLocaleString()}원${e.deposit > 0 ? ` / 보증 ${e.deposit.toLocaleString()}원` : ' / 무보증'}`)
+      .join(' / ')
+    : prices.filter((e) => !MONTHS.includes(e.m)).map((e) => `${e.m}개월 ${e.rent}`).join(' / ');
+  const autoplusUpcharge = autoplus ? autoplusMileageUpchargeLabel(p) : '';
   const cond = excelCondSignals(p).map((s) => s.label).join('·');
   const id = identity(rec);
   return [
@@ -285,6 +289,8 @@ export function exportRow(p: EntityRecord, providerName: string): (string | numb
     id.note,
     ...POLICY_VIEW.map((c) => {
       const q = (rec._policy && typeof rec._policy === 'object' ? rec._policy : {}) as Rec;
+      if (autoplus && c.key === 'annual_mileage') return '연 20,000km';
+      if (autoplus && c.key === 'mileage_upcharge_per_10000km') return autoplusUpcharge;
       return c.from ? c.from(q) : S(q[c.key as string]);
     }),
     ...PRODUCT_VIEW.map((c) => S(rec[c.key])),
@@ -432,6 +438,7 @@ const TABLE_COLUMNS = [
   '상태', '상품', '제조사', '세부모델', '파워트레인', '세부트림', '옵션',
   '외장', '내장', '연식', '주행', '연료',
   ...MONTHS.map((m) => `${m}개월`),
+  '기타기간',
   '공급사', '심사', '조건',
   // 공급사 뒤로는 **조건을 쭉 편다.** 영업이 손님에게 즉답해야 하는 값들이다.
   ...POLICY_VIEW.map((c) => c.label),
@@ -447,6 +454,7 @@ const TABLE_WIDTH: Record<string, number> = {
   차량번호: 88, 상태: 68, 상품: 72, 제조사: 68, 모델: 96, 세부모델: 150, 파워: 92, 트림: 104,
   // 공급사는 법인격을 뗀 별칭이라 「오토플러스」가 최장이다 — 132px 는 그만큼 빈다.
   옵션: 190, 외장: 60, 내장: 60, 연식: 50, 주행: 78, 연료: 66, 공급사: 84, 심사: 62, 조건: 74,
+  기타기간: 260,
   // 합친 보험 두 칸은 담보 다섯이 한 줄에 들어간다 — 잘리면 합친 뜻이 없다.
   보상한도: 250, 면책금: 250, 위약금: 150, 탁송비: 200, 결제방식: 130,
   개인운전범위: 150, 사업자운전범위: 150, 조건설명: 120, 정책명: 120, 정책코드: 100, 자차면책금: 160,

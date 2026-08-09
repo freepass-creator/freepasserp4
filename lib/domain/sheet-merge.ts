@@ -5,6 +5,7 @@
 import { type EntityRecord } from '@/lib/intake/entities';
 import { getStore, type SaveResult } from '@/lib/store';
 import type { GuardedProductPatch } from '@/lib/domain/product-write-guard';
+import { AUTOPLUS_LEGACY_PRICE_KEYS, isAutoplusProduct } from '@/lib/domain/product';
 
 /** 시트 유입이 건드리면 안 되는 시스템/식별 필드 */
 const PROTECTED = new Set([
@@ -62,6 +63,30 @@ export function buildSheetManualFieldList(before: EntityRecord, after: EntityRec
 }
 
 const productStatus = (row: EntityRecord): string => String(row.vehicle_status || '').trim();
+
+/**
+ * 오토플러스 옛 어댑터가 열 위치로 잘못 만든 기간키.
+ *
+ * 당시 실제 `12_3만 · 18_2만 · 24_2만 · 36_2만` 네 열을 `12 · 24 · 36 · 48`로
+ * 저장했다. 현행 시트가 주행거리 키를 보내는 최초 1회에만 이 낡은 투영키를 걷어낸다.
+ * 다른 공급사나 이미 전환된 주행거리 키에는 적용하지 않는다.
+ */
+export function autoplusLegacyPriceMigrationKeys(
+  existing: EntityRecord,
+  incoming: EntityRecord,
+): string[] {
+  if (!isAutoplusProduct(existing) && !isAutoplusProduct(incoming)) return [];
+  const beforePrice = existing.price && typeof existing.price === 'object'
+    ? existing.price as Record<string, unknown>
+    : {};
+  const incomingPrice = incoming.price && typeof incoming.price === 'object'
+    ? incoming.price as Record<string, unknown>
+    : {};
+  if (!Object.keys(incomingPrice).some((key) => /^\d+_.+/.test(key))) return [];
+  return Object.keys(beforePrice)
+    .filter((key) => AUTOPLUS_LEGACY_PRICE_KEYS.has(key) && !(key in incomingPrice))
+    .sort((a, b) => Number(a) - Number(b));
+}
 
 /**
  * sheet_status_owner 도입 전 부재 처리로 만들어진 레거시 자동차단.
@@ -143,7 +168,13 @@ export function softMergeProduct(existing: EntityRecord, incoming: EntityRecord)
       const prevPrice = existing.price && typeof existing.price === 'object'
         ? existing.price as Record<string, unknown>
         : {};
-      out.price = { ...prevPrice, ...(v as Record<string, unknown>) };
+      const preservedPrice = { ...prevPrice };
+      // 오토플러스만: 옛 위치기반 어댑터가 만든 12·24·36·48 오표기를 제거하고,
+      // 현행 시트의 `12_3만` 같은 실제 라벨을 넣는다. 그 밖의 누락키는 기존 원칙대로 보존한다.
+      for (const legacyKey of autoplusLegacyPriceMigrationKeys(existing, incoming)) {
+        delete preservedPrice[legacyKey];
+      }
+      out.price = { ...preservedPrice, ...(v as Record<string, unknown>) };
       continue;
     }
     out[k] = v;

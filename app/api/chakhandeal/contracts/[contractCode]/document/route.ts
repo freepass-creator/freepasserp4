@@ -29,7 +29,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ cont
   if (actor.role !== 'admin') return json({ error: '관리자만 계약서 PDF를 열 수 있습니다.' }, 403);
 
   const contractCode = S((await params).contractCode);
-  if (!contractCode || contractCode.length > 100 || /[.#$\[\]\/]/.test(contractCode)) {
+  if (!contractCode || contractCode.length > 100 || /[.#$\[\]\/\u0000-\u001f\u007f]/.test(contractCode)) {
     return json({ error: '계약번호가 올바르지 않습니다.' }, 400);
   }
 
@@ -59,12 +59,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ cont
       pdf.bytes.byteOffset,
       pdf.bytes.byteOffset + pdf.bytes.byteLength,
     ) as ArrayBuffer;
+    const filename = contractCode.replace(/[^A-Za-z0-9_-]/g, '_') || 'signed-contract';
     return new NextResponse(body, {
       status: 200,
       headers: {
         ...PRIVATE_HEADERS,
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `inline; filename="${contractCode}.pdf"`,
+        'Content-Disposition': `inline; filename="${filename}.pdf"`,
         'Content-Length': String(pdf.bytes.length),
         'X-Contract-Document-SHA256': actualSha256,
         'X-Content-Type-Options': 'nosniff',

@@ -53,7 +53,7 @@ const S = (v: unknown) => String(v ?? '').trim();
 
 async function syncChakhandealRows(rows: EntityRecord[]): Promise<Map<string, EntityRecord>> {
   const targets = rows
-    .filter((row) => S(row.esign_id) && (S(row.sign_status) !== '서명완료' || !S(row.esign_document_sha256)))
+    .filter((row) => S(row.esign_id) && !['서명완료', '만료', '반려'].includes(S(row.sign_status)))
     .map((row) => S(row.contract_code))
     .filter(Boolean);
   const user = getAuthClient()?.currentUser;

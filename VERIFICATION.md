@@ -3596,3 +3596,16 @@ Next 개발 서버와 production build가 같은 `.next`를 사용하면 실행 
 - `scripts/sim-inventory-sheet-export.mts` PASS: 정식 키 우선 중복 제거, 타 공급사/임시번호 보존, 자동매칭/검수 표시, localhost 링크 차단을 검증했다.
 - `npx tsc --noEmit`, `npm run check:fonts`, `npm run check:tokens`, `scripts/sim-vin-flow.mts` 13/13, 변경 파일 대상 `git diff --check` PASS. 전역 검사는 기존 사용자 변경 `CURSOR-STATUS.md:260`의 trailing whitespace 1건만 보고했다.
 - Google Sheet 운영본 write는 사용자의 명시 요청으로 실행했다. 운영 RTDB·공급사 원본 Sheet·Rules·배포 write는 0건이다.
+
+## 2026-08-09 — 오토플러스 연 2만km 기준가격 및 1만km 추가금
+
+결과: **코드·실데이터 dry-run PASS / 계약보호 1대 때문에 운영 반영 보류**
+
+- 프리패스 표준 가격기간은 `1·12·24·36·48·60`을 유지하고, 오토플러스 판매가격은 원본의 `연 2만km` 가격만 사용한다. 표준 밖 18개월 2만km 가격은 기존 `기타기간`에 표시하며 새 가격 필드나 별도 데이터 열은 만들지 않았다.
+- `1만km 추가금`은 같은 차량·같은 기간의 `3만km 월대여료 - 2만km 월대여료`로 계산한다. 전 기간 차액이 같으면 한 금액으로, 다르면 `18개월 +… / 24개월 +…`처럼 기간별로 표시한다. 대응하는 3만km 가격이 없는 기간은 `확인필요`, 원본에 2만km 가격이 없는 12개월은 3만km 가격에서 임의 역산하지 않는다.
+- 옛 위치기반 어댑터가 실제 `12_3만·18_2만·24_2만·36_2만`을 `12·24·36·48`로 잘못 저장한 흔적은 RP023에만 한정해 현행 주행거리키 유입 시 1회 제거한다. 현행 변형키가 이미 있으면 옛 표준키는 읽기 화면에서도 제외해 반영 전 오표시를 막았다.
+- 일반 공급사의 가격기간 누락 hard block은 유지한다. 오토플러스 1회 전환도 충돌 workflow 자체는 남겨 계약락·진행계약 차량을 자동 변경하지 않는다.
+- 실제 공급사 원본 read-only 감사에서 RP023 원본 98행, 연 2만km 기준 반영 76대, 출고불가 제외 14대, 연 2만km 가격없음 8대, 무효·중복 0을 확인했다. 반영 76대 중 64대는 2만/3만 가격쌍이 있고, 그중 41대는 기간별 추가금이 달라 하나의 공통 추가금으로 합치면 안 된다.
+- 전체 공급사 read-only 계획은 원본 416행·반영 379대까지 PASS했으나, 가격키 전환 대상 `195주5304` 1대는 계약보호로 계속 차단됐다. 나머지 오토플러스 레거시 전환 100건은 자동 통과 가능했다.
+- `scripts/sim-inventory-sheet-export.mts` PASS, `scripts/sim-sheet-merge.mts` 158/158 PASS, `scripts/sim-sheet-price.mts` 35/35 PASS, `npx tsc --noEmit`, `npm run check:fonts`, 변경 파일 `git diff --check` PASS.
+- 운영 RTDB·Google Sheet·공급사 원본 Sheet·Rules·배포 write는 실행하지 않았다. `195주5304`의 계약 보호를 우회하지 않고 운영 반영을 보류했다.

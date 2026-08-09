@@ -1,5 +1,5 @@
 ﻿import type { EntityRecord } from '@/lib/intake/entities';
-import { sheetProviderOf } from '@/lib/domain/sheet-merge';
+import { autoplusLegacyPriceMigrationKeys, sheetProviderOf } from '@/lib/domain/sheet-merge';
 import type { SheetSyncExistingConflicts } from '@/lib/domain/sheet-sync-all';
 import { priceList } from '@/lib/domain/product';
 import { isOpenContractRow } from '@/lib/domain/contract';
@@ -78,6 +78,24 @@ function priceImpact(before: EntityRecord | undefined, incoming: EntityRecord | 
   periods: string;
 } {
   if (!before || !incoming) return { impact: '원본 연결 확인필요', periods: '' };
+  const beforeRaw = before.price && typeof before.price === 'object'
+    ? before.price as Record<string, unknown>
+    : {};
+  const incomingRaw = incoming.price && typeof incoming.price === 'object'
+    ? incoming.price as Record<string, unknown>
+    : {};
+  const allMissingKeys = Object.keys(beforeRaw).filter((key) => !(key in incomingRaw)).sort();
+  const autoplusLegacyKeys = autoplusLegacyPriceMigrationKeys(before, incoming);
+  // 사용자가 승인한 오토플러스 1회성 스키마 전환이다. 일반 가격변경 승인으로 다시 묻지는 않되,
+  // 충돌 행은 남겨 계약락·진행계약 보호가 기존 workflow를 그대로 타게 한다.
+  if (allMissingKeys.length > 0
+    && allMissingKeys.length === autoplusLegacyKeys.length
+    && allMissingKeys.every((key) => autoplusLegacyKeys.includes(key))) {
+    return {
+      impact: '오토플러스 레거시 기간키를 현행 주행거리 가격으로 전환',
+      periods: autoplusLegacyKeys.map((key) => `${key}개월`).join(', '),
+    };
+  }
   const beforePrices = new Map(priceList(before).map((entry) => [entry.m, entry]));
   const incomingPrices = new Map(priceList(incoming).map((entry) => [entry.m, entry]));
   const removed = [...beforePrices.keys()].filter((month) => !incomingPrices.has(month));

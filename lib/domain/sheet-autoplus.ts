@@ -4,7 +4,7 @@
  * commit/merge/absent 로직은 건드리지 않음 — 유입 표·제품 배열만 만든다.
  */
 import { type EntityRecord } from '@/lib/intake/entities';
-import { isExactRealPlate } from '@/lib/domain/product';
+import { hasAutoplusTwoKmPrice, isExactRealPlate } from '@/lib/domain/product';
 import {
   assertDistinctSheetTable,
   importSheetTable,
@@ -200,8 +200,14 @@ export async function importAutoplusMerged(opts: {
       photoByPlate: { ...(mainPhotos || {}), ...(promoPhotos || {}) },
     });
 
-  const { products, promoOnlyN } = mergeAutoplusProducts(main.products, promo.products);
-  const promoDuplicates = promo.products.length - promoOnlyN;
+  const merged = mergeAutoplusProducts(main.products, promo.products);
+  // 판매가격은 연 2만km 기준 하나만 쓴다. 3만km 가격만 있는 행을 2만 기준으로
+  // 역산하면 기간별 상향 차액이 서로 달라 금액을 지어내게 되므로 가격누락 검수로 돌린다.
+  const missingTwoKmBase = merged.products.filter((product) => !hasAutoplusTwoKmPrice(product));
+  const products = merged.products.filter(hasAutoplusTwoKmPrice);
+  const mainN = main.products.filter(hasAutoplusTwoKmPrice).length;
+  const promoOnlyN = products.length - mainN;
+  const promoDuplicates = promo.products.length - merged.promoOnlyN;
   const mainCars = new Set(main.products.map((p) => String(p.car_number || '').replace(/\s/g, '')));
   const promoDuplicateSamples = promo.products
     .map((p) => String(p.car_number || '').replace(/\s/g, ''))
@@ -218,16 +224,21 @@ export async function importAutoplusMerged(opts: {
     duplicateCount: main.duplicateCount + promo.duplicateCount + promoDuplicates,
     blockingDuplicateCount: main.duplicateCount + promo.duplicateCount,
     invalidCount: main.invalidCount + promo.invalidCount,
-    issueSamples: [...main.issueSamples, ...promo.issueSamples, ...promoDuplicateSamples].slice(0, 12),
+    issueSamples: [
+      ...main.issueSamples,
+      ...promo.issueSamples,
+      ...promoDuplicateSamples,
+      ...missingTwoKmBase.slice(0, 6).map((product) => `연2만km 가격없음 · ${String(product.car_number || product.product_code || '?')}`),
+    ].slice(0, 12),
     excludedCount: main.excludedCount + promo.excludedCount,
-    noPriceCount: main.noPriceCount + promo.noPriceCount,
+    noPriceCount: main.noPriceCount + promo.noPriceCount + missingTwoKmBase.length,
     snap: mergeSnap(main.snap, {
       high: promo.snap.high,
       medium: promo.snap.medium,
       low: promo.snap.low,
       none: promo.snap.none,
     }),
-    mainN: main.products.length,
+    mainN,
     promoOnlyN,
     stock: countAutoplusStock(products),
     byStatus,

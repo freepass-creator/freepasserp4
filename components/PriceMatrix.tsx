@@ -15,9 +15,17 @@ const fmt = (n: number) => (n ? n.toLocaleString() : '');
 type Cell = { rent?: number; deposit?: number; fee?: number };
 
 function orderKeys(keys: string[]): string[] {
-  const nums = keys.map(Number).filter(isOperatedPeriod);
-  const std = STD_PERIODS.filter((m) => nums.includes(m)).map(String);
-  const extra = nums.filter((m) => !isStandardPeriod(m)).sort((a, b) => a - b).map(String);
+  const valid = [...new Set(keys)].filter((key) => {
+    const [months] = key.split('_');
+    return /^\d+(?:_.+)?$/.test(key) && isOperatedPeriod(Number(months));
+  });
+  const std = STD_PERIODS.map(String).filter((key) => valid.includes(key));
+  // 주행거리 변형은 개월이 표준이어도 «기타기간»이다. 원본 키를 버리지 않고 표준 뒤에 모은다.
+  const extra = valid.filter((key) => !std.includes(key)).sort((a, b) => {
+    const [am, ak = ''] = a.split('_');
+    const [bm, bk = ''] = b.split('_');
+    return Number(am) - Number(bm) || ak.localeCompare(bk, 'ko', { numeric: true });
+  });
   return [...std, ...extra];
 }
 
@@ -29,7 +37,7 @@ export function PriceMatrix({ price, onChange, readOnly = false }: { price: unkn
 
   const editableKeys = orderKeys(Array.from(new Set([
     ...STD,
-    ...Object.keys(p).filter((k) => !k.includes('_') && isOperatedPeriod(Number(k))),
+    ...Object.keys(p),
   ])));
   // 조회 화면은 실제 등록된 기간만 보여 B2B 스캔 밀도를 지킨다. 편집 화면은 표준 기간 전체를 유지한다.
   const keys = readOnly
@@ -115,7 +123,8 @@ export function PriceMatrix({ price, onChange, readOnly = false }: { price: unkn
             </tr>
           ) : null}
           {keys.map((k, i) => {
-            const custom = !isStandardPeriod(Number(k));
+            const [monthKey, mileage = ''] = k.split('_');
+            const custom = Boolean(mileage) || !isStandardPeriod(Number(monthKey));
             const rentN = p[k]?.rent || 0;
             const depN = p[k]?.deposit || 0;
             const isCheap = cheapK === k;
@@ -135,7 +144,8 @@ export function PriceMatrix({ price, onChange, readOnly = false }: { price: unkn
                       fontWeight: FW.head, color: C.ink, fontFamily: NUM, fontVariantNumeric: 'tabular-nums',
                       whiteSpace: 'nowrap', minWidth: 0, overflow: 'hidden',
                     }}>
-                      {k}<span style={{ fontWeight: FW.strong, color: C.mute, fontSize: mobile ? FS.sub : FS.cap }}>개월</span>
+                      {monthKey}<span style={{ fontWeight: FW.strong, color: C.mute, fontSize: mobile ? FS.sub : FS.cap }}>개월</span>
+                      {mileage && <span style={{ marginLeft: 4, fontWeight: FW.label, color: C.mute, fontSize: FS.micro }}>{mileage}km</span>}
                     </span>
                     {isCheap && (
                       <span style={{

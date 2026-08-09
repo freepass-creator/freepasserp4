@@ -51,10 +51,7 @@ const isPending = (r: Rec): boolean => Boolean(r.is_pending_plate) || /^100신\d
 const plateOf = (r: Rec): string => {
   if (isPending(r)) return '';
   const c = S(r.car_number).replace(/\s/g, '');
-  if (c && PLATE.test(c)) return c;
-  const m = S(r._key).match(/([0-9]{2,3}[가-힣][0-9]{4})$/);
-  if (!m) return '';
-  return /^100신/.test(m[1]) ? '' : m[1];
+  return c && PLATE.test(c) ? c : '';
 };
 const priceCount = (r: Rec) => (r.price && typeof r.price === 'object' ? Object.keys(r.price).length : 0);
 const dead = (r: Rec) => r._deleted === true || !!r.deletedAt || S(r.status) === 'deleted';
@@ -92,7 +89,10 @@ async function main() {
     .filter((p) => S(p.sheet_url) && !dead(p))
     .map((p) => S(p.partner_code) || S(p._key)));
 
-  const live = Object.values(products).filter((r) => !dead(r) && !r._merged_into);
+  // `_merged_into`만 남고 삭제 표식은 시트 재동기화가 해제한 과거 오접기 레코드도
+  // 실제 화면·시트 검증에서는 활성이다. 여기서 제외하면 같은 차 두 벌이 영구 고착된다.
+  // 삭제 여부만 활성 기준으로 삼고, stale merge 표식은 아래에서 생존자를 정할 때 바로잡는다.
+  const live = Object.values(products).filter((r) => !dead(r));
 
   type Group = { label: string; keep: Rec; fold: Rec[]; kind: '공급사 내' | '공급사 간' };
   const plan: Group[] = [];
@@ -211,18 +211,31 @@ async function main() {
   for (const g of plan) for (const f of g.fold) {
     backup[S(f._key)] = { v4: (p4.val() || {})[S(f._key)] ?? null };
   }
-  const file = `tmp/backup/fold-twins-${new Date().toISOString().slice(0, 10)}.json`;
+  // 생존자의 stale `_merged_into`도 지우므로 접히는 쪽뿐 아니라 실제로 만지는 양쪽을 백업한다.
+  for (const g of plan) {
+    const k = S(g.keep._key);
+    backup[k] = { v4: (p4.val() || {})[k] ?? null };
+  }
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const file = `tmp/backup/fold-twins-${stamp}.json`;
   writeFileSync(file, JSON.stringify(backup, null, 2), 'utf8');
   console.log(`  원본 백업 ${file}`);
 
   const now = new Date().toISOString();
   const patch: Record<string, unknown> = { ...carry };
-  for (const g of plan) for (const f of g.fold) {
-    const k = S(f._key);
-    patch[`products/${k}/_deleted`] = true;
-    patch[`products/${k}/_merged_into`] = S(g.keep._key);
-    patch[`products/${k}/_merged_reason`] = `동기화 중복 정리 — ${g.label}`;
-    patch[`products/${k}/updatedAt`] = now;
+  for (const g of plan) {
+    const keepKey = S(g.keep._key);
+    // 과거에 정식 키가 EXT 쪽으로 잘못 접힌 흔적을 제거해 이번 생존 방향과 일치시킨다.
+    patch[`products/${keepKey}/_merged_into`] = null;
+    patch[`products/${keepKey}/_merged_reason`] = null;
+    patch[`products/${keepKey}/updatedAt`] = now;
+    for (const f of g.fold) {
+      const k = S(f._key);
+      patch[`products/${k}/_deleted`] = true;
+      patch[`products/${k}/_merged_into`] = keepKey;
+      patch[`products/${k}/_merged_reason`] = `동기화 중복 정리 — ${g.label}`;
+      patch[`products/${k}/updatedAt`] = now;
+    }
   }
   await db.ref('v4').update(patch);
   const folded = plan.reduce((a, g) => a + g.fold.length, 0);

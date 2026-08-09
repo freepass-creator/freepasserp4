@@ -31,7 +31,7 @@ export async function POST(request: Request) {
   if (!contractCodes.length || contractCodes.length > 50) {
     return json({ error: '계약번호는 한 번에 1~50개까지 조회할 수 있습니다.' }, 400);
   }
-  if (contractCodes.some((code) => code.length > 100 || /[.#$\[\]\/]/.test(code))) {
+  if (contractCodes.some((code) => code.length > 100 || /[.#$\[\]\/\u0000-\u001f\u007f]/.test(code))) {
     return json({ error: '계약번호가 올바르지 않습니다.' }, 400);
   }
 

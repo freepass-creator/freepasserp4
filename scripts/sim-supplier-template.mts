@@ -125,5 +125,17 @@ console.log('\n══ 공급사 표준양식 — 파서 적합성 ══\n');
   check('정책행이 헤더로 오인되지 않는다', prepared[0]?.[0] === '차량번호', `헤더 첫칸=${prepared[0]?.[0]}`);
 }
 
+// ⑧ 마스터 후보 자체가 없는 차량도 저장 직전이 아니라 미리보기부터 검수로 보여야 한다.
+{
+  const row = dataRow('999가9999', '출고가능', '900000');
+  row[TEMPLATE_COLUMNS.findIndex((c) => c.name === '제조사')] = '';
+  row[TEMPLATE_COLUMNS.findIndex((c) => c.name === '차명(트림)')] = '';
+  const t = [...base.slice(0, ROW_HEADER + 1), row];
+  const r = run(adapter.prepareTable(t.map((x) => [...x])));
+  const p = r.products[0] as any;
+  check('마스터 미매칭도 반영 전 검수 표시', r.snap.none === 1 && p?._needs_master_review === true,
+    `none=${r.snap.none} · 검수필요=${p?._needs_master_review}`);
+}
+
 console.log(`\n── 통과 ${pass} · 실패 ${fail} ──\n`);
 process.exit(fail ? 1 : 0);

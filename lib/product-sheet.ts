@@ -8,8 +8,21 @@
  * 환경변수로 덮을 수 있게 둔 이유: 스테이징에서 운영 시트를 덮어쓰지 않기 위해서다.
  * (NEXT_PUBLIC_ 접두사라 화면 번들에 들어간다 — 공개 링크라 비밀이 아니다)
  */
+/**
+ * ★쓰는 곳과 여는 곳이 **같아야 한다**(실측 2026-08-09).
+ *
+ * 여는 쪽(상품찾기 버튼)은 이 상수를, 쓰는 쪽(관리자 「영업자 시트 반영」)은
+ * `INVENTORY_EXPORT_SHEET_ID` 환경변수를 보고 있었다. 둘이 달라서
+ * **반영을 눌러도 영업자가 보는 시트는 안 바뀌었다** — 영업자는 A 를 보는데 반영은 B 로 갔다.
+ * 그 사이 A 에는 옛 열(매칭상태·매칭메모)이 남은 탭이 그대로 떠 있었다.
+ *
+ * 그래서 기본값을 **실제로 쓰이는 시트**로 맞춘다. 환경변수가 있으면 그게 이긴다 —
+ * 배포마다 다른 시트를 쓸 수 있어야 하기 때문이고, 그때도 두 곳이 같은 값을 봐야 한다.
+ */
 export const PRODUCT_SHEET_ID = String(
-  process.env.NEXT_PUBLIC_PRODUCT_SHEET_ID || '1G0tPyFI4JIfc-Ijd5qJNbgPGzcs2Ek5hQJwDHuml8VU',
+  process.env.NEXT_PUBLIC_PRODUCT_SHEET_ID
+  || process.env.INVENTORY_EXPORT_SHEET_ID
+  || '1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs',
 ).trim();
 
 /** 사람이 여는 주소. 시트에서 엑셀 다운로드·필터·공유가 전부 된다. */

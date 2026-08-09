@@ -17,6 +17,8 @@ import { toV4Record } from '@/lib/firebase/rtdb-records';
 import type { MasterEntry } from '@/lib/domain/vehicle-master-types';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { firebaseAdminDatabase } from '@/lib/server/firebase-admin';
+// 공급사 재고를 받은 뒤 영업자 시트까지 같은 함수로 이어 올린다(관리자 버튼과 공용).
+import { publishInventorySheet } from '@/lib/server/inventory-sheet-publish';
 import type { SheetConflictResolution } from '@/lib/domain/sheet-conflict-resolution';
 
 const LOCK_PATH = 'v4/system_locks/sheet_daily_sync';
@@ -347,8 +349,26 @@ export async function runDailySheetSync(opts: { dryRun?: boolean } = {}): Promis
     if (!remaining.ok || remaining.creates.length || remaining.patches.length) {
       throw new Error(`사후검증 실패 — ${remaining.blockReason || `신규 ${remaining.creates.length}·수정 ${remaining.patches.length}`}`);
     }
-    await writeRun(db, runId, 'completed', { counts: freshPlan.counts, notes: freshPlan.notes });
-    return { ok: true, status: 'completed', runId, counts: freshPlan.counts, notes: freshPlan.notes };
+    /**
+     * ★재고를 받았으면 **영업자 시트도 같이 맞춘다**(2026-08-09 사장님 지시).
+     *
+     * 예전에는 「공급사 시트 → ERP」만 자동이고 「ERP → 영업자 시트」는 사람이 버튼을
+     * 누를 때만이었다. 그래서 밤에 재고가 들어와도 아침에 영업자가 보는 표는 어제 것이었고,
+     * 없는 차를 팔거나 새로 들어온 차를 못 팔았다.
+     *
+     * ⚠ 여기서 실패해도 **동기화 자체는 성공으로 둔다.** 재고는 이미 안전하게 저장됐고
+     *   시트는 다시 올리면 되는 «표시»다. 시트 때문에 재고 반영을 되돌리면 손해가 크다.
+     *   대신 무슨 일이 있었는지 실행기록에 남긴다 — 조용히 실패하면 아무도 모른다.
+     */
+    const notes = [...(freshPlan.notes || [])];
+    try {
+      const sales = await publishInventorySheet(db, { origin: String(process.env.INVENTORY_EXPORT_ORIGIN || '') });
+      notes.push(`영업자 시트 반영 ${sales.count}대 → 「${sales.tab}」`);
+    } catch (error) {
+      notes.push(`영업자 시트 반영 실패 — ${String((error as Error)?.message || error)}`);
+    }
+    await writeRun(db, runId, 'completed', { counts: freshPlan.counts, notes });
+    return { ok: true, status: 'completed', runId, counts: freshPlan.counts, notes };
   } catch (error) {
     const message = String((error as Error)?.message || error);
     await writeRun(db, runId, 'failed', { error: message }).catch(() => {});

@@ -26,6 +26,9 @@ check('ERP PDF 프록시', signed.patch.signed_pdf_url, '/api/chakhandeal/contra
 check('PDF 없는 signed는 완료 아님', projectChakhandealStatus({
   ...base, status: 'signed', signedAt: now, documentReady: false,
 }, 'CT-001', now).patch.sign_status, '발행');
+check('PDF 해시 없는 signed는 완료 아님', projectChakhandealStatus({
+  ...base, status: 'signed', signedAt: now, documentReady: true, documentBytes: 1234,
+}, 'CT-001', now).patch.sign_status, '발행');
 check('만료 상태', projectChakhandealStatus({ ...base, expiresAt: now - 1 }, 'CT-001', now).patch.sign_status, '만료');
 
 let mismatch = false;

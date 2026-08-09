@@ -14,6 +14,7 @@ Claude는 읽기만 하고 수정하지 않는다. (지시서는 `CURSOR-TASKS.m
 | FIELD-GUARD | _(미커밋)_ | 6 | 0 | 축별 금지값 SSOT(`vehicle-field-guards`) · trim/variant/sub · fill·clean·resolve·snap 연결 |
 | MASTER-DONE-7Y | _(미커밋)_ | — | 0 | 재고7년 완료판정: scrub367·drive74·스타리아모던 · 정상빈100% · 못채움=허용버킷 |
 | MASTER-DONE-10Y | `f034f1f` | 5 | 0 | PLAN 10년(2016~) 확장: drive+28 · 정상빈48/72 · classified100% · 클로드검증인수 |
+| EV-KWH-PT | _(미커밋)_ | 1 | 0 | 배터리 kWh → 파워트레인 표기(`masterVariantOptionLabel`) · 배기량/연료 칸 금지 |
 | T1 | `a2c2e14` | 3 | 0 | vstatus 죽은 배선 제거 (product-filters·page·sim-agent) |
 | T2 | `b8e9bd7` | 8 | 0 | canonProductType 비교·렌더·export 경로 적용 |
 | T3 | `6e734b8` | 5 | 0 | shortAt→msgClock 통합, ContractSend·미사용 export 삭제 |
@@ -416,7 +417,7 @@ sim-trim 39/39 · atom 45/0 · tsc · fonts 0
 
 ## 현재 상태
 
-`완료` — **MASTER-DONE-10Y** (`f034f1f`). 푸시 전. **클로드 검증 요청**은 STATUS 하단 참고.
+`완료` — **MASTER-DONE-10Y** (`f034f1f`). 푸시 전. **클로드 검증 요청**은 STATUS 하단 참고. EV: `battery_kwh`→파워트레인 표기 연결(미커밋).
 
 ### 클로드 검증 요청 (2026-08-09 · Cursor)
 

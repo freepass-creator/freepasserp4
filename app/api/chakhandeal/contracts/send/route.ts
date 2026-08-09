@@ -33,7 +33,7 @@ export async function POST(request: Request) {
     contractCode = codeText(body.contractCode);
     templateId = codeText(body.templateId);
   } catch { return json({ error: '요청 형식이 올바르지 않습니다.' }, 400); }
-  if (!contractCode || contractCode.length > 100 || /[.#$\[\]\/]/.test(contractCode)) {
+  if (!contractCode || contractCode.length > 100 || /[.#$\[\]\/\u0000-\u001f\u007f]/.test(contractCode)) {
     return json({ error: '계약번호가 올바르지 않습니다.' }, 400);
   }
   // 양식은 **등록된 것만** 통과시킨다 — 임의 문자열을 그대로 착한거래에 넘기면

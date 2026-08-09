@@ -84,6 +84,43 @@ const publicLinked = buildInventorySheet(
 assert.match(String(publicLinked.values[1][2]), /^=HYPERLINK\("https:\/\/freepasserp\.com\/q\//, '공개 주소는 카탈로그 링크로 연결해야 한다');
 assert.match(String(publicLinked.values[1][2]), /IMAGE\(/, '카탈로그 링크 안의 차량 사진을 유지해야 한다');
 
+const autoplus = {
+  ...automatic,
+  _key: 'RP023_12가3456',
+  product_code: 'RP023_12가3456',
+  provider_company_code: 'RP023',
+  price: {
+    // 과거 위치기반 어댑터가 남긴 오표기 — 현행 주행거리키가 있으면 표시에서 제외해야 한다.
+    '12': { rent: 111_000, deposit: 1_000_000 },
+    '24': { rent: 222_000, deposit: 1_000_000 },
+    '36': { rent: 333_000, deposit: 1_000_000 },
+    '48': { rent: 444_000, deposit: 1_000_000 },
+    '12_3만': { rent: 900_000, deposit: 2_000_000 },
+    '18_2만': { rent: 820_000, deposit: 2_000_000 },
+    '18_3만': { rent: 850_000, deposit: 2_000_000 },
+    '24_2만': { rent: 760_000, deposit: 3_000_000 },
+    '24_3만': { rent: 790_000, deposit: 3_000_000 },
+    '36_2만': { rent: 700_000, deposit: 3_000_000 },
+    '36_3만': { rent: 750_000, deposit: 3_000_000 },
+  },
+};
+const autoplusRow = exportRow(autoplus, '오토플러스');
+assert.equal(HEADERS.includes('1개월'), true, '프리패스 표준 1개월 열을 유지해야 한다');
+assert.equal(HEADERS.includes('18개월'), false, '18개월은 표준 열이 아니라 기타기간이어야 한다');
+assert.equal(autoplusRow[HEADERS.indexOf('12개월')], '', '3만km 가격만 있는 12개월을 2만km 기준가로 지어내면 안 된다');
+assert.equal(autoplusRow[HEADERS.indexOf('24개월')], 760_000, '오토플러스 표준기간은 2만km 기준가만 표시해야 한다');
+assert.equal(autoplusRow[HEADERS.indexOf('36개월')], 700_000, '36개월도 2만km 기준가만 표시해야 한다');
+assert.match(String(autoplusRow[HEADERS.indexOf('기타기간')]), /18개월·연2만km 820,000원/, '비표준 18개월도 2만km 기준가만 기타기간에 표시해야 한다');
+assert.doesNotMatch(String(autoplusRow[HEADERS.indexOf('기타기간')]), /3만km|850,000|790,000|750,000/, '3만km 가격을 판매 기준가로 노출하면 안 된다');
+assert.equal(autoplusRow[HEADERS.indexOf('약정주행')], '연 20,000km', '오토플러스 약정 기준은 연 2만km로 표시해야 한다');
+assert.equal(
+  autoplusRow[HEADERS.indexOf('1만km추가')],
+  '18개월 +30,000원 / 24개월 +30,000원 / 36개월 +50,000원',
+  '1만km 추가 월요금은 같은 기간의 3만-2만 차액을 그대로 표시해야 한다',
+);
+const autoplusBuilt = buildInventorySheet(1, [autoplus], () => '오토플러스');
+assert.ok(autoplusBuilt.values[0].includes('기타기간'), '영업자용 보이는 표에도 기타기간 열이 있어야 한다');
+
 // 검수 표식이 붙은 매물도 시트에는 «그 사실»이 안 실린다 — 차 정보는 그대로 나간다.
 const review = {
   ...automatic,

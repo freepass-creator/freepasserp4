@@ -5,6 +5,7 @@
 import { autoMapHeaders, importSheetTable, parsePriceColumns, rentCell } from '../lib/domain/sheet-import';
 import { mergeAutoplusHeaderRows } from '../lib/domain/sheet-adapters';
 import { prepareAutoplusPromoTable } from '../lib/domain/sheet-autoplus';
+import { autoplusMileageUpchargeLabel, autoplusMileageUpcharges, hasAutoplusTwoKmPrice, priceList } from '../lib/domain/product';
 import type { MasterEntry } from '../lib/domain/vehicle-master-types';
 
 type PriceMap = Record<string, { rent: number; deposit: number }> | null;
@@ -140,6 +141,32 @@ check('AUTO-PRICE 차량가격 col9 무시 · 기간+약정주행 키로 수집'
   && autoPrice?.['18_2만']?.rent === 620_000
   && autoPrice?.['12_3만']?.deposit === 1_300_000,
   autoPrice);
+const autoplusPolicySample = {
+  provider_company_code: 'RP023',
+  price: {
+    '12_3만': { rent: 650_000, deposit: 1_300_000 },
+    '18_2만': { rent: 620_000, deposit: 1_240_000 },
+    '18_3만': { rent: 660_000, deposit: 1_240_000 },
+    '24_2만': { rent: 600_000, deposit: 1_200_000 },
+    '24_3만': { rent: 630_000, deposit: 1_200_000 },
+    '36_2만': { rent: 550_000, deposit: 1_100_000 },
+    '36_3만': { rent: 580_000, deposit: 1_100_000 },
+  },
+};
+check('AUTO-BASE 판매가격은 2만km 기준만 쓰고 12개월 3만가는 역산하지 않음',
+  hasAutoplusTwoKmPrice(autoplusPolicySample)
+  && priceList(autoplusPolicySample).map((entry) => `${entry.m}:${entry.rent}`).join('|') === '18:620000|24:600000|36:550000');
+check('AUTO-UPCHARGE 1만km 추가는 기간별 3만-2만 월대여료 차액',
+  autoplusMileageUpcharges(autoplusPolicySample).map((entry) => `${entry.m}:${entry.amount}`).join('|') === '18:40000|24:30000|36:30000');
+check('AUTO-UPCHARGE-MISSING 3만km 가격이 없는 기간은 추가금 확인필요로 표시',
+  autoplusMileageUpchargeLabel({
+    provider_company_code: 'RP023',
+    price: {
+      '18_2만': { rent: 620_000, deposit: 1_240_000 },
+      '18_3만': { rent: 660_000, deposit: 1_240_000 },
+      '24_2만': { rent: 600_000, deposit: 1_200_000 },
+    },
+  }) === '18개월 +40,000원 / 24개월 확인필요');
 
 const promoRow = Array.from({ length: 15 }, () => '');
 promoRow[1] = '12가3456'; promoRow[11] = '650000';

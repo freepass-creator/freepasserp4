@@ -8,7 +8,7 @@ import {
   softMergeProduct, planProductUpsert, changedPatch,
   stripSheetPrivatePatchFields,
   planAbsentBlocked, sheetReconcileRevision, sheetReconcileStateRevision, shouldReconcileAbsent,
-  resolveSheetReviveTarget,
+  resolveSheetReviveTarget, autoplusLegacyPriceMigrationKeys,
 } from '../lib/domain/sheet-merge';
 import { orderSheetGids, resolveAdapter, partnerSheetOpts } from '../lib/domain/sheet-adapters';
 import {
@@ -945,6 +945,67 @@ const legacyPriceSchemasBlocked = ['general', 'autoplus'].every((sourceSchema) =
 });
 check('레거시 general·autoplus source 표식도 기존 가격기간 누락을 hard block',
   legacyPriceSchemasBlocked);
+
+const autoplusIncoming: EntityRecord = {
+  ...conflictProduct,
+  _key: 'RP023_1가1111', product_code: 'RP023_1가1111', provider_company_code: 'RP023',
+  price: {
+    '12_3만': { rent: 900000, deposit: 2000000 },
+    '18_2만': { rent: 820000, deposit: 2000000 },
+    '24_2만': { rent: 760000, deposit: 3000000 },
+    '36_2만': { rent: 700000, deposit: 3000000 },
+  },
+};
+const autoplusExisting: EntityRecord = {
+  ...autoplusIncoming,
+  price: {
+    '12': { rent: 900000, deposit: 2000000 },
+    '24': { rent: 820000, deposit: 2000000 },
+    '36': { rent: 760000, deposit: 3000000 },
+    '48': { rent: 700000, deposit: 3000000 },
+  },
+};
+const autoplusFetch = {
+  ...conflictFetch,
+  products: [autoplusIncoming],
+  lines: [{ ...conflictFetch.lines[0], code: 'RP023', products: [autoplusIncoming] }],
+};
+const autoplusConflict = findSheetSyncExistingConflicts(autoplusFetch, [autoplusExisting], []);
+const autoplusRaw = autoplusConflict.missingPricePeriods[0];
+const autoplusPriceChanges = buildPriceChangesValue({
+  conflicts: autoplusConflict,
+  existing: [autoplusExisting],
+  deleted: [],
+  incoming: [autoplusIncoming],
+  contracts: [],
+  providerCodes: ['RP023'],
+});
+const autoplusMerged = softMergeProduct(autoplusExisting, autoplusIncoming);
+check('오토플러스 옛 12·24·36·48 위치기반 가격키만 1회성 전환 대상으로 식별',
+  autoplusLegacyPriceMigrationKeys(autoplusExisting, autoplusIncoming).join(',') === '12,24,36,48');
+check('오토플러스 가격키 전환은 일반 수기승인 없이 통과하되 충돌 workflow는 유지',
+  autoplusConflict.missingPricePeriods.length === 1
+  && !autoplusPriceChanges(autoplusRaw)
+  && applySheetConflictResolutions({
+    conflicts: autoplusConflict,
+    resolutions: [],
+    existing: [autoplusExisting],
+    contracts: [],
+    priceChangesValue: autoplusPriceChanges,
+  }).conflicts.missingPricePeriods.length === 0);
+check('오토플러스 전환 merge는 낡은 표준키를 지우고 현행 주행거리키를 그대로 보존',
+  !('12' in (autoplusMerged.price as object))
+  && !('48' in (autoplusMerged.price as object))
+  && '12_3만' in (autoplusMerged.price as object)
+  && '24_2만' in (autoplusMerged.price as object));
+check('오토플러스라도 계약락 가격키 전환은 자동 통과하지 않음',
+  applySheetConflictResolutions({
+    conflicts: autoplusConflict,
+    resolutions: [],
+    existing: [{ ...autoplusExisting, locked_by_contract: 'CT-AUTOPLUS' }],
+    contracts: [],
+    priceChangesValue: autoplusPriceChanges,
+  }).conflicts.missingPricePeriods.length === 1);
 const deletedCreateConflict = findSheetSyncExistingConflicts(conflictFetch, [], [
   { ...conflictProduct, _deleted: true },
 ]);

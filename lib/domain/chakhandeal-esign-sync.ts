@@ -25,7 +25,12 @@ export function projectChakhandealStatus(
   const signedAt = N(status.signedAt);
   const openedAt = N(status.openedAt);
   const documentReady = status.documentReady === true;
-  const isSigned = remote === 'signed' && signedAt > 0 && documentReady;
+  const documentSha256 = S(status.documentSha256);
+  const isSigned = remote === 'signed'
+    && signedAt > 0
+    && documentReady
+    && /^[a-f0-9]{64}$/i.test(documentSha256)
+    && N(status.documentBytes) > 100;
   const isExpired = !isSigned && expiresAt > 0 && expiresAt < now;
   const signStatus = isSigned
     ? '서명완료'
@@ -46,7 +51,7 @@ export function projectChakhandealStatus(
     esign_documents: Array.isArray(status.documents) ? status.documents : [],
     esign_identity: status.identity && typeof status.identity === 'object' ? status.identity : {},
     esign_document_url: S(status.documentUrl),
-    esign_document_sha256: S(status.documentSha256).slice(0, 128),
+    esign_document_sha256: documentSha256.slice(0, 128),
     esign_document_bytes: Math.max(0, N(status.documentBytes)),
     sign_status: signStatus,
     sign_consents: status.consents && typeof status.consents === 'object' ? status.consents : {},

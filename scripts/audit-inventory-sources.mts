@@ -187,6 +187,13 @@ const requiredSupplierCodes = new Set(
     .map((code) => code.trim())
     .filter(Boolean),
 );
+const onlySupplierCodes = new Set(
+  process.argv
+    .filter((arg) => arg.startsWith('--only='))
+    .flatMap((arg) => arg.slice('--only='.length).split(','))
+    .map((code) => code.trim())
+    .filter(Boolean),
+);
 if (process.argv.includes('--list-target-partners')) {
   const targets = partnerRows.filter((partner) => /아이카|이안카|아이언|렌트존/i.test(
     `${String(partner.name || '')} ${String(partner.partner_name || '')}`,
@@ -214,7 +221,9 @@ if (process.argv.includes('--list-target-partners')) {
 const masterRaw = JSON.parse(readFileSync('public/data/vehicle-master.json', 'utf8')) as { entries?: MasterEntry[] } | MasterEntry[];
 const master = (Array.isArray(masterRaw) ? masterRaw : masterRaw.entries) || [];
 const fetched = await fetchAllPartnerSheets('freepass', master, {
-  partnerRows,
+  partnerRows: onlySupplierCodes.size
+    ? partnerRows.filter((partner) => onlySupplierCodes.has(String(partner.partner_code || partner._key || '')))
+    : partnerRows,
   fetchTable,
 });
 const fetchedCodes = new Set(fetched.lines.map((line) => line.code));
@@ -292,6 +301,40 @@ for (const line of fetched.lines) {
     line.message,
   ].join(' · '));
   for (const issue of line.issueSamples || []) console.log(`       - ${issue}`);
+}
+
+if (process.argv.includes('--inspect-autoplus-prices')) {
+  const line = fetched.lines.find((item) => item.code === 'RP023');
+  if (!line) throw new Error('오토플러스 판독 결과 없음 — --only=RP023 설정을 확인하세요');
+  const deltaDistribution = new Map<number, number>();
+  const inconsistent: string[] = [];
+  let pairProducts = 0;
+  let derivable12 = 0;
+  let missingTwoKmBase = 0;
+  for (const product of line.products) {
+    const price = product.price && typeof product.price === 'object'
+      ? product.price as Record<string, { rent?: number; deposit?: number }>
+      : {};
+    const deltas = [18, 24, 36].flatMap((month) => {
+      const low = Number(price[`${month}_2만`]?.rent || 0);
+      const high = Number(price[`${month}_3만`]?.rent || 0);
+      return low > 0 && high > 0 && high >= low ? [high - low] : [];
+    });
+    if (deltas.length) pairProducts++;
+    const unique = [...new Set(deltas)];
+    if (unique.length === 1) {
+      const delta = unique[0];
+      deltaDistribution.set(delta, (deltaDistribution.get(delta) || 0) + 1);
+      if (Number(price['12_3만']?.rent || 0) > delta) derivable12++;
+    } else if (unique.length > 1) {
+      inconsistent.push(`${String(product.car_number || product.product_code || '?')} (${unique.join(',')})`);
+    }
+    if (![18, 24, 36].some((month) => Number(price[`${month}_2만`]?.rent || 0) > 0)) missingTwoKmBase++;
+  }
+  console.log('\n오토플러스 2만km 기준가·1만km 상향요금 점검 · 쓰기 없음');
+  console.log(`  반영 ${line.products.length}대 · 2만/3만 짝 있음 ${pairProducts}대 · 단일차액으로 12개월 역산 가능해 보이는 행 ${derivable12}대(역산 미사용) · 2만 기준가 전무 ${missingTwoKmBase}대`);
+  console.log(`  1만km 상향 월요금 분포: ${[...deltaDistribution.entries()].sort((a, b) => a[0] - b[0]).map(([amount, count]) => `${amount.toLocaleString()}원 ${count}대`).join(' · ') || '계산 불가'}`);
+  console.log(`  같은 차량의 기간별 차액 불일치 ${inconsistent.length}대${inconsistent.length ? ` · ${inconsistent.slice(0, 20).join(' / ')}` : ''}`);
 }
 if (process.argv.includes('--inspect-snap-issues')) {
   type SnapIssueRow = { code?: unknown; field?: unknown; value?: unknown };

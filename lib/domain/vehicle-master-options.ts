@@ -1,11 +1,37 @@
 import type { MasterVariant } from '@/lib/domain/vehicle-master-types';
 import { isForbiddenAsTrim } from '@/lib/domain/vehicle-field-guards';
 
-/** 마스터 파워트레인 라벨은 JSON의 원문을 그대로 사용한다. */
+/** 마스터 파워트레인 라벨 원문(JSON). 용량·인승·구동 보강은 `masterVariantOptionLabel`. */
 export function masterVariantLabel(
   variant: Pick<MasterVariant, 'label'> | null | undefined,
 ): string {
   return String(variant?.label ?? '').trim();
+}
+
+/** battery_kwh → 표기 토큰. 필드에 있을 때만(발명 금지). */
+export function formatBatteryKwh(kwh: number | null | undefined): string {
+  const n = Number(kwh);
+  if (!Number.isFinite(n) || n <= 0) return '';
+  // 77.4 · 80.6 유지, 84 → 84kWh
+  const body = Number.isInteger(n) ? String(n) : String(n);
+  return `${body}kWh`;
+}
+
+/**
+ * 파워트레인 라벨에 배터리 용량을 넣는다.
+ * 라벨에 이미 kWh가 있으면 그대로. 구동 접미(2WD/AWD…) 앞에 끼운다.
+ */
+export function withBatteryKwhInLabel(
+  label: string,
+  kwh: number | null | undefined,
+): string {
+  const base = String(label ?? '').trim();
+  const tok = formatBatteryKwh(kwh);
+  if (!tok) return base;
+  if (/kwh/i.test(base)) return base;
+  const DRIVE = /\s+(2WD|4WD|AWD|RWD|xDrive|4MATIC|콰트로|4모션)\s*$/i;
+  if (DRIVE.test(base)) return base.replace(DRIVE, ` ${tok} $1`);
+  return base ? `${base} ${tok}` : tok;
 }
 
 /** 세대 내 파워트레인이 둘 이상의 인승 값으로 갈리는지 판정한다. */
@@ -30,13 +56,16 @@ export function seatAxisMatters(entry: { model?: string; sub_model?: string; var
   return true;
 }
 
-/** 인승·구동은 고른 마스터 variant 노드 필드를 **이름에 풀어 쓴다**(발명 아님). */
+/**
+ * 인승·구동·배터리(kWh)는 고른 마스터 variant 노드 필드를 **이름에 풀어 쓴다**(발명 아님).
+ * 전기 용량 = `battery_kwh` → 파워트레인 표기(배기량·연료 칸 아님).
+ */
 export function masterVariantOptionLabel(
   variant: MasterVariant,
   variants: MasterVariant[],
   entry?: { model?: string; sub_model?: string; variants?: MasterVariant[] } | null,
 ): string {
-  const base = masterVariantLabel(variant);
+  const base = withBatteryKwhInLabel(masterVariantLabel(variant), variant.battery_kwh);
   const parts: string[] = [];
   if (base) parts.push(base);
   const seatOk = entry ? seatAxisMatters(entry) : variantSeatsDiffer(variants);
