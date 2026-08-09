@@ -6,6 +6,10 @@ import { AGREEMENT_SECTIONS } from '../lib/domain/esign-agreement-text';
 import {
   KEY_CLAUSES, agreementWithEmphasis, keyClauseOf, keyClauseSummaries,
 } from '../lib/domain/esign-agreement-emphasis';
+import {
+  isEsignTemplateAllowed,
+  STANDARD_IS_SAMPLE,
+} from '../lib/domain/esign-templates';
 import { IN_AGREEMENT, KEEP_IN_SECTION, TERMS_ACCIDENT, TERMS_PAYMENT, TERMS_SERVICE } from '../lib/domain/esign-standard-terms';
 import { buildConsentGroups } from '../lib/domain/esign-consent-doc';
 import type { EntityRecord } from '../lib/intake/entities';
@@ -16,6 +20,11 @@ const check = (name: string, ok: boolean, detail?: unknown) => {
   if (ok) { pass++; console.log(`✓ ${name}`); }
   else { fail++; console.error(`✗ ${name}`, detail ?? ''); }
 };
+
+// 샘플 문안은 Preview 검증만 허용하고 Production 발행은 잠근다.
+check('Preview는 샘플 계약서 검증을 허용한다', isEsignTemplateAllowed('preview'));
+check('Production은 샘플 여부와 반대로 열린다',
+  isEsignTemplateAllowed('production') === !STANDARD_IS_SAMPLE);
 
 // ── 조문 매칭 ──
 // 「제9조의2」가 「제9조」에 먼저 걸리면 개인보험형 안내가 사고면책 문구로 바뀐다.

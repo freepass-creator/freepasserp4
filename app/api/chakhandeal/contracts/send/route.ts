@@ -2,7 +2,11 @@ import { NextResponse } from 'next/server';
 import { firebaseAdminDatabase, verifyActiveBearer } from '@/lib/server/firebase-admin';
 import { canSendChakhandealContract } from '@/lib/domain/chakhandeal-esign';
 import { canIssueContract, type PolicyField } from '@/lib/domain/policy-tier';
-import { findTemplate, templatesForContract } from '@/lib/domain/esign-templates';
+import {
+  findTemplate,
+  isEsignTemplateAllowed,
+  templatesForContract,
+} from '@/lib/domain/esign-templates';
 import {
   getChakhandealConfig,
   issueChakhandealContract,
@@ -20,6 +24,9 @@ export async function POST(request: Request) {
   // 연동 미설정 환경은 Admin SDK 인증 시도조차 하지 않고 명시적인 준비 중 상태로 닫는다.
   const config = getChakhandealConfig();
   if (!config) return json({ error: '착한거래 전자계약 연동 준비 중입니다.' }, 503);
+  if (!isEsignTemplateAllowed(process.env.VERCEL_ENV)) {
+    return json({ error: '표준계약서 최종 승인 전이라 운영 발행이 잠겨 있습니다.' }, 503);
+  }
 
   let actor;
   try { actor = await verifyActiveBearer(request); }

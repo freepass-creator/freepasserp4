@@ -23,6 +23,11 @@ const S = (v: unknown): string => String(v ?? '').trim();
 export const STANDARD_VERSION = 'sample-v1';
 export const STANDARD_IS_SAMPLE = true;
 
+/** Preview에서는 샘플 계약서를 검증할 수 있지만 Production 발행은 최종본만 허용한다. */
+export function isEsignTemplateAllowed(environment: string | undefined): boolean {
+  return environment !== 'production' || !STANDARD_IS_SAMPLE;
+}
+
 export type EsignTemplate = {
   /** 계약유형 키 그대로 — 양식과 유형이 1:1 이다. */
   id: string;
