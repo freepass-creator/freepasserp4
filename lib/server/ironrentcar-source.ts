@@ -1,5 +1,6 @@
 import { load } from 'cheerio';
 import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { snapToMaster, unpackVehicleSignals } from '@/lib/domain/vehicle-master-match';
 import type { MasterEntry } from '@/lib/domain/vehicle-master-types';
 import type { EntityRecord } from '@/lib/intake/entities';
@@ -12,12 +13,18 @@ let masterCache: MasterEntry[] | null = null;
 function masterEntries(): MasterEntry[] {
   if (masterCache) return masterCache;
   try {
-    const raw = JSON.parse(readFileSync('public/data/vehicle-master.json', 'utf8')) as { entries?: MasterEntry[] } | MasterEntry[];
-    masterCache = (Array.isArray(raw) ? raw : raw.entries) || [];
-  } catch {
-    masterCache = [];      // 마스터를 못 읽으면 규격화만 건너뛴다 — 수집 자체를 막지는 않는다.
+    // ★상대경로로 읽으면 실행 위치(서버리스 번들·크론)에 따라 못 찾는다 — cwd 기준으로 못 박는다.
+    const raw = JSON.parse(readFileSync(join(process.cwd(), 'public/data/vehicle-master.json'), 'utf8')) as { entries?: MasterEntry[] } | MasterEntry[];
+    const entries = (Array.isArray(raw) ? raw : raw.entries) || [];
+    // 비어 있으면 캐시하지 않는다. 한 번 실패했다고 프로세스가 사는 동안 규격화를 영영 끄면,
+    //  «되긴 되는데 차종이 안 붙는» 상태가 조용히 굳는다(2026-08-09 리뷰 지적).
+    if (entries.length) masterCache = entries;
+    return entries;
+  } catch (e) {
+    // 마스터를 못 읽으면 규격화만 건너뛴다 — 수집 자체를 막지는 않는다. 다만 조용히 넘기지 않는다.
+    console.warn('[ironrentcar] 차종마스터 로드 실패 — 규격화 건너뜀:', (e as Error).message);
+    return [];
   }
-  return masterCache;
 }
 
 export const IRONRENTCAR_BASE_URL = 'https://ironrentcar.com';

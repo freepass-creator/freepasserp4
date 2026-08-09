@@ -105,12 +105,18 @@ export default function Chat() {
   const [sort, setSort] = useState<ChatSort | ''>('');
   const [flt, setFlt] = useState<ChatFilter>(CHAT_FILTER_DEFAULT);
   const [draftFlt, setDraftFlt] = useState<ChatFilter>(CHAT_FILTER_DEFAULT);
-  /** 역할이 정해진 뒤 한 번만 — 관리자는 «내 차례 · 오래 기다린 순»으로 연다(응대 대기함).
-   *  사용자가 필터를 바꾼 뒤에 역할 이벤트가 와도 그 선택을 덮지 않도록 최초 1회로 못 박는다. */
-  const rolePresetDone = useRef(false);
+  /**
+   * 역할이 **바뀔 때마다** 그 역할의 기본값으로 연다 — 관리자는 «내 차례 · 오래 기다린 순»(응대 대기함).
+   *
+   * 처음엔 «최초 1회»로 못 박았는데, 테스트 역할 스위치(DevRoleSwitch)로 관리자→영업자로 바꾸면
+   * 관리자 전용 필터(`내차례`)가 그대로 남았다. 영업자 칩 줄에는 그 칩이 없어
+   * **아무 칩도 안 눌린 것처럼 보이는데 목록만 걸러져 있는** 상태가 됐다.
+   * 같은 역할이 유지되는 동안에는 사용자의 선택을 덮지 않는다(ref 로 역할 전환만 감지).
+   */
+  const presetRoleRef = useRef<Role | null>(null);
   useEffect(() => {
-    if (rolePresetDone.current || role !== 'admin') return;
-    rolePresetDone.current = true;
+    if (presetRoleRef.current === role) return;
+    presetRoleRef.current = role;
     setFlt(chatFilterDefaultFor(role));
     setDraftFlt(chatFilterDefaultFor(role));
     setSort(chatSortDefaultFor(role));
