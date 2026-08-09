@@ -13,8 +13,17 @@ export type ChakhandealConfig = {
 
 export type ChakhandealIssue = {
   contractId: string;
+  signUrl: string;
+  expiresAt: number;
   verifyUrl: string;
   sealHash: string;
+};
+
+export type ChakhandealStatus = RecordValue & {
+  contractId: string;
+  externalRef: string;
+  status: string;
+  signUrl: string;
 };
 
 const text = (value: unknown): string => String(value ?? '').trim();
@@ -63,6 +72,43 @@ async function callJson(config: ChakhandealConfig, path: string, body: RecordVal
   }
 }
 
+async function getJson(config: ChakhandealConfig, path: string): Promise<RecordValue> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10_000);
+  try {
+    const response = await fetch(new URL(path.replace(/^\//, ''), config.baseUrl), {
+      method: 'GET',
+      headers: { Authorization: `ApiKey ${config.apiKey}`, Accept: 'application/json' },
+      cache: 'no-store',
+      redirect: 'error',
+      signal: controller.signal,
+    });
+    const raw = await response.text();
+    if (raw.length > 1_000_000) throw new Error('착한거래 응답 크기 초과');
+    let parsed: RecordValue = {};
+    try { parsed = raw ? JSON.parse(raw) as RecordValue : {}; } catch { /* 외부 오류 본문은 감춘다. */ }
+    if (!response.ok) throw new Error(`착한거래 요청 실패 (${response.status})`);
+    return parsed;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function safeUrl(value: unknown, { sameOrigin }: { sameOrigin?: URL } = {}): string {
+  const raw = text(value);
+  if (!raw || raw.length > 2_000) return '';
+  try {
+    const parsed = new URL(raw);
+    const localDev = process.env.NODE_ENV !== 'production' && ['localhost', '127.0.0.1'].includes(parsed.hostname);
+    if (parsed.protocol !== 'https:' && !(localDev && parsed.protocol === 'http:')) return '';
+    if (parsed.username || parsed.password) return '';
+    if (sameOrigin && parsed.origin !== sameOrigin.origin) return '';
+    return parsed.toString();
+  } catch {
+    return '';
+  }
+}
+
 /** `templateId` 미지정이면 서버 기본 양식(`CHAKHANDEAL_TEMPLATE_ID`). 지정되면 그 공급사 양식으로 발행한다. */
 export async function issueChakhandealContract(
   config: ChakhandealConfig,
@@ -85,26 +131,63 @@ export async function issueChakhandealContract(
   const result = await callJson(config, '/api/v1/contract/issue', chakhandealIssuePayload(identity, contract, policy, insuranceSide), `freepass:${externalRef}:issue`);
   const contractId = text(result.contractId);
   if (!contractId || contractId.length > 200) throw new Error('착한거래 계약 식별자 누락');
-  const rawVerifyUrl = text(result.verifyUrl);
-  let verifyUrl = '';
-  if (rawVerifyUrl) {
-    try {
-      const parsed = new URL(rawVerifyUrl);
-      if (parsed.protocol === 'https:' && parsed.origin === config.baseUrl.origin && rawVerifyUrl.length <= 2_000) verifyUrl = rawVerifyUrl;
-    } catch { /* 잘못된 검증 URL은 저장하지 않는다. */ }
-  }
+  const signUrl = safeUrl(result.signUrl);
+  if (!signUrl) throw new Error('착한거래 서명 링크 누락');
   return {
     contractId,
-    verifyUrl,
+    signUrl,
+    expiresAt: Number(result.expiresAt) || 0,
+    verifyUrl: safeUrl(result.verifyUrl, { sameOrigin: config.baseUrl }),
     sealHash: text(result.sealHash).slice(0, 256),
   };
 }
 
-export async function sendChakhandealContract(config: ChakhandealConfig, contractId: string, externalRef: string): Promise<void> {
-  await callJson(
-    config,
-    `/api/v1/contract/${encodeURIComponent(contractId)}/send`,
-    { channel: 'sms' },
-    `freepass:${externalRef}:send`,
-  );
+export async function getChakhandealContractStatus(
+  config: ChakhandealConfig,
+  contractId: string,
+): Promise<ChakhandealStatus> {
+  const result = await getJson(config, `/api/v1/contract/${encodeURIComponent(contractId)}`);
+  const returnedId = text(result.contractId);
+  if (!returnedId || returnedId !== contractId) throw new Error('착한거래 계약 식별자 불일치');
+  const signUrl = safeUrl(result.signUrl);
+  if (!signUrl) throw new Error('착한거래 서명 링크 누락');
+  return {
+    ...result,
+    contractId: returnedId,
+    externalRef: text(result.externalRef),
+    status: text(result.status),
+    signUrl,
+    verifyUrl: safeUrl(result.verifyUrl, { sameOrigin: config.baseUrl }),
+    documentUrl: safeUrl(result.documentUrl, { sameOrigin: config.baseUrl }),
+  };
+}
+
+export async function fetchChakhandealContractPdf(
+  config: ChakhandealConfig,
+  contractId: string,
+): Promise<{ bytes: Uint8Array; sha256: string }> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 30_000);
+  try {
+    const response = await fetch(
+      new URL(`api/v1/contract/${encodeURIComponent(contractId)}/document?format=pdf`, config.baseUrl),
+      {
+        method: 'GET',
+        headers: { Authorization: `ApiKey ${config.apiKey}`, Accept: 'application/pdf' },
+        cache: 'no-store',
+        redirect: 'error',
+        signal: controller.signal,
+      },
+    );
+    if (!response.ok) throw new Error(`착한거래 PDF 요청 실패 (${response.status})`);
+    if (!response.headers.get('content-type')?.toLowerCase().includes('application/pdf')) {
+      throw new Error('착한거래 PDF 응답 형식 오류');
+    }
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    if (bytes.length < 100 || bytes.length > 30 * 1024 * 1024) throw new Error('착한거래 PDF 크기 오류');
+    if (String.fromCharCode(...bytes.slice(0, 5)) !== '%PDF-') throw new Error('착한거래 PDF 헤더 오류');
+    return { bytes, sha256: text(response.headers.get('x-contract-document-sha256')) };
+  } finally {
+    clearTimeout(timer);
+  }
 }

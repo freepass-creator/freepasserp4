@@ -19,6 +19,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getStore } from '@/lib/store';
+import { getAuthClient } from '@/lib/firebase/client';
 import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
 import type { EntityRecord } from '@/lib/intake/entities';
@@ -50,6 +51,37 @@ import { contractHaystack, matchHay } from '@/lib/domain/search';
 
 const S = (v: unknown) => String(v ?? '').trim();
 
+async function syncChakhandealRows(rows: EntityRecord[]): Promise<Map<string, EntityRecord>> {
+  const targets = rows
+    .filter((row) => S(row.esign_id) && !['서명완료', '만료', '반려'].includes(S(row.sign_status)))
+    .map((row) => S(row.contract_code))
+    .filter(Boolean);
+  const user = getAuthClient()?.currentUser;
+  if (!user || !targets.length) return new Map();
+
+  const merged = new Map<string, EntityRecord>();
+  for (let i = 0; i < targets.length; i += 50) {
+    const response = await fetch('/api/chakhandeal/contracts/status', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${await user.getIdToken()}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ contractCodes: targets.slice(i, i + 50) }),
+      cache: 'no-store',
+    });
+    if (!response.ok) continue;
+    const body = await response.json().catch(() => ({})) as {
+      results?: Array<{ contractCode?: string; ok?: boolean; patch?: EntityRecord }>;
+    };
+    for (const result of body.results || []) {
+      const code = S(result.contractCode);
+      if (code && result.ok && result.patch) merged.set(code, result.patch);
+    }
+  }
+  return merged;
+}
+
 export default function EsignPage() {
   const co = getCompanyId();
   const router = useRouter();
@@ -71,9 +103,11 @@ export default function EsignPage() {
       ]);
       setProducts(prods);
       setPolicies(pols);
+      const synced = await syncChakhandealRows(list);
+      const current = list.map((row) => ({ ...row, ...(synced.get(S(row.contract_code)) || {}) }));
       // 발송 대상 = 취소 아니고 약정에서 기간·금액이 굳은 계약.
       // 「보낼 것」과 「보낸 것」이 한 목록에 있어야 관리자가 빠뜨린 건을 본다.
-      setRows(list.filter((c) => !isContractCancelled(c) && hasTermFrozen(c)));
+      setRows(current.filter((c) => !isContractCancelled(c) && hasTermFrozen(c)));
     } catch {
       setRows([]);
     }
@@ -88,6 +122,13 @@ export default function EsignPage() {
     })();
     /* eslint-disable-next-line */
   }, []);
+
+  // 관리자가 화면을 열어 둔 동안 손님 서명 상태를 15초마다 되받는다.
+  useEffect(() => {
+    if (!allowed) return undefined;
+    const timer = window.setInterval(() => { void load(); }, 15_000);
+    return () => window.clearInterval(timer);
+  }, [allowed, load]);
 
   const shown = useMemo(() => (rows || [])
     .filter((c) => matchesEsignFilter(c, filter))
@@ -266,7 +307,7 @@ function ChakhandealPane({ contract, onChanged }: { contract: EntityRecord; onCh
   const [pickId, setPickId] = useState(() => defaultTemplateFor(contract).id);
   const tpl = options.find((t) => t.id === pickId) || options[0];
   const sentTpl = sentTemplateOf(contract);
-  const link = S(contract.esign_verify_url);
+  const link = S(contract.esign_sign_url);
 
   const copy = async () => {
     if (!link) return;
@@ -375,6 +416,36 @@ function ProgressPane({ contract }: { contract: EntityRecord }) {
   const docs = esignDocuments(contract);
   const shots = esignIdentityShots(contract);
   const issued = isEsignIssued(contract);
+  const [pdfBusy, setPdfBusy] = useState(false);
+
+  const openPdf = async () => {
+    if (pdfBusy) return;
+    const viewer = window.open('about:blank', '_blank');
+    if (viewer) viewer.opener = null;
+    setPdfBusy(true);
+    try {
+      const user = getAuthClient()?.currentUser;
+      if (!user) throw new Error('로그인이 필요합니다.');
+      const code = S(contract.contract_code);
+      const response = await fetch(`/api/chakhandeal/contracts/${encodeURIComponent(code)}/document`, {
+        headers: { Authorization: `Bearer ${await user.getIdToken()}` },
+        cache: 'no-store',
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({})) as { error?: string };
+        throw new Error(body.error || '계약서 PDF를 열지 못했습니다.');
+      }
+      const url = URL.createObjectURL(await response.blob());
+      if (viewer) viewer.location.replace(url);
+      else window.location.assign(url);
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (error) {
+      viewer?.close();
+      toast(error instanceof Error ? error.message : '계약서 PDF를 열지 못했습니다.', 'error');
+    } finally {
+      setPdfBusy(false);
+    }
+  };
 
   return (
     <PaneStack>
@@ -386,6 +457,14 @@ function ProgressPane({ contract }: { contract: EntityRecord }) {
             <span style={{ fontSize: FS.cap, color: C.mute, fontWeight: FW.strong }}>{stage.done}/{stage.total} 단계</span>
           ) : null}
         </div>
+
+        {stage.state === '서명완료' && S(contract.esign_document_sha256) ? (
+          <Btn title="서명 완료 PDF 열기" onClick={openPdf} disabled={pdfBusy}>
+            <ButtonLabel icon={<ExternalLink size={ICON.md} aria-hidden />}>
+              {pdfBusy ? 'PDF 여는 중…' : '서명 완료 PDF'}
+            </ButtonLabel>
+          </Btn>
+        ) : null}
 
         <SectionLabel>단계</SectionLabel>
         <ListGroup>
