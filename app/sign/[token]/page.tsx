@@ -51,7 +51,10 @@ export default function SignPage() {
     try {
       const signature = canvasRef.current!.toDataURL('image/png');
       await submitSign(String(c!.contract_code), { ...form, signature, consents: [...consents] }, String(token));
-      setC(await getContractByToken(String(token)));
+      // 다시 읽지 않는다 — 제출과 동시에 이 링크의 익명 열람이 닫히기 때문이다
+      // (제출된 레코드에는 주민번호·면허·서명이미지가 들어 있다).
+      // 접수 화면은 방금 성공한 사실만으로 충분하다.
+      setC((prev) => ({ ...(prev || {}), sign_status: '검토대기' }));
       toast('제출되었습니다. 확인 후 안내드립니다.', 'ok');
     } catch (e) {
       toast(String((e as Error)?.message || e || '서명 제출에 실패했습니다'), 'error');
@@ -60,7 +63,9 @@ export default function SignPage() {
 
   const wrap: CSSProperties = { maxWidth: 560, margin: '0 auto', padding: '18px 16px 60px' };
   if (c === undefined) return <Loading />;
-  if (!c) return <main style={wrap}><h1 style={{ fontSize: FS.page }}>유효하지 않은 링크</h1><p style={{ color: C.mute, fontSize: FS.body }}>서명 링크가 만료되었거나 잘못되었습니다. 담당자에게 문의해 주세요.</p></main>;
+  // 제출을 마친 링크도 여기로 온다 — 제출 후에는 익명 열람을 닫기 때문이다.
+  // 「잘못된 링크」라고만 하면 방금 제출한 손님이 실패한 줄 안다. 세 경우를 다 담는 문구를 쓴다.
+  if (!c) return <main style={wrap}><h1 style={{ fontSize: FS.page }}>지금은 열 수 없는 링크입니다</h1><p style={{ color: C.mute, fontSize: FS.body }}>이미 제출을 마쳤거나, 링크가 만료되었거나, 주소가 잘못되었습니다. 제출하신 경우 담당자 확인 후 안내드립니다.</p></main>;
 
   const st = String(c.sign_status || '');
   if (st === '검토대기' || st === '서명완료') return (
