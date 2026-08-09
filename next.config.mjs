@@ -23,6 +23,16 @@ const nextConfig = {
   // 모바일 SSR 힌트 — 쿠키 없을 때 Sec-CH-UA-Mobile 로 맞춤
   async headers() {
     return [{
+      // 손님 링크(견적·전자서명)는 **뿌리는 것**이지 찾아지는 것이 아니다.
+      //  페이지 metadata 의 noindex 와 겹쳐 두는 이유 — 그건 HTML 을 파싱해야 보이지만
+      //  헤더는 **응답 자체에 붙어** HTML 아닌 응답·리다이렉트에도 따라간다.
+      //  robots.txt 는 크롤링만 줄일 뿐 색인을 못 막는다. 셋을 같이 쓴다.
+      //  ★서명 페이지는 주민번호·면허·서명이 들어가는 입력창이다. 한 겹으로 두지 않는다.
+      source: '/:section(q|sign)/:rest*',
+      headers: [
+        { key: 'X-Robots-Tag', value: 'noindex, nofollow, noarchive, nosnippet' },
+      ],
+    }, {
       source: '/:path*',
       headers: [
         { key: 'Accept-CH', value: 'Sec-CH-UA-Mobile' },
