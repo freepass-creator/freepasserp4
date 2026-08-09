@@ -1,15 +1,30 @@
 /**
- * 종합표 생성 — v4 매물+정책 → 프리패스 종합시트 41컬럼 TSV. (freepasserp3 jonghap-export.js 이식)
- * 직원이 구글시트 종합탭에 붙여넣기 하던 작업 대체. 컬럼 순서=시트 헤더와 1:1(절대 임의변경 금지).
+ * 종합표 생성 — v4 매물+정책 → 프리패스 종합시트. (freepasserp3 jonghap-export.js 이식)
  * 기간=표준 1·12·24·36·48·60 (product.PERIODS). 6·18 등 별도 기간은 종합표 밖·상세에서 관리.
  */
 import { type EntityRecord } from '@/lib/intake/entities';
 import { fuelDisplay, fuelEmbeddedCc } from '@/lib/domain/vehicle-master-match';
 
+/**
+ * ★열 순서를 **차종 5단계에 맞춰** 고쳤다(2026-08-10 사장님 지시).
+ *
+ * 우리 축은 제조사 → 모델 → **세부모델 → 파워트레인 → 세부트림** → 옵션이다.
+ * 옛 41열은 「트림」 한 칸뿐이라 파워트레인이 설 자리가 없었고, 연식도 아예 없었다
+ * (최초등록만 있어서 「몇 년식이냐」를 등록일로 짐작해야 했다).
+ *
+ *   세부모델 뒤   외장·내장 → 연식·연료·주행    «무슨 차인가»를 한 번에 읽는다
+ *   대여료 뒤     파워트레인·세부트림 → 옵션    좁혀지는 순서대로 선다
+ *
+ * ⚠ 예전 주석의 「절대 임의변경 금지」는 **사람이 손으로 붙여넣던 시절**의 규칙이다.
+ *   지금은 우리가 API 로 직접 쓰고 머리행도 같이 올리므로 순서가 스스로 맞는다.
+ *   그래도 바꿀 때는 이 파일 하나만 고친다 — 서식(`jonghap-format.ts`)은 이름으로 열을 찾는다.
+ */
 export const JONGHAP_COLUMNS = [
-  '상태', '입고일자', '구분', '차량번호', '차종분류', '세부모델', '연료', '외장', '내장', 'Km',
+  '상태', '입고일자', '구분', '차량번호', '차종분류', '세부모델',
+  '외장', '내장', '연식', '연료', 'Km',
   '단기보증', '1개월', '12개월', '장기보증', '24개월', '36개월', '48개월', '60개월',
-  '트림', '옵션', '최초등록', '소비자가격', '제조사', '배기량', '차고지',
+  '파워트레인', '세부트림', '옵션',
+  '최초등록', '소비자가격', '제조사', '배기량', '차고지',
   '운전자범위', '연주행', '분납', '21세', '23세', '1만+',
   '대인', '대물', '자차', '자손', '무보험', '정비', '전용계좌',
   '비고', '공급사코드', '정책코드',
@@ -61,9 +76,22 @@ function productToRow(p: EntityRecord, byCode: Map<string, EntityRecord>): strin
   const byCol: Record<string, string> = {
     상태: String(p.vehicle_status || ''), 입고일자: String(p.arrival_note || ''), 구분: gubun(p), 차량번호: String(p.car_number || ''),
     차종분류: String(p.model || ''), 세부모델: String(p.sub_model || ''), 연료: fuelDisplay(p.fuel_type) || String(p.fuel_type || ''), 외장: String(p.ext_color || ''), 내장: String(p.int_color || ''),
+    /**
+     * 연식 — 옛 41열엔 아예 없어서 「몇 년식이냐」를 최초등록일로 짐작해야 했다.
+     * 연식(모델연도)과 최초등록일은 다르다 — 25년식이 26년 1월에 등록되기도 한다.
+     * 둘 다 싣고, 연식이 비면 최초등록에서 연도만 뽑아 채운다(없는 값을 지어내진 않는다).
+     */
+    연식: (() => {
+      const y = String(p.year ?? '').replace(/[^\d]/g, '');
+      if (y.length === 4) return y;
+      const m = /(20\d{2}|19\d{2})/.exec(String(p.first_registration_date ?? ''));
+      return m ? m[1] : '';
+    })(),
     Km: p.mileage ? String(p.mileage) : '', 단기보증: anyDep, '1개월': rent('1'), '12개월': rent('12'),
     장기보증: anyDep, '24개월': rent('24'), '36개월': rent('36'), '48개월': rent('48'), '60개월': rent('60'),
-    트림: String(p.trim_name || ''), 옵션: String(p.options || ''), 최초등록: String(p.first_registration_date || ''), 소비자가격: won(p.vehicle_price),
+    // 차종 5단계의 뒤 두 칸 — 좁혀지는 순서대로 선다(세부모델 → 파워트레인 → 세부트림).
+    파워트레인: String(p.variant || ''), 세부트림: String(p.trim_name || ''),
+    옵션: String(p.options || ''), 최초등록: String(p.first_registration_date || ''), 소비자가격: won(p.vehicle_price),
     제조사: String(p.maker || ''), 배기량: (() => { const cc = Number(p.engine_cc) || fuelEmbeddedCc(p.fuel_type); return cc > 0 ? String(cc) : ''; })(), 차고지: String(p.location || ''),
     ...c,
     '21세': String(meta.age_21 || ''), '23세': String(meta.age_23 || meta.age_21 || ''), '1만+': String(meta.year_1plus || ''),

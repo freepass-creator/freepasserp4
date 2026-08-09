@@ -144,7 +144,15 @@ export async function publishInventorySheet(
     const { values, count } = buildJonghapValues(rows, Object.values(policies), { origin: S(opts.origin) });
     const jt = await client.openOrCreateTab(jonghapTabName(count), JONGHAP_SHEET_TAB);
     await client.write(jt.title, values);
-    await client.batchUpdate(jonghapFormatRequests(jt.gid, count));
+    // 이미 걸린 줄무늬·조건부서식을 걷고 다시 입힌다 — 안 걷으면 두 번째 반영이 400 으로 죽는다.
+    const jMeta = (await client.meta()).sheets.find((s) => s.properties.sheetId === jt.gid) as {
+      bandedRanges?: { bandedRangeId: number }[];
+      conditionalFormats?: unknown[];
+    } | undefined;
+    await client.batchUpdate(jonghapFormatRequests(jt.gid, count, {
+      bandedRangeIds: (jMeta?.bandedRanges || []).map((b) => b.bandedRangeId),
+      conditionalCount: (jMeta?.conditionalFormats || []).length,
+    }));
     jonghap = jt.title;
   } catch (error) {
     jonghap = `실패 — ${String((error as Error)?.message || error)}`;

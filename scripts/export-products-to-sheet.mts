@@ -251,15 +251,27 @@ async function main() {
     if (!putJ.ok) throw new Error(`쓰기 실패 ${putJ.status} ${(await putJ.text()).slice(0, 200)}`);
 
     // 서식은 값과 별개다 — 실패해도 값은 이미 들어갔다.
-    const jGid = (await (await fetch(`${api}?fields=sheets.properties`, { headers: head })).json() as {
-      sheets: { properties: { sheetId: number; title: string } }[];
-    }).sheets.find((s) => s.properties.title === jTitle)?.properties.sheetId;
+    // 이미 걸린 줄무늬·조건부서식을 같이 읽는다 — 안 걷으면 두 번째 반영이 400 으로 죽는다.
+    const jSheet = (await (await fetch(`${api}?fields=sheets(properties,bandedRanges,conditionalFormats)`, { headers: head })).json() as {
+      sheets: {
+        properties: { sheetId: number; title: string };
+        bandedRanges?: { bandedRangeId: number }[];
+        conditionalFormats?: unknown[];
+      }[];
+    }).sheets.find((s) => s.properties.title === jTitle);
+    const jGid = jSheet?.properties.sheetId;
     if (jGid != null) {
       const fmtJ = await fetch(`${api}:batchUpdate`, {
         method: 'POST', headers: head,
-        body: JSON.stringify({ requests: jonghapFormatRequests(jGid, count) }),
+        body: JSON.stringify({
+          requests: jonghapFormatRequests(jGid, count, {
+            bandedRangeIds: (jSheet?.bandedRanges || []).map((b) => b.bandedRangeId),
+            conditionalCount: (jSheet?.conditionalFormats || []).length,
+          }),
+        }),
       });
-      if (!fmtJ.ok) console.log(`  ⚠ 종합표 값은 들어갔으나 서식 실패 ${fmtJ.status}`);
+      // 사유를 삼키지 않는다 — 400 만 보면 무엇이 틀렸는지 알 수 없다.
+      if (!fmtJ.ok) console.log(`  ⚠ 종합표 값은 들어갔으나 서식 실패 ${fmtJ.status} — ${(await fmtJ.text()).slice(0, 400)}`);
     }
     console.log(`  구버전 종합표 — 탭 「${jTitle}」 · ${values.length}행 (41열 · 링크·정렬·서식)\n`);
   } catch (error) {

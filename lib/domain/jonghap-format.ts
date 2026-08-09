@@ -21,9 +21,10 @@ const rgb = (hex: string) => ({
  */
 const WIDTH: Record<string, number> = {
   상태: 72, 입고일자: 82, 구분: 74, 차량번호: 96, 차종분류: 104, 세부모델: 150,
-  연료: 66, 외장: 62, 내장: 62, Km: 74,
+  외장: 62, 내장: 62, 연식: 56, 연료: 66, Km: 74,
   단기보증: 92, 장기보증: 92, '1개월': 84, '12개월': 84, '24개월': 84, '36개월': 84, '48개월': 84, '60개월': 84,
-  트림: 110, 옵션: 190, 최초등록: 88, 소비자가격: 96, 제조사: 70, 배기량: 66, 차고지: 90,
+  // 파워트레인은 「전기 롱레인지 84kWh AWD」처럼 길다 — 잘리면 어느 조합인지 못 읽는다.
+  파워트레인: 150, 세부트림: 112, 옵션: 190, 최초등록: 88, 소비자가격: 96, 제조사: 70, 배기량: 66, 차고지: 90,
   운전자범위: 150, 연주행: 78, 분납: 66, '21세': 62, '23세': 62, '1만+': 66,
   대인: 96, 대물: 96, 자차: 110, 자손: 96, 무보험: 96, 정비: 84, 전용계좌: 110,
   비고: 200, 공급사코드: 84, 정책코드: 84,
@@ -42,11 +43,31 @@ const box = (gid: number, r0: number, r1: number, c0: number, c1: number) => ({
   sheetId: gid, startRowIndex: r0, endRowIndex: r1, startColumnIndex: c0, endColumnIndex: c1,
 });
 
-/** 종합표 탭에 입힐 서식 요청들. 값은 이미 쓰여 있다고 본다. */
-export function jonghapFormatRequests(gid: number, rowCount: number): Record<string, unknown>[] {
+/**
+ * 종합표 탭에 입힐 서식 요청들. 값은 이미 쓰여 있다고 본다.
+ *
+ * @param existing 그 탭에 이미 걸린 것들 — **덮어쓰기 전에 걷어내야 한다.**
+ *   줄무늬·조건부서식은 «추가»만 되는 요청이라 두 번째 반영에서
+ *   「already has alternating background colors」로 통째로 400 이 난다(실측 2026-08-10).
+ */
+export function jonghapFormatRequests(
+  gid: number,
+  rowCount: number,
+  existing: { bandedRangeIds?: number[]; conditionalCount?: number } = {},
+): Record<string, unknown>[] {
   const lastRow = rowCount + 1;                     // 머리행 1줄 + 본문
   const nCols = JONGHAP_COLUMNS.length;
   const req: Record<string, unknown>[] = [];
+
+  /**
+   * ★먼저 걷어낸다 — 줄무늬·조건부서식은 «추가»만 되는 요청이다.
+   * 안 걷으면 두 번째 반영부터 통째로 400 이 나고, 그때 서식이 하나도 안 입혀진다.
+   * 뒤에서 앞으로 지운다(조건부서식은 index 가 지울 때마다 당겨진다).
+   */
+  for (const id of existing.bandedRangeIds || []) req.push({ deleteBanding: { bandedRangeId: id } });
+  for (let i = (existing.conditionalCount || 0) - 1; i >= 0; i--) {
+    req.push({ deleteConditionalFormatRule: { sheetId: gid, index: i } });
+  }
 
   // 머리행 — 진하게, 배경, 가운데. 훑을 때 여기가 경계다.
   req.push({
@@ -101,7 +122,7 @@ export function jonghapFormatRequests(gid: number, rowCount: number): Record<str
     });
   }
   // 짧은 값은 가운데 — 왼쪽에 붙으면 칸이 비어 보인다.
-  for (const name of ['상태', '구분', '연료', '외장', '내장', '최초등록', '분납', '21세', '23세', '1만+']) {
+  for (const name of ['상태', '구분', '연식', '연료', '외장', '내장', '최초등록', '분납', '21세', '23세', '1만+']) {
     const c = JONGHAP_COL(name);
     if (c < 0) continue;
     req.push({
