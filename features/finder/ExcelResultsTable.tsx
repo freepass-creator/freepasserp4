@@ -152,8 +152,9 @@ export function ExcelResultsTable({
           {show('maker') && hdrTh('maker', '제조사', { ...thX, ...cellPad, ...colLockChars(makerChars, true, padX) })}
           {show('model') && hdrTh('model', '모델', { ...thX, ...cellPad, ...(typeof modelW === 'number' ? colLockChars(modelW, true, padX) : colLock(modelW, padX)) })}
           {show('sub_model') && hdrTh('sub_model', '세부모델', { ...thX, ...cellPad, ...colChars(subChars, nameSqueeze, true, padX) })}
-          {show('variant') && hdrTh('variant', '파워', { ...thX, ...cellPad, ...colChars(nameChars, nameSqueeze, true, padX) })}
-          {show('trim_name') && hdrTh('trim_name', '트림', { ...thX, ...cellPad, ...colChars(nameChars, nameSqueeze, true, padX) })}
+          {/* 차종 5단계 = 제조사 → 모델 → 세부모델 → 파워트레인 → 세부트림. 줄여 쓰지 않는다. */}
+          {show('variant') && hdrTh('variant', '파워트레인', { ...thX, ...cellPad, ...colChars(nameChars, nameSqueeze, true, padX) })}
+          {show('trim_name') && hdrTh('trim_name', '세부트림', { ...thX, ...cellPad, ...colChars(nameChars, nameSqueeze, true, padX) })}
           {show('options') && hdrTh('options', '옵션', { ...thX, ...cellPad, ...colOpts(hasOpts, exMode) })}
           {show('ext_color') && hdrTh('ext_color', '외장', { ...thX, ...cellPad, ...colLockChars(colorChars, true, padX) })}
           {show('int_color') && hdrTh('int_color', '내장', { ...thX, ...cellPad, ...colLockChars(colorChars, true, padX) })}

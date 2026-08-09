@@ -13,7 +13,8 @@ export const SNAP_TRACK_LABEL: Record<SnapTrackKey, string> = {
   model: '모델',
   sub_model: '세부모델',
   variant: '파워트레인',
-  trim_name: '트림',
+  // 차종 5단계 이름은 원자 사전(entities.ts)이 정본이다 — 제조사·모델·세부모델·파워트레인·세부트림.
+  trim_name: '세부트림',
   year: '연식',
   fuel_type: '연료',
   engine_cc: '배기량',

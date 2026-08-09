@@ -264,7 +264,7 @@ export const ENTITIES: Record<string, Entity> = {
       { key: 'model_snapshot', label: '모델', type: 'text' },
       { key: 'sub_model_snapshot', label: '세부모델', type: 'text' },
       { key: 'variant_snapshot', label: '파워트레인', type: 'text' },
-      { key: 'trim_name_snapshot', label: '트림', type: 'text' },
+      { key: 'trim_name_snapshot', label: '세부트림', type: 'text' },
       { key: 'trim_extra_snapshot', label: '추가표기', type: 'text' },
       { key: 'vehicle_name_snapshot', label: '차량명', type: 'text' },
       { key: 'year_snapshot', label: '연식', type: 'text' },

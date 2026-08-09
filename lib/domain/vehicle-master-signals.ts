@@ -1,4 +1,5 @@
 import type { EntityRecord } from '@/lib/intake/entities';
+import { NON_IDENTIFYING_FIELDS } from '@/lib/domain/vehicle-match-sources';
 
 /** 차종 규격화에 사용하는 수집 신호 SSOT. */
 export const VEHICLE_SIGNAL_KEYS = [
@@ -51,6 +52,37 @@ export function collectVehicleSignals(product: EntityRecord): string[] {
 
 export function vehicleSignalBlob(product: EntityRecord): string {
   return collectVehicleSignals(product).join(' ');
+}
+
+/**
+ * **어느 차인지**를 고를 때만 쓰는 좁은 신호 — 옵션·비고·자유문장을 뺀다.
+ *
+ * ★왜 갈라야 하나(실측 2026-08-09)
+ *   빌린카 아반떼의 옵션 칸이 「아틀라스 화이트/N Line 전용 블랙 원톤(레드 스티치)」인데,
+ *   이게 블롭에 섞이자 **아반떼가 「파사트」로, K5 가 「Q5」로** 붙었다. 옵션은 색상·편의장비 나열이라
+ *   차종 근거가 될 수 없는데 모델 후보 점수에 들어가 수입차 라인업과 글자가 맞아버린다.
+ *
+ *   옵션·비고는 **트림 힌트로는** 여전히 쓴다(`vehicleSignalBlob`) — 「프레스티지」가 거기 적히기도 한다.
+ *   가르는 기준은 «그 칸이 차를 특정하는가»다. 옵션은 특정하지 못한다.
+ */
+const MODEL_SIGNAL_EXCLUDE = new Set<string>(NON_IDENTIFYING_FIELDS);
+
+export function vehicleModelSignalBlob(product: EntityRecord): string {
+  const source: EntityRecord = { ...product };
+  const raw = product._raw_vehicle;
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    for (const key of Object.keys(raw as object)) {
+      const value = String((raw as EntityRecord)[key] ?? '').trim();
+      if (value) source[key] = value;
+    }
+  }
+  const signals: string[] = [];
+  for (const key of VEHICLE_SIGNAL_KEYS) {
+    if (MODEL_SIGNAL_EXCLUDE.has(key)) continue;
+    const value = String(source[key] ?? '').trim();
+    if (value) signals.push(value);
+  }
+  return signals.join(' ');
 }
 
 /** 최초 원본 신원·스펙을 현재 필드에 복원해 재스냅 입력을 만든다. */

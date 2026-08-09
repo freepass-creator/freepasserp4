@@ -80,7 +80,14 @@ export function selectMasterEntry(
     || deps.extractGen(product.model, codes)
     || deps.extractGen(product.trim_name, codes)
     || deps.extractGen(product.vehicle_name, codes)
-    || deps.extractGen(product.cert_car_name, codes);
+    || deps.extractGen(product.cert_car_name, codes)
+    /**
+     * 추가표기도 읽는다 — 트림을 규격화하면서 원문이 이리로 옮겨지기 때문이다.
+     * 아래 `ordinalGen` 은 이미 여기를 읽는데 **세대코드만 안 읽고 있었다**:
+     * 원문 「아반떼 CN7 26MY … 인스퍼레이션」이 통째로 `trim_extra` 에 있는데도
+     * 2006년 「아반떼 J2」로 붙었다(실측 2026-08-09).
+     */
+    || deps.extractGen(product.trim_extra, codes);
   /**
    * 「E클래스(6세대)」처럼 **원문에 박힌 세대 순번**은 세대를 곧바로 확정하는 신호다.
    * 트림을 규격화하면서 원문이 `trim_extra` 로 옮겨지는데 여기서 그걸 안 읽어

@@ -177,8 +177,9 @@ async function main() {
     });
   }
 
-  // 사고 건만 재스냅 미리보기
-  const accidents = rows.filter((r) => r.kind === 'brand_swap' || r.kind === 'wrong_model');
+  // 사고 건만 재스냅 미리보기 — 브랜드 바뀜 우선. 같은 브랜드 계열애매(캐딜락→XT6)는 자동 반영 안 함.
+  const accidents = rows.filter((r) => r.kind === 'brand_swap');
+  const skipAuto = rows.filter((r) => r.kind === 'wrong_model');
   let wouldWrite = 0;
   let stayLow = 0;
   let stillBad = 0;
@@ -201,17 +202,19 @@ async function main() {
     const ok = sameFamily(r.rawModel, r.next.model, r.next.sub)
       || (brandKey(r.next.maker) === (brandKey(r.rawMaker) || brandFromModel(r.rawModel)));
     if (ok) { fixed++; wouldWrite++; }
-    else { stillBad++; wouldWrite++; } // 그래도 high/medium 이면 원본 기준 재스냅이 맞음 — 반영
+    else { stillBad++; wouldWrite++; }
   }
 
   console.log(`\n══ 차종 오매칭 분류 ${apply ? '반영' : 'dry-run'} ══\n`);
   console.log(`  fidelity «다른 차» 재분류 ${rows.length}대`);
   const byKind = (k: Kind) => rows.filter((r) => r.kind === k);
   console.log(`  · brand_swap(브랜드 바뀜)  ${byKind('brand_swap').length}`);
-  console.log(`  · wrong_model(계열 다름)   ${byKind('wrong_model').length}`);
+  console.log(`  · wrong_model(계열 다름)   ${byKind('wrong_model').length}  ← 자동반영 제외`);
   console.log(`  · weak_raw(원본 약함)      ${byKind('weak_raw').length}`);
-  console.log(`  · ok_enrich(재분류 제외)   — sameFamily 통과분은 위에 안 잡힘`);
-  console.log(`\n  재스냅 대상(사고) ${accidents.length} · high/medium ${wouldWrite} · low유지 ${stayLow} · 재스냅 후에도 계열애매 ${stillBad}`);
+  console.log(`\n  재스냅 대상(brand_swap) ${accidents.length} · high/medium ${wouldWrite} · low유지 ${stayLow} · 계열애매 ${stillBad}`);
+  if (skipAuto.length) {
+    console.log(`  (참고) wrong_model ${skipAuto.length}대는 브랜드 동일·원본 약함 — 사람이 볼 것`);
+  }
 
   const show = (title: string, list: Row[]) => {
     if (!list.length) return;
@@ -241,37 +244,59 @@ async function main() {
 
   // 백업 스냅샷(패치 키만)
   const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  mkdirSync('tmp/migration-backups', { recursive: true });
   const backup: Rec = {};
   let written = 0;
+  let quarantined = 0;
   const errors: string[] = [];
 
   for (const r of accidents) {
-    if (!r.next || r.next.conf === 'none' || r.next.conf === 'low') continue;
     const p = products[r.key];
     const input = resnapInput(p);
     const res = snapToMaster(input, entries);
-    if (!res || (res.confidence !== 'high' && res.confidence !== 'medium')) continue;
-    const after = applySnap(input, res, { source: 'fix-brand-misfit' });
-    const patch: Rec = {};
-    for (const f of SNAP_FIELDS) {
-      if (after[f] !== undefined) patch[f] = after[f];
-      else if (f === '_snap_defaults') patch[f] = null; // 제거
-    }
-    backup[r.key] = {};
-    for (const f of SNAP_FIELDS) backup[r.key][f] = p[f] ?? null;
+    const before: Rec = {};
+    for (const f of SNAP_FIELDS) before[f] = p[f] ?? null;
+    backup[r.key] = before;
+
     try {
-      await db.ref(`v4/products/${r.key}`).update(patch);
-      written++;
+      if (res && (res.confidence === 'high' || res.confidence === 'medium')) {
+        const after = applySnap(input, res, { source: 'fix-brand-misfit' });
+        const patch: Rec = {};
+        for (const f of SNAP_FIELDS) {
+          if (after[f] !== undefined) patch[f] = after[f];
+          else if (f === '_snap_defaults') patch[f] = null;
+        }
+        await db.ref(`v4/products/${r.key}`).update(patch);
+        written++;
+      } else {
+        // low — 틀린 브랜드를 손님 화면에 두지 않는다. 원본+추론 제조사만 남기고 검수.
+        const maker = S(input.maker) || brandFromModel(S(input.model) || r.rawModel) || null;
+        const model = S(input.model) || r.rawModel || null;
+        await db.ref(`v4/products/${r.key}`).update({
+          maker,
+          model,
+          sub_model: null,
+          catalog_id: null,
+          variant: null,
+          trim_name: null,
+          _snapped: false,
+          _snap_confidence: 'none',
+          _needs_master_review: true,
+          _snap_at: Date.now(),
+        });
+        quarantined++;
+      }
     } catch (e) {
       errors.push(`${r.key}: ${(e as Error).message}`);
     }
   }
   writeFileSync(`tmp/migration-backups/${stamp}-brand-misfit-before.json`, JSON.stringify(backup, null, 2));
-  console.log(`\n  반영 ${written}대 · 백업 tmp/migration-backups/${stamp}-brand-misfit-before.json`);
+  console.log(`\n  반영(고신뢰) ${written}대 · 검수격리(low) ${quarantined}대`);
+  console.log(`  백업 tmp/migration-backups/${stamp}-brand-misfit-before.json`);
   if (errors.length) {
     console.log(`  ❌ ${errors.length}`);
     for (const e of errors.slice(0, 8)) console.log('   ' + e);
   }
 }
 
-main().catch((e) => { console.error(e); process.exit(1); });
+main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });

@@ -7,7 +7,7 @@ import { type EntityRecord } from '@/lib/intake/entities';
 import { parseDepositRule, type DepositRule } from '@/lib/domain/sheet-import';
 import { isExactRealPlate } from '@/lib/domain/product';
 
-export type SheetAdapterId = 'generic' | 'autoplus' | 'ianka';
+export type SheetAdapterId = 'generic' | 'autoplus' | 'ianka' | 'aicar';
 
 export type SheetAdapter = {
   id: SheetAdapterId;
@@ -169,28 +169,50 @@ export const SHEET_ADAPTERS: Record<SheetAdapterId, SheetAdapter> = {
       return [header, ...body];
     },
   },
+  /**
+   * 아이카 — B형 종합시트. `트림` 열이 짧은 등급명이 아니라 A형의 `모델명(트림)` 과 같은
+   * **풀 차명 문장**이다(실측: 「신형K5 2.0 LPI 렌터카 스탠다드」「E클래스(6세대) E200 아방가르드」).
+   * 헤더만 `모델명(트림)` 으로 바꿔 같은 추출 파이프를 탄다. `세부모델` 은 그대로 모델 잠금.
+   */
+  aicar: {
+    id: 'aicar',
+    label: '아이카식',
+    prepareTable: (table, opts) => {
+      const headerRow = resolveHeaderRow(table, opts?.headerRow);
+      const sliced = sliceFromHeader(table, headerRow);
+      if (!sliced.length) return sliced;
+      const header = [...(sliced[0] || [])];
+      const trimCol = header.findIndex((cell) => String(cell || '').replace(/\s/g, '') === '트림');
+      if (trimCol >= 0) header[trimCol] = '모델명(트림)';
+      return [header, ...sliced.slice(1)];
+    },
+  },
 };
 
 export const ADAPTER_OPTIONS: { value: SheetAdapterId; label: string }[] = (
   Object.values(SHEET_ADAPTERS).map((a) => ({ value: a.id, label: a.label }))
 );
 
-/** 명시 설정을 최우선하고, 레거시 미설정 AutoPlus만 코드·이름으로 보정한다. */
+const ADAPTER_IDS = new Set<SheetAdapterId>(['generic', 'autoplus', 'ianka', 'aicar']);
+
+/** 명시 설정을 최우선하고, 레거시 미설정 오토플러스·아이카만 코드·이름으로 보정한다. */
 export function effectiveSheetAdapterId(partner: EntityRecord): SheetAdapterId {
   const explicit = String(partner.adapter_id || '').trim();
-  if (explicit === 'generic' || explicit === 'autoplus' || explicit === 'ianka') return explicit;
+  if (ADAPTER_IDS.has(explicit as SheetAdapterId)) return explicit as SheetAdapterId;
   if (explicit) throw new Error(`시트 어댑터 설정 오류 — ${explicit}`);
-  return /autoplus|오토플러스|RP023/i.test(
-    `${partner.partner_code || partner._key || ''} ${partner.name || ''} ${partner.partner_name || ''}`,
-  ) ? 'autoplus' : 'generic';
+  const hay = `${partner.partner_code || partner._key || ''} ${partner.name || ''} ${partner.partner_name || ''}`;
+  if (/autoplus|오토플러스|RP023/i.test(hay)) return 'autoplus';
+  if (/아이카|RP004/i.test(hay)) return 'aicar';
+  if (/이안카|RP031/i.test(hay)) return 'ianka';
+  return 'generic';
 }
 
 export function resolveAdapter(partnerOrId?: EntityRecord | string | null): SheetAdapter {
   const id = typeof partnerOrId === 'string'
     ? partnerOrId.trim()
     : effectiveSheetAdapterId(partnerOrId || {});
-  if (id !== 'generic' && id !== 'autoplus' && id !== 'ianka') throw new Error(`시트 어댑터 설정 오류 — ${id}`);
-  return SHEET_ADAPTERS[id];
+  if (!ADAPTER_IDS.has(id as SheetAdapterId)) throw new Error(`시트 어댑터 설정 오류 — ${id}`);
+  return SHEET_ADAPTERS[id as SheetAdapterId];
 }
 
 /**

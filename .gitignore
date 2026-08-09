@@ -29,3 +29,6 @@ tmp/
 # Firebase Rules 후보·에뮬레이터 생성물 — builder/probe 소스만 버전관리
 /scripts/ruleprobe/release-candidate.rules.json
 /scripts/ruleprobe/firebase-debug.log
+
+# 공급사 계약서 원본 — 실고객 PII(주민번호·면허번호·주소)가 들어 있다. 절대 커밋 금지.
+/계약서양식/

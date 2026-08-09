@@ -7,6 +7,7 @@ import {
   parseYear,
 } from '@/lib/domain/vehicle-master-format';
 import { vehicleSignalBlob } from '@/lib/domain/vehicle-master-signals';
+import { sourcesFor } from '@/lib/domain/vehicle-match-sources';
 import { isNoTrimLabel, realMasterTrims } from '@/lib/domain/vehicle-master-options';
 import type { MasterEntry } from '@/lib/domain/vehicle-master-types';
 
@@ -26,6 +27,9 @@ function yearFromBlob(blob: string): number {
   const match =
     /(\d{2,4})\s*년\s*식/.exec(blob) ||
     /(20\d{2}|\d{2})\s*년(?!\s*식)/.exec(blob) ||
+    // 「25MY」= 2025년식. 공급사 시트가 모델연도를 이 꼴로 적는다(빌린카·우리캐피탈·웰릭스).
+    // 아래 4자리 패턴보다 **먼저** 봐야 한다 — 「25MY … 2.0(렌트)」에서 엉뚱한 숫자를 집지 않게.
+    /(\d{2})\s*MY\b/i.exec(blob) ||
     /\b(20\d{2})\b/.exec(blob);
   return match ? parseYear(match[1]) : 0;
 }
@@ -53,13 +57,20 @@ export function unpackVehicleSignalsEngine(
   const out: EntityRecord = { ...product };
   const blob = vehicleSignalBlob(out);
   if (!blob.trim()) return out;
-  const normalizedBlob = deps.norm(blob);
+  const normalizedBlob = deps.norm(blob.replace(/트랜디/g, '트렌디'));
 
-  if (!deps.carYear(out)) {
-    const year = yearFromBlob(blob);
-    if (year) out.year = String(year);
-  } else {
-    const year = parseYear(out.year) || yearFromBlob(String(out.year));
+  /**
+   * 연식은 **여기서 `out.year` 에 못 박아야 한다.**
+   *
+   * 아래에서 `trim_name` 을 마스터 트림(「인스퍼레이션」)으로 덮어쓰는데, 원문의 연식 표기가
+   * 거기 섞여 있으면 그 순간 신호가 사라진다. 그러면 세대 선택이 연식을 못 써서
+   * 「더뉴아반떼 25MY」가 **MD(2013~2015)** 로 붙는다 — 실제는 CN7 이다(실측 2026-08-09).
+   *
+   * 옛 코드는 else 갈래에서 `yearFromBlob(String(out.year))` 을 봤는데, `out.year` 가 비어 있으면
+   * 문자열 "undefined" 를 뒤지는 셈이라 아무것도 못 찾았다. 블롭을 봐야 한다.
+   */
+  {
+    const year = parseYear(out.year) || yearFromBlob(blob);
     if (year) out.year = String(year);
   }
 
@@ -125,31 +136,17 @@ export function unpackVehicleSignalsEngine(
     }
   }
 
-  const modelProbe = deps.norm([
-    out.model,
-    out.sub_model,
-    out.cert_car_name,
-    out.vehicle_name,
-    out.trim_name,
-    out.variant,
-    out.options,
-    out.partner_memo,
-    out.engine_type,
-    /**
-     * 공급사가 «차종» 칸에 모델명을 적어 보내는 경우가 있다 —
-     * 이안카는 model 칸에 「2.5 26MY 베스트 셀렉션 2WD」(사양)를 넣고 vehicle_class 에 「K8」을 적는다.
-     * 여기서 안 읽으면 모델 근거가 통째로 사라져 엉뚱한 차로 붙는다(실측 2026-08-08 · 4대가 모닝으로).
-     */
-    out.vehicle_class,
-  ].map((value) => String(value ?? '').trim()).filter(Boolean).join(' '));
+  // 근거 칸은 `vehicle-match-sources.ts` 가 정한다 — 여기서 임의로 늘리지 말 것.
+  const modelProbe = deps.norm(sourcesFor('model').evidence
+    .map((f) => String((out as Record<string, unknown>)[f] ?? '').trim())
+    .filter(Boolean).join(' '));
   /**
    * 띄어쓰기를 살린 원문 — 짧은 모델명의 «단어 경계»를 보려면 필요하다.
-   * `norm` 은 공백을 지우므로 여기서는 소문자화만 한다.
+   * `norm` 은 공백을 지우므로 여기서는 소문자화만 한다. 근거 칸은 위와 같다.
    */
-  const modelProbeSpaced = [
-    out.model, out.sub_model, out.cert_car_name, out.vehicle_name,
-    out.trim_name, out.variant, out.options, out.partner_memo, out.engine_type, out.vehicle_class,
-  ].map((value) => String(value ?? '').trim()).filter(Boolean).join(' ').toLowerCase();
+  const modelProbeSpaced = sourcesFor('model').evidence
+    .map((f) => String((out as Record<string, unknown>)[f] ?? '').trim())
+    .filter(Boolean).join(' ').toLowerCase();
 
   /**
    * 「S3」·「A3」처럼 짧은 영숫자 모델명은 **부분일치로 찾으면 안 된다.**
@@ -294,24 +291,52 @@ export function unpackVehicleSignalsEngine(
      * 트림은 **원문에서 규격값을 뽑아낸다.** 문장을 그대로 남기지 않는다.
      *
      * 예전에는 두 갈래로 새고 있었다.
-     *   · 40자 넘으면 통째로 버렸다 — 「팰리세이드 … 7인승 캘리그래피 캘리전용퀼팅나파(블랙)」
-     *     안의 「캘리그래피」까지 같이 사라졌다.
-     *   · 40자 이하인데 캐논 매칭이 안 되면 문장이 그대로 트림이 됐다 —
-     *     「G90 자가용 세단 5인승 5.0 프레스티지」가 트림 이름으로 박혔다.
-     * 둘 다 «마스터에 있는 트림을 스스로 못 알아본» 것이다. 순서를 하나로 세운다.
+     *   · 40자 넘으면 통째로 버렸다 — 「팰리세이드 … 7인승 캘리그래피 …」 안의 등급까지 사라짐.
+     *   · 40자 이하인데 캐논 매칭이 안 되면 문장이 그대로 트림 이름이 됐다.
+     *
+     * 아이카 B형 `트림` 열은 풀 문장이다. 마스터 노드가 「LPI 트렌디(렌터카)」처럼
+     * 접두·괄호가 있어도 원문 「… 트렌디」에서 핵심 등급만 고른다. 「트랜디」 오탈자 → 트렌디.
      */
-    const canonical = rawTrim && !isNoTrimLabel(rawTrim)
-      ? deps.canonMasterTrim(rawTrim, pool.length ? pool : null)
-      : '';
-    const embedded = () => [...new Set(pool)]
-      .filter((t) => deps.norm(t).length >= 2)
+    const nraw = deps.norm(rawTrim.replace(/트랜디/g, '트렌디'));
+    const coreOf = (trim: string) => deps.norm(trim)
+      .replace(/(?:lpi|gdi|hev|phev|ev|tng|렌터카|자가용|장애인용|일반인|\d+)/g, '')
+      .replace(/[()[\]{}]/g, '');
+    const embedded = () => {
+      const uniq = [...new Set(pool)].filter((t) => deps.norm(t).length >= 2)
+        .sort((a, b) => b.length - a.length);
+      const exact = uniq.find((t) => nraw.includes(deps.norm(t)));
+      if (exact) return exact;
+      const byCore = uniq.find((t) => {
+        const core = coreOf(t);
+        return core.length >= 2 && nraw.includes(core);
+      });
+      if (!byCore) return '';
+      const core = coreOf(byCore);
+      return uniq.find((t) => deps.norm(t) === core) || byCore;
+    };
+    const KNOWN_GRADES = [
+      '캘리그래피', '인스퍼레이션', '프레스티지', '노블레스', '익스클루시브', '시그니처',
+      '트렌디', '스탠다드', '모던', '스마트', '럭셔리', '디럭스', '기본형', '그래비티',
+      '컨비니언스', '얼티메이트', '리미티드', '엘레강스', '인텐시브', '르블랑', '어스', '에어',
+    ];
+    const knownInText = () => KNOWN_GRADES
+      .slice()
       .sort((a, b) => b.length - a.length)
-      .find((t) => deps.norm(rawTrim).includes(deps.norm(t))) || '';
-    const picked = (!rawTrim || isNoTrimLabel(rawTrim)) ? ''
-      : canonical || embedded()
-      // 마스터가 그 모델의 트림을 모르는 경우가 있다(1,800종 중 32%). 짧은 낱말이면 원문을 살린다 —
-      // 그건 진짜 트림일 가능성이 높다. 문장이면 이름이 아니다.
-      || (rawTrim.length <= 12 && !/\s/.test(rawTrim) ? rawTrim : '');
+      .find((g) => nraw.includes(deps.norm(g))) || '';
+    const canonical = rawTrim && !isNoTrimLabel(rawTrim)
+      ? deps.canonMasterTrim(rawTrim.replace(/트랜디/g, '트렌디'), pool.length ? pool : null)
+      : '';
+    const picked0 = (!rawTrim || isNoTrimLabel(rawTrim)) ? ''
+      : canonical || embedded() || knownInText()
+      || (rawTrim.length <= 12 && !/\s/.test(rawTrim) ? rawTrim.replace(/트랜디/g, '트렌디') : '');
+    // 「기본」이 「기본형」 앞부분으로 잘못 잡히면 긴 쪽으로 올린다.
+    const picked = (() => {
+      if (!picked0) return '';
+      const longer = ['기본형', ...KNOWN_GRADES]
+        .filter((g) => g !== picked0 && g.startsWith(picked0) && nraw.includes(deps.norm(g)))
+        .sort((a, b) => b.length - a.length)[0];
+      return longer || picked0;
+    })();
     /**
      * ★이름에서 뺀 원문은 **버리지 말고 `trim_extra` 로 넘긴다.**
      * 여기서 그냥 지우면 세대를 가르는 글자가 통째로 사라져 매처가 헤맨다 —

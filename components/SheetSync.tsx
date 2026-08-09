@@ -315,7 +315,7 @@ async function fetchSheetIdentityDecisions(): Promise<SheetIdentityDecision[]> {
 
 const SHEET_FIELD_LABEL: Record<string, string> = {
   price: '가격', maker: '제조사', model: '모델', sub_model: '세부모델', variant: '파워트레인',
-  trim_name: '트림', trim_extra: '추가표기', year: '연식', fuel_type: '연료', engine_cc: '배기량',
+  trim_name: '세부트림', trim_extra: '추가표기', year: '연식', fuel_type: '연료', engine_cc: '배기량',
   mileage: '주행거리', ext_color: '외장색', int_color: '내장색', options: '옵션', photo_link: '사진',
   product_type: '상품구분', partner_memo: '공급사메모', status_label_raw: '원문상태',
   _snap_confidence: '매칭신뢰', _needs_master_review: '검수필요', _snapped: '마스터변환',

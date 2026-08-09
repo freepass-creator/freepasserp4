@@ -366,6 +366,23 @@ export function parseMappingHeaderSignature(value: unknown): MappingHeaderSignat
 export const normalizeSheetHeader = (value: unknown): string =>
   String(value ?? '').trim().toLowerCase().replace(/\s+/g, '');
 
+/**
+ * 저장 프로필 헤더 ↔ 현재 헤더가 같은 열인가.
+ * 아이카 어댑터가 B형 `트림` 을 A형 `모델명(트림)` 으로 바꿔도 서명이 깨지지 않게.
+ */
+export function sheetHeadersEquivalent(a: unknown, b: unknown): boolean {
+  const na = normalizeSheetHeader(a);
+  const nb = normalizeSheetHeader(b);
+  if (!na || !nb) return false;
+  if (na === nb) return true;
+  const trimFamily = new Set([
+    '트림', '세부트림', '등급', '세부등급',
+    '모델명(트림)', '모델명(트림풀명)', '모델명(풀명)', '모델명(상세)',
+    '차명(트림)', '모델(트림)', '모델명트림',
+  ].map(normalizeSheetHeader));
+  return trimFamily.has(na) && trimFamily.has(nb);
+}
+
 export function buildMappingHeaderSignature(
   headers: string[],
   mapping: MappingProfile,
@@ -658,7 +675,7 @@ export function importSheetTable(table: string[][], opts: {
       const savedHeader = normalizeSheetHeader(savedHeaders?.[field]);
       if (savedHeader) {
         const matches = headers
-          .map((header, index) => normalizeSheetHeader(header) === savedHeader ? index : -1)
+          .map((header, index) => sheetHeadersEquivalent(header, savedHeader) ? index : -1)
           .filter((index) => index >= 0);
         if (!matches.length) throw new Error(`시트 헤더 없음 — ${field}(${savedHeaders?.[field]}) 매핑을 확인하세요`);
         if (matches.length > 1) throw new Error(`시트 헤더 중복 — ${field}(${savedHeaders?.[field]}) 열을 하나로 정리하세요`);

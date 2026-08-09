@@ -52,9 +52,11 @@ import {
 import {
   collectVehicleSignals,
   VEHICLE_SIGNAL_KEYS,
+  vehicleModelSignalBlob,
   vehicleSignalBlob,
   withRawVehicleSignals,
 } from '@/lib/domain/vehicle-master-signals';
+import { resolveTrim } from '@/lib/domain/vehicle-trim-resolve';
 import {
   isNoTrimLabel,
   masterVariantLabel,
@@ -160,6 +162,8 @@ const TRIM_EN_KO: Record<string, string> = {
   limited: '리미티드',
   standard: '스탠다드',
   trendy: '트렌디',
+  /** 공급사 오탈자 — 니로 등 시트에 「트랜디」로 자주 온다. */
+  트랜디: '트렌디',
   gravity: '그래비티',
   elegance: '엘레강스',
   intensive: '인텐시브',
@@ -183,9 +187,11 @@ export function canonMasterTrim(raw: unknown, pool?: string[] | null): string {
   const src = String(raw ?? '').trim();
   if (!src || isNoTrimLabel(src)) return '';
   const key = src.toLowerCase().replace(/\s+/g, ' ').trim();
-  const mapped = TRIM_EN_KO[key] || TRIM_EN_KO[key.replace(/-/g, ' ')] || src;
+  // 한글 오탈자(트랜디)도 영문 키와 같이 본다.
+  const mapped = TRIM_EN_KO[key] || TRIM_EN_KO[key.replace(/-/g, ' ')]
+    || TRIM_EN_KO[norm(src)] || src;
   const list = pool && pool.length ? realMasterTrims(pool) : null;
-  if (!list) return mapped;
+  if (!list) return mapped === src ? src : mapped;
   if (list.includes(mapped)) return mapped;
   if (list.includes(src)) return src;
   const nm = norm(mapped);
@@ -388,7 +394,10 @@ export function snapToMaster(p: EntityRecord, entries: MasterEntry[]): SnapResul
   p = unpackVehicleSignals(withRawVehicleSignals(p), entries);
   const signalBlob = vehicleSignalBlob(p);
   const wantTurbo = turboHint(p, signalBlob);
-  const selected = selectMasterEntry(p, entries, signalBlob, {
+  // ★차종 선택에는 **좁은 블롭**을 쓴다 — 옵션 칸의 「N Line」·「아틀라스 화이트」가
+  //   수입차 라인업과 글자로 맞아 아반떼를 파사트로 만든다(실측 2026-08-09).
+  //   트림 추출은 아래에서 넓은 `signalBlob` 을 그대로 쓴다.
+  const selected = selectMasterEntry(p, entries, vehicleModelSignalBlob(p), {
     norm,
     makerGroup,
     genCodes,
@@ -417,7 +426,7 @@ export function snapToMaster(p: EntityRecord, entries: MasterEntry[]): SnapResul
   if (hints.filled.seats) scored.seats = hints.seats;
   if (hints.filled.drive_type) scored.drive_type = hints.drive_type;
 
-  const { variant, seatMatters } = selectMasterVariant(
+  let { variant, seatMatters } = selectMasterVariant(
     scored,
     e,
     entries,
@@ -426,6 +435,41 @@ export function snapToMaster(p: EntityRecord, entries: MasterEntry[]): SnapResul
     wantTurbo,
     { norm, normDrive },
   );
+
+  /**
+   * ★트림을 근거로 파워트레인을 되돌아본다(2026-08-09).
+   *
+   * 계단식으로 좁히면 끝에는 선택지가 몇 개 없다 — 그런데 **중간에서 한 칸 잘못 들면**
+   * 그 아래 트림 목록이 통째로 달라져 답이 사라진다.
+   *   실측: 아반떼 CN7 이 「가솔린 1.6T」로 잡혔는데 그 아래 트림은 「인스퍼레이션」뿐이라
+   *   원문의 「모던」을 못 잡았다. 같은 세대의 「가솔린 1.6」엔 「모던」이 있다.
+   *
+   * 그래서 **고른 파워트레인에 원문의 트림이 없고, 같은 세대의 다른 파워트레인엔 있으면**
+   * 그쪽으로 옮긴다. 후보가 하나로 좁혀질 때만 옮긴다 — 둘 이상이면 근거가 약하다.
+   */
+  if (variant && Array.isArray(e.variants) && e.variants.length > 1) {
+    const here = realMasterTrims(variant.trims?.length ? variant.trims : []);
+    if (!resolveTrim(signalBlob, here)) {
+      let better = (e.variants as typeof e.variants)
+        .filter((v) => v !== variant && v?.trims?.length)
+        .map((v) => ({ v, hit: resolveTrim(signalBlob, realMasterTrims(v.trims)) }))
+        .filter((x) => x.hit);
+      /**
+       * 후보가 둘 이상이면 **원문의 연료로 가른다.**
+       * 「모던」은 아반떼 CN7 의 「가솔린 1.6」과 「하이브리드 1.6」 양쪽에 있는데,
+       * 원문이 「가솔린」이면 답은 하나다. 연료도 못 가리면 손대지 않는다.
+       */
+      if (better.length > 1) {
+        const fuel = normFuel(p.fuel_type);
+        if (fuel) {
+          const sameFuel = better.filter((x) => normFuel(masterVariantLabel(x.v)).includes(fuel)
+            || normFuel(String((x.v as Record<string, unknown>).fuel_type ?? '')) === fuel);
+          if (sameFuel.length === 1) better = sameFuel;
+        }
+      }
+      if (better.length === 1) variant = better[0].v;
+    }
+  }
 
   let trim = '';
   const trimSrc = realMasterTrims(variant?.trims?.length ? variant.trims : (e.trims || []));
@@ -442,22 +486,16 @@ export function snapToMaster(p: EntityRecord, entries: MasterEntry[]): SnapResul
       }
     }
     if (!trim) {
-      for (const t of [...trimSrc].sort((a, b) => b.length - a.length)) {
-        if (norm(t).length < 2) continue;
-        // 한글 마스터 트림 또는 영문 별칭이 블롭에 있을 때
-        const tKey = t.toLowerCase().replace(/\s+/g, ' ').trim();
-        const tAsKo = TRIM_EN_KO[tKey] || TRIM_EN_KO[tKey.replace(/-/g, ' ')] || t;
-        const enKeys = Object.entries(TRIM_EN_KO)
-          .filter(([, ko]) => ko === t || ko === tAsKo || norm(ko) === norm(t))
-          .map(([en]) => en);
-        const nblob = norm(signalBlob);
-        if (nblob.includes(norm(t)) && norm(t).length >= 3) { trim = t; break; }
-        if (nblob.includes(norm(tAsKo)) && norm(tAsKo).length >= 3) { trim = t; break; }
-        if (enKeys.some((en) => nblob.includes(norm(en)) || signalBlob.toLowerCase().includes(en))) {
-          trim = t;
-          break;
-        }
-      }
+      /**
+       * ★좁혀진 후보 안에서 **여러 방법으로** 찾는다(`vehicle-trim-resolve.ts`).
+       *
+       * 옛 코드는 «문자열 포함» 하나뿐이었고 3글자 미만은 아예 건너뛰었다 —
+       * 그래서 「모던」·「어스」 같은 2글자 트림을 영영 못 잡았다(실측 2026-08-09).
+       * 여기까지 왔으면 세대·파워트레인이 이미 정해져 후보가 몇 개뿐이다.
+       * 그대로 포함 → 영문 별칭 → 오탈자 → 초성 → 근접 유사도 순으로 본다.
+       */
+      const hit = resolveTrim(signalBlob, trimSrc);
+      if (hit) trim = hit.trim;
     }
   }
 
@@ -516,7 +554,8 @@ export function vehicleIdentityLine(p: EntityRecord | RawVehicle | null | undefi
  * applySnap — 스냅 결과를 매물 레코드에 계단식으로 반영(SSOT). 페이지·일괄 재구현 공용.
  *   · 신원(제조사·모델·세부·세대·variant) = 트리 노드로 덮어쓰기(원본은 evidence였을 뿐).
  *   · 스펙(연료·배기·인승·구동) = 노드 값 우선, 노드에 없을 때만 원본 유지.
- *   · 트림 = 마스터 실트림만. 미매칭·세부등급 없음 = 공란(공급사 마케팅 문구 유지 금지 → _raw_vehicle).
+ *   · 트림 = 마스터 실트림 우선. 없으면 시트에서 뽑은 짧은 등급 유지(아이카 B형 문장 트림).
+ *     긴 마케팅 문장은 trim_extra / _raw_vehicle.
  *   · _raw_vehicle = 최초 원본 영구 보존. _snap_history = 변환 이력(최근 10).
  */
 export function applySnap(rec: EntityRecord, res: SnapResult, opts?: { source?: string }): EntityRecord {
@@ -529,6 +568,15 @@ export function applySnap(rec: EntityRecord, res: SnapResult, opts?: { source?: 
   const prevExtra = String(rec.trim_extra ?? '').trim();
   const migratedExtra = prevExtra
     || (!trimOut && prevTrim && !isNoTrimLabel(prevTrim) && prevTrim.length >= 12 ? prevTrim : '');
+  // 마스터에 등급 노드가 없어도 시트에서 뽑은 **짧은 등급**은 유지.
+  // 풀 문장(「신형K5 2.0 LPI 렌터카 스탠다드」)은 절대 트림 이름에 남기지 않는다.
+  const GRADE_KEEP = /^(?:(?:LPI|GDI|HEV|PHEV|EV)\s*)?(?:트렌디|스탠다드|프레스티지|노블레스|익스클루시브|시그니처|모던|스마트|럭셔리|디럭스|기본형|캘리그래피|인스퍼레이션|르블랑|어스|에어|그래비티|컨비니언스|얼티메이트|리미티드)(?:\s*\([^)]*\))?$/i;
+  const keepShort = !trimOut && prevTrim && !isNoTrimLabel(prevTrim)
+    && (
+      (prevTrim.length <= 12 && !/\s/.test(prevTrim))
+      || GRADE_KEEP.test(prevTrim)
+      || (/^[A-Z0-9]{2,5}(?:i|d|e)?(?:\s*M\s*Spt)?$/i.test(prevTrim) && prevTrim.length <= 14)
+    );
   const next: EntityRecord = {
     ...rec,
     _raw_vehicle: rawVehicle,
@@ -537,7 +585,7 @@ export function applySnap(rec: EntityRecord, res: SnapResult, opts?: { source?: 
     maker: res.maker, model: res.model, sub_model: res.sub_model, catalog_id: res.gen_code,
     gen_year_start: res.year_start ?? rec.gen_year_start, gen_year_end: res.year_end ?? rec.gen_year_end,
     variant: res.variant || '',
-    trim_name: trimOut,
+    trim_name: trimOut || (keepShort ? prevTrim : ''),
     trim_extra: migratedExtra,
     fuel_type: keep(res.fuel_type, rec.fuel_type),
     engine_cc: keep(res.engine_cc, rec.engine_cc),

@@ -24,7 +24,11 @@ export const PRODUCT_SHEET_COLUMNS: SheetColumn[] = [
   { label: '제조사', kind: 'text', width: 80 },
   { label: '모델', kind: 'text', width: 110 },
   { label: '세부모델', kind: 'text', width: 150 },
-  { label: '트림', kind: 'text', width: 120 },
+  // ★파워트레인이 통째로 빠져 있었다(2026-08-09). 차종 5단계는
+  //   제조사 → 모델 → 세부모델 → **파워트레인** → 세부트림 이다.
+  //   이 열이 없으면 「2.5 가솔린」과 「2.5 디젤」이 같은 차로 보인다.
+  { label: '파워트레인', kind: 'text', width: 130 },
+  { label: '세부트림', kind: 'text', width: 120 },
   { label: '연식', kind: 'text', width: 60 },
   { label: '연료', kind: 'text', width: 70 },
   { label: '주행거리', kind: 'number', width: 85 },
@@ -80,6 +84,7 @@ export function productSheetRow(p: EntityRecord, providerName: string): (string 
     S(p.maker),
     S(p.model),
     S(p.sub_model),
+    S(p.variant),
     S(p.trim_name),
     S(p.year),
     S(p.fuel_type),
