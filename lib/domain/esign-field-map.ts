@@ -120,7 +120,21 @@ export const FIELD_MAP: FieldMap[] = [
 
   /* ── 주행 ── */
   { field: 'annual_mileage', label: '약정 주행거리', from: '정책', atom: 'annual_mileage' },
-  { field: 'over_mileage_rate', label: '초과 주행요금', from: '정책', atom: 'mileage_upcharge_per_10000km' },
+  /**
+   * ⚠ 이 칸에 `mileage_upcharge_per_10000km` 를 대면 안 된다(2026-08-09 정합성 점검에서 발견).
+   *
+   *   `mileage_upcharge_per_10000km`(「1만km 추가」)은 **약정 주행거리를 정할 때의 가격표**다.
+   *   2만km면 월 65만원, 3만km면 75만원 — 계약이 확정되면 이미 월 대여료에 녹아 있다.
+   *   이 칸은 **약정을 넘겨 달린 거리에 부과**하는 값이다(약정 3만km · 실주행 3.1만km → 초과 1천km).
+   *   잘못 대면 계약서에 「초과 주행요금 : 1만km당 100,000원」이 찍혀
+   *   손님은 «1만km 넘으면 10만원»으로 읽는다.
+   *
+   *   약관 제15조가 **「계약서에 정한 1km당 초과운행료」를 그대로 참조**하므로,
+   *   이 칸이 비면 그 조문이 공중에 뜬다. 계산 방식은 약관이 말하고 계약서는 숫자만 댄다.
+   */
+  { field: 'over_mileage_rate', label: '초과 주행요금', from: '정책', atom: 'over_mileage_rate_per_km', note: '약관 제15조가 참조하는 1km당 요율' },
+  // 약관 제11조②10호가 참조한다. 비면 그 호는 적용되지 않는다 — 없는 기준으로 해지할 수 없다.
+  { field: 'accident_termination_count', label: '1년 이내 사고 누적', from: '정책', atom: 'accident_termination_count', note: '과실 50% 이상 N회 → 계약 해지' },
 
   /* ── 운전자 ── */
   { field: 'driver_age', label: '운전자 연령', from: '정책', atom: 'basic_driver_age' },

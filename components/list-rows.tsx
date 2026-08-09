@@ -278,6 +278,21 @@ export function InventoryCreateRow({ onClick }: { onClick: () => void }) {
   );
 }
 
+/**
+ * 계약 목록 맨 위 — 매물 없이 «계약서만» 만드는 자리.
+ * 보통 계약은 매물에서 파생되지만, 재고에 없는 차인데 계약서만 필요한 경우가 있다.
+ */
+export function ContractCreateRow({ onClick }: { onClick: () => void }) {
+  return (
+    <CreateListRow
+      label="계약등록"
+      hint="매물 없이 계약서만 보낼 때 여기를 눌러 주세요"
+      ariaLabel="계약등록"
+      onClick={onClick}
+    />
+  );
+}
+
 function memberStatus(row: EntityRecord, kind: 'user' | 'partner'): {
   icon: LucideIcon; tone: BadgeTone; title: string;
 } {

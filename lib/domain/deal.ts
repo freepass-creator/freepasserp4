@@ -353,6 +353,69 @@ export async function createContractRequest(
   return code;
 }
 
+/**
+ * 매물 없이 계약을 만든다 — **계약서만 보내는 경우**.
+ *
+ * ★왜 필요한가
+ *   보통은 매물에서 계약이 파생된다(`createContractRequest`). 그런데 우리 재고에 없는 차이거나
+ *   다른 경로로 이미 팔린 건인데 **계약서만 필요한** 경우가 있다.
+ *   그때 매물을 억지로 만들면 재고에 없는 차가 상품 목록에 뜬다.
+ *
+ * ★그래도 못 비우는 것
+ *   당사자 3필드(영업자 uid·채널·공급사)는 비울 수 없다 — 비면 그 계약을 **아무도 못 본다**
+ *   (역할 스코프가 이 값으로 걸린다). 그래서 공급사는 받아야 한다.
+ *
+ * ★수수료율은 굽지 않는다
+ *   매물이 없으면 공급사율을 해석할 근거가 없다. 기본값을 넣는 순간 그 계약은 영구히 그 율이다
+ *   (`createContractRequest` 주석과 같은 이유). 비워 두면 정산 시점에 다시 해석한다.
+ *
+ * 차량은 나중에 채운다 — 신차라 번호가 아직 없는 경우와 같은 자리다.
+ */
+export async function createBlankContract(opt: {
+  providerCompanyCode: string;
+  customerName?: string;
+  customerPhone?: string;
+  carNumber?: string;
+  vehicleName?: string;
+}): Promise<string> {
+  const co = getCompanyId();
+  const store = getStore();
+  const ag = actor('agent');
+
+  const d = new Date();
+  const p2 = (n: number) => String(n).padStart(2, '0');
+  const yymmdd = `${String(d.getFullYear()).slice(2)}${p2(d.getMonth() + 1)}${p2(d.getDate())}`;
+  const todays = (await store.list('contract', co))
+    .filter((c) => String(c.contract_code || '').startsWith(`TMP-${yymmdd}`)).length;
+  const uniq = Math.random().toString(36).slice(2, 6);
+  const code = `TMP-${yymmdd}-${p2(todays + 1)}-${uniq}`;
+
+  const parties = requireParties({
+    agent_uid: ag.uid || ag.code,
+    agent_channel_code: resolveChannel(ag),
+    provider_company_code: opt.providerCompanyCode,
+  }, '계약 생성(매물 없음)');
+
+  await store.save('contract', co, [{
+    contract_code: code,
+    contract_status: '계약요청',
+    contract_date: `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`,
+    // 매물에서 파생하지 않았음을 남긴다 — 나중에 「왜 상품코드가 없나」를 되짚을 근거.
+    contract_origin: '직접등록',
+    product_code: '',
+    car_number_snapshot: String(opt.carNumber || ''),
+    vehicle_name_snapshot: String(opt.vehicleName || ''),
+    customer_name: String(opt.customerName || ''),
+    customer_phone: String(opt.customerPhone || ''),
+    agent_uid: parties.agent_uid,
+    agent_code: ag.code,
+    agent_name: ag.name,
+    agent_channel_code: parties.agent_channel_code,
+    provider_company_code: parties.provider_company_code,
+  }]);
+  return code;
+}
+
 /** 약정 직전 — 대여기간으로 월대여료·보증금 1회 동결. 이미 굳힌 계약은 덮어쓰지 않는다. */
 export async function freezeContractTerm(
   contract: EntityRecord,
