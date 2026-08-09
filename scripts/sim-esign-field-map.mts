@@ -62,11 +62,23 @@ if (existsSync(TPL)) {
       // 템플릿 스크립트가 만든 동적 조각은 필드가 아니다.
       .filter((f) => /^[a-z][a-z0-9_]*$/.test(f)),
   );
+  /**
+   * ★대조 대상은 «템플릿에서 오는 필드»뿐이다.
+   *
+   * 정책에서 오는 원자(`from: '정책'`)는 erp3 의 옛 HTML 템플릿에 있을 리가 없다 —
+   * 약관 조항을 표에 박아 두는 대신 정책값으로 뽑아내면서 새로 생긴 것들이다
+   * (실측 2026-08-09: 「1년 이내 사고 누적」 `accident_termination_count`).
+   * 그걸 「지어낸 필드」로 세면, 약관을 원자화할 때마다 이 sim 이 빨개진다.
+   * 템플릿은 **템플릿 필드의** 정본이지 정책 원자의 정본이 아니다.
+   */
+  const fromTemplate = new Set(FIELD_MAP.filter((f) => f.from !== '정책').map((f) => f.field));
   const mine = new Set(keys);
+  // 빠진 것은 **전체**로 센다 — 정책 원자로 옮겼어도 덮고 있으면 덮은 것이다.
   const missing = [...real].filter((f) => !mine.has(f));
-  const extra = [...mine].filter((f) => !real.has(f));
+  // 지어낸 것은 **템플릿에서 온다고 표시한 필드**만 센다.
+  const extra = [...mine].filter((f) => fromTemplate.has(f) && !real.has(f));
   check(`템플릿 필드를 다 덮는다 (실제 ${real.size}개)`, missing.length === 0, missing);
-  check('없는 필드를 지어내지 않았다', extra.length === 0, extra);
+  check('템플릿에서 오는 필드는 지어내지 않았다', extra.length === 0, extra);
 } else {
   console.log('⚠ erp3 템플릿 없음 — 대조 생략');
 }

@@ -56,6 +56,9 @@ const policy = {
   additional_driver_allowance_count: '1명', additional_driver_cost: '월 55,000원',
   license_period: '1년 이상', maintenance_service: '정비제외',
   penalty_condition: '잔여 대여료의 30%',
+  // 약관 제11조②10호를 표에 박아 두는 대신 정책 원자로 뽑아냈다(2026-08-09).
+  // 픽스처에도 있어야 「사고 다발 해지」 행이 실제와 같은 문장으로 만들어진다.
+  accident_termination_count: 3,
 };
 const insOf = (side: '회사포함' | '고객직접') =>
   buildConsentGroups(contract, policy, side).find((g) => g.key === 'insurance')!;
@@ -101,7 +104,11 @@ check('지연손해금이 실린다', rowsOf('payment').includes('연 12%'));
 check('보증금 반환 조건이 실린다', rowsOf('payment').includes('1주일'));
 check('운전자 범위가 실린다', groups.find((g) => g.key === 'driver')!.rows.some((x) => x.label.startsWith('운전자 범위')));
 check('중과실 12대가 실린다', rowsOf('accident').includes('중앙선 침범'));
-check('사고 다발 해지가 실린다', rowsOf('accident').includes('3회 누적'));
+// 문구가 아니라 **뜻**을 본다 — 정책 원자로 옮기면서 「3회 누적」이
+// 「과실 50% 이상 3회 → 계약 해지」로 바뀌었다(2026-08-09). 횟수와 결과가 다 실리면 된다.
+check('사고 다발 해지가 실린다',
+  rowsOf('accident').includes('3회') && rowsOf('accident').includes('계약 해지'),
+  rowsOf('accident').slice(0, 160));
 check('보험사가 실린다', rowsOf('accident').includes('렌터카 공제조합'));
 check('GPS 특약이 실린다', rowsOf('service').includes('GPS'));
 check('대차 불가가 실린다', rowsOf('service').includes('대차서비스 지원 불가'));
