@@ -22,7 +22,12 @@
     "rules:rollback": "tsx scripts/deploy/rtdb-rules.mts rollback",
     "rules:probe": "tsx scripts/deploy/rules-probe.mts",
     "env:diff": "tsx scripts/deploy/vercel-env.mts diff",
-    "env:pull": "tsx scripts/deploy/vercel-env.mts pull"
+    "env:pull": "tsx scripts/deploy/vercel-env.mts pull",
+    "backup:export": "tsx scripts/deploy/rtdb-backup.mts export",
+    "backup:list": "tsx scripts/deploy/rtdb-backup.mts list",
+    "backup:verify": "tsx scripts/deploy/rtdb-backup.mts verify",
+    "backup:rehearse": "tsx scripts/deploy/rtdb-backup.mts rehearse",
+    "backup:restore": "tsx scripts/deploy/rtdb-backup.mts restore"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
