@@ -105,6 +105,12 @@ async function main() {
 
   // 거부되어야 할 쓰기의 과녁. 규칙이 맞으면 아무것도 안 남고, 틀리면 여기에만 남는다.
   const PROBE_KEY = `_RULES_PROBE_${Date.now()}`;
+  const OWN_POLICY = `POL-RULESPROBE-OWN-${Date.now()}`;
+  const FOREIGN_POLICY = `POL-RULESPROBE-OTHER-${Date.now()}`;
+  const providerCompany = String(
+    ((await database.ref(`users/${users.provider.uid}/company_code`).get()).val() ?? ''),
+  ).trim();
+  if (!providerCompany) die('공급사 계정에 company_code 가 없다 — 소유권 검사를 할 수 없다');
   const code = `TEST-RULES-${Date.now()}`;
   const ref = database.ref(`v4/contracts/${code}`);
   const agentUser = ((await database.ref(`users/${users.agent.uid}`).get()).val() || {}) as Record<string, any>;
@@ -194,6 +200,16 @@ async function main() {
     { name: 'v3 상품에 직접 쓰기(영업자)', as: 'agent', method: 'PUT', path: `products/${PROBE_KEY}/_probe`, body: 1, expect: 'deny' },
     { name: 'v3 파트너에 직접 쓰기(공급사)', as: 'provider', method: 'PUT', path: `partners/${PROBE_KEY}/_probe`, body: 1, expect: 'deny' },
     { name: 'v3 정책에 직접 쓰기(공급사)', as: 'provider', method: 'PUT', path: `policies/${PROBE_KEY}/_probe`, body: 1, expect: 'deny' },
+    // v4 소유권 — 「남의 것은 못 쓴다」와 「내 것은 쓴다」를 같이 묻는다.
+    //  앞만 보면 공급사를 통째로 잠가 놓고도 초록불이 뜬다.
+    { name: '남의 회사 파트너 정보 수정(공급사)', as: 'provider', method: 'PUT', path: `v4/partners/${PROBE_KEY}/_probe`, body: 1, expect: 'deny' },
+    { name: '자기 회사 파트너 정보 수정(공급사)', as: 'provider', method: 'PUT', path: `v4/partners/${providerCompany}/_rules_probe`, body: 1, expect: 'allow' },
+    { name: '남의 회사 정책 수정(공급사)', as: 'provider', method: 'PUT', path: `v4/policies/${FOREIGN_POLICY}`, body: {
+      _key: FOREIGN_POLICY, provider_company_code: 'RULES-PROBE-OTHER', policy_name: '남의 정책',
+    }, expect: 'deny' },
+    { name: '자기 회사 정책 수정(공급사)', as: 'provider', method: 'PUT', path: `v4/policies/${OWN_POLICY}`, body: {
+      _key: OWN_POLICY, provider_company_code: providerCompany, policy_name: '내 정책',
+    }, expect: 'allow' },
   ];
 
   let failed = 0;
@@ -214,6 +230,11 @@ async function main() {
       await database.ref(`v4/${node}/ST_${doneCode}`).remove();
     }
     for (const node of ['products', 'partners', 'policies']) await database.ref(`${node}/${PROBE_KEY}`).remove();
+    await database.ref(`v4/partners/${PROBE_KEY}`).remove();
+    // 실제 파트너 레코드에 남긴 흔적은 반드시 지운다 — 검사가 데이터를 더럽히면 안 된다.
+    await database.ref(`v4/partners/${providerCompany}/_rules_probe`).remove();
+    await database.ref(`v4/policies/${OWN_POLICY}`).remove();
+    await database.ref(`v4/policies/${FOREIGN_POLICY}`).remove();
     console.log(`\n  검사용 계약·정산(${code} · ${doneCode}) 삭제 완료.`);
   }
 
