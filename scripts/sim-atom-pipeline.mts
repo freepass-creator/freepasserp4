@@ -140,6 +140,13 @@ checkDefault(
     && !(carnivalDiesel.applied as any)?._snap_defaults?.seats,
   `fuel=${S(carnivalDiesel.applied?.fuel_type)} seats=${S(carnivalDiesel.applied?.seats)} cc=${S(carnivalDiesel.applied?.engine_cc)}`,
 );
+checkDefault(
+  '7인승에 없는 프레스티지 → 조합충돌 검수',
+  S(carnivalDiesel.snap?.confidence) === 'low'
+    && Array.isArray((carnivalDiesel.applied as any)?._snap_issues)
+    && (carnivalDiesel.applied as any)._snap_issues.some((issue: any) => issue.code === 'trim_not_in_master'),
+  `confidence=${S(carnivalDiesel.snap?.confidence)} trim=${S(carnivalDiesel.applied?.trim_name) || '(비었음)'}`,
+);
 
 // 1c) 차명에만 「7인승」— 칸 비어 있어도 7 선택(기본 9 아님)
 const carnival7blob = snapCase({
@@ -157,7 +164,59 @@ checkDefault(
   `seats=${S(carnival7blob.applied?.seats)} · defaults=${Boolean((carnival7blob.applied as any)?._snap_defaults?.seats)}`,
 );
 
-// 1d) 쏘렌토 빈신호 → 5인승·2WD (웹: 5가 기본, 6·7 옵션)
+// 1d) 트림이 정말 비면 선택 조합의 첫(최저) 트림을 쓰되 자동매칭임을 남긴다.
+const carnivalNoTrim = snapCase({
+  maker: '기아',
+  model: '카니발',
+  trim_name: '더 뉴 카니발 KA4 디젤 2.2',
+  fuel_type: '디젤',
+  engine_cc: '2200',
+  year: '2024',
+});
+checkDefault(
+  '트림 누락 → 조합 첫 트림 자동매칭',
+  S(carnivalNoTrim.applied?.trim_name) === '프레스티지'
+    && Boolean((carnivalNoTrim.applied as any)?._snap_defaults?.trim_name)
+    && S(carnivalNoTrim.snap?.confidence) !== 'low',
+  `trim=${S(carnivalNoTrim.applied?.trim_name)} · auto=${Boolean((carnivalNoTrim.applied as any)?._snap_defaults?.trim_name)}`,
+);
+
+// 1e) 공급사가 적은 별도 등급이 선택 조합에 없으면 최저 트림으로 덮지 않는다.
+const carnivalBadTrim = snapCase({
+  maker: '기아',
+  model: '카니발',
+  trim_name: '더 뉴 카니발 KA4 디젤 2.2 9인승 미확인등급Z',
+  fuel_type: '디젤',
+  engine_cc: '2200',
+  seats: '9',
+  year: '2024',
+});
+checkDefault(
+  '미등록 트림 → 자동대체 금지·검수사유',
+  !S(carnivalBadTrim.applied?.trim_name)
+    && S(carnivalBadTrim.snap?.confidence) === 'low'
+    && (carnivalBadTrim.applied as any)?._snap_issues?.some((issue: any) => issue.code === 'trim_not_in_master'),
+  `trim=${S(carnivalBadTrim.applied?.trim_name) || '(비었음)'} · issue=${S((carnivalBadTrim.applied as any)?._snap_issues?.[0]?.value)}`,
+);
+
+// 1f) 명시 파워트레인 원자끼리 실제 조합이 없으면 점수로 타협하지 않는다.
+const carnivalBadPower = snapCase({
+  maker: '기아',
+  model: '카니발',
+  trim_name: '더 뉴 카니발 KA4',
+  fuel_type: '디젤',
+  engine_cc: '3500',
+  seats: '9',
+  year: '2024',
+});
+checkDefault(
+  '없는 디젤3.5 조합 → 파워트레인 충돌 검수',
+  S(carnivalBadPower.snap?.confidence) === 'low'
+    && (carnivalBadPower.applied as any)?._snap_issues?.some((issue: any) => issue.code === 'powertrain_conflict' && issue.field === 'engine_cc'),
+  `confidence=${S(carnivalBadPower.snap?.confidence)} · issue=${S((carnivalBadPower.applied as any)?._snap_issues?.[0]?.field)}`,
+);
+
+// 1g) 쏘렌토 빈신호 → 5인승·2WD (웹: 5가 기본, 6·7 옵션)
 const sorento = snapCase({
   maker: '기아',
   model: '쏘렌토',
@@ -239,6 +298,21 @@ checkDefault(
   '그랜저 → 인승 발명 없음',
   !S(grande.applied?.seats) && !(grande.applied as any)?._snap_defaults?.seats,
   `seats=${S(grande.applied?.seats) || '(비었음)'} · defaults.seats=${Boolean((grande.applied as any)?._snap_defaults?.seats)}`,
+);
+
+// 마스터의 첫 트림이 「세부등급 없음」이면 다음 실제 문자열(블랙 등)을 최저 트림으로 오인하지 않는다.
+const g80NoGrade = snapCase({
+  maker: '제네시스',
+  model: 'G80',
+  trim_name: 'The All new G80 2.5 터보 AWD 18인치+기본파퓰러패키지',
+  year: '2025',
+});
+checkDefault(
+  '세부등급 없음이 기본 → 다음 트림 발명 금지',
+  !S(g80NoGrade.applied?.trim_name)
+    && Boolean((g80NoGrade.applied as any)?._snap_defaults?.trim_name)
+    && !(g80NoGrade.applied as any)?._snap_issues?.length,
+  `trim=${S(g80NoGrade.applied?.trim_name) || '(세부등급 없음)'} · auto=${Boolean((g80NoGrade.applied as any)?._snap_defaults?.trim_name)}`,
 );
 
 // 4) 승용 무축 — 쏘나타

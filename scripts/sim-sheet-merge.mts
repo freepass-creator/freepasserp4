@@ -155,6 +155,24 @@ const snapMerged = softMergeProduct(snapBefore, snapIncoming);
 check('동일 시트 재스냅 시각/이력 → 변경 아님', changedPatch(snapBefore, snapMerged) === null);
 check('기존 snap 시각/이력 유지', snapMerged._snap_at === 100 && (snapMerged._snap_history as unknown[])?.length === 1);
 
+const staleSnapFlags: EntityRecord = {
+  ...merged,
+  _snap_defaults: { trim_name: true },
+  _snap_issues: [{ code: 'trim_not_in_master', field: 'trim_name', value: '오표기' }],
+};
+const clearedSnapFlags = softMergeProduct(staleSnapFlags, {
+  product_code: String(merged.product_code),
+  _snap_defaults: null,
+  _snap_issues: null,
+});
+const clearedSnapPatch = changedPatch(staleSnapFlags, clearedSnapFlags);
+check('재스냅 정상화 → 과거 자동선택·충돌 표식 제거',
+  clearedSnapFlags._snap_defaults === null
+  && clearedSnapFlags._snap_issues === null
+  && clearedSnapPatch?._snap_defaults === null
+  && clearedSnapPatch?._snap_issues === null,
+  clearedSnapPatch);
+
 const legacyContracting: EntityRecord = {
   ...merged, product_code: 'OLD_KEY', vehicle_status: '계약중', locked_by_contract: '',
 };

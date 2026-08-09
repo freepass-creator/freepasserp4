@@ -16,6 +16,9 @@ const PROTECTED = new Set([
   '_snap_at', '_snap_history',
 ]);
 
+/** 재스냅 결과가 정상화되면 과거 자동선택·충돌 표식을 명시적으로 지울 수 있어야 한다. */
+const SNAP_CLEARABLE = new Set(['_snap_defaults', '_snap_issues']);
+
 function isBlank(v: unknown): boolean {
   if (v == null) return true;
   if (typeof v === 'string') return v.trim() === '';
@@ -103,6 +106,10 @@ export function softMergeProduct(existing: EntityRecord, incoming: EntityRecord)
   let reactivatedLegacySheetBlock = false;
   for (const [k, v] of Object.entries(incoming)) {
     if (PROTECTED.has(k)) continue;
+    if (SNAP_CLEARABLE.has(k) && v == null) {
+      out[k] = null;
+      continue;
+    }
     if (isBlank(v)) continue;
     if (manualFields.has(k)) continue;
     // 엔진 락(계약중·출고불가)의 상태는 settlement-engine 소관 — 시트 재동기화가 덮으면 재고가 통째로 풀린다.

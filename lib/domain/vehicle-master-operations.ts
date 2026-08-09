@@ -39,6 +39,8 @@ export function reconcileToMasterEngine(
       fuel_type: applied.fuel_type, engine_cc: applied.engine_cc, seats: applied.seats, drive_type: applied.drive_type,
       year: applied.year, vehicle_class: applied.vehicle_class, _snap_confidence: result.confidence,
       _raw_vehicle: applied._raw_vehicle, _snapped: true,
+      _snap_defaults: applied._snap_defaults, _snap_issues: applied._snap_issues,
+      _needs_master_review: applied._needs_master_review,
       _snap_at: applied._snap_at, _snap_history: applied._snap_history,
     };
     patches.push({ key, patch, confidence: result.confidence });

@@ -9,7 +9,9 @@ import {
 import { vehicleSignalBlob } from '@/lib/domain/vehicle-master-signals';
 import { sourcesFor } from '@/lib/domain/vehicle-match-sources';
 import { isNoTrimLabel, realMasterTrims } from '@/lib/domain/vehicle-master-options';
+import { isForbiddenAsSubModel } from '@/lib/domain/vehicle-field-guards';
 import type { MasterEntry } from '@/lib/domain/vehicle-master-types';
+import { resolveTrim } from '@/lib/domain/vehicle-trim-resolve';
 
 export type VehicleNormalizeDeps = {
   norm: (value: unknown) => string;
@@ -245,12 +247,19 @@ export function unpackVehicleSignalsEngine(
   }
 
   const trimHintModel = hitModel;
-  const trimEmpty = !String(out.trim_name ?? '').trim();
+  const trimRawNow = String(out.trim_name ?? '').trim();
+  const trimEmpty = !trimRawNow;
+  const trimIsSentence = deps.looksCompoundVehicleText(trimRawNow) || trimRawNow.length > 24;
   const modelWasBlob = deps.looksCompoundVehicleText(product.model)
     || deps.looksCompoundVehicleText(product.sub_model)
     || deps.looksCompoundVehicleText(product.cert_car_name)
     || deps.looksCompoundVehicleText(product.vehicle_name);
-  if (trimEmpty || modelWasBlob) {
+  /**
+   * 이미 짧은 등급(모던·스마트…)이 있으면 블롭에서 다시 덮지 않는다.
+   * modelWasBlob 만으로 덮으면 options「스마트키」가 「스마트」로 모던을 지운다
+   * (실측 2026-08-09 · 133호5868).
+   */
+  if (trimEmpty || (modelWasBlob && trimIsSentence)) {
     const trimSet = new Set<string>();
     for (const entry of entries) {
       if (trimHintModel && entry.model !== trimHintModel) continue;
@@ -267,13 +276,13 @@ export function unpackVehicleSignalsEngine(
         }
       }
     }
-    for (const trim of [...trimSet].sort((a, b) => b.length - a.length)) {
-      if (deps.norm(trim).length < 2) continue;
-      if (normalizedBlob.includes(deps.norm(trim))) {
-        out.trim_name = trim;
-        break;
-      }
-    }
+    /**
+     * 문장 트림 분해는 resolveTrim SSOT — 별칭(Long Range·Spt)·구동 강등(RWD)을
+     * unpack/snap 이 각자 다시 짜지 않는다.
+     * (실측: Premium Long Range RWD → RWD, 520i M Spt → 520i 로 깎이던 구멍)
+     */
+    const peelHit = resolveTrim(blob, [...trimSet]);
+    if (peelHit) out.trim_name = peelHit.trim;
   }
 
   {
@@ -297,22 +306,50 @@ export function unpackVehicleSignalsEngine(
      * 아이카 B형 `트림` 열은 풀 문장이다. 마스터 노드가 「LPI 트렌디(렌터카)」처럼
      * 접두·괄호가 있어도 원문 「… 트렌디」에서 핵심 등급만 고른다. 「트랜디」 오탈자 → 트렌디.
      */
-    const nraw = deps.norm(rawTrim.replace(/트랜디/g, '트렌디'));
+    const nraw = deps.norm(rawTrim.replace(/트랜디/g, '트렌디'))
+      // 합성어 접두 오탐 — 「스마트스트림」⊃「스마트」(실측 아반떼 · 161호8359)
+      .replace(/스마트스트림/g, ' ')
+      .replace(/스마트키/g, ' ')
+      .replace(/스마트크루즈/g, ' ')
+      .replace(/스마트센스/g, ' ')
+      .replace(/전기모터/g, ' ')
+      .replace(/디자인셀렉션/g, ' ');
     const coreOf = (trim: string) => deps.norm(trim)
       .replace(/(?:lpi|gdi|hev|phev|ev|tng|렌터카|자가용|장애인용|일반인|\d+)/g, '')
       .replace(/[()[\]{}]/g, '');
     const embedded = () => {
-      const uniq = [...new Set(pool)].filter((t) => deps.norm(t).length >= 2)
-        .sort((a, b) => b.length - a.length);
-      const exact = uniq.find((t) => nraw.includes(deps.norm(t)));
-      if (exact) return exact;
-      const byCore = uniq.find((t) => {
-        const core = coreOf(t);
-        return core.length >= 2 && nraw.includes(core);
-      });
-      if (!byCore) return '';
-      const core = coreOf(byCore);
-      return uniq.find((t) => deps.norm(t) === core) || byCore;
+      const uniq = [...new Set(pool)].filter((t) => deps.norm(t).length >= 2);
+      const isPackageLike = (t: string): boolean => {
+        const f = deps.norm(t);
+        if (/^(evalueplus|패키지|디자인|셀렉션|세단|초이스|베스트|plus)$/.test(f)) return true;
+        if (/베스트셀렉션|스마트셀렉션|디자인셀렉션|^evalue/.test(f)) return true;
+        return false;
+      };
+      const hits0 = uniq.filter((t) => nraw.includes(deps.norm(t)));
+      const hitsCore = hits0.filter((t) => !isPackageLike(t));
+      const hits = hitsCore.length ? hitsCore : hits0;
+      if (!hits.length) {
+        const byCore = uniq.find((t) => {
+          const core = coreOf(t);
+          return core.length >= 2 && nraw.includes(core);
+        });
+        if (!byCore) return '';
+        const core = coreOf(byCore);
+        return uniq.find((t) => deps.norm(t) === core) || byCore;
+      }
+      const maximal = hits.filter((t) => !hits.some((o) => o !== t
+        && deps.norm(o).includes(deps.norm(t))
+        && deps.norm(o).length > deps.norm(t).length));
+      let best = maximal[0];
+      let bestAt = -1;
+      for (const t of maximal) {
+        const at = nraw.lastIndexOf(deps.norm(t));
+        if (at > bestAt || (at === bestAt && deps.norm(t).length > deps.norm(best).length)) {
+          bestAt = at;
+          best = t;
+        }
+      }
+      return best || '';
     };
     const KNOWN_GRADES = [
       '캘리그래피', '인스퍼레이션', '프레스티지', '노블레스', '익스클루시브', '시그니처',
@@ -326,8 +363,11 @@ export function unpackVehicleSignalsEngine(
     const canonical = rawTrim && !isNoTrimLabel(rawTrim)
       ? deps.canonMasterTrim(rawTrim.replace(/트랜디/g, '트렌디'), pool.length ? pool : null)
       : '';
+    const resolved = rawTrim && !isNoTrimLabel(rawTrim) && pool.length
+      ? resolveTrim(rawTrim, realMasterTrims(pool))
+      : null;
     const picked0 = (!rawTrim || isNoTrimLabel(rawTrim)) ? ''
-      : canonical || embedded() || knownInText()
+      : resolved?.trim || canonical || embedded() || knownInText()
       || (rawTrim.length <= 12 && !/\s/.test(rawTrim) ? rawTrim.replace(/트랜디/g, '트렌디') : '');
     // 「기본」이 「기본형」 앞부분으로 잘못 잡히면 긴 쪽으로 올린다.
     const picked = (() => {
@@ -382,7 +422,10 @@ export function unpackVehicleSignalsEngine(
        *
        * sub_model 이 비어 있을 때만 채운다 — 공급사가 따로 준 세부모델을 덮으면 안 된다.
        */
-      if (modelRaw && !String(out.sub_model ?? '').trim()) out.sub_model = modelRaw;
+      if (modelRaw && !String(out.sub_model ?? '').trim()) {
+        // 연료·트림·제원만 있는 조각은 세부모델이 아님(한 줄 차명은 통과)
+        if (!isForbiddenAsSubModel(modelRaw)) out.sub_model = modelRaw;
+      }
       out.model = hitModel;
     } else if (moreSpecific) {
       // 짧은 공급 모델명(「아이오닉」)은 세부모델로 넣지 않는다 — 세대가 아니다.

@@ -92,13 +92,14 @@ export function selectMasterEntry(
     ? makerPool.filter((entry) => entry.model === lockedModel)
     : makerPool;
 
-  // 세대코드(DN8·CN7·KA4·W214)는 «어느 칸에 적혔든» 세대를 확정하는 가장 강한 신호다.
+  // 세대코드(DN8·CN7·KA4·W214)는 «어느 칸에 적혔든» 세대를 가르는 강한 신호다.
   // 예전엔 sub_model·catalog_id·type_number 만 봤는데, 공급사가 **한 칸에 다 적으면**
   // 그 값은 model 이나 trim_name 으로 들어와 코드가 통째로 무시됐다 —
   // 「쏘나타 디 엣지 DN8 2.0 가솔린 인스퍼레이션」이 1990년대 「쏘나타 II Y3」로 붙었다(실측 2026-08-08).
   // 코드는 마스터 gen_code 집합에 있는 토큰만 인정하므로 아무 글자나 걸리지 않는다.
   //
-  // ★연식 필터보다 **먼저** 구한다 — 아래에서 「코드가 지목한 세대는 연식으로 빼지 않는다」에 쓴다.
+  // ★연식 구간 **안** 후보를 가를 때 genLock 가점으로 쓴다. 구간 밖 우회는 하지 않는다
+  //   (아래 yearFit 주석 — 저장 sub 의 틀린 코드가 연식을 이기던 구멍).
   const productGen = deps.extractGen(product.sub_model, codes)
     || deps.extractGen(product.catalog_id, codes)
     || deps.extractGen(product.type_number, codes)
@@ -110,55 +111,39 @@ export function selectMasterEntry(
      * 추가표기도 읽는다 — 트림을 규격화하면서 원문이 이리로 옮겨지기 때문이다.
      * 아래 `ordinalGen` 은 이미 여기를 읽는데 **세대코드만 안 읽고 있었다**:
      * 원문 「아반떼 CN7 26MY … 인스퍼레이션」이 통째로 `trim_extra` 에 있는데도
-     * 2006년 「아반떼 J2」로 붙었다(실측 2026-08-09).
+     * 2006년 「아반떼 J2」로 붙였다(실측 2026-08-09).
      */
     || deps.extractGen(product.trim_extra, codes);
   const catalog = String(product.catalog_id || '').trim().toUpperCase();
 
   /**
-   * ★세대의 **1차 추출은 연식**이다 (사장님 지적 2026-08-09).
+   * ★세대의 **1차 추출은 연식**이다 (사장님 지적 2026-08-09 · PLAN ★A-2).
    *
    *   「연식과 모델명으로도 세부모델을 1차 추출이 되잖어.」
    *
-   * 맞다 — 세대는 생산연도로 갈리니, 모델이 정해지면 연식이 세대를 거의 확정한다.
-   * 예전엔 연식을 **점수 가중치로만** 썼다(아래 genLock·연식 가점). 그래서 이름이 조금 더
-   * 닮은 **옛 세대에 밀렸다**: 2024년식 K3 가 2016~2017년 「더 뉴 K3 쿱 YK」에,
-   * 2025년식 E-클래스가 W213 에 붙었다(실측 2026-08-09 · 762대 중 19대가 «생산구간 밖»).
+   * **연식이 생산구간에 드는 세대만** 남긴다. 남은 게 하나면 그게 답이고,
+   * 여럿이면 아래 세대코드·문구·유사도가 가른다. 이름 유사도로 뒤집지 않는다.
    *
-   * ★그게 트림 손실의 원인이기도 하다 — 세대가 틀리면 그 아래 트림 목록이 통째로 달라진다.
-   *   `109호3581` 은 원문에 「프레스티지」가 또렷한데 쿱 세대에 붙어 트림이 사라지고 있었다.
+   * ⚠ 예전엔 «원문 세대코드면 구간 밖이어도 후보 유지」(codeHit) 했다.
+   *   배기량→연식(2000cc) 오탐 방어용인데, 그건 `carYear` 가 year===cc 를 0으로
+   *   버리는 쪽으로 옮겼다. codeHit 를 남겨 두면 **이미 틀린 저장 sub_model** 의
+   *   코드(W213·YK·J2)가 재매칭 때 연식을 이기고 구간 밖을 다시 붙인다
+   *   (실측 2026-08-09 · E 2025→W213 · K3 2024→쿱 YK · 아반떼 2026→J2).
    *
-   * 그래서 **연식이 생산구간에 드는 세대만 먼저 남긴다.** 남은 게 하나면 그게 답이고,
-   * 여럿이면 아래 세대코드·문구·유사도가 가른다(=텍스트 검수). 이름 유사도로 뒤집지 않는다.
-   *
-   * ⚠ 구간에 드는 세대가 **하나도 없으면 좁히지 않는다.** 마스터 연식이 비었거나
-   *   공급사 연식이 엉뚱한 경우인데, 여기서 비우면 멀쩡한 매칭까지 잃는다.
-   *   실측: 「못 가리면 비운다」로 했더니 170대가 공란이 됐고, 「구간 안이면 유지」로
-   *   바꾸니 1대로 줄었다. 근거가 없다는 건 «틀렸다»가 아니다.
+   * ⚠ 연식은 있는데 구간 안 세대가 **0**이면 modelEntries 로 풀지 않는다 —
+   *   풀면 스파크 2026→M400 · 모델「I」→인피니티 I30(1996)처럼 구간 밖이 재부착된다.
+   *   연식을 못 읽으면(year=0, 배기량 오탐 포함) 전체 modelEntries + genLock.
    */
-  /**
-   * ⚠⚠ **세대코드는 연식보다 강하다.**
-   *
-   * 연식 칸에 배기량이 들어오는 시트가 있다 — 실측 2026-08-09 시트 재동기화 직후,
-   * 「쏘나타 DN8 2.0 가솔린 프리미엄 플러스」가 **연식 2000**(=2000cc)으로 들어와
-   * 1998~2001년 「EF 쏘나타」로 끌려갔다. 연식 1차 추출이 나쁜 값을 그대로 증폭한 것이다.
-   *
-   * 원문에 세대코드가 박혀 있으면 그건 그 차를 **직접 지목한 것**이다.
-   * 연식 구간에서 벗어나더라도 후보에서 빼지 않는다 — 빼면 코드가 가리키는 답이 사라진다.
-   */
-  const codeHit = (entry: MasterEntry): boolean => (
-    (!!productGen && String(entry.gen_code).toUpperCase() === productGen)
-    || (!!catalog && String(entry.gen_code).toUpperCase() === catalog)
-  );
   const yearFit = year
     ? modelEntries.filter((entry) => {
-      if (codeHit(entry)) return true;
       const start = Number(entry.year_start) || 0;
       const end = /\d{4}/.test(String(entry.year_end)) ? Number(entry.year_end) : 9999;
       return (!start || year >= start) && year <= end;
     })
     : [];
-  const lockedEntries = yearFit.length ? yearFit : modelEntries;
+  const lockedEntries = year
+    ? yearFit
+    : modelEntries;
 
   /**
    * 「E클래스(6세대)」처럼 **원문에 박힌 세대 순번**은 세대를 곧바로 확정하는 신호다.

@@ -23,11 +23,12 @@
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import {
-  attachPolicy, buildInventorySheet, exportTabName, policyMap, sortForSales,
+  attachPolicy, buildInventorySheet, dedupeForSales, exportTabName, policyMap, resnapForSales, sortForSales,
 } from '../lib/domain/inventory-sheet-export';
 import { isListableProduct, isOfferableProduct } from '../lib/domain/product';
 import { companyAlias } from '../lib/domain/identity';
 import type { EntityRecord } from '../lib/intake/entities';
+import type { MasterEntry } from '../lib/domain/vehicle-master-types';
 
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
@@ -78,13 +79,20 @@ async function main() {
 
   const alive = Object.entries(products).filter(([, p]) => !dead(p))
     .map(([k, p]) => ({ ...p, _key: k, product_code: p.product_code || k } as EntityRecord));
-  const rows = sortForSales(scope === 'listable' ? alive.filter(isListableProduct)
-    : scope === 'offerable' ? alive.filter(isOfferableProduct) : alive)
+  const selected = scope === 'listable' ? alive.filter(isListableProduct)
+    : scope === 'offerable' ? alive.filter(isOfferableProduct) : alive;
+  const masterRaw = JSON.parse(readFileSync('public/data/vehicle-master.json', 'utf8')) as {
+    entries?: MasterEntry[];
+  } | MasterEntry[];
+  const master = (Array.isArray(masterRaw) ? masterRaw : masterRaw.entries) || [];
+  if (!master.length) throw new Error('차종마스터가 비어 있어 영업자 시트 반영을 중단합니다.');
+  const deduped = dedupeForSales(selected);
+  const rows = sortForSales(resnapForSales(deduped, master))
     .map((p) => attachPolicy(p, policies));
 
   console.log(`\n══ 재고 → 시트 내보내기 ${apply ? '반영' : '미리보기(dry-run)'} ══\n`);
   console.log(`  대상 시트 ${sheetId}`);
-  console.log(`  범위 ${scope} — 활성 ${alive.length}대 중 ${rows.length}대`);
+  console.log(`  범위 ${scope} — 활성 ${alive.length}대 중 ${selected.length}대 · 실차 중복 ${selected.length - deduped.length}대 제외 · 반영 ${rows.length}대`);
 
   const jwt = new JWT({
     email: sa.client_email, key: sa.private_key,

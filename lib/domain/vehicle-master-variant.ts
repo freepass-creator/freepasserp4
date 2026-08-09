@@ -1,5 +1,6 @@
 import type { EntityRecord } from '@/lib/intake/entities';
 import { normFuel } from '@/lib/domain/vehicle-master-format';
+import { isForbiddenAsVariant } from '@/lib/domain/vehicle-field-guards';
 import { masterVariantLabel, seatAxisMatters } from '@/lib/domain/vehicle-master-options';
 import type { MasterEntry, MasterVariant } from '@/lib/domain/vehicle-master-types';
 
@@ -10,11 +11,15 @@ const DRIVE_4WD = '4WD';
 export type MasterVariantScoreDeps = {
   norm: (value: unknown) => string;
   normDrive: (value: unknown) => string;
+  /** 공급사 명시값이 아니라 빈칸 기본 힌트로 채운 축 — 하드 충돌로 판정하지 않는다. */
+  defaulted?: { seats?: boolean; drive_type?: boolean };
 };
 
 export type MasterVariantScoreResult = {
   variant: MasterVariant | undefined;
   seatMatters: boolean;
+  /** 공급사가 명시한 원자가 이 세부모델의 어떤 조합에도 없는 경우. */
+  conflicts: Array<'fuel_type' | 'engine_cc' | 'seats' | 'drive_type' | 'turbo'>;
 };
 
 export function modeSeat(variants: MasterVariant[]): number | null {
@@ -81,12 +86,14 @@ export function selectMasterVariant(
   deps: MasterVariantScoreDeps,
 ): MasterVariantScoreResult {
   const fuel = normFuel(product.fuel_type);
-  const displacement = (Number(product.engine_cc) || 0) / 1000;
+  const ccRaw = Number(String(product.engine_cc ?? '').replace(/,/g, '')) || 0;
+  const displacement = ccRaw >= 100 ? ccRaw / 1000 : (ccRaw >= 0.6 ? ccRaw : 0);
   const wantedSeats = Number(product.seats) > 0 ? Number(product.seats) : 0;
   const wantedDrive = deps.normDrive(product.drive_type);
   const seatMatters = seatAxisMatters(entry);
-  /** 원문이 부르는 라인 — 여기 있는 말만 파워트레인 선택에 쓴다. */
-  const blobLines = lineOf(`${signalBlob} ${String(product.variant ?? '')}`);
+  /** 원문이 부르는 라인 — 파워트레인 칸에 세부등급이 잘못 들어온 값은 무시. */
+  const variantSignal = isForbiddenAsVariant(product.variant) ? '' : String(product.variant ?? '');
+  const blobLines = lineOf(`${signalBlob} ${variantSignal}`);
   // 기본 조합이 마스터에 있으면 그걸 선호(신호 없을 때). 없으면 세부모델 modeSeat.
   // seatAxisMatters=false(레이·모닝 승용)면 인승 힌트·가산 없음.
   const def = defaultVariant(entry);
@@ -94,9 +101,85 @@ export function selectMasterVariant(
     ? (def?.seat != null && def.seat > 0 ? def.seat : modeSeat(entry.variants || []))
     : null;
 
+  /**
+   * 계단식 조합 선택의 핵심: 공급사가 명시한 원자는 «가점»이 아니라 후보 제거 조건이다.
+   *
+   * 예전 점수식은 `디젤 2.2 7인승`이 있어도 다른 가솔린·9인승 조합을 후보로 남겼고,
+   * 기본값 보너스가 더 크면 그쪽이 이길 수 있었다. 이제 연료 → 배기량 → 인승 → 구동 순서로
+   * 실제 마스터 조합을 좁힌다. 한 단계가 0건이면 이전 후보를 억지로 버리지 않고 충돌을 반환해
+   * 상위 차종은 보존하되 최종 결과는 사람 검수로 보낸다.
+   */
+  let candidates = [...(entry.variants || [])];
+  const conflicts: MasterVariantScoreResult['conflicts'] = [];
+  const constrain = (
+    field: MasterVariantScoreResult['conflicts'][number],
+    enabled: boolean,
+    comparable: (variant: MasterVariant) => boolean,
+    matches: (variant: MasterVariant) => boolean,
+  ) => {
+    if (!enabled || !candidates.length) return;
+    const comparableCandidates = candidates.filter(comparable);
+    if (!comparableCandidates.length) return;
+    const hits = comparableCandidates.filter(matches);
+    if (hits.length) candidates = hits;
+    else conflicts.push(field);
+  };
+
+  constrain(
+    'fuel_type',
+    !!fuel,
+    (candidate) => !!normFuel(candidate.fuel || masterVariantLabel(candidate)),
+    (candidate) => {
+      const candidateFuel = normFuel(candidate.fuel || masterVariantLabel(candidate));
+      return candidateFuel === fuel || candidateFuel.includes(fuel) || fuel.includes(candidateFuel);
+    },
+  );
+  constrain(
+    'engine_cc',
+    displacement > 0,
+    (candidate) => candidate.displacement_l != null && candidate.displacement_l > 0,
+    // 공급사 cc 반올림·제조사 표기 차이를 감안하되 다른 배기량 급은 섞지 않는다.
+    (candidate) => candidate.displacement_l != null && Math.abs(candidate.displacement_l - displacement) <= 0.2,
+  );
+  constrain(
+    'seats',
+    seatMatters && wantedSeats > 0 && deps.defaulted?.seats !== true,
+    (candidate) => candidate.seat != null && candidate.seat > 0,
+    (candidate) => candidate.seat === wantedSeats,
+  );
+  constrain(
+    'drive_type',
+    !!wantedDrive && deps.defaulted?.drive_type !== true,
+    (candidate) => !!deps.normDrive(candidate.drivetrain),
+    (candidate) => deps.normDrive(candidate.drivetrain) === wantedDrive,
+  );
+
+  // 라인명(N Line·GT·RS…)도 명시되어 실제 후보가 있으면 그 조합만 남긴다.
+  if (blobLines.size && candidates.length > 1) {
+    const lineHits = candidates.filter((candidate) => {
+      const mine = lineOf(masterVariantLabel(candidate));
+      return mine.size > 0 && [...mine].some((line) => blobLines.has(line));
+    });
+    if (lineHits.length) candidates = lineHits;
+  }
+  if (wantTurbo && candidates.length > 1) {
+    const turboHits = candidates.filter((candidate) => candidate.turbo === true);
+    if (turboHits.length) candidates = turboHits;
+  }
+
   let variant: MasterVariant | undefined;
-  if (entry.variants?.length) {
-    variant = entry.variants.map((candidate) => {
+  if (candidates.length) {
+    // 모든 명시 조건을 통과한 후보가 하나면 점수 경쟁 없이 그 조합이 답이다.
+    if (candidates.length === 1) {
+      return { variant: candidates[0], seatMatters, conflicts };
+    }
+    // 남은 후보 중 마스터 기본 조합이 하나면 누락 축의 기본값으로 사용한다.
+    const narrowedDefault = candidates.find((candidate) => candidate.default === true);
+    if (narrowedDefault) {
+      return { variant: narrowedDefault, seatMatters, conflicts };
+    }
+
+    variant = candidates.map((candidate) => {
       let score = 0;
       const candidateFuel = normFuel(candidate.fuel);
       if (fuel && candidateFuel === fuel) score += 2;
@@ -162,5 +245,5 @@ export function selectMasterVariant(
     }).sort((left, right) => right.score - left.score)[0]?.variant;
   }
 
-  return { variant, seatMatters };
+  return { variant, seatMatters, conflicts };
 }

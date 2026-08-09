@@ -12,7 +12,7 @@
  * 없으면 `공급사|차번` 으로 맞춘다. 그래서 `{공급사}_{차번}` 형태 키가 있으면 그쪽이 정본이고,
  * 없으면 남은 하나가 정본이다. 반대로 접으면 다음 동기화가 «접힌 쪽»을 되살린다.
  *
- * 안전장치: 계약이 걸린 레코드는 접지 않는다 · v3 원본은 그대로 두고 v4 오버레이에만 쓴다 ·
+ * 안전장치: 계약이 걸린 레코드는 접지 않는다 · 상품 판정은 v4 정본만 읽고 v4 에만 쓴다 ·
  * 접기 전 원본을 파일로 남긴다 · 접히는 쪽에만 있는 값(사진·옵션·정책 등)은 남는 쪽으로 옮긴다.
  *
  *   npx tsx scripts/fold-sync-twins.mts              # 미리보기
@@ -67,12 +67,15 @@ const CARRY = [
 
 async function main() {
   const db = getDatabase();
-  const [p3, p4, c3, c4, t3, t4] = await Promise.all([
-    db.ref('products').get(), db.ref('v4/products').get(),
+  const [p4, c3, c4, t3, t4] = await Promise.all([
+    db.ref('v4/products').get(),
     db.ref('contracts').get(), db.ref('v4/contracts').get(),
     db.ref('partners').get(), db.ref('v4/partners').get(),
   ]);
-  const products = mergeNodes(p3.val(), p4.val());
+  // ERP4 상품 정본은 v4다. v3의 과거 `_deleted=true`를 합치면 v4에서 실제로
+  // 살아 있는 EXT 사본이 plan에서 사라져, 화면 중복을 영원히 정리하지 못한다.
+  // 계약·파트너는 참조 보호/공급사 식별을 위해 기존 dual-read tolerance를 유지한다.
+  const products = mergeNodes(null, p4.val());
   const contracts = mergeNodes(c3.val(), c4.val());
   const partners = mergeNodes(t3.val(), t4.val());
   const partnerName = new Map<string, string>();
@@ -206,7 +209,7 @@ async function main() {
   mkdirSync('tmp/backup', { recursive: true });
   const backup: Record<string, unknown> = {};
   for (const g of plan) for (const f of g.fold) {
-    backup[S(f._key)] = { v3: (p3.val() || {})[S(f._key)] ?? null, v4: (p4.val() || {})[S(f._key)] ?? null };
+    backup[S(f._key)] = { v4: (p4.val() || {})[S(f._key)] ?? null };
   }
   const file = `tmp/backup/fold-twins-${new Date().toISOString().slice(0, 10)}.json`;
   writeFileSync(file, JSON.stringify(backup, null, 2), 'utf8');

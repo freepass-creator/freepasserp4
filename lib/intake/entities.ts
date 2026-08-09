@@ -424,7 +424,7 @@ export const ENTITIES: Record<string, Entity> = {
       { key: 'unsigned_pdf_url', label: '서명요청본', type: 'text' },
       // ── 전자서명 파이프라인(발송→손님서명→검토→승인) ──
       { key: 'sign_token', label: '서명 토큰', type: 'text' },
-      { key: 'sign_status', label: '서명 상태', type: 'select', options: ['미발송', '발송', '검토대기', '서명완료'], manual: true },
+      { key: 'sign_status', label: '서명 상태', type: 'select', options: ['미발송', '발행', '열람', '진행중', '검토대기', '서명완료', '반려', '만료'], manual: true },
       { key: 'sign_sent_at', label: '발송시각', type: 'number' },
       { key: 'sign_signed_at', label: '서명시각', type: 'number' },
       { key: 'sign_signature', label: '서명 이미지', type: 'text', note: 'data URL' },
@@ -438,8 +438,10 @@ export const ENTITIES: Record<string, Entity> = {
       //  전환 시점에 값만 채우면 되도록 스키마 자리를 먼저 잡아 둔다.
       { key: 'esign_provider', label: '전자계약 제공자', type: 'select', options: ['self', 'chakhandeal'], note: '신규 발송은 chakhandeal. self는 레거시 읽기 호환' },
       { key: 'esign_id', label: '외부 서명ID', type: 'text', note: '착한거래 signId' },
+      { key: 'esign_sign_url', label: '손님 서명 링크', type: 'text', note: '관리자가 복사해 직접 전달' },
       { key: 'esign_verify_url', label: '검증 링크', type: 'text', note: '착한거래 /v?id= — 파일이 아니라 사실을 증명하는 링크' },
       { key: 'esign_seal_hash', label: '문서 봉인 해시', type: 'text', note: '착한거래가 반환한 문서 봉인 해시' },
+      { key: 'esign_document_sha256', label: 'PDF SHA-256', type: 'text', note: '서명 완료 PDF 무결성 검증값' },
       { key: 'memo_agent', label: '영업자메모', type: 'text', manual: true },
       { key: 'memo_provider', label: '공급사메모', type: 'text', manual: true },
       { key: 'memo_admin', label: '관리자메모', type: 'text', manual: true },

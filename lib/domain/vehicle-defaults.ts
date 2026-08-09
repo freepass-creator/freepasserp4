@@ -5,12 +5,13 @@ import { defaultVariant, modeSeat } from '@/lib/domain/vehicle-master-variant';
 export type { SnapDefaultAtoms };
 
 /**
- * 차명·빈 신호일 때 **어느 마스터 조합을 가져올 것인가**.
+ * 차명·빈 신호일 때 **어느 마스터 조합을 고를 것인가** (저장값 발명 아님).
  *
- * 규칙: 입력을 채우지 않는다. 마스터에 있는 조합만 고른다.
+ * 규칙: 입력을 채우지 않는다. 마스터에 이미 있는 variant 조합만 고른다.
  *   · variant.default 가 있으면 그걸 기본 조합으로 쓴다.
- *   · 없으면 축 휴리스틱(구동≥2 → 2WD, 인승≥2 → modeSeat).
- *   · 선택지 없는 축(승용 인승 등) → 적지 않는다.
+ *   · 없으면 축 휴리스틱(구동≥2 → 2WD 쪽 조합, 인승≥2 → modeSeat 쪽 조합).
+ *   · 선택지 없는 축(승용 인승 등) → 건드리지 않는다.
+ * 매물에 쓰는 seats/drive/fuel 은 **고른 노드 필드**만 (`snapToMaster` 결과).
  */
 
 const S = (v: unknown) => String(v ?? '').trim();
@@ -81,26 +82,25 @@ export function choicesOf(subModel: unknown, entries: MasterEntry[]): VehicleCho
 }
 
 /**
- * 이름에 적을 구동 — **고를 수 있을 때만.**
- * 선택지가 하나뿐이면 적지 않는다(당연한 값이라 이름만 길어진다).
- * 적힌 값이 없는데 선택지가 있으면 2륜으로 본다 — 4륜은 값이 올라가는 사양이라 반드시 적힌다.
+ * 이름에 적을 구동 — **마스터에 구동 선택지가 둘 이상일 때만**, 그리고
+ * **이미 고른 조합(또는 매물)에 적힌 값만**. 없으면 빈칸(2WD를 발명하지 않음).
  */
 export function driveForName(raw: unknown, subModel: unknown, entries: MasterEntry[]): string {
   const { drives } = choicesOf(subModel, entries);
   if (drives.length < 2) return '';
-  return canonDrive(raw) || DRIVE_2WD;
+  return canonDrive(raw);
 }
 
 /**
- * 이름에 적을 인승 — **인승 축이 있을 때만**(세부모델 variants 인승 ≥2).
- * 적힌 값이 없으면 그 세부모델 대표 인승(modeSeat). 단일·무축은 공란.
+ * 이름에 적을 인승 — **인승 축이 있을 때만**, 매물/조합에 적힌 값만.
+ * 없으면 빈칸(대표 인승을 이름에 발명하지 않음 — snap 이 고른 노드 seat 를 써야 한다).
  */
 export function seatsForName(raw: unknown, subModel: unknown, entries: MasterEntry[]): string {
   const entry = entryOf(subModel, entries);
   if (entry && !seatAxisMatters(entry)) return '';
   const { seats } = choicesOf(subModel, entries);
   if (seats.length < 2) return '';
-  return S(raw) || representativeSeat(subModel, entries) || seats[0];
+  return S(raw);
 }
 
 /**
@@ -148,12 +148,13 @@ export function snapDefaultHints(
 }
 
 /**
- * 차명 조립 — **고를 수 있는 것만 적고, 같은 말을 두 번 적지 않는다.**
+ * 차명 조립 — 마스터에서 고른 조합을 **표현**한다(값을 새로 넣지 않음).
  *
- *   세부모델 + 파워트레인(연료·배기량 · 고를 수 있으면 인승·구동) + 세부트림
+ *   세부모델 + 파워트레인(연료·배기 · 축이면 인승·구동) + 세부트림
  *   예) 「카니발 KA4 디젤 2.2 9인승 프레스티지」·「그랜저 GN7 가솔린 2.5 2WD」
  *
- * 이관 스크립트·검사·화면이 각자 조립하면 같은 차가 곳곳에서 다르게 보인다. 여기 하나만 쓴다.
+ * 인승·구동 숫자는 매물에 이미 붙어 있는 것(=고른 마스터 노드)만 쓰고,
+ * 비어 있으면 이름에 발명하지 않는다.
  */
 export function composeVehicleName(
   p: {
@@ -165,11 +166,21 @@ export function composeVehicleName(
   const variantText = S(p.variant);
   const seats = seatsForName(p.seats, p.sub_model, entries);
   const drive = driveForName(p.drive_type, p.sub_model, entries);
+  const hasDrive = (token: string) => {
+    if (!token) return false;
+    const blob = variantText.replace(/\s/g, '').toUpperCase();
+    const t = token.replace(/\s/g, '').toUpperCase();
+    if (blob.includes(t)) return true;
+    // AWD·xDrive 등은 4WD 축과 같은 말 — 둘 다 붙이면 「AWD 4WD」가 된다.
+    if (t === '4WD' && /AWD|4WD|4MATIC|XDRIVE|콰트로|4모션|사륜|4륜/.test(blob)) return true;
+    if (t === '2WD' && /2WD|RWD|FWD|전륜|후륜|이륜/.test(blob)) return true;
+    return false;
+  };
   const has = (token: string) => !!token && variantText.replace(/\s/g, '').includes(token.replace(/\s/g, ''));
   const power = [
     variantText,
     seats && !has(`${seats}인승`) ? `${seats}인승` : '',
-    drive && !has(drive) ? drive : '',
+    drive && !hasDrive(drive) ? drive : '',
   ].filter(Boolean).join(' ');
 
   /**

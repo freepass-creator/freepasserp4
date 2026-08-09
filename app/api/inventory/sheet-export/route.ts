@@ -1,9 +1,12 @@
 import { NextResponse } from 'next/server';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { firebaseAdminDatabase, verifyActiveBearer } from '@/lib/server/firebase-admin';
 import { SheetsClient } from '@/lib/server/google-sheets-writer';
 import {
-  attachPolicy, buildInventorySheet, exportTabName, policyMap, sortForSales,
+  attachPolicy, buildInventorySheet, dedupeForSales, exportTabName, policyMap, resnapForSales, sortForSales,
 } from '@/lib/domain/inventory-sheet-export';
+import type { MasterEntry } from '@/lib/domain/vehicle-master-types';
 import { isListableProduct } from '@/lib/domain/product';
 import { companyAlias } from '@/lib/domain/identity';
 
@@ -85,9 +88,14 @@ export async function POST(request: Request) {
     const products = Object.entries((productsSnap.val() || {}) as Record<string, Rec>)
       .filter(([, p]) => p && typeof p === 'object' && !dead(p))
       .map(([key, p]) => ({ ...p, _key: key, product_code: p.product_code || key } as EntityRecord))
-      .filter((p) => isListableProduct(p))
+      .filter((p) => isListableProduct(p));
+    const masterRaw = JSON.parse(readFileSync(join(process.cwd(), 'public/data/vehicle-master.json'), 'utf8')) as {
+      entries?: MasterEntry[];
+    } | MasterEntry[];
+    const master = (Array.isArray(masterRaw) ? masterRaw : masterRaw.entries) || [];
+    if (!master.length) throw new Error('차종마스터가 비어 있어 영업자 시트 반영을 중단합니다.');
+    const rows = sortForSales(resnapForSales(dedupeForSales(products), master))
       .map((p) => attachPolicy(p, policies));
-    const rows = sortForSales(products);
 
     const client = await SheetsClient.open(spreadsheetId);
     /**

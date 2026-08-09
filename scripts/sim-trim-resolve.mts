@@ -104,6 +104,20 @@ check('E200 을 E300 으로 올리지 않는다',
 check('레인지 조각으로 롱 레인지를 만들지 않는다',
   resolveTrim('EV6 레인지', ['롱 레인지', '스탠다드']) === null,
   resolveTrim('EV6 레인지', ['롱 레인지', '스탠다드']));
+// 테슬라 원문 끝에 RWD 가 있어도 본등급(롱 레인지)이 이긴다.
+check('Long Range RWD → 롱 레인지(구동 강등)',
+  resolveTrim('Model 3 Premium Long Range RWD', ['RWD', '롱 레인지', '프리미엄', '프리미엄 롱레인지 RWD'])?.trim === '롱 레인지',
+  resolveTrim('Model 3 Premium Long Range RWD', ['RWD', '롱 레인지', '프리미엄', '프리미엄 롱레인지 RWD']));
+// BMW 약어 Spt
+check('520i M Spt → 520i M 스포츠',
+  resolveTrim('520i M Spt', ['520i', '520i M 스포츠', 'M 스포츠'])?.trim === '520i M 스포츠',
+  resolveTrim('520i M Spt', ['520i', '520i M 스포츠', 'M 스포츠']));
+// 그랑 콜레오스 — E-Tech 와 아이코닉이 원문에 떨어져 있어도 E-TECH 아이코닉
+check('E-Tech … 아이코닉 → E-TECH 아이코닉',
+  resolveTrim('그랑 콜레오스 하이브리드 E-Tech 1.5 터보 아이코닉 2WD',
+    ['E-TECH 아이코닉', 'E-TECH 에스카파드', '에스프리', '알핀'])?.trim === 'E-TECH 아이코닉',
+  resolveTrim('그랑 콜레오스 하이브리드 E-Tech 1.5 터보 아이코닉 2WD',
+    ['E-TECH 아이코닉', 'E-TECH 에스카파드', '에스프리', '알핀']));
 
 console.log(`\n━━ 결과: ${pass}/${pass + fail} 통과`);
 if (fail) process.exit(1);

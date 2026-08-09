@@ -14,7 +14,11 @@
  * ★내보내지 않는 것 — 원가·수수료·차대번호·내부메모.
  *   링크만 있으면 열리는 외부 문서다. HEADERS 에 원가성 필드를 추가하지 마라.
  */
-import { canonProductType, creditDisplay, excelCondSignals, noDeposit, priceList } from '@/lib/domain/product';
+import {
+  canonProductType, creditDisplay, excelCondSignals, isExactRealPlate, noDeposit, priceList,
+} from '@/lib/domain/product';
+import { applySnap, snapToMaster } from '@/lib/domain/vehicle-master-match';
+import type { MasterEntry } from '@/lib/domain/vehicle-master-types';
 import type { EntityRecord } from '@/lib/intake/entities';
 
 type Rec = Record<string, any>;
@@ -287,6 +291,80 @@ export function exportRow(p: EntityRecord, providerName: string): (string | numb
   ];
 }
 
+/**
+ * ★같은 차가 두 번 실리지 않게 — 차량번호로 접는다.
+ *
+ * 실측 2026-08-09: 영업자 시트에 **458건**이 올라갔는데 실제 차는 **409대**였다.
+ * 49대가 두 번씩이었다. 키 규약이 여러 벌이라 한 차가 여러 레코드로 남아 있다:
+ *   `차번만` · `차번_공급사` · `공급사_차번`(시트) · `EXT_해시`(v3 이관) · `PD-순번`(수기)
+ *
+ * DB 를 정리하는 것과 별개로 **내보내는 자리에서도 막는다** —
+ * 영업자가 같은 차를 두 번 보는 건 어느 쪽 사정이든 틀린 화면이다.
+ *
+ * 남길 쪽은 «시트가 앞으로 갱신할» 레코드다: `{공급사}_{차번}` 키가 정본이고
+ * (`planProductUpsert` 가 그 키를 먼저 맞춘다), 없으면 값이 더 찬 쪽을 남긴다.
+ * 차량번호가 없는 차(번호미정 신차)는 접지 않는다 — 서로 다른 차일 수 있다.
+ */
+export function dedupeForSales(rows: EntityRecord[]): EntityRecord[] {
+  const plate = (r: EntityRecord) => S(r.car_number).replace(/\s/g, '');
+  /** 값이 얼마나 차 있나 — 같은 차 둘 중 하나를 골라야 할 때의 기준. */
+  const filled = (r: EntityRecord) => Object.values(r).filter((v) => !(v == null || v === '')).length;
+  const isCanonical = (r: EntityRecord) => {
+    const prov = S(r.provider_company_code);
+    return !!prov && S(r._key) === `${prov}_${plate(r)}`;
+  };
+  /**
+   * ⚠ 접는 단위는 «공급사 + 실차번호»다.
+   *   · 공급사가 다르면 접지 않는다 — 같은 차를 두 곳이 올린 건지, 차가 이관된 건지
+   *     여기서 판단할 근거가 없다. 그건 DB 정리(`fold-sync-twins --cross`)의 몫이다.
+   *   · 임시번호(`100신…`)는 접지 않는다 — 번호미정 신차라 **서로 다른 차**다.
+   */
+  const best = new Map<string, EntityRecord>();
+  const keepOrder: EntityRecord[] = [];
+  for (const row of rows) {
+    const p = plate(row);
+    const foldable = isExactRealPlate(p) && !row.is_pending_plate;
+    if (!foldable) { keepOrder.push(row); continue; }
+    const key = `${S(row.provider_company_code)}|${p}`;
+    const prev = best.get(key);
+    if (!prev) { best.set(key, row); keepOrder.push(row); continue; }
+    // 정본 키가 이긴다. 둘 다 아니거나 둘 다면 값이 더 찬 쪽.
+    const win = isCanonical(row) !== isCanonical(prev)
+      ? (isCanonical(row) ? row : prev)
+      : (filled(row) > filled(prev) ? row : prev);
+    if (win !== prev) {
+      best.set(key, win);
+      keepOrder[keepOrder.indexOf(prev)] = win;
+    }
+  }
+  const kept = new Set(best.values());
+  return keepOrder.filter((r) => !(isExactRealPlate(plate(r)) && !r.is_pending_plate) || kept.has(r));
+}
+
+/**
+ * 내보내기 직전에 차종을 **다시 맞춘다.**
+ *
+ * 저장된 값은 예전 매칭의 잔재일 수 있다 — 오늘만 해도 세대·파워트레인·트림 규칙을 여러 번 고쳤고,
+ * 그때마다 저장값이 아니라 «지금 코드로 다시 본 값»이 맞다.
+ * 시트는 영업자가 보는 최종 화면이라 여기서 한 번 더 맞춰 내보낸다. DB 는 건드리지 않는다.
+ *
+ * ⚠ 빈칸만 채운다(`applySnap` 규약). 재매칭이 못 잡았다고 이미 있는 값을 지우지 않는다 —
+ *   공급사가 적어 준 트림이 마스터에 아직 없을 뿐인 경우가 있다.
+ */
+export function resnapForSales(rows: EntityRecord[], master: MasterEntry[]): EntityRecord[] {
+  if (!master.length) return rows;
+  return rows.map((row) => {
+    if (!row._raw_vehicle) return row;
+    try {
+      const snap = snapToMaster(row, master);
+      return snap ? (applySnap(row, snap) as EntityRecord) : row;
+    } catch {
+      // 한 대가 매칭에서 터져도 시트 전체가 안 나가면 안 된다.
+      return row;
+    }
+  });
+}
+
 /** 영업자는 «무슨 차»로 찾는다 — 제조사·모델 순, 같은 차는 연식 최신 먼저. */
 export function sortForSales(rows: EntityRecord[]): EntityRecord[] {
   return [...rows].sort((a, b) => S(a.maker).localeCompare(S(b.maker), 'ko')
@@ -486,7 +564,13 @@ export function buildInventorySheet(
      */
     const photo = S(photoByPlate[plate]);
     const img = photo ? `IMAGE("${photo.replace(/"/g, '""')}",1)` : '';
-    const detail = code && base ? `"${base}/q/"&ENCODEURL("${code.replace(/"/g, '""')}")` : '';
+    /**
+     * ⚠ 로컬 주소로는 링크를 걸지 않는다.
+     *   개발 PC 에서 반영하면 `http://localhost:4004/q/…` 가 공유 시트에 박힌다 —
+     *   영업자가 눌러도 안 열리고, 왜 안 되는지 아무도 모른다. 사진만 남긴다.
+     */
+    const shareable = /^https?:\/\//i.test(base) && !/localhost|127\.0\.0\.1|0\.0\.0\.0/i.test(base);
+    const detail = code && shareable ? `"${base}/q/"&ENCODEURL("${code.replace(/"/g, '""')}")` : '';
     line[COL_PHOTO] = detail
       ? `=HYPERLINK(${detail},${img || '"사진없음"'})`
       : (img ? `=${img}` : '');

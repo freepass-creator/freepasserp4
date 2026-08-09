@@ -293,6 +293,40 @@ for (const line of fetched.lines) {
   ].join(' · '));
   for (const issue of line.issueSamples || []) console.log(`       - ${issue}`);
 }
+if (process.argv.includes('--inspect-snap-issues')) {
+  type SnapIssueRow = { code?: unknown; field?: unknown; value?: unknown };
+  const issueCounts = new Map<string, number>();
+  const samples: string[] = [];
+  for (const line of fetched.lines) {
+    for (const product of line.products) {
+      if (product._needs_master_review !== true) continue;
+      const issues = Array.isArray(product._snap_issues) ? product._snap_issues as SnapIssueRow[] : [];
+      if (!issues.length) {
+        issueCounts.set('기존 low/미매칭', (issueCounts.get('기존 low/미매칭') || 0) + 1);
+        continue;
+      }
+      for (const issue of issues) {
+        const key = `${String(issue.code || 'unknown')}:${String(issue.field || '-')}`;
+        issueCounts.set(key, (issueCounts.get(key) || 0) + 1);
+      }
+      if (samples.length < 40) {
+        const raw = product._raw_vehicle && typeof product._raw_vehicle === 'object'
+          ? product._raw_vehicle as EntityRecord
+          : product;
+        samples.push([
+          line.code,
+          String(product.car_number || ''),
+          `원문=${String(raw.trim_name || raw.model || raw.sub_model || '').slice(0, 80)}`,
+          `선택=${String(product.sub_model || '')}/${String(product.variant || '')}/${String(product.trim_name || '')}`,
+          `사유=${issues.map((issue) => `${String(issue.field || issue.code)}=${String(issue.value || '')}`).join(',')}`,
+        ].join(' · '));
+      }
+    }
+  }
+  console.log('\n══ 차종 검수 사유 분해 ══');
+  for (const [key, count] of [...issueCounts].sort((a, b) => b[1] - a[1])) console.log(`  ${key} ${count}`);
+  for (const sample of samples) console.log(`  - ${sample}`);
+}
 const sourceRows = fetched.lines.reduce((sum, line) => sum + line.sourceRowCount, 0);
 const blockReason = sheetSyncCommitBlockReason(fetched);
 const requiredBlockReason = missingRequired.length

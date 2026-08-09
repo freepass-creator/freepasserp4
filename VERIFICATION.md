@@ -3562,3 +3562,37 @@ Next 개발 서버와 production build가 같은 `.next`를 사용하면 실행 
 - Sheet merge 139/139, revive 12/12, daily sync 22/22, price 31/31 PASS.
 - 분리 `NEXT_DIST_DIR=.next-codex-recovery` production build가 정적 30페이지와 신규 `/api/inventory/ironrentcar/rollback`을 포함해 PASS했다. Next가 자동 변경한 `tsconfig.json`은 빌드 전 해시 `68b2e974...`로 복구했다.
 - 운영 RTDB·Google Sheet·아이언 홈페이지 write, Rules 게시, Production 배포는 실행하지 않았다. 기존 미추적 `tmp-install.log`도 보존했다.
+
+## 2026-08-09 — 차종마스터 완성조합 계단식 매칭
+
+결과: **계단식 조합 선택·자동매칭 표시·충돌 검수 PASS / 실데이터 write 0건**
+
+- 제조사·모델·세대 선택 뒤 파워트레인을 연료 → 배기량 → 인승 → 구동 순서의 실제 후보 제거 조건으로 바꿨다. 명시 원자가 어떤 조합에도 없으면 점수로 타협하지 않고 `low`와 `_snap_issues`를 남긴다.
+- 같은 파워트레인 라벨이어도 인승·구동 등이 다른 variant의 트림을 합치지 않는다. 완전 동일 조합으로 분할된 중복 노드만 트림을 합쳐 `7인승 프레스티지` 같은 비실재 조합 생성을 막았다.
+- 트림 입력이 정말 없으면 마스터 배열 첫 트림을 자동 선택하고 `_snap_defaults.trim_name`을 남긴다. 첫 노드가 `(세부등급 없음)`이면 다음 문자열 트림을 발명하지 않고 세부등급 없음 자체를 자동 선택한다.
+- 공급사 트림이 선택 조합에 없으면 최저 트림으로 덮지 않고 `trim_not_in_master`로 검수한다. 연식·패키지·휠·The All New 같은 비등급 표기는 트림 오류로 과대판정하지 않는다.
+- 자동완성 provenance를 파워트레인·연료·배기량·인승·구동·트림에 남기고 동기화 미리보기와 재고 상세에서 `자동매칭` 및 구체 충돌 사유를 표시한다.
+- 재스냅으로 정상화된 행은 과거 `_snap_defaults`·`_snap_issues`를 null patch로 지운다. soft-merge가 빈값으로 간주해 낡은 검수 사유를 영구 보존하던 구멍을 회귀 테스트로 막았다.
+- 실제 16개 공급사 원본을 운영 동기화와 같은 읽기 전용 경로로 전수 대조했다. 원본 416행, 반영 대상 387대, 소스 16/16 PASS, 자동확정 327대, 검수 60대다. 검수는 명시 제원/트림이 현재 마스터 완성조합에 없거나 기존 모델 확신도가 낮은 행이며 자동 대체하지 않는다.
+- `scripts/audit-inventory-sources.mts --inspect-snap-issues`로 검수 사유를 필드별 집계하고 표본을 확인할 수 있게 했다. 기본 실행 출력은 바꾸지 않았다.
+- `scripts/sim-atom-pipeline.mts`: 45/45 PASS. 카니발 기본 9인승, 명시 7인승, 트림 누락 최저트림 자동선택, 미등록 트림·없는 파워트레인 검수, 세부등급 없음 기본을 검증했다.
+- `scripts/sim-snap-defaults-masterwide.mts`: 인승축 158/158, 구동축 113/113 PASS.
+- `scripts/sim-trim-resolve.mts`: 38/38 PASS. `scripts/sim-sheet-merge.mts`: 154/154 PASS. `scripts/sim-snap-failure.mts`, `scripts/sim-model-with-year.mts` PASS.
+- `npx tsc --noEmit`, `npm run check:fonts`, `npm run check:tokens`, `git diff --check` PASS.
+- `npm run check:ui`는 이번 변경과 무관한 기존 raw-control 기준 3건(`ChatThread`, `ConsultPanel`, `DevRoleSwitch`)으로 FAIL했다. 이번 수정 파일에서 새 raw control은 추가하지 않았다.
+- 운영 RTDB·공급사 Sheet write, Rules 변경·게시, 배포는 실행하지 않았다. 작업 중이던 Cursor의 차종마스터 및 매칭 보완 변경은 되돌리거나 덮어쓰지 않았다.
+
+## 2026-08-09 — 영업자용 Google Sheet 자동매칭 반영
+
+결과: **운영 영업자 시트 409대 반영 PASS / RTDB write 0건**
+
+- 환경 SSOT `INVENTORY_EXPORT_SHEET_ID`와 Drive 검색·메타데이터를 대조해 운영본을 `프리패스 상품리스트`(`1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs`)로 확정했다. 같은 제목의 구형 `1G0…` 시트에는 쓰지 않았다.
+- 최초 dry-run은 v4 listable 430대를 계산했으나 기존 인수인계의 409대와 정확히 21대 차이가 났다. 같은 공급사·같은 실차번호의 `EXT_…` 이관 사본과 `{공급사}_{차번}` 정본이 함께 살아 있는 21대를 확인해 그대로 덮어쓰지 않았다.
+- 영업자 표시용 내보내기에서 같은 공급사·같은 실차번호만 정식 키 우선으로 한 줄로 줄였다. 다른 공급사·임시번호(`100신…`)는 서로 다른 상품일 수 있어 보존하며 RTDB 레코드는 수정하지 않는다.
+- 공급사 원본 `_raw_vehicle`이 있는 행은 최신 차종마스터로 읽기 전용 재매칭했다. high/medium만 표시값을 갱신하고 low는 기존 차종을 유지한 채 검수 사유만 보인다.
+- `파워트레인`을 연료·배기량·인승·구동이 결합된 완성 조합으로 사용하고, 중복이던 별도 `인승`·`구동` 열은 제거했다. `매칭상태`, `매칭메모`만 추가해 자동 기본 적용 축과 마스터 누락/공급사 오기 사유를 한국어로 표시한다.
+- 기존 고정 gid `565454786` 탭을 `상품리스트 08.09 21:26 · 409대`로 갱신했다. 410행(헤더+409대), 64개 보이는 열, 헤더 1행·앞 8열 고정, 조건부서식 11개를 API로 재확인했다. 상태는 `마스터확정 327 · 자동매칭 46 · 검수필요 36`이며 별도 `인승`·`구동` 헤더는 0개다.
+- 사진 셀의 목적지는 사용자 확인에 따라 차량 카탈로그 `https://freepasserp.com/q/{상품코드}`로 확정했다. 샘플 2건을 실제 HTTP 200·차량명/트림 title로 확인한 뒤 전 행에 반영했다. 최종값은 카탈로그 `HYPERLINK` 409건, 사진이 있는 행의 `IMAGE` 244건, localhost/127.0.0.1 링크 0건이다.
+- `scripts/sim-inventory-sheet-export.mts` PASS: 정식 키 우선 중복 제거, 타 공급사/임시번호 보존, 자동매칭/검수 표시, localhost 링크 차단을 검증했다.
+- `npx tsc --noEmit`, `npm run check:fonts`, `npm run check:tokens`, `scripts/sim-vin-flow.mts` 13/13, 변경 파일 대상 `git diff --check` PASS. 전역 검사는 기존 사용자 변경 `CURSOR-STATUS.md:260`의 trailing whitespace 1건만 보고했다.
+- Google Sheet 운영본 write는 사용자의 명시 요청으로 실행했다. 운영 RTDB·공급사 원본 Sheet·Rules·배포 write는 0건이다.

@@ -140,7 +140,8 @@ function nameScoreFor(
   }
   if (s.nSub.startsWith(nModel) && s.nSub.length > nModel.length) {
     const rest = s.nSub.slice(nModel.length);
-    if (rest.length <= 8 || /^[a-z0-9]{2,8}$/i.test(rest)) {
+    // 접미가 세대코드일 때만 (TM·CN7·SP2). 「니로」+「플러스de」는 다른 차다.
+    if (/^[a-z0-9]{2,8}$/i.test(rest)) {
       return { score: 0.75 + Math.min(0.15, sim * 0.2), why: '접두+코드' };
     }
   }

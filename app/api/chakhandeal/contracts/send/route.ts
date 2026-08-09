@@ -6,7 +6,6 @@ import { findTemplate, templatesForContract } from '@/lib/domain/esign-templates
 import {
   getChakhandealConfig,
   issueChakhandealContract,
-  sendChakhandealContract,
 } from '@/lib/server/chakhandeal-esign';
 
 export const dynamic = 'force-dynamic';
@@ -82,37 +81,27 @@ export async function POST(request: Request) {
   }
 
   try {
-    const existingId = codeText(contract.esign_id);
-    const issue = existingId
-      ? { contractId: existingId, verifyUrl: codeText(contract.esign_verify_url), sealHash: codeText(contract.esign_seal_hash) }
-      // 위에서 게이트로 읽은 정책을 그대로 넘긴다 — 안 넘기면 계약서가 빈칸으로 나간다.
-      : await issueChakhandealContract(config, contract, template?.id, policy);
+    // 발행 API는 externalRef 기준 멱등이다. 기존 건도 다시 호출해 저장 누락된 signUrl을 복구한다.
+    // 착한거래는 문자·카카오를 보내지 않는다 — 관리자가 아래 링크를 직접 복사해 전달한다.
+    const issue = await issueChakhandealContract(config, contract, template?.id, policy);
 
     // 어느 양식으로 나갔는지는 계약에 박는다 — 나중에 «이 손님이 어느 판에 서명했나»를
     // 되짚을 수 있는 유일한 근거다. 발행 식별자와 함께 먼저 저장한다(발송 실패 대비).
     const templateStamp = template
       ? { esign_template_id: template.id, esign_template_version: template.version }
       : {};
-    if (!existingId) {
-      await db.ref(`v4/contracts/${contractCode}`).update({
-        esign_provider: 'chakhandeal',
-        esign_id: issue.contractId,
-        esign_verify_url: issue.verifyUrl || '',
-        esign_seal_hash: issue.sealHash || '',
-        ...templateStamp,
-      });
-    }
-    await sendChakhandealContract(config, issue.contractId, contractCode);
     await db.ref(`v4/contracts/${contractCode}`).update({
       esign_provider: 'chakhandeal',
       esign_id: issue.contractId,
-      esign_verify_url: issue.verifyUrl || codeText(contract.esign_verify_url),
-      esign_seal_hash: issue.sealHash || codeText(contract.esign_seal_hash),
-      sign_status: '발송',
-      sign_sent_at: Date.now(),
+      esign_sign_url: issue.signUrl,
+      esign_verify_url: issue.verifyUrl,
+      esign_seal_hash: issue.sealHash,
+      sign_status: '발행',
+      sign_expires_at: issue.expiresAt || null,
+      esign_issued_at: Date.now(),
       ...templateStamp,
     });
-    return json({ ok: true, status: 'sent' });
+    return json({ ok: true, status: 'issued', signUrl: issue.signUrl });
   } catch (error) {
     console.error('[chakhandeal-esign] send failed', error instanceof Error ? error.message : 'unknown');
     return json({ error: '착한거래 전자계약 발송에 실패했습니다. 잠시 후 다시 시도하세요.' }, 502);

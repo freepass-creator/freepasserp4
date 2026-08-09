@@ -7,6 +7,7 @@ import { ExcelResultsTable, type ExcelOpenCol } from '@/features/finder/ExcelRes
 import { CardSpecs, CardThumb } from '@/components/product-card-atoms';
 import { vehicleName } from '@/lib/domain/product';
 import { vehicleIdentityLine } from '@/lib/domain/vehicle-master-match';
+import type { SnapDefaultAtoms, SnapIssue } from '@/lib/domain/vehicle-master-types';
 import {
   buildMasterIndex,
   classifyMasterMisfit,
@@ -18,8 +19,6 @@ import { C, R, FS, FW, ICON, Btn, IconSeg, CenterNote, Select, Badge } from '@/c
 import { LayoutGrid, Table, ListTree } from 'lucide-react';
 
 type PreviewView = 'atom' | 'excel' | 'card';
-
-type SnapDefaults = { seats?: boolean; drive_type?: boolean };
 
 function S(v: unknown) {
   return String(v ?? '').trim();
@@ -38,8 +37,37 @@ function atomStatus(p: EntityRecord): { label: string; tone: 'green' | 'amber' |
 }
 
 function withDefault(value: string, inferred?: boolean) {
-  if (!value) return '—';
-  return inferred ? `${value}(조합)` : value;
+  if (!value) return inferred ? '세부트림 없음(자동)' : '—';
+  return inferred ? `${value}(자동)` : value;
+}
+
+const AUTO_FIELD_LABEL: Record<keyof SnapDefaultAtoms, string> = {
+  variant: '파워트레인',
+  trim_name: '세부트림',
+  fuel_type: '연료',
+  engine_cc: '배기량',
+  seats: '인승',
+  drive_type: '구동',
+};
+
+const ISSUE_FIELD_LABEL: Record<NonNullable<SnapIssue['field']>, string> = {
+  fuel_type: '연료',
+  engine_cc: '배기량',
+  seats: '인승',
+  drive_type: '구동',
+  turbo: '터보',
+  trim_name: '세부트림',
+};
+
+function issueReason(issues: SnapIssue[]): string {
+  const issue = issues[0];
+  if (!issue) return '';
+  const field = issue.field ? ISSUE_FIELD_LABEL[issue.field] : '차종 정보';
+  const value = S(issue.value);
+  if (issue.code === 'trim_not_in_master') {
+    return `세부트림${value ? ` 「${value}」` : ''}이 선택 조합에 없음 — 마스터 누락/공급사 오기 확인`;
+  }
+  return `${field}${value ? ` 「${value}」` : ''}과 일치하는 파워트레인 조합 없음`;
 }
 
 /**
@@ -202,10 +230,18 @@ export function SyncPreview({
             </thead>
             <tbody>
               {shown.map((p, i) => {
-                const defaults = (p._snap_defaults || {}) as SnapDefaults;
-                const st = atomStatus(p);
+                const defaults = (p._snap_defaults || {}) as SnapDefaultAtoms;
+                const issues = Array.isArray(p._snap_issues) ? p._snap_issues as SnapIssue[] : [];
+                const automatic = (Object.keys(AUTO_FIELD_LABEL) as Array<keyof SnapDefaultAtoms>)
+                  .filter((key) => defaults[key])
+                  .map((key) => AUTO_FIELD_LABEL[key]);
+                let st = atomStatus(p);
+                if (st.label === '확정' && automatic.length) {
+                  st = { label: '자동매칭', tone: 'green', reason: `마스터 기본 적용: ${automatic.join('·')}` };
+                }
+                if (issues.length) st = { label: '검수', tone: 'amber', reason: issueReason(issues) };
                 let reason = st.reason;
-                if (masterIndex && (st.label === '검수' || st.label === '미매칭')) {
+                if (!reason && masterIndex && (st.label === '검수' || st.label === '미매칭')) {
                   const kind = classifyMasterMisfit(p, masterIndex, S(p._snap_confidence) || undefined) as MasterMisfitKind;
                   if (kind !== 'fit') reason = MASTER_MISFIT_LABEL[kind];
                 }
@@ -214,10 +250,10 @@ export function SyncPreview({
                   <tr key={String(p.product_code || p._key || i)} style={{ background: i % 2 ? C.zebra : undefined }}>
                     <td style={td} title={raw}>{raw}</td>
                     <td style={td} title={S(p.sub_model)}>{S(p.sub_model) || '—'}</td>
-                    <td style={td} title={S(p.variant)}>{S(p.variant) || '—'}</td>
-                    <td style={td} title={S(p.trim_name)}>{S(p.trim_name) || '—'}</td>
-                    <td style={td}>{S(p.fuel_type) || '—'}</td>
-                    <td style={td}>{S(p.engine_cc) || '—'}</td>
+                    <td style={td} title={S(p.variant)}>{withDefault(S(p.variant), defaults.variant)}</td>
+                    <td style={td} title={S(p.trim_name)}>{withDefault(S(p.trim_name), defaults.trim_name)}</td>
+                    <td style={td}>{withDefault(S(p.fuel_type), defaults.fuel_type)}</td>
+                    <td style={td}>{withDefault(S(p.engine_cc), defaults.engine_cc)}</td>
                     <td style={td}>{withDefault(S(p.seats), defaults.seats)}</td>
                     <td style={td}>{withDefault(S(p.drive_type), defaults.drive_type)}</td>
                     <td style={{ ...td, whiteSpace: 'normal', maxWidth: 160 }}>

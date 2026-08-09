@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { Badge, Btn, C, FS, FW, R, SectionLabel, fmtAt } from '@/components/ui';
 import { type EntityRecord } from '@/lib/intake/entities';
+import type { SnapDefaultAtoms, SnapIssue } from '@/lib/domain/vehicle-master-types';
 import {
   isNoTrimLabel,
   snapFieldDiffs,
@@ -19,6 +20,10 @@ export function SnapTrace({ form, onRematch }: { form: EntityRecord; onRematch?:
   const review = !!form._needs_master_review;
   const diffs = snapFieldDiffs(raw, form);
   const hist = Array.isArray(form._snap_history) ? (form._snap_history as SnapHistoryEntry[]) : [];
+  const defaults = (form._snap_defaults && typeof form._snap_defaults === 'object')
+    ? form._snap_defaults as SnapDefaultAtoms
+    : {};
+  const issues = Array.isArray(form._snap_issues) ? form._snap_issues as SnapIssue[] : [];
   const [openHist, setOpenHist] = useState(false);
 
   if (!snapped && !review && !hist.length && !onRematch) return null;
@@ -27,6 +32,20 @@ export function SnapTrace({ form, onRematch }: { form: EntityRecord; onRematch?:
   const confTone = conf === 'high' ? 'green' : conf === 'medium' ? 'amber' : conf === 'low' ? 'orange' : 'gray';
   const trimNow = String(form.trim_name || '').trim();
   const noTrim = !trimNow || isNoTrimLabel(trimNow);
+  const automaticLabels = ([
+    ['variant', '파워트레인'], ['trim_name', '세부트림'], ['fuel_type', '연료'],
+    ['engine_cc', '배기량'], ['seats', '인승'], ['drive_type', '구동'],
+  ] as Array<[keyof SnapDefaultAtoms, string]>).filter(([key]) => defaults[key]).map(([, label]) => label);
+  const issueLabel = (issue: SnapIssue): string => {
+    const fields: Record<NonNullable<SnapIssue['field']>, string> = {
+      fuel_type: '연료', engine_cc: '배기량', seats: '인승', drive_type: '구동', turbo: '터보', trim_name: '세부트림',
+    };
+    const field = issue.field ? fields[issue.field] : '차종 정보';
+    const value = String(issue.value || '').trim();
+    return issue.code === 'trim_not_in_master'
+      ? `${field}${value ? ` 「${value}」` : ''}이 선택 조합에 없습니다. 마스터 누락 또는 공급사 오기를 확인하세요.`
+      : `${field}${value ? ` 「${value}」` : ''}과 일치하는 파워트레인 조합이 없습니다.`;
+  };
 
   return (
     <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -34,12 +53,19 @@ export function SnapTrace({ form, onRematch }: { form: EntityRecord; onRematch?:
         <SectionLabel mt={0} mb={0}>차종 변환</SectionLabel>
         {snapped && <Badge tone="blue" variant="solid">마스터 규격</Badge>}
         {review && <Badge tone="amber" variant="solid">검수 필요</Badge>}
+        {automaticLabels.length ? <Badge tone="green" variant="quiet">자동매칭 · {automaticLabels.join('·')}</Badge> : null}
         {conf ? <Badge tone={confTone as 'green' | 'amber' | 'orange' | 'gray'}>{conf}</Badge> : null}
         {noTrim && snapped ? <Badge tone="gray" variant="quiet">세부트림 없음</Badge> : null}
         <span style={{ flex: 1 }} />
         {onRematch ? <Btn title="차종 다시 매칭" size="sm" variant="ghost" onClick={onRematch}>다시 매칭</Btn> : null}
         {form._snap_at ? <span style={{ fontSize: FS.micro, color: C.faint }}>{fmtAt(Number(form._snap_at))}</span> : null}
       </div>
+
+      {issues.length ? (
+        <div style={{ border: `1px solid ${C.warn}`, background: C.warnBg, color: C.ink, borderRadius: R, padding: '7px 9px', fontSize: FS.cap, lineHeight: 1.5 }}>
+          {issues.map((issue, index) => <div key={`${issue.code}-${issue.field || ''}-${index}`}>{issueLabel(issue)}</div>)}
+        </div>
+      ) : null}
 
       <div style={{ fontSize: FS.cap, lineHeight: 1.55, color: C.mute }}>
         <div>

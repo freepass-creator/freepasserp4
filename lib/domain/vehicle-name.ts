@@ -1,5 +1,5 @@
 /**
- * 차명 표기 SSOT — 화면에 찍히는 차 이름은 **전부 여기를 거친다.**
+ * 화면에 찍히는 차 이름은 **전부 여기를 거친다.**
  *
  * 왜 만들었나(2026-08 감사): 차명을 만드는 코드가 12군데로 갈라져 있었고, 그래서
  * 같은 차가 화면마다 다르게 보였다. 재고 상세 한 화면 안에서만 4번 나오는데 매번 규격이 달랐다 —
@@ -9,9 +9,14 @@
  *
  * 실패했던 전제: **"차명 = 문자열 하나"**. 실제로는 폭·맥락에 따라 등급이 셋이다.
  *
- *   T1 short  제조사 + (세부모델‖모델) + 트림              목록·칩·앱바·정렬키
+ *   T1 short  제조사 + (세부모델‖모델) + **선택축(인승·구동)** + 트림   목록·칩·앱바·정렬키
  *   T2 full   T1 + 파워트레인 + 추가표기                   상세·계약·서명·공유·문서
  *   T3 raw    원문 그대로(정규화·중복제거 없음)            검수 트레이스·감사로그 **전용**
+ *
+ * ★인승·구동은 마스터 variant 조합에 **이미 있는 값**을 이름에 풀어 쓸 뿐.
+ *   snap 이 고른 노드의 seat/drivetrain → product 필드 → 차명.
+ *   축이 없는 승용은 노드에 값도 없어 이름에도 안 붙는다.
+ *   (카니발 7/9 · 그랜저 2WD/4WD — 목록에서도 손님·영업이 다른 차로 보이게)
  *
  * T1 에 트림을 남긴 건 의도적이다. 오늘 재고·계약 목록이 쓰는 표기가 정확히 이 모양이라,
  * 빼면 "불일치를 고친다"면서 멀쩡히 보이던 트림이 조용히 사라진다. 등급 도입은 표기를 통일하는
@@ -170,6 +175,35 @@ function appendUnique(baseRaw: unknown, valueRaw: unknown): string {
   return `${base} ${value}`;
 }
 
+/** 이미 이름에 구동이 있는지 — AWD≈4WD, 전륜/후륜≈2WD 로 본다. */
+function hasDriveToken(blobRaw: unknown, driveRaw: unknown): boolean {
+  const blob = comparable(blobRaw).toUpperCase();
+  const drive = text(driveRaw).replace(/\s/g, '').toUpperCase();
+  if (!blob || !drive) return false;
+  if (blob.includes(comparable(driveRaw).toUpperCase())) return true;
+  if (/^(4WD|AWD)$/.test(drive) && /AWD|4WD|4MATIC|XDRIVE|콰트로|4모션|사륜|4륜/.test(blob)) return true;
+  if (/^(2WD|FWD|RWD)$/.test(drive) && /2WD|RWD|FWD|전륜|후륜|이륜/.test(blob)) return true;
+  return false;
+}
+
+/**
+ * 마스터 조합에 이미 있는 인승·구동만 이름에 풀어 쓴다.
+ * snap 이 고른 노드 → product.seats / drive_type. 없으면 안 붙임(발명 금지).
+ */
+function appendChoiceAxes(baseRaw: unknown, p: EntityRecord): string {
+  let out = text(baseRaw);
+  const seat = S(p.seats);
+  if (/^\d{1,2}$/.test(seat)) {
+    const tok = `${seat}인승`;
+    if (!containsPart(out, tok)) out = appendUnique(out, tok);
+  }
+  const drive = S(p.drive_type);
+  if (drive && /^(2WD|4WD|AWD|FWD|RWD|xDrive|4MATIC|콰트로|4모션|전륜|후륜|사륜)$/i.test(drive.replace(/\s/g, ''))) {
+    if (!hasDriveToken(out, drive)) out = appendUnique(out, drive);
+  }
+  return out;
+}
+
 /** 제조사만 있는 스냅샷은 차량 식별값이 아니므로 현재 상품/레거시명으로 보강한다. */
 function snapshotUsable(c: EntityRecord): boolean {
   return !!(S(c.vehicle_name_snapshot) || S(c.sub_model_snapshot) || S(c.model_snapshot));
@@ -220,9 +254,13 @@ function partsOfRecord(p: EntityRecord, tier: NameTier, omitMaker: boolean): Omi
 
   let ext = '';
   if (tier === 'short') {
-    ext = cleanTrim;
+    // 목록에서도 선택축(인승·구동)은 보이게 — 트림보다 앞에.
+    ext = appendChoiceAxes('', p);
+    ext = appendUnique(ext, cleanTrim);
   } else {
     ext = appendUnique(ext, variant);
+    // variant 에 이미 인승·구동이 있으면 중복 안 붙음.
+    ext = appendChoiceAxes(ext, p);
     ext = appendUnique(ext, cleanTrim);
     ext = appendUnique(ext, extra);
   }
@@ -235,7 +273,7 @@ function partsOfRecord(p: EntityRecord, tier: NameTier, omitMaker: boolean): Omi
       return {
         maker: omitMaker ? '' : maker,
         main: legacyMain,
-        ext,
+        ext: appendChoiceAxes(ext, p),
         plate,
       };
     }
@@ -248,6 +286,8 @@ function partsOfRecord(p: EntityRecord, tier: NameTier, omitMaker: boolean): Omi
         p.variant, ...phraseTokens(p.variant),
         trim, ...phraseTokens(trim),
         p.trim_extra, ...phraseTokens(p.trim_extra),
+        p.seats ? `${S(p.seats)}인승` : '',
+        p.drive_type,
       ],
       identity,
     );

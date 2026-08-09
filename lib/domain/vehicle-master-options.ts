@@ -1,4 +1,5 @@
 import type { MasterVariant } from '@/lib/domain/vehicle-master-types';
+import { isForbiddenAsTrim } from '@/lib/domain/vehicle-field-guards';
 
 /** 마스터 파워트레인 라벨은 JSON의 원문을 그대로 사용한다. */
 export function masterVariantLabel(
@@ -29,19 +30,48 @@ export function seatAxisMatters(entry: { model?: string; sub_model?: string; var
   return true;
 }
 
-/** 인승은 세대 내에서 갈릴 때만, 구동은 기본 라벨에 없을 때만 보강한다. */
+/** 인승·구동은 고른 마스터 variant 노드 필드를 **이름에 풀어 쓴다**(발명 아님). */
 export function masterVariantOptionLabel(
   variant: MasterVariant,
   variants: MasterVariant[],
+  entry?: { model?: string; sub_model?: string; variants?: MasterVariant[] } | null,
 ): string {
   const base = masterVariantLabel(variant);
-  const parts = [base];
-  if (variantSeatsDiffer(variants) && variant.seat != null && variant.seat > 0) {
-    parts.push(`${variant.seat}인승`);
+  const parts: string[] = [];
+  if (base) parts.push(base);
+  const seatOk = entry ? seatAxisMatters(entry) : variantSeatsDiffer(variants);
+  // 노드에 seat 가 있을 때만 — 마스터 조합에 이미 있는 인승
+  if (seatOk && variant.seat != null && variant.seat > 0) {
+    const tok = `${variant.seat}인승`;
+    if (!base.replace(/\s/g, '').includes(tok.replace(/\s/g, ''))) parts.push(tok);
   }
-  const drivetrain = String(variant.drivetrain || '').trim();
-  if (drivetrain && !base.includes(drivetrain)) parts.push(drivetrain);
-  return parts.filter(Boolean).join(' · ');
+  const driveChoices = [...new Set(
+    (variants || [])
+      .map((v) => String(v.drivetrain || '').trim())
+      .filter(Boolean)
+      .map((d) => {
+        const u = d.toUpperCase().replace(/\s/g, '');
+        if (/4WD|AWD|4MATIC|XDRIVE|콰트로|4모션|사륜|4륜/.test(u)) return '4WD';
+        if (/2WD|RWD|FWD|전륜|후륜|이륜/.test(u)) return '2WD';
+        return d;
+      }),
+  )];
+  // 노드에 drivetrain 이 있을 때만 — 마스터 조합에 이미 있는 구동
+  if (driveChoices.length >= 2) {
+    const raw = String(variant.drivetrain || '').trim();
+    if (raw) {
+      const u = raw.toUpperCase().replace(/\s/g, '');
+      const canon = /4WD|AWD|4MATIC|XDRIVE|콰트로|4모션|사륜|4륜/.test(u) ? '4WD'
+        : /2WD|RWD|FWD|전륜|후륜|이륜/.test(u) ? '2WD'
+          : raw;
+      const blob = parts.join('').replace(/\s/g, '').toUpperCase();
+      const covered = blob.includes(u)
+        || (canon === '4WD' && /AWD|4WD|4MATIC|XDRIVE|콰트로|4모션|사륜/.test(blob))
+        || (canon === '2WD' && /2WD|RWD|FWD|전륜|후륜/.test(blob));
+      if (!covered) parts.push(raw);
+    }
+  }
+  return parts.filter(Boolean).join(' ');
 }
 
 /** "(세부등급 없음)" 등은 실제 저장 가능한 트림으로 취급하지 않는다. */
@@ -57,5 +87,5 @@ export function isNoTrimLabel(value: unknown): boolean {
 }
 
 export function realMasterTrims(list: string[] | null | undefined): string[] {
-  return (list || []).filter((trim) => !isNoTrimLabel(trim));
+  return (list || []).filter((trim) => !isNoTrimLabel(trim) && !isForbiddenAsTrim(trim));
 }

@@ -18,6 +18,8 @@
  *   `threshold()` 가 후보 수에 따라 문턱을 조절한다 — 좁혀졌으면 믿는다.
  */
 
+import { isForbiddenAsTrim } from '@/lib/domain/vehicle-field-guards';
+
 const S = (v: unknown): string => String(v ?? '').trim();
 /**
  * 비교용 접기.
@@ -30,6 +32,8 @@ const S = (v: unknown): string => String(v ?? '').trim();
 const flat = (v: string): string => v.toLowerCase()
   .replace(/플러스/g, 'plus')
   .replace(/\+/g, 'plus')
+  // X라인·N라인 ↔ X-Line·N Line (엔카/시트 혼용)
+  .replace(/라인/g, 'line')
   .replace(/[\s\-_()/·.]/g, '');
 
 /** 영문·외래 표기 → 한글 트림. 공급사가 원문 그대로 적는 경우가 많다. */
@@ -62,6 +66,11 @@ export const TRIM_ALIAS: Record<string, string> = {
   leblanc: '르블랑',
   // 실측 2026-08-09: 르노 아르카나 6대가 「GTe Iconic」으로 들어온다(마스터는 「GTe 아이코닉」).
   iconic: '아이코닉',
+  // 재고 원문 「Finest」 → 마스터 「파이니스트」(G80 DH)
+  finest: '파이니스트',
+  // 테슬라 원문 「Long Range」(10호3819) → 「롱 레인지」
+  longrange: '롱 레인지',
+  'long range': '롱 레인지',
 };
 
 /**
@@ -74,6 +83,8 @@ export const TRIM_ALIAS: Record<string, string> = {
 export const TRIM_ALIAS_STRICT: Record<string, string> = {
   // 실측 2026-08-09: 캐딜락 XT6 이 「6인승 sport」로 들어온다(마스터는 「스포츠」).
   sport: '스포츠',
+  // BMW 원문 「520i M Spt」(109호4100) → 「520i M 스포츠」
+  spt: '스포츠',
 };
 
 /**
@@ -180,17 +191,135 @@ export type TrimHit = { trim: string; how: '그대로' | '별칭' | '오탈자' 
  * `text` 는 그 차를 설명하는 모든 글(원문 트림칸·차명칸·옵션 등)을 이어 붙인 것.
  */
 export function resolveTrim(text: string, candidates: string[]): TrimHit | null {
-  const cands = candidates.map(S).filter(Boolean);
+  const cands = candidates.map(S).filter((t) => t && !isForbiddenAsTrim(t));
   if (!cands.length || !S(text)) return null;
   const blob = flat(text);
   const blobCho = chosung(text);
 
+  /**
+   * 합성어 접두 오탐 방어 — 「스마트스트림 … 모던」에서 「스마트」가
+   * 「스마트스트림」접두로 이기면 안 된다(실측 2026-08-09 · 아반떼 CN7).
+   * 합성어를 가린 뒤에도 후보가 남아 있을 때만 포함 매칭을 인정한다.
+   */
+  const COMPOUND_NOISE = [
+    '스마트스트림', 'smartstream', '스마트키', '스마트크루즈', '스마트센스',
+    '전기모터', '가솔린터보', '디젤터보', '디자인셀렉션', 'designselection',
+  ];
+  const blobBare = COMPOUND_NOISE.reduce((b, n) => b.split(flat(n)).join(' '), blob);
+
+  const included = (ft: string): boolean => {
+    if (ft.length < 2) return false;
+    if (!blob.includes(ft)) return false;
+    // 합성어 안에서만 보이면 탈락
+    if (!blobBare.includes(ft) && COMPOUND_NOISE.some((n) => flat(n).includes(ft) && blob.includes(flat(n)))) {
+      return false;
+    }
+    return true;
+  };
+
+  /**
+   * 파워트레인 접두가 붙은 마스터 트림 — 원문에 접두·본등급이 떨어져 있어도 인정.
+   * 실측: 「… E-Tech 1.5 터보 아이코닉 2WD」↔ 마스터「E-TECH 아이코닉」(그랑 콜레오스 ×11).
+   * flat 후 `etech아이코닉`은 연속 부분문자열이 아니라 포함 검사가 실패한다.
+   */
+  const POWERTRAIN_TRIM_PREFIX = /^(?:etech|gte|tce|lpe|lpi)/;
+  const trimCoreFlat = (ft: string): string => {
+    if (!POWERTRAIN_TRIM_PREFIX.test(ft)) return ft;
+    const core = ft.replace(POWERTRAIN_TRIM_PREFIX, '');
+    return core.length >= 2 ? core : ft;
+  };
+  const includedCand = (t: string): boolean => {
+    const ft = flat(t);
+    if (included(ft)) return true;
+    const core = trimCoreFlat(ft);
+    if (core === ft) return false;
+    // 접두 자체도 원문에 있을 때만(E-Tech·GTe…) — 접두 없이 본등급만으로 다른 계열 트림을 올리지 않음
+    const prefix = ft.slice(0, ft.length - core.length);
+    return !!prefix && blob.includes(prefix) && included(core);
+  };
+
+  /**
+   * 패키지·옵션 조각 — 같은 원문에 본등급(스탠다드·시그니처…)이 있으면 진다.
+   * 실측: 「스탠다드 19인치(E-VALUE+)」→ E-Value Plus 로 등급을 덮어씀(아이오닉5).
+   */
+  const isPackageLike = (t: string): boolean => {
+    const f = flat(t);
+    // 단독 조각만 — 「프리미엄 초이스」전체는 본등급으로 둔다
+    if (/^(evalueplus|패키지|디자인|셀렉션|세단|초이스|베스트|plus)$/i.test(f)) return true;
+    if (/베스트셀렉션|스마트셀렉션|디자인셀렉션|^evalue/i.test(f)) return true;
+    return false;
+  };
+
+  /**
+   * 구동 표기만인 트림 — 본등급(롱 레인지·퍼포먼스…)과 같이 있으면 진다.
+   * 실측: 「Model 3 Premium Long Range RWD」(10호3819)에서 오른쪽 RWD 가
+   * 「롱 레인지」를 덮어 RWD 로 굳었다.
+   * 「프리미엄 롱레인지 RWD」처럼 끝에 구동만 붙은 노드도 본등급이 있으면 진다.
+   */
+  const isDrivetrainLike = (t: string): boolean => {
+    const f = flat(t);
+    if (/^(rwd|awd|fwd|2wd|4wd|후륜|전륜|사륜|4륜|후륜구동|전륜구동|사륜구동)$/i.test(f)) return true;
+    return /(rwd|awd|fwd|2wd|4wd|후륜구동|전륜구동|사륜구동)$/i.test(f);
+  };
+
   // 긴 트림부터 본다 — 「프리미엄 플러스」가 있는데 「프리미엄」을 먼저 집으면 안 된다.
   const sorted = [...cands].sort((a, b) => flat(b).length - flat(a).length);
 
-  // 1. 그대로 포함 — 2글자도 뺀 적 없이 본다(좁혀진 후보라 오탐 위험이 작다).
-  for (const t of sorted) {
-    if (flat(t).length >= 2 && blob.includes(flat(t))) return { trim: t, how: '그대로', score: 1 };
+  const pickFromHits = (hits: string[], hay: string, how: TrimHit['how'], score: number): TrimHit | null => {
+    if (!hits.length) return null;
+    const core = hits.filter((t) => !isPackageLike(t) && !isDrivetrainLike(t));
+    let pool = core.length ? core : hits.filter((t) => !isPackageLike(t));
+    if (!pool.length) pool = hits;
+    pool = pool.filter((t) => !pool.some((o) => o !== t
+      && flat(o).includes(flat(t))
+      && flat(o).length > flat(t).length));
+    let best = pool[0];
+    let bestAt = -1;
+    for (const t of pool) {
+      const at = hay.lastIndexOf(flat(t));
+      if (at > bestAt || (at === bestAt && flat(t).length > flat(best).length)) {
+        bestAt = at;
+        best = t;
+      }
+    }
+    return best ? { trim: best, how, score } : null;
+  };
+
+  /** 영문 별칭을 먼저 풀어 둔 블롭 — 「M Spt」→「M 스포츠」가 「520i」부분일치에 먹히지 않게. */
+  let aliased = blob;
+  for (const [en, k] of [...Object.entries(TRIM_ALIAS), ...Object.entries(TRIM_ALIAS_STRICT)]) {
+    const fe = flat(en);
+    if (fe && aliased.includes(fe)) aliased = aliased.split(fe).join(flat(k));
+  }
+
+  // 1-a. 별칭 치환 후 포함 (Long Range·M Spt …)
+  if (aliased !== blob) {
+    const hit = pickFromHits(
+      sorted.filter((t) => {
+        const ft = flat(t);
+        if (ft.length >= 2 && aliased.includes(ft)) return true;
+        const core = trimCoreFlat(ft);
+        if (core === ft) return false;
+        const prefix = ft.slice(0, ft.length - core.length);
+        return !!prefix && aliased.includes(prefix) && aliased.includes(core);
+      }),
+      aliased,
+      '별칭',
+      0.97,
+    );
+    if (hit) return hit;
+  }
+
+  // 1-b. 원문 그대로 포함 — 후보가 여럿이면 패키지 강등 · 짧은⊂긴 제거 · 오른쪽 우선
+  // (E-TECH/GTe 접두 트림은 접두·본등급이 원문에 흩어져 있어도 포함으로 본다)
+  {
+    const hit = pickFromHits(
+      sorted.filter((t) => includedCand(t)),
+      blob,
+      '그대로',
+      1,
+    );
+    if (hit) return hit;
   }
 
   /**
@@ -207,29 +336,9 @@ export function resolveTrim(text: string, candidates: string[]): TrimHit | null 
     return partial.length === 1 ? partial[0] : null;
   };
 
-  /**
-   * 2-a. 영문을 한글로 갈아끼운 뒤 **트림 전체가 그대로 있는지** 다시 본다.
-   *
-   * 「GTe Iconic」은 낱말 하나만 옮겨선 못 잡는다 — 마스터에 「아이코닉」이 든 트림이
-   * 「E-TECH 아이코닉」·「GTe 아이코닉」 셋이라 어느 것인지 가릴 수 없기 때문이다.
-   * 갈아끼우고 나면 「gte아이코닉」이 통째로 들어 있어 한 번에 갈린다(실측 · 르노 아르카나 6대).
-   * 트림 **전체**가 있어야 하므로 1단계와 같은 강도다 — 없는 등급을 만들 수 없다.
-   */
-  {
-    let ko = blob;
-    for (const [en, k] of [...Object.entries(TRIM_ALIAS), ...Object.entries(TRIM_ALIAS_STRICT)]) {
-      if (ko.includes(en)) ko = ko.split(en).join(flat(k));
-    }
-    if (ko !== blob) {
-      for (const t of sorted) {
-        if (flat(t).length >= 2 && ko.includes(flat(t))) return { trim: t, how: '별칭', score: 0.97 };
-      }
-    }
-  }
-
   // 2-b. 영문·외래 표기 별칭 — 낱말 하나로 후보를 가린다
   for (const [en, ko] of Object.entries(TRIM_ALIAS)) {
-    if (!blob.includes(en)) continue;
+    if (!blob.includes(flat(en)) && !blob.includes(en)) continue;
     const hit = pickByWord(ko);
     if (hit) return { trim: hit, how: '별칭', score: 0.95 };
   }

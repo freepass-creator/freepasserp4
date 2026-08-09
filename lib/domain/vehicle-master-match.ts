@@ -15,9 +15,10 @@
  *   · 맞출 수 있으면 맞춤. 억지 추측 금지.
  *   · 대응 불가·모호 → 그 원자는 미선택(공란) + 검수(_needs_master_review).
  *   · 결과 필드(variant·연료·배기·인승·구동·트림) = 마스터 노드 값만. 임의 재조합·기본값 주입 금지.
- *   · 예외(선택 힌트만, 저장값 아님): 마스터 variant.default 조합 — 없으면 구동 2WD·인승 modeSeat.
+ *   · 입력이 빈 축은 마스터 variant.default 조합 — 없으면 구동 2WD·인승 modeSeat — 을 고르고 자동선택 표시.
  *   · 인승 = 세대 안에서 seat가 갈릴 때만(예: 카니발·팰리세이드). 단일·무축 승용은 인승 없음.
- *   · 트림 신호 없거나 사전 미매칭 → 공란 유지.
+ *   · 트림 신호 없음 → 고른 파워트레인의 첫(기본) 트림 + 자동선택 표시.
+ *   · 명시 원자가 마스터 조합에 없음 → 억지 기본값 적용 없이 low 검수 + 충돌 근거 보존.
  *   · 모델·제조사 신호 전무 → 매칭 자체 null(저장 시 검수).
  *   · 표기 오류(가솔린 2 vs 2.0) = 마스터 JSON 라벨을 고친다. 런타임 폴리시 금지.
  *
@@ -57,9 +58,11 @@ import {
   withRawVehicleSignals,
 } from '@/lib/domain/vehicle-master-signals';
 import { resolveTrim } from '@/lib/domain/vehicle-trim-resolve';
+import { isForbiddenAsTrim, sanitizeAxisValue } from '@/lib/domain/vehicle-field-guards';
 import {
   isNoTrimLabel,
   masterVariantLabel,
+  masterVariantOptionLabel,
   realMasterTrims,
 } from '@/lib/domain/vehicle-master-options';
 import { snapDefaultHints } from '@/lib/domain/vehicle-defaults';
@@ -77,6 +80,9 @@ import type {
   ExactMasterPath,
   MasterEntry,
   MasterFitRow,
+  MasterVariant,
+  SnapDefaultAtoms,
+  SnapIssue,
   SnapResult,
   VehicleFilter,
 } from '@/lib/domain/vehicle-master-types';
@@ -164,6 +170,8 @@ const TRIM_EN_KO: Record<string, string> = {
   trendy: '트렌디',
   /** 공급사 오탈자 — 니로 등 시트에 「트랜디」로 자주 온다. */
   트랜디: '트렌디',
+  longrange: '롱 레인지',
+  'long range': '롱 레인지',
   gravity: '그래비티',
   elegance: '엘레강스',
   intensive: '인텐시브',
@@ -279,8 +287,13 @@ const trimYear = (t: unknown): number => { const m = /(\d{2})\s?my\b/i.exec(Stri
 const yearLooksLikeDisplacement = (p: EntityRecord): boolean => {
   const digits = (v: unknown) => String(v ?? '').replace(/[^\d]/g, '');
   const year = digits(p.year);
-  const cc = digits(p.engine_cc);
-  return !!year && year === cc && year.length === 4;
+  if (!year || year.length !== 4) return false;
+  const raw = (p._raw_vehicle && typeof p._raw_vehicle === 'object')
+    ? (p._raw_vehicle as EntityRecord)
+    : null;
+  // 시트 원본 칸에만 cc 가 있고 상품 칸은 비어 있는 경우도 있다(실측 로체 32루9318).
+  const ccs = [p.engine_cc, raw?.engine_cc].map(digits).filter((cc) => cc.length === 4);
+  return ccs.some((cc) => cc === year);
 };
 
 // 세대 추론 연식 = 연식(모델연도) 우선 → 최초등록일 → 트림MY 순 보조(연식 없을 때만).
@@ -289,6 +302,7 @@ export const carYear = (p: EntityRecord): number => (
   (yearLooksLikeDisplacement(p) ? 0 : parseYear(p.year))
   || parseYear(p.first_registration_date)
   || trimYear(p.trim_name)
+  || trimYear(p.trim_extra)
 );
 
 // ── 모델 정규화 ── 공급사 표기를 마스터 모델명으로. 실측 L2 96%→100%.
@@ -381,11 +395,11 @@ export function seatsFromBlob(blob: string): number {
   return n >= 2 && n <= 15 ? n : 0;
 }
 
-/** 블롭에서 구동 — 4WD/AWD/사륜 · 2WD. */
+/** 블롭에서 구동 — 4WD/AWD/xDrive/4MATIC/사륜 · 2WD/RWD. */
 export function driveFromBlob(blob: string): string {
   const s = blob.toLowerCase();
-  if (/4\s*wd|awd|사륜|네바퀴|4륜/.test(s)) return '4WD';
-  if (/2\s*wd|이륜|후륜|전륜/.test(s)) return '2WD';
+  if (/4\s*wd|awd|x\s*drive|4matic|콰트로|quattro|4모션|사륜|네바퀴|4륜/.test(s)) return '4WD';
+  if (/2\s*wd|rwd|fwd|이륜|후륜|전륜/.test(s)) return '2WD';
   return '';
 }
 
@@ -414,10 +428,133 @@ export function unpackVehicleSignals(p: EntityRecord, entries: MasterEntry[]): E
   });
 }
 
+/**
+ * 같은 세부모델·같은 파워트레인 라벨의 트림을 형제 합친다.
+ * 마스터가 축 조합으로 같은 sub_model 을 여러 행에 나눠 둔 경우,
+ * 한쪽 행의 variant.trims 만 보면 다른 행에 있는 등급이 사라진다
+ * (실측 2026-08-09 · 스타리아 US4 LPG 3.5: 모던 유/무 행 혼재 → 700호2227).
+ */
+function unionVariantTrims(
+  entries: MasterEntry[],
+  sub: string,
+  variant: MasterVariant | undefined,
+  fallbackEntryTrims?: string[],
+): string[] {
+  if (!variant) return realMasterTrims(fallbackEntryTrims || []);
+  const sameCombination = (candidate: MasterVariant): boolean => (
+    masterVariantLabel(candidate) === masterVariantLabel(variant)
+    && normFuel(candidate.fuel) === normFuel(variant.fuel)
+    && candidate.displacement_l === variant.displacement_l
+    && candidate.turbo === variant.turbo
+    && normDrive(candidate.drivetrain) === normDrive(variant.drivetrain)
+    && candidate.seat === variant.seat
+    && candidate.battery_kwh === variant.battery_kwh
+  );
+  const bag = new Set<string>();
+  for (const ent of entries) {
+    if (ent.sub_model !== sub) continue;
+    for (const sib of ent.variants || []) {
+      // 라벨만 같은 7인승·9인승은 서로 다른 조합이다. 같은 완성 조합으로 분할된 중복 노드만 합친다.
+      if (!sameCombination(sib)) continue;
+      for (const t of sib.trims || []) {
+        const s = String(t ?? '').trim();
+        if (s) bag.add(s);
+      }
+    }
+  }
+  for (const t of variant.trims || []) {
+    const s = String(t ?? '').trim();
+    if (s) bag.add(s);
+  }
+  // 파워트레인 노드에 트림 목록이 전혀 없는 구형 마스터만 엔트리급 목록으로 보완한다.
+  // 노드 목록이 있는데 엔트리 전체 트림을 섞으면 「7인승 프레스티지」처럼 실재하지 않는 조합이 생긴다.
+  if (!bag.size) {
+    for (const t of fallbackEntryTrims || []) {
+      const s = String(t ?? '').trim();
+      if (s) bag.add(s);
+    }
+    for (const ent of entries) {
+      if (ent.sub_model !== sub) continue;
+      for (const t of ent.trims || []) {
+        const s = String(t ?? '').trim();
+        if (s) bag.add(s);
+      }
+    }
+  }
+  return realMasterTrims([...bag]);
+}
+
+/**
+ * 정규화 후에도 마스터 트림으로 풀리지 않은 공급사 표기 후보.
+ * 풀 차명에서 제조사·세대·연료·숫자만 남은 경우는 «트림 누락»이고,
+ * 마지막에 별도 등급 토큰이 남으면 «마스터 누락 또는 공급사 오기»로 검수한다.
+ */
+function unresolvedTrimEvidence(
+  normalizedTrim: unknown,
+  rawTrim: unknown,
+  entry: MasterEntry,
+  variant: MasterVariant | undefined,
+): string {
+  const normalized = String(normalizedTrim ?? '').trim();
+  const known = norm([
+    entry.maker,
+    entry.model,
+    entry.sub_model,
+    entry.gen_code,
+    variant ? masterVariantLabel(variant) : '',
+  ].join(' '));
+  const ignore = /^(?:the|all|new|더|뉴|디|올|신형|구형|기본|기본형|자가용|렌터카|렌트|장기렌트|즉시출고|가솔린|휘발유|디젤|경유|lpg|lpi|하이브리드|hev|phev|전기|ev|수소|awd|4wd|2wd|fwd|rwd|터보|turbo|오토|자동)$/i;
+  const optionLike = /^(?:\d+인치|sds\d*|패키지\d*|파퓰러|파퓰러패키지\d*|a\/?t|dct|cvt)$/i;
+  const optionCompound = (value: string) => /인치|패키지|파퓰러|sds\d/i.test(value)
+    && !/프레스티지|노블레스|시그니처|캘리그래피|익스클루시브|인스퍼레이션|모던|스마트|트렌디/i.test(value);
+  if (normalized && !isNoTrimLabel(normalized) && !isForbiddenAsTrim(normalized)) {
+    const nn = norm(normalized);
+    const identityOnly = known.includes(nn)
+      || (norm(entry.model).length >= 2 && nn.includes(norm(entry.model)))
+      || ignore.test(normalized)
+      || optionLike.test(normalized)
+      || optionCompound(normalized)
+      || /^(?:\d+(?:\.\d+)?(?:cc|l|t|년식|년|my|인승?)?|[a-z]{1,3}\d{1,4}[a-z]?)$/i.test(normalized.replace(/^-+|-+$/g, ''));
+    if (!identityOnly) return normalized;
+  }
+
+  const raw = String(rawTrim ?? '').trim();
+  if (!raw || isNoTrimLabel(raw)) return '';
+  const tokens = raw.split(/[\s/|,·]+/).map((token) => token
+    .replace(/^[()[\]{}]+|[()[\]{}]+$/g, '')
+    .replace(/^-+|-+$/g, '')).filter(Boolean);
+  for (let index = tokens.length - 1; index >= 0; index--) {
+    const token = tokens[index];
+    const nt = norm(token);
+    if (nt.length < 2 || ignore.test(token) || optionLike.test(token) || optionCompound(token)) continue;
+    if (isForbiddenAsTrim(token)) continue;
+    if (/^(?:\d+(?:\.\d+)?(?:cc|l|t|년식|년|my|인승?)?|[a-z]{1,3}\d{1,4}[a-z]?)$/i.test(token)) continue;
+    if (known.includes(nt) || (norm(entry.model).length >= 2 && nt.includes(norm(entry.model)))) continue;
+    return token.slice(0, 40);
+  }
+  return '';
+}
+
+/** 마스터 배열 순서 자체가 등급 순서다. 첫 노드가 「세부등급 없음」이면 그것도 유효한 기본 선택이다. */
+function baseTrimFromMaster(
+  variant: MasterVariant | undefined,
+  entryTrims: string[] | undefined,
+): { available: boolean; trim: string } {
+  const source = variant?.trims?.length ? variant.trims : (entryTrims || []);
+  const firstRaw = source.map((value) => String(value ?? '').trim()).find(Boolean) || '';
+  if (!firstRaw) return { available: false, trim: '' };
+  if (isNoTrimLabel(firstRaw)) return { available: true, trim: '' };
+  return { available: true, trim: realMasterTrims(source)[0] || '' };
+}
+
 export function snapToMaster(p: EntityRecord, entries: MasterEntry[]): SnapResult | null {
   // 원본 수집 신호 우선 → 한줄·섞인 표기 분해 → 이후는 구조화 필드 매칭
-  p = unpackVehicleSignals(withRawVehicleSignals(p), entries);
+  const rawInput = withRawVehicleSignals(p);
+  const rawTrimInput = rawInput.trim_name;
+  p = unpackVehicleSignals(rawInput, entries);
   const signalBlob = vehicleSignalBlob(p);
+  // 정규화가 다른 보조칸의 짧은 등급을 고르더라도 공급사가 준 원래 차명(트림)을 잃지 않는다.
+  const trimSignalBlob = `${signalBlob} ${String(rawTrimInput ?? '').trim()}`.trim();
   const wantTurbo = turboHint(p, signalBlob);
   // ★차종 선택에는 **좁은 블롭**을 쓴다 — 옵션 칸의 「N Line」·「아틀라스 화이트」가
   //   수입차 라인업과 글자로 맞아 아반떼를 파사트로 만든다(실측 2026-08-09).
@@ -451,14 +588,14 @@ export function snapToMaster(p: EntityRecord, entries: MasterEntry[]): SnapResul
   if (hints.filled.seats) scored.seats = hints.seats;
   if (hints.filled.drive_type) scored.drive_type = hints.drive_type;
 
-  let { variant, seatMatters } = selectMasterVariant(
+  let { variant, seatMatters, conflicts } = selectMasterVariant(
     scored,
     e,
     entries,
     lockedModel,
     signalBlob,
     wantTurbo,
-    { norm, normDrive },
+    { norm, normDrive, defaulted: hints.filled },
   );
 
   /**
@@ -474,7 +611,7 @@ export function snapToMaster(p: EntityRecord, entries: MasterEntry[]): SnapResul
    */
   if (variant && Array.isArray(e.variants) && e.variants.length > 1) {
     const here = realMasterTrims(variant.trims?.length ? variant.trims : []);
-    if (!resolveTrim(signalBlob, here)) {
+    if (!resolveTrim(trimSignalBlob, here)) {
       /**
        * ★공급사가 **명시한 제원을 거스르는** 파워트레인으로는 옮기지 않는다.
        *
@@ -487,6 +624,9 @@ export function snapToMaster(p: EntityRecord, entries: MasterEntry[]): SnapResul
       const wantFuel = normFuel(p.fuel_type);
       const wantSeat = digits(p.seats);
       const wantCc = digits(p.engine_cc);
+      // 원문·칸의 구동(xDrive/4MATIC/AWD…)도 거스르지 않는다.
+      // 실측: G60 「520i xDrive」가 xDrive 노드(530i만)에 트림 없다고 2WD로 넘어감.
+      const wantDrive = normDrive(p.drive_type) || driveFromBlob(trimSignalBlob);
       const contradicts = (v: NonNullable<typeof variant>): boolean => {
         const vFuel = normFuel(v.fuel || masterVariantLabel(v));
         if (wantFuel && vFuel && !vFuel.includes(wantFuel)) return true;
@@ -494,12 +634,16 @@ export function snapToMaster(p: EntityRecord, entries: MasterEntry[]): SnapResul
         // 배기량 표기는 반올림이 섞여 0.2L 까지는 같은 것으로 본다.
         if (wantCc && v.displacement_l != null && v.displacement_l > 0
           && Math.abs(Math.round(v.displacement_l * 1000) - wantCc) > 200) return true;
+        if (wantDrive && v.drivetrain) {
+          const got = normDrive(v.drivetrain);
+          if (got && got !== wantDrive) return true;
+        }
         return false;
       };
 
       let better = (e.variants as typeof e.variants)
         .filter((v) => v !== variant && v?.trims?.length && !contradicts(v))
-        .map((v) => ({ v, hit: resolveTrim(signalBlob, realMasterTrims(v.trims)) }))
+        .map((v) => ({ v, hit: resolveTrim(trimSignalBlob, realMasterTrims(v.trims)) }))
         .filter((x) => x.hit);
       /**
        * 후보가 둘 이상이면 **원문의 연료로 가른다.**
@@ -519,32 +663,76 @@ export function snapToMaster(p: EntityRecord, entries: MasterEntry[]): SnapResul
   }
 
   let trim = '';
-  const trimSrc = realMasterTrims(variant?.trims?.length ? variant.trims : (e.trims || []));
-  // 트림: 마스터 실트림과 높은 일치만. 세부등급 없는 차·미매칭 = 공란.
+  const trimSrc = unionVariantTrims(entries, e.sub_model, variant, e.trims);
+  // 트림: 고른 완성 조합의 실트림 안에서만 선택한다.
   // 공급사 마케팅 한줄("The All new G80 2.5 터보…")을 트림으로 남기지 않음.
   if (trimSrc.length) {
     const signal = String(p.trim_name ?? '').trim();
+    // 1) 원문 트림이 마스터 노드와 정확히(·영문 별칭으로) 같으면 그걸 우선.
     if (signal && !isNoTrimLabel(signal)) {
       const canon = canonMasterTrim(signal, trimSrc);
       if (canon && trimSrc.includes(canon)) trim = canon;
-      else {
-        const hit = trimSrc.map((x) => ({ x, ts: sim(signal, x) })).sort((a, b) => b.ts - a.ts)[0];
-        if (hit && (hit.ts >= 0.85 || norm(signal) === norm(hit.x))) trim = hit.x;
-      }
     }
+    // 2) 별칭·오탈자·포함 — sim 보다 먼저(「520i M Spt」가 sim 으로 「520i」에 먹히지 않게).
     if (!trim) {
-      /**
-       * ★좁혀진 후보 안에서 **여러 방법으로** 찾는다(`vehicle-trim-resolve.ts`).
-       *
-       * 옛 코드는 «문자열 포함» 하나뿐이었고 3글자 미만은 아예 건너뛰었다 —
-       * 그래서 「모던」·「어스」 같은 2글자 트림을 영영 못 잡았다(실측 2026-08-09).
-       * 여기까지 왔으면 세대·파워트레인이 이미 정해져 후보가 몇 개뿐이다.
-       * 그대로 포함 → 영문 별칭 → 오탈자 → 초성 → 근접 유사도 순으로 본다.
-       */
-      const hit = resolveTrim(signalBlob, trimSrc);
+      const hit = resolveTrim(trimSignalBlob, trimSrc);
       if (hit) trim = hit.trim;
     }
+    // 3) 최후: 유사도
+    if (!trim && signal && !isNoTrimLabel(signal)) {
+      const hit = trimSrc.map((x) => ({ x, ts: sim(signal, x) })).sort((a, b) => b.ts - a.ts)[0];
+      if (hit && (hit.ts >= 0.85 || norm(signal) === norm(hit.x))) trim = hit.x;
+    }
   }
+
+  const defaults: SnapDefaultAtoms = { ...hints.filled };
+  // 힌트가 있었어도 실제 선택 노드에 값이 없으면 «자동으로 채웠다»고 표시하지 않는다.
+  if (!(seatMatters && variant?.seat != null)) delete defaults.seats;
+  if (!variant?.drivetrain) delete defaults.drive_type;
+
+  const suppliedFuel = normFuel(p.fuel_type);
+  const suppliedCc = Number(String(p.engine_cc ?? '').replace(/,/g, '')) || 0;
+  const suppliedSeats = Number(p.seats) || 0;
+  const suppliedDrive = normDrive(p.drive_type);
+  const suppliedVariant = String(p.variant ?? '').trim();
+  if (variant) {
+    if (!suppliedVariant && !suppliedFuel && !suppliedCc && !suppliedSeats && !suppliedDrive && !wantTurbo) {
+      defaults.variant = true;
+    }
+    if (!suppliedFuel && variant.fuel) defaults.fuel_type = true;
+    if (!suppliedCc && variant.displacement_l != null && variant.displacement_l > 0) defaults.engine_cc = true;
+  }
+
+  // 트림이 정말 비었으면 선택된 파워트레인 노드의 첫 순서(마스터의 기본/최저 트림)를 쓴다.
+  // 반대로 공급사가 별도 등급을 적었는데 조합에 없으면 기본값으로 숨기지 않고 검수로 보낸다.
+  let trimIssueValue = '';
+  if (!trim) {
+    trimIssueValue = unresolvedTrimEvidence(p.trim_name, rawTrimInput, e, variant);
+    if (!trimIssueValue) {
+      const baseTrim = baseTrimFromMaster(variant, e.trims);
+      if (baseTrim.available) {
+        trim = baseTrim.trim;
+        defaults.trim_name = true;
+      } else if (trimSrc.length) {
+        trim = trimSrc[0] || '';
+        defaults.trim_name = true;
+      }
+    }
+  }
+
+  const conflictValue = (field: (typeof conflicts)[number]): string => {
+    if (field === 'fuel_type') return String(p.fuel_type ?? '').trim();
+    if (field === 'engine_cc') return String(p.engine_cc ?? '').trim();
+    if (field === 'seats') return String(p.seats ?? '').trim();
+    if (field === 'drive_type') return String(p.drive_type ?? '').trim();
+    return '터보';
+  };
+  const issues: SnapIssue[] = [...new Set(conflicts)].map((field) => ({
+    code: 'powertrain_conflict' as const,
+    field,
+    value: conflictValue(field),
+  }));
+  if (trimIssueValue) issues.push({ code: 'trim_not_in_master', field: 'trim_name', value: trimIssueValue });
 
   // P1(사용자 정책): 세부모델 우선하되, 트림이 잠긴 모델과 "다른 모델"을 강하게 가리키면 저신뢰(사람 검토).
   //   예: 세부=K5인데 트림="K7 프리미어..." → K5로 두되 검토표시.
@@ -566,23 +754,27 @@ export function snapToMaster(p: EntityRecord, entries: MasterEntry[]): SnapResul
   // 확신도 = 모델락 강도 × 세대 확정도. 모델 못 잠갔거나 트림충돌이면 저신뢰.
   //   연식+연료만으로 세대가 갈리면(sub 공란 한줄분해) best.s≥3·modelSim≥0.7 → high.
   const ms = Math.min(modelSim, 1);
-  const confidence: SnapResult['confidence'] = trimConflict ? 'low' : (ms >= 0.7 && bestScore >= 3) ? 'high' : (ms >= 0.45 && bestScore >= 0.5) ? 'medium' : 'low';
+  const confidence: SnapResult['confidence'] = (trimConflict || issues.length)
+    ? 'low'
+    : (ms >= 0.7 && bestScore >= 3) ? 'high' : (ms >= 0.45 && bestScore >= 0.5) ? 'medium' : 'low';
   // 결과 스펙 = 마스터 노드만. 신호·최빈값으로 임의 채우기 금지(미선택=공란).
   return {
     maker: e.maker, model: e.model, sub_model: e.sub_model, gen_code: e.gen_code,
     origin: e.origin,
     year_start: e.year_start, year_end: e.year_end,
-    variant: variant ? masterVariantLabel(variant) : undefined,
+    variant: variant ? masterVariantOptionLabel(variant, e.variants || [], e) : undefined,
     trim_name: trim, // '' = 세부트림 없음(정상). undefined 아님 — applySnap이 원본 마케팅 문구를 유지하지 않게.
     fuel_type: variant?.fuel || undefined,
     engine_cc: variant?.displacement_l != null && variant.displacement_l > 0
       ? String(Math.round(variant.displacement_l * 1000))
       : undefined,
     seats: seatMatters && variant?.seat != null ? String(variant.seat) : undefined,
-    drive_type: variant?.drivetrain || undefined,
+    // 구동도 고른 마스터 조합 노드 값만. 노드에 없으면 발명하지 않는다.
+    drive_type: variant?.drivetrain ? String(variant.drivetrain).trim() : undefined,
     year: year ? String(year) : (p.year ? String(p.year) : undefined),
     confidence,
-    defaults: Object.keys(hints.filled).length ? hints.filled : undefined,
+    defaults: Object.keys(defaults).length ? defaults : undefined,
+    issues: issues.length ? issues : undefined,
   };
 }
 
@@ -618,12 +810,16 @@ export function applySnap(rec: EntityRecord, res: SnapResult, opts?: { source?: 
   // 마스터에 등급 노드가 없어도 시트에서 뽑은 **짧은 등급**은 유지.
   // 풀 문장(「신형K5 2.0 LPI 렌터카 스탠다드」)은 절대 트림 이름에 남기지 않는다.
   const GRADE_KEEP = /^(?:(?:LPI|GDI|HEV|PHEV|EV)\s*)?(?:트렌디|스탠다드|프레스티지|노블레스|익스클루시브|시그니처|모던|스마트|럭셔리|디럭스|기본형|캘리그래피|인스퍼레이션|르블랑|어스|에어|그래비티|컨비니언스|얼티메이트|리미티드)(?:\s*\([^)]*\))?$/i;
-  const keepShort = !trimOut && prevTrim && !isNoTrimLabel(prevTrim)
+  const trimWasResolvedAsDefault = res.defaults?.trim_name === true;
+  const trimNeedsReview = res.issues?.some((issue) => issue.code === 'trim_not_in_master') === true;
+  const keepShort = !trimOut && !trimWasResolvedAsDefault && !trimNeedsReview && prevTrim && !isNoTrimLabel(prevTrim)
+    && !isForbiddenAsTrim(prevTrim)
     && (
       (prevTrim.length <= 12 && !/\s/.test(prevTrim))
       || GRADE_KEEP.test(prevTrim)
       || (/^[A-Z0-9]{2,5}(?:i|d|e)?(?:\s*M\s*Spt)?$/i.test(prevTrim) && prevTrim.length <= 14)
     );
+  const pickedTrim = sanitizeAxisValue('trim_name', trimOut || (keepShort ? prevTrim : ''));
   const next: EntityRecord = {
     ...rec,
     _raw_vehicle: rawVehicle,
@@ -631,8 +827,8 @@ export function applySnap(rec: EntityRecord, res: SnapResult, opts?: { source?: 
     _snap_confidence: res.confidence,
     maker: res.maker, model: res.model, sub_model: res.sub_model, catalog_id: res.gen_code,
     gen_year_start: res.year_start ?? rec.gen_year_start, gen_year_end: res.year_end ?? rec.gen_year_end,
-    variant: res.variant || '',
-    trim_name: trimOut || (keepShort ? prevTrim : ''),
+    variant: sanitizeAxisValue('variant', res.variant || ''),
+    trim_name: pickedTrim,
     trim_extra: migratedExtra,
     fuel_type: keep(res.fuel_type, rec.fuel_type),
     engine_cc: keep(res.engine_cc, rec.engine_cc),
@@ -641,8 +837,10 @@ export function applySnap(rec: EntityRecord, res: SnapResult, opts?: { source?: 
     year: keep(res.year, rec.year),
   };
   // 스펙 원자 자체는 마스터 노드만. 기본값 힌트는 미리보기 메타로만 남긴다.
-  if (res.defaults && Object.keys(res.defaults).length) next._snap_defaults = res.defaults;
-  else delete next._snap_defaults;
+  // null은 soft-merge에서 «예전 자동/충돌 표식을 지우라»는 명시값이다.
+  // 키를 삭제해 버리면 incoming에 필드가 없어 기존 검수 사유가 영구 잔존한다.
+  next._snap_defaults = res.defaults && Object.keys(res.defaults).length ? res.defaults : null;
+  next._snap_issues = res.issues?.length ? res.issues : null;
   next.vehicle_class = classifyVehicleClass(next) || String(rec.vehicle_class ?? '');
   const afterTrack = pickSnapTrack(next);
   next._snap_history = appendSnapHistory(rec, beforeTrack, afterTrack, res.confidence, opts?.source);
