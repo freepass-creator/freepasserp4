@@ -311,7 +311,18 @@ export function normalizeVehicleDisplayStatus(value: unknown): (typeof VEHICLE_D
     : UNKNOWN_VEHICLE_STATUS;
 }
 
-/** 상품찾기·카탈로그 — 출고불가만 숨김. 계약중은 마크 노출. */
+/**
+ * 상품찾기·카탈로그 — **출고불가만** 숨김. 계약중은 마크 노출.
+ *
+ * ★거르는 상태를 늘리지 마라(사장님 2026-08-09).
+ *   「재고에서 출고불가 빼고 다 올린다」가 기준이다. 활성 783대 − 출고불가 305대 = 458대.
+ *
+ *   · **출고협의**는 «일정 조율만 하면 되는 가능한 차»다. 팔 수 있으니 목록에 선다.
+ *     이름만 보고 「협의 중이니 빼자」고 지우면 75대가 통째로 사라진다.
+ *   · **계약중**도 숨기지 않는다 — 마크로 알린다. 숨기면 왜 안 보이는지 아무도 모른다.
+ *   · 상태값이 **빈 차**도 여기서 거르지 않는다. 그건 «우리 데이터가 덜 채워졌다»는 뜻이지
+ *     그 차를 못 판다는 뜻이 아니다(2026-08-06·08-07 결정과 같은 원칙).
+ */
 export function isHiddenFromCatalog(p: { vehicle_status?: unknown; _deleted?: unknown }): boolean {
   if (p._deleted === true) return true;
   return String(p.vehicle_status || '').replace(/\s+/g, '') === '출고불가';
