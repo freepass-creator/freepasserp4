@@ -7,7 +7,7 @@ import { type EntityRecord } from '@/lib/intake/entities';
 import { parseDepositRule, type DepositRule } from '@/lib/domain/sheet-import';
 import { isExactRealPlate } from '@/lib/domain/product';
 
-export type SheetAdapterId = 'generic' | 'autoplus' | 'ianka';
+export type SheetAdapterId = 'generic' | 'autoplus' | 'ianka' | 'sonogong';
 
 export type SheetAdapter = {
   id: SheetAdapterId;
@@ -144,6 +144,49 @@ export const SHEET_ADAPTERS: Record<SheetAdapterId, SheetAdapter> = {
     },
   },
   /**
+   * 손오공 구독식 — 한 행에 요금표가 **두 벌 나란히** 있는 탭.
+   *
+   *   행1   …            11:인수형 ─────────┐   17:반납형 ─────────┐
+   *   행2   배차상태 차번 … 11:보증금 12 24 36 48 60 │ 17:보증금 12 24 …
+   *
+   * 그룹 머리(행1)를 아래 열 이름에 붙여 두 블록을 가른다.
+   *   반납형 → 「12개월」 그대로       → price 키 `12`        ← 시트·표에 나가는 기본값
+   *   인수형 → 「12개월 인수형」        → price 키 `12_인수형`  ← 상세페이지에서만
+   *
+   * ★반납형이 기본이다(사장님 2026-08-10). 인수형 블록이 시트에서 **앞에** 있어서
+   *   그대로 두면 파서가 인수형을 기본값으로 읽는다 — 실측 22대가 그 상태였고
+   *   카니발 36개월이 1,050,000(인수형) / 907,000(반납형)으로 14만원 틀렸다.
+   *
+   * ⚠ 그룹 머리가 없으면(=한 벌짜리 표) 손대지 않는다 — 렌트 탭은 generic 과 같게 동작한다.
+   */
+  sonogong: {
+    id: 'sonogong',
+    label: '손오공식(두 벌 요금표)',
+    prepareTable: (table, opts) => {
+      const headerRow = resolveHeaderRow(table, opts?.headerRow);
+      const sliced = sliceFromHeader(table, headerRow);
+      if (!sliced.length) return sliced;
+      // 그룹 머리는 진짜 헤더 «바로 위» 행이다. 없으면 평범한 표다.
+      const group = headerRow > 0 ? (table[headerRow - 1] || []) : [];
+      const flat = (v: unknown) => String(v ?? '').replace(/\s/g, '');
+      if (!group.some((c) => /^(인수형|반납형)$/.test(flat(c)))) return sliced;
+
+      const header = [...(sliced[0] || [])];
+      let form = '';
+      for (let i = 0; i < header.length; i++) {
+        const g = flat(group[i]);
+        if (g === '인수형' || g === '반납형') form = g;
+        if (!form) continue;
+        const name = flat(header[i]);
+        // 요금·보증금 칸만 이름을 바꾼다. 그 밖(소비자가격·연주행 …)은 그대로 둔다.
+        if (/^\d+개월$/.test(name)) header[i] = form === '반납형' ? name : `${name} ${form}`;
+        else if (name === '보증금') header[i] = form === '반납형' ? '장기보증' : `장기보증 ${form}`;
+        else form = '';   // 요금 블록이 끝났다
+      }
+      return [header, ...sliced.slice(1)];
+    },
+  },
+  /**
    * 이안카 — 같은 탭 중간부터 상태·입고일자 칸이 빠져 행이 왼쪽으로 밀리는 원본 보정.
    * 실제 `구분` 헤더 위치를 찾아 행 첫 칸이 상품구분일 때만 앞 빈 칸을 복원한다.
    */
@@ -178,7 +221,7 @@ export const ADAPTER_OPTIONS: { value: SheetAdapterId; label: string }[] = (
 /** 명시 설정을 최우선하고, 레거시 미설정 AutoPlus만 코드·이름으로 보정한다. */
 export function effectiveSheetAdapterId(partner: EntityRecord): SheetAdapterId {
   const explicit = String(partner.adapter_id || '').trim();
-  if (explicit === 'generic' || explicit === 'autoplus' || explicit === 'ianka') return explicit;
+  if (explicit === 'generic' || explicit === 'autoplus' || explicit === 'ianka' || explicit === 'sonogong') return explicit;
   if (explicit) throw new Error(`시트 어댑터 설정 오류 — ${explicit}`);
   return /autoplus|오토플러스|RP023/i.test(
     `${partner.partner_code || partner._key || ''} ${partner.name || ''} ${partner.partner_name || ''}`,
@@ -189,7 +232,7 @@ export function resolveAdapter(partnerOrId?: EntityRecord | string | null): Shee
   const id = typeof partnerOrId === 'string'
     ? partnerOrId.trim()
     : effectiveSheetAdapterId(partnerOrId || {});
-  if (id !== 'generic' && id !== 'autoplus' && id !== 'ianka') throw new Error(`시트 어댑터 설정 오류 — ${id}`);
+  if (id !== 'generic' && id !== 'autoplus' && id !== 'ianka' && id !== 'sonogong') throw new Error(`시트 어댑터 설정 오류 — ${id}`);
   return SHEET_ADAPTERS[id];
 }
 

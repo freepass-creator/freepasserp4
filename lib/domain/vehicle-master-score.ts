@@ -65,6 +65,21 @@ export function selectMasterEntry(
       lockedModel = entryModel;
     }
   }
+  /**
+   * ★**모델을 넘어가지 않는다.** 5단계는 계단이라 윗 칸을 어기면 아래가 전부 남의 것이 된다 —
+   *   「기아 K8」에 「셀토스 SP3」 세대가 붙으면 파워트레인·트림까지 셀토스 것이 된다
+   *   (실측 2026-08-10 · 이안카 4대. 마스터의 K8 세대가 2024 로 끊겨 2026 연식을 받을
+   *   K8 세대가 없자 모델 경계를 넘었다).
+   *
+   *   공급사는 모델을 거의 안 틀린다 — 차종 칸에 「K8」이라고 적는다.
+   *   그 말을 못 알아들었으면 **아무것도 안 붙이는 게 맞다.** 검수로 보내고 마스터에 채운다
+   *   (신차는 그렇게 다루기로 했다 · 2026-08-10).
+   *   제조사 전체를 후보로 풀던 옛 동작은 «비슷한 아무 모델»을 골라 조용히 틀렸다.
+   *
+   * ⚠ `model` 이 아예 없을 때는 막지 않는다 — 세부모델·트림 한 줄로만 오는 시트가 있고,
+   *   그건 세대코드·문구로 잡는 게 정상 경로다. 여기서 막을 것은 «모델을 받고도 어긋나는 것»이다.
+   */
+  if (model && (!lockedModel || modelSimilarity <= 0.4)) return null;
   const lockedEntries = lockedModel && modelSimilarity > 0.4
     ? makerPool.filter((entry) => entry.model === lockedModel)
     : makerPool;

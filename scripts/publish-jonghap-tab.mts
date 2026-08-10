@@ -369,6 +369,19 @@ await call(`${api}:batchUpdate`, {
         },
       },
     } })),
+    /**
+     * 행 높이 — 기본 21px 는 글자가 위아래로 붙어 눈이 줄을 놓친다.
+     * 26px 로 «살짝만» 벌린다. 더 키우면 한 화면에 담기는 줄이 줄어 훑기가 힘들어진다.
+     * 머리행은 조금 더 준다 — 필터 화살표와 글자가 같이 들어가야 한다.
+     */
+    { updateDimensionProperties: {
+      range: { sheetId: gid, dimension: 'ROWS', startIndex: 0, endIndex: 1 },
+      properties: { pixelSize: 30 }, fields: 'pixelSize',
+    } },
+    { updateDimensionProperties: {
+      range: { sheetId: gid, dimension: 'ROWS', startIndex: 1, endIndex: values.length },
+      properties: { pixelSize: 26 }, fields: 'pixelSize',
+    } },
     ...colWidth.map((px, i) => ({ updateDimensionProperties: {
       range: { sheetId: gid, dimension: 'COLUMNS', startIndex: i, endIndex: i + 1 },
       properties: { pixelSize: px }, fields: 'pixelSize',

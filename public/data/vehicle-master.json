@@ -1334,7 +1334,8 @@
             "베스트 셀렉션",
             "프레스티지",
             "노블레스",
-            "시그니처"
+            "시그니처",
+            "스마트 셀렉션"
           ]
         },
         {
@@ -1387,7 +1388,8 @@
         "베스트 셀렉션",
         "시그니처",
         "트렌디",
-        "프레스티지"
+        "프레스티지",
+        "스마트 셀렉션"
       ]
     },
     {
@@ -4384,6 +4386,21 @@
             "시그니처",
             "X라인"
           ]
+        },
+        {
+          "label": "하이브리드 1.6 2WD",
+          "fuel": "하이브리드",
+          "displacement_l": 1.6,
+          "turbo": false,
+          "drivetrain": "2WD",
+          "seat": null,
+          "battery_kwh": null,
+          "trims": [
+            "트렌디",
+            "프레스티지",
+            "시그니처",
+            "X라인"
+          ]
         }
       ],
       "trims": [
@@ -4654,7 +4671,7 @@
       "gen_code": "GL3",
       "origin": "국산",
       "year_start": "2021",
-      "year_end": "2024",
+      "year_end": "현재",
       "title": "기아 K8 GL3",
       "variants": [
         {
@@ -7844,7 +7861,8 @@
           "trims": [
             "프리미엄",
             "익스클루시브",
-            "캘리그래피"
+            "캘리그래피",
+            "아너스"
           ],
           "default": true
         },
@@ -7859,7 +7877,8 @@
           "trims": [
             "프리미엄",
             "익스클루시브",
-            "캘리그래피"
+            "캘리그래피",
+            "아너스"
           ]
         },
         {
@@ -7873,7 +7892,8 @@
           "trims": [
             "프리미엄",
             "익스클루시브",
-            "캘리그래피"
+            "캘리그래피",
+            "아너스"
           ]
         },
         {
@@ -7900,14 +7920,16 @@
           "trims": [
             "프리미엄",
             "익스클루시브",
-            "캘리그래피"
+            "캘리그래피",
+            "아너스"
           ]
         }
       ],
       "trims": [
         "익스클루시브",
         "캘리그래피",
-        "프리미엄"
+        "프리미엄",
+        "아너스"
       ]
     },
     {
@@ -64980,8 +65002,23 @@
       "year_start": "2021",
       "year_end": "현재",
       "title": "BYD E6",
-      "variants": [],
-      "trims": []
+      "variants": [
+        {
+          "label": "전기",
+          "fuel": "전기",
+          "displacement_l": null,
+          "turbo": false,
+          "drivetrain": null,
+          "seat": null,
+          "battery_kwh": null,
+          "trims": [
+            "기본"
+          ]
+        }
+      ],
+      "trims": [
+        "기본"
+      ]
     },
     {
       "id": "mf-090.md-005.sm-돌핀",
@@ -64993,8 +65030,23 @@
       "year_start": "2026",
       "year_end": "현재",
       "title": "BYD 돌핀",
-      "variants": [],
-      "trims": []
+      "variants": [
+        {
+          "label": "전기",
+          "fuel": "전기",
+          "displacement_l": null,
+          "turbo": false,
+          "drivetrain": null,
+          "seat": null,
+          "battery_kwh": null,
+          "trims": [
+            "기본"
+          ]
+        }
+      ],
+      "trims": [
+        "기본"
+      ]
     },
     {
       "id": "mf-084.md-008.sm-gt",
