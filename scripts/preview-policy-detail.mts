@@ -23,7 +23,6 @@ const filled: Record<string, unknown> = {
   impound_keep_days: 30,
   impound_fee: '일 10,000원',
   insurer_name: 'DB손해보험',
-  insurer_phone: '1588-0100',
   designated_garage: '지정 협력 정비공장',
   self_damage_exclusions: '침수·전손·무단운전',
   replacement_car_policy: '미가입 시 미제공',

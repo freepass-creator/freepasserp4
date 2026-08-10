@@ -79,11 +79,31 @@ function hasPowertrainSignal(s: string): boolean {
  * · `(세부등급 없음)` → false(빈 트림 표기, `isNoTrimLabel`이 따로 봄)
  * · 「GDI X 에디션」→ false(허용)
  */
+/**
+ * ★파워트레인 문구가 **통째로** 트림 칸에 들어온 것 — 「가솔린 2.5 터보」·「가솔린 2.0 4MATIC」.
+ *
+ * 낱말 하나(`FUEL_ONLY`·`ENGINE_ONLY`)는 이미 막고 있었는데 **이어 붙은 꼴**은 통과했다.
+ * 실측 2026-08-10: 저장값이 `variant=「가솔린 2.5 5인승 2WD」 · trim=「가솔린 2.5 터보」` 라
+ * 차명이 「… 가솔린 2.5 2WD 7인승 **가솔린 2.5 터보**」로 조립됐다(겹말 2건).
+ *
+ * 연료로 시작해 배기량·구동·터보만 이어지면 그건 파워트레인이다.
+ * 한글 등급 이름이 붙어 있으면(「가솔린 2.0 프리미엄」) 트림으로 본다 — 마지막 조건이 그걸 지킨다.
+ */
+// ⚠ `\b` 는 한글 뒤에서 안 먹는다(\w 가 영숫자뿐이라 「린」+공백에 경계가 없다).
+//   그래서 «연료로 시작해 **허용 토큰만** 끝까지 이어지는가»로 적는다.
+const POWERTRAIN_PHRASE = new RegExp(
+  '^(?:가솔린|디젤|하이브리드|전기|수소|lpg|lpi|lpe|hev|phev|ev)'
+  + '(?:\\s*(?:\\d+(?:\\.\\d+)?|t|turbo|터보|2wd|4wd|awd|fwd|rwd|xdrive|4matic|콰트로'
+  + '|kwh|롱\\s*레인지|스탠다드|퍼포먼스|\\d+\\s*인승|\\d+\\s*도어))*\\s*$',
+  'i',
+);
+
 export function isForbiddenAsTrim(raw: unknown): boolean {
   const s = S(raw);
   if (!s) return true;
   if (isNoTrimLabelLocal(s)) return false;
   const low = s.toLowerCase();
+  if (POWERTRAIN_PHRASE.test(s)) return true;
   if (FUEL_ONLY.test(s) || FUEL_ONLY.test(low)) return true;
   if (DRIVE_ONLY.test(s) || DRIVE_ONLY.test(low)) return true;
   if (ENGINE_ONLY.test(s) || ENGINE_ONLY.test(low)) return true;

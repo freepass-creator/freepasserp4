@@ -207,7 +207,7 @@ export const ENTITIES: Record<string, Entity> = {
       { key: 'early_termination_rate_under1y', label: '중도해지 위약금 · 1년 미만(0~1)', type: 'number', range: [0, 1], manual: true, note: '약관 제14조 · 잔여 대여료 × 이 값. 30% → 0.3' },
       { key: 'early_termination_rate_over1y', label: '중도해지 위약금 · 1년 이상(0~1)', type: 'number', range: [0, 1], manual: true, note: '약관 제14조 · 20% → 0.2' },
       {
-        key: 'accident_termination_count', label: '1년 이내 사고 누적(N회)', type: 'number', manual: true,
+        key: 'accident_termination_count', label: '사고다발 처리(1년 N회)', type: 'number', manual: true,
         /*
          * 최근 1년 안에 **임차인 과실 50% 이상** 사고가 이 횟수에 이르면 계약을 해지할 수 있다.
          * 약관 제11조②가 「계약서에 정한 사고 누적 횟수」를 그대로 참조하므로,
@@ -238,7 +238,7 @@ export const ENTITIES: Record<string, Entity> = {
       { key: 'uninsured_damage', label: '무보험 보상한도', type: 'select', options: ['2억원', '5억원'], manual: true, note: '상대가 무보험일 때' },
       { key: 'uninsured_deductible', label: '무보험 면책금', type: 'number', manual: true, note: '무보험차 손님 부담' },
       { key: 'own_damage_compensation', label: '자차 보상', type: 'select', options: ['시세 기준', '차량가 기준', '미가입'], manual: true, note: '한도 초과 시 폐차' },
-      { key: 'own_damage_repair_ratio', label: '자차 자기부담률', type: 'select', options: ['10%', '20%', '30%'], manual: true, note: '수리비 중 손님 비율' },
+      { key: 'own_damage_repair_ratio', label: '자차 자기부담률(%)', type: 'select', options: ['10', '20', '30'], manual: true, note: '숫자만 — 계약서가 % 를 붙인다' },
       { key: 'own_damage_min_deductible', label: '자차 최소 면책금', type: 'number', manual: true, note: '자차 부담 하한' },
       { key: 'own_damage_max_deductible', label: '자차 최대 면책금', type: 'number', manual: true, note: '자차 부담 상한' },
       { key: 'annual_roadside_assistance', label: '긴급출동', type: 'select', options: ['미제공', '연 3회', '연 5회', '연 10회', '무제한'], manual: true, note: '연간 무상 횟수' },
@@ -283,7 +283,6 @@ export const ENTITIES: Record<string, Entity> = {
       { key: 'buyout_notice_days', label: '인수 사전통지기한(일)', type: 'number', manual: true, note: '약관 제17조 · 넘기면 인수 불가' },
       // 계약서에 실명이 박히는 것 — 회사 이름·번호는 자유 입력, 정책 선택지는 드롭다운
       { key: 'insurer_name', label: '보험사', type: 'text', manual: true, note: '약관 제9조 · 사고 접수처' },
-      { key: 'insurer_phone', label: '보험사 연락처', type: 'text', manual: true, note: '약관 제9조' },
       {
         key: 'designated_garage', label: '지정 정비점', type: 'select', options: [...GARAGE_POLICIES], manual: true,
         note: '약관 제7·9조 · 임의 수리 시 보험 불가',

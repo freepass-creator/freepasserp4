@@ -4,6 +4,8 @@
  */
 import { type EntityRecord } from '@/lib/intake/entities';
 import { fuelDisplay, fuelEmbeddedCc } from '@/lib/domain/vehicle-master-match';
+// 구분은 화면·필터와 같은 캐논을 쓴다 — 여기서 새로 적으면 종합표만 다른 말을 한다.
+import { canonProductType } from '@/lib/domain/product';
 
 /**
  * ★열 순서를 **차종 5단계에 맞춰** 고쳤다(2026-08-10 사장님 지시).
@@ -27,7 +29,9 @@ export const JONGHAP_COLUMNS = [
   '최초등록', '소비자가격', '제조사', '배기량', '차고지',
   '운전자범위', '연주행', '분납', '21세', '23세', '1만+',
   '대인', '대물', '자차', '자손', '무보험', '정비', '전용계좌',
-  '비고', '공급사코드', '정책코드',
+  // 「공급사」는 코드(RP004)가 아니라 **회사 이름**이다 — 영업자가 코드를 외우지 않는다.
+  // 법인격(「주식회사」·「(주)」)은 떼고 부른다. 표기는 `companyAlias` 하나가 정한다.
+  '비고', '공급사', '정책코드',
 ];
 
 const won = (v: unknown) => { const n = Number(String(v ?? '').replace(/[^\d]/g, '')); return n ? n.toLocaleString('ko-KR') : ''; };
@@ -59,7 +63,17 @@ function policyCells(pol: Pol): Record<string, string> {
   };
 }
 
-function gubun(p: EntityRecord): string { const t = String(p.product_type || ''); if (t.startsWith('신차')) return '신차'; return t ? '중고' : ''; }
+/**
+ * 구분 — **신차렌트 · 중고렌트 · 신차구독 · 중고구독** 네 가지(사장님 지적 2026-08-10).
+ *
+ * 옛 종합표는 「신차」·「중고」 둘로만 뭉갰다. 그때는 구독이 없었지만 지금은 별개 상품이라,
+ * 뭉개면 영업자가 렌트인지 구독인지 모른 채 안내한다.
+ * 저장값엔 옛 표기(「재렌트」·「신차(선출고)」)가 남아 있으므로 `canonProductType` 으로 편다 —
+ * 화면·필터가 쓰는 그 함수 그대로다(여기서 새로 적으면 종합표만 다른 말을 한다).
+ */
+function gubun(p: EntityRecord): string {
+  return canonProductType(p.product_type);
+}
 
 function productToRow(p: EntityRecord, byCode: Map<string, EntityRecord>): string[] {
   const pol = (p._policy as Pol) || (p.policy_code ? byCode.get(String(p.policy_code)) : null);

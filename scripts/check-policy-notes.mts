@@ -16,7 +16,7 @@ const SELF_EVIDENT = new Set([
   'annual_mileage', 'payment_method', 'rental_region', 'delivery_fee',
   'deposit_card_payment', 'insurance_included', 'personal_driver_scope', 'business_driver_scope',
   'additional_driver_allowance_count', 'maintenance_service', 'age_lowering_cost', 'additional_driver_cost',
-  'insurer_name', 'insurer_phone', 'is_active',
+  'insurer_name', 'is_active',
 ]);
 
 const fields = ENTITIES.policy.fields;

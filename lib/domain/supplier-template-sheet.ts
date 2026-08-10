@@ -110,7 +110,7 @@ export const POLICY_COLUMN_NAMES = POLICY_COLUMNS.map((c) => c.name);
  */
 const FRONT_COLUMNS: { name: string; note: string; required?: boolean }[] = [
   { name: '차량번호', note: '12가3456. 신차로 번호 전이면 비우고 차대번호를 채운다', required: true },
-  { name: '상태', note: '출고가능 / 출고협의 / 출고불가 / 상품화중', required: true },
+  { name: '상태', note: '즉시출고 / 출고가능 / 상품화중 / 출고협의 / 계약중 / 출고불가', required: true },
   { name: '분류', note: '신차렌트 / 중고렌트 / 신차구독 / 중고구독', required: true },
   { name: '제조사', note: '현대 · 기아 · BMW …' },
   // ★자유입력이 맞다. 실측(2026-08-08 · 올릴 수 있는 409대) 결과 차종 검수는 6대(1.5%)뿐이고
@@ -243,8 +243,13 @@ export const ROW_DATA = 1;            // 1행부터 상품
  *   제조사는 차종마스터가 정본이라 `buildColumns` 를 부르는 쪽에서 넣어 준다.
  */
 export const VALUE_LISTS: Record<string, readonly string[]> = {
-  // 공급사 시트에 «계약중»은 없다 — ERP 내부 상태다(계약금 확인 엔진 전용).
-  상태: VEHICLE_STATES.filter((v) => v !== '계약중' && v !== '즉시출고'),
+  /**
+   * ★ERP 와 **같은 6개**를 그대로 쓴다(사장님 2026-08-10).
+   *   전에는 «계약중»·«즉시출고»를 뺐다. 그러면 그 상태인 차를 공급사가 적을 말이 없어
+   *   가장 가까운 딴 말을 고르고, 그 순간 시트와 ERP 가 서로 다른 어휘로 갈린다.
+   *   시트가 상태의 정본이므로 어휘가 갈리는 쪽이 훨씬 비싸다.
+   */
+  상태: VEHICLE_STATES,
   분류: PRODUCT_TYPES,
   연료: FUEL_TYPES,
   외부색상: EXT_COLORS,
@@ -593,6 +598,24 @@ export function buildTableRequest(
   };
 }
 
+/**
+ * **이미 있는 표**의 열 정의를 다시 씌운다 — 드롭다운 목록이 바뀌었을 때 쓴다.
+ *
+ * ★`addTable` 은 표가 하나라도 있으면 거부된다. 그래서 양식을 고치고 다시 찍어도
+ *   **옛 드롭다운이 그대로 남는다** — 조용히. 2026-08-10 상태값을 6개로 늘렸을 때
+ *   14개 시트가 전부 옛 4개를 그대로 물고 있었고, 표를 열어보기 전에는 몰랐다.
+ *   목록을 고쳤으면 반드시 이걸 함께 보내라.
+ */
+export function buildTableUpdateRequest(
+  tableId: string,
+  columns = TEMPLATE_COLUMNS,
+  extra: Record<string, readonly string[]> = {},
+  rowCount = 500,
+  gid = 0,
+): Rec {
+  const { table } = (buildTableRequest(gid, columns, extra, rowCount) as { addTable: { table: Rec } }).addTable;
+  return { updateTable: { table: { ...table, tableId }, fields: 'columnProperties' } };
+}
 
 /**
  * 숫자 칸 **우측 정렬** — 표를 만든 «뒤»에 건다.

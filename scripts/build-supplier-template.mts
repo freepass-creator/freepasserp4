@@ -57,15 +57,27 @@ async function main() {
   for (const k of new Set([...Object.keys(live), ...Object.keys(over)])) {
     partners[k] = { ...(live[k] || {}), ...(over[k] || {}) };
   }
+  /**
+   * ★정본 시트 방어 — 값을 덮으면 원본이 사라진다.
+   *
+   * 다만 «우리가 만들어 준 시트에 표준양식 탭을 **새로 하나 더** 얹는» 경우가 있다
+   * (2026-08-10: 오플·아이카·아이언·이안카를 뺀 13곳에 디자인만 새로 입힌다).
+   * 그때는 **새 탭에만** 쓰므로 원본이 안전하다 — `--new-tab` 으로 그 뜻을 밝힌다.
+   *
+   * ⚠ `--gid` 로 기존 탭을 지정하면 그 탭을 비우고 쓴다. 정본 시트에서는 절대 함께 쓰지 마라.
+   */
   const owner = Object.entries(partners).find(([, p]) => sheetIdOf(S(p.sheet_url)) === sheetId);
-  if (owner) {
+  const newTabOnly = process.argv.includes('--new-tab');
+  if (owner && (!newTabOnly || arg('gid'))) {
     const [key, p] = owner;
     throw new Error(
-      `중단 — 이 시트는 «${S(p.partner_name) || S(p.company_name) || S(p.name) || key}» 의 정본 재고시트입니다.\n` +
-      `        표준양식은 별도 시트에 만들어 배포하세요. 정본을 덮으면 원본이 사라집니다.`,
+      `중단 — 이 시트는 «${S(p.partner_name) || S(p.company_name) || S(p.name) || key}» 의 정본 재고시트입니다.\n`
+      + `        기존 탭은 건드리지 않고 **새 탭만** 만들려면 --new-tab (--gid 와 함께 쓸 수 없음).`,
     );
   }
-  console.log(`  대상 시트 ${sheetId} — 공급사 정본 아님 ✓ (대조 ${Object.keys(partners).length}곳)`);
+  console.log(owner
+    ? `  대상 시트 ${sheetId} — «${S(partners[owner[0]].partner_name) || owner[0]}» 정본이지만 새 탭만 만든다 ✓`
+    : `  대상 시트 ${sheetId} — 공급사 정본 아님 ✓ (대조 ${Object.keys(partners).length}곳)`);
 
   // 드롭다운 선택지는 ERP SSOT 에서 온다 — 제조사는 차종마스터, 나머지는 상수(색상·연료·상태·분류).
   const masterRaw = JSON.parse(readFileSync('public/data/vehicle-master.json', 'utf8')) as any;

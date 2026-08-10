@@ -12,7 +12,7 @@ import { ENTITIES } from '@/lib/intake/entities';
 /** 열거할 수 없어 자유 입력이 맞는 칸. */
 const FREE_TEXT_OK = new Set([
   'policy_code', 'policy_name', 'provider_company_code',   // 식별자
-  'insurer_name', 'insurer_phone',                          // 회사명·번호
+  'insurer_name',                                           // 회사명
 ]);
 
 const fields = ENTITIES.policy.fields;

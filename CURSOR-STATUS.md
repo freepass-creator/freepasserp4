@@ -417,11 +417,31 @@ sim-trim 39/39 · atom 45/0 · tsc · fonts 0
 
 ## 현재 상태
 
-`완료` — **MASTER-DONE-10Y** (`f034f1f`). 푸시 전. **클로드 검증 요청**은 STATUS 하단 참고. EV: `battery_kwh`→파워트레인 표기 연결(미커밋).
+`진행` — **인피니티←BMW 오표기 3대 정리 반영** (`fix-infiniti-bmw-mismatch --apply`).  
+133라1401·192머7372→1시리즈 F40 · 321라9324→2시리즈 F44. 백업 `tmp/migration-backups/20260810-pre-infiniti-bmw-fix`.  
+`audit-maker-mismatch` 게시 인피니티 3→0.
 
-### 클로드 검증 요청 (2026-08-09 · Cursor)
+`진행` — **더 뉴 니로 SG2 파워트레인 채움** (빈 label 셸 → HEV 1.6 + EV 68kWh).  
+스크립트 `scripts/fill-niro-sg2-new-powertrain.mts` · 근거=형제 디올뉴 SG2 + 2025 HEV/EV 트림. 미커밋.
 
-**범위:** 차종마스터 재고7년 + PLAN10년 완료 판정이 운영에 안전한지.
+`검수요청` — **Production 오픈 전체 검수**를 Claude에 넘김.  
+정본: [`docs/CLAUDE_OPEN_FULL_REVIEW_REQUEST_2026-08-10.md`](docs/CLAUDE_OPEN_FULL_REVIEW_REQUEST_2026-08-10.md)
+
+Cursor 임시 판정(2026-08-10): **오픈 NO-GO** (UI 깨짐이 아니라 env·Rules 순서·도메인·브랜치).  
+로컬: `check:release` 차단0 / `check:b2b-release` **50 PASS · 5 FAIL**.  
+부가: 회원 `승인대기` 필터 중복 수정(`app/members/page.tsx`). 브라우저 규격실측은 요청 문서 §2-2.
+
+### 클로드 검증 요청 (2026-08-10 · Cursor) — 오픈 전체
+
+**범위:** `freepasserp.com` → fp4 오픈(Go/No-Go) 전체 재검수.  
+**문서:** `docs/CLAUDE_OPEN_FULL_REVIEW_REQUEST_2026-08-10.md`  
+**런북:** `LAUNCH_GONOGO.md` §1 · §1-1  
+**하지 말 것:** Rules 게시 · RTDB write · Production alias · force-push  
+**판정 파일 부탁:** `CLAUDE_REVIEW_OPEN_FULL_2026-08-10.md`
+
+### (이전) 클로드 검증 요청 (2026-08-09 · Cursor) — 차종마스터
+
+**범위:** 차종마스터 재고7년 + PLAN10년 완료 판정이 운영에 안전한지. (오픈 게이트와 별건 · 병행 가능)
 
 **볼 것**
 1. `CURSOR-STATUS.md` `MASTER-DONE-7Y` / `MASTER-DONE-10Y` — 완료 정의·정상빈 버킷이 타당한지

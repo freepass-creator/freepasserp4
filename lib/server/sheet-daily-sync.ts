@@ -19,6 +19,8 @@ import type { EntityRecord } from '@/lib/intake/entities';
 import { firebaseAdminDatabase } from '@/lib/server/firebase-admin';
 // 공급사 재고를 받은 뒤 영업자 시트까지 같은 함수로 이어 올린다(관리자 버튼과 공용).
 import { publishInventorySheet } from '@/lib/server/inventory-sheet-publish';
+// 새로 들어온 차의 빈 차종 칸을 그 자리에서 채운다(CLI 와 규칙 공용).
+import { planResnapFill } from '@/lib/domain/resnap-fill';
 import type { SheetConflictResolution } from '@/lib/domain/sheet-conflict-resolution';
 
 const LOCK_PATH = 'v4/system_locks/sheet_daily_sync';
@@ -333,6 +335,28 @@ export async function runDailySheetSync(opts: { dryRun?: boolean } = {}): Promis
     if (!freshPlan.ok) throw new Error(`저장 직전 재검증 실패 — ${freshPlan.blockReason}`);
     await applyPlan(db, companyId, runId, freshPlan);
 
+    /**
+     * ★새로 들어온 차의 **빈 차종 칸을 그 자리에서 채운다**(2026-08-10 사장님 지시).
+     *
+     * 공급사 시트는 차명 한 칸만 주는 경우가 많다. 저장만 하고 두면 화면에 세부모델·트림이
+     * 빈 채로 서 있고, 영업자가 그 차를 못 고른다. 받자마자 지금 매처로 물려 둔다.
+     *
+     * ⚠ 빈 칸만 채운다(`planResnapFill`) — 공급사가 적어 준 값은 덮지도 지우지도 않는다.
+     * ⚠ 실패해도 동기화는 성공으로 둔다. 재고는 이미 저장됐고 차종은 다시 물리면 되는 «표시»다.
+     */
+    let filledNote = '';
+    try {
+      const forFill = await readProducts(db, companyId);
+      const fills = planResnapFill(forFill.active as Array<EntityRecord & { _key?: string }>, masterEntries());
+      for (const f of fills) {
+        if (!f.key) continue;
+        await db.ref(`v4/products/${f.key}`).update(f.patch);
+      }
+      filledNote = `차종 빈칸 채움 ${fills.length}대`;
+    } catch (error) {
+      filledNote = `차종 빈칸 채움 실패 — ${String((error as Error)?.message || error)}`;
+    }
+
     const [after, afterContracts, afterResolutions] = await Promise.all([
       readProducts(db, companyId),
       readContracts(db, companyId),
@@ -360,7 +384,7 @@ export async function runDailySheetSync(opts: { dryRun?: boolean } = {}): Promis
      *   시트는 다시 올리면 되는 «표시»다. 시트 때문에 재고 반영을 되돌리면 손해가 크다.
      *   대신 무슨 일이 있었는지 실행기록에 남긴다 — 조용히 실패하면 아무도 모른다.
      */
-    const notes = [...(freshPlan.notes || [])];
+    const notes = [...(freshPlan.notes || []), filledNote].filter(Boolean);
     try {
       const sales = await publishInventorySheet(db, { origin: String(process.env.INVENTORY_EXPORT_ORIGIN || '') });
       notes.push(`영업자 시트 반영 ${sales.count}대 → 「${sales.tab}」`);

@@ -279,6 +279,21 @@ export function InventoryCreateRow({ onClick }: { onClick: () => void }) {
 }
 
 /**
+ * 계약서관리 목록 맨 위 — 차량을 골라 «계약서만» 만드는 자리.
+ * 직원이 엑셀로 계약서를 쓰던 것을 대체한다. 딜 파이프라인을 타지 않는다.
+ */
+export function EsignCreateRow({ onClick }: { onClick: () => void }) {
+  return (
+    <CreateListRow
+      label="계약서 만들기"
+      hint="차량을 골라 전자계약서를 보냅니다"
+      ariaLabel="계약서 만들기"
+      onClick={onClick}
+    />
+  );
+}
+
+/**
  * 계약 목록 맨 위 — 매물 없이 «계약서만» 만드는 자리.
  * 보통 계약은 매물에서 파생되지만, 재고에 없는 차인데 계약서만 필요한 경우가 있다.
  * 라벨 규격은 재고·정책·회원과 같다(「상품등록」·「정책 등록」·「계정 등록」).

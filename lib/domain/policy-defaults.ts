@@ -67,7 +67,7 @@ export const POLICY_DEFAULTS: PolicyDefault[] = [
 
   /* ── 제재 ── */
   {
-    key: 'accident_termination_count', label: '1년 이내 사고 누적(N회)', value: 3,
+    key: 'accident_termination_count', label: '사고다발 처리(1년 N회)', value: 3,
     source: '계약서 「사고 발생 시점 1년 이내 임차인 과실비율 50% 이상의 사고 3회 누적 시 계약 해지」',
   },
   {
@@ -96,15 +96,12 @@ export const POLICY_DEFAULTS: PolicyDefault[] = [
     source: 'TERMS_ACCIDENT.insurerCurrent 「렌터카 공제조합 1661-7977」',
   },
   {
-    key: 'insurer_phone', label: '보험사 연락처', value: '1661-7977',
-    source: '위와 같음',
-  },
-  {
     key: 'own_damage_compensation', label: '자차 보상', value: '시세 기준',
     source: '계약서 「보상한도 : 렌터카 공제조합 또는 손해보험사 시세 (한도 초과시 폐차)」',
   },
   {
-    key: 'own_damage_repair_ratio', label: '자차 자기부담률', value: '20%',
+    key: 'own_damage_repair_ratio', label: '자차 자기부담률(%)', value: '20',
+    // ⚠ 숫자만 넣는다. 계약서 서식이 「…%」를 붙이므로 「20%」를 넣으면 «20%%» 가 찍힌다.
     source: '계약서 「자차 사고처리 비용의 20%」 · 중과실도 20% 우선 적용',
   },
   /*

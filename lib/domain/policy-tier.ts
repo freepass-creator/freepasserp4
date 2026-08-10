@@ -139,7 +139,7 @@ export const CONTRACT_LAYER: PolicyField[] = [
   { key: 'engine_control_overdue_days', label: '운행제한(시동제어) 기준일', layer: 'contract', exposure: 'contract', article: '제11조①', why: '대여료 청구일로부터 며칠 밀리면 시동이 잠기는가' },
   { key: 'auto_terminate_overdue_days', label: '차량회수·해지 기준일', layer: 'contract', exposure: 'contract', article: '제11조②', why: '며칠 밀리면 계약이 끊기고 차를 회수하는가' },
   { key: 'deposit_overdue_rounds', label: '보증금 미납 시동제어(회차)', layer: 'contract', exposure: 'contract', article: '제4조·제11조②', why: '보증금 분납은 날짜가 아니라 회차로 센다 — 대여료 연체와 갈래가 다르다' },
-  { key: 'accident_termination_count', label: '1년 이내 사고 누적(N회)', layer: 'contract', exposure: 'contract', article: '제11조', why: '과실 50% 이상 몇 회면 해지되는가' },
+  { key: 'accident_termination_count', label: '사고다발 처리(1년 N회)', layer: 'contract', exposure: 'contract', article: '제11조', why: '과실 50% 이상 몇 회면 해지되는가' },
   { key: 'claim_basis', label: '청구 기준', layer: 'contract', exposure: 'contract', article: '제11조·제14조', why: '잔여 대여료냐 중도해지수수료냐 — 중복 청구하지 않는다' },
 
   // 만기 — 실권이 걸린 기한
@@ -147,8 +147,11 @@ export const CONTRACT_LAYER: PolicyField[] = [
   { key: 'buyout_notice_days', label: '인수 사전통지기한(일)', layer: 'contract', exposure: 'contract', article: '제17조', why: '넘기면 인수하지 않는 것으로 본다' },
 
   // 계약서에 실명이 박히는 것
-  { key: 'insurer_name', label: '보험사', layer: 'contract', exposure: 'contract', article: '제9조', why: '사고 접수처' },
-  { key: 'insurer_phone', label: '보험사 연락처', layer: 'contract', exposure: 'contract', article: '제9조', why: '사고 접수처' },
+  //
+  // 보험사 «대표번호」는 일부러 뺐다 — 매년 바뀌므로 정책에 저장해 두면
+  // 몇 해 뒤 끊긴 번호가 계약서에 박혀 나간다. 계약서에는 체결일 기준
+  // 보험사명만 싣고, 사고 신고는 안 바뀌는 회사 대표번호로 받는다(2026-08-10).
+  { key: 'insurer_name', label: '보험사(체결일 기준)', layer: 'contract', exposure: 'contract', article: '제9조', why: '사고 접수처' },
   { key: 'designated_garage', label: '지정 정비점', layer: 'contract', exposure: 'contract', article: '제7조·제9조', why: '임의 수리 시 보험 처리 불가' },
   { key: 'self_damage_exclusions', label: '자차 처리 제외', layer: 'contract', exposure: 'contract', article: '제9조', why: '가입 공제·보험 상품별로 상이하다' },
   { key: 'replacement_car_policy', label: '대차 정책', layer: 'contract', exposure: 'contract', article: '제7조', why: '미가입 시 미제공 등' },
@@ -259,7 +262,6 @@ export function contractTermsForDetail(
     buyout_notice_days: '만기',
     impound_keep_days: '반환·보관',
     insurer_name: '사고·정비',
-    insurer_phone: '사고·정비',
     designated_garage: '사고·정비',
     self_damage_exclusions: '사고·정비',
     replacement_car_policy: '사고·정비',

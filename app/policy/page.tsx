@@ -32,9 +32,9 @@ const POL_SCOPE: { key: PolScope; label: string }[] = [
   { key: 'shared', label: '공용' },
 ];
 
-// 정책관리 = [목록 | 기본·심사 | 계약조건 | 보험 | 전자계약] 5패널. 스키마 SSOT(ENTITIES.policy) + FormGrid.
+// 정책관리 = [목록 | 기본정책 | 영업정책 | 보험정책 | 계약정책] 5패널. 스키마 SSOT(ENTITIES.policy) + FormGrid.
 // 공급사 = 자기 정책만 편집. 공용(provider_company_code 빈값)은 목록에 안 띄움(재고 Select에서만 연결).
-// 필드 그룹 SSOT — detailSections(심사/계약조건/보험)과 동일 골격. 미지정 필드는 보험 패널이 흡수(누락 방지).
+// 필드 그룹 SSOT — 미지정 필드는 보험정책 패널이 흡수(누락 방지).
 const G_BASIC = ['policy_code', 'policy_name', 'provider_company_code', 'policy_type', 'screening_criteria', 'credit_grade', 'basic_driver_age', 'driver_age_lowering', 'driver_age_upper_limit', 'license_period', 'age_lowering_cost'];
 const G_TERMS = ['annual_mileage', 'mileage_upcharge_per_10000km', 'payment_method', 'rental_region', 'delivery_fee', 'deposit_installment', 'deposit_card_payment', 'insurance_included', 'personal_driver_scope', 'business_driver_scope', 'additional_driver_allowance_count', 'additional_driver_cost', 'maintenance_service', 'commission_clawback_condition'];
 /**
@@ -46,6 +46,60 @@ const G_TERMS = ['annual_mileage', 'mileage_upcharge_per_10000km', 'payment_meth
  * 근거: `docs/POLICY-LAYERS.md` · SSOT: `lib/domain/policy-tier.ts`
  */
 const G_ESIGN = ['contract_authoring', ...CONTRACT_LAYER.map((f) => f.key)];
+
+/**
+ * 패널 안의 «섹션» — 한 패널에 20칸이 한 덩어리로 쏟아지면 무엇을 정하는 자리인지 안 읽힌다.
+ *
+ * 가르는 기준은 **「이 값을 왜 보는가」**다. 돈·연령·패널티로 가르면 한 항목이 여러 곳에
+ * 걸린다 — 연령 하향은 «연령이면서 돈»이고 초과 주행요금은 «돈이면서 패널티»다.
+ *
+ * ★운전자 범위와 추가운전자는 따로 둔다(2026-08-10 사장님)
+ *   범위 = 계약 내내 적용되는 조건(약관 제5조, 범위 밖 사고는 보험 전액 제외)
+ *   추가운전자 = 돈 내고 붙이는 옵션(상담에서 정한다)
+ *   같은 섹션에 두면 «기본으로 되는 것»과 «돈 내야 되는 것»이 섞인다.
+ */
+type PolicySection = { title: string; keys: string[] };
+
+const SEC_BASIC: PolicySection[] = [
+  { title: '정책 신원', keys: ['policy_code', 'policy_name', 'provider_company_code', 'policy_type'] },
+  { title: '심사 기준', keys: ['screening_criteria', 'credit_grade'] },
+  { title: '운전 자격', keys: ['basic_driver_age', 'driver_age_upper_limit', 'license_period'] },
+  // 연령을 내리는 것은 «돈 내고 푸는 조건»이라 자격과 나눈다.
+  { title: '연령 하향(유상)', keys: ['driver_age_lowering', 'age_lowering_cost'] },
+];
+
+const SEC_TERMS: PolicySection[] = [
+  { title: '주행 약정', keys: ['annual_mileage', 'mileage_upcharge_per_10000km'] },
+  { title: '운전자 범위', keys: ['personal_driver_scope', 'business_driver_scope'] },
+  { title: '추가운전자(유상)', keys: ['additional_driver_allowance_count', 'additional_driver_cost'] },
+  { title: '납부 방식', keys: ['payment_method', 'deposit_installment', 'deposit_card_payment'] },
+  { title: '상품 구성', keys: ['insurance_included', 'maintenance_service', 'delivery_fee', 'rental_region'] },
+  { title: '내부 약정', keys: ['commission_clawback_condition'] },
+];
+
+const SEC_INS: PolicySection[] = [
+  {
+    title: '보상 한도',
+    keys: ['injury_compensation_limit', 'property_compensation_limit', 'self_body_accident',
+      'uninsured_damage', 'own_damage_compensation', 'annual_roadside_assistance'],
+  },
+  {
+    title: '면책금 (손님 부담)',
+    keys: ['injury_deductible', 'property_deductible', 'self_body_deductible',
+      'uninsured_deductible', 'own_damage_repair_ratio', 'own_damage_min_deductible', 'own_damage_max_deductible'],
+  },
+];
+
+const SEC_ESIGN: PolicySection[] = [
+  { title: '계약서 작성 주체', keys: ['contract_authoring'] },
+  { title: '위반 시 부담', keys: ['over_mileage_rate_domestic', 'over_mileage_rate_imported', 'late_fee_rate', 'impound_fee'] },
+  { title: '중도해지 위약금', keys: ['early_termination_rate_under1y', 'early_termination_rate_over1y', 'penalty_condition'] },
+  { title: '미납 제재', keys: ['engine_control_overdue_days', 'auto_terminate_overdue_days', 'deposit_overdue_rounds', 'claim_basis'] },
+  { title: '사고 제재', keys: ['accident_termination_count'] },
+  { title: '만기 통지기한', keys: ['renewal_notice_days', 'buyout_notice_days'] },
+  { title: '반환·보관', keys: ['deposit_return_days', 'impound_keep_days'] },
+  { title: '계약서 실명·표기', keys: ['insurer_name', 'designated_garage', 'self_damage_exclusions', 'replacement_car_policy', 'gps_installed'] },
+];
 
 function scopePolicies(all: EntityRecord[], role: Role): EntityRecord[] {
   if (role === 'admin') return all;
@@ -327,7 +381,29 @@ export default function PolicyMgmt() {
     <PageActions edit={{ onClick: startEdit }} remove={{ onClick: removeP }} />
   ) : undefined;
 
-  const editPane = (title: string, fields: typeof ENTITIES.policy.fields, hint?: string, lead?: string) => (
+  /**
+   * 섹션으로 나눠 그린다 — 한 패널에 20칸이 한 덩어리면 무엇을 정하는 자리인지 안 읽힌다.
+   * 어느 섹션에도 안 넣은 칸은 «기타»로 모아 둔다(누락 방지 — 조용히 사라지면 못 채운다).
+   */
+  const sectionPane = (title: string, secs: PolicySection[], all: typeof ENTITIES.policy.fields) => {
+    const placed = new Set(secs.flatMap((s) => s.keys));
+    const rest = all.filter((f) => !placed.has(f.key));
+    const blocks = [
+      ...secs
+        .map((s) => ({ title: s.title, fields: all.filter((f) => s.keys.includes(f.key)) }))
+        .filter((b) => b.fields.length),
+      ...(rest.length ? [{ title: '기타', fields: rest }] : []),
+    ];
+    return blocks.map((b) => (
+      <div key={b.title} style={{ marginBottom: 12 }}>
+        <FormCard title={b.title}>
+          <FormGrid fields={b.fields} form={form} onChange={onChange} cols={2} disabled={!canEdit} showNotes />
+        </FormCard>
+      </div>
+    ));
+  };
+
+  const editPane = (title: string, fields: typeof ENTITIES.policy.fields, hint?: string, lead?: string, secs?: PolicySection[]) => (
     <>
       <PaneHead title={title} />
       <PaneBody pad>
@@ -348,7 +424,7 @@ export default function PolicyMgmt() {
               그러다 안 채운 칸이 남으면 계약서가 빈칸으로 나간다.
               값은 지금 나가는 계약서에서 뽑은 것이라 «새로 정하는 것»이 아니다.
             */}
-            {title === '전자계약' && canEdit && (
+            {title === '계약정책' && canEdit && (
               <div style={{ marginBottom: 10 }}>
                 <Btn title="프리패스 표준값 채우기" size="sm" variant="ghost" onClick={fillDefaults}>
                   프리패스 표준값 채우기
@@ -357,13 +433,14 @@ export default function PolicyMgmt() {
             )}
             {mobile && !canEdit ? (
               <FormReadList fields={fields} form={form} footer={hint} />
+            ) : secs ? (
+              /*
+                섹션이 있으면 나눠 그린다. 칸마다 «무슨 뜻이고 어느 약관 조항에 걸리는지»는
+                그대로 붙는다(재고·계약처럼 매일 만지는 화면은 조밀해야 하므로 거기선 끈다).
+              */
+              sectionPane(title, secs, fields)
             ) : (
               <FormCard hint={hint}>
-                {/*
-                  정책은 «한 번 정해 두고 계속 쓰는» 값이라 자주 오지 않는다.
-                  그래서 칸마다 «무슨 뜻이고 어느 약관 조항에 걸리는지»를 그 자리에서 읽게 한다.
-                  (재고·계약처럼 매일 만지는 화면은 조밀해야 하므로 거기선 끈다.)
-                */}
                 <FormGrid fields={fields} form={form} onChange={onChange} cols={2} disabled={!canEdit} showNotes />
               </FormCard>
             )}
@@ -381,27 +458,32 @@ export default function PolicyMgmt() {
   const panes: WorkPane[] = [
     {
       key: 'basic',
-      title: '기본·심사',
-      node: editPane('기본·심사', fieldsIn(G_BASIC), '정책 신원·심사 기준',
-        '심사기준·신용등급은 내부용 — 손님에게 안 나갑니다.'),
+      title: '기본정책',
+      node: editPane('기본정책', fieldsIn(G_BASIC), undefined, undefined, SEC_BASIC),
     },
+    /*
+     * 패널 이름은 세 층 그대로 부른다(2026-08-10 사장님).
+     *   영업정책 = 상담에서 값을 «정하는» 가격표
+     *   보험정책 = 사고 시 «보상되는» 범위
+     *   계약정책 = 계약 내내 «적용되는» 규칙 — 계약서를 우리가 쓸 때만
+     *
+     * 패널 머리 설명은 뺐다 — 칸마다 이미 설명이 붙어 있어 같은 말을 두 번 하게 된다.
+     * 계약정책만 남긴다. «지금 이 정책으로 보낼 수 있나»는 칸별 설명이 못 하는 말이다.
+     */
     {
       key: 'terms',
-      title: '계약조건',
-      node: editPane('계약조건', fieldsIn(G_TERMS), '운행·납부·특약',
-        '영업 상담용 가격표. 여기서 정해진 결과만 계약서에 실립니다.'),
+      title: '영업정책',
+      node: editPane('영업정책', fieldsIn(G_TERMS), undefined, undefined, SEC_TERMS),
     },
     {
       key: 'ins',
-      title: '보험',
-      node: editPane('보험', insFields, '보험·부가 조건',
-        '계약서 04항 · 약관 제9조에 그대로 실립니다.'),
+      title: '보험정책',
+      node: editPane('보험정책', insFields, undefined, undefined, SEC_INS),
     },
     {
       key: 'esign',
-      title: '전자계약',
-      node: editPane('전자계약', fieldsIn(G_ESIGN), esignHint,
-        '계약서를 우리가 쓰는 공급사만 채웁니다. 비면 약관 조문이 못 걸립니다.'),
+      title: '계약정책',
+      node: editPane('계약정책', fieldsIn(G_ESIGN), esignHint, undefined, SEC_ESIGN),
     },
   ];
   return (

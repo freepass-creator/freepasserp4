@@ -16,7 +16,7 @@
  */
 import {
   autoplusMileageUpchargeLabel, canonProductType, creditDisplay, excelCondSignals, isAutoplusProduct,
-  isExactRealPlate, noDeposit, priceList,
+  isExactRealPlate, noDeposit, priceList, priceVariants,
 } from '@/lib/domain/product';
 import { applySnap, snapToMaster } from '@/lib/domain/vehicle-master-match';
 import type { MasterEntry } from '@/lib/domain/vehicle-master-types';
@@ -29,8 +29,17 @@ const N = (v: unknown) => {
   return Number.isFinite(n) && String(v ?? '').trim() !== '' ? n : '';
 };
 
-/** 앱 엑셀보기와 같은 기간열. 그 밖의 기간은 「기타기간」 한 칸에 모은다. */
-export const MONTHS = [1, 12, 24, 36, 48, 60];
+/**
+ * 기간 열 — **데이터에 실제로 있는 기간은 다 칸으로 세운다**(사장님 지적 2026-08-10).
+ *
+ * 6·18개월을 빼 두었더니 그 가격이 「기타기간」 한 칸에 글자로 뭉쳤다:
+ *   「18개월·연2만km 1,270,000원 / 보증 2,540,000원 / …」
+ * 그러면 **정렬도 필터도 안 된다** — 「18개월 100만원 이하」를 못 고르고, 눈으로 읽어야 한다.
+ * 실측 409대: 6개월 86대 · 18개월 74대. 한두 대가 아니라 표에 서야 할 값이다.
+ *
+ * 「기타기간」은 이제 진짜 예외(그 밖의 개월)만 받는다.
+ */
+export const MONTHS = [1, 6, 12, 18, 24, 36, 48, 60];
 
 /**
  * 보험 한 줄 — 담보 순서는 **손님이 묻는 순서**(대인 → 대물 → 자손 → 무보험 → 자차).
@@ -257,10 +266,25 @@ export function exportRow(p: EntityRecord, providerName: string): (string | numb
   const prices = priceList(p);
   const autoplus = isAutoplusProduct(p);
   const byMonth = new Map(prices.map((e) => [e.m, e]));
+  /**
+   * ★오토플러스는 **연 2만km 기준가만** 칸에 올린다(사장님 2026-08-10).
+   *   3만km 는 상향 요금이라 「1만km추가」 칸이 차액으로 말한다.
+   *
+   * ★다만 **12개월은 3만km 가격만** 오는 차가 있다(2만 기준가가 아예 없다).
+   *   그대로 두면 12개월 칸이 «2만km 값»인 줄 알고 읽히거나, 값이 없어 빈칸이 된다.
+   *   둘 다 위험하다 — 영업자가 그 금액으로 손님에게 말하기 때문이다.
+   *   그래서 그 경우만 **약정주행을 밝혀 메모**로 남긴다.
+   */
+  const variants = autoplus ? priceVariants(p) : [];
+  const twelve3man = autoplus
+    && !variants.some((v) => v.m === 12 && v.mileage === '2만')
+    && variants.some((v) => v.m === 12 && v.mileage === '3만');
   const extra = autoplus
-    ? prices.filter((e) => !MONTHS.includes(e.m))
-      .map((e) => `${e.m}개월·연2만km ${e.rent.toLocaleString()}원${e.deposit > 0 ? ` / 보증 ${e.deposit.toLocaleString()}원` : ' / 무보증'}`)
-      .join(' / ')
+    ? [
+      twelve3man ? '12개월은 연 3만km 기준' : '',
+      ...prices.filter((e) => !MONTHS.includes(e.m))
+        .map((e) => `${e.m}개월·연2만km ${e.rent.toLocaleString()}원${e.deposit > 0 ? ` / 보증 ${e.deposit.toLocaleString()}원` : ' / 무보증'}`),
+    ].filter(Boolean).join(' / ')
     : prices.filter((e) => !MONTHS.includes(e.m)).map((e) => `${e.m}개월 ${e.rent}`).join(' / ');
   const autoplusUpcharge = autoplus ? autoplusMileageUpchargeLabel(p) : '';
   const cond = excelCondSignals(p).map((s) => s.label).join('·');
@@ -359,11 +383,26 @@ export function dedupeForSales(rows: EntityRecord[]): EntityRecord[] {
  */
 export function resnapForSales(rows: EntityRecord[], master: MasterEntry[]): EntityRecord[] {
   if (!master.length) return rows;
+  /**
+   * ★**빈 칸만 채운다.** 저장값이 있으면 그대로 둔다.
+   *
+   * `applySnap` 은 매칭 결과로 칸을 갈아끼우는데, 재매칭이 못 잡으면 빈 값으로 덮는다.
+   * 실측 2026-08-10: 저장 재매칭을 돌린 뒤 **화면 92% · 시트 90%** 로 뒤집혔다 —
+   * 공급사가 적어 준 트림이 마스터에 아직 없을 뿐인데 시트에서만 사라진 것이다.
+   * 같은 차를 두 화면이 다르게 말하면 영업자는 어느 쪽을 믿어야 할지 모른다.
+   */
+  const KEEP = ['maker', 'model', 'sub_model', 'variant', 'trim_name', 'fuel_type', 'engine_cc', 'drive_type', 'seats', 'year'] as const;
   return rows.map((row) => {
     if (!row._raw_vehicle) return row;
     try {
       const snap = snapToMaster(row, master);
-      return snap ? (applySnap(row, snap) as EntityRecord) : row;
+      if (!snap) return row;
+      const next = applySnap(row, snap) as EntityRecord;
+      for (const f of KEEP) {
+        const before = S((row as Rec)[f]);
+        if (before && !S((next as Rec)[f])) (next as Rec)[f] = before;
+      }
+      return next;
     } catch {
       // 한 대가 매칭에서 터져도 시트 전체가 안 나가면 안 된다.
       return row;

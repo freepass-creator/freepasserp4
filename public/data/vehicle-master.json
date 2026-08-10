@@ -4958,9 +4958,9 @@
       "title": "기아 더 뉴 니로 SG2",
       "variants": [
         {
-          "label": "",
-          "fuel": null,
-          "displacement_l": null,
+          "label": "하이브리드 1.6",
+          "fuel": "하이브리드",
+          "displacement_l": 1.6,
           "turbo": false,
           "drivetrain": null,
           "seat": null,
@@ -4968,14 +4968,31 @@
           "trims": [
             "트렌디",
             "프레스티지",
+            "베스트 셀렉션",
             "시그니처"
+          ]
+        },
+        {
+          "label": "전기 68kWh",
+          "fuel": "전기",
+          "displacement_l": null,
+          "turbo": false,
+          "drivetrain": null,
+          "seat": null,
+          "battery_kwh": 68,
+          "trims": [
+            "에어",
+            "어스"
           ]
         }
       ],
       "trims": [
         "시그니처",
         "트렌디",
-        "프레스티지"
+        "프레스티지",
+        "베스트 셀렉션",
+        "에어",
+        "어스"
       ]
     },
     {
