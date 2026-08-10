@@ -80,13 +80,36 @@ function ownDamageLine(q: Rec): string {
  *
  * 순서는 «묻는 순서»다 — 심사 → 나이·면허 → 주행 → 돈(결제·위약·탁송) → 보험 → 정비.
  */
+/**
+ * 「만21세 · 15만원」처럼 붙어 온 연령하향을 **나이 / 비용**으로 가른다.
+ *
+ * 값이 이미 갈려 있으면(대부분) 그대로 쓴다. 붙어 있을 때만 뒤쪽 금액을 떼어
+ * 비용 칸이 비어 있는 경우에 한해 옮긴다 — 비용 칸에 이미 값이 있으면 손대지 않는다.
+ * 「불가」·「협의」처럼 금액이 아닌 말은 나이 칸에 그대로 남는다.
+ */
+function splitAgeLowering(pol: Rec): { age: string; cost: string } {
+  const raw = String(pol?.driver_age_lowering ?? '').trim();
+  const cost = String(pol?.age_lowering_cost ?? '').trim();
+  // 구분자(· , / 공백) 뒤에 오는 «금액처럼 생긴 조각»만 떼어 낸다.
+  const m = raw.match(/^(.*?)\s*[·,/]\s*([\d,]+\s*(?:만원|만|원)|대여료의\s*[\d.]+%)\s*$/);
+  if (!m) return { age: raw, cost };
+  return { age: m[1].trim(), cost: cost || m[2].trim() };
+}
+
 const POLICY_VIEW: { label: string; key?: string; from?: (pol: Rec) => string }[] = [
   { label: '심사기준', key: 'screening_criteria' },
   { label: '신용등급', key: 'credit_grade' },
   { label: '기본연령', key: 'basic_driver_age' },
   { label: '연령상한', key: 'driver_age_upper_limit' },
-  { label: '연령하향', key: 'driver_age_lowering' },
-  { label: '연령하향비용', key: 'age_lowering_cost' },
+  /**
+   * ★나이와 비용을 **갈라서** 낸다.
+   *
+   * 공급사가 한 칸에 「만21세 · 15만원」처럼 붙여 적어 보내는 곳이 있다. 그대로 두면
+   * 비용 칸은 비고 나이 칸만 길어져 옆 칸을 덮는다(2026-08-10 실측 · 상품리스트 AH/AI).
+   * 영업자는 「몇 살까지 되나」와 「얼마 드나」를 따로 묻는다 — 칸도 따로여야 한다.
+   */
+  { label: '연령하향', from: (pol) => splitAgeLowering(pol).age },
+  { label: '연령하향비용', from: (pol) => splitAgeLowering(pol).cost },
   { label: '면허경력', key: 'license_period' },
   { label: '약정주행', key: 'annual_mileage' },
   { label: '1만km추가', key: 'mileage_upcharge_per_10000km' },
@@ -292,8 +315,23 @@ const STATUS_TONE: Record<string, { bg: string; fg: string }> = {
 };
 const BG_PAGE = 'EEF2F6';   // 시트 바탕 — 그 위에 흰 카드가 떠 보이게
 const BG_CARD = 'FFFFFF';
-const INK = '0F172A';
+/**
+ * 머리행 남색 — **공급사 표준양식과 같은 색**으로 맞춘다(사장님 2026-08-10).
+ * 영업자가 두 시트를 오가는데 색이 다르면 다른 회사 문서처럼 보인다.
+ * `supplier-template-sheet` 의 머리행과 같은 값이어야 한다.
+ */
+const INK = '213354';
 const LINE = 'CBD5E1';
+/** 줄무늬 — 공급사 양식과 같은 회색. 이보다 진하면 글자가 흐려 보인다. */
+const BAND = 'F7F7F9';
+/**
+ * 글꼴 — **Roboto**. 공급사 표준양식과 같게 맞춘다(사장님 2026-08-10).
+ *
+ * 공급사 시트는 표(Table)로 만들어 구글이 Roboto 를 자동으로 입힌다. 영업자 시트는
+ * 표를 쓰지 않으므로(입력하는 시트가 아니다) **직접 지정하지 않으면 Arial 로 남는다.**
+ * 한글 자간이 Arial 보다 촘촘해 숫자·차번이 눈에 잘 들어온다.
+ */
+const FONT = 'Roboto';
 
 /** 0-based 열 번호 → A1 표기 열 문자. */
 function colLetter(index: number): string {
@@ -559,7 +597,7 @@ export function buildInventorySheet(
     {
       repeatCell: {
         range: headRange,
-        cell: { userEnteredFormat: { backgroundColor: rgb(INK), horizontalAlignment: 'CENTER', verticalAlignment: 'MIDDLE', wrapStrategy: 'CLIP', textFormat: { foregroundColor: rgb('FFFFFF'), bold: true, fontSize: 10 } } },
+        cell: { userEnteredFormat: { backgroundColor: rgb(INK), horizontalAlignment: 'CENTER', verticalAlignment: 'MIDDLE', wrapStrategy: 'CLIP', textFormat: { fontFamily: FONT, foregroundColor: rgb('FFFFFF'), bold: true, fontSize: 10 } } },
         fields: 'userEnteredFormat(backgroundColor,horizontalAlignment,verticalAlignment,wrapStrategy,textFormat)',
       },
     },
@@ -567,16 +605,16 @@ export function buildInventorySheet(
     {
       repeatCell: {
         range: bodyRange,
-        cell: { userEnteredFormat: { backgroundColor: rgb(BG_CARD), wrapStrategy: 'CLIP', verticalAlignment: 'MIDDLE', textFormat: { fontSize: 10 } } },
+        cell: { userEnteredFormat: { backgroundColor: rgb(BG_CARD), wrapStrategy: 'CLIP', verticalAlignment: 'MIDDLE', textFormat: { fontFamily: FONT, fontSize: 10 } } },
         fields: 'userEnteredFormat(backgroundColor,wrapStrategy,verticalAlignment,textFormat)',
       },
     },
-    { repeatCell: { range: box(ROW_DATA, lastRow, COL_NO, COL_NO + 1), cell: { userEnteredFormat: { horizontalAlignment: 'CENTER', textFormat: { fontSize: 9, foregroundColor: rgb('94A3B8') } } }, fields: 'userEnteredFormat(horizontalAlignment,textFormat)' } },
-    { repeatCell: { range: box(ROW_DATA, lastRow, COL_PLATE, COL_PLATE + 1), cell: { userEnteredFormat: { horizontalAlignment: 'CENTER', textFormat: { fontSize: 10, foregroundColor: rgb(INK) } } }, fields: 'userEnteredFormat(horizontalAlignment,textFormat)' } },
+    { repeatCell: { range: box(ROW_DATA, lastRow, COL_NO, COL_NO + 1), cell: { userEnteredFormat: { horizontalAlignment: 'CENTER', textFormat: { fontFamily: FONT, fontSize: 10, foregroundColor: rgb('94A3B8') } } }, fields: 'userEnteredFormat(horizontalAlignment,textFormat)' } },
+    { repeatCell: { range: box(ROW_DATA, lastRow, COL_PLATE, COL_PLATE + 1), cell: { userEnteredFormat: { horizontalAlignment: 'CENTER', textFormat: { fontFamily: FONT, fontSize: 10, foregroundColor: rgb(INK) } } }, fields: 'userEnteredFormat(horizontalAlignment,textFormat)' } },
     // 사진 — 그림은 셀 가운데. 「사진없음」 글자만 남는 칸은 눌리는 값이라 파랗게 둔다.
-    { repeatCell: { range: box(ROW_DATA, lastRow, COL_PHOTO, COL_PHOTO + 1), cell: { userEnteredFormat: { horizontalAlignment: 'CENTER', verticalAlignment: 'MIDDLE', textFormat: { fontSize: 9, foregroundColor: rgb('1E40AF') } } }, fields: 'userEnteredFormat(horizontalAlignment,verticalAlignment,textFormat)' } },
+    { repeatCell: { range: box(ROW_DATA, lastRow, COL_PHOTO, COL_PHOTO + 1), cell: { userEnteredFormat: { horizontalAlignment: 'CENTER', verticalAlignment: 'MIDDLE', textFormat: { fontFamily: FONT, fontSize: 10, foregroundColor: rgb('1E40AF') } } }, fields: 'userEnteredFormat(horizontalAlignment,verticalAlignment,textFormat)' } },
     // 차량명 — 이 표에서 가장 먼저 읽는 칸이라 굵게.
-    { repeatCell: { range: box(ROW_DATA, lastRow, COL_NAME, COL_NAME + 1), cell: { userEnteredFormat: { wrapStrategy: 'CLIP', textFormat: { bold: true, fontSize: 10 } } }, fields: 'userEnteredFormat(wrapStrategy,textFormat)' } },
+    { repeatCell: { range: box(ROW_DATA, lastRow, COL_NAME, COL_NAME + 1), cell: { userEnteredFormat: { wrapStrategy: 'CLIP', textFormat: { fontFamily: FONT, bold: true, fontSize: 10 } } }, fields: 'userEnteredFormat(wrapStrategy,textFormat)' } },
     // 최저 월대여료 — 두 줄(금액↵기간·보증)이라 줄바꿈 허용.
     /**
      * 요약 세 칸은 **한눈에 서열이 보여야** 한다 — 대여료가 주인공이고 기간·보증금은 곁이다.
@@ -585,13 +623,13 @@ export function buildInventorySheet(
      *   대여료  진하게 · 굵게 · 조금 크게
      *   보증금  옅게 · 작게
      */
-    { repeatCell: { range: box(ROW_DATA, lastRow, COL_BEST_MONTH, COL_BEST_MONTH + 1), cell: { userEnteredFormat: { horizontalAlignment: 'CENTER', numberFormat: { type: 'NUMBER', pattern: '0"개월"' }, textFormat: { fontSize: 10, foregroundColor: rgb('64748B') } } }, fields: 'userEnteredFormat(horizontalAlignment,numberFormat,textFormat)' } },
-    { repeatCell: { range: box(ROW_DATA, lastRow, COL_BEST_RENT, COL_BEST_RENT + 1), cell: { userEnteredFormat: { horizontalAlignment: 'RIGHT', numberFormat: { type: 'NUMBER', pattern: '#,##0' }, textFormat: { bold: true, fontSize: 11, foregroundColor: rgb(INK) } } }, fields: 'userEnteredFormat(horizontalAlignment,numberFormat,textFormat)' } },
-    { repeatCell: { range: box(ROW_DATA, lastRow, COL_BEST_DEP, COL_BEST_DEP + 1), cell: { userEnteredFormat: { horizontalAlignment: 'RIGHT', numberFormat: { type: 'NUMBER', pattern: '#,##0' }, textFormat: { fontSize: 9, foregroundColor: rgb('94A3B8') } } }, fields: 'userEnteredFormat(horizontalAlignment,numberFormat,textFormat)' } },
+    { repeatCell: { range: box(ROW_DATA, lastRow, COL_BEST_MONTH, COL_BEST_MONTH + 1), cell: { userEnteredFormat: { horizontalAlignment: 'CENTER', numberFormat: { type: 'NUMBER', pattern: '0"개월"' }, textFormat: { fontFamily: FONT, fontSize: 10, foregroundColor: rgb('64748B') } } }, fields: 'userEnteredFormat(horizontalAlignment,numberFormat,textFormat)' } },
+    { repeatCell: { range: box(ROW_DATA, lastRow, COL_BEST_RENT, COL_BEST_RENT + 1), cell: { userEnteredFormat: { horizontalAlignment: 'RIGHT', numberFormat: { type: 'NUMBER', pattern: '#,##0' }, textFormat: { fontFamily: FONT, bold: true, fontSize: 10, foregroundColor: rgb(INK) } } }, fields: 'userEnteredFormat(horizontalAlignment,numberFormat,textFormat)' } },
+    { repeatCell: { range: box(ROW_DATA, lastRow, COL_BEST_DEP, COL_BEST_DEP + 1), cell: { userEnteredFormat: { horizontalAlignment: 'RIGHT', numberFormat: { type: 'NUMBER', pattern: '#,##0' }, textFormat: { fontFamily: FONT, fontSize: 10, foregroundColor: rgb('94A3B8') } } }, fields: 'userEnteredFormat(horizontalAlignment,numberFormat,textFormat)' } },
     // 무보증 — 팔리는 조건이라 초록으로 세운다. 빈칸(=보증금 있음)은 조용히 둔다.
-    { repeatCell: { range: box(ROW_DATA, lastRow, COL_NO_DEP, COL_NO_DEP + 1), cell: { userEnteredFormat: { horizontalAlignment: 'CENTER', textFormat: { fontSize: 9, bold: true, foregroundColor: rgb('166534') } } }, fields: 'userEnteredFormat(horizontalAlignment,textFormat)' } },
-    { repeatCell: { range: box(ROW_DATA, lastRow, COL_TABLE, COL_TABLE + 1), cell: { userEnteredFormat: { textFormat: { bold: true, fontSize: 10 } } }, fields: 'userEnteredFormat.textFormat' } },
-    { addBanding: { bandedRange: { range: box(ROW_HEAD, lastRow, 0, tableEnd), rowProperties: { headerColor: rgb(INK), firstBandColor: rgb('FFFFFF'), secondBandColor: rgb('F8FAFC') } } } },
+    { repeatCell: { range: box(ROW_DATA, lastRow, COL_NO_DEP, COL_NO_DEP + 1), cell: { userEnteredFormat: { horizontalAlignment: 'CENTER', textFormat: { fontFamily: FONT, fontSize: 10, bold: true, foregroundColor: rgb('166534') } } }, fields: 'userEnteredFormat(horizontalAlignment,textFormat)' } },
+    { repeatCell: { range: box(ROW_DATA, lastRow, COL_TABLE, COL_TABLE + 1), cell: { userEnteredFormat: { textFormat: { fontFamily: FONT, bold: true, fontSize: 10 } } }, fields: 'userEnteredFormat.textFormat' } },
+    { addBanding: { bandedRange: { range: box(ROW_HEAD, lastRow, 0, tableEnd), rowProperties: { headerColor: rgb(INK), firstBandColor: rgb('FFFFFF'), secondBandColor: rgb(BAND) } } } },
     // ★기본 헤더 필터 — 각 열 머리의 화살표로 거른다. 값이 정적이라 정렬도 그대로 된다.
     { setBasicFilter: { filter: { range: box(ROW_HEAD, lastRow, 0, tableEnd) } } },
     /**
@@ -663,6 +701,7 @@ export function buildInventorySheet(
           ranges: [box(ROW_DATA, lastRow, statusCol, statusCol + 1)],
           booleanRule: {
             condition: { type: 'TEXT_EQ', values: [{ userEnteredValue: label }] },
+            // ⚠조건부서식은 글꼴을 못 받는다 — 굵기·기울임·취소선·글자색·배경색만 된다(Sheets API).
             format: { backgroundColor: rgb(tone.bg), textFormat: { foregroundColor: rgb(tone.fg), bold: true } },
           },
         },
@@ -677,6 +716,7 @@ export function buildInventorySheet(
         ranges: [box(ROW_DATA, lastRow, creditCol, creditCol + 1)],
         booleanRule: {
           condition: { type: 'TEXT_EQ', values: [{ userEnteredValue: '무심사' }] },
+          // ⚠조건부서식은 글꼴을 못 받는다(위와 같은 제약).
           format: { textFormat: { foregroundColor: rgb('166534'), bold: true } },
         },
       },
@@ -693,8 +733,8 @@ export function buildInventorySheet(
         rows: [{
           values: [{
             textFormatRuns: [
-              { startIndex: 0, format: { bold: true, fontSize: 10, foregroundColor: rgb(INK) } },
-              { startIndex: cell.split, format: { bold: false, fontSize: 8, foregroundColor: rgb('94A3B8') } },
+              { startIndex: 0, format: { fontFamily: FONT, bold: true, fontSize: 10, foregroundColor: rgb(INK) } },
+              { startIndex: cell.split, format: { fontFamily: FONT, bold: false, fontSize: 9, foregroundColor: rgb('94A3B8') } },
             ],
           }],
         }],

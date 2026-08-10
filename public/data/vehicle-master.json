@@ -9490,10 +9490,10 @@
           ]
         },
         {
-          "label": "가솔린 2.0",
+          "label": "가솔린 2.0T",
           "fuel": "가솔린",
           "displacement_l": 2,
-          "turbo": false,
+          "turbo": true,
           "drivetrain": null,
           "seat": null,
           "battery_kwh": null,
