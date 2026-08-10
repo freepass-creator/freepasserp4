@@ -86,6 +86,12 @@ export function chakhandealIssuePayload(
     // 개인정보 동의 — 항목·목적·보유기간·받는자까지. 「동의합니다」 한 줄로는 유효하지 않다.
     consentAtoms: pendingConsents(contract as Parameters<typeof pendingConsents>[0]),
     requiredDocs: REQUIRED_DOCS,
+    // ── 약관 CROSS-CHECK (오픈 종합검토) ──
+    // 여기로 나가는 agreement = 손님이 착한거래에서 통독·동의하는 본문.
+    // 정본 삼각: rental-contract.html ↔ esign-agreement-text.ts ↔ 이 payload.
+    // isSample·version·조문 불일치면 실발송 금지. 상세:
+    //   docs/CONTRACT_REPLACEMENT_REVIEW_2026-08-10.md
+    //   docs/CLAUDE_OPEN_FULL_REVIEW_REQUEST_2026-08-10.md §2-4
     agreement: {
       version: SAMPLE_AGREEMENT.version,
       title: SAMPLE_AGREEMENT.title,

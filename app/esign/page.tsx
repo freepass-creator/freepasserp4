@@ -26,7 +26,7 @@ import type { EntityRecord } from '@/lib/intake/entities';
 import { isAdminUiAllowed } from '@/lib/auth-gate';
 import { NAV_LABEL } from '@/lib/tabbar';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
-import { EsignListRow } from '@/components/list-rows';
+import { EsignCreateRow, EsignListRow } from '@/components/list-rows';
 import { ChakhandealEsignButton } from '@/components/ChakhandealEsignButton';
 import { toast } from '@/components/Toaster';
 import {
@@ -155,13 +155,24 @@ export default function EsignPage() {
 
   if (allowed === null) return <Loading />;
 
-  const listEl = rows === null ? <Loading /> : shown.length === 0 ? (
-    <CenterNote>
-      {query || filter !== '전체'
-        ? '조건에 맞는 계약이 없습니다.'
-        : '약정에서 대여기간·금액을 확정한 계약이 아직 없습니다.'}
-    </CenterNote>
-  ) : (
+  /*
+   * 등록행은 «목록 밖, 맨 위» — 재고·정책·계약과 같은 규격.
+   * 목록 안에 넣으면 계약서가 하나도 없을 때 버튼이 사라져 첫 건을 못 만든다.
+   *
+   * ⚠ 「차량 골라 계약서 만들기」 흐름은 아직 안 붙였다(2026-08-10).
+   *   지금은 재고로 보내 매물에서 계약을 만들게 한다 — 계약 없이 계약서만 만드는
+   *   경로를 붙이려면 차량 선택창·정책 해석·값 수정까지 한 벌이 필요하다.
+   */
+  const listEl = (
+    <div>
+      {allowed && <EsignCreateRow onClick={() => router.push('/inventory')} />}
+      {rows === null ? <Loading /> : shown.length === 0 ? (
+        <CenterNote>
+          {query || filter !== '전체'
+            ? '조건에 맞는 계약서가 없습니다.'
+            : '아직 보낸 계약서가 없습니다. 위에서 차량을 골라 만들어 보세요.'}
+        </CenterNote>
+      ) : (
     <ListGroup>
       {shown.map((c) => (
         <EsignListRow
@@ -173,6 +184,8 @@ export default function EsignPage() {
         />
       ))}
     </ListGroup>
+      )}
+    </div>
   );
 
   // 패널 골격은 다른 업무화면과 같게 — 웹은 PaneHead(제목) + PaneBody pad, 모바일은 헤더 생략.

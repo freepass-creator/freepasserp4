@@ -26,7 +26,13 @@
     /* ── 공통 팔레트 (회사 무관, 고정) ── */
     --ink:#0f172a; --ink2:#334155; --mute:#64748b; --faint:#94a3b8;
     --line:#e6eaf0; --line2:#eef1f6; --bg:#f1f4f8; --card:#ffffff;
-    --th:#e7ecf3; --bd:#cbd3de; --bd2:#dbe2ea;   /* 표 헤더배경·외곽선·내부선 (또렷하게) */
+    /*
+   * 표 선 — **얇고 진하게**(2026-08-10 사장님).
+   * 전 `#cbd3de` 는 푸른 회색이라 인쇄하면 흐려 보였다. 굵기로 또렷하게 만들면 표가 무거워지므로,
+   * **선은 더 가늘게(0.5px) · 색은 더 진하게** 간다. 잉크 계열이라 회색빛이 빠진다.
+   */
+  --th:#e7ecf3; --bd:#5b6b80; --bd2:#8b98a9;
+  --hair:0.5px;                                 /* 표 내부선 굵기 — 인쇄에서 머리카락처럼 */
     --ok:#0e9f6e; --danger:#e02424; --warn-bg:#fff7ed; --warn-ink:#b45309;
   }
   *{margin:0;padding:0;box-sizing:border-box;word-break:keep-all;-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -81,6 +87,12 @@
      약관 자동분할 페이지(#termsPages 내부)·측정 스테이지는 고정 유지 → 영향 없음 */
   body>.page{height:auto;min-height:297mm;overflow:visible}
   body>.page>.pbody{overflow:visible}
+  /* 정비·결제 페이지는 표 행이 많아 기본 간격이면 푸터만 다음 종이로 밀린다. 내용은 줄이지 않고 세로 여백만 압축한다. */
+  /* 표 행이 많은 장에 붙인다. 내용을 «줄이지 않고» 세로 간격만 좁혀 297mm 안에 넣는다.
+     정비·결제에 이어 자동차 보험 장도 넘쳤다(면책금 안내·사고 대응 절차가 늘어) — 같은 손잡이를 쓴다. */
+  .page-dense .section{margin-bottom:3mm}
+  .page-dense .kv .k,.page-dense .kv .v{padding-top:5px;padding-bottom:5px}
+  .page-dense .subhead{margin-top:3mm;margin-bottom:2mm}
   .pagefoot{position:absolute;left:13mm;right:13mm;bottom:6mm;display:flex;justify-content:space-between;align-items:center;
             padding-top:2.5mm;border-top:1px solid var(--line2);
             font-size:9px;color:var(--faint);letter-spacing:.02em}
@@ -110,11 +122,11 @@
 
   /* 키-값 데이터 그리드 (모던: 라벨 옅은 틴트, 얇은 라인) */
   /* 라벨-값 표 — 옆 뚫린 가로줄형(모던) : 외곽·세로선 없음, 라인 동일, 라벨 틴트 유지 */
-  .kv{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--bd)}
+  .kv{display:grid;grid-template-columns:repeat(4,1fr);border-top:var(--hair) solid var(--bd)}
   .kv .k{background:var(--th);padding:7px 9px;font-size:9.5px;font-weight:700;color:var(--ink2);
-         display:flex;align-items:center;border-bottom:1px solid var(--bd)}
+         display:flex;align-items:center;border-bottom:var(--hair) solid var(--bd)}
   .kv .v{padding:7px 10px;font-size:11px;color:var(--ink);display:flex;align-items:center;
-         border-bottom:1px solid var(--bd)}
+         border-bottom:var(--hair) solid var(--bd)}
   .kv .span2{grid-column:span 3}     /* 값이 라벨1+값3 폭 차지 */
   .kv .full{grid-column:1 / -1}
   /* 긴 설명 셀은 일반 텍스트 흐름 — flex가 inline <b>/<span>을 조각내 줄바꿈 깨지는 것 방지 */
@@ -135,9 +147,9 @@
 
   /* 일반 표 */
   /* 일반 표 — 옆 뚫린 가로줄형(모던) */
-  table.tbl{width:100%;border-collapse:collapse;font-size:10.5px;border-top:1px solid var(--bd)}
-  table.tbl th{background:var(--th);color:var(--ink2);font-weight:700;font-size:9.5px;padding:7px 8px;text-align:left;border-bottom:1px solid var(--bd)}
-  table.tbl td{padding:7px 8px;border-bottom:1px solid var(--bd);color:var(--ink)}
+  table.tbl{width:100%;border-collapse:collapse;font-size:10.5px;border-top:var(--hair) solid var(--bd)}
+  table.tbl th{background:var(--th);color:var(--ink2);font-weight:700;font-size:9.5px;padding:7px 8px;text-align:left;border-bottom:var(--hair) solid var(--bd)}
+  table.tbl td{padding:7px 8px;border-bottom:var(--hair) solid var(--bd);color:var(--ink)}
   table.tbl .c{text-align:center}
   table.keyterms td.kt{font-size:12.5px;font-weight:800;padding:7px 8px;color:var(--ink)}
 
@@ -157,7 +169,7 @@
   .terms-cols .mark{color:var(--ink)}
   /* 사고 처리 절차 */
   .acc-steps{font-size:10px;color:var(--ink2);line-height:1.5;margin-top:1mm}
-  .acc-steps > div{display:flex;gap:8px;align-items:flex-start;padding:2.3mm 0;border-bottom:1px solid var(--bd)}
+  .acc-steps > div{display:flex;gap:8px;align-items:flex-start;padding:2.3mm 0;border-bottom:var(--hair) solid var(--bd)}
   .acc-steps > div:last-child{border-bottom:none}
   .acc-steps b{flex:0 0 auto;width:16px;height:16px;border-radius:3px;background:var(--accent);color:#fff;font-size:9px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;margin-top:1px}
   /* 유의사항 — 본문과 규격 통일(박스·액센트 없음, ※ 회색 소문자) */
@@ -233,6 +245,13 @@
   .cover-title{font-size:40px;font-weight:800;letter-spacing:-.025em;line-height:1.08}
   .cover-lead{font-size:11px;color:var(--mute);line-height:1.65;margin-top:11px;max-width:138mm}
   .cover-parties-cap{margin-top:auto;font-size:10.5px;color:var(--mute);font-weight:600;margin-bottom:6px;letter-spacing:.01em}
+/*
+  값이 안 온 칸은 봉인본에서 비워진다. 완전히 빈칸이면 «빠뜨린 건지 원래 없는 건지» 알 수 없으므로
+  종이 계약서처럼 옅은 밑줄만 남겨 «기재란»임을 보인다.
+  (표지 요지칸은 뺐지만, 다른 서식에서 `.cover-sum` 을 쓸 때를 위해 규칙은 남긴다.)
+*/
+.cover-sum .cs .csv:empty::before,.cover-sum .cs .cssub:empty::before{content:"";display:inline-block;width:26mm;border-bottom:1px dotted var(--bd);vertical-align:middle}
+.cover-sum .cs .cssub:empty::before{width:18mm}
   .cover-parties{display:flex;align-items:stretch;border:1px solid var(--bd);border-radius:5px;overflow:hidden}
   .cover-parties .cp{flex:1;padding:13px 16px;background:var(--th)}
   .cover-parties .cp:first-child{border-right:1px solid var(--bd)}
@@ -282,7 +301,12 @@
     <!-- 상단 식별 스트립 -->
     <div class="cover-top">
       <div class="cover-co">
-        <img class="co-logo" data-field="company_logo" src="assets/logo-sonogong.webp" alt="회사 로고">
+        <!--
+          로고 파일이 없으면 «깨진 이미지 아이콘 + alt 글자»가 뜬다. 계약서 첫 장에 그게 있으면 안 된다.
+          onerror 로 스스로 숨기고 회사명만 남긴다.
+        -->
+        <img class="co-logo" data-field="company_logo" src="assets/logo-sonogong.webp" alt=""
+             onerror="this.style.display='none'">
         <div class="co-name">
           <div class="co-t" data-field="company_name">주식회사 손오공렌터카</div>
         </div>
@@ -295,6 +319,13 @@
       <div class="cover-kicker" data-field="doc_kicker">AUTOMOBILE RENTAL AGREEMENT</div>
       <h1 class="cover-title" data-field="doc_title">자동차 렌탈 계약서</h1>
     </div>
+
+    <!--
+      표지 가운데는 «비워 둔다»(2026-08-09 사장님 판단).
+      계약 요지 4칸(`.cover-sum`)을 넣어 봤으나 표지가 요약서처럼 읽혔다.
+      계약 내용은 02~03 항목이 제대로 말하므로, 표지는 문서명과 당사자만 세운다.
+      CSS `.cover-sum` 은 남겨 둔다 — 다른 회원사 서식에서 쓸 수 있다.
+    -->
 
     <!-- 계약 당사자 (하단) -->
     <div class="cover-parties-cap">본 자동차 임대차 계약은 아래 당사자 간 체결됩니다</div>
@@ -330,7 +361,12 @@
 
     <!-- 01 계약자 -->
     <div class="section">
-      <div class="sec-h"><div class="no">01</div><div class="t">계약자 정보</div><div class="sub" data-field="contract_type_label">개인</div></div>
+      <!--
+        `sub` 는 «그 섹션이 무엇을 다루는지» 적는 설명 자리다(04 「대인·대물·자차」, 08 「등록자만 보험 적용」).
+        여기만 「개인」이라는 **값**이 들어가 있어 혼자 뱃지처럼 튀었다.
+        계약자가 개인이냐 법인이냐는 계약 조건이므로 아래 값 칸으로 내린다.
+      -->
+      <div class="sec-h"><div class="no">01</div><div class="t">계약자 정보</div></div>
       <div class="kv">
         <div class="k" data-field="label_name">성명</div><div class="v strong span2" data-field="customer_name">○ ○ ○</div>
         <div class="k" data-field="label_id">주민등록번호</div><div class="v" data-field="customer_id">000000-0000000</div>
@@ -359,6 +395,12 @@
         <div class="k">차량 가격</div><div class="v" data-field="vehicle_price">-</div>
       </div>
       <div class="note" data-note="newcar" style="display:none"><span class="em">신차(출고 전)</span>는 차량번호·차대번호가 미정이며, 출고·등록 후 확정되면 임차인에게 서면(문자 포함)으로 통지하고 차량 인수증에 기재합니다.</div>
+      <!--
+        차량을 «무엇으로 특정하는가»는 차량 정보 항목의 규칙이다.
+        전에는 03 대여조건 맨 끝(부가 장비 다음)에 붙어 있어, 요금 얘기 끝에 차량 식별이
+        튀어나왔다. 이 조항이 규율하는 것은 위 차량번호·차대번호 칸이므로 여기가 제자리다.
+      -->
+      <div class="callout">차량 식별은 <b>자동차등록증상 차량번호·차대번호</b> 기준이며, 옵션·사양·색상의 단순 오기는 계약 취소 사유로 인정되지 않습니다. (약관 제1조·제6조)</div>
     </div>
 
     <!-- 03 대여조건 -->
@@ -368,14 +410,22 @@
       <div class="kv">
         <div class="k">상품 유형</div><div class="v strong span2" data-field="product_label">렌트 선택형</div>
         <div class="k">월 대여료</div><div class="v strong"><span data-field="rent_amount">0</span> 원 <span style="color:var(--mute);font-weight:500">(VAT 포함)</span><span data-ins="sep" style="display:none;color:var(--mute);font-weight:500"> · 보험료 제외</span></div>
-        <div class="k">보험</div><div class="v"><span data-ins="inc">월 대여료에 포함</span><span data-ins="sep" style="display:none"><b>임차인이 직접 가입</b> <span style="color:var(--mute)">(별도 · 본 대여료에 미포함)</span></span></div>
+        <!--
+          「보험」 줄을 여기서 뺐다(2026-08-10) — 04 자동차 보험 「보험 조건」이
+          「보험료 포함 (월 대여료에 포함)」으로 같은 말을 이미 하고 있었다.
+          같은 사실을 두 곳에 두면 한쪽만 고쳤을 때 계약서가 스스로 어긋난다.
+          구독처럼 보험료가 별도인 상품도 04 가 「임차인 직접 가입 · 별도」로 말한다.
+          여기 남는 것은 월 대여료 옆의 «보험료 제외» 꼬리표뿐이다(요금 구성 표시).
+        -->
         <div class="k">보증금</div><div class="v strong"><span data-field="deposit_amount">0</span> 원</div>
         <div class="k">대여 기간</div><div class="v" data-field="rent_month">00 개월</div>
-        <div class="k">결제 주기</div><div class="v" data-field="payment_cycle">월 1회</div>
+        <!-- 기간은 시작·종료를 한 줄에서 봐야 길이가 읽힌다. -->
         <div class="k">계약 시작일</div><div class="v" data-field="contract_start">2026. 00. 00.</div>
         <div class="k">계약 종료일</div><div class="v" data-field="contract_end">2026. 00. 00.</div>
+        <!-- 옵션과 금액도 짝이다 — 떨어지면 「인수하면 얼마인지」가 안 보인다. -->
         <div class="k">만기 인수옵션</div><div class="v" data-field="buyback_option">만기 협의</div>
         <div class="k">인수 가격</div><div class="v" data-field="buyback_price">-</div>
+        <!-- 결제 주기는 정책값이라 아래 「약정·부가 조건」으로 내렸다. -->
       </div>
 
       <div class="subhead"><span class="sh-ic"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 3.5h6V6H9z"/><path d="M8.5 12.5l1.5 1.5 2.5-3"/></svg></span>약정 · 부가 조건 <span class="shtag">준수사항</span></div>
@@ -390,14 +440,13 @@
         <div class="v span2" style="grid-column:span 3">GPS <span data-field="gps_installed">장착</span> · 하이패스 <span data-field="hipass_included">제공</span> · 블랙박스 <span data-field="blackbox_included">제공</span> · 스페어키 <span data-field="spare_key_count">1</span>개</div>
       </div>
 
-      <div class="callout">차량 식별은 <b>자동차등록증상 차량번호·차대번호</b> 기준이며, 옵션·사양·색상의 단순 오기는 계약 취소 사유로 인정되지 않습니다. (약관 제1조·제6조)</div>
     </div>
   </div>
   <div class="pagefoot"><span class="pf-co" data-field="company_name">주식회사 손오공렌터카</span><span>자동차 렌탈 계약서 · <span class="num">2</span></span></div>
 </section>
 
 <!-- ============== PAGE 3 · 운전자 / 자동차 보험 ============== -->
-<section class="page">
+<section class="page page-dense">
   <div class="pbody">
     <div class="rhead">
       <div class="rh-doc" data-field="doc_title">자동차 렌탈 계약서</div>
@@ -406,7 +455,7 @@
 
     <!-- 04 자동차 보험 (보장 + 사고처리) -->
     <div class="section">
-      <div class="sec-h"><div class="no">04</div><div class="t">자동차 보험</div><div class="sub">대인 · 대물 · 자차 · 사고처리</div></div>
+      <div class="sec-h"><div class="no">04</div><div class="t">자동차 보험</div></div>
       <div class="kv">
         <div class="k">보험 조건</div><div class="v strong span2" data-field="insurance_condition">보험료 포함 (월 대여료에 포함)</div>
         <div class="k">보험 적용 대상</div><div class="v span2">「08 운전자」에 등록된 운전자(계약자 본인·추가 운전자)에 한함 · 유효 면허 소지</div>
@@ -415,11 +464,21 @@
       <!-- 포함형 : 회사(영업용) 자동차보험 -->
       <div data-ins="inc">
         <div class="kv" style="margin-top:0;border-top:none">
-          <div class="k">보험사</div><div class="v strong" data-field="insurer_name">렌터카공제조합</div>
-          <div class="k">사고 접수</div><div class="v strong" data-field="insurer_phone">1661-7977</div>
-          <div class="k">추가 면책금</div><div class="v span2" data-field="extra_deductibles">해당 없음 <span style="color:var(--mute);font-weight:500">(단독사고·휠/타이어·연령 등 사유 발생 시 항목별 부과)</span></div>
+          <!--
+            보험사명은 «계약의 급부 증거»라 남긴다 — 회사가 보험을 든다는 것이 계약 내용이고,
+            약관의 자차 보상한도가 「렌터카 공제조합 또는 손해보험사 시세」를 기준으로 삼는다.
+            시점을 붙여 적으면 3년 뒤에도 참인 «그날의 사실»이 된다.
+
+            반면 사고접수 번호는 «연락처»다. 계약 내용이 아니고, 바뀌면 그냥 틀린 번호다.
+            손님이 사고 순간에 계약서를 보고 안 걸리는 번호로 거는 것이 더 나쁘다.
+            → 번호는 빼고, 안 바뀌는 회사 대표번호로 연결한다(2026-08-10 판단).
+
+            추가 면책금은 아래 「자차 처리」 면책금 안내로 내렸다 — 면책금 이야기가 한자리에 있어야 한다.
+          -->
+          <div class="k">보험사</div><div class="v span2"><span data-field="insurer_name">렌터카공제조합</span> <span style="color:var(--mute);font-weight:500">(체결일 기준)</span></div>
+          <div class="k">사고 접수</div><div class="v span2"><b>계약조회</b>에서 확인 <span style="color:var(--mute);font-weight:500">· 회사 대표번호 <span data-field="company_phone">1544-3871</span></span></div>
         </div>
-        <div class="note" style="margin-bottom:2.5mm">※ 보험사·사고접수 연락처는 <b>체결일 기준</b>이며 매년 갱신 시 변경될 수 있습니다. 변경 시 서면·문자로 통지하며, <b>현재 정보는 계약조회에서 확인</b>할 수 있습니다.</div>
+        <div class="note" style="margin-bottom:2.5mm">※ 보험사는 <b>체결일 기준</b>이며 매년 갱신 시 변경될 수 있습니다. 변경 시 서면·문자로 통지하며, <b>현재 보험사·사고접수 연락처는 계약조회에서 확인</b>할 수 있습니다.</div>
         <table class="tbl">
           <thead><tr><th style="width:14%"></th><th class="c">대인배상 Ⅰ·Ⅱ</th><th class="c">대물배상</th><th class="c">자기신체사고</th><th class="c">무보험차상해</th><th class="c">자기차량손해</th><th class="c">긴급출동</th></tr></thead>
           <tbody>
@@ -438,7 +497,7 @@
               <td class="c" data-field="deductible_liability_property">30만원</td>
               <td class="c" style="color:var(--mute)">없음</td>
               <td class="c" style="color:var(--mute)">없음</td>
-              <td class="c">수리비 <span data-field="self_damage_deductible_rate">20</span>%</td>
+              <td class="c">아래 자차 기준</td>
               <td class="c" style="color:var(--mute)">없음</td>
             </tr>
           </tbody>
@@ -470,22 +529,41 @@
       <!-- 자차 (자기차량손해) — 회원사·상품별 상이 -->
       <div class="subhead" style="margin-top:5mm"><span class="sh-ic"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.4 7.7-8 9-4.6-1.3-8-4.5-8-9V6z"/><path d="M9.5 12l1.8 1.8 3.2-3.6"/></svg></span>자차 (자기차량손해) 처리 <span class="shtag">회원사·상품별 상이</span></div>
       <div class="kv">
-        <div class="k">자차 면책금</div><div class="v span2">수리비의 <b><span data-field="self_damage_deductible_rate">20</span>%</b> <span style="color:var(--mute)">(<span data-field="self_damage_deductible_min">50만</span>~<span data-field="self_damage_deductible_max">100만</span>원)</span> · 면책금 미납 시 보험 접수 취소·미처리 → <b>수리비 전액 임차인 부담</b></div>
+        <!--
+          표 칸에는 «금액»만 둔다. 「미납하면 어떻게 되는가」는 조건이지 값이 아니라,
+          같은 칸에 이으면 두 줄로 늘어지고 눈이 금액을 못 찾는다.
+          → 조건은 표 아래 안내로 내렸다(2026-08-10).
+        -->
+        <div class="k">자차 면책금</div><div class="v span2">수리비의 <b><span data-field="self_damage_deductible_rate">20</span>%</b> <span style="color:var(--mute)">(<span data-field="self_damage_deductible_min">50만</span>~<span data-field="self_damage_deductible_max">100만</span>원)</span></div>
+        <div class="k">추가 면책금</div><div class="v span2" data-field="extra_deductibles">해당 없음 <span style="color:var(--mute);font-weight:500">(단독사고·휠/타이어·연령 등 사유 발생 시 항목별 부과)</span></div>
         <div class="k">중과실 사고</div><div class="v span2"><span data-ins="inc">자차 면책금 외 <b>수리비 20% 추가 부담</b></span><span data-ins="sep" style="display:none">개인보험 처리 결과와 무관하게 <b>총 수리비 60%를 회사에 추가 배상</b> (12대 중과실 포함)</span> · 폐차 시 동급 차량 계약 유지 (임대인 판단)</div>
         <div class="k">자차 처리 제외</div><div class="v span2" data-field="self_damage_exclusions"><b>단독사고 · 가해자 불명(보유불명) 사고</b> · 휠/타이어 단독 손상 · 전손 · 고의·관리 소홀 등 — 가입 공제·보험 상품 및 회원사 정책에 따라 자차 처리가 제한·제외될 수 있습니다.</div>
       </div>
+      <!-- 면책금을 «안 내면» 벌어지는 일 — 금액 옆이 아니라 표 아래에서 한 번에 말한다. -->
+      <div class="note">※ <b>면책금 미납 시 보험 접수가 취소·미처리</b>되어 <b>수리비 전액을 임차인이 부담</b>합니다.</div>
       <div class="note">※ <b>자차(자기차량손해)의 면책·처리 제외 기준은 회원사(가입 공제·보험 상품)별로 상이</b>합니다. 위 「자차 처리 제외」 기재가 우선하며, 적용 기준은 계약 시 별도 안내합니다.</div>
 
       <!-- 사고 처리 · 대차 (공통) -->
       <div class="subhead" style="margin-top:5mm"><span class="sh-ic"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 1-5.4 5.4L5 16l3 3 4.3-4.3a4 4 0 0 1 5.4-5.4z"/></svg></span>사고 처리 · 대차</div>
       <div class="kv">
         <div class="k">사고 수리 입고</div><div class="v span2"><b>임대인 지정 협력 정비공장 입고</b> · 임의 수리 시 전액 임차인 부담 (보험 처리 불가)</div>
+        <!--
+          약관 제11조②10호가 «계약서에 정한 사고 누적 해지 횟수»를 그대로 참조한다.
+          이 칸이 비면 그 호는 적용되지 않는다 — 없는 기준으로 해지할 수 없다.
+          차를 잃는 조건이므로 약관 8천 자에 묻어 두지 않고 계약서에 숫자로 세운다.
+        -->
+        <div class="k">1년 이내 사고 누적</div><div class="v span2" data-field="accident_termination_count">-</div>
         <div class="k">사고 대차</div><div class="v span2"><b>가입자 한정</b> · 8시간 이상 수리로 운행 불가 시 동급 차량 1영업일 이내 제공 <span style="color:var(--mute)">(불가 시 수리기간 대여료 차감)</span> · 임대인·지정 협력사 차량만 이용(외부 렌터카 임의 이용 시 대차료 청구 제한) · <span data-field="replacement_car_policy">미가입 시 미제공</span></div>
       </div>
 
       <div class="subhead" style="margin-top:5mm"><span class="sh-ic"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9.5 16.5H2.5z"/><path d="M12 10v4M12 17.5h.01"/></svg></span>사고 발생 시 처리 <span class="shtag">필수 절차</span></div>
       <div class="acc-steps">
-        <div><b>1</b><span><strong>경찰(112)·보험사(<span data-field="insurer_phone">1661-7977</span>)·회사에 즉시 신고</strong>하고 <strong>접수번호·경찰 사고사실확인원</strong>을 확보합니다. <span style="color:var(--mute)">— 보험 처리의 필수 요건</span></span></div>
+        <!--
+          사고 순간에 보는 줄이다. 보험사 번호는 «매년 바뀌므로» 여기에 박지 않는다
+          (박아 두면 몇 년 뒤 끊긴 번호를 손님이 사고 현장에서 누른다).
+          안 바뀌는 회사 대표번호만 남기고, 보험사는 회사가 연결한다.
+        -->
+        <div><b>1</b><span><strong>경찰(112)·회사(<span data-field="company_phone">1544-3871</span>)에 즉시 신고</strong>하고 <strong>접수번호·경찰 사고사실확인원</strong>을 확보합니다. <span style="color:var(--mute)">— 보험 처리의 필수 요건 · 보험사 접수는 회사가 진행합니다</span></span></div>
         <div><b>2</b><span>현장 사진·블랙박스 영상·상대방 정보 등 <span class="mark">객관적 증거를 보존</span>하고, 현장 <strong>자체 합의를 금지</strong>합니다.</span></div>
         <div><b>3</b><span><strong>회사 지정 협력 정비공장에 입고</strong>합니다. 임의 수리·외부 입고 시 보험 처리가 불가합니다.</span></div>
         <div><b>4</b><span>자차 면책금을 납부하고 보험을 접수·정산하며, 정산 후 차량을 인수합니다.</span></div>
@@ -500,7 +578,7 @@
 </section>
 
 <!-- ============== PAGE 4 · 정비·A/S / 결제 ============== -->
-<section class="page">
+<section class="page page-dense">
   <div class="pbody">
     <div class="rhead">
       <div class="rh-doc" data-field="doc_title">자동차 렌탈 계약서</div>
@@ -509,7 +587,7 @@
 
     <!-- 06 정비 · A/S -->
     <div class="section">
-      <div class="sec-h"><div class="no">05</div><div class="t">정비 서비스</div><div class="sub">정비 · 수리 · 검사</div></div>
+      <div class="sec-h"><div class="no">05</div><div class="t">정비 서비스</div></div>
       <div class="kv">
         <div class="k">정비 상품</div><div class="v" data-field="maintenance_product">정비 제외</div>
         <div class="k">지정 정비점</div><div class="v" data-field="designated_garage">임대인 지정 또는 사전 합의된 정비점</div>
@@ -526,11 +604,17 @@
     <!-- 07 결제 -->
     <div class="section">
       <div class="sec-h"><div class="no">06</div><div class="t">결제 방법</div></div>
+      <!--
+        「언제·얼마 주기로 내는가」를 맨 위에 둔다. 계좌는 그 다음 문제다.
+        칸 수는 4의 배수로 맞춘다 — 홀수로 끝나면 마지막 줄 테두리가 끊긴다.
+        (예금주는 상호가 길어 span2로 한 줄을 채운다.)
+      -->
       <div class="kv">
+        <div class="k">결제 주기</div><div class="v strong" data-field="payment_cycle">월납</div>
+        <div class="k">자동이체일</div><div class="v" data-field="auto_debit_date">매월 25일</div>
         <div class="k">입금 은행</div><div class="v" data-field="payment_bank">신한은행</div>
         <div class="k">계좌번호</div><div class="v" data-field="payment_account_no">000-000-000000</div>
-        <div class="k">예금주</div><div class="v" data-field="payment_account_holder">주식회사 손오공렌터카</div>
-        <div class="k">자동이체일</div><div class="v" data-field="auto_debit_date">매월 25일</div>
+        <div class="k">예금주</div><div class="v span2" data-field="payment_account_holder">주식회사 손오공렌터카</div>
         <div class="k">지출증빙</div><div class="v" data-field="invoice_type">세금계산서</div>
         <div class="k">발행 주기</div><div class="v" data-field="invoice_cycle">월 1회</div>
       </div>
@@ -559,7 +643,7 @@
           <td class="strong" style="font-weight:700" data-field="deposit_total">0 원</td>
         </tr></tbody>
       </table>
-      <div class="note">자동이체일(<span data-field="auto_debit_date_inline">매월 25일</span>)에 청구되며, 보증금 분납분 미납 시 약관 제4조·제11조에 따라 시동제어·계약해지 사유가 됩니다.</div>
+      <div class="note">위 자동이체일에 청구되며, 보증금 분납분 미납 시 약관 제4조·제11조에 따라 시동제어·계약해지 사유가 됩니다.</div>
 
       <div class="subhead" style="margin-top:5mm"><span class="sh-ic"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 11h2M12 11h2M16 11h.01M8 15h2M12 15h2M16 15v2"/></svg></span>정산 · 관리 기준 <span class="shtag">약관 적용 기준</span></div>
       <div class="kv">
@@ -572,7 +656,11 @@
       </div>
     </div>
 
-    <div class="note" style="margin-top:5mm">정비·결제 세부는 위와 같으며, 추가 수리·보증 조건 및 개별 합의 사항은 다음 「특약」에 따릅니다.</div>
+    <!--
+      「다음 특약에 따릅니다」는 이 결제 표를 설명하는 말이 아니라
+      **다음 장으로 넘기는 이음말**이었다. 표 바로 밑에 두니 표를 수식하는 것으로 읽혀
+      어정쩡했다 → 07 특약 섹션 머리로 옮겼다(2026-08-10).
+    -->
   </div>
   <div class="pagefoot"><span class="pf-co" data-field="company_name">주식회사 손오공렌터카</span><span>자동차 렌탈 계약서 · <span class="num">4</span></span></div>
 </section>
@@ -587,9 +675,12 @@
 
     <!-- 특약 사항 (개별 합의 · 약관 우선) -->
     <div class="section">
-      <div class="sec-h"><div class="no">07</div><div class="t">특약 사항</div><div class="sub">개별 합의 · 약관·계약조건에 우선</div></div>
+      <div class="sec-h"><div class="no">07</div><div class="t">특약 사항</div></div>
+      <!-- 앞 장(06 결제)에서 넘어온 이음말 — 여기가 받는 자리다. -->
+      <div class="note" style="margin-bottom:2.5mm">정비·결제 세부는 앞 항목과 같으며, 추가 수리·보증 조건 및 개별 합의 사항은 아래 특약에 따릅니다.</div>
       <div class="kv">
         <div class="k">특약 사항</div>
+        <!-- 표준 보험·장비·운전자·정비값을 반복하는 칸이 아니다. 위 조건의 예외나 추가 합의만 기록한다. -->
         <div class="v" data-field="special_terms" style="grid-column:span 3;min-height:42mm;align-items:flex-start">-</div>
       </div>
       <div class="note">※ 본 특약은 약관 및 위 계약 조건에 우선하여 적용되며, 기재가 없을 경우 「없음」으로 봅니다. 양 당사자가 합의한 사항만 효력이 있습니다.</div>
@@ -597,12 +688,17 @@
 
     <!-- 08 운전자 -->
     <div class="section" style="margin-top:7mm">
-      <div class="sec-h"><div class="no">08</div><div class="t">운전자</div><div class="sub">등록자만 보험 적용</div></div>
+      <div class="sec-h"><div class="no">08</div><div class="t">운전자</div></div>
       <div class="kv">
         <div class="k">운전자 연령</div><div class="v strong" data-field="driver_age">만 26세 이상</div>
         <div class="k">운전 가능 범위</div><div class="v" data-field="driver_scope">계약자 본인 · 추가 운전자</div>
       </div>
-      <div class="subhead" style="margin-top:4mm"><span class="sh-ic"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c0-3.3 2.8-5 5.5-5 1.2 0 2.3.3 3.2.9"/><path d="M17 8v6M14 11h6"/></svg></span>추가 운전자 <span class="shtag">해당 시 등록</span></div>
+      <div class="subhead" style="margin-top:4mm"><span class="sh-ic"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c0-3.3 2.8-5 5.5-5 1.2 0 2.3.3 3.2.9"/><path d="M17 8v6M14 11h6"/></svg></span>추가 운전자 <span data-empty="driver" style="display:none;font-weight:600;color:var(--mute)">(없음)</span></div>
+      <!--
+        추가운전자·연대보증인은 «없으면 없는 상태로 계약된 것»이다(2026-08-10 사장님).
+        빈 표를 두면 「아직 안 적은 칸」으로 읽히므로, 없을 때는 표를 접고 「(없음)」만 남긴다.
+        나중에 추가하려면 그때 전자계약으로 기존 계약에 «덧붙여» 나간다.
+      -->
       <table class="tbl" data-list="additional_drivers" data-max-slots="3">
         <thead><tr><th class="c" style="width:8%">No</th><th style="width:20%">성명</th><th style="width:22%">주민번호</th><th style="width:14%">관계</th><th style="width:22%">면허번호</th><th>연락처</th></tr></thead>
         <tbody>
@@ -616,8 +712,8 @@
 
     <!-- 09 연대보증인 (맨 마지막) -->
     <div class="section" style="margin-top:7mm">
-      <div class="sec-h"><div class="no">09</div><div class="t">연대보증인</div><div class="sub">해당 시 작성</div></div>
-      <div class="kv">
+      <div class="sec-h"><div class="no">09</div><div class="t">연대보증인</div><span data-empty="guarantor" style="display:none;font-size:10px;font-weight:600;color:var(--mute);margin-left:6px">(없음)</span></div>
+      <div class="kv" data-hide-when-empty="guarantor">
         <div class="k">성명</div><div class="v strong" data-field="guarantor_name">-</div>
         <div class="k">주민등록번호</div><div class="v" data-field="guarantor_rrn">-</div>
         <div class="k">관계</div><div class="v" data-field="guarantor_relation">-</div>
@@ -625,7 +721,7 @@
         <div class="k">직업</div><div class="v span2" data-field="guarantor_occupation">-</div>
         <div class="k">주소</div><div class="v span2" data-field="guarantor_address">-</div>
       </div>
-      <div class="note">※ 연대보증인은 본 계약에 따른 임차인의 채무를 임차인과 연대하여 책임을 부담합니다. 보증한도·보증기간·책임 범위는 별첨 연대보증 확약서에 따릅니다. (약관 제20조)</div>
+      <div class="note" data-hide-when-empty="guarantor">※ 연대보증인은 본 계약에 따른 임차인의 채무를 임차인과 연대하여 책임을 부담합니다. 보증한도·보증기간·책임 범위는 별첨 연대보증 확약서에 따릅니다. (약관 제20조)</div>
     </div>
 
     <div class="note" style="margin-top:7mm">본인은 위 「대여 조건·보험·정비·특약」 주요사항을 확인하였으며, 약관 전문 및 동의·전자서명 페이지로 이어집니다.</div>
@@ -661,6 +757,7 @@
   <p>① 임차인은 계약서에 정한 보증금을 회사에 지급하여야 하며, 보증금은 본 계약상 채무를 담보하기 위한 금원으로 회사는 이에 대한 이자를 지급하지 아니한다. 보증금 분납 조건이 있는 경우 임차인은 계약서에 정한 기일에 각 회차 보증금을 납부하여야 하며, 보증금 미납은 대여료 연체와 동일한 계약위반으로 본다.</p>
   <p>② 회사는 임차인의 미납 대여료, 지연손해금, 과태료·통행료·범칙금, 하이패스 미납금, 사고비, 면책금, 자기부담금, 원상회복비, 차량회수비, 탁송·견인비, 보관료, 정비비, 법적조치비용 등 임차인이 부담할 금원을 보증금에서 우선 공제할 수 있다.</p>
   <p>③ 보증금은 계약 종료 후 차량 반환, 미납금 정산, 사고 여부 및 과태료·통행료·범칙금 조회, 차량상태 확인이 완료된 후 계약서에 정한 기한 내에 반환한다. 종료 후에도 추후 확인되는 금원이 있는 경우 회사는 그 예상금액 범위에서 반환을 유보하거나 반환 후 별도로 청구할 수 있다.</p>
+  <p>④ 보증금 외에 선납금·보증보험증권 등 다른 담보를 제공하기로 별도 합의한 경우 담보의 종류·금액·정산·반환 조건은 계약서 또는 별도 서면합의에 따른다.</p>
 
   <p class="t-art">제5조 (운전자격 및 운전자 범위)</p>
   <p>① 차량은 계약서에 기재된 운전자 또는 회사가 사전에 승인한 운전자만 운전할 수 있다.</p>
@@ -681,7 +778,9 @@
   <p>② 임차인의 점검 소홀, 경고등 무시, 무리한 운행, 침수지역 운행, 오일 부족·타이어 공기압 부족 운행 등으로 발생한 고장 또는 손해는 임차인이 부담한다.</p>
   <p>③ 정비서비스 가입 여부와 제공 범위는 계약서에 따르며, 미가입 시 법정검사와 회사가 부담하기로 명시한 항목을 제외한 일반정비·소모품 교체·경정비·타이어·배터리·브레이크·와이퍼·오일류 등 차량 유지비용은 임차인이 부담한다.</p>
   <p>④ 정비·수리는 회사가 승인한 지정 정비점 또는 회사가 인정한 정비업체에서 받아야 하며, 임차인이 회사의 승인 없이 임의로 정비·수리한 비용은 임차인이 부담하고(사전 승인분 제외) 부적절한 수리로 인한 추가 손해도 임차인이 부담한다. 임차인의 관리소홀·사고·침수·부주의·튜닝·임의개조·경고등 무시·운행 지속 등으로 발생한 고장이나 손해는 정비서비스 대상에서 제외된다.</p>
-  <p>⑤ 임차인은 차량을 회사의 소유권·차량회수권 또는 본 계약상 권리를 침해하는 방식으로 사용·보관·점유하여서는 아니 되며, 구체적인 금지행위는 제8조에 따른다.</p>
+  <p>⑤ 임차인은 법정검사, 정비 및 재검사를 위하여 회사가 안내한 일시에 차량을 제공하고 필요한 시간과 절차에 협조하여야 한다. 임차인의 사정이나 귀책사유로 검사를 받지 못하여 발생한 비용·과태료·손해는 임차인이 부담한다.</p>
+  <p>⑥ 운행 중 긴급한 사정으로 자체 수리가 필요한 경우 임차인은 회사의 사전승인을 받아 처리할 수 있다. 회사가 승인한 수리비는 증빙 확인 후 계약서 또는 별도 합의에 따라 정산하며, 승인 없는 수리비는 임차인이 부담한다.</p>
+  <p>⑦ 임차인은 차량을 회사의 소유권·차량회수권 또는 본 계약상 권리를 침해하는 방식으로 사용·보관·점유하여서는 아니 되며, 구체적인 금지행위는 제8조에 따른다.</p>
 
   <p class="t-art">제8조 (금지행위)</p>
   <p>① 임차인은 다음 각 호의 행위를 하여서는 아니 된다.</p>
@@ -738,7 +837,8 @@
   <p class="t-sub">7. 차량을 무단 양도·전대·담보제공·점유이전한 경우</p>
   <p class="t-sub">8. 압류·가압류·강제집행·파산·회생·폐업·지급불능 등 채권보전이 필요한 사유가 발생한 경우</p>
   <p class="t-sub">9. 운전자격 상실, 무면허·음주·고의사고·보험사기 등 중대한 계약위반이 발생한 경우</p>
-  <p class="t-sub">10. 기타 임차인의 귀책사유로 계약을 유지하기 어려운 중대한 사유가 발생한 경우</p>
+  <p class="t-sub">10. 최근 1년 이내에 임차인 또는 계약서에 등록된 운전자의 과실비율 50% 이상 사고가 계약서에 정한 사고 누적 해지 횟수 이상 발생한 경우. 다만 계약서에 해당 횟수가 기재되지 아니한 경우 본 호는 적용하지 아니한다</p>
+  <p class="t-sub">11. 기타 임차인의 귀책사유로 계약을 유지하기 어려운 중대한 사유가 발생한 경우</p>
   <p>③ 회사는 임차인이 본 계약을 위반한 경우 상당한 기간을 정하여 시정을 요구할 수 있으며 그 기간 내 시정되지 아니하면 계약을 해지할 수 있다. 다만 제2항 각 호의 사유가 발생하거나 차량 소유권·채권보전을 위하여 긴급한 필요가 있는 경우 별도의 추가 동의 없이 계약을 해지하거나 차량반환·회수절차를 진행할 수 있다.</p>
   <p>④ 계약이 해지된 경우 임차인은 즉시 차량, 자동차키, 등록증, 지급품, 옵션품, 부속품 일체를 회사가 지정한 장소에 반환하여야 하며, 반환하지 아니하는 경우 회사는 차량관리 조치, 차량회수, 법적조치 및 손해배상 청구를 진행할 수 있다. 차량회수는 회사 직원 또는 회사가 지정한 위탁·탁송·회수업체 등이 진행할 수 있으며 임차인은 이에 협조하여야 한다. 차량회수는 관련 법령이 허용하는 범위 내에서 평온한 방법으로 진행하며, 임차인 또는 제3자의 주거·사업장·관리구역 등에 무단으로 침입하거나 물리력을 행사하는 방식으로 진행하지 아니한다.</p>
   <p>⑤ 본 조의 조치는 계약 체결 당시 계약서 및 핵심 고지사항을 통해 사전 고지된 것으로, 임차인은 이것이 계약위반 시 회사의 차량보호 및 채권보전을 위한 조치임을 확인한다.</p>
@@ -761,6 +861,7 @@
   <p>② 중도해지수수료는 계약서에 별도 정함이 없는 한 잔여 계약기간의 대여료 합계액(부가가치세 제외)에 계약서에 정한 해지수수료율을 곱하여 산정한다. 다만 제11조에 따라 잔여 대여료 상당액을 청구하는 경우에는 본 조의 중도해지수수료를 중복하여 청구하지 아니한다.</p>
   <p>③ 임차인이 회사가 승인하는 신규 임차인을 확보하고 회사의 심사 및 승계절차가 완료된 경우 회사는 중도해지수수료의 전부 또는 일부를 면제할 수 있다. 단, 승계수수료·미납금·사고비·원상회복비·탁송료·기타 정산금은 임차인이 부담한다.</p>
   <p>④ 임차인은 회사의 사전 서면승인 없이 본 계약상 지위, 차량 점유·사용권, 차량 관련 권리·의무를 제3자에게 양도·승계·전대·담보제공 또는 이전할 수 없다. 회사의 승인 없이 차량을 제3자에게 인도·승계한 경우 회사는 계약을 해지할 수 있고, 그로 인한 위약금·차량회수비·사고비·과태료·통행료·보험처리 제한 손해 등은 임차인이 부담한다.</p>
+  <p>⑤ 신차 계약에서 차량 등록 후 인도 전에 임차인의 사정 또는 귀책사유로 계약이 해제·해지되는 경우 임차인은 회사가 본 계약을 위하여 실제 지출한 비용(차량대금·등록비용·취득세·탁송료·보험료 등)과 차량을 재매각·재임대하는 과정에서 발생한 가액 감소분 상당의 손해를 부담한다. 다만 그 합계액은 제2항에 따라 산정한 중도해지수수료를 초과하지 아니한다. 차량 출고 전(제조사 세금계산서 발행 전)에 계약이 해제·해지되는 경우에는 회사가 실제 지출한 비용만을 부담한다.</p>
 
   <p class="t-art">제15조 (초과운행부담금)</p>
   <p>① 계약서에 약정 주행거리가 기재된 경우, 계약 종료·해지 또는 차량반환 시점의 실제 운행거리가 약정 주행거리를 초과하면 임차인은 계약서에 정한 1km당 초과운행료를 기준으로 산정한 초과운행부담금을 부담한다.</p>
@@ -771,12 +872,14 @@
   <p>② 예상 수리비가 차량 장부가액의 계약서에 정한 기준을 초과하거나 수리가 불가능한 경우 본 계약은 해당 사유 발생일로부터 해지될 수 있다.</p>
   <p>③ 임차인의 귀책사유로 차량이 멸실·도난·전손·폐차 또는 수리불능 상태가 된 경우 임차인은 미납 대여료, 중도해지수수료, 면책금, 자기부담금, 보상한도 초과 손해, 사고 당시 차량가액 상당 손해, 회수비용, 행정비용 등 회사가 입은 손해를 배상하여야 한다.</p>
   <p>④ 보험 또는 자차손해면책이 적용되는 경우에도 면책금, 자기부담금, 보험 미보상 손해, 고의·중과실 또는 약관상 면책사유로 인한 손해는 임차인이 부담한다.</p>
+  <p>⑤ 제3항에 따라 임차인이 차량가액 상당액을 배상한 후 도난 차량이 회수된 경우, 회사는 차량 원상복구비, 도난 당시와 회수 당시의 차량가액 차액, 도난신고일부터 회수일까지 발생한 계약상 비용 및 손해를 공제한 잔액을 임차인에게 반환한다.</p>
 
   <p class="t-art">제17조 (만기 차량 인수)</p>
   <p>① 계약서에 확정 인수가격 또는 인수옵션이 기재된 경우 임차인은 대여기간 만료 시 계약서에 정한 기준에 따라 차량 인수를 요청할 수 있다. 다만 계약서에 인수가격이 확정되지 않고 "만기협의"로 기재된 경우, 인수 여부 및 인수가격은 계약만료 시점의 차량상태·시세·미납금·사고이력·회사 기준에 따라 회사와 임차인이 별도로 협의한다.</p>
   <p>② 임차인이 차량을 인수하려는 경우 계약서에 정한 사전통지기한까지 회사에 인수 의사를 통지하여야 하며, 위 기간 내 통지가 없는 경우 인수하지 않는 것으로 본다.</p>
   <p>③ 인수 시 회사는 인수가격에서 반환할 보증금을 상계한 후 잔액을 차량 인수대금으로 청구할 수 있으며, 명의이전 비용·취득세·인수 이후 발생하는 범칙금·과태료·통행료 등은 임차인이 부담한다.</p>
-  <p>④ 임차인이 차량을 인수하는 경우 사고로 인한 시세하락손해를 회사에 청구할 수 없으며, 인수가격은 변경되지 아니한다.</p>
+  <p>④ 차량 인수 및 명의이전은 임차인 본인 또는 임차인이 지정하고 회사가 사전에 승인한 자에 한하여 할 수 있다.</p>
+  <p>⑤ 임차인이 차량을 인수하는 경우 사고로 인한 시세하락손해를 회사에 청구할 수 없으며, 인수가격은 변경되지 아니한다.</p>
 
   <p class="t-art">제18조 (비용부담 및 손해배상)</p>
   <p>① 임차인이 본 계약을 위반하거나 차량의 사용·보관·관리상 고의 또는 과실로 회사 또는 제3자에게 손해를 발생시킨 경우 임차인은 그 손해를 배상하여야 한다. 임차인의 연체·연락두절·차량 미반환·사고 미처리·무단점유 또는 계약위반으로 회사에 비용·손해가 발생한 경우에도 같다.</p>
@@ -784,6 +887,7 @@
   <p>③ 차량 사용 중 발생한 과태료·범칙금·주차료·통행료·하이패스 미납금·견인료·보관료·행정수수료 등은 임차인이 부담하며, 회사가 먼저 청구받거나 대납한 경우 임차인은 청구 즉시 상환한다. 임차인의 주소·연락처·운전자정보 변경으로 고지·납부가 지연되어 발생한 가산금·압류·행정처분·손해도 임차인이 부담한다.</p>
   <p>④ 임차인의 고의·중과실·무면허·음주·약물운전·사고 후 미조치·운전자 범위 위반·차량관리장치 훼손·차량 은닉·무단양도·전대 등 중대한 계약위반으로 발생한 손해는 보험 또는 자차손해면책 여부와 관계없이 임차인이 부담한다.</p>
   <p>⑤ 회사는 위 비용 및 손해를 임차인에게 별도로 청구하거나 보증금·정산금에서 공제할 수 있다.</p>
+  <p>⑥ 동일한 손해에 관하여 본 계약의 여러 조항이 적용되는 경우 회사는 실제 발생한 손해를 초과하여 중복 청구하지 아니한다.</p>
 
   <p class="t-art">제19조 (개인정보 및 신용정보)</p>
   <p>① 회사는 계약 체결, 차량 인도, 운전자격 확인, 대여료 청구·자동이체, 보험·사고 처리, 정비, 과태료 처리, 차량회수, 채권관리, 분쟁대응을 위하여 필요한 범위 내에서 임차인의 개인정보 및 신용정보를 처리할 수 있다.</p>
@@ -797,6 +901,11 @@
   <p>① 본 계약과 관련하여 분쟁이 발생한 경우 회사와 임차인은 우선 협의하여 해결하도록 노력하며, 본 약관에 규정되지 아니한 사항은 공정거래위원회가 고시한 「자동차 대여 표준약관」 및 관계 법령에 따른다.</p>
   <p>② 협의가 이루어지지 아니하는 경우 관련 법령에 따른 관할법원을 제1심 관할법원으로 한다.</p>
   <p>③ 본 계약의 일부 조항이 무효로 판단되더라도 나머지 조항의 효력에는 영향을 미치지 아니한다.</p>
+
+  <p class="t-art">제22조 (계약의 효력·변경 및 보관)</p>
+  <p>① 본 계약은 양 당사자가 서명·기명날인 또는 전자서명을 완료한 날부터 효력이 발생한다.</p>
+  <p>② 계약의 변경·갱신 또는 추가약정은 서면이나 전자문서로 합의하고 양 당사자가 확인한 경우 본 계약의 일부가 된다.</p>
+  <p>③ 전자계약으로 체결한 경우 회사는 서명 완료된 계약서와 부속서류가 포함된 동일한 전자문서(PDF)를 임차인에게 교부하며, 양 당사자는 이를 각자 보관한다.</p>
 </div>
 <span data-field="terms_title" style="display:none">자동차 렌탈(대여) 약관 · 개인 · 개인사업자용</span>
 <div id="termsPages"></div>
@@ -806,7 +915,7 @@
   <div class="pbody">
     <div class="rhead"><div class="rh-doc" data-field="doc_title">자동차 렌탈 계약서</div><div class="rh-meta">동의 및 전자서명</div></div>
     <div class="section">
-      <div class="sec-h"><div class="no">10</div><div class="t">동의 및 확인 사항</div><div class="sub">전자서명 전 확인</div></div>
+      <div class="sec-h"><div class="no">10</div><div class="t">동의 및 확인 사항</div></div>
       <label class="agree-all"><input type="checkbox" id="agreeAll"><span>아래 항목을 모두 확인하고 동의합니다 (전체 동의)</span></label>
       <div class="agree-list">
         <label class="agree-item"><input type="checkbox" class="agchk"><span>본인은 <b>대여 조건·보험·정비 주요사항</b>을 확인하였으며, 특히 <b>사고 시 보험 미적용 사유와 그 경우 손해 전액을 임차인이 부담</b>한다는 조건에 동의합니다.</span></label>
@@ -1058,7 +1167,7 @@
     <div class="callout">회사(<span data-field="company_name">주식회사 손오공렌터카</span>)는 자동차 임대차계약의 체결·유지 및 연체 관리를 위하여 「신용정보의 이용 및 보호에 관한 법률」 제32조·제33조·제34조에 따라 아래 각 항목별로 귀하의 개인신용정보 동의를 받습니다.</div>
 
     <div class="section">
-      <div class="sec-h"><div class="no"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h14v16H5z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg></div><div class="t">① 개인신용정보 수집·이용 동의</div><div class="sub">필수</div></div>
+      <div class="sec-h"><div class="no"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h14v16H5z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg></div><div class="t">① 개인신용정보 수집·이용 동의</div></div>
       <div class="kv">
         <div class="k">수집 항목</div><div class="v span2">성명·주민등록번호 등 식별정보, 신용도·신용거래능력 판단정보, 연체·채무 정보</div>
         <div class="k">이용 목적</div><div class="v span2">계약 체결 여부 판단, 한도·조건 결정, 계약 유지·연체 관리, 채권 회수</div>
@@ -1068,7 +1177,7 @@
     </div>
 
     <div class="section">
-      <div class="sec-h"><div class="no"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h6m4 0h6M9 7l-5 5 5 5M15 7l5 5-5 5"/></svg></div><div class="t">② 개인신용정보 제공·조회 동의</div><div class="sub">필수</div></div>
+      <div class="sec-h"><div class="no"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h6m4 0h6M9 7l-5 5 5 5M15 7l5 5-5 5"/></svg></div><div class="t">② 개인신용정보 제공·조회 동의</div></div>
       <div class="kv">
         <div class="k">제공·조회 대상</div><div class="v span2">종합신용정보집중기관(한국신용정보원), 신용조회회사(CB), 금융기관, 렌터카공제조합</div>
         <div class="k">제공·조회 항목</div><div class="v span2">성명·주민등록번호 등 식별정보, 신용도·신용거래능력 판단정보, 연체·채무 정보</div>
@@ -1256,12 +1365,20 @@
     while(idx<items.length){
       var node=items[idx].cloneNode(true);
       cols[ci].appendChild(node);
+      /* 조문 제목은 적어도 첫 문단과 같은 컬럼에 둔다. 제목만 하단에 남는 고아 제목 방지. */
+      var probe=null;
+      if(items[idx].classList.contains('t-art') && items[idx+1]){
+        probe=items[idx+1].cloneNode(true);
+        cols[ci].appendChild(probe);
+      }
       if(colFull(cols[ci], page)){
+        if(probe) cols[ci].removeChild(probe);
         cols[ci].removeChild(node);
         if(ci===0){ ci=1; }
         else { page=newPage(); cols=[page.querySelector('.tcL'), page.querySelector('.tcR')]; ci=0; }
         continue;
       }
+      if(probe) cols[ci].removeChild(probe);
       idx++;
     }
     out.innerHTML='';                                   /* 완성 후 한 번에 교체(빈 화면 없이) */
@@ -1319,7 +1436,26 @@
   var defaults={}, DATA={};
   function captureDefaults(){ document.querySelectorAll('[data-field]').forEach(function(e){ var k=e.dataset.field; if(!(k in defaults)) defaults[k]=e.textContent; }); }
   function setDom(k,v){ document.querySelectorAll('[data-field="'+k+'"]').forEach(function(e){ e.textContent=v; }); }
-  function applyField(k){ var v=DATA[k]; setDom(k,(v!=null&&v!=='')?v:(defaults[k]||'')); }
+  /*
+   * ⚠ 봉인본에서는 «값이 안 온 칸»에 예시값을 넣지 않는다.
+   *   서식에 박힌 기본값은 빈 화면을 보기 좋게 하려고 넣어둔 예시다.
+   *   그대로 인쇄되면 서명된 계약서에 「주식회사 손오공렌터카 / 조규진 /
+   *   010-0000-0000 / 2026. 00. 00.」 같은 남의 회사·가짜 값이 찍힌다.
+   *   법적으로 쓰는 문서에서 빈칸은 흠이지만, 가짜 값은 사고다.
+   *
+   *   단, 「고정·표기」 칸(문서 제목·라벨 등 인쇄 문구)은 값이 아니므로 그대로 둔다.
+   *   어느 칸이 값인지는 서버가 `__SEALED__.blankable` 로 알려준다.
+   */
+  function blankInSealed(k){
+    if(!SEALED) return false;
+    var list = (window.__SEALED__ && window.__SEALED__.blankable) || null;
+    return list ? list.indexOf(k) !== -1 : true;
+  }
+  function applyField(k){
+    var v=DATA[k];
+    if(v!=null&&v!==''){ setDom(k,v); return; }
+    setDom(k, blankInSealed(k) ? '' : (defaults[k]||''));
+  }
   function setField(k,v){ DATA[k]=v; applyField(k); saveDraft(); }
 
   /* ── 직인(도장) / 서명 렌더 ── 회사 직인: 이미지(company_seal) 우선, 없으면 자동 전자직인 */
@@ -1343,8 +1479,16 @@
   var LSKEY='jpk_rental_contract_draft';
   var INIT_STATE={co:'sonogong', pd:'렌트선택형', ins:'포함', ct:'개인', car:'등록완료', tax:'개인'};
   var _saveT;
-  function saveDraft(){ clearTimeout(_saveT); _saveT=setTimeout(function(){ try{ localStorage.setItem(LSKEY, JSON.stringify({s:state,d:DATA})); }catch(e){} },120); }
-  function loadDraft(){ try{ var r=localStorage.getItem(LSKEY); if(!r) return; var o=JSON.parse(r); if(o.s) Object.keys(o.s).forEach(function(k){ if(k in state) state[k]=o.s[k]; }); if(o.d){ DATA=o.d; Object.keys(DATA).forEach(applyField); } }catch(e){} }
+  /*
+   * ⚠ 봉인본(SEALED)에서는 localStorage 를 «읽지도 쓰지도» 않는다.
+   *   - 읽으면: 이 기기에서 전에 작성하던 «다른 계약»의 초안이 섞여 들어와
+   *             서명된 문서에 남의 값이 찍힌다. 봉인 해시와도 어긋난다.
+   *   - 쓰면:   손님 기기 localStorage 에 이름·주민번호·계좌가 평문으로 남는다.
+   * 봉인본은 서버가 준 값만 그린다.
+   */
+  var SEALED = !!window.__SEALED__;
+  function saveDraft(){ if(SEALED) return; clearTimeout(_saveT); _saveT=setTimeout(function(){ try{ localStorage.setItem(LSKEY, JSON.stringify({s:state,d:DATA})); }catch(e){} },120); }
+  function loadDraft(){ if(SEALED) return; try{ var r=localStorage.getItem(LSKEY); if(!r) return; var o=JSON.parse(r); if(o.s) Object.keys(o.s).forEach(function(k){ if(k in state) state[k]=o.s[k]; }); if(o.d){ DATA=o.d; Object.keys(DATA).forEach(applyField); } }catch(e){} }
   function syncAllForm(){
     SELECTS.forEach(function(s){ var sel=document.getElementById('sel_'+s.k); if(sel) sel.value=state[s.k]; });
     document.querySelectorAll('#bdGroups input[data-k]').forEach(function(inp){ var k=inp.getAttribute('data-k'); inp.value=(k in DATA)?DATA[k]:''; });
@@ -1358,8 +1502,14 @@
   }
 
   function render(){
-    /* 회사 — 'auto'(ERP 공급사 연동)면 주입된 company_* 유지, 프리셋이면 적용 */
-    if(state.co==='auto'){
+    /*
+     * ⚠ 봉인본은 «주입된 회사»만 쓴다.
+     *   프리셋(state.co)은 단독 실행용 하네스의 편의 기능인데, 기본값이 'sonogong' 이라
+     *   그대로 두면 서버가 넣어준 회사명·대표자를 덮어써 **계약서에 남의 회사가 찍힌다**.
+     *   실제로 「제이피케이모빌리티 ㈜」를 넣었는데 「주식회사 손오공렌터카 / 조규진」이 인쇄됐다.
+     *   봉인본에서는 프리셋을 쓰지 않고 'auto'(주입값 유지)와 같은 길로 간다.
+     */
+    if(SEALED || state.co==='auto'){
       var img0=document.querySelector('.co-logo');
       if(img0){ if(DATA.company_logo){ img0.src=DATA.company_logo; img0.style.display=''; } else img0.style.display='none'; }
       document.querySelectorAll('.co-name .co-t').forEach(function(n){ n.style.display = DATA.company_logo?'none':''; });
@@ -1377,7 +1527,6 @@
       if(c.driverScope && !DATA.driver_scope) setDom('driver_scope', c.driverScope);
       if(c.depositInstallment && !DATA.deposit_installment) setDom('deposit_installment', c.depositInstallment);
       if(c.insurerName && !DATA.insurer_name) setDom('insurer_name', c.insurerName);
-      if(c.insurerPhone && !DATA.insurer_phone) setDom('insurer_phone', c.insurerPhone);
     }
     applySeals();
 
@@ -1399,7 +1548,7 @@
       ageSel.value=want; setField('driver_age', want);
     }
 
-    /* 보험 조건 (구독만 포함/별도, 렌트는 포함 고정) */
+    /* 보험 조건의 표시 SSOT는 「04 자동차 보험」. 대여조건에는 개인보험형일 때 월 대여료의 "보험료 제외" 한정만 표시한다. */
     var insTxt = !p.sub ? '보험료 포함 (월 대여료에 포함)'
       : (state.ins==='포함' ? '보험료 포함형 (월 구독료에 포함)' : '개인보험형 (임차인이 본인 명의로 직접 가입)');
     setDom('insurance_condition', insTxt);
@@ -1455,7 +1604,7 @@
     {t:'계약자', f:[['customer_name','성명/법인명'],['customer_id','주민/법인등록번호'],['driver_or_biz_no','면허/사업자번호'],['customer_phone','연락처'],['customer_email','이메일'],['customer_address','주소',2],['emergency_contact','비상 연락처',2]]},
     {t:'세금계산서 발행처', f:[['tax_issue_type','발행 구분'],['tax_biz_name','상호'],['tax_biz_no','사업자등록번호'],['tax_ceo','대표자'],['tax_biz_type_item','업태/종목'],['tax_email','세금계산서 이메일'],['tax_biz_address','사업장 주소']]},
     {t:'대여 차량', f:[['car_number','차량번호'],['vin','차대번호'],['vehicle_name','차명(전체) ★필수',2],['options','선택 옵션',2],['color_exterior','외장 색상'],['color_interior','내장 색상'],['model_year','연식'],['odometer_delivery','인도 주행거리'],['fuel','연료'],['vehicle_price','차량 가격']]},
-    {t:'대여 조건', f:[['rent_month','대여기간'],['contract_start','시작일'],['contract_end','종료일'],['rent_amount','월 대여료'],['deposit_amount','보증금'],['deposit_installment','보증금 분납'],['driver_age','운전자 연령'],['driver_scope','운전 가능 범위'],['buyback_price','만기 인수가'],['special_terms','특약사항',2]]},
+    {t:'대여 조건', f:[['rent_month','대여기간'],['contract_start','시작일'],['contract_end','종료일'],['rent_amount','월 대여료'],['deposit_amount','보증금'],['deposit_installment','보증금 분납'],['driver_age','운전자 연령'],['driver_scope','운전 가능 범위'],['buyback_price','만기 인수가'],['special_terms','특약사항 (예외·추가 합의만)',2]]},
     {t:'연대보증인 (선택)', f:[['guarantor_name','성명'],['guarantor_rrn','주민번호'],['guarantor_relation','관계'],['guarantor_phone','연락처'],['guarantor_occupation','직업'],['guarantor_address','주소',2]]}
   ];
   /* 정책 값 — 한번 세팅(계약마다 안 바뀜). 추후 freepasserp3 회사별 정책 연동 */
@@ -1463,7 +1612,8 @@
     ['over_mileage_rate','초과 주행 요율'],['early_termination_rate','중도해지 수수료율(%)'],
     ['payment_cycle','결제 주기'],['auto_debit_date','자동이체일'],
     ['invoice_type','지출증빙'],['invoice_cycle','발행 주기'],['contract_place','체결 장소'],
-    ['insurer_name','보험사명'],['insurer_phone','보험사 사고접수 번호']
+    /* 보험사 대표번호는 «매년 바뀌어» 계약서에 박지 않기로 했다 — 받지도 않는다(2026-08-10). */
+    ['insurer_name','보험사명(체결일 기준)']
   ];
   /* 고정값 칸 = 드롭다운(datalist) — 직접입력·자동완성 값도 보존하는 자유입력 겸용 */
   var FIELD_OPTS={
@@ -1522,7 +1672,7 @@
         var ds=el('select'); ds.id='sel_debit';
         ['매월 5일','매월 10일','매월 15일','매월 20일','매월 25일','매월 말일'].forEach(function(o){ var op=el('option',null,o); op.value=o; ds.appendChild(op); });
         ds.value='매월 25일';
-        ds.addEventListener('change', function(){ setField('auto_debit_date', this.value); setField('auto_debit_date_inline', this.value); });
+        ds.addEventListener('change', function(){ setField('auto_debit_date', this.value); });
         row.appendChild(ds);
       } else if(DATE_FIELDS[f[0]]){
         var di=el('input'); di.type='date'; di.setAttribute('data-k',f[0]);
@@ -1593,12 +1743,70 @@
   }
 
   function init(){
-    if(/[?&]embed=1/.test(location.search)) document.body.classList.add('embed');
+    if(SEALED || /[?&]embed=1/.test(location.search)) document.body.classList.add('embed');
     captureDefaults();
-    loadDraft();        /* 저장된 계약 복원 */
+    loadDraft();        /* 저장된 계약 복원 (봉인본은 건너뜀) */
     buildForm();
     render();
     syncAllForm();      /* 복원값을 폼 입력칸에 반영 */
+
+    /*
+     * 봉인본 주입 — 서명이 끝난 계약을 그대로 다시 그린다.
+     * 서버가 `window.__SEALED__` 를 심어 두고, 여기서 한 번만 반영한다.
+     * 값을 새로 계산하지 않는다. 서명 시점에 굳은 것만 그린다.
+     */
+    if(SEALED){
+      var S = window.__SEALED__ || {};
+      try{
+        if(S.state) Object.keys(S.state).forEach(function(k){ if(k in state) state[k]=S.state[k]; });
+        if(S.fields) window.Contract.setData(S.fields);
+        /*
+         * 값이 «아예 오지 않은» 칸까지 비운다. setData 는 온 것만 훑으므로,
+         * 이 줄이 없으면 안 보낸 칸에 예시값이 그대로 남아 인쇄된다.
+         */
+        document.querySelectorAll('[data-field]').forEach(function(el){
+          var k=el.dataset.field;
+          if(k && !(k in (S.fields||{})) && blankInSealed(k)) el.textContent='';
+        });
+        if(S.signature) applySignature('customer', S.signature);
+        if(S.guarantorSignature) applySignature('guarantor', S.guarantorSignature);
+        render();
+      }catch(e){}
+      /*
+       * 추가운전자·연대보증인이 «없는» 계약 — 빈 표를 두면 「아직 안 적은 칸」으로 읽힌다.
+       * 없으면 표를 접고 「(없음)」만 남긴다. 나중에 붙일 때는 전자계약으로 덧붙여 나간다.
+       */
+      var EMPTY_BLOCKS = [
+        { key:'guarantor', fields:['guarantor_name','guarantor_rrn','guarantor_phone','guarantor_address'] },
+        { key:'driver',    fields:['drv1_name','drv2_name','drv3_name'] }
+      ];
+      EMPTY_BLOCKS.forEach(function(b){
+        var has = b.fields.some(function(k){ var v=(S.fields||{})[k]; return v!=null && String(v).trim()!==''; });
+        if(has) return;
+        document.querySelectorAll('[data-empty="'+b.key+'"]').forEach(function(el){ el.style.display=''; });
+        document.querySelectorAll('[data-hide-when-empty="'+b.key+'"]').forEach(function(el){ el.style.display='none'; });
+        if(b.key==='driver'){
+          var tb=document.querySelector('table[data-list="additional_drivers"]');
+          if(tb) tb.style.display='none';
+        }
+      });
+      /*
+       * 1명만 등록된 계약 — 남은 2·3행이 빈 줄로 인쇄되면 역시 「안 적은 칸」으로 읽힌다.
+       * 성명이 빈 행은 접는다. 표 자체를 접는 위 처리와 같은 원칙이다.
+       */
+      document.querySelectorAll('tr[data-repeat="driver"]').forEach(function(tr){
+        var nm = tr.querySelector('[data-field$="_name"]');
+        var v = nm && (S.fields||{})[nm.dataset.field];
+        if(v==null || String(v).trim()==='') tr.style.display='none';
+      });
+
+      /* 봉인본은 고쳐 쓸 수 없다 — 입력 하네스를 통째로 걷어낸다. */
+      var bd=document.getElementById('builder'); if(bd && bd.parentNode) bd.parentNode.removeChild(bd);
+      document.querySelectorAll('input,select,textarea,button').forEach(function(el){
+        if(el.closest && el.closest('.chd-bar')) return;   /* 인쇄 버튼은 남긴다 */
+        el.disabled = true;
+      });
+    }
     /* 초기화 버튼 */
     var rst=document.getElementById('bdReset');
     if(rst) rst.addEventListener('click', function(){ if(confirm('입력한 계약 내용을 모두 초기화할까요?')) resetDraft(); });

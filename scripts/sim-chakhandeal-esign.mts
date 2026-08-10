@@ -81,9 +81,9 @@ check('필수서류 목록 동봉', Array.isArray(payload.requiredDocs) && (payl
 const agreement = payload.agreement as { version: string; isSample: boolean; requireReadThrough: boolean; sections: unknown[] };
 check('약관 통독 강제', agreement.requireReadThrough === true);
 check('약관 버전이 실린다', !!agreement.version);
-// 약관은 erp3 정본(22개조)이다 — 더 이상 샘플이 아니다.
+// 약관은 HTML 정본과 같은 23개 항목(제1~22조 + 제9조의2)이다 — 더 이상 샘플이 아니다.
 check('약관은 정본으로 표시된다', agreement.isSample === false);
-check('약관 22개조가 실린다', agreement.sections.length === 22, agreement.sections.length);
+check('약관 23개 항목이 실린다', agreement.sections.length === 23, agreement.sections.length);
 // 「개인보험형」 조문이 구독 고객직접형의 법적 근거다. 빠지면 그 상품을 팔 수 없다.
 check('제9조의2(개인보험형)이 실린다',
   agreement.sections.some((s) => (s as { t: string }).t.includes('제9조의2')));

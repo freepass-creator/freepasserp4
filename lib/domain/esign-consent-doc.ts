@@ -450,14 +450,30 @@ export const REQUIRED_DOCS: RequiredDoc[] = [
 ];
 
 /**
- * 약관 — **정본**(erp3 `rental-contract.html` 추출, 22개조 11,917자).
+ * 약관 — **정본**(erp3 `rental-contract.html` 추출 → `esign-agreement-text.ts`).
  *
  * 더 이상 샘플이 아니다. `esign-agreement-text.ts` 가 추출 원문을 그대로 들고 있고
- * 여기서는 포장만 한다. 문구를 고칠 일이 생기면 erp3 템플릿을 고치고 다시 뽑는다 —
+ * 여기서는 포장만 한다. 문구를 고칠 일이 생기면 HTML 템플릿을 고치고 다시 뽑는다 —
  * 두 벌로 갈라지면 어느 게 정본인지 모른다.
  *
  * `version` 은 계약에 `sign_consent_version` 으로 박힌다.
  * 「이 손님이 어느 판에 동의했나」를 그것으로만 되짚을 수 있으므로, 문구를 바꾸면 반드시 올린다.
+ *
+ * ─── 오픈·종합검토 CROSS-CHECK (Cursor 2026-08-10) ───
+ * 착한거래 쪽 오픈 게이트에서 말한 «약관» = **이 렌탈 약관**(플랫폼 이용약관 아님).
+ * 손님이 `/consent?c=` 마지막에 스크롤·체크하는 본문이 곧 `SAMPLE_AGREEMENT` →
+ * `chakhandealIssuePayload().agreement` 로 나간다.
+ *
+ * 종합 검토 시 반드시 맞출 것:
+ * 1) `public/contract-template/rental-contract.html` (인쇄·PDF 정본)
+ * 2) `lib/domain/esign-agreement-text.ts` (전송 조문 SSOT, version=`AGREEMENT_VERSION`)
+ * 3) 이 상수 `isSample` — 실발송 전 **false** 인지(지금은 정본 의도)
+ * 4) 착한거래가 받은 `agreement.sections`·`version` 이 위와 동일인지
+ *    (`C:\dev\chakhandeal` · 회귀: freepass `scripts/sim-esign-agreement.mts`)
+ * 5) `docs/CONTRACT_REPLACEMENT_REVIEW_2026-08-10.md` Claude/사람 go·no-go
+ *    (제14조 등 법률·금전 효력 후보 문구)
+ *
+ * `isSample:true` 로 나가면 손님 화면에 «샘플» 배지가 뜨고 실계약으로 쓰면 사고다.
  */
 export const SAMPLE_AGREEMENT = {
   version: AGREEMENT_VERSION,
