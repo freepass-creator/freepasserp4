@@ -1,5 +1,5 @@
 /**
- * 프리패스 표준계약서 4유형 + 보험 주체 + 모바일 페이지 규격 회귀검증.
+ * 프리패스 표준계약서 3벌 × 인수/반납 + 보험 주체 + 모바일 페이지 규격 회귀검증.
  * 실행: npx tsx scripts/sim-esign-contract-kind.mts
  */
 import {
@@ -8,7 +8,10 @@ import {
 } from '../lib/domain/esign-contract-kind';
 import { buildConsentGroups, paginateForMobile } from '../lib/domain/esign-consent-doc';
 import { deductibleForAge } from '../lib/domain/esign-standard-terms';
-import { ALL_TEMPLATES, defaultTemplateFor, findTemplate, templatesForContract } from '../lib/domain/esign-templates';
+import {
+  ALL_TEMPLATES, contractKindFor, findTemplate, sentTemplateOf, standardTemplateSelectionError,
+  templatesForContract,
+} from '../lib/domain/esign-templates';
 import type { EntityRecord } from '../lib/intake/entities';
 
 let pass = 0;
@@ -20,7 +23,7 @@ const check = (name: string, ok: boolean, detail?: unknown) => {
 const r = (o: Record<string, unknown>) => o as unknown as EntityRecord;
 
 // ── 표준계약서 4유형 ──
-check('표준계약서는 4유형', CONTRACT_KINDS.length === 4, CONTRACT_KINDS.map((k) => k.label));
+check('인수/반납 파생 결과 spec는 4개', CONTRACT_KINDS.length === 4, CONTRACT_KINDS.map((k) => k.label));
 check('유형 = 구독/렌탈 × 인수형/반납형',
   CONTRACT_KINDS.map((k) => `${k.kind}${k.maturity}`).sort().join('|')
   === ['구독인수형', '구독반납형', '렌탈인수형', '렌탈반납형'].sort().join('|'));
@@ -81,15 +84,33 @@ check('인수형 12개월은 10%', penaltyAmount('인수형', 10_000_000, 12).ra
 check('위약금 계산', penaltyAmount('반납형', 10_000_000, 24).amount === 2_000_000);
 check('잔여액 0이면 0원', penaltyAmount('반납형', 0, 24).amount === 0);
 
-// ── 양식 목록 = 표준 4종, 공급사로 안 좁힌다 ──
-check('양식은 표준 4종', ALL_TEMPLATES.length === 4);
-check('공급사가 달라도 같은 목록',
-  templatesForContract(r({ provider_company_code: 'RP023' })).length === 4
-  && templatesForContract(r({ provider_company_code: 'RP012' })).length === 4);
-check('기본은 렌탈 반납형', defaultTemplateFor(r({})).id === 'rent_return');
-check('계약에 유형이 박혀 있으면 그것', defaultTemplateFor(r({ contract_kind: 'sub_buyout' })).id === 'sub_buyout');
-check('모르는 양식은 null', findTemplate('없는양식') === null);
-check('양식 전부 샘플 표시', ALL_TEMPLATES.every((t) => t.isSample));
+// ── 표준계약서 3벌 × 인수/반납, 공급사로 안 좁힌다 ──
+check('표준계약서는 정확히 3벌', ALL_TEMPLATES.length === 3, ALL_TEMPLATES.map((item) => item.label));
+check('렌트 1벌·구독 보험포함 1벌·구독 보험별도 1벌',
+  ALL_TEMPLATES.map((item) => `${item.contractKind}:${item.insuranceSide}`).join('|')
+  === '렌탈:회사포함|구독:회사포함|구독:고객직접');
+check('3벌 모두 인수/반납 선택 가능',
+  ALL_TEMPLATES.flatMap((template) => [
+    contractKindFor(template, '인수형'), contractKindFor(template, '반납형'),
+  ]).length === 6);
+const rentTemplate = findTemplate('freepass-rent-standard')!;
+const subIncludedTemplate = findTemplate('freepass-subscription-insurance-included')!;
+const subSeparateTemplate = findTemplate('freepass-subscription-insurance-separate')!;
+check('렌트 표준서식 + 보험포함 정책 조합 통과',
+  standardTemplateSelectionError(rentTemplate, contractKindFor(rentTemplate, '반납형'), { insurance_included: '포함(회사 가입)' }) === '');
+check('구독 보험포함서식 + 보험별도 정책 조합 차단',
+  !!standardTemplateSelectionError(subIncludedTemplate, contractKindFor(subIncludedTemplate, '인수형'), { insurance_included: '개인보험형(손님 직접)' }));
+check('구독 보험별도서식 + 보험별도 정책 조합 통과',
+  standardTemplateSelectionError(subSeparateTemplate, contractKindFor(subSeparateTemplate, '인수형'), { insurance_included: '개인보험형(손님 직접)' }) === '');
+check('공급사가 달라도 표준계약서 3벌은 같다',
+  templatesForContract(r({ provider_company_code: 'RP023' })).length === 3
+  && templatesForContract(r({ provider_company_code: 'RP012' })).length === 3);
+check('유형 미확정 계약에는 임의 기본을 박지 않음', sentTemplateOf(r({})) === null);
+check('기발행 구독 보험별도형 복원',
+  sentTemplateOf(r({ contract_kind: 'sub_buyout', esign_insurance_side: '고객직접' }))?.id
+  === 'freepass-subscription-insurance-separate');
+check('모르는 표준계약서는 null', findTemplate('없는유형') === null);
+check('기준판이 샘플이면 세 계약서도 샘플 표시', ALL_TEMPLATES.every((t) => t.isSample));
 
 // ── 섹션 구성 — 기존 계약서 내용이 다 들어갔는가 ──
 const groups = buildConsentGroups(contract, policy, '회사포함');

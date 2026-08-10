@@ -9,6 +9,7 @@
 import { writeFileSync } from 'node:fs';
 import { chakhandealIssuePayload } from '@/lib/domain/chakhandeal-esign';
 import { CONTRACT_KINDS } from '@/lib/domain/esign-contract-kind';
+import { findTemplate } from '@/lib/domain/esign-templates';
 
 const OUT = process.argv[2]
   || 'C:/dev/chakhandeal/lib/testForms/freepass-issue-payload.json';
@@ -74,10 +75,20 @@ const kinds = Object.values(CONTRACT_KINDS as Record<string, { key: string; labe
 console.log('사용 가능한 contractKind:', kinds.map((k) => `${k.key}(${k.label})`).join(' / '));
 
 // 렌탈 인수형 기준. 다른 유형을 보려면 인자로 넘기지 말고 여기를 바꿔 다시 뜬다.
-const templateId = kinds.find((k) => k.key === 'rent_buyout')?.key || kinds[0]?.key || '';
+const contractKind = kinds.find((k) => k.key === 'rent_buyout')?.key || kinds[0]?.key || '';
+const standardTemplate = findTemplate('freepass-rent-standard')!;
 
 const payload = chakhandealIssuePayload(
-  { memberCompany: 'freepass', templateId },
+  {
+    memberCompany: 'freepass',
+    templateId: 'external-rent-template-id',
+    contractKind,
+    templateProfile: {
+      mode: 'standard', providerCode: '', externalTemplateId: 'external-rent-template-id',
+      label: standardTemplate.label, version: standardTemplate.version,
+      baseTemplateId: standardTemplate.id, baseVersion: standardTemplate.version,
+    },
+  },
   contract as never,
   policy as never,
   '회사포함',

@@ -316,7 +316,8 @@ export function customerInputGroupsFor(contract: EntityRecord): {
 
 /** 관리자가 아직 안 넣은 것 — ②패널이 이걸로 입력칸을 만든다. */
 export function adminInputsFor(contract: EntityRecord): InputRequest[] {
-  const spec = findContractKind(S((contract as Record<string, unknown>).esign_template_id));
+  const row = contract as Record<string, unknown>;
+  const spec = findContractKind(S(row.esign_contract_kind || row.contract_kind || row.esign_template_id));
   return ADMIN_INPUTS.filter((f) => {
     // 인수형은 인수가격이 필수다 — 반납형에서는 안 물어도 된다.
     if (f.key === 'buyout_price' && spec && !spec.buyoutPriceRequired) return false;

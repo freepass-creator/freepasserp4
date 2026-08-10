@@ -18,8 +18,17 @@ const contract = {
   rent_month_snapshot: 12,
   rent_amount_snapshot: 500_000,
   deposit_amount_snapshot: 1_000_000,
+  provider_company_code: 'RP012',
   sign_token: 'must-not-leak',
   driver_license_no: 'must-not-leak',
+};
+const partner = {
+  partner_code: 'RP012',
+  name: '손오공렌트',
+  ceo: '홍길동',
+  business_number: '1234567890',
+  phone: '0212345678',
+  address: '서울시 강남구',
 };
 const actor = (overrides: Partial<ChakhandealActor>): ChakhandealActor => ({
   uid: 'other', role: 'agent', rawRole: 'agent', agentChannelCode: '', ...overrides,
@@ -45,9 +54,32 @@ const policy = {
   penalty_condition: '잔여 대여료의 30%',
   basic_driver_age: '만 26세 이상',
 };
-const payload = chakhandealIssuePayload({ memberCompany: 'freepass', templateId: 'standard-rental' }, contract, policy);
+const templateProfile = {
+  mode: 'custom' as const,
+  providerCode: 'RP012',
+  externalTemplateId: 'external-sonogong-v1',
+  label: '손오공 렌트 커스텀',
+  version: 'sonogong-rent-v1',
+  baseTemplateId: 'freepass-rent-standard' as const,
+  baseVersion: 'sample-v1',
+};
+const payload = chakhandealIssuePayload({
+  memberCompany: 'freepass',
+  templateId: templateProfile.externalTemplateId,
+  contractKind: 'rent_return',
+  templateProfile,
+}, contract, policy, '회사포함', partner);
 const serialized = JSON.stringify(payload);
 check('착한거래 계약 식별자 매핑', payload.externalRef === contract.contract_code);
+check('외부 템플릿 ID와 계약유형을 분리',
+  payload.templateId === 'external-sonogong-v1'
+  && (payload.contractKind as { key?: string } | null)?.key === 'rent_return');
+check('업체별 커스텀의 표준 기준판을 동봉',
+  (payload.templateProfile as typeof templateProfile).baseTemplateId === 'freepass-rent-standard');
+check('표준계약서에 공급사 법정 표시값 주입',
+  (payload.data as { provider?: { code?: string; companyName?: string; ceo?: string } }).provider?.code === 'RP012'
+  && (payload.data as { provider?: { companyName?: string } }).provider?.companyName === '손오공렌트'
+  && (payload.data as { provider?: { ceo?: string } }).provider?.ceo === '홍길동');
 check('핵심 계약 스냅샷 매핑', serialized.includes('12가3456') && serialized.includes('500000'));
 check('자체 서명 토큰·면허번호 미전송', !serialized.includes('must-not-leak'));
 
@@ -65,6 +97,12 @@ check('월 대여료는 사람이 읽는 꼴', rowValue('rental', '월 대여료
 check('대여기간에 단위가 붙는다', rowValue('rental', '대여기간') === '12개월', rowValue('rental', '대여기간'));
 check('연락처에 하이픈이 붙는다', rowValue('identity', '연락처') === '010-1234-5678', rowValue('identity', '연락처'));
 check('보증금이 있으면 금액으로', rowValue('rental', '보증금') === '1,000,000원', rowValue('rental', '보증금'));
+check('고객은 관리자가 확정한 3종 중 한 계약서를 확인',
+  rowValue('rental', '계약서 종류') === '표준 렌트계약서', rowValue('rental', '계약서 종류'));
+check('고객은 관리자가 확정한 인수/반납을 확인',
+  rowValue('rental', '만기 선택') === '반납', rowValue('rental', '만기 선택'));
+check('고객은 확정된 만기 처리를 확인',
+  !!rowValue('rental', '만기 처리')?.includes('반납'), rowValue('rental', '만기 처리'));
 // 보증금 0 은 «값 없음»이 아니라 «무보증»이라는 계약 조건이다. 행이 사라지면 손님이 못 읽는다.
 const zeroDeposit = chakhandealIssuePayload(
   { memberCompany: 'freepass', templateId: 't' },
@@ -81,17 +119,27 @@ check('필수서류 목록 동봉', Array.isArray(payload.requiredDocs) && (payl
 const agreement = payload.agreement as { version: string; isSample: boolean; requireReadThrough: boolean; sections: unknown[] };
 check('약관 통독 강제', agreement.requireReadThrough === true);
 check('약관 버전이 실린다', !!agreement.version);
-// 약관은 erp3 정본(22개조)이다 — 더 이상 샘플이 아니다.
+// 약관은 HTML 정본과 같은 23개 항목(제1~22조 + 제9조의2)이다 — 더 이상 샘플이 아니다.
 check('약관은 정본으로 표시된다', agreement.isSample === false);
-check('약관 22개조가 실린다', agreement.sections.length === 22, agreement.sections.length);
+check('약관 23개 항목이 실린다', agreement.sections.length === 23, agreement.sections.length);
 // 「개인보험형」 조문이 구독 고객직접형의 법적 근거다. 빠지면 그 상품을 팔 수 없다.
 check('제9조의2(개인보험형)이 실린다',
   agreement.sections.some((s) => (s as { t: string }).t.includes('제9조의2')));
 check('약관 본문이 잘리지 않았다',
   agreement.sections.every((s) => (s as { b: string }).b.length > 100));
 
-// PII 경계 — 주민번호·면허번호는 우리가 보내지 않는다(§3).
-check('주민번호 필드 미전송', !/residentNumber|jumin|ssn|주민등록번호/i.test(serialized));
+// PII 경계 — 약관 문구에 이름이 언급될 수는 있지만 실제 전송 필드로는 존재하면 안 된다(§3).
+const keysOf = (value: unknown): string[] => {
+  if (!value || typeof value !== 'object') return [];
+  if (Array.isArray(value)) return value.flatMap(keysOf);
+  return Object.entries(value as Record<string, unknown>)
+    .flatMap(([key, nested]) => [key, ...keysOf(nested)]);
+};
+const forbiddenPiiKeys = keysOf(payload).filter((key) => {
+  const normalized = key.toLowerCase().replace(/[-_\s]/g, '');
+  return ['residentnumber', 'jumin', 'ssn', 'customerssn', '주민등록번호'].includes(normalized);
+});
+check('주민번호 필드 미전송', forbiddenPiiKeys.length === 0, forbiddenPiiKeys);
 
 const noTerm = { ...contract, rent_amount_snapshot: 0 };
 let blocked = false;

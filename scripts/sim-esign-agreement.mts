@@ -3,13 +3,11 @@
  * 실행: npx tsx scripts/sim-esign-agreement.mts
  */
 import { AGREEMENT_SECTIONS } from '../lib/domain/esign-agreement-text';
+import { readFileSync } from 'node:fs';
+import { load } from 'cheerio';
 import {
   KEY_CLAUSES, agreementWithEmphasis, keyClauseOf, keyClauseSummaries,
 } from '../lib/domain/esign-agreement-emphasis';
-import {
-  isEsignTemplateAllowed,
-  STANDARD_IS_SAMPLE,
-} from '../lib/domain/esign-templates';
 import { IN_AGREEMENT, KEEP_IN_SECTION, TERMS_ACCIDENT, TERMS_PAYMENT, TERMS_SERVICE } from '../lib/domain/esign-standard-terms';
 import { buildConsentGroups } from '../lib/domain/esign-consent-doc';
 import type { EntityRecord } from '../lib/intake/entities';
@@ -21,11 +19,6 @@ const check = (name: string, ok: boolean, detail?: unknown) => {
   else { fail++; console.error(`✗ ${name}`, detail ?? ''); }
 };
 
-// 샘플 문안은 Preview 검증만 허용하고 Production 발행은 잠근다.
-check('Preview는 샘플 계약서 검증을 허용한다', isEsignTemplateAllowed('preview'));
-check('Production은 샘플 여부와 반대로 열린다',
-  isEsignTemplateAllowed('production') === !STANDARD_IS_SAMPLE);
-
 // ── 조문 매칭 ──
 // 「제9조의2」가 「제9조」에 먼저 걸리면 개인보험형 안내가 사고면책 문구로 바뀐다.
 check('제9조의2가 제9조보다 먼저 잡힌다',
@@ -35,9 +28,72 @@ check('제9조는 제9조로 잡힌다', keyClauseOf('제9조 (사고처리 및 
 check('중요하지 않은 조문은 안 잡힌다', keyClauseOf('제12조 (통지 및 도달 간주)') === null);
 check('띄어쓰기가 달라도 잡는다', keyClauseOf('제 14조 (중도해지수수료 및 승계)')?.clause === '제14조');
 
+// ── 인쇄/PDF 약관 ↔ 착한거래 전송 약관 동기화 ──
+// 계약서 HTML이 정본이다. 두 벌이 갈라지면 인쇄본과 실제 서명 화면의 권리·의무가 달라진다.
+const contractHtml = readFileSync('public/contract-template/rental-contract.html', 'utf8');
+const individualHtml = readFileSync('public/contract-template/contract-individual.html', 'utf8');
+const $ = load(contractHtml);
+const norm = (value: string) => value.replace(/\s+/g, ' ').trim();
+const htmlAgreement: { t: string; b: string }[] = [];
+$('#termsSource > .t-art').each((_, el) => {
+  const title = norm($(el).text());
+  if (!/^제\d+조/.test(title)) return;
+  const paragraphs: string[] = [];
+  let next = $(el).next();
+  while (next.length && !next.hasClass('t-art')) {
+    paragraphs.push(norm(next.text()));
+    next = next.next();
+  }
+  htmlAgreement.push({ t: title, b: norm(paragraphs.join(' ')) });
+});
+check('인쇄/PDF 약관과 착한거래 전송 약관이 완전히 같다',
+  htmlAgreement.length === AGREEMENT_SECTIONS.length
+    && htmlAgreement.every((section, index) => (
+      section.t === AGREEMENT_SECTIONS[index].t && section.b === AGREEMENT_SECTIONS[index].b
+    )),
+  htmlAgreement.filter((section, index) => (
+    section.t !== AGREEMENT_SECTIONS[index]?.t || section.b !== AGREEMENT_SECTIONS[index]?.b
+  )).map((section) => section.t));
+
+// 섹션별 값 소유권: 한 값은 한 섹션만 가진다. 약관은 값이 아니라 적용 절차를 설명한다.
+const sectionLabels = (title: string): string[] => $('.section').filter((_, el) => (
+  norm($(el).find('.sec-h .t').first().text()) === title
+)).first().find('.kv > .k').map((_, el) => norm($(el).text())).get();
+const rentalLabels = sectionLabels('대여 조건');
+const insuranceLabels = sectionLabels('자동차 보험');
+check('보험 가입 주체·포함 여부는 자동차 보험 섹션만 소유한다',
+  !rentalLabels.includes('보험')
+    && insuranceLabels.filter((label) => label === '보험 조건').length === 1);
+check('대여 조건에는 보험료 포함 문구가 중복되지 않는다',
+  !$('.section').filter((_, el) => norm($(el).find('.sec-h .t').first().text()) === '대여 조건')
+    .first().text().includes('월 대여료에 포함'));
+const insuranceSection = $('.section').filter((_, el) => (
+  norm($(el).find('.sec-h .t').first().text()) === '자동차 보험'
+)).first();
+check('자차부담률 값은 자동차 보험 섹션에서 한 번만 표시한다',
+  insuranceSection.find('[data-field="self_damage_deductible_rate"]').length === 1);
+// 보험사 대표번호는 매년 바뀐다 — 계약서에 박아 두면 몇 해 뒤 끊긴 번호를
+// 손님이 사고 현장에서 누른다. 체결일 기준 보험사«명»만 싣는다(2026-08-10).
+check('보험사 대표번호를 계약서에 박지 않는다',
+  !contractHtml.includes('insurer_phone'));
+check('체결일 기준 보험사명은 자동차 보험 섹션에 있다',
+  insuranceSection.find('[data-field="insurer_name"]').length >= 1);
+check('자동이체일의 본문용 복제 필드를 두지 않는다',
+  !contractHtml.includes('auto_debit_date_inline')
+    && !individualHtml.includes('auto_debit_date_inline'));
+check('특약 입력은 표준값 반복이 아닌 예외·추가 합의용이다',
+  contractHtml.includes("['special_terms','특약사항 (예외·추가 합의만)',2]"));
+
+const articleBody = (article: string) => AGREEMENT_SECTIONS.find((s) => s.t.startsWith(article))?.b || '';
+check('기존 계약서의 신차 출고 전 취소 절차를 승계한다', articleBody('제14조').includes('신차 계약에서 차량 등록 후 인도 전'));
+check('도난차 회수 후 정산 절차를 승계한다', articleBody('제16조').includes('도난 차량이 회수된 경우'));
+check('회사 승인 시 지정자 명의 인수를 허용한다', articleBody('제17조').includes('임차인이 지정하고 회사가 사전에 승인한 자'));
+check('같은 손해의 중복 청구를 금지한다', articleBody('제18조').includes('실제 발생한 손해를 초과하여 중복 청구하지'));
+check('전자계약 완료본 교부·보관을 규정한다', articleBody('제22조').includes('동일한 전자문서(PDF)를 임차인에게 교부'));
+
 // ── 강조 대상 ──
 const marked = agreementWithEmphasis();
-check('약관 22개조 그대로', marked.length === AGREEMENT_SECTIONS.length);
+check('약관 23개 항목 그대로', marked.length === 23 && marked.length === AGREEMENT_SECTIONS.length);
 const emph = marked.filter((s) => s.emphasis);
 check(`강조 조문 ${emph.length}개`, emph.length === KEY_CLAUSES.length, emph.map((s) => s.t.slice(0, 12)));
 // 다 강조하면 아무것도 강조되지 않는다.

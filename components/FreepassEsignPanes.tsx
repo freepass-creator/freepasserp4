@@ -1,0 +1,459 @@
+'use client';
+
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { EntityRecord } from '@/lib/intake/entities';
+import { getAuthClient } from '@/lib/firebase/client';
+import {
+  contractKindFor,
+  findTemplate,
+  maturityOf,
+  standardTemplateSelectionError,
+  templatesForContract,
+} from '@/lib/domain/esign-templates';
+import type { MaturityKind } from '@/lib/domain/esign-contract-kind';
+import { ESIGN_STEPS } from '@/lib/domain/esign-progress';
+import { copyText } from '@/lib/clipboard';
+import { toast } from '@/components/Toaster';
+import {
+  Badge, Btn, ButtonLabel, C, CenterNote, DetailRow, FilterChips, FS, FW, ICON,
+  Input, ListGroup, SectionLabel, Textarea,
+} from '@/components/ui';
+import { CheckCircle2, Copy, ExternalLink, FileDown, Link2Off, RefreshCw, XCircle } from 'lucide-react';
+
+type Rec = Record<string, unknown>;
+type AdminState = {
+  contract?: EntityRecord;
+  snapshot?: {
+    consentPages?: Array<{
+      key?: string;
+      title?: string;
+      note?: string;
+      rows?: Array<{ label?: string; value?: string }>;
+    }>;
+    template?: { label?: string; version?: string };
+    contractKind?: { title?: string; maturity?: string };
+  } | null;
+  session?: {
+    status?: string;
+    issuedAt?: number;
+    openedAt?: number;
+    submittedAt?: number;
+    approvedAt?: number;
+    expiresAt?: number;
+    rejectReason?: string;
+    progress?: Record<string, number>;
+    supplementItems?: string[];
+    supplements?: Array<{ items?: string[]; reason?: string; requestedAt?: number }>;
+  } | null;
+  submission?: {
+    status?: string;
+    customerName?: string;
+    customerPhone?: string;
+    signature?: string;
+    idCard?: boolean;
+    selfie?: boolean;
+    assetUrls?: { idCard?: string; selfie?: string };
+  } | null;
+  events?: Array<{ type?: string; at?: number; reason?: string; items?: string[]; handoverDate?: string }>;
+};
+
+const S = (value: unknown) => String(value ?? '').trim();
+const N = (value: unknown) => Number(value || 0) || 0;
+const won = (value: unknown) => `${N(value).toLocaleString('ko-KR')}원`;
+
+async function bearer() {
+  const user = getAuthClient()?.currentUser;
+  if (!user) throw new Error('관리자 로그인이 필요합니다.');
+  return user.getIdToken();
+}
+
+async function adminFetch(url: string, init: RequestInit = {}) {
+  const token = await bearer();
+  return fetch(url, {
+    ...init,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      ...(init.body ? { 'Content-Type': 'application/json' } : {}),
+      ...(init.headers || {}),
+    },
+    cache: 'no-store',
+  });
+}
+
+async function stateFor(contractCode: string): Promise<AdminState> {
+  const response = await adminFetch(`/api/freepass-esign/contracts/${encodeURIComponent(contractCode)}`);
+  const body = await response.json().catch(() => ({})) as AdminState & { error?: string };
+  if (!response.ok) throw new Error(body.error || '전자계약 상태를 불러오지 못했습니다.');
+  return body;
+}
+
+async function actionFor(contractCode: string, body: Rec): Promise<AdminState> {
+  const response = await adminFetch(`/api/freepass-esign/contracts/${encodeURIComponent(contractCode)}`, {
+    method: 'POST', body: JSON.stringify(body),
+  });
+  const result = await response.json().catch(() => ({})) as AdminState & { error?: string };
+  if (!response.ok) throw new Error(result.error || '전자계약 작업을 완료하지 못했습니다.');
+  return result;
+}
+
+async function openProtected(url: string) {
+  const viewer = window.open('about:blank', '_blank');
+  if (viewer) viewer.opener = null;
+  try {
+    const response = await adminFetch(url);
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({})) as { error?: string };
+      throw new Error(body.error || '문서를 열지 못했습니다.');
+    }
+    const blobUrl = URL.createObjectURL(await response.blob());
+    if (viewer) viewer.location.replace(blobUrl);
+    else window.location.assign(blobUrl);
+    window.setTimeout(() => URL.revokeObjectURL(blobUrl), 120_000);
+  } catch (error) {
+    viewer?.close();
+    throw error;
+  }
+}
+
+function stamp(ms: unknown) {
+  const at = N(ms);
+  if (!at) return '—';
+  return new Date(at).toLocaleString('ko-KR', { hour12: false });
+}
+
+export function FreepassEsignLinkPane({
+  contract,
+  policy,
+  onChanged,
+}: {
+  contract: EntityRecord | null;
+  policy: EntityRecord | null;
+  onChanged: () => void | Promise<void>;
+}) {
+  const code = S(contract?.contract_code);
+  const [state, setState] = useState<AdminState | null>(null);
+  const [busy, setBusy] = useState(false);
+  const options = useMemo(() => contract ? templatesForContract(contract) : [], [contract]);
+  const [pickId, setPickId] = useState('');
+  const [maturity, setMaturity] = useState<MaturityKind | ''>('');
+
+  useEffect(() => {
+    setPickId(findTemplate(contract?.standard_template_id)?.id || options[0]?.id || '');
+    setMaturity((contract ? maturityOf(contract) : '') || '');
+  }, [contract?.contract_code, contract?.standard_template_id, contract?.contract_kind, options]);
+
+  const load = useCallback(async () => {
+    if (!code) { setState(null); return; }
+    try { setState(await stateFor(code)); }
+    catch { setState(null); }
+  }, [code]);
+  useEffect(() => { void load(); }, [load]);
+
+  if (!contract) return <CenterNote>왼쪽에서 계약을 고르세요.</CenterNote>;
+  const current = state?.contract || contract;
+  const issued = S(current.esign_provider) === 'freepass' && !!S(current.esign_id);
+  const completed = S(current.sign_status) === '서명완료';
+  const link = S(current.esign_sign_url);
+  const tpl = options.find((row) => row.id === pickId) || null;
+  const spec = tpl && maturity ? contractKindFor(tpl, maturity) : null;
+  const selectionError = tpl && spec ? standardTemplateSelectionError(tpl, spec, policy) : '';
+
+  const run = async (body: Rec, success: string) => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      setState(await actionFor(code, body));
+      await onChanged();
+      toast(success, 'ok');
+    } catch (error) {
+      toast(error instanceof Error ? error.message : '전자계약 작업에 실패했습니다.', 'error');
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <SectionLabel>프리패스 데이터 확인</SectionLabel>
+      <ListGroup>
+        <DetailRow label="고객" value={[current.customer_name, current.customer_phone].filter(Boolean).join(' · ') || '값 필요'} />
+        <DetailRow label="차량" value={[current.car_number_snapshot, current.vehicle_name_snapshot].filter(Boolean).join(' · ') || '값 필요'} />
+        <DetailRow label="대여조건" value={`${N(current.rent_month_snapshot) || '—'}개월 · 월 ${won(current.rent_amount_snapshot)} · 보증금 ${won(current.deposit_amount_snapshot)}`} stacked />
+      </ListGroup>
+
+      {!issued ? (
+        <>
+          <SectionLabel>표준계약서 종류</SectionLabel>
+          <FilterChips
+            options={options.map((row) => ({ key: row.id, label: row.label }))}
+            value={pickId}
+            onChange={setPickId}
+          />
+          <SectionLabel>만기 선택</SectionLabel>
+          <FilterChips
+            options={[{ key: '반납형', label: '반납' }, { key: '인수형', label: '인수' }]}
+            value={maturity}
+            onChange={(value) => setMaturity(value as MaturityKind)}
+          />
+          {selectionError ? <Badge tone="red" variant="solid">{selectionError}</Badge> : null}
+          {tpl && spec && !selectionError ? (
+            <>
+              <ListGroup>
+                <DetailRow label="확정 계약서" value={tpl.label} />
+                <DetailRow label="만기" value={maturity === '인수형' ? '인수' : '반납'} />
+                <DetailRow label="보험" value={tpl.insuranceSide === '고객직접' ? '보험별도' : '보험포함'} />
+              </ListGroup>
+              <Btn
+                title="이 조합으로 전자계약 발행"
+                disabled={busy}
+                onClick={() => void run({
+                  action: 'issue', standardTemplateId: tpl.id, contractKind: spec.key,
+                }, '프리패스 전자계약 링크를 만들었습니다.')}
+              >
+                {busy ? '발행 중…' : '이 조합으로 계약서 확정'}
+              </Btn>
+            </>
+          ) : null}
+        </>
+      ) : (
+        <>
+          {completed ? (
+            <Badge tone="green" variant="solid">완료 계약서는 읽기 전용입니다. 완료 PDF는 진행상황에서 내려받으세요.</Badge>
+          ) : (
+            <>
+              <SectionLabel>서명 링크</SectionLabel>
+              <div style={{ fontSize: FS.cap, color: C.mute, wordBreak: 'break-all', lineHeight: 1.5 }}>{link || '링크 없음'}</div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                <Btn title="링크 복사" onClick={() => void copyText(link).then((ok) => toast(ok ? '링크를 복사했습니다.' : '링크 복사에 실패했습니다.', ok ? 'ok' : 'error'))}>
+                  <ButtonLabel icon={<Copy size={ICON.md} aria-hidden />}>링크 복사</ButtonLabel>
+                </Btn>
+                <Btn title="고객 화면 열기" variant="ghost" onClick={() => window.open(link, '_blank', 'noreferrer')}>
+                  <ButtonLabel icon={<ExternalLink size={ICON.md} aria-hidden />}>고객 화면</ButtonLabel>
+                </Btn>
+                <Btn title="링크 해지" variant="ghost" disabled={busy} onClick={() => void run({ action: 'revoke' }, '서명 링크를 해지했습니다.')}>
+                  <ButtonLabel icon={<Link2Off size={ICON.md} aria-hidden />}>링크 해지</ButtonLabel>
+                </Btn>
+              </div>
+              <SectionLabel>A4 계약서</SectionLabel>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                <Btn title="A4 초안 미리보기" variant="ghost" onClick={() => void openProtected(`/api/freepass-esign/contracts/${encodeURIComponent(code)}/document?draft=1`).catch((e) => toast(String(e.message || e), 'error'))}>
+                  미리보기
+                </Btn>
+                <Btn title="A4 초안 PDF" onClick={() => void openProtected(`/api/freepass-esign/contracts/${encodeURIComponent(code)}/document?format=pdf&draft=1`).catch((e) => toast(String(e.message || e), 'error'))}>
+                  <ButtonLabel icon={<FileDown size={ICON.md} aria-hidden />}>초안 PDF</ButtonLabel>
+                </Btn>
+              </div>
+              <div style={{ fontSize: FS.cap, color: C.faint }}>문자·카카오 자동 발송은 하지 않습니다. 링크를 복사해 고객에게 전달합니다.</div>
+            </>
+          )}
+          {(state?.snapshot?.consentPages || []).length ? (
+            <>
+              <SectionLabel>고객에게 전달된 계약 내용</SectionLabel>
+              <div style={{ fontSize: FS.cap, color: C.mute, lineHeight: 1.5 }}>
+                발행 당시 값으로 동결된 내용입니다. 고객은 아래 섹션을 하나씩 확인한 뒤 서명합니다.
+              </div>
+              {(state?.snapshot?.consentPages || []).map((page) => (
+                <ListGroup key={page.key || page.title} header={page.title} footer={page.note}>
+                  {(page.rows || []).map((row, index) => (
+                    <DetailRow key={`${row.label}-${index}`} label={row.label || '항목'} value={row.value || '—'} stacked />
+                  ))}
+                </ListGroup>
+              ))}
+            </>
+          ) : null}
+        </>
+      )}
+    </div>
+  );
+}
+
+const EVENT_LABEL: Record<string, string> = {
+  issued: '링크 발행', opened: '고객 열람', submitted: '본인확인·서명 제출',
+  rejected: '보완 요청', approved: '관리자 승인·봉인', revoked: '링크 해지',
+  handover_confirmed: '인도일 확정',
+};
+const SUPPLEMENT_ITEMS = [
+  { key: 'identity', label: '신분증·셀카' },
+  { key: 'contract', label: '계약정보' },
+  { key: 'agreement', label: '약관확인' },
+  { key: 'signature', label: '서명' },
+] as const;
+
+export function FreepassEsignProgressPane({
+  contract,
+  onChanged,
+}: {
+  contract: EntityRecord | null;
+  onChanged: () => void | Promise<void>;
+}) {
+  const code = S(contract?.contract_code);
+  const [state, setState] = useState<AdminState | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [reason, setReason] = useState('');
+  const [supplementItems, setSupplementItems] = useState<Set<string>>(new Set(['identity', 'signature']));
+  const current = state?.contract || contract;
+  const savedHandover = current?.esign_handover && typeof current.esign_handover === 'object'
+    ? current.esign_handover as Rec
+    : null;
+  const savedDate = S(savedHandover?.handover_datetime).slice(0, 10);
+  const [handoverDate, setHandoverDate] = useState(savedDate);
+  const load = useCallback(async () => {
+    if (!code) { setState(null); return; }
+    try { setState(await stateFor(code)); }
+    catch { setState(null); }
+  }, [code]);
+  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    if (!code) return;
+    const timer = window.setInterval(() => { void load(); }, 5000);
+    return () => window.clearInterval(timer);
+  }, [code, load]);
+  useEffect(() => { setHandoverDate(savedDate); }, [savedDate, code]);
+
+  if (!contract) return <CenterNote>계약을 고르면 진행상황이 표시됩니다.</CenterNote>;
+  const active = current || contract;
+  const sessionStatus = S(state?.session?.status);
+  const issued = S(active.esign_provider) === 'freepass' && !!S(active.esign_id);
+  if (!issued) return <CenterNote>③에서 프리패스 전자계약 링크를 먼저 만드세요.</CenterNote>;
+  const progress = Math.max(0, Math.min(8, N(active.esign_progress)));
+  const displayStatus = S(active.sign_status) || '발행';
+
+  const run = async (body: Rec, success: string) => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      setState(await actionFor(code, body));
+      await onChanged();
+      toast(success, 'ok');
+    } catch (error) {
+      toast(error instanceof Error ? error.message : '전자계약 작업에 실패했습니다.', 'error');
+    } finally { setBusy(false); }
+  };
+
+  const openAsset = async (url: string) => {
+    try { await openProtected(url); }
+    catch (error) { toast(error instanceof Error ? error.message : '사진을 열지 못했습니다.', 'error'); }
+  };
+  const toggleSupplement = (key: string) => setSupplementItems((prev) => {
+    const next = new Set(prev);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    return next;
+  });
+  const saveHandover = async () => {
+    if (busy || !/^\d{4}-\d{2}-\d{2}$/.test(handoverDate)) return;
+    setBusy(true);
+    try {
+      const response = await adminFetch(`/api/freepass-esign/contracts/${encodeURIComponent(code)}/handover`, {
+        method: 'POST', body: JSON.stringify({ handover_datetime: handoverDate }),
+      });
+      const body = await response.json().catch(() => ({})) as { ok?: boolean; error?: string };
+      if (!response.ok || !body.ok) throw new Error(body.error || '인도일을 저장하지 못했습니다.');
+      await Promise.all([load(), onChanged()]);
+      toast('인도일을 확정했습니다.', 'ok');
+    } catch (error) {
+      toast(error instanceof Error ? error.message : '인도일을 저장하지 못했습니다.', 'error');
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+        <Badge tone={displayStatus === '서명완료' ? 'green' : displayStatus === '반려' ? 'red' : displayStatus === '검토대기' ? 'amber' : 'blue'} variant="solid">
+          {displayStatus}
+        </Badge>
+        <span style={{ flex: 1 }} />
+        <Btn title="진행상황 새로고침" variant="ghost" onClick={() => void load()}>
+          <ButtonLabel icon={<RefreshCw size={ICON.md} aria-hidden />}>새로고침</ButtonLabel>
+        </Btn>
+      </div>
+
+      <SectionLabel>고객 진행</SectionLabel>
+      <ListGroup>
+        {ESIGN_STEPS.map((step, index) => {
+          const done = displayStatus === '서명완료' || index < progress;
+          const here = displayStatus !== '서명완료' && index === progress && sessionStatus !== 'sent';
+          return <DetailRow key={step.key} label={step.label} value={done ? '완료' : here ? '지금' : '—'} valueColor={done ? C.ok : here ? C.warn : C.faint} />;
+        })}
+      </ListGroup>
+
+      <SectionLabel>본인확인·서명 검토</SectionLabel>
+      {state?.submission ? (
+        <>
+          <ListGroup>
+            <DetailRow label="제출자" value={[state.submission.customerName, state.submission.customerPhone].filter(Boolean).join(' · ') || '—'} />
+            <DetailRow label="신분증" value={state.submission.idCard ? '접수' : '누락'} valueColor={state.submission.idCard ? C.ok : C.danger} />
+            <DetailRow label="본인 셀카" value={state.submission.selfie ? '접수' : '누락'} valueColor={state.submission.selfie ? C.ok : C.danger} />
+          </ListGroup>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {state.submission.assetUrls?.idCard ? <Btn title="신분증 확인" variant="ghost" onClick={() => void openAsset(state.submission!.assetUrls!.idCard!)}>신분증 확인</Btn> : null}
+            {state.submission.assetUrls?.selfie ? <Btn title="셀카 확인" variant="ghost" onClick={() => void openAsset(state.submission!.assetUrls!.selfie!)}>셀카 확인</Btn> : null}
+          </div>
+          {state.submission.signature ? (
+            <div style={{ padding: 8, border: `1px solid ${C.line}`, background: C.inverse }}>
+              <div style={{ fontSize: FS.cap, color: C.mute, marginBottom: 4 }}>고객 서명</div>
+              <img src={state.submission.signature} alt="고객 전자서명" style={{ display: 'block', maxWidth: '100%', maxHeight: 120 }} />
+            </div>
+          ) : null}
+        </>
+      ) : <div style={{ fontSize: FS.cap, color: C.faint }}>고객 제출을 기다리는 중입니다.</div>}
+
+      {sessionStatus === 'pending_review' ? (
+        <>
+          <SectionLabel>보완 요청</SectionLabel>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {SUPPLEMENT_ITEMS.map((item) => (
+              <Btn key={item.key} title={item.label} size="sm" variant={supplementItems.has(item.key) ? 'solid' : 'ghost'} onClick={() => toggleSupplement(item.key)}>
+                {item.label}
+              </Btn>
+            ))}
+          </div>
+          <Textarea value={reason} onChange={setReason} placeholder="사유 (예: 신분증 글자가 흐려 확인이 어렵습니다)" full />
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            <Btn title="전자계약 보완 요청" variant="ghost" disabled={busy || supplementItems.size === 0} onClick={() => void run({ action: 'reject', reason, items: [...supplementItems] }, '같은 보안 링크로 보완을 요청했습니다.')}>
+              <ButtonLabel icon={<XCircle size={ICON.md} aria-hidden />}>보완 요청</ButtonLabel>
+            </Btn>
+            <Btn title="본인확인 및 전자서명 승인" disabled={busy} onClick={() => void run({ action: 'approve' }, '전자계약을 승인하고 봉인했습니다.')}>
+              <ButtonLabel icon={<CheckCircle2 size={ICON.md} aria-hidden />}>확인 후 승인</ButtonLabel>
+            </Btn>
+          </div>
+        </>
+      ) : null}
+
+      {displayStatus === '서명완료' ? (
+        <>
+          <SectionLabel>서명 완료본</SectionLabel>
+          <Btn title="서명 완료 PDF" onClick={() => void openProtected(`/api/freepass-esign/contracts/${encodeURIComponent(code)}/document?format=pdf`).catch((e) => toast(String(e.message || e), 'error'))}>
+            <ButtonLabel icon={<FileDown size={ICON.md} aria-hidden />}>완료 PDF 열기</ButtonLabel>
+          </Btn>
+          {active.esign_verify_url ? <Btn title="봉인 검증" variant="ghost" onClick={() => window.open(S(active.esign_verify_url), '_blank', 'noreferrer')}>봉인 검증</Btn> : null}
+          <SectionLabel>인도일 확정</SectionLabel>
+          <div style={{ fontSize: FS.cap, color: C.mute, lineHeight: 1.5 }}>
+            실제 차량 인도일을 계약 시작일로 확정하고 대여기간으로 종료일을 계산합니다.
+          </div>
+          {savedDate ? (
+            <div style={{ fontSize: FS.cap, fontWeight: FW.strong }}>
+              인도일 {savedDate}
+              {savedHandover?.contract_start ? ` · ${S(savedHandover.contract_start)} ~ ${S(savedHandover.contract_end)}` : ''}
+            </div>
+          ) : <div style={{ fontSize: FS.cap, color: C.faint }}>아직 인도일 없음 · 보완 필요</div>}
+          <Input type="date" value={handoverDate} onChange={setHandoverDate} ariaLabel="차량 인도일" full />
+          <Btn title={savedDate ? '인도일 다시 확정' : '인도일 확정'} disabled={busy || !/^\d{4}-\d{2}-\d{2}$/.test(handoverDate)} onClick={() => void saveHandover()}>
+            {busy ? '저장 중…' : savedDate ? '인도일 다시 확정' : '인도일 확정'}
+          </Btn>
+        </>
+      ) : null}
+
+      <SectionLabel>이력</SectionLabel>
+      <ListGroup>
+        {(state?.events || []).length ? (state?.events || []).map((event, index) => (
+          <DetailRow
+            key={`${event.type}-${event.at}-${index}`}
+            label={EVENT_LABEL[S(event.type)] || S(event.type)}
+            value={[stamp(event.at), event.handoverDate, ...(event.items || [])].filter(Boolean).join(' · ')}
+          />
+        )) : <DetailRow label="진행 이력" value="—" />}
+      </ListGroup>
+      <div style={{ fontSize: FS.cap, color: C.faint, lineHeight: 1.5 }}>
+        신분증·셀카 원본과 서명은 공개 계약 데이터가 아니라 서버 전용 저장소에 보관됩니다.
+      </div>
+    </div>
+  );
+}

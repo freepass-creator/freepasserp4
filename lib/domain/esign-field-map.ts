@@ -134,7 +134,7 @@ export const FIELD_MAP: FieldMap[] = [
    */
   { field: 'over_mileage_rate', label: '초과 주행요금', from: '정책', atom: 'over_mileage_rate_per_km', note: '약관 제15조가 참조하는 1km당 요율' },
   // 약관 제11조②10호가 참조한다. 비면 그 호는 적용되지 않는다 — 없는 기준으로 해지할 수 없다.
-  { field: 'accident_termination_count', label: '1년 이내 사고 누적', from: '정책', atom: 'accident_termination_count', note: '과실 50% 이상 N회 → 계약 해지' },
+  { field: 'accident_termination_count', label: '사고다발 처리', from: '정책', atom: 'accident_termination_count', note: '과실 50% 이상 N회 → 계약 해지' },
 
   /* ── 운전자 ── */
   { field: 'driver_age', label: '운전자 연령', from: '정책', atom: 'basic_driver_age' },
@@ -171,7 +171,6 @@ export const FIELD_MAP: FieldMap[] = [
   { field: 'self_damage_exclusions', label: '자차 면책 제외', from: '고정', note: '중과실 12대' },
   { field: 'extra_deductibles', label: '추가 면책금', from: '고정', note: '면허 1년 이하' },
   { field: 'insurer_name', label: '보험사', from: '고정' },
-  { field: 'insurer_phone', label: '보험사 연락처', from: '고정' },
 
   /* ── 정비·서비스 ── */
   { field: 'maintenance_product', label: '정비상품', from: '정책', atom: 'maintenance_service' },
@@ -209,7 +208,6 @@ export const FIELD_MAP: FieldMap[] = [
   { field: 'cms_agency', label: '수납대행사', from: '고정' },
   { field: 'cms_start_month', label: '출금 시작월', from: '파생' },
   { field: 'auto_debit_date', label: '자동이체일', from: '입력', atom: 'auto_debit_day' },
-  { field: 'auto_debit_date_inline', label: '자동이체일(본문)', from: '파생', note: 'auto_debit_date 와 같은 값' },
 
   /* ── 연대보증 — 해당될 때만 ── */
   { field: 'guarantor_name', label: '연대보증인 성명', from: '미정', conditional: '연대보증' },

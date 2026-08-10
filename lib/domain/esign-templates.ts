@@ -1,86 +1,147 @@
 /**
- * 계약서 양식 = **프리패스 표준계약서**뿐이다(2026-08-08 사장님 결정).
+ * 프리패스 표준계약서 = 정확히 3벌(2026-08-10 사장님 확정).
  *
- * 공급사별 양식은 취급하지 않는다. 공급사가 19곳인데 문서를 19벌 들면 조항 하나 고칠 때
- * 19군데를 고쳐야 하고 곧 갈라진다. 우리 표준 하나로 계약하고, 다른 것은 **축**으로 흡수한다
- * (`esign-contract-kind.ts` — 구독/렌탈 × 인수형/반납형, 구독은 보험 주체까지).
+ *   1. 표준 렌트계약서
+ *   2. 표준 구독계약서 · 보험포함
+ *   3. 표준 구독계약서 · 보험별도
  *
- * 그래서 이 파일에는 «어느 양식을 쓸지»만 있고 조항 본문은 없다.
- * 본문과 렌더는 착한거래가 갖는다(`docs/ESIGN_CHAKHANDEAL_INTEGRATION.md` §1).
- *
- * ⚠ 아직 **샘플**이다. 프리패스 표준계약서 정본이 확정되면 `version` 을 올릴 것 —
- *   계약에 `esign_template_version` 으로 박히고, 나중에 «이 손님이 어느 판에 서명했나»를
- *   그것으로만 되짚을 수 있다.
+ * 인수/반납은 서로 다른 계약서가 아니라 위 3벌 안에서 관리자가 찍는 만기 선택이다.
+ * 고객은 선택하지 않고 이미 확정된 계약을 확인·동의·서명한다.
  */
 import type { EntityRecord } from '@/lib/intake/entities';
 import {
-  CONTRACT_KINDS, findContractKind, type ContractKindSpec, type InsuranceSide,
+  findContractKind, type ContractKind, type ContractKindSpec, type InsuranceSide, type MaturityKind,
 } from '@/lib/domain/esign-contract-kind';
 
-const S = (v: unknown): string => String(v ?? '').trim();
+const S = (value: unknown): string => String(value ?? '').trim();
 
-/** 표준계약서 판 — 4유형 공통. 조항을 고치면 이걸 올린다. */
+/** 세 표준계약서의 공통 개정판. 개별 개정이 필요해지면 각 항목 version을 분리한다. */
 export const STANDARD_VERSION = 'sample-v1';
 export const STANDARD_IS_SAMPLE = true;
 
-/** Preview에서는 샘플 계약서를 검증할 수 있지만 Production 발행은 최종본만 허용한다. */
-export function isEsignTemplateAllowed(environment: string | undefined): boolean {
-  return environment !== 'production' || !STANDARD_IS_SAMPLE;
-}
+export type StandardTemplateKey =
+  | 'freepass-rent-standard'
+  | 'freepass-subscription-insurance-included'
+  | 'freepass-subscription-insurance-separate';
 
 export type EsignTemplate = {
-  /** 계약유형 키 그대로 — 양식과 유형이 1:1 이다. */
-  id: string;
+  /** 프리패스 내부의 표준계약서 ID. 착한거래 외부 ID가 아니다. */
+  id: StandardTemplateKey;
   label: string;
   version: string;
   isSample: boolean;
-  spec: ContractKindSpec;
+  contractKind: ContractKind;
+  insuranceSide: InsuranceSide;
+  title: string;
   note: string;
 };
 
-const noteOf = (spec: ContractKindSpec): string => [
-  spec.maturityNote,
-  spec.insuranceSides.length > 1 ? '보험은 회사포함·고객직접 중에서 고릅니다.' : '보험은 회사가 가입합니다.',
-].join(' ');
+export const STANDARD_CONTRACT_TEMPLATES: EsignTemplate[] = [
+  {
+    id: 'freepass-rent-standard',
+    label: '표준 렌트계약서',
+    version: STANDARD_VERSION,
+    isSample: STANDARD_IS_SAMPLE,
+    contractKind: '렌탈',
+    insuranceSide: '회사포함',
+    title: '자동차 렌탈(대여) 계약서',
+    note: '인수·반납 중 하나를 계약 확정 시 선택합니다.',
+  },
+  {
+    id: 'freepass-subscription-insurance-included',
+    label: '표준 구독계약서 · 보험포함',
+    version: STANDARD_VERSION,
+    isSample: STANDARD_IS_SAMPLE,
+    contractKind: '구독',
+    insuranceSide: '회사포함',
+    title: '자동차 구독 계약서',
+    note: '회사가 보험을 가입하며, 인수·반납 중 하나를 선택합니다.',
+  },
+  {
+    id: 'freepass-subscription-insurance-separate',
+    label: '표준 구독계약서 · 보험별도',
+    version: STANDARD_VERSION,
+    isSample: STANDARD_IS_SAMPLE,
+    contractKind: '구독',
+    insuranceSide: '고객직접',
+    title: '자동차 구독 계약서',
+    note: '고객이 보험을 별도로 가입하며, 인수·반납 중 하나를 선택합니다.',
+  },
+];
 
-export const ALL_TEMPLATES: EsignTemplate[] = CONTRACT_KINDS.map((spec) => ({
-  id: spec.key,
-  label: spec.label,
-  version: STANDARD_VERSION,
-  isSample: STANDARD_IS_SAMPLE,
-  spec,
-  note: noteOf(spec),
-}));
+/** 기존 호출부 호환용 이름. 내용은 표준계약서 3벌이다. */
+export const ALL_TEMPLATES = STANDARD_CONTRACT_TEMPLATES;
 
-export function findTemplate(id: string): EsignTemplate | null {
-  return ALL_TEMPLATES.find((t) => t.id === S(id)) || null;
+/** Preview에서는 샘플 검증 가능, Production은 세 벌 모두 최종본이어야 한다. */
+export function isEsignTemplateAllowed(environment: string | undefined): boolean {
+  return environment !== 'production' || STANDARD_CONTRACT_TEMPLATES.every((template) => !template.isSample);
 }
 
-/**
- * 고를 수 있는 양식 — **전부**다. 공급사로 좁히지 않는다.
- * 어느 유형으로 계약할지는 상품·약정에서 정해질 일이지 공급사가 정하는 게 아니다.
- */
+export function findTemplate(id: unknown): EsignTemplate | null {
+  return STANDARD_CONTRACT_TEMPLATES.find((template) => template.id === S(id)) || null;
+}
+
 export function templatesForContract(_contract: EntityRecord | null | undefined): EsignTemplate[] {
-  return ALL_TEMPLATES;
+  return STANDARD_CONTRACT_TEMPLATES;
 }
 
-/**
- * 기본 선택 — 계약에 이미 유형이 박혀 있으면 그것, 없으면 렌탈 반납형.
- * 렌탈 반납형이 기본인 이유: 인수 약정이 없는 평범한 장기렌트가 가장 많다.
- */
-export function defaultTemplateFor(contract: EntityRecord | null | undefined): EsignTemplate {
-  const saved = S((contract as Record<string, unknown> | null)?.contract_kind);
-  return (saved && findTemplate(saved)) || findTemplate('rent_return') || ALL_TEMPLATES[0];
+/** 표준계약서 3벌 중 하나 + 인수/반납 선택을 기존 ContractKindSpec으로 펼친다. */
+export function contractKindFor(template: EsignTemplate, maturity: MaturityKind): ContractKindSpec {
+  const prefix = template.contractKind === '렌탈' ? 'rent' : 'sub';
+  const suffix = maturity === '인수형' ? 'buyout' : 'return';
+  const spec = findContractKind(`${prefix}_${suffix}`);
+  if (!spec) throw new Error('표준계약서와 만기 선택 조합이 올바르지 않습니다.');
+  return spec;
 }
 
-/** 이 계약이 실제로 어느 양식으로 나갔나 — 발송 후에는 저장값이 정답이다. */
+export function templateForKindAndInsurance(kind: ContractKind, insuranceSide: InsuranceSide): EsignTemplate {
+  if (kind === '렌탈') return STANDARD_CONTRACT_TEMPLATES[0];
+  return insuranceSide === '고객직접' ? STANDARD_CONTRACT_TEMPLATES[2] : STANDARD_CONTRACT_TEMPLATES[1];
+}
+
+export function insuranceSideFromPolicy(policy: Record<string, unknown> | null | undefined): InsuranceSide | null {
+  const raw = S(policy?.insurance_included);
+  if (!raw) return null;
+  return /별도|개인/.test(raw) ? '고객직접' : '회사포함';
+}
+
+/** 표준계약서 3종 + 인수/반납 + 정책 보험조건의 공통 게이트. */
+export function standardTemplateSelectionError(
+  template: EsignTemplate,
+  spec: ContractKindSpec,
+  policy: Record<string, unknown> | null | undefined,
+): string {
+  if (spec.kind !== template.contractKind) return '계약서 종류와 인수/반납 선택 조합이 올바르지 않습니다.';
+  const policySide = insuranceSideFromPolicy(policy);
+  if (!policySide) return '정책관리의 보험 포함 여부를 확인해 주세요.';
+  if (template.insuranceSide !== policySide) {
+    return `선택한 계약서는 ${template.insuranceSide === '고객직접' ? '보험별도' : '보험포함'}인데 정책관리의 보험 조건과 다릅니다.`;
+  }
+  return '';
+}
+
+/** 기발행·기존 계약에서 사용한 표준계약서를 복원한다. */
 export function sentTemplateOf(contract: EntityRecord | null | undefined): EsignTemplate | null {
-  const id = S((contract as Record<string, unknown> | null)?.esign_template_id);
-  return id ? findTemplate(id) : null;
+  const row = contract as Record<string, unknown> | null;
+  if (!row) return null;
+  const direct = findTemplate(row.esign_template_base_id || row.esign_standard_template_id || row.standard_template_id);
+  if (direct) return direct;
+  const spec = findContractKind(S(row.esign_contract_kind || row.contract_kind || row.esign_template_id));
+  return spec ? templateForKindAndInsurance(spec.kind, sentInsuranceSide(contract)) : null;
 }
 
-/** 발송 시 함께 고른 보험 주체. 구독에서만 갈리고, 렌탈은 늘 회사포함이다. */
+/** 발행 시 함께 확정한 보험 주체. */
 export function sentInsuranceSide(contract: EntityRecord | null | undefined): InsuranceSide {
-  const raw = S((contract as Record<string, unknown> | null)?.esign_insurance_side);
+  const row = contract as Record<string, unknown> | null;
+  const direct = findTemplate(row?.esign_template_base_id || row?.esign_standard_template_id || row?.standard_template_id);
+  if (direct) return direct.insuranceSide;
+  const raw = S(row?.esign_insurance_side);
   return raw === '고객직접' ? '고객직접' : '회사포함';
+}
+
+export function maturityOf(contract: EntityRecord | null | undefined): MaturityKind | null {
+  const row = contract as Record<string, unknown> | null;
+  const saved = S(row?.esign_maturity);
+  if (saved === '인수형' || saved === '반납형') return saved;
+  return findContractKind(S(row?.esign_contract_kind || row?.contract_kind || row?.esign_template_id))?.maturity || null;
 }

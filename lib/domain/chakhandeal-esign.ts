@@ -8,10 +8,13 @@ import {
   paginateForMobile,
 } from '@/lib/domain/esign-consent-doc';
 import { findContractKind, type InsuranceSide } from '@/lib/domain/esign-contract-kind';
+import { findTemplate } from '@/lib/domain/esign-templates';
 import { customerInputGroupsFor, customerInputsFor, pendingConsents } from '@/lib/domain/esign-inputs';
 import {
   KEY_CLAUSE_CONFIRM_LABEL, agreementWithEmphasis, keyClauseSummaries,
 } from '@/lib/domain/esign-agreement-emphasis';
+import { providerContractIdentity, type ContractTemplateProfile } from '@/lib/domain/esign-template-profile';
+import { buildTemplateFieldsFromRecords } from '@/lib/domain/esign-template-fields';
 
 export type ChakhandealActor = {
   uid: string;
@@ -38,30 +41,89 @@ export function canSendChakhandealContract(actor: ChakhandealActor, _contract: R
 /**
  * 착한거래 계약 발행 payload.
  *
- * `data` 는 착한거래 템플릿에 채워지는 기계용 값이고,
- * `consentGroups`·`requiredDocs`·`agreement` 는 **손님 화면 그 자체**다(`ESIGN…INTEGRATION.md` §3.1).
- * 손님이 볼 문자열은 여기서 굳혀 보낸다 — 저쪽이 다시 포맷하면 화면과 계약서의 숫자가 갈린다.
+ * `templateFields` / `templateState` 는 A4 인쇄 칸(data-field).
+ * `consentGroups`·`requiredDocs`·`agreement` 는 **손님 화면**이다.
+ * 화면 값에서 인쇄본을 되짚어 만들지 않는다 — 빈칸·어긋남이 난다.
  *
  * ⚠ PII 는 `signer`(이름·생년·연락처)까지만 나간다. 주민번호·주소·면허번호는 우리가 갖고 있지도,
  *   보내지도 않는다 — 착한거래가 본인확인 과정에서 직접 받는다(§3).
  *   `consentGroups.identity` 의 주소는 계약에 이미 있는 값을 **확인시키는 용도**로만 실린다.
  */
 export function chakhandealIssuePayload(
-  identity: { memberCompany: string; templateId: string },
+  identity: {
+    memberCompany: string;
+    /** 착한거래가 실제로 렌더할 외부 템플릿 ID. 계약유형 키와 섞지 않는다. */
+    templateId: string;
+    contractKind?: string;
+    templateProfile?: ContractTemplateProfile;
+  },
   contract: RecordValue,
   policy?: RecordValue | null,
   insuranceSide: InsuranceSide = '회사포함',
+  partner?: RecordValue | null,
+  opts?: {
+    product?: RecordValue | null;
+    /** 관리자 직접 입력 — 외부값 위에 덮어씀 */
+    templateFieldOverrides?: Record<string, string> | null;
+  },
 ): RecordValue {
   if (!hasTermFrozen(contract as Parameters<typeof hasTermFrozen>[0])) {
     throw new Error('약정에서 대여기간·금액을 먼저 확정해 주세요');
   }
   const birth = text(contract.customer_birth || contract.birth);
-  const spec = findContractKind(identity.templateId);
+  const product = opts?.product || null;
+  // 스냅샷이 비면 재고·원본 필드로 보강 — 손님 요지(차종·번호·기간)가 빈칸으로 나가지 않게.
+  const carNumber = text(
+    contract.car_number_snapshot || contract.car_number || product?.car_number,
+  );
+  const vehicleName = text(contract.vehicle_name_snapshot)
+    || text(
+      [contract.maker_snapshot, contract.model_snapshot, contract.sub_model_snapshot]
+        .map(text)
+        .filter(Boolean)
+        .join(' '),
+    )
+    || text(
+      [product?.maker, product?.model, product?.sub_model]
+        .map(text)
+        .filter(Boolean)
+        .join(' '),
+    );
+  const enriched = {
+    ...contract,
+    car_number_snapshot: carNumber,
+    vehicle_name_snapshot: text(contract.vehicle_name_snapshot) || vehicleName,
+    rent_month_snapshot: contract.rent_month_snapshot || contract.rent_month,
+    rent_amount_snapshot: contract.rent_amount_snapshot || contract.rent_amount,
+    deposit_amount_snapshot:
+      contract.deposit_amount_snapshot ?? contract.deposit_amount ?? 0,
+  };
+  // 예전 호출부는 templateId에 계약유형을 넣었다. 신규 경로는 외부 템플릿 ID와
+  // 계약유형을 분리하며, fallback은 로컬 회귀·기발행 호환을 위해서만 남긴다.
+  const contractKind = text(identity.contractKind || contract.contract_kind || identity.templateId);
+  const spec = findContractKind(contractKind);
+  const standardTemplate = findTemplate(identity.templateProfile?.baseTemplateId);
+  const provider = providerContractIdentity(partner, contract.provider_company_code);
   const groups = buildConsentGroups(
-    contract as Parameters<typeof buildConsentGroups>[0],
+    {
+      ...enriched,
+      // 선택은 관리자 화면에서 끝났다. 고객 화면은 이 확정값을 읽고 동의하기만 한다.
+      ...(spec ? { contract_kind: spec.key } : {}),
+      ...(standardTemplate ? { esign_standard_template_label: standardTemplate.label } : {}),
+    } as Parameters<typeof buildConsentGroups>[0],
     policy,
     insuranceSide,
   );
+  const { fields: templateFields, state: templateState } = buildTemplateFieldsFromRecords({
+    contract: enriched,
+    policy,
+    partner,
+    product,
+    overrides: {
+      ...(insuranceSide === '고객직접' ? { ins: '별도' } : { ins: '포함' }),
+      ...(opts?.templateFieldOverrides || {}),
+    },
+  });
   return {
     // 손님 여정 — 원자 4묶음 확인 → 서류 → 약관 통독 → 서명.
     consentGroups: groups,
@@ -86,6 +148,12 @@ export function chakhandealIssuePayload(
     // 개인정보 동의 — 항목·목적·보유기간·받는자까지. 「동의합니다」 한 줄로는 유효하지 않다.
     consentAtoms: pendingConsents(contract as Parameters<typeof pendingConsents>[0]),
     requiredDocs: REQUIRED_DOCS,
+    // ── 약관 CROSS-CHECK (오픈 종합검토) ──
+    // 여기로 나가는 agreement = 손님이 착한거래에서 통독·동의하는 본문.
+    // 정본 삼각: rental-contract.html ↔ esign-agreement-text.ts ↔ 이 payload.
+    // isSample·version·조문 불일치면 실발송 금지. 상세:
+    //   docs/CONTRACT_REPLACEMENT_REVIEW_2026-08-10.md
+    //   docs/CLAUDE_OPEN_FULL_REVIEW_REQUEST_2026-08-10.md §2-4
     agreement: {
       version: SAMPLE_AGREEMENT.version,
       title: SAMPLE_AGREEMENT.title,
@@ -104,6 +172,8 @@ export function chakhandealIssuePayload(
       confirmLabel: KEY_CLAUSE_CONFIRM_LABEL,
       items: keyClauseSummaries(),
     },
+    // 표준 3벌 중 선택한 기준서식과 업체별 파생판의 계보를 남긴다.
+    templateProfile: identity.templateProfile || null,
     templateId: identity.templateId,
     memberCompany: identity.memberCompany,
     externalRef: text(contract.contract_code),
@@ -112,22 +182,41 @@ export function chakhandealIssuePayload(
       phone: text(contract.customer_phone),
       ...(birth ? { birth } : {}),
     },
+    // A4 인쇄용 — 서식 data-field 키. 화면용과 분리.
+    templateFields,
+    templateState,
     data: {
       contractCode: text(contract.contract_code),
       contractDate: text(contract.contract_date),
-      carNumber: text(contract.car_number_snapshot),
-      vehicleName: text(contract.vehicle_name_snapshot),
-      maker: text(contract.maker_snapshot),
-      model: text(contract.model_snapshot),
-      subModel: text(contract.sub_model_snapshot),
+      carNumber: text(enriched.car_number_snapshot),
+      vehicleName: text(enriched.vehicle_name_snapshot),
+      maker: text(contract.maker_snapshot || product?.maker),
+      model: text(contract.model_snapshot || product?.model),
+      subModel: text(contract.sub_model_snapshot || product?.sub_model),
       variant: text(contract.variant_snapshot),
       trim: [contract.trim_name_snapshot, contract.trim_extra_snapshot].map(text).filter(Boolean).join(' '),
       modelYear: text(contract.year_snapshot),
-      fuel: text(contract.fuel_type_snapshot),
-      rentMonths: Number(contract.rent_month_snapshot) || 0,
-      rentAmount: Number(contract.rent_amount_snapshot) || 0,
-      depositAmount: Number(contract.deposit_amount_snapshot) || 0,
+      fuel: text(contract.fuel_type_snapshot || product?.fuel_type),
+      rentMonths: Number(enriched.rent_month_snapshot) || 0,
+      rentAmount: Number(enriched.rent_amount_snapshot) || 0,
+      depositAmount: Number(enriched.deposit_amount_snapshot) || 0,
       providerCompanyCode: text(contract.provider_company_code),
+      standardTemplateId: standardTemplate?.id || '',
+      standardTemplateLabel: standardTemplate?.label || '',
+      contractKind: spec?.key || '',
+      contractKindLabel: spec?.label || '',
+      contractTitle: spec?.title || '',
+      maturity: spec?.maturity || '',
+      maturityNote: spec?.maturityNote || '',
+      insuranceSide,
+      provider: {
+        code: provider.code,
+        companyName: provider.companyName,
+        ceo: provider.ceo,
+        businessNumber: provider.businessNumber,
+        phone: provider.phone,
+        address: provider.address,
+      },
     },
   };
 }

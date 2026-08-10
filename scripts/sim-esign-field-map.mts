@@ -54,13 +54,18 @@ check('같은 만기면 필드 구성 동일',
 
 // ── 실제 템플릿과 대조 — 이게 없으면 표가 곧 거짓말이 된다 ──
 const TPL = 'C:/dev/freepasserp3/public/contract-template/rental-contract.html';
+// ERP3의 이전 HTML에는 현재 계약 원자 정책에서 의도적으로 폐기한 필드가 남아 있다.
+// - insurer_phone: 변동 가능한 보험사 대표번호를 계약서 스냅샷으로 고정하지 않는다.
+// - auto_debit_date_inline: auto_debit_date와 중복이므로 정규 필드 하나만 유지한다.
+const RETIRED_TEMPLATE_FIELDS = new Set(['insurer_phone', 'auto_debit_date_inline']);
 if (existsSync(TPL)) {
   const html = readFileSync(TPL, 'utf8');
   const real = new Set(
     [...html.matchAll(/data-field="([^"]+)"/g)]
       .map((m) => m[1])
       // 템플릿 스크립트가 만든 동적 조각은 필드가 아니다.
-      .filter((f) => /^[a-z][a-z0-9_]*$/.test(f)),
+      .filter((f) => /^[a-z][a-z0-9_]*$/.test(f))
+      .filter((f) => !RETIRED_TEMPLATE_FIELDS.has(f)),
   );
   /**
    * ★대조 대상은 «템플릿에서 오는 필드»뿐이다.
