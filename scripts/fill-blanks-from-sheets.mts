@@ -28,6 +28,7 @@ type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
 const norm = (v: unknown) => S(v).replace(/\s+/g, '');
 const APPLY = process.argv.includes('--apply');
+const ONLY_CODE = (process.argv.find((value) => value.startsWith('--code=')) || '').slice('--code='.length).trim();
 const DB = 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app';
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -61,6 +62,7 @@ const partners: Record<string, Rec> = {};
 for (const src of [t3, t4] as Rec[]) for (const [k, v] of Object.entries<Rec>(src)) if (v && typeof v === 'object') partners[k] = { ...(partners[k] || {}), ...v, _key: k };
 
 /** 빈 칸이 하나라도 있는 차 — 목록에 서는 차만 본다(안 보이는 차는 급하지 않다). */
+// 번호판은 공급사 사이에서 겹칠 수 있다. 차번 단독 매칭은 다른 회사 차량을 오염시킨다.
 const need = new Map<string, EntityRecord[]>();
 for (const [k, p] of Object.entries<Rec>(prods)) {
   if (!p || typeof p !== 'object' || dead(p)) continue;
@@ -68,8 +70,10 @@ for (const [k, p] of Object.entries<Rec>(prods)) {
   if (isHiddenFromCatalog(rec as Rec) || !priceList(rec).length) continue;
   if (!FIELDS.some((f) => !S((rec as Rec)[f]))) continue;
   const pl = norm(p.car_number);
-  if (!pl) continue;
-  need.set(pl, [...(need.get(pl) || []), rec]);
+  const owner = S(p.provider_company_code) || S(p.partner_code);
+  if (!pl || !owner) continue;
+  const identity = `${owner}|${pl}`;
+  need.set(identity, [...(need.get(identity) || []), rec]);
 }
 console.log(`■ 빈 칸을 시트에서 채운다 ${APPLY ? '(반영)' : '(dry-run)'}\n`);
 console.log(`  빈 칸이 있는 차 ${need.size}대\n`);
@@ -83,6 +87,7 @@ const seen = new Set<string>();
 for (const p of Object.values(partners)) {
   if (dead(p)) continue;
   const code = S(p.partner_code) || S(p._key);
+  if (ONLY_CODE && code !== ONLY_CODE) continue;
   if (NOT_SHEET_BACKED.has(code)) continue;
   const id = S(p.sheet_url).match(/\/d\/([\w-]+)/)?.[1];
   if (!id || seen.has(id)) continue;
@@ -103,7 +108,7 @@ for (const p of Object.values(partners)) {
       } catch { continue; }
       for (const src of imported) {
         const pl = norm((src as Rec).car_number);
-        const recs = pl ? need.get(pl) : null;
+        const recs = pl ? need.get(`${code}|${pl}`) : null;
         if (!recs?.length) continue;
         for (const rec of recs) {
           const patch: Rec = {};
@@ -128,7 +133,11 @@ for (const f of fills.slice(0, 20)) {
   console.log(`   ${f.plate.padEnd(11)} ${f.from.slice(0, 24).padEnd(26)} ${name.slice(0, 24).padEnd(26)} ${cols.slice(0, 60)}`);
 }
 if (fills.length > 20) console.log(`   … 외 ${fills.length - 20}대`);
-const left = [...need.keys()].filter((pl) => !fills.some((f) => f.plate === pl));
+const left = [...need.keys()].filter((identity) => {
+  const [, ...plateParts] = identity.split('|');
+  const plate = plateParts.join('|');
+  return !fills.some((f) => f.plate === plate && need.get(identity)?.some((row) => S(row._key) === f.key));
+});
 if (left.length) console.log(`\n  시트에서 못 찾은 차 ${left.length}대 — ${left.slice(0, 12).join(' · ')}`);
 
 mkdirSync('tmp', { recursive: true });
@@ -144,8 +153,19 @@ if (!APPLY) { console.log('\n※ dry-run. 실제 반영은 --apply\n'); process.
 const at = new Date().toISOString();
 let done = 0; let bad = 0;
 for (const f of fills) {
-  const res = await fetch(`${DB}/v4/products/${encodeURIComponent(f.key)}.json?access_token=${dbT}`, {
-    method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...f.patch, updatedAt: at }),
+  const target = `${DB}/v4/products/${encodeURIComponent(f.key)}.json?access_token=${dbT}`;
+  const before = await fetch(target, { headers: { 'X-Firebase-ETag': 'true' } });
+  const current = await before.json() as Rec;
+  const patch = Object.fromEntries(Object.entries(f.patch).filter(([field]) => !S(current?.[field])));
+  if (!Object.keys(patch).length) continue;
+  const etag = before.headers.get('etag');
+  const res = await fetch(target, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(etag ? { 'if-match': etag } : {}),
+    },
+    body: JSON.stringify({ ...patch, updatedAt: at }),
   });
   if (res.ok) done++;
   else { bad++; console.log(`  △ ${f.plate} — ${res.status} ${(await res.text()).slice(0, 100)}`); }
