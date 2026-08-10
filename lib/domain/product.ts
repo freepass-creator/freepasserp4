@@ -78,7 +78,23 @@ export function vehicleIdentity(p: { car_number?: unknown; vin?: unknown }): str
 const num = (v: unknown): number => { const n = Number(v); return isNaN(n) ? 0 : n; };
 
 export type Price = { m: number; rent: number; deposit: number; fee: number };
+/** 원본 price 키를 보존한 가격. `24_3만`처럼 같은 개월의 주행거리별 가격을 표시할 때 쓴다. */
+export type PriceVariant = Price & { key: string; mileage: string };
+export type MileageUpcharge = { m: number; amount: number };
 export type Policy = Record<string, unknown>;
+
+/** 옛 오토플러스 위치기반 어댑터가 만든 잘못된 표준키. 현행 주행거리 키가 있으면 읽기에서도 제외한다. */
+export const AUTOPLUS_LEGACY_PRICE_KEYS = new Set(['12', '24', '36', '48']);
+
+/** 오토플러스 가격 예외는 공급사 코드로만 한정한다. adapter 이름만으로 다른 공급사까지 번지면 안 된다. */
+export function isAutoplusProduct(p: EntityRecord): boolean {
+  const rec = p as Record<string, unknown>;
+  const code = String(rec.provider_company_code || rec.partner_code || '').trim().toUpperCase();
+  if (code === 'RP023') return true;
+  const key = String(rec.product_code || rec._key || '').trim().toUpperCase();
+  if (key.startsWith('RP023_') || key.endsWith('_RP023')) return true;
+  return /오토플러스|AUTOPLUS/i.test(String(rec.provider_name || rec.partner_name || ''));
+}
 
 export function policyOf(p: EntityRecord): Policy { return (p._policy || {}) as Policy; }
 
@@ -123,15 +139,104 @@ export function isStandardPeriod(m: number): boolean {
  *  matchProduct·정렬·카드 렌더가 같은 매물을 여러 번 훑어도 캐시히트. 반환 배열은 읽기 전용으로만 쓰인다(호출부 비변형 확인). */
 const priceListCache = new WeakMap<object, Price[]>();
 
+/**
+ * 주행거리 변형을 접지 않은 가격 목록.
+ *
+ * `priceList`는 검색·정렬용 기본가라 같은 개월을 하나로 접는다. 반면 상세·영업자 시트는
+ * 오토플러스의 `18_2만`과 `18_3만`을 둘 다 보여야 하므로 원본 키를 그대로 유지한다.
+ */
+export function priceVariants(p: EntityRecord): PriceVariant[] {
+  const price = (p.price || {}) as Record<string, { rent?: number; deposit?: number; fee?: number }>;
+  const result: PriceVariant[] = [];
+  for (const [key, value] of Object.entries(price)) {
+    const match = key.match(/^(\d+)(?:_(.+))?$/);
+    if (!match) continue;
+    const m = Number(match[1]);
+    if (!isOperatedPeriod(m)) continue;
+    const rawRent = num(value?.rent);
+    if (rawRent <= 0) continue;
+    const { rent, deposit } = normalizeWonPair(rawRent, value?.deposit);
+    if (rent < 100_000 || rent > 20_000_000) continue;
+    result.push({
+      key,
+      m,
+      mileage: String(match[2] || '').trim(),
+      rent,
+      deposit,
+      fee: num(value?.fee),
+    });
+  }
+  return result.sort((a, b) => a.m - b.m
+    || Number(Boolean(a.mileage)) - Number(Boolean(b.mileage))
+    || a.mileage.localeCompare(b.mileage, 'ko', { numeric: true }));
+}
+
+/** 오토플러스의 연 2만km 기준가격이 하나라도 있는지. 3만km 가격만으로 2만 가격을 지어내지 않는다. */
+export function hasAutoplusTwoKmPrice(p: EntityRecord): boolean {
+  return priceVariants(p).some((price) => price.mileage === '2만');
+}
+
+/**
+ * 오토플러스 1만km 상향 월요금 — 같은 기간의 `3만km 가격 - 2만km 가격`.
+ * 차량 하나도 기간마다 차액이 다를 수 있어 개월별로 보존한다.
+ */
+export function autoplusMileageUpcharges(p: EntityRecord): MileageUpcharge[] {
+  if (!isAutoplusProduct(p)) return [];
+  const variants = priceVariants(p);
+  const byKey = new Map(variants.map((price) => [price.key, price]));
+  const months = [...new Set(variants.map((price) => price.m))].sort((a, b) => a - b);
+  return months.flatMap((m) => {
+    const base = byKey.get(`${m}_2만`);
+    const raised = byKey.get(`${m}_3만`);
+    if (!base || !raised || raised.rent < base.rent) return [];
+    return [{ m, amount: raised.rent - base.rent }];
+  });
+}
+
+export function autoplusMileageUpchargeLabel(p: EntityRecord): string {
+  if (!isAutoplusProduct(p)) return '';
+  const baseMonths = priceVariants(p)
+    .filter((price) => price.mileage === '2만')
+    .map((price) => price.m);
+  if (!baseMonths.length) return '';
+  const rows = autoplusMileageUpcharges(p);
+  const byMonth = new Map(rows.map((row) => [row.m, row.amount]));
+  const missing = baseMonths.filter((month) => !byMonth.has(month));
+  if (!rows.length) return baseMonths.map((month) => `${month}개월 확인필요`).join(' / ');
+  const unique = [...new Set(rows.map((row) => row.amount))];
+  if (!missing.length && unique.length === 1) return `월 +${unique[0].toLocaleString()}원`;
+  return baseMonths.map((month) => {
+    const amount = byMonth.get(month);
+    return amount == null ? `${month}개월 확인필요` : `${month}개월 +${amount.toLocaleString()}원`;
+  }).join(' / ');
+}
+
 /** 기간별 가격 목록 (m 오름차순). 데이터에 있는 기간 전부(6·18 포함). */
 export function priceList(p: EntityRecord): Price[] {
   const cached = priceListCache.get(p as object);
   if (cached) return cached;
   const price = (p.price || {}) as Record<string, { rent?: number; deposit?: number; fee?: number }>;
+  const ignoreAutoplusLegacy = isAutoplusProduct(p) && Object.keys(price).some((key) => /^\d+_.+/.test(key));
+  /**
+   * ★「판매 기준가는 연 2만km」는 **2만km 가격이 있을 때의 규칙**이다.
+   *
+   * 실측 2026-08-09: 오토플러스 9대가 `12·24·36·48`(옛 위치기반 레거시 키)과
+   * `18_3만·24_3만·36_3만` 만 갖고 있었다. 레거시는 못 믿는다고 버리고 3만은 기준가가
+   * 아니라고 버리니 **남는 게 0건**이 됐고, 팔 수 있는 차 9대가 목록에서 통째로 사라졌다
+   * (GV70·K8·K9·G80·K5·쏘렌토·모하비·카니발·렉스턴).
+   *
+   * 2만이 하나도 없으면 그 차의 «파는 값»은 3만km 가격뿐이다. 그걸 쓴다 —
+   * 지어내는 게 아니라 시트에 적힌 값을 그대로 쓰는 것이고, 없는 차로 만드는 것보다 낫다.
+   * 상향요금 표시는 2만 기준이 없으면 `autoplusMileageUpchargeLabel` 이 알아서 비운다.
+   */
+  const hasTwoKmBase = Object.keys(price).some((key) => key.split('_')[1] === '2만');
   // 월(m)별 단일 가격으로 통합 — 주행거리 변형(24_3만 등)은 추가요금=정책 담당이라 기간에서 접는다.
   // 표준키('24') 우선, 없으면 최저 대여료 변형을 기본가로. 중복 개월·"(3만)" 라벨 제거.
   const byM = new Map<number, { e: Price; plain: boolean }>();
   for (const [k, v] of Object.entries(price)) {
+    if (ignoreAutoplusLegacy && AUTOPLUS_LEGACY_PRICE_KEYS.has(k)) continue;
+    // 오토플러스 판매 기준가는 연 2만km 하나다. 3만km 가격은 아래 상향요금 계산에만 쓴다.
+    if (ignoreAutoplusLegacy && hasTwoKmBase && k.includes('_') && k.split('_')[1] !== '2만') continue;
     const rawRent = num(v?.rent); if (rawRent <= 0) continue;
     const { rent, deposit } = normalizeWonPair(rawRent, v?.deposit);
     // 대여료 이상치 방어(v3 이식) — 하한 10만·상한 2천만 밖 = 오입력(자릿수 오타·노트 숫자 추출 등) → 제외.
@@ -311,7 +416,18 @@ export function normalizeVehicleDisplayStatus(value: unknown): (typeof VEHICLE_D
     : UNKNOWN_VEHICLE_STATUS;
 }
 
-/** 상품찾기·카탈로그 — 출고불가만 숨김. 계약중은 마크 노출. */
+/**
+ * 상품찾기·카탈로그 — **출고불가만** 숨김. 계약중은 마크 노출.
+ *
+ * ★거르는 상태를 늘리지 마라(사장님 2026-08-09).
+ *   「재고에서 출고불가 빼고 다 올린다」가 기준이다. 활성 783대 − 출고불가 305대 = 458대.
+ *
+ *   · **출고협의**는 «일정 조율만 하면 되는 가능한 차»다. 팔 수 있으니 목록에 선다.
+ *     이름만 보고 「협의 중이니 빼자」고 지우면 75대가 통째로 사라진다.
+ *   · **계약중**도 숨기지 않는다 — 마크로 알린다. 숨기면 왜 안 보이는지 아무도 모른다.
+ *   · 상태값이 **빈 차**도 여기서 거르지 않는다. 그건 «우리 데이터가 덜 채워졌다»는 뜻이지
+ *     그 차를 못 판다는 뜻이 아니다(2026-08-06·08-07 결정과 같은 원칙).
+ */
 export function isHiddenFromCatalog(p: { vehicle_status?: unknown; _deleted?: unknown }): boolean {
   if (p._deleted === true) return true;
   return String(p.vehicle_status || '').replace(/\s+/g, '') === '출고불가';
@@ -457,9 +573,12 @@ export function detailSections(p: EntityRecord, audience: Audience = 'agent'): D
   // 3) 계약조건 = 역할별 묶음(진입 / 사용제한 / 담보 / 결제 / 운전자 / 물류 / 서비스)
   const meta = (rec.sheet_meta || {}) as Record<string, unknown>;
   const m2 = (k: string) => { const v = meta[k]; return v == null ? '' : String(v); };
+  const autoplusMileage = isAutoplusProduct(p) ? autoplusMileageUpchargeLabel(p) : '';
   const condRows: KvRow[] = [
     ['심사', creditDisplay(p)],
-    ['주행 약정', g([s('annual_mileage'), s('mileage_upcharge_per_10000km') && `1만km초과 ${s('mileage_upcharge_per_10000km')}`])],
+    ['주행 약정', isAutoplusProduct(p)
+      ? g(['연 2만km', autoplusMileage && `1만km 추가 ${autoplusMileage}`])
+      : g([s('annual_mileage'), s('mileage_upcharge_per_10000km') && `1만km초과 ${s('mileage_upcharge_per_10000km')}`])],
     ['보증금', g([s('deposit_installment') && `분납 ${s('deposit_installment')}`, s('deposit_card_payment') && `카드 ${s('deposit_card_payment')}`])],
     ['결제 · 위약', g([s('payment_method'), s('penalty_condition') && `위약 ${s('penalty_condition')}`])],
     ['운전 연령', g([s('basic_driver_age') && `기본 ${s('basic_driver_age')}`, s('driver_age_upper_limit') && `상한 ${s('driver_age_upper_limit')}`, m2('age_21') && `21세 ${m2('age_21')}`, m2('age_23') && `23세 ${m2('age_23')}`])],
