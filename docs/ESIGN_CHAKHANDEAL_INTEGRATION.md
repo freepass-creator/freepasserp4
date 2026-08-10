@@ -20,6 +20,13 @@
 > ⑤ **가족관계증명서 등 필수서류를 손님이 찍어 올리는 툴**이 있어야 한다.
 > ⑥ 온라인 전용 — 대면 서명 경로는 만들지 않는다.
 
+> **2026-08-10 사장님 결정 (템플릿 운영):**
+> ① 프리패스 표준계약서는 `렌트`, `구독·보험포함`, `구독·보험별도` 3벌이다.
+> ② 인수/반납은 문서를 더 나누지 않고 3벌 모두 안에서 관리자가 확정한다. 즉 표준 문서는 3벌, 관리자 확정 조합은 6개다.
+> ③ 업체별 커스텀판은 3벌 중 상속한 기준서식을 반드시 명시하고, 서버가 공급사 코드로 자동 적용한다.
+> ④ 고객은 계약서 종류나 인수/반납을 고르지 않고, 이미 확정된 계약을 확인·동의·서명한다.
+> ⑤ 선택한 계약서의 보험조건과 정책이 다르거나, 커스텀판의 기준판이 현재 표준판과 다르면 발행하지 않는다. 상세 SSOT는 `docs/CONTRACT_TEMPLATE_STRATEGY_2026-08-10.md`.
+
 전제(2026-07-31 확정): 전자계약·전자서명은 **착한거래에 «서비스»로 구축**하고
 회원사(freepasserp4·renman 등)는 **연동만** 한다.
 
@@ -28,10 +35,15 @@
 # ★ 역할분담 (2026-08-09 확정) — 다툼 생기면 여기를 본다
 
 > ## 한 줄 원칙
-> **프리패스는 「무엇을 보여줄지」를 판단하고, 착한거래는 「그리고·받고·봉인」한다.**
+> **프리패스는 「무엇을 보여줄지·칸에 무엇을 넣을지」를 판단하고, 착한거래는 「그리고·받고·봉인」한다.**
+> **계약서 양식 = 착한거래가 프리패스용으로 커스터마이징한 것(정본).** 프리패스는 양식 소유자가 아니다.
+> **발송(링크 복사) UI = 프리패스. 문자/카카오 자동 발송 = 없음.**
 
 | | 프리패스(freepasserp4) | 착한거래(chakhandeal) |
 |---|---|---|
+| A4 계약서 **틀** HTML | 미리보기 사본만 | ✅ **회원사 커스텀 정본** |
+| 칸 값 `templateFields` (외부 ERP + 직접 입력) | ✅ | 주입만 |
+| 서명 링크 만들기·복사 전달 | ✅ `/esign` | `POST /issue` → `signUrl` |
 | 계약 원자 구성·판단 | ✅ | |
 | 섹션 구분·순서·문구 | ✅ | |
 | 화면 나눔 규격(1섹션=1화면) | ✅ 정해서 보냄 | 그대로 그림 |
@@ -171,34 +183,31 @@
 ## 3. 연동 인터페이스
 
 ```
-① 템플릿 목록  GET  /api/v1/contract/templates?memberCompany=freepass
-   → [{ templateId, name, version, kind:'standard'|'custom', fields:[…] }]
-   ※ 표준 + 우리 커스텀만. 타사 커스텀이 보이면 그 자체로 영업정보 유출이다.
-
-② 계약 발행    POST /api/v1/contract/issue      Authorization: ApiKey <우리 키>
-   { templateId, externalRef,                    // externalRef = 우리 contract_code
+① 계약 발행    POST /api/v1/contract/issue      Authorization: ApiKey <우리 키>
+   { templateId, externalRef, contractKind,      // templateId는 서버가 3종/업체별로 결정
      signer: { name, birth, phone },
-     data:   { 차량번호, 차종, 기간, 월대여료, 보증금, 인수·반납 조건 … } }
+     templateProfile: { mode, version, baseTemplateId, baseVersion },
+     data:   { standardTemplateId, 인수·반납, 보험조건, 차량, 기간, 월대여료, 보증금, provider … } }
    → { contractId, signUrl, previewUrl, expiresAt }
-   ※ 착한거래가 템플릿에 data 를 채워 계약서를 만든다. 우리는 렌더링하지 않는다.
+   ※ 브라우저는 외부 templateId를 보내지 않는다. 착한거래가 템플릿에 data를 채워 계약서를 만든다.
 
-③ 발송        POST /api/v1/contract/{contractId}/send   { channel:'kakao'|'sms' }
+② 발송        POST /api/v1/contract/{contractId}/send   { channel:'kakao'|'sms' }
    ※ 우리 화면의 «발송» 버튼이 이걸 부른다. signUrl 을 우리가 직접 보내도 된다.
 
-④ 손님 여정   signUrl → §3.1 (본인확인 → 원자별 동의 → 서류 → 약관 → 서명)
+③ 손님 여정   signUrl → §3.1 (본인확인 → 원자별 동의 → 서류 → 약관 → 서명)
 
-⑤ 완료 통보   POST /api/webhooks/chakhandeal/sign   ← 우리 쪽 신설
+④ 완료 통보   POST /api/webhooks/chakhandeal/sign   ← 우리 쪽 신설
    X-Chakhandeal-Signature: HMAC-SHA256
    { contractId, externalRef, status:'signed'|'rejected'|'expired',
      signedAt, verifyUrl, sealHash, obligationId }
    ※ 웹훅 서명 검증 필수 — 이 통보가 계약 상태를 바꾼다. 웹훅 전엔 폴링으로 시작해도 된다.
 
-⑥ 위반 등록   POST /api/v1/obligation/{obligationId}/breach   { type, occurredAt, note }
+⑤ 위반 등록   POST /api/v1/obligation/{obligationId}/breach   { type, occurredAt, note }
    ※ obligationId = ⑤에서 받은 이행 대상. 계약 근거가 붙은 위반으로 기록된다.
 ```
 
-**우리가 보내는 PII 는 `name`·`birth`·`phone` 뿐이다.**
-주민등록번호·주소·면허번호는 착한거래가 본인확인 과정에서 직접 받는다 — 우리를 거치지 않는다.
+**우리가 보내는 고객 PII는 `name`·`birth`·`phone` 뿐이다.**
+고객의 주민등록번호·주소·면허번호는 착한거래가 본인확인 과정에서 직접 받는다. `data.provider`의 주소·사업자번호는 고객 PII가 아니라 계약 당사자인 공급사의 법정 표시값이다.
 
 ---
 

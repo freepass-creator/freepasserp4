@@ -1,7 +1,8 @@
 # 렌터카 계약 원자 — 숫자형 / 가부형 (계약서 칸 전수)
 
 작성: Claude, 2026-08-08 · 사장님 지시(2026-08-08)
-**기준: 두 템플릿의 합집합 175칸** — `rental-contract.html`(142) ∪ `contract-individual.html`(141)
+**기준: 두 템플릿의 합집합 174칸** — `rental-contract.html`(141) ∪ `contract-individual.html`(140)
+(`auto_debit_date_inline` 복제 필드는 2026-08-10 제거하고 `auto_debit_date` 한 칸을 참조하도록 정리)
 전제 문서: `CONTRACT_ATOMS.md` · `esign-field-map.ts` · `esign-contract-kind.ts`
 
 > **「렌터카 계약은 거의 동일하다. 숫자화해야 하는 값이 있고, 가부로 결정할 게 있다.
@@ -293,8 +294,8 @@
 `scripts/audit-contract-fields.mts` (2026-08-08 실측)
 
 ```
-계약서 칸 합집합        175
-채울 경로 있음          109
+계약서 칸 합집합        174
+채울 경로 있음          108
 못 채우는 칸             66
    ① FIELD_MAP 미등록    34   ← 개인용 계약서 칸이 통째로 누락돼 있었다
    ② 등록됐지만 경로 미정  32

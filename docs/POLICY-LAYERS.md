@@ -2,6 +2,8 @@
 
 2026-08-09 사장님 확정. 코드 SSOT 는 `lib/domain/policy-tier.ts`.
 
+공급사 배포·동의 절차는 [`SUPPLIER_POLICY_AGREEMENT_MANUAL.md`](./SUPPLIER_POLICY_AGREEMENT_MANUAL.md)를 따른다.
+
 ---
 
 ## 왜 나누나
