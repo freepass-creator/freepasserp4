@@ -349,7 +349,14 @@ export function clearStoreCache() {
 // message 전량 fallback만 TTL을 길게 둔다. 일반 RTDB 경로의 roomsWithUnread는 last_read가 있는
 //  방만 listMessagesForRoom으로 조회하고, scoped API가 없는 어댑터에서만 이 캐시를 사용한다.
 //  열린 대화방 본문은 listMessagesForRoom(캐시 없음·5초 폴링)이 따로 최신을 유지한다.
-const LIVE_TTL_MS: Record<string, number> = { room: 10_000, contract: 10_000, settlement: 10_000, message: 60_000 };
+/**
+ * ★`product` 도 **상대가 계속 쓰는 엔티티**다(2026-08-10).
+ *   재고는 공급사 시트 동기화·유입 스크립트가 바꾼다. 그런데 캐시는 «내 화면 조작»만 무효화하니
+ *   그 변화에는 무효화 계기가 없어 **세션 내내 옛 목록이 그대로 돌아왔다** —
+ *   실측: RTDB 활성 582건인데 화면은 555건에 멈춰, 시트와 ERP 가 안 맞는 것처럼 보였다.
+ *   30초면 아침 동기화 뒤 화면이 알아서 따라온다(stale-while-revalidate 라 깜빡임은 없다).
+ */
+const LIVE_TTL_MS: Record<string, number> = { product: 30_000, room: 10_000, contract: 10_000, settlement: 10_000, message: 60_000 };
 function _isStale(ck: string, entityKey: string): boolean {
   const ttl = LIVE_TTL_MS[entityKey];
   if (ttl == null) return false;

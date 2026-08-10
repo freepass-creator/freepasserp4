@@ -12,7 +12,15 @@
  *   차종·대여료·옵션은 손대지 않는다 — 여기서 고칠 근거가 없고, 덮으면 되돌릴 수 없다.
  *
  * ⚠ 이건 **응급 처치**다. 부활 경로를 고치지 않으면 같은 일이 또 쌓인다.
- * ⚠ 시트가 「출고불가」라고 한 차는 **건드리지 않는다** — 이 스크립트는 여는 쪽으로만 움직인다.
+ *
+ * ★**닫는 쪽도 시트를 따른다**(사장님 2026-08-10 — 「시트가 계약중·보류면 빼야지」).
+ *   전에는 여는 쪽으로만 움직였다 — 팔 수 있는 차를 실수로 내리지 않으려던 것인데,
+ *   그러면 시트에서 팔린 차가 ERP 에 계속 열려 있어 **없는 차를 판다.** 그게 더 나쁘다.
+ *   시트가 「출고불가」(계약중·보류·출고완료 …)라고 하면 ERP 도 닫는다.
+ *
+ * ⚠ 닫는 것은 시트에 **그 차가 실제로 적혀 있을 때만**이다.
+ *   시트에서 사라진 차는 여기서 손대지 않는다 — 그건 `purge-aggregate-leftovers` 몫이다.
+ *   (시트를 못 읽은 공급사의 차가 통째로 닫히면 안 된다.)
  *
  *   npx tsx scripts/fix-sheet-status-gap.mts
  *   npx tsx scripts/fix-sheet-status-gap.mts --apply
@@ -83,6 +91,8 @@ for (const p of all) {
 
 type Fix = { plate: string; code: string; name: string; sheetSt: string; want: string; key: string; from: string; prices: number };
 const fixes: Fix[] = []; const noPrice: Fix[] = []; const absent: string[][] = [];
+/** 시트가 닫으라고 한 차 — 계약중·보류·출고완료 등. */
+const close: Fix[] = [];
 /** 어느 시트를 몇 줄이나 읽었나 — 「0건」이 «깨끗해서»인지 «못 읽어서»인지 가른다. */
 const read: { code: string; name: string; rows: number; err: string }[] = [];
 
@@ -123,18 +133,23 @@ for (const [code, meta] of sheets) {
 
   for (const r of rows) {
     const want = canonSheetVehicleStatus(r.st);
-    if (want === '출고불가') continue;              // 여는 쪽으로만 움직인다
-    if (onSheet.has(r.plate)) continue;             // 이미 서 있다
     const recs = byPlate.get(r.plate);
-    if (!recs?.length) { absent.push([r.plate, code, meta.name, r.st]); continue; }
+    if (!recs?.length) {
+      // 시트엔 있는데 ERP 에 없다 — 상태 문제가 아니라 유입 문제다.
+      if (want !== '출고불가') absent.push([r.plate, code, meta.name, r.st]);
+      continue;
+    }
     for (const rec of recs) {
       const from = S((rec as any).vehicle_status);
-      if (!isHiddenFromCatalog(rec as any)) continue;   // 이 레코드는 막고 있지 않다
+      const blocked = isHiddenFromCatalog(rec as any);
+      // 시트가 닫으라 하면 닫고, 열라 하면 연다. 이미 그 상태면 건드리지 않는다.
+      if (want === '출고불가' ? blocked : !blocked) continue;
       const f: Fix = {
         plate: r.plate, code, name: meta.name, sheetSt: r.st, want,
         key: S((rec as any)._key), from, prices: priceList(rec).length,
       };
-      (f.prices > 0 ? fixes : noPrice).push(f);
+      if (want === '출고불가') close.push(f);
+      else (f.prices > 0 ? fixes : noPrice).push(f);
     }
   }
 }
@@ -142,7 +157,13 @@ for (const [code, meta] of sheets) {
 console.log(`■ 시트 기준으로 상태를 되돌린다 ${APPLY ? '(반영)' : '(dry-run)'}\n`);
 console.log(`  고치면 목록에 서는 차   ${fixes.length}건`);
 console.log(`  고쳐도 안 서는 차       ${noPrice.length}건  (대여료가 없다 — 공급사에 가격을 받아야 한다)`);
+console.log(`  시트가 닫으라는 차       ${close.length}건  (계약중·보류·출고완료 — ERP 도 닫는다)`);
 console.log(`  ERP 에 아예 없는 차     ${absent.length}대  (상태 문제가 아니라 유입 문제 — 여기선 못 고친다)\n`);
+for (const f of close.slice(0, 14)) {
+  console.log(`   닫음 ${f.plate.padEnd(11)} ${f.name.slice(0, 10).padEnd(12)} 「${f.from}」→「출고불가」  시트「${f.sheetSt}」`);
+}
+if (close.length > 14) console.log(`   … 외 ${close.length - 14}건`);
+if (close.length) console.log('');
 
 console.log(`  ── 시트를 읽은 결과 ──`);
 for (const r of read) {
@@ -165,6 +186,7 @@ writeFileSync('tmp/status-gap-fix.csv', `﻿${[
   ['차량번호', '공급사', 'RTDB키', '고치기전', '고친후', '시트원문', '대여료건수', '결과'].join(','),
   ...fixes.map((f) => [f.plate, f.name, f.key, f.from, f.want, f.sheetSt, String(f.prices), '목록에 섬'].map(esc).join(',')),
   ...noPrice.map((f) => [f.plate, f.name, f.key, f.from, f.want, f.sheetSt, '0', '대여료 없음 — 여전히 안 섬'].map(esc).join(',')),
+  ...close.map((f) => [f.plate, f.name, f.key, f.from, f.want, f.sheetSt, String(f.prices), '시트가 닫음 — 목록에서 빠짐'].map(esc).join(',')),
   ...absent.map((a) => [a[0], a[2], '', '', '', a[3], '', 'ERP 에 없음 — 유입 필요'].map(esc).join(',')),
 ].join('\r\n')}`, 'utf8');
 console.log(`\n  CSV: tmp/status-gap-fix.csv`);
@@ -172,7 +194,7 @@ console.log(`\n  CSV: tmp/status-gap-fix.csv`);
 if (!APPLY) { console.log('\n※ dry-run. 실제 반영은 --apply\n'); process.exit(0); }
 
 let done = 0; let failed = 0;
-for (const f of [...fixes, ...noPrice]) {
+for (const f of [...fixes, ...noPrice, ...close]) {
   // ★`vehicle_status` 하나만 쓴다. PATCH 라 나머지 필드는 그대로 남는다.
   const res = await fetch(`${DB}/v4/products/${encodeURIComponent(f.key)}.json?access_token=${dbT}`, {
     method: 'PATCH',
