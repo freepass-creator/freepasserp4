@@ -350,16 +350,26 @@ export function clearStoreCache() {
 //  방만 listMessagesForRoom으로 조회하고, scoped API가 없는 어댑터에서만 이 캐시를 사용한다.
 //  열린 대화방 본문은 listMessagesForRoom(캐시 없음·5초 폴링)이 따로 최신을 유지한다.
 /**
- * ★`product` 도 **상대가 계속 쓰는 엔티티**다(2026-08-10).
- *   재고는 공급사 시트 동기화·유입 스크립트가 바꾼다. 그런데 캐시는 «내 화면 조작»만 무효화하니
- *   그 변화에는 무효화 계기가 없어 **세션 내내 옛 목록이 그대로 돌아왔다** —
- *   실측: RTDB 활성 582건인데 화면은 555건에 멈춰, 시트와 ERP 가 안 맞는 것처럼 보였다.
- *   30초면 아침 동기화 뒤 화면이 알아서 따라온다(stale-while-revalidate 라 깜빡임은 없다).
+ * ★**모르는 엔티티는 「낡았다」로 본다**(2026-08-10에 기본값을 뒤집음).
+ *
+ *   전에는 목록에 없으면 `return false` — 즉 «영원히 신선함»이었다.
+ *   그러면 엔티티를 새로 추가할 때마다 **아무도 의도하지 않은 영구 캐시**가 하나씩 생긴다.
+ *   실제로 `product` 가 그렇게 빠져 있었고, 재고는 공급사 시트 동기화·유입 스크립트가 바꾸는데
+ *   캐시는 «내 화면 조작»만 무효화하니 그 변화엔 무효화 계기가 없었다 —
+ *   **세션 내내 옛 목록이 그대로 돌아왔다.** 실측: RTDB 활성 582건인데 화면은 555건에 멈춰,
+ *   시트와 ERP 가 안 맞는 것처럼 보였고 원인을 찾는 데 반나절이 갔다.
+ *
+ *   기본을 30초로 두면 «빠뜨림»이 조용한 버그가 아니라 **살짝 잦은 재조회**로 끝난다.
+ *   stale-while-revalidate 라 화면은 옛 값으로 즉시 그리고 새 값이 오면 갈아끼운다 — 깜빡임이 없다.
+ *   영구 캐시가 정말 필요한 엔티티가 생기면 `NEVER_STALE` 에 **이유와 함께** 적어라.
  */
-const LIVE_TTL_MS: Record<string, number> = { product: 30_000, room: 10_000, contract: 10_000, settlement: 10_000, message: 60_000 };
+const DEFAULT_TTL_MS = 30_000;
+const LIVE_TTL_MS: Record<string, number> = { room: 10_000, contract: 10_000, settlement: 10_000, message: 60_000 };
+/** 세션 내내 안 바뀌는 것만. 비워 두는 게 정상이다 — 넣을 땐 왜 안 바뀌는지 적어라. */
+const NEVER_STALE = new Set<string>([]);
 function _isStale(ck: string, entityKey: string): boolean {
-  const ttl = LIVE_TTL_MS[entityKey];
-  if (ttl == null) return false;
+  if (NEVER_STALE.has(entityKey)) return false;
+  const ttl = LIVE_TTL_MS[entityKey] ?? DEFAULT_TTL_MS;
   return Date.now() - (_listAt.get(ck) ?? 0) > ttl;
 }
 

@@ -356,9 +356,43 @@ export class RtdbAdapter implements StoreAdapter {
     if (entity === 'settlement') return this.readSettlementsScoped(co, overlay, joinMap);
     if (entity === 'customer') return this.readCustomersScoped(co, overlay);
     const node = NODE[entity] || entity;
-    const val: Rec = (await get(ref(this.db(), overlay ? `${OVERLAY}/${node}` : node))).val() || {};
+    const path = overlay ? `${OVERLAY}/${node}` : node;
+    let val: Rec;
+    if (entity === 'product' && overlay) {
+      // Firebase Web SDK의 get()은 서버 연결이 흔들리면 성공으로 끝난 오래된 로컬
+      // 스냅샷을 돌려줄 수 있다. 실측: 서버 v4/products 582건인데 상품찾기는 이전
+      // 555건을 받아 451대에 멈췄다. 상품은 공급사 동기화 결과가 곧 정본이므로
+      // 인증된 서버 no-store 경로로 현재 스냅샷을 강제한다.
+      try {
+        const auth = getAuthClient()?.currentUser;
+        if (!auth) throw new Error('상품 직접 조회 인증 없음');
+        const token = await auth.getIdToken();
+        const response = await fetch('/api/products', {
+          cache: 'no-store',
+          headers: { Authorization: `Bearer ${token}`, 'Cache-Control': 'no-cache' },
+        });
+        if (!response.ok) throw new Error(`상품 직접 조회 HTTP ${response.status}`);
+        val = (await response.json()) || {};
+      } catch (error) {
+        console.warn('RTDB 상품 직접 조회 실패(SDK 폴백):', (error as Error).message);
+        val = (await get(ref(this.db(), path))).val() || {};
+      }
+    } else {
+      val = (await get(ref(this.db(), path))).val() || {};
+    }
     const out: EntityRecord[] = [];
-    for (const [childKey, rec] of Object.entries<any>(val)) if (rec && typeof rec === 'object') out.push(toV4Record(entity, childKey, rec, co, joinMap));
+    for (const [childKey, rec] of Object.entries<any>(val)) {
+      if (!rec || typeof rec !== 'object') continue;
+      const row = toV4Record(entity, childKey, rec, co, joinMap);
+      if (entity === 'product' && overlay) {
+        // v4/products의 child key가 레코드 식별자 SSOT다. 과거 이관 잔재 중 서로 다른
+        // 차량이 같은 product_code를 가진 27건이 있어 product_code로 병합하면 26대의
+        // 판매 가능 차량이 덮어써졌다(477 → 451). 저장 키를 논리키로 바로잡는다.
+        row._key = childKey;
+        row.product_code = childKey;
+      }
+      out.push(row);
+    }
     return out;
   }
 

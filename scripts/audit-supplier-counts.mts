@@ -12,6 +12,7 @@
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { canonProductType, isHiddenFromCatalog, priceList } from '../lib/domain/product';
+import { dedupeProductsByVehicle, isExcludedProduct } from '../lib/firebase/rtdb-products';
 import { canonSheetVehicleStatus } from '../lib/domain/sheet-import';
 import { NOT_SHEET_BACKED, SHEET_GRID_FIELDS, findPlateAndStatusColumns, readSupplierSheet } from '../lib/domain/supplier-sheet-read';
 import type { EntityRecord } from '../lib/intake/entities';
@@ -36,6 +37,9 @@ for (const src of [t3, t4] as Rec[]) for (const [k, v] of Object.entries<Rec>(sr
 const live = Object.entries<Rec>(prods).filter(([, p]) => p && typeof p === 'object' && !dead(p))
   .map(([k, p]) => ({ ...p, _key: k, product_code: p.product_code || k } as EntityRecord));
 const sell = live.filter((p) => !isHiddenFromCatalog(p as Rec) && priceList(p).length > 0);
+const clientEligible = live.filter((p) => !isExcludedProduct(p as Rec));
+const clientDeduped = dedupeProductsByVehicle(clientEligible);
+const clientSell = clientDeduped.filter((p) => !isHiddenFromCatalog(p as Rec) && priceList(p).length > 0);
 const byCode = new Map<string, EntityRecord[]>();
 for (const p of sell) {
   const c = S((p as Rec).provider_company_code) || '(코드없음)';
@@ -100,6 +104,15 @@ const all = new Map<string, number>();
 for (const p of sell) { const k = canonProductType((p as Rec).product_type) || '(빈)'; all.set(k, (all.get(k) || 0) + 1); }
 console.log(`\n구분별   ${[...all].sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v}`).join(' · ')}`);
 console.log(`차번 있는 차 ${new Set(sell.map((p) => norm((p as Rec).car_number)).filter(Boolean)).size}대 · 번호미정 ${sell.filter((p) => !norm((p as Rec).car_number)).length}대`);
+console.log(`\n[상품찾기 클라이언트 동일 판정] 원천 판매가능 ${sell.length} · 공급사 제외 후 ${clientEligible.filter((p) => !isHiddenFromCatalog(p as Rec) && priceList(p).length > 0).length} · 차량 중복 제거 후 ${clientSell.length}`);
+const clientCodes = new Set(clientSell.map((p) => S(p.product_code || p._key)));
+const dropped = sell.filter((p) => !clientCodes.has(S(p.product_code || p._key)));
+const droppedByProvider = new Map<string, number>();
+for (const p of dropped) {
+  const code = S((p as Rec).provider_company_code) || '(코드없음)';
+  droppedByProvider.set(code, (droppedByProvider.get(code) || 0) + 1);
+}
+console.log(`[화면에서 빠진 ${dropped.length}대] ${[...droppedByProvider].sort((a, b) => b[1] - a[1]).map(([code, count]) => `${code} ${count}`).join(' · ') || '없음'}`);
 console.log(`\n· 시트 = 공급사 시트(보이는 행·탭)에서 출고불가 뺀 대수`);
 console.log(`· ERP  = 상품찾기에 서는 대수 — 출고불가가 아니고 대여료가 있는 차`);
 console.log(`· 아이언은 ironrentcar.com 수집이 정본이라 시트칸이 「—」`);

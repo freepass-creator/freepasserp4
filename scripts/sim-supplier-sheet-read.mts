@@ -97,6 +97,22 @@ console.log('■ 공급사 시트 읽기 규격\n');
   const head = tabs[0]?.table?.[0] || [];
   ok('④ 배너를 헤더로 오인하지 않는다', head[1] === '차량번호', `헤더 ${head.join('|')} · 실패 ${failures.length}`);
 }
+{
+  const promoHead = [
+    '순번', '차량번호', '차종', '모델명(트림풀명)', '색상', '연료',
+    '최초등록일', '주행거리', '판매상태', '가격', '', '', '', '', '',
+  ];
+  const promoCar = ['1', '01가1111', '아반떼', '모던', '흰색', '가솔린', '2025-01', '1000', '판매중', '', '', '50', '49', '48', '47'];
+  const grid = {
+    sheets: [tab(284963459, '프로모션', [
+      ['상단 안내'], promoHead, [], ['이미지 안내'], [], promoCar,
+    ])],
+  } as unknown as SheetsGridResponse;
+  const { tabs, failures } = readSupplierSheet(grid, partner({ adapter_id: 'autoplus' }));
+  ok('④ 헤더가 아래로 밀리고 안내행이 끼어도 그 아래 첫 차량 블록을 읽는다',
+    tabs[0]?.table?.[1]?.[1] === '01가1111' && failures.length === 0,
+    `탭 ${tabs.length} · 실패 ${failures.map((x) => x.reason).join(',')}`);
+}
 
 // ── 실패는 삼키지 않는다 ──────────────────────────────────────────
 {

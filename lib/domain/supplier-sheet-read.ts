@@ -36,7 +36,7 @@
  * ⚠ 못 읽은 시트는 **「0대」가 아니라 「모름」**이다. 호출부는 `failures` 를 반드시 사람에게 보여라.
  *   조용히 넘기면 전부 실패해도 「어긋남 없음」으로 보인다.
  */
-import { resolveAdapter } from './sheet-adapters';
+import { firstPlateBlockAfterHeader, resolveAdapter } from './sheet-adapters';
 import { visibleRowsFromGridResponse, type SheetsGridResponse } from './sheet-visible-grid';
 import type { EntityRecord } from '@/lib/intake/entities';
 
@@ -100,6 +100,9 @@ export function readSupplierSheet(grid: SheetsGridResponse, partner: EntityRecor
     try {
       // ④ 헤더 행은 어댑터가 고른다
       table = adapter.prepareTable(visible, { headerRow });
+      // 오토플러스는 헤더 아래 안내·여백이 자주 밀린다. 첫 현재재고 블록만 읽고
+      // 빈 행 아래 과거 이력은 제외한다.
+      if (adapter.id === 'autoplus') table = firstPlateBlockAfterHeader(table);
     } catch (e) {
       failures.push({ gid, title, reason: (e as Error).message });
       continue;

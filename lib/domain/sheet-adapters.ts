@@ -23,6 +23,38 @@ function sliceFromHeader(table: string[][], headerRow = 0): string[][] {
 }
 
 /**
+ * 헤더 아래 안내·여백을 건너뛰고 첫 실차 데이터 블록만 남긴다.
+ * 블록이 시작된 뒤 비데이터 행은 하단 과거 이력과의 경계로 취급한다.
+ */
+export function firstPlateBlockAfterHeader(table: string[][], maxLeadingRows = 20): string[][] {
+  if (!table.length) return table;
+  const header = table[0] || [];
+  const plateColumn = header.findIndex((cell) => /^(차량번호|차번|차번호|등록번호)$/.test(
+    String(cell ?? '').replace(/\s/g, ''),
+  ));
+  if (plateColumn < 0) throw new Error('차량번호 열 없음');
+  const body: string[][] = [];
+  let leading = 0;
+  for (const row of table.slice(1)) {
+    if (isExactRealPlate(String(row?.[plateColumn] ?? '').replace(/\s/g, ''))) {
+      body.push(row);
+      continue;
+    }
+    const shiftedColumn = (row || []).findIndex((cell, column) =>
+      column !== plateColumn && isExactRealPlate(String(cell ?? '').replace(/\s/g, '')));
+    if (!body.length && shiftedColumn >= 0) throw new Error('차량번호 열 이동 감지');
+    if (!body.length) {
+      leading++;
+      if (leading > maxLeadingRows) throw new Error(`헤더 아래 ${maxLeadingRows}행 안에 차량 데이터 없음`);
+      continue;
+    }
+    break;
+  }
+  if (!body.length) throw new Error('차량 데이터 없음');
+  return [header, ...body];
+}
+
+/**
  * 그 행이 진짜 헤더인가.
  *
  * ⚠ "차량번호를 **포함**하는 행"으로 보면 안 된다 — 오토플러스 시트는 진짜 헤더(7행) 위에
