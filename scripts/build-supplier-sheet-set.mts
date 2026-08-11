@@ -90,18 +90,35 @@ for (const p of Object.values<Rec>(prods)) {
   cur.cars++;
   if (/^신차/.test(S(p.product_type))) cur.newCars = true;
   const rec = { ...p, product_code: p.product_code || p._key } as EntityRecord;
-  for (const row of priceList(rec)) cur.periods.add(String((row as Rec).months ?? (row as Rec).period ?? ''));
-  for (const v of priceVariants(rec)) cur.periods.add(String((v as Rec).months ?? (v as Rec).period ?? ''));
+  // ★가격 행의 개월은 `m`, 변형은 원본 키(`24_3만`)다. 없는 필드 이름으로 읽으면
+  //   전부 빈 문자열이 되어 «그 공급사가 쓰는 기간»이 통째로 사라진다 —
+  //   빌린카·J&J 의 6개월 열이 그래서 안 생겼다(실측 2026-08-11).
+  for (const row of priceList(rec)) cur.periods.add(String((row as Rec).m || ''));
+  for (const v of priceVariants(rec)) cur.periods.add(S((v as Rec).key) || String((v as Rec).m || ''));
   profile.set(code, cur);
 }
 
-/** 정책탭에 미리 채워 줄 값 — 이미 ERP 에 있는 그 공급사 정책. */
+/**
+ * 값 표기를 하나로 — 같은 뜻을 두 가지로 적어 놓으면 공급사가 고를 때 헷갈린다.
+ * 실측(정책 32건): 「50만원」 20건 · 「500000」 5건 / 「차량가액」 23건 · 「차량가 기준」 2건.
+ */
+function tidyPolicyValue(v: string): string {
+  const t = S(v);
+  if (!t) return '';
+  if (/^차량가\s*기준$/.test(t)) return '차량가액';
+  // 맨숫자 금액은 «만원»으로 — 자리수를 눈으로 세지 않게.
+  const n = Number(t.replace(/[,\s원]/g, ''));
+  if (Number.isFinite(n) && n >= 10000 && n % 10000 === 0) return `${n / 10000}만원`;
+  return t;
+}
+
+/** 정책탭에 미리 채워 줄 값 — **그 공급사 정책만**. */
 function policyColumnsFor(code: string): Record<string, string>[] {
   const mine = Object.values<Rec>(policies).filter((x) => x && !dead(x)
     && (S(x.provider_company_code) === code || S(x.partner_code) === code));
   return mine.map((x) => {
     const col: Record<string, string> = { 정책코드: S(x.policy_code) || S(x._key), 정책명: S(x.policy_name) };
-    for (const { name, field } of POLICY_COLUMN_FIELDS) col[name] = S(x[field]);
+    for (const { name, field } of POLICY_COLUMN_FIELDS) col[name] = tidyPolicyValue(S(x[field]));
     return col;
   });
 }
