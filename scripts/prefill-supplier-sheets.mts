@@ -21,14 +21,20 @@
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { canonProductType, isListableProduct, priceList, priceVariants } from '../lib/domain/product';
+import { autoMapHeaders, canonSheetVehicleStatus } from '../lib/domain/sheet-import';
+import { NOT_SHEET_BACKED, SHEET_GRID_FIELDS, readSupplierSheet } from '../lib/domain/supplier-sheet-read';
 import { periodColumnName } from '../lib/domain/supplier-template-sheet';
 import type { EntityRecord } from '../lib/intake/entities';
 
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
+/** 차번 대조용 — 공백을 걷어 「12가 3456」과 「12가3456」을 같게 본다. */
+const norm = (v: unknown) => S(v).replace(/\s+/g, '');
 const APPLY = process.argv.includes('--apply');
 const FORCE = process.argv.includes('--force');
 const ONLY = (process.argv.find((a) => a.startsWith('--only=')) || '').slice('--only='.length).split(',').map(S).filter(Boolean);
+/** 공급사 자기 시트에만 있는 차도 함께 싣는다. 끄려면 `--erp-only`. */
+const WITH_ORIGIN = !process.argv.includes('--erp-only');
 const DB = 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app';
 const VEHICLE_TAB = '재고';
 
@@ -153,15 +159,74 @@ for (const f of ((found.files || []) as Rec[])) {
    *   상태 칸만 「출고불가」로 떠서 «이게 뭐냐»가 된다. ERP 에는 그대로 둔다 —
    *   여기서 안 보여 줄 뿐이지 지우는 게 아니다.
    */
+  /**
+   * ★ERP 에 아직 없는 차도 싣는다(사장님 지적 2026-08-11).
+   *   웰릭스가 자기 시트에 두 대를 더 넣었는데 둘 다 「출고불가」라 유입이 안 만들었고,
+   *   우리 시트는 ERP 만 보고 있어 그 두 대가 통째로 빠졌다.
+   *   우리 시트는 «그 공급사가 지금 가진 것»을 보여야 하므로 원본 시트도 함께 읽는다.
+   */
+  const fromOrigin: EntityRecord[] = [];
+  const partner = Object.values<Rec>(partners).find((x) => !dead(x) && S(x.partner_code) === code && S(x.sheet_url));
+  const originId = (S(partner?.sheet_url).match(/\/d\/([\w-]+)/) || [])[1];
+  if (WITH_ORIGIN && originId && originId !== id && !NOT_SHEET_BACKED.has(code)) {
+    try {
+      const grid = await api(`https://sheets.googleapis.com/v4/spreadsheets/${originId}?includeGridData=true&fields=${encodeURIComponent(SHEET_GRID_FIELDS)}`);
+      for (const t of readSupplierSheet(grid as never, partner as EntityRecord).tabs) {
+        try {
+          const prof = autoMapHeaders(t.table[0] || []) as Record<string, number | undefined>;
+          if (prof.car_number === undefined) continue;
+          /**
+           * ★유입(`importSheetTable`)을 쓰지 않는다 — 그건 **출고불가 행을 버린다**.
+           *   버리는 게 맞다(팔 수 없는 차를 ERP 에 올리면 안 되니까). 하지만 우리 시트는
+           *   «그 공급사가 지금 가진 것»을 보여 주는 자리라 출고불가도 실려야 한다.
+           *   웰릭스가 넣은 두 대가 둘 다 출고불가라 통째로 빠졌다(실측 2026-08-11).
+           *   그래서 열 지도만 빌려 쓰고 행은 직접 읽는다.
+           */
+          const pick = (row: string[], key: string) => {
+            const i = prof[key];
+            return typeof i === 'number' && i >= 0 ? S(row[i]) : '';
+          };
+          for (const row of t.table.slice(1)) {
+            const plate = norm(pick(row, 'car_number'));
+            if (!plate) continue;
+            fromOrigin.push({
+              car_number: plate,
+              vehicle_status: canonSheetVehicleStatus(pick(row, 'vehicle_status')),
+              product_type: pick(row, 'product_type'),
+              maker: pick(row, 'maker'),
+              model: pick(row, 'model'),
+              sub_model: pick(row, 'sub_model'),
+              trim_name: pick(row, 'trim_name'),
+              options: pick(row, 'options'),
+              ext_color: pick(row, 'ext_color'),
+              int_color: pick(row, 'int_color'),
+              year: pick(row, 'year'),
+              fuel_type: pick(row, 'fuel_type'),
+              mileage: pick(row, 'mileage'),
+              engine_cc: pick(row, 'engine_cc'),
+              first_registration_date: pick(row, 'first_registration_date'),
+              photo_link: S(t.photoByPlate[plate]) || pick(row, 'photo_link'),
+            } as EntityRecord);
+          }
+        } catch { /* 탭 하나가 안 읽혀도 나머지는 싣는다 */ }
+      }
+    } catch { console.log(`  △ ${label.padEnd(12)} 공급사 원본을 못 읽음 — ERP 것만 싣는다`); }
+  }
+
   const all = byCode.get(code) || [];
-  const cars = all.filter((p) => {
+  const erpPlates = new Set(all.map((p) => norm((p as Rec).car_number)).filter(Boolean));
+  const extra = fromOrigin.filter((p) => {
+    const pl = norm((p as Rec).car_number);
+    return pl && !erpPlates.has(pl);
+  });
+  const cars = [...all, ...extra].filter((p) => {
     const rec = p as Rec;
     const hasName = [S(rec.sub_model), S(rec.model), S(rec.trim_name)].some(Boolean);
     return S(rec.car_number) && (hasName || priceList(p).length > 0);
   }).slice()
     .sort((a, b) => Number(isListableProduct(b)) - Number(isListableProduct(a))
       || S(a.car_number).localeCompare(S(b.car_number)));
-  const dropped = all.length - cars.length;
+  const dropped = all.length + extra.length - cars.length;
   if (!cars.length) { console.log(`  · ${label.padEnd(12)} ERP 재고 없음 — 빈 양식 그대로`); continue; }
 
   // 헤더를 읽어 **이름으로** 칸을 맞춘다.
@@ -205,7 +270,7 @@ for (const f of ((found.files || []) as Rec[])) {
   const orphanNames = new Map<string, number>();
   for (const p of cars) for (const k of moneyOf(p).rent.keys()) if (!known.has(k)) orphanNames.set(k, (orphanNames.get(k) || 0) + 1);
   const orphan = [...orphanNames.values()].reduce((n, v) => n + v, 0);
-  console.log(`  ${label.padEnd(12)} ${String(cars.length).padStart(4)}대${dropped ? `  (정보 없는 ${dropped}대 제외)` : ''}${orphan ? `  △ 열이 없는 요금 ${orphan}건 — ${[...orphanNames].map(([k, v]) => `${k}(${v})`).join(' · ')}` : ''}`);
+  console.log(`  ${label.padEnd(12)} ${String(cars.length).padStart(4)}대${extra.length ? `  (공급사 시트에만 있는 ${extra.length}대 포함)` : ''}${dropped ? `  (정보 없는 ${dropped}대 제외)` : ''}${orphan ? `  △ 열이 없는 요금 ${orphan}건 — ${[...orphanNames].map(([k, v]) => `${k}(${v})`).join(' · ')}` : ''}`);
   filledSheets++; filledCars += cars.length;
 
   if (!APPLY) continue;

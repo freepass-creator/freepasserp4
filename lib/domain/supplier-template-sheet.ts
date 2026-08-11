@@ -500,15 +500,15 @@ export function columnWidth(name: string): number {
  * 칩에도 그 색이 실린다. 상태 색은 ERP 화면과 같은 뜻으로 맞춘다(`VEHICLE_STATUS_TONES`) —
  * 시트에서 빨강인 차가 ERP 에서 초록이면 아무도 안 믿는다.
  */
-const TONE: Record<string, { bg: [number, number, number]; fg: [number, number, number] }> = {
-  green: { bg: [0.85, 0.95, 0.87], fg: [0.09, 0.35, 0.16] },
-  blue: { bg: [0.85, 0.91, 0.98], fg: [0.11, 0.28, 0.53] },
-  amber: { bg: [0.99, 0.95, 0.82], fg: [0.48, 0.35, 0.05] },
-  orange: { bg: [0.99, 0.90, 0.80], fg: [0.55, 0.28, 0.05] },
-  red: { bg: [0.98, 0.87, 0.87], fg: [0.55, 0.13, 0.13] },
-  gray: { bg: [0.93, 0.93, 0.94], fg: [0.28, 0.30, 0.34] },
-  violet: { bg: [0.92, 0.89, 0.98], fg: [0.32, 0.20, 0.55] },
-  teal: { bg: [0.85, 0.95, 0.94], fg: [0.07, 0.36, 0.35] },
+const TONE: Record<string, { fg: [number, number, number] }> = {
+  green: { fg: [0.09, 0.45, 0.20] },
+  blue: { fg: [0.11, 0.31, 0.60] },
+  amber: { fg: [0.60, 0.42, 0.03] },
+  orange: { fg: [0.66, 0.33, 0.04] },
+  red: { fg: [0.70, 0.12, 0.12] },
+  gray: { fg: [0.28, 0.30, 0.34] },
+  violet: { fg: [0.42, 0.24, 0.70] },
+  teal: { fg: [0.05, 0.44, 0.42] },
 };
 
 /** 상태 → ERP 와 같은 뜻의 색. */
@@ -534,9 +534,15 @@ export function buildChipColors(
         ranges: [grid(gid, ROW_DATA, rowCount, col, col + 1)],
         booleanRule: {
           condition: { type: 'TEXT_EQ', values: [{ userEnteredValue: value }] },
+          /**
+           * ★**글자 색만** 바꾼다(사장님 확정 2026-08-11). 배경을 칠하면 칩(알약)의
+           *   제 모양이 뭉개진다 — 칩은 그대로 두고 글자만 색으로 갈라야 깔끔하다.
+           */
           format: {
-            backgroundColorStyle: { rgbColor: { red: TONE[tone].bg[0], green: TONE[tone].bg[1], blue: TONE[tone].bg[2] } },
-            textFormat: { foregroundColorStyle: { rgbColor: { red: TONE[tone].fg[0], green: TONE[tone].fg[1], blue: TONE[tone].fg[2] } } },
+            textFormat: {
+              bold: true,
+              foregroundColorStyle: { rgbColor: { red: TONE[tone].fg[0], green: TONE[tone].fg[1], blue: TONE[tone].fg[2] } },
+            },
           },
         },
       },
