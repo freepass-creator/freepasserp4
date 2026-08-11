@@ -217,26 +217,6 @@ await api(`https://sheets.googleapis.com/v4/spreadsheets/${HUB}/values/${encodeU
   method: 'PUT', body: JSON.stringify({ values: [HEADERS, ...flat] }),
 });
 
-// 글자에 링크 걸기 — 값 쓰기 뒤에 해야 덮이지 않는다.
-const linkCells: Rec[] = [];
-rows.forEach((r, ri) => r.forEach((v, ci) => {
-  if (!isCell(v)) return;
-  linkCells.push({
-    updateCells: {
-      range: { sheetId: gid, startRowIndex: ri + 1, endRowIndex: ri + 2, startColumnIndex: ci, endColumnIndex: ci + 1 },
-      rows: [{ values: [{
-        userEnteredValue: { stringValue: v.label },
-        textFormatRuns: [{ startIndex: 0, format: { link: { uri: v.url }, underline: true, foregroundColorStyle: { rgbColor: { red: 0.10, green: 0.34, blue: 0.68 } } } }],
-      }] }],
-      fields: 'userEnteredValue,textFormatRuns',
-    },
-  });
-}));
-if (linkCells.length) {
-  await api(`https://sheets.googleapis.com/v4/spreadsheets/${HUB}:batchUpdate`, {
-    method: 'POST', body: JSON.stringify({ requests: linkCells }),
-  });
-}
 await api(`https://sheets.googleapis.com/v4/spreadsheets/${HUB}:batchUpdate`, {
   method: 'POST',
   body: JSON.stringify({
@@ -275,4 +255,29 @@ await api(`https://sheets.googleapis.com/v4/spreadsheets/${HUB}:batchUpdate`, {
     ],
   }),
 });
+/**
+ * 글자에 링크 걸기 — **서식을 다 건 뒤**에 한다.
+ * `repeatCell` 로 글꼴을 통째로 덮으면 `textFormatRuns`(글자 링크)가 같이 지워진다.
+ * 값 쓰기 직후에 걸었더니 링크가 통째로 사라졌다(실측 2026-08-11).
+ */
+const linkCells: Rec[] = [];
+rows.forEach((r, ri) => r.forEach((v, ci) => {
+  if (!isCell(v)) return;
+  linkCells.push({
+    updateCells: {
+      range: { sheetId: gid, startRowIndex: ri + 1, endRowIndex: ri + 2, startColumnIndex: ci, endColumnIndex: ci + 1 },
+      rows: [{ values: [{
+        userEnteredValue: { stringValue: v.label },
+        textFormatRuns: [{ startIndex: 0, format: { link: { uri: v.url }, underline: true, foregroundColorStyle: { rgbColor: { red: 0.10, green: 0.34, blue: 0.68 } } } }],
+      }] }],
+      fields: 'userEnteredValue,textFormatRuns',
+    },
+  });
+}));
+if (linkCells.length) {
+  await api(`https://sheets.googleapis.com/v4/spreadsheets/${HUB}:batchUpdate`, {
+    method: 'POST', body: JSON.stringify({ requests: linkCells }),
+  });
+}
+
 console.log(`\n  반영 완료 — ${link(HUB, gid)}\n`);
