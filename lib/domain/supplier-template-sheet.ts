@@ -483,13 +483,16 @@ export function columnWidth(name: string): number {
   if (/보증|개월/.test(name)) return 100;
   if (/^기타기간/.test(name)) return 100;
   if (name === '차량번호' || name === '정책코드' || name === '최초등록일') return 104;
-  // ★칩(드롭다운) 칸은 넓게. 칩 여백 + 화살표가 자리를 먹어 「출고가능」이 「출고…」로 잘린다
-  //   (사장님 지적 2026-08-11). 글자가 잘리면 색만 보고 고르게 된다.
-  if (name === '제조사') return 118;
-  if (name === '상태' || name === '분류') return 122;
+  /**
+   * ★칩(드롭다운) 칸 — **가장 긴 값이 잘리지 않을 만큼만**(사장님 확정 2026-08-11).
+   *   칩 여백과 화살표가 자리를 먹으므로 글자수만으로는 모자란다. 실측으로 잡은 값이다.
+   *   상태·분류·제조사는 가장 긴 값이 4자(즉시출고·신차렌트·제네시스), 연료만 5자(하이브리드).
+   */
+  if (name === '제조사' || name === '상태' || name === '분류') return 112;
   if (name === '주행거리' || name === '배기량') return 88;
   if (/색상$/.test(name)) return 104;
-  if (name === '연식' || name === '연료') return 100;
+  if (name === '연료') return 124;   // 「하이브리드」 5자
+  if (name === '연식') return 92;
   return 100;
 }
 

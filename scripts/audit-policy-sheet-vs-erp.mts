@@ -112,6 +112,8 @@ for (const f of ((found.files || []) as Rec[])) {
   let n = 0; let b = 0; let d = 0;
   codes.forEach((pc, col) => {
     if (!pc) return;
+    // 「(프리패스 기본)」 은 우리가 보여 주는 기준 열이다 — ERP 정책이 아니므로 대조하지 않는다.
+    if (pc === '(프리패스 기본)') return;
     const erp = Object.values<Rec>(policies).find((x) => !dead(x) && (S(x.policy_code) === pc || S(x._key) === pc));
     if (!erp) { missingInErp++; console.log(`  ★ ${label.padEnd(12)} 정책 「${pc}」 가 ERP 에 없다`); return; }
     for (const { name: rowName, field } of POLICY_COLUMN_FIELDS) {

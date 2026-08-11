@@ -103,9 +103,23 @@ for (const p of Object.values<Rec>(prods)) {
  * 값 표기를 하나로 — 같은 뜻을 두 가지로 적어 놓으면 공급사가 고를 때 헷갈린다.
  * 실측(정책 32건): 「50만원」 20건 · 「500000」 5건 / 「차량가액」 23건 · 「차량가 기준」 2건.
  */
-function tidyPolicyValue(v: string): string {
+function tidyPolicyValue(v: string, row = ''): string {
   const t = S(v);
   if (!t) return '';
+  /**
+   * ★맨숫자를 그 줄에 맞는 말로 바꾼다(사장님 지적 2026-08-11).
+   *   ERP 에 「26」·「70」·「1」·「0.3」처럼 숫자만 든 정책이 있다. 그대로 내보내면
+   *   공급사가 «26이 뭐냐»를 묻고, 드롭다운 값과도 안 맞아 고를 수도 없다.
+   */
+  if (/^[\d.]+$/.test(t)) {
+    const n = Number(t);
+    if (row === '기본운전자연령') return `만 ${n}세 이상`;
+    if (row === '최대연령') return `만 ${n}세 이하`;
+    if (row === '추가운전자') return `${n}인`;
+    if (row === '사고 다발 해지기준') return `${n}회`;
+    if (/^중도해지 위약금/.test(row)) return n <= 1 ? `${Math.round(n * 100)}%` : `${n}%`;
+    if (/^초과주행/.test(row)) return `${n.toLocaleString('ko-KR')}원`;
+  }
   if (/^차량가\s*기준$/.test(t)) return '차량가액';
   // 맨숫자 금액은 «만원»으로 — 자리수를 눈으로 세지 않게.
   const n = Number(t.replace(/[,\s원]/g, ''));
@@ -139,7 +153,7 @@ function policyColumnsFor(code: string): Record<string, string>[] {
   const mine = inUse.length ? inUse : all;
   const cols = mine.map((x) => {
     const col: Record<string, string> = { 정책코드: S(x.policy_code) || S(x._key), 정책명: S(x.policy_name) };
-    for (const { name, field } of POLICY_COLUMN_FIELDS) col[name] = tidyPolicyValue(S(x[field]));
+    for (const { name, field } of POLICY_COLUMN_FIELDS) col[name] = tidyPolicyValue(S(x[field]), name);
     return col;
   });
   return [freepassColumn(), ...cols];
@@ -165,7 +179,7 @@ function freepassColumn(): Record<string, string> {
     if (row.name === '정책명') continue;
     // 계약서 조항에서 나온 값이 먼저다. 없으면 우리가 세운 표준을 쓴다 — 빈칸은 남기지 않는다.
     const d = byKey.get(S(fieldOf.get(row.name)));
-    col[row.name] = d && d.value != null ? tidyPolicyValue(String(d.value)) : S(FREEPASS_STANDARD[row.name]);
+    col[row.name] = d && d.value != null ? tidyPolicyValue(String(d.value), row.name) : S(FREEPASS_STANDARD[row.name]);
   }
   return col;
 }
