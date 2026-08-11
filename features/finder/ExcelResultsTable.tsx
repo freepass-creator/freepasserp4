@@ -89,7 +89,8 @@ export function ExcelResultsTable({
   );
   const show = (field: string) => fit.show.has(field);
   const visMonths = fit.months;
-  const showProv = exFilterCols && show('provider_name');
+  // 공급사는 필터 패널을 연 상태에서도 상품 식별에 필요한 핵심 열이다.
+  const showProv = show('provider_name');
   const showCredit = exFilterCols && show('credit');
   const showCond = exFilterCols && show('cond');
 
