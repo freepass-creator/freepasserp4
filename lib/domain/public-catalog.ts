@@ -71,7 +71,7 @@ function publicPrice(price: unknown): Record<string, { rent: number; deposit: nu
 /** 사진 — 배열·JSON문자열·레거시 키를 모아 중복 제거. */
 function publicImages(p: Rec): string[] {
   const urls: string[] = [];
-  for (const src of [p.image_urls, p.images, p.photos]) {
+  for (const src of [p.drive_image_urls, p.image_urls, p.images, p.photos]) {
     if (!src) continue;
     let arr: unknown = src;
     if (typeof src === 'string') { try { arr = JSON.parse(src); } catch { continue; } }

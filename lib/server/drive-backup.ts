@@ -78,7 +78,7 @@ export async function getDriveAccessToken(config: DriveBackupConfig): Promise<st
   return result.access_token;
 }
 
-async function ensureDriveFolder(accessToken: string, parentId: string, name: string): Promise<string> {
+export async function ensureDriveFolder(accessToken: string, parentId: string, name: string): Promise<string> {
   const q = [
     `'${driveQueryLiteral(parentId)}' in parents`,
     `name = '${driveQueryLiteral(name)}'`,
@@ -114,6 +114,53 @@ async function ensureDriveFolder(accessToken: string, parentId: string, name: st
   );
   if (!created.id) throw new Error('Google Drive 백업 폴더를 만들지 못했습니다');
   return created.id;
+}
+
+export async function findDriveFile(accessToken: string, parentId: string, name: string): Promise<DriveFile | null> {
+  const q = [
+    `'${driveQueryLiteral(parentId)}' in parents`,
+    `name = '${driveQueryLiteral(name)}'`,
+    'trashed = false',
+  ].join(' and ');
+  const params = new URLSearchParams({
+    q, fields: 'files(id,name,webViewLink)', pageSize: '1', spaces: 'drive',
+    includeItemsFromAllDrives: 'true', supportsAllDrives: 'true',
+  });
+  const found = await driveJson<{ files?: DriveFile[] }>(`https://www.googleapis.com/drive/v3/files?${params}`, accessToken);
+  return found.files?.[0] || null;
+}
+
+export async function uploadRemoteDrivePhoto(input: {
+  accessToken: string;
+  parentId: string;
+  name: string;
+  sourceUrl: string;
+  appProperties?: Record<string, string>;
+}): Promise<DriveFile & { existed?: boolean }> {
+  const existing = await findDriveFile(input.accessToken, input.parentId, input.name);
+  if (existing) return { ...existing, existed: true };
+  const source = await fetch(input.sourceUrl, {
+    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; FreepassERP/4.0)' },
+    signal: AbortSignal.timeout(30_000),
+  });
+  if (!source.ok) throw new Error(`사진 원본 HTTP ${source.status}`);
+  const bytes = await source.arrayBuffer();
+  if (!bytes.byteLength || bytes.byteLength > 20 * 1024 * 1024) throw new Error('사진 원본 크기 제한 초과');
+  const boundary = `fp4_${crypto.randomUUID().replace(/-/g, '')}`;
+  const metadata = {
+    name: safeDriveName(input.name), parents: [input.parentId],
+    appProperties: { source: 'freepasserp4-photo-sync', ...(input.appProperties || {}) },
+  };
+  const body = new Blob([
+    `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n`, JSON.stringify(metadata),
+    `\r\n--${boundary}\r\nContent-Type: ${source.headers.get('content-type') || 'image/jpeg'}\r\n\r\n`, bytes,
+    `\r\n--${boundary}--`,
+  ]);
+  return driveJson<DriveFile>(
+    'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true&fields=id,name,webViewLink',
+    input.accessToken,
+    { method: 'POST', headers: { 'content-type': `multipart/related; boundary=${boundary}` }, body },
+  );
 }
 
 export async function uploadDriveBackup(input: {

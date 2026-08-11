@@ -3,6 +3,10 @@
     {
       "path": "/api/sheet/sync-daily",
       "schedule": "0 17 * * *"
+    },
+    {
+      "path": "/api/photo-drive-sync",
+      "schedule": "30 17 * * *"
     }
   ]
 }

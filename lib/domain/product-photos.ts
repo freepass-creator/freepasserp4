@@ -66,7 +66,7 @@ export function collectImages(value: any): string[] {
 /** 업로드 이미지(image_urls/images/photos/image_url). 스크래핑 대상 URL은 제외(extract-photos 전용). */
 export function productImages(p: EntityRecord): string[] {
   if (!p) return [];
-  return collectImages([p.image_urls, p.images, p.photos, p.photo, p.image_url, p.doc_images])
+  return collectImages([p.drive_image_urls, p.image_urls, p.images, p.photos, p.photo, p.image_url, p.doc_images])
     .filter((u) => !NEEDS_SERVER_RE.test(u));
 }
 
