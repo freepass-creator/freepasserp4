@@ -110,7 +110,7 @@ export const POLICY_COLUMN_NAMES = POLICY_COLUMNS.map((c) => c.name);
  */
 const FRONT_COLUMNS: { name: string; note: string; required?: boolean }[] = [
   { name: '차량번호', note: '12가3456. 신차로 번호 전이면 비우고 차대번호를 채운다', required: true },
-  { name: '상태', note: '출고가능 / 출고협의 / 출고불가 / 상품화중', required: true },
+  { name: '상태', note: '즉시출고 / 출고가능 / 출고협의 / 상품화중 / 출고불가 — 「계약중」은 ERP 가 계약금 확인 때 자동으로 겁니다', required: true },
   { name: '분류', note: '신차렌트 / 중고렌트 / 신차구독 / 중고구독', required: true },
   { name: '제조사', note: '현대 · 기아 · BMW …' },
   // ★자유입력이 맞다. 실측(2026-08-08 · 올릴 수 있는 409대) 결과 차종 검수는 6대(1.5%)뿐이고
@@ -130,14 +130,16 @@ const FRONT_COLUMNS: { name: string; note: string; required?: boolean }[] = [
   { name: '외부색상', note: '흰색 · 검정 …' },
   { name: '내부색상', note: '' },
   { name: '연식', note: '2024' },
-  { name: '주행거리', note: '12000 (km, 숫자만)' },
+  // ★연료가 주행거리보다 **앞**이어야 한다. 드롭다운 칸이 왼쪽에 몰려 있어야
+  //   표(Table)를 그 칸들까지만 씌우고, 금액·주행 칸은 표 밖에 남길 수 있다.
+  //   표 안에서는 숫자서식이 무시돼 천단위 콤마가 안 붙는다(`tableWidth` 참고).
   { name: '연료', note: '가솔린 · 디젤 · 하이브리드 · 전기 · LPG' },
+  { name: '주행거리', note: '12000 (km, 숫자만)' },
   { name: '배기량', note: '1998 (cc)' },
-  // 승합·SUV 는 인승이 곧 상품이다 — 카니발 9인승과 7인승은 손님에게 다른 차다.
-  // 재고 701대 중 307대(44%)에 이미 담겨 있는데 담을 칸이 없어 시트로 못 나가고 있었다(실측 2026-08-08).
-  { name: '인승', note: '5 · 7 · 9 …' },
-  // 표기가 6가지로 갈려 있었다(2WD·AWD·4WD·xDrive·콰트로·4MATIC) — 두 값으로 세운다.
-  { name: '구동', note: '2WD · 4WD — 안 적으면 2WD 로 본다' },
+  // ★제조사스펙은 **배기량까지**다(사장님 확정 2026-08-11).
+  //   인승·구동은 물어보지 않는다 — 차명(트림)이 정해지면 차종마스터가 아는 값이고,
+  //   공급사에게 한 칸 더 채우게 하는 값어치가 없다. 카니발 9인승 같은 구분도
+  //   「차명(트림)」에 이미 들어온다.
 ];
 
 /**
@@ -145,18 +147,19 @@ const FRONT_COLUMNS: { name: string; note: string; required?: boolean }[] = [
  * ⚠ 여기 열 이름에 「N개월」 꼴을 쓰면 안 된다 — 파서가 기간 요금 열로 읽어
  *   장기보증 블록에 붙어 버린다.
  */
+/**
+ * 뒷줄은 **최초등록일·사진링크 둘뿐**이다(사장님 확정 2026-08-11).
+ *
+ * ★뺀 것과 간 곳
+ *   「1만km증액」 → 정책탭 「추가주행 금액」. 같은 값을 두 군데서 받으면 어느 쪽이 맞는지 모른다.
+ *   「비고」·「차대번호」 → 안 받는다. 공급사 시트는 제조사스펙과 대여조건만 받는다.
+ *     ⚠ 차대번호가 없으면 번호판 나오기 전 신차는 **행 내용으로** 식별한다(임시번호 allocator).
+ *       셀 하나만 고쳐도 다른 차로 보이므로, 신차 선출고를 시트로 돌리는 공급사가 생기면
+ *       그때 그 공급사에만 칸을 되살린다.
+ */
 const DETAIL_COLUMNS: { name: string; note: string; required?: boolean }[] = [
   { name: '최초등록일', note: '2024-03-15' },
   { name: '사진링크', note: '드라이브 폴더 또는 이미지 URL — 비면 카탈로그에 사진이 안 붙는다' },
-  /**
-   * 매물마다 1만km 증액이 다른 곳을 위한 칸(오토플러스).
-   * 비어 있으면 정책의 「추가주행 금액」을 쓴다 — 보증금과 같은 구조다.
-   * 대여료표에는 **가장 낮은 주행 기준 요금만** 적는다. 주행마다 열을 늘리면
-   * 오플만 요금 칸이 760개가 된다(실측) — 접으면 391개로 준다.
-   */
-  { name: '1만km증액', note: '이 차만 다르면 적는다. 비면 정책값을 쓴다' },
-  { name: '차대번호', note: 'KMHxxxxxxxxxxxxxx — 번호판 나오기 전 신차를 붙잡는 유일한 신원' },
-  { name: '비고', note: '' },
 ];
 
 /**
@@ -226,9 +229,18 @@ const POLICY_REF_COLUMN: { name: string; note: string; required?: boolean } = {
 
 export const TEMPLATE_COLUMNS = [...FRONT_COLUMNS, ...buildPeriodColumns(), POLICY_REF_COLUMN, ...DETAIL_COLUMNS];
 
-/** 공급사가 실제로 쓰는 기간을 반영한 열 구성. */
-export const buildColumns = (usedKeys: string[] = []) =>
-  [...FRONT_COLUMNS, ...buildPeriodColumns(usedKeys), POLICY_REF_COLUMN, ...DETAIL_COLUMNS];
+/**
+ * 공급사가 실제로 쓰는 기간과 취급 상품을 반영한 열 구성.
+ *
+ * `hasNewCars` 는 그 공급사가 신차(신차렌트·신차구독)를 파는가다 — 차대번호 칸은
+ * 그럴 때만 붙는다. 중고만 파는 곳에 붙이면 영영 빈 칸이 하나 는다.
+ */
+export const buildColumns = (usedKeys: string[] = []) => [
+  ...FRONT_COLUMNS,
+  ...buildPeriodColumns(usedKeys),
+  POLICY_REF_COLUMN,
+  ...DETAIL_COLUMNS,
+];
 
 
 export const ROW_HEADER = 0;          // 0행 헤더 — 바로 아래가 상품이다
@@ -244,14 +256,13 @@ export const ROW_DATA = 1;            // 1행부터 상품
  */
 export const VALUE_LISTS: Record<string, readonly string[]> = {
   // 공급사 시트에 «계약중»은 없다 — ERP 내부 상태다(계약금 확인 엔진 전용).
-  상태: VEHICLE_STATES.filter((v) => v !== '계약중' && v !== '즉시출고'),
+  //   계약금이 들어오면 ERP 가 거는 잠금이라, 공급사가 그 칸을 다른 값으로 바꾸면
+  //   잠긴 차가 풀려 두 번 팔린다. 나머지 **다섯은 공급사가 고른다**(사장님 확정 2026-08-11).
+  상태: VEHICLE_STATES.filter((v) => v !== '계약중'),
   분류: PRODUCT_TYPES,
   연료: FUEL_TYPES,
   외부색상: EXT_COLORS,
   내부색상: INT_COLORS,
-  // 실측 분포(2026-08-08): 5 · 9 · 7 · 4 · 8 · 11 · 6 · 12 · 15
-  인승: ['5', '7', '9', '4', '6', '8', '11', '12', '15'],
-  구동: ['2WD', '4WD'],
 };
 
 /**
@@ -529,6 +540,10 @@ export function buildPolicyTabFormat(gid: number, policyCount: number): Rec[] {
 export function resetSheetRequests(gid: number): Rec[] {
   const all = { sheetId: gid, startRowIndex: 0, endRowIndex: 2000, startColumnIndex: 0, endColumnIndex: 80 };
   return [
+    // ★남아 있는 기본 필터가 표(Table) 변환을 막는다 —
+    //   "데이터를 표로 변환하기 전에 변환 영역과 겹치는 필터를 삭제하세요"(실측 2026-08-11).
+    //   표가 안 붙으면 드롭다운이 «칩»이 아니라 화살표로만 뜬다.
+    { clearBasicFilter: { sheetId: gid } },
     { repeatCell: { range: all, cell: {}, fields: 'userEnteredFormat' } },
     { repeatCell: { range: all, cell: {}, fields: 'note' } },
     { setDataValidation: { range: all } },
@@ -547,6 +562,21 @@ export function resetSheetRequests(gid: number): Rec[] {
  * 아예 없다(`DataValidationRule` = strict·condition·showCustomUi·inputMessage, 실측 2026-08-08).
  * 표의 열 타입 `DROPDOWN` 이 칩 렌더링을 맡는다. 덤으로 머리행 고정·줄무늬·열 이름 필터가 딸려온다.
  */
+/**
+ * 표가 덮는 열 수 — **마지막 드롭다운 열까지**.
+ * 그 오른쪽(금액·기간·정책코드·사진링크)은 표 밖에 두어 숫자서식이 살아 있게 한다.
+ */
+export function tableWidth(columns: { name: string }[]): number {
+  let last = -1;
+  for (const [i, c] of columns.entries()) {
+    const isDropdown = !!VALUE_LISTS[c.name] || /^(제조사|연식)$/.test(c.name);
+    if (isDropdown) last = i;
+    // 숫자 칸을 만나면 거기서 멈춘다 — 그 오른쪽은 전부 표 밖이어야 콤마가 산다.
+    if (/보증|개월|주행거리|배기량/.test(c.name)) break;
+  }
+  return last + 1;
+}
+
 export function buildTableRequest(
   gid: number,
   columns = TEMPLATE_COLUMNS,
@@ -558,13 +588,17 @@ export function buildTableRequest(
     addTable: {
       table: {
         name: '재고',
-        range: { sheetId: gid, startRowIndex: ROW_HEADER, endRowIndex: rowCount, startColumnIndex: 0, endColumnIndex: columns.length },
+        // ★표는 **드롭다운 칸까지만** 씌운다(2026-08-11).
+        //   구글 표 안에서는 셀 숫자서식이 통째로 무시된다 — 표 밖 같은 셀은 「900,000」,
+        //   표 안은 열 타입을 DOUBLE 로 바꿔도 「900000」이다(대조 실험으로 확인).
+        //   금액·주행 칸을 표 밖에 두면 **칩 드롭다운과 천단위 콤마를 둘 다** 가진다.
+        range: { sheetId: gid, startRowIndex: ROW_HEADER, endRowIndex: rowCount, startColumnIndex: 0, endColumnIndex: tableWidth(columns) },
         rowsProperties: {
           headerColorStyle: { rgbColor: { red: 0.13, green: 0.20, blue: 0.33 } },
           firstBandColorStyle: { rgbColor: { red: 1, green: 1, blue: 1 } },
           secondBandColorStyle: { rgbColor: { red: 0.97, green: 0.97, blue: 0.98 } },
         },
-        columnProperties: columns.map((c, i) => {
+        columnProperties: columns.slice(0, tableWidth(columns)).map((c, i) => {
           const values = lists[c.name];
           if (values?.length) {
             return {
@@ -603,12 +637,24 @@ export function buildTableRequest(
 export function buildNumberFormats(gid: number, columns = TEMPLATE_COLUMNS, rowCount = 500): Rec[] {
   const out: Rec[] = [];
   for (const [i, c] of columns.entries()) {
-    if (!/보증|개월|주행거리|배기량|연식|인승/.test(c.name)) continue;
+    // ★열 전체에 **숫자 서식**을 건다. 2026-08-11 까지 오른쪽 정렬만 걸어서,
+    //   콤마는 «원래 값에 콤마가 들어 있던 행»에만 보였다. 공급사가 새로 친 900000 은
+    //   맨숫자로 남아 자리수를 눈으로 세야 했다(사장님 지적).
+    //   ROW_DATA~rowCount 전 구간에 걸어야 «앞으로 칠 행»도 함께 걸린다.
+    const money = /보증|개월|주행거리|배기량|증액/.test(c.name);
+    // 연식은 콤마를 넣으면 안 된다 — 2024 가 2,024 가 된다.
+    const plain = /연식/.test(c.name);
+    if (!money && !plain) continue;
     out.push({
       repeatCell: {
         range: grid(gid, ROW_DATA, rowCount, i, i + 1),
-        cell: { userEnteredFormat: { horizontalAlignment: 'RIGHT' } },
-        fields: 'userEnteredFormat.horizontalAlignment',
+        cell: {
+          userEnteredFormat: {
+            horizontalAlignment: 'RIGHT',
+            numberFormat: { type: 'NUMBER', pattern: money ? '#,##0' : '0' },
+          },
+        },
+        fields: 'userEnteredFormat(horizontalAlignment,numberFormat)',
       },
     });
   }
