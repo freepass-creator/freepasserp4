@@ -23,6 +23,7 @@ import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { HANDLED_MAKER_OPTIONS } from '../lib/domain/handled-makers';
 import { priceList, priceVariants } from '../lib/domain/product';
+import { POLICY_DEFAULTS } from '../lib/domain/policy-defaults';
 import {
   POLICY_COLUMN_FIELDS, POLICY_TAB_NAME, ROW_HEADER,
   buildColumns, buildNumberFormats, buildPolicyTabFormat, buildPolicyTabValues,
@@ -136,11 +137,31 @@ function policyColumnsFor(code: string): Record<string, string>[] {
   const used = usedPolicyCodes.get(code) || new Set<string>();
   const inUse = all.filter((x) => used.has(S(x.policy_code) || S(x._key)));
   const mine = inUse.length ? inUse : all;
-  return mine.map((x) => {
+  const cols = mine.map((x) => {
     const col: Record<string, string> = { 정책코드: S(x.policy_code) || S(x._key), 정책명: S(x.policy_name) };
     for (const { name, field } of POLICY_COLUMN_FIELDS) col[name] = tidyPolicyValue(S(x[field]));
     return col;
   });
+  return [freepassColumn(), ...cols];
+}
+
+/**
+ * **맨 앞 한 열은 「프리패스 기본」**이다(사장님 확정 2026-08-11).
+ *
+ * 공급사가 빈 칸을 앞에 두고 «뭘 적으라는 거냐»를 묻지 않게, 우리 표준값을 옆에 세워 둔다.
+ * 같으면 그대로 두고 다른 것만 자기 열에 적으면 된다.
+ *
+ * ⚠ 이 열은 **읽지 않는다** — 우리가 보여 주는 기준일 뿐이고, 공급사 정책이 아니다.
+ *   그래서 정책코드를 「(프리패스 기본)」 으로 두어 실물 코드와 섞이지 않게 한다.
+ */
+function freepassColumn(): Record<string, string> {
+  const byKey = new Map(POLICY_DEFAULTS.map((d) => [d.key, d]));
+  const col: Record<string, string> = { 정책코드: '(프리패스 기본)', 정책명: '프리패스 표준' };
+  for (const { name, field } of POLICY_COLUMN_FIELDS) {
+    const d = byKey.get(field);
+    col[name] = d && d.value != null ? tidyPolicyValue(String(d.value)) : '';
+  }
+  return col;
 }
 
 // ── 대상 시트 찾기 ──────────────────────────────────────────────────────────
