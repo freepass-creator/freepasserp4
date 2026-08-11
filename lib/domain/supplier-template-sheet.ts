@@ -73,8 +73,8 @@ const POLICY_COLUMNS: { name: string; note: string; field?: string; values?: str
   { name: '대물보상한도', note: '', field: 'property_compensation_limit', values: ['1억원', '2억원', '10억원', '5천만원', '3천만원'] },
   { name: '대물면책금', note: '', field: 'property_deductible', values: ['30만원', '50만원', '없음'] },
   // ── 대인·자손·무보험 ──
-  // ★대인보상한도가 빠져 있었다 — 계약서 제6조에 들어가는 값인데 안 묻고 있었다(2026-08-11).
-  { name: '대인보상한도', note: '계약서 제6조', field: 'injury_compensation_limit', values: ['무한', '1억원', '2억원'] },
+  // ★대인보상한도가 빠져 있었다 — 계약서 제7조에 들어가는 값인데 안 묻고 있었다(2026-08-11).
+  { name: '대인보상한도', note: '계약서 제7조', field: 'injury_compensation_limit', values: ['무한', '1억원', '2억원'] },
   { name: '대인면책금', note: '', field: 'injury_deductible', values: ['30만원', '50만원', '없음'] },
   { name: '자손보상', note: '', field: 'self_body_accident', values: ['1억원', '5,000만원', '1,500만원'] },
   { name: '자손면책금', note: '', field: 'self_body_deductible', values: ['30만원', '50만원', '없음'] },
@@ -92,15 +92,15 @@ const POLICY_COLUMNS: { name: string; note: string; field?: string; values?: str
   // ── 주행 ──
   // 대부분의 공급사는 «정책 한 줄»이면 끝난다 — 기본 주행거리와 1만km 추가 요율.
   // 오토플러스만 매물마다 정액이 달라(실측 54대: 3만·4만·5만 …) 상품리스트에 열을 따로 둔다.
-  // ★세 줄 다 ERP 필드가 안 붙어 있었다 — 공급사가 적어도 계약서 제16조가 빈칸이었다(2026-08-11).
-  { name: '기본주행', note: '계약서 제16조 · 약정 주행거리', field: 'annual_mileage',
+  // ★세 줄 다 ERP 필드가 안 붙어 있었다 — 공급사가 적어도 계약서 제17조가 빈칸이었다(2026-08-11).
+  { name: '기본주행', note: '계약서 제17조 · 약정 주행거리', field: 'annual_mileage',
     values: ['연간 2만Km', '연간 3만Km', '연간 1만Km', '무제한', '협의'] },
   { name: '추가주행 방식', note: '1만km 더 탈 때 어떻게 올리는가', values: ['정액', '대여료 비례', '불가', '협의'] },
   { name: '추가주행 금액', note: '정액이면 100000 · 비례면 10%', field: 'mileage_upcharge_per_10000km',
     values: ['10만원', '15만원', '5만원', '10%', '협의'] },
-  // 약정을 넘겨 탔을 때 1km 당 얼마 — 계약서 제16조. 국산·수입이 갈린다.
-  { name: '초과주행 국산(1km당)', note: '계약서 제16조 · 예: 200', field: 'over_mileage_rate_domestic', values: ['200', '150', '300'] },
-  { name: '초과주행 수입(1km당)', note: '계약서 제16조 · 예: 400', field: 'over_mileage_rate_imported', values: ['400', '300', '500'] },
+  // 약정을 넘겨 탔을 때 1km 당 얼마 — 계약서 제17조. 국산·수입이 갈린다.
+  { name: '초과주행 국산(1km당)', note: '계약서 제17조 · 예: 200', field: 'over_mileage_rate_domestic', values: ['200', '150', '300'] },
+  { name: '초과주행 수입(1km당)', note: '계약서 제17조 · 예: 400', field: 'over_mileage_rate_imported', values: ['400', '300', '500'] },
   { name: '정비', note: '', field: 'maintenance_service', values: ['협의', '불포함', '포함'] },
   { name: '대여지역', note: '', field: 'rental_region', values: ['전국', '제주도불가', '협의'] },
   { name: '보증금카드결제', note: '', field: 'deposit_card_payment', values: ['협의', '가능', '불가'] },
@@ -109,15 +109,15 @@ const POLICY_COLUMNS: { name: string; note: string; field?: string; values?: str
   // ── 계약서가 쓰는데 안 묻고 있던 것 (2026-08-11 · 사장님 확정) ──
   //   프리패스가 정하는 조항 수치(지연손해금율·보관료·통지기한 등)는 여기서 묻지 않는다.
   //   여기 있는 것은 **공급사마다 갈리는 값**뿐이다.
-  { name: '긴급출동', note: '계약서 제8조 · 연 몇 회', field: 'annual_roadside_assistance', values: ['연간 5회', '연간 3회', '무제한', '없음'] },
-  { name: '가입 보험사', note: '계약서 제6조 · 보험사·공제조합 이름', field: 'insurer_name', values: [] },
-  { name: '지정 정비점', note: '계약서 제8조 · 없으면 「없음」', field: 'designated_garage', values: [] },
-  { name: '자차 처리 제외', note: '계약서 제6조 · 자차로 못 고치는 경우', field: 'self_damage_exclusions', values: [] },
-  { name: '대차 정책', note: '계약서 제8조 · 사고·정비 중 대차', field: 'replacement_car_policy', values: ['불가', '동급 대차', '협의'] },
-  { name: 'GPS 장착', note: '계약서 제9조', field: 'gps_installed', values: ['장착', '미장착'] },
-  { name: '중도해지 위약금 1년미만', note: '계약서 제13조 · 잔여 대여료의 몇 %', field: 'early_termination_rate_under1y', values: ['30%', '20%', '10%'] },
-  { name: '중도해지 위약금 1년이상', note: '계약서 제13조', field: 'early_termination_rate_over1y', values: ['20%', '10%', '30%'] },
-  { name: '사고 다발 해지기준', note: '계약서 제12조 · 1년 내 과실 50% 이상 N회', field: 'accident_termination_count', values: ['3', '2', '4'] },
+  { name: '긴급출동', note: '계약서 제6조 · 연 몇 회', field: 'annual_roadside_assistance', values: ['연간 5회', '연간 3회', '무제한', '없음'] },
+  { name: '가입 보험사', note: '계약서 제7조 · 보험사·공제조합 이름', field: 'insurer_name', values: [] },
+  { name: '지정 정비점', note: '계약서 제6조 · 없으면 「없음」', field: 'designated_garage', values: [] },
+  { name: '자차 처리 제외', note: '계약서 제7조 · 자차로 못 고치는 경우', field: 'self_damage_exclusions', values: [] },
+  { name: '대차 정책', note: '계약서 제6조 · 사고·정비 중 대차', field: 'replacement_car_policy', values: ['불가', '동급 대차', '협의'] },
+  { name: 'GPS 장착', note: '계약서 제8조', field: 'gps_installed', values: ['장착', '미장착'] },
+  { name: '중도해지 위약금 1년미만', note: '계약서 제16조 · 잔여 대여료의 몇 %', field: 'early_termination_rate_under1y', values: ['30%', '20%', '10%'] },
+  { name: '중도해지 위약금 1년이상', note: '계약서 제16조', field: 'early_termination_rate_over1y', values: ['20%', '10%', '30%'] },
+  { name: '사고 다발 해지기준', note: '계약서 제14조 · 1년 내 과실 50% 이상 N회', field: 'accident_termination_count', values: ['3', '2', '4'] },
   { name: '연령 하향 요금', note: '연령을 내릴 때 월 얼마', field: 'age_lowering_cost', values: ['10만원', '15만원', '20만원', '불가', '협의'] },
   { name: '추가운전자 요금', note: '1인당 월 얼마', field: 'additional_driver_cost', values: ['월 5만원', '월 3만원', '무료', '협의'] },
   { name: '탁송비', note: '', field: 'delivery_fee', values: ['협의', '무료', '무료(제주 제외)'] },
@@ -549,6 +549,54 @@ const TYPE_TONE: Record<string, keyof typeof TONE> = {
   신차렌트: 'blue', 신차구독: 'violet', 중고렌트: 'teal', 중고구독: 'amber',
 };
 
+/**
+ * **제조사는 브랜드 컬러로 쓴다**(사장님 요청 2026-08-11).
+ *
+ * 색 돌려쓰기(팔레트 순환)로는 「기아가 왜 파랑이냐」가 된다. 브랜드가 쓰는 색을 그대로 쓰되,
+ * **흰 바탕에서 읽히도록** 눌렀다 — 르노 노랑·쉐보레 금색은 원색 그대로면 안 보인다.
+ * 옛 표기(KG모빌리티·쌍용·르노삼성)도 같은 색으로 묶는다. 시트에는 KGM 으로 고른다.
+ */
+const MAKER_INK: Record<string, [number, number, number]> = {
+  현대: [0.00, 0.17, 0.37],        // #002C5F
+  기아: [0.73, 0.09, 0.17],        // #BB162B
+  제네시스: [0.42, 0.35, 0.24],     // 브론즈
+  르노: [0.70, 0.53, 0.00],        // 노랑을 눌러 금색으로
+  르노코리아: [0.70, 0.53, 0.00],
+  르노삼성: [0.70, 0.53, 0.00],
+  쉐보레: [0.72, 0.53, 0.04],      // #B8860B
+  KGM: [0.05, 0.20, 0.36],        // 딥 네이비
+  KG모빌리티: [0.05, 0.20, 0.36],
+  쌍용: [0.05, 0.20, 0.36],
+  벤츠: [0.20, 0.22, 0.24],        // 실버-블랙
+  BMW: [0.00, 0.40, 0.69],        // #0066B1
+  아우디: [0.73, 0.04, 0.19],      // #BB0A30
+  테슬라: [0.80, 0.00, 0.00],      // #CC0000
+  미니: [0.10, 0.10, 0.10],
+  폭스바겐: [0.00, 0.12, 0.31],    // #001E50
+  볼보: [0.00, 0.19, 0.34],        // #003057
+  캐딜락: [0.55, 0.12, 0.25],
+  지프: [0.16, 0.31, 0.20],        // 딥 그린
+  포르쉐: [0.69, 0.17, 0.16],
+  BYD: [0.14, 0.35, 0.60],
+  폴스타: [0.25, 0.28, 0.30],
+};
+
+/** 값 하나를 «그 색 글자»로 칠하는 조건부서식 한 줄. 색상 칸과 제조사 칸이 같이 쓴다. */
+function inkRuleFor(gid: number, col: number, value: string, rgb: [number, number, number], index: number, rowCount: number): Rec {
+  return {
+    addConditionalFormatRule: {
+      index,
+      rule: {
+        ranges: [grid(gid, ROW_DATA, rowCount, col, col + 1)],
+        booleanRule: {
+          condition: { type: 'TEXT_EQ', values: [{ userEnteredValue: value }] },
+          format: { textFormat: { bold: true, foregroundColorStyle: { rgbColor: { red: rgb[0], green: rgb[1], blue: rgb[2] } } } },
+        },
+      },
+    },
+  };
+}
+
 export function buildChipColors(
   gid: number,
   columns: { name: string }[],
@@ -586,18 +634,7 @@ export function buildChipColors(
   const fuelCol = colOf('연료');
   if (fuelCol >= 0) for (const [v, tone] of Object.entries(FUEL_TONE)) out.push(rule(fuelCol, v, tone, i++));
   // 색상 두 칸 — 팔레트에 없는 색은 그냥 둔다(억지 색을 지어내지 않는다).
-  const inkRule = (col: number, value: string, rgb: [number, number, number], index: number) => ({
-    addConditionalFormatRule: {
-      index,
-      rule: {
-        ranges: [grid(gid, ROW_DATA, rowCount, col, col + 1)],
-        booleanRule: {
-          condition: { type: 'TEXT_EQ', values: [{ userEnteredValue: value }] },
-          format: { textFormat: { bold: true, foregroundColorStyle: { rgbColor: { red: rgb[0], green: rgb[1], blue: rgb[2] } } } },
-        },
-      },
-    },
-  });
+  const inkRule = (col: number, value: string, rgb: [number, number, number], index: number) => inkRuleFor(gid, col, value, rgb, index, rowCount);
   for (const colName of ['외부색상', '내부색상']) {
     const c = colOf(colName);
     if (c < 0) continue;
@@ -605,8 +642,13 @@ export function buildChipColors(
   }
   // 제조사는 수가 많다 — 색을 돌려 쓰되 같은 회사는 늘 같은 색이 되게 이름 순서로 고정한다.
   const makerCol = colOf('제조사');
-  const wheel: (keyof typeof TONE)[] = ['blue', 'teal', 'violet', 'amber', 'green', 'orange', 'gray', 'red'];
-  if (makerCol >= 0) makers.forEach((m, k) => out.push(rule(makerCol, m, wheel[k % wheel.length], i++)));
+  if (makerCol >= 0) {
+    // 브랜드 색이 있는 것만 칠한다. 없는 브랜드는 그냥 둔다 — 억지 색을 지어내지 않는다.
+    const painted = new Set<string>();
+    for (const m of makers) { const rgb = MAKER_INK[m]; if (rgb) { out.push(inkRuleFor(gid, makerCol, m, rgb, i++, rowCount)); painted.add(m); } }
+    // 옛 표기로 적힌 값도 같은 색으로 — 「KG모빌리티」가 검은 글씨로 남으면 KGM 과 달라 보인다.
+    for (const [m, rgb] of Object.entries(MAKER_INK)) if (!painted.has(m)) out.push(inkRuleFor(gid, makerCol, m, rgb, i++, rowCount));
+  }
   return out;
 }
 
