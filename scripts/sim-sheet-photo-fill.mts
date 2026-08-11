@@ -123,13 +123,20 @@ async function main() {
       linkKeys += Object.keys(photoByPlate).length;
       const table = adapter.prepareTable(grid.rows, { headerRow: Math.max(0, Number(p.header_row) || 0) });
       if (table.length < 2) continue;
-      const r = importSheetTable(table, {
-        providerCode: code, entries: master as never,
-        profile: parseMappingProfile(p.mapping_profile),
-        profileHeaders: parseMappingHeaderSignature(p.mapping_header_signature),
-        depositRule: parseDepositRule(p.deposit_rule),
-        photoByPlate,
-      });
+      let r;
+      try {
+        r = importSheetTable(table, {
+          providerCode: code, entries: master as never,
+          profile: parseMappingProfile(p.mapping_profile),
+          profileHeaders: parseMappingHeaderSignature(p.mapping_header_signature),
+          depositRule: parseDepositRule(p.deposit_rule),
+          photoByPlate,
+        });
+      } catch (error) {
+        console.log(`   ${code} gid ${gid}: ❌ 가져오기 실패 — ${String((error as Error).message || error)}`);
+        console.log(`      감지 헤더: ${table[0]?.slice(0, 20).join(' | ') || '(없음)'}`);
+        continue;
+      }
       imported += r.products.length;
       for (const x of r.products) {
         if (!S(x.photo_link)) continue;

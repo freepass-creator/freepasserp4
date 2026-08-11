@@ -15,6 +15,12 @@
  *     공급사가 채운 걸 덮으면 되돌릴 방법이 없다. 다시 찍으려면 `--force` 를 준다.
  *   · RTDB 는 읽기만 한다.
  *
+ * ⚠⚠ **`--force` 로 다시 찍으면 재고 행이 지워진다.** 표(Table)를 갈아끼우려면 옛 표를
+ *   `deleteTable` 해야 하는데, 구글은 표를 지울 때 **그 안의 값까지 지운다**(실측 2026-08-11 —
+ *   13곳 196대가 헤더만 남았다). 그래서 `--force` 다시 찍기 뒤에는 **반드시**
+ *   `prefill-supplier-sheets --apply --force` 를 이어서 돌려 값을 다시 채운다.
+ *   공급사가 이미 손댄 시트라면 --force 를 쓰지 마라 — 그건 되돌릴 수 없다.
+ *
  *   npx tsx scripts/build-supplier-sheet-set.mts
  *   npx tsx scripts/build-supplier-sheet-set.mts --apply
  *   npx tsx scripts/build-supplier-sheet-set.mts --apply --only=RP013
@@ -201,8 +207,18 @@ for (const p of Object.values<Rec>(partners)) {
 const codeOf = (sheetName: string): string => {
   const label = sheetName.replace('프리패스 재고 · ', '').replace(/\s/g, '');
   if (nameToCode.has(label)) return nameToCode.get(label)!;
-  // 시트 이름은 줄여 쓴다(「에스에이」 ↔ 「주식회사 에스에이렌터카」). 앞뒤 어느 쪽이든 품으면 같은 곳이다.
-  for (const [n, c] of nameToCode) if (n.includes(label) || label.includes(n)) return c;
+  /**
+   * 시트 이름은 줄여 쓴다(「에스에이」 ↔ 「주식회사 에스에이렌터카」).
+   * ★«품기»만으로 고르면 안 된다 — 「경진」이 「경진카 주식회사」에 먼저 걸려
+   *   경진렌트카 시트에 경진카 차 3대가 실렸다(실측 2026-08-11).
+   *   ① 시작하는 것 ② 그래도 여럿이면 «가장 짧은 이름» 순으로 고른다.
+   */
+  const starts = [...nameToCode].filter(([n]) => n.startsWith(label));
+  if (starts.length === 1) return starts[0][1];
+  const holds = [...nameToCode].filter(([n]) => n.includes(label) || label.includes(n));
+  if (holds.length === 1) return holds[0][1];
+  // ★여럿에 걸리면 **고르지 않는다.** 찍었더니 경진렌트카 시트에 경진카 차가 실렸다.
+  //   시트 이름을 회사 이름 그대로 바꿔서 애매함을 없애는 게 맞다.
   return '';
 };
 

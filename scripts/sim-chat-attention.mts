@@ -26,8 +26,8 @@ check('미확인은 저장 숫자뱃지를 유지', unreadFor(unread, 'admin') =
 check('미확인 상태 판정', replyAttentionFor(unread, 'admin') === 'unread');
 check('읽고 답하지 않은 문의는 미회신', replyAttentionFor(unreplied, 'admin') === 'unreplied');
 check('관리자가 마지막 답변자면 정상', replyAttentionFor(replied, 'admin') === 'none');
-check('관리자 기본 필터는 내 차례', chatFilterDefaultFor('admin') === '내차례');
-check('관리자 기본 정렬은 오래 기다린 순', chatSortDefaultFor('admin') === 'wait');
+check('관리자 기본 필터는 전체', chatFilterDefaultFor('admin') === 'all');
+check('관리자 기본 정렬은 최근순', chatSortDefaultFor('admin') === 'recent');
 check('영업자 기본 필터·정렬은 전체·최근순', chatFilterDefaultFor('agent') === 'all' && chatSortDefaultFor('agent') === 'recent');
 
 const base = {

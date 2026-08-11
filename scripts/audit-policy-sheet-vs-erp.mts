@@ -83,10 +83,22 @@ for (const p of Object.values<Rec>(partners)) {
   const code = S(p.partner_code) || S(p._key);
   for (const n of [p.partner_name, p.name, p.company_name].map(S).filter(Boolean)) nameToCode.set(n.replace(/\s|\(주\)|주식회사|㈜/g, ''), code);
 }
+/**
+ * 시트 이름의 공급사 → 파트너 코드.
+ *
+ * ★«품기»만으로 고르면 안 된다(실측 2026-08-11). 「경진」이 「경진카 주식회사」에 먼저 걸려
+ *   경진렌트카(RP015) 시트에 경진카(RP016) 차 3대가 실렸다. 순서를 세운다.
+ *     ① 똑같은 이름  ② 그 이름으로 시작하는 것  ③ 그래도 여럿이면 «가장 짧은 이름»
+ *   ③은 「경진」이 「경진렌트카」와 「경진카주식회사」에 다 걸릴 때 더 가까운 쪽을 고르게 한다.
+ */
 const codeOf = (label: string): string => {
   const l = label.replace(/\s/g, '');
   if (nameToCode.has(l)) return nameToCode.get(l)!;
-  for (const [n, c] of nameToCode) if (n.includes(l) || l.includes(n)) return c;
+  const starts = [...nameToCode].filter(([n]) => n.startsWith(l));
+  if (starts.length === 1) return starts[0][1];
+  const holds = [...nameToCode].filter(([n]) => n.includes(l) || l.includes(n));
+  if (holds.length === 1) return holds[0][1];
+  // ★여럿에 걸리면 고르지 않는다 — 찍으면 남의 회사 차가 실린다.
   return '';
 };
 

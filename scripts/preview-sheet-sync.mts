@@ -78,6 +78,38 @@ async function main() {
 
   console.log(`\n══ ${CODE} ${S(p.name) || S(p.partner_name)} — 동기화 반영 미리보기 (쓰기 없음) ══\n`);
 
+
+/**
+ * 시트 한 탭을 **서비스계정 자격으로** 읽는다.
+ *
+ * ★공개 CSV 내보내기(`/export?format=csv`)를 쓰면 안 된다 — 우리 소유 시트는 비공개라
+ *   401 이 뜨고, 미리보기가 「0행」으로 읽어 «전부 부재차단» 이라는 거짓 결과를 낸다
+ *   (실측 2026-08-11: 웰릭스 17대가 0대로 나왔다). 서버도 서비스계정으로 읽는다 —
+ *   미리보기가 서버와 다른 길로 읽으면 미리 보는 값어치가 없다.
+ * ★숨김 행은 규격대로 뺀다. CSV 내보내기는 숨긴 행도 그대로 준다.
+ */
+async function readTabAuthed(spreadsheetId: string, gid: string): Promise<string[][]> {
+  const { readFileSync: rf } = await import('node:fs');
+  const { JWT } = await import('google-auth-library');
+  const { SHEET_GRID_FIELDS } = await import('../lib/domain/supplier-sheet-read');
+  const { visibleRowsFromGridResponse } = await import('../lib/domain/sheet-visible-grid');
+  if (!authToken) {
+    const key = JSON.parse(rf(String(process.env.GOOGLE_APPLICATION_CREDENTIALS || 'tmp/firebase-auth/sa.json'), 'utf8'));
+    authToken = String((await new JWT({
+      email: key.client_email, key: key.private_key,
+      scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
+    }).getAccessToken()).token || '');
+  }
+  const res = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?includeGridData=true&fields=${encodeURIComponent(SHEET_GRID_FIELDS)}`,
+    { headers: { Authorization: `Bearer ${authToken}` } });
+  if (!res.ok) throw new Error(`시트 ${res.status}`);
+  const grid = await res.json();
+  const wanted = gid || String((grid.sheets || [])[0]?.properties?.sheetId ?? '0');
+  return (visibleRowsFromGridResponse(grid as never, wanted) as { rows: string[][] }).rows;
+}
+let authToken = '';
+
   // ── 시트 유입
   const adapter = resolveAdapter(p);
   const id = (S(p.sheet_url).match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/) || [])[1];
@@ -87,9 +119,10 @@ async function main() {
   const sheetStatusCount = new Map<string, number>();
   let srcRows = 0, excluded = 0, noPrice = 0, invalid = 0, dup = 0;
   for (const gid of tabs) {
-    const res = await fetch(`https://docs.google.com/spreadsheets/d/${id}/export?format=csv${gid ? `&gid=${gid}` : ''}`, { redirect: 'follow' });
-    if (!res.ok) { console.log(`  gid ${gid}: ❌ ${res.status}`); continue; }
-    const table = adapter.prepareTable(parseCsv(await res.text()), { headerRow: Math.max(0, Number(p.header_row) || 0) });
+    let raw: string[][];
+    try { raw = await readTabAuthed(id, gid); }
+    catch (e) { console.log(`  gid ${gid}: ❌ ${String((e as Error).message).slice(0, 40)}`); continue; }
+    const table = adapter.prepareTable(raw, { headerRow: Math.max(0, Number(p.header_row) || 0) });
     if (table.length < 2) continue;
     // 시트 원문 상태 분포 — 사장님 기준(판매중·할인판매=출고가능)과 대조용
     const hdr = table[0].map(S);
@@ -130,9 +163,7 @@ async function main() {
           throw new Error('오토플러스 숨김 행 제외는 관리자 상품 검증/API 경로로 검증하세요');
         }
         const sid = (url.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/) || [])[1];
-        const res = await fetch(`https://docs.google.com/spreadsheets/d/${sid}/export?format=csv${gid ? `&gid=${gid}` : ''}`, { redirect: 'follow' });
-        if (!res.ok) throw new Error(`CSV ${res.status}`);
-        return parseCsv(await res.text());
+        return readTabAuthed(sid, gid || '');
       },
     });
     srcRows += r.total; excluded += r.excludedCount; noPrice += r.noPriceCount;

@@ -28,6 +28,10 @@ const RAW_ALLOW = new Map<string, Allow>([
   ['app/settlement/page.tsx', { counts: { input: 1 }, reason: '숨김 정산 엑셀 선택기' }],
 ]);
 
+// 기능상 native 요소가 필요한 명시 예외: 파일 선택기와 이미지 갤러리의 행/셀 버튼.
+RAW_ALLOW.set('components/ChatThread.tsx', { counts: { button: 3, input: 1, textarea: 1 }, reason: '첨부 파일 선택기·갤러리 행/셀 버튼·채팅 입력기' });
+RAW_ALLOW.set('components/ConsultPanel.tsx', { counts: { input: 1 }, reason: '상담 첨부 드롭존의 숨김 파일 선택기' });
+
 const RADIUS_ISLANDS = new Set([
   'app/global-error.tsx',
   'app/login/page.tsx',

@@ -5,6 +5,13 @@ import { stripDetachedEsignAppendices } from '../lib/domain/esign-document-bound
 
 const root = process.cwd();
 const templatePath = path.join(root, 'public', 'contract-template', 'rental-contract.html');
+const pretendardFiles = [
+  'Pretendard-Regular.woff2',
+  'Pretendard-Medium.woff2',
+  'Pretendard-SemiBold.woff2',
+  'Pretendard-Bold.woff2',
+  'Pretendard-ExtraBold.woff2',
+] as const;
 const outputDir = path.join(root, 'output', 'pdf');
 const outputPath = path.join(outputDir, 'freepass-standard-rental-contract-v1-review.pdf');
 
@@ -107,10 +114,15 @@ const sealed = {
 
 await mkdir(outputDir, { recursive: true });
 let html = stripDetachedEsignAppendices(await readFile(templatePath, 'utf8'));
+for (const fontFile of pretendardFiles) {
+  const fontPath = path.join(root, 'public', 'fonts', fontFile);
+  const dataUrl = `data:font/woff2;base64,${(await readFile(fontPath)).toString('base64')}`;
+  html = html.replace(`/fonts/${fontFile}`, dataUrl);
+}
 html = html.replace('</head>', `<script>window.__SEALED__=${JSON.stringify(sealed).replace(/</g, '\\u003c')};</script></head>`);
 html = html.replace(/<body([^>]*)>/i, `<body$1><div class="fp-review-banner">렌터카회사 검토용 초안 · 서명 및 실계약 사용 금지</div>`);
 html = html.replace('</style>', `
-  .fp-review-banner{position:absolute;top:4mm;left:50%;transform:translateX(-50%);z-index:9999;padding:2mm 5mm;border:1px solid #b45309;background:#fff7ed;color:#9a3412;font:700 10px system-ui;letter-spacing:.02em}
+  .fp-review-banner{position:absolute;top:4mm;left:50%;transform:translateX(-50%);z-index:9999;padding:2mm 5mm;border:1px solid #b45309;background:#fff7ed;color:#9a3412;font:700 10px Pretendard,sans-serif;letter-spacing:.02em}
   .fp-review-variable{background:#fff3a6!important;box-shadow:inset 0 -0.7mm 0 #ffe36a!important}
   .fp-review-summary{margin-top:16mm;border-top:1.2pt solid var(--accent);border-bottom:.5pt solid var(--bd);padding:5mm 0 4mm}
   .fp-review-summary h2{font-size:13px;color:var(--accent-ink);margin-bottom:2.5mm}
@@ -129,6 +141,19 @@ const browser = await chromium.launch({ headless: true, executablePath });
 try {
   const page = await browser.newPage();
   await page.setContent(html, { waitUntil: 'load', timeout: 30_000 });
+  const pretendardFaces = await page.evaluate(async () => {
+    await document.fonts.ready;
+    const faces: { family: string; weight: string; status: string }[] = [];
+    document.fonts.forEach((face) => {
+      if (/^Pretendard$/i.test(face.family.replace(/["']/g, ''))) {
+        faces.push({ family: face.family, weight: face.weight, status: face.status });
+      }
+    });
+    return faces;
+  });
+  if (!pretendardFaces.length || pretendardFaces.some((face) => face.status !== 'loaded')) {
+    throw new Error(`Pretendard 폰트 로딩 실패: ${JSON.stringify(pretendardFaces)}`);
+  }
   await page.evaluate(() => {
     const variableFields = [
       'company_name', 'company_ceo', 'company_biz_no', 'company_phone', 'company_address',
@@ -167,6 +192,33 @@ try {
       hero.insertAdjacentElement('afterend', summary);
     }
   });
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+    (window as Window & { __rebuildTerms?: () => void }).__rebuildTerms?.();
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+  });
+  const termsMetrics = await page.evaluate(() => Array.from(document.querySelectorAll<HTMLElement>('.terms-cols .tc')).map((col) => {
+    const body = col.closest('.pbody') as HTMLElement | null;
+    const last = col.lastElementChild as HTMLElement | null;
+    const top = col.getBoundingClientRect().top;
+    const bottom = last?.getBoundingClientRect().bottom ?? top;
+    const bodyBottom = body?.getBoundingClientRect().bottom ?? bottom;
+    return {
+      used: Math.round((bottom - top) * 10) / 10,
+      available: Math.round((bodyBottom - top - 6) * 10) / 10,
+      remaining: Math.round((bodyBottom - bottom - 6) * 10) / 10,
+      overflow: bottom > bodyBottom - 6,
+    };
+  }));
+  if (!termsMetrics.length || termsMetrics.some((metric) => metric.overflow)) {
+    throw new Error(`약관 A4 단 넘침: ${JSON.stringify(termsMetrics)}`);
+  }
+  const fillRatios = termsMetrics.map((metric) => metric.used / metric.available);
+  const usedHeights = termsMetrics.map((metric) => metric.used);
+  if (Math.min(...fillRatios) < 0.9 || Math.max(...usedHeights) - Math.min(...usedHeights) > 80) {
+    throw new Error(`약관 A4 단 균형 이탈: ${JSON.stringify(termsMetrics)}`);
+  }
+  console.log(`terms-metrics=${JSON.stringify(termsMetrics)}`);
   await page.emulateMedia({ media: 'print' });
   await page.waitForTimeout(1_000);
   const pdf = await page.pdf({ format: 'A4', printBackground: true, preferCSSPageSize: true });

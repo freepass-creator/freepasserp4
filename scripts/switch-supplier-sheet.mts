@@ -75,6 +75,8 @@ const mineFile = ((found.files || []) as Rec[]).find((f) => {
 });
 if (!mineFile) { console.log(`■ ${name} 의 우리 시트를 못 찾았다 — 먼저 build-supplier-sheet-set 로 만들어라\n`); process.exit(1); }
 const mineId = S(mineFile.id);
+const mineMeta = await api(`https://sheets.googleapis.com/v4/spreadsheets/${mineId}?fields=sheets(properties(sheetId,title))`);
+const stockGid = Number(((mineMeta.sheets || []) as Rec[]).find((x) => S(x.properties?.title) === '재고')?.properties?.sheetId ?? 0);
 
 console.log(`■ ${name}(${CODE}) 재고 정본을 우리 시트로 넘긴다 ${APPLY ? '(반영)' : '(dry-run)'}\n`);
 console.log(`  지금 읽는 곳  ${liveUrl.slice(0, 78) || '(없음)'}`);
@@ -83,7 +85,18 @@ if (liveUrl.includes(mineId)) { console.log('  이미 우리 시트를 읽고 �
 
 // 우리 시트를 규격대로 읽어 «넘긴 뒤 몇 대가 되는가»를 미리 센다.
 const grid = await api(`https://sheets.googleapis.com/v4/spreadsheets/${mineId}?includeGridData=true&fields=${encodeURIComponent(SHEET_GRID_FIELDS)}`);
-const read = readSupplierSheet(grid as never, targets[0].row as EntityRecord);
+/**
+ * ★읽을 때 **옛 파일의 탭 지정을 물려주면 안 된다**.
+ *   파트너에 남아 있는 `sheet_tab` 은 옛 시트의 gid 다(빌린카는 세 개나 박혀 있다).
+ *   그걸 새 파일에 적용하면 맞는 탭이 하나도 없어 «0대»로 읽히고, 안전장치가 전환을 막는다
+ *   (실측 2026-08-11 — 12곳 전부 0대로 나왔다). 새 파일의 「재고」 탭을 지정해 읽는다.
+ */
+const probePartner = {
+  partner_code: CODE,
+  sheet_url: `https://docs.google.com/spreadsheets/d/${mineId}/edit`,
+  sheet_tab: String(stockGid), sheet_gid: String(stockGid),
+} as EntityRecord;   // 헤더 행·어댑터 지정도 옛 시트 기준이라 물려주지 않는다
+const read = readSupplierSheet(grid as never, probePartner);
 const sheetPlates = new Set<string>();
 for (const t of read.tabs) {
   const hdr = (t.table[0] || []).map(S);
@@ -138,7 +151,13 @@ for (const t of targets) {
   const res = await fetch(`${DB}/${t.table}/${encodeURIComponent(t.key)}.json?access_token=${dbT}`, {
     method: 'PATCH', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      sheet_url: newUrl, sheet_tab: '', sheet_gid: '',
+      /**
+       * ★탭을 **「재고」 하나로 못 박는다**(빈칸으로 두지 않는다).
+       *   우리 시트에는 「정책」 탭이 있는데 거기엔 차량번호 열이 없다 —
+       *   비워 두면 동기화가 그 탭을 «못 읽은 탭»으로 올리고, 못 읽은 게 있으면
+       *   재고 판단을 멈추게 돼 있다. 읽을 탭을 지정해 그 시비를 없앤다.
+       */
+      sheet_url: newUrl, sheet_tab: String(stockGid), sheet_gid: String(stockGid),
       sheet_note: `우리 제공 시트로 전환(${at2.slice(0, 10)}) — 옛 주소 ${liveUrl.slice(0, 90)}`,
       updatedAt: at2,
     }),

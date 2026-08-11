@@ -37,7 +37,7 @@ $('#termsSource > .t-art').each((_, el) => {
   const paragraphs: string[] = [];
   let next = $(el).next();
   while (next.length && !next.hasClass('t-art')) {
-    if (!next.hasClass('t-chapter')) paragraphs.push(norm(next.text()));
+    paragraphs.push(norm(next.text()));
     next = next.next();
   }
   htmlAgreement.push({ t: title, b: norm(paragraphs.join(' ')) });
@@ -53,9 +53,27 @@ check('인쇄/PDF 약관과 착한거래 전송 약관이 완전히 같다',
 check('조 제목은 제N조(제목) 형식으로 통일한다',
   htmlAgreement.every((section) => /^제\d+조(?:의\d+)?\([^()]+\)$/.test(section.t)),
   htmlAgreement.map((section) => section.t));
+check('항이 하나뿐인 조문에는 단독 ①을 붙이지 않는다',
+  htmlAgreement.every((section) => (section.b.match(/[①-⑳]/g)?.length ?? 0) !== 1),
+  htmlAgreement.filter((section) => (section.b.match(/[①-⑳]/g)?.length ?? 0) === 1).map((section) => section.t));
+check('21개 조문 규모의 약관에는 장 제목을 중복 표시하지 않는다',
+  $('#termsSource > .t-chapter').length === 0 && !/제\d+장/.test($('#termsSource').text()));
+check('약관 문단은 왼쪽 맞춤과 한글 글자 경계 줄바꿈을 사용한다',
+  /\.terms-cols p\{[^}]*text-align:left[^}]*\}/.test(contractHtml)
+    && /\.terms-cols p\{[^}]*word-break:normal[^}]*\}/.test(contractHtml)
+    && !/\.terms-cols p\{[^}]*text-align:justify[^}]*\}/.test(contractHtml));
 check('축약 조문 참조를 사용하지 않는다',
   !/제\d+조[①-⑳]/.test(contractHtml)
     && !/제\d+(?:조)?[·ㆍ]제?\d+조/.test(contractHtml));
+const forbiddenItems: string[] = [];
+let forbiddenNext = $('#termsSource > .t-art').filter((_, el) => norm($(el).text()) === '제9조(차량 사용 제한)').next();
+while (forbiddenNext.length && !forbiddenNext.hasClass('t-art')) {
+  if (forbiddenNext.hasClass('t-sub')) forbiddenItems.push(norm(forbiddenNext.text()));
+  forbiddenNext = forbiddenNext.next();
+}
+check('금지행위는 보호범위를 유지하며 중복을 합친 8개 호다',
+  forbiddenItems.length === 8 && forbiddenItems.every((item, index) => item.startsWith(`${index + 1}. `)),
+  forbiddenItems);
 
 // 섹션별 값 소유권: 한 값은 한 섹션만 가진다. 약관은 값이 아니라 적용 절차를 설명한다.
 const sectionLabels = (title: string): string[] => $('.section').filter((_, el) => (
@@ -92,10 +110,25 @@ check('도난차 회수 후 정산 절차를 승계한다', articleBody('제11�
 check('회사 승인 시 지정자 명의 인수를 허용한다', articleBody('제17조').includes('임차인이 지정하고 회사가 사전에 승인한 자'));
 check('같은 손해의 중복 청구를 금지한다', articleBody('제18조').includes('동일한 손해를 여러 명목으로 중복 청구하지'));
 check('전자계약 완료본 교부·보관을 규정한다', /동일한 전자문서\(PDF\)(?:를|로) 임차인에게 교부/.test(articleBody('제21조')));
+check('중고차량의 경년변화·통상 사용흔적을 인수 시 확인한다',
+  articleBody('제7조').includes('경년변화 및 통상적인 사용흔적'));
+check('중고차량 확인이 미고지 중대하자까지 면책하지 않는다',
+  articleBody('제7조').includes('고지하지 않은 중대한 하자')
+    && articleBody('제7조').includes('안전운행에 지장을 주는 결함')
+    && articleBody('제7조').includes('통상적인 점검으로 확인하기 어려운 하자'));
+check('약관 정본은 계약 유형과 무관하게 중고차 조건부 항을 포함한다',
+  articleBody('제7조').includes('중고차량인 경우')
+    && !contractHtml.includes('data-condition="used-vehicle"'));
+check('약관 제목은 인수·반납·렌탈·구독 유형과 무관하게 하나다',
+  contractHtml.includes("var TERMS_TITLE='자동차 렌탈(대여) 약관'")
+    && !/ttitle\s*:/.test(contractHtml)
+    && !/자동차 (?:렌탈|구독) 계약 약관 \((?:인수형|반납형|선택형)\)/.test(contractHtml));
+check('약관 서문에도 인수·반납·렌탈·구독 상품명을 주입하지 않는다',
+  !/<div id="termsSource"[\s\S]*?data-field="product_label"[\s\S]*?<div id="termsPages">/.test(contractHtml));
 
 const lifecycleTitles = [
   '적용범위', '계약기간', '대여료', '보증금', '운전자격', '보험조건', '차량 인도',
-  '차량 사용', '금지행위', 'GPS', '사고처리', '연체', '통지', '계약 종료',
+  '차량 사용', '차량 사용 제한', 'GPS', '사고처리', '연체', '통지', '계약 종료',
   '중도해지', '초과주행', '만기 차량 인수', '비용부담', '개인정보', '연대보증', '효력',
 ];
 check('약관은 계약조건에서 인도·운행·사고·반납·정산 순으로 흐른다',

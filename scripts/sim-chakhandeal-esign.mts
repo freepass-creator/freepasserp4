@@ -124,6 +124,13 @@ check('약관은 정본으로 표시된다', agreement.isSample === false);
 check('약관 21개 항목이 실린다', agreement.sections.length === 21, agreement.sections.length);
 check('보험조건 조문이 실린다',
   agreement.sections.some((s) => (s as { t: string }).t.includes('제6조') && (s as { t: string }).t.includes('보험')));
+check('신차·미정 계약에도 동일한 중고차 조건부 항을 보낸다',
+  JSON.stringify(agreement.sections).includes('중고차량인 경우'));
+const usedVehiclePayload = chakhandealIssuePayload({
+  memberCompany: 'freepass', templateId: 'used-contract', contractKind: 'rent_return',
+}, contract, policy, '회사포함', partner, { product: { product_type: '중고렌트' } });
+check('중고 계약도 같은 약관 정본을 보낸다',
+  JSON.stringify((usedVehiclePayload.agreement as { sections: unknown[] }).sections) === JSON.stringify(agreement.sections));
 check('약관 본문이 잘리지 않았다',
   agreement.sections.every((s) => (s as { b: string }).b.length > 100));
 
