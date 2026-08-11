@@ -13,7 +13,10 @@
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { HANDLED_MAKER_OPTIONS } from '../lib/domain/handled-makers';
-import { buildBaseFont, buildChipColors, buildColumns, buildRowHeights, columnWidth } from '../lib/domain/supplier-template-sheet';
+import {
+  buildBaseFont, buildChipColors, buildColumns, buildNumberFormats, buildRowHeights,
+  buildTemplateFormat, columnWidth, yearOptions,
+} from '../lib/domain/supplier-template-sheet';
 
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
@@ -47,13 +50,22 @@ for (const f of ((found.files || []) as Rec[])) {
   const vals = await api(`https://sheets.googleapis.com/v4/spreadsheets/${S(f.id)}/values/${encodeURIComponent('재고!A1:BZ1')}`);
   const hdr = (((vals.values || []) as string[][])[0] || []).map(S);
   if (!hdr.length) { console.log(`  △ ${label.padEnd(12)}헤더가 없다`); continue; }
-  const cols = hdr.map((name) => ({ name }));
+  /**
+   * 헤더 이름으로 **원래 열 정의**(설명·필수 표시)를 되찾는다.
+   * 이름만 넘기면 머리행 스타일과 셀 메모가 통째로 빠져 헤더가 밋밋해진다(사장님 지적).
+   */
+  const known = new Map(buildColumns(hdr.filter((h) => /개월$/.test(h)).map((h) => h.replace('개월', ''))).map((c) => [c.name, c]));
+  const cols = hdr.map((name) => known.get(name) || { name, note: '' });
 
   const reqs: Rec[] = [
     // 조건부서식은 쌓인다 — 뒤에서부터 다 지우고 새로 넣는다.
     ...Array.from({ length: had }, (_, k) => ({ deleteConditionalFormatRule: { sheetId: gid, index: had - 1 - k } })),
     ...buildBaseFont(gid, cols.length, ROWS),
+    // 머리행(남색·필수 주황·보증 흐리게)과 셀 메모를 다시 입힌다.
+    ...buildTemplateFormat(gid, cols, { 제조사: HANDLED_MAKER_OPTIONS, 연식: yearOptions(new Date().getFullYear()) }, { asTable: true }),
     ...buildChipColors(gid, cols, HANDLED_MAKER_OPTIONS, ROWS),
+    // ★대여료 굵게·보증금 흐리게·천단위 콤마 — baseFont 뒤에 와야 살아남는다.
+    ...buildNumberFormats(gid, cols, ROWS),
     ...buildRowHeights(gid, ROWS),
     ...cols.map((c, i) => ({
       updateDimensionProperties: {
