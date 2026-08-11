@@ -44,7 +44,7 @@ const EXCEL_BODY_H = Math.max(EXCEL_OPT_2H, EXCEL_COND_2H); // 45
 const EXCEL_PAD_Y = 5;
 const EXCEL_PAD_X = 6;
 /** filter(사이드 열림) — 칸 좌우 패딩만 양보(글자수·항목 구성은 유지). */
-const EXCEL_PAD_X_FILTER = 4;
+const EXCEL_PAD_X_FILTER = 3;
 export const EXCEL_ROW_H = EXCEL_PAD_Y * 2 + EXCEL_BODY_H; // 55
 
 export type ExcelColMode = 'filter' | 'full';
@@ -132,7 +132,7 @@ export function pinRight(i: number, colPxOrSample: number | string, total: numbe
 /**
  * 엑셀 열 모드 SSOT
  *
- *  · filter = 기본보기(사이드 필터 열림): 공급사·심사·조건 숨김 · 제조사 3자 · 패딩 양보(6→4).
+ *  · filter = 기본보기(사이드 필터 열림): 공급사는 유지하고 심사·조건 숨김 · 제조사 3자 · 패딩 양보(6→3).
  *    폭이 줄면 excelFitPlan으로 열·짧은 대여기간부터 숨김 → 가로스크롤 없음.
  *    차량번호·긴 기간 대여료가 끝까지 생존.
  *  · full = 전체보기(필터 닫힘): 공급사·심사·조건 표시 · 제조사 4자 · 패딩 6.
@@ -153,13 +153,13 @@ export function excelShowFilterCols(mode: ExcelColMode): boolean {
 export function excelMakerChars(mode: ExcelColMode): number {
   return mode === 'filter' ? EXCEL_MAX.makerSlim : EXCEL_MAX.maker;
 }
-/** 세부모델 — 모드 무관 10자(간격 양보로 맞춤). */
-export function excelSubChars(_mode: ExcelColMode): number {
-  return EXCEL_MAX.sub;
+/** 세부모델 — 필터가 차지한 폭에서는 8자, 전체보기에서는 10자. */
+export function excelSubChars(mode: ExcelColMode): number {
+  return mode === 'filter' ? EXCEL_MAX.subSlim : EXCEL_MAX.sub;
 }
-/** 파워·트림 — 모드 무관 10자. */
-export function excelNameChars(_mode: ExcelColMode): number {
-  return EXCEL_MAX.name;
+/** 파워·트림 — 필터가 차지한 폭에서는 8자, 전체보기에서는 10자. */
+export function excelNameChars(mode: ExcelColMode): number {
+  return mode === 'filter' ? EXCEL_MAX.nameSlim : EXCEL_MAX.name;
 }
 /** 외장·내장 — 모드 무관 3자. */
 export function excelColorChars(_mode: ExcelColMode): number {
@@ -187,8 +187,10 @@ export const EXCEL_MAX = {
   model: '펠리세이드',
   modelSlim: 6,
   sub: 10,
+  subSlim: 8,
   name: 10,
-  mile: '9.9만',
+  nameSlim: 8,
+  mile: '999,999km',
   fuel: 3,
   color: 3,
   provider: 3,
@@ -316,7 +318,7 @@ const EXCEL_FIT_DROP_FILTER: readonly string[] = [
   'maker', 'model', 'product_type', 'vehicle_status',
 ];
 const EXCEL_FIT_DROP_FULL: readonly string[] = [
-  'cond', 'credit', 'provider_name',
+  'cond', 'credit',
   ...EXCEL_FIT_DROP_FILTER,
 ];
 
@@ -373,7 +375,8 @@ export function excelFitPlan(opts: {
     'vehicle_status', 'product_type', 'maker', 'model',
     'sub_model', 'variant', 'trim_name', 'options',
     'ext_color', 'int_color', 'year', 'mileage', 'fuel_type',
-    ...(mode === 'full' ? ['provider_name', 'credit', 'cond'] : []),
+    'provider_name',
+    ...(mode === 'full' ? ['credit', 'cond'] : []),
   ];
   let meta = [...baseMeta];
   let months = [...allMonths];
