@@ -21,8 +21,8 @@
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { autoMapHeaders, importSheetTable } from '../lib/domain/sheet-import';
-import { resolveAdapter } from '../lib/domain/sheet-adapters';
-import { visibleRowsFromGridResponse, type SheetsGridResponse } from '../lib/domain/sheet-visible-grid';
+import { NOT_SHEET_BACKED, SHEET_GRID_FIELDS, readSupplierSheet } from '../lib/domain/supplier-sheet-read';
+import { type SheetsGridResponse } from '../lib/domain/sheet-visible-grid';
 import { isHiddenFromCatalog, priceList } from '../lib/domain/product';
 import type { EntityRecord } from '../lib/intake/entities';
 
@@ -35,9 +35,6 @@ const ONLY = arg('only').split(',').map(S).filter(Boolean);
 const DB = 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app';
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-/** 시트가 정본이 아닌 공급사. */
-const NOT_SHEET_BACKED = new Set(['RP006']);   // 아이언 = ironrentcar.com 수집
-
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 const dbT = (await new JWT({
   email: sa.client_email, key: sa.private_key,
@@ -48,9 +45,9 @@ const shT = (await new JWT({
   scopes: ['https://www.googleapis.com/auth/spreadsheets'], subject: 'pyh@teamjpk.com',
 }).getAccessToken()).token;
 
-const GRID_FIELDS = 'sheets(properties(sheetId,title,hidden),data(rowMetadata(hiddenByFilter,hiddenByUser),rowData(values(formattedValue))))';
 const grabGrid = async (id: string, tries = 4): Promise<SheetsGridResponse> => {
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${id}?includeGridData=true&fields=${encodeURIComponent(GRID_FIELDS)}`;
+  // 필드 마스크도 규격 것을 쓴다 — 사본을 두면 `hidden` 같은 게 빠져도 아무도 모른다.
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${id}?includeGridData=true&fields=${encodeURIComponent(SHEET_GRID_FIELDS)}`;
   for (let i = 0; ; i++) {
     const res = await fetch(url, { headers: { Authorization: `Bearer ${shT}` } });
     const j = await res.json().catch(() => ({})) as Rec;
@@ -71,12 +68,23 @@ for (const src of [t3, t4] as Rec[]) for (const [k, v] of Object.entries<Rec>(sr
  * ★**살아있는 차번**만 「이미 있다」로 본다.
  *   내려둔(`_deleted`) 레코드가 있어도 시트에 다시 있으면 그건 «되살아난 차»다 —
  *   새 키로 만들어 올린다. 그러지 않으면 공급사가 다시 올려도 영영 안 보인다.
+ *
+ * ★단 **사람이 「안 판다」고 판단해 내린 차는 되살리지 않는다**(2026-08-11).
+ *   내림에는 두 종류가 있고, 둘을 섞으면 안 된다 — `deleted_source` 로 가른다.
+ *     `sheet-absence` : 시트에서 사라져서 내렸다 → 다시 올라오면 **되살린다**.
+ *     `judgement`     : 사람이 보고 판단해 내렸다 → 시트에 남아 있어도 **안 만든다**.
+ *   오플 프로모션 탭 하단 EV6 13대가 후자다(사장님 확인: 「그냥 맨 밑에 둔 건데 판매 아닌 것 같다」).
+ *   그 차들은 시트에 계속 적혀 있으므로, 막지 않으면 아침 동기화마다 되살아난다.
+ *   다시 팔기로 하면 그 레코드의 `deleted_source` 를 지운다.
  */
 const livePlates = new Set<string>();
+const closedByHand = new Map<string, string>();
 for (const p of Object.values<Rec>(prods)) {
-  if (!p || typeof p !== 'object' || dead(p)) continue;
+  if (!p || typeof p !== 'object') continue;
   const pl = norm(p.car_number);
-  if (pl) livePlates.add(pl);
+  if (!pl) continue;
+  if (!dead(p)) { livePlates.add(pl); continue; }
+  if (S(p.deleted_source) === 'judgement') closedByHand.set(pl, S(p.deleted_reason) || '사람이 내림');
 }
 const usedKeys = new Set(Object.keys(prods as Rec));
 
@@ -85,6 +93,8 @@ const entries = (Array.isArray(masterRaw) ? masterRaw : masterRaw.entries) || []
 
 type New = { key: string; plate: string; code: string; name: string; tab: string; rec: Rec };
 const creates: New[] = [];
+/** 시트엔 있지만 사람이 내려서 안 만든 차 — 조용히 넘기면 왜 안 보이는지 아무도 모른다. */
+const held: string[][] = [];
 const failed: string[][] = [];
 const seen = new Set<string>();
 
@@ -99,22 +109,23 @@ for (const p of Object.values(partners)) {
   const name = S(p.partner_name || p.name || p.company_name) || code;
   try {
     const grid = await grabGrid(id);
-    const adapter = resolveAdapter(p as EntityRecord);
-    const pinned = new Set(S(p.sheet_tab).split(',').map(S).filter(Boolean));
-    for (const sh of (grid.sheets || []) as Rec[]) {
-      const gid = String(sh.properties?.sheetId ?? '');
-      if (pinned.size ? !pinned.has(gid) : sh.properties?.hidden === true) continue;
-      const tab = S(sh.properties?.title);
-      let table: string[][];
-      try { table = (visibleRowsFromGridResponse(grid, gid) as Rec).rows as string[][]; } catch { continue; }
+    // ★시트는 반드시 규격(`readSupplierSheet`)을 통해 읽는다.
+    //   2026-08-11: 이 스크립트만 직접 읽는 바람에 오토플러스의
+    //   `firstPlateBlockAfterHeader` 컷이 안 걸려, 헤더 아래 과거 이력의
+    //   EV6 프로모션 13대를 «새 차»로 만들려 했다(시트에 실제 서 있는 건 2대).
+    const { tabs, failures } = readSupplierSheet(grid as never, p as EntityRecord);
+    for (const f of failures) failed.push([code, name, `${f.title} — ${f.reason.slice(0, 40)}`]);
+    for (const t of tabs) {
+      const tab = t.title;
+      const table = t.table;
       if (table.length < 2) continue;
       let imported: EntityRecord[] = [];
       try {
-        const prepared = adapter.prepareTable(table, { headerRow: Number(p.sheet_header_row) || undefined });
-        const prof = autoMapHeaders(prepared[0] || []);
+        const prof = autoMapHeaders(table[0] || []);
         if (prof.car_number === undefined) continue;
-        const out = importSheetTable(prepared, {
+        const out = importSheetTable(table, {
           profile: prof, providerCode: code, providerName: name, entries, depositRule: p.deposit_rule,
+          photoByPlate: t.photoByPlate,
         } as Parameters<typeof importSheetTable>[1]);
         imported = (out as Rec).products || [];
       } catch (e) { failed.push([code, name, `${tab} — ${String((e as Error).message).slice(0, 40)}`]); continue; }
@@ -124,6 +135,8 @@ for (const p of Object.values(partners)) {
         const pl = norm(rec.car_number);
         // 차번이 없는 행은 만들지 않는다 — 나중에 같은 차인지 가릴 방법이 없다.
         if (!pl || livePlates.has(pl)) continue;
+        // ★사람이 이유를 적어 내린 차는 시트에 남아 있어도 되살리지 않는다.
+        if (closedByHand.has(pl)) { held.push([pl, `${name} / ${tab}`, closedByHand.get(pl)!]); continue; }
         // 유입이 이미 출고불가로 판정한 차는 만들 이유가 없다.
         if (S(rec.vehicle_status) === '출고불가') continue;
         let key = S(rec._key) || S(rec.product_code) || `${code}_${pl}`;
@@ -153,6 +166,11 @@ for (const [k, cs] of [...byProv].sort((a, b) => b[1].length - a[1].length)) {
 }
 const listable = creates.filter((c) => !isHiddenFromCatalog(c.rec) && priceList(c.rec as EntityRecord).length > 0).length;
 console.log(`\n  그중 바로 목록에 설 차 ${listable}대`);
+if (held.length) {
+  console.log(`\n  ■ 시트엔 있지만 «사람이 내린 차»라 안 만든 것 ${held.length}대`);
+  for (const h of held) console.log(`     ${h[0].padEnd(11)}${h[1].slice(0, 30).padEnd(32)}${h[2].slice(0, 40)}`);
+  console.log('     다시 팔려면 그 레코드의 deleted_source 를 지운다.');
+}
 if (failed.length) {
   console.log(`\n  ✗ 못 읽은 시트·탭 ${failed.length}건 — 이만큼은 «모름»이다`);
   for (const f of failed) console.log(`     ${f[1].slice(0, 16).padEnd(18)}${f[0].padEnd(10)}${f[2]}`);

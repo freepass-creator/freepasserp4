@@ -169,6 +169,10 @@ let done = 0;
 for (const g of gone) {
   await put(`v4/products/${encodeURIComponent(g.key)}`, {
     _deleted: true, deletedAt: at, updatedAt: at,
+    // ★`sheet-absence` = 시트에서 사라져서 내린 것 → 다시 올라오면 되살아나야 한다.
+    //   사람이 「안 판다」고 판단해 내린 차(`judgement`)와 섞지 마라 —
+    //   `create-missing-from-sheets` 가 이 값으로 되살릴지 말지를 가른다.
+    deleted_source: 'sheet-absence',
     deleted_reason: '공급사 정본 시트에 없는 차 — 옛 종합시트 잔재 정리(2026-08-10)',
   });
   done++;
