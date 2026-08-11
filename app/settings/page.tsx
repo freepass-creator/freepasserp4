@@ -6,7 +6,6 @@ import {
 import { Copy, Download, KeyRound, LoaderCircle, LogIn, LogOut, Save } from 'lucide-react';
 import { useSession } from '@/lib/auth-context';
 import { getRole, setRole, actor, ROLE_LABEL, type Role } from '@/lib/domain/deal';
-import { clearLegacyGuestState } from '@/lib/auth-session';
 import { haptic } from '@/lib/haptics';
 import { BRAND, VERSION } from '@/lib/brand';
 import { listHidden, subscribeHidden, type HiddenSnap } from '@/lib/product-hide';
@@ -149,7 +148,6 @@ export default function Settings() {
   const doLogout = async () => {
     haptic.impact();
     try { const { logout } = await import('@/lib/firebase/auth'); await logout(); } catch { /* noop */ }
-    clearLegacyGuestState();
     // soft replace면 세션 null 설정이 데모 UI로 한 프레임 그려진 뒤 /login — 하드 이동으로 스킵.
     window.location.href = '/login';
   };
