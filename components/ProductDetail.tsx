@@ -89,6 +89,21 @@ export function ProductDetail({ p, audience, layout = 'brochure', priceAside = f
   const thumbs = useDragScroll();
   useEffect(() => { setMain(0); }, [p.product_code]);
   const mainIdx = Math.min(main, Math.max(0, photos.length - 1));
+  /**
+   * 메인 사진을 넘기면 **아래 썸네일 줄도 따라간다**.
+   *
+   * 지금까지는 테두리만 옮겨 다녀서, 26장짜리 매물에서 몇 장 넘기면 «지금 보는 사진»이
+   * 썸네일 줄 밖으로 나가 어디쯤인지 안 보였다(사장님 지적 2026-08-11).
+   * `scrollIntoView` 는 페이지까지 같이 움직여 화면이 튀므로 가로 스크롤만 직접 옮긴다.
+   */
+  useEffect(() => {
+    const strip = thumbs.ref.current;
+    const el = strip?.children?.[mainIdx] as HTMLElement | undefined;
+    if (!strip || !el) return;
+    const target = el.offsetLeft - (strip.clientWidth - el.clientWidth) / 2;
+    const max = strip.scrollWidth - strip.clientWidth;
+    strip.scrollTo({ left: Math.max(0, Math.min(target, max)), behavior: 'smooth' });
+  }, [mainIdx, photos.length, thumbs.ref]);
   const aud: Audience = audience || (getRole() === 'admin' ? 'admin' : 'agent');
   const work = layout === 'work';
   const [swipeX, setSwipeX] = useState<number | null>(null); // 메인 사진 좌우 스와이프
