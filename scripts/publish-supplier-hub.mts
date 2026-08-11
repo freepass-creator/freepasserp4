@@ -31,6 +31,12 @@ const TAB_HINT = '공급사연동';
 /** A1 표기 — 탭 이름에 공백이 있으면 따옴표로 감싸야 «범위를 못 읽는다»가 안 난다. */
 const A1 = (tab: string, ref = '') => `'${tab.replace(/'/g, "''")}'${ref ? `!${ref}` : ''}`;
 const link = (id: string, gid = 0) => `https://docs.google.com/spreadsheets/d/${id}/edit#gid=${gid}`;
+/**
+ * ★주소를 **그대로 쓰지 않는다**. 통째로 넣으면 열이 화면 밖까지 늘어나
+ *   오른쪽 열(사본 등)이 안 보인다(사장님 지적 2026-08-11).
+ *   누르면 열리는 짧은 글자로 둔다 — 주소는 읽는 게 아니라 누르는 것이다.
+ */
+const openLink = (url: string, label: string) => (url ? `=HYPERLINK("${url}","${label}")` : '');
 
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 const dbT = (await new JWT({ email: sa.client_email, key: sa.private_key,
@@ -151,12 +157,12 @@ for (const p of Object.values<Rec>(partners)) {
 
   rows.push([
     name, code, how, st.alive, st.listed,
-    mine ? link(mine.id, mine.stockGid) : '',
-    mine ? link(mine.id, mine.policyGid) : '',
+    mine ? openLink(link(mine.id, mine.stockGid), '재고 열기') : '',
+    mine ? openLink(link(mine.id, mine.policyGid), '정책 열기') : '',
     mine ? mine.policies : '',
     mine ? mine.rows : '',
-    liveUrl || (NOT_SHEET_BACKED.has(code) ? 'ironrentcar.com' : ''),
-    copyByCode.has(code) ? link(copyByCode.get(code)!.id) : '',
+    NOT_SHEET_BACKED.has(code) ? 'ironrentcar.com' : openLink(liveUrl, '원본 열기'),
+    copyByCode.has(code) ? openLink(link(copyByCode.get(code)!.id), '사본 열기') : '',
     todo,
   ]);
 }
@@ -177,8 +183,8 @@ const totalAlive = [...stock.values()].reduce((n, s2) => n + s2.alive, 0);
 const totalListed = [...stock.values()].reduce((n, s2) => n + s2.listed, 0);
 rows.unshift([
   '★ 영업자용 상품리스트', '-', 'ERP → 영업자 (우리가 찍는다)', totalAlive, totalListed,
-  listTab ? link(SALES, listTab.gid) : '',
-  jonghapTab ? link(SALES, jonghapTab.gid) : '',
+  listTab ? openLink(link(SALES, listTab.gid), '상품리스트 열기') : '',
+  jonghapTab ? openLink(link(SALES, jonghapTab.gid), '구버전 열기') : '',
   '', '',
   'ERP (v4/products)',
   '',
@@ -222,7 +228,13 @@ await api(`https://sheets.googleapis.com/v4/spreadsheets/${HUB}:batchUpdate`, {
         fields: 'userEnteredFormat(textFormat,verticalAlignment)',
       } },
       { updateSheetProperties: { properties: { sheetId: gid, gridProperties: { frozenRowCount: 1, frozenColumnCount: 1 } }, fields: 'gridProperties(frozenRowCount,frozenColumnCount)' } },
-      { autoResizeDimensions: { dimensions: { sheetId: gid, dimension: 'COLUMNS', startIndex: 0, endIndex: HEADERS.length } } },
+      // 칸마다 고정 너비 — autoResize 는 주소 길이를 따라가 열이 화면 밖으로 나간다.
+      ...[168, 76, 210, 84, 92, 108, 100, 68, 84, 104, 96, 380].map((w, i) => ({
+        updateDimensionProperties: {
+          range: { sheetId: gid, dimension: 'COLUMNS', startIndex: i, endIndex: i + 1 },
+          properties: { pixelSize: w }, fields: 'pixelSize',
+        },
+      })),
       // ★행 높이 — 기본 21px 은 붙어 보여 답답하다. 공급사 시트와 같은 규격으로 둔다.
       ...buildRowHeights(gid, rows.length + 1),
       // 글자가 칸을 넘치면 다음 줄로 흐르지 않고 잘리게 둔다 — 줄 높이가 들쭉날쭉해지면
