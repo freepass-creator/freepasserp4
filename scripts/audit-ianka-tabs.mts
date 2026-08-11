@@ -202,4 +202,22 @@ if (!line) {
   if (line.issueSamples?.length) {
     for (const issue of line.issueSamples.slice(0, 8)) console.log(`    - ${issue}`);
   }
+  const modelYSuspects = line.products.filter((product) => /model\s*y|모델\s*y|테슬라|레이/i.test(
+    [product.maker, product.model, product.sub_model, product.trim_name, (product as Record<string, unknown>)._source_raw].join(' '),
+  ));
+  if (modelYSuspects.length) {
+    console.log('\n══ Model Y / 레이 의심행 ══');
+    for (const product of modelYSuspects) {
+      console.log(JSON.stringify({
+        plate: product.car_number,
+        code: product.product_code,
+        maker: product.maker,
+        model: product.model,
+        subModel: product.sub_model,
+        trim: product.trim_name,
+        raw: (product as Record<string, unknown>)._source_raw,
+        review: product._needs_master_review,
+      }, null, 2));
+    }
+  }
 }

@@ -30,6 +30,9 @@ import {
   findSheetSyncExistingConflicts,
   isExplicitAllExcluded,
   partnerSourceReadiness,
+  planSafeSupplierProducts,
+  rosterRevisionForFetched,
+  sheetPartnerRows,
   sheetSyncExistingConflictReason,
   sheetSyncCommitBlockReason,
   sheetPartnerSyncRevision,
@@ -86,6 +89,17 @@ const plan = planProductUpsert([incomingBlank, incomingNew], [existing]);
 check('신규 1건 create', plan.creates.length === 1 && plan.creates[0].product_code === 'sup_a_99나9999');
 check('기존 1건 patch', plan.patches.length === 1 && plan.patches[0].key === 'sup_a_12가3456');
 check('patch에 빈 memo 없음', plan.patches[0].patch.partner_memo === undefined);
+const supplierOwned = softMergeProduct({
+  engine_cc: '1600', mileage: '10000', ext_color: '검정', partner_memo: '관리자 메모',
+  _sheet_manual_fields: ['engine_cc', 'mileage', 'ext_color', 'partner_memo'],
+}, {
+  engine_cc: '1998', mileage: '23000', ext_color: '흰색', partner_memo: '공급사 메모',
+});
+check('공급사 입력 제원은 ERP 수기표식보다 우선',
+  supplierOwned.engine_cc === '1998'
+  && supplierOwned.mileage === '23000'
+  && supplierOwned.ext_color === '흰색');
+check('공급사 소유가 아닌 관리자 메모는 수기 보호 유지', supplierOwned.partner_memo === '관리자 메모');
 check('시트 patch는 계획 시점 ERP 원본을 CAS expected로 보존',
   plan.patches[0].expected === existing);
 const privatePricePlan = planProductUpsert([{
@@ -131,6 +145,11 @@ check('RTDB transaction 재시도에서 새 계약 락이 보이면 차단', !pr
 
 const sameAgain = softMergeProduct(merged, { product_code: merged.product_code, maker: '현대', model: '아반떼', vehicle_status: '출고가능' });
 check('동일 유입 → patch 없음', changedPatch(merged, sameAgain) === null);
+check('가격 객체 키 순서만 달라진 경우 변경으로 오판하지 않음', changedPatch({
+  price: { '36': { deposit: 1500000, rent: 930000 } },
+}, {
+  price: { '36': { rent: 930000, deposit: 1500000 } },
+}) === null);
 
 // fresh 시트 파싱 때마다 달라지는 master snap 시각/이력은 기존 매물 변경으로 세면 안 된다.
 const snapBefore: EntityRecord = {
@@ -1209,6 +1228,57 @@ check('공급사별 판정은 무효 차번을 해당 공급사 차단으로 분
     skippedCount: 1,
     sourceRowCount: iankaOverlapLine.imported + 1,
   }).status === 'blocked');
+
+const safeExisting: EntityRecord = {
+  _key: 'erp-rp100-12가3456', product_code: 'legacy-code', car_number: '12 가 3456',
+  provider_company_code: 'RP100', partner_code: 'RP100', mileage: '10000', engine_cc: '1598',
+  vehicle_status: '계약중', partner_memo: '관리자 메모',
+  price: { '36': { rent: 330000, deposit: 1000000 } },
+};
+const safeIncoming: EntityRecord = {
+  product_code: 'sheet-code', car_number: '12가3456', provider_company_code: 'RP100',
+  mileage: '22000', engine_cc: '1998', ext_color: '검정', vehicle_status: '판매가능',
+  partner_memo: '공급사 덮어쓰기', price: { '36': { rent: 990000, deposit: 0 } },
+};
+const safePlan = planSafeSupplierProducts([safeIncoming], [safeExisting]);
+check('안전 연동은 공급사+실차번이 정확히 한 대일 때만 기존 ERP 키로 계획',
+  safePlan.length === 1 && safePlan[0].product_code === 'erp-rp100-12가3456');
+check('안전 연동은 주행거리·배기량·색상 원자를 공급사 값으로 계획',
+  safePlan[0]?.mileage === '22000' && safePlan[0]?.engine_cc === '1998' && safePlan[0]?.ext_color === '검정');
+check('안전 연동은 가격과 차량상태를 우회 변경하지 않음',
+  safePlan[0]?.price === safeExisting.price && safePlan[0]?.vehicle_status === undefined);
+check('안전 연동은 관리자 메모를 공급사 값으로 덮지 않음', safePlan[0]?.partner_memo === undefined);
+check('안전 연동은 ERP에 없는 신규 차량을 생성하지 않음',
+  planSafeSupplierProducts([{ ...safeIncoming, car_number: '99나9999' }], [safeExisting]).length === 0);
+check('안전 연동은 같은 차번이어도 다른 공급사를 건드리지 않음',
+  planSafeSupplierProducts([{ ...safeIncoming, provider_company_code: 'RP200', partner_code: 'RP200' }], [safeExisting]).length === 0);
+check('안전 연동은 ERP 동일 공급사·차번 중복 시 임의 선택하지 않음',
+  planSafeSupplierProducts([safeIncoming], [safeExisting, { ...safeExisting, _key: 'erp-duplicate' }]).length === 0);
+check('안전 연동은 원본 동일 공급사·차번 중복 시 두 번 반영하지 않음',
+  planSafeSupplierProducts([safeIncoming, { ...safeIncoming }], [safeExisting]).length === 0);
+check('안전 연동은 임시번호·미입력 차번을 기존 행에 연결하지 않음',
+  planSafeSupplierProducts([{ ...safeIncoming, car_number: '번호미정-1' }], [safeExisting]).length === 0);
+
+const revisionRoster = sheetPartnerRows([
+  { _key: 'RP100', partner_code: 'RP100', partner_type: '공급사', name: '선택 공급사', sheet_url: 'https://docs.google.com/spreadsheets/d/aaaaaaaaaaaaaaaaaaaa/edit', adapter_id: 'generic' },
+  { _key: 'RP200', partner_code: 'RP200', partner_type: '공급사', name: '다른 공급사', sheet_url: 'https://docs.google.com/spreadsheets/d/bbbbbbbbbbbbbbbbbbbb/edit', adapter_id: 'generic' },
+]);
+const singleFetched = { lines: [{ code: 'RP100' }] };
+const singleRevision = rosterRevisionForFetched(revisionRoster, singleFetched);
+const selectedRevisionRow = revisionRoster.find((row) => row.code === 'RP100')!;
+const unrelatedRevisionRow = revisionRoster.find((row) => row.code === 'RP200')!;
+check('단건 연동 revision은 선택한 공급사 설정 범위만 비교',
+  singleRevision === rosterRevisionForFetched([selectedRevisionRow], singleFetched));
+check('단건 연동은 다른 공급사 설정 변경에 의해 거짓 차단되지 않음',
+  singleRevision === rosterRevisionForFetched([
+    selectedRevisionRow,
+    { ...unrelatedRevisionRow, syncRevision: `${unrelatedRevisionRow.syncRevision}-changed` },
+  ], singleFetched));
+check('단건 연동은 선택한 공급사 설정 변경은 정확히 감지',
+  singleRevision !== rosterRevisionForFetched([
+    { ...selectedRevisionRow, syncRevision: `${selectedRevisionRow.syncRevision}-changed` },
+    unrelatedRevisionRow,
+  ], singleFetched));
 
 const failed = cases.filter((c) => !c.ok);
 console.log('\n════════ 결과 ════════');

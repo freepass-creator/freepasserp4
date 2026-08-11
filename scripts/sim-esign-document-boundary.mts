@@ -10,6 +10,11 @@ const documentBuilder = readFileSync('lib/server/freepass-esign-document.ts', 'u
 
 assert.match(template, /부속서류 1 · 차량 인수증/);
 assert.doesNotMatch(mainContract, /부속서류 1 · 차량 인수증/);
+assert.doesNotMatch(mainContract, /부속서류 2 · 임대차 계약 사실확인서/);
+assert.doesNotMatch(mainContract, /부속서류 3 · 운전자격 검증 확인서/);
+assert.doesNotMatch(mainContract, /부속서류 4 · 개인정보/);
+assert.doesNotMatch(mainContract, /부속서류 5 · 개인신용정보/);
+assert.doesNotMatch(mainContract, /부속서류 6 · 위치정보/);
 assert.doesNotMatch(mainContract, /부속서류 7 · 자동이체\(CMS\)/);
 assert.doesNotMatch(mainContract, /부속서류 8 · 연대보증/);
 assert.match(documentBuilder, /stripDetachedEsignAppendices/);

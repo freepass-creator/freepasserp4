@@ -1,5 +1,5 @@
 /**
- * **종합표(구버전) 탭**을 영업자 시트에 찍는다. 기본 dry-run, 실제 쓰기는 `--apply`.
+ * **「상품리스트(구버전)」 탭**을 영업자 시트에 찍는다. 기본 dry-run, 실제 쓰기는 `--apply`.
  *
  * 왜 따로 있나 — 기존 영업자들이 몇 년 쓰던 표가 이 모양이다. 신버전(상품리스트)과
  * 같은 데이터를 «익숙한 배치»로 한 번 더 낸다. 둘은 같은 RTDB 를 본다.
@@ -291,12 +291,15 @@ const meta = await call(`${api}?fields=sheets(properties(title,sheetId),bandedRa
 const gidArg = arg('gid');
 const found = gidArg
   ? meta.sheets.find((s) => String(s.properties.sheetId) === gidArg)
-  : meta.sheets.find((s) => s.properties.title.startsWith('종합표'));
-if (!found) throw new Error('종합표 탭을 못 찾음 — --gid 로 지정하라');
+    // 옛 이름(「종합표 …」)으로 찍힌 탭도 찾는다 — 이름만 바꾸고 같은 탭을 계속 쓴다.
+  : meta.sheets.find((s) => s.properties.title.startsWith('상품리스트(구버전)'))
+    || meta.sheets.find((s) => s.properties.title.startsWith('종합표'));
+if (!found) throw new Error('상품리스트(구버전) 탭을 못 찾음 — --gid 로 지정하라');
 const gid = found.properties.sheetId;
 
 const kst = new Date(Date.now() + 9 * 3600 * 1000).toISOString();
-const title = `종합표 ${kst.slice(5, 10).replace('-', '.')} ${kst.slice(11, 16)} · ${rows.length}대`;
+// ★「종합표」라 부르지 않는다 — 영업자에게는 같은 상품리스트의 옛 배치일 뿐이다(사장님 확정 2026-08-11).
+const title = `상품리스트(구버전) ${kst.slice(5, 10).replace('-', '.')} ${kst.slice(11, 16)} · ${rows.length}대`;
 
 // 재고가 줄면 아래에 유령이 남는다 — 비우고 쓴다.
 await call(`${api}/values/${encodeURIComponent(found.properties.title)}!A1:BZ2000:clear`, { method: 'POST', body: '{}' });

@@ -41,8 +41,10 @@ for (const r of rows) {
   const trim = normalizeTrim(stripSeatsAnywhere(S(r.trim_detail)));
   if (!model || !trim) continue;
   const maker = S(r.brand) || S(r.maker) || '';
+  // Hybrid/EV 꼬리는 세대명이 아님 — 본체만 넘긴다.
+  const modelForSub = model.replace(/\s*(Hybrid|HEV|PHEV|EV|Electric)\s*$/i, '').trim() || model;
   // 신차 = 기준연에 걸리는 세대. 연식으로 구형 TM 등을 민다.
-  const hit = resolveSubModel(index, maker, model, NOW, NOW);
+  const hit = resolveSubModel(index, maker, modelForSub, NOW, NOW);
   const sub = hit.sub || '';
   if (!sub) {
     noSub++;

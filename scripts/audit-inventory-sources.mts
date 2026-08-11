@@ -21,6 +21,8 @@ import { isExactRealPlate, TEMP_PLATE_RE } from '../lib/domain/product';
 import { AUTOPLUS_GID_MAIN, AUTOPLUS_GID_PROMO } from '../lib/domain/sheet-autoplus';
 import { canonSheetVehicleStatus } from '../lib/domain/sheet-import';
 import { planDailySheetSync } from '../lib/domain/sheet-daily-sync';
+import { planProductUpsert } from '../lib/domain/sheet-merge';
+import { productsForSheetCommit } from '../lib/domain/master-ingress';
 import type { SheetConflictResolution } from '../lib/domain/sheet-conflict-resolution';
 import {
   parseDelimited,
@@ -413,6 +415,17 @@ if (process.argv.includes('--plan')) {
   const allProducts = keyedRows(productsV4.val());
   const activeProducts = allProducts.filter((row) => row._deleted !== true && !row.deletedAt && String(row.status || '') !== 'deleted');
   const deletedProducts = allProducts.filter((row) => row._deleted === true || !!row.deletedAt || String(row.status || '') === 'deleted');
+  const diffProvider = process.argv.find((arg) => arg.startsWith('--diff-provider='))?.split('=')[1];
+  if (diffProvider) {
+    const line = fetched.lines.find((item) => item.code === diffProvider);
+    const ready = productsForSheetCommit(line?.products || [], master).products;
+    const diffPlan = planProductUpsert(ready, activeProducts);
+    console.log(`\n${diffProvider} 잔여 upsert 상세 · 신규 ${diffPlan.creates.length} · 수정 ${diffPlan.patches.length}`);
+    for (const item of diffPlan.patches.slice(0, 5)) {
+      const current = activeProducts.find((row) => String(row._key || row.product_code) === item.key);
+      console.log(JSON.stringify({ key: item.key, patch: item.patch, currentPrice: current?.price }, null, 2));
+    }
+  }
   const mergedContracts = new Map<string, EntityRecord>();
   for (const row of keyedRows(contractsV3.val())) mergedContracts.set(String(row._key), row);
   for (const row of keyedRows(contractsV4.val())) {

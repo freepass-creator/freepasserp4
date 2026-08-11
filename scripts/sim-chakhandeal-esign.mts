@@ -98,7 +98,7 @@ check('대여기간에 단위가 붙는다', rowValue('rental', '대여기간') 
 check('연락처에 하이픈이 붙는다', rowValue('identity', '연락처') === '010-1234-5678', rowValue('identity', '연락처'));
 check('보증금이 있으면 금액으로', rowValue('rental', '보증금') === '1,000,000원', rowValue('rental', '보증금'));
 check('고객은 관리자가 확정한 3종 중 한 계약서를 확인',
-  rowValue('rental', '계약서 종류') === '표준 렌트계약서', rowValue('rental', '계약서 종류'));
+  rowValue('rental', '계약서 종류') === '프리패스 기본계약서 · 렌트·보험포함', rowValue('rental', '계약서 종류'));
 check('고객은 관리자가 확정한 인수/반납을 확인',
   rowValue('rental', '만기 선택') === '반납', rowValue('rental', '만기 선택'));
 check('고객은 확정된 만기 처리를 확인',
@@ -119,12 +119,11 @@ check('필수서류 목록 동봉', Array.isArray(payload.requiredDocs) && (payl
 const agreement = payload.agreement as { version: string; isSample: boolean; requireReadThrough: boolean; sections: unknown[] };
 check('약관 통독 강제', agreement.requireReadThrough === true);
 check('약관 버전이 실린다', !!agreement.version);
-// 약관은 HTML 정본과 같은 23개 항목(제1~22조 + 제9조의2)이다 — 더 이상 샘플이 아니다.
+// 약관은 HTML 정본과 같은 21개 항목이며 대여 시작부터 반납·정산 순서로 구성된다.
 check('약관은 정본으로 표시된다', agreement.isSample === false);
-check('약관 23개 항목이 실린다', agreement.sections.length === 23, agreement.sections.length);
-// 「개인보험형」 조문이 구독 고객직접형의 법적 근거다. 빠지면 그 상품을 팔 수 없다.
-check('제9조의2(개인보험형)이 실린다',
-  agreement.sections.some((s) => (s as { t: string }).t.includes('제9조의2')));
+check('약관 21개 항목이 실린다', agreement.sections.length === 21, agreement.sections.length);
+check('보험조건 조문이 실린다',
+  agreement.sections.some((s) => (s as { t: string }).t.includes('제6조') && (s as { t: string }).t.includes('보험')));
 check('약관 본문이 잘리지 않았다',
   agreement.sections.every((s) => (s as { b: string }).b.length > 100));
 

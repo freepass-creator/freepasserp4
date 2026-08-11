@@ -8,7 +8,8 @@ import { readFileSync } from 'node:fs';
 import { FIELD_MAP } from '@/lib/domain/esign-field-map';
 
 const PAYLOAD = 'C:/dev/chakhandeal/lib/testForms/freepass-issue-payload.json';
-const payload = JSON.parse(readFileSync(PAYLOAD, 'utf8'));
+// Windows/Excel 계열 도구가 UTF-8 BOM을 붙여도 계약 원자 감사를 계속할 수 있어야 한다.
+const payload = JSON.parse(readFileSync(PAYLOAD, 'utf8').replace(/^\uFEFF/, ''));
 
 const norm = (s: string) => String(s || '').replace(/\s|\(.*?\)/g, '');
 const atomLabels = new Set(FIELD_MAP.map((f) => norm(f.label)));

@@ -20,13 +20,9 @@ const check = (name: string, ok: boolean, detail?: unknown) => {
 };
 
 // ── 조문 매칭 ──
-// 「제9조의2」가 「제9조」에 먼저 걸리면 개인보험형 안내가 사고면책 문구로 바뀐다.
-check('제9조의2가 제9조보다 먼저 잡힌다',
-  keyClauseOf('제9조의2 (개인보험형 — 임차인의 개인 보험 가입 및 유지 의무)')?.clause === '제9조의2',
-  keyClauseOf('제9조의2 (개인보험형)')?.clause);
-check('제9조는 제9조로 잡힌다', keyClauseOf('제9조 (사고처리 및 보험)')?.clause === '제9조');
-check('중요하지 않은 조문은 안 잡힌다', keyClauseOf('제12조 (통지 및 도달 간주)') === null);
-check('띄어쓰기가 달라도 잡는다', keyClauseOf('제 14조 (중도해지수수료 및 승계)')?.clause === '제14조');
+check('금지행위는 제9조로 잡힌다', keyClauseOf('제9조(금지행위)')?.clause === '제9조');
+check('중요하지 않은 통지 조문은 안 잡힌다', keyClauseOf('제13조(통지 및 도달)') === null);
+check('띄어쓰기가 달라도 잡는다', keyClauseOf('제 15조(중도해지수수료 및 승계)')?.clause === '제15조');
 
 // ── 인쇄/PDF 약관 ↔ 착한거래 전송 약관 동기화 ──
 // 계약서 HTML이 정본이다. 두 벌이 갈라지면 인쇄본과 실제 서명 화면의 권리·의무가 달라진다.
@@ -41,7 +37,7 @@ $('#termsSource > .t-art').each((_, el) => {
   const paragraphs: string[] = [];
   let next = $(el).next();
   while (next.length && !next.hasClass('t-art')) {
-    paragraphs.push(norm(next.text()));
+    if (!next.hasClass('t-chapter')) paragraphs.push(norm(next.text()));
     next = next.next();
   }
   htmlAgreement.push({ t: title, b: norm(paragraphs.join(' ')) });
@@ -54,6 +50,12 @@ check('인쇄/PDF 약관과 착한거래 전송 약관이 완전히 같다',
   htmlAgreement.filter((section, index) => (
     section.t !== AGREEMENT_SECTIONS[index]?.t || section.b !== AGREEMENT_SECTIONS[index]?.b
   )).map((section) => section.t));
+check('조 제목은 제N조(제목) 형식으로 통일한다',
+  htmlAgreement.every((section) => /^제\d+조(?:의\d+)?\([^()]+\)$/.test(section.t)),
+  htmlAgreement.map((section) => section.t));
+check('축약 조문 참조를 사용하지 않는다',
+  !/제\d+조[①-⑳]/.test(contractHtml)
+    && !/제\d+(?:조)?[·ㆍ]제?\d+조/.test(contractHtml));
 
 // 섹션별 값 소유권: 한 값은 한 섹션만 가진다. 약관은 값이 아니라 적용 절차를 설명한다.
 const sectionLabels = (title: string): string[] => $('.section').filter((_, el) => (
@@ -85,15 +87,25 @@ check('특약 입력은 표준값 반복이 아닌 예외·추가 합의용이�
   contractHtml.includes("['special_terms','특약사항 (예외·추가 합의만)',2]"));
 
 const articleBody = (article: string) => AGREEMENT_SECTIONS.find((s) => s.t.startsWith(article))?.b || '';
-check('기존 계약서의 신차 출고 전 취소 절차를 승계한다', articleBody('제14조').includes('신차 계약에서 차량 등록 후 인도 전'));
-check('도난차 회수 후 정산 절차를 승계한다', articleBody('제16조').includes('도난 차량이 회수된 경우'));
+check('신차 등록 전·후 해지 정산을 구분한다', articleBody('제15조').includes('차량 등록 전에는 실제 지출 비용만 정산'));
+check('도난차 회수 후 정산 절차를 승계한다', articleBody('제11조').includes('도난 차량이 회수된 경우'));
 check('회사 승인 시 지정자 명의 인수를 허용한다', articleBody('제17조').includes('임차인이 지정하고 회사가 사전에 승인한 자'));
-check('같은 손해의 중복 청구를 금지한다', articleBody('제18조').includes('실제 발생한 손해를 초과하여 중복 청구하지'));
-check('전자계약 완료본 교부·보관을 규정한다', articleBody('제22조').includes('동일한 전자문서(PDF)를 임차인에게 교부'));
+check('같은 손해의 중복 청구를 금지한다', articleBody('제18조').includes('동일한 손해를 여러 명목으로 중복 청구하지'));
+check('전자계약 완료본 교부·보관을 규정한다', /동일한 전자문서\(PDF\)(?:를|로) 임차인에게 교부/.test(articleBody('제21조')));
+
+const lifecycleTitles = [
+  '적용범위', '계약기간', '대여료', '보증금', '운전자격', '보험조건', '차량 인도',
+  '차량 사용', '금지행위', 'GPS', '사고처리', '연체', '통지', '계약 종료',
+  '중도해지', '초과주행', '만기 차량 인수', '비용부담', '개인정보', '연대보증', '효력',
+];
+check('약관은 계약조건에서 인도·운행·사고·반납·정산 순으로 흐른다',
+  AGREEMENT_SECTIONS.length === lifecycleTitles.length
+    && AGREEMENT_SECTIONS.every((section, index) => section.t.includes(lifecycleTitles[index])),
+  AGREEMENT_SECTIONS.map((section) => section.t));
 
 // ── 강조 대상 ──
 const marked = agreementWithEmphasis();
-check('약관 23개 항목 그대로', marked.length === 23 && marked.length === AGREEMENT_SECTIONS.length);
+check('약관은 중복을 합친 21개 조문이다', marked.length === 21 && marked.length === AGREEMENT_SECTIONS.length);
 const emph = marked.filter((s) => s.emphasis);
 check(`강조 조문 ${emph.length}개`, emph.length === KEY_CLAUSES.length, emph.map((s) => s.t.slice(0, 12)));
 // 다 강조하면 아무것도 강조되지 않는다.

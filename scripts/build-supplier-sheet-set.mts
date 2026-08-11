@@ -199,9 +199,6 @@ for (const f of files) {
   // 지우고 새로 붙여야 열 구성이 바뀐 새 양식이 그대로 들어간다.
   const oldTables = ((grid.sheets || []) as Rec[]).flatMap((sh) => ((sh.tables || []) as Rec[])
     .map((tb) => ({ gid: Number(sh.properties?.sheetId ?? 0), id: S(tb.tableId) })));
-  // 줄무늬도 겹치면 거부된다 — 지우고 새로 넣는다.
-  const oldBands = ((grid.sheets || []) as Rec[]).flatMap((sh) => ((sh.bandedRanges || []) as Rec[])
-    .map((b) => Number(b.bandedRangeId)));
   // ★조건부서식은 **쌓인다**. 지우지 않고 다시 찍으면 같은 규칙이 배로 늘어
   //   28개가 84개가 됐다(실측 2026-08-11). 시트마다 있는 것을 먼저 다 지운다.
   const oldRules = ((grid.sheets || []) as Rec[]).map((sh) => ({
@@ -244,13 +241,24 @@ for (const f of files) {
   let polGid = sheets.find((s) => s.title === POLICY_TAB_NAME)?.gid;
   const needPolicyTab = polGid == null;
   if (needPolicyTab) setup.push({ addSheet: { properties: { title: POLICY_TAB_NAME } } });
-  for (const tb of oldTables) setup.push({ deleteTable: { tableId: tb.id } });
-  for (const b of oldBands) setup.push({ deleteBanding: { bandedRangeId: b } });
-  // 뒤에서부터 지운다 — 앞에서 지우면 뒤 규칙의 번호가 밀린다.
+  /**
+   * ★표를 지우면 **그 표의 줄무늬도 함께** 사라진다. 같은 묶음에서 줄무늬를 또 지우면
+   *   「No BandedRange with id」 로 배치 전체가 죽는다(실측 2026-08-11).
+   *   그래서 표를 먼저 지우고, **다시 읽어** 남은 줄무늬만 지운다.
+   */
+  // ★조건부서식을 **표보다 먼저** 지운다. 표를 지우면 그 표가 들고 있던 서식이 함께 사라져
+  //   번호가 밀리고, 읽어 둔 번호로 지우면 「No conditional format at index」 로 죽는다.
+  //   뒤에서부터 지운다 — 앞에서 지우면 남은 규칙의 번호가 또 밀린다.
   for (const r of oldRules) for (let k = r.count - 1; k >= 0; k--) setup.push({ deleteConditionalFormatRule: { sheetId: r.gid, index: k } });
-  setup.push(...resetSheetRequests(gid));
+  for (const tb of oldTables) setup.push({ deleteTable: { tableId: tb.id } });
   const madeSetup = await api(`https://sheets.googleapis.com/v4/spreadsheets/${f.id}:batchUpdate`, {
     method: 'POST', body: JSON.stringify({ requests: setup }),
+  });
+  const after = await api(`https://sheets.googleapis.com/v4/spreadsheets/${f.id}?fields=sheets(properties(sheetId),bandedRanges(bandedRangeId))`);
+  const leftBands = ((after.sheets || []) as Rec[]).flatMap((sh) => ((sh.bandedRanges || []) as Rec[]).map((b) => Number(b.bandedRangeId)));
+  await api(`https://sheets.googleapis.com/v4/spreadsheets/${f.id}:batchUpdate`, {
+    method: 'POST',
+    body: JSON.stringify({ requests: [...leftBands.map((b) => ({ deleteBanding: { bandedRangeId: b } })), ...resetSheetRequests(gid)] }),
   });
   if (needPolicyTab) {
     const reply = ((madeSetup.replies || []) as Rec[]).find((r) => r?.addSheet);

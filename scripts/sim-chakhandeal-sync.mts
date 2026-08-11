@@ -31,6 +31,21 @@ check('PDF 해시 없는 signed는 완료 아님', projectChakhandealStatus({
 }, 'CT-001', now).patch.sign_status, '발행');
 check('만료 상태', projectChakhandealStatus({ ...base, expiresAt: now - 1 }, 'CT-001', now).patch.sign_status, '만료');
 
+const withFix = projectChakhandealStatus({
+  ...base,
+  supplements: [
+    { items: ['서류'], message: '재첨부', staff: 'secret', requestedAt: now },
+  ],
+  supplementActive: { items: ['documents'], message: '서류', staff: 'hide', requestedAt: now },
+}, 'CT-001', now);
+check('보완 이력 투영', JSON.stringify(withFix.patch.esign_supplements), JSON.stringify([
+  { items: ['서류'], message: '재첨부', requestedAt: now },
+]));
+check('활성 보완 staff 제외', JSON.stringify(withFix.patch.esign_supplement_active), JSON.stringify({
+  items: ['documents'], message: '서류', requestedAt: now,
+}));
+check('templateFields는 RTDB에 안 넣음', 'templateFields' in withFix.patch || 'esign_template_fields' in withFix.patch, false);
+
 let mismatch = false;
 try { projectChakhandealStatus(base, 'CT-OTHER', now); } catch { mismatch = true; }
 check('외부 계약번호 불일치 차단', mismatch, true);

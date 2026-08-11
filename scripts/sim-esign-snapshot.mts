@@ -6,7 +6,10 @@ const contract: Record<string, unknown> = {
   contract_code: 'SNAP-1', contract_date: '2026-08-10', customer_name: '계약 당시 고객', customer_phone: '01012345678',
   provider_company_code: 'RP900', vehicle_name_snapshot: '계약 당시 차량', rent_month_snapshot: 48, rent_amount_snapshot: 600_000,
 };
-const policy: Record<string, unknown> = { insurance_included: '포함', basic_driver_age: '만 26세 이상', annual_mileage: '연 2만km' };
+const policy: Record<string, unknown> = {
+  insurance_included: '포함', basic_driver_age: '만 26세 이상', annual_mileage: '연 2만km',
+  injury_deductible: 300_000, property_deductible: '300,000원',
+};
 const partner: Record<string, unknown> = { partner_code: 'RP900', name: '계약 당시 렌터카', ceo: '계약 당시 대표', bank_name: '계약은행', bank_account: '100-200' };
 
 const issued = buildTemplateFieldsFromRecords({ contract, policy, partner, product: null });
@@ -22,6 +25,8 @@ const rebuilt = buildTemplateFieldsFromRecords({ contract, policy, partner, prod
 assert.equal(JSON.stringify(snapshot), sealedJson, '발행 시 만든 Snapshot 객체는 원본 변경으로 바뀌면 안 된다');
 assert.equal(snapshot.templateFields.customer_name, '계약 당시 고객');
 assert.equal(snapshot.templateFields.company_ceo, '계약 당시 대표');
+assert.equal(snapshot.templateFields.deductible_liability_person, '30만원');
+assert.equal(snapshot.templateFields.deductible_liability_property, '30만원');
 assert.notEqual(rebuilt.fields.customer_name, snapshot.templateFields.customer_name);
 assert.notEqual(rebuilt.fields.company_ceo, snapshot.templateFields.company_ceo);
 

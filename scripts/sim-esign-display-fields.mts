@@ -33,8 +33,8 @@ check('차량 식별이 임대인보다 앞',
   && vehicleKeys.indexOf('odometer_delivery') < vehicleKeys.indexOf('company_name'),
   vehicleKeys);
 check('모든 섹션에 안내문', DISPLAY_SECTIONS.every((s) => !!s.note));
-check('조건부 섹션은 사업자·연대보증뿐',
-  DISPLAY_SECTIONS.filter((s) => s.conditional).map((s) => s.key).join('|') === 'lessee_biz|guarantor');
+check('조건부 섹션은 사업자·자동이체·연대보증뿐',
+  DISPLAY_SECTIONS.filter((s) => s.conditional).map((s) => s.key).join('|') === 'lessee_biz|bank|guarantor');
 // 보상한도와 면책금이 한 섹션에 있으면 손님이 둘 다 보상으로 읽는다.
 check('보험과 사고·면책은 다른 섹션',
   !DISPLAY_SECTIONS.find((s) => s.key === 'insurance')!.fields.some((x) => x.label.includes('면책금')),
