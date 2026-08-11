@@ -1,14 +1,13 @@
 ﻿'use client';
 /**
  * 로그인 — freepasserp3 v3 화면 그대로(똑같이). 실 Firebase Auth(회원 공유).
- *   login / 가입(사업자번호→회사·역할) / 재설정 / 로그인 없이 둘러보기.
+ *   login / 가입(사업자번호→회사·역할) / 재설정.
  */
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Store } from 'lucide-react';
 import { type User } from 'firebase/auth';
 import { login, signup, logout, resetPassword, writeUserProfile } from '@/lib/firebase/auth';
-import { setGuest, getSession, firebaseReadySafe } from '@/lib/login-helpers';
+import { getSession, firebaseReadySafe } from '@/lib/login-helpers';
 import { fmtPhone, C, FS, FW, ICON, R, ctrlPadX } from '@/components/ui';
 import { BRAND_MAIN, BRAND_SUB } from '@/lib/brand';
 import { LEGAL_VERSION } from '@/lib/legal';
@@ -109,8 +108,6 @@ export default function LoginPage() {
     catch (err) { console.error('[login]', err); say(koreanAuthMsg(err, '로그인 실패'), 'err'); setBusy(false); }
   };
 
-  const doGuest = () => { setGuest(true); router.replace('/'); };
-
   // 사업자번호 포맷 + 실시간 partners 매칭(읽기)
   const onBizNo = (raw: string) => {
     const d = raw.replace(/\D/g, '').slice(0, 10);
@@ -202,7 +199,6 @@ export default function LoginPage() {
               <div className="login-field"><label htmlFor="loginEmail">이메일</label><input id="loginEmail" type="email" placeholder="name@company.com" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required /></div>
               <div className="login-field"><label htmlFor="loginPw">비밀번호</label><input id="loginPw" type="password" placeholder="비밀번호 입력" autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value)} required /></div>
               <button type="submit" className="login-submit" disabled={busy}>로그인</button>
-              <button type="button" className="login-guest" onClick={doGuest}><Store size={ICON.md} /> 로그인 없이 둘러보기</button>
             </div>
             <div className="login-links">
               <a href="#" onClick={(e) => { e.preventDefault(); switchMode('signup'); }}>계정 만들기</a>
@@ -282,8 +278,6 @@ const LOGIN_CSS = `
 .fp-login .login-submit:hover{background:var(--brand-h);box-shadow:var(--shadow-sm);}
 .fp-login .login-submit:active{background:var(--brand-h);filter:brightness(0.92);}
 .fp-login .login-submit:disabled{background:var(--bg-disabled);color:var(--text-weak);cursor:default;box-shadow:none;}
-.fp-login .login-guest{width:100%;height:44px;margin-top:8px;padding:0 12px;border:1px solid var(--border-strong);border-radius:4px;background:transparent;color:var(--text-sub);font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;transition:background-color 100ms,border-color 100ms;}
-.fp-login .login-guest:hover{background:var(--bg-hover);border-color:var(--brand);color:var(--brand);}
 .fp-login .login-links{display:flex;align-items:center;justify-content:center;gap:8px;font-size:11px;color:var(--text-weak);}
 .fp-login .login-links a{color:var(--brand);font-weight:500;text-decoration:none;padding:8px 4px;display:inline-block;}
 .fp-login .login-links a:hover{color:var(--brand-h);}
@@ -299,7 +293,7 @@ const LOGIN_CSS = `
 .fp-login .login-card{box-shadow:none;border:0;border-radius:0;padding:0 24px;gap:20px;max-width:none;}
 .fp-login .login-field input,.fp-login .login-field select{height:48px;font-size:16px;border-radius:4px;padding:0 16px;}
 .fp-login .login-field label{font-size:13px;}
-.fp-login .login-submit,.fp-login .login-guest{height:48px;font-size:16px;border-radius:4px;}
+.fp-login .login-submit{height:48px;font-size:16px;border-radius:4px;}
 .fp-login .login-links{font-size:13px;gap:12px;}
 }
 `;

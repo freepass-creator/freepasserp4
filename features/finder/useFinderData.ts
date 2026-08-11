@@ -8,7 +8,6 @@ import { firebaseReady } from '@/lib/firebase/client';
 import { withProviderNames } from '@/lib/domain/identity';
 import { listHiddenCodes, subscribeHidden } from '@/lib/product-hide';
 import { listPassedCodes, subscribePassed } from '@/lib/product-pass';
-import { isGuest } from '@/lib/auth-session';
 
 type Params = {
   companyId: string;
@@ -38,18 +37,6 @@ export function useFinderData({ companyId, authReady, sessionUid }: Params) {
     if (firebaseReady() && !authReady) return;
     let active = true;
     (async () => {
-      if (isGuest()) {
-        try {
-          const response = await fetch('/api/catalog/feed', { cache: 'no-store' });
-          if (!response.ok) throw new Error(`guest catalog HTTP ${response.status}`);
-          const payload = await response.json() as { products?: EntityRecord[] };
-          if (active) setRows(Array.isArray(payload.products) ? payload.products : []);
-        } catch (error) {
-          console.warn('[finder] guest catalog load failed:', error);
-          if (active) setRows([]);
-        }
-        return;
-      }
       try {
         await seedIfEmpty(companyId);
       } catch (error) {
