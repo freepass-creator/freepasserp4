@@ -7,10 +7,71 @@
  * 반환 URL은 클라이언트에서 /api/img 프록시로 감싼다(CORS·referrer 회피).
  */
 import { NextResponse } from 'next/server';
+import { readFile } from 'node:fs/promises';
+import { sign } from 'node:crypto';
 
 export const runtime = 'nodejs';
 
 const SCRAPABLE_HOSTS = ['moderentcar.co.kr', 'autoplus.co.kr'];
+type ServiceAccount = { client_email: string; private_key: string; token_uri?: string };
+let driveTokenCache: { value: string; expiresAt: number } | null = null;
+
+async function driveAccessToken(): Promise<string> {
+  if (driveTokenCache && driveTokenCache.expiresAt > Date.now() + 60_000) return driveTokenCache.value;
+  let raw = String(process.env.FIREBASE_SERVICE_ACCOUNT_JSON || '').trim();
+  if (!raw) {
+    const file = String(process.env.GOOGLE_APPLICATION_CREDENTIALS || '').trim();
+    if (file) raw = await readFile(file, 'utf8');
+  }
+  if (!raw) return '';
+  const account = JSON.parse(raw) as Partial<ServiceAccount>;
+  if (!account.client_email || !account.private_key) return '';
+  const tokenUri = account.token_uri || 'https://oauth2.googleapis.com/token';
+  const now = Math.floor(Date.now() / 1000);
+  const enc = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url');
+  const unsigned = `${enc({ alg: 'RS256', typ: 'JWT' })}.${enc({
+    iss: account.client_email,
+    scope: 'https://www.googleapis.com/auth/drive.readonly',
+    aud: tokenUri,
+    iat: now,
+    exp: now + 3600,
+  })}`;
+  const signature = sign('RSA-SHA256', Buffer.from(unsigned), account.private_key.replace(/\\n/g, '\n')).toString('base64url');
+  const response = await fetch(tokenUri, {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ grant_type: 'urn:ietf:params:oauth2:grant-type:jwt-bearer', assertion: `${unsigned}.${signature}` }),
+    cache: 'no-store',
+    signal: AbortSignal.timeout(12_000),
+  });
+  const body = await response.json().catch(() => ({})) as { access_token?: string; expires_in?: number };
+  if (!response.ok || !body.access_token) return '';
+  driveTokenCache = {
+    value: body.access_token,
+    expiresAt: Date.now() + Math.max(300, Number(body.expires_in) || 3600) * 1000,
+  };
+  return body.access_token;
+}
+
+async function driveServiceAccount(folderId: string, size: string): Promise<string[]> {
+  const token = await driveAccessToken();
+  if (!token) return [];
+  const params = new URLSearchParams({
+    q: `'${folderId}' in parents and mimeType contains 'image/' and trashed = false`,
+    fields: 'files(id)', pageSize: '1000', orderBy: 'name',
+    supportsAllDrives: 'true', includeItemsFromAllDrives: 'true',
+  });
+  const response = await fetch(`https://www.googleapis.com/drive/v3/files?${params}`, {
+    headers: { authorization: `Bearer ${token}` },
+    cache: 'no-store',
+    signal: AbortSignal.timeout(12_000),
+  });
+  if (!response.ok) return [];
+  const body = await response.json().catch(() => ({})) as { files?: { id?: string }[] };
+  return (body.files || []).flatMap((file) => file.id
+    ? [`https://drive.google.com/thumbnail?id=${file.id}&sz=w${size}`]
+    : []);
+}
 const DRIVE_KEY = process.env.DRIVE_API_KEY || ''; // 없으면 공개폴더 HTML 스크래핑만(키 불필요)
 
 function extractDriveFolderId(value: string): string {
@@ -101,8 +162,10 @@ export async function GET(request: Request): Promise<Response> {
   try {
     const folderId = extractDriveFolderId(src);
     if (folderId && src.includes('drive.google.com')) {
-      let urls: string[] = [];
-      if (DRIVE_KEY) { try { urls = await driveApi(folderId, size); } catch { /* 스크래핑 fallback */ } }
+      // 회사 Drive 백업 폴더는 익명 HTML에 파일 ID가 노출되지 않을 수 있다.
+      // 서비스 계정 조회를 먼저 쓰고, 외부 공개 폴더는 기존 방식으로 이어서 해석한다.
+      let urls: string[] = await driveServiceAccount(folderId, size).catch(() => []);
+      if (!urls.length && DRIVE_KEY) { try { urls = await driveApi(folderId, size); } catch { /* 스크래핑 fallback */ } }
       if (!urls.length) urls = await scrapeFolder(folderId, size);
       return NextResponse.json({ ok: true, urls, count: urls.length, source: 'drive' }, { headers: cache });
     }

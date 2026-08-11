@@ -93,6 +93,15 @@ function saveBlob(blob: Blob, filename: string): void {
   setTimeout(() => URL.revokeObjectURL(href), 30_000);
 }
 
+/** 상세 라이트박스에서 현재 사진 한 장만 원본 형식으로 저장한다. */
+export async function downloadSinglePhoto(url: string, index: number, vehicleName: string): Promise<string> {
+  const file = await fetchPhoto(url, index, vehicleName);
+  const buffer = new ArrayBuffer(file.bytes.byteLength);
+  new Uint8Array(buffer).set(file.bytes);
+  saveBlob(new Blob([buffer]), file.name);
+  return file.name;
+}
+
 export async function downloadPhotoZip(urls: string[], vehicleName: string): Promise<{ saved: number; failed: number }> {
   const settled = await Promise.allSettled(urls.map((url, index) => fetchPhoto(url, index, vehicleName)));
   const files = settled.flatMap((result) => result.status === 'fulfilled' ? [result.value] : []);

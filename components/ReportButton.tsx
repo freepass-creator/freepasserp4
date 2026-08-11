@@ -2,15 +2,13 @@
 import { useState } from 'react';
 import { submitReport, REPORT_REASONS } from '@/lib/domain/report';
 import { toast } from '@/components/Toaster';
-import { Btn, ButtonLabel, C, R, Select, Textarea, FS, FW, ICON } from '@/components/ui';
+import { Btn, ButtonLabel, C, Select, Textarea, FS, FW, ICON, Modal } from '@/components/ui';
 import { type EntityRecord } from '@/lib/intake/entities';
-import { useIsMobile } from '@/lib/use-mobile';
 import { Flag, Send } from 'lucide-react';
 
 // 이상매물 제보 — 영업자가 매물 보다 이상하면 클릭. 공급사·관리자에게 전달(관리자 확인처=/data-check).
 // 본문 가로폭에 맞춤(maxWidth 제한·가운데 딸랑 금지).
 export function ReportButton({ p }: { p: EntityRecord }) {
-  const mobile = useIsMobile();
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState<string>(REPORT_REASONS[0]);
   const [memo, setMemo] = useState('');
@@ -25,35 +23,37 @@ export function ReportButton({ p }: { p: EntityRecord }) {
 
   if (!open) {
     return (
-      <div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-        <span style={{ fontSize: FS.sub, color: C.faint }}>매물 정보·사진이 이상하면 검수를 요청하세요.</span>
-        <Btn title="상품 검수 요청" variant="ghost" size="sm" onClick={() => setOpen(true)}>
-          <ButtonLabel icon={<Flag size={ICON.md} aria-hidden />}>검수 요청</ButtonLabel>
-        </Btn>
-      </div>
+      <Btn title="상품 검수 요청" variant="ghost" size="sm" onClick={() => setOpen(true)}>
+        <ButtonLabel icon={<Flag size={ICON.md} aria-hidden />}>검수 요청</ButtonLabel>
+      </Btn>
     );
   }
 
   return (
-    <div style={{
-      width: '100%', boxSizing: 'border-box',
-      border: `1px solid ${C.line}`, borderRadius: R, background: C.warnBg,
-      padding: mobile ? 12 : 12, display: 'flex', flexDirection: 'column', gap: 8,
-    }}>
-      <div style={{ fontSize: FS.sub, fontWeight: FW.head, color: C.warn }}>
-        상품 검수 요청
-        <span style={{ fontWeight: FW.body, color: C.mute }}> · 공급사·관리자에게 전달</span>
+    <Modal
+      open
+      title="상품 검수 요청"
+      meta="공급사·관리자에게 전달"
+      onClose={() => { if (!busy) setOpen(false); }}
+      width={480}
+      footer={(
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+          <Btn title="검수 요청 취소" size="sm" variant="ghost" onClick={() => setOpen(false)} disabled={busy}>취소</Btn>
+          <Btn title={busy ? '검수 요청 접수 중' : '검수 요청 보내기'} size="sm" onClick={submit} disabled={busy}>
+            <ButtonLabel icon={<Send size={ICON.md} aria-hidden />}>{busy ? '접수 중…' : '요청 보내기'}</ButtonLabel>
+          </Btn>
+        </div>
+      )}
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ fontSize: FS.sub, fontWeight: FW.body, color: C.mute }}>
+          매물 정보나 사진에서 발견한 문제를 선택해 주세요.
+        </div>
+        <Select full value={reason} onChange={setReason} options={[...REPORT_REASONS]} />
+        <Textarea full rows={3} value={memo} onChange={setMemo}
+          placeholder="상세 내용(선택) — 예: 사진이 다른 차량입니다"
+          style={{ background: C.taupeBg }} />
       </div>
-      <Select full value={reason} onChange={setReason} options={[...REPORT_REASONS]} />
-      <Textarea full rows={2} value={memo} onChange={setMemo}
-        placeholder="상세 내용(선택) — 예: 사진이 다른 차량입니다"
-        style={{ background: C.taupeBg }} />
-      <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-        <Btn title="검수 요청 취소" size="sm" variant="ghost" onClick={() => setOpen(false)} disabled={busy}>취소</Btn>
-        <Btn title={busy ? '검수 요청 접수 중' : '검수 요청 보내기'} size="sm" onClick={submit} disabled={busy}>
-          <ButtonLabel icon={<Send size={ICON.md} aria-hidden />}>{busy ? '접수 중…' : '요청 보내기'}</ButtonLabel>
-        </Btn>
-      </div>
-    </div>
+    </Modal>
   );
 }
