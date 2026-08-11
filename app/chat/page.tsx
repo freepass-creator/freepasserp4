@@ -7,11 +7,12 @@ import { useIsMobile } from '@/lib/use-mobile';
 import { useKeyboardOpen } from '@/lib/use-keyboard';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { getRole, actor, type Role } from '@/lib/domain/deal';
-import { roomsWithUnread, unreadFor, unreadRoomCount } from '@/lib/domain/messaging';
+import { replyAttentionFor, roomsWithUnread, unreadFor, unreadRoomCount } from '@/lib/domain/messaging';
 import { contractStage, isInquiryOnly, isContractCancelled } from '@/lib/domain/contract';
 import { providerNameMap, withProviderNames } from '@/lib/domain/identity';
-import { PaneHead, Btn, IconBtn, C, Loading, CenterNote, PaneBody, FilterChips, FilterGroup, FS, FW, NUM, ICON, FeedRowSkeleton } from '@/components/ui';
+import { PaneHead, Btn, IconBtn, Badge, C, R, Loading, CenterNote, PaneBody, FilterChips, FilterGroup, FS, FW, NUM, ICON, FeedRowSkeleton } from '@/components/ui';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
+import { CHAT_NOTICE_BODY, CHAT_NOTICE_CONTACTS, CHAT_NOTICE_TITLE, showChatNotice } from '@/lib/domain/chat-notice';
 import { ChatThread } from '@/components/ChatThread';
 import { ProductDetail } from '@/components/ProductDetail';
 import { ContractPanel } from '@/components/ContractPanel';
@@ -53,6 +54,7 @@ import { deskItemOf } from '@/features/chat/admin-queue';
 import { joinMetaText, retainVisibleSelection, workPartyParts } from '@/features/work-list-display';
 import { ListChecks, MessageCircle, ClipboardList } from 'lucide-react';
 import { ChatRoomList } from '@/features/chat/ChatRoomList';
+import { useProductPhotoState } from '@/components/use-product-photos';
 import {
   collapseDuplicateEmptyRooms,
   duplicateEmptyRoomFamilies,
@@ -81,6 +83,51 @@ async function emptyRoomDedupeEvidence(
   return { messageState, contractOf };
 }
 
+function AdminVehicleSummary({
+  product, room, title, plate, provider, agent,
+}: {
+  product: EntityRecord | null;
+  room: EntityRecord | null;
+  title: string;
+  plate: string;
+  provider: string;
+  agent: string;
+}) {
+  const { photos, pending } = useProductPhotoState(product || {});
+  const status = String(product?.vehicle_status || room?.vehicle_status || '').trim();
+  return (
+    <div style={{
+      flex: '0 0 auto', minHeight: 68, padding: '8px 12px', boxSizing: 'border-box',
+      display: 'flex', alignItems: 'center', gap: 10,
+      borderBottom: `1px solid ${C.line}`, background: C.head,
+    }}>
+      <div style={{
+        width: 72, height: 50, flex: '0 0 auto', overflow: 'hidden', borderRadius: R,
+        border: `1px solid ${C.line}`, background: C.taupeBg,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        color: C.faint, fontSize: FS.cap,
+      }}>
+        {photos[0]
+          ? <img src={photos[0]} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+          : pending ? '사진 확인 중' : '사진 없음'}
+      </div>
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, flexWrap: 'wrap' }}>
+          <strong style={{ minWidth: 0, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: FS.body, color: C.ink }}>
+            {title || '차량명 미확인'}
+          </strong>
+          {plate ? <span style={{ fontFamily: NUM, fontSize: FS.sub, color: C.mute }}>{plate}</span> : null}
+          {status ? <Badge tone={status === '출고불가' ? 'red' : 'gray'}>{status}</Badge> : null}
+          <Badge tone={photos.length ? 'blue' : 'gray'}>{photos.length ? `차량사진 ${photos.length}` : pending ? '사진 확인 중' : '차량사진 없음'}</Badge>
+        </div>
+        <div style={{ marginTop: 4, color: C.mute, fontSize: FS.sub, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {[provider, agent && `담당 ${agent}`].filter(Boolean).join(' · ') || '공급사·담당자 미확인'}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // 문의 = 단순 채팅 목록 | 채팅 | 상품상세 | 계약(진행 전환).
 //   계약진행으로 넘어간 방은 /contract. 웹=4열 / 모바일=채팅↔계약진행.
 export default function Chat() {
@@ -102,11 +149,11 @@ export default function Chat() {
   // 메시지 작성 중 = 하단독 숨김(키보드 위 공간 확보). 입력 취소·전송하면 다시 나와 목록으로 갈 수 있다.
   const [composing, setComposing] = useState(false);
   const kb = useKeyboardOpen();
-  const [sort, setSort] = useState<ChatSort | ''>('');
+  const [sort, setSort] = useState<ChatSort | ''>('recent');
   const [flt, setFlt] = useState<ChatFilter>(CHAT_FILTER_DEFAULT);
   const [draftFlt, setDraftFlt] = useState<ChatFilter>(CHAT_FILTER_DEFAULT);
   /**
-   * 역할이 **바뀔 때마다** 그 역할의 기본값으로 연다 — 관리자는 «내 차례 · 오래 기다린 순»(응대 대기함).
+   * 역할이 **바뀔 때마다** 공통 기본값인 «전체 · 최근순»으로 연다.
    *
    * 처음엔 «최초 1회»로 못 박았는데, 테스트 역할 스위치(DevRoleSwitch)로 관리자→영업자로 바꾸면
    * 관리자 전용 필터(`내차례`)가 그대로 남았다. 영업자 칩 줄에는 그 칩이 없어
@@ -413,9 +460,22 @@ export default function Chat() {
     ? [roomPlateOf(selRoom), selectedVehicleName].filter(Boolean).join(' ')
     : '';
   const chatCode = selRoom ? roomChatCode(selRoom) : '';
-  const chatNode = sel
-    ? <ChatThread roomId={sel} title={chatHead} chatCode={chatCode} onComposeFocus={setComposing} />
+  const threadNode = sel
+    ? <ChatThread roomId={sel} title={chatHead} chatCode={chatCode} onComposeFocus={setComposing} showAttachmentSummary={role === 'admin'} />
     : emptyPane('채팅', '왼쪽에서 대화를 선택하세요.');
+  const chatNode = role === 'admin' && sel ? (
+    <div style={{ height: '100%', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+      <AdminVehicleSummary
+        product={selProduct}
+        room={selRoom}
+        title={selectedVehicleName}
+        plate={selRoom ? roomPlateOf(selRoom) : ''}
+        provider={selRoom ? providerOf(selRoom).name || providerOf(selRoom).code : ''}
+        agent={String(selRoom?.agent_name || selRoom?.agent_code || '')}
+      />
+      <div style={{ flex: 1, minHeight: 0 }}>{threadNode}</div>
+    </div>
+  ) : threadNode;
 
   const headerActions = sel && mobile ? (
     <IconBtn
@@ -449,17 +509,19 @@ export default function Chat() {
     </div>
   );
 
-  const webPanes: WorkPane[] = [
-    { key: 'chat', title: '채팅', node: chatNode },
-    {
-      key: 'detail',
-      title: inContract ? '서류' : '상품',
-      node: inContract
-        ? <><PaneHead title="첨부 서류" />{scroll(docsBody)}</>
-        : <><PaneHead title="문의 차량" /><PaneBody pad>{vehicleBlock}</PaneBody></>,
-    },
-    { key: 'contract', title: '계약', node: <><PaneHead title="계약 진행상황" />{scroll(contractBody)}</> },
-  ];
+  const webPanes: WorkPane[] = role === 'admin'
+    ? [{ key: 'chat', title: '채팅', node: chatNode }]
+    : [
+      { key: 'chat', title: '채팅', node: chatNode },
+      {
+        key: 'detail',
+        title: inContract ? '서류' : '상품',
+        node: inContract
+          ? <><PaneHead title="첨부 서류" />{scroll(docsBody)}</>
+          : <><PaneHead title="문의 차량" /><PaneBody pad>{vehicleBlock}</PaneBody></>,
+      },
+      { key: 'contract', title: '계약', node: <><PaneHead title="계약 진행상황" />{scroll(contractBody)}</> },
+    ];
 
   const mobilePanes: WorkPane[] = [
     { key: 'chat', title: '채팅', icon: MessageCircle, node: chatNode },
@@ -473,6 +535,12 @@ export default function Chat() {
     }),
     role,
   );
+  const inquiryUnrepliedN = (rooms || []).filter((rm) => {
+    const contract = roomContract(rm);
+    return !isContractCancelled(contract)
+      && isInquiryOnly(contract)
+      && replyAttentionFor(rm, role) === 'unreplied';
+  }).length;
   // 관리자 = 내가 눌러야 넘어가는 건 수. 상단바 KPI·필터 칩이 같은 숫자를 쓴다.
   const myTurnN = role === 'admin'
     ? (rooms || []).filter((rm) => deskItemOf(rm, roomContract(rm) || null).bucket === 'mine').length
@@ -481,15 +549,61 @@ export default function Chat() {
   return (
     <>
     <WorkPage
-      title={NAV_LABEL.chat}
-      // 상단 KPI도 역할에 따라 뜻이 다르다 — 관리자는 «내가 처리할 건», 나머지는 «안 읽은 문의».
-      statusLabel={role === 'admin' ? '내 차례' : '문의 미확인'}
-      statusCount={rooms === null ? null : (role === 'admin' ? myTurnN : inquiryUnreadN)}
-      attentionLabel={role === 'admin' ? '미확인' : undefined}
-      attentionCount={role === 'admin' && rooms !== null ? inquiryUnreadN : undefined}
+      title={role === 'admin' ? '상담데스크' : NAV_LABEL.chat}
+      statusLabel="미회신"
+      statusCount={rooms === null ? null : inquiryUnrepliedN}
+      attentionLabel="미확인"
+      attentionCount={rooms === null ? undefined : inquiryUnreadN}
       listCount={rooms === null ? null : shownRooms.length}
       list={rooms === null ? <FeedRowSkeleton /> : roomListEl}
+      listHeader={role === 'admin' && rooms !== null ? (
+        <div className="fp-chat-queue-summary" aria-label="상담 처리 현황">
+          <Btn size="sm" variant={flt === 'all' ? 'solid' : 'ghost'} onClick={() => setFlt('all')}>
+            전체 <Badge tone="gray">{rooms.length}</Badge>
+          </Btn>
+          <Btn size="sm" variant={flt === '미확인' ? 'solid' : 'ghost'} onClick={() => setFlt('미확인')}>
+            미확인 <Badge tone={inquiryUnreadN ? 'red' : 'gray'} variant={inquiryUnreadN ? 'solid' : 'fill'}>{inquiryUnreadN}</Badge>
+          </Btn>
+          <Btn size="sm" variant={flt === '미회신' ? 'solid' : 'ghost'} onClick={() => setFlt('미회신')}>
+            미회신 <Badge tone={inquiryUnrepliedN ? 'red' : 'gray'} variant={inquiryUnrepliedN ? 'solid' : 'fill'}>{inquiryUnrepliedN}</Badge>
+          </Btn>
+          <Btn size="sm" variant={flt === '내차례' ? 'solid' : 'ghost'} onClick={() => setFlt('내차례')}>
+            내 차례 <Badge tone={myTurnN ? 'amber' : 'gray'}>{myTurnN}</Badge>
+          </Btn>
+        </div>
+      ) : showChatNotice(role) ? (
+        /**
+         * 채팅을 고치는 동안은 카톡이 빠르다 — 그 사실을 «채팅 화면에서» 알린다.
+         * 보내는 것은 막지 않는다. 진행 중인 대화가 갈 곳을 잃는다.
+         * 안내를 내릴 때는 `CHAT_NOTICE_ON` 하나만 끄면 된다.
+         */
+        <div
+          role="status"
+          style={{
+            display: 'flex', flexDirection: 'column', gap: 4,
+            padding: '10px 12px', borderRadius: R,
+            background: '#FEF3C7', border: '1px solid #FDE68A',
+          }}
+        >
+          <div style={{ fontSize: FS.sub, fontWeight: FW.title, color: '#92400E' }}>{CHAT_NOTICE_TITLE}</div>
+          <div style={{ fontSize: FS.cap, color: '#92400E' }}>{CHAT_NOTICE_BODY}</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 2 }}>
+            {CHAT_NOTICE_CONTACTS.map((c) => (
+              // 전화 링크로 둔다 — 모바일에서 번호를 옮겨 적게 하지 않는다.
+              <a
+                key={c.phone}
+                href={`tel:${c.phone.replace(/\D/g, '')}`}
+                style={{ fontSize: FS.cap, fontWeight: FW.head, color: '#92400E', textDecoration: 'none', fontFamily: NUM }}
+              >
+                {c.name} {c.phone}
+              </a>
+            ))}
+          </div>
+        </div>
+      ) : undefined}
       panes={mobile ? mobilePanes : webPanes}
+      listMaxWidth={!mobile && role === 'admin' ? 390 : undefined}
+      hideWebDock={role === 'admin'}
       selected={!!sel}
       onBack={clearSel}
       contextTitle={selRoom
@@ -528,7 +642,12 @@ export default function Chat() {
       countSuffix="건"
       listTools={{
         search: { value: qInput, onChange: setQInput, placeholder: '차번·상품·영업…' },
-        sort: { value: sort, onChange: (v) => setSort(v as ChatSort | ''), options: CHAT_SORTS },
+        sort: {
+          value: sort,
+          onChange: (v) => setSort(v as ChatSort | ''),
+          options: CHAT_SORTS,
+          defaultValue: 'recent',
+        },
         filter: {
           count: flt === CHAT_FILTER_DEFAULT ? 0 : 1,
           title: '조건 검색',
@@ -553,6 +672,8 @@ export default function Chat() {
                   options={chatFiltersFor(role).map((o) => (
                     o.key === '미확인' && inquiryUnreadN > 0
                       ? { ...o, label: `미확인 ${inquiryUnreadN}` }
+                      : o.key === '미회신' && inquiryUnrepliedN > 0
+                        ? { ...o, label: `미회신 ${inquiryUnrepliedN}` }
                       : o.key === '내차례' && myTurnN > 0
                         ? { ...o, label: `내 차례 ${myTurnN}` }
                         : o
@@ -563,10 +684,10 @@ export default function Chat() {
         },
         hints: [
           ...(q.trim() ? [q.trim().length > 12 ? `${q.trim().slice(0, 12)}…` : q.trim()] : []),
-          ...(sort ? [CHAT_SORTS.find((o) => o.value === sort)?.label || sort] : []),
+          ...(sort && sort !== 'recent' ? [CHAT_SORTS.find((o) => o.value === sort)?.label || sort] : []),
           ...(flt !== CHAT_FILTER_DEFAULT ? [chatFiltersFor(role).find((o) => o.key === flt)?.label || flt] : []),
         ],
-        // 「지우기」는 역할 기본값으로 돌아간다 — 관리자를 전체 목록에 떨어뜨리면 대기함을 다시 찾아야 한다.
+        // 「지우기」는 역할별 필터·정렬 기본값으로 돌아간다.
         onClearHints: () => { setQInput(''); setQ(''); setSort(chatSortDefaultFor(role)); setFlt(chatFilterDefaultFor(role)); },
       }}
     />
