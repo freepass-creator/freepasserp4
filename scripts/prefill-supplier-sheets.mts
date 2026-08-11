@@ -64,6 +64,29 @@ for (const [k, p] of Object.entries<Rec>(prods)) {
   byCode.set(code, [...(byCode.get(code) || []), { ...p, _key: k, product_code: p.product_code || k } as EntityRecord]);
 }
 
+/**
+ * 숫자 칸 — ERP 에는 **콤마 붙은 글자**로 들어 있는 값이 많다(`"311,000"`).
+ * `Number()` 로 바로 읽으면 NaN 이라 통째로 빠진다 — 빌린카 47대 주행거리가 그래서 비었다(2026-08-11).
+ */
+function numOf(v: unknown): number | '' {
+  const n = Number(S(v).replace(/[^\d.-]/g, ''));
+  return Number.isFinite(n) && n > 0 ? n : '';
+}
+
+/**
+ * 연식 — 없으면 **최초등록일의 연도**를 쓴다(사장님 확정 2026-08-11).
+ * 「2024-03-15」도 「16-12」도 온다. 두 자리면 2000년대로 본다.
+ */
+function yearOf(rec: Rec): number | '' {
+  const y = numOf(rec.year);
+  if (y) return y;
+  const first = S(rec.first_registration_date);
+  const m = first.match(/^(\d{4})/) || first.match(/^(\d{2})[-./]/);
+  if (!m) return '';
+  const n = Number(m[1]);
+  return n >= 1000 ? n : 2000 + n;
+}
+
 /** 차명(트림) — 한 칸에 이어 쓴다. 파서가 문장 전체를 보고 세대·사양까지 잡는다. */
 function carName(p: Rec): string {
   const parts = [S(p.sub_model) || S(p.model), S(p.variant), S(p.trim_name)].map(S).filter(Boolean);
@@ -163,10 +186,10 @@ for (const f of ((found.files || []) as Rec[])) {
     put('옵션', S(rec.options));
     put('외부색상', S(rec.ext_color));
     put('내부색상', S(rec.int_color));
-    put('연식', Number(rec.year) || '');
+    put('연식', yearOf(rec));
     put('연료', S(rec.fuel_type));
-    put('주행거리', Number(rec.mileage) || '');
-    put('배기량', Number(rec.engine_cc) || '');
+    put('주행거리', numOf(rec.mileage));
+    put('배기량', numOf(rec.engine_cc));
     put('정책코드', S(rec.policy_code));
     put('최초등록일', S(rec.first_registration_date));
     put('사진링크', S(rec.photo_link));
