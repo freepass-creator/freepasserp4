@@ -17,7 +17,6 @@ type Rec = Record<string, unknown>;
 /** 표준값을 다 채운 정책 — 정책관리에서 「프리패스 표준값 채우기」를 누른 상태. */
 const { next: policy } = applyPolicyDefaults({
   policy_code: 'POL-TEST',
-  contract_authoring: '프리패스가 작성',
   annual_mileage: '연 30,000km',
   basic_driver_age: '만 26세 이상',
   personal_driver_scope: '계약자와 배우자 및 직계가족',
@@ -57,9 +56,9 @@ const groups = (payload.consentGroups || []) as { key: string; title: string; ro
 /** 정책에서 와야 하는 값 — 비어 있으면 통로가 끊긴 것이다. */
 const MUST: { label: string; expect: RegExp }[] = [
   { label: '약정 주행거리', expect: /30,000|30000/ },
-  { label: '초과 주행요금', expect: /1km당 200원/ },     // 제네시스=국산 → 200원
+  { label: '초과주행 요금', expect: /1km당 200원/ },     // 제네시스=국산 → 200원
   { label: '운전자 연령', expect: /26세/ },
-  { label: '1년 이내 사고 누적', expect: /3회/ },
+  { label: '사고 다발 시 계약해지 기준', expect: /3회/ },
   { label: '대인 보상한도', expect: /무한/ },
   { label: '자차 최소 면책금', expect: /500,?000|50만/ },
 ];

@@ -56,7 +56,7 @@ const policy = {
   additional_driver_allowance_count: '1명', additional_driver_cost: '월 55,000원',
   license_period: '1년 이상', maintenance_service: '정비제외',
   penalty_condition: '잔여 대여료의 30%',
-  // 약관 제11조②10호를 표에 박아 두는 대신 정책 원자로 뽑아냈다(2026-08-09).
+  // 약관 제12조제2항제8호를 표에 박아 두는 대신 정책 원자로 뽑아냈다(2026-08-09).
   // 픽스처에도 있어야 「사고 다발 해지」 행이 실제와 같은 문장으로 만들어진다.
   accident_termination_count: 3,
 };
@@ -116,7 +116,7 @@ check('대차 불가가 실린다', rowsOf('service').includes('대차서비스 
 check('과태료 절차는 약관으로 보냈다', !rowsOf('service').includes('보증금에서 차감'));
 // 면책금은 정책 단일값이 아니라 연령에서 파생된다(계약서 「운전자 연령 선택시 자동입력」).
 check('면책금은 연령에서 파생', rowsOf('accident').includes('대인 30만원'), rowsOf('accident').slice(0, 80));
-check('연령 모르면 가장 보수적인 값', deductibleForAge('').includes('대인 60만원'));
+check('연령 모르면 계약 불가 안내', deductibleForAge('').includes('만 21세 미만 계약 불가'));
 
 // ── 화면 규격 — 1섹션 = 1화면, 쪼개지 않는다 ──
 const pages = paginateForMobile(groups);

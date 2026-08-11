@@ -21,7 +21,10 @@ const contract = {
 const policy: Rec = {
   annual_mileage: '연 30,000km',
   mileage_upcharge_per_10000km: '1만km당 100,000원',
-  over_mileage_rate_per_km: 200,
+  // 국산·수입이 갈린다. 한 칸짜리 옛 키(over_mileage_rate_per_km)를 쓰면
+  // 계약서에 값이 안 실려 「약관이 참조하는 값이 없다」로 잡힌다.
+  over_mileage_rate_domestic: 200,
+  over_mileage_rate_imported: 400,
   accident_termination_count: 3,
   rental_region: '전국',
   screening_criteria: '중신용 이상',
@@ -42,12 +45,12 @@ const RULES: { re: RegExp; why: string }[] = [
 ];
 
 /*
- * 「초과 주행요금」은 있어야 한다 — 약관 제15조가 「계약서에 정한 1km당 초과운행료」를
+ * 「초과 주행요금」은 있어야 한다 — 약관 제16조가 「계약서에 정한 1km당 초과주행 요금」을
  * 그대로 참조하므로, 이 값이 비면 그 조문이 공중에 뜬다.
  * 다만 «1km당»이 아니면 상향 가격표(1만km당)가 잘못 들어온 것이다.
  */
 const MUST: { label: string; re: RegExp; why: string }[] = [
-  { label: '초과 주행요금', re: /1km당/, why: '단위가 «1km당»이 아니다 — 상향 가격표(1만km당)가 잘못 들어왔을 수 있다' },
+  { label: '초과주행 요금', re: /1km당/, why: '단위가 «1km당»이 아니다 — 상향 가격표(1만km당)가 잘못 들어왔을 수 있다' },
 ];
 
 let bad = 0;

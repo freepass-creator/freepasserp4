@@ -72,4 +72,13 @@ if (unknownSub.length) {
   for (const [k, n] of [...by].sort((a, b) => b[1] - a[1]).slice(0, 12)) console.log(`   ${String(n).padStart(4)}대  「${k}」`);
 }
 if (!bad.length) console.log('  ✓ 어긋남 없음');
+const iankaModelY = live.filter((p) => S(p.provider_company_code) === 'RP031'
+  && /^(?:10하8209|33허04\d{2})$/.test(S(p.car_number)));
+console.log(`\n  이안카 Model Y 운영 저장값 ${iankaModelY.length}대`);
+for (const p of iankaModelY) {
+  const raw = p._raw_vehicle && typeof p._raw_vehicle === 'object' ? p._raw_vehicle as Rec : {};
+  console.log(`   ${S(p.car_number)} · ${S(p.maker)} / ${S(p.model)} / ${S(p.sub_model)}`
+    + ` · raw=${S(raw.maker)} / ${S(raw.model)} / ${S(raw.sub_model)}`
+    + ` · snap=${S(p._snap_confidence)} · updated=${S(p.updatedAt)} · key=${S(p._key)}`);
+}
 process.exit(bad.length ? 1 : 0);

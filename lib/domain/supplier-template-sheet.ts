@@ -459,11 +459,13 @@ export function columnWidth(name: string): number {
   if (/보증|개월/.test(name)) return 100;
   if (/^기타기간/.test(name)) return 100;
   if (name === '차량번호' || name === '정책코드' || name === '최초등록일') return 104;
-  if (name === '제조사') return 96;
-  if (name === '상태' || name === '분류') return 92;
+  // ★칩(드롭다운) 칸은 넓게. 칩 여백 + 화살표가 자리를 먹어 「출고가능」이 「출고…」로 잘린다
+  //   (사장님 지적 2026-08-11). 글자가 잘리면 색만 보고 고르게 된다.
+  if (name === '제조사') return 118;
+  if (name === '상태' || name === '분류') return 122;
   if (name === '주행거리' || name === '배기량') return 88;
-  if (/색상$/.test(name)) return 84;
-  if (name === '연식' || name === '연료') return 72;
+  if (/색상$/.test(name)) return 104;
+  if (name === '연식' || name === '연료') return 100;
   return 100;
 }
 

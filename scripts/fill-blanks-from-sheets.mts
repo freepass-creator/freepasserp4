@@ -36,7 +36,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const FIELDS = [
   'maker', 'model', 'sub_model', 'variant', 'trim_name', 'year', 'fuel_type', 'engine_cc',
   'mileage', 'ext_color', 'int_color', 'options', 'product_type', 'seats', 'drive_type',
-  'first_registration_date', 'vehicle_class',
+  'first_registration_date', 'vehicle_class', 'photo_link',
 ] as const;
 
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
@@ -103,6 +103,7 @@ for (const p of Object.values(partners)) {
         if (prof.car_number === undefined) continue;
         const out = importSheetTable(t.table, {
           profile: prof, providerCode: code, providerName: name, entries, depositRule: p.deposit_rule,
+          photoByPlate: t.photoByPlate,
         } as Parameters<typeof importSheetTable>[1]);
         imported = (out as Rec).products || [];
       } catch { continue; }
@@ -160,12 +161,14 @@ for (const f of fills) {
   if (!Object.keys(patch).length) continue;
   const etag = before.headers.get('etag');
   const res = await fetch(target, {
-    method: 'PATCH',
+    // Firebase RTDB의 ETag precondition은 PUT/DELETE에서만 지원된다.
+    // 현재 v4 레코드를 그대로 보존한 전체 PUT으로 빈 필드만 CAS 보충한다.
+    method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
       ...(etag ? { 'if-match': etag } : {}),
     },
-    body: JSON.stringify({ ...patch, updatedAt: at }),
+    body: JSON.stringify({ ...current, ...patch, updatedAt: at }),
   });
   if (res.ok) done++;
   else { bad++; console.log(`  △ ${f.plate} — ${res.status} ${(await res.text()).slice(0, 100)}`); }

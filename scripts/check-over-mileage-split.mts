@@ -36,7 +36,7 @@ for (const cse of CASES) {
     { memberCompany: 'freepass', templateId: 'rent_buyout' }, contract, policy, '회사포함',
   ) as Rec;
   const groups = (payload.consentGroups || []) as { rows: { label: string; value: string }[] }[];
-  const row = groups.flatMap((g) => g.rows).find((r) => r.label === '초과 주행요금');
+  const row = groups.flatMap((g) => g.rows).find((r) => r.label === '초과주행 요금');
   const value = row?.value || '(없음)';
   const ok = value.includes(cse.expect);
   if (!ok) bad += 1;

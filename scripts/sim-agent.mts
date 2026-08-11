@@ -33,6 +33,7 @@ const { buildContractPayload, sendContractLink } = await import('../lib/domain/c
 const { getContractByToken } = await import('../lib/domain/sign');
 const { matchProduct, presentFilterOptions, EMPTY_VEHICLE_FILTER } = await import('../lib/domain/product-filters');
 const { detailSections } = await import('../lib/domain/product');
+const { kmDisplay } = await import('../lib/format');
 const { toggleFav, touchRecent, isFav, listFavs } = await import('../lib/product-interest');
 import type { EntityRecord } from '../lib/intake/entities';
 
@@ -110,6 +111,7 @@ const agentSecs = detailSections(sample, 'agent');
 const custSecs = detailSections(sample, 'customer');
 const dump = (secs: ReturnType<typeof detailSections>) => JSON.stringify(secs);
 check('1.7 손님 상세에 원가·파트너메모 없음', !/vehicle_price|partner_memo|원가/.test(dump(custSecs)));
+check('1.7a 주행거리 원단위 표시', kmDisplay(326) === '326km' && kmDisplay('12,450km') === '12,450km');
 {
   const { mergeProductPrivate, splitProductPrivate, stripProductCost } = await import('../lib/firebase/rtdb-products');
   const privateFixture = {

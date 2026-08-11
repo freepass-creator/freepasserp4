@@ -104,9 +104,9 @@ for (const f of ((found.files || []) as Rec[])) {
 }
 
 // ── 표 만들기 ───────────────────────────────────────────────────────────────
-// 링크 두 칸은 줄 종류에 따라 가리키는 곳이 다르다 — 공급사줄은 재고·정책, 영업자줄은 상품리스트·종합표.
+// 링크 두 칸은 줄 종류에 따라 가리키는 곳이 다르다 — 공급사줄은 재고·정책, 영업자줄은 신·구 상품리스트.
 const HEADERS = ['구분', '코드', '연동방식', 'ERP 재고', '목록에 선 것',
-  '시트 ① (재고 / 상품리스트)', '시트 ② (정책 / 종합표)', '정책 수', '입력된 행', 'ERP 가 지금 읽는 곳', '해야 할 일'];
+  '시트 ① (재고 / 상품리스트)', '시트 ② (정책 / 상품리스트 구버전)', '정책 수', '입력된 행', 'ERP 가 지금 읽는 곳', '해야 할 일'];
 
 const rows: (string | number)[][] = [];
 const seen = new Set<string>();
@@ -152,8 +152,9 @@ const salesMeta = await api(`https://sheets.googleapis.com/v4/spreadsheets/${SAL
 const salesTabs = ((salesMeta.sheets || []) as Rec[]).map((sh) => ({ gid: Number(sh.properties?.sheetId ?? 0), title: S(sh.properties?.title) }));
 // 탭 이름에 날짜·시각이 들어 있다 — 이름을 내림차순으로 세우면 맨 앞이 제일 최근이다.
 const newest = (prefix: string) => salesTabs.filter((t) => t.title.startsWith(prefix)).sort((a, b) => b.title.localeCompare(a.title))[0];
-const listTab = newest('상품리스트');
-const jonghapTab = newest('종합표');
+// 「상품리스트(구버전)」도 같은 글자로 시작한다 — 신버전을 고를 때는 구버전을 뺀다.
+const listTab = salesTabs.filter((t) => t.title.startsWith('상품리스트') && !t.title.startsWith('상품리스트(구버전)')).sort((a, b) => b.title.localeCompare(a.title))[0];
+const jonghapTab = newest('상품리스트(구버전)') || newest('종합표');
 const totalAlive = [...stock.values()].reduce((n, s2) => n + s2.alive, 0);
 const totalListed = [...stock.values()].reduce((n, s2) => n + s2.listed, 0);
 rows.unshift([

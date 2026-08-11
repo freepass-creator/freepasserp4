@@ -127,6 +127,18 @@ check('AUTO-PROMO 차종·모델명은 모델·트림으로 각각 고정 매핑
   promoMapping.model === 2 && promoMapping.trim_name === 3,
   promoMapping);
 
+const shiftedDownPromo = prepareAutoplusPromoTable([
+  ['상단 배너'],
+  ['', '공급사 안내'],
+  promoHeader,
+  [],
+  ['이미지 링크를 먼저 확인하세요'],
+  [],
+  promoRow,
+]);
+check('AUTO-PROMO 헤더 아래 안내·빈 행이 끼어도 첫 차량 블록을 찾아 읽음',
+  shiftedDownPromo.length === 2 && shiftedDownPromo[1]?.[1] === '12가3456');
+
 const promoRow2 = [...promoRow];
 promoRow2[1] = '34나5678';
 const stalePromoRow = [...promoRow];
