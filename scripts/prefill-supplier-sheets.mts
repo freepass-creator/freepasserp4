@@ -253,6 +253,7 @@ for (const f of ((found.files || []) as Rec[])) {
     put('내부색상', S(rec.int_color));
     put('연식', yearOf(rec));
     put('연료', S(rec.fuel_type));
+    // 주행거리·배기량도 표 밖이라 숫자 그대로 둔다 — 서식이 콤마를 붙인다.
     put('주행거리', numOf(rec.mileage));
     put('배기량', numOf(rec.engine_cc));
     put('정책코드', S(rec.policy_code));

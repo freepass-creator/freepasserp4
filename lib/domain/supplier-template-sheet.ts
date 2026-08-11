@@ -515,6 +515,32 @@ const TONE: Record<string, { fg: [number, number, number] }> = {
 const STATUS_TONE: Record<string, keyof typeof TONE> = {
   즉시출고: 'green', 출고가능: 'green', 상품화중: 'amber', 출고협의: 'blue', 계약중: 'orange', 출고불가: 'red',
 };
+/**
+ * 연료 여섯 — 기름·전기가 눈에 바로 갈리게(사장님 요청 2026-08-11).
+ * 화석연료는 따뜻한 색, 전동화는 찬 색으로 묶는다.
+ */
+const FUEL_TONE: Record<string, keyof typeof TONE> = {
+  가솔린: 'red', 디젤: 'gray', LPG: 'amber', 하이브리드: 'teal', 전기: 'blue', 수소: 'violet',
+};
+/**
+ * 색상 — **그 색으로 쓴다**(사장님 요청 2026-08-11). 「블루」가 파랗게 보이면 읽지 않아도 안다.
+ * ⚠ 화이트·베이지·민트처럼 옅은 색은 흰 바탕에서 안 보인다 — 읽을 수 있을 만큼 눌러서 쓴다.
+ *   여기 값은 «그 색의 이름»이 아니라 «그 색을 흰 바탕에서 읽히게 만든 값»이다.
+ */
+const COLOR_INK: Record<string, [number, number, number]> = {
+  화이트: [0.45, 0.47, 0.52],   // 흰 글자는 안 보인다 — 회색으로 눌러 쓴다
+  블랙: [0.10, 0.11, 0.13],
+  그레이: [0.42, 0.45, 0.50],
+  실버: [0.55, 0.58, 0.63],
+  레드: [0.72, 0.11, 0.14],
+  블루: [0.11, 0.35, 0.75],
+  네이비: [0.10, 0.18, 0.45],
+  브라운: [0.42, 0.26, 0.13],
+  베이지: [0.62, 0.50, 0.30],   // 원색 그대로면 흰 바탕에서 흐리다
+  민트: [0.05, 0.52, 0.45],
+  크레용: [0.58, 0.42, 0.20],
+  기타: [0.35, 0.37, 0.42],
+};
 /** 분류 넷 — 신차/중고를 색으로, 렌트/구독을 진하기로 가른다. */
 const TYPE_TONE: Record<string, keyof typeof TONE> = {
   신차렌트: 'blue', 신차구독: 'violet', 중고렌트: 'teal', 중고구독: 'amber',
@@ -554,6 +580,26 @@ export function buildChipColors(
   if (statusCol >= 0) for (const [v, tone] of Object.entries(STATUS_TONE)) out.push(rule(statusCol, v, tone, i++));
   const typeCol = colOf('분류');
   if (typeCol >= 0) for (const [v, tone] of Object.entries(TYPE_TONE)) out.push(rule(typeCol, v, tone, i++));
+  const fuelCol = colOf('연료');
+  if (fuelCol >= 0) for (const [v, tone] of Object.entries(FUEL_TONE)) out.push(rule(fuelCol, v, tone, i++));
+  // 색상 두 칸 — 팔레트에 없는 색은 그냥 둔다(억지 색을 지어내지 않는다).
+  const inkRule = (col: number, value: string, rgb: [number, number, number], index: number) => ({
+    addConditionalFormatRule: {
+      index,
+      rule: {
+        ranges: [grid(gid, ROW_DATA, rowCount, col, col + 1)],
+        booleanRule: {
+          condition: { type: 'TEXT_EQ', values: [{ userEnteredValue: value }] },
+          format: { textFormat: { bold: true, foregroundColorStyle: { rgbColor: { red: rgb[0], green: rgb[1], blue: rgb[2] } } } },
+        },
+      },
+    },
+  });
+  for (const colName of ['외부색상', '내부색상']) {
+    const c = colOf(colName);
+    if (c < 0) continue;
+    for (const [v, rgb] of Object.entries(COLOR_INK)) out.push(inkRule(c, v, rgb, i++));
+  }
   // 제조사는 수가 많다 — 색을 돌려 쓰되 같은 회사는 늘 같은 색이 되게 이름 순서로 고정한다.
   const makerCol = colOf('제조사');
   const wheel: (keyof typeof TONE)[] = ['blue', 'teal', 'violet', 'amber', 'green', 'orange', 'gray', 'red'];
@@ -797,12 +843,21 @@ export function resetSheetRequests(gid: number): Rec[] {
  * 그 오른쪽(금액·기간·정책코드·사진링크)은 표 밖에 두어 숫자서식이 살아 있게 한다.
  */
 export function tableWidth(columns: { name: string }[]): number {
+  /**
+   * 표는 **드롭다운 칸까지만** 덮는다(사장님 확정 2026-08-11 — 배기량까지 넓혔다가 되돌렸다).
+   *
+   * 표 안에서는 숫자서식이 통째로 무시된다. 실측: 같은 `136885` 를 넣으면
+   * 표 안 주행거리는 「136885」, 표 밖 보증금은 「136,885」로 보인다.
+   * 배기량까지 덮으면 진한 경계선은 스펙과 돈 사이로 옮겨 가지만, 그 대가로
+   * **공급사가 주행거리를 칠 때마다 맨숫자로 남는다**. 선 한 줄보다 그게 크다.
+   *
+   * 그래서 숫자 칸을 만나면 거기서 멈춘다 — 그 오른쪽은 전부 표 밖이어야 콤마가 산다.
+   */
   let last = -1;
   for (const [i, c] of columns.entries()) {
     const isDropdown = !!VALUE_LISTS[c.name] || /^(제조사|연식)$/.test(c.name);
     if (isDropdown) last = i;
-    // 숫자 칸을 만나면 거기서 멈춘다 — 그 오른쪽은 전부 표 밖이어야 콤마가 산다.
-    if (/보증|개월|주행거리|배기량/.test(c.name)) break;
+    if (/보증|개월|주행거리|배기량|^기타기간/.test(c.name)) break;
   }
   return last + 1;
 }
