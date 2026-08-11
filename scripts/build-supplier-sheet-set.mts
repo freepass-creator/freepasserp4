@@ -26,7 +26,7 @@ import { priceList, priceVariants } from '../lib/domain/product';
 import {
   POLICY_COLUMN_FIELDS, POLICY_TAB_NAME, ROW_HEADER,
   buildColumns, buildNumberFormats, buildPolicyTabFormat, buildPolicyTabValues,
-  buildBanding, buildBaseFont, buildChipColors, buildRowHeights, buildTableRequest, buildTemplateFormat, buildTemplateValues, resetSheetRequests, tableWidth, yearOptions,
+  buildBanding, buildBaseFont, buildChipColors, buildRowHeights, buildTemplateFormat, buildTemplateValues, resetSheetRequests, yearOptions,
 } from '../lib/domain/supplier-template-sheet';
 import type { EntityRecord } from '../lib/intake/entities';
 
@@ -278,48 +278,33 @@ for (const f of files) {
   });
 
   /**
-   * ③ 서식.
+   * ③ 서식 — **표(Table)는 쓰지 않는다**(사장님 확정 2026-08-11, 칩 실물을 보고 되돌림).
    *
-   * ★표(Table)는 **드롭다운 칸까지만** 씌운다(사장님 확정 2026-08-11 — 칩으로 되돌림).
-   *   칩(알약) 드롭다운은 표로만 나온다. 그런데 표 안에서는 숫자서식이 무시되므로
-   *   금액·주행 칸은 표 밖에 남긴다 — 그래야 천단위 콤마가 붙는다.
-   *   그 대가로 표 오른쪽 끝(주행거리 앞)에 경계선이 하나 남는다. 이건 못 지운다.
-   * ★줄무늬는 표 밖 구간에만 우리가 넣는다 — 표가 자기 구간의 줄무늬를 이미 갖는다.
+   *   칩(알약)은 표로만 나오는데, 표를 쓰면 딸려오는 게 셋이다.
+   *     ① 표 안에서는 숫자서식이 무시돼 천단위 콤마가 안 붙는다 — 금액 칸을 표 밖으로 빼야 한다.
+   *     ② 그래서 생기는 표 경계선이 주행거리 앞에 남는다.
+   *     ③ 칩 여백과 화살표가 자리를 먹어 칸을 계속 넓혀야 한다.
+   *   드롭다운은 화살표로 두고 값마다 색을 칠한다 — 고르는 데 아무 지장이 없고 한 판이 고르다.
    */
-  const tw = tableWidth(cols);
-  const shape = [
-    ...buildBaseFont(gid, cols.length, ROWS),
-    ...buildTemplateFormat(gid, cols, dropdownExtras, { asTable: true }),
-    ...buildChipColors(gid, cols, HANDLED_MAKER_OPTIONS, ROWS),
-    ...buildNumberFormats(gid, cols, ROWS),
-    ...buildRowHeights(gid, ROWS),
-    ...buildBaseFont(polGid!, 8, 40),
-    ...resetSheetRequests(polGid!),
-    ...buildPolicyTabFormat(polGid!, pols.length),
-    ...buildRowHeights(polGid!, 40),
-  ];
-  let tabled = true;
-  try {
-    await api(`https://sheets.googleapis.com/v4/spreadsheets/${f.id}:batchUpdate`, {
-      method: 'POST',
-      body: JSON.stringify({ requests: [...shape, buildTableRequest(gid, cols, dropdownExtras, ROWS)] }),
-    });
-  } catch (e) {
-    tabled = false;
-    console.log(`     △ ${f.name.replace('프리패스 재고 · ', '')} 표 변환 실패 — ${String((e as Error).message).slice(0, 60)}`);
-    await api(`https://sheets.googleapis.com/v4/spreadsheets/${f.id}:batchUpdate`, {
-      method: 'POST', body: JSON.stringify({ requests: shape }),
-    });
-  }
-  // 표 밖 구간(금액·정책·부가)에도 줄무늬를 이어 붙인다 — 표에서 끊기면 눈이 옆줄로 샌다.
-  if (tw < cols.length) {
-    await api(`https://sheets.googleapis.com/v4/spreadsheets/${f.id}:batchUpdate`, {
-      method: 'POST',
-      body: JSON.stringify({ requests: buildBanding(gid, cols.length, ROWS, tw) }),
-    }).catch(() => {});
-  }
+  await api(`https://sheets.googleapis.com/v4/spreadsheets/${f.id}:batchUpdate`, {
+    method: 'POST',
+    body: JSON.stringify({
+      requests: [
+        ...buildBaseFont(gid, cols.length, ROWS),
+        ...buildBanding(gid, cols.length, ROWS),
+        ...buildTemplateFormat(gid, cols, dropdownExtras),
+        ...buildChipColors(gid, cols, HANDLED_MAKER_OPTIONS, ROWS),
+        ...buildNumberFormats(gid, cols, ROWS),
+        ...buildRowHeights(gid, ROWS),
+        ...buildBaseFont(polGid!, 8, 40),
+        ...resetSheetRequests(polGid!),
+        ...buildPolicyTabFormat(polGid!, pols.length),
+        ...buildRowHeights(polGid!, 40),
+      ],
+    }),
+  });
 
-  console.log(`  ✓ ${f.name.replace('프리패스 재고 · ', '').padEnd(12)} 재고 ${cols.length}열 · 정책 ${pols.length}개 · ${tabled ? `칩 ${tw}열` : '칩 없음'}`);
+  console.log(`  ✓ ${f.name.replace('프리패스 재고 · ', '').padEnd(12)} 재고 ${cols.length}열 · 정책 ${pols.length}개`);
 }
 
 if (!APPLY) {
