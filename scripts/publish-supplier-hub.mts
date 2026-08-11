@@ -16,6 +16,7 @@
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { NOT_SHEET_BACKED } from '../lib/domain/supplier-sheet-read';
+import { buildRowHeights } from '../lib/domain/supplier-template-sheet';
 import { isListableProduct } from '../lib/domain/product';
 import type { EntityRecord } from '../lib/intake/entities';
 
@@ -103,10 +104,26 @@ for (const f of ((found.files || []) as Rec[])) {
   ours.set(code, { id: S(f.id), name: S(f.name), stockGid, policyGid, rows, policies });
 }
 
+/**
+ * 우리가 떠 둔 사본 — 자기 시트로 주는 공급사는 그쪽이 언제든 파일을 갈아탄다.
+ * 「<공급사>(코드) 원본 YYYY-MM-DD」 중 **가장 최근 하나**를 줄에 붙인다.
+ */
+const copyQ = encodeURIComponent("mimeType='application/vnd.google-apps.spreadsheet' and 'me' in owners and trashed=false and name contains '원본'");
+const copyRes = await api(`https://www.googleapis.com/drive/v3/files?q=${copyQ}&pageSize=200&fields=files(id,name)&orderBy=name`);
+const copyByCode = new Map<string, { id: string; name: string }>();
+for (const f of ((copyRes.files || []) as Rec[])) {
+  const code = (S(f.name).match(/\(([\w-]+)\)/) || [])[1];
+  if (!code) continue;
+  const cur = copyByCode.get(code);
+  // 이름에 날짜가 들어 있다 — 사전순으로 큰 쪽이 최근이다.
+  if (!cur || S(f.name) > cur.name) copyByCode.set(code, { id: S(f.id), name: S(f.name) });
+}
+
 // ── 표 만들기 ───────────────────────────────────────────────────────────────
 // 링크 두 칸은 줄 종류에 따라 가리키는 곳이 다르다 — 공급사줄은 재고·정책, 영업자줄은 신·구 상품리스트.
 const HEADERS = ['구분', '코드', '연동방식', 'ERP 재고', '목록에 선 것',
-  '시트 ① (재고 / 상품리스트)', '시트 ② (정책 / 상품리스트 구버전)', '정책 수', '입력된 행', 'ERP 가 지금 읽는 곳', '해야 할 일'];
+  '시트 ① (재고 / 상품리스트)', '시트 ② (정책 / 상품리스트 구버전)', '정책 수', '입력된 행',
+  'ERP 가 지금 읽는 곳', '우리가 뜬 사본', '해야 할 일'];
 
 const rows: (string | number)[][] = [];
 const seen = new Set<string>();
@@ -139,6 +156,7 @@ for (const p of Object.values<Rec>(partners)) {
     mine ? mine.policies : '',
     mine ? mine.rows : '',
     liveUrl || (NOT_SHEET_BACKED.has(code) ? 'ironrentcar.com' : ''),
+    copyByCode.has(code) ? link(copyByCode.get(code)!.id) : '',
     todo,
   ]);
 }
@@ -163,6 +181,7 @@ rows.unshift([
   jonghapTab ? link(SALES, jonghapTab.gid) : '',
   '', '',
   'ERP (v4/products)',
+  '',
   `공급사 시트가 바뀌면 다시 찍는다 — 지금 탭 「${S(listTab?.title)}」 · 「${S(jonghapTab?.title)}」`,
 ]);
 
@@ -204,6 +223,15 @@ await api(`https://sheets.googleapis.com/v4/spreadsheets/${HUB}:batchUpdate`, {
       } },
       { updateSheetProperties: { properties: { sheetId: gid, gridProperties: { frozenRowCount: 1, frozenColumnCount: 1 } }, fields: 'gridProperties(frozenRowCount,frozenColumnCount)' } },
       { autoResizeDimensions: { dimensions: { sheetId: gid, dimension: 'COLUMNS', startIndex: 0, endIndex: HEADERS.length } } },
+      // ★행 높이 — 기본 21px 은 붙어 보여 답답하다. 공급사 시트와 같은 규격으로 둔다.
+      ...buildRowHeights(gid, rows.length + 1),
+      // 글자가 칸을 넘치면 다음 줄로 흐르지 않고 잘리게 둔다 — 줄 높이가 들쭉날쭉해지면
+      // 표가 아니라 문단처럼 보인다. 링크는 어차피 눌러서 여는 것이지 읽는 게 아니다.
+      { repeatCell: {
+        range: { sheetId: gid, startRowIndex: 0, endRowIndex: rows.length + 1, startColumnIndex: 0, endColumnIndex: HEADERS.length },
+        cell: { userEnteredFormat: { wrapStrategy: 'CLIP' } },
+        fields: 'userEnteredFormat.wrapStrategy',
+      } },
     ],
   }),
 });
