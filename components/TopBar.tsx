@@ -8,7 +8,6 @@ import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
 import { getRole, actor, type Role } from '@/lib/domain/deal';
 import { useSession } from '@/lib/auth-context';
-import { isGuest } from '@/lib/auth-session';
 import { loadMenuBadges, menuItemBadge, type MenuBadgeMap } from '@/lib/domain/menu-badges';
 import { C, R, CountPill, NUM, ctrlH, ctrlFs, FW, FS, Btn, IconBtn, SH, ICON } from '@/components/ui';
 import { NAV_ICON, NAV_LABEL } from '@/lib/tabbar';
@@ -39,7 +38,6 @@ const GROUPS: { title: string; items: { href?: string; label: string; icon: Luci
     { href: '/policy', label: NAV_LABEL.policy, icon: ScrollText, roles: ['provider', 'admin'] },
   ] },
   { title: '관리자', items: [
-    // 발송이 관리자 전용이라 목록도 관리자에게만 연다(canSendChakhandealContract 와 같은 축).
     { href: '/esign', label: NAV_LABEL.esign, icon: FileSignature, roles: ['admin'] },
     { href: '/settlement', label: NAV_LABEL.settlement, icon: FileText, roles: ['admin'] },
     { href: '/members', label: NAV_LABEL.members, icon: Users, roles: ['admin'] },
@@ -92,7 +90,7 @@ function partnerName(rows: EntityRecord[], code: string): string {
 /** 웹 우측 — 오늘 · 소속 · 이름 · 직책 (탭 → 설정). */
 function WebSessionMeta() {
   const session = useSession();
-  // SSR·첫 클라 렌더 동일 — getRole()/actor()/isGuest()는 localStorage 의존이라 서버엔 값이 없다.
+  // SSR·첫 클라 렌더 동일 — getRole()/actor()는 localStorage 의존이라 서버엔 값이 없다.
   // 렌더 중에 읽으면 서버 폴백(박영업)과 클라 실제세션(박영협)이 어긋나 hydration mismatch. NavMenu와 동일하게 마운트 후에만 읽는다.
   const [mounted, setMounted] = useState(false);
   const [demoRole, setDemoRole] = useState<Role>('agent');
@@ -110,7 +108,6 @@ function WebSessionMeta() {
   }, []);
   const role = session?.role ?? demoRole;
   const me = mounted ? actor(role) : null;
-  const guest = mounted ? isGuest() : false;
   const [date, setDate] = useState(() => todayLabel());
   const [org, setOrg] = useState('');
 
@@ -123,7 +120,7 @@ function WebSessionMeta() {
   useEffect(() => {
     const code = String(session?.company_code || '').trim();
     if (!code) {
-      setOrg(role === 'admin' ? BRAND : guest ? '둘러보기' : '');
+      setOrg(role === 'admin' ? BRAND : '');
       return;
     }
     const co = getCompanyId();
@@ -134,7 +131,7 @@ function WebSessionMeta() {
       .then((rows) => { if (alive) setOrg(partnerName(rows, code)); })
       .catch(() => { if (alive) setOrg(code); });
     return () => { alive = false; };
-  }, [session?.company_code, role, guest]);
+  }, [session?.company_code, role]);
 
   const name = session?.name || me?.name || '';
   const bits = [org, name].filter(Boolean); // 직책(역할 라벨)은 상단바에서 제외
@@ -245,13 +242,13 @@ function NavMenu({ mobile, open: openProp, setOpen: setOpenProp }: {
   return (
     <div style={{ position: 'relative', flex: '0 0 auto' }}>
       <IconBtn
-        title={open ? '메뉴 닫기' : '메뉴'}
-        onClick={() => { setOpen((o) => !o); }}
+        title={open ? (mobile ? '더보기 닫기' : '전체메뉴 닫기') : (mobile ? '더보기' : '전체메뉴')}
+        onClick={() => { haptic.nav(); setOpen((o) => !o); }}
         style={mobile
-          ? { marginRight: -6, border: 'none', background: 'none', color: ink, width: ctrlH(true), height: ctrlH(true) }
+          ? { border: 'none', background: open ? C.hover : 'transparent', color: ink }
           : { background: open ? C.hover : C.taupeBg, color: ink, border: `1px solid ${line}` }}
       >
-        {mobile && open ? <X size={24} /> : <Menu size={mobile ? 23 : ICON.lg} />}
+        {open ? <X size={mobile ? 20 : ICON.lg} /> : <Menu size={mobile ? 20 : ICON.lg} />}
       </IconBtn>
       {open && (<>
         {!mobile && <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 74 }} />}
@@ -260,10 +257,11 @@ function NavMenu({ mobile, open: openProp, setOpen: setOpenProp }: {
             <div key={gi} style={{ borderTop: gi ? `1px solid ${line}` : 'none', padding: '5px 0' }}>
               {g.title && <div style={{ fontSize: mobile ? FS.cap : FS.micro, color: weak, fontWeight: FW.title, padding: mobile ? '7px 20px 4px' : '4px 14px', letterSpacing: '0.02em' }}>{g.title}</div>}
               {g.items.map((it) => {
+                const itemLabel = menuRole === 'admin' && it.href === '/chat' ? '상담데스크' : it.label;
                 if (it.soon) {
                   return (
                     <div key={it.label} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: iPad, fontSize: iFont, color: weak, cursor: 'default' }}>
-                      <it.icon size={iSize} /> <span>{it.label}</span> <span style={{ marginLeft: 'auto', fontSize: FS.micro, color: weak }}>준비중</span>
+                      <it.icon size={iSize} /> <span>{itemLabel}</span> <span style={{ marginLeft: 'auto', fontSize: FS.micro, color: weak }}>준비중</span>
                     </div>
                   );
                 }
@@ -282,7 +280,7 @@ function NavMenu({ mobile, open: openProp, setOpen: setOpenProp }: {
                   onMouseEnter={(e) => (e.currentTarget.style.background = C.hover as string)}
                   onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
                   <it.icon size={iSize} color={mute} />
-                  <span style={{ flex: 1 }}>{it.label}</span>
+                  <span style={{ flex: 1 }}>{itemLabel}</span>
                   {rowBadge > 0 ? <CountPill n={rowBadge} max={99} /> : null}
                 </Link>
                 );
@@ -340,14 +338,8 @@ export default function TopBar() {
     )
   ) : null;
 
-  // 상태창 = 메뉴 열림 시 '메뉴'(아이콘+텍스트) · 아니면 앱바 title 우선 · 없으면 라우트 라벨
-  // 햄버거 아이콘은 넣지 않는다 — 실제 메뉴버튼이 따로 있어 아이콘 중복 시 버튼이 옮겨간 것처럼 보임.
-  const menuLabel: ReactNode = (
-    <span style={{ display: 'inline-flex', alignItems: 'center', fontSize: FS.title, fontWeight: FW.title, color: ink, letterSpacing: '-0.01em' }}>
-      메뉴
-    </span>
-  );
-  const status: ReactNode = menuOpen ? menuLabel : ((title != null && title !== '') ? title : statusFromPath(path));
+  // 메뉴를 열어도 페이지 제목은 유지한다. 열림 상태는 햄버거가 닫기 아이콘으로 바뀌어 표시한다.
+  const status: ReactNode = (title != null && title !== '') ? title : statusFromPath(path);
   const onStatusTap = () => {
     if (menuOpen) { setMenuOpen(false); return; } // 메뉴 열린 상태에서 상태탭 = 메뉴 닫기
     haptic.nav();

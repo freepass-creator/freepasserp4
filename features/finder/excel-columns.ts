@@ -7,12 +7,22 @@ import { kmDisplay, man } from '@/lib/format';
 
 export type ColSort = { field: string; dir: 'asc' | 'desc' } | null;
 
+/** 엑셀뷰 전용 주행거리: 999km까지 원단위, 1,000km부터 만 단위 소수 1자리. */
+export function excelMileageDisplay(raw: unknown): string {
+  const source = String(raw ?? '').trim();
+  if (!source) return '';
+  const value = Number(source.replace(/,/g, '').replace(/\s*km\s*$/i, '').trim());
+  if (!Number.isFinite(value) || value < 0) return kmDisplay(raw);
+  if (value < 1000) return `${value.toLocaleString('ko-KR')}km`;
+  return `${(value / 10000).toFixed(1)}만`;
+}
+
 export function excelColumnValue(product: EntityRecord, key: string): string {
   if (key === 'credit') return creditDisplay(product);
   if (key === 'fuel_type') return fuelDisplay(product.fuel_type) || '';
   if (key === 'maker') return makerDisplay(product.maker) || String(product.maker || '');
   if (key === 'year') return yearDisplay(product.year);
-  if (key === 'mileage') return kmDisplay(product.mileage);
+  if (key === 'mileage') return excelMileageDisplay(product.mileage);
   if (key === 'options') return productOptions(product).join(' · ');
   if (key === 'cond') {
     const signals = excelCondSignals(product);
