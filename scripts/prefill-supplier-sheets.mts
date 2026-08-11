@@ -124,9 +124,21 @@ for (const f of ((found.files || []) as Rec[])) {
   if (ONLY.length && !ONLY.includes(code)) continue;
   if (liveSheetIds.has(id)) { console.log(`  △ ${label.padEnd(12)} ★운영 정본 시트 — 쓰지 않는다`); continue; }
 
-  const cars = (byCode.get(code) || []).slice()
+  /**
+   * ★**아무 정보도 없는 행은 옮기지 않는다**(사장님 지적 2026-08-11).
+   *   차명도 대여료도 없는 껍데기를 옮기면 공급사 시트에 빈 줄만 늘고,
+   *   상태 칸만 「출고불가」로 떠서 «이게 뭐냐»가 된다. ERP 에는 그대로 둔다 —
+   *   여기서 안 보여 줄 뿐이지 지우는 게 아니다.
+   */
+  const all = byCode.get(code) || [];
+  const cars = all.filter((p) => {
+    const rec = p as Rec;
+    const hasName = [S(rec.sub_model), S(rec.model), S(rec.trim_name)].some(Boolean);
+    return S(rec.car_number) && (hasName || priceList(p).length > 0);
+  }).slice()
     .sort((a, b) => Number(isListableProduct(b)) - Number(isListableProduct(a))
       || S(a.car_number).localeCompare(S(b.car_number)));
+  const dropped = all.length - cars.length;
   if (!cars.length) { console.log(`  · ${label.padEnd(12)} ERP 재고 없음 — 빈 양식 그대로`); continue; }
 
   // 헤더를 읽어 **이름으로** 칸을 맞춘다.
@@ -170,7 +182,7 @@ for (const f of ((found.files || []) as Rec[])) {
   const orphanNames = new Map<string, number>();
   for (const p of cars) for (const k of moneyOf(p).rent.keys()) if (!known.has(k)) orphanNames.set(k, (orphanNames.get(k) || 0) + 1);
   const orphan = [...orphanNames.values()].reduce((n, v) => n + v, 0);
-  console.log(`  ${label.padEnd(12)} ${String(cars.length).padStart(4)}대${orphan ? `  △ 열이 없는 요금 ${orphan}건 — ${[...orphanNames].map(([k, v]) => `${k}(${v})`).join(' · ')}` : ''}`);
+  console.log(`  ${label.padEnd(12)} ${String(cars.length).padStart(4)}대${dropped ? `  (정보 없는 ${dropped}대 제외)` : ''}${orphan ? `  △ 열이 없는 요금 ${orphan}건 — ${[...orphanNames].map(([k, v]) => `${k}(${v})`).join(' · ')}` : ''}`);
   filledSheets++; filledCars += cars.length;
 
   if (!APPLY) continue;
