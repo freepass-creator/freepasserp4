@@ -1,4 +1,5 @@
 import { EXT_COLORS, INT_COLORS } from './color-master';
+
 import { FUEL_TYPES, PRODUCT_TYPES, VEHICLE_STATES } from '@/lib/intake/entities';
 
 /**
@@ -31,6 +32,9 @@ import { FUEL_TYPES, PRODUCT_TYPES, VEHICLE_STATES } from '@/lib/intake/entities
  *
  * ⚠ 이 줄은 아직 읽어서 저장하지 않는다. 파서는 표만 읽는다.
  */
+/** 두 탭이 같은 문서로 보이게 하는 글꼴. 표(Table)가 쓰는 것과 같아야 한다. */
+export const FONT = 'Roboto';
+
 export const POLICY_ROWS: { label: string; hint: string; values?: string[] }[][] = [
   [
     { label: '공급사명', hint: '' },
@@ -61,10 +65,10 @@ const POLICY_COLUMNS: { name: string; note: string; field?: string; values?: str
   { name: '정책코드', note: 'POL-0047 — 적으면 이 정책이 우선. 오른쪽은 그 정책의 내용(참고)' },
 
   // ── 자차 ──
-  { name: '자차보상', note: '', field: 'own_damage_compensation', values: ['차량가액', '1000만원', '500만원', '400만원'] },
-  { name: '자차수리비율', note: '', field: 'own_damage_repair_ratio', values: ['20%', '50%', '100%'] },
-  { name: '자차최소면책금', note: '', field: 'own_damage_min_deductible', values: ['50만원', '100만원', '30만원', '200만원'] },
-  { name: '자차최대면책금', note: '', field: 'own_damage_max_deductible', values: ['100만원', '50만원', '400만원'] },
+  { name: '자차보상한도', note: '무엇을 기준으로 보상하나', field: 'own_damage_compensation', values: ['차량가액', '1000만원', '500만원', '400만원'] },
+  { name: '자차수리비율', note: '수리비의 몇 %를 고객이 무나 — 보상한도·면책금과 다른 값이다', field: 'own_damage_repair_ratio', values: ['20%', '50%', '100%'] },
+  { name: '자차최소면책금', note: '한 건당 최소 부담액', field: 'own_damage_min_deductible', values: ['50만원', '100만원', '30만원', '200만원'] },
+  { name: '자차최대면책금', note: '한 건당 최대 부담액', field: 'own_damage_max_deductible', values: ['100만원', '50만원', '400만원'] },
   // ── 대물 ──
   { name: '대물보상한도', note: '', field: 'property_compensation_limit', values: ['1억원', '2억원', '10억원', '5천만원', '3천만원'] },
   { name: '대물면책금', note: '', field: 'property_deductible', values: ['30만원', '50만원', '없음'] },
@@ -110,7 +114,7 @@ export const POLICY_COLUMN_NAMES = POLICY_COLUMNS.map((c) => c.name);
  */
 const FRONT_COLUMNS: { name: string; note: string; required?: boolean }[] = [
   { name: '차량번호', note: '12가3456. 신차로 번호 전이면 비우고 차대번호를 채운다', required: true },
-  { name: '상태', note: '즉시출고 / 출고가능 / 출고협의 / 상품화중 / 출고불가 — 「계약중」은 ERP 가 계약금 확인 때 자동으로 겁니다', required: true },
+  { name: '상태', note: '즉시출고 / 출고가능 / 상품화중 / 출고협의 / 계약중 / 출고불가', required: true },
   { name: '분류', note: '신차렌트 / 중고렌트 / 신차구독 / 중고구독', required: true },
   { name: '제조사', note: '현대 · 기아 · BMW …' },
   // ★자유입력이 맞다. 실측(2026-08-08 · 올릴 수 있는 409대) 결과 차종 검수는 6대(1.5%)뿐이고
@@ -255,10 +259,11 @@ export const ROW_DATA = 1;            // 1행부터 상품
  *   제조사는 차종마스터가 정본이라 `buildColumns` 를 부르는 쪽에서 넣어 준다.
  */
 export const VALUE_LISTS: Record<string, readonly string[]> = {
-  // 공급사 시트에 «계약중»은 없다 — ERP 내부 상태다(계약금 확인 엔진 전용).
-  //   계약금이 들어오면 ERP 가 거는 잠금이라, 공급사가 그 칸을 다른 값으로 바꾸면
-  //   잠긴 차가 풀려 두 번 팔린다. 나머지 **다섯은 공급사가 고른다**(사장님 확정 2026-08-11).
-  상태: VEHICLE_STATES.filter((v) => v !== '계약중'),
+  // ★ERP 상태 **여섯 그대로**다(사장님 확정 2026-08-11). 공급사가 쓰는 말과 ERP 가 같아야 한다.
+  //   「계약중」을 넣어도 안전한 이유 — 계약금이 들어와 엔진이 잠근 차는
+  //   `softMergeProduct` 가 시트의 상태값을 아예 안 받는다(`engineLocked` 이면 건너뛴다).
+  //   즉 공급사가 잠긴 차를 「출고가능」으로 되돌려도 잠금이 풀리지 않는다.
+  상태: VEHICLE_STATES,
   분류: PRODUCT_TYPES,
   연료: FUEL_TYPES,
   외부색상: EXT_COLORS,
@@ -309,7 +314,7 @@ export function buildTemplateFormat(
       cell: {
         userEnteredFormat: {
           backgroundColor: { red: 0.13, green: 0.20, blue: 0.33 },
-          textFormat: { bold: true, fontSize: 10, foregroundColor: { red: 1, green: 1, blue: 1 } },
+          textFormat: { bold: true, fontSize: 10, fontFamily: FONT, foregroundColor: { red: 1, green: 1, blue: 1 } },
           horizontalAlignment: 'CENTER', verticalAlignment: 'MIDDLE',
         },
       },
@@ -432,7 +437,7 @@ export function buildPolicyTabFormat(gid: number, policyCount: number): Rec[] {
       cell: {
         userEnteredFormat: {
           backgroundColor: { red: 0.13, green: 0.20, blue: 0.33 },
-          textFormat: { bold: true, fontSize: 10, foregroundColor: { red: 1, green: 1, blue: 1 } },
+          textFormat: { bold: true, fontSize: 10, fontFamily: FONT, foregroundColor: { red: 1, green: 1, blue: 1 } },
           horizontalAlignment: 'CENTER', verticalAlignment: 'MIDDLE',
         },
       },
@@ -446,7 +451,7 @@ export function buildPolicyTabFormat(gid: number, policyCount: number): Rec[] {
       cell: {
         userEnteredFormat: {
           backgroundColor: { red: 0.90, green: 0.91, blue: 0.93 },
-          textFormat: { bold: true, fontSize: 10 }, verticalAlignment: 'MIDDLE',
+          textFormat: { bold: true, fontSize: 10, fontFamily: FONT }, verticalAlignment: 'MIDDLE',
           horizontalAlignment: 'LEFT',
         },
       },
@@ -461,7 +466,7 @@ export function buildPolicyTabFormat(gid: number, policyCount: number): Rec[] {
       cell: {
         userEnteredFormat: {
           backgroundColor: { red: 1, green: 1, blue: 1 },
-          textFormat: { fontSize: 10 },
+          textFormat: { fontSize: 10, fontFamily: FONT },
           verticalAlignment: 'MIDDLE',
           wrapStrategy: 'CLIP',
         },
