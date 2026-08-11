@@ -322,6 +322,16 @@ export function buildTemplateFormat(
     },
   });
   for (const [i, c] of columns.entries()) {
+    // 보증금 열 제목은 한 톤 죽여 대여료 열이 앞으로 나오게 한다.
+    if (/보증/.test(c.name)) {
+      out.push({
+        repeatCell: {
+          range: grid(gid, ROW_HEADER, ROW_HEADER + 1, i, i + 1),
+          cell: { userEnteredFormat: { textFormat: { bold: true, fontSize: 10, fontFamily: FONT, foregroundColor: { red: 0.78, green: 0.82, blue: 0.88 } } } },
+          fields: 'userEnteredFormat.textFormat',
+        },
+      });
+    }
     if (c.required) {
       out.push({
         repeatCell: {
@@ -381,6 +391,47 @@ export function buildTemplateFormat(
     });
   }
   return out;
+}
+
+/**
+ * 행 높이 — 기본 21px 은 붙어 보여 답답하다(사장님 지적 2026-08-11).
+ * 머리행은 조금 더 세워 표 위쪽이 눌리지 않게 한다.
+ */
+export function buildRowHeights(gid: number, rowCount = 500): Rec[] {
+  return [
+    {
+      updateDimensionProperties: {
+        range: { sheetId: gid, dimension: 'ROWS', startIndex: ROW_HEADER, endIndex: ROW_HEADER + 1 },
+        properties: { pixelSize: 34 }, fields: 'pixelSize',
+      },
+    },
+    {
+      updateDimensionProperties: {
+        range: { sheetId: gid, dimension: 'ROWS', startIndex: ROW_DATA, endIndex: rowCount },
+        properties: { pixelSize: 28 }, fields: 'pixelSize',
+      },
+    },
+  ];
+}
+
+/**
+ * 줄무늬(교차 배경) — 표(Table)를 걷어내면서 같이 사라진 것을 우리가 되살린다.
+ *
+ * 행이 200줄 넘어가면 줄무늬 없이는 눈이 옆줄로 샌다. 표가 주던 것과 같은 톤으로 둔다.
+ */
+export function buildBanding(gid: number, columnCount: number, rowCount = 500, startColumn = 0): Rec[] {
+  return [{
+    addBanding: {
+      bandedRange: {
+        range: grid(gid, ROW_HEADER, rowCount, startColumn, columnCount),
+        rowProperties: {
+          headerColorStyle: { rgbColor: { red: 0.13, green: 0.20, blue: 0.33 } },
+          firstBandColorStyle: { rgbColor: { red: 1, green: 1, blue: 1 } },
+          secondBandColorStyle: { rgbColor: { red: 0.97, green: 0.97, blue: 0.98 } },
+        },
+      },
+    },
+  }];
 }
 
 /**
@@ -747,10 +798,17 @@ export function buildNumberFormats(gid: number, columns = TEMPLATE_COLUMNS, rowC
     //   콤마는 «원래 값에 콤마가 들어 있던 행»에만 보였다. 공급사가 새로 친 900000 은
     //   맨숫자로 남아 자리수를 눈으로 세야 했다(사장님 지적).
     //   ROW_DATA~rowCount 전 구간에 걸어야 «앞으로 칠 행»도 함께 걸린다.
-    const money = /보증|개월|주행거리|배기량|증액/.test(c.name);
+    const money = /보증|개월|주행거리|배기량|증액|^기타기간/.test(c.name);
     // 연식은 콤마를 넣으면 안 된다 — 2024 가 2,024 가 된다.
     const plain = /연식/.test(c.name);
     if (!money && !plain) continue;
+    /**
+     * ★**대여료는 굵게, 보증금은 연하게**(사장님 확정 2026-08-11).
+     *   금액 칸이 열 몇 개씩 나란히 서 있으면 어느 게 매달 내는 돈이고 어느 게 한 번 내는
+     *   돈인지 눈으로 안 갈린다. 굵기로 가른다 — 파는 값이 대여료이므로 그쪽을 세운다.
+     */
+    const rent = /개월$|^기타기간/.test(c.name);
+    const deposit = /보증/.test(c.name);
     out.push({
       repeatCell: {
         range: grid(gid, ROW_DATA, rowCount, i, i + 1),
@@ -758,9 +816,13 @@ export function buildNumberFormats(gid: number, columns = TEMPLATE_COLUMNS, rowC
           userEnteredFormat: {
             horizontalAlignment: 'RIGHT',
             numberFormat: { type: 'NUMBER', pattern: money ? '#,##0' : '0' },
+            textFormat: {
+              fontSize: 10, fontFamily: FONT, bold: rent,
+              ...(deposit ? { foregroundColorStyle: { rgbColor: { red: 0.42, green: 0.45, blue: 0.50 } } } : {}),
+            },
           },
         },
-        fields: 'userEnteredFormat(horizontalAlignment,numberFormat)',
+        fields: 'userEnteredFormat(horizontalAlignment,numberFormat,textFormat)',
       },
     });
   }

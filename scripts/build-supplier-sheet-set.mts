@@ -26,7 +26,7 @@ import { priceList, priceVariants } from '../lib/domain/product';
 import {
   POLICY_COLUMN_FIELDS, POLICY_TAB_NAME, ROW_HEADER,
   buildColumns, buildNumberFormats, buildPolicyTabFormat, buildPolicyTabValues,
-  buildBaseFont, buildChipColors, buildTemplateFormat, buildTemplateValues, resetSheetRequests, yearOptions,
+  buildBanding, buildBaseFont, buildChipColors, buildRowHeights, buildTableRequest, buildTemplateFormat, buildTemplateValues, resetSheetRequests, tableWidth, yearOptions,
 } from '../lib/domain/supplier-template-sheet';
 import type { EntityRecord } from '../lib/intake/entities';
 
@@ -112,10 +112,30 @@ function tidyPolicyValue(v: string): string {
   return t;
 }
 
-/** 정책탭에 미리 채워 줄 값 — **그 공급사 정책만**. */
+/** 그 공급사 매물이 실제로 쓰는 정책코드 — 아무도 안 쓰는 옛 정책을 시트에 내보내지 않는다. */
+const usedPolicyCodes = new Map<string, Set<string>>();
+for (const p of Object.values<Rec>(prods)) {
+  if (!p || typeof p !== 'object' || dead(p)) continue;
+  const c = S(p.provider_company_code) || S(p.partner_code);
+  const pc = S(p.policy_code);
+  if (!c || !pc) continue;
+  if (!usedPolicyCodes.has(c)) usedPolicyCodes.set(c, new Set());
+  usedPolicyCodes.get(c)!.add(pc);
+}
+
+/**
+ * 정책탭에 미리 채워 줄 값 — **그 공급사 정책만**, 그중에서도 **쓰는 것만**.
+ *
+ * 소속은 이미 맞다(실측 2026-08-11 · 13곳 전부 자기 회사 코드). 문제는 옛 정책이다 —
+ * 빌린카 POL-0040 처럼 아무 차도 안 쓰는 코드가 남아 있어 공급사가 «이건 뭐냐»를 묻게 된다.
+ * 쓰는 게 하나도 없으면 그때는 있는 것을 다 낸다(새로 붙일 정책이 필요하므로).
+ */
 function policyColumnsFor(code: string): Record<string, string>[] {
-  const mine = Object.values<Rec>(policies).filter((x) => x && !dead(x)
+  const all = Object.values<Rec>(policies).filter((x) => x && !dead(x)
     && (S(x.provider_company_code) === code || S(x.partner_code) === code));
+  const used = usedPolicyCodes.get(code) || new Set<string>();
+  const inUse = all.filter((x) => used.has(S(x.policy_code) || S(x._key)));
+  const mine = inUse.length ? inUse : all;
   return mine.map((x) => {
     const col: Record<string, string> = { 정책코드: S(x.policy_code) || S(x._key), 정책명: S(x.policy_name) };
     for (const { name, field } of POLICY_COLUMN_FIELDS) col[name] = tidyPolicyValue(S(x[field]));
@@ -174,11 +194,20 @@ for (const f of files) {
   plan.cars = prof.cars;
 
   // 이미 입력된 시트는 건드리지 않는다.
-  const grid = await api(`https://sheets.googleapis.com/v4/spreadsheets/${f.id}?includeGridData=true&fields=sheets(properties(sheetId,title),tables(tableId,range),data(rowData(values(formattedValue))))`);
+  const grid = await api(`https://sheets.googleapis.com/v4/spreadsheets/${f.id}?includeGridData=true&fields=sheets(properties(sheetId,title),tables(tableId,range),bandedRanges(bandedRangeId),conditionalFormats,data(rowData(values(formattedValue))))`);
   // 이미 붙어 있는 표 — `addTable` 은 그 위에 다시 못 붙는다("교차 배경 색상이 이미 있는 범위").
   // 지우고 새로 붙여야 열 구성이 바뀐 새 양식이 그대로 들어간다.
   const oldTables = ((grid.sheets || []) as Rec[]).flatMap((sh) => ((sh.tables || []) as Rec[])
     .map((tb) => ({ gid: Number(sh.properties?.sheetId ?? 0), id: S(tb.tableId) })));
+  // 줄무늬도 겹치면 거부된다 — 지우고 새로 넣는다.
+  const oldBands = ((grid.sheets || []) as Rec[]).flatMap((sh) => ((sh.bandedRanges || []) as Rec[])
+    .map((b) => Number(b.bandedRangeId)));
+  // ★조건부서식은 **쌓인다**. 지우지 않고 다시 찍으면 같은 규칙이 배로 늘어
+  //   28개가 84개가 됐다(실측 2026-08-11). 시트마다 있는 것을 먼저 다 지운다.
+  const oldRules = ((grid.sheets || []) as Rec[]).map((sh) => ({
+    gid: Number(sh.properties?.sheetId ?? 0),
+    count: ((sh.conditionalFormats || []) as Rec[]).length,
+  })).filter((x) => x.count > 0);
   const sheets = ((grid.sheets || []) as Rec[]).map((sh) => ({
     gid: Number(sh.properties?.sheetId ?? 0),
     title: S(sh.properties?.title),
@@ -199,7 +228,13 @@ for (const f of files) {
   // ★쓰기 횟수를 아낀다 — 시트당 batchUpdate 2번 + 값쓰기 1번.
   //   요청을 잘게 나누면 13개를 도는 사이 분당 한도(60)를 넘어 중간에 죽는다.
   const gid = vehicle?.gid ?? 0;
-  const dropdownExtras = { 제조사: HANDLED_MAKER_OPTIONS, 연식: yearOptions(new Date().getFullYear()) };
+  // ★정책코드는 **그 시트 「정책」 탭에 있는 코드**만 고르게 한다.
+  //   자유입력으로 두면 없는 코드를 적어 조건이 통째로 안 붙는다.
+  const dropdownExtras = {
+    제조사: HANDLED_MAKER_OPTIONS,
+    연식: yearOptions(new Date().getFullYear()),
+    정책코드: pols.map((x) => S(x['정책코드'])).filter(Boolean),
+  };
 
   // ① 판 고르기 — 탭 이름·「정책」 탭 신설·서식 초기화(필터 제거 포함)
   const setup: Rec[] = [];
@@ -210,6 +245,9 @@ for (const f of files) {
   const needPolicyTab = polGid == null;
   if (needPolicyTab) setup.push({ addSheet: { properties: { title: POLICY_TAB_NAME } } });
   for (const tb of oldTables) setup.push({ deleteTable: { tableId: tb.id } });
+  for (const b of oldBands) setup.push({ deleteBanding: { bandedRangeId: b } });
+  // 뒤에서부터 지운다 — 앞에서 지우면 뒤 규칙의 번호가 밀린다.
+  for (const r of oldRules) for (let k = r.count - 1; k >= 0; k--) setup.push({ deleteConditionalFormatRule: { sheetId: r.gid, index: k } });
   setup.push(...resetSheetRequests(gid));
   const madeSetup = await api(`https://sheets.googleapis.com/v4/spreadsheets/${f.id}:batchUpdate`, {
     method: 'POST', body: JSON.stringify({ requests: setup }),
@@ -231,27 +269,49 @@ for (const f of files) {
     }),
   });
 
-  // ③ 서식 — **표(Table)는 쓰지 않는다**(사장님 확정 2026-08-11).
-  //   표를 쓰면 ①금액 칸이 표 밖이라 글꼴이 갈리고 ②표 경계에 진한 선이 남고
-  //   ③표 안에서는 숫자서식이 무시돼 천단위 콤마가 안 붙는다.
-  //   한 판으로 두고 글꼴·색·너비를 우리가 건다. 드롭다운은 화살표로 뜨지만
-  //   값마다 색이 붙어 오히려 눈에 잘 들어온다.
-  await api(`https://sheets.googleapis.com/v4/spreadsheets/${f.id}:batchUpdate`, {
-    method: 'POST',
-    body: JSON.stringify({
-      requests: [
-        ...buildBaseFont(gid, cols.length, ROWS),
-        ...buildTemplateFormat(gid, cols, dropdownExtras),
-        ...buildChipColors(gid, cols, HANDLED_MAKER_OPTIONS, ROWS),
-        ...buildNumberFormats(gid, cols, ROWS),
-        ...buildBaseFont(polGid!, 8, 40),
-        ...resetSheetRequests(polGid!),
-        ...buildPolicyTabFormat(polGid!, pols.length),
-      ],
-    }),
-  });
+  /**
+   * ③ 서식.
+   *
+   * ★표(Table)는 **드롭다운 칸까지만** 씌운다(사장님 확정 2026-08-11 — 칩으로 되돌림).
+   *   칩(알약) 드롭다운은 표로만 나온다. 그런데 표 안에서는 숫자서식이 무시되므로
+   *   금액·주행 칸은 표 밖에 남긴다 — 그래야 천단위 콤마가 붙는다.
+   *   그 대가로 표 오른쪽 끝(주행거리 앞)에 경계선이 하나 남는다. 이건 못 지운다.
+   * ★줄무늬는 표 밖 구간에만 우리가 넣는다 — 표가 자기 구간의 줄무늬를 이미 갖는다.
+   */
+  const tw = tableWidth(cols);
+  const shape = [
+    ...buildBaseFont(gid, cols.length, ROWS),
+    ...buildTemplateFormat(gid, cols, dropdownExtras, { asTable: true }),
+    ...buildChipColors(gid, cols, HANDLED_MAKER_OPTIONS, ROWS),
+    ...buildNumberFormats(gid, cols, ROWS),
+    ...buildRowHeights(gid, ROWS),
+    ...buildBaseFont(polGid!, 8, 40),
+    ...resetSheetRequests(polGid!),
+    ...buildPolicyTabFormat(polGid!, pols.length),
+    ...buildRowHeights(polGid!, 40),
+  ];
+  let tabled = true;
+  try {
+    await api(`https://sheets.googleapis.com/v4/spreadsheets/${f.id}:batchUpdate`, {
+      method: 'POST',
+      body: JSON.stringify({ requests: [...shape, buildTableRequest(gid, cols, dropdownExtras, ROWS)] }),
+    });
+  } catch (e) {
+    tabled = false;
+    console.log(`     △ ${f.name.replace('프리패스 재고 · ', '')} 표 변환 실패 — ${String((e as Error).message).slice(0, 60)}`);
+    await api(`https://sheets.googleapis.com/v4/spreadsheets/${f.id}:batchUpdate`, {
+      method: 'POST', body: JSON.stringify({ requests: shape }),
+    });
+  }
+  // 표 밖 구간(금액·정책·부가)에도 줄무늬를 이어 붙인다 — 표에서 끊기면 눈이 옆줄로 샌다.
+  if (tw < cols.length) {
+    await api(`https://sheets.googleapis.com/v4/spreadsheets/${f.id}:batchUpdate`, {
+      method: 'POST',
+      body: JSON.stringify({ requests: buildBanding(gid, cols.length, ROWS, tw) }),
+    }).catch(() => {});
+  }
 
-  console.log(`  ✓ ${f.name.replace('프리패스 재고 · ', '').padEnd(12)} 재고 ${cols.length}열 · 정책 ${pols.length}개`);
+  console.log(`  ✓ ${f.name.replace('프리패스 재고 · ', '').padEnd(12)} 재고 ${cols.length}열 · 정책 ${pols.length}개 · ${tabled ? `칩 ${tw}열` : '칩 없음'}`);
 }
 
 if (!APPLY) {
