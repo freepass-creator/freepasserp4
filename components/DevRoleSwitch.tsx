@@ -50,15 +50,15 @@ export function DevRoleSwitch() {
       border: `1px solid ${role ? C.warn : C.line}`,
       borderRadius: R, boxShadow: SH.cardRest, padding: '4px 6px',
     }}>
-      <button
-        type="button"
-        className="fp-press"
+      <Btn
+        variant="bare"
+        size="sm"
         onClick={() => setOpen((v) => !v)}
         title="테스트 역할 전환(화면만 바뀝니다)"
         style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: FS.micro, fontWeight: FW.label, color: role ? C.warn : C.mute }}
       >
         {role ? `테스트 · ${ROLES.find((x) => x.key === role)?.label}` : '테스트 역할'}
-      </button>
+      </Btn>
       {open ? (
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
           {ROLES.map((r) => (
