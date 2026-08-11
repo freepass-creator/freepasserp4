@@ -25,7 +25,7 @@ import { HANDLED_MAKER_OPTIONS } from '../lib/domain/handled-makers';
 import { priceList, priceVariants } from '../lib/domain/product';
 import { POLICY_DEFAULTS } from '../lib/domain/policy-defaults';
 import {
-  POLICY_COLUMN_FIELDS, POLICY_TAB_NAME, ROW_HEADER,
+  FREEPASS_STANDARD, POLICY_COLUMN_FIELDS, POLICY_TAB_FIELD_ROWS, POLICY_TAB_NAME, ROW_HEADER,
   buildColumns, buildNumberFormats, buildPolicyTabFormat, buildPolicyTabValues,
   buildBanding, buildBaseFont, buildChipColors, buildRowHeights, buildTemplateFormat, buildTemplateValues, resetSheetRequests, yearOptions,
 } from '../lib/domain/supplier-template-sheet';
@@ -157,9 +157,15 @@ function policyColumnsFor(code: string): Record<string, string>[] {
 function freepassColumn(): Record<string, string> {
   const byKey = new Map(POLICY_DEFAULTS.map((d) => [d.key, d]));
   const col: Record<string, string> = { 정책코드: '(프리패스 기본)', 정책명: '프리패스 표준' };
-  for (const { name, field } of POLICY_COLUMN_FIELDS) {
-    const d = byKey.get(field);
-    col[name] = d && d.value != null ? tidyPolicyValue(String(d.value)) : '';
+  const fieldOf = new Map(POLICY_COLUMN_FIELDS.map((c) => [c.name, c.field]));
+  // ★**모든 줄**을 돈다. ERP 필드가 없는 줄(추가주행 방식 등)도 표준은 있어야 한다 —
+  //   필드가 있는 줄만 돌았더니 그 한 칸이 비었다(실측 2026-08-11).
+  for (const row of POLICY_TAB_FIELD_ROWS) {
+    // 정책명은 위에서 이미 넣었다 — 반복문이 덮으면 빈칸이 된다(실측 2026-08-11).
+    if (row.name === '정책명') continue;
+    // 계약서 조항에서 나온 값이 먼저다. 없으면 우리가 세운 표준을 쓴다 — 빈칸은 남기지 않는다.
+    const d = byKey.get(S(fieldOf.get(row.name)));
+    col[row.name] = d && d.value != null ? tidyPolicyValue(String(d.value)) : S(FREEPASS_STANDARD[row.name]);
   }
   return col;
 }
