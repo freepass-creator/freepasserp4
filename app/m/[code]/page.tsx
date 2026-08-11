@@ -9,7 +9,7 @@ import { isOfferableProduct, vehicleName } from '@/lib/domain/product';
 import { MessageCircle, Share2 } from 'lucide-react';
 import { Btn, BottomNav, Loading, CenterNote, C, ICON } from '@/components/ui';
 import { toast } from '@/components/Toaster';
-import { ProductDetail } from '@/components/ProductDetail';
+import { ProductDetail, ProductPhotoDownloadButton } from '@/components/ProductDetail';
 import { SimpleInquiry } from '@/components/SimpleInquiry';
 import { ReportButton } from '@/components/ReportButton';
 import { ProductAssistPanel, useAssistColumn, ASSIST_GAP } from '@/components/ProductAssistPanel';
@@ -119,6 +119,8 @@ export default function Detail() {
   };
   const dockActions = canDeal ? (
     <>
+      <ReportButton p={p} />
+      <ProductPhotoDownloadButton p={p} />
       <Btn title="공유" variant="ghost" size="sm" onClick={sendLink}>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
           <Share2 size={ICON.md} aria-hidden />
@@ -151,10 +153,6 @@ export default function Detail() {
           {/* 간단문의는 **딜을 진행하지 않는 사람**(손님·공급사)에게만. 영업자·관리자에게는
               아래에 진짜 계약진행·대화가 붙으므로 간이 입구가 남으면 문의가 두 곳으로 갈린다. */}
           {canDeal ? null : <SimpleInquiry p={p} />}
-          {/* 검수요청 = 페이지 맨 하단. 본문과 같은 가로폭. */}
-          <div style={{ marginTop: 20, paddingTop: 14, borderTop: `1px solid ${C.line}`, width: '100%' }}>
-            <ReportButton p={p} />
-          </div>
           {/* 이전·공유·계약문의는 **상세를 따라다닌다** — 화면 한가운데 고정독으로 두면
               옆에 보조 칼럼이 선 만큼 본문이 왼쪽으로 밀려 «상세 밑»이 아니게 된다(2026-08-08 지적).
               sticky bottom = 스크롤 중엔 화면 아래에 붙고, 상세 끝에 오면 거기서 멈춘다. */}

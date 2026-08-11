@@ -6,7 +6,7 @@ import { useProductPhotoState } from '@/components/use-product-photos';
 import { getRole } from '@/lib/domain/deal';
 import { won, Badge, Btn, C, R, NUM, FW, FS, ICON, CloseBtn, IconBtn, SCRIM } from '@/components/ui';
 import { toast } from '@/components/Toaster';
-import { downloadPhotoZip } from '@/lib/client/download-photo-zip';
+import { downloadPhotoZip, downloadSinglePhoto } from '@/lib/client/download-photo-zip';
 import { useDragScroll } from '@/lib/use-drag-scroll';
 import {
   badges, Plate, idParts, CardBenefits, CardEvents, OptionChips,
@@ -16,6 +16,7 @@ import { ProductStateMarks } from '@/components/ProductStateMarks';
 import { ProductPhotoImage, ProductPhotoPlaceholder } from '@/components/ProductPhoto';
 import { ProductPriceTable } from '@/components/ProductPriceTable';
 import { useReportedTopOffset } from '@/lib/content-column';
+import { useIsMobile } from '@/lib/use-mobile';
 import { ChevronLeft, ChevronRight, Download, LoaderCircle } from 'lucide-react';
 
 /**
@@ -71,6 +72,38 @@ function KvRow({ label, children, first }: { label: string; children: ReactNode;
  */
 export type DetailLayout = 'brochure' | 'work';
 
+/** 상세 상단 보조행용 — 검수 요청 옆에서 이 차량 사진 전체를 받는다(PC 전용). */
+export function ProductPhotoDownloadButton({ p }: { p: EntityRecord }) {
+  const mobile = useIsMobile();
+  const [downloading, setDownloading] = useState(false);
+  const { photos, pending } = useProductPhotoState(p);
+  if (mobile) return null;
+  const { idMain } = idParts(p);
+  const vehicleName = String(p.car_number || p.vehicle_no || p.plate_no || p.product_code || idMain || '차량사진');
+  const download = async () => {
+    if (downloading || !photos.length) return;
+    setDownloading(true);
+    try {
+      const result = await downloadPhotoZip(photos, vehicleName);
+      toast(result.failed ? `사진 ${result.saved}장 저장 · ${result.failed}장 실패` : `사진 ${result.saved}장 저장 완료`, result.failed ? 'info' : 'ok');
+    } catch (error) {
+      toast(String((error as Error)?.message || '사진 다운로드 실패'), 'error');
+    } finally { setDownloading(false); }
+  };
+  return (
+    <Btn
+      size="sm"
+      variant="ghost"
+      onClick={download}
+      disabled={downloading || pending || !photos.length}
+      title={photos.length ? '이 차량의 사진을 ZIP으로 한 번에 저장' : pending ? '사진 확인 중' : '등록된 사진 없음'}
+    >
+      {downloading || pending ? <LoaderCircle size={ICON.sm} className="fp-spin" aria-hidden /> : <Download size={ICON.sm} aria-hidden />}
+      {downloading ? '묶는 중' : pending ? '사진 확인 중' : photos.length ? `사진 전체받기 · ${photos.length}장` : '사진 없음'}
+    </Btn>
+  );
+}
+
 export function ProductDetail({ p, audience, layout = 'brochure', priceAside = false }: {
   p: EntityRecord;
   audience?: Audience;
@@ -82,9 +115,9 @@ export function ProductDetail({ p, audience, layout = 'brochure', priceAside = f
    */
   priceAside?: boolean;
 }) {
+  const mobile = useIsMobile();
   const [lb, setLb] = useState<number | null>(null);
   const [main, setMain] = useState(0);
-  const [downloading, setDownloading] = useState(false);
   const { photos, pending } = useProductPhotoState(p);
   const thumbs = useDragScroll();
   useEffect(() => { setMain(0); }, [p.product_code]);
@@ -114,19 +147,17 @@ export function ProductDetail({ p, audience, layout = 'brochure', priceAside = f
   const pol = (p._policy || {}) as Record<string, unknown>;
   const caption = [pol.basic_driver_age, pol.annual_mileage, pol.insurance_included].filter(Boolean).join(' · ');
   const { idMain, idExt } = idParts(p);
+  const photoFileName = String(p.car_number || p.vehicle_no || p.plate_no || p.product_code || idMain || '차량사진');
   // 사진이 칼럼 맨 위에서 얼마나 내려와 있는지 = 우측 대여료 카드가 내려와야 할 만큼.
   //  머리 «높이»가 아니라 사진 «위치»를 잰다 — 높이만 재면 머리의 아래 여백이 빠져 그만큼 어긋난다.
   const photoRef = useReportedTopOffset<HTMLDivElement>('--fp-detail-head-h');
-  const downloadAllPhotos = async () => {
-    if (downloading || !photos.length) return;
-    setDownloading(true);
+  const downloadOnePhoto = async (url: string, index: number) => {
     try {
-      const vehicleName = String(p.car_number || p.vehicle_no || p.plate_no || p.product_code || idMain || '차량사진');
-      const result = await downloadPhotoZip(photos, vehicleName);
-      toast(result.failed ? `사진 ${result.saved}장 저장 · ${result.failed}장 실패` : `사진 ${result.saved}장 저장 완료`, result.failed ? 'info' : 'ok');
+      await downloadSinglePhoto(url, index, photoFileName);
+      toast(`사진 ${index + 1} 저장 완료`, 'ok');
     } catch (error) {
       toast(String((error as Error)?.message || '사진 다운로드 실패'), 'error');
-    } finally { setDownloading(false); }
+    }
   };
   /** work = 차량번호를 요약바가 이미 들고 있다. 세부표에서 한 번 더 찍지 않는다(같은 값 세 번 → 표가 길어 보인다). */
   const kvRows = (rows: [string, string][]) => (work ? rows.filter(([k]) => k !== '차량번호') : rows);
@@ -166,15 +197,9 @@ export function ProductDetail({ p, audience, layout = 'brochure', priceAside = f
       <div ref={photoRef}>
       {(photos.length ? (
         <div style={work ? { maxWidth: WORK_PHOTO_W, marginBottom: 4 } : undefined}>
-          {work ? (
+          {!mobile ? (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>
               <div style={{ fontSize: FS.title, fontWeight: FW.title, color: C.ink }}>차량사진</div>
-              {aud !== 'customer' && (
-                <Btn size="sm" variant="ghost" onClick={downloadAllPhotos} disabled={downloading} title="공급사 차량사진을 ZIP으로 한 번에 저장">
-                  {downloading ? <LoaderCircle size={ICON.sm} className="fp-spin" aria-hidden /> : <Download size={ICON.sm} aria-hidden />}
-                  {downloading ? '묶는 중' : `전체받기 ${photos.length}`}
-                </Btn>
-              )}
             </div>
           ) : null}
           <div
@@ -334,13 +359,23 @@ export function ProductDetail({ p, audience, layout = 'brochure', priceAside = f
           />
           <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: 880, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
             {photos.map((ph, i) => (
-              <ProductPhotoImage
-                key={i}
-                src={ph}
-                alt=""
-                style={{ width: '100%', height: 'auto', borderRadius: R, display: 'block' }}
-                fallbackStyle={{ aspectRatio: '16 / 10' }}
-              />
+              <div key={i} style={{ position: 'relative' }}>
+                {(
+                  <IconBtn
+                    title={`사진 ${i + 1} 한 장 받기`}
+                    onClick={(e) => { e.stopPropagation(); void downloadOnePhoto(ph, i); }}
+                    style={{ position: 'absolute', top: 10, right: 10, zIndex: 1, background: SCRIM.heavy, color: C.inverse, border: 'none' }}
+                  >
+                    <Download size={ICON.md} aria-hidden />
+                  </IconBtn>
+                )}
+                <ProductPhotoImage
+                  src={ph}
+                  alt=""
+                  style={{ width: '100%', height: 'auto', borderRadius: R, display: 'block' }}
+                  fallbackStyle={{ aspectRatio: '16 / 10' }}
+                />
+              </div>
             ))}
           </div>
         </div>
