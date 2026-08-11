@@ -153,8 +153,10 @@ for (const r of chRows.slice(1)) {
 
 // ── 표 만들기 ───────────────────────────────────────────────────────────────
 // 링크 두 칸은 줄 종류에 따라 가리키는 곳이 다르다 — 공급사줄은 재고·정책, 영업자줄은 신·구 상품리스트.
+// ★링크는 **한 줄에 하나**다(사장님 확정 2026-08-11). 재고와 정책은 같은 파일의 두 탭이라
+//   따로 걸 이유가 없다 — 열면 아래 탭으로 오간다.
 const HEADERS = ['구분', '코드', '연동방식', 'ERP 재고', '목록에 선 것',
-  '시트 ① (재고 / 상품리스트)', '시트 ② (정책 / 상품리스트 구버전)', '정책 수', '입력된 행',
+  '시트 열기', '정책 수', '입력된 행',
   'ERP 가 지금 읽는 곳', '그 주소(복사용)', '우리가 뜬 사본', '해야 할 일'];
 
 const rows: (string | number | Cell)[][] = [];
@@ -184,8 +186,7 @@ for (const p of Object.values<Rec>(partners)) {
 
   rows.push([
     name, code, how, st.alive, st.listed,
-    mine ? openLink(link(mine.id, mine.stockGid), '재고 열기') : '',
-    mine ? openLink(link(mine.id, mine.policyGid), '정책 열기') : '',
+    mine ? openLink(link(mine.id, mine.stockGid), '열기') : '',
     mine ? mine.policies : '',
     mine ? mine.rows : '',
     NOT_SHEET_BACKED.has(code) ? 'ironrentcar.com' : openLink(liveUrl, '원본 열기'),
@@ -212,8 +213,7 @@ const totalAlive = [...stock.values()].reduce((n, s2) => n + s2.alive, 0);
 const totalListed = [...stock.values()].reduce((n, s2) => n + s2.listed, 0);
 rows.unshift([
   '★ 영업자용 상품리스트', '-', 'ERP → 영업자 (우리가 찍는다)', totalAlive, totalListed,
-  listTab ? openLink(link(SALES, listTab.gid), '상품리스트 열기') : '',
-  jonghapTab ? openLink(link(SALES, jonghapTab.gid), '구버전 열기') : '',
+  listTab ? openLink(link(SALES, listTab.gid), '열기') : '',
   '', '',
   'ERP (v4/products)',
   '',
@@ -262,7 +262,7 @@ await api(`https://sheets.googleapis.com/v4/spreadsheets/${HUB}:batchUpdate`, {
       } },
       { updateSheetProperties: { properties: { sheetId: gid, gridProperties: { frozenRowCount: 1, frozenColumnCount: 1 } }, fields: 'gridProperties(frozenRowCount,frozenColumnCount)' } },
       // 칸마다 고정 너비 — autoResize 는 주소 길이를 따라가 열이 화면 밖으로 나간다.
-      ...[168, 76, 210, 84, 92, 108, 100, 68, 84, 104, 300, 96, 380].map((w, i) => ({
+      ...[168, 76, 210, 84, 92, 84, 68, 84, 104, 300, 96, 380].map((w, i) => ({
         updateDimensionProperties: {
           range: { sheetId: gid, dimension: 'COLUMNS', startIndex: i, endIndex: i + 1 },
           properties: { pixelSize: w }, fields: 'pixelSize',
