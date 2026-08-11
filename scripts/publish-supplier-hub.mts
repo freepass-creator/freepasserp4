@@ -25,7 +25,14 @@ const S = (v: unknown) => String(v ?? '').trim();
 const APPLY = process.argv.includes('--apply');
 const DB = 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app';
 const HUB = '1cRn_XbuJXQMlVCATtDN4EpQy-KVEi65tCwcvCxdFk8w';    // 「프리패스 공급사시트 정리」
-const SALES = '1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs';  // 「프리패스 상품리스트」(영업자용)
+const SALES = '1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs';  // 「프리패스 상품리스트」
+/**
+ * 코드가 읽는 주소록 「공급사시트정리」.
+ * ★ERP 가 «실제로» 읽는 곳은 여기다 — 동기화 직전에 `overlayHubSheetUrls` 가
+ *   이 주소로 파트너 레코드를 덮는다. 파트너의 `sheet_url` 만 보면 틀린다:
+ *   J&J 는 파트너에 주소가 아예 없는데 여기에는 있다(실측 2026-08-11).
+ */
+const CODE_HUB = '1TVeVXyJJRx0SzD2vxqy3eEjSojmMIWXSu7AdsKmpfmY';
 /** 탭 이름은 **메타에서 읽는다** — 파일 이름과 다르다(파일 「프리패스 공급사시트 정리」 / 탭 「공급사연동」). */
 const TAB_HINT = '공급사연동';
 /** A1 표기 — 탭 이름에 공백이 있으면 따옴표로 감싸야 «범위를 못 읽는다»가 안 난다. */
@@ -130,11 +137,25 @@ for (const f of ((copyRes.files || []) as Rec[])) {
   if (!cur || S(f.name) > cur.name) copyByCode.set(code, { id: S(f.id), name: S(f.name) });
 }
 
+/** 코드가 읽는 주소록에서 공급사별 주소를 가져온다. 이게 «ERP 가 실제로 읽는 곳»이다. */
+const codeHubMeta = await api(`https://sheets.googleapis.com/v4/spreadsheets/${CODE_HUB}?fields=sheets(properties(title))`);
+const codeHubTab = S(((codeHubMeta.sheets || []) as Rec[])[0]?.properties?.title);
+const codeHubVals = await api(`https://sheets.googleapis.com/v4/spreadsheets/${CODE_HUB}/values/${encodeURIComponent(codeHubTab)}`);
+const chRows = ((codeHubVals.values || []) as string[][]);
+const chHdr = (chRows[0] || []).map(S);
+const chCode = chHdr.findIndex((h) => /코드/.test(h));
+const chUrl = chHdr.findIndex((h) => /시트|주소|url/i.test(h));
+const hubUrlByCode = new Map<string, string>();
+for (const r of chRows.slice(1)) {
+  const c = S(r[chCode]);
+  if (c && S(r[chUrl])) hubUrlByCode.set(c, S(r[chUrl]));
+}
+
 // ── 표 만들기 ───────────────────────────────────────────────────────────────
 // 링크 두 칸은 줄 종류에 따라 가리키는 곳이 다르다 — 공급사줄은 재고·정책, 영업자줄은 신·구 상품리스트.
 const HEADERS = ['구분', '코드', '연동방식', 'ERP 재고', '목록에 선 것',
   '시트 ① (재고 / 상품리스트)', '시트 ② (정책 / 상품리스트 구버전)', '정책 수', '입력된 행',
-  'ERP 가 지금 읽는 곳', '우리가 뜬 사본', '해야 할 일'];
+  'ERP 가 지금 읽는 곳', '그 주소(복사용)', '우리가 뜬 사본', '해야 할 일'];
 
 const rows: (string | number | Cell)[][] = [];
 const seen = new Set<string>();
@@ -144,7 +165,8 @@ for (const p of Object.values<Rec>(partners)) {
   if (!code || seen.has(code)) continue;
   const name = S(p.partner_name || p.name || p.company_name) || code;
   const mine = ours.get(code);
-  const liveUrl = S(p.sheet_url);
+  // 허브가 파트너 레코드를 덮으므로 허브 주소가 먼저다.
+  const liveUrl = S(hubUrlByCode.get(code)) || S(p.sheet_url);
   // 시트도 없고 우리가 만든 것도 없는 곳은 공급사가 아니다(영업채널 등).
   if (!mine && !liveUrl && !NOT_SHEET_BACKED.has(code)) continue;
   seen.add(code);
@@ -167,6 +189,8 @@ for (const p of Object.values<Rec>(partners)) {
     mine ? mine.policies : '',
     mine ? mine.rows : '',
     NOT_SHEET_BACKED.has(code) ? 'ironrentcar.com' : openLink(liveUrl, '원본 열기'),
+    // 주소를 «글자»로도 낸다 — 링크만 있으면 복사해 남에게 보낼 수가 없다(사장님 지적).
+    NOT_SHEET_BACKED.has(code) ? 'https://www.ironrentcar.com' : liveUrl,
     copyByCode.has(code) ? openLink(link(copyByCode.get(code)!.id), '사본 열기') : '',
     todo,
   ]);
@@ -192,6 +216,7 @@ rows.unshift([
   jonghapTab ? openLink(link(SALES, jonghapTab.gid), '구버전 열기') : '',
   '', '',
   'ERP (v4/products)',
+  '',
   '',
   `공급사 시트가 바뀌면 다시 찍는다 — 지금 탭 「${S(listTab?.title)}」 · 「${S(jonghapTab?.title)}」`,
 ]);
@@ -237,7 +262,7 @@ await api(`https://sheets.googleapis.com/v4/spreadsheets/${HUB}:batchUpdate`, {
       } },
       { updateSheetProperties: { properties: { sheetId: gid, gridProperties: { frozenRowCount: 1, frozenColumnCount: 1 } }, fields: 'gridProperties(frozenRowCount,frozenColumnCount)' } },
       // 칸마다 고정 너비 — autoResize 는 주소 길이를 따라가 열이 화면 밖으로 나간다.
-      ...[168, 76, 210, 84, 92, 108, 100, 68, 84, 104, 96, 380].map((w, i) => ({
+      ...[168, 76, 210, 84, 92, 108, 100, 68, 84, 104, 300, 96, 380].map((w, i) => ({
         updateDimensionProperties: {
           range: { sheetId: gid, dimension: 'COLUMNS', startIndex: i, endIndex: i + 1 },
           properties: { pixelSize: w }, fields: 'pixelSize',
