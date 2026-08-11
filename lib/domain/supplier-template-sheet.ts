@@ -326,7 +326,7 @@ export function buildTemplateFormat(
       out.push({
         repeatCell: {
           range: grid(gid, ROW_HEADER, ROW_HEADER + 1, i, i + 1),
-          cell: { userEnteredFormat: { textFormat: { bold: true, fontSize: 10, foregroundColor: { red: 1, green: 0.80, blue: 0.55 } } } },
+          cell: { userEnteredFormat: { textFormat: { bold: true, fontSize: 10, fontFamily: FONT, foregroundColor: { red: 1, green: 0.80, blue: 0.55 } } } },
           fields: 'userEnteredFormat.textFormat',
         },
       });
@@ -368,12 +368,113 @@ export function buildTemplateFormat(
     });
   }
 
-  out.push({
-    updateDimensionProperties: {
-      range: { sheetId: gid, dimension: 'COLUMNS', startIndex: 0, endIndex: width },
-      properties: { pixelSize: 110 }, fields: 'pixelSize',
+  /**
+   * ★열 너비는 **칸마다** 정한다. 110 균일로 두면 차명·옵션이 뭉개지고
+   *   연식·연료는 남아돈다(사장님 지적 2026-08-11).
+   */
+  for (const [i, c] of columns.entries()) {
+    out.push({
+      updateDimensionProperties: {
+        range: { sheetId: gid, dimension: 'COLUMNS', startIndex: i, endIndex: i + 1 },
+        properties: { pixelSize: columnWidth(c.name) }, fields: 'pixelSize',
+      },
+    });
+  }
+  return out;
+}
+
+/**
+ * **한 판 전체에 같은 글꼴**을 건다.
+ *
+ * 표(Table)를 쓰면 표가 덮은 칸만 Roboto 가 되고 금액 칸은 기본 글꼴로 남아
+ * 같은 시트인데 두 문서처럼 보인다(사장님 지적 2026-08-11). 표를 걷어냈으므로
+ * 우리가 직접 전 구간에 건다.
+ */
+export function buildBaseFont(gid: number, columnCount: number, rowCount = 500): Rec[] {
+  return [{
+    repeatCell: {
+      range: grid(gid, 0, rowCount, 0, columnCount),
+      cell: { userEnteredFormat: { textFormat: { fontSize: 10, fontFamily: FONT }, verticalAlignment: 'MIDDLE' } },
+      fields: 'userEnteredFormat(textFormat,verticalAlignment)',
+    },
+  }];
+}
+
+/** 칸마다 필요한 만큼. 긴 글이 들어오는 칸만 넓히고 나머지는 좁혀 한 화면에 더 담는다. */
+export function columnWidth(name: string): number {
+  if (name === '차명(트림)') return 300;
+  if (name === '옵션') return 240;
+  if (name === '사진링크') return 200;
+  if (/보증|개월/.test(name)) return 100;
+  if (/^기타기간/.test(name)) return 100;
+  if (name === '차량번호' || name === '정책코드' || name === '최초등록일') return 104;
+  if (name === '제조사') return 96;
+  if (name === '상태' || name === '분류') return 92;
+  if (name === '주행거리' || name === '배기량') return 88;
+  if (/색상$/.test(name)) return 84;
+  if (name === '연식' || name === '연료') return 72;
+  return 100;
+}
+
+/**
+ * **값마다 색을 달리한다** — 상태·분류·제조사.
+ *
+ * 표(Table)의 드롭다운 칩은 API 로 색을 못 준다. 조건부서식으로 칸 배경을 칠하면
+ * 칩에도 그 색이 실린다. 상태 색은 ERP 화면과 같은 뜻으로 맞춘다(`VEHICLE_STATUS_TONES`) —
+ * 시트에서 빨강인 차가 ERP 에서 초록이면 아무도 안 믿는다.
+ */
+const TONE: Record<string, { bg: [number, number, number]; fg: [number, number, number] }> = {
+  green: { bg: [0.85, 0.95, 0.87], fg: [0.09, 0.35, 0.16] },
+  blue: { bg: [0.85, 0.91, 0.98], fg: [0.11, 0.28, 0.53] },
+  amber: { bg: [0.99, 0.95, 0.82], fg: [0.48, 0.35, 0.05] },
+  orange: { bg: [0.99, 0.90, 0.80], fg: [0.55, 0.28, 0.05] },
+  red: { bg: [0.98, 0.87, 0.87], fg: [0.55, 0.13, 0.13] },
+  gray: { bg: [0.93, 0.93, 0.94], fg: [0.28, 0.30, 0.34] },
+  violet: { bg: [0.92, 0.89, 0.98], fg: [0.32, 0.20, 0.55] },
+  teal: { bg: [0.85, 0.95, 0.94], fg: [0.07, 0.36, 0.35] },
+};
+
+/** 상태 → ERP 와 같은 뜻의 색. */
+const STATUS_TONE: Record<string, keyof typeof TONE> = {
+  즉시출고: 'green', 출고가능: 'green', 상품화중: 'amber', 출고협의: 'blue', 계약중: 'orange', 출고불가: 'red',
+};
+/** 분류 넷 — 신차/중고를 색으로, 렌트/구독을 진하기로 가른다. */
+const TYPE_TONE: Record<string, keyof typeof TONE> = {
+  신차렌트: 'blue', 신차구독: 'violet', 중고렌트: 'teal', 중고구독: 'amber',
+};
+
+export function buildChipColors(
+  gid: number,
+  columns: { name: string }[],
+  makers: readonly string[] = [],
+  rowCount = 500,
+): Rec[] {
+  const out: Rec[] = [];
+  const rule = (col: number, value: string, tone: keyof typeof TONE, index: number) => ({
+    addConditionalFormatRule: {
+      index,
+      rule: {
+        ranges: [grid(gid, ROW_DATA, rowCount, col, col + 1)],
+        booleanRule: {
+          condition: { type: 'TEXT_EQ', values: [{ userEnteredValue: value }] },
+          format: {
+            backgroundColorStyle: { rgbColor: { red: TONE[tone].bg[0], green: TONE[tone].bg[1], blue: TONE[tone].bg[2] } },
+            textFormat: { foregroundColorStyle: { rgbColor: { red: TONE[tone].fg[0], green: TONE[tone].fg[1], blue: TONE[tone].fg[2] } } },
+          },
+        },
+      },
     },
   });
+  let i = 0;
+  const colOf = (name: string) => columns.findIndex((c) => c.name === name);
+  const statusCol = colOf('상태');
+  if (statusCol >= 0) for (const [v, tone] of Object.entries(STATUS_TONE)) out.push(rule(statusCol, v, tone, i++));
+  const typeCol = colOf('분류');
+  if (typeCol >= 0) for (const [v, tone] of Object.entries(TYPE_TONE)) out.push(rule(typeCol, v, tone, i++));
+  // 제조사는 수가 많다 — 색을 돌려 쓰되 같은 회사는 늘 같은 색이 되게 이름 순서로 고정한다.
+  const makerCol = colOf('제조사');
+  const wheel: (keyof typeof TONE)[] = ['blue', 'teal', 'violet', 'amber', 'green', 'orange', 'gray', 'red'];
+  if (makerCol >= 0) makers.forEach((m, k) => out.push(rule(makerCol, m, wheel[k % wheel.length], i++)));
   return out;
 }
 

@@ -26,7 +26,7 @@ import { priceList, priceVariants } from '../lib/domain/product';
 import {
   POLICY_COLUMN_FIELDS, POLICY_TAB_NAME, ROW_HEADER,
   buildColumns, buildNumberFormats, buildPolicyTabFormat, buildPolicyTabValues,
-  buildTableRequest, buildTemplateFormat, buildTemplateValues, resetSheetRequests, tableWidth, yearOptions,
+  buildBaseFont, buildChipColors, buildTemplateFormat, buildTemplateValues, resetSheetRequests, yearOptions,
 } from '../lib/domain/supplier-template-sheet';
 import type { EntityRecord } from '../lib/intake/entities';
 
@@ -231,30 +231,27 @@ for (const f of files) {
     }),
   });
 
-  // ③ 서식 — 표(Table) 변환까지 한 번에. 표가 붙어야 드롭다운이 «칩»으로 뜬다.
-  //   ⚠ `addTable` 은 **이미 표가 있으면 거부**된다(다시 돌릴 때). 그때 배치 전체가 죽으면
-  //     서식이 통째로 안 들어가므로, 표를 뺀 나머지를 한 번 더 시도한다.
-  const shape = [
-    ...buildTemplateFormat(gid, cols, dropdownExtras, { asTable: true }),
-    ...buildNumberFormats(gid, cols, ROWS),
-    ...resetSheetRequests(polGid!),
-    ...buildPolicyTabFormat(polGid!, pols.length),
-  ];
-  let tabled = true;
-  try {
-    await api(`https://sheets.googleapis.com/v4/spreadsheets/${f.id}:batchUpdate`, {
-      method: 'POST',
-      body: JSON.stringify({ requests: [...shape, buildTableRequest(gid, cols, dropdownExtras, ROWS)] }),
-    });
-  } catch (e) {
-    tabled = false;
-    console.log(`     △ ${f.name.replace('프리패스 재고 · ', '')} 표 변환 실패 — ${String((e as Error).message).slice(0, 60)}`);
-    await api(`https://sheets.googleapis.com/v4/spreadsheets/${f.id}:batchUpdate`, {
-      method: 'POST', body: JSON.stringify({ requests: shape }),
-    });
-  }
+  // ③ 서식 — **표(Table)는 쓰지 않는다**(사장님 확정 2026-08-11).
+  //   표를 쓰면 ①금액 칸이 표 밖이라 글꼴이 갈리고 ②표 경계에 진한 선이 남고
+  //   ③표 안에서는 숫자서식이 무시돼 천단위 콤마가 안 붙는다.
+  //   한 판으로 두고 글꼴·색·너비를 우리가 건다. 드롭다운은 화살표로 뜨지만
+  //   값마다 색이 붙어 오히려 눈에 잘 들어온다.
+  await api(`https://sheets.googleapis.com/v4/spreadsheets/${f.id}:batchUpdate`, {
+    method: 'POST',
+    body: JSON.stringify({
+      requests: [
+        ...buildBaseFont(gid, cols.length, ROWS),
+        ...buildTemplateFormat(gid, cols, dropdownExtras),
+        ...buildChipColors(gid, cols, HANDLED_MAKER_OPTIONS, ROWS),
+        ...buildNumberFormats(gid, cols, ROWS),
+        ...buildBaseFont(polGid!, 8, 40),
+        ...resetSheetRequests(polGid!),
+        ...buildPolicyTabFormat(polGid!, pols.length),
+      ],
+    }),
+  });
 
-  console.log(`  ✓ ${f.name.replace('프리패스 재고 · ', '').padEnd(12)} 재고 ${cols.length}열 · 정책 ${pols.length}개 · ${tabled ? `칩 ${tableWidth(cols)}열` : '칩 없음'}`);
+  console.log(`  ✓ ${f.name.replace('프리패스 재고 · ', '').padEnd(12)} 재고 ${cols.length}열 · 정책 ${pols.length}개`);
 }
 
 if (!APPLY) {
