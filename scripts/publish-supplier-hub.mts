@@ -35,8 +35,13 @@ const link = (id: string, gid = 0) => `https://docs.google.com/spreadsheets/d/${
  * ★주소를 **그대로 쓰지 않는다**. 통째로 넣으면 열이 화면 밖까지 늘어나
  *   오른쪽 열(사본 등)이 안 보인다(사장님 지적 2026-08-11).
  *   누르면 열리는 짧은 글자로 둔다 — 주소는 읽는 게 아니라 누르는 것이다.
+ *
+ * ★`=HYPERLINK()` 수식이 아니라 **셀 글자에 링크를 건다**(`textFormatRuns`).
+ *   수식은 셀을 눌러야 열리지만, 글자 링크는 갖다 대면 바로 카드가 뜨고 눌리면 열린다 —
+ *   붙여넣은 링크와 똑같이 움직인다.
  */
-const openLink = (url: string, label: string) => (url ? `=HYPERLINK("${url}","${label}")` : '');
+type Cell = { label: string; url: string };
+const openLink = (url: string, label: string): Cell | string => (url ? { label, url } : '');
 
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 const dbT = (await new JWT({ email: sa.client_email, key: sa.private_key,
@@ -131,7 +136,7 @@ const HEADERS = ['구분', '코드', '연동방식', 'ERP 재고', '목록에 �
   '시트 ① (재고 / 상품리스트)', '시트 ② (정책 / 상품리스트 구버전)', '정책 수', '입력된 행',
   'ERP 가 지금 읽는 곳', '우리가 뜬 사본', '해야 할 일'];
 
-const rows: (string | number)[][] = [];
+const rows: (string | number | Cell)[][] = [];
 const seen = new Set<string>();
 for (const p of Object.values<Rec>(partners)) {
   if (dead(p)) continue;
@@ -206,9 +211,32 @@ const gid = Number(sheet?.properties?.sheetId ?? 0);
 const TAB = S(sheet?.properties?.title);
 
 await api(`https://sheets.googleapis.com/v4/spreadsheets/${HUB}/values/${encodeURIComponent(A1(TAB))}:clear`, { method: 'POST', body: '{}' });
+const isCell = (v: unknown): v is Cell => !!v && typeof v === 'object' && 'url' in (v as Rec);
+const flat = rows.map((r) => r.map((v) => (isCell(v) ? v.label : v)));
 await api(`https://sheets.googleapis.com/v4/spreadsheets/${HUB}/values/${encodeURIComponent(A1(TAB, 'A1'))}?valueInputOption=USER_ENTERED`, {
-  method: 'PUT', body: JSON.stringify({ values: [HEADERS, ...rows] }),
+  method: 'PUT', body: JSON.stringify({ values: [HEADERS, ...flat] }),
 });
+
+// 글자에 링크 걸기 — 값 쓰기 뒤에 해야 덮이지 않는다.
+const linkCells: Rec[] = [];
+rows.forEach((r, ri) => r.forEach((v, ci) => {
+  if (!isCell(v)) return;
+  linkCells.push({
+    updateCells: {
+      range: { sheetId: gid, startRowIndex: ri + 1, endRowIndex: ri + 2, startColumnIndex: ci, endColumnIndex: ci + 1 },
+      rows: [{ values: [{
+        userEnteredValue: { stringValue: v.label },
+        textFormatRuns: [{ startIndex: 0, format: { link: { uri: v.url }, underline: true, foregroundColorStyle: { rgbColor: { red: 0.10, green: 0.34, blue: 0.68 } } } }],
+      }] }],
+      fields: 'userEnteredValue,textFormatRuns',
+    },
+  });
+}));
+if (linkCells.length) {
+  await api(`https://sheets.googleapis.com/v4/spreadsheets/${HUB}:batchUpdate`, {
+    method: 'POST', body: JSON.stringify({ requests: linkCells }),
+  });
+}
 await api(`https://sheets.googleapis.com/v4/spreadsheets/${HUB}:batchUpdate`, {
   method: 'POST',
   body: JSON.stringify({
