@@ -1,0 +1,258 @@
+/**
+ * **공급사 입력시트 13개를 한 벌로 찍는다.** 기본 dry-run, 실제 쓰기는 `--apply`.
+ *
+ * 대상은 우리가 만들어 공급사에게 나눠 줄 「프리패스 재고 · <공급사>」 시트다.
+ * 공급사 자기 시트(아이카·이안카·오토플러스)와 홈페이지 정본(아이언)은 대상이 아니다.
+ *
+ * ★한 시트에 탭 둘 — 사장님 확정 2026-08-11
+ *   「재고」  제조사스펙 + 대여조건. 정책은 **정책코드 한 칸으로 가리키기만** 한다.
+ *   「정책」  정책코드마다 조건을 정의한다. 세로가 항목, 가로가 정책.
+ *
+ * ★안전 계약 — 넘으면 안 되는 선
+ *   · **운영 공급사 시트에는 쓰지 않는다.** 대상 ID 가 어느 파트너의 `sheet_url` 과 같으면
+ *     그 시트는 건너뛴다. 공급사 시트는 재고의 «정본»이고 이 스크립트는 탭을 갈아엎는다.
+ *   · **이미 입력된 시트는 건너뛴다.** 헤더 아래 값이 한 줄이라도 있으면 손대지 않는다 —
+ *     공급사가 채운 걸 덮으면 되돌릴 방법이 없다. 다시 찍으려면 `--force` 를 준다.
+ *   · RTDB 는 읽기만 한다.
+ *
+ *   npx tsx scripts/build-supplier-sheet-set.mts
+ *   npx tsx scripts/build-supplier-sheet-set.mts --apply
+ *   npx tsx scripts/build-supplier-sheet-set.mts --apply --only=RP013
+ */
+import { readFileSync } from 'node:fs';
+import { JWT } from 'google-auth-library';
+import { HANDLED_MAKER_OPTIONS } from '../lib/domain/handled-makers';
+import { priceList, priceVariants } from '../lib/domain/product';
+import {
+  POLICY_COLUMN_FIELDS, POLICY_TAB_NAME, ROW_HEADER,
+  buildColumns, buildNumberFormats, buildPolicyTabFormat, buildPolicyTabValues,
+  buildTableRequest, buildTemplateFormat, buildTemplateValues, resetSheetRequests, tableWidth, yearOptions,
+} from '../lib/domain/supplier-template-sheet';
+import type { EntityRecord } from '../lib/intake/entities';
+
+type Rec = Record<string, any>;
+const S = (v: unknown) => String(v ?? '').trim();
+const APPLY = process.argv.includes('--apply');
+const FORCE = process.argv.includes('--force');
+const ONLY = (process.argv.find((a) => a.startsWith('--only=')) || '').slice('--only='.length).split(',').map(S).filter(Boolean);
+const DB = 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app';
+const VEHICLE_TAB = '재고';
+const ROWS = 500;
+
+const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
+const dbT = (await new JWT({ email: sa.client_email, key: sa.private_key,
+  scopes: ['https://www.googleapis.com/auth/firebase.database', 'https://www.googleapis.com/auth/userinfo.email'] }).getAccessToken()).token;
+const gT = (await new JWT({ email: sa.client_email, key: sa.private_key,
+  scopes: ['https://www.googleapis.com/auth/drive', 'https://www.googleapis.com/auth/spreadsheets'],
+  subject: 'pyh@teamjpk.com' }).getAccessToken()).token;
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+/**
+ * 시트 API 한 번.
+ * ★쓰기는 **분당 60회**로 막힌다(사용자 단위). 13개 시트를 한 벌로 찍으면 쉽게 넘으므로
+ *   429·5xx 는 기다렸다 다시 한다 — 중간에 죽으면 어떤 시트는 표가 붙고 어떤 시트는 안 붙는다.
+ */
+const api = async (url: string, init?: RequestInit, tries = 5): Promise<Rec> => {
+  for (let i = 0; ; i++) {
+    const res = await fetch(url, { ...init, headers: { Authorization: `Bearer ${gT}`, 'Content-Type': 'application/json', ...(init?.headers || {}) } });
+    const body = await res.json().catch(() => ({})) as Rec;
+    if (res.ok) return body;
+    if ((res.status === 429 || res.status >= 500) && i < tries) {
+      const wait = 20000 * (i + 1);
+      console.log(`     … 한도에 걸려 ${wait / 1000}초 기다립니다`);
+      await sleep(wait);
+      continue;
+    }
+    throw new Error(body?.error?.message || `HTTP ${res.status}`);
+  }
+};
+
+// ── ERP 에서 읽는 것 — 공급사·정책·재고 ─────────────────────────────────────
+const [prods, pol3, pol4, t3, t4] = await Promise.all(
+  ['v4/products', 'policies', 'v4/policies', 'partners', 'v4/partners'].map(async (n) =>
+    JSON.parse(await (await fetch(`${DB}/${n}.json?access_token=${dbT}`)).text()) || {}));
+const dead = (p: Rec) => p?._deleted === true || !!p?.deletedAt || S(p?.status) === 'deleted';
+const merge = (...srcs: Rec[]) => {
+  const out: Record<string, Rec> = {};
+  for (const s of srcs) for (const [k, v] of Object.entries<Rec>(s)) if (v && typeof v === 'object') out[k] = { ...(out[k] || {}), ...v, _key: k };
+  return out;
+};
+const partners = merge(t3, t4);
+const policies = merge(pol3, pol4);
+
+/** 그 공급사가 **실제로 파는 기간**과 **신차를 파는가**. 시트 열은 여기서 정해진다. */
+const profile = new Map<string, { periods: Set<string>; newCars: boolean; cars: number }>();
+for (const p of Object.values<Rec>(prods)) {
+  if (!p || typeof p !== 'object' || dead(p)) continue;
+  const code = S(p.provider_company_code) || S(p.partner_code);
+  if (!code) continue;
+  const cur = profile.get(code) || { periods: new Set<string>(), newCars: false, cars: 0 };
+  cur.cars++;
+  if (/^신차/.test(S(p.product_type))) cur.newCars = true;
+  const rec = { ...p, product_code: p.product_code || p._key } as EntityRecord;
+  for (const row of priceList(rec)) cur.periods.add(String((row as Rec).months ?? (row as Rec).period ?? ''));
+  for (const v of priceVariants(rec)) cur.periods.add(String((v as Rec).months ?? (v as Rec).period ?? ''));
+  profile.set(code, cur);
+}
+
+/** 정책탭에 미리 채워 줄 값 — 이미 ERP 에 있는 그 공급사 정책. */
+function policyColumnsFor(code: string): Record<string, string>[] {
+  const mine = Object.values<Rec>(policies).filter((x) => x && !dead(x)
+    && (S(x.provider_company_code) === code || S(x.partner_code) === code));
+  return mine.map((x) => {
+    const col: Record<string, string> = { 정책코드: S(x.policy_code) || S(x._key), 정책명: S(x.policy_name) };
+    for (const { name, field } of POLICY_COLUMN_FIELDS) col[name] = S(x[field]);
+    return col;
+  });
+}
+
+// ── 대상 시트 찾기 ──────────────────────────────────────────────────────────
+const q = encodeURIComponent("mimeType='application/vnd.google-apps.spreadsheet' and 'me' in owners and trashed=false and name contains '프리패스 재고'");
+const found = await api(`https://www.googleapis.com/drive/v3/files?q=${q}&pageSize=100&fields=files(id,name)&orderBy=name`);
+const files = ((found.files || []) as Rec[]).map((f) => ({ id: S(f.id), name: S(f.name) }));
+
+/** 시트 이름의 공급사 → 파트너 코드. 이름이 안 붙으면 그 시트는 건드리지 않는다. */
+const nameToCode = new Map<string, string>();
+for (const p of Object.values<Rec>(partners)) {
+  if (dead(p)) continue;
+  const code = S(p.partner_code) || S(p._key);
+  for (const n of [p.partner_name, p.name, p.company_name].map(S).filter(Boolean)) {
+    nameToCode.set(n.replace(/\s|\(주\)|주식회사|㈜/g, ''), code);
+  }
+}
+const codeOf = (sheetName: string): string => {
+  const label = sheetName.replace('프리패스 재고 · ', '').replace(/\s/g, '');
+  if (nameToCode.has(label)) return nameToCode.get(label)!;
+  // 시트 이름은 줄여 쓴다(「에스에이」 ↔ 「주식회사 에스에이렌터카」). 앞뒤 어느 쪽이든 품으면 같은 곳이다.
+  for (const [n, c] of nameToCode) if (n.includes(label) || label.includes(n)) return c;
+  return '';
+};
+
+/** 운영 정본 시트 ID — 여기엔 절대 쓰지 않는다. */
+const liveSheetIds = new Set<string>();
+for (const p of Object.values<Rec>(partners)) {
+  const id = (S(p.sheet_url).match(/\/spreadsheets\/d\/([\w-]+)/) || [])[1];
+  if (id) liveSheetIds.add(id);
+}
+
+console.log(`■ 공급사 입력시트 한 벌 찍기 ${APPLY ? '(반영)' : '(dry-run)'}${FORCE ? ' · --force' : ''}\n`);
+console.log(`  대상 후보 ${files.length}개 · 운영 정본으로 보호되는 시트 ${liveSheetIds.size}개\n`);
+
+type Plan = { id: string; name: string; code: string; cols: string[]; policies: number; cars: number; skip: string };
+const plans: Plan[] = [];
+
+for (const f of files) {
+  const code = codeOf(f.name);
+  const plan: Plan = { id: f.id, name: f.name, code, cols: [], policies: 0, cars: 0, skip: '' };
+  if (!code) plan.skip = '공급사를 못 찾음 — 시트 이름 확인';
+  else if (ONLY.length && !ONLY.includes(code)) plan.skip = '--only 대상 아님';
+  else if (liveSheetIds.has(f.id)) plan.skip = '★운영 정본 시트 — 쓰지 않는다';
+  if (plan.skip) { plans.push(plan); continue; }
+
+  const prof = profile.get(code) || { periods: new Set<string>(), newCars: false, cars: 0 };
+  const cols = buildColumns([...prof.periods].filter(Boolean));
+  const pols = policyColumnsFor(code);
+  plan.cols = cols.map((c) => c.name);
+  plan.policies = pols.length;
+  plan.cars = prof.cars;
+
+  // 이미 입력된 시트는 건드리지 않는다.
+  const grid = await api(`https://sheets.googleapis.com/v4/spreadsheets/${f.id}?includeGridData=true&fields=sheets(properties(sheetId,title),tables(tableId,range),data(rowData(values(formattedValue))))`);
+  // 이미 붙어 있는 표 — `addTable` 은 그 위에 다시 못 붙는다("교차 배경 색상이 이미 있는 범위").
+  // 지우고 새로 붙여야 열 구성이 바뀐 새 양식이 그대로 들어간다.
+  const oldTables = ((grid.sheets || []) as Rec[]).flatMap((sh) => ((sh.tables || []) as Rec[])
+    .map((tb) => ({ gid: Number(sh.properties?.sheetId ?? 0), id: S(tb.tableId) })));
+  const sheets = ((grid.sheets || []) as Rec[]).map((sh) => ({
+    gid: Number(sh.properties?.sheetId ?? 0),
+    title: S(sh.properties?.title),
+    filled: ((sh.data?.[0]?.rowData || []) as Rec[])
+      .slice(ROW_HEADER + 1)
+      .filter((r) => ((r?.values || []) as Rec[]).some((c) => S(c?.formattedValue))).length,
+  }));
+  const vehicle = sheets.find((s) => s.title === VEHICLE_TAB) || sheets[0];
+  if (vehicle && vehicle.filled > 0 && !FORCE) {
+    plan.skip = `이미 ${vehicle.filled}행 입력됨 — 덮지 않는다 (--force 로 강제)`;
+    plans.push(plan);
+    continue;
+  }
+  plans.push(plan);
+
+  if (!APPLY) continue;
+
+  // ★쓰기 횟수를 아낀다 — 시트당 batchUpdate 2번 + 값쓰기 1번.
+  //   요청을 잘게 나누면 13개를 도는 사이 분당 한도(60)를 넘어 중간에 죽는다.
+  const gid = vehicle?.gid ?? 0;
+  const dropdownExtras = { 제조사: HANDLED_MAKER_OPTIONS, 연식: yearOptions(new Date().getFullYear()) };
+
+  // ① 판 고르기 — 탭 이름·「정책」 탭 신설·서식 초기화(필터 제거 포함)
+  const setup: Rec[] = [];
+  if (vehicle && vehicle.title !== VEHICLE_TAB) {
+    setup.push({ updateSheetProperties: { properties: { sheetId: gid, title: VEHICLE_TAB }, fields: 'title' } });
+  }
+  let polGid = sheets.find((s) => s.title === POLICY_TAB_NAME)?.gid;
+  const needPolicyTab = polGid == null;
+  if (needPolicyTab) setup.push({ addSheet: { properties: { title: POLICY_TAB_NAME } } });
+  for (const tb of oldTables) setup.push({ deleteTable: { tableId: tb.id } });
+  setup.push(...resetSheetRequests(gid));
+  const madeSetup = await api(`https://sheets.googleapis.com/v4/spreadsheets/${f.id}:batchUpdate`, {
+    method: 'POST', body: JSON.stringify({ requests: setup }),
+  });
+  if (needPolicyTab) {
+    const reply = ((madeSetup.replies || []) as Rec[]).find((r) => r?.addSheet);
+    polGid = Number(reply?.addSheet?.properties?.sheetId ?? 0);
+  }
+
+  // ② 값 — 두 탭을 한 번에 쓴다
+  await api(`https://sheets.googleapis.com/v4/spreadsheets/${f.id}/values:batchUpdate`, {
+    method: 'POST',
+    body: JSON.stringify({
+      valueInputOption: 'RAW',
+      data: [
+        { range: `${VEHICLE_TAB}!A1`, values: buildTemplateValues(cols) },
+        { range: `${POLICY_TAB_NAME}!A1`, values: buildPolicyTabValues(pols) },
+      ],
+    }),
+  });
+
+  // ③ 서식 — 표(Table) 변환까지 한 번에. 표가 붙어야 드롭다운이 «칩»으로 뜬다.
+  //   ⚠ `addTable` 은 **이미 표가 있으면 거부**된다(다시 돌릴 때). 그때 배치 전체가 죽으면
+  //     서식이 통째로 안 들어가므로, 표를 뺀 나머지를 한 번 더 시도한다.
+  const shape = [
+    ...buildTemplateFormat(gid, cols, dropdownExtras, { asTable: true }),
+    ...buildNumberFormats(gid, cols, ROWS),
+    ...resetSheetRequests(polGid!),
+    ...buildPolicyTabFormat(polGid!, pols.length),
+  ];
+  let tabled = true;
+  try {
+    await api(`https://sheets.googleapis.com/v4/spreadsheets/${f.id}:batchUpdate`, {
+      method: 'POST',
+      body: JSON.stringify({ requests: [...shape, buildTableRequest(gid, cols, dropdownExtras, ROWS)] }),
+    });
+  } catch (e) {
+    tabled = false;
+    console.log(`     △ ${f.name.replace('프리패스 재고 · ', '')} 표 변환 실패 — ${String((e as Error).message).slice(0, 60)}`);
+    await api(`https://sheets.googleapis.com/v4/spreadsheets/${f.id}:batchUpdate`, {
+      method: 'POST', body: JSON.stringify({ requests: shape }),
+    });
+  }
+
+  console.log(`  ✓ ${f.name.replace('프리패스 재고 · ', '').padEnd(12)} 재고 ${cols.length}열 · 정책 ${pols.length}개 · ${tabled ? `칩 ${tableWidth(cols)}열` : '칩 없음'}`);
+}
+
+if (!APPLY) {
+  console.log(`  ${'공급사'.padEnd(14)}${'코드'.padEnd(10)}${'재고열'.padStart(6)}${'정책'.padStart(6)}${'ERP재고'.padStart(8)}   비고`);
+  for (const p of plans) {
+    const label = p.name.replace('프리패스 재고 · ', '').slice(0, 13);
+    console.log(`  ${label.padEnd(14)}${(p.code || '-').padEnd(10)}${String(p.cols.length || '-').padStart(6)}${String(p.policies || '-').padStart(6)}${String(p.cars || '-').padStart(8)}   ${p.skip}`);
+  }
+  const go = plans.filter((p) => !p.skip);
+  console.log(`\n  찍을 시트 ${go.length}개 · 건너뛸 시트 ${plans.length - go.length}개`);
+  if (go[0]) console.log(`\n  「재고」 열 (${go[0].name.replace('프리패스 재고 · ', '')}) →\n   ${go[0].cols.join(' | ')}`);
+  console.log('\n※ dry-run. 실제 반영은 --apply\n');
+} else {
+  const done = plans.filter((p) => !p.skip).length;
+  console.log(`\n  찍음 ${done}개 · 건너뜀 ${plans.length - done}개`);
+  for (const p of plans.filter((x) => x.skip)) console.log(`     ${p.name.replace('프리패스 재고 · ', '').padEnd(14)}${p.skip}`);
+  console.log('');
+}

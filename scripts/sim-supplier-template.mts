@@ -9,7 +9,7 @@
 import { readFileSync } from 'node:fs';
 import { resolveAdapter } from '../lib/domain/sheet-adapters';
 import { importSheetTable } from '../lib/domain/sheet-import';
-import { buildTemplateValues, TEMPLATE_COLUMNS, ROW_HEADER } from '../lib/domain/supplier-template-sheet';
+import { buildColumns, buildTemplateValues, TEMPLATE_COLUMNS, ROW_HEADER } from '../lib/domain/supplier-template-sheet';
 
 let pass = 0, fail = 0;
 const S = (v: unknown) => String(v ?? '').trim();
@@ -23,18 +23,19 @@ const masterRaw = JSON.parse(readFileSync('public/data/vehicle-master.json', 'ut
 const master = (Array.isArray(masterRaw) ? masterRaw : masterRaw.entries) || [];
 
 const adapter = resolveAdapter('generic');
-const base = buildTemplateValues();
+// 신차 취급 공급사 구성으로 검사한다 — 차대번호 칸이 그때만 붙기 때문이다.
+const COLS = buildColumns();
+const base = buildTemplateValues(COLS);
 // 설명행은 공급사가 지우고 쓸 수도, 남길 수도 있다. 예시행 대신 진짜 데이터 2행을 넣는다.
 const dataRow = (plate: string, status: string, rent: string) => {
-  const r = Array(TEMPLATE_COLUMNS.length).fill('');
-  const set = (name: string, v: string) => { r[TEMPLATE_COLUMNS.findIndex((c) => c.name === name)] = v; };
+  const r = Array(COLS.length).fill('');
+  const set = (name: string, v: string) => { r[COLS.findIndex((c) => c.name === name)] = v; };
   set('차량번호', plate); set('상태', status); set('분류', '중고렌트');
   set('제조사', '현대');
   // 차명 한 칸에 트림까지 — 표준양식이 권하는 방식 그대로 시험한다.
   set('차명(트림)', '쏘나타 디 엣지 DN8 2.0 가솔린 인스퍼레이션');
   set('연식', '2024'); set('연료', '가솔린'); set('주행거리', '12000');
   set('외부색상', '흰색'); set('내부색상', '검정'); set('사진링크', 'https://drive.google.com/drive/folders/abc');
-  set('차대번호', 'KMHL14JA1PA123456');
   set('정책코드', 'POL-0047');
   set('단기보증', '1200000'); set('12개월', '900000');
   set('장기보증', '1800000'); set('24개월', '820000'); set('36개월', '750000');
@@ -59,7 +60,6 @@ console.log('\n══ 공급사 표준양식 — 파서 적합성 ══\n');
   check('2대가 매물로 잡힌다', r.products.length === 2, `${r.products.length}대`);
   const p = r.products[0] as any;
   check('차량번호', p?.car_number === '123가4567', String(p?.car_number));
-  check('차대번호(아무도 안 쓰던 칸)', p?.vin === 'KMHL14JA1PA123456', String(p?.vin));
   check('연식(아무도 안 쓰던 칸)', String(p?.year) === '2024', String(p?.year));
   check('사진링크(아무도 안 쓰던 칸)', String(p?.photo_link).includes('drive.google'), String(p?.photo_link));
   // 차명 한 칸만 줘도 마스터가 세대까지 잡고 검수로 안 떨어지는가 — 자유입력의 근거다.
