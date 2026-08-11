@@ -115,6 +115,8 @@ export async function downloadInventoryPhotoArchives(
 ): Promise<{ archives: number; vehicles: number; photos: number; noPhoto: number; failed: number }> {
   const batchSize = 10;
   const batches = Math.ceil(products.length / batchSize);
+  const providerNames = [...new Set(products.map((product) => String(product.provider_name || product.provider_company_code || '').trim()).filter(Boolean))];
+  const archiveBase = providerNames.length === 1 ? `${safeName(providerNames[0])}_차량사진` : '프리패스_차량사진';
   let archives = 0; let vehicles = 0; let photos = 0; let noPhoto = 0; let failed = 0;
 
   for (let start = 0; start < products.length; start += batchSize) {
@@ -142,7 +144,7 @@ export async function downloadInventoryPhotoArchives(
     if (zipFiles.length) {
       const zip = createPhotoZip(zipFiles);
       const buffer = new ArrayBuffer(zip.byteLength); new Uint8Array(buffer).set(zip);
-      saveBlob(new Blob([buffer], { type: 'application/zip' }), `프리패스_전체차량사진_${String(batch).padStart(2, '0')}-${String(batches).padStart(2, '0')}.zip`);
+      saveBlob(new Blob([buffer], { type: 'application/zip' }), `${archiveBase}_${String(batch).padStart(2, '0')}-${String(batches).padStart(2, '0')}.zip`);
       archives++;
       // 다운로드 이벤트와 Blob 해제를 브라우저가 처리할 틈을 준다.
       await new Promise((resolve) => setTimeout(resolve, 250));
