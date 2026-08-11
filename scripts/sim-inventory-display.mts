@@ -7,7 +7,7 @@ import {
   vehicleTone,
 } from '../lib/domain/product';
 import { checkInventory } from '../lib/domain/data-check';
-import { providerNameMap } from '../lib/domain/identity';
+import { providerNameMap, withProviderNames } from '../lib/domain/identity';
 import { matchPolicyQuery } from '../lib/domain/search';
 
 let passed = 0;
@@ -75,6 +75,8 @@ const aliases = providerNameMap([
 const rawPolicy = { policy_code: 'pol_1', provider_company_code: 'RP013' };
 check('정책 귀속 공급사도 코드 대신 표시명 보강', aliases.RP013 === '웰릭스', aliases);
 check('정책 표시명 보강은 원본 저장 레코드를 변경하지 않음', !('provider_name' in rawPolicy), rawPolicy);
+check('파트너 조회가 비어도 이안카 내부코드를 이름으로 표시',
+  withProviderNames([{ product_code: 'IANKA-1', provider_company_code: 'RP031' }], [])[0]?.provider_name === '이안카');
 check('정책 목록에 보이는 공급사명으로 검색', matchPolicyQuery({ ...rawPolicy, provider_name: aliases.RP013 }, '웰릭스'));
 
 const listRowSource = readFileSync(

@@ -1,12 +1,11 @@
 'use client';
 import { useEffect, useState } from 'react';
 import {
-  Page, Btn, ButtonLabel, C, SectionLabel, DetailGrid, ListGroup, ListRow, FilterChips, NUM, Input, FS, R, fmtPhone, ICON,
+  Page, Btn, ButtonLabel, C, SectionLabel, DetailGrid, ListGroup, ListRow, FilterChips, NUM, Input, Select, FS, R, fmtPhone, ICON,
 } from '@/components/ui';
-import { Copy, KeyRound, LogIn, LogOut, Save } from 'lucide-react';
+import { Copy, Download, KeyRound, LoaderCircle, LogIn, LogOut, Save } from 'lucide-react';
 import { useSession } from '@/lib/auth-context';
 import { getRole, setRole, actor, ROLE_LABEL, type Role } from '@/lib/domain/deal';
-import { setGuest, isGuest } from '@/lib/auth-session';
 import { haptic } from '@/lib/haptics';
 import { BRAND, VERSION } from '@/lib/brand';
 import { listHidden, subscribeHidden, type HiddenSnap } from '@/lib/product-hide';
@@ -16,12 +15,18 @@ import {
   getThemePref, setThemePref, getHapticOn, setHapticOn, subscribePrefs,
   getIdleMinutes, setIdleMinutes, type ThemePref, applyTheme,
 } from '@/lib/prefs';
-import { toast } from '@/components/Toaster';
+import { confirmDialog, toast } from '@/components/Toaster';
+import { useIsMobile } from '@/lib/use-mobile';
+import { getStore } from '@/lib/store';
+import { getCompanyId } from '@/lib/tenant';
+import { isListableProduct } from '@/lib/domain/product';
+import { downloadInventoryPhotoArchives } from '@/lib/client/download-photo-zip';
+import type { EntityRecord } from '@/lib/intake/entities';
 import { NAV_LABEL } from '@/lib/tabbar';
 import { copyText } from '@/lib/clipboard';
 import { ProductPreferences } from '@/features/settings/ProductPreferences';
 import { MyFiles } from '@/features/settings/MyFiles';
-/** 미로그인 데모 — 관리자 승격 금지(둘러보기·권한 구멍 차단). */
+/** 로컬 미인증 데모 — 관리자 승격 금지. */
 const DEMO_ROLES: { key: Role; label: string }[] = [
   { key: 'agent', label: '영업자' },
   { key: 'provider', label: '공급사' },
@@ -50,7 +55,6 @@ export default function Settings() {
   const session = useSession();
   const [mounted, setMounted] = useState(false);
   const visibleSession = mounted ? session : null;
-  const guest = mounted ? isGuest() : false;
   const [role, setRoleLocal] = useState<Role>('agent');
   const [hidden, setHidden] = useState<HiddenSnap[]>([]);
   const [passed, setPassed] = useState<PassSnap[]>([]);
@@ -66,8 +70,22 @@ export default function Settings() {
   const [pwdBusy, setPwdBusy] = useState(false);
   const [idleMin, setIdleLocal] = useState(0);
   const [origin, setOrigin] = useState('');
+  const [photoDownloading, setPhotoDownloading] = useState(false);
+  const [photoDownloadLabel, setPhotoDownloadLabel] = useState('공급사 사진 받기');
+  const [photoProducts, setPhotoProducts] = useState<EntityRecord[]>([]);
+  const [photoProvider, setPhotoProvider] = useState('');
+  const mobile = useIsMobile();
 
   useEffect(() => { setMounted(true); }, []);
+
+  useEffect(() => {
+    if (mobile || visibleSession?.role !== 'admin') return;
+    let alive = true;
+    getStore().list('product', getCompanyId())
+      .then((products) => { if (alive) setPhotoProducts(products.filter(isListableProduct)); })
+      .catch(() => { if (alive) setPhotoProducts([]); });
+    return () => { alive = false; };
+  }, [mobile, visibleSession?.role]);
 
   useEffect(() => {
     setRoleLocal(getRole());
@@ -125,18 +143,17 @@ export default function Settings() {
   const email = visibleSession?.email || '';
   const company = visibleSession?.company_code || '';
   const demoRole = !visibleSession;
-  const statusLabel = visibleSession ? '로그인' : guest ? '둘러보기(비로그인)' : '데모';
+  const statusLabel = visibleSession ? '로그인' : '데모';
 
   const doLogout = async () => {
     haptic.impact();
     try { const { logout } = await import('@/lib/firebase/auth'); await logout(); } catch { /* noop */ }
-    setGuest(false);
     // soft replace면 세션 null 설정이 데모 UI로 한 프레임 그려진 뒤 /login — 하드 이동으로 스킵.
     window.location.href = '/login';
   };
 
   const switchRole = (r: Role) => {
-    if (r === 'admin' && (guest || !session)) {
+    if (r === 'admin' && !session) {
       toast('관리자 화면은 관리자 계정으로 로그인하세요.', 'info');
       return;
     }
@@ -196,6 +213,36 @@ export default function Settings() {
       toast('공유 링크를 복사했습니다', 'ok');
     } else toast('복사 실패 — 링크를 길게 눌러 복사하세요', 'error');
   };
+  const downloadAllInventoryPhotos = async () => {
+    if (photoDownloading) return;
+    setPhotoDownloading(true);
+    try {
+      const targets = photoProducts.filter((product) => String(product.provider_company_code || '').trim() === photoProvider);
+      const providerName = String(targets[0]?.provider_name || photoProvider || '').trim();
+      if (!photoProvider || !targets.length) throw new Error('사진을 받을 공급사를 선택해 주세요.');
+      const approved = await confirmDialog({
+        title: `${providerName} 차량사진`,
+        message: `${providerName} 판매 가능 재고 ${targets.length.toLocaleString()}대의 사진을 차량 10대 단위 ZIP으로 저장합니다. 브라우저에서 여러 파일 다운로드를 허용해 주세요.`,
+        okLabel: '사진 받기',
+      });
+      if (!approved) return;
+      const result = await downloadInventoryPhotoArchives(targets, ({ batch, batches }) => setPhotoDownloadLabel(`사진 묶는 중 ${batch}/${batches}`));
+      toast(`ZIP ${result.archives}개 · 차량 ${result.vehicles}대 · 사진 ${result.photos}장${result.noPhoto ? ` · 사진없음 ${result.noPhoto}대` : ''}${result.failed ? ` · 실패 ${result.failed}장` : ''}`, result.failed ? 'info' : 'ok');
+    } catch (error) {
+      toast(`전체 사진 다운로드 실패: ${String((error as Error)?.message || error)}`, 'error');
+    } finally {
+      setPhotoDownloading(false);
+      setPhotoDownloadLabel('공급사 사진 받기');
+    }
+  };
+  const photoProviderOptions = [...photoProducts.reduce((map, product) => {
+    const code = String(product.provider_company_code || '').trim();
+    if (!code) return map;
+    const label = String(product.provider_name || code).trim();
+    map.set(code, { value: code, label });
+    return map;
+  }, new Map<string, { value: string; label: string }>()).values()]
+    .sort((a, b) => a.label.localeCompare(b.label, 'ko'));
 
   return (
     <Page title="설정">
@@ -243,9 +290,9 @@ export default function Settings() {
               </Btn>
             ) : null}
             {/* danger 빨강은 파괴적 동작(로그아웃)에만. 미로그인 상태의 '로그인'은 주 액션이다. */}
-            <Btn title={visibleSession || guest ? '로그아웃' : '로그인'} variant={visibleSession || guest ? 'danger' : 'solid'} full onClick={doLogout}>
-              <ButtonLabel icon={visibleSession || guest ? <LogOut size={ICON.md} aria-hidden /> : <LogIn size={ICON.md} aria-hidden />}>
-                {visibleSession || guest ? '로그아웃' : '로그인'}
+            <Btn title={visibleSession ? '로그아웃' : '로그인'} variant={visibleSession ? 'danger' : 'solid'} full onClick={doLogout}>
+              <ButtonLabel icon={visibleSession ? <LogOut size={ICON.md} aria-hidden /> : <LogIn size={ICON.md} aria-hidden />}>
+                {visibleSession ? '로그아웃' : '로그인'}
               </ButtonLabel>
             </Btn>
           </div>
@@ -324,6 +371,27 @@ export default function Settings() {
         {visibleSession?.role === 'admin' ? (
           <div>
             <SectionLabel mt={0}>관리</SectionLabel>
+            {!mobile && (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ marginBottom: 6 }}>
+                  <Select
+                    full
+                    value={photoProvider}
+                    onChange={setPhotoProvider}
+                    placeholder="공급사 선택"
+                    options={photoProviderOptions}
+                  />
+                </div>
+                <Btn full variant="ghost" title="선택한 공급사의 판매 가능 차량사진 받기" onClick={downloadAllInventoryPhotos} disabled={photoDownloading || !photoProvider}>
+                  <ButtonLabel icon={photoDownloading ? <LoaderCircle size={ICON.md} className="fp-spin" aria-hidden /> : <Download size={ICON.md} aria-hidden />}>
+                    {photoDownloadLabel}
+                  </ButtonLabel>
+                </Btn>
+                <div style={{ marginTop: 6, fontSize: FS.sub, color: C.faint, lineHeight: 1.45 }}>
+                  선택한 공급사의 사진을 차량번호 폴더로 정리해 차량 10대 단위 ZIP으로 저장합니다. PC에서만 이용할 수 있습니다.
+                </div>
+              </div>
+            )}
             <ListRow main="개발도구" href="/dev" />
             <ListRow main={NAV_LABEL.dataCheck} href="/data-check" />
             <ListRow main={NAV_LABEL.audit} href="/audit" />

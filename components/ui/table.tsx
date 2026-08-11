@@ -372,7 +372,7 @@ export function excelFitPlan(opts: {
   const { mode, hasOpts } = opts;
   const allMonths = [...opts.months].sort((a, b) => a - b);
   const baseMeta = [
-    'vehicle_status', 'product_type', 'maker', 'model',
+    'vehicle_status', 'product_type', 'maker',
     'sub_model', 'variant', 'trim_name', 'options',
     'ext_color', 'int_color', 'year', 'mileage', 'fuel_type',
     'provider_name',

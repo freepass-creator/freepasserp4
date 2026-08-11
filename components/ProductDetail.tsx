@@ -4,7 +4,9 @@ import { type EntityRecord } from '@/lib/intake/entities';
 import { priceList, detailSections, cheapest, type Audience } from '@/lib/domain/product';
 import { useProductPhotoState } from '@/components/use-product-photos';
 import { getRole } from '@/lib/domain/deal';
-import { won, Badge, C, R, NUM, FW, FS, ICON, CloseBtn, IconBtn, SCRIM } from '@/components/ui';
+import { won, Badge, Btn, C, R, NUM, FW, FS, ICON, CloseBtn, IconBtn, SCRIM } from '@/components/ui';
+import { toast } from '@/components/Toaster';
+import { downloadPhotoZip } from '@/lib/client/download-photo-zip';
 import { useDragScroll } from '@/lib/use-drag-scroll';
 import {
   badges, Plate, idParts, CardBenefits, CardEvents, OptionChips,
@@ -14,7 +16,7 @@ import { ProductStateMarks } from '@/components/ProductStateMarks';
 import { ProductPhotoImage, ProductPhotoPlaceholder } from '@/components/ProductPhoto';
 import { ProductPriceTable } from '@/components/ProductPriceTable';
 import { useReportedTopOffset } from '@/lib/content-column';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, LoaderCircle } from 'lucide-react';
 
 /**
  * 매물 상세 SSOT — 웹·모바일 **동일 원자·동일 타이포**.
@@ -82,6 +84,7 @@ export function ProductDetail({ p, audience, layout = 'brochure', priceAside = f
 }) {
   const [lb, setLb] = useState<number | null>(null);
   const [main, setMain] = useState(0);
+  const [downloading, setDownloading] = useState(false);
   const { photos, pending } = useProductPhotoState(p);
   const thumbs = useDragScroll();
   useEffect(() => { setMain(0); }, [p.product_code]);
@@ -99,6 +102,17 @@ export function ProductDetail({ p, audience, layout = 'brochure', priceAside = f
   // 사진이 칼럼 맨 위에서 얼마나 내려와 있는지 = 우측 대여료 카드가 내려와야 할 만큼.
   //  머리 «높이»가 아니라 사진 «위치»를 잰다 — 높이만 재면 머리의 아래 여백이 빠져 그만큼 어긋난다.
   const photoRef = useReportedTopOffset<HTMLDivElement>('--fp-detail-head-h');
+  const downloadAllPhotos = async () => {
+    if (downloading || !photos.length) return;
+    setDownloading(true);
+    try {
+      const vehicleName = String(p.car_number || p.vehicle_no || p.plate_no || p.product_code || idMain || '차량사진');
+      const result = await downloadPhotoZip(photos, vehicleName);
+      toast(result.failed ? `사진 ${result.saved}장 저장 · ${result.failed}장 실패` : `사진 ${result.saved}장 저장 완료`, result.failed ? 'info' : 'ok');
+    } catch (error) {
+      toast(String((error as Error)?.message || '사진 다운로드 실패'), 'error');
+    } finally { setDownloading(false); }
+  };
   /** work = 차량번호를 요약바가 이미 들고 있다. 세부표에서 한 번 더 찍지 않는다(같은 값 세 번 → 표가 길어 보인다). */
   const kvRows = (rows: [string, string][]) => (work ? rows.filter(([k]) => k !== '차량번호') : rows);
 
@@ -138,7 +152,15 @@ export function ProductDetail({ p, audience, layout = 'brochure', priceAside = f
       {(photos.length ? (
         <div style={work ? { maxWidth: WORK_PHOTO_W, marginBottom: 4 } : undefined}>
           {work ? (
-            <div style={{ fontSize: FS.title, fontWeight: FW.title, color: C.ink, marginBottom: 4 }}>차량사진</div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>
+              <div style={{ fontSize: FS.title, fontWeight: FW.title, color: C.ink }}>차량사진</div>
+              {aud !== 'customer' && (
+                <Btn size="sm" variant="ghost" onClick={downloadAllPhotos} disabled={downloading} title="공급사 차량사진을 ZIP으로 한 번에 저장">
+                  {downloading ? <LoaderCircle size={ICON.sm} className="fp-spin" aria-hidden /> : <Download size={ICON.sm} aria-hidden />}
+                  {downloading ? '묶는 중' : `전체받기 ${photos.length}`}
+                </Btn>
+              )}
+            </div>
           ) : null}
           <div
             onPointerDown={(e) => {

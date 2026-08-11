@@ -12,6 +12,14 @@ export type OrgType = 'supplier' | 'channel' | 'platform';
 export type OrgRef = { id: string; type: OrgType; name: string; contact?: string };
 export type AgentInfo = { id: string; name: string; contact?: string; channel: OrgRef | null };
 
+/**
+ * 공급사 명단 조회가 부분 실패해도 화면에 내부 코드가 노출되지 않게 하는 최소 안전망.
+ * 이름의 정본은 partner 레코드이며, 이 표는 운영에서 실제 코드 노출이 확인된 공급사만 둔다.
+ */
+const PROVIDER_NAME_FALLBACKS: Readonly<Record<string, string>> = {
+  RP031: '이안카',
+};
+
 /** 코드 접두사로 종류 판별(거래코드 레거시 접두사도 인식). */
 export function kindOf(code: unknown): Kind {
   const s = String(code || '');
@@ -84,7 +92,7 @@ export async function contractParties(co: string, c: EntityRecord): Promise<{
 
 /** 공급사코드 → 표시명(별칭). 명시 alias 우선, 없으면 상호에서 잡음어 제거. */
 export function providerNameMap(partners: EntityRecord[]): Record<string, string> {
-  const m: Record<string, string> = {};
+  const m: Record<string, string> = { ...PROVIDER_NAME_FALLBACKS };
   for (const pt of partners) {
     const full = String(pt.name || pt.company_name || pt.partner_name || '').trim();
     if (!full && !pt.alias && !pt.short_name) continue;
@@ -130,7 +138,7 @@ export function withProviderNames(products: EntityRecord[], partners: EntityReco
   }
   return products.map((p) => {
     const code = String(p.provider_company_code || p.partner_code || '').trim();
-    const fromMap = code ? map[code] : '';
+    const fromMap = code ? (map[code] || PROVIDER_NAME_FALLBACKS[code]) : '';
     const existing = String(p.provider_name || p.provider_company_name || '').trim();
     const full = (code && fullByCode[code]) || (existing && existing !== code ? existing : '') || '';
     const raw = fromMap || (existing && existing !== code ? existing : '') || code;
