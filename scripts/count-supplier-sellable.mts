@@ -15,6 +15,7 @@
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { canonSheetVehicleStatus } from '../lib/domain/sheet-import';
+import { NOT_SHEET_BACKED, SHEET_GRID_FIELDS, findPlateAndStatusColumns, readSupplierSheet } from '../lib/domain/supplier-sheet-read';
 
 const S = (v: unknown) => String(v ?? '').trim();
 const norm = (v: unknown) => S(v).replace(/\s+/g, '');
@@ -42,24 +43,32 @@ for (const p of Object.values<any>(partners)) {
   if (S(p.sheet_url) && !sheets.has(c)) sheets.set(c, { name: S(p.partner_name || p.name || p.company_name) || c, url: S(p.sheet_url) });
 }
 
-type Out = { code: string; name: string; tabs: string[]; rows: number; sellable: number; plates: number; err: string; by: Map<string, number> };
+type Out = { code: string; name: string; tabs: string[]; tabErrs: string[]; rows: number; sellable: number; plates: number; err: string; by: Map<string, number> };
 const out: Out[] = [];
 const detail: string[][] = [];
 
 for (const [code, meta] of sheets) {
+  // 시트가 정본이 아닌 공급사는 시트로 세지 않는다(아이언 = 홈페이지 수집).
+  if (NOT_SHEET_BACKED.has(code)) continue;
   const id = meta.url.match(/\/d\/([\w-]+)/)?.[1];
-  const o: Out = { code, name: meta.name, tabs: [], rows: 0, sellable: 0, plates: 0, err: '', by: new Map() };
+  const o: Out = { code, name: meta.name, tabs: [], tabErrs: [], rows: 0, sellable: 0, plates: 0, err: '', by: new Map() };
   if (!id) { o.err = '시트 주소 없음'; out.push(o); continue; }
   const seen = new Set<string>();
   try {
-    const m = await (await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${id}?fields=sheets.properties.title`, { headers: { Authorization: `Bearer ${shT}` } })).json();
-    if ((m as any).error) throw new Error((m as any).error.message);
-    for (const tab of (m.sheets || []).map((s: any) => s.properties.title)) {
-      const v = await (await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${encodeURIComponent(tab)}!A1:BZ2000`, { headers: { Authorization: `Bearer ${shT}` } })).json();
-      const t: string[][] = v.values || [];
+    // ★시트는 규격(`readSupplierSheet`)으로만 읽는다.
+    //   2026-08-11 까지 이 도구는 raw values 를 1행 헤더로 읽어 숨김 행·숨김 탭을 그대로 셌고,
+    //   오토플러스를 「못 읽음」으로 냈다. 규격 파일 머리말의 네 가지가 그래서 있다.
+    const grid = await (await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${id}?includeGridData=true&fields=${encodeURIComponent(SHEET_GRID_FIELDS)}`,
+      { headers: { Authorization: `Bearer ${shT}` } })).json();
+    if ((grid as any).error) throw new Error((grid as any).error.message);
+    const { tabs: readTabs, failures } = readSupplierSheet(grid as any, partners[code] || { partner_code: code } as any);
+    for (const f of failures) o.tabErrs.push(`${f.title} — ${f.reason.slice(0, 30)}`);
+    for (const rt of readTabs) {
+      const tab = rt.title;
+      const t = rt.table;
       const hdr = (t[0] || []).map(S);
-      const si = hdr.findIndex((h) => /배차상태|^상태|판매상태|재고상태|출고상태|출고현황/.test(h));
-      const pi = hdr.findIndex((h) => /차량번호|차번/.test(h));
+      const { plate: pi, status: si } = findPlateAndStatusColumns(hdr);
       if (si < 0 || pi < 0) continue;
       o.tabs.push(tab);
       for (const r of t.slice(1)) {
