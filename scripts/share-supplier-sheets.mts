@@ -18,6 +18,13 @@ import { JWT } from 'google-auth-library';
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
 const APPLY = process.argv.includes('--apply');
+/**
+ * **링크를 가진 사람은 누구나 수정**(사장님 확정 2026-08-11).
+ * 공급사마다 계정을 받아 초대하는 대신 링크 하나로 나눠 준다.
+ * ⚠ 이 시트는 이제 ERP 재고의 정본이다 — 링크를 받은 사람의 실수도 그대로 재고가 된다.
+ *   되돌릴 길은 시트 버전기록뿐이므로, 링크는 공급사 담당자에게만 준다.
+ */
+const ANYONE = process.argv.includes('--anyone');
 
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 const SA_EMAIL = S(sa.client_email);
@@ -37,15 +44,25 @@ const found = await api(`https://www.googleapis.com/drive/v3/files?q=${q}&pageSi
 let need = 0; let done = 0;
 for (const f of ((found.files || []) as Rec[])) {
   const label = S(f.name).replace('프리패스 재고 · ', '');
-  const perms = await api(`https://www.googleapis.com/drive/v3/files/${S(f.id)}/permissions?fields=permissions(id,emailAddress,role)`);
-  const has = ((perms.permissions || []) as Rec[]).some((p) => S(p.emailAddress).toLowerCase() === SA_EMAIL.toLowerCase());
-  if (has) { console.log(`  · ${label.padEnd(14)}이미 공유돼 있음`); continue; }
+  const perms = await api(`https://www.googleapis.com/drive/v3/files/${S(f.id)}/permissions?fields=permissions(id,type,role,emailAddress)`);
+  const list = (perms.permissions || []) as Rec[];
+  const hasSa = list.some((p) => S(p.emailAddress).toLowerCase() === SA_EMAIL.toLowerCase());
+  const linkWriter = list.some((p) => S(p.type) === 'anyone' && S(p.role) === 'writer');
+  const want = (ANYONE && !linkWriter) || !hasSa;
+  if (!want) { console.log(`  · ${label.padEnd(14)}이미 됨${ANYONE ? ' (링크 수정 가능)' : ''}`); continue; }
   need++;
-  console.log(`  ★ ${label.padEnd(14)}공유 필요`);
+  console.log(`  ★ ${label.padEnd(14)}${!hasSa ? '서비스계정 공유' : ''}${ANYONE && !linkWriter ? ' 링크 수정 권한' : ''}`);
   if (!APPLY) continue;
-  await api(`https://www.googleapis.com/drive/v3/files/${S(f.id)}/permissions?sendNotificationEmail=false`, {
-    method: 'POST', body: JSON.stringify({ type: 'user', role: 'reader', emailAddress: SA_EMAIL }),
-  });
+  if (!hasSa) {
+    await api(`https://www.googleapis.com/drive/v3/files/${S(f.id)}/permissions?sendNotificationEmail=false`, {
+      method: 'POST', body: JSON.stringify({ type: 'user', role: 'reader', emailAddress: SA_EMAIL }),
+    });
+  }
+  if (ANYONE && !linkWriter) {
+    await api(`https://www.googleapis.com/drive/v3/files/${S(f.id)}/permissions?sendNotificationEmail=false`, {
+      method: 'POST', body: JSON.stringify({ type: 'anyone', role: 'writer' }),
+    });
+  }
   done++;
 }
 console.log(`\n  공유 필요 ${need}개${APPLY ? ` · 공유함 ${done}개` : ''}`);

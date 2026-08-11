@@ -35,6 +35,12 @@ const FORCE = process.argv.includes('--force');
 const ONLY = (process.argv.find((a) => a.startsWith('--only=')) || '').slice('--only='.length).split(',').map(S).filter(Boolean);
 /** 공급사 자기 시트에만 있는 차도 함께 싣는다. 끄려면 `--erp-only`. */
 const WITH_ORIGIN = !process.argv.includes('--erp-only');
+/**
+ * **빠진 차만 아래에 덧붙인다**(`--append-missing`).
+ * 이미 정본이 된 시트에는 통째로 덮어쓸 수 없다 — 공급사가 손댄 값이 날아간다.
+ * 그래도 «담겼어야 하는데 안 담긴 차»는 넣어야 하므로, 있는 줄은 그대로 두고 아래에만 붙인다.
+ */
+const APPEND_MISSING = process.argv.includes('--append-missing');
 const DB = 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app';
 const VEHICLE_TAB = '재고';
 
@@ -163,7 +169,7 @@ for (const f of ((found.files || []) as Rec[])) {
   const code = codeOf(label);
   if (!code) { console.log(`  △ ${label.padEnd(12)} 공급사를 못 찾음`); continue; }
   if (ONLY.length && !ONLY.includes(code)) continue;
-  if (liveSheetIds.has(id)) { console.log(`  △ ${label.padEnd(12)} ★운영 정본 시트 — 쓰지 않는다`); continue; }
+  if (liveSheetIds.has(id) && !APPEND_MISSING) { console.log(`  △ ${label.padEnd(12)} ★운영 정본 시트 — 쓰지 않는다 (--append-missing 으로 빠진 차만 덧붙임)`); continue; }
 
   /**
    * ★**아무 정보도 없는 행은 옮기지 않는다**(사장님 지적 2026-08-11).
@@ -179,7 +185,14 @@ for (const f of ((found.files || []) as Rec[])) {
    */
   const fromOrigin: EntityRecord[] = [];
   const partner = Object.values<Rec>(partners).find((x) => !dead(x) && S(x.partner_code) === code && S(x.sheet_url));
-  const originId = (S(partner?.sheet_url).match(/\/d\/([\w-]+)/) || [])[1];
+  /**
+   * 원본이 어디인가 — 넘기고 난 뒤에는 `sheet_url` 이 **우리 시트 자신**을 가리킨다.
+   * 그때는 넘길 때 적어 둔 옛 주소(`sheet_note`)가 원본이다.
+   * 이걸 안 하면 «원본에만 있는 차»를 영영 못 가져온다(실측 2026-08-11 — 웰릭스 2대).
+   */
+  const urlId = (S(partner?.sheet_url).match(/\/d\/([\w-]+)/) || [])[1];
+  const noteId = (S(partner?.sheet_note).match(/\/d\/([\w-]+)/) || [])[1];
+  const originId = urlId && urlId !== id ? urlId : noteId;
   if (WITH_ORIGIN && originId && originId !== id && !NOT_SHEET_BACKED.has(code)) {
     try {
       const grid = await api(`https://sheets.googleapis.com/v4/spreadsheets/${originId}?includeGridData=true&fields=${encodeURIComponent(SHEET_GRID_FIELDS)}`);
@@ -234,6 +247,21 @@ for (const f of ((found.files || []) as Rec[])) {
   }
 
   const all = byCode.get(code) || [];
+  /**
+   * ★ERP 가 **껍데기**(차명도 대여료도 없음)인데 공급사 원본에는 값이 있으면 원본을 쓴다.
+   *   그러지 않으면 그 차가 통째로 빠진다 — 웰릭스 283소3276·24저4970 이 그랬다(2026-08-11).
+   */
+  const originByPlate = new Map<string, EntityRecord>();
+  for (const x of fromOrigin) { const pl = norm((x as Rec).car_number); if (pl && !originByPlate.has(pl)) originByPlate.set(pl, x); }
+  const hasInfo = (p: EntityRecord) => {
+    const rec = p as Rec;
+    return [S(rec.sub_model), S(rec.model), S(rec.trim_name)].some(Boolean) || priceList(p).length > 0;
+  };
+  for (let i = 0; i < all.length; i++) {
+    const pl = norm((all[i] as Rec).car_number);
+    const alt = pl ? originByPlate.get(pl) : undefined;
+    if (alt && !hasInfo(all[i]) && hasInfo(alt)) all[i] = alt;
+  }
   const erpPlates = new Set(all.map((p) => norm((p as Rec).car_number)).filter(Boolean));
   const extra = fromOrigin.filter((p) => {
     const pl = norm((p as Rec).car_number);
@@ -254,7 +282,8 @@ for (const f of ((found.files || []) as Rec[])) {
   const header = ((head.values || [])[0] || []).map(S) as string[];
   const already = ((head.values || [])[1] || []).some((c: unknown) => S(c));
   if (!header.length) { console.log(`  △ ${label.padEnd(12)} 헤더가 없다 — 먼저 양식을 찍어라`); continue; }
-  if (already && !FORCE) { console.log(`  △ ${label.padEnd(12)} 이미 입력돼 있다 — 덮지 않는다 (--force)`); continue; }
+  // 덧붙이기는 있는 줄을 안 건드리므로 이 문에 걸리지 않는다.
+  if (already && !FORCE && !APPEND_MISSING) { console.log(`  △ ${label.padEnd(12)} 이미 입력돼 있다 — 덮지 않는다 (--force)`); continue; }
 
   const at = (name: string) => header.indexOf(name);
   const rows = cars.map((p) => {
@@ -295,6 +324,25 @@ for (const f of ((found.files || []) as Rec[])) {
   filledSheets++; filledCars += cars.length;
 
   if (!APPLY) continue;
+  if (APPEND_MISSING) {
+    const have = new Set(rows.map((r) => norm(r[at('차량번호')])).filter(Boolean));
+    // 시트에 이미 서 있는 차번은 건드리지 않는다.
+    const liveVals = await api(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${encodeURIComponent(`${VEHICLE_TAB}!A1:BZ600`)}`);
+    const liveRows = ((liveVals.values || []) as string[][]);
+    const livePlates = new Set(liveRows.slice(1).map((r) => norm(r[at('차량번호')])).filter(Boolean));
+    const add = rows.filter((r) => { const pl = norm(r[at('차량번호')]); return pl && !livePlates.has(pl); });
+    have.clear();
+    if (!add.length) { console.log(`     덧붙일 차 없음`); continue; }
+    const startRow = liveRows.length + 1;
+    const lastColA = header.length > 26
+      ? String.fromCharCode(64 + Math.ceil(header.length / 26)) + String.fromCharCode(65 + ((header.length - 1) % 26))
+      : String.fromCharCode(65 + header.length - 1);
+    await api(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${encodeURIComponent(`${VEHICLE_TAB}!A${startRow}:${lastColA}${startRow + add.length - 1}`)}?valueInputOption=USER_ENTERED`, {
+      method: 'PUT', body: JSON.stringify({ values: add }),
+    });
+    console.log(`     덧붙임 ${add.length}대`);
+    continue;
+  }
   const lastCol = String.fromCharCode(64 + Math.ceil(header.length / 26)) + String.fromCharCode(65 + ((header.length - 1) % 26));
   const range = `${VEHICLE_TAB}!A2:${header.length > 26 ? lastCol : String.fromCharCode(65 + header.length - 1)}${rows.length + 1}`;
   await api(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED`, {
