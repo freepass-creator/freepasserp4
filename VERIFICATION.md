@@ -4097,3 +4097,12 @@ Next 개발 서버와 production build가 같은 `.next`를 사용하면 실행 
 - `sim-chat-attention` **19/19**, `sim-chat-room-dedupe` **37/37**, `sim-release-blockers` **17/17**, `sim-test-contract` **6/6**, `npx tsc --noEmit`, `npm run check:fonts`, `npm run check:tokens`, `npm run check:ui`, `git diff --check` PASS.
 - React 검수에서 상세 방 조회 effect는 상품코드·역할의 원시값 의존성만 사용하고 이벤트 리스너를 cleanup하며, 명시 액션은 버튼 핸들러에 유지했다. 로컬 `http://localhost:4004/`는 로그인 화면으로 정상 리디렉션됐고 앱 콘솔 오류는 없었다. 인증 세션이 없어 상품 상세의 실클릭 검증은 순수 상태 시뮬레이션으로 대체했다.
 - 최종 판정: **PASS**. 기존 빈 방 레코드는 삭제하지 않고 표시만 제외하므로 데이터 파괴나 Rules 게시이 없다.
+
+## 2026-08-12 테스트 역할 제거·상품 보기 전환 재검수
+
+- 루트 레이아웃의 좌측 하단 `테스트 역할` 스위치와 전용 컴포넌트·도메인을 제거했다. 버튼만 숨기지 않고 `getRole()`의 `fp4_dev_role` 덮어쓰기도 제거해 브라우저에 남은 과거 값이 실제 세션 역할 화면을 조용히 바꾸지 못하게 했다.
+- 상품찾기의 `간단·상세·엑셀`은 서로 다른 업무 액션이 아니라 같은 상품 목록의 표시 방식 선택기다. 단일 세그먼트와 선택 강조는 유지하고 `상품 보기 방식` 접근성 그룹을 부여했다.
+- 저장된 보기 값은 `card | list | excel`만 복원하도록 검증해 손상되거나 구버전 값 때문에 실제 엑셀 표와 선택 표시·카운트가 어긋나는 경우를 차단했다. 기본 보기 `excel`, 모바일 `card` 규칙은 그대로다.
+- `npx tsc --noEmit`, `npm run check:fonts`, `npm run check:tokens`, `npm run check:ui`, `sim-release-blockers` **17/17**, `git diff --check` PASS. React 검수에서 추가 비동기 요청·전역 이벤트·리렌더 구독은 없고, 보기 변경은 기존 사용자 이벤트 핸들러와 `useDeferredValue` 경계를 유지했다.
+- 인앱 브라우저 `http://localhost:4004/login`을 새로고침해 `테스트 역할` 표시 0건과 콘솔 오류 0건을 확인했다. 인증 세션이 없는 브라우저라 상품목록 실클릭은 소스·타입·UI 계약 검증으로 확인했다.
+- 최종 판정: **PASS**.

@@ -101,7 +101,7 @@ export function FinderToolbar(props: Props) {
             </IconBtn>
             {props.sidebarActiveCount > 0 && <span className="fp-icon-count"><CountPill n={props.sidebarActiveCount} tone="accent" /></span>}
           </span>
-          <span className="fp-finder-view-switch">
+          <span className="fp-finder-view-switch" role="group" aria-label="상품 보기 방식">
             <IconSeg
               showLabel
               value={props.view}

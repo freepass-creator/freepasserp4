@@ -28,19 +28,8 @@ const ACTORS: Record<Role, { uid: string; code: string; name: string }> = {
   admin: { uid: 'usr_admin', code: 'usr_admin', name: '관리자' },
 };
 const RKEY = 'fp4_role';
-/**
- * 역할: **테스트 덮어쓰기** → 실 로그인 세션 → 없으면(둘러보기/로컬) localStorage 스텁.
- *
- * 덮어쓰기는 화면 배치를 확인하려고 개발 스위치가 켰을 때만 있다(lib/dev-role).
- * **권한은 안 바뀐다** — 서버 규칙은 로그인 uid 의 실제 역할로 판단한다.
- */
+/** 역할: 실 로그인 세션 → 없으면 로컬 시드 역할. UI 역할 덮어쓰기는 사용하지 않는다. */
 export function getRole(): Role {
-  if (typeof window !== 'undefined') {
-    try {
-      const dev = localStorage.getItem('fp4_dev_role');
-      if (dev === 'agent' || dev === 'provider' || dev === 'admin') return dev;
-    } catch { /* noop */ }
-  }
   const s = getSession(); if (s) return s.role; if (typeof window === 'undefined') return 'agent'; const r = localStorage.getItem(RKEY); return r === 'provider' || r === 'admin' ? r : 'agent';
 }
 /**

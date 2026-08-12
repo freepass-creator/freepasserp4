@@ -60,6 +60,11 @@ const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : use
 /** 필터·검색·정렬만 유지. limit(더보기/전체보기)는 절대 저장하지 않음. */
 
 
+type FinderView = 'card' | 'list' | 'excel';
+function isFinderView(value: unknown): value is FinderView {
+  return value === 'card' || value === 'list' || value === 'excel';
+}
+
 export default function Finder() {
   const [qInput, setQInput] = useState(''); // 검색창 즉시 반영
   const [q, setQ] = useState(''); // 디바운스된 검색(필터)
@@ -77,7 +82,7 @@ export default function Finder() {
   const [models, setModels] = useState<Set<string>>(() => new Set()); // 인기차종 빠른필터(모델명)
   const [sort, setSort] = useState(FINDER_DEFAULT_SORT);
   const [interestFlt, setInterestFlt] = useState<Set<InterestKey>>(new Set());
-  const [view, setViewState] = useState('excel');
+  const [view, setViewState] = useState<FinderView>('excel');
   const [homeTool, setHomeTool] = useState<HomeTool | null>(null); // 모바일 필터 시트
   const [filterDraft, setFilterDraft] = useState<FilterBag | null>(null);
   /** 시트 연 순간의 라이브 스냅 — 취소/필터버튼 닫기 시 여기로 회귀(최근·관심·정렬 포함). */
@@ -227,6 +232,7 @@ export default function Finder() {
   // 보기모드 = 새로고침해도 유지(localStorage). 서버·최초렌더는 'card' → effect에서 복원(하이드레이션 mismatch 방지).
   // 선택(하이라이트)은 즉시(urgent), 무거운 목록 렌더만 useDeferredValue로 뒤로 → 토글 딱 반응, 논블로킹.
   const setView = (v: string) => {
+    if (!isFinderView(v)) return;
     setViewState(v);
     if (typeof window !== 'undefined') localStorage.setItem('fp4_finder_view', v);
   };
@@ -301,7 +307,8 @@ export default function Finder() {
 
   // 보기 설정 복원 = 페인트 전(layout effect) → 새로고침 시 저장된 뷰·필터상태 그대로, "기본값(엑셀·필터열림)" 깜빡임 없음.
   useIsoLayoutEffect(() => {
-    const v = typeof window !== 'undefined' ? localStorage.getItem('fp4_finder_view') : null; if (v) setViewState(v);
+    const v = typeof window !== 'undefined' ? localStorage.getItem('fp4_finder_view') : null;
+    if (isFinderView(v)) setViewState(v);
     const f = typeof window !== 'undefined' ? localStorage.getItem('fp4_finder_filter') : null;
     if (f === '0') setFilterOpenState(false);
   }, []);
