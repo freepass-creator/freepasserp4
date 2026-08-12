@@ -112,7 +112,18 @@ export const FIELD_MAP: FieldMap[] = [
   { field: 'payment_account_no', label: '입금 계좌번호', from: '파트너' },
   { field: 'payment_account_holder', label: '입금 예금주', from: '파트너' },
   { field: 'late_fee_rate', label: '지연손해금율', from: '고정', note: '5% / 12%' },
+  { field: 'succession_allowed', label: '승계 가능여부', from: '정책', atom: 'succession_allowed' },
+  { field: 'succession_fee', label: '승계수수료', from: '정책', atom: 'succession_fee' },
   { field: 'claim_basis', label: '청구 기준', from: '고정' },
+  /**
+   * 연체 제재 — 약관 제7조·제24조가 「계약서에 정한 기준일」이라고 부르는 자리다.
+   * 계약서에는 칸이 있는데 매핑이 없어 값이 흐르지 않았다(실측 2026-08-12).
+   * HTML 의 3·10·2 는 값이 안 왔을 때 보이는 기본 표시이고, 정책값이 오면 그것이 이긴다.
+   * 보증금 미납은 «회차»로 센다 — 대여료 연체(날짜)와 계산 축이 다르다.
+   */
+  { field: 'engine_control_overdue_days', label: '운행제한(시동제어) 기준일', from: '정책', atom: 'engine_control_overdue_days' },
+  { field: 'auto_terminate_overdue_days', label: '차량회수·해지 기준일', from: '정책', atom: 'auto_terminate_overdue_days' },
+  { field: 'deposit_overdue_rounds', label: '보증금 미납 시동제어(회차)', from: '정책', atom: 'deposit_overdue_rounds' },
 
   /* ── 만기 처리 — 유형이 갈리는 지점 ── */
   { field: 'buyback_price', label: '만기 인수가격', from: '입력', atom: 'buyout_price', onlyMaturity: '인수형' },

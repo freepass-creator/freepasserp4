@@ -32,7 +32,7 @@ export type PolicyDefault = {
  * 계약에 어떤 기본 묶음이 적용됐는지 로그·문서에서 같은 이름으로 추적할 수 있게 한다.
  * 값 변경은 계약 조건 변경이므로 새 버전으로 올리고 검증한 뒤 배포한다.
  */
-export const FREEPASS_POLICY_PACK = 'freepass-standard-2026-08-12-v3' as const;
+export const FREEPASS_POLICY_PACK = 'freepass-standard-2026-08-12-v4' as const;
 
 export const POLICY_DEFAULTS: PolicyDefault[] = [
   /* ── 정책 등록 기본값 ── 공급사별 예외만 고쳐 쓰는 프리패스 운영 표준 */
@@ -156,6 +156,14 @@ export const POLICY_DEFAULTS: PolicyDefault[] = [
     // 계약서는 두 단계다 — 신청일~송달 연 5%, 그 다음날부터 연 12%.
     // 정책 한 칸에는 **손님이 실제로 오래 무는 쪽**을 둔다. 세부 연체 처리 순서는 약관 제24조·제25조가 서술한다.
     source: '계약서 「… 송달된 날까지 연 5%, 그 다음 날부터 다 갚는 날까지 연 12%」 중 후자',
+  },
+  {
+    key: 'succession_allowed', label: '승계 가능여부', value: '협의',
+    source: '프리패스 표준은 회사 사전승인 후 협의 — 계약회사별 가능·협의·불가를 확인해 수정',
+  },
+  {
+    key: 'succession_fee', label: '승계수수료(원)', value: 1000000,
+    source: '프리패스 공급 렌터카사 평균 운영값 100만원 — 계약회사별 실제 적용금액을 확인해 수정',
   },
   {
     key: 'deposit_return_days', label: '보증금 반환기한(일)', value: 7,
@@ -319,7 +327,15 @@ export function overMileageRateFor(
     ? 'over_mileage_rate_domestic'
     : 'over_mileage_rate_imported';
   const n = Number(p[key]);
-  return Number.isFinite(n) && n > 0 ? n : null;
+  if (Number.isFinite(n) && n > 0) return n;
+  /**
+   * 국산·수입을 나눠 정하지 않은 공급사가 대부분이다 — 그 경우 **한 값을 둘 다에 쓴다.**
+   * 실측(2026-08-12): 32개 정책 전부 `_domestic`·`_imported` 가 비어 있고
+   * `over_mileage_rate_per_km` 만 채워져 있어, 계약서의 초과주행 요금이 통째로 빈칸이었다.
+   * 나눠 정한 곳은 위에서 이미 걸러졌으므로 여기서 덮어쓸 일은 없다.
+   */
+  const flat = Number(p.over_mileage_rate_per_km);
+  return Number.isFinite(flat) && flat > 0 ? flat : null;
 }
 
 /**
