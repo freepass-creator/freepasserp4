@@ -27,6 +27,7 @@ import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { NOT_SHEET_BACKED, SHEET_GRID_FIELDS, readSupplierSheet } from '../lib/domain/supplier-sheet-read';
 import { companyAlias } from '../lib/domain/identity';
+import { fetchHubPartners } from '../lib/domain/sheet-hub-sync';
 import { snapToMaster } from '../lib/domain/vehicle-master-match';
 import type { MasterEntry } from '../lib/domain/vehicle-master-types';
 import type { EntityRecord } from '../lib/intake/entities';
@@ -40,15 +41,23 @@ const SHEET = arg('sheet', '1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs');
 const TAB = arg('tab', '상품리스트(공급사원문)');
 const DB = 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app';
 
-/** 영업자가 보던 배치. 시트에 없는 칸은 빈칸으로 둔다. */
+/**
+ * ★영업자가 **원래 쓰던 시트**(「전체시트」)의 열 그대로다 — 사장님 2026-08-12
+ *   「영업자들이 그냥 기존걸 원했어 · 이 스타일대로」. 순서·이름을 임의로 바꾸지 마라.
+ *   손에 익은 자리가 곧 그 표의 값어치다.
+ * ★단 하나 덧붙인 것이 「공급사」다. 원본은 **아이카 한 곳만** 담은 시트라 필요가 없었지만
+ *   (차고지·전용계좌가 전부 아이카다), 우리 표는 17곳을 합치므로 이게 없으면
+ *   어느 회사 차인지 알 수가 없다.
+ * ★「입고일자」는 원본에 열이 있고 값은 비어 있다. 자리를 지키되 채우지 않는다 —
+ *   영업자용에는 필요 없는 값이다(사장님 2026-08-12).
+ */
 const COLUMNS = [
-  '상태', '구분', '차량번호', '차종', '세부모델', '외장', '내장', '연식', '연료', 'Km',
-  '단기보증', '1개월', '12개월', '장기보증', '24개월', '36개월', '48개월', '60개월',
-  '옵션', '최초등록', '소비자가격', '제조사', '배기량', '연주행',
-  // 무엇을 무엇으로 바꿨는지 보이게 — 마스터로 올린 차명 옆에 공급사 원문을 남긴다.
-  '공급사표기', '차종매칭',
-  '대인', '대물', '자차', '자손', '무보험', '비고',
-  '공급사', '시트탭',
+  '상태', '입고일자', '구분', '차량번호', '차종분류', '세부모델', '연료', '외장', '내장', 'Km',
+  '단기보증', '1개월', '6개월', '12개월', '장기보증', '24개월', '36개월', '48개월', '60개월',
+  '트림', '옵션', '최초등록', '소비자가격', '제조사', '배기량', '차고지', '운전자범위', '연주행', '분납',
+  '21세', '23세', '1만+',
+  '대인', '대물', '자차', '자손', '무보험', '정비', '전용계좌', '비고',
+  '공급사',
 ] as const;
 
 /**
@@ -57,30 +66,39 @@ const COLUMNS = [
  */
 const ALIAS: Record<string, string[]> = {
   상태: ['배차상태', '판매상태', '상태', '차량상태'],
+  입고일자: ['입고일자', '입고일'],
   구분: ['구분', '분류', '상품구분'],
   차량번호: ['차량번호', '차번'],
-  차종: ['차종', '차종분류', '모델'],
-  세부모델: ['모델명(트림)', '차명(트림)', '세부모델', '트림', '모델명'],
+  차종분류: ['차종분류', '차종', '모델'],
+  세부모델: ['세부모델', '모델명', '모델명(트림)'],
+  연료: ['유종', '연료'],
   외장: ['외장색', '외부색상', '외장', '색상'],
   내장: ['내장색', '내부색상', '내장'],
-  연식: ['연식'],
-  연료: ['유종', '연료'],
   Km: ['주행거리', 'Km', 'km'],
   단기보증: ['단기보증'],
   '1개월': ['1개월', '월렌트', '월세'],
+  '6개월': ['6개월'],
   '12개월': ['12개월'],
   장기보증: ['장기보증', '보증금'],
   '24개월': ['24개월'],
   '36개월': ['36개월'],
   '48개월': ['48개월'],
   '60개월': ['60개월'],
+  // 원본은 트림 한 칸에 긴 문장을 넣는다 — 「디 올 뉴 셀토스 1.6 T-GDI 2WD 트렌디」.
+  트림: ['트림', '차명(트림)', '모델명(트림)', '세부모델'],
   옵션: ['옵션'],
   최초등록: ['최초등록', '최초등록일'],
   소비자가격: ['소비자가격', '차량가격', '소비자가'],
   제조사: ['제조사', '메이커'],
   배기량: ['배기량'],
+  차고지: ['차고지', '지역'],
+  운전자범위: ['운전자범위', '개인운전자범위'],
   연주행: ['연주행', '약정주행'],
+  분납: ['분납', '보증금분납'],
+  '21세': ['21세'], '23세': ['23세'], '1만+': ['1만+'],
   대인: ['대인'], 대물: ['대물'], 자차: ['자차'], 자손: ['자손'], 무보험: ['무보험'],
+  정비: ['정비'],
+  전용계좌: ['전용계좌'],
   비고: ['비고', '메모', '특이사항'],
 };
 
@@ -120,6 +138,21 @@ for (const p of Object.values<Rec>(partners)) {
   const urls = [...(cur?.sheet_urls || []), S(p.sheet_url)].filter(Boolean);
   byCode.set(c, { ...(cur || {}), ...p, sheet_urls: [...new Set(urls)] });
 }
+/**
+ * ★**ERP 가 실제로 읽는 주소는 허브 시트**(「공급사시트정리」)에 있다 — 동기화 직전에
+ *   `overlayHubSheetUrls` 가 파트너의 `sheet_url` 을 덮어쓴다.
+ *   파트너에 적힌 것만 보면 옛 시트를 잡는다(실측 2026-08-12: 아이카 138대가 통째로 빠졌다).
+ *   허브 주소를 **맨 앞 후보**로 넣는다 — 그게 정본이다.
+ */
+try {
+  for (const h of await fetchHubPartners()) {
+    const c = S((h as Rec).partner_code);
+    const url = S((h as Rec).sheet_url);
+    const cur = byCode.get(c);
+    if (!c || !url || !cur) continue;
+    cur.sheet_urls = [...new Set([url, ...cur.sheet_urls])];
+  }
+} catch (e) { console.log(`  △ 허브 시트를 못 읽었다 — 파트너에 적힌 주소만 쓴다: ${String((e as Error).message).slice(0, 60)}`); }
 
 console.log(`■ 공급사 시트를 그대로 영업자 표로 ${APPLY ? '(반영)' : '(dry-run)'}\n`);
 const rows: string[][] = [];
@@ -176,11 +209,10 @@ for (const [code, p] of [...byCode].sort()) {
       const ok = snap && (snap.confidence === 'high' || snap.confidence === 'medium');
       rows.push(COLUMNS.map((c) => {
         if (c === '공급사') return who;
-        if (c === '시트탭') return t.title;
-        if (c === '공급사표기') return raw;
-        if (c === '차종매칭') return ok ? S(snap!.confidence) : (snap ? '확인필요' : '');
+        if (c === '입고일자') return '';          // 원본도 비어 있다. 자리만 지킨다.
+        // 차종분류·세부모델·제조사만 마스터로 올린다. 돈·상태·비고는 시트 글자 그대로.
         if (ok && c === '제조사') return S(snap!.maker) || cell(c);
-        if (ok && c === '차종') return S(snap!.model) || cell(c);
+        if (ok && c === '차종분류') return S(snap!.model) || cell(c);
         if (ok && c === '세부모델') return S(snap!.sub_model) || cell(c);
         return cell(c);
       }));
