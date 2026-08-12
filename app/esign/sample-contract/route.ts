@@ -9,8 +9,8 @@ export async function GET() {
   try {
     const pdfPath = path.join(
       process.cwd(),
-      'output',
-      'pdf',
+      'public',
+      'contract-template',
       'freepass-standard-rental-contract-v1-review.pdf',
     );
     const pdf = await readFile(pdfPath);
