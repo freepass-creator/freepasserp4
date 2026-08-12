@@ -34,7 +34,8 @@ const DB = 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.a
 
 /** 사장님이 정한 배치. 위 주석의 순서 규칙과 이 배열이 어긋나면 안 된다. */
 const COLUMNS = [
-  '상태', '입고일자', '구분', '차량번호', '차종분류', '세부모델', '외장', '내장', '연식', '연료', 'Km',
+  // ★재고일수는 입고일자 바로 옆에 둔다 — 「언제 넣었나」와 「며칠째 안 나가나」는 같이 봐야 뜻이 있다.
+  '상태', '입고일자', '재고일수', '구분', '차량번호', '차종분류', '세부모델', '외장', '내장', '연식', '연료', 'Km',
   '단기보증', '1개월', '12개월', '장기보증', '24개월', '36개월', '48개월', '60개월',
   '파워트레인', '세부트림', '옵션', '최초등록', '소비자가격', '제조사', '배기량', '차고지',
   '운전자범위', '연주행', '분납', '21세', '23세', '1만+',
@@ -43,6 +44,23 @@ const COLUMNS = [
 ];
 
 const won = (v: unknown) => { const n = Number(String(v ?? '').replace(/[^\d]/g, '')); return n ? n.toLocaleString('ko-KR') : ''; };
+/**
+ * 입고일로부터 며칠째인가. **입고일이 없으면 빈칸**이다 — 0일이라고 쓰면 오늘 넣은 차로 보인다.
+ * 「2026-08-12」·「26-8-12」·「2026.08.12」 를 받는다. 못 읽으면 비운다(지어내지 않는다).
+ */
+const daysInStock = (v: unknown): string => {
+  const t = S(v).replace(/[.\/]/g, '-');
+  const m = /^(\d{2,4})-(\d{1,2})-(\d{1,2})$/.exec(t);
+  if (!m) return '';
+  const y = Number(m[1]) < 100 ? 2000 + Number(m[1]) : Number(m[1]);
+  const at = Date.UTC(y, Number(m[2]) - 1, Number(m[3]));
+  if (!Number.isFinite(at)) return '';
+  // 한국 날짜 기준으로 센다 — UTC 로 세면 오전 9시 전에 하루가 어긋난다.
+  const today = new Date(Date.now() + 9 * 3600_000);
+  const now = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
+  const days = Math.round((now - at) / 86_400_000);
+  return days >= 0 ? String(days) : '';
+};
 const shortLimit = (v: unknown) => S(v).replace(/원$/, '');
 const manOnly = (v: unknown) => { const s = S(v); if (!s || s === '없음') return s; const m = s.match(/([\d,]+)\s*만/); return m ? m[1] : s; };
 
@@ -166,7 +184,11 @@ function cells(p: EntityRecord): Record<string, string> {
   const meta = (r.sheet_meta || {}) as Rec;
   const code = S(r.provider_company_code) || S(r.partner_code);
   return {
-    상태: S(r.vehicle_status), 입고일자: S(r.arrival_note),
+    /**
+     * ★입고일자는 `arrival_date` 다. 예전엔 `arrival_note` 를 찍었는데 그건 **메모 칸**이라
+     *   「무보증 가능」 같은 글자가 날짜 칸에 앉아 있었다(실측 2026-08-12 · 4대).
+     */
+    상태: S(r.vehicle_status), 입고일자: S(r.arrival_date), 재고일수: daysInStock(r.arrival_date),
     // 4종 그대로 — 「신차/중고」로 접으면 구독이 사라진다.
     구분: canonProductType(r.product_type) || '',
     차량번호: S(r.car_number),
@@ -234,7 +256,7 @@ const colWidth = COLUMNS.map((name, i) => {
 });
 
 /** 정렬 — 돈·거리·연식은 오른쪽(자리수를 세로로 비교), 상태·구분은 가운데, 나머지는 왼쪽. */
-const RIGHT = new Set(['Km', '단기보증', '1개월', '12개월', '장기보증', '24개월', '36개월', '48개월', '60개월', '소비자가격', '배기량']);
+const RIGHT = new Set(['재고일수', 'Km', '단기보증', '1개월', '12개월', '장기보증', '24개월', '36개월', '48개월', '60개월', '소비자가격', '배기량']);
 /** 월 대여료만 굵게. 보증금까지 굵히면 어느 게 월 요금인지 흐려진다. */
 const RENT = new Set(['1개월', '12개월', '24개월', '36개월', '48개월', '60개월']);
 /**

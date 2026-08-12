@@ -34,6 +34,9 @@ export const HEADER_ALIASES: Record<string, string> = {
   추가표기: 'trim_extra', 추가입력: 'trim_extra', 부가표기: 'trim_extra',
   연식: 'year', 년식: 'year',
   최초등록: 'first_registration_date', 최초등록일: 'first_registration_date', 등록일: 'first_registration_date', 등록년월: 'first_registration_date',
+  // ★입고일자 = **상품으로 내놓은 날**. 최초등록일과 다른 값이다 —
+  //   중고차는 등록이 몇 년 전이어도 상품화는 이번 달일 수 있다. 재고일수의 기준점이라 섞이면 안 된다.
+  입고일자: 'arrival_date', 입고일: 'arrival_date', 상품화일: 'arrival_date', 판매시작일: 'arrival_date', 등록일자: 'arrival_date',
   연료: 'fuel_type', 유종: 'fuel_type', 연료타입: 'fuel_type',
   배기량: 'engine_cc', cc: 'engine_cc', 배기: 'engine_cc',
   소비자가격: 'vehicle_price', 소비자가: 'vehicle_price', 차량가격: 'vehicle_price', 차량가: 'vehicle_price', 차량가액: 'vehicle_price',
@@ -75,6 +78,8 @@ export const IMPORT_FIELDS: { key: string; label: string }[] = [
   { key: 'policy_code', label: '정책코드' },
   // 소비자가(차량가). 공급사 시트 열 이름이 「소비자가격」인 곳이 많다 — 관리자만 보는 원가다.
   { key: 'vehicle_price', label: '차량가격' },
+  // 입고일자 = 상품으로 내놓은 날. 재고일수(오늘 - 입고일자)의 기준점이다.
+  { key: 'arrival_date', label: '입고일자' },
 ];
 
 const norm = (s: unknown) => String(s ?? '').trim().toLowerCase().replace(/\s+/g, '');

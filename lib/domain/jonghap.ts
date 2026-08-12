@@ -59,7 +59,8 @@ function productToRow(p: EntityRecord, byCode: Map<string, EntityRecord>): strin
   const anyDep = (() => { for (const v of Object.values(price)) if (v?.deposit) return won(v.deposit); return ''; })();
   const meta = (p.sheet_meta || {}) as Record<string, unknown>;
   const byCol: Record<string, string> = {
-    상태: String(p.vehicle_status || ''), 입고일자: String(p.arrival_note || ''), 구분: gubun(p), 차량번호: String(p.car_number || ''),
+    // 입고일자는 `arrival_date`. `arrival_note` 는 메모 칸이라 날짜가 아니다.
+    상태: String(p.vehicle_status || ''), 입고일자: String(p.arrival_date || ''), 구분: gubun(p), 차량번호: String(p.car_number || ''),
     차종분류: String(p.model || ''), 세부모델: String(p.sub_model || ''), 연료: fuelDisplay(p.fuel_type) || String(p.fuel_type || ''), 외장: String(p.ext_color || ''), 내장: String(p.int_color || ''),
     Km: p.mileage ? String(p.mileage) : '', 단기보증: anyDep, '1개월': rent('1'), '12개월': rent('12'),
     장기보증: anyDep, '24개월': rent('24'), '36개월': rent('36'), '48개월': rent('48'), '60개월': rent('60'),

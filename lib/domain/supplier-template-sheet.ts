@@ -138,6 +138,13 @@ export const POLICY_COLUMN_NAMES = POLICY_COLUMNS.map((c) => c.name);
  */
 const FRONT_COLUMNS: { name: string; note: string; required?: boolean }[] = [
   { name: '차량번호', note: '12가3456. 신차로 번호 전이면 비우고 차대번호를 채운다', required: true },
+  /**
+   * ★**상품으로 내놓은 날**이다(사장님 2026-08-12). 차를 산 날도, 등록한 날도 아니다.
+   *   이 날로부터 며칠째 안 나가는지가 재고일수다 — 오래 서 있는 차를 찾아내는 유일한 근거라
+   *   비면 그 차는 «언제부터 안 팔리는지» 영영 알 수 없다.
+   *   최초등록일과 헷갈리면 안 된다. 2020년식 중고차를 이번 달에 상품화하면 입고일자는 이번 달이다.
+   */
+  { name: '입고일자', note: '2026-08-12 — 상품으로 내놓은 날. 최초등록일이 아니다', required: true },
   { name: '상태', note: '즉시출고 / 출고가능 / 상품화중 / 출고협의 / 계약중 / 출고불가', required: true },
   { name: '분류', note: '신차렌트 / 중고렌트 / 신차구독 / 중고구독', required: true },
   { name: '제조사', note: '현대 · 기아 · BMW …' },
@@ -669,8 +676,37 @@ export function buildSectionBanding(
   const RENT: [number, number, number] = [1.00, 0.97, 0.85];
   const DEPOSIT: [number, number, number] = [0.92, 0.95, 0.99];
   const BASE: [number, number, number] = [0.97, 0.97, 0.98];
+  /**
+   * ★구독은 요금표가 **두 벌**이다 — 인수형(끝나면 산다)·반납형(끝나면 돌려준다).
+   *   둘을 같은 색으로 두면 열 이름을 한 칸씩 읽어야 어느 블록인지 안다.
+   *   같은 «요금»이되 톤을 갈라, 블록이 바뀌는 자리가 눈에 띄게 한다.
+   *     인수형  옅은 노랑    (기본 요금색)
+   *     반납형  옅은 초록    끝나면 돌려주는 쪽
+   *   보증금도 자기 블록 색을 따라간다 — 블록 스코프(자기 오른쪽 기간을 관할)를 눈으로 잇는다.
+   */
+  const RENT_RETURN: [number, number, number] = [0.90, 0.97, 0.91];
+  const DEPOSIT_RETURN: [number, number, number] = [0.87, 0.95, 0.89];
   // 「12개월 인수형」처럼 꼬리표가 붙은 기간 열도 요금이다 — `개월$` 로 끝을 물면 구독 탭이 통째로 회색이 된다.
-  const kindOf = (n: string) => (/보증/.test(n) ? 'dep' : /\d+개월|^기타기간/.test(n) ? 'rent' : 'base');
+  /**
+   * 꼬리표가 없는 「기타기간①」은 **바로 앞 블록에 딸린다.**
+   * 구독 시트에서 여백 칸은 맨 오른쪽이라 «반납형 보증금이 관할»하는데(블록 스코프),
+   * 색이 인수형으로 잡히면 눈과 규칙이 어긋난다. 직전 꼬리표를 물려받는다.
+   */
+  let lastForm = '';
+  const kindOf = (n: string) => {
+    const form = /반납형/.test(n) ? '-ret' : /인수형/.test(n) ? '-buy' : '';
+    if (form) lastForm = form;
+    const use = form || (/^기타기간/.test(n) ? lastForm : '');
+    if (/보증/.test(n)) return `dep${use}`;
+    if (/\d+개월|^기타기간/.test(n)) return `rent${use}`;
+    return 'base';
+  };
+  const toneOf = (k: string): [number, number, number] => (
+    k === 'rent-ret' ? RENT_RETURN
+      : k === 'dep-ret' ? DEPOSIT_RETURN
+        : k.startsWith('rent') ? RENT
+          : k.startsWith('dep') ? DEPOSIT
+            : BASE);
   const out: Rec[] = [];
   const band = (from: number, to: number, rgb: [number, number, number]) => {
     if (to <= from) return;
@@ -688,7 +724,7 @@ export function buildSectionBanding(
     });
   };
   let from = -1; let kind = '';
-  const flush = (to: number) => { if (from >= 0 && kind) band(from, to, kind === 'rent' ? RENT : kind === 'dep' ? DEPOSIT : BASE); from = -1; kind = ''; };
+  const flush = (to: number) => { if (from >= 0 && kind) band(from, to, toneOf(kind)); from = -1; kind = ''; };
   columns.forEach((c, i) => {
     if (i < skipUntil) return;                 // 표가 칠하는 구간은 손대지 않는다
     const k = kindOf(c.name);
