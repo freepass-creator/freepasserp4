@@ -7,9 +7,9 @@ import {
   onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword,
   signOut, sendPasswordResetEmail, setPersistence, browserLocalPersistence, type User,
 } from 'firebase/auth';
-import { ref, get, set, update, runTransaction } from 'firebase/database';
+import { ref, get, set, update } from 'firebase/database';
 import { getAuthClient, getRtdb, firebaseReady } from './client';
-import { setSession, getSession, mapRole, setGuest } from '../auth-session';
+import { setSession, getSession, mapRole, clearLegacyGuestState } from '../auth-session';
 import { buildAuditEntry } from '@/lib/domain/audit';
 import { currentActor } from '@/lib/session';
 import { getCompanyId } from '@/lib/tenant';
@@ -89,7 +89,7 @@ export function initAuth(): Promise<void> {
             const code = role === 'provider'
               ? company_code
               : (user_code || user.uid);
-            setGuest(false);
+            clearLegacyGuestState();
             setSession({
               uid: user.uid, email: user.email || '', role, rawRole,
               name: String(profile.name || user.email || ''), code,
@@ -104,7 +104,7 @@ export function initAuth(): Promise<void> {
             });
           } catch (e) {
             console.warn('[auth] users 프로필 읽기 실패 — 최소 세션 진행:', (e as Error)?.message || e);
-            setGuest(false);
+            clearLegacyGuestState();
             // 귀속키 최소=uid. 빈 code면 actor가 usr_park 폴백 → 타 영업 방/계약에 붙는 사고 방지.
             setSession({
               uid: user.uid, email: user.email || '', role: 'agent', rawRole: '',
@@ -187,8 +187,9 @@ function resolveAgentChannel(role: string, company_code: string, fromIdentity: s
 }
 
 /**
- * 가입 프로필 쓰기 — Path B(승인제): 신원(company/channel)은 자가쓰기 금지 → 관리자 approveUser 가 확정.
- *  본인은 role(non-admin)·status:'pending'·연락처만. 승인 전 앱 게이트(isPending)에 막힘.
+ * 가입 프로필 쓰기 — 소속 없는 개인 영업자로 즉시 시작한다.
+ *  role·status·user_code만 최소 안전값으로 만들고 회사·채널은 비워 둔다. 이후 관리자가 실제
+ *  소속을 확인해 재배정하며, 가입자가 회사·채널 신원을 스스로 주장할 수는 없다.
  */
 export async function writeUserProfile(user: User, info: {
   name: string; phone: string; company_name: string; business_no: string; requested_type?: string;
@@ -202,16 +203,9 @@ export async function writeUserProfile(user: User, info: {
     step = 'uid 확인';
     const uid = String(user?.uid || '');
     if (!uid) throw new Error('auth uid 없음');
-    step = '사업자 매칭';
-    // role 힌트만(승인 시 approveUser 가 재매칭으로 확정). company/channel 은 여기 안 씀(자가사칭 차단).
-    const { role } = await resolveIdentity(bizNo);
-    const safeRole = role === 'admin' ? 'agent' : role; // 자가 admin 승격 금지
-    step = '회원번호 채번';
-    let user_code = 'U0001';
-    try {
-      const res = await runTransaction(ref(db, 'counters/user_code_seq'), (cur) => (cur || 0) + 1);
-      if (res.committed) user_code = `U${String(res.snapshot.val()).padStart(4, '0')}`;
-    } catch (ce) { console.warn('[writeUserProfile] 채번 실패(계속):', (ce as Error)?.message || ce); }
+    // 자가가입 귀속키는 충돌하거나 추측 가능한 순번이 아니라 Firebase uid로 고정한다.
+    // 관리자가 나중에 소속을 매칭할 때 user_code를 업무 코드로 바꿀 수 있다.
+    const user_code = uid;
     step = '프로필 저장';
     // 이메일(PII)은 users_private/{uid}(본인 write)로 분리 시도. 성공 시 본노드에서 제외(공개 read 차단).
     //  실패(규칙 미게시·no-db)면 본노드에 그대로 남긴다(유실 방지) — 폴백이 기존 동작 보존.
@@ -220,11 +214,11 @@ export async function writeUserProfile(user: User, info: {
     const rec: Record<string, unknown> = {
       uid, name: info.name || '', phone: info.phone || '',
       company_name: info.company_name || '', business_no: bizNo, user_code,
-      // 가입 신청 유형(공급/영업/개인) — 미등록 사업자 최초가입 시 승인 가드·파트너 생성 힌트. 신원 아님(승인이 확정).
+      // 가입 신청 유형(공급/영업/개인)은 이후 소속 매칭용 참고값일 뿐 권한이 아니다.
       requested_type: String(info.requested_type || ''),
-      // Path B: 승인 대기. company_code·agent_channel_code 미기록(규칙 admin-only + 승인 시 배정).
-      status: 'pending',
-      role: safeRole,
+      // 즉시 상품찾기·상담 가능. 회사·채널은 미기록하고 개인 UID 범위에서만 활동한다.
+      status: 'active',
+      role: 'agent',
       created_at: Date.now(),
       ...(emailMoved ? {} : { email: user.email || '' }),
       // 동의 기록 — "언제·어느 버전에" 동의했는지가 남아야 증명이 된다. 버전만 있고 시각이 없으면 소용없다.

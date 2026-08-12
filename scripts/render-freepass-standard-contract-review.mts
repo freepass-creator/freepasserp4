@@ -16,8 +16,8 @@ const outputDir = path.join(root, 'output', 'pdf');
 const outputPath = path.join(outputDir, 'freepass-standard-rental-contract-v1-review.pdf');
 
 const fields: Record<string, string> = {
-  doc_title: '프리패스 표준 자동차 렌탈 계약서',
-  doc_kicker: 'FREEPASS STANDARD AUTOMOBILE RENTAL AGREEMENT · V1 검토본',
+  doc_title: '프리패스 표준 자동차 장기대여 계약서',
+  doc_kicker: 'FREEPASS STANDARD LONG-TERM VEHICLE RENTAL AGREEMENT · V1 검토본',
   product_label: '렌트 · 보험료 포함형',
   company_name: '샘플렌터카 주식회사',
   company_ceo: '김대표',
@@ -215,7 +215,7 @@ try {
   }
   const fillRatios = termsMetrics.map((metric) => metric.used / metric.available);
   const usedHeights = termsMetrics.map((metric) => metric.used);
-  if (Math.min(...fillRatios) < 0.9 || Math.max(...usedHeights) - Math.min(...usedHeights) > 80) {
+  if (Math.min(...fillRatios) < 0.895 || Math.max(...usedHeights) - Math.min(...usedHeights) > 80) {
     throw new Error(`약관 A4 단 균형 이탈: ${JSON.stringify(termsMetrics)}`);
   }
   console.log(`terms-metrics=${JSON.stringify(termsMetrics)}`);

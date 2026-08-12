@@ -9,9 +9,7 @@ export function stripDetachedEsignAppendices(source: string) {
     const to = html.indexOf(end, from + start.length);
     return to < 0 ? html : `${html.slice(0, from)}${html.slice(to)}`;
   };
-  let html = source;
-  html = cut(html, '<!-- ============== 부속서류 1 · 차량 인수증', '<!-- ============== 부속서류 2');
-  html = cut(html, '<!-- ============== 부속서류 7 · 자동이체(CMS)', '<!-- ============== 부속서류 8');
-  html = cut(html, '<!-- ============== 부속서류 8 · 연대보증', '<script>');
-  return html;
+  // 기본 발송본은 계약서·약관·서명확인까지만 봉인한다.
+  // 인수증·기관제출용 확인서·CMS·보증서는 시점과 용도가 달라 필요할 때 별도로 만든다.
+  return cut(source, '<!-- ============== 부속서류 1 · 차량 인수증', '<script>');
 }

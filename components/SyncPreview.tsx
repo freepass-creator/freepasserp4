@@ -38,7 +38,7 @@ function atomStatus(p: EntityRecord): { label: string; tone: 'green' | 'amber' |
 }
 
 function withDefault(value: string, inferred?: boolean) {
-  if (!value) return '—';
+  if (!value) return '미입력';
   return inferred ? `${value}(조합)` : value;
 }
 
@@ -213,11 +213,11 @@ export function SyncPreview({
                 return (
                   <tr key={String(p.product_code || p._key || i)} style={{ background: i % 2 ? C.zebra : undefined }}>
                     <td style={td} title={raw}>{raw}</td>
-                    <td style={td} title={S(p.sub_model)}>{S(p.sub_model) || '—'}</td>
-                    <td style={td} title={S(p.variant)}>{S(p.variant) || '—'}</td>
-                    <td style={td} title={S(p.trim_name)}>{S(p.trim_name) || '—'}</td>
-                    <td style={td}>{S(p.fuel_type) || '—'}</td>
-                    <td style={td}>{S(p.engine_cc) || '—'}</td>
+                    <td style={td} title={S(p.sub_model)}>{S(p.sub_model) || '미입력'}</td>
+                    <td style={td} title={S(p.variant)}>{S(p.variant) || '미입력'}</td>
+                    <td style={td} title={S(p.trim_name)}>{S(p.trim_name) || '미입력'}</td>
+                    <td style={td}>{S(p.fuel_type) || '미입력'}</td>
+                    <td style={td}>{S(p.engine_cc) || '미입력'}</td>
                     <td style={td}>{withDefault(S(p.seats), defaults.seats)}</td>
                     <td style={td}>{withDefault(S(p.drive_type), defaults.drive_type)}</td>
                     <td style={{ ...td, whiteSpace: 'normal', maxWidth: 160 }}>

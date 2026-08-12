@@ -11,7 +11,7 @@ import {
   matchPopularModel, matchProduct, presentFilterOptionsFaceted, type FState, type VehicleFilter,
 } from '@/lib/domain/product-filters';
 import { excelColumnMatches, excelColumnSortValue, isNumericExcelColumn, type ColSort } from './excel-columns';
-import { numOr, type FilterBag, type InterestKey } from './filter-state';
+import { FINDER_DEFAULT_SORT, numOr, type FilterBag, type InterestKey } from './filter-state';
 
 type Params = {
   rows: EntityRecord[] | null;
@@ -202,7 +202,7 @@ export function useFinderResults(params: Params) {
     list,
     draftPreviewCount,
     totalVisible,
-    narrowed: !!(query || activeCount(state) > 0 || models.size > 0 || interest.size > 0 || sort),
+    narrowed: !!(query || activeCount(state) > 0 || models.size > 0 || interest.size > 0 || (sort && sort !== FINDER_DEFAULT_SORT)),
     excelRows,
   };
 }

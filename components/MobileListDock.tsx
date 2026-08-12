@@ -44,7 +44,7 @@ export function MobileDockShell({
 }) {
   return (
     <div
-      className={className ? `fp-dock-bar ${className}` : 'fp-dock-bar'}
+      className={className ? `fp-dock-bar fp-action-dock ${className}` : 'fp-dock-bar fp-action-dock'}
       aria-label={ariaLabel}
       style={{
         position: 'fixed', left: 0, right: 0,
@@ -77,9 +77,9 @@ export function MobileDockSlots({
   leading?: ReactNode;
 }) {
   return (
-    <div style={barStyle}>
+    <div className="fp-action-dock__row" style={barStyle}>
       {leading}
-      <div style={{ flex: '1 1 0', minWidth: 0, display: 'flex', alignItems: 'center' }}>
+      <div className="fp-action-dock__actions" style={{ flex: '1 1 0', minWidth: 0, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: DOCK.gap }}>
         {main}
       </div>
       {mid != null ? <div style={sideStyle}>{mid}</div> : null}
@@ -98,11 +98,7 @@ export function MobileListDock({ actions }: { actions?: ReactNode }) {
     <MobileDockShell ariaLabel={onTabRoot ? '액션' : '이전 · 액션'} className="fp-list-dock">
       <MobileDockSlots
         leading={onTabRoot ? undefined : <NavBack kind="history" />}
-        main={
-          actions
-            ? <div style={{ display: 'flex', gap: DOCK.gap, justifyContent: 'flex-end', width: '100%', minWidth: 0 }}>{actions}</div>
-            : null
-        }
+        main={actions ?? null}
       />
     </MobileDockShell>
   );

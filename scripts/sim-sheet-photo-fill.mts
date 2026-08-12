@@ -76,8 +76,13 @@ async function main() {
 
   console.log('\n══ 시트 링크 → photo_link 실측 (쓰기 없음) ══\n');
   let allIn = 0, allPhoto = 0;
+  const partnerByCode = new Map<string, EntityRecord>();
+  for (const partner of Object.values(partners)) {
+    const code = S(partner.partner_code) || S(partner._key);
+    if (code) partnerByCode.set(code, partner);
+  }
 
-  for (const p of Object.values(partners)) {
+  for (const p of partnerByCode.values()) {
     const code = S(p.partner_code) || S(p._key);
     if (ONLY && code !== ONLY) continue;
     if (!S(p.sheet_url) || p._deleted === true || S(p.status) === 'deleted') continue;

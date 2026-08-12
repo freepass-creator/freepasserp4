@@ -63,6 +63,27 @@ export type ActiveBearer = {
   agentChannelCode: string;
 };
 
+export class BearerTokenError extends Error {
+  constructor(
+    public readonly authCode: string,
+    public readonly detail = '',
+  ) {
+    super('Firebase ID token verification failed');
+    this.name = 'BearerTokenError';
+  }
+}
+
+function tokenIssuedAtMs(token: string): number {
+  try {
+    const payload = JSON.parse(Buffer.from(token.split('.')[1] || '', 'base64url').toString('utf8')) as {
+      iat?: unknown;
+    };
+    return Number(payload.iat || 0) * 1000;
+  } catch {
+    return 0;
+  }
+}
+
 const ACTIVE_ROLES = new Set(['agent', 'agent_admin', 'agent_manager', 'provider', 'provider_admin', 'admin']);
 
 /**
@@ -72,17 +93,47 @@ const ACTIVE_ROLES = new Set(['agent', 'agent_admin', 'agent_manager', 'provider
  * 만료 전 토큰이 남아 있어도 서버 투영 API를 계속 읽는 일을 막기 위해서다. status가 없는 기존
  * 정상 회원은 현재 RTDB rules와 동일하게 허용하되, 미배정 역할·익명·대기·삭제·반려·비활성은 닫는다.
  */
-export async function verifyActiveBearer(request: Request): Promise<ActiveBearer | null> {
+export async function verifyActiveBearer(
+  request: Request,
+  options: { throwTokenError?: boolean } = {},
+): Promise<ActiveBearer | null> {
   const token = request.headers.get('authorization')?.match(/^Bearer\s+(.+)$/i)?.[1] || '';
   if (!token) return null;
   // 구성/서비스 장애는 호출자가 503으로 구분할 수 있게 삼키지 않는다.
   // 유효하지 않은 사용자 토큰만 인증 실패(null)로 정규화한다.
   const app = firebaseAdminApp();
-  let decoded: DecodedIdToken;
+  let decoded: DecodedIdToken | null = null;
+  let verifyError: unknown = null;
   try {
     decoded = await getAuth(app).verifyIdToken(token);
-  } catch {
-    return null;
+  } catch (error) {
+    verifyError = error;
+    const issuedAt = tokenIssuedAtMs(token);
+    const waitMs = issuedAt - Date.now() + 250;
+    // Firebase Auth 발급 서버와 로컬 PC 시계가 수초 어긋난 경우에만 같은 토큰의
+    // 정식 서명 검증을 잠시 뒤 재시도한다. 토큰을 신뢰하거나 검증을 우회하지 않는다.
+    if (String((error as { code?: unknown })?.code || '') === 'auth/argument-error'
+      && waitMs > 0 && waitMs <= 5_000) {
+      await new Promise((resolve) => setTimeout(resolve, waitMs));
+      try {
+        decoded = await getAuth(app).verifyIdToken(token);
+        verifyError = null;
+      } catch (retryError) {
+        verifyError = retryError;
+      }
+    }
+  }
+  if (!decoded) {
+    const code = String((verifyError as { code?: unknown })?.code || '');
+    // 실제 토큰 오류만 비로그인으로 정규화한다. 자격증명·네트워크·Admin SDK 장애까지
+    // null로 삼키면 화면이 서버 장애를 "로그인 만료"로 잘못 안내한다.
+    if (code.startsWith('auth/')) {
+      if (options.throwTokenError) {
+        throw new BearerTokenError(code, String((verifyError as { message?: unknown })?.message || ''));
+      }
+      return null;
+    }
+    throw verifyError;
   }
   if (decoded.firebase?.sign_in_provider === 'anonymous') return null;
   const snapshot = await getDatabase(app).ref(`users/${decoded.uid}`).get();

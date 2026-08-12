@@ -1,24 +1,23 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { getAuthClient } from '@/lib/firebase/client';
 import {
   contractKindFor,
+  defaultStandardTemplate,
   findTemplate,
   maturityOf,
   standardTemplateSelectionError,
-  templatesForContract,
 } from '@/lib/domain/esign-templates';
-import type { MaturityKind } from '@/lib/domain/esign-contract-kind';
 import { ESIGN_STEPS } from '@/lib/domain/esign-progress';
 import { copyText } from '@/lib/clipboard';
 import { toast } from '@/components/Toaster';
 import {
-  Badge, Btn, ButtonLabel, C, CenterNote, DetailRow, FilterChips, FS, FW, ICON,
+  Badge, Btn, ButtonLabel, C, CenterNote, DetailRow, FS, FW, ICON,
   Input, ListGroup, SectionLabel, Textarea,
 } from '@/components/ui';
-import { CheckCircle2, Copy, ExternalLink, FileDown, Link2Off, RefreshCw, XCircle } from 'lucide-react';
+import { CheckCircle2, Copy, ExternalLink, FileDown, Link2Off, RefreshCw, Smartphone, XCircle } from 'lucide-react';
 
 type Rec = Record<string, unknown>;
 type AdminState = {
@@ -64,6 +63,8 @@ const won = (value: unknown) => `${N(value).toLocaleString('ko-KR')}원`;
 async function bearer() {
   const user = getAuthClient()?.currentUser;
   if (!user) throw new Error('관리자 로그인이 필요합니다.');
+  // Firebase SDK가 만료 여부를 확인하고 필요할 때만 갱신한다. 매 요청마다 강제 갱신하면
+  // 클라이언트와 로컬 서버의 수초 시계차 때문에 막 발급된 토큰이 미래 토큰으로 보일 수 있다.
   return user.getIdToken();
 }
 
@@ -133,14 +134,6 @@ export function FreepassEsignLinkPane({
   const code = S(contract?.contract_code);
   const [state, setState] = useState<AdminState | null>(null);
   const [busy, setBusy] = useState(false);
-  const options = useMemo(() => contract ? templatesForContract(contract) : [], [contract]);
-  const [pickId, setPickId] = useState('');
-  const [maturity, setMaturity] = useState<MaturityKind | ''>('');
-
-  useEffect(() => {
-    setPickId(findTemplate(contract?.standard_template_id)?.id || options[0]?.id || '');
-    setMaturity((contract ? maturityOf(contract) : '') || '');
-  }, [contract?.contract_code, contract?.standard_template_id, contract?.contract_kind, options]);
 
   const load = useCallback(async () => {
     if (!code) { setState(null); return; }
@@ -149,13 +142,24 @@ export function FreepassEsignLinkPane({
   }, [code]);
   useEffect(() => { void load(); }, [load]);
 
-  if (!contract) return <CenterNote>왼쪽에서 계약을 고르세요.</CenterNote>;
+  if (!contract) return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <SectionLabel>검토·링크에서 할 일</SectionLabel>
+      <ListGroup>
+        <DetailRow label="계약서 확인" value="선택한 회사·계약서와 건별 조건을 최종 확인" stacked />
+        <DetailRow label="고객 화면" value="모바일 서명 화면과 A4 계약서 미리보기" stacked />
+        <DetailRow label="링크 생성" value="계약을 확정하고 고객 작성용 보안 링크 생성" stacked />
+      </ListGroup>
+      <CenterNote minHeight={0}>왼쪽에서 회사와 계약서를 선택하고 조건값을 입력한 뒤 초안을 만드세요.</CenterNote>
+    </div>
+  );
   const current = state?.contract || contract;
   const issued = S(current.esign_provider) === 'freepass' && !!S(current.esign_id);
   const completed = S(current.sign_status) === '서명완료';
   const link = S(current.esign_sign_url);
-  const tpl = options.find((row) => row.id === pickId) || null;
-  const spec = tpl && maturity ? contractKindFor(tpl, maturity) : null;
+  const tpl = findTemplate(current.standard_template_id) || defaultStandardTemplate();
+  const maturity = maturityOf(current) || '반납형';
+  const spec = contractKindFor(tpl, maturity);
   const selectionError = tpl && spec ? standardTemplateSelectionError(tpl, spec, policy) : '';
 
   const run = async (body: Rec, success: string) => {
@@ -181,34 +185,22 @@ export function FreepassEsignLinkPane({
 
       {!issued ? (
         <>
-          <SectionLabel>표준계약서 종류</SectionLabel>
-          <FilterChips
-            options={options.map((row) => ({ key: row.id, label: row.label }))}
-            value={pickId}
-            onChange={setPickId}
-          />
-          <SectionLabel>만기 선택</SectionLabel>
-          <FilterChips
-            options={[{ key: '반납형', label: '반납' }, { key: '인수형', label: '인수' }]}
-            value={maturity}
-            onChange={(value) => setMaturity(value as MaturityKind)}
-          />
           {selectionError ? <Badge tone="red" variant="solid">{selectionError}</Badge> : null}
-          {tpl && spec && !selectionError ? (
+          {!selectionError ? (
             <>
-              <ListGroup>
+              <ListGroup header="발행할 계약서">
                 <DetailRow label="확정 계약서" value={tpl.label} />
-                <DetailRow label="만기" value={maturity === '인수형' ? '인수' : '반납'} />
                 <DetailRow label="보험" value={tpl.insuranceSide === '고객직접' ? '보험별도' : '보험포함'} />
+                <DetailRow label="만기 인수옵션" value={S(current.contract_draft).includes('buyback_price') ? '계약서 기재값 적용' : '없음 · 만기 반납'} />
               </ListGroup>
               <Btn
-                title="이 조합으로 전자계약 발행"
+                title="계약서 확정 및 고객 작성 링크 생성"
                 disabled={busy}
                 onClick={() => void run({
                   action: 'issue', standardTemplateId: tpl.id, contractKind: spec.key,
                 }, '프리패스 전자계약 링크를 만들었습니다.')}
               >
-                {busy ? '발행 중…' : '이 조합으로 계약서 확정'}
+                {busy ? '링크 생성 중…' : '계약서 확정·링크 생성'}
               </Btn>
             </>
           ) : null}
@@ -222,6 +214,9 @@ export function FreepassEsignLinkPane({
               <SectionLabel>서명 링크</SectionLabel>
               <div style={{ fontSize: FS.cap, color: C.mute, wordBreak: 'break-all', lineHeight: 1.5 }}>{link || '링크 없음'}</div>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                <Btn title="고객 모바일 화면과 전자계약서 보기" onClick={() => window.open(`/esign/preview/${encodeURIComponent(code)}`, '_blank', 'noreferrer')}>
+                  <ButtonLabel icon={<Smartphone size={ICON.md} aria-hidden />}>모바일·계약서 보기</ButtonLabel>
+                </Btn>
                 <Btn title="링크 복사" onClick={() => void copyText(link).then((ok) => toast(ok ? '링크를 복사했습니다.' : '링크 복사에 실패했습니다.', ok ? 'ok' : 'error'))}>
                   <ButtonLabel icon={<Copy size={ICON.md} aria-hidden />}>링크 복사</ButtonLabel>
                 </Btn>
@@ -271,7 +266,7 @@ const EVENT_LABEL: Record<string, string> = {
   handover_confirmed: '인도일 확정',
 };
 const SUPPLEMENT_ITEMS = [
-  { key: 'identity', label: '신분증·셀카' },
+  { key: 'identity', label: '운전면허증·셀카' },
   { key: 'contract', label: '계약정보' },
   { key: 'agreement', label: '약관확인' },
   { key: 'signature', label: '서명' },
@@ -308,7 +303,19 @@ export function FreepassEsignProgressPane({
   }, [code, load]);
   useEffect(() => { setHandoverDate(savedDate); }, [savedDate, code]);
 
-  if (!contract) return <CenterNote>계약을 고르면 진행상황이 표시됩니다.</CenterNote>;
+  if (!contract) return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <SectionLabel>발송 후 진행 흐름</SectionLabel>
+      <ListGroup>
+        <DetailRow label="1. 발송" value="고객에게 보안 링크 전달" />
+        <DetailRow label="2. 고객 확인" value="계약조건·약관 확인 및 본인인증" />
+        <DetailRow label="3. 전자서명" value="고객 서명 제출" />
+        <DetailRow label="4. 관리자 확인" value="서명 검토·보완 요청 또는 승인" />
+        <DetailRow label="5. 완료" value="봉인 PDF 보관 및 인도일 확정" />
+      </ListGroup>
+      <CenterNote minHeight={0}>계약서를 발송하면 각 단계의 시간과 상태가 여기에 표시됩니다.</CenterNote>
+    </div>
+  );
   const active = current || contract;
   const sessionStatus = S(state?.session?.status);
   const issued = S(active.esign_provider) === 'freepass' && !!S(active.esign_id);
@@ -379,11 +386,11 @@ export function FreepassEsignProgressPane({
         <>
           <ListGroup>
             <DetailRow label="제출자" value={[state.submission.customerName, state.submission.customerPhone].filter(Boolean).join(' · ') || '—'} />
-            <DetailRow label="신분증" value={state.submission.idCard ? '접수' : '누락'} valueColor={state.submission.idCard ? C.ok : C.danger} />
+            <DetailRow label="운전면허증" value={state.submission.idCard ? '접수' : '누락'} valueColor={state.submission.idCard ? C.ok : C.danger} />
             <DetailRow label="본인 셀카" value={state.submission.selfie ? '접수' : '누락'} valueColor={state.submission.selfie ? C.ok : C.danger} />
           </ListGroup>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {state.submission.assetUrls?.idCard ? <Btn title="신분증 확인" variant="ghost" onClick={() => void openAsset(state.submission!.assetUrls!.idCard!)}>신분증 확인</Btn> : null}
+            {state.submission.assetUrls?.idCard ? <Btn title="운전면허증 확인" variant="ghost" onClick={() => void openAsset(state.submission!.assetUrls!.idCard!)}>운전면허증 확인</Btn> : null}
             {state.submission.assetUrls?.selfie ? <Btn title="셀카 확인" variant="ghost" onClick={() => void openAsset(state.submission!.assetUrls!.selfie!)}>셀카 확인</Btn> : null}
           </div>
           {state.submission.signature ? (
@@ -405,7 +412,7 @@ export function FreepassEsignProgressPane({
               </Btn>
             ))}
           </div>
-          <Textarea value={reason} onChange={setReason} placeholder="사유 (예: 신분증 글자가 흐려 확인이 어렵습니다)" full />
+          <Textarea value={reason} onChange={setReason} placeholder="사유 (예: 운전면허증 글자가 흐려 확인이 어렵습니다)" full />
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             <Btn title="전자계약 보완 요청" variant="ghost" disabled={busy || supplementItems.size === 0} onClick={() => void run({ action: 'reject', reason, items: [...supplementItems] }, '같은 보안 링크로 보완을 요청했습니다.')}>
               <ButtonLabel icon={<XCircle size={ICON.md} aria-hidden />}>보완 요청</ButtonLabel>
@@ -452,7 +459,7 @@ export function FreepassEsignProgressPane({
         )) : <DetailRow label="진행 이력" value="—" />}
       </ListGroup>
       <div style={{ fontSize: FS.cap, color: C.faint, lineHeight: 1.5 }}>
-        신분증·셀카 원본과 서명은 공개 계약 데이터가 아니라 서버 전용 저장소에 보관됩니다.
+        운전면허증·셀카 원본과 서명은 공개 계약 데이터가 아니라 서버 전용 저장소에 보관됩니다.
       </div>
     </div>
   );

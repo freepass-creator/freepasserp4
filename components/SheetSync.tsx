@@ -1,6 +1,7 @@
 'use client';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getStore } from '@/lib/store';
+import { useAuthReady } from '@/lib/auth-context';
 import { getRole, actor } from '@/lib/domain/deal';
 import { confirmDialog, toast } from '@/components/Toaster';
 import { Btn, C, FS, FW, ICON, Input, Modal, PillTabs, R, SCRIM, SH, Select, SectionLabel, Textarea, NUM, td, th } from '@/components/ui';
@@ -46,6 +47,7 @@ import {
   listSheetPartnerRecords,
   fetchAllPartnerSheets,
   commitFetchedPartnerSheets,
+  commitSafeSupplierFields,
   buildPrevForGuard,
   findSheetSyncExistingConflicts,
   sheetSyncExistingConflictReason,
@@ -357,6 +359,7 @@ async function fetchAdminSheetTable(
 export function SheetSync({ co, onImported, compact = false }: { co: string; onImported: () => void; compact?: boolean }) {
   const role = getRole();
   const isAdmin = role === 'admin';
+  const authReady = useAuthReady();
   const [tab, setTab] = useState<'sheet' | 'excel'>('sheet');
   const [url, setUrl] = useState('');
   const [gid, setGid] = useState('');
@@ -380,6 +383,7 @@ export function SheetSync({ co, onImported, compact = false }: { co: string; onI
    * null = 검증 안 함 · 'all' = 전체 · string[] = 그 공급사 코드만.
    */
   const [validatingCodes, setValidatingCodes] = useState<string[] | 'all' | null>(null);
+  const [sheetAction, setSheetAction] = useState<'validate' | 'sync' | null>(null);
   const [master, setMaster] = useState<MasterEntry[] | null>(() => peekVehicleMaster());
   const [roster, setRoster] = useState<PartnerSheetRow[]>([]);
   const [rosterError, setRosterError] = useState('');
@@ -428,7 +432,7 @@ export function SheetSync({ co, onImported, compact = false }: { co: string; onI
   } | null>(null);
 
   const refreshRoster = useCallback(async () => {
-    if (!isAdmin) return;
+    if (!isAdmin || !authReady) return;
     try {
       // 관리자 검증 대상은 캐시·부분 merge 결과를 정상 roster로 승인하면 안 된다.
       // 특히 부분 read가 []로 축약되면 검증 버튼까지 사라져 재시도할 길이 막힌다.
@@ -438,10 +442,10 @@ export function SheetSync({ co, onImported, compact = false }: { co: string; onI
       setRoster([]);
       setRosterError(String((error as Error).message || error));
     }
-  }, [co, isAdmin]);
+  }, [authReady, co, isAdmin]);
 
   const refreshDailyStatus = useCallback(async () => {
-    if (!isAdmin) return;
+    if (!isAdmin || !authReady) return;
     setDailyStatusLoading(true);
     try {
       const user = getAuthClient()?.currentUser;
@@ -466,7 +470,7 @@ export function SheetSync({ co, onImported, compact = false }: { co: string; onI
     } finally {
       setDailyStatusLoading(false);
     }
-  }, [isAdmin]);
+  }, [authReady, isAdmin]);
 
   // roster 바뀌면 검증 스냅샷 무효
   useEffect(() => { setPending(null); }, [roster]);
@@ -908,6 +912,7 @@ export function SheetSync({ co, onImported, compact = false }: { co: string; onI
     if (rosterError) { toast(`시트 설정 오류 — ${rosterError}`, 'error'); return; }
     if (!roster.length) { toast('시트 URL이 등록된 공급사가 없습니다 — 회원·파트너에서 공급사 원본을 설정하세요', 'info'); return; }
     setBusy(true);
+    setSheetAction('validate');
     setValidatingCodes(onlyCodes?.length ? onlyCodes : 'all');
     setBulkLog('');
     setPending(null);
@@ -1127,6 +1132,60 @@ export function SheetSync({ co, onImported, compact = false }: { co: string; onI
       toast('검증 실패: ' + String((e as Error).message || e), 'error');
     } finally {
       setBusy(false);
+      setSheetAction(null);
+      setValidatingCodes(null);
+    }
+  };
+
+  /** 한 번 클릭: fresh 시트 읽기 → 내부 검수 → 전체 또는 충돌 제외 안전 원자 반영. */
+  const syncNow = async (onlyCodes?: string[]) => {
+    if (busy) return;
+    if (!masterReady || rosterError) {
+      toast(rosterError ? `시트 설정 오류 · ${rosterError}` : '차종마스터 로드 실패 · 연동 불가', 'error');
+      return;
+    }
+    setBusy(true);
+    setSheetAction('sync');
+    setValidatingCodes(onlyCodes?.length ? onlyCodes : 'all');
+    try {
+      const freshPartners = await listSheetPartnerRecords(co, true);
+      const scoped = onlyCodes?.length
+        ? freshPartners.filter((row) => onlyCodes.includes(String(row.partner_code || row._key || '')))
+        : freshPartners;
+      if (!scoped.length) throw new Error('연동할 공급사 시트가 없습니다.');
+      const fetched = await fetchAllPartnerSheets(co, master!, {
+        fetchTable: fetchAdminSheetTable,
+        partnerRows: scoped,
+      });
+      const state = await listSheetReconcileState(co, true);
+      fetched.reconcileRevision = sheetReconcileStateRevision(state);
+      const sourceBlock = sheetSyncCommitBlockReason(fetched);
+      if (sourceBlock) throw new Error(sourceBlock);
+      const conflicts = findSheetSyncExistingConflicts(fetched, state.active, state.deleted);
+      const conflictReason = sheetSyncExistingConflictReason(conflicts);
+      if (conflictReason) {
+        const result = await commitSafeSupplierFields(co, master!, fetched);
+        toast(
+          result
+            ? `연동 완료 · 안전 정보 수정 ${result.updated}대 · 가격·신규·삭제 충돌은 보류`
+            : `연동 검수 완료 · ${conflictReason} · 안전하게 반영할 기존 차량 정보 없음`,
+          result ? 'ok' : 'info',
+        );
+      } else {
+        const result = await commitFetchedPartnerSheets(co, master!, fetched);
+        toast(
+          `연동 완료 · 신규 ${result.commit?.created || 0}대 · 수정 ${result.commit?.updated || 0}대`,
+          'ok',
+        );
+      }
+      setPending(null);
+      await refreshRoster();
+      onImported();
+    } catch (error) {
+      toast(`연동 실패 · ${String((error as Error).message || error)}`, 'error');
+    } finally {
+      setBusy(false);
+      setSheetAction(null);
       setValidatingCodes(null);
     }
   };
@@ -1138,7 +1197,24 @@ export function SheetSync({ co, onImported, compact = false }: { co: string; onI
     const { totals, banners, fetched } = pending;
     const blockReason = sheetSyncCommitBlockReason(fetched) || pending.existingConflictReason;
     if (blockReason) {
-      toast(`동기화 중단 — ${blockReason}. 충돌을 정리하고 데이터 검증을 다시 실행하세요.`, 'error');
+      const ok = await confirmDialog({
+        title: '안전한 공급사 정보 연동',
+        okLabel: '연동하기',
+        message: `${blockReason}\n\n가격·신규·삭제·상태 충돌은 보류하고, 기존 차량과 공급사+차번이 정확히 일치하는 제원·주행거리·색상·옵션·사진만 반영합니다.`,
+      });
+      if (!ok) return;
+      setBusy(true);
+      try {
+        const result = await commitSafeSupplierFields(co, master!, fetched);
+        toast(result ? `안전 정보 연동 완료 · 수정 ${result.updated}대` : '반영할 안전 정보가 없습니다.', result ? 'ok' : 'info');
+        setPending(null);
+        await refreshRoster();
+        onImported();
+      } catch (error) {
+        toast(`안전 정보 연동 실패 · ${String((error as Error).message || error)}`, 'error');
+      } finally {
+        setBusy(false);
+      }
       return;
     }
     if (Date.now() - pending.at > 10 * 60 * 1000) {
@@ -1276,6 +1352,10 @@ export function SheetSync({ co, onImported, compact = false }: { co: string; onI
     ? '아이언렌트카 상품 반영 중… Firebase에 쓰는 중입니다.'
     : ironPreviewLoading
       ? '아이언렌트카 홈페이지 검증 중…'
+      : sheetAction === 'sync' && validatingCodes === 'all'
+        ? `전체 공급사 연동 중… (${roster.length}곳 · ERP 규격 변환·저장·사후검증)`
+        : sheetAction === 'sync' && Array.isArray(validatingCodes) && validatingCodes.length
+          ? `${validatingCodes.join(', ')} 연동 중… ERP 규격 변환·저장·사후검증`
       : validatingCodes === 'all'
         ? `전체 공급사 시트 검증 중… (${roster.length}곳 · 사진·숨김행 포함 · 1~2분 걸릴 수 있음)`
         : Array.isArray(validatingCodes) && validatingCodes.length
@@ -2008,17 +2088,15 @@ export function SheetSync({ co, onImported, compact = false }: { co: string; onI
                               onClick={() => validateAll([p.code])}
                               disabled={busy || !masterReady || !!rosterError}
                             >
-                              {rowValidating ? '검증 중…' : '데이터 검증'}
+                              {sheetAction === 'validate' && rowValidating ? '검증 중…' : '데이터 검증'}
                             </Btn>
                             <Btn
-                              title={!rowPending
-                                ? `${p.name} 먼저 데이터 검증`
-                                : (pendingBlockReason || `${p.name} 검증 결과 반영`)}
+                              title={`${p.name} 최신 시트를 읽어 검수 후 바로 연동`}
                               size="sm"
-                              onClick={commitPending}
-                              disabled={busy || !rowPending || Boolean(pendingBlockReason)}
+                              onClick={() => syncNow([p.code])}
+                              disabled={busy || !masterReady || !!rosterError}
                             >
-                              {busy && pending && rowPending ? '반영 중…' : '검증 결과 반영'}
+                              {sheetAction === 'sync' && rowValidating ? '연동 중…' : '연동하기'}
                             </Btn>
                           </div>
                         </td>
@@ -2142,14 +2220,14 @@ export function SheetSync({ co, onImported, compact = false }: { co: string; onI
               onClick={validateEverySource}
               disabled={busy || !masterReady || !!rosterError}
             >
-              {validatingCodes === 'all' ? '검증 중…' : '데이터 검증'}
+              {sheetAction === 'validate' && validatingCodes === 'all' ? '검증 중…' : '데이터 검증'}
             </Btn>
             <Btn
-              title={pendingBlockReason || (pending ? `상품 반영 · 검증 ${pending.fetched.products.length}대` : '먼저 상품 검증')}
-              onClick={commitPending}
-              disabled={busy || !pending || Boolean(pendingBlockReason)}
+              title="전체 공급사 최신 원본을 읽어 검수 후 바로 연동"
+              onClick={() => syncNow()}
+              disabled={busy || !masterReady || !!rosterError || !roster.length}
             >
-              {busy && pending ? '반영 중…' : '검증 결과 반영'}
+              {sheetAction === 'sync' && validatingCodes === 'all' ? '연동 중…' : '전체 연동하기'}
             </Btn>
             {/*
               재고관리에서는 이 한 줄이 «검증 결과의 전부»다.

@@ -24,6 +24,8 @@ export type ListToolsConfig = {
     onChange: (v: string) => void;
     options: { value: string; label: string }[];
     placeholder?: string;
+    /** 빈 값 대신 실제 정렬값이 기본인 화면. 초기화 시 이 값과 해당 옵션 라벨로 돌아간다. */
+    defaultValue?: string;
   };
   filter?: {
     count: number;
@@ -94,6 +96,9 @@ export function MobilePageShell({
   const searchCfg = lt?.search || search;
   const sortCfg = lt?.sort;
   const filterCfg = lt?.filter;
+  const sortDefaultLabel = sortCfg?.defaultValue
+    ? (sortCfg.options.find((option) => option.value === sortCfg.defaultValue)?.label || '정렬 초기화')
+    : '정렬 해제';
   const toolbarMode = lt?.toolbar || (tools ? 'icons' : 'searchFilter');
   const useSearchFilter = toolbarMode === 'searchFilter' && !tools;
 
@@ -153,7 +158,7 @@ export function MobilePageShell({
         });
       }
       if (sortCfg) {
-        const on = !!sortCfg.value;
+        const on = !!sortCfg.value && sortCfg.value !== (sortCfg.defaultValue || '');
         out.push({
           key: 'sort', label: '정렬', icon: ArrowUpDown,
           badge: on ? 1 : undefined, active: on, pressed: sheet === 'sort',
@@ -321,15 +326,15 @@ export function MobilePageShell({
           title={sortCfg.placeholder || '정렬'}
           maxHeight="auto"
           footer="std"
-          clearLabel="기본"
-          onClear={sortCfg.value ? () => { sortCfg.onChange(''); haptic.select(); } : undefined}
+          clearLabel={sortDefaultLabel}
+          onClear={sortCfg.value !== (sortCfg.defaultValue || '') ? () => { sortCfg.onChange(sortCfg.defaultValue || ''); haptic.select(); } : undefined}
           pad
         >
           <Select
             full
             value={sortCfg.value || ''}
             onChange={(v) => { sortCfg.onChange(v); haptic.select(); }}
-            placeholder="기본"
+            placeholder={sortCfg.defaultValue ? undefined : (sortCfg.placeholder || '정렬 선택')}
             options={sortCfg.options.map((o) => ({ value: o.value, label: o.label }))}
           />
         </BottomSheet>
@@ -357,7 +362,7 @@ export function MobilePageShell({
           onClear={filterCfg.onClear
             ? () => {
               haptic.select();
-              if (sortCfg) setDraftSort('');
+              if (sortCfg) setDraftSort(sortCfg.defaultValue || '');
               filterCfg.onClear?.();
             }
             : undefined}
@@ -366,17 +371,17 @@ export function MobilePageShell({
           {useSearchFilter && sortCfg ? (
             <FilterGroup
               title="정렬"
-              count={draftSort ? 1 : 0}
+              count={draftSort && draftSort !== (sortCfg.defaultValue || '') ? 1 : 0}
               defaultOpen
               first
-              onClear={() => { setDraftSort(''); haptic.select(); }}
+              onClear={() => { setDraftSort(sortCfg.defaultValue || ''); haptic.select(); }}
             >
               <div style={{ flex: '1 1 100%', width: '100%', minWidth: 0 }}>
                 <Select
                   full
                   value={draftSort || ''}
                   onChange={(v) => { setDraftSort(v); haptic.select(); }}
-                  placeholder="기본"
+                  placeholder={sortCfg.defaultValue ? undefined : (sortCfg.placeholder || '정렬 선택')}
                   options={sortCfg.options.map((o) => ({ value: o.value, label: o.label }))}
                 />
               </div>

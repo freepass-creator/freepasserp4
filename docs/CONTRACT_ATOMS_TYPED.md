@@ -67,7 +67,7 @@
 | 칸 | 라벨 | 값 예시 | 출처 |
 |---|---|---|---|
 | `annual_mileage` | 연간 약정주행 | `20,000 km` | 정책 |
-| `odometer_delivery` | 인도 주행거리 | `0 km` | 재고 → **인수 시 확정** |
+| `odometer_delivery` | 출고 시 주행거리 | `0 km` | 재고 → **출고 시 확정** |
 | `odometer_return` | 반납 주행거리 | `-` | **없음** |
 | `emergency_dispatch_limit` | 긴급출동 | `연 5회` | 정책 |
 | `self_damage_deductible_rate` | 자차 자기부담률 | `20` (%) | 정책 |

@@ -121,7 +121,7 @@ export default function Detail() {
     <>
       <ReportButton p={p} />
       <ProductPhotoDownloadButton p={p} />
-      <Btn title="공유" variant="ghost" size="sm" onClick={sendLink}>
+      <Btn title="공유" variant="ghost" size="sm" mobileIcon={<Share2 size={ICON.lg} aria-hidden />} onClick={sendLink}>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
           <Share2 size={ICON.md} aria-hidden />
           공유

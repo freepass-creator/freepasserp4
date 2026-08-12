@@ -39,7 +39,7 @@ export const COMPLIANCE_ITEMS: ComplianceItem[] = [
     requirement: '계약 체결 전 약관 전문을 손님이 볼 수 있어야 한다.',
     level: '필수',
     risk: '그 약관을 계약 내용으로 주장할 수 없다(§3④).',
-    coveredBy: 'agreement.sections 22개조 전문',
+    coveredBy: 'agreement.sections 21개조 전문',
   },
   {
     key: 'terms_read_through',
@@ -115,7 +115,7 @@ export const COMPLIANCE_ITEMS: ComplianceItem[] = [
     requirement: '계약서상 운전자의 면허 효력·범위를 확인해야 한다.',
     level: '필수',
     risk: '사업자 제재 대상이다.',
-    coveredBy: '착한거래 본인확인(신분증 OCR) + 약관 제5조',
+    coveredBy: '착한거래 본인확인(신분증 OCR) + 약관 제13조',
   },
 
   /* ── 전자서명·전자문서 ── */

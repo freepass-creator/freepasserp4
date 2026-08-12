@@ -44,14 +44,16 @@ import {
   chatSortDefaultFor,
   chatRowContract,
   chatRoomPreviewCount,
+  activeChatRooms,
   filterChatRooms,
   isWorkspaceChatRoom,
+  retainChatSelection,
   requestedChatRoom,
   type ChatFilter,
   type ChatSort,
 } from '@/features/chat/room-filter';
 import { deskItemOf } from '@/features/chat/admin-queue';
-import { joinMetaText, retainVisibleSelection, workPartyParts } from '@/features/work-list-display';
+import { joinMetaText, workPartyParts } from '@/features/work-list-display';
 import { ListChecks, MessageCircle, ClipboardList } from 'lucide-react';
 import { ChatRoomList } from '@/features/chat/ChatRoomList';
 import { useProductPhotoState } from '@/components/use-product-photos';
@@ -401,13 +403,20 @@ export default function Chat() {
     ]),
     nameOf: roomHead,
   }), [rooms, q, draftFlt, role, contractIndex, cancelledIndex, productLookup, deletedLookup, providerAliases]);
+  const activityRooms = useMemo(
+    () => activeChatRooms(rooms || [], contractIndex, cancelledIndex),
+    [rooms, contractIndex, cancelledIndex],
+  );
   const rowContract = (room: EntityRecord) => chatRowContract(room, flt, contractIndex, cancelledIndex);
 
   // 필터·검색에서 선택행이 사라지면 상세도 함께 비운다. 숨은 이전 행을 계속 보여주지 않는다.
   useEffect(() => {
     if (!rooms || !sel) return;
     const visible = shownRooms.map((room) => String(room._key));
-    if (retainVisibleSelection(sel, visible) === sel) return;
+    const requested = typeof window !== 'undefined'
+      ? new URLSearchParams(window.location.search).get('room')
+      : null;
+    if (retainChatSelection(rooms, sel, visible, requested) === sel) return;
     clearSel();
     // clearSel은 최신 선택 epoch와 URL room 파라미터를 함께 정리한다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -529,13 +538,13 @@ export default function Chat() {
   ];
 
   const inquiryUnreadN = unreadRoomCount(
-    (rooms || []).filter((rm) => {
+    activityRooms.filter((rm) => {
       const contract = roomContract(rm);
       return !isContractCancelled(contract) && isInquiryOnly(contract);
     }),
     role,
   );
-  const inquiryUnrepliedN = (rooms || []).filter((rm) => {
+  const inquiryUnrepliedN = activityRooms.filter((rm) => {
     const contract = roomContract(rm);
     return !isContractCancelled(contract)
       && isInquiryOnly(contract)
@@ -543,7 +552,7 @@ export default function Chat() {
   }).length;
   // 관리자 = 내가 눌러야 넘어가는 건 수. 상단바 KPI·필터 칩이 같은 숫자를 쓴다.
   const myTurnN = role === 'admin'
-    ? (rooms || []).filter((rm) => deskItemOf(rm, roomContract(rm) || null).bucket === 'mine').length
+    ? activityRooms.filter((rm) => deskItemOf(rm, roomContract(rm) || null).bucket === 'mine').length
     : 0;
 
   return (
@@ -559,7 +568,7 @@ export default function Chat() {
       listHeader={role === 'admin' && rooms !== null ? (
         <div className="fp-chat-queue-summary" aria-label="상담 처리 현황">
           <Btn size="sm" variant={flt === 'all' ? 'solid' : 'ghost'} onClick={() => setFlt('all')}>
-            전체 <Badge tone="gray">{rooms.length}</Badge>
+            전체 <Badge tone="gray">{activityRooms.length}</Badge>
           </Btn>
           <Btn size="sm" variant={flt === '미확인' ? 'solid' : 'ghost'} onClick={() => setFlt('미확인')}>
             미확인 <Badge tone={inquiryUnreadN ? 'red' : 'gray'} variant={inquiryUnreadN ? 'solid' : 'fill'}>{inquiryUnreadN}</Badge>
@@ -582,18 +591,18 @@ export default function Chat() {
           style={{
             display: 'flex', flexDirection: 'column', gap: 4,
             padding: '10px 12px', borderRadius: R,
-            background: '#FEF3C7', border: '1px solid #FDE68A',
+            background: C.warnBg, border: `1px solid ${C.warn}`,
           }}
         >
-          <div style={{ fontSize: FS.sub, fontWeight: FW.title, color: '#92400E' }}>{CHAT_NOTICE_TITLE}</div>
-          <div style={{ fontSize: FS.cap, color: '#92400E' }}>{CHAT_NOTICE_BODY}</div>
+          <div style={{ fontSize: FS.sub, fontWeight: FW.title, color: C.warn }}>{CHAT_NOTICE_TITLE}</div>
+          <div style={{ fontSize: FS.cap, color: C.warn }}>{CHAT_NOTICE_BODY}</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 2 }}>
             {CHAT_NOTICE_CONTACTS.map((c) => (
               // 전화 링크로 둔다 — 모바일에서 번호를 옮겨 적게 하지 않는다.
               <a
                 key={c.phone}
                 href={`tel:${c.phone.replace(/\D/g, '')}`}
-                style={{ fontSize: FS.cap, fontWeight: FW.head, color: '#92400E', textDecoration: 'none', fontFamily: NUM }}
+                style={{ fontSize: FS.cap, fontWeight: FW.head, color: C.warn, textDecoration: 'none', fontFamily: NUM }}
               >
                 {c.name} {c.phone}
               </a>

@@ -47,7 +47,7 @@ export const NOT_SHEET_BACKED = new Set(['RP006']);   // 아이언 = ironrentcar
 
 /** 격자를 한 번에 받을 때 쓰는 필드 마스크. `hidden` 이 빠지면 ②가 조용히 무력화된다. */
 export const SHEET_GRID_FIELDS =
-  'sheets(properties(sheetId,title,hidden),data(rowMetadata(hiddenByFilter,hiddenByUser),rowData(values(formattedValue))))';
+  'sheets(properties(sheetId,title,hidden),data(rowMetadata(hiddenByFilter,hiddenByUser),rowData(values(formattedValue,hyperlink,chipRuns(chip(richLinkProperties(uri)))))))';
 
 export function sheetIdFromUrl(url: unknown): string {
   return (S(url).match(/\/spreadsheets\/d\/([\w-]+)/) || [])[1] || '';
@@ -60,6 +60,8 @@ export type SupplierTab = {
   table: string[][];
   /** 숨김으로 빠진 행 수 — 「왜 줄었나」를 사람이 볼 수 있어야 한다. */
   hiddenRows: number;
+  /** 차량번호 셀/행에서 추출한 공급사 상세·사진 링크. */
+  photoByPlate: Record<string, string>;
 };
 
 export type SupplierSheetRead = {
@@ -89,9 +91,12 @@ export function readSupplierSheet(grid: SheetsGridResponse, partner: EntityRecor
 
     const rowCount = (sheet.data?.[0]?.rowData || []).length;
     let visible: string[][];
+    let photoByPlate: Record<string, string> = {};
     try {
       // ① 숨긴 행 제외
-      visible = (visibleRowsFromGridResponse(grid, gid) as { rows: string[][] }).rows;
+      const parsed = visibleRowsFromGridResponse(grid, gid) as { rows: string[][]; photoByPlate: Record<string, string> };
+      visible = parsed.rows;
+      photoByPlate = parsed.photoByPlate || {};
     } catch (e) {
       failures.push({ gid, title, reason: `숨김 판정 실패 — ${(e as Error).message}` });
       continue;
@@ -107,7 +112,7 @@ export function readSupplierSheet(grid: SheetsGridResponse, partner: EntityRecor
       failures.push({ gid, title, reason: (e as Error).message });
       continue;
     }
-    tabs.push({ gid, title, table, hiddenRows: Math.max(0, rowCount - visible.length) });
+    tabs.push({ gid, title, table, hiddenRows: Math.max(0, rowCount - visible.length), photoByPlate });
   }
   return { tabs, failures };
 }

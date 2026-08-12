@@ -1,12 +1,12 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { getStore, peekList } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
 import { ENTITIES, type EntityRecord } from '@/lib/intake/entities';
 import { newId } from '@/lib/domain/ids';
 import { getRole, actor, type Role } from '@/lib/domain/deal';
-import { PaneHead, PaneBody, Btn, FormGrid, FormReadList, FormCard, C, Loading, CenterNote, Page, FilterChips, FilterGroup, Message, PageActions, FeedRowSkeleton } from '@/components/ui';
+import { PaneHead, PaneBody, Btn, FormGrid, FormReadList, FormCard, C, Loading, CenterNote, Page, FilterChips, FilterGroup, Message, PageActions, FeedRowSkeleton, PillTabs } from '@/components/ui';
 import { PolicyCreateRow, PolicyListRow } from '@/components/list-rows';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
 import { confirmDialog, toast } from '@/components/Toaster';
@@ -15,12 +15,17 @@ import { haptic } from '@/lib/haptics';
 import { useIsMobile } from '@/lib/use-mobile';
 import { NAV_LABEL } from '@/lib/tabbar';
 import { canIssueContract, CONTRACT_LAYER, type PolicyField } from '@/lib/domain/policy-tier';
-import { applyPolicyDefaults } from '@/lib/domain/policy-defaults';
+import { FREEPASS_POLICY_PACK, POLICY_DEFAULTS, applyPolicyDefaults } from '@/lib/domain/policy-defaults';
 import { retainVisibleSelection } from '@/features/work-list-display';
 import { providerNameMap } from '@/lib/domain/identity';
+import {
+  ESIGN_POLICY_SELECTION_SESSION_KEY,
+  type EsignPolicySelection,
+} from '@/lib/domain/esign-policy-return';
 
 type PolSort = 'name' | 'code' | 'type';
 type PolScope = 'all' | 'mine' | 'shared';
+type PolicySection = 'basic' | 'terms' | 'ins' | 'esign';
 const POL_SORTS: { value: PolSort; label: string }[] = [
   { value: 'name', label: '이름순' },
   { value: 'code', label: '코드순' },
@@ -36,7 +41,7 @@ const POL_SCOPE: { key: PolScope; label: string }[] = [
 // 공급사 = 자기 정책만 편집. 공용(provider_company_code 빈값)은 목록에 안 띄움(재고 Select에서만 연결).
 // 필드 그룹 SSOT — detailSections(심사/계약조건/보험)과 동일 골격. 미지정 필드는 보험 패널이 흡수(누락 방지).
 const G_BASIC = ['policy_code', 'policy_name', 'provider_company_code', 'policy_type', 'screening_criteria', 'credit_grade', 'basic_driver_age', 'driver_age_lowering', 'driver_age_upper_limit', 'license_period', 'age_lowering_cost'];
-const G_TERMS = ['annual_mileage', 'mileage_upcharge_per_10000km', 'payment_method', 'rental_region', 'delivery_fee', 'deposit_installment', 'deposit_card_payment', 'insurance_included', 'personal_driver_scope', 'business_driver_scope', 'additional_driver_allowance_count', 'additional_driver_cost', 'maintenance_service', 'commission_clawback_condition'];
+const G_TERMS = ['annual_mileage', 'mileage_upcharge_per_10000km', 'payment_method', 'payment_due_date', 'rental_region', 'delivery_fee', 'deposit_installment', 'deposit_card_payment', 'insurance_included', 'personal_driver_scope', 'business_driver_scope', 'additional_driver_allowance_count', 'additional_driver_cost', 'maintenance_service', 'commission_clawback_condition'];
 /**
  * 전자계약 패널 — **계약서를 우리가 쓰는 공급사만** 채운다.
  *
@@ -45,7 +50,7 @@ const G_TERMS = ['annual_mileage', 'mileage_upcharge_per_10000km', 'payment_meth
  * 화면에서는 계약조건 패널에 있었다(패널티인데 가격표 옆에 서 있었다).
  * 근거: `docs/POLICY-LAYERS.md` · SSOT: `lib/domain/policy-tier.ts`
  */
-const G_ESIGN = ['contract_authoring', ...CONTRACT_LAYER.map((f) => f.key)];
+const G_ESIGN = ['contract_authoring', ...CONTRACT_LAYER.map((f) => f.key).filter((key) => !['insurer_name', 'payment_due_date'].includes(key))];
 
 function scopePolicies(all: EntityRecord[], role: Role): EntityRecord[] {
   if (role === 'admin') return all;
@@ -60,6 +65,7 @@ function scopePolicies(all: EntityRecord[], role: Role): EntityRecord[] {
 export default function PolicyMgmt() {
   const co = getCompanyId();
   const mobile = useIsMobile();
+  const [launchKey, setLaunchKey] = useState<string | null>(null);
   const [rows, setRows] = useState<EntityRecord[] | null>(null);
   const [providerAliases, setProviderAliases] = useState<Record<string, string>>({});
   const [sel, setSel] = useState<string | null>(null);
@@ -67,11 +73,21 @@ export default function PolicyMgmt() {
   const [dirty, setDirty] = useState(false);
   const [q, setQ] = useState('');
   const [ok, setOk] = useState<boolean | null>(null);
-  const [sort, setSort] = useState<PolSort | ''>('');
+  const [sort, setSort] = useState<PolSort | ''>('name');
   const [scope, setScope] = useState<PolScope>('all');
   /** 신규 작성 / 보기 → 수정 눌러야 편집 (재고·멤버와 동일) */
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [section, setSection] = useState<PolicySection>('basic');
+  const suppressListResetUntil = useRef(0);
+  const launchApplied = useRef(false);
+  const [launchRequest, setLaunchRequest] = useState<{
+    newProvider: string;
+    policy: string;
+    section: PolicySection | '';
+    edit: boolean;
+    returnToEsign: boolean;
+  } | null>(null);
 
   const load = async (r?: Role) => {
     const role = r || getRole();
@@ -88,10 +104,13 @@ export default function PolicyMgmt() {
   };
   const selectP = (p: EntityRecord) => {
     setSel(String(p.policy_code));
-    setForm({ ...p });
+    // 비어 있는 칸도 화면·계약에서 같은 답을 내도록 프리패스 표준을 유효값으로 보여 준다.
+    // 공급사가 직접 정한 값은 applyPolicyDefaults가 절대 덮지 않는다.
+    setForm(applyPolicyDefaults(p).next as EntityRecord);
     setDirty(false);
     setCreating(false);
     setEditing(false);
+    setSection('basic');
   };
   const clearSel = () => {
     setSel(null);
@@ -100,6 +119,37 @@ export default function PolicyMgmt() {
     setCreating(false);
     setEditing(false);
   };
+
+  const newP = (providerCode = '', initialSection: PolicySection = 'basic') => {
+    const c = newId('policy');
+    const role = getRole();
+    const base = applyPolicyDefaults({ policy_code: c }).next as EntityRecord;
+    if (role === 'provider') base.provider_company_code = actor('provider').code;
+    else if (providerCode) base.provider_company_code = providerCode;
+    setSel(c);
+    setForm(base);
+    setDirty(true);
+    setCreating(true);
+    setEditing(true);
+    setSection(initialSection);
+  };
+
+  useEffect(() => {
+    setLaunchKey(window.location.search);
+  }, []);
+
+  useEffect(() => {
+    if (launchKey === null) return;
+    const params = new URLSearchParams(launchKey);
+    launchApplied.current = false;
+    setLaunchRequest({
+      newProvider: params.get('new') === '1' ? String(params.get('provider') || '').trim() : '',
+      policy: String(params.get('policy') || '').trim(),
+      section: String(params.get('section') || '') as PolicySection | '',
+      edit: params.get('edit') === '1',
+      returnToEsign: params.get('return') === 'esign',
+    });
+  }, [launchKey]);
 
   useEffect(() => {
     (async () => {
@@ -112,24 +162,49 @@ export default function PolicyMgmt() {
       }
       setOk(true);
       await load(r);
-      // 업무 목록 공통 규격 — 화면 진입은 목록부터, 사용자가 행을 선택해야 상세를 연다.
-      clearSel();
     })();
     const on = () => {
       const r = getRole();
       if (r !== 'admin' && r !== 'provider') { setOk(false); setRows([]); clearSel(); return; }
       setOk(true);
-      load(r).then(() => clearSel());
+      load(r).then(() => {
+        if (Date.now() >= suppressListResetUntil.current) clearSel();
+      });
     };
     window.addEventListener('fp:role', on);
     return () => window.removeEventListener('fp:role', on);
     /* eslint-disable-next-line */
   }, []);
 
+  useEffect(() => {
+    if (!ok || !rows || !launchRequest || launchApplied.current) return;
+    launchApplied.current = true;
+    if (launchRequest.newProvider) {
+      suppressListResetUntil.current = Date.now() + 5_000;
+      newP(launchRequest.newProvider, 'ins');
+      return;
+    }
+    if (launchRequest.policy) {
+      const target = rows.find((policy) => String(policy.policy_code || policy._key) === launchRequest.policy);
+      if (!target) return;
+      suppressListResetUntil.current = Date.now() + 5_000;
+      selectP(target);
+      if (['basic', 'terms', 'ins', 'esign'].includes(launchRequest.section)) setSection(launchRequest.section as PolicySection);
+      if (launchRequest.edit) setEditing(true);
+      return;
+    }
+    // 업무 목록 공통 규격 — 일반 진입은 목록부터, 사용자가 행을 선택해야 상세를 연다.
+    clearSel();
+    // `newP`/`selectP` are state transition helpers. The launch request is immutable for this mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ok, rows, launchRequest]);
+
   // 메뉴에서 정책관리 재진입 → 목록
   useEffect(() => {
     const on = (e: Event) => {
-      if ((e as CustomEvent).detail === '/policy') clearSel();
+      if ((e as CustomEvent).detail !== '/policy') return;
+      if (Date.now() < suppressListResetUntil.current) return;
+      clearSel();
     };
     window.addEventListener('fp:work-list', on);
     return () => window.removeEventListener('fp:work-list', on);
@@ -145,7 +220,9 @@ export default function PolicyMgmt() {
   const save = async () => {
     if (!String(form.policy_code || '').trim()) { toast('정책코드는 필수입니다', 'error'); return; }
     const role = getRole();
-    let patch = { ...form };
+    // 최초 패키지만 자동 보충한다. 이미 패키지를 적용한 뒤 공급사가 지운 값은 그대로 둔다.
+    // 명시 입력값과 삭제·미사용 의사가 항상 기본값보다 우선한다.
+    let patch = applyPolicyDefaults(form).next as EntityRecord;
     if (role === 'provider') {
       const me = actor('provider').code;
       if (!me) { toast('공급사 코드가 없습니다 — 설정·로그인을 확인하세요', 'error'); return; }
@@ -172,6 +249,14 @@ export default function PolicyMgmt() {
     setForm(patch);
     haptic.success();
     toast('저장되었습니다', 'ok');
+    if (launchRequest?.returnToEsign) {
+      const selection: EsignPolicySelection = {
+        providerCompanyCode: String(patch.provider_company_code || ''),
+        policyCode: String(patch.policy_code || ''),
+      };
+      sessionStorage.setItem(ESIGN_POLICY_SELECTION_SESSION_KEY, JSON.stringify(selection));
+      window.location.assign('/esign?resume=policy');
+    }
   };
 
   const removeP = async () => {
@@ -199,22 +284,14 @@ export default function PolicyMgmt() {
     toast('정책이 삭제되었습니다', 'ok');
   };
 
-  const newP = () => {
-    const c = newId('policy');
-    const role = getRole();
-    const base: EntityRecord = { policy_code: c };
-    if (role === 'provider') base.provider_company_code = actor('provider').code;
-    setSel(c);
-    setForm(base);
-    setDirty(true);
-    setCreating(true);
-    setEditing(true);
-  };
-
   const cancelEdit = () => {
+    if (launchRequest?.returnToEsign) {
+      window.location.assign('/esign?resume=policy');
+      return;
+    }
     if (creating) { clearSel(); return; }
     const row = (rows || []).find((p) => String(p.policy_code) === sel);
-    if (row) { setForm({ ...row }); setDirty(false); setEditing(false); }
+    if (row) { setForm(applyPolicyDefaults(row).next as EntityRecord); setDirty(false); setEditing(false); }
     else clearSel();
   };
   const startEdit = () => { setEditing(true); haptic.tap(); };
@@ -237,6 +314,12 @@ export default function PolicyMgmt() {
         || String(a.policy_name || '').localeCompare(String(b.policy_name || ''), 'ko');
       return String(a.policy_name || a.policy_code || '').localeCompare(String(b.policy_name || b.policy_code || ''), 'ko');
     }), [rows, q, scope, sort, providerAliases]);
+
+  const policySelectOptions = useMemo(() => ({
+    provider_company_code: Object.entries(providerAliases)
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label, 'ko')),
+  }), [providerAliases]);
 
   // 검색·필터에서 선택 행이 사라지면 읽기 상세도 함께 정리한다.
   // 신규/수정 중 값은 자동으로 버리지 않는다.
@@ -263,7 +346,7 @@ export default function PolicyMgmt() {
   // 등록 진입점은 목록 맨 위 행 하나로(재고·회원과 동일). 헤더 우측 버튼과 두 갈래로 두지 않는다.
   const listEl = (
     <>
-      <PolicyCreateRow onClick={newP} />
+      <PolicyCreateRow onClick={() => newP()} />
       {shown.length === 0
         ? <CenterNote>{q || scope !== 'all' ? '검색 결과 없음.' : '등록된 정책이 없습니다. 공용 정책은 재고에서 연결합니다.'}</CenterNote>
         : <div>{shown.map((p) => {
@@ -315,8 +398,14 @@ export default function PolicyMgmt() {
       : `전자계약 발송 불가 — ${esignGate.missing.length}개 항목이 비어 있습니다: ${esignGate.missing.map((m: PolicyField) => m.label).join(' · ')}`;
 
   const canEdit = creating || editing;
+  const policyDefaultState = applyPolicyDefaults(form);
+  // 공급사가 확인할 빈칸을 채워도 프리패스가 제공한 확정 기본값 개수는 달라지지 않는다.
+  const decidedDefaultCount = POLICY_DEFAULTS.filter((item) => item.value !== null).length;
+  const pendingDefaultLabels = policyDefaultState.pending.map((item) => item.label);
   const modeBanner = creating ? (
-    <Message variant="info">신규 정책 등록 — 필수 항목을 입력한 뒤 저장하세요.</Message>
+    <Message variant="info">
+      프리패스 기본정책 {decidedDefaultCount}개 자동 입력 · {FREEPASS_POLICY_PACK}
+    </Message>
   ) : editing ? (
     <Message variant="warning">수정 중 · 저장해야 반영됩니다</Message>
   ) : null;
@@ -334,6 +423,16 @@ export default function PolicyMgmt() {
         {sel ? (
           <>
             {modeBanner}
+            {launchRequest?.returnToEsign ? (
+              <Message variant="info">저장하거나 취소하면 작성 중인 전자계약으로 돌아갑니다.</Message>
+            ) : null}
+            {canEdit && pendingDefaultLabels.length > 0 ? (
+              <Message variant="warning">
+                공급사 확인 필요 {pendingDefaultLabels.length}개 · {pendingDefaultLabels.slice(0, 4).join(' · ')}
+                {pendingDefaultLabels.length > 4 ? ` 외 ${pendingDefaultLabels.length - 4}개` : ''}
+                {' '}— 계약회사별 실제 보험증권·탁송 조건을 확인해 입력하세요.
+              </Message>
+            ) : null}
             {/*
               «이 패널이 무엇이고 누가 쓰는가»를 먼저 말한다.
               정책은 한 번 정해 두고 계속 쓰는 값이라 이 화면에 자주 오지 않는다.
@@ -356,7 +455,7 @@ export default function PolicyMgmt() {
               </div>
             )}
             {mobile && !canEdit ? (
-              <FormReadList fields={fields} form={form} footer={hint} />
+              <FormReadList fields={fields} form={form} selectOptions={policySelectOptions} footer={hint} />
             ) : (
               <FormCard hint={hint}>
                 {/*
@@ -364,7 +463,7 @@ export default function PolicyMgmt() {
                   그래서 칸마다 «무슨 뜻이고 어느 약관 조항에 걸리는지»를 그 자리에서 읽게 한다.
                   (재고·계약처럼 매일 만지는 화면은 조밀해야 하므로 거기선 끈다.)
                 */}
-                <FormGrid fields={fields} form={form} onChange={onChange} cols={2} disabled={!canEdit} showNotes />
+                <FormGrid fields={fields} form={form} onChange={onChange} cols={2} disabled={!canEdit} showNotes selectOptions={policySelectOptions} />
               </FormCard>
             )}
           </>
@@ -378,7 +477,7 @@ export default function PolicyMgmt() {
    * 패널 안내 — 세 층(상품·영업·계약)을 화면 말로 옮긴 것.
    * 설계 근거: `docs/POLICY-LAYERS.md`
    */
-  const panes: WorkPane[] = [
+  const sectionPanes: WorkPane[] = [
     {
       key: 'basic',
       title: '기본·심사',
@@ -395,7 +494,7 @@ export default function PolicyMgmt() {
       key: 'ins',
       title: '보험',
       node: editPane('보험', insFields, '보험·부가 조건',
-        '계약서 04항 · 약관 제9조에 그대로 실립니다.'),
+        '계약서 보험 항목 · 약관 제11조에 그대로 실립니다.'),
     },
     {
       key: 'esign',
@@ -404,15 +503,36 @@ export default function PolicyMgmt() {
         '계약서를 우리가 쓰는 공급사만 채웁니다. 비면 약관 조문이 못 걸립니다.'),
     },
   ];
+  const activeSection = sectionPanes.find((pane) => pane.key === section) || sectionPanes[0];
+  const panes: WorkPane[] = [{
+    key: 'policy',
+    title: activeSection.title,
+    node: (
+      <div style={{ height: '100%', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+        <div className="fp-policy-tabs">
+          <PillTabs
+            size="sm"
+            value={section}
+            onChange={setSection}
+            tabs={sectionPanes.map((pane) => ({ key: pane.key as PolicySection, label: pane.title }))}
+          />
+        </div>
+        <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          {activeSection.node}
+        </div>
+      </div>
+    ),
+  }];
   return (
     <>
       <WorkPage title={NAV_LABEL.policy} listCount={rows === null ? null : shown.length} list={rows === null ? <FeedRowSkeleton /> : listEl} panes={panes} selected={!!sel} onBack={clearSel}
+        paneRatio={!mobile ? 3 : undefined}
         contextTitle={sel ? (creating ? '신규 정책' : String(form.policy_name || form.policy_code || '')) : undefined}
         actions={dockActions}
         listTools={{
           search: { value: q, onChange: setQ, placeholder: '정책명·코드·심사·지역…' },
           // 등록은 목록 맨 위 PolicyCreateRow 하나로 — 헤더 우측 버튼과 두 갈래로 두지 않는다.
-          sort: { value: sort, onChange: (v) => setSort(v as PolSort | ''), options: POL_SORTS },
+          sort: { value: sort, onChange: (v) => setSort(v as PolSort | ''), options: POL_SORTS, defaultValue: 'name' },
           filter: {
             count: scope === 'all' ? 0 : 1,
             title: '조건 검색',
@@ -431,10 +551,10 @@ export default function PolicyMgmt() {
           },
           hints: [
             ...(q.trim() ? [q.trim().length > 12 ? `${q.trim().slice(0, 12)}…` : q.trim()] : []),
-            ...(sort ? [POL_SORTS.find((o) => o.value === sort)?.label || sort] : []),
+            ...(sort && sort !== 'name' ? [POL_SORTS.find((o) => o.value === sort)?.label || sort] : []),
             ...(scope !== 'all' ? [POL_SCOPE.find((o) => o.key === scope)?.label || scope] : []),
           ],
-          onClearHints: () => { setQ(''); setSort(''); setScope('all'); },
+          onClearHints: () => { setQ(''); setSort('name'); setScope('all'); },
         }}
       />
     </>

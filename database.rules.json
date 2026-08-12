@@ -11,7 +11,10 @@
           ".validate": "!data.exists() || newData.val() === data.val() || root.child('users').child(auth.uid).child('role').val() === 'admin'"
         },
         "status": {
-          ".validate": "root.child('users').child(auth.uid).child('role').val() === 'admin' || newData.val() === 'pending' || (data.exists() && newData.val() === data.val())"
+          ".validate": "root.child('users').child(auth.uid).child('role').val() === 'admin' || (!data.exists() && newData.val() === 'active' && newData.parent().child('role').val() === 'agent' && newData.parent().child('user_code').val() === auth.uid && !newData.parent().child('company_code').exists() && !newData.parent().child('agent_channel_code').exists()) || newData.val() === 'pending' || (data.exists() && newData.val() === data.val())"
+        },
+        "user_code": {
+          ".validate": "newData.val() === data.val() || root.child('users').child(auth.uid).child('role').val() === 'admin' || (!data.exists() && $uid === auth.uid && newData.val() === auth.uid)"
         },
         "company_code": {
           ".validate": "newData.val() === data.val() || root.child('users').child(auth.uid).child('role').val() === 'admin'"

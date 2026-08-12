@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import type { Role } from '@/lib/domain/deal';
 import { getSession } from '@/lib/auth-session';
 import { canUseDevRole, getDevRole, setDevRole } from '@/lib/dev-role';
+import { useIsMobile } from '@/lib/use-mobile';
 import { Btn, C, R, FS, FW, SH } from '@/components/ui';
 
 const ROLES: { key: Role; label: string }[] = [
@@ -21,6 +22,7 @@ const ROLES: { key: Role; label: string }[] = [
  * ★권한은 안 바뀐다 — 서버 규칙은 로그인 uid 의 실제 역할로 판단한다(배치 확인용).
  */
 export function DevRoleSwitch() {
+  const mobile = useIsMobile();
   const [allowed, setAllowed] = useState(false);
   const [role, setRoleS] = useState<Role | null>(null);
   const [open, setOpen] = useState(false);
@@ -33,7 +35,7 @@ export function DevRoleSwitch() {
     return () => window.removeEventListener('fp:session', on);
   }, []);
 
-  if (!allowed) return null;
+  if (!allowed || mobile) return null;
 
   const real = getSession()?.role;
   const pick = (r: Role | null) => {
@@ -50,15 +52,15 @@ export function DevRoleSwitch() {
       border: `1px solid ${role ? C.warn : C.line}`,
       borderRadius: R, boxShadow: SH.cardRest, padding: '4px 6px',
     }}>
-      <button
-        type="button"
-        className="fp-press"
+      <Btn
+        variant="bare"
+        size="sm"
         onClick={() => setOpen((v) => !v)}
         title="테스트 역할 전환(화면만 바뀝니다)"
         style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: FS.micro, fontWeight: FW.label, color: role ? C.warn : C.mute }}
       >
         {role ? `테스트 · ${ROLES.find((x) => x.key === role)?.label}` : '테스트 역할'}
-      </button>
+      </Btn>
       {open ? (
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
           {ROLES.map((r) => (

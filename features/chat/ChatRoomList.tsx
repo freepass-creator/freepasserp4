@@ -1,7 +1,7 @@
 'use client';
 import type { EntityRecord } from '@/lib/intake/entities';
 import type { Role } from '@/lib/domain/deal';
-import { unreadFor } from '@/lib/domain/messaging';
+import { replyAttentionFor, unreadFor } from '@/lib/domain/messaging';
 import { Btn, CenterNote } from '@/components/ui';
 import { ChatRoomRow } from '@/components/list-rows';
 export function ChatRoomList({ rooms, role, selected, query, filterActive, displayName, plate, contract, counter, onSelect, onReset }: {
@@ -31,6 +31,7 @@ export function ChatRoomList({ rooms, role, selected, query, filterActive, displ
     stageContract={contract(room)}
     counter={counter(room)}
     unread={unreadFor(room, role)}
+    unreplied={replyAttentionFor(room, role) === 'unreplied'}
     selected={String(room._key) === selected}
     onClick={onSelect}
   />)}</div>;

@@ -9,7 +9,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { CheckCircle2, LogOut, ShieldCheck } from 'lucide-react';
 import { firebaseReady } from '@/lib/firebase/client';
-import { getSession, subscribeSession, isGuest, isBlocked, blockReason, needsLegalReconsent, type Session } from '@/lib/auth-session';
+import { getSession, subscribeSession, isBlocked, blockReason, needsLegalReconsent, type Session } from '@/lib/auth-session';
 import { isPublicPath, setPublicAccess } from '@/lib/public-access';
 import { LEGAL_VERSION } from '@/lib/legal';
 import { Btn, ButtonLabel, C, FS, FW, ICON, R, SH } from '@/components/ui';
@@ -75,8 +75,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => { alive = false; stop(); };
   }, [active, session]);
 
-  // ready 전엔 캐시 세션·게스트로 통과 — persistence 복원 race에 /login 튕김 방지.
-  const authed = !!session || isGuest() || (!ready && !!getSession());
+  // ready 전엔 캐시 세션으로만 통과 — persistence 복원 race에 /login 튕김 방지.
+  const authed = !!session || (!ready && !!getSession());
   const onLogin = pathname === '/login';
   // 손님 공개면(/q·/catalog·/sign)은 로그인 없이 통과.
   const allowed = authed || onLogin || publicPage;
@@ -98,7 +98,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // 기존 회원 재동의는 운영자 정보 확정·Preview 검증 후 환경변수로 켠다. 캐시 세션만 보고
   // 오판하지 않도록 Firebase 프로필 로드가 끝난 ready 상태에서만 게이트한다.
-  if (mounted && active && ready && REQUIRE_LEGAL_RECONSENT && session && !isGuest()
+  if (mounted && active && ready && REQUIRE_LEGAL_RECONSENT && session
     && !onLogin && !publicPage && needsLegalReconsent(session, LEGAL_VERSION)) {
     return <LegalReconsent email={session.email} />;
   }

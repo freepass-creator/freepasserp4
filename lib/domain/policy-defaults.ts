@@ -26,7 +26,116 @@ export type PolicyDefault = {
   source: string;
 };
 
+/**
+ * 프리패스 기본정책 패키지 식별자.
+ *
+ * 계약에 어떤 기본 묶음이 적용됐는지 로그·문서에서 같은 이름으로 추적할 수 있게 한다.
+ * 값 변경은 계약 조건 변경이므로 새 버전으로 올리고 검증한 뒤 배포한다.
+ */
+export const FREEPASS_POLICY_PACK = 'freepass-standard-2026-08-12-v3' as const;
+
 export const POLICY_DEFAULTS: PolicyDefault[] = [
+  /* ── 정책 등록 기본값 ── 공급사별 예외만 고쳐 쓰는 프리패스 운영 표준 */
+  {
+    key: 'policy_name', label: '정책명', value: '프리패스 표준 렌트 · 보험포함',
+    source: '프리패스 정책등록 기본명 — 공급사별 정책명으로 수정 가능',
+  },
+  {
+    key: 'policy_type', label: '정책유형', value: '중고렌트',
+    source: '프리패스 표준 장기대여 기본 상품 — 신차는 별도 정책으로 등록',
+  },
+  {
+    key: 'screening_criteria', label: '심사기준', value: '신용무관',
+    source: '프리패스 저신용·무심사 영업 기본정책',
+  },
+  {
+    key: 'credit_grade', label: '신용등급', value: '무관',
+    source: '심사기준 「신용무관」과 동일한 기본값',
+  },
+  {
+    key: 'basic_driver_age', label: '기본연령', value: 26,
+    source: '프리패스 표준 계약서 만 26세 이상 보험 기준',
+  },
+  {
+    key: 'driver_age_lowering', label: '연령하향', value: '만 21세까지',
+    source: '프리패스 연령별 면책금 표의 최저 계약 가능 연령',
+  },
+  {
+    key: 'driver_age_upper_limit', label: '연령상한', value: 70,
+    source: '프리패스 기본정책 만 70세 이하',
+  },
+  {
+    key: 'license_period', label: '면허 경력요건', value: '제한없음',
+    source: '프리패스 기본정책 — 별도 지정이 없으면 면허 경력 제한 없음',
+  },
+  {
+    key: 'age_lowering_cost', label: '연령하향 비용', value: 100000,
+    source: '프리패스 기본정책 — 연령하향 계약 월 10만원',
+  },
+  {
+    key: 'annual_mileage', label: '약정 주행거리', value: '연 20,000km',
+    source: '프리패스 기본정책 — 연간 2만km',
+  },
+  {
+    key: 'mileage_upcharge_per_10000km', label: '1만km 추가', value: 100000,
+    source: '프리패스 기본정책 — 약정 주행거리 1만km 추가 시 월 10만원',
+  },
+  {
+    key: 'payment_method', label: '결제방식', value: 'CMS 자동이체',
+    source: '프리패스 장기렌터카 대여료 기본 수납 방식',
+  },
+  {
+    key: 'payment_due_date', label: '월 납부일', value: '매월 25일',
+    source: '기존 프리패스 A4 표준계약서의 월 납부일 기본값',
+  },
+  {
+    key: 'rental_region', label: '대여지역', value: '전국',
+    source: '프리패스 기본 영업지역',
+  },
+  {
+    key: 'delivery_fee', label: '탁송비', value: null,
+    source: '차량·지역별 실제 탁송비 협의 후 확정',
+  },
+  {
+    key: 'deposit_installment', label: '보증금 분납', value: '2회까지',
+    source: '프리패스 기본정책 — 보증금 2회차 관리 기준과 일치',
+  },
+  {
+    key: 'deposit_card_payment', label: '보증카드', value: '가능',
+    source: '프리패스 기본정책 — 보증금 카드 수납 가능',
+  },
+  {
+    key: 'personal_driver_scope', label: '개인 운전범위', value: '계약자와 배우자 및 직계가족',
+    source: '프리패스 개인계약 기본 운전자 범위',
+  },
+  {
+    key: 'business_driver_scope', label: '사업자 운전범위', value: '법인 임직원 및 계약자 가족',
+    source: '프리패스 사업자계약 기본 운전자 범위',
+  },
+  {
+    key: 'additional_driver_allowance_count', label: '추가인원', value: 1,
+    source: '프리패스 기본정책 — 추가 운전자 1인',
+  },
+  {
+    key: 'additional_driver_cost', label: '추가운전비', value: 50000,
+    source: '프리패스 기본정책 — 추가 운전자 월 5만원',
+  },
+  {
+    key: 'commission_clawback_condition', label: '수수료 환수조건', value: '별도 약정',
+    source: '공급사별 정산 약정 우선 — 기본은 별도 약정으로 명시',
+  },
+  {
+    key: 'self_body_deductible', label: '자손 면책금', value: null,
+    source: '계약회사별 실제 보험증권에서 확정',
+  },
+  {
+    key: 'uninsured_deductible', label: '무보험 면책금', value: null,
+    source: '계약회사별 실제 보험증권에서 확정',
+  },
+  {
+    key: 'contract_authoring', label: '계약서 작성', value: '프리패스가 작성',
+    source: '프리패스 기본정책 패키지 — 별도 지정이 없으면 프리패스가 전자계약서를 작성',
+  },
   /* ── 미납 제재 ── 계약서 「연체·시동제어」 고정문구에서 그대로 */
   {
     key: 'engine_control_overdue_days', label: '운행제한(시동제어) 기준일', value: 3,
@@ -45,7 +154,7 @@ export const POLICY_DEFAULTS: PolicyDefault[] = [
   {
     key: 'late_fee_rate', label: '지연손해금율(0~1)', value: 0.12,
     // 계약서는 두 단계다 — 신청일~송달 연 5%, 그 다음날부터 연 12%.
-    // 정책 한 칸에는 **손님이 실제로 오래 무는 쪽**을 둔다. 5% 구간은 약관 제3조가 서술한다.
+    // 정책 한 칸에는 **손님이 실제로 오래 무는 쪽**을 둔다. 세부 연체 처리 순서는 약관 제24조·제25조가 서술한다.
     source: '계약서 「… 송달된 날까지 연 5%, 그 다음 날부터 다 갚는 날까지 연 12%」 중 후자',
   },
   {
@@ -61,18 +170,18 @@ export const POLICY_DEFAULTS: PolicyDefault[] = [
   {
     key: 'buyout_notice_days', label: '인수 사전통지기한(일)', value: 30,
     // 계약서에 인수 통지기한이 따로 없다. 연장과 같은 시점에 판단하므로 30일로 맞춘다.
-    // 다르게 두려면 여기서 고친다 — 약관 제17조가 이 값을 그대로 참조한다.
+    // 다르게 두려면 여기서 고친다 — 약관 제18조가 이 값을 그대로 참조한다.
     source: '계약서에 별도 기재 없음 — 연장 통지기한(30일)에 맞춤. 다르면 고칠 것',
   },
 
   /* ── 제재 ── */
   {
-    key: 'accident_termination_count', label: '1년 이내 사고 누적(N회)', value: 3,
+    key: 'accident_termination_count', label: '사고 다발 시 계약해지 기준(N회)', value: 3,
     source: '계약서 「사고 발생 시점 1년 이내 임차인 과실비율 50% 이상의 사고 3회 누적 시 계약 해지」',
   },
   {
     key: 'claim_basis', label: '청구 기준', value: '잔여 대여료',
-    source: '계약서 「기한이익 상실 시 잔여 대여료 상당액을 청구 (중도해지수수료와 중복 청구하지 않음)」',
+    source: '계약서 「계약해지 정산 시 잔여 대여료 상당액을 기준으로 청구 (중도해지수수료와 중복 청구하지 않음)」',
   },
 
   /* ── 정비·사고 ── */
@@ -90,48 +199,56 @@ export const POLICY_DEFAULTS: PolicyDefault[] = [
     source: '계약서 특약 「GPS 장착(도난 및 연체, 연락 두절시 시동 제어)」',
   },
 
-  /* ── 보험 ── 계약서는 보험사를 박지 않는다(매년 바뀐다). 계약조회 현재값을 기본으로 둔다. */
+  /* ── 보험 ── 계약회사별 필수 설정. 실제 연동 정책·가입증권 없이는 임의 기본값을 넣지 않는다. */
   {
-    key: 'insurer_name', label: '보험사', value: '렌터카 공제조합',
-    source: 'TERMS_ACCIDENT.insurerCurrent 「렌터카 공제조합 1661-7977」',
+    key: 'insurer_name', label: '가입 보험사·공제조합', value: null,
+    source: '계약회사별 실제 가입증권에서 확정',
   },
   {
-    key: 'insurer_phone', label: '보험사 연락처', value: '1661-7977',
-    source: '위와 같음',
+    key: 'insurance_included', label: '보험 포함 여부', value: '포함(회사 가입)',
+    source: '프리패스 표준 렌트계약서 — 월 대여료에 보험료 포함',
   },
   {
-    key: 'own_damage_compensation', label: '자차 보상', value: '시세 기준',
-    source: '계약서 「보상한도 : 렌터카 공제조합 또는 손해보험사 시세 (한도 초과시 폐차)」',
+    key: 'injury_compensation_limit', label: '대인배상', value: null,
+    source: '계약회사별 연동 정책·실제 가입증권에서 확정',
   },
   {
-    key: 'own_damage_repair_ratio', label: '자차 자기부담률', value: '20%',
-    source: '계약서 「자차 사고처리 비용의 20%」 · 중과실도 20% 우선 적용',
-  },
-  /*
-   * 자차 면책금 = 수리비의 20%, 다만 **하한·상한이 있다.**
-   * 아래는 기본(만 26세 이상) 기준이다. 연령을 내리면 `DEDUCTIBLE_BY_AGE` 표가 이긴다
-   * (만 21세↑ 70~120만 / 만 21세 미만 80~130만) — 계약서에 「연령 선택시 자동입력」이라고 적혀 있다.
-   */
-  {
-    key: 'own_damage_min_deductible', label: '자차 최소 면책금', value: 500000,
-    source: '계약서 「자차 사고처리 비용의 20% 최소 50만원」(만 26세 이상 기준)',
+    key: 'property_compensation_limit', label: '대물배상', value: null,
+    source: '계약회사별 연동 정책·실제 가입증권에서 확정',
   },
   {
-    key: 'own_damage_max_deductible', label: '자차 최대 면책금', value: 1000000,
-    source: '계약서 「… ~ 최대 100만원」(만 26세 이상 기준)',
-  },
-  /*
-   * 대인·대물 면책금 — 실무는 30만원 또는 50만원이고 **통상 30만원**(2026-08-09 사장님).
-   * 계약서 표(만 26세 이상)도 각 30만원이라 서로 맞는다.
-   * 연령을 내리면 위와 마찬가지로 `DEDUCTIBLE_BY_AGE` 표가 이긴다(만 21세↑ 각 50만원).
-   */
-  {
-    key: 'injury_deductible', label: '대인 면책금', value: 300000,
-    source: '계약서 「사고접수시 각 대인 30만원」(만 26세 이상) · 실무 통상값',
+    key: 'self_body_accident', label: '자기신체사고', value: null,
+    source: '계약회사별 연동 정책·실제 가입증권에서 확정 (정책별 1,500만원/1억원 등 상이)',
   },
   {
-    key: 'property_deductible', label: '대물 면책금', value: 300000,
-    source: '계약서 「… 대물 30만원」(만 26세 이상) · 실무 통상값',
+    key: 'uninsured_damage', label: '무보험차상해', value: null,
+    source: '계약회사별 연동 정책·실제 가입증권에서 확정',
+  },
+  {
+    key: 'own_damage_compensation', label: '자차 보상', value: null,
+    source: '계약회사별 실제 가입증권·자차면책 규정에서 확정',
+  },
+  {
+    key: 'own_damage_repair_ratio', label: '자차 자기부담률', value: null,
+    source: '계약회사별 실제 가입증권·자차면책 규정에서 확정',
+  },
+  /* 자차 면책금 하한·상한도 계약회사별 실제 가입증권·면책 규정으로 확정한다. */
+  {
+    key: 'own_damage_min_deductible', label: '자차 최소 면책금', value: null,
+    source: '계약회사별 실제 가입증권·자차면책 규정에서 확정',
+  },
+  {
+    key: 'own_damage_max_deductible', label: '자차 최대 면책금', value: null,
+    source: '계약회사별 실제 가입증권·자차면책 규정에서 확정',
+  },
+  /* 대인·대물 면책금도 임의 기본값 없이 계약회사별 실제 면책 규정으로 확정한다. */
+  {
+    key: 'injury_deductible', label: '대인 면책금', value: null,
+    source: '계약회사별 실제 가입증권·면책 규정에서 확정',
+  },
+  {
+    key: 'property_deductible', label: '대물 면책금', value: null,
+    source: '계약회사별 실제 가입증권·면책 규정에서 확정',
   },
 
   /* ── 상품 기본 ── */
@@ -140,8 +257,8 @@ export const POLICY_DEFAULTS: PolicyDefault[] = [
     source: '계약서 「정비상품 선택을 안할경우 정비 및 소모품 교체는 고객이 부담」 — 선택 안 함이 기본',
   },
   {
-    key: 'annual_roadside_assistance', label: '긴급출동', value: '연 3회',
-    source: '계약서에 횟수 기재 없음 — 업계 통상값. **확인 필요**',
+    key: 'annual_roadside_assistance', label: '긴급출동', value: null,
+    source: '계약회사별 실제 가입증권·긴급출동 특약에서 확정',
   },
 
   /* ── 사장님 지정(2026-08-09) ── 계약서에 숫자가 없어 새로 정한 프리패스 표준 */
@@ -155,7 +272,7 @@ export const POLICY_DEFAULTS: PolicyDefault[] = [
   },
   {
     key: 'impound_keep_days', label: '물품 보관기간(일)', value: 7,
-    source: '프리패스 표준(2026-08-09 지정) — 약관 제13조가 참조하는 값',
+    source: '프리패스 표준(2026-08-09 지정) — 약관 제22조가 참조하는 값',
   },
   {
     key: 'early_termination_rate_under1y', label: '중도해지 위약금 · 1년 미만(0~1)', value: 0.3,
@@ -182,7 +299,7 @@ export const POLICY_DEFAULTS: PolicyDefault[] = [
   {
     key: 'impound_fee', label: '물품 보관료(1일)', value: 10000,
     // 서식은 「1일 0원」으로 자리만 잡아 둔 표시였다(실값 아님). 여기서 실값을 정한다.
-    source: '프리패스 표준(2026-08-09 지정) — 1일 10,000원. 약관 제13조가 참조',
+    source: '프리패스 표준(2026-08-09 지정) — 1일 10,000원. 약관 제22조가 참조',
   },
 ];
 
@@ -228,6 +345,7 @@ export function applyPolicyDefaults(policy: Record<string, unknown>): {
   const next = { ...policy };
   const filled: string[] = [];
   const pending: PolicyDefault[] = [];
+  const packageAlreadyApplied = String(policy.policy_default_pack || '').trim() !== '';
 
   for (const d of POLICY_DEFAULTS) {
     if (d.value === null) {
@@ -237,8 +355,14 @@ export function applyPolicyDefaults(policy: Record<string, unknown>): {
     }
     const cur = next[d.key];
     if (cur !== undefined && cur !== null && String(cur).trim() !== '') continue;
+    // 패키지를 이미 적용한 정책의 빈칸은 공급사가 삭제·미사용으로 정한 값이다.
+    // 다시 열거나 계약 payload를 만들 때 되살리지 않는다.
+    if (packageAlreadyApplied) continue;
     next[d.key] = d.value;
     filled.push(d.key);
   }
+  // 실제로 현재 패키지의 기본값을 하나라도 보충했을 때만 버전을 남긴다.
+  // 완전 사용자 정의 정책에 패키지명을 허위로 붙이지 않고, 부분 기본 정책은 어느 버전이 섞였는지 추적한다.
+  if (filled.length > 0) next.policy_default_pack = FREEPASS_POLICY_PACK;
   return { next, filled, pending };
 }

@@ -31,6 +31,15 @@ check('상품찾기 기본 정렬=대여료 낮은순',
   && FINDER_SORTS.find((option) => option.value === FINDER_DEFAULT_SORT)?.label === '대여료 낮은순');
 
 const webTools = readFileSync('components/WebListTools.tsx', 'utf8');
-check('명시적 기본값 화면은 공통 「기본」 항목 제외', webTools.includes('...(sort.defaultValue ? []'));
+check('웹 공통 정렬은 이름 없는 「기본」 항목을 만들지 않음',
+  !webTools.includes("label: '기본'")
+  && webTools.includes('placeholder={sort.defaultValue ? undefined')
+  && webTools.includes('options={sort.options.map'));
+
+const mobileTools = readFileSync('components/MobilePageShell.tsx', 'utf8');
+check('모바일 공통 정렬은 실제 기본 옵션명으로 복원',
+  !mobileTools.includes("placeholder={sortCfg.defaultValue ? undefined : '기본'}")
+  && mobileTools.includes('const sortDefaultLabel =')
+  && mobileTools.includes('clearLabel={sortDefaultLabel}'));
 
 if (failed) process.exit(1);

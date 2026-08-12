@@ -6,7 +6,6 @@ import type { ColSort } from './excel-columns';
 import { ProductCard } from '@/components/ProductCard';
 import { ProductRowCard } from '@/components/ProductRowCard';
 import { Btn, C, CenterNote, EXCEL_ROW_H, FS, R, SH, Skeleton, ctrlH } from '@/components/ui';
-import { isGuest } from '@/lib/auth-session';
 import { ExcelResultsTable } from './ExcelResultsTable';
 
 // 뷰 컨테이너 스타일 SSOT — 실제 렌더와 로딩 스켈레톤이 같은 상수를 공유(재타이핑 드리프트=레이아웃 점프 방지).
@@ -60,7 +59,6 @@ export function FinderResults(props: Props) {
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
             <span>{(props.rows?.length ?? 0) === 0 ? '표시할 상품이 없습니다' : '조건에 맞는 상품이 없습니다'}</span>
             {props.narrowed && <Btn title="조건 해제" size="sm" variant="ghost" onClick={props.onReset}>조건 해제</Btn>}
-            {(props.rows?.length ?? 0) === 0 && isGuest() && <Btn title="로그인" size="sm" href="/login">로그인</Btn>}
           </div>
         </CenterNote>
       ) : props.view === 'card' ? (

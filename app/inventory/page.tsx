@@ -70,7 +70,7 @@ export default function Inventory() {
   const [dirty, setDirty] = useState(false);
   const [q, setQ] = useState(''); // 검색창 즉시 반영(입력·힌트·조건해제)
   const [debouncedQ, setDebouncedQ] = useState(''); // 디바운스된 검색 — 목록 필터에만 사용
-  const [sort, setSort] = useState<InvSort | ''>('');
+  const [sort, setSort] = useState<InvSort | ''>('status');
   const [stFlt, setStFlt] = useState<Set<string>>(() => new Set());
   const [typeFlt, setTypeFlt] = useState<Set<string>>(() => new Set());
   const [draftStFlt, setDraftStFlt] = useState<Set<string>>(() => new Set());
@@ -377,7 +377,7 @@ export default function Inventory() {
         actions={dockActions}
         listTools={{
           search: { value: q, onChange: setQ, placeholder: '차번·차명·옵션·공급사·메모…' },
-          sort: { value: sort, onChange: (v) => setSort(v as InvSort | ''), options: INV_SORTS },
+          sort: { value: sort, onChange: (v) => setSort(v as InvSort | ''), options: INV_SORTS, defaultValue: 'status' },
           filter: {
             count: fltCount,
             title: '조건 검색',
@@ -437,13 +437,13 @@ export default function Inventory() {
           },
           hints: [
             ...(q.trim() ? [q.trim().length > 12 ? `${q.trim().slice(0, 12)}…` : q.trim()] : []),
-            ...(sort ? [INV_SORTS.find((o) => o.value === sort)?.label || sort] : []),
+            ...(sort && sort !== 'status' ? [INV_SORTS.find((o) => o.value === sort)?.label || sort] : []),
             ...[...stFlt],
             ...[...typeFlt],
           ],
           onClearHints: () => {
             setQ('');
-            setSort('');
+            setSort('status');
             setStFlt(new Set());
             setTypeFlt(new Set());
             setLimit(PAGE);

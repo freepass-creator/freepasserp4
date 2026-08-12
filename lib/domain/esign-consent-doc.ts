@@ -52,16 +52,15 @@ export function depositInstallmentText(chosen: unknown, policy: unknown): string
 }
 
 /**
- * 사고 누적 해지 — 최근 1년간 과실 50% 이상 사고가 N회면 계약이 해지될 수 있다.
+ * 사고 누적 해지 — 각 사고 발생일을 기준으로 직전 1년간, 해당 사고를 포함해
+ * 과실 50% 이상 사고가 N회면 계약이 해지될 수 있다.
  *
  * **차를 잃는 조건**이라 약관 8천 자에 묻어 두면 안 된다. 계약서에 숫자로 한 줄 세운다.
- * 기준이 정해지지 않았으면 줄을 만들지 않는다 — 약관 제11조②10호도 그때는 적용되지 않는다.
+ * 사고다발 기준은 약관 제7조제1항제7호의 최근 1년 내 과실사고 3회와 맞춘다.
  * 「3회」만 적으면 무엇을 세는지 모르므로 «1년·과실 50% 이상»을 값에 붙여 쓴다.
  */
-export function accidentTerminationText(count: unknown): string {
-  const n = N(count);
-  // 기간(1년)은 라벨이 말한다. 값은 «몇 회에 무슨 일이 벌어지는가»만 담는다.
-  return n > 0 ? `과실 50% 이상 ${n}회 → 계약 해지` : '';
+export function accidentTerminationText(_count: unknown): string {
+  return '각 사고 발생일 기준 직전 1년 이내, 해당 사고 포함 과실 50% 이상 총 3회 → 계약 해지 가능';
 }
 
 /**
@@ -185,7 +184,6 @@ export function buildConsentGroups(
   // 관리자·손님이 따로 넣은 값(만기 인수가격·분납 회차 등)은 계약 본체가 아니라 여기 모인다.
   const inputs = (c.esign_inputs || {}) as Rec;
 
-  const trim = [c.trim_name_snapshot, c.trim_extra_snapshot].map(S).filter(Boolean).join(' ');
   const vehicleName = S(c.vehicle_name_snapshot)
     || [c.maker_snapshot, c.model_snapshot, c.sub_model_snapshot].map(S).filter(Boolean).join(' ');
 
@@ -208,12 +206,8 @@ export function buildConsentGroups(
       title: '차량정보',
       note: '실제로 인도받을 차량입니다.',
       rows: kept([
-        { label: '차량번호', value: S(c.car_number_snapshot), raw: c.car_number_snapshot, article: '제6조' },
-        { label: '차량', value: vehicleName, raw: vehicleName },
-        { label: '세부모델', value: S(c.variant_snapshot), raw: c.variant_snapshot },
-        { label: '트림', value: trim, raw: trim },
-        { label: '연식', value: S(c.year_snapshot), raw: c.year_snapshot },
-        { label: '연료', value: S(c.fuel_type_snapshot), raw: c.fuel_type_snapshot },
+        { label: '차량번호', value: S(c.car_number_snapshot), raw: c.car_number_snapshot, article: '제12조' },
+        { label: '모델명', value: vehicleName, raw: vehicleName },
       ]),
       confirmLabel: '위 차량으로 계약함을 확인합니다',
       required: true,
@@ -225,13 +219,12 @@ export function buildConsentGroups(
       rows: kept([
         // 고객이 선택하지 않는다. 관리자가 확정한 3종 중 하나 + 인수/반납을 읽고 동의한다.
         { label: '계약서 종류', value: S(c.esign_standard_template_label), raw: c.esign_standard_template_label },
-        { label: '만기 선택', value: contractKind?.maturity === '인수형' ? '인수' : contractKind ? '반납' : '', raw: contractKind?.maturity },
         { label: '만기 처리', value: contractKind?.maturityNote || '', raw: contractKind?.maturity },
-        { label: '대여기간', value: N(c.rent_month_snapshot) ? `${N(c.rent_month_snapshot)}개월` : '', raw: c.rent_month_snapshot, article: '제2조' },
-        { label: '월 대여료', value: N(c.rent_amount_snapshot) ? wonText(c.rent_amount_snapshot) : '', raw: c.rent_amount_snapshot, article: '제3조' },
+        { label: '대여기간', value: N(c.rent_month_snapshot) ? `${N(c.rent_month_snapshot)}개월` : '', raw: c.rent_month_snapshot, article: '제4조' },
+        { label: '월 대여료', value: N(c.rent_amount_snapshot) ? wonText(c.rent_amount_snapshot) : '', raw: c.rent_amount_snapshot, article: '제6조' },
         // 보증금 0 은 «무보증»이라는 뜻이라 빈칸으로 떨어뜨리지 않는다.
-        { label: '보증금', value: N(c.deposit_amount_snapshot) ? wonText(c.deposit_amount_snapshot) : '무보증', raw: c.deposit_amount_snapshot, article: '제4조' },
-        { label: '약정 주행거리', value: S(p.annual_mileage), raw: p.annual_mileage, article: '제15조' },
+        { label: '보증금', value: N(c.deposit_amount_snapshot) ? wonText(c.deposit_amount_snapshot) : '무보증', raw: c.deposit_amount_snapshot, article: '제6조' },
+        { label: '약정 주행거리', value: S(p.annual_mileage), raw: p.annual_mileage, article: '제23조' },
         /*
          * ⚠ `mileage_upcharge_per_10000km`(「1만km 추가」)은 여기 오지 않는다.
          *   그건 **약정을 정할 때 쓰는 가격표**다 — 2만km면 월 65만원, 3만km면 75만원.
@@ -239,16 +232,16 @@ export function buildConsentGroups(
          *
          * 아래가 손님이 알아야 할 값이다 — **약정을 넘겨 달린 거리에 붙는 요율.**
          *   약정 연 30,000km · 실주행 31,000km → 초과 1,000km × 요율
-         * 계산·정산 방식은 약관 제15조가 서술하고, 계약서는 그 조문이 참조하는 숫자만 댄다.
+         * 계산·정산 방식은 약관 제23조가 서술하고, 계약서는 그 조문이 참조하는 숫자만 댄다.
          */
         // 국산·수입이 다르다 — 이 계약 차량의 제조사로 고른다. 한 칸으로 두면 수입차에 국산 요율이 찍힌다.
         {
-          label: '초과 주행요금',
+          label: '초과주행 요금',
           value: overMileageText(overMileageRateFor(p, S(c.maker_snapshot))),
           raw: overMileageRateFor(p, S(c.maker_snapshot)),
-          article: '제15조',
+          article: '제23조',
         },
-        { label: '현재 주행거리', value: N(c.mileage_snapshot) ? `${N(c.mileage_snapshot).toLocaleString('ko-KR')}km` : '', raw: c.mileage_snapshot },
+        { label: '출고 시 주행거리', value: N(c.mileage_snapshot) ? `${N(c.mileage_snapshot).toLocaleString('ko-KR')}km` : '', raw: c.mileage_snapshot },
         { label: '만기 인수가격', value: S(inputs.buyout_price), raw: inputs.buyout_price },
         // 「3회 분납 가능」은 영업 단계의 말이다. 이 계약에서 몇 회로 굳었는지만 적는다.
         { label: '보증금 분납', value: depositInstallmentText(inputs.deposit_installment_count, p.deposit_installment), raw: p.deposit_installment },
@@ -269,14 +262,14 @@ export function buildConsentGroups(
       note: '언제 얼마를 어떻게 내는지, 밀리면 어떻게 되는지입니다.',
       // 숫자·기한이 든 것만 남긴다. 절차 서술은 약관으로 보냈다(IN_AGREEMENT).
       rows: kept([
-        { label: '대여료 결제주기', value: TERMS_PAYMENT.paymentCycle, article: '제3조' },
-        { label: '자동이체일', value: TERMS_PAYMENT.autoDebitFixed, article: '제3조' },
+        { label: '대여료 결제주기', value: TERMS_PAYMENT.paymentCycle, article: '제6조' },
+        { label: '자동이체일', value: TERMS_PAYMENT.autoDebitFixed, article: '제6조' },
         { label: '계산서 발행', value: TERMS_PAYMENT.billing },
-        { label: '연체 시', value: TERMS_PAYMENT.overdue, article: '제11조' },
-        { label: '중도해지 위약금', value: S(p.penalty_condition), raw: p.penalty_condition, article: '제14조' },
-        { label: '지연손해금', value: TERMS_PAYMENT.lateInterest, article: '제3조' },
+        { label: '연체 시', value: TERMS_PAYMENT.overdue, article: '제24조' },
+        { label: '중도해지 위약금', value: S(p.penalty_condition), raw: p.penalty_condition, article: '제8조' },
+        { label: '지연손해금', value: TERMS_PAYMENT.lateInterest, article: '제25조' },
         // 「1주일 안에」가 기한이다 — 약관에 묻히면 손님이 언제 돌려받는지 모른다.
-        { label: '보증금 반환', value: TERMS_PAYMENT.depositReturn, article: '제4조' },
+        { label: '보증금 반환', value: TERMS_PAYMENT.depositReturn, article: '제6조' },
       ]),
       confirmLabel: '결제·연체 조건을 확인했습니다',
       required: true,
@@ -286,10 +279,10 @@ export function buildConsentGroups(
       title: '운전자',
       note: '이 차를 몰 수 있는 사람의 범위입니다. 범위를 벗어난 사람이 몰다 사고가 나면 보험이 적용되지 않습니다.',
       rows: kept([
-        { label: '운전자 연령', value: S(p.basic_driver_age), raw: p.basic_driver_age, article: '제5조' },
+        { label: '운전자 연령', value: S(p.basic_driver_age), raw: p.basic_driver_age, article: '제13조' },
         { label: '면허 경력요건', value: S(p.license_period), raw: p.license_period },
-        { label: '운전자 범위(개인)', value: S(p.personal_driver_scope), raw: p.personal_driver_scope, article: '제5조' },
-        { label: '운전자 범위(사업자)', value: S(p.business_driver_scope), raw: p.business_driver_scope, article: '제5조' },
+        { label: '운전자 범위(개인)', value: S(p.personal_driver_scope), raw: p.personal_driver_scope, article: '제13조' },
+        { label: '운전자 범위(사업자)', value: S(p.business_driver_scope), raw: p.business_driver_scope, article: '제13조' },
         { label: '추가운전자 허용', value: S(p.additional_driver_allowance_count), raw: p.additional_driver_allowance_count },
         /*
          * 「연령 하향 : 만 21세까지 하향 가능」은 **선택지**다 — 영업 단계의 말이지
@@ -308,25 +301,22 @@ export function buildConsentGroups(
       key: 'accident',
       title: '사고·면책',
       note: '사고가 났을 때 손님이 부담하는 금액과 지켜야 할 절차입니다.',
-      // 자차 처리 규정·입고/대차·보험사는 뺐다 — 약관 제9조·제16조에 있다(IN_AGREEMENT).
+      // 자차 처리 규정·입고/대차·보험사는 뺐다 — 약관 제11조·제17조·제18조·제19조에 있다(IN_AGREEMENT).
       // 남긴 건 숫자가 박힌 것뿐이다. 「대인 30만원」이 약관 8,856자에 묻히면 손님이 못 본다.
       rows: kept([
         // 면책금은 정책 단일값이 아니라 **연령에서 파생**한다(계약서 「운전자 연령 선택시 자동입력」).
-        { label: '면책금(고객부담금)', value: deductibleForAge(p.basic_driver_age), article: '제9조' },
-        { label: '면허 1년 이하', value: TERMS_ACCIDENT.licenseUnder1Year, article: '제9조' },
-        { label: '사고 접수', value: TERMS_ACCIDENT.caution, article: '제9조' },
-        { label: '현장 이탈', value: TERMS_ACCIDENT.onSite, article: '제9조' },
-        { label: '중과실 자차사고', value: TERMS_ACCIDENT.grossNegligence, article: '제9조' },
+        { label: '면책금(고객부담금)', value: deductibleForAge(p.basic_driver_age), article: '제18조' },
+        { label: '면허 1년 이하', value: TERMS_ACCIDENT.licenseUnder1Year, article: '제13조' },
+        { label: '사고 접수', value: TERMS_ACCIDENT.caution, article: '제17조' },
+        { label: '현장 이탈', value: TERMS_ACCIDENT.onSite, article: '제17조' },
+        { label: '중과실 자차사고', value: TERMS_ACCIDENT.grossNegligence, article: '제18조' },
         /*
          * 「사고 다발 시」였던 것 — 라벨이 무슨 일이 벌어지는지 말하지 않았고,
-         * 횟수 3회가 코드에 박혀 있어 정책마다 다르게 둘 수 없었다.
-         * 이제 정책값(`accident_termination_count`)에서 오고, 약관 제11조②10호가
-         * 「계약서에 정한 사고 누적 해지 횟수」로 이 값을 참조한다.
-         * 값이 없으면 줄이 사라지고 그 호도 적용되지 않는다(2026-08-09 정합성 점검).
+         * 약관 제7조제1항제7호의 최근 1년 내 과실사고 3회 표준기준과 계약서 표시를 맞춘다.
          */
-        { label: '1년 이내 사고 누적', value: accidentTerminationText(p.accident_termination_count), raw: p.accident_termination_count, article: '제11조' },
+        { label: '사고 다발 시 계약해지 기준', value: accidentTerminationText(p.accident_termination_count), raw: 3, article: '제7조' },
         // 「한도 초과시 폐차」·「20%」가 조건이다.
-        { label: '자차 처리 규정', value: TERMS_ACCIDENT.ownDamageRule, article: '제16조' },
+        { label: '자차 처리 규정', value: TERMS_ACCIDENT.ownDamageRule, article: '제19조' },
         // ★보험사 이름·번호는 여기 안 박는다 — 매년 바뀐다. 어디서 확인할지만 적는다.
         { label: '보험사', value: TERMS_ACCIDENT.insurer },
       ]),
@@ -338,15 +328,15 @@ export function buildConsentGroups(
       title: '정비·기타',
       note: '정비·검사·과태료·특약처럼 계약 기간 내내 적용되는 조건입니다.',
       // 정비이용·엔진오일·대차·탁송료·초과운행·연락처변경·과태료·GPS특약은 뺐다 —
-      // 전부 약관 제6·7·10·12·15·18조에 있다(IN_AGREEMENT). 12줄이 3줄로 줄었다.
+      // 전부 약관 제14조·제16조·제22조·제23조·제24조·제27조에 있다(IN_AGREEMENT). 12줄이 3줄로 줄었다.
       rows: kept([
-        { label: '정비상품', value: S(p.maintenance_service), raw: p.maintenance_service, article: '제7조' },
-        { label: '엔진오일', value: TERMS_SERVICE.engineOil, article: '제7조' },
+        { label: '정비상품', value: S(p.maintenance_service), raw: p.maintenance_service, article: '제14조' },
+        { label: '엔진오일', value: TERMS_SERVICE.engineOil, article: '제14조' },
         // 「지원 불가」는 부정조건이다 — 약관이 다르게 말하면 손님이 대차되는 줄 안다.
-        { label: '대차서비스', value: TERMS_SERVICE.loanerCar, article: '제7조' },
-        { label: '계약 연장·해지', value: TERMS_SERVICE.renewal, article: '제2조' },
-        { label: '검사대행', value: TERMS_SERVICE.inspection, article: '제7조' },
-        { label: '서비스품목', value: TERMS_SERVICE.serviceItems, article: '제7조' },
+        { label: '대차서비스', value: TERMS_SERVICE.loanerCar, article: '제5조' },
+        { label: '계약 연장·해지', value: TERMS_SERVICE.renewal, article: '제10조' },
+        { label: '검사대행', value: TERMS_SERVICE.inspection, article: '제14조' },
+        { label: '서비스품목', value: TERMS_SERVICE.serviceItems, article: '제14조' },
         { label: '특약사항', value: TERMS_SERVICE.special },
       ]),
       confirmLabel: '정비·기타 조건을 확인했습니다',
@@ -368,8 +358,8 @@ function insuranceGroup(p: Rec, side: InsuranceSide): ConsentGroup {
       title: '보험',
       note: '이 상품의 보험은 손님이 직접 가입합니다.',
       rows: [
-        { label: '가입 주체', value: '고객 직접 가입', article: '제9조의2' },
-        { label: '안내', value: CUSTOMER_INSURANCE_NOTE, article: '제9조의2' },
+        { label: '가입 주체', value: '고객 직접 가입', article: '제11조' },
+        { label: '안내', value: CUSTOMER_INSURANCE_NOTE, article: '제11조' },
         // 운전자 연령은 운전자 묶음에만 둔다 — 여기 또 두면 두 값이 갈라질 수 있다.
       ],
       confirmLabel: '보험을 직접 가입해야 함을 확인했습니다',
@@ -381,12 +371,12 @@ function insuranceGroup(p: Rec, side: InsuranceSide): ConsentGroup {
     title: '보험',
     note: '사고가 났을 때 어디까지 보상되는지입니다. 면책금은 손님이 부담하는 금액입니다.',
     rows: kept([
-      { label: '가입 주체', value: '회사 가입(영업용)', article: '제9조' },
-      ...INSURANCE_ROWS.map(([key, label]) => ({ label, value: S(p[key]), raw: p[key], article: '제9조' })),
+      { label: '가입 주체', value: '회사 가입(영업용)', article: '제11조' },
+      ...INSURANCE_ROWS.map(([key, label]) => ({ label, value: S(p[key]), raw: p[key], article: '제11조' })),
       /*
        * 「기본 운전자 연령」·「추가운전자」를 여기서 뺐다 — 운전자 묶음에 같은 값이 이미 있다.
        * 두 번 보이면 손님은 «다른 조건인가»를 의심하고, 한쪽만 고치면 두 값이 갈라진다.
-       * 운전자 범위는 제5조가 규율하므로 운전자 묶음이 제자리다(2026-08-09 정합성 점검).
+       * 운전자 범위는 제13조가 규율하므로 운전자 묶음이 제자리다(2026-08-11 V10 정합성 점검).
        */
     ]),
     confirmLabel: '위 보험 조건을 확인했습니다',

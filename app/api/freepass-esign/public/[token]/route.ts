@@ -108,11 +108,14 @@ function validateSubmission(payload: EsignRecord, snapshot: EsignRecord) {
   if (!Number(payload.summaryConfirmedAt || 0)) throw new Error('계약 요약을 먼저 확인해 주세요.');
   if (!Number(payload.agreementReadAt || 0)) throw new Error('약관을 끝까지 읽고 동의해 주세요.');
   for (const [key, limit] of [
-    ['customer_id', 30], ['customer_address', 200], ['driver_license_no', 50],
+    ['customer_id', 30], ['customer_address', 200],
     ['emergency_name', 40], ['emergency_phone', 30],
   ] as const) {
     if (S(payload[key]).length > limit) throw new Error('입력값이 너무 깁니다.');
   }
+  const customerId = S(payload.customer_id).replace(/\D/g, '');
+  if (customerId.length !== 13) throw new Error('주민등록번호 13자리를 정확히 입력해 주세요.');
+  if (!S(payload.customer_address)) throw new Error('계약서에 기재할 주소를 입력해 주세요.');
   return { name, phone, signature, consents, confirmations };
 }
 
@@ -145,8 +148,19 @@ export async function GET(
 
   const contractCode = S(session.contractCode);
   if (!contractCode) return json({ error: '계약 연결정보가 없습니다.' }, 409);
-  const db = (await loadFreepassEsignBundle(contractCode))?.db;
-  if (!db) return json({ error: '계약을 찾을 수 없습니다.' }, 404);
+  const bundle = await loadFreepassEsignBundle(contractCode);
+  const db = bundle?.db;
+  if (!bundle || !db) return json({ error: '계약을 찾을 수 없습니다.' }, 404);
+  let snapshot = record(session.snapshot);
+  const landlord = record(snapshot.landlord);
+  if (!S(landlord.companyName)) {
+    const companyName = S(bundle.partner?.company_name || bundle.partner?.name || bundle.partner?.partner_name);
+    if (companyName) {
+      // 기존 발행본에 누락된 임대인명만 한 번 보완해 이후 회사명 변경의 영향을 받지 않게 동결한다.
+      await db.ref(`v4/esign_sessions/${hash}/snapshot/landlord`).set({ companyName });
+      snapshot = { ...snapshot, landlord: { companyName } };
+    }
+  }
   if (!Number(session.openedAt || 0)) {
     await Promise.all([
       db.ref(`v4/esign_sessions/${hash}`).update({ status: 'opened', openedAt: now }),
@@ -161,7 +175,7 @@ export async function GET(
     rejectReason: S(session.rejectReason),
     supplementItems: Array.isArray(session.supplementItems) ? session.supplementItems.map(S) : [],
     progress: record(session.progress),
-    snapshot: session.snapshot || null,
+    snapshot,
   });
 }
 
@@ -190,28 +204,25 @@ export async function POST(
     const contractCode = S(session.contractCode);
     const bundle = await loadFreepassEsignBundle(contractCode);
     if (!bundle) return json({ error: '계약을 찾을 수 없습니다.' }, 404);
-    const progressTx = await bundle.db.ref(`v4/esign_sessions/${hash}`).transaction((current) => {
-      if (!current || !['sent', 'opened'].includes(S(current.status))) return;
-      if (Number(current.expiresAt || 0) <= Date.now()) return;
-      const writes = Number(current.progressWrites || 0);
-      if (writes >= 64) return;
-      const progress = record(current.progress);
-      return {
-        ...current,
-        status: 'opened',
-        progress: { ...progress, [step]: progress[step] || Date.now() },
-        progressWrites: writes + 1,
-        lastProgressAt: Date.now(),
-      };
-    }, undefined, false);
-    if (!progressTx.committed) return json({ error: '진행정보를 더 이상 기록할 수 없습니다.' }, 409);
-    const nextSession = record(progressTx.snapshot.val());
-    const progress = record(nextSession.progress);
-    await bundle.db.ref(`v4/contracts/${contractCode}`).update({
-      sign_status: '진행중',
-      esign_progress: progressCount(progress),
-      esign_last_progress_at: now,
-    });
+    const savedProgress = record(session.progress);
+    if (Number(savedProgress[step] || 0) > 0) {
+      return json({ ok: true, progress: savedProgress, reused: true });
+    }
+    const progress = { ...savedProgress, [step]: now };
+    const writes = Object.keys(progress).filter((key) => PROGRESS_KEYS.has(key)).length;
+    await Promise.all([
+      // 상태 필드는 건드리지 않는다. 관리자 해지와 동시에 들어와도 revoked를 opened로 되살리지 않는다.
+      bundle.db.ref(`v4/esign_sessions/${hash}`).update({
+        [`progress/${step}`]: now,
+        progressWrites: writes,
+        lastProgressAt: now,
+      }),
+      bundle.db.ref(`v4/contracts/${contractCode}`).update({
+        sign_status: '진행중',
+        esign_progress: progressCount(progress),
+        esign_last_progress_at: now,
+      }),
+    ]);
     return json({ ok: true, progress });
   }
 
@@ -274,7 +285,6 @@ export async function POST(
       customer_phone: parsed.phone,
       customer_id: S(payload.customer_id),
       customer_address: S(payload.customer_address),
-      driver_license_no: S(payload.driver_license_no),
       emergency_name: S(payload.emergency_name),
       emergency_phone: S(payload.emergency_phone),
       signature: parsed.signature,
@@ -302,7 +312,7 @@ export async function POST(
         sign_rejected_at: null,
         sign_reject_reason: null,
         esign_documents: [
-          { key: 'id_card', label: '신분증', submittedAt: now, sha256: idAsset.sha256 },
+          { key: 'driver_license', label: '운전면허증', submittedAt: now, sha256: idAsset.sha256 },
           { key: 'selfie', label: '본인 셀카', submittedAt: now, sha256: selfieAsset.sha256 },
         ],
         esign_identity: {

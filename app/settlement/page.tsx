@@ -87,7 +87,7 @@ export default function MonthlySettlement() {
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [queryInput, setQueryInput] = useState(''); // 검색창 즉시 반영
   const [query, setQuery] = useState(''); // 디바운스된 검색(정렬·그룹 재계산)
-  const [sort, setSort] = useState<SettlementSort>('');
+  const [sort, setSort] = useState<SettlementSort>('date_desc');
   const [status, setStatus] = useState('all');
   const [group, setGroup] = useState<SettlementGroup>('provider');
   const [showVatSheet, setShowVatSheet] = useState(false);
@@ -267,7 +267,7 @@ export default function MonthlySettlement() {
   const clearConditions = () => {
     setQueryInput('');
     setQuery('');
-    setSort('');
+    setSort('date_desc');
     setStatus('all');
   };
   const pendingCount = monthRows.filter(settlementNeedsAttention).length;
@@ -437,6 +437,7 @@ export default function MonthlySettlement() {
               { value: 'amount_desc', label: '순수익 높은순' },
               { value: 'status', label: '정산상태순' },
             ],
+            defaultValue: 'date_desc',
           },
           filter: {
             count: status === 'all' ? 0 : 1,
@@ -464,7 +465,7 @@ export default function MonthlySettlement() {
           hints: [
             month,
             ...(query.trim() ? [query.trim().length > 12 ? `${query.trim().slice(0, 12)}…` : query.trim()] : []),
-            ...(sort ? [[
+            ...(sort && sort !== 'date_desc' ? [[
               ['date_desc', '계약일 최신순'],
               ['customer', '계약자순'],
               ['amount_desc', '순수익 높은순'],

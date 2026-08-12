@@ -4,6 +4,7 @@ import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { getSession } from '@/lib/auth-session';
 import { canAccessOwnedRecord } from '@/lib/domain/authorization';
+import { hasRoomStoredActivity } from '@/lib/domain/room-activity';
 
 /**
  * **문의가 오간 매물** 코드 집합 — 카드의 「문의중」 표시와 관심함 「문의」 탭이 같이 쓴다.
@@ -31,6 +32,7 @@ function load(): Promise<void> {
       const next = new Set<string>();
       for (const room of rooms) {
         if (!canAccessOwnedRecord(session, room)) continue;
+        if (!hasRoomStoredActivity(room)) continue;
         const code = String(room.product_code || room.product_uid || '').trim();
         if (code) next.add(code);
       }

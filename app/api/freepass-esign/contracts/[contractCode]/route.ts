@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { verifyActiveBearer } from '@/lib/server/firebase-admin';
+import { BearerTokenError, verifyActiveBearer } from '@/lib/server/firebase-admin';
 import {
   FREEPASS_ESIGN_CONSENT_VERSION,
   FREEPASS_ESIGN_TTL_MS,
@@ -15,6 +15,7 @@ import {
   validContractCode,
   type EsignRecord,
 } from '@/lib/server/freepass-esign';
+import { snapshotWithPrivateSubmission } from '@/lib/domain/esign-signed-snapshot';
 import { createAndStoreFreepassPdf } from '@/lib/server/freepass-esign-document';
 import { isEsignTemplateAllowed } from '@/lib/domain/esign-templates';
 import { esignIssueBlockers, isIndependentEsignSource } from '@/lib/domain/esign-center';
@@ -34,13 +35,50 @@ function json(body: Record<string, unknown>, status = 200) {
   return NextResponse.json(body, { status, headers: PRIVATE_HEADERS });
 }
 
-async function admin(request: Request) {
+type ActorResult = Awaited<ReturnType<typeof verifyActiveBearer>>;
+
+async function activeActor(request: Request): Promise<{
+  actor: ActorResult;
+  authUnavailable: boolean;
+  tokenError: string;
+  tokenDetail: string;
+}> {
   try {
-    const actor = await verifyActiveBearer(request);
-    return canManageFreepassEsign(actor) ? actor : null;
-  } catch {
-    return null;
+    return {
+      actor: await verifyActiveBearer(request, { throwTokenError: true }),
+      authUnavailable: false,
+      tokenError: '',
+      tokenDetail: '',
+    };
+  } catch (error) {
+    if (error instanceof BearerTokenError) {
+      return {
+        actor: null,
+        authUnavailable: false,
+        tokenError: error.authCode,
+        tokenDetail: error.detail,
+      };
+    }
+    return { actor: null, authUnavailable: true, tokenError: '', tokenDetail: '' };
   }
+}
+
+function actorError(result: Awaited<ReturnType<typeof activeActor>>): Response | null {
+  if (result.authUnavailable) {
+    return json({ error: '서버에서 로그인 권한을 확인하지 못했습니다. 잠시 후 다시 시도해주세요.' }, 503);
+  }
+  if (result.tokenError) {
+    return json({
+      error: `로그인 토큰 검증에 실패했습니다. (${result.tokenError}: ${result.tokenDetail})`,
+    }, 401);
+  }
+  if (!result.actor) {
+    return json({ error: '로그인이 만료되었거나 유효하지 않습니다. 다시 로그인해주세요.' }, 401);
+  }
+  if (!canManageFreepassEsign(result.actor)) {
+    return json({ error: '전자계약 링크는 프리패스 관리자·직원 계정에서 생성할 수 있습니다.' }, 403);
+  }
+  return null;
 }
 
 function activeSession(session: EsignRecord | null, now = Date.now()) {
@@ -97,7 +135,9 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ contractCode: string }> },
 ) {
-  if (!await admin(request)) return json({ error: '관리자 로그인이 필요합니다.' }, 401);
+  const result = await activeActor(request);
+  const denied = actorError(result);
+  if (denied) return denied;
   const contractCode = validContractCode((await params).contractCode);
   if (!contractCode) return json({ error: '계약번호가 올바르지 않습니다.' }, 400);
   const state = await stateResponse(contractCode);
@@ -108,8 +148,10 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ contractCode: string }> },
 ) {
-  const actor = await admin(request);
-  if (!actor) return json({ error: '전자계약 발송·승인은 관리자만 할 수 있습니다.' }, 403);
+  const result = await activeActor(request);
+  const denied = actorError(result);
+  if (denied) return denied;
+  const actor = result.actor!;
   const contractCode = validContractCode((await params).contractCode);
   if (!contractCode) return json({ error: '계약번호가 올바르지 않습니다.' }, 400);
 
@@ -294,8 +336,9 @@ export async function POST(
       ? submission.consentTimes as EsignRecord
       : {};
     const completedConsents = { ...consentTimes, identity_verified: now, signed: now };
+    const signedSnapshot = snapshotWithPrivateSubmission(session.snapshot as EsignRecord, submission);
     const sealHash = sha256(JSON.stringify({
-      snapshot: session.snapshot,
+      snapshot: signedSnapshot,
       submittedAt: submission.submittedAt,
       signatureSha256: submission.signatureSha256,
       idCardSha256: submission.idCardSha256,
@@ -309,7 +352,7 @@ export async function POST(
       archived = await createAndStoreFreepassPdf({
         contractCode,
         hash,
-        snapshot: session.snapshot as EsignRecord,
+        snapshot: signedSnapshot,
         signature: S(submission.signature),
         sealHash,
       });

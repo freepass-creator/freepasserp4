@@ -1,4 +1,5 @@
 import type { EntityRecord } from '@/lib/intake/entities';
+import { applyPolicyDefaults } from '@/lib/domain/policy-defaults';
 
 export type RtdbRecord = Record<string, unknown>;
 
@@ -67,7 +68,12 @@ export function toV4Record(entity: string, childKey: string, record: RtdbRecord,
   switch (entity) {
     case 'product': {
       const code = String(record.product_code || childKey);
-      const policy = record._policy || (record.policy_code && joinMap ? (joinMap[record.policy_code as string] as unknown) : undefined);
+      const linkedPolicy = record._policy || (record.policy_code && joinMap ? (joinMap[record.policy_code as string] as unknown) : undefined);
+      // 정책 미연결·부분입력 상품도 항상 프리패스 표준으로 결정된다. 연결 정책의 명시값이
+      // 우선이고 빈 항목에만 기본값을 채우므로 공급사 고유 조건은 덮지 않는다.
+      const policy = applyPolicyDefaults(
+        linkedPolicy && typeof linkedPolicy === 'object' ? linkedPolicy as RtdbRecord : {},
+      ).next;
       // product_uid = erp3 원본 키(EXT_/PD*/pushId). v4 오버레이는 childKey===product_code 이라
       //  여기서 childKey를 uid로 채우면 라이브 EXT uid를 덮어 문의방 조인이 끊긴다.
       const uidExplicit = record.product_uid != null && String(record.product_uid).trim() !== ''

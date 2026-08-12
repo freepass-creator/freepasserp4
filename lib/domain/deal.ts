@@ -13,7 +13,6 @@ import { getSession } from '@/lib/auth-session';
 import { BRAND_MAIN } from '@/lib/brand';
 import { requirePositiveRentAmount } from '@/lib/domain/contract-money';
 import { hasTermFrozen } from '@/lib/domain/contract';
-import { safeBusinessCode } from '@/lib/domain/work-identity';
 import { vehicleNameOf } from '@/lib/domain/vehicle-name';
 import { CONSULT_LABEL } from '@/features/chat/room-display';
 
@@ -82,13 +81,13 @@ export function actor(r: Role): { uid: string; code: string; name: string; chann
 }
 
 /**
- * 채팅 표기명 — **업무코드로만** 부른다(2026-08-06 사장님 결정). 관리자=`freepass.이름`.
+ * 채팅 표기명 — 실제 표시명이 있으면 이름, 없으면 역할명. 관리자=`freepass.이름`.
  *
  * 계약문의는 공급사·영업자·관리자가 한 방에서 만난다. 거기에 실명이 줄줄이 남으면
  * 회사 밖 사람에게 우리 직원·거래처 담당자 이름이 그대로 쌓인다. 대화 목록도 같은 규격이다
  * (`work-list-display.agentLabel` preferCode).
  *
- * 코드가 없거나 UID 형태면 이름 대신 역할로 부른다 — UID 는 사람이 읽을 것도, 노출할 것도 아니다.
+ * 내부코드·UID는 대화 상대 이름으로 노출하지 않는다. 이관 레코드에 이름이 없으면 역할명으로 닫는다.
  */
 export function chatDisplayName(role: Role | string, name: string, code?: string): string {
   if (role === 'admin') {
@@ -99,8 +98,9 @@ export function chatDisplayName(role: Role | string, name: string, code?: string
     const text = String(value ?? '').trim();
     return text === 'undefined' || text === 'null' ? '' : text;
   };
-  const businessCode = safeBusinessCode(clean(code));
-  if (businessCode) return businessCode;
+  const displayName = clean(name);
+  if (displayName) return displayName;
+  void code;
   if (role === 'provider') return '공급사';
   if (role === 'agent') return '영업 담당자';
   return '담당자';
@@ -130,12 +130,31 @@ function resolveChannel(ag: { code: string; channel?: string }): string {
   return String(ag.channel || getSession()?.agent_channel_code || ag.code || '').trim();
 }
 
+/** 매물×문의자 결정키. 빈 식별자로 CH_undefined_* 같은 고아 방을 만들지 않는다. */
+export function productRoomKey(productCode: unknown, agentCode: unknown): string {
+  const product = String(productCode || '').trim();
+  const agent = String(agentCode || '').trim();
+  return product && agent ? `CH_${product}_${agent}` : '';
+}
+
+/** 상세 진입용 읽기 전용 조회 — 없는 방을 만들지 않는다. */
+export async function findExistingRoom(
+  productCode: unknown,
+  asker?: { uid: string; code: string; name: string; channel?: string },
+): Promise<string | null> {
+  const ag = asker || actor('agent');
+  const roomKey = productRoomKey(productCode, ag.code);
+  if (!roomKey) return null;
+  return await getStore().get('room', getCompanyId(), roomKey) ? roomKey : null;
+}
+
 /** 방 보장 — 매물×문의자 결정키. 없으면 스냅샷과 함께 생성. asker 미지정=영업자(계약문의 경로). 관리자 간단문의 등은 asker=본인. */
 export async function ensureRoom(product: EntityRecord, asker?: { uid: string; code: string; name: string; channel?: string }): Promise<string> {
   const co = getCompanyId();
   const store = getStore();
   const ag = asker || actor('agent'); // 기본=로그인 영업자(계약문의 방과 동일). 간단문의는 남기는 당사자(영업자·관리자)로 귀속.
-  const roomKey = `CH_${product.product_code}_${ag.code}`;
+  const roomKey = productRoomKey(product.product_code, ag.code);
+  if (!roomKey) throw new Error('방 생성: 상품코드 또는 영업자 코드 누락');
   if (await store.get('room', co, roomKey)) return roomKey;
   const parties = requireParties({
     agent_uid: ag.uid,
@@ -412,6 +431,115 @@ export async function createBlankContract(opt: {
     agent_name: ag.name,
     agent_channel_code: parties.agent_channel_code,
     provider_company_code: parties.provider_company_code,
+  }]);
+  return code;
+}
+
+/**
+ * 계약서관리에서 매물 없이 전자계약 초안을 만든다.
+ *
+ * 일반 `createBlankContract`와 달리 이 레코드는 곧바로 계약서 발행 후보가 되므로
+ * 기간·월대여료·정책을 생성 시점에 함께 동결한다. 계약 스냅샷 필드는 Rules에서
+ * 최초 저장 뒤 잠기므로, 빈 셸을 먼저 만들고 나중에 덧붙이는 두 단계 저장은 쓰지 않는다.
+ */
+export async function createDirectEsignContract(opt: {
+  source?: 'excel' | 'direct';
+  importTemplateId?: string;
+  importAdapterId?: string;
+  providerCompanyCode: string;
+  policyCode: string;
+  standardTemplateId?: string;
+  contractKind?: string;
+  maturity?: '반납형' | '인수형';
+  contractDate: string;
+  customerName: string;
+  customerPhone: string;
+  customerAddress?: string;
+  customerIsBusiness?: string;
+  customerCompanyName?: string;
+  customerBusinessNumber?: string;
+  carNumber?: string;
+  vehicleName: string;
+  modelYear?: string;
+  fuel?: string;
+  rentMonths: number;
+  rentAmount: number;
+  depositAmount?: number;
+  templateFields?: Record<string, string>;
+}): Promise<string> {
+  const source = opt.source === 'excel' ? 'excel' : 'direct';
+  const providerCompanyCode = String(opt.providerCompanyCode || '').trim();
+  const policyCode = String(opt.policyCode || '').trim();
+  const contractDate = String(opt.contractDate || '').trim();
+  const customerName = String(opt.customerName || '').trim();
+  const customerPhone = String(opt.customerPhone || '').trim();
+  const vehicleName = String(opt.vehicleName || '').trim();
+  const rentMonths = Number(opt.rentMonths) || 0;
+  const rentAmount = Number(opt.rentAmount) || 0;
+  const depositAmount = Math.max(0, Number(opt.depositAmount) || 0);
+  if (!providerCompanyCode) throw new Error('공급사를 골라 주세요.');
+  if (!policyCode) throw new Error('계약 정책을 골라 주세요.');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(contractDate)) throw new Error('계약일을 확인해 주세요.');
+  if (!customerName) throw new Error('고객명을 입력해 주세요.');
+  if (!/^\d{10,11}$/.test(customerPhone.replace(/\D/g, ''))) throw new Error('고객 연락처를 확인해 주세요.');
+  if (!vehicleName) throw new Error('차량명을 입력해 주세요.');
+  if (rentMonths <= 0) throw new Error('대여기간을 입력해 주세요.');
+  requirePositiveRentAmount(rentAmount, '계약서 생성');
+
+  const co = getCompanyId();
+  const store = getStore();
+  const session = getSession();
+  // 관리자 직접 계약을 데모 영업자에게 귀속시키면 고객정보가 그 영업자 목록에 노출된다.
+  // 실 로그인에서는 생성한 관리자 본인으로 격리하고, 비로그인 로컬 데모만 기존 영업자 스텁을 쓴다.
+  const creator = session?.role === 'admin' ? actor('admin') : actor('agent');
+  const parties = requireParties({
+    agent_uid: creator.uid || creator.code,
+    agent_channel_code: resolveChannel(creator),
+    provider_company_code: providerCompanyCode,
+  }, '전자계약 직접 생성');
+
+  const d = new Date();
+  const p2 = (n: number) => String(n).padStart(2, '0');
+  const yymmdd = `${String(d.getFullYear()).slice(2)}${p2(d.getMonth() + 1)}${p2(d.getDate())}`;
+  const todays = (await store.list('contract', co))
+    .filter((c) => String(c.contract_code || '').startsWith(`TMP-${yymmdd}`)).length;
+  const uniq = Math.random().toString(36).slice(2, 6);
+  const code = `TMP-${yymmdd}-${p2(todays + 1)}-${uniq}`;
+
+  await store.save('contract', co, [{
+    contract_code: code,
+    contract_status: '계약요청',
+    contract_date: contractDate,
+    contract_origin: source === 'excel' ? '계약서엑셀등록' : '계약서직접등록',
+    contract_source: source,
+    esign_import_template_id: String(opt.importTemplateId || '').trim(),
+    esign_import_adapter_id: String(opt.importAdapterId || '').trim(),
+    product_code: '',
+    policy_code: policyCode,
+    standard_template_id: String(opt.standardTemplateId || '').trim(),
+    contract_kind: String(opt.contractKind || '').trim(),
+    esign_maturity: String(opt.maturity || '').trim(),
+    car_number_snapshot: String(opt.carNumber || '').trim(),
+    vehicle_name_snapshot: vehicleName,
+    rent_month_snapshot: rentMonths,
+    rent_amount_snapshot: rentAmount,
+    deposit_amount_snapshot: depositAmount,
+    customer_name: customerName,
+    customer_phone: customerPhone,
+    customer_address: String(opt.customerAddress || '').trim(),
+    customer_is_business: String(opt.customerIsBusiness || '').trim(),
+    customer_company_name: String(opt.customerCompanyName || '').trim(),
+    customer_business_number: String(opt.customerBusinessNumber || '').trim(),
+    year_snapshot: String(opt.modelYear || '').trim(),
+    fuel_type_snapshot: String(opt.fuel || '').trim(),
+    agent_uid: parties.agent_uid,
+    agent_code: creator.code,
+    agent_name: creator.name,
+    agent_channel_code: parties.agent_channel_code,
+    provider_company_code: parties.provider_company_code,
+    contract_draft: JSON.stringify(opt.templateFields || {}),
+    sign_status: '미발송',
+    is_draft: '예',
   }]);
   return code;
 }

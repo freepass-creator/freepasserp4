@@ -115,7 +115,7 @@ export default function ContractsSettlement() {
   const [role, setRoleS] = useState<Role>('agent');
   const [qInput, setQInput] = useState(''); // 검색창 즉시 반영
   const [q, setQ] = useState(''); // 디바운스된 검색
-  const [sort, setSort] = useState<ContSort | ''>('');
+  const [sort, setSort] = useState<ContSort | ''>('date');
   const [flt, setFlt] = useState<ContFilter>('진행');
   const [draftFlt, setDraftFlt] = useState<ContFilter>('진행');
   /** '' = 전체 월. contract_date YYYY-MM */
@@ -660,7 +660,7 @@ export default function ContractsSettlement() {
         listTools={{
           search: { value: qInput, onChange: setQInput, placeholder: '계약·차번·계약자·전화·영업·공급…' },
           action: !mobile && setts.length ? { label: '엑셀', icon: Download, onClick: () => downloadSettlementsExcel(setts, new Date().toISOString().slice(0, 10), role) } : undefined,
-          sort: { value: sort, onChange: (v) => setSort(v as ContSort | ''), options: CONT_SORTS },
+          sort: { value: sort, onChange: (v) => setSort(v as ContSort | ''), options: CONT_SORTS, defaultValue: 'date' },
           filter: {
             count: filterActive,
             title: '조건 검색',
@@ -706,11 +706,11 @@ export default function ContractsSettlement() {
           },
           hints: [
             ...(q.trim() ? [q.trim().length > 12 ? `${q.trim().slice(0, 12)}…` : q.trim()] : []),
-            ...(sort ? [CONT_SORTS.find((o) => o.value === sort)?.label || sort] : []),
+            ...(sort && sort !== 'date' ? [CONT_SORTS.find((o) => o.value === sort)?.label || sort] : []),
             ...(monthFlt ? [labelMonth(monthFlt)] : []),
             ...(flt !== '진행' ? [CONT_FILTERS.find((option) => option.key === flt)?.label || flt] : []),
           ],
-          onClearHints: () => { setQInput(''); setQ(''); setSort(''); setFlt('진행'); setMonthFlt(''); },
+          onClearHints: () => { setQInput(''); setQ(''); setSort('date'); setFlt('진행'); setMonthFlt(''); },
         }}
       />
 

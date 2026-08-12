@@ -1,5 +1,52 @@
 # 구현 로그
 
+## 2026-08-10 — `/esign` ③·④ 빈 골격 항상 표시 (화면 우선)
+
+오더 갱신: 계약 미선택·미발행에도 ③·④를 중앙 안내문 한 줄로 두지 않음.
+
+- `app/esign/page.tsx` — ③·④를 `sel` 없이 항상 마운트
+- ③ 기본: `연결됨 · 계약 미선택` + 연동값 검증(—) · 계약서 저장(비활성) · 서명 링크(발행 전) · 연동 데이터 구역 골격
+- ④ 기본: `발행 전 · 0/8` + 8단계 · 본인확인 · 서류 · 보완(비활성) · PDF(없음)
+- 계약 선택·발행 시 같은 골격에 데이터만 채움
+
+검증: `npx tsc --noEmit` PASS
+
+---
+
+## 2026-08-10 — 착한거래 ②·③ → 프리패스 ③·④ 패널 이식
+
+오더: `docs/CURSOR_ORDER_CHAKHANDEAL_PANELS_2026-08-10.md`
+
+### 착한거래 (`C:\dev\chakhandeal`)
+
+- `toMemberStatus`: `templateFields` · `supplements` · `supplementActive` 공개 필드 추가
+- `openSupplement`: 서명 후 허용 키를 **이력 저장 전** 검증
+- `POST /api/v1/contract/{id}/supplement` (ApiKey, 자기 회원사만)
+- `GET /api/v1/contract/{id}/preview?save=0|1` — 서명 전 A4 초안, 툴바 «서명 전 초안 · 서명 없음»
+- `GET /api/v1/templates/{id}/fields` — `sections`(RENTAL_SECTIONS) 추가
+- `renderDraftPreview` / chrome draft 모드
+
+검증: `npm test` PASS · `npm run build` PASS · `tests/member-preview-supplement.test.js` 7 PASS
+
+### 프리패스 (`C:\dev\freepasserp4`)
+
+- `lib/server/chakhandeal-esign.ts` — preview HTML · supplement POST · template fields/sections · 상태 정규화
+- `lib/domain/chakhandeal-esign-sync.ts` — `esign_supplements` · `esign_supplement_active` (templateFields는 RTDB 미복제)
+- `GET …/preview` · `POST …/supplement` 관리자 프록시 (`esign_id`만 사용)
+- `template-fields` GET — 발행 후 읽기 전용 스냅샷 + sections
+- `app/esign/page.tsx` ③ 초안저장·미리보기·서명링크·연동데이터 / ④ 보완링크·이력·완료PDF
+
+검증:
+- `npx tsc --noEmit` PASS
+- `npm run check:fonts` PASS
+- `npx tsx scripts/sim-chakhandeal-sync.mts` PASS (보완 투영 포함)
+- `npx tsx scripts/sim-chakhandeal-esign.mts` 35/35
+- `npx tsx scripts/sim-esign-contract-kind.mts` 60/60
+- `npx tsx scripts/sim-esign-field-map.mts` 13/13
+- `check:ui --changed` 기존 타 파일 드리프트만 보고(이번 변경 파일 신규 0)
+
+---
+
 ## 2026-08-08 — 시트 차명 원자화 · defaults ↔ snap · SyncPreview 원자 보기
 
 ### 완료한 작업

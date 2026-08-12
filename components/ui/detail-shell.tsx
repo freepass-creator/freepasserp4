@@ -24,13 +24,19 @@ export function DetailShell({
   children: React.ReactNode;
 }) {
   const mobile = useIsMobile();
-  useAppBar(fixed ? null : { back: onBack, backKind: 'history', title, actions }, [fixed, mobile, onBack, actions, title]);
+  useAppBar(
+    fixed ? null : (mobile ? { title } : { back: onBack, backKind: 'history', title, actions }),
+    [fixed, mobile, onBack, actions, title],
+  );
   if (!fixed) {
     return (
-      <div style={{ maxWidth, margin: '0 auto', padding: mobile ? '10px 12px 80px' : '14px 16px 48px' }}>
-        {title != null && <h1 style={{ fontSize: FS.page, fontWeight: FW.title, letterSpacing: '-0.02em', margin: '2px 0 14px' }}>{title}</h1>}
-        {children}
-      </div>
+      <>
+        <div style={{ maxWidth, margin: '0 auto', padding: mobile ? '10px 12px calc(80px + env(safe-area-inset-bottom, 0px))' : '14px 16px 48px' }}>
+          {title != null && <h1 style={{ fontSize: FS.page, fontWeight: FW.title, letterSpacing: '-0.02em', margin: '2px 0 14px' }}>{title}</h1>}
+          {children}
+        </div>
+        {mobile && onBack ? <BottomNav backKind="history" backShowLabel onBack={onBack} actions={actions} /> : null}
+      </>
     );
   }
   const back = onBack ? <NavBack kind="list" onClick={onBack} /> : null;

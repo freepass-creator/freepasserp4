@@ -2,11 +2,13 @@ import { NextResponse } from 'next/server';
 import { verifyActiveBearer } from '@/lib/server/firebase-admin';
 import {
   canManageFreepassEsign,
+  buildFreepassIssueSnapshot,
   loadFreepassEsignBundle,
   sessionHashFromContract,
   validContractCode,
   type EsignRecord,
 } from '@/lib/server/freepass-esign';
+import { snapshotWithPrivateSubmission } from '@/lib/domain/esign-signed-snapshot';
 import {
   buildFrozenFreepassHtml,
   createAndStoreFreepassPdf,
@@ -43,6 +45,45 @@ export async function GET(
   if (!contractCode) return json({ error: '계약번호가 올바르지 않습니다.' }, 400);
   const bundle = await loadFreepassEsignBundle(contractCode);
   if (!bundle) return json({ error: '계약을 찾을 수 없습니다.' }, 404);
+  const url = new URL(request.url);
+  const draft = url.searchParams.get('draft') === '1';
+  const format = url.searchParams.get('format') === 'pdf' ? 'pdf' : 'html';
+
+  if (draft && String(bundle.contract.esign_provider || '') !== 'freepass') {
+    let previewSnapshot: EsignRecord;
+    try {
+      previewSnapshot = buildFreepassIssueSnapshot({
+        contract: bundle.contract,
+        policy: bundle.policy,
+        product: bundle.product,
+        partner: bundle.partner,
+        standardTemplateId: String(bundle.contract.standard_template_id || ''),
+        contractKind: String(bundle.contract.contract_kind || ''),
+      });
+    } catch (error) {
+      return json({ error: error instanceof Error ? error.message : 'A4 계약서 초안을 만들 수 없습니다.' }, 409);
+    }
+    const previewHtml = await buildFrozenFreepassHtml(previewSnapshot, '', '');
+    if (format === 'html') {
+      return new NextResponse(previewHtml, {
+        status: 200,
+        headers: { ...PRIVATE_HEADERS, 'Content-Type': 'text/html; charset=utf-8' },
+      });
+    }
+    try {
+      const previewPdf = await renderFreepassPdf(previewHtml);
+      return new NextResponse(Uint8Array.from(previewPdf).buffer, {
+        status: 200,
+        headers: {
+          ...PRIVATE_HEADERS,
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': `inline; filename="${encodeURIComponent(contractCode)}-draft.pdf"`,
+        },
+      });
+    } catch {
+      return json({ error: '이 서버에는 A4 PDF 생성용 Chrome이 없습니다. HTML 미리보기를 사용해 주세요.' }, 503);
+    }
+  }
   if (String(bundle.contract.esign_provider || '') !== 'freepass') {
     return json({ error: '프리패스에서 발행한 전자계약이 아닙니다.' }, 409);
   }
@@ -57,14 +98,12 @@ export async function GET(
   const snapshot = session?.snapshot as EsignRecord | undefined;
   if (!session || !snapshot) return json({ error: '발행 당시 계약서 스냅샷이 없습니다.' }, 409);
 
-  const url = new URL(request.url);
-  const draft = url.searchParams.get('draft') === '1';
-  const format = url.searchParams.get('format') === 'pdf' ? 'pdf' : 'html';
   if (!draft && String(session.status || '') !== 'signed') {
     return json({ error: '서명 완료 후 완료본을 만들 수 있습니다.' }, 409);
   }
   const signature = draft ? '' : String(submission?.signature || '');
   if (!draft && !signature) return json({ error: '완료본에 넣을 서명이 없습니다.' }, 409);
+  const documentSnapshot = draft ? snapshot : snapshotWithPrivateSubmission(snapshot, submission);
 
   if (format === 'pdf' && !draft && submission?.pdfPath) {
     try {
@@ -80,7 +119,7 @@ export async function GET(
     } catch { /* 저장본이 없으면 아래에서 한 번 다시 만든다 */ }
   }
 
-  const html = await buildFrozenFreepassHtml(snapshot, signature, String(session.sealHash || ''));
+  const html = await buildFrozenFreepassHtml(documentSnapshot, signature, String(session.sealHash || ''));
   if (format === 'html') {
     return new NextResponse(html, {
       status: 200,
@@ -97,7 +136,7 @@ export async function GET(
       archived = await createAndStoreFreepassPdf({
           contractCode,
           hash,
-          snapshot,
+          snapshot: documentSnapshot,
           signature,
           sealHash: String(session.sealHash || ''),
         });

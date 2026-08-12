@@ -2,17 +2,19 @@
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, List } from 'lucide-react';
+import { ChevronLeft, List, X } from 'lucide-react';
 import { useIsMobile } from '@/lib/use-mobile';
 import { Btn, IconBtn } from './buttons';
 import { C, SH } from './tokens';
+
+export type NavBackKind = 'history' | 'list' | 'cancel';
 
 export function NavBack({
   kind = 'history',
   onClick,
   showLabel = false,
 }: {
-  kind?: 'history' | 'list';
+  kind?: NavBackKind;
   onClick?: () => void;
   /** 모바일도 아이콘+텍스트(업무 swap 독 등). 기본=모바일 아이콘만. */
   showLabel?: boolean;
@@ -20,7 +22,7 @@ export function NavBack({
   const router = useRouter();
   const mobile = useIsMobile();
   const go = () => {
-    if (kind === 'list') {
+    if (kind === 'list' || kind === 'cancel') {
       onClick?.();
       return;
     }
@@ -31,13 +33,15 @@ export function NavBack({
     if (typeof window !== 'undefined' && window.history.length > 1) router.back();
     else router.push('/');
   };
-  const label = kind === 'list' ? '목록' : '이전';
+  const label = kind === 'list' ? '목록' : kind === 'cancel' ? '취소' : '이전';
   const icon = kind === 'list'
     ? <List size={mobile ? 18 : 16} strokeWidth={2.25} aria-hidden />
+    : kind === 'cancel'
+    ? <X size={mobile ? 18 : 16} strokeWidth={2.25} aria-hidden />
     : <ChevronLeft size={mobile ? 18 : 16} strokeWidth={2.25} aria-hidden />;
-  // 목록(list)은 모바일서 항상 아이콘+라벨(호출부 backShowLabel 의존 제거 → 전 페이지 자동 통일).
+  // 목록·취소는 모바일서 항상 아이콘+라벨(호출부 backShowLabel 의존 제거 → 전 페이지 자동 통일).
   // 이전(history)은 범용 back이라 아이콘only 유지(showLabel 주면 라벨).
-  if (mobile && !showLabel && kind !== 'list') {
+  if (mobile && !showLabel && kind === 'history') {
     return <IconBtn haptic="back" title={label} onClick={go}>{icon}</IconBtn>;
   }
   return (
@@ -66,7 +70,7 @@ export function BottomNav({
   padX?: number;
   /** 화면이 아니라 **자기가 속한 칼럼**을 따라다닌다(본문 안에 넣어 쓴다). */
   sticky?: boolean;
-  backKind?: 'history' | 'list';
+  backKind?: NavBackKind;
   onBack?: () => void;
   embedded?: boolean;
   zIndex?: number;
@@ -100,10 +104,10 @@ export function BottomNav({
         padding: `0 ${padX}px`,
       };
   const inner = (
-    <div style={row}>
+    <div className="fp-action-dock__row" style={row}>
       <NavBack kind={backKind} onClick={onBack} showLabel={backShowLabel} />
       {actions != null && (
-        <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end' }}>
+        <div className="fp-action-dock__actions" style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end' }}>
           {actions}
         </div>
       )}
@@ -122,9 +126,9 @@ export function BottomNav({
   };
   // sticky = 화면이 아니라 **자기가 속한 칼럼**을 따라다닌다. 옆에 보조 칼럼이 서서
   //  본문이 화면 중앙이 아닐 때 «상세 밑»을 지키는 유일한 방법이다(고정독은 화면 기준이라 어긋난다).
-  if (sticky) return <div style={{ ...chrome, position: 'sticky', bottom: 0 }}>{inner}</div>;
+  if (sticky) return <div className="fp-action-dock fp-action-dock--sticky" style={{ ...chrome, position: 'sticky', bottom: 0 }}>{inner}</div>;
   return (
-    <div style={{
+    <div className="fp-action-dock" style={{
       ...chrome,
       position: 'fixed',
       left: 0,

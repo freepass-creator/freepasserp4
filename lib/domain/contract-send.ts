@@ -10,6 +10,7 @@ import { createSignToken } from '@/lib/domain/sign';
 import { hasTermFrozen } from '@/lib/domain/contract';
 import { vehicleNameOf } from '@/lib/domain/vehicle-name';
 import { businessRegistrationNumberOf } from '@/lib/domain/business-identity';
+import { applyPolicyDefaults } from '@/lib/domain/policy-defaults';
 
 export type ContractPayload = Record<string, string>;
 
@@ -64,7 +65,9 @@ export async function buildContractPayload(contractCode: string): Promise<{
 
   const polCode = String(product?.policy_code || contract.policy_code || '');
   const policies = polCode ? await store.list('policy', co) : [];
-  const pol = (policies.find((t) => String(t.policy_code || t._key) === polCode) || {}) as EntityRecord;
+  const pol = applyPolicyDefaults(
+    (policies.find((t) => String(t.policy_code || t._key) === polCode) || {}) as EntityRecord,
+  ).next as EntityRecord;
 
   const provCode = String(product?.provider_company_code || product?.partner_code || contract.provider_company_code || '');
   const partners = provCode ? await store.list('partner', co) : [];

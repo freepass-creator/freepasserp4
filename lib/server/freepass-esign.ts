@@ -35,7 +35,11 @@ export function validContractCode(value: unknown): string {
 }
 
 export function canManageFreepassEsign(actor: ActiveBearer | null | undefined): boolean {
-  return actor?.role === 'admin' && actor.rawRole === 'admin';
+  if (!actor) return false;
+  return actor.rawRole === 'admin'
+    || actor.rawRole === 'agent'
+    || actor.rawRole === 'agent_admin'
+    || actor.rawRole === 'agent_manager';
 }
 
 export function makeFreepassSignToken(): string {
@@ -175,8 +179,12 @@ export function buildFreepassIssueSnapshot(args: {
     overrides,
   });
   const consentGroups = buildConsentGroups(contract, args.policy, template.insuranceSide);
+  const landlordCompanyName = S(
+    args.partner?.company_name || args.partner?.name || args.partner?.partner_name,
+  );
   return {
     contract: publicContractSnapshot(contract),
+    landlord: { companyName: landlordCompanyName },
     contractKind: {
       key: spec.key,
       label: spec.label,

@@ -4,7 +4,6 @@
  * commit/merge/absent 로직은 건드리지 않음 — 유입 표·제품 배열만 만든다.
  */
 import { type EntityRecord } from '@/lib/intake/entities';
-import { isExactRealPlate } from '@/lib/domain/product';
 import {
   assertDistinctSheetTable,
   importSheetTable,
@@ -18,6 +17,7 @@ import type { PlateAllocator } from '@/lib/domain/pending-plate';
 import {
   AUTOPLUS_PRICE_HEADERS,
   SHEET_ADAPTERS,
+  firstPlateBlockAfterHeader,
   findPlateHeaderRow,
   labelAutoplusHeaderRow,
 } from '@/lib/domain/sheet-adapters';
@@ -45,43 +45,16 @@ const PROMO_BASE_HEADER = [
   '', ...AUTOPLUS_PRICE_HEADERS,
 ];
 
-const normalizeHeader = (value: unknown): string => String(value ?? '').replace(/\s/g, '');
-const isPlateHeader = (value: unknown): boolean => /^(차량번호|차번|차번호|등록번호)$/.test(normalizeHeader(value));
-
 /**
- * 프로모션 탭 — 차량번호 헤더 바로 아래의 첫 연속 데이터 블록만 읽는다.
- * 공급사가 하단에 과거 이력을 남겨도 빈 행/비데이터 행을 경계로 그 뒤는 연동하지 않는다.
+ * 프로모션 탭 — 차량번호 헤더 아래에서 첫 유효 데이터 블록을 찾아 읽는다.
+ * 헤더와 데이터 사이의 안내·여백은 허용하되, 데이터가 시작된 뒤 빈 행/비데이터 행을
+ * 만나면 종료한다. 그래야 위쪽 행이 밀려도 현재 재고는 읽고 하단 과거 이력은 제외된다.
  */
 export function prepareAutoplusPromoTable(raw: string[][]): string[][] {
-  const exactPlate = (value: unknown) => {
-    const plate = String(value ?? '').replace(/\s/g, '');
-    return isExactRealPlate(plate);
-  };
   const headerRow = findPlateHeaderRow(raw);
   if (headerRow < 0) throw new Error('오토플러스 프로모션 차량번호 헤더 행 없음');
-
-  const plateColumn = (raw[headerRow] || []).findIndex(isPlateHeader);
-  if (plateColumn < 0) throw new Error('오토플러스 프로모션 차량번호 열 없음');
-
-  const body: string[][] = [];
-  for (let index = headerRow + 1; index < raw.length; index++) {
-    const row = raw[index] || [];
-    if (exactPlate(row[plateColumn])) {
-      body.push(row);
-      continue;
-    }
-
-    const shiftedColumn = row.findIndex((cell, column) => column !== plateColumn && exactPlate(cell));
-    if (!body.length && shiftedColumn >= 0) {
-      throw new Error('오토플러스 프로모션 차량번호 열 이동 감지');
-    }
-    // 첫 데이터 전이든 후든, 헤더 바로 아래의 연속 블록이 끝나면 탐색도 끝낸다.
-    break;
-  }
-  if (!body.length) {
-    throw new Error('오토플러스 프로모션 탭 차량 데이터 없음');
-  }
-  return [labelAutoplusHeaderRow([...PROMO_BASE_HEADER]), ...body];
+  const block = firstPlateBlockAfterHeader(raw.slice(headerRow));
+  return [labelAutoplusHeaderRow([...PROMO_BASE_HEADER]), ...block.slice(1)];
 }
 
 /** 메인∪프로모션(메인에 없는 차번만). */

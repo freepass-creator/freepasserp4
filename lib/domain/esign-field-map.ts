@@ -51,6 +51,8 @@ export const FIELD_MAP: FieldMap[] = [
   { field: 'company_ceo_title', label: '대표자 직함', from: '고정' },
   { field: 'company_biz_no', label: '사업자등록번호', from: '파트너', atom: 'partner.biz_no' },
   { field: 'company_phone', label: '대표번호', from: '파트너', atom: 'partner.phone' },
+  { field: 'company_address', label: '임대인 주소', from: '파트너', atom: 'partner.address' },
+  { field: 'rental_business_no', label: '자동차대여사업 등록번호', from: '파트너', atom: 'partner.rental_business_no' },
   { field: 'company_logo', label: '로고', from: '고정' },
 
   /* ── 계약 식별 ── */
@@ -66,8 +68,8 @@ export const FIELD_MAP: FieldMap[] = [
   { field: 'customer_address', label: '주소', from: '계약', atom: 'customer_address' },
   { field: 'customer_birth', label: '생년월일', from: '계약', atom: 'customer_birth' },
   { field: 'customer_email', label: '이메일', from: '미정' },
-  { field: 'customer_id', label: '주민등록번호', from: '본인확인', note: '우리는 받지 않는다' },
-  { field: 'driver_license_no', label: '면허번호', from: '본인확인', note: '우리는 받지 않는다' },
+  { field: 'customer_id', label: '주민등록번호', from: '본인확인', note: '계약·세금계산서 발행에 필요한 범위에서 확인' },
+  { field: 'driver_license_no', label: '면허번호', from: '본인확인', note: '면허증 첨부자료에서 확인' },
   { field: 'driver_or_biz_no', label: '주민/사업자번호', from: '본인확인' },
   { field: 'emergency_contact', label: '비상연락처', from: '입력', atom: 'emergency_contact' },
 
@@ -129,12 +131,12 @@ export const FIELD_MAP: FieldMap[] = [
    *   잘못 대면 계약서에 「초과 주행요금 : 1만km당 100,000원」이 찍혀
    *   손님은 «1만km 넘으면 10만원»으로 읽는다.
    *
-   *   약관 제15조가 **「계약서에 정한 1km당 초과운행료」를 그대로 참조**하므로,
+   *   약관 제23조가 **「계약서에 정한 1km당 초과주행 요금」을 그대로 참조**하므로,
    *   이 칸이 비면 그 조문이 공중에 뜬다. 계산 방식은 약관이 말하고 계약서는 숫자만 댄다.
    */
-  { field: 'over_mileage_rate', label: '초과 주행요금', from: '정책', atom: 'over_mileage_rate_per_km', note: '약관 제15조가 참조하는 1km당 요율' },
-  // 약관 제11조②10호가 참조한다. 비면 그 호는 적용되지 않는다 — 없는 기준으로 해지할 수 없다.
-  { field: 'accident_termination_count', label: '사고다발 처리', from: '정책', atom: 'accident_termination_count', note: '과실 50% 이상 N회 → 계약 해지' },
+  { field: 'over_mileage_rate', label: '초과주행 요금', from: '정책', atom: 'over_mileage_rate_per_km', note: '약관 제23조가 참조하는 1km당 금액' },
+  // 약관 제7조제1항제7호의 최근 1년 내 과실사고 3회 기준을 계약서에도 표시한다.
+  { field: 'accident_termination_count', label: '사고 다발 시 계약해지 기준', from: '정책', atom: 'accident_termination_count', note: '현재 사고 발생일 기준 직전 1년 내 기존 2회 + 현재 1회 = 총 3회 시 해지 가능' },
 
   /* ── 운전자 ── */
   { field: 'driver_age', label: '운전자 연령', from: '정책', atom: 'basic_driver_age' },
@@ -170,11 +172,11 @@ export const FIELD_MAP: FieldMap[] = [
   { field: 'self_damage_deductible_max', label: '자차 최대 면책금', from: '파생', note: '연령 파생' },
   { field: 'self_damage_exclusions', label: '자차 면책 제외', from: '고정', note: '중과실 12대' },
   { field: 'extra_deductibles', label: '추가 면책금', from: '고정', note: '면허 1년 이하' },
-  { field: 'insurer_name', label: '보험사', from: '고정' },
+  { field: 'insurer_name', label: '가입 보험사·공제조합', from: '정책' },
 
   /* ── 정비·서비스 ── */
   { field: 'maintenance_product', label: '정비상품', from: '정책', atom: 'maintenance_service' },
-  { field: 'maintenance_replacement', label: '소모품 교체', from: '고정' },
+  { field: 'maintenance_replacement', label: '정비 대차 서비스', from: '고정' },
   { field: 'designated_garage', label: '지정 정비점', from: '고정' },
   { field: 'replacement_car_policy', label: '대차 정책', from: '고정', note: '대차 불가' },
   { field: 'other_items', label: '기타 항목', from: '고정' },
@@ -192,7 +194,8 @@ export const FIELD_MAP: FieldMap[] = [
   { field: 'handover_datetime', label: '인도 일시', from: '미정' },
   { field: 'handover_location', label: '인도 장소', from: '미정' },
   { field: 'handover_agent_name', label: '인도 담당자', from: '미정' },
-  { field: 'odometer_delivery', label: '인도 시 주행거리', from: '재고', atom: 'mileage' },
+  { field: 'odometer_delivery', label: '출고 시 주행거리', from: '재고', atom: 'mileage' },
+  { field: 'vehicle_classification', label: '차량 구분', from: '재고', atom: 'product_type' },
   { field: 'fuel_gauge_delivery', label: '인도 시 연료량', from: '미정' },
   { field: 'damage_delivery', label: '인도 시 손상', from: '미정' },
   { field: 'return_datetime', label: '반납 일시', from: '미정', onlyMaturity: '반납형' },
@@ -207,7 +210,7 @@ export const FIELD_MAP: FieldMap[] = [
   { field: 'cms_account_no', label: '출금 계좌번호', from: '입력', atom: 'cms_account_no' },
   { field: 'cms_agency', label: '수납대행사', from: '고정' },
   { field: 'cms_start_month', label: '출금 시작월', from: '파생' },
-  { field: 'auto_debit_date', label: '자동이체일', from: '입력', atom: 'auto_debit_day' },
+  { field: 'auto_debit_date', label: '월 납부일', from: '입력', atom: 'auto_debit_day' },
 
   /* ── 연대보증 — 해당될 때만 ── */
   { field: 'guarantor_name', label: '연대보증인 성명', from: '미정', conditional: '연대보증' },

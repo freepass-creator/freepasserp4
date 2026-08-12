@@ -17,6 +17,7 @@
  *   차대번호(`vin`)는 손님에게 보여도 되는 값이다(사장님 확인) — 실차를 특정하는 정보다.
  */
 import type { EntityRecord } from '@/lib/intake/entities';
+import { applyPolicyDefaults } from '@/lib/domain/policy-defaults';
 
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
@@ -81,10 +82,12 @@ function publicImages(p: Rec): string[] {
 }
 
 export function publicPolicy(policy: Rec | null | undefined): Rec | null {
-  if (!policy) return null;
+  // 공급사 정책이 없거나 일부만 입력돼도 손님·영업 화면은 프리패스 기본 정책으로
+  // 같은 답을 낸다. 명시된 공급사 값은 유지하고 빈 항목만 보충한다.
+  const effective = applyPolicyDefaults(policy || {}).next as Rec;
   const out: Rec = {};
   for (const k of PUBLIC_POLICY_FIELDS) {
-    const v = policy[k];
+    const v = effective[k];
     if (v === null || v === undefined || v === '') continue;
     out[k] = v;
   }

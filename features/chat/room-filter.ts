@@ -1,15 +1,17 @@
 import type { EntityRecord } from '@/lib/intake/entities';
 import type { Role } from '@/lib/domain/deal';
 import { isContractCancelled, isInquiryOnly, normalizeContractStatus } from '@/lib/domain/contract';
-import { unreadFor } from '@/lib/domain/messaging';
+import { replyAttentionFor, unreadFor } from '@/lib/domain/messaging';
 import { matchHay, roomHaystack } from '@/lib/domain/search';
 import { contractForRoom } from './room-display';
 import { deskItemOf } from './admin-queue';
+import { hasRoomStoredActivity } from '@/lib/domain/room-activity';
 
-export type ChatSort = 'unread' | 'name' | 'wait';
-export type ChatFilter = '미확인' | '문의' | 'all' | '완료' | '취소' | '내차례';
+export type ChatSort = 'recent' | 'unread' | 'name' | 'wait';
+export type ChatFilter = '미확인' | '미회신' | '문의' | 'all' | '완료' | '취소' | '내차례';
 
 export const CHAT_SORTS: { value: ChatSort; label: string }[] = [
+  { value: 'recent', label: '최근순' },
   { value: 'wait', label: '오래 기다린 순' },
   { value: 'unread', label: '안읽음' },
   { value: 'name', label: '차명순' },
@@ -21,6 +23,7 @@ export const CHAT_FILTER_DEFAULT: ChatFilter = 'all';
 export const CHAT_FILTERS: { key: ChatFilter; label: string }[] = [
   { key: 'all', label: '전체' },
   { key: '미확인', label: '미확인' },
+  { key: '미회신', label: '미회신' },
   { key: '문의', label: '문의' },
   { key: '완료', label: '완료' },
   { key: '취소', label: '취소' },
@@ -39,14 +42,14 @@ export function chatFiltersFor(role: Role): { key: ChatFilter; label: string }[]
     : CHAT_FILTERS;
 }
 
-/** 관리자는 «내 차례»로 열린다. 하루의 시작이 대화 목록이 아니라 처리 목록이어야 한다. */
-export function chatFilterDefaultFor(role: Role): ChatFilter {
-  return role === 'admin' ? '내차례' : CHAT_FILTER_DEFAULT;
+/** 역할과 무관하게 목록은 전체에서 시작한다. 필요한 큐는 상단 바로가기로 즉시 좁힌다. */
+export function chatFilterDefaultFor(_role: Role): ChatFilter {
+  return CHAT_FILTER_DEFAULT;
 }
 
-/** 관리자 기본 정렬 = 오래 기다린 순. 최신순이면 오래된 건이 영원히 목록 아래에 깔린다. */
-export function chatSortDefaultFor(role: Role): ChatSort | '' {
-  return role === 'admin' ? 'wait' : '';
+/** 계약문의의 기본 정렬은 역할과 무관하게 최근 메시지 순이다. */
+export function chatSortDefaultFor(_role: Role): ChatSort | '' {
+  return 'recent';
 }
 
 /**
@@ -98,6 +101,42 @@ export function chatRowContract(
   return active || contractForRoom(cancelledIndex, room);
 }
 
+/** 빈 방 셸은 일반 목록·숫자에서 제외하되, 계약이 연결된 레거시 방은 보존한다. */
+export function hasChatRoomActivity(
+  room: EntityRecord,
+  contractIndex: Map<string, EntityRecord>,
+  cancelledIndex: Map<string, EntityRecord>,
+): boolean {
+  return hasRoomStoredActivity(room)
+    || Boolean(chatRowContract(room, 'all', contractIndex, cancelledIndex));
+}
+
+/** 계약문의 숫자·목록이 모두 같은 활동 방 집합을 쓰게 하는 SSOT. */
+export function activeChatRooms(
+  rooms: readonly EntityRecord[],
+  contractIndex: Map<string, EntityRecord>,
+  cancelledIndex: Map<string, EntityRecord>,
+): EntityRecord[] {
+  return rooms.filter((room) => hasChatRoomActivity(room, contractIndex, cancelledIndex));
+}
+
+/**
+ * 검색·필터에서 사라진 일반 선택은 닫되, 명시적 `?room=` 진입은 첫 메시지를 쓸 때까지 보존한다.
+ * 빈 방은 일반 목록 숫자에는 안 잡히지만 딥링크 작업면까지 닫히면 문의를 시작할 수 없다.
+ */
+export function retainChatSelection(
+  rooms: readonly EntityRecord[],
+  selected: string | null,
+  visibleRoomKeys: readonly string[],
+  requestedRoom: string | null | undefined,
+): string | null {
+  const key = String(selected || '').trim();
+  if (!key) return null;
+  if (visibleRoomKeys.includes(key)) return key;
+  const requested = String(requestedRoom || '').trim();
+  return requested === key && rooms.some((room) => String(room._key) === key) ? key : null;
+}
+
 function matchesFilter(room: EntityRecord, params: Params): boolean {
   if (params.filter === 'all') return true;
   const contract = chatRowContract(room, params.filter, params.contractIndex, params.cancelledIndex);
@@ -108,11 +147,12 @@ function matchesFilter(room: EntityRecord, params: Params): boolean {
   // 취소 이력은 전용 탭에만 둔다. 새 문의로 재개하려면 새 방/새 연결을 만들어 lifecycle을 분리해야 한다.
   if (normalizeContractStatus(contract?.contract_status) === '계약취소') return false;
   if (params.filter === '미확인') return isInquiryOnly(contract) && unreadFor(room, params.role) > 0;
+  if (params.filter === '미회신') return isInquiryOnly(contract) && replyAttentionFor(room, params.role) === 'unreplied';
   return params.filter !== '문의' || isInquiryOnly(contract);
 }
 
 export function filterChatRooms(params: Params): EntityRecord[] {
-  return params.rooms
+  return activeChatRooms(params.rooms, params.contractIndex, params.cancelledIndex)
     .filter((room) => matchHay(
       [roomHaystack(room), params.searchText?.(room) || ''].filter(Boolean).join(' '),
       params.query,
@@ -120,7 +160,9 @@ export function filterChatRooms(params: Params): EntityRecord[] {
     .filter((room) => matchesFilter(room, params))
     .slice()
     .sort((a, b) => {
-      if (!params.sort) return 0;
+      if (!params.sort || params.sort === 'recent') {
+        return Number(b.last_message_at || 0) - Number(a.last_message_at || 0);
+      }
       if (params.sort === 'wait') {
         // 오래 기다린 것 먼저. 대화가 없는 방(0)은 기다림의 대상이 아니라 맨 뒤로.
         const av = Number(a.last_message_at || 0);
@@ -138,7 +180,7 @@ export function filterChatRooms(params: Params): EntityRecord[] {
 }
 
 export function chatRoomPreviewCount(params: Omit<Params, 'sort'>): number {
-  return params.rooms
+  return activeChatRooms(params.rooms, params.contractIndex, params.cancelledIndex)
     .filter((room) => matchHay(
       [roomHaystack(room), params.searchText?.(room) || ''].filter(Boolean).join(' '),
       params.query,

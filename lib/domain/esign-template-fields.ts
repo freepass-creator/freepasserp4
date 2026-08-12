@@ -10,6 +10,8 @@ import { vehicleNameOf } from '@/lib/domain/vehicle-name';
 import { businessRegistrationNumberOf } from '@/lib/domain/business-identity';
 import { parseDraft, type ContractPayload } from '@/lib/domain/contract-send';
 import { FIELD_MAP, type AtomSource } from '@/lib/domain/esign-field-map';
+import { overMileageRateFor } from '@/lib/domain/policy-defaults';
+import { canonProductType } from '@/lib/domain/product';
 
 type Row = Record<string, unknown>;
 
@@ -18,6 +20,14 @@ const text = (value: unknown): string => String(value ?? '').trim();
 function moneyCell(n: unknown): string {
   const v = Number(n) || 0;
   return v ? v.toLocaleString() : '';
+}
+
+/** 보험 면책금처럼 작은 표 칸에서는 300,000원보다 30만원이 빠르게 읽힌다. */
+function manwonText(value: unknown): string {
+  const raw = text(value);
+  if (!raw || /만원/.test(raw)) return raw;
+  const won = Number(raw.replace(/[^\d.-]/g, '')) || 0;
+  return won >= 10_000 && won % 10_000 === 0 ? `${(won / 10_000).toLocaleString()}만원` : raw;
 }
 
 function priceText(price: unknown): string {
@@ -81,6 +91,8 @@ export function buildTemplateFieldsFromRecords(args: {
     companyInject.company_ceo_title = '대표';
     companyInject.company_biz_no = businessRegistrationNumberOf(partner, 'partner');
     companyInject.company_phone = text(partner.phone || partner.tel);
+    companyInject.company_address = text(partner.address || partner.company_address || partner.business_address);
+    companyInject.rental_business_no = text(partner.rental_business_no || partner.rental_registration_no);
     companyInject.payment_bank = text(partner.bank_name);
     companyInject.payment_account_no = text(partner.bank_account);
     companyInject.payment_account_holder = text(partner.bank_holder || partner.name || partner.partner_name);
@@ -92,6 +104,8 @@ export function buildTemplateFieldsFromRecords(args: {
   const months = Number(contract.rent_month_snapshot) || 0;
   const start = text(contract.contract_date);
   const yr = text(contract.year_snapshot || product?.year || product?.model_year);
+  const maker = text(contract.maker_snapshot || product?.maker || product?.manufacturer);
+  const overMileageRate = overMileageRateFor(pol, maker);
 
   const base: ContractPayload = {
     co: coKey,
@@ -114,6 +128,7 @@ export function buildTemplateFieldsFromRecords(args: {
     color_exterior: text(product?.ext_color),
     color_interior: text(product?.int_color),
     odometer_delivery: text(product?.mileage),
+    vehicle_classification: canonProductType(product?.product_type),
     customer_name: text(contract.customer_name),
     customer_phone: text(contract.customer_phone),
     customer_address: text(contract.customer_address),
@@ -125,22 +140,46 @@ export function buildTemplateFieldsFromRecords(args: {
     contract_end: addMonthsEnd(start, months),
     delivery_location: text(contract.delivery_address),
     deposit_installment: text(contract.deposit_payment_type || pol.deposit_installment),
+    payment_cycle: text(pol.payment_cycle) || '월납',
+    auto_debit_date: text(contract.auto_debit_day || pol.payment_due_date || pol.auto_debit_day),
+    invoice_type: text(pol.invoice_type) || '세금계산서',
+    invoice_cycle: text(pol.invoice_cycle) || '월 1회',
+    driver_scope: text(contract.driver_scope || pol.driver_scope),
     driver_age: text(pol.basic_driver_age),
     annual_mileage: text(pol.annual_mileage),
-    over_mileage_rate: text(pol.over_mileage_rate_per_km),
+    over_mileage_rate: overMileageRate ? `1km당 ${overMileageRate.toLocaleString()}원` : '',
     accident_termination_count: text(pol.accident_termination_count),
     maintenance_product: text(pol.maintenance_service),
+    maintenance_replacement: text(pol.replacement_car_policy) || '미제공',
+    designated_garage: text(pol.designated_garage) || '회사 지정 또는 사전 승인 정비공장',
+    replacement_car_policy: text(pol.replacement_car_policy) || '미제공',
     coverage_liability_person: text(pol.injury_compensation_limit),
     coverage_liability_property: text(pol.property_compensation_limit),
     coverage_self_injury: text(pol.self_body_accident),
     coverage_uninsured: text(pol.uninsured_damage),
     self_damage_coverage: text(pol.own_damage_compensation),
     emergency_dispatch_limit: text(pol.annual_roadside_assistance),
-    deductible_liability_person: text(pol.injury_deductible),
-    deductible_liability_property: text(pol.property_deductible),
+    deductible_liability_person: manwonText(pol.injury_deductible),
+    deductible_liability_property: manwonText(pol.property_deductible),
     self_damage_deductible_rate: text(pol.own_damage_repair_ratio),
     self_damage_deductible_min: text(pol.own_damage_min_deductible),
     self_damage_deductible_max: text(pol.own_damage_max_deductible),
+    late_fee_rate: Number(pol.late_fee_rate) > 0
+      ? `연 ${(Number(pol.late_fee_rate) * (Number(pol.late_fee_rate) <= 1 ? 100 : 1)).toLocaleString()}%`
+      : '',
+    deposit_return_term: Number(pol.deposit_return_days) > 0
+      ? `반납·정산 후 ${Number(pol.deposit_return_days).toLocaleString()}일 이내`
+      : '',
+    engine_control_overdue_days: text(pol.engine_control_overdue_days),
+    auto_terminate_overdue_days: text(pol.auto_terminate_overdue_days),
+    deposit_overdue_rounds: text(pol.deposit_overdue_rounds),
+    claim_basis: text(pol.claim_basis),
+    impound_keep_term: Number(pol.impound_keep_days) > 0
+      ? `반환 통지 후 ${Number(pol.impound_keep_days).toLocaleString()}일`
+      : '',
+    impound_fee: moneyCell(pol.impound_fee_per_day),
+    gps_installed: text(pol.gps_installed),
+    spare_key_count: text(product?.spare_key_count || pol.spare_key_count),
     buyback_price: moneyCell(contract.buyout_price),
     insurance_condition: ins === '포함' ? '회사 포함' : '고객 별도',
   };

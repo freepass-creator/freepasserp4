@@ -11,7 +11,7 @@ import { getSession } from '@/lib/auth-session';
 import { canAccessOwnedRecord } from '@/lib/domain/authorization';
 import { roomsWithUnread, unreadRoomCount } from '@/lib/domain/messaging';
 import { isContractCancelled, isInquiryOnly, isContractInProgress } from '@/lib/domain/contract';
-import { chatRowContract, isWorkspaceChatRoom } from '@/features/chat/room-filter';
+import { activeChatRooms, chatRowContract, isWorkspaceChatRoom } from '@/features/chat/room-filter';
 import { buildContractIndex } from '@/features/chat/room-display';
 import { deskItemOf } from '@/features/chat/admin-queue';
 import { settlementNeedsAttention } from '@/lib/domain/settlement-display';
@@ -28,11 +28,12 @@ export async function loadMenuBadges(role: Role, co = getCompanyId()): Promise<M
   try {
     const [rooms, contracts] = await Promise.all([store.list('room', co), store.list('contract', co)]);
     const session = getSession();
-    const mineRooms = rooms.filter((room) => canAccessOwnedRecord(session, room) && isWorkspaceChatRoom(room, role));
+    const scopedRooms = rooms.filter((room) => canAccessOwnedRecord(session, room) && isWorkspaceChatRoom(room, role));
     // 페이지 목록과 같은 resolver를 써야 product_uid 레거시 방·linked_contract 충돌에서도
     // 메뉴의 "문의 안읽음" 숫자와 실제 문의 필터 결과가 어긋나지 않는다.
     const activeContractIndex = buildContractIndex(contracts, false);
     const cancelledContractIndex = buildContractIndex(contracts, true);
+    const mineRooms = activeChatRooms(scopedRooms, activeContractIndex, cancelledContractIndex);
     const contractOf = (room: (typeof rooms)[number]) => chatRowContract(
       room, '문의', activeContractIndex, cancelledContractIndex,
     );

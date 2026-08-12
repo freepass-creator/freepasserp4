@@ -25,14 +25,14 @@ const DB = 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.a
  * 공급사가 다르게 쓰면 그 정책에서 덮어쓴다 — 여기 값은 «안 정해진 곳»의 바닥이다.
  */
 const DEFAULTS: Record<string, number> = {
-  engine_control_overdue_days: 30,   // 약관 제12조① 운행제한·시동제어
-  auto_terminate_overdue_days: 60,   // 약관 제12조② 해지·차량회수
-  deposit_overdue_rounds: 2,         // 약관 제12조② 보증금 분납 미납(회차)
-  renewal_notice_days: 30,           // 약관 제2조  연장 사전통지
-  buyout_notice_days: 30,            // 약관 제17조 인수 사전통지
-  deposit_return_days: 30,           // 약관 제4조  보증금 반환기한
-  impound_keep_days: 30,             // 약관 제14조 유류품 보관
-  late_fee_rate: 0.12,               // 약관 제3조  연 12%
+  engine_control_overdue_days: 30,   // 약관 제24조 운행제한·시동제어
+  auto_terminate_overdue_days: 60,   // 약관 제7조·제24조 해지·차량회수
+  deposit_overdue_rounds: 2,         // 약관 제10·13조 보증금 분납 미납(회차)
+  renewal_notice_days: 30,           // 약관 제10조 연장 사전통지
+  buyout_notice_days: 30,            // 약관 제26조 인수 사전통지
+  deposit_return_days: 30,           // 약관 제6조 보증금 반환기한
+  impound_keep_days: 30,             // 약관 제22조 유류품 보관
+  late_fee_rate: 0.12,               // 약관 제25조 연 12%
 };
 
 /**

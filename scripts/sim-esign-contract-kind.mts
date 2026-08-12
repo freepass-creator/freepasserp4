@@ -28,7 +28,7 @@ check('유형 = 구독/렌탈 × 인수형/반납형',
   CONTRACT_KINDS.map((k) => `${k.kind}${k.maturity}`).sort().join('|')
   === ['구독인수형', '구독반납형', '렌탈인수형', '렌탈반납형'].sort().join('|'));
 check('구독은 «자동차 구독 계약서»', findContractKind('sub_buyout')!.title === '자동차 구독 계약서');
-check('렌탈은 «자동차 렌탈(대여) 계약서»', findContractKind('rent_return')!.title === '자동차 렌탈(대여) 계약서');
+check('렌탈은 «자동차 장기대여 계약서»', findContractKind('rent_return')!.title === '자동차 장기대여 계약서');
 // 당사자 호칭이 갈린다 — 구독은 회사/계약자, 렌탈은 임대인/임차인(실제 계약서 표기 그대로).
 check('구독 당사자 호칭', findContractKind('sub_return')!.party.provider === '회사');
 check('렌탈 당사자 호칭', findContractKind('rent_buyout')!.party.customer.startsWith('임차인'));
@@ -59,7 +59,7 @@ const policy = {
   additional_driver_allowance_count: '1명', additional_driver_cost: '월 55,000원',
   license_period: '1년 이상', maintenance_service: '정비제외',
   penalty_condition: '잔여 대여료의 30%',
-  // 약관 제12조제2항제8호를 표에 박아 두는 대신 정책 원자로 뽑아냈다(2026-08-09).
+  // 약관 제7조제1항제7호의 표준 3회 기준을 계약서 표에도 명시한다(2026-08-11 V10).
   // 픽스처에도 있어야 「사고 다발 해지」 행이 실제와 같은 문장으로 만들어진다.
   accident_termination_count: 3,
 };
@@ -133,7 +133,7 @@ check('사고 다발 해지가 실린다',
 check('보험사가 실린다', rowsOf('accident').includes('렌터카 공제조합'));
 check('GPS 특약이 실린다', rowsOf('service').includes('GPS'));
 check('대차 불가가 실린다', rowsOf('service').includes('대차서비스 지원 불가'));
-// 과태료 절차는 약관 제18조로 보냈다(IN_AGREEMENT) — 섹션에 있으면 같은 말을 두 번 읽힌다.
+// 과태료 절차는 약관 제16조로 보냈다(IN_AGREEMENT) — 섹션에 있으면 같은 말을 두 번 읽힌다.
 check('과태료 절차는 약관으로 보냈다', !rowsOf('service').includes('보증금에서 차감'));
 // 면책금은 정책 단일값이 아니라 연령에서 파생된다(계약서 「운전자 연령 선택시 자동입력」).
 check('면책금은 연령에서 파생', rowsOf('accident').includes('대인 30만원'), rowsOf('accident').slice(0, 80));

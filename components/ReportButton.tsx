@@ -23,7 +23,7 @@ export function ReportButton({ p }: { p: EntityRecord }) {
 
   if (!open) {
     return (
-      <Btn title="상품 검수 요청" variant="ghost" size="sm" onClick={() => setOpen(true)}>
+      <Btn title="상품 검수 요청" variant="ghost" size="sm" mobileIcon={<Flag size={ICON.lg} aria-hidden />} onClick={() => setOpen(true)}>
         <ButtonLabel icon={<Flag size={ICON.md} aria-hidden />}>검수 요청</ButtonLabel>
       </Btn>
     );

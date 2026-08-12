@@ -261,6 +261,25 @@ export function unreadFor(rm: EntityRecord, role: Role): number {
   return 1;
 }
 
+/**
+ * 문의 목록의 응답 상태.
+ *
+ * - unread: 상대의 마지막 메시지를 아직 확인하지 않음
+ * - unreplied: 확인은 했지만 상대 메시지가 마지막이라 아직 회신하지 않음
+ * - none: 내가 마지막으로 답했거나 판정할 메시지가 없음
+ */
+export type ReplyAttention = 'unread' | 'unreplied' | 'none';
+export function replyAttentionFor(rm: EntityRecord, role: Role): ReplyAttention {
+  if (unreadFor(rm, role) > 0) return 'unread';
+
+  const lastRole = String(rm.last_sender_role || '');
+  const lastAt = Number(rm.last_message_at) || 0;
+  if (!lastRole || !lastAt || sideOf(lastRole) === sideOf(role)) return 'none';
+
+  const readAt = Number(rm[lastReadField(role)]) || 0;
+  return readAt >= lastAt ? 'unreplied' : 'none';
+}
+
 /** 내가 아직 안 연 방 개수(메시지 합이 아님). */
 export function unreadRoomCount(rooms: EntityRecord[], role: Role): number {
   return rooms.filter((rm) => unreadFor(rm, role) > 0).length;

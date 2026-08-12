@@ -9,7 +9,7 @@ import { haptic } from '@/lib/haptics';
 import { getRole, actor, type Role } from '@/lib/domain/deal';
 import { useSession } from '@/lib/auth-context';
 import { loadMenuBadges, menuItemBadge, type MenuBadgeMap } from '@/lib/domain/menu-badges';
-import { C, R, CountPill, NUM, ctrlH, ctrlFs, FW, FS, Btn, IconBtn, SH, ICON } from '@/components/ui';
+import { C, R, CountPill, NUM, ctrlH, ctrlFs, FW, FS, Btn, IconBtn, BottomNav, SH, ICON } from '@/components/ui';
 import { NAV_ICON, NAV_LABEL } from '@/lib/tabbar';
 import { refreshCurrentPage } from '@/lib/page-refresh';
 import { PageStatus, statusIconFor } from '@/components/PageStatus';
@@ -234,9 +234,9 @@ function NavMenu({ mobile, open: openProp, setOpen: setOpenProp }: {
   const line = C.line, ink = C.ink, mute = C.mute, weak = C.faint;
   // 웹=좌측 드롭다운 · 모바일=풀스크린
   const panel: CSSProperties = mobile
-    ? { position: 'fixed', left: 0, right: 0, top: 'var(--topbar-h)', bottom: 0, background: C.taupeBg, zIndex: 80, overflowY: 'auto', overscrollBehavior: 'contain', animation: 'menuDrop .18s ease', paddingBottom: 'calc(24px + env(safe-area-inset-bottom))' }
-    : { position: 'absolute', left: 0, top: 'calc(100% + 6px)', width: 250, background: C.taupeBg, border: `1px solid ${line}`, borderRadius: R, boxShadow: SH.menu, zIndex: 85, overflow: 'hidden' };
-  const iPad = mobile ? '15px 20px' : '9px 14px';
+    ? { position: 'fixed', left: 0, right: 0, top: 'var(--topbar-h)', bottom: 0, background: C.taupeBg, zIndex: 80, overflowY: 'auto', overscrollBehavior: 'contain', animation: 'menuDrop .18s ease', padding: '8px 0 calc(24px + env(safe-area-inset-bottom))' }
+    : { position: 'absolute', left: 0, top: 'calc(100% + 8px)', width: 272, background: C.taupeBg, border: `1px solid ${line}`, borderRadius: R, boxShadow: SH.menu, zIndex: 85, overflow: 'hidden', padding: '4px' };
+  const iPad = mobile ? '14px 20px' : '10px 12px';
   const iFont = mobile ? 16 : FS.body;
   const iSize = mobile ? 20 : 15;
   return (
@@ -254,8 +254,8 @@ function NavMenu({ mobile, open: openProp, setOpen: setOpenProp }: {
         {!mobile && <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 74 }} />}
         <div style={panel}>
           {groups.map((g, gi) => (
-            <div key={gi} style={{ borderTop: gi ? `1px solid ${line}` : 'none', padding: '5px 0' }}>
-              {g.title && <div style={{ fontSize: mobile ? FS.cap : FS.micro, color: weak, fontWeight: FW.title, padding: mobile ? '7px 20px 4px' : '4px 14px', letterSpacing: '0.02em' }}>{g.title}</div>}
+            <div key={gi} style={{ borderTop: gi ? `1px solid ${line}` : 'none', padding: mobile ? '6px 0' : '5px 0' }}>
+              {g.title && <div style={{ fontSize: mobile ? FS.cap : FS.micro, color: weak, fontWeight: FW.title, padding: mobile ? '7px 20px 5px' : '5px 12px', letterSpacing: '0.04em' }}>{g.title}</div>}
               {g.items.map((it) => {
                 const itemLabel = menuRole === 'admin' && it.href === '/chat' ? '상담데스크' : it.label;
                 if (it.soon) {
@@ -276,9 +276,9 @@ function NavMenu({ mobile, open: openProp, setOpen: setOpenProp }: {
                     queueMicrotask(() => refreshCurrentPage(href));
                   }
                 }}
-                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: iPad, fontSize: iFont, fontWeight: FW.strong, color: (it.href === '/' ? path === '/' : path.startsWith(it.href ?? '##')) ? C.brand : ink, textDecoration: 'none' }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 11, padding: iPad, borderRadius: R, fontSize: iFont, fontWeight: FW.strong, color: (it.href === '/' ? path === '/' : path.startsWith(it.href ?? '##')) ? C.brand : ink, background: (it.href === '/' ? path === '/' : path.startsWith(it.href ?? '##')) ? C.selected : 'transparent', textDecoration: 'none' }}
                   onMouseEnter={(e) => (e.currentTarget.style.background = C.hover as string)}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
+                  onMouseLeave={(e) => (e.currentTarget.style.background = (it.href === '/' ? path === '/' : path.startsWith(it.href ?? '##')) ? C.selected as string : 'transparent')}>
                   <it.icon size={iSize} color={mute} />
                   <span style={{ flex: 1 }}>{itemLabel}</span>
                   {rowBadge > 0 ? <CountPill n={rowBadge} max={99} /> : null}
@@ -288,7 +288,7 @@ function NavMenu({ mobile, open: openProp, setOpen: setOpenProp }: {
             </div>
           ))}
           {/* 배포 버전(설정 항목 바로 아래) — 배포 확인용. lib/brand VERSION SSOT. */}
-          <div style={{ borderTop: `1px solid ${line}`, padding: mobile ? '10px 20px' : '7px 14px', fontSize: FS.micro, color: weak, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', letterSpacing: '0.02em' }}>
+          <div style={{ borderTop: `1px solid ${line}`, padding: mobile ? '11px 20px' : '8px 12px 5px', fontSize: FS.micro, color: weak, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', letterSpacing: '0.02em' }}>
             {BRAND} · v{VERSION}{BUILD ? ` · ${BUILD}` : ''}
           </div>
         </div>
@@ -351,16 +351,17 @@ export default function TopBar() {
       {/* 왼쪽 여백은 **본문 칼럼을 따라간다**(--fp-col-l, lib/content-column) — 햄버거와 하단 「이전」이
           같은 세로선에 서야 한다. 본문이 화면 중앙이 아닐 때(옆에 보조 칼럼) 화면 기준으로는 못 맞춘다.
           변수를 안 쓰는 페이지는 0 → max() 가 기본값 14 를 지킨다. 우측(로그인 정보)은 화면 끝 그대로. */}
-      <header style={{ position: 'sticky', top: 0, zIndex: 70, height: 'var(--topbar-h)', display: 'flex', alignItems: 'center', gap: 8, padding: '0 10px 0 14px', paddingLeft: mobile ? undefined : 'max(14px, var(--fp-col-l, 0px))', background: C.taupeBg, borderBottom: `1px solid ${line}`, boxSizing: 'border-box' }}>
+      <header className="fp-topbar" style={{ position: 'sticky', top: 0, zIndex: 70, height: 'var(--topbar-h)', display: 'flex', alignItems: 'center', gap: 8, padding: '0 12px 0 14px', paddingLeft: mobile ? undefined : 'max(14px, var(--fp-col-l, 0px))', background: C.taupeBg, borderBottom: `1px solid ${line}`, boxSizing: 'border-box', boxShadow: 'var(--shadow-sm)' }}>
         {/* 웹=메뉴 좌측 · 모바일=우측 */}
         {!mobile && <NavMenu mobile={false} open={menuOpen} setOpen={setMenuOpen} />}
         {/* 좌·중앙 = 상태 — 탭하면 이 페이지 새로 온 느낌(스크롤↑·목록·시트닫기) */}
-        <div style={{
+        <div className="fp-topbar__main" style={{
           flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8,
         }}>
           {!mobile && backBtn}
           {left != null && <span style={{ flex: '0 0 auto' }}>{left}</span>}
           <div
+            className="fp-topbar__status"
             role="button"
             tabIndex={0}
             aria-label="페이지 새로고침"
@@ -382,7 +383,7 @@ export default function TopBar() {
         </div>
         {/* 페이지별 우측 액션 — erp3 m-topbar-actions. 웹·모바일 공통(메뉴 왼쪽). */}
         {actions != null && (
-          <span style={{ flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', gap: 4, minWidth: 0 }}>
+          <span className="fp-topbar__actions" style={{ flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', gap: 4, minWidth: 0 }}>
             {actions}
           </span>
         )}
@@ -391,19 +392,7 @@ export default function TopBar() {
       </header>
       {/* 모바일 이전만 하단독 — 우측 액션은 상단(위)으로. 액션 중복 금지. */}
       {mobile && back && (
-        <div style={{
-          position: 'fixed', left: 0, right: 0,
-          bottom: 'var(--fp-tabbar-h, 0px)',
-          zIndex: 55, background: C.taupeBg,
-          borderTop: `1px solid ${line}`,
-          boxShadow: SH.dock,
-          paddingBottom: 'var(--fp-dock-safe, env(safe-area-inset-bottom))',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: 'var(--fp-bar-h)', boxSizing: 'border-box', padding: '0 var(--fp-bar-pad-x)' }}>
-            {backBtn}
-            <span style={{ flex: 1 }} />
-          </div>
-        </div>
+        <BottomNav backKind={backKind ?? 'history'} onBack={back} zIndex={55} />
       )}
     </>
   );

@@ -221,6 +221,20 @@ check('저장 위치가 아니라 헤더 이름으로 이동한 열을 다시 �
   && movedSignedHeader.mapping.vehicle_status === 0,
   movedSignedHeader.mapping);
 
+const migratedStandardHeaders = importSheetTable([
+  ['차량번호', '상태', '차명(트림)'],
+], {
+  providerCode: 'RP', entries: [{} as never],
+  profile: { car_number: 0, vehicle_status: 1, model: 2, partner_memo: 3 },
+  profileHeaders: { car_number: '차량번호', vehicle_status: '배차상태', model: '차종', partner_memo: '비고' },
+});
+check('표준 헤더 개편은 공식 별칭으로 재결합하고 없어진 선택 메모는 버림',
+  migratedStandardHeaders.mapping.car_number === 0
+  && migratedStandardHeaders.mapping.vehicle_status === 1
+  && migratedStandardHeaders.mapping.model === 2
+  && migratedStandardHeaders.mapping.partner_memo === undefined,
+  migratedStandardHeaders.mapping);
+
 const deepHeaderPrepared = resolveAdapter('generic').prepareTable([
   ...Array.from({ length: 40 }, (_, index) => [`공지 ${index + 1}`]),
   ['순번', '차량번호', '모델', '판매상태'],

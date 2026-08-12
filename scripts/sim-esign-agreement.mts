@@ -1,31 +1,25 @@
 /**
- * 약관 강조·중복제거 검증 — 「손님이 못 봤다」를 막는 장치가 실제로 작동하는지.
+ * 프리패스 장기렌트 약관 V11 검증.
+ * 공정위 자동차대여 표준약관의 28개 조문 흐름을 장기렌트에 맞게 재구성했는지,
+ * 인쇄본·전자계약 전송본·중요조문 강조가 같은 정본을 보는지 확인한다.
  * 실행: npx tsx scripts/sim-esign-agreement.mts
  */
-import { AGREEMENT_SECTIONS } from '../lib/domain/esign-agreement-text';
 import { readFileSync } from 'node:fs';
 import { load } from 'cheerio';
+import { AGREEMENT_SECTIONS, AGREEMENT_VERSION } from '../lib/domain/esign-agreement-text';
 import {
   KEY_CLAUSES, agreementWithEmphasis, keyClauseOf, keyClauseSummaries,
 } from '../lib/domain/esign-agreement-emphasis';
-import { IN_AGREEMENT, KEEP_IN_SECTION, TERMS_ACCIDENT, TERMS_PAYMENT, TERMS_SERVICE } from '../lib/domain/esign-standard-terms';
 import { buildConsentGroups } from '../lib/domain/esign-consent-doc';
 import type { EntityRecord } from '../lib/intake/entities';
 
 let pass = 0;
 let fail = 0;
 const check = (name: string, ok: boolean, detail?: unknown) => {
-  if (ok) { pass++; console.log(`✓ ${name}`); }
-  else { fail++; console.error(`✗ ${name}`, detail ?? ''); }
+  if (ok) { pass += 1; console.log(`✓ ${name}`); }
+  else { fail += 1; console.error(`✗ ${name}`, detail ?? ''); }
 };
 
-// ── 조문 매칭 ──
-check('금지행위는 제9조로 잡힌다', keyClauseOf('제9조(금지행위)')?.clause === '제9조');
-check('중요하지 않은 통지 조문은 안 잡힌다', keyClauseOf('제13조(통지 및 도달)') === null);
-check('띄어쓰기가 달라도 잡는다', keyClauseOf('제 15조(중도해지수수료 및 승계)')?.clause === '제15조');
-
-// ── 인쇄/PDF 약관 ↔ 착한거래 전송 약관 동기화 ──
-// 계약서 HTML이 정본이다. 두 벌이 갈라지면 인쇄본과 실제 서명 화면의 권리·의무가 달라진다.
 const contractHtml = readFileSync('public/contract-template/rental-contract.html', 'utf8');
 const individualHtml = readFileSync('public/contract-template/contract-individual.html', 'utf8');
 const $ = load(contractHtml);
@@ -42,186 +36,130 @@ $('#termsSource > .t-art').each((_, el) => {
   }
   htmlAgreement.push({ t: title, b: norm(paragraphs.join(' ')) });
 });
-check('인쇄/PDF 약관과 착한거래 전송 약관이 완전히 같다',
+
+const articleBody = (article: string) => AGREEMENT_SECTIONS.find((section) => section.t.startsWith(article))?.b || '';
+const titleOf = (index: number) => AGREEMENT_SECTIONS[index]?.t || '';
+
+// ── 공정위 표준약관형 골격 ──
+const expectedTitles = [
+  '목적', '계약조건의 확인 및 계약신청', '계약신청의 변경·철회', '대여계약의 체결',
+  '대체차량 및 차량 인도', '대여료·보증금 및 담보', '회사의 계약 해지', '임차인의 계약 해지',
+  '불가항력에 따른 계약 종료', '계약조건의 변경·연장 및 승계', '보험가입 등',
+  '점검표 작성 및 차량 인도', '임차인의 점검의무 및 운전자격', '임차인의 차량 관리책임',
+  '금지행위', '손해배상책임 및 비용정산', '사고처리', '보험처리 및 자차손해면책',
+  '휴차손해·전손 및 도난', '차량 이상·고장 발견 시 조치', '차량의 반환시기',
+  '차량의 확인 및 반납정산', '반환장소 및 초과주행요금', '차량 미반환 및 차량보호조치',
+  '지연손해금 및 계약종료 정산', '만기 차량 인수', '계약의 세칙·통지 및 전자문서',
+  '분쟁해결 및 관할법원',
+];
+check('V11 버전을 사용한다', AGREEMENT_VERSION === 'rental-v11-2026-08-11', AGREEMENT_VERSION);
+check('공정위 표준약관형 28개 조문 골격이다', AGREEMENT_SECTIONS.length === 28, AGREEMENT_SECTIONS.length);
+check('제1조부터 제28조까지 번호가 연속된다', AGREEMENT_SECTIONS.every((s, i) => s.t.startsWith(`제${i + 1}조(`)));
+check('장기렌트에 맞춘 표준 흐름과 제목을 따른다', expectedTitles.every((title, i) => titleOf(i).includes(title)), AGREEMENT_SECTIONS.map((s) => s.t));
+check('계약→인도→사용→보험·사고→반납→정산 순이다',
+  titleOf(3).includes('체결') && titleOf(11).includes('인도') && titleOf(13).includes('관리책임')
+    && titleOf(16).includes('사고처리') && titleOf(20).includes('반환시기') && titleOf(24).includes('정산'));
+check('약관 제목에 상품형이나 저신용 표현을 넣지 않는다',
+  !AGREEMENT_SECTIONS.some((s) => /저신용|무심사|반납형|인수형/.test(`${s.t} ${s.b}`)));
+
+// ── 인쇄본 ↔ 전자계약 정본 동기화 ──
+check('인쇄/PDF 약관과 전자계약 전송 약관이 완전히 같다',
   htmlAgreement.length === AGREEMENT_SECTIONS.length
-    && htmlAgreement.every((section, index) => (
-      section.t === AGREEMENT_SECTIONS[index].t && section.b === AGREEMENT_SECTIONS[index].b
-    )),
-  htmlAgreement.filter((section, index) => (
-    section.t !== AGREEMENT_SECTIONS[index]?.t || section.b !== AGREEMENT_SECTIONS[index]?.b
-  )).map((section) => section.t));
-check('조 제목은 제N조(제목) 형식으로 통일한다',
-  htmlAgreement.every((section) => /^제\d+조(?:의\d+)?\([^()]+\)$/.test(section.t)),
-  htmlAgreement.map((section) => section.t));
-check('항이 하나뿐인 조문에는 단독 ①을 붙이지 않는다',
-  htmlAgreement.every((section) => (section.b.match(/[①-⑳]/g)?.length ?? 0) !== 1),
-  htmlAgreement.filter((section) => (section.b.match(/[①-⑳]/g)?.length ?? 0) === 1).map((section) => section.t));
-check('21개 조문 규모의 약관에는 장 제목을 중복 표시하지 않는다',
-  $('#termsSource > .t-chapter').length === 0 && !/제\d+장/.test($('#termsSource').text()));
-check('약관 문단은 왼쪽 맞춤과 한글 글자 경계 줄바꿈을 사용한다',
+    && htmlAgreement.every((section, index) => section.t === AGREEMENT_SECTIONS[index].t && section.b === AGREEMENT_SECTIONS[index].b),
+  htmlAgreement.filter((section, index) => section.t !== AGREEMENT_SECTIONS[index]?.t || section.b !== AGREEMENT_SECTIONS[index]?.b).map((s) => s.t));
+check('조 제목은 제N조(제목) 형식이다', htmlAgreement.every((section) => /^제\d+조\([^()]+\)$/.test(section.t)));
+check('단독 항 하나에만 ①을 붙인 조문이 없다', htmlAgreement.every((section) => (section.b.match(/[①-⑳]/g)?.length ?? 0) !== 1));
+check('장 제목을 중복 표시하지 않는다', $('#termsSource > .t-chapter').length === 0 && !/제\d+장/.test($('#termsSource').text()));
+check('약관 문단은 왼쪽 맞춤·글자 경계 줄바꿈이다',
   /\.terms-cols p\{[^}]*text-align:left[^}]*\}/.test(contractHtml)
     && /\.terms-cols p\{[^}]*word-break:normal[^}]*\}/.test(contractHtml)
     && !/\.terms-cols p\{[^}]*text-align:justify[^}]*\}/.test(contractHtml));
-check('축약 조문 참조를 사용하지 않는다',
-  !/제\d+조[①-⑳]/.test(contractHtml)
-    && !/제\d+(?:조)?[·ㆍ]제?\d+조/.test(contractHtml));
+check('축약 조문 참조를 사용하지 않는다', !/제\d+조[①-⑳]/.test(contractHtml) && !/제\d+(?:조)?[·ㆍ]제?\d+조/.test(contractHtml));
+
 const forbiddenItems: string[] = [];
-let forbiddenNext = $('#termsSource > .t-art').filter((_, el) => norm($(el).text()) === '제9조(차량 사용 제한)').next();
+let forbiddenNext = $('#termsSource > .t-art').filter((_, el) => norm($(el).text()) === '제15조(금지행위)').next();
 while (forbiddenNext.length && !forbiddenNext.hasClass('t-art')) {
   if (forbiddenNext.hasClass('t-sub')) forbiddenItems.push(norm(forbiddenNext.text()));
   forbiddenNext = forbiddenNext.next();
 }
-check('금지행위는 보호범위를 유지하며 중복을 합친 8개 호다',
-  forbiddenItems.length === 8 && forbiddenItems.every((item, index) => item.startsWith(`${index + 1}. `)),
-  forbiddenItems);
+check('금지행위는 도입문 뒤 8개 호로 정리한다',
+  forbiddenItems.length === 8 && forbiddenItems.every((item, index) => item.startsWith(`${index + 1}. `)), forbiddenItems);
 
-// 섹션별 값 소유권: 한 값은 한 섹션만 가진다. 약관은 값이 아니라 적용 절차를 설명한다.
-const sectionLabels = (title: string): string[] => $('.section').filter((_, el) => (
-  norm($(el).find('.sec-h .t').first().text()) === title
-)).first().find('.kv > .k').map((_, el) => norm($(el).text())).get();
-const rentalLabels = sectionLabels('대여 조건');
-const insuranceLabels = sectionLabels('자동차 보험');
-check('보험 가입 주체·포함 여부는 자동차 보험 섹션만 소유한다',
-  !rentalLabels.includes('보험')
-    && insuranceLabels.filter((label) => label === '보험 조건').length === 1);
-check('대여 조건에는 보험료 포함 문구가 중복되지 않는다',
-  !$('.section').filter((_, el) => norm($(el).find('.sec-h .t').first().text()) === '대여 조건')
-    .first().text().includes('월 대여료에 포함'));
-const insuranceSection = $('.section').filter((_, el) => (
-  norm($(el).find('.sec-h .t').first().text()) === '자동차 보험'
-)).first();
-check('자차부담률 값은 자동차 보험 섹션에서 한 번만 표시한다',
-  insuranceSection.find('[data-field="self_damage_deductible_rate"]').length === 1);
-// 보험사 대표번호는 매년 바뀐다 — 계약서에 박아 두면 몇 해 뒤 끊긴 번호를
-// 손님이 사고 현장에서 누른다. 체결일 기준 보험사«명»만 싣는다(2026-08-10).
-check('보험사 대표번호를 계약서에 박지 않는다',
-  !contractHtml.includes('insurer_phone'));
-check('체결일 기준 보험사명은 자동차 보험 섹션에 있다',
-  insuranceSection.find('[data-field="insurer_name"]').length >= 1);
-check('자동이체일의 본문용 복제 필드를 두지 않는다',
-  !contractHtml.includes('auto_debit_date_inline')
-    && !individualHtml.includes('auto_debit_date_inline'));
-check('특약 입력은 표준값 반복이 아닌 예외·추가 합의용이다',
-  contractHtml.includes("['special_terms','특약사항 (예외·추가 합의만)',2]"));
+// ── 프리패스 장기렌트 핵심 조건 ──
+check('계약서·특약·약관의 적용순서를 제4조에 둔다',
+  /특약.*개별계약서.*본 약관.*부속서류/.test(articleBody('제4조')));
+check('중고차의 통상 사용흔적과 미고지 중대하자를 함께 규정한다',
+  articleBody('제12조').includes('경년변화 및 통상적인 사용흔적')
+    && articleBody('제12조').includes('고지하지 않은 중대한 하자'));
+check('등록 운전자는 만 21세 이상으로 제한한다', articleBody('제13조').includes('만 21세 이상'));
+check('추가 운전자는 운전 전 승인·자격확인·보험효력 발생이 필요하다',
+  articleBody('제13조').includes('실제 운전 전에 회사의 승인') && articleBody('제13조').includes('보험·공제의 효력이 발생하기 전'));
+check('보험사·보상한도 변동은 계약서와 실제 유효조건으로 처리한다',
+  articleBody('제11조').includes('보험자나 공제사업자는 계약기간 중 변경될 수 있으며')
+    && articleBody('제11조').includes('사고 당시 유효한 증권·약관'));
+check('사고다발은 사고일 기준 직전 1년·과실 50% 이상·총 3회다',
+  articleBody('제7조').includes('직전 1년 이내') && articleBody('제7조').includes('과실비율 50% 이상') && articleBody('제7조').includes('3회'));
+check('중도해지 청구는 회수금액을 공제하고 중복청구하지 않는다',
+  articleBody('제8조').includes('회수하거나 지출을 면한 금액은 공제') && articleBody('제8조').includes('중복 청구하지 않는다'));
+check('사고 수리는 사전승인과 객관적 자료를 요구한다',
+  articleBody('제17조').includes('지정하거나 승인한 정비공장')
+    && articleBody('제17조').includes('견적서·정비명세서·영수증'));
+check('사고 관련 블랙박스·현장자료를 보존하고 정당한 요청에 제공한다',
+  articleBody('제17조').includes('블랙박스 영상') && articleBody('제17조').includes('정당한 요청'));
+check('자차 자기부담액은 실제 수리비를 넘지 않는다', articleBody('제18조').includes('실제 수리비를 초과하지 않는다'));
+check('손해는 실제·통상손해 기준이고 중복청구하지 않는다',
+  articleBody('제16조').includes('객관적인 자료') && articleBody('제16조').includes('중복 청구하지 않는다'));
+check('등록명의자인 회사에 먼저 청구된 금액은 실제 지급자료로 정산한다',
+  articleBody('제16조').includes('등록명의자 또는 소유자') && articleBody('제16조').includes('실제 지급액'));
+check('반납평가는 사전 기준 또는 독립기관을 쓰고 산정근거를 제공한다',
+  articleBody('제22조').includes('미리 기재된 반납평가기준') && articleBody('제22조').includes('독립된 전문평가기관'));
+check('회사 권리 양도 시 사용권을 보호하고 변경사항을 통지한다',
+  articleBody('제10조').includes('차량 사용권을 침해하지 않는 범위') && articleBody('제10조').includes('효력발생일'));
+check('초과주행은 사용일수와 제외거리를 반영한다',
+  articleBody('제23조').includes('실제 사용일수') && articleBody('제23조').includes('임차인의 사용과 무관한 거리'));
+check('차량보호조치는 기록 통지와 안전한 정차를 전제로 한다',
+  articleBody('제24조').includes('기록이 남는 방법') && articleBody('제24조').includes('안전하게 정차된 사실'));
+check('확정 인수가격은 사고·시세만으로 증액하거나 거절하지 않는다',
+  articleBody('제26조').includes('가격을 증액하거나 인수를 거절할 수 없다'));
+check('주민등록번호는 구체적인 법령 근거가 있는 범위에서만 처리한다',
+  articleBody('제27조').includes('법령이 구체적으로 요구하거나 허용하는 범위'));
+check('완료된 전자문서 PDF를 임차인에게 교부한다',
+  /전자문서\(PDF\).*임차인에게 교부/.test(articleBody('제27조')));
 
-const articleBody = (article: string) => AGREEMENT_SECTIONS.find((s) => s.t.startsWith(article))?.b || '';
-check('신차 등록 전·후 해지 정산을 구분한다', articleBody('제15조').includes('차량 등록 전에는 실제 지출 비용만 정산'));
-check('도난차 회수 후 정산 절차를 승계한다', articleBody('제11조').includes('도난 차량이 회수된 경우'));
-check('회사 승인 시 지정자 명의 인수를 허용한다', articleBody('제17조').includes('임차인이 지정하고 회사가 사전에 승인한 자'));
-check('같은 손해의 중복 청구를 금지한다', articleBody('제18조').includes('동일한 손해를 여러 명목으로 중복 청구하지'));
-check('전자계약 완료본 교부·보관을 규정한다', /동일한 전자문서\(PDF\)(?:를|로) 임차인에게 교부/.test(articleBody('제21조')));
-check('중고차량의 경년변화·통상 사용흔적을 인수 시 확인한다',
-  articleBody('제7조').includes('경년변화 및 통상적인 사용흔적'));
-check('중고차량 확인이 미고지 중대하자까지 면책하지 않는다',
-  articleBody('제7조').includes('고지하지 않은 중대한 하자')
-    && articleBody('제7조').includes('안전운행에 지장을 주는 결함')
-    && articleBody('제7조').includes('통상적인 점검으로 확인하기 어려운 하자'));
-check('약관 정본은 계약 유형과 무관하게 중고차 조건부 항을 포함한다',
-  articleBody('제7조').includes('중고차량인 경우')
-    && !contractHtml.includes('data-condition="used-vehicle"'));
-check('약관 제목은 인수·반납·렌탈·구독 유형과 무관하게 하나다',
-  contractHtml.includes("var TERMS_TITLE='자동차 렌탈(대여) 약관'")
-    && !/ttitle\s*:/.test(contractHtml)
-    && !/자동차 (?:렌탈|구독) 계약 약관 \((?:인수형|반납형|선택형)\)/.test(contractHtml));
-check('약관 서문에도 인수·반납·렌탈·구독 상품명을 주입하지 않는다',
-  !/<div id="termsSource"[\s\S]*?data-field="product_label"[\s\S]*?<div id="termsPages">/.test(contractHtml));
-
-const lifecycleTitles = [
-  '적용범위', '계약기간', '대여료', '보증금', '운전자격', '보험조건', '차량 인도',
-  '차량 사용', '차량 사용 제한', 'GPS', '사고처리', '연체', '통지', '계약 종료',
-  '중도해지', '초과주행', '만기 차량 인수', '비용부담', '개인정보', '연대보증', '효력',
-];
-check('약관은 계약조건에서 인도·운행·사고·반납·정산 순으로 흐른다',
-  AGREEMENT_SECTIONS.length === lifecycleTitles.length
-    && AGREEMENT_SECTIONS.every((section, index) => section.t.includes(lifecycleTitles[index])),
-  AGREEMENT_SECTIONS.map((section) => section.t));
-
-// ── 강조 대상 ──
+// ── 중요 조문 강조 ──
+check('띄어쓰기가 달라도 중요조문을 찾는다', keyClauseOf('제 24조(차량 미반환)')?.clause === '제24조');
+check('일반 조문은 중요조문으로 오인하지 않는다', keyClauseOf('제28조(분쟁해결 및 관할법원)') === null);
 const marked = agreementWithEmphasis();
-check('약관은 중복을 합친 21개 조문이다', marked.length === 21 && marked.length === AGREEMENT_SECTIONS.length);
-const emph = marked.filter((s) => s.emphasis);
-check(`강조 조문 ${emph.length}개`, emph.length === KEY_CLAUSES.length, emph.map((s) => s.t.slice(0, 12)));
-// 다 강조하면 아무것도 강조되지 않는다.
-check('강조가 절반을 넘지 않는다', emph.length < marked.length / 2, `${emph.length}/${marked.length}`);
-check('강조 조문엔 요약이 붙는다', emph.every((s) => !!s.summary && !!s.risk));
-check('비강조엔 요약이 없다', marked.filter((s) => !s.emphasis).every((s) => !s.summary));
-check('본문은 손대지 않는다',
-  marked.every((s, i) => s.b === AGREEMENT_SECTIONS[i].b && s.t === AGREEMENT_SECTIONS[i].t));
+const emphasized = marked.filter((section) => section.emphasis);
+check('강조 대상 수가 선언과 같다', emphasized.length === KEY_CLAUSES.length);
+check('강조는 전체 절반보다 적다', emphasized.length < marked.length / 2, `${emphasized.length}/${marked.length}`);
+check('강조 조문에는 요약·위험유형이 있다', emphasized.every((section) => section.summary && section.risk));
+check('요약은 실제 존재하는 조문만 참조한다', keyClauseSummaries().every((key) => AGREEMENT_SECTIONS.some((s) => s.t.startsWith(key.clause))));
+check('위험유형은 미납·운전자·사고 세 갈래다',
+  [...new Set(KEY_CLAUSES.map((k) => k.risk))].sort().join('|') === ['미납', '사고', '운전자'].sort().join('|'));
+check('강조 처리 중 약관 본문을 바꾸지 않는다',
+  marked.every((section, index) => section.t === AGREEMENT_SECTIONS[index].t && section.b === AGREEMENT_SECTIONS[index].b));
 
-// ── 요약은 실제 있는 조문만 ──
-// 약관에 없는 조문을 요약에 넣으면 「약관에 없는 걸 동의받았다」가 된다.
-const sums = keyClauseSummaries();
-check('요약은 실재 조문만', sums.every((k) =>
-  AGREEMENT_SECTIONS.some((s) => s.t.replace(/\s/g, '').startsWith(k.clause))), sums.map((k) => k.clause));
-check('요약이 비지 않는다', sums.length > 0 && sums.every((k) => !!k.summary));
-// 미납·운전자·사고 셋 — 분쟁이 실제로 나는 곳(2026-08-09 사장님 지정).
-check('위험 갈래는 미납·운전자·사고',
-  [...new Set(KEY_CLAUSES.map((k) => k.risk))].sort().join('|') === ['미납', '사고', '운전자'].sort().join('|'),
-  [...new Set(KEY_CLAUSES.map((k) => k.risk))]);
-check('갈래마다 조문이 있다',
-  (['미납', '운전자', '사고'] as const).every((r) => KEY_CLAUSES.some((k) => k.risk === r)));
-
-// ── 섹션↔약관 중복 제거 ──
-// 약관에도 없고 섹션에서도 빼면 손님이 그 조건을 «아예» 못 본다. 여기가 제일 위험하다.
-const flat = AGREEMENT_SECTIONS.map((s) => `${s.t} ${s.b}`).join(' ').replace(/[\s·,.()「」'"※]/g, '');
-// ★문장이 아니라 **주제**로 본다. 약관은 같은 내용을 다른 말로 쓴다 —
-//   우리 문구가 통째로 들어 있길 기대하면 안 되고, 그 조건이 «다뤄지는지»를 봐야 한다.
-const TOPIC: Record<string, string[]> = {
-  depositReturn: ['보증금', '반환'],
-  repairShop: ['수리', '정비'],
-  ownDamageRule: ['폐차'],
-  insurer: ['보험'],
-  maintenance: ['정비'],
-  engineOil: ['정비'],
-  loanerCar: ['대차'],
-  deliveryFee: ['반납'],
-  mileageOver: ['초과', '주행'],
-  contactChange: ['통지'],
-  fines: ['과태료'],
-  special: ['GPS'],
+// ── 계약서 요약 섹션과 부속 화면 ──
+const contract = {
+  contract_code: 'C-1', rent_month_snapshot: 36, rent_amount_snapshot: 690000,
+  deposit_amount_snapshot: 3000000, car_number_snapshot: '12가3456', customer_name: '홍길동', esign_inputs: {},
+} as unknown as EntityRecord;
+const policy = {
+  basic_driver_age: '만 26세 이상', maintenance_service: '정비제외',
+  early_termination_rate_under1y: 0.3, early_termination_rate_over1y: 0.2,
+  accident_termination_count: 2,
 };
-for (const key of IN_AGREEMENT) {
-  const words = TOPIC[key] || [];
-  check(`«${key}» 주제가 약관에서 다뤄진다`,
-    words.length > 0 && words.every((w) => flat.includes(w)), words);
-}
-// 우리 문구에만 있고 약관엔 없는 «값»이 있으면 그건 빼면 안 된다.
-// 예: 「대차서비스 지원 불가」가 약관엔 없고 우리 문구에만 있으면 손님이 대차되는 줄 안다.
-const ALL_TERMS = { ...TERMS_PAYMENT, ...TERMS_ACCIDENT, ...TERMS_SERVICE } as Record<string, string>;
-const numericLeft = IN_AGREEMENT.filter((k) => /\d/.test(String(ALL_TERMS[k] ?? '')));
-check('약관으로 보낸 것 중 숫자 든 문구는 없다', numericLeft.length === 0,
-  numericLeft.map((k) => `${k}: ${String(ALL_TERMS[k]).slice(0, 40)}`));
-check('빼는 것과 남기는 것이 안 겹친다',
-  !IN_AGREEMENT.some((k) => (KEEP_IN_SECTION as readonly string[]).includes(k)),
-  IN_AGREEMENT.filter((k) => (KEEP_IN_SECTION as readonly string[]).includes(k)));
-
-// ── 섹션이 실제로 짧아졌는가 ──
-const contract = { contract_code: 'C-1', rent_month_snapshot: 36, rent_amount_snapshot: 690000, deposit_amount_snapshot: 0 } as unknown as EntityRecord;
-const policy = { basic_driver_age: '만 26세이상', maintenance_service: '정비제외', penalty_condition: '잔여 30%' };
 const groups = buildConsentGroups(contract, policy, '회사포함');
-const rowsOf = (k: string) => groups.find((g) => g.key === k)!.rows;
-// 숫자·기한·연락처·부정조건이 든 건 남아 있어야 한다 — 약관 8,856자에 묻히면 못 본다.
-check('면책금은 섹션에 남는다', rowsOf('accident').some((r) => r.value.includes('30만원')));
-check('지연손해금은 섹션에 남는다', rowsOf('payment').some((r) => r.value.includes('연 12%')));
-check('연체 시동제어는 섹션에 남는다', rowsOf('payment').some((r) => r.value.includes('시동제어')));
-check('보증금 반환 기한은 섹션에 남는다', rowsOf('payment').some((r) => r.value.includes('1주일')));
-check('검사대행은 섹션에 남는다', rowsOf('service').some((r) => r.value.includes('2년 1회')));
-check('엔진오일 횟수는 섹션에 남는다', rowsOf('service').some((r) => r.value.includes('연 1회')));
-check('키 개수는 섹션에 남는다', rowsOf('service').some((r) => r.value.includes('1개만')));
-// 부정조건 — 약관이 대차를 다르게 말하면 손님이 대차되는 줄 안다.
-check('대차 불가는 섹션에 남는다', rowsOf('service').some((r) => r.value.includes('지원 불가')));
-
-// ★보험사는 매년 바뀐다 — 계약서에 이름·번호를 박으면 3년 계약이 1년 뒤부터 거짓말이 된다.
-const insurerRow = rowsOf('accident').find((r) => r.label === '보험사')!;
-check('보험사 칸은 있다', !!insurerRow);
-check('보험사 번호를 계약서에 안 박는다', !/\d{4}-\d{4}|\d{4}-\d{3}/.test(insurerRow.value), insurerRow.value);
-check('보험사는 계약조회로 안내한다', insurerRow.value.includes('계약조회'), insurerRow.value);
-check('현재 보험사 값은 따로 들고 있다', TERMS_ACCIDENT.insurerCurrent.includes('1661-7977'));
-
-// 약관으로 보낸 건 섹션에서 사라져야 한다.
-check('정비 이용 절차는 섹션에서 빠졌다', !rowsOf('service').some((r) => r.label === '정비 이용'));
-check('과태료 절차는 섹션에서 빠졌다', !rowsOf('service').some((r) => r.label === '과태료·차량검사'));
-check('입고·대차 절차는 섹션에서 빠졌다', !rowsOf('accident').some((r) => r.label === '사고 차량 입고·대차'));
+const rowsOf = (key: string) => groups.find((group) => group.key === key)?.rows || [];
+check('계약서 요약의 사고다발 기준도 표준 3회로 고정한다',
+  rowsOf('accident').some((row) => row.label === '사고 다발 시 계약해지 기준' && row.value.includes('총 3회')));
+check('보험사 대표번호를 계약서에 고정하지 않는다',
+  !contractHtml.includes('insurer_phone') && !rowsOf('accident').some((row) => /\d{3,4}-\d{3,4}/.test(row.value)));
+check('자동이체일 복제 필드를 두지 않는다',
+  !contractHtml.includes('auto_debit_date_inline') && !individualHtml.includes('auto_debit_date_inline'));
+check('특약은 표준값 반복이 아니라 예외·추가 합의용이다',
+  contractHtml.includes("['special_terms','특약사항 (예외·추가 합의만)',2]"));
 
 console.log(`\n━━ 결과: ${pass}/${pass + fail} 통과`);
 if (fail) process.exit(1);

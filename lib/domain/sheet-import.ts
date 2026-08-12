@@ -690,7 +690,29 @@ export function importSheetTable(table: string[][], opts: {
         const matches = headers
           .map((header, index) => normalizeSheetHeader(header) === savedHeader ? index : -1)
           .filter((index) => index >= 0);
-        if (!matches.length) throw new Error(`시트 헤더 없음 — ${field}(${savedHeaders?.[field]}) 매핑을 확인하세요`);
+        if (!matches.length) {
+          // 표준양식 개편으로 `배차상태`→`상태`처럼 공식 별칭 안에서 이름만 바뀐 경우다.
+          // 같은 필드로 해석되는 현재 헤더가 정확히 하나일 때만 안전하게 재결합한다.
+          const aliasMatches = headers
+            .map((header, index) => {
+              const single = autoMapHeaders([header]);
+              const combinedVehicleName = field === 'model'
+                && single.trim_name === 0
+                && /^(차명|모델)\(?트림\)?$/.test(normalizeSheetHeader(header));
+              return single[field] === 0 || combinedVehicleName ? index : -1;
+            })
+            .filter((index) => index >= 0);
+          if (aliasMatches.length === 1) {
+            mapping[field] = aliasMatches[0];
+            continue;
+          }
+          if (aliasMatches.length > 1) throw new Error(`시트 헤더 중복 — ${field} 공식 별칭 열을 하나로 정리하세요`);
+          if (field === 'partner_memo') {
+            delete mapping[field];
+            continue;
+          }
+          throw new Error(`시트 헤더 없음 — ${field}(${savedHeaders?.[field]}) 매핑을 확인하세요`);
+        }
         if (matches.length > 1) throw new Error(`시트 헤더 중복 — ${field}(${savedHeaders?.[field]}) 열을 하나로 정리하세요`);
         mapping[field] = matches[0];
         continue;

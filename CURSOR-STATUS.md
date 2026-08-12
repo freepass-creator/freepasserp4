@@ -27,6 +27,7 @@ Claude는 읽기만 하고 수정하지 않는다. (지시서는 `CURSOR-TASKS.m
 | U-2 | `d221a73` | 18 | 0 | 규격통일: lucide size→ICON · PageStatus 칩→ctrlH(sm) |
 | U-3 | `ab06f88` | 6 | 0 | 규격통일: app/features 잔여 lucide size→ICON |
 | U-4 | `0638afc` | 18 | 0 | 규격통일: NUM 열스캔 숫자 tabular-nums 보강 |
+| WELRIX-FILL | _(미커밋)_ | — | 0 | 웰릭스 476행 실결손 0. 아너스·스마트셀렉션 append · 포터2별칭 · 더뉴 우선 |
 
 ---
 
@@ -83,6 +84,9 @@ _(아직 없음)_
 
 ## 현재 상태
 
-`대기중` — C-3~C-7 · U-1~U-4(`669f3ce`/`d221a73`/`ab06f88`/`0638afc`). 열린 ⬜ 없음.
-규격통일 기계 치환(FS/FW/ICON/ctrlH/tabular) 소진. 예외·잠금만 남음.
+`대기중` — C-3~C-7 · U-1~U-4. 열린 ⬜ 없음.
+**WELRIX-FILL (2026-08-10):** `C:/dev/welrixtable` 신차 33종 → 마스터 세대매칭 후 실결손 **0**.
+- append: `더 뉴 그랜저 GN7`「아너스」, `더 뉴 K5 DL3`「스마트 셀렉션」
+- resolve: `포터2`→`포터 II` · 신차 동코드면「더 뉴」우선(K8)
+- 감사: `npx tsx scripts/audit-welrix-newcars.mts`
 Claude WIP 미터치.

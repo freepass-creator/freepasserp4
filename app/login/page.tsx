@@ -1,15 +1,14 @@
 ﻿'use client';
 /**
  * 로그인 — freepasserp3 v3 화면 그대로(똑같이). 실 Firebase Auth(회원 공유).
- *   login / 가입(사업자번호→회사·역할) / 재설정 / 로그인 없이 둘러보기.
+ *   login / 즉시 이용 가능한 개인 영업자 가입 / 재설정.
  */
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Store } from 'lucide-react';
 import { type User } from 'firebase/auth';
 import { login, signup, logout, resetPassword, writeUserProfile } from '@/lib/firebase/auth';
-import { setGuest, getSession, firebaseReadySafe } from '@/lib/login-helpers';
-import { fmtPhone, C, FS, FW, ICON, R, ctrlPadX } from '@/components/ui';
+import { getSession, firebaseReadySafe } from '@/lib/login-helpers';
+import { fmtPhone, C, FS, FW, R, ctrlPadX } from '@/components/ui';
 import { BRAND_MAIN, BRAND_SUB } from '@/lib/brand';
 import { LEGAL_VERSION } from '@/lib/legal';
 import { toast } from '@/components/Toaster';
@@ -65,7 +64,7 @@ function ConsentBox({ agree, setAgree }: { agree: Agree; setAgree: (a: Agree) =>
         <span>[필수] <a href="/privacy" target="_blank" rel="noopener noreferrer" style={link} onClick={(e) => e.stopPropagation()}>개인정보 수집·이용</a>에 동의합니다</span>
       </label>
       <p style={{ margin: 0, fontSize: FS.cap, color: C.faint, lineHeight: 1.5 }}>
-        수집 항목: 이메일·이름·소속 회사명·사업자등록번호(필수), 연락처(선택) · 목적: 회원 식별과 서비스 제공 · 보유: 이용계약 종료 시까지(관계 법령이 정한 기간은 그에 따름)
+        수집 항목: 이메일·이름(필수), 연락처·소속 회사명·사업자등록번호(선택) · 목적: 회원 식별과 서비스 제공 · 보유: 이용계약 종료 시까지(관계 법령이 정한 기간은 그에 따름)
       </p>
     </div>
   );
@@ -99,8 +98,8 @@ export default function LoginPage() {
   const say = (text: string, tone: 'muted' | 'ok' | 'err' = 'muted') => setMsg({ text, tone });
   const switchMode = (m: Mode) => { setMode(m); say(''); };
 
-  // 이미 로그인/설정 없음 → 홈으로
-  useEffect(() => { if (!firebaseReadySafe()) { /* 로컬 전용: 둘러보기로 진입 */ } else if (getSession()) router.replace('/'); }, [router]);
+  // 이미 로그인한 계정만 홈으로 보낸다. 비로그인 ERP 게스트 진입은 제공하지 않는다.
+  useEffect(() => { if (firebaseReadySafe() && getSession()) router.replace('/'); }, [router]);
 
   const doLogin = async (e: React.FormEvent) => {
     e.preventDefault(); if (busy) return;
@@ -108,8 +107,6 @@ export default function LoginPage() {
     try { await login(email.trim(), pw); await waitForSession(); router.replace('/'); }
     catch (err) { console.error('[login]', err); say(koreanAuthMsg(err, '로그인 실패'), 'err'); setBusy(false); }
   };
-
-  const doGuest = () => { setGuest(true); router.replace('/'); };
 
   // 사업자번호 포맷 + 실시간 partners 매칭(읽기)
   const onBizNo = (raw: string) => {
@@ -124,8 +121,8 @@ export default function LoginPage() {
       try {
         const { matchBizNo } = await import('@/lib/login-helpers');
         const r = await matchBizNo(d);
-        if (!r) setBizMatch({ text: '일치하는 회사 없음 — 임시소속(SP999)으로 등록됩니다', cls: 'miss' });
-        else setBizMatch({ text: `✓ 매칭: ${r.name} (${r.code})${r.type ? ` — ${r.type}` : ''}`, cls: 'ok' });
+        if (!r) setBizMatch({ text: '등록된 소속 없음 — 가입 후에도 바로 이용할 수 있습니다', cls: 'miss' });
+        else setBizMatch({ text: `소속 후보: ${r.name}${r.type ? ` · ${r.type}` : ''} — 가입 후 관리자가 연결합니다`, cls: 'ok' });
       } catch { setBizMatch({ text: '', cls: '' }); }
     }, 200);
   };
@@ -134,7 +131,7 @@ export default function LoginPage() {
     e.preventDefault(); if (busy) return;
     if (!su.email.trim() || !su.pw || su.pw.length < 6) { say('이메일·비밀번호(6자 이상) 필수', 'err'); return; }
     if (su.pw !== su.pw2) { say('비밀번호가 일치하지 않습니다', 'err'); return; }
-    if (!su.type) { say('가입 유형(공급사/영업/개인영업)을 선택하세요', 'err'); return; }
+    if (!su.name.trim()) { say('이름을 입력해주세요', 'err'); return; }
     if (!agree.terms || !agree.privacy) { say('이용약관·개인정보 수집·이용에 모두 동의해야 가입할 수 있습니다', 'err'); return; }
     setBusy(true); say('');
     let authUser: User;
@@ -162,8 +159,8 @@ export default function LoginPage() {
       toast(`가입 실패: ${m}`, 'error');
       setBusy(false); return;
     }
-    // Path B 승인제 — 가입 직후 status=pending → PendingApproval. 세션 갱신 위해 홈으로.
-    say('가입 신청 완료. 관리자 승인 후 이용할 수 있습니다.', 'ok');
+    // 프로필까지 저장된 뒤 새로 부팅해 active 개인 영업자 세션으로 진입한다.
+    say('가입 완료. 바로 이용할 수 있습니다.', 'ok');
     if (typeof window !== 'undefined') window.location.assign('/');
   };
 
@@ -202,7 +199,6 @@ export default function LoginPage() {
               <div className="login-field"><label htmlFor="loginEmail">이메일</label><input id="loginEmail" type="email" placeholder="name@company.com" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required /></div>
               <div className="login-field"><label htmlFor="loginPw">비밀번호</label><input id="loginPw" type="password" placeholder="비밀번호 입력" autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value)} required /></div>
               <button type="submit" className="login-submit" disabled={busy}>로그인</button>
-              <button type="button" className="login-guest" onClick={doGuest}><Store size={ICON.md} /> 로그인 없이 둘러보기</button>
             </div>
             <div className="login-links">
               <a href="#" onClick={(e) => { e.preventDefault(); switchMode('signup'); }}>계정 만들기</a>
@@ -215,7 +211,7 @@ export default function LoginPage() {
 
         {mode === 'signup' && (
           <form className={`login-card${busy ? ' is-loading' : ''}`} onSubmit={doSignup} noValidate>
-            <header className="login-head"><h2 className="login-title">계정 만들기</h2><p className="login-sub">사업자번호로 소속을 확인한 뒤 관리자 승인으로 이용합니다.</p></header>
+            <header className="login-head"><h2 className="login-title">계정 만들기</h2><p className="login-sub">가입 즉시 상품찾기와 상담을 이용할 수 있습니다.</p></header>
             {msg.text && <p className="login-msg" style={{ margin: 0, color: msgColor, textAlign: 'center', fontWeight: FW.strong }} aria-live="polite">{msg.text}</p>}
             <div className="login-form">
               <div className="login-field"><label htmlFor="suEmail">이메일 (필수)</label><input id="suEmail" type="email" placeholder="name@company.com" autoComplete="username" value={su.email} onChange={(e) => setSu({ ...su, email: e.target.value })} required /></div>
@@ -223,10 +219,10 @@ export default function LoginPage() {
               <div className="login-field"><label htmlFor="suPw2">비밀번호 확인</label><input id="suPw2" type="password" placeholder="비밀번호 재입력" autoComplete="new-password" value={su.pw2} onChange={(e) => setSu({ ...su, pw2: e.target.value })} required />{su.pw2 && su.pw !== su.pw2 && <p className="biz-no-match is-miss">비밀번호가 일치하지 않습니다</p>}</div>
               <div className="login-field"><label htmlFor="suName">이름</label><input id="suName" placeholder="홍길동" value={su.name} onChange={(e) => setSu({ ...su, name: e.target.value })} required /></div>
               <div className="login-field"><label htmlFor="suPhone">연락처</label><input id="suPhone" type="tel" placeholder="010-0000-0000" value={su.phone} onChange={(e) => setSu({ ...su, phone: fmtPhone(e.target.value) })} /></div>
-              <div className="login-field"><label htmlFor="suCompany">소속 회사명 (참고)</label><input id="suCompany" placeholder="회사명" value={su.company} onChange={(e) => setSu({ ...su, company: e.target.value })} /></div>
-              <div className="login-field"><label htmlFor="suType">가입 유형</label><select id="suType" value={su.type} onChange={(e) => setSu({ ...su, type: e.target.value })} required><option value="">선택하세요</option><option value="공급">공급사</option><option value="영업">영업(소속)</option><option value="개인">개인영업</option></select></div>
-              <div className="login-field"><label htmlFor="suBizNo">소속 사업자번호</label><input id="suBizNo" inputMode="numeric" placeholder="000-00-00000" autoComplete="off" value={su.bizNo} onChange={(e) => onBizNo(e.target.value)} />{bizMatch.text && <p className={`biz-no-match${bizMatch.cls ? ` is-${bizMatch.cls}` : ''}`}>{bizMatch.text}</p>}</div>
-              <p className="login-msg" style={{ margin: '4px 0 8px', color: C.mute, fontSize: FS.sub, lineHeight: 1.4, textAlign: 'left' }}>가입 신청 후 관리자 승인이 필요합니다. 승인되면 사업자번호에 맞는 회사·역할이 부여됩니다.</p>
+              <div className="login-field"><label htmlFor="suCompany">소속 회사명 (선택)</label><input id="suCompany" placeholder="나중에 입력해도 됩니다" value={su.company} onChange={(e) => setSu({ ...su, company: e.target.value })} /></div>
+              <div className="login-field"><label htmlFor="suType">활동 유형 (선택)</label><select id="suType" value={su.type} onChange={(e) => setSu({ ...su, type: e.target.value })}><option value="">나중에 지정</option><option value="공급">공급사</option><option value="영업">영업(소속)</option><option value="개인">개인영업</option></select></div>
+              <div className="login-field"><label htmlFor="suBizNo">소속 사업자번호 (선택)</label><input id="suBizNo" inputMode="numeric" placeholder="나중에 입력해도 됩니다" autoComplete="off" value={su.bizNo} onChange={(e) => onBizNo(e.target.value)} />{bizMatch.text && <p className={`biz-no-match${bizMatch.cls ? ` is-${bizMatch.cls}` : ''}`}>{bizMatch.text}</p>}</div>
+              <p className="login-msg" style={{ margin: '4px 0 8px', color: C.mute, fontSize: FS.sub, lineHeight: 1.4, textAlign: 'left' }}>처음에는 개인 영업자로 시작합니다. 실제 회사·채널 소속은 관리자 확인 후 연결됩니다.</p>
               <ConsentBox agree={agree} setAgree={setAgree} />
               <button type="submit" className="login-submit" disabled={busy || !agree.terms || !agree.privacy}>계정 만들기</button>
             </div>
@@ -282,8 +278,6 @@ const LOGIN_CSS = `
 .fp-login .login-submit:hover{background:var(--brand-h);box-shadow:var(--shadow-sm);}
 .fp-login .login-submit:active{background:var(--brand-h);filter:brightness(0.92);}
 .fp-login .login-submit:disabled{background:var(--bg-disabled);color:var(--text-weak);cursor:default;box-shadow:none;}
-.fp-login .login-guest{width:100%;height:44px;margin-top:8px;padding:0 12px;border:1px solid var(--border-strong);border-radius:4px;background:transparent;color:var(--text-sub);font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;transition:background-color 100ms,border-color 100ms;}
-.fp-login .login-guest:hover{background:var(--bg-hover);border-color:var(--brand);color:var(--brand);}
 .fp-login .login-links{display:flex;align-items:center;justify-content:center;gap:8px;font-size:11px;color:var(--text-weak);}
 .fp-login .login-links a{color:var(--brand);font-weight:500;text-decoration:none;padding:8px 4px;display:inline-block;}
 .fp-login .login-links a:hover{color:var(--brand-h);}
@@ -299,7 +293,7 @@ const LOGIN_CSS = `
 .fp-login .login-card{box-shadow:none;border:0;border-radius:0;padding:0 24px;gap:20px;max-width:none;}
 .fp-login .login-field input,.fp-login .login-field select{height:48px;font-size:16px;border-radius:4px;padding:0 16px;}
 .fp-login .login-field label{font-size:13px;}
-.fp-login .login-submit,.fp-login .login-guest{height:48px;font-size:16px;border-radius:4px;}
+.fp-login .login-submit{height:48px;font-size:16px;border-radius:4px;}
 .fp-login .login-links{font-size:13px;gap:12px;}
 }
 `;

@@ -25,7 +25,6 @@ import { toast } from '@/components/Toaster';
 import { StartGuide, useStartGuide } from '@/components/StartGuide';
 import { C, R, FS, CenterNote, ContextMenu, useContextMenu } from '@/components/ui';
 import { useAuthReady, useSession } from '@/lib/auth-context';
-import { isGuest } from '@/lib/auth-session';
 import { useAppBar } from '@/lib/appbar';
 import { FINDER_RESET_LIMIT } from '@/lib/finder-session';
 import { FinderStatus } from '@/components/FinderStatus';
@@ -34,6 +33,7 @@ import {
   clearSavedFilters,
   cloneBag,
   emptyBag,
+  FINDER_DEFAULT_SORT,
   readSavedFilters,
   sameBag,
   setFromArr,
@@ -75,7 +75,7 @@ export default function Finder() {
   const [dyn, setDyn] = useState<Record<string, Set<string>>>({});
   const [vehicle, setVehicle] = useState<VehicleFilter>({ ...EMPTY_VEHICLE_FILTER });
   const [models, setModels] = useState<Set<string>>(() => new Set()); // 인기차종 빠른필터(모델명)
-  const [sort, setSort] = useState('');
+  const [sort, setSort] = useState(FINDER_DEFAULT_SORT);
   const [interestFlt, setInterestFlt] = useState<Set<InterestKey>>(new Set());
   const [view, setViewState] = useState('excel');
   const [homeTool, setHomeTool] = useState<HomeTool | null>(null); // 모바일 필터 시트
@@ -255,7 +255,7 @@ export default function Finder() {
       setDyn(dynNext);
       setVehicle(normalizeVehicleFilter(saved.vehicle));
       setModels(setFromArr(saved.models));
-      setSort(saved.sort || '');
+      setSort(saved.sort || FINDER_DEFAULT_SORT);
     }
   }, []);
 
@@ -310,7 +310,7 @@ export default function Finder() {
   //  역할별 업무 흐름이었으나, 로그인 직후 처음 만나는 것은 이 목록이고 기본이 엑셀(표)이라
   //  «이게 뭔지·어떻게 바꾸는지»가 먼저다. 업무 흐름은 「자주 묻는 질문」이 다룬다.
   //  내용 SSOT = lib/domain/onboarding.ts
-  const guideReady = authReady && !!session && !isGuest();
+  const guideReady = authReady && !!session;
   const startGuide = useStartGuide(guideReady);
 
   const {
@@ -393,7 +393,7 @@ export default function Finder() {
   };
   const colFilterN = Object.values(colFilter).reduce((n, set) => n + set.size, 0);
   const sidebarAc = filterDraft
-    ? activeCount({ q: '', periods: v.periods, rent: v.rent, dep: v.dep, mile: v.mile, fuel: v.fuel, ptype: v.ptype, credit: v.credit, perks: v.perks, promo: v.promo, dyn: v.dyn, vehicle: v.vehicle }) + v.models.size + v.interest.size + (v.sort ? 1 : 0) + colFilterN
+    ? activeCount({ q: '', periods: v.periods, rent: v.rent, dep: v.dep, mile: v.mile, fuel: v.fuel, ptype: v.ptype, credit: v.credit, perks: v.perks, promo: v.promo, dyn: v.dyn, vehicle: v.vehicle }) + v.models.size + v.interest.size + (v.sort !== FINDER_DEFAULT_SORT ? 1 : 0) + colFilterN
     : activeCount(s) + models.size + colFilterN;
 
   const reset = () => {
@@ -406,9 +406,9 @@ export default function Finder() {
       return;
     }
     clearSavedFilters();
-    setQInput(''); setQ(''); setPeriods(new Set()); setRent(new Set()); setDep(new Set()); setMile(new Set()); setFuel(new Set()); setPtype(new Set()); setCredit(new Set()); setPerks(new Set()); setPromo(new Set()); setDyn({}); setVehicle({ ...EMPTY_VEHICLE_FILTER }); setSort(''); setModels(new Set()); setInterestFlt(new Set());
+    setQInput(''); setQ(''); setPeriods(new Set()); setRent(new Set()); setDep(new Set()); setMile(new Set()); setFuel(new Set()); setPtype(new Set()); setCredit(new Set()); setPerks(new Set()); setPromo(new Set()); setDyn({}); setVehicle({ ...EMPTY_VEHICLE_FILTER }); setSort(FINDER_DEFAULT_SORT); setModels(new Set()); setInterestFlt(new Set());
   };
-  const filterBadge = activeCount(s) + models.size + interestFlt.size + (sort ? 1 : 0) + colFilterN;
+  const filterBadge = activeCount(s) + models.size + interestFlt.size + (sort !== FINDER_DEFAULT_SORT ? 1 : 0) + colFilterN;
   // 더보기 = 지금 보고 있는 목록 기준(엑셀=헤더필터·정렬 반영분). 100개 미만이면 버튼 없음.
   const activeList = renderView === 'excel' ? excelRows : list;
   const shown = useMemo(() => activeList.slice(0, limit), [activeList, limit]);

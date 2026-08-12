@@ -6,7 +6,7 @@ import { useKeyboardOpen } from '@/lib/use-keyboard';
 import { haptic } from '@/lib/haptics';
 import { useAppBar } from '@/lib/appbar';
 import { useHideTabBar } from '@/lib/tabbar';
-import { PaneHead, BottomNav, Btn, IconSeg, C, FS, FW, SH, ICON } from '@/components/ui';
+import { PaneHead, BottomNav, Btn, IconSeg, C, FS, FW, SH, ICON, type NavBackKind } from '@/components/ui';
 import { MobilePageShell, type ListToolsConfig } from '@/components/MobilePageShell';
 import { PageStatus, statusIconFor } from '@/components/PageStatus';
 import { WebListTools } from '@/components/WebListTools';
@@ -23,8 +23,9 @@ export function WorkPage({
   title, statusLabel, statusCount, listCount, list, listHeader, panes, selected, onBack, search, actions,
   headerActions,
   mobileLayout = 'stack', mobileSwapKey, onMobileSwapKeyChange, countSuffix = '건', hideDock,
-  listTools, contextTitle, paneRatio, listMaxWidth,
-  attentionLabel, attentionCount,
+  listTools, contextTitle, paneRatio, listMaxWidth, hideList = false,
+  attentionLabel, attentionCount, hideWebDock = false,
+  backKind = 'list',
 }: {
   title: string;
   /** 상단바 라벨(미지정 시 title). 예: 계약진행중 / 출고가능 */
@@ -48,14 +49,21 @@ export function WorkPage({
   onMobileSwapKeyChange?: (key: string) => void;
   /** 건수 단위. 상단바와 목록 헤더가 같은 단위를 쓰도록 여기서 한 번만 붙인다('0' vs '0건' 혼재 방지). */
   countSuffix?: string;
+  /**
+   * 선택 상세에서 목록으로 돌아가는 버튼 종류.
+   * 신규 입력처럼 «선택」이 아니라 「작성 중」이면 cancel(취소)을 쓴다.
+   */
+  backKind?: NavBackKind;
+  /** 데스크톱 루트 업무화면에서 의미 없는 하단 이전/액션 바를 제거한다. */
+  hideWebDock?: boolean;
   listTools?: ListToolsConfig;
   contextTitle?: ReactNode;
   /** 처리·안읽음 등 보조 건수(상품검색 「검색 M」자리) */
   attentionLabel?: string;
   attentionCount?: number | null;
   /**
-   * 웹 폭 배분 — 목록 1 : 패널 paneRatio. 기본 1(반반).
-   * 개발도구처럼 패널에 넓은 표를 펼쳐야 하는 화면이 3 을 쓴다(목록 1/4 · 패널 3/4).
+   * 웹 폭 배분 — 목록 1 : 패널 paneRatio. 패널 하나면 기본 3(목록 1/4 · 작업 3/4),
+   * 패널이 여러 개면 기본 1로 각 업무 칸과 목록을 동일하게 나눈다.
    */
   paneRatio?: number;
   /**
@@ -63,6 +71,8 @@ export function WorkPage({
    * 정작 표를 펼쳐야 할 패널이 그만큼 좁아진다. 상한을 두면 남는 폭이 전부 패널로 간다.
    */
   listMaxWidth?: number;
+  /** 신규 작성 전용 화면처럼 기존 목록 열 자체가 필요 없는 경우 사용한다. */
+  hideList?: boolean;
 }) {
   const mobile = useIsMobile();
   // 키보드가 올라오면 하단독을 접는다 — 입력칸 바로 위에 독이 겹쳐 앉는 걸 막는다.
@@ -130,6 +140,8 @@ export function WorkPage({
   }, [selected, paneKeySig]);
 
   const activePane = panes.find((p) => p.key === swapKey) || panes[0];
+  const defaultPaneRatio = panes.length === 1 ? 3 : 1;
+  const resolvedPaneRatio = paneRatio && paneRatio > 0 ? paneRatio : defaultPaneRatio;
 
   const resolvedTools: ListToolsConfig | undefined = listTools ?? (
     search ? { search } : undefined
@@ -163,7 +175,7 @@ export function WorkPage({
           }}>
             <BottomNav
               embedded
-              backKind="list"
+              backKind={backKind}
               backShowLabel
               onBack={onBack}
               actions={
@@ -214,7 +226,7 @@ export function WorkPage({
           flex: '0 0 auto',
           ...(hideDock || kb.open ? { display: 'none' } : null),
         }}>
-          <BottomNav embedded backKind="list" backShowLabel onBack={onBack} actions={actions} />
+          <BottomNav embedded backKind={backKind} backShowLabel onBack={onBack} actions={actions} />
         </div>
       </div>
     );
@@ -228,18 +240,20 @@ export function WorkPage({
   });
   return (
     <>
-      <div style={{ display: 'flex', height: 'calc(100dvh - var(--topbar-h) - var(--fp-bar-h))', borderTop: `1px solid ${C.line}`, overflowX: 'hidden', background: C.bg }}>
-        <div style={col('1 1 0', { minWidth: 0, overflow: 'hidden', ...(listMaxWidth ? { maxWidth: listMaxWidth } : null) })}>
-          <PaneHead title={title} count={listCount == null || listCount === '' ? undefined : `${listCount}${countSuffix}`} right={resolvedTools?.action ? (
-            <Btn size="sm" disabled={resolvedTools.action.disabled} onClick={resolvedTools.action.onClick}>{resolvedTools.action.label}</Btn>
-          ) : undefined} />
-          {listHeader}
-          <WebListTools tools={resolvedTools} />
-          <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', minHeight: 0, background: C.taupeBg }}>{list}</div>
-        </div>
+      <div style={{ display: 'flex', height: hideWebDock ? 'calc(100dvh - var(--topbar-h))' : 'calc(100dvh - var(--topbar-h) - var(--fp-bar-h))', borderTop: `1px solid ${C.line}`, overflowX: 'hidden', background: C.bg }}>
+        {!hideList ? (
+          <div style={col('1 1 0', { minWidth: 0, overflow: 'hidden', ...(listMaxWidth ? { maxWidth: listMaxWidth } : null) })}>
+            <PaneHead title={title} count={listCount == null || listCount === '' ? undefined : `${listCount}${countSuffix}`} right={resolvedTools?.action ? (
+              <Btn size="sm" disabled={resolvedTools.action.disabled} onClick={resolvedTools.action.onClick}>{resolvedTools.action.label}</Btn>
+            ) : undefined} />
+            {listHeader}
+            <WebListTools tools={resolvedTools} />
+            <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', minHeight: 0, background: C.taupeBg }}>{list}</div>
+          </div>
+        ) : null}
         {panes.map((p, i) => (
           <div key={p.key} style={col(
-            p.width ? `0 0 ${p.width}px` : `${paneRatio && paneRatio > 0 ? paneRatio : 1} 1 0`,
+            p.width ? `0 0 ${p.width}px` : `${resolvedPaneRatio} 1 0`,
             {
               ...(p.width ? { width: p.width, minWidth: p.width, maxWidth: p.width, flexShrink: 0, overflow: 'hidden' } : { minWidth: 0 }),
               ...(i === panes.length - 1 ? { borderRight: 'none' } : {}),
@@ -249,7 +263,7 @@ export function WorkPage({
           </div>
         ))}
       </div>
-      <BottomNav actions={actions} maxWidth={100000} padX={16} />
+      {!hideWebDock ? <BottomNav actions={actions} maxWidth={100000} padX={16} /> : null}
     </>
   );
 }

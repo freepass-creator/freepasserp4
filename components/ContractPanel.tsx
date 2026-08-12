@@ -5,11 +5,10 @@ import { getCompanyId } from '@/lib/tenant';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { STEPS, contractStage, isContractCancelled, isContractCompleted, isDone, isRejected, needsContractFinalization, hasTermFrozen } from '@/lib/domain/contract';
 import { applyStepCheck, cancelContract, finalizeContractIfReady } from '@/lib/domain/settlement-engine';
-import { createContractRequest, freezeContractTerm, getRole, roleSlotLabel, type Role } from '@/lib/domain/deal';
+import { actor, createContractRequest, ensureRoom, freezeContractTerm, getRole, roleSlotLabel, type Role } from '@/lib/domain/deal';
 import { cheapest, priceAt, priceList } from '@/lib/domain/product';
 import { Btn, ButtonLabel, IconBtn, Badge, C, R, NUM, ICON, Input, fmtPhone, actorColor, DetailRow, ListGroup, ToggleChips, FW, FS, won } from '@/components/ui';
 import { ContractMemos } from '@/components/ContractMemos';
-import { ChakhandealEsignButton } from '@/components/ChakhandealEsignButton';
 import { confirmDialog, toast } from '@/components/Toaster';
 import { useIsMobile } from '@/lib/use-mobile';
 import { Ban, Check, CheckCircle2, FileSignature, RefreshCw, RotateCcw, Send } from 'lucide-react';
@@ -102,7 +101,13 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
       await runContractMutation(async () => {
         let cc = contract || null;
         if (!cc && product) {
-          const code = await createContractRequest(product, { customerName: '', customerPhone: '' }, roomId || undefined);
+          // 상세 진입만으로 빈 방을 만들지 않는다. 실제 출고문의를 누른 순간은 계약문의
+          // 시작이므로 방을 보장하고 계약과 연결해 한 업무가 두 화면으로 갈라지지 않게 한다.
+          const requestRoomId = roomId || (role === 'agent'
+            ? await ensureRoom(product, actor(role))
+            : undefined);
+          if (requestRoomId && !roomId) window.dispatchEvent(new Event('fp:unread'));
+          const code = await createContractRequest(product, { customerName: '', customerPhone: '' }, requestRoomId);
           cc = (await getStore().get('contract', co, code)) || null;
         }
         if (cc) await applyStepCheck(cc, 'agent_delivery_inquiry', 'yes');
@@ -451,10 +456,12 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
           </div>
         )}
 
-        {/* 발송은 관리자만 — 서버 canSendChakhandealContract 와 같은 축. 영업자에게 보였다 403 나는 버튼을 없앤다. */}
+        {/* 계약 패널에서 바로 발행하지 않는다. 관리자가 계약서관리에서 3종+인수/반납을 확정해야 한다. */}
         {c && agreementDone && !cancelled && role === 'admin' ? (
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <ChakhandealEsignButton contractCode={String(c.contract_code)} onSent={() => load(selectionEpoch.current)} />
+            <Btn title="계약서관리에서 확정" onClick={() => { window.location.href = '/esign'; }}>
+              <ButtonLabel icon={<FileSignature size={ICON.md} aria-hidden />}>계약서관리에서 확정</ButtonLabel>
+            </Btn>
           </div>
         ) : null}
       </div>
@@ -519,7 +526,9 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
 
       {c && agreementDone && !cancelled && role === 'admin' ? (
         <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 8 }}>
-          <ChakhandealEsignButton contractCode={String(c.contract_code)} onSent={() => load(selectionEpoch.current)} />
+          <Btn title="계약서관리에서 확정" onClick={() => { window.location.href = '/esign'; }}>
+            <ButtonLabel icon={<FileSignature size={ICON.md} aria-hidden />}>계약서관리에서 확정</ButtonLabel>
+          </Btn>
         </div>
       ) : null}
 

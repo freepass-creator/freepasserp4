@@ -68,7 +68,7 @@ export default function Members() {
   const [saving, setSaving] = useState(false);
   const [approveBusy, setApproveBusy] = useState(false);
   const [q, setQ] = useState('');
-  const [sort, setSort] = useState<MemSort | ''>('');
+  const [sort, setSort] = useState<MemSort | ''>('name');
   const [roleFlt, setRoleFlt] = useState('all');
   const [activeFlt, setActiveFlt] = useState<MemActive>('all');
   const [ptypeFlt, setPtypeFlt] = useState('all');
@@ -100,7 +100,7 @@ export default function Members() {
     if (t === tab) return;
     if (dirty && !await confirmDialog({ title: '수정 취소', message: '수정 중인 내용이 있습니다. 저장하지 않고 이동할까요?', danger: true, okLabel: '이동' })) return;
     setTab(t); setSel(null); setForm({}); setDirty(false); setCreating(false); setEditing(false); setQ('');
-    setRoleFlt('all'); setActiveFlt('all'); setPtypeFlt('all'); setSort('');
+    setRoleFlt('all'); setActiveFlt('all'); setPtypeFlt('all'); setSort('name');
     await load(t);
   };
   const select = (r: EntityRecord) => {
@@ -612,7 +612,7 @@ export default function Members() {
         actions={editActions}
         listTools={{
           search: { value: q, onChange: setQ, placeholder: '이름·코드·회사·연락처·역할…' },
-          sort: { value: sort, onChange: (v) => setSort(v as MemSort | ''), options: MEM_SORTS },
+          sort: { value: sort, onChange: (v) => setSort(v as MemSort | ''), options: MEM_SORTS, defaultValue: 'name' },
           filter: {
             count: fltCount,
             title: '조건 검색',
@@ -661,12 +661,12 @@ export default function Members() {
           hints: [
             tab === 'user' ? '계정' : '회사',
             ...(q.trim() ? [q.trim().length > 12 ? `${q.trim().slice(0, 12)}…` : q.trim()] : []),
-            ...(sort ? [MEM_SORTS.find((o) => o.value === sort)?.label || sort] : []),
+            ...(sort && sort !== 'name' ? [MEM_SORTS.find((o) => o.value === sort)?.label || sort] : []),
             ...(roleFlt !== 'all' ? [ROLE_LABEL_RAW[roleFlt as keyof typeof ROLE_LABEL_RAW] || roleFlt] : []),
             ...(activeFlt !== 'all' ? [activeFlt] : []),
             ...(ptypeFlt !== 'all' ? [ptypeFlt] : []),
           ],
-          onClearHints: () => { setQ(''); setSort(''); setRoleFlt('all'); setActiveFlt('all'); setPtypeFlt('all'); },
+          onClearHints: () => { setQ(''); setSort('name'); setRoleFlt('all'); setActiveFlt('all'); setPtypeFlt('all'); },
         }}
       />
     </>

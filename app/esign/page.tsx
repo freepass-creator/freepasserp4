@@ -863,7 +863,7 @@ function ChakhandealPane({
       </SectionLabel>
       <div style={{ fontSize: FS.cap, color: C.mute, lineHeight: 1.5 }}>
         계약 때: <b>손님</b> · <b>대여료·보증금·기간(개월)·연령</b> · 차량 재고 확인.
-        시작·종료일·주행거리는 <b>차량인수증 인도</b> 때 확정됩니다.
+        시작일·종료일·출고 시 주행거리는 <b>차량 출고(인도)</b> 때 확정됩니다.
       </div>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
         <Btn

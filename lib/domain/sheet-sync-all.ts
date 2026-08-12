@@ -26,6 +26,7 @@ import {
   planAbsentBlocked,
   planProductUpsert,
   sheetProviderOf,
+  SUPPLIER_OWNED_PRODUCT_FIELDS,
   sheetReconcileStateRevision,
   shouldReconcileAbsent,
 } from '@/lib/domain/sheet-merge';
@@ -121,7 +122,7 @@ function isSheetPartnerRecord(p: EntityRecord): boolean {
   return !/영업|sales/i.test(String(p.partner_type || ''));
 }
 
-function sheetPartnerRows(rows: EntityRecord[]): PartnerSheetRow[] {
+export function sheetPartnerRows(rows: EntityRecord[]): PartnerSheetRow[] {
   return rows
     .filter(isSheetPartnerRecord)
     .map((p) => {
@@ -148,6 +149,12 @@ export function sheetPartnerRosterRevision(rows: PartnerSheetRow[]): string {
   return rows.map((row) => `${row.code}|${row.syncRevision}`).sort().join('\n');
 }
 
+/** 단건 연동은 선택한 공급사 설정만, 전체 연동은 전체 설정을 같은 범위로 비교한다. */
+export function rosterRevisionForFetched(rows: PartnerSheetRow[], fetched: { lines: Array<Pick<PartnerFetchLine, 'code'>> }): string {
+  const fetchedCodes = new Set(fetched.lines.map((line) => line.code));
+  return sheetPartnerRosterRevision(rows.filter((row) => fetchedCodes.has(row.code)));
+}
+
 /**
  * 시트가 지정된 공급사만 (영업채널 제외).
  *
@@ -166,17 +173,21 @@ export async function listSheetPartnerRecords(
   fresh = false,
 ): Promise<EntityRecord[]> {
   const store = getStore();
+  let rows: EntityRecord[];
   if (fresh && typeof store.listFreshWithHealth === 'function') {
     const health = await store.listFreshWithHealth('partner', companyId);
     if (!health.complete) {
       throw new Error(`시트 대상 설정 조회 불완전 — ${(health.failures || ['source read 실패']).join(' · ')}`);
     }
-    return health.rows;
+    rows = health.rows;
+  } else {
+    rows = fresh && typeof store.listFresh === 'function'
+      ? await store.listFresh('partner', companyId)
+      : await store.list('partner', companyId);
   }
-  const rows = fresh && typeof store.listFresh === 'function'
-    ? await store.listFresh('partner', companyId)
-    : await store.list('partner', companyId);
-  return rows;
+  // 동기화 직전마다 공급사 허브 주소를 덮어써서 과거 종합시트 URL로 회귀하지 못하게 한다.
+  const { fetchHubPartners, overlayHubSheetUrls } = await import('@/lib/domain/sheet-hub-sync');
+  return overlayHubSheetUrls(rows, await fetchHubPartners());
 }
 
 export type PartnerFetchLine = {
@@ -987,7 +998,7 @@ export async function commitFetchedPartnerSheets(
   if (sheetReconcileStateRevision(currentState) !== fetched.reconcileRevision) {
     throw new Error('전체 동기화 중단 — 검증 후 ERP 재고가 변경됐습니다. 데이터 검증을 다시 실행하세요.');
   }
-  if (sheetPartnerRosterRevision(currentRoster) !== fetched.rosterRevision) {
+  if (rosterRevisionForFetched(currentRoster, fetched) !== fetched.rosterRevision) {
     throw new Error('전체 동기화 중단 — 검증 후 시트 대상·탭·매핑·급감 기준이 변경됐습니다. 다시 검증하세요.');
   }
   const currentExisting = currentState.active;
@@ -1102,6 +1113,81 @@ export async function commitFetchedPartnerSheets(
   return { lines, commit, ingress, absent, partnerCount, okCount, failCount };
 }
 
+/**
+ * 가격·삭제·신원 충돌이 있어도 기존 차량의 안전한 공급사 입력 원자는 같은 클릭에서 반영한다.
+ * 신규 생성, 가격 변경, 부재 차단은 하지 않으며 공급사+실차번이 활성 ERP 한 대와 정확히
+ * 일치하는 경우만 CAS 저장 경로로 보낸다.
+ */
+export function planSafeSupplierProducts(
+  incomingProducts: EntityRecord[],
+  activeProducts: EntityRecord[],
+): EntityRecord[] {
+  const cleanPlate = (value: unknown) => String(value || '').replace(/\s/g, '');
+  const existingByIdentity = new Map<string, EntityRecord[]>();
+  for (const row of activeProducts) {
+    const provider = sheetProviderOf(row);
+    const plate = cleanPlate(row.car_number);
+    if (!provider || !isExactRealPlate(plate)) continue;
+    const identity = `${provider}|${plate}`;
+    existingByIdentity.set(identity, [...(existingByIdentity.get(identity) || []), row]);
+  }
+  const incomingIdentityCount = new Map<string, number>();
+  for (const incoming of incomingProducts) {
+    const provider = sheetProviderOf(incoming);
+    const plate = cleanPlate(incoming.car_number);
+    if (!provider || !isExactRealPlate(plate)) continue;
+    const identity = `${provider}|${plate}`;
+    incomingIdentityCount.set(identity, (incomingIdentityCount.get(identity) || 0) + 1);
+  }
+  const safe: EntityRecord[] = [];
+  for (const incoming of incomingProducts) {
+    const provider = sheetProviderOf(incoming);
+    const plate = cleanPlate(incoming.car_number);
+    if (!provider || !isExactRealPlate(plate)) continue;
+    const identity = `${provider}|${plate}`;
+    if (incomingIdentityCount.get(identity) !== 1) continue;
+    const matches = existingByIdentity.get(identity) || [];
+    if (matches.length !== 1) continue;
+    const existing = matches[0];
+    const row: EntityRecord = {
+      product_code: String(existing._key || existing.product_code || ''),
+      car_number: plate,
+      provider_company_code: provider,
+      partner_code: provider,
+      // 가격은 기존값을 그대로 넣어 master ingress 최소요건을 만족시키되 변경하지 않는다.
+      price: existing.price,
+    };
+    for (const field of SUPPLIER_OWNED_PRODUCT_FIELDS) {
+      if (field === 'price' || field === 'vehicle_status') continue;
+      const value = incoming[field];
+      if (value != null && String(value).trim() !== '') row[field] = value;
+    }
+    safe.push(row);
+  }
+  return safe;
+}
+
+export async function commitSafeSupplierFields(
+  companyId: string,
+  master: MasterEntry[],
+  fetched: PartnerSheetsFetch,
+): Promise<MasterIngressCommit | null> {
+  const sourceBlocked = sheetSyncCommitBlockReason(fetched);
+  if (sourceBlocked) throw new Error(`안전 정보 연동 중단 — ${sourceBlocked}`);
+  const [state, partnerRows] = await Promise.all([
+    listSheetReconcileState(companyId, true),
+    listSheetPartnerRecords(companyId, true),
+  ]);
+  if (!fetched.reconcileRevision || sheetReconcileStateRevision(state) !== fetched.reconcileRevision) {
+    throw new Error('검증 뒤 ERP 재고가 변경됐습니다. 다시 검증해 주세요.');
+  }
+  if (rosterRevisionForFetched(sheetPartnerRows(partnerRows), fetched) !== fetched.rosterRevision) {
+    throw new Error('검증 뒤 공급사 시트 설정이 변경됐습니다. 다시 검증해 주세요.');
+  }
+  const safe = planSafeSupplierProducts(fetched.products, state.active);
+  return safe.length ? commitSupplierProducts(companyId, safe, master) : null;
+}
+
 /** 당겨오기 + 저장(마스터 필수). 미리보기 없이 한 방에 쓸 때. */
 export async function syncAllPartnerSheets(
   companyId: string,
@@ -1121,7 +1207,7 @@ export async function syncAllPartnerSheets(
     listSheetPartnerRecords(companyId, true),
   ]);
   const roster = sheetPartnerRows(partnerRows);
-  if (sheetPartnerRosterRevision(roster) !== fetched.rosterRevision) {
+  if (rosterRevisionForFetched(roster, fetched) !== fetched.rosterRevision) {
     throw new Error('전체 동기화 중단 — 시트 조회 중 대상·탭·매핑·급감 기준이 변경됐습니다. 다시 실행하세요.');
   }
   fetched.reconcileRevision = sheetReconcileStateRevision(reconcileState);

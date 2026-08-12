@@ -6,14 +6,14 @@ export const man = (n: unknown): string => {
   return v ? `${Math.round(v / 10000).toLocaleString()}만` : '0';
 };
 
-/** 주행거리 표시 SSOT — `0.0만`·`3.0만`(10만 미만 소수1) / `18만`(10만↑ 버림·소수없음). */
+/** 주행거리 표시 SSOT — 축약하지 않고 실제 km를 그대로 표시한다. */
 export function kmDisplay(raw: unknown): string {
-  const n = Number(raw);
-  if (!Number.isFinite(n) || n <= 0) return '';
-  if (n < 1000) return '0.0만';
-  const v = Math.round(n / 1000) / 10; // 만km, 소수 1자리
-  if (v >= 10) return `${Math.floor(v)}만`;
-  return `${v.toFixed(1)}만`;
+  const source = String(raw ?? '').trim();
+  if (!source) return '';
+  const normalized = source.replace(/,/g, '').replace(/\s*km\s*$/i, '').trim();
+  const value = Number(normalized);
+  if (Number.isFinite(value) && value >= 0) return `${value.toLocaleString('ko-KR')}km`;
+  return source;
 }
 
 /** 첨부 크기 표기 SSOT — `1.2MB` / `340KB`. 0·비수는 빈 문자열(자리를 만들지 않는다). */

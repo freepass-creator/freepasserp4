@@ -8,7 +8,7 @@ import {
 } from '@/lib/domain/product-filters';
 import { toggleInSet } from '@/lib/set';
 import { VehicleMasterFilter } from '@/components/VehicleMasterFilter';
-import { FINDER_SORTS } from './filter-state';
+import { FINDER_DEFAULT_SORT, FINDER_SORTS } from './filter-state';
 import {
   Badge, Btn, C, CountPill, FilterGroup, FS, FW, Select, ToggleChips, ctrlH,
 } from '@/components/ui';
@@ -190,11 +190,10 @@ export function FinderFilterPanel({ model }: { model: FinderFilterPanelModel }) 
                 ]}
               />
             </FilterGroup>
-            <FilterGroup title="정렬" count={value.sort ? 1 : 0} defaultOpen onClear={() => update({ sort: '' })}>
+            <FilterGroup title="정렬" count={value.sort !== FINDER_DEFAULT_SORT ? 1 : 0} defaultOpen onClear={() => update({ sort: FINDER_DEFAULT_SORT })}>
               <div style={{ flex: '1 1 100%', width: '100%', minWidth: 0 }}>
                 <Select
-                  full value={value.sort || ''} onChange={(key) => update({ sort: key })}
-                  placeholder="기본"
+                  full value={value.sort || FINDER_DEFAULT_SORT} onChange={(key) => update({ sort: key })}
                   options={FINDER_SORTS}
                 />
               </div>

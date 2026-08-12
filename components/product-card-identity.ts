@@ -41,29 +41,27 @@ export function specLine(product: EntityRecord): string {
 }
 
 function cardYear(product: EntityRecord): string {
-  return yearDisplay(product.year) || '-';
+  return yearDisplay(product.year) || '미입력';
 }
 
 function cardFuel(product: EntityRecord): string {
-  return fuelDisplay(product.fuel_type) || '-';
+  return fuelDisplay(product.fuel_type) || '미입력';
 }
 
 function cardMileage(product: EntityRecord): string {
-  return kmDisplay(product.mileage) || '-';
+  return kmDisplay(product.mileage) || '미입력';
 }
 
 function cardEngineCc(product: EntityRecord): string {
   const value = Number(product.engine_cc) || fuelEmbeddedCc(product.fuel_type);
-  if (!Number.isFinite(value) || value <= 0) return '-';
+  if (!Number.isFinite(value) || value <= 0) return '미입력';
   return `${value.toLocaleString()}cc`;
 }
 
 export function specLineCard(product: EntityRecord): string {
   // 값 없는 칸은 구분자째 뺀다. '-'를 고정 출력하면 모든 행이 '· -'로 끝나고
   //  그 폭 때문에 앞의 주행거리가 잘린다. 대시 폴백은 표(DetailGrid·KV)에서만 쓴다.
-  return [cardYear(product), cardFuel(product), cardMileage(product), cardEngineCc(product)]
-    .filter((v) => v && v !== '-')
-    .join(' · ');
+  return [cardYear(product), cardFuel(product), cardMileage(product), cardEngineCc(product)].join(' · ');
 }
 
 export function cardTitle(product: EntityRecord, mobileNarrow = false): string {

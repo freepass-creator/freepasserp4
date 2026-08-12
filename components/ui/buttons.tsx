@@ -86,8 +86,8 @@ export function Btn({ children, mobileIcon, onClick, variant = 'solid', size = '
     ? () => { fireHaptic(haptic); onClick(); }
     : (haptic ? () => { fireHaptic(haptic); } : undefined);
   return href
-    ? <a href={href} data-clickable="" onClick={handleClick} className={cls} style={s} {...a11y}>{iconOnly ? mobileIcon : children}</a>
-    : <button type={type} onClick={handleClick} disabled={disabled} className={cls} style={s} {...a11y}>{iconOnly ? mobileIcon : children}</button>;
+    ? <a href={href} data-clickable="" data-variant={variant} onClick={handleClick} className={cls} style={s} {...a11y}>{iconOnly ? mobileIcon : children}</a>
+    : <button type={type} data-variant={variant} onClick={handleClick} disabled={disabled} className={cls} style={s} {...a11y}>{iconOnly ? mobileIcon : children}</button>;
 }
 
 /** 정사각 아이콘 버튼 — CTRL.md. style로 셸·특수 배치 1:1 오버라이드 가능. */

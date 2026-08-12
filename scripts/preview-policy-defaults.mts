@@ -33,6 +33,11 @@ const base = {} as Record<string, unknown>;
 const { next, filled, pending: stillEmpty } = applyPolicyDefaults(base);
 const gate = canIssueContract(next);
 
+if (next.policy_default_pack !== FREEPASS_POLICY_PACK) {
+  console.error(`기본정책 패키지 스탬프 누락: ${String(next.policy_default_pack || '(없음)')}`);
+  process.exitCode = 1;
+}
+
 const duplicateKeys = POLICY_DEFAULTS
   .map((d) => d.key)
   .filter((key, index, keys) => keys.indexOf(key) !== index);
@@ -50,10 +55,21 @@ if (overrideProbe.contract_authoring !== '공급사가 작성' || overrideProbe.
   process.exitCode = 1;
 }
 
+const deletionProbe = applyPolicyDefaults({
+  ...next,
+  payment_method: '',
+}).next;
+if (deletionProbe.payment_method !== '') {
+  console.error('패키지 적용 후 공급사가 삭제한 값을 기본값이 되살림');
+  process.exitCode = 1;
+}
+
 console.log('='.repeat(78));
 console.log(`기본값 ${filled.length}개를 넣으면 → 전자계약 ${gate.ok ? '발송 가능' : '발송 불가'}`);
 if (!gate.ok) {
   console.log(`   남는 것 ${gate.missing.length}개: ${gate.missing.map((m) => m.label).join(' · ')}`);
 }
 console.log(`   (그중 «정해야 하는» 것 ${stillEmpty.length}개)`);
+console.log(`   적용 패키지: ${String(next.policy_default_pack || '(없음)')}`);
 console.log(`   명시값 우선 검증: ${overrideProbe.contract_authoring === '공급사가 작성' ? '통과' : '실패'}`);
+console.log(`   삭제·미사용 보존 검증: ${deletionProbe.payment_method === '' ? '통과' : '실패'}`);

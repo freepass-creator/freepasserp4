@@ -19,6 +19,24 @@ const CONSENT_LABELS: Record<(typeof REQUIRED_CONSENTS)[number], string> = {
 };
 const CLIENT_IMAGE_BYTES = 1_350_000;
 const S = (value: unknown) => String(value ?? '').trim();
+const VEHICLE_MAKER_PREFIX = /^(?:메르세데스[- ]?벤츠|KG모빌리티|르노코리아|르노삼성|한국지엠|제네시스|쉐보레|폭스바겐|캐딜락|포르쉐|폴스타|현대|기아|르노|KGM|쌍용|대우|벤츠|BMW|아우디|테슬라|미니|볼보|지프|BYD)\s+/i;
+
+function compactVehicleModel(
+  contract: Record<string, unknown>,
+  templateFields?: Record<string, string>,
+): string {
+  const model = S(contract.model_snapshot) || S(contract.sub_model_snapshot);
+  if (model) return model.replace(VEHICLE_MAKER_PREFIX, '').trim() || model;
+
+  let fallback = S(contract.vehicle_name_snapshot);
+  const year = S(contract.year_snapshot) || S(templateFields?.model_year);
+  const fuel = S(contract.fuel_type_snapshot) || S(templateFields?.fuel);
+  if (year) fallback = fallback.replace(new RegExp(`^${year.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*`), '');
+  if (fuel) fallback = fallback.replace(new RegExp(`\\s*${fuel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`), '');
+  fallback = fallback.replace(/\s+(?:\d+(?:\.\d+)?|\d{3,4}cc)$/i, '').trim();
+  fallback = fallback.replace(VEHICLE_MAKER_PREFIX, '').trim();
+  return fallback || '모델명 미정';
+}
 
 type ConsentPage = {
   key?: string;
@@ -31,6 +49,8 @@ type ConsentPage = {
 
 type PublicSnapshot = {
   contract?: Record<string, unknown>;
+  landlord?: { companyName?: string };
+  templateFields?: Record<string, string>;
   contractKind?: { title?: string; label?: string; maturity?: string; maturityNote?: string };
   template?: { label?: string; version?: string };
   consentGroups?: ConsentPage[];
@@ -133,7 +153,7 @@ export default function SignPage() {
   const [stepIndex, setStepIndex] = useState(0);
   const [form, setForm] = useState({
     customer_name: '', customer_phone: '', customer_id: '', customer_address: '',
-    driver_license_no: '', emergency_name: '', emergency_phone: '',
+    emergency_name: '', emergency_phone: '',
   });
   const [consents, setConsents] = useState<Set<string>>(new Set());
   const [confirmations, setConfirmations] = useState<Record<string, number>>({});
@@ -283,7 +303,9 @@ export default function SignPage() {
     }
     if (step.kind === 'identity') {
       if (!form.customer_name.trim() || !form.customer_phone.trim()) return toast('성명과 연락처를 입력해 주세요.', 'error');
-      if (!idCard || !selfie) return toast('신분증과 본인 셀카를 모두 첨부해 주세요.', 'error');
+      if (form.customer_id.replace(/\D/g, '').length !== 13) return toast('주민등록번호 13자리를 입력해 주세요.', 'error');
+      if (!form.customer_address.trim()) return toast('계약서에 기재할 주소를 입력해 주세요.', 'error');
+      if (!idCard || !selfie) return toast('운전면허증과 본인 셀카를 모두 첨부해 주세요.', 'error');
     }
     if (step.kind === 'section') {
       if (step.page?.requireReadThrough && !readThrough[step.key]) return toast('아래까지 모두 확인해 주세요.', 'error');
@@ -312,7 +334,7 @@ export default function SignPage() {
     if (!inked.current) return toast('전자서명을 입력해 주세요.', 'error');
     if (!REQUIRED_CONSENTS.every((key) => consents.has(key))) return toast('필수 동의가 남았습니다.', 'error');
     if (pages.some((page) => !confirmations[S(page.key)])) return toast('확인하지 않은 계약 조건이 있습니다.', 'error');
-    if (!idCard || !selfie) return toast('신분증과 본인 셀카를 모두 첨부해 주세요.', 'error');
+    if (!idCard || !selfie) return toast('운전면허증과 본인 셀카를 모두 첨부해 주세요.', 'error');
     setBusy(true);
     try {
       const payload = new FormData();
@@ -368,6 +390,8 @@ export default function SignPage() {
   );
 
   const contract = snapshot.contract || {};
+  const vehicleNumber = S(contract.car_number_snapshot) || '차량번호 미정';
+  const vehicleModel = compactVehicleModel(contract, snapshot.templateFields);
   const label: CSSProperties = { fontSize: FS.sub, color: C.mute, fontWeight: FW.strong };
   const inputStyle: CSSProperties = { display: 'block', marginTop: 4 };
   const upfrontDone = UPFRONT_CONSENTS.every((key) => consents.has(key));
@@ -403,7 +427,8 @@ export default function SignPage() {
             차종·차량번호·기간·금액이 다르면 서명하지 말고 계약 담당자에게 알려 주세요.
           </p>
           <ListGroup header={S(snapshot.contractKind?.title) || S(snapshot.template?.label) || '자동차 대여 계약서'}>
-            <DetailRow label="차량" value={[contract.car_number_snapshot, contract.vehicle_name_snapshot].filter(Boolean).join(' · ') || '—'} stacked />
+            <DetailRow label="임대인 회사명" value={S(snapshot.landlord?.companyName) || S(snapshot.templateFields?.company_name) || '—'} />
+            <DetailRow label="차량" value={`${vehicleNumber} · ${vehicleModel}`} />
             <DetailRow label="계약기간" value={contract.rent_month_snapshot ? `${contract.rent_month_snapshot}개월` : '—'} />
             <DetailRow label="월 대여료" value={`${Number(contract.rent_amount_snapshot || 0).toLocaleString('ko-KR')}원`} />
             <DetailRow label="보증금" value={Number(contract.deposit_amount_snapshot || 0) ? `${Number(contract.deposit_amount_snapshot).toLocaleString('ko-KR')}원` : '무보증'} />
@@ -416,7 +441,7 @@ export default function SignPage() {
         <>
           <div style={{ fontSize: FS.title, fontWeight: FW.title }}>먼저 동의가 필요합니다</div>
           <p style={{ fontSize: FS.sub, color: C.mute, lineHeight: 1.6 }}>
-            신분증과 얼굴 사진을 받기 전에 필요한 동의를 각각 받습니다. 미리 선택된 항목은 없습니다.
+            운전면허증과 얼굴 사진을 받기 전에 필요한 동의를 각각 받습니다. 미리 선택된 항목은 없습니다.
           </p>
           {(snapshot.consentAtoms || []).filter((atom) => atom.group !== 'bank').map((atom) => (
             <ListGroup key={atom.key} header={atom.label}>
@@ -441,19 +466,18 @@ export default function SignPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <label style={label}>성명 *<Input value={form.customer_name} onChange={(value) => set('customer_name', value)} full style={inputStyle} /></label>
             <label style={label}>연락처 *<Input value={form.customer_phone} onChange={(value) => set('customer_phone', fmtPhone(value))} inputMode="tel" full style={inputStyle} /></label>
-            <label style={label}>주민등록번호<Input value={form.customer_id} onChange={(value) => set('customer_id', value)} inputMode="numeric" placeholder="본인확인용" full style={inputStyle} /></label>
-            <label style={label}>운전면허번호<Input value={form.driver_license_no} onChange={(value) => set('driver_license_no', value)} full style={inputStyle} /></label>
-            <label style={label}>주소<Input value={form.customer_address} onChange={(value) => set('customer_address', value)} full style={inputStyle} /></label>
+            <label style={label}>주민등록번호 *<Input value={form.customer_id} onChange={(value) => set('customer_id', value)} inputMode="numeric" placeholder="계약·매출증빙용" full style={inputStyle} /></label>
+            <label style={label}>주소 *<Input value={form.customer_address} onChange={(value) => set('customer_address', value)} full style={inputStyle} /></label>
             <label style={label}>비상연락 성명<Input value={form.emergency_name} onChange={(value) => set('emergency_name', value)} full style={inputStyle} /></label>
             <label style={label}>비상연락처<Input value={form.emergency_phone} onChange={(value) => set('emergency_phone', fmtPhone(value))} inputMode="tel" full style={inputStyle} /></label>
           </div>
           <div style={{ fontSize: FS.title, fontWeight: FW.title, margin: '20px 0 8px' }}>본인확인 자료</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8 }}>
-            <Dropzone variant="photo" active={!!idCard} onClick={() => idRef.current?.click()} title="신분증 사진 첨부">
+            <Dropzone variant="photo" active={!!idCard} onClick={() => idRef.current?.click()} title="운전면허증 사진 첨부">
               <ImagePlus size={ICON.md} color={idCard ? C.ok : C.faint} />
-              <span style={{ fontSize: FS.sub, fontWeight: FW.strong }}>{idCard?.name || '신분증 사진'}</span>
+              <span style={{ fontSize: FS.sub, fontWeight: FW.strong }}>{idCard?.name || '운전면허증 사진'}</span>
               <span style={{ fontSize: FS.micro, color: C.faint }}>{preparingImage ? '사진 준비 중' : '큰 파일은 자동 압축'}</span>
-              <input ref={idRef} type="file" accept="image/*" style={{ display: 'none' }} onClick={(event) => event.stopPropagation()} onChange={(event) => { void chooseImage(event.target.files?.[0] || null, '신분증', setIdCard); event.currentTarget.value = ''; }} />
+              <input ref={idRef} type="file" accept="image/*" style={{ display: 'none' }} onClick={(event) => event.stopPropagation()} onChange={(event) => { void chooseImage(event.target.files?.[0] || null, '운전면허증', setIdCard); event.currentTarget.value = ''; }} />
             </Dropzone>
             <Dropzone variant="photo" active={!!selfie} onClick={() => selfieRef.current?.click()} title="본인 셀카 첨부">
               <ImagePlus size={ICON.md} color={selfie ? C.ok : C.faint} />
@@ -462,7 +486,7 @@ export default function SignPage() {
               <input ref={selfieRef} type="file" accept="image/*" capture="user" style={{ display: 'none' }} onClick={(event) => event.stopPropagation()} onChange={(event) => { void chooseImage(event.target.files?.[0] || null, '본인 셀카', setSelfie); event.currentTarget.value = ''; }} />
             </Dropzone>
           </div>
-          <p style={{ fontSize: FS.cap, color: C.faint, lineHeight: 1.6 }}>자동 인증기관 조회가 아니라 담당자가 신분증과 셀카를 대조하는 방식입니다.</p>
+          <p style={{ fontSize: FS.cap, color: C.faint, lineHeight: 1.6 }}>면허번호는 별도로 입력하지 않습니다. 담당자가 운전면허증과 셀카를 대조합니다.</p>
         </>
       ) : null}
 

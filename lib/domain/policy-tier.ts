@@ -60,20 +60,20 @@ export type PolicyField = {
 /* ── 층 1 · 상품 ───────────────────────────────────────────────
    상품만 공급하는 업체는 여기까지만 채우면 된다. 견적·매물 노출이 목적. */
 export const PRODUCT_LAYER: PolicyField[] = [
-  { key: 'annual_mileage', label: '약정 주행거리', layer: 'product', exposure: 'contract', article: '제15조', why: '기본 약정. 상향은 영업 층의 가격표로 정한다' },
-  { key: 'basic_driver_age', label: '기본 운전자 연령', layer: 'product', exposure: 'contract', article: '제5조', why: '기본 자격. 하향은 영업 층의 가격표로 정한다. 면책금 산정 기준이기도 하다' },
-  { key: 'license_period', label: '면허 경력요건', layer: 'product', exposure: 'contract', article: '제5조', why: '자격 요건' },
-  { key: 'insurance_included', label: '보험 포함 여부', layer: 'product', exposure: 'contract', article: '제9조', why: '회사 가입형이냐 개인보험형이냐 — 약관 제9조의2 적용이 갈린다' },
-  { key: 'maintenance_service', label: '정비 상품', layer: 'product', exposure: 'contract', article: '제7조', why: '정비 범위' },
-  { key: 'personal_driver_scope', label: '운전자 범위(개인)', layer: 'product', exposure: 'contract', article: '제5조', why: '범위 밖 운전 사고는 보험 전액 제외' },
-  { key: 'business_driver_scope', label: '운전자 범위(사업자)', layer: 'product', exposure: 'contract', article: '제5조', why: '위와 같음' },
-  { key: 'injury_compensation_limit', label: '대인배상', layer: 'product', exposure: 'contract', article: '제9조', why: '담보 한도' },
-  { key: 'property_compensation_limit', label: '대물배상', layer: 'product', exposure: 'contract', article: '제9조', why: '담보 한도' },
-  { key: 'self_body_accident', label: '자기신체사고', layer: 'product', exposure: 'contract', article: '제9조', why: '담보 한도' },
-  { key: 'uninsured_damage', label: '무보험차상해', layer: 'product', exposure: 'contract', article: '제9조', why: '담보 한도' },
-  { key: 'own_damage_compensation', label: '자차 보상', layer: 'product', exposure: 'contract', article: '제9조', why: '담보 한도' },
-  { key: 'own_damage_repair_ratio', label: '자차 자기부담률', layer: 'product', exposure: 'contract', article: '제9조', why: '손님 부담분' },
-  { key: 'annual_roadside_assistance', label: '긴급출동', layer: 'product', exposure: 'contract', article: '제7조', why: '연간 횟수' },
+  { key: 'annual_mileage', label: '약정 주행거리', layer: 'product', exposure: 'contract', article: '제23조', why: '기본 약정. 상향은 영업 층의 가격표로 정한다' },
+  { key: 'basic_driver_age', label: '기본 운전자 연령', layer: 'product', exposure: 'contract', article: '제13조', why: '기본 자격. 하향은 영업 층의 가격표로 정한다. 면책금 산정 기준이기도 하다' },
+  { key: 'license_period', label: '면허 경력요건', layer: 'product', exposure: 'contract', article: '제13조', why: '자격 요건' },
+  { key: 'insurance_included', label: '보험 포함 여부', layer: 'product', exposure: 'contract', article: '제11조', why: '회사 가입형이냐 개인보험형이냐에 따라 보험 유지 주체가 갈린다' },
+  { key: 'maintenance_service', label: '정비 상품', layer: 'product', exposure: 'contract', article: '제14조', why: '정비 범위' },
+  { key: 'personal_driver_scope', label: '운전자 범위(개인)', layer: 'product', exposure: 'contract', article: '제13조', why: '범위 밖 운전 사고는 보험 전액 제외' },
+  { key: 'business_driver_scope', label: '운전자 범위(사업자)', layer: 'product', exposure: 'contract', article: '제13조', why: '위와 같음' },
+  { key: 'injury_compensation_limit', label: '대인배상', layer: 'product', exposure: 'contract', article: '제11조', why: '담보 한도' },
+  { key: 'property_compensation_limit', label: '대물배상', layer: 'product', exposure: 'contract', article: '제11조', why: '담보 한도' },
+  { key: 'self_body_accident', label: '자기신체사고', layer: 'product', exposure: 'contract', article: '제11조', why: '담보 한도' },
+  { key: 'uninsured_damage', label: '무보험차상해', layer: 'product', exposure: 'contract', article: '제11조', why: '담보 한도' },
+  { key: 'own_damage_compensation', label: '자차 보상', layer: 'product', exposure: 'contract', article: '제18조', why: '담보 한도' },
+  { key: 'own_damage_repair_ratio', label: '자차 자기부담률', layer: 'product', exposure: 'contract', article: '제18조', why: '손님 부담분' },
+  { key: 'annual_roadside_assistance', label: '긴급출동', layer: 'product', exposure: 'contract', article: '제14조', why: '연간 횟수' },
 ];
 
 /* ── 층 2 · 영업 ───────────────────────────────────────────────
@@ -95,12 +95,12 @@ export const SALES_LAYER: PolicyField[] = [
   // ② 운전 연령·자격을 결정하는 것
   { key: 'driver_age_lowering', label: '연령 하향 가능 범위', layer: 'sales', exposure: 'sales', decides: '운전자 연령', why: '만 21세까지 내릴 수 있다는 «선택지». 결정되면 계약서에는 굳은 연령만' },
   { key: 'driver_age_upper_limit', label: '연령 상한', layer: 'sales', exposure: 'sales', decides: '운전자 연령', why: '자격 판정' },
-  { key: 'additional_driver_allowance_count', label: '추가운전자 허용 수', layer: 'sales', exposure: 'contract', article: '제5조', decides: '등록 가능 인원', why: '몇 명까지 등록 가능한가 — 이건 계약 내내 적용되므로 계약서에도 실린다' },
+  { key: 'additional_driver_allowance_count', label: '추가운전자 허용 수', layer: 'sales', exposure: 'contract', article: '제13조', decides: '등록 가능 인원', why: '몇 명까지 등록 가능한가 — 이건 계약 내내 적용되므로 계약서에도 실린다' },
 
   // ③ 납부 방식을 결정하는 것
   { key: 'deposit_installment', label: '보증금 분납 가능 회차', layer: 'sales', exposure: 'sales', decides: '보증금 납부 방식', why: '선택지. 계약서에는 «3회 분납»처럼 굳은 값만' },
   { key: 'deposit_card_payment', label: '보증카드', layer: 'sales', exposure: 'sales', decides: '보증금 납부 방식', why: '결제 수단' },
-  { key: 'payment_method', label: '결제방식', layer: 'sales', exposure: 'contract', article: '제3조', decides: '대여료 납부 방식', why: 'CMS·카드 등' },
+  { key: 'payment_method', label: '결제방식', layer: 'sales', exposure: 'contract', article: '제6조', decides: '대여료 납부 방식', why: 'CMS·카드 등' },
 
   // ④ 승인 여부를 결정하는 것 — 손님에게 절대 안 나간다
   { key: 'screening_criteria', label: '심사기준', layer: 'sales', exposure: 'internal', decides: '계약 승인 여부', why: '⚠ 내부 심사 기준. 손님 화면·계약서에 절대 실리지 않는다 — 우리가 그 사람을 어떻게 평가했는지다' },
@@ -116,46 +116,80 @@ export const SALES_LAYER: PolicyField[] = [
    목록은 임의로 정한 것이 아니라 «약관이 계약서를 참조하는 자리»다 —
    비면 그 조문이 아무것도 정하지 못한다. */
 export const CONTRACT_LAYER: PolicyField[] = [
+  { key: 'payment_due_date', label: '월 납부일', layer: 'contract', exposure: 'contract', article: '제6조', why: '직원이 매 계약마다 입력하지 않고 계약회사 정책에서 확정한다' },
   /* ── 위반 시 무는 돈(패널티) ──
      약정을 지키지 못했을 때 «더 내는» 것들이다. 상품을 고를 때 정하는 가격이 아니라
      계약을 어겼을 때 붙는 것이므로, 영업 층 가격표와 섞으면 안 된다. */
-  { key: 'over_mileage_rate_domestic', label: '초과 주행요금 · 국산(1km당)', layer: 'contract', exposure: 'contract', article: '제15조', why: '약정을 넘겨 달린 거리에 붙는다. 1만km 상향(가격표)과 다른 값' },
-  { key: 'over_mileage_rate_imported', label: '초과 주행요금 · 수입(1km당)', layer: 'contract', exposure: 'contract', article: '제15조', why: '수입은 국산보다 높다 — 한 칸으로 두면 수입차에 국산 요율이 찍힌다' },
+  { key: 'over_mileage_rate_domestic', label: '초과 주행요금 · 국산(1km당)', layer: 'contract', exposure: 'contract', article: '제23조', why: '약정을 넘겨 달린 거리에 붙는다. 1만km 상향(가격표)과 다른 값' },
+  { key: 'over_mileage_rate_imported', label: '초과 주행요금 · 수입(1km당)', layer: 'contract', exposure: 'contract', article: '제23조', why: '수입은 국산보다 높다 — 한 칸으로 두면 수입차에 국산 요율이 찍힌다' },
   /*
    * 중도해지 위약금은 **경과 기간으로 갈린다**(1년 미만 30% / 1년 이상 20%).
    * 드롭다운 penalty_condition 하나로 두면 어느 구간인지 못 적어 계약서가 거짓말을 한다.
    * → 요율 두 칸만 계약 층에 둔다. penalty_condition 은 영업 상담 표기로 남긴다.
    */
-  { key: 'early_termination_rate_under1y', label: '중도해지 위약금 · 1년 미만(0~1)', layer: 'contract', exposure: 'contract', article: '제14조', why: '잔여기간 대여료 × 이 율' },
-  { key: 'early_termination_rate_over1y', label: '중도해지 위약금 · 1년 이상(0~1)', layer: 'contract', exposure: 'contract', article: '제14조', why: '경과가 길수록 낮아진다' },
-  { key: 'late_fee_rate', label: '지연손해금율', layer: 'contract', exposure: 'contract', article: '제3조', why: '연체 이자율' },
-  { key: 'impound_fee', label: '물품 보관료', layer: 'contract', exposure: 'contract', article: '제13조', why: '안 찾아가면 보증금에서 공제된다' },
+  { key: 'early_termination_rate_under1y', label: '중도해지 위약금 · 1년 미만(0~1)', layer: 'contract', exposure: 'contract', article: '제8조', why: '잔여기간 대여료 × 이 율' },
+  { key: 'early_termination_rate_over1y', label: '중도해지 위약금 · 1년 이상(0~1)', layer: 'contract', exposure: 'contract', article: '제8조', why: '경과가 길수록 낮아진다' },
+  { key: 'late_fee_rate', label: '지연손해금율', layer: 'contract', exposure: 'contract', article: '제25조', why: '연체 이자율' },
+  { key: 'impound_fee', label: '물품 보관료', layer: 'contract', exposure: 'contract', article: '제22조', why: '안 찾아가면 보증금에서 공제된다' },
 
   // 돌려주고 보관하는 기한
-  { key: 'deposit_return_days', label: '보증금 반환기한(일)', layer: 'contract', exposure: 'contract', article: '제4조', why: '언제까지 돌려주는가' },
-  { key: 'impound_keep_days', label: '물품 보관기간(일)', layer: 'contract', exposure: 'contract', article: '제13조', why: '이 기간 뒤 폐기·매각할 수 있다' },
+  { key: 'deposit_return_days', label: '보증금 반환기한(일)', layer: 'contract', exposure: 'contract', article: '제6조', why: '언제까지 돌려주는가' },
+  { key: 'impound_keep_days', label: '물품 보관기간(일)', layer: 'contract', exposure: 'contract', article: '제22조', why: '이 기간 뒤 폐기·매각할 수 있다' },
 
   // 제재 — 손님이 차를 잃거나 계약이 끊기는 조건
-  { key: 'engine_control_overdue_days', label: '운행제한(시동제어) 기준일', layer: 'contract', exposure: 'contract', article: '제11조①', why: '대여료 청구일로부터 며칠 밀리면 시동이 잠기는가' },
-  { key: 'auto_terminate_overdue_days', label: '차량회수·해지 기준일', layer: 'contract', exposure: 'contract', article: '제11조②', why: '며칠 밀리면 계약이 끊기고 차를 회수하는가' },
-  { key: 'deposit_overdue_rounds', label: '보증금 미납 시동제어(회차)', layer: 'contract', exposure: 'contract', article: '제4조·제11조②', why: '보증금 분납은 날짜가 아니라 회차로 센다 — 대여료 연체와 갈래가 다르다' },
-  { key: 'accident_termination_count', label: '1년 이내 사고 누적(N회)', layer: 'contract', exposure: 'contract', article: '제11조', why: '과실 50% 이상 몇 회면 해지되는가' },
-  { key: 'claim_basis', label: '청구 기준', layer: 'contract', exposure: 'contract', article: '제11조·제14조', why: '잔여 대여료냐 중도해지수수료냐 — 중복 청구하지 않는다' },
+  { key: 'engine_control_overdue_days', label: '운행제한(시동제어) 기준일', layer: 'contract', exposure: 'contract', article: '제24조', why: '대여료 청구일로부터 며칠 밀리면 시동이 잠기는가' },
+  { key: 'auto_terminate_overdue_days', label: '차량회수·해지 기준일', layer: 'contract', exposure: 'contract', article: '제7조·제24조', why: '며칠 밀리면 계약이 끊기고 차를 회수하는가' },
+  { key: 'deposit_overdue_rounds', label: '보증금 미납 시동제어(회차)', layer: 'contract', exposure: 'contract', article: '제6조·제24조', why: '보증금 분납은 날짜가 아니라 회차로 센다 — 대여료 연체와 갈래가 다르다' },
+  { key: 'accident_termination_count', label: '사고 다발 시 계약해지 기준', layer: 'contract', exposure: 'contract', article: '제7조', why: '사고일 기준 직전 1년 내 과실 50% 이상 사고가 총 3회면 해지할 수 있다' },
+  { key: 'claim_basis', label: '청구 기준', layer: 'contract', exposure: 'contract', article: '제7조·제8조', why: '잔여 대여료냐 중도해지수수료냐 — 중복 청구하지 않는다' },
 
   // 만기 — 실권이 걸린 기한
-  { key: 'renewal_notice_days', label: '연장 사전통지기한(일)', layer: 'contract', exposure: 'contract', article: '제2조', why: '넘기면 연장하지 않는 것으로 본다' },
-  { key: 'buyout_notice_days', label: '인수 사전통지기한(일)', layer: 'contract', exposure: 'contract', article: '제17조', why: '넘기면 인수하지 않는 것으로 본다' },
+  { key: 'renewal_notice_days', label: '연장 사전통지기한(일)', layer: 'contract', exposure: 'contract', article: '제10조', why: '넘기면 연장하지 않는 것으로 본다' },
+  { key: 'buyout_notice_days', label: '인수 사전통지기한(일)', layer: 'contract', exposure: 'contract', article: '제26조', why: '넘기면 인수하지 않는 것으로 본다' },
 
   // 계약서에 실명이 박히는 것
-  { key: 'insurer_name', label: '보험사', layer: 'contract', exposure: 'contract', article: '제9조', why: '사고 접수처' },
-  { key: 'insurer_phone', label: '보험사 연락처', layer: 'contract', exposure: 'contract', article: '제9조', why: '사고 접수처' },
-  { key: 'designated_garage', label: '지정 정비점', layer: 'contract', exposure: 'contract', article: '제7조·제9조', why: '임의 수리 시 보험 처리 불가' },
-  { key: 'self_damage_exclusions', label: '자차 처리 제외', layer: 'contract', exposure: 'contract', article: '제9조', why: '가입 공제·보험 상품별로 상이하다' },
-  { key: 'replacement_car_policy', label: '대차 정책', layer: 'contract', exposure: 'contract', article: '제7조', why: '미가입 시 미제공 등' },
-  { key: 'gps_installed', label: 'GPS 장착', layer: 'contract', exposure: 'contract', article: '제10조', why: '위치 수집 고지' },
+  // 보험사 «대표번호»는 정책값이 아니다 - 매년 바뀌므로 저장해 두면 낡은 번호가 계약서에 박힌다.
+  // 기존 JPK 계약서도 「※ 보험사는 변경될 수 있습니다」로 못박아 두었다.
+  // 계약서에는 체결일 기준 보험사명만 싣고, 사고 신고는 회사 대표번호로 받는다(2026-08-10).
+  { key: 'insurer_name', label: '가입 보험사·공제조합(계약 체결일 기준)', layer: 'contract', exposure: 'contract', article: '제11조', why: '현재 가입처·사고 접수처' },
+  { key: 'designated_garage', label: '지정 정비점', layer: 'contract', exposure: 'contract', article: '제14조·제17조', why: '임의 수리 시 보험 처리 불가' },
+  { key: 'self_damage_exclusions', label: '자차 처리 제외', layer: 'contract', exposure: 'contract', article: '제18조', why: '가입 공제·보험 상품별로 상이하다' },
+  { key: 'replacement_car_policy', label: '대차 정책', layer: 'contract', exposure: 'contract', article: '제5조·제20조', why: '미가입 시 미제공 등' },
+  { key: 'gps_installed', label: 'GPS 장착', layer: 'contract', exposure: 'contract', article: '제24조', why: '위치 수집 고지' },
 ];
 
 export const ALL_POLICY_FIELDS = [...PRODUCT_LAYER, ...SALES_LAYER, ...CONTRACT_LAYER];
+
+/**
+ * 전자계약에 실제로 표시되는 상품·보험 고정값.
+ * `CONTRACT_LAYER`만 검사하면 담보가 빈 보험포함 계약도 발행될 수 있으므로 별도 게이트로 둔다.
+ * 보장이 없거나 면책금이 없으면 빈칸 대신 반드시 「미가입」·「없음」으로 확정한다.
+ */
+const ISSUE_BASE_FIELDS: PolicyField[] = [
+  ...PRODUCT_LAYER.filter((field) => [
+    'annual_mileage', 'basic_driver_age', 'license_period', 'insurance_included',
+    'maintenance_service', 'personal_driver_scope', 'business_driver_scope',
+  ].includes(field.key)),
+];
+
+const ISSUE_INSURANCE_FIELDS: PolicyField[] = [
+  { key: 'injury_compensation_limit', label: '대인 보상한도', layer: 'product', exposure: 'contract', article: '제11조', why: '계약회사별 실제 담보' },
+  { key: 'injury_deductible', label: '대인 면책금', layer: 'product', exposure: 'contract', article: '제11조', why: '없으면 「없음」으로 명시' },
+  { key: 'property_compensation_limit', label: '대물 보상한도', layer: 'product', exposure: 'contract', article: '제11조', why: '계약회사별 실제 담보' },
+  { key: 'property_deductible', label: '대물 면책금', layer: 'product', exposure: 'contract', article: '제11조', why: '없으면 「없음」으로 명시' },
+  { key: 'self_body_accident', label: '자손 보상한도', layer: 'product', exposure: 'contract', article: '제11조', why: '미가입이면 「미가입」으로 명시' },
+  { key: 'self_body_deductible', label: '자손 면책금', layer: 'product', exposure: 'contract', article: '제11조', why: '없으면 「없음」으로 명시' },
+  { key: 'uninsured_damage', label: '무보험 보상한도', layer: 'product', exposure: 'contract', article: '제11조', why: '미가입이면 「미가입」으로 명시' },
+  { key: 'uninsured_deductible', label: '무보험 면책금', layer: 'product', exposure: 'contract', article: '제11조', why: '없으면 「없음」으로 명시' },
+  { key: 'own_damage_compensation', label: '자차 보상', layer: 'product', exposure: 'contract', article: '제18조', why: '미가입이면 「미가입」으로 명시' },
+  { key: 'annual_roadside_assistance', label: '긴급출동', layer: 'product', exposure: 'contract', article: '제14조', why: '미제공이면 「미제공」으로 명시' },
+];
+
+const ISSUE_OWN_DAMAGE_FIELDS: PolicyField[] = [
+  { key: 'own_damage_repair_ratio', label: '자차 자기부담률', layer: 'product', exposure: 'contract', article: '제18조', why: '자차 가입 시 실제 자기부담률' },
+  { key: 'own_damage_min_deductible', label: '자차 최소 면책금', layer: 'product', exposure: 'contract', article: '제18조', why: '자차 가입 시 부담 하한' },
+  { key: 'own_damage_max_deductible', label: '자차 최대 면책금', layer: 'product', exposure: 'contract', article: '제18조', why: '자차 가입 시 부담 상한' },
+];
 
 const has = (p: Record<string, unknown>, k: string) => {
   const v = p?.[k];
@@ -189,7 +223,16 @@ export function canIssueContract(policy: Record<string, unknown> | null | undefi
   if (layer !== 'contract') {
     return { ok: false, layer, missing: [], reason: '이 공급사는 상품만 공급합니다 — 계약서는 공급사가 직접 작성합니다.' };
   }
-  const missing = CONTRACT_LAYER.filter((f) => !has(policy || {}, f.key));
+  const p = policy || {};
+  const companyInsurance = !/별도|개인/.test(String(p.insurance_included || '').trim());
+  const ownDamageCovered = companyInsurance && !/미가입|없음/.test(String(p.own_damage_compensation || '').trim());
+  const required = [
+    ...CONTRACT_LAYER,
+    ...ISSUE_BASE_FIELDS,
+    ...(companyInsurance ? ISSUE_INSURANCE_FIELDS : []),
+    ...(ownDamageCovered ? ISSUE_OWN_DAMAGE_FIELDS : []),
+  ];
+  const missing = required.filter((f, index) => required.findIndex((candidate) => candidate.key === f.key) === index && !has(p, f.key));
   return {
     ok: missing.length === 0,
     layer,
@@ -259,7 +302,6 @@ export function contractTermsForDetail(
     buyout_notice_days: '만기',
     impound_keep_days: '반환·보관',
     insurer_name: '사고·정비',
-    insurer_phone: '사고·정비',
     designated_garage: '사고·정비',
     self_damage_exclusions: '사고·정비',
     replacement_car_policy: '사고·정비',

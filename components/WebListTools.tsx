@@ -36,12 +36,9 @@ export function WebListTools({ tools }: { tools?: ListToolsConfig }) {
                 value={sort.value}
                 onChange={sort.onChange}
                 ariaLabel={sort.placeholder || '정렬'}
-                placeholder={sort.placeholder || '정렬'}
-                options={[
-                  { value: '', label: '기본' },
-                  ...sort.options.map((option) => ({ value: option.value, label: option.label })),
-                ]}
-                width={118}
+                placeholder={sort.defaultValue ? undefined : (sort.placeholder || '정렬')}
+                options={sort.options.map((option) => ({ value: option.value, label: option.label }))}
+                width={108}
               />
             ) : null}
           </div>

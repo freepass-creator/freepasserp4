@@ -86,7 +86,7 @@ export function appTabsFor(role: Role): AppTab[] {
   //  같은 방을 두 입구로 두면 어느 쪽이 정본인지가 흐려진다(2026-08-08 결정).
   const tabs: AppTab[] = [
     { href: '/', label: tabLabel('product'), icon: NAV_ICON.product },
-    { href: '/chat', label: tabLabel('chat'), icon: NAV_ICON.chat, badgeKey: '/chat' },
+    { href: '/chat', label: role === 'admin' ? '상담데스크' : tabLabel('chat'), icon: NAV_ICON.chat, badgeKey: '/chat' },
     { href: '/contract', label: tabLabel('contract'), icon: NAV_ICON.contract, badgeKey: '/contract' },
   ];
   if (role === 'provider' || role === 'admin') {

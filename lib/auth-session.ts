@@ -100,7 +100,12 @@ export function subscribeSession(cb: (s: Session | null) => void): () => void {
   subs.add(cb); return () => { subs.delete(cb); };
 }
 
-/** 둘러보기(비로그인 체험) 플래그 — v3 enterDemo 대응. */
-const GUEST = 'fp4_guest';
-export function isGuest(): boolean { return typeof window !== 'undefined' && localStorage.getItem(GUEST) === '1'; }
-export function setGuest(on: boolean): void { if (typeof window !== 'undefined') { if (on) localStorage.setItem(GUEST, '1'); else localStorage.removeItem(GUEST); } }
+/** 폐기된 비로그인 둘러보기 플래그를 구버전 브라우저에서도 제거한다. */
+const LEGACY_GUEST = 'fp4_guest';
+export function clearLegacyGuestState(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem(LEGACY_GUEST);
+    sessionStorage.removeItem(LEGACY_GUEST);
+  } catch { /* noop */ }
+}

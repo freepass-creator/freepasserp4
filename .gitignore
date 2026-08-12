@@ -26,6 +26,15 @@ npm-debug.log*
 
 tmp/
 
+# 로컬 AI/배포 검증 작업공간과 생성물
+/.codex/
+/.codex-deploy-*/
+/output/
+
+# 원본 계약자료·차량 마스터 수동 백업은 저장소/배포물에 포함하지 않는다
+/계약서양식/
+/public/data/*.bak*
+
 # Firebase Rules 후보·에뮬레이터 생성물 — builder/probe 소스만 버전관리
 /scripts/ruleprobe/release-candidate.rules.json
 /scripts/ruleprobe/firebase-debug.log

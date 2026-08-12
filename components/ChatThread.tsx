@@ -16,7 +16,7 @@ import { ChevronDown, ChevronLeft, ChevronRight, Download, LoaderCircle, Papercl
 // 대화창 = 공통 원자(방 하나의 스레드+입력). 전송·안읽음 = messaging SSOT.
 // roomId 없으면 셸만(견적기 상담 패널) — 입력·첨부 규격 동일, 전송은 막음.
 export function ChatThread({
-  roomId, onBack, onVehicle, onContract, title, chatCode, onComposeFocus,
+  roomId, onBack, onVehicle, onContract, title, chatCode, onComposeFocus, showAttachmentSummary = false,
 }: {
   roomId?: string | null;
   onBack?: () => void;
@@ -24,6 +24,8 @@ export function ChatThread({
   onContract?: (productCode: string) => void;
   /** 입력창 포커스 알림 — 껍데기(WorkPage)가 하단독을 숨겼다 되돌리는 용도. */
   onComposeFocus?: (focused: boolean) => void;
+  /** 관리자 상담 데스크처럼 채팅이 주 화면인 embedded 배치에서도 첨부 모아보기를 노출한다. */
+  showAttachmentSummary?: boolean;
   /** 목록·contextTitle과 동일 「차량번호 차량명」. 없으면 방 필드 폴백. */
   title?: string;
   /** erp3 대화코드(CH-차번-영업자). 스레드 단독 헤더에만 노출(WorkPage contextTitle이 담당할 때는 생략 가능). */
@@ -303,7 +305,7 @@ export function ChatThread({
       {/* 📎 파일 모아보기 — 파일이 하나도 없으면 줄 자체를 만들지 않는다(빈 줄이 대화 높이를 먹지 않게).
           누르면 이 방 파일만 최신순 목록. 사진은 기존 갤러리 뷰어로, 문서는 바로 내려받기.
           ★상세 안(embedded)에서는 안 그린다 — 거기선 옆 보조 칼럼이 문의·파일을 이미 들고 있다. */}
-      {attachments.length > 0 && !embedded ? (
+      {attachments.length > 0 && (!embedded || showAttachmentSummary) ? (
         <div style={{ flex: '0 0 auto', borderBottom: `1px solid ${C.line}`, background: C.head }}>
           <button
             type="button"

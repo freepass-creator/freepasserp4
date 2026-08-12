@@ -515,10 +515,10 @@ export function detailSections(p: EntityRecord, audience: Audience = 'agent'): D
   const g = (a: unknown[]) => a.filter(Boolean).join(' · ');
   // 묶음 슬롯 = 빠진 칸도 `-`로 자리 유지(동력·분류처럼 같이 쓰는 축).
   const gSlots = (parts: (string | number | false | null | undefined)[]) =>
-    parts.map((x) => (x != null && x !== '' && x !== false ? String(x) : '-')).join(' · ');
+    parts.map((x) => (x != null && x !== '' && x !== false ? String(x) : '미입력')).join(' · ');
   const ccLabel = (() => {
     const n = Number(p.engine_cc) || fuelEmbeddedCc(p.fuel_type);
-    return n > 0 ? `${n.toLocaleString()}cc` : '';
+    return n > 0 ? `${n.toLocaleString()}cc` : '미입력';
   })();
   // 1) 차량 세부정보 = 신원 → 옵션칩 → 연식·주행 / 동력 / 색상 / 분류 / 최초등록
   const carRows: KvRow[] = [
@@ -526,7 +526,7 @@ export function detailSections(p: EntityRecord, audience: Audience = 'agent'): D
     //  (없는 매물이 있다: 재렌트·재구독은 공급사 시트에 번호판을 안 적는 경우가 있어
     //   빈 줄을 만들지 않도록 값이 있을 때만 넣는다. 나머지 행의 `-` 규칙과 다른 이유다.)
     ...(pv('car_number') ? [['차량번호', pv('car_number')] as KvRow] : []),
-    ['차량', [pv('maker'), pv('sub_model') || pv('model'), pv('variant'), pv('trim_name')].filter(Boolean).join(' ') || '-'],
+    ['차량', [pv('maker'), pv('sub_model') || pv('model'), pv('variant'), pv('trim_name')].filter(Boolean).join(' ') || '미입력'],
     ['연식 · 주행', (() => {
       const base = gSlots([yearDisplay(p.year), kmDisplay(p.mileage)]);
       const acc = pv('accident_history');
@@ -538,13 +538,13 @@ export function detailSections(p: EntityRecord, audience: Audience = 'agent'): D
       ccLabel,
       p.seats ? `${p.seats}인승` : '',
     ])],
-    ['색상', gSlots([
-      pv('ext_color') ? `외장 ${pv('ext_color')}` : '',
-      pv('int_color') ? `내장 ${pv('int_color')}` : '',
-    ])],
+    ['색상', [
+      `외장색 ${pv('ext_color') || '미입력'}`,
+      `내장색 ${pv('int_color') || '미입력'}`,
+    ].join(' · ')],
     ['분류', gSlots([pv('vehicle_class'), pv('usage'), canonProductType(p.product_type)])],
     // 공급사 원본이 `25-11-5` 처럼 들쭉날쭉해서 표기만 YYYY-MM-DD 로 맞춘다(못 읽으면 원본 그대로).
-    ['최초등록', ymdDisplay(pv('first_registration_date')) || '-'],
+    ['최초등록', ymdDisplay(pv('first_registration_date')) || '미입력'],
   ];
 
   // 2) 보험 3열 [구분, 한도, 면책금] — 6항목 항상 노출(값 없으면 뷰에서 '—')

@@ -99,8 +99,8 @@ check('연락처에 하이픈이 붙는다', rowValue('identity', '연락처') =
 check('보증금이 있으면 금액으로', rowValue('rental', '보증금') === '1,000,000원', rowValue('rental', '보증금'));
 check('고객은 관리자가 확정한 3종 중 한 계약서를 확인',
   rowValue('rental', '계약서 종류') === '프리패스 기본계약서 · 렌트·보험포함', rowValue('rental', '계약서 종류'));
-check('고객은 관리자가 확정한 인수/반납을 확인',
-  rowValue('rental', '만기 선택') === '반납', rowValue('rental', '만기 선택'));
+check('고객 화면에 중복 만기 선택 행을 두지 않는다',
+  !rowValue('rental', '만기 선택'), rowValue('rental', '만기 선택'));
 check('고객은 확정된 만기 처리를 확인',
   !!rowValue('rental', '만기 처리')?.includes('반납'), rowValue('rental', '만기 처리'));
 // 보증금 0 은 «값 없음»이 아니라 «무보증»이라는 계약 조건이다. 행이 사라지면 손님이 못 읽는다.
@@ -121,9 +121,9 @@ check('약관 통독 강제', agreement.requireReadThrough === true);
 check('약관 버전이 실린다', !!agreement.version);
 // 약관은 HTML 정본과 같은 21개 항목이며 대여 시작부터 반납·정산 순서로 구성된다.
 check('약관은 정본으로 표시된다', agreement.isSample === false);
-check('약관 21개 항목이 실린다', agreement.sections.length === 21, agreement.sections.length);
+check('약관 28개 항목이 실린다', agreement.sections.length === 28, agreement.sections.length);
 check('보험조건 조문이 실린다',
-  agreement.sections.some((s) => (s as { t: string }).t.includes('제6조') && (s as { t: string }).t.includes('보험')));
+  agreement.sections.some((s) => (s as { t: string }).t.includes('제11조') && (s as { t: string }).t.includes('보험')));
 check('신차·미정 계약에도 동일한 중고차 조건부 항을 보낸다',
   JSON.stringify(agreement.sections).includes('중고차량인 경우'));
 const usedVehiclePayload = chakhandealIssuePayload({

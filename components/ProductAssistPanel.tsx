@@ -7,7 +7,7 @@ import { vehicleName } from '@/lib/domain/product';
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import type { EntityRecord } from '@/lib/intake/entities';
-import { actor, ensureRoom, type Role } from '@/lib/domain/deal';
+import { actor, ensureRoom, findExistingRoom, type Role } from '@/lib/domain/deal';
 import { contractStage, isContractCancelled } from '@/lib/domain/contract';
 import { ChatThread } from '@/components/ChatThread';
 import { ContractPanel } from '@/components/ContractPanel';
@@ -21,6 +21,8 @@ import { unreadFor } from '@/lib/domain/messaging';
 import { msgClock } from '@/lib/format';
 import { joinMetaText, workPartyParts } from '@/features/work-list-display';
 import { organizationRole } from '@/lib/domain/authorization';
+import { hasRoomStoredActivity } from '@/lib/domain/room-activity';
+import { toast } from '@/components/Toaster';
 
 /**
  * 매물 상세 옆 **보조 칼럼** — 위=대여료·계약 / 아래=채팅.
@@ -55,6 +57,7 @@ export function ProductAssistPanel({ product, role }: { product: EntityRecord; r
   const router = useRouter();
   const co = getCompanyId();
   const [roomId, setRoomId] = useState('');
+  const [startingRoom, setStartingRoom] = useState(false);
   const [contract, setContract] = useState<EntityRecord | null | undefined>(undefined);
   const slotRef = useRef<HTMLDivElement | null>(null);
   const [fixedBox, setFixedBox] = useState<{ left: number; width: number } | null>(null);
@@ -85,13 +88,34 @@ export function ProductAssistPanel({ product, role }: { product: EntityRecord; r
   // 모바일도 상세 아래에 계약·대화를 쌓으므로 좁다고 건너뛰지 않는다(2026-08-08).
   useEffect(() => {
     if (!asksRoom) return;
-    let ok = true;
-    void ensureRoom(product, actor(role))
-      .then((key) => { if (ok) setRoomId(key); })
-      .catch(() => {});
-    return () => { ok = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    let active = true;
+    setRoomId('');
+    const refresh = () => {
+      void findExistingRoom(code, actor(role))
+        .then((key) => { if (active) setRoomId(key || ''); })
+        .catch(() => { if (active) setRoomId(''); });
+    };
+    refresh();
+    // 출고문의·메시지 전송으로 방이 생기거나 갱신되면 같은 상세에서도 즉시 붙인다.
+    window.addEventListener('fp:unread', refresh);
+    return () => {
+      active = false;
+      window.removeEventListener('fp:unread', refresh);
+    };
   }, [code, role, asksRoom]);
+
+  const startRoom = async () => {
+    if (startingRoom) return;
+    setStartingRoom(true);
+    try {
+      const key = await ensureRoom(product, actor(role));
+      setRoomId(key);
+    } catch (error) {
+      toast(error instanceof Error ? error.message : '계약문의를 시작하지 못했습니다.', 'error');
+    } finally {
+      setStartingRoom(false);
+    }
+  };
 
   // 공급사·관리자 = 이 매물에 들어온 문의만 모아 본다. 방을 새로 만들지 않는다(읽기 전용 조회).
   const loadInbox = useCallback(() => {
@@ -99,7 +123,8 @@ export function ProductAssistPanel({ product, role }: { product: EntityRecord; r
     void getStore().list('room', co)
       .then((all) => {
         const mine = all.filter((r) => String(r.product_code || r.product_uid || '') === code
-          && canAccessOwnedRecord(getSession(), r));
+          && canAccessOwnedRecord(getSession(), r)
+          && hasRoomStoredActivity(r));
         mine.sort((a, b) => Number(b.last_message_at || 0) - Number(a.last_message_at || 0));
         setInbox(mine);
         setPicked((cur) => cur || String(mine[0]?._key || ''));
@@ -155,6 +180,22 @@ export function ProductAssistPanel({ product, role }: { product: EntityRecord; r
   // 바닥은 sticky 하단독(이전·공유·계약문의) **윗선에 딱** — 여백 없이 맞닿게.
   const fixedTop = `calc(var(--topbar-h) + ${CHROME_GAP}px + ${headOffset})`;
   const fixedBottom = `calc(var(--fp-bar-h) + var(--fp-dock-safe, 0px))`;
+
+  const chatBody = roomId ? (
+    <ChatThread roomId={roomId} />
+  ) : (
+    <div
+      aria-live="polite"
+      style={{ padding: 16, display: 'grid', gap: 10, justifyItems: 'start', color: C.mute }}
+    >
+      <div style={{ fontSize: FS.cap, lineHeight: 1.5 }}>
+        아직 시작한 계약문의가 없습니다.
+      </div>
+      <Btn size="sm" onClick={() => { void startRoom(); }} disabled={startingRoom}>
+        {startingRoom ? '준비 중…' : '계약문의 시작'}
+      </Btn>
+    </div>
+  );
 
   /**
    * 관리자·공급사 상세 = **몇 건 왔는지**만. 대화는 여기서 하지 않는다(2026-08-08 사장님).
@@ -237,9 +278,7 @@ export function ProductAssistPanel({ product, role }: { product: EntityRecord; r
           </AsideCard>
           {asksRoom ? (
             <AsideCard title={NAV_LABEL.chat} grow>
-              {roomId
-                ? <ChatThread roomId={roomId} />
-                : <div style={{ padding: 14, fontSize: FS.cap, color: C.faint }}>대화방 준비 중…</div>}
+              {chatBody}
             </AsideCard>
           ) : inboxCard}
         </>
@@ -267,9 +306,7 @@ export function ProductAssistPanel({ product, role }: { product: EntityRecord; r
             </AsideCard>
             {asksRoom ? (
               <AsideCard title={NAV_LABEL.chat} fixedH="60dvh">
-                {roomId
-                  ? <ChatThread roomId={roomId} />
-                  : <div style={{ padding: 14, fontSize: FS.cap, color: C.faint }}>대화방 준비 중…</div>}
+                {chatBody}
               </AsideCard>
             ) : inboxCard}
           </>

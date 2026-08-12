@@ -24,6 +24,9 @@ export type StandardTemplateKey =
   | 'freepass-subscription-insurance-included'
   | 'freepass-subscription-insurance-separate';
 
+/** 모든 파생 계약서의 모체. 배열 순서가 바뀌어도 신규 계약의 기본값은 변하지 않는다. */
+export const DEFAULT_STANDARD_TEMPLATE_ID: StandardTemplateKey = 'freepass-rent-standard';
+
 export type EsignTemplate = {
   /** 프리패스 내부의 표준계약서 ID. 착한거래 외부 ID가 아니다. */
   id: StandardTemplateKey;
@@ -39,13 +42,13 @@ export type EsignTemplate = {
 export const STANDARD_CONTRACT_TEMPLATES: EsignTemplate[] = [
   {
     id: 'freepass-rent-standard',
-    label: '표준 렌트계약서',
+    label: '프리패스 기본계약서 · 렌트·보험포함',
     version: STANDARD_VERSION,
     isSample: STANDARD_IS_SAMPLE,
     contractKind: '렌탈',
     insuranceSide: '회사포함',
-    title: '자동차 렌탈(대여) 계약서',
-    note: '인수·반납 중 하나를 계약 확정 시 선택합니다.',
+    title: '자동차 장기대여 계약서',
+    note: '프리패스모빌리티 기본 정본입니다. 기본은 만기 반납이며, 인수가를 적은 경우 인수옵션 조항이 적용됩니다.',
   },
   {
     id: 'freepass-subscription-insurance-included',
@@ -55,7 +58,7 @@ export const STANDARD_CONTRACT_TEMPLATES: EsignTemplate[] = [
     contractKind: '구독',
     insuranceSide: '회사포함',
     title: '자동차 구독 계약서',
-    note: '회사가 보험을 가입하며, 인수·반납 중 하나를 선택합니다.',
+    note: '회사가 보험을 가입합니다. 기본은 만기 반납이며 인수조건이 있을 때만 인수옵션을 기재합니다.',
   },
   {
     id: 'freepass-subscription-insurance-separate',
@@ -65,7 +68,7 @@ export const STANDARD_CONTRACT_TEMPLATES: EsignTemplate[] = [
     contractKind: '구독',
     insuranceSide: '고객직접',
     title: '자동차 구독 계약서',
-    note: '고객이 보험을 별도로 가입하며, 인수·반납 중 하나를 선택합니다.',
+    note: '고객이 보험을 별도로 가입합니다. 기본은 만기 반납이며 인수조건이 있을 때만 인수옵션을 기재합니다.',
   },
 ];
 
@@ -79,6 +82,12 @@ export function isEsignTemplateAllowed(environment: string | undefined): boolean
 
 export function findTemplate(id: unknown): EsignTemplate | null {
   return STANDARD_CONTRACT_TEMPLATES.find((template) => template.id === S(id)) || null;
+}
+
+export function defaultStandardTemplate(): EsignTemplate {
+  const template = findTemplate(DEFAULT_STANDARD_TEMPLATE_ID);
+  if (!template) throw new Error('프리패스 기본계약서 설정을 찾지 못했습니다.');
+  return template;
 }
 
 export function templatesForContract(_contract: EntityRecord | null | undefined): EsignTemplate[] {

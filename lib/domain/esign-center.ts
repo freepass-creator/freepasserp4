@@ -1,4 +1,5 @@
 import type { EntityRecord } from '@/lib/intake/entities';
+import { canIssueContract } from '@/lib/domain/policy-tier';
 
 export type EsignContractSource = 'erp' | 'excel' | 'direct';
 export type EsignCenterBucket = '발송대기' | '서명중' | '확인필요' | '완료';
@@ -57,13 +58,26 @@ export function validateEsignCenterContract(
   else add('rent_month', '계약기간', 'PASS', '계약기간 확인');
 
   if (!S(row.policy_code)) add('policy', '계약 정책', 'BLOCK', '보험·정비 정책 없음');
-  else if (!policy) add('policy', '계약 정책', 'WARNING', '연결된 정책을 다시 확인하세요');
-  else add('policy', '계약 정책', 'PASS', '계약 정책 확인');
+  else if (!policy) add('policy', '계약 정책', 'BLOCK', '연결된 정책을 찾을 수 없습니다');
+  else if (S(policy.provider_company_code) !== S(row.provider_company_code)) add('policy', '계약 정책', 'BLOCK', '선택한 공급사의 정책이 아닙니다');
+  else {
+    add('policy', '계약 정책', 'PASS', '선택한 공급사의 계약 정책 확인');
+    const issueGate = canIssueContract(policy);
+    if (!issueGate.ok) add('policy_readiness', '정책 완성도', 'BLOCK', issueGate.reason);
+    else add('policy_readiness', '정책 완성도', 'PASS', '전자계약 발송 조건 확인');
+  }
+
+  if (policy) {
+    const ageText = S(policy.basic_driver_age);
+    const age = Number(ageText.match(/\d{2}/)?.[0] || 0);
+    if (!age) add('driver_age', '운전자 연령', 'BLOCK', '기본 운전자 연령 없음');
+    else if (age < 21) add('driver_age', '운전자 연령', 'BLOCK', '만 21세 미만은 보험 운영 대상이 아닙니다');
+  }
 
   if (!S(row.vehicle_name_snapshot || row.model_snapshot)) add('vehicle', '차량', 'WARNING', '차량명 확인 필요');
   else add('vehicle', '차량', 'PASS', '차량 확인');
 
-  if (!S(row.customer_address)) add('customer_address', '고객 주소', 'WARNING', '고객 주소 없음');
+  if (!S(row.customer_address)) add('customer_address', '고객 주소', 'PASS', '고객이 서명 링크에서 입력');
   if (!S(row.car_number_snapshot)) add('car_number', '차량번호', 'WARNING', '신차·번호미정 여부 확인');
 
   if (S(row.provider_company_code)) {
@@ -71,6 +85,7 @@ export function validateEsignCenterContract(
     else {
       if (!S(partner.ceo || partner.ceo_name)) add('company_ceo', '대표자', 'WARNING', '업체 대표자 없음');
       if (!S(partner.address)) add('company_address', '업체 주소', 'WARNING', '업체 주소 없음');
+      if (!S(partner.rental_business_no)) add('rental_business_no', '자동차대여사업 등록번호', 'WARNING', '자동차대여사업 등록번호 없음');
       if (!S(partner.bank_name)) add('payment_bank', '입금은행', 'WARNING', '업체 입금은행 없음');
       if (!S(partner.bank_account)) add('payment_account_no', '입금계좌', 'WARNING', '업체 입금계좌 없음');
       if (!S(partner.bank_holder || partner.name || partner.partner_name)) add('payment_account_holder', '예금주', 'WARNING', '업체 예금주 없음');
@@ -129,6 +144,8 @@ export type EsignDraftInput = {
   importTemplateId?: string;
   providerCompanyCode: string;
   policyCode: string;
+  standardTemplateId: string;
+  maturity: '반납형' | '인수형';
   contractDate: string;
   customerName: string;
   customerPhone: string;
@@ -146,6 +163,7 @@ export type EsignDraftInput = {
   rentMonths: string;
   rentAmount: string;
   depositAmount: string;
+  paymentDueDate?: string;
   depositInstallment?: string;
   annualMileage?: string;
   buyoutPrice?: string;
@@ -161,6 +179,8 @@ export function emptyEsignDraftInput(source: 'excel' | 'direct', date: string): 
     source,
     providerCompanyCode: '',
     policyCode: '',
+    standardTemplateId: 'freepass-rent-standard',
+    maturity: '반납형',
     contractDate: date,
     customerName: '',
     customerPhone: '',
@@ -178,6 +198,7 @@ export function emptyEsignDraftInput(source: 'excel' | 'direct', date: string): 
     rentMonths: '',
     rentAmount: '',
     depositAmount: '0',
+    paymentDueDate: '',
     depositInstallment: '',
     annualMileage: '',
     buyoutPrice: '',
@@ -202,6 +223,7 @@ export function draftInputRecord(form: EsignDraftInput): EntityRecord {
     rent_month_snapshot: N(form.rentMonths),
     rent_amount_snapshot: N(form.rentAmount),
     deposit_amount_snapshot: N(form.depositAmount),
+    auto_debit_date: form.paymentDueDate,
   };
 }
 
@@ -215,6 +237,7 @@ export function draftTemplateFields(form: EsignDraftInput): Record<string, strin
     options: S(form.options),
     color_exterior: S(form.colorExterior),
     odometer_delivery: S(form.currentMileage),
+    auto_debit_date: S(form.paymentDueDate),
     deposit_installment: S(form.depositInstallment),
     annual_mileage: S(form.annualMileage),
     buyback_price: S(form.buyoutPrice),

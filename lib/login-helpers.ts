@@ -1,5 +1,5 @@
 /** 로그인 화면 보조 — 세션 재노출 + 사업자번호 실시간 매칭(partners 읽기). */
-export { setGuest, getSession } from '@/lib/auth-session';
+export { getSession } from '@/lib/auth-session';
 import { firebaseReady, getRtdb } from '@/lib/firebase/client';
 import { companyAlias } from '@/lib/domain/identity';
 import { partnerTypeLabel } from '@/lib/domain/partner';

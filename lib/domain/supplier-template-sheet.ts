@@ -73,8 +73,8 @@ const POLICY_COLUMNS: { name: string; note: string; field?: string; values?: str
   { name: '대물보상한도', note: '', field: 'property_compensation_limit', values: ['1억원', '2억원', '10억원', '5천만원', '3천만원'] },
   { name: '대물면책금', note: '', field: 'property_deductible', values: ['30만원', '50만원', '없음'] },
   // ── 대인·자손·무보험 ──
-  // ★대인보상한도가 빠져 있었다 — 계약서 제7조에 들어가는 값인데 안 묻고 있었다(2026-08-11).
-  { name: '대인보상한도', note: '계약서 제7조', field: 'injury_compensation_limit', values: ['무한', '1억원', '2억원'] },
+  // ★대인보상한도가 빠져 있었다 — 계약서 제11조에 들어가는 값인데 안 묻고 있었다(2026-08-11).
+  { name: '대인보상한도', note: '계약서 제11조', field: 'injury_compensation_limit', values: ['무한', '1억원', '2억원'] },
   { name: '대인면책금', note: '', field: 'injury_deductible', values: ['30만원', '50만원', '없음'] },
   { name: '자손보상', note: '', field: 'self_body_accident', values: ['1억원', '5,000만원', '1,500만원'] },
   { name: '자손면책금', note: '', field: 'self_body_deductible', values: ['30만원', '50만원', '없음'] },
@@ -92,15 +92,15 @@ const POLICY_COLUMNS: { name: string; note: string; field?: string; values?: str
   // ── 주행 ──
   // 대부분의 공급사는 «정책 한 줄»이면 끝난다 — 기본 주행거리와 1만km 추가 요율.
   // 오토플러스만 매물마다 정액이 달라(실측 54대: 3만·4만·5만 …) 상품리스트에 열을 따로 둔다.
-  // ★세 줄 다 ERP 필드가 안 붙어 있었다 — 공급사가 적어도 계약서 제17조가 빈칸이었다(2026-08-11).
-  { name: '기본주행', note: '계약서 제17조 · 약정 주행거리', field: 'annual_mileage',
+  // ★세 줄 다 ERP 필드가 안 붙어 있었다 — 공급사가 적어도 계약서 제23조가 빈칸이었다(2026-08-11).
+  { name: '기본주행', note: '계약서 제23조 · 약정 주행거리', field: 'annual_mileage',
     values: ['연간 2만Km', '연간 3만Km', '연간 1만Km', '무제한', '협의'] },
   { name: '추가주행 방식', note: '1만km 더 탈 때 어떻게 올리는가', values: ['정액', '대여료 비례', '불가', '협의'] },
   { name: '추가주행 금액', note: '정액이면 100000 · 비례면 10%', field: 'mileage_upcharge_per_10000km',
     values: ['10만원', '15만원', '5만원', '10%', '협의'] },
-  // 약정을 넘겨 탔을 때 1km 당 얼마 — 계약서 제17조. 국산·수입이 갈린다.
-  { name: '초과주행 국산(1km당)', note: '계약서 제17조 · 예: 200', field: 'over_mileage_rate_domestic', values: ['200', '150', '300'] },
-  { name: '초과주행 수입(1km당)', note: '계약서 제17조 · 예: 400', field: 'over_mileage_rate_imported', values: ['400', '300', '500'] },
+  // 약정을 넘겨 탔을 때 1km 당 얼마 — 계약서 제23조. 국산·수입이 갈린다.
+  { name: '초과주행 국산(1km당)', note: '계약서 제23조 · 예: 200', field: 'over_mileage_rate_domestic', values: ['200', '150', '300'] },
+  { name: '초과주행 수입(1km당)', note: '계약서 제23조 · 예: 400', field: 'over_mileage_rate_imported', values: ['400', '300', '500'] },
   { name: '정비', note: '', field: 'maintenance_service', values: ['협의', '불포함', '포함'] },
   { name: '대여지역', note: '', field: 'rental_region', values: ['전국', '제주도불가', '협의'] },
   { name: '보증금카드결제', note: '', field: 'deposit_card_payment', values: ['협의', '가능', '불가'] },
@@ -109,15 +109,15 @@ const POLICY_COLUMNS: { name: string; note: string; field?: string; values?: str
   // ── 계약서가 쓰는데 안 묻고 있던 것 (2026-08-11 · 사장님 확정) ──
   //   프리패스가 정하는 조항 수치(지연손해금율·보관료·통지기한 등)는 여기서 묻지 않는다.
   //   여기 있는 것은 **공급사마다 갈리는 값**뿐이다.
-  { name: '긴급출동', note: '계약서 제6조 · 연 몇 회', field: 'annual_roadside_assistance', values: ['연간 5회', '연간 3회', '무제한', '없음'] },
-  { name: '가입 보험사', note: '계약서 제7조 · 보험사·공제조합 이름', field: 'insurer_name', values: [] },
-  { name: '지정 정비점', note: '계약서 제6조 · 없으면 「없음」', field: 'designated_garage', values: [] },
-  { name: '자차 처리 제외', note: '계약서 제7조 · 자차로 못 고치는 경우', field: 'self_damage_exclusions', values: [] },
-  { name: '대차 정책', note: '계약서 제6조 · 사고·정비 중 대차', field: 'replacement_car_policy', values: ['불가', '동급 대차', '협의'] },
-  { name: 'GPS 장착', note: '계약서 제8조', field: 'gps_installed', values: ['장착', '미장착'] },
-  { name: '중도해지 위약금 1년미만', note: '계약서 제16조 · 잔여 대여료의 몇 %', field: 'early_termination_rate_under1y', values: ['30%', '20%', '10%'] },
-  { name: '중도해지 위약금 1년이상', note: '계약서 제16조', field: 'early_termination_rate_over1y', values: ['20%', '10%', '30%'] },
-  { name: '사고 다발 해지기준', note: '계약서 제14조 · 1년 내 과실 50% 이상 N회', field: 'accident_termination_count', values: ['3', '2', '4'] },
+  { name: '긴급출동', note: '계약서 제14조 · 연 몇 회', field: 'annual_roadside_assistance', values: ['연간 5회', '연간 3회', '무제한', '없음'] },
+  { name: '가입 보험사', note: '계약서 제11조 · 보험사·공제조합 이름', field: 'insurer_name', values: [] },
+  { name: '지정 정비점', note: '계약서 제14조·제17조 · 없으면 「없음」', field: 'designated_garage', values: [] },
+  { name: '자차 처리 제외', note: '계약서 제18조 · 자차로 못 고치는 경우', field: 'self_damage_exclusions', values: [] },
+  { name: '대차 정책', note: '계약서 제5조·제20조 · 사고·정비 중 대차', field: 'replacement_car_policy', values: ['불가', '동급 대차', '협의'] },
+  { name: 'GPS 장착', note: '계약서 제24조', field: 'gps_installed', values: ['장착', '미장착'] },
+  { name: '중도해지 위약금 1년미만', note: '계약서 제8조 · 잔여 대여료의 몇 %', field: 'early_termination_rate_under1y', values: ['30%', '20%', '10%'] },
+  { name: '중도해지 위약금 1년이상', note: '계약서 제8조', field: 'early_termination_rate_over1y', values: ['20%', '10%', '30%'] },
+  { name: '사고 다발 해지기준', note: '계약서 제7조 · 1년 내 과실 50% 이상 3회', field: 'accident_termination_count', values: ['3'] },
   { name: '연령 하향 요금', note: '연령을 내릴 때 월 얼마', field: 'age_lowering_cost', values: ['10만원', '15만원', '20만원', '불가', '협의'] },
   { name: '추가운전자 요금', note: '1인당 월 얼마', field: 'additional_driver_cost', values: ['월 5만원', '월 3만원', '무료', '협의'] },
   { name: '탁송비', note: '', field: 'delivery_fee', values: ['협의', '무료', '무료(제주 제외)'] },

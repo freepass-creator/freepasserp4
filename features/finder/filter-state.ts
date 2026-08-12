@@ -24,6 +24,7 @@ export const FINDER_SORTS: { value: string; label: string }[] = [
   { value: 'new', label: '연식 최신순' },
   { value: 'old', label: '연식 오래된순' },
 ];
+export const FINDER_DEFAULT_SORT = 'asc';
 
 export type SavedFinderFilters = {
   q: string;
@@ -40,7 +41,7 @@ export function emptyBag(): FilterBag {
   return {
     periods: new Set(), rent: new Set(), dep: new Set(), mile: new Set(), fuel: new Set(),
     ptype: new Set(), credit: new Set(), perks: new Set(), promo: new Set(),
-    dyn: {}, vehicle: { ...EMPTY_VEHICLE_FILTER }, models: new Set(), sort: '', interest: new Set(),
+    dyn: {}, vehicle: { ...EMPTY_VEHICLE_FILTER }, models: new Set(), sort: FINDER_DEFAULT_SORT, interest: new Set(),
   };
 }
 

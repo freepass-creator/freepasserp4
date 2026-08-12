@@ -75,14 +75,15 @@ function dotJoin(parts: (ReactNode | string | false | null | undefined)[]) {
 }
 
 /** 문의 — 안읽음=확인필요 · 문의 · 진행 · 완료/취소 */
-function chatStatusIcon(stage: { label: string; tone: BadgeTone }, unread: number): {
+function chatStatusIcon(stage: { label: string; tone: BadgeTone }, unread: number, unreplied: boolean): {
   icon: LucideIcon; tone: BadgeTone; title: string;
 } {
+  // 응답 필요 상태가 lifecycle보다 우선한다. 진행 중 계약이라도 새 메시지를 놓치면 안 된다.
+  if (unread > 0) return { icon: MessageCircleWarning, tone: 'amber', title: `확인 필요 · 안읽음 ${unread}` };
+  if (unreplied) return { icon: MessageCircleWarning, tone: 'red', title: '읽었지만 아직 회신하지 않음' };
   if (stage.label === '계약완료') return { icon: MessageCircleCheck, tone: 'green', title: '계약완료' };
   if (stage.label === '계약취소') return { icon: MessageCircleX, tone: 'red', title: '계약취소' };
-  // 좌측 아이콘은 업무 lifecycle 전용이다. 안읽음은 경고 아이콘과 CountPill로 표시한다.
   if (stage.label !== '문의') return { icon: MessageCircleMore, tone: stage.tone, title: stage.label };
-  if (unread > 0) return { icon: MessageCircleWarning, tone: 'amber', title: `확인 필요 · 안읽음 ${unread}` };
   return { icon: MessageCircle, tone: 'gray', title: '문의' };
 }
 
@@ -123,12 +124,14 @@ function inventoryStatusIcon(p: EntityRecord): { icon: LucideIcon; tone: BadgeTo
  *   2 마지막 메시지 / 안읽음
  */
 export const ChatRoomRow = memo(function ChatRoomRow({
-  room, stageContract, counter, unread, selected, onClick, displayName, plate,
+  room, stageContract, counter, unread, unreplied = false, selected, onClick, displayName, plate,
 }: {
   room: EntityRecord;
   stageContract?: EntityRecord | null;
   counter: string;
   unread: number;
+  /** 상대의 마지막 메시지를 읽었지만 아직 답하지 않은 방 */
+  unreplied?: boolean;
   selected?: boolean;
   onClick: (room: EntityRecord) => void; // 항목을 인자로 받는 안정 핸들러(부모 useCallback) — memo 유효화
   /** ①줄 주제 = 차량명. 차번·상대방은 같은 줄에 뮤트로 붙인다. */
@@ -138,7 +141,7 @@ export const ChatRoomRow = memo(function ChatRoomRow({
 }) {
   const stage = contractStage(stageContract);
   const msg = listText(room.last_message) || '대화를 시작하세요';
-  const ic = chatStatusIcon(stage, unread);
+  const ic = chatStatusIcon(stage, unread, unreplied);
   const head = listText(displayName) || listText(room.vehicle_name) || '상품';
   const plateText = String(plate || '').trim();
   const counterText = String(counter || '').replace(/\s+/g, ' ').trim();
@@ -146,8 +149,9 @@ export const ChatRoomRow = memo(function ChatRoomRow({
   return (
     <FeedListRow
       selected={selected}
+      attentionTone={unread > 0 ? 'amber' : unreplied ? 'red' : undefined}
       onClick={() => onClick(room)}
-      thumb={<FeedThumbIcon icon={ic.icon} tone={ic.tone} title={ic.title} decorative={stage.label !== '문의' || unread > 0} />}
+      thumb={<FeedThumbIcon icon={ic.icon} tone={ic.tone} title={ic.title} decorative={stage.label !== '문의' || unread > 0 || unreplied} />}
       lines={[
         <FeedTitleRow
           key="t"
@@ -159,6 +163,7 @@ export const ChatRoomRow = memo(function ChatRoomRow({
             <FeedSub strong={unread > 0}>{msg}</FeedSub>
           </div>
           {unread > 0 ? <CountPill n={unread} title={`안읽음 ${unread}건`} /> : null}
+          {unread === 0 && unreplied ? <Badge tone="red" variant="solid" title="읽었지만 아직 회신하지 않음">미회신</Badge> : null}
         </div>,
       ]}
     />
@@ -293,6 +298,19 @@ export function ContractCreateRow({ onClick }: { onClick: () => void }) {
   );
 }
 
+/** 계약서관리 목록 맨 위 — 새 계약서를 작성한 뒤 착한거래 링크를 보내는 시작점. */
+export function EsignCreateRow({ selected, onClick }: { selected?: boolean; onClick: () => void }) {
+  return (
+    <CreateListRow
+      label="계약서 등록"
+      hint="여기를 눌러 새 전자계약을 작성해주세요"
+      ariaLabel="계약서 등록"
+      selected={selected}
+      onClick={onClick}
+    />
+  );
+}
+
 function memberStatus(row: EntityRecord, kind: 'user' | 'partner'): {
   icon: LucideIcon; tone: BadgeTone; title: string;
 } {
@@ -403,11 +421,12 @@ export function MemberCreateRow({
 }
 
 function CreateListRow({
-  label, hint, ariaLabel, onClick,
+  label, hint, ariaLabel, selected, onClick,
 }: {
   label: string;
   hint: string;
   ariaLabel: string;
+  selected?: boolean;
   onClick: () => void;
 }) {
   const mobile = useIsMobile();
@@ -417,6 +436,7 @@ function CreateListRow({
       role="button"
       tabIndex={0}
       aria-label={ariaLabel}
+      aria-pressed={selected || undefined}
       className="fp-card fp-card-row fp-press"
       onClick={() => { haptic.tap(); onClick(); }}
       onKeyDown={(e) => {
@@ -436,6 +456,8 @@ function CreateListRow({
         boxSizing: 'border-box',
         cursor: 'pointer',
         color: 'inherit',
+        background: selected ? C.warnBg : undefined,
+        boxShadow: selected ? `inset 3px 0 0 ${C.warn}` : undefined,
       }}
     >
       <FeedThumbIcon icon={Plus} tone="blue" title={ariaLabel} />
@@ -571,6 +593,58 @@ export function EsignListRow({
               ]) || '—'}
             </FeedSub>
           </div>
+        </div>,
+      ]}
+    />
+  );
+}
+
+/** 전자계약 발송센터 — 고객·차량·렌터카사·월대여료·기간·업무상태 6값만 노출한다. */
+export function EsignCenterListRow({
+  contract,
+  bucket,
+  providerName,
+  selected,
+  onClick,
+}: {
+  contract: EntityRecord;
+  bucket: '발송대기' | '서명중' | '확인필요' | '완료';
+  providerName?: string;
+  selected?: boolean;
+  onClick: () => void;
+}) {
+  const state = bucket === '완료'
+    ? { icon: FileCheck2, tone: 'green' as const }
+    : bucket === '확인필요'
+      ? { icon: FileX2, tone: 'red' as const }
+      : bucket === '서명중'
+        ? { icon: PenLine, tone: 'blue' as const }
+        : { icon: FileSignature, tone: 'gray' as const };
+  const vehicle = contractVehicleLabel(contract) || '차량명 미확정';
+  const customer = listText(contract.customer_name) || '고객명 미확정';
+  const provider = listText(providerName) || listText(contract.provider_company_code) || '렌터카사 미확정';
+  const rent = Number(contract.rent_amount_snapshot) || 0;
+  const months = Number(contract.rent_month_snapshot) || 0;
+  return (
+    <FeedListRow
+      selected={selected}
+      onClick={onClick}
+      thumb={<FeedThumbIcon icon={state.icon} tone={state.tone} title={bucket} decorative />}
+      lines={[
+        <FeedTitleRow
+          key="t"
+          title={<FeedTitle>{customer}</FeedTitle>}
+          meta={<Badge tone={state.tone} variant={bucket === '확인필요' ? 'solid' : 'fill'}>{bucket}</Badge>}
+        />,
+        <div key="s" style={{ minWidth: 0, overflow: 'hidden', width: '100%' }}>
+          <FeedSub>
+            {dotJoin([
+              vehicle,
+              provider,
+              rent ? `월 ${won(rent)}` : '월대여료 미확정',
+              months ? `${months}개월` : '기간 미확정',
+            ])}
+          </FeedSub>
         </div>,
       ]}
     />

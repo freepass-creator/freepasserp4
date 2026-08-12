@@ -68,6 +68,7 @@ export function FeedListRow({
   thumb,
   lines,
   selected,
+  attentionTone,
   onClick,
   href,
 }: {
@@ -75,6 +76,8 @@ export function FeedListRow({
   /** 일반 목록 = 2줄 SSOT. (상품 파인더 ProductRowCard는 별도) */
   lines: ReactNode[];
   selected?: boolean;
+  /** 목록에서 즉시 처리할 행의 좌측 신호. 상태 의미는 도메인 행이 결정한다. */
+  attentionTone?: 'amber' | 'red';
   onClick?: () => void;
   href?: string;
 }) {
@@ -123,11 +126,12 @@ export function FeedListRow({
     </>
   );
   if (href) {
-    return <a href={href} className="fp-card fp-card-row" style={style} onClick={() => haptic.nav()}>{body}</a>;
+    return <a href={href} className="fp-card fp-card-row" data-attention={attentionTone} style={style} onClick={() => haptic.nav()}>{body}</a>;
   }
   return (
     <div role={onClick ? 'button' : undefined} tabIndex={onClick ? 0 : undefined}
       aria-current={onClick && selected ? 'true' : undefined}
+      data-attention={attentionTone}
       className="fp-card fp-card-row"
       onClick={onClick ? () => { haptic.tap(); onClick(); } : undefined}
       onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } } : undefined}

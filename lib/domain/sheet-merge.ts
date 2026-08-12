@@ -16,6 +16,15 @@ const PROTECTED = new Set([
   '_snap_at', '_snap_history',
 ]);
 
+/** 공급사가 시트에서 책임지고 갱신하는 재고 원자. 원본에 값이 오면 ERP 수기값보다 우선한다. */
+export const SUPPLIER_OWNED_PRODUCT_FIELDS = new Set([
+  'vehicle_status', 'status_label_raw', 'product_type',
+  'maker', 'model', 'sub_model', 'variant', 'trim_name', 'trim_extra',
+  'year', 'first_registration_date', 'fuel_type', 'engine_cc', 'mileage',
+  'ext_color', 'int_color', 'seats', 'drive_type', 'vehicle_class', 'usage',
+  'options', 'photo_link', 'location', 'price',
+]);
+
 function isBlank(v: unknown): boolean {
   if (v == null) return true;
   if (typeof v === 'string') return v.trim() === '';
@@ -26,7 +35,17 @@ function isBlank(v: unknown): boolean {
 
 function same(a: unknown, b: unknown): boolean {
   if (a === b) return true;
-  try { return JSON.stringify(a) === JSON.stringify(b); } catch { return false; }
+  if (a == null || b == null || typeof a !== 'object' || typeof b !== 'object') return false;
+  if (Array.isArray(a) || Array.isArray(b)) {
+    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+    return a.every((value, index) => same(value, b[index]));
+  }
+  const left = a as Record<string, unknown>;
+  const right = b as Record<string, unknown>;
+  const leftKeys = Object.keys(left).sort();
+  const rightKeys = Object.keys(right).sort();
+  if (leftKeys.length !== rightKeys.length) return false;
+  return leftKeys.every((key, index) => key === rightKeys[index] && same(left[key], right[key]));
 }
 
 const MANUAL_FIELD_EXCLUDED = new Set([
@@ -104,7 +123,7 @@ export function softMergeProduct(existing: EntityRecord, incoming: EntityRecord)
   for (const [k, v] of Object.entries(incoming)) {
     if (PROTECTED.has(k)) continue;
     if (isBlank(v)) continue;
-    if (manualFields.has(k)) continue;
+    if (manualFields.has(k) && !SUPPLIER_OWNED_PRODUCT_FIELDS.has(k)) continue;
     // 엔진 락(계약중·출고불가)의 상태는 settlement-engine 소관 — 시트 재동기화가 덮으면 재고가 통째로 풀린다.
     // 락 주인이 없는 매물(공급사 수기 출고불가 등)은 그대로 시트가 갱신하도록 둔다.
     if (k === 'vehicle_status') {
