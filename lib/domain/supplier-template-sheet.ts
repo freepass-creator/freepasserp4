@@ -115,6 +115,9 @@ const POLICY_COLUMNS: { name: string; note: string; field?: string; values?: str
   { name: '자차 처리 제외', note: '계약서 제18조 · 자차로 못 고치는 경우', field: 'self_damage_exclusions', values: [] },
   { name: '대차 정책', note: '계약서 제5조·제20조 · 사고·정비 중 대차', field: 'replacement_car_policy', values: ['불가', '동급 대차', '협의'] },
   { name: 'GPS 장착', note: '계약서 제24조', field: 'gps_installed', values: ['장착', '미장착'] },
+  // 승계는 해지와 다른 길이다 — 해지는 물고 끝내고, 승계는 남은 기간을 새 임차인이 이어받는다.
+  { name: '승계 가능여부', note: '계약을 다른 사람에게 넘길 수 있나', field: 'succession_allowed', values: ['가능', '협의', '불가'] },
+  { name: '승계수수료', note: '넘길 때 1회 · 예: 30만원 · 안 받으면 0', field: 'succession_fee', values: ['30만원', '50만원', '20만원', '없음', '협의'] },
   { name: '중도해지 위약금 1년미만', note: '계약서 제8조 · 잔여 대여료의 몇 %', field: 'early_termination_rate_under1y', values: ['30%', '20%', '10%'] },
   { name: '중도해지 위약금 1년이상', note: '계약서 제8조', field: 'early_termination_rate_over1y', values: ['20%', '10%', '30%'] },
   { name: '사고 다발 해지기준', note: '계약서 제7조 · 1년 내 과실 50% 이상 3회', field: 'accident_termination_count', values: ['3'] },

@@ -127,8 +127,16 @@ export const CONTRACT_LAYER: PolicyField[] = [
    * 드롭다운 penalty_condition 하나로 두면 어느 구간인지 못 적어 계약서가 거짓말을 한다.
    * → 요율 두 칸만 계약 층에 둔다. penalty_condition 은 영업 상담 표기로 남긴다.
    */
+  /**
+   * 승계 — 해지와 **다른 길**이다. 해지는 위약금을 물고 끝내고, 승계는 남은 기간을 새 임차인이
+   * 이어받는다. 손님이 낼 돈이 전혀 다르므로 한 칸으로 뭉치면 상담에서 못 답한다.
+   * ⚠ 지금 계약서 서식에는 승계 조항이 없다 — 값을 먼저 모으고 조항은 뒤따라 넣는다.
+   */
+  { key: 'succession_allowed', label: '승계 가능여부', layer: 'contract', exposure: 'contract', why: '불가면 수수료를 물을 일도 없다' },
+  { key: 'succession_fee', label: '승계수수료', layer: 'contract', exposure: 'contract', why: '계약을 넘길 때 1회. 공급사마다 갈린다 — 우리가 정할 수 없다' },
   { key: 'early_termination_rate_under1y', label: '중도해지 위약금 · 1년 미만(0~1)', layer: 'contract', exposure: 'contract', article: '제8조', why: '잔여기간 대여료 × 이 율' },
   { key: 'early_termination_rate_over1y', label: '중도해지 위약금 · 1년 이상(0~1)', layer: 'contract', exposure: 'contract', article: '제8조', why: '경과가 길수록 낮아진다' },
+  { key: 'contract_transfer_fee', label: '승계수수료(원)', layer: 'contract', exposure: 'contract', article: '제8조·제10조', why: '승계 승인·심사·계약변경 업무에 적용하는 회사별 금액' },
   { key: 'late_fee_rate', label: '지연손해금율', layer: 'contract', exposure: 'contract', article: '제25조', why: '연체 이자율' },
   { key: 'impound_fee', label: '물품 보관료', layer: 'contract', exposure: 'contract', article: '제22조', why: '안 찾아가면 보증금에서 공제된다' },
 
@@ -290,6 +298,7 @@ export function contractTermsForDetail(
     over_mileage_rate_imported: '위반 시 부담',
     early_termination_rate_under1y: '위반 시 부담',
     early_termination_rate_over1y: '위반 시 부담',
+    contract_transfer_fee: '계약 변경',
     late_fee_rate: '위반 시 부담',
     impound_fee: '위반 시 부담',
     deposit_return_days: '반환·보관',
@@ -319,10 +328,11 @@ export function contractTermsForDetail(
     accident_termination_count: '회 (1년 내 과실 50% 이상)',
     over_mileage_rate_domestic: '원 / 1km (국산)',
     over_mileage_rate_imported: '원 / 1km (수입)',
+    contract_transfer_fee: '원',
   };
 
   // 묶음 순서를 못박는다 — 정의 순서대로 두면 같은 묶음이 화면에서 두 번 갈라진다.
-  const ORDER = ['위반 시 부담', '미납 제재', '제재', '만기', '반환·보관', '사고·정비', '차량관리', '기타'];
+  const ORDER = ['위반 시 부담', '계약 변경', '미납 제재', '제재', '만기', '반환·보관', '사고·정비', '차량관리', '기타'];
 
   return CONTRACT_LAYER
     .filter((f) => f.exposure === 'contract' && has(p, f.key))

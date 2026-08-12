@@ -205,6 +205,15 @@ export const ENTITIES: Record<string, Entity> = {
        * 중도해지 위약금 — **잔여기간 대여료에 비례**한다(프리패스 표준: 1년 미만 30% / 1년 이상 20%).
        * 경과 기간이 길수록 낮아진다. 한 값으로 두면 어느 구간인지 알 수 없어 계약서가 거짓말을 한다.
        */
+      /**
+       * 승계수수료 — **계약을 다른 사람에게 넘길 때** 받는 돈(사장님 2026-08-12).
+       * 중도해지와 다른 길이다. 해지는 위약금을 물고 끝내는 것이고, 승계는 남은 기간을
+       * 새 임차인이 이어받는 것이라 손님이 낼 돈이 전혀 다르다. 한 칸으로 뭉치면
+       * 「해지하면 얼마, 넘기면 얼마」를 상담에서 못 답한다.
+       * 공급사마다 갈리는 값이라 정책에 둔다 — 우리가 정할 수 없다.
+       */
+      { key: 'succession_fee', label: '승계수수료', type: 'number', manual: true, note: '계약을 다른 사람에게 넘길 때 1회 · 원. 안 받으면 0, 못 넘기면 비워 두고 「승계 가능여부」를 불가로' },
+      { key: 'succession_allowed', label: '승계 가능여부', type: 'select', options: ['가능', '협의', '불가'], manual: true, note: '불가면 수수료는 의미가 없다' },
       { key: 'early_termination_rate_under1y', label: '중도해지 위약금 · 1년 미만(0~1)', type: 'number', range: [0, 1], manual: true, note: '약관 제8조 · 잔여 대여료 × 이 값. 30% → 0.3' },
       { key: 'early_termination_rate_over1y', label: '중도해지 위약금 · 1년 이상(0~1)', type: 'number', range: [0, 1], manual: true, note: '약관 제8조 · 20% → 0.2' },
       {
@@ -259,6 +268,7 @@ export const ENTITIES: Record<string, Entity> = {
       },
       // 돈 — 날짜·횟수는 range 로 오입력을 막는다. 잘못 들어가면 정산액이 통째로 틀어진다.
       { key: 'late_fee_rate', label: '지연손해금율(0~1)', type: 'number', range: [0, 0.2], manual: true, note: '약관 제25조 · 연 12% → 0.12' },
+      { key: 'contract_transfer_fee', label: '승계수수료(원)', type: 'number', manual: true, note: '약관 제8조·제10조 · 프리패스 기준 100만원, 계약회사별 확인·입력' },
       { key: 'deposit_return_days', label: '보증금 반환기한(일)', type: 'number', manual: true, note: '약관 제6조 · 반납 후 N일 이내' },
       { key: 'impound_keep_days', label: '물품 보관기간(일)', type: 'number', manual: true, note: '약관 제22조 · 이후 관계 법령이 허용하는 방법으로 처리' },
       { key: 'impound_fee', label: '물품 보관료(일)', type: 'number', manual: true, note: '약관 제22조 · 실제 보관비용 범위' },
