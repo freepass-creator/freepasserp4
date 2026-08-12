@@ -303,7 +303,7 @@ const call = async (url: string, init?: RequestInit) => {
   return text ? JSON.parse(text) : {};
 };
 
-const meta = await call(`${api}?fields=sheets(properties(title,sheetId),bandedRanges(bandedRangeId,range(sheetId)))`) as
+const meta = await call(`${api}?fields=sheets(properties(title,sheetId,hidden),bandedRanges(bandedRangeId,range(sheetId)))`) as
   { sheets: { properties: { title: string; sheetId: number }; bandedRanges?: { bandedRangeId: number }[] }[] };
 const gidArg = arg('gid');
 const found = gidArg
@@ -312,7 +312,9 @@ const found = gidArg
   // 옛 이름(상품리스트(구버전))으로 만들어진 탭도 이어서 쓴다 — 주소(gid)가 안 바뀌어야
   // 영업자가 즐겨찾기해 둔 링크가 산다.
   : meta.sheets.find((s) => s.properties.title.startsWith('상품리스트(구버전)'))
-    || meta.sheets.find((s) => s.properties.title.startsWith('상품리스트'))
+    // ⚠ **숨긴 탭은 건너뛴다.** 접어 둔 옛 신버전도 이름이 「상품리스트…」라
+    //   그쪽으로 찍혀 버린다 — 영업자가 보는 탭은 그대로인데 우리는 «찍었다»고 믿게 된다(실측 2026-08-13).
+    || meta.sheets.find((s) => !s.properties.hidden && s.properties.title.startsWith('상품리스트'))
     || meta.sheets.find((s) => s.properties.title.startsWith('종합표'));
 if (!found) throw new Error('상품리스트 탭을 못 찾음 — --gid 로 지정하라');
 const gid = found.properties.sheetId;
@@ -416,5 +418,37 @@ await call(`${api}:batchUpdate`, {
     } })),
   ] }),
 });
+/**
+ * ★**차량번호 셀에 사진링크를 건다**(사장님 2026-08-12 — 「차량번호에 사진링크 걸어두고」).
+ *   사진 열을 따로 두지 않는다 — 공급사들이 이미 쓰는 방식이고(아이카는 상세페이지,
+ *   오플·리더스는 드라이브 폴더) 표가 넓어지지 않는다.
+ *
+ * ⚠ **맨 마지막에** 넣는다. 뒤에 `repeatCell` 이 한 번이라도 오면 링크가 통째로 지워진다
+ *   (실측 2026-08-11). 그래서 서식을 다 입힌 다음 여기서 따로 건다.
+ * ⚠ 사진이 없는 차는 **손대지 않는다** — 빈 링크를 걸면 눌렀을 때 아무 데도 안 간다.
+ */
+{
+  const iPlate = COLUMNS.indexOf('차량번호');
+  const linked = rows
+    .map((p, k) => ({ row: k + 1, plate: S((p as Rec).car_number), url: S((p as Rec).photo_link) }))
+    .filter((x) => x.plate && x.url.startsWith('http'));
+  if (iPlate >= 0 && linked.length) {
+    const reqs = linked.map((x) => ({
+      updateCells: {
+        range: { sheetId: gid, startRowIndex: x.row, endRowIndex: x.row + 1, startColumnIndex: iPlate, endColumnIndex: iPlate + 1 },
+        rows: [{ values: [{
+          userEnteredValue: { stringValue: x.plate },
+          textFormatRuns: [{ startIndex: 0, format: { link: { uri: x.url } } }],
+        }] }],
+        fields: 'userEnteredValue,textFormatRuns',
+      },
+    }));
+    // 줄이 떨어져 있어 한 줄씩 보낸다. 200개씩 끊어 요청이 너무 커지지 않게.
+    for (let k = 0; k < reqs.length; k += 200) {
+      await call(`${api}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests: reqs.slice(k, k + 200) }) });
+    }
+    console.log(`  차량번호에 사진링크 ${linked.length}대 — 사진 없는 차는 안 건드렸다`);
+  }
+}
 console.log(`\n  반영 완료 — 탭 「${title}」 · ${values.length}행`);
 console.log(`  https://docs.google.com/spreadsheets/d/${SHEET}/edit#gid=${gid}\n`);
