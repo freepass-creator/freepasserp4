@@ -21,6 +21,7 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { canonProductType, isStockedProduct, priceList } from '../lib/domain/product';
 import { companyAlias } from '../lib/domain/identity';
+import { buildSectionBanding } from '../lib/domain/supplier-template-sheet';
 import { fuelDisplay, fuelEmbeddedCc } from '../lib/domain/vehicle-master-match';
 import type { EntityRecord } from '../lib/intake/entities';
 
@@ -354,10 +355,15 @@ await call(`${api}:batchUpdate`, {
      * ⚠ 줄무늬는 «추가»만 되는 API 다 — 다시 찍을 때 먼저 지우지 않으면 400 이 난다.
      */
     ...(found.bandedRanges || []).map((b) => ({ deleteBanding: { bandedRangeId: b.bandedRangeId } })),
-    { addBanding: { bandedRange: {
-      range: { sheetId: gid, startRowIndex: 0, endRowIndex: values.length, startColumnIndex: 0, endColumnIndex: COLUMNS.length },
-      rowProperties: { headerColorStyle: { rgbColor: rgb(INK) }, firstBandColorStyle: { rgbColor: rgb('FFFFFF') }, secondBandColorStyle: { rgbColor: rgb(BAND) } },
-    } } },
+    /**
+     * ★구간을 **줄무늬 색으로** 가른다 — 공급사 시트와 **같은 규칙**을 쓴다
+     *   (사장님 2026-08-12 「구글시트로 통일해놓자」).
+     *     차량정보·부가  옅은 회색
+     *     대여료         옅은 노랑   ← 파는 값
+     *     보증금         옅은 파랑   ← 한 번 받는 돈. 요금과 헷갈리면 안 된다
+     *   규칙은 `buildSectionBanding` 하나가 SSOT다. 여기서 색을 따로 정하면 두 표가 갈린다.
+     */
+    ...buildSectionBanding(gid, COLUMNS.map((name) => ({ name })), values.length, 0),
     // 한 줄로 못 담는 긴 칸(옵션·비고)은 넘치게 둔다 — 줄바꿈하면 행 높이가 들쭉날쭉해 훑기 어렵다.
     { repeatCell: {
       range: { sheetId: gid, startRowIndex: 1, endRowIndex: values.length, startColumnIndex: 0, endColumnIndex: COLUMNS.length },

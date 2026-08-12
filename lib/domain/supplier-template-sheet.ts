@@ -117,7 +117,7 @@ const POLICY_COLUMNS: { name: string; note: string; field?: string; values?: str
   { name: 'GPS 장착', note: '계약서 제24조', field: 'gps_installed', values: ['장착', '미장착'] },
   // 승계는 해지와 다른 길이다 — 해지는 물고 끝내고, 승계는 남은 기간을 새 임차인이 이어받는다.
   { name: '승계 가능여부', note: '계약을 다른 사람에게 넘길 수 있나', field: 'succession_allowed', values: ['가능', '협의', '불가'] },
-  { name: '승계수수료', note: '넘길 때 1회 · 예: 30만원 · 안 받으면 0', field: 'succession_fee', values: ['30만원', '50만원', '20만원', '없음', '협의'] },
+  { name: '승계수수료', note: '넘길 때 1회 · 프리패스 평균 100만원 · 회사 적용값 입력', field: 'succession_fee', values: ['100만원', '50만원', '150만원', '없음', '협의'] },
   { name: '중도해지 위약금 1년미만', note: '계약서 제8조 · 잔여 대여료의 몇 %', field: 'early_termination_rate_under1y', values: ['30%', '20%', '10%'] },
   { name: '중도해지 위약금 1년이상', note: '계약서 제8조', field: 'early_termination_rate_over1y', values: ['20%', '10%', '30%'] },
   { name: '사고 다발 해지기준', note: '계약서 제7조 · 1년 내 과실 50% 이상 3회', field: 'accident_termination_count', values: ['3'] },
@@ -563,7 +563,8 @@ export function columnWidth(name: string): number {
   if (name === '사진링크') return 200;
   if (/보증|개월/.test(name)) return 100;
   if (/^기타기간/.test(name)) return 100;
-  if (name === '차량번호' || name === '정책코드' || name === '최초등록일') return 104;
+  // 날짜 칸은 같은 너비로 — 「2026-08-12」가 안 잘리는 최소치다. 입고일자와 최초등록일은 같은 꼴이다.
+  if (name === '차량번호' || name === '정책코드' || name === '최초등록일' || name === '입고일자') return 104;
   /**
    * ★칩(드롭다운) 칸 — **가장 긴 값이 잘리지 않을 만큼만**(사장님 확정 2026-08-11).
    *   칩 여백과 화살표가 자리를 먹으므로 글자수만으로는 모자란다. 실측으로 잡은 값이다.
