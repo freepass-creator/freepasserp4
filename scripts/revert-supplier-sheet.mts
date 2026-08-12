@@ -39,8 +39,13 @@ const rows: { table: string; key: string; row: Rec }[] = [];
 for (const [table, src] of [['partners', t3], ['v4/partners', t4]] as [string, Rec][]) {
   for (const [k, v] of Object.entries<Rec>(src)) if (v && typeof v === 'object' && !dead(v)) rows.push({ table, key: k, row: v });
 }
+/**
+ * ★코드는 **레코드 키로도** 찾는다. v4 쪽에 `partner_code` 가 빈 레코드가 있는데
+ *   병합하면 v4 가 이기므로, 그걸 빼놓으면 되돌려도 ERP 는 여전히 우리 시트를 본다
+ *   (실측 2026-08-12 — 손오공 v4/partners/RP012 의 코드가 비어 있었다).
+ */
 const byCode = new Map<string, typeof rows>();
-for (const r of rows) { const c = S(r.row.partner_code); if (!c) continue; byCode.set(c, [...(byCode.get(c) || []), r]); }
+for (const r of rows) { const c = S(r.row.partner_code) || S(r.key); if (!c) continue; byCode.set(c, [...(byCode.get(c) || []), r]); }
 
 console.log(`■ 정본을 공급사 옛 시트로 되돌린다 ${APPLY ? '(반영)' : '(dry-run)'}\n`);
 // 허브도 같이 되돌린다 — 안 고치면 다음 동기화에 우리 시트로 다시 덮인다.
@@ -59,14 +64,19 @@ for (const [code, list] of byCode) {
   const note = S(list.map((r) => S(r.row.sheet_note)).find(Boolean));
   const oldUrl = (note.match(/https:\/\/docs\.google\.com\/spreadsheets\/d\/[\w-]+[^\s]*/) || [])[0];
   if (!oldUrl) continue;                       // 넘긴 적 없는 곳
-  const now = S(list.map((r) => S(r.row.sheet_url)).find(Boolean));
-  if (now && oldUrl.includes((now.match(/\/d\/([\w-]+)/) || [])[1] || '§')) continue;   // 이미 옛 시트
+  const oldId = (oldUrl.match(/\/d\/([\w-]+)/) || [])[1] || '§';
+  // ★레코드마다 따로 본다 — 하나만 보고 넘기면 v3 는 옛 시트인데 v4 는 우리 시트인 상태가 남는다.
+  const stale = list.filter((r) => {
+    const cur = S(r.row.sheet_url);
+    return cur && !cur.includes(oldId);
+  });
+  if (!stale.length) continue;
   n++;
   const name = S(list[0].row.partner_name || list[0].row.name) || code;
   console.log(`  ${name.slice(0, 14).padEnd(16)}${code.padEnd(10)}→ ${oldUrl.slice(0, 62)}`);
   if (!APPLY) continue;
   const at = new Date().toISOString();
-  for (const r of list) {
+  for (const r of stale) {
     await fetch(`${DB}/${r.table}/${encodeURIComponent(r.key)}.json?access_token=${dbT}`, {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
       // 탭 지정은 지운다 — 옛 시트의 탭 구성은 그 시트가 스스로 안다(비우면 보이는 탭 전부).

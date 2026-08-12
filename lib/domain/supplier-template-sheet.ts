@@ -590,27 +590,54 @@ const MAKER_INK: Record<string, [number, number, number]> = {
  *   ② 대여료    보증금·기간별 요금      따뜻한 미색
  *   ③ 부가정보  정책코드·최초등록일·사진링크  찬 회색
  */
-export function buildSectionTint(gid: number, columns: { name: string }[], rowCount = 500): Rec[] {
-  const isMoney = (n: string) => /보증|개월$|^기타기간/.test(n);
-  const isExtra = (n: string) => /^(정책코드|최초등록일|사진링크|비고|차대번호|1만km증액)$/.test(n);
+export function buildSectionBanding(
+  gid: number,
+  columns: { name: string }[],
+  rowCount = 500,
+  skipUntil = 0,
+): Rec[] {
+  /**
+   * ★**줄무늬 색으로** 구간을 가른다(사장님 확정 2026-08-12).
+   *   구간을 통으로 한 색으로 칠하면 줄무늬가 죽어 어느 줄을 보는지 놓친다.
+   *   줄무늬는 그대로 두고 «두 번째 줄 색»만 구간마다 달리한다.
+   *     차량정보  흰 / 회색      (표가 자기 구간을 스스로 칠한다 — skipUntil 까지는 건너뛴다)
+   *     대여료    흰 / 옅은 노랑
+   *     기본조건·부가  흰 / 회색   보증금은 파는 값이 아니라 한 번 정하는 조건이라 이쪽이다
+   */
+  /**
+   * 세 가지 톤 — 보증금은 요금도 기본조건도 아닌 **제 몫**이다(사장님 확정 2026-08-12).
+   *   요금   옅은 노랑   파는 값
+   *   보증금 옅은 파랑   한 번 받는 돈 — 요금과 헷갈리면 안 된다
+   *   그 밖  옅은 회색   차 정보·정책·부가
+   */
+  const RENT: [number, number, number] = [1.00, 0.97, 0.85];
+  const DEPOSIT: [number, number, number] = [0.92, 0.95, 0.99];
+  const BASE: [number, number, number] = [0.97, 0.97, 0.98];
+  const kindOf = (n: string) => (/보증/.test(n) ? 'dep' : /개월$|^기타기간/.test(n) ? 'rent' : 'base');
   const out: Rec[] = [];
-  const paint = (from: number, to: number, rgb: [number, number, number]) => {
+  const band = (from: number, to: number, rgb: [number, number, number]) => {
     if (to <= from) return;
     out.push({
-      repeatCell: {
-        range: grid(gid, ROW_DATA, rowCount, from, to),
-        cell: { userEnteredFormat: { backgroundColorStyle: { rgbColor: { red: rgb[0], green: rgb[1], blue: rgb[2] } } } },
-        fields: 'userEnteredFormat.backgroundColorStyle',
+      addBanding: {
+        bandedRange: {
+          range: grid(gid, ROW_HEADER, rowCount, from, to),
+          rowProperties: {
+            headerColorStyle: { rgbColor: { red: 0.13, green: 0.20, blue: 0.33 } },
+            firstBandColorStyle: { rgbColor: { red: 1, green: 1, blue: 1 } },
+            secondBandColorStyle: { rgbColor: { red: rgb[0], green: rgb[1], blue: rgb[2] } },
+          },
+        },
       },
     });
   };
-  let moneyFrom = -1; let moneyTo = -1; let extraFrom = -1; let extraTo = -1;
+  let from = -1; let kind = '';
+  const flush = (to: number) => { if (from >= 0 && kind) band(from, to, kind === 'rent' ? RENT : kind === 'dep' ? DEPOSIT : BASE); from = -1; kind = ''; };
   columns.forEach((c, i) => {
-    if (isMoney(c.name)) { if (moneyFrom < 0) moneyFrom = i; moneyTo = i + 1; }
-    if (isExtra(c.name)) { if (extraFrom < 0) extraFrom = i; extraTo = i + 1; }
+    if (i < skipUntil) return;                 // 표가 칠하는 구간은 손대지 않는다
+    const k = kindOf(c.name);
+    if (k !== kind) { flush(i); kind = k; from = i; }
   });
-  paint(moneyFrom, moneyTo, [1.00, 0.98, 0.94]);     // 미색
-  paint(extraFrom, extraTo, [0.95, 0.96, 0.97]);     // 옅은 회색
+  flush(columns.length);
   return out;
 }
 
@@ -945,12 +972,18 @@ export function buildTableRequest(
   columns = TEMPLATE_COLUMNS,
   extra: Record<string, readonly string[]> = {},
   rowCount = 500,
+  /**
+   * 표 이름 — **한 문서 안에서 겹치면 안 된다.**
+   * 「재고」로 고정해 뒀더니 같은 파일에 「인수형」 탭을 만들 때 이름이 겹쳐
+   * 구글이 「Internal error」로 거절했다(실측 2026-08-12). 탭마다 다른 이름을 준다.
+   */
+  name = '재고',
 ): Rec {
   const lists: Record<string, readonly string[]> = { ...VALUE_LISTS, ...extra };
   return {
     addTable: {
       table: {
-        name: '재고',
+        name,
         // ★표는 **드롭다운 칸까지만** 씌운다(2026-08-11).
         //   구글 표 안에서는 셀 숫자서식이 통째로 무시된다 — 표 밖 같은 셀은 「900,000」,
         //   표 안은 열 타입을 DOUBLE 로 바꿔도 「900000」이다(대조 실험으로 확인).

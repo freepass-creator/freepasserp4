@@ -15,7 +15,7 @@ import { JWT } from 'google-auth-library';
 import { HANDLED_MAKER_OPTIONS } from '../lib/domain/handled-makers';
 import {
   buildBaseFont, buildChipColors, buildColumns, buildNumberFormats, buildRowHeights,
-  buildSectionTint, buildTemplateFormat, columnWidth, yearOptions,
+  buildSectionBanding, buildTemplateFormat, columnWidth, yearOptions,
 } from '../lib/domain/supplier-template-sheet';
 
 type Rec = Record<string, any>;
@@ -40,11 +40,12 @@ console.log(`■ 서식만 다시 입힌다 ${APPLY ? '(반영)' : '(dry-run)'} 
 
 for (const f of ((found.files || []) as Rec[])) {
   const label = S(f.name).replace('프리패스 재고 · ', '');
-  const meta = await api(`https://sheets.googleapis.com/v4/spreadsheets/${S(f.id)}?fields=sheets(properties(sheetId,title),conditionalFormats)`);
+  const meta = await api(`https://sheets.googleapis.com/v4/spreadsheets/${S(f.id)}?fields=sheets(properties(sheetId,title),conditionalFormats,tables(range),bandedRanges(bandedRangeId,range))`);
   const sh = ((meta.sheets || []) as Rec[]).find((x) => S(x.properties?.title) === '재고');
   if (!sh) { console.log(`  △ ${label.padEnd(12)}「재고」 탭이 없다`); continue; }
   const gid = Number(sh.properties?.sheetId ?? 0);
   const had = ((sh.conditionalFormats || []) as Rec[]).length;
+  const tableEnd = Number(((sh.tables || []) as Rec[])[0]?.range?.endColumnIndex ?? 0);
 
   // 헤더를 읽어 그 시트의 실제 열 구성을 쓴다 — 공급사마다 기간 열이 다르다.
   const vals = await api(`https://sheets.googleapis.com/v4/spreadsheets/${S(f.id)}/values/${encodeURIComponent('재고!A1:BZ1')}`);
@@ -63,8 +64,11 @@ for (const f of ((found.files || []) as Rec[])) {
     ...buildBaseFont(gid, cols.length, ROWS),
     // 머리행(남색·필수 주황·보증 흐리게)과 셀 메모를 다시 입힌다.
     ...buildTemplateFormat(gid, cols, { 제조사: HANDLED_MAKER_OPTIONS, 연식: yearOptions(new Date().getFullYear()) }, { asTable: true }),
-    // 구간 배경은 머리행 뒤·색 앞에 — 글자 색과 숫자서식은 배경을 안 건드린다.
-    ...buildSectionTint(gid, cols, ROWS),
+    // 표가 덮는 구간은 표가 스스로 칠한다 — 그 밖만 구간별 줄무늬로 가른다.
+    ...((sh.bandedRanges || []) as Rec[])
+      .filter((b) => Number(b.range?.startColumnIndex ?? 0) >= tableEnd)
+      .map((b) => ({ deleteBanding: { bandedRangeId: Number(b.bandedRangeId) } })),
+    ...buildSectionBanding(gid, cols, ROWS, tableEnd),
     ...buildChipColors(gid, cols, HANDLED_MAKER_OPTIONS, ROWS),
     // ★대여료 굵게·보증금 흐리게·천단위 콤마 — baseFont 뒤에 와야 살아남는다.
     ...buildNumberFormats(gid, cols, ROWS),
