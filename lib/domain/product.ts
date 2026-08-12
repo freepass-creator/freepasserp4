@@ -501,7 +501,17 @@ export function isListableProduct(p: EntityRecord): boolean {
  * 요금이 아직 없는 차는 «없는 차»가 아니라 «값을 아직 못 받은 차»다.
  */
 export function isStockedProduct(p: EntityRecord): boolean {
-  return !isHiddenFromCatalog(p);
+  if (isHiddenFromCatalog(p)) return false;
+  /**
+   * ★**차라고 말할 근거**가 있어야 한다 — 누구 차인지(공급사)와 무슨 차인지(차번 또는 차종).
+   *   요금은 안 따진다(값을 아직 못 받은 차도 재고다). 하지만 둘 다 없으면 그건 잔재다.
+   *   실측 2026-08-12: 파워트레인·연료만 있고 나머지가 전부 빈 `EXT_` 레코드 3건이
+   *   영업자 표 맨 위에 빈 줄로 올라왔다 — 영업자가 「시트가 깨졌다」고 본 게 이것이다.
+   *   ⚠ 차번이 없는 것 자체는 이유가 안 된다. 번호미정 신차는 차종·공급사가 있고 팔린다.
+   */
+  const named = String(p.car_number ?? '').trim() || String(p.model ?? '').trim() || String(p.sub_model ?? '').trim();
+  const owned = String(p.provider_company_code ?? '').trim() || String(p.partner_code ?? '').trim();
+  return !!(named && owned);
 }
 
 export function vehicleTone(s: string): 'green' | 'blue' | 'amber' | 'gray' | 'red' | 'orange' {
