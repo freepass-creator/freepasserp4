@@ -14,6 +14,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
+import { isVehicleTab } from '../lib/domain/supplier-template-sheet';
 
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
@@ -72,26 +73,38 @@ for (const p of Object.values<Rec>(partners)) {
   if (!id || seen.has(id)) continue;
   seen.add(id);
   const name = S(p.partner_name || p.name) || S(p.partner_code);
-  let vals: Rec;
-  try { vals = await api(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${encodeURIComponent('재고!A1:BZ600')}`); }
-  catch { continue; }   // 「재고」 탭이 없는 공급사 자기 시트는 대상이 아니다
-  const rows = ((vals.values || []) as string[][]);
-  const hdr = (rows[0] || []).map(S);
-  const iPlate = hdr.indexOf('차량번호');
-  const iPhoto = hdr.indexOf('사진링크');
-  if (iPlate < 0 || iPhoto < 0) continue;
+  /**
+   * ★재고 탭은 **한 장이 아닐 수 있다** — 렌트·구독을 나눈 공급사는 「렌트재고」·「구독재고」다.
+   *   「재고」만 찾으면 그 공급사 사진이 통째로 안 붙는다(손오공 2026-08-12).
+   */
+  let titles: string[] = [];
+  try {
+    const meta = await api(`https://sheets.googleapis.com/v4/spreadsheets/${id}?fields=sheets.properties.title`);
+    titles = ((meta.sheets || []) as Rec[]).map((sh) => S(sh.properties?.title)).filter(isVehicleTab);
+  } catch { continue; }
+  if (!titles.length) continue;   // 우리 규격 재고 탭이 없는 공급사 자기 시트는 대상이 아니다
 
   const writes: { range: string; values: string[][] }[] = [];
-  for (let r = 1; r < rows.length; r++) {
-    const plate = norm(rows[r][iPlate]);
-    const hit = plate ? byPlate.get(plate) : undefined;
-    if (!hit) continue;
-    notFound.delete(plate);
-    const now = S(rows[r][iPhoto]);
-    if (now && !OVERWRITE) { kept++; continue; }
-    if (now === hit.url) { kept++; continue; }
-    writes.push({ range: `재고!${A(iPhoto)}${r + 1}`, values: [[hit.url]] });
-    console.log(`  ★ ${name.slice(0, 12).padEnd(14)}${plate.padEnd(11)}사진 ${String(hit.shots).padStart(2)}장${now ? '  (기존 링크 덮음)' : ''}`);
+  for (const tab of titles) {
+    let vals: Rec;
+    try { vals = await api(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${encodeURIComponent(`${tab}!A1:BZ600`)}`); }
+    catch { continue; }
+    const rows = ((vals.values || []) as string[][]);
+    const hdr = (rows[0] || []).map(S);
+    const iPlate = hdr.indexOf('차량번호');
+    const iPhoto = hdr.indexOf('사진링크');
+    if (iPlate < 0 || iPhoto < 0) continue;
+    for (let r = 1; r < rows.length; r++) {
+      const plate = norm(rows[r][iPlate]);
+      const hit = plate ? byPlate.get(plate) : undefined;
+      if (!hit) continue;
+      notFound.delete(plate);
+      const now = S(rows[r][iPhoto]);
+      if (now && !OVERWRITE) { kept++; continue; }
+      if (now === hit.url) { kept++; continue; }
+      writes.push({ range: `${tab}!${A(iPhoto)}${r + 1}`, values: [[hit.url]] });
+      console.log(`  ★ ${name.slice(0, 12).padEnd(14)}${plate.padEnd(11)}사진 ${String(hit.shots).padStart(2)}장${now ? '  (기존 링크 덮음)' : ''}`);
+    }
   }
   if (!writes.length) continue;
   linked += writes.length;

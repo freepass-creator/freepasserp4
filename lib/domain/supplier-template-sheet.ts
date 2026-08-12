@@ -164,6 +164,8 @@ const FRONT_COLUMNS: { name: string; note: string; required?: boolean }[] = [
   { name: '연료', note: '가솔린 · 디젤 · 하이브리드 · 전기 · LPG' },
   { name: '주행거리', note: '12000 (km, 숫자만)' },
   { name: '배기량', note: '1998 (cc)' },
+  // 소비자가 — 파는 값(대여료)이 아니라 차 자체의 값이다. 그래서 차량정보 쪽에 둔다.
+  { name: '차량가격', note: '소비자가(원, 숫자만) — 대여료가 아니다' },
   // ★제조사스펙은 **배기량까지**다(사장님 확정 2026-08-11).
   //   인승·구동은 물어보지 않는다 — 차명(트림)이 정해지면 차종마스터가 아는 값이고,
   //   공급사에게 한 칸 더 채우게 하는 값어치가 없다. 카니발 9인승 같은 구분도
@@ -256,6 +258,59 @@ const POLICY_REF_COLUMN: { name: string; note: string; required?: boolean } = {
 };
 
 export const TEMPLATE_COLUMNS = [...FRONT_COLUMNS, ...buildPeriodColumns(), POLICY_REF_COLUMN, ...DETAIL_COLUMNS];
+
+/**
+ * 구독 기간 표준 — **12 · 24 · 36 · 48 · 60개월**. 구독에는 단기(1개월)가 없다.
+ *
+ * ★구독은 요금표가 **두 벌**이다 — 인수형(끝나면 산다)·반납형(끝나면 돌려준다).
+ *   한 벌로 접으면 둘 중 하나가 사라진다. 그래서 블록을 나란히 둔다.
+ * ★**인수형이 왼쪽, 반납형이 오른쪽**이어야 한다. 같은 기간이 두 블록에 있으면
+ *   파서는 «값이 있는 마지막 블록»을 쓰고(`parsePriceColumns`), 실제로 게시하는 건 반납형이다
+ *   (실측 375어8056: 종합시트 12개월 907,000 = 개별시트 반납형 값). 순서를 뒤집으면 게시가가 바뀐다.
+ * ★열 이름은 **「12개월 인수형」** 꼴이어야 한다 — 파서가 기간을 `^(\d+)개월` 로 잡는다.
+ *   「인수형 12개월」로 쓰면 한 칸도 안 읽힌다.
+ * ★보증금 열은 자기 **오른쪽** 기간들을 관할한다(블록 스코프). 그래서 각 블록 맨 앞에 둔다.
+ */
+export const SUBSCRIPTION_PERIODS = ['12', '24', '36', '48', '60'] as const;
+export const SUBSCRIPTION_FORMS = [
+  { suffix: '인수형', deposit: '보증금 인수형', note: '인수형 — 약정이 끝나면 차를 인수한다' },
+  { suffix: '반납형', deposit: '보증금 반납형', note: '반납형 — 약정이 끝나면 차를 반납한다' },
+] as const;
+
+export function buildSubscriptionPeriodColumns(usedKeys: string[] = []): { name: string; note: string; required?: boolean }[] {
+  const monthOf = (k: string) => Number(k.split('_')[0]) || 0;
+  const extra = usedKeys.filter((k) => !SUBSCRIPTION_PERIODS.includes(k as never) && monthOf(k) > 0);
+  const periods = [...new Set([...SUBSCRIPTION_PERIODS, ...extra])].sort((a, b) => monthOf(a) - monthOf(b) || a.localeCompare(b));
+  return [
+    ...SUBSCRIPTION_FORMS.flatMap((form) => [
+      { name: form.deposit, note: `${form.note} · 보증금(원). 오른쪽 기간을 관할한다. 「연수×대여료」처럼 규칙을 적어도 된다`, required: true },
+      ...periods.map((k) => ({ name: `${periodColumnName(k)} ${form.suffix}`, note: `${form.note} · ${periodColumnNote(k)}` })),
+    ]),
+    // 표준 밖 기간을 파는 곳을 위한 여백. 맨 오른쪽이라 반납형 보증금이 관할한다.
+    ...FREE_PERIOD_SLOTS.map((name, i) => ({
+      name,
+      note: i === 0 ? '다른 기간을 팔면 이 칸의 «제목»을 「18개월 반납형」 처럼 바꿔 쓰세요' : '',
+    })),
+  ];
+}
+
+/**
+ * **재고 탭 이름들.** 기본은 「재고」 한 장이고, 렌트·구독을 같이 파는 곳은 두 장으로 가른다
+ * (손오공 2026-08-12 — 상품이 다르면 표도 달라야 한다).
+ *
+ * ⚠ 우리 시트를 훑는 스크립트는 **이 목록으로** 탭을 찾아야 한다. 「재고」를 코드에 박으면
+ *   나눈 공급사를 조용히 건너뛴다 — 사진 연결·빈칸 채우기·개수 세기가 전부 0이 된다.
+ */
+export const VEHICLE_TABS = ['재고', '렌트재고', '구독재고'] as const;
+export const isVehicleTab = (title: string) => (VEHICLE_TABS as readonly string[]).includes(String(title ?? '').trim());
+
+/** 구독 전용 열 구성 — 렌트와 다른 표다. 단기 없음 · 인수형/반납형 두 벌. */
+export const buildSubscriptionColumns = (usedKeys: string[] = []) => [
+  ...FRONT_COLUMNS,
+  ...buildSubscriptionPeriodColumns(usedKeys),
+  POLICY_REF_COLUMN,
+  ...DETAIL_COLUMNS,
+];
 
 /**
  * 공급사가 실제로 쓰는 기간과 취급 상품을 반영한 열 구성.
@@ -490,6 +545,7 @@ export function columnWidth(name: string): number {
    */
   if (name === '제조사' || name === '상태' || name === '분류') return 112;
   if (name === '주행거리' || name === '배기량') return 88;
+  if (name === '차량가격') return 108;
   if (/색상$/.test(name)) return 104;
   if (name === '연료') return 124;   // 「하이브리드」 5자
   if (name === '연식') return 92;
@@ -613,7 +669,8 @@ export function buildSectionBanding(
   const RENT: [number, number, number] = [1.00, 0.97, 0.85];
   const DEPOSIT: [number, number, number] = [0.92, 0.95, 0.99];
   const BASE: [number, number, number] = [0.97, 0.97, 0.98];
-  const kindOf = (n: string) => (/보증/.test(n) ? 'dep' : /개월$|^기타기간/.test(n) ? 'rent' : 'base');
+  // 「12개월 인수형」처럼 꼬리표가 붙은 기간 열도 요금이다 — `개월$` 로 끝을 물면 구독 탭이 통째로 회색이 된다.
+  const kindOf = (n: string) => (/보증/.test(n) ? 'dep' : /\d+개월|^기타기간/.test(n) ? 'rent' : 'base');
   const out: Rec[] = [];
   const band = (from: number, to: number, rgb: [number, number, number]) => {
     if (to <= from) return;
@@ -1037,7 +1094,7 @@ export function buildNumberFormats(gid: number, columns = TEMPLATE_COLUMNS, rowC
     //   콤마는 «원래 값에 콤마가 들어 있던 행»에만 보였다. 공급사가 새로 친 900000 은
     //   맨숫자로 남아 자리수를 눈으로 세야 했다(사장님 지적).
     //   ROW_DATA~rowCount 전 구간에 걸어야 «앞으로 칠 행»도 함께 걸린다.
-    const money = /보증|개월|주행거리|배기량|증액|^기타기간/.test(c.name);
+    const money = /보증|개월|주행거리|배기량|증액|차량가격|^기타기간/.test(c.name);
     // 연식은 콤마를 넣으면 안 된다 — 2024 가 2,024 가 된다.
     const plain = /연식/.test(c.name);
     if (!money && !plain) continue;
@@ -1046,7 +1103,7 @@ export function buildNumberFormats(gid: number, columns = TEMPLATE_COLUMNS, rowC
      *   금액 칸이 열 몇 개씩 나란히 서 있으면 어느 게 매달 내는 돈이고 어느 게 한 번 내는
      *   돈인지 눈으로 안 갈린다. 굵기로 가른다 — 파는 값이 대여료이므로 그쪽을 세운다.
      */
-    const rent = /개월$|^기타기간/.test(c.name);
+    const rent = /\d+개월|^기타기간/.test(c.name);   // 「12개월 인수형」 같은 꼬리표 붙은 열도 요금이다
     const deposit = /보증/.test(c.name);
     out.push({
       repeatCell: {

@@ -16,7 +16,7 @@
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { NOT_SHEET_BACKED } from '../lib/domain/supplier-sheet-read';
-import { buildRowHeights } from '../lib/domain/supplier-template-sheet';
+import { buildRowHeights, isVehicleTab } from '../lib/domain/supplier-template-sheet';
 import { isListableProduct } from '../lib/domain/product';
 import type { EntityRecord } from '../lib/intake/entities';
 
@@ -122,9 +122,10 @@ for (const f of ((found.files || []) as Rec[])) {
     const title = S(sh.properties?.title);
     const gid = Number(sh.properties?.sheetId ?? 0);
     const rd = (sh.data?.[0]?.rowData || []) as Rec[];
-    if (title === '재고') {
-      stockGid = gid;
-      rows = rd.slice(1).filter((r) => ((r?.values || []) as Rec[]).some((c) => S(c?.formattedValue))).length;
+    // 렌트·구독을 나눈 공급사는 재고 탭이 두 장이다. 「재고」만 세면 그 공급사가 0대로 보인다.
+    if (isVehicleTab(title)) {
+      if (!stockGid) stockGid = gid;
+      rows += rd.slice(1).filter((r) => ((r?.values || []) as Rec[]).some((c) => S(c?.formattedValue))).length;
     } else if (title === '정책') {
       policyGid = gid;
       // 1행이 정책코드 줄 — 라벨 칸을 빼고 값이 있는 칸이 정책 수다.
