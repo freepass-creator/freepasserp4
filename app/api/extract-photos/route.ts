@@ -13,6 +13,7 @@ import { sign } from 'node:crypto';
 export const runtime = 'nodejs';
 
 const SCRAPABLE_HOSTS = ['moderentcar.co.kr', 'autoplus.co.kr'];
+const SHORTENER_HOSTS = ['tinyurl.com', 'bit.ly'];
 type ServiceAccount = { client_email: string; private_key: string; token_uri?: string };
 let driveTokenCache: { value: string; expiresAt: number } | null = null;
 
@@ -93,6 +94,32 @@ function isScrapableHost(pageUrl: string): boolean {
   } catch { return false; }
 }
 
+function isShortenerHost(pageUrl: string): boolean {
+  try {
+    const u = new URL(pageUrl);
+    return u.protocol === 'https:' && SHORTENER_HOSTS.includes(u.hostname.toLowerCase());
+  } catch { return false; }
+}
+
+/**
+ * 공급사 시트의 단축 링크를 한 단계만 푼다. 임의 목적지를 따라가지 않고, 응답의 Location이
+ * 기존 사진 허용 대상(Drive 폴더·모던렌트카·오토플러스)일 때만 이후 요청을 허용한다.
+ */
+async function expandSupportedShortUrl(src: string): Promise<string> {
+  if (!isShortenerHost(src)) return src;
+  const response = await fetch(src, {
+    method: 'HEAD',
+    redirect: 'manual',
+    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; FreepassERP/4.0)' },
+    signal: AbortSignal.timeout(5000),
+  });
+  const location = response.headers.get('location');
+  if (!location) return '';
+  const target = new URL(location, src).toString();
+  const drive = !!extractDriveFolderId(target) && target.includes('drive.google.com');
+  return drive || isScrapableHost(target) ? target : '';
+}
+
 async function driveApi(folderId: string, size: string): Promise<string[]> {
   const q = `'${folderId}' in parents and mimeType contains 'image/' and trashed = false`;
   const api = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&key=${DRIVE_KEY}&fields=files(id)&pageSize=200&orderBy=name`;
@@ -160,8 +187,10 @@ export async function GET(request: Request): Promise<Response> {
   if (!src) return NextResponse.json({ ok: false, urls: [] }, { status: 400 });
   const cache = { 'Cache-Control': 's-maxage=3600, stale-while-revalidate=86400' };
   try {
-    const folderId = extractDriveFolderId(src);
-    if (folderId && src.includes('drive.google.com')) {
+    const resolvedSrc = await expandSupportedShortUrl(src);
+    if (!resolvedSrc) return NextResponse.json({ ok: true, urls: [], count: 0, source: 'unsupported' }, { headers: cache });
+    const folderId = extractDriveFolderId(resolvedSrc);
+    if (folderId && resolvedSrc.includes('drive.google.com')) {
       // 회사 Drive 백업 폴더는 익명 HTML에 파일 ID가 노출되지 않을 수 있다.
       // 서비스 계정 조회를 먼저 쓰고, 외부 공개 폴더는 기존 방식으로 이어서 해석한다.
       let urls: string[] = await driveServiceAccount(folderId, size).catch(() => []);
@@ -169,8 +198,8 @@ export async function GET(request: Request): Promise<Response> {
       if (!urls.length) urls = await scrapeFolder(folderId, size);
       return NextResponse.json({ ok: true, urls, count: urls.length, source: 'drive' }, { headers: cache });
     }
-    if (isScrapableHost(src)) {
-      const urls = await scrapePage(src);
+    if (isScrapableHost(resolvedSrc)) {
+      const urls = await scrapePage(resolvedSrc);
       return NextResponse.json({ ok: true, urls, count: urls.length, source: 'scrape' }, { headers: cache });
     }
     return NextResponse.json({ ok: true, urls: [], count: 0, source: 'unsupported' });

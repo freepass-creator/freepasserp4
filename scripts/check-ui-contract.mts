@@ -22,7 +22,8 @@ const RAW_ALLOW = new Map<string, Allow>([
   ['app/m/page.tsx', { all: true, reason: '업무 화면이 아닌 모바일 프로모션 미리보기 섬' }],
   ['app/sign/[token]/page.tsx', { counts: { input: 2 }, reason: '신분증·셀카의 숨김 파일 선택기' }],
   ['components/ContractDocs.tsx', { counts: { input: 1 }, reason: '숨김 파일 선택기' }],
-  ['components/ChatThread.tsx', { counts: { button: 1, input: 1, textarea: 1 }, reason: '앨범 타일·숨김 파일 선택기·브라우저 자동완성 방지 채팅 입력기' }],
+  ['components/ChatThread.tsx', { counts: { button: 3, input: 1, textarea: 1 }, reason: '첨부 목록 토글·사진 확대·앨범 타일·숨김 파일 선택기·브라우저 자동완성 방지 채팅 입력기' }],
+  ['components/ConsultPanel.tsx', { counts: { input: 1 }, reason: '드롭존과 연결된 숨김 다중 파일 선택기' }],
   ['components/PhotoUpload.tsx', { counts: { input: 1 }, reason: '숨김 사진 선택기' }],
   ['features/inventory/InventoryEditorPanes.tsx', { counts: { input: 1 }, reason: '숨김 OCR 파일 선택기' }],
   ['app/settlement/page.tsx', { counts: { input: 1 }, reason: '숨김 정산 엑셀 선택기' }],
@@ -40,6 +41,17 @@ const RADIUS_ISLANDS = new Set([
 ]);
 
 const hits: string[] = [];
+
+// 비로그인 둘러보기는 폐기된 진입면이다. 오래된 브랜치 병합으로 버튼이나 guest 인증 우회가
+// 되살아나면 상품·회원 화면이 인증 없이 열릴 수 있으므로 UI 게이트에서 함께 차단한다.
+const loginSource = readFileSync(join(ROOT, 'app/login/page.tsx'), 'utf8');
+const authContextSource = readFileSync(join(ROOT, 'lib/auth-context.tsx'), 'utf8');
+if (/로그인 없이 둘러보기|\bdoGuest\b|\bsetGuest\s*\(/.test(loginSource)) {
+  hits.push('app/login/page.tsx: 폐기된 비로그인 둘러보기 진입이 다시 추가됨');
+}
+if (/const\s+authed\s*=.*\bisGuest\s*\(/.test(authContextSource)) {
+  hits.push('lib/auth-context.tsx: guest 플래그를 인증 세션으로 인정하면 안 됨');
+}
 
 function rel(path: string) {
   return relative(ROOT, path).replace(/\\/g, '/');

@@ -581,6 +581,39 @@ const MAKER_INK: Record<string, [number, number, number]> = {
   폴스타: [0.25, 0.28, 0.30],
 };
 
+/**
+ * **입력 구간을 배경으로 가른다**(사장님 요청 2026-08-11).
+ *
+ * 한 줄에 26칸이라 어디까지가 차 정보이고 어디부터 돈인지 눈으로 안 갈린다.
+ * 아주 옅은 바탕색으로 세 구간을 나눈다 — 진하면 글자가 죽고 칩 색과 싸운다.
+ *   ① 차량정보  차량번호~배기량        흰 바탕(그대로)
+ *   ② 대여료    보증금·기간별 요금      따뜻한 미색
+ *   ③ 부가정보  정책코드·최초등록일·사진링크  찬 회색
+ */
+export function buildSectionTint(gid: number, columns: { name: string }[], rowCount = 500): Rec[] {
+  const isMoney = (n: string) => /보증|개월$|^기타기간/.test(n);
+  const isExtra = (n: string) => /^(정책코드|최초등록일|사진링크|비고|차대번호|1만km증액)$/.test(n);
+  const out: Rec[] = [];
+  const paint = (from: number, to: number, rgb: [number, number, number]) => {
+    if (to <= from) return;
+    out.push({
+      repeatCell: {
+        range: grid(gid, ROW_DATA, rowCount, from, to),
+        cell: { userEnteredFormat: { backgroundColorStyle: { rgbColor: { red: rgb[0], green: rgb[1], blue: rgb[2] } } } },
+        fields: 'userEnteredFormat.backgroundColorStyle',
+      },
+    });
+  };
+  let moneyFrom = -1; let moneyTo = -1; let extraFrom = -1; let extraTo = -1;
+  columns.forEach((c, i) => {
+    if (isMoney(c.name)) { if (moneyFrom < 0) moneyFrom = i; moneyTo = i + 1; }
+    if (isExtra(c.name)) { if (extraFrom < 0) extraFrom = i; extraTo = i + 1; }
+  });
+  paint(moneyFrom, moneyTo, [1.00, 0.98, 0.94]);     // 미색
+  paint(extraFrom, extraTo, [0.95, 0.96, 0.97]);     // 옅은 회색
+  return out;
+}
+
 /** 값 하나를 «그 색 글자»로 칠하는 조건부서식 한 줄. 색상 칸과 제조사 칸이 같이 쓴다. */
 function inkRuleFor(gid: number, col: number, value: string, rgb: [number, number, number], index: number, rowCount: number): Rec {
   return {

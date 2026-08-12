@@ -7,7 +7,7 @@
  */
 import { type EntityRecord } from '@/lib/intake/entities';
 
-const NEEDS_SERVER_RE = /drive\.google\.com\/(drive\/folders\/|drive\/u\/\d+\/folders\/)|moderentcar\.co\.kr|autoplus\.co\.kr/;
+const NEEDS_SERVER_RE = /drive\.google\.com\/(drive\/folders\/|drive\/u\/\d+\/folders\/)|moderentcar\.co\.kr|autoplus\.co\.kr|tinyurl\.com|bit\.ly/;
 /**
  * 프록시로 보낼 외부 이미지 호스트 — **서버 화이트리스트(lib/net/proxy-hosts.ts)와 같은 집합**이어야 한다.
  *
