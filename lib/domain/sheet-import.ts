@@ -36,6 +36,7 @@ export const HEADER_ALIASES: Record<string, string> = {
   최초등록: 'first_registration_date', 최초등록일: 'first_registration_date', 등록일: 'first_registration_date', 등록년월: 'first_registration_date',
   연료: 'fuel_type', 유종: 'fuel_type', 연료타입: 'fuel_type',
   배기량: 'engine_cc', cc: 'engine_cc', 배기: 'engine_cc',
+  소비자가격: 'vehicle_price', 소비자가: 'vehicle_price', 차량가격: 'vehicle_price', 차량가: 'vehicle_price', 차량가액: 'vehicle_price',
   주행: 'mileage', 주행거리: 'mileage', 누적주행: 'mileage', 키로수: 'mileage', km: 'mileage', 미터: 'mileage',
   색상: 'ext_color', 외장: 'ext_color', 외장색: 'ext_color', 외관색: 'ext_color', 컬러: 'ext_color', 외장색상: 'ext_color',
   내장: 'int_color', 내장색: 'int_color', 실내색: 'int_color', 내장색상: 'int_color',
@@ -72,6 +73,8 @@ export const IMPORT_FIELDS: { key: string; label: string }[] = [
   { key: 'vehicle_status', label: '상태' }, { key: 'product_type', label: '구분' }, { key: 'photo_link', label: '사진링크' },
   { key: 'options', label: '옵션' }, { key: 'partner_memo', label: '메모' },
   { key: 'policy_code', label: '정책코드' },
+  // 소비자가(차량가). 공급사 시트 열 이름이 「소비자가격」인 곳이 많다 — 관리자만 보는 원가다.
+  { key: 'vehicle_price', label: '차량가격' },
 ];
 
 const norm = (s: unknown) => String(s ?? '').trim().toLowerCase().replace(/\s+/g, '');
@@ -449,7 +452,13 @@ function canonicalOrigin(value: unknown): '국산' | '수입' | '' {
 }
 
 /** low 스냅이라도 원문 모델과 정확히 맞는 모든 마스터 후보의 origin이 하나일 때만 금액 판정에 사용. */
-function unambiguousMasterOrigin(raw: EntityRecord, entries: MasterEntry[]): '국산' | '수입' | '' {
+/**
+ * 마스터가 **만장일치로** 말하는 국산/수입. 갈리면 공란(fail-closed).
+ * 저장 필드로 남기지 않고 «그때그때 판정»해서 금액에만 쓴다 — 이게 이 프로젝트의 규칙이고,
+ * `sim-sheet-price` 의 MASTER-ORIGIN 항목이 그걸 지킨다. 감사·보수 스크립트도 같은 판정을 써야
+ * «도구만 맞는» 숫자가 안 나온다. 그래서 export 한다.
+ */
+export function unambiguousMasterOrigin(raw: EntityRecord, entries: MasterEntry[]): '국산' | '수입' | '' {
   if (String(raw.maker ?? '').trim()) return '';
   const norm = (value: unknown) => String(value ?? '').trim().replace(/\s+/g, '').toLowerCase();
   const sub = norm(raw.sub_model);

@@ -229,23 +229,29 @@ export function priceList(p: EntityRecord): Price[] {
    * 지어내는 게 아니라 시트에 적힌 값을 그대로 쓰는 것이고, 없는 차로 만드는 것보다 낫다.
    * 상향요금 표시는 2만 기준이 없으면 `autoplusMileageUpchargeLabel` 이 알아서 비운다.
    */
-  const hasTwoKmBase = Object.keys(price).some((key) => key.split('_')[1] === '2만');
+  /**
+   * ★2만 기준은 **기간마다** 따진다 — 차 단위로 자르면 «3만에만 있는 기간»이 통째로 사라진다.
+   *
+   * 실측 2026-08-12(오토플러스 시트): 열이 「12개월3만 · 18개월2만 · 24개월2만 · 36개월2만」이다.
+   * **12개월은 3만km 조건으로만 판다.** 예전처럼 "이 차에 2만이 하나라도 있으면 3만은 전부 버림"으로
+   * 자르면 12개월이 92대에서 통째로 빈칸이 됐다 — 시트에 900,000 이라고 적힌 상품인데도.
+   * 그래서 순위로 고른다: 표준키 > 2만 > 그 밖. 같은 순위면 싼 쪽.
+   * 2만이 있는 기간은 그대로 2만이 기준가로 뽑히고, 2만이 없는 기간만 3만이 올라온다.
+   */
+  const tierRank = (k: string) => (!k.includes('_') ? 0 : k.slice(k.indexOf('_') + 1) === '2만' ? 1 : 2);
   // 월(m)별 단일 가격으로 통합 — 주행거리 변형(24_3만 등)은 추가요금=정책 담당이라 기간에서 접는다.
-  // 표준키('24') 우선, 없으면 최저 대여료 변형을 기본가로. 중복 개월·"(3만)" 라벨 제거.
-  const byM = new Map<number, { e: Price; plain: boolean }>();
+  const byM = new Map<number, { e: Price; rank: number }>();
   for (const [k, v] of Object.entries(price)) {
     if (ignoreAutoplusLegacy && AUTOPLUS_LEGACY_PRICE_KEYS.has(k)) continue;
-    // 오토플러스 판매 기준가는 연 2만km 하나다. 3만km 가격은 아래 상향요금 계산에만 쓴다.
-    if (ignoreAutoplusLegacy && hasTwoKmBase && k.includes('_') && k.split('_')[1] !== '2만') continue;
     const rawRent = num(v?.rent); if (rawRent <= 0) continue;
     const { rent, deposit } = normalizeWonPair(rawRent, v?.deposit);
     // 대여료 이상치 방어(v3 이식) — 하한 10만·상한 2천만 밖 = 오입력(자릿수 오타·노트 숫자 추출 등) → 제외.
     if (rent < 100_000 || rent > 20_000_000) continue;
     const m = Number(k.includes('_') ? k.slice(0, k.indexOf('_')) : k);
     if (!isOperatedPeriod(m)) continue;
-    const plain = !k.includes('_'); const cur = byM.get(m);
-    if (!cur || (plain && !cur.plain) || (plain === cur.plain && rent < cur.e.rent)) {
-      byM.set(m, { e: { m, rent, deposit, fee: num(v?.fee) }, plain });
+    const rank = tierRank(k); const cur = byM.get(m);
+    if (!cur || rank < cur.rank || (rank === cur.rank && rent < cur.e.rent)) {
+      byM.set(m, { e: { m, rent, deposit, fee: num(v?.fee) }, rank });
     }
   }
   const list = [...byM.values()].map((x) => x.e).sort((a, b) => a.m - b.m);
