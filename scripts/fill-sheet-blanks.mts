@@ -17,7 +17,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
-import { isVehicleTab } from '../lib/domain/supplier-template-sheet';
+import { isVehicleTab, supplierSheetLabel } from '../lib/domain/supplier-template-sheet';
 
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
@@ -70,7 +70,7 @@ const files = ((await api(`https://www.googleapis.com/drive/v3/files?q=${q}&page
 console.log(`■ 시트 빈 칸 채우기 ${APPLY ? '(반영)' : '(dry-run)'} — 마스터 이름 ${names.length}개\n`);
 let total = 0; const unknown: string[] = [];
 for (const f of files) {
-  const label = S(f.name).replace('프리패스 재고 · ', '');
+  const label = supplierSheetLabel(f.name);
   if (ONLY && !label.includes(ONLY)) continue;
   // 재고 탭은 한 장이 아닐 수 있다 — 렌트·구독을 나눈 공급사는 두 장이다.
   const meta = await api(`https://sheets.googleapis.com/v4/spreadsheets/${S(f.id)}?fields=sheets.properties.title`);

@@ -16,7 +16,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
-import { isVehicleTab } from '../lib/domain/supplier-template-sheet';
+import { isVehicleTab, supplierSheetLabel } from '../lib/domain/supplier-template-sheet';
 
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
@@ -43,7 +43,7 @@ console.log(`■ 「${COLUMN}」 열 끼우기 ${APPLY ? '(반영)' : '(dry-run)
 
 let added = 0; let already = 0;
 for (const f of files) {
-  const label = S(f.name).replace('프리패스 재고 · ', '');
+  const label = supplierSheetLabel(f.name);
   if (ONLY && !label.includes(ONLY)) continue;
   const meta = await api(`https://sheets.googleapis.com/v4/spreadsheets/${S(f.id)}?fields=sheets.properties(sheetId,title)`);
   const tabs = ((meta.sheets || []) as Rec[]).filter((sh) => isVehicleTab(S(sh.properties?.title)));

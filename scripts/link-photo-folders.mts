@@ -14,7 +14,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
-import { isVehicleTab } from '../lib/domain/supplier-template-sheet';
+import { isVehicleTab, supplierSheetLabel } from '../lib/domain/supplier-template-sheet';
 
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
@@ -75,7 +75,7 @@ let linked = 0; let kept = 0; let notFound = new Set(byPlate.keys());
 const q = encodeURIComponent("mimeType='application/vnd.google-apps.spreadsheet' and 'me' in owners and trashed=false and name contains '프리패스 재고'");
 const ours = ((await api(`https://www.googleapis.com/drive/v3/files?q=${q}&pageSize=100&fields=files(id,name)&orderBy=name`)).files || []) as Rec[];
 const targets: { id: string; name: string }[] = [
-  ...ours.map((f) => ({ id: S(f.id), name: S(f.name).replace('프리패스 재고 · ', '') })),
+  ...ours.map((f) => ({ id: S(f.id), name: supplierSheetLabel(f.name) })),
   ...Object.values<Rec>(partners).filter((x) => !dead(x)).map((x) => ({
     id: (S(x.sheet_url).match(/\/d\/([\w-]+)/) || [])[1] || '',
     name: S(x.partner_name || x.name) || S(x.partner_code),

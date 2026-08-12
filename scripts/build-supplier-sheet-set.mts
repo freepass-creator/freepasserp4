@@ -33,8 +33,7 @@ import { POLICY_DEFAULTS } from '../lib/domain/policy-defaults';
 import {
   FREEPASS_STANDARD, POLICY_COLUMN_FIELDS, POLICY_TAB_FIELD_ROWS, POLICY_TAB_NAME, ROW_HEADER,
   buildColumns, buildNumberFormats, buildPolicyTabFormat, buildPolicyTabValues,
-  buildBanding, buildBaseFont, buildChipColors, buildRowHeights, buildTableRequest, buildTemplateFormat, buildTemplateValues, resetSheetRequests, tableWidth, yearOptions,
-} from '../lib/domain/supplier-template-sheet';
+  buildBanding, buildBaseFont, buildChipColors, buildRowHeights, buildTableRequest, buildTemplateFormat, buildTemplateValues, resetSheetRequests, tableWidth, yearOptions,, supplierSheetLabel } from '../lib/domain/supplier-template-sheet';
 import type { EntityRecord } from '../lib/intake/entities';
 
 type Rec = Record<string, any>;
@@ -205,7 +204,7 @@ for (const p of Object.values<Rec>(partners)) {
   }
 }
 const codeOf = (sheetName: string): string => {
-  const label = sheetName.replace('프리패스 재고 · ', '').replace(/\s/g, '');
+  const label = supplierSheetLabel(sheetName).replace(/\s/g, '');
   if (nameToCode.has(label)) return nameToCode.get(label)!;
   /**
    * 시트 이름은 줄여 쓴다(「에스에이」 ↔ 「주식회사 에스에이렌터카」).
@@ -361,7 +360,7 @@ for (const f of files) {
     });
   } catch (e) {
     tabled = false;
-    console.log(`     △ ${f.name.replace('프리패스 재고 · ', '')} 표 변환 실패 — ${String((e as Error).message).slice(0, 60)}`);
+    console.log(`     △ ${supplierSheetLabel(f.name)} 표 변환 실패 — ${String((e as Error).message).slice(0, 60)}`);
     await api(`https://sheets.googleapis.com/v4/spreadsheets/${f.id}:batchUpdate`, {
       method: 'POST', body: JSON.stringify({ requests: shape }),
     });
@@ -373,13 +372,13 @@ for (const f of files) {
     }).catch(() => {});
   }
 
-  console.log(`  ✓ ${f.name.replace('프리패스 재고 · ', '').padEnd(12)} 재고 ${cols.length}열 · 정책 ${pols.length}개 · ${tabled ? `칩 ${tw}열` : '칩 없음'}`);
+  console.log(`  ✓ ${supplierSheetLabel(f.name).padEnd(12)} 재고 ${cols.length}열 · 정책 ${pols.length}개 · ${tabled ? `칩 ${tw}열` : '칩 없음'}`);
 }
 
 if (!APPLY) {
   console.log(`  ${'공급사'.padEnd(14)}${'코드'.padEnd(10)}${'재고열'.padStart(6)}${'정책'.padStart(6)}${'ERP재고'.padStart(8)}   비고`);
   for (const p of plans) {
-    const label = p.name.replace('프리패스 재고 · ', '').slice(0, 13);
+    const label = supplierSheetLabel(p.name).slice(0, 13);
     console.log(`  ${label.padEnd(14)}${(p.code || '-').padEnd(10)}${String(p.cols.length || '-').padStart(6)}${String(p.policies || '-').padStart(6)}${String(p.cars || '-').padStart(8)}   ${p.skip}`);
   }
   const go = plans.filter((p) => !p.skip);
@@ -389,6 +388,6 @@ if (!APPLY) {
 } else {
   const done = plans.filter((p) => !p.skip).length;
   console.log(`\n  찍음 ${done}개 · 건너뜀 ${plans.length - done}개`);
-  for (const p of plans.filter((x) => x.skip)) console.log(`     ${p.name.replace('프리패스 재고 · ', '').padEnd(14)}${p.skip}`);
+  for (const p of plans.filter((x) => x.skip)) console.log(`     ${supplierSheetLabel(p.name).padEnd(14)}${p.skip}`);
   console.log('');
 }

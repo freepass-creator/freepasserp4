@@ -17,7 +17,10 @@
  *
  *   기본은 **새 탭을 맨 왼쪽에** 만든다(최신이 왼쪽, 지난 회차는 이력).
  *   --gid=<번호> / --tab=<이름>  그 탭을 덮어쓴다
- *   --scope=listable(기본) | offerable | active
+ *   --scope=stocked(기본) | listable | offerable | active
+ *     stocked  = 재고 전부(출고불가·삭제만 제외). **요금 없는 차도 담는다** —
+ *                영업자 표는 공급사 시트와 같아야 한다(사장님 2026-08-12).
+ *     listable = 대여료가 있는 차만(손님 카탈로그 기준)
  *   --headers-only   표 틀만 올린다(권한 확인용)
  */
 import { readFileSync } from 'node:fs';
@@ -25,7 +28,7 @@ import { JWT } from 'google-auth-library';
 import {
   attachPolicy, buildInventorySheet, exportTabName, policyMap, sortForSales,
 } from '../lib/domain/inventory-sheet-export';
-import { isListableProduct, isOfferableProduct } from '../lib/domain/product';
+import { isListableProduct, isOfferableProduct, isStockedProduct } from '../lib/domain/product';
 import { companyAlias } from '../lib/domain/identity';
 import type { EntityRecord } from '../lib/intake/entities';
 
@@ -39,7 +42,7 @@ const dead = (p: Rec) => p._deleted === true || !!p.deletedAt || S(p.status) ===
 async function main() {
   const sheetId = arg('sheet');
   const tab = arg('tab');
-  const scope = arg('scope', 'listable');
+  const scope = arg('scope', 'stocked');
   const apply = process.argv.includes('--apply');
   const headersOnly = process.argv.includes('--headers-only');
   if (!sheetId) throw new Error('--sheet=<스프레드시트ID> 필요');
@@ -78,7 +81,8 @@ async function main() {
 
   const alive = Object.entries(products).filter(([, p]) => !dead(p))
     .map(([k, p]) => ({ ...p, _key: k, product_code: p.product_code || k } as EntityRecord));
-  const rows = sortForSales(scope === 'listable' ? alive.filter(isListableProduct)
+  const rows = sortForSales(scope === 'stocked' ? alive.filter(isStockedProduct)
+    : scope === 'listable' ? alive.filter(isListableProduct)
     : scope === 'offerable' ? alive.filter(isOfferableProduct) : alive)
     .map((p) => attachPolicy(p, policies));
 

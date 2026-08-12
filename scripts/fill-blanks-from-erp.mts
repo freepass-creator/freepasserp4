@@ -26,7 +26,7 @@ import { JWT } from 'google-auth-library';
 import { canonProductType, priceList } from '../lib/domain/product';
 import { NOT_SHEET_BACKED, SHEET_GRID_FIELDS, readSupplierSheet } from '../lib/domain/supplier-sheet-read';
 import { photoUrlFromCell } from '../lib/domain/sheet-visible-grid';
-import { isVehicleTab, periodColumnName } from '../lib/domain/supplier-template-sheet';
+import { isVehicleTab, periodColumnName, supplierSheetLabel } from '../lib/domain/supplier-template-sheet';
 import type { EntityRecord } from '../lib/intake/entities';
 
 type Rec = Record<string, any>;
@@ -158,7 +158,7 @@ console.log(`■ 우리 시트 빈 칸을 ERP 값으로 채운다 ${APPLY ? '(�
 
 let cells = 0; const stillBlank = new Map<string, number>(); const noErp: string[] = [];
 for (const f of files) {
-  const label = S(f.name).replace('프리패스 재고 · ', '');
+  const label = supplierSheetLabel(f.name);
   if (ONLY && !label.includes(ONLY)) continue;
   const meta = await api(`https://sheets.googleapis.com/v4/spreadsheets/${S(f.id)}?fields=sheets.properties.title`);
   const tabs = ((meta.sheets || []) as Rec[]).map((sh) => S(sh.properties?.title)).filter(isVehicleTab);

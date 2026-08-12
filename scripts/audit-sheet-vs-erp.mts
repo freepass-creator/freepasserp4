@@ -23,7 +23,7 @@
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { NOT_SHEET_BACKED, SHEET_GRID_FIELDS, readSupplierSheet } from '../lib/domain/supplier-sheet-read';
-import { isVehicleTab } from '../lib/domain/supplier-template-sheet';
+import { isVehicleTab, supplierSheetLabel } from '../lib/domain/supplier-template-sheet';
 import { parseDepositRule, parsePriceColumns, unambiguousMasterOrigin } from '../lib/domain/sheet-import';
 import type { MasterEntry } from '../lib/domain/vehicle-master-types';
 import type { EntityRecord } from '../lib/intake/entities';
@@ -161,7 +161,7 @@ for (const [code, partner] of [...byCode].sort((a, b) => a[0].localeCompare(b[0]
   /** 우리가 만든 배포용 시트(있으면). 없다고 문제인 건 아니다 — 아직 안 만든 공급사가 있다. */
   const short = name.replace(/\(주\)|주식회사|㈜/g, '').replace(/\s/g, '');
   const mine = OURS.find((f) => {
-    const lab = S(f.name).replace('프리패스 재고 · ', '').replace(/\s/g, '');
+    const lab = supplierSheetLabel(f.name).replace(/\s/g, '');
     return lab === short || short.includes(lab) || lab.includes(short);
   });
   const minePlates = new Set<string>();

@@ -308,6 +308,22 @@ export function buildSubscriptionPeriodColumns(usedKeys: string[] = []): { name:
  * ⚠ 우리 시트를 훑는 스크립트는 **이 목록으로** 탭을 찾아야 한다. 「재고」를 코드에 박으면
  *   나눈 공급사를 조용히 건너뛴다 — 사진 연결·빈칸 채우기·개수 세기가 전부 0이 된다.
  */
+/**
+ * **우리가 만들어 나눠 주는 시트의 이름** — 「<공급사> 프리패스 재고」.
+ *
+ * ★공급사 이름이 **앞**에 와야 한다(사장님 2026-08-12 — 「브라우저에서 안보이네」).
+ *   브라우저 탭은 앞글자만 보여준다. 「프리패스 재고 · 손오공」이면 열 장을 띄워도
+ *   전부 「프리패스 재고…」로 보여 어느 업체 시트인지 구분이 안 된다.
+ * ⚠ 옛 이름(「프리패스 재고 · 손오공」)도 계속 읽어야 한다 — 한 번에 다 바뀌지 않는다.
+ *   찾을 때는 `SHEET_NAME_MATCH`(=「프리패스 재고」 포함)로 걸러 두 형태를 다 잡는다.
+ */
+export const SHEET_NAME_MATCH = '프리패스 재고';
+export const supplierSheetName = (label: string) => `${String(label ?? '').trim()} ${SHEET_NAME_MATCH}`;
+export const supplierSheetLabel = (name: string) => String(name ?? '')
+  .replace(`${SHEET_NAME_MATCH} · `, '')          // 옛 이름
+  .replace(new RegExp(`\s*${SHEET_NAME_MATCH}\s*$`), '')   // 새 이름
+  .trim();
+
 export const VEHICLE_TABS = ['재고', '렌트재고', '구독재고'] as const;
 export const isVehicleTab = (title: string) => (VEHICLE_TABS as readonly string[]).includes(String(title ?? '').trim());
 

@@ -17,7 +17,7 @@
  */
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
-import { POLICY_COLUMN_FIELDS, POLICY_TAB_NAME } from '../lib/domain/supplier-template-sheet';
+import { POLICY_COLUMN_FIELDS, POLICY_TAB_NAME, supplierSheetLabel } from '../lib/domain/supplier-template-sheet';
 
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
@@ -108,7 +108,7 @@ const diffs: Diff[] = [];
 let blanks = 0; let same = 0; let missingInErp = 0;
 
 for (const f of ((found.files || []) as Rec[])) {
-  const label = S(f.name).replace('프리패스 재고 · ', '');
+  const label = supplierSheetLabel(f.name);
   const code = codeOf(label);
   if (!code || (ONLY && code !== ONLY)) continue;
 

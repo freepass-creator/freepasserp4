@@ -27,7 +27,7 @@ import { canonProductType } from '../lib/domain/product';
 import {
   buildBaseFont, buildChipColors, buildColumns, buildNumberFormats, buildRowHeights,
   buildSectionBanding, buildSubscriptionColumns, buildTableRequest, buildTemplateFormat,
-  buildTemplateValues, columnWidth, resetSheetRequests, tableWidth, yearOptions,
+  buildTemplateValues, columnWidth, resetSheetRequests, supplierSheetName, tableWidth, yearOptions,
 } from '../lib/domain/supplier-template-sheet';
 import { HANDLED_MAKER_OPTIONS } from '../lib/domain/handled-makers';
 import type { EntityRecord } from '../lib/intake/entities';
@@ -37,7 +37,7 @@ const S = (v: unknown) => String(v ?? '').trim();
 const norm = (v: unknown) => S(v).replace(/\s+/g, '');
 const APPLY = process.argv.includes('--apply');
 const CODE = 'RP012';
-const SHEET_NAME = '프리패스 재고 · 손오공';
+const SHEET_NAME = supplierSheetName('손오공');
 const DEAD_TABS = ['재고', '인수형'];
 const DEPOSIT_RULE_TEXT = '연수×대여료';
 const DB = 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app';
@@ -148,7 +148,11 @@ for (const r of subTab.table.slice(1)) {
   };
   const hasBuy = block(buyFrom, retFrom, '인수형');
   const hasRet = block(retFrom, subHdr.length, '반납형');
-  if (!hasBuy && !hasRet) continue;                    // 양쪽 다 요금이 없으면 아직 상품이 아니다
+  /**
+   * ★요금이 없어도 담는다(사장님 2026-08-12 — 「요금이 없어도 올리자」).
+   *   예전엔 양쪽 다 비면 «아직 상품이 아니다»라며 뺐는데, 그러면 공급사 시트에는 있는 차가
+   *   우리 표에서 사라져 「시트 = ERP = 엑셀」이 어긋난다. 요금 칸만 비워 둔다.
+   */
   // 반납형은 보증금 칸이 비어 있다 — 규칙(연수×대여료)으로 받는다는 뜻이다. 그걸 글자로 적어 둔다.
   if (hasRet && !S(row[subNames.indexOf('보증금 반납형')])) put('보증금 반납형', DEPOSIT_RULE_TEXT);
   subRows.push(row);

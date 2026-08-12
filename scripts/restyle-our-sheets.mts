@@ -18,7 +18,8 @@ import { JWT } from 'google-auth-library';
 import { HANDLED_MAKER_OPTIONS } from '../lib/domain/handled-makers';
 import {
   buildBaseFont, buildChipColors, buildColumns, buildNumberFormats, buildRowHeights,
-  buildSectionBanding, buildSubscriptionColumns, isVehicleTab, buildTemplateFormat, columnWidth, yearOptions,
+  buildSectionBanding, buildSubscriptionColumns, isVehicleTab, buildTemplateFormat, columnWidth,
+  supplierSheetLabel, yearOptions,
 } from '../lib/domain/supplier-template-sheet';
 
 type Rec = Record<string, any>;
@@ -42,7 +43,7 @@ const found = await api(`https://www.googleapis.com/drive/v3/files?q=${q}&pageSi
 console.log(`■ 서식만 다시 입힌다 ${APPLY ? '(반영)' : '(dry-run)'} — 값은 안 건드린다\n`);
 
 for (const f of ((found.files || []) as Rec[])) {
-  const label = S(f.name).replace('프리패스 재고 · ', '');
+  const label = supplierSheetLabel(f.name);
   const meta = await api(`https://sheets.googleapis.com/v4/spreadsheets/${S(f.id)}?fields=sheets(properties(sheetId,title),conditionalFormats,tables(range),bandedRanges(bandedRangeId,range))`);
   // 재고 탭은 한 장이 아닐 수 있다 — 렌트·구독을 나눈 공급사는 「렌트재고」·「구독재고」다.
   const stocks = ((meta.sheets || []) as Rec[]).filter((x) => isVehicleTab(S(x.properties?.title)));

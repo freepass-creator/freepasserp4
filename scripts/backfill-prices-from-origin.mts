@@ -15,6 +15,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
+import { supplierSheetLabel } from '../lib/domain/supplier-template-sheet';
 import { SHEET_GRID_FIELDS, readSupplierSheet } from '../lib/domain/supplier-sheet-read';
 import { autoMapHeaders } from '../lib/domain/sheet-import';
 import type { EntityRecord } from '../lib/intake/entities';
@@ -49,11 +50,27 @@ for (const src of [t3, t4] as Rec[]) for (const [k, v] of Object.entries<Rec>(sr
   if (v && typeof v === 'object' && !dead(v) && S(v.partner_code) === CODE) partner = { ...(partner || {}), ...v, _key: k };
 }
 if (!partner) { console.log(`■ ${CODE} 파트너가 없다\n`); process.exit(1); }
-const liveId = (S(partner.sheet_url).match(/\/d\/([\w-]+)/) || [])[1];
-const oldId = FROM || (S(partner.sheet_note).match(/\/d\/([\w-]+)/) || [])[1] || '';
+/**
+ * ★대상은 **우리 시트**, 원본은 **공급사 시트**다.
+ *   파트너의 `sheet_url` 로 대상을 잡으면, 정본을 공급사 쪽으로 되돌린 뒤에는
+ *   원본과 대상이 같은 곳이 되어 아무것도 못 채운다(실측 2026-08-12).
+ *   대상은 이름으로 찾는다 — 「프리패스 재고 · <공급사>」.
+ */
+const pname = S(partner.partner_name || partner.name || partner.company_name) || CODE;
+const short = pname.replace(/\(주\)|주식회사|㈜/g, '').trim();
+const q0 = encodeURIComponent("mimeType='application/vnd.google-apps.spreadsheet' and 'me' in owners and trashed=false and name contains '프리패스 재고'");
+const ours = ((await api(`https://www.googleapis.com/drive/v3/files?q=${q0}&pageSize=100&fields=files(id,name)`)).files || []) as Rec[];
+const mineFile = ours.find((f) => {
+  const label = supplierSheetLabel(f.name).replace(/\s/g, '');
+  return label === short.replace(/\s/g, '') || short.includes(label) || label.includes(short.replace(/\s/g, ''));
+});
+const liveId = S(mineFile?.id);
+const oldId = FROM || (S(partner.sheet_url).match(/\/d\/([\w-]+)/) || [])[1]
+  || (S(partner.sheet_note).match(/\/d\/([\w-]+)/) || [])[1] || '';
 console.log(`■ ${S(partner.partner_name || partner.name) || CODE}(${CODE}) 빈 요금 칸 채우기 ${APPLY ? '(반영)' : '(dry-run)'}\n`);
-console.log(`  지금 시트 ${liveId}\n  옛 시트  ${oldId || '(못 찾음 — --from= 으로 주세요)'}\n`);
-if (!liveId || !oldId) process.exit(1);
+console.log(`  우리 시트 ${liveId || '(못 찾음)'} · 공급사 시트 ${oldId || '(못 찾음)'}`);
+if (!liveId || !oldId || liveId === oldId) { console.log('  대상과 원본이 같거나 없다 — 할 일 없음'); process.exit(0); }
+
 
 /** 옛 시트에서 차번별 요금 칸(열 이름 → 값)을 모은다. */
 const oldGrid = await api(`https://sheets.googleapis.com/v4/spreadsheets/${oldId}?includeGridData=true&fields=${encodeURIComponent(SHEET_GRID_FIELDS)}`);
@@ -64,7 +81,9 @@ for (const t of readSupplierSheet(oldGrid as never, { partner_code: CODE } as En
   const pi = prof.car_number;
   if (typeof pi !== 'number') continue;
   // 요금·보증금 칸만 본다. 나머지는 손대지 않는다.
-  const money = hdr.map((h, i) => ({ h, i })).filter((x) => /보증|개월|^기타기간/.test(x.h));
+  // 차량가격(소비자가)도 함께 옮긴다 — 우리 규격 열 이름은 「차량가격」이다.
+  const money = hdr.map((h, i) => ({ h: /소비자가|차량가/.test(h) ? '차량가격' : h, i }))
+    .filter((x) => /보증|개월|^기타기간|차량가격/.test(x.h));
   for (const row of t.table.slice(1)) {
     const pl = norm(row[pi]);
     if (!pl) continue;
@@ -80,7 +99,7 @@ const vals = await api(`https://sheets.googleapis.com/v4/spreadsheets/${liveId}/
 const rows = ((vals.values || []) as string[][]);
 const hdr = (rows[0] || []).map(S);
 const iPlate = hdr.indexOf('차량번호');
-const moneyCols = hdr.map((h, i) => ({ h, i })).filter((x) => /보증|개월|^기타기간/.test(x.h));
+const moneyCols = hdr.map((h, i) => ({ h, i })).filter((x) => /보증|개월|^기타기간|차량가격/.test(x.h));
 const A = (i: number) => (i < 26 ? String.fromCharCode(65 + i) : String.fromCharCode(64 + Math.floor(i / 26)) + String.fromCharCode(65 + (i % 26)));
 
 const writes: { range: string; values: string[][] }[] = [];
@@ -88,12 +107,12 @@ let touched = 0;
 for (let r = 1; r < rows.length; r++) {
   const pl = norm(rows[r][iPlate]);
   if (!pl) continue;
-  const filled = moneyCols.filter((c) => S(rows[r][c.i])).length;
-  if (filled) continue;                    // 값이 하나라도 있으면 손대지 않는다
+  // ★칸마다 본다 — 요금은 있는데 차량가격만 빈 줄이 대부분이다(2026-08-12).
+  //   줄 전체가 차 있으면 넘어가고, 빈 칸만 골라 채운다.
   const src = oldPrices.get(pl);
   if (!src?.size) { console.log(`  · ${pl} 옛 시트에도 요금이 없다`); continue; }
   const put: string[] = [];
-  for (const c of moneyCols) put.push(S(src.get(c.h)));
+  for (const c of moneyCols) put.push(S(rows[r][c.i]) ? '' : S(src.get(c.h)));
   if (!put.some(Boolean)) continue;
   touched++;
   console.log(`  ★ ${pl} — ${moneyCols.map((c, k) => (put[k] ? `${c.h} ${put[k]}` : '')).filter(Boolean).join(' · ')}`);

@@ -16,7 +16,7 @@
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { NOT_SHEET_BACKED } from '../lib/domain/supplier-sheet-read';
-import { buildRowHeights, isVehicleTab } from '../lib/domain/supplier-template-sheet';
+import { buildRowHeights, isVehicleTab, supplierSheetLabel } from '../lib/domain/supplier-template-sheet';
 import { isListableProduct } from '../lib/domain/product';
 import type { EntityRecord } from '../lib/intake/entities';
 
@@ -114,7 +114,7 @@ const codeOf = (label: string): string => {
 type Ours = { id: string; name: string; stockGid: number; policyGid: number; rows: number; policies: number };
 const ours = new Map<string, Ours>();
 for (const f of ((found.files || []) as Rec[])) {
-  const code = codeOf(S(f.name).replace('프리패스 재고 · ', ''));
+  const code = codeOf(supplierSheetLabel(f.name));
   if (!code) continue;
   const g = await api(`https://sheets.googleapis.com/v4/spreadsheets/${S(f.id)}?includeGridData=true&fields=sheets(properties(sheetId,title),data(rowData(values(formattedValue))))`);
   let stockGid = 0; let policyGid = 0; let rows = 0; let policies = 0;
