@@ -66,13 +66,27 @@ for (const src of [t3, t4] as Rec[]) for (const [k, v] of Object.entries<Rec>(sr
 const A = (i: number) => (i < 26 ? String.fromCharCode(65 + i) : String.fromCharCode(64 + Math.floor(i / 26)) + String.fromCharCode(65 + (i % 26)));
 let linked = 0; let kept = 0; let notFound = new Set(byPlate.keys());
 
+/**
+ * ★대상은 **우리가 만든 시트**다(「프리패스 재고 · …」). 파트너의 `sheet_url` 만 보면
+ *   정본이 공급사 쪽으로 돌아간 뒤에는 우리 시트를 한 장도 안 훑는다 —
+ *   실측 2026-08-12: 사진이 있는데 시트에서 «못 찾은» 차가 40대로 나왔다. 그 40대는
+ *   우리 시트에 멀쩡히 있었다. 파트너 시트도 함께 본다(우리 시트를 정본으로 쓰는 곳).
+ */
+const q = encodeURIComponent("mimeType='application/vnd.google-apps.spreadsheet' and 'me' in owners and trashed=false and name contains '프리패스 재고'");
+const ours = ((await api(`https://www.googleapis.com/drive/v3/files?q=${q}&pageSize=100&fields=files(id,name)&orderBy=name`)).files || []) as Rec[];
+const targets: { id: string; name: string }[] = [
+  ...ours.map((f) => ({ id: S(f.id), name: S(f.name).replace('프리패스 재고 · ', '') })),
+  ...Object.values<Rec>(partners).filter((x) => !dead(x)).map((x) => ({
+    id: (S(x.sheet_url).match(/\/d\/([\w-]+)/) || [])[1] || '',
+    name: S(x.partner_name || x.name) || S(x.partner_code),
+  })),
+];
 const seen = new Set<string>();
-for (const p of Object.values<Rec>(partners)) {
-  if (dead(p)) continue;
-  const id = (S(p.sheet_url).match(/\/d\/([\w-]+)/) || [])[1];
+for (const t of targets) {
+  const id = t.id;
   if (!id || seen.has(id)) continue;
   seen.add(id);
-  const name = S(p.partner_name || p.name) || S(p.partner_code);
+  const name = t.name;
   /**
    * ★재고 탭은 **한 장이 아닐 수 있다** — 렌트·구독을 나눈 공급사는 「렌트재고」·「구독재고」다.
    *   「재고」만 찾으면 그 공급사 사진이 통째로 안 붙는다(손오공 2026-08-12).
