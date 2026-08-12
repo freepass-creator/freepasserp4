@@ -493,6 +493,17 @@ export function isListableProduct(p: EntityRecord): boolean {
   return priceList(p).length > 0;
 }
 
+/**
+ * **재고에 있는 차** — 요금은 안 따진다. 영업자 엑셀·재고 대조가 쓰는 기준이다.
+ *
+ * `isListableProduct` 와 갈라 두는 이유: 손님 카탈로그에 값 없는 카드를 세우면 안 되지만,
+ * **영업자가 보는 표에는 있어야 한다**(사장님 2026-08-12 — 「공급사시트 erp 엑셀이 항상 같아야해」).
+ * 요금이 아직 없는 차는 «없는 차»가 아니라 «값을 아직 못 받은 차»다.
+ */
+export function isStockedProduct(p: EntityRecord): boolean {
+  return !isHiddenFromCatalog(p);
+}
+
 export function vehicleTone(s: string): 'green' | 'blue' | 'amber' | 'gray' | 'red' | 'orange' {
   if (s === UNKNOWN_VEHICLE_STATUS) return 'red';
   const k = s.replace(/\s+/g, '') as keyof typeof VEHICLE_STATUS_TONES;

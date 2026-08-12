@@ -168,12 +168,33 @@ try {
 }
 check('AUTO-PROMO 헤더 아래 차량번호 열 이동은 저장 전 차단', shiftedPromoBlocked);
 
+/**
+ * 아이카 배치 — 기간 열은 36·48·60개월만 두고 짧은 건 「월렌트」 한 칸, 보증 열은 「장기보증」 하나.
+ * 그 하나가 단기까지 관할해야 월렌트만 있는 차가 올라온다(2026-08-12 · 57호9876 제네시스 G70).
+ */
+const monthly = importSheetTable([
+  ['차량번호', '제조사', '모델', '월렌트', '장기보증', '36개월'],
+  ['12가3456', '현대', '아반떼', '900000', '1000000', ''],
+], { providerCode: 'RP', entries: [{} as never] });
+check('AICA-MONTHLY 「월렌트」는 1개월 요금 · 보증 열이 하나면 그 하나가 단기도 관할',
+  (monthly.products[0]?.price as Record<string, { rent: number; deposit: number }> | undefined)?.['1']?.rent === 900_000
+  && (monthly.products[0]?.price as Record<string, { rent: number; deposit: number }> | undefined)?.['1']?.deposit === 1_000_000,
+  monthly.products[0]?.price);
+
 const noPrice = importSheetTable([
   ['차량번호', '제조사', '모델', '12개월', '보증금'],
   ['12가3456', '현대', '아반떼', '-', '3000000'],
 ], { providerCode: 'RP', entries: [{} as never] });
-check('IMPORT-NOPRICE 유효 차번도 가격 전부 무효면 제외+증빙',
-  noPrice.imported === 0
+/**
+ * ★규칙이 바뀌었다(사장님 2026-08-12 — 「요금이 없어도 올리자」).
+ *   예전엔 가격이 하나도 없으면 그 차를 **버렸다**. 그래서 공급사 시트에는 있는데 ERP 에 없는
+ *   차가 생겼고 「시트 = ERP = 엑셀」이 어긋났다(아이카 14 · 손오공 12 · 리더스 2 · 경진카 1).
+ *   이제는 **올리되 가격을 비운다.** 지키는 건 그대로다 — **없는 값을 지어내지 않는다.**
+ *   몇 대가 그런지 세는 것(noPriceCount·증빙)도 그대로다. 조용히 넘기면 「다 됐다」로 보인다.
+ */
+check('IMPORT-NOPRICE 가격이 전부 무효여도 올리되 가격은 비우고 증빙을 남긴다',
+  noPrice.imported === 1
+  && !Object.keys((noPrice.products[0]?.price || {}) as Record<string, unknown>).length
   && noPrice.noPriceCount === 1
   && noPrice.issueSamples.some((item) => item.includes('가격없음')),
   noPrice.issueSamples);
@@ -222,9 +243,16 @@ const ambiguousOrigin = (entries: MasterEntry[], plate: string) => importSheetTa
 ], { providerCode: 'RP', entries, depositRule: 'rent_multiple' });
 const ambiguousForward = ambiguousOrigin([ambiguousDomestic, ambiguousImport], '56다7890');
 const ambiguousReverse = ambiguousOrigin([ambiguousImport, ambiguousDomestic], '78라9012');
-check('RULE-MULT-MASTER-AMBIGUOUS 국산·수입 동명모델은 마스터 배열 순서와 무관하게 fail-closed',
-  ambiguousForward.imported === 0 && ambiguousForward.noPriceCount === 1
-  && ambiguousReverse.imported === 0 && ambiguousReverse.noPriceCount === 1,
+/**
+ * ★fail-closed 의 대상은 **금액**이지 그 차가 아니다(2026-08-12 규칙 변경 이후).
+ *   같은 모델명이 국산·수입 마스터에 함께 있으면 배율을 못 정한다 — 그때 보증금을 지어내지 않는다.
+ *   차는 올라오되 **가격이 비어 있어야** 한다. 마스터 배열 순서가 금액을 바꾸면 안 된다는 게 요지다.
+ */
+check('RULE-MULT-MASTER-AMBIGUOUS 국산·수입 동명모델은 마스터 배열 순서와 무관하게 가격 fail-closed',
+  ambiguousForward.imported === 1 && ambiguousForward.noPriceCount === 1
+  && !Object.keys((ambiguousForward.products[0]?.price || {}) as Record<string, unknown>).length
+  && ambiguousReverse.imported === 1 && ambiguousReverse.noPriceCount === 1
+  && !Object.keys((ambiguousReverse.products[0]?.price || {}) as Record<string, unknown>).length,
   { forward: ambiguousForward.products[0]?.price, reverse: ambiguousReverse.products[0]?.price });
 
 const canonicalDomestic: MasterEntry = {

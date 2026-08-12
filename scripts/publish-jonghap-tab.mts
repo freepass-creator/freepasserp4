@@ -19,7 +19,7 @@
  */
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
-import { canonProductType, isListableProduct, priceList } from '../lib/domain/product';
+import { canonProductType, isStockedProduct, priceList } from '../lib/domain/product';
 import { companyAlias } from '../lib/domain/identity';
 import { fuelDisplay, fuelEmbeddedCc } from '../lib/domain/vehicle-master-match';
 import type { EntityRecord } from '../lib/intake/entities';
@@ -162,7 +162,8 @@ for (const p of Object.values<Rec>(pols)) if (p && typeof p === 'object' && S(p.
 const all = Object.entries<Rec>(prods)
   .filter(([, p]) => p && typeof p === 'object' && !dead(p))
   .map(([k, p]) => ({ ...p, _key: k, product_code: p.product_code || k } as EntityRecord));
-const rows = all.filter(isListableProduct).sort((a, b) =>
+// ★요금 없는 차도 담는다 — 영업자 표는 «재고 전부»여야 한다(요금 칸만 빈다).
+const rows = all.filter(isStockedProduct).sort((a, b) =>
   S((a as Rec).maker).localeCompare(S((b as Rec).maker), 'ko')
   || S((a as Rec).model).localeCompare(S((b as Rec).model), 'ko')
   || S((a as Rec).car_number).localeCompare(S((b as Rec).car_number), 'ko'));

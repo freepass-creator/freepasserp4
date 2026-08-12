@@ -589,10 +589,28 @@ export function parsePriceColumns(
     longDep = genericDeps[0].index;
   }
   let anyDepCol = normalizedHeaders.some((h) => /보증/.test(h));
+  /**
+   * ★보증 열이 **하나뿐이면 그 하나가 전부를 관할한다.**
+   *   아이카 시트는 「장기보증」 하나만 두고 단기·장기를 같이 쓴다. 예전엔 단기 기간이
+   *   관할 보증 열을 못 찾아(-1) 요금이 통째로 버려졌다 — 그래서 월렌트만 있는 차가
+   *   「요금 0건」으로 안 올라왔다(실측 2026-08-12 · 57호9876 제네시스 G70).
+   *   공급사가 적어 둔 유일한 보증금을 쓰는 것이지 없는 값을 지어내는 게 아니다.
+   */
+  if (shortDep < 0 && longDep >= 0 && normalizedHeaders.filter((h) => /보증/.test(h)).length === 1) {
+    shortDep = longDep;
+  }
   headers.forEach((h, i) => {
     // 공백·슬래시 변형 흡수: "12개월 3만" · "12개월3만" · 오토플러스 "12/3만"
     const t = String(h ?? '').trim().replace(/\s+/g, '');
-    const pm = /^(\d+)개월([1-9]\d*만)?/.exec(t) || /^(\d+)[/／]([1-9]\d*만)/.exec(t);
+    /**
+     * ★「월렌트」는 **1개월 요금**이다(사장님 2026-08-12 — 「그럼 1개월만 올리면 되잖아」).
+     *   아이카는 기간 열을 36·48·60개월만 두고 짧은 건 「월렌트」 한 칸으로 적는다.
+     *   그 이름을 안 읽으면 그 차는 요금이 하나도 없는 차가 된다.
+     *   ⚠ 아이카의 「월렌트」 **탭**은 별개다 — 그건 취급하지 않는다(탭은 여기까지 오지 않는다).
+     */
+    const pm = /^월렌트$|^월세$|^월대여료?$/.test(t)
+      ? (['', '1'] as unknown as RegExpExecArray)
+      : /^(\d+)개월([1-9]\d*만)?/.exec(t) || /^(\d+)[/／]([1-9]\d*만)/.exec(t);
     if (pm) {
       const period = Number(pm[1]);
       const km = pm[2] || '';
@@ -927,14 +945,30 @@ export function importSheetTable(table: string[][], opts: {
       _deposit_origin_trusted: !!consensusOrigin,
     } : rec;
     const price = parsePriceColumns(headers, cells, priceRecord, depositRule);
-    // **값 없는 매물은 게시하지 않는다.** 대여료가 하나도 없으면 손님에게 보여줄 게 없고,
-    //  가격 없는 카드가 목록에 섞이면 영업이 매번 공급사에 되물어야 한다.
-    //  실측(2026-07-31): 오토플러스 프로모탭 전용 7대는 그 탭에 요율 컬럼 자체가 없다.
-    //  조용히 빼면 "왜 없지"가 되므로 noPriceCount 로 세어 화면에 올린다.
+    /**
+     * ★**요금이 없어도 올린다**(사장님 2026-08-12 — 「요금이 없어도 올리자 / 요금 안보이게끔
+     *   올려서 출고가능이면 동일하게」).
+     *
+     *   예전엔 여기서 버렸다. 그래서 공급사 시트에는 있는데 ERP 에 없는 차가 생겼고
+     *   («시트 = ERP = 엑셀»이 어긋났다 — 실측 2026-08-12: 아이카 14 · 손오공 12 · 리더스 2 · 경진카 1),
+     *   영업이 「우리 목록에 없는데요」라고 말하는 사이 그 차는 공급사 시트에 멀쩡히 있었다.
+     *
+     *   ⚠ 올리되 **요금은 없는 채로** 둔다 — 없는 값을 지어내지 않는다.
+     *     손님 카탈로그는 `isListableProduct` 가 대여료를 요구하므로 그대로 안 보인다.
+     *     영업자 엑셀은 `isStockedProduct` 로 담아 요금 칸만 빈다.
+     *   몇 대가 그런지는 계속 센다 — 조용히 넘기면 「다 됐다」로 보인다.
+     */
     if (!price) {
       noPriceCount++;
       addIssue(`행 ${rowNo} 가격없음 · ${car || rawCar || '번호미정'}`);
-      continue;
+      /**
+       * ⚠ **가격도 차번도 없으면 올리지 않는다.**
+       *   그 행은 «어느 차»라고 말할 근거가 하나도 없다. 게다가 아래 임시번호 발급기를 지나면
+       *   순번을 한 칸 먹어 **기존 번호미정 차의 임시번호가 밀린다**
+       *   (`sim-sheet-merge` 의 「가격없는 번호미정 행은 occurrence를 소비해…」 항목이 이걸 지킨다).
+       *   차번이 있으면 위 규칙대로 가격만 비운 채 올린다.
+       */
+      if (!car) continue;
     }
     if (!car) {
       const idx = pendingSeen.get(pendingSig) ?? 0;

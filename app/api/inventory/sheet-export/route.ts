@@ -4,7 +4,7 @@ import { SheetsClient } from '@/lib/server/google-sheets-writer';
 import {
   attachPolicy, buildInventorySheet, exportTabName, policyMap, sortForSales,
 } from '@/lib/domain/inventory-sheet-export';
-import { isListableProduct } from '@/lib/domain/product';
+import { isStockedProduct } from '@/lib/domain/product';
 import { companyAlias } from '@/lib/domain/identity';
 
 /** 영업자가 늘 보는 고정 탭. 이름을 바꾸면 영업자 즐겨찾기가 끊긴다. */
@@ -85,7 +85,8 @@ export async function POST(request: Request) {
     const products = Object.entries((productsSnap.val() || {}) as Record<string, Rec>)
       .filter(([, p]) => p && typeof p === 'object' && !dead(p))
       .map(([key, p]) => ({ ...p, _key: key, product_code: p.product_code || key } as EntityRecord))
-      .filter((p) => isListableProduct(p))
+      // ★요금 없는 차도 담는다 — 영업자 표는 «재고 전부»여야 한다(요금 칸만 빈다).
+      .filter((p) => isStockedProduct(p))
       .map((p) => attachPolicy(p, policies));
     const rows = sortForSales(products);
 
