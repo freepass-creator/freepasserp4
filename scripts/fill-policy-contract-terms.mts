@@ -25,8 +25,14 @@ const DB = 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.a
  * 공급사가 다르게 쓰면 그 정책에서 덮어쓴다 — 여기 값은 «안 정해진 곳»의 바닥이다.
  */
 const DEFAULTS: Record<string, number> = {
-  engine_control_overdue_days: 30,   // 약관 제24조 운행제한·시동제어
-  auto_terminate_overdue_days: 60,   // 약관 제7조·제24조 해지·차량회수
+  /**
+   * ★3일 / 10일이 **계약서 기본 양식의 값**이다(사장님 확인 2026-08-12).
+   *   처음에 30일/60일로 채웠는데 그건 내가 「권고」라며 지어낸 값이었고 실무와 열 배 어긋났다.
+   *   계약서 HTML 에 「청구일로부터 3일 연체 시 시동제어 · 10일 연체 시 해지·회수」로
+   *   이미 인쇄돼 있었다 — 문서가 답을 갖고 있는데 데이터에 다른 값을 넣은 셈이다.
+   */
+  engine_control_overdue_days: 3,    // 약관 제24조 운행제한·시동제어
+  auto_terminate_overdue_days: 10,   // 약관 제7조·제24조 해지·차량회수
   deposit_overdue_rounds: 2,         // 약관 제10·13조 보증금 분납 미납(회차)
   renewal_notice_days: 30,           // 약관 제10조 연장 사전통지
   buyout_notice_days: 30,            // 약관 제26조 인수 사전통지
