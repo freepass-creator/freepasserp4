@@ -1,5 +1,5 @@
 /**
- * **공급사 시트 ↔ ERP 대조.** 읽기 전용 — 아무것도 고치지 않는다.
+ * **공급사 시트 ↔ ERP ↔ 우리 시트 삼자 대조.** 읽기 전용 — 아무것도 고치지 않는다.
  *
  * 시트에 적힌 요금·보증금이 ERP 에 그대로 들어갔는지 차 한 대씩 맞춰 본다.
  * 시트를 «학습»해서 ERP·판매시트에 반영하는 게 목적이니, 그 반영이 실제로 맞는지
@@ -10,6 +10,12 @@
  *   아이카를 227행으로 셌다).
  * ★보증금은 시트 칸이 우선, 없으면 파트너의 `deposit_rule`. 규칙도 없으면 그 기간을 버린다 —
  *   0원(무보증)과 «말할 수 없음»은 다르다.
+ * ★셋을 같이 센다 — **어느 하나만 봐서는 어긋난 걸 못 본다**(사장님 2026-08-12
+ *   「공급사제공시트랑 erp랑 우리 시트랑 안맞는데」).
+ *     공급사 시트  정본. 공급사가 파는 차
+ *     ERP          우리가 읽어 접어 둔 것. 영업자 화면·판매시트의 근거
+ *     우리 시트    「프리패스 재고 · …」. 배포용으로 우리가 만든 표
+ *   우리 시트가 없는 공급사(오플·아이카·이안카)는 그 칸이 «—» 다 — 빠진 게 아니다.
  *
  *   npx tsx scripts/audit-sheet-vs-erp.mts
  *   npx tsx scripts/audit-sheet-vs-erp.mts --only=아이카 --detail
@@ -17,6 +23,7 @@
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { NOT_SHEET_BACKED, SHEET_GRID_FIELDS, readSupplierSheet } from '../lib/domain/supplier-sheet-read';
+import { isVehicleTab } from '../lib/domain/supplier-template-sheet';
 import { parseDepositRule, parsePriceColumns, unambiguousMasterOrigin } from '../lib/domain/sheet-import';
 import type { MasterEntry } from '../lib/domain/vehicle-master-types';
 import type { EntityRecord } from '../lib/intake/entities';
@@ -40,7 +47,14 @@ const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS)
 const dbT = (await new JWT({ email: sa.client_email, key: sa.private_key,
   scopes: ['https://www.googleapis.com/auth/firebase.database', 'https://www.googleapis.com/auth/userinfo.email'] }).getAccessToken()).token;
 const gT = (await new JWT({ email: sa.client_email, key: sa.private_key,
-  scopes: ['https://www.googleapis.com/auth/spreadsheets'], subject: 'pyh@teamjpk.com' }).getAccessToken()).token;
+  scopes: ['https://www.googleapis.com/auth/drive', 'https://www.googleapis.com/auth/spreadsheets'],
+  subject: 'pyh@teamjpk.com' }).getAccessToken()).token;
+const api = async (url: string): Promise<Rec> => {
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${gT}` } });
+  const body = await res.json().catch(() => ({})) as Rec;
+  if (!res.ok) throw new Error(body?.error?.message || `HTTP ${res.status}`);
+  return body;
+};
 
 const [prods, t3, t4] = await Promise.all(['v4/products', 'partners', 'v4/partners'].map(async (n) =>
   JSON.parse(await (await fetch(`${DB}/${n}.json?access_token=${dbT}`)).text()) || {}));
@@ -96,7 +110,11 @@ const priceRecordFor = (p: Rec, hdr: string[], cells: string[]): EntityRecord =>
   } as EntityRecord;
 };
 
-console.log('■ 공급사 시트 ↔ ERP 대조 (읽기 전용)\n');
+/** 우리가 만든 배포용 시트 목록 — 한 번만 훑는다. */
+const oursQ = encodeURIComponent("mimeType='application/vnd.google-apps.spreadsheet' and 'me' in owners and trashed=false and name contains '프리패스 재고'");
+const OURS = ((await api(`https://www.googleapis.com/drive/v3/files?q=${oursQ}&pageSize=100&fields=files(id,name)`)).files || []) as Rec[];
+
+console.log('■ 공급사 시트 ↔ ERP ↔ 우리 시트 대조 (읽기 전용)\n');
 for (const [code, partner] of [...byCode].sort((a, b) => a[0].localeCompare(b[0]))) {
   const name = S(partner.partner_name || partner.name || partner.company_name) || code;
   if (ONLY && !name.includes(ONLY) && code !== ONLY) continue;
@@ -140,6 +158,25 @@ for (const [code, partner] of [...byCode].sort((a, b) => a[0].localeCompare(b[0]
     }
   }
 
+  /** 우리가 만든 배포용 시트(있으면). 없다고 문제인 건 아니다 — 아직 안 만든 공급사가 있다. */
+  const short = name.replace(/\(주\)|주식회사|㈜/g, '').replace(/\s/g, '');
+  const mine = OURS.find((f) => {
+    const lab = S(f.name).replace('프리패스 재고 · ', '').replace(/\s/g, '');
+    return lab === short || short.includes(lab) || lab.includes(short);
+  });
+  const minePlates = new Set<string>();
+  if (mine) {
+    const m2 = await api(`https://sheets.googleapis.com/v4/spreadsheets/${S(mine.id)}?fields=sheets.properties.title`);
+    for (const t of ((m2.sheets || []) as Rec[]).map((sh) => S(sh.properties?.title)).filter(isVehicleTab)) {
+      const v = await api(`https://sheets.googleapis.com/v4/spreadsheets/${S(mine.id)}/values/${encodeURIComponent(`${t}!A1:BZ600`)}`);
+      const rr = ((v.values || []) as string[][]);
+      const hh = (rr[0] || []).map(S);
+      const ip = hh.indexOf('차량번호');
+      if (ip < 0) continue;
+      for (const r of rr.slice(1)) { const pl = norm(r[ip]); if (pl) minePlates.add(pl); }
+    }
+  }
+
   let ok = 0;
   const rentBad: string[] = []; const depBad: string[] = []; const noPrice: string[] = [];
   const notInSheet: string[] = []; const notInErp: string[] = [];
@@ -167,7 +204,17 @@ for (const [code, partner] of [...byCode].sort((a, b) => a[0].localeCompare(b[0]
 
   const flag = (n: number) => (n ? '★' : ' ');
   console.log(`  ${name}(${code})  보증금규칙 ${rule || '시트 칸에서 읽음'}`);
-  console.log(`    시트 ${rows.size}대(줄 ${sheetRows})${read.failures.length ? ` · 못 읽은 탭 ${read.failures.map((f) => `「${S((f as Rec).title)}」`).join(' ')}` : ''} · ERP ${erp.length}대`);
+  console.log(`    공급사시트 ${rows.size}대(줄 ${sheetRows})${read.failures.length ? ` · 못 읽은 탭 ${read.failures.map((f) => `「${S((f as Rec).title)}」`).join(' ')}` : ''} · ERP ${erp.length}대 · 우리시트 ${mine ? `${minePlates.size}대` : '—(안 만듦)'}`);
+  if (mine) {
+    // 셋의 차집합 — 어디에 있고 어디에 없는지가 «안 맞는다»의 실체다.
+    const onlyMine = [...minePlates].filter((pl) => !rows.has(pl));
+    const notMine = [...rows.keys()].filter((pl) => !minePlates.has(pl));
+    if (onlyMine.length || notMine.length) {
+      console.log(`     ★우리시트에만 ${onlyMine.length}대 · 공급사시트에만 ${notMine.length}대`);
+      if (onlyMine.length) console.log(`       우리시트에만: ${onlyMine.slice(0, DETAIL ? 40 : 6).join(' · ')}${onlyMine.length > (DETAIL ? 40 : 6) ? ` … 외 ${onlyMine.length - (DETAIL ? 40 : 6)}대` : ''}`);
+      if (notMine.length) console.log(`       공급사시트에만: ${notMine.slice(0, DETAIL ? 40 : 6).join(' · ')}${notMine.length > (DETAIL ? 40 : 6) ? ` … 외 ${notMine.length - (DETAIL ? 40 : 6)}대` : ''}`);
+    }
+  }
   console.log(`     맞음 ${ok}대 ${flag(rentBad.length)}요금 다름 ${rentBad.length}대 ${flag(depBad.length)}보증금만 다름 ${depBad.length}대 ${flag(noPrice.length)}시트에서 요금 못 구함 ${noPrice.length}대`);
   console.log(`     ${flag(notInSheet.length)}ERP에만 있음 ${notInSheet.length}대 ${flag(notInErp.length)}시트에만 있음 ${notInErp.length}대`);
   const dump = (label: string, xs: string[], n = DETAIL ? 40 : 4) => {
