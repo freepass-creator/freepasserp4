@@ -16,7 +16,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
-import { SHEET_GRID_FIELDS, readSupplierSheet } from '../lib/domain/supplier-sheet-read';
+import { NOT_SHEET_BACKED, SHEET_GRID_FIELDS, readSupplierSheet } from '../lib/domain/supplier-sheet-read';
 import { parseDepositRule, parsePriceColumns, unambiguousMasterOrigin } from '../lib/domain/sheet-import';
 import type { MasterEntry } from '../lib/domain/vehicle-master-types';
 import type { EntityRecord } from '../lib/intake/entities';
@@ -102,6 +102,11 @@ for (const [code, partner] of [...byCode].sort((a, b) => a[0].localeCompare(b[0]
   if (ONLY && !name.includes(ONLY) && code !== ONLY) continue;
   const erp = erpBy.get(code) || [];
   if (!erp.length && !S(partner.sheet_url)) continue;
+  // 아이언은 홈페이지(ironrentcar.com) 수집이다. 시트가 없는 게 정상이니 «빠뜨렸다»고 하면 안 된다.
+  if (NOT_SHEET_BACKED.has(code)) {
+    console.log(`  ${name}(${code})  ERP ${erp.length}대 — 시트가 정본이 아닌 공급사(홈페이지 수집). 대조 대상 아님.\n`);
+    continue;
+  }
   const id = (S(partner.sheet_url).match(/\/d\/([\w-]+)/) || [])[1];
   if (!id) {
     console.log(`  ${name}(${code})  ERP ${erp.length}대 — ★시트가 연결돼 있지 않다. 시트로 갱신되지 않는 재고다.\n`);

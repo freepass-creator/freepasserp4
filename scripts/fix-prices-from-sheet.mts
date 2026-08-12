@@ -1,25 +1,26 @@
 /**
- * **오토플러스 요금·보증금을 시트대로 다시 넣는다.** 기본 dry-run, 반영은 `--apply`.
+ * **공급사 시트대로 ERP 요금·보증금을 다시 넣는다.** 기본 dry-run, 반영은 `--apply`.
  *
- * ★무엇이 틀렸나(2026-08-12 · 강지수 팀장 제보)
+ * ★왜(2026-08-12 · 강지수 팀장 제보에서 시작)
  *   오플 시트 요금 열은 「12개월3만 · 18개월2만 · 24개월2만 · 36개월2만」인데,
  *   옛 어댑터가 **열 이름을 안 읽고 자리 순서로** 12·24·36·48 에 갖다 붙였다.
- *   그래서 18개월 요금이 24개월로, 24개월이 36개월로 올라가고 **없는 48개월이 생겼다.**
- *   제보 예시 311저1956 — 시트에 48개월이 없는데 ERP 에 750,000 으로 떠 있었다.
+ *   18개월 요금이 24개월로 올라가고 **시트에 없는 48개월이 생겼다**(311저1956).
+ *   아이카도 같은 병이다 — 시트에서 사라진 1·6·12·24개월이 ERP 에 그대로 남아 있다.
+ *   ⚠ «시트에서 빠진 기간»은 지금 그 값으로 팔면 안 되는 상품이다. 그래서 통째로 갈아 끼운다.
  *
  * ★고치는 법 — 유입과 **같은 함수**(`parsePriceColumns`)로 다시 읽는다.
  *   여기서 규칙을 새로 짜면 화면·계약서와 또 갈라진다. 읽는 법은 한 곳에만 있어야 한다.
- *     요금    열 이름이 키다. 「18개월2만」 → `18_2만`. 맨숫자 키(12·24·36·48)는 지운다.
- *     보증금  **오플 시트에는 보증금 열이 없다.** 파트너의 `deposit_rule = rent_multiple`,
- *             즉 **대여료 × 배율(국산 2 · 수입 3)** 로 계산한다. 옛 보증금을 옮겨오지 않는다 —
- *             그 값은 «틀린 기간에 붙은 대여료»로 계산된 것이라 같이 틀렸다.
+ *     요금    시트 열 이름이 키다. 「18개월2만」 → `18_2만`.
+ *     보증금  시트 칸이 있으면 그 값. 없으면 파트너의 `deposit_rule`
+ *             (오플 `rent_multiple` = 대여료 × 국산2·수입3 / 손오공 `months_per_year` = 연수 × 대여료).
+ *             ★옛 보증금을 옮겨오지 않는다 — 틀린 기간에 붙은 대여료로 계산된 것이라 같이 틀렸다.
+ *              실제로 ×6 으로 두 배 붙은 칸이 나왔다(146오7914 24개월 4,920,000 → 2,460,000).
  *
- * ⚠ 제조사를 못 정한 차는 배율이 안 나온다(fail-closed). 그런 차는 **손대지 않고 이름만 남긴다** —
- *   보증금을 지어내느니 옛 값을 두는 게 낫다.
- * ⚠ 시트에 없는 차, 시트에서 요금을 못 읽은 차도 손대지 않는다. 못 읽은 것과 «없는 것»은 다르다.
+ * ⚠ 시트에 없는 차, 시트에서 요금을 못 읽은 차는 **손대지 않는다.** 못 읽은 것과 «없는 것»은 다르다.
+ * ⚠ 배율을 못 정한 차도 손대지 않는다 — 보증금을 지어내느니 옛 값을 두는 게 낫다.
  *
- *   npx tsx scripts/fix-autoplus-price-keys.mts
- *   npx tsx scripts/fix-autoplus-price-keys.mts --apply
+ *   npx tsx scripts/fix-prices-from-sheet.mts --code=RP023
+ *   npx tsx scripts/fix-prices-from-sheet.mts --code=RP004 --apply
  */
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
@@ -34,7 +35,10 @@ const S = (v: unknown) => String(v ?? '').trim();
 const norm = (v: unknown) => S(v).replace(/\s+/g, '');
 const won = (n: number) => n.toLocaleString('ko-KR');
 const APPLY = process.argv.includes('--apply');
-const CODE = 'RP023';
+const CODE = (process.argv.find((a) => a.startsWith('--code=')) || '').slice('--code='.length).trim();
+if (!CODE) { console.log('■ --code=RP023 처럼 공급사를 지정해야 한다\n'); process.exit(1); }
+/** 오플만 «자리로 박힌 맨숫자 키»가 남아 있다. 다른 공급사에는 그런 잔재가 없다. */
+const STRIP_LEGACY = CODE === 'RP023';
 const DB = 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app';
 
 /** 차종마스터 — 국산/수입 만장일치 판정에 쓴다(저장하지 않는다). */
@@ -72,8 +76,9 @@ for (const t of read.tabs) {
     if (pl && !rows.has(pl)) rows.set(pl, { tab: t.title, hdr, cells: cells.map(S) });
   }
 }
-console.log(`■ 오토플러스 요금·보증금 바로잡기 ${APPLY ? '(반영)' : '(dry-run)'}\n`);
-console.log(`  보증금 규칙 ${rule || '(없음)'} — 대여료 × 배율(국산 2 · 수입 3)`);
+const PNAME = S(partner?.partner_name || partner?.name) || CODE;
+console.log(`■ ${PNAME}(${CODE}) 요금·보증금 바로잡기 ${APPLY ? '(반영)' : '(dry-run)'}\n`);
+console.log(`  보증금 ${rule ? `규칙 ${rule}` : '시트 칸에서 읽음'}`);
 console.log(`  시트에서 읽은 차 ${rows.size}대${read.failures.length ? ` · 못 읽은 탭 ${read.failures.map((f) => `「${S((f as Rec).title)}」`).join(' ')}` : ''}\n`);
 
 /**
@@ -138,7 +143,7 @@ if (noMult.length) {
 
 mkdirSync('tmp', { recursive: true });
 const stamp = new Date(Date.now() + 9 * 3600_000).toISOString().replace(/[:.]/g, '-').slice(0, 19);
-const backup = `tmp/autoplus-price-backup-${stamp}.json`;
+const backup = `tmp/price-backup-${CODE}-${stamp}.json`;
 writeFileSync(backup, JSON.stringify(Object.fromEntries(fixes.map((f) => [f.key, f.now])), null, 1), 'utf8');
 console.log(`\n  되돌리기용 백업: ${backup}`);
 if (!APPLY) { console.log('\n※ dry-run. 실제 반영은 --apply\n'); process.exit(0); }
@@ -152,7 +157,7 @@ const at = new Date().toISOString();
  *   숫자를 새로 만들지 않고 **중복만 지운다** — 꼬리표 키가 있는 차에 한해서다.
  */
 let stripped = 0;
-for (const [k, p] of Object.entries<Rec>(prods)) {
+for (const [k, p] of STRIP_LEGACY ? Object.entries<Rec>(prods) : []) {
   if (!p || typeof p !== 'object' || dead(p)) continue;
   if ((S(p.provider_company_code) || S(p.partner_code)) !== CODE) continue;
   if (fixes.some((f) => f.key === k)) continue;      // 위에서 통째로 갈아 끼운 차는 대상 아님
