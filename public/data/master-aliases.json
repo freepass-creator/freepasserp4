@@ -1,0 +1,231 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "kind": "trim",
+      "maker": "현대",
+      "model": "팰리세이드",
+      "sub_model": "더 뉴 팰리세이드 LX2",
+      "from": "블랙",
+      "to": "캘리그래피 블랙에디션",
+      "n": 1,
+      "at": "2026-08-13",
+      "by": "fill-master-gap"
+    },
+    {
+      "kind": "trim",
+      "maker": "벤츠",
+      "model": "E-클래스",
+      "sub_model": "E-클래스 W214",
+      "from": "아방가르드",
+      "to": "E200 아방가르드",
+      "n": 2,
+      "at": "2026-08-13",
+      "by": "fill-master-gap"
+    },
+    {
+      "kind": "trim",
+      "maker": "기아",
+      "model": "모닝",
+      "sub_model": "뉴모닝 SA",
+      "from": "SLX",
+      "to": "SLX 스페셜",
+      "n": 1,
+      "at": "2026-08-13",
+      "by": "fill-master-gap"
+    },
+    {
+      "kind": "trim",
+      "maker": "제네시스",
+      "model": "GV80",
+      "sub_model": "GV80 JX1",
+      "from": "기본형",
+      "to": "기본",
+      "n": 2,
+      "at": "2026-08-13",
+      "by": "사람",
+      "reviewed": true
+    },
+    {
+      "kind": "trim",
+      "maker": "기아",
+      "model": "K7",
+      "sub_model": "K7 프리미어 YG",
+      "from": "트렌디",
+      "to": "LPI 트렌디(렌터카)",
+      "n": 1,
+      "at": "2026-08-13",
+      "by": "fill-master-gap"
+    },
+    {
+      "kind": "trim",
+      "maker": "기아",
+      "model": "K8",
+      "sub_model": "더 뉴 K8 GL3",
+      "from": "라이트",
+      "to": "노블레스 라이트",
+      "n": 1,
+      "at": "2026-08-13",
+      "by": "fill-master-gap"
+    },
+    {
+      "kind": "trim",
+      "maker": "BMW",
+      "model": "5시리즈",
+      "sub_model": "5시리즈 G60",
+      "from": "520i M Spt",
+      "to": "520i M 스포츠",
+      "n": 2,
+      "at": "2026-08-13",
+      "by": "사람",
+      "reviewed": true
+    },
+    {
+      "kind": "variant",
+      "maker": "현대",
+      "model": "아반떼",
+      "sub_model": "더 뉴 아반떼 CN7",
+      "from": "1.6T가솔린",
+      "to": "가솔린 1.6",
+      "n": 6,
+      "at": "2026-08-13",
+      "by": "fill-master-gap"
+    },
+    {
+      "kind": "variant",
+      "maker": "기아",
+      "model": "카니발",
+      "sub_model": "더 뉴 카니발 KA4",
+      "from": "1.6T하이브리드 9인승",
+      "to": "하이브리드 1.6 9인승",
+      "n": 2,
+      "at": "2026-08-13",
+      "by": "fill-master-gap"
+    },
+    {
+      "kind": "variant",
+      "maker": "기아",
+      "model": "셀토스",
+      "sub_model": "더 2026 셀토스 SP3",
+      "from": "1.6T가솔린 2WD 트렌드",
+      "to": "가솔린 1.6 2WD",
+      "n": 1,
+      "at": "2026-08-13",
+      "by": "fill-master-gap"
+    },
+    {
+      "kind": "trim",
+      "maker": "기아",
+      "model": "K5",
+      "sub_model": "K5 TF",
+      "from": "LPI 트렌디",
+      "to": "트렌디",
+      "n": 2,
+      "at": "2026-08-13",
+      "by": "사람",
+      "reviewed": true
+    },
+    {
+      "kind": "trim",
+      "maker": "벤츠",
+      "model": "E-클래스",
+      "sub_model": "E-클래스 W213",
+      "from": "아방가르드",
+      "to": "E300 아방가르드",
+      "n": 4,
+      "at": "2026-08-13",
+      "by": "fill-master-gap"
+    },
+    {
+      "kind": "trim",
+      "maker": "르노코리아",
+      "model": "아르카나",
+      "sub_model": "아르카나",
+      "from": "아이코닉",
+      "to": "GTe 아이코닉",
+      "n": 4,
+      "at": "2026-08-13",
+      "by": "fill-master-gap"
+    },
+    {
+      "kind": "trim",
+      "maker": "미니",
+      "model": "컨트리맨",
+      "sub_model": "쿠퍼 S 컨트리맨 U25",
+      "from": "에디션",
+      "to": "S ALL4 Tailored/First Edition(테일러드 에디션)",
+      "n": 2,
+      "at": "2026-08-13",
+      "by": "사람",
+      "reviewed": true
+    },
+    {
+      "kind": "trim",
+      "maker": "미니",
+      "model": "쿠퍼",
+      "sub_model": "쿠퍼 C F66/F65",
+      "from": "5도어",
+      "to": "5도어 브리즈 에디션",
+      "n": 1,
+      "at": "2026-08-13",
+      "by": "fill-master-gap"
+    },
+    {
+      "kind": "trim",
+      "maker": "닷지",
+      "model": "캘리버",
+      "sub_model": "캘리버",
+      "from": "블랙에디션 7인승",
+      "to": "블랙에디션",
+      "n": 1,
+      "at": "2026-08-13",
+      "by": "사람",
+      "reviewed": true
+    },
+    {
+      "kind": "variant",
+      "maker": "벤츠",
+      "model": "CLE-클래스",
+      "sub_model": "CLE-클래스 C236",
+      "from": "하이브리드 3.0 4MATIC",
+      "to": "가솔린 3.0 4MATIC",
+      "reviewed": true,
+      "at": "2026-08-13",
+      "by": "사람"
+    },
+    {
+      "kind": "variant",
+      "maker": "벤츠",
+      "model": "E-클래스",
+      "sub_model": "E-클래스 W214",
+      "from": "가솔린 2.0 2WD",
+      "to": "가솔린 2.0",
+      "reviewed": true,
+      "at": "2026-08-13",
+      "by": "사람"
+    },
+    {
+      "kind": "variant",
+      "maker": "기아",
+      "model": "쏘렌토",
+      "sub_model": "더 뉴 쏘렌토 MQ4",
+      "from": "하이브리드 1.6 5인승 4WD",
+      "to": "하이브리드 1.6 4WD",
+      "reviewed": true,
+      "at": "2026-08-13",
+      "by": "사람"
+    },
+    {
+      "kind": "variant",
+      "maker": "현대",
+      "model": "싼타페",
+      "sub_model": "디 올 뉴 싼타페 MX5",
+      "from": "하이브리드 2WD 플러스 6인승",
+      "to": "하이브리드 2WD 6인승",
+      "reviewed": true,
+      "at": "2026-08-13",
+      "by": "사람"
+    }
+  ],
+  "updated": "2026-08-13"
+}

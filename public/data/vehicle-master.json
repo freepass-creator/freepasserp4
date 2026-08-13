@@ -123,6 +123,36 @@
           "trims": [
             "시그니처"
           ]
+        },
+        {
+          "label": "디젤 2.2 9인승",
+          "fuel": "디젤",
+          "displacement_l": 2.2,
+          "turbo": false,
+          "drivetrain": null,
+          "seat": 9,
+          "battery_kwh": null,
+          "trims": []
+        },
+        {
+          "label": "하이브리드 1.6 9인승",
+          "fuel": "하이브리드",
+          "displacement_l": 1.6,
+          "turbo": false,
+          "drivetrain": null,
+          "seat": 9,
+          "battery_kwh": null,
+          "trims": []
+        },
+        {
+          "label": "하이브리드 1.6T 9인승",
+          "fuel": "하이브리드",
+          "displacement_l": 1.6,
+          "turbo": true,
+          "drivetrain": null,
+          "seat": 9,
+          "battery_kwh": null,
+          "trims": []
         }
       ],
       "trims": [
@@ -764,6 +794,16 @@
             "시그니처",
             "그래비티"
           ]
+        },
+        {
+          "label": "하이브리드 1.6 5인승",
+          "fuel": "하이브리드",
+          "displacement_l": 1.6,
+          "turbo": false,
+          "drivetrain": null,
+          "seat": 5,
+          "battery_kwh": null,
+          "trims": []
         }
       ],
       "trims": [
@@ -4384,7 +4424,8 @@
             "트렌디",
             "프레스티지",
             "시그니처",
-            "X라인"
+            "X라인",
+            "트렌드"
           ]
         },
         {
@@ -4401,13 +4442,24 @@
             "시그니처",
             "X라인"
           ]
+        },
+        {
+          "label": "가솔린 1.6T 2WD",
+          "fuel": "가솔린",
+          "displacement_l": 1.6,
+          "turbo": true,
+          "drivetrain": "2WD",
+          "seat": null,
+          "battery_kwh": null,
+          "trims": []
         }
       ],
       "trims": [
         "X라인",
         "시그니처",
         "트렌디",
-        "프레스티지"
+        "프레스티지",
+        "트렌드"
       ]
     },
     {
@@ -4684,7 +4736,9 @@
           "battery_kwh": null,
           "trims": [
             "프레스티지",
-            "노블레스"
+            "노블레스",
+            "트렌디",
+            "스탠다드"
           ],
           "default": true
         },
@@ -4743,6 +4797,16 @@
             "시그니처",
             "시그니처 스페셜"
           ]
+        },
+        {
+          "label": "LPG 3.5",
+          "fuel": "LPG",
+          "displacement_l": 3.5,
+          "turbo": false,
+          "drivetrain": null,
+          "seat": null,
+          "battery_kwh": null,
+          "trims": []
         }
       ],
       "trims": [
@@ -4751,7 +4815,9 @@
         "시그니처",
         "시그니처 스페셜",
         "프레스티지",
-        "플래티넘"
+        "플래티넘",
+        "트렌디",
+        "스탠다드"
       ]
     },
     {
@@ -8806,7 +8872,8 @@
             "프레스티지",
             "프레스티지 플러스",
             "캘리그래피",
-            "H-Pick"
+            "H-Pick",
+            "디자인플러스"
           ]
         },
         {
@@ -8836,6 +8903,26 @@
             "프레스티지",
             "캘리그래피"
           ]
+        },
+        {
+          "label": "가솔린 2.5T 2WD 5인승",
+          "fuel": "가솔린",
+          "displacement_l": 2.5,
+          "turbo": true,
+          "drivetrain": "2WD",
+          "seat": 5,
+          "battery_kwh": null,
+          "trims": []
+        },
+        {
+          "label": "하이브리드 2WD 6인승",
+          "fuel": "하이브리드",
+          "displacement_l": null,
+          "turbo": false,
+          "drivetrain": "2WD",
+          "seat": 6,
+          "battery_kwh": null,
+          "trims": []
         }
       ],
       "trims": [
@@ -8843,7 +8930,8 @@
         "익스클루시브",
         "캘리그래피",
         "프레스티지",
-        "프레스티지 플러스"
+        "프레스티지 플러스",
+        "디자인플러스"
       ]
     },
     {
@@ -9461,6 +9549,16 @@
             "인스퍼레이션",
             "인스퍼레이션 N라인"
           ]
+        },
+        {
+          "label": "가솔린 1.6T",
+          "fuel": "가솔린",
+          "displacement_l": 1.6,
+          "turbo": true,
+          "drivetrain": null,
+          "seat": null,
+          "battery_kwh": null,
+          "trims": []
         }
       ],
       "trims": [
@@ -10057,12 +10155,14 @@
           "seat": null,
           "battery_kwh": null,
           "trims": [
-            "GLS"
+            "GLS",
+            "인스퍼레이션"
           ]
         }
       ],
       "trims": [
-        "GLS"
+        "GLS",
+        "인스퍼레이션"
       ]
     },
     {
@@ -10117,7 +10217,8 @@
           "battery_kwh": null,
           "trims": [
             "익스클루시브",
-            "인스퍼레이션"
+            "인스퍼레이션",
+            "비즈니스"
           ]
         },
         {
@@ -10138,7 +10239,8 @@
         "S",
         "익스클루시브",
         "인스퍼레이션",
-        "프리미엄"
+        "프리미엄",
+        "비즈니스"
       ]
     },
     {
@@ -10201,7 +10303,8 @@
             "프리미엄",
             "프리미엄 패밀리",
             "프리미엄 플러스",
-            "인스퍼레이션"
+            "인스퍼레이션",
+            "익스클루시브"
           ]
         },
         {
@@ -10281,7 +10384,8 @@
         "프리미엄",
         "프리미엄 밀레니얼",
         "프리미엄 패밀리",
-        "프리미엄 플러스"
+        "프리미엄 플러스",
+        "익스클루시브"
       ]
     },
     {
@@ -11260,6 +11364,16 @@
             "프레스티지",
             "캘리그래피"
           ]
+        },
+        {
+          "label": "디젤 2.2 4WD 7인승",
+          "fuel": "디젤",
+          "displacement_l": 2.2,
+          "turbo": false,
+          "drivetrain": "4WD",
+          "seat": 7,
+          "battery_kwh": null,
+          "trims": []
         }
       ],
       "trims": [
@@ -16403,7 +16517,8 @@
           "seat": null,
           "battery_kwh": null,
           "trims": [
-            "(세부등급 없음)"
+            "(세부등급 없음)",
+            "런칭"
           ]
         },
         {
@@ -16415,7 +16530,8 @@
           "seat": null,
           "battery_kwh": null,
           "trims": [
-            "(세부등급 없음)"
+            "(세부등급 없음)",
+            "기본형"
           ]
         },
         {
@@ -16457,7 +16573,9 @@
         }
       ],
       "trims": [
-        "(세부등급 없음)"
+        "(세부등급 없음)",
+        "런칭",
+        "기본형"
       ]
     },
     {
@@ -16571,7 +16689,8 @@
           "seat": null,
           "battery_kwh": null,
           "trims": [
-            "프레스티지"
+            "프레스티지",
+            "런칭"
           ]
         }
       ],
@@ -16581,7 +16700,8 @@
         "스포츠",
         "파이니스트",
         "프레스티지",
-        "프리미엄 럭셔리"
+        "프리미엄 럭셔리",
+        "런칭"
       ]
     },
     {
@@ -16699,6 +16819,16 @@
             "가솔린 3.5 터보"
           ],
           "default": true
+        },
+        {
+          "label": "디젤 3.0 AWD 5인승",
+          "fuel": "디젤",
+          "displacement_l": 3,
+          "turbo": false,
+          "drivetrain": "AWD",
+          "seat": 5,
+          "battery_kwh": null,
+          "trims": []
         }
       ],
       "trims": [
@@ -16942,6 +17072,26 @@
           "trims": [
             "럭셔리"
           ]
+        },
+        {
+          "label": "가솔린 3.8 AWD 5인승",
+          "fuel": "가솔린",
+          "displacement_l": 3.8,
+          "turbo": false,
+          "drivetrain": "AWD",
+          "seat": 5,
+          "battery_kwh": null,
+          "trims": []
+        },
+        {
+          "label": "가솔린 5.0 AWD 4인승",
+          "fuel": "가솔린",
+          "displacement_l": 5,
+          "turbo": false,
+          "drivetrain": "AWD",
+          "seat": 4,
+          "battery_kwh": null,
+          "trims": []
         }
       ],
       "trims": [
@@ -20730,13 +20880,15 @@
           "battery_kwh": null,
           "trims": [
             "(세부등급 없음)",
-            "플러스"
+            "플러스",
+            "RS"
           ]
         }
       ],
       "trims": [
         "(세부등급 없음)",
-        "플러스"
+        "플러스",
+        "RS"
       ]
     },
     {
@@ -31043,6 +31195,16 @@
           "trims": [
             "E350e"
           ]
+        },
+        {
+          "label": "가솔린 2.0 2WD 5인승",
+          "fuel": "가솔린",
+          "displacement_l": 2,
+          "turbo": false,
+          "drivetrain": "2WD",
+          "seat": 5,
+          "battery_kwh": null,
+          "trims": []
         }
       ],
       "trims": [
@@ -31199,6 +31361,16 @@
             "E450 익스클루시브",
             "E53 AMG 4MATIC+ (Mercedes-AMG E53)"
           ]
+        },
+        {
+          "label": "가솔린 2.0 2WD 5인승",
+          "fuel": "가솔린",
+          "displacement_l": 2,
+          "turbo": false,
+          "drivetrain": "2WD",
+          "seat": 5,
+          "battery_kwh": null,
+          "trims": []
         }
       ],
       "trims": [
@@ -40223,13 +40395,15 @@
           "battery_kwh": null,
           "trims": [
             "E 클래식",
-            "JCW"
+            "JCW",
+            "SE"
           ]
         }
       ],
       "trims": [
         "E 클래식",
-        "JCW"
+        "JCW",
+        "SE"
       ]
     },
     {
@@ -63425,10 +63599,33 @@
           "trims": [
             "기본"
           ]
+        },
+        {
+          "label": "가솔린 3.8 4WD 7인승",
+          "fuel": "가솔린",
+          "displacement_l": 3.8,
+          "turbo": false,
+          "drivetrain": "4WD",
+          "seat": 7,
+          "battery_kwh": null,
+          "trims": [
+            "블랙에디션"
+          ]
+        },
+        {
+          "label": "가솔린 3.8 4WD",
+          "fuel": "가솔린",
+          "displacement_l": 3.8,
+          "turbo": false,
+          "drivetrain": "4WD",
+          "seat": null,
+          "battery_kwh": null,
+          "trims": []
         }
       ],
       "trims": [
-        "기본"
+        "기본",
+        "블랙에디션"
       ]
     },
     {
