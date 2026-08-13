@@ -20,7 +20,7 @@ import { confirmDialog, toast } from '@/components/Toaster';
 import { useIsMobile } from '@/lib/use-mobile';
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
-import { isListableProduct } from '@/lib/domain/product';
+import { isStockedProduct } from '@/lib/domain/product';
 import { downloadInventoryPhotoArchives } from '@/lib/client/download-photo-zip';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { NAV_LABEL } from '@/lib/tabbar';
@@ -83,7 +83,7 @@ export default function Settings() {
     if (mobile || visibleSession?.role !== 'admin') return;
     let alive = true;
     getStore().list('product', getCompanyId())
-      .then((products) => { if (alive) setPhotoProducts(products.filter(isListableProduct)); })
+      .then((products) => { if (alive) setPhotoProducts(products.filter(isStockedProduct)); })
       .catch(() => { if (alive) setPhotoProducts([]); });
     return () => { alive = false; };
   }, [mobile, visibleSession?.role]);

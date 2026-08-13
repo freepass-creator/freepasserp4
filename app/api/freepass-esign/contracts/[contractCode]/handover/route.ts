@@ -6,6 +6,7 @@ import {
   loadFreepassEsignBundle,
   validContractCode,
 } from '@/lib/server/freepass-esign';
+import { rentalPeriodEnd } from '@/lib/domain/rental-period';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -25,17 +26,6 @@ function validDate(value: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const date = new Date(`${value}T00:00:00Z`);
   return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
-}
-
-function addMonthsEnd(start: string, months: number) {
-  const [year, month, day] = start.split('-').map(Number);
-  const targetIndex = month - 1 + months;
-  const targetYear = year + Math.floor(targetIndex / 12);
-  const targetMonth = ((targetIndex % 12) + 12) % 12;
-  const lastDay = new Date(Date.UTC(targetYear, targetMonth + 1, 0)).getUTCDate();
-  const target = new Date(Date.UTC(targetYear, targetMonth, Math.min(day, lastDay)));
-  target.setUTCDate(target.getUTCDate() - 1);
-  return target.toISOString().slice(0, 10);
 }
 
 export async function POST(
@@ -66,7 +56,7 @@ export async function POST(
   const handover = {
     handover_datetime: date,
     contract_start: date,
-    contract_end: addMonthsEnd(date, months),
+    contract_end: rentalPeriodEnd(date, months),
     confirmedAt: now,
     confirmedBy: actor.uid,
   };

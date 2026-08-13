@@ -454,6 +454,7 @@ export async function createDirectEsignContract(opt: {
   rentMonths: number;
   rentAmount: number;
   depositAmount?: number;
+  paymentTiming?: '선불' | '후불' | '';
   templateFields?: Record<string, string>;
 }): Promise<string> {
   const source = opt.source === 'excel' ? 'excel' : 'direct';
@@ -466,6 +467,7 @@ export async function createDirectEsignContract(opt: {
   const rentMonths = Number(opt.rentMonths) || 0;
   const rentAmount = Number(opt.rentAmount) || 0;
   const depositAmount = Math.max(0, Number(opt.depositAmount) || 0);
+  const paymentTiming = String(opt.paymentTiming || '').trim();
   if (!providerCompanyCode) throw new Error('공급사를 골라 주세요.');
   if (!policyCode) throw new Error('계약 정책을 골라 주세요.');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(contractDate)) throw new Error('계약일을 확인해 주세요.');
@@ -473,6 +475,7 @@ export async function createDirectEsignContract(opt: {
   if (!/^\d{10,11}$/.test(customerPhone.replace(/\D/g, ''))) throw new Error('고객 연락처를 확인해 주세요.');
   if (!vehicleName) throw new Error('차량명을 입력해 주세요.');
   if (rentMonths <= 0) throw new Error('대여기간을 입력해 주세요.');
+  if (!['선불', '후불'].includes(paymentTiming)) throw new Error('대여료 선불·후불 조건을 선택해 주세요.');
   requirePositiveRentAmount(rentAmount, '계약서 생성');
 
   const co = getCompanyId();
@@ -513,6 +516,7 @@ export async function createDirectEsignContract(opt: {
     rent_month_snapshot: rentMonths,
     rent_amount_snapshot: rentAmount,
     deposit_amount_snapshot: depositAmount,
+    payment_timing_snapshot: paymentTiming,
     customer_name: customerName,
     customer_phone: customerPhone,
     customer_address: String(opt.customerAddress || '').trim(),

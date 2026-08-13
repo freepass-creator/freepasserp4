@@ -295,15 +295,14 @@ export default function DevTools() {
   const tools: DevTool[] = [
     {
       key: 'sync',
-      label: '공급사 상품 연동',
-      hint: '시트·홈페이지 검증 → 확인 → 재고 반영 (관리 SSOT)',
+      label: '영업자 상품리스트 연동',
+      hint: '영업자 시트 검증 → ERP 반영 (재고 SSOT)',
       icon: RefreshCw,
       tone: 'blue' as const,
       render: () => (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
           <div style={{ fontSize: FS.sub, color: C.mute, lineHeight: 1.5 }}>
-            원본이 시트든 홈페이지든 절차는 하나입니다 — 검증하고, 들어올 상품을 눈으로 보고, 반영합니다.
-            재고관리에서는 이 도구로 들어오는 버튼만 둡니다.
+            공급사 시트와 홈페이지는 작성 참고용입니다. 확정된 영업자 상품리스트 한 장을 검증한 뒤 ERP에 반영합니다.
           </div>
           <SheetSync co={co} onImported={() => { void reload(); }} />
         </div>

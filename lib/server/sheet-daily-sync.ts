@@ -3,13 +3,6 @@ import 'server-only';
 import type { Database } from 'firebase-admin/database';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { allowedHost } from '@/lib/net/proxy-hosts';
-import { resolveGoogleSheetCsvUrl } from '@/lib/domain/sheet-url';
-import { parseDelimited } from '@/lib/domain/sheet-import';
-import type { SheetTableFetchOptions } from '@/lib/domain/sheet-import';
-import { extractGoogleSheetId } from '@/lib/domain/sheet-url';
-import { fetchVisibleGoogleSheetTable } from '@/lib/server/google-sheet-visible';
-import { fetchAllPartnerSheets } from '@/lib/domain/sheet-sync-all';
 import { planDailySheetSync, type DailySheetSyncPlan } from '@/lib/domain/sheet-daily-sync';
 import { productPatchPreconditionMatches } from '@/lib/domain/product-write-guard';
 import { mergeProductPrivate, splitProductPrivate } from '@/lib/firebase/rtdb-products';
@@ -18,6 +11,7 @@ import type { MasterEntry } from '@/lib/domain/vehicle-master-types';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { firebaseAdminDatabase } from '@/lib/server/firebase-admin';
 import type { SheetConflictResolution } from '@/lib/domain/sheet-conflict-resolution';
+import { fetchSalesInventorySheet } from '@/lib/server/sales-inventory-sheet';
 
 const LOCK_PATH = 'v4/system_locks/sheet_daily_sync';
 const STATUS_PATH = 'v4/system_status/sheet_daily_sync';
@@ -43,34 +37,6 @@ const clean = <T>(value: T): T => {
   }
   return value;
 };
-
-async function fetchSheetTableDirect(
-  url: string,
-  gid?: string,
-  options: SheetTableFetchOptions = {},
-): Promise<string[][]> {
-  if (options.visibleRowsOnly) {
-    const spreadsheetId = extractGoogleSheetId(url);
-    if (!spreadsheetId || !gid) throw new Error('숨김 행 제외 연동은 일반 시트 URL과 gid가 필요합니다');
-    const result = await fetchVisibleGoogleSheetTable(spreadsheetId, gid);
-    if (options.onPhotoByPlate && result.photoByPlate) {
-      options.onPhotoByPlate(result.photoByPlate);
-    }
-    return result.rows;
-  }
-  const csvUrl = resolveGoogleSheetCsvUrl(url, gid);
-  if (!allowedHost(csvUrl, 'sheet')) throw new Error('허용되지 않은 Google Sheet 호스트');
-  const response = await fetch(csvUrl, {
-    headers: { 'User-Agent': 'freepasserp4-sheet-daily-sync/1.0' },
-    redirect: 'follow',
-    cache: 'no-store',
-    signal: AbortSignal.timeout(15_000),
-  });
-  if (!response.ok) throw new Error(`시트 로드 실패 ${response.status}`);
-  const csv = await response.text();
-  if (/^\s*<(!doctype|html)/i.test(csv)) throw new Error('시트 비공개 또는 로그인 HTML 응답');
-  return parseDelimited(csv);
-}
 
 function normalizedRows(
   entity: 'partner' | 'product' | 'contract',
@@ -106,7 +72,7 @@ async function readProducts(db: Database, companyId: string): Promise<{
   active: EntityRecord[];
   deleted: EntityRecord[];
 }> {
-  // ERP4 재고는 공급사 원본에서 독립 구축한다. ERP3 products는 채팅·계약·정산 이력과 달리
+  // ERP4 재고는 영업자 상품리스트 정본에서 구축한다. ERP3 products는 채팅·계약·정산 이력과 달리
   // 연동 정본도 fallback도 아니다. 여기서 섞으면 초기화한 낡은 재고가 다시 살아난다.
   const [v4, privateSnap] = await Promise.all([
     db.ref('v4/products').get(),
@@ -276,7 +242,7 @@ async function applyPlan(
   await db.ref('v4').update(metadata);
 }
 
-export async function runDailySheetSync(opts: { dryRun?: boolean } = {}): Promise<DailySheetSyncResult> {
+export async function runDailySheetSync(opts: { dryRun?: boolean; providerCodes?: string[] } = {}): Promise<DailySheetSyncResult> {
   const runId = `SS-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const companyId = String(process.env.SHEET_SYNC_COMPANY_ID || 'freepass').trim();
   const db = firebaseAdminDatabase();
@@ -293,9 +259,11 @@ export async function runDailySheetSync(opts: { dryRun?: boolean } = {}): Promis
       readContracts(db, companyId),
       readResolutions(db),
     ]);
-    const fetched = await fetchAllPartnerSheets(companyId, masterEntries(), {
-      partnerRows: partners,
-      fetchTable: fetchSheetTableDirect,
+    const requestedCodes = [...new Set((opts.providerCodes || []).map((code) => String(code).trim()).filter(Boolean))];
+    const fetched = await fetchSalesInventorySheet({
+      partners,
+      entries: masterEntries(),
+      providerCodes: requestedCodes,
     });
     const plan = planDailySheetSync({
       fetched,
@@ -305,16 +273,20 @@ export async function runDailySheetSync(opts: { dryRun?: boolean } = {}): Promis
       contracts: initialContracts,
       resolutions: initialResolutions,
     });
+    if (opts.dryRun) {
+      if (!plan.ok) {
+        await writeRun(db, runId, 'blocked', { block_reason: plan.blockReason, counts: plan.counts, notes: plan.notes });
+        return { ok: false, status: 'blocked', runId, blockReason: plan.blockReason, counts: plan.counts, notes: plan.notes };
+      }
+      await writeRun(db, runId, 'dry_run', { counts: plan.counts, notes: plan.notes });
+      return { ok: true, status: 'dry_run', runId, counts: plan.counts, notes: plan.notes };
+    }
     if (!plan.ok) {
       await writeRun(db, runId, 'blocked', { block_reason: plan.blockReason, counts: plan.counts, notes: plan.notes });
       return { ok: false, status: 'blocked', runId, blockReason: plan.blockReason, counts: plan.counts, notes: plan.notes };
     }
-    if (opts.dryRun) {
-      await writeRun(db, runId, 'dry_run', { counts: plan.counts, notes: plan.notes });
-      return { ok: true, status: 'dry_run', runId, counts: plan.counts, notes: plan.notes };
-    }
 
-    // fetch·계획 사이의 사용자 편집도 write 전에 한 번 더 차단한다.
+    // 영업자 정본을 읽은 뒤 ERP가 바뀌었는지 write 직전에 한 번 더 확인한다.
     const [freshState, freshContracts, freshResolutions] = await Promise.all([
       readProducts(db, companyId),
       readContracts(db, companyId),
@@ -347,6 +319,7 @@ export async function runDailySheetSync(opts: { dryRun?: boolean } = {}): Promis
     if (!remaining.ok || remaining.creates.length || remaining.patches.length) {
       throw new Error(`사후검증 실패 — ${remaining.blockReason || `신규 ${remaining.creates.length}·수정 ${remaining.patches.length}`}`);
     }
+    freshPlan.notes.push(`영업자 상품리스트 ${freshPlan.counts.imported}대 → ERP 반영`);
     await writeRun(db, runId, 'completed', { counts: freshPlan.counts, notes: freshPlan.notes });
     return { ok: true, status: 'completed', runId, counts: freshPlan.counts, notes: freshPlan.notes };
   } catch (error) {

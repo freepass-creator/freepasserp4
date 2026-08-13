@@ -1,5 +1,5 @@
 /**
- * 프리패스 장기렌트 약관 V11 검증.
+ * 프리패스 장기렌트 약관 V18 검증.
  * 공정위 자동차대여 표준약관의 28개 조문 흐름을 장기렌트에 맞게 재구성했는지,
  * 인쇄본·전자계약 전송본·중요조문 강조가 같은 정본을 보는지 확인한다.
  * 실행: npx tsx scripts/sim-esign-agreement.mts
@@ -49,10 +49,10 @@ const expectedTitles = [
   '금지행위', '손해배상책임 및 비용정산', '사고처리', '보험처리 및 자차손해면책',
   '휴차손해·전손 및 도난', '차량 이상·고장 발견 시 조치', '차량의 반환시기',
   '차량의 확인 및 반납정산', '반환장소 및 초과주행요금', '차량 미반환 및 차량보호조치',
-  '지연손해금 및 계약종료 정산', '만기 차량 인수', '계약의 세칙·통지 및 전자문서',
+  '지연손해금 및 계약종료 정산', '만기 차량 인수', '계약의 세칙·통지 및 계약서 교부',
   '분쟁해결 및 관할법원',
 ];
-check('V11 버전을 사용한다', AGREEMENT_VERSION === 'rental-v11-2026-08-11', AGREEMENT_VERSION);
+check('V18 버전을 사용한다', AGREEMENT_VERSION === 'rental-v18-2026-08-13', AGREEMENT_VERSION);
 check('공정위 표준약관형 28개 조문 골격이다', AGREEMENT_SECTIONS.length === 28, AGREEMENT_SECTIONS.length);
 check('제1조부터 제28조까지 번호가 연속된다', AGREEMENT_SECTIONS.every((s, i) => s.t.startsWith(`제${i + 1}조(`)));
 check('장기렌트에 맞춘 표준 흐름과 제목을 따른다', expectedTitles.every((title, i) => titleOf(i).includes(title)), AGREEMENT_SECTIONS.map((s) => s.t));
@@ -70,10 +70,34 @@ check('인쇄/PDF 약관과 전자계약 전송 약관이 완전히 같다',
 check('조 제목은 제N조(제목) 형식이다', htmlAgreement.every((section) => /^제\d+조\([^()]+\)$/.test(section.t)));
 check('단독 항 하나에만 ①을 붙인 조문이 없다', htmlAgreement.every((section) => (section.b.match(/[①-⑳]/g)?.length ?? 0) !== 1));
 check('장 제목을 중복 표시하지 않는다', $('#termsSource > .t-chapter').length === 0 && !/제\d+장/.test($('#termsSource').text()));
+check('첫 장에 중복 계약 주요조건 요약을 두지 않는다',
+  $('.cover-summary').length === 0
+    && !contractHtml.includes('계약 주요조건 요약')
+    && !articleBody('제2조').includes('주요조건 요약'));
+check('법률문서에 장식성 뱃지를 두지 않는다',
+  $('.shtag, .cp-tag').length === 0
+    && !contractHtml.includes('준수사항</span>')
+    && !contractHtml.includes('필수 절차</span>')
+    && !contractHtml.includes('매출·매입 증빙</span>')
+    && !contractHtml.includes('약관 적용 기준</span>'));
+const deductibleRule = $('.k').filter((_, el) => norm($(el).text()) === '자차 면책금').first().next('.v');
+check('자차 면책금은 비율·최소·최대 금액을 하나의 강조 조건으로 표시한다',
+  deductibleRule.find('b').length === 1
+    && deductibleRule.find('b [data-field="self_damage_deductible_rate"]').length === 1
+    && deductibleRule.find('b [data-field="self_damage_deductible_min"]').length === 1
+    && deductibleRule.find('b [data-field="self_damage_deductible_max"]').length === 1
+    && /수리비의.*최소.*최대/.test(norm(deductibleRule.find('b').text())));
 check('약관 문단은 왼쪽 맞춤·글자 경계 줄바꿈이다',
   /\.terms-cols p\{[^}]*text-align:left[^}]*\}/.test(contractHtml)
     && /\.terms-cols p\{[^}]*word-break:normal[^}]*\}/.test(contractHtml)
     && !/\.terms-cols p\{[^}]*text-align:justify[^}]*\}/.test(contractHtml));
+check('승계수수료 항은 같은 단에서 자동 병합한다',
+  /<p>③ 임차인이 회사가 승인한 신규 임차인/.test(contractHtml)
+    && contractHtml.includes("next.getAttribute('data-flow-group')===group"));
+check('같은 단에 배치된 자동분할 조각은 다시 한 문단으로 병합한다',
+  contractHtml.includes("fragment.setAttribute('data-flow-group',flowGroup)")
+    && contractHtml.includes("next.getAttribute('data-flow-group')===group")
+    && contractHtml.includes("while(next.firstChild) node.appendChild(next.firstChild)"));
 check('축약 조문 참조를 사용하지 않는다', !/제\d+조[①-⑳]/.test(contractHtml) && !/제\d+(?:조)?[·ㆍ]제?\d+조/.test(contractHtml));
 
 const forbiddenItems: string[] = [];
@@ -88,6 +112,10 @@ check('금지행위는 도입문 뒤 8개 호로 정리한다',
 // ── 프리패스 장기렌트 핵심 조건 ──
 check('계약서·특약·약관의 적용순서를 제4조에 둔다',
   /특약.*개별계약서.*본 약관.*부속서류/.test(articleBody('제4조')));
+check('대여기간은 계약일이 아니라 실제 차량 인도일부터 계산한다',
+  articleBody('제4조').includes('실제 차량 인도일부터 계약서상 개월 수')
+    && articleBody('제4조').includes('대응일이 없으면 그 월 말일')
+    && contractHtml.includes('차량 인도일로부터 00개월'));
 check('중고차의 통상 사용흔적과 미고지 중대하자를 함께 규정한다',
   articleBody('제12조').includes('경년변화 및 통상적인 사용흔적')
     && articleBody('제12조').includes('고지하지 않은 중대한 하자'));
@@ -101,6 +129,10 @@ check('사고다발은 사고일 기준 직전 1년·과실 50% 이상·총 3회
   articleBody('제7조').includes('직전 1년 이내') && articleBody('제7조').includes('과실비율 50% 이상') && articleBody('제7조').includes('3회'));
 check('중도해지 청구는 회수금액을 공제하고 중복청구하지 않는다',
   articleBody('제8조').includes('회수하거나 지출을 면한 금액은 공제') && articleBody('제8조').includes('중복 청구하지 않는다'));
+check('승계수수료는 계약서상 회사별 금액을 적용한다',
+  articleBody('제8조').includes('계약서에 정한 승계수수료')
+    && contractHtml.includes('data-field="succession_allowed"')
+    && contractHtml.includes('data-field="succession_fee"'));
 check('사고 수리는 사전승인과 객관적 자료를 요구한다',
   articleBody('제17조').includes('지정하거나 승인한 정비공장')
     && articleBody('제17조').includes('견적서·정비명세서·영수증'));
@@ -119,12 +151,21 @@ check('초과주행은 사용일수와 제외거리를 반영한다',
   articleBody('제23조').includes('실제 사용일수') && articleBody('제23조').includes('임차인의 사용과 무관한 거리'));
 check('차량보호조치는 기록 통지와 안전한 정차를 전제로 한다',
   articleBody('제24조').includes('기록이 남는 방법') && articleBody('제24조').includes('안전하게 정차된 사실'));
+check('시동제어 연체일은 청구일이 아니라 각 납부기한 다음 날부터 계산한다',
+  !contractHtml.includes('청구일로부터')
+    && contractHtml.includes('각 납부기한 다음 날부터 계산하여')
+    && articleBody('제24조').includes('계약서상 납부일')
+    && articleBody('제24조').includes('청구서상 납부기한'));
 check('확정 인수가격은 사고·시세만으로 증액하거나 거절하지 않는다',
   articleBody('제26조').includes('가격을 증액하거나 인수를 거절할 수 없다'));
+check('만기 반납이 원칙이고 연장·인수는 기한 내 신청한다',
+  articleBody('제26조').includes('만기 반납을 원칙')
+    && articleBody('제26조').includes('연장 신청이나 인수옵션 행사가 없으면'));
 check('주민등록번호는 구체적인 법령 근거가 있는 범위에서만 처리한다',
   articleBody('제27조').includes('법령이 구체적으로 요구하거나 허용하는 범위'));
-check('완료된 전자문서 PDF를 임차인에게 교부한다',
-  /전자문서\(PDF\).*임차인에게 교부/.test(articleBody('제27조')));
+check('서면 계약서와 완료된 전자문서 PDF를 각각 교부·보관한다',
+  articleBody('제27조').includes('서명·기명날인한 계약서를 각 1부씩 보관')
+    && articleBody('제27조').includes('전자문서(PDF)로 교부'));
 
 // ── 중요 조문 강조 ──
 check('띄어쓰기가 달라도 중요조문을 찾는다', keyClauseOf('제 24조(차량 미반환)')?.clause === '제24조');
@@ -143,12 +184,14 @@ check('강조 처리 중 약관 본문을 바꾸지 않는다',
 // ── 계약서 요약 섹션과 부속 화면 ──
 const contract = {
   contract_code: 'C-1', rent_month_snapshot: 36, rent_amount_snapshot: 690000,
-  deposit_amount_snapshot: 3000000, car_number_snapshot: '12가3456', customer_name: '홍길동', esign_inputs: {},
+  deposit_amount_snapshot: 3000000, payment_timing_snapshot: '후불',
+  car_number_snapshot: '12가3456', customer_name: '홍길동', esign_inputs: {},
 } as unknown as EntityRecord;
 const policy = {
   basic_driver_age: '만 26세 이상', maintenance_service: '정비제외',
   early_termination_rate_under1y: 0.3, early_termination_rate_over1y: 0.2,
-  accident_termination_count: 2,
+  accident_termination_count: 2, succession_allowed: '협의', succession_fee: 1000000,
+  payment_cycle: '월납', payment_timing: '선불', payment_method: 'CMS 자동이체',
 };
 const groups = buildConsentGroups(contract, policy, '회사포함');
 const rowsOf = (key: string) => groups.find((group) => group.key === key)?.rows || [];
@@ -156,6 +199,19 @@ check('계약서 요약의 사고다발 기준도 표준 3회로 고정한다',
   rowsOf('accident').some((row) => row.label === '사고 다발 시 계약해지 기준' && row.value.includes('총 3회')));
 check('보험사 대표번호를 계약서에 고정하지 않는다',
   !contractHtml.includes('insurer_phone') && !rowsOf('accident').some((row) => /\d{3,4}-\d{3,4}/.test(row.value)));
+check('고객 확인 화면에 회사별 승계수수료를 표시한다',
+  rowsOf('payment').some((row) => row.label === '계약 승계수수료' && row.value === '1,000,000원'));
+check('선불·후불은 결제주기·결제방식과 분리해 표시한다',
+  rowsOf('payment').some((row) => row.label === '대여료 결제주기' && row.value === '월납')
+    && rowsOf('payment').some((row) => row.label === '대여료 납부 조건' && row.value === '후불')
+    && rowsOf('payment').some((row) => row.label === '결제 방식' && row.value === 'CMS 자동이체'));
+check('개별계약의 후불 스냅샷이 회사 정책의 선불 기본값보다 우선한다',
+  rowsOf('payment').some((row) => row.label === '대여료 납부 조건' && row.value === '후불'));
+check('계약서와 약관에 선불·후불 조건을 함께 명시한다',
+  contractHtml.includes('data-field="payment_timing"')
+    && contractHtml.includes("payment_timing:['선불','후불']")
+    && articleBody('제6조').includes('선불은 해당 사용월의 대여료를 사용 전에')
+    && articleBody('제6조').includes('후불은 해당 사용월의 대여료를 사용 후'));
 check('자동이체일 복제 필드를 두지 않는다',
   !contractHtml.includes('auto_debit_date_inline') && !individualHtml.includes('auto_debit_date_inline'));
 check('특약은 표준값 반복이 아니라 예외·추가 합의용이다',

@@ -144,11 +144,11 @@ export function FreepassEsignLinkPane({
 
   if (!contract) return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <SectionLabel>검토·링크에서 할 일</SectionLabel>
+      <SectionLabel>계약서 작성에서 할 일</SectionLabel>
       <ListGroup>
         <DetailRow label="계약서 확인" value="선택한 회사·계약서와 건별 조건을 최종 확인" stacked />
-        <DetailRow label="고객 화면" value="모바일 서명 화면과 A4 계약서 미리보기" stacked />
-        <DetailRow label="링크 생성" value="계약을 확정하고 고객 작성용 보안 링크 생성" stacked />
+        <DetailRow label="서면 계약" value="A4 계약서를 출력해 자필서명 또는 법인 기명날인" stacked />
+        <DetailRow label="전자계약" value="고객 작성용 보안 링크를 생성해 본인확인·전자서명" stacked />
       </ListGroup>
       <CenterNote minHeight={0}>왼쪽에서 회사와 계약서를 선택하고 조건값을 입력한 뒤 초안을 만드세요.</CenterNote>
     </div>
@@ -193,15 +193,30 @@ export function FreepassEsignLinkPane({
                 <DetailRow label="보험" value={tpl.insuranceSide === '고객직접' ? '보험별도' : '보험포함'} />
                 <DetailRow label="만기 인수옵션" value={S(current.contract_draft).includes('buyback_price') ? '계약서 기재값 적용' : '없음 · 만기 반납'} />
               </ListGroup>
-              <Btn
-                title="계약서 확정 및 고객 작성 링크 생성"
-                disabled={busy}
-                onClick={() => void run({
-                  action: 'issue', standardTemplateId: tpl.id, contractKind: spec.key,
-                }, '프리패스 전자계약 링크를 만들었습니다.')}
-              >
-                {busy ? '링크 생성 중…' : '계약서 확정·링크 생성'}
-              </Btn>
+              <SectionLabel>체결 방식 선택</SectionLabel>
+              <ListGroup>
+                <DetailRow label="서면 계약" value="A4 계약서를 출력해 임대인·임차인이 서명 또는 기명날인" stacked />
+                <DetailRow label="전자계약" value="동일한 계약서를 보안 링크로 전달해 본인확인·전자서명" stacked />
+              </ListGroup>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                <Btn
+                  title="지류 계약용 A4 PDF 열기"
+                  variant="ghost"
+                  onClick={() => void openProtected(`/api/freepass-esign/contracts/${encodeURIComponent(code)}/document?format=pdf&draft=1`).catch((e) => toast(String(e.message || e), 'error'))}
+                >
+                  <ButtonLabel icon={<FileDown size={ICON.md} aria-hidden />}>A4 계약서 출력</ButtonLabel>
+                </Btn>
+                <Btn
+                  title="전자계약용 고객 작성 링크 생성"
+                  disabled={busy}
+                  onClick={() => void run({
+                    action: 'issue', standardTemplateId: tpl.id, contractKind: spec.key,
+                  }, '프리패스 전자계약 링크를 만들었습니다.')}
+                >
+                  {busy ? '링크 생성 중…' : '전자서명 링크 생성'}
+                </Btn>
+              </div>
+              <div style={{ fontSize: FS.cap, color: C.faint }}>두 방식은 같은 계약서와 약관을 사용합니다. 서면 계약을 선택하면 전자서명 링크를 만들 필요가 없습니다.</div>
             </>
           ) : null}
         </>
@@ -227,16 +242,16 @@ export function FreepassEsignLinkPane({
                   <ButtonLabel icon={<Link2Off size={ICON.md} aria-hidden />}>링크 해지</ButtonLabel>
                 </Btn>
               </div>
-              <SectionLabel>A4 계약서</SectionLabel>
+              <SectionLabel>A4 계약서 · 서면 체결</SectionLabel>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 <Btn title="A4 초안 미리보기" variant="ghost" onClick={() => void openProtected(`/api/freepass-esign/contracts/${encodeURIComponent(code)}/document?draft=1`).catch((e) => toast(String(e.message || e), 'error'))}>
                   미리보기
                 </Btn>
                 <Btn title="A4 초안 PDF" onClick={() => void openProtected(`/api/freepass-esign/contracts/${encodeURIComponent(code)}/document?format=pdf&draft=1`).catch((e) => toast(String(e.message || e), 'error'))}>
-                  <ButtonLabel icon={<FileDown size={ICON.md} aria-hidden />}>초안 PDF</ButtonLabel>
+                  <ButtonLabel icon={<FileDown size={ICON.md} aria-hidden />}>A4 계약서 출력</ButtonLabel>
                 </Btn>
               </div>
-              <div style={{ fontSize: FS.cap, color: C.faint }}>문자·카카오 자동 발송은 하지 않습니다. 링크를 복사해 고객에게 전달합니다.</div>
+              <div style={{ fontSize: FS.cap, color: C.faint }}>전자계약은 링크를 복사해 전달하고, 서면 계약은 위 A4 계약서를 출력해 서명·기명날인합니다.</div>
             </>
           )}
           {(state?.snapshot?.consentPages || []).length ? (

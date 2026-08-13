@@ -191,7 +191,7 @@ export function buildConsentGroups(
     {
       key: 'identity',
       title: '본인정보',
-      note: '아래 정보로 계약이 작성됩니다. 다르면 서명하지 말고 담당자에게 알려 주세요.',
+      note: '아래 정보로 계약이 작성됩니다. 다르거나 이해하기 어려운 사항은 서명 전에 담당자에게 질문·설명을 요청해 주세요.',
       rows: kept([
         { label: '성명', value: S(c.customer_name), raw: c.customer_name },
         { label: '연락처', value: phoneText(c.customer_phone), raw: c.customer_phone },
@@ -220,7 +220,7 @@ export function buildConsentGroups(
         // 고객이 선택하지 않는다. 관리자가 확정한 3종 중 하나 + 인수/반납을 읽고 동의한다.
         { label: '계약서 종류', value: S(c.esign_standard_template_label), raw: c.esign_standard_template_label },
         { label: '만기 처리', value: contractKind?.maturityNote || '', raw: contractKind?.maturity },
-        { label: '대여기간', value: N(c.rent_month_snapshot) ? `${N(c.rent_month_snapshot)}개월` : '', raw: c.rent_month_snapshot, article: '제4조' },
+        { label: '대여기간', value: N(c.rent_month_snapshot) ? `차량 인도일로부터 ${N(c.rent_month_snapshot)}개월` : '', raw: c.rent_month_snapshot, article: '제4조' },
         { label: '월 대여료', value: N(c.rent_amount_snapshot) ? wonText(c.rent_amount_snapshot) : '', raw: c.rent_amount_snapshot, article: '제6조' },
         // 보증금 0 은 «무보증»이라는 뜻이라 빈칸으로 떨어뜨리지 않는다.
         { label: '보증금', value: N(c.deposit_amount_snapshot) ? wonText(c.deposit_amount_snapshot) : '무보증', raw: c.deposit_amount_snapshot, article: '제6조' },
@@ -262,11 +262,15 @@ export function buildConsentGroups(
       note: '언제 얼마를 어떻게 내는지, 밀리면 어떻게 되는지입니다.',
       // 숫자·기한이 든 것만 남긴다. 절차 서술은 약관으로 보냈다(IN_AGREEMENT).
       rows: kept([
-        { label: '대여료 결제주기', value: TERMS_PAYMENT.paymentCycle, article: '제6조' },
-        { label: '자동이체일', value: TERMS_PAYMENT.autoDebitFixed, article: '제6조' },
+        { label: '대여료 결제주기', value: S(p.payment_cycle) || TERMS_PAYMENT.paymentCycle, raw: p.payment_cycle, article: '제6조' },
+        { label: '대여료 납부 조건', value: S(c.payment_timing_snapshot || p.payment_timing) || '선불', raw: c.payment_timing_snapshot || p.payment_timing, article: '제6조' },
+        { label: '결제 방식', value: S(p.payment_method), raw: p.payment_method, article: '제6조' },
+        { label: '월 납부일', value: S(c.auto_debit_date || p.payment_due_date || p.auto_debit_day) || TERMS_PAYMENT.autoDebitFixed, raw: c.auto_debit_date || p.payment_due_date || p.auto_debit_day, article: '제6조' },
         { label: '계산서 발행', value: TERMS_PAYMENT.billing },
         { label: '연체 시', value: TERMS_PAYMENT.overdue, article: '제24조' },
         { label: '중도해지 위약금', value: S(p.penalty_condition), raw: p.penalty_condition, article: '제8조' },
+        { label: '계약 승계', value: S(p.succession_allowed), raw: p.succession_allowed, article: '제8조·제10조' },
+        { label: '계약 승계수수료', value: N(p.succession_fee) ? wonText(p.succession_fee) : '', raw: p.succession_fee, article: '제8조·제10조' },
         { label: '지연손해금', value: TERMS_PAYMENT.lateInterest, article: '제25조' },
         // 「1주일 안에」가 기한이다 — 약관에 묻히면 손님이 언제 돌려받는지 모른다.
         { label: '보증금 반환', value: TERMS_PAYMENT.depositReturn, article: '제6조' },

@@ -18,7 +18,7 @@
  *   ① 시트 원본        보이는 행 중 출고불가가 아닌 차(차번으로 접음)
  *   ② 재고관리(RTDB)    그 차가 살아있는 레코드로 있나
  *   ③ 출고불가 제외     ERP 상태가 출고불가가 아닌가
- *   ④ 상품찾기         대여료가 하나라도 있나  ← 여기까지 통과해야 영업자가 본다
+ *   ④ 상품찾기         차량·공급사 식별근거가 있나 — 가격 미입력 재고도 영업자는 본다
  *
  * ⚠ 시트를 못 읽은 공급사는 **0 이 아니라 「모름」**이다. 합계에서 빼고 따로 밝힌다.
  * ⚠ 홈페이지 연동(아이언)은 시트가 정본이 아니라 여기서 세지 않는다.
@@ -27,7 +27,7 @@
  */
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
-import { isHiddenFromCatalog, priceList } from '../lib/domain/product';
+import { isHiddenFromCatalog, isStockedProduct, priceList } from '../lib/domain/product';
 import { canonSheetVehicleStatus } from '../lib/domain/sheet-import';
 import { resolveAdapter } from '../lib/domain/sheet-adapters';
 import { visibleRowsFromGridResponse, type SheetsGridResponse } from '../lib/domain/sheet-visible-grid';
@@ -148,7 +148,7 @@ for (const [code, p] of sheets) {
   }
 }
 
-type Step = '②재고관리에 없음' | '③출고불가로 막힘' | '④대여료 없음' | '통과';
+type Step = '②재고관리에 없음' | '③출고불가로 막힘' | '④상품 식별근거 부족' | '통과';
 const why = new Map<string, Step>();
 const lines: string[][] = [];
 for (const [pl, meta] of sheetPlates) {
@@ -158,7 +158,7 @@ for (const [pl, meta] of sheetPlates) {
   else {
     const open = recs.filter((r) => !isHiddenFromCatalog(r as Rec));
     if (!open.length) { step = '③출고불가로 막힘'; note = recs.map((r) => S((r as Rec).vehicle_status)).join('/'); }
-    else if (!open.some((r) => priceList(r).length > 0)) { step = '④대여료 없음'; note = S((open[0] as Rec).vehicle_status); }
+    else if (!open.some((r) => isStockedProduct(r))) { step = '④상품 식별근거 부족'; note = S((open[0] as Rec).vehicle_status); }
     else step = '통과';
   }
   why.set(pl, step);
@@ -170,7 +170,7 @@ console.log('■ 공급사 시트 → 재고관리 → 상품찾기   (운영과
 console.log(`  ① 시트 원본(보이는 행 · 출고불가 뺀 차)  ${String(sheetPlates.size).padStart(5)}대`);
 console.log(`     └ ② 재고관리에 없음                 ${String(-n('②재고관리에 없음')).padStart(5)}대   유입이 안 됐다`);
 console.log(`     └ ③ ERP 가 출고불가로 막음           ${String(-n('③출고불가로 막힘')).padStart(5)}대   상태가 어긋났다`);
-console.log(`     └ ④ 대여료가 없음                   ${String(-n('④대여료 없음')).padStart(5)}대   가격을 못 받았다`);
+console.log(`     └ ④ 상품 식별근거 부족               ${String(-n('④상품 식별근거 부족')).padStart(5)}대   차량·공급사 근거 확인 필요`);
 console.log(`  ──────────────────────────────────────────────`);
 console.log(`  시트發로 상품찾기에 서는 차               ${String(n('통과')).padStart(5)}대\n`);
 
@@ -180,10 +180,13 @@ for (const r of read.sort((a, b) => b.rows - a.rows)) {
 }
 
 const allLive = [...live.values()].flat();
-const listable = [...live.entries()].filter(([, rs]) => rs.some((r) => !isHiddenFromCatalog(r as Rec) && priceList(r).length > 0));
+const listable = [...live.entries()].filter(([, rs]) => rs.some((r) => isStockedProduct(r)));
+const noPriceStock = [...live.entries()].filter(([, rs]) =>
+  rs.some((r) => isStockedProduct(r)) && !rs.some((r) => isStockedProduct(r) && priceList(r).length > 0));
 console.log(`\n  ── ERP 쪽에서 직접 세면 ──`);
 console.log(`   활성 레코드          ${String(allLive.length).padStart(5)}건 (차번 ${live.size}대)`);
 console.log(`   상품찾기에 서는 차    ${String(listable.length).padStart(5)}대`);
+console.log(`   그중 가격 미입력 재고 ${String(noPriceStock.length).padStart(5)}대  (상품찾기에는 표시·손님견적은 차단)`);
 console.log(`   그중 시트 밖에서 온 차 ${String(listable.filter(([pl]) => !sheetPlates.has(pl)).length).padStart(5)}대  (아이언 홈피 등)`);
 
 mkdirSync('tmp', { recursive: true });

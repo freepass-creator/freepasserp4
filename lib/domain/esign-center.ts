@@ -57,6 +57,10 @@ export function validateEsignCenterContract(
   if (N(row.rent_month_snapshot) <= 0) add('rent_month', '계약기간', 'BLOCK', '계약기간 없음');
   else add('rent_month', '계약기간', 'PASS', '계약기간 확인');
 
+  const paymentTiming = S(row.payment_timing_snapshot || policy?.payment_timing);
+  if (!['선불', '후불'].includes(paymentTiming)) add('payment_timing', '대여료 납부 조건', 'BLOCK', '선불·후불 조건을 선택해 주세요');
+  else add('payment_timing', '대여료 납부 조건', 'PASS', `${paymentTiming} 조건 확인`);
+
   if (!S(row.policy_code)) add('policy', '계약 정책', 'BLOCK', '보험·정비 정책 없음');
   else if (!policy) add('policy', '계약 정책', 'BLOCK', '연결된 정책을 찾을 수 없습니다');
   else if (S(policy.provider_company_code) !== S(row.provider_company_code)) add('policy', '계약 정책', 'BLOCK', '선택한 공급사의 정책이 아닙니다');
@@ -163,6 +167,7 @@ export type EsignDraftInput = {
   rentMonths: string;
   rentAmount: string;
   depositAmount: string;
+  paymentTiming: '선불' | '후불' | '';
   paymentDueDate?: string;
   depositInstallment?: string;
   annualMileage?: string;
@@ -198,6 +203,7 @@ export function emptyEsignDraftInput(source: 'excel' | 'direct', date: string): 
     rentMonths: '',
     rentAmount: '',
     depositAmount: '0',
+    paymentTiming: '',
     paymentDueDate: '',
     depositInstallment: '',
     annualMileage: '',
@@ -223,6 +229,7 @@ export function draftInputRecord(form: EsignDraftInput): EntityRecord {
     rent_month_snapshot: N(form.rentMonths),
     rent_amount_snapshot: N(form.rentAmount),
     deposit_amount_snapshot: N(form.depositAmount),
+    payment_timing_snapshot: form.paymentTiming,
     auto_debit_date: form.paymentDueDate,
   };
 }
@@ -238,6 +245,7 @@ export function draftTemplateFields(form: EsignDraftInput): Record<string, strin
     color_exterior: S(form.colorExterior),
     odometer_delivery: S(form.currentMileage),
     auto_debit_date: S(form.paymentDueDate),
+    payment_timing: S(form.paymentTiming),
     deposit_installment: S(form.depositInstallment),
     annual_mileage: S(form.annualMileage),
     buyback_price: S(form.buyoutPrice),

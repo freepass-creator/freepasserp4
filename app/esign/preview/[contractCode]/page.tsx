@@ -47,7 +47,9 @@ export default function EsignPreviewPage() {
     if (!response.ok) throw new Error(body.error || '전자계약을 불러오지 못했습니다.');
     setState(body);
 
-    const documentResponse = await adminFetch(`/api/freepass-esign/contracts/${code}/document?draft=1`);
+    // 관리자 미리보기와 실제 완료본이 동일한 Chromium PDF 경로를 사용해야
+    // 폰트·줄바꿈·약관 페이지 수가 발송 후 달라지지 않는다.
+    const documentResponse = await adminFetch(`/api/freepass-esign/contracts/${code}/document?draft=1&format=pdf`);
     if (documentResponse.ok) setDocumentUrl(URL.createObjectURL(await documentResponse.blob()));
   }, [contractCode]);
 
@@ -89,7 +91,7 @@ export default function EsignPreviewPage() {
             <ButtonLabel icon={<Smartphone size={ICON.md} aria-hidden />}>고객 모바일 화면</ButtonLabel>
           </Btn>
           <Btn full variant={mode === 'document' ? 'solid' : 'ghost'} onClick={() => setMode('document')}>
-            <ButtonLabel icon={<FileText size={ICON.md} aria-hidden />}>전자계약서</ButtonLabel>
+            <ButtonLabel icon={<FileText size={ICON.md} aria-hidden />}>계약서 (A4)</ButtonLabel>
           </Btn>
         </div>
       </header>
@@ -116,7 +118,7 @@ export default function EsignPreviewPage() {
       ) : (
         <section style={{ height: 'calc(100dvh - 126px)', padding: 12 }}>
           {documentUrl ? (
-            <iframe title="전자계약서 문서" src={documentUrl} style={{ width: '100%', height: '100%', border: `1px solid ${C.line}`, borderRadius: R, background: C.inverse }} />
+            <iframe title="자동차 장기대여 계약서 A4 문서" src={documentUrl} style={{ width: '100%', height: '100%', border: `1px solid ${C.line}`, borderRadius: R, background: C.inverse }} />
           ) : (
             <div style={{ padding: 24, color: C.mute, textAlign: 'center' }}>계약서 문서를 준비하고 있습니다.</div>
           )}

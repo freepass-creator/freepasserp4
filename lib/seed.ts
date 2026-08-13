@@ -10,7 +10,7 @@ import type { EntityRecord } from '@/lib/intake/entities';
 const POL_무관 = {
   screening_criteria: '무심사', basic_driver_age: '만 21세 이상', license_period: '제한없음', driver_age_upper_limit: '제한없음', driver_age_lowering: '만21세', age_lowering_cost: '대여료의 10%',
   personal_driver_scope: '계약자 본인+직계가족', business_driver_scope: '계약사업자 임직원 및 관계자', additional_driver_allowance_count: '1인', additional_driver_cost: '월 3만원',
-  annual_mileage: '연간 2만Km', mileage_upcharge_per_10000km: '3만원', deposit_installment: '협의', deposit_card_payment: '협의', payment_method: '선불', rental_region: '전국', delivery_fee: '협의', penalty_condition: '잔여기간 기준 차등적용',
+  annual_mileage: '연간 2만Km', mileage_upcharge_per_10000km: '3만원', deposit_installment: '협의', deposit_card_payment: '협의', payment_method: 'CMS 자동이체', payment_timing: '선불', rental_region: '전국', delivery_fee: '협의', penalty_condition: '잔여기간 기준 차등적용',
   injury_compensation_limit: '무한', property_compensation_limit: '1억원', self_body_accident: '1억원', uninsured_damage: '2억원', own_damage_compensation: '차량가액', own_damage_repair_ratio: '20%', annual_roadside_assistance: '연간 5회', maintenance_service: '포함', insurance_included: '보험료 포함',
 };
 const POL_확인 = { ...POL_무관, screening_criteria: '소득확인', basic_driver_age: '만 26세 이상', license_period: '1년 이상', driver_age_lowering: '불가', annual_mileage: '연간 3만Km' };

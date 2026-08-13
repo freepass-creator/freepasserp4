@@ -349,6 +349,14 @@ check('매핑되지 않은 열의 섹션 라벨은 원문·무효행에서 제�
   structuralRowImport.total === 1
   && structuralRowImport.imported === 1
   && structuralRowImport.invalidCount === 0);
+const noticeRowImport = importSheetTable([
+  ['차량번호', '제조사', '모델', '12개월', '단기보증'],
+  ['', '', '', '*장기특별이벤트 수수료는 고정 50만원입니다. 꼭 확인 후 영업에 도움되셨으면 합니다*', ''],
+], { providerCode: 'RP', entries: [{} as never] });
+check('가격칸의 수수료 공지행은 차량 원본·무효행에서 제외',
+  noticeRowImport.total === 0
+  && noticeRowImport.imported === 0
+  && noticeRowImport.invalidCount === 0);
 const excludedIdentityImport = importSheetTable([
   ['차량번호', '상태'],
   ['', '계약중'],
@@ -463,7 +471,10 @@ const pendingAfterNoPrice = importSheetTable([pendingHeader, pendingRow], {
   providerCode: 'RP', entries: [{} as never], plateAllocator: validOnlyAllocator, pendingOccurrence: validOnlyOccurrence,
 });
 check('가격없는 번호미정 행은 occurrence를 소비해 기존 임시번호를 밀지 않음',
-  pendingNoPrice.imported === 0 && pendingAfterNoPrice.products[0]?.car_number === '100신0001');
+  pendingNoPrice.imported === 0
+  && pendingNoPrice.noPriceSkippedCount === 1
+  && pendingNoPrice.skipped === 1
+  && pendingAfterNoPrice.products[0]?.car_number === '100신0001');
 
 // 부재 → 출고불가 (삭제 없음)
 const stock: EntityRecord[] = [
@@ -547,6 +558,10 @@ const completeFetch = {
   }],
 };
 check('전체 공급사 검증 성공 스냅샷만 커밋 허용', sheetSyncCommitBlockReason(completeFetch) === '');
+check('가격없는 실차번은 원본 행수에 중복 가산하지 않고 커밋 허용', sheetSyncCommitBlockReason({
+  ...completeFetch,
+  lines: [{ ...completeFetch.lines[0], noPriceCount: 1 }],
+}) === '');
 const stablePendingProducts = [...pendingAgainA.products, ...pendingAgainB.products];
 check('기존 번호미정 map 재사용은 dirty=false여도 snapshot 포함 시 커밋 허용',
   sheetSyncCommitBlockReason({
@@ -1187,6 +1202,32 @@ check('홈페이지 단일 정본 공급사는 기존 sheet_url이 남아도 시
   !duplicateShellRoster.lines.some((line) => line.code === 'RP-WEB')
   && !duplicateShellRoster.lines.some((line) => line.code === 'RP006'));
 
+let duplicateSheetFetchCount = 0;
+let duplicateSheetFetchedUrl = '';
+const duplicateSheetBacked = await fetchAllPartnerSheets('freepass', [{} as any], {
+  partnerRows: [
+    {
+      _key: 'PT-legacy', partner_code: 'RP-DUP', partner_type: '공급사', name: '옛 레코드',
+      sheet_url: 'https://docs.google.com/spreadsheets/d/legacy/edit',
+    },
+    {
+      _key: 'RP-DUP', partner_code: 'RP-DUP', partner_type: '공급사', name: '정본 레코드',
+      sheet_url: 'https://docs.google.com/spreadsheets/d/canonical/edit',
+    },
+  ],
+  fetchTable: async (url) => {
+    duplicateSheetFetchCount++;
+    duplicateSheetFetchedUrl = url;
+    return [['차량번호', '판매상태', '차종', '36개월'], ['12가3456', '판매중', '아반떼', '500000']];
+  },
+});
+check('같은 공급사 코드에 시트 URL 레코드가 둘이어도 canonical 한 번만 fetch',
+  duplicateSheetBacked.partnerCount === 1
+  && duplicateSheetBacked.lines.length === 1
+  && duplicateSheetFetchCount === 1
+  && duplicateSheetFetchedUrl.includes('/canonical/'),
+  { partnerCount: duplicateSheetBacked.partnerCount, lines: duplicateSheetBacked.lines.length, duplicateSheetFetchCount });
+
 check('이안카 탭은 설정 순서와 무관하게 재렌트 정본을 먼저 읽음',
   orderSheetGids(resolveAdapter('ianka'), ['2008897223', '126495265'])
     .join(',') === '126495265,2008897223');
@@ -1231,7 +1272,8 @@ check('공급사별 판정은 가격 누락·차종 검수를 확인 필요로 �
     blockingDuplicateCount: 0,
     noPriceCount: 1,
     skippedCount: 0,
-    sourceRowCount: iankaOverlapLine.imported + 1,
+    sourceRowCount: iankaOverlapLine.imported,
+    products: iankaOverlapLine.products.map((row, index) => index === 0 ? { ...row, price: undefined } : row),
   }).status === 'review');
 check('공급사별 판정은 무효 차번을 해당 공급사 차단으로 분류',
   partnerSourceReadiness({

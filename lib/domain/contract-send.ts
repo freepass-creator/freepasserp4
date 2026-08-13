@@ -11,6 +11,7 @@ import { hasTermFrozen } from '@/lib/domain/contract';
 import { vehicleNameOf } from '@/lib/domain/vehicle-name';
 import { businessRegistrationNumberOf } from '@/lib/domain/business-identity';
 import { applyPolicyDefaults } from '@/lib/domain/policy-defaults';
+import { handoverStartOf, rentalPeriodEnd, rentalPeriodText } from '@/lib/domain/rental-period';
 
 export type ContractPayload = Record<string, string>;
 
@@ -29,16 +30,6 @@ function priceText(price: unknown): string {
 function moneyCell(n: unknown): string {
   const v = Number(n) || 0;
   return v ? v.toLocaleString() : '';
-}
-
-function addMonthsEnd(start: string, months: number): string {
-  if (!start || !months) return '';
-  const d = new Date(start);
-  if (Number.isNaN(d.getTime())) return '';
-  d.setMonth(d.getMonth() + months);
-  d.setDate(d.getDate() - 1);
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 /** 계약(+매물·정책·파트너) → 템플릿 setData 페이로드. */
@@ -91,7 +82,7 @@ export async function buildContractPayload(contractCode: string): Promise<{
 
   const ins = /별도|개인/.test(String(pol.insurance_included || '')) ? '별도' : '포함';
   const months = Number(contract.rent_month_snapshot) || 0;
-  const start = String(contract.contract_date || '');
+  const start = handoverStartOf(contract as Record<string, unknown>);
   const yr = String(contract.year_snapshot || product?.year || product?.model_year || '').trim();
 
   const saved = parseDraft(contract.contract_draft);
@@ -100,6 +91,7 @@ export async function buildContractPayload(contractCode: string): Promise<{
     ins,
     ...companyInject,
     contract_code: String(contract.contract_code || ''),
+    contract_date: String(contract.contract_date || ''),
     car_number: car || String(product?.car_number || ''),
     vehicle_name: vehicleNameOf({ kind: 'contract', contract, product }, { tier: 'full', fallback: 'none' }),
     fuel: String(contract.fuel_type_snapshot || product?.fuel_type || ''),
@@ -110,9 +102,9 @@ export async function buildContractPayload(contractCode: string): Promise<{
     customer_phone: String(contract.customer_phone || ''),
     rent_amount: moneyCell(contract.rent_amount_snapshot),
     deposit_amount: moneyCell(contract.deposit_amount_snapshot),
-    rent_month: months ? `${months} 개월` : '',
-    contract_start: start,
-    contract_end: addMonthsEnd(start, months),
+    rent_month: rentalPeriodText(months),
+    contract_start: start || '차량 인도 시 확정',
+    contract_end: start ? rentalPeriodEnd(start, months) : '차량 인도일 기준 산정',
     delivery_location: String(contract.delivery_address || ''),
     deposit_installment: String(contract.deposit_payment_type || pol.deposit_installment || ''),
     driver_age: String(pol.basic_driver_age || ''),
@@ -140,6 +132,9 @@ export async function buildContractPayload(contractCode: string): Promise<{
     vehicle_name: base.vehicle_name,
     fuel: base.fuel,
     model_year: base.model_year,
+    rent_month: base.rent_month,
+    contract_start: base.contract_start,
+    contract_end: base.contract_end,
   };
   return { contract, product, payload };
 }

@@ -1,40 +1,26 @@
 import 'server-only';
 
-import { readFile } from 'node:fs/promises';
-import path from 'node:path';
 import {
   freepassStorageBucket,
   sha256,
   uploadPrivateEsignFile,
   type EsignRecord,
 } from '@/lib/server/freepass-esign';
-import { stripDetachedEsignAppendices } from '@/lib/domain/esign-document-boundary';
-
-function safeJson(value: unknown) {
-  return JSON.stringify(value).replace(/</g, '\\u003c').replace(/-->/g, '--\\u003e');
-}
+import { inlineContractPdfFonts } from '@/lib/server/contract-pdf-assets';
+import { buildFreepassContractHtml } from '@/lib/server/freepass-contract-html';
 
 export async function buildFrozenFreepassHtml(
   snapshot: EsignRecord,
   signature: string,
   sealHash: string,
 ) {
-  const templatePath = path.join(process.cwd(), 'public', 'contract-template', 'rental-contract.html');
-  let html = stripDetachedEsignAppendices(await readFile(templatePath, 'utf8'));
   const sealed = {
     state: snapshot.templateState || {},
     fields: snapshot.templateFields || {},
     signature,
     sealHash,
   };
-  html = html.replace('</head>', `<script>window.__SEALED__=${safeJson(sealed)};</script></head>`);
-  html = html.replace(/<body([^>]*)>/i, `<body$1><button class="fp-pdf-button" type="button" onclick="window.print()">A4 PDF 저장</button>`);
-  html = html.replace('</style>', `
-    [data-main-exclude]{display:none!important}
-    .fp-pdf-button{position:fixed;right:18px;top:18px;z-index:9999;border:0;border-radius:var(--radius);padding:10px 14px;background:var(--accent);color:var(--card);font:700 13px system-ui;cursor:pointer}
-    @media print{.fp-pdf-button{display:none!important}}
-  </style>`);
-  return html;
+  return buildFreepassContractHtml(sealed);
 }
 
 function chromeExecutable() {
@@ -49,9 +35,15 @@ export async function renderFreepassPdf(html: string): Promise<Uint8Array> {
   const browser = await chromium.launch({ headless: true, executablePath: chromeExecutable() });
   try {
     const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+    const printableHtml = await inlineContractPdfFonts(html);
+    await page.setContent(printableHtml, { waitUntil: 'load', timeout: 30_000 });
+    await page.evaluate(async () => {
+      await document.fonts.ready;
+      (window as Window & { __rebuildTerms?: () => void }).__rebuildTerms?.();
+      await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    });
     await page.emulateMedia({ media: 'print' });
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(250);
     const pdf = await page.pdf({ format: 'A4', printBackground: true, preferCSSPageSize: true });
     return new Uint8Array(pdf);
   } finally {

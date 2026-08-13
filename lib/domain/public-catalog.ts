@@ -37,7 +37,7 @@ const PUBLIC_POLICY_FIELDS = [
   'annual_roadside_assistance', 'roadside_assistance',
   'credit_grade', 'screening_criteria',
   'annual_mileage', 'mileage_upcharge_per_10000km',
-  'deposit_installment', 'deposit_card_payment', 'payment_method',
+  'deposit_installment', 'deposit_card_payment', 'payment_method', 'payment_timing',
   'penalty_condition', 'rental_region', 'delivery_fee',
   'basic_driver_age', 'driver_age_lowering', 'driver_age_upper_limit', 'license_period',
   'personal_driver_scope', 'business_driver_scope',

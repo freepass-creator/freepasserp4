@@ -175,7 +175,7 @@ let authToken = '';
   [...sheetStatusCount.entries()].sort((a, b) => b[1] - a[1]).forEach(([k, v]) => console.log(`   ${String(v).padStart(4)}건  ${k}`));
   console.log(`\n── 유입 ──`);
   console.log(`   원본 행 ${srcRows} → 올림 ${incoming.length}`);
-  console.log(`   출고불가라 제외 ${excluded} · 가격없어 제외 ${noPrice} · 무효 ${invalid} · 중복 ${dup}`);
+  console.log(`   출고불가라 제외 ${excluded} · 가격미입력 ${noPrice} · 무효 ${invalid} · 중복 ${dup}`);
 
   // ── 반영 계획 (실제 경로)
   const upsert = planProductUpsert(incoming, existing);

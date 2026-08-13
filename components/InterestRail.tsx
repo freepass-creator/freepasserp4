@@ -4,7 +4,7 @@ import { useEffect, useState, type MouseEvent } from 'react';
 import { Star, History, StarOff, Trash2, X, MessageCircle } from 'lucide-react';
 import { C, R, Btn, ButtonLabel, IconBtn, NUM, ctrlH, ctrlFs, FW, FS, ICON } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
-import { vehicleName, cheapest, isListableProduct } from '@/lib/domain/product';
+import { vehicleName, cheapest, isStockedProduct } from '@/lib/domain/product';
 import {
   listRecent, listFavs, clearRecent, clearFavs, removeRecent, removeFav, subscribeInterest,
   type InterestSnap,
@@ -242,9 +242,9 @@ export function InterestPanel({
   // 이미 삭제되어 live 데이터가 없는 스냅은 사용자가 직접 제거할 수 있게 기존대로 남긴다.
   const items = storedItems.filter((snapshot) => {
     const live = allByCode.get(snapshot.code);
-    return !live || isListableProduct(live);
+    return !live || isStockedProduct(live);
   });
-  const byCode = new Map(rows.filter(isListableProduct).map((p) => [String(p.product_code || p._key), p]));
+  const byCode = new Map(rows.filter(isStockedProduct).map((p) => [String(p.product_code || p._key), p]));
 
   return (
     <div className="fp-finder-interest" style={{ width: '100%', marginBottom: mobile ? 10 : 8 }}>

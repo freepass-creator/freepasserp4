@@ -9,7 +9,7 @@ import type { GuardedProductPatch } from '@/lib/domain/product-write-guard';
 /** 시트 유입이 건드리면 안 되는 시스템/식별 필드 */
 const PROTECTED = new Set([
   '_key', 'product_code', 'companyId', 'createdAt', 'createdBy', 'deletedAt', 'deletedReason', '_deleted',
-  'updatedAt', '_sheet_manual_fields',
+  'updatedAt', '_sheet_manual_fields', '_sheet_contract_status', '_sheet_price_scope',
   // importSheetTable은 fresh row를 매번 master snap 하므로 이 둘에는 실행시각이 들어간다.
   // 기존 매물 soft-merge에서 받아들이면 동일 시트 재검증도 전 건 "내용수정"이 되고,
   // 저장할 때마다 이력·감사로그가 불어난다. 신규 create에는 원본 record 그대로 보존된다.
@@ -23,6 +23,8 @@ export const SUPPLIER_OWNED_PRODUCT_FIELDS = new Set([
   'year', 'first_registration_date', 'fuel_type', 'engine_cc', 'mileage',
   'ext_color', 'int_color', 'seats', 'drive_type', 'vehicle_class', 'usage',
   'options', 'photo_link', 'location', 'price',
+  'policy_code',
+  'sheet_source_gid', 'sheet_source_tab', 'sheet_source_row',
 ]);
 
 function isBlank(v: unknown): boolean {
@@ -53,6 +55,7 @@ const MANUAL_FIELD_EXCLUDED = new Set([
   'deletedAt', 'deletedReason', '_deleted', 'provider_company_code', 'partner_code',
   'source', 'source_schema', 'locked_by_contract', 'sheet_status_owner', 'sheet_block_reason',
   'sheet_blocked_at', 'allow_sheet_reactivate', 'sheet_sync_run_id', 'status_label',
+  'sheet_source_gid', 'sheet_source_tab', 'sheet_source_row',
 ]);
 
 export function sheetManualFieldSet(row: EntityRecord): Set<string> {

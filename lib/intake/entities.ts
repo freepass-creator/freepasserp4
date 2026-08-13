@@ -200,6 +200,7 @@ export const ENTITIES: Record<string, Entity> = {
       { key: 'over_mileage_rate_domestic', label: '초과 주행요금 · 국산(1km당)', type: 'number', manual: true, note: '약관 제23조 · 초과분 1km당' },
       { key: 'over_mileage_rate_imported', label: '초과 주행요금 · 수입(1km당)', type: 'number', manual: true, note: '약관 제23조 · 수입은 국산보다 높다' },
       { key: 'payment_method', label: '결제방식', type: 'select', options: ['CMS 자동이체', '카드 자동결제', '가상계좌', '직접 이체'], manual: true, note: 'CMS·카드 등' },
+      { key: 'payment_timing', label: '대여료 납부 조건', type: 'select', options: ['선불', '후불'], manual: true, note: '월 대여료를 해당 사용월 전에 받을지, 사용 후 받을지' },
       { key: 'payment_due_date', label: '월 납부일', type: 'text', manual: true, note: '예: 매월 25일 · 직원 계약입력 대신 정책에서 자동 적용' },
       /*
        * 중도해지 위약금 — **잔여기간 대여료에 비례**한다(프리패스 표준: 1년 미만 30% / 1년 이상 20%).
@@ -212,8 +213,8 @@ export const ENTITIES: Record<string, Entity> = {
        * 「해지하면 얼마, 넘기면 얼마」를 상담에서 못 답한다.
        * 공급사마다 갈리는 값이라 정책에 둔다 — 우리가 정할 수 없다.
        */
-      { key: 'succession_fee', label: '승계수수료', type: 'number', manual: true, note: '계약을 다른 사람에게 넘길 때 1회 · 원. 안 받으면 0, 못 넘기면 비워 두고 「승계 가능여부」를 불가로' },
-      { key: 'succession_allowed', label: '승계 가능여부', type: 'select', options: ['가능', '협의', '불가'], manual: true, note: '불가면 수수료는 의미가 없다' },
+      { key: 'succession_allowed', label: '승계 가능여부', type: 'select', options: ['가능', '협의', '불가'], manual: true, note: '약관 제8조·제10조 · 회사별 승인정책, 프리패스 기본은 협의' },
+      { key: 'succession_fee', label: '승계수수료(원)', type: 'number', manual: true, note: '약관 제8조·제10조 · 프리패스 평균 100만원, 계약회사별 확인·입력' },
       { key: 'early_termination_rate_under1y', label: '중도해지 위약금 · 1년 미만(0~1)', type: 'number', range: [0, 1], manual: true, note: '약관 제8조 · 잔여 대여료 × 이 값. 30% → 0.3' },
       { key: 'early_termination_rate_over1y', label: '중도해지 위약금 · 1년 이상(0~1)', type: 'number', range: [0, 1], manual: true, note: '약관 제8조 · 20% → 0.2' },
       {
@@ -268,7 +269,6 @@ export const ENTITIES: Record<string, Entity> = {
       },
       // 돈 — 날짜·횟수는 range 로 오입력을 막는다. 잘못 들어가면 정산액이 통째로 틀어진다.
       { key: 'late_fee_rate', label: '지연손해금율(0~1)', type: 'number', range: [0, 0.2], manual: true, note: '약관 제25조 · 연 12% → 0.12' },
-      { key: 'contract_transfer_fee', label: '승계수수료(원)', type: 'number', manual: true, note: '약관 제8조·제10조 · 프리패스 기준 100만원, 계약회사별 확인·입력' },
       { key: 'deposit_return_days', label: '보증금 반환기한(일)', type: 'number', manual: true, note: '약관 제6조 · 반납 후 N일 이내' },
       { key: 'impound_keep_days', label: '물품 보관기간(일)', type: 'number', manual: true, note: '약관 제22조 · 이후 관계 법령이 허용하는 방법으로 처리' },
       { key: 'impound_fee', label: '물품 보관료(일)', type: 'number', manual: true, note: '약관 제22조 · 실제 보관비용 범위' },
@@ -276,14 +276,14 @@ export const ENTITIES: Record<string, Entity> = {
        * 약관 제13·14조는 **두 기준일을 따로** 부른다. 하나로 뭉치면 조문이 못 걸린다.
        *   ①    「계약서에 정한 **운행제한 기준일**」까지 미지급 → 운행제한·시동제어
        *   ②1호 「계약서에 정한 **차량회수 기준일**」까지 미이행 → 해지·회수
-       * 여기에 보증금 분납 미납은 **별도 갈래**다(대여료 연체와 날짜 계산이 다르다).
+       * 보증금 분납도 대상 회차를 따로 정하되, 연체일은 해당 회차 납부기한 다음 날부터 센다.
        * 라벨을 약관 용어에 맞춰 둔다 — 손님이 계약서에서 조문을 바로 찾을 수 있어야 한다. */
-      { key: 'engine_control_overdue_days', label: '운행제한(시동제어) 기준일', type: 'number', manual: true, note: '약관 제24조 · N일 연체 시 안전하게 정차한 뒤 시동제어' },
-      { key: 'auto_terminate_overdue_days', label: '차량회수·해지 기준일', type: 'number', manual: true, note: '약관 제7조·제24조 · N일 연체 시 해지·회수' },
+      { key: 'engine_control_overdue_days', label: '운행제한(시동제어) 기준일', type: 'number', manual: true, note: '약관 제24조 · 납부기한 다음 날부터 N일째 미납 시 통지 후 안전 정차 차량에 적용' },
+      { key: 'auto_terminate_overdue_days', label: '차량회수·해지 기준일', type: 'number', manual: true, note: '약관 제7조·제24조 · 납부기한 다음 날부터 N일째 미납 시 최고 후 해지·회수' },
       {
         key: 'deposit_overdue_rounds', label: '보증금 미납 시동제어(회차)', type: 'number', manual: true,
-        // 보증금 분납은 회차로 센다 — 날짜로 세는 대여료 연체와 갈래가 다르다(약관 제6조·제24조).
-        note: '약관 제6조·제24조 · N회차 미납 시 제어',
+        // 대상 회차는 정책으로 정하고, 실제 연체일은 그 회차의 납부기한 다음 날부터 센다.
+        note: '약관 제6조·제24조 · N회차 납부기한 경과 후 적용',
       },
       {
         key: 'claim_basis', label: '청구 기준', type: 'select', options: [...CLAIM_BASES], manual: true,

@@ -12,6 +12,7 @@ import { parseDraft, type ContractPayload } from '@/lib/domain/contract-send';
 import { FIELD_MAP, type AtomSource } from '@/lib/domain/esign-field-map';
 import { overMileageRateFor } from '@/lib/domain/policy-defaults';
 import { canonProductType } from '@/lib/domain/product';
+import { handoverStartOf, rentalPeriodEnd, rentalPeriodText } from '@/lib/domain/rental-period';
 
 type Row = Record<string, unknown>;
 
@@ -40,16 +41,6 @@ function priceText(price: unknown): string {
     .sort((a, b) => a.m - b.m);
   if (!sorted.length) return '';
   return sorted.map((x) => `${x.m}개월 ${x.rent.toLocaleString()}`).join(' / ');
-}
-
-function addMonthsEnd(start: string, months: number): string {
-  if (!start || !months) return '';
-  const d = new Date(start);
-  if (Number.isNaN(d.getTime())) return '';
-  d.setMonth(d.getMonth() + months);
-  d.setDate(d.getDate() - 1);
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 /** 관리자가 직접 보완할 수 있는 출처(고정·표기·본인확인 제외). */
@@ -102,7 +93,8 @@ export function buildTemplateFieldsFromRecords(args: {
     ? '별도'
     : '포함';
   const months = Number(contract.rent_month_snapshot) || 0;
-  const start = text(contract.contract_date);
+  const contractDate = text(contract.contract_date);
+  const start = handoverStartOf(contract);
   const yr = text(contract.year_snapshot || product?.year || product?.model_year);
   const maker = text(contract.maker_snapshot || product?.maker || product?.manufacturer);
   const overMileageRate = overMileageRateFor(pol, maker);
@@ -112,7 +104,7 @@ export function buildTemplateFieldsFromRecords(args: {
     ins,
     ...companyInject,
     contract_code: text(contract.contract_code),
-    contract_date: start,
+    contract_date: contractDate,
     car_number: car || text(product?.car_number),
     vehicle_name: vehicleNameOf(
       { kind: 'contract', contract: contract as never, product: product as never },
@@ -135,12 +127,14 @@ export function buildTemplateFieldsFromRecords(args: {
     customer_birth: text(contract.customer_birth || contract.birth),
     rent_amount: moneyCell(contract.rent_amount_snapshot),
     deposit_amount: moneyCell(contract.deposit_amount_snapshot),
-    rent_month: months ? `${months} 개월` : '',
-    contract_start: start,
-    contract_end: addMonthsEnd(start, months),
+    rent_month: rentalPeriodText(months),
+    contract_start: start || '차량 인도 시 확정',
+    contract_end: start ? rentalPeriodEnd(start, months) : '차량 인도일 기준 산정',
     delivery_location: text(contract.delivery_address),
     deposit_installment: text(contract.deposit_payment_type || pol.deposit_installment),
     payment_cycle: text(pol.payment_cycle) || '월납',
+    payment_timing: text(contract.payment_timing_snapshot || pol.payment_timing) || '선불',
+    payment_method: text(pol.payment_method) || 'CMS 자동이체',
     auto_debit_date: text(contract.auto_debit_day || pol.payment_due_date || pol.auto_debit_day),
     invoice_type: text(pol.invoice_type) || '세금계산서',
     invoice_cycle: text(pol.invoice_cycle) || '월 1회',
@@ -167,6 +161,8 @@ export function buildTemplateFieldsFromRecords(args: {
     late_fee_rate: Number(pol.late_fee_rate) > 0
       ? `연 ${(Number(pol.late_fee_rate) * (Number(pol.late_fee_rate) <= 1 ? 100 : 1)).toLocaleString()}%`
       : '',
+    succession_allowed: text(pol.succession_allowed),
+    succession_fee: moneyCell(pol.succession_fee),
     deposit_return_term: Number(pol.deposit_return_days) > 0
       ? `반납·정산 후 ${Number(pol.deposit_return_days).toLocaleString()}일 이내`
       : '',
@@ -197,6 +193,9 @@ export function buildTemplateFieldsFromRecords(args: {
     // 식별 정본은 계약 레코드가 이긴다(초안이 되돌리지 못함).
     contract_code: base.contract_code || draft.contract_code || overrides.contract_code || '',
     car_number: base.car_number || draft.car_number || overrides.car_number || '',
+    rent_month: base.rent_month,
+    contract_start: base.contract_start,
+    contract_end: base.contract_end,
   };
   if (overrides.car_number) fields.car_number = overrides.car_number;
   if (overrides.vehicle_name) fields.vehicle_name = overrides.vehicle_name;
@@ -218,7 +217,7 @@ export function templateFieldRowsForEdit(
   opts?: { onlyEmpty?: boolean },
 ): { field: string; label: string; from: AtomSource; value: string }[] {
   const rows = FIELD_MAP
-    .filter((f) => isDirectEditableField(f.from))
+    .filter((f) => isDirectEditableField(f.from) && !['rent_month', 'contract_start', 'contract_end'].includes(f.field))
     .map((f) => ({
       field: f.field,
       label: f.label,

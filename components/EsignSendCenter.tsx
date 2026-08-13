@@ -81,6 +81,7 @@ const CONTRACT_TERM_FIELDS: Field[] = [
   { key: 'rentMonths', label: '대여기간(개월)', type: 'number', required: true, manual: true },
   { key: 'rentAmount', label: '월 대여료(원)', type: 'number', required: true, manual: true },
   { key: 'depositAmount', label: '보증금(원)', type: 'number', manual: true },
+  { key: 'paymentTiming', label: '대여료 납부 조건', type: 'select', options: ['선불', '후불'], required: true, manual: true, note: '정책 기본값을 가져오며 이번 계약에서 변경할 수 있습니다' },
 ];
 
 const OPTIONAL_TERM_FIELDS: Field[] = [
@@ -253,13 +254,27 @@ export function EsignSendCenter() {
   }).length, [sendRows, partnerMap, policyMap]);
 
   const setDraftValue = (key: string, value: string) => {
+    if (key === 'policyCode') {
+      const chosen = policies.find((row) => policyKey(row) === value);
+      setDraft((current) => current ? {
+        ...current,
+        policyCode: value,
+        paymentTiming: (S(chosen?.payment_timing) === '후불' ? '후불' : '선불'),
+      } : current);
+      return;
+    }
     setDraft((current) => current ? { ...current, [key]: value } : current);
     if (key !== 'providerCompanyCode') return;
     const compatible = policies.find((row) => {
       const provider = S(row.provider_company_code);
       return provider === value;
     });
-    setDraft((current) => current ? { ...current, providerCompanyCode: value, policyCode: policyKey(compatible) } : current);
+    setDraft((current) => current ? {
+      ...current,
+      providerCompanyCode: value,
+      policyCode: policyKey(compatible),
+      paymentTiming: (S(compatible?.payment_timing) === '후불' ? '후불' : '선불'),
+    } : current);
   };
 
   const beginDirect = () => {
@@ -314,6 +329,7 @@ export function EsignSendCenter() {
         rentMonths: Number(draft.rentMonths),
         rentAmount: Number(draft.rentAmount),
         depositAmount: Number(draft.depositAmount),
+        paymentTiming: draft.paymentTiming,
         templateFields: draftTemplateFields(draft),
       });
       await load();

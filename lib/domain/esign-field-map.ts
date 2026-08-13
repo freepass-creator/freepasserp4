@@ -59,8 +59,8 @@ export const FIELD_MAP: FieldMap[] = [
   { field: 'contract_code', label: '계약번호', from: '계약', atom: 'contract_code' },
   { field: 'contract_date', label: '계약일', from: '계약', atom: 'contract_date' },
   { field: 'contract_place', label: '계약 장소', from: '미정' },
-  { field: 'contract_start', label: '계약시작일', from: '파생', note: '인도일 기준' },
-  { field: 'contract_end', label: '계약종료일', from: '파생', note: '시작일 + 대여기간' },
+  { field: 'contract_start', label: '차량 인도일', from: '파생', note: '실제 차량 인도 시 확정' },
+  { field: 'contract_end', label: '대여 종료일', from: '파생', note: '차량 인도일 + 대여기간(개월)' },
 
   /* ── 손님 ── */
   { field: 'customer_name', label: '성명', from: '계약', atom: 'customer_name' },
@@ -93,7 +93,6 @@ export const FIELD_MAP: FieldMap[] = [
   { field: 'options', label: '옵션', from: '재고', atom: 'options' },
   { field: 'color_exterior', label: '외부 색상', from: '재고', atom: 'ext_color' },
   { field: 'color_interior', label: '내부 색상', from: '재고', atom: 'int_color' },
-  { field: 'vehicle_price', label: '차량가', from: '재고', atom: 'vehicle_price', note: '실제로 전부 비어 있음(2026-08-08 실측)' },
 
   /* ── 금액·기간 ── */
   { field: 'rent_amount', label: '월 대여료', from: '계약', atom: 'rent_amount_snapshot' },
@@ -104,10 +103,10 @@ export const FIELD_MAP: FieldMap[] = [
   { field: 'deposit_round_1', label: '보증금 1회차', from: '입력', conditional: '분납' },
   { field: 'deposit_round_2', label: '보증금 2회차', from: '입력', conditional: '분납' },
   { field: 'deposit_round_3', label: '보증금 3회차', from: '입력', conditional: '분납' },
-  { field: 'deposit_round_4', label: '보증금 4회차', from: '입력', conditional: '분납' },
-  { field: 'deposit_round_5', label: '보증금 5회차', from: '입력', conditional: '분납' },
   { field: 'deposit_return_term', label: '보증금 반환 조건', from: '고정' },
   { field: 'payment_cycle', label: '대여료 결제주기', from: '고정' },
+  { field: 'payment_timing', label: '대여료 납부 조건', from: '계약', atom: 'payment_timing_snapshot' },
+  { field: 'payment_method', label: '결제 방식', from: '정책', atom: 'payment_method' },
   { field: 'payment_bank', label: '입금 은행', from: '파트너' },
   { field: 'payment_account_no', label: '입금 계좌번호', from: '파트너' },
   { field: 'payment_account_holder', label: '입금 예금주', from: '파트너' },

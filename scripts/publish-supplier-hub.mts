@@ -17,7 +17,7 @@ import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { NOT_SHEET_BACKED } from '../lib/domain/supplier-sheet-read';
 import { buildRowHeights, isVehicleTab, supplierSheetLabel } from '../lib/domain/supplier-template-sheet';
-import { isListableProduct } from '../lib/domain/product';
+import { isStockedProduct } from '../lib/domain/product';
 import type { EntityRecord } from '../lib/intake/entities';
 
 type Rec = Record<string, any>;
@@ -77,7 +77,7 @@ for (const [k, p] of Object.entries<Rec>(prods)) {
   if (!code) continue;
   const cur = stock.get(code) || { alive: 0, listed: 0 };
   cur.alive++;
-  if (isListableProduct({ ...p, _key: k, product_code: p.product_code || k } as EntityRecord)) cur.listed++;
+  if (isStockedProduct({ ...p, _key: k, product_code: p.product_code || k } as EntityRecord)) cur.listed++;
   stock.set(code, cur);
 }
 

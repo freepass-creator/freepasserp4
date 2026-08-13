@@ -1,6 +1,6 @@
 /**
  * 계약서 치환필드 ↔ 우리 원자 매핑 검증.
- * **실제 erp3 템플릿과 대조**한다 — 손으로 적은 표는 곧 어긋난다.
+ * **현재 fp4 계약서 템플릿과 대조**한다 — 손으로 적은 표는 곧 어긋난다.
  * 실행: npx tsx scripts/sim-esign-field-map.mts
  */
 import { existsSync, readFileSync } from 'node:fs';
@@ -53,8 +53,8 @@ check('같은 만기면 필드 구성 동일',
   fieldsForKind(findContractKind('sub_return')!).length === fieldsForKind(ret).length);
 
 // ── 실제 템플릿과 대조 — 이게 없으면 표가 곧 거짓말이 된다 ──
-const TPL = 'C:/dev/freepasserp3/public/contract-template/rental-contract.html';
-// ERP3의 이전 HTML에는 현재 계약 원자 정책에서 의도적으로 폐기한 필드가 남아 있다.
+const TPL = 'public/contract-template/rental-contract.html';
+// 이전 HTML에는 현재 계약 원자 정책에서 의도적으로 폐기한 필드가 남아 있을 수 있다.
 // - insurer_phone: 변동 가능한 보험사 대표번호를 계약서 스냅샷으로 고정하지 않는다.
 // - auto_debit_date_inline: auto_debit_date와 중복이므로 정규 필드 하나만 유지한다.
 const RETIRED_TEMPLATE_FIELDS = new Set(['insurer_phone', 'auto_debit_date_inline']);

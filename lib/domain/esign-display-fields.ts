@@ -75,7 +75,7 @@ const f = (
  *   ⑥ insurance   보험         사고 나면 보상은         ← 위험
  *   ⑦ accident    사고·면책    사고 나면 내 부담은
  *   ⑧ bank        출금계좌     돈이 어디서 빠지나       ← 돈
- *   ⑨ guarantor   연대보증인   (연대보증일 때)
+ *   ⑨ guarantor   연대보증인   (연대보증이 있을 때)
  *
  * **임대인은 별도 섹션이 아니라 ③에 붙였다**(2026-08-09 결정). 차는 임대인 소유다 —
  * 「무엇을 빌리나」와 「누구 차인가」는 한 생각이고, 회사 정보만 한 화면 두면
@@ -164,10 +164,12 @@ export const DISPLAY_SECTIONS: DisplaySection[] = [
       f('rent_month', '대여기간', '계약', true),
       f('rent_amount', '월 대여료', '계약', true),
       f('deposit_amount', '보증금', '계약', true),
-      f('contract_start', '계약시작일', '파생', true),
-      f('contract_end', '계약종료일', '파생', true),
+      f('contract_start', '차량 인도일', '파생', true),
+      f('contract_end', '대여 종료일', '파생', true),
       f('annual_mileage', '약정 주행거리', '정책', true),
       f('over_mileage_rate', '초과주행 요금', '정책', true),
+      f('succession_allowed', '승계 가능여부', '정책', true),
+      f('succession_fee', '승계수수료', '정책', true),
       f('deposit_installment', '보증금 분납', '입력', false),
       f('buyback_price', '만기 인수가격', '입력', false, 'none', 'none', '인수형만 필수'),
     ],
@@ -181,8 +183,6 @@ export const DISPLAY_SECTIONS: DisplaySection[] = [
       f('driver_scope', '운전자 범위', '입력', true),
       f('drv1_name', '추가운전자 성함', '입력', false),
       f('drv1_relation', '관계', '입력', false),
-      f('drv1_rrn', '주민등록번호', '본인확인', false, 'rrn'),
-      f('drv1_license', '면허번호', '본인확인', false, 'license'),
       f('drv1_phone', '연락처', '입력', false, 'phone'),
     ],
   },
@@ -224,22 +224,24 @@ export const DISPLAY_SECTIONS: DisplaySection[] = [
       f('cms_holder', '예금주', '입력', true),
       f('cms_holder_birth', '예금주 생년월일', '입력', true, 'rrn'),
       f('cms_holder_phone', '예금주 연락처', '입력', true, 'phone'),
+      f('payment_timing', '대여료 납부 조건', '계약', true),
       f('auto_debit_date', '월 납부일', '입력', true),
     ],
   },
   {
     key: 'guarantor',
     title: '연대보증인',
-    note: '연대보증이 있는 계약에만 씁니다.',
+    note: '연대보증이 있는 계약에만 씁니다. 보증 최고액과 기간을 확인한 뒤 서명합니다.',
     conditional: '연대보증',
     fields: [
       f('guarantor_name', '성명', '미정', true),
       f('guarantor_rrn', '주민등록번호', '본인확인', true, 'rrn'),
       f('guarantor_phone', '연락처', '미정', true, 'phone'),
       f('guarantor_address', '주소', '미정', true, 'address'),
-      f('guarantor_relation', '관계', '미정', true),
-      f('guarantee_limit', '보증 한도', '미정', true),
+      f('guarantor_relation', '임차인과의 관계', '미정', true),
+      f('guarantee_limit', '보증 최고액', '미정', true),
       f('guarantee_period', '보증 기간', '파생', true),
+      f('guarantor_occupation', '직업', '미정', false),
     ],
   },
 ];

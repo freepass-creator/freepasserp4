@@ -510,7 +510,10 @@ export function isStockedProduct(p: EntityRecord): boolean {
    *   ⚠ 차번이 없는 것 자체는 이유가 안 된다. 번호미정 신차는 차종·공급사가 있고 팔린다.
    */
   const named = String(p.car_number ?? '').trim() || String(p.model ?? '').trim() || String(p.sub_model ?? '').trim();
-  const owned = String(p.provider_company_code ?? '').trim() || String(p.partner_code ?? '').trim();
+  const owned = String(p.provider_company_code ?? '').trim()
+    || String(p.partner_code ?? '').trim()
+    || String(p.provider_name ?? '').trim()
+    || String(p.partner_name ?? '').trim();
   return !!(named && owned);
 }
 

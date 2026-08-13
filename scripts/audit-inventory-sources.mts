@@ -30,6 +30,11 @@ import {
 } from '../lib/domain/sheet-import';
 import { extractGoogleSheetId, resolveGoogleSheetCsvUrl } from '../lib/domain/sheet-url';
 import { visibleRowsFromGridResponse, type SheetsGridResponse } from '../lib/domain/sheet-visible-grid';
+import {
+  readSupplierSheet,
+  SHEET_GRID_FIELDS,
+  type SupplierSheetRead,
+} from '../lib/domain/supplier-sheet-read';
 import type { EntityRecord } from '../lib/intake/entities';
 import type { MasterEntry } from '../lib/domain/vehicle-master-types';
 
@@ -132,6 +137,22 @@ async function fetchTable(
   return parseDelimited(text);
 }
 
+async function fetchSupplierSheetAudit(
+  url: string,
+  partner: EntityRecord,
+): Promise<SupplierSheetRead> {
+  const id = extractGoogleSheetId(url);
+  if (!id) throw new Error('공급사 통합 시트 URL에서 Google Sheet ID를 찾을 수 없습니다');
+  if (!token) token = await sheetsToken();
+  const response = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${id}?includeGridData=true&fields=${encodeURIComponent(SHEET_GRID_FIELDS)}`,
+    { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(45_000) },
+  );
+  const grid = await response.json().catch(() => ({})) as SheetsGridResponse & { error?: { message?: string } };
+  if (!response.ok) throw new Error(grid.error?.message || `Google Sheets API ${response.status}`);
+  return readSupplierSheet(grid, partner);
+}
+
 function rows(raw: unknown): EntityRecord[] {
   return Object.entries((raw || {}) as Record<string, EntityRecord>)
     .filter(([, row]) => row && typeof row === 'object')
@@ -155,7 +176,7 @@ const overrideCode = (process.argv.find((arg) => arg.startsWith('--override-code
 const overrideUrl = (process.argv.find((arg) => arg.startsWith('--override-url=')) || '').slice('--override-url='.length).trim();
 const overrideGids = (process.argv.find((arg) => arg.startsWith('--override-gids=')) || '').slice('--override-gids='.length).trim();
 const overrideAdapter = (process.argv.find((arg) => arg.startsWith('--override-adapter=')) || '').slice('--override-adapter='.length).trim();
-if (overrideCode && overrideUrl) {
+if (overrideCode) {
   let target = partnerRows.find((partner) => String(partner.partner_code || partner._key || '') === overrideCode);
   if (!target && process.argv.includes('--override-virtual')) {
     target = {
@@ -171,10 +192,18 @@ if (overrideCode && overrideUrl) {
   if (!target) {
     throw new Error(`공급사 설정 없음(${overrideCode}) — 운영 write 없이 원본만 검증하려면 --override-virtual 사용`);
   }
-  target.sheet_url = overrideUrl;
-  target.sheet_gid = overrideGids;
-  target.sheet_tab = overrideGids;
-  target.adapter_id = overrideAdapter || 'generic';
+  if (overrideUrl) target.sheet_url = overrideUrl;
+  if (overrideGids) {
+    target.sheet_gid = overrideGids;
+    target.sheet_tab = overrideGids;
+  }
+  if (overrideAdapter) target.adapter_id = overrideAdapter;
+  if (process.argv.includes('--override-reset-mapping')) {
+    target.mapping_profile = '';
+    target.mapping_header_signature = '';
+    target.header_row = 0;
+    target.sheet_header_row = 0;
+  }
   if (process.argv.includes('--override-activate')) {
     target._deleted = false;
     target.deletedAt = '';
@@ -218,6 +247,7 @@ const master = (Array.isArray(masterRaw) ? masterRaw : masterRaw.entries) || [];
 const fetched = await fetchAllPartnerSheets('freepass', master, {
   partnerRows,
   fetchTable,
+  fetchSupplierSheet: fetchSupplierSheetAudit,
 });
 const fetchedCodes = new Set(fetched.lines.map((line) => line.code));
 const missingRequired = [...requiredSupplierCodes].filter((code) => !fetchedCodes.has(code));

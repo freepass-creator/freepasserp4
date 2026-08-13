@@ -1,9 +1,9 @@
 /**
- * 현재 ERP 재고를 **영업자용 공유 시트**로 내보낸다. 기본 dry-run, 실제 쓰기는 --apply.
+ * 과거 ERP 재고를 **영업자용 공유 시트**로 내보내던 이관 도구. 현재 영업자 시트는
+ * ERP 입력 정본이므로 기본 dry-run만 허용하고, 실제 쓰기는 명시적 복구 옵션이 필요하다.
  *
  * 표 정의(열·서식·탭 이름)는 `lib/domain/inventory-sheet-export.ts` 하나만 쓴다 —
- * 관리자 화면의 「영업자 시트 반영」 버튼(`/api/inventory/sheet-export`)과 **같은 코드**다.
- * 두 경로가 각자 표를 만들면 영업자가 보는 시트가 갈린다.
+ * `/api/inventory/sheet-export`는 폐쇄되어 있으며 이 스크립트도 일반 운영 경로가 아니다.
  *
  * ★안전 계약
  *   · **운영 공급사 시트에는 쓰지 않는다.** 대상 시트 ID가 어느 파트너의 `sheet_url` 과
@@ -12,8 +12,7 @@
  *   · RTDB 는 읽기만 한다(REST GET).
  *
  *   npx tsx scripts/export-products-to-sheet.mts --sheet=<ID>
- *   npx tsx scripts/export-products-to-sheet.mts --sheet=<ID> --apply
- *   npx tsx scripts/export-products-to-sheet.mts --sheet=<ID> --gid=0 --apply
+ *   npx tsx scripts/export-products-to-sheet.mts --sheet=<ID> --apply --allow-source-overwrite
  *
  *   기본은 **새 탭을 맨 왼쪽에** 만든다(최신이 왼쪽, 지난 회차는 이력).
  *   --gid=<번호> / --tab=<이름>  그 탭을 덮어쓴다
@@ -44,8 +43,12 @@ async function main() {
   const tab = arg('tab');
   const scope = arg('scope', 'stocked');
   const apply = process.argv.includes('--apply');
+  const allowSourceOverwrite = process.argv.includes('--allow-source-overwrite');
   const headersOnly = process.argv.includes('--headers-only');
   if (!sheetId) throw new Error('--sheet=<스프레드시트ID> 필요');
+  if (apply && !allowSourceOverwrite) {
+    throw new Error('중단 — 영업자 상품리스트는 ERP 입력 정본입니다. 복구 목적이면 --allow-source-overwrite를 명시하세요.');
+  }
 
   const sa = JSON.parse(readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS || 'tmp/firebase-auth/sa.json', 'utf8'));
   const { initializeApp, cert, getApps } = await import('firebase-admin/app');

@@ -18,7 +18,7 @@ const check = (name: string, ok: boolean, detail?: unknown) => {
 const all = DISPLAY_SECTIONS.flatMap((s) => s.fields);
 
 // ── 섹션 구분 ──
-check('섹션 9개', DISPLAY_SECTIONS.length === 9, DISPLAY_SECTIONS.map((s) => s.title));
+check('본 임대차계약 표시 섹션 9개', DISPLAY_SECTIONS.length === 9, DISPLAY_SECTIONS.map((s) => s.title));
 check('섹션 순서 = 주체→대상→조건→위험→돈',
   DISPLAY_SECTIONS.map((s) => s.key).join('|')
   === 'lessee|lessee_biz|vehicle|terms|driver|insurance|accident|bank|guarantor',
@@ -33,8 +33,10 @@ check('차량 식별이 임대인보다 앞',
   && vehicleKeys.indexOf('odometer_delivery') < vehicleKeys.indexOf('company_name'),
   vehicleKeys);
 check('모든 섹션에 안내문', DISPLAY_SECTIONS.every((s) => !!s.note));
-check('조건부 섹션은 사업자·자동이체·연대보증뿐',
+check('조건부 섹션은 사업자·자동이체·연대보증',
   DISPLAY_SECTIONS.filter((s) => s.conditional).map((s) => s.key).join('|') === 'lessee_biz|bank|guarantor');
+check('연대보증은 최고액·기간까지 표시',
+  ['guarantee_limit', 'guarantee_period'].every((k) => DISPLAY_SECTIONS.find((s) => s.key === 'guarantor')?.fields.some((x) => x.key === k)));
 // 보상한도와 면책금이 한 섹션에 있으면 손님이 둘 다 보상으로 읽는다.
 check('보험과 사고·면책은 다른 섹션',
   !DISPLAY_SECTIONS.find((s) => s.key === 'insurance')!.fields.some((x) => x.label.includes('면책금')),
@@ -74,8 +76,7 @@ check('주소-실거주지가 붙어 있다',
 
 // ── 마스킹 — 빠지면 유출이다 ──
 const MUST_MASK = ['customer_id', 'customer_phone', 'customer_address', 'driver_license_no',
-  'emergency_contact', 'drv1_rrn', 'drv1_license', 'drv1_phone', 'cms_account_no',
-  'guarantor_rrn', 'guarantor_phone', 'guarantor_address'];
+  'emergency_contact', 'drv1_phone', 'cms_account_no', 'guarantor_rrn', 'guarantor_phone', 'guarantor_address'];
 for (const k of MUST_MASK) {
   const fd = findDisplayField(k);
   check(`«${fd?.label ?? k}» 화면 마스킹`, !!fd && fd.onScreen !== 'none', fd?.onScreen);
@@ -85,7 +86,7 @@ check('계약서 표기는 원본', all.every((x) => x.onContract === 'none'));
 check('주민번호·면허·계좌는 전부 가린다',
   all.filter((x) => /주민등록번호|면허번호|계좌번호/.test(x.label)).every((x) => x.onScreen !== 'none'),
   all.filter((x) => /주민등록번호|면허번호|계좌번호/.test(x.label)).map((x) => `${x.label}:${x.onScreen}`));
-check(`마스킹 대상 ${maskedFields().length}개`, maskedFields().length >= 12);
+check(`마스킹 대상 ${maskedFields().length}개`, maskedFields().length >= 13);
 
 // ── 마스킹 동작 ──
 check('주민번호 뒷자리 전부 가림', maskRrn('880505-1058445') === '880505-*******', maskRrn('880505-1058445'));

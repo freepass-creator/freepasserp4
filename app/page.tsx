@@ -6,7 +6,7 @@ import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { activeCount, EMPTY_VEHICLE_FILTER, normalizeVehicleFilter, type VehicleFilter } from '@/lib/domain/product-filters';
-import { cheapest, isListableProduct, vehicleName } from '@/lib/domain/product';
+import { cheapest, isStockedProduct, vehicleName } from '@/lib/domain/product';
 import { InterestPanel, useInterestLists, useInterestTab, useInterestTabGuard } from '@/components/InterestRail';
 import { clearRecent, clearFavs, type InterestSnap } from '@/lib/product-interest';
 import { useInquiredCodes } from '@/lib/inquiry-marks';
@@ -197,14 +197,14 @@ export default function Finder() {
     if (rows === null) return [];
     return storedInterestRecent.filter((snapshot) => {
       const live = interestProductIndex.get(snapshot.code);
-      return !live || isListableProduct(live);
+      return !live || isStockedProduct(live);
     });
   }, [rows, storedInterestRecent, interestProductIndex]);
   const interestFavs = useMemo(() => {
     if (rows === null) return [];
     return storedInterestFavs.filter((snapshot) => {
       const live = interestProductIndex.get(snapshot.code);
-      return !live || isListableProduct(live);
+      return !live || isStockedProduct(live);
     });
   }, [rows, storedInterestFavs, interestProductIndex]);
   // 문의 = 방에서 파생. 최근·관심과 **같은 매물 카드**로 보여 주고 누르면 상세로 간다(2026-08-08).
@@ -214,7 +214,7 @@ export default function Finder() {
     const out: InterestSnap[] = [];
     for (const code of inquiredCodes) {
       const live = interestProductIndex.get(code);
-      if (!live || !isListableProduct(live)) continue;
+      if (!live || !isStockedProduct(live)) continue;
       const cheap = cheapest(live);
       out.push({
         code,

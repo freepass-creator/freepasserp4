@@ -425,6 +425,7 @@ export default function SignPage() {
           </div>
           <p style={{ fontSize: FS.sub, color: C.mute, lineHeight: 1.6 }}>
             차종·차량번호·기간·금액이 다르면 서명하지 말고 계약 담당자에게 알려 주세요.
+            이해하기 어렵거나 추가 설명이 필요한 조건도 서명 전에 질문해 주세요.
           </p>
           <ListGroup header={S(snapshot.contractKind?.title) || S(snapshot.template?.label) || '자동차 대여 계약서'}>
             <DetailRow label="임대인 회사명" value={S(snapshot.landlord?.companyName) || S(snapshot.templateFields?.company_name) || '—'} />

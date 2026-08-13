@@ -30,6 +30,7 @@ export const HEADER_ALIASES: Record<string, string> = {
   '차명(트림)': 'trim_name', '모델(트림)': 'trim_name', 모델명트림: 'trim_name',
   모델명: 'model',
   세부모델: 'sub_model', 세부: 'sub_model', 상세모델: 'sub_model', 세부차명: 'sub_model',
+  파워: 'variant', 파워트레인: 'variant', 엔진: 'variant',
   트림: 'trim_name', 세부트림: 'trim_name', 등급: 'trim_name', 세부등급: 'trim_name',
   추가표기: 'trim_extra', 추가입력: 'trim_extra', 부가표기: 'trim_extra',
   연식: 'year', 년식: 'year',
@@ -69,7 +70,7 @@ export const HEADER_ALIASES: Record<string, string> = {
 export const IMPORT_FIELDS: { key: string; label: string }[] = [
   { key: 'car_number', label: '차량번호' }, { key: 'vin', label: '차대번호' },
   { key: 'maker', label: '제조사' }, { key: 'model', label: '모델' },
-  { key: 'sub_model', label: '세부모델' }, { key: 'trim_name', label: '트림' }, { key: 'trim_extra', label: '추가표기' }, { key: 'year', label: '연식' },
+  { key: 'sub_model', label: '세부모델' }, { key: 'variant', label: '파워트레인' }, { key: 'trim_name', label: '트림' }, { key: 'trim_extra', label: '추가표기' }, { key: 'year', label: '연식' },
   { key: 'first_registration_date', label: '최초등록일' }, { key: 'fuel_type', label: '연료' }, { key: 'engine_cc', label: '배기량' },
   { key: 'mileage', label: '주행거리' }, { key: 'ext_color', label: '외장색' }, { key: 'int_color', label: '내장색' },
   { key: 'seats', label: '인승' }, { key: 'drive_type', label: '구동' }, { key: 'transmission', label: '변속기' }, { key: 'vehicle_class', label: '차종분류' },
@@ -178,6 +179,9 @@ const NON_VEHICLE_TEXT_RE = new RegExp([
   '^(가능|불가|유|무|없음|있음|-|—|–)$',
   '출고|판매|계약|보류|매각|재고확인|상담|문의|보증|납부|분납|위약|면책|차고지|운전자',
 ].join('|'), 'i');
+
+/** 가격칸 등에 적힌 공지 문장을 차량 행으로 오인하지 않는다. 차량 식별값이 있으면 적용하지 않는다. */
+const SHEET_NOTICE_ROW_RE = /수수료|공지|안내|꼭\s*확인|영업에\s*도움/i;
 
 /** 헤더 자동매핑 — 정확일치 → 정규화일치 → 부분일치(별칭 긴 키 우선). 반환 = {표준필드: 컬럼인덱스}(첫 매칭 우선). */
 /**
@@ -406,7 +410,8 @@ export type ImportResult = {
   invalidCount: number;
   issueSamples: string[];    // 행번호·차번·사유 샘플(운영자가 원본 시트를 고칠 근거)
   excludedCount: number;    // 시트에 '출고불가'로 적혀 있어 안 올린 대수
-  noPriceCount: number;     // 대여료가 하나도 없어 안 올린 대수 — 값 없는 매물은 게시하지 않는다
+  noPriceCount: number;     // 대여료가 하나도 없는 행 수 — 실차번이 있으면 가격 없이도 올린다
+  noPriceSkippedCount: number; // 가격도 실차번도 없어 안정적인 상품키를 만들지 못한 행(= skipped의 부분집합)
   snap: { high: number; medium: number; low: number; none: number };
 };
 
@@ -669,6 +674,38 @@ export function parsePriceColumns(
   return Object.keys(price).length ? price : null;
 }
 
+/** 영업자 상품리스트의 `640,000\n1,500,000` 셀을 기간별 가격으로 되읽는다. */
+export function parseCompactPriceColumns(
+  headers: string[],
+  cells: string[],
+): Record<string, { rent: number; deposit: number }> | null {
+  const price: Record<string, { rent: number; deposit: number }> = {};
+  for (const [index, header] of headers.entries()) {
+    const match = /^(\d+)개월$/.exec(String(header ?? '').trim().replace(/\s+/g, ''));
+    if (!match) continue;
+    const raw = String(cells[index] ?? '').trim();
+    if (!raw) continue;
+    const parts = raw.split(/\r?\n/).map((part) => part.trim()).filter(Boolean);
+    if (!parts.length || parts.length > 2) continue;
+    const rent = rentCell(parts[0]);
+    if (!rent) continue;
+    let deposit = 0;
+    if (parts.length === 2) {
+      const compact = parts[1].replace(/\s+/g, '');
+      if (!MEANS_NO_DEPOSIT.test(compact)) {
+        deposit = depositCell(parts[1]);
+        if (!deposit) continue;
+      }
+    } else {
+      // 대여료만 적은 것은 보증금 0의 명시가 아니다. 값을 지어내지 않는다.
+      continue;
+    }
+    const normalized = normalizeWonPair(rent, deposit);
+    price[match[1]] = { rent: normalized.rent, deposit: normalized.deposit };
+  }
+  return Object.keys(price).length ? price : null;
+}
+
 /**
  * 시트 표 → 매물 취합. delimited → 매핑 → 차종스냅 → 차번 dedup.
  *   ★ entries(마스터) 필수. 저장은 master-ingress.commitSupplierProducts.
@@ -693,6 +730,12 @@ export function importSheetTable(table: string[][], opts: {
    * 밀려 남의 차 사진이 붙기 때문이다.
    */
   photoByPlate?: Record<string, string>;
+  /** 영업자 정본에 이미 발급된 `100신…` 식별자가 있으면 새 번호를 뽑지 않고 그대로 사용한다. */
+  acceptAssignedPendingPlate?: boolean;
+  /** 영업자 시트처럼 기간 셀 한 칸에 `대여료↵보증금`을 함께 적는 규격. */
+  compactPriceCells?: boolean;
+  /** 영업자 정본의 기존 계약중 표시는 유지하되, 신규 계약중 생성은 계획 단계에서 차단한다. */
+  preserveCanonicalContractStatus?: boolean;
 }): ImportResult {
   if (!opts.entries?.length) throw new Error('차종마스터 필수 — importSheetTable');
   const headers = table[0] || [];
@@ -783,6 +826,7 @@ export function importSheetTable(table: string[][], opts: {
   let sourceRowCount = 0;
   let excludedCount = 0;
   let noPriceCount = 0;
+  let noPriceSkippedCount = 0;
   const issueSamples: string[] = [];
   const addIssue = (message: string) => { if (issueSamples.length < 12) issueSamples.push(message); };
   const allocator = opts.plateAllocator || previewPlateAllocator();
@@ -823,6 +867,14 @@ export function importSheetTable(table: string[][], opts: {
     // 구분 제목·섹션 라벨처럼 **매핑되지 않은 열에만** 값이 있는 행은 데이터가 아니다.
     // AutoPlus 원본의 `수리중/매각진행중/판매보류` 구간 라벨을 무효 차량으로 세지 않는다.
     if (!hasRelevantCell) continue;
+    const mappedIdentity = [rec.car_number, rec.maker, rec.model, rec.sub_model, rec.trim_name, rec.year]
+      .some((value) => String(value ?? '').trim());
+    const rowText = cells.map((cell) => String(cell ?? '').trim()).filter(Boolean).join(' ');
+    if (!mappedIdentity
+      && !cells.some((cell) => isExactRealPlate(String(cell ?? '').replace(/\s/g, '')))
+      && SHEET_NOTICE_ROW_RE.test(rowText)) {
+      continue;
+    }
     sourceRowCount++;
     let rawCar = String(rec.car_number || '').trim();
     let car = rawCar.replace(/\s/g, '');
@@ -848,6 +900,7 @@ export function importSheetTable(table: string[][], opts: {
     const explicitPreReleased = /^(?:신차(?:\(선출고\))?|신차렌트|신차구독)$/i.test(
       String(rec.product_type || '').replace(/\s/g, ''),
     );
+    const assignedPendingPlate = opts.acceptAssignedPendingPlate && /^100신\d{4,}$/i.test(car);
     // 이안카처럼 번호판 미발급 신차의 차번 칸에 차명을 적는 양식이 있다. 일반 설명문을
     // 전부 허용하지 않고, 구분이 명시적 신차이며 번호판 오타 형태도 아닐 때만 pending 처리한다.
     const looksLikeMalformedPlate = /\d{2,3}[가-힣]\d{3,5}/.test(car);
@@ -857,7 +910,10 @@ export function importSheetTable(table: string[][], opts: {
     // 시트 차번은 전체 셀이 정확한 번호판 형식이어야 한다. 부분일치(12가34567,
     // "차량 12가3456 확인")를 새 상품키로 만들면 기존 정상차가 부재 차단된다.
     const exactPlate = isExactRealPlate(car);
-    if (car && !exactPlate) {
+    if (assignedPendingPlate) {
+      rec.is_pending_plate = true;
+      rec.product_type = '신차렌트';
+    } else if (car && !exactPlate) {
       if (!pendingMarker) {
         skipped++; invalidCount++;
         addIssue(`행 ${rowNo} 잘못된 차번 · ${rawCar}`);
@@ -874,7 +930,8 @@ export function importSheetTable(table: string[][], opts: {
       const ident = `${rec.maker || ''}${rec.model || ''}${rec.sub_model || ''}${rec.trim_name || ''}${rec.year || ''}`.replace(/\s/g, '');
       if (!ident) {
         skipped++; invalidCount++;
-        addIssue(`행 ${rowNo} 무효 · ${rawCar || '차번·차명 없음'}`);
+        const evidence = cells.map((cell) => String(cell ?? '').trim()).filter(Boolean).slice(0, 6).join(' | ');
+        addIssue(`행 ${rowNo} 무효 · ${rawCar || '차번·차명 없음'}${evidence ? ` · ${evidence}` : ''}`);
         continue;
       }
       // 실제 올릴 수 있는 행(상태·가격 검증 통과)에만 occurrence를 소비한다. 가격없는
@@ -897,7 +954,9 @@ export function importSheetTable(table: string[][], opts: {
     // **출고불가는 올리지 않는다**. 단, 먼저 차량 신원을 검증해야 한다.
     // 차번·차명이 없는 안내행에 상태 글자만 있다고 "전 행 명시적 출고불가"로 오인하면
     // 기존 공급사 재고 전체가 차단될 수 있다.
-    if (isSheetExcluded(rec.vehicle_status)) { excludedCount++; continue; }
+    const canonicalContractStatus = opts.preserveCanonicalContractStatus
+      && String(rec.vehicle_status || '').trim() === '계약중';
+    if (!canonicalContractStatus && isSheetExcluded(rec.vehicle_status)) { excludedCount++; continue; }
     rec.provider_company_code = opts.providerCode;
     rec.partner_code = opts.providerCode;
     rec.source = 'sheet';
@@ -906,7 +965,8 @@ export function importSheetTable(table: string[][], opts: {
     if (rawStatus) rec.status_label_raw = rawStatus;
     // 상태 컬럼이 없거나 빈 행도 canon SSOT를 거친다. 별도 기본값 분기를 두면
     // canon의 안전 기본값(출고협의)과 다시 어긋난다.
-    rec.vehicle_status = canonSheetVehicleStatus(rawStatus);
+    rec.vehicle_status = canonicalContractStatus ? '계약중' : canonSheetVehicleStatus(rawStatus);
+    if (canonicalContractStatus) rec._sheet_contract_status = true;
     if (!rec.product_type) rec.product_type = '중고렌트';
     // 연료칸 "가솔린1.0"·"LPG3.0" → 연료/배기 분리
     if (rec.fuel_type) {
@@ -944,7 +1004,9 @@ export function importSheetTable(table: string[][], opts: {
         : consensusOrigin,
       _deposit_origin_trusted: !!consensusOrigin,
     } : rec;
-    const price = parsePriceColumns(headers, cells, priceRecord, depositRule);
+    const price = opts.compactPriceCells
+      ? parseCompactPriceColumns(headers, cells)
+      : parsePriceColumns(headers, cells, priceRecord, depositRule);
     /**
      * ★**요금이 없어도 올린다**(사장님 2026-08-12 — 「요금이 없어도 올리자 / 요금 안보이게끔
      *   올려서 출고가능이면 동일하게」).
@@ -968,7 +1030,11 @@ export function importSheetTable(table: string[][], opts: {
        *   (`sim-sheet-merge` 의 「가격없는 번호미정 행은 occurrence를 소비해…」 항목이 이걸 지킨다).
        *   차번이 있으면 위 규칙대로 가격만 비운 채 올린다.
        */
-      if (!car) continue;
+      if (!car) {
+        skipped++;
+        noPriceSkippedCount++;
+        continue;
+      }
     }
     if (!car) {
       const idx = pendingSeen.get(pendingSig) ?? 0;
@@ -983,6 +1049,7 @@ export function importSheetTable(table: string[][], opts: {
       }
       seen.add(car);
     }   // 시트 내 차번(임시번호 포함) 중복 제거
+    rec.sheet_source_row = rowNo;
     rec.product_code = `${opts.providerCode}_${car}`;      // 식별 = 공급사_차번(오플식)
     rec.price = price;
     if (res) snap[res.confidence]++; else snap.none++;
@@ -991,7 +1058,7 @@ export function importSheetTable(table: string[][], opts: {
   return {
     products, mapping, total: sourceRowCount, imported: products.length,
     skipped, duplicateCount, invalidCount, issueSamples,
-    excludedCount, noPriceCount, snap,
+    excludedCount, noPriceCount, noPriceSkippedCount, snap,
   };
 }
 

@@ -109,7 +109,7 @@ async function main() {
     } catch (e) { console.log(`  gid ${gid || '기본'}: ❌ ${String((e as Error).message || e)}`); }
   }
   console.log(`  원본 행 ${srcRows} → 올림 ${imported}`);
-  console.log(`     출고불가 제외 ${excluded} · 가격없어 제외 ${noPrice} · 무효 ${invalid} · 중복 ${dup}`);
+  console.log(`     출고불가 제외 ${excluded} · 가격미입력 ${noPrice} · 무효 ${invalid} · 중복 ${dup}`);
   if (issues.length) { console.log('  미게시 사유 표본:'); issues.forEach((s) => console.log(`     ${s}`)); }
 
   // ── 3. 우리가 갖고 있는 것

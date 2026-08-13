@@ -49,14 +49,16 @@ async function main() {
   let targets: { id: string; who: string }[] = [];
   if (ONE) targets = [{ id: ONE, who: '(지정)' }];
   else {
-    const v = await call(`https://sheets.googleapis.com/v4/spreadsheets/${INDEX_SHEET}/values/${encodeURIComponent("'공급사연동'!A1:L60")}?valueRenderOption=FORMULA`);
-    const rows = (v.values || []) as string[][];
-    const head = (rows[0] || []).map(S);
+    // 링크는 셀의 `hyperlink` 에 있다 — 표시값은 「사본 열기」라 주소가 안 나온다.
+    const fields = 'sheets(data(rowData(values(formattedValue,hyperlink))))';
+    const v = await call(`https://sheets.googleapis.com/v4/spreadsheets/${INDEX_SHEET}?ranges=${encodeURIComponent("'공급사연동'!A1:L60")}&includeGridData=true&fields=${encodeURIComponent(fields)}`);
+    const rows = (v.sheets?.[0]?.data?.[0]?.rowData || []) as Rec[];
+    const head = ((rows[0]?.values || []) as Rec[]).map((c) => S(c.formattedValue));
     const iWho = head.indexOf('구분'), iCopy = head.indexOf('우리가 뜬 사본');
     for (const row of rows.slice(1)) {
-      const link = S(row[iCopy]);
-      const id = link.match(/\/spreadsheets\/d\/([\w-]+)/)?.[1];
-      if (id) targets.push({ id, who: S(row[iWho]) });
+      const cells = (row.values || []) as Rec[];
+      const id = S(cells[iCopy]?.hyperlink).match(/\/spreadsheets\/d\/([\w-]+)/)?.[1];
+      if (id) targets.push({ id, who: S(cells[iWho]?.formattedValue) });
     }
   }
 

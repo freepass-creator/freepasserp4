@@ -85,6 +85,10 @@ export const POLICY_DEFAULTS: PolicyDefault[] = [
     source: '프리패스 장기렌터카 대여료 기본 수납 방식',
   },
   {
+    key: 'payment_timing', label: '대여료 납부 조건', value: '선불',
+    source: '프리패스 표준 기본값 · 공급사 정책 또는 개별계약에서 후불로 변경 가능',
+  },
+  {
     key: 'payment_due_date', label: '월 납부일', value: '매월 25일',
     source: '기존 프리패스 A4 표준계약서의 월 납부일 기본값',
   },
@@ -136,18 +140,18 @@ export const POLICY_DEFAULTS: PolicyDefault[] = [
     key: 'contract_authoring', label: '계약서 작성', value: '프리패스가 작성',
     source: '프리패스 기본정책 패키지 — 별도 지정이 없으면 프리패스가 전자계약서를 작성',
   },
-  /* ── 미납 제재 ── 계약서 「연체·시동제어」 고정문구에서 그대로 */
+  /* ── 미납 제재 ── 각 금원의 계약상 납부기한 다음 날부터 계산 */
   {
     key: 'engine_control_overdue_days', label: '운행제한(시동제어) 기준일', value: 3,
-    source: '계약서 「대여료 및 보험 면책금을 청구일로부터 3일 연체 시 오후6시 시동제어」',
+    source: '계약서 「각 납부기한 다음 날부터 계산하여 연체 3일째 18시 미납 시 시동제어」',
   },
   {
     key: 'auto_terminate_overdue_days', label: '차량회수·해지 기준일', value: 10,
-    source: '계약서 「10일 연체 시 계약은 자동 해지 되며, 임대인은 차량을 회수 할 수 있으며」',
+    source: '계약서 「10일째 미납 시 최고 후 계약 해지·회수」',
   },
   {
     key: 'deposit_overdue_rounds', label: '보증금 미납 시동제어(회차)', value: 2,
-    source: '계약서 「※ 보증금 2회차 미납 시 즉시시동제어」',
+    source: '계약서 「보증금 2회차도 해당 회차 납부기한 기준」',
   },
 
   /* ── 돈 ── */

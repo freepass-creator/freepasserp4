@@ -94,7 +94,7 @@ check('묶음마다 동의 문구가 있다', groups.every((g) => !!g.confirmLab
 const rowValue = (key: string, label: string) => groups.find((g) => g.key === key)?.rows.find((r) => r.label === label)?.value;
 // 표시 문자열을 우리가 굳혀 보낸다 — 저쪽이 다시 포맷하면 화면과 계약서 숫자가 갈린다.
 check('월 대여료는 사람이 읽는 꼴', rowValue('rental', '월 대여료') === '500,000원', rowValue('rental', '월 대여료'));
-check('대여기간에 단위가 붙는다', rowValue('rental', '대여기간') === '12개월', rowValue('rental', '대여기간'));
+check('대여기간은 차량 인도일 기준으로 표시한다', rowValue('rental', '대여기간') === '차량 인도일로부터 12개월', rowValue('rental', '대여기간'));
 check('연락처에 하이픈이 붙는다', rowValue('identity', '연락처') === '010-1234-5678', rowValue('identity', '연락처'));
 check('보증금이 있으면 금액으로', rowValue('rental', '보증금') === '1,000,000원', rowValue('rental', '보증금'));
 check('고객은 관리자가 확정한 3종 중 한 계약서를 확인',

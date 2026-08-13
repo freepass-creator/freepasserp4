@@ -30,6 +30,7 @@ import { commitSupplierProducts, previewSupplierTable } from '@/lib/domain/maste
  * 끌고 와서 클라이언트 번들에 넣지 않는다. 주소가 바뀌면 두 곳을 같이 고쳐야 한다.
  */
 const IRONRENTCAR_SITE_URL = 'https://ironrentcar.com';
+const SALES_INVENTORY_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs/edit';
 /**
  * 관리자 API 호출 상한 — 상한 없는 fetch 는 화면을 «조용히» 영구 고착시킨다.
  * reject 가 아니라 pending 이라 catch 도 finally 도 안 돌아 「검증 중…」이 안 풀린다(실측).
@@ -53,6 +54,7 @@ import {
   sheetSyncExistingConflictReason,
   sheetSyncCommitBlockReason,
   sheetPartnerRosterRevision,
+  sheetSourceRowsRead,
   isWebInventoryPartner,
   partnerSourceReadiness,
   type PartnerSheetRow,
@@ -78,6 +80,10 @@ import {
 } from '@/lib/domain/sheet-merge';
 import { copyText } from '@/lib/clipboard';
 import { getAuthClient } from '@/lib/firebase/client';
+import {
+  fetchSupplierSheet,
+  type SupplierSheetRead,
+} from '@/lib/domain/supplier-sheet-read';
 import {
   buildPriceChangesValue,
   priceChangesValueFromRows,
@@ -153,7 +159,7 @@ type PartnerDiffRow = {
   new: number; status: number; content: number;   // 신규 · 상태변경 · 내용수정
   absent: number; guarded: number; unchanged: number; // 재고차단 · 급감가드 보류 · 무변경
   excluded: number;                               // 시트에 출고불가로 적혀 있어 안 올린 것
-  noPrice: number;                                // 대여료가 없어 안 올린 것 — 게시하면 손님에게 보여줄 값이 없다
+  noPrice: number;                                // 대여료가 없는 행 — 실차번 재고는 올리되 손님 견적만 막는다
   skipped: number;                                // 중복·무효·신원없는 행
   duplicate: number; invalid: number;
   issues: string;
@@ -348,6 +354,41 @@ async function fetchAdminSheetTable(
   });
 }
 
+async function fetchAdminSupplierSheet(
+  url: string,
+  partner: EntityRecord,
+): Promise<SupplierSheetRead> {
+  const user = getAuthClient()?.currentUser;
+  if (!user) throw new Error('관리자 로그인 세션이 필요합니다');
+  return fetchSupplierSheet(url, partner, { authorization: await user.getIdToken() });
+}
+
+type ServerSheetSyncResult = {
+  ok?: boolean;
+  status?: string;
+  blockReason?: string;
+  counts?: { created?: number; updated?: number; imported?: number; absentBlocked?: number };
+  notes?: string[];
+};
+
+async function runCanonicalServerSync(
+  providerCodes: string[] = [],
+  dryRun = false,
+): Promise<ServerSheetSyncResult> {
+  const user = getAuthClient()?.currentUser;
+  if (!user) throw new Error('관리자 로그인 세션이 필요합니다');
+  const response = await fetch(`/api/sheet/sync-daily${dryRun ? '?dry_run=1' : ''}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${await user.getIdToken()}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ providerCodes }),
+    cache: 'no-store',
+    signal: AbortSignal.timeout(300_000),
+  });
+  const body = await response.json().catch(() => ({})) as ServerSheetSyncResult & { error?: string };
+  if (!response.ok || !body.ok) throw new Error(body.blockReason || body.error || `공급사 연동 실패 (${response.status})`);
+  return body;
+}
+
 /**
  * 공급사 상품 연동.
  *
@@ -356,7 +397,11 @@ async function fetchAdminSheetTable(
  * 재고 화면에 펼치면 정작 눌러야 할 버튼이 스크롤 밖으로 밀린다.
  * 자세히 볼 일(어느 공급사가 왜 막혔는지·충돌 원문)은 개발도구에서 본다 — 같은 컴포넌트다.
  */
-export function SheetSync({ co, onImported, compact = false }: { co: string; onImported: () => void; compact?: boolean }) {
+export function SheetSync({ co, onImported, compact = false }: {
+  co: string;
+  onImported: (result?: { salesSheetPublished?: boolean }) => void;
+  compact?: boolean;
+}) {
   const role = getRole();
   const isAdmin = role === 'admin';
   const authReady = useAuthReady();
@@ -908,6 +953,28 @@ export function SheetSync({ co, onImported, compact = false }: { co: string; onI
    */
   const validateAll = async (onlyCodes?: string[]) => {
     if (busy) return;
+    if (isAdmin) {
+      setBusy(true);
+      setSheetAction('validate');
+      setValidatingCodes(onlyCodes?.length ? onlyCodes : 'all');
+      setPending(null);
+      try {
+        const result = await runCanonicalServerSync(onlyCodes || [], true);
+        setBulkLog((result.notes || []).join('\n'));
+        toast(
+          `영업자 시트 검증 완료 · 유입 ${result.counts?.imported || 0}대 · 신규 ${result.counts?.created || 0}대 · 수정 ${result.counts?.updated || 0}대`,
+          'ok',
+        );
+        await refreshDailyStatus();
+      } catch (error) {
+        toast(`영업자 시트 검증 실패 · ${String((error as Error).message || error)}`, 'error');
+      } finally {
+        setBusy(false);
+        setSheetAction(null);
+        setValidatingCodes(null);
+      }
+      return;
+    }
     if (!masterReady) { toast('차종마스터 로드 실패 — 검증 불가', 'error'); return; }
     if (rosterError) { toast(`시트 설정 오류 — ${rosterError}`, 'error'); return; }
     if (!roster.length) { toast('시트 URL이 등록된 공급사가 없습니다 — 회원·파트너에서 공급사 원본을 설정하세요', 'info'); return; }
@@ -926,7 +993,11 @@ export function SheetSync({ co, onImported, compact = false }: { co: string; onI
         setBusy(false);
         return;
       }
-      const fetchedRaw = await fetchAllPartnerSheets(co, master!, { fetchTable: fetchAdminSheetTable, partnerRows: scoped });
+      const fetchedRaw = await fetchAllPartnerSheets(co, master!, {
+        fetchTable: fetchAdminSheetTable,
+        fetchSupplierSheet: fetchAdminSupplierSheet,
+        partnerRows: scoped,
+      });
       const [
         reconcileState, partnerRows, contracts, rooms, quotes,
         conflictResolutions, conflictDecisions, identityDecisions,
@@ -1046,7 +1117,7 @@ export function SheetSync({ co, onImported, compact = false }: { co: string; onI
         totals.skippedCount += sk;
         totals.duplicateCount += line.duplicateCount || 0;
         totals.invalidCount += line.invalidCount || 0;
-        totals.sourceRowCount += line.sourceRowCount || line.imported + re + np + sk;
+        totals.sourceRowCount += sheetSourceRowsRead(line);
         const base = {
           code: line.code, label: line.label, sheet: line.imported, new: 0, status: 0, content: 0,
           readiness: readiness.status, readinessReason: readiness.reasons.join(' · '),
@@ -1140,6 +1211,28 @@ export function SheetSync({ co, onImported, compact = false }: { co: string; onI
   /** 한 번 클릭: fresh 시트 읽기 → 내부 검수 → 전체 또는 충돌 제외 안전 원자 반영. */
   const syncNow = async (onlyCodes?: string[]) => {
     if (busy) return;
+    if (isAdmin) {
+      setBusy(true);
+      setSheetAction('sync');
+      setValidatingCodes(onlyCodes?.length ? onlyCodes : 'all');
+      try {
+        const result = await runCanonicalServerSync(onlyCodes || []);
+        toast(
+          `영업자 시트 → ERP 반영 완료 · 유입 ${result.counts?.imported || 0}대 · 신규 ${result.counts?.created || 0}대 · 수정 ${result.counts?.updated || 0}대`,
+          'ok',
+        );
+        setPending(null);
+        await Promise.all([refreshRoster(), refreshDailyStatus()]);
+        onImported();
+      } catch (error) {
+        toast(`영업자 시트 연동 실패 · ${String((error as Error).message || error)}`, 'error');
+      } finally {
+        setBusy(false);
+        setSheetAction(null);
+        setValidatingCodes(null);
+      }
+      return;
+    }
     if (!masterReady || rosterError) {
       toast(rosterError ? `시트 설정 오류 · ${rosterError}` : '차종마스터 로드 실패 · 연동 불가', 'error');
       return;
@@ -1155,6 +1248,7 @@ export function SheetSync({ co, onImported, compact = false }: { co: string; onI
       if (!scoped.length) throw new Error('연동할 공급사 시트가 없습니다.');
       const fetched = await fetchAllPartnerSheets(co, master!, {
         fetchTable: fetchAdminSheetTable,
+        fetchSupplierSheet: fetchAdminSupplierSheet,
         partnerRows: scoped,
       });
       const state = await listSheetReconcileState(co, true);
@@ -1197,6 +1291,10 @@ export function SheetSync({ co, onImported, compact = false }: { co: string; onI
     const { totals, banners, fetched } = pending;
     const blockReason = sheetSyncCommitBlockReason(fetched) || pending.existingConflictReason;
     if (blockReason) {
+      if (isAdmin) {
+        toast(`연동 차단 — ${blockReason}. 원본을 고친 뒤 다시 검증하세요. 관리자는 프리패스 정본을 건너뛰는 안전정보 우회 반영을 하지 않습니다.`, 'error');
+        return;
+      }
       const ok = await confirmDialog({
         title: '안전한 공급사 정보 연동',
         okLabel: '연동하기',
@@ -1209,7 +1307,7 @@ export function SheetSync({ co, onImported, compact = false }: { co: string; onI
         toast(result ? `안전 정보 연동 완료 · 수정 ${result.updated}대` : '반영할 안전 정보가 없습니다.', result ? 'ok' : 'info');
         setPending(null);
         await refreshRoster();
-        onImported();
+        onImported({ salesSheetPublished: true });
       } catch (error) {
         toast(`안전 정보 연동 실패 · ${String((error as Error).message || error)}`, 'error');
       } finally {
@@ -1242,6 +1340,17 @@ export function SheetSync({ co, onImported, compact = false }: { co: string; onI
     }
     setBusy(true);
     try {
+      if (isAdmin) {
+        const result = await runCanonicalServerSync(fetched.lines.map((line) => line.code));
+        toast(
+          `연동 완료 · 프리패스 정본 ${result.counts?.imported || 0}대 왕복검증 · 신규 ${result.counts?.created || 0}대 · 수정 ${result.counts?.updated || 0}대`,
+          'ok',
+        );
+        setPending(null);
+        await refreshRoster();
+        onImported();
+        return;
+      }
       const verifyFreshSnapshot = async () => {
         const store = getStore();
         const [currentState, currentRoster, contracts, resolutions] = await Promise.all([
@@ -1882,6 +1991,54 @@ export function SheetSync({ co, onImported, compact = false }: { co: string; onI
       setIronApplying(false);
     }
   };
+
+  if (isAdmin) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }} aria-busy={busy}>
+        <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: C.selected, padding: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+            <div>
+              <div style={{ fontSize: FS.sub, fontWeight: FW.title, color: C.brand }}>영업자 상품리스트 → ERP</div>
+              <div style={{ marginTop: 3, fontSize: FS.cap, color: C.mute, lineHeight: 1.5 }}>
+                공급사 시트는 비교용입니다. ERP는 영업자 상품리스트 한 장만 읽으며, 시트 필터·숨김 행은 재고 삭제로 보지 않습니다.
+              </div>
+            </div>
+            <a
+              href={SALES_INVENTORY_SHEET_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: C.brand, fontSize: FS.cap, fontWeight: FW.strong, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+            >
+              영업자 시트 열기 <ExternalLink size={ICON.sm} aria-hidden />
+            </a>
+          </div>
+          <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+            <Btn size="md" variant="ghost" onClick={() => validateAll()} disabled={busy}>
+              {sheetAction === 'validate' ? '검증 중…' : '데이터 검증'}
+            </Btn>
+            <Btn size="md" onClick={() => syncNow()} disabled={busy}>
+              {sheetAction === 'sync' ? 'ERP 반영 중…' : 'ERP 연동하기'}
+            </Btn>
+          </div>
+          <div style={{ marginTop: 9, fontSize: FS.micro, color: dailyRunColor, lineHeight: 1.45 }}>
+            자동연동 {dailyRunLabel} · {dailyStatus?.schedule || '매일 02:00 KST'}
+            {lastDailyRun?.finished_at ? ` · 최근 ${fmtSync(lastDailyRun.finished_at)}` : ''}
+            {lastDailyRun?.counts ? ` · 유입 ${lastDailyRun.counts.imported || 0} · 신규 ${lastDailyRun.counts.created || 0} · 수정 ${lastDailyRun.counts.updated || 0}` : ''}
+          </div>
+          {(dailyStatusError || lastDailyRun?.block_reason || lastDailyRun?.error) ? (
+            <div style={{ marginTop: 6, fontSize: FS.micro, color: C.danger, lineHeight: 1.45 }}>
+              {dailyStatusError || lastDailyRun?.block_reason || lastDailyRun?.error}
+            </div>
+          ) : null}
+          {!compact && bulkLog ? (
+            <pre style={{ margin: '10px 0 0', padding: 9, borderRadius: R, background: C.bg, color: C.mute, fontSize: FS.micro, whiteSpace: 'pre-wrap' }}>
+              {bulkLog}
+            </pre>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }} aria-busy={workInProgress}>

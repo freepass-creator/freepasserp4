@@ -39,6 +39,11 @@ import {
   type SheetConflictResolution,
 } from '@/lib/domain/sheet-conflict-resolution';
 import { buildPriceChangesValue } from '@/lib/domain/sheet-conflict-report';
+import {
+  fetchSupplierSheet as fetchSupplierSheetWorkbook,
+  type SupplierSheetFetcher,
+  type SupplierTab,
+} from '@/lib/domain/supplier-sheet-read';
 
 function safeProfile(v: unknown): MappingProfile | undefined {
   return parseMappingProfile(v);
@@ -122,9 +127,30 @@ function isSheetPartnerRecord(p: EntityRecord): boolean {
   return !/영업|sales/i.test(String(p.partner_type || ''));
 }
 
+function sheetPartnerRecordPriority(row: EntityRecord, code: string): number {
+  return (String(row._key || '') === code ? 100 : 0)
+    + (row.mapping_profile ? 20 : 0)
+    + (row.sheet_gid || row.sheet_tab ? 10 : 0)
+    + (row.adapter_id ? 5 : 0)
+    + (row.last_synced_at ? 1 : 0);
+}
+
+/** 같은 공급사 코드의 레거시·v4 레코드가 함께 남아도 실제 fetch는 정확히 한 번만 한다. */
+export function canonicalSheetPartnerRecords(rows: EntityRecord[]): EntityRecord[] {
+  const byCode = new Map<string, EntityRecord>();
+  for (const row of rows.filter(isSheetPartnerRecord)) {
+    const code = String(row.partner_code || row._key || '').trim();
+    if (!code) continue;
+    const current = byCode.get(code);
+    if (!current || sheetPartnerRecordPriority(row, code) > sheetPartnerRecordPriority(current, code)) {
+      byCode.set(code, row);
+    }
+  }
+  return [...byCode.values()];
+}
+
 export function sheetPartnerRows(rows: EntityRecord[]): PartnerSheetRow[] {
-  return rows
-    .filter(isSheetPartnerRecord)
+  return canonicalSheetPartnerRecords(rows)
     .map((p) => {
       const code = String(p.partner_code || p._key || '');
       const name = String(p.name || p.partner_name || p.partner_code || code);
@@ -194,11 +220,12 @@ export type PartnerFetchLine = {
   code: string;
   label: string;
   ok: boolean;
-  sourceRowCount: number;  // 어댑터가 판독한 비어있지 않은 데이터 행(올림+제외+가격없음+중복/무효)
+  sourceRowCount: number;  // 어댑터가 판독한 비어있지 않은 데이터 행(올림+제외+스킵)
   imported: number;
   excludedCount: number;   // 시트에 '출고불가'로 적혀 있어 안 올린 대수
-  noPriceCount: number;    // 대여료가 없어 안 올린 대수 — 값 없는 매물은 게시하지 않는다
-  skippedCount: number;    // 중복 차번·무효 차번·신원없는 행
+  noPriceCount: number;    // 대여료가 없는 행(실차번이 있으면 products/imported에도 포함되는 진단 부분집합)
+  noPriceSkippedCount?: number; // 가격도 실차번도 없어 스킵한 행(= skippedCount의 부분집합)
+  skippedCount: number;    // 중복 차번·무효 차번·가격도 실차번도 없는 행
   duplicateCount: number;
   /** 저장을 막아야 하는 동일 탭/상태충돌 중복. 정상적인 탭 간 겹침은 제외 가능. */
   blockingDuplicateCount?: number;
@@ -222,6 +249,8 @@ export type PartnerSheetsFetch = {
   products: EntityRecord[];
   partnerCount: number;
   rosterRevision: string;
+  /** 공급사별 원본 묶음인지, 프리패스 영업자용 단일 정본인지 구분한다. */
+  sourceKind?: 'supplier_sources' | 'sales_inventory';
   /** UI 검증 시점의 활성 ERP 재고 revision. 커밋 경계에서 반드시 비교한다. */
   reconcileRevision?: string;
 };
@@ -232,6 +261,20 @@ export type PartnerSourceReadiness = {
   masterReviewCount: number;
 };
 
+/** 가격없음은 반영 매물과 겹치는 진단값이다. 원본 행 합계에는 두 번 더하지 않는다. */
+export function sheetSourceRowsRead(line: Pick<PartnerFetchLine,
+  'sourceRowCount' | 'imported' | 'excludedCount' | 'skippedCount'>): number {
+  return line.sourceRowCount || line.imported + line.excludedCount + line.skippedCount;
+}
+
+function sheetSourceCountMatches(line: PartnerFetchLine): boolean {
+  return line.sourceRowCount === line.imported + line.excludedCount + line.skippedCount;
+}
+
+function sheetIssueCountMatches(line: PartnerFetchLine): boolean {
+  return line.skippedCount === line.duplicateCount + line.invalidCount + (line.noPriceSkippedCount || 0);
+}
+
 /** 공급사 한 곳만 떼어 봐도 안전한지 판정한다. 전체 커밋 게이트와 별도로 UI·감사가 공유한다. */
 export function partnerSourceReadiness(line: PartnerFetchLine): PartnerSourceReadiness {
   const reasons: string[] = [];
@@ -240,12 +283,12 @@ export function partnerSourceReadiness(line: PartnerFetchLine): PartnerSourceRea
   if (!line.ok) reasons.push('원본 조회 실패');
   if (line.invalidCount > 0) reasons.push(`무효 차번 ${line.invalidCount}`);
   if (line.imported === 0 && !isExplicitAllExcluded(line)) reasons.push('안전하지 않은 올림 0대');
-  if (line.sourceRowCount !== line.imported + line.excludedCount + line.noPriceCount + line.skippedCount) {
+  if (!sheetSourceCountMatches(line)) {
     reasons.push('판독 행 집계 불일치');
   }
-  if (line.skippedCount !== line.duplicateCount + line.invalidCount) reasons.push('중복·무효 집계 불일치');
-  if (line.sourceRowCount >= 10 && line.noPriceCount + line.skippedCount >= line.sourceRowCount * 0.5) {
-    reasons.push('가격없음·무효 비율 50% 이상');
+  if (!sheetIssueCountMatches(line)) reasons.push('중복·무효·식별불가 집계 불일치');
+  if (line.sourceRowCount >= 10 && line.skippedCount >= line.sourceRowCount * 0.5) {
+    reasons.push('스킵·무효 비율 50% 이상');
   }
   // 시트 중복은 커밋을 막지 않는다(한 대는 이미 올림). 확인만 필요.
   if (reasons.length) return { status: 'blocked', reasons, masterReviewCount };
@@ -387,9 +430,9 @@ export function sheetSyncCommitBlockReason(fetched: PartnerSheetsFetch): string 
     return `${unsafeEmpty.label} 올림 0대 (전 행 명시적 출고불가가 아님)`;
   }
   const parseCollapse = fetched.lines.find((line) => line.sourceRowCount >= 10
-    && line.noPriceCount + line.skippedCount >= line.sourceRowCount * 0.5);
+    && line.skippedCount >= line.sourceRowCount * 0.5);
   if (parseCollapse) {
-    return `${parseCollapse.label} 가격없음·무효 비율 50% 초과`;
+    return `${parseCollapse.label} 스킵·무효 비율 50% 초과`;
   }
   const unstablePending = fetched.lines.find((line) =>
     line.products.some(isPendingSheetRow) && !line.plateAlloc);
@@ -403,14 +446,12 @@ export function sheetSyncCommitBlockReason(fetched: PartnerSheetsFetch): string 
   if (lineCountMismatch) {
     return `${lineCountMismatch.label} 올림 대수 불일치 (${lineCountMismatch.imported}/${lineCountMismatch.products.length})`;
   }
-  const sourceCountMismatch = fetched.lines.find((line) => line.sourceRowCount
-    !== line.imported + line.excludedCount + line.noPriceCount + line.skippedCount);
+  const sourceCountMismatch = fetched.lines.find((line) => !sheetSourceCountMatches(line));
   if (sourceCountMismatch) {
     return `${sourceCountMismatch.label} 판독 행 집계 불일치`;
   }
-  const issueCountMismatch = fetched.lines.find((line) =>
-    line.skippedCount !== line.duplicateCount + line.invalidCount);
-  if (issueCountMismatch) return `${issueCountMismatch.label} 중복·무효 집계 불일치`;
+  const issueCountMismatch = fetched.lines.find((line) => !sheetIssueCountMatches(line));
+  if (issueCountMismatch) return `${issueCountMismatch.label} 중복·무효·식별불가 집계 불일치`;
   const canonical = canonicalSheetProductsFromLines(fetched);
   if (canonical.reason) return canonical.reason;
   return '';
@@ -569,7 +610,13 @@ export function findSheetSyncExistingConflicts(
     const incomingPrice = incoming.price && typeof incoming.price === 'object'
       ? incoming.price as Record<string, unknown>
       : {};
-    const missing = Object.keys(beforePrice).filter((period) => !(period in incomingPrice)).sort();
+    const salesStandardScope = incoming._sheet_price_scope === 'sales_standard_months';
+    const missing = Object.keys(beforePrice).filter((period) => {
+      if (period in incomingPrice) return false;
+      // 영업자 표에는 운영 표준기간만 편다. 표에서 표현할 수 없는 6개월·72개월·주행거리
+      // 변형 가격은 기존 ERP 값을 보존하되, 표준기간 공란은 기존과 동일하게 차단한다.
+      return !salesStandardScope || /^(1|12|24|36|48|60)$/.test(period);
+    }).sort();
     return missing.length ? [`${provider}|${syncPlate(incoming) || key} (${missing.join(', ')})`] : [];
   });
 
@@ -719,6 +766,8 @@ export async function fetchAllPartnerSheets(
     partnerRows?: EntityRecord[];
     /** 브라우저 /api/sheet 또는 서버 직접 Google CSV fetch. */
     fetchTable?: typeof fetchSheetTable;
+    /** 보이는 탭 전부와 보이는 행을 같은 Grid 스냅샷으로 읽는 공급사 시트 SSOT. */
+    fetchSupplierSheet?: SupplierSheetFetcher;
   } = {},
 ): Promise<PartnerSheetsFetch> {
   if (!master?.length) throw new Error('차종마스터 없음');
@@ -728,14 +777,9 @@ export async function fetchAllPartnerSheets(
   // 중간 설정 변경으로 roster와 gid/mapping이 서로 다른 시점이 될 수 있다.
   const partnerRows = deps.partnerRows ?? await listSheetPartnerRecords(companyId, true);
   const readTable = deps.fetchTable ?? fetchSheetTable;
+  const readSupplier = deps.fetchSupplierSheet ?? (deps.fetchTable ? undefined : fetchSupplierSheetWorkbook);
   const roster = sheetPartnerRows(partnerRows);
-  const codes = new Set(roster.map((r) => r.code));
-  const partners = partnerRows
-    // 같은 partner_code의 시트 없는 레거시 껍데기가 남아 있어도 roster에 없는 레코드를
-    // 다시 실행 목록으로 끌어들이지 않는다. 그렇지 않으면 16개 roster가 17줄로 실행돼
-    // 전체 동기화가 수 불일치로 차단된다.
-    .filter(isSheetPartnerRecord)
-    .filter((p) => codes.has(String(p.partner_code || p._key || '')));
+  const partners = canonicalSheetPartnerRecords(partnerRows);
   const lines = await mapPool(partners, CONCURRENCY, async (p): Promise<PartnerFetchLine> => {
     const label = String(p.name || p.partner_name || p.partner_code);
     const code = String(p.partner_code || p._key || '');
@@ -771,7 +815,8 @@ export async function fetchAllPartnerSheets(
         const missingDepositRule = !o.depositRule;
         return {
           code, label, ok: !zeroUpload, sourceRowCount: res.total, imported: res.imported,
-          excludedCount: res.excludedCount, noPriceCount: res.noPriceCount, skippedCount: res.skipped,
+          excludedCount: res.excludedCount, noPriceCount: res.noPriceCount,
+          noPriceSkippedCount: res.noPriceSkippedCount, skippedCount: res.skipped,
           duplicateCount: res.duplicateCount, blockingDuplicateCount: res.blockingDuplicateCount,
           invalidCount: res.invalidCount, issueSamples: res.issueSamples,
           plateAlloc: res.products.some(isPendingSheetRow) ? allocator.snapshot() : undefined,
@@ -782,28 +827,42 @@ export async function fetchAllPartnerSheets(
       // 탭이 여러 개면 전부 읽어 합친다. 한 탭만 읽으면 나머지 탭 차량이 「시트에 없음」으로 잡혀
       //  멀쩡한 매물이 부재처리로 출고불가가 된다 — 조용히 일어나서 더 위험하다.
       // 번호미정 신차 임시번호 — 저장된 부여기록 위에서 이어 뽑는다(같은 차는 같은 번호 유지).
-      const tabs = o.gids.length ? o.gids : [''];
+      let workbookTabs: SupplierTab[] | undefined;
+      const ignoredTabNotes: string[] = [];
       const products: EntityRecord[] = [];
       const seen = new Set<string>();
-      let sourceRows = 0, imported = 0, excluded = 0, noPrice = 0, skipped = 0;
+      let sourceRows = 0, imported = 0, excluded = 0, noPrice = 0, noPriceSkipped = 0, skipped = 0;
       let duplicate = 0, blockingDuplicate = 0, crossTabOverlap = 0;
       let invalid = 0, high = 0, low = 0;
       const issueSamples: string[] = [];
       const tabNotes: string[] = [];
       const tabResponses = new Map<string, string>();
+      if (readSupplier) {
+        const workbook = await readSupplier(o.url, p);
+        workbookTabs = workbook.tabs;
+        for (const failure of workbook.failures) {
+          const note = `${failure.title || failure.gid}: ${failure.reason}`;
+          // 명시한 탭 또는 실제 차량번호가 든 탭의 실패는 공급사 전체를 차단한다.
+          // 차량번호도 없는 월렌트·수수료·메모 탭은 재고 탭이 아니므로 경고만 남긴다.
+          if (o.gids.length || failure.vehicleLike) tabNotes.push(note);
+          else ignoredTabNotes.push(note);
+        }
+      }
+      const tabs = workbookTabs?.map((tab) => tab.gid) ?? (o.gids.length ? o.gids : ['']);
       for (const g of tabs) {
         try {
           // 사진은 셀 링크에 있어 표에 안 담긴다 — CSV엔 링크가 없고 visible=1(Grid)만
           // hyperlink·스마트칩을 준다. 오토플러스는 어댑터에서 이미 visible 강제.
           // 여기 generic/ianka 경로가 CSV만 타면 검증 미리보기「사진 없음」이 전부다.
-          let photoByPlate: Record<string, string> | undefined;
-          const raw = await readTable(o.url, g || undefined, {
-            // gid 없으면 Sheets Grid visible 경로 불가(API가 gid 요구) → CSV 유지.
+          const workbookTab = workbookTabs?.find((tab) => tab.gid === g);
+          let photoByPlate: Record<string, string> | undefined = workbookTab?.photoByPlate;
+          const raw = workbookTab?.table ?? await readTable(o.url, g || undefined, {
+            // 레거시 fetch 폴백. 운영·관리자 경로는 위 통합 Grid reader를 사용한다.
             visibleRowsOnly: Boolean(g),
             onPhotoByPlate: (map) => { photoByPlate = map; },
           });
-          if (tabs.length > 1) assertDistinctSheetTable(tabResponses, raw, `gid ${g || '기본'}`);
-          const t = o.adapter.prepareTable(raw, { headerRow: o.headerRow });
+          if (!workbookTabs && tabs.length > 1) assertDistinctSheetTable(tabResponses, raw, `gid ${g || '기본'}`);
+          const t = workbookTab ? raw : o.adapter.prepareTable(raw, { headerRow: o.headerRow });
           if (t.length < 2) { tabNotes.push(`gid ${g || '기본'}: 데이터 없음`); continue; }
           const r = importSheetTable(t, {
             providerCode: o.providerCode,
@@ -815,9 +874,14 @@ export async function fetchAllPartnerSheets(
             pendingOccurrence,
             photoByPlate,
           });
+          for (const product of r.products) {
+            product.sheet_source_gid = g || '기본';
+            if (workbookTab?.title) product.sheet_source_tab = workbookTab.title;
+          }
           sourceRows += r.total;
           excluded += r.excludedCount;
           noPrice += r.noPriceCount;
+          noPriceSkipped += r.noPriceSkippedCount;
           skipped += r.skipped;
           duplicate += r.duplicateCount;
           blockingDuplicate += r.duplicateCount;
@@ -855,13 +919,14 @@ export async function fetchAllPartnerSheets(
       const partialTabFailure = tabNotes.length > 0;
       return {
         code, label, ok: !zeroUpload && !partialTabFailure, sourceRowCount: sourceRows, imported,
-        excludedCount: excluded, noPriceCount: noPrice, skippedCount: skipped,
+        excludedCount: excluded, noPriceCount: noPrice,
+        noPriceSkippedCount: noPriceSkipped, skippedCount: skipped,
         duplicateCount: duplicate, invalidCount: invalid, issueSamples,
         blockingDuplicateCount: blockingDuplicate,
         // 기존 map을 그대로 재사용하면 dirty=false다. 그래도 번호미정 매물이 있으면
         // 영구 매핑이 존재한다는 증거를 commit snapshot에 반드시 포함한다.
         plateAlloc: products.some(isPendingSheetRow) ? allocator.snapshot() : undefined,
-        message: `${zeroUpload || partialTabFailure ? '✗' : '✓'} ${label} [${o.adapter.id}${tabs.length > 1 ? ` ${tabs.length}탭` : ''}] — ${imported}매물 (확정 ${high}·검수 ${low}${excluded ? ` · 출고불가 제외 ${excluded}` : ''}${noPrice ? ` · 가격없어 제외 ${noPrice}` : ''}${crossTabOverlap ? ` · 탭 겹침 ${crossTabOverlap}(우선탭 유지)` : ''}${blockingDuplicate ? ` · 차단 중복 ${blockingDuplicate}` : ''}${invalid ? ` · 무효 ${invalid}` : ''}${zeroUpload ? ' · 올림0 안전차단' : ''}${partialTabFailure ? ` · 탭 실패: ${tabNotes.join(' · ')}` : ''})`,
+        message: `${zeroUpload || partialTabFailure ? '✗' : '✓'} ${label} [${o.adapter.id}${tabs.length > 1 ? ` ${tabs.length}탭` : ''}] — ${imported}매물 (확정 ${high}·검수 ${low}${excluded ? ` · 출고불가 제외 ${excluded}` : ''}${noPrice ? ` · 가격미입력 ${noPrice}` : ''}${crossTabOverlap ? ` · 탭 겹침 ${crossTabOverlap}(우선탭 유지)` : ''}${blockingDuplicate ? ` · 차단 중복 ${blockingDuplicate}` : ''}${invalid ? ` · 무효 ${invalid}` : ''}${ignoredTabNotes.length ? ` · 비차량 탭 제외 ${ignoredTabNotes.length}` : ''}${zeroUpload ? ' · 올림0 안전차단' : ''}${partialTabFailure ? ` · 탭 실패: ${tabNotes.join(' · ')}` : ''})`,
         products,
       };
     } catch (e) {
@@ -936,8 +1001,7 @@ export function buildSheetSyncCheckpoint(
   now: number,
   guardPassed: boolean,
 ): EntityRecord {
-  const rowsRead = line.sourceRowCount
-    || line.imported + line.excludedCount + line.noPriceCount + line.skippedCount;
+  const rowsRead = sheetSourceRowsRead(line);
   return {
     last_sheet_attempt_at: now,
     last_sheet_attempt_rows: rowsRead,
@@ -1056,8 +1120,7 @@ export async function commitFetchedPartnerSheets(
     //  그 차들은 유입에도 없으니 ERP 에서 계속 출고가능으로 남는다(정확히 반대 방향의 사고).
     // 원문 데이터 행 전체를 급감 기준으로 쓴다. 가격없음·중복/무효를 빼면 가격열이 깨진 날
     // 이전 행수가 허위로 급감하고, 정작 어떤 행이 문제였는지도 운영 기준에서 사라진다.
-    const rowsRead = line.sourceRowCount
-      || line.imported + (line.excludedCount || 0) + (line.noPriceCount || 0) + (line.skippedCount || 0);
+    const rowsRead = sheetSourceRowsRead(line);
     const gate = shouldReconcileAbsent(rowsRead, prev);
     if (!gate.ok) {
       absent.skipped_guard++;
@@ -1086,8 +1149,7 @@ export async function commitFetchedPartnerSheets(
   for (const line of lines) {
     const ready = productsForSheetCommit(line.products, master).products;
     const upsert = planProductUpsert(ready, after);
-    const rowsRead = line.sourceRowCount
-      || line.imported + line.excludedCount + line.noPriceCount + line.skippedCount;
+    const rowsRead = sheetSourceRowsRead(line);
     const gate = shouldReconcileAbsent(rowsRead, guard.get(line.code) || 0);
     const absentPlan = planAbsentBlocked({
       existing: after,

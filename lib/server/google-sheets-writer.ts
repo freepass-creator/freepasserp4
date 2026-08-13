@@ -155,6 +155,13 @@ export class SheetsClient {
     });
   }
 
+  async read(tabTitle: string, range = 'A:BZ'): Promise<unknown[][]> {
+    const raw = await this.call(
+      `${this.api}/values/${encodeURIComponent(`${tabTitle}!${range}`)}?valueRenderOption=UNFORMATTED_VALUE`,
+    ) as { values?: unknown[][] };
+    return Array.isArray(raw.values) ? raw.values : [];
+  }
+
   async batchUpdate(requests: Rec[]): Promise<void> {
     if (!requests.length) return;
     await this.call(`${this.api}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests }) });

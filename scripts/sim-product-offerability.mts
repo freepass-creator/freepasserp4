@@ -7,6 +7,7 @@ import type { EntityRecord } from '../lib/intake/entities';
 import {
   isListableProduct,
   isOfferableProduct,
+  isStockedProduct,
   priceList,
 } from '../lib/domain/product';
 import {
@@ -112,33 +113,34 @@ check(
 }
 
 const source = (relative: string) => readFileSync(new URL(`../${relative}`, import.meta.url), 'utf8');
-// 판정은 둘로 갈린다(2026-08-07):
-//   목록(카탈로그·상품찾기·최근·관심) = isListableProduct — 재고 − 출고불가
-//   단건(공유링크 /q · 상세 /m)        = isOfferableProduct — 유효 대여료 필요
-// 목록에 가격 없는 차가 떠도, 손님 견적 링크는 대여료 없으면 막는다.
+// 판정은 셋으로 갈린다(2026-08-12):
+//   공개 목록(카탈로그·관심) = isListableProduct — 유효 대여료 필요
+//   내부 목록(상품찾기)       = isStockedProduct — 가격 전이라도 공급사 재고면 표시
+//   견적(공유링크 /q)         = isOfferableProduct — 유효 대여료 필요
 const catalogSource = source('app/catalog/page.tsx');
 check(
-  '공개 카탈로그는 로드와 캐시 첫 페인트 모두 SSOT 적용',
-  (catalogSource.match(/isListableProduct/g) || []).length >= 3,
+  '공개 카탈로그는 서버와 화면 양쪽에서 판매목록 SSOT 적용',
+  catalogSource.includes('isListableProduct')
+    && source('app/api/catalog/feed/route.ts').includes('isListableProduct(merged)'),
 );
-check('공개 견적 직접 URL도 판매조건 확인', source('app/q/[code]/page.tsx').includes('!isOfferableProduct(p)'));
+check('공개 견적 직접 URL도 서버에서 판매조건 확인', source('app/api/catalog/quote/route.ts').includes('!isOfferableProduct(merged)'));
 const detailSource = source('app/m/[code]/page.tsx');
 check(
-  '내부 상세 우회 진입·최근목록 저장도 판매조건 확인',
-  detailSource.includes('!isOfferableProduct(p)')
-    && detailSource.includes('p && isOfferableProduct(p)'),
+  '내부 상세는 재고조건으로 진입하고 견적 동작은 판매조건으로 제한',
+  detailSource.includes('!p || !isStockedProduct(p)')
+    && detailSource.includes('const offerable = isOfferableProduct(p)'),
 );
-check('최근·관심 우회 링크도 판매조건 확인', source('components/InterestRail.tsx').includes('isListableProduct(live)'));
+check('내부 최근·관심도 상품찾기와 같은 재고조건 확인', source('components/InterestRail.tsx').includes('isStockedProduct(live)'));
 check(
   '관리자 정정 화면은 판매 필터를 적용하지 않음',
   !source('app/inventory/page.tsx').includes('ableProduct')
     && !source('app/data-check/page.tsx').includes('ableProduct'),
 );
-// ★단건 경로가 목록 판정으로 바뀌면 손님 공유 링크가 끊긴다 — 회귀 방지.
+// ★손님 공유 경로에 내부 재고 판정을 쓰면 가격 없는 차량 견적이 열릴 수 있다 — 회귀 방지.
 check(
-  '공유링크·상세는 목록 판정(차종 확정)을 쓰지 않는다',
-  !source('app/q/[code]/page.tsx').includes('isListableProduct')
-    && !detailSource.includes('isListableProduct'),
+  '공유링크는 내부 재고 판정을 쓰지 않고 상세만 내부 재고 판정을 쓴다',
+  !source('app/q/[code]/page.tsx').includes('isStockedProduct')
+    && detailSource.includes('isStockedProduct'),
 );
 check(
   '손님 견적서에 차량번호가 실린다',
@@ -153,10 +155,8 @@ check(
   '차번이 없어도 출고불가가 아니면 목록에 뜬다',
   isListableProduct({ car_number: '', vehicle_status: '출고가능', price: { 36: { rent: 500000 } } } as unknown as EntityRecord),
 );
-check(
-  '대여료가 없어도 출고불가가 아니면 목록에 뜬다',
-  isListableProduct(noPrice),
-);
+check('대여료가 없으면 공개 목록에서는 제외', !isListableProduct(noPrice));
+check('대여료가 없어도 공급사 재고면 상품찾기에는 표시', isStockedProduct(noPrice));
 check(
   '번호미정 신차도 목록에 뜬다',
   isListableProduct({ car_number: '100신0001', is_pending_plate: true, vehicle_status: '출고가능', price: { 36: { rent: 500000 } } } as unknown as EntityRecord),

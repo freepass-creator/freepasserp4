@@ -134,7 +134,7 @@ function publicContractSnapshot(contract: EsignRecord): EsignRecord {
     'car_number_snapshot', 'vehicle_name_snapshot', 'maker_snapshot', 'model_snapshot',
     'sub_model_snapshot', 'variant_snapshot', 'trim_name_snapshot', 'trim_extra_snapshot',
     'year_snapshot', 'fuel_type_snapshot', 'rent_month_snapshot', 'rent_amount_snapshot',
-    'deposit_amount_snapshot', 'policy_name_snapshot', 'provider_company_code',
+    'deposit_amount_snapshot', 'payment_timing_snapshot', 'policy_name_snapshot', 'provider_company_code',
   ];
   const out: EsignRecord = {};
   for (const key of keys) if (contract[key] !== undefined && contract[key] !== null) out[key] = contract[key];

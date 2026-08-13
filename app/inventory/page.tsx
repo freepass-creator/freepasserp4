@@ -1,14 +1,11 @@
 'use client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { PRODUCT_TYPES, type EntityRecord } from '@/lib/intake/entities';
-import { getRole, actor } from '@/lib/domain/deal';
+import { getRole } from '@/lib/domain/deal';
 import { VEHICLE_DISPLAY_STATUSES, canonProductType, normalizeVehicleDisplayStatus, vehicleName } from '@/lib/domain/product';
-import { PaneHead, PaneBody, Btn, ButtonLabel, C, Loading, CenterNote, Badge, Page, ToggleChips, FilterGroup, PageActions, FW, FS, ICON, FeedRowSkeleton } from '@/components/ui';
+import { PaneHead, PaneBody, Btn, C, Loading, CenterNote, Page, ToggleChips, FilterGroup, PageActions, FW, FS, FeedRowSkeleton } from '@/components/ui';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
-import { toast } from '@/components/Toaster';
-import { buildJonghapTsv } from '@/lib/domain/jonghap';
 import { useResolvedLinkPhotos } from '@/components/use-product-photos';
 import dynamic from 'next/dynamic';
 import { useIsMobile } from '@/lib/use-mobile';
@@ -22,10 +19,7 @@ import {
 import { useInventoryVehicleTools } from '@/features/inventory/useInventoryVehicleTools';
 import { useInventoryEditorLifecycle } from '@/features/inventory/useInventoryEditorLifecycle';
 import { useInventoryAccessEffects, useInventoryData } from '@/features/inventory/useInventoryData';
-import { copyText } from '@/lib/clipboard';
 import { retainVisibleSelection } from '@/features/work-list-display';
-import { Table2 } from 'lucide-react';
-import { exportInventoryToSheet } from '@/lib/firebase/inventory-sheet-export-client';
 const INV_SORTS: { value: InvSort; label: string }[] = [
   { value: 'status', label: '상태순' },
   { value: 'name', label: '차명순' },
@@ -202,54 +196,8 @@ export default function Inventory() {
     String(product.product_code) === sel
   )));
 
-  // 재고 → 영업자용 구글시트. 누를 때마다 새 탭이 맨 왼쪽에 생기고 지난 회차는 이력으로 남는다.
-  const [exporting, setExporting] = useState(false);
-  const exportToSheet = async (opts: { silent?: boolean } = {}) => {
-    if (exporting) return;
-    setExporting(true);
-    try {
-      const result = await exportInventoryToSheet();
-      toast(`영업자 시트 갱신 — ${result.count}대 · 「${result.tab}」 탭`, 'ok');
-      if (!opts.silent) window.open(result.url, '_blank', 'noopener');
-    } catch (error) {
-      // 자동 갱신이 실패해도 «연동 반영»은 이미 끝났다. 그 사실을 덮지 않고 따로 말한다.
-      toast(
-        `${error instanceof Error ? error.message : '영업자 시트 갱신 실패'} — 재고는 반영됐습니다. 「영업자 시트 반영」을 눌러 다시 시도하세요.`,
-        'error',
-      );
-    } finally {
-      setExporting(false);
-    }
-  };
-
-  /**
-   * 연동을 반영하면 **영업자 시트도 같이 최신이 된다.**
-   * 예전에는 재고만 바뀌고 시트는 누군가 따로 눌러야 해서, 영업자는 어제 재고를 보고 손님에게
-   * 말했다. 반영과 시트는 «같은 사건»이므로 한 번에 끝낸다(고정 탭을 덮어쓰므로 탭이 안 쌓인다).
-   */
-  const afterSyncImported = () => {
-    load(getRole());
-    void exportToSheet({ silent: true });
-  };
-
-  const copyJonghap = async () => {
-    const role = getRole();
-    const [prodsAll, polsAll] = await Promise.all([getStore().list('product', co), getStore().list('policy', co)]);
-    const me = role === 'provider' ? actor('provider').code : '';
-    const prods = role === 'provider'
-      ? prodsAll.filter((p) => String(p.provider_company_code || '') === me)
-      : prodsAll;
-    // 정책 = 자기 전용 + 공용(연결 가능 범위와 동일)
-    const pols = role === 'provider'
-      ? polsAll.filter((pl) => {
-          const ppc = String(pl.provider_company_code || '');
-          return !ppc || ppc === me;
-        })
-      : polsAll;
-    const { tsv, count } = buildJonghapTsv(prods, pols);
-    const copied = await copyText(tsv);
-    toast(copied ? `종합표 ${count}행 복사됨 — 구글시트 종합탭에 붙여넣기` : '클립보드 복사에 실패했습니다', copied ? 'ok' : 'error');
-  };
+  /** 영업자 시트가 정본이다. 연동 후 ERP 목록만 다시 읽고 시트를 역방향으로 덮지 않는다. */
+  const afterSyncImported = () => { load(getRole()); };
 
   if (ok === false) {
     return (
@@ -315,38 +263,21 @@ export default function Inventory() {
   const varPane = <InventoryVariablePane model={editorModel} />;
   const syncPane = isAdmin ? (
     <>
-      <PaneHead title="공급사 연동" />
+      <PaneHead title="영업자 시트 연동" />
       <PaneBody pad>
-        {/*
-          재고를 보는 자리에서 **바로** 연동한다.
-          예전에는 관리자만 개발도구로 내보냈는데(공급사는 여기서 바로 했다), 재고를 고치는 사람이
-          매번 화면을 옮겨야 했고 «개발도구»라는 이름이 운영 작업을 실험처럼 보이게 했다.
-          같은 `SheetSync` 를 여기 붙인다 — 검증·충돌 차단은 그 안에 그대로 있다.
-        */}
         <SheetSync co={co} compact onImported={afterSyncImported} />
-        <div style={{ height: 1, background: C.line2, margin: '14px 0' }} />
-        <Btn size="md" onClick={() => exportToSheet()} disabled={exporting}>
-          <ButtonLabel icon={<Table2 size={ICON.md} aria-hidden />}>
-            {exporting ? '시트 반영 중…' : '영업자 시트 반영 (ERP→구글시트)'}
-          </ButtonLabel>
-        </Btn>
-        <div style={{ fontSize: FS.cap, color: C.mute, lineHeight: 1.5, margin: '8px 0 14px' }}>
-          연동을 반영하면 <b>자동으로 같이 갱신</b>됩니다. 「상품리스트」 탭 한 장을 늘 최신으로 덮어씁니다.
-          이 버튼은 재고를 손으로 고친 뒤 바로 반영할 때 씁니다.
-        </div>
-        <Btn size="sm" variant="ghost" onClick={copyJonghap}>종합표 TSV 복사 (ERP→시트)</Btn>
       </PaneBody>
     </>
   ) : (
     <>
-      <PaneHead title="내 공급사 연동·반영" />
+      <PaneHead title="연동 안내" />
       <PaneBody pad>
-        <div style={{ fontSize: FS.cap, fontWeight: FW.strong, color: C.mute }}>
-          내 회사 원본 검증 후 반영
+        <div style={{ fontSize: FS.cap, fontWeight: FW.strong, color: C.ink, lineHeight: 1.55 }}>
+          공급사 원본은 참고·자료 제출용입니다.
         </div>
-        <SheetSync co={co} onImported={() => load(getRole())} />
-        <div style={{ height: 1, background: C.line2, margin: '2px 0' }} />
-        <Btn size="sm" variant="ghost" onClick={copyJonghap}>종합표 TSV 복사 (ERP→시트)</Btn>
+        <div style={{ marginTop: 6, fontSize: FS.cap, color: C.mute, lineHeight: 1.55 }}>
+          관리자가 영업자 상품리스트를 확인한 뒤 ERP에 일괄 반영합니다. 공급사 화면에서는 ERP 재고를 직접 덮어쓰지 않습니다.
+        </div>
       </PaneBody>
     </>
   );

@@ -16,7 +16,7 @@
  */
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
-import { isListableProduct } from '../lib/domain/product';
+import { isStockedProduct } from '../lib/domain/product';
 import { NOT_SHEET_BACKED, SHEET_GRID_FIELDS, findPlateAndStatusColumns, readSupplierSheet } from '../lib/domain/supplier-sheet-read';
 import { canonSheetVehicleStatus } from '../lib/domain/sheet-import';
 import type { EntityRecord } from '../lib/intake/entities';
@@ -41,8 +41,8 @@ for (const p of Object.values<any>(partners)) {
 }
 const all = Object.entries<any>(prods).filter(([, p]) => p && typeof p === 'object' && !dead(p))
   .map(([k, p]) => ({ ...p, _key: k, product_code: p.product_code || k } as EntityRecord));
-// 영업자 시트에 실제로 실리는 기준과 같게 센다 — 발행 스크립트도 `isListableProduct` 만 쓴다.
-const onSheet = new Set(all.filter(isListableProduct).map((p: any) => norm(p.car_number)));
+// 영업자 시트·내부 상품찾기에 실제로 실리는 기준과 같게 센다. 가격 미입력 재고도 포함한다.
+const onSheet = new Set(all.filter(isStockedProduct).map((p: any) => norm(p.car_number)));
 const known = new Map<string, any>();
 for (const p of all) { const pl = norm((p as any).car_number); if (pl && !known.has(pl)) known.set(pl, p); }
 console.log(`영업자 시트 ${onSheet.size}대 · RTDB 활성 ${all.length}건\n`);

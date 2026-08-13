@@ -4,7 +4,7 @@ import { useDeferredValue, useMemo } from 'react';
 import type { EntityRecord } from '@/lib/intake/entities';
 import type { InterestSnap } from '@/lib/product-interest';
 import {
-  depositForSort, installmentOk, isListableProduct, minAge, noDeposit, rentForSort,
+  depositForSort, installmentOk, isStockedProduct, minAge, noDeposit, rentForSort,
 } from '@/lib/domain/product';
 import {
   activeCount, aggregateDynFaceted, excelMonths, facetPool,
@@ -172,7 +172,7 @@ export function useFinderResults(params: Params) {
   }, [filterDraft, rows, query, hiddenCodes, recent, favorites, list.length]);
 
   const totalVisible = useMemo(() => {
-    const visible = (rows || []).filter(isListableProduct);
+    const visible = (rows || []).filter(isStockedProduct);
     if (!hiddenCodes.size) return visible.length;
     return visible.filter((product) => !hiddenCodes.has(String(product.product_code || product._key || ''))).length;
   }, [rows, hiddenCodes]);

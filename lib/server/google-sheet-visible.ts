@@ -6,6 +6,7 @@ import {
   type SheetsGridResponse,
   type VisibleSheetTable,
 } from '@/lib/domain/sheet-visible-grid';
+import { SHEET_GRID_FIELDS } from '@/lib/domain/supplier-sheet-read';
 
 type ServiceAccount = {
   client_email: string;
@@ -75,6 +76,99 @@ async function sheetsAccessToken(): Promise<string> {
   return body.access_token;
 }
 
+/** Sheets 분당 Read quota에 걸리면 잠깐 쉬고 재시도한다. */
+async function requestSheetsJson(
+  accessToken: string,
+  url: string,
+): Promise<SheetsGridResponse & { error?: { message?: string; status?: string } }> {
+  let lastMessage = '';
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const response = await fetch(url, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: 'no-store',
+      signal: AbortSignal.timeout(30_000),
+    });
+    const body = await response.json().catch(() => ({})) as SheetsGridResponse & {
+      error?: { message?: string; status?: string };
+    };
+    if (response.ok) return body;
+    const message = body.error?.message || `Google Sheets API ${response.status}`;
+    lastMessage = message;
+    if (/has not been used|disabled/i.test(message)) {
+      throw new Error('Google Sheets API 사용 설정 필요 — 숨김 행 제외 연동을 안전하게 실행할 수 없습니다');
+    }
+    const quota = /quota exceeded|rate limit|429/i.test(message) || response.status === 429;
+    if (!quota || attempt === 3) throw new Error(message);
+    await new Promise((resolve) => setTimeout(resolve, 1_500 * (attempt + 1)));
+  }
+  throw new Error(lastMessage || 'Google Sheets API 실패');
+}
+
+export type GoogleSheetTab = {
+  gid: string;
+  title: string;
+  index: number;
+  hidden: boolean;
+};
+
+/** 데이터는 받지 않고 탭 이름·gid만 읽는다. 고정 gid가 없는 운영 시트 선택에 사용한다. */
+export async function fetchGoogleSheetTabs(spreadsheetId: string): Promise<GoogleSheetTab[]> {
+  if (!/^[A-Za-z0-9_-]+$/.test(spreadsheetId)) throw new Error('Google Sheet ID 형식 오류');
+  const accessToken = await sheetsAccessToken();
+  const body = await requestSheetsJson(
+    accessToken,
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=${encodeURIComponent('sheets(properties(sheetId,title,hidden,index))')}`,
+  );
+  return (body.sheets || []).flatMap((sheet) => {
+    const properties = sheet.properties;
+    if (properties?.sheetId == null || !properties.title) return [];
+    return [{
+      gid: String(properties.sheetId),
+      title: properties.title,
+      index: Number(properties.index) || 0,
+      hidden: properties.hidden === true,
+    }];
+  }).sort((a, b) => a.index - b.index);
+}
+
+/**
+ * 한 공급사의 선택 탭(미지정이면 보이는 탭 전부)을 같은 Grid 스냅샷으로 읽는다.
+ * 탭별 CSV 호출을 없애 공급사가 탭을 추가하거나 행을 숨겨도 관리자·cron·감사가 같은 표를 본다.
+ */
+export async function fetchVisibleGoogleSheetGrid(
+  spreadsheetId: string,
+  gids: string[] = [],
+): Promise<SheetsGridResponse> {
+  if (!/^[A-Za-z0-9_-]+$/.test(spreadsheetId)) throw new Error('Google Sheet ID 형식 오류');
+  if (gids.some((gid) => !/^\d+$/.test(gid))) throw new Error('Google Sheet gid 형식 오류');
+
+  const accessToken = await sheetsAccessToken();
+  const metadataFields = 'sheets(properties(sheetId,title,hidden,index))';
+  const metadata = await requestSheetsJson(
+    accessToken,
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=${encodeURIComponent(metadataFields)}`,
+  );
+  const all = metadata.sheets || [];
+  const targets = gids.length
+    ? gids.map((gid) => {
+        const target = all.find((item) => item.properties?.sheetId === Number(gid));
+        if (!target?.properties) throw new Error(`Google Sheet 탭 없음(gid ${gid})`);
+        if (target.properties.hidden) throw new Error(`숨김 탭은 연동할 수 없습니다(${target.properties.title || gid})`);
+        return target;
+      })
+    : all.filter((item) => item.properties && item.properties.hidden !== true);
+  if (!targets.length) throw new Error('연동할 보이는 Google Sheet 탭 없음');
+
+  const params = new URLSearchParams({ includeGridData: 'true', fields: SHEET_GRID_FIELDS });
+  for (const target of targets) {
+    params.append('ranges', `'${String(target.properties?.title || '').replace(/'/g, "''")}'`);
+  }
+  return requestSheetsJson(
+    accessToken,
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?${params.toString()}`,
+  );
+}
+
 /**
  * Google CSV export는 필터·숨김 행을 모두 포함한다. 공급사가 화면에서 내린 매물이
  * 다시 유입되지 않도록 Sheets Grid 메타데이터의 hiddenByFilter/hiddenByUser를 적용한다.
@@ -83,54 +177,8 @@ async function sheetsAccessToken(): Promise<string> {
 export async function fetchVisibleGoogleSheetTable(
   spreadsheetId: string,
   gid: string,
+  options: Parameters<typeof visibleRowsFromGridResponse>[2] = {},
 ): Promise<VisibleSheetTable> {
-  if (!/^[A-Za-z0-9_-]+$/.test(spreadsheetId)) throw new Error('Google Sheet ID 형식 오류');
-  if (!/^\d+$/.test(gid)) throw new Error('Google Sheet gid 형식 오류');
-
-  const accessToken = await sheetsAccessToken();
-  /** Sheets 분당 Read quota에 걸리면 잠깐 쉬고 재시도 — visible=1 전면화 후 전체 검증이 여기서 자주 터진다. */
-  const requestJson = async (url: string): Promise<SheetsGridResponse & { error?: { message?: string; status?: string } }> => {
-    let lastMessage = '';
-    for (let attempt = 0; attempt < 4; attempt++) {
-      const response = await fetch(url, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-        cache: 'no-store',
-        signal: AbortSignal.timeout(20_000),
-      });
-      const body = await response.json().catch(() => ({})) as SheetsGridResponse & {
-        error?: { message?: string; status?: string };
-      };
-      if (response.ok) return body;
-      const message = body.error?.message || `Google Sheets API ${response.status}`;
-      lastMessage = message;
-      if (/has not been used|disabled/i.test(message)) {
-        throw new Error('Google Sheets API 사용 설정 필요 — 숨김 행 제외 연동을 안전하게 실행할 수 없습니다');
-      }
-      const quota = /quota exceeded|rate limit|429/i.test(message) || response.status === 429;
-      if (!quota || attempt === 3) throw new Error(message);
-      await new Promise((resolve) => setTimeout(resolve, 1_500 * (attempt + 1)));
-    }
-    throw new Error(lastMessage || 'Google Sheets API 실패');
-  };
-
-  // getByDataFilter는 읽기 작업인데도 일부 Google 프로젝트에서 쓰기 scope를 요구한다.
-  // 공급사 시트 쓰기 권한을 넓히지 않고, readonly가 허용되는 metadata → A1 Grid GET 두 단계로 읽는다.
-  const metadataFields = 'sheets(properties(sheetId,title,hidden))';
-  const metadata = await requestJson(
-    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=${encodeURIComponent(metadataFields)}`,
-  );
-  const target = metadata.sheets?.find((item) => item.properties?.sheetId === Number(gid));
-  if (!target?.properties) throw new Error(`Google Sheet 탭 없음(gid ${gid})`);
-  if (target.properties.hidden) throw new Error(`숨김 탭은 연동할 수 없습니다(${target.properties.title || gid})`);
-  const a1Title = `'${String(target.properties.title || '').replace(/'/g, "''")}'`;
-  // hyperlink·chipRuns 를 함께 받는다 — 공급사는 사진을 «열»이 아니라 차번 셀 링크로 준다
-  // (아이카=상세페이지 하이퍼링크, 오플=드라이브 폴더 스마트칩). 호출 수는 그대로다.
-  const fields = [
-    'sheets(properties(sheetId,title,hidden)',
-    'data(startRow,rowData(values(formattedValue,effectiveValue,hyperlink,chipRuns(chip(richLinkProperties(uri))))),rowMetadata(hiddenByFilter,hiddenByUser)))',
-  ].join(',');
-  const body = await requestJson(
-    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?includeGridData=true&ranges=${encodeURIComponent(a1Title)}&fields=${encodeURIComponent(fields)}`,
-  );
-  return visibleRowsFromGridResponse(body, gid);
+  const body = await fetchVisibleGoogleSheetGrid(spreadsheetId, [gid]);
+  return visibleRowsFromGridResponse(body, gid, options);
 }

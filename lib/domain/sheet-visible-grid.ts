@@ -41,7 +41,7 @@ export function photoUrlFromCell(cell: SheetGridCell | undefined): string {
 
 export type SheetsGridResponse = {
   sheets?: Array<{
-    properties?: { sheetId?: number; title?: string; hidden?: boolean };
+    properties?: { sheetId?: number; title?: string; hidden?: boolean; index?: number };
     data?: SheetGridData[];
   }>;
 };
@@ -78,6 +78,12 @@ function cellText(cell: SheetGridCell | undefined): string {
 export function visibleRowsFromGridResponse(
   body: SheetsGridResponse,
   gid: string,
+  options: {
+    /** 영업자 정본은 필터가 단순 조회 도구이므로 필터로 감춘 행도 데이터로 읽는다. */
+    includeHiddenByFilter?: boolean;
+    /** 영업자 정본은 행 숨김도 조회 상태로 보고 데이터 자체는 읽는다. */
+    includeHiddenByUser?: boolean;
+  } = {},
 ): VisibleSheetTable {
   const sheet = body.sheets?.find((item) => item.properties?.sheetId === Number(gid));
   if (!sheet?.properties) throw new Error(`Google Sheet 탭 없음(gid ${gid})`);
@@ -93,7 +99,9 @@ export function visibleRowsFromGridResponse(
     const length = Math.max(rowData.length, metadata.length);
     for (let index = 0; index < length; index++) {
       const meta = metadata[index];
-      if (meta?.hiddenByFilter || meta?.hiddenByUser) {
+      const excludedByFilter = meta?.hiddenByFilter && !options.includeHiddenByFilter;
+      const excludedByUser = meta?.hiddenByUser && !options.includeHiddenByUser;
+      if (excludedByFilter || excludedByUser) {
         if (rowData[index]?.values?.some((cell) => cellText(cell).trim())) hiddenRowCount++;
         continue;
       }

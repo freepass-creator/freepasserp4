@@ -101,6 +101,7 @@ export const SALES_LAYER: PolicyField[] = [
   { key: 'deposit_installment', label: '보증금 분납 가능 회차', layer: 'sales', exposure: 'sales', decides: '보증금 납부 방식', why: '선택지. 계약서에는 «3회 분납»처럼 굳은 값만' },
   { key: 'deposit_card_payment', label: '보증카드', layer: 'sales', exposure: 'sales', decides: '보증금 납부 방식', why: '결제 수단' },
   { key: 'payment_method', label: '결제방식', layer: 'sales', exposure: 'contract', article: '제6조', decides: '대여료 납부 방식', why: 'CMS·카드 등' },
+  { key: 'payment_timing', label: '대여료 납부 조건', layer: 'sales', exposure: 'contract', article: '제6조', decides: '대여료 납부 시점', why: '선불·후불은 결제수단과 별개인 계약조건. 정책 기본값을 가져오되 계약 건별로 확정한다' },
 
   // ④ 승인 여부를 결정하는 것 — 손님에게 절대 안 나간다
   { key: 'screening_criteria', label: '심사기준', layer: 'sales', exposure: 'internal', decides: '계약 승인 여부', why: '⚠ 내부 심사 기준. 손님 화면·계약서에 절대 실리지 않는다 — 우리가 그 사람을 어떻게 평가했는지다' },
@@ -130,13 +131,12 @@ export const CONTRACT_LAYER: PolicyField[] = [
   /**
    * 승계 — 해지와 **다른 길**이다. 해지는 위약금을 물고 끝내고, 승계는 남은 기간을 새 임차인이
    * 이어받는다. 손님이 낼 돈이 전혀 다르므로 한 칸으로 뭉치면 상담에서 못 답한다.
-   * ⚠ 지금 계약서 서식에는 승계 조항이 없다 — 값을 먼저 모으고 조항은 뒤따라 넣는다.
+   * 계약서에는 가능여부와 수수료를 함께 표시하고, 약관 제8조·제10조가 승인·정산 근거를 잇는다.
    */
-  { key: 'succession_allowed', label: '승계 가능여부', layer: 'contract', exposure: 'contract', why: '불가면 수수료를 물을 일도 없다' },
-  { key: 'succession_fee', label: '승계수수료', layer: 'contract', exposure: 'contract', why: '계약을 넘길 때 1회. 공급사마다 갈린다 — 우리가 정할 수 없다' },
+  { key: 'succession_allowed', label: '승계 가능여부', layer: 'contract', exposure: 'contract', article: '제8조·제10조', why: '회사의 사전승인 아래 승계가 가능한지 회사별로 정한다' },
+  { key: 'succession_fee', label: '승계수수료(원)', layer: 'contract', exposure: 'contract', article: '제8조·제10조', why: '승계 승인·심사·계약변경 업무에 적용하는 회사별 금액' },
   { key: 'early_termination_rate_under1y', label: '중도해지 위약금 · 1년 미만(0~1)', layer: 'contract', exposure: 'contract', article: '제8조', why: '잔여기간 대여료 × 이 율' },
   { key: 'early_termination_rate_over1y', label: '중도해지 위약금 · 1년 이상(0~1)', layer: 'contract', exposure: 'contract', article: '제8조', why: '경과가 길수록 낮아진다' },
-  { key: 'contract_transfer_fee', label: '승계수수료(원)', layer: 'contract', exposure: 'contract', article: '제8조·제10조', why: '승계 승인·심사·계약변경 업무에 적용하는 회사별 금액' },
   { key: 'late_fee_rate', label: '지연손해금율', layer: 'contract', exposure: 'contract', article: '제25조', why: '연체 이자율' },
   { key: 'impound_fee', label: '물품 보관료', layer: 'contract', exposure: 'contract', article: '제22조', why: '안 찾아가면 보증금에서 공제된다' },
 
@@ -145,9 +145,9 @@ export const CONTRACT_LAYER: PolicyField[] = [
   { key: 'impound_keep_days', label: '물품 보관기간(일)', layer: 'contract', exposure: 'contract', article: '제22조', why: '이 기간 뒤 폐기·매각할 수 있다' },
 
   // 제재 — 손님이 차를 잃거나 계약이 끊기는 조건
-  { key: 'engine_control_overdue_days', label: '운행제한(시동제어) 기준일', layer: 'contract', exposure: 'contract', article: '제24조', why: '대여료 청구일로부터 며칠 밀리면 시동이 잠기는가' },
+  { key: 'engine_control_overdue_days', label: '운행제한(시동제어) 기준일', layer: 'contract', exposure: 'contract', article: '제24조', why: '각 납부기한 다음 날부터 며칠째 미납이면 시동제어할 수 있는가' },
   { key: 'auto_terminate_overdue_days', label: '차량회수·해지 기준일', layer: 'contract', exposure: 'contract', article: '제7조·제24조', why: '며칠 밀리면 계약이 끊기고 차를 회수하는가' },
-  { key: 'deposit_overdue_rounds', label: '보증금 미납 시동제어(회차)', layer: 'contract', exposure: 'contract', article: '제6조·제24조', why: '보증금 분납은 날짜가 아니라 회차로 센다 — 대여료 연체와 갈래가 다르다' },
+  { key: 'deposit_overdue_rounds', label: '보증금 미납 시동제어(회차)', layer: 'contract', exposure: 'contract', article: '제6조·제24조', why: '대상 회차를 정하고 실제 연체는 해당 회차 납부기한 다음 날부터 센다' },
   { key: 'accident_termination_count', label: '사고 다발 시 계약해지 기준', layer: 'contract', exposure: 'contract', article: '제7조', why: '사고일 기준 직전 1년 내 과실 50% 이상 사고가 총 3회면 해지할 수 있다' },
   { key: 'claim_basis', label: '청구 기준', layer: 'contract', exposure: 'contract', article: '제7조·제8조', why: '잔여 대여료냐 중도해지수수료냐 — 중복 청구하지 않는다' },
 
@@ -298,7 +298,8 @@ export function contractTermsForDetail(
     over_mileage_rate_imported: '위반 시 부담',
     early_termination_rate_under1y: '위반 시 부담',
     early_termination_rate_over1y: '위반 시 부담',
-    contract_transfer_fee: '계약 변경',
+    succession_allowed: '계약 변경',
+    succession_fee: '계약 변경',
     late_fee_rate: '위반 시 부담',
     impound_fee: '위반 시 부담',
     deposit_return_days: '반환·보관',
@@ -328,7 +329,7 @@ export function contractTermsForDetail(
     accident_termination_count: '회 (1년 내 과실 50% 이상)',
     over_mileage_rate_domestic: '원 / 1km (국산)',
     over_mileage_rate_imported: '원 / 1km (수입)',
-    contract_transfer_fee: '원',
+    succession_fee: '원',
   };
 
   // 묶음 순서를 못박는다 — 정의 순서대로 두면 같은 묶음이 화면에서 두 번 갈라진다.

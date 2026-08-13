@@ -12,7 +12,7 @@ import {
   isPublishedGoogleCsv,
   resolveGoogleSheetCsvUrl,
 } from '@/lib/domain/sheet-url';
-import { fetchVisibleGoogleSheetTable } from '@/lib/server/google-sheet-visible';
+import { fetchVisibleGoogleSheetGrid, fetchVisibleGoogleSheetTable } from '@/lib/server/google-sheet-visible';
 import { verifyAdminBearer } from '@/lib/server/firebase-admin';
 
 export const runtime = 'nodejs';
@@ -22,13 +22,14 @@ export async function GET(request: Request): Promise<Response> {
   const url = (params.get('url') || '').trim();
   const gid = params.get('gid') || extractGoogleSheetGid(url);
   const visibleRowsOnly = params.get('visible') === '1';
+  const visibleWorkbook = params.get('visible') === 'all';
   if (!url) return NextResponse.json({ ok: false, error: 'url 필요' }, { status: 400 });
 
   // 이미 게시 CSV(pub?output=csv)면 그대로, 아니면 gviz CSV 로.
   const id = extractGoogleSheetId(url);
   const isPubCsv = isPublishedGoogleCsv(url);
-  if (visibleRowsOnly) {
-    if (!id || !gid) return NextResponse.json({ ok: false, error: '숨김 행 제외 연동은 일반 시트 URL과 gid가 필요합니다' }, { status: 400 });
+  if (visibleRowsOnly || visibleWorkbook) {
+    if (!id || (visibleRowsOnly && !gid)) return NextResponse.json({ ok: false, error: '숨김 행 제외 연동은 일반 시트 URL과 gid가 필요합니다' }, { status: 400 });
     let admin;
     try {
       admin = await verifyAdminBearer(request);
@@ -37,6 +38,14 @@ export async function GET(request: Request): Promise<Response> {
     }
     if (!admin) return NextResponse.json({ ok: false, error: '관리자 인증 필요' }, { status: 401 });
     try {
+      if (visibleWorkbook) {
+        const gids = (params.get('gids') || '').split(',').map((value) => value.trim()).filter(Boolean);
+        const grid = await fetchVisibleGoogleSheetGrid(id, gids);
+        return NextResponse.json(
+          { ok: true, grid, source: 'sheets-api-visible-workbook' },
+          { headers: { 'Cache-Control': 'private, no-store', Vary: 'Authorization' } },
+        );
+      }
       const result = await fetchVisibleGoogleSheetTable(id, gid);
       return NextResponse.json(
         {

@@ -230,6 +230,7 @@ for (const f of ((found.files || []) as Rec[])) {
               fuel_type: pick(row, 'fuel_type'),
               mileage: pick(row, 'mileage'),
               engine_cc: pick(row, 'engine_cc'),
+              vehicle_price: pick(row, 'vehicle_price'),
               first_registration_date: pick(row, 'first_registration_date'),
               photo_link: S(t.photoByPlate[plate]) || pick(row, 'photo_link'),
               /**
@@ -305,6 +306,7 @@ for (const f of ((found.files || []) as Rec[])) {
     // 주행거리·배기량도 표 밖이라 숫자 그대로 둔다 — 서식이 콤마를 붙인다.
     put('주행거리', numOf(rec.mileage));
     put('배기량', numOf(rec.engine_cc));
+    put('차량가격', numOf(rec.vehicle_price));
     put('정책코드', S(rec.policy_code));
     put('최초등록일', S(rec.first_registration_date));
     put('사진링크', S(rec.photo_link));

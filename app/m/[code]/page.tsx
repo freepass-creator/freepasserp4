@@ -5,9 +5,9 @@ import { getStore, peekCached } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
 import { type EntityRecord } from '@/lib/intake/entities';
-import { isOfferableProduct, vehicleName } from '@/lib/domain/product';
+import { isOfferableProduct, isStockedProduct, vehicleName } from '@/lib/domain/product';
 import { MessageCircle, Share2 } from 'lucide-react';
-import { Btn, BottomNav, Loading, CenterNote, C, ICON } from '@/components/ui';
+import { Btn, BottomNav, Loading, CenterNote, C, FS, ICON, R } from '@/components/ui';
 import { toast } from '@/components/Toaster';
 import { ProductDetail, ProductPhotoDownloadButton } from '@/components/ProductDetail';
 import { SimpleInquiry } from '@/components/SimpleInquiry';
@@ -46,9 +46,9 @@ export default function Detail() {
   }, [key]);
 
   // ★훅은 early return 위에 — 아래에 두면 p 가 undefined→정의 로 바뀔 때 훅 개수가 달라져 터진다.
-  const assistColumn = useAssistColumn();
+  const wideAssistColumn = useAssistColumn();
   const colRef = useContentColumn<HTMLElement>();
-  const detailName = p && isOfferableProduct(p)
+  const detailName = p && isStockedProduct(p)
     ? (vehicleName(p) || String(p.car_number || '상품'))
     : null;
   useAppBar(
@@ -84,10 +84,10 @@ export default function Detail() {
     return () => { alive = false; };
   }, [key, co, authReady]);
 
-  useEffect(() => { if (p && isOfferableProduct(p)) touchRecent(p); }, [p]);
+  useEffect(() => { if (p && isStockedProduct(p)) touchRecent(p); }, [p]);
 
   if (!authReady || p === undefined) return <Loading />;
-  if (!p || !isOfferableProduct(p)) {
+  if (!p || !isStockedProduct(p)) {
     return (
       <CenterNote>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
@@ -99,9 +99,10 @@ export default function Detail() {
   }
 
   const role = getRole();
+  const offerable = isOfferableProduct(p);
   const canDeal = role === 'agent' || role === 'admin';
   /** 보조 칼럼이 실제로 그려지는가 — 가격표 자리·하단독 위치가 여기 달렸다(역할 무관). */
-  const assistShown = assistColumn;
+  const assistShown = wideAssistColumn && offerable;
   const sendLink = () => {
     const a = actor(role);
     const url = guestShareUrl(p, a.code || a.uid);
@@ -121,18 +122,22 @@ export default function Detail() {
     <>
       <ReportButton p={p} />
       <ProductPhotoDownloadButton p={p} />
-      <Btn title="공유" variant="ghost" size="sm" mobileIcon={<Share2 size={ICON.lg} aria-hidden />} onClick={sendLink}>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-          <Share2 size={ICON.md} aria-hidden />
-          공유
-        </span>
-      </Btn>
-      <Btn title="계약문의" size="sm" onClick={inquire}>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-          <MessageCircle size={ICON.md} aria-hidden />
-          계약문의
-        </span>
-      </Btn>
+      {offerable ? (
+        <>
+          <Btn title="공유" variant="ghost" size="sm" mobileIcon={<Share2 size={ICON.lg} aria-hidden />} onClick={sendLink}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+              <Share2 size={ICON.md} aria-hidden />
+              공유
+            </span>
+          </Btn>
+          <Btn title="계약문의" size="sm" onClick={inquire}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+              <MessageCircle size={ICON.md} aria-hidden />
+              계약문의
+            </span>
+          </Btn>
+        </>
+      ) : null}
     </>
   ) : undefined;
 
@@ -148,6 +153,11 @@ export default function Detail() {
           // 보조 칼럼이 서면 액션은 이 칼럼 안에서 따라다닌다 → 화면 고정독 자리를 비워 둘 필요가 없다.
           padding: assistShown ? 0 : '0 0 calc(76px + env(safe-area-inset-bottom))',
         }}>
+          {!offerable ? (
+            <div role="status" style={{ marginBottom: 12, padding: '11px 14px', border: `1px solid ${C.warn}`, borderRadius: R, color: C.warn, background: C.warnBg, fontSize: FS.sub }}>
+              대여료 미입력 상품입니다. 재고·차량 정보는 확인할 수 있지만 공유·견적·계약은 요금 입력 후 가능합니다.
+            </div>
+          ) : null}
           {/* 보조패널이 서면 가격표는 거기(맨 위)로 간다 — 본문은 차 설명만. */}
           <ProductDetail p={p} priceAside={assistShown} />
           {/* 간단문의는 **딜을 진행하지 않는 사람**(손님·공급사)에게만. 영업자·관리자에게는
@@ -162,7 +172,7 @@ export default function Detail() {
         </main>
         {/* 대여료 패널은 **역할과 무관하게** 뜬다 — 손님·공급사도 같은 자리에서 금액을 본다.
             그 밑의 계약·대화만 역할별로 붙는다(2026-08-08 결정). */}
-        {assistColumn && <ProductAssistPanel product={p} role={role} />}
+        {assistShown && <ProductAssistPanel product={p} role={role} />}
       </div>
       {/* 보조 칼럼이 없을 때(모바일·좁은 웹·손님·공급사)는 전 화면 공통 규격인 고정독 그대로.
           액션 권한(canDeal)과 무관하게 항상 노출해야 공급사도 이전 수단이 있다. */}

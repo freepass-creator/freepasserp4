@@ -435,10 +435,10 @@ function LegacyEsignPage() {
     },
     {
       key: 'chakhandeal',
-      title: '프리패스 전자계약 발송',
+      title: '프리패스 계약서 작성·발송',
       icon: FileSignature,
       node: shell(
-        '프리패스 전자계약 발송',
+        '프리패스 계약서 작성·발송',
         undefined,
         <FreepassEsignLinkPane
           contract={sel}
@@ -449,10 +449,10 @@ function LegacyEsignPage() {
     },
     {
       key: 'progress',
-      title: '전자계약 진행상황',
+      title: '계약 진행상황',
       icon: ListChecks,
       node: shell(
-        '전자계약 진행상황',
+        '계약 진행상황',
         undefined,
         <FreepassEsignProgressPane contract={sel} onChanged={load} />,
       ),
@@ -753,7 +753,7 @@ const STUDIO_LINK_BLOCKS = [
   { key: 'deal-out', heading: '2. 이번 계약', careLabel: '이번만', open: true, count: 6 },
   { key: 'stock-vehicle', heading: '3. 차량 (재고)', careLabel: '재고', open: true, count: 9 },
   { key: 'later-handover', heading: '4. 인도 후 확정', careLabel: '인도 후', open: false, count: 4 },
-  { key: 'maybe-extra', heading: '5. 추가운전자 · 연대보증', careLabel: '해당 시', open: false, count: 10 },
+  { key: 'maybe-extra', heading: '5. 추가운전자 · 연대보증', careLabel: '해당 시', open: false, count: 11 },
   { key: 'policy-all', heading: '6. 정책 · 거의 고정', careLabel: '정책', open: false, count: 40 },
 ] as const;
 

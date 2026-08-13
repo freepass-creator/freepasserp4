@@ -1,19 +1,26 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { chromium } from 'playwright';
-import { stripDetachedEsignAppendices } from '../lib/domain/esign-document-boundary';
+import { inlineContractPdfFonts } from '../lib/server/contract-pdf-assets';
+import { buildFreepassContractHtml } from '../lib/server/freepass-contract-html';
 
 const root = process.cwd();
-const templatePath = path.join(root, 'public', 'contract-template', 'rental-contract.html');
-const pretendardFiles = [
-  'Pretendard-Regular.woff2',
-  'Pretendard-Medium.woff2',
-  'Pretendard-SemiBold.woff2',
-  'Pretendard-Bold.woff2',
-  'Pretendard-ExtraBold.woff2',
-] as const;
 const outputDir = path.join(root, 'output', 'pdf');
-const outputPath = path.join(outputDir, 'freepass-standard-rental-contract-v1-review.pdf');
+const actualMode = process.argv.includes('--actual');
+const withDriver = process.argv.includes('--with-driver');
+const withGuarantor = process.argv.includes('--with-guarantor');
+const outputPath = path.join(
+  outputDir,
+  withDriver && withGuarantor
+    ? 'freepass-standard-rental-contract-v1-optional-parties-review.pdf'
+    : withGuarantor
+    ? 'freepass-standard-rental-contract-v1-guarantor-review.pdf'
+    : withDriver
+    ? 'freepass-standard-rental-contract-v1-additional-driver-review.pdf'
+    : actualMode
+    ? 'freepass-standard-rental-contract-v1-actual.pdf'
+    : 'freepass-standard-rental-contract-v1-review.pdf',
+);
 
 const fields: Record<string, string> = {
   doc_title: '프리패스 표준 자동차 장기대여 계약서',
@@ -50,7 +57,7 @@ const fields: Record<string, string> = {
   color_interior: '블랙',
   odometer_delivery: '10km',
   vehicle_classification: '중고렌트',
-  rent_month: '36개월',
+  rent_month: '차량 인도일로부터 36개월',
   contract_start: '2026. 08. 15.',
   contract_end: '2029. 08. 14.',
   rent_amount: '650,000',
@@ -71,21 +78,25 @@ const fields: Record<string, string> = {
   emergency_dispatch_limit: '기본 10km (가입증명서 예시)',
   deductible_liability_person: '30만원',
   deductible_liability_property: '30만원',
-  self_damage_deductible_rate: '20',
-  self_damage_deductible_min: '50만',
-  self_damage_deductible_max: '100만',
+  self_damage_deductible_rate: '20%',
+  self_damage_deductible_min: '50만원',
+  self_damage_deductible_max: '100만원',
   self_damage_exclusions: '단독사고, 가해자 불명, 휠·타이어 단독 손상, 전손, 고의·관리 소홀',
   maintenance_product: '미제공',
   maintenance_replacement: '미제공',
   designated_garage: '임대인 지정 협력 정비공장',
   replacement_car_policy: '미가입 시 미제공',
   payment_cycle: '월납',
+  payment_timing: '선불',
+  payment_method: 'CMS 자동이체',
   auto_debit_date: '매월 10일',
   invoice_type: '세금계산서',
   invoice_cycle: '월 1회',
   over_mileage_rate: '1km당 200원',
   early_termination_rate_y1: '30',
   early_termination_rate_y2: '20',
+  succession_allowed: '협의',
+  succession_fee: '1,000,000',
   late_fee_rate: '연 12%',
   deposit_return_term: '반납·정산 후 7일 이내',
   engine_control_overdue_days: '3',
@@ -102,8 +113,30 @@ const fields: Record<string, string> = {
   gps_installed: '장착',
   buyback_option: '만기 반납 · 인수 별도 협의',
   buyback_price: '만기 협의',
-  special_terms: '노란색 항목은 렌터카회사 확인 후 확정합니다.',
+  special_terms: '없음',
 };
+
+if (withDriver) {
+  Object.assign(fields, {
+    driver_scope: '계약자 본인 · 추가 운전자 1인',
+    drv1_name: '김하늘',
+    drv1_relation: '배우자',
+    drv1_phone: '010-1111-2222',
+  });
+}
+
+if (withGuarantor) {
+  Object.assign(fields, {
+    guarantor_name: '이보증',
+    guarantor_rrn: '850505-1******',
+    guarantor_relation: '부',
+    guarantor_phone: '010-3333-4444',
+    guarantor_occupation: '자영업',
+    guarantor_address: '서울특별시 샘플구 예시로 10',
+    guarantee_limit: '30,000,000원',
+    guarantee_period: '계약 체결일부터 계약 종료 및 정산 완료일까지',
+  });
+}
 
 const sealed = {
   state: { co: 'auto', pd: '렌트선택형', ins: '포함', ct: '개인', car: '등록완료', tax: '개인' },
@@ -113,26 +146,18 @@ const sealed = {
 };
 
 await mkdir(outputDir, { recursive: true });
-let html = stripDetachedEsignAppendices(await readFile(templatePath, 'utf8'));
-for (const fontFile of pretendardFiles) {
-  const fontPath = path.join(root, 'public', 'fonts', fontFile);
-  const dataUrl = `data:font/woff2;base64,${(await readFile(fontPath)).toString('base64')}`;
-  html = html.replace(`/fonts/${fontFile}`, dataUrl);
+let html = await inlineContractPdfFonts(await buildFreepassContractHtml(sealed, {
+  includePrintButton: false,
+  root,
+}), root);
+if (!actualMode) {
+  html = html.replace(/<body([^>]*)>/i, `<body$1><div class="fp-review-banner">렌터카회사 검토용 초안 · 서명 및 실계약 사용 금지</div>`);
+  html = html.replace('</style>', `
+    .fp-review-banner{position:absolute;top:4mm;left:50%;transform:translateX(-50%);z-index:9999;padding:2mm 5mm;border:1px solid #b45309;background:#fff7ed;color:#9a3412;font:700 10px Pretendard,sans-serif;letter-spacing:.02em}
+    .fp-review-variable{background:#fff3a6!important;box-shadow:inset 0 -0.7mm 0 #ffe36a!important}
+    @media print{.fp-review-banner{position:absolute}}
+  </style>`);
 }
-html = html.replace('</head>', `<script>window.__SEALED__=${JSON.stringify(sealed).replace(/</g, '\\u003c')};</script></head>`);
-html = html.replace(/<body([^>]*)>/i, `<body$1><div class="fp-review-banner">렌터카회사 검토용 초안 · 서명 및 실계약 사용 금지</div>`);
-html = html.replace('</style>', `
-  .fp-review-banner{position:absolute;top:4mm;left:50%;transform:translateX(-50%);z-index:9999;padding:2mm 5mm;border:1px solid #b45309;background:#fff7ed;color:#9a3412;font:700 10px Pretendard,sans-serif;letter-spacing:.02em}
-  .fp-review-variable{background:#fff3a6!important;box-shadow:inset 0 -0.7mm 0 #ffe36a!important}
-  .fp-review-summary{margin-top:16mm;border-top:1.2pt solid var(--accent);border-bottom:.5pt solid var(--bd);padding:5mm 0 4mm}
-  .fp-review-summary h2{font-size:13px;color:var(--accent-ink);margin-bottom:2.5mm}
-  .fp-review-summary .legend{font-size:9px;color:var(--mute);margin-bottom:3mm}
-  .fp-review-summary .legend i{display:inline-block;width:9mm;height:3.2mm;background:#fff3a6;box-shadow:inset 0 -.7mm 0 #ffe36a;vertical-align:-.4mm;margin-right:2mm}
-  .fp-review-summary .grid{display:grid;grid-template-columns:1fr 1fr;gap:2.5mm 7mm}
-  .fp-review-summary .item{font-size:9.5px;line-height:1.45}
-  .fp-review-summary .item b{display:block;color:var(--ink2);font-size:10px;margin-bottom:.5mm}
-  @media print{.fp-review-banner{position:absolute}}
-</style>`);
 
 const executablePath = process.platform === 'win32'
   ? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
@@ -154,7 +179,7 @@ try {
   if (!pretendardFaces.length || pretendardFaces.some((face) => face.status !== 'loaded')) {
     throw new Error(`Pretendard 폰트 로딩 실패: ${JSON.stringify(pretendardFaces)}`);
   }
-  await page.evaluate(() => {
+  if (!actualMode) await page.evaluate(() => {
     const variableFields = [
       'company_name', 'company_ceo', 'company_biz_no', 'company_phone', 'company_address',
       'rental_business_no',
@@ -165,38 +190,30 @@ try {
       'self_damage_deductible_rate', 'self_damage_deductible_min', 'self_damage_deductible_max',
       'annual_roadside_assistance', 'emergency_dispatch_limit', 'maintenance_product', 'designated_garage',
       'replacement_car_policy', 'over_mileage_rate', 'early_termination_rate_y1',
-      'early_termination_rate_y2', 'engine_control_overdue_days', 'auto_terminate_overdue_days',
+      'early_termination_rate_y2', 'succession_allowed', 'succession_fee', 'engine_control_overdue_days', 'auto_terminate_overdue_days',
       'accident_termination_count', 'deposit_return_term', 'late_fee_rate', 'buyback_option',
-      'buyback_price', 'payment_cycle', 'auto_debit_date', 'invoice_type', 'invoice_cycle',
+      'buyback_price', 'payment_cycle', 'payment_timing', 'payment_method', 'auto_debit_date', 'invoice_type', 'invoice_cycle',
       'impound_keep_term', 'spare_key_count',
     ];
     for (const field of variableFields) {
       document.querySelectorAll(`[data-field="${field}"]`).forEach((el) => el.classList.add('fp-review-variable'));
     }
 
-    const hero = document.querySelector('.cover-hero');
-    if (hero) {
-      const summary = document.createElement('div');
-      summary.className = 'fp-review-summary';
-      summary.innerHTML = `
-        <h2>렌터카회사 정책 결정사항 요약</h2>
-        <div class="legend"><i></i>노란색 표시 항목은 회사 정책·가입증권 확인 후 확정합니다.</div>
-        <div class="grid">
-          <div class="item"><b>회사·계약 기본정보</b>임대인 정보, 계약기간, 체결 장소, 만기 인수조건</div>
-          <div class="item"><b>보험·사고</b>보험회사, 보상한도, 면책금, 자차 처리, 긴급출동</div>
-          <div class="item"><b>요금·정산</b>약정주행, 초과주행 요금, 중도해지수수료, 보증금 반환</div>
-          <div class="item"><b>연체·차량관리</b>시동제어일, 차량회수일, 사고 다발 해지 기준</div>
-          <div class="item"><b>운전자·정비</b>운전자 연령·범위, 정비상품, 지정 정비점, 대차 조건</div>
-          <div class="item"><b>확정 방법</b>회사 선택 → 연결 정책 적용 → 계약 건별 입력값 확인</div>
-        </div>`;
-      hero.insertAdjacentElement('afterend', summary);
-    }
   });
   await page.evaluate(async () => {
     await document.fonts.ready;
     (window as Window & { __rebuildTerms?: () => void }).__rebuildTerms?.();
     await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
   });
+  const flowFragments = await page.evaluate(() => ({
+    grouped: document.querySelectorAll('.terms-cols [data-flow-group]').length,
+    fragments: document.querySelectorAll('.terms-cols .t-flow-fragment').length,
+    layout: (window as Window & { __termsLayoutDebug?: unknown }).__termsLayoutDebug,
+  }));
+  if (flowFragments.grouped || flowFragments.fragments) {
+    throw new Error(`약관 자동분할 조각 병합 누락: ${JSON.stringify(flowFragments)}`);
+  }
+  console.log(`terms-layout=${JSON.stringify(flowFragments.layout)}`);
   const termsMetrics = await page.evaluate(() => Array.from(document.querySelectorAll<HTMLElement>('.terms-cols .tc')).map((col) => {
     const body = col.closest('.pbody') as HTMLElement | null;
     const last = col.lastElementChild as HTMLElement | null;
@@ -210,15 +227,32 @@ try {
       overflow: bottom > bodyBottom - 6,
     };
   }));
+  const termsPageFrames = await page.evaluate(() => Array.from(document.querySelectorAll<HTMLElement>('#termsPages > .page')).map((sheet) => {
+    const head = sheet.querySelector<HTMLElement>('.rhead');
+    const body = sheet.querySelector<HTMLElement>('.pbody');
+    const sheetRect = sheet.getBoundingClientRect();
+    const headRect = head?.getBoundingClientRect();
+    const bodyRect = body?.getBoundingClientRect();
+    return {
+      headVisible: Boolean(head && getComputedStyle(head).display !== 'none' && headRect && headRect.height > 0),
+      headTop: headRect ? Math.round((headRect.top - sheetRect.top) * 10) / 10 : -1,
+      bodyBottom: bodyRect ? Math.round((bodyRect.bottom - sheetRect.top) * 10) / 10 : -1,
+      sheetHeight: Math.round(sheetRect.height * 10) / 10,
+    };
+  }));
+  if (termsPageFrames.length !== 3 || termsPageFrames.some((frame) => !frame.headVisible || frame.headTop < 0 || frame.bodyBottom > frame.sheetHeight)) {
+    throw new Error(`약관 A4 페이지 프레임 이탈: ${JSON.stringify(termsPageFrames)}`);
+  }
   if (!termsMetrics.length || termsMetrics.some((metric) => metric.overflow)) {
     throw new Error(`약관 A4 단 넘침: ${JSON.stringify(termsMetrics)}`);
   }
   const fillRatios = termsMetrics.map((metric) => metric.used / metric.available);
   const usedHeights = termsMetrics.map((metric) => metric.used);
-  if (Math.min(...fillRatios) < 0.895 || Math.max(...usedHeights) - Math.min(...usedHeights) > 80) {
+  if (Math.min(...fillRatios) < 0.985 || Math.max(...usedHeights) - Math.min(...usedHeights) > 18) {
     throw new Error(`약관 A4 단 균형 이탈: ${JSON.stringify(termsMetrics)}`);
   }
   console.log(`terms-metrics=${JSON.stringify(termsMetrics)}`);
+  console.log(`terms-pages=${JSON.stringify(termsPageFrames)}`);
   await page.emulateMedia({ media: 'print' });
   await page.waitForTimeout(1_000);
   const pdf = await page.pdf({ format: 'A4', printBackground: true, preferCSSPageSize: true });

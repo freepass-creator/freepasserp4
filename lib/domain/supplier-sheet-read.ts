@@ -36,9 +36,10 @@
  * ⚠ 못 읽은 시트는 **「0대」가 아니라 「모름」**이다. 호출부는 `failures` 를 반드시 사람에게 보여라.
  *   조용히 넘기면 전부 실패해도 「어긋남 없음」으로 보인다.
  */
-import { firstPlateBlockAfterHeader, resolveAdapter } from './sheet-adapters';
+import { firstPlateBlockAfterHeader, orderSheetGids, resolveAdapter } from './sheet-adapters';
 import { visibleRowsFromGridResponse, type SheetsGridResponse } from './sheet-visible-grid';
 import type { EntityRecord } from '@/lib/intake/entities';
+import { isExactRealPlate } from '@/lib/domain/product';
 
 const S = (v: unknown) => String(v ?? '').trim();
 
@@ -67,8 +68,51 @@ export type SupplierTab = {
 export type SupplierSheetRead = {
   tabs: SupplierTab[];
   /** 탭 단위 실패. 비어 있지 않으면 그 공급사 숫자는 «모름»이 섞인 것이다. */
-  failures: { gid: string; title: string; reason: string }[];
+  failures: { gid: string; title: string; reason: string; vehicleLike?: boolean }[];
 };
+
+export type SupplierSheetFetchOptions = {
+  /** 관리자 전용 Sheets API 프록시에 전달할 Firebase ID token. */
+  authorization?: string;
+};
+
+export type SupplierSheetFetcher = (
+  url: string,
+  partner: EntityRecord,
+  options?: SupplierSheetFetchOptions,
+) => Promise<SupplierSheetRead>;
+
+/** 브라우저에서도 서버·감사 스크립트와 같은 통합 Grid 규격으로 읽는다. */
+export async function fetchSupplierSheet(
+  url: string,
+  partner: EntityRecord,
+  options: SupplierSheetFetchOptions = {},
+): Promise<SupplierSheetRead> {
+  const pinned = S(partner.sheet_gid || partner.sheet_tab)
+    .split(/[,\s|]+/).map(S).filter(Boolean);
+  const query = new URLSearchParams({ url, visible: 'all' });
+  if (pinned.length) query.set('gids', pinned.join(','));
+  let response: Response;
+  try {
+    response = await fetch(`/api/sheet?${query.toString()}`, {
+      cache: 'no-store',
+      headers: options.authorization ? { Authorization: `Bearer ${options.authorization}` } : undefined,
+      signal: AbortSignal.timeout(90_000),
+    });
+  } catch (error) {
+    const name = (error as Error)?.name;
+    throw new Error(name === 'TimeoutError' || name === 'AbortError'
+      ? '공급사 통합 시트 서버 무응답 90초 초과'
+      : `공급사 통합 시트 요청 실패 — ${String((error as Error)?.message || error)}`);
+  }
+  const body = await response.json().catch(() => ({ ok: false, error: '응답 파싱 실패' })) as {
+    ok?: boolean;
+    error?: string;
+    grid?: SheetsGridResponse;
+  };
+  if (!body.ok || !body.grid) throw new Error(body.error || `공급사 통합 시트 로드 실패 (${response.status})`);
+  return readSupplierSheet(body.grid, partner);
+}
 
 /**
  * 파트너 하나의 시트를 규격대로 읽는다.
@@ -78,8 +122,13 @@ export type SupplierSheetRead = {
  */
 export function readSupplierSheet(grid: SheetsGridResponse, partner: EntityRecord): SupplierSheetRead {
   const adapter = resolveAdapter(partner);
-  const pinned = new Set(S((partner as Record<string, unknown>).sheet_tab).split(',').map(S).filter(Boolean));
-  const headerRow = Number((partner as Record<string, unknown>).sheet_header_row) || undefined;
+  const pinnedValues = S((partner as Record<string, unknown>).sheet_gid || (partner as Record<string, unknown>).sheet_tab)
+    .split(/[,\s|]+/).map(S).filter(Boolean);
+  const pinned = new Set(pinnedValues);
+  const headerRow = Number(
+    (partner as Record<string, unknown>).sheet_header_row
+      ?? (partner as Record<string, unknown>).header_row,
+  ) || undefined;
   const tabs: SupplierTab[] = [];
   const failures: SupplierSheetRead['failures'] = [];
 
@@ -98,7 +147,7 @@ export function readSupplierSheet(grid: SheetsGridResponse, partner: EntityRecor
       visible = parsed.rows;
       photoByPlate = parsed.photoByPlate || {};
     } catch (e) {
-      failures.push({ gid, title, reason: `숨김 판정 실패 — ${(e as Error).message}` });
+      failures.push({ gid, title, reason: `숨김 판정 실패 — ${(e as Error).message}`, vehicleLike: pinned.has(gid) });
       continue;
     }
     let table: string[][];
@@ -109,10 +158,21 @@ export function readSupplierSheet(grid: SheetsGridResponse, partner: EntityRecor
       // 빈 행 아래 과거 이력은 제외한다.
       if (adapter.id === 'autoplus') table = firstPlateBlockAfterHeader(table);
     } catch (e) {
-      failures.push({ gid, title, reason: (e as Error).message });
+      const vehicleLike = visible.some((row) => row.some((cell) =>
+        isExactRealPlate(S(cell).replace(/\s/g, ''))));
+      failures.push({ gid, title, reason: (e as Error).message, vehicleLike });
       continue;
     }
     tabs.push({ gid, title, table, hiddenRows: Math.max(0, rowCount - visible.length), photoByPlate });
+  }
+  for (const gid of pinnedValues) {
+    if (!tabs.some((tab) => tab.gid === gid) && !failures.some((failure) => failure.gid === gid)) {
+      failures.push({ gid, title: gid, reason: `지정 탭 없음(gid ${gid})`, vehicleLike: true });
+    }
+  }
+  if (pinnedValues.length) {
+    const priority = new Map(orderSheetGids(adapter, pinnedValues).map((gid, index) => [gid, index]));
+    tabs.sort((a, b) => (priority.get(a.gid) ?? 999) - (priority.get(b.gid) ?? 999));
   }
   return { tabs, failures };
 }

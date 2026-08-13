@@ -23,7 +23,7 @@ import { visibleRowsFromGridResponse, type SheetsGridResponse } from '../lib/dom
 import { planProductUpsert, planAbsentBlocked, shouldReconcileAbsent } from '../lib/domain/sheet-merge';
 import { buildPrevForGuard } from '../lib/domain/sheet-sync-all';
 import { dedupeProductsByVehicle } from '../lib/firebase/rtdb-products';
-import { isListableProduct } from '../lib/domain/product';
+import { isStockedProduct } from '../lib/domain/product';
 import { buildSheetConflictReportRows } from '../lib/domain/sheet-conflict-report';
 import {
   buildMasterIndex, classifyMasterMisfit,
@@ -226,7 +226,7 @@ async function main() {
   console.log('');
 
   // ★ 반영하면 상품 목록에 몇 대가 되나 — 실제 반영 경로(planProductUpsert · planAbsentBlocked)를
-  //   그대로 태워 «반영 후 상태»를 만든 뒤, 목록 판정(isListableProduct)으로 센다.
+  //   그대로 태워 «반영 후 상태»를 만든 뒤, 내부 재고 목록 판정(isStockedProduct)으로 센다.
   //   여기 숫자와 실제 결과가 갈리면 이 미리보기가 무의미하므로 별도 계산식을 두지 않는다.
   {
     const prevForGuard = buildPrevForGuard(partnerRows, existing);
@@ -253,8 +253,8 @@ async function main() {
         if (cur) { after.set(S(ab.key), { ...cur, ...ab.patch }); blocked++; }
       }
     }
-    const before = dedupeProductsByVehicle(existing).filter(isListableProduct);
-    const afterRows = dedupeProductsByVehicle([...after.values()]).filter(isListableProduct);
+    const before = dedupeProductsByVehicle(existing).filter(isStockedProduct);
+    const afterRows = dedupeProductsByVehicle([...after.values()]).filter(isStockedProduct);
     console.log('★ 반영 누르면 상품 목록이 이렇게 된다');
     console.log(`   지금 ${before.length}대  →  반영 후 ${afterRows.length}대   (${afterRows.length - before.length >= 0 ? '+' : ''}${afterRows.length - before.length})`);
     console.log(`   신규 ${creates} · 수정 ${patched} · 시트에서 빠져 출고불가 ${blocked} · 급감가드로 보류 ${guarded}`);

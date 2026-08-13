@@ -173,6 +173,9 @@ export async function importAutoplusMerged(opts: {
       photoByPlate: { ...(mainPhotos || {}), ...(promoPhotos || {}) },
     });
 
+  for (const product of main.products) product.sheet_source_gid = AUTOPLUS_GID_MAIN;
+  for (const product of promo.products) product.sheet_source_gid = AUTOPLUS_GID_PROMO;
+
   const { products, promoOnlyN } = mergeAutoplusProducts(main.products, promo.products);
   const promoDuplicates = promo.products.length - promoOnlyN;
   const mainCars = new Set(main.products.map((p) => String(p.car_number || '').replace(/\s/g, '')));
@@ -194,6 +197,7 @@ export async function importAutoplusMerged(opts: {
     issueSamples: [...main.issueSamples, ...promo.issueSamples, ...promoDuplicateSamples].slice(0, 12),
     excludedCount: main.excludedCount + promo.excludedCount,
     noPriceCount: main.noPriceCount + promo.noPriceCount,
+    noPriceSkippedCount: main.noPriceSkippedCount + promo.noPriceSkippedCount,
     snap: mergeSnap(main.snap, {
       high: promo.snap.high,
       medium: promo.snap.medium,

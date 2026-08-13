@@ -27,7 +27,7 @@
  */
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
-import { isHiddenFromCatalog, isListableProduct, priceList } from '../lib/domain/product';
+import { isHiddenFromCatalog, isStockedProduct, priceList } from '../lib/domain/product';
 import { canonSheetVehicleStatus } from '../lib/domain/sheet-import';
 import { resolveAdapter } from '../lib/domain/sheet-adapters';
 import { visibleRowsFromGridResponse, type SheetsGridResponse } from '../lib/domain/sheet-visible-grid';
@@ -81,7 +81,7 @@ for (const p of Object.values<any>(partners)) {
 const all = Object.entries<any>(prods).filter(([, p]) => p && typeof p === 'object' && !dead(p))
   .map(([k, p]) => ({ ...p, _key: k, product_code: p.product_code || k } as EntityRecord));
 // 차번 집합만 필요하다 — 중복제거는 같은 차의 «줄 수»만 줄이므로 여기 결과를 바꾸지 않는다.
-const onSheet = new Set(all.filter(isListableProduct).map((p: any) => norm(p.car_number)));
+const onSheet = new Set(all.filter(isStockedProduct).map((p: any) => norm(p.car_number)));
 /** 같은 차번이 여러 레코드면 **살아있는 것 전부**를 고친다 — 하나만 고치면 다른 게 계속 가린다. */
 const byPlate = new Map<string, EntityRecord[]>();
 for (const p of all) {
