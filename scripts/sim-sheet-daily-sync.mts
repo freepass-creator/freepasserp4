@@ -82,6 +82,28 @@ const first = planDailySheetSync({
 check('정상 일일 연동 계획 통과', first.ok, first.blockReason);
 check('신규 시트 행은 자체 재고 create', first.creates.length === 1 && first.counts.created === 1);
 check('기존 시트 행은 변경분 patch', first.counts.updated === 1);
+const deletedReappeared = sheetProduct('78라9012', {
+  _deleted: true,
+  deletedAt: '2026-08-10T00:00:00.000Z',
+  deleted_reason: '과거 판매 제외',
+});
+const revivedPlan = planDailySheetSync({
+  fetched: fetched([sheetProduct('78라9012')]),
+  existing: [],
+  deleted: [deletedReappeared],
+  partners,
+  now: 123,
+});
+const revivedPatch = revivedPlan.patches.find((item) => item.key === deletedReappeared.product_code)?.patch;
+check('판매용 정본에 재등장한 동일키 soft-delete는 신규 중복 대신 기존 노드 복구',
+  revivedPlan.ok
+  && revivedPlan.creates.length === 0
+  && revivedPlan.counts.created === 0
+  && revivedPlan.counts.updated === 1
+  && revivedPatch?._deleted === null
+  && revivedPatch.deletedAt === null
+  && revivedPatch.revived_at === '1970-01-01T00:00:00.123Z',
+  revivedPlan);
 const changedPatch = first.patches.find((item) => item.key === existingChanged.product_code)?.patch;
 check('시트 빈값은 관리자 수기 메모를 지우지 않음', changedPatch?.partner_memo === undefined, changedPatch);
 const absentPatch = first.patches.find((item) => item.key === existingAbsent.product_code)?.patch;
@@ -133,8 +155,8 @@ const editedPlan = planDailySheetSync({
   partners: [{ ...partners[0], last_sheet_rows: 1 }],
 });
 const editedPatch = editedPlan.patches.find((item) => item.key === editedSheetRow.product_code)?.patch;
-check('내부에서 수정한 시트 재고 필드는 다음 날 시트 값보다 우선',
-  editedPlan.ok && editedPatch?.model === undefined && editedPatch?.vehicle_status === undefined,
+check('내부 수기표시가 있어도 판매용 정본의 공급사 소유 필드는 다음 날 최신값 우선',
+  editedPlan.ok && editedPatch?.model === '시트 변경 모델' && editedPatch?.vehicle_status === '출고가능',
   editedPatch);
 check('재고 편집 diff는 시트 유입 레코드의 내부 우선 필드를 누적',
   buildSheetManualFieldList(sheetProduct('90가0001'), sheetProduct('90가0001', { model: '내부 모델' })).includes('model'));

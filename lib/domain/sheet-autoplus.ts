@@ -54,7 +54,14 @@ export function prepareAutoplusPromoTable(raw: string[][]): string[][] {
   const headerRow = findPlateHeaderRow(raw);
   if (headerRow < 0) throw new Error('오토플러스 프로모션 차량번호 헤더 행 없음');
   const block = firstPlateBlockAfterHeader(raw.slice(headerRow));
-  return [labelAutoplusHeaderRow([...PROMO_BASE_HEADER]), ...block.slice(1)];
+  // 현재 프로모션은 12·18·24·36개월 × 2만/3만km처럼 가격 열이 7개다. 과거의
+  // 고정 4열 헤더를 씌우면 기간과 주행조건이 전부 한 칸씩 어긋나므로 실제 머리글을 쓴다.
+  // 구형 무라벨 4열은 labelAutoplusHeaderRow가 빈 11~14열만 보완한다.
+  const header = labelAutoplusHeaderRow([...(block[0] || PROMO_BASE_HEADER)]);
+  header[6] = '최초등록일';
+  header[7] = '주행거리';
+  if (/^모델명$/.test(String(header[3] || '').trim())) header[3] = '모델명(트림풀명)';
+  return [header, ...block.slice(1)];
 }
 
 /** 메인∪프로모션(메인에 없는 차번만). */
@@ -110,45 +117,33 @@ function mergeSnap(
   };
 }
 
-/**
- * 오토플러스 URL → main+프로모 fetch · prepare · import · 차번 dedup 병합.
- * fetchTable = 클라이언트 fetchSheetTable 또는 스크립트 CSV fetch.
- */
-export async function importAutoplusMerged(opts: {
-  url: string;
+export type AutoplusTablesImportOptions = {
+  mainRaw: string[][];
+  promoRaw: string[][];
   providerCode: string;
   entries: MasterEntry[];
   profile?: MappingProfile;
   profileHeaders?: MappingHeaderSignature;
-  fetchTable: SheetTableFetcher;
-  /** 메인 헤더 행(0=어댑터 자동탐지) */
   headerRow?: number;
-  /** 일괄 저장 경로의 영구 번호미정 할당기 */
   plateAllocator?: PlateAllocator;
-  /** 본탭·프로모션 탭이 공유하는 동일스펙 occurrence */
   pendingOccurrence?: Map<string, number>;
-  /** AutoPlus 보증금 규칙. 미설정은 금액을 추정하지 않고 가격없음으로 차단한다. */
   depositRule?: DepositRule;
-}): Promise<AutoplusImportResult> {
+  mainPhotos?: Record<string, string>;
+  promoPhotos?: Record<string, string>;
+  mainGid?: string;
+  promoGid?: string;
+  mainTabTitle?: string;
+  promoTabTitle?: string;
+};
+
+/** 이미 한 스냅샷으로 읽은 오플 2개 탭을 같은 규칙으로 파싱·병합한다. */
+export function importAutoplusTables(opts: AutoplusTablesImportOptions): AutoplusImportResult {
   const headerRow = opts.headerRow ?? 0;
-  // 오토플러스는 공급사가 행을 숨기거나 필터로 내리는 방식으로 판매 목록을 운영한다.
-  // CSV export는 그 행까지 되살리므로, 이 어댑터만 Sheets 행 메타데이터 경로를 강제한다.
-  // 사진은 열이 아니라 차번 셀 링크(드라이브 폴더 스마트칩)에 있다 — 같은 fetch 에서 받는다.
-  let mainPhotos: Record<string, string> | undefined;
-  let promoPhotos: Record<string, string> | undefined;
-  const mainRaw = await opts.fetchTable(opts.url, AUTOPLUS_GID_MAIN, {
-    visibleRowsOnly: true,
-    onPhotoByPlate: (map) => { mainPhotos = map; },
-  });
-  const promoRaw = await opts.fetchTable(opts.url, AUTOPLUS_GID_PROMO, {
-    visibleRowsOnly: true,
-    onPhotoByPlate: (map) => { promoPhotos = map; },
-  });
   const tabResponses = new Map<string, string>();
-  assertDistinctSheetTable(tabResponses, mainRaw, `본탭 gid ${AUTOPLUS_GID_MAIN}`);
-  assertDistinctSheetTable(tabResponses, promoRaw, `프로모션 gid ${AUTOPLUS_GID_PROMO}`);
-  const mainT = SHEET_ADAPTERS.autoplus.prepareTable(mainRaw, { headerRow });
-  const promoT = prepareAutoplusPromoTable(promoRaw);
+  assertDistinctSheetTable(tabResponses, opts.mainRaw, `본탭 gid ${opts.mainGid || AUTOPLUS_GID_MAIN}`);
+  assertDistinctSheetTable(tabResponses, opts.promoRaw, `프로모션 gid ${opts.promoGid || AUTOPLUS_GID_PROMO}`);
+  const mainT = SHEET_ADAPTERS.autoplus.prepareTable(opts.mainRaw, { headerRow });
+  const promoT = prepareAutoplusPromoTable(opts.promoRaw);
   if (mainT.length < 2) throw new Error('오토플러스 본탭 헤더+데이터 없음');
 
   const main = importSheetTable(mainT, {
@@ -159,22 +154,28 @@ export async function importAutoplusMerged(opts: {
     depositRule: opts.depositRule,
     plateAllocator: opts.plateAllocator,
     pendingOccurrence: opts.pendingOccurrence,
-    photoByPlate: mainPhotos,
+    photoByPlate: opts.mainPhotos,
   });
   const promo = importSheetTable(promoT, {
-      providerCode: opts.providerCode,
-      entries: opts.entries,
-      // 프로모션은 코드가 만든 고정 헤더다. 본탭의 저장 index/signature를 재사용하면
-      // 모델명·트림 열 의미가 달라 정상 2탭이 헤더 변경으로 오인된다.
-      depositRule: opts.depositRule,
-      plateAllocator: opts.plateAllocator,
-      pendingOccurrence: opts.pendingOccurrence,
-      // 프로모션 탭에 링크가 없으면 본탭 지도로 메운다 — 같은 차라 차번 키가 같다.
-      photoByPlate: { ...(mainPhotos || {}), ...(promoPhotos || {}) },
-    });
+    providerCode: opts.providerCode,
+    entries: opts.entries,
+    // 프로모션은 코드가 만든 고정 헤더다. 본탭의 저장 index/signature를 재사용하면
+    // 모델명·트림 열 의미가 달라 정상 2탭이 헤더 변경으로 오인된다.
+    depositRule: opts.depositRule,
+    plateAllocator: opts.plateAllocator,
+    pendingOccurrence: opts.pendingOccurrence,
+    // 프로모션 탭에 링크가 없으면 본탭 지도로 메운다 — 같은 차라 차번 키가 같다.
+    photoByPlate: { ...(opts.mainPhotos || {}), ...(opts.promoPhotos || {}) },
+  });
 
-  for (const product of main.products) product.sheet_source_gid = AUTOPLUS_GID_MAIN;
-  for (const product of promo.products) product.sheet_source_gid = AUTOPLUS_GID_PROMO;
+  for (const product of main.products) {
+    product.sheet_source_gid = opts.mainGid || AUTOPLUS_GID_MAIN;
+    if (opts.mainTabTitle) product.sheet_source_tab = opts.mainTabTitle;
+  }
+  for (const product of promo.products) {
+    product.sheet_source_gid = opts.promoGid || AUTOPLUS_GID_PROMO;
+    if (opts.promoTabTitle) product.sheet_source_tab = opts.promoTabTitle;
+  }
 
   const { products, promoOnlyN } = mergeAutoplusProducts(main.products, promo.products);
   const promoDuplicates = promo.products.length - promoOnlyN;
@@ -198,15 +199,54 @@ export async function importAutoplusMerged(opts: {
     excludedCount: main.excludedCount + promo.excludedCount,
     noPriceCount: main.noPriceCount + promo.noPriceCount,
     noPriceSkippedCount: main.noPriceSkippedCount + promo.noPriceSkippedCount,
-    snap: mergeSnap(main.snap, {
-      high: promo.snap.high,
-      medium: promo.snap.medium,
-      low: promo.snap.low,
-      none: promo.snap.none,
-    }),
+    snap: mergeSnap(main.snap, promo.snap),
     mainN: main.products.length,
     promoOnlyN,
     stock: countAutoplusStock(products),
     byStatus,
   };
+}
+
+/**
+ * 오토플러스 URL → main+프로모 fetch · prepare · import · 차번 dedup 병합.
+ * fetchTable = 클라이언트 fetchSheetTable 또는 스크립트 CSV fetch.
+ */
+export async function importAutoplusMerged(opts: {
+  url: string;
+  providerCode: string;
+  entries: MasterEntry[];
+  profile?: MappingProfile;
+  profileHeaders?: MappingHeaderSignature;
+  fetchTable: SheetTableFetcher;
+  /** 메인 헤더 행(0=어댑터 자동탐지) */
+  headerRow?: number;
+  /** 일괄 저장 경로의 영구 번호미정 할당기 */
+  plateAllocator?: PlateAllocator;
+  /** 본탭·프로모션 탭이 공유하는 동일스펙 occurrence */
+  pendingOccurrence?: Map<string, number>;
+  /** AutoPlus 보증금 규칙. 미설정은 금액을 추정하지 않고 가격없음으로 차단한다. */
+  depositRule?: DepositRule;
+}): Promise<AutoplusImportResult> {
+  // 오토플러스는 공급사가 행을 숨기거나 필터로 내리는 방식으로 판매 목록을 운영한다.
+  // CSV export는 그 행까지 되살리므로, 이 어댑터만 Sheets 행 메타데이터 경로를 강제한다.
+  // 사진은 열이 아니라 차번 셀 링크(드라이브 폴더 스마트칩)에 있다 — 같은 fetch 에서 받는다.
+  let mainPhotos: Record<string, string> | undefined;
+  let promoPhotos: Record<string, string> | undefined;
+  const mainRaw = await opts.fetchTable(opts.url, AUTOPLUS_GID_MAIN, {
+    visibleRowsOnly: true,
+    onPhotoByPlate: (map) => { mainPhotos = map; },
+  });
+  const promoRaw = await opts.fetchTable(opts.url, AUTOPLUS_GID_PROMO, {
+    visibleRowsOnly: true,
+    onPhotoByPlate: (map) => { promoPhotos = map; },
+  });
+  return importAutoplusTables({
+    ...opts,
+    mainRaw,
+    promoRaw,
+    mainPhotos,
+    promoPhotos,
+    mainGid: AUTOPLUS_GID_MAIN,
+    promoGid: AUTOPLUS_GID_PROMO,
+  });
 }

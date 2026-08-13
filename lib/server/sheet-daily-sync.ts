@@ -147,7 +147,11 @@ async function applyProductPlan(
   const patches = plan.patches.map((item) => {
     const { publicRecord, privateRecord } = splitProductPrivate(item.patch);
     if (privateRecord) throw new Error(`자동 시트 동기화는 private 상품 필드를 쓸 수 없습니다(${item.key})`);
-    return { ...item, publicRecord };
+    // readProducts()는 공개 상품과 products_private를 합쳐 계획을 만든다. 하지만 아래 CAS의
+    // current는 v4/products 공개 노드뿐이다. expected.price에 수수료가 섞인 상품은 공개 price와
+    // 항상 다르다고 판정됐으므로, 쓰려는 patch와 동일하게 expected도 공개 모양으로 비교한다.
+    const { publicRecord: expectedPublic } = splitProductPrivate(item.expected);
+    return { ...item, expected: expectedPublic, publicRecord };
   });
   const creates = plan.creates.map((record) => {
     const key = String(record.product_code || record._key || '');

@@ -4,6 +4,7 @@ import { fetchSalesInventorySheet } from '../lib/server/sales-inventory-sheet';
 import { planDailySheetSync } from '../lib/domain/sheet-daily-sync';
 import { findSheetSyncExistingConflicts } from '../lib/domain/sheet-sync-all';
 import { applySheetConflictResolutions } from '../lib/domain/sheet-conflict-resolution';
+import type { SheetConflictResolution } from '../lib/domain/sheet-conflict-resolution';
 import { buildPriceChangesValue } from '../lib/domain/sheet-conflict-report';
 import type { EntityRecord } from '../lib/intake/entities';
 import type { MasterEntry } from '../lib/domain/vehicle-master-types';
@@ -16,10 +17,22 @@ const allProducts = Object.entries(snap.v4Products || {}).map(([key, row]) => ({
 const active = allProducts.filter((row) => row._deleted !== true && !row.deletedAt && S(row.status) !== 'deleted');
 const deleted = allProducts.filter((row) => row._deleted === true || !!row.deletedAt || S(row.status) === 'deleted');
 const contracts = Object.values(mergeNodes(snap.contracts, snap.v4Contracts)) as EntityRecord[];
+let resolutions: SheetConflictResolution[] = [];
+if (process.argv.includes('--live-resolutions')) {
+  const { initializeApp, cert, getApps } = await import('firebase-admin/app');
+  const { getDatabase } = await import('firebase-admin/database');
+  const app = getApps()[0] || initializeApp({
+    credential: cert(JSON.parse(readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS || 'tmp/firebase-auth/sa.json', 'utf8'))),
+    databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL
+      || 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app',
+  });
+  const value = (await getDatabase(app).ref('v4/sheet_conflict_resolutions').get()).val() || {};
+  resolutions = Object.values(value).filter((item): item is SheetConflictResolution => !!item && typeof item === 'object');
+}
 const raw = JSON.parse(readFileSync('public/data/vehicle-master.json', 'utf8')) as { entries?: MasterEntry[] } | MasterEntry[];
 const entries = Array.isArray(raw) ? raw : raw.entries || [];
 const fetched = await fetchSalesInventorySheet({ partners, entries });
-const plan = planDailySheetSync({ fetched, existing: active, deleted, partners, contracts, resolutions: [] });
+const plan = planDailySheetSync({ fetched, existing: active, deleted, partners, contracts, resolutions });
 const conflicts = findSheetSyncExistingConflicts(fetched, active, deleted);
 const remainingConflicts = applySheetConflictResolutions({
   conflicts,
@@ -31,7 +44,7 @@ const remainingConflicts = applySheetConflictResolutions({
     contracts,
     providerCodes: fetched.lines.map((line) => line.code),
   }),
-  resolutions: [],
+  resolutions,
   existing: active,
   contracts,
 }).conflicts;
@@ -48,7 +61,7 @@ const secondPlan = plan.ok ? planDailySheetSync({
   deleted,
   partners,
   contracts,
-  resolutions: [],
+  resolutions,
 }) : null;
 
 console.log(JSON.stringify({
@@ -77,4 +90,7 @@ console.log(JSON.stringify({
   },
 }, null, 2));
 
+// Firebase Admin 소켓이 열린 채 남으면 Windows에서 감사 명령이 결과를 출력하고도 끝나지 않는다.
+const { deleteApp, getApps } = await import('firebase-admin/app');
+await Promise.all(getApps().map((app) => deleteApp(app)));
 if (!plan.ok) process.exitCode = 2;

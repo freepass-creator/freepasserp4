@@ -1,13 +1,14 @@
 /**
  * 영업자 상품리스트 → ERP 유입 정본.
  *
- * 공급사 원본은 사람이 비교하는 참고자료다. 실제 ERP 반영은 이 한 장만 읽는다.
+ * 공급사 원본은 사람이 비교하는 참고자료다. 실제 ERP 반영은 판매용 워크북의 운영 4개 탭만 읽는다.
  * 탭 이름의 날짜·대수는 매번 바뀌므로 이름 prefix로 고르고, 공급사 표기는 파트너명에
  * 정확히 대응시킨다. 이름이 없거나 두 곳에 걸리면 잘못된 공급사로 저장하지 않고 전부 막는다.
  */
 import type { EntityRecord } from '@/lib/intake/entities';
 import type { MasterEntry } from '@/lib/domain/vehicle-master-types';
 import { importSheetTable } from '@/lib/domain/sheet-import';
+import { importAutoplusTables } from '@/lib/domain/sheet-autoplus';
 import {
   sheetPartnerRosterRevision,
   type PartnerFetchLine,
@@ -16,6 +17,9 @@ import {
 
 export const DEFAULT_SALES_INVENTORY_SHEET_ID = '1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs';
 export const DEFAULT_SALES_INVENTORY_TAB_PREFIX = '상품리스트';
+export const SALES_SONOGONG_TAB_PREFIX = '손오공구독';
+export const SALES_AUTOPLUS_MAIN_TAB_PREFIX = '오플구독';
+export const SALES_AUTOPLUS_PROMO_TAB_PREFIX = '오플프로모션';
 
 const S = (value: unknown) => String(value ?? '').trim();
 const norm = (value: unknown) => S(value)
@@ -193,6 +197,158 @@ export function importSalesInventorySheet(input: {
     });
   }
   lines.sort((a, b) => a.label.localeCompare(b.label, 'ko'));
+  const products = lines.flatMap((line) => line.products);
+  const codes = new Set(lines.map((line) => line.code));
+  return {
+    lines,
+    products,
+    partnerCount: lines.length,
+    rosterRevision: sheetPartnerRevision(input.partners, codes),
+    sourceKind: 'sales_inventory',
+  };
+}
+
+export type SalesInventoryWorkbookTab = {
+  title: string;
+  gid: string;
+  rows: string[][];
+  photoByPlate?: Record<string, string>;
+};
+
+function mergePartnerLines(lines: PartnerFetchLine[]): PartnerFetchLine[] {
+  const byCode = new Map<string, PartnerFetchLine>();
+  for (const line of lines) {
+    const before = byCode.get(line.code);
+    if (!before) {
+      byCode.set(line.code, { ...line, products: [...line.products], issueSamples: [...line.issueSamples] });
+      continue;
+    }
+    const seen = new Set(before.products.map((product) => S(product.car_number).replace(/\s/g, '')));
+    const duplicateAcrossTabs: string[] = [];
+    const additions = line.products.filter((product) => {
+      const plate = S(product.car_number).replace(/\s/g, '');
+      if (!plate || !seen.has(plate)) {
+        if (plate) seen.add(plate);
+        return true;
+      }
+      if (duplicateAcrossTabs.length < 6) duplicateAcrossTabs.push(`탭 간 중복 · ${plate}`);
+      return false;
+    });
+    const across = line.products.length - additions.length;
+    before.products.push(...additions);
+    before.sourceRowCount += line.sourceRowCount;
+    before.imported += additions.length;
+    before.excludedCount += line.excludedCount;
+    before.noPriceCount += line.noPriceCount;
+    before.noPriceSkippedCount = (before.noPriceSkippedCount || 0) + (line.noPriceSkippedCount || 0);
+    before.skippedCount += line.skippedCount + across;
+    before.duplicateCount += line.duplicateCount + across;
+    before.blockingDuplicateCount = (before.blockingDuplicateCount || 0) + (line.blockingDuplicateCount || 0);
+    before.invalidCount += line.invalidCount;
+    before.issueSamples = [...before.issueSamples, ...line.issueSamples, ...duplicateAcrossTabs].slice(0, 12);
+    before.message = `✓ ${before.label} [영업자 상품리스트] — ${before.imported}매물`;
+  }
+  return [...byCode.values()].sort((a, b) => a.label.localeCompare(b.label, 'ko'));
+}
+
+/** 판매용 워크북의 4개 운영 탭을 탭별 규격으로 읽고 한 ERP 정본으로 합친다. */
+export function importSalesInventoryWorkbook(input: {
+  main: SalesInventoryWorkbookTab;
+  sonogong: SalesInventoryWorkbookTab;
+  autoplusMain: SalesInventoryWorkbookTab;
+  autoplusPromo: SalesInventoryWorkbookTab;
+  partners: EntityRecord[];
+  entries: MasterEntry[];
+  providerCodes?: string[];
+}): PartnerSheetsFetch {
+  const requested = new Set((input.providerCodes || []).map(S).filter(Boolean));
+  const wants = (code: string) => !requested.size || requested.has(code);
+  const base = importSalesInventorySheet({
+    table: input.main.rows,
+    partners: input.partners,
+    entries: input.entries,
+    tabTitle: input.main.title,
+    tabGid: input.main.gid,
+  });
+  const fetchedLines = base.lines.filter((line) => wants(line.code));
+  const partnerByCode = new Map(input.partners.map((partner) => [S(partner.partner_code || partner._key), partner]));
+
+  if (wants('RP012')) {
+    const partner = partnerByCode.get('RP012');
+    if (!partner) throw new Error('영업자 상품리스트 공급사 설정 없음(RP012)');
+    const result = importSheetTable(normalizeSalesRows(input.sonogong.rows), {
+      providerCode: 'RP012',
+      entries: input.entries,
+      acceptAssignedPendingPlate: true,
+      compactPriceCells: true,
+      preserveCanonicalContractStatus: true,
+      depositRule: 'months_per_year',
+      photoByPlate: input.sonogong.photoByPlate,
+    });
+    for (const product of result.products) {
+      product._sheet_price_scope = 'sales_all_periods';
+      product.sheet_source_gid = input.sonogong.gid;
+      product.sheet_source_tab = input.sonogong.title;
+    }
+    fetchedLines.push({
+      code: 'RP012',
+      label: S(partner.name || partner.partner_name || '손오공'),
+      ok: true,
+      sourceRowCount: result.total,
+      imported: result.imported,
+      excludedCount: result.excludedCount,
+      noPriceCount: result.noPriceCount,
+      noPriceSkippedCount: result.noPriceSkippedCount,
+      skippedCount: result.skipped,
+      duplicateCount: result.duplicateCount,
+      blockingDuplicateCount: result.duplicateCount,
+      invalidCount: result.invalidCount,
+      issueSamples: result.issueSamples,
+      message: `✓ ${S(partner.name || partner.partner_name || '손오공')} [손오공구독] — ${result.imported}매물`,
+      products: result.products,
+    });
+  }
+
+  if (wants('RP023')) {
+    const partner = partnerByCode.get('RP023');
+    if (!partner) throw new Error('영업자 상품리스트 공급사 설정 없음(RP023)');
+    const result = importAutoplusTables({
+      mainRaw: input.autoplusMain.rows,
+      promoRaw: input.autoplusPromo.rows,
+      providerCode: 'RP023',
+      entries: input.entries,
+      depositRule: 'rent_multiple',
+      mainPhotos: input.autoplusMain.photoByPlate,
+      promoPhotos: input.autoplusPromo.photoByPlate,
+      mainGid: input.autoplusMain.gid,
+      promoGid: input.autoplusPromo.gid,
+      mainTabTitle: input.autoplusMain.title,
+      promoTabTitle: input.autoplusPromo.title,
+    });
+    fetchedLines.push({
+      code: 'RP023',
+      label: S(partner.name || partner.partner_name || '오토플러스'),
+      ok: true,
+      sourceRowCount: result.total,
+      imported: result.imported,
+      excludedCount: result.excludedCount,
+      noPriceCount: result.noPriceCount,
+      noPriceSkippedCount: result.noPriceSkippedCount,
+      skippedCount: result.skipped,
+      duplicateCount: result.duplicateCount,
+      blockingDuplicateCount: result.blockingDuplicateCount,
+      invalidCount: result.invalidCount,
+      issueSamples: result.issueSamples,
+      message: `✓ ${S(partner.name || partner.partner_name || '오토플러스')} [오플 2탭] — ${result.imported}매물`,
+      products: result.products,
+    });
+  }
+
+  const lines = mergePartnerLines(fetchedLines);
+  if (requested.size) {
+    const missing = [...requested].filter((code) => !lines.some((line) => line.code === code));
+    if (missing.length) throw new Error(`영업자 상품리스트 4개 탭에 요청 공급사가 없습니다(${missing.join(', ')})`);
+  }
   const products = lines.flatMap((line) => line.products);
   const codes = new Set(lines.map((line) => line.code));
   return {

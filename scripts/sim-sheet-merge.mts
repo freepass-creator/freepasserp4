@@ -44,6 +44,7 @@ import {
 import { applySheetConflictResolutions } from '../lib/domain/sheet-conflict-resolution';
 import { createPlateAllocator } from '../lib/domain/pending-plate';
 import { productPatchPreconditionMatches } from '../lib/domain/product-write-guard';
+import { splitProductPrivate } from '../lib/firebase/rtdb-products';
 
 type Case = { name: string; ok: boolean; detail?: unknown };
 const cases: Case[] = [];
@@ -115,6 +116,13 @@ check('Sheet 가격 patch는 공개 대여조건만 보내고 비공개 수수�
   && !Object.prototype.hasOwnProperty.call(privatePricePatch?.['36'] || {}, 'fee')
   && !Object.prototype.hasOwnProperty.call(privatePricePatch?.['36'] || {}, 'commission')
   && !Object.prototype.hasOwnProperty.call(privatePricePatch?.['36'] || {}, 'fee_memo'));
+const privatePriceExpected = privatePricePlan.patches[0]?.expected || {};
+const { publicRecord: publicPriceExpected } = splitProductPrivate(privatePriceExpected);
+check('private 수수료가 있는 상품도 공개 가격 CAS는 공개 노드끼리 비교',
+  productPatchPreconditionMatches({
+    ...publicPriceExpected,
+    price: { '36': { rent: 430000, deposit: 1200000 } },
+  }, publicPriceExpected, privatePricePlan.patches[0]?.patch || {}, { overlayFallback: true }));
 check('Sheet patch는 원가·VIN·계좌 최상위 원자도 제거', Object.keys(stripSheetPrivatePatchFields({
   maker: '현대', vehicle_price: 1, vin: 'secret', account_number: 'secret',
 })).join(',') === 'maker');

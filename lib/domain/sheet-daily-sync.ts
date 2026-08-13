@@ -14,7 +14,9 @@ import {
 import {
   planAbsentBlocked,
   planProductUpsert,
+  resolveSheetReviveTarget,
   shouldReconcileAbsent,
+  stripSheetPrivatePatchFields,
 } from '@/lib/domain/sheet-merge';
 import {
   applySheetConflictResolutions,
@@ -148,8 +150,33 @@ export function planDailySheetSync(input: {
   counts.confirmed = ingress.confirmed;
   counts.review = ingress.review;
   const upsert = planProductUpsert(ingress.products, input.existing);
-  counts.created = upsert.creates.length;
-  counts.updated = upsert.patches.length;
+  // 판매용 정본에 다시 나타난 동일 공급사·차량번호가 과거 soft-delete 톰스톤과 겹치면
+  // 신규 키를 만들지 않고 기존 노드를 되살린다. create로 두면 RTDB transaction이 기존
+  // tombstone을 정상적으로 충돌 처리해 전체 동기화가 영구히 멈춘다(63주0598).
+  const revivePatches: GuardedProductPatch[] = [];
+  const creates: EntityRecord[] = [];
+  const claimedReviveKeys = new Set<string>();
+  for (const row of upsert.creates) {
+    const target = resolveSheetReviveTarget(row, input.deleted);
+    if (!target || claimedReviveKeys.has(target.key)) {
+      creates.push(row);
+      continue;
+    }
+    claimedReviveKeys.add(target.key);
+    revivePatches.push({
+      key: target.key,
+      expected: target.expected,
+      patch: {
+        ...stripSheetPrivatePatchFields(row),
+        _deleted: null,
+        deletedAt: null,
+        status: null,
+        revived_at: new Date(input.now ?? Date.now()).toISOString(),
+      },
+    });
+  }
+  counts.created = creates.length;
+  counts.updated = upsert.patches.length + revivePatches.length;
   counts.unchanged = upsert.unchanged;
 
   const guard = buildPrevForGuard(input.partners, input.existing);
@@ -158,7 +185,7 @@ export function planDailySheetSync(input: {
   const now = input.now ?? Date.now();
   const salesCanonical = input.fetched.sourceKind === 'sales_inventory';
   if (salesCanonical) {
-    // 영업자 상품리스트는 전 공급사 재고를 한 장에서 확정하는 정본이다. 공급사별 과거
+    // 영업자 판매용 워크북 4개 탭은 전 공급사 재고를 확정하는 하나의 정본이다. 공급사별 과거
     // baseline은 원본 시트 시절의 숫자라 첫 전환 때 정상 감소까지 막는다(실측: 아이언 48→20).
     // 대신 표 전체가 절반 이하로 붕괴했는지만 막고, 정상 범위 안에서는 공급사별 증감을
     // 그대로 반영해야 ERP가 영업자 표와 계속 일치한다.
@@ -227,8 +254,8 @@ export function planDailySheetSync(input: {
   return {
     ok: true,
     blockReason: '',
-    creates: upsert.creates,
-    patches: [...upsert.patches, ...absentPatches],
+    creates,
+    patches: [...upsert.patches, ...revivePatches, ...absentPatches],
     checkpoints,
     counts,
     notes,

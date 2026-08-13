@@ -302,7 +302,7 @@ export default function DevTools() {
       render: () => (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
           <div style={{ fontSize: FS.sub, color: C.mute, lineHeight: 1.5 }}>
-            공급사 시트와 홈페이지는 작성 참고용입니다. 확정된 영업자 상품리스트 한 장을 검증한 뒤 ERP에 반영합니다.
+            공급사 시트와 홈페이지는 작성 참고용입니다. 확정된 판매용 4개 탭을 한 번에 검증한 뒤 ERP에 반영합니다.
           </div>
           <SheetSync co={co} onImported={() => { void reload(); }} />
         </div>

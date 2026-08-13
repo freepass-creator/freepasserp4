@@ -614,13 +614,24 @@ export function parsePriceColumns(
      *   ⚠ 아이카의 「월렌트」 **탭**은 별개다 — 그건 취급하지 않는다(탭은 여기까지 오지 않는다).
      */
     const pm = /^월렌트$|^월세$|^월대여료?$/.test(t)
-      ? (['', '1'] as unknown as RegExpExecArray)
-      : /^(\d+)개월([1-9]\d*만)?/.exec(t) || /^(\d+)[/／]([1-9]\d*만)/.exec(t);
+      ? { period: '1', variant: '' }
+      : (() => {
+          const month = /^(\d+)개월(?:([1-9]\d*만)|[（(]?(인수형|반납형)[)）]?)?$/.exec(t);
+          if (month) {
+            return {
+              period: month[1],
+              // 반납형은 영업 기본가다. 인수형만 별도 가격 변형으로 보존한다.
+              variant: month[2] || (month[3] === '인수형' ? '인수형' : ''),
+            };
+          }
+          const mileage = /^(\d+)[/／]([1-9]\d*만)$/.exec(t);
+          return mileage ? { period: mileage[1], variant: mileage[2] } : null;
+        })();
     if (pm) {
-      const period = Number(pm[1]);
-      const km = pm[2] || '';
+      const period = Number(pm.period);
+      const variant = pm.variant;
       cols.push({
-        key: km ? `${period}_${km}` : String(period),
+        key: variant ? `${period}_${variant}` : String(period),
         period, idx: i,
         dep: curDep >= 0 ? curDep : (period >= 24 ? longDep : shortDep),
       });
@@ -1004,9 +1015,14 @@ export function importSheetTable(table: string[][], opts: {
         : consensusOrigin,
       _deposit_origin_trusted: !!consensusOrigin,
     } : rec;
-    const price = opts.compactPriceCells
-      ? parseCompactPriceColumns(headers, cells)
-      : parsePriceColumns(headers, cells, priceRecord, depositRule);
+    const standardPrice = parsePriceColumns(headers, cells, priceRecord, depositRule);
+    const compactPrice = opts.compactPriceCells ? parseCompactPriceColumns(headers, cells) : null;
+    // 영업자용 시트는 과거의 `대여료\n보증금` 압축 셀과 현재의 보증금·대여료 분리 열을
+    // 모두 받아야 한다. 행마다 두 형식이 섞여도 기간별로 합치고, 같은 기간에 둘 다 있으면
+    // 셀 안에 보증금까지 명시한 압축 값을 우선한다.
+    const price = compactPrice || standardPrice
+      ? { ...(standardPrice || {}), ...(compactPrice || {}) }
+      : null;
     /**
      * ★**요금이 없어도 올린다**(사장님 2026-08-12 — 「요금이 없어도 올리자 / 요금 안보이게끔
      *   올려서 출고가능이면 동일하게」).

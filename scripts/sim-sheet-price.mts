@@ -181,6 +181,19 @@ check('AICA-MONTHLY 「월렌트」는 1개월 요금 · 보증 열이 하나면
   && (monthly.products[0]?.price as Record<string, { rent: number; deposit: number }> | undefined)?.['1']?.deposit === 1_000_000,
   monthly.products[0]?.price);
 
+const subscriptionForms = parsePriceColumns(
+  ['보증금 반납형', '36개월', '보증금 인수형', '36개월(인수형)'],
+  ['연수×대여료', '613000', '3150000', '1050000'],
+  { maker: '기아' },
+  'months_per_year',
+);
+check('SUBSCRIPTION-FORMS 반납형 기본가와 인수형 별도가를 함께 보존',
+  subscriptionForms?.['36']?.rent === 613_000
+  && subscriptionForms?.['36']?.deposit === 1_839_000
+  && subscriptionForms?.['36_인수형']?.rent === 1_050_000
+  && subscriptionForms?.['36_인수형']?.deposit === 3_150_000,
+  subscriptionForms);
+
 const noPrice = importSheetTable([
   ['차량번호', '제조사', '모델', '12개월', '보증금'],
   ['12가3456', '현대', '아반떼', '-', '3000000'],

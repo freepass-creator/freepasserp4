@@ -131,7 +131,15 @@ export function mergeAutoplusHeaderRows(top: string[], sub: string[]): string[] 
 
 /** @deprecated 두 줄 헤더를 합치는 `mergeAutoplusHeaderRows` 를 쓴다. */
 export function labelAutoplusHeaderRow(header: string[]): string[] {
-  return mergeAutoplusHeaderRows(header, []);
+  const out = mergeAutoplusHeaderRows(header, []);
+  // 구형 오플 표는 가격 4칸의 머리글이 완전히 비어 있다. 이미 기간명이 있는 최신 2단
+  // 헤더는 그대로 두고, 빈 11~14열에만 과거 확정 규격을 붙인다.
+  while (out.length < 15) out.push('');
+  AUTOPLUS_PRICE_HEADERS.forEach((name, offset) => {
+    const index = 11 + offset;
+    if (!String(out[index] || '').trim()) out[index] = name;
+  });
+  return out;
 }
 
 export const SHEET_ADAPTERS: Record<SheetAdapterId, SheetAdapter> = {

@@ -249,7 +249,7 @@ export type PartnerSheetsFetch = {
   products: EntityRecord[];
   partnerCount: number;
   rosterRevision: string;
-  /** 공급사별 원본 묶음인지, 프리패스 영업자용 단일 정본인지 구분한다. */
+  /** 공급사별 원본 묶음인지, 프리패스 판매용 워크북 정본인지 구분한다. */
   sourceKind?: 'supplier_sources' | 'sales_inventory';
   /** UI 검증 시점의 활성 ERP 재고 revision. 커밋 경계에서 반드시 비교한다. */
   reconcileRevision?: string;
