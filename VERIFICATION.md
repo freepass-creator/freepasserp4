@@ -4301,3 +4301,14 @@ Next 개발 서버와 production build가 같은 `.next`를 사용하면 실행 
 - A4 5쪽을 다시 렌더링해 `없음` 한 줄, 구분선, 다음 섹션 간격과 잘림·겹침 0을 육안 확인했다.
 - `sim-esign-document-boundary`, `npx tsc --noEmit`, `npm run check:fonts` PASS.
 - 최종 판정: **PASS**.
+
+## 2026-08-13 구 승인대기 자가가입 계정 즉시 활성화 보완
+
+- 원래 요구사항: 소속 없이 가입한 영업자는 관리자 승인 대기 없이 바로 활동하고, 실제 소속은 나중에 관리자가 매칭한다.
+- 확인 결과 신규 가입은 이미 `status=active`, `role=agent`, `user_code=Firebase uid`로 저장됐지만, 구 승인제에서 생성된 `pending` 프로필은 계속 승인대기 화면에 막혔다.
+- 로그인 시 Firebase ID token을 서버에서 검증한 뒤, 본인 uid·구 자가가입 흔적·미배정 소속/채널을 모두 만족하는 `pending`만 RTDB transaction으로 개인 영업자 `active`로 전환하도록 수정했다.
+- 삭제·반려·비활성, uid 불일치, 소속·채널이 이미 지정된 계정은 자동 활성화하지 않는다. 공급사 신청 계정도 소속 확인 전에는 공급사 권한이 아니라 개인 영업자 최소 권한만 받는다.
+- `database.rules.json`은 변경·게시하지 않았다. 운영 RTDB 권한을 넓히지 않고, 검증된 서버 경로 하나로만 구 계정을 전환한다.
+- 검증: `npx tsc --noEmit` PASS, `scripts/check-self-serve-signup.mts` 20/20 PASS, `npm run check:fonts` PASS, 로컬 `/login` 가입 즉시 이용 안내·콘솔 오류 0 확인, `/api/auth/self-activate` 무토큰/위조토큰 각각 HTTP 401 확인.
+- 실제 캡처 계정 비밀번호가 없어 유효 토큰으로 운영 계정 전환까지는 실행하지 않았다. 최신 코드 배포 후 해당 계정이 다시 로그인하면 자동 전환된다.
+- 최종 판정: **CONDITIONAL PASS** — 구현·로컬 보안 검증은 통과했고, 운영 배포 및 해당 계정의 1회 재로그인 확인이 남았다.

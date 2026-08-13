@@ -16,6 +16,7 @@ import { getCompanyId } from '@/lib/tenant';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { businessRegistrationNumberOf, normalizeBusinessRegistrationNumber } from '@/lib/domain/business-identity';
 import { LEGAL_VERSION } from '@/lib/legal';
+import { selfServeActivationDecision } from '@/lib/domain/self-serve-activation';
 
 /** 관리자 신원 조작(승인·역할재배정·채널백필) 감사기록 — store를 안 거치는 top-level users 쓰기라 별도 기록.
  *  best-effort(감사 실패가 원 작업을 막지 않음). audit_logs 규칙: actor_uid === auth.uid(=현재 관리자). */
@@ -52,6 +53,34 @@ async function clearScopedStoreCache(): Promise<void> {
   }
 }
 
+/** 구 승인제에서 pending으로 남은 미배정 자가가입자만 서버 검증을 거쳐 즉시 활성화한다. */
+async function activateLegacySelfSignup(
+  user: User,
+  profile: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  if (!selfServeActivationDecision(profile, user.uid).eligible) return profile;
+  try {
+    const response = await fetch('/api/auth/self-activate', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${await user.getIdToken()}`,
+        'Content-Type': 'application/json',
+      },
+      cache: 'no-store',
+    });
+    if (!response.ok) {
+      console.warn('[auth] 기존 가입자 자동 활성화 거절:', response.status);
+      return profile;
+    }
+    const db = getRtdb();
+    if (!db) return profile;
+    return (await get(ref(db, `users/${user.uid}`))).val() || profile;
+  } catch (error) {
+    console.warn('[auth] 기존 가입자 자동 활성화 실패:', (error as Error)?.message || error);
+    return profile;
+  }
+}
+
 /** 인증 상태 감시 → 프로필 로드 → 세션 반영. resolve = 최초 1회(로그인 여부 확정). */
 export function initAuth(): Promise<void> {
   if (!firebaseReady()) return Promise.resolve();
@@ -76,6 +105,7 @@ export function initAuth(): Promise<void> {
           try {
             let profile: Record<string, unknown> = (await get(ref(db, `users/${user.uid}`))).val() || {};
             if (!profile.role) { await new Promise((r) => setTimeout(r, 300)); profile = (await get(ref(db, `users/${user.uid}`))).val() || profile; }
+            profile = await activateLegacySelfSignup(user, profile);
             const rawRole = String(profile.role || '');
             const role = mapRole(rawRole);
             const company_code = String(profile.company_code || '');
