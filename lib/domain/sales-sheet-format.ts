@@ -15,7 +15,19 @@
  * ⚠ 로보토엔 한글 자소가 없다 — 한글은 구글이 알아서 대체 글꼴로 그린다.
  *   숫자·영문만 로보토로 나오는데, 표가 온통 숫자라 오히려 자릿수가 또렷해진다.
  */
-export const FONT = 'Roboto';
+/**
+ * 글꼴 — **Noto Sans KR**(사장님 2026-08-14 확정).
+ *
+ * ★왜 Roboto 를 버렸나 — Roboto 에는 한글 글리프가 없다. 그래서 한글은 기기마다 다른
+ *   대체 글꼴로 그려진다(윈도=맑은 고딕 · 아이폰=애플 SD 고딕 · 안드로이드=또 다름).
+ *   **보는 사람마다 다른 표**가 되고, 한 줄 안에서 한글과 숫자의 굵기가 안 맞는다.
+ *   영업자는 폰으로 많이 본다 — 그때도 사장님 화면과 같아야 한다.
+ * ★Noto Sans KR 은 구글이 모든 기기에 실어 주므로 한글·숫자가 한 벌로 나온다.
+ * ⚠ 대신 같은 pt 에서 Roboto 보다 **넓고 크다.** 열너비 계수(7.9)와 행높이(24px)를
+ *   같이 키워 뒀다. 글꼴만 바꾸고 이 둘을 안 바꾸면 40열이 빽빽해지고 글자가 위아래로 낀다.
+ */
+export const FONT_DEFAULT = 'Noto Sans KR';
+export const FONT = FONT_DEFAULT;
 export const SIZE = 10;
 /** 기울임 없음(사장님 2026-08-14). 숫자가 기울면 자릿수가 눈으로 안 맞는다. */
 export const ITALIC = false;
@@ -128,7 +140,10 @@ const wide = (s: string) => [...String(s ?? '').split('\n').reduce((a, b) => (b.
  * 최댓값으로 재면 「퀼팅 라이트 브라운 나파 인조가죽 시트」 한 줄 때문에 내장 열이 130px 로 벌어진다.
  * ⚠ 머리글은 잘리면 안 된다 — 무슨 칸인지 모르게 된다. 그래서 머리글 길이는 하한으로 둔다.
  */
-export function columnWidths(columns: string[], body: string[][]): number[] {
+export function columnWidths(columns: string[], body: string[][], font = FONT): number[] {
+  // ⚠ 글꼴마다 같은 pt 에서 폭이 다르다. Noto Sans KR 은 Roboto 보다 넓다 —
+  //   같은 계수로 재면 40열이 빽빽해진다.
+  const per = /Noto Sans KR/i.test(font) ? 7.9 : 7.3;
   return columns.map((name, i) => {
     const lens = body.map((r) => wide(r[i] || '')).sort((a, b) => a - b);
     const p90 = lens.length ? lens[Math.min(lens.length - 1, Math.floor(lens.length * 0.9))] : 0;
@@ -136,13 +151,19 @@ export function columnWidths(columns: string[], body: string[][]): number[] {
     const cap = NARROW.has(name) ? NARROW_PX : MAX_PX;
     // 글자 한 칸을 몇 px 로 볼까 — 10pt 로 키운 만큼 같이 키운다(9pt 때는 6.6이었다).
     // 여백 16px 은 오른쪽정렬 칸이 테두리에 붙지 않게 하는 몫이다.
-    return Math.min(cap, Math.max(66, Math.round(units * 7.3) + 16));
+    return Math.min(cap, Math.max(66, Math.round(units * per) + 16));
   });
 }
 
 export type FormatInput = {
   gid: number;
   columns: string[];
+  /**
+   * 이 탭만 다른 글꼴로 볼 때. 안 주면 `FONT`.
+   * ★글꼴을 «고르는» 자리가 아니다 — 눈으로 견주려고 한 탭만 갈아 보는 손잡이다.
+   *   정하고 나면 `FONT` 를 바꾸고 이 인자는 안 쓴다. 탭마다 글꼴이 다르면 한 문서로 안 읽힌다.
+   */
+  font?: string;
   /** 머리행의 0-based 줄 번호. 판매시트는 0(1행)이다. */
   headerAt?: number;
   /** 지금 시트에 실제로 있는 열 수 — 남는 열을 잘라 내는 데 쓴다. */
@@ -164,6 +185,7 @@ export type FormatInput = {
  */
 export function buildSalesFormatRequests(input: FormatInput): Record<string, unknown>[] {
   const { gid, columns, widths } = input;
+  const FONT = input.font || FONT_DEFAULT;
   const H = input.headerAt ?? 0;
   const n = columns.length;
   const idx = (name: string) => columns.indexOf(name);
@@ -277,8 +299,8 @@ export function buildSalesFormatRequests(input: FormatInput): Record<string, unk
 
   out.push({ updateDimensionProperties: {
     range: { sheetId: gid, dimension: 'ROWS', startIndex: 0 },
-    // 10pt 라 21px 이면 글자가 위아래로 낀다. 23px 이 «빽빽하되 안 끼는» 자리다.
-    properties: { pixelSize: 23 }, fields: 'pixelSize',
+    // 10pt 라 21px 이면 글자가 위아래로 낀다. Noto Sans KR 은 Roboto 보다 커서 24px.
+    properties: { pixelSize: /Noto Sans KR/i.test(FONT) ? 24 : 23 }, fields: 'pixelSize',
   } });
   widths.forEach((px, i) => out.push({ updateDimensionProperties: {
     range: { sheetId: gid, dimension: 'COLUMNS', startIndex: i, endIndex: i + 1 },
