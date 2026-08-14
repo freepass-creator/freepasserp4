@@ -4654,4 +4654,5 @@ Next 개발 서버와 production build가 같은 `.next`를 사용하면 실행 
 - 원인은 로컬 렌더러가 PC의 Chrome을 사용하면서 Vercel 함수에도 같은 실행파일이 있다고 가정한 것이었다. Playwright 1.49의 Chromium 131과 맞는 `@sparticuz/chromium@131.0.1`을 운영 의존성으로 고정하고, Windows는 로컬 Chrome·Vercel Linux는 서버리스 headless-shell을 선택한다.
 - Next.js 출력 추적에 전자계약 API용 Chromium 바이너리 5개가 실제 포함된 것을 각 문서·승인 함수의 `.nft.json`에서 확인했다. 실패 시 계약번호와 안전한 오류 메시지를 런타임 로그에 남긴다.
 - 첫 운영 재검증에서 Chromium 실행 뒤 A4 원본 HTML이 함수 번들에 없어 503이 나는 다음 경계를 확인했다. 전자계약 함수 출력 추적에 `rental-contract.html`과 Pretendard woff2 5종도 함께 포함한다.
+- 자산 포함 뒤 Vercel Node 24가 AWS 런타임 감지 변수를 제공하지 않아 AL2023의 `libnss3` 묶음을 풀지 않는 경계도 확인했다. Vercel Linux에서 패키지 로드 전에 호환 런타임을 명시해 Chromium과 AL2023 공유 라이브러리를 함께 압축 해제한다.
 - `npx tsc --noEmit`, `sim-freepass-esign`, `sim-esign-issue-gate` 8/8, `check:fonts`, `check:tokens`, production build 33/33 PASS.

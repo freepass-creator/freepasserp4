@@ -38,6 +38,9 @@ async function chromeLaunchOptions(): Promise<{ executablePath?: string; args?: 
   if (!serverlessLinux) return {};
   // Vercel 함수에는 Playwright 브라우저 바이너리가 없다. Playwright 1.49의 Chromium 131과
   // 같은 메이저의 서버리스 headless-shell을 풀어 실제 A4 미리보기·완료본을 렌더한다.
+  // Vercel Node 24는 AWS 감지 변수를 노출하지 않아 패키지가 AL2023의 libnss3 묶음을
+  // 생략한다. 모듈을 불러오기 전에 호환 런타임을 명시해 바이너리와 공유 라이브러리를 함께 푼다.
+  process.env.AWS_EXECUTION_ENV ||= 'AWS_Lambda_nodejs20.x';
   const { default: serverlessChromium } = await import('@sparticuz/chromium');
   serverlessChromium.setGraphicsMode = false;
   return {
