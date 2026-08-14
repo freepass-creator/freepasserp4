@@ -221,6 +221,7 @@ export default function SignPage() {
 
   const snapshot = view?.snapshot || {};
   const additionalDriverLimit = Math.max(0, Math.min(3, Number(snapshot.additionalDriverPolicy?.limit || 0)));
+  const additionalDriverCost = S(snapshot.additionalDriverPolicy?.cost) || '별도 비용 없음';
   const pages = useMemo(
     () => snapshot.consentPages || snapshot.consentGroups || [],
     [snapshot.consentGroups, snapshot.consentPages],
@@ -459,7 +460,7 @@ export default function SignPage() {
             {view.status === '서명완료' ? '전자계약이 완료되었습니다' : '제출이 접수되었습니다'}
           </h1>
           <p style={{ color: C.mute, fontSize: FS.body, lineHeight: 1.65, margin: '0 0 18px' }}>
-            {view.status === '서명완료' ? '관리자 확인과 문서 봉인이 완료되었습니다.' : '담당자가 신분증·셀카·서명을 확인한 뒤 계약을 확정합니다.'}
+            {view.status === '서명완료' ? '관리자 확인과 문서 봉인이 완료되었습니다.' : '담당자가 운전면허증·셀카·서명을 확인한 뒤 계약을 확정합니다.'}
           </p>
           {view.status === '서명완료' && view.documentUrl ? (
             <Btn title="서명 완료 계약서 받기" onClick={() => window.open(view.documentUrl, '_blank', 'noreferrer')}>
@@ -614,7 +615,7 @@ export default function SignPage() {
           </p>
           <ListGroup>
             <DetailRow label="운전 가능 범위" value={S(snapshot.additionalDriverPolicy?.driverScope) || '계약서 기재 운전자'} stacked />
-            <DetailRow label="추가운전자 비용" value={S(snapshot.additionalDriverPolicy?.cost) || '별도 비용 없음'} stacked />
+            <DetailRow label="추가운전자 비용" value={additionalDriverCost} stacked />
           </ListGroup>
 
           {additionalDrivers.map((driver, index) => (
@@ -656,7 +657,7 @@ export default function SignPage() {
               </Dropzone>
               <Btn
                 full
-                title="추가 운전자 개인정보 제공 및 면허증 제출 동의"
+                title={`추가 운전자 개인정보 제공·면허증 제출${additionalDriverCost === '별도 비용 없음' ? '' : ` 및 ${additionalDriverCost} 적용`} 동의`}
                 variant={driver.consent ? 'solid' : 'ghost'}
                 onClick={() => updateAdditionalDriver(index, 'consent', !driver.consent)}
                 style={{ justifyContent: 'flex-start' }}
@@ -738,7 +739,8 @@ export default function SignPage() {
             <DetailRow label="약관" value={`${S(snapshot.agreement?.title) || '자동차 대여 약관'} · ${S(snapshot.agreement?.version) || '—'}`} stacked />
             <DetailRow label="계약 조건 확인" value={`${Object.keys(confirmations).length} / ${pages.length} 섹션`} />
             <DetailRow label="필수 동의" value={`${[...consents].length} / ${REQUIRED_CONSENTS.length}건`} />
-            <DetailRow label="본인확인 자료" value={idCard && selfie ? '신분증·셀카 첨부' : '누락'} />
+            <DetailRow label="본인확인 자료" value={idCard && selfie ? '운전면허증·셀카 첨부' : '누락'} />
+            {additionalDrivers.length ? <DetailRow label="추가 운전자" value={`${additionalDrivers.length}명 · ${additionalDriverCost}`} stacked /> : null}
           </ListGroup>
           <div style={{ fontSize: FS.title, fontWeight: FW.head, margin: '24px 0 10px', display: 'flex', alignItems: 'center' }}>
             전자서명 <span style={{ flex: 1 }} />

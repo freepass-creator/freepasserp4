@@ -66,8 +66,7 @@ export const FIELD_MAP: FieldMap[] = [
   { field: 'customer_name', label: '성명', from: '계약', atom: 'customer_name' },
   { field: 'customer_phone', label: '전화번호', from: '계약', atom: 'customer_phone' },
   { field: 'customer_address', label: '주소', from: '계약', atom: 'customer_address' },
-  { field: 'customer_birth', label: '생년월일', from: '계약', atom: 'customer_birth' },
-  { field: 'customer_email', label: '이메일', from: '미정' },
+  { field: 'customer_birth', label: '생년월일', from: '본인확인', note: '주민등록번호에서 완료본 생성 시 파생' },
   { field: 'customer_id', label: '주민등록번호', from: '본인확인', note: '계약·세금계산서 발행에 필요한 범위에서 확인' },
   { field: 'driver_license_no', label: '면허번호', from: '본인확인', note: '면허증 첨부자료에서 확인' },
   { field: 'driver_or_biz_no', label: '주민/사업자번호', from: '본인확인' },
@@ -160,6 +159,7 @@ export const FIELD_MAP: FieldMap[] = [
   { field: 'drv3_name', label: '추가운전자3 성함', from: '입력', conditional: '추가운전자3' },
   { field: 'drv3_relation', label: '추가운전자3 관계', from: '입력', conditional: '추가운전자3' },
   { field: 'drv3_phone', label: '추가운전자3 연락처', from: '입력', conditional: '추가운전자3' },
+  { field: 'additional_driver_cost', label: '추가 운전자 요금', from: '정책', atom: 'additional_driver_cost', conditional: '추가운전자' },
 
   /* ── 보험 — 「회사포함」일 때만 채운다 ── */
   { field: 'insurance_condition', label: '보험 가입 조건', from: '파생', note: 'insuranceSide' },
@@ -191,7 +191,6 @@ export const FIELD_MAP: FieldMap[] = [
   { field: 'blackbox_included', label: '블랙박스', from: '미정' },
   { field: 'hipass_included', label: '하이패스', from: '미정' },
   { field: 'smartkey_count', label: '스마트키 개수', from: '미정' },
-  { field: 'spare_key_count', label: '스페어키 개수', from: '미정' },
   { field: 'subkey_count', label: '서브키 개수', from: '미정' },
 
   /* ── 인도·반납 실사 ── */

@@ -64,7 +64,7 @@ const fields: Record<string, string> = {
   deposit_amount: '3,000,000',
   deposit_installment: '일시납',
   annual_mileage: '연 20,000km',
-  driver_age: '만 21세 이상 (가입증명서 예시)',
+  driver_age: '만 26세 이상 · 만 70세 이하',
   driver_scope: '계약자 본인만',
   insurance_condition: '보험료 포함 (월 대여료에 포함)',
   insurer_name: '전국렌터카공제조합',
@@ -118,6 +118,7 @@ const fields: Record<string, string> = {
 if (withDriver) {
   Object.assign(fields, {
     driver_scope: '계약자 본인 · 추가 운전자 3인',
+    additional_driver_cost: '월 50,000원 / 1인',
     drv1_name: '김하늘',
     drv1_relation: '배우자',
     drv1_phone: '010-1111-2222',

@@ -68,6 +68,7 @@ import {
   R,
   SearchInput,
   SectionLabel,
+  SH,
   Textarea,
   ToggleChips,
   won,
@@ -414,9 +415,10 @@ export function EsignSendCenter() {
   const selectDriverAge = (age: number) => {
     const months = Number(draft?.rentMonths) || 0;
     const price = contractRentForAge(draftProduct, months, draftPolicy, age);
+    const label = driverAgeOptions.find((option) => option.age === age)?.label || `만 ${age}세 이상`;
     setDraft((current) => current ? {
       ...current,
-      driverAge: `만 ${age}세 이상`,
+      driverAge: label,
       ...(price ? { rentAmount: String(price.rent), depositAmount: String(price.deposit) } : null),
     } : current);
   };
@@ -557,7 +559,7 @@ export function EsignSendCenter() {
                   position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0,
                   maxHeight: 360, overflowY: 'auto',
                   border: `1px solid ${C.line}`, borderRadius: R,
-                  background: C.bg, boxShadow: '0 8px 24px rgba(15, 23, 42, .14)',
+                  background: C.bg, boxShadow: SH.menu,
                 }}>
                   <div style={{
                     position: 'sticky', top: 0, zIndex: 1,

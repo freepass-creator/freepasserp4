@@ -80,15 +80,30 @@ export function contractVehicleSnapshot(product: EntityRecord): ContractVehicleS
 
 export type DriverAgeOption = { age: number; label: string; surcharge: number };
 
+/** 추가 운전자 요금은 고객과 A4 모두 같은 「1인당 월 금액」으로 읽히게 한다. */
+export function additionalDriverCostLabel(value: unknown): string {
+  const raw = S(value);
+  if (!raw || raw === '0' || /무료|없음|미부과/.test(raw)) return '별도 비용 없음';
+  if (/협의/.test(raw)) return '계약 전 별도 협의';
+  let won = 0;
+  const manwon = raw.match(/([\d.]+)\s*만\s*원?/);
+  if (manwon) won = Math.round(Number(manwon[1]) * 10_000);
+  else won = Number(raw.replace(/[^\d.-]/g, '')) || 0;
+  return won > 0 ? `월 ${won.toLocaleString()}원 / 1인` : raw;
+}
+
 export function contractDriverAgeOptions(policy: EntityRecord | null | undefined): DriverAgeOption[] {
   if (!policy) return [];
   const basic = ageNumber(policy.basic_driver_age);
   const lowered = ageNumber(policy.driver_age_lowering);
+  const upper = ageNumber(policy.driver_age_upper_limit);
   const surcharge = Math.max(0, Number(policy.age_lowering_cost) || 0);
-  const ages = [basic, lowered].filter((age, index, rows) => age >= 18 && age <= 80 && rows.indexOf(age) === index);
+  const ages = [basic, lowered].filter((age, index, rows) => (
+    age >= 21 && age <= 80 && (!upper || age <= upper) && rows.indexOf(age) === index
+  ));
   return ages.sort((a, b) => b - a).map((age) => ({
     age,
-    label: `만 ${age}세 이상`,
+    label: `만 ${age}세 이상${upper >= age && upper <= 100 ? ` · 만 ${upper}세 이하` : ''}`,
     surcharge: basic && age < basic ? surcharge : 0,
   }));
 }

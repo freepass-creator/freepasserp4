@@ -13,6 +13,7 @@ import { FIELD_MAP, type AtomSource } from '@/lib/domain/esign-field-map';
 import { overMileageRateFor } from '@/lib/domain/policy-defaults';
 import { canonProductType } from '@/lib/domain/product';
 import { handoverStartOf, rentalPeriodEnd, rentalPeriodText } from '@/lib/domain/rental-period';
+import { additionalDriverCostLabel } from '@/lib/domain/esign-vehicle-selection';
 
 type Row = Record<string, unknown>;
 
@@ -140,6 +141,7 @@ export function buildTemplateFieldsFromRecords(args: {
     invoice_cycle: text(pol.invoice_cycle) || '월 1회',
     driver_scope: text(contract.driver_scope || pol.driver_scope),
     driver_age: text(pol.basic_driver_age),
+    additional_driver_cost: additionalDriverCostLabel(pol.additional_driver_cost),
     annual_mileage: text(pol.annual_mileage),
     over_mileage_rate: overMileageRate ? `1km당 ${overMileageRate.toLocaleString()}원` : '',
     accident_termination_count: text(pol.accident_termination_count),
@@ -175,7 +177,6 @@ export function buildTemplateFieldsFromRecords(args: {
       : '',
     impound_fee: moneyCell(pol.impound_fee_per_day),
     gps_installed: text(pol.gps_installed),
-    spare_key_count: text(product?.spare_key_count || pol.spare_key_count),
     buyback_price: moneyCell(contract.buyout_price),
     insurance_condition: ins === '포함' ? '회사 포함' : '고객 별도',
   };

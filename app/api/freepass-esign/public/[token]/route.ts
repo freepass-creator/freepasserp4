@@ -8,6 +8,7 @@ import {
   uploadPrivateEsignFile,
   type EsignRecord,
 } from '@/lib/server/freepass-esign';
+import { driverAgeRange, residentAgeOn, residentIdInfo } from '@/lib/domain/esign-resident-id';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -118,6 +119,18 @@ function validateSubmission(payload: EsignRecord, snapshot: EsignRecord) {
   }
   const customerId = S(payload.customer_id).replace(/\D/g, '');
   if (customerId.length !== 13) throw new Error('주민등록번호 13자리를 정확히 입력해 주세요.');
+  const resident = residentIdInfo(customerId);
+  if (!resident) throw new Error('주민등록번호의 생년월일을 확인해 주세요.');
+  const templateFields = record(snapshot.templateFields);
+  const ageRange = driverAgeRange(templateFields.driver_age);
+  const customerAge = residentAgeOn(customerId, templateFields.contract_start);
+  if (customerAge == null) throw new Error('주민등록번호의 생년월일을 확인해 주세요.');
+  if (ageRange.min != null && customerAge < ageRange.min) {
+    throw new Error(`이 계약은 만 ${ageRange.min}세 이상만 운전할 수 있습니다.`);
+  }
+  if (ageRange.max != null && customerAge > ageRange.max) {
+    throw new Error(`이 계약은 만 ${ageRange.max}세 이하만 운전할 수 있습니다.`);
+  }
   if (!S(payload.driver_license_no)) throw new Error('운전면허번호를 입력해 주세요.');
   if (!S(payload.customer_address)) throw new Error('계약서에 기재할 주소를 입력해 주세요.');
   const additionalDriverPolicy = record(snapshot.additionalDriverPolicy);
@@ -262,7 +275,7 @@ export async function POST(
   try {
     const form = await request.formData();
     payload = JSON.parse(S(form.get('payload'))) as EsignRecord;
-    idCard = imageFile(form.get('idCard'), '신분증');
+    idCard = imageFile(form.get('idCard'), '운전면허증');
     selfie = imageFile(form.get('selfie'), '본인 셀카');
     const parsed = validateSubmission(payload, record(session.snapshot));
     additionalDriverLicenses = parsed.additionalDrivers.map((_, index) => imageFile(

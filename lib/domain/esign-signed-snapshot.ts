@@ -1,3 +1,5 @@
+import { residentIdInfo } from '@/lib/domain/esign-resident-id';
+
 export type SignedSnapshotRecord = Record<string, unknown>;
 
 const S = (value: unknown) => String(value ?? '').trim();
@@ -20,6 +22,7 @@ export function snapshotWithPrivateSubmission(
   if (!submission) return snapshot;
   const currentFields = record(snapshot.templateFields) || {};
   const driverLicenseNo = S(submission.driver_license_no);
+  const resident = residentIdInfo(submission.customer_id);
   const additionalDrivers = Array.isArray(submission.additional_drivers)
     ? submission.additional_drivers.map(record).filter((row): row is SignedSnapshotRecord => !!row).slice(0, 3)
     : [];
@@ -28,6 +31,7 @@ export function snapshotWithPrivateSubmission(
     customer_phone: S(submission.customer_phone),
     customer_id: S(submission.customer_id),
     customer_address: S(submission.customer_address),
+    customer_birth: resident?.birthDate || '',
     driver_license_no: driverLicenseNo,
     driver_or_biz_no: driverLicenseNo,
     emergency_contact: [S(submission.emergency_name), S(submission.emergency_phone)]

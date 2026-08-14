@@ -422,8 +422,7 @@
         <div class="k" data-field="label_name">성명</div><div class="v strong span2" data-field="customer_name">○ ○ ○</div>
         <div class="k" data-field="label_id">주민등록번호</div><div class="v" data-field="customer_id">000000-0000000</div>
         <div class="k" data-field="label_driver">운전면허번호</div><div class="v" data-field="driver_or_biz_no">00-00-000000-00</div>
-        <div class="k">연락처</div><div class="v" data-field="customer_phone">010-0000-0000</div>
-        <div class="k">이메일</div><div class="v" data-field="customer_email">name@email.com</div>
+        <div class="k">연락처</div><div class="v span2" data-field="customer_phone">010-0000-0000</div>
         <div class="k">주소</div><div class="v span2" data-field="customer_address">주소를 입력하세요</div>
         <div class="k" data-field="label_emergency">비상 연락처</div><div class="v span2" data-field="emergency_contact">관계 · 010-0000-0000</div>
       </div>
@@ -759,7 +758,7 @@
       <div class="sec-h"><div class="no">08</div><div class="t">추가 운전자</div></div>
       <div class="empty-contract-option" data-empty="driver" style="display:none">해당 없음</div>
       <div data-hide-when-empty="driver">
-        <div class="callout">회사의 사전 승인과 운전면허 유효성·보험 적용 확인이 완료된 사람만 차량을 운전할 수 있습니다.</div>
+        <div class="callout">회사의 사전 승인과 운전면허 유효성·보험 적용 확인이 완료된 사람만 차량을 운전할 수 있습니다. <b>추가 운전자 요금: <span data-field="additional_driver_cost">별도 비용 없음</span></b></div>
         <table class="tbl" data-list="additional_drivers" data-max-slots="3">
           <thead><tr><th class="c" style="width:8%">No</th><th style="width:24%">성명</th><th style="width:18%">관계</th><th style="width:24%">연락처</th><th>운전자격 확인</th></tr></thead>
           <tbody>
@@ -1882,7 +1881,8 @@
 
     /* 운전자 연령 드롭다운 (상품별 옵션) */
     var ageSel=document.getElementById('sel_driver_age');
-    if(ageSel){
+    /* 봉인본의 계약 연령은 발행 스냅샷이 정본이다. 편집용 선택지가 덮어쓰면 안 된다. */
+    if(ageSel && !SEALED){
       var list=p.sub?AGES.sub:AGES.rent, cur=ageSel.value;
       ageSel.innerHTML='';
       list.forEach(function(a){ var op=el('option',null,a); op.value=a; ageSel.appendChild(op); });

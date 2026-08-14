@@ -356,7 +356,7 @@ export async function POST(
       return json({ error: '검토대기 서명과 본인확인 자료가 모두 있어야 승인할 수 있습니다.' }, 409);
     }
     if (!S(submission.idCardPath) || !S(submission.selfiePath)) {
-      return json({ error: '신분증 또는 셀카가 누락되었습니다.' }, 409);
+      return json({ error: '운전면허증 또는 셀카가 누락되었습니다.' }, 409);
     }
     const now = Date.now();
     const consentTimes = submission.consentTimes && typeof submission.consentTimes === 'object'

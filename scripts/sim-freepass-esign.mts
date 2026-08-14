@@ -11,6 +11,7 @@ const read = (path: string) => readFileSync(path, 'utf8');
 const adminRoute = read('app/api/freepass-esign/contracts/[contractCode]/route.ts');
 const publicRoute = read('app/api/freepass-esign/public/[token]/route.ts');
 const publicPage = read('app/sign/[token]/page.tsx');
+const contractTemplate = read('public/contract-template/rental-contract.html');
 const assetRoute = read('app/api/freepass-esign/contracts/[contractCode]/asset/[kind]/route.ts');
 const signedSnapshot = read('lib/domain/esign-signed-snapshot.ts');
 const esignPage = read('app/esign/page.tsx');
@@ -52,6 +53,10 @@ assert.match(publicRoute, /imageFile\(form\.get\('idCard'/);
 assert.match(publicRoute, /imageFile\(form\.get\('selfie'/);
 assert.match(publicRoute, /status: 'pending_review'/);
 assert.match(publicRoute, /driver_license_no: S\(payload\.driver_license_no\)/);
+assert.match(publicRoute, /residentIdInfo\(customerId\)/);
+assert.match(publicRoute, /residentAgeOn\(customerId, templateFields\.contract_start\)/);
+assert.match(publicRoute, /ageRange\.min/);
+assert.match(publicRoute, /ageRange\.max/);
 assert.match(publicRoute, /additionalDriverLicense\$\{index \+ 1\}/);
 assert.match(publicRoute, /additional_drivers: parsed\.additionalDrivers/);
 assert.match(publicRoute, /추가 운전자는 최대/);
@@ -75,6 +80,8 @@ assert.match(publicPage, /연락처 \*/);
 assert.match(publicPage, /if \(!form\.driver_license_no\.trim\(\)\)/);
 assert.match(publicPage, /kind: 'additional-driver'/);
 assert.match(publicPage, /추가 운전자 등록/);
+assert.match(publicPage, /additionalDriverCost/);
+assert.match(publicPage, /추가 운전자 개인정보 제공·면허증 제출/);
 assert.match(publicPage, /운전면허증 사진/);
 assert.match(publicPage, /본인이 직접 입력했으며 개인정보 제공과 면허증 제출에 동의/);
 assert.match(publicPage, /모바일 계약서 전체보기/);
@@ -86,6 +93,7 @@ assert.match(assetRoute, /additional-driver-license-\(\[1-3\]\)/);
 assert.doesNotMatch(publicPage, /면허번호는 별도로 입력하지 않습니다/);
 assert.match(signedSnapshot, /driver_or_biz_no: driverLicenseNo/);
 assert.match(signedSnapshot, /drv\$\{slot\}_name/);
+assert.match(contractTemplate, /if\(ageSel && !SEALED\)/);
 assert.doesNotMatch(publicPage, /contract-sign-public|@\/lib\/domain\/sign/);
 assert.match(esignPage, /return <EsignSendCenter \/>/);
 assert.match(sendCenter, /label: '회사선택'/);
@@ -173,6 +181,13 @@ assert.equal(esignAdditionalDriverLimit({ additional_driver_allowance_count: '�
 assert.equal(esignAdditionalDriverLimit({ additional_driver_allowance_count: 1 }), 1);
 assert.equal(esignAdditionalDriverLimit({ additional_driver_allowance_count: '2인' }), 2);
 assert.equal(esignAdditionalDriverLimit({ additional_driver_allowance_count: '무제한' }), 3);
+assert.equal(validateEsignCenterContract({
+  provider_company_code: 'RP012', policy_code: 'POL1', rent_amount_snapshot: 650000,
+  rent_month_snapshot: 36, payment_timing_snapshot: '선불', driver_age_snapshot: '만 18세 이상',
+  vehicle_name_snapshot: '아반떼', contract_source: 'direct',
+}, { partner_code: 'RP012' }, {
+  provider_company_code: 'RP012', basic_driver_age: 26, driver_age_lowering: '만 18세까지',
+}).some((check) => check.key === 'driver_age' && check.level === 'BLOCK'), true);
 const restoredDriverDraft = emptyEsignDraftInput('direct', '2026-08-14');
 restoredDriverDraft.additionalDriver2Name = '이바다';
 restoredDriverDraft.additionalDriver2Relation = '형제';

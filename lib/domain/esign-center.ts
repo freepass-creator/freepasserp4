@@ -1,5 +1,6 @@
 import type { EntityRecord } from '@/lib/intake/entities';
 import { canIssueContract } from '@/lib/domain/policy-tier';
+import { contractDriverAgeOptions } from '@/lib/domain/esign-vehicle-selection';
 
 export type EsignContractSource = 'erp' | 'excel' | 'direct';
 export type EsignCenterBucket = '발송대기' | '서명중' | '확인필요' | '완료';
@@ -46,6 +47,11 @@ export function validateEsignCenterContract(
   const checks: EsignCheck[] = [];
   const policyIssueGate = policy ? canIssueContract(policy) : null;
   const customerCompletesInLink = esignContractSource(row) === 'direct';
+  let contractDraft: Record<string, unknown> = {};
+  try {
+    const raw = typeof row.contract_draft === 'string' ? JSON.parse(row.contract_draft) : row.contract_draft;
+    if (raw && typeof raw === 'object' && !Array.isArray(raw)) contractDraft = raw as Record<string, unknown>;
+  } catch { /* 깨진 초안은 아래 빈 값 검증으로 처리한다. */ }
   const add = (key: string, label: string, level: EsignCheckLevel, message: string) => {
     checks.push({ key, label, level, message });
   };
@@ -89,20 +95,20 @@ export function validateEsignCenterContract(
     else add('policy_readiness', '정책 완성도', 'PASS', '전자계약 발송 조건 확인');
   }
 
-  if (policy && policyIssueGate?.ok) {
-    const ageText = S(policy.basic_driver_age);
-    const age = Number(ageText.match(/\d{2}/)?.[0] || 0);
-    if (age < 21) add('driver_age', '운전자 연령', 'BLOCK', '만 21세 미만은 보험 운영 대상이 아닙니다');
+  if (policy) {
+    const ageText = S(row.driver_age_snapshot || contractDraft.driver_age || policy.basic_driver_age);
+    if (ageText) {
+      const age = Number(ageText.match(/\d{2}/)?.[0] || 0);
+      if (age < 21) add('driver_age', '운전자 연령', 'BLOCK', '만 21세 미만은 보험 운영 대상이 아닙니다');
+      else if (!contractDriverAgeOptions(policy as EntityRecord).some((option) => option.age === age)) {
+        add('driver_age', '운전자 연령', 'BLOCK', '선택한 운전자 연령이 이 정책의 허용 범위와 다릅니다');
+      } else add('driver_age', '운전자 연령', 'PASS', ageText);
+    }
   }
 
   if (!S(row.vehicle_name_snapshot || row.model_snapshot)) add('vehicle', '차량', 'WARNING', '차량명 확인 필요');
   else add('vehicle', '차량', 'PASS', '차량 확인');
 
-  let contractDraft: Record<string, unknown> = {};
-  try {
-    const raw = typeof row.contract_draft === 'string' ? JSON.parse(row.contract_draft) : row.contract_draft;
-    if (raw && typeof raw === 'object' && !Array.isArray(raw)) contractDraft = raw as Record<string, unknown>;
-  } catch { /* 깨진 초안은 아래 빈 값 검증으로 처리한다. */ }
   const additionalDriverText = S(row.additional_driver || contractDraft.additional_driver);
   const drivers = [1, 2, 3].map((slot) => [
     S(row[`drv${slot}_name`] || contractDraft[`drv${slot}_name`]),
@@ -113,6 +119,10 @@ export function validateEsignCenterContract(
   const inferredDriverCount = drivers.reduce((count, driver, index) => driver.some(Boolean) ? index + 1 : count, 0);
   const additionalDriverCount = Math.max(explicitDriverCount, inferredDriverCount);
   const additionalDriverLimit = esignAdditionalDriverLimit(policy);
+  const additionalDriverCost = S(policy?.additional_driver_cost);
+  if (additionalDriverLimit > 0 && (!additionalDriverCost || /협의/.test(additionalDriverCost))) {
+    add('additional_driver_cost', '추가 운전자 요금', 'BLOCK', '추가 운전자 1인당 월 요금을 숫자 또는 무료로 확정해 주세요');
+  }
   const incompleteSlot = drivers.findIndex((driver, index) => index < additionalDriverCount && !driver.every(Boolean));
   const invalidPhoneSlot = drivers.findIndex((driver, index) => index < additionalDriverCount
     && driver.every(Boolean) && !/^\d{10,11}$/.test(driver[2].replace(/\D/g, '')));

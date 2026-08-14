@@ -115,7 +115,7 @@ export const COMPLIANCE_ITEMS: ComplianceItem[] = [
     requirement: '계약서상 운전자의 면허 효력·범위를 확인해야 한다.',
     level: '필수',
     risk: '사업자 제재 대상이다.',
-    coveredBy: '착한거래 본인확인(신분증 OCR) + 약관 제13조',
+    coveredBy: '운전면허증 제출 + 관리자 원본·유효성 확인 + 약관 제13조',
   },
 
   /* ── 전자서명·전자문서 ── */
@@ -126,7 +126,7 @@ export const COMPLIANCE_ITEMS: ComplianceItem[] = [
     requirement: '누가 서명했는지 확인할 수 있어야 한다.',
     level: '필수',
     risk: '서명의 진정성을 다투면 방어가 어렵다.',
-    coveredBy: '신분증 촬영 + 셀피 대조 + auditTrail.identity',
+    coveredBy: '운전면허증·셀카 제출 + 관리자 대조 + auditTrail.identity',
   },
   {
     key: 'sign_intent',

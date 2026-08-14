@@ -19,6 +19,7 @@ import {
 import { buildTemplateFieldsFromRecords } from '@/lib/domain/esign-template-fields';
 import { pendingConsents } from '@/lib/domain/esign-inputs';
 import { esignAdditionalDriverLimit } from '@/lib/domain/esign-center';
+import { additionalDriverCostLabel } from '@/lib/domain/esign-vehicle-selection';
 
 export type EsignRecord = Record<string, unknown>;
 
@@ -200,7 +201,7 @@ export function buildFreepassIssueSnapshot(args: {
     additionalDriverPolicy: {
       allowed: additionalDriverLimit > 0,
       limit: additionalDriverLimit,
-      cost: S(args.policy?.additional_driver_cost),
+      cost: additionalDriverCostLabel(args.policy?.additional_driver_cost),
       driverScope: S(args.policy?.personal_driver_scope),
     },
     consentGroups,

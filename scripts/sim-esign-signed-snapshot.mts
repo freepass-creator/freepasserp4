@@ -27,6 +27,7 @@ const expected: Record<string, string> = {
   customer_phone: '010-1234-5678',
   customer_id: '900101-1234567',
   customer_address: '서울특별시 샘플구 예시동 00',
+  customer_birth: '1990-01-01',
   driver_license_no: '11-22-345678-90',
   driver_or_biz_no: '11-22-345678-90',
   emergency_contact: '홍가족 · 010-0000-0001',
