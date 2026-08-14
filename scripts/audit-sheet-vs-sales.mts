@@ -49,11 +49,22 @@ const tok = (await new JWT({
   email: sa.client_email, key: sa.private_key,
   scopes: ['https://www.googleapis.com/auth/spreadsheets'], subject: 'pyh@teamjpk.com',
 }).getAccessToken()).token;
+/**
+ * ⚠ 재시도가 없으면 «분당 읽기» 쿼터에 걸린 순간부터 그 공급사들이 통째로 빠지고,
+ *   그게 「판매리스트에만 있는 차 114대」 같은 **가짜 어긋남**으로 보고된다(실측 2026-08-14).
+ *   감사가 거짓말을 하면 감사가 아니다.
+ */
 const api = async (u: string): Promise<Rec> => {
-  const r = await fetch(u, { headers: { Authorization: `Bearer ${tok}` } });
-  const t = await r.text();
-  if (!r.ok) throw new Error(`${r.status} ${t.slice(0, 200)}`);
-  return JSON.parse(t);
+  for (let n = 0; ; n++) {
+    const r = await fetch(u, { headers: { Authorization: `Bearer ${tok}` } });
+    const t = await r.text();
+    if (r.ok) return JSON.parse(t);
+    if ((r.status === 429 || r.status >= 500) && n < 6) {
+      await new Promise((ok) => setTimeout(ok, Math.min(60_000, 5_000 * 2 ** n)));
+      continue;
+    }
+    throw new Error(`${r.status} ${t.slice(0, 200)}`);
+  }
 };
 const SHEETS = 'https://sheets.googleapis.com/v4/spreadsheets';
 
