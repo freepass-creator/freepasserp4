@@ -32,6 +32,7 @@ import { snapToMaster } from '../lib/domain/vehicle-master-match';
 import { buildSalesFormatRequests, columnWidths, rgb, LINK, FONT, SIZE, ITALIC } from '../lib/domain/sales-sheet-format';
 import { productType } from '../lib/domain/sales-sheet-clean';
 import { SALES_ALIAS, SALES_COLUMNS } from '../lib/domain/sales-sheet-mapping';
+import { HANDOVER_TAB, STALE_DAYS, daysSince, readLog } from '../lib/domain/supplier-handover-log';
 import type { MasterEntry } from '../lib/domain/vehicle-master-types';
 import type { EntityRecord } from '../lib/intake/entities';
 
@@ -252,6 +253,8 @@ const rows: string[][] = [];
 const failures: string[] = [];
 /** @제외 로 안 실은 탭 — 몇 줄짜리였는지 같이 남긴다. 「조용히 빠진 차」가 없어야 한다. */
 const skippedTabs: string[] = [];
+/** 규격화시트인데 동기화가 멈춘 곳 — 값이 조용히 낡는 유일한 경로다. */
+const staleSheets: string[] = [];
 const who0 = (p: Rec) => companyAlias(S(p.partner_name || p.name)) || S(p.partner_name || p.name);
 const seenPlate = new Set<string>();
 /**
@@ -270,13 +273,14 @@ for (const [code, p] of [...byCode].sort()) {
   // 후보 주소를 차례로 열어 **표가 나오는 첫 번째**를 쓴다. 하나도 안 나오면 그 공급사는 «모름»이다.
   let read: ReturnType<typeof readSupplierSheet> | null = null;
   let lastErr = '';
+  let readId = '';
   for (const url of (p.sheet_urls || [])) {
     const id = (S(url).match(/\/d\/([\w-]+)/) || [])[1];
     if (!id) continue;
     try {
       const grid = await api(`https://sheets.googleapis.com/v4/spreadsheets/${id}?includeGridData=true&fields=${encodeURIComponent(SHEET_GRID_FIELDS)}`);
       const got = readSupplierSheet(grid as never, p as EntityRecord);
-      if (got.tabs.length) { read = got; break; }
+      if (got.tabs.length) { read = got; readId = id; break; }
       lastErr = '표가 있는 탭이 없다';
     } catch (e) { lastErr = String((e as Error).message).slice(0, 50); }
   }
@@ -295,6 +299,18 @@ for (const [code, p] of [...byCode].sort()) {
     failures.push(`${S(p.partner_name || p.name)}(${code}) 「${title}」 — ${S((f as Rec).reason)}`);
   }
   const who = companyAlias(S(p.partner_name || p.name)) || S(p.partner_name || p.name) || code;
+  /**
+   * ★**규격화시트가 낡았는지 본다.**
+   *   자체시트 공급사(아이카·오플·이안카)는 우리 규격화시트를 거쳐 온다. 그 시트는
+   *   `sync-mirror-sheet` 가 원본에서 채워 주는데, 그게 멈추면 아무도 안 죽고 화면에도
+   *   표시가 없고 **값만 조용히 낡는다.** 이 구조의 유일한 조용한 실패 경로다.
+   *   숨긴 탭 「AI 인계」의 @이력을 보고 오래됐으면 알린다. 이력이 없으면 규격화시트가 아니다.
+   */
+  try {
+    const lg = await api(`https://sheets.googleapis.com/v4/spreadsheets/${readId}/values/${encodeURIComponent(`'${HANDOVER_TAB}'!A1:C400`)}`) as { values?: string[][] };
+    const days = daysSince(readLog((lg.values || []) as string[][]));
+    if (days !== null && days > STALE_DAYS) staleSheets.push(`${who}(${code}) — ${Math.floor(days)}일째 동기화 안 됨`);
+  } catch { /* 「AI 인계」가 없으면 규격화시트가 아니다 — 알릴 것이 없다 */ }
   let n = 0;
   for (const t of read.tabs) {
     // 별도 탭이 따로 싣는 것은 여기서 뺀다 — 같은 차가 두 탭에 서면 사고다.
@@ -367,6 +383,12 @@ for (const [code, p] of [...byCode].sort()) {
   console.log(`  ${who.padEnd(14)}${String(n).padStart(4)}대`);
 }
 console.log(`\n  모두 ${rows.length}대${dupes ? ` · 같은 차가 두 번 나와 건너뛴 줄 ${dupes}` : ''}${skippedByRule ? ` · @제외 규칙으로 건너뛴 탭 ${skippedByRule}` : ''}`);
+if (staleSheets.length) {
+  console.log(`
+  ⚠ 규격화시트가 낡았다 ${staleSheets.length}곳 — 원본과 어긋난 값을 영업자가 보고 있다`);
+  for (const t of staleSheets) console.log(`     ${t}`);
+  console.log('     고치려면 — npx tsx scripts/sync-mirror-sheet.mts --code=… --from=… --to=… --apply');
+}
 if (skippedTabs.length) {
   console.log(`\n  ⏭ @제외로 안 실은 탭 ${skippedTabs.length}`);
   for (const t of skippedTabs) console.log(`     ${t}`);
