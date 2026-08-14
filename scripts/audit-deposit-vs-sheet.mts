@@ -72,6 +72,11 @@ const readFailed: string[] = [];
     if (!id) { readFailed.push(`${c} ${nameOf.get(c)} — 시트 없음(홈피 수집 등)`); continue; }
     try {
       const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${id}?includeGridData=true&fields=${encodeURIComponent(SHEET_GRID_FIELDS)}`, { headers: { Authorization: `Bearer ${shT}` } });
+      /**
+       * ⚠ res.ok 를 안 보면 403/404/5xx 가 「?원문없음」이라는 «데이터 문제»로 둔갑한다.
+       *   읽기 실패와 값 없음은 전혀 다른 일이다 — 섞으면 감사가 거짓말한다.
+       */
+      if (!res.ok) throw new Error(`${res.status} ${(await res.text()).slice(0, 120)}`);
       const read = readSupplierSheet(await res.json(), p as EntityRecord);
       for (const tab of read.tabs) {
         const hdr = (tab.table[0] || []).map(S);
@@ -128,4 +133,18 @@ for (const [sup, xs] of [...bySup].sort((a, b) => b[1].length - a[1].length)) {
   console.log(`\n  ── ${sup} ${xs.length}대`);
   for (const x of (LIST ? xs : xs.slice(0, 5))) console.log(`     ${x}`);
   if (!LIST && xs.length > 5) console.log(`     … 그 밖 ${xs.length - 5}대 (--list 로 전부)`);
+}
+
+/**
+ * ★**감사가 제 일을 못 했으면 초록불을 주지 않는다.**
+ *   ⚠ 단 «시트가 아예 없는 곳»(아이언=홈피 수집)과 «읽다가 실패한 곳»을 가른다.
+ *     앞엣것은 알려진 현실이라 늘 빨간불이 되고, 그러면 아무도 안 본다.
+ *   ⚠ 「어긋난 차」 수로도 실패시키지 않는다 — 기간마다 보증금이 다른 차가 실제로 있다.
+ *     그건 목록으로 보여 주는 것까지가 이 도구의 몫이다.
+ */
+const readError = readFailed.filter((x) => !/시트 없음/.test(x));
+if (readError.length) {
+  console.log('');
+  console.log(`  ⛔ 시트를 읽다 실패한 곳 ${new Set(readError).size} — 대조가 반쪽이라 「맞다」고 말할 수 없다.`);
+  process.exitCode = 1;
 }

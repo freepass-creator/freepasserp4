@@ -73,10 +73,12 @@ const files = ((await get(`https://www.googleapis.com/drive/v3/files?q=${encodeU
 console.log(`■ 제공시트 ${files.length}곳 대조\n`);
 
 let same = 0;
+/** 못 읽은 시트 — 양식이 같은지 «모른다»는 뜻이라 초록불을 줄 수 없다. */
+let unread = 0;
 const report: string[] = [];
 for (const f of files.sort((a, b) => S(a.name).localeCompare(S(b.name), 'ko'))) {
   let got: Awaited<ReturnType<typeof headerOf>>;
-  try { got = await headerOf(S(f.id)); } catch (e) { console.log(`  ✗ ${S(f.name)} — 못 읽음 ${(e as Error).message.slice(0, 50)}`); continue; }
+  try { got = await headerOf(S(f.id)); } catch (e) { console.log(`  ✗ ${S(f.name)} — 못 읽음 ${(e as Error).message.slice(0, 50)}`); unread++; continue; }
   for (const t of got.tabs) {
     const missing = REF.filter((c) => !t.hdr.some((x) => norm(x) === norm(c)));
     const extra = t.hdr.filter((c) => !REF.some((x) => norm(x) === norm(c)));
@@ -94,3 +96,15 @@ for (const f of files.sort((a, b) => S(a.name).localeCompare(S(b.name), 'ko'))) 
   }
 }
 console.log(`\n  기준과 같은 탭 ${same} · 다른 탭 ${report.length}`);
+
+/**
+ * ★**감사가 제 일을 못 했으면 초록불을 주지 않는다.**
+ *   ⚠ 못 읽은 시트는 「양식이 다르다」가 아니라 «모른다»다. 예전엔 그래도 0 으로 끝나서,
+ *     자동화에 걸면 반쪽만 보고도 통과했다.
+ *   ⚠ 「다른 탭」 수로는 실패시키지 않는다 — 손오공 구독재고처럼 원래 규격이 다른 탭이 있어
+ *     늘 빨간불이 되면 아무도 안 본다.
+ */
+if (unread) {
+  console.log(`\n  ⛔ 못 읽은 시트 ${unread}곳 — 양식이 같은지 «모른다». 초록불을 줄 수 없다.`);
+  process.exitCode = 1;
+}

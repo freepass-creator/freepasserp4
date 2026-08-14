@@ -173,14 +173,11 @@ console.log(`   공급사시트에만 있는 차    ${onlySheet}대`);
 console.log(`   판매리스트에만 있는 차    ${onlySale}대`);
 
 if (diffs.length) {
-  const bySup = new Map<string, Diff[]>();
-  for (const d of diffs) (bySup.get(d.sup) || bySup.set(d.sup, []).get(d.sup)!).push(d);
-  console.log(`\n■ 어긋난 자리 — 공급사시트가 정본이다`);
-  for (const [sup, xs] of [...bySup].sort((a, b) => b[1].length - a[1].length)) {
-    console.log(`\n  ── ${sup} ${xs.length}칸 · 차 ${new Set(xs.map((x) => x.plate)).size}대`);
-    for (const d of (LIST ? xs : xs.slice(0, 6))) {
-      console.log(`     ${d.plate.padEnd(10)} ${d.col.padEnd(6)} 시트 ${fmt(d.sheet).padStart(11)}  ≠  표 ${fmt(d.sale).padStart(11)}`);
-    }
-    if (!LIST && xs.length > 6) console.log(`     … 그 밖 ${xs.length - 6}칸 (--list 로 전부)`);
-  }
+  console.log('');
+  console.log('  ⛔ 돈이 어긋났다. 이건 있으면 안 되는 값이다.');
+  process.exitCode = 1;
+} else if (readNote.length) {
+  console.log('');
+  console.log('  ⛔ 못 읽은 시트가 있어 대조가 반쪽이다 — 「맞다」고 말할 수 없다.');
+  process.exitCode = 1;
 }
