@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, Check, Eraser, FileDown, ImagePlus, Plus, Send, Trash2 } from 'lucide-react';
+import { ArrowLeft, Check, Eraser, Eye, FileDown, ImagePlus, Plus, Send, Trash2 } from 'lucide-react';
 import {
   Btn, ButtonLabel, C, DetailRow, Dropzone, fmtPhone, FS, FW, ICON, Input,
   ListGroup, Loading, R,
@@ -87,6 +87,8 @@ type PublicResponse = {
   status?: string;
   rejectReason?: string;
   documentUrl?: string;
+  downloadUrl?: string;
+  previewDocumentUrl?: string;
   supplementItems?: string[];
   progress?: Record<string, number>;
   expiresAt?: number;
@@ -218,6 +220,34 @@ export default function SignPage() {
       });
     return () => { cancelled = true; };
   }, [token]);
+
+  useEffect(() => {
+    if (view?.status !== '검토대기') return;
+    let cancelled = false;
+    const refreshCompletion = async () => {
+      try {
+        const response = await fetch(`/api/freepass-esign/public/${encodeURIComponent(String(token))}`, { cache: 'no-store' });
+        const body = await response.json().catch(() => ({})) as PublicResponse;
+        if (cancelled || !body.status || body.status === '검토대기') return;
+        if (response.ok && body.status === '서명완료') {
+          setView(body);
+          return;
+        }
+        // 보완요청·해지·만료는 이전 사진·서명 상태를 재사용하지 않도록 새 응답으로 다시 시작한다.
+        window.location.reload();
+      } catch { /* 검토대기 화면은 유지하고 다음 주기에 다시 확인한다. */ }
+    };
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === 'visible') void refreshCompletion();
+    }, 5_000);
+    const onVisible = () => { if (document.visibilityState === 'visible') void refreshCompletion(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [token, view?.status]);
 
   const snapshot = view?.snapshot || {};
   const additionalDriverLimit = Math.max(0, Math.min(3, Number(snapshot.additionalDriverPolicy?.limit || 0)));
@@ -463,9 +493,17 @@ export default function SignPage() {
             {view.status === '서명완료' ? '관리자 확인과 문서 봉인이 완료되었습니다.' : '담당자가 운전면허증·셀카·서명을 확인한 뒤 계약을 확정합니다.'}
           </p>
           {view.status === '서명완료' && view.documentUrl ? (
-            <Btn title="서명 완료 계약서 받기" onClick={() => window.open(view.documentUrl, '_blank', 'noreferrer')}>
-              <ButtonLabel icon={<FileDown size={ICON.md} aria-hidden />}>서명 완료 계약서 받기</ButtonLabel>
-            </Btn>
+            <div style={{ display: 'grid', gap: 8 }}>
+              <Btn full title="완료 계약서 보기" variant="ghost" onClick={() => window.open(view.documentUrl, '_blank', 'noreferrer')}>
+                <ButtonLabel icon={<Eye size={ICON.md} aria-hidden />}>완료 계약서 보기</ButtonLabel>
+              </Btn>
+              <Btn full title="완료 계약서 PDF 다운로드" onClick={() => window.open(view.downloadUrl || `${view.documentUrl}?download=1`, '_blank', 'noreferrer')}>
+                <ButtonLabel icon={<FileDown size={ICON.md} aria-hidden />}>PDF 다운로드</ButtonLabel>
+              </Btn>
+              <p style={{ color: C.faint, fontSize: FS.cap, lineHeight: 1.6, margin: '4px 0 0' }}>
+                관리자 확인과 문서 봉인이 끝난 확정본입니다. 보관용으로 내려받아 주세요.
+              </p>
+            </div>
           ) : null}
         </div>
       </div>
@@ -521,8 +559,15 @@ export default function SignPage() {
             <DetailRow label="계약번호" value={S(contract.contract_code) || '—'} />
           </ListGroup>
           <div style={{ marginTop: 14, padding: '10px 12px', border: `1px solid ${C.line}`, borderRadius: R, color: C.mute, fontSize: FS.cap, lineHeight: 1.6 }}>
-            아래 모바일 계약서는 개인정보 입력이나 동의 없이 먼저 볼 수 있습니다. 열람만으로 동의·서명 처리되지 않습니다.
+            계약서와 아래 모바일 화면은 개인정보 입력이나 동의 없이 먼저 볼 수 있습니다. 미리보기만으로 동의·서명 처리되지 않습니다.
           </div>
+          {view.previewDocumentUrl ? (
+            <div style={{ marginTop: 10 }}>
+              <Btn full title="계약서 미리보기" onClick={() => window.open(view.previewDocumentUrl, '_blank', 'noreferrer')}>
+                <ButtonLabel icon={<Eye size={ICON.md} aria-hidden />}>계약서 미리보기</ButtonLabel>
+              </Btn>
+            </div>
+          ) : null}
           <details style={{ marginTop: 10 }}>
             <summary style={{ cursor: 'pointer', fontSize: FS.body, fontWeight: FW.strong, color: C.ink, padding: '10px 0' }}>
               모바일 계약서 전체보기

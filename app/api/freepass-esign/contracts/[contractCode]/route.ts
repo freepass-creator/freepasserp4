@@ -3,11 +3,11 @@ import { BearerTokenError, verifyActiveBearer } from '@/lib/server/firebase-admi
 import {
   FREEPASS_ESIGN_CONSENT_VERSION,
   FREEPASS_ESIGN_TTL_MS,
-  appendFreepassEsignEvent,
   buildFreepassIssueSnapshot,
   canManageFreepassEsign,
   eventRows,
   hashFreepassSignToken,
+  freepassEsignEventUpdates,
   loadFreepassEsignBundle,
   makeFreepassSignToken,
   sessionHashFromContract,
@@ -22,6 +22,9 @@ import { esignIssueBlockers, isIndependentEsignSource } from '@/lib/domain/esign
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
+export const maxDuration = 60;
+
+const APPROVAL_CLAIM_TIMEOUT_MS = 2 * 60 * 1_000;
 
 const PRIVATE_HEADERS = {
   'Cache-Control': 'private, no-store',
@@ -33,6 +36,12 @@ const S = (value: unknown) => String(value ?? '').trim();
 
 function json(body: Record<string, unknown>, status = 200) {
   return NextResponse.json(body, { status, headers: PRIVATE_HEADERS });
+}
+
+function childUpdates(prefix: string, values: EsignRecord): EsignRecord {
+  const updates: EsignRecord = {};
+  for (const [key, value] of Object.entries(values)) updates[`${prefix}/${key}`] = value;
+  return updates;
 }
 
 type ActorResult = Awaited<ReturnType<typeof verifyActiveBearer>>;
@@ -252,7 +261,7 @@ export async function POST(
     const signUrl = `${new URL(request.url).origin}/sign/${token}`;
     const esignId = `fp_${hash.slice(0, 24)}`;
     try {
-      await bundle.db.ref(`v4/esign_sessions/${hash}`).set({
+      const sessionValue: EsignRecord = {
         provider: 'freepass',
         esignId,
         contractCode,
@@ -262,8 +271,8 @@ export async function POST(
         issuedBy: actor.uid,
         revision,
         snapshot,
-      });
-      await bundle.db.ref(`v4/contracts/${contractCode}`).update({
+      };
+      const contractUpdate: EsignRecord = {
         esign_provider: 'freepass',
         esign_id: esignId,
         esign_session_hash: hash,
@@ -286,8 +295,12 @@ export async function POST(
         esign_revision: revision,
         is_draft: '아니오',
         unsigned_pdf_url: `/api/freepass-esign/contracts/${encodeURIComponent(contractCode)}/document?format=pdf&draft=1`,
+      };
+      await bundle.db.ref('v4').update({
+        [`esign_sessions/${hash}`]: sessionValue,
+        ...childUpdates(`contracts/${contractCode}`, contractUpdate),
+        ...freepassEsignEventUpdates(contractCode, 'issued', { actorUid: actor.uid, esignId }),
       });
-      await appendFreepassEsignEvent(contractCode, 'issued', { actorUid: actor.uid, esignId });
     } catch (error) {
       const detail = error instanceof Error ? error.message : 'unknown';
       console.error('[freepass-esign] issue persistence failed', contractCode, detail);
@@ -315,11 +328,13 @@ export async function POST(
       return json({ error: '완료 계약서는 링크를 해지하거나 변경할 수 없습니다.' }, 409);
     }
     const now = Date.now();
-    await bundle.db.ref(`v4/esign_sessions/${hash}`).update({ status: 'revoked', revokedAt: now });
-    await bundle.db.ref(`v4/contracts/${contractCode}`).update({
-      sign_status: '미발송', sign_revoked_at: now, esign_progress: 0,
+    await bundle.db.ref('v4').update({
+      ...childUpdates(`esign_sessions/${hash}`, { status: 'revoked', revokedAt: now }),
+      ...childUpdates(`contracts/${contractCode}`, {
+        sign_status: '미발송', sign_revoked_at: now, esign_progress: 0,
+      }),
+      ...freepassEsignEventUpdates(contractCode, 'revoked', { actorUid: actor.uid }),
     });
-    await appendFreepassEsignEvent(contractCode, 'revoked', { actorUid: actor.uid });
     return json({ ok: true, ...(await stateResponse(contractCode) || {}) });
   }
 
@@ -334,36 +349,74 @@ export async function POST(
     if (!items.length) items.push('identity', 'signature');
     const supplements = Array.isArray(session.supplements) ? [...session.supplements] : [];
     supplements.push({ items, reason, requestedAt: now, requestedBy: actor.uid });
-    await Promise.all([
-      bundle.db.ref(`v4/esign_sessions/${hash}`).update({
+    await bundle.db.ref('v4').update({
+      ...childUpdates(`esign_sessions/${hash}`, {
         status: 'sent', rejectReason: reason, rejectedAt: now, expiresAt: now + FREEPASS_ESIGN_TTL_MS,
         supplementItems: items, supplements, progress: {}, progressWrites: 0,
       }),
-      bundle.db.ref(`v4/esign_private/${contractCode}/${hash}`).update({
+      ...childUpdates(`esign_private/${contractCode}/${hash}`, {
         status: 'rejected', rejectedAt: now, rejectReason: reason, supplementItems: items,
       }),
-      bundle.db.ref(`v4/contracts/${contractCode}`).update({
+      ...childUpdates(`contracts/${contractCode}`, {
         sign_status: '반려', sign_rejected_at: now, sign_reject_reason: reason,
         sign_signed_at: null, esign_progress: 0, esign_supplement_items: items,
       }),
-    ]);
-    await appendFreepassEsignEvent(contractCode, 'rejected', { actorUid: actor.uid, reason, items });
+      ...freepassEsignEventUpdates(contractCode, 'rejected', { actorUid: actor.uid, reason, items }),
+    });
     return json({ ok: true, ...(await stateResponse(contractCode) || {}) });
   }
 
   if (action === 'approve') {
-    if (S(session.status) !== 'pending_review' || !submission || !S(submission.signature)) {
+    const now = Date.now();
+    const staleApproval = S(session.status) === 'approving'
+      && Number(session.approvingAt || 0) > 0
+      && Number(session.approvingAt || 0) <= now - APPROVAL_CLAIM_TIMEOUT_MS;
+    if ((S(session.status) !== 'pending_review' && !staleApproval) || !submission || !S(submission.signature)) {
       return json({ error: '검토대기 서명과 본인확인 자료가 모두 있어야 승인할 수 있습니다.' }, 409);
     }
     if (!S(submission.idCardPath) || !S(submission.selfiePath)) {
       return json({ error: '운전면허증 또는 셀카가 누락되었습니다.' }, 409);
     }
-    const now = Date.now();
+    const approvalClaimId = hashFreepassSignToken(makeFreepassSignToken());
+    const approvalClaim = await bundle.db.ref(`v4/esign_sessions/${hash}`).transaction((current) => {
+      // Admin SDK transaction의 첫 로컬 값이 null인 경우 서버 값으로 재시도하게 한다.
+      if (!current) return current;
+      const currentStatus = S(current.status);
+      const currentStale = currentStatus === 'approving'
+        && Number(current.approvingAt || 0) > 0
+        && Number(current.approvingAt || 0) <= Date.now() - APPROVAL_CLAIM_TIMEOUT_MS;
+      if (currentStatus !== 'pending_review' && !currentStale) return;
+      return {
+        ...current,
+        status: 'approving',
+        approvingAt: now,
+        approvingBy: actor.uid,
+        approvalClaimId,
+      };
+    }, undefined, false);
+    const claimedSession = approvalClaim.snapshot.val() as EsignRecord | null;
+    if (!approvalClaim.committed
+      || !claimedSession
+      || S(claimedSession?.status) !== 'approving'
+      || S(claimedSession?.approvalClaimId) !== approvalClaimId) {
+      return json({ error: '다른 관리자가 이미 승인 처리 중이거나 완료한 계약입니다.' }, 409);
+    }
+    const releaseApprovalClaim = async () => {
+      await bundle.db.ref(`v4/esign_sessions/${hash}`).transaction((current) => {
+        if (!current) return current;
+        if (S(current.status) !== 'approving' || S(current.approvalClaimId) !== approvalClaimId) return;
+        const next = { ...current, status: 'pending_review' };
+        delete next.approvingAt;
+        delete next.approvingBy;
+        delete next.approvalClaimId;
+        return next;
+      }, undefined, false).catch(() => {});
+    };
     const consentTimes = submission.consentTimes && typeof submission.consentTimes === 'object'
       ? submission.consentTimes as EsignRecord
       : {};
     const completedConsents = { ...consentTimes, identity_verified: now, signed: now };
-    const signedSnapshot = snapshotWithPrivateSubmission(session.snapshot as EsignRecord, submission);
+    const signedSnapshot = snapshotWithPrivateSubmission(claimedSession.snapshot as EsignRecord, submission);
     const sealHash = sha256(JSON.stringify({
       snapshot: signedSnapshot,
       submittedAt: submission.submittedAt,
@@ -384,23 +437,24 @@ export async function POST(
         sealHash,
       });
     } catch (error) {
+      await releaseApprovalClaim();
       console.error('[freepass-esign] approval pdf failed', contractCode, error instanceof Error ? error.message : 'unknown');
       return json({ error: '완료 계약서 PDF를 만들지 못해 승인하지 않았습니다. PDF 서버 설정을 확인해 주세요.' }, 503);
     }
-    await Promise.all([
-      bundle.db.ref(`v4/esign_sessions/${hash}`).update({
+    const sessionUpdate: EsignRecord = {
         status: 'signed', approvedAt: now, sealHash, supplementItems: null,
-      }),
-      bundle.db.ref(`v4/esign_private/${contractCode}/${hash}`).update({
+        approvingAt: null, approvingBy: null, approvalClaimId: null,
+    };
+    const privateUpdate: EsignRecord = {
         status: 'approved', approvedAt: now, sealHash,
         pdfPath: archived.pdfPath,
         pdfSha256: archived.documentSha256,
-      }),
-      bundle.db.ref(`v4/esign_verifications/${sealHash}`).set({
+    };
+    const verification: EsignRecord = {
         provider: 'freepass', contractCode, signedAt: now, sealHash,
         documentSha256: archived.documentSha256,
-      }),
-      bundle.db.ref(`v4/contracts/${contractCode}`).update({
+    };
+    const contractUpdate: EsignRecord = {
         sign_status: '서명완료',
         sign_signed_at: now,
         sign_consents: completedConsents,
@@ -416,9 +470,21 @@ export async function POST(
         esign_document_sha256: archived.documentSha256,
         esign_document_url: `/api/freepass-esign/contracts/${encodeURIComponent(contractCode)}/document?format=pdf`,
         signed_pdf_url: `/api/freepass-esign/contracts/${encodeURIComponent(contractCode)}/document?format=pdf`,
-      }),
-    ]);
-    await appendFreepassEsignEvent(contractCode, 'approved', { actorUid: actor.uid, sealHash });
+    };
+    // 고객 완료화면·관리자 상태·PDF 무결성 정보는 하나라도 빠지면 안 되므로 RTDB 한 번의 다중경로 갱신으로 확정한다.
+    try {
+      await bundle.db.ref('v4').update({
+        ...childUpdates(`esign_sessions/${hash}`, sessionUpdate),
+        ...childUpdates(`esign_private/${contractCode}/${hash}`, privateUpdate),
+        [`esign_verifications/${sealHash}`]: verification,
+        ...childUpdates(`contracts/${contractCode}`, contractUpdate),
+        ...freepassEsignEventUpdates(contractCode, 'approved', { actorUid: actor.uid, sealHash }),
+      });
+    } catch (error) {
+      await releaseApprovalClaim();
+      console.error('[freepass-esign] approval persistence failed', contractCode, error instanceof Error ? error.message : 'unknown');
+      return json({ error: '완료 계약서 상태를 안전하게 저장하지 못했습니다. 다시 승인해 주세요.' }, 503);
+    }
     return json({ ok: true, ...(await stateResponse(contractCode) || {}) });
   }
 

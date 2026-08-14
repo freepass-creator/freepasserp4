@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import {
   FREEPASS_ESIGN_REQUIRED_CONSENTS,
-  appendFreepassEsignEvent,
+  freepassEsignEventUpdates,
   loadFreepassEsignBundle,
   loadFreepassSessionByToken,
   sha256,
@@ -9,6 +9,31 @@ import {
   type EsignRecord,
 } from '@/lib/server/freepass-esign';
 import { driverAgeRange, residentAgeOn, residentIdInfo } from '@/lib/domain/esign-resident-id';
+
+const SUBMISSION_CLAIM_TTL_MS = 90_000;
+const PRIVATE_UPLOAD_TIMEOUT_MS = 45_000;
+
+function submissionClaimAvailable(session: EsignRecord, now: number): boolean {
+  const status = S(session.status);
+  if (status === 'sent' || status === 'opened') return true;
+  return status === 'submitting'
+    && Number(session.submittingAt || 0) > 0
+    && Number(session.submittingAt || 0) <= now - SUBMISSION_CLAIM_TTL_MS;
+}
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(() => reject(new Error('private upload timeout')), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -31,8 +56,14 @@ function json(body: Record<string, unknown>, status = 200) {
   return NextResponse.json(body, { status, headers: PUBLIC_HEADERS });
 }
 
+function childUpdates(prefix: string, values: EsignRecord): EsignRecord {
+  const updates: EsignRecord = {};
+  for (const [key, value] of Object.entries(values)) updates[`${prefix}/${key}`] = value;
+  return updates;
+}
+
 function publicStatus(status: string) {
-  if (status === 'pending_review') return '검토대기';
+  if (status === 'pending_review' || status === 'approving') return '검토대기';
   if (status === 'signed') return '서명완료';
   if (status === 'revoked') return '해지';
   return status;
@@ -172,16 +203,18 @@ export async function GET(
   const now = Date.now();
   const status = S(session.status);
   if (status === 'revoked') return json({ status: '해지', error: '해지된 전자계약 링크입니다.' }, 410);
-  if (Number(session.expiresAt || 0) <= now && !['pending_review', 'signed'].includes(status)) {
+  if (Number(session.expiresAt || 0) <= now && !['pending_review', 'approving', 'signed'].includes(status)) {
     return json({ status: '만료', error: '만료된 전자계약 링크입니다.' }, 410);
   }
-  if (status === 'pending_review' || status === 'signed') {
+  if (['pending_review', 'approving', 'signed'].includes(status)) {
+    const documentUrl = status === 'signed'
+      ? `/api/freepass-esign/public/${encodeURIComponent(token)}/document`
+      : '';
     return json({
       ok: true,
       status: publicStatus(status),
-      documentUrl: status === 'signed'
-        ? `/api/freepass-esign/public/${encodeURIComponent(token)}/document`
-        : '',
+      documentUrl,
+      downloadUrl: documentUrl ? `${documentUrl}?download=1` : '',
     });
   }
   if (!['sent', 'opened'].includes(status)) {
@@ -204,11 +237,11 @@ export async function GET(
     }
   }
   if (!Number(session.openedAt || 0)) {
-    await Promise.all([
-      db.ref(`v4/esign_sessions/${hash}`).update({ status: 'opened', openedAt: now }),
-      db.ref(`v4/contracts/${contractCode}`).update({ sign_status: '열람', esign_opened_at: now }),
-      appendFreepassEsignEvent(contractCode, 'opened', requestEvidence(request, hash)),
-    ]);
+    await db.ref('v4').update({
+      ...childUpdates(`esign_sessions/${hash}`, { status: 'opened', openedAt: now }),
+      ...childUpdates(`contracts/${contractCode}`, { sign_status: '열람', esign_opened_at: now }),
+      ...freepassEsignEventUpdates(contractCode, 'opened', requestEvidence(request, hash)),
+    });
   }
   return json({
     ok: true,
@@ -217,6 +250,7 @@ export async function GET(
     rejectReason: S(session.rejectReason),
     supplementItems: Array.isArray(session.supplementItems) ? session.supplementItems.map(S) : [],
     progress: record(session.progress),
+    previewDocumentUrl: `/api/freepass-esign/public/${encodeURIComponent(token)}/document?preview=1`,
     snapshot,
   });
 }
@@ -230,7 +264,7 @@ export async function POST(
   if (!loaded) return json({ error: '유효하지 않은 전자계약 링크입니다.' }, 404);
   const { hash, session } = loaded;
   const now = Date.now();
-  if (!['sent', 'opened'].includes(S(session.status)) || Number(session.expiresAt || 0) <= now) {
+  if (!submissionClaimAvailable(session, now) || Number(session.expiresAt || 0) <= now) {
     return json({ error: '이미 제출했거나 만료된 링크입니다.' }, 409);
   }
 
@@ -252,19 +286,19 @@ export async function POST(
     }
     const progress = { ...savedProgress, [step]: now };
     const writes = Object.keys(progress).filter((key) => PROGRESS_KEYS.has(key)).length;
-    await Promise.all([
+    await bundle.db.ref('v4').update({
       // 상태 필드는 건드리지 않는다. 관리자 해지와 동시에 들어와도 revoked를 opened로 되살리지 않는다.
-      bundle.db.ref(`v4/esign_sessions/${hash}`).update({
+      ...childUpdates(`esign_sessions/${hash}`, {
         [`progress/${step}`]: now,
         progressWrites: writes,
         lastProgressAt: now,
       }),
-      bundle.db.ref(`v4/contracts/${contractCode}`).update({
+      ...childUpdates(`contracts/${contractCode}`, {
         sign_status: '진행중',
         esign_progress: progressCount(progress),
         esign_last_progress_at: now,
       }),
-    ]);
+    });
     return json({ ok: true, progress });
   }
 
@@ -292,11 +326,18 @@ export async function POST(
   if (!bundle) return json({ error: '계약을 찾을 수 없습니다.' }, 404);
 
   const claim = await bundle.db.ref(`v4/esign_sessions/${hash}`).transaction((current) => {
-    if (!current || !['sent', 'opened'].includes(S(current.status))) return;
+    // Admin SDK의 transaction은 로컬 캐시가 비어 있으면 첫 호출에서 null을 줄 수 있다.
+    // null을 그대로 제안해야 서버 충돌 후 실제 값으로 재호출되며, 여기서 undefined를
+    // 반환하면 정상 세션도 즉시 abort되어 제출이 영구적으로 막힌다.
+    if (!current) return current;
+    if (!submissionClaimAvailable(current, now)) return;
     if (Number(current.expiresAt || 0) <= Date.now()) return;
-    return { ...current, status: 'submitting', submittingAt: Date.now() };
+    return { ...current, status: 'submitting', submittingAt: now };
   }, undefined, false);
-  if (!claim.committed) return json({ error: '이미 제출 중이거나 처리된 계약입니다.' }, 409);
+  const claimed = record(claim.snapshot.val());
+  if (!claim.committed || S(claimed.status) !== 'submitting' || Number(claimed.submittingAt || 0) !== now) {
+    return json({ error: '이미 제출 중이거나 처리된 계약입니다.' }, 409);
+  }
 
   try {
     const [idBytes, selfieBytes, additionalDriverLicenseBytes] = await Promise.all([
@@ -305,7 +346,7 @@ export async function POST(
       Promise.all(additionalDriverLicenses.map((file) => file.arrayBuffer().then((value) => new Uint8Array(value)))),
     ]);
     const root = `esign-private/${contractCode}/${hash}`;
-    const [idAsset, selfieAsset, additionalDriverAssets] = await Promise.all([
+    const [idAsset, selfieAsset, additionalDriverAssets] = await withTimeout(Promise.all([
       uploadPrivateEsignFile(`${root}/id-card.${extension(idCard)}`, idBytes, idCard.type),
       uploadPrivateEsignFile(`${root}/selfie.${extension(selfie)}`, selfieBytes, selfie.type),
       Promise.all(additionalDriverLicenses.map((file, index) => uploadPrivateEsignFile(
@@ -313,7 +354,7 @@ export async function POST(
         additionalDriverLicenseBytes[index],
         file.type,
       ))),
-    ]);
+    ]), PRIVATE_UPLOAD_TIMEOUT_MS);
     const claimedSession = record(claim.snapshot.val());
     const progress = record(claimedSession.progress);
     const parsed = validateSubmission(payload, record(claimedSession.snapshot));
@@ -359,12 +400,10 @@ export async function POST(
       selfieSha256: selfieAsset.sha256,
       selfieContentType: selfieAsset.contentType,
     };
-    await Promise.all([
-      bundle.db.ref(`v4/esign_private/${contractCode}/${hash}`).set(submission),
-      bundle.db.ref(`v4/esign_sessions/${hash}`).update({
+    const sessionUpdate: EsignRecord = {
         status: 'pending_review', submittedAt: now, submittingAt: null,
-      }),
-      bundle.db.ref(`v4/contracts/${contractCode}`).update({
+    };
+    const contractUpdate: EsignRecord = {
         customer_name: parsed.name,
         customer_phone: parsed.phone,
         additional_driver: parsed.additionalDrivers.length ? `${parsed.additionalDrivers.length}인 지정` : '없음',
@@ -390,15 +429,25 @@ export async function POST(
           submittedAt: now,
           verifiedAt: 0,
         },
-      }),
-      appendFreepassEsignEvent(contractCode, 'submitted', requestEvidence(request, hash)),
-    ]);
+    };
+    // 고객 제출자료·검토상태·목록표시는 하나의 상태이므로 부분 완료가 생기지 않게 원자적으로 저장한다.
+    await bundle.db.ref('v4').update({
+      [`esign_private/${contractCode}/${hash}`]: submission,
+      ...childUpdates(`esign_sessions/${hash}`, sessionUpdate),
+      ...childUpdates(`contracts/${contractCode}`, contractUpdate),
+      ...freepassEsignEventUpdates(contractCode, 'submitted', requestEvidence(request, hash)),
+    });
     return json({ ok: true, status: '검토대기' });
   } catch (error) {
-    await bundle.db.ref(`v4/esign_sessions/${hash}`).update({
-      status: Number(session.openedAt || 0) ? 'opened' : 'sent',
-      submittingAt: null,
-    }).catch(() => {});
+    await bundle.db.ref(`v4/esign_sessions/${hash}`).transaction((current) => {
+      if (!current) return current;
+      if (S(current.status) !== 'submitting' || Number(current.submittingAt || 0) !== now) return;
+      return {
+        ...current,
+        status: Number(current.openedAt || 0) ? 'opened' : 'sent',
+        submittingAt: null,
+      };
+    }, undefined, false).catch(() => {});
     console.error('[freepass-esign] public submit failed', contractCode, error instanceof Error ? error.message : 'unknown');
     return json({ error: '본인확인 자료와 서명을 안전하게 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.' }, 503);
   }

@@ -32,6 +32,23 @@ type Rec = Record<string, unknown>;
 const S = (v: unknown): string => String(v ?? '').trim();
 const N = (v: unknown): number => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
 
+function driverAgeLabel(value: unknown): string {
+  const text = S(value);
+  if (!text) return '';
+  if (/세|제한|협의/.test(text)) return text;
+  const age = Number(text.match(/\d+/)?.[0] || 0);
+  return age > 0 ? `만 ${age}세 이상` : text;
+}
+
+function additionalDriverAllowanceLabel(value: unknown): string {
+  const text = S(value);
+  if (!text) return '';
+  if (/불가|없음/.test(text) || text === '0') return '없음';
+  if (/명|인/.test(text)) return text;
+  const count = Number(text.match(/\d+/)?.[0] || 0);
+  return count > 0 ? `${count}명까지` : text;
+}
+
 /** 1,234,000 — 계약서·화면 공통 표기. */
 export const wonText = (v: unknown): string => `${N(v).toLocaleString('ko-KR')}원`;
 
@@ -289,11 +306,11 @@ export function buildConsentGroups(
       title: '운전자',
       note: '이 차를 몰 수 있는 사람의 범위입니다. 범위를 벗어난 사람이 몰다 사고가 나면 보험이 적용되지 않습니다.',
       rows: kept([
-        { label: '운전자 연령', value: S(p.basic_driver_age), raw: p.basic_driver_age, article: '제13조' },
+        { label: '운전자 연령', value: driverAgeLabel(p.basic_driver_age), raw: p.basic_driver_age, article: '제13조' },
         { label: '면허 경력요건', value: S(p.license_period), raw: p.license_period },
         { label: '운전자 범위(개인)', value: S(p.personal_driver_scope), raw: p.personal_driver_scope, article: '제13조' },
         { label: '운전자 범위(사업자)', value: S(p.business_driver_scope), raw: p.business_driver_scope, article: '제13조' },
-        { label: '추가운전자 허용', value: S(p.additional_driver_allowance_count), raw: p.additional_driver_allowance_count },
+        { label: '추가운전자 허용', value: additionalDriverAllowanceLabel(p.additional_driver_allowance_count), raw: p.additional_driver_allowance_count },
         /*
          * 「연령 하향 : 만 21세까지 하향 가능」은 **선택지**다 — 영업 단계의 말이지
          * 확정된 계약 내용이 아니다. 계약서에는 위 「운전자 연령」이 이미 굳은 값으로 있다.

@@ -10,6 +10,7 @@ const documentBuilder = readFileSync('lib/server/freepass-esign-document.ts', 'u
 const sharedHtmlBuilder = readFileSync('lib/server/freepass-contract-html.ts', 'utf8');
 const reviewRenderer = readFileSync('scripts/render-freepass-standard-contract-review.mts', 'utf8');
 const documentPreview = readFileSync('app/esign/preview/[contractCode]/page.tsx', 'utf8');
+const publicDocument = readFileSync('app/api/freepass-esign/public/[token]/document/route.ts', 'utf8');
 const contractPane = readFileSync('components/FreepassEsignPanes.tsx', 'utf8');
 const agreementText = readFileSync('lib/domain/esign-agreement-text.ts', 'utf8');
 
@@ -52,6 +53,9 @@ assert.match(sharedHtmlBuilder, /\[data-main-exclude=""\]\{display:none!importan
 assert.match(template, /class="section" data-contract-option="guarantor"/);
 assert.match(reviewRenderer, /buildFreepassContractHtml/);
 assert.match(documentPreview, /document\?draft=1&format=pdf/);
+assert.match(publicDocument, /buildFrozenFreepassHtml/);
+assert.match(publicDocument, /preview/);
+assert.match(publicDocument, /download/);
 assert.match(template, /서면 계약서에 서명·기명날인하거나 전자계약/);
 assert.match(template, /서면 계약은 당사자가 서명·기명날인한 계약서를 각 1부씩 보관/);
 assert.match(template, /임차인 서명·날인/);

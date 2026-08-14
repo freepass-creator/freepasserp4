@@ -194,7 +194,7 @@ export function FreepassEsignLinkPane({
   const linkInactive = sessionStatus === 'revoked' || N(current.sign_revoked_at) > 0 || expired;
   const linkStatusLabel = ({
     sent: '발행', opened: '고객 열람', pending_review: '관리자 검토대기',
-    signed: '완료', revoked: '해지',
+    approving: '승인 처리 중', signed: '완료', revoked: '해지',
   } as Record<string, string>)[sessionStatus] || S(current.sign_status) || '상태 확인 중';
   const tpl = findTemplate(current.standard_template_id) || defaultStandardTemplate();
   const maturity = maturityOf(current) || '반납형';
@@ -434,7 +434,7 @@ export function FreepassEsignProgressPane({
     ? <Badge tone="red" variant="solid">{loadError}</Badge>
     : <CenterNote>③에서 프리패스 전자계약 링크를 먼저 만드세요.</CenterNote>;
   const progress = Math.max(0, Math.min(8, N(active.esign_progress)));
-  const displayStatus = S(active.sign_status) || '발행';
+  const displayStatus = sessionStatus === 'approving' ? '승인 처리 중' : (S(active.sign_status) || '발행');
 
   const run = async (body: Rec, success: string) => {
     if (busy) return;

@@ -223,13 +223,20 @@ export async function appendFreepassEsignEvent(
   type: string,
   details: EsignRecord = {},
 ): Promise<void> {
+  await firebaseAdminDatabase().ref('v4').update(freepassEsignEventUpdates(contractCode, type, details));
+}
+
+/** v4 루트 다중경로 갱신에 계약 상태와 같은 트랜잭션으로 합칠 수 있는 감사이력 조각. */
+export function freepassEsignEventUpdates(
+  contractCode: string,
+  type: string,
+  details: EsignRecord = {},
+): EsignRecord {
   const now = Date.now();
   const key = `${now}_${randomBytes(4).toString('hex')}`;
-  await firebaseAdminDatabase().ref(`v4/esign_events/${contractCode}/${key}`).set({
-    type,
-    at: now,
-    ...details,
-  });
+  return {
+    [`esign_events/${contractCode}/${key}`]: { type, at: now, ...details },
+  };
 }
 
 export function sessionHashFromContract(contract: EsignRecord): string {
