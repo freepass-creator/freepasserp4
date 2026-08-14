@@ -4656,3 +4656,4 @@ Next 개발 서버와 production build가 같은 `.next`를 사용하면 실행 
 - 첫 운영 재검증에서 Chromium 실행 뒤 A4 원본 HTML이 함수 번들에 없어 503이 나는 다음 경계를 확인했다. 전자계약 함수 출력 추적에 `rental-contract.html`과 Pretendard woff2 5종도 함께 포함한다.
 - 자산 포함 뒤 Vercel Node 24가 AWS 런타임 감지 변수를 제공하지 않아 AL2023의 `libnss3` 묶음을 풀지 않는 경계도 확인했다. Vercel Linux에서 패키지 로드 전에 호환 런타임을 명시해 Chromium과 AL2023 공유 라이브러리를 함께 압축 해제한다.
 - `npx tsc --noEmit`, `sim-freepass-esign`, `sim-esign-issue-gate` 8/8, `check:fonts`, `check:tokens`, production build 33/33 PASS.
+- 최종 운영 배포 `dpl_3bgbeTS2YKNCCE1txxxEqfHfkDXk`에서 테스트 계약 `TMP-260814-E2E-5hdp`의 `sign.freepasserp.com` 고객 페이지 200, 공개 API 200, 계약 전 PDF 200 `application/pdf`·241,811 bytes를 확인했다. 같은 배포의 최근 error 로그는 0건이다.
