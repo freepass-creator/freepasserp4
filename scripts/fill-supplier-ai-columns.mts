@@ -151,6 +151,9 @@ let badCcWritten = 0;
 const ccFixList: string[] = [];
 /** 차종코드를 박은 차 / 못 박은 차 — 「절대 안 틀린다」가 실제로 몇 대에 걸렸나. */
 let codeSet = 0, codeUnset = 0;
+/** 코드를 따라 표시칸을 고친 수 — 코드가 정본임이 실제로 지켜진 자리다. */
+let codeFixed = 0;
+const codeFixList: string[] = [];
 /** 왜 못 박았나 — 갈래별로 세야 «마스터에 뭘 넣어야 하는지»가 보인다. */
 const codeWhy = new Map<string, number>();
 const codeByWhy = new Map<string, string[]>();
@@ -334,6 +337,26 @@ for (const t of targets) {
           updates.push({ range: `${a1Tab(title)}!${colA1(ci)}${r + 1}`, values: [['']] });
           continue;
         }
+        /**
+         * ★★**코드가 이긴다 — 표시칸은 코드를 따라간다.**
+         *   차종코드가 박힌 차는 뒤 칸들이 «코드에서 나온 표시값»이다(규격 4장).
+         *   그런데 「빈 칸에만 쓴다」만 지키면 **옛 값이 그대로 남아 코드와 어긋난다** —
+         *   실측 2026-08-15: 코드를 박았는데 G80 DH 가 「가솔린 3.3T」로 남아 있었다
+         *   (코드는 2.5T 를 가리킨다). 그러면 코드를 박은 값어치가 없다.
+         * ⚠ 코드가 있는 차의 **마스터에서 나온 칸만** 덮는다. 색·옵션·차종분류는
+         *   코드에서 나오는 값이 아니라 그대로 둔다.
+         * ⚠ 사람이 값을 고치고 싶으면 **코드를 고쳐야** 한다. 표시칸을 고치면 다시 덮인다 —
+         *   그게 「코드가 정본」의 뜻이다.
+         */
+        if (pick.code && mrow && name in fromCode) {
+          const target = S(fromCode[name]);
+          if (now !== target) {
+            if (now) { codeFixed++; if (codeFixList.length < 20) codeFixList.push(`${t.name} ${plate} ${name} 「${now}」 → 「${target || '(빈칸)'}」`); }
+            else filled++;
+            updates.push({ range: `${a1Tab(title)}!${colA1(ci)}${r + 1}`, values: [[target]] });
+          } else if (now) kept++;
+          continue;
+        }
         if (!v) continue;                 // 채울 것이 없다
         if (now) { kept++; continue; }    // ⚠ 이미 있는 값은 절대 안 덮는다
         filled++;
@@ -362,6 +385,12 @@ console.log(`\n  ${'─'.repeat(58)}`);
 console.log(`  모두 ${totCars}대 · 채울 칸 ${totFilled} · 이미 있어 그대로 둔 칸 ${totKept}`);
 if (codeSet || codeUnset) {
   console.log(`  차종코드   박음 ${codeSet}대 · 못 박음 ${codeUnset}대`);
+}
+if (codeFixed) {
+  console.log(`
+  ▲ 코드를 따라 표시칸을 고친 칸 ${codeFixed} — 코드와 어긋나 있던 값이다`);
+  for (const l of codeFixList) console.log(`     ${l}`);
+  if (codeFixed > codeFixList.length) console.log(`     … 그 밖 ${codeFixed - codeFixList.length}칸`);
 }
 if (badCcWritten) {
   console.log(`\n  ▲ 옛 방식이 잘못 찍어 둔 배기량 ${badCcWritten}칸을 되돌린다 (배터리 용량·구동축 숫자였다)`);
