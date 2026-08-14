@@ -94,7 +94,7 @@ export async function contractParties(co: string, c: EntityRecord): Promise<{
 export function providerNameMap(partners: EntityRecord[]): Record<string, string> {
   const m: Record<string, string> = { ...PROVIDER_NAME_FALLBACKS };
   for (const pt of partners) {
-    const full = String(pt.name || pt.company_name || pt.partner_name || '').trim();
+    const full = partnerCompanyNameRaw(pt);
     if (!full && !pt.alias && !pt.short_name) continue;
     const nm = companyAlias(full, pt.alias || pt.short_name || pt.display_name);
     if (!nm) continue;
@@ -124,12 +124,61 @@ export function companyAlias(raw: unknown, explicit?: unknown): string {
   return s || full;
 }
 
+/**
+ * 계약서 등 정식 회사 선택 UI용 표시명.
+ * 영업 별칭과 달리 렌터카·모빌리티 같은 상호 구성어는 유지하고 법인격 표기만 뺀다.
+ */
+export function companyNameWithoutLegalForm(raw: unknown): string {
+  const full = String(raw ?? '').trim();
+  if (!full) return '';
+  const name = full
+    .replace(/주식회사|\(\s*주\s*\)|㈜|㈐|유한회사|유한책임회사/g, '')
+    .replace(/[ \t]+/g, ' ')
+    .trim();
+  return name || full;
+}
+
+const COMPANY_CODE = /^(?:RP|PT|SUP|CHN|ORG)[-_]?\d+$/i;
+
+/** 파트너 레코드에서 내부 식별코드가 아닌 실제 상호 원문을 고른다. */
+function partnerCompanyNameRaw(partner: EntityRecord | null | undefined): string {
+  if (!partner) return '';
+  const ids = new Set([
+    partner._key,
+    partner.partner_code,
+    partner.company_code,
+    partner.provider_company_code,
+  ].map((value) => String(value ?? '').trim().toUpperCase()).filter(Boolean));
+  for (const value of [
+    partner.partner_name,
+    partner.company_name,
+    partner.corp_name,
+    partner.business_name,
+    partner.legal_name,
+    partner.name,
+    partner.display_name,
+    partner.short_name,
+    partner.alias,
+  ]) {
+    const candidate = String(value ?? '').trim();
+    if (!candidate) continue;
+    if (ids.has(candidate.toUpperCase()) || COMPANY_CODE.test(candidate)) continue;
+    return candidate;
+  }
+  return '';
+}
+
+/** 계약·정책 회사 선택 UI에 표시할 실제 상호. 법인격만 빼고 업종명은 보존한다. */
+export function partnerCompanyDisplayName(partner: EntityRecord | null | undefined): string {
+  return companyNameWithoutLegalForm(partnerCompanyNameRaw(partner));
+}
+
 /** 매물에 provider_name(별칭) 부착 — 검색·칩·엑셀 표기 SSOT. 풀네임은 provider_name_full. */
 export function withProviderNames(products: EntityRecord[], partners: EntityRecord[]): EntityRecord[] {
   const map = providerNameMap(partners);
   const fullByCode: Record<string, string> = {};
   for (const pt of partners) {
-    const full = String(pt.name || pt.company_name || pt.partner_name || '').trim();
+    const full = partnerCompanyNameRaw(pt);
     if (!full) continue;
     for (const k of [pt.partner_code, pt.company_code, pt.provider_company_code, pt._key]) {
       const id = String(k || '').trim();

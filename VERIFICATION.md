@@ -4301,6 +4301,44 @@ Next 개발 서버와 production build가 같은 `.next`를 사용하면 실행 
 - A4 5쪽을 다시 렌더링해 `없음` 한 줄, 구분선, 다음 섹션 간격과 잘림·겹침 0을 육안 확인했다.
 - `sim-esign-document-boundary`, `npx tsc --noEmit`, `npm run check:fonts` PASS.
 - 최종 판정: **PASS**.
+## 2026-08-13 Freepass e-sign operational flow verification
+
+- Verified the end-to-end code path: admin contract center -> direct draft -> supplier policy/template selection -> A4 review -> secure link issue/copy -> customer identity and signature -> admin review/supplement/approval -> completed document retrieval.
+- Hardened admin API authentication: a 401 response refreshes the Firebase ID token once and retries once. Link and progress panes now show load failures instead of incorrectly rendering an empty state.
+- Added expired/revoked link status and a controlled reissue action. The existing API creates a new token only when no active session can be reused.
+- Added optional additional-driver inputs (name, relationship, phone). Resident registration and license-number fields were removed; license evidence remains handled by the customer upload flow.
+- Updated direct-issue source-gate fixtures to require the complete supplier policy, including insurance limits, deductibles, own-damage treatment, roadside support, and payment timing.
+- Regression gates: e-sign simulations PASS, `npx tsc --noEmit` PASS, `npm run check:fonts` PASS, `npm run check:ui` PASS, `npm run check:tokens` PASS, `git diff --check` PASS.
+- Remaining intentional release gates: the standard template is still `sample-v1` with `isSample=true`; guarantor liability requires a separate maximum-amount and guarantor-signature workflow before it can be treated as binding.
+- Verdict: **CONDITIONAL PASS** for the application flow. Production issuance requires explicit promotion of the approved standard template, followed by one authenticated live sample transaction.
+## 2026-08-13 전자계약 입력 순서 조정
+
+- 자동 적용되는 회원사·정책 상세가 직원 입력보다 먼저 길게 노출되던 순서를 수정했다.
+- 작성 순서는 `계약회사·정책·계약서 선택 → 직원 입력 → 선택 입력 → 자동 정책값 확인 → 발송 전 검토`로 고정했다.
+- 자동 정책값은 삭제하지 않고 접힌 확인 영역으로 이동해 고객·차량·금액 입력이 화면 상단에 오도록 했다.
+- `sim-freepass-esign`, `sim-esign-source-gate`, `npx tsc --noEmit`, `check:ui`, `check:fonts` PASS.
+- 최종 판정: **PASS**.
+
+## 2026-08-13 표준계약 보험·초과주행·지연손해금 V19
+
+- 약관 제23조에 계약기간 중 객관적으로 확인된 주행거리의 사용기간 비례 초과분을 즉시 청구할 수 있는 기준을 추가했다. 납부기한 후 상당한 기간의 최고에도 미납하면 계약 해지·차량 반환을 청구할 수 있고, 기납부액은 최종 정산에서 중복 청구하지 않는다.
+- 계약서 부가장비 표시에서 스페어키 1개를 삭제했다.
+- 프리패스 표준 보험값을 자기신체사고 `사망·후유장애 1인당 3천만원 · 부상 1인당 1,500만원`, 무보험차상해 `미가입`으로 변경했다. 실제 발행 전 계약회사 증권과 일치 여부를 확인하는 정책값이다.
+- 지연손해금 표준값을 연 24%로 변경하고 계약서와 고객 확인문구에 `관계 법령상 허용 한도 내`를 함께 표시했다.
+- 금지행위와 보험처리 조문에 「교통사고처리 특례법」 제3조 제2항 단서 각 호의 행위, 무면허·음주·약물운전·도주 등 중대한 법규위반 사고를 반영했다. 해당 법조문 위반만으로 모든 민사상 중대한 과실이 자동 확정된다고 단정하지 않고 실제 사고 경위·과실과 유효한 보험·공제약관에 따라 보상 제한·자기부담금·추가부담금·구상금을 판단하도록 했다.
+- 검증: 약관/인쇄본 동기화 및 계약 회귀 `61/61` PASS, 계약유형·모바일 동의 회귀 `60/60` PASS, source gate PASS, template profile `10/10` PASS, `npx tsc --noEmit` PASS, `npm run check:fonts` PASS.
+- 기존 약관 조판기의 호 번호 탐색 정규식이 문단 시작 `2.`에서 0길이 일치를 반복해 PDF 생성이 멈추는 버그를 수정했다. 약관 행간을 1.50에서 1.43으로 조정하되 글자크기 10px·3장·2단 규격은 유지했다.
+- A4 렌더 결과: 계약서 5쪽 + 약관 3쪽 + 동의·서명 1쪽 = 총 9쪽. 약관 6개 단 모두 `used 964.6~964.8 / available 964.9`, 넘침 0, Pretendard 로딩 정상. 9쪽 전체 PNG를 확인해 잘림·겹침·깨진 표가 없음을 확인했다.
+- 최종 판정: **PASS**.
+## 2026-08-13 전자계약 단일 업무흐름 재설계
+
+- 기존 `발송목록 + 계약 데이터 + 링크 + 진행상황` 4열 구조를 `발송목록 + 계약 처리` 2열 구조로 단순화했다.
+- 계약 처리 화면은 `① 입력 → ② 계약서 확인 → ③ 링크 전달 → ④ 관리자 확인` 단계 상태를 한 줄로 표시하고, 선택한 계약의 현재 단계만 강조한다.
+- 초안 생성 후 계약서 확인·출력·링크 생성·복사·고객 진행·보완 요청·승인·완료 PDF를 같은 세로 흐름 안에서 처리한다.
+- 발행 당시 동결된 상세 계약 내용은 기본 접힘 영역으로 이동해 일상 업무에서 긴 정책·약관 데이터가 핵심 버튼을 밀어내지 않도록 했다.
+- 목록과 계약 처리 화면은 유지하되 모바일에서는 선택 계약 한 화면과 뒤로가기만 제공한다.
+- `sim-freepass-esign`, `sim-esign-source-gate`, `sim-esign-progress` **44/44**, `npx tsc --noEmit`, `check:ui`, `check:fonts`, `check:tokens` PASS.
+- 최종 판정: **PASS**.
 
 ## 2026-08-13 구 승인대기 자가가입 계정 즉시 활성화 보완
 
@@ -4312,3 +4350,151 @@ Next 개발 서버와 production build가 같은 `.next`를 사용하면 실행 
 - 검증: `npx tsc --noEmit` PASS, `scripts/check-self-serve-signup.mts` 20/20 PASS, `npm run check:fonts` PASS, 로컬 `/login` 가입 즉시 이용 안내·콘솔 오류 0 확인, `/api/auth/self-activate` 무토큰/위조토큰 각각 HTTP 401 확인.
 - 실제 캡처 계정 비밀번호가 없어 유효 토큰으로 운영 계정 전환까지는 실행하지 않았다. 최신 코드 배포 후 해당 계정이 다시 로그인하면 자동 전환된다.
 - 최종 판정: **CONDITIONAL PASS** — 구현·로컬 보안 검증은 통과했고, 운영 배포 및 해당 계정의 1회 재로그인 확인이 남았다.
+## 2026-08-13 전자계약 입력 완료 후 무반응 수정
+
+- 저장 버튼이 BLOCK 존재 시 비활성화되어 사용자가 원인을 확인할 수 없던 문제를 수정했다.
+- 버튼은 작업 중이 아닐 때 항상 누를 수 있고, 차단이 남아 있으면 동일 검증기로 정확한 사유를 토스트에 표시한다.
+- 발송 전 검토에서는 PASS 행을 숨기고 실제 확인이 필요한 BLOCK·WARNING만 표시한다.
+- 정책 완성도는 `N개 항목이 비어 있음` 대신 `정책관리에서 확인: 운전자 연령 · 자차 최대 면책금 …`처럼 실제 누락 항목명을 표시한다.
+- 정책 완성도에서 이미 잡힌 운전자 연령은 별도 BLOCK으로 중복 표시하지 않는다.
+- `sim-esign-source-gate`, `sim-freepass-esign`, `npx tsc --noEmit`, `check:ui`, `check:fonts` PASS.
+- 최종 판정: **PASS**.
+
+## 2026-08-14 전자계약 생성·확인·전달 흐름 단순화
+
+- 긴 입력 폼 끝에 있던 계약서 생성 버튼을 제거하고, 오른쪽 `계약서 만들기` 패널을 입력 요약·누락 확인·최종 실행 영역으로 고정했다.
+- 직원 흐름을 `회사 → 계약서 종류 → 계약정책 → ERP 차량 → 기간·연령·대여료 → 고객·특약 → 입력 내용 확인 → A4 계약서 만들기` 순으로 고정했다.
+- 계약서 생성 후 같은 오른쪽 패널에서 `① A4 계약서 확인 → ② 고객 계약 링크 만들기`를 진행하고, 생성 후에는 `링크 복사`를 첫 번째 전달 동작으로 노출했다.
+- 링크 생성이 문자·카카오톡 자동 발송으로 오해되지 않도록 `링크만 생성`되며 직원이 복사해 원하는 방법으로 전달한다는 안내를 명시했다.
+- 검증: `sim-freepass-esign`, `sim-esign-vehicle-selection`, `sim-esign-source-gate`, `npx tsc --noEmit`, `npm run check:fonts`, `git diff --check` PASS.
+- 브라우저 현재 세션은 `/login`이므로 인증 후 실제 회사·차량 데이터를 이용한 1건 생성 화면 확인은 남아 있다.
+- 최종 판정: **PASS** (코드·회귀검증), 인증 세션 실행 확인 대기.
+
+## 2026-08-14 특약·비상연락·추가 운전자 입력 보완
+
+- 손오공 원본 계약 엑셀을 확인했다. 추가 운전자는 `성명/주민번호 · 관계 · 연락처 · 면허번호`, 비상연락은 `비상연락처 · 관계`를 사용한다. 공통 운영 엑셀에도 `비상연락처 · 비상관계 · 운전자범위`가 있다.
+- 고객정보 영역에 비상연락처·비상연락 관계를 바로 노출했다. 비우면 고객이 계약 링크에서 관계/성명·연락처를 입력한다.
+- 추가 운전자는 공급사 정책의 `추가 운전자 허용 수`를 기준으로 동적 등록한다. `+ 추가 운전자`로 A4 표의 최대 3명까지 추가하고 각 행을 삭제할 수 있으며, 중간 행 삭제 시 뒤 운전자를 앞으로 당겨 번호 공백을 만들지 않는다. 명시 인원 수와 실제 1~3번 입력행을 함께 계산해 임시저장 복원값에서도 `정보는 있는데 0명`이 되는 상태를 방지했다.
+- 정책이 `불가`면 추가 버튼을 비활성화하고, `1인/2인/3인`이면 해당 수까지만 등록한다. 정책 허용 수 초과 또는 등록된 각 운전자의 성명·관계·연락처 누락·연락처 형식 오류는 계약서 생성을 차단한다.
+- 주민번호·면허번호는 관리자 화면에 중복 저장하지 않고 면허증 첨부자료·원본 확인으로 유지했다.
+- A4 계약서에는 비상연락을 `관계 · 연락처`로 표시하고, 추가 운전자 1~3명의 성명·관계·연락처를 기존 1~3번 행에 연동했다. 3명 입력 검토본을 실제 PDF로 생성했으며 약관 6개 단 모두 넘침 0, 총 3개 약관 페이지의 A4 높이 정합을 확인했다.
+- 공용 `Textarea`는 rows 수와 폰트·패딩 토큰으로 최소높이를 계산하여 특약 3줄 입력칸이 1줄로 잘리지 않게 했다.
+- 검증: `sim-freepass-esign`, `sim-esign-source-gate`, `sim-esign-agreement` 61/61, `npx tsc --noEmit`, `npm run check:ui`, `npm run check:fonts`, `git diff --check` PASS.
+- 최종 판정: **PASS**.
+
+## 2026-08-13 손오공 빠른 계약 입력 흐름
+
+- 새 계약서 작성 시 손오공(`RP012`)을 기본 계약회사로 선택하고, 연결 정책 중 `렌트 → 보험포함 → 발송가능 → 기본/표준` 순서로 가장 적합한 정책을 자동 선택한다.
+- 일상 입력 화면에서는 계약회사·정책·계약서 선택기를 접고 `고객 정보 → 차량 정보 → 대여·금액 조건`만 먼저 표시한다. 다른 업체나 정책이 필요한 경우에만 설정을 펼쳐 변경한다.
+- 중복되던 `초안만 저장` 버튼을 제거하고 `계약서 만들고 확인` 한 번으로 초안 생성과 A4 확인 화면 이동을 처리한다.
+- 손오공 또는 연결 정책이 실제 데이터에 없으면 선택 영역을 자동으로 펼치고 기존 정책 생성·필수값 확인 게이트를 유지한다. 임의 정책값으로 발송을 우회하지 않는다.
+- 검증: 로컬 `/esign` HTTP 200, `npx tsc --noEmit` PASS, `sim-freepass-esign` PASS, `check:fonts` PASS.
+- 최종 판정: **PASS** — 입력 UX와 코드 흐름은 완료. 실제 고객 링크 발행은 로그인된 관리자 세션과 계약 건별 고객·차량·금액 입력이 필요하다.
+
+## 2026-08-14 전자계약 로컬 서버 즉시 실행
+
+- 장애 확인 당시 포트 4004는 LISTEN 중이 아니었고, 기존 서버 로그의 마지막 `/esign` 요청은 HTTP 200이며 애플리케이션 오류는 없었다. 개발 서버 프로세스 종료가 직접 원인이었다.
+- 숨김 백그라운드 개발 서버를 재기동하고 `/login`, `/esign`, `/esign/sample-contract`, `/esign/preview/[contractCode]`를 사전 컴파일했다.
+- `전자계약_로컬실행.cmd`와 `scripts/start-esign-local.ps1`을 추가했다. 더블클릭 한 번으로 서버 상태 확인, 필요 시 재기동, 전자계약 관련 화면 미리 준비, `/esign` 열기를 수행한다.
+- 응답 측정: 최초 `/esign` 컴파일 요청 3.999초, 준비 후 반복 요청 0.264~0.358초. 샘플 계약서 0.537초, 미리보기 경로 1.050초.
+- 검증: 실행 스크립트 `-NoOpen` 정상 완료, `/esign` HTTP 200, `git diff --check` PASS.
+- 최종 판정: **PASS**.
+
+## 2026-08-13 판매용 4개 탭 → ERP 정본 동기화
+
+- 판매용 워크북의 `상품리스트`, `손오공구독`, `오플구독`, `오플프로모션` 4개 보이는 탭을 한 Grid 스냅샷으로 읽어 공급사+차량번호 정본으로 합쳤다. 오토플러스만 숨김/필터 제외행을 판매 대상에서 제외한다.
+- 일반 탭의 분리형 보증금·대여료와 과거 압축형 가격을 함께 읽고, 손오공 반납형/인수형 및 오토플러스 주행거리별 가격을 구분해 보존한다.
+- `109호5035`는 판매용 시트 `N134`에 `무보증`을 명시해 `Q134 870,000원`과 계약보호 ERP 가격(`48개월`, 보증금 0원)을 일치시켰다.
+- 공개 가격과 private 수수료 합본 때문에 CAS가 거짓 충돌하던 경로를 공개 노드끼리 비교하도록 수정했다. 판매용 정본에 다시 나타난 soft-delete 차량은 신규 중복 대신 기존 톰스톤을 CAS로 복구한다.
+- 운영 실행 `SS-1786613894846-fg211z`: 원본 534행, 숨김/판매제외 16행, 최종 518대, ERP 갱신 518대. 사후 재실행은 `신규 0 · 수정 0 · 동일 518`로 멱등 확인했다.
+- 운영 직접 확인: `RP004_109호5035`는 48개월 대여료 870,000원·보증금 0원, `RP023_63주0598`은 오플프로모션 출처·출고가능으로 복구됐다.
+- 검증: `sim-sales-inventory-sheet` PASS, `sim-sheet-price` 34/34 PASS, `sim-sheet-merge` 170/170 PASS, `sim-sheet-daily-sync` 25/25 PASS, `npx tsc --noEmit` PASS, `npm run check:fonts` PASS. Google Sheets 실제 화면에서 `N134=무보증`, `Q134=870,000`과 레이아웃 이상 없음 확인.
+- 최종 판정: **PASS**.
+
+## 2026-08-14 공급사별 프리패스 공통 전자계약 정책 배정
+
+- 프리패스 공통 렌트·보험료 포함 패키지 `freepass-common-rent-2026-08-14-v1`을 신규 정책 기본값으로 확정했다. 대인 무한, 대물 2억원, 자손 사망·후유장애 3천만원/부상 1,500만원, 무보험차상해 미가입, 자차 수리비 20%·최소 50만원~최대 100만원, 긴급출동 연 5회, 지연손해금 24%, 승계수수료 100만원이 포함된다.
+- 운영 공급사 21곳 각각에 수정 가능한 `FP-{공급사코드}-RENT` 복사본을 v4/policies에 신규 배정했다. 기존 업체별 정책과 상품 policy_code는 덮지 않았다.
+- 반영 직전 dry-run에서 21/21 발송 게이트 PASS·차단 0건을 확인했고, 반영 후 운영 RTDB 재조회에서도 21/21 패키지 식별자와 전자계약 발송 게이트를 다시 검증했다.
+- 전자계약에서는 공급사별 공통 복사본을 기존 정책보다 우선 자동 선택한다. 일상 화면은 고객·차량·대여·금액 입력을 최상단에 두고 계약일은 오늘로 자동 입력하며, 회사·정책·계약서와 예외조건은 접힌 영역에서만 변경한다.
+- 신규 정책 등록은 같은 공통값으로 시작하고 공급사는 다른 값만 수정한다. `sim-freepass-common-policy`, `sim-freepass-esign`, `sim-esign-source-gate`, `sim-esign-contract-kind` 60/60, `npx tsc --noEmit`, `npm run check:fonts`, 로컬 `/esign` HTTP 200, `git diff --check` PASS.
+- 최종 판정: **PASS**.
+
+## 2026-08-14 전자계약·정책 코드 정리
+
+- 화면 컴포넌트에 섞여 있던 공급사별 정책 그룹화와 기본 계약정책 점수 계산을 `lib/domain/esign-policy-selection.ts`로 분리해 독립 검증 가능하게 했다.
+- 정책 목록을 공급사별 Map으로 한 번만 계산해 계약회사 선택지와 정책 드롭다운에서 반복 필터링하지 않도록 했고, 정책 발송 게이트도 렌더마다 중복 계산하지 않도록 정리했다.
+- 계약회사 목록은 문자열 제외 방식 대신 공통 `partnerTypeLabel()` 판정으로 공급사만 표시한다.
+- 운영 정책 배정 스크립트는 이미 최신인 레코드의 `updated_at`을 다시 쓰지 않는다. 운영 dry-run 결과 `신규 0 · 보완 0 · 변경 없음 21 · 차단 0`으로 멱등성을 확인했다.
+- 검증: `sim-esign-policy-selection`, `sim-freepass-common-policy`, `sim-freepass-esign`, `sim-esign-source-gate`, `npx tsc --noEmit`, `npm run check:fonts`, 로컬 `/esign` HTTP 200, `git diff --check` PASS.
+- 최종 판정: **PASS**.
+
+## 2026-08-14 계약 작성 상단 3개 선택 고정
+
+- 새 계약 작성은 자동 회사·정책 선택을 제거하고 `회사선택 → 계약서 종류 → 계약정책` 세 항목을 모두 직접 선택하도록 변경했다.
+- 세 선택값은 접힌 설정이 아니라 입력 화면 맨 위의 3열 공통 폼에 항상 표시한다. 그 아래는 `고객 정보 → 차량 정보 → 대여·금액 조건` 순서다.
+- 회사나 계약서 종류를 바꾸면 기존 정책 선택을 지워 잘못된 조합이 남지 않게 했다. 계약정책은 선택한 회사에 귀속되고, 렌트/구독 및 보험포함/보험별도 조건까지 일치하는 정책만 표시한다.
+- 검증: `sim-esign-policy-selection`, `sim-freepass-esign`, `sim-esign-source-gate`, `sim-esign-contract-kind` 60/60, `npx tsc --noEmit`, 로컬 `/esign` HTTP 200, `git diff --check` PASS.
+- 최종 판정: **PASS**.
+
+## 2026-08-14 ERP 차량검색 기반 계약입력
+
+- 계약 입력에서 차량명·차량번호·옵션·월대여료·보증금 수기 입력을 제거하고 ERP 재고 차량 선택으로 전환했다.
+- 회사·계약서 종류·계약정책을 선택하면 해당 회사 소속이면서 렌트/구독 종류가 일치하고 기간별 가격이 있는 ERP 차량을 먼저 최대 8건 표시한다. 차량번호 또는 모델명을 입력하면 그 회사 차량 안에서 즉시 좁혀진다.
+- 회사나 계약서 종류 또는 정책을 변경하면 기존 차량 선택·검색어·기간·금액을 함께 초기화해 다른 회사 차량이 남지 않게 한다.
+- 차량 선택 시 ERP 상품코드·차량번호·차명·연식·연료·주행거리·옵션을 스냅샷으로 가져오며, 계약 레코드에도 상품코드를 저장한다.
+- 직원은 ERP 차량의 실제 가격표에 존재하는 기간과 정책상 운전자 연령만 선택한다. 기간 선택 시 월 대여료·보증금을 불러오고, 기본연령보다 낮은 연령을 선택하면 정책의 연령하향 월 추가금을 자동 합산한다.
+- 정책의 약정주행거리·납부조건·운전자범위·정비조건은 자동 적용한다. 주민번호·주소·면허증 사진은 기존대로 고객 링크에서 입력·첨부한다.
+- 검증: `sim-esign-vehicle-selection`, `sim-esign-policy-selection`, `sim-freepass-esign`, `sim-esign-source-gate`, `sim-esign-contract-kind` 60/60, `npx tsc --noEmit`, `npm run check:fonts`, 로컬 `/esign` HTTP 200, `git diff --check` PASS.
+- 최종 판정: **PASS**.
+
+## 2026-08-14 전자계약 공급사 표시명 정리
+
+- 회사선택 드롭다운은 내부 공급사 코드 대신 파트너 원본 회사명을 표시한다.
+- `주식회사`, `(주)`, `㈜` 등 법인격 표기만 제거하고 `렌터카`, `모빌리티`처럼 실제 상호를 구성하는 단어는 유지한다. 이름 데이터가 없는 예외 행도 내부 코드를 노출하지 않고 `공급사명 미등록`으로 표시한다.
+- 운영 원본 대조 결과 정규화된 `name`에는 `RP004` 같은 코드가 있고 실제 상호는 `partner_name`에 남은 행이 다수였다. 표시명 해석기는 `partner_name` 등 실제 상호 필드를 우선하며 파트너 식별코드와 `RP/PT/SUP/CHN/ORG` 코드형 문자열을 이름 후보에서 제외한다.
+- 검증: `sim-esign-policy-selection` PASS(앞·뒤 법인격 및 상호 보존 사례), `npx tsc --noEmit` PASS, `npm run check:fonts` PASS. 브라우저는 인증 게이트가 정상 작동해 `/esign`에서 `/login`으로 이동했으며 미인증 상태의 화면 데이터 검증은 수행하지 않았다.
+- 최종 판정: **PASS**.
+
+## 2026-08-14 전자계약 작성 화면 세로 레이아웃 복구
+
+- `CenterNote`의 채움형과 인라인형을 구분했다. `minHeight={0}` 또는 숫자 높이를 지정한 안내는 더 이상 `flex: 1`과 40px 패딩으로 남은 화면을 차지하지 않는다.
+- 계약 기본선택의 상태 뱃지는 가로 전체로 늘어난 얇은 막대가 되지 않도록 내용 너비로 고정했다.
+- 새 계약서를 열자마자 11줄 누락표를 노출하지 않는다. 차량·기간·운전자 연령까지 선택하기 전에는 짧은 안내만 보이고, 검토 단계에 도달한 뒤 실제 누락 항목만 표로 표시한다.
+- 계약정책 드롭다운은 정책명만 표시한다. 보험사·운전자연령·자차조건·발송상태는 선택지 문자열에서 제거하고 선택 후 검토영역에서 확인한다.
+- 검증: `sim-freepass-esign`, `sim-esign-source-gate`, `npx tsc --noEmit`, `npm run check:fonts`, `git diff --check` PASS.
+- 최종 판정: **PASS**.
+
+## 2026-08-14 ERP 기본값 이후 계약값 직접 수정
+
+- ERP 차량 선택은 계약 입력의 기준값으로 유지하되, 선택 직후 `차종·차량번호·옵션`을 실제 계약서 표기에 맞게 직접 수정할 수 있도록 했다.
+- 기간·운전자 연령의 빠른 선택 뒤 `대여기간·월 대여료·보증금`을 최종 계약값으로 직접 수정할 수 있도록 했다. 저장 시 계약 스냅샷에 확정되어 미리보기와 고객 문서에 동일하게 반영된다.
+- 건별 특약은 접힌 부가정보에서 분리해 고객정보 다음에 항상 보이는 입력란으로 배치했다. 입력값은 기존 `contract_draft.special_terms` 문서 경로를 사용하며 빈 값은 A4 계약서에서 `없음`으로 표시된다.
+- 공통 보험·정산값은 공급사 계약정책에서 자동 적용하고, 직접 입력란은 이번 계약에서 달라지는 값만 다룬다.
+- 검증: `sim-freepass-esign`, `sim-esign-source-gate`, `npx tsc --noEmit`, `npm run check:fonts`, `git diff --check` PASS.
+- 최종 판정: **PASS**.
+
+## 2026-08-14 계약회사 차량 검색 선택기
+
+- 회사·계약서 종류·계약정책을 고른 뒤 차량 검색창을 누르면 선택 회사에 귀속된 ERP 차량 전체가 드롭다운 스크롤 목록으로 펼쳐진다.
+- 종전 8대 제한을 제거했고 회사 차량 수와 검색결과 수를 함께 표시한다. 차량번호 일부뿐 아니라 제조사·모델·세부모델·트림 원본값까지 검색해 전체 회사 차량을 실시간 필터링한다.
+- 계약 입력은 판매 카탈로그와 목적이 다르므로 대여료가 아직 없는 회사 재고도 목록에 포함한다. 차량 선택 후 직원이 월 대여료·보증금을 직접 확정할 수 있다.
+- 차량 행에는 차량번호·차종과 최대 3개 기간의 등록 대여료, 연식·유종·주행거리 정보를 함께 표시한다. 차량을 선택하면 목록이 닫히고 계약값이 채워지며, 검색창을 다시 누르면 다른 차량으로 변경할 수 있다.
+- 검증: `sim-esign-vehicle-selection`(회사 격리·번호검색·차종검색·가격 없는 재고·8대 초과 전체표시), `sim-freepass-esign`, `npx tsc --noEmit`, `npm run check:fonts`, `git diff --check` PASS. 브라우저는 `/esign` 접근 시 정상적으로 `/login` 인증 게이트로 이동해 로그인 후 화면의 시각 검증은 수행하지 못했다.
+- 최종 판정: **PASS**.
+
+## 2026-08-14 전자계약 2패널 업무 분리
+
+- 계약목록 오른쪽의 단일 업무 패널을 `계약 진행`과 `계약서·링크` 두 패널로 분리했다.
+- `계약 진행`은 신규 조건 입력, 누락 확인, 고객 제출 진행상황, 본인확인·서명 검토와 관리자 승인만 담당한다.
+- `계약서·링크`는 A4 계약서 확인·출력, 체결 방식 선택, 전자서명 링크 생성·복사·고객 화면 열기·해지만 담당한다. 계약 생성 전에도 같은 위치에 다음 업무 안내를 표시해 패널 역할이 바뀌지 않는다.
+- 데스크톱은 `계약목록 | 계약 진행 | 계약서·링크` 3열이며 목록 폭을 360px로 제한해 두 업무 패널에 공간을 우선 배분한다. 모바일은 두 패널을 세로로 길게 이어 붙이지 않고 하단 전환으로 선택한다.
+- 검증: `sim-freepass-esign`, `npx tsc --noEmit`, `npm run check:fonts`, `git diff --check` PASS.
+- 최종 판정: **PASS**.
+
+## 2026-08-14 고객 계약 링크 표시·복사
+
+- 전자계약 링크 생성 후 고객 URL을 작은 안내문이 아니라 `고객 계약 링크` 읽기 전용 입력칸으로 표시한다. 직원은 전체 URL을 직접 확인·선택할 수 있다.
+- URL 입력칸 바로 옆에 `링크 복사` 버튼을 고정하고, 링크가 없을 때는 복사 동작을 차단한다. 복사 성공·실패 결과는 토스트로 명확히 안내한다.
+- 검증: `sim-freepass-esign`, `npx tsc --noEmit`, `npm run check:ui`, `npm run check:fonts`, `git diff --check` PASS.
+- 최종 판정: **PASS**.

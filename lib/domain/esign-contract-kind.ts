@@ -52,9 +52,9 @@ export const PENALTY_RATES: Record<MaturityKind, PenaltyRate> = {
   반납형: { underOneYear: 0.30, overOneYear: 0.20, source: '확인됨' },
 };
 
-/** 지연손해금 — 「지급명령 송달일까지 / 그 다음 날부터」 2단. 회사마다 다르다. */
+/** 지연손해금 — 계약회사 정책값. 관계 법령상 허용 한도 내에서 적용한다. */
 export type LateInterest = { beforeService: number; afterService: number; source: '확인됨' | '미확정' };
-export const LATE_INTEREST_DEFAULT: LateInterest = { beforeService: 0.05, afterService: 0.12, source: '확인됨' };
+export const LATE_INTEREST_DEFAULT: LateInterest = { beforeService: 0.24, afterService: 0.24, source: '확인됨' };
 
 export const CONTRACT_KINDS: ContractKindSpec[] = [
   {

@@ -32,12 +32,12 @@ export type PolicyDefault = {
  * 계약에 어떤 기본 묶음이 적용됐는지 로그·문서에서 같은 이름으로 추적할 수 있게 한다.
  * 값 변경은 계약 조건 변경이므로 새 버전으로 올리고 검증한 뒤 배포한다.
  */
-export const FREEPASS_POLICY_PACK = 'freepass-standard-2026-08-12-v4' as const;
+export const FREEPASS_POLICY_PACK = 'freepass-common-rent-2026-08-14-v1' as const;
 
 export const POLICY_DEFAULTS: PolicyDefault[] = [
   /* ── 정책 등록 기본값 ── 공급사별 예외만 고쳐 쓰는 프리패스 운영 표준 */
   {
-    key: 'policy_name', label: '정책명', value: '프리패스 표준 렌트 · 보험포함',
+    key: 'policy_name', label: '정책명', value: '프리패스 공통 렌트 · 보험료 포함',
     source: '프리패스 정책등록 기본명 — 공급사별 정책명으로 수정 가능',
   },
   {
@@ -129,12 +129,12 @@ export const POLICY_DEFAULTS: PolicyDefault[] = [
     source: '공급사별 정산 약정 우선 — 기본은 별도 약정으로 명시',
   },
   {
-    key: 'self_body_deductible', label: '자손 면책금', value: null,
-    source: '계약회사별 실제 보험증권에서 확정',
+    key: 'self_body_deductible', label: '자손 면책금', value: '없음',
+    source: '프리패스 공통값 — 계약회사 실제 가입증권과 다르면 공급사 정책에서 수정',
   },
   {
-    key: 'uninsured_deductible', label: '무보험 면책금', value: null,
-    source: '계약회사별 실제 보험증권에서 확정',
+    key: 'uninsured_deductible', label: '무보험 면책금', value: '없음',
+    source: '프리패스 표준은 무보험차상해 미가입이므로 면책금 없음',
   },
   {
     key: 'contract_authoring', label: '계약서 작성', value: '프리패스가 작성',
@@ -156,10 +156,8 @@ export const POLICY_DEFAULTS: PolicyDefault[] = [
 
   /* ── 돈 ── */
   {
-    key: 'late_fee_rate', label: '지연손해금율(0~1)', value: 0.12,
-    // 계약서는 두 단계다 — 신청일~송달 연 5%, 그 다음날부터 연 12%.
-    // 정책 한 칸에는 **손님이 실제로 오래 무는 쪽**을 둔다. 세부 연체 처리 순서는 약관 제24조·제25조가 서술한다.
-    source: '계약서 「… 송달된 날까지 연 5%, 그 다음 날부터 다 갚는 날까지 연 12%」 중 후자',
+    key: 'late_fee_rate', label: '지연손해금율(0~1)', value: 0.24,
+    source: '프리패스 표준값 연 24% — 관계 법령상 허용 한도 내에서 적용',
   },
   {
     key: 'succession_allowed', label: '승계 가능여부', value: '협의',
@@ -211,56 +209,56 @@ export const POLICY_DEFAULTS: PolicyDefault[] = [
     source: '계약서 특약 「GPS 장착(도난 및 연체, 연락 두절시 시동 제어)」',
   },
 
-  /* ── 보험 ── 계약회사별 필수 설정. 실제 연동 정책·가입증권 없이는 임의 기본값을 넣지 않는다. */
+  /* ── 보험 ── 신규 정책은 공통값으로 시작하고, 계약회사별 실제 가입증권과 다른 값만 수정한다. */
   {
-    key: 'insurer_name', label: '가입 보험사·공제조합', value: null,
-    source: '계약회사별 실제 가입증권에서 확정',
+    key: 'insurer_name', label: '가입 보험사·공제조합', value: '계약 체결일 기준 가입 보험사·공제조합(차량별 상이)',
+    source: '프리패스 공통 변동 문구 — 공급사가 고정 가입처를 쓰는 경우 실제 명칭으로 수정',
   },
   {
     key: 'insurance_included', label: '보험 포함 여부', value: '포함(회사 가입)',
     source: '프리패스 표준 렌트계약서 — 월 대여료에 보험료 포함',
   },
   {
-    key: 'injury_compensation_limit', label: '대인배상', value: null,
-    source: '계약회사별 연동 정책·실제 가입증권에서 확정',
+    key: 'injury_compensation_limit', label: '대인배상', value: '무한',
+    source: '프리패스 공통값 — 계약회사 실제 가입증권과 다르면 공급사 정책에서 수정',
   },
   {
-    key: 'property_compensation_limit', label: '대물배상', value: null,
-    source: '계약회사별 연동 정책·실제 가입증권에서 확정',
+    key: 'property_compensation_limit', label: '대물배상', value: '2억원',
+    source: '프리패스 공통값 — 계약회사 실제 가입증권과 다르면 공급사 정책에서 수정',
   },
   {
-    key: 'self_body_accident', label: '자기신체사고', value: null,
-    source: '계약회사별 연동 정책·실제 가입증권에서 확정 (정책별 1,500만원/1억원 등 상이)',
+    key: 'self_body_accident', label: '자기신체사고', value: '사망·후유장애 1인당 3천만원 · 부상 1인당 1,500만원',
+    source: '프리패스 표준값 — 계약회사 실제 가입증권과 일치하는지 확인 후 적용',
   },
   {
-    key: 'uninsured_damage', label: '무보험차상해', value: null,
-    source: '계약회사별 연동 정책·실제 가입증권에서 확정',
+    key: 'uninsured_damage', label: '무보험차상해', value: '미가입',
+    source: '프리패스 표준값 — 계약회사 실제 가입증권과 일치하는지 확인 후 적용',
   },
   {
-    key: 'own_damage_compensation', label: '자차 보상', value: null,
-    source: '계약회사별 실제 가입증권·자차면책 규정에서 확정',
+    key: 'own_damage_compensation', label: '자차 보상', value: '차량가 기준',
+    source: '프리패스 공통값 — 계약회사 실제 자차면책 규정과 다르면 공급사 정책에서 수정',
   },
   {
-    key: 'own_damage_repair_ratio', label: '자차 자기부담률', value: null,
-    source: '계약회사별 실제 가입증권·자차면책 규정에서 확정',
+    key: 'own_damage_repair_ratio', label: '자차 자기부담률', value: '20%',
+    source: '프리패스 공통값 — 수리비의 20%, 계약회사 규정과 다르면 공급사 정책에서 수정',
   },
   /* 자차 면책금 하한·상한도 계약회사별 실제 가입증권·면책 규정으로 확정한다. */
   {
-    key: 'own_damage_min_deductible', label: '자차 최소 면책금', value: null,
-    source: '계약회사별 실제 가입증권·자차면책 규정에서 확정',
+    key: 'own_damage_min_deductible', label: '자차 최소 면책금', value: '50만원',
+    source: '프리패스 공통값 — 수리비의 20%에 적용하는 최소 금액',
   },
   {
-    key: 'own_damage_max_deductible', label: '자차 최대 면책금', value: null,
-    source: '계약회사별 실제 가입증권·자차면책 규정에서 확정',
+    key: 'own_damage_max_deductible', label: '자차 최대 면책금', value: '100만원',
+    source: '프리패스 공통값 — 수리비의 20%에 적용하는 최대 금액',
   },
-  /* 대인·대물 면책금도 임의 기본값 없이 계약회사별 실제 면책 규정으로 확정한다. */
+  /* 대인·대물 면책금은 프리패스 공통값으로 시작하고 회사별 실제 면책 규정으로 수정한다. */
   {
-    key: 'injury_deductible', label: '대인 면책금', value: null,
-    source: '계약회사별 실제 가입증권·면책 규정에서 확정',
+    key: 'injury_deductible', label: '대인 면책금', value: '30만원',
+    source: '프리패스 공통값 — 계약회사 실제 면책 규정과 다르면 공급사 정책에서 수정',
   },
   {
-    key: 'property_deductible', label: '대물 면책금', value: null,
-    source: '계약회사별 실제 가입증권·면책 규정에서 확정',
+    key: 'property_deductible', label: '대물 면책금', value: '30만원',
+    source: '프리패스 공통값 — 계약회사 실제 면책 규정과 다르면 공급사 정책에서 수정',
   },
 
   /* ── 상품 기본 ── */
@@ -269,8 +267,8 @@ export const POLICY_DEFAULTS: PolicyDefault[] = [
     source: '계약서 「정비상품 선택을 안할경우 정비 및 소모품 교체는 고객이 부담」 — 선택 안 함이 기본',
   },
   {
-    key: 'annual_roadside_assistance', label: '긴급출동', value: null,
-    source: '계약회사별 실제 가입증권·긴급출동 특약에서 확정',
+    key: 'annual_roadside_assistance', label: '긴급출동', value: '연 5회',
+    source: '프리패스 공통값 — 계약회사 실제 긴급출동 특약과 다르면 공급사 정책에서 수정',
   },
 
   /* ── 사장님 지정(2026-08-09) ── 계약서에 숫자가 없어 새로 정한 프리패스 표준 */

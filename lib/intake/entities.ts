@@ -244,7 +244,7 @@ export const ENTITIES: Record<string, Entity> = {
       { key: 'injury_deductible', label: '[계약회사별] 대인 면책금', type: 'select', options: ['없음', '30만원', '50만원', '70만원', '100만원'], manual: true, note: '계약회사 보험정책 · 없으면 「없음」을 선택' },
       { key: 'property_compensation_limit', label: '[계약회사별] 대물 보상한도', type: 'select', options: ['2천만원', '1억원', '2억원', '3억원', '5억원', '10억원'], manual: true, note: '계약회사 보험정책 · 초과분은 손님 부담' },
       { key: 'property_deductible', label: '[계약회사별] 대물 면책금', type: 'select', options: ['없음', '30만원', '50만원', '70만원', '100만원'], manual: true, note: '계약회사 보험정책 · 없으면 「없음」을 선택' },
-      { key: 'self_body_accident', label: '[계약회사별] 자손 보상한도', type: 'select', options: ['미가입', '1,500만원', '3천만원', '5천만원', '1억원', '사망·후유장해 1억원 / 부상 5천만원'], manual: true, note: '계약회사 보험정책 · 미가입도 명시' },
+      { key: 'self_body_accident', label: '[계약회사별] 자손 보상한도', type: 'select', options: ['미가입', '1,500만원', '3천만원', '5천만원', '1억원', '사망·후유장애 1인당 3천만원 · 부상 1인당 1,500만원', '사망·후유장해 1억원 / 부상 5천만원'], manual: true, note: '계약회사 보험정책 · 미가입도 명시' },
       { key: 'self_body_deductible', label: '[계약회사별] 자손 면책금', type: 'select', options: ['없음', '30만원', '50만원', '70만원', '100만원'], manual: true, note: '계약회사 보험정책 · 없으면 「없음」을 선택' },
       { key: 'uninsured_damage', label: '[계약회사별] 무보험 보상한도', type: 'select', options: ['미가입', '2억원', '5억원'], manual: true, note: '계약회사 보험정책 · 상대가 무보험일 때' },
       { key: 'uninsured_deductible', label: '[계약회사별] 무보험 면책금', type: 'select', options: ['없음', '30만원', '50만원', '70만원', '100만원'], manual: true, note: '계약회사 보험정책 · 없으면 「없음」을 선택' },
@@ -268,7 +268,7 @@ export const ENTITIES: Record<string, Entity> = {
         note: '「프리패스가 작성」이라야 전자계약 발송',
       },
       // 돈 — 날짜·횟수는 range 로 오입력을 막는다. 잘못 들어가면 정산액이 통째로 틀어진다.
-      { key: 'late_fee_rate', label: '지연손해금율(0~1)', type: 'number', range: [0, 0.2], manual: true, note: '약관 제25조 · 연 12% → 0.12' },
+      { key: 'late_fee_rate', label: '지연손해금율(0~1)', type: 'number', range: [0, 0.24], manual: true, note: '약관 제25조 · 연 24% → 0.24 (관계 법령상 허용 한도 내)' },
       { key: 'deposit_return_days', label: '보증금 반환기한(일)', type: 'number', manual: true, note: '약관 제6조 · 반납 후 N일 이내' },
       { key: 'impound_keep_days', label: '물품 보관기간(일)', type: 'number', manual: true, note: '약관 제22조 · 이후 관계 법령이 허용하는 방법으로 처리' },
       { key: 'impound_fee', label: '물품 보관료(일)', type: 'number', manual: true, note: '약관 제22조 · 실제 보관비용 범위' },

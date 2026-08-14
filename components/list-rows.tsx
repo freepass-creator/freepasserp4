@@ -16,6 +16,7 @@ import {
   UNKNOWN_VEHICLE_STATUS,
   canonProductType,
   normalizeVehicleDisplayStatus,
+  priceList,
 } from '@/lib/domain/product';
 import { contractVehicleLabel, productVehicleLabel } from '@/lib/domain/vehicle-label';
 import {
@@ -271,6 +272,34 @@ export const InventoryListRow = memo(function InventoryListRow({
   );
 });
 
+/** 전자계약 차량 선택기 — 차량 신원과 계약 가능한 기간별 대여료를 한 행에서 확인한다. */
+export const EsignVehicleSelectRow = memo(function EsignVehicleSelectRow({
+  p, selected, onClick,
+}: {
+  p: EntityRecord;
+  selected?: boolean;
+  onClick: (p: EntityRecord) => void;
+}) {
+  const prices = priceList(p);
+  const priceText = prices.length
+    ? prices.slice(0, 3).map((price) => `${price.m}개월 ${won(price.rent)}`).join(' / ')
+    : '대여료 직접 입력';
+  const plate = listText(p.car_number) || '차량번호 미정';
+  const vehicle = productVehicleLabel(p) || '차종 미확정';
+  const spec = joinMetaText([p.year, p.fuel_type, p.mileage ? `${Number(p.mileage).toLocaleString('ko-KR')}km` : '']);
+  return (
+    <FeedListRow
+      selected={selected}
+      onClick={() => onClick(p)}
+      thumb={<FeedThumbIcon icon={selected ? CircleCheck : Car} tone={selected ? 'green' : 'gray'} title={selected ? '선택됨' : '차량 선택'} decorative />}
+      lines={[
+        <FeedTitle key="t">{plate} · {vehicle}</FeedTitle>,
+        <FeedSub key="s">{dotJoin([priceText, spec])}</FeedSub>,
+      ]}
+    />
+  );
+});
+
 /** 재고 목록 맨 위 — 목록행과 동일 아이콘 슬롯(+), 옆에 상품등록 + 모바일 보조문구. */
 export function InventoryCreateRow({ onClick }: { onClick: () => void }) {
   return (
@@ -302,9 +331,9 @@ export function ContractCreateRow({ onClick }: { onClick: () => void }) {
 export function EsignCreateRow({ selected, onClick }: { selected?: boolean; onClick: () => void }) {
   return (
     <CreateListRow
-      label="계약서 등록"
-      hint="여기를 눌러 새 전자계약을 작성해주세요"
-      ariaLabel="계약서 등록"
+      label="새 계약서 만들기"
+      hint="고객·차량·금액을 입력하고 계약 링크를 만듭니다"
+      ariaLabel="새 계약서 만들기"
       selected={selected}
       onClick={onClick}
     />

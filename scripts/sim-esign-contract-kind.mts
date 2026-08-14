@@ -121,10 +121,12 @@ check('계약서 구성과 같은 순서',
 const rowsOf = (k: string) => groups.find((g) => g.key === k)!.rows.map((x) => `${x.label}=${x.value}`).join(' / ');
 // 실제 계약서에 있는데 빠지기 쉬운 것들 — 빠지면 손님이 모르고 서명한다.
 check('연체 시 시동제어가 실린다', rowsOf('payment').includes('시동제어'));
-check('지연손해금이 실린다', rowsOf('payment').includes('연 12%'));
+check('지연손해금 연 24%와 법정 한도 문구가 실린다',
+  rowsOf('payment').includes('연 24%') && rowsOf('payment').includes('관계 법령상 허용 한도 내'));
 check('보증금 반환 조건이 실린다', rowsOf('payment').includes('1주일'));
 check('운전자 범위가 실린다', groups.find((g) => g.key === 'driver')!.rows.some((x) => x.label.startsWith('운전자 범위')));
-check('중과실 12대가 실린다', rowsOf('accident').includes('중앙선 침범'));
+check('중대한 법규위반 사고 기준이 실린다',
+  rowsOf('accident').includes('교통사고처리 특례법') && rowsOf('accident').includes('보험·공제약관'));
 // 문구가 아니라 **뜻**을 본다 — 정책 원자로 옮기면서 「3회 누적」이
 // 「과실 50% 이상 3회 → 계약 해지」로 바뀌었다(2026-08-09). 횟수와 결과가 다 실리면 된다.
 check('사고 다발 해지가 실린다',

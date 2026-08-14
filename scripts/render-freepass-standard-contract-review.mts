@@ -70,8 +70,8 @@ const fields: Record<string, string> = {
   insurer_name: '전국렌터카공제조합',
   coverage_liability_person: '무한',
   coverage_liability_property: '1억원',
-  coverage_self_injury: '사망·후유장애 1인당 1억원 / 부상 1인당 1,500만원',
-  coverage_uninsured: '1인당 최고 2억원',
+  coverage_self_injury: '사망·후유장애 1인당 3천만원 · 부상 1인당 1,500만원',
+  coverage_uninsured: '미가입',
   coverage_own_damage: '시세 기준',
   self_damage_coverage: '시세 기준',
   annual_roadside_assistance: '기본 10km (가입증명서 예시)',
@@ -97,7 +97,7 @@ const fields: Record<string, string> = {
   early_termination_rate_y2: '20',
   succession_allowed: '협의',
   succession_fee: '1,000,000',
-  late_fee_rate: '연 12%',
+  late_fee_rate: '연 24%',
   deposit_return_term: '반납·정산 후 7일 이내',
   engine_control_overdue_days: '3',
   auto_terminate_overdue_days: '10',
@@ -109,7 +109,6 @@ const fields: Record<string, string> = {
   impound_keep_days: '7',
   impound_keep_term: '반환 통지 후 7일',
   impound_fee: '1일 10,000원',
-  spare_key_count: '1',
   gps_installed: '장착',
   buyback_option: '만기 반납 · 인수 별도 협의',
   buyback_price: '만기 협의',
@@ -118,10 +117,16 @@ const fields: Record<string, string> = {
 
 if (withDriver) {
   Object.assign(fields, {
-    driver_scope: '계약자 본인 · 추가 운전자 1인',
+    driver_scope: '계약자 본인 · 추가 운전자 3인',
     drv1_name: '김하늘',
     drv1_relation: '배우자',
     drv1_phone: '010-1111-2222',
+    drv2_name: '이바다',
+    drv2_relation: '형제',
+    drv2_phone: '010-2222-3333',
+    drv3_name: '박푸름',
+    drv3_relation: '직계가족',
+    drv3_phone: '010-3333-4444',
   });
 }
 
@@ -193,7 +198,7 @@ try {
       'early_termination_rate_y2', 'succession_allowed', 'succession_fee', 'engine_control_overdue_days', 'auto_terminate_overdue_days',
       'accident_termination_count', 'deposit_return_term', 'late_fee_rate', 'buyback_option',
       'buyback_price', 'payment_cycle', 'payment_timing', 'payment_method', 'auto_debit_date', 'invoice_type', 'invoice_cycle',
-      'impound_keep_term', 'spare_key_count',
+      'impound_keep_term',
     ];
     for (const field of variableFields) {
       document.querySelectorAll(`[data-field="${field}"]`).forEach((el) => el.classList.add('fp-review-variable'));

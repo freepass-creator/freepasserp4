@@ -270,7 +270,12 @@ export const ALL_INPUTS: InputRequest[] = [
 export function isFilled(contract: EntityRecord, key: string): boolean {
   const c = contract as Record<string, unknown>;
   const saved = (c.esign_inputs || {}) as Record<string, unknown>;
-  return !!S(saved[key]) || !!S(c[key]);
+  const alias = ({
+    add_driver_name: 'drv1_name',
+    add_driver_relation: 'drv1_relation',
+    add_driver_phone: 'drv1_phone',
+  } as Record<string, string>)[key];
+  return !!S(saved[key]) || !!S(c[key]) || !!S(alias ? c[alias] : '');
 }
 
 /**
@@ -285,7 +290,7 @@ export function customerInputsFor(contract: EntityRecord): InputRequest[] {
   const c = contract as Record<string, unknown>;
   const saved = (c.esign_inputs || {}) as Record<string, unknown>;
   const isBiz = !!S(c.customer_biz_type) || !!S(saved.biz_number) || S(c.customer_type) === '개인사업자';
-  const hasAddDriver = S(saved.additional_driver) === '1인 지정';
+  const hasAddDriver = Number(S(saved.additional_driver || c.additional_driver).match(/\d+/)?.[0] || 0) > 0;
 
   const pool = [
     ...CUSTOMER_INPUTS,

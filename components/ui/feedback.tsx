@@ -211,10 +211,11 @@ export function CenterNote({
   children: React.ReactNode;
   minHeight?: string | number;
 }) {
+  const fillPane = minHeight === '100%';
   return (
     <div style={{
       minHeight,
-      flex: 1,
+      flex: fillPane ? 1 : '0 0 auto',
       width: '100%',
       display: 'flex',
       alignItems: 'center',
@@ -222,7 +223,7 @@ export function CenterNote({
       color: C.faint,
       fontSize: FS.body,
       textAlign: 'center',
-      padding: '40px 16px',
+      padding: fillPane ? '40px 16px' : '12px 16px',
       boxSizing: 'border-box',
     }}>
       {children}

@@ -12,7 +12,7 @@ import {
 const filled: Record<string, unknown> = {
   policy_layer: 'contract',
   over_mileage_rate_per_km: 200,
-  late_fee_rate: '연 12%',
+  late_fee_rate: '연 24%',
   deposit_return_days: 7,
   claim_basis: '잔여 대여료',
   engine_control_overdue_days: 3,

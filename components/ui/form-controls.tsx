@@ -46,7 +46,7 @@ export function Select({ value, onChange, options, groups, placeholder, ariaLabe
   );
 }
 
-export function Input({ value, onChange, placeholder, ariaLabel, size = 'md', type = 'text', inputMode, width, full, style, onEnter, onKeyDown, onFocus, onBlur, autoFocus, disabled, noAutofill, enterKeyHint }: {
+export function Input({ value, onChange, placeholder, ariaLabel, size = 'md', type = 'text', inputMode, width, full, style, onEnter, onKeyDown, onFocus, onBlur, autoFocus, disabled, readOnly, noAutofill, enterKeyHint }: {
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
@@ -63,20 +63,21 @@ export function Input({ value, onChange, placeholder, ariaLabel, size = 'md', ty
   onBlur?: () => void;
   autoFocus?: boolean;
   disabled?: boolean;
+  readOnly?: boolean;
   /** 자동완성 차단 — 브라우저·비밀번호관리자가 키보드 위에 열쇠·카드·주소 툴바를 띄우는 것 방지(채팅 등 자유입력). */
   noAutofill?: boolean;
   /** 모바일 키보드 확인키 라벨(채팅=send). */
   enterKeyHint?: 'enter' | 'done' | 'go' | 'next' | 'previous' | 'search' | 'send';
 }) {
   const mobile = useIsMobile();
-  return <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} aria-label={ariaLabel || placeholder} type={type} inputMode={inputMode} autoFocus={autoFocus} disabled={disabled}
+  return <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} aria-label={ariaLabel || placeholder} type={type} inputMode={inputMode} autoFocus={autoFocus} disabled={disabled} readOnly={readOnly}
     onFocus={onFocus} onBlur={onBlur} enterKeyHint={enterKeyHint}
     {...(noAutofill ? {
       autoComplete: 'off', autoCorrect: 'off', autoCapitalize: 'none', spellCheck: false,
       name: 'fp-freetext', 'data-lpignore': 'true', 'data-1p-ignore': '', 'data-form-type': 'other',
     } : null)}
     onKeyDown={(e) => { onKeyDown?.(e); if (onEnter && e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); onEnter(); } }}
-    style={{ height: ctrlH(mobile, size), boxSizing: 'border-box', padding: `0 ${ctrlPadX(mobile, size)}px`, border: `1px solid ${C.line}`, borderRadius: R, fontSize: ctrlInputFs(mobile, size), background: disabled ? C.head : C.taupeBg, color: C.ink, opacity: disabled ? 0.7 : 1, cursor: disabled ? 'default' : undefined, ...(full ? { width: '100%' } : width ? { width } : {}), ...style }} />;
+    style={{ height: ctrlH(mobile, size), boxSizing: 'border-box', padding: `0 ${ctrlPadX(mobile, size)}px`, border: `1px solid ${C.line}`, borderRadius: R, fontSize: ctrlInputFs(mobile, size), background: disabled || readOnly ? C.head : C.taupeBg, color: C.ink, opacity: disabled ? 0.7 : 1, cursor: disabled ? 'default' : undefined, ...(full ? { width: '100%' } : width ? { width } : {}), ...style }} />;
 }
 
 export function Textarea({ value, onChange, onBlur, placeholder, ariaLabel, size = 'md', rows = 3, full, style, disabled, autoFocus }: {
@@ -93,8 +94,11 @@ export function Textarea({ value, onChange, onBlur, placeholder, ariaLabel, size
   autoFocus?: boolean;
 }) {
   const mobile = useIsMobile();
+  const inputFontSize = ctrlInputFs(mobile, size);
+  const paddingY = mobile ? 10 : 8;
+  const minHeight = Math.ceil(inputFontSize * 1.5 * Math.max(rows, 1) + paddingY * 2 + 2);
   return <textarea value={value} onChange={(e) => onChange(e.target.value)} onBlur={onBlur} placeholder={placeholder} aria-label={ariaLabel || placeholder} rows={rows} disabled={disabled} autoFocus={autoFocus}
-    style={{ boxSizing: 'border-box', padding: mobile ? '10px 12px' : '8px 10px', border: `1px solid ${C.line}`, borderRadius: R, fontSize: ctrlInputFs(mobile, size), lineHeight: 1.5, fontFamily: 'inherit', background: disabled ? C.head : C.taupeBg, color: C.ink, opacity: disabled ? 0.7 : 1, resize: 'vertical', ...(full ? { width: '100%' } : {}), ...style }} />;
+    style={{ boxSizing: 'border-box', minHeight, padding: mobile ? '10px 12px' : '8px 10px', border: `1px solid ${C.line}`, borderRadius: R, fontSize: inputFontSize, lineHeight: 1.5, fontFamily: 'inherit', background: disabled ? C.head : C.taupeBg, color: C.ink, opacity: disabled ? 0.7 : 1, resize: 'vertical', ...(full ? { width: '100%' } : {}), ...style }} />;
 }
 
 export function SearchInput({ value, onChange, placeholder = '검색', width, full, style, autoFocus }: {

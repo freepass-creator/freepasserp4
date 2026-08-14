@@ -469,7 +469,7 @@ export default function SignPage() {
             <label style={label}>연락처 *<Input value={form.customer_phone} onChange={(value) => set('customer_phone', fmtPhone(value))} inputMode="tel" full style={inputStyle} /></label>
             <label style={label}>주민등록번호 *<Input value={form.customer_id} onChange={(value) => set('customer_id', value)} inputMode="numeric" placeholder="계약·매출증빙용" full style={inputStyle} /></label>
             <label style={label}>주소 *<Input value={form.customer_address} onChange={(value) => set('customer_address', value)} full style={inputStyle} /></label>
-            <label style={label}>비상연락 성명<Input value={form.emergency_name} onChange={(value) => set('emergency_name', value)} full style={inputStyle} /></label>
+            <label style={label}>비상연락 관계/성명<Input value={form.emergency_name} onChange={(value) => set('emergency_name', value)} placeholder="예: 모 홍길순" full style={inputStyle} /></label>
             <label style={label}>비상연락처<Input value={form.emergency_phone} onChange={(value) => set('emergency_phone', fmtPhone(value))} inputMode="tel" full style={inputStyle} /></label>
           </div>
           <div style={{ fontSize: FS.title, fontWeight: FW.title, margin: '20px 0 8px' }}>본인확인 자료</div>

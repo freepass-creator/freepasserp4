@@ -1,5 +1,5 @@
 /**
- * 프리패스 장기렌트 약관 V18 검증.
+ * 프리패스 장기렌트 약관 V19 검증.
  * 공정위 자동차대여 표준약관의 28개 조문 흐름을 장기렌트에 맞게 재구성했는지,
  * 인쇄본·전자계약 전송본·중요조문 강조가 같은 정본을 보는지 확인한다.
  * 실행: npx tsx scripts/sim-esign-agreement.mts
@@ -52,7 +52,7 @@ const expectedTitles = [
   '지연손해금 및 계약종료 정산', '만기 차량 인수', '계약의 세칙·통지 및 계약서 교부',
   '분쟁해결 및 관할법원',
 ];
-check('V18 버전을 사용한다', AGREEMENT_VERSION === 'rental-v18-2026-08-13', AGREEMENT_VERSION);
+check('V19 버전을 사용한다', AGREEMENT_VERSION === 'rental-v19-2026-08-13', AGREEMENT_VERSION);
 check('공정위 표준약관형 28개 조문 골격이다', AGREEMENT_SECTIONS.length === 28, AGREEMENT_SECTIONS.length);
 check('제1조부터 제28조까지 번호가 연속된다', AGREEMENT_SECTIONS.every((s, i) => s.t.startsWith(`제${i + 1}조(`)));
 check('장기렌트에 맞춘 표준 흐름과 제목을 따른다', expectedTitles.every((title, i) => titleOf(i).includes(title)), AGREEMENT_SECTIONS.map((s) => s.t));
@@ -149,6 +149,22 @@ check('회사 권리 양도 시 사용권을 보호하고 변경사항을 통지
   articleBody('제10조').includes('차량 사용권을 침해하지 않는 범위') && articleBody('제10조').includes('효력발생일'));
 check('초과주행은 사용일수와 제외거리를 반영한다',
   articleBody('제23조').includes('실제 사용일수') && articleBody('제23조').includes('임차인의 사용과 무관한 거리'));
+check('계약 중 확인된 초과주행은 즉시 정산하고 최고 후 미납 시 해지할 수 있다',
+  articleBody('제23조').includes('확인일 현재 사용기간에 비례한 약정거리')
+    && articleBody('제23조').includes('산정근거와 납부기한')
+    && articleBody('제23조').includes('상당한 기간을 정하여 이행을 최고')
+    && articleBody('제23조').includes('중복 청구하지 않는다'));
+check('금지행위와 보험보상에 중대한 법규위반 사고 기준을 함께 둔다',
+  articleBody('제15조').includes('교통사고처리 특례법')
+    && articleBody('제18조').includes('교통사고처리 특례법')
+    && articleBody('제18조').includes('모든 민사상 책임에서 중대한 과실이 자동 확정되는 것은 아니다'));
+check('계약서 부가장비에는 스페어키 개수를 표시하지 않는다',
+  !contractHtml.includes('스페어키') && !contractHtml.includes('data-field="spare_key_count"'));
+check('보험 표준값과 지연손해금 표기를 반영한다',
+  contractHtml.includes('사망·후유장애 1인당 3천만원')
+    && contractHtml.includes('data-field="coverage_uninsured">미가입')
+    && contractHtml.includes('data-field="late_fee_rate">연 24%')
+    && contractHtml.includes('관계 법령상 허용 한도 내'));
 check('차량보호조치는 기록 통지와 안전한 정차를 전제로 한다',
   articleBody('제24조').includes('기록이 남는 방법') && articleBody('제24조').includes('안전하게 정차된 사실'));
 check('시동제어 연체일은 청구일이 아니라 각 납부기한 다음 날부터 계산한다',

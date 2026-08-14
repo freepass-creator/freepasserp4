@@ -39,7 +39,7 @@ export const COMPLIANCE_ITEMS: ComplianceItem[] = [
     requirement: '계약 체결 전 약관 전문을 손님이 볼 수 있어야 한다.',
     level: '필수',
     risk: '그 약관을 계약 내용으로 주장할 수 없다(§3④).',
-    coveredBy: 'agreement.sections 21개조 전문',
+    coveredBy: 'agreement.sections 28개조 전문',
   },
   {
     key: 'terms_read_through',
@@ -135,7 +135,7 @@ export const COMPLIANCE_ITEMS: ComplianceItem[] = [
     requirement: '서명한다는 의사를 명시적으로 표시하게 한다.',
     level: '필수',
     risk: '「눌린 것뿐」이라는 주장에 취약하다.',
-    coveredBy: '⚠ 서명 화면의 명시 문구 — 착한거래 구현 필요',
+    coveredBy: '자체 전자계약 서명 화면의 명시 문구 + 확인하고 전자서명 제출',
   },
   {
     key: 'integrity',
@@ -162,7 +162,7 @@ export const COMPLIANCE_ITEMS: ComplianceItem[] = [
     requirement: '체결된 계약서 사본을 손님이 받아 볼 수 있어야 한다.',
     level: '필수',
     risk: '교부 의무 미이행 — 손님이 내용을 몰랐다고 다툰다.',
-    coveredBy: '⚠ 서명 완료 후 손님 열람·다운로드 — 착한거래 구현 필요',
+    coveredBy: '서명 완료 후 같은 고객 링크의 완료 PDF 열람·다운로드',
   },
   {
     key: 'version_pinning',

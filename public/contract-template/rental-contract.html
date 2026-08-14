@@ -501,9 +501,9 @@
         <div class="k">연체 · 시동제어</div>
         <div class="v span2" style="grid-column:span 3">각 납부기한 다음 날부터 계산하여 <b>연체 <span data-field="engine_control_overdue_days">3</span>일째 18시 미납 시 시동제어</b> · <b><span data-field="auto_terminate_overdue_days">10</span>일째 미납 시 최고 후 계약 해지·회수</b> <span style="color:var(--mute)">(보증금 <span data-field="deposit_overdue_rounds">2</span>회차도 해당 납부기한 기준)</span></div>
         <div class="k">부가 장비</div>
-        <div class="v span2" style="grid-column:span 3">GPS <span data-field="gps_installed">장착</span> · 하이패스 <span data-field="hipass_included">제공</span> · 블랙박스 <span data-field="blackbox_included">제공</span> · 스페어키 <span data-field="spare_key_count">1</span>개</div>
+        <div class="v span2" style="grid-column:span 3">GPS <span data-field="gps_installed">장착</span> · 하이패스 <span data-field="hipass_included">제공</span> · 블랙박스 <span data-field="blackbox_included">제공</span></div>
       </div>
-      <div class="note">※ 초과주행 요금은 계약 종료·중도해지 또는 차량반환 시 <b>반납 주행거리에서 출고 주행거리와 사용기간에 맞춘 약정거리를 뺀 초과거리</b>에 위 1km당 금액을 곱하여 정산합니다. 세부 계산식은 약관 제23조에 따릅니다.</div>
+      <div class="note">※ 초과주행 요금은 계약 종료·중도해지·반환 시 정산합니다. 다만 계약기간 중 객관적으로 확인된 주행거리가 <b>사용기간에 비례한 약정거리를 초과하면 확인 시점까지의 초과분을 청구</b>할 수 있으며, 납부기한 후 최고에도 미납하면 계약 해지·차량 반환 대상이 될 수 있습니다. 이미 납부한 금액은 최종 정산에서 중복 청구하지 않습니다. 세부 계산식은 약관 제23조에 따릅니다.</div>
 
     </div>
   </div>
@@ -551,8 +551,8 @@
               <th>보상 한도</th>
               <td class="c strong" data-field="coverage_liability_person">무한</td>
               <td class="c strong" data-field="coverage_liability_property">1억원</td>
-              <td class="c strong" data-field="coverage_self_injury">가입증권 기준</td>
-              <td class="c strong" data-field="coverage_uninsured">2억원</td>
+              <td class="c strong" data-field="coverage_self_injury">사망·후유장애 1인당 3천만원 · 부상 1인당 1,500만원</td>
+              <td class="c strong" data-field="coverage_uninsured">미가입</td>
               <td class="c strong" data-field="self_damage_coverage">차량가</td>
               <td class="c strong" data-field="emergency_dispatch_limit">연 5회</td>
             </tr>
@@ -601,7 +601,7 @@
         -->
         <div class="k">자차 면책금</div><div class="v span2"><b>수리비의 <span data-field="self_damage_deductible_rate">20%</span> (최소 <span data-field="self_damage_deductible_min">50만원</span> · 최대 <span data-field="self_damage_deductible_max">100만원</span>)</b></div>
         <div class="k">추가 면책금</div><div class="v span2" data-field="extra_deductibles">해당 없음 <span style="color:var(--mute);font-weight:500">(단독사고·휠/타이어·연령 등 사유 발생 시 항목별 부과)</span></div>
-        <div class="k">중과실 사고</div><div class="v span2"><span data-ins="inc">자차 면책금 및 계약서에 정한 추가부담금 적용</span><span data-ins="sep" style="display:none">개인보험 처리 후 자기부담금·보상한도 초과 등 미보상 손해 부담</span> · 전손·폐차 후 대체차 계약을 계속하려면 <b>별도 서면 합의</b></div>
+        <div class="k">중과실 사고</div><div class="v span2">「교통사고처리 특례법」 제3조 제2항 단서 각 호의 행위, 무면허·음주·약물운전·도주 등은 실제 사고 경위와 보험·공제약관에 따라 <span data-ins="inc"><b>보상 제한·자차 면책금·추가부담금 또는 구상금</b></span><span data-ins="sep" style="display:none"><b>개인보험 자기부담금·보상한도 초과 등 미보상 손해</b></span>이 적용될 수 있음</div>
         <div class="k">자차 처리 제외</div><div class="v span2" data-field="self_damage_exclusions"><b>단독사고 · 가해자 불명(보유불명) 사고</b> · 휠/타이어 단독 손상 · 전손 · 고의·관리 소홀 등 — 가입 공제·보험 상품 및 회원사 정책에 따라 자차 처리가 제한·제외될 수 있습니다.</div>
       </div>
       <!-- 면책금을 «안 내면» 벌어지는 일 — 금액 옆이 아니라 표 아래에서 한 번에 말한다. -->
@@ -718,7 +718,7 @@
 
       <div class="subhead" style="margin-top:5mm"><span class="sh-ic"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 11h2M12 11h2M16 11h.01M8 15h2M12 15h2M16 15v2"/></svg></span>정산 · 관리 기준</div>
       <div class="kv">
-        <div class="k">지연손해금률</div><div class="v one-line" data-field="late_fee_rate">연 00%</div>
+        <div class="k">지연손해금률</div><div class="v one-line"><span data-field="late_fee_rate">연 24%</span> <span style="color:var(--mute);font-weight:500">(관계 법령상 허용 한도 내)</span></div>
         <div class="k">보증금 반환기한</div><div class="v one-line" data-field="deposit_return_term">반납·정산 후 00일 이내</div>
         <div class="k">정산 청구기준</div>
         <div class="v span2" style="grid-column:span 3">계약해지 정산 시 <b data-field="claim_basis">잔여 대여료 상당액</b>을 기준으로 청구 <span style="color:var(--mute)">(중도해지수수료와 중복 청구하지 않음 · 약관 제7조 및 제8조)</span></div>
@@ -884,7 +884,7 @@
   <p class="t-art">제15조(금지행위)</p>
   <p>임차인은 다음 각 호의 행위를 하여서는 아니 된다.</p>
   <p class="t-sub">1. <b>권리침해:</b> 회사의 사전승인 없는 차량 또는 점유·사용권의 양도·전대·재대여·담보제공</p>
-  <p class="t-sub">2. <b>운전자 제한 위반:</b> 등록 운전자 외 운전, 무면허·음주·약물운전, 고의사고·보험사기 또는 사고 후 미조치</p>
+  <p class="t-sub">2. <b>운전자 제한 위반·중대한 법규위반:</b> 등록 운전자 외 운전, 무면허·음주·약물운전, 고의사고·보험사기, 사고 후 미조치·도주 또는 「교통사고처리 특례법」 제3조 제2항 단서 각 호의 행위로 사고를 발생시키는 행위</p>
   <p class="t-sub">3. <b>은닉·무단 반출:</b> 차량 은닉, 정당한 확인·점검·반환 요청 거부 또는 승인 없는 해외 반출</p>
   <p class="t-sub">4. <b>장치·정보 조작:</b> GPS·블랙박스·하이패스·차량관리장치 훼손·차단·조작, 번호판·차대번호·등록증·자동차키·보험서류·주행거리 위조·변조·조작</p>
   <p class="t-sub">5. <b>위법·목적 외 사용:</b> 범죄·불법영업·유상운송·운전연습·경기·견인·위험물 운송 등 목적 외 사용</p>
@@ -906,7 +906,7 @@
   <p>⑤ 임차인 또는 운전자는 사고와 관련된 블랙박스 영상·현장사진·신고 및 보험접수 자료를 임의로 삭제하거나 훼손하지 않고 회사·보험자·수사기관의 정당한 요청이 있으면 사고처리에 필요한 범위에서 제공한다.</p>
   <p class="t-art">제18조(보험처리 및 자차손해면책)</p>
   <p>① 임차인은 사고 당시 유효한 보험·공제와 자차손해면책의 보장범위에서 보상받을 수 있다.</p>
-  <p>② 고의·중대한 과실, 무면허·음주·약물운전, 영리 목적 전대·유상운송, 범죄 목적 사용, 경기·연습·시험용 사용, 등록 운전자 외 운전 또는 보험·공제약관상 면책사유로 발생한 손해는 일부 또는 전부가 보상되지 않을 수 있다.</p>
+  <p>② 고의 또는 중대한 과실, 무면허·음주·약물운전, 사고 후 미조치·도주, 「교통사고처리 특례법」 제3조 제2항 단서 각 호의 행위로 발생한 사고, 영리 목적 전대·유상운송, 범죄 목적 사용, 경기·연습·시험용 사용, 등록 운전자 외 운전 또는 보험·공제약관상 면책사유로 발생한 손해는 실제 사고 경위·과실 및 사고 당시 유효한 보험·공제약관에 따라 일부 또는 전부가 보상되지 않거나 자기부담금·추가부담금 또는 구상금이 발생할 수 있다. 같은 법 단서 각 호에 해당한다는 사정만으로 모든 민사상 책임에서 중대한 과실이 자동 확정되는 것은 아니다.</p>
   <p>③ 임차인이 부담하는 자차손해면책 자기부담금은 실제 수리비를 초과하지 않는다.</p>
   <p>④ 보장금액이 배상책임액보다 부족하면 그 부족액은 임차인이 부담하고, 자차손해면책에 가입하지 않은 차량손해는 사고 당시 차량가액과 실제 손해를 기준으로 정산한다.</p>
   <p>⑤ 계약 종료 후 차량을 반환하지 않고 운행하여 발생한 사고는 보험·공제의 보장 여부와 별도로 임차인의 귀책에 따른 손해를 제16조에 따라 정산한다.</p>
@@ -934,10 +934,11 @@
   <p>⑥ 차량 내 유류품은 목록을 남겨 임차인에게 통지하고 계약서상 보관기간 뒤 법령이 허용하는 방법으로 처리한다. 위험물·부패물품은 즉시 처리할 수 있고 불법물품은 관계기관에 인계할 수 있다.</p>
   <p class="t-art">제23조(반환장소 및 초과주행요금)</p>
   <p>① 임차인은 계약서에 정한 장소에 차량을 반환한다. 임차인의 사정으로 반환장소가 변경되어 회수비용이 발생하면 그 실제 비용을 부담한다.</p>
-  <p>② 계약서에는 연간 약정주행거리와 1km당 초과주행요금을 기재하고 계약 종료·중도해지 또는 반환 시 정산한다.</p>
-  <p>③ 사용기간 약정거리는 연간 약정주행거리에 실제 사용일수를 곱한 뒤 365일로 나누어 계산하고 1km 미만은 버린다. 초과거리는 반환 시 주행거리에서 출고 시 주행거리·사용기간 약정거리·인정 제외거리를 차례로 빼서 계산한다.</p>
+  <p>② 계약서에는 연간 약정주행거리와 1km당 초과주행요금을 기재하고 계약 종료·중도해지 또는 반환 시 정산한다. 다만 계약기간 중 정비·검사·사고처리, 차량점검 또는 임차인의 고지 등으로 주행거리가 객관적으로 확인되고 확인일 현재 사용기간에 비례한 약정거리를 초과한 경우 회사는 그 시점까지의 초과주행요금을 산정근거와 납부기한을 명시하여 청구할 수 있다.</p>
+  <p>③ 사용기간 약정거리는 연간 약정주행거리에 실제 사용일수를 곱한 뒤 365일로 나누어 계산하고 1km 미만은 버린다. 초과거리는 확인 시점의 주행거리에서 출고 시 주행거리·사용기간 약정거리·인정 제외거리·이미 정산한 초과거리를 차례로 빼서 계산한다.</p>
   <p>④ 출고·반환 탁송, 법정검사, 정비·수리와 사고처리 등 임차인의 사용과 무관한 거리는 객관적 기록으로 확인되는 범위에서 제외한다.</p>
   <p>⑤ 주행거리계 고장·훼손·조작 등으로 실제 거리를 확인하기 어려우면 정비·검사·GPS 운행기록 등 객관적 자료로 산정하고 근거를 제시한다.</p>
+  <p>⑥ 제2항 단서에 따라 청구된 초과주행요금을 임차인이 납부기한까지 지급하지 않으면 회사는 상당한 기간을 정하여 이행을 최고하고, 그 기간에도 지급하지 않으면 계약을 해지하고 차량 반환을 청구할 수 있다. 이미 납부한 초과주행요금은 최종 정산 때 중복 청구하지 않는다.</p>
   <p class="t-art">제24조(차량 미반환 및 차량보호조치)</p>
   <p>① 임차인이 월 대여료는 계약서상 납부일, 별도 청구금은 청구서상 납부기한을 넘겨 운행제한 기준일까지 미납하거나 반환기한까지 차량을 반환하지 않으면 회사는 미납금·이행기한과 예정조치를 기록이 남는 방법으로 통지한 뒤 차량 위치확인, 안전한 상태의 운행제한·시동제어 및 법령상 회수조치를 할 수 있다.</p>
   <p>② 운행 중인 차량에는 시동제어·운행제한을 시행하지 않으며 안전하게 정차된 사실을 확인한 경우 필요한 범위에서 시행한다.</p>
@@ -1435,8 +1436,11 @@
       /* 끊는 자리는 «호 번호 앞»이 첫째다. 「… 3. 차량을 은닉하거나 …」의 3. 앞에서 끊으면
          법률 문서로도 자연스럽고 종이 약관도 그렇게 넘어간다.
          호가 없는 항은 지금처럼 문장 부호로 떨어뜨린다. */
-      var reNum=/(?:^|\s)(?=\d{1,2}\.\s)/g;
-      while((m=reNum.exec(txt))){ if(m.index>0) ends.push(m.index); }
+      /* 문단 시작의 `1.`은 절단점이 아니므로 공백 뒤 호 번호만 찾는다.
+         `^`를 포함한 0길이 전방탐색은 긴 t-sub가 `2.`로 시작할 때 같은 위치를
+         무한 반복하여 PDF 생성이 멈춘다. */
+      var reNum=/\s(?=\d{1,2}\.\s)/g;
+      while((m=reNum.exec(txt))){ ends.push(m.index+1); }
       var re=/[,;.!?](?=\s|$)/g;
       while((m=re.exec(txt))) ends.push(m.index+1);
       /* 문장부호 사이가 긴 법률 문장은 2~3줄짜리 한 덩어리가 되어 단 하단 공간을 버린다.
@@ -1475,7 +1479,7 @@
       p.innerHTML='<div class="pbody">'
         +'<div class="rhead"><div class="rh-doc">'+tt+'</div>'
         +'<div class="rh-meta">'+co+'</div></div>'
-        +'<div class="terms-cols" style="display:grid;grid-template-columns:1fr 1fr;gap:7.2mm;font-size:10px;line-height:1.50;color:var(--ink2)"><div class="tc tcL"></div><div class="tc tcR"></div></div>'
+        +'<div class="terms-cols" style="display:grid;grid-template-columns:1fr 1fr;gap:7.2mm;font-size:10px;line-height:1.43;color:var(--ink2)"><div class="tc tcL"></div><div class="tc tcR"></div></div>'
         +'</div><div class="pagefoot"><span class="pf-co">'+co+'</span><span>약관 · <span class="num"></span></span></div>';
       stage.appendChild(p);
       return p;

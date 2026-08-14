@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Database, FileSignature, FileText, ListChecks, RotateCcw } from 'lucide-react';
+import { FileSignature, FileText, Plus, RotateCcw, Trash2 } from 'lucide-react';
 import type { EntityRecord, Field } from '@/lib/intake/entities';
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
@@ -12,10 +12,13 @@ import {
   draftInputRecord,
   draftTemplateFields,
   emptyEsignDraftInput,
+  esignAdditionalDriverLimit,
   esignCenterBucket,
   esignContractSource,
+  esignDraftAdditionalDriverCount,
   isEsignCenterContract,
   validateEsignCenterContract,
+  type EsignCheck,
   type EsignDraftInput,
 } from '@/lib/domain/esign-center';
 import {
@@ -26,12 +29,26 @@ import {
 } from '@/lib/domain/esign-templates';
 import { ALL_POLICY_FIELDS, canIssueContract } from '@/lib/domain/policy-tier';
 import {
+  policiesByProvider,
+  policiesForTemplate,
+} from '@/lib/domain/esign-policy-selection';
+import { partnerTypeLabel } from '@/lib/domain/partner';
+import { partnerCompanyDisplayName } from '@/lib/domain/identity';
+import {
+  contractDriverAgeOptions,
+  contractRentForAge,
+  contractVehicleSnapshot,
+  productKey,
+  searchContractVehicles,
+} from '@/lib/domain/esign-vehicle-selection';
+import { priceList } from '@/lib/domain/product';
+import {
   ESIGN_POLICY_DRAFT_SESSION_KEY,
   ESIGN_POLICY_SELECTION_SESSION_KEY,
   type EsignPolicySelection,
 } from '@/lib/domain/esign-policy-return';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
-import { EsignCenterListRow, EsignCreateRow } from '@/components/list-rows';
+import { EsignCenterListRow, EsignCreateRow, EsignVehicleSelectRow } from '@/components/list-rows';
 import { FreepassEsignLinkPane, FreepassEsignProgressPane } from '@/components/FreepassEsignPanes';
 import { toast } from '@/components/Toaster';
 import {
@@ -48,7 +65,11 @@ import {
   Loading,
   PaneBody,
   PaneHead,
+  R,
+  SearchInput,
   SectionLabel,
+  Textarea,
+  ToggleChips,
   won,
 } from '@/components/ui';
 
@@ -60,9 +81,14 @@ const today = () => {
 };
 
 const CUSTOMER_FIELDS: Field[] = [
-  { key: 'contractDate', label: '계약일', type: 'date', required: true, manual: true },
   { key: 'customerName', label: '고객명', type: 'text', required: true, manual: true },
   { key: 'customerPhone', label: '연락처', type: 'text', required: true, manual: true },
+  { key: 'emergencyContact', label: '비상연락처', type: 'text', manual: true, note: '비우면 고객이 계약 링크에서 직접 입력합니다' },
+  { key: 'emergencyRelation', label: '비상연락 관계', type: 'text', manual: true, note: '예: 배우자, 부, 모 · 비우면 고객이 직접 입력합니다' },
+];
+
+const CONTRACT_META_FIELDS: Field[] = [
+  { key: 'contractDate', label: '계약일', type: 'date', required: true, manual: true, note: '오늘 날짜가 자동 입력됩니다. 다른 날짜일 때만 변경합니다' },
 ];
 
 const BUSINESS_FIELDS: Field[] = [
@@ -71,43 +97,64 @@ const BUSINESS_FIELDS: Field[] = [
   { key: 'customerBusinessNumber', label: '사업자등록번호', type: 'text', manual: true },
 ];
 
-const VEHICLE_FIELDS: Field[] = [
-  { key: 'vehicleName', label: '모델명', type: 'text', required: true, manual: true },
-  { key: 'carNumber', label: '차량번호', type: 'text', manual: true, note: '신차·번호미정이면 비울 수 있습니다' },
-  { key: 'options', label: '옵션', type: 'text', manual: true },
-];
-
-const CONTRACT_TERM_FIELDS: Field[] = [
-  { key: 'rentMonths', label: '대여기간(개월)', type: 'number', required: true, manual: true },
-  { key: 'rentAmount', label: '월 대여료(원)', type: 'number', required: true, manual: true },
-  { key: 'depositAmount', label: '보증금(원)', type: 'number', manual: true },
-  { key: 'paymentTiming', label: '대여료 납부 조건', type: 'select', options: ['선불', '후불'], required: true, manual: true, note: '정책 기본값을 가져오며 이번 계약에서 변경할 수 있습니다' },
-];
-
 const OPTIONAL_TERM_FIELDS: Field[] = [
   { key: 'depositInstallment', label: '보증금 분납', type: 'text', manual: true },
   { key: 'annualMileage', label: '약정주행거리', type: 'text', manual: true, note: '비우면 선택 정책값 적용' },
   { key: 'buyoutPrice', label: '만기인수가·인수옵션', type: 'text', manual: true, note: '인수 조건이 있는 계약만 입력 · 비우면 만기 반납' },
-  { key: 'driverAge', label: '운전자 연령', type: 'text', manual: true, note: '비우면 선택 정책값 적용' },
   { key: 'driverScope', label: '운전자 범위', type: 'text', manual: true, note: '비우면 선택 정책값 적용' },
 ];
 
 const EXTRA_TERM_FIELDS: Field[] = [
   { key: 'maintenanceProduct', label: '정비상품', type: 'text', manual: true },
-  { key: 'emergencyContact', label: '비상연락처', type: 'text', manual: true },
-  { key: 'specialTerms', label: '건별 특약', type: 'text', manual: true },
 ];
 
+const VEHICLE_CONTRACT_FIELDS: Field[] = [
+  { key: 'vehicleName', label: '차종', type: 'text', required: true, manual: true, note: 'ERP에서 불러온 차종을 실제 계약서 표기에 맞게 수정할 수 있습니다' },
+  { key: 'carNumber', label: '차량번호', type: 'text', manual: true, note: '신차는 비워 두면 차량번호 미정으로 표시됩니다' },
+  { key: 'options', label: '옵션', type: 'text', manual: true, note: '계약서에 기재할 선택 옵션만 입력합니다' },
+];
+
+const RENT_CONTRACT_FIELDS: Field[] = [
+  { key: 'rentMonths', label: '대여기간(개월)', type: 'number', required: true, manual: true, note: '위 기간 버튼은 빠른 선택이며 직접 수정할 수도 있습니다' },
+  { key: 'rentAmount', label: '월 대여료(원)', type: 'number', required: true, manual: true, note: 'ERP 금액을 불러온 뒤 이번 계약의 최종 금액으로 수정합니다' },
+  { key: 'depositAmount', label: '보증금(원)', type: 'number', manual: true, note: '무보증 계약은 0을 입력합니다' },
+];
+
+const PAYMENT_OVERRIDE_FIELDS: Field[] = [
+  { key: 'paymentTiming', label: '대여료 납부 조건', type: 'select', options: ['선불', '후불'], required: true, manual: true, note: '정책값과 다른 계약만 변경합니다' },
+];
+
+const ADDITIONAL_DRIVER_SLOTS = [
+  { name: 'additionalDriverName', relation: 'additionalDriverRelation', phone: 'additionalDriverPhone' },
+  { name: 'additionalDriver2Name', relation: 'additionalDriver2Relation', phone: 'additionalDriver2Phone' },
+  { name: 'additionalDriver3Name', relation: 'additionalDriver3Relation', phone: 'additionalDriver3Phone' },
+] as const;
+
+const additionalDriverFields = (slot: number): Field[] => {
+  const keys = ADDITIONAL_DRIVER_SLOTS[slot];
+  return [
+    { key: keys.name, label: '성명', type: 'text', required: true, manual: true },
+    { key: keys.relation, label: '관계', type: 'text', required: true, manual: true },
+    { key: keys.phone, label: '연락처', type: 'text', required: true, manual: true },
+  ];
+};
+
 const SUPPLIER_FIELDS: Field[] = [
-  { key: 'providerCompanyCode', label: '계약회사(렌터카사)', type: 'select', required: true, manual: true },
+  { key: 'providerCompanyCode', label: '회사선택', type: 'select', required: true, manual: true },
 ];
 
 const POLICY_FIELDS: Field[] = [
-  { key: 'policyCode', label: '적용할 계약 정책', type: 'select', required: true, manual: true },
+  { key: 'policyCode', label: '계약정책', type: 'select', required: true, manual: true },
 ];
 
 const TEMPLATE_FIELDS: Field[] = [
-  { key: 'standardTemplateId', label: '사용할 계약서', type: 'select', required: true, manual: true },
+  { key: 'standardTemplateId', label: '계약서 종류', type: 'select', required: true, manual: true },
+];
+
+const CONTRACT_SELECTION_FIELDS: Field[] = [
+  ...SUPPLIER_FIELDS,
+  ...TEMPLATE_FIELDS,
+  ...POLICY_FIELDS,
 ];
 
 function contractKey(row: EntityRecord | null | undefined) {
@@ -122,6 +169,31 @@ function policyKey(row: EntityRecord | null | undefined) {
   return S(row?.policy_code || row?._key);
 }
 
+function resetVehicleDraft(current: EsignDraftInput, patch: Partial<EsignDraftInput> = {}): EsignDraftInput {
+  return {
+    ...current,
+    productCode: '',
+    vehicleName: '',
+    carNumber: '',
+    modelYear: '',
+    fuel: '',
+    options: '',
+    colorExterior: '',
+    currentMileage: '',
+    rentMonths: '',
+    rentAmount: '',
+    depositAmount: '0',
+    driverAge: '',
+    ...patch,
+  };
+}
+
+const isSonogong = (row: EntityRecord | null | undefined) => {
+  if (!row) return false;
+  return partnerKey(row).toUpperCase() === 'RP012'
+    || /손오공|sonogong/i.test(S(row.name || row.partner_name));
+};
+
 export function EsignSendCenter() {
   const router = useRouter();
   const companyId = getCompanyId();
@@ -129,6 +201,9 @@ export function EsignSendCenter() {
   const [contracts, setContracts] = useState<EntityRecord[] | null>(null);
   const [partners, setPartners] = useState<EntityRecord[]>([]);
   const [policies, setPolicies] = useState<EntityRecord[]>([]);
+  const [products, setProducts] = useState<EntityRecord[]>([]);
+  const [vehicleQuery, setVehicleQuery] = useState('');
+  const [vehiclePickerOpen, setVehiclePickerOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [selectedCode, setSelectedCode] = useState('');
   const [draft, setDraft] = useState<EsignDraftInput | null>(null);
@@ -136,14 +211,16 @@ export function EsignSendCenter() {
   const policyReturnApplied = useRef(false);
 
   const load = useCallback(async () => {
-    const [contractRows, partnerRows, policyRows] = await Promise.all([
+    const [contractRows, partnerRows, policyRows, productRows] = await Promise.all([
       getStore().list('contract', companyId),
       getStore().list('partner', companyId).catch(() => [] as EntityRecord[]),
       getStore().list('policy', companyId).catch(() => [] as EntityRecord[]),
+      getStore().list('product', companyId).catch(() => [] as EntityRecord[]),
     ]);
     setContracts(contractRows);
     setPartners(partnerRows);
     setPolicies(policyRows);
+    setProducts(productRows);
   }, [companyId]);
 
   useEffect(() => {
@@ -183,17 +260,38 @@ export function EsignSendCenter() {
   );
   const partnerMap = useMemo(() => new Map(partners.map((row) => [partnerKey(row), row])), [partners]);
   const policyMap = useMemo(() => new Map(policies.map((row) => [policyKey(row), row])), [policies]);
+  const productMap = useMemo(() => new Map(products.map((row) => [productKey(row), row])), [products]);
+  const policiesByProviderMap = useMemo(() => policiesByProvider(policies), [policies]);
   const selectedPartner = selected ? partnerMap.get(S(selected.provider_company_code)) || null : null;
   const selectedPolicy = selected ? policyMap.get(S(selected.policy_code)) || null : null;
-  const selectedTemplate = selected ? findTemplate(selected.standard_template_id) : null;
 
   const draftPartner = draft ? partnerMap.get(draft.providerCompanyCode) || null : null;
   const draftPolicy = draft ? policyMap.get(draft.policyCode) || null : null;
-  const draftChecks = useMemo(
-    () => draft ? validateEsignCenterContract(draftInputRecord(draft), draftPartner, draftPolicy) : [],
-    [draft, draftPartner, draftPolicy],
-  );
+  const draftProduct = draft?.productCode ? productMap.get(draft.productCode) || null : null;
+  const draftAdditionalDriverLimit = esignAdditionalDriverLimit(draftPolicy);
+  const draftAdditionalDriverCount = draft ? esignDraftAdditionalDriverCount(draft) : 0;
+  const draftAdditionalDrivers = draft
+    ? ADDITIONAL_DRIVER_SLOTS
+      .slice(0, draftAdditionalDriverCount)
+      .map((keys) => [draft[keys.name], draft[keys.relation], draft[keys.phone]].filter(Boolean).join(' · '))
+    : [];
+  const draftPolicyGate = useMemo(() => draftPolicy ? canIssueContract(draftPolicy) : null, [draftPolicy]);
+  const draftChecks = useMemo(() => {
+    if (!draft) return [];
+    const checks = validateEsignCenterContract(draftInputRecord(draft), draftPartner, draftPolicy);
+    const selectionChecks: EsignCheck[] = [];
+    if (!draft.productCode) selectionChecks.push({ key: 'erp_product', label: 'ERP 차량', level: 'BLOCK', message: 'ERP 재고 차량을 선택해 주세요' });
+    if (!draft.driverAge) selectionChecks.push({ key: 'selected_driver_age', label: '운전자 연령', level: 'BLOCK', message: '운전자 연령을 선택해 주세요' });
+    return [...checks, ...selectionChecks];
+  }, [draft, draftPartner, draftPolicy]);
   const draftBlocks = draftChecks.filter((row) => row.level === 'BLOCK');
+  const draftProblems = draftChecks.filter((row) => row.level !== 'PASS');
+  const draftReachedReview = !!(
+    draft?.productCode
+    && draft.rentMonths
+    && draft.driverAge
+    && draft.rentAmount
+  );
   const draftTemplate = draft ? findTemplate(draft.standardTemplateId) : null;
   const draftContractKind = draftTemplate && draft ? contractKindFor(draftTemplate, draft.maturity) : null;
   const draftTemplateError = draftTemplate && draftContractKind
@@ -208,31 +306,36 @@ export function EsignSendCenter() {
   }, [draftPolicy]);
 
   const policiesForDraft = useMemo(() => {
-    if (!draft?.providerCompanyCode) return [];
-    return policies.filter((row) => {
-      const provider = S(row.provider_company_code);
-      return provider === draft.providerCompanyCode;
-    });
-  }, [draft?.providerCompanyCode, policies]);
+    if (!draft?.providerCompanyCode || !draftTemplate) return [];
+    return policiesForTemplate(
+      policiesByProviderMap.get(draft.providerCompanyCode) || [],
+      draft.providerCompanyCode,
+      draftTemplate,
+    );
+  }, [draft?.providerCompanyCode, draft?.standardTemplateId, draftTemplate, policiesByProviderMap]);
+  const vehicleResults = useMemo(() => searchContractVehicles(
+    products,
+    draft?.providerCompanyCode || '',
+    draftTemplate,
+    vehicleQuery,
+  ), [draft?.providerCompanyCode, draftTemplate, products, vehicleQuery]);
+  const companyVehicleCount = useMemo(() => searchContractVehicles(
+    products,
+    draft?.providerCompanyCode || '',
+    draftTemplate,
+    '',
+  ).length, [draft?.providerCompanyCode, draftTemplate, products]);
+  const availablePeriods = useMemo(() => draftProduct ? priceList(draftProduct) : [], [draftProduct]);
+  const driverAgeOptions = useMemo(() => contractDriverAgeOptions(draftPolicy), [draftPolicy]);
 
-  const policyOptionLabel = (row: EntityRecord) => {
-    const gate = canIssueContract(row);
-    const age = S(row.basic_driver_age);
-    const ageLabel = !age ? '' : /만|세/.test(age) ? age : `만 ${age}세 이상`;
-    const parts = [
-      S(row.policy_name || policyKey(row)),
-      S(row.insurer_name),
-      ageLabel,
-      S(row.own_damage_compensation) ? `자차 ${S(row.own_damage_compensation)}` : '',
-      gate.ok ? '발송 가능' : gate.layer === 'contract' ? `확인 ${gate.missing.length}` : '공급사 작성',
-    ];
-    return parts.filter(Boolean).join(' · ');
-  };
+  const policyOptionLabel = (row: EntityRecord) => S(row.policy_name || policyKey(row));
 
   const contractSuppliers = useMemo(() => {
-    return partners.filter((row) => !/영업|sales/i.test(S(row.partner_type || row.type || row.role)));
+    return partners.filter((row) => partnerTypeLabel(
+      row.partner_type || row.type || row.role,
+      partnerKey(row),
+    ) === '공급사');
   }, [partners]);
-
   /** 이 발송센터에서 새로 만든 계약만 표시한다. 기존 ERP 계약원장은 섞지 않는다. */
   const sendRows = useMemo(() => (contracts || [])
     .filter(isEsignCenterContract)
@@ -256,30 +359,123 @@ export function EsignSendCenter() {
   const setDraftValue = (key: string, value: string) => {
     if (key === 'policyCode') {
       const chosen = policies.find((row) => policyKey(row) === value);
-      setDraft((current) => current ? {
-        ...current,
+      setVehicleQuery('');
+      setVehiclePickerOpen(false);
+      setDraft((current) => current ? resetVehicleDraft(current, {
         policyCode: value,
         paymentTiming: (S(chosen?.payment_timing) === '후불' ? '후불' : '선불'),
-      } : current);
+        annualMileage: S(chosen?.annual_mileage),
+        driverScope: S(chosen?.personal_driver_scope),
+        maintenanceProduct: S(chosen?.maintenance_service),
+      }) : current);
+      return;
+    }
+    if (key === 'providerCompanyCode') {
+      setVehicleQuery('');
+      setVehiclePickerOpen(false);
+      setDraft((current) => {
+        if (!current) return current;
+        return resetVehicleDraft(current, {
+          providerCompanyCode: value,
+          policyCode: '',
+          paymentTiming: '',
+        });
+      });
+      return;
+    }
+    if (key === 'standardTemplateId') {
+      setVehicleQuery('');
+      setVehiclePickerOpen(false);
+      setDraft((current) => {
+        if (!current) return current;
+        return resetVehicleDraft(current, {
+          standardTemplateId: value,
+          policyCode: '',
+          paymentTiming: '',
+        });
+      });
       return;
     }
     setDraft((current) => current ? { ...current, [key]: value } : current);
-    if (key !== 'providerCompanyCode') return;
-    const compatible = policies.find((row) => {
-      const provider = S(row.provider_company_code);
-      return provider === value;
+  };
+
+  const addAdditionalDriver = () => {
+    setDraft((current) => {
+      if (!current) return current;
+      const count = esignDraftAdditionalDriverCount(current);
+      if (count >= draftAdditionalDriverLimit) return current;
+      return { ...current, additionalDriverCount: count + 1 };
     });
+  };
+
+  const removeAdditionalDriver = (slot: number) => {
+    setDraft((current) => {
+      if (!current) return current;
+      const count = esignDraftAdditionalDriverCount(current);
+      if (slot < 0 || slot >= count) return current;
+      const drivers = ADDITIONAL_DRIVER_SLOTS.map((keys) => ({
+        name: S(current[keys.name]),
+        relation: S(current[keys.relation]),
+        phone: S(current[keys.phone]),
+      }));
+      drivers.splice(slot, 1);
+      drivers.push({ name: '', relation: '', phone: '' });
+      const next: EsignDraftInput = { ...current, additionalDriverCount: count - 1 };
+      ADDITIONAL_DRIVER_SLOTS.forEach((keys, index) => {
+        next[keys.name] = drivers[index].name;
+        next[keys.relation] = drivers[index].relation;
+        next[keys.phone] = drivers[index].phone;
+      });
+      return next;
+    });
+  };
+
+  const selectVehicle = (product: EntityRecord) => {
+    const snapshot = contractVehicleSnapshot(product);
+    setVehicleQuery('');
+    setVehiclePickerOpen(false);
+    setDraft((current) => current ? {
+      ...resetVehicleDraft(current),
+      ...snapshot,
+      annualMileage: S(draftPolicy?.annual_mileage),
+      driverScope: S(draftPolicy?.personal_driver_scope),
+      maintenanceProduct: S(draftPolicy?.maintenance_service),
+    } : current);
+  };
+
+  const selectPeriod = (months: number) => {
+    if (!draftProduct) return;
+    const age = Number(S(draft?.driverAge).match(/(\d{2})/)?.[1] || draftPolicy?.basic_driver_age || 0);
+    const price = contractRentForAge(draftProduct, months, draftPolicy, age);
+    setDraft((current) => current && price ? {
+      ...current,
+      rentMonths: String(months),
+      rentAmount: String(price.rent),
+      depositAmount: String(price.deposit),
+    } : current);
+  };
+
+  const selectDriverAge = (age: number) => {
+    const months = Number(draft?.rentMonths) || 0;
+    const price = contractRentForAge(draftProduct, months, draftPolicy, age);
     setDraft((current) => current ? {
       ...current,
-      providerCompanyCode: value,
-      policyCode: policyKey(compatible),
-      paymentTiming: (S(compatible?.payment_timing) === '후불' ? '후불' : '선불'),
+      driverAge: `만 ${age}세 이상`,
+      ...(price ? { rentAmount: String(price.rent), depositAmount: String(price.deposit) } : null),
     } : current);
   };
 
   const beginDirect = () => {
     setSelectedCode('');
-    setDraft(emptyEsignDraftInput('direct', today()));
+    setVehicleQuery('');
+    setVehiclePickerOpen(false);
+    setDraft({
+      ...emptyEsignDraftInput('direct', today()),
+      providerCompanyCode: '',
+      standardTemplateId: '',
+      policyCode: '',
+      paymentTiming: '',
+    });
   };
 
   const preserveDraftForPolicy = () => {
@@ -322,6 +518,7 @@ export function EsignSendCenter() {
         customerIsBusiness: draft.customerIsBusiness,
         customerCompanyName: draft.customerCompanyName,
         customerBusinessNumber: draft.customerBusinessNumber,
+        productCode: draft.productCode,
         vehicleName: draft.vehicleName,
         carNumber: draft.carNumber,
         modelYear: draft.modelYear,
@@ -330,13 +527,14 @@ export function EsignSendCenter() {
         rentAmount: Number(draft.rentAmount),
         depositAmount: Number(draft.depositAmount),
         paymentTiming: draft.paymentTiming,
+        driverAge: draft.driverAge,
         templateFields: draftTemplateFields(draft),
       });
       await load();
       setSelectedCode(code);
       setDraft(null);
       if (previewWindow) previewWindow.location.replace(`/esign/preview/${encodeURIComponent(code)}`);
-      toast('전자계약 초안을 만들었습니다. 내용을 확인하고 발송 링크를 만드세요.', 'ok');
+      toast('계약서를 만들었습니다. A4 내용을 확인한 뒤 고객 링크를 복사하세요.', 'ok');
     } catch (error) {
       previewWindow?.close();
       toast(error instanceof Error ? error.message : '전자계약 초안을 만들지 못했습니다.', 'error');
@@ -346,45 +544,49 @@ export function EsignSendCenter() {
   if (allowed == null || contracts == null) return <Loading />;
 
   const selectedChecks = selected ? validateEsignCenterContract(selected, selectedPartner, selectedPolicy) : [];
-  const sourceLabel = selected ? ({ erp: 'ERP 계약', excel: 'Excel 입력', direct: '직접 작성' }[esignContractSource(selected)]) : '';
-  const dataPane = draft ? (
+  const selectedProblems = selectedChecks.filter((check) => check.level !== 'PASS');
+  const selectedIssued = !!selected && S(selected.esign_provider) === 'freepass' && !!S(selected.esign_id);
+  const selectedCompleted = S(selected?.sign_status) === '서명완료';
+  const selectedPendingReview = S(selected?.sign_status) === '검토대기';
+  const selectedCurrentStepIndex = selectedCompleted ? 4 : selectedPendingReview ? 3 : selectedIssued ? 2 : 1;
+  const workflowStep = selectedCompleted
+    ? '완료'
+    : selectedPendingReview
+      ? '④ 관리자 확인'
+      : selectedIssued
+        ? '③ 링크 전달·진행'
+        : '② 계약서 확인';
+  const draftPane = draft ? (
     <>
-      <PaneHead title="계약서 직접 작성" count={draftBlocks.length ? `BLOCK ${draftBlocks.length}` : '발송 준비'} />
+      <PaneHead
+        title={isSonogong(draftPartner) ? '손오공 계약서 작성' : '새 계약서 작성'}
+        count={draftReachedReview ? (draftProblems.length ? `확인 ${draftProblems.length}` : '발송 준비') : '입력 중'}
+      />
       <PaneBody pad>
-        <SectionLabel>① 계약회사와 정책 선택</SectionLabel>
-        <div style={{ fontSize: FS.sub, color: C.mute, lineHeight: 1.5 }}>
-          프리패스에 등록된 렌터카 공급사만 표시됩니다. 공급사를 고르면 그 회사에 연결된 정책만 불러옵니다.
-        </div>
+        <SectionLabel>① 계약 기본 선택</SectionLabel>
         <FormGrid
-          fields={SUPPLIER_FIELDS}
+          fields={CONTRACT_SELECTION_FIELDS}
           form={draft as unknown as EntityRecord}
           onChange={setDraftValue}
-          cols={1}
+          cols={3}
           selectOptions={{
-            providerCompanyCode: contractSuppliers.map((row) => {
-              const code = partnerKey(row);
-              const linked = policies.filter((policy) => S(policy.provider_company_code) === code);
-              return {
-                value: code,
-                label: `${S(row.name || row.partner_name || code)} · ${linked.length ? `정책 ${linked.length}개` : '정책 필요'}`,
-              };
-            }),
+            providerCompanyCode: contractSuppliers.map((row) => ({
+              value: partnerKey(row),
+              label: partnerCompanyDisplayName(row) || '공급사명 미등록',
+            })),
+            standardTemplateId: STANDARD_CONTRACT_TEMPLATES.map((template) => ({
+              value: template.id,
+              label: `${template.contractKind === '렌탈' ? '렌트' : '구독'} · ${template.insuranceSide === '고객직접' ? '보험 별도' : '보험료 포함'}`,
+            })),
+            policyCode: policiesForDraft.map((row) => ({ value: policyKey(row), label: policyOptionLabel(row) })),
           }}
         />
-        {draft.providerCompanyCode && policiesForDraft.length > 0 ? (
-          <FormGrid
-            fields={POLICY_FIELDS}
-            form={draft as unknown as EntityRecord}
-            onChange={setDraftValue}
-            cols={1}
-            selectOptions={{
-              policyCode: policiesForDraft.map((row) => ({ value: policyKey(row), label: policyOptionLabel(row) })),
-            }}
-          />
-        ) : null}
-        {draft.providerCompanyCode && policiesForDraft.length === 0 ? (
-          <>
-            <Badge tone="red" variant="solid">이 계약회사에 연결된 정책이 없어 계약서를 만들 수 없습니다.</Badge>
+        <div style={{ fontSize: FS.sub, color: C.mute, lineHeight: 1.5 }}>
+          회사를 선택하면 해당 회사 정책만, 계약서 종류를 선택하면 그 종류에 맞는 정책만 표시됩니다.
+        </div>
+        {draft.providerCompanyCode && draftTemplate && policiesForDraft.length === 0 ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            <Badge tone="red" variant="solid">이 회사의 계약서 종류에 맞는 계약정책이 없습니다.</Badge>
             <Btn
               onClick={() => openPolicyEditor(`/policy?new=1&provider=${encodeURIComponent(draft.providerCompanyCode)}&edit=1&return=esign`)}
               variant="ghost"
@@ -392,11 +594,11 @@ export function EsignSendCenter() {
             >
               이 계약회사 정책 만들기
             </Btn>
-          </>
+          </div>
         ) : null}
-        {draftPolicy && !canIssueContract(draftPolicy).ok ? (
-          <>
-            <Badge tone="amber" variant="solid">{canIssueContract(draftPolicy).reason}</Badge>
+        {draftPolicy && draftPolicyGate && !draftPolicyGate.ok ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            <Badge tone="amber" variant="solid">{draftPolicyGate.reason}</Badge>
             <Btn
               onClick={() => openPolicyEditor(`/policy?policy=${encodeURIComponent(policyKey(draftPolicy))}&section=ins&edit=1&return=esign`)}
               variant="ghost"
@@ -404,136 +606,349 @@ export function EsignSendCenter() {
             >
               이 정책 필수값 확인
             </Btn>
+          </div>
+        ) : null}
+        {draft.standardTemplateId && draftTemplateError ? (
+          <div style={{ display: 'flex' }}>
+            <Badge tone="red" variant="solid">{draftTemplateError}</Badge>
+          </div>
+        ) : null}
+
+        <SectionLabel>② ERP 차량 선택</SectionLabel>
+        {draft.providerCompanyCode && draftTemplate && draftPolicy ? (
+          <>
+            <div
+              style={{ position: 'relative', zIndex: vehiclePickerOpen ? 20 : undefined }}
+              onFocusCapture={() => setVehiclePickerOpen(true)}
+              onBlurCapture={(event) => {
+                const next = event.relatedTarget;
+                if (!(next instanceof Node) || !event.currentTarget.contains(next)) setVehiclePickerOpen(false);
+              }}
+            >
+              <SearchInput
+                value={vehicleQuery}
+                onChange={(value) => {
+                  setVehicleQuery(value);
+                  setVehiclePickerOpen(true);
+                }}
+                placeholder={draftProduct ? '다른 차량을 검색하거나 눌러서 변경' : '차량번호·차종 검색 또는 눌러서 선택'}
+                full
+              />
+              {vehiclePickerOpen ? (
+                <div style={{
+                  position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0,
+                  maxHeight: 360, overflowY: 'auto',
+                  border: `1px solid ${C.line}`, borderRadius: R,
+                  background: C.bg, boxShadow: '0 8px 24px rgba(15, 23, 42, .14)',
+                }}>
+                  <div style={{
+                    position: 'sticky', top: 0, zIndex: 1,
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+                    padding: '7px 10px', borderBottom: `1px solid ${C.line}`,
+                    background: C.head, fontSize: FS.sub, color: C.mute,
+                  }}>
+                    <span>{partnerCompanyDisplayName(draftPartner) || '선택 회사'} 차량 {companyVehicleCount.toLocaleString('ko-KR')}대</span>
+                    <span>{vehicleQuery ? `검색결과 ${vehicleResults.length.toLocaleString('ko-KR')}대` : '차량을 선택하세요'}</span>
+                  </div>
+                  {vehicleResults.length ? vehicleResults.map((product) => (
+                    <EsignVehicleSelectRow
+                      key={productKey(product)}
+                      p={product}
+                      selected={productKey(product) === draft.productCode}
+                      onClick={selectVehicle}
+                    />
+                  )) : (
+                    <CenterNote minHeight={0}>
+                      {companyVehicleCount
+                        ? '검색 조건에 맞는 차량이 없습니다.'
+                        : '이 회사에 등록된 ERP 차량이 없습니다.'}
+                    </CenterNote>
+                  )}
+                </div>
+              ) : null}
+            </div>
+            {draftProduct ? (
+              <div style={{ display: 'grid', gap: 8 }}>
+                <FormGrid
+                  fields={VEHICLE_CONTRACT_FIELDS}
+                  form={draft as unknown as EntityRecord}
+                  onChange={setDraftValue}
+                  cols={2}
+                  showNotes
+                />
+                <div style={{ fontSize: FS.sub, color: C.mute, lineHeight: 1.5 }}>
+                  연식·유종·출고 시 주행거리 등 나머지 차량정보는 선택한 ERP 차량값을 그대로 사용합니다.
+                </div>
+              </div>
+            ) : null}
           </>
-        ) : null}
-        {draftPartner && draftPolicy ? (
-          <ListGroup header="자동 적용되는 회원사·정책값" footer="이 값은 정책관리에서만 변경할 수 있습니다.">
-            <DetailRow label="회원사" value={S(draftPartner.name || draftPartner.partner_name)} />
-            <DetailRow label="계약 정책" value={S(draftPolicy.policy_name || draftPolicy.policy_code)} />
-            <DetailRow label="임대인" value={[draftPartner.ceo || draftPartner.ceo_name, draftPartner.phone].filter(Boolean).join(' · ') || '정책 확인 필요'} stacked />
-            <DetailRow label="사업장" value={S(draftPartner.address) || '정책 확인 필요'} stacked />
-            <DetailRow label="입금계좌" value={[draftPartner.bank_name, draftPartner.bank_account, draftPartner.bank_holder].filter(Boolean).join(' · ') || '정책 확인 필요'} stacked />
-            {appliedPolicyRows.map((field) => (
-              <DetailRow key={field.key} label={field.label} value={field.value} stacked />
-            ))}
-          </ListGroup>
-        ) : null}
+        ) : (
+          <CenterNote minHeight={0}>위에서 회사·계약서 종류·계약정책을 먼저 선택하세요.</CenterNote>
+        )}
 
-        <SectionLabel>② 사용할 계약서 선택</SectionLabel>
-        <FormGrid
-          fields={TEMPLATE_FIELDS}
-          form={draft as unknown as EntityRecord}
-          onChange={setDraftValue}
-          cols={1}
-          selectOptions={{
-            standardTemplateId: STANDARD_CONTRACT_TEMPLATES.map((template) => ({ value: template.id, label: template.label })),
-          }}
-        />
-        {draftTemplate ? (
-          <ListGroup footer={draftTemplate.note}>
-            <DetailRow label="계약서" value={draftTemplate.title} />
-            <DetailRow label="보험" value={draftTemplate.insuranceSide === '고객직접' ? '고객 별도 가입' : '대여료에 포함'} />
-          </ListGroup>
-        ) : null}
-        {draftTemplateError ? <Badge tone="red" variant="solid">{draftTemplateError}</Badge> : null}
+        <SectionLabel>③ 기간·운전자 연령·대여 조건</SectionLabel>
+        {draftProduct ? (
+          <div style={{ display: 'grid', gap: 10 }}>
+            <div>
+              <div style={{ fontSize: FS.sub, color: C.mute, marginBottom: 6 }}>대여기간</div>
+              <ToggleChips
+                selected={new Set(draft.rentMonths ? [draft.rentMonths] : [])}
+                options={availablePeriods.map((price) => ({ key: String(price.m), label: `${price.m}개월` }))}
+                onToggle={(value) => selectPeriod(Number(value))}
+              />
+            </div>
+            <div>
+              <div style={{ fontSize: FS.sub, color: C.mute, marginBottom: 6 }}>운전자 연령</div>
+              <ToggleChips
+                selected={new Set(draft.driverAge ? [String(Number(draft.driverAge.match(/(\d{2})/)?.[1] || 0))] : [])}
+                options={driverAgeOptions.map((option) => ({
+                  key: String(option.age),
+                  label: `${option.label}${option.surcharge ? ` · 월 +${won(option.surcharge)}` : ''}`,
+                }))}
+                onToggle={(value) => selectDriverAge(Number(value))}
+              />
+            </div>
+            <FormGrid
+              fields={RENT_CONTRACT_FIELDS}
+              form={draft as unknown as EntityRecord}
+              onChange={setDraftValue}
+              cols={3}
+              showNotes
+            />
+            <ListGroup>
+              <DetailRow label="운전자 조건" value={draft.driverAge || '연령을 선택해 주세요'} />
+              <DetailRow label="주행·납부" value={[draft.annualMileage, draft.paymentTiming].filter(Boolean).join(' · ') || '정책 확인'} />
+            </ListGroup>
+          </div>
+        ) : <CenterNote minHeight={0}>ERP 차량을 선택하면 가능한 기간과 가격이 표시됩니다.</CenterNote>}
 
-        <SectionLabel>③ 이번 계약에서 달라지는 값</SectionLabel>
-        <SectionLabel>직원이 입력할 고객 정보</SectionLabel>
+        <SectionLabel>④ 고객 정보</SectionLabel>
         <FormGrid fields={CUSTOMER_FIELDS} form={draft as unknown as EntityRecord} onChange={setDraftValue} cols={2} showNotes />
         <div style={{ fontSize: FS.sub, color: C.mute, lineHeight: 1.5 }}>
-          주민등록번호·주소·운전면허증 사진은 고객이 서명 링크에서 직접 입력·첨부합니다. 면허번호는 별도로 받지 않습니다.
+          주민등록번호·주소·운전면허증 사진은 고객이 계약 링크에서 직접 입력·첨부합니다. 비상연락처를 비우면 고객이 링크에서 입력합니다.
         </div>
-        <SectionLabel>차량 정보</SectionLabel>
-        <FormGrid fields={VEHICLE_FIELDS} form={draft as unknown as EntityRecord} onChange={setDraftValue} cols={2} showNotes />
-        <SectionLabel>대여·금액 조건</SectionLabel>
-        <FormGrid fields={CONTRACT_TERM_FIELDS} form={draft as unknown as EntityRecord} onChange={setDraftValue} cols={2} showNotes />
+
+        <SectionLabel>⑤ 특약사항</SectionLabel>
+        <Textarea
+          value={draft.specialTerms || ''}
+          onChange={(value) => setDraftValue('specialTerms', value)}
+          placeholder="이번 계약에만 적용할 특약이 있을 때 입력하세요. 없으면 비워 두세요."
+          ariaLabel="특약사항"
+          rows={3}
+          full
+          style={{ background: draft.specialTerms ? C.taupeBg : C.warnBg }}
+        />
+        <div style={{ fontSize: FS.sub, color: C.mute, lineHeight: 1.5 }}>
+          비워 두면 계약서에는 ‘없음’으로 표시됩니다. 공통 보험·정산 조건은 선택한 계약정책에서 자동 적용됩니다.
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+          <SectionLabel>⑥ 추가 운전자</SectionLabel>
+          <Btn
+            variant="ghost"
+            disabled={draftAdditionalDriverCount >= draftAdditionalDriverLimit}
+            title={draftAdditionalDriverLimit
+              ? `선택 정책에서 최대 ${draftAdditionalDriverLimit}명까지 등록`
+              : '선택 정책은 추가 운전자를 허용하지 않습니다'}
+            onClick={addAdditionalDriver}
+          >
+            <ButtonLabel icon={<Plus size={ICON.md} aria-hidden />}>추가 운전자</ButtonLabel>
+          </Btn>
+        </div>
+        {draftAdditionalDriverLimit ? (
+          <div style={{ fontSize: FS.sub, color: C.mute, lineHeight: 1.5 }}>
+            선택 정책 허용 인원 {draftAdditionalDriverLimit}명 · 현재 등록 {draftAdditionalDriverCount}명
+          </div>
+        ) : (
+          <Badge tone="gray" variant="fill">선택 정책상 추가 운전자 등록 불가</Badge>
+        )}
+        {draftAdditionalDriverCount > draftAdditionalDriverLimit ? (
+          <Badge tone="red" variant="solid">정책 허용 인원을 초과했습니다. 운전자를 삭제하거나 계약정책을 변경하세요.</Badge>
+        ) : null}
+        {Array.from({ length: draftAdditionalDriverCount }, (_, slot) => (
+          <div key={slot} style={{ display: 'grid', gap: 8, paddingTop: 10, borderTop: `1px solid ${C.line}` }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              <div style={{ fontSize: FS.sub, color: C.ink }}>추가 운전자 {slot + 1}</div>
+              <Btn variant="ghost" title={`추가 운전자 ${slot + 1} 삭제`} onClick={() => removeAdditionalDriver(slot)}>
+                <ButtonLabel icon={<Trash2 size={ICON.md} aria-hidden />}>삭제</ButtonLabel>
+              </Btn>
+            </div>
+            <FormGrid fields={additionalDriverFields(slot)} form={draft as unknown as EntityRecord} onChange={setDraftValue} cols={3} showNotes />
+          </div>
+        ))}
+        {draftAdditionalDriverCount === 0 ? (
+          <div style={{ fontSize: FS.sub, color: C.mute, lineHeight: 1.5 }}>추가 운전자가 없으면 이대로 진행합니다.</div>
+        ) : (
+          <div style={{ fontSize: FS.sub, color: C.mute, lineHeight: 1.5 }}>
+            주민번호·면허번호는 관리자 화면에 중복 입력하지 않고 각 운전자의 면허증 첨부자료와 원본으로 확인합니다.
+          </div>
+        )}
+
         <details>
-          <summary style={{ cursor: 'pointer', color: C.mute, fontSize: FS.sub }}>사업자·인수형·건별 특약이 있을 때만 추가 입력</summary>
+          <summary style={{ cursor: 'pointer', color: C.mute, fontSize: FS.sub }}>사업자·인수형 계약일 때만 추가 입력</summary>
           <div style={{ display: 'grid', gap: 10, marginTop: 10 }}>
             <SectionLabel>사업자 정보</SectionLabel>
             <FormGrid fields={BUSINESS_FIELDS} form={draft as unknown as EntityRecord} onChange={setDraftValue} cols={2} showNotes />
             <SectionLabel>건별 계약 조건</SectionLabel>
+            <FormGrid fields={CONTRACT_META_FIELDS} form={draft as unknown as EntityRecord} onChange={setDraftValue} cols={2} showNotes />
+            <FormGrid fields={PAYMENT_OVERRIDE_FIELDS} form={draft as unknown as EntityRecord} onChange={setDraftValue} cols={2} showNotes />
             <FormGrid fields={OPTIONAL_TERM_FIELDS} form={draft as unknown as EntityRecord} onChange={setDraftValue} cols={2} showNotes />
             <FormGrid fields={EXTRA_TERM_FIELDS} form={draft as unknown as EntityRecord} onChange={setDraftValue} cols={2} showNotes />
           </div>
         </details>
-        <SectionLabel>④ 발송 전 검토</SectionLabel>
-        <ListGroup footer="BLOCK가 없으면 발송할 수 있고, WARNING은 발송 전 확인할 항목입니다.">
-          {draftChecks.map((check) => (
-            <DetailRow
-              key={check.key}
-              label={check.label}
-              value={<Badge tone={check.level === 'BLOCK' ? 'red' : check.level === 'WARNING' ? 'amber' : 'green'} variant={check.level === 'BLOCK' ? 'solid' : 'fill'}>{check.message}</Badge>}
-            />
-          ))}
-        </ListGroup>
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          <Btn
-            disabled={busy || draftBlocks.length > 0}
-            onClick={() => {
-              const preview = window.open('about:blank', '_blank');
-              if (preview) preview.opener = null;
-              void createDraft(preview);
-            }}
-          >
-            <ButtonLabel icon={<FileText size={ICON.md} aria-hidden />}>{busy ? '저장 중…' : '저장하고 A4 검토'}</ButtonLabel>
-          </Btn>
-          <Btn variant="ghost" disabled={busy || draftBlocks.length > 0} onClick={() => void createDraft()}>
-            <ButtonLabel icon={<FileSignature size={ICON.md} aria-hidden />}>초안만 저장</ButtonLabel>
-          </Btn>
+        {draftPartner && draftPolicy ? (
+          <details>
+            <summary style={{ cursor: 'pointer', color: C.mute, fontSize: FS.sub }}>자동 적용되는 회원사·정책값 확인</summary>
+            <div style={{ marginTop: 10 }}>
+              <ListGroup footer="이 값은 정책관리에서만 변경할 수 있습니다.">
+                <DetailRow label="회원사" value={partnerCompanyDisplayName(draftPartner) || '공급사명 미등록'} />
+                <DetailRow label="계약 정책" value={S(draftPolicy.policy_name || draftPolicy.policy_code)} />
+                <DetailRow label="임대인" value={[draftPartner.ceo || draftPartner.ceo_name, draftPartner.phone].filter(Boolean).join(' · ') || '정책 확인 필요'} stacked />
+                <DetailRow label="사업장" value={S(draftPartner.address) || '정책 확인 필요'} stacked />
+                <DetailRow label="입금계좌" value={[draftPartner.bank_name, draftPartner.bank_account, draftPartner.bank_holder].filter(Boolean).join(' · ') || '정책 확인 필요'} stacked />
+                {appliedPolicyRows.map((field) => (
+                  <DetailRow key={field.key} label={field.label} value={field.value} stacked />
+                ))}
+              </ListGroup>
+            </div>
+          </details>
+        ) : null}
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
           <Btn variant="ghost" onClick={beginDirect}>
-            <ButtonLabel icon={<RotateCcw size={ICON.md} aria-hidden />}>입력 초기화</ButtonLabel>
+            <ButtonLabel icon={<RotateCcw size={ICON.md} aria-hidden />}>전체 입력 지우기</ButtonLabel>
           </Btn>
         </div>
       </PaneBody>
     </>
-  ) : selected ? (
+  ) : null;
+
+  const workflowPane = draftPane || (selected ? (
     <>
-      <PaneHead title="계약 데이터" count={sourceLabel} />
+      <PaneHead title="전자계약 처리" count={workflowStep} />
       <PaneBody pad>
-        <Btn full title="전자계약서 고객 화면과 문서 보기" onClick={() => window.open(`/esign/preview/${encodeURIComponent(contractKey(selected))}`, '_blank', 'noreferrer')}>
-          <ButtonLabel icon={<FileText size={ICON.md} aria-hidden />}>전자계약서 화면 보기</ButtonLabel>
-        </Btn>
-        <ListGroup>
-          <DetailRow label="회원사" value={S(selectedPartner?.name || selected.provider_company_code)} />
-          <DetailRow label="계약서" value={selectedTemplate?.label || '계약서 확인 필요'} stacked />
-          <DetailRow label="적용 정책" value={S(selectedPolicy?.policy_name || selected.policy_code)} stacked />
-          <DetailRow label="고객" value={[selected.customer_name, selected.customer_phone].filter(Boolean).join(' · ')} />
-          <DetailRow label="차량" value={[selected.vehicle_name_snapshot, selected.car_number_snapshot].filter(Boolean).join(' · ')} stacked />
-          <DetailRow label="대여조건" value={`${Number(selected.rent_month_snapshot) || '—'}개월 · 월 ${won(Number(selected.rent_amount_snapshot) || 0)}`} />
-          <DetailRow label="보증금" value={won(Number(selected.deposit_amount_snapshot) || 0)} />
-        </ListGroup>
-        <SectionLabel>발송 전 검증</SectionLabel>
-        <ListGroup>
-          {selectedChecks.map((check) => (
-            <DetailRow
-              key={check.key}
-              label={check.label}
-              value={<Badge tone={check.level === 'BLOCK' ? 'red' : check.level === 'WARNING' ? 'amber' : 'green'} variant={check.level === 'BLOCK' ? 'solid' : 'fill'}>{check.message}</Badge>}
-            />
-          ))}
-        </ListGroup>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {['① 입력', '② 계약서 확인', '③ 링크 전달', '④ 관리자 확인'].map((label, index) => {
+            const done = selectedCompleted || index < selectedCurrentStepIndex;
+            const current = !selectedCompleted && index === selectedCurrentStepIndex;
+            return <Badge key={label} tone={done ? 'green' : current ? 'blue' : 'gray'} variant={done || current ? 'fill' : 'line'}>{label}</Badge>;
+          })}
+        </div>
+        {selectedProblems.length ? (
+          <ListGroup header="발송 전 확인">
+            {selectedProblems.map((check) => (
+              <DetailRow
+                key={check.key}
+                label={check.label}
+                value={<Badge tone={check.level === 'BLOCK' ? 'red' : 'amber'} variant={check.level === 'BLOCK' ? 'solid' : 'fill'}>{check.message}</Badge>}
+              />
+            ))}
+          </ListGroup>
+        ) : null}
+        {selectedIssued ? (
+          <FreepassEsignProgressPane contract={selected} onChanged={load} />
+        ) : (
+          <CenterNote minHeight={0}>오른쪽 계약서·링크 패널에서 A4 계약서를 확인하고 체결 방식을 선택하세요.</CenterNote>
+        )}
       </PaneBody>
     </>
   ) : (
     <>
-      <PaneHead title="계약 데이터" />
-      <CenterNote>왼쪽의 새 계약서 직접 작성을 눌러 시작하세요.</CenterNote>
+      <PaneHead title="전자계약 업무" />
+      <PaneBody pad>
+        <SectionLabel>직원 업무 순서</SectionLabel>
+        <ListGroup>
+          <DetailRow label="① 입력" value="고객·차량·대여조건 입력" />
+          <DetailRow label="② 확인" value="A4 계약서 확인" />
+          <DetailRow label="③ 전달" value="고객 링크 생성·복사" />
+          <DetailRow label="④ 완료" value="서명 확인·승인·PDF 보관" />
+        </ListGroup>
+        <CenterNote minHeight={0}>왼쪽 맨 위의 새 계약서 작성을 누르면 입력부터 시작합니다.</CenterNote>
+      </PaneBody>
+    </>
+  ));
+
+  const documentPane = (
+    <>
+      <PaneHead
+        title={draft ? '계약서 만들기' : '계약서·고객 링크'}
+        count={selectedCompleted ? '완료' : selectedIssued ? '링크 발행' : selected ? '발송 전' : draft ? '작성 중' : undefined}
+      />
+      <PaneBody pad>
+        {draft ? (
+          <>
+            <SectionLabel>입력 내용 확인</SectionLabel>
+            <ListGroup footer="왼쪽에서 값을 수정하면 이 요약에도 바로 반영됩니다.">
+              <DetailRow label="계약회사" value={partnerCompanyDisplayName(draftPartner) || '선택 필요'} />
+              <DetailRow label="계약서" value={draftTemplate?.label || '선택 필요'} stacked />
+              <DetailRow label="계약정책" value={S(draftPolicy?.policy_name) || '선택 필요'} stacked />
+              <DetailRow label="고객" value={[draft.customerName, draft.customerPhone].filter(Boolean).join(' · ') || '입력 필요'} />
+              <DetailRow label="비상연락" value={[draft.emergencyContact, draft.emergencyRelation].filter(Boolean).join(' · ') || '고객 링크에서 입력'} />
+              <DetailRow label="차량" value={[draft.carNumber || (draft.productCode ? '차량번호 미정' : ''), draft.vehicleName].filter(Boolean).join(' · ') || '선택 필요'} stacked />
+              <DetailRow
+                label="대여조건"
+                value={[
+                  draft.rentMonths ? `${draft.rentMonths}개월` : '',
+                  draft.rentAmount ? `월 ${won(Number(draft.rentAmount))}` : '',
+                  draft.depositAmount !== '' ? `보증금 ${Number(draft.depositAmount) ? won(Number(draft.depositAmount)) : '0원'}` : '',
+                  draft.driverAge,
+                ].filter(Boolean).join(' · ') || '입력 필요'}
+                stacked
+              />
+              <DetailRow
+                label="추가 운전자"
+                value={draftAdditionalDrivers.length
+                  ? draftAdditionalDrivers.map((driver, index) => `${index + 1}. ${driver || '입력 필요'}`).join(' / ')
+                  : '없음'}
+                stacked
+              />
+              <DetailRow label="특약" value={draft.specialTerms || '없음'} stacked />
+            </ListGroup>
+
+            <SectionLabel>계약서 생성 전 확인</SectionLabel>
+            {!draftReachedReview ? (
+              <CenterNote minHeight={0}>왼쪽에서 회사·차량·기간·운전자 연령과 고객정보를 순서대로 입력하세요.</CenterNote>
+            ) : draftProblems.length ? (
+              <ListGroup footer="빨간 항목을 확인하면 계약서를 만들 수 있습니다.">
+                {draftProblems.map((check) => (
+                  <DetailRow
+                    key={check.key}
+                    label={check.label}
+                    value={<Badge tone={check.level === 'BLOCK' ? 'red' : 'amber'} variant={check.level === 'BLOCK' ? 'solid' : 'fill'}>{check.message}</Badge>}
+                  />
+                ))}
+              </ListGroup>
+            ) : (
+              <Badge tone="green" variant="fill">계약서 생성 준비가 완료되었습니다.</Badge>
+            )}
+
+            <Btn
+              full
+              disabled={busy}
+              title={draftBlocks.length ? '확인할 필수 항목 보기' : '입력값으로 A4 계약서 만들기'}
+              onClick={() => {
+                const preview = window.open('about:blank', '_blank');
+                if (preview) preview.opener = null;
+                void createDraft(preview);
+              }}
+            >
+              <ButtonLabel icon={<FileText size={ICON.md} aria-hidden />}>
+                {busy ? '계약서 만드는 중…' : draftBlocks.length ? `필수입력 ${draftBlocks.length}개 확인` : 'A4 계약서 만들기'}
+              </ButtonLabel>
+            </Btn>
+            <div style={{ fontSize: FS.cap, color: C.faint, lineHeight: 1.5 }}>
+              계약서를 만든 뒤 이 패널에서 A4 확인·출력과 고객 링크 생성·복사를 이어서 처리합니다.
+            </div>
+          </>
+        ) : (
+          <FreepassEsignLinkPane contract={selected} policy={selectedPolicy} onChanged={load} />
+        )}
+      </PaneBody>
     </>
   );
 
   const panes: WorkPane[] = [
-    { key: 'data', title: '계약 데이터', icon: Database, node: dataPane },
-    {
-      key: 'send', title: '검토·링크', icon: FileSignature, node: (
-        <><PaneHead title="계약서 검토·링크 생성" /><PaneBody pad><FreepassEsignLinkPane contract={selected} policy={selectedPolicy} onChanged={load} /></PaneBody></>
-      ),
-    },
-    {
-      key: 'progress', title: '진행', icon: ListChecks, node: (
-        <><PaneHead title="전자계약 진행상황" /><PaneBody pad><FreepassEsignProgressPane contract={selected} onChanged={load} /></PaneBody></>
-      ),
-    },
+    { key: 'workflow', title: '계약 진행', icon: FileSignature, node: workflowPane },
+    { key: 'document', title: '계약서·링크', icon: FileText, node: documentPane },
   ];
 
   const contractList = sendRows.length ? sendRows.map((row) => {
@@ -577,8 +992,8 @@ export function EsignSendCenter() {
         backKind={draft ? 'cancel' : 'list'}
         search={{ value: query, onChange: setQuery, placeholder: '고객·차량·계약번호 검색' }}
         mobileLayout="swap"
-        contextTitle={draft ? '직접 작성' : S(selected?.customer_name)}
-        listMaxWidth={420}
+        contextTitle={draft ? (partnerCompanyDisplayName(draftPartner) || '새 계약서') : S(selected?.customer_name)}
+        listMaxWidth={360}
       />
     </>
   );

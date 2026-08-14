@@ -447,6 +447,7 @@ export async function createDirectEsignContract(opt: {
   customerIsBusiness?: string;
   customerCompanyName?: string;
   customerBusinessNumber?: string;
+  productCode?: string;
   carNumber?: string;
   vehicleName: string;
   modelYear?: string;
@@ -455,6 +456,7 @@ export async function createDirectEsignContract(opt: {
   rentAmount: number;
   depositAmount?: number;
   paymentTiming?: '선불' | '후불' | '';
+  driverAge?: string;
   templateFields?: Record<string, string>;
 }): Promise<string> {
   const source = opt.source === 'excel' ? 'excel' : 'direct';
@@ -506,7 +508,7 @@ export async function createDirectEsignContract(opt: {
     contract_source: source,
     esign_import_template_id: String(opt.importTemplateId || '').trim(),
     esign_import_adapter_id: String(opt.importAdapterId || '').trim(),
-    product_code: '',
+    product_code: String(opt.productCode || '').trim(),
     policy_code: policyCode,
     standard_template_id: String(opt.standardTemplateId || '').trim(),
     contract_kind: String(opt.contractKind || '').trim(),
@@ -517,6 +519,7 @@ export async function createDirectEsignContract(opt: {
     rent_amount_snapshot: rentAmount,
     deposit_amount_snapshot: depositAmount,
     payment_timing_snapshot: paymentTiming,
+    driver_age_snapshot: String(opt.driverAge || '').trim(),
     customer_name: customerName,
     customer_phone: customerPhone,
     customer_address: String(opt.customerAddress || '').trim(),

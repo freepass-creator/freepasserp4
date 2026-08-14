@@ -38,7 +38,7 @@ const DEFAULTS: Record<string, number> = {
   buyout_notice_days: 30,            // 약관 제26조 인수 사전통지
   deposit_return_days: 30,           // 약관 제6조 보증금 반환기한
   impound_keep_days: 30,             // 약관 제22조 유류품 보관
-  late_fee_rate: 0.12,               // 약관 제25조 연 12%
+  late_fee_rate: 0.24,               // 약관 제25조 연 24% (관계 법령상 허용 한도 내)
 };
 
 /**

@@ -38,7 +38,7 @@ const p = chakhandealIssuePayload(
 ) as Record<string, any>;
 
 // 약관규제법 §3① — 전문을 보여줘야 그 약관을 계약 내용으로 주장할 수 있다.
-check('§3① 약관 전문이 실린다', p.agreement.sections.length === 21);
+check('§3① 약관 전문이 실린다', p.agreement.sections.length === 28);
 check('§3① 통독 강제', p.agreement.requireReadThrough === true);
 // §3② — 중요 조항을 강조하지 않으면 그 조항만 계약에서 빠진다(위약금·면책금이 무효화될 수 있다).
 check('§3② 중요 조항이 강조된다', p.agreement.sections.filter((s: any) => s.emphasis).length > 0);
@@ -68,7 +68,19 @@ check('양식 판이 실린다', !!p.templateId);
 
 // PII 경계 — 우리가 보내는 건 이름·생년·연락처뿐이다.
 const serialized = JSON.stringify(p);
-check('주민번호를 보내지 않는다', !/residentNumber|jumin|["']ssn["']|주민등록번호/i.test(serialized));
+const payloadKeys = new Set<string>();
+const collectKeys = (value: unknown) => {
+  if (!value || typeof value !== 'object') return;
+  if (Array.isArray(value)) return value.forEach(collectKeys);
+  for (const [key, nested] of Object.entries(value as Record<string, unknown>)) {
+    payloadKeys.add(key);
+    collectKeys(nested);
+  }
+};
+collectKeys(p);
+check('주민번호를 보내지 않는다',
+  ![...payloadKeys].some((key) => /residentNumber|jumin|^ssn$|customer_id/i.test(key))
+  && !/\d{6}-?\d{7}/.test(serialized));
 check('signer 는 3항목뿐', Object.keys(p.signer).every((k) => ['name', 'phone', 'birth'].includes(k)),
   Object.keys(p.signer));
 
