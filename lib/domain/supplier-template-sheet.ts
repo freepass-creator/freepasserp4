@@ -125,6 +125,19 @@ const POLICY_COLUMNS: { name: string; note: string; field?: string; values?: str
   { name: '탁송비', note: '', field: 'delivery_fee', values: ['협의', '무료', '무료(제주 제외)'] },
 ];
 /** 열 이름 → 정책 레코드 필드. 이관 때 연결된 정책에서 미리 채우는 데 쓴다. */
+/**
+ * 정책 항목의 **드롭다운 목록** — 공급사가 골라 넣게 한다(사장님 2026-08-14 —
+ * 「공급사들 입력하는 거에는 드랍다운으로 할 수 있게끔」).
+ *
+ * ★골라 넣게 하면 표기가 안 갈린다. 실측 2026-08-14: 같은 뜻이 「만 26세 이상」과 「26」,
+ *   「10만원」과 「100000」, 「30%」와 「0.3」, 「3회」와 「3」으로 섞여 있었다.
+ * ⚠ **막지는 않는다**(strict=false). 목록에 없는 답이 실제로 있다 — 「2회까지」처럼.
+ *   막으면 공급사가 못 적고 그냥 비워 둔다. 고르게 «권하되» 손으로도 적을 수 있어야 한다.
+ */
+export const POLICY_VALUE_LISTS: Record<string, readonly string[]> = Object.fromEntries(
+  POLICY_COLUMNS.filter((c) => c.values?.length).map((c) => [c.name, c.values as string[]]),
+);
+
 export const POLICY_COLUMN_FIELDS: { name: string; field: string }[] =
   POLICY_COLUMNS.filter((c) => c.field).map((c) => ({ name: c.name, field: c.field! }));
 export const POLICY_COLUMN_NAMES = POLICY_COLUMNS.map((c) => c.name);

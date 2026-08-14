@@ -57,7 +57,8 @@ check('재시도 서술', !claimsNoRetry, claimsNoRetry ? '⛔ 「재시도가 �
 
 /** ── 사람 값 보호 — 세 곳이 실제로 «쓰기 전에 읽는가» */
 const guards: [string, string, RegExp][] = [
-  ['@매핑 보존', 'scripts/publish-handover-tab.mts', /시트 것을 지킨다/],
+  // ⚠ 문구가 아니라 «장치»를 본다. 문구로 재면 말만 바꿔도 검사가 통과한다.
+  ['@매핑 보존', 'scripts/publish-handover-tab.mts', /시트에서 고친 \$\{used\.size\}줄은 지키고/],
   ['치환 사전 보존', 'scripts/publish-clean-tab.mts', /지금 시트엔 없음 — 규칙은 지킨다/],
   ['제공시트 메모 보존', 'scripts/publish-supplier-handover-tab.mts', /keepMemo/],
 ];

@@ -25,6 +25,7 @@ import {
   POLICY_KEY_COLUMNS, POLICY_PREFILL, POLICY_SHEET_FIELDS, USE_COLOR, USE_LABEL,
   policyBlocks, policySheetHeader,
 } from '../lib/domain/policy-sheet-layout';
+import { POLICY_VALUE_LISTS } from '../lib/domain/supplier-template-sheet';
 
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
@@ -83,12 +84,21 @@ for (const t of targets.sort((a, b) => a.name.localeCompare(b.name, 'ko'))) {
    *   (승계를 계약서 블록에서 영업자 블록으로 옮긴 것처럼).
    */
   const isWide = norm(rows[0]?.[0]) === '정책코드' && norm(rows[0]?.[1]) === '정책명' && !!S(rows[0]?.[2]);
+  /** 이미 규격대로면 값은 안 건드리고 서식만 다시 입힌다. */
+  let formatOnly = false;
   if (isWide) {
     const now = rows[0].map(S).filter(Boolean);
     const want = policySheetHeader();
     const same = want.every((h, i) => norm(now[i]) === norm(h));
-    if (same) { already++; console.log(`  = ${book} — 이미 가로다`); continue; }
-    console.log(`  ↻ ${book} — 가로인데 열 차례가 규격과 다르다. 다시 눕힌다`);
+    if (same) {
+      /**
+       * ★값은 그대로 두고 **서식만** 다시 입힌다 — 드롭다운·블록색·머리글 메모.
+       * ⚠ 예전엔 여기서 건너뛰어서, 뒤에 드롭다운을 넣어도 이미 가로인 시트엔 안 붙었다.
+       */
+      formatOnly = true;
+    } else {
+      console.log(`  ↻ ${book} — 가로인데 열 차례가 규격과 다르다. 다시 눕힌다`);
+    }
   }
 
   /**
@@ -140,28 +150,35 @@ for (const t of targets.sort((a, b) => a.name.localeCompare(b.name, 'ko'))) {
 
   const filled = body.slice(1).reduce((n, r) => n + r.filter((c, i) => i >= 2 && S(c)).length, 0);
   const total = Math.max(1, (body.length - 1) * (header.length - 2));
-  console.log(`  → ${book} — 정책 ${body.length - 1}개 · ${header.length}열${extra.length ? ` (옛 항목 ${extra.length}개 뒤에 붙임: ${extra.join(', ')})` : ''}`);
-  console.log(`       공급사가 채운 칸 ${filled}/${total} (${Math.round(filled / total * 100)}%)`);
-  done++;
+  if (formatOnly) {
+    already++;
+    console.log(`  = ${book} — 이미 가로다. 서식만 다시 입힌다 (정책 ${body.length - 1}개 · 채운 칸 ${Math.round(filled / total * 100)}%)`);
+  } else {
+    console.log(`  → ${book} — 정책 ${body.length - 1}개 · ${header.length}열${extra.length ? ` (옛 항목 ${extra.length}개 뒤에 붙임: ${extra.join(', ')})` : ''}`);
+    console.log(`       공급사가 채운 칸 ${filled}/${total} (${Math.round(filled / total * 100)}%)`);
+    done++;
+  }
   if (!APPLY) continue;
 
-  // ── 백업 먼저
-  mkdirSync('tmp', { recursive: true });
+  // ── 백업 먼저 (값을 다시 쓸 때만)
+  if (!formatOnly) mkdirSync('tmp', { recursive: true });
   const backup = `tmp/policy-backup-${book.replace(/[^\w가-힣]+/g, '_')}-${stamp}.json`;
-  writeFileSync(backup, JSON.stringify({ book, at: stamp, rows }, null, 1), 'utf8');
+  if (!formatOnly) writeFileSync(backup, JSON.stringify({ book, at: stamp, rows }, null, 1), 'utf8');
 
   const gid = p.sheetId as number;
-  const reqs: Rec[] = [
+  const reqs: Rec[] = formatOnly ? [] : [
     { updateCells: { range: { sheetId: gid }, fields: 'userEnteredValue,userEnteredFormat' } },
     { updateSheetProperties: { properties: { sheetId: gid, gridProperties: { frozenRowCount: 1, frozenColumnCount: 2 } }, fields: 'gridProperties.frozenRowCount,gridProperties.frozenColumnCount' } },
   ];
   if ((Number(p.gridProperties?.columnCount) || 26) < header.length) {
     reqs.push({ appendDimension: { sheetId: gid, dimension: 'COLUMNS', length: header.length - (Number(p.gridProperties?.columnCount) || 26) } });
   }
-  await call(`${SH}/${t.id}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests: reqs }) });
-  await call(`${SH}/${t.id}/values/${encodeURIComponent(`'${TAB}'!A1`)}?valueInputOption=USER_ENTERED`, {
-    method: 'PUT', body: JSON.stringify({ values: [header, ...body] }),
-  });
+  if (reqs.length) await call(`${SH}/${t.id}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests: reqs }) });
+  if (!formatOnly) {
+    await call(`${SH}/${t.id}/values/${encodeURIComponent(`'${TAB}'!A1`)}?valueInputOption=USER_ENTERED`, {
+      method: 'PUT', body: JSON.stringify({ values: [header, ...body] }),
+    });
+  }
 
   // ── 블록 색과 머리글 메모 — 공급사가 «왜 채우는지» 알아야 채운다
   const fmt: Rec[] = [];
@@ -183,18 +200,38 @@ for (const t of targets.sort((a, b) => a.name.localeCompare(b.name, 'ko'))) {
     cell: { userEnteredFormat: { backgroundColor: rgb('F5F5F5'), textFormat: { italic: true } } },
     fields: 'userEnteredFormat(backgroundColor,textFormat)',
   } });
+  /**
+   * ★**드롭다운** — 골라 넣게 하면 표기가 안 갈린다(사장님 2026-08-14).
+   * ⚠ 막지는 않는다(strict=false). 목록에 없는 답이 실제로 있다 — 「2회까지」처럼.
+   *   막으면 공급사가 못 적고 그냥 비워 둔다.
+   */
+  let drops = 0;
+  header.forEach((name, i) => {
+    const list = POLICY_VALUE_LISTS[name];
+    if (!list?.length) return;
+    drops++;
+    fmt.push({ setDataValidation: {
+      range: { sheetId: gid, startRowIndex: 1, endRowIndex: Math.max(200, body.length + 20), startColumnIndex: i, endColumnIndex: i + 1 },
+      rule: {
+        condition: { type: 'ONE_OF_LIST', values: list.map((v) => ({ userEnteredValue: v })) },
+        showCustomUi: true,
+        strict: false,
+      },
+    } });
+  });
   fmt.push({ updateDimensionProperties: { range: { sheetId: gid, dimension: 'COLUMNS', startIndex: 0, endIndex: header.length }, properties: { pixelSize: 118 }, fields: 'pixelSize' } });
   fmt.push({ updateDimensionProperties: { range: { sheetId: gid, dimension: 'ROWS', startIndex: 0, endIndex: 1 }, properties: { pixelSize: 34 }, fields: 'pixelSize' } });
   await call(`${SH}/${t.id}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests: fmt }) });
 
-  // ── 되읽어 칸 단위 대조
+  // ── 되읽어 칸 단위 대조 (값을 다시 쓴 때만)
+  if (formatOnly) { console.log(`       서식 다시 입힘 — 드롭다운 ${drops}칸`); continue; }
   const back = await call(`${SH}/${t.id}/values/${encodeURIComponent(`'${TAB}'`)}`) as { values?: string[][] };
   const got = (back.values || []) as string[][];
   const want = [header, ...body];
   let miss = 0;
   want.forEach((r, ri) => r.forEach((c, ci) => { if (S(c) !== S(got[ri]?.[ci])) miss++; }));
   if (miss) { bad++; console.log(`       ⛔ 되읽으니 ${miss}칸이 다르다 — 백업 ${backup}`); }
-  else console.log(`       ✓ ${want.length}줄 × ${header.length}열 그대로 · 백업 ${backup}`);
+  else console.log(`       ✓ ${want.length}줄 × ${header.length}열 그대로 · 드롭다운 ${drops}칸 · 백업 ${backup}`);
 }
 console.log(`\n  돌림 ${done} · 이미 가로 ${already} · 건너뜀 ${skipped}${bad ? ` · ⛔ 어긋남 ${bad}` : ''}`);
 if (!APPLY) console.log('\n※ dry-run. 실제 반영은 --apply — 한 곳 먼저 시험하라(--sheet=<ID>)\n');
