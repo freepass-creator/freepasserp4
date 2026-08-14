@@ -258,7 +258,11 @@ export async function POST(
     const hash = hashFreepassSignToken(token);
     const now = Date.now();
     const expiresAt = now + FREEPASS_ESIGN_TTL_MS;
-    const signUrl = `${new URL(request.url).origin}/sign/${token}`;
+    const requestOrigin = new URL(request.url).origin;
+    const publicSignOrigin = S(process.env.FREEPASS_ESIGN_PUBLIC_BASE_URL).replace(/\/+$/, '');
+    const signUrl = publicSignOrigin
+      ? `${publicSignOrigin}/${token}`
+      : `${requestOrigin}/sign/${token}`;
     const esignId = `fp_${hash.slice(0, 24)}`;
     try {
       const sessionValue: EsignRecord = {

@@ -4626,3 +4626,13 @@ Next 개발 서버와 production build가 같은 `.next`를 사용하면 실행 
 - 완료 PDF는 8쪽 모두 A4(594.96×841.92pt)이며 암호화·스크립트·폼이 없는 정적 확정본이다. 8쪽 전체를 PNG로 렌더링해 표 잘림·본문 겹침·깨진 글자·페이지 이탈이 없음을 확인했다.
 - 기존 범위 밖: 연대보증 약정은 별도 서면·최고액·보증인 직접서명 문서가 필요하므로 표준 전자계약 한 장에 합치지 않는다.
 - 최종 판정: **PASS** — 고객 제출부터 관리자 승인·봉인·고객 PDF 열람/다운로드까지 실제 테스트 계약으로 실증했다.
+
+---
+
+## 2026-08-14 전자계약 대표 도메인 전환
+
+결과: **PASS — 신규 프리패스 링크와 착한거래 과거 링크를 토큰 규격으로 분리**
+
+- 신규 전자계약은 운영 환경의 `FREEPASS_ESIGN_PUBLIC_BASE_URL`을 기준으로 `https://sign.freepasserp.com/fps_...` 형식의 짧은 고객 링크를 만든다. 로컬·미설정 환경은 기존 요청 주소의 `/sign/{token}`으로 안전하게 폴백한다.
+- `sign.freepasserp.com`에서 `fps_` 토큰은 프리패스 `/sign/{token}`으로 내부 rewrite하고, 기존 착한거래의 22자리 토큰과 `/sign?c=...` 구형 링크는 `chakhandeal.vercel.app`으로 쿼리스트링을 보존해 redirect한다.
+- `npx tsc --noEmit`, `sim-freepass-esign`, `check:fonts`, `check:tokens`, 별도 distDir production build 33/33, middleware 신규·레거시·기존경로 직접 시뮬레이션, `git diff --check` PASS.
