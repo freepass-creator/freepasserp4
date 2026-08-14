@@ -23,7 +23,7 @@ const MAX_IMAGE_BYTES = 1_500_000;
 const S = (value: unknown) => String(value ?? '').trim();
 const PROGRESS_KEYS = new Set([
   'summary', 'privacy', 'identity', 'vehicle', 'rental', 'payment', 'driver',
-  'insurance', 'accident', 'service', 'agreement', 'signature',
+  'additional_driver', 'insurance', 'accident', 'service', 'agreement', 'signature',
 ]);
 
 function json(body: Record<string, unknown>, status = 200) {
@@ -82,6 +82,8 @@ function validateServerProgress(session: EsignRecord) {
     'summary', 'privacy', 'identity', 'agreement',
     ...groups.map((group) => S(record(group).key)).filter(Boolean),
   ]);
+  const additionalDriverPolicy = record(snapshot.additionalDriverPolicy);
+  if (Number(additionalDriverPolicy.limit || 0) > 0) required.add('additional_driver');
   const missing = [...required].filter((key) => !Number(progress[key] || 0));
   if (missing.length) throw new Error('서버에 확인 기록이 남지 않은 계약 단계가 있습니다. 처음부터 다시 확인해 주세요.');
 }
@@ -109,14 +111,41 @@ function validateSubmission(payload: EsignRecord, snapshot: EsignRecord) {
   if (!Number(payload.agreementReadAt || 0)) throw new Error('약관을 끝까지 읽고 동의해 주세요.');
   for (const [key, limit] of [
     ['customer_id', 30], ['customer_address', 200],
+    ['driver_license_no', 30],
     ['emergency_name', 40], ['emergency_phone', 30],
   ] as const) {
     if (S(payload[key]).length > limit) throw new Error('입력값이 너무 깁니다.');
   }
   const customerId = S(payload.customer_id).replace(/\D/g, '');
   if (customerId.length !== 13) throw new Error('주민등록번호 13자리를 정확히 입력해 주세요.');
+  if (!S(payload.driver_license_no)) throw new Error('운전면허번호를 입력해 주세요.');
   if (!S(payload.customer_address)) throw new Error('계약서에 기재할 주소를 입력해 주세요.');
-  return { name, phone, signature, consents, confirmations };
+  const additionalDriverPolicy = record(snapshot.additionalDriverPolicy);
+  const additionalDriverLimit = Math.max(0, Math.min(3, Number(additionalDriverPolicy.limit || 0)));
+  const rawAdditionalDrivers = Array.isArray(payload.additional_drivers) ? payload.additional_drivers : [];
+  if (rawAdditionalDrivers.length > additionalDriverLimit) {
+    throw new Error(`추가 운전자는 최대 ${additionalDriverLimit}명까지 등록할 수 있습니다.`);
+  }
+  const additionalDrivers = rawAdditionalDrivers.map((value, index) => {
+    const driver = record(value);
+    const driverName = S(driver.name);
+    const relation = S(driver.relation);
+    const driverPhone = S(driver.phone).replace(/\D/g, '');
+    const driverLicenseNo = S(driver.driver_license_no);
+    if (!driverName || driverName.length > 40) throw new Error(`추가 운전자 ${index + 1}의 성명을 확인해 주세요.`);
+    if (!relation || relation.length > 30) throw new Error(`추가 운전자 ${index + 1}의 관계를 확인해 주세요.`);
+    if (driverPhone.length < 10 || driverPhone.length > 11) throw new Error(`추가 운전자 ${index + 1}의 연락처를 확인해 주세요.`);
+    if (!driverLicenseNo || driverLicenseNo.length > 30) throw new Error(`추가 운전자 ${index + 1}의 면허번호를 확인해 주세요.`);
+    if (!Number(driver.consentAt || 0)) throw new Error(`추가 운전자 ${index + 1}의 개인정보 제공 동의가 필요합니다.`);
+    return {
+      name: driverName,
+      relation,
+      phone: driverPhone,
+      driver_license_no: driverLicenseNo,
+      consentAt: Number(driver.consentAt),
+    };
+  });
+  return { name, phone, signature, consents, confirmations, additionalDrivers };
 }
 
 export async function GET(
@@ -229,12 +258,17 @@ export async function POST(
   let payload: EsignRecord;
   let idCard: File;
   let selfie: File;
+  let additionalDriverLicenses: File[];
   try {
     const form = await request.formData();
     payload = JSON.parse(S(form.get('payload'))) as EsignRecord;
     idCard = imageFile(form.get('idCard'), '신분증');
     selfie = imageFile(form.get('selfie'), '본인 셀카');
-    validateSubmission(payload, record(session.snapshot));
+    const parsed = validateSubmission(payload, record(session.snapshot));
+    additionalDriverLicenses = parsed.additionalDrivers.map((_, index) => imageFile(
+      form.get(`additionalDriverLicense${index + 1}`),
+      `추가 운전자 ${index + 1} 운전면허증`,
+    ));
     validateServerProgress(session);
   } catch (error) {
     return json({ error: error instanceof Error ? error.message : '제출 내용을 확인해 주세요.' }, 400);
@@ -252,14 +286,20 @@ export async function POST(
   if (!claim.committed) return json({ error: '이미 제출 중이거나 처리된 계약입니다.' }, 409);
 
   try {
-    const [idBytes, selfieBytes] = await Promise.all([
+    const [idBytes, selfieBytes, additionalDriverLicenseBytes] = await Promise.all([
       idCard.arrayBuffer().then((value) => new Uint8Array(value)),
       selfie.arrayBuffer().then((value) => new Uint8Array(value)),
+      Promise.all(additionalDriverLicenses.map((file) => file.arrayBuffer().then((value) => new Uint8Array(value)))),
     ]);
     const root = `esign-private/${contractCode}/${hash}`;
-    const [idAsset, selfieAsset] = await Promise.all([
+    const [idAsset, selfieAsset, additionalDriverAssets] = await Promise.all([
       uploadPrivateEsignFile(`${root}/id-card.${extension(idCard)}`, idBytes, idCard.type),
       uploadPrivateEsignFile(`${root}/selfie.${extension(selfie)}`, selfieBytes, selfie.type),
+      Promise.all(additionalDriverLicenses.map((file, index) => uploadPrivateEsignFile(
+        `${root}/additional-driver-${index + 1}-license.${extension(file)}`,
+        additionalDriverLicenseBytes[index],
+        file.type,
+      ))),
     ]);
     const claimedSession = record(claim.snapshot.val());
     const progress = record(claimedSession.progress);
@@ -285,8 +325,15 @@ export async function POST(
       customer_phone: parsed.phone,
       customer_id: S(payload.customer_id),
       customer_address: S(payload.customer_address),
+      driver_license_no: S(payload.driver_license_no),
       emergency_name: S(payload.emergency_name),
       emergency_phone: S(payload.emergency_phone),
+      additional_drivers: parsed.additionalDrivers.map((driver, index) => ({
+        ...driver,
+        licensePath: additionalDriverAssets[index].path,
+        licenseSha256: additionalDriverAssets[index].sha256,
+        licenseContentType: additionalDriverAssets[index].contentType,
+      })),
       signature: parsed.signature,
       signatureSha256: sha256(parsed.signature),
       consentTimes,
@@ -305,6 +352,9 @@ export async function POST(
         status: 'pending_review', submittedAt: now, submittingAt: null,
       }),
       bundle.db.ref(`v4/contracts/${contractCode}`).update({
+        customer_name: parsed.name,
+        customer_phone: parsed.phone,
+        additional_driver: parsed.additionalDrivers.length ? `${parsed.additionalDrivers.length}인 지정` : '없음',
         sign_status: '검토대기',
         esign_progress: 7,
         esign_submitted_at: now,
@@ -314,6 +364,12 @@ export async function POST(
         esign_documents: [
           { key: 'driver_license', label: '운전면허증', submittedAt: now, sha256: idAsset.sha256 },
           { key: 'selfie', label: '본인 셀카', submittedAt: now, sha256: selfieAsset.sha256 },
+          ...additionalDriverAssets.map((asset, index) => ({
+            key: `additional_driver_license_${index + 1}`,
+            label: `추가 운전자 ${index + 1} 운전면허증`,
+            submittedAt: now,
+            sha256: asset.sha256,
+          })),
         ],
         esign_identity: {
           idCardSha256: idAsset.sha256,

@@ -91,6 +91,8 @@ check('원자 섹션이 계약서 구성대로 실린다',
   groups.map((g) => g.key).join('|') === 'identity|vehicle|rental|payment|driver|insurance|accident|service',
   groups.map((g) => g.key));
 check('묶음마다 동의 문구가 있다', groups.every((g) => !!g.confirmLabel));
+check('동의 스냅샷 행에 Firebase 저장 불가 undefined 속성이 없다',
+  groups.every((g) => g.rows.every((row) => Object.values(row).every((value) => value !== undefined))));
 const rowValue = (key: string, label: string) => groups.find((g) => g.key === key)?.rows.find((r) => r.label === label)?.value;
 // 표시 문자열을 우리가 굳혀 보낸다 — 저쪽이 다시 포맷하면 화면과 계약서 숫자가 갈린다.
 check('월 대여료는 사람이 읽는 꼴', rowValue('rental', '월 대여료') === '500,000원', rowValue('rental', '월 대여료'));

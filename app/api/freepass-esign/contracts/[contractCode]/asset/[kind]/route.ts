@@ -35,14 +35,31 @@ export async function GET(
   const resolved = await params;
   const contractCode = validContractCode(resolved.contractCode);
   const kind = String(resolved.kind || '');
-  if (!contractCode || !['id-card', 'selfie'].includes(kind)) return json({ error: '요청이 올바르지 않습니다.' }, 400);
+  const additionalDriverSlot = Number(kind.match(/^additional-driver-license-([1-3])$/)?.[1] || 0);
+  if (!contractCode || (!['id-card', 'selfie'].includes(kind) && !additionalDriverSlot)) return json({ error: '요청이 올바르지 않습니다.' }, 400);
   const bundle = await loadFreepassEsignBundle(contractCode);
   if (!bundle) return json({ error: '계약을 찾을 수 없습니다.' }, 404);
   const hash = sessionHashFromContract(bundle.contract);
   if (!hash) return json({ error: '전자계약 세션을 찾을 수 없습니다.' }, 404);
   const submission = (await bundle.db.ref(`v4/esign_private/${contractCode}/${hash}`).get()).val() as EsignRecord | null;
-  const path = String(kind === 'id-card' ? submission?.idCardPath || '' : submission?.selfiePath || '');
-  const contentType = String(kind === 'id-card' ? submission?.idCardContentType || 'image/jpeg' : submission?.selfieContentType || 'image/jpeg');
+  const additionalDrivers = Array.isArray(submission?.additional_drivers) ? submission.additional_drivers : [];
+  const additionalDriver = additionalDriverSlot
+    ? additionalDrivers[additionalDriverSlot - 1] as EsignRecord | undefined
+    : undefined;
+  const path = String(
+    kind === 'id-card'
+      ? submission?.idCardPath || ''
+      : kind === 'selfie'
+        ? submission?.selfiePath || ''
+        : additionalDriver?.licensePath || '',
+  );
+  const contentType = String(
+    kind === 'id-card'
+      ? submission?.idCardContentType || 'image/jpeg'
+      : kind === 'selfie'
+        ? submission?.selfieContentType || 'image/jpeg'
+        : additionalDriver?.licenseContentType || 'image/jpeg',
+  );
   if (!path) return json({ error: '첨부된 사진이 없습니다.' }, 404);
   try {
     const [buffer] = await freepassStorageBucket().file(path).download();

@@ -98,6 +98,8 @@ const subIncludedTemplate = findTemplate('freepass-subscription-insurance-includ
 const subSeparateTemplate = findTemplate('freepass-subscription-insurance-separate')!;
 check('렌트 표준서식 + 보험포함 정책 조합 통과',
   standardTemplateSelectionError(rentTemplate, contractKindFor(rentTemplate, '반납형'), { insurance_included: '포함(회사 가입)' }) === '');
+check('보험 포함 여부 미기재 정책은 프리패스 기본인 보험포함으로 처리',
+  standardTemplateSelectionError(rentTemplate, contractKindFor(rentTemplate, '반납형'), {}) === '');
 check('구독 보험포함서식 + 보험별도 정책 조합 차단',
   !!standardTemplateSelectionError(subIncludedTemplate, contractKindFor(subIncludedTemplate, '인수형'), { insurance_included: '개인보험형(손님 직접)' }));
 check('구독 보험별도서식 + 보험별도 정책 조합 통과',

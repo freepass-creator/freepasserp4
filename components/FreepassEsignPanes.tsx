@@ -48,9 +48,18 @@ type AdminState = {
     status?: string;
     customerName?: string;
     customerPhone?: string;
+    driverLicenseNo?: boolean;
     signature?: string;
     idCard?: boolean;
     selfie?: boolean;
+    additionalDrivers?: Array<{
+      name?: string;
+      relation?: string;
+      phone?: string;
+      driverLicenseNo?: boolean;
+      license?: boolean;
+      assetUrl?: string;
+    }>;
     assetUrls?: { idCard?: string; selfie?: string };
   } | null;
   events?: Array<{ type?: string; at?: number; reason?: string; items?: string[]; handoverDate?: string }>;
@@ -99,8 +108,16 @@ async function actionFor(contractCode: string, body: Rec): Promise<AdminState> {
   const response = await adminFetch(`/api/freepass-esign/contracts/${encodeURIComponent(contractCode)}`, {
     method: 'POST', body: JSON.stringify(body),
   });
-  const result = await response.json().catch(() => ({})) as AdminState & { error?: string };
-  if (!response.ok) throw new Error(result.error || '전자계약 작업을 완료하지 못했습니다.');
+  const raw = await response.text();
+  let result: AdminState & { error?: string } = {};
+  try { result = raw ? JSON.parse(raw) as AdminState & { error?: string } : {}; }
+  catch { /* Next 런타임 오류 HTML은 아래 상태코드 안내로 처리한다. */ }
+  if (!response.ok) {
+    const fallback = process.env.NODE_ENV === 'development'
+      ? `전자계약 작업을 완료하지 못했습니다. (HTTP ${response.status})`
+      : '전자계약 작업을 완료하지 못했습니다.';
+    throw new Error(result.error || fallback);
+  }
   return result;
 }
 
@@ -161,7 +178,7 @@ export function FreepassEsignLinkPane({
         <DetailRow label="서면 계약" value="A4 계약서를 출력해 자필서명 또는 법인 기명날인" stacked />
         <DetailRow label="전자계약" value="고객 작성용 보안 링크를 생성해 본인확인·전자서명" stacked />
       </ListGroup>
-      <CenterNote minHeight={0}>왼쪽에서 회사와 계약서를 선택하고 조건값을 입력한 뒤 초안을 만드세요.</CenterNote>
+      <CenterNote minHeight={0}>입력 패널에서 회사와 계약서를 선택하고 조건값을 입력한 뒤 초안을 만드세요.</CenterNote>
     </div>
   );
   const current = state?.contract || contract;
@@ -186,11 +203,11 @@ export function FreepassEsignLinkPane({
 
   const copyLink = () => {
     if (!link) {
-      toast('복사할 고객 계약 링크가 없습니다.', 'error');
+      toast('복사할 계약 링크가 없습니다.', 'error');
       return;
     }
     void copyText(link).then((ok) => toast(
-      ok ? '고객 계약 링크를 복사했습니다.' : '링크 복사에 실패했습니다.',
+      ok ? '계약 링크를 복사했습니다. 영업자에게 전달하세요.' : '링크 복사에 실패했습니다.',
       ok ? 'ok' : 'error',
     ));
   };
@@ -227,7 +244,7 @@ export function FreepassEsignLinkPane({
                 <DetailRow label="보험" value={tpl.insuranceSide === '고객직접' ? '보험별도' : '보험포함'} />
                 <DetailRow label="만기 인수옵션" value={S(current.contract_draft).includes('buyback_price') ? '계약서 기재값 적용' : '없음 · 만기 반납'} />
               </ListGroup>
-              <SectionLabel>① A4 계약서 확인</SectionLabel>
+              <SectionLabel>① 생성된 계약서 미리보기</SectionLabel>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 <Btn
                   title="A4 계약서 미리보기"
@@ -245,18 +262,18 @@ export function FreepassEsignLinkPane({
               </div>
               <div style={{ fontSize: FS.cap, color: C.faint }}>먼저 고객에게 전달될 계약서와 약관을 확인합니다. 서면 계약이면 이 PDF를 출력해 서명·기명날인합니다.</div>
 
-              <SectionLabel>② 고객 링크 만들기</SectionLabel>
+              <SectionLabel>② 계약 링크 만들기</SectionLabel>
               <Btn
                 full
                 title="고객이 본인확인하고 서명할 계약 링크 만들기"
                 disabled={busy}
                 onClick={() => void run({
                   action: 'issue', standardTemplateId: tpl.id, contractKind: spec.key,
-                }, '고객 계약 링크를 만들었습니다. 링크를 복사해 전달하세요.')}
+                }, '계약 링크를 만들었습니다. 링크를 복사해 영업자에게 전달하세요.')}
               >
-                {busy ? '링크 만드는 중…' : '고객 계약 링크 만들기'}
+                {busy ? '링크 만드는 중…' : '계약 링크 만들기'}
               </Btn>
-              <div style={{ fontSize: FS.cap, color: C.faint }}>링크만 생성됩니다. 생성 후 링크를 복사해 문자·카카오톡 등 원하는 방법으로 고객에게 전달하세요.</div>
+              <div style={{ fontSize: FS.cap, color: C.faint }}>링크만 생성됩니다. 링크를 복사해 영업자에게 전달하면 영업자가 고객에게 안내합니다.</div>
             </>
           ) : null}
         </>
@@ -281,24 +298,24 @@ export function FreepassEsignLinkPane({
             </>
           ) : (
             <>
-              <SectionLabel>① 고객에게 링크 전달</SectionLabel>
+              <SectionLabel>① 계약 링크 복사·전달</SectionLabel>
               <ListGroup>
                 <DetailRow label="링크 상태" value={linkStatusLabel} />
                 <DetailRow label="유효기한" value={linkExpiresAt ? stamp(linkExpiresAt) : '확인 필요'} />
               </ListGroup>
               <div style={{ display: 'grid', gap: 5 }}>
-                <div style={{ fontSize: FS.cap, color: C.mute }}>고객 계약 링크</div>
+                <div style={{ fontSize: FS.cap, color: C.mute }}>계약 링크</div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 6, alignItems: 'center' }}>
                   <Input
                     value={link}
                     onChange={() => {}}
-                    ariaLabel="고객 계약 링크"
+                    ariaLabel="계약 링크"
                     type="url"
                     full
                     readOnly
                     style={{ minWidth: 0 }}
                   />
-                  <Btn title="고객 계약 링크 복사" disabled={!link} onClick={copyLink}>
+                  <Btn title="계약 링크 복사" disabled={!link} onClick={copyLink}>
                     <ButtonLabel icon={<Copy size={ICON.md} aria-hidden />}>링크 복사</ButtonLabel>
                   </Btn>
                 </div>
@@ -314,7 +331,7 @@ export function FreepassEsignLinkPane({
                   <ButtonLabel icon={<Link2Off size={ICON.md} aria-hidden />}>링크 해지</ButtonLabel>
                 </Btn>
               </div>
-              <div style={{ fontSize: FS.cap, color: C.faint }}>복사한 링크를 문자·카카오톡 등 원하는 방법으로 고객에게 전달하세요.</div>
+              <div style={{ fontSize: FS.cap, color: C.faint }}>링크를 복사해 영업자에게 전달하세요. 영업자가 고객에게 전달하면 고객이 직접 정보를 입력하고 계약 내용을 확인·서명합니다.</div>
               <SectionLabel>② A4 계약서 확인·출력</SectionLabel>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 <Btn title="A4 초안 미리보기" variant="ghost" onClick={() => void openProtected(`/api/freepass-esign/contracts/${encodeURIComponent(code)}/document?draft=1`).catch((e) => toast(String(e.message || e), 'error'))}>
@@ -483,6 +500,7 @@ export function FreepassEsignProgressPane({
         <>
           <ListGroup>
             <DetailRow label="제출자" value={[state.submission.customerName, state.submission.customerPhone].filter(Boolean).join(' · ') || '—'} />
+            <DetailRow label="운전면허번호" value={state.submission.driverLicenseNo ? '접수' : '누락'} valueColor={state.submission.driverLicenseNo ? C.ok : C.danger} />
             <DetailRow label="운전면허증" value={state.submission.idCard ? '접수' : '누락'} valueColor={state.submission.idCard ? C.ok : C.danger} />
             <DetailRow label="본인 셀카" value={state.submission.selfie ? '접수' : '누락'} valueColor={state.submission.selfie ? C.ok : C.danger} />
           </ListGroup>
@@ -490,6 +508,34 @@ export function FreepassEsignProgressPane({
             {state.submission.assetUrls?.idCard ? <Btn title="운전면허증 확인" variant="ghost" onClick={() => void openAsset(state.submission!.assetUrls!.idCard!)}>운전면허증 확인</Btn> : null}
             {state.submission.assetUrls?.selfie ? <Btn title="셀카 확인" variant="ghost" onClick={() => void openAsset(state.submission!.assetUrls!.selfie!)}>셀카 확인</Btn> : null}
           </div>
+          {(state.submission.additionalDrivers || []).length ? (
+            <>
+              <SectionLabel>추가 운전자 확인</SectionLabel>
+              <ListGroup>
+                {(state.submission.additionalDrivers || []).map((driver, index) => (
+                  <DetailRow
+                    key={`${driver.name}-${index}`}
+                    label={`추가 운전자 ${index + 1}`}
+                    value={[
+                      driver.name,
+                      driver.relation,
+                      driver.phone,
+                      driver.driverLicenseNo && driver.license ? '면허자료 접수' : '면허자료 누락',
+                    ].filter(Boolean).join(' · ')}
+                    valueColor={driver.driverLicenseNo && driver.license ? C.ok : C.danger}
+                    stacked
+                  />
+                ))}
+              </ListGroup>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {(state.submission.additionalDrivers || []).map((driver, index) => driver.assetUrl ? (
+                  <Btn key={driver.assetUrl} title={`추가 운전자 ${index + 1} 면허증 확인`} variant="ghost" onClick={() => void openAsset(driver.assetUrl!)}>
+                    추가 운전자 {index + 1} 면허증
+                  </Btn>
+                ) : null)}
+              </div>
+            </>
+          ) : null}
           {state.submission.signature ? (
             <div style={{ padding: 8, border: `1px solid ${C.line}`, background: C.inverse }}>
               <div style={{ fontSize: FS.cap, color: C.mute, marginBottom: 4 }}>고객 서명</div>

@@ -58,7 +58,7 @@ assert.match(template, /임차인 서명·날인/);
 assert.doesNotMatch(template, /본인인증 후 서명/);
 assert.match(agreementText, /계약의 세칙·통지 및 계약서 교부/);
 assert.match(contractPane, /A4 계약서 출력/);
-assert.match(contractPane, /전자서명 링크 생성/);
+assert.match(contractPane, /계약 링크 만들기/);
 assert.match(contractPane, /document\?format=pdf&draft=1/);
 assert.doesNotMatch(signPage.match(/const REQUIRED_CONSENTS[^;]+/)?.[0] || '', /cms/);
 assert.doesNotMatch(server.match(/FREEPASS_ESIGN_REQUIRED_CONSENTS[^;]+/)?.[0] || '', /cms/);

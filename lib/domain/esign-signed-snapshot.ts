@@ -19,15 +19,28 @@ export function snapshotWithPrivateSubmission(
 ): SignedSnapshotRecord {
   if (!submission) return snapshot;
   const currentFields = record(snapshot.templateFields) || {};
+  const driverLicenseNo = S(submission.driver_license_no);
+  const additionalDrivers = Array.isArray(submission.additional_drivers)
+    ? submission.additional_drivers.map(record).filter((row): row is SignedSnapshotRecord => !!row).slice(0, 3)
+    : [];
   const confirmedFields: SignedSnapshotRecord = {
     customer_name: S(submission.customer_name),
     customer_phone: S(submission.customer_phone),
     customer_id: S(submission.customer_id),
     customer_address: S(submission.customer_address),
+    driver_license_no: driverLicenseNo,
+    driver_or_biz_no: driverLicenseNo,
     emergency_contact: [S(submission.emergency_name), S(submission.emergency_phone)]
       .filter(Boolean)
       .join(' · '),
+    additional_driver: additionalDrivers.length ? `${additionalDrivers.length}인 지정` : '없음',
   };
+  additionalDrivers.forEach((driver, index) => {
+    const slot = index + 1;
+    confirmedFields[`drv${slot}_name`] = S(driver.name);
+    confirmedFields[`drv${slot}_relation`] = S(driver.relation);
+    confirmedFields[`drv${slot}_phone`] = S(driver.phone);
+  });
   const templateFields = { ...currentFields };
   for (const [key, value] of Object.entries(confirmedFields)) {
     if (S(value)) templateFields[key] = value;

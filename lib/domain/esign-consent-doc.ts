@@ -166,7 +166,13 @@ const INSURANCE_ROWS: [string, string][] = [
 ];
 
 /** 값이 있는 행만 남긴다 — 빈 칸을 «—» 로 채우면 손님이 «없는 보장»을 있는 걸로 읽는다. */
-const kept = (rows: ConsentRow[]): ConsentRow[] => rows.filter((r) => r.value !== '');
+const kept = (rows: ConsentRow[]): ConsentRow[] => rows
+  .filter((row) => row.value !== '')
+  .map((row) => {
+    if (row.raw !== undefined) return row;
+    const { raw: _raw, ...firebaseSafeRow } = row;
+    return firebaseSafeRow;
+  });
 
 /**
  * 계약 하나 → 손님이 확인할 묶음 4개.

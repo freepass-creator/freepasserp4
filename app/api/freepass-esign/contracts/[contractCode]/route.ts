@@ -99,6 +99,21 @@ async function stateResponse(contractCode: string) {
   ]) : [null, null, await bundle.db.ref(`v4/esign_events/${contractCode}`).get().catch(() => null)];
   const session = sessionSnap?.val() as EsignRecord | null;
   const submission = privateSnap?.val() as EsignRecord | null;
+  const additionalDrivers = Array.isArray(submission?.additional_drivers)
+    ? submission.additional_drivers.slice(0, 3).map((value, index) => {
+      const driver = value && typeof value === 'object' && !Array.isArray(value) ? value as EsignRecord : {};
+      return {
+        name: S(driver.name),
+        relation: S(driver.relation),
+        phone: S(driver.phone),
+        driverLicenseNo: !!S(driver.driver_license_no),
+        license: !!S(driver.licensePath),
+        assetUrl: driver.licensePath
+          ? `/api/freepass-esign/contracts/${encodeURIComponent(contractCode)}/asset/additional-driver-license-${index + 1}`
+          : '',
+      };
+    })
+    : [];
   return {
     contract: bundle.contract,
     snapshot: session?.snapshot || null,
@@ -118,10 +133,12 @@ async function stateResponse(contractCode: string) {
       status: S(submission.status),
       customerName: S(submission.customer_name),
       customerPhone: S(submission.customer_phone),
+      driverLicenseNo: !!S(submission.driver_license_no),
       signature: S(submission.signature),
       signatureSha256: S(submission.signatureSha256),
       idCard: !!S(submission.idCardPath),
       selfie: !!S(submission.selfiePath),
+      additionalDrivers,
       assetUrls: {
         idCard: submission.idCardPath ? `/api/freepass-esign/contracts/${encodeURIComponent(contractCode)}/asset/id-card` : '',
         selfie: submission.selfiePath ? `/api/freepass-esign/contracts/${encodeURIComponent(contractCode)}/asset/selfie` : '',
@@ -234,42 +251,52 @@ export async function POST(
     const expiresAt = now + FREEPASS_ESIGN_TTL_MS;
     const signUrl = `${new URL(request.url).origin}/sign/${token}`;
     const esignId = `fp_${hash.slice(0, 24)}`;
-    await bundle.db.ref(`v4/esign_sessions/${hash}`).set({
-      provider: 'freepass',
-      esignId,
-      contractCode,
-      status: 'sent',
-      issuedAt: now,
-      expiresAt,
-      issuedBy: actor.uid,
-      revision,
-      snapshot,
-    });
-    await bundle.db.ref(`v4/contracts/${contractCode}`).update({
-      esign_provider: 'freepass',
-      esign_id: esignId,
-      esign_session_hash: hash,
-      esign_sign_url: signUrl,
-      standard_template_id: standardTemplateId,
-      esign_standard_template_label: S(snapshot.template.label),
-      esign_template_id: standardTemplateId,
-      esign_template_version: S(snapshot.template.version),
-      esign_contract_kind: contractKind,
-      contract_kind: contractKind,
-      esign_maturity: S(snapshot.contractKind.maturity),
-      esign_insurance_side: S(snapshot.contractKind.insuranceSide),
-      sign_status: '발행',
-      sign_sent_at: now,
-      sign_expires_at: expiresAt,
-      sign_revoked_at: null,
-      sign_rejected_at: null,
-      sign_reject_reason: null,
-      esign_progress: 0,
-      esign_revision: revision,
-      is_draft: '아니오',
-      unsigned_pdf_url: `/api/freepass-esign/contracts/${encodeURIComponent(contractCode)}/document?format=pdf&draft=1`,
-    });
-    await appendFreepassEsignEvent(contractCode, 'issued', { actorUid: actor.uid, esignId });
+    try {
+      await bundle.db.ref(`v4/esign_sessions/${hash}`).set({
+        provider: 'freepass',
+        esignId,
+        contractCode,
+        status: 'sent',
+        issuedAt: now,
+        expiresAt,
+        issuedBy: actor.uid,
+        revision,
+        snapshot,
+      });
+      await bundle.db.ref(`v4/contracts/${contractCode}`).update({
+        esign_provider: 'freepass',
+        esign_id: esignId,
+        esign_session_hash: hash,
+        esign_sign_url: signUrl,
+        standard_template_id: standardTemplateId,
+        esign_standard_template_label: S(snapshot.template.label),
+        esign_template_id: standardTemplateId,
+        esign_template_version: S(snapshot.template.version),
+        esign_contract_kind: contractKind,
+        contract_kind: contractKind,
+        esign_maturity: S(snapshot.contractKind.maturity),
+        esign_insurance_side: S(snapshot.contractKind.insuranceSide),
+        sign_status: '발행',
+        sign_sent_at: now,
+        sign_expires_at: expiresAt,
+        sign_revoked_at: null,
+        sign_rejected_at: null,
+        sign_reject_reason: null,
+        esign_progress: 0,
+        esign_revision: revision,
+        is_draft: '아니오',
+        unsigned_pdf_url: `/api/freepass-esign/contracts/${encodeURIComponent(contractCode)}/document?format=pdf&draft=1`,
+      });
+      await appendFreepassEsignEvent(contractCode, 'issued', { actorUid: actor.uid, esignId });
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : 'unknown';
+      console.error('[freepass-esign] issue persistence failed', contractCode, detail);
+      return json({
+        error: process.env.NODE_ENV === 'development'
+          ? `전자계약 링크 저장에 실패했습니다: ${detail}`
+          : '전자계약 링크를 안전하게 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.',
+      }, 503);
+    }
     return json({ ok: true, signUrl, ...(await stateResponse(contractCode) || {}) });
   }
 

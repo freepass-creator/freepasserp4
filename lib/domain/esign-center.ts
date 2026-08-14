@@ -45,6 +45,7 @@ export function validateEsignCenterContract(
   const row = contract || {};
   const checks: EsignCheck[] = [];
   const policyIssueGate = policy ? canIssueContract(policy) : null;
+  const customerCompletesInLink = esignContractSource(row) === 'direct';
   const add = (key: string, label: string, level: EsignCheckLevel, message: string) => {
     checks.push({ key, label, level, message });
   };
@@ -52,13 +53,18 @@ export function validateEsignCenterContract(
   if (!S(row.provider_company_code)) add('provider', '렌터카사', 'BLOCK', '렌터카사 없음');
   else add('provider', '렌터카사', 'PASS', '렌터카사 확인');
 
-  if (!S(row.customer_name)) add('customer_name', '고객명', 'BLOCK', '고객명 없음');
-  else add('customer_name', '고객명', 'PASS', '고객명 확인');
+  if (customerCompletesInLink) {
+    add('customer_name', '고객명', 'PASS', '고객 링크에서 입력');
+    add('customer_phone', '연락처', 'PASS', '고객 링크에서 입력');
+  } else {
+    if (!S(row.customer_name)) add('customer_name', '고객명', 'BLOCK', '고객명 없음');
+    else add('customer_name', '고객명', 'PASS', '고객명 확인');
 
-  const phone = S(row.customer_phone).replace(/\D/g, '');
-  if (!phone) add('customer_phone', '연락처', 'BLOCK', '연락처 없음');
-  else if (!/^\d{10,11}$/.test(phone)) add('customer_phone', '연락처', 'BLOCK', '연락처 형식 확인');
-  else add('customer_phone', '연락처', 'PASS', '연락처 확인');
+    const phone = S(row.customer_phone).replace(/\D/g, '');
+    if (!phone) add('customer_phone', '연락처', 'BLOCK', '연락처 없음');
+    else if (!/^\d{10,11}$/.test(phone)) add('customer_phone', '연락처', 'BLOCK', '연락처 형식 확인');
+    else add('customer_phone', '연락처', 'PASS', '연락처 확인');
+  }
 
   if (N(row.rent_amount_snapshot) <= 0) add('rent_amount', '월 대여료', 'BLOCK', '월 대여료 없음');
   else add('rent_amount', '월 대여료', 'PASS', '월 대여료 확인');
@@ -126,9 +132,11 @@ export function validateEsignCenterContract(
   if (S(row.provider_company_code)) {
     if (!partner) add('partner_profile', '업체 고정값', 'WARNING', '업체 고정값을 찾지 못했습니다');
     else {
-      if (!S(partner.ceo || partner.ceo_name)) add('company_ceo', '대표자', 'WARNING', '업체 대표자 없음');
-      if (!S(partner.address)) add('company_address', '업체 주소', 'WARNING', '업체 주소 없음');
-      if (!S(partner.rental_business_no)) add('rental_business_no', '자동차대여사업 등록번호', 'WARNING', '자동차대여사업 등록번호 없음');
+      if (!S(partner.name || partner.partner_name)) add('company_name', '임대인 상호', 'BLOCK', '임대인 상호 없음');
+      if (!S(partner.business_number || partner.business_no)) add('company_biz_no', '사업자등록번호', 'BLOCK', '사업자등록번호 없음');
+      if (!S(partner.ceo || partner.ceo_name)) add('company_ceo', '대표자', 'BLOCK', '업체 대표자 없음');
+      if (!S(partner.address)) add('company_address', '업체 주소', 'BLOCK', '업체 주소 없음');
+      if (!S(partner.rental_business_no)) add('rental_business_no', '자동차대여사업 등록번호', 'BLOCK', '자동차대여사업 등록번호 없음');
       if (!S(partner.bank_name)) add('payment_bank', '입금은행', 'WARNING', '업체 입금은행 없음');
       if (!S(partner.bank_account)) add('payment_account_no', '입금계좌', 'WARNING', '업체 입금계좌 없음');
       if (!S(partner.bank_holder || partner.name || partner.partner_name)) add('payment_account_holder', '예금주', 'WARNING', '업체 예금주 없음');

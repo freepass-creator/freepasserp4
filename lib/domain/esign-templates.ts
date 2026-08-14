@@ -108,9 +108,9 @@ export function templateForKindAndInsurance(kind: ContractKind, insuranceSide: I
   return insuranceSide === '고객직접' ? STANDARD_CONTRACT_TEMPLATES[2] : STANDARD_CONTRACT_TEMPLATES[1];
 }
 
-export function insuranceSideFromPolicy(policy: Record<string, unknown> | null | undefined): InsuranceSide | null {
+export function insuranceSideFromPolicy(policy: Record<string, unknown> | null | undefined): InsuranceSide {
   const raw = S(policy?.insurance_included);
-  if (!raw) return null;
+  if (!raw) return '회사포함';
   return /별도|개인/.test(raw) ? '고객직접' : '회사포함';
 }
 
@@ -122,7 +122,6 @@ export function standardTemplateSelectionError(
 ): string {
   if (spec.kind !== template.contractKind) return '계약서 종류와 인수/반납 선택 조합이 올바르지 않습니다.';
   const policySide = insuranceSideFromPolicy(policy);
-  if (!policySide) return '정책관리의 보험 포함 여부를 확인해 주세요.';
   if (template.insuranceSide !== policySide) {
     return `선택한 계약서는 ${template.insuranceSide === '고객직접' ? '보험별도' : '보험포함'}인데 정책관리의 보험 조건과 다릅니다.`;
   }

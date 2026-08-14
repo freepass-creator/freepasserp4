@@ -286,7 +286,8 @@ export const EsignVehicleSelectRow = memo(function EsignVehicleSelectRow({
     : '대여료 직접 입력';
   const plate = listText(p.car_number) || '차량번호 미정';
   const vehicle = productVehicleLabel(p) || '차종 미확정';
-  const spec = joinMetaText([p.year, p.fuel_type, p.mileage ? `${Number(p.mileage).toLocaleString('ko-KR')}km` : '']);
+  const mileage = Number(p.mileage);
+  const spec = joinMetaText([p.year, p.fuel_type, Number.isFinite(mileage) && mileage >= 0 ? `${mileage.toLocaleString('ko-KR')}km` : '']);
   return (
     <FeedListRow
       selected={selected}
@@ -332,7 +333,7 @@ export function EsignCreateRow({ selected, onClick }: { selected?: boolean; onCl
   return (
     <CreateListRow
       label="새 계약서 만들기"
-      hint="고객·차량·금액을 입력하고 계약 링크를 만듭니다"
+      hint="차량·대여조건을 선택하고 계약 링크를 만듭니다"
       ariaLabel="새 계약서 만들기"
       selected={selected}
       onClick={onClick}
@@ -650,7 +651,7 @@ export function EsignCenterListRow({
         ? { icon: PenLine, tone: 'blue' as const }
         : { icon: FileSignature, tone: 'gray' as const };
   const vehicle = contractVehicleLabel(contract) || '차량명 미확정';
-  const customer = listText(contract.customer_name) || '고객명 미확정';
+  const customer = listText(contract.customer_name) || '고객 입력 대기';
   const provider = listText(providerName) || listText(contract.provider_company_code) || '렌터카사 미확정';
   const rent = Number(contract.rent_amount_snapshot) || 0;
   const months = Number(contract.rent_month_snapshot) || 0;

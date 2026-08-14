@@ -37,9 +37,9 @@
      - 위·아래만 굵게 닫지 않고, 좌우가 열린 담백한 문서형 표를 유지한다.
      - pt 단위로 화면·PDF의 인쇄 굵기를 안정적으로 맞춘다.
   */
-  --th:#e7ecf3; --bd:#5b6b80; --bd2:#8b98a9;
+  --th:#f3f5f8; --bd:#6f7d90; --bd2:#aeb7c4;
   --bd2-onfill:var(--bd2); /* 배경색과 무관하게 모든 표선은 같은 색 */
-  --table-rule:0.45pt;
+  --table-rule:0.4pt;
   --hair:var(--table-rule);
   --hair-vert:var(--table-rule);
   --hair-edge:var(--table-rule);
@@ -48,7 +48,7 @@
   *{margin:0;padding:0;box-sizing:border-box;word-break:keep-all;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   body{font-family:"Pretendard",-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
        background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;
-       font-feature-settings:"tnum";font-kerning:normal;text-rendering:geometricPrecision;line-height:1.58}
+       font-feature-settings:"tnum";font-kerning:normal;text-rendering:optimizeLegibility;line-height:1.58}
   body.cloak{visibility:hidden}  /* 로딩 중 깜빡임 차단 — 렌더 완료 후 해제 */
 
   /* ===== 좌측 입력 빌더(하네스) — 단독 실행용. ?embed=1 또는 body.embed 시 숨김 ===== */
@@ -122,7 +122,7 @@
 
   /* 문서 헤더(런닝) */
   .rhead{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:7mm;
-         padding-bottom:3mm;border-bottom:1px solid var(--bd)}
+         padding-bottom:3mm;border-bottom:var(--table-rule) solid var(--bd2)}
   .rhead .rh-doc{font-size:14px;font-weight:700;letter-spacing:-.018em}
   .rhead .rh-meta{font-size:9.5px;color:var(--mute);text-align:right;line-height:1.5}
   .rhead .rh-meta b{color:var(--ink2)}
@@ -135,8 +135,8 @@
            border-bottom:1px solid var(--line);display:flex;align-items:center;gap:7px}
   .subhead .sh-ic{display:inline-flex;align-items:center;color:var(--accent)}
   .subhead .subnote{font-size:9px;font-weight:500;color:var(--mute);margin-left:2px}
-  .sec-h .no{flex:0 0 auto;width:22px;height:22px;border-radius:4px;background:var(--accent);color:#fff;
-             font-size:10.5px;font-weight:700;display:grid;place-items:center;letter-spacing:-.02em}
+  .sec-h .no{flex:0 0 auto;width:20px;height:20px;border-radius:3px;background:var(--accent);color:#fff;
+             font-size:9.5px;font-weight:700;display:grid;place-items:center;letter-spacing:-.01em}
   .sec-h .no svg{width:14px;height:14px}
   .sec-h .t{font-size:12.5px;font-weight:700;letter-spacing:-.018em}
   .sec-h .sub{font-size:9.5px;color:var(--faint);margin-left:auto;font-weight:600}
@@ -144,7 +144,7 @@
   /*
     계약서 표 SSOT — 본문 데이터 표는 모두 «좌우가 열린 선형 표»로 쓴다.
     - 라운드·외곽 박스 없음: 긴 A4 문서와 행 추가/삭제에도 형태가 흔들리지 않는다.
-    - 상·하단·내부선을 구분하지 않고 같은 0.45pt 단일선으로 통일한다.
+    - 상·하단·내부선을 구분하지 않고 같은 0.4pt 단일선으로 통일한다.
     - 라운드는 경고·서명·당사자 카드처럼 표가 아닌 독립 블록에만 사용한다.
   */
   .kv{display:grid;grid-template-columns:repeat(4,1fr);
@@ -181,7 +181,7 @@
   .money{border:1px solid var(--line);border-radius:var(--radius);padding:9px 12px;background:var(--card)}
   .money.hl{background:var(--accent-bg);border-color:#cfe0ff}
   .money .ml{font-size:9.5px;color:var(--mute);font-weight:700;margin-bottom:2px}
-  .money .mv{font-size:15px;font-weight:800;letter-spacing:-.02em;color:var(--ink)}
+  .money .mv{font-size:15px;font-weight:700;letter-spacing:-.02em;color:var(--ink)}
   .money.hl .mv{color:var(--accent-ink)}
   .money .mv small{font-size:10px;font-weight:600;color:var(--mute)}
 
@@ -195,7 +195,7 @@
   table.tbl thead tr > * + *{border-left:var(--hair-vert) solid var(--bd2)}
   table.tbl tbody tr > * + *{border-left:var(--hair-vert) solid var(--bd2)}
   table.tbl .c{text-align:center}
-  table.keyterms td.kt{font-size:12.5px;font-weight:800;padding:7px 8px;color:var(--ink)}
+  table.keyterms td.kt{font-size:12.5px;font-weight:700;padding:7px 8px;color:var(--ink)}
 
   /* 특약/안내 박스 */
   .note{font-size:9.5px;color:var(--mute);line-height:1.55;margin-top:2.5mm}
@@ -291,9 +291,9 @@
   .cover-co .co-t{font-size:12.5px;font-weight:700;letter-spacing:-.015em}
   .cover-co .co-s{font-size:9.5px;color:var(--mute);margin-top:1px}
   .cover-no{text-align:right;font-size:9.5px;color:var(--mute)}
-  .cover-no .cn-type{display:inline-block;font-size:9px;font-weight:800;color:#fff;background:var(--accent);
+  .cover-no .cn-type{display:inline-block;font-size:9px;font-weight:700;color:#fff;background:var(--accent);
                      border-radius:3px;padding:2px 10px;margin-bottom:6px;letter-spacing:.04em}
-  .cover-no b{color:var(--ink);font-weight:800;letter-spacing:.02em}
+  .cover-no b{color:var(--ink);font-weight:700;letter-spacing:.02em}
   .cover-hero{margin-top:15mm}
   .cover-kicker{font-size:9.5px;font-weight:600;color:var(--accent);letter-spacing:.2em;margin-bottom:8px}
   .cover-title{font-size:32px;font-weight:700;letter-spacing:-.04em;line-height:1.18}
@@ -724,6 +724,16 @@
         <div class="v span2" style="grid-column:span 3">계약해지 정산 시 <b data-field="claim_basis">잔여 대여료 상당액</b>을 기준으로 청구 <span style="color:var(--mute)">(중도해지수수료와 중복 청구하지 않음 · 약관 제7조 및 제8조)</span></div>
         <div class="k">물품 보관기간</div><div class="v" data-field="impound_keep_term">반환 통지 후 00일</div>
         <div class="k">물품 보관료</div><div class="v" data-field="impound_fee">1일 0원</div>
+      </div>
+
+      <!-- 세 선택항목이 모두 비어 있으면 별도 한 장을 만들지 않고 여기서 상태만 명확히 남긴다. -->
+      <div data-empty-optional-summary style="display:none">
+        <div class="subhead"><span class="sh-ic"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h14v16H5z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></span>선택 계약 항목</div>
+        <div class="kv">
+          <div class="k">특약</div><div class="v span2 strong">없음</div>
+          <div class="k">운전자 추가 등록</div><div class="v span2 strong">해당 없음</div>
+          <div class="k">보증 약정</div><div class="v span2 strong">해당 없음</div>
+        </div>
       </div>
     </div>
 
@@ -2146,6 +2156,19 @@
       document.querySelectorAll('.special-terms-value').forEach(function(el){
         el.classList.toggle('is-empty', (el.textContent||'').trim()==='없음');
       });
+
+      /*
+       * 특약·추가 운전자·연대보증인이 모두 없으면 선택항목 전용 페이지를 숨긴다.
+       * 대신 앞 정산 페이지에 세 항목의 상태를 한 줄씩 남겨, 누락이 아니라 «없음»임을 증명한다.
+       */
+      var sealedFields=S.fields||{};
+      var hasDriver=['drv1_name','drv2_name','drv3_name'].some(function(k){ return String(sealedFields[k]||'').trim()!==''; });
+      var hasGuarantor=['guarantor_name','guarantor_rrn','guarantor_phone','guarantor_address'].some(function(k){ return String(sealedFields[k]||'').trim()!==''; });
+      var specialValue=String(sealedFields.special_terms||'').trim();
+      var hasSpecial=specialValue!=='' && specialValue!=='없음';
+      var hasOptionalPartyPage=hasDriver||hasGuarantor||hasSpecial;
+      document.querySelectorAll('[data-empty-optional-summary]').forEach(function(el){ el.style.display=hasOptionalPartyPage?'none':''; });
+      document.querySelectorAll('[data-contract-page="special-parties"]').forEach(function(el){ el.style.display=hasOptionalPartyPage?'':'none'; });
 
       if(window.__numberContractPages) window.__numberContractPages();
 

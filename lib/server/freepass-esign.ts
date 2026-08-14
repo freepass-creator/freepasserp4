@@ -18,6 +18,7 @@ import {
 } from '@/lib/domain/esign-templates';
 import { buildTemplateFieldsFromRecords } from '@/lib/domain/esign-template-fields';
 import { pendingConsents } from '@/lib/domain/esign-inputs';
+import { esignAdditionalDriverLimit } from '@/lib/domain/esign-center';
 
 export type EsignRecord = Record<string, unknown>;
 
@@ -182,6 +183,7 @@ export function buildFreepassIssueSnapshot(args: {
   const landlordCompanyName = S(
     args.partner?.company_name || args.partner?.name || args.partner?.partner_name,
   );
+  const additionalDriverLimit = esignAdditionalDriverLimit(args.policy);
   return {
     contract: publicContractSnapshot(contract),
     landlord: { companyName: landlordCompanyName },
@@ -195,6 +197,12 @@ export function buildFreepassIssueSnapshot(args: {
       insuranceSide: template.insuranceSide,
     },
     template: { id: template.id, label: template.label, version: template.version },
+    additionalDriverPolicy: {
+      allowed: additionalDriverLimit > 0,
+      limit: additionalDriverLimit,
+      cost: S(args.policy?.additional_driver_cost),
+      driverScope: S(args.policy?.personal_driver_scope),
+    },
     consentGroups,
     consentPages: paginateForMobile(consentGroups),
     consentAtoms: pendingConsents(contract),

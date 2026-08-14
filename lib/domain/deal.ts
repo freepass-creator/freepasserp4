@@ -441,8 +441,8 @@ export async function createDirectEsignContract(opt: {
   contractKind?: string;
   maturity?: '반납형' | '인수형';
   contractDate: string;
-  customerName: string;
-  customerPhone: string;
+  customerName?: string;
+  customerPhone?: string;
   customerAddress?: string;
   customerIsBusiness?: string;
   customerCompanyName?: string;
@@ -473,8 +473,8 @@ export async function createDirectEsignContract(opt: {
   if (!providerCompanyCode) throw new Error('공급사를 골라 주세요.');
   if (!policyCode) throw new Error('계약 정책을 골라 주세요.');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(contractDate)) throw new Error('계약일을 확인해 주세요.');
-  if (!customerName) throw new Error('고객명을 입력해 주세요.');
-  if (!/^\d{10,11}$/.test(customerPhone.replace(/\D/g, ''))) throw new Error('고객 연락처를 확인해 주세요.');
+  if (source !== 'direct' && !customerName) throw new Error('고객명을 입력해 주세요.');
+  if (source !== 'direct' && !/^\d{10,11}$/.test(customerPhone.replace(/\D/g, ''))) throw new Error('고객 연락처를 확인해 주세요.');
   if (!vehicleName) throw new Error('차량명을 입력해 주세요.');
   if (rentMonths <= 0) throw new Error('대여기간을 입력해 주세요.');
   if (!['선불', '후불'].includes(paymentTiming)) throw new Error('대여료 선불·후불 조건을 선택해 주세요.');

@@ -2,7 +2,10 @@ import assert from 'node:assert/strict';
 import { esignIssueBlockers } from '../lib/domain/esign-center';
 import { applyPolicyDefaults } from '../lib/domain/policy-defaults';
 
-const partner = { partner_code: 'RP012', name: '손오공', ceo: '대표', address: '서울', bank_name: '은행', bank_account: '100-200', bank_holder: '손오공' };
+const partner = {
+  partner_code: 'RP012', name: '손오공', business_number: '8828700650', ceo: '대표', address: '서울',
+  rental_business_no: '제 강서-68호', bank_name: '은행', bank_account: '100-200', bank_holder: '손오공',
+};
 const policy = applyPolicyDefaults({
   policy_code: 'POL-1', provider_company_code: 'RP012',
   contract_authoring: '프리패스가 작성', insurance_included: '포함', basic_driver_age: '만 26세 이상',
@@ -23,6 +26,24 @@ const valid = {
 
 assert.deepEqual(esignIssueBlockers({ ...valid, contract_source: 'direct' }, partner, policy), [], '직접 작성은 ERP 약정 단계 없이 발송 가능해야 한다');
 assert.deepEqual(esignIssueBlockers({ ...valid, contract_source: 'excel' }, partner, policy), [], 'Excel 입력은 ERP 약정 단계 없이 발송 가능해야 한다');
+assert.deepEqual(
+  esignIssueBlockers({ ...valid, contract_source: 'direct', customer_name: '', customer_phone: '' }, partner, policy),
+  [],
+  '직접 전자계약은 고객명·연락처 없이 링크를 만들고 고객이 직접 입력할 수 있어야 한다',
+);
+assert.ok(
+  esignIssueBlockers({ ...valid, contract_source: 'excel', customer_name: '', customer_phone: '' }, partner, policy)
+    .some((row) => row.key === 'customer_name' || row.key === 'customer_phone'),
+  'Excel 계약은 기존 입력값 검증을 유지해야 한다',
+);
+
+const missingLegalProfile = esignIssueBlockers(
+  { ...valid, contract_source: 'direct' },
+  { ...partner, business_number: '', rental_business_no: '' },
+  policy,
+);
+assert.ok(missingLegalProfile.some((row) => row.key === 'company_biz_no'), '임대인 사업자등록번호가 없으면 발행을 차단해야 한다');
+assert.ok(missingLegalProfile.some((row) => row.key === 'rental_business_no'), '자동차대여사업 등록번호가 없으면 발행을 차단해야 한다');
 
 const partialDriver = esignIssueBlockers({
   ...valid,
