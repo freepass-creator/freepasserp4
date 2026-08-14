@@ -1,0 +1,86 @@
+name: 시트 동기화·발행
+
+# ★왜(사장님 2026-08-14 — 「시트동기화는 코드로 움직이는건가??」)
+#   지금까지는 사람이 명령을 쳐야 돌았다. 그러면 반드시 빠지고, 빠져도 아무도 모른다 —
+#   영업자가 옛 값을 보면서 그게 옛 값인 줄 모르는 것이 이 구조의 유일한 «조용한» 실패다.
+#   PC 가 꺼져 있어도 돌아야 하므로 이 PC 스케줄러가 아니라 여기서 돈다.
+#
+# ⚠ 이 워크플로가 **쓰기**를 한다(구글시트). 실패하면 그 흔적이 Actions 기록에 남아야 한다.
+#   그래서 실패를 삼키지 않는다.
+# ⚠ 자격증명은 `GOOGLE_SA_JSON` 시크릿 하나뿐이다. 리포에 키를 커밋하지 마라.
+
+on:
+  schedule:
+    # 매일 09:10 KST (UTC 00:10) — 공급사가 아침에 손보고 난 뒤를 노린다.
+    - cron: '10 0 * * *'
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: '실제로 쓸까(체크 안 하면 미리보기만)'
+        type: boolean
+        default: false
+
+concurrency:
+  # ⚠ 두 번이 겹쳐 돌면 같은 탭을 서로 덮는다. 앞엣것이 끝날 때까지 기다린다.
+  group: sheet-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+
+      - name: 자격증명 놓기
+        env:
+          SA: ${{ secrets.GOOGLE_SA_JSON }}
+        run: |
+          if [ -z "$SA" ]; then
+            echo "::error::GOOGLE_SA_JSON 시크릿이 없다. 리포 Settings → Secrets 에 넣어라."
+            exit 1
+          fi
+          mkdir -p tmp/firebase-auth
+          printf '%s' "$SA" > tmp/firebase-auth/sa.json
+
+      # ── ① 규격화시트 갱신 — 자체시트를 쓰는 곳만
+      #    ⚠ 아이카만 문패가 우리 시트를 가리킨다. 나머지는 아직 넘기지 않았다.
+      - name: 아이카 규격화시트 동기
+        run: |
+          npx tsx scripts/sync-mirror-sheet.mts \
+            --code=RP004 \
+            --from=1LqWVs2o1-wpPqFiYkOjcQldmIXqtBMKYp0A1SKEir5w \
+            --to=1-2ptJgwzPBVgDWMkyedjtVxcSXrNtepEQM0YgAVpYtI \
+            ${{ (github.event_name == 'schedule' || inputs.apply) && '--apply' || '' }}
+
+      # ── ② 영업자 시트 발행
+      #    발행기가 스스로 멈추는 자리가 있다 — 0대이거나 직전보다 20% 넘게 줄면 죽는다.
+      #    그게 여기서 «빨간 불»로 보이는 것이 이 워크플로의 값어치다.
+      - name: 상품리스트 발행
+        run: |
+          npx tsx scripts/publish-origin-tab.mts \
+            ${{ (github.event_name == 'schedule' || inputs.apply) && '--apply' || '' }}
+
+      - name: 손오공구독 발행
+        run: |
+          npx tsx scripts/publish-sonogong-tab.mts \
+            ${{ (github.event_name == 'schedule' || inputs.apply) && '--apply' || '' }}
+
+      # ── ③ 돈이 맞는지 본다. 어긋나면 1 로 끝나 빨간 불이 뜬다.
+      - name: 돈 대조
+        run: npx tsx scripts/audit-sheet-vs-sales.mts
+
+      - name: 제공시트 양식 대조
+        run: npx tsx scripts/audit-supplier-schema.mts
+
+      - name: 매뉴얼이 코드와 맞나
+        run: npm run check:manual
+
+      - name: 자격증명 지우기
+        if: always()
+        run: rm -rf tmp/firebase-auth
