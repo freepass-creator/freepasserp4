@@ -22,6 +22,8 @@
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { AI_TAIL_COLUMNS } from '../lib/domain/supplier-template-sheet';
+import { POLICY_SHEET_FIELDS, USE_LABEL } from '../lib/domain/policy-sheet-layout';
+import { readPolicyTab } from '../lib/domain/supplier-policy-read';
 
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
@@ -112,6 +114,35 @@ for (const id of targets) {
   }
   if (!specs.length) { console.log(`  ⏭ ${book} — 우리 양식이 아니다`); continue; }
 
+  /**
+   * ★**그 시트의 «할 일»을 그 자리에 적는다**(사장님 2026-08-14 —
+   *   「규격만 넣고 매뉴얼로 탭으로 관리해」).
+   *   정책을 몇 칸 채웠고 무엇이 비었는지를 여기서 보면, 담당자가 그대로 공급사에 말할 수 있다.
+   * ⚠ 「(프리패스 기본)」 줄은 우리가 채운 표준값이다 — «채웠다»로 세지 않는다.
+   *   그 집 조건이 아니라 우리 값이 영업자 화면에 나가고 있다는 뜻이다.
+   */
+  const todo: string[][] = [];
+  try {
+    const pv = await call(`${SH}/${id}/values/${encodeURIComponent("'정책'")}`) as { values?: string[][] };
+    const book = readPolicyTab((pv.values || []) as string[][]);
+    const own = [...book.entries()].filter(([k]) => k);
+    const missing = POLICY_SHEET_FIELDS.filter((f) => !own.some(([, m]) => S(m.get(f.name))));
+    const filled = POLICY_SHEET_FIELDS.length - missing.length;
+    todo.push(['5. 지금 채워야 할 것', '정책 채움', `${filled}/${POLICY_SHEET_FIELDS.length} · 그 집 정책 ${own.length}개`]);
+    if (!own.length) {
+      todo.push(['', '⛔ 정책이 없다', '「정책」 탭에 이 회사 줄이 없다. 지금 영업자 화면에는 «프리패스 표준값»이 나가고 있다 — 이 회사 조건이 아니다.']);
+    }
+    const byUse = new Map<string, string[]>();
+    for (const m of missing) {
+      const k = USE_LABEL[m.use];
+      if (!byUse.has(k)) byUse.set(k, []);
+      byUse.get(k)!.push(m.name);
+    }
+    for (const [use, names] of byUse) todo.push(['', use, names.join(' · ')]);
+    if (missing.length) todo.push(['', '어떻게', '「정책」 탭 한 줄만 채우면 된다. 대부분 눌러서 고르면 된다(드롭다운). 차마다 적을 필요 없다.']);
+    todo.push(['', '', '']);
+  } catch { /* 정책 탭이 없으면 건너뛴다 */ }
+
   // 이미 있는 탭이면 @메모·@이력을 살려 둔다.
   let keepMemo: string[][] = [];
   let keepLog: string[][] = [];
@@ -154,6 +185,7 @@ for (const id of targets) {
     ['', '표기가 아닌 값', '「무보증」·「-」는 지우지 마라. 「무보증」은 보증금이 없다는 뜻이고 빈칸(=모름)과 다르다.'],
     ['', '돈', '대여료·보증금은 적힌 글자 그대로 실어 간다. 우리가 계산해 넣지 않는다.'],
     ['', '', ''],
+    ...todo,
     ...(NOTES[who]?.length
       ? [['4. 이 공급사 특이사항', '', ''] as string[], ...NOTES[who].map((n) => ['', '', n]), ['', '', '']]
       : []),

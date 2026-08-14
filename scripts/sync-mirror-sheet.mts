@@ -89,8 +89,20 @@ console.log(`  원본 ${read.tabs.length}탭 · 차 ${src.size}대${read.failure
 // ── ② 우리 시트를 읽는다.
 const meta = await call(`${SH}/${TO}?fields=properties.title,sheets.properties(sheetId,title,hidden,gridProperties(rowCount))`);
 const book = S(meta.properties?.title);
-const tabProp = ((meta.sheets || []) as Rec[]).map((s) => s.properties).find((p) => !p.hidden);
-if (!tabProp) throw new Error('우리 시트에서 탭을 못 찾았다');
+/**
+ * ⚠ **재고 탭이 둘 이상이면 멈춘다.** 이 도구는 우리 시트의 «첫 탭 하나»만 본다.
+ *   손오공처럼 「렌트재고」·「구독재고」 두 탭인 시트에 그대로 돌리면, 다른 탭의 차가 전부
+ *   «새 차»로 잡혀 45줄이 아래에 중복으로 붙는다(실측 2026-08-14 · 미리보기에서 잡았다).
+ *   여러 탭을 다루려면 이 도구를 먼저 고쳐라 — 짐작으로 돌리지 마라.
+ */
+const visible = ((meta.sheets || []) as Rec[]).map((s) => s.properties)
+  .filter((p) => !p.hidden && !/^정책$|AI 인계/.test(S(p.title)));
+if (visible.length > 1) {
+  throw new Error(`우리 시트에 재고 탭이 ${visible.length}개다(${visible.map((p) => S(p.title)).join(' · ')}) — `
+    + '이 도구는 첫 탭 하나만 본다. 그대로 돌리면 나머지 탭의 차가 전부 «새 차»로 붙는다.');
+}
+const tabProp = visible[0];
+if (!tabProp) throw new Error('우리 시트에서 재고 탭을 못 찾았다');
 const tab = S(tabProp.title);
 const v = await call(`${SH}/${TO}/values/${encodeURIComponent(`'${tab.replace(/'/g, "''")}'`)}`) as { values?: string[][] };
 const rows = (v.values || []) as string[][];
