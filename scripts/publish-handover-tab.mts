@@ -231,16 +231,35 @@ const rgb = (hex: string) => ({
     const cur = await call(`${api}/values/${encodeURIComponent(TAB)}!A1:C500`) as { values?: string[][] };
     live = (cur.values || []) as string[][];
   } catch { /* 처음 만드는 경우 */ }
+  /** 급할 때 코드값으로 되돌리는 손잡이. 평소엔 안 쓴다. */
+  const RESET = process.argv.includes('--reset-map');
   for (const [from, to] of [['@매핑', '@매핑끝'], ['@제외', '@제외끝']] as [string, string][]) {
     const onSheet = block(live, from, to);
-    if (!onSheet || !onSheet.some((r) => S(r[1]))) continue;      // 시트에 아직 없다 — 코드값으로 심는다
+    if (RESET || !onSheet || !onSheet.some((r) => S(r[1]))) continue;
     const inCode = block(ROWS, from, to) || [];
     if (same(onSheet, inCode)) continue;
+    /**
+     * ★**«시트가 무조건 이김»이 아니라 «합침»이다.**
+     * ⚠ 처음엔 시트 것을 통째로 썼는데, 그러면 **코드에서 열을 늘려도 시트가 옛 구성을 붙들어**
+     *   새 칸이 영영 안 나간다(실측 2026-08-14 — 43칸을 늘렸는데 시트는 40열 그대로였다).
+     *   그 보호는 «사람이 시트에서 고친 것»을 지키라고 넣은 것이지 «열을 늘린 것»을 막으라는 게 아니다.
+     * ★코드의 **차례**를 따르되 그 줄이 시트에도 있으면 **시트의 값**을 쓴다.
+     *   시트에만 있는 줄(사람이 더한 것)은 뒤에 남긴다 — 그러면 둘 다 안 잃는다.
+     */
+    const bySheet = new Map(onSheet.filter((r) => S(r[1])).map((r) => [S(r[1]), r]));
+    const used = new Set<string>();
+    const merged = inCode.map((r) => {
+      const k = S(r[1]);
+      const hit = k ? bySheet.get(k) : undefined;
+      if (hit) { used.add(k); return hit; }
+      return r;
+    });
+    const extra = onSheet.filter((r) => S(r[1]) && !used.has(S(r[1])));
     const at = ROWS.findIndex((r) => S(r[0]) === from);
     const end = ROWS.findIndex((r) => S(r[0]) === to);
-    ROWS.splice(at + 1, end - at - 1, ...onSheet);
-    console.log(`  ★${from} 은 시트에서 고친 것이 있어 **시트 것을 지킨다**(${onSheet.length}줄).`);
-    console.log(`     코드(lib/domain/sales-sheet-mapping)에도 같은 줄을 반영해 두세요 — 안 그러면 예비값이 어긋납니다.`);
+    ROWS.splice(at + 1, end - at - 1, ...merged, ...extra);
+    console.log(`  ★${from} — 시트에서 고친 ${used.size}줄은 지키고, 코드에 새로 생긴 ${merged.length - used.size}줄을 더한다`
+      + `${extra.length ? ` · 시트에만 있는 ${extra.length}줄은 뒤에 남긴다` : ''}`);
   }
 }
 await call(`${api}/values/${encodeURIComponent(TAB)}!A1:Z500:clear`, { method: 'POST', body: '{}' });

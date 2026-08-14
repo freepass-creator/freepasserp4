@@ -66,9 +66,31 @@ export function readPolicyTab(rows: string[][]): PolicyBook {
   return book;
 }
 
-/** 그 차에 적용될 정책. 코드가 없거나 못 찾으면 프리패스 기본으로 떨어진다. */
+/** 정책을 어떻게 골랐나 — 조용히 틀린 값이 나가지 않게 밖에서 셀 수 있어야 한다. */
+export type PolicyPick = { p: Map<string, string>; how: '코드' | '유일' | '기본' | '없음' };
+
+/**
+ * 그 차에 적용될 정책.
+ *
+ * ★**코드가 비면 그 공급사의 정책이 하나뿐일 때 그것을 쓴다.**
+ *   ⚠ 예전엔 곧장 「프리패스 기본」으로 떨어졌다. 그건 그 공급사 조건이 아니라 **우리 표준값**이라,
+ *     205대(57%)가 조용히 남의 조건을 달고 나갔다(실측 2026-08-14).
+ *   ⚠ 정책이 **여럿인데** 코드가 비면 못 정한다 — 기본으로 떨어뜨리되 «못 정했다»고 알린다.
+ *     빌린카(3개)·손오공(2개)이 그렇다. 짐작해서 아무거나 붙이면 그게 곧 우리가 만든 오류다.
+ */
+export function pickPolicy(book: PolicyBook, code: string): PolicyPick {
+  const c = S(code);
+  if (c && book.has(c)) return { p: book.get(c)!, how: '코드' };
+  const own = [...book.entries()].filter(([k]) => k);
+  if (!c && own.length === 1) return { p: own[0][1], how: '유일' };
+  const base = book.get('');
+  if (base) return { p: base, how: '기본' };
+  return { p: new Map(), how: '없음' };
+}
+
+/** 값만 필요할 때. 어떻게 골랐는지도 봐야 하면 `pickPolicy` 를 쓴다. */
 export function policyFor(book: PolicyBook, code: string): Map<string, string> {
-  return book.get(S(code)) || book.get('') || new Map();
+  return pickPolicy(book, code).p;
 }
 
 /**

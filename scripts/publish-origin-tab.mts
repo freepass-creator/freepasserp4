@@ -33,7 +33,7 @@ import { buildSalesFormatRequests, columnWidths, rgb, LINK, FONT, SIZE, ITALIC }
 import { productType } from '../lib/domain/sales-sheet-clean';
 import { SALES_ALIAS, SALES_COLUMNS } from '../lib/domain/sales-sheet-mapping';
 import { HANDOVER_TAB, STALE_DAYS, daysSince, readLog } from '../lib/domain/supplier-handover-log';
-import { policyCell, policyFor, readPolicyTab, type PolicyBook } from '../lib/domain/supplier-policy-read';
+import { pickPolicy, policyCell, readPolicyTab, type PolicyBook } from '../lib/domain/supplier-policy-read';
 import type { MasterEntry } from '../lib/domain/vehicle-master-types';
 import type { EntityRecord } from '../lib/intake/entities';
 
@@ -260,6 +260,8 @@ const staleSheets: string[] = [];
 const unmatched: string[] = [];
 /** 정책 탭을 못 읽은 공급사 — 그 집 부가정보가 통째로 빈다. */
 const noPolicy: string[] = [];
+/** 정책이 여럿인데 코드가 비어 «어느 정책인지 못 정한» 차. */
+const ambiguous: string[] = [];
 const who0 = (p: Rec) => companyAlias(S(p.partner_name || p.name)) || S(p.partner_name || p.name);
 const seenPlate = new Set<string>();
 /**
@@ -383,8 +385,16 @@ for (const [code, p] of [...byCode].sort()) {
        *   공급사 입력은 안 건드린다 — 고칠 자리는 우리 «정제칸»과 「AI 정제」 치환 사전이다.
        */
       if (!ok && rawName) unmatched.push(`${who} ${S(r[first('차량번호')])} 「${rawName.slice(0, 44)}」`);
-      /** 그 차에 적용될 정책. 코드가 없으면 그 공급사의 «프리패스 기본»으로 떨어진다. */
-      const pol = policyFor(book, cell('정책코드'));
+      /**
+       * 그 차에 적용될 정책. 코드가 비면 그 공급사 정책이 **하나뿐일 때 그것**을 쓴다.
+       * ⚠ 여럿인데 비면 «못 정했다»로 세어 화면에 알린다 — 짐작해 붙이면 그게 우리 오류다.
+       *   예전엔 곧장 「프리패스 기본」으로 떨어져 205대(57%)가 남의 조건을 달고 나갔다.
+       */
+      const picked = pickPolicy(book, cell('정책코드'));
+      const pol = picked.p;
+      if (picked.how === '기본' && [...book.keys()].filter(Boolean).length > 1) {
+        ambiguous.push(`${who} ${S(r[first('차량번호')])}`);
+      }
       rows.push(COLUMNS.map((c) => {
         if (c === '공급사') return who;
         if (c === '입고일자') return '';          // 원본도 비어 있다. 자리만 지킨다.
@@ -420,6 +430,12 @@ for (const [code, p] of [...byCode].sort()) {
   console.log(`  ${who.padEnd(14)}${String(n).padStart(4)}대`);
 }
 console.log(`\n  모두 ${rows.length}대${dupes ? ` · 같은 차가 두 번 나와 건너뛴 줄 ${dupes}` : ''}${skippedByRule ? ` · @제외 규칙으로 건너뛴 탭 ${skippedByRule}` : ''}`);
+if (ambiguous.length) {
+  console.log('');
+  console.log(`  ▲ 정책이 여럿인데 코드가 빈 차 ${ambiguous.length}대 — 프리패스 기본으로 떨어졌다`);
+  console.log(`     ${ambiguous.slice(0, 12).join(' · ')}${ambiguous.length > 12 ? ` … 모두 ${ambiguous.length}` : ''}`);
+  console.log('     공급사 시트 「정책코드」 칸을 채워야 그 집 조건이 붙는다.');
+}
 if (noPolicy.length) {
   console.log('');
   console.log(`  ▲ 정책 탭을 못 읽은 공급사 ${noPolicy.length} — 그 집 부가정보가 빈다`);
