@@ -17,7 +17,7 @@
  *   npx tsx scripts/switch-hub-sheet-url.mts --code=RP004 --to=<시트ID>
  *   npx tsx scripts/switch-hub-sheet-url.mts --code=RP004 --to=<시트ID> --apply
  */
-import { readFileSync } from 'node:fs';
+import { appendFileSync, readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 
 type Rec = Record<string, any>;
@@ -27,7 +27,19 @@ const APPLY = process.argv.includes('--apply');
 const CODE = arg('code');
 const TO = arg('to');
 const HUB = arg('hub', '1TVeVXyJJRx0SzD2vxqy3eEjSojmMIWXSu7AdsKmpfmY');
-if (!CODE || !TO) throw new Error('--code=RP0xx --to=<시트ID> 가 필요하다');
+/**
+ * ★**여러 곳을 한 번에** — `--pairs=RP021:<시트ID>,RP010:<시트ID>`.
+ *   한 곳씩 치면 반드시 하나를 빠뜨리고, 빠뜨린 곳은 «옛 시트를 계속 읽는» 채로 남는다.
+ *   화면에도 표시가 없어 아무도 모른다.
+ * ★**되돌릴 주소를 파일에 적는다**(`--log=`, 기본 `tmp/hub-switch-log.txt`).
+ *   화면에만 찍으면 창을 닫는 순간 되돌릴 길이 없어진다. 여기가 유일한 복구 경로다.
+ */
+const PAIRS = arg('pairs').split(',').map(S).filter(Boolean)
+  .map((x) => { const [c, id] = x.split(':').map(S); return { code: c, to: id }; })
+  .filter((x) => x.code && x.to);
+const JOBS = PAIRS.length ? PAIRS : (CODE && TO ? [{ code: CODE, to: TO }] : []);
+const LOG = arg('log', 'tmp/hub-switch-log.txt');
+if (!JOBS.length) throw new Error('--code=RP0xx --to=<시트ID> 또는 --pairs=CODE:ID,CODE:ID 가 필요하다');
 
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 const jwt = new JWT({ email: sa.client_email, key: sa.private_key, scopes: ['https://www.googleapis.com/auth/spreadsheets'], subject: 'pyh@teamjpk.com' });
@@ -46,23 +58,36 @@ const tab = S(((meta.sheets || []) as Rec[]).find((s) => !s.properties.hidden)?.
 const v = await call(`${SH}/${HUB}/values/${encodeURIComponent(`'${tab.replace(/'/g, "''")}'!A1:Z400`)}`) as { values?: string[][] };
 const rows = (v.values || []) as string[][];
 
-const at = rows.findIndex((r) => r.some((c) => S(c) === CODE));
-if (at < 0) throw new Error(`문패 「${tab}」 에서 ${CODE} 줄을 못 찾았다`);
-const row = rows[at];
-const ui = row.findIndex((c) => S(c).includes('spreadsheets'));
-if (ui < 0) throw new Error(`${CODE} 줄에 시트 주소 칸이 없다`);
-const before = S(row[ui]);
-const after = `https://docs.google.com/spreadsheets/d/${TO}/edit`;
+let changed = 0, same = 0;
+for (const job of JOBS) {
+  const at = rows.findIndex((r) => r.some((c) => S(c) === job.code));
+  if (at < 0) { console.log(`  ✗ ${job.code} — 문패 「${tab}」 에서 줄을 못 찾았다`); continue; }
+  const row = rows[at];
+  const ui = row.findIndex((c) => S(c).includes('spreadsheets'));
+  if (ui < 0) { console.log(`  ✗ ${job.code} — 줄에 시트 주소 칸이 없다`); continue; }
+  const before = S(row[ui]);
+  const after = `https://docs.google.com/spreadsheets/d/${job.to}/edit`;
 
-console.log(`■ 문패 「${S(meta.properties?.title)}」 「${tab}」 ${at + 1}행\n`);
-console.log(`  공급사   ${row.slice(0, 2).map(S).join(' · ')}`);
-console.log(`  지금     ${before}`);
-console.log(`  바꿀 것   ${after}`);
-if (before.includes(TO)) { console.log('\n  이미 그 주소다.'); process.exit(0); }
-console.log('\n  ★되돌리려면 위 「지금」 주소를 그대로 다시 넣으면 된다. 기록해 둘 것.');
-if (!APPLY) { console.log('\n※ dry-run. 실제 반영은 --apply\n'); process.exit(0); }
-await call(`${SH}/${HUB}/values/${encodeURIComponent(`'${tab}'!${colA1(ui)}${at + 1}`)}?valueInputOption=RAW`, {
-  method: 'PUT', body: JSON.stringify({ values: [[after]] }),
-});
-console.log('\n  바꿨다. 이어서 발행 dry-run 으로 그 공급사 대수를 확인하라 —');
-console.log('  npx tsx scripts/publish-origin-tab.mts\n');
+  console.log(`
+  ${row.slice(0, 2).map(S).join(' · ')}  (${at + 1}행)`);
+  console.log(`     지금   ${before}`);
+  console.log(`     바꿀 것 ${after}`);
+  if (before.includes(job.to)) { console.log('     = 이미 그 주소다'); same++; continue; }
+  if (!APPLY) { changed++; continue; }
+  /** ⚠ **쓰기 전에 적는다.** 쓰고 나서 적으면 중간에 죽었을 때 되돌릴 주소가 없다. */
+  appendFileSync(LOG, `${new Date().toISOString()}	${job.code}	${S(row[0])}	되돌릴주소	${before}
+`, 'utf8');
+  await call(`${SH}/${HUB}/values/${encodeURIComponent(`'${tab}'!${colA1(ui)}${at + 1}`)}?valueInputOption=RAW`, {
+    method: 'PUT', body: JSON.stringify({ values: [[after]] }),
+  });
+  changed++;
+}
+
+if (!APPLY) { console.log(`
+※ dry-run — 바꿀 곳 ${changed} · 이미 맞음 ${same}. 실제 반영은 --apply
+`); process.exit(0); }
+console.log(`
+  바꿨다 ${changed}곳 · 이미 맞았던 곳 ${same}`);
+console.log(`  ★되돌릴 주소는 ${LOG} 에 적어 뒀다.`);
+console.log('  이어서 발행 dry-run 으로 그 공급사 대수를 확인하라 —');
+console.log('  npx tsx scripts/publish-origin-tab.mts');

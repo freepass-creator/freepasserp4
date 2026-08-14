@@ -33,6 +33,7 @@ import { buildSalesFormatRequests, columnWidths, rgb, LINK, FONT, SIZE, ITALIC }
 import { productType } from '../lib/domain/sales-sheet-clean';
 import { SALES_ALIAS, SALES_COLUMNS } from '../lib/domain/sales-sheet-mapping';
 import { HANDOVER_TAB, STALE_DAYS, daysSince, readLog } from '../lib/domain/supplier-handover-log';
+import { isOurNonInventoryTab } from '../lib/domain/supplier-template-sheet';
 import { pickPolicy, policyCell, readPolicyTab, type PolicyBook } from '../lib/domain/supplier-policy-read';
 import type { MasterEntry } from '../lib/domain/vehicle-master-types';
 import type { EntityRecord } from '../lib/intake/entities';
@@ -302,6 +303,12 @@ for (const [code, p] of [...byCode].sort()) {
    */
   for (const f of read.failures) {
     const title = S((f as Rec).title);
+    /**
+     * ⚠ **우리가 만든 탭은 «못 읽은 것»이 아니다.** 「정책」·「AI 인계」는 재고표가 아니라
+     *   애초에 읽을 대상이 아니다. 이걸 안 거르면 문패를 우리 시트로 넘기는 순간
+     *   「못 읽은 것」이 1건 → 8건으로 뛰고, 진짜 구멍이 그 소음에 묻힌다(실측 2026-08-14).
+     */
+    if (isOurNonInventoryTab(title)) continue;
     if (excluded(code, title)) { skippedByRule++; skippedTabs.push(`${who0(p)}(${code}) 「${title}」 (못 읽는 탭)`); continue; }
     failures.push(`${S(p.partner_name || p.name)}(${code}) 「${title}」 — ${S((f as Rec).reason)}`);
   }
@@ -332,6 +339,7 @@ for (const [code, p] of [...byCode].sort()) {
   } catch { /* 「AI 인계」가 없으면 규격화시트가 아니다 — 알릴 것이 없다 */ }
   let n = 0;
   for (const t of read.tabs) {
+    if (isOurNonInventoryTab(S(t.title))) continue;    // 우리 탭은 재고표가 아니다
     // 별도 탭이 따로 싣는 것은 여기서 뺀다 — 같은 차가 두 탭에 서면 사고다.
     // ⚠ 몇 대를 들고 있던 탭인지 같이 적는다 — 안 적으면 «조용히 사라진 차»를 못 본다.
     if (excluded(code, S(t.title))) {

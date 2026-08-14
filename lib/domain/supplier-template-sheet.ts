@@ -963,6 +963,18 @@ export const POLICY_TAB_NAME = '정책';
 const POLICY_BLANK_COLS = 3;      // 새 정책을 적을 빈 칸
 
 /**
+ * ★**우리가 만든 «재고가 아닌» 탭들.** 발행기가 이걸 재고표로 읽으려다 실패하면
+ *   「못 읽은 것」으로 세어져, 진짜 구멍이 그 소음에 묻힌다.
+ *   *실측 2026-08-14*: 문패를 우리 제공시트로 넘긴 순간 「못 읽은 것」이 1건 → 8건이 됐다.
+ *   늘어난 7건이 전부 「정책」 탭이었다 — 하나도 진짜 문제가 아니었다.
+ * ⚠ 공급사별 `@제외` 규칙으로 막지 마라. 이건 **모든 제공시트에 있는 우리 탭**이라
+ *   공급사가 늘 때마다 규칙을 또 적어야 하고, 안 적은 곳은 조용히 소음을 낸다.
+ */
+export const OUR_NON_INVENTORY_TABS = [POLICY_TAB_NAME, 'AI 인계', 'AI 정제'];
+export const isOurNonInventoryTab = (title: unknown) =>
+  OUR_NON_INVENTORY_TABS.some((t) => String(title ?? '').trim() === t);
+
+/**
  * 「정책」 탭은 **세로가 항목, 가로가 정책**이다.
  *
  * 정책은 공급사당 두어 개인데 항목은 스무 개가 넘는다. 정책을 행으로 두면 오른쪽으로 한없이

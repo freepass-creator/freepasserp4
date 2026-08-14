@@ -15,7 +15,7 @@
  *   npx tsx scripts/audit-ours-vs-hub.mts
  *   npx tsx scripts/audit-ours-vs-hub.mts --who=빌린카
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { SALES_ALIAS } from '../lib/domain/sales-sheet-mapping';
 import { companyAlias } from '../lib/domain/identity';
@@ -129,6 +129,12 @@ const ours = new Map<string, string>();
 console.log('\n■ 우리 제공시트 ↔ 문패 시트 — 문패를 넘겨도 되나 (읽기 전용)\n');
 const pad = (s: string, n: number) => s + ' '.repeat(Math.max(0, n - [...s].reduce((a, c) => a + (c.charCodeAt(0) > 127 ? 2 : 1), 0)));
 const go: string[] = [], wait: string[] = [], unknown: string[] = [];
+/**
+ * ★**어긋난 것을 파일로도 뽑는다** — `--json=tmp/ours-vs-hub.json`.
+ *   화면은 예시 세 줄만 보여 준다. 어느 쪽이 옳은지 가리려면 어긋난 칸을 **전부** 봐야 하고,
+ *   그건 시트를 다시 읽지 않고 파일로 하는 것이 맞다(쿼터를 또 태우지 않는다).
+ */
+const detail: Rec = {};
 
 for (const h of hub) {
   if (ONLY.size && !ONLY.has(h.name)) continue;
@@ -145,6 +151,7 @@ for (const h of hub) {
   const extra = [...B.keys()].filter((p) => !A.has(p));
   let cells = 0, compared = 0;
   const ex: string[] = [];
+  const diffs: Rec[] = [];
   for (const [p, a] of A) {
     const b = B.get(p);
     if (!b) continue;
@@ -152,9 +159,10 @@ for (const h of hub) {
       const x = money(a[c]), y = money(b[c]);
       if (!x && !y) continue;
       compared++;
-      if (x !== y) { cells++; if (ex.length < 3) ex.push(`${p} ${c} 「${a[c]}」↔「${b[c]}」`); }
+      if (x !== y) { cells++; diffs.push({ 차번: p, 열: c, 문패: a[c], 우리: b[c] }); if (ex.length < 3) ex.push(`${p} ${c} 「${a[c]}」↔「${b[c]}」`); }
     }
   }
+  detail[h.name] = { 코드: h.code, 문패시트: h.id, 우리시트: mine, 문패대수: A.size, 우리대수: B.size, 견준돈칸: compared, 빠진차: missing, 남는차: extra, 어긋난칸: diffs };
   const line = `${pad(h.name, 12)}문패 ${String(A.size).padStart(3)}대 · 우리 ${String(B.size).padStart(3)}대 · 견준 돈칸 ${String(compared).padStart(4)}`;
   if (!compared) { unknown.push(`${line} — 한 칸도 못 견줬다`); continue; }
   /**
@@ -166,6 +174,11 @@ for (const h of hub) {
   wait.push(`${line}\n      ${say('빠진 차', missing)} · ${say('남는 차', extra)} · 어긋난 돈칸 ${cells}${ex.length ? `\n      ${ex.join('\n      ')}` : ''}`);
 }
 
+{
+  const out = arg('json');
+  if (out) { writeFileSync(out, JSON.stringify(detail, null, 1), 'utf8'); console.log(`  어긋난 것을 ${out} 에 뽑았다
+`); }
+}
 console.log(`  ● 넘겨도 됨 ${go.length}곳 — 우리 시트에 같은 차가 같은 돈으로 다 있다`);
 for (const l of go) console.log(`     ${l}`);
 console.log(`\n  ● 아직 ${wait.length}곳 — 넘기면 영업자가 옛 값을 본다`);
