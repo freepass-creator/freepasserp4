@@ -66,6 +66,20 @@ if (SONOGONG_MODE && !process.argv.includes('--force-erp')) {
   console.log('     대신 이걸 써라 — npx tsx scripts/publish-sonogong-tab.mts --apply\n');
   process.exit(1);
 }
+/**
+ * ⚠⚠ **상품리스트도 이 길로 찍지 마라.** 이 발행기는 ERP(RTDB v4/products)를 거친다.
+ *   지금 상품리스트의 정본 발행기는 `publish-origin-tab`(공급사 시트 직행)이다.
+ *   여기서 찍으면 같은 탭을 `A1:BZ2000` 지우고 **옛 판**으로 덮어쓴다 —
+ *   서식(Malgun Gothic 9pt 기울임·줄무늬)과 구분 어휘(「신차」)까지 함께 되돌아가고,
+ *   시트만 봐서는 어느 쪽이 마지막으로 이겼는지 가릴 수가 없다.
+ * ★그래도 돌려야 하면 `--force-erp` 를 같이 줘라(무엇을 하는지 안다는 뜻이다).
+ */
+if (!process.argv.includes('--force-erp')) {
+  console.log('\n  ⛔ 상품리스트의 정본 발행기는 publish-origin-tab 이다(공급사 시트 직행).');
+  console.log('     이 길은 ERP 를 거쳐 옛 판·옛 서식으로 덮어쓴다.');
+  console.log('     쓰려면 — npx tsx scripts/publish-origin-tab.mts --apply\n');
+  process.exit(1);
+}
 /** 따로 빼는 두 공급사. 아래 유입 필터와 손오공 모드가 같은 값을 본다. */
 const AUTOPLUS = 'RP023';
 const SONOGONG = 'RP012';

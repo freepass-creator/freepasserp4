@@ -255,6 +255,8 @@ const failures: string[] = [];
 const skippedTabs: string[] = [];
 /** 규격화시트인데 동기화가 멈춘 곳 — 값이 조용히 낡는 유일한 경로다. */
 const staleSheets: string[] = [];
+/** 차종마스터가 못 알아본 차 — 정제칸으로 사람이 닫아야 할 목록이다. */
+const unmatched: string[] = [];
 const who0 = (p: Rec) => companyAlias(S(p.partner_name || p.name)) || S(p.partner_name || p.name);
 const seenPlate = new Set<string>();
 /**
@@ -321,22 +323,29 @@ for (const [code, p] of [...byCode].sort()) {
       continue;
     }
     const hdr = (t.table[0] || []).map(S);
-    const pick = (name: string) => {
-      for (const cand of ALIAS[name] || []) { const i = hdr.indexOf(cand); if (i >= 0) return i; }
-      return -1;
-    };
-    const idx = new Map(COLUMNS.map((c) => [c, pick(c)]));
-    if ((idx.get('차량번호') ?? -1) < 0) continue;
+    /**
+     * ★후보를 **전부** 모은다. 「앞에서부터 먼저 맞는 것」은 «열이 있는 것»이 아니라
+     *   «값이 든 것»이라야 한다.
+     * ⚠ 예전엔 열이 있기만 하면 그걸로 굳혔다. 정제칸(제조사(정제)·모델·세부모델…)을
+     *   붙인 뒤로는 그 칸이 **비어 있어도 먼저 잡혀** 공급사 원문으로 안 떨어졌다 —
+     *   아이카 122대의 제조사·모델이 통째로 빈 채 나갔다(실측 2026-08-14).
+     *   차명을 못 읽으니 차종마스터 스냅도 못 돌아 다섯 축이 다 비었다.
+     */
+    const pickAll = (name: string) => (ALIAS[name] || []).map((c) => hdr.indexOf(c)).filter((i) => i >= 0);
+    const idx = new Map(COLUMNS.map((c) => [c, pickAll(c)]));
+    const first = (c: string) => (idx.get(c) || [])[0] ?? -1;
+    if (first('차량번호') < 0) continue;
     for (const r of t.table.slice(1)) {
-      const plate = norm(r[idx.get('차량번호')!]);
+      const plate = norm(r[first('차량번호')]);
       if (!plate) continue;
       // 같은 차가 두 탭에 있으면 먼저 나온 쪽만 싣는다 — 영업자 표에 같은 차가 두 줄이면 안 된다.
       if (seenPlate.has(plate)) { dupes++; continue; }
       seenPlate.add(plate);
       // 그 탭에서 뽑힌 사진 링크가 있으면 담아 둔다(맨 마지막에 셀에 건다).
-      const photo = S((t as Rec).photoByPlate?.[plate] || (t as Rec).photoByPlate?.[S(r[idx.get('차량번호')!])]);
+      const photo = S((t as Rec).photoByPlate?.[plate] || (t as Rec).photoByPlate?.[S(r[first('차량번호')])]);
       if (photo.startsWith('http')) photoOf.set(plate, photo);
-      const cell = (c: string) => { const i = idx.get(c) ?? -1; return i >= 0 ? S(r[i]) : ''; };
+      /** 후보를 차례로 보고 **값이 든 첫 칸**을 쓴다. 정제칸이 비면 공급사 원문으로 떨어진다. */
+      const cell = (c: string) => { for (const i of idx.get(c) || []) { const v = S(r[i]); if (v) return v; } return ''; };
       /**
        * 차명을 마스터에 올린다. 공급사 원문은 「차종 + 세부모델」을 이어 붙인 문장을 쓴다 —
        * 트림까지 한 문장으로 줘야 세대·사양이 잡힌다(짧은 이름은 엉뚱한 세대로 붙는다).
@@ -354,6 +363,11 @@ for (const [code, p] of [...byCode].sort()) {
       } as EntityRecord, MASTER) : null;
       // ⚠ 낮은 확신도는 안 쓴다 — 틀린 차명이 붙느니 공급사 원문이 낫다.
       const ok = snap && (snap.confidence === 'high' || snap.confidence === 'medium');
+      /**
+       * ★못 알아본 차는 **세어서 보여 준다.** 화면 밖에 두면 잊힌다.
+       *   공급사 입력은 안 건드린다 — 고칠 자리는 우리 «정제칸»과 「AI 정제」 치환 사전이다.
+       */
+      if (!ok && rawName) unmatched.push(`${who} ${S(r[first('차량번호')])} 「${rawName.slice(0, 44)}」`);
       rows.push(COLUMNS.map((c) => {
         if (c === '공급사') return who;
         if (c === '입고일자') return '';          // 원본도 비어 있다. 자리만 지킨다.
@@ -383,6 +397,13 @@ for (const [code, p] of [...byCode].sort()) {
   console.log(`  ${who.padEnd(14)}${String(n).padStart(4)}대`);
 }
 console.log(`\n  모두 ${rows.length}대${dupes ? ` · 같은 차가 두 번 나와 건너뛴 줄 ${dupes}` : ''}${skippedByRule ? ` · @제외 규칙으로 건너뛴 탭 ${skippedByRule}` : ''}`);
+if (unmatched.length) {
+  console.log(`
+  ▲ 차종마스터가 못 알아본 차 ${unmatched.length}대 — 모델·파워트레인·세부트림이 빈다`);
+  for (const u of unmatched.slice(0, 15)) console.log(`     ${u}`);
+  if (unmatched.length > 15) console.log(`     … 모두 ${unmatched.length}대`);
+  console.log('     ⚠ 공급사 입력은 건드리지 마라. 고칠 자리는 제공시트 «정제칸»과 「AI 정제」 치환 사전이다.');
+}
 if (staleSheets.length) {
   console.log(`
   ⚠ 규격화시트가 낡았다 ${staleSheets.length}곳 — 원본과 어긋난 값을 영업자가 보고 있다`);

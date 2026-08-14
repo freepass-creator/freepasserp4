@@ -205,7 +205,13 @@ const FRONT_COLUMNS: { name: string; note: string; required?: boolean }[] = [
   { name: '입고일자', note: '2026-08-12 — 상품으로 내놓은 날. 최초등록일이 아니다', required: true },
   { name: '상태', note: '즉시출고 / 출고가능 / 상품화중 / 출고협의 / 계약중 / 출고불가', required: true },
   { name: '분류', note: '신차렌트 / 중고렌트 / 신차구독 / 중고구독', required: true },
-  // ★제조사는 여기 없다 — AI 작업칸으로 올라갔다(2026-08-14). 공급사는 「차명(트림)」만 적는다.
+  /**
+   * ⚠ **제조사를 여기서 빼지 마라.** 2026-08-14 에 잠깐 AI 칸으로 올렸다가 꼬리로 옮기면서
+   *   원래 자리에 안 되돌렸고, 그 사이 만든 아이카 규격화시트에 이 열이 아예 없었다 —
+   *   판매시트 아이카 122대의 제조사·모델이 통째로 빈 채로 나갔다.
+   *   정제본은 「제조사(정제)」로 따로 있다. 이 칸은 **공급사가 적는 원문**이다.
+   */
+  { name: '제조사', note: '현대 · 기아 · BMW …' },
   // ★자유입력이 맞다. 실측(2026-08-08 · 올릴 수 있는 409대) 결과 차종 검수는 6대(1.5%)뿐이고
   //   신뢰도 high 가 376대다. 1,754종 드롭다운을 고르게 하는 건 그 1.5% 를 위해 나머지를
   //   괴롭히는 셈이고, 정작 틀린 6대는 드롭다운으로도 못 고친다 —
@@ -324,9 +330,15 @@ export function buildPeriodColumns(usedKeys: string[] = []): { name: string; not
  * 기본 표준 열 — 기간은 표준 6종만. 공급사별 확장은 `buildColumns` 를 쓴다.
  * ★정책 칸은 **가리키는 칸 하나뿐**이다. 내용은 「정책」 탭이 정의한다 —
  *   같은 조건을 차마다 22칸씩 되풀이하면 한 곳만 고쳐도 나머지가 어긋난다.
- *   그 칸(정책코드)은 우리가 채우므로 2026-08-14 부터 앞쪽 **AI 작업칸**에 선다.
+ * ⚠ **이 칸을 빼지 마라.** 없으면 `supplier-policy-read.policyFor` 가 «프리패스 기본»으로
+ *   떨어져 그 공급사 전 차량의 면책금·추가주행 금액이 실제 계약이 아닌 기본값으로 선다.
+ *   2026-08-14 에 잠깐 뺐다가 되돌렸다.
  */
-export const TEMPLATE_COLUMNS = [...FRONT_COLUMNS, ...buildPeriodColumns(), ...DETAIL_COLUMNS];
+const POLICY_REF_COLUMN: { name: string; note: string; required?: boolean } = {
+  name: '정책코드', note: 'POL-0047 — 「정책」 탭에서 그 코드의 조건을 정의한다',
+};
+
+export const TEMPLATE_COLUMNS = [...FRONT_COLUMNS, ...buildPeriodColumns(), POLICY_REF_COLUMN, ...DETAIL_COLUMNS];
 
 /**
  * 구독 기간 표준 — **12 · 24 · 36 · 48 · 60개월**. 구독에는 단기(1개월)가 없다.
@@ -393,7 +405,7 @@ export const isVehicleTab = (title: string) => (VEHICLE_TABS as readonly string[
 export const buildSubscriptionColumns = (usedKeys: string[] = []) => [
   ...FRONT_COLUMNS,
   ...buildSubscriptionPeriodColumns(usedKeys),
-  // 정책코드는 FRONT_COLUMNS 안 AI 작업칸에 있다(2026-08-14 이후). 뒤에 또 붙이면 두 번 선다.
+  POLICY_REF_COLUMN,
   ...DETAIL_COLUMNS,
 ];
 
@@ -406,7 +418,7 @@ export const buildSubscriptionColumns = (usedKeys: string[] = []) => [
 export const buildColumns = (usedKeys: string[] = []) => [
   ...FRONT_COLUMNS,
   ...buildPeriodColumns(usedKeys),
-  // 정책코드는 FRONT_COLUMNS 안 AI 작업칸에 있다(2026-08-14 이후). 뒤에 또 붙이면 두 번 선다.
+  POLICY_REF_COLUMN,
   ...DETAIL_COLUMNS,
 ];
 
