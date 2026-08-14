@@ -28,7 +28,7 @@
  */
 export const FONT_DEFAULT = 'Noto Sans KR';
 export const FONT = FONT_DEFAULT;
-export const SIZE = 10;
+export const SIZE = 9;
 /** 기울임 없음(사장님 2026-08-14). 숫자가 기울면 자릿수가 눈으로 안 맞는다. */
 export const ITALIC = false;
 /** 본문 글자 — 검정. 파랑으로 깔면 표 전체가 링크처럼 보인다. */
@@ -140,18 +140,25 @@ const wide = (s: string) => [...String(s ?? '').split('\n').reduce((a, b) => (b.
  * 최댓값으로 재면 「퀼팅 라이트 브라운 나파 인조가죽 시트」 한 줄 때문에 내장 열이 130px 로 벌어진다.
  * ⚠ 머리글은 잘리면 안 된다 — 무슨 칸인지 모르게 된다. 그래서 머리글 길이는 하한으로 둔다.
  */
+/**
+ * 글자 한 칸이 몇 px 인가 — **글꼴과 크기를 따라 같이 움직인다.**
+ * ⚠ 여기를 손으로 박아 두면 크기를 바꿀 때마다 열너비가 어긋난다(그래서 계산으로 뺐다).
+ *   Noto Sans KR 은 같은 pt 에서 Roboto 보다 넓다.
+ */
+export const unitPx = (font = FONT, size = SIZE) => (/Noto Sans KR/i.test(font) ? 0.79 : 0.73) * size;
+
+/** 행높이 — 크기를 따라 간다. 좁으면 글자가 위아래로 낀다. */
+export const rowPx = (size = SIZE) => Math.round(size * 2.4);
+
 export function columnWidths(columns: string[], body: string[][], font = FONT): number[] {
-  // ⚠ 글꼴마다 같은 pt 에서 폭이 다르다. Noto Sans KR 은 Roboto 보다 넓다 —
-  //   같은 계수로 재면 40열이 빽빽해진다.
-  const per = /Noto Sans KR/i.test(font) ? 7.9 : 7.3;
+  const per = unitPx(font);
   return columns.map((name, i) => {
     const lens = body.map((r) => wide(r[i] || '')).sort((a, b) => a - b);
     const p90 = lens.length ? lens[Math.min(lens.length - 1, Math.floor(lens.length * 0.9))] : 0;
     const units = Math.max(p90, wide(name) + 1);
     const cap = NARROW.has(name) ? NARROW_PX : MAX_PX;
-    // 글자 한 칸을 몇 px 로 볼까 — 10pt 로 키운 만큼 같이 키운다(9pt 때는 6.6이었다).
     // 여백 16px 은 오른쪽정렬 칸이 테두리에 붙지 않게 하는 몫이다.
-    return Math.min(cap, Math.max(66, Math.round(units * per) + 16));
+    return Math.min(cap, Math.max(62, Math.round(units * per) + 16));
   });
 }
 
@@ -299,8 +306,7 @@ export function buildSalesFormatRequests(input: FormatInput): Record<string, unk
 
   out.push({ updateDimensionProperties: {
     range: { sheetId: gid, dimension: 'ROWS', startIndex: 0 },
-    // 10pt 라 21px 이면 글자가 위아래로 낀다. Noto Sans KR 은 Roboto 보다 커서 24px.
-    properties: { pixelSize: /Noto Sans KR/i.test(FONT) ? 24 : 23 }, fields: 'pixelSize',
+    properties: { pixelSize: rowPx() }, fields: 'pixelSize',
   } });
   widths.forEach((px, i) => out.push({ updateDimensionProperties: {
     range: { sheetId: gid, dimension: 'COLUMNS', startIndex: i, endIndex: i + 1 },

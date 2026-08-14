@@ -207,6 +207,42 @@ const rgb = (hex: string) => ({
   blue: parseInt(hex.slice(4, 6), 16) / 255,
 });
 
+/**
+ * ★**시트에서 손으로 고친 @매핑·@제외를 지키고 쓴다.**
+ *
+ * ⚠ 예전에는 그냥 A1:Z500 을 지우고 코드의 ROWS 를 다시 썼다. 그래서 시트에서 고친 규칙이
+ *   이 명령 한 번에 옛 코드값으로 되돌아갔다 — 「시트를 고치면 발행이 그대로 따른다」는
+ *   약속이 여기서 깨져 있었다(2026-08-14 발견). 되돌릴 길은 구글시트 버전기록뿐이었다.
+ *
+ * ★규칙 — **시트가 이긴다.** 시트 블록이 코드와 다르면 시트 것을 그대로 두고 화면에 알린다.
+ *   그래야 사람이 코드(`lib/domain/sales-sheet-mapping`)에도 같은 줄을 반영할 수 있다.
+ */
+{
+  const block = (rows: string[][], from: string, to: string) => {
+    const a = rows.findIndex((r) => S(r[0]) === from);
+    if (a < 0) return null;
+    const out: string[][] = [];
+    for (const r of rows.slice(a + 1)) { if (S(r[0]) === to) break; out.push([S(r[0]), S(r[1]), S(r[2])]); }
+    return out;
+  };
+  const same = (a: string[][], b: string[][]) => a.length === b.length && a.every((r, i) => r.join('') === b[i].join(''));
+  let live: string[][] = [];
+  try {
+    const cur = await call(`${api}/values/${encodeURIComponent(TAB)}!A1:C500`) as { values?: string[][] };
+    live = (cur.values || []) as string[][];
+  } catch { /* 처음 만드는 경우 */ }
+  for (const [from, to] of [['@매핑', '@매핑끝'], ['@제외', '@제외끝']] as [string, string][]) {
+    const onSheet = block(live, from, to);
+    if (!onSheet || !onSheet.some((r) => S(r[1]))) continue;      // 시트에 아직 없다 — 코드값으로 심는다
+    const inCode = block(ROWS, from, to) || [];
+    if (same(onSheet, inCode)) continue;
+    const at = ROWS.findIndex((r) => S(r[0]) === from);
+    const end = ROWS.findIndex((r) => S(r[0]) === to);
+    ROWS.splice(at + 1, end - at - 1, ...onSheet);
+    console.log(`  ★${from} 은 시트에서 고친 것이 있어 **시트 것을 지킨다**(${onSheet.length}줄).`);
+    console.log(`     코드(lib/domain/sales-sheet-mapping)에도 같은 줄을 반영해 두세요 — 안 그러면 예비값이 어긋납니다.`);
+  }
+}
 await call(`${api}/values/${encodeURIComponent(TAB)}!A1:Z500:clear`, { method: 'POST', body: '{}' });
 await call(`${api}/values/${encodeURIComponent(TAB)}!A1?valueInputOption=RAW`, {
   method: 'PUT', body: JSON.stringify({ values: ROWS }),
