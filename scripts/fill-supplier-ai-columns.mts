@@ -29,7 +29,7 @@ import { snapColor } from '../lib/domain/color-master';
 import { classifyVehicleClass } from '../lib/domain/vehicle-class';
 import { SALES_ALIAS } from '../lib/domain/sales-sheet-mapping';
 import { AI_TAIL_COLUMNS } from '../lib/domain/supplier-template-sheet';
-import { companyAlias } from '../lib/domain/identity';
+import { companyAlias, supplierNameKeys } from '../lib/domain/identity';
 import type { MasterEntry } from '../lib/domain/vehicle-master-types';
 import type { EntityRecord } from '../lib/intake/entities';
 
@@ -102,7 +102,7 @@ const targets: { code: string; name: string; id: string }[] = [];
   for (const f of ((r.files || []) as Rec[])) {
     const nm = S(f.name);
     const who = companyAlias(nm.replace(DOC_NAME, '').trim()) || nm.replace(DOC_NAME, '').trim();
-    if (ONLY.size && !ONLY.has(who)) continue;
+    if (ONLY.size && ![...supplierNameKeys(who)].some((k) => ONLY.has(k))) continue;
     targets.push({ code: '', name: who, id: S(f.id) });
   }
   targets.sort((a, b) => a.name.localeCompare(b.name, 'ko'));

@@ -18,7 +18,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { SALES_ALIAS } from '../lib/domain/sales-sheet-mapping';
-import { companyAlias } from '../lib/domain/identity';
+import { companyAlias, supplierNameKeys } from '../lib/domain/identity';
 
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
@@ -93,27 +93,8 @@ const hub: { name: string; raw: string; code: string; id: string }[] = [];
     hub.push({ name: companyAlias(S(r[0])) || S(r[0]), raw: S(r[0]), code: S(r[1]), id });
   }
 }
-/**
- * 이름 맞추기 열쇠. 문패는 「SA렌터카」, 우리 시트는 「에스에이 프리패스 재고」처럼
- * **같은 회사를 다르게 적는다.** 별칭 하나만 믿으면 있는 시트를 「없다」로 떨군다
- * (실측 2026-08-14 — SA·J&J 가 그랬다). 열쇠를 여러 개 만들어 하나만 겹쳐도 맞춘다.
- */
-/**
- * ⚠ 로마자와 한글을 섞어 쓰는 곳은 규칙으로 못 잇는다 — 문패는 「SA렌터카」,
- *   시트 이름은 「에스에이」다. 글자가 한 자도 안 겹치므로 여기에 **적어 둔다.**
- *   추측으로 이으려 들면 엉뚱한 회사끼리 붙는다.
- */
-const SPELL: Record<string, string> = { SA: '에스에이', 'J&J': '제이앤제이', KH: '케이에이치' };
-const keys = (raw: string) => {
-  const bare = S(raw).replace(/\(주\)|주식회사/g, '').trim();
-  const short = bare.replace(/렌터카|렌트카|렌트|캐피탈|모터스/g, '').replace(/\s/g, '').trim();
-  const out = new Set([S(raw), bare, short, companyAlias(raw) || '', companyAlias(bare) || '', companyAlias(short) || ''].map(S).filter(Boolean));
-  for (const k of [...out]) {
-    if (SPELL[k]) out.add(SPELL[k]);
-    for (const [lat, han] of Object.entries(SPELL)) if (han === k) out.add(lat);
-  }
-  return out;
-};
+/** 이름 맞추기 열쇠는 `identity.supplierNameKeys` 하나에서 나온다 — 도구마다 따로 적으면 답이 갈린다. */
+const keys = supplierNameKeys;
 
 /** 우리 제공시트 — 드라이브에서 이름으로. 채우기 도구와 같은 방식이다. */
 const ours = new Map<string, string>();

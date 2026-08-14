@@ -125,6 +125,38 @@ export function companyAlias(raw: unknown, explicit?: unknown): string {
 }
 
 /**
+ * ★**로마자와 한글이 갈리는 상호** — 규칙으로는 못 잇는다. 글자가 한 자도 안 겹친다.
+ *   ⚠ 짐작으로 이으려 들면 엉뚱한 회사끼리 붙는다. 그래서 여기에 **적어 둔다.**
+ */
+const SPELL_PAIRS: [string, string][] = [['SA', '에스에이'], ['J&J', '제이앤제이'], ['KH', '케이에이치']];
+
+/**
+ * **같은 회사를 다르게 적은 이름들을 잇는 열쇠 꾸러미.**
+ *
+ * ★왜(2026-08-14) — 문패는 「SA렌터카」, 우리 시트 이름은 「에스에이 프리패스 재고」다.
+ *   `companyAlias` 하나만 믿었더니 **있는 시트를 「없다」로 떨궜다**(SA·J&J).
+ *   열쇠를 여러 개 만들어 두고 «하나만 겹쳐도 같은 회사»로 본다.
+ * ⚠ 이걸 쓰는 도구가 셋이다(문패 대조·정제칸 채우기·정책 되채우기).
+ *   따로 적으면 서로 다른 답을 내고, 그때부터 «어떤 도구는 찾고 어떤 도구는 못 찾는» 상태가 된다.
+ */
+export function supplierNameKeys(raw: unknown): Set<string> {
+  const full = String(raw ?? '').trim();
+  const bare = full.replace(/\(주\)|주식회사|㈜/g, '').trim();
+  const short = bare.replace(/렌터카|렌트카|렌트|캐피탈|모터스/g, '').replace(/\s/g, '').trim();
+  const out = new Set(
+    [full, bare, short, companyAlias(full), companyAlias(bare), companyAlias(short)]
+      .map((x) => String(x ?? '').trim()).filter(Boolean),
+  );
+  for (const k of [...out]) {
+    for (const [lat, han] of SPELL_PAIRS) {
+      if (k === lat) out.add(han);
+      if (k === han) out.add(lat);
+    }
+  }
+  return out;
+}
+
+/**
  * 계약서 등 정식 회사 선택 UI용 표시명.
  * 영업 별칭과 달리 렌터카·모빌리티 같은 상호 구성어는 유지하고 법인격 표기만 뺀다.
  */
