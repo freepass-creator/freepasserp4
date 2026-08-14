@@ -36,6 +36,15 @@ import type { EntityRecord } from '../lib/intake/entities';
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
 const APPLY = process.argv.includes('--apply');
+/**
+ * ★**이미 잘못 써 놓은 「배기량(정제)」만 고친다** — 「빈 칸에만 쓴다」의 **유일한 예외**다.
+ *   2026-08-14 에 파워트레인 «글자»에서 숫자를 긁어 배터리 용량(77400)·구동축 숫자(2000·4000)를
+ *   배기량으로 찍었다. 빈 칸이 아니라 **틀린 값이 들어 있어** 평소 규칙으로는 못 고친다.
+ * ⚠ 아무 값이나 덮지 않는다. **옛 방식으로 계산한 값과 똑같을 때만** 덮는다 —
+ *   그래야 사람이 손으로 적은 값을 안 건드린다.
+ *   npx tsx scripts/fill-supplier-ai-columns.mts --fix-cc --apply
+ */
+const FIX_CC = process.argv.includes('--fix-cc');
 const arg = (k: string, d = '') => (process.argv.find((a) => a.startsWith(`--${k}=`)) || '').slice(k.length + 3) || d;
 /** 한 곳만 손볼 때 — 공급사 «이름»으로 거른다(문서를 이름으로 찾으므로 코드가 없다). */
 const ONLY = new Set(arg('who').split(/[,\s]+/).map(S).filter(Boolean));
@@ -124,6 +133,9 @@ const ccList: string[] = [];
 /** 차명 글자를 아예 못 읽은 차 — 그 시트 열 이름이 매핑에 없다는 뜻이다. */
 let noName = 0;
 const nameList: string[] = [];
+/** 옛 방식이 잘못 찍어 둔 배기량 — 되돌린 수. */
+let badCcWritten = 0;
+const ccFixList: string[] = [];
 
 for (const t of targets) {
   let meta: Rec;
@@ -173,6 +185,8 @@ for (const t of targets) {
       if (!plate) continue;
       cars++;
       const cell = (c: string) => { for (const i of (idx.get(c) || [])) { const v = S(row[i]); if (v) return v; } return ''; };
+      /** 열 이름 그대로 그 칸만 — 별칭을 안 쓴다. 정제칸을 «있는 그대로» 볼 때 쓴다. */
+      const exactCell = (name: string) => { const i = at.get(name); return i === undefined ? '' : S(row[i]); };
 
       const rawName = [cell('모델'), cell('세부모델'), cell('세부트림')].filter(Boolean).join(' ').trim();
       /**
@@ -203,7 +217,7 @@ for (const t of targets) {
        *   이 안전장치가 소리 없이 꺼진다.
        */
       const rawCc = Number(S(row[at.get('배기량') ?? -1]).replace(/[^\d]/g, '')) || 0;
-      const snapCc = ok ? fuelEmbeddedCc(S(snap!.variant)) : 0;
+      const snapCc = ok ? Number(S(snap!.engine_cc)) || 0 : 0;
       let ccMismatch = false;
       if (ok && rawCc > 300 && snapCc > 300 && Math.abs(rawCc - snapCc) / rawCc > 0.07) {
         ok = false;
@@ -224,8 +238,18 @@ for (const t of targets) {
         '세부모델': ok ? clean('세부모델', S(snap!.sub_model)) : '',
         '파워트레인': ok ? clean('파워트레인', variant) : '',
         '세부트림': ok ? clean('세부트림', S(snap!.trim_name)) : '',
-        // 배기량·연료는 **파워트레인에서 나온다.** 공급사 칸을 옮겨 담으면 서로 어긋난다.
-        '배기량(정제)': ok && fuelEmbeddedCc(variant) ? String(fuelEmbeddedCc(variant)) : '',
+        /**
+         * ★배기량은 **마스터가 돌려준 `engine_cc` 를 그대로** 쓴다.
+         * ⚠ 파워트레인 «글자»에서 숫자를 긁지 마라. 그렇게 했다가 배터리 용량과 구동축 숫자를
+         *   배기량으로 찍어 넣었다(실측 2026-08-14 · 살아 있는 매물 49대) —
+         *     「전기 77.4kWh AWD」(아이오닉6) → 77400
+         *     「전기 2WD」(EV3·EV9·포터II 전기) → 2000     ← 2.0 엔진차로 보인다
+         *     「전기 4MATIC」(벤츠 EQE) → 4000
+         *     「하이브리드 2WD 6인승」(싼타페 MX5) → 2000  ← 실제 1,598cc
+         *   마스터는 전기차에 `engine_cc` 를 안 준다(undefined) — 그래야 빈칸이 된다.
+         *   「전기차는 빈칸이 정상」이라는 규격(supplier-template-sheet)이 그 뜻이다.
+         */
+        '배기량(정제)': ok ? S(snap!.engine_cc) : '',
         '연료(정제)': ok ? fuelDisplay(variant) : '',
         // 색은 마스터와 무관하다 — 차명을 못 알아봐도 색은 정제된다.
         '외장색상': snapColor(cell('외장'), 'ext'),
@@ -239,6 +263,20 @@ for (const t of targets) {
         if (ci < 0) continue;
         const now = S(row[ci]);
         const v = S(want[name]);
+        /**
+         * ⚠ 예외 하나 — **엔진이 없는 차에 배기량이 적혀 있으면 지운다.**
+         *   옛 방식이 파워트레인 «글자»에서 숫자를 긁어 배터리 용량을 배기량으로 찍었다
+         *   (레이 EV 16400 · 볼트 EUV 66000 · EV6 77400 — 실측 2026-08-14).
+         * ★판정을 **시트에 적힌 파워트레인**으로 한다. 다시 스냅을 돌려 견주면,
+         *   그 사이 마스터나 입력이 바뀐 차는 계산이 안 맞아 **못 고치고 지나간다.**
+         *   「전기·수소인데 배기량이 있다」는 다시 볼 것 없이 틀린 것이다.
+         */
+        if (FIX_CC && name === '배기량(정제)' && now && /전기|수소/.test(exactCell('파워트레인'))) {
+          badCcWritten++;
+          if (ccFixList.length < 25) ccFixList.push(`${t.name} ${plate} 「${exactCell('파워트레인')}」 ${now} → (빈칸)`);
+          updates.push({ range: `${a1Tab(title)}!${colA1(ci)}${r + 1}`, values: [['']] });
+          continue;
+        }
         if (!v) continue;                 // 채울 것이 없다
         if (now) { kept++; continue; }    // ⚠ 이미 있는 값은 절대 안 덮는다
         filled++;
@@ -265,6 +303,11 @@ for (const t of targets) {
 
 console.log(`\n  ${'─'.repeat(58)}`);
 console.log(`  모두 ${totCars}대 · 채울 칸 ${totFilled} · 이미 있어 그대로 둔 칸 ${totKept}`);
+if (badCcWritten) {
+  console.log(`\n  ▲ 옛 방식이 잘못 찍어 둔 배기량 ${badCcWritten}칸을 되돌린다 (배터리 용량·구동축 숫자였다)`);
+  for (const l of ccFixList) console.log(`     ${l}`);
+  if (badCcWritten > ccFixList.length) console.log(`     … 그 밖 ${badCcWritten - ccFixList.length}칸`);
+}
 if (noTail.length) console.log(`\n  ▲ 정제칸이 없는 시트 ${noTail.length} — 먼저 add-supplier-ai-columns 를 돌려야 한다\n     ${noTail.join(' · ')}`);
 if (totLow) {
   console.log(`\n  ▲ 차종마스터가 못 알아본 차 ${totLow}대 — 비워 둔다. 마스터에 넣거나 사람이 직접 적어야 한다`);
