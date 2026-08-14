@@ -4653,4 +4653,5 @@ Next 개발 서버와 production build가 같은 `.next`를 사용하면 실행 
 - 위 회차는 발행 후 `https://sign.freepasserp.com/fps_...` 고객 페이지와 공개 계약 API가 각각 200으로 열렸지만, 계약 전 미리보기 PDF가 503인 것을 확인했다.
 - 원인은 로컬 렌더러가 PC의 Chrome을 사용하면서 Vercel 함수에도 같은 실행파일이 있다고 가정한 것이었다. Playwright 1.49의 Chromium 131과 맞는 `@sparticuz/chromium@131.0.1`을 운영 의존성으로 고정하고, Windows는 로컬 Chrome·Vercel Linux는 서버리스 headless-shell을 선택한다.
 - Next.js 출력 추적에 전자계약 API용 Chromium 바이너리 5개가 실제 포함된 것을 각 문서·승인 함수의 `.nft.json`에서 확인했다. 실패 시 계약번호와 안전한 오류 메시지를 런타임 로그에 남긴다.
+- 첫 운영 재검증에서 Chromium 실행 뒤 A4 원본 HTML이 함수 번들에 없어 503이 나는 다음 경계를 확인했다. 전자계약 함수 출력 추적에 `rental-contract.html`과 Pretendard woff2 5종도 함께 포함한다.
 - `npx tsc --noEmit`, `sim-freepass-esign`, `sim-esign-issue-gate` 8/8, `check:fonts`, `check:tokens`, production build 33/33 PASS.
