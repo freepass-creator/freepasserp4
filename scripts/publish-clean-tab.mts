@@ -32,11 +32,18 @@ const tok = (await new JWT({
   scopes: ['https://www.googleapis.com/auth/spreadsheets'], subject: 'pyh@teamjpk.com',
 }).getAccessToken()).token;
 const api = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET}`;
+/** ⚠ 재시도가 없으면 쿼터에 걸린 순간 죽는다. 이 스크립트는 죽으면 사전을 못 지킨다. */
 const call = async (u: string, init?: RequestInit) => {
-  const r = await fetch(u, { ...init, headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' } });
-  const t = await r.text();
-  if (!r.ok) throw new Error(`${r.status} ${t.slice(0, 300)}`);
-  return t ? JSON.parse(t) : {};
+  for (let n = 0; ; n++) {
+    const r = await fetch(u, { ...init, headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' } });
+    const t = await r.text();
+    if (r.ok) return t ? JSON.parse(t) : {};
+    if ((r.status === 429 || r.status >= 500) && n < 6) {
+      await new Promise((ok) => setTimeout(ok, Math.min(60_000, 5_000 * 2 ** n)));
+      continue;
+    }
+    throw new Error(`${r.status} ${t.slice(0, 300)}`);
+  }
 };
 
 // ── ① 판매시트에서 지금 쓰이는 색을 모은다 ────────────────────────────────────
@@ -186,6 +193,36 @@ const ROWS: Row[] = [
     return out;
   })(),
 ];
+
+/**
+ * ★**한 번 적어 둔 규칙은 시트에서 그 원문이 사라져도 지운다.** ← 이걸 안 했었다.
+ *
+ * ⚠ 여기가 이 스크립트의 가장 큰 함정이었다(2026-08-14 발견).
+ *   표는 «지금 상품리스트에 서 있는 값»으로만 만든다. 그런데 규칙이 한 번 먹히면
+ *   상품리스트에는 **바뀐 뒤 값만** 서므로 원문이 사라지고, 그 줄이 다음 실행에서
+ *   표에서 통째로 없어졌다. 그러면 다음 발행에 원문이 되살아나고, 다시 제안이 뜬다 —
+ *   사람이 검수해 확정한 표기가 조용히 유실되고 무한 왕복하는 구조였다.
+ *
+ * ★그래서 «지금 시트에 없는» 옛 규칙도 그대로 다시 싣는다. 값이 적힌 줄만 지킨다 —
+ *   빈 줄까지 되살리면 표가 옛 제안으로 계속 불어난다.
+ */
+{
+  const emitted = new Set(ROWS.filter((r) => S(r[0]).startsWith('@')).map((r) => `${S(r[0])}|${S(r[1])}`));
+  const leftover: Row[] = [];
+  for (const [key, to] of old) {
+    if (!S(to)) continue;                       // 값이 안 적힌 옛 제안은 되살릴 것이 없다
+    if (emitted.has(key)) continue;
+    if (key.startsWith('@설명')) continue;
+    const at = key.indexOf('|');
+    leftover.push([key.slice(0, at), key.slice(at + 1), to, '지금 시트엔 없음 — 규칙은 지킨다']);
+  }
+  if (leftover.length) {
+    leftover.sort((a, b) => a[0].localeCompare(b[0]) || a[1].localeCompare(b[1]));
+    ROWS.push(['', '', '', ''], ['@설명', '아래는', '전에 적어 둔 규칙인데 지금 상품리스트엔 그 원문이 안 보이는 것들이다. 규칙이 이미 먹혀서 그렇다 — 지우지 않는다.', '']);
+    ROWS.push(...leftover);
+    console.log(`  전에 적어 둔 규칙 ${leftover.length}개는 지금 시트에 원문이 없어도 그대로 지킨다`);
+  }
+}
 
 console.log(`■ 「${TAB}」 ${APPLY ? '반영' : '미리보기(dry-run)'}`);
 console.log(`  외장 ${ext.size}종 · 내장 ${int.size}종 · 모두 ${ROWS.length}줄\n`);
