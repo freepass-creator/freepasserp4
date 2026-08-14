@@ -186,6 +186,42 @@ export function earlyTerminationCell(p: Map<string, string>): string {
 }
 
 /**
+ * 연령하향 — **한 칸**으로(사장님 2026-08-14 — 「연령 상향도 지금 칸 나눠놨는데 한 칸에 써줘」).
+ *   예전엔 21세·23세 두 칸이었는데 요금은 한 값이라 같은 숫자가 두 번 섰다.
+ *   「만 21세까지 · 10만원」 처럼 «어디까지»와 «얼마»를 함께 보여 준다.
+ * ⚠ 못 낮추면 「불가」다. 빈칸으로 두면 «모른다»로 읽혀 영업자가 물어보게 된다.
+ */
+export function ageDownCell(p: Map<string, string>): string {
+  const scope = S(p.get('연령인하'));
+  const fee = S(p.get('연령 하향 요금'));
+  if (!scope && !fee) return '';
+  if (/불가/.test(scope) || /불가/.test(fee)) return '불가';
+  if (/협의/.test(scope)) return fee && !/협의/.test(fee) ? `협의 · ${fee}` : '협의';
+  return [scope, fee].filter(Boolean).join(' · ');
+}
+
+/**
+ * 정비 — 지정 정비점과 **한 칸**으로. 「미제공」이면 어디서 받는지는 물을 일이 없다.
+ *   포함이면 「포함 · 지정 협력 정비공장」.
+ */
+export function maintenanceCell(p: Map<string, string>): string {
+  const m = S(p.get('정비'));
+  const where = S(p.get('지정 정비점'));
+  if (!m) return where;
+  if (/미제공|불포함|없음/.test(m)) return m;
+  return where ? `${m} · ${where}` : m;
+}
+
+/** 보증금 결제 — 분납과 카드를 한 칸으로. 「2회까지 · 카드 가능」 */
+export function depositPayCell(p: Map<string, string>): string {
+  const part = S(p.get('보증금분납'));
+  const card = S(p.get('보증금카드결제'));
+  if (!part && !card) return '';
+  const c = card ? `카드 ${card}` : '';
+  return [part, c].filter(Boolean).join(' · ');
+}
+
+/**
  * 운전자범위 — **두 갈래로 요약**한다(사장님 2026-08-14 —
  *   「계약자 본인만이 있을 수 있고, 기본(직계, 임직원) 이렇게」).
  *
@@ -217,22 +253,41 @@ export function driverScopeCell(p: Map<string, string>): string {
 
 /** 판매시트 열 ← 정책 항목. 한 항목이 그대로 오는 것들. */
 export const POLICY_DIRECT: Record<string, string> = {
-  무보험: '무보험보상',
+  /**
+   * ★**공급사가 적은 칸을 그대로 나열한다**(사장님 2026-08-14 —
+   *   「공급사가 입력하게끔 해놓고 그걸 쫙 나열하는 거니까 오류 없게」).
+   *   합칠 때마다 우리 해석이 들어가고, 거기가 곧 «우리가 만든 오류»가 나는 자리다.
+   * ★합친 채로 두는 것은 둘뿐이다 —
+   *   「승계」·「운전자범위」는 사장님이 그렇게 해 달라고 한 것이고,
+   *   「대인·대물·자차·자손」은 우리가 만든 게 아니라 영업자가 몇 년 보던 「무한/30」 형식이다.
+   */
+  기본연령: '기본운전자연령',
+  최대연령: '최대연령',
+  면허기간: '면허기간',
+  추가운전자: '추가운전자',
+  '추가운전자 요금': '추가운전자 요금',
+  '초과주행 국산': '초과주행 국산(1km당)',
+  '초과주행 수입': '초과주행 수입(1km당)',
+  '중도해지 1년미만': '중도해지 위약금 1년미만',
+  '중도해지 1년이상': '중도해지 위약금 1년이상',
+  연령인하: '연령인하',
+  '연령하향 요금': '연령 하향 요금',
   정비: '정비',
+  '지정 정비점': '지정 정비점',
+  분납: '보증금분납',
+  '보증금 카드결제': '보증금카드결제',
+  무보험: '무보험보상',
   연주행: '기본주행',
   '1만+': '추가주행 금액',
   '추가주행 방식': '추가주행 방식',
-  분납: '보증금분납',
   보험료: '보험료',
   '가입 보험사': '가입 보험사',
-  '지정 정비점': '지정 정비점',
   긴급출동: '긴급출동',
   '사고·정비 대차': '대차 정책',
   '자차 보상제외': '자차 처리 제외',
   'GPS 장착': 'GPS 장착',
   대여지역: '대여지역',
   탁송비: '탁송비',
-  '보증금 카드결제': '보증금카드결제',
   '사고다발 해지기준': '사고 다발 해지기준',
   '자차 자기부담률': '자차수리비율',
 };
@@ -254,20 +309,24 @@ export const POLICY_CONSTANTS: [string, string][] = [
   ['긴급출동', '연간 5회'],
 ];
 
+/**
+ * ★**«채우라는 말»은 값이 아니다.** 「공급사 기재」가 「가입 보험사」 칸에 그대로 들어 있어
+ *   영업자가 보험사 이름으로 읽는다(실측 2026-08-14 · 18곳 전부). 그런 자리표시는 비운다.
+ * ⚠ 「해당없음」·「없음」은 지우지 마라 — 그건 실제 답이다.
+ */
+const PLACEHOLDER = /^(공급사\s*기재|공급사기재|미입력|입력\s*요망|기재\s*요망|추후\s*기재|-)$/;
+const notPlaceholder = (v: string) => (PLACEHOLDER.test(S(v)) ? '' : S(v));
+
 /** 한 차의 부가정보 칸을 정책에서 만든다. 재고탭 값이 있으면 그쪽이 이긴다(그 차만의 예외). */
 export function policyCell(column: string, p: Map<string, string>): string {
   if (column === '자차') return ownDamageCell(p);
   if (column === '승계') return successionCell(p);
-  if (column === '운전자격') return qualifyCell(p);
-  if (column === '추가운전자') return extraDriverCell(p);
-  if (column === '초과주행(1km)') return overMileageCell(p);
-  if (column === '중도해지 위약금') return earlyTerminationCell(p);
   if (column === '운전자범위') return driverScopeCell(p);
   if (column === '21세') return ageCell(p, 21);
   if (column === '23세') return ageCell(p, 23);
   const pair = POLICY_PAIR[column];
   if (pair) return limitPair(S(p.get(pair[0])), S(p.get(pair[1])));
   const direct = POLICY_DIRECT[column];
-  if (direct) return S(p.get(direct));
+  if (direct) return notPlaceholder(S(p.get(direct)));
   return '';
 }
