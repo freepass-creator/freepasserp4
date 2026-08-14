@@ -23,7 +23,7 @@
  *   npx tsx scripts/publish-origin-tab.mts
  *   npx tsx scripts/publish-origin-tab.mts --apply
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { NOT_SHEET_BACKED, SHEET_GRID_FIELDS, readSupplierSheet } from '../lib/domain/supplier-sheet-read';
 import { companyAlias } from '../lib/domain/identity';
@@ -373,7 +373,22 @@ for (const [code, p] of [...byCode].sort()) {
        *   그래서 **세 칸을 다 이어 붙여** 한 문장으로 만들어 마스터에 올린다.
        *   짧은 이름만 주면 엉뚱한 세대로 붙는다(「쏘나타」→1990년대 Y3).
        */
-      const rawName = [cell('모델'), cell('세부모델'), cell('세부트림')].filter(Boolean).join(' ').trim();
+      /**
+       * ★**정제칸에 이미 적혀 있으면 그 글자를 쓴다 — 다시 판단하지 않는다**
+       *   (사장님 2026-08-14 — 「매물을 접하면 우리식으로 바꿔서 상태값만 공급사거를 참고한다」).
+       *   차종은 한 번 정하면 안 바뀌는 값이다. 그런데 예전엔 발행할 때마다 마스터를 다시 돌려
+       *   **정제칸을 덮었다.** 그래서 ①사람이 손으로 고쳐 놔도 다음 발행에 되돌아갔고
+       *   ②마스터가 바뀌면 지난주와 다른 답이 나왔다.
+       *   ⚠ 실측 2026-08-14: 정제칸을 채운 직후 다시 스냅이 돌아 44대의 파워트레인이
+       *     「하이브리드 1.6 2WD」 → 「하이브리드 2WD 6인승」으로 **배기량이 빠진 채** 뒤집혔다.
+       *   ★표식은 「파워트레인」이다 — 공급사가 손으로 적는 칸이 아니라 우리가 채우는 칸이다.
+       *   ★이름으로 **딱 그 칸만** 본다(별칭을 안 쓴다). 별칭으로 찾으면 정제칸이 비었을 때
+       *     공급사 원문이 잡혀 「정제된 것」으로 착각한다.
+       */
+      const exact = (name: string) => { const i = hdr.indexOf(name); return i >= 0 ? S(r[i]) : ''; };
+      const already = !!exact('파워트레인');
+
+      const rawName = already ? '' : [cell('모델'), cell('세부모델'), cell('세부트림')].filter(Boolean).join(' ').trim();
       const snap = rawName ? snapToMaster({
         maker: cell('제조사'), model: cell('모델'), sub_model: [cell('세부모델'), cell('세부트림')].filter(Boolean).join(' '),
         fuel_type: cell('연료'),
@@ -402,6 +417,19 @@ for (const [code, p] of [...byCode].sort()) {
          * 차명 축 넷만 마스터로 올린다. **돈·상태·비고는 시트 글자 그대로** —
          * 여기서 숫자를 건드리면 그게 곧 «우리가 만든 오류»다.
          */
+        /**
+         * ★이미 정제된 차는 **시트 글자 그대로** 싣는다. 여기가 「다시 판단하지 않는다」가
+         *   실제로 지켜지는 자리다. 정제칸 이름으로 딱 그 칸만 읽는다.
+         * ⚠ 세부트림은 **없는 차가 정상**이다 — 비었다고 공급사 원문(「기본」 같은 것)으로
+         *   떨어지면 안 된다. 그래서 별칭을 안 쓰고 빈 값을 그대로 내보낸다.
+         */
+        if (already) {
+          if (c === '제조사') return clean(c, exact('제조사(정제)') || cell(c));
+          if (c === '모델') return clean(c, exact('모델'));
+          if (c === '세부모델') return clean(c, exact('세부모델'));
+          if (c === '파워트레인') return clean(c, exact('파워트레인'));
+          if (c === '세부트림') return clean(c, exact('세부트림'));
+        }
         if (ok) {
           if (c === '제조사') return clean(c, S(snap!.maker) || cell(c));
           if (c === '모델') return clean(c, S(snap!.model) || cell(c));
@@ -461,6 +489,22 @@ if (skippedTabs.length) {
 if (failures.length) {
   console.log(`\n  ✗ 못 읽은 것 ${failures.length}건 — 이만큼은 «모름»이다`);
   for (const f of failures) console.log(`     ${f}`);
+}
+/**
+ * ★**찍기 전 값을 파일로 뽑는다** — `--dump=tmp/rows.json`.
+ *   시트를 안 건드리고 «무엇이 나갈지»만 본다. 정제칸을 채우거나 매핑을 고칠 때
+ *   **전후를 견주는** 용도다: 바꾼 뒤에도 차명이 그대로인 것을 눈이 아니라 파일로 확인한다.
+ *   ⚠ 이게 없으면 «채웠더니 차명이 소리 없이 바뀐» 것을 아무도 못 잡는다.
+ */
+{
+  const dump = arg('dump');
+  if (dump) {
+    const plateAt = COLUMNS.indexOf('차량번호');
+    const out: Rec = {};
+    for (const r of rows) out[S(r[plateAt]) || `?${Object.keys(out).length}`] = Object.fromEntries(COLUMNS.map((c, i) => [c, S(r[i])]));
+    writeFileSync(dump, JSON.stringify({ columns: COLUMNS, rows: out }, null, 1), 'utf8');
+    console.log(`\n  ${rows.length}대를 ${dump} 에 뽑았다(시트는 안 건드렸다)\n`);
+  }
 }
 if (!APPLY) { console.log('\n※ dry-run. 실제 반영은 --apply\n'); process.exit(0); }
 

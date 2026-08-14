@@ -61,6 +61,14 @@ const guards: [string, string, RegExp][] = [
   ['@매핑 보존', 'scripts/publish-handover-tab.mts', /시트에서 고친 \$\{used\.size\}줄은 지키고/],
   ['치환 사전 보존', 'scripts/publish-clean-tab.mts', /지금 시트엔 없음 — 규칙은 지킨다/],
   ['제공시트 메모 보존', 'scripts/publish-supplier-handover-tab.mts', /keepMemo/],
+  /**
+   * ★정제칸을 지키는 장치 셋. 매뉴얼 1장·4장이 이걸 약속한다.
+   * ⚠ 하나라도 빠지면 «채운 값이 소리 없이 뒤집히는» 예전 상태로 돌아간다.
+   */
+  ['정제칸 재판단 안 함', 'scripts/publish-origin-tab.mts', /const already = !!exact\('파워트레인'\)/],
+  ['정제칸 빈 칸만 채움', 'scripts/fill-supplier-ai-columns.mts', /if \(now\) \{ kept\+\+; continue; \}/],
+  ['배기량 되짚기', 'scripts/fill-supplier-ai-columns.mts', /Math\.abs\(rawCc - snapCc\) \/ rawCc > 0\.07/],
+  ['전후 견주기', 'scripts/publish-origin-tab.mts', /const dump = arg\('dump'\)/],
 ];
 for (const [what, file, re] of guards) {
   let ok = false;

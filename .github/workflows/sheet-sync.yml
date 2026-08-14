@@ -58,7 +58,15 @@ jobs:
             --to=1-2ptJgwzPBVgDWMkyedjtVxcSXrNtepEQM0YgAVpYtI \
             ${{ (github.event_name == 'schedule' || inputs.apply) && '--apply' || '' }}
 
-      # ── ② 영업자 시트 발행
+      # ── ② 새로 들어온 차의 정제칸 채우기
+      #    빈 칸에만 쓴다 — 사람이 고친 값도, 지난번에 채운 값도 안 덮는다. 그래서 매일 돌려도 안전하다.
+      #    ⚠ 이걸 안 돌리면 새 차가 정제 없이 발행돼 파워트레인·세부트림이 빈 채로 나간다.
+      - name: 정제칸 채우기
+        run: |
+          npx tsx scripts/fill-supplier-ai-columns.mts \
+            ${{ (github.event_name == 'schedule' || inputs.apply) && '--apply' || '' }}
+
+      # ── ③ 영업자 시트 발행
       #    발행기가 스스로 멈추는 자리가 있다 — 0대이거나 직전보다 20% 넘게 줄면 죽는다.
       #    그게 여기서 «빨간 불»로 보이는 것이 이 워크플로의 값어치다.
       - name: 상품리스트 발행
@@ -71,7 +79,7 @@ jobs:
           npx tsx scripts/publish-sonogong-tab.mts \
             ${{ (github.event_name == 'schedule' || inputs.apply) && '--apply' || '' }}
 
-      # ── ③ 돈이 맞는지 본다. 어긋나면 1 로 끝나 빨간 불이 뜬다.
+      # ── ④ 돈이 맞는지 본다. 어긋나면 1 로 끝나 빨간 불이 뜬다.
       - name: 돈 대조
         run: npx tsx scripts/audit-sheet-vs-sales.mts
 
