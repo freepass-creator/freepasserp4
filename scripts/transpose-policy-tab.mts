@@ -77,26 +77,51 @@ for (const t of targets.sort((a, b) => a.name.localeCompare(b.name, 'ko'))) {
   const rows = (v.values || []) as string[][];
   if (!rows.length) { skipped++; console.log(`  ⏭ ${book} — 정책 탭이 비었다`); continue; }
 
-  // 이미 가로인가 — 첫 줄이 「정책코드 · 정책명 · 자차보상한도 …」면 그렇다.
-  if (norm(rows[0]?.[0]) === '정책코드' && norm(rows[0]?.[1]) === '정책명' && S(rows[0]?.[2])) {
-    already++; console.log(`  = ${book} — 이미 가로다`); continue;
+  /**
+   * 이미 가로인가 — 첫 줄이 「정책코드 · 정책명 · …」이면 그렇다.
+   * ★열 차례가 규격과 **다르면 다시 눕힌다.** 블록 배치를 고치면 시트도 따라와야 한다
+   *   (승계를 계약서 블록에서 영업자 블록으로 옮긴 것처럼).
+   */
+  const isWide = norm(rows[0]?.[0]) === '정책코드' && norm(rows[0]?.[1]) === '정책명' && !!S(rows[0]?.[2]);
+  if (isWide) {
+    const now = rows[0].map(S).filter(Boolean);
+    const want = policySheetHeader();
+    const same = want.every((h, i) => norm(now[i]) === norm(h));
+    if (same) { already++; console.log(`  = ${book} — 이미 가로다`); continue; }
+    console.log(`  ↻ ${book} — 가로인데 열 차례가 규격과 다르다. 다시 눕힌다`);
   }
 
-  // ── 세로 표를 읽는다. A열=항목 · B열=프리패스 기본 · C열부터=정책
-  const head = rows.find((r) => norm(r[0]) === '정책코드');
-  const nameRow = rows.find((r) => norm(r[0]) === '정책명');
-  if (!head) { skipped++; console.log(`  ⏭ ${book} — 「정책코드」 줄이 없다`); continue; }
-  /** 열번호 → 정책코드. 1열은 프리패스 기본(코드 없음). */
-  const cols: [number, string][] = [[1, '(프리패스 기본)']];
-  head.forEach((c, i) => { if (i >= 2 && S(c)) cols.push([i, S(c)]); });
-  /** 항목 → (열번호 → 값) */
+  /**
+   * 지금 표를 «항목 → (정책자리 → 값)» 으로 읽는다. 세로든 가로든 같은 모양으로 만든다.
+   *   세로: A열=항목 · B열=프리패스 기본 · C열부터=정책
+   *   가로: 1행=머리 · 2행부터=정책(첫 줄이 프리패스 기본)
+   */
+  const cols: [number, string][] = [];
   const byField = new Map<string, Map<number, string>>();
-  for (const r of rows) {
-    const f = S(r[0]);
-    if (!f || /^정책코드$|^정책명$/.test(norm(f))) continue;
-    const m = new Map<number, string>();
-    for (const [i] of cols) { const x = S(r[i]); if (x) m.set(i, x); }
-    byField.set(f, m);
+  let nameRow: string[] | undefined;
+  if (isWide) {
+    const hdr = rows[0].map(S);
+    rows.slice(1).forEach((r, k) => { if (r.some((c) => S(c))) cols.push([k, S(r[0]) || '(프리패스 기본)']); });
+    hdr.forEach((h, ci) => {
+      if (!h || /^정책코드$|^정책명$/.test(norm(h))) return;
+      const m = new Map<number, string>();
+      cols.forEach(([k]) => { const x = S(rows[k + 1]?.[ci]); if (x) m.set(k, x); });
+      byField.set(h, m);
+    });
+    nameRow = undefined;
+  } else {
+    const head = rows.find((r) => norm(r[0]) === '정책코드');
+    if (!head) { skipped++; console.log(`  ⏭ ${book} — 「정책코드」 줄이 없다`); continue; }
+    nameRow = rows.find((r) => norm(r[0]) === '정책명');
+    cols.push([1, '(프리패스 기본)']);
+    head.forEach((c, i) => { if (i >= 2 && S(c)) cols.push([i, S(c)]); });
+    for (const r of rows) {
+      const f = S(r[0]);
+      if (!f || /^정책코드$|^정책명$/.test(norm(f))) continue;
+      const m = new Map<number, string>();
+      for (const [i] of cols) { const x = S(r[i]); if (x) m.set(i, x); }
+      byField.set(f, m);
+    }
   }
 
   // 새 규격에 없는 옛 항목은 버리지 않고 뒤에 붙인다.
@@ -105,7 +130,10 @@ for (const t of targets.sort((a, b) => a.name.localeCompare(b.name, 'ko'))) {
 
   const body = cols.map(([i, code]) => header.map((h) => {
     if (norm(h) === '정책코드') return code === '(프리패스 기본)' ? '(프리패스 기본)' : code;
-    if (norm(h) === '정책명') return S(nameRow?.[i]) || (code === '(프리패스 기본)' ? '프리패스 표준' : '');
+    if (norm(h) === '정책명') {
+      const from = isWide ? S(rows[i + 1]?.[1]) : S(nameRow?.[i]);
+      return from || (code === '(프리패스 기본)' ? '프리패스 표준' : '');
+    }
     const cur = byField.get([...byField.keys()].find((k) => norm(k) === norm(h)) || '')?.get(i) || '';
     return cur || (code === '(프리패스 기본)' ? (POLICY_PREFILL[h] || '') : '');
   }));

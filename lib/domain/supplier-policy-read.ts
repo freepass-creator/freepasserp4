@@ -28,10 +28,27 @@ const norm = (v: unknown) => S(v).replace(/\s+/g, '');
 /** 한 공급사의 정책표 — 정책코드 → (항목 → 값). `''` 키가 프리패스 기본이다. */
 export type PolicyBook = Map<string, Map<string, string>>;
 
-/** 「정책」 탭 값 표 → 정책표. 머리 두 줄(정책코드·정책명)로 열을 가른다. */
+/**
+ * 「정책」 탭 값 표 → 정책표.
+ * ★2026-08-14 부터 **가로**다 — 1행이 머리, 2행부터가 정책(첫 줄이 프리패스 기본).
+ * ⚠ 세로(행=항목·열=정책)도 계속 읽는다. 아직 안 돌린 시트가 있을 수 있고,
+ *   못 읽으면 그 공급사 부가정보가 통째로 비는데 화면엔 아무 말도 안 나온다.
+ */
 export function readPolicyTab(rows: string[][]): PolicyBook {
   const book: PolicyBook = new Map();
   if (!rows.length) return book;
+  // ── 가로: 첫 줄이 「정책코드 · 정책명 · …」
+  if (norm(rows[0]?.[0]) === '정책코드' && norm(rows[0]?.[1]) === '정책명' && S(rows[0]?.[2])) {
+    const hdr = rows[0].map(S);
+    for (const r of rows.slice(1)) {
+      if (!r.some((c) => S(c))) continue;
+      const code = /프리패스 기본/.test(S(r[0])) ? '' : S(r[0]);
+      const m = new Map<string, string>();
+      hdr.forEach((h, i) => { if (h && !/^정책코드$|^정책명$/.test(norm(h))) { const v = S(r[i]); if (v) m.set(h, v); } });
+      book.set(code, m);
+    }
+    return book;
+  }
   const head = rows.find((r) => norm(r[0]) === '정책코드');
   if (!head) return book;
   // 1열 = 프리패스 기본(코드 없음) · 2열부터 = 실제 정책코드
@@ -104,21 +121,120 @@ export function ageCell(p: Map<string, string>, age: 21 | 23): string {
   return manOnly(fee) || '가능';
 }
 
+/**
+ * 승계 — 영업자 화면에는 **한 칸**이다(사장님 2026-08-14 — 「불가 또는 금액 입력해주면 되고」).
+ *   불가면 「불가」, 협의면 「협의」, 그 밖이면 **금액**을 보여 준다.
+ * ⚠ 「가능」인데 금액이 비어 있으면 「가능(금액 미정)」으로 둔다 —
+ *   금액을 지어내면 손님에게 잘못 말하게 되고, 그냥 「가능」만 보여 주면
+ *   영업자가 «공짜»로 읽는다. 비어 있다는 사실 자체를 보여 줘야 공급사에 물어본다.
+ */
+export function successionCell(p: Map<string, string>): string {
+  const can = S(p.get('승계 가능여부'));
+  const fee = S(p.get('승계수수료'));
+  if (/불가/.test(can)) return '불가';
+  if (!can && !fee) return '';
+  if (/협의/.test(can)) return fee ? `협의 (${wonText(fee)})` : '협의';
+  return fee ? wonText(fee) : '가능(금액 미정)';
+}
+
+/** 「1000000」을 「1,000,000」으로. 숫자가 아니면 그대로 둔다. */
+function wonText(v: string): string {
+  if (!/^[\d,]+$/.test(v)) return v;
+  const n = Number(v.replace(/,/g, ''));
+  return n > 0 ? n.toLocaleString('ko-KR') : v;
+}
+
+/**
+ * 자격 — 연령과 면허를 **한 칸**으로. 셋 다 짧고 함께 읽힌다.
+ *   「만 26~65세 · 면허 1년 이상」
+ * ⚠ 「제한없음」은 그대로 쓴다. 없는 조건을 만들지 않는다.
+ */
+export function qualifyCell(p: Map<string, string>): string {
+  const base = S(p.get('기본운전자연령')).replace(/^만\s*/, '').replace(/\s*이상$/, '');
+  const max = S(p.get('최대연령')).replace(/^만\s*/, '').replace(/\s*이하$/, '');
+  const lic = S(p.get('면허기간'));
+  const age = base && max ? `만 ${base}~${max}` : (base ? `만 ${base} 이상` : (max ? `만 ${max} 이하` : ''));
+  const l = lic && !/제한없음/.test(lic) ? `면허 ${lic}` : (lic ? '면허 제한없음' : '');
+  return [age, l].filter(Boolean).join(' · ');
+}
+
+/** 추가운전자 — 인원과 요금을 한 칸으로. 「1인 (월 5만원)」 */
+export function extraDriverCell(p: Map<string, string>): string {
+  const n = S(p.get('추가운전자'));
+  const fee = S(p.get('추가운전자 요금'));
+  if (!n) return '';
+  if (/불가/.test(n)) return '불가';
+  return fee ? `${n} (${fee})` : n;
+}
+
+/** 초과주행 — 국산·수입이 다르면 둘 다. 같으면 하나. 「국산 200 · 수입 400」 */
+export function overMileageCell(p: Map<string, string>): string {
+  const d = S(p.get('초과주행 국산(1km당)'));
+  const i = S(p.get('초과주행 수입(1km당)'));
+  if (!d && !i) return '';
+  if (d && i && d !== i) return `국산 ${d} · 수입 ${i}`;
+  return d || i;
+}
+
+/** 중도해지 — 1년 미만·이상이 다르면 둘 다. 「1년미만 30% · 이상 20%」 */
+export function earlyTerminationCell(p: Map<string, string>): string {
+  const a = S(p.get('중도해지 위약금 1년미만'));
+  const b = S(p.get('중도해지 위약금 1년이상'));
+  if (!a && !b) return '';
+  if (a && b && a !== b) return `1년미만 ${a} · 이상 ${b}`;
+  return a || b;
+}
+
+/**
+ * 운전자범위 — **두 갈래로 요약**한다(사장님 2026-08-14 —
+ *   「계약자 본인만이 있을 수 있고, 기본(직계, 임직원) 이렇게」).
+ *
+ *   본인만  계약자 본인만 · 대표자 본인만 · 본인+추가운전자
+ *   기본    직계가족·임직원까지 포함하는 흔한 경우
+ *   협의
+ *
+ * ★개인·법인을 **한 칸**으로 합친다. 둘이 다르면 「개인 기본 · 법인 본인만」처럼 갈라 적는다.
+ * ⚠ 원문(「계약자와 배우자 및 직계가족」)은 정책 탭에 그대로 있다. 여기서는 훑을 수 있어야 한다 —
+ *   긴 문장이 39칸 뒤쪽에 늘어서면 아무도 안 읽는다.
+ * ⚠ 「본인+추가운전자」를 «기본»으로 넣지 마라. 직계가 기본 포함이 아니라는 뜻이고,
+ *   추가운전자는 옆 칸에 인원·요금으로 따로 선다.
+ */
+export function driverScopeCell(p: Map<string, string>): string {
+  const bucket = (v: string) => {
+    const x = S(v);
+    if (!x) return '';
+    if (/협의/.test(x)) return '협의';
+    if (/본인만|본인\s*\+|대표자/.test(x)) return '본인만';
+    return '기본';
+  };
+  const me = bucket(S(p.get('개인운전자범위')));
+  const biz = bucket(S(p.get('법인운전자범위')));
+  if (!me && !biz) return '';
+  if (!biz || me === biz) return me || biz;
+  if (!me) return `법인 ${biz}`;
+  return `개인 ${me} · 법인 ${biz}`;
+}
+
 /** 판매시트 열 ← 정책 항목. 한 항목이 그대로 오는 것들. */
 export const POLICY_DIRECT: Record<string, string> = {
   무보험: '무보험보상',
   정비: '정비',
-  운전자범위: '개인운전자범위',
   연주행: '기본주행',
   '1만+': '추가주행 금액',
+  '추가주행 방식': '추가주행 방식',
   분납: '보증금분납',
-  // ★새로 세우는 칸 — 값이 공급사마다 갈리고 영업이 바로 묻는 것만(실측 2026-08-14)
   보험료: '보험료',
+  '가입 보험사': '가입 보험사',
+  '지정 정비점': '지정 정비점',
+  긴급출동: '긴급출동',
+  '사고·정비 대차': '대차 정책',
+  '자차 보상제외': '자차 처리 제외',
+  'GPS 장착': 'GPS 장착',
   대여지역: '대여지역',
   탁송비: '탁송비',
-  면허기간: '면허기간',
-  최대연령: '최대연령',
-  추가운전자: '추가운전자',
+  '보증금 카드결제': '보증금카드결제',
+  '사고다발 해지기준': '사고 다발 해지기준',
+  '자차 자기부담률': '자차수리비율',
 };
 
 /** 두 항목을 한 칸으로 합치는 것들. [보상, 면책] */
@@ -141,6 +257,12 @@ export const POLICY_CONSTANTS: [string, string][] = [
 /** 한 차의 부가정보 칸을 정책에서 만든다. 재고탭 값이 있으면 그쪽이 이긴다(그 차만의 예외). */
 export function policyCell(column: string, p: Map<string, string>): string {
   if (column === '자차') return ownDamageCell(p);
+  if (column === '승계') return successionCell(p);
+  if (column === '운전자격') return qualifyCell(p);
+  if (column === '추가운전자') return extraDriverCell(p);
+  if (column === '초과주행(1km)') return overMileageCell(p);
+  if (column === '중도해지 위약금') return earlyTerminationCell(p);
+  if (column === '운전자범위') return driverScopeCell(p);
   if (column === '21세') return ageCell(p, 21);
   if (column === '23세') return ageCell(p, 23);
   const pair = POLICY_PAIR[column];

@@ -33,6 +33,7 @@ import { buildSalesFormatRequests, columnWidths, rgb, LINK, FONT, SIZE, ITALIC }
 import { productType } from '../lib/domain/sales-sheet-clean';
 import { SALES_ALIAS, SALES_COLUMNS } from '../lib/domain/sales-sheet-mapping';
 import { HANDOVER_TAB, STALE_DAYS, daysSince, readLog } from '../lib/domain/supplier-handover-log';
+import { policyCell, policyFor, readPolicyTab, type PolicyBook } from '../lib/domain/supplier-policy-read';
 import type { MasterEntry } from '../lib/domain/vehicle-master-types';
 import type { EntityRecord } from '../lib/intake/entities';
 
@@ -257,6 +258,8 @@ const skippedTabs: string[] = [];
 const staleSheets: string[] = [];
 /** 차종마스터가 못 알아본 차 — 정제칸으로 사람이 닫아야 할 목록이다. */
 const unmatched: string[] = [];
+/** 정책 탭을 못 읽은 공급사 — 그 집 부가정보가 통째로 빈다. */
+const noPolicy: string[] = [];
 const who0 = (p: Rec) => companyAlias(S(p.partner_name || p.name)) || S(p.partner_name || p.name);
 const seenPlate = new Set<string>();
 /**
@@ -301,6 +304,18 @@ for (const [code, p] of [...byCode].sort()) {
     failures.push(`${S(p.partner_name || p.name)}(${code}) 「${title}」 — ${S((f as Rec).reason)}`);
   }
   const who = companyAlias(S(p.partner_name || p.name)) || S(p.partner_name || p.name) || code;
+  /**
+   * ★**부가정보는 「정책」 탭에서 온다**(사장님 2026-08-14 — 「영업자한테는 사실 다 보여줘도 되는데」).
+   *   예전엔 재고탭에 우연히 있는 칸만 낱개로 긁어 20~94% 였고 표기도 제각각이었다.
+   *   차마다 적힌 정책코드로 조인하면 100% 가 되고 표기가 하나가 된다.
+   * ⚠ 정책 탭을 못 읽으면 그 공급사 부가정보가 통째로 빈다 — 세어서 화면에 알린다.
+   */
+  let book: PolicyBook = new Map();
+  try {
+    const pv = await api(`https://sheets.googleapis.com/v4/spreadsheets/${readId}/values/${encodeURIComponent("'정책'")}`) as { values?: string[][] };
+    book = readPolicyTab((pv.values || []) as string[][]);
+  } catch { /* 정책 탭이 없는 시트도 있다 */ }
+  if (!book.size) noPolicy.push(`${who}(${code})`);
   /**
    * ★**규격화시트가 낡았는지 본다.**
    *   자체시트 공급사(아이카·오플·이안카)는 우리 규격화시트를 거쳐 온다. 그 시트는
@@ -368,6 +383,8 @@ for (const [code, p] of [...byCode].sort()) {
        *   공급사 입력은 안 건드린다 — 고칠 자리는 우리 «정제칸»과 「AI 정제」 치환 사전이다.
        */
       if (!ok && rawName) unmatched.push(`${who} ${S(r[first('차량번호')])} 「${rawName.slice(0, 44)}」`);
+      /** 그 차에 적용될 정책. 코드가 없으면 그 공급사의 «프리패스 기본»으로 떨어진다. */
+      const pol = policyFor(book, cell('정책코드'));
       rows.push(COLUMNS.map((c) => {
         if (c === '공급사') return who;
         if (c === '입고일자') return '';          // 원본도 비어 있다. 자리만 지킨다.
@@ -389,7 +406,13 @@ for (const [code, p] of [...byCode].sort()) {
          *   같은 상품이 네 이름으로 서고 필터가 안 걸린다. 뜻은 그대로 두고 «이름»만 캐논으로 갈아 넣는다.
          */
         if (c === '구분') return productType(clean(c, cell(c)));
-        return clean(c, cell(c));
+        /**
+         * ★재고탭에 값이 있으면 **그쪽이 이긴다** — 그 차만의 예외일 수 있다.
+         *   없을 때만 「정책」 탭에서 가져온다. 정책은 «그 공급사의 기본 조건»이다.
+         */
+        const own = clean(c, cell(c));
+        if (own) return own;
+        return policyCell(c, pol);
       }));
       n++;
     }
@@ -397,6 +420,11 @@ for (const [code, p] of [...byCode].sort()) {
   console.log(`  ${who.padEnd(14)}${String(n).padStart(4)}대`);
 }
 console.log(`\n  모두 ${rows.length}대${dupes ? ` · 같은 차가 두 번 나와 건너뛴 줄 ${dupes}` : ''}${skippedByRule ? ` · @제외 규칙으로 건너뛴 탭 ${skippedByRule}` : ''}`);
+if (noPolicy.length) {
+  console.log('');
+  console.log(`  ▲ 정책 탭을 못 읽은 공급사 ${noPolicy.length} — 그 집 부가정보가 빈다`);
+  console.log(`     ${noPolicy.join(' · ')}`);
+}
 if (unmatched.length) {
   console.log(`
   ▲ 차종마스터가 못 알아본 차 ${unmatched.length}대 — 모델·파워트레인·세부트림이 빈다`);

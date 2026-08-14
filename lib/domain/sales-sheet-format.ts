@@ -26,6 +26,8 @@
  * ⚠ 대신 같은 pt 에서 Roboto 보다 **넓고 크다.** 열너비 계수(7.9)와 행높이(24px)를
  *   같이 키워 뒀다. 글꼴만 바꾸고 이 둘을 안 바꾸면 40열이 빽빽해지고 글자가 위아래로 낀다.
  */
+import { SALES_NOTES } from './sales-sheet-mapping';
+
 export const FONT_DEFAULT = 'Noto Sans KR';
 export const FONT = FONT_DEFAULT;
 export const SIZE = 9;
@@ -300,6 +302,20 @@ export function buildSalesFormatRequests(input: FormatInput): Record<string, unk
   byValue('구분', GUBUN_INK);
   byValue('배차상태', STATE_INK);
   byValue('상태', STATE_INK);
+
+  /**
+   * ★머리글 메모 — 「이 칸이 뭐지」를 그 자리에서 답한다(사장님 2026-08-14 —
+   *   「니가 할 때는 항목을 잘 써줘봐」). 이름은 손에 익은 대로 두고 뜻만 메모로 단다.
+   * ⚠ 행을 안 먹는다. 60열짜리 표에 설명 줄을 하나 더 얹을 수는 없다.
+   */
+  for (const [name, note] of Object.entries(SALES_NOTES)) {
+    const i = idx(name);
+    if (i < 0) continue;
+    out.push({ repeatCell: {
+      range: { sheetId: gid, startRowIndex: H, endRowIndex: H + 1, startColumnIndex: i, endColumnIndex: i + 1 },
+      cell: { note }, fields: 'note',
+    } });
+  }
 
   out.push({ clearBasicFilter: { sheetId: gid } });
   out.push({ setBasicFilter: { filter: { range: { sheetId: gid, startRowIndex: H, startColumnIndex: 0, endColumnIndex: n } } } });
