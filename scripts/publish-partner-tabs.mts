@@ -82,16 +82,24 @@ const call = async (url: string, init?: RequestInit) => {
 };
 const SHEETS = 'https://sheets.googleapis.com/v4/spreadsheets';
 
-const [t3, t4] = await Promise.all(['partners', 'v4/partners'].map(async (n) =>
-  JSON.parse(await (await fetch(`${DB}/${n}.json?access_token=${dbT}`)).text()) || {}));
-const dead = (p: Rec) => p?._deleted === true || !!p?.deletedAt || S(p?.status) === 'deleted';
-const partners: Record<string, Rec> = {};
-for (const src of [t3, t4] as Rec[]) for (const [k, v] of Object.entries<Rec>(src)) if (v && typeof v === 'object') partners[k] = { ...(partners[k] || {}), ...v, _key: k };
+/**
+ * ★**시트 주소의 정본은 문패다** — RTDB 파트너 레코드가 아니다.
+ * ⚠ 예전엔 `partners.sheet_url` 을 봤다. 파이프라인이 문패로 옮겨 간 뒤 그 값이 비어
+ *   이 도구가 **「RP023 sheet_url 이 없다」로 죽어 있었다**(실측 2026-08-14).
+ *   죽은 줄 아무도 몰랐고, 그래서 오플 탭 114대가 이틀째 안 갱신됐다 —
+ *   영업자는 그게 옛 값인 줄 모르고 봤다. 이 구조의 «조용한 실패»가 정확히 이 자리다.
+ */
+const INDEX_SHEET = arg('index', '1TVeVXyJJRx0SzD2vxqy3eEjSojmMIWXSu7AdsKmpfmY');
 const partnerByCode = new Map<string, Rec>();
-for (const p of Object.values(partners)) {
-  if (dead(p)) continue;
-  const c = S(p.partner_code) || S(p._key);
-  if (c && !partnerByCode.has(c)) partnerByCode.set(c, p);
+{
+  const v = await call(`${SHEETS}/${INDEX_SHEET}/values/A1:Z300`) as { values?: string[][] };
+  for (const r of ((v.values || []) as string[][])) {
+    const code = S(r[1]);
+    const url = S(r[2]);
+    if (!code || !/\/spreadsheets\/d\//.test(url)) continue;
+    if (!partnerByCode.has(code)) partnerByCode.set(code, { partner_code: code, partner_name: S(r[0]), sheet_url: url });
+  }
+  console.log(`  문패에서 ${partnerByCode.size}곳을 읽었다`);
 }
 
 const PLATE_RE = /^\d{2,3}[가-힣]\d{4}$/;

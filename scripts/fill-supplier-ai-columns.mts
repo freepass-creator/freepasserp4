@@ -30,6 +30,7 @@ import { classifyVehicleClass } from '../lib/domain/vehicle-class';
 import { SALES_ALIAS } from '../lib/domain/sales-sheet-mapping';
 import { AI_TAIL_COLUMNS } from '../lib/domain/supplier-template-sheet';
 import { companyAlias, supplierNameKeys } from '../lib/domain/identity';
+import { MASTER_SHEET_ID, MASTER_TAB, masterCells, pickMasterCode, readMasterSheet } from '../lib/domain/vehicle-master-sheet';
 import type { MasterEntry } from '../lib/domain/vehicle-master-types';
 import type { EntityRecord } from '../lib/intake/entities';
 
@@ -95,6 +96,18 @@ try {
 const clean = (col: string, val: string) => SUBST.get(`${col}|${S(val)}`) ?? S(val);
 
 /**
+ * ★**차종코드 책** — 「ERP4 차종마스터 원천대장」에서 읽는다.
+ *   차번에 코드를 박으면 다시 알아맞힐 일이 없어진다(사장님 2026-08-14).
+ * ⚠ 못 읽으면 코드 칸만 비우고 나머지는 예전대로 돈다 — 조용히 멈추지 않는다.
+ */
+let BOOK = readMasterSheet([]);
+try {
+  const v = await api(`https://sheets.googleapis.com/v4/spreadsheets/${MASTER_SHEET_ID}/values/${encodeURIComponent(`'${MASTER_TAB}'`)}`) as { values?: string[][] };
+  BOOK = readMasterSheet((v.values || []) as string[][]);
+  console.log(`  차종마스터 ${BOOK.byCode.size}줄 · 다섯값으로 하나로 정해지는 조합 ${[...BOOK.byFive.values()].filter((x) => x.length === 1).length}`);
+} catch (e) { console.log(`  ⚠ 차종마스터를 못 읽어 «차종코드»는 못 채운다 — ${String((e as Error).message).slice(0, 60)}`); }
+
+/**
  * ★**채우는 곳은 「프리패스 재고」 제공시트다** — 문패가 가리키는 곳이 아니다.
  *   정제칸은 우리가 만든 제공시트에 있다. 문패는 아직 열여섯 곳이 «공급사 자체 시트»를
  *   가리키고 있어서, 문패를 따라가면 정제칸이 없는 문서를 열게 된다(실측 2026-08-14 —
@@ -136,6 +149,11 @@ const nameList: string[] = [];
 /** 옛 방식이 잘못 찍어 둔 배기량 — 되돌린 수. */
 let badCcWritten = 0;
 const ccFixList: string[] = [];
+/** 차종코드를 박은 차 / 못 박은 차 — 「절대 안 틀린다」가 실제로 몇 대에 걸렸나. */
+let codeSet = 0, codeUnset = 0;
+/** 왜 못 박았나 — 갈래별로 세야 «마스터에 뭘 넣어야 하는지»가 보인다. */
+const codeWhy = new Map<string, number>();
+const codeByWhy = new Map<string, string[]>();
 
 for (const t of targets) {
   let meta: Rec;
@@ -228,11 +246,44 @@ for (const t of targets) {
       if (!ok && !ccMismatch && rawName) { low++; if (lowList.length < 40) lowList.push(`${t.name} ${plate} 「${rawName.slice(0, 40)}」`); }
 
       const variant = ok ? S(snap!.variant) : '';
+
+      /**
+       * ★★**차종코드를 정한다 — 이게 이 도구의 진짜 일이다**(사장님 2026-08-14 —
+       *   「그 차에 대해서 코드를 박아두면 절대 틀릴 일이 없음」).
+       *
+       *   ① 이미 코드가 박혀 있으면 **그걸 믿는다.** 다시 알아맞히지 않는다.
+       *   ② 없으면 스냅이 낸 다섯 값으로 마스터에서 찾는다.
+       *   ③ 후보가 여럿이거나 없으면 **안 박는다.** 목록으로 남겨 사람이 정한다 —
+       *      아무거나 박으면 「절대 안 틀린다」는 약속이 그 자리에서 깨진다.
+       *
+       * ★코드가 정해지면 **뒤 칸들은 코드에서 나온다.** 스냅 결과를 안 쓴다 —
+       *   그래야 시트에 적힌 값과 코드가 영원히 같다.
+       */
+      const already = exactCell('차종코드');
+      const pick = already
+        ? { code: already, how: '하나' as const, candidates: [already] }
+        : (ok ? pickMasterCode(BOOK, S(snap!.maker), S(snap!.model), S(snap!.sub_model), variant, S(snap!.trim_name),
+                               fuelDisplay(variant), S(snap!.engine_cc))
+              : { code: '', how: '없음' as const, candidates: [] as string[] });
+      const mrow = pick.code ? BOOK.byCode.get(pick.code) : undefined;
+      if (BOOK.byCode.size && ok && !pick.code) {
+        codeUnset++;
+        codeWhy.set(pick.how, (codeWhy.get(pick.how) || 0) + 1);
+        const line = `${t.name} ${plate} — ${S(snap!.maker)} ${S(snap!.model)} ${S(snap!.sub_model)} · ${variant} · ${S(snap!.trim_name) || '(트림없음)'}`.replace(/\s+/g, ' ');
+        const bucket = codeByWhy.get(pick.how) || [];
+        if (bucket.length < 8) { bucket.push(line); codeByWhy.set(pick.how, bucket); }
+        else codeByWhy.set(pick.how, bucket);
+      }
+      if (pick.code && mrow) codeSet++;
+
+      /** 코드가 정해진 차는 **마스터 값**을, 아니면 예전처럼 스냅 값을 쓴다. */
+      const fromCode = masterCells(mrow);
       /**
        * 채울 값. **빈 문자열은 «채울 것이 없다»는 뜻**이고 그 칸은 건드리지 않는다.
        * ⚠ 세부트림은 없는 차가 정상이다 — 비어 있다고 사고가 아니다.
        */
       const want: Record<string, string> = {
+        '차종코드': pick.code,
         '제조사(정제)': ok ? clean('제조사', S(snap!.maker)) : '',
         '모델': ok ? clean('모델', S(snap!.model)) : '',
         '세부모델': ok ? clean('세부모델', S(snap!.sub_model)) : '',
@@ -257,6 +308,12 @@ for (const t of targets) {
         '선택옵션': clean('옵션', cell('옵션')),
         // 차종분류는 모델 이름으로 정한다 — 차명이 확실할 때만.
         '차종분류': ok ? classifyVehicleClass({ maker: S(snap!.maker), model: S(snap!.model), sub_model: S(snap!.sub_model) } as EntityRecord) : '',
+        /**
+         * ★★**코드가 이긴다.** 코드가 정해진 차는 위의 스냅 값 대신 **마스터 값**을 쓴다.
+         *   맨 마지막에 덮어써서 순서 때문에 뒤집히지 않게 한다 —
+         *   그래야 시트에 적힌 표시값과 코드가 영원히 같은 것을 가리킨다.
+         */
+        ...fromCode,
       };
 
       for (const [name, ci] of tailAt) {
@@ -303,6 +360,9 @@ for (const t of targets) {
 
 console.log(`\n  ${'─'.repeat(58)}`);
 console.log(`  모두 ${totCars}대 · 채울 칸 ${totFilled} · 이미 있어 그대로 둔 칸 ${totKept}`);
+if (codeSet || codeUnset) {
+  console.log(`  차종코드   박음 ${codeSet}대 · 못 박음 ${codeUnset}대`);
+}
 if (badCcWritten) {
   console.log(`\n  ▲ 옛 방식이 잘못 찍어 둔 배기량 ${badCcWritten}칸을 되돌린다 (배터리 용량·구동축 숫자였다)`);
   for (const l of ccFixList) console.log(`     ${l}`);
@@ -319,6 +379,24 @@ if (noName) {
   ▲ 차명을 한 글자도 못 읽은 차 ${noName}대 — 그 시트의 열 이름이 매핑에 없다`);
   for (const l of nameList) console.log(`     ${l}`);
   if (noName > nameList.length) console.log(`     … 그 밖 ${noName - nameList.length}대`);
+}
+if (codeUnset) {
+  const WHY: Record<string, string> = {
+    세부모델없음: '그 세부모델이 마스터에 통째로 없다 — **마스터에 넣어야 할 차**',
+    트림없음: '세부모델은 있는데 그 트림이 없다 — 트림을 넣거나 이름을 맞춰야 한다',
+    배기량안맞음: '세부모델·트림은 맞는데 연료/배기량이 안 맞는다 — 파워트레인 줄이 없다',
+    여럿: '후보가 여럿이라 못 고른다 — 사람이 하나를 정해야 한다',
+    없음: '못 찾았다',
+  };
+  console.log(`
+  ▲ 차종코드를 못 박은 차 ${codeUnset}대 — 갈래별로 할 일이 다르다`);
+  for (const [why, n] of [...codeWhy].sort((a, b) => b[1] - a[1])) {
+    console.log(`
+     ■ ${why} ${n}대 — ${WHY[why] || ''}`);
+    for (const l of (codeByWhy.get(why) || [])) console.log(`        ${l}`);
+    const shown = (codeByWhy.get(why) || []).length;
+    if (n > shown) console.log(`        … 그 밖 ${n - shown}대`);
+  }
 }
 if (badCc) {
   console.log(`\n  ▲ 공급사 배기량과 마스터가 어긋난 차 ${badCc}대 — 세대를 잘못 잡은 것이다. 한 칸도 안 채웠다`);
