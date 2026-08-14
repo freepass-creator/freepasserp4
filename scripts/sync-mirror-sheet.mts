@@ -63,6 +63,13 @@ const call = async (u: string, init?: RequestInit): Promise<Rec> => {
   }
 };
 const SH = 'https://sheets.googleapis.com/v4/spreadsheets';
+/** 숫자로 같은가 — 콤마·공백을 떼고 견준다. 둘 다 숫자일 때만 «같다»로 본다. */
+const sameNumber = (a: string, b: string) => {
+  const n = (v: string) => (/^[\d,\s]+$/.test(v) && /\d/.test(v) ? v.replace(/[,\s]/g, '') : null);
+  const x = n(a);
+  const y = n(b);
+  return x !== null && y !== null && x === y;
+};
 const colA1 = (i: number) => { let s = '', n = i + 1; while (n > 0) { const r = (n - 1) % 26; s = String.fromCharCode(65 + r) + s; n = Math.floor((n - 1) / 26); } return s; };
 
 console.log(`■ 규격화시트 갱신 ${APPLY ? '반영' : '미리보기(dry-run)'}\n`);
@@ -86,94 +93,117 @@ for (const t of read.tabs) {
 }
 console.log(`  원본 ${read.tabs.length}탭 · 차 ${src.size}대${read.failures.length ? ` · 못 읽은 탭 ${read.failures.length}` : ''}`);
 
-// ── ② 우리 시트를 읽는다.
+// ── ② 우리 시트를 읽는다. **탭이 여럿일 수 있다**(손오공 = 렌트재고 + 구독재고).
 const meta = await call(`${SH}/${TO}?fields=properties.title,sheets.properties(sheetId,title,hidden,gridProperties(rowCount))`);
 const book = S(meta.properties?.title);
-/**
- * ⚠ **재고 탭이 둘 이상이면 멈춘다.** 이 도구는 우리 시트의 «첫 탭 하나»만 본다.
- *   손오공처럼 「렌트재고」·「구독재고」 두 탭인 시트에 그대로 돌리면, 다른 탭의 차가 전부
- *   «새 차»로 잡혀 45줄이 아래에 중복으로 붙는다(실측 2026-08-14 · 미리보기에서 잡았다).
- *   여러 탭을 다루려면 이 도구를 먼저 고쳐라 — 짐작으로 돌리지 마라.
- */
 const visible = ((meta.sheets || []) as Rec[]).map((s) => s.properties)
   .filter((p) => !p.hidden && !/^정책$|AI 인계/.test(S(p.title)));
-if (visible.length > 1) {
-  throw new Error(`우리 시트에 재고 탭이 ${visible.length}개다(${visible.map((p) => S(p.title)).join(' · ')}) — `
-    + '이 도구는 첫 탭 하나만 본다. 그대로 돌리면 나머지 탭의 차가 전부 «새 차»로 붙는다.');
-}
-const tabProp = visible[0];
-if (!tabProp) throw new Error('우리 시트에서 재고 탭을 못 찾았다');
-const tab = S(tabProp.title);
-const v = await call(`${SH}/${TO}/values/${encodeURIComponent(`'${tab.replace(/'/g, "''")}'`)}`) as { values?: string[][] };
-const rows = (v.values || []) as string[][];
-const hi = rows.findIndex((r) => r.some((c) => norm(c) === norm('차명(트림)')));
-if (hi < 0) throw new Error('우리 시트에서 머리행(「차명(트림)」)을 못 찾았다');
-const hdr = rows[hi].map(S);
-const pi = hdr.findIndex((h) => norm(h) === '차량번호');
-/**
- * ⚠ **차량번호 열이 없으면 멈춘다.** 없으면 아래에서 «기존 줄이 하나도 없다»로 읽혀
- *   원본 전량이 «새 차»가 되고, 머리행 바로 아래부터 통째로 덮어쓴다 —
- *   아이카 122줄이 한 번의 --apply 로 갈린다. 되돌릴 길은 시트 버전기록뿐이다.
- */
-if (pi < 0) throw new Error('우리 시트에 「차량번호」 열이 없다 — 덮어쓰면 기존 줄이 통째로 갈린다');
-const si = hdr.findIndex((h) => norm(h) === '상태');
-const ti = hdr.findIndex((h) => norm(h) === norm('차명(트림)'));
-console.log(`  우리 시트 「${book}」 「${tab}」 ${hdr.length}열 · ${rows.length - hi - 1}줄\n`);
 
-// ── ③ 줄마다 «공급사 것»만 갱신한다.
+type Tab = { title: string; rows: string[][]; hi: number; hdr: string[]; pi: number; si: number; ti: number };
+const tabs: Tab[] = [];
+for (const p of visible) {
+  const title = S(p.title);
+  let v: { values?: string[][] };
+  try { v = await call(`${SH}/${TO}/values/${encodeURIComponent(`'${title.replace(/'/g, "''")}'`)}`) as { values?: string[][] }; } catch { continue; }
+  const rows = (v.values || []) as string[][];
+  const hi = rows.findIndex((r) => r.some((c) => norm(c) === norm('차명(트림)')));
+  if (hi < 0) continue;
+  const hdr = rows[hi].map(S);
+  const pi = hdr.findIndex((h) => norm(h) === '차량번호');
+  /**
+   * ⚠ **차량번호 열이 없으면 멈춘다.** 없으면 «기존 줄이 하나도 없다»로 읽혀 원본 전량이
+   *   «새 차»가 되고 머리행 바로 아래부터 통째로 덮어쓴다 — 122줄이 한 번에 갈린다.
+   */
+  if (pi < 0) throw new Error(`「${title}」 에 차량번호 열이 없다 — 덮어쓰면 기존 줄이 통째로 갈린다`);
+  tabs.push({ title, rows, hdr, hi, pi, si: hdr.findIndex((h) => norm(h) === '상태'), ti: hdr.findIndex((h) => norm(h) === norm('차명(트림)')) });
+}
+if (!tabs.length) throw new Error('우리 시트에서 재고 탭을 못 찾았다');
+console.log(`  우리 시트 「${book}」 ${tabs.map((t) => `「${t.title}」 ${t.rows.length - t.hi - 1}줄`).join(' · ')}
+`);
+
+// ── ③ 줄마다 «공급사 것»만 갱신한다. 차번은 시트 전체에서 하나뿐이라고 본다.
 const data: { range: string; values: string[][] }[] = [];
 let touched = 0, cells = 0, gone = 0, renamed = 0;
 const renamedList: string[] = [];
 /** 열마다 무엇이 무엇으로 바뀌는지 — «늘 갱신되는 열»을 잡아내는 눈이다. */
 const byCol = new Map<string, string[]>();
 const seen = new Set<string>();
-rows.slice(hi + 1).forEach((r, k) => {
-  const plate = norm(r[pi]);
-  if (!plate) return;
-  const rowAt = hi + 2 + k;
-  const from = src.get(plate);
-  if (!from) {
-    // 원본에서 사라진 차 — 줄은 남기고 상태만 내린다.
-    if (si >= 0 && S(r[si]) !== '출고불가') { gone++; data.push({ range: `'${tab}'!${colA1(si)}${rowAt}`, values: [['출고불가']] }); }
-    return;
-  }
-  seen.add(plate);
-  let hit = false;
-  hdr.forEach((name, i) => {
-    if (!S(name) || OURS.has(norm(name))) return;          // 우리 칸은 안 건드린다
-    const now = S(r[i]);
-    const next = from.get(norm(name));
-    if (next === undefined || next === now) return;
-    if (!next && now) return;                              // 원본이 비었다고 우리 값을 지우지 않는다
-    data.push({ range: `'${tab}'!${colA1(i)}${rowAt}`, values: [[next]] });
-    cells++; hit = true;
-    if (!byCol.has(name)) byCol.set(name, []);
-    byCol.get(name)!.push(`「${now || '(빈칸)'}」→「${next}」`);
-    if (i === ti) { renamed++; renamedList.push(`${S(r[pi])} 「${now}」 → 「${next}」`); }
+for (const t of tabs) {
+  t.rows.slice(t.hi + 1).forEach((r, k) => {
+    const plate = norm(r[t.pi]);
+    if (!plate) return;
+    const rowAt = t.hi + 2 + k;
+    const from = src.get(plate);
+    if (!from) {
+      // 원본에서 사라진 차 — 줄은 남기고 상태만 내린다.
+      if (t.si >= 0 && S(r[t.si]) !== '출고불가') { gone++; data.push({ range: `'${t.title}'!${colA1(t.si)}${rowAt}`, values: [['출고불가']] }); }
+      return;
+    }
+    seen.add(plate);
+    let hit = false;
+    t.hdr.forEach((name, i) => {
+      if (!S(name) || OURS.has(norm(name))) return;          // 우리 칸은 안 건드린다
+      const now = S(r[i]);
+      const next = from.get(norm(name));
+      if (next === undefined || next === now) return;
+      if (!next && now) return;                              // 원본이 비었다고 우리 값을 지우지 않는다
+      /**
+       * ⚠ **숫자로 같으면 안 건드린다.** 「93,000」과 「93000」은 같은 값이다.
+       *   표기만 되돌리면 그 칸이 매번 «갱신 대상»으로 떠서, 진짜 바뀐 값이 그 속에 묻힌다.
+       *   실측 2026-08-14 손오공 주행거리 한 칸이 그랬다.
+       */
+      if (sameNumber(now, next)) return;
+      data.push({ range: `'${t.title}'!${colA1(i)}${rowAt}`, values: [[next]] });
+      cells++; hit = true;
+      if (!byCol.has(name)) byCol.set(name, []);
+      byCol.get(name)!.push(`「${now || '(빈칸)'}」→「${next}」`);
+      if (i === t.ti) { renamed++; renamedList.push(`${S(r[t.pi])} 「${now}」 → 「${next}」`); }
+    });
+    if (hit) touched++;
   });
-  if (hit) touched++;
-});
+}
 
-// ── ④ 원본에만 있는 새 차 — 맨 아래에 더한다.
+/**
+ * ── ④ 원본에만 있는 새 차.
+ * ★탭이 **하나면** 맨 아래에 더한다.
+ * ⚠ 탭이 **여럿이면 더하지 않는다.** 어느 탭에 넣을지는 짐작할 일이 아니다 —
+ *   손오공은 렌트인지 구독인지에 따라 탭이 갈리고, 잘못 넣으면 요금 규격이 다른 표에 선다.
+ *   목록으로 보여 주고 사람이 넣게 한다.
+ */
 const fresh = [...src.keys()].filter((p) => !seen.has(p));
-const newRows: string[][] = fresh.map((plate) => {
-  const from = src.get(plate)!;
-  return hdr.map((name) => (OURS.has(norm(name)) ? '' : S(from.get(norm(name)))));
-});
+const one = tabs.length === 1 ? tabs[0] : null;
+const newRows: string[][] = one
+  ? fresh.map((plate) => {
+    const from = src.get(plate)!;
+    return one.hdr.map((name) => (OURS.has(norm(name)) ? '' : S(from.get(norm(name)))));
+  })
+  : [];
 
 console.log(`  갱신할 차 ${touched}대 · 칸 ${cells}`);
 if (byCol.size) {
-  console.log('\n  어느 열이 갱신되나 — 여기서 «늘 갱신되는 열»이 보이면 우리 정규화를 되돌리는 중이다');
+  console.log('');
+  console.log('어느 열이 갱신되나 — 여기서 «늘 갱신되는 열»이 보이면 우리 정규화를 되돌리는 중이다');
   for (const [name, list] of [...byCol].sort((a, b) => b[1].length - a[1].length)) {
     console.log(`     ${name.padEnd(12)} ${String(list.length).padStart(3)}칸  ${list.slice(0, 2).join(' · ').slice(0, 90)}`);
   }
 }
 console.log(`  새 차 ${fresh.length}대 · 원본에서 사라진 차 ${gone}대(상태만 출고불가)`);
+if (fresh.length && !one) {
+  console.log('');
+  console.log(`  ▲ 탭이 ${tabs.length}개라 새 차는 «자동으로 안 넣는다» — 어느 탭인지는 짐작할 일이 아니다`);
+  console.log(`     ${fresh.slice(0, 20).map((p) => S(src.get(p)!.get('차량번호')) || p).join(' · ')}${fresh.length > 20 ? ` … 모두 ${fresh.length}` : ''}`);
+  console.log(`     탭: ${tabs.map((t) => t.title).join(' · ')} — 손으로 넣고 다시 돌리면 그때부터 갱신된다`);
+}
 if (renamed) {
-  console.log(`\n  ⚠ 차명이 바뀐 차 ${renamed} — 정제칸이 낡았을 수 있다`);
+  console.log(``);
+  console.log(`⚠ 차명이 바뀐 차 ${renamed} — 정제칸이 낡았을 수 있다`);
   for (const x of renamedList.slice(0, 10)) console.log(`     ${x}`);
 }
-if (!APPLY) { console.log('\n※ dry-run. 실제 반영은 --apply\n'); process.exit(0); }
+if (!APPLY) {
+  console.log('');
+  console.log('※ dry-run. 실제 반영은 --apply');
+  process.exit(0);
+}
 
 for (let i = 0; i < data.length; i += 500) {
   await call(`${SH}/${TO}/values:batchUpdate`, {
@@ -181,20 +211,20 @@ for (let i = 0; i < data.length; i += 500) {
     body: JSON.stringify({ valueInputOption: 'USER_ENTERED', data: data.slice(i, i + 500) }),
   });
 }
-if (newRows.length) {
+if (newRows.length && one) {
   /**
    * ★붙일 자리는 «값이 있는 마지막 줄» 다음이다.
    * ⚠ 예전엔 «차번이 있는 줄 수»로 셌다. 사람이 중간에 빈 줄이나 구분줄을 하나만 넣어도
    *   그만큼 위에서부터 덮어써 기존 줄이 갈렸다. 줄 수가 아니라 «마지막 자리»로 센다.
    */
-  let last = hi;
-  rows.forEach((r, i) => { if (i > hi && r.some((c) => S(c))) last = i; });
+  let last = one.hi;
+  one.rows.forEach((r, i) => { if (i > one.hi && r.some((c) => S(c))) last = i; });
   const at = last + 1;
   // ⚠ 쓰기 직전에 그 자리가 정말 비었는지 되읽는다. 안 비었으면 멈춘다.
-  const guard = await call(`${SH}/${TO}/values/${encodeURIComponent(`'${tab}'!A${at + 1}:A${at + newRows.length}`)}`) as { values?: string[][] };
+  const guard = await call(`${SH}/${TO}/values/${encodeURIComponent(`'${one.title}'!A${at + 1}:A${at + newRows.length}`)}`) as { values?: string[][] };
   const busy = ((guard.values || []) as string[][]).filter((r) => S(r[0])).length;
   if (busy) throw new Error(`새 차를 붙일 자리(${at + 1}행부터 ${newRows.length}줄)에 이미 ${busy}줄이 있다 — 덮어쓰지 않는다`);
-  await call(`${SH}/${TO}/values/${encodeURIComponent(`'${tab}'!A${at + 1}`)}?valueInputOption=USER_ENTERED`, {
+  await call(`${SH}/${TO}/values/${encodeURIComponent(`'${one.title}'!A${at + 1}`)}?valueInputOption=USER_ENTERED`, {
     method: 'PUT', body: JSON.stringify({ values: newRows }),
   });
 }
@@ -214,10 +244,12 @@ try {
     await call(`${SH}/${TO}/values/${encodeURIComponent(`'${HANDOVER_TAB}'!A${endAt + 1}`)}?valueInputOption=RAW`, {
       method: 'PUT',
       body: JSON.stringify({ values: [
-        ['', nowKST(), `동기 — 원본 ${src.size}대 · 갱신 ${cells}칸 · 새 차 ${newRows.length} · 사라진 차 ${gone}`],
+        ['', nowKST(), `동기 — 원본 ${src.size}대 · 갱신 ${cells}칸 · 새 차 ${newRows.length}${fresh.length && !one ? `(수동 ${fresh.length})` : ''} · 사라진 차 ${gone}`],
         ['@이력끝', '', ''],
       ] }),
     });
   }
 } catch (e) { console.log(`  ⚠ 이력을 못 남겼다 — ${(e as Error).message.slice(0, 80)}`); }
-console.log(`\n  반영 완료 — 갱신 ${cells}칸 · 새 줄 ${newRows.length}\n`);
+console.log(``);
+console.log(`반영 완료 — 갱신 ${cells}칸 · 새 줄 ${newRows.length}
+`);
