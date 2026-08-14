@@ -47,8 +47,13 @@ const S = (v: unknown) => String(v ?? '').trim();
 export const NOT_SHEET_BACKED = new Set(['RP006']);   // 아이언 = ironrentcar.com 수집
 
 /** 격자를 한 번에 받을 때 쓰는 필드 마스크. `hidden` 이 빠지면 ②가 조용히 무력화된다. */
+/**
+ * ⚠ 맨 앞 `properties.title` 은 **문서 이름**이다(탭 이름이 아니다).
+ *   그걸로 «우리가 만든 시트인가»를 가른다 — 대수를 셀 때 우리 시트/아닌 시트를 나눠야 하기 때문이다
+ *   (사장님 2026-08-14 — 「대수를 말할 때는 우리 시트 몇 대, 아닌 시트 몇 대에 총 몇 대로」).
+ */
 export const SHEET_GRID_FIELDS =
-  'sheets(properties(sheetId,title,hidden),data(rowMetadata(hiddenByFilter,hiddenByUser),rowData(values(formattedValue,hyperlink,chipRuns(chip(richLinkProperties(uri)))))))';
+  'properties.title,sheets(properties(sheetId,title,hidden),data(rowMetadata(hiddenByFilter,hiddenByUser),rowData(values(formattedValue,hyperlink,chipRuns(chip(richLinkProperties(uri)))))))';
 
 export function sheetIdFromUrl(url: unknown): string {
   return (S(url).match(/\/spreadsheets\/d\/([\w-]+)/) || [])[1] || '';

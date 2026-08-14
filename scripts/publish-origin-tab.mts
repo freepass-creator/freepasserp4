@@ -273,6 +273,8 @@ const seenPlate = new Set<string>();
  * ⚠ 없는 차는 손대지 않는다 — 우리 카탈로그로 돌리지 마라. «사진 보러 눌렀더니 딴 데»가 된다.
  */
 const photoOf = new Map<string, string>();
+/** 차번 → 우리 시트에서 왔나. 대수·금액 빠짐을 늘 이 둘로 갈라 보고한다. */
+const fromOurs = new Map<string, boolean>();
 let dupes = 0;
 /** @제외 규칙으로 건너뛴 탭 수 — 조용히 빠지면 «왜 줄었나»를 못 찾는다. */
 let skippedByRule = 0;
@@ -282,13 +284,15 @@ for (const [code, p] of [...byCode].sort()) {
   let read: ReturnType<typeof readSupplierSheet> | null = null;
   let lastErr = '';
   let readId = '';
+  /** 읽은 «문서» 이름 — 우리가 만든 시트인지 가르는 표식이다. */
+  let readTitle = '';
   for (const url of (p.sheet_urls || [])) {
     const id = (S(url).match(/\/d\/([\w-]+)/) || [])[1];
     if (!id) continue;
     try {
       const grid = await api(`https://sheets.googleapis.com/v4/spreadsheets/${id}?includeGridData=true&fields=${encodeURIComponent(SHEET_GRID_FIELDS)}`);
       const got = readSupplierSheet(grid as never, p as EntityRecord);
-      if (got.tabs.length) { read = got; readId = id; break; }
+      if (got.tabs.length) { read = got; readId = id; readTitle = S((grid as Rec).properties?.title); break; }
       lastErr = '표가 있는 탭이 없다';
     } catch (e) { lastErr = String((e as Error).message).slice(0, 50); }
   }
@@ -313,6 +317,14 @@ for (const [code, p] of [...byCode].sort()) {
     failures.push(`${S(p.partner_name || p.name)}(${code}) 「${title}」 — ${S((f as Rec).reason)}`);
   }
   const who = companyAlias(S(p.partner_name || p.name)) || S(p.partner_name || p.name) || code;
+  /**
+   * ★**우리가 만든 시트인가.** 문패가 우리 제공시트(「○○ 프리패스 재고」)나 규격화시트
+   *   (「이안카_프리패스」)를 가리키면 «우리 시트»다. 공급사 자체 시트면 아니다.
+   *   ⚠ 이 구분이 있어야 대수가 뜻을 갖는다 — 우리 시트 차는 정제칸·정책이 붙어 나가고,
+   *     아닌 시트 차는 공급사가 적은 것만 나간다. 총 대수만 말하면 그 차이가 안 보인다
+   *     (사장님 2026-08-14 — 「대수를 말할 때는 우리 시트 몇 대, 아닌 시트 몇 대에 총 몇 대로」).
+   */
+  const ours = /프리패스/.test(readTitle);
   /**
    * ★**부가정보는 「정책」 탭에서 온다**(사장님 2026-08-14 — 「영업자한테는 사실 다 보여줘도 되는데」).
    *   예전엔 재고탭에 우연히 있는 칸만 낱개로 긁어 20~94% 였고 표기도 제각각이었다.
@@ -418,6 +430,7 @@ for (const [code, p] of [...byCode].sort()) {
       if (picked.how === '기본' && [...book.keys()].filter(Boolean).length > 1) {
         ambiguous.push(`${who} ${S(r[first('차량번호')])}`);
       }
+      fromOurs.set(plate, ours);
       rows.push(COLUMNS.map((c) => {
         if (c === '공급사') return who;
         if (c === '입고일자') return '';          // 원본도 비어 있다. 자리만 지킨다.
@@ -463,9 +476,34 @@ for (const [code, p] of [...byCode].sort()) {
       n++;
     }
   }
-  console.log(`  ${who.padEnd(14)}${String(n).padStart(4)}대`);
+  console.log(`  ${who.padEnd(14)}${String(n).padStart(4)}대${ours ? '' : '   (우리 시트 아님)'}`);
 }
-console.log(`\n  모두 ${rows.length}대${dupes ? ` · 같은 차가 두 번 나와 건너뛴 줄 ${dupes}` : ''}${skippedByRule ? ` · @제외 규칙으로 건너뛴 탭 ${skippedByRule}` : ''}`);
+/**
+ * ★**대수는 늘 «우리 시트 / 아닌 시트 / 총»으로 센다**(사장님 2026-08-14).
+ *   총 대수만 말하면 «정제칸·정책이 붙어 나가는 차»와 «공급사가 적은 것만 나가는 차»가
+ *   한 숫자에 섞여 구분이 사라진다. 어디를 더 손봐야 하는지가 그 갈림에 있다.
+ *
+ * ★**금액 빠진 차도 같은 방식으로 센다.** 기간 대여료가 한 칸도 없는 차는 영업자가
+ *   **견적을 못 낸다** — 목록에 서 있어도 팔 수 없는 차다. 총 대수에 묻히면 안 보인다.
+ *   ⚠ 「팔 수 있는데 값이 없다」와 「원래 출고불가라 값이 없다」는 다르다. 상태를 같이 본다.
+ */
+const RENT_COLUMNS = ['1개월', '12개월', '24개월', '36개월', '48개월', '60개월'];
+const plateAt0 = COLUMNS.indexOf('차량번호');
+const stateAt0 = COLUMNS.indexOf('배차상태');
+const rentAt = RENT_COLUMNS.map((c) => COLUMNS.indexOf(c)).filter((i) => i >= 0);
+const split = (pick: (r: string[]) => boolean) => {
+  let a = 0, b = 0;
+  for (const r of rows) { if (!pick(r)) continue; if (fromOurs.get(S(r[plateAt0]))) a++; else b++; }
+  return { ours: a, other: b, all: a + b };
+};
+const all = split(() => true);
+const noMoney = split((r) => !rentAt.some((i) => S(r[i])));
+const noMoneySellable = split((r) => !rentAt.some((i) => S(r[i])) && !/출고불가|계약중/.test(S(r[stateAt0])));
+console.log(`\n  ${'─'.repeat(58)}`);
+console.log(`  우리 시트 ${all.ours}대 · 아닌 시트 ${all.other}대 · 총 ${all.all}대`
+  + `${dupes ? `   (같은 차가 두 번 나와 건너뛴 줄 ${dupes})` : ''}${skippedByRule ? ` (@제외 탭 ${skippedByRule})` : ''}`);
+console.log(`  금액 빠진 차  우리 시트 ${noMoney.ours}대 · 아닌 시트 ${noMoney.other}대 · 총 ${noMoney.all}대`
+  + `${noMoneySellable.all ? `   ← 그중 «팔 수 있는데» 값이 없는 차 ${noMoneySellable.all}대` : ''}`);
 if (ambiguous.length) {
   console.log('');
   console.log(`  ▲ 정책이 여럿인데 코드가 빈 차 ${ambiguous.length}대 — 프리패스 기본으로 떨어졌다`);

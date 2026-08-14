@@ -69,6 +69,9 @@ const guards: [string, string, RegExp][] = [
   ['정제칸 빈 칸만 채움', 'scripts/fill-supplier-ai-columns.mts', /if \(now\) \{ kept\+\+; continue; \}/],
   ['배기량 되짚기', 'scripts/fill-supplier-ai-columns.mts', /Math\.abs\(rawCc - snapCc\) \/ rawCc > 0\.07/],
   ['전후 견주기', 'scripts/publish-origin-tab.mts', /const dump = arg\('dump'\)/],
+  // 대수를 «우리/아닌/총» 으로 세는 장치와 «팔 수 있는데 금액 없는 차» 표시
+  ['대수 세 갈래', 'scripts/publish-origin-tab.mts', /우리 시트 \$\{all\.ours\}대 · 아닌 시트 \$\{all\.other\}대 · 총 \$\{all\.all\}대/],
+  ['금액 빠진 차', 'scripts/publish-origin-tab.mts', /const noMoneySellable = split/],
 ];
 for (const [what, file, re] of guards) {
   let ok = false;
