@@ -12,6 +12,12 @@ const BUILD_SHA = sh('git rev-parse --short HEAD') || (process.env.VERCEL_GIT_CO
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Playwright 자체 브라우저는 Vercel 함수에 포함되지 않는다. 전자계약 PDF 함수만
+  // @sparticuz/chromium의 서버리스 실행파일 묶음을 추적·배포한다.
+  serverExternalPackages: ['@sparticuz/chromium'],
+  outputFileTracingIncludes: {
+    '/api/freepass-esign/**/*': ['./node_modules/@sparticuz/chromium/bin/**/*'],
+  },
   // 병렬 QA 서버가 기본 개발 서버의 .next 산출물을 덮어쓰지 않도록
   // 보조 서버는 NEXT_DIST_DIR=.next-qa처럼 별도 디렉터리를 지정할 수 있다.
   distDir: process.env.NEXT_DIST_DIR || '.next',

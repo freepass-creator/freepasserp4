@@ -71,7 +71,9 @@ export async function GET(
           'Content-Disposition': pdfDisposition(contractCode, 'preview', false),
         },
       });
-    } catch {
+    } catch (error) {
+      console.error('[freepass-esign] public preview pdf failed', contractCode,
+        error instanceof Error ? error.message : 'unknown');
       return json({ error: 'A4 계약서 미리보기를 만들지 못했습니다. 잠시 후 다시 시도해 주세요.' }, 503);
     }
   }

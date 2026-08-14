@@ -4647,3 +4647,10 @@ Next 개발 서버와 production build가 같은 `.next`를 사용하면 실행 
 - 프리패스 자체 발행과 착한거래 발송은 모두 사용자가 선택한 개별 서식의 `isSample`을 검사한다. 미지정·알 수 없는 서식도 Production에서 차단해 우회 발행을 막는다.
 - `npx tsc --noEmit`, `sim-esign-issue-gate` 8/8, `sim-freepass-esign`, `check:fonts`, `check:tokens`, production build 33/33 PASS.
 - 운영 테스트 초안 `TMP-260814-E2E-5hdp`은 개인정보 없이 v4에 생성했으며, 배포 후 동일 회차로 링크·고객 페이지·공개 API·미리보기 PDF를 검증한다.
+
+### 운영 계약 전 PDF 렌더러 보완
+
+- 위 회차는 발행 후 `https://sign.freepasserp.com/fps_...` 고객 페이지와 공개 계약 API가 각각 200으로 열렸지만, 계약 전 미리보기 PDF가 503인 것을 확인했다.
+- 원인은 로컬 렌더러가 PC의 Chrome을 사용하면서 Vercel 함수에도 같은 실행파일이 있다고 가정한 것이었다. Playwright 1.49의 Chromium 131과 맞는 `@sparticuz/chromium@131.0.1`을 운영 의존성으로 고정하고, Windows는 로컬 Chrome·Vercel Linux는 서버리스 headless-shell을 선택한다.
+- Next.js 출력 추적에 전자계약 API용 Chromium 바이너리 5개가 실제 포함된 것을 각 문서·승인 함수의 `.nft.json`에서 확인했다. 실패 시 계약번호와 안전한 오류 메시지를 런타임 로그에 남긴다.
+- `npx tsc --noEmit`, `sim-freepass-esign`, `sim-esign-issue-gate` 8/8, `check:fonts`, `check:tokens`, production build 33/33 PASS.

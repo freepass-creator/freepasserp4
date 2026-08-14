@@ -23,16 +23,32 @@ export async function buildFrozenFreepassHtml(
   return buildFreepassContractHtml(sealed);
 }
 
-function chromeExecutable() {
+function localChromeExecutable() {
   const configured = String(process.env.CHROME_EXECUTABLE_PATH || '').trim();
   if (configured) return configured;
   if (process.platform === 'win32') return 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
   return undefined;
 }
 
+async function chromeLaunchOptions(): Promise<{ executablePath?: string; args?: string[] }> {
+  const local = localChromeExecutable();
+  if (local) return { executablePath: local };
+  const serverlessLinux = process.platform === 'linux'
+    && (process.env.VERCEL === '1' || !!process.env.AWS_LAMBDA_FUNCTION_VERSION);
+  if (!serverlessLinux) return {};
+  // Vercel 함수에는 Playwright 브라우저 바이너리가 없다. Playwright 1.49의 Chromium 131과
+  // 같은 메이저의 서버리스 headless-shell을 풀어 실제 A4 미리보기·완료본을 렌더한다.
+  const { default: serverlessChromium } = await import('@sparticuz/chromium');
+  serverlessChromium.setGraphicsMode = false;
+  return {
+    executablePath: await serverlessChromium.executablePath(),
+    args: serverlessChromium.args,
+  };
+}
+
 export async function renderFreepassPdf(html: string): Promise<Uint8Array> {
   const { chromium } = await import('playwright');
-  const browser = await chromium.launch({ headless: true, executablePath: chromeExecutable() });
+  const browser = await chromium.launch({ headless: true, timeout: 30_000, ...(await chromeLaunchOptions()) });
   try {
     const page = await browser.newPage();
     const printableHtml = await inlineContractPdfFonts(html);
