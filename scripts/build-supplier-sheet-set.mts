@@ -33,7 +33,7 @@ import { POLICY_DEFAULTS } from '../lib/domain/policy-defaults';
 import {
   FREEPASS_STANDARD, POLICY_COLUMN_FIELDS, POLICY_TAB_FIELD_ROWS, POLICY_TAB_NAME, ROW_HEADER,
   buildColumns, buildNumberFormats, buildPolicyTabFormat, buildPolicyTabValues,
-  buildBanding, buildBaseFont, buildChipColors, buildRowHeights, buildTableRequest, buildTemplateFormat, buildTemplateValues, resetSheetRequests, tableWidth, yearOptions,, supplierSheetLabel } from '../lib/domain/supplier-template-sheet';
+  buildBanding, buildBaseFont, buildChipColors, buildRowHeights, buildTableRequest, buildTemplateFormat, buildTemplateValues, resetSheetRequests, tableWidth, yearOptions, supplierSheetLabel } from '../lib/domain/supplier-template-sheet';
 import type { EntityRecord } from '../lib/intake/entities';
 
 type Rec = Record<string, any>;

@@ -21,7 +21,7 @@ import {
   POLICY_COLUMN_FIELDS, POLICY_TAB_NAME, buildBaseFont, buildChipColors, buildColumns,
   buildNumberFormats, buildPolicyTabFormat, buildPolicyTabValues, buildRowHeights, buildSectionBanding,
   buildTableRequest, buildTemplateFormat, buildTemplateValues, columnWidth, FREEPASS_STANDARD,
-  POLICY_TAB_FIELD_ROWS, resetSheetRequests, tableWidth, yearOptions,, supplierSheetName } from '../lib/domain/supplier-template-sheet';
+  POLICY_TAB_FIELD_ROWS, resetSheetRequests, tableWidth, yearOptions, supplierSheetName } from '../lib/domain/supplier-template-sheet';
 import { POLICY_DEFAULTS } from '../lib/domain/policy-defaults';
 import type { EntityRecord } from '../lib/intake/entities';
 

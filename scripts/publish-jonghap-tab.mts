@@ -29,6 +29,7 @@ import { canonProductType, isStockedProduct, priceList } from '../lib/domain/pro
 import { companyAlias } from '../lib/domain/identity';
 import { fuelDisplay, fuelEmbeddedCc } from '../lib/domain/vehicle-master-match';
 import { photoUrlFromCell, type SheetGridCell } from '../lib/domain/sheet-visible-grid';
+import { SHEET_GRID_FIELDS, readSupplierSheet } from '../lib/domain/supplier-sheet-read';
 import { EMPTY_BOOK, applyAlias, type AliasBook } from '../lib/domain/master-alias';
 import type { EntityRecord } from '../lib/intake/entities';
 
@@ -48,11 +49,49 @@ const DB = 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.a
  * ★뺀 것 — 차량상태(원본 119행 모두 「정상」이라 값이 없는 칸) · 입고일자(영업자에게 필요 없음)
  *   · 6개월(사장님 2026-08-13) · 공급사코드·정책코드(RP020 을 보고 아는 영업자는 없다 → 「공급사」 이름).
  */
+/**
+ * ★**손오공 구독도 이 규격을 쓴다**(사장님 2026-08-13 — 「손오공 구독 시트도 상품리스트 시트랑
+ *   규격 같게 해야지」). 영업자가 탭을 오갈 때 다른 문서처럼 보이면 안 된다.
+ *   구독은 한 차에 **반납형·인수형 두 벌**이 있어 인수형 여섯 칸만 대여료 뒤에 더 붙인다.
+ */
+const SONOGONG_MODE = process.argv.includes('--sonogong');
+/**
+ * ⚠⚠ **`--sonogong` 은 더 쓰지 마라.** 이 발행기는 ERP 를 거치는데, 거기서 돈이 사라진다 —
+ *   실측 2026-08-14: 제공시트 45대·보증금 24대인데 이 길로는 **23대·보증금 0대**로 나갔다.
+ *   손오공구독 탭은 `scripts/publish-sonogong-tab.mts` 가 제공시트에서 바로 찍는다.
+ *   그래도 돌리려면 `--force-erp` 를 같이 줘라(무엇을 하는지 알고 있다는 뜻이다).
+ */
+if (SONOGONG_MODE && !process.argv.includes('--force-erp')) {
+  console.log('\n  ⛔ 이 길(ERP 경유)로는 손오공구독 보증금이 통째로 빈다.');
+  console.log('     대신 이걸 써라 — npx tsx scripts/publish-sonogong-tab.mts --apply\n');
+  process.exit(1);
+}
+/** 따로 빼는 두 공급사. 아래 유입 필터와 손오공 모드가 같은 값을 본다. */
+const AUTOPLUS = 'RP023';
+const SONOGONG = 'RP012';
+/**
+ * ★구독은 보증금 칸이 **둘**이다 — 「보증금 반납형」·「보증금 인수형」
+ *   (사장님 2026-08-13 · 제공시트 「손오공 프리패스 재고」 구독재고 탭이 그렇게 가른다).
+ *   상품리스트의 「단기보증·장기보증」을 그대로 두면 같은 말이 두 번 서고 뜻도 안 맞는다.
+ * ★구독에는 1개월이 없다. 12·24·36·48·60 다섯 기간뿐이다.
+ */
+const RETURN_MONEY = ['보증금 반납형', '12개월', '24개월', '36개월', '48개월', '60개월'];
+/**
+ * ★인수형은 **36개월부터만 판다**(사장님 2026-08-13 · 실측 45대 전부 12·24개월 0건).
+ *   빈 열을 두면 영업자가 「값이 빠진 건가」로 읽는다. 아예 두지 않는다.
+ * ⚠ 손오공이 12·24개월 인수형을 팔기 시작하면 그때 열을 되살려라. 그 전에는 없는 상품이다.
+ */
+const ACQ_MONTHS = [36, 48, 60];
+const ACQ = ['보증금 인수형', ...ACQ_MONTHS.map((m) => `${m}개월(인수형)`)];
+/** 반납형 보증금 표기 — 제공시트가 쓰는 말 그대로다. 숫자를 계산해 넣지 않는다. */
+const DEPOSIT_RULE = '연수×대여료';
 const COLUMNS = [
   '배차상태', '구분', '차량번호',
   '모델', '세부모델', '파워트레인', '세부트림',
   '외장', '내장', 'Km',
-  '단기보증', '1개월', '12개월', '장기보증', '24개월', '36개월', '48개월', '60개월',
+  ...(SONOGONG_MODE
+    ? [...RETURN_MONEY, ...ACQ]
+    : ['단기보증', '1개월', '12개월', '장기보증', '24개월', '36개월', '48개월', '60개월']),
   '옵션', '최초등록', '소비자가격', '제조사', '연료', '배기량', '차고지', '운전자범위', '연주행', '분납',
   '21세', '23세', '1만+',
   '대인', '대물', '자차', '자손', '무보험', '정비', '전용계좌', '비고',
@@ -234,6 +273,43 @@ if (cached) {
   console.log(`  (시트 새로 읽음 — 할증 ${surchargeOf.size}대 · 셀링크 ${photoOf.size}대 — ${CACHE} 에 담음)`);
 }
 
+/**
+ * ★손오공 인수형 요금 — **공급사 시트에서 직접 읽는다.**
+ *   ERP `price` 에는 반납형(꼬리표 없는 키)만 담겨 있어 인수형 칸은 시트를 봐야 채워진다.
+ *   손오공 구독 탭은 한 행에 요금표가 두 벌 나란히 서고, 그룹 머리(인수형/반납형)가 그걸 가른다.
+ * ⚠ 인수형 블록이 시트에서 **앞에** 있다. 그대로 읽으면 인수형이 기본값이 된다 —
+ *   실측 2026-08-10 카니발 36개월 1,050,000(인수형) / 907,000(반납형), 14만원 차이.
+ * ⚠ 못 읽으면 그 칸은 **비운다.** 지어내지 않는다.
+ */
+const acqOf = new Map<string, Record<string, string>>();
+if (SONOGONG_MODE) {
+  const p12 = Object.values(partners).find((x) => (S(x.partner_code) || S(x._key)) === SONOGONG);
+  const id = S(p12?.sheet_url).match(/\/spreadsheets\/d\/([\w-]+)/)?.[1];
+  if (id) {
+    try {
+      const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${id}?includeGridData=true&fields=${encodeURIComponent(SHEET_GRID_FIELDS)}`, { headers: { Authorization: `Bearer ${shT}` } });
+      const read = readSupplierSheet(await res.json(), p12 as EntityRecord);
+      for (const tab of read.tabs) {
+        const hdr = (tab.table[0] || []).map(S);
+        if (!hdr.some((h) => /인수형/.test(h))) continue;   // 렌트 탭은 한 벌짜리라 건너뛴다
+        const pi = hdr.findIndex((h) => /차량번호|차번/.test(h));
+        if (pi < 0) continue;
+        const col = (re: RegExp) => hdr.findIndex((h) => re.test(h.replace(/\s/g, '')));
+        const map: Record<string, number> = { '보증금 인수형': col(/^(장기보증|보증금)인수형$/) };
+        for (const m of ACQ_MONTHS) map[`${m}개월(인수형)`] = col(new RegExp(`^${m}개월인수형$`));
+        for (const row of tab.table.slice(1)) {
+          const pl = norm(row[pi]);
+          if (!pl || acqOf.has(pl)) continue;
+          const rec: Record<string, string> = {};
+          for (const [name, i] of Object.entries(map)) if (i >= 0) rec[name] = won(row[i]);
+          if (Object.values(rec).some(Boolean)) acqOf.set(pl, rec);
+        }
+      }
+      console.log(`  (손오공 인수형 요금 ${acqOf.size}대 읽음)`);
+    } catch (e) { console.log(`  ⚠ 손오공 시트를 못 읽었다 — 인수형 칸은 빈다: ${(e as Error).message.slice(0, 120)}`); }
+  }
+}
+
 const polByCode = new Map<string, Rec>();
 for (const p of Object.values<Rec>(pols)) if (p && typeof p === 'object' && S(p.policy_code)) polByCode.set(S(p.policy_code), p);
 
@@ -246,15 +322,18 @@ const all = Object.entries<Rec>(prods)
  *   (`scripts/publish-partner-tabs.mts`). 상품 종류가 달라 표가 다른 것이지 두 벌을 찍는 게 아니다.
  *   ⚠ 손오공 **렌트**는 여기 남는다. 규칙이 두 스크립트에서 갈리면 차가 두 탭에 서거나 어디에도 없게 된다.
  */
-const AUTOPLUS = 'RP023';
-const SONOGONG = 'RP012';
 const movedOut = (p: EntityRecord) => {
   const code = S((p as Rec).provider_company_code) || S((p as Rec).partner_code);
   if (code === AUTOPLUS) return true;
   return code === SONOGONG && /구독/.test(canonProductType((p as Rec).product_type) || '');
 };
+/** 손오공 모드는 그 반대다 — 손오공 구독만 담는다. */
+const onlySonogong = (p: EntityRecord) => {
+  const c = S((p as Rec).provider_company_code) || S((p as Rec).partner_code);
+  return c === SONOGONG && /구독/.test(canonProductType((p as Rec).product_type) || '');
+};
 // ★요금 없는 차도 담는다 — 영업자 표는 «재고 전부»여야 한다(요금 칸만 빈다).
-const rows = all.filter(isStockedProduct).filter((p) => !movedOut(p)).sort((a, b) =>
+const rows = all.filter(isStockedProduct).filter((p) => (SONOGONG_MODE ? onlySonogong(p) : !movedOut(p))).sort((a, b) =>
   S((a as Rec).maker).localeCompare(S((b as Rec).maker), 'ko')
   || S((a as Rec).model).localeCompare(S((b as Rec).model), 'ko')
   || S((a as Rec).car_number).localeCompare(S((b as Rec).car_number), 'ko'));
@@ -294,7 +373,27 @@ function cells(p: EntityRecord): Record<string, string> {
   /** 기간별 대여료 — 읽기 SSOT(priceList)를 쓴다. 오플 레거시키·주행별 키가 여기서 풀린다. */
   const list = priceList(p);
   const rent = (m: number) => { const hit = list.filter((e) => e.m === m).map((e) => e.rent); return hit.length ? won(Math.min(...hit)) : ''; };
-  const dep = (() => { for (const e of list) if (e.deposit) return won(e.deposit); return ''; })();
+  /**
+   * ★보증금은 **구간별로** 찍는다(사장님 2026-08-14 — 「보증금 대여료는 맞아야 해」).
+   *   「단기보증」은 1·12개월 칸 앞에, 「장기보증」은 24~60개월 칸 앞에 선다.
+   *   각 구간이 실제로 쓰는 보증금을 그 자리에 넣는다.
+   * ⚠ 예전엔 `priceList` 에서 **처음 만난 보증금 하나**를 두 칸에 똑같이 찍었다.
+   *   그래서 빌린카 45대의 장기보증이 150만원인데 105만원으로 나갔다(실측 2026-08-14).
+   *   단기/장기 비율이 우연히 일정하면 「×0.7 규칙」처럼 보여 원인을 엉뚱한 데서 찾게 된다.
+   * ⚠ 그 구간에 보증금이 없으면 **비운다.** 다른 구간 값을 끌어다 채우지 마라 — 그게 그 버그였다.
+   */
+  const depOf = (months: number[]) => {
+    for (const m of months) {
+      const hit = list.filter((e) => e.m === m && e.deposit).map((e) => Number(e.deposit));
+      if (hit.length) return won(Math.min(...hit));
+    }
+    return '';
+  };
+  const depShort = depOf([1, 6, 12]);
+  const depLong = depOf([24, 36, 48, 60]);
+  // 손오공 구독 등 어느 구간에도 안 잡히는 차는 «있는 값 하나»라도 보여 준다.
+  const depAny = (() => { for (const e of list) if (e.deposit) return won(e.deposit); return ''; })();
+  const dep = depShort || depLong || depAny;
   const meta = (r.sheet_meta || {}) as Rec;
   const code = S(r.provider_company_code) || S(r.partner_code);
   const type = canonProductType(r.product_type) || '';
@@ -316,8 +415,18 @@ function cells(p: EntityRecord): Record<string, string> {
     세부트림: trimCell(r, applyAlias(ALIAS, 'trim', scope, S(r.trim_name) || S(r.trim_extra) || pt.rest)),
     외장: S(r.ext_color), 내장: S(r.int_color),
     Km: r.mileage ? Number(String(r.mileage).replace(/[^\d]/g, '')).toLocaleString('ko-KR') : '',
-    단기보증: dep, '1개월': rent(1), '12개월': rent(12),
-    장기보증: dep, '24개월': rent(24), '36개월': rent(36), '48개월': rent(48), '60개월': rent(60),
+    /**
+     * ★손오공 구독 **반납형 보증금은 「연수×대여료」다**(사장님 2026-08-13 · 실측 23/23대 일치.
+     *   36개월 561,000 × 3년 = 1,683,000). 기간마다 값이 달라 한 칸에 숫자를 박으면
+     *   다른 기간에 틀린 값이 앉는다 — 12개월치 826,000 이 36개월 자리에 서 있었다.
+     * ★**우리 제공시트가 이미 그렇게 쓴다** — 「손오공 프리패스 재고」 구독재고 탭의
+     *   「보증금 반납형」 칸이 글자 그대로 「연수×대여료」다. 원본이 쓰는 대로 옮긴다.
+     * ⚠ 숫자를 계산해 넣지 마라. 기간을 고르기 전에는 정해지지 않는 값이다.
+     */
+    단기보증: depShort || depAny, '1개월': rent(1), '12개월': rent(12),
+    장기보증: depLong || depAny, '24개월': rent(24), '36개월': rent(36), '48개월': rent(48), '60개월': rent(60),
+    // 구독 전용 — 반납형 보증금은 기간을 골라야 정해지므로 규칙을 글자로 적는다.
+    '보증금 반납형': DEPOSIT_RULE,
     옵션: S(r.options),
     최초등록: S(r.first_registration_date),
     소비자가격: won(r.vehicle_price),
@@ -348,6 +457,8 @@ function cells(p: EntityRecord): Record<string, string> {
     전용계좌: bankOf.get(code) || '',
     비고: S(r.partner_memo),
     공급사: nameOf.get(code) || code,
+    // 손오공 구독 전용 — 인수형 여섯 칸. 시트에서 못 읽은 차는 빈 칸으로 둔다.
+    ...(SONOGONG_MODE ? (acqOf.get(norm(r.car_number)) || {}) : {}),
   };
 }
 
@@ -409,7 +520,18 @@ const COL_INK: Record<string, string> = {
   장기보증: '0000FF', '24개월': '0000FF', '36개월': '0000FF', '48개월': '0000FF', '60개월': '0000FF',
   분납: 'FF0000', '21세': 'FF0000', '23세': 'FF0000', '1만+': 'FF0000',
   전용계좌: 'FF0000', 비고: 'FF0000',
+  // 반납형 보증금은 다른 보증금 칸과 같은 뜻이라 같은 색으로 둔다.
+  '보증금 반납형': '0000FF',
+  // 인수형은 기본값(반납형)과 눈으로 갈려야 한다 — 보라로 둔다.
+  '보증금 인수형': '7C3AED',
+  '36개월(인수형)': '7C3AED', '48개월(인수형)': '7C3AED', '60개월(인수형)': '7C3AED',
 };
+/**
+ * ★**긴 글이 드는 칸은 왼쪽 정렬**(사장님 2026-08-13 — 「그게 보기 편하네」).
+ *   가운데로 두면 줄마다 시작 위치가 달라 눈이 세로로 못 훑는다.
+ *   나머지(상태·차번·돈·기간)는 가운데 그대로 — 자리수를 세로로 견줘야 한다.
+ */
+const LEFT = ['모델', '세부모델', '파워트레인', '세부트림', '옵션'];
 /** 구분은 값마다 글자색이 다르다 — 원본에서 세 색이 나왔다. */
 const GUBUN_INK = new Map<string, string>([
   ['신차', 'FF00FF'], ['재렌트', '34A853'], ['재구독', 'FF9900'], ['신차구독', 'FF9900'],
@@ -457,13 +579,14 @@ const meta = await call(`${api}?fields=sheets(properties(title,sheetId,hidden,gr
   { sheets: { properties: { title: string; sheetId: number; hidden?: boolean; gridProperties?: { columnCount?: number } }; bandedRanges?: { bandedRangeId: number }[]; conditionalFormats?: unknown[] }[] };
 const gidArg = arg('gid');
 // 주소(gid)가 안 바뀌어야 영업자가 즐겨찾기해 둔 링크가 산다. ⚠ 숨긴 탭은 건너뛴다.
+const TAB = SONOGONG_MODE ? '손오공구독' : '상품리스트';
 const found = gidArg
   ? meta.sheets.find((s) => String(s.properties.sheetId) === gidArg)
-  : meta.sheets.find((s) => !s.properties.hidden && s.properties.title.startsWith('상품리스트'));
-if (!found) throw new Error('상품리스트 탭을 못 찾음 — --gid 로 지정하라');
+  : meta.sheets.find((s) => !s.properties.hidden && s.properties.title.startsWith(TAB));
+if (!found) throw new Error(`「${TAB}」 탭을 못 찾음 — --gid 로 지정하라`);
 const gid = found.properties.sheetId;
 const colCountNow = Number(found.properties.gridProperties?.columnCount) || COLUMNS.length;
-const title = `상품리스트 ${stamp} · ${rows.length}대`;
+const title = `${TAB} ${stamp} · ${rows.length}대`;
 const H = HEADER_ROW - 1;
 const lastRow = values.length;
 
@@ -484,9 +607,14 @@ await call(`${api}:batchUpdate`, {
     ...(found.bandedRanges || []).map((b) => ({ deleteBanding: { bandedRangeId: b.bandedRangeId } })),
     ...(found.conditionalFormats || []).map(() => ({ deleteConditionalFormatRule: { sheetId: gid, index: 0 } })),
     { updateSheetProperties: { properties: { sheetId: gid, gridProperties: { frozenRowCount: HEADER_ROW, frozenColumnCount: 0 } }, fields: 'gridProperties.frozenRowCount,gridProperties.frozenColumnCount' } },
-    // 표 전체 바탕 — Malgun Gothic 9pt, 기울임, 검정, 가운데.
+    /**
+     * 표 전체 바탕 — Malgun Gothic 9pt, 기울임, 검정, 가운데.
+     * ★**시트 끝까지 깐다**(사장님 2026-08-13 — 「니가 입력한 거까지만 폰트가 적용되네」).
+     *   쓴 범위까지만 씌우면 그 아래 빈 줄에 손으로 한 줄 적었을 때 글꼴이 딴판이 된다.
+     *   범위에 행·열 경계를 주지 않으면 시트 전체가 대상이다.
+     */
     { repeatCell: {
-      range: { sheetId: gid, startRowIndex: H + 1, endRowIndex: lastRow, startColumnIndex: 0, endColumnIndex: COLUMNS.length },
+      range: { sheetId: gid },
       cell: { userEnteredFormat: {
         backgroundColor: rgb('FFFFFF'),
         textFormat: { fontFamily: FONT, fontSize: SIZE, italic: true, bold: false, foregroundColor: rgb(INK) },
@@ -514,8 +642,19 @@ await call(`${api}:batchUpdate`, {
     // ⚠ 줄무늬는 넣지 않는다(사장님 2026-08-13 「줄무늬 빼자」). 위에서 옛 줄무늬를 걷어내기만 한다.
     //   다시 넣지 마라 — 글자색으로 이미 갈라져 있어 바탕까지 갈면 시끄러워진다.
     // 열별 글자색 + 대여료 굵게 — 반드시 한 번에 준다.
+    /**
+     * 왼쪽 정렬 칸 — 끝 행까지 준다(새로 적은 줄도 같아야 한다).
+     * ⚠ 아래 색 서식은 `userEnteredFormat.textFormat` 만 건드리므로 이 정렬을 안 지운다.
+     *   순서를 바꾸거나 fields 를 넓히면 정렬이 날아간다.
+     */
+    ...LEFT.filter((name) => COLUMNS.includes(name)).map((name) => ({ repeatCell: {
+      range: { sheetId: gid, startRowIndex: H + 1, startColumnIndex: COLUMNS.indexOf(name), endColumnIndex: COLUMNS.indexOf(name) + 1 },
+      cell: { userEnteredFormat: { horizontalAlignment: 'LEFT' } },
+      fields: 'userEnteredFormat.horizontalAlignment',
+    } })),
+    // ⚠ 열 색도 **끝 행까지** 준다 — 아래에 새로 적은 줄도 같은 색이어야 한다.
     ...Object.entries(COL_INK).filter(([name]) => COLUMNS.includes(name)).map(([name, ink]) => ({ repeatCell: {
-      range: { sheetId: gid, startRowIndex: H + 1, endRowIndex: lastRow, startColumnIndex: COLUMNS.indexOf(name), endColumnIndex: COLUMNS.indexOf(name) + 1 },
+      range: { sheetId: gid, startRowIndex: H + 1, startColumnIndex: COLUMNS.indexOf(name), endColumnIndex: COLUMNS.indexOf(name) + 1 },
       cell: { userEnteredFormat: { textFormat: { fontFamily: FONT, fontSize: SIZE, italic: true, bold: RENT.includes(name), foregroundColor: rgb(ink) } } },
       fields: 'userEnteredFormat.textFormat',
     } })),
@@ -523,15 +662,17 @@ await call(`${api}:batchUpdate`, {
     ...[...GUBUN_INK].map(([word, ink]) => ({ addConditionalFormatRule: {
       index: 0,
       rule: {
-        ranges: [{ sheetId: gid, startRowIndex: H + 1, endRowIndex: lastRow, startColumnIndex: COLUMNS.indexOf('구분'), endColumnIndex: COLUMNS.indexOf('구분') + 1 }],
+        // 끝 행까지 — 새로 적은 줄의 구분도 같은 색으로 갈린다.
+        ranges: [{ sheetId: gid, startRowIndex: H + 1, startColumnIndex: COLUMNS.indexOf('구분'), endColumnIndex: COLUMNS.indexOf('구분') + 1 }],
         booleanRule: {
           condition: { type: 'TEXT_EQ', values: [{ userEnteredValue: word }] },
           format: { textFormat: { foregroundColor: rgb(ink) } },
         },
       },
     } })),
+    // 행높이도 시트 끝까지 — 아래에 적은 줄만 키가 다르면 눈에 걸린다.
     { updateDimensionProperties: {
-      range: { sheetId: gid, dimension: 'ROWS', startIndex: 0, endIndex: lastRow },
+      range: { sheetId: gid, dimension: 'ROWS', startIndex: 0 },
       properties: { pixelSize: 21 }, fields: 'pixelSize',
     } },
     ...colWidth.map((px, i) => ({ updateDimensionProperties: {
