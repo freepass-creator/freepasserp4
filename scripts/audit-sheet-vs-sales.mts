@@ -136,17 +136,27 @@ if (readNote.length) { console.log('  못 읽은 시트'); for (const n of readN
 type Diff = { plate: string; sup: string; col: string; sheet: string; sale: string };
 const diffs: Diff[] = [];
 let matched = 0, sameAll = 0, onlySheet = 0, onlySale = 0;
+/**
+ * ★**한 칸도 못 견준 차는 「같다」에 넣지 않는다.**
+ * ⚠ 예전엔 넣었다. 그래서 돈 열이 통째로 빈 차가 그대로 «100% 일치»의 분자에 들어갔다 —
+ *   감사가 「전부 맞다」고 말하는데 정작 그 차는 영업자 화면에서 요금이 비어 있었다
+ *   (실측 2026-08-14 · 아이카 1대 · 웰릭스 1대). 못 견준 것은 «모름»이지 «맞음»이 아니다.
+ */
+const blank: string[] = [];
 for (const [pl, sup] of supplierRows) {
   const sale = sales.get(pl);
   if (!sale) { onlySheet++; continue; }
   matched++;
   let ok = true;
+  let compared = 0;
   for (const [col, sheetVal] of Object.entries(sup.money)) {
     const saleVal = S(sale[col]);
     // 한쪽이 비면 «어긋남»으로 세지 않는다 — 없는 값과 틀린 값은 다른 문제다.
     if (!sheetVal || !saleVal) continue;
+    compared++;
     if (sheetVal !== saleVal) { ok = false; diffs.push({ plate: pl, sup: sup.name, col, sheet: sheetVal, sale: saleVal }); }
   }
+  if (!compared) { blank.push(`${pl} (${sup.name})`); continue; }
   if (ok) sameAll++;
 }
 for (const pl of sales.keys()) if (!supplierRows.has(pl)) onlySale++;
@@ -154,8 +164,11 @@ for (const pl of sales.keys()) if (!supplierRows.has(pl)) onlySale++;
 const fmt = (n: string) => Number(n).toLocaleString('ko-KR');
 console.log(`■ 결과`);
 console.log(`   양쪽에 다 있는 차        ${matched}대`);
-console.log(`     └ 돈이 전부 같음       ${sameAll}대  (${matched ? (sameAll / matched * 100).toFixed(1) : 0}%)`);
+const judged = matched - blank.length;
+console.log(`     └ 돈이 전부 같음       ${sameAll}대  (${judged ? (sameAll / judged * 100).toFixed(1) : 0}% · 견준 ${judged}대 기준)`);
 console.log(`     └ 어긋난 칸            ${diffs.length}칸 · 차 ${new Set(diffs.map((d) => d.plate)).size}대`);
+console.log(`     └ 한 칸도 못 견줌       ${blank.length}대  ← 돈이 양쪽 다 비었다. «맞음»이 아니라 «모름»이다`);
+for (const b of blank.slice(0, 10)) console.log(`          ${b}`);
 console.log(`   공급사시트에만 있는 차    ${onlySheet}대`);
 console.log(`   판매리스트에만 있는 차    ${onlySale}대`);
 

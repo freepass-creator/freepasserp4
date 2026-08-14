@@ -98,6 +98,12 @@ const hi = rows.findIndex((r) => r.some((c) => norm(c) === norm('차명(트림)'
 if (hi < 0) throw new Error('우리 시트에서 머리행(「차명(트림)」)을 못 찾았다');
 const hdr = rows[hi].map(S);
 const pi = hdr.findIndex((h) => norm(h) === '차량번호');
+/**
+ * ⚠ **차량번호 열이 없으면 멈춘다.** 없으면 아래에서 «기존 줄이 하나도 없다»로 읽혀
+ *   원본 전량이 «새 차»가 되고, 머리행 바로 아래부터 통째로 덮어쓴다 —
+ *   아이카 122줄이 한 번의 --apply 로 갈린다. 되돌릴 길은 시트 버전기록뿐이다.
+ */
+if (pi < 0) throw new Error('우리 시트에 「차량번호」 열이 없다 — 덮어쓰면 기존 줄이 통째로 갈린다');
 const si = hdr.findIndex((h) => norm(h) === '상태');
 const ti = hdr.findIndex((h) => norm(h) === norm('차명(트림)'));
 console.log(`  우리 시트 「${book}」 「${tab}」 ${hdr.length}열 · ${rows.length - hi - 1}줄\n`);
@@ -164,7 +170,18 @@ for (let i = 0; i < data.length; i += 500) {
   });
 }
 if (newRows.length) {
-  const at = hi + 1 + rows.slice(hi + 1).filter((r) => S(r[pi])).length;
+  /**
+   * ★붙일 자리는 «값이 있는 마지막 줄» 다음이다.
+   * ⚠ 예전엔 «차번이 있는 줄 수»로 셌다. 사람이 중간에 빈 줄이나 구분줄을 하나만 넣어도
+   *   그만큼 위에서부터 덮어써 기존 줄이 갈렸다. 줄 수가 아니라 «마지막 자리»로 센다.
+   */
+  let last = hi;
+  rows.forEach((r, i) => { if (i > hi && r.some((c) => S(c))) last = i; });
+  const at = last + 1;
+  // ⚠ 쓰기 직전에 그 자리가 정말 비었는지 되읽는다. 안 비었으면 멈춘다.
+  const guard = await call(`${SH}/${TO}/values/${encodeURIComponent(`'${tab}'!A${at + 1}:A${at + newRows.length}`)}`) as { values?: string[][] };
+  const busy = ((guard.values || []) as string[][]).filter((r) => S(r[0])).length;
+  if (busy) throw new Error(`새 차를 붙일 자리(${at + 1}행부터 ${newRows.length}줄)에 이미 ${busy}줄이 있다 — 덮어쓰지 않는다`);
   await call(`${SH}/${TO}/values/${encodeURIComponent(`'${tab}'!A${at + 1}`)}?valueInputOption=USER_ENTERED`, {
     method: 'PUT', body: JSON.stringify({ values: newRows }),
   });

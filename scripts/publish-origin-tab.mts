@@ -399,8 +399,33 @@ if (failures.length) {
 }
 if (!APPLY) { console.log('\n※ dry-run. 실제 반영은 --apply\n'); process.exit(0); }
 
+/**
+ * ★**한 대도 못 읽었으면 발행하지 않는다.**
+ *   아래에서 탭을 통째로 비우고 새로 쓰므로, 빈 표로 덮으면 영업자 표가 통째로 날아간다.
+ *   되돌릴 길은 구글시트 버전기록뿐이고, 탭 이름은 「… · 0대」로 갱신되며 종료코드도 0이라
+ *   **화면에는 사고가 안 보인다.** 형제 발행기(publish-sonogong-tab)에는 있던 가드가 여기만 빠져 있었다.
+ * ⚠ 방아쇠가 코드가 아니라 «시트 한 칸»이다 — 「AI 인계」 @매핑에서 차량번호 줄의 후보를 지우면
+ *   모든 탭이 버려져 0대가 된다. 그래서 코드로 막아야 한다.
+ */
+if (!rows.length) throw new Error('한 대도 못 읽었다 — 발행하지 않는다(빈 표로 덮으면 영업자 표가 날아간다)');
+
 const meta = await api(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}?fields=sheets.properties(sheetId,title)`);
 let gid = ((meta.sheets || []) as Rec[]).find((s) => S(s.properties?.title).startsWith(TAB))?.properties?.sheetId as number | undefined;
+/**
+ * ★**갑자기 확 줄면 멈춘다.** 「매번 센다」는 규칙을 사람 눈이 아니라 코드가 지키게 한다.
+ *   직전 대수는 탭 이름에 적혀 있다(「상품리스트 08.14 13:34 · 379대」) — 따로 저장할 것이 없다.
+ * ⚠ 공급사가 실제로 재고를 줄이는 날도 있다. 그때는 `--force-shrink` 로 지나간다.
+ */
+{
+  const prevTitle = S(((meta.sheets || []) as Rec[]).find((s) => Number(s.properties?.sheetId) === gid)?.properties?.title);
+  const prev = Number((prevTitle.match(/·\s*(\d+)대/) || [])[1] || 0);
+  const drop = prev ? 1 - rows.length / prev : 0;
+  if (prev && drop >= 0.2 && !process.argv.includes('--force-shrink')) {
+    throw new Error(`직전 ${prev}대 → 지금 ${rows.length}대 (${Math.round(drop * 100)}% 줄었다). `
+      + '공급사가 실제로 뺀 것인지 우리가 못 읽은 것인지 먼저 보라 — 맞으면 --force-shrink');
+  }
+  if (prev && drop > 0) console.log(`  직전 ${prev}대 → 지금 ${rows.length}대 (${Math.round(drop * 100)}% 감소)`);
+}
 if (gid == null) {
   const made = await api(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}:batchUpdate`, {
     method: 'POST', body: JSON.stringify({ requests: [{ addSheet: { properties: { title: TAB, index: 0 } } }] }),
