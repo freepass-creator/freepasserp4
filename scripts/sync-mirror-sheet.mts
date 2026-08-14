@@ -127,6 +127,8 @@ let touched = 0, cells = 0, gone = 0, renamed = 0;
 const renamedList: string[] = [];
 /** 열마다 무엇이 무엇으로 바뀌는지 — «늘 갱신되는 열»을 잡아내는 눈이다. */
 const byCol = new Map<string, string[]>();
+/** 값이 아니라 «잡음»이라 안 옮긴 것 — 무엇을 걸렀는지 보여 준다. */
+const junk: string[] = [];
 const seen = new Set<string>();
 for (const t of tabs) {
   t.rows.slice(t.hi + 1).forEach((r, k) => {
@@ -153,6 +155,14 @@ for (const t of tabs) {
        *   실측 2026-08-14 손오공 주행거리 한 칸이 그랬다.
        */
       if (sameNumber(now, next)) return;
+      /**
+       * ⚠ **날짜 칸에 날짜 아닌 값을 넣지 않는다.**
+       *   이안카 원본은 「입고일자」 칸에 상태(「재고확인」)를 복사해 뒀다(실측 2026-08-14 · 77대).
+       *   그대로 옮기면 재고일수 계산이 통째로 깨진다 — 그 칸으로 «며칠째 안 나가는지»를 센다.
+       * ⚠ 「배기량 0」도 안 받는다. 전기차라 배기량이 없는 것이지 0cc 인 차는 없다.
+       */
+      if (/입고일자|최초등록/.test(name) && next && !/\d/.test(next)) { junk.push(`${name}「${next}」`); return; }
+      if (/배기량/.test(name) && /^0+$/.test(next)) { junk.push(`${name}「0」`); return; }
       data.push({ range: `'${t.title}'!${colA1(i)}${rowAt}`, values: [[next]] });
       cells++; hit = true;
       if (!byCol.has(name)) byCol.set(name, []);
@@ -188,6 +198,14 @@ if (byCol.size) {
   }
 }
 console.log(`  새 차 ${fresh.length}대 · 원본에서 사라진 차 ${gone}대(상태만 출고불가)`);
+if (junk.length) {
+  const tally = new Map<string, number>();
+  for (const j of junk) tally.set(j, (tally.get(j) || 0) + 1);
+  console.log('');
+  console.log(`  ▲ 값이 아니라 «잡음»이라 안 옮긴 칸 ${junk.length}`);
+  for (const [k, n] of [...tally].sort((a, b) => b[1] - a[1]).slice(0, 6)) console.log(`     ${k} × ${n}`);
+  console.log('     공급사 원본이 그 칸을 다른 뜻으로 쓰고 있다 — 공급사에 물어볼 일이다.');
+}
 if (fresh.length && !one) {
   console.log('');
   console.log(`  ▲ 탭이 ${tabs.length}개라 새 차는 «자동으로 안 넣는다» — 어느 탭인지는 짐작할 일이 아니다`);
