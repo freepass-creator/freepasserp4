@@ -15,9 +15,10 @@ import {
 
 const S = (value: unknown): string => String(value ?? '').trim();
 
-/** 세 표준계약서의 공통 개정판. 개별 개정이 필요해지면 각 항목 version을 분리한다. */
+/** 구독 2종은 공급사별 운영값 확정 전까지 샘플 상태를 유지한다. */
 export const STANDARD_VERSION = 'sample-v1';
 export const STANDARD_IS_SAMPLE = true;
+export const RENT_STANDARD_VERSION = 'v1.0';
 
 export type StandardTemplateKey =
   | 'freepass-rent-standard'
@@ -43,8 +44,8 @@ export const STANDARD_CONTRACT_TEMPLATES: EsignTemplate[] = [
   {
     id: 'freepass-rent-standard',
     label: '프리패스 기본계약서 · 렌트·보험포함',
-    version: STANDARD_VERSION,
-    isSample: STANDARD_IS_SAMPLE,
+    version: RENT_STANDARD_VERSION,
+    isSample: false,
     contractKind: '렌탈',
     insuranceSide: '회사포함',
     title: '자동차 장기대여 계약서',
@@ -75,9 +76,13 @@ export const STANDARD_CONTRACT_TEMPLATES: EsignTemplate[] = [
 /** 기존 호출부 호환용 이름. 내용은 표준계약서 3벌이다. */
 export const ALL_TEMPLATES = STANDARD_CONTRACT_TEMPLATES;
 
-/** Preview에서는 샘플 검증 가능, Production은 세 벌 모두 최종본이어야 한다. */
-export function isEsignTemplateAllowed(environment: string | undefined): boolean {
-  return environment !== 'production' || STANDARD_CONTRACT_TEMPLATES.every((template) => !template.isSample);
+/** Preview에서는 샘플 검증 가능, Production은 선택한 서식이 정본일 때만 발행한다. */
+export function isEsignTemplateAllowed(environment: string | undefined, templateId?: unknown): boolean {
+  if (environment !== 'production') return true;
+  const selected = S(templateId);
+  if (!selected) return STANDARD_CONTRACT_TEMPLATES.every((template) => !template.isSample);
+  const template = findTemplate(selected);
+  return !!template && !template.isSample;
 }
 
 export function findTemplate(id: unknown): EsignTemplate | null {

@@ -198,12 +198,10 @@ export async function POST(
   if (action === 'issue') {
     /**
      * ★샘플 계약서는 운영에서 나가지 않는다.
-     * 표준계약서 3벌이 아직 `sample-v1`(법률 검토 전)이다. 착한거래 경로에는 이 잠금이
-     * 걸려 있었는데 **자체 발행에는 없었다** — 관리자 화면이 부르는 쪽이 이쪽이라,
-     * 운영에서 샘플 문안이 손님에게 그대로 나갈 수 있었다(실측 2026-08-10).
-     * 잠금은 «발행하는 모든 문»에 걸려야 한다. 한 곳만 잠그면 잠근 것이 아니다.
+     * 기본 렌트 v1.0만 정본이며 구독 2종은 아직 `sample-v1`이다. 선택한 서식을 기준으로
+     * 발행 문마다 잠가야 샘플 문안이 손님에게 나가는 우회가 생기지 않는다.
      */
-    if (!isEsignTemplateAllowed(process.env.VERCEL_ENV)) {
+    if (!isEsignTemplateAllowed(process.env.VERCEL_ENV, body.standardTemplateId)) {
       return json({ error: '표준계약서 최종 승인 전이라 운영 발행이 잠겨 있습니다.' }, 503);
     }
     if (S(contract.sign_status) === '서명완료') {

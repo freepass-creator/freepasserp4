@@ -49,10 +49,6 @@ export async function POST(request: Request) {
   // 연동 미설정 환경은 Admin SDK 인증 시도조차 하지 않고 명시적인 준비 중 상태로 닫는다.
   const config = getChakhandealConfig();
   if (!config) return json({ error: '착한거래 전자계약 연동 준비 중입니다.' }, 503);
-  if (!isEsignTemplateAllowed(process.env.VERCEL_ENV)) {
-    return json({ error: '표준계약서 최종 승인 전이라 운영 발행이 잠겨 있습니다.' }, 503);
-  }
-
   let actor;
   try { actor = await verifyActiveBearer(request); }
   catch { return json({ error: '전자계약 서버 인증을 사용할 수 없습니다.' }, 503); }
@@ -89,6 +85,9 @@ export async function POST(request: Request) {
   if (!contractKind) return json({ error: '관리자가 계약유형을 확정해 주세요.' }, 400);
   const standardTemplate = findTemplate(standardTemplateId);
   if (!standardTemplate) return json({ error: '알 수 없는 표준계약서입니다.' }, 400);
+  if (!isEsignTemplateAllowed(process.env.VERCEL_ENV, standardTemplateId)) {
+    return json({ error: '표준계약서 최종 승인 전이라 운영 발행이 잠겨 있습니다.' }, 503);
+  }
   const contractSpec = findContractKind(contractKind);
   if (!contractSpec || contractSpec.kind !== standardTemplate.contractKind) {
     return json({ error: '표준계약서 종류와 인수/반납 선택 조합이 올바르지 않습니다.' }, 400);

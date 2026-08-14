@@ -13,7 +13,7 @@
  *   npx tsx scripts/sim-esign-issue-gate.mts
  */
 import { readFileSync } from 'node:fs';
-import { isEsignTemplateAllowed, STANDARD_IS_SAMPLE } from '../lib/domain/esign-templates';
+import { isEsignTemplateAllowed } from '../lib/domain/esign-templates';
 
 /** 손님에게 계약서를 내보내는 문. 발행(issue)·발송(send) 하는 곳 전부. */
 const ISSUE_ROUTES = [
@@ -29,20 +29,29 @@ const check = (name: string, ok: boolean, note = '') => {
 };
 
 console.log('\n══ 전자계약 발행 문 점검 ══\n');
-console.log(`  표준계약서 상태 — ${STANDARD_IS_SAMPLE ? '샘플(sample)' : '정본'}\n`);
+console.log('  표준계약서 상태 — 렌트 v1.0 정본 · 구독 2종 샘플\n');
 
 for (const route of ISSUE_ROUTES) {
   let src = '';
   try { src = readFileSync(route.path, 'utf8'); }
   catch { check(`${route.what} — 파일이 있다`, false, route.path); continue; }
-  check(`${route.what} 이 잠금을 부른다`, src.includes('isEsignTemplateAllowed'), route.path);
+  check(`${route.what} 이 선택 서식 잠금을 부른다`,
+    src.includes('isEsignTemplateAllowed(process.env.VERCEL_ENV, '), route.path);
 }
 
-// 잠금 자체의 동작 — 샘플이면 운영에서 닫히고, 정본이 되면 열린다.
-check('Preview 는 샘플 검증을 허용한다', isEsignTemplateAllowed('preview'));
-check('Production 은 샘플 여부의 반대로 열린다',
-  isEsignTemplateAllowed('production') === !STANDARD_IS_SAMPLE);
-check('개발(환경 미지정)에서는 막지 않는다', isEsignTemplateAllowed(undefined));
+// 잠금 자체의 동작 — 운영에서는 선택한 서식만 판정한다.
+check('Preview 는 샘플 구독 검증을 허용한다',
+  isEsignTemplateAllowed('preview', 'freepass-subscription-insurance-included'));
+check('Production 은 정본 렌트를 허용한다',
+  isEsignTemplateAllowed('production', 'freepass-rent-standard'));
+check('Production 은 샘플 구독을 막는다',
+  !isEsignTemplateAllowed('production', 'freepass-subscription-insurance-included'));
+check('Production 은 알 수 없는 서식을 막는다',
+  !isEsignTemplateAllowed('production', 'unknown-template'));
+check('Production 은 서식 미지정 우회를 막는다',
+  !isEsignTemplateAllowed('production'));
+check('개발(환경 미지정)에서는 샘플 구독도 막지 않는다',
+  isEsignTemplateAllowed(undefined, 'freepass-subscription-insurance-included'));
 
 console.log(`\n  ${pass}/${pass + fail} 통과\n`);
 if (fail) {

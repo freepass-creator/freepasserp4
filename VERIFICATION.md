@@ -4637,3 +4637,13 @@ Next 개발 서버와 production build가 같은 `.next`를 사용하면 실행 
 - `sign.freepasserp.com`에서 `fps_` 토큰은 프리패스 `/sign/{token}`으로 내부 rewrite하고, 기존 착한거래의 22자리 토큰과 `/sign?c=...` 구형 링크는 `chakhandeal.vercel.app`으로 쿼리스트링을 보존해 redirect한다.
 - `npx tsc --noEmit`, `sim-freepass-esign`, `check:fonts`, `check:tokens`, 별도 distDir production build 33/33, middleware 신규·레거시·기존경로 직접 시뮬레이션, `git diff --check` PASS.
 - 이미 발행된 프리패스 계약의 예전 `/sign/fps_...` 저장 주소도 관리자 상태 응답에서 새 대표 주소로 정규화하며, 세션 해시 폴백은 예전 경로형과 새 루트형 `fps_` 주소를 모두 인식한다.
+
+## 2026-08-14 기본 렌트 운영 발행 게이트 분리
+
+결과: **PASS — 기본 렌트 v1.0만 운영 발행 허용, 구독 샘플 2종은 계속 차단**
+
+- 운영 실계약 테스트에서 인증·v4 초안 생성까지 통과했으나 기존 전역 샘플 잠금이 기본 렌트까지 `503`으로 막는 것을 확인했다.
+- 프리패스 기본계약서 `freepass-rent-standard`만 `v1.0` 정본으로 분리하고, 보험포함·보험별도 구독계약서는 `sample-v1` 상태를 유지했다.
+- 프리패스 자체 발행과 착한거래 발송은 모두 사용자가 선택한 개별 서식의 `isSample`을 검사한다. 미지정·알 수 없는 서식도 Production에서 차단해 우회 발행을 막는다.
+- `npx tsc --noEmit`, `sim-esign-issue-gate` 8/8, `sim-freepass-esign`, `check:fonts`, `check:tokens`, production build 33/33 PASS.
+- 운영 테스트 초안 `TMP-260814-E2E-5hdp`은 개인정보 없이 v4에 생성했으며, 배포 후 동일 회차로 링크·고객 페이지·공개 API·미리보기 PDF를 검증한다.
