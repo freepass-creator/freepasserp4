@@ -242,9 +242,26 @@ export function freepassEsignEventUpdates(
 export function sessionHashFromContract(contract: EsignRecord): string {
   const stored = S(contract.esign_session_hash);
   if (/^[a-f0-9]{64}$/.test(stored)) return stored;
-  const link = S(contract.esign_sign_url);
-  const token = link.match(/\/sign\/(fps_[A-Za-z0-9_-]+)/)?.[1] || '';
+  const token = freepassSignTokenFromUrl(contract.esign_sign_url);
   return token ? hashFreepassSignToken(token) : '';
+}
+
+export function freepassSignTokenFromUrl(value: unknown): string {
+  return S(value).match(/\/(?:sign\/)?(fps_[A-Za-z0-9_-]+)(?:[/?#]|$)/)?.[1] || '';
+}
+
+export function publicFreepassSignUrl(token: string, fallbackOrigin = ''): string {
+  const publicOrigin = S(process.env.FREEPASS_ESIGN_PUBLIC_BASE_URL).replace(/\/+$/, '');
+  if (publicOrigin) return `${publicOrigin}/${token}`;
+  return `${S(fallbackOrigin).replace(/\/+$/, '')}/sign/${token}`;
+}
+
+export function canonicalFreepassSignUrl(value: unknown): string {
+  const link = S(value);
+  const token = freepassSignTokenFromUrl(link);
+  return token && S(process.env.FREEPASS_ESIGN_PUBLIC_BASE_URL)
+    ? publicFreepassSignUrl(token)
+    : link;
 }
 
 export async function loadFreepassSessionByToken(token: string): Promise<{ hash: string; session: EsignRecord } | null> {

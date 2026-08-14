@@ -4,12 +4,14 @@ import {
   FREEPASS_ESIGN_CONSENT_VERSION,
   FREEPASS_ESIGN_TTL_MS,
   buildFreepassIssueSnapshot,
+  canonicalFreepassSignUrl,
   canManageFreepassEsign,
   eventRows,
   hashFreepassSignToken,
   freepassEsignEventUpdates,
   loadFreepassEsignBundle,
   makeFreepassSignToken,
+  publicFreepassSignUrl,
   sessionHashFromContract,
   sha256,
   validContractCode,
@@ -124,7 +126,10 @@ async function stateResponse(contractCode: string) {
     })
     : [];
   return {
-    contract: bundle.contract,
+    contract: {
+      ...bundle.contract,
+      esign_sign_url: canonicalFreepassSignUrl(bundle.contract.esign_sign_url),
+    },
     snapshot: session?.snapshot || null,
     session: session ? {
       status: S(session.status),
@@ -222,7 +227,7 @@ export async function POST(
     if (currentHash) {
       const current = (await bundle.db.ref(`v4/esign_sessions/${currentHash}`).get().catch(() => null))?.val() as EsignRecord | null;
       if (activeSession(current) && S(contract.esign_sign_url)) {
-        return json({ ok: true, reused: true, signUrl: S(contract.esign_sign_url), ...(await stateResponse(contractCode) || {}) });
+        return json({ ok: true, reused: true, signUrl: canonicalFreepassSignUrl(contract.esign_sign_url), ...(await stateResponse(contractCode) || {}) });
       }
     }
 
@@ -259,10 +264,7 @@ export async function POST(
     const now = Date.now();
     const expiresAt = now + FREEPASS_ESIGN_TTL_MS;
     const requestOrigin = new URL(request.url).origin;
-    const publicSignOrigin = S(process.env.FREEPASS_ESIGN_PUBLIC_BASE_URL).replace(/\/+$/, '');
-    const signUrl = publicSignOrigin
-      ? `${publicSignOrigin}/${token}`
-      : `${requestOrigin}/sign/${token}`;
+    const signUrl = publicFreepassSignUrl(token, requestOrigin);
     const esignId = `fp_${hash.slice(0, 24)}`;
     try {
       const sessionValue: EsignRecord = {

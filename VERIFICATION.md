@@ -4636,3 +4636,4 @@ Next 개발 서버와 production build가 같은 `.next`를 사용하면 실행 
 - 신규 전자계약은 운영 환경의 `FREEPASS_ESIGN_PUBLIC_BASE_URL`을 기준으로 `https://sign.freepasserp.com/fps_...` 형식의 짧은 고객 링크를 만든다. 로컬·미설정 환경은 기존 요청 주소의 `/sign/{token}`으로 안전하게 폴백한다.
 - `sign.freepasserp.com`에서 `fps_` 토큰은 프리패스 `/sign/{token}`으로 내부 rewrite하고, 기존 착한거래의 22자리 토큰과 `/sign?c=...` 구형 링크는 `chakhandeal.vercel.app`으로 쿼리스트링을 보존해 redirect한다.
 - `npx tsc --noEmit`, `sim-freepass-esign`, `check:fonts`, `check:tokens`, 별도 distDir production build 33/33, middleware 신규·레거시·기존경로 직접 시뮬레이션, `git diff --check` PASS.
+- 이미 발행된 프리패스 계약의 예전 `/sign/fps_...` 저장 주소도 관리자 상태 응답에서 새 대표 주소로 정규화하며, 세션 해시 폴백은 예전 경로형과 새 루트형 `fps_` 주소를 모두 인식한다.
