@@ -328,13 +328,13 @@ export function ContractCreateRow({ onClick }: { onClick: () => void }) {
   );
 }
 
-/** 계약서관리 목록 맨 위 — 새 계약서를 작성한 뒤 착한거래 링크를 보내는 시작점. */
+/** 계약서관리 목록 맨 위 — 개인정보 없는 계약조건을 저장하고 고객 작성 링크를 만드는 시작점. */
 export function EsignCreateRow({ selected, onClick }: { selected?: boolean; onClick: () => void }) {
   return (
     <CreateListRow
-      label="새 계약서 만들기"
-      hint="차량·대여조건을 선택하고 계약 링크를 만듭니다"
-      ariaLabel="새 계약서 만들기"
+      label="새 계약조건 만들기"
+      hint="정책·차량·대여조건만 정하고 고객 작성 링크를 만듭니다"
+      ariaLabel="새 계약조건 만들기"
       selected={selected}
       onClick={onClick}
     />

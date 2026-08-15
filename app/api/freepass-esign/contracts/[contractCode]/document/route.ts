@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { verifyActiveBearer } from '@/lib/server/firebase-admin';
 import {
+  canAccessFreepassEsignContract,
   canManageFreepassEsign,
   buildFreepassIssueSnapshot,
   loadFreepassEsignBundle,
@@ -39,12 +40,12 @@ export async function GET(
   let actor;
   try { actor = await verifyActiveBearer(request); }
   catch { return json({ error: '전자계약 서버 인증을 사용할 수 없습니다.' }, 503); }
-  if (!canManageFreepassEsign(actor)) return json({ error: '관리자만 계약서 문서를 열 수 있습니다.' }, 403);
+  if (!canManageFreepassEsign(actor)) return json({ error: '전자계약 문서를 열 권한이 없습니다.' }, 403);
 
   const contractCode = validContractCode((await params).contractCode);
   if (!contractCode) return json({ error: '계약번호가 올바르지 않습니다.' }, 400);
   const bundle = await loadFreepassEsignBundle(contractCode);
-  if (!bundle) return json({ error: '계약을 찾을 수 없습니다.' }, 404);
+  if (!bundle || !canAccessFreepassEsignContract(actor, bundle.contract)) return json({ error: '계약을 찾을 수 없습니다.' }, 404);
   const url = new URL(request.url);
   const draft = url.searchParams.get('draft') === '1';
   const format = url.searchParams.get('format') === 'pdf' ? 'pdf' : 'html';

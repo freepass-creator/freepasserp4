@@ -2,7 +2,6 @@ import { hasTermFrozen } from '@/lib/domain/contract';
 import {
   AGREEMENT_CONFIRM_LABEL,
   READ_THROUGH_ROWS,
-  REQUIRED_DOCS,
   SAMPLE_AGREEMENT,
   buildConsentGroups,
   paginateForMobile,
@@ -15,6 +14,7 @@ import {
 } from '@/lib/domain/esign-agreement-emphasis';
 import { providerContractIdentity, type ContractTemplateProfile } from '@/lib/domain/esign-template-profile';
 import { buildTemplateFieldsFromRecords } from '@/lib/domain/esign-template-fields';
+import { policyEsignRequiredDocuments } from '@/lib/domain/esign-required-documents';
 
 export type ChakhandealActor = {
   uid: string;
@@ -147,7 +147,7 @@ export function chakhandealIssuePayload(
     inputGroups: customerInputGroupsFor(contract as Parameters<typeof customerInputsFor>[0]),
     // 개인정보 동의 — 항목·목적·보유기간·받는자까지. 「동의합니다」 한 줄로는 유효하지 않다.
     consentAtoms: pendingConsents(contract as Parameters<typeof pendingConsents>[0]),
-    requiredDocs: REQUIRED_DOCS,
+    requiredDocs: policyEsignRequiredDocuments(policy),
     // ── 약관 CROSS-CHECK (오픈 종합검토) ──
     // 여기로 나가는 agreement = 손님이 착한거래에서 통독·동의하는 본문.
     // 정본 삼각: rental-contract.html ↔ esign-agreement-text.ts ↔ 이 payload.

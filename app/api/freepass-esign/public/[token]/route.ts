@@ -9,12 +9,14 @@ import {
   type EsignRecord,
 } from '@/lib/server/freepass-esign';
 import { driverAgeRange, residentAgeOn, residentIdInfo } from '@/lib/domain/esign-resident-id';
+import { normalizeEsignRequiredDocuments } from '@/lib/domain/esign-required-documents';
 
 const SUBMISSION_CLAIM_TTL_MS = 90_000;
 const PRIVATE_UPLOAD_TIMEOUT_MS = 45_000;
 
 function submissionClaimAvailable(session: EsignRecord, now: number): boolean {
   const status = S(session.status);
+  if (status === 'revoked' || Number(session.revokedAt || 0)) return false;
   if (status === 'sent' || status === 'opened') return true;
   return status === 'submitting'
     && Number(session.submittingAt || 0) > 0
@@ -63,7 +65,7 @@ function childUpdates(prefix: string, values: EsignRecord): EsignRecord {
 }
 
 function publicStatus(status: string) {
-  if (status === 'pending_review' || status === 'approving') return '검토대기';
+  if (status === 'pending_review' || status === 'approving' || status === 'rejecting') return '검토대기';
   if (status === 'signed') return '서명완료';
   if (status === 'revoked') return '해지';
   return status;
@@ -116,6 +118,7 @@ function validateServerProgress(session: EsignRecord) {
   ]);
   const additionalDriverPolicy = record(snapshot.additionalDriverPolicy);
   if (Number(additionalDriverPolicy.limit || 0) > 0) required.add('additional_driver');
+  if (normalizeEsignRequiredDocuments(snapshot.requiredDocuments).length > 0) required.add('documents');
   const missing = [...required].filter((key) => !Number(progress[key] || 0));
   if (missing.length) throw new Error('서버에 확인 기록이 남지 않은 계약 단계가 있습니다. 처음부터 다시 확인해 주세요.');
 }
@@ -192,6 +195,32 @@ function validateSubmission(payload: EsignRecord, snapshot: EsignRecord) {
   return { name, phone, signature, consents, confirmations, additionalDrivers };
 }
 
+function supportingDocumentsFor(session: EsignRecord): EsignRecord[] {
+  const snapshot = record(session.snapshot);
+  const requested = normalizeEsignRequiredDocuments(snapshot.requiredDocuments);
+  const uploads = record(session.supportingUploads);
+  const missing = requested.filter((document) => document.required && !S(record(uploads[document.key]).path));
+  if (missing.length) {
+    throw new Error(`필수 첨부서류를 제출해 주세요: ${missing.map((row) => row.label).join(' · ')}`);
+  }
+  return requested.flatMap((document) => {
+    const upload = record(uploads[document.key]);
+    if (!S(upload.path) || !S(upload.sha256)) return [];
+    return [{
+      key: document.key,
+      label: document.label,
+      note: document.note,
+      required: document.required,
+      originalName: S(upload.originalName),
+      path: S(upload.path),
+      sha256: S(upload.sha256),
+      size: Number(upload.size || 0),
+      contentType: S(upload.contentType),
+      uploadedAt: Number(upload.uploadedAt || 0),
+    }];
+  });
+}
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ token: string }> },
@@ -202,11 +231,13 @@ export async function GET(
   const { hash, session } = loaded;
   const now = Date.now();
   const status = S(session.status);
-  if (status === 'revoked') return json({ status: '해지', error: '해지된 전자계약 링크입니다.' }, 410);
-  if (Number(session.expiresAt || 0) <= now && !['pending_review', 'approving', 'signed'].includes(status)) {
+  if (status === 'revoked' || Number(session.revokedAt || 0)) {
+    return json({ status: '해지', error: '해지된 전자계약 링크입니다.' }, 410);
+  }
+  if (Number(session.expiresAt || 0) <= now && !['pending_review', 'approving', 'rejecting', 'signed'].includes(status)) {
     return json({ status: '만료', error: '만료된 전자계약 링크입니다.' }, 410);
   }
-  if (['pending_review', 'approving', 'signed'].includes(status)) {
+  if (['pending_review', 'approving', 'rejecting', 'signed'].includes(status)) {
     const documentUrl = status === 'signed'
       ? `/api/freepass-esign/public/${encodeURIComponent(token)}/document`
       : '';
@@ -236,12 +267,40 @@ export async function GET(
       snapshot = { ...snapshot, landlord: { companyName } };
     }
   }
+  let liveSession = session;
   if (!Number(session.openedAt || 0)) {
-    await db.ref('v4').update({
-      ...childUpdates(`esign_sessions/${hash}`, { status: 'opened', openedAt: now }),
-      ...childUpdates(`contracts/${contractCode}`, { sign_status: '열람', esign_opened_at: now }),
-      ...freepassEsignEventUpdates(contractCode, 'opened', requestEvidence(request, hash)),
-    });
+    const openedClaim = await db.ref(`v4/esign_sessions/${hash}`).transaction((current) => {
+      if (!current || Number(current.revokedAt || 0)) return;
+      if (Number(current.expiresAt || 0) <= Date.now()) return;
+      if (!['sent', 'opened'].includes(S(current.status)) || Number(current.openedAt || 0)) return;
+      return { ...current, status: 'opened', openedAt: now };
+    }, undefined, false);
+    liveSession = record(openedClaim.snapshot.val());
+    if (!openedClaim.committed) {
+      if (S(liveSession.status) === 'revoked' || Number(liveSession.revokedAt || 0)) {
+        return json({ status: '해지', error: '해지된 전자계약 링크입니다.' }, 410);
+      }
+      if (Number(liveSession.expiresAt || 0) <= Date.now()) {
+        return json({ status: '만료', error: '만료된 전자계약 링크입니다.' }, 410);
+      }
+      if (!['sent', 'opened'].includes(S(liveSession.status))) {
+        return json({ error: '지금은 전자계약을 열 수 없습니다.' }, 409);
+      }
+    } else {
+      await db.ref(`v4/contracts/${contractCode}`).transaction((current) => {
+        if (!current || S(current.esign_session_hash) !== hash || Number(current.sign_revoked_at || 0)) return;
+        if (S(current.sign_status) === '서명완료') return;
+        return { ...current, sign_status: '열람', esign_opened_at: now };
+      }, undefined, false);
+      await db.ref('v4').update(
+        freepassEsignEventUpdates(contractCode, 'opened', requestEvidence(request, hash)),
+      );
+      const confirmed = (await db.ref(`v4/esign_sessions/${hash}`).get()).val() as EsignRecord | null;
+      if (!confirmed || S(confirmed.status) === 'revoked' || Number(confirmed.revokedAt || 0)) {
+        return json({ status: '해지', error: '해지된 전자계약 링크입니다.' }, 410);
+      }
+      liveSession = confirmed;
+    }
   }
   return json({
     ok: true,
@@ -249,7 +308,9 @@ export async function GET(
     expiresAt: Number(session.expiresAt || 0),
     rejectReason: S(session.rejectReason),
     supplementItems: Array.isArray(session.supplementItems) ? session.supplementItems.map(S) : [],
-    progress: record(session.progress),
+    progress: record(liveSession.progress),
+    uploadedSupportingDocumentKeys: Object.keys(record(liveSession.supportingUploads))
+      .filter((key) => !!S(record(record(liveSession.supportingUploads)[key]).path)),
     previewDocumentUrl: `/api/freepass-esign/public/${encodeURIComponent(token)}/document?preview=1`,
     snapshot,
   });
@@ -280,32 +341,45 @@ export async function POST(
     const contractCode = S(session.contractCode);
     const bundle = await loadFreepassEsignBundle(contractCode);
     if (!bundle) return json({ error: '계약을 찾을 수 없습니다.' }, 404);
-    const savedProgress = record(session.progress);
-    if (Number(savedProgress[step] || 0) > 0) {
-      return json({ ok: true, progress: savedProgress, reused: true });
+    const progressClaim = await bundle.db.ref(`v4/esign_sessions/${hash}`).transaction((current) => {
+      if (!current || Number(current.revokedAt || 0)) return;
+      if (!['sent', 'opened'].includes(S(current.status))) return;
+      if (Number(current.expiresAt || 0) <= Date.now()) return;
+      const saved = record(current.progress);
+      if (Number(saved[step] || 0) > 0) return current;
+      const progress = { ...saved, [step]: now };
+      const writes = Object.keys(progress).filter((key) => PROGRESS_KEYS.has(key)).length;
+      return { ...current, progress, progressWrites: writes, lastProgressAt: now };
+    }, undefined, false);
+    const progressedSession = record(progressClaim.snapshot.val());
+    if (!progressClaim.committed) {
+      if (S(progressedSession.status) === 'revoked' || Number(progressedSession.revokedAt || 0)) {
+        return json({ error: '해지된 전자계약 링크입니다.' }, 410);
+      }
+      return json({ error: '지금은 진행정보를 저장할 수 없습니다.' }, 409);
     }
-    const progress = { ...savedProgress, [step]: now };
-    const writes = Object.keys(progress).filter((key) => PROGRESS_KEYS.has(key)).length;
-    await bundle.db.ref('v4').update({
-      // 상태 필드는 건드리지 않는다. 관리자 해지와 동시에 들어와도 revoked를 opened로 되살리지 않는다.
-      ...childUpdates(`esign_sessions/${hash}`, {
-        [`progress/${step}`]: now,
-        progressWrites: writes,
-        lastProgressAt: now,
-      }),
-      ...childUpdates(`contracts/${contractCode}`, {
-        sign_status: '진행중',
-        esign_progress: progressCount(progress),
-        esign_last_progress_at: now,
-      }),
-    });
-    return json({ ok: true, progress });
+    const progress = record(progressedSession.progress);
+    const reused = Number(progress[step] || 0) !== now;
+    if (!reused) {
+      await bundle.db.ref(`v4/contracts/${contractCode}`).transaction((current) => {
+        if (!current || S(current.esign_session_hash) !== hash || Number(current.sign_revoked_at || 0)) return;
+        if (S(current.sign_status) === '서명완료') return;
+        return {
+          ...current,
+          sign_status: '진행중',
+          esign_progress: progressCount(progress),
+          esign_last_progress_at: now,
+        };
+      }, undefined, false);
+    }
+    return json({ ok: true, progress, ...(reused ? { reused: true } : {}) });
   }
 
   let payload: EsignRecord;
   let idCard: File;
   let selfie: File;
   let additionalDriverLicenses: File[];
+  let supportingDocuments: EsignRecord[];
   try {
     const form = await request.formData();
     payload = JSON.parse(S(form.get('payload'))) as EsignRecord;
@@ -316,6 +390,7 @@ export async function POST(
       form.get(`additionalDriverLicense${index + 1}`),
       `추가 운전자 ${index + 1} 운전면허증`,
     ));
+    supportingDocuments = supportingDocumentsFor(session);
     validateServerProgress(session);
   } catch (error) {
     return json({ error: error instanceof Error ? error.message : '제출 내용을 확인해 주세요.' }, 400);
@@ -388,6 +463,7 @@ export async function POST(
         licenseSha256: additionalDriverAssets[index].sha256,
         licenseContentType: additionalDriverAssets[index].contentType,
       })),
+      supporting_documents: supportingDocuments,
       signature: parsed.signature,
       signatureSha256: sha256(parsed.signature),
       consentTimes,
@@ -421,6 +497,12 @@ export async function POST(
             label: `추가 운전자 ${index + 1} 운전면허증`,
             submittedAt: now,
             sha256: asset.sha256,
+          })),
+          ...supportingDocuments.map((document) => ({
+            key: `supporting_${S(document.key)}`,
+            label: S(document.label),
+            submittedAt: Number(document.uploadedAt || now),
+            sha256: S(document.sha256),
           })),
         ],
         esign_identity: {

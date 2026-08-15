@@ -45,7 +45,9 @@ export async function GET(
   const url = new URL(request.url);
   const preview = url.searchParams.get('preview') === '1';
   const download = url.searchParams.get('download') === '1';
-  if (status === 'revoked') return json({ error: '해지된 전자계약 링크입니다.' }, 410);
+  if (status === 'revoked' || Number(session.revokedAt || 0)) {
+    return json({ error: '해지된 전자계약 링크입니다.' }, 410);
+  }
 
   const contractCode = S(session.contractCode);
   if (!contractCode) return json({ error: '계약 연결정보가 없습니다.' }, 409);

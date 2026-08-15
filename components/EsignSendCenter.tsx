@@ -6,7 +6,7 @@ import { FileSignature, FileText, RotateCcw } from 'lucide-react';
 import type { EntityRecord, Field } from '@/lib/intake/entities';
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
-import { isAdminUiAllowed } from '@/lib/auth-gate';
+import { isEsignUiAllowed } from '@/lib/auth-gate';
 import { createDirectEsignContract } from '@/lib/domain/deal';
 import {
   draftInputRecord,
@@ -83,12 +83,6 @@ const today = () => {
 
 const CONTRACT_META_FIELDS: Field[] = [
   { key: 'contractDate', label: '계약일', type: 'date', required: true, manual: true, note: '오늘 날짜가 자동 입력됩니다. 다른 날짜일 때만 변경합니다' },
-];
-
-const BUSINESS_FIELDS: Field[] = [
-  { key: 'customerIsBusiness', label: '사업자 계약', type: 'select', options: ['예', '아니오'], manual: true },
-  { key: 'customerCompanyName', label: '법인/상호', type: 'text', manual: true },
-  { key: 'customerBusinessNumber', label: '사업자등록번호', type: 'text', manual: true },
 ];
 
 const OPTIONAL_TERM_FIELDS: Field[] = [
@@ -215,7 +209,7 @@ export function EsignSendCenter() {
   }, [companyId]);
 
   useEffect(() => {
-    if (!isAdminUiAllowed()) { router.replace('/'); return; }
+    if (!isEsignUiAllowed()) { router.replace('/'); return; }
     setAllowed(true);
     void load().catch(() => setContracts([]));
   }, [load, router]);
@@ -457,12 +451,6 @@ export function EsignSendCenter() {
         contractKind: draftContractKind.key,
         maturity: draft.maturity,
         contractDate: draft.contractDate,
-        customerName: draft.customerName,
-        customerPhone: draft.customerPhone,
-        customerAddress: draft.customerAddress,
-        customerIsBusiness: draft.customerIsBusiness,
-        customerCompanyName: draft.customerCompanyName,
-        customerBusinessNumber: draft.customerBusinessNumber,
         productCode: draft.productCode,
         vehicleName: draft.vehicleName,
         carNumber: draft.carNumber,
@@ -506,7 +494,7 @@ export function EsignSendCenter() {
   const draftPane = draft ? (
     <>
       <PaneHead
-        title={isSonogong(draftPartner) ? '손오공 계약서 작성' : '새 계약서 작성'}
+        title={isSonogong(draftPartner) ? '손오공 계약조건 입력' : '새 계약조건 입력'}
         count={draftReachedReview ? (draftProblems.length ? `확인 ${draftProblems.length}` : '발송 준비') : '입력 중'}
       />
       <PaneBody pad>
@@ -663,10 +651,8 @@ export function EsignSendCenter() {
         ) : null}
 
         <details>
-          <summary style={{ cursor: 'pointer', color: C.mute, fontSize: FS.sub }}>사업자·인수형 계약일 때만 추가 입력</summary>
+          <summary style={{ cursor: 'pointer', color: C.mute, fontSize: FS.sub }}>필요할 때만 추가 계약조건 입력</summary>
           <div style={{ display: 'grid', gap: 10, marginTop: 10 }}>
-            <SectionLabel>사업자 정보</SectionLabel>
-            <FormGrid fields={BUSINESS_FIELDS} form={draft as unknown as EntityRecord} onChange={setDraftValue} cols={2} showNotes />
             <SectionLabel>건별 계약 조건</SectionLabel>
             <FormGrid fields={CONTRACT_META_FIELDS} form={draft as unknown as EntityRecord} onChange={setDraftValue} cols={2} showNotes />
             <FormGrid fields={PAYMENT_OVERRIDE_FIELDS} form={draft as unknown as EntityRecord} onChange={setDraftValue} cols={2} showNotes />
@@ -705,7 +691,7 @@ export function EsignSendCenter() {
       <PaneHead title="전자계약 처리" count={workflowStep} />
       <PaneBody pad>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {['① 입력', '② 계약서 확인', '③ 영업자 전달', '④ 관리자 확인'].map((label, index) => {
+          {['① 입력', '② 계약서 확인', '③ 고객 전달', '④ 관리자 확인'].map((label, index) => {
             const done = selectedCompleted || index < selectedCurrentStepIndex;
             const current = !selectedCompleted && index === selectedCurrentStepIndex;
             return <Badge key={label} tone={done ? 'green' : current ? 'blue' : 'gray'} variant={done || current ? 'fill' : 'line'}>{label}</Badge>;
@@ -737,10 +723,10 @@ export function EsignSendCenter() {
         <ListGroup>
           <DetailRow label="① 입력" value="차량·대여조건 입력" />
           <DetailRow label="② 확인" value="A4 계약서 확인" />
-          <DetailRow label="③ 전달" value="계약 링크 생성·복사 후 영업자 전달" />
+          <DetailRow label="③ 전달" value="계약 링크 생성·복사 후 고객 전달" />
           <DetailRow label="④ 완료" value="서명 확인·승인·PDF 보관" />
         </ListGroup>
-        <CenterNote minHeight={0}>왼쪽 맨 위의 새 계약서 작성을 누르면 입력부터 시작합니다.</CenterNote>
+        <CenterNote minHeight={0}>왼쪽 맨 위의 새 계약조건 만들기를 누르면 입력부터 시작합니다.</CenterNote>
       </PaneBody>
     </>
   ));
@@ -759,7 +745,7 @@ export function EsignSendCenter() {
               <DetailRow label="계약회사" value={partnerCompanyDisplayName(draftPartner) || '선택 필요'} />
               <DetailRow label="계약서" value={draftTemplate?.label || '선택 필요'} stacked />
               <DetailRow label="계약정책" value={S(draftPolicy?.policy_name) || '선택 필요'} stacked />
-              <DetailRow label="고객정보" value="고객이 계약 링크에서 직접 입력" stacked />
+              <DetailRow label="계약자" value="미지정 · 링크를 받은 사람이 직접 입력" stacked />
               <DetailRow label="차량" value={[draft.carNumber || (draft.productCode ? '차량번호 미정' : ''), draft.vehicleName].filter(Boolean).join(' · ') || '선택 필요'} stacked />
               <DetailRow
                 label="대여조건"
@@ -781,7 +767,7 @@ export function EsignSendCenter() {
               <DetailRow label="특약" value={draft.specialTerms || '없음'} stacked />
             </ListGroup>
 
-            <SectionLabel>계약서 생성 전 확인</SectionLabel>
+            <SectionLabel>계약조건 저장 전 확인</SectionLabel>
             {!draftReachedReview ? (
               <CenterNote minHeight={0}>입력 패널에서 회사·차량·기간·운전자 연령을 순서대로 선택하세요.</CenterNote>
             ) : draftProblems.length ? (
@@ -795,27 +781,27 @@ export function EsignSendCenter() {
                 ))}
               </ListGroup>
             ) : (
-              <Badge tone="green" variant="fill">계약서 생성 준비가 완료되었습니다.</Badge>
+              <Badge tone="green" variant="fill">계약조건 저장 준비가 완료되었습니다.</Badge>
             )}
 
             <Btn
               full
               disabled={busy}
-              title={draftBlocks.length ? '확인할 필수 항목 보기' : '입력값으로 계약서 생성하기'}
+              title={draftBlocks.length ? '확인할 필수 항목 보기' : '계약조건 저장 후 계약서 확인하기'}
               onClick={() => void createDraft()}
             >
               <ButtonLabel icon={<FileText size={ICON.md} aria-hidden />}>
-                {busy ? '계약서 생성 중…' : draftBlocks.length ? `필수입력 ${draftBlocks.length}개 확인` : '계약서 생성하기'}
+                {busy ? '계약조건 저장 중…' : draftBlocks.length ? `필수입력 ${draftBlocks.length}개 확인` : '계약조건 저장하기'}
               </ButtonLabel>
             </Btn>
             <div style={{ fontSize: FS.cap, color: C.faint, lineHeight: 1.5 }}>
-              계약서를 만든 뒤 이 패널에서 A4 확인·출력과 계약 링크 생성·복사를 이어서 처리하고 영업자에게 전달합니다.
+              저장하면 개인정보 없는 계약서가 만들어집니다. A4로 확인한 뒤 고객 작성 링크를 복사해 전달합니다.
             </div>
           </>
         ) : selected && createdDraft ? (
           <div ref={inlineResultRef} style={{ display: 'grid', gap: 12 }}>
-            <SectionLabel>계약서 생성 완료</SectionLabel>
-            <Badge tone="green" variant="fill">같은 패널에서 아래 순서대로 확인하고 링크를 만드세요.</Badge>
+            <SectionLabel>계약조건 저장 완료</SectionLabel>
+            <Badge tone="green" variant="fill">개인정보 없는 계약서를 확인하고 고객 작성 링크를 만드세요.</Badge>
             <ListGroup>
               <DetailRow label="계약회사" value={partnerCompanyDisplayName(selectedPartner) || '—'} />
               <DetailRow label="차량" value={[createdDraft.carNumber || '차량번호 미정', createdDraft.vehicleName].filter(Boolean).join(' · ')} stacked />
@@ -885,7 +871,7 @@ export function EsignSendCenter() {
         backKind={draft ? 'cancel' : 'list'}
         search={{ value: query, onChange: setQuery, placeholder: '고객·차량·계약번호 검색' }}
         mobileLayout="swap"
-        contextTitle={draft ? (partnerCompanyDisplayName(draftPartner) || '새 계약서') : S(selected?.customer_name)}
+        contextTitle={draft ? (partnerCompanyDisplayName(draftPartner) || '새 계약조건') : (S(selected?.customer_name) || S(selected?.vehicle_name_snapshot))}
         listMaxWidth={360}
       />
     </>

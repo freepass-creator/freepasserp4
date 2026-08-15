@@ -27,6 +27,10 @@ import {
   AGREEMENT_SECTIONS, AGREEMENT_TITLE, AGREEMENT_VERSION,
 } from '@/lib/domain/esign-agreement-text';
 import { overMileageRateFor } from '@/lib/domain/policy-defaults';
+import {
+  esignDocumentPreset,
+  type EsignRequiredDocument,
+} from '@/lib/domain/esign-required-documents';
 
 type Rec = Record<string, unknown>;
 const S = (v: unknown): string => String(v ?? '').trim();
@@ -463,13 +467,9 @@ export function paginateForMobile(groups: ConsentGroup[]): ConsentPage[] {
   }));
 }
 
-/** 손님이 찍어 올릴 서류. `required` 는 이것 없이 서명 못 넘어간다는 뜻. */
-export type RequiredDoc = { key: string; label: string; note: string; required: boolean };
-export const REQUIRED_DOCS: RequiredDoc[] = [
-  { key: 'family_register', label: '가족관계증명서', note: '주민번호 뒷자리는 가려서 촬영해 주세요.', required: true },
-  { key: 'resident_register', label: '주민등록등본', note: '최근 3개월 이내 발급본.', required: true },
-  { key: 'bank_book', label: '통장 사본', note: '자동이체 계좌.', required: false },
-];
+/** @deprecated 공급사 정책이 없는 구형 카탈로그 연동용 기본값. 신규 계약은 정책값을 사용한다. */
+export type RequiredDoc = EsignRequiredDocument;
+export const REQUIRED_DOCS: RequiredDoc[] = esignDocumentPreset('personal-basic');
 
 /**
  * 약관 — **정본**(erp3 `rental-contract.html` 추출 → `esign-agreement-text.ts`).

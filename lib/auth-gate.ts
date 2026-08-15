@@ -8,3 +8,9 @@ import { getRole } from '@/lib/domain/deal';
 export function isAdminUiAllowed(): boolean {
   return getRole() === 'admin';
 }
+
+/** 전자계약 작성·진행조회 화면 — 관리자와 영업자만 사용한다. */
+export function isEsignUiAllowed(): boolean {
+  const role = getRole();
+  return role === 'admin' || role === 'agent';
+}

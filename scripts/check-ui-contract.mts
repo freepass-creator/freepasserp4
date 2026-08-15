@@ -20,7 +20,7 @@ const RAW_ALLOW = new Map<string, Allow>([
   ['app/global-error.tsx', { all: true, reason: '루트 레이아웃·globals.css까지 실패한 독립 최종 방어선' }],
   ['app/login/page.tsx', { all: true, reason: '앱 셸 전의 인증·동의 네이티브 폼 섬' }],
   ['app/m/page.tsx', { all: true, reason: '업무 화면이 아닌 모바일 프로모션 미리보기 섬' }],
-  ['app/sign/[token]/page.tsx', { counts: { input: 3 }, reason: '신분증·셀카와 추가운전자 면허증의 숨김 파일 선택기' }],
+  ['app/sign/[token]/page.tsx', { counts: { input: 4 }, reason: '신분증·셀카·추가운전자 면허증·공급사 요청서류의 숨김 파일 선택기' }],
   ['components/ContractDocs.tsx', { counts: { input: 1 }, reason: '숨김 파일 선택기' }],
   ['components/ChatThread.tsx', { counts: { button: 3, input: 1, textarea: 1 }, reason: '첨부 목록 토글·사진 확대·앨범 타일·숨김 파일 선택기·브라우저 자동완성 방지 채팅 입력기' }],
   ['components/ConsultPanel.tsx', { counts: { input: 1 }, reason: '드롭존과 연결된 숨김 다중 파일 선택기' }],

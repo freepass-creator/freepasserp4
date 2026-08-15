@@ -39,9 +39,6 @@ const EXPECT: { col: string; write: string; check: (p: any) => string }[] = [
   { col: '주행거리', write: '12000', check: (p) => S(p.mileage) },
   { col: '연료', write: '가솔린', check: (p) => S(p.fuel_type) },
   { col: '배기량', write: '1998', check: (p) => S(p.engine_cc) },
-  { col: '인승', write: '9', check: (p) => S(p.seats) },
-  // 열만 만들고 별칭이 없으면 공급사가 채워도 버려진다 — 그 회귀를 막는다.
-  { col: '구동', write: '4WD', check: (p) => S(p.drive_type) },
   { col: '단기보증', write: '1200000', check: (p) => S(p.price?.['12']?.deposit) },
   { col: '12개월', write: '900000', check: (p) => S(p.price?.['12']?.rent) },
   { col: '장기보증', write: '1800000', check: (p) => S(p.price?.['36']?.deposit) },
@@ -49,11 +46,14 @@ const EXPECT: { col: string; write: string; check: (p: any) => string }[] = [
   { col: '정책코드', write: 'POL-0047', check: (p) => S(p.policy_code) },
   { col: '최초등록일', write: '2024-03-15', check: (p) => S(p.first_registration_date) },
   { col: '사진링크', write: 'https://drive.google.com/drive/folders/abc', check: (p) => S(p.photo_link) },
-  { col: '차대번호', write: 'KMHL14JA1PA123456', check: (p) => S(p.vin) },
-  { col: '비고', write: '전방주차 불가', check: (p) => S(p.partner_memo) },
 ];
 
 const row = Array(TEMPLATE_COLUMNS.length).fill('');
+// 차종마스터 값과 운영에 쓰지 않는 자유메모는 공급사 반복 입력칸으로 되살리지 않는다.
+if (TEMPLATE_COLUMNS.some((column) => ['인승', '구동', '차대번호', '비고'].includes(column.name))) {
+  console.log('✗ 표준양식에 제외하기로 한 「인승/구동/차대번호/비고」 열이 다시 생겼다');
+  process.exit(1);
+}
 for (const e of EXPECT) {
   const i = TEMPLATE_COLUMNS.findIndex((c) => c.name === e.col);
   if (i < 0) { console.log(`✗ 표준양식에 「${e.col}」 열이 없다`); process.exit(1); }

@@ -17,6 +17,7 @@ import { NAV_LABEL } from '@/lib/tabbar';
 import { canIssueContract, CONTRACT_LAYER, type PolicyField } from '@/lib/domain/policy-tier';
 import { FREEPASS_POLICY_PACK, POLICY_DEFAULTS, applyPolicyDefaults } from '@/lib/domain/policy-defaults';
 import { retainVisibleSelection } from '@/features/work-list-display';
+import { PolicyRequiredDocumentsEditor } from '@/components/PolicyRequiredDocumentsEditor';
 import { providerNameMap } from '@/lib/domain/identity';
 import {
   ESIGN_POLICY_SELECTION_SESSION_KEY,
@@ -50,7 +51,7 @@ const G_TERMS = ['annual_mileage', 'mileage_upcharge_per_10000km', 'payment_meth
  * 화면에서는 계약조건 패널에 있었다(패널티인데 가격표 옆에 서 있었다).
  * 근거: `docs/POLICY-LAYERS.md` · SSOT: `lib/domain/policy-tier.ts`
  */
-const G_ESIGN = ['contract_authoring', ...CONTRACT_LAYER.map((f) => f.key).filter((key) => !['insurer_name', 'payment_due_date'].includes(key))];
+const G_ESIGN = ['contract_authoring', 'esign_required_documents', ...CONTRACT_LAYER.map((f) => f.key).filter((key) => !['insurer_name', 'payment_due_date'].includes(key))];
 
 function scopePolicies(all: EntityRecord[], role: Role): EntityRecord[] {
   if (role === 'admin') return all;
@@ -416,7 +417,11 @@ export default function PolicyMgmt() {
     <PageActions edit={{ onClick: startEdit }} remove={{ onClick: removeP }} />
   ) : undefined;
 
-  const editPane = (title: string, fields: typeof ENTITIES.policy.fields, hint?: string, lead?: string) => (
+  const editPane = (title: string, fields: typeof ENTITIES.policy.fields, hint?: string, lead?: string) => {
+    const formFields = title === '전자계약'
+      ? fields.filter((field) => field.key !== 'esign_required_documents')
+      : fields;
+    return (
     <>
       <PaneHead title={title} />
       <PaneBody pad>
@@ -455,7 +460,7 @@ export default function PolicyMgmt() {
               </div>
             )}
             {mobile && !canEdit ? (
-              <FormReadList fields={fields} form={form} selectOptions={policySelectOptions} footer={hint} />
+              <FormReadList fields={formFields} form={form} selectOptions={policySelectOptions} footer={hint} />
             ) : (
               <FormCard hint={hint}>
                 {/*
@@ -463,16 +468,24 @@ export default function PolicyMgmt() {
                   그래서 칸마다 «무슨 뜻이고 어느 약관 조항에 걸리는지»를 그 자리에서 읽게 한다.
                   (재고·계약처럼 매일 만지는 화면은 조밀해야 하므로 거기선 끈다.)
                 */}
-                <FormGrid fields={fields} form={form} onChange={onChange} cols={2} disabled={!canEdit} showNotes selectOptions={policySelectOptions} />
+                <FormGrid fields={formFields} form={form} onChange={onChange} cols={2} disabled={!canEdit} showNotes selectOptions={policySelectOptions} />
               </FormCard>
             )}
+            {title === '전자계약' ? (
+              <PolicyRequiredDocumentsEditor
+                value={form.esign_required_documents}
+                disabled={!canEdit}
+                onChange={(value) => onChange('esign_required_documents', value)}
+              />
+            ) : null}
           </>
         ) : (
           <CenterNote>정책을 선택하세요.</CenterNote>
         )}
       </PaneBody>
     </>
-  );
+    );
+  };
   /*
    * 패널 안내 — 세 층(상품·영업·계약)을 화면 말로 옮긴 것.
    * 설계 근거: `docs/POLICY-LAYERS.md`

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { verifyActiveBearer } from '@/lib/server/firebase-admin';
 import {
   appendFreepassEsignEvent,
-  canManageFreepassEsign,
+  canReviewFreepassEsign,
   loadFreepassEsignBundle,
   validContractCode,
 } from '@/lib/server/freepass-esign';
@@ -35,7 +35,7 @@ export async function POST(
   let actor;
   try { actor = await verifyActiveBearer(request); }
   catch { return json({ error: '전자계약 서버 인증을 사용할 수 없습니다.' }, 503); }
-  if (!actor || !canManageFreepassEsign(actor)) return json({ error: '관리자만 인도일을 확정할 수 있습니다.' }, 403);
+  if (!actor || !canReviewFreepassEsign(actor)) return json({ error: '관리자만 인도일을 확정할 수 있습니다.' }, 403);
   const contractCode = validContractCode((await params).contractCode);
   if (!contractCode) return json({ error: '계약번호가 올바르지 않습니다.' }, 400);
   let date = '';

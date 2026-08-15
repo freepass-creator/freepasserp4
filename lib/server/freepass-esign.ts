@@ -20,6 +20,7 @@ import { buildTemplateFieldsFromRecords } from '@/lib/domain/esign-template-fiel
 import { pendingConsents } from '@/lib/domain/esign-inputs';
 import { esignAdditionalDriverLimit } from '@/lib/domain/esign-center';
 import { additionalDriverCostLabel } from '@/lib/domain/esign-vehicle-selection';
+import { policyEsignRequiredDocuments } from '@/lib/domain/esign-required-documents';
 
 export type EsignRecord = Record<string, unknown>;
 
@@ -42,6 +43,27 @@ export function canManageFreepassEsign(actor: ActiveBearer | null | undefined): 
     || actor.rawRole === 'agent'
     || actor.rawRole === 'agent_admin'
     || actor.rawRole === 'agent_manager';
+}
+
+/**
+ * 전자계약 API의 레코드 경계.
+ * Admin SDK는 RTDB rules를 우회하므로 API에서 계약 소유권을 다시 확인해야 한다.
+ */
+export function canAccessFreepassEsignContract(
+  actor: ActiveBearer | null | undefined,
+  contract: EsignRecord | null | undefined,
+): boolean {
+  if (!actor || !contract || !canManageFreepassEsign(actor)) return false;
+  if (actor.rawRole === 'admin') return true;
+  if (S(contract.agent_uid) === actor.uid) return true;
+  return (actor.rawRole === 'agent_admin' || actor.rawRole === 'agent_manager')
+    && !!actor.agentChannelCode
+    && S(contract.agent_channel_code) === actor.agentChannelCode;
+}
+
+/** 고객 본인확인 자료 검토·승인·인도일 확정은 플랫폼 관리자 전용이다. */
+export function canReviewFreepassEsign(actor: ActiveBearer | null | undefined): boolean {
+  return actor?.rawRole === 'admin';
 }
 
 export function makeFreepassSignToken(): string {
@@ -131,8 +153,7 @@ function parseDraft(value: unknown): Record<string, string> {
 
 function publicContractSnapshot(contract: EsignRecord): EsignRecord {
   const keys = [
-    'contract_code', 'contract_date', 'customer_name', 'customer_phone', 'customer_birth',
-    'customer_address',
+    'contract_code', 'contract_date',
     'car_number_snapshot', 'vehicle_name_snapshot', 'maker_snapshot', 'model_snapshot',
     'sub_model_snapshot', 'variant_snapshot', 'trim_name_snapshot', 'trim_extra_snapshot',
     'year_snapshot', 'fuel_type_snapshot', 'rent_month_snapshot', 'rent_amount_snapshot',
@@ -185,6 +206,25 @@ export function buildFreepassIssueSnapshot(args: {
     args.partner?.company_name || args.partner?.name || args.partner?.partner_name,
   );
   const additionalDriverLimit = esignAdditionalDriverLimit(args.policy);
+  const requiredDocuments = policyEsignRequiredDocuments(args.policy);
+  const consentAtoms = [
+    ...pendingConsents(contract),
+    ...(requiredDocuments.length ? [{
+      key: 'supporting_documents_consent',
+      label: '추가 제출서류 수집·이용 및 계약 렌터카사 제공 동의',
+      group: 'customer',
+      required: true,
+      items: [...requiredDocuments.map((document) => document.label), '제출서류에 기재된 개인정보'],
+      purpose: '렌터카 계약 심사, 계약 체결 및 계약상 의무 이행 확인',
+      retention: '계약 종료 후 관계 법령이 정한 기간까지',
+      recipients: landlordCompanyName ? [{
+        name: landlordCompanyName,
+        purpose: '임대차계약 심사·체결·이행 관리',
+        items: requiredDocuments.map((document) => document.label),
+      }] : [],
+      refusalNote: '동의하지 않으면 렌터카사가 요구하는 계약서류를 확인할 수 없어 계약을 진행할 수 없습니다.',
+    }] : []),
+  ];
   return {
     contract: publicContractSnapshot(contract),
     landlord: { companyName: landlordCompanyName },
@@ -204,9 +244,10 @@ export function buildFreepassIssueSnapshot(args: {
       cost: additionalDriverCostLabel(args.policy?.additional_driver_cost),
       driverScope: S(args.policy?.personal_driver_scope),
     },
+    requiredDocuments,
     consentGroups,
     consentPages: paginateForMobile(consentGroups),
-    consentAtoms: pendingConsents(contract),
+    consentAtoms,
     agreement: {
       title: SAMPLE_AGREEMENT.title,
       version: SAMPLE_AGREEMENT.version,

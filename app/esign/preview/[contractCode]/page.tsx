@@ -6,7 +6,7 @@ import { ArrowLeft, ExternalLink, FileText, Smartphone } from 'lucide-react';
 import { getAuthClient } from '@/lib/firebase/client';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { initAuth } from '@/lib/firebase/auth';
-import { isAdminUiAllowed } from '@/lib/auth-gate';
+import { isEsignUiAllowed } from '@/lib/auth-gate';
 import { Btn, ButtonLabel, C, FS, FW, ICON, Loading, R, SH } from '@/components/ui';
 
 type PreviewState = {
@@ -19,14 +19,14 @@ const S = (value: unknown) => String(value ?? '').trim();
 async function adminFetch(url: string) {
   await initAuth();
   const auth = getAuthClient();
-  if (!auth) throw new Error('관리자 인증을 사용할 수 없습니다.');
+  if (!auth) throw new Error('전자계약 인증을 사용할 수 없습니다.');
   const user = auth.currentUser || await new Promise<User | null>((resolve) => {
     const unsubscribe = onAuthStateChanged(auth, (next) => {
       unsubscribe();
       resolve(next);
     });
   });
-  if (!user) throw new Error('관리자 로그인이 필요합니다.');
+  if (!user) throw new Error('로그인이 필요합니다.');
   return fetch(url, {
     headers: { Authorization: `Bearer ${await user.getIdToken()}` },
     cache: 'no-store',
@@ -54,7 +54,7 @@ export default function EsignPreviewPage() {
   }, [contractCode]);
 
   useEffect(() => {
-    if (!isAdminUiAllowed()) { router.replace('/'); return; }
+    if (!isEsignUiAllowed()) { router.replace('/'); return; }
     void load().catch((error) => setState({ error: error instanceof Error ? error.message : '미리보기를 열지 못했습니다.' }));
   }, [load, router]);
 
@@ -73,8 +73,8 @@ export default function EsignPreviewPage() {
     <main style={{ minHeight: '100dvh', background: C.bg, color: C.ink }}>
       <header style={{ position: 'sticky', top: 0, zIndex: 5, borderBottom: `1px solid ${C.line}`, background: C.inverse }}>
         <div style={{ maxWidth: 1180, margin: '0 auto', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <Btn variant="ghost" title="계약서관리로 돌아가기" onClick={() => router.push('/esign')}>
-            <ButtonLabel icon={<ArrowLeft size={ICON.md} aria-hidden />}>계약서관리</ButtonLabel>
+          <Btn variant="ghost" title="전자계약으로 돌아가기" onClick={() => router.push('/esign')}>
+            <ButtonLabel icon={<ArrowLeft size={ICON.md} aria-hidden />}>전자계약</ButtonLabel>
           </Btn>
           <div style={{ minWidth: 0, flex: 1 }}>
             <div style={{ fontSize: FS.body, fontWeight: FW.title }}>{customer} 고객 전달 화면</div>

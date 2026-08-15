@@ -112,7 +112,9 @@ check('기발행 구독 보험별도형 복원',
   sentTemplateOf(r({ contract_kind: 'sub_buyout', esign_insurance_side: '고객직접' }))?.id
   === 'freepass-subscription-insurance-separate');
 check('모르는 표준계약서는 null', findTemplate('없는유형') === null);
-check('기준판이 샘플이면 세 계약서도 샘플 표시', ALL_TEMPLATES.every((t) => t.isSample));
+check('렌트 정본만 운영 가능하고 구독 2종은 샘플로 잠긴다',
+  ALL_TEMPLATES.filter((t) => !t.isSample).map((t) => t.id).join('|') === 'freepass-rent-standard'
+  && ALL_TEMPLATES.filter((t) => t.isSample).length === 2);
 
 // ── 섹션 구성 — 기존 계약서 내용이 다 들어갔는가 ──
 const groups = buildConsentGroups(contract, policy, '회사포함');

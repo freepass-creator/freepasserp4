@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, Check, Eraser, Eye, FileDown, ImagePlus, Plus, Send, Trash2 } from 'lucide-react';
+import { ArrowLeft, Check, Eraser, Eye, FileDown, FileText, ImagePlus, Plus, Send, Trash2 } from 'lucide-react';
 import {
   Btn, ButtonLabel, C, DetailRow, Dropzone, fmtPhone, FS, FW, ICON, Input,
   ListGroup, Loading, R,
@@ -60,6 +60,12 @@ type PublicSnapshot = {
     cost?: string;
     driverScope?: string;
   };
+  requiredDocuments?: Array<{
+    key: string;
+    label: string;
+    note?: string;
+    required?: boolean;
+  }>;
   consentGroups?: ConsentPage[];
   consentPages?: ConsentPage[];
   consentAtoms?: Array<{
@@ -91,12 +97,13 @@ type PublicResponse = {
   previewDocumentUrl?: string;
   supplementItems?: string[];
   progress?: Record<string, number>;
+  uploadedSupportingDocumentKeys?: string[];
   expiresAt?: number;
   snapshot?: PublicSnapshot | null;
 };
 
 type JourneyStep = {
-  kind: 'summary' | 'privacy' | 'identity' | 'additional-driver' | 'section' | 'agreement' | 'signature';
+  kind: 'summary' | 'privacy' | 'identity' | 'additional-driver' | 'documents' | 'section' | 'agreement' | 'signature';
   key: string;
   title: string;
   page?: ConsentPage;
@@ -186,12 +193,14 @@ export default function SignPage() {
   const [selfie, setSelfie] = useState<File | null>(null);
   const [additionalDrivers, setAdditionalDrivers] = useState<AdditionalDriverForm[]>([]);
   const [additionalDriverLicenses, setAdditionalDriverLicenses] = useState<Array<File | null>>([]);
+  const [supportingFiles, setSupportingFiles] = useState<Record<string, File | null>>({});
   const [busy, setBusy] = useState(false);
   const [preparingImage, setPreparingImage] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const idRef = useRef<HTMLInputElement>(null);
   const selfieRef = useRef<HTMLInputElement>(null);
   const additionalDriverLicenseRefs = useRef<Array<HTMLInputElement | null>>([]);
+  const supportingFileRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const readRef = useRef<HTMLDivElement>(null);
   const drawing = useRef(false);
   const inked = useRef(false);
@@ -207,13 +216,6 @@ export default function SignPage() {
       .then((body) => {
         if (cancelled) return;
         setView(body);
-        const contract = body.snapshot?.contract || {};
-        setForm((prev) => ({
-          ...prev,
-          customer_name: S(contract.customer_name),
-          customer_phone: fmtPhone(S(contract.customer_phone)),
-          customer_address: S(contract.customer_address),
-        }));
       })
       .catch((error) => {
         if (!cancelled) setView({ error: error instanceof Error ? error.message : '전자계약을 열지 못했습니다.' });
@@ -250,6 +252,8 @@ export default function SignPage() {
   }, [token, view?.status]);
 
   const snapshot = view?.snapshot || {};
+  const requiredDocuments = snapshot.requiredDocuments || [];
+  const uploadedSupportingDocumentKeys = new Set(view?.uploadedSupportingDocumentKeys || []);
   const additionalDriverLimit = Math.max(0, Math.min(3, Number(snapshot.additionalDriverPolicy?.limit || 0)));
   const additionalDriverCost = S(snapshot.additionalDriverPolicy?.cost) || '별도 비용 없음';
   const pages = useMemo(
@@ -263,10 +267,13 @@ export default function SignPage() {
     ...(additionalDriverLimit > 0
       ? [{ kind: 'additional-driver' as const, key: 'additional_driver', title: '추가 운전자' }]
       : []),
+    ...(requiredDocuments.length
+      ? [{ kind: 'documents' as const, key: 'documents', title: '추가서류' }]
+      : []),
     ...pages.map((page) => ({ kind: 'section' as const, key: S(page.key), title: S(page.title) || '계약조건', page })),
     { kind: 'agreement', key: 'agreement', title: '약관' },
     { kind: 'signature', key: 'signature', title: '서명' },
-  ], [additionalDriverLimit, pages]);
+  ], [additionalDriverLimit, pages, requiredDocuments.length]);
   const step = steps[Math.min(stepIndex, Math.max(steps.length - 1, 0))];
 
   useEffect(() => {
@@ -359,6 +366,54 @@ export default function SignPage() {
       setPreparingImage(false);
     }
   };
+  const chooseSupportingFile = async (key: string, label: string, file: File | null) => {
+    if (!file) {
+      setSupportingFiles((prev) => ({ ...prev, [key]: null }));
+      return;
+    }
+    if (file.type === 'application/pdf') {
+      if (file.size > 5_000_000) return toast(`${label}은 파일당 5MB 이하여야 합니다.`, 'error');
+      setSupportingFiles((prev) => ({ ...prev, [key]: file }));
+      return;
+    }
+    setPreparingImage(true);
+    try {
+      const next = await prepareImage(file, label);
+      setSupportingFiles((prev) => ({ ...prev, [key]: next }));
+      if (next.size < file.size) toast(`${label} 사진 용량을 자동으로 줄였습니다.`, 'ok');
+    } catch (error) {
+      setSupportingFiles((prev) => ({ ...prev, [key]: null }));
+      toast(error instanceof Error ? error.message : `${label} 파일을 처리하지 못했습니다.`, 'error');
+    } finally {
+      setPreparingImage(false);
+    }
+  };
+  const uploadSupportingDocuments = async () => {
+    const uploaded = new Set(view?.uploadedSupportingDocumentKeys || []);
+    for (const document of requiredDocuments) {
+      const file = supportingFiles[document.key];
+      if (!file) {
+        if (document.required && !uploaded.has(document.key)) throw new Error(`${document.label}을(를) 첨부해 주세요.`);
+        continue;
+      }
+      const response = await fetch(
+        `/api/freepass-esign/public/${encodeURIComponent(String(token))}/supporting-document/${encodeURIComponent(document.key)}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': file.type,
+            'X-File-Name': encodeURIComponent(file.name),
+          },
+          body: file,
+          cache: 'no-store',
+        },
+      );
+      const body = await response.json().catch(() => ({})) as { error?: string };
+      if (!response.ok) throw new Error(body.error || `${document.label}을(를) 업로드하지 못했습니다.`);
+      uploaded.add(document.key);
+    }
+    setView((prev) => ({ ...(prev || {}), uploadedSupportingDocumentKeys: [...uploaded] }));
+  };
   const onRead = () => {
     const element = readRef.current;
     if (!element || !step?.key) return;
@@ -405,6 +460,14 @@ export default function SignPage() {
         return toast(`추가 운전자 ${incomplete + 1}의 정보·면허증·동의를 모두 확인해 주세요.`, 'error');
       }
     }
+    if (step.kind === 'documents') {
+      const missing = requiredDocuments.find((document) => (
+        document.required
+        && !supportingFiles[document.key]
+        && !uploadedSupportingDocumentKeys.has(document.key)
+      ));
+      if (missing) return toast(`${missing.label}을(를) 첨부해 주세요.`, 'error');
+    }
     if (step.kind === 'section') {
       if (step.page?.requireReadThrough && !readThrough[step.key]) return toast('아래까지 모두 확인해 주세요.', 'error');
     }
@@ -414,6 +477,7 @@ export default function SignPage() {
     }
     setBusy(true);
     try {
+      if (step.kind === 'documents') await uploadSupportingDocuments();
       await markProgress(step.key);
       const at = Date.now();
       if (step.kind === 'summary') setSummaryConfirmedAt(at);
@@ -490,7 +554,7 @@ export default function SignPage() {
             {view.status === '서명완료' ? '전자계약이 완료되었습니다' : '제출이 접수되었습니다'}
           </h1>
           <p style={{ color: C.mute, fontSize: FS.body, lineHeight: 1.65, margin: '0 0 18px' }}>
-            {view.status === '서명완료' ? '관리자 확인과 문서 봉인이 완료되었습니다.' : '담당자가 운전면허증·셀카·서명을 확인한 뒤 계약을 확정합니다.'}
+            {view.status === '서명완료' ? '관리자 확인과 문서 봉인이 완료되었습니다.' : '담당자가 본인확인 자료·추가서류·서명을 확인한 뒤 계약을 확정합니다.'}
           </p>
           {view.status === '서명완료' && view.documentUrl ? (
             <div style={{ display: 'grid', gap: 8 }}>
@@ -602,7 +666,7 @@ export default function SignPage() {
         <>
           <div style={{ fontSize: FS.title, fontWeight: FW.head }}>먼저 동의가 필요합니다</div>
           <p style={{ fontSize: FS.sub, color: C.mute, lineHeight: 1.6 }}>
-            운전면허증과 얼굴 사진을 받기 전에 필요한 동의를 각각 받습니다. 미리 선택된 항목은 없습니다.
+            운전면허증·얼굴 사진과 렌터카사 요청서류를 받기 전에 필요한 동의를 각각 받습니다. 미리 선택된 항목은 없습니다.
           </p>
           {(snapshot.consentAtoms || []).filter((atom) => atom.group !== 'bank').map((atom) => (
             <ListGroup key={atom.key} header={atom.label}>
@@ -734,6 +798,55 @@ export default function SignPage() {
         </>
       ) : null}
 
+      {step?.kind === 'documents' ? (
+        <>
+          <div style={{ fontSize: FS.title, fontWeight: FW.head }}>렌터카사 요청서류</div>
+          <p style={{ fontSize: FS.sub, color: C.mute, lineHeight: 1.65 }}>
+            {S(snapshot.landlord?.companyName) || '계약 렌터카사'}에서 이 계약에 필요한 서류입니다.
+            사진으로 촬영하거나 PDF를 첨부해 주세요.
+          </p>
+          <div style={{ display: 'grid', gap: 10 }}>
+            {requiredDocuments.map((document) => {
+              const file = supportingFiles[document.key];
+              const uploaded = uploadedSupportingDocumentKeys.has(document.key);
+              return (
+                <div key={document.key} style={{ display: 'grid', gap: 5 }}>
+                  <Dropzone
+                    variant="photo"
+                    active={!!file || uploaded}
+                    onClick={() => supportingFileRefs.current[document.key]?.click()}
+                    title={`${document.label} 첨부`}
+                  >
+                    <FileText size={ICON.md} color={file || uploaded ? C.ok : C.faint} />
+                    <span style={{ fontSize: FS.sub, fontWeight: FW.strong }}>
+                      {file?.name || (uploaded ? `${document.label} 제출 완료` : document.label)}
+                    </span>
+                    <span style={{ fontSize: FS.micro, color: C.faint }}>
+                      {document.required ? '필수 · ' : '선택 · '}사진 또는 PDF · 파일당 5MB 이하
+                    </span>
+                    <input
+                      ref={(element) => { supportingFileRefs.current[document.key] = element; }}
+                      type="file"
+                      accept="image/*,application/pdf"
+                      style={{ display: 'none' }}
+                      onClick={(event) => event.stopPropagation()}
+                      onChange={(event) => {
+                        void chooseSupportingFile(document.key, document.label, event.target.files?.[0] || null);
+                        event.currentTarget.value = '';
+                      }}
+                    />
+                  </Dropzone>
+                  {document.note ? <div style={{ fontSize: FS.cap, color: C.mute, lineHeight: 1.5 }}>{document.note}</div> : null}
+                </div>
+              );
+            })}
+          </div>
+          <p style={{ fontSize: FS.cap, color: C.faint, lineHeight: 1.6 }}>
+            첨부 원본은 계약 검토 관리자만 확인할 수 있으며 공개 계약정보에는 노출되지 않습니다.
+          </p>
+        </>
+      ) : null}
+
       {step?.kind === 'section' && step.page ? (
         <>
           <p style={{ fontSize: FS.sub, color: C.mute, lineHeight: 1.6 }}>{step.page.note}</p>
@@ -785,6 +898,12 @@ export default function SignPage() {
             <DetailRow label="계약 조건 확인" value={`${Object.keys(confirmations).length} / ${pages.length} 섹션`} />
             <DetailRow label="필수 동의" value={`${[...consents].length} / ${REQUIRED_CONSENTS.length}건`} />
             <DetailRow label="본인확인 자료" value={idCard && selfie ? '운전면허증·셀카 첨부' : '누락'} />
+            {requiredDocuments.length ? (
+              <DetailRow
+                label="추가 제출서류"
+                value={`${requiredDocuments.filter((document) => uploadedSupportingDocumentKeys.has(document.key)).length} / ${requiredDocuments.length}건 제출`}
+              />
+            ) : null}
             {additionalDrivers.length ? <DetailRow label="추가 운전자" value={`${additionalDrivers.length}명 · ${additionalDriverCost}`} stacked /> : null}
           </ListGroup>
           <div style={{ fontSize: FS.title, fontWeight: FW.head, margin: '24px 0 10px', display: 'flex', alignItems: 'center' }}>

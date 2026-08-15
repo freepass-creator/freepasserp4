@@ -8,7 +8,7 @@ import {
   providerContractIdentity,
   resolveContractTemplateProfile,
 } from '../lib/domain/esign-template-profile';
-import { STANDARD_VERSION, findTemplate } from '../lib/domain/esign-templates';
+import { RENT_STANDARD_VERSION, findTemplate } from '../lib/domain/esign-templates';
 
 let pass = 0;
 let fail = 0;
@@ -34,7 +34,7 @@ const overrides = parseProviderTemplateOverrides(JSON.stringify({
       templateId: 'external-sonogong-rent-v1',
       label: '손오공 렌트 커스텀',
       version: 'sonogong-rent-v1',
-      baseVersion: STANDARD_VERSION,
+      baseVersion: RENT_STANDARD_VERSION,
     },
   },
 }));
@@ -43,7 +43,7 @@ check('공급사 코드는 대문자로 정규화', custom.providerCode === 'RP0
 check('등록된 업체의 해당 기준서식만 커스텀판 자동 적용',
   custom.mode === 'custom'
   && custom.externalTemplateId === 'external-sonogong-rent-v1'
-  && custom.baseVersion === STANDARD_VERSION);
+  && custom.baseVersion === RENT_STANDARD_VERSION);
 const untouched = resolveContractTemplateProfile(
   subscriptionIncluded, 'external-sub-included-v1', 'RP012', overrides,
 );

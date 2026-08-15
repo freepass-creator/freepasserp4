@@ -53,6 +53,9 @@ const policy = {
   annual_mileage: '연 2만km',
   penalty_condition: '잔여 대여료의 30%',
   basic_driver_age: '만 26세 이상',
+  esign_required_documents: JSON.stringify([
+    { key: 'resident_register', label: '주민등록등본', note: '최근 3개월 이내', required: true },
+  ]),
 };
 const templateProfile = {
   mode: 'custom' as const,

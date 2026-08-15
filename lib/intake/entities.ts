@@ -267,6 +267,10 @@ export const ENTITIES: Record<string, Entity> = {
         key: 'contract_authoring', label: '계약서 작성', type: 'select', options: [...CONTRACT_AUTHORING], manual: true,
         note: '「프리패스가 작성」이라야 전자계약 발송',
       },
+      {
+        key: 'esign_required_documents', label: '고객 추가 제출서류', type: 'text', manual: true,
+        note: '공급사 정책별 서류 묶음 · 정책관리 전자계약 패널에서 편집',
+      },
       // 돈 — 날짜·횟수는 range 로 오입력을 막는다. 잘못 들어가면 정산액이 통째로 틀어진다.
       { key: 'late_fee_rate', label: '지연손해금율(0~1)', type: 'number', range: [0, 0.24], manual: true, note: '약관 제25조 · 연 24% → 0.24 (관계 법령상 허용 한도 내)' },
       { key: 'deposit_return_days', label: '보증금 반환기한(일)', type: 'number', manual: true, note: '약관 제6조 · 반납 후 N일 이내' },

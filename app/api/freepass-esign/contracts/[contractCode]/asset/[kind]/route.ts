@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { verifyActiveBearer } from '@/lib/server/firebase-admin';
 import {
-  canManageFreepassEsign,
+  canReviewFreepassEsign,
   freepassStorageBucket,
   loadFreepassEsignBundle,
   sessionHashFromContract,
@@ -30,13 +30,14 @@ export async function GET(
   let actor;
   try { actor = await verifyActiveBearer(request); }
   catch { return json({ error: '전자계약 서버 인증을 사용할 수 없습니다.' }, 503); }
-  if (!canManageFreepassEsign(actor)) return json({ error: '관리자만 본인확인 자료를 볼 수 있습니다.' }, 403);
+  if (!canReviewFreepassEsign(actor)) return json({ error: '관리자만 본인확인 자료를 볼 수 있습니다.' }, 403);
 
   const resolved = await params;
   const contractCode = validContractCode(resolved.contractCode);
   const kind = String(resolved.kind || '');
   const additionalDriverSlot = Number(kind.match(/^additional-driver-license-([1-3])$/)?.[1] || 0);
-  if (!contractCode || (!['id-card', 'selfie'].includes(kind) && !additionalDriverSlot)) return json({ error: '요청이 올바르지 않습니다.' }, 400);
+  const supportingKey = kind.match(/^supporting-([a-z0-9][a-z0-9_-]{0,47})$/i)?.[1] || '';
+  if (!contractCode || (!['id-card', 'selfie'].includes(kind) && !additionalDriverSlot && !supportingKey)) return json({ error: '요청이 올바르지 않습니다.' }, 400);
   const bundle = await loadFreepassEsignBundle(contractCode);
   if (!bundle) return json({ error: '계약을 찾을 수 없습니다.' }, 404);
   const hash = sessionHashFromContract(bundle.contract);
@@ -46,21 +47,32 @@ export async function GET(
   const additionalDriver = additionalDriverSlot
     ? additionalDrivers[additionalDriverSlot - 1] as EsignRecord | undefined
     : undefined;
+  const supportingDocuments = Array.isArray(submission?.supporting_documents) ? submission.supporting_documents : [];
+  const supportingDocument = supportingKey
+    ? supportingDocuments.find((value) => {
+      const row = value && typeof value === 'object' && !Array.isArray(value) ? value as EsignRecord : {};
+      return String(row.key || '') === supportingKey;
+    }) as EsignRecord | undefined
+    : undefined;
   const path = String(
     kind === 'id-card'
       ? submission?.idCardPath || ''
       : kind === 'selfie'
         ? submission?.selfiePath || ''
-        : additionalDriver?.licensePath || '',
+        : additionalDriverSlot
+          ? additionalDriver?.licensePath || ''
+          : supportingDocument?.path || '',
   );
   const contentType = String(
     kind === 'id-card'
       ? submission?.idCardContentType || 'image/jpeg'
       : kind === 'selfie'
         ? submission?.selfieContentType || 'image/jpeg'
-        : additionalDriver?.licenseContentType || 'image/jpeg',
+        : additionalDriverSlot
+          ? additionalDriver?.licenseContentType || 'image/jpeg'
+          : supportingDocument?.contentType || 'application/octet-stream',
   );
-  if (!path) return json({ error: '첨부된 사진이 없습니다.' }, 404);
+  if (!path) return json({ error: '첨부된 자료가 없습니다.' }, 404);
   try {
     const [buffer] = await freepassStorageBucket().file(path).download();
     return new NextResponse(new Uint8Array(buffer), {

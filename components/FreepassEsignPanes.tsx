@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { getAuthClient } from '@/lib/firebase/client';
+import { useSession } from '@/lib/auth-context';
 import {
   contractKindFor,
   defaultStandardTemplate,
@@ -60,6 +61,14 @@ type AdminState = {
       license?: boolean;
       assetUrl?: string;
     }>;
+    supportingDocuments?: Array<{
+      key?: string;
+      label?: string;
+      required?: boolean;
+      originalName?: string;
+      submitted?: boolean;
+      assetUrl?: string;
+    }>;
     assetUrls?: { idCard?: string; selfie?: string };
   } | null;
   events?: Array<{ type?: string; at?: number; reason?: string; items?: string[]; handoverDate?: string }>;
@@ -71,7 +80,7 @@ const won = (value: unknown) => `${N(value).toLocaleString('ko-KR')}원`;
 
 async function bearer(forceRefresh = false) {
   const user = getAuthClient()?.currentUser;
-  if (!user) throw new Error('관리자 로그인이 필요합니다.');
+  if (!user) throw new Error('로그인이 필요합니다.');
   // Firebase SDK가 만료 여부를 확인하고 필요할 때만 갱신한다. 매 요청마다 강제 갱신하면
   // 클라이언트와 로컬 서버의 수초 시계차 때문에 막 발급된 토큰이 미래 토큰으로 보일 수 있다.
   return user.getIdToken(forceRefresh);
@@ -188,13 +197,13 @@ export function FreepassEsignLinkPane({
   const sessionStatus = S(state?.session?.status);
   const linkExpiresAt = N(state?.session?.expiresAt || current.sign_expires_at);
   const expired = !completed
-    && !['pending_review', 'signed'].includes(sessionStatus)
+    && !['pending_review', 'approving', 'rejecting', 'signed'].includes(sessionStatus)
     && linkExpiresAt > 0
     && linkExpiresAt <= Date.now();
   const linkInactive = sessionStatus === 'revoked' || N(current.sign_revoked_at) > 0 || expired;
   const linkStatusLabel = ({
     sent: '발행', opened: '고객 열람', pending_review: '관리자 검토대기',
-    approving: '승인 처리 중', signed: '완료', revoked: '해지',
+    approving: '승인 처리 중', rejecting: '보완 처리 중', signed: '완료', revoked: '해지',
   } as Record<string, string>)[sessionStatus] || S(current.sign_status) || '상태 확인 중';
   const tpl = findTemplate(current.standard_template_id) || defaultStandardTemplate();
   const maturity = maturityOf(current) || '반납형';
@@ -207,7 +216,7 @@ export function FreepassEsignLinkPane({
       return;
     }
     void copyText(link).then((ok) => toast(
-      ok ? '계약 링크를 복사했습니다. 영업자에게 전달하세요.' : '링크 복사에 실패했습니다.',
+      ok ? '계약 링크를 복사했습니다. 고객에게 전달하세요.' : '링크 복사에 실패했습니다.',
       ok ? 'ok' : 'error',
     ));
   };
@@ -229,7 +238,7 @@ export function FreepassEsignLinkPane({
       <SectionLabel>프리패스 데이터 확인</SectionLabel>
       {loadError ? <Badge tone="red" variant="solid">{loadError}</Badge> : null}
       <ListGroup>
-        <DetailRow label="고객" value={[current.customer_name, current.customer_phone].filter(Boolean).join(' · ') || '값 필요'} />
+        <DetailRow label="계약자" value={[current.customer_name, current.customer_phone].filter(Boolean).join(' · ') || '미지정 · 링크 수신자가 직접 입력'} />
         <DetailRow label="차량" value={[current.car_number_snapshot, current.vehicle_name_snapshot].filter(Boolean).join(' · ') || '값 필요'} />
         <DetailRow label="대여조건" value={`${N(current.rent_month_snapshot) || '—'}개월 · 월 ${won(current.rent_amount_snapshot)} · 보증금 ${won(current.deposit_amount_snapshot)}`} stacked />
       </ListGroup>
@@ -269,11 +278,13 @@ export function FreepassEsignLinkPane({
                 disabled={busy}
                 onClick={() => void run({
                   action: 'issue', standardTemplateId: tpl.id, contractKind: spec.key,
-                }, '계약 링크를 만들었습니다. 링크를 복사해 영업자에게 전달하세요.')}
+                }, '계약 링크를 만들었습니다. 링크를 복사해 고객에게 전달하세요.')}
               >
                 {busy ? '링크 만드는 중…' : '계약 링크 만들기'}
               </Btn>
-              <div style={{ fontSize: FS.cap, color: C.faint }}>링크만 생성됩니다. 링크를 복사해 영업자에게 전달하면 영업자가 고객에게 안내합니다.</div>
+              <div style={{ fontSize: FS.cap, color: C.faint, lineHeight: 1.6 }}>
+                수신자를 미리 지정하지 않는 고객 작성 링크입니다. 링크를 받은 사람이 본인정보를 입력하고 서명하며, 최초 제출자가 계약자로 접수됩니다. 공개 게시하지 말고 계약할 고객에게만 전달하세요.
+              </div>
             </>
           ) : null}
         </>
@@ -327,11 +338,13 @@ export function FreepassEsignLinkPane({
                 <Btn title="고객 화면 열기" variant="ghost" onClick={() => window.open(link, '_blank', 'noreferrer')}>
                   <ButtonLabel icon={<ExternalLink size={ICON.md} aria-hidden />}>고객 화면</ButtonLabel>
                 </Btn>
-                <Btn title="링크 해지" variant="ghost" disabled={busy} onClick={() => void run({ action: 'revoke' }, '서명 링크를 해지했습니다.')}>
-                  <ButtonLabel icon={<Link2Off size={ICON.md} aria-hidden />}>링크 해지</ButtonLabel>
-                </Btn>
+                {['sent', 'opened'].includes(sessionStatus) ? (
+                  <Btn title="링크 해지" variant="ghost" disabled={busy} onClick={() => void run({ action: 'revoke' }, '서명 링크를 해지했습니다.')}>
+                    <ButtonLabel icon={<Link2Off size={ICON.md} aria-hidden />}>링크 해지</ButtonLabel>
+                  </Btn>
+                ) : null}
               </div>
-              <div style={{ fontSize: FS.cap, color: C.faint }}>링크를 복사해 영업자에게 전달하세요. 영업자가 고객에게 전달하면 고객이 직접 정보를 입력하고 계약 내용을 확인·서명합니다.</div>
+              <div style={{ fontSize: FS.cap, color: C.faint }}>링크를 복사해 고객에게 전달하세요. 고객이 직접 정보를 입력하고 계약 내용을 확인·서명합니다.</div>
               <SectionLabel>② A4 계약서 확인·출력</SectionLabel>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 <Btn title="A4 초안 미리보기" variant="ghost" onClick={() => void openProtected(`/api/freepass-esign/contracts/${encodeURIComponent(code)}/document?draft=1`).catch((e) => toast(String(e.message || e), 'error'))}>
@@ -374,6 +387,7 @@ const EVENT_LABEL: Record<string, string> = {
 };
 const SUPPLEMENT_ITEMS = [
   { key: 'identity', label: '운전면허증·셀카' },
+  { key: 'documents', label: '추가 제출서류' },
   { key: 'contract', label: '계약정보' },
   { key: 'agreement', label: '약관확인' },
   { key: 'signature', label: '서명' },
@@ -386,6 +400,8 @@ export function FreepassEsignProgressPane({
   contract: EntityRecord | null;
   onChanged: () => void | Promise<void>;
 }) {
+  const currentUser = useSession();
+  const canReview = currentUser?.role === 'admin';
   const code = S(contract?.contract_code);
   const [state, setState] = useState<AdminState | null>(null);
   const [busy, setBusy] = useState(false);
@@ -434,7 +450,11 @@ export function FreepassEsignProgressPane({
     ? <Badge tone="red" variant="solid">{loadError}</Badge>
     : <CenterNote>③에서 프리패스 전자계약 링크를 먼저 만드세요.</CenterNote>;
   const progress = Math.max(0, Math.min(8, N(active.esign_progress)));
-  const displayStatus = sessionStatus === 'approving' ? '승인 처리 중' : (S(active.sign_status) || '발행');
+  const displayStatus = sessionStatus === 'approving'
+    ? '승인 처리 중'
+    : sessionStatus === 'rejecting'
+      ? '보완 처리 중'
+      : (S(active.sign_status) || '발행');
 
   const run = async (body: Rec, success: string) => {
     if (busy) return;
@@ -495,8 +515,8 @@ export function FreepassEsignProgressPane({
         })}
       </ListGroup>
 
-      <SectionLabel>본인확인·서명 검토</SectionLabel>
-      {state?.submission ? (
+      {canReview ? <SectionLabel>본인확인·서명 검토</SectionLabel> : <SectionLabel>관리자 확인</SectionLabel>}
+      {canReview && state?.submission ? (
         <>
           <ListGroup>
             <DetailRow label="제출자" value={[state.submission.customerName, state.submission.customerPhone].filter(Boolean).join(' · ') || '—'} />
@@ -536,6 +556,29 @@ export function FreepassEsignProgressPane({
               </div>
             </>
           ) : null}
+          {(state.submission.supportingDocuments || []).length ? (
+            <>
+              <SectionLabel>공급사 요청서류</SectionLabel>
+              <ListGroup>
+                {(state.submission.supportingDocuments || []).map((document, index) => (
+                  <DetailRow
+                    key={document.key || index}
+                    label={document.label || `추가서류 ${index + 1}`}
+                    value={[document.required ? '필수' : '선택', document.originalName || '파일명 없음'].join(' · ')}
+                    valueColor={document.submitted ? C.ok : C.danger}
+                    stacked
+                  />
+                ))}
+              </ListGroup>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {(state.submission.supportingDocuments || []).map((document, index) => document.assetUrl ? (
+                  <Btn key={document.assetUrl} title={`${document.label || `추가서류 ${index + 1}`} 확인`} variant="ghost" onClick={() => void openAsset(document.assetUrl!)}>
+                    {document.label || `추가서류 ${index + 1}`}
+                  </Btn>
+                ) : null)}
+              </div>
+            </>
+          ) : null}
           {state.submission.signature ? (
             <div style={{ padding: 8, border: `1px solid ${C.line}`, background: C.inverse }}>
               <div style={{ fontSize: FS.cap, color: C.mute, marginBottom: 4 }}>고객 서명</div>
@@ -543,9 +586,13 @@ export function FreepassEsignProgressPane({
             </div>
           ) : null}
         </>
-      ) : <div style={{ fontSize: FS.cap, color: C.faint }}>고객 제출을 기다리는 중입니다.</div>}
+      ) : (
+        <div style={{ fontSize: FS.cap, color: C.faint }}>
+          {canReview ? '고객 제출을 기다리는 중입니다.' : '고객 제출 후 관리자가 본인확인 자료와 서명을 검토합니다.'}
+        </div>
+      )}
 
-      {sessionStatus === 'pending_review' ? (
+      {canReview && sessionStatus === 'pending_review' ? (
         <>
           <SectionLabel>보완 요청</SectionLabel>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -574,20 +621,24 @@ export function FreepassEsignProgressPane({
             <ButtonLabel icon={<FileDown size={ICON.md} aria-hidden />}>완료 PDF 열기</ButtonLabel>
           </Btn>
           {active.esign_verify_url ? <Btn title="봉인 검증" variant="ghost" onClick={() => window.open(S(active.esign_verify_url), '_blank', 'noreferrer')}>봉인 검증</Btn> : null}
-          <SectionLabel>인도일 확정</SectionLabel>
-          <div style={{ fontSize: FS.cap, color: C.mute, lineHeight: 1.5 }}>
-            실제 차량 인도일을 계약 시작일로 확정하고 대여기간으로 종료일을 계산합니다.
-          </div>
-          {savedDate ? (
-            <div style={{ fontSize: FS.cap, fontWeight: FW.strong }}>
-              인도일 {savedDate}
-              {savedHandover?.contract_start ? ` · ${S(savedHandover.contract_start)} ~ ${S(savedHandover.contract_end)}` : ''}
-            </div>
-          ) : <div style={{ fontSize: FS.cap, color: C.faint }}>아직 인도일 없음 · 보완 필요</div>}
-          <Input type="date" value={handoverDate} onChange={setHandoverDate} ariaLabel="차량 인도일" full />
-          <Btn title={savedDate ? '인도일 다시 확정' : '인도일 확정'} disabled={busy || !/^\d{4}-\d{2}-\d{2}$/.test(handoverDate)} onClick={() => void saveHandover()}>
-            {busy ? '저장 중…' : savedDate ? '인도일 다시 확정' : '인도일 확정'}
-          </Btn>
+          {canReview ? (
+            <>
+              <SectionLabel>인도일 확정</SectionLabel>
+              <div style={{ fontSize: FS.cap, color: C.mute, lineHeight: 1.5 }}>
+                실제 차량 인도일을 계약 시작일로 확정하고 대여기간으로 종료일을 계산합니다.
+              </div>
+              {savedDate ? (
+                <div style={{ fontSize: FS.cap, fontWeight: FW.strong }}>
+                  인도일 {savedDate}
+                  {savedHandover?.contract_start ? ` · ${S(savedHandover.contract_start)} ~ ${S(savedHandover.contract_end)}` : ''}
+                </div>
+              ) : <div style={{ fontSize: FS.cap, color: C.faint }}>아직 인도일 없음 · 보완 필요</div>}
+              <Input type="date" value={handoverDate} onChange={setHandoverDate} ariaLabel="차량 인도일" full />
+              <Btn title={savedDate ? '인도일 다시 확정' : '인도일 확정'} disabled={busy || !/^\d{4}-\d{2}-\d{2}$/.test(handoverDate)} onClick={() => void saveHandover()}>
+                {busy ? '저장 중…' : savedDate ? '인도일 다시 확정' : '인도일 확정'}
+              </Btn>
+            </>
+          ) : null}
         </>
       ) : null}
 
