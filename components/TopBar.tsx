@@ -23,11 +23,13 @@ import { companyAlias } from '@/lib/domain/identity';
 // 웹 우측 = 오늘·소속·이름·직책. 주탭 아이콘·워딩 = NAV_ICON / NAV_LABEL SSOT.
 const ALL_ROLES: Role[] = ['agent', 'provider', 'admin'];
 const GROUPS: { title: string; items: { href?: string; label: string; icon: LucideIcon; soon?: boolean; roles?: Role[]; hideMobile?: boolean }[] }[] = [
-  { title: '', items: [{ href: '/', label: NAV_LABEL.product, icon: NAV_ICON.product, roles: ALL_ROLES }] },
+  // '/' 는 공개 안내 페이지가 됐다(2026-08-15) — 내부 매물 화면은 /finder 다.
+  { title: '', items: [{ href: '/finder', label: NAV_LABEL.product, icon: NAV_ICON.product, roles: ALL_ROLES }] },
   { title: '영업', items: [
     // 계약문의 하나로 간다 — 관리자에게는 이 안에서 «응대 큐»가 열린다(docs/ADMIN_DESK.md).
     { href: '/chat', label: NAV_LABEL.chat, icon: NAV_ICON.chat, roles: ALL_ROLES },
     { href: '/contract', label: NAV_LABEL.contract, icon: NAV_ICON.contract, roles: ['agent', 'provider', 'admin'] },
+    { href: '/esign', label: NAV_LABEL.esign, icon: FileSignature, roles: ['agent', 'admin'] },
   ] },
   { title: '견적·구독', items: [
     { href: '/sonogong', label: '중고 픽업구독', icon: RefreshCw, roles: ALL_ROLES },
@@ -38,7 +40,6 @@ const GROUPS: { title: string; items: { href?: string; label: string; icon: Luci
     { href: '/policy', label: NAV_LABEL.policy, icon: ScrollText, roles: ['provider', 'admin'] },
   ] },
   { title: '관리자', items: [
-    { href: '/esign', label: NAV_LABEL.esign, icon: FileSignature, roles: ['admin'] },
     { href: '/settlement', label: NAV_LABEL.settlement, icon: FileText, roles: ['admin'] },
     { href: '/members', label: NAV_LABEL.members, icon: Users, roles: ['admin'] },
     { href: '/audit', label: NAV_LABEL.audit, icon: History, roles: ['admin'] },
@@ -54,7 +55,7 @@ const GROUPS: { title: string; items: { href?: string; label: string; icon: Luci
 /** 라우트 → 상태 라벨(앱바 title 없을 때). */
 function statusFromPath(path: string): ReactNode {
   // WorkPage KPI 라벨과 맞춤 — 마운트 전 NAV→KPI 플래시 방지
-  if (path === '/') return <PageStatus icon={NAV_ICON.product} label={NAV_LABEL.product} />;
+  if (path === '/finder') return <PageStatus icon={NAV_ICON.product} label={NAV_LABEL.product} />;
   if (path.startsWith('/m/')) return <PageStatus icon={NAV_ICON.product} label="상품 상세" />;
   if (path.startsWith('/chat')) return <PageStatus icon={NAV_ICON.chat} label="문의 미확인" />;
   if (path.startsWith('/contract')) return <PageStatus icon={NAV_ICON.contract} label="계약진행중" />;
@@ -316,7 +317,8 @@ export default function TopBar() {
   }, [path]);
   const line = C.line, ink = C.ink;
   // /m = 모바일 미리보기(폰 프레임) → 앱 상단바 없이 전체화면. /m/[code](실제 모바일 상세)는 상단바 유지.
-  if (path === '/login' || path === '/m' || path.startsWith('/q/') || path.startsWith('/catalog') || path.startsWith('/sign/')) return null;
+  // '/' = 공개 안내 페이지(상품시트 입장) — ERP 상단바가 뜨면 안 된다(2026-08-15 · ERP 개선 대기).
+  if (path === '/' || path === '/login' || path === '/m' || path.startsWith('/q/') || path.startsWith('/catalog') || path.startsWith('/sign/')) return null;
   const backLabel = backKind === 'list' ? '목록' : '이전';
   const backIcon = backKind === 'list'
     ? <List size={mobile ? 18 : 16} strokeWidth={2.25} />

@@ -99,12 +99,13 @@ export default function LoginPage() {
   const switchMode = (m: Mode) => { setMode(m); say(''); };
 
   // 이미 로그인한 계정만 홈으로 보낸다. 비로그인 ERP 게스트 진입은 제공하지 않는다.
-  useEffect(() => { if (firebaseReadySafe() && getSession()) router.replace('/'); }, [router]);
+  // 로그인 뒤 도착지는 /finder — '/' 는 공개 안내 페이지가 됐다(2026-08-15).
+  useEffect(() => { if (firebaseReadySafe() && getSession()) router.replace('/finder'); }, [router]);
 
   const doLogin = async (e: React.FormEvent) => {
     e.preventDefault(); if (busy) return;
     setBusy(true); say('');
-    try { await login(email.trim(), pw); await waitForSession(); router.replace('/'); }
+    try { await login(email.trim(), pw); await waitForSession(); router.replace('/finder'); }
     catch (err) { console.error('[login]', err); say(koreanAuthMsg(err, '로그인 실패'), 'err'); setBusy(false); }
   };
 

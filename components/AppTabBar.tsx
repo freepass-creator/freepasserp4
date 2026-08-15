@@ -14,8 +14,8 @@ import { refreshCurrentPage } from '@/lib/page-refresh';
 
 /**
  * 모바일 하단 탭.
- *   공통: 상품찾기 · 계약문의 · 계약진행 · 설정
- *   공급사·관리자: + 재고관리
+ *   영업자: 상품찾기 · 계약진행 · 전자계약 · 설정
+ *   공급사·관리자: 상품찾기 · 계약문의 · 계약진행 · 재고관리 · 설정
  * 라벨 = NAV_LABEL SSOT · 아이콘 = NAV_ICON SSOT (상단 메뉴와 동일)
  */
 function setTabCss(on: boolean) {
@@ -94,6 +94,7 @@ export default function AppTabBar() {
     && !kb.open
     && isTabRoute(path, tabRole)
     && !hidden
+    && path !== '/'          // 공개 안내 페이지(상품시트 입장)에는 ERP 탭바를 안 띄운다
     && path !== '/login'
     && !path.startsWith('/q/')
     && !path.startsWith('/catalog')
@@ -107,7 +108,7 @@ export default function AppTabBar() {
   if (!show) return null;
 
   const active = (href: string) => {
-    if (href === '/') return path === '/' || path.startsWith('/m/');
+    if (href === '/finder') return path === '/finder' || path.startsWith('/m/');
     return path === href || path.startsWith(href + '/');
   };
 
