@@ -62,6 +62,12 @@ if (ghost.length) {
   for (const g of ghost.slice(0, 10)) console.log(`     ${g}`);
   for (const [p, c] of [...want]) if (ghost.includes(c)) want.delete(p);
 }
+const blocked = [...new Set(want.values())].filter((c) => BOOK.byCode.get(c)?.usageTier === 'blocked');
+if (blocked.length) {
+  console.log(`\n  ⛔ 신규 배정이 금지된 마스터 코드 ${blocked.length}개 — 확정 또는 수동검증 후보가 아님`);
+  for (const code of blocked.slice(0, 10)) console.log(`     ${code}`);
+  for (const [p, code] of [...want]) if (blocked.includes(code)) want.delete(p);
+}
 console.log(`  마스터 대조 통과 ${want.size}대`);
 
 /** 우리 제공시트 전부. */

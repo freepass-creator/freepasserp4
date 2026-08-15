@@ -30,7 +30,7 @@ import { classifyVehicleClass } from '../lib/domain/vehicle-class';
 import { SALES_ALIAS } from '../lib/domain/sales-sheet-mapping';
 import { AI_TAIL_COLUMNS } from '../lib/domain/supplier-template-sheet';
 import { companyAlias, supplierNameKeys } from '../lib/domain/identity';
-import { MASTER_SHEET_ID, MASTER_TAB, masterCells, pickMasterCode, readMasterSheet } from '../lib/domain/vehicle-master-sheet';
+import { MASTER_SHEET_ID, MASTER_TAB, masterCells, pickConfirmedMasterCode, readMasterSheet } from '../lib/domain/vehicle-master-sheet';
 import type { MasterEntry } from '../lib/domain/vehicle-master-types';
 import type { EntityRecord } from '../lib/intake/entities';
 
@@ -255,7 +255,7 @@ for (const t of targets) {
        *   「그 차에 대해서 코드를 박아두면 절대 틀릴 일이 없음」).
        *
        *   ① 이미 코드가 박혀 있으면 **그걸 믿는다.** 다시 알아맞히지 않는다.
-       *   ② 없으면 스냅이 낸 다섯 값으로 마스터에서 찾는다.
+       *   ② 없으면 스냅이 낸 다섯 값으로 마스터의 「확정/확정」 행에서만 찾는다.
        *   ③ 후보가 여럿이거나 없으면 **안 박는다.** 목록으로 남겨 사람이 정한다 —
        *      아무거나 박으면 「절대 안 틀린다」는 약속이 그 자리에서 깨진다.
        *
@@ -265,8 +265,11 @@ for (const t of targets) {
       const already = exactCell('차종코드');
       const pick = already
         ? { code: already, how: '하나' as const, candidates: [already] }
-        : (ok ? pickMasterCode(BOOK, S(snap!.maker), S(snap!.model), S(snap!.sub_model), variant, S(snap!.trim_name),
-                               fuelDisplay(variant), S(snap!.engine_cc))
+        : (ok ? pickConfirmedMasterCode(BOOK, S(snap!.maker), S(snap!.model), S(snap!.sub_model), variant, S(snap!.trim_name),
+                               fuelDisplay(variant), S(snap!.engine_cc), {
+                                 drivetrain: snap!.drive_type,
+                                 seats: snap!.seats,
+                               })
               : { code: '', how: '없음' as const, candidates: [] as string[] });
       const mrow = pick.code ? BOOK.byCode.get(pick.code) : undefined;
       if (BOOK.byCode.size && ok && !pick.code) {

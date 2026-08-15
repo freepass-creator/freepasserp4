@@ -15,9 +15,16 @@
  * ⚠ **원천은 시트다.** `public/data/vehicle-master.json` 이 아니다 —
  *   그 파일에는 트림행키도 정확배기량도 없고, 같은 라벨(「디젤 2.2」)이 두 번 나와
  *   파워트레인을 구별할 방법이 없다. 시트에는 순번이 있어 구별된다.
- * ⚠ 관리상태 「제외」 줄은 **후보에서 뺀다.** 쓰지 않기로 한 줄인데 후보에 남겨 두면
- *   다섯 값이 같은 조합에서 그쪽이 뽑힐 수 있다.
+ * ⚠ 신규 후보는 상태 정책을 통과한 행만 쓴다. `검증중/1차확인·교차확인`은 수동 선택,
+ *   `확정/확정`은 자동 선택까지 허용하고 나머지는 과거 코드 조회에만 남긴다.
  */
+
+import {
+  vehicleTrimUsageTier,
+  type MasterManagementStatus,
+  type MasterVerificationStatus,
+  type VehicleTrimUsageTier,
+} from './vehicle-trim-master';
 
 const S = (v: unknown) => String(v ?? '').trim();
 
@@ -34,7 +41,9 @@ export type MasterRow = {
   /** 정확배기량(cc). 전기차는 빈 문자열이 정상이다 — 배터리 용량을 여기 넣지 마라. */
   cc: string;
   driveType: string; seat: string; batteryKwh: string;
-  state: string;         // 관리상태 — 정상 / 검증중 / 제외
+  state: string;         // 관리상태 — 보강대기 / 검증중 / 확정 / 제외
+  verificationState: string;
+  usageTier: VehicleTrimUsageTier;
 };
 
 export type MasterBook = {
@@ -48,6 +57,9 @@ export type MasterBook = {
    *   **숫자는 표기가 안 흔들린다** — 2497cc 는 어디서나 2497이다.
    */
   bySpec: Map<string, string[]>;
+  /** 자동 부여에 쓸 수 있는 「확정/확정」 행만 모은 색인. */
+  confirmedByFive: Map<string, string[]>;
+  confirmedBySpec: Map<string, string[]>;
   rows: MasterRow[];
 };
 
@@ -86,20 +98,30 @@ export const driveClass = (v: unknown): 'front' | 'rear' | 'all' | '' => {
 
 /** 「차종마스터」 탭 값 표 → 코드책. */
 export function readMasterSheet(rows: string[][]): MasterBook {
-  const book: MasterBook = { byCode: new Map(), byFive: new Map(), bySpec: new Map(), rows: [] };
+  const book: MasterBook = {
+    byCode: new Map(), byFive: new Map(), bySpec: new Map(),
+    confirmedByFive: new Map(), confirmedBySpec: new Map(), rows: [],
+  };
   if (!rows.length) return book;
   const hdr = (rows[0] || []).map(S);
   const at = (n: string) => hdr.indexOf(n);
   const c = {
     code: at('트림행키'), mid: at('마스터ID'), maker: at('제조사'), model: at('모델'), sub: at('세부모델'),
     pt: at('파워트레인'), trim: at('세부트림'), fuel: at('연료'), cc: at('정확배기량(cc)'),
-    drive: at('구동방식'), seat: at('인승'), kwh: at('배터리(kWh)'), state: at('관리상태'),
+    drive: at('구동방식'), seat: at('인승'), kwh: at('배터리(kWh)'),
+    state: at('관리상태'), verification: at('검증상태'),
   };
   if (c.code < 0) return book;
   const pick = (r: string[], i: number) => (i >= 0 ? S(r[i]) : '');
   for (const r of rows.slice(1)) {
     const code = pick(r, c.code);
     if (!code) continue;
+    const state = pick(r, c.state);
+    const verificationState = pick(r, c.verification);
+    const usageTier = vehicleTrimUsageTier(
+      state as MasterManagementStatus,
+      verificationState as MasterVerificationStatus,
+    );
     const row: MasterRow = {
       code, masterId: pick(r, c.mid),
       maker: pick(r, c.maker), model: pick(r, c.model), subModel: pick(r, c.sub),
@@ -107,16 +129,20 @@ export function readMasterSheet(rows: string[][]): MasterBook {
       // ⚠ 숫자만 남긴다. 「1,999cc」처럼 적힌 줄이 섞여 있다.
       cc: pick(r, c.cc).replace(/[^\d]/g, ''),
       driveType: pick(r, c.drive), seat: pick(r, c.seat).replace(/[^\d]/g, ''),
-      batteryKwh: pick(r, c.kwh), state: pick(r, c.state),
+      batteryKwh: pick(r, c.kwh), state, verificationState, usageTier,
     };
     book.byCode.set(code, row);
     book.rows.push(row);
-    // ⚠ 「제외」는 후보에서 뺀다 — 쓰지 않기로 한 줄이다. 조회(byCode)로는 여전히 보인다.
-    if (row.state === '제외') continue;
+    // 차단 행은 신규 후보에서 뺀다. 과거 이력 조회(byCode)에는 남겨 코드의 의미를 보존한다.
+    if (row.usageTier === 'blocked') continue;
     const k = fiveKey(row.maker, row.model, row.subModel, row.powertrain, row.trim);
     book.byFive.set(k, [...(book.byFive.get(k) || []), code]);
     const sk = specKey(row.maker, row.model, row.subModel, row.fuel, row.cc, row.trim);
     book.bySpec.set(sk, [...(book.bySpec.get(sk) || []), code]);
+    if (row.usageTier === 'automatic') {
+      book.confirmedByFive.set(k, [...(book.confirmedByFive.get(k) || []), code]);
+      book.confirmedBySpec.set(sk, [...(book.confirmedBySpec.get(sk) || []), code]);
+    }
   }
   return book;
 }
@@ -132,10 +158,16 @@ export type CodePick = {
   candidates: string[];
 };
 
+export type MasterMatchAxes = {
+  drivetrain?: unknown;
+  seats?: unknown;
+  batteryKwh?: unknown;
+};
+
 /** 그 세부모델이 마스터에 있기는 한가 — 없으면 «마스터에 넣을 차»다. */
-function hasSubModel(book: MasterBook, maker: unknown, model: unknown, subModel: unknown) {
+function hasSubModel(book: MasterBook, maker: unknown, model: unknown, subModel: unknown, automaticOnly = false) {
   const k = [maker, model, subModel].map((v) => S(v).replace(/\s+/g, ' ').toLowerCase()).join('|');
-  return book.rows.some((r) => r.state !== '제외'
+  return book.rows.some((r) => (automaticOnly ? r.usageTier === 'automatic' : r.usageTier !== 'blocked')
     && [r.maker, r.model, r.subModel].map((v) => S(v).replace(/\s+/g, ' ').toLowerCase()).join('|') === k);
 }
 
@@ -145,38 +177,79 @@ function hasSubModel(book: MasterBook, maker: unknown, model: unknown, subModel:
  *   (카니발 KA4 「디젤 2.2 노블레스」가 v01·v02 둘 다에 있다 — 연식·사양이 달라 갈린 것).
  *   아무거나 박으면 그게 곧 «절대 안 틀린다»는 약속을 깨는 자리다.
  */
-export function pickMasterCode(
+function pickMasterCodeByMode(
   book: MasterBook,
   maker: unknown, model: unknown, subModel: unknown, powertrain: unknown, trim: unknown,
   fuel?: unknown, cc?: unknown,
+  axes: MasterMatchAxes = {},
+  automaticOnly = false,
 ): CodePick {
+  const byFive = automaticOnly ? book.confirmedByFive : book.byFive;
+  const bySpec = automaticOnly ? book.confirmedBySpec : book.bySpec;
   /** ① 라벨이 그대로 맞으면 그게 제일 확실하다. */
-  const byLabel = book.byFive.get(fiveKey(maker, model, subModel, powertrain, trim)) || [];
+  const byLabel = byFive.get(fiveKey(maker, model, subModel, powertrain, trim)) || [];
   if (byLabel.length === 1) return { code: byLabel[0], how: '하나', candidates: byLabel };
+
+  const narrowByAxes = (keys: string[]) => {
+    let narrowed = [...keys];
+    const wantedDrive = driveClass(axes.drivetrain) || driveClass(powertrain);
+    if (wantedDrive) narrowed = narrowed.filter((key) => driveClass(book.byCode.get(key)?.driveType) === wantedDrive);
+    const wantedSeats = Number(S(axes.seats).replace(/[^\d]/g, '')) || 0;
+    if (wantedSeats) narrowed = narrowed.filter((key) => Number(book.byCode.get(key)?.seat || 0) === wantedSeats);
+    const wantedBattery = Number(S(axes.batteryKwh).replace(/[^\d.]/g, '')) || 0;
+    if (wantedBattery) narrowed = narrowed.filter((key) => {
+      const actual = Number(S(book.byCode.get(key)?.batteryKwh).replace(/[^\d.]/g, '')) || 0;
+      return actual > 0 && Math.abs(actual - wantedBattery) < 0.11;
+    });
+    return narrowed;
+  };
+  if (byLabel.length > 1) {
+    const narrowed = narrowByAxes(byLabel);
+    if (narrowed.length === 1) return { code: narrowed[0], how: '하나', candidates: byLabel };
+  }
 
   /**
    * ② 라벨이 안 맞으면 **연료·배기량·트림**으로 찾는다. 숫자는 표기가 안 흔들린다.
    *    후보가 여럿이면 구동방식으로 가른다 — 그래도 하나로 안 좁혀지면 **안 고른다.**
    */
   if (liters(cc) || S(fuel)) {
-    const ks = book.bySpec.get(specKey(maker, model, subModel, fuel, cc, trim)) || [];
+    const ks = bySpec.get(specKey(maker, model, subModel, fuel, cc, trim)) || [];
     if (ks.length === 1) return { code: ks[0], how: '하나', candidates: ks };
     if (ks.length > 1) {
-      const want = driveClass(powertrain);
-      const narrowed = want ? ks.filter((k) => driveClass(book.byCode.get(k)?.driveType) === want) : [];
+      const narrowed = narrowByAxes(ks);
       if (narrowed.length === 1) return { code: narrowed[0], how: '하나', candidates: ks };
       return { code: '', how: '여럿', candidates: ks };
     }
   }
   if (byLabel.length > 1) return { code: '', how: '여럿', candidates: byLabel };
   /** 못 찾았으면 **어디서 갈렸는지**까지 짚어 준다. 그게 곧 사람이 할 일 목록이다. */
-  if (!hasSubModel(book, maker, model, subModel)) return { code: '', how: '세부모델없음', candidates: [] };
-  const sameTrim = book.rows.some((r) => r.state !== '제외'
+  if (!hasSubModel(book, maker, model, subModel, automaticOnly)) return { code: '', how: '세부모델없음', candidates: [] };
+  const sameTrim = book.rows.some((r) => (automaticOnly ? r.usageTier === 'automatic' : r.usageTier !== 'blocked')
     && S(r.maker).toLowerCase() === S(maker).toLowerCase()
     && S(r.model).toLowerCase() === S(model).toLowerCase()
     && S(r.subModel).replace(/\s+/g, ' ').toLowerCase() === S(subModel).replace(/\s+/g, ' ').toLowerCase()
     && S(r.trim).replace(/\s+/g, ' ').toLowerCase() === S(trim).replace(/\s+/g, ' ').toLowerCase());
   return { code: '', how: sameTrim ? '배기량안맞음' : '트림없음', candidates: [] };
+}
+
+/** 직원의 수동 검색·선택용. 검증중/1차확인 이상만 후보로 보여 준다. */
+export function pickMasterCode(
+  book: MasterBook,
+  maker: unknown, model: unknown, subModel: unknown, powertrain: unknown, trim: unknown,
+  fuel?: unknown, cc?: unknown,
+  axes: MasterMatchAxes = {},
+): CodePick {
+  return pickMasterCodeByMode(book, maker, model, subModel, powertrain, trim, fuel, cc, axes, false);
+}
+
+/** 무인 자동 부여용. 관리상태/검증상태가 모두 「확정」인 행만 선택한다. */
+export function pickConfirmedMasterCode(
+  book: MasterBook,
+  maker: unknown, model: unknown, subModel: unknown, powertrain: unknown, trim: unknown,
+  fuel?: unknown, cc?: unknown,
+  axes: MasterMatchAxes = {},
+): CodePick {
+  return pickMasterCodeByMode(book, maker, model, subModel, powertrain, trim, fuel, cc, axes, true);
 }
 
 /**
