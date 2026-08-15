@@ -593,6 +593,22 @@ html[data-fp-filter="0"] .fp-finder > .fp-sidebar { display: none; }
   min-width: 0;
   flex-wrap: nowrap;
 }
+.fp-agent-workflow {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px calc(var(--fp-frame-pad-x) + var(--fp-pane-sb, 0px)) 8px var(--fp-frame-pad-x);
+  border-bottom: 1px solid var(--border);
+  background: var(--brand-soft);
+}
+.fp-agent-workflow-actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
 .fp-finder-summary {
   display: inline-flex;
   align-items: baseline;
@@ -707,6 +723,13 @@ html[data-fp-filter="0"] .fp-finder > .fp-sidebar { display: none; }
   .fp-sidebar-body, .fp-finder-pane { flex: 1 1 0; min-height: 0; }
 }
 @media (max-width: 760px) {
+  .fp-agent-workflow {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 7px;
+    padding: 9px var(--fp-frame-pad-x);
+  }
+  .fp-agent-workflow-actions > * { flex: 1 1 0; }
   :root {
     /* 컨트롤 36 = tokens.ts CTRL 모바일과 동일(md·sm 수렴). 바 높이는 56 유지(36+10×2). */
     --fp-ctrl-h: 36px;
