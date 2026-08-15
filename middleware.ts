@@ -16,6 +16,14 @@ export function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   const rootToken = pathname.match(/^\/([^/]+)\/?$/)?.[1] || '';
 
+  // 전자계약 전용 도메인의 첫 화면은 ERP 홈이 아니라 계약 발송센터다.
+  // 공개 고객 링크와 관리자 작성 화면을 같은 도메인에서 독립적으로 사용할 수 있게 한다.
+  if (pathname === '/') {
+    const target = request.nextUrl.clone();
+    target.pathname = '/esign';
+    return NextResponse.redirect(target, 307);
+  }
+
   if (FREEPASS_TOKEN.test(rootToken)) {
     const target = request.nextUrl.clone();
     target.pathname = `/sign/${rootToken}`;

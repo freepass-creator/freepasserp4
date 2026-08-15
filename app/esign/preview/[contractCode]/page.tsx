@@ -54,7 +54,7 @@ export default function EsignPreviewPage() {
   }, [contractCode]);
 
   useEffect(() => {
-    if (!isEsignUiAllowed()) { router.replace('/'); return; }
+    if (!isEsignUiAllowed()) { router.replace('/login?next=/esign'); return; }
     void load().catch((error) => setState({ error: error instanceof Error ? error.message : '미리보기를 열지 못했습니다.' }));
   }, [load, router]);
 

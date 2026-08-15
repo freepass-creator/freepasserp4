@@ -105,6 +105,13 @@ assert.match(middleware, /FREEPASS_TOKEN/);
 assert.match(middleware, /NextResponse\.rewrite/);
 assert.match(middleware, /LEGACY_TOKEN/);
 assert.match(middleware, /chakhandeal\.vercel\.app/);
+assert.match(middleware, /pathname === '\/'/);
+assert.match(middleware, /target\.pathname = '\/esign'/);
+assert.match(sendCenter, /\/login\?next=\/esign/);
+assert.match(esignPreviewPage, /\/login\?next=\/esign/);
+const loginPage = read('app/login/page.tsx');
+assert.match(loginPage, /function loginDestination/);
+assert.match(loginPage, /!next\.startsWith\('\/\/'\)/);
 
 assert.match(publicRoute, /ref\(`v4\/esign_sessions\/\$\{hash\}`\)\.transaction/);
 assert.match(publicRoute, /Number\(current\.revokedAt \|\| 0\)/);

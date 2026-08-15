@@ -177,7 +177,7 @@ const isSonogong = (row: EntityRecord | null | undefined) => {
     || /손오공|sonogong/i.test(S(row.name || row.partner_name));
 };
 
-export function EsignSendCenter() {
+export function EsignSendCenter({ basePath = '/esign' }: { basePath?: string } = {}) {
   const router = useRouter();
   const companyId = getCompanyId();
   const [allowed, setAllowed] = useState<boolean | null>(null);
@@ -209,7 +209,7 @@ export function EsignSendCenter() {
   }, [companyId]);
 
   useEffect(() => {
-    if (!isEsignUiAllowed()) { router.replace('/'); return; }
+    if (!isEsignUiAllowed()) { router.replace(`/login?next=${encodeURIComponent(basePath)}`); return; }
     setAllowed(true);
     void load().catch(() => setContracts([]));
   }, [load, router]);
@@ -235,7 +235,7 @@ export function EsignSendCenter() {
     } finally {
       sessionStorage.removeItem(ESIGN_POLICY_DRAFT_SESSION_KEY);
       sessionStorage.removeItem(ESIGN_POLICY_SELECTION_SESSION_KEY);
-      window.history.replaceState(null, '', '/esign');
+      window.history.replaceState(null, '', basePath);
     }
   }, [contracts]);
 
