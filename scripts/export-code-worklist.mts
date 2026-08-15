@@ -49,20 +49,47 @@ const BOOK = readMasterSheet(((await api(`https://sheets.googleapis.com/v4/sprea
 console.log(`  차종마스터 ${BOOK.byCode.size}줄`);
 
 /**
- * 후보 좁히기 — **제조사가 같고, 모델 이름이 서로 안에 들어가는** 줄을 모은다.
- * ⚠ 「제외」는 뺀다. ⚠ 하나도 없으면 제조사 전체를 준다 — 빈손으로 보내면 판단할 수가 없다.
+ * ★**제조사 이름을 한 갈래로 모은다.** 공급사는 「르노」·「르노삼성」이라 쓰고 마스터는
+ *   「르노코리아」라 쓴다. 글자로 견주면 안 맞고, 안 맞으면 아래에서 «아무 제조사나» 후보로 준다.
+ * ⚠ 실측 2026-08-15: 그래서 「르노 아르카나」에 **기아 차 300개**가 후보로 갔다.
+ *   판단하는 쪽은 그 목록에서 고를 수가 없어 「마스터에 없음」이라고 답했다 —
+ *   실제로는 마스터에 「르노코리아 XM3」로 있었다. **없어서 못 박은 게 아니라 못 보여줘서였다.**
+ */
+const MAKER_ALIAS: [RegExp, string][] = [
+  [/르노|삼성|rsm/i, '르노코리아'],
+  [/쌍용|kg모빌리티|kgm/i, 'KG모빌리티'],
+  [/제네시스|genesis/i, '제네시스'],
+  [/벤츠|benz|mercedes/i, '벤츠'],
+  [/폭스바겐|volkswagen|vw/i, '폭스바겐'],
+  [/쉐보레|chevrolet|gm/i, '쉐보레'],
+];
+const makerKey = (v: unknown) => {
+  const s = S(v);
+  for (const [re, to] of MAKER_ALIAS) if (re.test(s)) return norm(to);
+  return norm(s);
+};
+
+/**
+ * 후보 좁히기 — 제조사를 맞추고, 모델 이름이 서로 안에 들어가는 줄을 모은다.
+ * ⚠ 「제외」는 뺀다. ⚠ **하나도 안 맞아도 «아무거나» 자르지 않는다** — 모델 글자로 다시 찾아보고,
+ *   그래도 없으면 «후보 없음»으로 정직하게 비운다. 엉뚱한 목록을 주면 판단하는 쪽이
+ *   「마스터에 없다」고 잘못 답하게 된다.
  */
 function candidatesFor(maker: string, modelText: string): MasterRow[] {
-  const mk = norm(maker), md = norm(modelText);
-  const live = BOOK.rows.filter((r) => r.state !== '제외');
-  const sameMaker = live.filter((r) => norm(r.maker) === mk);
-  const pool = sameMaker.length ? sameMaker : live;
-  if (!md) return pool.slice(0, 300);
-  const hit = pool.filter((r) => {
+  const mk = makerKey(maker), md = norm(modelText);
+  const live = BOOK.rows.filter((r) => r.usageTier !== 'blocked');
+  const sameMaker = live.filter((r) => makerKey(r.maker) === mk);
+  const nameHit = (pool: MasterRow[]) => pool.filter((r) => {
     const m = norm(r.model), s = norm(r.subModel);
     return (m && (md.includes(m) || m.includes(md))) || (s && (md.includes(s) || s.includes(md)));
   });
-  return (hit.length ? hit : pool).slice(0, 300);
+  if (sameMaker.length) {
+    const hit = md ? nameHit(sameMaker) : [];
+    // 제조사가 맞으면 그 제조사 전체를 주는 것이 낫다 — 이름이 갈린 차(아르카나↔XM3)를 찾을 수 있다.
+    return (hit.length ? hit : sameMaker).slice(0, 300);
+  }
+  // 제조사를 못 맞췄다 — 모델 글자로만 찾는다. 그래도 없으면 빈손으로 보낸다(거짓 후보보다 낫다).
+  return (md ? nameHit(live) : []).slice(0, 300);
 }
 
 /** 우리 제공시트 전부. */

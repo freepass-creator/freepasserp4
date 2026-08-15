@@ -26,7 +26,7 @@
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { SHEET_GRID_FIELDS, readSupplierSheet } from '../lib/domain/supplier-sheet-read';
-import { AI_TAIL_COLUMNS } from '../lib/domain/supplier-template-sheet';
+import { AI_TAIL_COLUMNS, columnOwner } from '../lib/domain/supplier-template-sheet';
 import { HANDOVER_TAB, findLogEnd, nowKST } from '../lib/domain/supplier-handover-log';
 import type { EntityRecord } from '../lib/intake/entities';
 
@@ -40,8 +40,21 @@ const TO = arg('to');
 const CODE = arg('code', 'RP000');
 if (!FROM || !TO) throw new Error('--from=<원본ID> --to=<우리시트ID> 가 필요하다');
 
-/** 우리가 써 넣는 칸 — 원본이 덮지 못한다. */
+/**
+ * ★★**칸마다 누가 정본인지는 `columnOwner` 하나가 정한다**(사장님 2026-08-15 —
+ *   「공급사시트에서는 배차상태만 확인해서 우리시트와 차량상태를 확인한다 /
+ *    대여료 변동이 있다면 그 변동에 따라 변경한다」).
+ *
+ *   · live — 매번 공급사를 따라간다(상태·기간 대여료·보증금·주행거리)
+ *   · ours — 우리가 정한다(정제칸·정책코드). 공급사가 못 덮는다
+ *   · once — **처음 한 번만** 옮겨 온다. 그 뒤로는 우리 것이다(차명 원문·색·연식·옵션·차량가격…)
+ *
+ * ⚠ 예전엔 «우리 칸만 지키고 나머지 전부를 매번 덮었다.» 그래서 한 번 정리해 둔
+ *   차명·색·연식이 다음 동기화에 원문으로 되돌아갔다. 그게 「우리만의 시트로 변환한다」와 어긋난다.
+ */
 const OURS = new Set<string>([...AI_TAIL_COLUMNS.map((c) => c.name), '정책코드'].map(norm));
+/** 「처음 한 번」 칸이라 원문으로 안 되돌린 칸 수 — 우리 기록이 지켜진 자리다. */
+let onceKept = 0;
 
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 const jwt = new JWT({
@@ -144,11 +157,19 @@ for (const t of tabs) {
     seen.add(plate);
     let hit = false;
     t.hdr.forEach((name, i) => {
-      if (!S(name) || OURS.has(norm(name))) return;          // 우리 칸은 안 건드린다
+      if (!S(name)) return;
+      const owner = columnOwner(name);
+      if (owner === 'ours') return;                          // 우리 칸은 안 건드린다
       const now = S(r[i]);
       const next = from.get(norm(name));
       if (next === undefined || next === now) return;
       if (!next && now) return;                              // 원본이 비었다고 우리 값을 지우지 않는다
+      /**
+       * ★**한 번만 옮기는 칸은 «비어 있을 때만» 채운다.**
+       *   차명 원문·색·연식·옵션은 우리 시트로 옮겨 오면 그 뒤로 우리 기록이다.
+       *   매번 원문으로 되돌리면 정리한 값이 사라지고, 사람이 고쳐도 다음날 없어진다.
+       */
+      if (owner === 'once' && now) { onceKept++; return; }
       /**
        * ⚠ **숫자로 같으면 안 건드린다.** 「93,000」과 「93000」은 같은 값이다.
        *   표기만 되돌리면 그 칸이 매번 «갱신 대상»으로 떠서, 진짜 바뀐 값이 그 속에 묻힌다.
@@ -185,11 +206,12 @@ const one = tabs.length === 1 ? tabs[0] : null;
 const newRows: string[][] = one
   ? fresh.map((plate) => {
     const from = src.get(plate)!;
-    return one.hdr.map((name) => (OURS.has(norm(name)) ? '' : S(from.get(norm(name)))));
+    // 새 차는 통째로 옮겨 온다 — 「처음 한 번」이 바로 이 자리다. 우리 칸만 비워 둔다.
+    return one.hdr.map((name) => (columnOwner(name) === 'ours' ? '' : S(from.get(norm(name)))));
   })
   : [];
 
-console.log(`  갱신할 차 ${touched}대 · 칸 ${cells}`);
+console.log(`  갱신할 차 ${touched}대 · 칸 ${cells}${onceKept ? ` · 우리 기록이라 안 되돌린 칸 ${onceKept}` : ''}`);
 if (byCol.size) {
   console.log('');
   console.log('어느 열이 갱신되나 — 여기서 «늘 갱신되는 열»이 보이면 우리 정규화를 되돌리는 중이다');

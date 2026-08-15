@@ -372,6 +372,49 @@ const POLICY_REF_COLUMN: { name: string; note: string; required?: boolean } = {
 export const TEMPLATE_COLUMNS = [...FRONT_COLUMNS, ...buildPeriodColumns(), POLICY_REF_COLUMN, ...DETAIL_COLUMNS];
 
 /**
+ * ★★**칸마다 «누가 정본인가»** — 공급사 시트에서 우리 시트로 따라올 것과 안 따라올 것.
+ *
+ *   사장님 2026-08-15 —
+ *     ① 공급사에서 제공하는 시트를 학습해서 **우리만의 시트로 변환한다**
+ *     ② 공급사시트에서는 **배차상태만** 확인해서 우리 시트와 차량상태를 맞춘다
+ *     ③ **대여료 변동**이 있다면 그 변동에 따라 변경한다
+ *
+ *   즉 **우리 시트가 기록**이고, 공급사에서 매번 따라가는 것은 «살아 움직이는 값»뿐이다.
+ *   예전엔 반대였다 — 우리 칸(정제칸·정책코드)만 지키고 **나머지 전부를 매번 공급사가 덮었다.**
+ *   그래서 한 번 정리해 둔 차명·색·연식이 다음 동기화에 원문으로 되돌아갔다.
+ *
+ * ⚠ 「살아 움직이는 값」의 기준은 **그 차를 팔 수 있는가·얼마인가**가 바뀌는 것이다.
+ *   주행거리는 실제로 늘고, 보증금은 대여료와 함께 움직인다 — 그래서 따라간다.
+ *   차종·색·연식·차대번호는 안 바뀐다 — 한 번 정리하면 우리 것이다.
+ */
+export type ColumnOwner = 'live' | 'ours' | 'once';
+
+/** 매번 공급사를 따라간다 — 상태와 돈. */
+const LIVE_COLUMNS = [
+  '상태', '배차상태', '판매상태', '차량상태',
+  '단기보증', '장기보증', '보증금',
+  '1개월', '12개월', '24개월', '36개월', '48개월', '60개월',
+  '주행거리',
+];
+
+/**
+ * 어느 칸이 누구 것인가.
+ *  · live — 매번 공급사 값으로 갱신한다(상태·대여료·보증금·주행거리)
+ *  · ours — 우리가 정한다. 공급사가 못 덮는다(정제칸 12 + 정책코드)
+ *  · once — 처음 한 번 옮겨 오고 그 뒤로는 우리 것이다(차명 원문·색·연식·옵션·차량가격 …)
+ * ⚠ 기간 대여료는 「기타기간①」처럼 제목을 바꿔 쓰는 칸도 있어 **이름에 «개월»이 들어가면 live** 로 본다.
+ */
+export function columnOwner(name: unknown): ColumnOwner {
+  const n = String(name ?? '').replace(/\s+/g, '');
+  if (!n) return 'once';
+  if (AI_TAIL_COLUMNS.some((c) => c.name.replace(/\s+/g, '') === n)) return 'ours';
+  if (n === POLICY_REF_COLUMN.name.replace(/\s+/g, '')) return 'ours';
+  if (LIVE_COLUMNS.some((c) => c.replace(/\s+/g, '') === n)) return 'live';
+  if (/개월/.test(n)) return 'live';          // 기간 대여료 — 기타기간 제목 변경까지 포함
+  return 'once';
+}
+
+/**
  * 구독 기간 표준 — **12 · 24 · 36 · 48 · 60개월**. 구독에는 단기(1개월)가 없다.
  *
  * ★구독은 요금표가 **두 벌**이다 — 인수형(끝나면 산다)·반납형(끝나면 돌려준다).
