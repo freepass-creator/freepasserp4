@@ -34,7 +34,14 @@ const CODE = arg('code'); const NAME = arg('name'); const FROM = arg('from');
 const DB = 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app';
 const ROWS = 500;
 const VEHICLE_TAB = '재고';
-if (!CODE || !NAME || !FROM) { console.log('■ --code= --name= --from= 이 모두 필요하다\n'); process.exit(1); }
+/**
+ * ★**빈 표준 한 장** — `--blank`(사장님 2026-08-15 — 「우리 기본 표준 시트 하나 만들어놔」).
+ *   공급사 데이터를 안 옮기고 **규격만** 찍는다. 새 공급사가 생기면 이걸 복사해 주면 된다.
+ * ⚠ 서식·드롭다운·정책 규격을 여기서 새로 짜지 않는다. 아래 코드를 그대로 탄다 —
+ *   따로 짜면 표준과 실제 제공시트가 갈리고, 갈리는 순간 «어느 쪽이 표준인지» 알 수 없다.
+ */
+const BLANK = process.argv.includes('--blank');
+if (!CODE || !NAME || (!FROM && !BLANK)) { console.log('■ --code= --name= --from= 이 모두 필요하다 (빈 표준은 --blank)\n'); process.exit(1); }
 
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 const SA_EMAIL = S(sa.client_email);
@@ -51,8 +58,13 @@ const api = async (url: string, init?: RequestInit): Promise<Rec> => {
 };
 
 // ── 공급사가 준 시트 읽기 ───────────────────────────────────────────────────
-const grid = await api(`https://sheets.googleapis.com/v4/spreadsheets/${FROM}?includeGridData=true&fields=${encodeURIComponent(SHEET_GRID_FIELDS)}`);
-const read = readSupplierSheet(grid as never, { partner_code: CODE } as EntityRecord);
+/** `--blank` 이면 원본을 안 읽는다 — 옮길 차가 없다. 규격만 찍는다. */
+const read = BLANK
+  ? { tabs: [] as ReturnType<typeof readSupplierSheet>['tabs'], failures: [] as ReturnType<typeof readSupplierSheet>['failures'] }
+  : readSupplierSheet(
+    await api(`https://sheets.googleapis.com/v4/spreadsheets/${FROM}?includeGridData=true&fields=${encodeURIComponent(SHEET_GRID_FIELDS)}`) as never,
+    { partner_code: CODE } as EntityRecord,
+  );
 type Src = { plate: string; row: string[]; hdr: string[]; photo: string };
 const src: Src[] = [];
 for (const t of read.tabs) {
@@ -122,7 +134,13 @@ for (const r of POLICY_TAB_FIELD_ROWS) {
   stdCol[r.name] = d && d.value != null ? String(d.value) : S(FREEPASS_STANDARD[r.name]);
 }
 
-const title = supplierSheetName(NAME);   // 「<공급사> 프리패스 재고」 — 이름 규칙은 규격 모듈이 SSOT
+/**
+ * 문서 이름. 기본은 「<공급사> 프리패스 재고」 — 이름 규칙은 규격 모듈이 SSOT.
+ * ⚠ **빈 표준은 이름을 달리 줘야 한다**(`--title=`). 우리 도구들은 이름에 「프리패스 재고」가
+ *   든 문서를 **공급사 시트로 찾는다** — 표준을 같은 이름으로 두면 공급사 하나가 더 생긴 것처럼
+ *   세어지고, 정제칸 채우기·코드 박기가 빈 표준에까지 들어간다.
+ */
+const title = arg('title') || supplierSheetName(NAME);
 const q = encodeURIComponent(`mimeType='application/vnd.google-apps.spreadsheet' and 'me' in owners and trashed=false and name = '${title}'`);
 const found = ((await api(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`)).files || []) as Rec[];
 console.log(`\n  대상 「${title}」 ${found[0] ? '(이미 있음 — 다시 찍음)' : '(새로 만듦)'}`);
