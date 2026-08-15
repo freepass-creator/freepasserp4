@@ -72,6 +72,13 @@ const guards: [string, string, RegExp][] = [
   // 대수를 «우리/아닌/총» 으로 세는 장치와 «팔 수 있는데 금액 없는 차» 표시
   ['대수 세 갈래', 'scripts/publish-origin-tab.mts', /우리 시트 \$\{all\.ours\}대 · 아닌 시트 \$\{all\.other\}대 · 총 \$\{all\.all\}대/],
   ['금액 빠진 차', 'scripts/publish-origin-tab.mts', /const noMoneySellable = split/],
+  /**
+   * ★차종코드 절차의 약속 넷(매뉴얼 4장) — 하나라도 빠지면 «틀린 코드가 영구히 박히는» 길이 열린다.
+   */
+  ['코드 실재 확인', 'scripts/stamp-vehicle-codes.mts', /!BOOK\.byCode\.has\(c\)/],
+  ['배정 금지 관문', 'scripts/stamp-vehicle-codes.mts', /usageTier === 'blocked'/],
+  ['정제시트 어긋남 보존', 'scripts/build-refine-sheet.mts', /t\.clash\+\+/],
+  ['정제시트 표기 동일 비교', 'scripts/build-refine-sheet.mts', /sameValue\(now, next\)/],
 ];
 for (const [what, file, re] of guards) {
   let ok = false;
