@@ -1,12 +1,16 @@
 'use client';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { getStore, peekList } from '@/lib/store';
+import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
-import { ENTITIES, type EntityRecord } from '@/lib/intake/entities';
+import { ENTITIES, rangeErrors, type EntityRecord } from '@/lib/intake/entities';
 import { newId } from '@/lib/domain/ids';
 import { getRole, actor, type Role } from '@/lib/domain/deal';
-import { PaneHead, PaneBody, Btn, FormGrid, FormReadList, FormCard, C, Loading, CenterNote, Page, FilterChips, FilterGroup, Message, PageActions, FeedRowSkeleton, PillTabs } from '@/components/ui';
+import {
+  PaneHead, PaneBody, Btn, ButtonLabel, FormGrid, FormReadList, FormCard, C, Loading, CenterNote, Page,
+  FilterChips, FilterGroup, Message, PageActions, FeedRowSkeleton, PillTabs, DetailRow, ListGroup, Badge,
+  NUM, FS, FW, ICON,
+} from '@/components/ui';
 import { PolicyCreateRow, PolicyListRow } from '@/components/list-rows';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
 import { confirmDialog, toast } from '@/components/Toaster';
@@ -18,6 +22,12 @@ import { canIssueContract, CONTRACT_LAYER, type PolicyField } from '@/lib/domain
 import { FREEPASS_POLICY_PACK, POLICY_DEFAULTS, applyPolicyDefaults } from '@/lib/domain/policy-defaults';
 import { retainVisibleSelection } from '@/features/work-list-display';
 import { providerNameMap } from '@/lib/domain/identity';
+import { partnerTypeLabel } from '@/lib/domain/partner';
+import { businessRegistrationNumberOf, normalizeBusinessRegistrationNumber } from '@/lib/domain/business-identity';
+import { parseDepositRule } from '@/lib/domain/sheet-import';
+import { isAutoplusPartner } from '@/lib/domain/sheet-autoplus';
+import { readAllPartnersPrivate, writePartnerPrivate } from '@/lib/domain/private-fields';
+import { RotateCcw } from 'lucide-react';
 import {
   ESIGN_POLICY_SELECTION_SESSION_KEY,
   type EsignPolicySelection,
@@ -37,7 +47,8 @@ const POL_SCOPE: { key: PolScope; label: string }[] = [
   { key: 'shared', label: '공용' },
 ];
 
-// 정책관리 = [목록 | 기본·심사 | 계약조건 | 보험 | 전자계약] 5패널. 스키마 SSOT(ENTITIES.policy) + FormGrid.
+// 정책관리 = [목록 | 기본정보 | 운영정책 | 수수료정책]. 메뉴 표기는 파트너사 관리.
+// 기본·수수료 = 연결된 파트너사 레코드. 운영정책 = 상품시트 + 기존 정책 4단(심사·계약조건·보험·전자계약).
 // 공급사 = 자기 정책만 편집. 공용(provider_company_code 빈값)은 목록에 안 띄움(재고 Select에서만 연결).
 // 필드 그룹 SSOT — detailSections(심사/계약조건/보험)과 동일 골격. 미지정 필드는 보험 패널이 흡수(누락 방지).
 const G_BASIC = ['policy_code', 'policy_name', 'provider_company_code', 'policy_type', 'screening_criteria', 'credit_grade', 'basic_driver_age', 'driver_age_lowering', 'driver_age_upper_limit', 'license_period', 'age_lowering_cost'];
@@ -62,11 +73,44 @@ function scopePolicies(all: EntityRecord[], role: Role): EntityRecord[] {
   return [];
 }
 
+const strOf = (value: unknown) => String(value ?? '');
+const ratePct = (value: unknown) => {
+  const n = Number(value);
+  if (value == null || value === '' || !Number.isFinite(n)) return '';
+  return `${Math.round(n * 100)}%`;
+};
+const depositRuleLabel = (value: unknown) => {
+  const rule = String(value ?? '');
+  if (rule === 'months_per_year') return '기간 1년당 월대여료 1개월치';
+  if (rule === 'rent_multiple') return '국산 2개월치 · 수입 3개월치';
+  return '미설정 · 시트 보증금만 사용';
+};
+function partnerOf(code: unknown, list: EntityRecord[]) {
+  const key = String(code || '').trim();
+  if (!key) return null;
+  return list.find((row) => String(row.partner_code || row._key || '') === key) || null;
+}
+
+async function enrichPartners(list: EntityRecord[]): Promise<EntityRecord[]> {
+  try {
+    const priv = await readAllPartnersPrivate();
+    if (!priv || !Object.keys(priv).length) return list;
+    return list.map((row) => {
+      const extra = priv[String(row.partner_code || row._key || '')];
+      return extra ? { ...row, ...extra } : row;
+    });
+  } catch {
+    return list;
+  }
+}
+
 export default function PolicyMgmt() {
   const co = getCompanyId();
   const mobile = useIsMobile();
   const [launchKey, setLaunchKey] = useState<string | null>(null);
   const [rows, setRows] = useState<EntityRecord[] | null>(null);
+  const [partners, setPartners] = useState<EntityRecord[]>([]);
+  const [partnerForm, setPartnerForm] = useState<EntityRecord>({});
   const [providerAliases, setProviderAliases] = useState<Record<string, string>>({});
   const [sel, setSel] = useState<string | null>(null);
   const [form, setForm] = useState<EntityRecord>({});
@@ -91,22 +135,29 @@ export default function PolicyMgmt() {
 
   const load = async (r?: Role) => {
     const role = r || getRole();
-    const [all, partners] = await Promise.all([
+    const [all, partnerRows] = await Promise.all([
       getStore().list('policy', co),
-      getStore().list('partner', co).catch(() => []),
+      getStore().list('partner', co).catch(() => [] as EntityRecord[]),
     ]);
+    const enriched = await enrichPartners(partnerRows);
     // 표시명은 별도 맵으로 보강한다. 행 데이터에 합치면 편집 저장 시 provider_name이
     // 정책 레코드에 의도치 않게 영속화되므로, 원본 policy는 건드리지 않는다.
-    setProviderAliases(providerNameMap(partners));
+    setPartners(enriched);
+    setProviderAliases(providerNameMap(enriched));
     const mine = scopePolicies(all, role);
     setRows(mine);
-    return mine;
+    return { mine, partners: enriched };
   };
-  const selectP = (p: EntityRecord) => {
+  const bindPartner = (policy: EntityRecord, list: EntityRecord[]) => {
+    const row = partnerOf(policy.provider_company_code, list);
+    setPartnerForm(row ? { ...row } : {});
+  };
+  const selectP = (p: EntityRecord, partnerList = partners) => {
     setSel(String(p.policy_code));
     // 비어 있는 칸도 화면·계약에서 같은 답을 내도록 프리패스 표준을 유효값으로 보여 준다.
     // 공급사가 직접 정한 값은 applyPolicyDefaults가 절대 덮지 않는다.
     setForm(applyPolicyDefaults(p).next as EntityRecord);
+    bindPartner(p, partnerList);
     setDirty(false);
     setCreating(false);
     setEditing(false);
@@ -115,6 +166,7 @@ export default function PolicyMgmt() {
   const clearSel = () => {
     setSel(null);
     setForm({});
+    setPartnerForm({});
     setDirty(false);
     setCreating(false);
     setEditing(false);
@@ -128,6 +180,7 @@ export default function PolicyMgmt() {
     else if (providerCode) base.provider_company_code = providerCode;
     setSel(c);
     setForm(base);
+    bindPartner(base, partners);
     setDirty(true);
     setCreating(true);
     setEditing(true);
@@ -215,6 +268,16 @@ export default function PolicyMgmt() {
     if (k === 'provider_company_code' && getRole() === 'provider') return;
     setForm((f) => ({ ...f, [k]: v }));
     setDirty(true);
+    if (k === 'provider_company_code') bindPartner({ provider_company_code: v }, partners);
+  };
+  const onPartnerChange = (k: string, v: string) => {
+    if (getRole() === 'provider') {
+      const me = actor('provider').code;
+      if (!me || String(partnerForm.partner_code || partnerForm._key || '') !== me) return;
+    }
+    if (getRole() !== 'admin' && k === 'fee_rate') return;
+    setPartnerForm((f) => ({ ...f, [k]: v }));
+    setDirty(true);
   };
 
   const save = async () => {
@@ -234,6 +297,15 @@ export default function PolicyMgmt() {
       }
       patch = { ...patch, provider_company_code: me };
     }
+    const partnerCode = String(partnerForm.partner_code || partnerForm._key || '').trim();
+    if (partnerCode) {
+      if (role === 'provider' && actor('provider').code !== partnerCode) {
+        toast('다른 파트너사 정보는 수정할 수 없습니다', 'error');
+        return;
+      }
+      const badRange = rangeErrors(ENTITIES.partner.fields, partnerForm);
+      if (badRange.length) { toast(badRange[0], 'error'); return; }
+    }
     try {
       await getStore().save('policy', co, [patch]);
       await getStore().update('policy', co, String(patch.policy_code), patch);
@@ -241,12 +313,32 @@ export default function PolicyMgmt() {
       toast(`저장 실패: ${String((e as Error)?.message || e)}`, 'error');
       return;
     }
-    await load(role);
+    if (partnerCode) {
+      let mainPartner: EntityRecord = {
+        ...partnerForm,
+        deposit_rule: parseDepositRule(partnerForm.deposit_rule) || null,
+      };
+      const biz = normalizeBusinessRegistrationNumber(partnerForm.business_number);
+      if (biz) mainPartner = { ...mainPartner, business_number: biz };
+      if (role === 'admin') {
+        const moved = await writePartnerPrivate(partnerCode, { fee_rate: mainPartner.fee_rate });
+        if (moved) mainPartner = { ...mainPartner, fee_rate: null };
+      }
+      try {
+        await getStore().save('partner', co, [mainPartner]);
+        await getStore().update('partner', co, partnerCode, mainPartner);
+      } catch (e) {
+        toast(`파트너사 저장 실패: ${String((e as Error)?.message || e)}`, 'error');
+        return;
+      }
+    }
+    const loaded = await load(role);
     setDirty(false);
     setCreating(false);
     setEditing(false);
     setSel(String(patch.policy_code));
     setForm(patch);
+    bindPartner(patch, loaded.partners);
     haptic.success();
     toast('저장되었습니다', 'ok');
     if (launchRequest?.returnToEsign) {
@@ -291,10 +383,39 @@ export default function PolicyMgmt() {
     }
     if (creating) { clearSel(); return; }
     const row = (rows || []).find((p) => String(p.policy_code) === sel);
-    if (row) { setForm(applyPolicyDefaults(row).next as EntityRecord); setDirty(false); setEditing(false); }
+    if (row) {
+      setForm(applyPolicyDefaults(row).next as EntityRecord);
+      bindPartner(row, partners);
+      setDirty(false);
+      setEditing(false);
+    }
     else clearSel();
   };
   const startEdit = () => { setEditing(true); haptic.tap(); };
+
+  const resetSheetMapping = async () => {
+    const code = String(partnerForm.partner_code || partnerForm._key || '').trim();
+    if (!code || !sel) return;
+    if (getRole() === 'provider' && actor('provider').code !== code) return;
+    if (!await confirmDialog({
+      title: '시트 컬럼 매핑 초기화',
+      message: `${String(partnerForm.name || code)}의 저장된 컬럼 매핑과 헤더 서명을 지울까요?\n구글시트 원본은 변경되지 않으며, 다음 불러오기에서 헤더를 다시 판독합니다.`,
+      danger: true,
+      okLabel: '매핑 초기화',
+    })) return;
+    try {
+      await getStore().update('partner', co, code, {
+        mapping_profile: null,
+        mapping_header_signature: null,
+      });
+      const loaded = await load();
+      const row = partnerOf(code, loaded.partners);
+      if (row) setPartnerForm({ ...row });
+      toast('시트 매핑을 초기화했습니다. 재고 화면에서 데이터 검증을 다시 실행하세요.', 'ok');
+    } catch (error) {
+      toast(`매핑 초기화 실패: ${String((error as Error).message || error)}`, 'error');
+    }
+  };
 
   const shown = useMemo(() => (rows || [])
     .filter((p) => matchPolicyQuery({
@@ -334,7 +455,7 @@ export default function PolicyMgmt() {
   if (ok === false) {
     return (
       <Page title={NAV_LABEL.policy}>
-        <CenterNote>공급사·관리자만 정책을 관리할 수 있습니다</CenterNote>
+        <CenterNote>공급사·관리자만 파트너사를 관리할 수 있습니다</CenterNote>
         <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 12 }}>
           <Btn title="홈으로" href="/" size="sm">홈으로</Btn>
         </div>
@@ -398,6 +519,38 @@ export default function PolicyMgmt() {
       : `전자계약 발송 불가 — ${esignGate.missing.length}개 항목이 비어 있습니다: ${esignGate.missing.map((m: PolicyField) => m.label).join(' · ')}`;
 
   const canEdit = creating || editing;
+  const admin = getRole() === 'admin';
+  const partnerCode = String(partnerForm.partner_code || partnerForm._key || '');
+  const autoplusForm = !!partnerCode && isAutoplusPartner(partnerForm);
+  const partnerFieldsIn = (keys: string[]) => ENTITIES.partner.fields.filter((field) => keys.includes(field.key));
+  const partnerGrid = (
+    keys: string[],
+    cols: number,
+    extra?: { showNotes?: boolean; selectOptions?: Record<string, { value: string; label: string }[]> },
+  ) => (
+    <FormGrid
+      fields={partnerFieldsIn(keys)}
+      form={partnerForm}
+      onChange={onPartnerChange}
+      cols={cols}
+      disabled={!canEdit}
+      showNotes={extra?.showNotes}
+      selectOptions={extra?.selectOptions}
+    />
+  );
+  const partnerDepositSelect = {
+    deposit_rule: [
+      { value: '', label: '미설정 · 시트 보증금만 사용' },
+      { value: 'months_per_year', label: '기간 1년당 월대여료 1개월치' },
+      { value: 'rent_multiple', label: autoplusForm
+        ? '국산 2개월치 · 수입 3개월치 · 오토플러스'
+        : '국산 2개월치 · 수입 3개월치' },
+    ],
+  };
+  const partnerTypeTone = (() => {
+    const type = partnerTypeLabel(partnerForm.partner_type, partnerForm.partner_code || partnerForm._key);
+    return <Badge tone={type === '공급사' ? 'blue' : type === '분류 필요' ? 'red' : 'gray'}>{type}</Badge>;
+  })();
   const policyDefaultState = applyPolicyDefaults(form);
   // 공급사가 확인할 빈칸을 채워도 프리패스가 제공한 확정 기본값 개수는 달라지지 않는다.
   const decidedDefaultCount = POLICY_DEFAULTS.filter((item) => item.value !== null).length;
@@ -417,9 +570,7 @@ export default function PolicyMgmt() {
   ) : undefined;
 
   const editPane = (title: string, fields: typeof ENTITIES.policy.fields, hint?: string, lead?: string) => (
-    <>
-      <PaneHead title={title} />
-      <PaneBody pad>
+    <PaneBody pad>
         {sel ? (
           <>
             {modeBanner}
@@ -468,10 +619,9 @@ export default function PolicyMgmt() {
             )}
           </>
         ) : (
-          <CenterNote>정책을 선택하세요.</CenterNote>
+          <CenterNote>목록에서 파트너사를 선택하세요.</CenterNote>
         )}
       </PaneBody>
-    </>
   );
   /*
    * 패널 안내 — 세 층(상품·영업·계약)을 화면 말로 옮긴 것.
@@ -504,11 +654,83 @@ export default function PolicyMgmt() {
     },
   ];
   const activeSection = sectionPanes.find((pane) => pane.key === section) || sectionPanes[0];
-  const panes: WorkPane[] = [{
-    key: 'policy',
-    title: activeSection.title,
-    node: (
-      <div style={{ height: '100%', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+  const basicInfoPane = (
+    <>
+      <PaneHead title="기본정보" />
+      <PaneBody pad>
+        {sel ? (
+          partnerCode ? (
+            <>
+              {modeBanner}
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: FS.cap, color: C.faint }}>
+                <span style={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums', fontWeight: FW.strong, color: C.mute }}>{partnerCode}</span>
+              </div>
+              {canEdit ? (
+                <FormCard hint="전자계약 임대인 표시 · 가입 시 소속 매칭">
+                  {partnerGrid(['name', 'alias'], 2)}
+                  <div style={{ marginTop: 10 }}>{partnerGrid(['partner_type', 'business_number', 'rental_business_no', 'phone'], 2)}</div>
+                  <div style={{ marginTop: 10 }}>{partnerGrid(['address'], 1)}</div>
+                  <div style={{ marginTop: 10 }}>{partnerGrid(['ceo', 'contact'], 2)}</div>
+                </FormCard>
+              ) : (
+                <ListGroup footer="전자계약 임대인 표시 · 가입 시 소속 매칭">
+                  <DetailRow label="상호/이름" value={strOf(partnerForm.name)} />
+                  <DetailRow label="별칭" value={strOf(partnerForm.alias)} />
+                  <DetailRow label="유형" value={partnerTypeTone} />
+                  <DetailRow label="사업자번호" value={businessRegistrationNumberOf(partnerForm, 'partner')} />
+                  <DetailRow label="자동차대여사업 등록번호" value={strOf(partnerForm.rental_business_no)} />
+                  <DetailRow label="대표번호" value={strOf(partnerForm.phone)} />
+                  <DetailRow label="사업장 주소" value={strOf(partnerForm.address)} stacked={!!strOf(partnerForm.address)} />
+                  <DetailRow label="대표자" value={strOf(partnerForm.ceo)} />
+                  <DetailRow label="실무자" value={strOf(partnerForm.contact)} />
+                </ListGroup>
+              )}
+            </>
+          ) : (
+            <CenterNote>연결된 파트너사가 없습니다. 운영정책에서 계약회사를 지정하세요.</CenterNote>
+          )
+        ) : (
+          <CenterNote>목록에서 파트너사를 선택하세요.</CenterNote>
+        )}
+      </PaneBody>
+    </>
+  );
+  const operationPane = (
+    <>
+      <PaneHead title="운영정책" />
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+        {sel && partnerCode ? (
+          <div style={{
+            padding: 12,
+            borderBottom: `1px solid ${C.line}`,
+            flex: '0 0 auto',
+          }}>
+            {canEdit ? (
+              <FormCard hint={autoplusForm
+                ? '오토플러스 시트는 보증금 열이 없으므로 「국산 2개월치 · 수입 3개월치」 규칙이 필수입니다.'
+                : '상품시트 주소와 gid·헤더·어댑터·보증금 규칙은 재고 가져오기 때 적용됩니다.'}
+              >
+                {partnerGrid(['sheet_url'], 1, { showNotes: true })}
+                <div style={{ marginTop: 10 }}>
+                  {partnerGrid(['deposit_rule', 'adapter_id', 'sheet_tab', 'header_row'], 2, { showNotes: true, selectOptions: partnerDepositSelect })}
+                </div>
+              </FormCard>
+            ) : (
+              <>
+                <DetailRow label="구글시트 URL" value={strOf(partnerForm.sheet_url)} stacked={!!strOf(partnerForm.sheet_url)} />
+                <DetailRow label="시트 gid" value={strOf(partnerForm.sheet_tab)} />
+                <DetailRow label="헤더 행" value={strOf(partnerForm.header_row)} />
+                <DetailRow label="시트 어댑터" value={strOf(partnerForm.adapter_id) || (autoplusForm ? '오토플러스식 · 자동' : '일반 · 기본')} />
+                <DetailRow label="보증금 계산규칙" value={depositRuleLabel(partnerForm.deposit_rule)} />
+              </>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
+              <Btn title="깨진 컬럼 매핑과 헤더 서명만 초기화" size="sm" variant="ghost" onClick={resetSheetMapping}>
+                <ButtonLabel icon={<RotateCcw size={ICON.md} aria-hidden />}>시트 매핑 초기화</ButtonLabel>
+              </Btn>
+            </div>
+          </div>
+        ) : null}
         <div className="fp-policy-tabs">
           <PillTabs
             size="sm"
@@ -521,15 +743,51 @@ export default function PolicyMgmt() {
           {activeSection.node}
         </div>
       </div>
-    ),
-  }];
+    </>
+  );
+  const feePane = (
+    <>
+      <PaneHead title="수수료정책" />
+      <PaneBody pad>
+        {sel ? (
+          partnerCode ? (
+            canEdit ? (
+              <FormCard hint="공급사 수수료율(0~1)은 정산 R1 기준입니다. 계좌는 전자계약 대여료 입금용입니다.">
+                {admin ? partnerGrid(['fee_rate'], 1, { showNotes: true }) : (
+                  <DetailRow label="공급사 수수료율" value={ratePct(partnerForm.fee_rate)} />
+                )}
+                <div style={{ marginTop: 10 }}>{partnerGrid(['bank_name', 'bank_holder'], 2)}</div>
+                <div style={{ marginTop: 10 }}>{partnerGrid(['bank_account'], 1)}</div>
+              </FormCard>
+            ) : (
+              <>
+                <DetailRow label="공급사 수수료율" value={ratePct(partnerForm.fee_rate)} />
+                <DetailRow label="입금은행" value={strOf(partnerForm.bank_name)} />
+                <DetailRow label="예금주" value={strOf(partnerForm.bank_holder)} />
+                <DetailRow label="입금계좌번호" value={strOf(partnerForm.bank_account)} stacked={!!strOf(partnerForm.bank_account)} />
+              </>
+            )
+          ) : (
+            <CenterNote>연결된 파트너사가 없습니다.</CenterNote>
+          )
+        ) : (
+          <CenterNote>목록에서 파트너사를 선택하세요.</CenterNote>
+        )}
+      </PaneBody>
+    </>
+  );
+  const panes: WorkPane[] = [
+    { key: 'company', title: '기본', node: basicInfoPane },
+    { key: 'operation', title: '운영', node: operationPane },
+    { key: 'fee', title: '수수료', node: feePane },
+  ];
   return (
     <>
       <WorkPage title={NAV_LABEL.policy}
         statusCount={rows === null ? null : rows.length}
         listCount={rows === null ? null : shown.length} list={rows === null ? <FeedRowSkeleton /> : listEl} panes={panes} selected={!!sel} onBack={clearSel}
-        paneRatio={!mobile ? 3 : undefined}
-        contextTitle={sel ? (creating ? '신규 정책' : String(form.policy_name || form.policy_code || '')) : undefined}
+        paneRatio={1}
+        contextTitle={sel ? (creating ? '신규' : String(partnerForm.name || form.policy_name || form.policy_code || '')) : undefined}
         actions={dockActions}
         listTools={{
           search: { value: q, onChange: setQ, placeholder: '정책명·코드·심사·지역…' },

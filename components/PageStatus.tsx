@@ -92,7 +92,7 @@ export function statusIconFor(titleOrPath: string): LucideIcon {
   if (s === '계약' || s.startsWith('/contract')) return NAV_ICON.contract;
   if (s.includes('재고') || s.startsWith('/inventory')) return NAV_ICON.inventory;
   if (s.includes('설정') || s.startsWith('/settings')) return NAV_ICON.settings;
-  if (s.includes('정책') || s.startsWith('/policy')) return ScrollText;
+  if (s.includes('정책') || s.includes('파트너사') || s.startsWith('/policy')) return ScrollText;
   if (s.includes('정산') || s.startsWith('/settlement')) return FileText;
   if (s.includes('회원') || s.startsWith('/members')) return Users;
   if (s.includes('감사') || s.startsWith('/audit')) return History;

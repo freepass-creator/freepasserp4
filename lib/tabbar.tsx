@@ -51,7 +51,7 @@ export const NAV_LABEL = {
   contract: '계약진행 및 정산',
   inventory: '재고관리',
   settings: '설정',
-  policy: '정책관리',
+  policy: '파트너사 관리',
   // 계약서관리 = 손님에게 나간 «전자계약»을 보는 곳. /contract(5단계 업무)와 축이 다르다 —
   //   저기는 «우리 일이 어디까지», 여기는 «손님이 어디까지 서명했나»(2026-08-08 결정).
   esign: '계약서관리',
