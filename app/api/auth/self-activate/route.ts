@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getAuth } from 'firebase-admin/auth';
 import { firebaseAdminApp, firebaseAdminDatabase } from '@/lib/server/firebase-admin';
 import { selfServeActivationDecision } from '@/lib/domain/self-serve-activation';
+import { newId } from '@/lib/domain/ids';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -42,17 +43,22 @@ export async function POST(request: Request): Promise<Response> {
 
   const profileRef = firebaseAdminDatabase().ref(`users/${uid}`);
   let deniedReason = 'not_eligible';
+  const issuedUserCode = newId('user');
   try {
     const result = await profileRef.transaction((current) => {
       const decision = selfServeActivationDecision(current as Record<string, unknown> | null, uid);
       deniedReason = decision.reason;
       if (!decision.eligible) return;
+      const previousUserCode = String((current as Record<string, unknown> | null)?.user_code || '').trim();
+      // 기존 user_code는 RTDB Rules의 역할별 query.equalTo에도 쓰인다. 값을 즉시 바꾸면
+      // 과거 계약·정산이 권한상 사라지므로 기존 값은 유지하고 신규 계정만 usr_ 코드를 발급한다.
+      const userCode = previousUserCode || issuedUserCode;
       return {
         ...current,
         // 공급사로 신청했어도 실제 소속 확인 전에는 개인 영업자 최소 권한만 부여한다.
         role: 'agent',
         status: 'active',
-        user_code: uid,
+        user_code: userCode,
         self_activated_at: Date.now(),
         self_activation_source: decision.reason,
       };

@@ -126,8 +126,8 @@ export const FIELD_MAP: FieldMap[] = [
   /* ── 만기 처리 — 유형이 갈리는 지점 ── */
   { field: 'buyback_price', label: '만기 인수가격', from: '입력', atom: 'buyout_price', onlyMaturity: '인수형' },
   { field: 'buyback_option', label: '인수 옵션', from: '입력', onlyMaturity: '반납형', note: '반납형은 «인수 선택»' },
-  { field: 'early_termination_rate_y1', label: '중도해지율(1년 미만)', from: '파생', note: 'PENALTY_RATES' },
-  { field: 'early_termination_rate_y2', label: '중도해지율(1년 이상)', from: '파생', note: '인수형 10% / 반납형 20%' },
+  { field: 'early_termination_rate_y1', label: '중도해지율(1년 미만)', from: '정책', atom: 'early_termination_rate_under1y' },
+  { field: 'early_termination_rate_y2', label: '중도해지율(1년 이상)', from: '정책', atom: 'early_termination_rate_over1y' },
 
   /* ── 주행 ── */
   { field: 'annual_mileage', label: '약정 주행거리', from: '정책', atom: 'annual_mileage' },
@@ -143,12 +143,12 @@ export const FIELD_MAP: FieldMap[] = [
    *   약관 제23조가 **「계약서에 정한 1km당 초과주행 요금」을 그대로 참조**하므로,
    *   이 칸이 비면 그 조문이 공중에 뜬다. 계산 방식은 약관이 말하고 계약서는 숫자만 댄다.
    */
-  { field: 'over_mileage_rate', label: '초과주행 요금', from: '정책', atom: 'over_mileage_rate_per_km', note: '약관 제23조가 참조하는 1km당 금액' },
+  { field: 'over_mileage_rate', label: '초과주행 요금', from: '파생', note: '차량의 국산·수입 구분에 따라 정책의 1km당 요율을 확정' },
   // 약관 제7조제1항제7호의 최근 1년 내 과실사고 3회 기준을 계약서에도 표시한다.
   { field: 'accident_termination_count', label: '사고 다발 시 계약해지 기준', from: '정책', atom: 'accident_termination_count', note: '현재 사고 발생일 기준 직전 1년 내 기존 2회 + 현재 1회 = 총 3회 시 해지 가능' },
 
   /* ── 운전자 ── */
-  { field: 'driver_age', label: '운전자 연령', from: '정책', atom: 'basic_driver_age' },
+  { field: 'driver_age', label: '운전자 연령', from: '계약', atom: 'driver_age_snapshot' },
   { field: 'driver_scope', label: '운전자 범위', from: '입력', atom: 'driver_scope' },
   { field: 'drv1_name', label: '추가운전자1 성함', from: '입력', atom: 'add_driver_name', conditional: '추가운전자' },
   { field: 'drv1_relation', label: '추가운전자1 관계', from: '입력', atom: 'add_driver_relation', conditional: '추가운전자' },
@@ -176,7 +176,7 @@ export const FIELD_MAP: FieldMap[] = [
   { field: 'self_damage_deductible_max', label: '자차 최대 면책금', from: '파생', note: '연령 파생' },
   { field: 'self_damage_exclusions', label: '자차 면책 제외', from: '고정', note: '교통사고처리 특례법상 중대한 법규위반 등' },
   { field: 'extra_deductibles', label: '추가 면책금', from: '고정', note: '면허 1년 이하' },
-  { field: 'insurer_name', label: '가입 보험사·공제조합', from: '정책' },
+  { field: 'insurer_name', label: '가입 보험사·공제조합', from: '정책', atom: 'insurer_name' },
 
   /* ── 정비·서비스 ── */
   { field: 'maintenance_product', label: '정비상품', from: '정책', atom: 'maintenance_service' },
@@ -205,7 +205,7 @@ export const FIELD_MAP: FieldMap[] = [
   { field: 'odometer_return', label: '반납 시 주행거리', from: '미정', onlyMaturity: '반납형' },
   { field: 'fuel_gauge_return', label: '반납 시 연료량', from: '미정', onlyMaturity: '반납형' },
   { field: 'damage_return', label: '반납 시 손상', from: '미정', onlyMaturity: '반납형' },
-  { field: 'impound_fee', label: '보관료', from: '미정' },
+  { field: 'impound_fee', label: '보관료', from: '정책', atom: 'impound_fee' },
   { field: 'impound_keep_term', label: '보관 기간', from: '고정' },
 
   /* ── 자동이체(CMS) ── */

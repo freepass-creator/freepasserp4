@@ -13,6 +13,7 @@ const rentTemplate = findTemplate('freepass-rent-standard');
 const subscriptionTemplate = findTemplate('freepass-subscription-insurance-included');
 const product = {
   product_code: 'RP012_12가3456', provider_company_code: 'RP012', car_number: '12가3456',
+  vehicle_status: '출고가능',
   product_type: '중고렌트', maker: '현대', model: '아반떼', sub_model: 'CN7',
   year: '2026', fuel_type: '가솔린', options: '내비게이션, 후방카메라', mileage: 12000,
   price: { 24: { rent: 700000, deposit: 2000000 }, 36: { rent: 650000, deposit: 3000000 } },
@@ -20,6 +21,10 @@ const product = {
 const subscription = { ...product, product_code: 'RP012_34나5678', car_number: '34나5678', product_type: '중고구독' } as EntityRecord;
 const otherProvider = { ...product, product_code: 'RP004_12가3456', provider_company_code: 'RP004' } as EntityRecord;
 const noPrice = { ...product, product_code: 'RP012_56다7890', car_number: '56다7890', price: {} } as EntityRecord;
+const immediate = { ...product, product_code: 'RP012_78라9012', car_number: '78라9012', vehicle_status: '즉시출고' } as EntityRecord;
+const negotiating = { ...product, product_code: 'RP012_90마1234', car_number: '90마1234', vehicle_status: '출고협의' } as EntityRecord;
+const contracted = { ...product, product_code: 'RP012_11바5678', car_number: '11바5678', vehicle_status: '계약중' } as EntityRecord;
+const locked = { ...product, product_code: 'RP012_22사6789', car_number: '22사6789', locked_by_contract: 'CT-1' } as EntityRecord;
 const policy = {
   basic_driver_age: 26,
   driver_age_lowering: '만 21세까지',
@@ -32,6 +37,10 @@ assert.deepEqual(searchContractVehicles([product, subscription, otherProvider], 
 assert.deepEqual(searchContractVehicles([product, subscription, otherProvider], 'RP012', rentTemplate, '아반떼').map((row) => row.product_code), ['RP012_12가3456']);
 assert.deepEqual(searchContractVehicles([product, subscription], 'RP012', subscriptionTemplate, '5678').map((row) => row.product_code), ['RP012_34나5678']);
 assert.deepEqual(searchContractVehicles([product, noPrice], 'RP012', rentTemplate, '').map((row) => row.product_code), ['RP012_12가3456', 'RP012_56다7890']);
+assert.deepEqual(
+  searchContractVehicles([product, immediate, negotiating, contracted, locked], 'RP012', rentTemplate, '').map((row) => row.product_code),
+  ['RP012_12가3456', 'RP012_78라9012'],
+);
 const many = Array.from({ length: 12 }, (_, index) => ({
   ...product,
   product_code: `RP012_${String(index + 1).padStart(2, '0')}가0000`,

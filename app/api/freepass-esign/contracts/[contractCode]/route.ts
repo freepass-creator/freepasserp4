@@ -19,10 +19,11 @@ import {
   validContractCode,
   type EsignRecord,
 } from '@/lib/server/freepass-esign';
+import { newId } from '@/lib/domain/ids';
 import { snapshotWithPrivateSubmission } from '@/lib/domain/esign-signed-snapshot';
 import { createAndStoreFreepassPdf } from '@/lib/server/freepass-esign-document';
 import { isEsignTemplateAllowed } from '@/lib/domain/esign-templates';
-import { esignIssueBlockers, isIndependentEsignSource } from '@/lib/domain/esign-center';
+import { esignIssueBlockers, esignProductAvailabilityBlocker, isIndependentEsignSource } from '@/lib/domain/esign-center';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -242,7 +243,7 @@ export async function POST(
     if (S(contract.esign_provider) === 'chakhandeal' && S(contract.esign_id)) {
       return json({ error: '이미 착한거래로 발행된 계약입니다. 기존 진행내역에서 마무리해 주세요.' }, 409);
     }
-    const blocked = esignIssueBlockers(contract, bundle.partner, bundle.policy);
+    const blocked = esignIssueBlockers(contract, bundle.partner, bundle.policy, bundle.product);
     if (blocked.length) {
       const independent = isIndependentEsignSource(contract);
       return json({
@@ -302,7 +303,7 @@ export async function POST(
       if (S(contract.esign_provider) === 'chakhandeal' && S(contract.esign_id)) {
         return json({ error: '이미 착한거래로 발행된 계약입니다. 기존 진행내역에서 마무리해 주세요.' }, 409);
       }
-      const refreshedBlocked = esignIssueBlockers(contract, bundle.partner, bundle.policy);
+      const refreshedBlocked = esignIssueBlockers(contract, bundle.partner, bundle.policy, bundle.product);
       if (refreshedBlocked.length) {
         return json({ error: refreshedBlocked.map((row) => row.message).join(' · '), blocked: refreshedBlocked }, 409);
       }
@@ -352,7 +353,8 @@ export async function POST(
     const expiresAt = now + FREEPASS_ESIGN_TTL_MS;
     const requestOrigin = new URL(request.url).origin;
     const signUrl = publicFreepassSignUrl(token, requestOrigin);
-    const esignId = `fp_${hash.slice(0, 24)}`;
+    // 공개 fps_ 토큰/해시는 보안 식별자이고, 내부 전자계약 회차는 별도 esg_ 코드로 관리한다.
+    const esignId = newId('esign');
     try {
       const sessionValue: EsignRecord = {
         provider: 'freepass',
@@ -580,6 +582,19 @@ export async function POST(
         return next;
       }, undefined, false).catch(() => {});
     };
+    const freshApprovalBundle = await loadFreepassEsignBundle(contractCode);
+    if (!freshApprovalBundle || !canAccessFreepassEsignContract(actor, freshApprovalBundle.contract)) {
+      await releaseApprovalClaim();
+      return json({ error: '계약을 다시 확인하지 못해 승인하지 않았습니다.' }, 404);
+    }
+    const availabilityBlocker = esignProductAvailabilityBlocker(
+      freshApprovalBundle.contract,
+      freshApprovalBundle.product,
+    );
+    if (availabilityBlocker) {
+      await releaseApprovalClaim();
+      return json({ error: availabilityBlocker.message, blocked: [availabilityBlocker] }, 409);
+    }
     const consentTimes = submission.consentTimes && typeof submission.consentTimes === 'object'
       ? submission.consentTimes as EsignRecord
       : {};

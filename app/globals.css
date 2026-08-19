@@ -407,6 +407,8 @@ html[data-fp-filter="0"] .fp-finder > .fp-sidebar { display: none; }
 .fp-finder-main {
   background: var(--bg-page); min-width: 0;
   --fp-pane-sb: 0px;
+  /* 툴바 · 퀵필터 한 줄 · 목록 */
+  grid-template-rows: var(--fp-bar-h) auto minmax(0, 1fr);
 }
 /* pane = 관심함 틀고정(스크롤 밖) + 목록 본문 스크롤. 엑셀은 본문 안 시트가 스크롤. */
 .fp-finder-pane {
@@ -582,17 +584,76 @@ html[data-fp-filter="0"] .fp-finder > .fp-sidebar { display: none; }
 .fp-finder-toolbar--primary {
   background: var(--bg-card);
   border-bottom-color: var(--border);
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
   container: finder-toolbar / inline-size;
 }
 .fp-finder-toolbar-main {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(320px, 560px) auto 1fr;
   align-items: center;
   gap: 10px;
   width: 100%;
   min-width: 0;
-  flex-wrap: nowrap;
 }
+
+.fp-quick-filter-bar {
+  position: relative;
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 4px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-card);
+  overflow: visible;
+}
+.fp-quick-filter-wrap { position: relative; flex: 0 0 auto; }
+.fp-quick-filter-wrap > button { position: relative; }
+.fp-quick-filter-count { position: absolute; z-index: 2; top: -7px; right: -7px; display: inline-flex; pointer-events: none; }
+.fp-quick-filter-advanced { margin-left: auto; display: inline-flex !important; align-items: center !important; gap: 5px !important; min-height: 32px !important; padding: 0 9px !important; border: 1px solid var(--border) !important; border-radius: 6px !important; white-space: nowrap; }
+.fp-quick-filter-popover { position: absolute; z-index: 20; top: 34px; left: 0; width: min(310px, calc(100vw - 16px)); max-height: min(420px, calc(100dvh - 156px)); padding: 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-card); box-shadow: var(--shadow-lg); overflow: auto; }
+.fp-quick-filter-popover.is-right { right: 0; left: auto; }
+.fp-quick-filter-popover > header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.fp-quick-filter-sections { display: grid; gap: 14px; }
+.fp-quick-filter-sections > section { display: grid; gap: 8px; }
+.fp-quick-filter-sections > section + section {
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.fp-quick-filter-section-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 22px;
+}
+/* 세부 조건 — 버튼 아래부터 브라우저 하단(safe-area)까지. top/left/width 는 인라인. */
+.fp-quick-filter-detail {
+  position: fixed;
+  z-index: 40;
+  bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-lg);
+}
+.fp-quick-filter-detail .fp-sidebar-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  height: auto;
+  min-height: 40px;
+  padding: 8px 12px;
+  background: var(--bg-card);
+}
+.fp-quick-filter-detail .fp-sidebar-body {
+  padding: 8px 12px 16px;
+  overflow: visible;
+  max-height: none;
+}
+.fp-finder-search-filter { position: relative; display: inline-flex; flex: 0 0 auto; }
 .fp-agent-workflow {
   flex: 0 0 auto;
   display: flex;
@@ -609,44 +670,17 @@ html[data-fp-filter="0"] .fp-finder > .fp-sidebar { display: none; }
   align-items: center;
   gap: 6px;
 }
-.fp-finder-summary {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 4px;
-  flex: 0 0 auto;
-  min-width: 104px;
-  padding: 5px 10px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--brand-soft);
-  white-space: nowrap;
-}
-.fp-finder-summary span {
-  color: var(--text-sub);
-  font-size: var(--text-sm);
-  font-weight: var(--fw-medium);
-}
-.fp-finder-summary strong {
-  color: var(--brand);
-  font-family: var(--font-mono);
-  font-size: var(--text-xl);
-  font-weight: var(--fw-bold);
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-}
-.fp-finder-summary em {
-  color: var(--text-sub);
-  font-size: var(--text-sm);
-  font-style: normal;
-  font-weight: var(--fw-semibold);
-}
 .fp-finder-search-group {
   display: flex;
   align-items: center;
-  flex: 1 1 460px;
-  min-width: 240px;
-  max-width: 620px;
+  gap: 6px;
+  min-width: 0;
 }
+
+.fp-finder-sheet-slot a { display: inline-flex; align-items: center; gap: 5px; min-height: var(--fp-ctrl-h); padding: 0 10px; border: 1px solid var(--green-border); border-radius: var(--radius); background: var(--green-bg); color: var(--green-text); font-weight: var(--fw-semibold); text-decoration: none; white-space: nowrap; }
+.fp-finder-sheet-slot a:hover { border-color: var(--green-text); background: var(--green-bg); color: var(--green-text); }
+.fp-finder-body.is-excel .fp-excel-table { width: max-content; min-width: 100%; }
+@media (min-width: 761px) { .fp-finder-body.is-excel .fp-excel-sheet.is-fit { overflow-x: auto; } }
 .fp-finder-interest-group,
 .fp-finder-view-group {
   display: flex;
@@ -658,11 +692,17 @@ html[data-fp-filter="0"] .fp-finder > .fp-sidebar { display: none; }
   padding-left: 10px;
   border-left: 1px solid var(--border-soft);
 }
-.fp-finder-view-group { margin-left: auto; }
+.fp-finder-view-group { justify-self: end; }
 .fp-finder-sort,
 .fp-finder-sheet-slot,
 .fp-finder-view-switch { display: inline-flex; flex: 0 0 auto; }
-.fp-finder-view-switch { width: 184px; }
+.fp-finder-sort { margin-left: 6px; }
+.fp-finder-view-switch { width: 204px; }
+.fp-finder-view-switch button > span {
+  flex: 0 0 auto;
+  overflow: visible !important;
+  text-overflow: clip !important;
+}
 
 /* 관리자 상담데스크 — 처리 상태를 필터 안에 숨기지 않고 목록 바로 위에 노출한다. */
 .fp-chat-queue-summary {
@@ -689,28 +729,33 @@ html[data-fp-filter="0"] .fp-finder > .fp-sidebar { display: none; }
 }
 .fp-policy-tabs::-webkit-scrollbar { display: none; }
 .fp-policy-tabs > div { flex-wrap: nowrap !important; }
+.fp-policy-form-frame {
+  width: 100%;
+  max-width: 880px;
+  margin: 0 auto;
+}
 /* 화면 전체가 아니라 필터를 제외한 실제 상품 목록 폭에 반응한다. */
 @container finder-toolbar (max-width: 1180px) {
-  .fp-finder-summary { min-width: auto; }
-  .fp-finder-summary span { display: none; }
-  .fp-finder-search-group { flex-basis: 300px; }
+  .fp-finder-toolbar-main { grid-template-columns: minmax(280px, 1fr) auto auto; }
 }
 @container finder-toolbar (max-width: 1040px) {
   .fp-finder-toolbar-main,
   .fp-finder-interest-group,
   .fp-finder-view-group { gap: 6px; }
-  .fp-finder-search-group { min-width: 180px; flex-basis: 240px; }
+  .fp-finder-toolbar-main { grid-template-columns: minmax(220px, 1fr) auto auto; }
   .fp-finder-interest-group { padding-left: 8px; }
   .fp-finder-interest-group .fp-press > span:first-of-type { display: none; }
+  .fp-finder-view-switch { width: 180px; }
+  .fp-finder-view-switch button { padding: 0 6px !important; }
+}
+@container finder-toolbar (max-width: 820px) {
+  .fp-finder-toolbar-main { grid-template-columns: minmax(180px, 1fr) auto auto; }
+  .fp-finder-interest-group { padding-left: 0; border-left: 0; }
+  .fp-finder-sheet-slot a { width: var(--fp-ctrl-h); padding: 0; justify-content: center; }
+  .fp-finder-sheet-slot a > span { display: none; }
   .fp-finder-view-switch { width: 108px; }
   .fp-finder-view-switch button { padding: 0 !important; }
   .fp-finder-view-switch button > span { display: none; }
-}
-@container finder-toolbar (max-width: 820px) {
-  .fp-finder-summary { display: none; }
-  .fp-finder-search-group { min-width: 156px; flex-basis: 200px; }
-  .fp-finder-interest-group { padding-left: 0; border-left: 0; }
-  .fp-finder-sheet-slot[aria-hidden="true"] { display: none !important; }
 }
 @supports not (grid-template-rows: subgrid) {
   .fp-finder { grid-template-rows: none; align-items: stretch; }

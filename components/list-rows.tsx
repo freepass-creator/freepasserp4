@@ -9,7 +9,8 @@ import {
   Building2, UserPlus, UserRoundCheck, UserRoundX,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { ROLE_LABEL_RAW, type EntityRecord } from '@/lib/intake/entities';
+import type { EntityRecord } from '@/lib/intake/entities';
+import type { EsignCenterStage } from '@/lib/domain/esign-center';
 import { contractStage, getProgress, isContractInProgress, isTestContract } from '@/lib/domain/contract';
 import type { EsignStage } from '@/lib/domain/esign-progress';
 import {
@@ -31,7 +32,7 @@ import { CardSpecs } from '@/components/product-card-atoms';
 import { msgClock } from '@/lib/format';
 import { haptic } from '@/lib/haptics';
 import { partnerTypeLabel } from '@/lib/domain/partner';
-import { memberAccountState } from '@/features/members/member-filter';
+import { memberAccountState, memberTypeLabel } from '@/features/members/member-filter';
 import { joinMetaText } from '@/features/work-list-display';
 import {
   SETTLEMENT_RATE_WARNING,
@@ -40,8 +41,6 @@ import {
   settlementWarning,
   type SettlementListDisplay,
 } from '@/lib/domain/settlement-display';
-
-const MEMBER_ROLE_LABEL: Record<string, string> = ROLE_LABEL_RAW;
 
 /** 레거시 공백-only 값이 빈 제목·배지로 남지 않게 목록 문구를 정규화한다. */
 const listText = (value: unknown) => joinMetaText([value]);
@@ -194,7 +193,7 @@ export function ContractListRow({
   const inProgress = isContractInProgress(c);
   // 철회·부결·알 수 없는 상태는 단계 진행률이 아니라 상태 확인이 우선이다.
   const showProgress = inProgress && stage.tone !== 'red';
-  const contractCode = String(c.contract_code || '').trim();
+  const contractCode = String(c.contract_number || c.contract_code || '').trim();
   return (
     <FeedListRow
       selected={selected}
@@ -305,9 +304,9 @@ export const EsignVehicleSelectRow = memo(function EsignVehicleSelectRow({
 export function InventoryCreateRow({ onClick }: { onClick: () => void }) {
   return (
     <CreateListRow
-      label="상품등록"
+      label="상품 등록"
       hint="여기를 눌러 신규 상품을 등록해주세요"
-      ariaLabel="상품등록"
+      ariaLabel="상품 등록"
       onClick={onClick}
     />
   );
@@ -320,9 +319,9 @@ export function InventoryCreateRow({ onClick }: { onClick: () => void }) {
 export function ContractCreateRow({ onClick }: { onClick: () => void }) {
   return (
     <CreateListRow
-      label="계약등록"
+      label="계약 등록"
       hint="매물 없이 계약서만 보낼 때 여기를 눌러 주세요"
-      ariaLabel="계약등록"
+      ariaLabel="계약 등록"
       onClick={onClick}
     />
   );
@@ -332,9 +331,9 @@ export function ContractCreateRow({ onClick }: { onClick: () => void }) {
 export function EsignCreateRow({ selected, onClick }: { selected?: boolean; onClick: () => void }) {
   return (
     <CreateListRow
-      label="새 계약조건 만들기"
+      label="새 계약 만들기"
       hint="정책·차량·대여조건만 정하고 고객 작성 링크를 만듭니다"
-      ariaLabel="새 계약조건 만들기"
+      ariaLabel="새 계약 만들기"
       selected={selected}
       onClick={onClick}
     />
@@ -392,12 +391,12 @@ export function MemberListRow({
       onClick={onClick}
       thumb={<FeedThumbIcon icon={ic.icon} tone={ic.tone} title={ic.title} decorative />}
       lines={[
-        <FeedTitle key="t">{listText(row.name) || code || (kind === 'user' ? '계정' : '회사')}</FeedTitle>,
+        <FeedTitle key="t">{listText(row.name) || code || (kind === 'user' ? '회원' : '파트너사')}</FeedTitle>,
         <div key="s" style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden', width: '100%' }}>
           {kind === 'user' ? (
             <>
               <Badge tone={ACTOR_TONE[role] || (role.startsWith('agent') ? 'blue' : 'gray')}>
-                {MEMBER_ROLE_LABEL[role] || role || '역할 미지정'}
+                {memberTypeLabel(role, row.company_code)}
               </Badge>
               {pending ? <Badge tone="amber" variant="solid">승인대기</Badge>
                 : inactive ? <Badge tone="gray" variant="quiet">비활성</Badge> : null}
@@ -431,20 +430,23 @@ export function PolicyCreateRow({ onClick }: { onClick: () => void }) {
 
 /** 회원·파트너 목록 맨 위 — 재고의 상품등록 행과 같은 신규 등록 규격. */
 export function MemberCreateRow({
-  kind, onClick,
+  kind, selected, onClick,
 }: {
   kind: 'user' | 'partner';
+  /** 등록 중 — 계약서관리 「새 계약 만들기」처럼 이 행이 선택됨으로 남는다(사장님 2026-08-19 규격). */
+  selected?: boolean;
   onClick: () => void;
 }) {
-  const label = kind === 'user' ? '계정 등록' : '회사 등록';
+  const label = kind === 'user' ? '가입회원 연결' : '파트너사 등록';
   const hint = kind === 'user'
-    ? '로그인 계정과 역할을 등록합니다'
-    : '공급사·영업채널(수수료·시트)을 등록합니다';
+    ? '가입을 마친 영업자·공급사 직원을 소속에 연결합니다'
+    : '영업채널·공급사를 등록합니다';
   return (
     <CreateListRow
       label={label}
       hint={hint}
       ariaLabel={label}
+      selected={selected}
       onClick={onClick}
     />
   );
@@ -592,7 +594,7 @@ export function EsignListRow({
 }) {
   const ic = esignStatusIcon(stage);
   const title = vehicleName || contractVehicleLabel(contract) || '차량명 미확정';
-  const contractCode = String(contract.contract_code || '').trim();
+  const contractCode = String(contract.contract_number || contract.contract_code || '').trim();
   const sentAt = Number(contract.sign_sent_at) || 0;
   // 발행 전에는 «0/8» 을 띄우지 않는다 — 아직 시작도 안 한 건과 1단계에서 멈춘 건이 같아 보인다.
   const showProgress = stage.state === '진행중';
@@ -629,42 +631,52 @@ export function EsignListRow({
   );
 }
 
-/** 전자계약 발송센터 — 고객·차량·렌터카사·월대여료·기간·업무상태 6값만 노출한다. */
+/**
+ * 계약서관리 목록 행 — 고객·차량·공급사·월대여료·기간 + 단계 뱃지(+플래그).
+ * 뱃지 이름 = 작업면 스테퍼 이름(정본 docs/ESIGN_SEND_CENTER_REDESIGN_2026-08-19.md §2-1). 플래그는 단계 옆 빨간 뱃지.
+ */
 export function EsignCenterListRow({
   contract,
-  bucket,
+  stage,
+  flagLabel = '',
   providerName,
   selected,
   onClick,
 }: {
   contract: EntityRecord;
-  bucket: '발송대기' | '서명중' | '확인필요' | '완료';
+  stage: EsignCenterStage;
+  flagLabel?: string;
   providerName?: string;
   selected?: boolean;
   onClick: () => void;
 }) {
-  const state = bucket === '완료'
+  const state = stage === '완료'
     ? { icon: FileCheck2, tone: 'green' as const }
-    : bucket === '확인필요'
-      ? { icon: FileX2, tone: 'red' as const }
-      : bucket === '서명중'
+    : stage === '검토 대기'
+      ? { icon: FileCheck2, tone: 'amber' as const }
+      : stage === '고객 작성 중'
         ? { icon: PenLine, tone: 'blue' as const }
         : { icon: FileSignature, tone: 'gray' as const };
   const vehicle = contractVehicleLabel(contract) || '차량명 미확정';
   const customer = listText(contract.customer_name) || '고객 입력 대기';
-  const provider = listText(providerName) || listText(contract.provider_company_code) || '렌터카사 미확정';
+  const provider = listText(providerName) || listText(contract.provider_company_code) || '공급사 미확정';
   const rent = Number(contract.rent_amount_snapshot) || 0;
   const months = Number(contract.rent_month_snapshot) || 0;
   return (
     <FeedListRow
       selected={selected}
       onClick={onClick}
-      thumb={<FeedThumbIcon icon={state.icon} tone={state.tone} title={bucket} decorative />}
+      thumb={<FeedThumbIcon icon={flagLabel ? FileX2 : state.icon} tone={flagLabel ? 'red' : state.tone} title={flagLabel ? `${stage} · ${flagLabel}` : stage} decorative />}
       lines={[
         <FeedTitleRow
           key="t"
           title={<FeedTitle>{customer}</FeedTitle>}
-          meta={<Badge tone={state.tone} variant={bucket === '확인필요' ? 'solid' : 'fill'}>{bucket}</Badge>}
+          meta={(
+            <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
+              {flagLabel ? <Badge tone="red" variant="solid">{flagLabel}</Badge> : null}
+              <Badge tone={state.tone} variant="fill">{stage}</Badge>
+            </span>
+          )}
         />,
         <div key="s" style={{ minWidth: 0, overflow: 'hidden', width: '100%' }}>
           <FeedSub>
@@ -691,10 +703,11 @@ function policyStatusIcon(p: EntityRecord): { icon: LucideIcon; tone: BadgeTone;
 }
 
 export function PolicyListRow({
-  p, providerName: resolvedProviderName, selected, onClick,
+  p, providerName: resolvedProviderName, readiness, selected, onClick,
 }: {
   p: EntityRecord;
   providerName?: string;
+  readiness?: { status: '판매조건 부족' | '계약조건 부족' | '완료'; salesMissing: unknown[]; contractMissing: unknown[] };
   selected?: boolean;
   onClick: () => void;
 }) {
@@ -716,6 +729,11 @@ export function PolicyListRow({
         <FeedTitle key="t">{policyName || '정책명 미지정'}</FeedTitle>,
         <div key="s" style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden', width: '100%' }}>
           {missingName ? <Badge tone="red" variant="solid">정보 확인</Badge> : null}
+          {readiness?.status === '판매조건 부족' ? (
+            <Badge tone="red" variant="quiet">판매조건 {readiness.salesMissing.length}개 부족</Badge>
+          ) : readiness?.status === '계약조건 부족' ? (
+            <Badge tone="amber" variant="quiet">계약조건 {readiness.contractMissing.length}개 부족</Badge>
+          ) : readiness ? <Badge tone="green" variant="quiet">준비 완료</Badge> : null}
           {ptype ? <Badge tone="blue">{ptype}</Badge> : null}
           <Badge tone={shared ? 'gray' : 'blue'} variant="quiet">{shared ? '공용' : providerName}</Badge>
           <div style={{ flex: '1 1 auto', minWidth: 0, overflow: 'hidden' }}>

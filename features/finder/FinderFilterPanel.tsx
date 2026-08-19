@@ -9,9 +9,7 @@ import {
 import { toggleInSet } from '@/lib/set';
 import { VehicleMasterFilter } from '@/components/VehicleMasterFilter';
 import { FINDER_DEFAULT_SORT, FINDER_SORTS } from './filter-state';
-import {
-  Badge, Btn, C, CountPill, FilterGroup, FS, FW, Select, ToggleChips, ctrlH,
-} from '@/components/ui';
+import { Badge, Btn, C, CountPill, FilterGroup, FS, FW, Select, ToggleChips, ctrlH } from '@/components/ui';
 import type { FilterBag, InterestKey } from './filter-state';
 import type { FinderFilterPreset } from '@/lib/finder-filter-presets';
 
@@ -34,6 +32,9 @@ function chipOpts(
 export type FinderFilterPanelModel = {
   mobile: boolean;
   totalVisible: number;
+  /** 조건 적용 결과 대수. 없으면 총대수만. */
+  foundCount: number;
+  searching: boolean;
   activeCount: number;
   /** 축만(즐겨찾기 저장 가능 여부). interest·정렬·엑셀 제외. */
   presetSaveCount: number;
@@ -59,7 +60,7 @@ export type FinderFilterPanelModel = {
 
 export function FinderFilterPanel({ model }: { model: FinderFilterPanelModel }) {
   const {
-    mobile, totalVisible, activeCount, presetSaveCount, draftOpen, value, cascadeProducts,
+    mobile, totalVisible, foundCount, searching, activeCount, presetSaveCount, draftOpen, value, cascadeProducts,
     popularModels, present, aggregate, recentCount, favoriteCount,
     presets, activePresetId, onSavePreset, onApplyPreset, onRemovePreset,
     update, reset, clearRecent, clearFavorites,
@@ -88,6 +89,9 @@ export function FinderFilterPanel({ model }: { model: FinderFilterPanelModel }) 
         <div className="fp-sidebar-head">
           <span style={{ fontSize: FS.body, color: C.mute }}>
             총 <b style={{ color: C.ink, fontSize: FS.title }}>{totalVisible.toLocaleString()}</b>대
+            {searching ? (
+              <> · 검색 <b style={{ color: C.ink, fontSize: FS.title }}>{foundCount.toLocaleString()}</b>대</>
+            ) : null}
           </span>
           <span style={{ fontSize: FS.title, fontWeight: FW.title, display: 'inline-flex', alignItems: 'center', gap: 6, color: C.ink }}>
             조건 검색{activeCount > 0 ? <CountPill n={activeCount} /> : null}
@@ -171,14 +175,12 @@ export function FinderFilterPanel({ model }: { model: FinderFilterPanelModel }) 
                   padding: mobile ? '0 8px' : '0 6px',
                 };
                 if (value.interest.size > 0) {
-                  return <Btn variant="bare" title="해제" haptic="select" onClick={() => { update({ interest: new Set() }); }} style={{ ...style, color: C.accent }}>해제</Btn>;
+                  return <Btn variant="bare" title="해제" haptic="select" onClick={() => update({ interest: new Set() })} style={{ ...style, color: C.accent }}>해제</Btn>;
                 }
-                return (
-                  <>
-                    <Btn variant="bare" title="최근 비우기" haptic="impact" disabled={recentCount === 0} onClick={() => { clearRecent(); }} style={{ ...style, color: C.mute }}>최근 비우기</Btn>
-                    <Btn variant="bare" title="관심 비우기" haptic="impact" disabled={favoriteCount === 0} onClick={() => { clearFavorites(); }} style={{ ...style, color: C.mute }}>관심 비우기</Btn>
-                  </>
-                );
+                return <>
+                  <Btn variant="bare" title="최근 비우기" haptic="impact" disabled={recentCount === 0} onClick={clearRecent} style={{ ...style, color: C.mute }}>최근 비우기</Btn>
+                  <Btn variant="bare" title="관심 비우기" haptic="impact" disabled={favoriteCount === 0} onClick={clearFavorites} style={{ ...style, color: C.mute }}>관심 비우기</Btn>
+                </>;
               })()}
             >
               <ToggleChips

@@ -22,7 +22,7 @@ process.env.NEXT_PUBLIC_DATA_BACKEND = ''; // LocalAdapter 강제
 
 const { getStore } = await import('../lib/store');
 const { getCompanyId } = await import('../lib/tenant');
-const { newId } = await import('../lib/domain/ids');
+const { newId, settlementStorageKeyForContract } = await import('../lib/domain/ids');
 const { ensureRoom, createContractRequest, freezeContractTerm, setRole } = await import('../lib/domain/deal');
 const { applyStepCheck, cancelContract, createSettlement } = await import('../lib/domain/settlement-engine');
 const { importCompletedForMonth } = await import('../lib/domain/admin-settlement');
@@ -111,7 +111,7 @@ check('2c. 계약완료', contract.contract_status === '계약완료', contract.
 check('2d. 차량 출고불가 락', prodAfter?.vehicle_status === '출고불가' && String(prodAfter?.locked_by_contract) === contractCode, prodAfter?.vehicle_status);
 
 // ── 3. 정산 생성 & 금액 검증 (영업 지급·공급 수수료) ──
-const stCode = `ST_${contractCode}`;
+const stCode = settlementStorageKeyForContract(contractCode);
 const st = await store.get('settlement', co, stCode);
 const expFee = Math.round(RENT * 0.1);      // 55,000 공급 수수료(R1)
 const expPayout = Math.round(RENT * 0.04);  // 22,000 영업 지급(R2)

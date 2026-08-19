@@ -20,13 +20,28 @@
  * ⚠ 번호판이 없는 신차(선출고)는 열쇠가 없어 못 맞춘다. 그런 줄은 세어서 보여만 준다.
  * ⚠ 원본에서 차명이 바뀌면 정제칸이 낡은 값이 된다 — 바뀐 차를 목록으로 찍는다.
  *
- *   npx tsx scripts/sync-mirror-sheet.mts --from=<원본ID> --to=<우리시트ID>
- *   npx tsx scripts/sync-mirror-sheet.mts --from=… --to=… --apply
+ *   npx tsx scripts/sync-mirror-sheet.mts --from=<원본ID> --to=<우리시트ID> --code=RP0xx
+ *   npx tsx scripts/sync-mirror-sheet.mts --from=… --to=… --code=… --apply
+ *   npx tsx scripts/sync-mirror-sheet.mts --source=iron --to=<우리시트ID> --code=RP006   # 아이언 = ironrentcar.com
+ *   npx tsx scripts/sync-mirror-sheet.mts --from=… --to=… --code=RP023 --refresh-once [--apply]   # 정제시트를 «공급사 원문 그대로 + 모델명만 규격» 규칙으로 다시 세움(2026-08-19)
+ *
+ * ★2026-08-19 사장님 「공급사가 올린 정보 그대로 쓸 거고 모델명만 제대로 · 제조사·모델명만 검색되면 되고 연료·연식·배기량은 있는 대로」 —
+ *   정제시트에 「모델명」 열이 있으면: 차명(트림)=원본 모델명(트림풀명) 그대로(합치지 않음) · 모델명=원본 차종에서 제조사 말·연료 꼬리를 뗀 뒤 차종마스터 모델 이름(알면) · 제조사=원본 또는 차종에서 뗀 말.
+ *   「모델명」 열이 없는 정제시트(아이카·이안카·아이언)는 예전 그대로(차종+차명 합침) — 열을 넣으면 같은 규칙이 켜진다.
+ *
+ * ★2026-08-18 — **열 이름이 달라도 옮긴다**(`mirror-sheet-mapping.projectSourceRow`).
+ *   아이카 「배차상태·트림·외장·Km·소비자가격」, 오토플러스 「차종+모델명·판매상태」, 이안카 「차종분류+세부모델+트림」이
+ *   우리 규격 「상태·차명(트림)·외부색상·주행거리·차량가격」으로 온다. 상태·분류·연료만 규격값(ERP 와 같은 판정), 나머지는 원문.
+ *   별칭에 없는 열은 같은 이름일 때만 옮겨진다 — 오토플러스 「12개월2만·18개월3만」은 정제시트 머리행에 같은 이름을 둔다.
  */
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { SHEET_GRID_FIELDS, readSupplierSheet } from '../lib/domain/supplier-sheet-read';
-import { AI_TAIL_COLUMNS, columnOwner } from '../lib/domain/supplier-template-sheet';
+import { AI_TAIL_COLUMNS, columnOwner, isOurNonInventoryTab } from '../lib/domain/supplier-template-sheet';
+import { projectSourceRow, splitMakerModel, unmappedSourceColumns } from '../lib/domain/mirror-sheet-mapping';
+import { snapToMaster, type MasterEntry } from '../lib/domain/vehicle-master-match';
+import { canonMakerDisplay } from '../lib/domain/maker-display';
+import { MIRROR_SOURCES } from '../lib/domain/mirror-sources';
 import { HANDOVER_TAB, findLogEnd, nowKST } from '../lib/domain/supplier-handover-log';
 import type { EntityRecord } from '../lib/intake/entities';
 
@@ -38,14 +53,43 @@ const APPLY = process.argv.includes('--apply');
 const FROM = arg('from');
 const TO = arg('to');
 const CODE = arg('code', 'RP000');
-if (!FROM || !TO) throw new Error('--from=<원본ID> --to=<우리시트ID> 가 필요하다');
+/** 원본이 시트가 아닌 공급사 — `iron`(ironrentcar.com 홈페이지 수집). */
+const SOURCE = arg('source', 'sheet');
+/**
+ * ★--refresh-once — «한 번만 옮기는 칸»(차명 원문·옵션·색·연식·주행거리·연료·배기량·최초등록일·차량가격)을 이번 한 번 원본으로 다시 맞춘다.
+ *   사장님 2026-08-19 「공급사가 올린 정보 그대로 쓸 거고 모델명만 제대로」 — 정제시트를 그 규칙으로 다시 세울 때 쓴다. 평소엔 안 준다(우리 기록 보호).
+ *   정제칸(ours)·정책코드는 이 플래그로도 안 건드린다.
+ */
+const REFRESH_ONCE = process.argv.includes('--refresh-once');
+/** 차종마스터(모델 이름 규격) — 정제시트 「모델명」을 마스터 모델 이름으로 맞출 때만 쓴다(확신 high·medium). */
+const MASTER_ENTRIES = ((): MasterEntry[] => { try { const raw = JSON.parse(readFileSync('public/data/vehicle-master.json', 'utf8')); return (Array.isArray(raw) ? raw : raw.entries) || []; } catch { return []; } })();
+/**
+ * ★「모델명」 = 검색되는 모델 이름(사장님 2026-08-19 「제조사·모델명만 검색되면 되고 · 차명은 공급사가 올려준 것 그대로」).
+ *   원본 차종에서 제조사 말·연료 꼬리를 뗀 뒤(splitMakerModel), 차종마스터가 그 이름을 알아보면 마스터 모델 이름으로(「120i」→「1시리즈」·「C클래스」→「C-클래스」), 모르면 뗀 글자 그대로.
+ */
+const modelNameOf = (m: Map<string, string>): { maker: string; model: string } => {
+  const rawModel = S(m.get('모델명')); const rawName = S(m.get('차명원문')) || S(m.get('차명(트림)'));
+  const sp = splitMakerModel(rawModel || rawName);
+  let maker = canonMakerDisplay(S(m.get('제조사')) || sp.maker); let model = sp.model;
+  // 수입차 숫자 표기 → 차종마스터 모델 이름(최소 규칙): BMW 120i/220i/320d/520i/730d → 1·2·3·5·7시리즈 · 벤츠 C220/E300/S350 → C-/E-/S-클래스 · 「C클래스」→「C-클래스」
+  if (maker === 'BMW') { const b = /^([1-8])\d{2}[a-z]{0,2}$/i.exec(model); if (b) model = `${b[1]}시리즈`; }
+  if (maker === '벤츠') { const c = /^([ABCES])\s?\d{3}/i.exec(model); if (c) model = `${c[1].toUpperCase()}-클래스`; const k = /^([ABCES])[\s-]?클래스$/i.exec(model); if (k) model = `${k[1].toUpperCase()}-클래스`; }
+  if (MASTER_ENTRIES.length && (model || rawName)) {
+    const snap = snapToMaster({ maker, model, sub_model: rawName, fuel_type: S(m.get('연료')) } as EntityRecord, MASTER_ENTRIES);
+    if (snap && (snap.confidence === 'high' || snap.confidence === 'medium') && S(snap.model)) { model = S(snap.model); if (!maker && S(snap.maker)) maker = canonMakerDisplay(snap.maker); }
+  }
+  return { maker, model };
+};
+/** 원본에 없어 늘 비는 칸의 기본값(mirror-sources.defaults) — once 칸이 비어 있을 때만 넣는다. */
+const DEFAULTS: Record<string, string> = (MIRROR_SOURCES.find((m) => m.code === CODE)?.defaults) || {};
+if (!TO || (SOURCE === 'sheet' && !FROM)) throw new Error('--from=<원본ID> --to=<우리시트ID> (또는 --source=iron --to=…) 가 필요하다');
 
 /**
  * ★★**칸마다 누가 정본인지는 `columnOwner` 하나가 정한다**(사장님 2026-08-15 —
  *   「공급사시트에서는 배차상태만 확인해서 우리시트와 차량상태를 확인한다 /
  *    대여료 변동이 있다면 그 변동에 따라 변경한다」).
  *
- *   · live — 매번 공급사를 따라간다(상태·기간 대여료·보증금·주행거리)
+ *   · live — 매번 공급사를 따라간다(상태·기간 대여료·보증금)
  *   · ours — 우리가 정한다(정제칸·정책코드). 공급사가 못 덮는다
  *   · once — **처음 한 번만** 옮겨 온다. 그 뒤로는 우리 것이다(차명 원문·색·연식·옵션·차량가격…)
  *
@@ -87,32 +131,48 @@ const colA1 = (i: number) => { let s = '', n = i + 1; while (n > 0) { const r = 
 
 console.log(`■ 규격화시트 갱신 ${APPLY ? '반영' : '미리보기(dry-run)'}\n`);
 
-// ── ① 원본을 읽는다. 숨긴 행·숨긴 탭·어댑터는 readSupplierSheet 가 가려 준다.
-const grid = await call(`${SH}/${FROM}?includeGridData=true&fields=${encodeURIComponent(SHEET_GRID_FIELDS)}`);
-const read = readSupplierSheet(grid as never, { partner_code: CODE } as EntityRecord);
-/** 원본 차번 → (열이름 → 값). 같은 차가 여러 탭에 있으면 먼저 나온 쪽. */
+// ── ① 원본을 읽는다. 시트면 숨긴 행·숨긴 탭·어댑터는 readSupplierSheet 가 가려 준다.
+/** 원본 차번 → (우리 규격 열이름(공백 없이) → 값). 같은 차가 여러 탭에 있으면 먼저 나온 쪽. */
 const src = new Map<string, Map<string, string>>();
-for (const t of read.tabs) {
-  const hdr = (t.table[0] || []).map(S);
-  const pi = hdr.findIndex((h) => /^차량번호$|^차번$/.test(norm(h)));
-  if (pi < 0) continue;
-  for (const r of t.table.slice(1)) {
-    const plate = norm(r[pi]);
-    if (!plate || src.has(plate)) continue;
-    const m = new Map<string, string>();
-    hdr.forEach((h, i) => { if (S(h)) m.set(norm(h), S(r[i])); });
-    src.set(plate, m);
+/** 우리 규격 어디로도 못 옮긴 원본 열 — 버린 것을 보여 준다(정책 성격이면 정책 탭으로 갈 것). */
+const dropped = new Map<string, number>();
+if (SOURCE === 'iron') {
+  const { rowsFromIronCatalog } = await import('../lib/domain/mirror-iron-source');
+  const got = await rowsFromIronCatalog();
+  for (const [plate, m] of got.rows) if (!src.has(plate)) src.set(plate, m);
+  console.log(`  원본 ironrentcar.com — 목록 ${got.listings} · 활성 ${got.active} · 판매완료 ${got.sold} · 상세 실패 ${got.errors}${got.oddPeriods.length ? ` · 표준 밖 기간 ${got.oddPeriods.join(' · ')}` : ''}`);
+  if (!got.complete) throw new Error('홈페이지 상세를 하나라도 못 읽었다 — 전체 반영 중단(공급사 데이터 매뉴얼 규칙)');
+} else {
+  const grid = await call(`${SH}/${FROM}?includeGridData=true&fields=${encodeURIComponent(SHEET_GRID_FIELDS)}`);
+  const read = readSupplierSheet(grid as never, { partner_code: CODE } as EntityRecord);
+  for (const t of read.tabs) {
+    const hdr = (t.table[0] || []).map(S);
+    const pi = hdr.findIndex((h) => /^차량번호$|^차번$/.test(norm(h)));
+    if (pi < 0) continue;
+    for (const r of t.table.slice(1)) {
+      const plate = norm(r[pi]);
+      if (!plate || src.has(plate)) continue;
+      const raw = new Map<string, string>();
+      hdr.forEach((h, i) => { if (S(h)) raw.set(norm(h), S(r[i])); });
+      const m = projectSourceRow(raw);
+      // 차량번호 칸의 링크(사진)는 readSupplierSheet 가 뽑아 준다.
+      const photo = S((t as Rec).photoByPlate?.[plate] || (t as Rec).photoByPlate?.[S(r[pi])]);
+      if (photo && !m.get('사진링크')) m.set('사진링크', photo);
+      src.set(plate, m);
+    }
   }
+  console.log(`  원본 ${read.tabs.length}탭 · 차 ${src.size}대${read.failures.length ? ` · 못 읽은 탭 ${read.failures.length}` : ''}`);
+  // 버려지는 원본 열 — 우리 시트 머리행을 아직 안 읽었으니 아래 ②에서 다시 센다.
+  for (const t of read.tabs) for (const h of (t.table[0] || []).map(S)) if (h) dropped.set(h, (dropped.get(h) || 0) + 1);
 }
-console.log(`  원본 ${read.tabs.length}탭 · 차 ${src.size}대${read.failures.length ? ` · 못 읽은 탭 ${read.failures.length}` : ''}`);
 
 // ── ② 우리 시트를 읽는다. **탭이 여럿일 수 있다**(손오공 = 렌트재고 + 구독재고).
 const meta = await call(`${SH}/${TO}?fields=properties.title,sheets.properties(sheetId,title,hidden,gridProperties(rowCount))`);
 const book = S(meta.properties?.title);
 const visible = ((meta.sheets || []) as Rec[]).map((s) => s.properties)
-  .filter((p) => !p.hidden && !/^정책$|AI 인계/.test(S(p.title)));
+  .filter((p) => !p.hidden && !isOurNonInventoryTab(S(p.title)));
 
-type Tab = { title: string; rows: string[][]; hi: number; hdr: string[]; pi: number; si: number; ti: number };
+type Tab = { title: string; rows: string[][]; hi: number; hdr: string[]; pi: number; si: number; ti: number; mi: number };
 const tabs: Tab[] = [];
 for (const p of visible) {
   const title = S(p.title);
@@ -128,11 +188,17 @@ for (const p of visible) {
    *   «새 차»가 되고 머리행 바로 아래부터 통째로 덮어쓴다 — 122줄이 한 번에 갈린다.
    */
   if (pi < 0) throw new Error(`「${title}」 에 차량번호 열이 없다 — 덮어쓰면 기존 줄이 통째로 갈린다`);
-  tabs.push({ title, rows, hdr, hi, pi, si: hdr.findIndex((h) => norm(h) === '상태'), ti: hdr.findIndex((h) => norm(h) === norm('차명(트림)')) });
+  tabs.push({ title, rows, hdr, hi, pi, si: hdr.findIndex((h) => norm(h) === '상태'), ti: hdr.findIndex((h) => norm(h) === norm('차명(트림)')), mi: hdr.findIndex((h) => norm(h) === '모델명') });
 }
 if (!tabs.length) throw new Error('우리 시트에서 재고 탭을 못 찾았다');
 console.log(`  우리 시트 「${book}」 ${tabs.map((t) => `「${t.title}」 ${t.rows.length - t.hi - 1}줄`).join(' · ')}
 `);
+if (dropped.size) {
+  const lost = unmappedSourceColumns([...dropped.keys()], tabs.flatMap((t) => t.hdr));
+  if (lost.length) console.log(`  ▲ 우리 규격에 자리가 없어 안 옮기는 원본 열 ${lost.length}: ${lost.join(' · ').slice(0, 300)}
+     (조건·계좌 같은 정책 성격은 「정책」 탭에 적는다 — 줄마다 옮기지 않는다)
+`);
+}
 
 // ── ③ 줄마다 «공급사 것»만 갱신한다. 차번은 시트 전체에서 하나뿐이라고 본다.
 const data: { range: string; values: string[][] }[] = [];
@@ -156,6 +222,26 @@ for (const t of tabs) {
     }
     seen.add(plate);
     let hit = false;
+    // ★「모델명」 열이 있는 정제시트 — 차명(트림)=공급사 원문 그대로(합치지 않음), 모델명=검색되는 모델 이름, 제조사=원본 또는 차종에서 뗀 말.
+    if (t.mi >= 0) {
+      const mm = modelNameOf(from);
+      if (from.get('차명원문')) from.set(norm('차명(트림)'), from.get('차명원문')!);
+      if (mm.model) from.set('모델명', mm.model);
+      if (mm.maker && !S(from.get('제조사'))) from.set('제조사', mm.maker);
+    }
+    // 원본에 없는 칸 — 기본값(mirror-sources.defaults) · 제조사가 비면 정제칸 「제조사(정제)」를 앞칸에도 둔다(오토플러스는 원본에 제조사·구분이 없다).
+    const makerAi = t.hdr.findIndex((h) => norm(h) === '제조사(정제)');
+    // ★앞칸이 비고 정제칸이 있으면 정제칸 값을 앞칸에도 둔다(사장님 2026-08-18 「빈 칸 다 보라고」) — 제조사·배기량·연료.
+    const aiOf = (n: string) => { const j = t.hdr.findIndex((h) => norm(h) === n); return j >= 0 ? S(r[j]) : ''; };
+    const FROM_AI: Record<string, string> = { 제조사: makerAi >= 0 ? S(r[makerAi]) : '', 배기량: aiOf('배기량(정제)'), 연료: aiOf('연료(정제)') };
+    t.hdr.forEach((name, i) => {
+      if (!S(name) || S(r[i])) return;
+      const dv = DEFAULTS[S(name)] || FROM_AI[norm(name)] || '';
+      if (!dv || from.get(norm(name))) return;
+      data.push({ range: `'${t.title}'!${colA1(i)}${rowAt}`, values: [[dv]] }); cells++; hit = true;
+      if (!byCol.has(name)) byCol.set(name, []);
+      byCol.get(name)!.push(`「(빈칸)」→「${dv}」(기본값)`);
+    });
     t.hdr.forEach((name, i) => {
       if (!S(name)) return;
       const owner = columnOwner(name);
@@ -169,7 +255,7 @@ for (const t of tabs) {
        *   차명 원문·색·연식·옵션은 우리 시트로 옮겨 오면 그 뒤로 우리 기록이다.
        *   매번 원문으로 되돌리면 정리한 값이 사라지고, 사람이 고쳐도 다음날 없어진다.
        */
-      if (owner === 'once' && now) { onceKept++; return; }
+      if (owner === 'once' && now && !REFRESH_ONCE) { onceKept++; return; }
       /**
        * ⚠ **숫자로 같으면 안 건드린다.** 「93,000」과 「93000」은 같은 값이다.
        *   표기만 되돌리면 그 칸이 매번 «갱신 대상»으로 떠서, 진짜 바뀐 값이 그 속에 묻힌다.
@@ -184,6 +270,11 @@ for (const t of tabs) {
        */
       if (/입고일자|최초등록/.test(name) && next && !/\d/.test(next)) { junk.push(`${name}「${next}」`); return; }
       if (/배기량/.test(name) && /^0+$/.test(next)) { junk.push(`${name}「0」`); return; }
+      /**
+       * ⚠ **돈 칸에 문장을 넣지 않는다.** 우리캐피탈 구버전은 「1개월」 칸에 「(공동임차인 등재 또는 소득증빙조건 : 보증금 130만원)」을 적었다 —
+       *   사장님 지시로 그 글은 장기보증 메모로 옮겼다(2026-08-18). 미러가 다시 돈 칸에 되돌리면 그 작업이 날아간다. 「무보증」 같은 짧은 말은 둔다.
+       */
+      if (columnOwner(name) === 'live' && /개월|보증/.test(name) && next.length > 12 && !/^[\d,.\s원~-]+$/.test(next)) { junk.push(`${name}「문장」`); return; }
       data.push({ range: `'${t.title}'!${colA1(i)}${rowAt}`, values: [[next]] });
       cells++; hit = true;
       if (!byCol.has(name)) byCol.set(name, []);
@@ -206,8 +297,11 @@ const one = tabs.length === 1 ? tabs[0] : null;
 const newRows: string[][] = one
   ? fresh.map((plate) => {
     const from = src.get(plate)!;
-    // 새 차는 통째로 옮겨 온다 — 「처음 한 번」이 바로 이 자리다. 우리 칸만 비워 둔다.
-    return one.hdr.map((name) => (columnOwner(name) === 'ours' ? '' : S(from.get(norm(name)))));
+    if (one.mi >= 0) { const mm = modelNameOf(from); if (from.get('차명원문')) from.set(norm('차명(트림)'), from.get('차명원문')!); if (mm.model) from.set('모델명', mm.model); if (mm.maker && !S(from.get('제조사'))) from.set('제조사', mm.maker); }
+    // 새 차는 통째로 옮겨 온다 — 「처음 한 번」이 바로 이 자리다. 우리 칸은 기본값(정책코드 등)만.
+    // ★입고일자가 원본에 없으면 «우리 시트에 처음 선 날»(오늘 KST) — 재고일수의 기준이 그 뜻이다(사장님 2026-08-18 「빈 칸 다 보라고」).
+    const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10);
+    return one.hdr.map((name) => (columnOwner(name) === 'ours' ? (DEFAULTS[S(name)] || '') : (S(from.get(norm(name))) || DEFAULTS[S(name)] || (norm(name) === '입고일자' ? today : ''))));
   })
   : [];
 

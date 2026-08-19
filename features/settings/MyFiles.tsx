@@ -124,7 +124,7 @@ export function MyFiles({ uid }: { uid: string }) {
       )}
 
       <p style={{ margin: '8px 2px 0', fontSize: FS.micro, color: C.faint, lineHeight: 1.5, borderRadius: R }}>
-        내가 올린 파일만 보입니다. 삭제는 각 상담·계약 화면에서 하세요.
+        내가 올린 파일만 보입니다. 삭제는 파일이 등록된 원본 업무 화면에서 하세요.
         링크는 받은 사람이 열 수 있으니 외부 공유에 주의하세요.
       </p>
     </div>

@@ -1,5 +1,6 @@
 import type { EntityRecord } from '@/lib/intake/entities';
 import type { GuardedProductPatch } from '@/lib/domain/product-write-guard';
+import { isExactRealPlate } from '@/lib/domain/product';
 import { prepareMasterIngress } from '@/lib/domain/sheet-import';
 import {
   buildPrevForGuard,
@@ -65,22 +66,44 @@ const emptyCounts = () => ({
 const rowKey = (row: EntityRecord): string => String(row.product_code || row._key || '');
 const plate = (row: EntityRecord): string => String(row.car_number || '').replace(/\s/g, '');
 
-function contractStatusBlockReason(incoming: EntityRecord[], existing: EntityRecord[]): string {
+function normalizeSourceContractStatuses(
+  incoming: EntityRecord[],
+  existing: EntityRecord[],
+  now: number,
+): { products: EntityRecord[]; unavailableProjected: number } {
   const byKey = new Map(existing.map((row) => [rowKey(row), row]));
   const byProviderPlate = new Map(existing.map((row) => [
     `${String(row.provider_company_code || row.partner_code || '').trim()}|${plate(row)}`,
     row,
   ]));
-  for (const row of incoming) {
-    if (row._sheet_contract_status !== true) continue;
+  let unavailableProjected = 0;
+  const products = incoming.map((row) => {
+    if (row._sheet_contract_status !== true) return row;
     const before = byKey.get(rowKey(row)) || byProviderPlate.get(
       `${String(row.provider_company_code || row.partner_code || '').trim()}|${plate(row)}`,
     );
     const locked = before && (String(before.vehicle_status || '').trim() === '계약중'
       || !!String(before.locked_by_contract || '').trim());
-    if (!locked) return `영업자 시트 계약중 차량이 ERP 계약 엔진과 일치하지 않습니다(${plate(row) || rowKey(row)})`;
-  }
-  return '';
+    if (locked) return row;
+    unavailableProjected++;
+    const existingSheetBlockedAt = before
+      && before.sheet_status_owner === 'sheet'
+      && String(before.sheet_block_reason || '') === 'source_contract_status'
+      ? before.sheet_blocked_at
+      : undefined;
+    return {
+      ...row,
+      // 시트 상태는 판매 가능 여부의 정본이지만 ERP 계약락의 정본은 아니다.
+      // 계약 엔진과 연결되지 않은 시트 계약중은 출고불가로만 투영한다.
+      vehicle_status: '출고불가',
+      sheet_status_owner: 'sheet',
+      sheet_block_reason: 'source_contract_status',
+      // 같은 원본을 매일 읽어도 최초 차단 시각은 바꾸지 않는다. 실행시각을 매번 쓰면
+      // 실제 상태·가격이 같아도 영구히 수정 1건으로 남아 사후 멱등성 검증이 실패한다.
+      sheet_blocked_at: existingSheetBlockedAt ?? now,
+    };
+  });
+  return { products, unavailableProjected };
 }
 
 /**
@@ -113,9 +136,10 @@ export function planDailySheetSync(input: {
   if (canonical.reason) {
     return { ok: false, blockReason: canonical.reason, creates: [], patches: [], checkpoints: [], counts, notes };
   }
-  const contractStatusBlock = contractStatusBlockReason(canonical.products, input.existing);
-  if (contractStatusBlock) {
-    return { ok: false, blockReason: contractStatusBlock, creates: [], patches: [], checkpoints: [], counts, notes };
+  const now = input.now ?? Date.now();
+  const sourceStatuses = normalizeSourceContractStatuses(canonical.products, input.existing, now);
+  if (sourceStatuses.unavailableProjected) {
+    notes.push(`시트 계약중 ${sourceStatuses.unavailableProjected}대는 ERP 계약락 없이 출고불가로 반영`);
   }
   const rawConflicts = findSheetSyncExistingConflicts(input.fetched, input.existing, input.deleted);
   const resolutionResult = applySheetConflictResolutions({
@@ -136,12 +160,33 @@ export function planDailySheetSync(input: {
   if (resolutionResult.resolvedPricePeriods) {
     notes.push(`관리자 승인으로 기존 가격기간 유지 ${resolutionResult.resolvedPricePeriods}건`);
   }
-  const conflictBlock = sheetSyncExistingConflictReason(resolutionResult.conflicts);
+  let effectiveConflicts = resolutionResult.conflicts;
+  if (input.fetched.sourceKind === 'product_master') {
+    const authoritativeDeleted = effectiveConflicts.unownedDeletedMatches.length;
+    const preservedPricePeriods = effectiveConflicts.missingPricePeriods.length;
+    // 상품마스터는 공급사 원본을 규격화한 판매 정본이다. 삭제된 옛 ERP 행의 공급사
+    // 표식이 비어 있더라도 현재 상품마스터의 명시적 공급사+차번을 우선한다. 옛 가격
+    // 기간은 soft-merge가 그대로 보존하므로, 현재 표준기간을 갱신하면서 과거 기간을
+    // 지우지 않는다. 활성 중복·타 공급사 소유·임시번호 전환 같은 실물 식별 충돌은
+    // 아래 공통 게이트에 계속 남겨 자동 덮어쓰기를 금지한다.
+    effectiveConflicts = {
+      ...effectiveConflicts,
+      unownedDeletedMatches: [],
+      missingPricePeriods: [],
+    };
+    if (authoritativeDeleted) {
+      notes.push(`상품마스터 공급사·차번을 우선해 미확정 삭제이력 ${authoritativeDeleted}건을 새 정본으로 연결`);
+    }
+    if (preservedPricePeriods) {
+      notes.push(`상품마스터에 없는 기존 가격기간 ${preservedPricePeriods}건은 삭제하지 않고 ERP 값을 보존`);
+    }
+  }
+  const conflictBlock = sheetSyncExistingConflictReason(effectiveConflicts);
   if (conflictBlock) {
     return { ok: false, blockReason: conflictBlock, creates: [], patches: [], checkpoints: [], counts, notes };
   }
 
-  const ingress = prepareMasterIngress(canonical.products.map((row) => {
+  const ingress = prepareMasterIngress(sourceStatuses.products.map((row) => {
     const clean = { ...row };
     delete clean._sheet_contract_status;
     delete clean._sheet_price_scope;
@@ -182,10 +227,12 @@ export function planDailySheetSync(input: {
   const guard = buildPrevForGuard(input.partners, input.existing);
   const absentPatches: GuardedProductPatch[] = [];
   const checkpoints: Array<{ key: string; patch: EntityRecord }> = [];
-  const now = input.now ?? Date.now();
-  const salesCanonical = input.fetched.sourceKind === 'sales_inventory';
-  if (salesCanonical) {
-    // 영업자 판매용 워크북 4개 탭은 전 공급사 재고를 확정하는 하나의 정본이다. 공급사별 과거
+  const salesCanonical = input.fetched.sourceKind === 'sales_inventory'
+    || input.fetched.sourceKind === 'product_master';
+  const completeCanonical = salesCanonical && input.fetched.sourceScope !== 'providers';
+  const canonicalLabel = input.fetched.sourceKind === 'product_master' ? '상품마스터' : '영업자 상품리스트';
+  if (completeCanonical) {
+    // 상품마스터(과거에는 영업자 판매용 워크북 4개 탭)는 전 공급사 재고를 확정하는 하나의 정본이다. 공급사별 과거
     // baseline은 원본 시트 시절의 숫자라 첫 전환 때 정상 감소까지 막는다(실측: 아이언 48→20).
     // 대신 표 전체가 절반 이하로 붕괴했는지만 막고, 정상 범위 안에서는 공급사별 증감을
     // 그대로 반영해야 ERP가 영업자 표와 계속 일치한다.
@@ -193,7 +240,7 @@ export function planDailySheetSync(input: {
     if (!totalGate.ok) {
       return {
         ok: false,
-        blockReason: `영업자 상품리스트 전체 ${totalGate.reason === 'collapse' ? '급감' : '유입 0'} — 부재 재고 반영을 중단합니다`,
+        blockReason: `${canonicalLabel} 전체 ${totalGate.reason === 'collapse' ? '급감' : '유입 0'} — 부재 재고 반영을 중단합니다`,
         creates: [],
         patches: [],
         checkpoints: [],
@@ -204,7 +251,7 @@ export function planDailySheetSync(input: {
   }
   for (const line of input.fetched.lines) {
     const rowsRead = sheetSourceRowsRead(line);
-    const gate = salesCanonical
+    const gate = salesCanonical && completeCanonical
       ? { ok: true as const }
       : shouldReconcileAbsent(rowsRead, guard.get(line.code) || 0);
     checkpoints.push({ key: line.code, patch: buildSheetSyncCheckpoint(line, now, gate.ok) });
@@ -229,7 +276,7 @@ export function planDailySheetSync(input: {
     counts.lockedPreserved += absent.skipped_locked;
   }
 
-  if (salesCanonical) {
+  if (completeCanonical) {
     // 표에서 공급사가 통째로 빠진 것도 명시적 부재다. 현재 ERP에만 남은 공급사 코드를
     // 추가로 훑어 기존 재고가 유령으로 남지 않게 한다. 알 수 없는 소유코드는 건드리지 않는다.
     const lineCodes = new Set(input.fetched.lines.map((line) => line.code));
@@ -247,7 +294,7 @@ export function planDailySheetSync(input: {
       absentPatches.push(...absent.patches);
       counts.absentBlocked += absent.patches.length;
       counts.lockedPreserved += absent.skipped_locked;
-      notes.push(`${code}: 영업자 상품리스트 부재 ${absent.patches.length}대 출고불가`);
+      notes.push(`${code}: ${canonicalLabel} 부재 ${absent.patches.length}대 출고불가`);
     }
   }
 
@@ -260,4 +307,95 @@ export function planDailySheetSync(input: {
     counts,
     notes,
   };
+}
+
+export type ProductMasterProviderPlan = {
+  code: string;
+  label: string;
+  fetched: PartnerSheetsFetch;
+  plan: DailySheetSyncPlan;
+};
+
+/**
+ * 상품마스터를 공급사별 독립 계획으로 나눈다.
+ *
+ * 한 공급사의 삭제이력·가격기간 충돌이 다른 공급사의 안전한 상태/가격 반영까지 막지
+ * 않게 하되, 각 계획은 sourceScope=providers로 고정해 범위 밖 공급사를 부재처리하지 않는다.
+ * 불확실 충돌은 planDailySheetSync의 기존 게이트를 그대로 통과해야 하므로 자동 승인되지 않는다.
+ */
+export function planProductMasterProviderBatches(input: {
+  fetched: PartnerSheetsFetch;
+  existing: EntityRecord[];
+  deleted: EntityRecord[];
+  partners: EntityRecord[];
+  contracts?: EntityRecord[];
+  resolutions?: SheetConflictResolution[];
+  now?: number;
+}): ProductMasterProviderPlan[] {
+  if (input.fetched.sourceKind !== 'product_master') {
+    throw new Error('공급사별 독립 계획은 상품마스터 정본만 허용합니다');
+  }
+  // 실차번은 공급사보다 상위인 전역 식별자다. 공급사별로 먼저 쪼개면 같은 번호를
+  // 서로 다른 두 공급사가 보낸 충돌을 각 단건 계획이 보지 못한다. 전체 스냅샷에서
+  // 먼저 소유 충돌을 찾고, 연관 공급사만 보류해 나머지 공급사의 정상 반영은 유지한다.
+  const providersByPlate = new Map<string, Set<string>>();
+  for (const line of input.fetched.lines) {
+    for (const product of line.products) {
+      const carNumber = plate(product);
+      if (!isExactRealPlate(carNumber)) continue;
+      const providers = providersByPlate.get(carNumber) || new Set<string>();
+      providers.add(line.code);
+      providersByPlate.set(carNumber, providers);
+    }
+  }
+  const crossProviderConflicts = new Map<string, number>();
+  for (const providers of providersByPlate.values()) {
+    if (providers.size < 2) continue;
+    for (const code of providers) {
+      crossProviderConflicts.set(code, (crossProviderConflicts.get(code) || 0) + 1);
+    }
+  }
+  return input.fetched.lines.map((line) => {
+    const fetched: PartnerSheetsFetch = {
+      ...input.fetched,
+      lines: [line],
+      products: line.products,
+      partnerCount: 1,
+      sourceScope: 'providers',
+    };
+    const plan = planDailySheetSync({
+      fetched,
+      existing: input.existing,
+      deleted: input.deleted,
+      partners: input.partners,
+      contracts: input.contracts,
+      resolutions: input.resolutions,
+      now: input.now,
+    });
+    const crossProviderCount = crossProviderConflicts.get(line.code) || 0;
+    return {
+      code: line.code,
+      label: line.label,
+      fetched,
+      plan: !crossProviderCount ? plan : {
+        ...plan,
+        ok: false,
+        blockReason: [
+          `상품마스터 공급사 간 동일 실차번 ${crossProviderCount}건 — 귀속 확인 필요`,
+          plan.blockReason,
+        ].filter(Boolean).join(' · '),
+        creates: [],
+        patches: [],
+        checkpoints: [],
+        counts: {
+          ...plan.counts,
+          created: 0,
+          updated: 0,
+          unchanged: 0,
+          absentBlocked: 0,
+          absentGuarded: 0,
+        },
+      },
+    };
+  });
 }

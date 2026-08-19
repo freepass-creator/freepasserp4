@@ -1,7 +1,6 @@
 'use client';
 import { useEffect, useState, type MouseEvent, type ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
-import { MoreVertical, Star, ThumbsDown, EyeOff, MessageCircleMore, Share2 } from 'lucide-react';
+import { Copy, MoreVertical, Star, ThumbsDown, EyeOff, Share2 } from 'lucide-react';
 import { C, R, FW, FS, Btn, IconBtn, ctrlH, SH, SCRIM, ICON } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
@@ -9,8 +8,8 @@ import { isFav, toggleFav, removeFav, subscribeInterest } from '@/lib/product-in
 import { hideProduct } from '@/lib/product-hide';
 import { passProduct, isPassed, unpassProduct, subscribePassed } from '@/lib/product-pass';
 import { vehicleName } from '@/lib/domain/product';
-import { actor, getRole, ensureRoom } from '@/lib/domain/deal';
-import { guestShareUrl } from '@/lib/domain/product-share';
+import { actor, getRole } from '@/lib/domain/deal';
+import { formatProductForCopy, guestShareUrl } from '@/lib/domain/product-share';
 import { toast } from '@/components/Toaster';
 import { BottomSheet } from '@/components/BottomSheet';
 import type { EntityRecord } from '@/lib/intake/entities';
@@ -26,7 +25,6 @@ import { copyText } from '@/lib/clipboard';
  */
 export function ProductMoreMenu({ p }: { p: EntityRecord }) {
   const mobile = useIsMobile();
-  const router = useRouter();
   const [open, setOpen] = useState(false);
   const code = String(p.product_code || p._key || '');
   const [fav, setFav] = useState(false);
@@ -82,20 +80,7 @@ export function ProductMoreMenu({ p }: { p: EntityRecord }) {
       {canDeal ? (
         <>
           {item(
-            '계약문의',
-            async () => {
-              try {
-                const a = actor(role);
-                const room = await ensureRoom(p, a);
-                router.push(`/chat?room=${encodeURIComponent(room)}`);
-              } catch (e) {
-                toast(e instanceof Error ? e.message : '계약문의 실패', 'error');
-              }
-            },
-            { icon: <MessageCircleMore size={ICON.lg} color={C.brand} />, haptic: 'nav' },
-          )}
-          {item(
-            '공유',
+            '손님 전달',
             async () => {
               const a = actor(role);
               const url = guestShareUrl(p, a.code || a.uid);
@@ -107,6 +92,14 @@ export function ProductMoreMenu({ p }: { p: EntityRecord }) {
               else prompt('링크', url);
             },
             { icon: <Share2 size={ICON.lg} color={C.brand} />, haptic: 'select' },
+          )}
+          {item(
+            '텍스트 복사',
+            async () => {
+              if (await copyText(formatProductForCopy(p))) toast('상품 텍스트가 복사되었습니다', 'ok');
+              else toast('상품 텍스트를 복사하지 못했습니다', 'error');
+            },
+            { icon: <Copy size={ICON.lg} color={C.brand} />, haptic: 'select' },
           )}
         </>
       ) : null}

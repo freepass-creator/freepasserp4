@@ -226,6 +226,9 @@ export async function GET(
   { params }: { params: Promise<{ token: string }> },
 ) {
   const token = S((await params).token);
+  // peek=1 — 관리자 미리보기용 «읽기만». 열람 전이·이벤트·스냅샷 보정 등 어떤 쓰기도 하지 않는다.
+  // 손님이 붙여도 해될 것 없다: 진행(POST)이 첫 기록이 되며, 그때 openedAt 이 없으면 채운다.
+  const peek = new URL(request.url).searchParams.get('peek') === '1';
   const loaded = await loadFreepassSessionByToken(token);
   if (!loaded) return json({ error: '유효하지 않은 전자계약 링크입니다.' }, 404);
   const { hash, session } = loaded;
@@ -263,12 +266,12 @@ export async function GET(
     const companyName = S(bundle.partner?.company_name || bundle.partner?.name || bundle.partner?.partner_name);
     if (companyName) {
       // 기존 발행본에 누락된 임대인명만 한 번 보완해 이후 회사명 변경의 영향을 받지 않게 동결한다.
-      await db.ref(`v4/esign_sessions/${hash}/snapshot/landlord`).set({ companyName });
+      if (!peek) await db.ref(`v4/esign_sessions/${hash}/snapshot/landlord`).set({ companyName });
       snapshot = { ...snapshot, landlord: { companyName } };
     }
   }
   let liveSession = session;
-  if (!Number(session.openedAt || 0)) {
+  if (!peek && !Number(session.openedAt || 0)) {
     const openedClaim = await db.ref(`v4/esign_sessions/${hash}`).transaction((current) => {
       if (!current || Number(current.revokedAt || 0)) return;
       if (Number(current.expiresAt || 0) <= Date.now()) return;
@@ -349,7 +352,9 @@ export async function POST(
       if (Number(saved[step] || 0) > 0) return current;
       const progress = { ...saved, [step]: now };
       const writes = Object.keys(progress).filter((key) => PROGRESS_KEYS.has(key)).length;
-      return { ...current, progress, progressWrites: writes, lastProgressAt: now };
+      // peek 로만 열어 본 세션은 openedAt 이 없다 — 첫 진행 기록이 곧 열람이다.
+      const opened = Number(current.openedAt || 0) ? {} : { status: 'opened', openedAt: now };
+      return { ...current, ...opened, progress, progressWrites: writes, lastProgressAt: now };
     }, undefined, false);
     const progressedSession = record(progressClaim.snapshot.val());
     if (!progressClaim.committed) {

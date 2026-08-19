@@ -13,7 +13,7 @@
  *     「정책」  공급사·정책코드별 한 줄(제공시트 「정책」을 모은 것).
  *
  * ★갱신 규칙 — `columnOwner` 가 SSOT 다.
- *     live  숫자가 달라졌을 때만 갱신(상태·대여료·보증금·주행거리)
+ *     live  숫자가 달라졌을 때만 갱신(상태·기간별 대여료·보증금)
  *     once  빈 칸만 채움(차명 원문·색·연식…)
  *     ours  **원천(제공시트)을 따른다** — 지금 차종코드·정제값을 «고치는 곳»은 제공시트다
  *           (stamp·fill 도구가 거기에 쓴다). 따라가되 바뀐 칸은 소리 내어 센다.
@@ -216,6 +216,14 @@ const byWho = new Map<string, { n: number; code: number }>();
 for (const r of sorted) { const w = byWho.get(r['공급사']) || { n: 0, code: 0 }; w.n++; if (r['차종코드']) w.code++; byWho.set(r['공급사'], w); }
 console.log(`\n  ${pad('공급사', 12)}${pad('대수', 7)}차종코드`);
 for (const [w, x] of [...byWho].sort((a, b) => b[1].n - a[1].n)) console.log(`  ${pad(w, 12)}${pad(`${x.n}대`, 7)}${x.code}대 (${Math.round(100 * x.code / x.n)}%)`);
+const hasRent = (value: unknown) => {
+  const raw = S(value);
+  return /\d/.test(raw) && !/^[-—]+$/.test(raw);
+};
+const periodCounts = ['1', '6', '12', '18', '24', '36', '48', '60', '72', '84']
+  .map((months) => `${months}개월 ${sorted.filter((row) => hasRent(row[`${months}개월`])).length}대`)
+  .join(' · ');
+console.log(`\n  기간별 대여료  ${periodCounts}`);
 console.log(`  ${'─'.repeat(36)}`);
 console.log(`  새 줄 ${fresh} · live 갱신 ${live}칸 · once 채움 ${once}칸 · ours 반영 ${ours}칸 · 사라진 차 ${gone}`);
 if (oursChanged.length) { console.log(`\n  ▲ ours 칸이 원천을 따라 바뀐 자리(일부)`); for (const c of oursChanged) console.log(`     ${c}`); }

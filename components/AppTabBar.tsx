@@ -11,11 +11,13 @@ import { useSession } from '@/lib/auth-context';
 import { loadMenuBadges, type MenuBadgeMap } from '@/lib/domain/menu-badges';
 import { appTabsFor, isTabRoute, useTabBarHidden } from '@/lib/tabbar';
 import { refreshCurrentPage } from '@/lib/page-refresh';
+import { toast } from '@/components/Toaster';
 
 /**
  * 모바일 하단 탭.
- *   영업자: 상품찾기 · 계약진행 · 전자계약 · 설정
- *   공급사·관리자: 상품찾기 · 계약문의 · 계약진행 · 재고관리 · 설정
+ *   영업자: 상품찾기 · 계약진행 · 전자계약
+ *   공급사: 상품찾기 · 계약진행 · 재고관리
+ *   관리자: 상품찾기 · 계약진행 · 정산확인 · 재고관리
  * 라벨 = NAV_LABEL SSOT · 아이콘 = NAV_ICON SSOT (상단 메뉴와 동일)
  */
 function setTabCss(on: boolean) {
@@ -133,6 +135,28 @@ export default function AppTabBar() {
         {tabs.map((t) => {
           const on = active(t.href);
           const n = t.badgeKey ? badges[t.badgeKey] : 0;
+          if (t.soon) {
+            // 준비중 — 자리만 보여주고 이동하지 않는다(햄버거 soon 과 같은 규칙).
+            return (
+              <button
+                key={t.href}
+                type="button"
+                aria-disabled
+                onClick={() => { haptic.tap(); toast(`${t.label}은 준비중입니다`, 'info'); }}
+                style={{
+                  position: 'relative', flex: '1 1 0', minWidth: 0,
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                  gap: 5, paddingTop: 2, border: 'none', background: 'transparent',
+                  color: C.faint, opacity: 0.4, fontWeight: FW.strong, fontSize: FS.cap,
+                  letterSpacing: '-0.02em', lineHeight: 1, cursor: 'default',
+                  WebkitTapHighlightColor: 'transparent',
+                }}
+              >
+                <t.icon size={ICON.xl} strokeWidth={2.2} />
+                <span style={{ whiteSpace: 'nowrap' }}>{t.label}</span>
+              </button>
+            );
+          }
           return (
             <Link
               key={t.href}

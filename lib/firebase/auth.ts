@@ -13,10 +13,14 @@ import { setSession, getSession, mapRole, clearLegacyGuestState } from '../auth-
 import { buildAuditEntry } from '@/lib/domain/audit';
 import { currentActor } from '@/lib/session';
 import { getCompanyId } from '@/lib/tenant';
+import { patchListCache } from '@/lib/store';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { businessRegistrationNumberOf, normalizeBusinessRegistrationNumber } from '@/lib/domain/business-identity';
+import { partnerTypeLabel } from '@/lib/domain/partner';
+import { PERSONAL_AGENT_COMPANY, PERSONAL_AGENT_NAME } from '@/features/members/member-filter';
 import { LEGAL_VERSION } from '@/lib/legal';
 import { selfServeActivationDecision } from '@/lib/domain/self-serve-activation';
+import { newId } from '@/lib/domain/ids';
 
 /** 관리자 신원 조작(승인·역할재배정·채널백필) 감사기록 — store를 안 거치는 top-level users 쓰기라 별도 기록.
  *  best-effort(감사 실패가 원 작업을 막지 않음). audit_logs 규칙: actor_uid === auth.uid(=현재 관리자). */
@@ -185,28 +189,52 @@ export async function resetPassword(email: string): Promise<void> {
 }
 
 /** 사업자번호 → partners 매칭으로 역할·회사·채널 해석(가입·승인 공통).
- *  미매칭 = 영업자·company SP999. 채널은 여기 두지 않음 — 개인은 writeUserProfile/approveUser 가 user_code 로 고유화
- *  (공유 'SP999' 채널 금지: 규칙 게시 시 개인끼리 방/계약/정산 교차열람). */
+ *  미매칭 = 개인영업자(agent · company SP999). 채널은 여기 두지 않음 — 개인은 writeUserProfile/approveUser 가 user_code 로 고유화
+ *  (공유 'SP999' 채널 금지: 규칙 게시 시 개인끼리 방/계약/정산 교차열람).
+ *  회원관리에서 만든 파트너는 v4 오버레이에 있으므로 v3∪v4 를 본다. */
+async function readPartnersForMatch(): Promise<Record<string, Record<string, unknown>>> {
+  const db = getRtdb();
+  if (!db) return {};
+  const [live, overlay] = await Promise.all([
+    get(ref(db, 'partners')).then((snap) => (snap.val() || {}) as Record<string, Record<string, unknown>>).catch(() => ({})),
+    get(ref(db, 'v4/partners')).then((snap) => (snap.val() || {}) as Record<string, Record<string, unknown>>).catch(() => ({})),
+  ]);
+  const merged: Record<string, Record<string, unknown>> = { ...live };
+  for (const [key, row] of Object.entries(overlay)) {
+    if (!row || typeof row !== 'object') continue;
+    merged[key] = { ...(merged[key] || {}), ...row };
+  }
+  return merged;
+}
+
 async function resolveIdentity(bizNo: string): Promise<{ role: string; company_code: string; agent_channel_code: string; matched_partner_code: string | null }> {
   let role = 'agent', company_code = 'SP999', agent_channel_code = '', matched_partner_code: string | null = null;
-  const db = getRtdb();
-  if (bizNo && db) {
+  if (bizNo) {
     try {
-      const partners = (await get(ref(db, 'partners'))).val() || {};
-      for (const [k, p] of Object.entries<Record<string, unknown>>(partners)) {
+      const partners = await readPartnersForMatch();
+      for (const [k, p] of Object.entries(partners)) {
         if (!p || p._deleted) continue;
         const pn = businessRegistrationNumberOf(p, 'partner');
         if (pn && pn === bizNo) {
           matched_partner_code = String(p.partner_code || k);
-          const pt = String(p.partner_type || '');
-          if (/영업|sales/i.test(pt)) { role = 'agent'; company_code = matched_partner_code; agent_channel_code = matched_partner_code; }
-          else if (/공급|provider/i.test(pt)) { role = 'provider'; company_code = matched_partner_code; agent_channel_code = ''; }
+          const type = partnerTypeLabel(p.partner_type, p.partner_code || k);
+          if (type === '영업채널') { role = 'agent'; company_code = matched_partner_code; agent_channel_code = matched_partner_code; }
+          else if (type === '공급사') { role = 'provider'; company_code = matched_partner_code; agent_channel_code = ''; }
           break;
         }
       }
-    } catch { /* noop */ }
+    } catch { /* noop — 미매칭 폴백(개인영업자) */ }
   }
   return { role, company_code, agent_channel_code, matched_partner_code };
+}
+
+async function writeApprovedUser(uid: string, patch: Record<string, unknown>): Promise<void> {
+  const db = getRtdb();
+  if (!db) return;
+  await update(ref(db, `users/${uid}`), patch);
+  // 회원관리 목록은 v3∪v4 병합이라 오버레이에 옛 pending/빈 소속이 있으면 승인이 안 보임.
+  await update(ref(db, `v4/users/${uid}`), patch);
+  patchListCache('user', getCompanyId(), uid, { ...patch, _key: uid, uid });
 }
 
 /** 개인(SP999) 영업자 채널 = 사람키. 매칭 sales 소속은 partner 채널 유지. */
@@ -233,9 +261,9 @@ export async function writeUserProfile(user: User, info: {
     step = 'uid 확인';
     const uid = String(user?.uid || '');
     if (!uid) throw new Error('auth uid 없음');
-    // 자가가입 귀속키는 충돌하거나 추측 가능한 순번이 아니라 Firebase uid로 고정한다.
-    // 관리자가 나중에 소속을 매칭할 때 user_code를 업무 코드로 바꿀 수 있다.
-    const user_code = uid;
+    // Firebase uid는 인증키로만 보존하고 ERP5 업무관계는 별도 불변코드로 연결한다.
+    // uid를 user_code로 복제하면 외부 인증체계와 내부 코드체계를 다시 분리할 수 없게 된다.
+    const user_code = newId('user');
     step = '프로필 저장';
     // 이메일(PII)은 users_private/{uid}(본인 write)로 분리 시도. 성공 시 본노드에서 제외(공개 read 차단).
     //  실패(규칙 미게시·no-db)면 본노드에 그대로 남긴다(유실 방지) — 폴백이 기존 동작 보존.
@@ -351,47 +379,94 @@ export async function adminUpdateUserIdentity(
   await writeIdentityAudit(uid, 'update', before, { ...(before || {}), ...patch }, '회원 신원·운영 프로필 수정');
 }
 
+/** 관리자 회원 사용상태 변경 — Auth 로그인 차단과 운영 프로필을 서버에서 함께 갱신한다. */
+export async function adminSetUserActive(uid: string, active: boolean): Promise<void> {
+  const auth = getAuthClient();
+  const current = auth?.currentUser;
+  if (!current) throw new Error('관리자 로그인이 필요합니다');
+  if (!uid) throw new Error('uid 없음');
+  const token = await current.getIdToken();
+  const response = await fetch(`/api/admin/members/${encodeURIComponent(uid)}/active`, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${token}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({ active }),
+  });
+  const payload = await response.json().catch(() => ({})) as { error?: string };
+  if (!response.ok) throw new Error(payload.error || `회원 상태 변경 실패 (${response.status})`);
+}
+
+export type ApproveUserResult = {
+  status: 'active' | 'pending';
+  role?: string;
+  company_code?: string;
+  matched: boolean;
+};
+
 /**
  * 가입 승인 — status=active 로 전환.
  *  H1 결정(지정보존): 최초 승인만 bizNo로 신원 파생·배정. 이미 신원이 있는(=이전 승인 또는 관리자 수동지정)
  *  유저의 재승인/활성토글은 신원을 보존하고 활성화만 한다 — 관리자 지정이 조용히 리셋되던 결함 차단.
- *  RLS 스코프·정산 귀속을 좌우하는 필드라 '조용한 덮어쓰기'가 가장 위험한 방향.
+ *  미등록 사업자번호 = 개인영업자(agent/SP999). 신청 유형이 공급/영업이어도 소속이 없으면 개인으로 승인한다.
  *  opts.rematch=true 면 신원이 있어도 강제 재파생(파트너 디렉토리 갱신 후 명시적 재매칭용 이스케이프 해치).
  */
-export async function approveUser(uid: string, active = true, opts?: { rematch?: boolean }): Promise<void> {
+export async function approveUser(uid: string, active = true, opts?: { rematch?: boolean }): Promise<ApproveUserResult> {
   const db = getRtdb(); if (!db) throw new Error('DB가 설정되지 않았습니다');
   if (!uid) throw new Error('uid 없음');
-  if (!active) { await set(ref(db, `users/${uid}/status`), 'pending'); await writeIdentityAudit(uid, 'approve', null, { status: 'pending' }, '가입 승인취소(대기로 되돌림)'); return; }
+  if (!active) {
+    const patch = { status: 'pending' };
+    await writeApprovedUser(uid, patch);
+    await writeIdentityAudit(uid, 'approve', null, patch, '가입 승인취소(대기로 되돌림)');
+    return { status: 'pending', matched: false };
+  }
   const u = (await get(ref(db, `users/${uid}`))).val() as Record<string, unknown> | null;
-  // company_code 존재 = 이미 신원 배정됨(이전 승인 또는 adminUpdateUserIdentity 수동지정). 가입 시엔 미기록.
-  const hasIdentity = !!String((u && u.company_code) || '').trim();
+  const existingCompany = String((u && u.company_code) || '').trim();
+  const hasRealAffiliation = !!existingCompany && existingCompany !== PERSONAL_AGENT_COMPANY;
   let patch: Record<string, unknown>;
   let summary: string;
-  if (hasIdentity && !opts?.rematch) {
-    // 지정보존 — 신원 안 건드리고 활성화만.
-    patch = { status: 'active' };
+  let matched = hasRealAffiliation;
+  if (hasRealAffiliation && !opts?.rematch) {
+    patch = { status: 'active', is_active: '예' };
     summary = '가입 승인(기존 신원 보존)';
-  } else {
-    // 최초 승인(또는 명시적 재매칭) — bizNo로 신원 파생·배정.
+  } else if (opts?.rematch) {
     const bizNo = businessRegistrationNumberOf(u, 'user');
     const user_code = String((u && u.user_code) || uid).trim();
     const { role, company_code, agent_channel_code, matched_partner_code } = await resolveIdentity(bizNo);
-    // 가드: 공급/영업으로 신청했는데 매칭 파트너가 없으면 승인 차단(조용한 개인영업 SP999 오배정 방지).
-    //  → 관리자가 파트너사(공급/영업)를 먼저 등록해 사업자번호가 매칭되게 한 뒤 다시 승인.
-    //  개인영업(requested_type='개인') 또는 requested_type 미기록(구가입)은 기존대로 통과.
-    const requested = String((u && u.requested_type) || '');
-    if ((requested === '공급' || requested === '영업') && !matched_partner_code) {
-      throw new Error('미등록 사업자번호입니다. 파트너사(공급/영업)를 먼저 등록해 사업자번호를 매칭한 뒤 승인하세요.');
-    }
     const channel = resolveAgentChannel(role, company_code, agent_channel_code, user_code, uid);
+    matched = !!matched_partner_code;
     patch = {
-      status: 'active', role, company_code, agent_channel_code: channel,
+      status: 'active', is_active: '예', role, company_code, agent_channel_code: channel,
+      company_name: matched ? String((u && u.company_name) || '') : PERSONAL_AGENT_NAME,
       matched_partner_code: matched_partner_code || null,
     };
-    summary = `가입 승인 · ${role}/${company_code}${matched_partner_code ? ` (파트너 ${matched_partner_code})` : ''}${opts?.rematch ? ' [재매칭]' : ''}`;
+    summary = matched
+      ? `가입 승인 · ${role}/${company_code} (파트너 ${matched_partner_code}) [재매칭]`
+      : `가입 승인 · 개인영업자(${company_code}) [재매칭]`;
+  } else {
+    // 바로 승인 = 개인영업자. 소속 회사 연결은 이후 회원관리에서 한다.
+    const user_code = String((u && u.user_code) || uid).trim();
+    patch = {
+      status: 'active',
+      is_active: '예',
+      role: 'agent',
+      company_code: PERSONAL_AGENT_COMPANY,
+      company_name: PERSONAL_AGENT_NAME,
+      agent_channel_code: user_code || uid,
+      matched_partner_code: null,
+    };
+    matched = false;
+    summary = `가입 승인 · 개인영업자(${PERSONAL_AGENT_COMPANY})`;
   }
-  await update(ref(db, `users/${uid}`), patch);
+  await writeApprovedUser(uid, patch);
   await writeIdentityAudit(uid, 'approve', u, { ...(u || {}), ...patch }, summary);
+  return {
+    status: 'active',
+    role: String(patch.role ?? u?.role ?? ''),
+    company_code: String(patch.company_code ?? u?.company_code ?? ''),
+    matched,
+  };
 }
 
 /**

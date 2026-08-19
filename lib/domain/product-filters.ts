@@ -32,7 +32,7 @@ import { productHaystack, matchHay, queryTokens } from '@/lib/domain/search';
 export { productHaystack, matchProductQuery } from '@/lib/domain/search';
 export type { VehicleFilter } from '@/lib/domain/vehicle-master-match';
 export { EMPTY_VEHICLE_FILTER, normalizeVehicleFilter, vehicleFilterCount } from '@/lib/domain/vehicle-master-match';
-import { priceList, creditDisplay, noDeposit, minAge, shortExperience, installmentOk, parseEventTags, isOperatedPeriod, isStandardPeriod, PERIODS, isStockedProduct, canonProductType } from '@/lib/domain/product';
+import { priceList, creditDisplay, noDeposit, minAge, shortExperience, installmentOk, parseEventTags, isOperatedPeriod, isStandardPeriod, PERIODS, isStockedProduct, canonProductType, hasAcquisitionPlan } from '@/lib/domain/product';
 import { makerDisplay } from '@/lib/domain/vehicle-master-match';
 
 /** 매물에 항상 있는 축 — 카드 필수와 1:1. */
@@ -71,8 +71,15 @@ export const MILE_BANDS: Band[] = [
 /** entities SSOT 재노출 — 페이지는 여기만 import. */
 export const FUELS = [...FUEL_TYPES];
 export const PTYPES = [...PRODUCT_TYPES];
+/**
+ * 상품구분 축의 **가상값** — 「인수형(만기 인수)」. product_type 이 아니라 `price[m_인수형]` 유무로 맞춘다.
+ * 같은 축(ptype Set)에 넣어 저장·프리셋·배지·초기화를 공짜로 얻는다(축 안은 OR).
+ * 사장님 2026-08-18 샘플(「손오공 인수형 구독」 라인업) 반영 — 라인업 칩·사이드 상품구분 둘 다 이 값으로.
+ */
+export const ACQUISITION_PTYPE = '인수형' as const;
+export const ACQUISITION_PTYPE_LABEL = '인수형(만기 인수)';
 export const PROMOS = [...PROMO_BADGES_ACTIVE];
-export const CREDITS = ['무심사', '소득확인'] as const;
+export const CREDITS = ['무심사', '소득확인', '신용조회'] as const; // 사장님 2026-08-19 셋
 /** 혜택 = benefitSignals와 1:1 (만21세=연령≤21 라벨). */
 export const PERKS = ['분납가능', '무보증', '만21세', '경력무관', '무사고'] as const;
 /** 손님 카탈로그 — 심사와 분리된 혜택 서브셋. */
@@ -217,6 +224,7 @@ export function presentFilterOptions(products: EntityRecord[]): {
     }
     const pt = canonProductType(p.product_type);
     if (pt) ptypeCnt.set(pt, (ptypeCnt.get(pt) || 0) + 1);
+    if (hasAcquisitionPlan(p)) ptypeCnt.set(ACQUISITION_PTYPE, (ptypeCnt.get(ACQUISITION_PTYPE) || 0) + 1);
     const cd = creditDisplay(p);
     if (cd) creditCnt.set(cd, (creditCnt.get(cd) || 0) + 1);
     const fl = fuelDisplay(p.fuel_type) || String(p.fuel_type || '');
@@ -235,7 +243,10 @@ export function presentFilterOptions(products: EntityRecord[]): {
     dep: bandChips(DEP_BANDS, depCnt),
     mile: bandChips(MILE_BANDS, mileCnt),
     // 상품구분도 모수에 있는 것만(연쇄 필터 — 빈 칩 숨김). 캐논은 canonProductType.
-    ptype: PTYPES.filter((t) => (ptypeCnt.get(t) || 0) > 0).map((t) => ({ key: t, label: t, count: ptypeCnt.get(t)! })),
+    ptype: [
+      ...PTYPES.filter((t) => (ptypeCnt.get(t) || 0) > 0).map((t) => ({ key: t, label: t, count: ptypeCnt.get(t)! })),
+      ...((ptypeCnt.get(ACQUISITION_PTYPE) || 0) > 0 ? [{ key: ACQUISITION_PTYPE, label: ACQUISITION_PTYPE_LABEL, count: ptypeCnt.get(ACQUISITION_PTYPE)! }] : []),
+    ],
     credit: CREDITS.filter((v) => (creditCnt.get(v) || 0) > 0).map((v) => ({ key: v, label: v, count: creditCnt.get(v)! })),
     fuel: FUELS.filter((v) => (fuelCnt.get(v) || 0) > 0).map((v) => ({ key: v, label: v, count: fuelCnt.get(v)! })),
     perks: PERKS.map((pk) => ({ key: pk, label: pk, count: perkCnt.get(pk) || 0 })).filter((o) => o.count > 0),
@@ -420,7 +431,7 @@ export function matchProduct(p: EntityRecord, s: FState): boolean {
   if (s.periods.size && !pl.some((x) => s.periods.has(x.m))) return false;
   if (s.mile.size) { const km = Number(p.mileage) || 0; if (!MILE_BANDS.some((b) => s.mile.has(b.k) && km > b.lo && km <= b.hi)) return false; }
   if (s.fuel.size && !s.fuel.has(fuelDisplay(p.fuel_type) || String(p.fuel_type))) return false;
-  if (s.ptype.size && !s.ptype.has(canonProductType(p.product_type))) return false;
+  if (s.ptype.size && !s.ptype.has(canonProductType(p.product_type)) && !(s.ptype.has(ACQUISITION_PTYPE) && hasAcquisitionPlan(p))) return false;
   if (s.credit.size && !s.credit.has(creditDisplay(p))) return false;
   if (s.perks.size && ![...s.perks].every((pk) => hasPerk(p, pk))) return false;
   if (s.promo.size) {

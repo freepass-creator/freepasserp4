@@ -1,4 +1,5 @@
 import 'server-only';
+import { applyPolicyDefaults } from '@/lib/domain/policy-defaults';
 
 import { createHash, randomBytes } from 'node:crypto';
 import { getStorage } from 'firebase-admin/storage';
@@ -126,10 +127,13 @@ export async function loadFreepassEsignBundle(contractCode: string) {
     db.ref('v4/partners').get().catch(() => null),
   ]);
 
+  // 공급사에게 안 묻는 공통 조건(지연손해금·보관료·통지기한·청구 기준·가입 보험사·정비점·자차 처리 제외 …)은
+  // 프리패스 표준값으로 채워 계약서에 빈칸이 나가지 않게 한다. 이미 있는 값은 덮지 않는다(다른 읽기 경로와 같은 규칙).
+  const storedPolicy = mergeRecord(legacyPolicy?.val(), overlayPolicy?.val());
   return {
     db,
     contract,
-    policy: mergeRecord(legacyPolicy?.val(), overlayPolicy?.val()),
+    policy: storedPolicy ? (applyPolicyDefaults(storedPolicy).next as EsignRecord) : storedPolicy,
     product: mergeRecord(legacyProduct?.val(), overlayProduct?.val()),
     partner: partnerFromNodes(legacyPartners?.val(), overlayPartners?.val(), providerCode),
   };

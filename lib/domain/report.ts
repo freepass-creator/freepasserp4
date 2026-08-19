@@ -4,6 +4,7 @@
  */
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
+import { displayNumber, newId } from '@/lib/domain/ids';
 import { currentActor } from '@/lib/session';
 import { type EntityRecord } from '@/lib/intake/entities';
 
@@ -13,15 +14,17 @@ export const REPORT_REASONS = ['사진 이상', '차종/정보 오류', '가격 
 export async function submitReport(product: EntityRecord, reason: string, memo = ''): Promise<void> {
   const co = getCompanyId();
   const a = currentActor();
+  const now = Date.now();
   const rec: EntityRecord = {
-    report_code: `RPT-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    report_code: newId('report'),
     product_code: String(product.product_code ?? product._key ?? ''),
     car_number: String(product.car_number ?? ''),
     provider_company_code: String(product.provider_company_code ?? ''),
     reason, memo,
     reporter_uid: a.uid, reporter_name: a.name,
-    status: '접수', at: Date.now(),
+    status: '접수', at: now,
   };
+  rec.report_number = displayNumber('report', String(rec.report_code), now);
   await getStore().save('report', co, [rec]);
 }
 

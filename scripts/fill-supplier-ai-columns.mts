@@ -23,15 +23,21 @@
  */
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
+import { INCLUDE_MIRROR, isMirrorSheet } from '../lib/domain/mirror-sources';
+import { canonMakerDisplay } from '../lib/domain/maker-display';
 import { snapToMaster } from '../lib/domain/vehicle-master-match';
 import { fuelDisplay, fuelEmbeddedCc } from '../lib/domain/vehicle-master-format';
-import { snapColor } from '../lib/domain/color-master';
+import { snapColorOrEtc } from '../lib/domain/color-master';
+import { codeMatchesRawName } from '../lib/domain/code-vs-name';
+import { loadColorMasterAliases } from '../lib/domain/color-master-sheet';
 import { classifyVehicleClass } from '../lib/domain/vehicle-class';
 import { SALES_ALIAS } from '../lib/domain/sales-sheet-mapping';
-import { AI_TAIL_COLUMNS } from '../lib/domain/supplier-template-sheet';
+import { AI_TAIL_COLUMNS, supplierSheetLabel } from '../lib/domain/supplier-template-sheet';
 import { companyAlias, supplierNameKeys } from '../lib/domain/identity';
 import { MASTER_SHEET_ID, MASTER_TAB, masterCells, pickConfirmedMasterCode, readMasterSheet } from '../lib/domain/vehicle-master-sheet';
-import type { MasterEntry } from '../lib/domain/vehicle-master-types';
+import type { MasterEntry, VehicleTrimMasterArtifact } from '../lib/domain/vehicle-master-types';
+import { adoptedSpecByKey, adoptedVehicleClassText, buildPlateNormalization, type AdoptedSpecName, type NormalizedVehicleName } from '../lib/domain/product-vehicle-normalization';
+import { loadProductVehicleReviewDecisions } from '../lib/domain/product-vehicle-review-decisions';
 import type { EntityRecord } from '../lib/intake/entities';
 
 type Rec = Record<string, any>;
@@ -108,6 +114,45 @@ try {
 } catch (e) { console.log(`  ⚠ 차종마스터를 못 읽어 «차종코드»는 못 채운다 — ${String((e as Error).message).slice(0, 60)}`); }
 
 /**
+ * ★★**차량번호 정본이 먼저다 — 상품마스터의 확정 차종코드**(사장님 2026-08-18 —
+ *   「차종마스터를 안 거치고 왔어?? 정제시트 AI 칸에 모델·세부모델·세부트림 미리 정제해 놓고 갖다 쓰기로 했잖아 — 완전 엉망이네」).
+ *   실측: 손오공 375어8056 은 상품마스터에 「카니발 KA4 · 프레스티지」 확정 코드가 있는데, 정제칸은 글자 스냅으로
+ *   「카니발 II KV-II」(1990년대 세대)를 박고 코드는 비워 두었다 — 공급사가 배기량을 안 적어 세대 검산이 꺼진 탓.
+ *   그래서 스냅보다 **상품마스터(차량번호→차종코드, 검증상태 확정)** 를 먼저 본다. 확정 코드가 있으면 그 코드로 정하고,
+ *   뒤 칸(제조사(정제)·모델·세부모델·세부트림·배기량(정제)·연료(정제))은 코드에서 나온다(아래 「코드가 이긴다」 규칙이 옛 값을 바로잡는다).
+ *   정제칸에 다른 코드가 적혀 있어도 상품마스터 확정 코드가 이긴다(차량번호 정본).
+ */
+const PM_CODE = new Map<string, string>();
+/** 차량번호 정본 — 상품마스터 코드(규격채택 이름) + 3축 검토 결정. 발행기(publish-origin-tab)와 같은 길. */
+let NORMALIZED = new Map<string, NormalizedVehicleName>();
+/** 트림행키 → 규격채택(차종구분 = 규격_차종분류+차체형태 포함). */
+let ADOPTED = new Map<string, AdoptedSpecName>();
+/** 차량번호 → 공급사 원문(트림 근거 판정용). */
+const EVIDENCE = new Map<string, string>();
+const trimEvidenced = (plate: string, trim: string) => { const t = S(trim).toLowerCase().replace(/[\s\-_./()（）·]/g, ''); return t.length >= 2 && (EVIDENCE.get(plate.replace(/\s/g, '')) || '').includes(t); };
+try {
+  const { DEFAULT_PRODUCT_MASTER_SHEET_ID, PRODUCT_MASTER_TAB } = await import('../lib/domain/product-master-sheet');
+  const pmBase = `https://sheets.googleapis.com/v4/spreadsheets/${DEFAULT_PRODUCT_MASTER_SHEET_ID}/values/`;
+  const pm = await api(`${pmBase}${encodeURIComponent(`'${PRODUCT_MASTER_TAB}'!A:AX`)}`) as { values?: unknown[][] };
+  const adoptedValues = await api(`${pmBase}${encodeURIComponent("'차종마스터_규격채택'!A:AD")}`) as { values?: unknown[][] };
+  const artifact = JSON.parse(readFileSync('public/data/vehicle-trim-master.json', 'utf8')) as VehicleTrimMasterArtifact;
+  let preferMasterNames = false;
+  try { preferMasterNames = Number(JSON.parse(readFileSync('data/vehicle-trim-key-registry.json', 'utf8')).schemaVersion) >= 3; } catch { /* keep false */ }
+  ADOPTED = adoptedSpecByKey(adoptedValues.values || []);
+  // ★트림 근거 = 상품마스터 「공급사 입력 차명」·「공급사 원문보존」(공급사가 적은 그대로). 우리가 옛 ERP 값으로 미리 채운 시트 차명(트림)은 근거가 아니다(순환).
+  { const rows = ((pm.values || []) as unknown[][]).map((r) => (r || []).map((c) => S(c))); const h = rows[0] || []; const pi = h.indexOf('차량번호'); const cols = ['공급사 입력 차명', '공급사 원문보존'].map((c) => h.indexOf(c)).filter((i) => i >= 0);
+    for (const r of rows.slice(1)) { const pl = S(r[pi]).replace(/\s/g, ''); if (pl) EVIDENCE.set(pl, cols.map((i) => S(r[i])).join(' ').toLowerCase().replace(/[\s\-_./()（）·]/g, '')); }
+    // 결정 파일의 supplier_text(검토 때 본 공급사 원문)도 근거다 — 상품마스터 원문보존이 옛 것일 수 있다.
+    for (const d of loadProductVehicleReviewDecisions().decisions as { car_number?: string; supplier_text?: string }[]) { const pl = S(d.car_number).replace(/\s/g, ''); if (pl && d.supplier_text) EVIDENCE.set(pl, `${EVIDENCE.get(pl) || ''}${S(d.supplier_text).toLowerCase().replace(/[\s\-_./()（）·]/g, '')}`); } }
+  try { const n = await loadColorMasterAliases(api as (u: string) => Promise<Record<string, unknown>>); if (n) console.log(`  색상마스터 별칭 ${n}개 얹음`); } catch (e) { console.log(`  (색상마스터 탭 없음/못 읽음 — 코드 기본 별칭만: ${String((e as Error).message).slice(0, 60)})`); }
+  const built = buildPlateNormalization({ productMasterValues: pm.values || [], adopted: ADOPTED, artifact, decisions: loadProductVehicleReviewDecisions().decisions, preferMasterNames });
+  NORMALIZED = built.byPlate;
+  for (const [pl, n] of NORMALIZED) if (n.trim_row_key) PM_CODE.set(pl, n.trim_row_key);
+  console.log(`  차량번호 정본 ${NORMALIZED.size}대(코드 ${PM_CODE.size} · 결정 3축/부분 ${NORMALIZED.size - PM_CODE.size}) — 정제칸은 이것과 대조해 채운다`);
+} catch (e) { console.log(`  ⚠ 차량번호 정본(상품마스터·규격채택·결정)을 못 읽어 스냅으로만 돈다 — ${String((e as Error).message).slice(0, 80)}`); }
+let pmCodeUsed = 0, pmCodeOverrode = 0, normalUsed = 0, clearedLow = 0, snapFixed = 0; const clearedList: string[] = []; const snapFixList: string[] = [];
+
+/**
  * ★**채우는 곳은 「프리패스 재고」 제공시트다** — 문패가 가리키는 곳이 아니다.
  *   정제칸은 우리가 만든 제공시트에 있다. 문패는 아직 열여섯 곳이 «공급사 자체 시트»를
  *   가리키고 있어서, 문패를 따라가면 정제칸이 없는 문서를 열게 된다(실측 2026-08-14 —
@@ -123,8 +168,9 @@ const targets: { code: string; name: string; id: string }[] = [];
   const r = await api(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)&pageSize=100&includeItemsFromAllDrives=true&supportsAllDrives=true`);
   for (const f of ((r.files || []) as Rec[])) {
     const nm = S(f.name);
-    const who = companyAlias(nm.replace(DOC_NAME, '').trim()) || nm.replace(DOC_NAME, '').trim();
+    const who = companyAlias(supplierSheetLabel(nm)) || supplierSheetLabel(nm);
     if (ONLY.size && ![...supplierNameKeys(who)].some((k) => ONLY.has(k))) continue;
+    if (!INCLUDE_MIRROR && isMirrorSheet(S(f.id))) continue;   // 정제시트는 사장님·제미나이 몫(2026-08-18) — --include-mirror 로만
     targets.push({ code: '', name: who, id: S(f.id) });
   }
   targets.sort((a, b) => a.name.localeCompare(b.name, 'ko'));
@@ -151,6 +197,7 @@ let badCcWritten = 0;
 const ccFixList: string[] = [];
 /** 차종코드를 박은 차 / 못 박은 차 — 「절대 안 틀린다」가 실제로 몇 대에 걸렸나. */
 let codeSet = 0, codeUnset = 0;
+let staleSheetCode = 0; const staleList: string[] = [];
 /** 코드를 따라 표시칸을 고친 수 — 코드가 정본임이 실제로 지켜진 자리다. */
 let codeFixed = 0;
 const codeFixList: string[] = [];
@@ -262,7 +309,17 @@ for (const t of targets) {
        * ★코드가 정해지면 **뒤 칸들은 코드에서 나온다.** 스냅 결과를 안 쓴다 —
        *   그래야 시트에 적힌 값과 코드가 영원히 같다.
        */
-      const already = exactCell('차종코드');
+      /**
+       * ★시트에 남아 있는 차종코드는 «원문과 맞을 때만» 믿는다(2026-08-19 실측 — 손오공 161허1165 셀토스 줄에 쏘나타 DN8 코드가 남아
+       *   상품마스터에 코드가 없자 그 시트 코드를 정본으로 믿고 매일 쏘나타를 다시 썼다). 코드 모델이 제조사·차명(트림)·옵션 원문에 없으면 버린다.
+       */
+      const rawSupplierText = [exactCell('제조사'), exactCell('차명(트림)'), exactCell('옵션')].join(' ');
+      const sheetCode0 = exactCell('차종코드');
+      const sheetCode = (sheetCode0 && BOOK.byCode.get(sheetCode0) && !codeMatchesRawName(BOOK.byCode.get(sheetCode0) as { model?: string; sub_model?: string }, rawSupplierText)) ? '' : sheetCode0;
+      if (sheetCode0 && !sheetCode) { staleSheetCode++; if (staleList.length < 20) staleList.push(`${t.name} ${plate} 시트 코드 「${sheetCode0}」 ≠ 원문 「${rawSupplierText.slice(0, 40)}」 → 안 믿음`); }
+      const pmCode = PM_CODE.get(plate.replace(/\s/g, '')) || '';
+      if (pmCode && BOOK.byCode.has(pmCode)) { pmCodeUsed++; if (sheetCode && sheetCode !== pmCode) pmCodeOverrode++; }
+      const already = (pmCode && BOOK.byCode.has(pmCode)) ? pmCode : sheetCode;
       const pick = already
         ? { code: already, how: '하나' as const, candidates: [already] }
         : (ok ? pickConfirmedMasterCode(BOOK, S(snap!.maker), S(snap!.model), S(snap!.sub_model), variant, S(snap!.trim_name),
@@ -284,16 +341,20 @@ for (const t of targets) {
 
       /** 코드가 정해진 차는 **마스터 값**을, 아니면 예전처럼 스냅 값을 쓴다. */
       const fromCode = masterCells(mrow);
+      /** ★차종구분 정본 = 규격채택(차종분류+차체형태) — 코드/결정으로 트림행키가 정해진 차. 없으면 모델 이름 스냅(classifyVehicleClass). */
+      const normalForClass = NORMALIZED.get(plate.replace(/\s/g, ''));
+      const adoptedClass = (normalForClass?.trim_row_key ? adoptedVehicleClassText(ADOPTED.get(normalForClass.trim_row_key)) : '') || S(normalForClass?.vehicle_class);
       /**
        * 채울 값. **빈 문자열은 «채울 것이 없다»는 뜻**이고 그 칸은 건드리지 않는다.
        * ⚠ 세부트림은 없는 차가 정상이다 — 비어 있다고 사고가 아니다.
        */
       const want: Record<string, string> = {
         '차종코드': pick.code,
-        '제조사(정제)': ok ? clean('제조사', S(snap!.maker)) : '',
+        // ★제조사 표기 규격(maker-display) — 마스터의 르노코리아·KG모빌리티도 시트엔 르노·KGM(사장님 2026-08-18)
+        '제조사(정제)': ok ? canonMakerDisplay(clean('제조사', S(snap!.maker))) : '',
         '모델': ok ? clean('모델', S(snap!.model)) : '',
         '세부모델': ok ? clean('세부모델', S(snap!.sub_model)) : '',
-        '파워트레인': ok ? clean('파워트레인', variant) : '',
+        // 「파워트레인」 정제칸은 뺐다(2026-08-18) — 열이 남아 있는 시트가 있어도 더 채우지 않는다.
         '세부트림': ok ? clean('세부트림', S(snap!.trim_name)) : '',
         /**
          * ★배기량은 **마스터가 돌려준 `engine_cc` 를 그대로** 쓴다.
@@ -309,11 +370,12 @@ for (const t of targets) {
         '배기량(정제)': ok ? S(snap!.engine_cc) : '',
         '연료(정제)': ok ? fuelDisplay(variant) : '',
         // 색은 마스터와 무관하다 — 차명을 못 알아봐도 색은 정제된다.
-        '외장색상': snapColor(cell('외장'), 'ext'),
-        '내장색상': snapColor(cell('내장'), 'int'),
+        // ★색상은 규격 12색 안으로, 밖이면 「기타」(사장님 2026-08-19). 별칭은 코드 기본 + 원천대장 「색상마스터」 @별칭.
+        '외장색상': snapColorOrEtc(cell('외장'), 'ext'),
+        '내장색상': snapColorOrEtc(cell('내장'), 'int'),
         '선택옵션': clean('옵션', cell('옵션')),
         // 차종분류는 모델 이름으로 정한다 — 차명이 확실할 때만.
-        '차종분류': ok ? classifyVehicleClass({ maker: S(snap!.maker), model: S(snap!.model), sub_model: S(snap!.sub_model) } as EntityRecord) : '',
+        '차종분류': adoptedClass || (ok ? classifyVehicleClass({ maker: S(snap!.maker), model: S(snap!.model), sub_model: S(snap!.sub_model) } as EntityRecord) : ''),
         /**
          * ★★**코드가 이긴다.** 코드가 정해진 차는 위의 스냅 값 대신 **마스터 값**을 쓴다.
          *   맨 마지막에 덮어써서 순서 때문에 뒤집히지 않게 한다 —
@@ -321,6 +383,30 @@ for (const t of targets) {
          */
         ...fromCode,
       };
+      /**
+       * ★★**정본(상품마스터 코드·3축 결정)이 있으면 그 이름이 정제칸이다** — 사장님 2026-08-18 「정제칸부터 정확하게 대조해서 채워」.
+       *   코드 없는 결정(TRIPLE/PARTIAL)도 이름을 준다. 정본이 없고 스냅 확신도가 high 가 아니면 이름 칸을 **안 쓴다**(틀린 값보다 빈 칸).
+       *   이미 스냅으로 적혀 있던 이름도 정본과 다르면 정본으로 바로잡고, 정본이 없는데 확신도가 낮은 스냅 값이 남아 있으면 비운다.
+       */
+      const normal = NORMALIZED.get(plate.replace(/\s/g, ''));
+      let clearLowSnap = false; let forceSnap = false;
+      if (normal) {
+        // ★정본이 «코드 없음»(TRIPLE/PARTIAL/HOLD 결정)이면 시트에 남은 옛 코드도 비운다 — 안 그러면 트림을 비운 뒤에도 옛 코드(첫 트림 t01)가 정제칸에 눌러앉는다(2026-08-19 실측 125호2615).
+        want['차종코드'] = normal.trim_row_key || '';
+        want['제조사(정제)'] = canonMakerDisplay(normal.maker) || want['제조사(정제)'];
+        want['모델'] = normal.model || want['모델'];
+        want['세부모델'] = normal.sub_model || want['세부모델'];
+        // ★트림은 정본에 있는 것만. 정본(부분 결정)에 트림이 없으면 — 공급사 원문에 그 트림 글자가 있을 때만 스냅 트림을 남기고, 아니면 빈칸
+        //   (사장님 2026-08-19 「트림 없는 거는 그냥 트림 비우는 거로」 — 첫 트림 추정·옛 ERP 값 재유입을 막는다).
+        want['세부트림'] = normal.trim || (trimEvidenced(plate, want['세부트림']) ? want['세부트림'] : '');
+        if (normal.fuel) want['연료(정제)'] = fuelDisplay(normal.fuel) || normal.fuel;
+        if (normal.engine_cc) want['배기량(정제)'] = String(normal.engine_cc);
+        normalUsed++;
+      } else if (!pick.code) {
+        const strict = !!snap && snap.confidence === 'high' && !ccMismatch;
+        if (!strict) { for (const k of ['모델', '세부모델', '세부트림', '배기량(정제)', '연료(정제)', '차종분류']) want[k] = ''; clearLowSnap = true; }
+        else forceSnap = true;   // 정본은 없지만 확신 high — 지금 공급사 글자에서 나온 값으로 맞춘다(옛 스냅 값이 남아 있으면 바로잡음)
+      }
 
       for (const [name, ci] of tailAt) {
         if (ci < 0) continue;
@@ -334,9 +420,11 @@ for (const t of targets) {
          *   그 사이 마스터나 입력이 바뀐 차는 계산이 안 맞아 **못 고치고 지나간다.**
          *   「전기·수소인데 배기량이 있다」는 다시 볼 것 없이 틀린 것이다.
          */
-        if (FIX_CC && name === '배기량(정제)' && now && /전기|수소/.test(exactCell('파워트레인'))) {
+        // ★판정 칸은 「연료(정제)」(파워트레인 칸을 뺀 뒤로). 옛 시트에 파워트레인 칸이 남아 있으면 그것도 본다.
+        const fuelMark = exactCell('연료(정제)') || exactCell('파워트레인');
+        if (FIX_CC && name === '배기량(정제)' && now && /전기|수소/.test(fuelMark)) {
           badCcWritten++;
-          if (ccFixList.length < 25) ccFixList.push(`${t.name} ${plate} 「${exactCell('파워트레인')}」 ${now} → (빈칸)`);
+          if (ccFixList.length < 25) ccFixList.push(`${t.name} ${plate} 「${fuelMark}」 ${now} → (빈칸)`);
           updates.push({ range: `${a1Tab(title)}!${colA1(ci)}${r + 1}`, values: [['']] });
           continue;
         }
@@ -351,6 +439,31 @@ for (const t of targets) {
          * ⚠ 사람이 값을 고치고 싶으면 **코드를 고쳐야** 한다. 표시칸을 고치면 다시 덮인다 —
          *   그게 「코드가 정본」의 뜻이다.
          */
+        if (normal && ['차종코드', '제조사(정제)', '모델', '세부모델', '세부트림', '배기량(정제)', '연료(정제)', ...(adoptedClass ? ['차종분류'] : [])].includes(name)) {
+          const target = S(want[name]);
+          // 정본(부분 결정)에 트림이 없을 때: 지금 칸의 트림이 공급사 원문(원문보존·결정 supplier_text)에 있으면 남기고, 근거 없으면 비운다(2026-08-19 「트림 없는 거는 비운다」).
+          if (name === '세부트림' && !target && normal.source !== 'code' && now && trimEvidenced(plate, now)) { kept++; continue; }
+          if (now !== target) {
+            if (now) { codeFixed++; if (codeFixList.length < 20) codeFixList.push(`${t.name} ${plate} ${name} 「${now}」 → 「${target || '(빈칸)'}」`); }
+            else if (target) filled++;
+            if (target || now) updates.push({ range: `${a1Tab(title)}!${colA1(ci)}${r + 1}`, values: [[target]] });
+          } else if (now) kept++;
+          continue;
+        }
+        if (forceSnap && ['모델', '세부모델', '세부트림', '배기량(정제)', '연료(정제)'].includes(name) && !exactCell('차종코드')) {
+          const target = S(want[name]);
+          if (now !== target && (target || now)) {
+            if (now) { snapFixed++; if (snapFixList.length < 20) snapFixList.push(`${t.name} ${plate} ${name} 「${now}」 → 「${target || '(빈칸)'}」`); }
+            else if (target) filled++;
+            updates.push({ range: `${a1Tab(title)}!${colA1(ci)}${r + 1}`, values: [[target]] });
+          } else if (now) kept++;
+          continue;
+        }
+        if (clearLowSnap && ['모델', '세부모델', '세부트림', '배기량(정제)', '연료(정제)', '차종분류'].includes(name) && now && !exactCell('차종코드')) {
+          clearedLow++; if (clearedList.length < 20) clearedList.push(`${t.name} ${plate} ${name} 「${now}」 → (빈칸 · 정본 없음·확신 낮음)`);
+          updates.push({ range: `${a1Tab(title)}!${colA1(ci)}${r + 1}`, values: [['']] });
+          continue;
+        }
         if (pick.code && mrow && name in fromCode) {
           const target = S(fromCode[name]);
           if (now !== target) {
@@ -386,6 +499,11 @@ for (const t of targets) {
 
 console.log(`\n  ${'─'.repeat(58)}`);
 console.log(`  모두 ${totCars}대 · 채울 칸 ${totFilled} · 이미 있어 그대로 둔 칸 ${totKept}`);
+console.log(`  차량번호 정본으로 정한 차 ${normalUsed}대 (코드 ${pmCodeUsed} · 시트 코드와 달라 바로잡음 ${pmCodeOverrode}) · 정본 없고 확신 낮아 비운 칸 ${clearedLow}`);
+for (const x of clearedList) console.log(`     ${x}`);
+console.log(`  정본 없음·확신 high 스냅으로 바로잡은 칸 ${snapFixed}`);
+if (staleSheetCode) { console.log(`  시트에 남은 코드가 원문과 달라 안 믿은 차 ${staleSheetCode}대`); for (const l of staleList) console.log(`     ${l}`); }
+for (const x of snapFixList) console.log(`     ${x}`);
 if (codeSet || codeUnset) {
   console.log(`  차종코드   박음 ${codeSet}대 · 못 박음 ${codeUnset}대`);
 }

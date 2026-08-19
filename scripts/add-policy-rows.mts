@@ -20,7 +20,7 @@ import { POLICY_COLUMN_NAMES, SHEET_NAME_MATCH, supplierSheetLabel } from '../li
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
 const APPLY = process.argv.includes('--apply');
-const TAB = '정책';
+import { policyTabTitle } from '../lib/domain/supplier-template-sheet';
 
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 const gT = (await new JWT({ email: sa.client_email, key: sa.private_key,
@@ -41,6 +41,7 @@ let total = 0;
 for (const f of files) {
   const label = supplierSheetLabel(f.name);
   const meta = await api(`https://sheets.googleapis.com/v4/spreadsheets/${S(f.id)}?fields=sheets.properties(sheetId,title)`);
+  const TAB = policyTabTitle(((meta.sheets || []) as Rec[]).map((x) => S(x.properties?.title))) || '운영정책';
   const sh = ((meta.sheets || []) as Rec[]).find((x) => S(x.properties?.title) === TAB);
   if (!sh) { console.log(`  △ ${label.padEnd(14)}「${TAB}」 탭이 없다`); continue; }
   const gid = Number(sh.properties?.sheetId ?? 0);

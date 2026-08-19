@@ -101,13 +101,14 @@ export function Textarea({ value, onChange, onBlur, placeholder, ariaLabel, size
     style={{ boxSizing: 'border-box', minHeight, padding: mobile ? '10px 12px' : '8px 10px', border: `1px solid ${C.line}`, borderRadius: R, fontSize: inputFontSize, lineHeight: 1.5, fontFamily: 'inherit', background: disabled ? C.head : C.taupeBg, color: C.ink, opacity: disabled ? 0.7 : 1, resize: 'vertical', ...(full ? { width: '100%' } : {}), ...style }} />;
 }
 
-export function SearchInput({ value, onChange, placeholder = '검색', width, full, style, autoFocus }: {
+export function SearchInput({ value, onChange, placeholder = '검색', width, full, style, inputStyle, autoFocus }: {
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
   width?: number;
   full?: boolean;
   style?: React.CSSProperties;
+  inputStyle?: React.CSSProperties;
   autoFocus?: boolean;
 }) {
   const mobile = useIsMobile();
@@ -124,7 +125,7 @@ export function SearchInput({ value, onChange, placeholder = '검색', width, fu
       <Search aria-hidden size={mobile ? 16 : 14} style={{ position: 'absolute', left: mobile ? 12 : 9, color: focus ? C.accent : C.faint, pointerEvents: 'none' }} />
       <input ref={ref} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} aria-label={placeholder || '검색'} inputMode="search" autoFocus={autoFocus}
         onFocus={() => setFocus(true)} onBlur={() => setFocus(false)}
-        style={{ width: '100%', height: h, boxSizing: 'border-box', padding: mobile ? '0 40px 0 36px' : '0 28px 0 28px', border: `1px solid ${focus ? C.accent : C.line}`, borderRadius: R, fontSize: ctrlInputFs(mobile), background: C.taupeBg, color: C.ink, outline: 'none', boxShadow: focus ? `0 0 0 3px ${C.focusRing}` : 'none', transition: 'border-color .12s, box-shadow .12s' }} />
+        style={{ width: '100%', height: h, boxSizing: 'border-box', padding: mobile ? '0 40px 0 36px' : '0 28px 0 28px', border: `1px solid ${focus ? C.accent : C.line}`, borderRadius: R, fontSize: ctrlInputFs(mobile), background: C.taupeBg, color: C.ink, outline: 'none', boxShadow: focus ? `0 0 0 3px ${C.focusRing}` : 'none', transition: 'border-color .12s, box-shadow .12s, background-color .12s', ...inputStyle }} />
       {value && (
         <button type="button" aria-label="검색어 지우기" onMouseDown={(e) => e.preventDefault()} onClick={() => onChange('')}
           style={{ position: 'absolute', right: mobile ? 4 : 7, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: mobile ? 36 : 17, height: mobile ? 36 : 17, padding: 0, borderRadius: '50%', border: 'none', background: mobile ? 'transparent' : C.line2, color: C.mute, cursor: 'pointer' }}>

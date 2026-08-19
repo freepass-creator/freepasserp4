@@ -176,11 +176,25 @@ function snapshotUsable(c: EntityRecord): boolean {
 }
 
 function partsOfRecord(p: EntityRecord, tier: NameTier, omitMaker: boolean): Omit<NameParts, 'origin'> {
-  const rawMaker = S(p.maker);
+  // 코드 없는 차의 사람 3축 결정 — 자동확정(_product_master_identity_authoritative)이 아닐 때만 표시에 쓴다.
+  const review = (!p._product_master_identity_authoritative && p._review_identity
+    && typeof p._review_identity === 'object')
+    ? p._review_identity as EntityRecord
+    : null;
+  const display = review
+    ? {
+      ...p,
+      maker: S(review.maker) || p.maker,
+      model: S(review.model) || p.model,
+      sub_model: S(review.sub_model) || p.sub_model,
+      trim_name: S(review.trim_name) || p.trim_name,
+    }
+    : p;
+  const rawMaker = S(display.maker);
   const maker = tier === 'raw' ? rawMaker : (makerDisplay(rawMaker) || rawMaker);
-  const model = S(p.model);
-  const sub = S(p.sub_model);
-  const trim = trimOf(p.trim_name);
+  const model = S(display.model);
+  const sub = S(display.sub_model);
+  const trim = trimOf(display.trim_name);
   const plate = S(p.car_number) || S(p.car_number_snapshot);
 
   // T3는 감사 증거다. 정규화·제조사 중복 제거·필드 간 중복 제거를 하지 않는다.

@@ -107,12 +107,14 @@ export function FormGrid({
         const span = field.type === 'chips' || isYesNoActive(field) ? { gridColumn: '1 / -1' as const } : undefined;
         const overrideOpts = selectOptions?.[field.key];
         const baseOpts: SelectOption[] = overrideOpts || (field.options || []);
-        const hasValue = !!value && baseOpts.some((o) => (typeof o === 'string' ? o : o.value) === value);
-        const selectOpts: SelectOption[] = value && field.type === 'select' && !hasValue
-          ? [value, ...baseOpts]
+        // select 값은 글자로 비교한다 — 옛 숫자값(7·0.3)이 select 원자에 남아 있으면 옵션이 두 번 끼어 key 경고가 났다(2026-08-19).
+        const selValue = value === null || value === undefined ? '' : String(value);
+        const hasValue = !!selValue && baseOpts.some((o) => (typeof o === 'string' ? o : o.value) === selValue);
+        const selectOpts: SelectOption[] = selValue && field.type === 'select' && !hasValue
+          ? [selValue, ...baseOpts]
           : [...baseOpts];
         return (
-          <label key={field.key} style={{ fontSize: FS.cap, color: C.mute, ...span }}>
+          <label key={field.key} data-field={field.key} style={{ fontSize: FS.cap, color: C.mute, ...span }}>
             {field.label}
             {field.required && <span style={{ color: C.danger }}> *</span>}
             {field.manual && !disabled && <span style={{ color: C.warn }}> ·직접</span>}
@@ -138,7 +140,7 @@ export function FormGrid({
               </div>
             ) : field.type === 'select' ? (
               <SheetSelect
-                value={value}
+                value={selValue}
                 disabled={disabled}
                 full
                 placeholder="—"

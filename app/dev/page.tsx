@@ -54,6 +54,8 @@ export default function DevTools() {
   const [migBusy, setMigBusy] = useState(false);
   const [migLog, setMigLog] = useState('');
   const [privateMigLog, setPrivateMigLog] = useState('');
+  const [memberPrivateLog, setMemberPrivateLog] = useState('');
+  const [channelBackfillLog, setChannelBackfillLog] = useState('');
   const [settlementMigLog, setSettlementMigLog] = useState('');
   const [diagLog, setDiagLog] = useState('');
   // /dev?tool=sync 등 — 재고관리 진입 버튼이 바로 이 도구를 연다.
@@ -264,6 +266,61 @@ export default function DevTools() {
     } finally { setMigBusy(false); }
   };
 
+  const runMemberPrivateMigration = async (dryRun: boolean) => {
+    if (migBusy) return;
+    if (!dryRun && !await confirmDialog({
+      title: '민감정보 이관',
+      message: '민감정보를 private 노드로 이관하고 본노드에서 제거합니다.\n규칙(database.rules.json)이 먼저 게시되어 있어야 합니다. 진행할까요?',
+      danger: true,
+      okLabel: '이관 실행',
+    })) return;
+    setMigBusy(true);
+    setMemberPrivateLog('');
+    try {
+      const { migrateSensitiveToPrivate } = await import('@/lib/firebase/migrate-private');
+      const result = await migrateSensitiveToPrivate({ dryRun });
+      const message = `${dryRun ? '미리보기' : '실행 완료'} · 공급사 ${result.partners.moved}/${result.partners.scanned}(fee_rate) · 회원 ${result.users.moved}/${result.users.scanned}(email)`
+        + (result.errors.length ? ` · 오류 ${result.errors.length}` : '');
+      setMemberPrivateLog(message);
+      toast(message, result.errors.length ? 'error' : (dryRun ? 'info' : 'ok'));
+      if (result.errors.length) console.warn('[migratePrivate] errors', result.errors);
+    } catch (error) {
+      const message = '회원·파트너 민감정보 이관 오류: ' + String((error as Error).message || error);
+      setMemberPrivateLog(message);
+      toast(message, 'error');
+    } finally {
+      setMigBusy(false);
+    }
+  };
+
+  const runChannelBackfill = async (dryRun: boolean) => {
+    if (migBusy) return;
+    if (!dryRun && !await confirmDialog({
+      title: '개인채널 백필',
+      message: '대상 회원의 영업채널 값을 일괄 변경합니다. 먼저 미리보기 결과를 확인했나요?',
+      danger: true,
+      okLabel: '백필 실행',
+    })) return;
+    setMigBusy(true);
+    setChannelBackfillLog('');
+    try {
+      const { backfillPersonalAgentChannels } = await import('@/lib/firebase/auth');
+      const result = await backfillPersonalAgentChannels({ dryRun });
+      const n = result.updated.length;
+      const message = dryRun
+        ? `미리보기: ${n}명 대상 (스캔 ${result.scanned} · 건너뜀 ${result.skipped})`
+        : `채널 백필 ${n}명 완료 (스캔 ${result.scanned} · 건너뜀 ${result.skipped})`;
+      setChannelBackfillLog(message);
+      toast(message, n ? 'ok' : 'info');
+    } catch (error) {
+      const message = '개인채널 백필 오류: ' + String((error as Error).message || error);
+      setChannelBackfillLog(message);
+      toast(message, 'error');
+    } finally {
+      setMigBusy(false);
+    }
+  };
+
   if (ok === null) return <Loading />;
   if (!ok) {
     const canDemoSwitch = !getSession();
@@ -295,8 +352,8 @@ export default function DevTools() {
   const tools: DevTool[] = [
     {
       key: 'sync',
-      label: '영업자 상품리스트 연동',
-      hint: '영업자 시트 검증 → ERP 반영 (재고 SSOT)',
+      label: '상품마스터 연동',
+      hint: '상품마스터 검증 → ERP 반영 (재고 SSOT)',
       icon: RefreshCw,
       tone: 'blue' as const,
       render: () => (
@@ -401,6 +458,20 @@ export default function DevTools() {
             </div>
             {settlementMigLog && <pre style={{ margin: '10px 0 0', fontSize: FS.cap, color: C.mute, whiteSpace: 'pre-wrap', fontFamily: NUM }}>{settlementMigLog}</pre>}
           </div>
+          <div style={{ ...card, background: C.warnBg }}>
+            <SectionLabel mt={0}>회원 email · 공급사 수수료율 → private 이동</SectionLabel>
+            <div style={{ fontSize: FS.cap, color: C.mute, lineHeight: 1.6, marginBottom: 10 }}>
+              회원 email과 공급사 fee_rate를 users_private / partners_private에 보존한 뒤 본노드에서 제거합니다.
+              규칙 게시 전에 실행하면 오류로 남고 본노드 값은 유지됩니다.
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <Btn variant="ghost" onClick={() => runMemberPrivateMigration(true)} disabled={migBusy}>회원·파트너 미리보기</Btn>
+              <Btn variant="danger" onClick={() => runMemberPrivateMigration(false)} disabled={migBusy}>
+                {migBusy ? '처리 중…' : '이관 실행'}
+              </Btn>
+            </div>
+            {memberPrivateLog && <pre style={{ margin: '10px 0 0', fontSize: FS.cap, color: C.mute, whiteSpace: 'pre-wrap', fontFamily: NUM }}>{memberPrivateLog}</pre>}
+          </div>
         </div>
       ),
     },
@@ -417,6 +488,19 @@ export default function DevTools() {
             자동감지 {issues.length}종 · 표시 {issueHits}건
           </div>
           <Btn href="/data-check" size="sm" variant="ghost">데이터 점검 상세</Btn>
+          <div style={{ marginTop: 14 }}>
+            <SectionLabel>개인채널 백필</SectionLabel>
+            <div style={{ fontSize: FS.cap, color: C.mute, lineHeight: 1.6, marginBottom: 10 }}>
+              SP999·빈 채널 개인 영업자를 user_code 채널로 고유화합니다. 실행 전 미리보기로 대상을 확인하세요.
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <Btn variant="ghost" onClick={() => runChannelBackfill(true)} disabled={migBusy}>개인채널 백필 미리보기</Btn>
+              <Btn variant="danger" onClick={() => runChannelBackfill(false)} disabled={migBusy}>
+                {migBusy ? '처리 중…' : '백필 실행'}
+              </Btn>
+            </div>
+            {channelBackfillLog && <pre style={{ margin: '10px 0 0', fontSize: FS.cap, color: C.mute, whiteSpace: 'pre-wrap', fontFamily: NUM }}>{channelBackfillLog}</pre>}
+          </div>
         </div>
       ),
     },

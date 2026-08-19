@@ -16,6 +16,7 @@ import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { POLICY_SHEET_FIELDS, USE_LABEL } from '../lib/domain/policy-sheet-layout';
 import { readPolicyTab } from '../lib/domain/supplier-policy-read';
+import { supplierSheetLabel } from '../lib/domain/supplier-template-sheet';
 
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
@@ -44,10 +45,11 @@ const files = ((await get(`https://www.googleapis.com/drive/v3/files?q=${encodeU
 type Row = { who: string; id: string; policies: number; filled: number; total: number; missing: { name: string; use: string }[] };
 const rows: Row[] = [];
 for (const f of files) {
-  const who = S(f.name).replace(' 프리패스 재고', '');
+  const who = supplierSheetLabel(S(f.name));
   let book: Map<string, Map<string, string>>;
   try {
-    const pv = await get(`${SH}/${f.id}/values/${encodeURIComponent("'정책'")}`) as { values?: string[][] };
+    let pv: { values?: string[][] } = {};
+    for (const tab of ['운영정책', '정책']) { try { pv = await get(`${SH}/${f.id}/values/${encodeURIComponent(`'${tab}'`)}`) as { values?: string[][] }; if (pv.values?.length) break; } catch { /* 다음 별칭 */ } }
     book = readPolicyTab((pv.values || []) as string[][]);
   } catch { continue; }
   // ⚠ 「(프리패스 기본)」은 우리가 채운 표준값이다 — 그 집 정책으로 세지 않는다.
@@ -84,9 +86,9 @@ for (const r of rows) {
   console.log(`\n\n──────── ${r.who} ────────`);
   console.log(`안녕하세요, 프리패스입니다.`);
   console.log(`영업자들이 손님 앞에서 보는 상품표에 ${r.who}님의 계약 조건을 그대로 싣고 있습니다.`);
-  console.log(`아래 시트의 「정책」 탭에 ${r.missing.length}개 항목이 비어 있어 안내드립니다.`);
+  console.log(`아래 시트의 「운영정책」 탭에 ${r.missing.length}개 항목이 비어 있어 안내드립니다.`);
   console.log(`\nhttps://docs.google.com/spreadsheets/d/${r.id}/edit`);
-  console.log(`\n· 「정책」 탭 한 줄만 채우시면 됩니다. 차마다 적으실 필요 없습니다.`);
+  console.log(`\n· 「운영정책」 탭 한 줄만 채우시면 됩니다. 차마다 적으실 필요 없습니다.`);
   console.log(`· 대부분 칸은 눌러서 고르시면 됩니다(드롭다운). 목록에 없으면 직접 적으셔도 됩니다.`);
   console.log(`· 첫 줄 「(프리패스 기본)」은 참고용 표준값입니다. 다르면 아래 줄에 적어 주세요.`);
   console.log(`\n[비어 있는 항목]`);

@@ -6,23 +6,26 @@ import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { isOfferableProduct, isStockedProduct, vehicleName } from '@/lib/domain/product';
-import { MessageCircle, Share2 } from 'lucide-react';
+import { Copy, Share2 } from 'lucide-react';
 import { Btn, BottomNav, Loading, CenterNote, C, FS, ICON, R } from '@/components/ui';
 import { toast } from '@/components/Toaster';
 import { ProductDetail, ProductPhotoDownloadButton } from '@/components/ProductDetail';
 import { SimpleInquiry } from '@/components/SimpleInquiry';
 import { ReportButton } from '@/components/ReportButton';
 import { ProductAssistPanel, useAssistColumn, ASSIST_GAP } from '@/components/ProductAssistPanel';
-import { actor, getRole, ensureRoom } from '@/lib/domain/deal';
-import { guestShareUrl } from '@/lib/domain/product-share';
+import { CustomerPreviewButton } from '@/components/CustomerPreviewModal';
+import { actor, getRole } from '@/lib/domain/deal';
+import { formatProductForCopy, guestShareUrl } from '@/lib/domain/product-share';
 import { touchRecent } from '@/lib/product-interest';
 import { useAuthReady } from '@/lib/auth-context';
+import { useIsMobile } from '@/lib/use-mobile';
 import { FINDER_RESET_LIMIT } from '@/lib/finder-session';
 import { useAppBar } from '@/lib/appbar';
 import { PageStatus } from '@/components/PageStatus';
 import { NAV_ICON } from '@/lib/tabbar';
 import { copyText } from '@/lib/clipboard';
 import { useContentColumn } from '@/lib/content-column';
+import { fetchSheetLiveStatuses, SHEET_LIVE_STATUS_POLL_MS } from '@/lib/firebase/sheet-live-status-client';
 
 // 매물 상세(전체화면) = ProductDetail 원자 + 하단 액션바(이전·소통·손님공유·계약).
 export default function Detail() {
@@ -47,6 +50,7 @@ export default function Detail() {
 
   // ★훅은 early return 위에 — 아래에 두면 p 가 undefined→정의 로 바뀔 때 훅 개수가 달라져 터진다.
   const wideAssistColumn = useAssistColumn();
+  const mobile = useIsMobile();
   const colRef = useContentColumn<HTMLElement>();
   const detailName = p && isStockedProduct(p)
     ? (vehicleName(p) || String(p.car_number || '상품'))
@@ -84,6 +88,53 @@ export default function Detail() {
     return () => { alive = false; };
   }, [key, co, authReady]);
 
+  // 상세를 오래 열어 둬도 상품마스터의 상태를 놓치지 않는다. 제원·가격은 현재
+  // 상세 스냅샷을 유지하고 vehicle_status 한 원자만 교체한다.
+  useEffect(() => {
+    if (!authReady) return;
+    let alive = true;
+    let refreshing = false;
+    const controller = new AbortController();
+    const refresh = async () => {
+      if (!alive || refreshing || document.visibilityState === 'hidden') return;
+      refreshing = true;
+      try {
+        const statuses = await fetchSheetLiveStatuses(controller.signal);
+        if (!alive || !statuses) return;
+        setP((current) => {
+          if (!current) return current;
+          const statusKey = String(current._key || current.product_code || key);
+          if (!Object.prototype.hasOwnProperty.call(statuses, statusKey)) return current;
+          const status = String(statuses[statusKey] || '').trim();
+          return String(current.vehicle_status || '').trim() !== status
+            ? { ...current, vehicle_status: status }
+            : current;
+        });
+      } catch (error) {
+        if ((error as Error)?.name !== 'AbortError') {
+          console.warn('[detail] 차량상태 실시간 갱신 실패(기존 상태 유지):', (error as Error).message);
+        }
+      } finally {
+        refreshing = false;
+      }
+    };
+    const onFocus = () => { void refresh(); };
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') void refresh();
+    };
+    void refresh();
+    const timer = window.setInterval(() => { void refresh(); }, SHEET_LIVE_STATUS_POLL_MS);
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      alive = false;
+      controller.abort();
+      window.clearInterval(timer);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [authReady, key]);
+
   useEffect(() => { if (p && isStockedProduct(p)) touchRecent(p); }, [p]);
 
   if (!authReady || p === undefined) return <Loading />;
@@ -101,22 +152,19 @@ export default function Detail() {
   const role = getRole();
   const offerable = isOfferableProduct(p);
   const canDeal = role === 'agent' || role === 'admin';
-  /** 보조 칼럼이 실제로 그려지는가 — 가격표 자리·하단독 위치가 여기 달렸다(역할 무관). */
-  const assistShown = wideAssistColumn && offerable;
+  /** 내부 역할의 계약·문의 보조 칼럼. 가격은 역할·폭과 무관하게 본문에만 둔다. */
+  const canUseAssist = role === 'agent' || role === 'admin' || role === 'provider';
+  const assistShown = wideAssistColumn && canUseAssist;
   const sendLink = () => {
     const a = actor(role);
     const url = guestShareUrl(p, a.code || a.uid);
     if (navigator.share) { navigator.share({ title: vehicleName(p), url }).catch(() => {}); return; }
     void copyText(url).then((copied) => copied ? toast('손님용 매물 링크 복사됨', 'ok') : prompt('링크', url));
   };
-  // 계약문의 = 현재 사용자 방 보장(영업자=자기 딜방 / 관리자=관리자↔공급사방) 후 /chat. 간단문의와 같은 방으로 이어짐. 진행·계약요청은 거기서(ContractPanel 5단계).
-  const inquire = async () => {
-    try {
-      const keyRoom = await ensureRoom(p, actor(role));
-      router.push(`/chat?room=${encodeURIComponent(keyRoom)}`);
-    } catch (e) {
-      toast(e instanceof Error ? e.message : '계약문의 실패', 'error');
-    }
+  const copyProductText = () => {
+    void copyText(formatProductForCopy(p)).then((copied) => {
+      toast(copied ? '상품 텍스트가 복사되었습니다' : '상품 텍스트를 복사하지 못했습니다', copied ? 'ok' : 'error');
+    });
   };
   const dockActions = canDeal ? (
     <>
@@ -124,18 +172,20 @@ export default function Detail() {
       <ProductPhotoDownloadButton p={p} />
       {offerable ? (
         <>
-          <Btn title="공유" variant="ghost" size="sm" mobileIcon={<Share2 size={ICON.lg} aria-hidden />} onClick={sendLink}>
+          <Btn title="손님 전달" variant="ghost" size="sm" mobileIcon={<Share2 size={ICON.lg} aria-hidden />} onClick={sendLink}>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
               <Share2 size={ICON.md} aria-hidden />
-              공유
+              손님 전달
             </span>
           </Btn>
-          <Btn title="계약문의" size="sm" onClick={inquire}>
+          <Btn title="텍스트 복사" variant="ghost" size="sm" mobileIcon={<Copy size={ICON.lg} aria-hidden />} onClick={copyProductText}>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-              <MessageCircle size={ICON.md} aria-hidden />
-              계약문의
+              <Copy size={ICON.md} aria-hidden />
+              텍스트 복사
             </span>
           </Btn>
+          {/* 손님 화면 미리보기(웹) — 손님이 링크를 열면 보게 될 /q 를 폰 프레임으로(샘플 반영 2026-08-18) */}
+          {!mobile && <CustomerPreviewButton p={p} />}
         </>
       ) : null}
     </>
@@ -158,20 +208,18 @@ export default function Detail() {
               대여료 미입력 상품입니다. 재고·차량 정보는 확인할 수 있지만 공유·견적·계약은 요금 입력 후 가능합니다.
             </div>
           ) : null}
-          {/* 보조패널이 서면 가격표는 거기(맨 위)로 간다 — 본문은 차 설명만. */}
-          <ProductDetail p={p} priceAside={assistShown} />
+          <ProductDetail p={p} />
           {/* 간단문의는 **딜을 진행하지 않는 사람**(손님·공급사)에게만. 영업자·관리자에게는
               아래에 진짜 계약진행·대화가 붙으므로 간이 입구가 남으면 문의가 두 곳으로 갈린다. */}
-          {canDeal ? null : <SimpleInquiry p={p} />}
+          {canUseAssist ? null : <SimpleInquiry p={p} />}
           {/* 이전·공유·계약문의는 **상세를 따라다닌다** — 화면 한가운데 고정독으로 두면
               옆에 보조 칼럼이 선 만큼 본문이 왼쪽으로 밀려 «상세 밑»이 아니게 된다(2026-08-08 지적).
               sticky bottom = 스크롤 중엔 화면 아래에 붙고, 상세 끝에 오면 거기서 멈춘다. */}
           {/* 좁은 화면: 상세 끝나는 자리에 계약진행 → 대화 순으로 쌓는다. */}
-          {!assistShown && canDeal ? <ProductAssistPanel product={p} role={role} /> : null}
+          {!assistShown && canUseAssist ? <ProductAssistPanel product={p} role={role} /> : null}
           {assistShown ? <BottomNav sticky maxWidth={920} padX={16} backShowLabel actions={dockActions} /> : null}
         </main>
-        {/* 대여료 패널은 **역할과 무관하게** 뜬다 — 손님·공급사도 같은 자리에서 금액을 본다.
-            그 밑의 계약·대화만 역할별로 붙는다(2026-08-08 결정). */}
+        {/* 우측은 계약·대화 동선만 담당한다. 상품 정보와 가격은 본문에 세로로 이어진다. */}
         {assistShown && <ProductAssistPanel product={p} role={role} />}
       </div>
       {/* 보조 칼럼이 없을 때(모바일·좁은 웹·손님·공급사)는 전 화면 공통 규격인 고정독 그대로.

@@ -1,7 +1,7 @@
 /**
- * 영업자 상품리스트 → ERP 유입 정본.
+ * 레거시 영업자 상품리스트 파서.
  *
- * 공급사 원본은 사람이 비교하는 참고자료다. 실제 ERP 반영은 판매용 워크북의 운영 4개 탭만 읽는다.
+ * 현행 ERP 정본은 상품마스터이며, 이 모듈은 과거 스냅샷 감사·회귀검증을 위해 남긴다.
  * 탭 이름의 날짜·대수는 매번 바뀌므로 이름 prefix로 고르고, 공급사 표기는 파트너명에
  * 정확히 대응시킨다. 이름이 없거나 두 곳에 걸리면 잘못된 공급사로 저장하지 않고 전부 막는다.
  */
@@ -32,6 +32,7 @@ const norm = (value: unknown) => S(value)
 const PROVIDER_NAME_ALIASES: Record<string, string[]> = {
   RP006: ['아이언'],
   RP021: ['빌린카'],
+  RP030: ['J&J', '제이앤제이'],
   'PT-0023': ['에스에이', 'SA'],
 };
 
@@ -205,6 +206,7 @@ export function importSalesInventorySheet(input: {
     partnerCount: lines.length,
     rosterRevision: sheetPartnerRevision(input.partners, codes),
     sourceKind: 'sales_inventory',
+    sourceScope: requested.size ? 'providers' : 'all',
   };
 }
 
@@ -357,5 +359,6 @@ export function importSalesInventoryWorkbook(input: {
     partnerCount: lines.length,
     rosterRevision: sheetPartnerRevision(input.partners, codes),
     sourceKind: 'sales_inventory',
+    sourceScope: requested.size ? 'providers' : 'all',
   };
 }

@@ -25,7 +25,8 @@
 const S = (v: unknown) => String(v ?? '').trim();
 
 /** AI 가 채우는 차종 축. 제공시트·판매시트 열 이름이 같아야 한다. */
-export const AI_AXES = ['제조사', '모델', '세부모델', '파워트레인', '세부트림'] as const;
+// ★파워트레인 축은 뺐다(사장님 2026-08-18 — 차종은 모델·세부모델·세부트림 3축, 연료·배기량은 따로).
+export const AI_AXES = ['제조사', '모델', '세부모델', '세부트림'] as const;
 
 /** AI 작업칸 블록 — 제공시트 맨 앞에 이 차례로 선다. */
 export const AI_BLOCK = ['차량번호', ...AI_AXES, '정책코드'] as const;

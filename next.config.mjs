@@ -1,4 +1,5 @@
 import { execSync } from 'node:child_process';
+import { PHASE_DEVELOPMENT_SERVER } from 'next/constants.js';
 
 /** 빌드 시점 git 정보 — 누가(태윤이든) 커밋/배포해도 빌드마다 자동 갱신(수동 버전 안 건드림). */
 function sh(cmd) {
@@ -9,8 +10,8 @@ function sh(cmd) {
 const BUILD_NO = sh('git rev-list --count HEAD');
 const BUILD_SHA = sh('git rev-parse --short HEAD') || (process.env.VERCEL_GIT_COMMIT_SHA || '').slice(0, 7);
 
-/** @type {import('next').NextConfig} */
-const nextConfig = {
+/** @param {string} phase @returns {import('next').NextConfig} */
+const nextConfig = (phase) => ({
   reactStrictMode: true,
   // Playwright 자체 브라우저는 Vercel 함수에 포함되지 않는다. 전자계약 PDF 함수만
   // @sparticuz/chromium의 서버리스 실행파일 묶음을 추적·배포한다.
@@ -22,9 +23,9 @@ const nextConfig = {
       './public/fonts/*.woff2',
     ],
   },
-  // 병렬 QA 서버가 기본 개발 서버의 .next 산출물을 덮어쓰지 않도록
-  // 보조 서버는 NEXT_DIST_DIR=.next-qa처럼 별도 디렉터리를 지정할 수 있다.
-  distDir: process.env.NEXT_DIST_DIR || '.next',
+  // 개발 서버와 production build를 동시에/번갈아 실행해도 산출물을 공유하지 않는다.
+  // 보조 서버는 NEXT_DIST_DIR=.next-qa처럼 명시해 각자 더 분리할 수 있다.
+  distDir: process.env.NEXT_DIST_DIR || (phase === PHASE_DEVELOPMENT_SERVER ? '.next-dev' : '.next'),
   // 빌드번호·SHA를 클라이언트 번들에 주입 → 메뉴 하단 버전표시(배포 확인용, 자동 증가).
   env: {
     NEXT_PUBLIC_BUILD_NO: BUILD_NO,
@@ -57,5 +58,5 @@ const nextConfig = {
       ],
     }];
   },
-};
+});
 export default nextConfig;

@@ -11,8 +11,9 @@
  *   ② 스스로 모순인가 — 연료 ↔ 파워트레인 ↔ 배기량이 서로 안 맞나
  *   ③ 공급사가 적은 것과 어긋나나 — 우리가 바꿔 놓은 값이 원문과 크게 다르면 세대 오판 신호다
  *
- * ⚠ **차종마스터를 안 읽는다.** 지금 사람이 손보는 중이라 읽으면 중간 상태를 본다.
- *   여기서 보는 것은 «판매시트에 이미 나간 값»과 «공급사 원문»뿐이다.
+ * ★**차종마스터 탭을 쓴다**(사장님 2026-08-18 — 「차종마스터 탭 활용하면 되고」). 판매시트에서 「파워트레인」 열을 뺀 뒤로
+ *   연료·배기량의 모순은 «판매시트 안»이 아니라 «차번의 차종코드가 가리키는 차종마스터 행»과 견준다 —
+ *   상품마스터(차량번호→차종코드) → 원천대장 「차종마스터」(트림행키→연료·정확배기량). 코드 없는 차는 견줄 기준이 없어 따로 센다.
  * ⚠ 세부트림은 **없는 차가 정상**이다. 빈 것을 구멍으로 세지 않는다.
  *
  *   npx tsx scripts/audit-vehicle-spec.mts
@@ -24,6 +25,7 @@ import { NOT_SHEET_BACKED, SHEET_GRID_FIELDS, readSupplierSheet } from '../lib/d
 import { companyAlias } from '../lib/domain/identity';
 import { isOurNonInventoryTab } from '../lib/domain/supplier-template-sheet';
 import type { EntityRecord } from '../lib/intake/entities';
+import { DEFAULT_PRODUCT_MASTER_SHEET_ID, PRODUCT_MASTER_TAB } from '../lib/domain/product-master-sheet';
 
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
@@ -114,7 +116,7 @@ const split = (list: Car[]) => {
 
 // ── ① 비었나
 console.log(`  ── ① 비었나`);
-const AXES = ['제조사', '모델', '세부모델', '파워트레인', '연료', '배기량', '차종분류'];
+const AXES = ['제조사', '모델', '세부모델', '세부트림', '연료', '배기량', '차종분류'];
 console.log(`  ${pad('축', 12)}빈 차`);
 for (const ax of AXES) {
   /**
@@ -133,9 +135,33 @@ console.log(`  ${pad('세부트림', 12)}${noTrim.length}대 — ⚠ 트림이 �
 // ── ② 스스로 모순인가
 console.log(`\n  ── ② 스스로 모순인가`);
 const bad: { why: string; cars: Car[] }[] = [];
-const evLike = (c: Car) => /전기|수소/.test(`${S(c['연료'])} ${S(c['파워트레인'])}`);
-bad.push({ why: '전기·수소인데 배기량이 있다', cars: cars.filter((c) => evLike(c) && digits(c['배기량']) > 0) });
-bad.push({ why: '엔진차인데 배기량이 없다', cars: cars.filter((c) => !evLike(c) && S(c['파워트레인']) && !digits(c['배기량'])) });
+/**
+ * ★차번 → 차종코드 → 차종마스터 행. 판매시트에 파워트레인 열이 없으니 연료·배기량의 기준은 여기다.
+ *   상품마스터(원천대장) 「차량번호·차종코드」와 「차종마스터」 「트림행키·연료·정확배기량(cc)·세부모델·세부트림」만 읽는다.
+ */
+const masterOf = new Map<string, { code: string; fuel: string; cc: number; name: string }>();
+let codeless = 0;
+try {
+  const pm = await api(`https://sheets.googleapis.com/v4/spreadsheets/${DEFAULT_PRODUCT_MASTER_SHEET_ID}/values/${encodeURIComponent(`'${PRODUCT_MASTER_TAB}'!A:AX`)}`) as { values?: string[][] };
+  const pv = (pm.values || []) as string[][];
+  const ph = (pv[0] || []).map(S);
+  const pPlate = ph.indexOf('차량번호'), pCode = ph.indexOf('차종코드');
+  const vm = await api(`https://sheets.googleapis.com/v4/spreadsheets/${DEFAULT_PRODUCT_MASTER_SHEET_ID}/values/${encodeURIComponent("'차종마스터'!A:AH")}`) as { values?: string[][] };
+  const mv = (vm.values || []) as string[][];
+  const mh = (mv[0] || []).map(S);
+  const mKey = mh.indexOf('트림행키'), mFuel = mh.indexOf('연료'), mCc = mh.indexOf('정확배기량(cc)'), mSub = mh.indexOf('세부모델'), mTrim = mh.indexOf('세부트림');
+  if (pPlate < 0 || pCode < 0 || mKey < 0 || mFuel < 0 || mCc < 0) throw new Error('상품마스터/차종마스터 머리글이 다르다');
+  const byKey = new Map<string, { fuel: string; cc: number; name: string }>();
+  for (const r of mv.slice(1)) { const k = S(r[mKey]); if (k) byKey.set(k, { fuel: S(r[mFuel]), cc: digits(r[mCc]), name: `${S(r[mSub])} · ${S(r[mTrim])}` }); }
+  const codeOf = new Map<string, string>();
+  for (const r of pv.slice(1)) { const p = plate(r[pPlate]); if (p) codeOf.set(p, S(r[pCode])); }
+  for (const c of cars) {
+    const code = codeOf.get(c.plate) || '';
+    const m = code ? byKey.get(code) : undefined;
+    if (m) masterOf.set(c.plate, { code, ...m }); else if (!code) codeless++;
+  }
+  console.log(`  차종마스터 ${byKey.size}행 · 상품마스터 코드 ${codeOf.size}대 → 판매시트 차 ${cars.length}대 중 마스터 행이 있는 차 ${masterOf.size}대 · 코드 없는 차 ${codeless}대\n`);
+} catch (e) { console.log(`  ⚠ 차종마스터를 못 읽어 ②는 건너뛴다 — ${String((e as Error).message).slice(0, 80)}\n`); }
 /**
  * ⚠ **연료는 «뜻»으로 견준다.** 글자로 견주면 「HEV」와 「하이브리드 1.6」이 다르다고 나온다 —
  *   실측 2026-08-15: 그렇게 세다 60대를 어긋남으로 잡을 뻔했다. 전부 표기 차이였다.
@@ -143,33 +169,31 @@ bad.push({ why: '엔진차인데 배기량이 없다', cars: cars.filter((c) => 
  */
 const fuelKind = (v: unknown) => {
   const x = S(v).toLowerCase();
+  if (/phev|플러그인/.test(x)) return 'PHEV';
   if (/hev|하이브리드|hybrid/.test(x)) return '하이브리드';
-  if (/전기|ev|electric/.test(x)) return '전기';
+  if (/전기|ev|electric/.test(x)) return '전기';
   if (/수소|fcev/.test(x)) return '수소';
   if (/디젤|경유|diesel/.test(x)) return '디젤';
-  if (/lpg|lpi/.test(x)) return 'LPG';
+  if (/lpg|lpi|lpe/.test(x)) return 'LPG';
   if (/가솔린|휘발유|gasoline|gsl/.test(x)) return '가솔린';
   return '';
 };
+const evLike = (c: Car) => { const m = masterOf.get(c.plate); return /전기|수소/.test(`${S(c['연료'])} ${m ? m.fuel : ''}`); };
+bad.push({ why: '전기·수소인데 배기량이 있다', cars: cars.filter((c) => evLike(c) && digits(c['배기량']) > 0) });
+bad.push({ why: '엔진차인데 배기량이 없다', cars: cars.filter((c) => !evLike(c) && masterOf.has(c.plate) && !digits(c['배기량'])) });
 bad.push({
-  why: '연료와 파워트레인이 다른 것을 가리킨다',
-  cars: cars.filter((c) => {
-    const a2 = fuelKind(c['연료']), b2 = fuelKind(c['파워트레인']);
-    return !!a2 && !!b2 && a2 !== b2;
-  }),
+  why: '연료가 차종마스터(코드)와 다르다',
+  cars: cars.filter((c) => { const m = masterOf.get(c.plate); if (!m) return false; const a2 = fuelKind(c['연료']), b2 = fuelKind(m.fuel); return !!a2 && !!b2 && a2 !== b2; }),
 });
 bad.push({
-  why: '배기량과 파워트레인 숫자가 다르다',
-  cars: cars.filter((c) => {
-    const m = S(c['파워트레인']).match(/(\d\.\d)/);
-    const L = liters(c['배기량']);
-    return !!m && L > 0 && Math.abs(Number(m[1]) - L) > 0.05;
-  }),
+  why: '배기량이 차종마스터(코드)와 다르다',
+  cars: cars.filter((c) => { const m = masterOf.get(c.plate); if (!m || !m.cc) return false; const L = liters(c['배기량']); return L > 0 && Math.abs(m.cc / 1000 - L) > 0.15; }),
 });
 for (const b of bad) {
   console.log(`  ${pad(b.why, 34)}${b.cars.length ? split(b.cars) : '없음'}`);
   if (b.cars.length) for (const c of (LIST ? b.cars : b.cars.slice(0, 5))) {
-    console.log(`     ${c.who} ${c.plate} — ${S(c['세부모델'])} · ${S(c['파워트레인'])} · 연료 ${S(c['연료']) || '(빈)'} · ${S(c['배기량']) || '(빈)'}`);
+    const m = masterOf.get(c.plate);
+    console.log(`     ${c.who} ${c.plate} — ${S(c['세부모델'])} ${S(c['세부트림'])} · 연료 ${S(c['연료']) || '(빈)'} · ${S(c['배기량']) || '(빈)'}${m ? ` ↔ 마스터 ${m.name} · ${m.fuel} ${m.cc || ''}` : ' (코드 없음)'}`);
   }
   if (!LIST && b.cars.length > 5) console.log(`     … 그 밖 ${b.cars.length - 5}대`);
 }
@@ -183,7 +207,7 @@ const ccGap = cars.filter((c) => {
 });
 console.log(`  ${pad('배기량이 공급사 기재와 다르다', 34)}${ccGap.length ? split(ccGap) : '없음'}`);
 for (const c of (LIST ? ccGap : ccGap.slice(0, 10))) {
-  console.log(`     ${c.who} ${c.plate} — 공급사 ${raw.get(c.plate)!.cc}cc ↔ 우리 ${S(c['배기량'])} · ${S(c['세부모델'])} ${S(c['파워트레인'])}`);
+  console.log(`     ${c.who} ${c.plate} — 공급사 ${raw.get(c.plate)!.cc}cc ↔ 우리 ${S(c['배기량'])} · ${S(c['세부모델'])} ${S(c['세부트림'])}`);
 }
 if (!LIST && ccGap.length > 10) console.log(`     … 그 밖 ${ccGap.length - 10}대`);
 
@@ -196,21 +220,12 @@ const fuelGap = cars.filter((c) => {
 });
 console.log(`  ${pad('연료가 공급사 기재와 다르다', 34)}${fuelGap.length ? split(fuelGap) : '없음'}`);
 for (const c of (LIST ? fuelGap : fuelGap.slice(0, 8))) {
-  console.log(`     ${c.who} ${c.plate} — 공급사 「${raw.get(c.plate)!.fuel}」 ↔ 우리 「${S(c['연료'])}」 · ${S(c['세부모델'])} ${S(c['파워트레인'])}`);
+  console.log(`     ${c.who} ${c.plate} — 공급사 「${raw.get(c.plate)!.fuel}」 ↔ 우리 「${S(c['연료'])}」 · ${S(c['세부모델'])} ${S(c['세부트림'])}`);
 }
 if (!LIST && fuelGap.length > 8) console.log(`     … 그 밖 ${fuelGap.length - 8}대`);
 
-// ── 표기 흔들림
-console.log(`\n  ── 같은 차종인데 다르게 적혔나`);
-const bySub = new Map<string, Set<string>>();
-for (const c of cars) {
-  const k = `${S(c['제조사'])}|${S(c['세부모델'])}`;
-  if (!S(c['세부모델']) || !S(c['파워트레인'])) continue;
-  bySub.set(k, (bySub.get(k) || new Set()).add(S(c['파워트레인'])));
-}
-const wobble = [...bySub].filter(([, v]) => v.size > 1);
-console.log(`  같은 세부모델에 파워트레인 표기가 여럿인 차종 ${wobble.length}종 — 대부분 실제로 사양이 다른 것이라 정상이다`);
-for (const [k, v] of wobble.slice(0, 6)) console.log(`     ${k.replace('|', ' ')} — ${[...v].join(' / ')}`);
+// ── 코드 없는 차 — 견줄 기준이 없다. 3축 검토 큐(data/product-vehicle-review-decisions.json)로 닫는다.
+console.log(`\n  ── 차종코드가 없어 마스터와 못 견준 차 ${codeless}대 — 3축 검토 결정·상품마스터 코드로 닫는다`);
 
 const total = bad.reduce((a, b) => a + b.cars.length, 0) + ccGap.length + fuelGap.length;
 console.log(`\n  ${'─'.repeat(60)}`);

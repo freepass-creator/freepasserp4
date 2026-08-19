@@ -35,6 +35,7 @@ import {
 import { mergeSettlementPrivate, splitSettlementPrivate } from './rtdb-settlements';
 import { resolveMergedProduct } from '@/lib/domain/product-alias';
 import { dedupeContractsByCode } from '@/lib/domain/contract-dedupe';
+import { matchesEntityCode } from '@/lib/domain/code-identity';
 
 type Rec = Record<string, any>;
 
@@ -609,8 +610,8 @@ export class RtdbAdapter implements StoreAdapter {
     // ※ keyed get 최적화는 야간검증서 revert(HIGH) — v3 라이브 childKey≠product_code 매물을 miss(merged 폴백은 throw만 탐). merged 전량 스캔이 정합 SSOT.
     const rows = await this.merged(entity, co);
     const r = entity === 'product'
-      ? resolveMergedProduct(rows, key)
-      : rows.find((row) => String(row._key) === key && !row._deleted && !row.deletedAt) || null;
+      ? (resolveMergedProduct(rows, key) || rows.find((row) => matchesEntityCode(entity, row, key)) || null)
+      : rows.find((row) => matchesEntityCode(entity, row, key) && !row._deleted && !row.deletedAt) || null;
     if (!r || entity !== 'product') return r;
     if (String((r as Rec).status) === 'deleted') return null;
     if (isExcludedProduct(r as Rec)) return null;

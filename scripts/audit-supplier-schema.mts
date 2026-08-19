@@ -80,11 +80,16 @@ for (const f of files.sort((a, b) => S(a.name).localeCompare(S(b.name), 'ko'))) 
   let got: Awaited<ReturnType<typeof headerOf>>;
   try { got = await headerOf(S(f.id)); } catch (e) { console.log(`  ✗ ${S(f.name)} — 못 읽음 ${(e as Error).message.slice(0, 50)}`); unread++; continue; }
   for (const t of got.tabs) {
-    const missing = REF.filter((c) => !t.hdr.some((x) => norm(x) === norm(c)));
-    const extra = t.hdr.filter((c) => !REF.some((x) => norm(x) === norm(c)));
+    /**
+     * ★예비칸(기타기간①②③)은 «제목을 바꿔 쓰는 칸»이다 — 「6개월」·「18개월」처럼 N개월로 갈아 썼으면 규격 안이다.
+     *   같은 자리에 「N개월」이 서 있으면 기준 이름으로 본다(빌린카·J&J·이안카 6개월 — 2026-08-18 통일 때 확정).
+     */
+    const hdrN = t.hdr.map((x, j) => (/^\d+개월$/.test(x) && /^기타기간/.test(REF[j] || '') ? REF[j] : x));
+    const missing = REF.filter((c) => !hdrN.some((x) => norm(x) === norm(c)));
+    const extra = hdrN.filter((c) => !REF.some((x) => norm(x) === norm(c)));
     const moved: string[] = [];
     REF.forEach((c, i) => {
-      const j = t.hdr.findIndex((x) => norm(x) === norm(c));
+      const j = hdrN.findIndex((x) => norm(x) === norm(c));
       if (j >= 0 && j !== i) moved.push(`${c}(${i}→${j})`);
     });
     if (!missing.length && !extra.length && !moved.length) { same++; console.log(`  ✓ ${S(f.name)} 「${t.tab}」 — 같다`); continue; }

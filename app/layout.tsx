@@ -74,7 +74,7 @@ function resolveSsrMobile(tip: string | undefined, chMobile: string | null): boo
   return null;
 }
 
-// 톱바 + 전폭 콘텐츠 + 모바일 하단 탭(상품·문의·계약·설정).
+// 톱바 + 전폭 콘텐츠 + 역할별 모바일 하단 탭(tabbar.tsx가 SSOT).
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const jar = await cookies();
   const hdrs = await headers();

@@ -3,6 +3,7 @@
  * store 어댑터가 buildAuditEntry로 기록. audit_log 자신만 제외.
  */
 import { type EntityRecord } from '@/lib/intake/entities';
+import { newId } from '@/lib/domain/ids';
 import {
   SNAP_TRACK_KEYS,
   SNAP_TRACK_LABEL,
@@ -404,7 +405,7 @@ export function buildAuditEntry(
   // 메시지 create — 본문 중심으로 짧게
   if (entityKey === 'message' && after) {
     return {
-      _key: `AL-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      _key: newId('audit'),
       entity: entityKey,
       target_key: key,
       action: act,
@@ -430,7 +431,7 @@ export function buildAuditEntry(
   }
 
   return {
-    _key: `AL-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    _key: newId('audit'),
     entity: entityKey,
     target_key: key,
     action: act,
@@ -460,7 +461,7 @@ export function buildMasterSnapBulkEntry(
     return `${key}: ${from} → ${to}`;
   });
   return {
-    _key: `AL-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    _key: newId('audit'),
     entity: 'product',
     target_key: `bulk:${patches.length}`,
     action: 'master_snap',

@@ -1,11 +1,23 @@
 export type MasterVariant = {
   label: string;
   fuel: string;
+  /** 제조사 제원표의 실제 총배기량(cc). 매칭·저장은 이 값을 최우선으로 쓴다. */
+  engine_cc?: number | null;
+  /** 화면/검색용 리터 표기(예: 1.6). 정확 제원은 engine_cc가 정본이다. */
   displacement_l: number | null;
   turbo: boolean;
   drivetrain: string | null;
   seat: number | null;
   battery_kwh: number | null;
+  /** 동일 배기량 파워트레인을 가르는 보조 식별자. 모르면 null/생략한다. */
+  engine_code?: string | null;
+  transmission?: string | null;
+  motor_layout?: string | null;
+  power_kw?: number | null;
+  /** 세부모델 전체 기간과 다른 파워트레인 판매기간(YYYY-MM). */
+  production_start?: string | null;
+  production_end?: string | null;
+  aliases?: string[];
   trims: string[];
   /**
    * 세부모델의 **기본 조합**(신호 부족 시 가져올 variant).
@@ -24,6 +36,13 @@ export type MasterEntry = {
   origin: string;
   year_start: string;
   year_end: string;
+  /** 실제 생산기간 월 단위 정본. 기존 year_*는 검색 호환용 연도 축이다. */
+  production_start?: string;
+  production_end?: string;
+  generation_name?: string;
+  body_type?: string;
+  /** 등록증·카눈·엔카·공급사에서 쓰는 동일 세대 별칭. */
+  aliases?: string[];
   title?: string;
   variants: MasterVariant[];
   trims?: string[];

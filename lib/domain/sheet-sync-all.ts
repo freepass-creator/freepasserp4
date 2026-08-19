@@ -220,6 +220,10 @@ export type PartnerFetchLine = {
   code: string;
   label: string;
   ok: boolean;
+  /** 상품은 남아 있지만 활성 ERP 공급사 정본이 없는 경우. 조회는 보여 주되 저장은 막는다. */
+  partnerRecordMissing?: boolean;
+  /** 공급사 데이터 매뉴얼에서 명시적으로 자동반영을 금지한 사유. */
+  manualBlockReason?: string;
   sourceRowCount: number;  // 어댑터가 판독한 비어있지 않은 데이터 행(올림+제외+스킵)
   imported: number;
   excludedCount: number;   // 시트에 '출고불가'로 적혀 있어 안 올린 대수
@@ -249,8 +253,12 @@ export type PartnerSheetsFetch = {
   products: EntityRecord[];
   partnerCount: number;
   rosterRevision: string;
-  /** 공급사별 원본 묶음인지, 프리패스 판매용 워크북 정본인지 구분한다. */
-  sourceKind?: 'supplier_sources' | 'sales_inventory';
+  /** 공급사별 원본 묶음인지, 과거 판매용 워크북인지, 현행 상품마스터 정본인지 구분한다. */
+  sourceKind?: 'supplier_sources' | 'sales_inventory' | 'product_master';
+  /** 정본 전체를 읽은 것인지, 관리자가 선택한 공급사만 읽은 것인지 구분한다. */
+  sourceScope?: 'all' | 'providers';
+  /** 상품마스터와 같은 문서의 공급사 데이터 매뉴얼까지 함께 검증했는지 여부. */
+  manualVerified?: boolean;
   /** UI 검증 시점의 활성 ERP 재고 revision. 커밋 경계에서 반드시 비교한다. */
   reconcileRevision?: string;
 };
@@ -281,6 +289,8 @@ export function partnerSourceReadiness(line: PartnerFetchLine): PartnerSourceRea
   const sheetDuplicates = line.blockingDuplicateCount ?? line.duplicateCount;
   const masterReviewCount = line.products.filter((row) => row._needs_master_review === true).length;
   if (!line.ok) reasons.push('원본 조회 실패');
+  if (line.partnerRecordMissing) reasons.push('ERP 공급사 정본 없음');
+  if (line.manualBlockReason) reasons.push(line.manualBlockReason);
   if (line.invalidCount > 0) reasons.push(`무효 차번 ${line.invalidCount}`);
   if (line.imported === 0 && !isExplicitAllExcluded(line)) reasons.push('안전하지 않은 올림 0대');
   if (!sheetSourceCountMatches(line)) {
@@ -401,6 +411,21 @@ export function sheetSyncCommitBlockReason(fetched: PartnerSheetsFetch): string 
   const failed = fetched.lines.filter((line) => !line.ok);
   if (failed.length) {
     return `조회 실패 공급사 ${failed.length}곳 (${failed.map((line) => line.label).join(', ')})`;
+  }
+  if (fetched.sourceKind === 'product_master' && fetched.manualVerified !== true) {
+    return '공급사 데이터 매뉴얼 미검증';
+  }
+  const missingPartner = fetched.lines.find((line) => line.partnerRecordMissing);
+  if (missingPartner) {
+    return `${missingPartner.label} ERP 공급사 정본 없음(${missingPartner.code})`;
+  }
+  const manualBlocked = fetched.lines.find((line) => line.manualBlockReason);
+  // 공급사 원본의 자동 수집 금지는 그 원본을 다시 읽어 상품마스터를 갱신하지 말라는
+  // upstream 경고다. 관리자가 이미 정제·검수해 만든 상품마스터까지 ERP에서 막으면
+  // 스위치플랜·렌트존처럼 이력 보존 행이 영원히 유입되지 않는다. 상품마스터는 별도
+  // SSOT이므로 공급사 정본 존재·행 규격·차번·코드 게이트는 유지하되 이 경고만 분리한다.
+  if (manualBlocked && fetched.sourceKind !== 'product_master') {
+    return `${manualBlocked.label} ${manualBlocked.manualBlockReason}`;
   }
   const duplicatedCodes = fetched.lines
     .map((line) => line.code)
@@ -550,8 +575,12 @@ export function findSheetSyncExistingConflicts(
   });
 
   const existingByKey = new Map(existing.map((row) => [String(row._key || row.product_code || ''), row]));
+  // ★상품마스터 경로는 표식 없는 출고불가를 «수기 보류»로 보지 않는다(sheet-merge 와 같은 규칙, 2026-08-19) —
+  //   해제 후보로 hard-block 하지도, 보호 목록으로 세지도 않는다. 직접 시트 경로만 종전대로.
+  const productMasterSource = fetched.sourceKind === 'product_master';
   const manualReactivations = [...new Set(upsertPlan.patches
     .filter(({ key, patch }) => {
+      if (productMasterSource) return false;
       const before = existingByKey.get(key);
       return !!before
         && isManualSheetHold(before)
@@ -568,7 +597,7 @@ export function findSheetSyncExistingConflicts(
     const provider = sheetProviderOf(incoming, providerCodes);
     const before = existingByKey.get(key)
       || existingByPlate.get(`${provider}|${syncPlate(incoming)}`);
-    if (!before) return [];
+    if (!before || productMasterSource) return [];
     const manualHold = isManualSheetHold(before)
       && String(incoming.vehicle_status || '') !== '출고불가';
     return manualHold ? [String(before._key || before.product_code || key)] : [];
@@ -657,6 +686,12 @@ export function findSheetSyncExistingConflicts(
     for (const oldRow of missing) {
       const oldFamily = pendingVehicleFamily(oldRow);
       const locked = !!oldRow.locked_by_contract || String(oldRow.vehicle_status || '') === '계약중';
+      // 정제 상품마스터에서 이미 출고불가인 과거 번호미정 이력은 새 실차에 억지로
+      // 연결하지 않는다. 옛 행은 그대로 판매차단 상태를 보존하고 새 실차는 별도 상품으로
+      // 받으면 신원 혼합이 없다. 판매중이거나 계약락인 번호미정은 기존처럼 계속 차단한다.
+      if (fetched.sourceKind === 'product_master'
+        && !locked
+        && String(oldRow.vehicle_status || '').trim() === '출고불가') continue;
       for (const newRow of created) {
         // 계약에 물린 임시차는 모델 표기까지 수정될 수 있어 같은 공급사의 신규 임시차와
         // 모두 보수적으로 충돌시킨다. 미계약 행은 제조사+모델이 같은 경우만 잡아
@@ -677,6 +712,9 @@ export function findSheetSyncExistingConflicts(
     for (const oldRow of missing) {
       const family = pendingVehicleFamily(oldRow);
       const locked = !!oldRow.locked_by_contract || String(oldRow.vehicle_status || '') === '계약중';
+      if (fetched.sourceKind === 'product_master'
+        && !locked
+        && String(oldRow.vehicle_status || '').trim() === '출고불가') continue;
       for (const realRow of created) {
         if (!locked && (!family || pendingVehicleFamily(realRow) !== family)) continue;
         pairedOld.add(syncPlate(oldRow));

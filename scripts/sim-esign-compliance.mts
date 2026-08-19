@@ -89,7 +89,7 @@ const open = openComplianceItems();
 const reqOpen = requiredOpenItems();
 const sum = complianceSummary();
 check('요약이 맞는다', sum.total === COMPLIANCE_ITEMS.length && sum.covered + sum.open === sum.total, sum);
-check('미구현이 세어진다', open.length > 0, open.map((x) => x.title));
+check('필수 미구현이 없다', reqOpen.length === 0, reqOpen.map((x) => x.title));
 check('미구현은 전부 ⚠ 표시', open.every((x) => x.coveredBy.includes('⚠')));
 
 console.log('\n── 미구현 ──');

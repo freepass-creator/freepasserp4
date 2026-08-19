@@ -1,4 +1,7 @@
-/** 영업자 상품리스트 → ERP 계획 검수. 외부 write 없음. */
+/** 레거시 — 상품리스트→ERP 계획 검수. 외부 write 없음.
+ * ★2026-08-18: 판매시트↔ERP↔상품마스터 3방향 정합은 `audit-sales-sheet-vs-erp.mts`(오더 B)로 대체.
+ *   이 파일은 지우지 말고 참고·회귀용으로만 둔다.
+ */
 import { readFileSync } from 'node:fs';
 import { fetchSalesInventorySheet } from '../lib/server/sales-inventory-sheet';
 import { planDailySheetSync } from '../lib/domain/sheet-daily-sync';
@@ -79,6 +82,8 @@ console.log(JSON.stringify({
     counts: plan.counts,
     notes: plan.notes,
     missingPricePeriods: remainingConflicts.missingPricePeriods,
+    unownedDeletedMatches: remainingConflicts.unownedDeletedMatches,
+    deletedCollisions: remainingConflicts.deletedCollisions,
     patchFields: Object.fromEntries([...patchFields].sort((a, b) => b[1] - a[1])),
     repeat: secondPlan ? {
       ok: secondPlan.ok,

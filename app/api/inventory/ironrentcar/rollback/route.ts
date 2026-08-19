@@ -11,6 +11,7 @@ import {
   restoreStoredSnapshot,
   type IronRentcarSyncRun,
 } from '@/lib/domain/ironrentcar-rollback';
+import { newId } from '@/lib/domain/ids';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -164,7 +165,7 @@ export async function POST(request: Request): Promise<Response> {
 
   try {
     const stageAt = Date.now();
-    const generatedRollbackAuditId = `AL-${stageAt}-ironrentcar-rollback-${randomUUID()}`;
+    const generatedRollbackAuditId = newId('audit');
     let stageConflict = 'rollback product conflict';
     const productStage = await db.ref('v4').transaction((raw) => {
       const root: V4Root = raw && typeof raw === 'object' ? { ...raw as V4Root } : {};

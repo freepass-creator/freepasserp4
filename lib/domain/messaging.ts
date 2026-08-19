@@ -11,6 +11,7 @@ import { getCompanyId } from '@/lib/tenant';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { actor, getRole, type Role } from '@/lib/domain/deal';
 import { deleteManagedFile, uploadManagedFile } from '@/lib/firebase/storage-files';
+import { newId } from '@/lib/domain/ids';
 
 export type MsgChannel = '간단' | '정식';
 
@@ -90,8 +91,8 @@ export function otherSideReadAt(rm: EntityRecord | null | undefined, role: Role)
   return Math.max(0, ...times);
 }
 
-function msgKey(roomId: string, now: number): string {
-  return `${roomId}_${now}_${Math.random().toString(36).slice(2, 6)}`;
+function msgKey(): string {
+  return newId('message');
 }
 
 export type SendTextOpts = {
@@ -113,7 +114,7 @@ export async function sendText(opts: SendTextOpts): Promise<EntityRecord> {
   if (!text) throw new Error('빈 메시지');
   const now = Date.now();
   const rec: EntityRecord = {
-    _key: msgKey(opts.roomId, now),
+    _key: msgKey(),
     room_id: opts.roomId,
     text,
     sender_uid: me.uid,
@@ -164,7 +165,7 @@ export async function sendFile(opts: SendFileOpts): Promise<EntityRecord> {
   const isImg = /^image\//.test(opts.file.type);
   const now = Date.now();
   const rec: EntityRecord = {
-    _key: msgKey(opts.roomId, now),
+    _key: msgKey(),
     room_id: opts.roomId,
     sender_uid: me.uid,
     sender_code: me.code,

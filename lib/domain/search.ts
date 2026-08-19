@@ -3,7 +3,17 @@
  * 공백으로 나뉜 모든 토큰이 포함돼야 통과(예: "현대 쏘나타 즉시").
  */
 import type { EntityRecord } from '@/lib/intake/entities';
-import { vehicleName, creditDisplay, policyOf, canonProductType } from '@/lib/domain/product';
+import {
+  vehicleName,
+  creditDisplay,
+  policyOf,
+  canonProductType,
+  installmentOk,
+  minAge,
+  noDeposit,
+  priceList,
+  shortExperience,
+} from '@/lib/domain/product';
 import { fuelDisplay, fuelEmbeddedCc } from '@/lib/domain/vehicle-master-match';
 import { isOpaqueIdentity, safeBusinessCode } from '@/lib/domain/work-identity';
 
@@ -14,7 +24,9 @@ let _tokRes: string[] = [];
 export function queryTokens(q: string): string[] {
   if (q === _tokQ) return _tokRes;
   _tokQ = q;
-  _tokRes = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  // 문장처럼 입력해도 핵심 조건만 남긴다: “21세 되는 그랜저 찾아줘”.
+  const stopwords = new Set(['되는', '가능한', '가능', '차량', '차', '상품', '좀', '찾아줘', '보여줘', '찾기']);
+  _tokRes = q.trim().toLowerCase().split(/\s+/).filter((token) => token && !stopwords.has(token));
   return _tokRes;
 }
 
@@ -35,6 +47,34 @@ function parts(...xs: unknown[]): string {
 
 /** productHaystack 캐시 — 매물 객체는 세션 내 불변. 검색 타이핑마다 전량 haystack 재빌드하던 비용 제거(첫 계산 후 캐시). */
 const productHaystackCache = new WeakMap<object, string>();
+
+function colorSearchAliases(...values: unknown[]): string {
+  const color = values.map((value) => String(value || '')).join(' ');
+  return [
+    /화이트|흰색|백색|아이보리/.test(color) ? '흰색 화이트 밝은색' : '',
+    /블랙|검정|흑색/.test(color) ? '검정색 블랙 검은색' : '',
+    /회색|그레이|쥐색|실버|은색/.test(color) ? '회색 그레이 실버 은색' : '',
+    /파랑|블루|청색|남색|네이비/.test(color) ? '파란색 블루 네이비' : '',
+    /빨강|레드|적색|와인/.test(color) ? '빨간색 레드 와인' : '',
+    /브라운|갈색|카멜/.test(color) ? '갈색 브라운 카멜' : '',
+    /베이지|크림/.test(color) ? '베이지 크림' : '',
+  ].filter(Boolean).join(' ');
+}
+
+/** 퀵필터에서 계산하는 파생 조건을 통합검색에서도 같은 말로 찾게 한다. */
+function productConditionHaystack(p: EntityRecord): string {
+  const age = minAge(p);
+  const periods = priceList(p).map(({ m }) => `${m}개월 ${m}월`).join(' ');
+  return parts(
+    age ? `만${age}세 ${age}세 ${age}살 운전자` : '',
+    age > 0 && age <= 21 ? '21세 가능 만21세 가능 젊은운전자' : '',
+    noDeposit(p) ? '무보증 보증금없음 보증금 0원' : '',
+    installmentOk(p) ? '분납 보증금분납 분할납부' : '',
+    shortExperience(p) ? '경력무관 면허경력무관 1년미만' : '',
+    periods,
+    colorSearchAliases(p.ext_color, p.int_color),
+  );
+}
 
 /** 매물 — 스키마 원자 + 파생(차명·심사·연료정규화) + 임베드 정책 핵심. */
 export function productHaystack(p: EntityRecord): string {
@@ -65,6 +105,7 @@ export function productHaystack(p: EntityRecord): string {
     pol.basic_driver_age, pol.driver_age_lowering, pol.annual_mileage,
     pol.deposit_installment, pol.maintenance_service, pol.personal_driver_scope,
     pol.business_driver_scope,
+    productConditionHaystack(p),
   );
   productHaystackCache.set(p as object, hay);
   return hay;

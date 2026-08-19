@@ -120,7 +120,7 @@ function tidyPolicyValue(v: string, row = ''): string {
     const n = Number(t);
     if (row === '기본운전자연령') return `만 ${n}세 이상`;
     if (row === '최대연령') return `만 ${n}세 이하`;
-    if (row === '추가운전자') return `${n}인`;
+    if (row === '추가운전' || row === '추가운전자') return n > 0 ? '가능' : '불가';   // 2026-08-18 규격: 가능 여부만
     if (row === '사고 다발 해지기준') return `${n}회`;
     if (/^중도해지 위약금/.test(row)) return n <= 1 ? `${Math.round(n * 100)}%` : `${n}%`;
     if (/^초과주행/.test(row)) return `${n.toLocaleString('ko-KR')}원`;

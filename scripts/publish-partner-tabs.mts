@@ -20,6 +20,13 @@
  *   npx tsx scripts/publish-partner-tabs.mts
  *   npx tsx scripts/publish-partner-tabs.mts --apply
  */
+/**
+ * ⛔ 2026-08-18 사장님 — 「오플 구독 탭 없애고 상품리스트에 흡수, 손오공 구독만 별도 탭」.
+ *   오플은 정제시트 → 상품리스트로 간다(publish-origin-tab). 이 스크립트는 더 쓰지 않는다 — 돌리면 탭이 두 벌이 된다.
+ *   탭 삭제는 `scripts/remove-partner-tabs.mts` 가 했다.
+ */
+throw new Error('publish-partner-tabs 는 폐기됐다(2026-08-18) — 오플은 상품리스트에 흡수. 손오공구독은 publish-sonogong-tab.');
+// eslint-disable-next-line no-unreachable
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 

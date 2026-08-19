@@ -22,7 +22,7 @@ process.env.NEXT_PUBLIC_DATA_BACKEND = ''; // LocalAdapter 강제
 const { getStore } = await import('../lib/store');
 const { getCompanyId } = await import('../lib/tenant');
 const { seedIfEmpty } = await import('../lib/seed');
-const { newId } = await import('../lib/domain/ids');
+const { newId, settlementStorageKeyForContract } = await import('../lib/domain/ids');
 const { ensureRoom, createContractRequest, freezeContractTerm, setRole } = await import('../lib/domain/deal');
 const { applyStepCheck } = await import('../lib/domain/settlement-engine');
 const { getProgress, STEPS } = await import('../lib/domain/contract');
@@ -153,7 +153,7 @@ const atts = Array.isArray(contract.attachments) ? contract.attachments as { nam
 log('4. 첨부 서류', { count: atts.length, names: atts.map((a) => a.name) });
 
 // ── 5. 정산 원자 확인 ──
-const stCode = `ST_${contractCode}`;
+const stCode = settlementStorageKeyForContract(contractCode);
 const settlement = await store.get('settlement', co, stCode);
 log('5. 정산', settlement ? {
   settlement_code: settlement.settlement_code,

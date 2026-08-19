@@ -14,7 +14,7 @@
  * ★내보내지 않는 것 — 원가·수수료·차대번호·내부메모.
  *   링크만 있으면 열리는 외부 문서다. HEADERS 에 원가성 필드를 추가하지 마라.
  */
-import { canonProductType, creditDisplay, excelCondSignals, noDeposit, priceList } from '@/lib/domain/product';
+import { canonProductType, excelCondSignals, noDeposit, priceList } from '@/lib/domain/product';
 import type { EntityRecord } from '@/lib/intake/entities';
 
 type Rec = Record<string, any>;
@@ -32,48 +32,6 @@ const N = (v: unknown) => {
  *   영업자는 늘 이 여섯 기간으로 견적을 낸다. 18개월이 열에 있었는데 규격이 아니다.
  */
 export const MONTHS = [1, 12, 24, 36, 48, 60];
-
-/**
- * 보험 한 줄 — 담보 순서는 **손님이 묻는 순서**(대인 → 대물 → 자손 → 무보험 → 자차).
- * 빈 담보는 「-」로 자리를 지킨다. 자리를 지워 버리면 줄마다 항목 수가 달라져
- * 두 줄을 나란히 놓고 어디가 다른지 볼 수 없다.
- */
-function insLine(q: Rec, kind: 'limit' | 'deductible'): string {
-  const v = (k: string) => S(q[k]) || '-';
-  if (kind === 'limit') {
-    return [`대인 ${v('injury_compensation_limit')}`, `대물 ${v('property_compensation_limit')}`,
-      `자손 ${v('self_body_accident')}`, `무보험 ${v('uninsured_damage')}`,
-      `자차 ${v('own_damage_compensation')}`].join(' · ');
-  }
-  // 자차는 「자차면책금」 한 칸에서 따로 말한다 — 여기 또 쓰면 같은 값이 두 벌이 된다.
-  return [`대인 ${v('injury_deductible')}`, `대물 ${v('property_deductible')}`,
-    `자손 ${v('self_body_deductible')}`, `무보험 ${v('uninsured_deductible')}`].join(' · ');
-}
-
-/**
- * 자차 면책금 — **손님이 실제로 내는 돈**을 한 칸에. 「수리비 20%, 50~100만원」
- * 수리비의 몇 %를 물되 그 안에서 최소·최대가 정해진다는 뜻이라, 둘을 떼어 놓으면
- * 어느 쪽이 실제 부담인지 읽히지 않는다.
- *   · 정액(최소=최대)이면 범위를 쓰지 않는다 — 「수리비 20%, 100만원」
- *   · 같은 단위면 앞의 단위를 접는다 — 「50만원~100만원」이 아니라 「50~100만원」
- *   · 부담률이 없으면 금액만, 금액이 없으면 부담률만.
- *   · 「20」처럼 % 가 빠진 입력이 섞여 있어 붙여서 맞춘다(실측 2건).
- * 값은 전부 정책에서 온다 — 공급사마다 다르다(퍼시픽 50% · 빌린카 100%).
- */
-function ownDamageLine(q: Rec): string {
-  let pct = S(q.own_damage_repair_ratio);
-  if (pct && /^[\d.]+$/.test(pct)) pct = `${pct}%`;
-  const lo = S(q.own_damage_min_deductible);
-  const hi = S(q.own_damage_max_deductible);
-  let amount = lo && hi && lo !== hi ? `${lo}~${hi}` : (lo || hi);
-  // 「50만원~100만원」처럼 단위가 겹치면 앞의 것을 접는다.
-  const unit = /(만원|억원|원)$/.exec(hi)?.[1];
-  if (unit && lo.endsWith(unit) && hi.endsWith(unit) && lo !== hi) {
-    amount = `${lo.slice(0, -unit.length)}~${hi}`;
-  }
-  return [pct && `수리비 ${pct}`, amount].filter(Boolean).join(', ');
-}
-
 
 /**
  * **정책 펼침** — 공급사 뒤에 그대로 이어 붙이는 값들.
@@ -102,9 +60,12 @@ function splitAgeLowering(pol: Rec): { age: string; cost: string } {
   return { age: m[1].trim(), cost: cost || m[2].trim() };
 }
 
+/**
+ * 판매 시트에는 상품을 고르는 데 필요한 조건만 편다.
+ * ERP 정책관리에는 전체 정책을 보존하지만, 링크로 공유될 수 있는 시트에는
+ * 내부 심사·신용등급·수수료 환수와 계약 약관 상세를 내보내지 않는다.
+ */
 const POLICY_VIEW: { label: string; key?: string; from?: (pol: Rec) => string }[] = [
-  { label: '심사기준', key: 'screening_criteria' },
-  { label: '신용등급', key: 'credit_grade' },
   { label: '기본연령', key: 'basic_driver_age' },
   { label: '연령상한', key: 'driver_age_upper_limit' },
   /**
@@ -118,37 +79,9 @@ const POLICY_VIEW: { label: string; key?: string; from?: (pol: Rec) => string }[
   { label: '연령하향비용', from: (pol) => splitAgeLowering(pol).cost },
   { label: '면허경력', key: 'license_period' },
   { label: '약정주행', key: 'annual_mileage' },
-  { label: '1만km추가', key: 'mileage_upcharge_per_10000km' },
-  { label: '결제방식', key: 'payment_method' },
   { label: '보증금분납', key: 'deposit_installment' },
-  { label: '보증카드', key: 'deposit_card_payment' },
-  { label: '위약금', key: 'penalty_condition' },
   { label: '대여지역', key: 'rental_region' },
   { label: '탁송비', key: 'delivery_fee' },
-  { label: '보험포함', key: 'insurance_included' },
-  /**
-   * 보험은 **한도 한 칸 · 면책 한 칸**으로 합친다.
-   * 담보별로 열두 칸을 펴 두면 가로만 길어지는데, 실측하면 조합은 몇 가지뿐이다 —
-   * 보상한도 8종 · 면책금 10종(409대 기준). 조합이 이만큼 적으면 합쳐도 머리행 필터가
-   * 그대로 산다(드롭다운에 여덟 줄이 뜬다). 「대물 1억 이상만」처럼 담보 하나로 거를 일은
-   * 실제 영업에서 없고, 손님은 늘 «보험 어떻게 되나요»로 통째로 묻는다.
-   * 자차 자기부담률만 따로 둔다 — 숫자라 크기 비교가 되고 손님이 금액으로 묻는다.
-   */
-  { label: '보상한도', from: (q) => insLine(q, 'limit') },
-  { label: '면책금', from: (q) => insLine(q, 'deductible') },
-  { label: '자차면책금', from: ownDamageLine },
-  { label: '개인운전범위', key: 'personal_driver_scope' },
-  { label: '사업자운전범위', key: 'business_driver_scope' },
-  { label: '추가운전자', key: 'additional_driver_allowance_count' },
-  { label: '추가운전비', key: 'additional_driver_cost' },
-  { label: '정비서비스', key: 'maintenance_service' },
-  { label: '긴급출동', key: 'annual_roadside_assistance' },
-  // 환수는 영업 «본인» 조건이라 알아야 한다. 요율은 들어 있지 않다(전 값 확인).
-  { label: '수수료환수', key: 'commission_clawback_condition' },
-  { label: '정책명', key: 'policy_name' },
-  { label: '조건설명', key: 'term_description' },
-  // 공급사에 문의할 때 대는 번호. 이름만으로는 어느 정책인지 못 짚는다.
-  { label: '정책코드', key: 'policy_code' },
 ];
 
 /**
@@ -176,10 +109,9 @@ export const HEADERS = [
   // 숨긴 원본은 **다 담는다.** 표에서 빼는 것과 원본에서 빼는 것은 다른 일이다 —
   // 여기서 「모델」을 빼면 사진 옆 차종을 채울 값 자체가 없어진다.
   '차량번호', '상태', '상품', '제조사', '모델', '세부모델', '파워', '트림', '옵션',
-  '외장', '내장', '연식', '주행', '연료', '공급사', '심사', '조건',
+  '외장', '내장', '연식', '주행', '연료', '공급사', '조건',
   ...MONTHS.flatMap((m) => [`${m}개월`, `${m}개월 보증금`]),
   '기타기간',
-  '운전연령', '연령하향', '면허경력', '보험', '자차부담', '운전범위',
   '비고',
   // 펼친 정책 — 한 칸에 한 값. 압축 6칸은 위에 그대로 두고(다른 코드가 COL()로 읽는다) 뒤에 잇는다.
   ...POLICY_VIEW.map((c) => c.label),
@@ -217,8 +149,6 @@ export function policyMap(...sources: Record<string, Rec>[]): Record<string, Ent
 }
 
 const plateOf = (p: Rec) => S(p.car_number || p.car_number_snapshot);
-const ageNum = (v: unknown) => { const m = S(v).match(/(\d{2})/); return m ? Number(m[1]) : 0; };
-const joinDot = (...parts: unknown[]) => parts.map((x) => S(x)).filter(Boolean).join(' · ');
 
 /**
  * 차종마스터에 아직 못 붙은 매물은 제조사·모델 원자가 비어 있다(목록엔 그대로 뜬다).
@@ -236,31 +166,6 @@ function identity(p: Rec) {
   };
 }
 
-/** 영업자가 손님에게 바로 답해야 하는 정책값만 6칸으로 압축한다. */
-function policyCells(pol: Rec): string[] {
-  const basic = ageNum(pol.basic_driver_age);
-  const upper = ageNum(pol.driver_age_upper_limit);
-  const age = basic && upper ? `만${basic}~${upper}세`
-    : basic ? `만${basic}세 이상`
-      : joinDot(pol.basic_driver_age, pol.driver_age_upper_limit);
-  const lowering = ageNum(pol.driver_age_lowering);
-  return [
-    age,
-    joinDot(lowering ? `만${lowering}세` : pol.driver_age_lowering, pol.age_lowering_cost),
-    S(pol.license_period),
-    joinDot(
-      S(pol.insurance_included).replace(/보험료\s*/, ''),
-      S(pol.injury_compensation_limit) && `대인 ${S(pol.injury_compensation_limit)}`,
-      S(pol.property_compensation_limit) && `대물 ${S(pol.property_compensation_limit)}`,
-    ),
-    joinDot(S(pol.own_damage_repair_ratio), S(pol.own_damage_min_deductible) && `최소 ${S(pol.own_damage_min_deductible)}`),
-    joinDot(
-      pol.personal_driver_scope,
-      S(pol.additional_driver_allowance_count) && `추가 ${S(pol.additional_driver_allowance_count)}${S(pol.additional_driver_cost) ? `(${S(pol.additional_driver_cost)})` : ''}`,
-    ),
-  ];
-}
-
 export function exportRow(p: EntityRecord, providerName: string): (string | number)[] {
   const rec = p as Rec;
   const prices = priceList(p);
@@ -273,14 +178,13 @@ export function exportRow(p: EntityRecord, providerName: string): (string | numb
     plateOf(rec), S(rec.vehicle_status), canonProductType(rec.product_type) || S(rec.product_type),
     id.maker, id.model, id.sub, S(rec.variant), id.trim, S(rec.options),
     S(rec.ext_color), S(rec.int_color), N(rec.year), N(rec.mileage), S(rec.fuel_type),
-    providerName || S(rec.provider_company_code), creditDisplay(p), cond,
+    providerName || S(rec.provider_company_code), cond,
     ...MONTHS.flatMap((m) => {
       const e = byMonth.get(m);
       // 그 기간을 «안 파는 것»과 «보증금 0원»은 다르다. 없는 기간은 빈칸, 있으면 0도 0으로.
       return e ? [N(e.rent) || '', Number(e.deposit) || 0] : ['', ''];
     }),
     extra,
-    ...policyCells((rec._policy && typeof rec._policy === 'object' ? rec._policy : {}) as Rec),
     id.note,
     ...POLICY_VIEW.map((c) => {
       const q = (rec._policy && typeof rec._policy === 'object' ? rec._policy : {}) as Rec;
@@ -366,13 +270,13 @@ function colLetter(index: number): string {
  * 예전에는 대여료가 맨 끝이라 가로로 끝까지 밀어야 값이 보였다. 손님이 제일 먼저 묻는 것이
  * 값인데 그게 화면 밖에 있었다. 연료 다음으로 당긴다.
  */
-const TABLE_COLUMNS = [
+export const TABLE_COLUMNS = [
   // 「모델」은 사진 옆 「차종」으로, 「차량번호」는 요약 맨 앞으로 갔다.
   // 같은 값을 두 번 두면 가로만 길어진다.
   '상태', '상품', '제조사', '세부모델', '파워', '트림', '옵션',
   '외장', '내장', '연식', '주행', '연료',
   ...MONTHS.map((m) => `${m}개월`),
-  '공급사', '심사', '조건',
+  '공급사', '조건',
   // 공급사 뒤로는 **조건을 쭉 편다.** 영업이 손님에게 즉답해야 하는 값들이다.
   ...POLICY_VIEW.map((c) => c.label),
   ...PRODUCT_VIEW.map((c) => c.label),
@@ -386,7 +290,7 @@ const TABLE_COLUMNS = [
 const TABLE_WIDTH: Record<string, number> = {
   차량번호: 88, 상태: 68, 상품: 72, 제조사: 68, 모델: 96, 세부모델: 150, 파워: 92, 트림: 104,
   // 공급사는 법인격을 뗀 별칭이라 「오토플러스」가 최장이다 — 132px 는 그만큼 빈다.
-  옵션: 190, 외장: 60, 내장: 60, 연식: 50, 주행: 78, 연료: 66, 공급사: 84, 심사: 62, 조건: 74,
+  옵션: 190, 외장: 60, 내장: 60, 연식: 50, 주행: 78, 연료: 66, 공급사: 84, 조건: 74,
   // 합친 보험 두 칸은 담보 다섯이 한 줄에 들어간다 — 잘리면 합친 뜻이 없다.
   보상한도: 250, 면책금: 250, 위약금: 150, 탁송비: 200, 결제방식: 130,
   개인운전범위: 150, 사업자운전범위: 150, 조건설명: 120, 정책명: 120, 정책코드: 100, 자차면책금: 160,
@@ -714,20 +618,6 @@ export function buildInventorySheet(
       },
     });
   }
-  const creditCol = COL_TABLE + TABLE_COLUMNS.indexOf('심사');
-  requests.push({
-    addConditionalFormatRule: {
-      index: index++,
-      rule: {
-        ranges: [box(ROW_DATA, lastRow, creditCol, creditCol + 1)],
-        booleanRule: {
-          condition: { type: 'TEXT_EQ', values: [{ userEnteredValue: '무심사' }] },
-          // ⚠조건부서식은 글꼴을 못 받는다(위와 같은 제약).
-          format: { textFormat: { foregroundColor: rgb('166534'), bold: true } },
-        },
-      },
-    },
-  });
   /**
    * 두 줄 칸의 **둘째 줄만** 옅고 작게 — 셀 안 글자 조각으로 가른다.
    * 같은 열의 이웃한 칸끼리 묶어 요청 수를 줄인다(칸마다 보내면 수천 건이 된다).

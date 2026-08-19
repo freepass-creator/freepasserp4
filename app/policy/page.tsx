@@ -6,7 +6,7 @@ import { seedIfEmpty } from '@/lib/seed';
 import { ENTITIES, type EntityRecord } from '@/lib/intake/entities';
 import { newId } from '@/lib/domain/ids';
 import { getRole, actor, type Role } from '@/lib/domain/deal';
-import { PaneHead, PaneBody, Btn, FormGrid, FormReadList, FormCard, C, Loading, CenterNote, Page, FilterChips, FilterGroup, Message, PageActions, FeedRowSkeleton, PillTabs } from '@/components/ui';
+import { PaneHead, PaneBody, Btn, FormGrid, FormReadList, FormCard, C, FS, Loading, CenterNote, Page, FilterChips, FilterGroup, Message, PageActions, FeedRowSkeleton, PillTabs } from '@/components/ui';
 import { PolicyCreateRow, PolicyListRow } from '@/components/list-rows';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
 import { confirmDialog, toast } from '@/components/Toaster';
@@ -14,19 +14,28 @@ import { matchPolicyQuery } from '@/lib/domain/search';
 import { haptic } from '@/lib/haptics';
 import { useIsMobile } from '@/lib/use-mobile';
 import { NAV_LABEL } from '@/lib/tabbar';
-import { canIssueContract, CONTRACT_LAYER, type PolicyField } from '@/lib/domain/policy-tier';
+import { canIssueContract, CONTRACT_LAYER, policyReadiness, type PolicyField, type PolicyReadinessStatus } from '@/lib/domain/policy-tier';
 import { FREEPASS_POLICY_PACK, POLICY_DEFAULTS, applyPolicyDefaults } from '@/lib/domain/policy-defaults';
 import { retainVisibleSelection } from '@/features/work-list-display';
 import { PolicyRequiredDocumentsEditor } from '@/components/PolicyRequiredDocumentsEditor';
 import { providerNameMap } from '@/lib/domain/identity';
+import { scopeManagedPolicies } from '@/lib/domain/policy-access';
+import { partnerManageUrl } from '@/lib/domain/policy-navigation';
+import { partnerTypeLabel } from '@/lib/domain/partner';
 import {
   ESIGN_POLICY_SELECTION_SESSION_KEY,
   type EsignPolicySelection,
 } from '@/lib/domain/esign-policy-return';
 
 type PolSort = 'name' | 'code' | 'type';
-type PolScope = 'all' | 'mine' | 'shared';
+type PolScope = 'all' | 'incomplete' | 'mine' | 'shared';
 type PolicySection = 'basic' | 'terms' | 'ins' | 'esign';
+type ProviderPolicyIssue = {
+  code: string;
+  name: string;
+  status: PolicyReadinessStatus | '정책 없음';
+  policy: EntityRecord | null;
+};
 const POL_SORTS: { value: PolSort; label: string }[] = [
   { value: 'name', label: '이름순' },
   { value: 'code', label: '코드순' },
@@ -34,6 +43,7 @@ const POL_SORTS: { value: PolSort; label: string }[] = [
 ];
 const POL_SCOPE: { key: PolScope; label: string }[] = [
   { key: 'all', label: '전체' },
+  { key: 'incomplete', label: '입력 부족' },
   { key: 'mine', label: '전용' },
   { key: 'shared', label: '공용' },
 ];
@@ -41,7 +51,7 @@ const POL_SCOPE: { key: PolScope; label: string }[] = [
 // 정책관리 = [목록 | 기본·심사 | 계약조건 | 보험 | 전자계약] 5패널. 스키마 SSOT(ENTITIES.policy) + FormGrid.
 // 공급사 = 자기 정책만 편집. 공용(provider_company_code 빈값)은 목록에 안 띄움(재고 Select에서만 연결).
 // 필드 그룹 SSOT — detailSections(심사/계약조건/보험)과 동일 골격. 미지정 필드는 보험 패널이 흡수(누락 방지).
-const G_BASIC = ['policy_code', 'policy_name', 'provider_company_code', 'policy_type', 'screening_criteria', 'credit_grade', 'basic_driver_age', 'driver_age_lowering', 'driver_age_upper_limit', 'license_period', 'age_lowering_cost'];
+const G_BASIC = ['policy_code', 'policy_name', 'provider_company_code', 'policy_type', 'screening_criteria', 'disqualification_conditions', 'sales_notes', 'credit_grade', 'basic_driver_age', 'driver_age_lowering', 'driver_age_upper_limit', 'license_period', 'age_lowering_cost'];
 const G_TERMS = ['annual_mileage', 'mileage_upcharge_per_10000km', 'payment_method', 'payment_timing', 'payment_due_date', 'rental_region', 'delivery_fee', 'deposit_installment', 'deposit_card_payment', 'insurance_included', 'personal_driver_scope', 'business_driver_scope', 'additional_driver_allowance_count', 'additional_driver_cost', 'maintenance_service', 'commission_clawback_condition'];
 /**
  * 전자계약 패널 — **계약서를 우리가 쓰는 공급사만** 채운다.
@@ -51,23 +61,56 @@ const G_TERMS = ['annual_mileage', 'mileage_upcharge_per_10000km', 'payment_meth
  * 화면에서는 계약조건 패널에 있었다(패널티인데 가격표 옆에 서 있었다).
  * 근거: `docs/POLICY-LAYERS.md` · SSOT: `lib/domain/policy-tier.ts`
  */
-const G_ESIGN = ['contract_authoring', 'esign_required_documents', ...CONTRACT_LAYER.map((f) => f.key).filter((key) => !['insurer_name', 'payment_due_date'].includes(key))];
+const G_ESIGN = [
+  'contract_authoring',
+  'esign_required_documents',
+  ...CONTRACT_LAYER.map((f) => f.key).filter((key) => ![
+    'insurer_name',
+    'payment_due_date',
+    'designated_garage',
+    'self_damage_exclusions',
+    'replacement_car_policy',
+  ].includes(key)),
+];
 
-function scopePolicies(all: EntityRecord[], role: Role): EntityRecord[] {
-  if (role === 'admin') return all;
-  if (role === 'provider') {
-    const me = actor('provider').code;
-    // 자기 전용만 관리. 공용 템플릿은 재고 연결용(편집은 admin).
-    return all.filter((p) => String(p.provider_company_code || '') === me);
-  }
-  return [];
-}
+type PolicyInputGroup = {
+  title: string;
+  hint: string;
+  keys: string[];
+};
+
+const POLICY_INPUT_GROUPS: Record<PolicySection, PolicyInputGroup[]> = {
+  basic: [
+    { title: '정책 기본정보', hint: '정책을 구분하고 계약회사에 연결하는 정보입니다.', keys: ['policy_code', 'policy_name', 'provider_company_code', 'policy_type'] },
+    { title: '심사 · 상담 기준', hint: '영업 상담과 계약 검토에 사용하는 내부 기준입니다. 손님 화면·계약서엔 나가지 않습니다.', keys: ['screening_criteria', 'disqualification_conditions', 'sales_notes', 'credit_grade'] },
+    { title: '운전자 자격', hint: '기본 연령과 면허 요건, 연령 하향 가능 여부를 정합니다.', keys: ['basic_driver_age', 'driver_age_lowering', 'driver_age_upper_limit', 'license_period', 'age_lowering_cost'] },
+  ],
+  terms: [
+    { title: '운행 조건', hint: '약정 주행거리와 이용 가능 지역, 차량 인도 조건입니다.', keys: ['annual_mileage', 'mileage_upcharge_per_10000km', 'rental_region', 'delivery_fee'] },
+    { title: '납부 조건', hint: '대여료와 보증금의 결제 방법을 정합니다.', keys: ['payment_method', 'payment_timing', 'payment_due_date', 'deposit_installment', 'deposit_card_payment'] },
+    { title: '운전자 범위', hint: '계약 형태별 운전자 범위와 추가 운전자 비용입니다.', keys: ['personal_driver_scope', 'business_driver_scope', 'additional_driver_allowance_count', 'additional_driver_cost'] },
+    { title: '포함 서비스·정산', hint: '보험·정비 포함 여부와 수수료 환수 기준입니다.', keys: ['insurance_included', 'maintenance_service', 'commission_clawback_condition'] },
+  ],
+  ins: [
+    { title: '대인·대물', hint: '사고 시 상대방의 인적·물적 피해 보상과 면책 기준입니다.', keys: ['injury_compensation_limit', 'injury_deductible', 'property_compensation_limit', 'property_deductible'] },
+    { title: '운전자·무보험차', hint: '운전자 상해와 무보험 차량 사고의 보상 기준입니다.', keys: ['self_body_accident', 'self_body_deductible', 'uninsured_damage', 'uninsured_deductible'] },
+    { title: '자차', hint: '대여 차량 손해의 보상 여부와 자기부담 기준입니다.', keys: ['own_damage_compensation', 'own_damage_repair_ratio', 'own_damage_min_deductible', 'own_damage_max_deductible', 'self_damage_exclusions'] },
+    { title: '보험·사고 지원', hint: '가입 보험사와 긴급출동, 대차 및 지정 정비 조건입니다.', keys: ['insurer_name', 'annual_roadside_assistance', 'replacement_car_policy', 'designated_garage'] },
+  ],
+  esign: [
+    { title: '주행·승계', hint: '계약서에 표시할 초과 주행요금과 승계 조건입니다.', keys: ['over_mileage_rate_domestic', 'over_mileage_rate_imported', 'succession_allowed', 'succession_fee'] },
+    { title: '해지·연체', hint: '중도해지와 연체 발생 시 적용할 기준입니다.', keys: ['early_termination_rate_under1y', 'early_termination_rate_over1y', 'accident_termination_count', 'late_fee_rate'] },
+    { title: '반환·보관·회수', hint: '계약 종료 또는 미납 시 반환과 차량 회수 절차입니다.', keys: ['deposit_return_days', 'impound_keep_days', 'impound_fee', 'engine_control_overdue_days', 'auto_terminate_overdue_days', 'deposit_overdue_rounds'] },
+    { title: '연장·인수·장치', hint: '계약 연장과 차량 인수 통지, 장착 장치 기준입니다.', keys: ['claim_basis', 'renewal_notice_days', 'buyout_notice_days', 'gps_installed', 'contract_authoring'] },
+  ],
+};
 
 export default function PolicyMgmt() {
   const co = getCompanyId();
   const mobile = useIsMobile();
   const [launchKey, setLaunchKey] = useState<string | null>(null);
   const [rows, setRows] = useState<EntityRecord[] | null>(null);
+  const [partnerRows, setPartnerRows] = useState<EntityRecord[]>([]);
   const [providerAliases, setProviderAliases] = useState<Record<string, string>>({});
   const [sel, setSel] = useState<string | null>(null);
   const [form, setForm] = useState<EntityRecord>({});
@@ -85,10 +128,14 @@ export default function PolicyMgmt() {
   const [launchRequest, setLaunchRequest] = useState<{
     newProvider: string;
     policy: string;
+    field: string;
     section: PolicySection | '';
     edit: boolean;
     returnToEsign: boolean;
+    /** 파트너사관리에서 들어옴 — 이 공급사 정책만 보이고, 등록도 이 공급사 것으로(사장님 2026-08-19). */
+    providerScope: string;
   } | null>(null);
+  const providerScope = launchRequest?.providerScope || '';
 
   const load = async (r?: Role) => {
     const role = r || getRole();
@@ -99,7 +146,9 @@ export default function PolicyMgmt() {
     // 표시명은 별도 맵으로 보강한다. 행 데이터에 합치면 편집 저장 시 provider_name이
     // 정책 레코드에 의도치 않게 영속화되므로, 원본 policy는 건드리지 않는다.
     setProviderAliases(providerNameMap(partners));
-    const mine = scopePolicies(all, role);
+    setPartnerRows(partners);
+    // 공급사는 자기 전용만 관리. 공용 템플릿은 재고 연결용(편집은 admin).
+    const mine = scopeManagedPolicies(all, role, role === 'provider' ? actor('provider').code : '');
     setRows(mine);
     return mine;
   };
@@ -146,14 +195,19 @@ export default function PolicyMgmt() {
     setLaunchRequest({
       newProvider: params.get('new') === '1' ? String(params.get('provider') || '').trim() : '',
       policy: String(params.get('policy') || '').trim(),
+      field: String(params.get('field') || '').trim(),
       section: String(params.get('section') || '') as PolicySection | '',
       edit: params.get('edit') === '1',
       returnToEsign: params.get('return') === 'esign',
+      providerScope: String(params.get('provider') || '').trim(),
     });
   }, [launchKey]);
 
   useEffect(() => {
     (async () => {
+      // SSR의 로딩 골격이 먼저 hydration을 마치게 한다. 로컬 store가 즉시 응답하면
+      // 첫 커밋 전에 목록으로 바뀌어 서버의 Loading과 충돌할 수 있다.
+      await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
       await seedIfEmpty(co);
       const r = getRole();
       if (r !== 'admin' && r !== 'provider') {
@@ -199,6 +253,20 @@ export default function PolicyMgmt() {
     // `newP`/`selectP` are state transition helpers. The launch request is immutable for this mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ok, rows, launchRequest]);
+
+  // 전자계약의 누락 항목에서 들어온 경우 해당 입력칸까지 이동한다.
+  // data-field 값을 직접 비교해 selector 문자열 삽입과 브라우저별 CSS.escape 의존을 피한다.
+  useEffect(() => {
+    if (!sel || !editing || !launchRequest?.field) return;
+    const timer = window.setTimeout(() => {
+      const target = Array.from(document.querySelectorAll<HTMLElement>('[data-field]'))
+        .find((element) => element.dataset.field === launchRequest.field);
+      if (!target) return;
+      target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      target.querySelector<HTMLElement>('input, select, textarea, button')?.focus({ preventScroll: true });
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [sel, editing, section, launchRequest?.field]);
 
   // 메뉴에서 정책관리 재진입 → 목록
   useEffect(() => {
@@ -297,13 +365,25 @@ export default function PolicyMgmt() {
   };
   const startEdit = () => { setEditing(true); haptic.tap(); };
 
+  const partnerByCode = useMemo(() => new Map(partnerRows.map((partner) => [
+    String(partner.partner_code || partner._key || '').trim(),
+    partner,
+  ])), [partnerRows]);
+
   const shown = useMemo(() => (rows || [])
+    // 공급사 스코프(파트너사관리에서 옴) — 그 회사 정책만
+    .filter((p) => !providerScope || String(p.provider_company_code || '').trim() === providerScope)
     .filter((p) => matchPolicyQuery({
       ...p,
       provider_name: providerAliases[String(p.provider_company_code || '').trim()] || p.provider_name,
     }, q))
     .filter((p) => {
       if (scope === 'all') return true;
+      if (scope === 'incomplete') {
+        const providerCode = String(p.provider_company_code || '').trim();
+        const partner = partnerByCode.get(providerCode);
+        return policyReadiness(p, partner).status !== '완료';
+      }
       const has = !!String(p.provider_company_code || '').trim();
       return scope === 'mine' ? has : !has;
     })
@@ -314,13 +394,40 @@ export default function PolicyMgmt() {
       if (sort === 'type') return String(a.policy_type || '').localeCompare(String(b.policy_type || ''), 'ko')
         || String(a.policy_name || '').localeCompare(String(b.policy_name || ''), 'ko');
       return String(a.policy_name || a.policy_code || '').localeCompare(String(b.policy_name || b.policy_code || ''), 'ko');
-    }), [rows, q, scope, sort, providerAliases]);
+    }), [rows, q, scope, sort, providerAliases, partnerByCode, providerScope]);
 
   const policySelectOptions = useMemo(() => ({
     provider_company_code: Object.entries(providerAliases)
       .map(([value, label]) => ({ value, label }))
       .sort((a, b) => a.label.localeCompare(b.label, 'ko')),
   }), [providerAliases]);
+
+  const readinessByCode = useMemo(() => new Map((rows || []).map((policy) => {
+    const code = String(policy.policy_code || policy._key || '').trim();
+    const partner = partnerByCode.get(String(policy.provider_company_code || '').trim());
+    return [code, policyReadiness(policy, partner)] as const;
+  })), [rows, partnerByCode]);
+  const providerIssues = useMemo<ProviderPolicyIssue[]>(() => {
+    const role = getRole();
+    const ownCode = role === 'provider' ? actor('provider').code : '';
+    const providers = role === 'provider'
+      ? [{ code: ownCode, partner: partnerByCode.get(ownCode) }]
+      : partnerRows
+        .filter((partner) => partnerTypeLabel(partner.partner_type, partner.partner_code || partner._key) === '공급사')
+        .map((partner) => ({ code: String(partner.partner_code || partner._key || '').trim(), partner }));
+    return providers.flatMap<ProviderPolicyIssue>(({ code, partner }): ProviderPolicyIssue[] => {
+      if (!code) return [];
+      const policies = (rows || []).filter((policy) => String(policy.provider_company_code || '').trim() === code);
+      const name = providerAliases[code] || String(partner?.name || partner?.partner_name || code);
+      if (!policies.length) return [{ code, name, status: '정책 없음' as const, policy: null }];
+      const salesProblem = policies.find((policy) => readinessByCode.get(String(policy.policy_code || policy._key || '').trim())?.status === '판매조건 부족');
+      const contractProblem = policies.find((policy) => readinessByCode.get(String(policy.policy_code || policy._key || '').trim())?.status === '계약조건 부족');
+      const policy = salesProblem || contractProblem;
+      if (!policy) return [];
+      const status = readinessByCode.get(String(policy.policy_code || policy._key || '').trim())!.status;
+      return [{ code, name, status, policy }];
+    }).sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+  }, [rows, partnerRows, partnerByCode, providerAliases, readinessByCode]);
 
   // 검색·필터에서 선택 행이 사라지면 읽기 상세도 함께 정리한다.
   // 신규/수정 중 값은 자동으로 버리지 않는다.
@@ -345,11 +452,35 @@ export default function PolicyMgmt() {
   if (ok !== true) return <Loading />;
 
   // 등록 진입점은 목록 맨 위 행 하나로(재고·회원과 동일). 헤더 우측 버튼과 두 갈래로 두지 않는다.
+  const scopeAlias = providerScope ? (providerAliases[providerScope] || providerScope) : '';
   const listEl = (
     <>
-      <PolicyCreateRow onClick={() => newP()} />
+      {providerScope ? (
+        <Message variant="info">
+          {scopeAlias} 정책만 보입니다 · 파트너사관리에서 공급사별로 등록·수정·삭제합니다.{' '}
+          <Btn size="sm" variant="ghost" href={partnerManageUrl(providerScope)}>← 파트너사관리로</Btn>
+        </Message>
+      ) : providerIssues.length > 0 ? (
+        <Message variant="warning">
+          정책 확인 필요 {providerIssues.length}개 업체 · {providerIssues.slice(0, 4).map((issue) => `${issue.name}(${issue.status})`).join(' · ')}
+          {providerIssues.length > 4 ? ` 외 ${providerIssues.length - 4}곳` : ''}
+        </Message>
+      ) : (
+        <Message variant="info">등록된 업체의 정책 입력이 완료되어 있습니다.</Message>
+      )}
+      {(providerScope ? [] : providerIssues.slice(0, 4)).map((issue) => (
+        <Btn
+          key={issue.code}
+          size="sm"
+          variant="ghost"
+          onClick={() => issue.policy ? selectP(issue.policy) : newP(issue.code)}
+        >
+          {issue.name} · {issue.status}{issue.policy ? ' 확인' : ' 등록'}
+        </Btn>
+      ))}
+      <PolicyCreateRow onClick={() => newP(providerScope)} />
       {shown.length === 0
-        ? <CenterNote>{q || scope !== 'all' ? '검색 결과 없음.' : '등록된 정책이 없습니다. 공용 정책은 재고에서 연결합니다.'}</CenterNote>
+        ? <CenterNote>{q || scope !== 'all' ? '검색 결과 없음.' : providerScope ? `${scopeAlias}의 정책이 없습니다. 위 「정책 등록」으로 추가하세요.` : '등록된 정책이 없습니다. 파트너사 관리에서 회사별 정책을 추가하세요.'}</CenterNote>
         : <div>{shown.map((p) => {
             const on = String(p.policy_code) === sel;
             return (
@@ -359,6 +490,7 @@ export default function PolicyMgmt() {
                 onClick={() => selectP(p)}
                 p={p}
                 providerName={providerAliases[String(p.provider_company_code || '').trim()]}
+                readiness={readinessByCode.get(String(p.policy_code || p._key || '').trim())}
               />
             );
           })}</div>}
@@ -391,9 +523,12 @@ export default function PolicyMgmt() {
     toast(`${filled.length}개 항목에 표준값을 넣었습니다 — 저장해야 반영됩니다`, 'ok');
   };
 
-  const esignGate = canIssueContract(form);
+  const selectedPolicyPartner = partnerRows.find((partner) => (
+    String(partner.partner_code || partner._key || '').trim() === String(form.provider_company_code || '').trim()
+  )) || null;
+  const esignGate = canIssueContract(form, selectedPolicyPartner);
   const esignHint = esignGate.layer !== 'contract'
-    ? '상품만 공급하는 정책입니다 — 계약서는 공급사가 직접 작성합니다. 우리가 계약서까지 쓰려면 「정책 단계」를 «계약»으로 두고 아래를 채우세요.'
+    ? '파트너사 관리에서 프리패스 전자계약이 미사용으로 설정되어 있습니다.'
     : esignGate.ok
       ? '전자계약 발송 가능 — 아래 값이 계약서와 약관에 그대로 실립니다.'
       : `전자계약 발송 불가 — ${esignGate.missing.length}개 항목이 비어 있습니다: ${esignGate.missing.map((m: PolicyField) => m.label).join(' · ')}`;
@@ -417,14 +552,29 @@ export default function PolicyMgmt() {
     <PageActions edit={{ onClick: startEdit }} remove={{ onClick: removeP }} />
   ) : undefined;
 
-  const editPane = (title: string, fields: typeof ENTITIES.policy.fields, hint?: string, lead?: string) => {
+  const editPane = (sectionKey: PolicySection, title: string, fields: typeof ENTITIES.policy.fields, hint?: string, lead?: string) => {
     const formFields = title === '전자계약'
       ? fields.filter((field) => field.key !== 'esign_required_documents')
       : fields;
+    const configuredGroups = POLICY_INPUT_GROUPS[sectionKey];
+    const configuredKeys = new Set(configuredGroups.flatMap((group) => group.keys));
+    const inputGroups = configuredGroups
+      .map((group) => ({ ...group, fields: formFields.filter((field) => group.keys.includes(field.key)) }))
+      .filter((group) => group.fields.length > 0);
+    const remainingFields = formFields.filter((field) => !configuredKeys.has(field.key));
+    if (remainingFields.length > 0) {
+      inputGroups.push({
+        title: '기타 조건',
+        hint: '위 구간에 포함되지 않은 추가 정책 조건입니다.',
+        keys: remainingFields.map((field) => field.key),
+        fields: remainingFields,
+      });
+    }
     return (
     <>
       <PaneHead title={title} />
       <PaneBody pad>
+        <div className="fp-policy-form-frame">
         {sel ? (
           <>
             {modeBanner}
@@ -445,8 +595,13 @@ export default function PolicyMgmt() {
               계약서에서 빈칸이 되어 약관 조문이 공중에 뜬다.
             */}
             {lead && (
-              <p style={{ margin: '0 0 10px', fontSize: 12.5, lineHeight: 1.6, color: C.mute }}>{lead}</p>
+              <p style={{ margin: '0 0 10px', fontSize: FS.sub, lineHeight: 1.6, color: C.mute }}>{lead}</p>
             )}
+            {sectionKey === 'basic' ? (
+              <Message variant="info">
+                ERP에는 정책 전체를 보관합니다. 판매 시트에는 차량 선택에 필요한 연령·면허·주행·분납·지역·탁송 조건만 노출하고, 내부 심사·신용등급·수수료 환수와 계약 약관 상세는 내보내지 않습니다.
+              </Message>
+            ) : null}
             {/*
               표준값 채우기는 «전자계약 패널에서만». 빈칸을 하나씩 채우는 것은 오래 걸리고,
               그러다 안 채운 칸이 남으면 계약서가 빈칸으로 나간다.
@@ -459,18 +614,18 @@ export default function PolicyMgmt() {
                 </Btn>
               </div>
             )}
-            {mobile && !canEdit ? (
-              <FormReadList fields={formFields} form={form} selectOptions={policySelectOptions} footer={hint} />
-            ) : (
-              <FormCard hint={hint}>
-                {/*
-                  정책은 «한 번 정해 두고 계속 쓰는» 값이라 자주 오지 않는다.
-                  그래서 칸마다 «무슨 뜻이고 어느 약관 조항에 걸리는지»를 그 자리에서 읽게 한다.
-                  (재고·계약처럼 매일 만지는 화면은 조밀해야 하므로 거기선 끈다.)
-                */}
-                <FormGrid fields={formFields} form={form} onChange={onChange} cols={2} disabled={!canEdit} showNotes selectOptions={policySelectOptions} />
-              </FormCard>
-            )}
+            <div style={{ display: 'grid', gap: 16 }}>
+              {inputGroups.map((group) => (
+                <FormCard key={group.title} title={group.title} hint={group.hint}>
+                  {mobile && !canEdit ? (
+                    <FormReadList fields={group.fields} form={form} selectOptions={policySelectOptions} />
+                  ) : (
+                    <FormGrid fields={group.fields} form={form} onChange={onChange} cols={2} disabled={!canEdit} showNotes selectOptions={policySelectOptions} />
+                  )}
+                </FormCard>
+              ))}
+            </div>
+            {hint ? <p style={{ margin: '10px 0 0', fontSize: FS.cap, lineHeight: 1.5, color: C.faint }}>{hint}</p> : null}
             {title === '전자계약' ? (
               <PolicyRequiredDocumentsEditor
                 value={form.esign_required_documents}
@@ -482,6 +637,7 @@ export default function PolicyMgmt() {
         ) : (
           <CenterNote>정책을 선택하세요.</CenterNote>
         )}
+        </div>
       </PaneBody>
     </>
     );
@@ -494,26 +650,26 @@ export default function PolicyMgmt() {
     {
       key: 'basic',
       title: '기본·심사',
-      node: editPane('기본·심사', fieldsIn(G_BASIC), '정책 신원·심사 기준',
+      node: editPane('basic', '기본·심사', fieldsIn(G_BASIC), '정책 신원·심사 기준',
         '심사기준·신용등급은 내부용 — 손님에게 안 나갑니다.'),
     },
     {
       key: 'terms',
       title: '계약조건',
-      node: editPane('계약조건', fieldsIn(G_TERMS), '운행·납부·특약',
+      node: editPane('terms', '계약조건', fieldsIn(G_TERMS), '운행·납부·특약',
         '영업 상담용 가격표. 여기서 정해진 결과만 계약서에 실립니다.'),
     },
     {
       key: 'ins',
       title: '보험',
-      node: editPane('보험', insFields, '보험·부가 조건',
+      node: editPane('ins', '보험', insFields, '보험·부가 조건',
         '계약서 보험 항목 · 약관 제11조에 그대로 실립니다.'),
     },
     {
       key: 'esign',
       title: '전자계약',
-      node: editPane('전자계약', fieldsIn(G_ESIGN), esignHint,
-        '계약서를 우리가 쓰는 공급사만 채웁니다. 비면 약관 조문이 못 걸립니다.'),
+      node: editPane('esign', '전자계약', fieldsIn(G_ESIGN), esignHint,
+        '계약서 사용 여부는 파트너사에서 정하고, 여기에는 회사별 계약조건과 제출서류를 입력합니다.'),
     },
   ];
   const activeSection = sectionPanes.find((pane) => pane.key === section) || sectionPanes[0];
@@ -538,8 +694,9 @@ export default function PolicyMgmt() {
   }];
   return (
     <>
-      <WorkPage title={NAV_LABEL.policy} listCount={rows === null ? null : shown.length} list={rows === null ? <FeedRowSkeleton /> : listEl} panes={panes} selected={!!sel} onBack={clearSel}
+      <WorkPage title={providerScope ? `${scopeAlias} 정책관리` : NAV_LABEL.policy} listCount={rows === null ? null : shown.length} list={rows === null ? <FeedRowSkeleton /> : listEl} panes={panes} selected={!!sel} onBack={clearSel}
         paneRatio={!mobile ? 3 : undefined}
+        listMaxWidth={!mobile ? 360 : undefined}
         contextTitle={sel ? (creating ? '신규 정책' : String(form.policy_name || form.policy_code || '')) : undefined}
         actions={dockActions}
         listTools={{

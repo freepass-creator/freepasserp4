@@ -20,7 +20,9 @@ export async function buildFrozenFreepassHtml(
     signature,
     sealHash,
   };
-  return buildFreepassContractHtml(sealed);
+  // 출력·다운로드 동작은 통합 A4 미리보기의 PDF 뷰어에서만 제공한다.
+  // 원본 HTML 안에 별도 출력 버튼을 중복 삽입하지 않는다.
+  return buildFreepassContractHtml(sealed, { includePrintButton: false });
 }
 
 function localChromeExecutable() {

@@ -7,12 +7,11 @@ import { vehicleName } from '@/lib/domain/product';
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import type { EntityRecord } from '@/lib/intake/entities';
-import { actor, ensureRoom, findExistingRoom, type Role } from '@/lib/domain/deal';
+import { actor, findExistingRoom, type Role } from '@/lib/domain/deal';
 import { contractStage, isContractCancelled } from '@/lib/domain/contract';
 import { ChatThread } from '@/components/ChatThread';
 import { ContractPanel } from '@/components/ContractPanel';
-import { ProductPriceTable } from '@/components/ProductPriceTable';
-import { Badge, Btn, C, FS, FW, NUM, PaneHead, R } from '@/components/ui';
+import { Badge, C, FS, FW, NUM, PaneHead } from '@/components/ui';
 import { NAV_LABEL } from '@/lib/tabbar';
 import { useIsMobile } from '@/lib/use-mobile';
 import { getSession } from '@/lib/auth-session';
@@ -22,10 +21,10 @@ import { msgClock } from '@/lib/format';
 import { joinMetaText, workPartyParts } from '@/features/work-list-display';
 import { organizationRole } from '@/lib/domain/authorization';
 import { hasRoomStoredActivity } from '@/lib/domain/room-activity';
-import { toast } from '@/components/Toaster';
+import { CHAT_NOTICE_BODY, CHAT_NOTICE_CONTACTS, CHAT_NOTICE_TITLE } from '@/lib/domain/chat-notice';
 
 /**
- * 매물 상세 옆 **보조 칼럼** — 위=대여료·계약 / 아래=채팅.
+ * 매물 상세 옆 **업무 보조 칼럼** — 계약진행과 문의·대화만 담당한다.
  *
  * ★넓은 화면 = `position:fixed` 뷰포트 고정. 본문(매물정보)이 스크롤돼도 보조패널은 안 움직인다.
  *   플로우에는 폭만 잡는 spacer 를 두어 본문이 밑으로 파고들지 않게 한다.
@@ -57,7 +56,6 @@ export function ProductAssistPanel({ product, role }: { product: EntityRecord; r
   const router = useRouter();
   const co = getCompanyId();
   const [roomId, setRoomId] = useState('');
-  const [startingRoom, setStartingRoom] = useState(false);
   const [contract, setContract] = useState<EntityRecord | null | undefined>(undefined);
   const slotRef = useRef<HTMLDivElement | null>(null);
   const [fixedBox, setFixedBox] = useState<{ left: number; width: number } | null>(null);
@@ -104,19 +102,6 @@ export function ProductAssistPanel({ product, role }: { product: EntityRecord; r
     };
   }, [code, role, asksRoom]);
 
-  const startRoom = async () => {
-    if (startingRoom) return;
-    setStartingRoom(true);
-    try {
-      const key = await ensureRoom(product, actor(role));
-      setRoomId(key);
-    } catch (error) {
-      toast(error instanceof Error ? error.message : '계약문의를 시작하지 못했습니다.', 'error');
-    } finally {
-      setStartingRoom(false);
-    }
-  };
-
   // 공급사·관리자 = 이 매물에 들어온 문의만 모아 본다. 방을 새로 만들지 않는다(읽기 전용 조회).
   const loadInbox = useCallback(() => {
     if (!readsInbox) return;
@@ -155,7 +140,8 @@ export function ProductAssistPanel({ product, role }: { product: EntityRecord; r
     if (!slot) return;
     const measure = () => {
       const r = slot.getBoundingClientRect();
-      setFixedBox({ left: Math.round(r.left), width: Math.round(r.width) });
+      const next = { left: Math.round(r.left), width: Math.round(r.width) };
+      setFixedBox((current) => current?.left === next.left && current.width === next.width ? current : next);
     };
     measure();
     const ro = new ResizeObserver(measure);
@@ -174,7 +160,7 @@ export function ProductAssistPanel({ product, role }: { product: EntityRecord; r
   const stage = contractStage(contract);
   const stageBadge = contract ? <Badge tone={stage.tone}>{stage.label}</Badge> : null;
 
-  // 본문 머리(차명·칩)만큼 — 대여료 카드 윗선 = 사진 윗선(2026-08-08 사장님).
+  // 본문 머리(차명·칩)만큼 — 업무 패널 윗선 = 사진 윗선.
   const headOffset = 'var(--fp-detail-head-h, 0px)';
   // fixed 는 뷰포트 기준 — 상단바 아래 + 머리 정렬.
   // 바닥은 sticky 하단독(이전·공유·계약문의) **윗선에 딱** — 여백 없이 맞닿게.
@@ -188,12 +174,19 @@ export function ProductAssistPanel({ product, role }: { product: EntityRecord; r
       aria-live="polite"
       style={{ padding: 16, display: 'grid', gap: 10, justifyItems: 'start', color: C.mute }}
     >
-      <div style={{ fontSize: FS.cap, lineHeight: 1.5 }}>
-        아직 시작한 계약문의가 없습니다.
+      <div style={{ fontSize: FS.sub, fontWeight: FW.title, color: C.warn }}>{CHAT_NOTICE_TITLE}</div>
+      <div style={{ fontSize: FS.cap, lineHeight: 1.5, color: C.warn }}>{CHAT_NOTICE_BODY}</div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+        {CHAT_NOTICE_CONTACTS.map((contact) => (
+          <a
+            key={contact.phone}
+            href={`tel:${contact.phone.replace(/\D/g, '')}`}
+            style={{ color: C.warn, fontSize: FS.cap, fontWeight: FW.head, fontFamily: NUM, textDecoration: 'none' }}
+          >
+            {contact.name} {contact.phone}
+          </a>
+        ))}
       </div>
-      <Btn size="sm" onClick={() => { void startRoom(); }} disabled={startingRoom}>
-        {startingRoom ? '준비 중…' : '계약문의 시작'}
-      </Btn>
     </div>
   );
 
@@ -260,11 +253,7 @@ export function ProductAssistPanel({ product, role }: { product: EntityRecord; r
 
   const body = (
     <>
-      <AsideCard title="대여료 / 보증금">
-        <ProductPriceTable p={product} bare />
-      </AsideCard>
-      {/* 배열은 역할과 무관하게 같다: 대여료 → 계약진행 → (대화 | 문의 목록).
-          계약진행 카드는 하나지만 보는 사람마다 «내가 할 일»이 다르다(ContractPanel focus). */}
+      {/* 우측은 행동만 둔다. 차량·가격·조건·보험은 본문에서 한 흐름으로 읽는다. */}
       {!canDeal ? null : (
         <>
           <AsideCard title={CONTRACT_HEAD} right={stageBadge} cap="42%">
@@ -342,7 +331,7 @@ export function ProductAssistPanel({ product, role }: { product: EntityRecord; r
           flexDirection: 'column',
           gap: 10,
           minHeight: 0,
-          maxHeight: canDeal ? undefined : 'none',
+          maxHeight: canDeal ? undefined : 'unset',
           zIndex: 40,
           boxSizing: 'border-box',
           pointerEvents: 'auto',
@@ -355,10 +344,7 @@ export function ProductAssistPanel({ product, role }: { product: EntityRecord; r
 }
 
 /**
- * 보조 칼럼의 카드 하나.
- *
- * 한 상자에 칸막이로 나누지 않고 **카드를 따로 세운다** — 역할마다 붙는 카드가 다르기 때문이다
- * (2026-08-08 사장님). 손님에게는 대여료 하나만 서는데, 그때 칸막이 상자면 아래가 빈 채로 남는다.
+ * 업무 섹션 하나 — 박스 테두리 없이 헤더 라인으로만 역할을 구분한다.
  */
 export function AsideCard({ title, right, children, grow, cap, fixedH }: {
   title: string;
@@ -373,7 +359,7 @@ export function AsideCard({ title, right, children, grow, cap, fixedH }: {
 }) {
   return (
     <section style={{
-      border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg, overflow: 'hidden',
+      overflow: 'hidden',
       display: 'flex', flexDirection: 'column', minHeight: 0,
       ...(grow ? { flex: '1 1 auto' } : { flex: '0 0 auto', maxHeight: cap }),
       ...(fixedH ? { height: fixedH } : null),

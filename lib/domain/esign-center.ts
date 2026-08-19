@@ -1,9 +1,22 @@
 import type { EntityRecord } from '@/lib/intake/entities';
+import { parseMoneyOrRate } from './policy-money-rate';
 import { canIssueContract } from '@/lib/domain/policy-tier';
 import { contractDriverAgeOptions } from '@/lib/domain/esign-vehicle-selection';
 
 export type EsignContractSource = 'erp' | 'excel' | 'direct';
-export type EsignCenterBucket = '발송대기' | '서명중' | '확인필요' | '완료';
+/**
+ * 계약서관리 화면의 단계 축 — 목록 뱃지·상단 스테퍼·필터 칩·이력이 전부 이 이름을 쓴다(정본 docs/ESIGN_SEND_CENTER_REDESIGN_2026-08-19.md §2-1).
+ *   작성        저장 전 초안(목록엔 없음)
+ *   발송 전     저장됨 · 미발송 또는 발행(고객이 아직 안 엶)
+ *   고객 작성 중 열람·진행중 · 보완 요청 뒤 재작성 포함
+ *   검토 대기   고객 제출 → 관리자 승인/보완 요청 대기
+ *   완료        승인·봉인
+ */
+export type EsignCenterStage = '작성' | '발송 전' | '고객 작성 중' | '검토 대기' | '완료';
+export const ESIGN_CENTER_STAGES: readonly EsignCenterStage[] = ['작성', '발송 전', '고객 작성 중', '검토 대기', '완료'];
+/** 단계와 섞지 않는 플래그 — 목록엔 뱃지 옆 표시, 작업면엔 카드 하나. */
+export type EsignCenterFlags = { attention: boolean; expired: boolean; revoked: boolean; rejected: boolean };
+export type EsignCenterQueueFilter = 'all' | 'attention' | Exclude<EsignCenterStage, '작성'>;
 export type EsignCheckLevel = 'PASS' | 'WARNING' | 'BLOCK';
 
 export type EsignCheck = {
@@ -16,7 +29,54 @@ export type EsignCheck = {
 const S = (value: unknown) => String(value ?? '').trim();
 const N = (value: unknown) => Number(value || 0) || 0;
 
+function policyRate(value: unknown): number | null {
+  const text = S(value).replace(/,/g, '');
+  if (!text) return null;
+  const match = text.match(/-?\d+(?:\.\d+)?/);
+  if (!match) return null;
+  const raw = Number(match[0]);
+  if (!Number.isFinite(raw)) return null;
+  if (text.includes('%') || Math.abs(raw) > 1) return raw / 100;
+  return raw;
+}
+
+function policyMoney(value: unknown): number | null {
+  const text = S(value).replace(/,/g, '');
+  if (!text) return null;
+  const sign = text.trim().startsWith('-') ? -1 : 1;
+  const unsigned = text.replace(/^-\s*/, '');
+  let amount = 0;
+  let matched = false;
+  const eok = unsigned.match(/(\d+(?:\.\d+)?)\s*억/);
+  const man = unsigned.match(/(\d+(?:\.\d+)?)\s*만/);
+  if (eok) { amount += Number(eok[1]) * 100_000_000; matched = true; }
+  if (man) { amount += Number(man[1]) * 10_000; matched = true; }
+  if (!matched) {
+    const plain = unsigned.match(/\d+(?:\.\d+)?/);
+    if (!plain) return null;
+    amount = Number(plain[0]);
+  }
+  return Number.isFinite(amount) ? sign * amount : null;
+}
+
 /** A4 추가 운전자 표는 3자리이며 실제 등록 가능 수는 공급사 정책을 넘을 수 없다. */
+/**
+ * 보증금 납부 방식 선택지 — **정책은 「가능 여부·최대 회차」, 계약서엔 «이 계약은 몇 회»가 굳어 나간다**(사장님 2026-08-19).
+ *   불가 → 일시납만 · 「N회까지」 → 일시납 + 2~N회 분납 · 가능/협의/빈칸 → 일시납·2회·3회.
+ * 보증금이 0원이면 「무보증」 하나(선택 없음).
+ */
+export const DEPOSIT_INSTALLMENT_NONE = '무보증';
+export function depositInstallmentOptions(policy: Record<string, unknown> | null | undefined, depositAmount: unknown): string[] {
+  if (N(depositAmount) <= 0) return [DEPOSIT_INSTALLMENT_NONE];
+  const raw = S(policy?.deposit_installment);
+  if (/불가|없음|미운영/.test(raw)) return ['일시납'];
+  const max = Number(raw.match(/(\d+)\s*회/)?.[1] || 0);
+  const upto = max >= 2 ? Math.min(max, 6) : 3;
+  const options = ['일시납'];
+  for (let n = 2; n <= upto; n += 1) options.push(`${n}회 분납`);
+  return options;
+}
+
 export function esignAdditionalDriverLimit(policy: Record<string, unknown> | null | undefined): number {
   const raw = S(policy?.additional_driver_allowance_count);
   if (!raw || /불가|없음|미운영/.test(raw)) return 0;
@@ -33,6 +93,28 @@ export function esignContractSource(contract: Record<string, unknown> | null | u
   return 'erp';
 }
 
+export function esignProductAvailabilityBlocker(
+  contract: Record<string, unknown> | null | undefined,
+  product: Record<string, unknown> | null | undefined,
+): EsignCheck | null {
+  const row = contract || {};
+  const productCode = S(row.product_code);
+  if (!productCode) return null;
+  if (!product) {
+    return { key: 'vehicle_record', label: 'ERP 차량', level: 'BLOCK', message: '연결된 ERP 차량을 찾을 수 없습니다' };
+  }
+  if (S(product.provider_company_code) !== S(row.provider_company_code)) {
+    return { key: 'vehicle_provider', label: 'ERP 차량', level: 'BLOCK', message: '선택한 공급사의 차량이 아닙니다' };
+  }
+  const status = S(product.vehicle_status);
+  const owner = S(product.locked_by_contract);
+  const ownLock = !!S(row.contract_code) && owner === S(row.contract_code);
+  if (status !== '출고가능' && !ownLock) {
+    return { key: 'vehicle_availability', label: 'ERP 차량', level: 'BLOCK', message: '차량이 더 이상 출고가능 상태가 아닙니다' };
+  }
+  return null;
+}
+
 export function isIndependentEsignSource(contract: Record<string, unknown> | null | undefined): boolean {
   const source = esignContractSource(contract);
   return source === 'excel' || source === 'direct';
@@ -42,10 +124,11 @@ export function validateEsignCenterContract(
   contract: Record<string, unknown> | null | undefined,
   partner?: Record<string, unknown> | null,
   policy?: Record<string, unknown> | null,
+  product?: Record<string, unknown> | null,
 ): EsignCheck[] {
   const row = contract || {};
   const checks: EsignCheck[] = [];
-  const policyIssueGate = policy ? canIssueContract(policy) : null;
+  const policyIssueGate = policy ? canIssueContract(policy, partner) : null;
   const customerCompletesInLink = esignContractSource(row) === 'direct';
   let contractDraft: Record<string, unknown> = {};
   try {
@@ -55,6 +138,22 @@ export function validateEsignCenterContract(
   const add = (key: string, label: string, level: EsignCheckLevel, message: string) => {
     checks.push({ key, label, level, message });
   };
+
+  const vehicleAvailability = esignProductAvailabilityBlocker(row, product);
+  if (vehicleAvailability) checks.push(vehicleAvailability);
+
+  const hasGuarantor = [
+    'guarantor_name', 'guarantor_rrn', 'guarantor_phone', 'guarantor_address',
+    'guarantor_relation', 'guarantor_occupation', 'guarantee_limit', 'guarantee_period',
+  ].some((key) => S(row[key] || contractDraft[key]));
+  if (hasGuarantor) {
+    add(
+      'guarantor_separate',
+      '연대보증',
+      'BLOCK',
+      '연대보증은 주계약 전자서명에 포함하지 않고 별도 연대보증 약정으로 체결해 주세요',
+    );
+  }
 
   if (!S(row.provider_company_code)) add('provider', '렌터카사', 'BLOCK', '렌터카사 없음');
   else add('provider', '렌터카사', 'PASS', '렌터카사 확인');
@@ -72,11 +171,29 @@ export function validateEsignCenterContract(
     else add('customer_phone', '연락처', 'PASS', '연락처 확인');
   }
 
-  if (N(row.rent_amount_snapshot) <= 0) add('rent_amount', '월 대여료', 'BLOCK', '월 대여료 없음');
+  const rentAmount = Number(row.rent_amount_snapshot);
+  if (!Number.isFinite(rentAmount) || rentAmount <= 0) add('rent_amount', '월 대여료', 'BLOCK', '월 대여료 없음');
   else add('rent_amount', '월 대여료', 'PASS', '월 대여료 확인');
 
-  if (N(row.rent_month_snapshot) <= 0) add('rent_month', '계약기간', 'BLOCK', '계약기간 없음');
+  const rentMonths = Number(row.rent_month_snapshot);
+  if (!Number.isInteger(rentMonths) || rentMonths <= 0 || rentMonths > 120) {
+    add('rent_month', '계약기간', 'BLOCK', '계약기간은 1~120개월의 정수로 입력해 주세요');
+  }
   else add('rent_month', '계약기간', 'PASS', '계약기간 확인');
+
+  const depositChoice = S(contractDraft.deposit_installment);
+  const rawDeposit = row.deposit_amount_snapshot;
+  const depositAmount = rawDeposit == null || rawDeposit === '' ? 0 : Number(rawDeposit);
+  if (!Number.isFinite(depositAmount) || depositAmount < 0) {
+    add('deposit_amount', '보증금', 'BLOCK', '보증금은 0원 이상으로 입력해 주세요');
+  } else add('deposit_amount', '보증금', 'PASS', '보증금 확인');
+  if (isIndependentEsignSource(row)) {
+    // 정책의 「N회까지」는 영업 말이다. 계약서엔 «이 계약은 일시납/N회»가 굳어야 한다 — 비면 빈칸 계약서가 나간다.
+    if (N(rawDeposit) > 0 && !depositChoice) add('deposit_installment', '보증금 납부', 'BLOCK', '일시납 또는 분납 회차를 선택해 주세요');
+    else if (N(rawDeposit) > 0 && !depositInstallmentOptions(policy, rawDeposit).includes(depositChoice)) {
+      add('deposit_installment', '보증금 납부', 'BLOCK', `선택한 정책은 「${S(policy?.deposit_installment) || '분납 불가'}」입니다 — 회차를 다시 선택해 주세요`);
+    } else add('deposit_installment', '보증금 납부', 'PASS', depositChoice || DEPOSIT_INSTALLMENT_NONE);
+  }
 
   const paymentTiming = S(row.payment_timing_snapshot || policy?.payment_timing);
   if (!['선불', '후불'].includes(paymentTiming)) add('payment_timing', '대여료 납부 조건', 'BLOCK', '선불·후불 조건을 선택해 주세요');
@@ -95,6 +212,34 @@ export function validateEsignCenterContract(
     else add('policy_readiness', '정책 완성도', 'PASS', '전자계약 발송 조건 확인');
   }
 
+  if (policy && S(policy.provider_company_code) === S(row.provider_company_code)) {
+    // 사장님 2026-08-19 — 위약금은 정률(「30%」)·개월분(「월 대여료 2개월분」)·정액 겸용. 정률이면 0% 초과 100% 이하, 못 읽는 글자는 막는다.
+    const penaltyBad = [policy.early_termination_rate_under1y, policy.early_termination_rate_over1y].some((v) => {
+      const p = parseMoneyOrRate(v, { legacy: 'rate' });
+      return p.kind === 'text' || (p.kind === 'rate' && (p.rate <= 0 || p.rate > 1));
+    });
+    if (penaltyBad) {
+      add('early_termination_rate', '중도해지 위약금', 'BLOCK', '중도해지 위약금은 「30%」(잔여 대여료의) · 「월 대여료 2개월분」 · 「100만원」 중 하나로 적어 주세요');
+    }
+    const lateFee = policyRate(policy.late_fee_rate);
+    if (lateFee != null && (lateFee <= 0 || lateFee > 1)) {
+      add('late_fee_rate', '지연손해금율', 'BLOCK', '지연손해금율은 0% 초과 100% 이하로 입력해 주세요');
+    }
+    const companyInsurance = !/별도|개인/.test(S(policy.insurance_included));
+    const ownDamageCovered = companyInsurance && !/미가입|없음/.test(S(policy.own_damage_compensation));
+    if (ownDamageCovered) {
+      const ratio = policyRate(policy.own_damage_repair_ratio);
+      if (ratio != null && (ratio <= 0 || ratio > 1)) {
+        add('own_damage_ratio', '자차 자기부담률', 'BLOCK', '자차 자기부담률은 0% 초과 100% 이하로 입력해 주세요');
+      }
+      const min = policyMoney(policy.own_damage_min_deductible);
+      const max = policyMoney(policy.own_damage_max_deductible);
+      if (min != null && max != null && (min < 0 || max < 0 || max < min)) {
+        add('own_damage_deductible', '자차 면책금', 'BLOCK', '자차 최소·최대 면책금의 금액과 순서를 확인해 주세요');
+      }
+    }
+  }
+
   if (policy) {
     const ageText = S(row.driver_age_snapshot || contractDraft.driver_age || policy.basic_driver_age);
     if (ageText) {
@@ -106,7 +251,11 @@ export function validateEsignCenterContract(
     }
   }
 
-  if (!S(row.vehicle_name_snapshot || row.model_snapshot)) add('vehicle', '차량', 'WARNING', '차량명 확인 필요');
+  const vehicleName = S(
+    row.vehicle_name_snapshot || row.model_snapshot
+    || product?.vehicle_name || product?.sub_model || product?.model || product?.car_name,
+  );
+  if (!vehicleName) add('vehicle', '차량', 'BLOCK', '차량명을 확인해 주세요');
   else add('vehicle', '차량', 'PASS', '차량 확인');
 
   const additionalDriverText = S(row.additional_driver || contractDraft.additional_driver);
@@ -119,9 +268,10 @@ export function validateEsignCenterContract(
   const inferredDriverCount = drivers.reduce((count, driver, index) => driver.some(Boolean) ? index + 1 : count, 0);
   const additionalDriverCount = Math.max(explicitDriverCount, inferredDriverCount);
   const additionalDriverLimit = esignAdditionalDriverLimit(policy);
-  const additionalDriverCost = S(policy?.additional_driver_cost);
-  if (additionalDriverLimit > 0 && (!additionalDriverCost || /협의/.test(additionalDriverCost))) {
-    add('additional_driver_cost', '추가 운전자 요금', 'BLOCK', '추가 운전자 1인당 월 요금을 숫자 또는 무료로 확정해 주세요');
+  // 추가운전 요금 — 정액(「5만원」)·정률(「대여료의 5%」)·무료 중 하나로 굳어 있어야 계약서에 실린다. 협의·빈칸·못 읽는 글자는 막는다.
+  const additionalDriverKind = parseMoneyOrRate(policy?.additional_driver_cost, { legacy: 'won' }).kind;
+  if (additionalDriverLimit > 0 && (additionalDriverKind === 'empty' || additionalDriverKind === 'consult' || additionalDriverKind === 'text')) {
+    add('additional_driver_cost', '추가 운전자 요금', 'BLOCK', '추가 운전자 1인당 월 요금을 「5만원」·「대여료의 5%」·무료 중 하나로 확정해 주세요');
   }
   const incompleteSlot = drivers.findIndex((driver, index) => index < additionalDriverCount && !driver.every(Boolean));
   const invalidPhoneSlot = drivers.findIndex((driver, index) => index < additionalDriverCount
@@ -146,7 +296,7 @@ export function validateEsignCenterContract(
       if (!S(partner.business_number || partner.business_no)) add('company_biz_no', '사업자등록번호', 'BLOCK', '사업자등록번호 없음');
       if (!S(partner.ceo || partner.ceo_name)) add('company_ceo', '대표자', 'BLOCK', '업체 대표자 없음');
       if (!S(partner.address)) add('company_address', '업체 주소', 'BLOCK', '업체 주소 없음');
-      if (!S(partner.rental_business_no)) add('rental_business_no', '자동차대여사업 등록번호', 'BLOCK', '자동차대여사업 등록번호 없음');
+      // 자동차대여사업 등록번호는 묻지 않는다(사장님 2026-08-19 「대여사업등록정보까지는 필요없을 거 같음」) — 있으면 계약서에 싣고, 없어도 막지 않는다.
       if (!S(partner.bank_name)) add('payment_bank', '입금은행', 'WARNING', '업체 입금은행 없음');
       if (!S(partner.bank_account)) add('payment_account_no', '입금계좌', 'WARNING', '업체 입금계좌 없음');
       if (!S(partner.bank_holder || partner.name || partner.partner_name)) add('payment_account_holder', '예금주', 'WARNING', '업체 예금주 없음');
@@ -160,8 +310,9 @@ export function esignBlockingChecks(
   contract: Record<string, unknown> | null | undefined,
   partner?: Record<string, unknown> | null,
   policy?: Record<string, unknown> | null,
+  product?: Record<string, unknown> | null,
 ): EsignCheck[] {
-  return validateEsignCenterContract(contract, partner, policy).filter((check) => check.level === 'BLOCK');
+  return validateEsignCenterContract(contract, partner, policy, product).filter((check) => check.level === 'BLOCK');
 }
 
 /** 서버 발송 게이트도 화면과 같은 판정기를 사용한다. ERP만 기존 약정 단계가 선행조건이다. */
@@ -169,25 +320,57 @@ export function esignIssueBlockers(
   contract: Record<string, unknown> | null | undefined,
   partner?: Record<string, unknown> | null,
   policy?: Record<string, unknown> | null,
+  product?: Record<string, unknown> | null,
 ): EsignCheck[] {
   const row = contract || {};
-  if (isIndependentEsignSource(row)) return esignBlockingChecks(row, partner, policy);
-  const blocked: EsignCheck[] = [];
+  const blocked = esignBlockingChecks(row, partner, policy, product);
+  if (isIndependentEsignSource(row)) return blocked;
   if (S(row.provider_agreement_done) !== 'yes') {
     blocked.push({ key: 'erp_agreement', label: 'ERP 약정', level: 'BLOCK', message: '계약 진행중에서 약정 작성을 먼저 완료해 주세요.' });
-  }
-  if (!S(row.customer_name) || !S(row.customer_phone)) {
-    blocked.push({ key: 'erp_customer', label: '고객', level: 'BLOCK', message: '고객명과 연락처를 먼저 확정해 주세요.' });
   }
   return blocked;
 }
 
-export function esignCenterBucket(contract: Record<string, unknown>, checks: EsignCheck[] = []): EsignCenterBucket {
-  const status = S(contract.sign_status);
-  if (status === '서명완료') return '완료';
-  if (checks.some((check) => check.level === 'BLOCK') || ['반려', '만료'].includes(status)) return '확인필요';
-  if (S(contract.esign_id) || ['발행', '열람', '진행중', '검토대기'].includes(status)) return '서명중';
-  return '발송대기';
+/** 단계 판정 — 서버 상태(sign_status·세션 status)와 1:1. 끝난 것부터 본다. */
+export function esignCenterStage(contract: Record<string, unknown> | null | undefined, sessionStatus = ''): EsignCenterStage {
+  const row = contract || {};
+  const status = S(row.sign_status);
+  if (status === '서명완료' || sessionStatus === 'signed') return '완료';
+  if (status === '검토대기' || ['pending_review', 'approving', 'rejecting'].includes(sessionStatus)) return '검토 대기';
+  if (['열람', '진행중', '반려'].includes(status) || sessionStatus === 'opened') return '고객 작성 중';
+  return '발송 전';
+}
+
+/** 플래그 판정 — 단계가 아니다. 완료된 계약엔 붙지 않는다. */
+export function esignCenterFlags(
+  contract: Record<string, unknown> | null | undefined,
+  checks: EsignCheck[] = [],
+  now = Date.now(),
+  sessionExpiresAt = 0,
+): EsignCenterFlags {
+  const row = contract || {};
+  const status = S(row.sign_status);
+  const done = status === '서명완료';
+  const revoked = !done && N(row.sign_revoked_at) > 0;
+  const expiresAt = sessionExpiresAt || N(row.sign_expires_at);
+  const expired = !done && !revoked
+    && ['발행', '열람', '진행중', '반려'].includes(status)
+    && expiresAt > 0 && expiresAt <= now;
+  return {
+    // 완료된 계약엔 붙지 않는다 — 봉인 뒤 차량 상태가 바뀌어도 그 계약의 문제가 아니다.
+    attention: !done && checks.some((check) => check.level === 'BLOCK'),
+    expired,
+    revoked,
+    rejected: !done && status === '반려',
+  };
+}
+
+export function esignCenterFlagLabel(flags: EsignCenterFlags): string {
+  if (flags.revoked) return '해지';
+  if (flags.expired) return '만료';
+  if (flags.rejected) return '보완 요청됨';
+  if (flags.attention) return '확인 필요';
+  return '';
 }
 
 export function isEsignCenterContract(contract: EntityRecord): boolean {

@@ -22,7 +22,7 @@ process.env.NEXT_PUBLIC_DATA_BACKEND = '';
 const { getStore } = await import('../lib/store');
 const { getCompanyId } = await import('../lib/tenant');
 const { seedIfEmpty } = await import('../lib/seed');
-const { newId } = await import('../lib/domain/ids');
+const { isId, newId, settlementStorageKeyForContract } = await import('../lib/domain/ids');
 const { ensureRoom, ensureRoomForContract, setRole, actor, createContractRequest, ROLE_LABEL } = await import('../lib/domain/deal');
 type Role = 'agent' | 'provider' | 'admin';
 const { sendText, markRead, listMessages, unreadFor } = await import('../lib/domain/messaging');
@@ -188,7 +188,7 @@ await store.save('product', co, [product]);
 
 setRole('agent');
 const roomId = await ensureRoom(product);
-check('2.1 방 키=CH_매물_영업', roomId === `CH_${productCode}_${me.code}`, roomId);
+check('2.1 신규 방 키=rom_ 표준코드', isId('room', roomId), roomId);
 const createdRoom = (await store.get('room', co, roomId))!;
 check('2.1b 일반 문의방 차량 구조 snapshot 저장',
   String(createdRoom.vehicle_name) === '현대 아반떼 CN7 인스퍼레이션'
@@ -360,7 +360,7 @@ check('3.9 차량 출고불가', String(prod.vehicle_status) === '출고불가',
 
 // ── 4. 정산 스코프 ──
 setRole('agent');
-const stCode = `ST_${contractCode}`;
+const stCode = settlementStorageKeyForContract(contractCode);
 const settlement = await store.get('settlement', co, stCode);
 check('4.1 정산 자동생성', !!settlement, settlement ? String(settlement.settlement_status) : 'MISSING');
 check('4.2 영업자 귀속', !!settlement && String(settlement.agent_code) === me.code, settlement?.agent_code);

@@ -45,10 +45,10 @@ type Agree = { terms: boolean; privacy: boolean };
 function ConsentBox({ agree, setAgree }: { agree: Agree; setAgree: (a: Agree) => void }) {
   const all = agree.terms && agree.privacy;
   // 기본 체크박스는 13px라 손가락으로 누르기 어렵다. 상자를 키우고 행 자체를 눌러도 켜지게 한다.
-  const row: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 10, minHeight: 34, fontSize: FS.sub, color: C.ink, lineHeight: 1.5, cursor: 'pointer' };
+  const row: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 10, minHeight: 44, fontSize: FS.sub, color: C.ink, lineHeight: 1.5, cursor: 'pointer' };
   const box: React.CSSProperties = { width: 18, height: 18, flex: '0 0 auto', accentColor: C.brand, cursor: 'pointer' };
   // 링크는 글자 높이(16px)뿐이라 위아래로 여백을 줘 실제로 누를 수 있게 만든다.
-  const link: React.CSSProperties = { color: C.accent, textDecoration: 'underline', textUnderlineOffset: 2, padding: '6px 2px', display: 'inline-block' };
+  const link: React.CSSProperties = { color: C.accent, textDecoration: 'underline', textUnderlineOffset: 2, minHeight: 44, padding: '0 2px', display: 'inline-flex', alignItems: 'center' };
   return (
     <div style={{ border: `1px solid ${C.line}`, borderRadius: R, padding: `10px ${ctrlPadX(true)}px`, margin: '0 0 10px', display: 'flex', flexDirection: 'column', gap: 8, textAlign: 'left' }}>
       <label style={{ ...row, fontWeight: FW.strong, paddingBottom: 8, borderBottom: `1px solid ${C.line}` }}>
@@ -219,7 +219,7 @@ export default function LoginPage() {
 
         {mode === 'signup' && (
           <form className={`login-card${busy ? ' is-loading' : ''}`} onSubmit={doSignup} noValidate>
-            <header className="login-head"><h2 className="login-title">계정 만들기</h2><p className="login-sub">가입 즉시 상품찾기와 상담을 이용할 수 있습니다.</p></header>
+            <header className="login-head"><h2 className="login-title">계정 만들기</h2><p className="login-sub">가입 후 상품찾기와 계약 업무를 이용할 수 있습니다.</p></header>
             {msg.text && <p className="login-msg" style={{ margin: 0, color: msgColor, textAlign: 'center', fontWeight: FW.strong }} aria-live="polite">{msg.text}</p>}
             <div className="login-form">
               <div className="login-field"><label htmlFor="suEmail">이메일 (필수)</label><input id="suEmail" type="email" placeholder="name@company.com" autoComplete="username" value={su.email} onChange={(e) => setSu({ ...su, email: e.target.value })} required /></div>

@@ -22,8 +22,34 @@
  * ⚠ 값이 없으면 **비운다.** 기본값을 지어내지 않는다.
  */
 
+import { POLICY_CHECK_FIELD_NAMES, POLICY_FIELD_RENAMES, composeDriverFee } from './policy-value-spec';
+
+/** 옛 이름 → 새 이름(정본)과 그 역 — 시트가 어느 이름을 쓰든, 읽는 코드가 어느 이름을 찾든 같은 값이 나오게. */
+const RENAME_REVERSE: Record<string, string[]> = Object.entries(POLICY_FIELD_RENAMES).reduce((acc, [oldName, newName]) => {
+  (acc[newName] ||= []).push(oldName);
+  return acc;
+}, {} as Record<string, string[]>);
+function setWithAliases(m: Map<string, string>, header: string, value: string) {
+  const canonical = POLICY_FIELD_RENAMES[header] || header;
+  m.set(header, value);
+  m.set(canonical, value);
+  for (const oldName of RENAME_REVERSE[canonical] || []) if (!m.has(oldName)) m.set(oldName, value);
+}
+
 const S = (v: unknown) => String(v ?? '').trim();
 const norm = (v: unknown) => S(v).replace(/\s+/g, '');
+/**
+ * 체크박스 열(⑩ 제출서류)은 시트가 빈칸을 «FALSE»로 돌려준다 — 값이 아니라 «안 함»이다.
+ *   FALSE 만 있는 줄을 정책으로 세면 유령 정책이 생긴다(2026-08-19 손오공 198개 실측). 그래서 체크 열의 FALSE 는 빈칸으로 읽는다.
+ */
+export function policyCellValue(header: string, raw: unknown): string {
+  const v = S(raw);
+  return POLICY_CHECK_FIELD_NAMES.includes(POLICY_FIELD_RENAMES[header] || header) && v === 'FALSE' ? '' : v;
+}
+/** 이 줄에 값이 있나 — 체크 열의 FALSE 는 값이 아니다. */
+export function policyRowLive(hdr: string[], r: unknown[]): boolean {
+  return r.some((c, i) => !!policyCellValue(hdr[i] || '', c));
+}
 
 /** 한 공급사의 정책표 — 정책코드 → (항목 → 값). `''` 키가 프리패스 기본이다. */
 export type PolicyBook = Map<string, Map<string, string>>;
@@ -41,10 +67,10 @@ export function readPolicyTab(rows: string[][]): PolicyBook {
   if (norm(rows[0]?.[0]) === '정책코드' && norm(rows[0]?.[1]) === '정책명' && S(rows[0]?.[2])) {
     const hdr = rows[0].map(S);
     for (const r of rows.slice(1)) {
-      if (!r.some((c) => S(c))) continue;
+      if (!policyRowLive(hdr, r)) continue;
       const code = /프리패스 기본/.test(S(r[0])) ? '' : S(r[0]);
       const m = new Map<string, string>();
-      hdr.forEach((h, i) => { if (h && !/^정책코드$|^정책명$/.test(norm(h))) { const v = S(r[i]); if (v) m.set(h, v); } });
+      hdr.forEach((h, i) => { if (h && !/^정책코드$|^정책명$/.test(norm(h))) { const v = policyCellValue(h, r[i]); if (v) setWithAliases(m, h, v); } });
       book.set(code, m);
     }
     return book;
@@ -60,7 +86,7 @@ export function readPolicyTab(rows: string[][]): PolicyBook {
     if (!field || norm(field) === '정책코드' || norm(field) === '정책명') continue;
     for (const [i, code] of codes) {
       const v = S(r[i]);
-      if (v) book.get(code)!.set(field, v);
+      if (v) setWithAliases(book.get(code)!, field, v);
     }
   }
   return book;
@@ -99,11 +125,31 @@ export function policyFor(book: PolicyBook, code: string): Map<string, string> {
  *   (재고탭에는 「50만 / 무한」처럼 뒤집힌 표기가 섞여 있었다).
  * ⚠ 한쪽만 있으면 있는 쪽만 쓴다. 없는 쪽을 0이나 「없음」으로 채우지 않는다.
  */
+/**
+ * ★2026-08-19 사장님 — 「무한 / 30만원 이런 식으로 한 칸에 … 보상한도 / 면책금 순」. 면책금은 만원 단위 글자 그대로(30만원), 사이는 「 / 」.
+ */
 export function limitPair(cover: string, deduct: string): string {
   const a = S(cover);
-  const b = manOnly(S(deduct));
-  if (a && b) return `${a}/${b}`;
+  const b = manWon(S(deduct));
+  if (a && b) return `${a} / ${b}`;
   return a || b || '';
+}
+/** 면책금 표기 — 「30만원」 꼴로(「30」·「300000」·「30만」 → 30만원). 말(없음·협의)은 그대로. */
+function manWon(v: string): string {
+  const n = manOnly(v);
+  if (!n || !/^[\d.]+$/.test(n)) return n;
+  return `${n}만원`;
+}
+/** 연주행 표기 — 「연 20,000km」·「2만km」·「연간 2.5만Km」 → 「2만」·「2.5만」(사장님 2026-08-19 「숫자를 다 쓸 필요 없음」). 무제한은 그대로. */
+export function mileageCompact(v: string): string {
+  const t = S(v);
+  if (!t) return '';
+  if (/무제한/.test(t)) return '무제한';
+  const man = /([\d.]+)\s*만/.exec(t.replace(/,/g, ''));
+  if (man) return `${Number(man[1])}만`;
+  const km = /([\d,]{4,})/.exec(t);
+  if (km) { const n = Number(km[1].replace(/,/g, '')); if (n >= 1000) return `${Math.round(n / 1000) / 10}만`; }
+  return t;
 }
 
 /** 면책금은 만원 단위 숫자 하나로 — 「50만원」→「50」. 말은 그대로 둔다. */
@@ -118,13 +164,23 @@ function manOnly(v: string): string {
   return v;
 }
 
-/** 자차는 최소~최대가 따로 있다 — 「차량가액/50~100」. */
+/**
+ * 자차 — 「차량가액 / 수리비 20%, 최대 50~100만원」(사장님 2026-08-19). 보상기준 / 자기부담률, 면책 최소~최대(만원).
+ * 자기부담률이 없으면 「차량가액 / 최대 50~100만원」, 최소=최대면 「최대 100만원」.
+ */
 export function ownDamageCell(p: Map<string, string>): string {
   const cover = S(p.get('자차보상한도'));
+  const rate = S(p.get('자차수리비율'));
   const lo = manOnly(S(p.get('자차최소면책금')));
   const hi = manOnly(S(p.get('자차최대면책금')));
-  const ded = lo && hi && lo !== hi ? `${lo}~${hi}` : (lo || hi);
-  return limitPair(cover, ded);
+  const range = lo && hi && lo !== hi ? `${lo}~${hi}만원` : (lo || hi ? `${lo || hi}만원` : '');
+  const parts = [rate ? `수리비 ${rate}` : '', range ? `최대 ${range}` : ''].filter(Boolean).join(', ');
+  if (cover && parts) return `${cover} / ${parts}`;
+  return cover || parts || '';
+}
+/** 보험료가 「별도」인 정책 — 보험 다섯 칸에 「별도」(사장님 2026-08-19). */
+export function insuranceSeparate(p: Map<string, string>): boolean {
+  return /별도/.test(S(p.get('보험료')));
 }
 
 /**
@@ -180,13 +236,29 @@ export function qualifyCell(p: Map<string, string>): string {
   return [age, l].filter(Boolean).join(' · ');
 }
 
-/** 추가운전자 — 인원과 요금을 한 칸으로. 「1인 (월 5만원)」 */
+/**
+ * 추가운전 — 가능 여부 한 칸(사장님 2026-08-18 「추가운전이라고 하고 가능 여부만」).
+ * 옛 머리글 「추가운전자」(1인/2인)도 읽어 «가능»으로 본다. 인원·요금은 「추가운전 요금」이 따로 나간다.
+ */
 export function extraDriverCell(p: Map<string, string>): string {
-  const n = S(p.get('추가운전자'));
-  const fee = S(p.get('추가운전자 요금'));
+  // 2026-08-19 — 「추가운전」 가부 칸 폐지. 「추가운전 인원」(불가/1~5인까지/제한없음)에서 가부를 만든다. 옛 칸도 계속 읽는다.
+  const n = S(p.get('추가운전 인원') || p.get('추가운전') || p.get('추가운전자'));
   if (!n) return '';
   if (/불가/.test(n)) return '불가';
-  return fee ? `${n} (${fee})` : n;
+  if (/협의/.test(n)) return '협의';
+  return '가능';
+}
+/** 추가운전 요금 — 「N인까지 · 1인당 월 M만원」. 옛 두 칸(추가운전자 인원 + 추가운전자 요금)이면 합쳐 만든다. */
+export function extraDriverFeeCell(p: Map<string, string>): string {
+  const v = S(p.get('추가운전 요금'));
+  const count = S(p.get('추가운전 인원'));
+  // 2026-08-19 — 인원·요금이 두 칸이면 합쳐 «N인까지 · 1인당 월 M만원». 옛 합성값(「1인까지 · 1인당 월 5만원」)은 그대로.
+  if (v && count) return composeDriverFee(count, v) || `${count} · ${v}`;
+  if (v) return /인까지|제한없음/.test(v) ? v : (composeDriverFee('', v) || v);
+  const oldFee = S(p.get('추가운전자 요금'));
+  const oldCount = S(p.get('추가운전자'));
+  if (!oldFee && !oldCount) return '';
+  return composeDriverFee(oldCount, oldFee) || oldFee;
 }
 
 /** 초과주행 — 국산·수입이 다르면 둘 다. 같으면 하나. 「국산 200 · 수입 400」 */
@@ -258,11 +330,14 @@ export function depositPayCell(p: Map<string, string>): string {
  *   추가운전자는 옆 칸에 인원·요금으로 따로 선다.
  */
 export function driverScopeCell(p: Map<string, string>): string {
+  // 규격값(2026-08-18) 기준: 「계약자 본인」·「본인+추가운전자」·「대표자 본인」 → 본인만 / 「본인+직계가족」·「임직원…」 → 기본.
+  // ⚠ 예전 정규식은 「본인+」만 보고 「본인+직계가족」까지 본인만으로 묶었다 — 가족이 되는데 안 된다고 나갔다.
   const bucket = (v: string) => {
-    const x = S(v);
+    const x = S(v).replace(/\s+/g, '');
     if (!x) return '';
     if (/협의/.test(x)) return '협의';
-    if (/본인만|본인\s*\+|대표자/.test(x)) return '본인만';
+    if (/직계|가족|임직원|배우자/.test(x)) return '기본';
+    if (/본인만|^계약자본인$|^본인$|본인\+추가운전자|대표자/.test(x)) return '본인만';
     return '기본';
   };
   const me = bucket(S(p.get('개인운전자범위')));
@@ -290,11 +365,13 @@ export const POLICY_DIRECT: Record<string, string> = {
    */
   전용계좌: '전용계좌',
   비고: '특이사항',
+  // ★심사조건(사장님 2026-08-19 「기본연령 앞에 심사조건 — 무심사 / 소득확인 / 신용조회」) — 정책 탭 「심사조건」 항목 그대로
+  심사조건: '심사조건',
   기본연령: '기본운전자연령',
   최대연령: '최대연령',
   면허기간: '면허기간',
-  추가운전자: '추가운전자',
-  '추가운전자 요금': '추가운전자 요금',
+  추가운전: '추가운전',
+  '추가운전 요금': '추가운전 요금',
   '초과주행 국산': '초과주행 국산(1km당)',
   '초과주행 수입': '초과주행 수입(1km당)',
   '중도해지 1년미만': '중도해지 위약금 1년미만',
@@ -308,11 +385,10 @@ export const POLICY_DIRECT: Record<string, string> = {
   무보험: '무보험보상',
   연주행: '기본주행',
   '1만+': '추가주행 금액',
-  '추가주행 방식': '추가주행 방식',
   보험료: '보험료',
   '가입 보험사': '가입 보험사',
   긴급출동: '긴급출동',
-  '사고·정비 대차': '대차 정책',
+  '사고·정비 대차': '대차 제공',
   '자차 보상제외': '자차 처리 제외',
   'GPS 장착': 'GPS 장착',
   대여지역: '대여지역',
@@ -348,11 +424,17 @@ const notPlaceholder = (v: string) => (PLACEHOLDER.test(S(v)) ? '' : S(v));
 
 /** 한 차의 부가정보 칸을 정책에서 만든다. 재고탭 값이 있으면 그쪽이 이긴다(그 차만의 예외). */
 export function policyCell(column: string, p: Map<string, string>): string {
+  if (['대인', '대물', '자손', '무보험', '자차'].includes(column) && insuranceSeparate(p)) return '별도';
   if (column === '자차') return ownDamageCell(p);
+  if (column === '연주행') return mileageCompact(S(p.get('기본주행')));
+  if (column === '보험료') return S(p.get('보험료')).replace(/^보험료\s*/, '');   // 머리글이 「보험료」라 칸에는 포함/별도만
   if (column === '승계') return successionCell(p);
   if (column === '운전자범위') return driverScopeCell(p);
   if (column === '21세') return ageCell(p, 21);
   if (column === '23세') return ageCell(p, 23);
+  // 추가운전(가능 여부)·추가운전 요금(N인까지 · 1인당 월 M만원) — 옛 머리글(추가운전자·추가운전자 요금)도 읽는다.
+  if (column === '추가운전') return extraDriverCell(p);
+  if (column === '추가운전 요금') return extraDriverFeeCell(p);
   const pair = POLICY_PAIR[column];
   if (pair) return limitPair(S(p.get(pair[0])), S(p.get(pair[1])));
   const direct = POLICY_DIRECT[column];

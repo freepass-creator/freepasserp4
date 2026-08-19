@@ -9,6 +9,7 @@ import { FavHeart } from '@/components/FavHeart';
 import { ProductStateMarks } from '@/components/ProductStateMarks';
 import { ProductPhotoImage } from '@/components/ProductPhoto';
 import { yearDisplay } from '@/lib/domain/vehicle-master-match';
+import { kmDisplay } from '@/lib/format';
 export { productOptions, OptionChips, OptionsInline } from '@/components/product-card-options';
 import {
   badgeTip, badgeSpecs, photoMarkSpecs,
@@ -82,17 +83,17 @@ function fmtCardYear(p: EntityRecord): string {
  *  plateYear = 모바일 목록용(차번 · 연식만). 연료·주행·배기·심사는 /m.
  *  차번 = 운영자만(손님 숨김). 텍스트만 · 살짝 두껍게.
  */
-export function CardSpecs({ p, dense, audience = 'agent', plateYear }: {
-  p: EntityRecord; dense?: boolean; audience?: Audience; plateYear?: boolean;
+export function CardSpecs({ p, dense, audience = 'agent', plateYear, listing }: {
+  p: EntityRecord; dense?: boolean; audience?: Audience; plateYear?: boolean; listing?: boolean;
 }) {
   const showPlateSlot = audience !== 'customer';
   const plate = String(p.car_number || '').trim();
   const year = fmtCardYear(p);
   const fs = FS.cap;
-  const body = plateYear ? year : specLineCard(p);
+  const body = plateYear ? year : listing ? [year, kmDisplay(p.mileage)].filter(Boolean).join(' · ') : specLineCard(p);
   const tip = [
     showPlateSlot && plate ? plate : '',
-    plateYear ? year : specLine(p),
+    plateYear ? year : listing ? body : specLine(p),
   ].filter(Boolean).join(' · ');
   return (
     <div title={tip || undefined} style={{

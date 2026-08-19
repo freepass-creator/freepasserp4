@@ -60,6 +60,8 @@ export function ExcelFilterPopover({
     || entry.label.toLowerCase().includes(normalizedQuery)
     || entry.key.toLowerCase().includes(normalizedQuery));
   const canSort = isNumericExcelColumn(field);
+  const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 800;
+  const popoverTop = Math.max(6, Math.min(y + 2, viewportHeight - 356));
   const rowStyle = {
     padding: '6px 10px', fontSize: FS.sub, cursor: 'pointer' as const,
     display: 'flex', alignItems: 'center', gap: 8, border: 'none',
@@ -83,11 +85,11 @@ export function ExcelFilterPopover({
     <>
       <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 90 }} />
       <div style={{
-        position: 'fixed', top: y + 2,
+        position: 'fixed', top: popoverTop,
         left: Math.max(6, Math.min(x, (typeof window !== 'undefined' ? window.innerWidth : 1200) - 226)),
         width: 220, background: C.taupeBg, border: `1px solid ${C.line}`, borderRadius: R,
         boxShadow: SH.menu, zIndex: 91,
-        textAlign: 'left', fontWeight: FW.body,
+        textAlign: 'left', fontWeight: FW.body, maxHeight: 'calc(100dvh - 12px)', overflow: 'hidden',
       }}>
         {canSort && (
           <div style={{ display: 'flex', borderBottom: `1px solid ${C.line2}` }}>

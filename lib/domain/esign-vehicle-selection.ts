@@ -1,4 +1,5 @@
 import type { EntityRecord } from '@/lib/intake/entities';
+import { moneyOrRateText, moneyOrRateWon } from './policy-money-rate';
 import type { EsignTemplate } from '@/lib/domain/esign-templates';
 import { isStockedProduct, priceList, vehicleName, type Price } from '@/lib/domain/product';
 
@@ -17,6 +18,13 @@ export function productMatchesTemplate(product: EntityRecord, template: EsignTem
   return template.contractKind === '렌탈' ? /렌트/.test(type) : /구독/.test(type);
 }
 
+/** 계약서에 바로 배정할 수 있는 차량. 즉시출고는 출고가능과 같은 가용 재고로 본다. */
+export function isContractAvailableVehicle(product: EntityRecord): boolean {
+  const status = S(product.vehicle_status).replace(/\s/g, '');
+  return (status === '즉시출고' || status === '출고가능')
+    && !S(product.locked_by_contract);
+}
+
 export function searchContractVehicles(
   products: EntityRecord[],
   providerCode: string,
@@ -29,8 +37,9 @@ export function searchContractVehicles(
   return products
     .filter((product) => S(product.provider_company_code) === providerCode)
     .filter((product) => productMatchesTemplate(product, template))
-    // 계약 입력은 판매 카탈로그가 아니다. 회사 재고라면 대여료가 아직 없어도 먼저 보여 주고,
-    // 이번 계약의 최종 대여료·보증금은 직원이 직접 확정할 수 있어야 한다.
+    // 계약서에 배정하는 선택창이므로 판매 카탈로그와 달리 출고가능 재고만 노출한다.
+    // 대여료가 아직 없어도 차량은 보여 주고 이번 계약에서 최종 금액을 직접 확정한다.
+    .filter(isContractAvailableVehicle)
     .filter(isStockedProduct)
     .filter((product) => {
       if (!normalized) return true;
@@ -80,24 +89,28 @@ export function contractVehicleSnapshot(product: EntityRecord): ContractVehicleS
 
 export type DriverAgeOption = { age: number; label: string; surcharge: number };
 
-/** 추가 운전자 요금은 고객과 A4 모두 같은 「1인당 월 금액」으로 읽히게 한다. */
-export function additionalDriverCostLabel(value: unknown): string {
-  const raw = S(value);
-  if (!raw || raw === '0' || /무료|없음|미부과/.test(raw)) return '별도 비용 없음';
-  if (/협의/.test(raw)) return '계약 전 별도 협의';
-  let won = 0;
-  const manwon = raw.match(/([\d.]+)\s*만\s*원?/);
-  if (manwon) won = Math.round(Number(manwon[1]) * 10_000);
-  else won = Number(raw.replace(/[^\d.-]/g, '')) || 0;
-  return won > 0 ? `월 ${won.toLocaleString()}원 / 1인` : raw;
+/**
+ * 연령 하향 가산(월) — 「10만원」은 그대로, 「대여료의 10%」는 이번 계약 월 대여료로 굳힌다(사장님 2026-08-19 정액·정률 겸용).
+ *   월 대여료를 아직 모르면 정률은 0으로 두고 라벨만 보인다 — 계약서에는 rentAmount 가 정해진 뒤 다시 계산돼 실린다.
+ */
+export function ageLoweringSurcharge(policy: EntityRecord | null | undefined, monthlyRent?: number | null): number {
+  const won = moneyOrRateWon(policy?.age_lowering_cost, monthlyRent, { legacy: 'won' });
+  return Math.max(0, won ?? 0);
 }
 
-export function contractDriverAgeOptions(policy: EntityRecord | null | undefined): DriverAgeOption[] {
+/** 추가 운전자 요금은 고객과 A4 모두 같은 「1인당 월」로 읽히게 한다 — 「월 50,000원 / 1인」 · 「월 대여료의 5% / 1인」(정률, 사장님 2026-08-19). */
+export function additionalDriverCostLabel(value: unknown): string {
+  const raw = S(value);
+  if (!raw) return '별도 비용 없음';
+  return moneyOrRateText(raw, { legacy: 'won', per: '월', suffix: ' / 1인', wonStyle: 'comma', rateBase: '대여료의', noneText: '별도 비용 없음', consultText: '계약 전 별도 협의', naText: '추가 운전자 등록 불가' });
+}
+
+export function contractDriverAgeOptions(policy: EntityRecord | null | undefined, monthlyRent?: number | null): DriverAgeOption[] {
   if (!policy) return [];
   const basic = ageNumber(policy.basic_driver_age);
   const lowered = ageNumber(policy.driver_age_lowering);
   const upper = ageNumber(policy.driver_age_upper_limit);
-  const surcharge = Math.max(0, Number(policy.age_lowering_cost) || 0);
+  const surcharge = ageLoweringSurcharge(policy, monthlyRent);
   const ages = [basic, lowered].filter((age, index, rows) => (
     age >= 21 && age <= 80 && (!upper || age <= upper) && rows.indexOf(age) === index
   ));

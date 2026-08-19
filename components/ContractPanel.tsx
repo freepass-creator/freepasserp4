@@ -411,7 +411,7 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
     if (cancelled) {
       return (
         <div style={{ padding: '8px 10px', fontSize: FS.sub, color: C.mute }}>
-          계약이 취소되었습니다{c?.contract_code ? ` · ${String(c.contract_code)}` : ''}
+          계약이 취소되었습니다{c?.contract_code ? ` · ${String(c.contract_number || c.contract_code)}` : ''}
         </div>
       );
     }
@@ -475,7 +475,7 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           {c ? (
             <>
-              <span style={{ fontSize: FS.title, fontWeight: FW.head, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', color: C.ink }}>{String(c.contract_code)}</span>
+              <span style={{ fontSize: FS.title, fontWeight: FW.head, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', color: C.ink }}>{String(c.contract_number || c.contract_code)}</span>
               <Badge tone={stage.tone}>{stage.label}</Badge>
             </>
           ) : (

@@ -4,9 +4,6 @@ import { useParams } from 'next/navigation';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { vehicleName } from '@/lib/domain/product';
 import { ProductDetail } from '@/components/ProductDetail';
-import { ProductPriceTable } from '@/components/ProductPriceTable';
-import { AsideCard } from '@/components/ProductAssistPanel';
-import { useIsMobile } from '@/lib/use-mobile';
 import { C, R, Loading, CenterNote, Btn, FW, FS } from '@/components/ui';
 import { haptic } from '@/lib/haptics';
 
@@ -23,8 +20,6 @@ import { haptic } from '@/lib/haptics';
 export default function Quote() {
   const { code } = useParams<{ code: string }>();
   const key = decodeURIComponent(String(code));
-  // 620(본문) + 20 + 300(가격) + 여백 → 그 아래에서는 우측 칼럼이 본문을 짓눌러 접는다.
-  const wide = !useIsMobile(1000);
   const [p, setP] = useState<EntityRecord | null | undefined>(undefined);
   const [agent, setAgent] = useState<EntityRecord | null>(null);
 
@@ -58,57 +53,11 @@ export default function Quote() {
   const telHref = phone ? `tel:${phone.replace(/[^0-9+]/g, '')}` : '';
   const inverse = 'var(--text-inverse)';
 
-  // 손님 상담 안내 — 넓으면 우측 카드로, 좁으면 본문 아래로. 내용은 한 벌이다.
-  //  계약진행 카드와 같은 밀도로 — 담당자는 «누구에게 걸면 되는가» 한 줄이면 된다.
-  //  크게 뽑으면 대여료보다 무거워져 우측 칼럼의 순서가 뒤집힌다(2026-08-08 사장님).
-  const contactBody = (
-    <div style={{ padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-        <span style={{ fontSize: FS.sub, color: C.ink, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {agentName || '담당 영업자'}
-        </span>
-        <span style={{ flex: 1, minWidth: 4 }} />
-        {telHref ? (
-          <Btn href={telHref} size="sm" onClick={() => haptic.nav()}>전화</Btn>
-        ) : (
-          <span style={{ fontSize: FS.cap, color: C.faint, whiteSpace: 'nowrap' }}>연락처 미등록</span>
-        )}
-      </div>
-      {phone ? (
-        <span style={{ fontSize: FS.cap, color: C.mute, fontVariantNumeric: 'tabular-nums' }}>{phone}</span>
-      ) : null}
-    </div>
-  );
-
-  // 손님도 영업자와 **같은 골격**을 본다 — 본문은 차 설명, 우측은 돈과 행동(2026-08-08 결정).
-  //  대여료까지는 네 역할이 같고, 그 밑에 붙는 카드만 다르다.
-  //  영업자 자리에 계약진행·대화가 오는 그 자리에, 손님에게는 **담당자**가 온다.
-  const priceAside = (
-    <aside
-      aria-label="대여료·담당자"
-      style={{
-        flex: '0 0 300px', width: 300, position: 'sticky', top: 18, alignSelf: 'flex-start',
-        marginTop: 'var(--fp-detail-head-h, 0px)', // 카드 윗선 = 사진 윗선
-        display: 'flex', flexDirection: 'column', gap: 10,
-      }}
-    >
-      <AsideCard title="대여료 / 보증금">
-        <ProductPriceTable p={p} bare />
-      </AsideCard>
-      <AsideCard title="상담 문의">{contactBody}</AsideCard>
-      <div style={{ fontSize: FS.cap, color: C.faint, lineHeight: 1.5 }}>
-        심사·재고에 따라 변동될 수 있습니다.
-      </div>
-    </aside>
-  );
-
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-start', gap: 20, padding: '18px 18px 28px' }}>
-    <main style={{ flex: '1 1 auto', minWidth: 0, maxWidth: 620 }}>
+    <div style={{ display: 'flex', justifyContent: 'center', padding: '18px 18px 28px' }}>
+    <main style={{ flex: '1 1 auto', minWidth: 0, maxWidth: 760 }}>
       <div style={{ fontSize: FS.sub, color: C.mute, letterSpacing: '0.04em', marginBottom: 10 }}>대여 견적서</div>
-      <ProductDetail p={p} audience="customer" priceAside={wide} />
-      {/* 좁은 화면에는 우측 카드가 없다 — 그때만 본문 아래에 상담 문의를 그린다(중복 금지). */}
-      {wide ? null : (
+      <ProductDetail p={p} audience="customer" />
       <div style={{ marginTop: 24, padding: '14px 16px', background: C.brand, color: inverse, borderRadius: R }}>
         <div style={{ fontSize: FS.body, fontWeight: FW.title }}>상담 문의</div>
         <div style={{ fontSize: FS.body, marginTop: 4, opacity: 0.9 }}>
@@ -126,12 +75,8 @@ export default function Quote() {
           </div>
         ) : null}
       </div>
-      )}
-      {wide ? null : (
-        <div style={{ marginTop: 14, fontSize: FS.cap, color: C.faint }}>본 견적은 참고용이며 심사·재고에 따라 변동될 수 있습니다.</div>
-      )}
+      <div style={{ marginTop: 14, fontSize: FS.cap, color: C.faint }}>본 견적은 참고용이며 심사·재고에 따라 변동될 수 있습니다.</div>
     </main>
-    {wide ? priceAside : null}
     </div>
   );
 }

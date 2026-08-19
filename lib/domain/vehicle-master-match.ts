@@ -160,6 +160,7 @@ const TRIM_EN_KO: Record<string, string> = {
   limited: '리미티드',
   standard: '스탠다드',
   trendy: '트렌디',
+  '트렌드': '트렌디',
   gravity: '그래비티',
   elegance: '엘레강스',
   intensive: '인텐시브',
@@ -176,6 +177,12 @@ const TRIM_EN_KO: Record<string, string> = {
   'gt-line': 'GT라인',
   gtline: 'GT라인',
   'gt ligne': 'GT라인',
+  avantgarde: '아방가르드',
+  'm sport': 'M 스포츠',
+  'm sport pack': 'M 스포츠',
+  'm sport package': 'M 스포츠',
+  'x라인 스페셜에디션': 'X라인',
+  'x라인 스페셜 에디션': 'X라인',
 };
 
 /** 영문·표기흔들림 → 마스터 한글 트림. pool이 있으면 그중 실제 노드만 채택. */
@@ -220,7 +227,7 @@ export function resolveExactMasterPath(
 export function normDrive(raw: unknown): string {
   const s = String(raw ?? '').toUpperCase().replace(/\s/g, '');
   if (!s) return '';
-  if (/4WD|AWD|4륜|사륜|네바퀴|4MATIC|XDRIVE|콰트로|FOUR/.test(s)) return '4WD';
+  if (/4WD|AWD|4륜|사륜|네바퀴|4MATIC|XDRIVE|QUATTRO|콰트로|FOUR/.test(s)) return '4WD';
   if (/2WD|전륜|후륜|FF|FR|이륜|FWD|RWD/.test(s)) return '2WD';
   return driveFromBlob(String(raw ?? ''));
 }
@@ -268,12 +275,24 @@ export const carYear = (p: EntityRecord): number => parseYear(p.year) || parseYe
 const GEN_PREF = ['디올뉴', '올뉴', '더뉴', '신형'];
 const IMPORT_MK = ['벤츠', '메르세데스', 'bmw', '아우디', '테슬라', '볼보', '미니', '폭스바겐', '지프', '포드', '렉서스'];
 const MODEL_ALIAS: Record<string, string> = { e클래스: 'e-클래스', c클래스: 'c-클래스', s클래스: 's-클래스', a클래스: 'a-클래스', b클래스: 'b-클래스', g클래스: 'g-클래스', 팰리: '팰리세이드', 아반데: '아반떼', 그랜져: '그랜저', 소나타: '쏘나타', 펠리세이드: '팰리세이드' };
+/** Canonical model token and reviewed source spellings that map to it. */
+export function modelIdentityAliases(value: unknown): string[] {
+  const input = norm(value);
+  const canonical = MODEL_ALIAS[input] ?? input;
+  return [...new Set([
+    canonical,
+    ...Object.entries(MODEL_ALIAS)
+      .filter(([, target]) => target === canonical)
+      .map(([alias]) => alias),
+  ].filter(Boolean))];
+}
+
 const stripMaker = (raw: string, mk: string): string => { let m = raw.trim(); for (const x of [mk, ...IMPORT_MK]) { const nx = x.trim(); if (nx && m.toLowerCase().startsWith(nx.toLowerCase()) && m.length > nx.length) m = m.slice(nx.length).trim(); } return m; };
 export function normModel(model: unknown, maker: unknown, sub: unknown): string {
   const mk = String(maker ?? '');
   let nm = norm(stripMaker(String(model ?? ''), mk));
   for (const g of GEN_PREF) if (nm.startsWith(g) && nm.length > g.length) { nm = nm.slice(g.length); break; }
-  nm = MODEL_ALIAS[nm] ?? nm;
+  nm = modelIdentityAliases(nm)[0] ?? nm;
   if (!nm || nm === norm(mk)) nm = norm(stripMaker(String(sub ?? ''), mk)); // 모델=제조사만 → sub로
   return nm;
 }
@@ -490,9 +509,11 @@ export function snapToMaster(p: EntityRecord, entries: MasterEntry[]): SnapResul
     variant: variant ? masterVariantLabel(variant) : undefined,
     trim_name: trim, // '' = 세부트림 없음(정상). undefined 아님 — applySnap이 원본 마케팅 문구를 유지하지 않게.
     fuel_type: variant?.fuel || undefined,
-    engine_cc: variant?.displacement_l != null && variant.displacement_l > 0
-      ? String(Math.round(variant.displacement_l * 1000))
-      : undefined,
+    engine_cc: variant?.engine_cc != null && variant.engine_cc > 0
+      ? String(Math.round(variant.engine_cc))
+      : variant?.displacement_l != null && variant.displacement_l > 0
+        ? String(Math.round(variant.displacement_l * 1000))
+        : undefined,
     seats: seatMatters && variant?.seat != null ? String(variant.seat) : undefined,
     drive_type: variant?.drivetrain || undefined,
     year: year ? String(year) : (p.year ? String(p.year) : undefined),

@@ -150,6 +150,19 @@ check('RTDB transaction 재시도에서 새 계약 락이 보이면 차단', !pr
   { maker: '기아' },
   { overlayFallback: true },
 ));
+check('legacy raw _key와 정규화 논리키 차이는 명시 제외하되 상태 CAS는 유지',
+  productPatchPreconditionMatches(
+    { ...casExpected, _key: 'EXT-LEGACY-CHILD' },
+    casExpected,
+    { _key: casExpected._key, maker: '기아' },
+    { overlayFallback: true, ignoredFields: ['_key', '_rtdb_key'] },
+  )
+  && !productPatchPreconditionMatches(
+    { ...casExpected, _key: 'EXT-LEGACY-CHILD', locked_by_contract: 'CT2' },
+    casExpected,
+    { _key: casExpected._key, maker: '기아' },
+    { overlayFallback: true, ignoredFields: ['_key', '_rtdb_key'] },
+  ));
 
 const sameAgain = softMergeProduct(merged, { product_code: merged.product_code, maker: '현대', model: '아반떼', vehicle_status: '출고가능' });
 check('동일 유입 → patch 없음', changedPatch(merged, sameAgain) === null);
@@ -519,6 +532,15 @@ const manualHeld = softMergeProduct({
   ...stock[3], vehicle_status: '출고불가', sheet_status_owner: undefined,
 }, { product_code: 'RP_4가4444', car_number: '4가4444', vehicle_status: '출고가능' });
   check('출처 없는 수기·레거시 출고불가는 시트 재등장에도 유지', manualHeld.vehicle_status === '출고불가');
+  // ★2026-08-19 사장님 「시트랑 맞아야」 — 상품마스터(ERP 입력 정본)에서 온 상태는 표식 없는 출고불가를 덮는다(엔진 락은 예외).
+  const pmReactivated = softMergeProduct({
+    ...stock[3], vehicle_status: '출고불가', sheet_status_owner: undefined,
+  }, { product_code: 'RP_4가4444', car_number: '4가4444', vehicle_status: '출고가능', _product_master_identity_authoritative: false });
+  check('상품마스터 유입은 표식 없는 출고불가도 시트 상태로 되살린다', pmReactivated.vehicle_status === '출고가능');
+  const pmLocked = softMergeProduct({
+    ...stock[3], vehicle_status: '출고불가', locked_by_contract: 'CT-1',
+  }, { product_code: 'RP_4가4444', car_number: '4가4444', vehicle_status: '출고가능', _product_master_identity_authoritative: false });
+  check('상품마스터 유입도 계약 엔진 락(locked_by_contract)은 못 푼다', pmLocked.vehicle_status === '출고불가');
   const legacySheetBlocked = {
     ...stock[3], vehicle_status: '출고불가', source: 'external_sheet', status_label: '시트에서 제거됨',
   };

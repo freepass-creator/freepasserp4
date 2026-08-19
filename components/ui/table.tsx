@@ -287,7 +287,7 @@ export const EXCEL_W = {
   /** 소득확인(4글자) Badge — 48이면 칸에서 잘려 조건열로 밀림. status와 동일 여유. */
   credit: 66,
   /** 옵션칸 — 세부모델·파워·트림 10자 고정 양보. min 축소(구 240). */
-  opts: { min: 160, prefer: 160, empty: 40 },
+  opts: { min: 240, prefer: 240, empty: 40 },
 } as const;
 
 /**
@@ -423,13 +423,8 @@ export function excelFitPlan(opts: {
  */
 export function colOpts(hasOpts: boolean, mode: ExcelColMode = 'full'): React.CSSProperties {
   if (hasOpts) {
-    const min = mode === 'filter' ? EXCEL_W.opts.empty : EXCEL_W.opts.min;
-    return {
-      width: '100%',
-      minWidth: min,
-      ...cellClip,
-      overflow: 'hidden',
-    };
+    const width = mode === 'filter' ? EXCEL_W.opts.min : EXCEL_W.opts.prefer;
+    return { width, minWidth: width, maxWidth: width, ...cellClip, overflow: 'hidden' };
   }
   const w = EXCEL_W.opts.empty;
   return { width: w, minWidth: w, maxWidth: w, ...cellClip };

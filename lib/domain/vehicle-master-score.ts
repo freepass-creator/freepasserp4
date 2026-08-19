@@ -120,6 +120,9 @@ export function selectMasterEntry(
     if (sub) {
       score += deps.similarity(String(product.sub_model), entry.sub_model) * 2.2
         + deps.similarity(String(product.sub_model), entry.title || '') * 0.5;
+      if (entry.aliases?.length) {
+        score += Math.max(...entry.aliases.map((alias) => deps.similarity(String(product.sub_model), alias))) * 1.8;
+      }
     }
     if (product.trim_name) score += deps.similarity(String(product.trim_name), entry.sub_model) * 1;
     /**
@@ -134,6 +137,10 @@ export function selectMasterEntry(
         + deps.similarity(String(product.cert_car_name), entry.title || '') * 0.4;
     }
     if (product.vehicle_name) score += deps.similarity(String(product.vehicle_name), entry.sub_model) * 0.6;
+    if (entry.aliases?.length) {
+      const aliasSignal = Math.max(...entry.aliases.map((alias) => deps.similarity(signalBlob, alias)));
+      score += aliasSignal * 0.45;
+    }
 
     const genLock = (productGen && String(entry.gen_code).toUpperCase() === productGen)
       || (targetGen && entry.gen_code === targetGen)

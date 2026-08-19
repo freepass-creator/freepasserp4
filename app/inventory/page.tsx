@@ -196,7 +196,7 @@ export default function Inventory() {
     String(product.product_code) === sel
   )));
 
-  /** 영업자 시트가 정본이다. 연동 후 ERP 목록만 다시 읽고 시트를 역방향으로 덮지 않는다. */
+  /** 상품마스터가 정본이다. 연동 후 ERP 목록만 다시 읽고 시트를 역방향으로 덮지 않는다. */
   const afterSyncImported = () => { load(getRole()); };
 
   if (ok === false) {
@@ -263,7 +263,7 @@ export default function Inventory() {
   const varPane = <InventoryVariablePane model={editorModel} />;
   const syncPane = isAdmin ? (
     <>
-      <PaneHead title="영업자 시트 연동" />
+      <PaneHead title="상품마스터 연동" />
       <PaneBody pad>
         <SheetSync co={co} compact onImported={afterSyncImported} />
       </PaneBody>
@@ -276,7 +276,7 @@ export default function Inventory() {
           공급사 원본은 참고·자료 제출용입니다.
         </div>
         <div style={{ marginTop: 6, fontSize: FS.cap, color: C.mute, lineHeight: 1.55 }}>
-          관리자가 영업자 상품리스트를 확인한 뒤 ERP에 일괄 반영합니다. 공급사 화면에서는 ERP 재고를 직접 덮어쓰지 않습니다.
+          관리자가 상품마스터를 확인한 뒤 ERP에 일괄 반영합니다. 공급사 원본은 비교·갱신 자료이며 ERP 재고를 직접 덮어쓰지 않습니다.
         </div>
       </PaneBody>
     </>
@@ -298,7 +298,7 @@ export default function Inventory() {
   return (
     <>
       {/* 상단 = 이 목록에 올라온 전체 매물(출고불가 포함). 공급사는 자기 회사분만. */}
-      <WorkPage title={NAV_LABEL.inventory} statusLabel="전체매물"
+      <WorkPage title={NAV_LABEL.inventory}
         statusCount={rows === null ? null : rows.length}
         countSuffix="대"
         listCount={rows === null ? null : filtered.length}
@@ -337,7 +337,9 @@ export default function Inventory() {
               }
             },
             body: (
-              <>
+              rows === null ? (
+                <CenterNote minHeight={120}>재고와 필터를 불러오는 중…</CenterNote>
+              ) : <>
                 <FilterGroup
                   title="상품상태"
                   count={(mobile ? draftStFlt : stFlt).size}

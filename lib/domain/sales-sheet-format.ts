@@ -16,7 +16,12 @@
  *   숫자·영문만 로보토로 나오는데, 표가 온통 숫자라 오히려 자릿수가 또렷해진다.
  */
 /**
- * 글꼴 — **Noto Sans KR**(사장님 2026-08-14 확정).
+ * 글꼴 — **Roboto**(사장님 2026-08-18 재확정 — 「모든 구글시트 Roboto 로 통일, 그게 글씨가 제일 잘 보이네」).
+ *   공급사 제공시트는 처음부터 Roboto 였고(`supplier-template-sheet.FONT`), 판매시트·원천대장도 같은 글꼴로 맞춘다.
+ *   적용 도구 `scripts/apply-font-all-sheets.mts`(글꼴만 바꾸고 크기·굵기·색은 그대로).
+ *
+ * (아래는 2026-08-14 에 Noto Sans KR 을 골랐던 이유 — 기록으로 남긴다)
+ * 글꼴 — Noto Sans KR(사장님 2026-08-14 확정).
  *
  * ★왜 Roboto 를 버렸나 — Roboto 에는 한글 글리프가 없다. 그래서 한글은 기기마다 다른
  *   대체 글꼴로 그려진다(윈도=맑은 고딕 · 아이폰=애플 SD 고딕 · 안드로이드=또 다름).
@@ -27,8 +32,10 @@
  *   같이 키워 뒀다. 글꼴만 바꾸고 이 둘을 안 바꾸면 40열이 빽빽해지고 글자가 위아래로 낀다.
  */
 import { SALES_NOTES } from './sales-sheet-mapping';
+import { COLOR_INK } from './color-master';
+import { MASTER_CATEGORY_COLORS } from './category-colors';
 
-export const FONT_DEFAULT = 'Noto Sans KR';
+export const FONT_DEFAULT = 'Roboto';
 export const FONT = FONT_DEFAULT;
 export const SIZE = 9;
 /** 기울임 없음(사장님 2026-08-14). 숫자가 기울면 자릿수가 눈으로 안 맞는다. */
@@ -38,7 +45,17 @@ export const INK = '000000';
 /** 링크 파랑 — 원본 실측값. 사진링크가 걸린 칸에만 쓴다. */
 export const LINK = '1155CC';
 
-/** 굵게 나가는 칸 = 월 대여료. 보증금은 굵히지 않는다 — 둘 다 굵으면 어느 게 월 요금인지 흐려진다. */
+/**
+ * ★금액 칸 규격 통일(사장님 2026-08-19 — 「대여료·보증금 숫자 같은 거, 금액 같은 거는 우측 정렬…… 두껍게, 그리고 기간별로 나와야 하고」)
+ *   · 이름 목록이 아니라 **머리글 모양**으로 판정한다 — 갈래 탭의 「12개월 반납형」·「12개월 3만km」·「보증금 인수형」처럼 새 이름이 와도 같은 규격.
+ *   · 기간별 대여료(N개월…)·보증금(…보증…)·차량가격/소비자가격 = 우측 정렬 + 굵게. Km·배기량 같은 숫자는 우측만.
+ *   · (예전엔 보증금을 굵히지 않았다 — 「둘 다 굵으면 어느 게 월 요금인지 흐려진다」. 2026-08-19 사장님 지시로 금액은 전부 굵게, 배경색이 기간을 가른다.)
+ */
+export const isRentColumn = (name: string) => /^\d+개월/.test(String(name ?? '').trim());
+/** 보증금 칸 — 「보증금 카드결제」(가능/불가 글자) 같은 정책 칸은 금액이 아니다. */
+export const isDepositColumn = (name: string) => /보증/.test(String(name ?? '')) && !/카드|결제|여부|가능|보험/.test(String(name ?? ''));
+export const isMoneyColumn = (name: string) => isRentColumn(name) || isDepositColumn(name) || /가격|금액/.test(String(name ?? ''));
+/** 굵게 나가는 칸(옛 목록 — 이제 `isMoneyColumn` 이 정본이고 이 목록은 호환용). */
 export const RENT_COLUMNS = [
   '1개월', '6개월', '12개월', '24개월', '36개월', '48개월', '60개월',
   '12개월 반납형', '24개월 반납형', '36개월 반납형', '48개월 반납형', '60개월 반납형',
@@ -47,7 +64,7 @@ export const RENT_COLUMNS = [
 ];
 
 /** 긴 글이 드는 칸은 왼쪽 — 가운데로 두면 줄마다 시작 위치가 달라 눈이 세로로 못 훑는다. */
-export const LEFT_COLUMNS = ['제조사', '모델', '세부모델', '파워트레인', '세부트림', '옵션', '트림', '차종분류'];
+export const LEFT_COLUMNS = ['제조사', '모델', '차명', '옵션', '트림', '차종분류'];
 
 /**
  * 숫자 칸은 오른쪽(사장님 2026-08-14 — 「금액 주행거리 숫자 형은 우측 정렬」).
@@ -76,7 +93,9 @@ export const CENTER_COLUMNS = ['최초등록', '최초등록일', '입고일자'
  *   블록 안에서는 기간이 길수록 짙다. 양 끝은 실측값(단기 #5EC1C8 · 장기 #0000FF)에 맞춰 둔다.
  */
 export const COL_INK: Record<string, string> = {
-  차량번호: LINK,
+  // ★차량번호는 **검정 굵게**(사장님 2026-08-19 — 「사진 링크 있는 것과 없는 게 같은 색이라 … 검정에 진하게」).
+  //   사진 링크가 있는 차만 발행기가 글자 서식(run)으로 파랑 밑줄을 건다 — 있고 없고가 눈에 갈린다.
+  차량번호: '000000',
   분납: 'FF0000', '21세': 'FF0000', '23세': 'FF0000', '1만+': 'FF0000',
   전용계좌: 'FF0000', 비고: 'FF0000',
 };
@@ -104,12 +123,38 @@ export const COL_BG: Record<string, string> = {
 };
 
 /**
+ * ★기간별 배경 — 이름 목록에 없는 새 칸(「12개월 3만km」·「18개월 2만km」…)도 «몇 개월인가»로 색을 정한다.
+ *   단기(1·6·12) 청록 · 장기(24~60) 파랑 · 인수형 보라 · 보증금은 그 블록의 가장 옅은 색. 18개월은 12와 24 사이.
+ */
+const MONTH_BG: Record<number, string> = { 1: 'DCF0F2', 6: 'CDE9EC', 12: 'BFE2E6', 18: 'E6EAFE', 24: 'DFE5FD', 36: 'D1DAFC', 48: 'C3CFFB', 60: 'B5C4FA', 72: 'A7B9F9', 84: '99AEF8' };
+const MONTH_BG_ACQ: Record<number, string> = { 12: 'E7DDFB', 24: 'DDCFF9', 36: 'D3C1F7', 48: 'C9B3F5', 60: 'BFA5F3' };
+export function colBgFor(name: string): string | undefined {
+  if (COL_BG[name]) return COL_BG[name];
+  const n = String(name ?? '').trim();
+  const acq = /인수형/.test(n);
+  const m = /^(\d+)개월/.exec(n);
+  if (m) { const mo = Number(m[1]); return (acq ? MONTH_BG_ACQ[mo] : MONTH_BG[mo]) || (acq ? 'D3C1F7' : (mo >= 24 ? 'D1DAFC' : 'BFE2E6')); }
+  if (isDepositColumn(n)) return acq ? 'F1EBFD' : (/단기/.test(n) ? 'EAF7F8' : 'EDF0FE');
+  return undefined;
+}
+
+/** 탭 색 — 상품리스트와 갈래 탭(손오공구독·오플구독)이 한눈에 갈리게(사장님 2026-08-19 「탭 색깔 약간 다르게」). */
+export const SALES_TAB_COLORS: Record<string, string> = { 상품리스트: '4A86E8', 손오공구독: '8E7CC3', 오플구독: '6AA84F' };
+export const salesTabColorFor = (tabTitle: string): string | undefined => {
+  const t = String(tabTitle ?? '').trim();
+  const key = Object.keys(SALES_TAB_COLORS).find((k) => t.startsWith(k));
+  return key ? SALES_TAB_COLORS[key] : undefined;
+};
+
+/**
  * 구분 — 값마다 글자색이 다르다. 배경은 칠하지 않는다.
  * ★값은 세 가지로만 선다(사장님 2026-08-14 — 「신차렌트 / 중고렌트 / 중고구독」).
  *   캐논은 `lib/intake/entities.PRODUCT_TYPES` 다. 옛 표기(신차·재렌트·재구독)는 옮길 때 갈아 넣는다.
  */
+// ★구분 색은 배차상태 색(파랑·주황·회색)과 겹치면 안 된다(사장님 2026-08-18 — 「출고협의 주황 옆에 중고구독 주황 — 이렇게 색깔이 비슷하면 안 되지」).
+//   구독은 보라·청록으로 갈랐다. 배차상태는 STATE_INK 그대로.
 export const GUBUN_INK: [string, string][] = [
-  ['신차렌트', 'FF00FF'], ['중고렌트', '34A853'], ['중고구독', 'FF9900'], ['신차구독', 'FF9900'],
+  ['신차렌트', 'FF00FF'], ['중고렌트', '34A853'], ['중고구독', '7B3FE4'], ['신차구독', '0F9D9D'],
 ];
 
 /**
@@ -123,7 +168,7 @@ export const STATE_INK: [string, string][] = [
 ];
 
 /** 자유텍스트라 상한을 더 낮게 묶는 칸. */
-const NARROW = new Set(['옵션', '비고', '세부모델', '트림']);
+const NARROW = new Set(['옵션', '비고', '차명', '트림']);
 const MAX_PX = 300;
 const NARROW_PX = 240;
 
@@ -182,6 +227,10 @@ export type FormatInput = {
   /** 지울 옛 조건부서식 개수. */
   conditionalFormatCount?: number;
   widths: number[];
+  /** 탭 이름(색을 정하는 데 쓴다 — 상품리스트/손오공구독/오플구독). */
+  tabTitle?: string;
+  /** 머리글 메모 추가분(SALES_NOTES 에 없는 칸 — 갈래 탭 원본 요금 칸 등). */
+  extraNotes?: Record<string, string>;
 };
 
 /**
@@ -245,21 +294,22 @@ export function buildSalesFormatRequests(input: FormatInput): Record<string, unk
   };
   align(LEFT_COLUMNS, 'LEFT');
   align(RIGHT_COLUMNS, 'RIGHT');
+  align(columns.filter((c) => isMoneyColumn(c) && !RIGHT_COLUMNS.includes(c)), 'RIGHT');   // 갈래 탭의 새 금액 칸도 우측
   align(CENTER_COLUMNS, 'CENTER');
 
   // 기간 블록 — 칸 배경. 머리행까지 같이 칠해야 어느 열이 그 블록인지 위에서부터 보인다.
-  for (const [name, bg] of Object.entries(COL_BG)) {
-    const i = idx(name);
-    if (i < 0) continue;
+  columns.forEach((name, i) => {
+    const bg = colBgFor(name);
+    if (!bg) return;
     out.push({ repeatCell: {
       range: { sheetId: gid, startRowIndex: H, startColumnIndex: i, endColumnIndex: i + 1 },
       cell: { userEnteredFormat: { backgroundColor: rgb(bg) } },
       fields: 'userEnteredFormat.backgroundColor',
     } });
-  }
+  });
 
-  // 월 대여료는 굵게 — 보증금은 굵히지 않는다. 둘 다 굵으면 어느 게 월 요금인지 흐려진다.
-  for (const name of RENT_COLUMNS) {
+  // 금액(기간별 대여료·보증금·차량가격)은 굵게 — 2026-08-19 규격 통일. 기간은 배경색이 가른다.
+  for (const name of columns.filter((c) => isMoneyColumn(c))) {
     const i = idx(name);
     if (i < 0) continue;
     out.push({ repeatCell: {
@@ -276,7 +326,7 @@ export function buildSalesFormatRequests(input: FormatInput): Record<string, unk
       range: { sheetId: gid, startRowIndex: H + 1, startColumnIndex: i, endColumnIndex: i + 1 },
       cell: { userEnteredFormat: { textFormat: {
         fontFamily: FONT, fontSize: SIZE, italic: ITALIC,
-        bold: RENT_COLUMNS.includes(name), foregroundColor: rgb(ink),
+        bold: isMoneyColumn(name) || name === '차량번호', foregroundColor: rgb(ink),
       } } },
       fields: 'userEnteredFormat.textFormat',
     } });
@@ -302,13 +352,41 @@ export function buildSalesFormatRequests(input: FormatInput): Record<string, unk
   byValue('구분', GUBUN_INK);
   byValue('배차상태', STATE_INK);
   byValue('상태', STATE_INK);
+  // ★구분되는 값은 눈에 확 오게(사장님 2026-08-19 「제조사 색깔 넣기로 했었고 · 세단 SUV 색깔 다르게 · 차량 색상 텍스트에 색깔」)
+  //   제조사·차체형태 색은 원천대장 규격검토와 같은 표(vehicle-master-sheet-format.MASTER_CATEGORY_COLORS) — 한 문서로 읽히게.
+  const byContains = (column: string, pairs: [string, string][]) => {
+    const i = idx(column);
+    if (i < 0) return;
+    for (const [word, ink] of pairs) {
+      out.push({ addConditionalFormatRule: {
+        index: 0,
+        rule: {
+          ranges: [{ sheetId: gid, startRowIndex: H + 1, startColumnIndex: i, endColumnIndex: i + 1 }],
+          booleanRule: {
+            condition: { type: 'TEXT_CONTAINS', values: [{ userEnteredValue: word }] },
+            format: { textFormat: { foregroundColor: rgb(ink), bold: true } },
+          },
+        },
+      } });
+    }
+  };
+  const hexOf = (v: string) => v.replace('#', '').toUpperCase();
+  byValue('제조사', Object.entries({ ...MASTER_CATEGORY_COLORS['제조사'], 르노: MASTER_CATEGORY_COLORS['제조사']['르노코리아'], KGM: MASTER_CATEGORY_COLORS['제조사']['KG모빌리티'] }).map(([k, v]) => [k, hexOf(v)] as [string, string]));
+  // 차종구분은 색 없음(사장님 2026-08-19 「과하네」). 연료는 색(「연료는 색깔 구분해 주시고」) — 규격검토와 같은 표.
+  void byContains;
+  byValue('연료', Object.entries(MASTER_CATEGORY_COLORS['연료']).map(([k, v]) => [k, hexOf(v)] as [string, string]));
+  const colorPairs = Object.entries(COLOR_INK) as [string, string][];
+  byValue('외장', colorPairs);
+  byValue('내장', colorPairs);
+  byValue('외장색상', colorPairs);
+  byValue('내장색상', colorPairs);
 
   /**
    * ★머리글 메모 — 「이 칸이 뭐지」를 그 자리에서 답한다(사장님 2026-08-14 —
    *   「니가 할 때는 항목을 잘 써줘봐」). 이름은 손에 익은 대로 두고 뜻만 메모로 단다.
    * ⚠ 행을 안 먹는다. 60열짜리 표에 설명 줄을 하나 더 얹을 수는 없다.
    */
-  for (const [name, note] of Object.entries(SALES_NOTES)) {
+  for (const [name, note] of Object.entries({ ...SALES_NOTES, ...(input.extraNotes || {}) })) {
     const i = idx(name);
     if (i < 0) continue;
     out.push({ repeatCell: {
@@ -316,6 +394,9 @@ export function buildSalesFormatRequests(input: FormatInput): Record<string, unk
       cell: { note }, fields: 'note',
     } });
   }
+  // 탭 색 — 상품리스트/손오공구독/오플구독이 한눈에 갈리게.
+  const tabColor = input.tabTitle ? salesTabColorFor(input.tabTitle) : undefined;
+  if (tabColor) out.push({ updateSheetProperties: { properties: { sheetId: gid, tabColor: rgb(tabColor) }, fields: 'tabColor' } });
 
   out.push({ clearBasicFilter: { sheetId: gid } });
   out.push({ setBasicFilter: { filter: { range: { sheetId: gid, startRowIndex: H, startColumnIndex: 0, endColumnIndex: n } } } });

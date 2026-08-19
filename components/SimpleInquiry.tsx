@@ -2,7 +2,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { type EntityRecord } from '@/lib/intake/entities';
-import { getRole, actor, ensureRoom, type Role } from '@/lib/domain/deal';
+import { getRole, actor, ensureRoom, findExistingRoom, type Role } from '@/lib/domain/deal';
 import { sendText, listMessages, isMine } from '@/lib/domain/messaging';
 import { C, R, FS, FW, Btn, ButtonLabel, Input, ICON } from '@/components/ui';
 import { MessagesSquare, Send } from 'lucide-react';
@@ -10,7 +10,7 @@ import { toast } from '@/components/Toaster';
 import { ChatSenderLabel } from '@/components/ChatSenderLabel';
 import { msgClock } from '@/lib/format';
 /**
- * 간단 문의 — 상세 하단. 방 = CH_매물_{나}, channel='간단'.
+ * 간단 문의 — 상세 하단. 신규 방은 rom_ 영구코드, 기존 CH_ 방도 그대로 이어 읽는다.
  * 전송·목록 = messaging SSOT. UI는 간단 채널만 표시.
  */
 export function SimpleInquiry({ p }: { p: EntityRecord }) {
@@ -22,12 +22,23 @@ export function SimpleInquiry({ p }: { p: EntityRecord }) {
   const [busy, setBusy] = useState(false);
   const threadRef = useRef<HTMLDivElement | null>(null);
 
-  const roomKey = `CH_${p.product_code}_${me.code}`;
-  const load = async () => {
-    const list = await listMessages(roomKey, '간단');
+  const [roomId, setRoomId] = useState('');
+  const load = async (targetRoomId = roomId) => {
+    if (!targetRoomId) { setMsgs([]); return; }
+    const list = await listMessages(targetRoomId, '간단');
     setMsgs(list);
   };
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [p.product_code, me.code]);
+  useEffect(() => {
+    let active = true;
+    void findExistingRoom(p.product_code, me).then((found) => {
+      if (!active) return;
+      const next = found || '';
+      setRoomId(next);
+      void load(next);
+    });
+    return () => { active = false; };
+    /* eslint-disable-next-line */
+  }, [p.product_code, me.code]);
   // 스레드 박스 안에서만 스크롤 — scrollIntoView는 .fp-main-pad까지 끌어내려 상세가 아래로 점프함
   useEffect(() => {
     const el = threadRef.current;
@@ -38,17 +49,27 @@ export function SimpleInquiry({ p }: { p: EntityRecord }) {
   const send = async () => {
     const t = text.trim(); if (!t || busy) return;
     setBusy(true);
+    let targetRoomId = roomId;
+    try {
+      if (!targetRoomId) {
+        targetRoomId = await ensureRoom(p, me);
+        setRoomId(targetRoomId);
+      }
+    } catch (e) {
+      toast(`문의방 생성 실패: ${(e as Error).message}`, 'error');
+      setBusy(false);
+      return;
+    }
     const optimistic: EntityRecord = {
-      _key: `${roomKey}_${Date.now()}_opt`, room_id: roomKey, text: t,
+      _key: `${targetRoomId}_${Date.now()}_opt`, room_id: targetRoomId, text: t,
       sender_uid: me.uid, sender_code: me.code, sender_role: role, sender_name: me.name,
       channel: '간단', created_at: Date.now(),
     };
     setMsgs((prev) => [...prev, optimistic]);
     setText('');
     try {
-      const rid = await ensureRoom(p, me);
-      await sendText({ roomId: rid, text: t, channel: '간단', role });
-      await load();
+      await sendText({ roomId: targetRoomId, text: t, channel: '간단', role });
+      await load(targetRoomId);
     } catch (e) {
       console.error('간단문의 전송 실패:', e);
       toast(`문의 전송 실패: ${(e as Error).message}`, 'error');

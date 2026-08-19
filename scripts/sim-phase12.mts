@@ -29,7 +29,7 @@ process.env.NEXT_PUBLIC_DATA_BACKEND = '';
 const { getStore } = await import('../lib/store');
 const { getCompanyId } = await import('../lib/tenant');
 const { seedIfEmpty } = await import('../lib/seed');
-const { newId } = await import('../lib/domain/ids');
+const { isId, newId } = await import('../lib/domain/ids');
 const { ensureRoom, setRole, actor, createContractRequest } = await import('../lib/domain/deal');
 const { sendText, markRead, listMessages, unreadFor, isMine } = await import('../lib/domain/messaging');
 const { applyStepCheck } = await import('../lib/domain/settlement-engine');
@@ -74,7 +74,7 @@ console.log('── A. messaging SSOT ──');
 // ════════════════════════════════════════
 const me = actor('agent');
 const roomId = await ensureRoom(product, me);
-check('A1 ensureRoom 키', roomId === `CH_${productCode}_${me.code}`, roomId);
+check('A1 ensureRoom 신규 rom_ 키', isId('room', roomId), roomId);
 
 await sendText({ roomId, text: '즉시 출고 가능한가요?', channel: '간단', role: 'agent' });
 setRole('provider');
@@ -222,18 +222,13 @@ check('D R1/R2 입력·저장 접근성 이름 구분', contractPageSrc.includes
 check('D 정산 금액 선택 epoch guard', contractPageSrc.includes('epoch === selectionEpoch.current') && contractPageSrc.includes('selectedCodeRef.current === targetContractCode'));
 check('D 모바일 업무 패널은 icon SSOT', workPageSrc.includes('icon?: LucideIcon') && workPageSrc.includes('<IconSeg'));
 check('D 모바일 CRUD는 공통 PageActions', pageActionsSrc.includes("from 'lucide-react'") && pageActionsSrc.includes('<Btn size="sm"'));
-check('D 모바일 툴바 라벨+아이콘 일치', pageToolBarSrc.includes('<Icon size={18}') && pageToolBarSrc.includes('<span>{t.label}</span>'));
-check('D 모바일 목록복귀는 공통 BottomNav', navigationSrc.includes("backKind?: 'history' | 'list'") && navigationSrc.includes('backShowLabel'));
+check('D 모바일 툴바 라벨+아이콘 일치', pageToolBarSrc.includes('<Icon size={ICON.lg}') && pageToolBarSrc.includes('<span>{t.label}</span>'));
+check('D 모바일 목록복귀는 공통 BottomNav', navigationSrc.includes("export type NavBackKind = 'history' | 'list' | 'cancel'") && navigationSrc.includes('backShowLabel'));
 check('D 공통 Btn 모바일 아이콘 전환 SSOT', buttonsSrc.includes('mobileIcon?: React.ReactNode') && buttonsSrc.includes('iconOnly ? mobileIcon : children'));
 check('D 결정적 액션 아이콘+텍스트 SSOT', buttonsSrc.includes('export function ButtonLabel'));
 check('D 계약 진행 주요 액션 아이콘+텍스트', contractPanelSrc.includes('ButtonLabel') && contractPanelSrc.includes('CheckCircle2') && contractPanelSrc.includes('FileSignature'));
 check('D ERP 자체 전자서명 발송 진입점 미노출', !contractPanelSrc.includes('<ContractSign'));
-check('D 전자계약 발송은 착한거래 서버 연동', contractPanelSrc.includes('<ChakhandealEsignButton')
-  && chakhandealButtonSrc.includes("fetch('/api/chakhandeal/contracts/send'")
-  && chakhandealRouteSrc.includes('verifyActiveBearer')
-  && chakhandealRouteSrc.includes('canSendChakhandealContract')
-  && chakhandealServerSrc.includes('CHAKHANDEAL_API_KEY')
-  && !chakhandealButtonSrc.includes('/sign/'));
+check('D 계약 진행 패널에 레거시 착한거래 발송버튼 중복 미노출', !contractPanelSrc.includes('<ChakhandealEsignButton'));
 check('D 계약 메모 저장 아이콘+텍스트', contractMemosSrc.includes('ButtonLabel') && contractMemosSrc.includes('<Save'));
 check('D 계약 서류 삭제 아이콘+텍스트', contractDocsSrc.includes('ButtonLabel') && contractDocsSrc.includes('<Trash2'));
 check('D 전자서명 주요 액션 아이콘+텍스트', contractSignSrc.includes('ButtonLabel') && contractSignSrc.includes('<Send') && contractSignSrc.includes('<CheckCircle2'));
@@ -248,14 +243,14 @@ check('D 모바일 정책 조회·편집 분리', policyPageSrc.includes('mobile
 check('D 모바일 재고 조회·편집 분리', inventoryEditorSrc.includes('const readAsRows = mobile') && inventoryEditorSrc.includes('<FormReadList'));
 check('D 재고 가격 조회는 입력 컨트롤 제거', priceMatrixSrc.includes('readOnly = false') && priceMatrixSrc.includes("fmt(rentN) || '—'") && priceMatrixSrc.includes('{!readOnly ? <div'));
 check('D 재고 사진 조회는 추가·편집 제거', photoUploadSrc.includes('readOnly = false') && photoUploadSrc.includes('!readOnly ? <div') && photoUploadSrc.includes('!readOnly && sheet'));
-check('D 공개 전자서명 한글 인코딩 정상', publicSignPageSrc.includes('렌터카 대여 계약 약관') && publicSignPageSrc.includes('동의하고 서명 제출') && !/[媛紐吏李泥]|\?[먯꾩쒕]/.test(publicSignPageSrc));
+check('D 공개 전자서명 한글 인코딩 정상', publicSignPageSrc.includes('본인확인 자료와 전자서명 제출') && publicSignPageSrc.includes('확인하고 전자서명 제출') && !/[媛紐吏李泥]|\?[먯꾩쒕]/.test(publicSignPageSrc));
 check('D 공개 전자서명 결정 액션 아이콘+텍스트', publicSignPageSrc.includes('<Eraser') && publicSignPageSrc.includes('<Send') && publicSignPageSrc.includes('<ButtonLabel'));
 check('D 공개 전자서명 색상 토큰 사용', !publicSignPageSrc.includes("'#fff'") && !publicSignPageSrc.includes("'#0f1830'"));
 check('D 모바일 계약 엑셀 액션 미노출', contractPageSrc.includes('action: !mobile && setts.length'));
 check('D 모바일 월정산 엑셀·정산서 미노출', settlementPageSrc.includes('const actions = mobile ? undefined') && settlementPageSrc.includes('{!mobile && (') && settlementPageSrc.includes('accept=".xlsx,.xls"'));
 check('D 모바일 재고 시트취합 웹전용', inventoryPageSrc.includes("...(mobile ? [] : [{ key: 'sync'") && inventoryPageSrc.includes('<SheetSync'));
-check('D 회원 일괄 백필 실행은 확인 대화상자 필수', membersPageSrc.includes("title: '개인채널 백필'") && membersPageSrc.includes("okLabel: '백필 실행'"));
-check('D 회원 빈 화면 조사 사용', membersPageSrc.includes("'계정을' : '회사를'"));
+check('D 회원 일괄 백필 실행은 확인 대화상자 필수', devPageSrc.includes("title: '개인채널 백필'") && devPageSrc.includes("okLabel: '백필 실행'"));
+check('D 회원 빈 화면 조사 사용', membersPageSrc.includes("'회원을' : '파트너사를'"));
 check('D 정책관리 진입은 첫 행 자동선택 없음', !policyPageSrc.includes('selectP(all[0])'));
 check('D 차종마스터 일괄 변환은 확인 필수', devPageSrc.includes("title: '차종마스터 일괄 변환'") && devPageSrc.includes("okLabel: '일괄 변환 실행'"));
 

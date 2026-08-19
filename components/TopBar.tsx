@@ -1,8 +1,8 @@
 'use client';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { useState, useEffect, useCallback, type CSSProperties, type ReactNode } from 'react';
-import { Menu, X, Search, FileText, FileSignature, ScrollText, Settings, ChevronLeft, List, History, Users, Wrench, HelpCircle, Sparkles, RefreshCw, type LucideIcon } from 'lucide-react';
+import { Menu, X, Search, FileText, FileSignature, Settings, ChevronLeft, List, History, Users, Wrench, HelpCircle, Sparkles, RefreshCw, type LucideIcon } from 'lucide-react';
 import { useAppBarSlots } from '@/lib/appbar';
 import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
@@ -29,7 +29,7 @@ const GROUPS: { title: string; items: { href?: string; label: string; icon: Luci
     // 계약문의 하나로 간다 — 관리자에게는 이 안에서 «응대 큐»가 열린다(docs/ADMIN_DESK.md).
     { href: '/chat', label: NAV_LABEL.chat, icon: NAV_ICON.chat, roles: ALL_ROLES },
     { href: '/contract', label: NAV_LABEL.contract, icon: NAV_ICON.contract, roles: ['agent', 'provider', 'admin'] },
-    { href: '/esign', label: NAV_LABEL.esign, icon: FileSignature, roles: ['agent', 'admin'] },
+    { href: '/esign', label: NAV_LABEL.esign, icon: FileSignature, roles: ['admin'] },
   ] },
   { title: '견적·구독', items: [
     { href: '/sonogong', label: '중고 픽업구독', icon: RefreshCw, roles: ALL_ROLES },
@@ -37,11 +37,11 @@ const GROUPS: { title: string; items: { href?: string; label: string; icon: Luci
   ] },
   { title: '공급관리', items: [
     { href: '/inventory', label: NAV_LABEL.inventory, icon: NAV_ICON.inventory, roles: ['provider', 'admin'] },
-    { href: '/policy', label: NAV_LABEL.policy, icon: ScrollText, roles: ['provider', 'admin'] },
+    { href: '/members?tab=partner', label: NAV_LABEL.partners, icon: Users, roles: ['admin'] },
   ] },
   { title: '관리자', items: [
     { href: '/settlement', label: NAV_LABEL.settlement, icon: FileText, roles: ['admin'] },
-    { href: '/members', label: NAV_LABEL.members, icon: Users, roles: ['admin'] },
+    { href: '/members?tab=user', label: NAV_LABEL.members, icon: Users, roles: ['admin'] },
     { href: '/audit', label: NAV_LABEL.audit, icon: History, roles: ['admin'] },
     { href: '/data-check', label: NAV_LABEL.dataCheck, icon: Search, roles: ['admin'] },
   ] },
@@ -53,13 +53,37 @@ const GROUPS: { title: string; items: { href?: string; label: string; icon: Luci
 ];
 
 /** 라우트 → 상태 라벨(앱바 title 없을 때). */
+// 그룹 사이에는 구분선이 그어진다(렌더가 gi>0 이면 borderTop) — 재고관리 아래 선 하나로 «일하는 메뉴»와 «관리 메뉴»를 가른다(사장님 2026-08-19).
+//   · 계약진행(/contract) = «내 계약이 어디까지 왔나» — 목록 + 5단계 진행상황(사장님 2026-08-19: 목록이랑 어디까지 진행중인지 보는 페이지).
+//   · 계약서관리(/esign, 계약서 만들어 보내기·서명추적) = 관리 메뉴 맨 위(파트너사관리 위).
+//   · 하단탭(lib/tabbar appTabsFor)도 같은 규칙.
+const SIMPLE_GROUPS: typeof GROUPS = [{
+  title: '',
+  items: [
+    { href: '/finder', label: '상품찾기', icon: NAV_ICON.product, roles: ALL_ROLES },
+    { href: '/contract', label: '계약진행', icon: NAV_ICON.contract, roles: ALL_ROLES },
+    { href: '/settlement', label: '정산확인', icon: FileText, roles: ['admin'] },
+    { href: '/inventory', label: '재고관리', icon: NAV_ICON.inventory, roles: ['provider', 'admin'] },
+    // 정책관리(/policy)는 메뉴에서 뺐다(사장님 2026-08-19 「이제 필요 없고, 파트너사관리에서 공급사별로 등록·수정·삭제」).
+    //  /policy 는 파트너사관리 › 계약정책에서 여는 편집 화면으로만 산다(provider=코드 스코프 · return=partner). 공급사 정책 입력은 제공시트 「운영정책」 탭.
+  ],
+}, {
+  title: '',
+  items: [
+    // 관리자 전용 — 페이지(/members)는 하나, 탭 쿼리로 파트너사·회원을 가른다(사장님 2026-08-19: 메뉴에 있어야 함).
+    { href: '/esign', label: NAV_LABEL.esign, icon: NAV_ICON.esign, roles: ['admin'] },
+    { href: '/members?tab=partner', label: NAV_LABEL.partners, icon: Users, roles: ['admin'] },
+    { href: '/members?tab=user', label: NAV_LABEL.members, icon: Users, roles: ['admin'] },
+  ],
+}];
+
 function statusFromPath(path: string): ReactNode {
   // WorkPage KPI 라벨과 맞춤 — 마운트 전 NAV→KPI 플래시 방지
   if (path === '/finder') return <PageStatus icon={NAV_ICON.product} label={NAV_LABEL.product} />;
   if (path.startsWith('/m/')) return <PageStatus icon={NAV_ICON.product} label="상품 상세" />;
   if (path.startsWith('/chat')) return <PageStatus icon={NAV_ICON.chat} label="문의 미확인" />;
-  if (path.startsWith('/contract')) return <PageStatus icon={NAV_ICON.contract} label="계약진행중" />;
-  if (path.startsWith('/inventory')) return <PageStatus icon={NAV_ICON.inventory} label="전체매물" />;
+  if (path.startsWith('/contract')) return <PageStatus icon={NAV_ICON.contract} label="계약진행" />;
+  if (path.startsWith('/inventory')) return <PageStatus icon={NAV_ICON.inventory} label={NAV_LABEL.inventory} />;
   if (path.startsWith('/sonogong')) return <PageStatus icon={RefreshCw} label="중고차 렌트구독 견적기" />;
   if (path.startsWith('/welrix')) return <PageStatus icon={Sparkles} label="신차장기렌터카 견적기" />;
   if (path.startsWith('/policy')) return <PageStatus icon={statusIconFor('정책')} label={NAV_LABEL.policy} />;
@@ -223,12 +247,23 @@ function NavMenu({ mobile, open: openProp, setOpen: setOpenProp }: {
     if (open) refreshBadges(role);
   }, [open, role, refreshBadges]);
   const path = usePathname();
+  const searchParams = useSearchParams();
+  // 메뉴 href 가 쿼리(`/members?tab=partner`)를 가질 수 있다 — 경로는 pathname, 쿼리는 searchParams 로 각각 대조.
+  // 파트너사관리·회원관리는 같은 /members 라 쿼리까지 봐야 하나만 켜진다.
+  const isActive = (href?: string): boolean => {
+    if (!href) return false;
+    const [hp, hq] = href.split('?');
+    if (hp === '/' ? path !== '/' : !(path === hp || path.startsWith(`${hp}/`))) return false;
+    if (!hq) return true;
+    for (const [k, v] of new URLSearchParams(hq)) if ((searchParams.get(k) ?? '') !== v) return false;
+    return true;
+  };
   const menuRole: Role = session?.role === 'admin' || session?.role === 'provider' || session?.role === 'agent'
     ? session.role
     : role;
   // 관리자는 역할 게이트를 통과한다 — 모든 메뉴가 보인다(항목마다 roles 에 admin 을 넣지 않아도 되게 여기서 규칙화).
   const seesAll = menuRole === 'admin';
-  const groups = GROUPS.map((g) => ({
+  const groups = SIMPLE_GROUPS.map((g) => ({
     ...g,
     items: g.items.filter((it) => (seesAll || !it.roles || it.roles.includes(menuRole)) && !(mobile && it.hideMobile)),
   })).filter((g) => g.items.length);
@@ -271,15 +306,14 @@ function NavMenu({ mobile, open: openProp, setOpen: setOpenProp }: {
                 <Link key={it.label} href={it.href ?? '#'} onClick={(e) => {
                   haptic.nav();
                   setOpen(false);
-                  const href = it.href || '';
-                  if (href && (path === href || (href !== '/' && path.startsWith(href + '/')))) {
+                  if (isActive(it.href)) {
                     e.preventDefault();
-                    queueMicrotask(() => refreshCurrentPage(href));
+                    queueMicrotask(() => refreshCurrentPage((it.href || '').split('?')[0]));
                   }
                 }}
-                  style={{ display: 'flex', alignItems: 'center', gap: 11, padding: iPad, borderRadius: R, fontSize: iFont, fontWeight: FW.strong, color: (it.href === '/' ? path === '/' : path.startsWith(it.href ?? '##')) ? C.brand : ink, background: (it.href === '/' ? path === '/' : path.startsWith(it.href ?? '##')) ? C.selected : 'transparent', textDecoration: 'none' }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 11, padding: iPad, borderRadius: R, fontSize: iFont, fontWeight: FW.strong, color: isActive(it.href) ? C.brand : ink, background: isActive(it.href) ? C.selected : 'transparent', textDecoration: 'none' }}
                   onMouseEnter={(e) => (e.currentTarget.style.background = C.hover as string)}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = (it.href === '/' ? path === '/' : path.startsWith(it.href ?? '##')) ? C.selected as string : 'transparent')}>
+                  onMouseLeave={(e) => (e.currentTarget.style.background = isActive(it.href) ? C.selected as string : 'transparent')}>
                   <it.icon size={iSize} color={mute} />
                   <span style={{ flex: 1 }}>{itemLabel}</span>
                   {rowBadge > 0 ? <CountPill n={rowBadge} max={99} /> : null}
@@ -318,7 +352,7 @@ export default function TopBar() {
   const line = C.line, ink = C.ink;
   // /m = 모바일 미리보기(폰 프레임) → 앱 상단바 없이 전체화면. /m/[code](실제 모바일 상세)는 상단바 유지.
   // '/' = 공개 안내 페이지(상품시트 입장) — ERP 상단바가 뜨면 안 된다(2026-08-15 · ERP 개선 대기).
-  if (path === '/' || path === '/login' || path === '/m' || path.startsWith('/q/') || path.startsWith('/catalog') || path.startsWith('/sign/')) return null;
+  if (path === '/' || path === '/erp5' || path.startsWith('/erp5/') || path === '/login' || path === '/m' || path.startsWith('/q/') || path.startsWith('/catalog') || path.startsWith('/sign/')) return null;
   const backLabel = backKind === 'list' ? '목록' : '이전';
   const backIcon = backKind === 'list'
     ? <List size={mobile ? 18 : 16} strokeWidth={2.25} />

@@ -61,9 +61,11 @@ assert.match(template, /서면 계약은 당사자가 서명·기명날인한 �
 assert.match(template, /임차인 서명·날인/);
 assert.doesNotMatch(template, /본인인증 후 서명/);
 assert.match(agreementText, /계약의 세칙·통지 및 계약서 교부/);
-assert.match(contractPane, /A4 계약서 출력/);
-assert.match(contractPane, /계약 링크 만들기/);
-assert.match(contractPane, /document\?format=pdf&draft=1/);
+assert.match(contractPane, /A4 미리보기/);
+assert.match(contractPane, /'링크 만들기'/);
+// 2026-08-19: 미리보기 URL 은 previewUrl('a4') — /esign/preview/{code}?view=a4&back={basePath}
+assert.match(contractPane, /\/esign\/preview\/\$\{encodeURIComponent\(code\)\}\?\$\{params\.toString\(\)\}/);
+assert.match(contractPane, /params\.set\('view', 'a4'\)/);
 assert.doesNotMatch(signPage.match(/const REQUIRED_CONSENTS[^;]+/)?.[0] || '', /cms/);
 assert.doesNotMatch(server.match(/FREEPASS_ESIGN_REQUIRED_CONSENTS[^;]+/)?.[0] || '', /cms/);
 

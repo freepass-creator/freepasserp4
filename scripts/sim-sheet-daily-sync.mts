@@ -104,6 +104,25 @@ check('판매용 정본에 재등장한 동일키 soft-delete는 신규 중복 �
   && revivedPatch.deletedAt === null
   && revivedPatch.revived_at === '1970-01-01T00:00:00.123Z',
   revivedPlan);
+const legacyChildDeleted = {
+  ...sheetProduct('79라9013'),
+  _rtdb_key: 'EXT-LEGACY-DELETED',
+  _deleted: true,
+  deletedAt: '2026-08-10T00:00:00.000Z',
+};
+const legacyChildRevivedPlan = planDailySheetSync({
+  fetched: fetched([sheetProduct('79라9013')]),
+  existing: [],
+  deleted: [legacyChildDeleted],
+  partners,
+  now: 124,
+});
+const legacyChildRevived = legacyChildRevivedPlan.patches[0];
+check('삭제 이력 revive는 논리 상품코드가 아니라 실제 Firebase child key로 CAS',
+  legacyChildRevivedPlan.ok
+  && legacyChildRevived?.key === 'EXT-LEGACY-DELETED'
+  && legacyChildRevived.patch.product_code === sheetProduct('79라9013').product_code,
+  legacyChildRevivedPlan);
 const changedPatch = first.patches.find((item) => item.key === existingChanged.product_code)?.patch;
 check('시트 빈값은 관리자 수기 메모를 지우지 않음', changedPatch?.partner_memo === undefined, changedPatch);
 const absentPatch = first.patches.find((item) => item.key === existingAbsent.product_code)?.patch;
@@ -203,6 +222,23 @@ check('공급사 한 곳이라도 조회 실패면 자동 저장 계획 0건',
   !blocked.ok && blocked.creates.length === 0 && blocked.patches.length === 0
   && blocked.blockReason.includes('조회 실패'));
 
+const collapsedProductMaster = planDailySheetSync({
+  fetched: {
+    ...fetched([sheetProduct('12가3456')]),
+    sourceKind: 'product_master',
+    sourceScope: 'providers',
+    manualVerified: true,
+  },
+  existing: Array.from({ length: 10 }, (_, index) => sheetProduct(`12가${String(3400 + index)}`)),
+  deleted: [],
+  partners: [{ ...partners[0], last_sheet_rows: 100 }],
+});
+check('보류 공급사를 제외한 product-master 단건 범위도 공급사별 급감가드를 적용',
+  collapsedProductMaster.ok
+  && collapsedProductMaster.counts.absentGuarded === 1
+  && collapsedProductMaster.counts.absentBlocked === 0,
+  collapsedProductMaster);
+
 const duplicateExisting = [
   sheetProduct('12가3456', { _key: 'OLD-A', product_code: 'OLD-A' }),
   sheetProduct('12가3456', { _key: 'OLD-B', product_code: 'OLD-B' }),
@@ -284,6 +320,110 @@ check('금액이 바뀌는 가격기간 누락은 승인 없이는 자동 연동
   !changedPlan.ok && changedPlan.blockReason.includes('가격기간 누락'),
   changedPlan);
 
+const productMasterPricePlan = planDailySheetSync({
+  fetched: {
+    ...priceChangedFetched,
+    sourceKind: 'product_master',
+    sourceScope: 'providers',
+    manualVerified: true,
+  },
+  existing: [existingWithHistoricalPrice],
+  deleted: [],
+  partners,
+  resolutions: [],
+});
+const productMasterPricePatch = productMasterPricePlan.patches
+  .find((item) => item.key === existingWithHistoricalPrice.product_code)?.patch;
+check('정제 상품마스터는 현재 표준가격을 갱신하고 표에 없는 옛 기간은 보존',
+  productMasterPricePlan.ok
+  && (productMasterPricePatch?.price as Record<string, unknown>)?.['48'] != null
+  && productMasterPricePlan.notes.some((note) => note.includes('기존 가격기간 1건') && note.includes('보존')),
+  productMasterPricePlan);
+
+const unownedDeleted = {
+  ...sheetProduct('88가8888'),
+  _key: 'LEGACY-TOMBSTONE',
+  product_code: 'LEGACY-TOMBSTONE',
+  provider_company_code: '',
+  partner_code: '',
+  source_schema: '',
+  _deleted: true,
+  deletedAt: '2026-08-01T00:00:00.000Z',
+};
+const unownedIncoming = sheetProduct('88가8888');
+const unownedSourcePlan = planDailySheetSync({
+  fetched: fetched([unownedIncoming]),
+  existing: [],
+  deleted: [unownedDeleted],
+  partners,
+});
+check('공급사 원본 직행은 미확정 삭제이력과 충돌하면 계속 차단',
+  !unownedSourcePlan.ok && unownedSourcePlan.blockReason.includes('미확정 삭제이력'),
+  unownedSourcePlan);
+const unownedMasterPlan = planDailySheetSync({
+  fetched: {
+    ...fetched([unownedIncoming]),
+    sourceKind: 'product_master',
+    sourceScope: 'providers',
+    manualVerified: true,
+  },
+  existing: [],
+  deleted: [unownedDeleted],
+  partners,
+});
+check('정제 상품마스터는 명시된 공급사·차번으로 옛 미소유 삭제이력을 넘어 새 정본 연결',
+  unownedMasterPlan.ok
+  && unownedMasterPlan.creates.length === 1
+  && unownedMasterPlan.notes.some((note) => note.includes('미확정 삭제이력 1건')),
+  unownedMasterPlan);
+
+const oldPendingHistory = sheetProduct('100신9999', {
+  is_pending_plate: true,
+  model: '싼타페',
+  vehicle_status: '출고불가',
+  _pending_signature: 'old-history-signature',
+});
+const newRealVehicle = sheetProduct('99가9999', { model: '싼타페' });
+const pendingSourcePlan = planDailySheetSync({
+  fetched: fetched([newRealVehicle]),
+  existing: [oldPendingHistory],
+  deleted: [],
+  partners,
+});
+check('공급사 원본 직행은 번호미정→실차 후보를 자동 연결하지 않고 차단',
+  !pendingSourcePlan.ok && pendingSourcePlan.blockReason.includes('임시번호→실차번'),
+  pendingSourcePlan);
+const pendingMasterPlan = planDailySheetSync({
+  fetched: {
+    ...fetched([newRealVehicle]),
+    sourceKind: 'product_master',
+    sourceScope: 'providers',
+    manualVerified: true,
+  },
+  existing: [oldPendingHistory],
+  deleted: [],
+  partners,
+});
+check('정제 상품마스터는 출고불가·무계약 번호미정 이력을 새 실차에 섞지 않고 별도 신규 연결',
+  pendingMasterPlan.ok
+  && pendingMasterPlan.creates.length === 1
+  && pendingMasterPlan.patches.every((item) => item.key !== oldPendingHistory.product_code),
+  pendingMasterPlan);
+const lockedPendingMasterPlan = planDailySheetSync({
+  fetched: {
+    ...fetched([newRealVehicle]),
+    sourceKind: 'product_master',
+    sourceScope: 'providers',
+    manualVerified: true,
+  },
+  existing: [{ ...oldPendingHistory, vehicle_status: '계약중', locked_by_contract: 'CT-PENDING' }],
+  deleted: [],
+  partners,
+});
+check('상품마스터라도 계약락 번호미정→실차 후보는 계속 자동 연결 차단',
+  !lockedPendingMasterPlan.ok && lockedPendingMasterPlan.blockReason.includes('임시번호→실차번'),
+  lockedPendingMasterPlan);
+
 const cron = JSON.parse(readFileSync('vercel.json', 'utf8')) as {
   crons?: Array<{ path?: string; schedule?: string }>;
 };
@@ -296,6 +436,36 @@ const dailyServerSource = readFileSync('lib/server/sheet-daily-sync.ts', 'utf8')
 check('시트 일일 연동은 ERP3 products를 읽지 않고 ERP4 재고만 비교',
   !dailyServerSource.includes("db.ref('products').get()")
   && dailyServerSource.includes("db.ref('v4/products').get()"));
+check('dry-run은 실제 상품 transaction보다 먼저 반환되어 예정 diff와 반영을 분리',
+  dailyServerSource.indexOf('if (opts.dryRun)') >= 0
+  && dailyServerSource.indexOf('if (opts.dryRun)')
+    < dailyServerSource.indexOf('await applyPlan(db, companyId, runId, item.plan'));
+check('성공 반영은 run id와 감사로그를 함께 남김',
+  dailyServerSource.includes('sheet_sync_run_id: runId')
+  && dailyServerSource.includes('audit_logs/${auditId}')
+  && dailyServerSource.includes("action: 'sheet_daily_sync'"));
+check('공급사 checkpoint는 파트너 노드를 교체하지 않고 leaf 필드만 병합',
+  dailyServerSource.includes('metadata[`partners/${checkpoint.key}/${field}`] = value')
+  && !dailyServerSource.includes('metadata[`partners/${checkpoint.key}`] = clean'));
+check('삭제 child revive write는 실제 child와 논리 product_code를 분리',
+  dailyServerSource.includes('const logicalProductCode = String(')
+  && dailyServerSource.includes('_key: logicalProductCode')
+  && dailyServerSource.includes('product_code: logicalProductCode'));
+check('상품마스터는 공급사별 독립 계획·반영·사후검증으로 한 곳의 충돌을 격리',
+  dailyServerSource.includes('planProductMasterProviderBatches')
+  && dailyServerSource.includes('for (const item of freshRunnable)')
+  && dailyServerSource.includes('providerResults.set(item.code')
+  && dailyServerSource.includes('fetched: item.fetched')
+  && dailyServerSource.includes("db.ref('v4/products').transaction")
+  && dailyServerSource.includes('existing: freshState.active'));
+check('CAS 실패 상태·감사 원장에는 차량 식별키를 노출하지 않음',
+  dailyServerSource.includes('동기화 중 공급사 재고가 변경됐습니다')
+  && !dailyServerSource.includes('`(${conflictKey})`'));
+check('차단·실패·dry-run도 실행 원장에 상태와 사유를 남김',
+  dailyServerSource.includes('sheet_sync_runs/${runId}')
+  && dailyServerSource.includes("writeRun(db, runId, 'blocked'")
+  && dailyServerSource.includes("writeRun(db, runId, 'failed'")
+  && dailyServerSource.includes("writeRun(db, runId, 'dry_run'"));
 const statusRouteSource = readFileSync('app/api/sheet/sync-status/route.ts', 'utf8');
 check('운영 상태 API는 Firebase 관리자 인증을 요구', statusRouteSource.includes('verifyAdminBearer'));
 const resolutionRouteSource = readFileSync('app/api/sheet/conflict-resolutions/route.ts', 'utf8');

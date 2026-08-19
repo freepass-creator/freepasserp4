@@ -30,7 +30,7 @@ import { commitSupplierProducts, previewSupplierTable } from '@/lib/domain/maste
  * 끌고 와서 클라이언트 번들에 넣지 않는다. 주소가 바뀌면 두 곳을 같이 고쳐야 한다.
  */
 const IRONRENTCAR_SITE_URL = 'https://ironrentcar.com';
-const SALES_INVENTORY_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs/edit';
+const PRODUCT_MASTER_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1T_RrErmGoj_yG9S1u7n--2NDolTOw8wA8ROQjPWuAlg/edit#gid=679088240';
 /**
  * 관리자 API 호출 상한 — 상한 없는 fetch 는 화면을 «조용히» 영구 고착시킨다.
  * reject 가 아니라 pending 이라 catch 도 finally 도 안 돌아 「검증 중…」이 안 풀린다(실측).
@@ -184,6 +184,13 @@ type DailySyncStatus = {
       absentBlocked?: number;
       imported?: number;
     };
+    providers?: Array<{
+      code: string;
+      label: string;
+      status: 'planned' | 'blocked' | 'completed' | 'failed';
+      sourceRows: number;
+      blockReason?: string;
+    }>;
   };
 };
 
@@ -369,7 +376,45 @@ type ServerSheetSyncResult = {
   blockReason?: string;
   counts?: { created?: number; updated?: number; imported?: number; absentBlocked?: number };
   notes?: string[];
+  providers?: Array<{
+    code: string;
+    label: string;
+    status: 'planned' | 'blocked' | 'completed' | 'failed';
+    sourceRows: number;
+    blockReason?: string;
+  }>;
 };
+
+function serverProviderSummary(result: Pick<ServerSheetSyncResult, 'providers'>): {
+  completed: number;
+  planned: number;
+  blocked: number;
+  failed: number;
+  totalRows: number;
+  readyRows: number;
+  blockedRows: number;
+  detail: string;
+} {
+  const providers = result.providers || [];
+  const completed = providers.filter((item) => item.status === 'completed').length;
+  const planned = providers.filter((item) => item.status === 'planned').length;
+  const blockedRows = providers.filter((item) => item.status === 'blocked');
+  const failedRows = providers.filter((item) => item.status === 'failed');
+  return {
+    completed,
+    planned,
+    blocked: blockedRows.length,
+    failed: failedRows.length,
+    totalRows: providers.reduce((sum, item) => sum + (item.sourceRows || 0), 0),
+    readyRows: providers
+      .filter((item) => item.status === 'planned' || item.status === 'completed')
+      .reduce((sum, item) => sum + (item.sourceRows || 0), 0),
+    blockedRows: [...blockedRows, ...failedRows].reduce((sum, item) => sum + (item.sourceRows || 0), 0),
+    detail: [...blockedRows, ...failedRows]
+      .map((item) => `${item.label}(${item.code}): ${item.blockReason || item.status}`)
+      .join('\n'),
+  };
+}
 
 async function runCanonicalServerSync(
   providerCodes: string[] = [],
@@ -960,14 +1005,17 @@ export function SheetSync({ co, onImported, compact = false }: {
       setPending(null);
       try {
         const result = await runCanonicalServerSync(onlyCodes || [], true);
-        setBulkLog((result.notes || []).join('\n'));
+        const providerSummary = serverProviderSummary(result);
+        setBulkLog([...(result.notes || []), providerSummary.detail].filter(Boolean).join('\n'));
         toast(
-          `영업자 시트 검증 완료 · 유입 ${result.counts?.imported || 0}대 · 신규 ${result.counts?.created || 0}대 · 수정 ${result.counts?.updated || 0}대`,
-          'ok',
+          `상품마스터 검증 완료 · 반영 가능 ${providerSummary.planned}곳 · 보류 ${providerSummary.blocked}곳`
+            + ` · 전체 ${providerSummary.totalRows}대 / 반영 예정 ${providerSummary.readyRows}대 / 보류 ${providerSummary.blockedRows}대`
+            + ` · 신규 ${result.counts?.created || 0}대 · 수정 ${result.counts?.updated || 0}대`,
+          providerSummary.blocked ? 'info' : 'ok',
         );
         await refreshDailyStatus();
       } catch (error) {
-        toast(`영업자 시트 검증 실패 · ${String((error as Error).message || error)}`, 'error');
+        toast(`상품마스터 검증 실패 · ${String((error as Error).message || error)}`, 'error');
       } finally {
         setBusy(false);
         setSheetAction(null);
@@ -1217,15 +1265,18 @@ export function SheetSync({ co, onImported, compact = false }: {
       setValidatingCodes(onlyCodes?.length ? onlyCodes : 'all');
       try {
         const result = await runCanonicalServerSync(onlyCodes || []);
+        const providerSummary = serverProviderSummary(result);
         toast(
-          `영업자 시트 → ERP 반영 완료 · 유입 ${result.counts?.imported || 0}대 · 신규 ${result.counts?.created || 0}대 · 수정 ${result.counts?.updated || 0}대`,
-          'ok',
+          `상품마스터 → ERP 반영 완료 · 완료 ${providerSummary.completed}곳 · 보류 ${providerSummary.blocked}곳`
+            + ` · 전체 ${providerSummary.totalRows}대 / 반영 ${providerSummary.readyRows}대 / 보류 ${providerSummary.blockedRows}대`
+            + ` · 신규 ${result.counts?.created || 0}대 · 수정 ${result.counts?.updated || 0}대`,
+          providerSummary.blocked ? 'info' : 'ok',
         );
         setPending(null);
         await Promise.all([refreshRoster(), refreshDailyStatus()]);
         onImported();
       } catch (error) {
-        toast(`영업자 시트 연동 실패 · ${String((error as Error).message || error)}`, 'error');
+        toast(`상품마스터 연동 실패 · ${String((error as Error).message || error)}`, 'error');
       } finally {
         setBusy(false);
         setSheetAction(null);
@@ -1342,9 +1393,12 @@ export function SheetSync({ co, onImported, compact = false }: {
     try {
       if (isAdmin) {
         const result = await runCanonicalServerSync(fetched.lines.map((line) => line.code));
+        const providerSummary = serverProviderSummary(result);
         toast(
-          `연동 완료 · 프리패스 정본 ${result.counts?.imported || 0}대 왕복검증 · 신규 ${result.counts?.created || 0}대 · 수정 ${result.counts?.updated || 0}대`,
-          'ok',
+          `연동 완료 · 완료 ${providerSummary.completed}곳 · 보류 ${providerSummary.blocked}곳`
+            + ` · 전체 ${providerSummary.totalRows}대 / 반영 ${providerSummary.readyRows}대 / 보류 ${providerSummary.blockedRows}대`
+            + ` · 신규 ${result.counts?.created || 0}대 · 수정 ${result.counts?.updated || 0}대`,
+          providerSummary.blocked ? 'info' : 'ok',
         );
         setPending(null);
         await refreshRoster();
@@ -1563,6 +1617,15 @@ export function SheetSync({ co, onImported, compact = false }: {
     return '';
   };
   const lastDailyRun = dailyStatus?.lastRun;
+  const lastDailyProviderSummary = serverProviderSummary({ providers: lastDailyRun?.providers });
+  const lastDailyProviderReady = lastDailyRun?.status === 'dry_run'
+    ? lastDailyProviderSummary.planned
+    : lastDailyProviderSummary.completed;
+  const lastDailyProviderReadyLabel = lastDailyRun?.status === 'dry_run' ? '반영가능' : '완료';
+  const lastDailyProviderBlockedDetail = (lastDailyRun?.providers || [])
+    .filter((item) => item.status === 'blocked' || item.status === 'failed')
+    .map((item) => `${item.label}(${item.code}) · ${item.blockReason || item.status}`)
+    .join('\n');
   const dailyRunLabel = dailyStatusError
     ? '자동연동 상태 확인 필요'
     : dailyStatusLoading
@@ -1570,7 +1633,7 @@ export function SheetSync({ co, onImported, compact = false }: {
       : !dailyStatus?.enabled
         ? '자동연동 비활성'
         : lastDailyRun?.status === 'completed'
-          ? '자동연동 정상'
+          ? (lastDailyProviderSummary.blocked ? '자동연동 일부 보류' : '자동연동 정상')
           : lastDailyRun?.status === 'running'
             ? '자동연동 실행 중'
             : lastDailyRun?.status === 'dry_run'
@@ -1582,7 +1645,7 @@ export function SheetSync({ co, onImported, compact = false }: {
                   : '자동연동 실행 전';
   const dailyRunColor = dailyStatusError || lastDailyRun?.status === 'failed'
     ? C.danger
-    : lastDailyRun?.status === 'blocked' || !dailyStatus?.enabled
+    : lastDailyRun?.status === 'blocked' || lastDailyProviderSummary.blocked || !dailyStatus?.enabled
       ? C.warn
       : C.brand;
 
@@ -1998,18 +2061,18 @@ export function SheetSync({ co, onImported, compact = false }: {
         <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: C.selected, padding: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
             <div>
-              <div style={{ fontSize: FS.sub, fontWeight: FW.title, color: C.brand }}>영업자 상품리스트 → ERP</div>
+              <div style={{ fontSize: FS.sub, fontWeight: FW.title, color: C.brand }}>상품마스터 → ERP</div>
               <div style={{ marginTop: 3, fontSize: FS.cap, color: C.mute, lineHeight: 1.5 }}>
-                공급사 시트는 비교용입니다. ERP는 영업자 상품리스트 한 장만 읽으며, 시트 필터·숨김 행은 재고 삭제로 보지 않습니다.
+                공급사 원본은 비교·갱신용입니다. ERP는 규격화된 상품마스터만 읽으며, 필터·숨김 행은 재고 삭제로 보지 않습니다.
               </div>
             </div>
             <a
-              href={SALES_INVENTORY_SHEET_URL}
+              href={PRODUCT_MASTER_SHEET_URL}
               target="_blank"
               rel="noopener noreferrer"
               style={{ color: C.brand, fontSize: FS.cap, fontWeight: FW.strong, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}
             >
-              영업자 시트 열기 <ExternalLink size={ICON.sm} aria-hidden />
+              상품마스터 열기 <ExternalLink size={ICON.sm} aria-hidden />
             </a>
           </div>
           <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
@@ -2024,6 +2087,10 @@ export function SheetSync({ co, onImported, compact = false }: {
             자동연동 {dailyRunLabel} · {dailyStatus?.schedule || '매일 02:00 KST'}
             {lastDailyRun?.finished_at ? ` · 최근 ${fmtSync(lastDailyRun.finished_at)}` : ''}
             {lastDailyRun?.counts ? ` · 유입 ${lastDailyRun.counts.imported || 0} · 신규 ${lastDailyRun.counts.created || 0} · 수정 ${lastDailyRun.counts.updated || 0}` : ''}
+            {lastDailyRun?.providers?.length
+              ? ` · 전체 ${lastDailyProviderSummary.totalRows}대 · 공급사 ${lastDailyProviderReadyLabel} ${lastDailyProviderReady}/보류 ${lastDailyProviderSummary.blocked}`
+                + ` · 차량 ${lastDailyProviderReadyLabel} ${lastDailyProviderSummary.readyRows}/보류 ${lastDailyProviderSummary.blockedRows}`
+              : ''}
           </div>
           {(dailyStatusError || lastDailyRun?.block_reason || lastDailyRun?.error) ? (
             <div style={{ marginTop: 6, fontSize: FS.micro, color: C.danger, lineHeight: 1.45 }}>
@@ -2094,6 +2161,12 @@ export function SheetSync({ co, onImported, compact = false }: {
                 {' '}· 수정 {lastDailyRun.counts.updated || 0} · 부재차단 {lastDailyRun.counts.absentBlocked || 0}
               </span>
             ) : null}
+            {lastDailyRun?.providers?.length ? (
+              <span style={{ color: lastDailyProviderSummary.blocked ? C.warn : C.ink }}>
+                · 전체 {lastDailyProviderSummary.totalRows}대 · 공급사 {lastDailyProviderReadyLabel} {lastDailyProviderReady}/보류 {lastDailyProviderSummary.blocked}
+                {' '}· 차량 {lastDailyProviderReadyLabel} {lastDailyProviderSummary.readyRows}/보류 {lastDailyProviderSummary.blockedRows}
+              </span>
+            ) : null}
             <Btn title="자동연동 상태 다시 읽기" size="sm" variant="ghost" onClick={refreshDailyStatus} disabled={dailyStatusLoading}>
               상태 새로고침
             </Btn>
@@ -2101,6 +2174,11 @@ export function SheetSync({ co, onImported, compact = false }: {
           {(dailyStatusError || lastDailyRun?.block_reason || lastDailyRun?.error) ? (
             <div style={{ fontSize: FS.micro, color: C.danger, lineHeight: 1.45, marginBottom: 6 }}>
               {dailyStatusError || lastDailyRun?.block_reason || lastDailyRun?.error}
+            </div>
+          ) : null}
+          {!compact && lastDailyProviderBlockedDetail ? (
+            <div style={{ whiteSpace: 'pre-wrap', fontSize: FS.micro, color: C.warn, lineHeight: 1.45, marginBottom: 6 }}>
+              {lastDailyProviderBlockedDetail}
             </div>
           ) : null}
           <div style={{ display: compact ? 'none' : 'block', fontSize: FS.cap, color: C.faint, lineHeight: 1.5, marginBottom: 8 }}>

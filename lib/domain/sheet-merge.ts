@@ -27,6 +27,17 @@ export const SUPPLIER_OWNED_PRODUCT_FIELDS = new Set([
   'sheet_source_gid', 'sheet_source_tab', 'sheet_source_row',
 ]);
 
+/**
+ * 차종마스터 코드로부터 파생되는 정제 식별자.
+ * 상품마스터의 검증된 코드만 이 묶음을 갱신할 수 있고, 이후 공급사 원문 동기화는
+ * 이미 확정된 식별자를 되돌리지 못한다. 차량별 상태/가격/정책은 계속 별도로 갱신된다.
+ */
+const PRODUCT_MASTER_IDENTITY_FIELDS = new Set([
+  'maker', 'model', 'sub_model', 'catalog_id', 'trim_row_key',
+  'variant', 'trim_name', 'fuel_type', 'engine_cc', 'seats', 'drive_type',
+  'vehicle_class', 'gen_year_start', 'gen_year_end',
+]);
+
 function isBlank(v: unknown): boolean {
   if (v == null) return true;
   if (typeof v === 'string') return v.trim() === '';
@@ -97,7 +108,7 @@ export function isLegacySheetOwnedBlock(row: EntityRecord): boolean {
 export function isSheetOwnedBlock(row: EntityRecord): boolean {
   if (productStatus(row) !== '출고불가') return false;
   const currentMarker = row.sheet_status_owner === 'sheet'
-    && String(row.sheet_block_reason || '') === 'missing_or_excluded';
+    && ['missing_or_excluded', 'source_contract_status'].includes(String(row.sheet_block_reason || ''));
   return currentMarker || isLegacySheetOwnedBlock(row);
 }
 
@@ -122,16 +133,36 @@ export function softMergeProduct(existing: EntityRecord, incoming: EntityRecord)
   const sheetOwnedBlock = isSheetOwnedBlock(existing);
   const manualBlocked = isManualSheetHold(existing);
   const manualFields = sheetManualFieldSet(existing);
+  const incomingIsProductMaster = Object.prototype.hasOwnProperty.call(
+    incoming,
+    '_product_master_identity_authoritative',
+  );
+  const incomingMasterIdentity = incoming._product_master_identity_authoritative === true;
+  const existingMasterIdentity = existing._product_master_identity_authoritative === true;
   let reactivatedLegacySheetBlock = false;
   for (const [k, v] of Object.entries(incoming)) {
     if (PROTECTED.has(k)) continue;
     if (isBlank(v)) continue;
-    if (manualFields.has(k) && !SUPPLIER_OWNED_PRODUCT_FIELDS.has(k)) continue;
+    if (PRODUCT_MASTER_IDENTITY_FIELDS.has(k)) {
+      // 미매칭 상품마스터 행은 공급사 원문일 뿐 정제 식별자가 아니다.
+      if (incomingIsProductMaster && !incomingMasterIdentity) continue;
+      // 한 번 차종마스터로 확정된 값은 직접 공급사 시트가 다시 추정해 덮지 못한다.
+      if (!incomingIsProductMaster && existingMasterIdentity) continue;
+    }
+    const authoritativeIdentityField = incomingMasterIdentity && PRODUCT_MASTER_IDENTITY_FIELDS.has(k);
+    if (manualFields.has(k)
+      && !SUPPLIER_OWNED_PRODUCT_FIELDS.has(k)
+      && !authoritativeIdentityField) continue;
     // 엔진 락(계약중·출고불가)의 상태는 settlement-engine 소관 — 시트 재동기화가 덮으면 재고가 통째로 풀린다.
     // 락 주인이 없는 매물(공급사 수기 출고불가 등)은 그대로 시트가 갱신하도록 둔다.
     if (k === 'vehicle_status') {
-      if (engineLocked || manualBlocked) continue;
-      if (String(v) !== '출고불가' && (sheetOwnedBlock || existing.allow_sheet_reactivate === true)) {
+      if (engineLocked) continue;
+      // ★상품마스터(ERP 입력 정본)에서 온 상태는 표식 없는 출고불가(=수기 보류로 간주하던 것)도 덮는다.
+      //   사장님 2026-08-19 「시트는 512대고 ERP 는 482대인데 왜 안 맞지 — 시트랑 맞아야 하는데」: 실측 30대가
+      //   ERP 만 출고불가(표식 없음)인 채로 남아 시트가 출고가능이라 해도 영원히 안 살아났다. 보류는 상품마스터
+      //   「관리상태 중지」로 표현한다(import 가 출고불가로 투영). 직접 시트 유입(legacy 경로)은 종전대로 보호한다.
+      if (manualBlocked && !incomingIsProductMaster) continue;
+      if (String(v) !== '출고불가' && (sheetOwnedBlock || existing.allow_sheet_reactivate === true || (manualBlocked && incomingIsProductMaster))) {
         // 시트가 부재 때문에 만든 차단만 시트 재등장으로 되돌린다. 명시적 1회 허용도
         // 반영 후 지워 다음 수기 보류를 무기한 자동해제하지 않는다.
         out.sheet_status_owner = null;
@@ -218,7 +249,12 @@ export function resolveSheetReviveTarget(
   const createKey = String(create.product_code || create._key || '');
   if (createKey) {
     const byKey = deleted.find((row) => String(row._key || row.product_code || '') === createKey);
-    if (byKey) return { key: createKey, expected: byKey };
+    if (byKey) {
+      // toV4Record의 _key는 논리 product_code이고, 실제 Firebase child는 _rtdb_key다.
+      // 삭제 이력을 되살릴 때 논리키로 transaction하면 없는 다른 child를 보게 되어 CAS가
+      // 실패하거나 옛 톰스톤을 남긴 채 새 twin을 만든다.
+      return { key: String(byKey._rtdb_key || createKey), expected: byKey };
+    }
   }
   const plate = plateOf(create);
   if (!plate || create.is_pending_plate) return null;
@@ -231,7 +267,7 @@ export function resolveSheetReviveTarget(
   });
   if (!same.length) return null;
   const preferred = same.find((row) => String(row._key || row.product_code || '').startsWith('EXT_')) || same[0];
-  const key = String(preferred._key || preferred.product_code || '');
+  const key = String(preferred._rtdb_key || preferred._key || preferred.product_code || '');
   return key ? { key, expected: preferred } : null;
 }
 
@@ -317,7 +353,12 @@ export function planProductUpsert(incoming: EntityRecord[], existing: EntityReco
       if (patch.provider_company_code === undefined && prev.provider_company_code != null && prev.provider_company_code !== '') {
         patch.provider_company_code = prev.provider_company_code;
       }
-      patches.push({ key, patch, expected: prev });
+      // ★patch 는 **실제 Firebase child**(_rtdb_key)에 쓴다. toV4Record 의 _key 는 논리 product_code 라
+      //  라이브 레코드가 EXT_… child 에 있고 같은 product_code 의 soft-delete 톰스톤이 논리키 child 에 남아 있으면
+      //  논리키로 transaction 하는 순간 CAS 가 톰스톤을 보고 «동기화 중 재고가 변경됐습니다»로 그 공급사 전체가 멈춘다
+      //  (2026-08-19 개통일 이안카 RP031_133호5531 — 톰스톤 08-11 · 라이브 EXT_4dca6a1ace4b, 이안카 twin 30건).
+      //  revive(resolveSheetReviveTarget)가 이미 _rtdb_key 를 쓰는 것과 같은 규칙이다.
+      patches.push({ key: String(prev._rtdb_key || key), patch, expected: prev });
     } else unchanged++;
   }
   return { creates, patches, unchanged };

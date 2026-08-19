@@ -13,6 +13,8 @@ export const C = {
   focusRing: 'var(--focus-ring)',       // 포커스 링 틴트
 };
 export const R = 4; // = --radius (jpkerp5 표준 4px)
+/** 상태 배지·칩의 완전한 캡슐 모양. */
+export const PILL_R = 999;
 /** 재고·업로드 썸네일 폭 SSOT (PhotoUpload·공급사 사진 그리드). */
 export const THUMB_W = 76;
 export const NUM = 'var(--font-mono)';
@@ -47,6 +49,13 @@ export const FS = {
   sub: 12,     // 보조 설명·부제
   cap: 11,     // 캡션·메타(시간·코드·상대)
   micro: 10,   // 최소(뱃지 내부·마이크로 라벨)
+} as const;
+
+/** CI 워드마크 전용 서체 규격. 본문 FS/FW 스케일과 혼용하지 않는다. */
+export const BRAND_TYPO = {
+  heroSize: 34,
+  mainWeight: 600,
+  subWeight: 300,
 } as const;
 
 /**

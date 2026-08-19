@@ -6,6 +6,7 @@
  */
 import { getStore } from '@/lib/store';
 import { type EntityRecord } from '@/lib/intake/entities';
+import { entityCodeAliases, matchesEntityCode } from '@/lib/domain/code-identity';
 
 export type Kind = 'user' | 'supplier' | 'channel' | 'product' | 'policy' | 'contract' | 'settlement' | 'customer' | 'unknown';
 export type OrgType = 'supplier' | 'channel' | 'platform';
@@ -47,18 +48,24 @@ export function orgIdOf(u: EntityRecord): string {
 export async function getPerson(co: string, id: string): Promise<EntityRecord | null> {
   if (!id) return null;
   const users = await getStore().list('user', co);
-  return users.find((u) => String(u.uid) === id || String(u.user_code) === id) || null;
+  return users.find((u) => String(u.uid) === id || matchesEntityCode('user', u, id)) || null;
 }
 
 /** 조직 조회 — sup_/chn_ = partner 레코드. 없으면 코드 그대로 이름 fallback. */
 export async function getOrg(co: string, id: string): Promise<OrgRef | null> {
   const k = kindOf(id);
-  if (k !== 'supplier' && k !== 'channel') return null;
   const partners = await getStore().list('partner', co);
-  const p = partners.find((x) => String(x.partner_code) === id);
+  const p = partners.find((x) => (
+    matchesEntityCode('partner', x, id)
+    || String(x.company_code || '') === id
+    || String(x.provider_company_code || '') === id
+  ));
+  if (!p && k !== 'supplier' && k !== 'channel') return null;
+  const inferredType: OrgType = k === 'channel'
+    || /영업|채널/.test(String(p?.partner_type || '')) ? 'channel' : 'supplier';
   const full = p ? String(p.name || id) : id;
   const alias = p ? companyAlias(full, p.alias || p.short_name || p.display_name) : id;
-  return { id, type: k, name: alias, contact: p?.contact ? String(p.contact) : undefined };
+  return { id, type: inferredType, name: alias, contact: p?.contact ? String(p.contact) : undefined };
 }
 
 /** org 소속 직원 목록(활성 우선). */
@@ -98,7 +105,7 @@ export function providerNameMap(partners: EntityRecord[]): Record<string, string
     if (!full && !pt.alias && !pt.short_name) continue;
     const nm = companyAlias(full, pt.alias || pt.short_name || pt.display_name);
     if (!nm) continue;
-    for (const k of [pt.partner_code, pt.company_code, pt.provider_company_code, pt._key]) {
+    for (const k of [...entityCodeAliases('partner', pt), pt.company_code, pt.provider_company_code]) {
       const id = String(k || '').trim();
       if (id) m[id] = nm;
     }
@@ -212,7 +219,7 @@ export function withProviderNames(products: EntityRecord[], partners: EntityReco
   for (const pt of partners) {
     const full = partnerCompanyNameRaw(pt);
     if (!full) continue;
-    for (const k of [pt.partner_code, pt.company_code, pt.provider_company_code, pt._key]) {
+    for (const k of [...entityCodeAliases('partner', pt), pt.company_code, pt.provider_company_code]) {
       const id = String(k || '').trim();
       if (id) fullByCode[id] = full;
     }

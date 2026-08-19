@@ -6,7 +6,7 @@ import {
   type SheetsGridResponse,
   type VisibleSheetTable,
 } from '@/lib/domain/sheet-visible-grid';
-import { SHEET_GRID_FIELDS } from '@/lib/domain/supplier-sheet-read';
+import { isRetryableSheetsReadFailure, SHEET_GRID_FIELDS } from '@/lib/domain/supplier-sheet-read';
 
 type ServiceAccount = {
   client_email: string;
@@ -42,12 +42,21 @@ async function sheetsAccessToken(): Promise<string> {
   if (cachedToken && cachedToken.expiresAt > Date.now() + 60_000) return cachedToken.value;
   const account = await serviceAccount();
   const now = Math.floor(Date.now() / 1000);
+  // TeamJPK Workspace 정본은 이 위임 사용자로만 읽는다. 운영 환경변수가 빠져도
+  // 서비스계정 본인(공유 권한 없음)으로 조용히 폴백해 상품 연동이 전부 막히지 않게
+  // 프로젝트 SSOT의 계정을 기본값으로 고정한다.
+  const delegatedSubject = String(
+    process.env.GOOGLE_WORKSPACE_SUBJECT || 'pyh@teamjpk.com',
+  ).trim();
   const unsigned = `${base64UrlJson({ alg: 'RS256', typ: 'JWT' })}.${base64UrlJson({
     iss: account.client_email,
-    scope: 'https://www.googleapis.com/auth/spreadsheets.readonly',
+    // 현재 Workspace 관리자 위임은 Sheets 전체 scope로 등록돼 있다. 이 모듈은 아래
+    // spreadsheets GET endpoint만 호출하며 batchUpdate/values.update 경로는 제공하지 않는다.
+    scope: 'https://www.googleapis.com/auth/spreadsheets',
     aud: account.token_uri,
     iat: now,
     exp: now + 3600,
+    ...(delegatedSubject ? { sub: delegatedSubject } : {}),
   })}`;
   const { sign } = await import('node:crypto');
   const signature = sign('RSA-SHA256', Buffer.from(unsigned), account.private_key).toString('base64url');
@@ -83,22 +92,32 @@ async function requestSheetsJson(
 ): Promise<SheetsGridResponse & { error?: { message?: string; status?: string } }> {
   let lastMessage = '';
   for (let attempt = 0; attempt < 4; attempt++) {
-    const response = await fetch(url, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-      cache: 'no-store',
-      signal: AbortSignal.timeout(30_000),
-    });
-    const body = await response.json().catch(() => ({})) as SheetsGridResponse & {
-      error?: { message?: string; status?: string };
-    };
+    let response: Response;
+    let body: SheetsGridResponse & { error?: { message?: string; status?: string } };
+    try {
+      response = await fetch(url, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        cache: 'no-store',
+        signal: AbortSignal.timeout(30_000),
+      });
+      body = await response.json().catch(() => ({})) as SheetsGridResponse & {
+        error?: { message?: string; status?: string };
+      };
+    } catch (error) {
+      const message = String((error as Error)?.message || error);
+      lastMessage = message;
+      // HTTP 응답 없이 끊긴 네트워크·timeout도 읽기 요청에 한해 제한 재시도한다.
+      if (attempt === 3) throw new Error(message);
+      await new Promise((resolve) => setTimeout(resolve, 1_500 * (attempt + 1)));
+      continue;
+    }
     if (response.ok) return body;
     const message = body.error?.message || `Google Sheets API ${response.status}`;
     lastMessage = message;
     if (/has not been used|disabled/i.test(message)) {
       throw new Error('Google Sheets API 사용 설정 필요 — 숨김 행 제외 연동을 안전하게 실행할 수 없습니다');
     }
-    const quota = /quota exceeded|rate limit|429/i.test(message) || response.status === 429;
-    if (!quota || attempt === 3) throw new Error(message);
+    if (!isRetryableSheetsReadFailure(response.status, message) || attempt === 3) throw new Error(message);
     await new Promise((resolve) => setTimeout(resolve, 1_500 * (attempt + 1)));
   }
   throw new Error(lastMessage || 'Google Sheets API 실패');

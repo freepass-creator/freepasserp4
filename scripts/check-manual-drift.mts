@@ -62,10 +62,11 @@ const guards: [string, string, RegExp][] = [
   ['치환 사전 보존', 'scripts/publish-clean-tab.mts', /지금 시트엔 없음 — 규칙은 지킨다/],
   ['제공시트 메모 보존', 'scripts/publish-supplier-handover-tab.mts', /keepMemo/],
   /**
-   * ★정제칸을 지키는 장치 셋. 매뉴얼 1장·4장이 이걸 약속한다.
-   * ⚠ 하나라도 빠지면 «채운 값이 소리 없이 뒤집히는» 예전 상태로 돌아간다.
+   * ★판매 차명은 시트 값만(사장님 2026-08-19 — 제조사·모델만, 스냅·3축 정본 없음).
+   *   옛 「정제칸 already + snap」 장치가 다시 들어오면 틀린 세부축이 판매시트에 붙는다.
    */
-  ['정제칸 재판단 안 함', 'scripts/publish-origin-tab.mts', /const already = !!exact\('파워트레인'\)/],
+  ['판매 차명 시트만', 'scripts/publish-origin-tab.mts', /제조사·모델·차명만 시트에서 옮긴다/],
+  ['모델명 빈칸 보고', 'scripts/publish-origin-tab.mts', /missingModel\.push/],
   ['정제칸 빈 칸만 채움', 'scripts/fill-supplier-ai-columns.mts', /if \(now\) \{ kept\+\+; continue; \}/],
   ['배기량 되짚기', 'scripts/fill-supplier-ai-columns.mts', /Math\.abs\(rawCc - snapCc\) \/ rawCc > 0\.07/],
   ['전후 견주기', 'scripts/publish-origin-tab.mts', /const dump = arg\('dump'\)/],

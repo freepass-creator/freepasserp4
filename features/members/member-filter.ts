@@ -1,11 +1,11 @@
 import type { EntityRecord } from '@/lib/intake/entities';
-import { ROLES, ROLE_LABEL_RAW } from '@/lib/intake/entities';
 import { matchMemberQuery } from '@/lib/domain/search';
 import { partnerTypeLabel, UNCLASSIFIED_PARTNER_TYPE } from '@/lib/domain/partner';
 
 export type MemberTab = 'user' | 'partner';
 export type MemberSort = 'name' | 'role' | 'code';
 export type MemberActiveFilter = 'all' | 'active' | 'inactive' | 'pending';
+export type MemberRoleGroup = 'all' | 'sales' | 'provider';
 
 export const MEMBER_SORT_OPTIONS: { value: MemberSort; label: string }[] = [
   { value: 'name', label: '이름순' },
@@ -22,8 +22,8 @@ export const MEMBER_ACTIVE_OPTIONS: { key: MemberActiveFilter; label: string }[]
 
 export const MEMBER_ROLE_OPTIONS = [
   { key: 'all', label: '전체' },
-  // agent_manager(레거시)는 필터에서 숨김 — 목록「전체」에서 골라 agent_admin으로 재설정.
-  ...ROLES.filter((role) => role !== 'agent_manager').map((role) => ({ key: role, label: ROLE_LABEL_RAW[role] })),
+  { key: 'sales', label: '영업자' },
+  { key: 'provider', label: '공급사 직원' },
 ];
 
 export const MEMBER_PARTNER_TYPE_OPTIONS = [
@@ -35,12 +35,40 @@ export const MEMBER_PARTNER_TYPE_OPTIONS = [
 
 /**
  * 목록 축 — 역할이 아님.
- * 계정 = users(로그인·역할·지급율) / 회사 = partners(수수료·시트). 필드·저장 노드가 달라 한 목록에 섞지 않는다.
+ * 회원 = 사람(users: 영업자·공급사 직원) / 파트너사 = 회사(partners: 영업채널·공급사).
+ * 필드·저장 노드가 달라 한 목록에 섞지 않는다.
  */
 export const MEMBER_TAB_OPTIONS: { key: MemberTab; label: string }[] = [
-  { key: 'user', label: '계정' },
-  { key: 'partner', label: '회사' },
+  { key: 'user', label: '회원' },
+  { key: 'partner', label: '파트너사' },
 ];
+
+export function memberRoleGroup(role: unknown): Exclude<MemberRoleGroup, 'all'> | 'operator' | 'unknown' {
+  const value = String(role || '').trim();
+  if (value.startsWith('agent')) return 'sales';
+  if (value.startsWith('provider')) return 'provider';
+  if (value === 'admin') return 'operator';
+  return 'unknown';
+}
+
+export const PERSONAL_AGENT_COMPANY = 'SP999';
+export const PERSONAL_AGENT_NAME = '개인 영업자';
+export const PERSONAL_AGENT_LABEL = '개인영업자';
+
+export function isPersonalAgent(role: unknown, companyCode?: unknown): boolean {
+  if (memberRoleGroup(role) !== 'sales') return false;
+  const company = String(companyCode || '').trim();
+  return !company || company === PERSONAL_AGENT_COMPANY;
+}
+
+export function memberTypeLabel(role: unknown, companyCode?: unknown): string {
+  if (isPersonalAgent(role, companyCode)) return PERSONAL_AGENT_LABEL;
+  const group = memberRoleGroup(role);
+  if (group === 'sales') return '영업자';
+  if (group === 'provider') return '공급사 직원';
+  if (group === 'operator') return '운영자';
+  return '분류 필요';
+}
 
 /** 인증 게이트와 같은 계정 상태 판정 — boolean false·삭제·반려도 활성으로 보이면 안 된다. */
 export function memberAccountState(row: EntityRecord): Exclude<MemberActiveFilter, 'all'> {
@@ -57,7 +85,7 @@ type Params = {
   tab: MemberTab;
   query: string;
   sort: MemberSort | '';
-  role: string;
+  role: MemberRoleGroup;
   active: MemberActiveFilter;
   partnerType: string;
 };
@@ -67,7 +95,7 @@ export function filterMembers(params: Params): EntityRecord[] {
     .filter((row) => matchMemberQuery(row, params.query))
     .filter((row) => {
       if (params.tab === 'user') {
-        if (params.role !== 'all' && String(row.role || '') !== params.role) return false;
+        if (params.role !== 'all' && memberRoleGroup(row.role) !== params.role) return false;
         const displayState = memberAccountState(row);
         if (params.active !== 'all' && displayState !== params.active) return false;
       } else if (
@@ -91,10 +119,10 @@ export function filterMembers(params: Params): EntityRecord[] {
       }
       if (params.sort === 'role') {
         const aRole = params.tab === 'user'
-          ? String(a.role || '')
+          ? memberTypeLabel(a.role, a.company_code)
           : partnerTypeLabel(a.partner_type, a.partner_code || a._key);
         const bRole = params.tab === 'user'
-          ? String(b.role || '')
+          ? memberTypeLabel(b.role, b.company_code)
           : partnerTypeLabel(b.partner_type, b.partner_code || b._key);
         return aRole.localeCompare(bRole, 'ko') || String(a.name || '').localeCompare(String(b.name || ''), 'ko');
       }

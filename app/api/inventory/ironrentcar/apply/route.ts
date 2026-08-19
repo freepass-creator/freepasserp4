@@ -17,6 +17,7 @@ import {
   type IronRentcarSyncRun,
 } from '@/lib/domain/ironrentcar-rollback';
 import { mergeV3V4Records } from '@/lib/firebase/rtdb-records';
+import { newId } from '@/lib/domain/ids';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -70,9 +71,9 @@ export async function POST(request: Request): Promise<Response> {
     return NextResponse.json({ error: 'ironrentcar sync already running' }, { status: 409, headers });
   }
 
-  const runId = `iron-${Date.now()}-${randomUUID()}`;
-  const applyAuditId = `AL-${Date.now()}-ironrentcar-apply-${randomUUID()}`;
-  const completedAuditId = `${applyAuditId}-completed`;
+  const runId = newId('run');
+  const applyAuditId = newId('audit');
+  const completedAuditId = newId('audit');
   let preparedRun: IronRentcarSyncRun | null = null;
   const finalizePreparedFailure = async (failureCode: string): Promise<boolean> => {
     const failedAt = Date.now();

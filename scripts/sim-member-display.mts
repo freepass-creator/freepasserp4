@@ -1,6 +1,6 @@
 /** 회원·회사 상태·유형 표시 회귀검사. 실행: npx tsx scripts/sim-member-display.mts */
 import { partnerTypeLabel, UNCLASSIFIED_PARTNER_TYPE } from '../lib/domain/partner';
-import { filterMembers, MEMBER_ACTIVE_OPTIONS, MEMBER_PARTNER_TYPE_OPTIONS } from '../features/members/member-filter';
+import { filterMembers, MEMBER_ACTIVE_OPTIONS, MEMBER_PARTNER_TYPE_OPTIONS, memberTypeLabel, PERSONAL_AGENT_COMPANY, PERSONAL_AGENT_LABEL } from '../features/members/member-filter';
 
 let passed = 0;
 let failed = 0;
@@ -41,6 +41,10 @@ const unresolved = filterMembers({
   tab: 'partner', query: '', sort: '', role: 'all', active: 'all', partnerType: UNCLASSIFIED_PARTNER_TYPE,
 });
 check('분류 필요 필터가 미분류 회사만 선택', unresolved.length === 1 && unresolved[0]._key === 'pt', unresolved);
+
+check('소속 없는 영업자는 개인영업자', memberTypeLabel('agent', '') === PERSONAL_AGENT_LABEL);
+check('SP999 영업자는 개인영업자', memberTypeLabel('agent', PERSONAL_AGENT_COMPANY) === PERSONAL_AGENT_LABEL);
+check('소속 있는 영업자는 영업자', memberTypeLabel('agent', 'SP001') === '영업자');
 
 console.log(`\nmember display: ${passed}/${passed + failed} PASS`);
 if (failed) process.exitCode = 1;

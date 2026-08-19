@@ -24,6 +24,7 @@ import { JWT } from 'google-auth-library';
 import { SHEET_GRID_FIELDS, findPlateAndStatusColumns, readSupplierSheet } from '../lib/domain/supplier-sheet-read';
 import { isListableProduct } from '../lib/domain/product';
 import type { EntityRecord } from '../lib/intake/entities';
+import { supplierSheetLabel } from '../lib/domain/supplier-template-sheet';
 
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
@@ -70,7 +71,7 @@ const q = encodeURIComponent(`mimeType='application/vnd.google-apps.spreadsheet'
 const found = await api(`https://www.googleapis.com/drive/v3/files?q=${q}&pageSize=100&fields=files(id,name)`);
 const short = name.replace(/\s|\(주\)|주식회사|㈜|렌터카|렌트카/g, '');
 const mineFile = ((found.files || []) as Rec[]).find((f) => {
-  const label = S(f.name).replace('프리패스 재고 · ', '').replace(/\s/g, '');
+  const label = supplierSheetLabel(S(f.name)).replace(/\s/g, '');
   return label === short || short.includes(label) || label.includes(short);
 });
 if (!mineFile) { console.log(`■ ${name} 의 우리 시트를 못 찾았다 — 먼저 build-supplier-sheet-set 로 만들어라\n`); process.exit(1); }

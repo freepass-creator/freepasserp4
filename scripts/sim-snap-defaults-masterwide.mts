@@ -4,7 +4,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { snapToMaster, applySnap, type MasterEntry } from '../lib/domain/vehicle-master-match';
-import { choicesOf, representativeSeat } from '../lib/domain/vehicle-defaults';
+import { canonDrive, choicesOf, representativeSeat } from '../lib/domain/vehicle-defaults';
 
 const S = (v: unknown) => String(v ?? '').trim();
 const master = (JSON.parse(readFileSync('public/data/vehicle-master.json', 'utf8')).entries || []) as MasterEntry[];
@@ -49,10 +49,10 @@ for (const e of seatAxis) {
     seatOk++;
     continue;
   }
-  // 있는 매물 기준: 마스터 인승 선택지 안이면 OK.
-  // modeSeat 와 어긋날 수 있음(인승·구동 동시 기본값일 때 2WD 쪽이 이기는 등) — 그건 이후 학습.
+  // 인승축이 여러 개인 차량은 입력에 인승 증거가 없으면 비워 두는 것이 안전하다.
+  // 값이 채워졌다면 반드시 마스터 선택지 안이어야 한다.
   const got = S(applied?.seats);
-  if (got && ch.seats.includes(got)) seatOk++;
+  if (!got || ch.seats.includes(got)) seatOk++;
   else {
     seatFail++;
     const mode = representativeSeat(snap.sub_model, master);
@@ -82,15 +82,16 @@ for (const e of driveAxis) {
     driveOk++;
     continue;
   }
-  if (S(applied?.drive_type) === '2WD') driveOk++;
+  const got = canonDrive(applied?.drive_type);
+  if (!got || ch.drives.includes(got)) driveOk++;
   else {
     driveFail++;
     fails.push(`DRV ${e.sub_model}→${S(snap.sub_model)} got=${S(applied?.drive_type)}`);
   }
 }
 
-console.log(`\n인승축 빈칸→modeSeat  OK ${seatOk} · FAIL ${seatFail}`);
-console.log(`구동축 빈칸→2WD     OK ${driveOk} · FAIL ${driveFail}`);
+console.log(`\n인승축 빈칸 보존/선택지 검증  OK ${seatOk} · FAIL ${seatFail}`);
+console.log(`구동축 빈칸 보존/선택지 검증  OK ${driveOk} · FAIL ${driveFail}`);
 if (fails.length) {
   console.log('\n실패 표본:');
   for (const f of fails.slice(0, 20)) console.log(`  ${f}`);

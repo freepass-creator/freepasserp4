@@ -29,11 +29,24 @@ const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS)
 const gT = (await new JWT({ email: sa.client_email, key: sa.private_key,
   scopes: ['https://www.googleapis.com/auth/drive', 'https://www.googleapis.com/auth/spreadsheets'],
   subject: 'pyh@teamjpk.com' }).getAccessToken()).token;
+/**
+ * ⚠ 시트 API 는 «분당 읽기» 쿼터가 있고 가끔 503 을 낸다. 공급사 20곳을 연달아 읽으면
+ *   중간에 끊기고, 그때까지 채운 것만 반영된 채 나머지는 조용히 안 채워진다.
+ *   재시도를 붙여 «끝까지 돌거나, 못 돌면 알리거나» 둘 중 하나가 되게 한다.
+ */
 const api = async (url: string, init?: RequestInit): Promise<Rec> => {
-  const res = await fetch(url, { ...init, headers: { Authorization: `Bearer ${gT}`, 'Content-Type': 'application/json', ...(init?.headers || {}) } });
-  const body = await res.json().catch(() => ({})) as Rec;
-  if (!res.ok) throw new Error(body?.error?.message || `HTTP ${res.status}`);
-  return body;
+  for (let n = 0; ; n++) {
+    const res = await fetch(url, { ...init, headers: { Authorization: `Bearer ${gT}`, 'Content-Type': 'application/json', ...(init?.headers || {}) } });
+    const body = await res.json().catch(() => ({})) as Rec;
+    if (res.ok) return body;
+    if ((res.status === 429 || res.status >= 500) && n < 6) {
+      const wait = Math.min(60_000, 5_000 * 2 ** n);
+      console.log(`  … ${res.status} — ${Math.round(wait / 1000)}초 쉬고 다시`);
+      await new Promise((ok) => setTimeout(ok, wait));
+      continue;
+    }
+    throw new Error(body?.error?.message || `HTTP ${res.status}`);
+  }
 };
 
 /** 차종마스터 — 모델·세부모델 이름 → 제조사. 긴 이름부터 본다(「K5」가 「K5 하이브리드」를 이기면 안 된다). */

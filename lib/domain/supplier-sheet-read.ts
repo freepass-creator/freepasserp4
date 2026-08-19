@@ -30,8 +30,9 @@
  *    1행이 헤더라는 보장이 없다. 오토플러스는 진짜 헤더 위에 배너가 있고 요금 헤더가 두 줄이다.
  *    1행을 헤더로 박으면 그 시트는 통째로 안 읽힌다.
  *
- * ⚠ 시트가 정본이 아닌 공급사가 있다. 아이언(RP006)은 `ironrentcar.com` 수집이 정본이라
- *   시트로 판단하면 안 된다 — `NOT_SHEET_BACKED` 참고.
+ * ⚠ 시트가 정본이 아닌 공급사가 있었다. 아이언(RP006)은 `ironrentcar.com` 수집이 정본이라 시트로 판단하지 않았다.
+ *   2026-08-18부터 아이언도 **정제시트** 「아이언 프리패스 재고」를 둔다(홈페이지 → 미러 `sync-mirror-sheet --source=iron`) —
+ *   사장님 「상품마스터로 올 때는 어찌됐든 정제시트 통해서」. 문패가 그 시트를 가리키므로 이제 시트로 읽는다. `NOT_SHEET_BACKED` 는 비었다.
  *
  * ⚠ 못 읽은 시트는 **「0대」가 아니라 「모름」**이다. 호출부는 `failures` 를 반드시 사람에게 보여라.
  *   조용히 넘기면 전부 실패해도 「어긋남 없음」으로 보인다.
@@ -43,8 +44,13 @@ import { isExactRealPlate } from '@/lib/domain/product';
 
 const S = (v: unknown) => String(v ?? '').trim();
 
-/** 시트가 정본이 아닌 공급사 — 시트에 없다고 «없는 차»로 판단하면 안 된다. */
-export const NOT_SHEET_BACKED = new Set(['RP006']);   // 아이언 = ironrentcar.com 수집
+/**
+ * 시트가 정본이 아닌 공급사 — 시트에 없다고 «없는 차»로 판단하면 안 된다.
+ * ★2026-08-18 비움 — 아이언(RP006)도 정제시트(홈페이지 미러)를 두고 문패가 그것을 가리킨다.
+ *   ⚠ ERP 쪽 홈페이지 직접 반영 UI(`/api/inventory/ironrentcar/*`)는 아직 살아 있다 — 같은 차를 두 길로 쓰지 않도록
+ *     정제시트→상품마스터 길이 자리 잡으면 그 UI는 내리거나 «검증 전용»으로 둔다(ERP 연동 오더에서 판단).
+ */
+export const NOT_SHEET_BACKED = new Set<string>([]);
 
 /** 격자를 한 번에 받을 때 쓰는 필드 마스크. `hidden` 이 빠지면 ②가 조용히 무력화된다. */
 /**
@@ -54,6 +60,14 @@ export const NOT_SHEET_BACKED = new Set(['RP006']);   // 아이언 = ironrentcar
  */
 export const SHEET_GRID_FIELDS =
   'properties.title,sheets(properties(sheetId,title,hidden),data(rowMetadata(hiddenByFilter,hiddenByUser),rowData(values(formattedValue,hyperlink,chipRuns(chip(richLinkProperties(uri)))))))';
+
+/** 읽기 전용 Sheets 호출에서 재시도해도 안전한 일시 오류만 구분한다. */
+export function isRetryableSheetsReadFailure(status: number, message: unknown): boolean {
+  const text = S(message);
+  return status === 429
+    || status >= 500
+    || /quota exceeded|rate limit|429|temporarily unavailable|backend error/i.test(text);
+}
 
 export function sheetIdFromUrl(url: unknown): string {
   return (S(url).match(/\/spreadsheets\/d\/([\w-]+)/) || [])[1] || '';
@@ -126,7 +140,14 @@ export async function fetchSupplierSheet(
  * 탭 하나가 실패해도 나머지는 읽는다. 실패는 버리지 않고 `failures` 로 돌려준다.
  */
 export function readSupplierSheet(grid: SheetsGridResponse, partner: EntityRecord): SupplierSheetRead {
-  const adapter = resolveAdapter(partner);
+  /**
+   * ★**우리 규격시트(「○○ 프리패스 재고」)는 언제나 generic 으로 읽는다.**
+   *   오토플러스 어댑터는 6·7열을 최초등록·주행거리로 «못 박는다»(원본이 무라벨이라). 그걸 우리 정제시트에
+   *   대면 「옵션·외부색상」이 그 이름으로 바뀌어 통째로 어긋난다(2026-08-18 — 문패가 정제시트로 넘어가면서 생긴 길).
+   *   문서 이름으로 가른다 — 정제시트는 이름 규칙이 하나다(`supplier-template-sheet.SHEET_NAME_MATCH`).
+   */
+  const bookTitle = S((grid as { properties?: { title?: unknown } }).properties?.title);
+  const adapter = /프리패스\s*재고/.test(bookTitle) ? resolveAdapter('generic') : resolveAdapter(partner);
   const pinnedValues = S((partner as Record<string, unknown>).sheet_gid || (partner as Record<string, unknown>).sheet_tab)
     .split(/[,\s|]+/).map(S).filter(Boolean);
   const pinned = new Set(pinnedValues);

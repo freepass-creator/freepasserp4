@@ -1,7 +1,7 @@
 /**
  * 딜 도메인 — 소통(room·message)·계약(contract) 생성. erp3 검증 모델 이식.
- *   방 = 매물 × 영업자 결정키 CH_{매물}_{영업자} (2자: 영업자↔공급사, 관리자 오버시어).
- *   계약 = TMP-YYMMDD-NN 가계약 채번 + *_snapshot + 계약요청.
+ *   방 = rom_ 영구코드 + 매물·영업자 identity 필드(2자: 영업자↔공급사, 관리자 오버시어).
+ *   계약 = con_ 영구코드 + 사람이 보는 contract_number + *_snapshot + 계약요청.
  * 로컬 세션 스텁: 실인증 전까지 역할·행위자를 localStorage로(3자 대화 테스트).
  */
 import { getStore } from '@/lib/store';
@@ -15,6 +15,7 @@ import { requirePositiveRentAmount } from '@/lib/domain/contract-money';
 import { hasTermFrozen } from '@/lib/domain/contract';
 import { vehicleNameOf } from '@/lib/domain/vehicle-name';
 import { CONSULT_LABEL } from '@/features/chat/room-display';
+import { displayNumber, newId, stableId } from '@/lib/domain/ids';
 
 export type Role = 'agent' | 'provider' | 'admin';
 // v4 3역할 라벨 = 원본 5역할 라벨(entities.ROLE_LABEL_RAW SSOT)에서 파생. 값 복붙 금지.
@@ -119,7 +120,7 @@ function resolveChannel(ag: { code: string; channel?: string }): string {
   return String(ag.channel || getSession()?.agent_channel_code || ag.code || '').trim();
 }
 
-/** 매물×문의자 결정키. 빈 식별자로 CH_undefined_* 같은 고아 방을 만들지 않는다. */
+/** 레거시 매물×문의자 결정키. 기존 방 조회 호환에만 사용하고 신규 방 ID로 발급하지 않는다. */
 export function productRoomKey(productCode: unknown, agentCode: unknown): string {
   const product = String(productCode || '').trim();
   const agent = String(agentCode || '').trim();
@@ -132,9 +133,24 @@ export async function findExistingRoom(
   asker?: { uid: string; code: string; name: string; channel?: string },
 ): Promise<string | null> {
   const ag = asker || actor('agent');
-  const roomKey = productRoomKey(productCode, ag.code);
-  if (!roomKey) return null;
-  return await getStore().get('room', getCompanyId(), roomKey) ? roomKey : null;
+  const product = String(productCode || '').trim();
+  const legacyKey = productRoomKey(product, ag.code);
+  if (!legacyKey) return null;
+  const store = getStore();
+  const co = getCompanyId();
+  // 기존 CH_ 링크는 영구 호환한다.
+  if (await store.get('room', co, legacyKey)) return legacyKey;
+  const identity = `product:${product}|agent:${String(ag.code || '').trim()}`;
+  const canonicalKey = await stableId('room', identity);
+  if (await store.get('room', co, canonicalKey)) return canonicalKey;
+  const hit = (await store.list('room', co)).find((room) => (
+    String(room.product_code || room.product_uid || '').trim() === product
+    && (
+      String(room.agent_code || '').trim() === String(ag.code || '').trim()
+      || String(room.agent_uid || '').trim() === String(ag.uid || '').trim()
+    )
+  ));
+  return hit ? String(hit.room_code || hit._key) : null;
 }
 
 /** 방 보장 — 매물×문의자 결정키. 없으면 스냅샷과 함께 생성. asker 미지정=영업자(계약문의 경로). 관리자 간단문의 등은 asker=본인. */
@@ -142,9 +158,12 @@ export async function ensureRoom(product: EntityRecord, asker?: { uid: string; c
   const co = getCompanyId();
   const store = getStore();
   const ag = asker || actor('agent'); // 기본=로그인 영업자(계약문의 방과 동일). 간단문의는 남기는 당사자(영업자·관리자)로 귀속.
-  const roomKey = productRoomKey(product.product_code, ag.code);
-  if (!roomKey) throw new Error('방 생성: 상품코드 또는 영업자 코드 누락');
-  if (await store.get('room', co, roomKey)) return roomKey;
+  const existingRoom = await findExistingRoom(product.product_code, ag);
+  if (existingRoom) return existingRoom;
+  if (!String(product.product_code || '').trim() || !String(ag.code || '').trim()) throw new Error('방 생성: 상품코드 또는 영업자 코드 누락');
+  const identity = `product:${String(product.product_code).trim()}|agent:${String(ag.code).trim()}`;
+  const roomKey = await stableId('room', identity);
+  const inquiryCode = await stableId('inquiry', identity);
   const parties = requireParties({
     agent_uid: ag.uid,
     agent_channel_code: resolveChannel(ag),
@@ -152,6 +171,9 @@ export async function ensureRoom(product: EntityRecord, asker?: { uid: string; c
   }, '방 생성');
   await store.save('room', co, [{
     _key: roomKey, room_code: roomKey,
+    inquiry_code: inquiryCode,
+    inquiry_number: displayNumber('inquiry', inquiryCode),
+    room_identity_key: identity,
     product_uid: String(product.product_code), product_code: String(product.product_code),
     car_number: String(product.car_number || ''),
     vehicle_name: vehicleNameOf({ kind: 'product', product }, { tier: 'short', fallback: 'none' }),
@@ -180,16 +202,6 @@ const CONSULT_APP = {
 } as const;
 export type ConsultApp = keyof typeof CONSULT_APP;
 
-/** 예측 불가 CS_ 키 접미사 — 고정키 선점 시 삭제·소유자변경 불가. */
-function consultRoomSuffix(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
-    const a = new Uint8Array(8);
-    crypto.getRandomValues(a);
-    return Array.from(a, (b) => b.toString(16).padStart(2, '0')).join('');
-  }
-  return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
-}
-
 /** 상담방을 열 수 없는 사유 — 화면이 조용히 비지 않게 호출부가 그대로 보여준다. */
 export type ConsultBlock =
   | { ok: false; reason: 'signin' }      // 미로그인
@@ -197,8 +209,8 @@ export type ConsultBlock =
   | { ok: false; reason: 'provider' };   // 공급사 본인 — 자기 자신과의 대화
 
 /**
- * 견적기 상담방 보장 — 키 CS_{PROVIDER}_{랜덤}.
- * 찾기 = (공급사, 로그인 uid) 스코프 목록에서 consult 방. 없으면 생성.
+ * 견적기 상담방 보장 — 공급사×로그인 UID의 결정적 rom_ 코드.
+ * 기존 CS_ 방도 먼저 찾아 계속 사용하고, 없을 때만 신규 규격으로 생성한다.
  *
  * ⚠ 역할을 'agent' 로 고정하지 않는다. erp4 는 3자 구조라 상담 조합이 둘이다 —
  *    영업자↔공급사, **관리자↔공급사**. actor('agent') 를 쓰면 관리자로 들어왔을 때
@@ -246,10 +258,15 @@ export async function ensureConsultRoom(app: ConsultApp): Promise<string | Consu
     provider_company_code: provider,
   }, '상담방 생성');
 
-  const roomKey = `CS_${provider}_${consultRoomSuffix()}`;
+  const identity = `consult:${provider}|agent:${agentUid}`;
+  const roomKey = await stableId('room', identity);
+  const inquiryCode = await stableId('inquiry', identity);
   await store.save('room', co, [{
     _key: roomKey,
     room_code: roomKey,
+    inquiry_code: inquiryCode,
+    inquiry_number: displayNumber('inquiry', inquiryCode),
+    room_identity_key: identity,
     room_kind: 'consult',
     subject: CONSULT_LABEL[provider] || '구독견적기',
     agent_uid: parties.agent_uid,
@@ -267,8 +284,20 @@ export async function ensureConsultRoom(app: ConsultApp): Promise<string | Consu
 export async function ensureRoomForContract(c: EntityRecord): Promise<string> {
   const co = getCompanyId();
   const store = getStore();
-  const roomKey = `CH_${c.product_code}_${c.agent_code}`;
-  if (!(await store.get('room', co, roomKey))) {
+  const legacyRoomKey = productRoomKey(c.product_code, c.agent_code);
+  const direct = legacyRoomKey ? await store.get('room', co, legacyRoomKey) : null;
+  const linked = direct || (await store.list('room', co)).find((room) => (
+    String(room.linked_contract || '') === String(c.contract_code || '')
+    || (
+      String(room.product_code || room.product_uid || '') === String(c.product_code || '')
+      && String(room.agent_code || '') === String(c.agent_code || '')
+    )
+  ));
+  if (linked) return String(linked.room_code || linked._key);
+  const identity = `product:${String(c.product_code || '').trim()}|agent:${String(c.agent_code || '').trim()}`;
+  const roomKey = await stableId('room', identity);
+  const inquiryCode = await stableId('inquiry', identity);
+  {
     // 레거시 계약에 agent_uid 없으면 agent_code로 승계(빈 문자열 금지).
     const parties = requireParties({
       agent_uid: c.agent_uid || c.agent_code,
@@ -277,6 +306,9 @@ export async function ensureRoomForContract(c: EntityRecord): Promise<string> {
     }, '계약방 생성');
     await store.save('room', co, [{
       _key: roomKey, room_code: roomKey,
+      inquiry_code: inquiryCode,
+      inquiry_number: displayNumber('inquiry', inquiryCode),
+      room_identity_key: identity,
       product_uid: String(c.product_code), product_code: String(c.product_code),
       car_number: String(c.car_number_snapshot || ''),
       vehicle_name: vehicleNameOf({ kind: 'contract', contract: c }, { tier: 'short', fallback: 'none' }),
@@ -293,6 +325,11 @@ export async function ensureRoomForContract(c: EntityRecord): Promise<string> {
     }]);
   }
   return roomKey;
+}
+
+function issueContractIdentity(at = new Date()): { code: string; number: string } {
+  const code = newId('contract');
+  return { code, number: displayNumber('contract', code, at) };
 }
 
 /** 가계약 생성 — TMP-YYMMDD-NN 채번 + 차량 스냅샷 + 계약요청.
@@ -321,19 +358,16 @@ export async function createContractRequest(
   const { feeRate, payoutRate, feeResolved } = await resolveRates({ provider_company_code: product.provider_company_code, agent_code: ag.code }, product); // 율은 생성 시 스냅샷(공급사율 해석 가능할 때만)
   const d = new Date();
   const p2 = (n: number) => String(n).padStart(2, '0');
-  const yymmdd = `${String(d.getFullYear()).slice(2)}${p2(d.getMonth() + 1)}${p2(d.getDate())}`;
-  // NN 은 표시용 순번. 계약 read가 역할 스코프(영업자=본인 것만)라 NN 이 전역 고유가 아니다
-  //  → 두 영업자가 같은 날 각자 첫 계약이면 둘 다 -01 이 되어 키 충돌·덮어쓰기. 전역 고유는 뒤 짧은 토큰으로 보장.
-  const todays = (await store.list('contract', co)).filter((c) => String(c.contract_code || '').startsWith(`TMP-${yymmdd}`)).length;
-  const uniq = Math.random().toString(36).slice(2, 6);
-  const code = `TMP-${yymmdd}-${p2(todays + 1)}-${uniq}`;
+  const issued = issueContractIdentity(d);
+  const code = issued.code;
   const parties = requireParties({
     agent_uid: ag.uid || ag.code,
     agent_channel_code: resolveChannel(ag),
     provider_company_code: product.provider_company_code,
   }, '계약 생성');
   await store.save('contract', co, [{
-    contract_code: code, contract_status: '계약요청', contract_date: `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`,
+    contract_code: code, contract_number: issued.number,
+    contract_status: '계약요청', contract_date: `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`,
     product_code: String(product.product_code || ''),
     car_number_snapshot: String(product.car_number || ''),
     maker_snapshot: String(product.maker || ''),
@@ -392,11 +426,8 @@ export async function createBlankContract(opt: {
 
   const d = new Date();
   const p2 = (n: number) => String(n).padStart(2, '0');
-  const yymmdd = `${String(d.getFullYear()).slice(2)}${p2(d.getMonth() + 1)}${p2(d.getDate())}`;
-  const todays = (await store.list('contract', co))
-    .filter((c) => String(c.contract_code || '').startsWith(`TMP-${yymmdd}`)).length;
-  const uniq = Math.random().toString(36).slice(2, 6);
-  const code = `TMP-${yymmdd}-${p2(todays + 1)}-${uniq}`;
+  const issued = issueContractIdentity(d);
+  const code = issued.code;
 
   const parties = requireParties({
     agent_uid: ag.uid || ag.code,
@@ -406,6 +437,7 @@ export async function createBlankContract(opt: {
 
   await store.save('contract', co, [{
     contract_code: code,
+    contract_number: issued.number,
     contract_status: '계약요청',
     contract_date: `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`,
     // 매물에서 파생하지 않았음을 남긴다 — 나중에 「왜 상품코드가 없나」를 되짚을 근거.
@@ -466,9 +498,10 @@ export async function createDirectEsignContract(opt: {
   const customerName = String(opt.customerName || '').trim();
   const customerPhone = String(opt.customerPhone || '').trim();
   const vehicleName = String(opt.vehicleName || '').trim();
-  const rentMonths = Number(opt.rentMonths) || 0;
-  const rentAmount = Number(opt.rentAmount) || 0;
-  const depositAmount = Math.max(0, Number(opt.depositAmount) || 0);
+  const rentMonths = Number(opt.rentMonths);
+  const rentAmount = Number(opt.rentAmount);
+  const rawDepositAmount = opt.depositAmount == null ? 0 : Number(opt.depositAmount);
+  const depositAmount = Number.isFinite(rawDepositAmount) ? rawDepositAmount : Number.NaN;
   const paymentTiming = String(opt.paymentTiming || '').trim();
   if (!providerCompanyCode) throw new Error('공급사를 골라 주세요.');
   if (!policyCode) throw new Error('계약 정책을 골라 주세요.');
@@ -476,7 +509,8 @@ export async function createDirectEsignContract(opt: {
   if (source !== 'direct' && !customerName) throw new Error('고객명을 입력해 주세요.');
   if (source !== 'direct' && !/^\d{10,11}$/.test(customerPhone.replace(/\D/g, ''))) throw new Error('고객 연락처를 확인해 주세요.');
   if (!vehicleName) throw new Error('차량명을 입력해 주세요.');
-  if (rentMonths <= 0) throw new Error('대여기간을 입력해 주세요.');
+  if (!Number.isInteger(rentMonths) || rentMonths <= 0 || rentMonths > 120) throw new Error('대여기간은 1~120개월의 정수로 입력해 주세요.');
+  if (!Number.isFinite(depositAmount) || depositAmount < 0) throw new Error('보증금은 0원 이상으로 입력해 주세요.');
   if (!['선불', '후불'].includes(paymentTiming)) throw new Error('대여료 선불·후불 조건을 선택해 주세요.');
   requirePositiveRentAmount(rentAmount, '계약서 생성');
 
@@ -493,15 +527,12 @@ export async function createDirectEsignContract(opt: {
   }, '전자계약 직접 생성');
 
   const d = new Date();
-  const p2 = (n: number) => String(n).padStart(2, '0');
-  const yymmdd = `${String(d.getFullYear()).slice(2)}${p2(d.getMonth() + 1)}${p2(d.getDate())}`;
-  const todays = (await store.list('contract', co))
-    .filter((c) => String(c.contract_code || '').startsWith(`TMP-${yymmdd}`)).length;
-  const uniq = Math.random().toString(36).slice(2, 6);
-  const code = `TMP-${yymmdd}-${p2(todays + 1)}-${uniq}`;
+  const issued = issueContractIdentity(d);
+  const code = issued.code;
 
   await store.save('contract', co, [{
     contract_code: code,
+    contract_number: issued.number,
     contract_status: '계약요청',
     contract_date: contractDate,
     contract_origin: source === 'excel' ? '계약서엑셀등록' : '계약서직접등록',

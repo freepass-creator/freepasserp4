@@ -36,6 +36,7 @@ export const NAV_ICON = {
   contract: FileText,
   esign: FileSignature,
   inventory: Box,
+  settlement: FileText,
   settings: Settings,
 } as const satisfies Record<string, LucideIcon>;
 
@@ -53,11 +54,13 @@ export const NAV_LABEL = {
   inventory: '재고관리',
   settings: '설정',
   policy: '정책관리',
-  // 전자계약 = 손님에게 나간 계약서를 보는 곳. /contract(5단계 업무)와 축이 다르다 —
-  //   저기는 «우리 일이 어디까지», 여기는 «손님이 어디까지 서명했나»(2026-08-08 결정).
-  esign: '전자계약',
+  // 계약서관리(/esign) = 계약서를 만들어 손님에게 보내고 서명을 추적하는 곳. /contract(계약진행)와 축이 다르다 —
+  //   저기는 «내 계약이 어디까지 왔나», 여기는 «계약서를 보낸다/손님이 서명했나»(2026-08-08 결정).
+  //   2026-08-19 사장님: 메뉴는 관리자 쪽(관리 그룹 맨 위, 파트너사관리 위)으로. 계약진행은 목록+진행상황 화면(원래 /contract).
+  esign: '계약서관리',
   settlement: '월별정산',
-  members: '회원·파트너',
+  members: '회원관리',
+  partners: '파트너사관리',
   audit: '감사·휴지통',
   dataCheck: '데이터점검',
   dev: '개발도구',
@@ -79,27 +82,28 @@ export type AppTab = {
   icon: LucideIcon;
   badgeKey?: string;
   roles?: Role[];
+  /** 준비중 — 자리만 보여주고 이동하지 않는다(햄버거 `soon` 과 같은 뜻). */
+  soon?: boolean;
 };
 
-/** 하단 탭 항목 — 공급사·관리자만 재고 추가 */
+/**
+ * 하단 탭 항목 — 햄버거(TopBar SIMPLE_GROUPS)와 같은 규칙.
+ *   · 계약진행(/contract) = 목록 + 그 계약이 어디까지 왔는지(5단계) 보는 곳(사장님 2026-08-19).
+ *   · 계약서관리(/esign)는 관리자 메뉴로 갔다 — 하단탭엔 없다.
+ *   · 공급사·관리자만 재고 추가.
+ */
 export function appTabsFor(role: Role): AppTab[] {
-  // 계약문의는 역할마다 «맞는 화면»이 나온다(관리자=응대 큐). 탭을 쪼개지 않는다 —
-  //  같은 방을 두 입구로 두면 어느 쪽이 정본인지가 흐려진다(2026-08-08 결정).
   const tabs: AppTab[] = [
     // '/' 는 공개 안내 페이지(상품시트 입장)가 됐다 — 내부 매물 화면은 /finder 다(2026-08-15).
     { href: '/finder', label: tabLabel('product'), icon: NAV_ICON.product },
+    { href: '/contract', label: tabLabel('contract'), icon: NAV_ICON.contract, badgeKey: '/contract' },
   ];
-  if (role === 'agent') {
-    tabs.push({ href: '/contract', label: tabLabel('contract'), icon: NAV_ICON.contract, badgeKey: '/contract' });
-    tabs.push({ href: '/esign', label: tabLabel('esign'), icon: NAV_ICON.esign });
-  } else {
-    tabs.push({ href: '/chat', label: role === 'admin' ? '상담데스크' : tabLabel('chat'), icon: NAV_ICON.chat, badgeKey: '/chat' });
-    tabs.push({ href: '/contract', label: tabLabel('contract'), icon: NAV_ICON.contract, badgeKey: '/contract' });
+  if (role === 'admin') {
+    tabs.push({ href: '/settlement', label: '정산확인', icon: NAV_ICON.settlement });
   }
   if (role === 'provider' || role === 'admin') {
     tabs.push({ href: '/inventory', label: tabLabel('inventory'), icon: NAV_ICON.inventory });
   }
-  tabs.push({ href: '/settings', label: tabLabel('settings'), icon: NAV_ICON.settings });
   return tabs;
 }
 
@@ -107,7 +111,8 @@ export function isTabRoute(path: string, role?: Role): boolean {
   if (path === '/finder' || path.startsWith('/finder/')) return true;
   if (path === '/chat' || path.startsWith('/chat/')) return true;
   if (path === '/contract' || path.startsWith('/contract/')) return true;
-  if (path === '/esign' || path.startsWith('/esign/')) return role == null || role === 'agent' || role === 'admin';
+  if (path === '/settlement' || path.startsWith('/settlement/')) return role == null || role === 'admin';
+  if (path === '/esign' || path.startsWith('/esign/')) return role == null || role === 'admin';
   if (path === '/settings' || path.startsWith('/settings/')) return true;
   if (path === '/inventory' || path.startsWith('/inventory/')) {
     return role == null || role === 'provider' || role === 'admin';

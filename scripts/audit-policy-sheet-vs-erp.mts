@@ -1,27 +1,34 @@
 /**
- * **공급사 시트의 「정책」 탭 ↔ ERP 정책**을 맞대 본다. 읽기 전용.
+ * **공급사 시트 → ERP 원자 반영** — 「운영정책」 탭 ↔ ERP 정책 · 「회사정보」 탭 ↔ ERP 파트너.
  *
- * 정책탭은 지금 **한 방향**이다 — ERP 값을 채워 내보내기만 하고 되읽지 않는다.
- * 그래서 공급사가 고쳐도 ERP 는 모른다. 이 도구는 «무엇이 달라졌나»를 먼저 보여 준다.
- * 반영은 사람이 보고 정한다(`--csv` 로 표를 받아 정책관리에서 고친다).
+ * 기본은 읽기 전용 대조다. «무엇이 달라졌나»를 보여 주고, 반영은 사람이 보고 정한다(사장님 2026-08-19 원자 확보 — 시트가 채워지면 여기서 ERP 로 들여온다).
  *
- * ★값을 글자 그대로 비교하지 않는다. 같은 뜻을 다르게 적어 놓은 게 많다 —
- *   「50만원」/「500000」 · 「차량가액」/「차량가 기준」 · 「연간 2만Km」/「연 20,000km」.
- *   접어서 비교하고, **접어도 다른 것만** 어긋남으로 센다.
+ * ★규칙
+ *   · 시트 빈칸은 «다름»이 아니다 — 공급사가 아직 안 적은 것. 빈칸으로 ERP 값을 지우지 않는다.
+ *   · 값은 글자 그대로 비교하지 않는다(「50만원」/「500000」·「30%」/「0.3」·「만 26세 이상」/「26」) — foldPolicyValue 로 접어서 다른 것만 «다름».
+ *   · `--apply`        : ERP 가 **비어 있는** 칸만 채운다(안전).
+ *   · `--apply --overwrite` : 시트와 다른 칸도 시트 값으로 바꾼다(시트가 정본이라고 정한 뒤에만).
+ *   · 규격 밖 값(검토)은 어느 모드에서도 안 쓴다 — normalize-policy-values 로 먼저 고친다.
+ *   · 「(프리패스 기본)」 줄은 우리 기준값이라 대조·반영하지 않는다.
+ *   · 정책이 ERP 에 없으면 만들지 않는다(★ 표시만) — 정책 신설은 정책관리에서.
  *
- * ★시트가 비어 있는 칸은 «다름»이 아니다. 공급사가 아직 안 적은 것이다 —
- *   빈칸으로 ERP 값을 지우면 안 된다. 따로 「아직 안 적음」으로 센다.
- *
- *   npx tsx scripts/audit-policy-sheet-vs-erp.mts
- *   npx tsx scripts/audit-policy-sheet-vs-erp.mts --code=RP013
+ *   npx tsx scripts/audit-policy-sheet-vs-erp.mts                 # 대조만
+ *   npx tsx scripts/audit-policy-sheet-vs-erp.mts --code=RP013     # 한 공급사
+ *   npx tsx scripts/audit-policy-sheet-vs-erp.mts --apply          # ERP 빈칸 채우기
+ *   npx tsx scripts/audit-policy-sheet-vs-erp.mts --apply --overwrite
  */
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
-import { POLICY_COLUMN_FIELDS, POLICY_TAB_NAME, supplierSheetLabel } from '../lib/domain/supplier-template-sheet';
+import { POLICY_TAB_ALIASES, POLICY_COLUMN_FIELDS, supplierSheetLabel } from '../lib/domain/supplier-template-sheet';
+import { COMPANY_INFO_TAB_TITLE } from '../lib/domain/company-info-sheet';
+import { readPolicyTab } from '../lib/domain/supplier-policy-read';
+import { companyInfoToPartner, foldPolicyValue, sheetPolicyToErp } from '../lib/domain/policy-sheet-to-erp';
 
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
 const ONLY = (process.argv.find((a) => a.startsWith('--code=')) || '').slice('--code='.length).trim();
+const APPLY = process.argv.includes('--apply');
+const OVERWRITE = process.argv.includes('--overwrite');
 const DB = 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app';
 
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
@@ -30,67 +37,38 @@ const dbT = (await new JWT({ email: sa.client_email, key: sa.private_key,
 const gT = (await new JWT({ email: sa.client_email, key: sa.private_key,
   scopes: ['https://www.googleapis.com/auth/drive', 'https://www.googleapis.com/auth/spreadsheets'],
   subject: 'pyh@teamjpk.com' }).getAccessToken()).token;
+// ★429(분당 읽기 한도)·5xx 는 물러났다 다시 — 조용히 빈 표로 읽히면 「정책 0개」로 오판한다(2026-08-19 실측).
 const api = async (url: string, init?: RequestInit): Promise<Rec> => {
-  const res = await fetch(url, { ...init, headers: { Authorization: `Bearer ${gT}`, 'Content-Type': 'application/json', ...(init?.headers || {}) } });
-  const body = await res.json().catch(() => ({})) as Rec;
-  if (!res.ok) throw new Error(body?.error?.message || `HTTP ${res.status}`);
-  return body;
-};
-
-const [pol3, pol4, t3, t4] = await Promise.all(['policies', 'v4/policies', 'partners', 'v4/partners'].map(async (n) =>
-  JSON.parse(await (await fetch(`${DB}/${n}.json?access_token=${dbT}`)).text()) || {}));
-const dead = (p: Rec) => p?._deleted === true || !!p?.deletedAt || S(p?.status) === 'deleted';
-const merge = (...srcs: Rec[]) => {
-  const out: Record<string, Rec> = {};
-  for (const s of srcs) for (const [k, v] of Object.entries<Rec>(s)) if (v && typeof v === 'object') out[k] = { ...(out[k] || {}), ...v, _key: k };
-  return out;
-};
-const policies = merge(pol3, pol4);
-const partners = merge(t3, t4);
-
-/**
- * 값 접기 — 같은 뜻이면 같은 글자가 되게.
- * 이걸 안 하면 «다름»이 수백 건 나와 진짜 다른 것이 묻힌다.
- */
-function fold(v: unknown): string {
-  let t = S(v).replace(/\s+/g, '');
-  if (!t) return '';
-  if (/^차량가(액|기준)$/.test(t)) return '차량가액';
-  if (/^(없음|불가|해당없음|-)$/.test(t)) return '없음';
-  if (/^(가능|가능함|o|O)$/.test(t)) return '가능';
-  // 금액 — 「50만원」·「500000」·「50만」 을 한 꼴로
-  const man = t.match(/^([\d.]+)만원?$/);
-  if (man) return `${Math.round(Number(man[1]) * 10000)}`;
-  const eok = t.match(/^([\d.]+)억원?$/);
-  if (eok) return `${Math.round(Number(eok[1]) * 100000000)}`;
-  const num = t.replace(/[,원]/g, '');
-  if (/^\d+$/.test(num)) return String(Number(num));
-  // 주행 — 「연간 2만Km」·「연 20,000km」·「2만km」
-  const km = t.match(/(\d[\d,.]*)(만)?k?m/i);
-  if (km) {
-    const base = Number(km[1].replace(/,/g, ''));
-    return `주행${km[2] ? base * 10000 : base}`;
+  for (let n = 0; ; n++) {
+    const res = await fetch(url, { ...init, headers: { Authorization: `Bearer ${gT}`, 'Content-Type': 'application/json', ...(init?.headers || {}) } });
+    const body = await res.json().catch(() => ({})) as Rec;
+    if (res.ok) return body;
+    if ((res.status === 429 || res.status >= 500) && n < 6) { await new Promise((ok) => setTimeout(ok, Math.min(60_000, 5_000 * 2 ** n))); continue; }
+    throw new Error(body?.error?.message || `HTTP ${res.status}`);
   }
-  return t.toLowerCase();
-}
+};
+const dbGet = async (path: string): Promise<Rec> => JSON.parse(await (await fetch(`${DB}/${path}.json?access_token=${dbT}`)).text()) || {};
+const dbPatch = async (path: string, body: Rec): Promise<void> => {
+  const res = await fetch(`${DB}/${path}.json?access_token=${dbT}`, { method: 'PATCH', body: JSON.stringify(body) });
+  if (!res.ok) throw new Error(`${path}: HTTP ${res.status} ${await res.text()}`);
+};
 
-const q = encodeURIComponent("mimeType='application/vnd.google-apps.spreadsheet' and 'me' in owners and trashed=false and name contains '프리패스 재고'");
-const found = await api(`https://www.googleapis.com/drive/v3/files?q=${q}&pageSize=100&fields=files(id,name)&orderBy=name`);
+const [pol4, t4] = await Promise.all([dbGet('v4/policies'), dbGet('v4/partners')]);
+const dead = (p: Rec) => p?._deleted === true || !!p?.deletedAt || S(p?.status) === 'deleted';
+const withKey = (src: Rec): Record<string, Rec> => Object.fromEntries(Object.entries<Rec>(src).filter(([, v]) => v && typeof v === 'object').map(([k, v]) => [k, { ...v, _key: k }]));
+const policies = withKey(pol4);
+const partners = withKey(t4);
+
+const q = encodeURIComponent("mimeType='application/vnd.google-apps.spreadsheet' and trashed=false and name contains '프리패스 재고'");
+const found = await api(`https://www.googleapis.com/drive/v3/files?q=${q}&pageSize=100&fields=files(id,name)&orderBy=name&includeItemsFromAllDrives=true&supportsAllDrives=true`);
 
 const nameToCode = new Map<string, string>();
 for (const p of Object.values<Rec>(partners)) {
   if (dead(p)) continue;
   const code = S(p.partner_code) || S(p._key);
-  for (const n of [p.partner_name, p.name, p.company_name].map(S).filter(Boolean)) nameToCode.set(n.replace(/\s|\(주\)|주식회사|㈜/g, ''), code);
+  for (const n of [p.partner_name, p.name, p.company_name, p.alias].map(S).filter(Boolean)) nameToCode.set(n.replace(/\s|\(주\)|주식회사|㈜/g, ''), code);
 }
-/**
- * 시트 이름의 공급사 → 파트너 코드.
- *
- * ★«품기»만으로 고르면 안 된다(실측 2026-08-11). 「경진」이 「경진카 주식회사」에 먼저 걸려
- *   경진렌트카(RP015) 시트에 경진카(RP016) 차 3대가 실렸다. 순서를 세운다.
- *     ① 똑같은 이름  ② 그 이름으로 시작하는 것  ③ 그래도 여럿이면 «가장 짧은 이름»
- *   ③은 「경진」이 「경진렌트카」와 「경진카주식회사」에 다 걸릴 때 더 가까운 쪽을 고르게 한다.
- */
+/** 시트 이름 → 파트너 코드. 똑같은 이름 → 그 이름으로 시작 → 품기(하나뿐일 때). 여럿이면 고르지 않는다(남의 회사 차가 실린다). */
 const codeOf = (label: string): string => {
   const l = label.replace(/\s/g, '');
   if (nameToCode.has(l)) return nameToCode.get(l)!;
@@ -98,64 +76,112 @@ const codeOf = (label: string): string => {
   if (starts.length === 1) return starts[0][1];
   const holds = [...nameToCode].filter(([n]) => n.includes(l) || l.includes(n));
   if (holds.length === 1) return holds[0][1];
-  // ★여럿에 걸리면 고르지 않는다 — 찍으면 남의 회사 차가 실린다.
   return '';
 };
+const partnerByCode = (code: string) => Object.values<Rec>(partners).find((p) => !dead(p) && (S(p.partner_code) === code || S(p._key) === code));
 
-console.log('■ 공급사 정책탭 ↔ ERP 정책\n');
-type Diff = { code: string; name: string; policy: string; field: string; label: string; sheet: string; erp: string };
+console.log(`■ 공급사 시트 → ERP 원자 ${APPLY ? (OVERWRITE ? '반영(빈칸 채움 + 다른 값 덮어씀)' : '반영(ERP 빈칸만 채움)') : '대조(읽기 전용)'}\n`);
+type Diff = { who: string; code: string; policy: string; field: string; label: string; sheet: string; erp: string; kind: '빈칸채움' | '다름' };
 const diffs: Diff[] = [];
-let blanks = 0; let same = 0; let missingInErp = 0;
+const reviews: string[] = [];
+let same = 0, blanks = 0, missingInErp = 0, writes = 0;
+const backup: Rec = { at: new Date().toISOString(), policies: {}, partners: {} };
+const labelOf = new Map(POLICY_COLUMN_FIELDS.map((c) => [c.field, c.name]));
 
 for (const f of ((found.files || []) as Rec[])) {
-  const label = supplierSheetLabel(f.name);
-  const code = codeOf(label);
-  if (!code || (ONLY && code !== ONLY)) continue;
+  const who = supplierSheetLabel(f.name);
+  const code = codeOf(who);
+  if (!code) { console.log(`  △ ${who.padEnd(12)} 파트너를 못 찾음 — 건너뜀`); continue; }
+  if (ONLY && code !== ONLY) continue;
 
-  const vals = await api(`https://sheets.googleapis.com/v4/spreadsheets/${S(f.id)}/values/${encodeURIComponent(`${POLICY_TAB_NAME}!A1:Z60`)}`);
-  const rows = ((vals.values || []) as string[][]);
-  if (!rows.length) { console.log(`  △ ${label.padEnd(12)} 정책탭이 비어 있다`); continue; }
-
-  // 0행이 정책코드 줄. 1열부터 정책 하나씩.
-  const codes = (rows[0] || []).slice(1).map(S);
-  const rowByName = new Map<string, string[]>();
-  for (const r of rows.slice(1)) rowByName.set(S(r[0]), r.slice(1).map(S));
-
-  let n = 0; let b = 0; let d = 0;
-  codes.forEach((pc, col) => {
-    if (!pc) return;
-    // 「(프리패스 기본)」 은 우리가 보여 주는 기준 열이다 — ERP 정책이 아니므로 대조하지 않는다.
-    if (pc === '(프리패스 기본)') return;
-    const erp = Object.values<Rec>(policies).find((x) => !dead(x) && (S(x.policy_code) === pc || S(x._key) === pc));
-    if (!erp) { missingInErp++; console.log(`  ★ ${label.padEnd(12)} 정책 「${pc}」 가 ERP 에 없다`); return; }
-    for (const { name: rowName, field } of POLICY_COLUMN_FIELDS) {
-      const sheetV = S((rowByName.get(rowName) || [])[col]);
-      const erpV = S(erp[field]);
-      n++;
-      if (!sheetV) { b++; blanks++; continue; }
-      if (fold(sheetV) === fold(erpV)) { same++; continue; }
-      d++;
-      diffs.push({ code, name: label, policy: pc, field, label: rowName, sheet: sheetV, erp: erpV });
-    }
-  });
-  console.log(`  ${label.padEnd(12)}정책 ${codes.filter(Boolean).length}개 · 칸 ${n} — 같음 ${n - b - d} · 다름 ${d} · 시트 빈칸 ${b}`);
-}
-
-console.log(`\n  ─────────────────────────────────────────`);
-console.log(`  같음 ${same} · 다름 ${diffs.length} · 시트에 아직 안 적음 ${blanks}${missingInErp ? ` · ERP 에 없는 정책 ${missingInErp}` : ''}`);
-
-if (diffs.length) {
-  console.log('\n  다른 칸 — 시트 값을 쓰려면 정책관리에서 그대로 고친다');
-  for (const x of diffs.slice(0, 30)) {
-    console.log(`   ${x.name.slice(0, 10).padEnd(12)}${x.policy.padEnd(12)}${x.label.padEnd(18)}시트「${x.sheet.slice(0, 18)}」  ERP「${x.erp.slice(0, 18) || '(빈칸)'}」`);
+  // ── 운영정책
+  let rows: string[][] = [];
+  for (const tab of POLICY_TAB_ALIASES) {
+    try { const v = await api(`https://sheets.googleapis.com/v4/spreadsheets/${S(f.id)}/values/${encodeURIComponent(`'${tab}'`)}`); if (v?.values?.length) { rows = v.values; break; } } catch { /* 다음 별칭 */ }
   }
-  if (diffs.length > 30) console.log(`   … 외 ${diffs.length - 30}건`);
+  const book = readPolicyTab(rows);
+  let n = 0, b = 0, d = 0, fill = 0;
+  for (const [pc, row] of book) {
+    if (!pc) continue;   // (프리패스 기본)
+    const erp = Object.values<Rec>(policies).find((x) => !dead(x) && (S(x.policy_code) === pc || S(x._key) === pc));
+    if (!erp) { missingInErp++; console.log(`  ★ ${who.padEnd(12)} 정책 「${pc}」 가 ERP 에 없다 — 정책관리에서 먼저 만든다`); continue; }
+    if (S(erp.provider_company_code) && S(erp.provider_company_code) !== code) { console.log(`  ⛔ ${who.padEnd(12)} 정책 「${pc}」 는 다른 회사(${erp.provider_company_code}) 것 — 건너뜀`); continue; }
+    const { patch, review, blank } = sheetPolicyToErp(row);
+    b += blank; blanks += blank;
+    review.forEach((r) => reviews.push(`${who} · ${pc} · ${r.name}: 「${r.raw}」 — ${r.note}`));
+    const write: Rec = {};
+    for (const [field, value] of Object.entries(patch)) {
+      n++;
+      const erpV = erp[field];
+      const erpFilled = erpV !== undefined && erpV !== null && S(erpV) !== '';
+      if (erpFilled && foldPolicyValue(erpV) === foldPolicyValue(value)) { same++; continue; }
+      const kind: Diff['kind'] = erpFilled ? '다름' : '빈칸채움';
+      if (kind === '다름') d++; else fill++;
+      diffs.push({ who, code, policy: pc, field, label: labelOf.get(field) || field, sheet: S(value).slice(0, 60), erp: S(erpV).slice(0, 60), kind });
+      if (kind === '빈칸채움' || OVERWRITE) write[field] = value;
+    }
+    if (APPLY && Object.keys(write).length) {
+      backup.policies[erp._key] = Object.fromEntries(Object.keys(write).map((k) => [k, erp[k] ?? null]));
+      await dbPatch(`v4/policies/${erp._key}`, { ...write, sheet_synced_at: Date.now(), updated_at: Date.now() });
+      writes += Object.keys(write).length;
+    }
+  }
+  const pcs = [...book.keys()].filter(Boolean);
+  console.log(`  ${who.padEnd(12)}정책 ${pcs.length}개 · 칸 ${n} — 같음 ${n - d - fill} · 다름 ${d} · ERP 빈칸 ${fill} · 시트 빈칸 ${b}`);
+
+  // ── 회사정보 → 파트너
+  try {
+    const cv = await api(`https://sheets.googleapis.com/v4/spreadsheets/${S(f.id)}/values/${encodeURIComponent(`'${COMPANY_INFO_TAB_TITLE}'!A1:C60`)}`);
+    const partner = partnerByCode(code);
+    if (partner && cv?.values?.length) {
+      const { patch } = companyInfoToPartner(cv.values as string[][]);
+      const write: Rec = {};
+      let pd = 0, pf = 0;
+      for (const [field, value] of Object.entries(patch)) {
+        const erpV = S(partner[field]);
+        const norm = (v: string) => v.replace(/[\s-]/g, '');
+        if (erpV && norm(erpV) === norm(value)) continue;
+        const kind: Diff['kind'] = erpV ? '다름' : '빈칸채움';
+        if (kind === '다름') pd++; else pf++;
+        diffs.push({ who, code, policy: '(회사정보)', field, label: field, sheet: value.slice(0, 60), erp: erpV.slice(0, 60), kind });
+        if (kind === '빈칸채움' || OVERWRITE) write[field] = value;
+      }
+      if (pd || pf) console.log(`  ${''.padEnd(12)}회사정보 — 다름 ${pd} · ERP 빈칸 ${pf}`);
+      if (APPLY && Object.keys(write).length) {
+        backup.partners[partner._key] = Object.fromEntries(Object.keys(write).map((k) => [k, partner[k] ?? null]));
+        await dbPatch(`v4/partners/${partner._key}`, { ...write, company_info_synced_at: Date.now(), updated_at: Date.now() });
+        writes += Object.keys(write).length;
+      }
+    }
+  } catch { /* 회사정보 탭 없음 */ }
 }
+
+const fills = diffs.filter((x) => x.kind === '빈칸채움').length;
+const others = diffs.filter((x) => x.kind === '다름').length;
+console.log(`\n  ─────────────────────────────────────────`);
+console.log(`  같음 ${same} · 다름 ${others} · ERP 빈칸(채울 수 있음) ${fills} · 시트에 아직 안 적음 ${blanks}${missingInErp ? ` · ERP 에 없는 정책 ${missingInErp}` : ''}${reviews.length ? ` · 규격 밖(검토) ${reviews.length}` : ''}`);
+if (APPLY) console.log(`  ✓ 반영 ${writes}칸${OVERWRITE ? '(덮어씀 포함)' : '(빈칸만)'}`);
+else if (fills || others) console.log(`  → 반영하려면 --apply(빈칸만) · --apply --overwrite(다른 값도)`);
+
+if (others) {
+  console.log('\n  다른 칸 — 시트와 ERP 가 서로 다르다');
+  for (const x of diffs.filter((y) => y.kind === '다름').slice(0, 40)) {
+    console.log(`   ${x.who.slice(0, 10).padEnd(12)}${x.policy.padEnd(12)}${x.label.padEnd(16)}시트「${x.sheet.slice(0, 22)}」  ERP「${x.erp.slice(0, 22) || '(빈칸)'}」`);
+  }
+  if (others > 40) console.log(`   … 외 ${others - 40}건`);
+}
+if (fills) {
+  console.log('\n  ERP 빈칸 — 시트 값으로 채울 수 있다(--apply)');
+  for (const x of diffs.filter((y) => y.kind === '빈칸채움').slice(0, 40)) console.log(`   ${x.who.slice(0, 10).padEnd(12)}${x.policy.padEnd(12)}${x.label.padEnd(16)}시트「${x.sheet.slice(0, 40)}」`);
+  if (fills > 40) console.log(`   … 외 ${fills - 40}건`);
+}
+if (reviews.length) { console.log('\n  규격 밖(검토) — normalize-policy-values 로 먼저 고친다'); reviews.slice(0, 20).forEach((r) => console.log(`   ${r}`)); }
 
 mkdirSync('tmp', { recursive: true });
 const esc = (v: string) => `"${String(v).replace(/"/g, '""')}"`;
 writeFileSync('tmp/policy-sheet-vs-erp.csv', `﻿${[
-  ['공급사', '코드', '정책코드', '항목', 'ERP 필드', '시트 값', 'ERP 값'].join(','),
-  ...diffs.map((x) => [x.name, x.code, x.policy, x.label, x.field, x.sheet, x.erp].map(esc).join(',')),
+  ['공급사', '코드', '정책코드', '항목', 'ERP 필드', '종류', '시트 값', 'ERP 값'].join(','),
+  ...diffs.map((x) => [x.who, x.code, x.policy, x.label, x.field, x.kind, x.sheet, x.erp].map(esc).join(',')),
 ].join('\r\n')}`, 'utf8');
+if (APPLY) { const bp = `tmp/policy-sheet-apply-backup-${Date.now()}.json`; writeFileSync(bp, JSON.stringify(backup, null, 1), 'utf8'); console.log(`  백업: ${bp}`); }
 console.log(`\n  CSV: tmp/policy-sheet-vs-erp.csv (${diffs.length}행)\n`);

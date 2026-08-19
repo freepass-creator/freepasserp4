@@ -25,8 +25,9 @@ check('「(세부등급 없음)」은 트림 없음', normalizeTrim('(세부등�
 // ── 접어서 같은 것 ──
 check('「+」와 Plus 와 플러스는 같다',
   foldTrim('E-VALUE+') === foldTrim('E-Value Plus') && foldTrim('프리미엄+') === foldTrim('프리미엄 플러스'));
-check('등급 꼬리번호는 같은 트림', foldTrim('비즈니스 1') === foldTrim('비즈니스'));
-check('로마숫자 꼬리도 같은 트림', foldTrim('플래티넘Ⅱ') === foldTrim('플래티넘'));
+check('등급 꼬리번호는 서로 다른 트림', foldTrim('비즈니스 1') !== foldTrim('비즈니스'));
+check('비즈니스 1과 2는 서로 다른 트림', foldTrim('비즈니스 1') !== foldTrim('비즈니스 2'));
+check('로마숫자 꼬리도 트림 정체성으로 보존', foldTrim('플래티넘Ⅱ') !== foldTrim('플래티넘'));
 check('다른 트림은 다르다', foldTrim('노블레스') !== foldTrim('시그니처'));
 
 // ── 범위(10년) ──

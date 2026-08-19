@@ -74,7 +74,7 @@ for (const who of Object.keys(old).sort()) {
   for (const k of supplierNameKeys(who)) { const hit = ours.get(k); if (hit) { id = hit; break; } }
   if (!id) { noSheet.push(who); continue; }
   let v: Rec;
-  try { v = await api(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${encodeURIComponent("'정책'")}`); }
+  try { for (const tab of ['운영정책', '정책']) { try { v = await api(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${encodeURIComponent(`'${tab}'`)}`); if ((v as { values?: unknown[] })?.values?.length) break; } catch { /* 다음 별칭 */ } } }
   catch { noSheet.push(`${who} — 정책 탭을 못 읽었다`); continue; }
   const rows = ((v.values || []) as string[][]);
   if (rows.length < 2) { noSheet.push(`${who} — 정책 줄이 없다`); continue; }

@@ -19,6 +19,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { SALES_ALIAS } from '../lib/domain/sales-sheet-mapping';
 import { companyAlias, supplierNameKeys } from '../lib/domain/identity';
+import { isOurNonInventoryTab, supplierSheetLabel } from '../lib/domain/supplier-template-sheet';
 
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
@@ -55,7 +56,9 @@ const plate = (v: unknown) => S(v).replace(/\s/g, '');
 /** 시트 하나를 차번 → {열이름: 값} 으로 읽는다. 여러 탭이면 먼저 나온 차를 쓴다(발행기와 같다). */
 async function readBook(id: string) {
   const meta = await api(`https://sheets.googleapis.com/v4/spreadsheets/${id}?fields=${encodeURIComponent('sheets.properties(title)')}`);
-  const titles = ((meta.sheets || []) as Rec[]).map((s) => S(s.properties?.title)).filter(Boolean);
+  // ★재고 탭이 아닌 우리 탭(정책·작성 안내·AI 인계…)은 뺀다 — 「작성 안내」 A열에 칸 이름이 줄줄이 있어
+  //   차번으로 읽히면 «남는 차 92대»가 만들어진다(실측 2026-08-18).
+  const titles = ((meta.sheets || []) as Rec[]).map((s) => S(s.properties?.title)).filter((t) => t && !isOurNonInventoryTab(t));
   if (!titles.length) return new Map<string, Record<string, string>>();
   const qs = titles.map((x) => `ranges=${encodeURIComponent(a1Tab(x))}`).join('&');
   const got = await api(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values:batchGet?${qs}&majorDimension=ROWS`);
@@ -102,7 +105,7 @@ const ours = new Map<string, string>();
   const q = `name contains '${DOC_NAME}' and mimeType = 'application/vnd.google-apps.spreadsheet' and trashed = false`;
   const r = await api(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)&pageSize=100&includeItemsFromAllDrives=true&supportsAllDrives=true`);
   for (const f of ((r.files || []) as Rec[])) {
-    const nm = S(f.name).replace(DOC_NAME, '').trim();
+    const nm = supplierSheetLabel(f.name);
     for (const k of keys(nm)) if (!ours.has(k)) ours.set(k, S(f.id));
   }
 }

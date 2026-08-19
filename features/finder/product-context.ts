@@ -1,5 +1,5 @@
 import type { EntityRecord } from '@/lib/intake/entities';
-import { actor, ensureRoom, getRole, ROLE_LABEL } from '@/lib/domain/deal';
+import { actor, getRole, ROLE_LABEL } from '@/lib/domain/deal';
 import { getSession } from '@/lib/auth-session';
 import { formatProductForCopy, guestShareUrl } from '@/lib/domain/product-share';
 import { copyText } from '@/lib/clipboard';
@@ -18,18 +18,7 @@ export function buildProductContextItems(
 
   if (canDeal) {
     items.push({
-      label: '계약문의',
-      onClick: async () => {
-        try {
-          const room = await ensureRoom(product, currentActor);
-          navigate(`/chat?room=${encodeURIComponent(room)}`);
-        } catch (error) {
-          toast(error instanceof Error ? error.message : '계약문의 실패', 'error');
-        }
-      },
-    });
-    items.push({
-      label: '공유',
+      label: '손님 전달',
       onClick: async () => {
         const url = guestShareUrl(product, currentActor.code || currentActor.uid);
         if (await copyText(url)) toast('손님용 매물 링크 복사됨', 'ok');
@@ -40,7 +29,7 @@ export function buildProductContextItems(
   }
 
   items.push({
-    label: '상품 내용 복사',
+    label: '텍스트 복사',
     onClick: async () => {
       const text = formatProductForCopy(product, {
         name: session?.name || currentActor.name,

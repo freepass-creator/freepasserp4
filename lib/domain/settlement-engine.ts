@@ -13,6 +13,7 @@ import { readPartnerPrivate, readUserPrivate } from '@/lib/domain/private-fields
 import { requirePositiveRentAmount } from '@/lib/domain/contract-money';
 import { vehicleIdentity } from '@/lib/domain/product';
 import { isVehicleClaimStepKey } from '@/lib/domain/vehicle-claim';
+import { displayNumber, settlementIdForContract, settlementStorageKeyForContract } from '@/lib/domain/ids';
 import {
   atomicVehicleClaimsEnabled,
   releaseCancelledVehicleClaimFromClient,
@@ -80,10 +81,12 @@ export async function resolveRates(
   return { feeRate, payoutRate, feeResolved };
 }
 
-/** 정산 원자 생성(멱등 ST_{계약}). 율·금액 계약시점 동결. */
+/** 정산 원자 생성. 운영 저장키는 ST_를 유지하고 신규 계약에는 canonical stl_ 코드를 병기한다. */
 export async function createSettlement(contract: EntityRecord): Promise<string> {
   const co = getCompanyId(); const store = getStore();
-  const code = `ST_${contract.contract_code}`;
+  const code = settlementStorageKeyForContract(contract.contract_code);
+  const canonicalCode = settlementIdForContract(contract.contract_code);
+  if (!code || !canonicalCode) throw new Error('정산 생성: 계약코드 없음');
   if (await store.get('settlement', co, code)) return code;
   // 레거시 계약·직접 호출도 0원 정산으로 승격되지 않게 최종 writer에서 재검증한다.
   const rent = requirePositiveRentAmount(contract.rent_amount_snapshot, '정산 생성');
@@ -108,7 +111,10 @@ export async function createSettlement(contract: EntityRecord): Promise<string> 
   const payout = Math.round(rent * payoutRate);
   try {
     await store.save('settlement', co, [{
-      settlement_code: code, contract_code: contract.contract_code, car_number: contract.car_number_snapshot,
+      settlement_code: code,
+      ...(canonicalCode !== code ? { canonical_code: canonicalCode, legacy_settlement_code: code } : {}),
+      settlement_number: displayNumber('settlement', canonicalCode, String(contract.contract_date || '')),
+      contract_code: contract.contract_code, car_number: contract.car_number_snapshot,
       customer_name: contract.customer_name, provider_company_code: contract.provider_company_code, partner_code: contract.provider_company_code,
       agent_code: contract.agent_code, agent_channel_code: contract.agent_channel_code,
       rent_amount: rent, fee_rate: feeRate, fee_amount: fee, agent_payout: payout, net_amount: fee - payout, clawback_amount: 0,
@@ -199,7 +205,8 @@ export async function cancelContract(contract: EntityRecord): Promise<void> {
 /** 계약취소 → 정산 환수대기 전이 + 환수액 기록. */
 export async function onContractCancel(contract: EntityRecord): Promise<void> {
   const co = getCompanyId(); const store = getStore();
-  const code = `ST_${contract.contract_code}`;
+  const code = settlementStorageKeyForContract(contract.contract_code);
+  if (!code) return;
   const st = await store.get('settlement', co, code);
   if (!st) return;
   await store.update('settlement', co, code, { settlement_status: '환수대기', clawback_amount: clawbackCalc(st) });
@@ -510,7 +517,7 @@ export async function applyStepCheck(contract: EntityRecord, key: string, value:
   }
   const pr = getProgress(fresh);
   if (pr.done === pr.total && fresh.contract_status !== '계약완료') {
-    // 정산을 먼저(멱등 ST_) — 실패 시 계약완료·락을 찍지 않아 "완료만 남고 정산 누락"을 막는다.
+    // 정산을 먼저(신규 stl_·기존 ST_ 모두 멱등) — 실패 시 계약완료·락을 찍지 않아 "완료만 남고 정산 누락"을 막는다.
     // 중간 실패는 ContractPanel의 명시적 재시도 경로로 같은 전이 사슬을 이어간다.
     await finalizeContractIfReady(fresh);
   } else if (productCode) {

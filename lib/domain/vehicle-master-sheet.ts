@@ -25,6 +25,7 @@ import {
   type MasterVerificationStatus,
   type VehicleTrimUsageTier,
 } from './vehicle-trim-master';
+import { resolvePowertrainLabel } from './vehicle-powertrain-label';
 
 const S = (v: unknown) => String(v ?? '').trim();
 
@@ -108,6 +109,7 @@ export function readMasterSheet(rows: string[][]): MasterBook {
   const c = {
     code: at('트림행키'), mid: at('마스터ID'), maker: at('제조사'), model: at('모델'), sub: at('세부모델'),
     pt: at('파워트레인'), trim: at('세부트림'), fuel: at('연료'), cc: at('정확배기량(cc)'),
+    displacement: at('표시배기량(L)'), turbo: at('터보'),
     drive: at('구동방식'), seat: at('인승'), kwh: at('배터리(kWh)'),
     state: at('관리상태'), verification: at('검증상태'),
   };
@@ -122,10 +124,21 @@ export function readMasterSheet(rows: string[][]): MasterBook {
       state as MasterManagementStatus,
       verificationState as MasterVerificationStatus,
     );
+    const turboRaw = pick(r, c.turbo);
+    const powertrain = resolvePowertrainLabel({
+      sheetLabel: pick(r, c.pt),
+      axes: {
+        fuel: pick(r, c.fuel),
+        displacement_l: pick(r, c.displacement),
+        turbo: turboRaw === '예' ? true : turboRaw === '아니오' ? false : null,
+        drivetrain: pick(r, c.drive),
+        battery_kwh: pick(r, c.kwh),
+      },
+    });
     const row: MasterRow = {
       code, masterId: pick(r, c.mid),
       maker: pick(r, c.maker), model: pick(r, c.model), subModel: pick(r, c.sub),
-      powertrain: pick(r, c.pt), trim: pick(r, c.trim), fuel: pick(r, c.fuel),
+      powertrain, trim: pick(r, c.trim), fuel: pick(r, c.fuel),
       // ⚠ 숫자만 남긴다. 「1,999cc」처럼 적힌 줄이 섞여 있다.
       cc: pick(r, c.cc).replace(/[^\d]/g, ''),
       driveType: pick(r, c.drive), seat: pick(r, c.seat).replace(/[^\d]/g, ''),

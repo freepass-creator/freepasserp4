@@ -1,3 +1,4 @@
+import { POLICY_VALUE_RULES } from './policy-value-spec';
 import { EXT_COLORS, INT_COLORS } from './color-master';
 
 import { FUEL_TYPES, PRODUCT_TYPES, VEHICLE_STATES } from '@/lib/intake/entities';
@@ -5,9 +6,9 @@ import { FUEL_TYPES, PRODUCT_TYPES, VEHICLE_STATES } from '@/lib/intake/entities
 /**
  * 공급사 **제공시트** 표준 양식 — 공급사가 프리패스에 재고를 주는 시트의 규격 1장.
  *
- * ★현재 ERP 입력 정본은 영업자 상품리스트 한 장이다.
+ * ★현재 ERP 입력 정본은 상품마스터 한 탭이다.
  *   · 이 파일 = 공급사가 참고·제출에 쓰는 표준 양식. 프리패스는 **양식만 배포하고 값은 안 쓴다**.
- *   · 공급사 자료를 확인해 영업자 상품리스트를 확정한 뒤 그 한 장만 ERP에 반영한다.
+ *   · 공급사 자료를 확인해 상품마스터를 확정한 뒤 그 한 탭만 ERP에 반영한다.
  *
  * 왜 이 열 구성인가 — 발명이 아니라 **실측으로 굳힌 것**이다(2026-08-08 · 시트 18곳).
  *   차량번호·배차상태·차종·구분·옵션·비고는 이미 15곳 전부가 같은 이름으로 쓰고 있었다.
@@ -62,6 +63,9 @@ export const POLICY_ROWS: { label: string; hint: string; values?: string[] }[][]
 const POLICY_COLUMNS: { name: string; note: string; field?: string; values?: string[] }[] = [
   // ★이 칸이 우선한다. 코드를 적으면 오른쪽을 일일이 채울 필요가 없다.
   { name: '정책코드', note: 'POL-0047 — 적으면 이 정책이 우선. 오른쪽은 그 정책의 내용(참고)' },
+  // ── 심사(2026-08-19 사장님) — 영업자 화면 뱃지·상담용. 손님·계약서엔 안 나간다.
+  { name: '심사조건', note: '무심사 / 소득확인 / 신용조회', field: 'screening_criteria' },
+  // 불가조건 1~4 는 여기 없다 — 넷을 합쳐 disqualification_conditions 하나로(policy-sheet-to-erp.sheetPolicyToErp)
 
   // ── 자차 ──
   { name: '자차보상한도', note: '무엇을 기준으로 보상하나', field: 'own_damage_compensation', values: ['차량가액', '1000만원', '500만원', '400만원'] },
@@ -86,7 +90,9 @@ const POLICY_COLUMNS: { name: string; note: string; field?: string; values?: str
   { name: '면허기간', note: '', field: 'license_period', values: ['1년 이상', '제한없음', '2년 이상', '3년 이상'] },
   { name: '개인운전자범위', note: '', field: 'personal_driver_scope', values: ['계약자 본인+직계가족', '계약자 본인만', '계약자 본인+추가운전자', '협의'] },
   { name: '법인운전자범위', note: '', field: 'business_driver_scope', values: ['계약사업자 임직원 및 관계자', '대표자 본인만', '협의'] },
-  { name: '추가운전자', note: '', field: 'additional_driver_allowance_count', values: ['1인', '2인', '불가'] },
+  // ★사장님 2026-08-18 — 「추가운전」은 가능 여부만. 인원·요금은 「추가운전 요금」(「N인까지 · 1인당 월 M만원」).
+  // ★「추가운전」 가부 칸은 폐지(2026-08-19) — 「추가운전 인원」(불가 포함)이 게이트이자 ERP allowance_count 다. 「가능」을 인원에 넣으면 0으로 읽히던 문제도 이걸로 끝.
+  { name: '추가운전 인원', note: '불가 / 1~5인까지 / 제한없음', field: 'additional_driver_allowance_count' },
   // ── 그 밖의 조건 ──
   // ── 주행 ──
   // 대부분의 공급사는 «정책 한 줄»이면 끝난다 — 기본 주행거리와 1만km 추가 요율.
@@ -94,7 +100,6 @@ const POLICY_COLUMNS: { name: string; note: string; field?: string; values?: str
   // ★세 줄 다 ERP 필드가 안 붙어 있었다 — 공급사가 적어도 계약서 제23조가 빈칸이었다(2026-08-11).
   { name: '기본주행', note: '계약서 제23조 · 약정 주행거리', field: 'annual_mileage',
     values: ['연간 2만Km', '연간 3만Km', '연간 1만Km', '무제한', '협의'] },
-  { name: '추가주행 방식', note: '1만km 더 탈 때 어떻게 올리는가', values: ['정액', '대여료 비례', '불가', '협의'] },
   { name: '추가주행 금액', note: '정액이면 100000 · 비례면 10%', field: 'mileage_upcharge_per_10000km',
     values: ['10만원', '15만원', '5만원', '10%', '협의'] },
   // 약정을 넘겨 탔을 때 1km 당 얼마 — 계약서 제23조. 국산·수입이 갈린다.
@@ -109,20 +114,26 @@ const POLICY_COLUMNS: { name: string; note: string; field?: string; values?: str
   //   프리패스가 정하는 조항 수치(지연손해금율·보관료·통지기한 등)는 여기서 묻지 않는다.
   //   여기 있는 것은 **공급사마다 갈리는 값**뿐이다.
   { name: '긴급출동', note: '계약서 제14조 · 연 몇 회', field: 'annual_roadside_assistance', values: ['연간 5회', '연간 3회', '무제한', '없음'] },
-  { name: '가입 보험사', note: '계약서 제11조 · 보험사·공제조합 이름', field: 'insurer_name', values: [] },
-  { name: '지정 정비점', note: '계약서 제14조·제17조 · 없으면 「없음」', field: 'designated_garage', values: [] },
-  { name: '자차 처리 제외', note: '계약서 제18조 · 자차로 못 고치는 경우', field: 'self_damage_exclusions', values: [] },
-  { name: '대차 정책', note: '계약서 제5조·제20조 · 사고·정비 중 대차', field: 'replacement_car_policy', values: ['불가', '동급 대차', '협의'] },
+  { name: '대차 제공', note: '계약서 제5조·제20조 · 사고·정비 중 대차', field: 'replacement_car_policy', values: ['불가', '동급 대차', '협의'] },
   { name: 'GPS 장착', note: '계약서 제24조', field: 'gps_installed', values: ['장착', '미장착'] },
   // 승계는 해지와 다른 길이다 — 해지는 물고 끝내고, 승계는 남은 기간을 새 임차인이 이어받는다.
   { name: '승계 가능여부', note: '계약을 다른 사람에게 넘길 수 있나', field: 'succession_allowed', values: ['가능', '협의', '불가'] },
-  { name: '승계수수료', note: '넘길 때 1회 · 프리패스 평균 100만원 · 회사 적용값 입력', field: 'succession_fee', values: ['100만원', '50만원', '150만원', '없음', '협의'] },
+  { name: '승계수수료', note: '넘길 때 1회 — 불가 / 50~500만원', field: 'succession_fee' },
   { name: '중도해지 위약금 1년미만', note: '계약서 제8조 · 잔여 대여료의 몇 %', field: 'early_termination_rate_under1y', values: ['30%', '20%', '10%'] },
   { name: '중도해지 위약금 1년이상', note: '계약서 제8조', field: 'early_termination_rate_over1y', values: ['20%', '10%', '30%'] },
   { name: '사고 다발 해지기준', note: '계약서 제7조 · 1년 내 과실 50% 이상 3회', field: 'accident_termination_count', values: ['3'] },
   { name: '연령 하향 요금', note: '연령을 내릴 때 월 얼마', field: 'age_lowering_cost', values: ['10만원', '15만원', '20만원', '불가', '협의'] },
-  { name: '추가운전자 요금', note: '1인당 월 얼마', field: 'additional_driver_cost', values: ['월 5만원', '월 3만원', '무료', '협의'] },
-  { name: '탁송비', note: '', field: 'delivery_fee', values: ['협의', '무료', '무료(제주 제외)'] },
+  { name: '추가운전 요금', note: '1인당 월 — 「5만원」 / 「대여료의 5%」 / 무료 / 불가', field: 'additional_driver_cost' },
+  { name: '탁송비', note: '전액지원 / 일부지원 / 고객부담', field: 'delivery_fee', values: ['전액지원', '일부지원', '고객부담'] },
+  // ── 2026-08-19 신설 8 — 계약서 제6·7·24조가 참조하는데 시트에 없던 것. 드롭다운은 policy-value-spec 이 정본.
+  { name: '결제방식', note: '계약서 제6조', field: 'payment_method' },
+  { name: '납부조건', note: '계약서 제6조 · 건별 확정 기본값', field: 'payment_timing' },
+  { name: '월 납부일', note: '계약서 제6조 · CMS 출금일', field: 'payment_due_date' },
+  { name: '보증금 반환기한', note: '계약서 제6조 · 「7일」', field: 'deposit_return_days' },
+  { name: '무보험면책금', note: '계약서 제11조', field: 'uninsured_deductible' },
+  { name: '시동제어 기준일', note: '계약서 제24조 · 「3일」', field: 'engine_control_overdue_days' },
+  { name: '차량회수 기준일', note: '계약서 제7조·제24조 · 「10일」', field: 'auto_terminate_overdue_days' },
+  { name: '특이사항', note: '영업자 안내 — 손님·계약서엔 안 실림', field: 'sales_notes' },
 ];
 /** 열 이름 → 정책 레코드 필드. 이관 때 연결된 정책에서 미리 채우는 데 쓴다. */
 /**
@@ -134,9 +145,15 @@ const POLICY_COLUMNS: { name: string; note: string; field?: string; values?: str
  * ⚠ **막지는 않는다**(strict=false). 목록에 없는 답이 실제로 있다 — 「2회까지」처럼.
  *   막으면 공급사가 못 적고 그냥 비워 둔다. 고르게 «권하되» 손으로도 적을 수 있어야 한다.
  */
-export const POLICY_VALUE_LISTS: Record<string, readonly string[]> = Object.fromEntries(
-  POLICY_COLUMNS.filter((c) => c.values?.length).map((c) => [c.name, c.values as string[]]),
-);
+/**
+ * ★드롭다운 목록의 정본은 `policy-value-spec.POLICY_VALUE_RULES.allowed` 다(2026-08-18).
+ *   예전엔 여기 `values` 와 `policy-sheet-layout` 의 메모가 서로 다른 표기를 권해 20곳 정책 탭이 갈렸다
+ *   (「연간 2만Km」 vs 「연 20,000km」·「만21세」 vs 「만 21세까지」). 위 `values` 는 스펙에 없는 항목의 예비값일 뿐이다.
+ */
+export const POLICY_VALUE_LISTS: Record<string, readonly string[]> = Object.fromEntries([
+  ...POLICY_COLUMNS.filter((c) => c.values?.length).map((c) => [c.name, c.values as string[]]),
+  ...POLICY_VALUE_RULES.filter((r) => r.allowed.length).map((r) => [r.name, r.allowed]),
+]);
 
 export const POLICY_COLUMN_FIELDS: { name: string; field: string }[] =
   POLICY_COLUMNS.filter((c) => c.field).map((c) => ({ name: c.name, field: c.field! }));
@@ -199,7 +216,8 @@ export const AI_TAIL_COLUMNS: { name: string; note: string; required?: boolean }
   { name: '제조사(정제)', note: '★프리패스가 채움 — 르노코리아처럼 마스터가 쓰는 이름으로 맞춘 값' },
   { name: '모델', note: '★프리패스가 채움 — 그랜저 · 아반떼' },
   { name: '세부모델', note: '★프리패스가 채움 — 그랜저 IG · 아반떼 CN7' },
-  { name: '파워트레인', note: '★프리패스가 채움 — 가솔린 2.5 · 하이브리드 1.6 · 전기 · 디젤 2.2 4WD' },
+  // ★「파워트레인」 정제칸은 뺐다(사장님 2026-08-18 — 「모델 세부모델 파워트레인 세부트림 이렇게 있는데 파워트레인 없애」).
+  //   차종은 모델·세부모델·세부트림 3축, 연료·배기량은 따로 칸이 있다. 21곳 시트에서 열을 지웠다(`scripts/drop-supplier-column.mts`).
   { name: '세부트림', note: '★프리패스가 채움 — 르브랑 · 인스퍼레이션. 트림이 없는 차는 빈칸이 정상이다' },
   { name: '선택옵션', note: '★프리패스가 채움 — 공급사 「옵션」 원문을 표기 통일한 값' },
   // ★색도 정제한다(사장님 2026-08-14). 공급사 입력칸은 「외부색상·내부색상」이고 정제본은
@@ -214,15 +232,15 @@ export const AI_TAIL_COLUMNS: { name: string; note: string; required?: boolean }
    *     지금 연료가 「HEV」인데 파워트레인이 「가솔린」인 차가 섞여 있다.
    *   ⚠ 주행거리·금액은 여기 없다. 그건 렌트사가 정하는 값이라 정제할 것이 없다.
    */
-  { name: '배기량(정제)', note: '★프리패스가 채움 — 파워트레인에서 나온 cc. 전기차는 빈칸이 정상이다' },
-  { name: '연료(정제)', note: '★프리패스가 채움 — 가솔린 · 디젤 · 하이브리드 · 전기 · 수소 · LPG (파워트레인과 늘 일치한다)' },
+  { name: '배기량(정제)', note: '★프리패스가 채움 — 차종마스터의 cc. 전기차는 빈칸이 정상이다' },
+  { name: '연료(정제)', note: '★프리패스가 채움 — 가솔린 · 디젤 · 하이브리드 · 전기 · 수소 · LPG (차종마스터 값)' },
   /**
    * ★차종분류 — 세그먼트 × 차형(사장님 2026-08-14 — 「준중형 승용 / 대형 SUV 이런 거 구분값」).
    *   ⚠ **차종마스터엔 이 값이 없다.** 정본은 `lib/domain/vehicle-class.ts`(모델명 큐레이션 맵)이다.
    *   ⚠ 플랫폼 전역 라벨이 「차종분류」다(구 차급). 「분류」(신차렌트/중고렌트…)와 다른 칸이다.
    *   ⚠ 못 고르면 **비운다.** 세그먼트를 억지로 붙이면 오분류가 되고, 그건 손님에게 잘못 말하는 값이다.
    */
-  { name: '차종분류', note: '★프리패스가 채움 — 준중형 SUV · 대형 RV · 준대형 처럼 「세그먼트 차형」. 못 고르면 빈칸' },
+  { name: '차종분류', note: '★프리패스가 채움 — 차종마스터(규격채택 차종분류+차체형태) 기준 「세그먼트 차체형태」: 준중형 SUV · 준대형 세단 · 대형 MPV. 코드 없는 차는 모델 이름으로, 못 고르면 빈칸. 판매시트 「차종구분」으로 나간다(2026-08-19)' },
 ];
 
 const FRONT_COLUMNS: { name: string; note: string; required?: boolean }[] = [
@@ -233,7 +251,16 @@ const FRONT_COLUMNS: { name: string; note: string; required?: boolean }[] = [
    *   비면 그 차는 «언제부터 안 팔리는지» 영영 알 수 없다.
    *   최초등록일과 헷갈리면 안 된다. 2020년식 중고차를 이번 달에 상품화하면 입고일자는 이번 달이다.
    */
-  { name: '입고일자', note: '2026-08-12 — 상품으로 내놓은 날. 최초등록일이 아니다', required: true },
+  /**
+   * ★입고일자 = «차량번호가 이 시트에 처음 찍힌 날»(사장님 2026-08-19 — 「공급사 시트에 입고일자는 새로 올라온 날짜야, 얼마나 입력했는지 보려고」).
+   *   비어 있으면 프리패스가 자동으로 도장 찍는다(stamp-arrival-dates: 처음 본 날 · 옛 줄은 ERP 최초 등록일로 소급). 공급사가 적은 값은 안 덮는다.
+   */
+  { name: '입고일자', note: '이 시트에 차량번호가 처음 올라온 날(YYYY-MM-DD). 비워 두면 프리패스가 자동으로 적습니다 — 최초등록일이 아닙니다', required: false },
+  /**
+   * ★점검사항(사장님 2026-08-19 — 「상태 앞에 칸 만들어 주고 거기에 뭐 좀 해 달라, 차명 제대로 입력해라 이런 걸 쓸 거야 · 요청사항은 아니고 점검사항이라고 하자」).
+   *   프리패스가 렌트사에게 적는 칸(보라 머리·값 있으면 노란 바탕). 렌트사는 처리하고 답을 적거나 지운다. 기계는 값을 안 덮는다.
+   */
+  { name: '점검사항', note: '★프리패스가 적는 점검사항(예: 차명·트림 정확히 적어 주세요 · 보증금 채워 주세요). 처리하시면 답을 적거나 지워 주세요' },
   { name: '상태', note: '즉시출고 / 출고가능 / 상품화중 / 출고협의 / 계약중 / 출고불가', required: true },
   { name: '분류', note: '신차렌트 / 중고렌트 / 신차구독 / 중고구독', required: true },
   /**
@@ -256,20 +283,19 @@ const FRONT_COLUMNS: { name: string; note: string; required?: boolean }[] = [
   //   「차명(트림)」은 trim_name 으로 가서 문장 전체를 보고 제대로 잡고, 원문도 추가표기로 남는다.
   //   기존 공급사들이 98.5% 맞는 것도 다들 「모델명(트림)」 열을 쓰기 때문이다.
   { name: '차명(트림)', note: '더 뉴 아반떼 CN7 1.6 가솔린 인스퍼레이션 — 트림까지 한 칸에', required: true },
+  /**
+   * ★**열 차례 — 사장님 2026-08-18 확정**: 「차명 · 옵션 · 외부색상 · 내부색상 · 연식 · 주행거리 · 연료 · 배기량 · 대여료 구간」.
+   *   (「각 공급사 이제 진짜로 통일하자 · 웰릭스 기준으로 다 맞추고 · 제발 제발」)
+   *   20곳 재고탭을 이 차례로 다시 세웠다(`scripts/unify-supplier-columns.mts`, moveDimension — 값·서식·드롭다운이 열과 함께 움직인다).
+   * ⚠ 예전(2026-08-13)엔 표(Table)가 드롭다운 칸까지만 덮이게 하려고 옵션·주행거리를 연료 뒤로 보냈다.
+   *   이제 옵션·주행거리가 표 안에 들어오므로 주행거리는 표 안에서 천단위 콤마가 안 붙는다 — 사장님이 열 차례를 우선했다.
+   */
+  { name: '옵션', note: '선루프, 통풍시트 (쉼표로 구분)' },
   { name: '외부색상', note: '흰색 · 검정 …' },
   { name: '내부색상', note: '' },
   { name: '연식', note: '2024' },
-  /**
-   * ★**드롭다운 칸은 전부 왼쪽에 몰아 둔다.** 표(Table)를 그 칸들까지만 씌우고
-   *   금액·주행 칸은 표 밖에 남기기 위해서다 — 표 안에서는 숫자서식이 무시돼
-   *   천단위 콤마가 안 붙는다(`tableWidth` 참고).
-   * ★그래서 **옵션이 연료 뒤로 왔다**(사장님 2026-08-13 — 「주행거리를 옵션 뒤로 보내주세요」).
-   *   주행거리만 옵션 뒤로 올리면 표가 옵션에서 끊겨 색상·연식·연료의 칩이 죽는다.
-   *   옵션·주행거리를 함께 드롭다운 묶음 뒤로 보내면 칩도 콤마도 산다.
-   */
-  { name: '연료', note: '가솔린 · 디젤 · 하이브리드 · 전기 · LPG' },
-  { name: '옵션', note: '선루프, 통풍시트 (쉼표로 구분)' },
   { name: '주행거리', note: '12000 (km, 숫자만)' },
+  { name: '연료', note: '가솔린 · 디젤 · 하이브리드 · 전기 · LPG' },
   { name: '배기량', note: '1998 (cc)' },
   // 소비자가 — 파는 값(대여료)이 아니라 차 자체의 값이다. 그래서 차량정보 쪽에 둔다.
   { name: '차량가격', note: '소비자가(원, 숫자만) — 대여료가 아니다' },
@@ -300,9 +326,12 @@ const DETAIL_COLUMNS: { name: string; note: string; required?: boolean }[] = [
 ];
 
 /**
- * 기간 표준 — **1 · 12 · 24 · 36 · 48 · 60개월**(2026-08-08 확정).
+ * 기간 표준 — **1 · 12 · 24 · 36 · 48 · 60개월**(2026-08-08 확정 · 2026-08-18 20곳 실측 재확인).
  * 단기보증이 1·12를, 장기보증이 24~60을 관할한다. 파서의 보증 블록 스코프에 맞춘 배치라
  * 순서를 바꾸면 보증금이 엉뚱한 기간에 붙는다.
+ * ⚠ 상품마스터의 10기간(1·6·12·18·24·36·48·60·72·84 — `product-master-sheet.PRODUCT_MASTER_PERIODS`)과 다르다.
+ *   한때(2026-08-15) 여기까지 10기간으로 넓혔더니 코드 표준(32열)과 살아 있는 20곳 시트(28열)가 갈렸고,
+ *   「작성 안내」에 없는 칸이 실렸다. 제공시트 표준은 6기간 + 예비 3칸이다 — 다른 기간은 예비칸 제목을 바꿔 쓴다.
  */
 export const SHORT_PERIODS = ['1', '12'] as const;
 export const LONG_PERIODS = ['24', '36', '48', '60'] as const;
@@ -329,7 +358,7 @@ export const periodColumnNote = (key: string): string => {
 };
 
 /**
- * 기간 열을 만든다. 표준 6종은 늘 두고, **그 공급사가 실제로 쓰는 기간만** 덧붙인다.
+ * 기간 열을 만든다. 표준 10종은 늘 두고, **같은 기간의 주행거리·인수형 변형만** 덧붙인다.
  *
  * 왜 덧붙이나 — 오토플러스는 18개월과 주행 변형(24개월2만·24개월3만)을 쓴다(179대, 실측).
  * 표준 6종에만 우겨넣으면 같은 개월에서 하나만 남고 나머지 요금이 조용히 사라진다.
@@ -366,10 +395,23 @@ export function buildPeriodColumns(usedKeys: string[] = []): { name: string; not
  *   2026-08-14 에 잠깐 뺐다가 되돌렸다.
  */
 const POLICY_REF_COLUMN: { name: string; note: string; required?: boolean } = {
-  name: '정책코드', note: 'POL-0047 — 「정책」 탭에서 그 코드의 조건을 정의한다',
+  name: '정책코드', note: 'POL-0047 — 「정책」 탭에서 그 코드의 조건을 정의한다. 프리패스가 채운다',
 };
+/**
+ * ★**구분선 열** — 사장님 2026-08-18 「정책코드를 차종코드 앞으로 옮겨 주고, 정책코드 앞에 한 줄 넣어서 여기는 손대는 거 아닌 느낌 — 전체 통일」.
+ *   이 열 오른쪽(정책코드 · 정제칸 11)은 전부 프리패스/AI 칸이다. 이름은 「│」 하나, 값은 없다, 폭 6px, 어두운 색.
+ *   읽는 도구는 전부 이름으로 읽으므로 이 열을 무시한다(별칭 없음). 안내 탭에서는 목록에 안 싣는다(`divider`).
+ */
+export const DIVIDER_COLUMN: { name: string; note: string; required?: boolean; divider: true } = {
+  name: '│', note: '여기부터 오른쪽은 프리패스가 채우는 칸입니다 — 손대지 마세요', divider: true,
+};
+export const isDividerColumn = (name: unknown) => String(name ?? '').trim() === DIVIDER_COLUMN.name;
 
-export const TEMPLATE_COLUMNS = [...FRONT_COLUMNS, ...buildPeriodColumns(), POLICY_REF_COLUMN, ...DETAIL_COLUMNS];
+/** 표준 차례(2026-08-18) — 렌트사 칸(차량번호 … 사진링크) │ 정책코드 · (정제칸 11). 정책코드가 정제칸 바로 앞이다. */
+export const REQUEST_COLUMN_NAME = '점검사항';
+/** 처음 이름(2026-08-19 잠깐 「요청사항」이었다 → 사장님 「요청사항은 아니고 점검사항이라고 하자」). insert-request-column 이 머리글을 갈아 준다. */
+export const REQUEST_COLUMN_OLD_NAMES = ['요청사항'];
+export const TEMPLATE_COLUMNS = [...FRONT_COLUMNS, ...buildPeriodColumns(), ...DETAIL_COLUMNS, DIVIDER_COLUMN, POLICY_REF_COLUMN];
 
 /**
  * ★★**칸마다 «누가 정본인가»** — 공급사 시트에서 우리 시트로 따라올 것과 안 따라올 것.
@@ -399,12 +441,13 @@ export type ColumnOwner = 'live' | 'ours' | 'once';
 const LIVE_COLUMNS = [
   '상태', '배차상태', '판매상태', '차량상태',
   '단기보증', '장기보증', '보증금',
-  '1개월', '12개월', '24개월', '36개월', '48개월', '60개월',
+  '1개월', '6개월', '12개월', '18개월', '24개월',
+  '36개월', '48개월', '60개월', '72개월', '84개월',
 ];
 
 /**
  * 어느 칸이 누구 것인가.
- *  · live — 매번 공급사 값으로 갱신한다(상태·대여료·보증금·주행거리)
+ *  · live — 매번 공급사 값으로 갱신한다(상태·기간별 대여료·보증금)
  *  · ours — 우리가 정한다. 공급사가 못 덮는다(정제칸 12 + 정책코드)
  *  · once — 처음 한 번 옮겨 오고 그 뒤로는 우리 것이다(차명 원문·색·연식·옵션·차량가격 …)
  * ⚠ 기간 대여료는 「기타기간①」처럼 제목을 바꿔 쓰는 칸도 있어 **이름에 «개월»이 들어가면 live** 로 본다.
@@ -414,6 +457,8 @@ export function columnOwner(name: unknown): ColumnOwner {
   if (!n) return 'once';
   if (AI_TAIL_COLUMNS.some((c) => c.name.replace(/\s+/g, '') === n)) return 'ours';
   if (n === POLICY_REF_COLUMN.name.replace(/\s+/g, '')) return 'ours';
+  if (n === DIVIDER_COLUMN.name) return 'ours';   // 구분선 — 누구도 값을 안 쓴다
+  if (n === REQUEST_COLUMN_NAME) return 'ours';   // 요청사항 — 프리패스가 적는 칸(2026-08-19)
   if (LIVE_COLUMNS.some((c) => c.replace(/\s+/g, '') === n)) return 'live';
   if (/개월/.test(n)) return 'live';          // 기간 대여료 — 기타기간 제목 변경까지 포함
   return 'once';
@@ -471,11 +516,46 @@ export function buildSubscriptionPeriodColumns(usedKeys: string[] = []): { name:
  *   찾을 때는 `SHEET_NAME_MATCH`(=「프리패스 재고」 포함)로 걸러 두 형태를 다 잡는다.
  */
 export const SHEET_NAME_MATCH = '프리패스 재고';
-export const supplierSheetName = (label: string) => `${String(label ?? '').trim()} ${SHEET_NAME_MATCH}`;
+/**
+ * ★시트 이름 규격(사장님 2026-08-18 — 「우리가 제공한 시트랑 정제된 시트 표기 좀 해주고, 언제 배포한 시트인지 앞에 날짜 좀 박자 0818 이렇게」)
+ *   「MMDD 공급사 프리패스 재고 [제공]」 — 우리가 만들어 준 시트에 공급사가 직접 적는 곳(= 그 시트가 원본이자 정제시트)
+ *   「MMDD 공급사 프리패스 재고 [정제]」 — 공급사 자체 시트·홈페이지를 우리가 옮겨 담는 정제시트(mirror-sources)
+ *   날짜 = 배포일(제공: 시트를 만든 날 · 정제: 정제시트로 전환한 날). 검색은 여전히 「프리패스 재고」 부분일치.
+ */
+export type SupplierSheetKind = '제공' | '정제';
+export const SHEET_KIND_MARK: Record<SupplierSheetKind, string> = { 제공: '[제공]', 정제: '[정제]' };
+/**
+ * ★상태 표식(사장님 2026-08-19 — 「현재 쓰고 있는 시트를 알아볼 수 있게 표기해줘 … 연동중 이런식으로,
+ *   구버전 우리 거는 폐기 또는 구버전이라고 안 쓴다고 해 주고, 외부시트는 원본만 알면 되고」)
+ *   「MMDD 공급사 프리패스 재고 [제공] [연동중]」 — 지금 문패·발행기·상품마스터·ERP 가 읽는 시트(21곳 전부).
+ *   옛 우리 시트는 「[구버전·폐기] 원래이름」(앞에 붙인다 — 첫눈에 보이게, 「프리패스 재고」 글자는 넣지 않는다 → 검색에 안 잡힌다).
+ *   외부(공급사 소유) 원본 시트는 이름을 건드리지 않는다 — 원본 주소는 mirror-sources 표·「이 시트는」 탭·시트 명부에.
+ */
+export type SupplierSheetStatus = '연동중';
+export const SHEET_STATUS_MARK: Record<SupplierSheetStatus, string> = { 연동중: '[연동중]' };
+export const LEGACY_SHEET_PREFIX = '[구버전·폐기] ';
+export const supplierSheetName = (label: string, opts: { kind?: SupplierSheetKind; date?: string; status?: SupplierSheetStatus | '' } = {}) => {
+  const date = String(opts.date ?? '').trim();
+  const kind = opts.kind ? ` ${SHEET_KIND_MARK[opts.kind]}` : '';
+  const status = opts.status ? ` ${SHEET_STATUS_MARK[opts.status]}` : '';
+  return `${date ? `${date} ` : ''}${String(label ?? '').trim()} ${SHEET_NAME_MATCH}${kind}${status}`;
+};
+/** 「0818 아이카 프리패스 재고 [정제] [연동중]」 → 「아이카」. 옛 이름(「프리패스 재고 · 아이카」·「아이카 프리패스 재고」)도 같은 답. */
 export const supplierSheetLabel = (name: string) => String(name ?? '')
   .replace(`${SHEET_NAME_MATCH} · `, '')          // 옛 이름
-  .replace(new RegExp(`\s*${SHEET_NAME_MATCH}\s*$`), '')   // 새 이름
+  .replace(/\s*[\[(（](제공|정제|연동중)[\])）]\s*/g, ' ')  // 종류·상태 표식
+  .replace(new RegExp(`\s*${SHEET_NAME_MATCH}\s*`), ' ')   // 규격 이름
+  .replace(/^\s*\d{4}\s+/, '')                     // 앞 날짜(MMDD)
+  .replace(/^\s*\d{4}(?=\S)/, '')                  // 「0818아이카」처럼 붙여 쓴 날짜
   .trim();
+/** 이름에서 종류·날짜·상태를 읽는다(없으면 빈값). */
+export const supplierSheetNameParts = (name: string): { date: string; label: string; kind: SupplierSheetKind | ''; status: SupplierSheetStatus | '' } => {
+  const n = String(name ?? '');
+  const date = (/^\s*(\d{4})\s*/.exec(n) || [])[1] || '';
+  const kind = (/[\[(（](제공|정제)[\])）]/.exec(n) || [])[1] as SupplierSheetKind | undefined;
+  const status = (/[\[(（](연동중)[\])）]/.exec(n) || [])[1] as SupplierSheetStatus | undefined;
+  return { date, label: supplierSheetLabel(n), kind: kind || '', status: status || '' };
+};
 
 export const VEHICLE_TABS = ['재고', '렌트재고', '구독재고'] as const;
 export const isVehicleTab = (title: string) => (VEHICLE_TABS as readonly string[]).includes(String(title ?? '').trim());
@@ -548,6 +628,35 @@ const grid = (gid: number, r0: number, r1: number, c0: number, c1: number) =>
   ({ sheetId: gid, startRowIndex: r0, endRowIndex: r1, startColumnIndex: c0, endColumnIndex: c1 });
 
 /**
+ * ★머리행 색으로 «누가 적는 칸인가»를 가른다(사장님 2026-08-18 — 「렌트사가 입력하는 줄과 자동으로 입력되는 줄(AI가) 테이블 헤더 색깔 구분」).
+ *   · 렌트사가 적는 칸(차량번호~사진링크) = 남색(기본)
+ *   · 프리패스/AI 가 적는 칸(정제칸 차종코드~차종분류 + 정책코드) = **보라** — `columnOwner === 'ours'` 와 같은 기준이라 표와 규칙이 안 갈린다.
+ */
+export const HEADER_OURS_COLOR = { red: 0.36, green: 0.25, blue: 0.55 };
+/** 구분선 열 — 머리부터 아래까지 어두운 보라 한 줄(폭 6px). 값 없음. */
+export function buildDividerFormat(gid: number, columns: { name: string }[], rowCount = 500): Rec[] {
+  const out: Rec[] = [];
+  columns.forEach((c, i) => {
+    if (!isDividerColumn(c.name)) return;
+    out.push({ repeatCell: { range: grid(gid, ROW_HEADER, rowCount, i, i + 1), cell: { userEnteredFormat: { backgroundColor: HEADER_OURS_COLOR, textFormat: { foregroundColor: HEADER_OURS_COLOR, fontSize: 4 } } }, fields: 'userEnteredFormat(backgroundColor,textFormat)' } });
+    out.push({ updateDimensionProperties: { range: { sheetId: gid, dimension: 'COLUMNS', startIndex: i, endIndex: i + 1 }, properties: { pixelSize: 6 }, fields: 'pixelSize' } });
+  });
+  return out;
+}
+export function buildHeaderOwnerColors(gid: number, columns: { name: string }[]): Rec[] {
+  const out: Rec[] = [];
+  columns.forEach((c, i) => {
+    if (columnOwner(c.name) !== 'ours') return;
+    out.push({ repeatCell: {
+      range: grid(gid, ROW_HEADER, ROW_HEADER + 1, i, i + 1),
+      cell: { userEnteredFormat: { backgroundColor: HEADER_OURS_COLOR } },
+      fields: 'userEnteredFormat.backgroundColor',
+    } });
+  });
+  return out;
+}
+
+/**
  * 서식 — 「채우는 칸」과 「읽는 칸」이 한눈에 갈려야 렌트사가 헤맬 일이 없다.
  *   정책 라벨=진회색 배경 · 값칸=노랑(여기 쓰라는 뜻) · 헤더=남색 고정 · 필수열=연빨강 헤더 · 예시행=회색 이탤릭.
  */
@@ -576,6 +685,8 @@ export function buildTemplateFormat(
       fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment)',
     },
   });
+  out.push(...buildHeaderOwnerColors(gid, columns));
+  out.push(...buildDividerFormat(gid, columns));
   for (const [i, c] of columns.entries()) {
     // 보증금 열 제목은 한 톤 죽여 대여료 열이 앞으로 나오게 한다.
     if (/보증/.test(c.name)) {
@@ -708,6 +819,7 @@ export function buildBaseFont(gid: number, columnCount: number, rowCount = 500):
 
 /** 칸마다 필요한 만큼. 긴 글이 들어오는 칸만 넓히고 나머지는 좁혀 한 화면에 더 담는다. */
 export function columnWidth(name: string): number {
+  if (isDividerColumn(name)) return 6;
   if (name === '차명(트림)') return 300;
   if (name === '옵션') return 240;
   if (name === '사진링크') return 200;
@@ -745,6 +857,7 @@ const TONE: Record<string, { fg: [number, number, number] }> = {
   gray: { fg: [0.28, 0.30, 0.34] },
   violet: { fg: [0.42, 0.24, 0.70] },
   teal: { fg: [0.05, 0.44, 0.42] },
+  magenta: { fg: [0.72, 0.10, 0.55] },
 };
 
 /** 상태 → ERP 와 같은 뜻의 색. */
@@ -778,9 +891,17 @@ const COLOR_INK: Record<string, [number, number, number]> = {
   기타: [0.35, 0.37, 0.42],
 };
 /** 분류 넷 — 신차/중고를 색으로, 렌트/구독을 진하기로 가른다. */
-const TYPE_TONE: Record<string, keyof typeof TONE> = {
-  신차렌트: 'blue', 신차구독: 'violet', 중고렌트: 'teal', 중고구독: 'amber',
+// ★분류 색은 상태 색(green·amber·blue·orange·red)과 겹치지 않는다(사장님 2026-08-18 — 「출고협의 옆에 중고구독 — 색깔이 비슷하면 안 되지」).
+//   예전 신차렌트 blue(=출고협의)·중고구독 amber(=상품화중)가 겹쳤다.
+export const TYPE_TONE: Record<string, keyof typeof TONE> = {
+  신차렌트: 'magenta', 중고렌트: 'teal', 중고구독: 'violet', 신차구독: 'gray',
 };
+/** 분류 칸만 다시 칠할 때(색 규칙 변경) — 조건부서식을 맨 앞(index 0)에 넣어 옛 규칙보다 먼저 맞게 한다. */
+export function buildTypeChipColorRules(gid: number, columns: { name: string }[], rowCount = 500): Rec[] {
+  const col = columns.findIndex((c) => String(c.name ?? '').trim() === '분류');
+  if (col < 0) return [];
+  return Object.entries(TYPE_TONE).map(([v, tone], i) => inkRuleFor(gid, col, v, TONE[tone].fg, i, rowCount));
+}
 
 /**
  * **제조사는 브랜드 컬러로 쓴다**(사장님 요청 2026-08-11).
@@ -1010,22 +1131,34 @@ export const FREEPASS_STANDARD: Record<string, string> = {
   최대연령: '만 65세 이하',                    // 47%
   면허기간: '제한없음',                       // 44%
   개인운전자범위: '계약자 본인+직계가족',           // 66%
-  법인운전자범위: '계약사업자 임직원 및 관계자',      // 69%
-  추가운전자: '1인',                         // 69%
-  기본주행: '연간 2만Km',                     // 44%
-  '추가주행 방식': '정액',                     // 금액을 정액으로 두므로
+  법인운전자범위: '임직원',                     // 옛 「계약사업자 임직원 및 관계자」 69% (표기 규격 2026-08-18)
+  추가운전: '가능',                          // 옛 「1인」 69% → 가능 여부만(2026-08-18)
+  기본주행: '연 20,000km',                   // 44% (표기 규격 2026-08-18)
   '추가주행 금액': '10만원',                   // 47%
   대여지역: '전국',                          // 72%
   보증금카드결제: '협의',                      // 가능·협의 동률 — 협의가 덜 위험하다
   보증금분납: '가능',                         // 59%
   '연령 하향 요금': '10만원',                  // 38%
-  '추가운전자 요금': '월 5만원',                // 63%
-  탁송비: '협의',                            // 53%
+  '추가운전 요금': '1인까지 · 1인당 월 5만원', // 옛 「1인」+「월 5만원」(2026-08-18 규격)
+  탁송비: '일부지원',                          // 옛 「협의」 53% → 사장님 2026-08-19 세 값
   // 회사마다 다를 수밖에 없는 칸 — 표준을 세우는 대신 «누가 적는 칸인지»를 적어 둔다.
-  '가입 보험사': '공급사 기재',
 };
 
-export const POLICY_TAB_NAME = '정책';
+/**
+ * 공급사 제공시트의 정책 탭 이름 — 사장님 2026-08-19 「탭은 렌트재고 · 구독재고 · 운영정책 · 공지사항 · 회사정보만」.
+ * 옛 이름 「정책」도 계속 읽는다(아직 안 바꾼 시트가 있다). 쓰는 쪽은 `policyTabTitle(titles)` 로 실제 제목을 고른다.
+ */
+export const POLICY_TAB_NAME = '운영정책';
+export const POLICY_TAB_ALIASES: readonly string[] = ['운영정책', '정책'];
+export const isPolicyTabTitle = (title: unknown): boolean => POLICY_TAB_ALIASES.includes(String(title ?? '').trim());
+export const policyTabTitle = (titles: unknown[]): string | undefined => POLICY_TAB_ALIASES.find((a) => titles.some((t) => String(t ?? '').trim() === a));
+export const COMPANY_INFO_TAB_NAME = '회사정보';
+/**
+ * 공급사에게 보이는 탭 = 재고 탭(이름은 시트마다 「재고」·「렌트재고」·「구독재고」 등 — 건드리지 않는다) + 아래 셋.
+ * 숨기는 것은 «우리(AI)가 보는 탭»만(`SUPPLIER_HIDDEN_TABS`). 모르는 탭은 손대지 않는다 — 재고 탭을 숨기면 사고다(2026-08-19 dry-run에서 「재고」가 숨김 대상으로 잡혔었다).
+ */
+export const SUPPLIER_VISIBLE_TABS: readonly string[] = [POLICY_TAB_NAME, '공지사항', COMPANY_INFO_TAB_NAME];
+export const SUPPLIER_HIDDEN_TABS: readonly string[] = ['AI 인계', 'AI 정제', '정책 작성법', '작성 안내', '정제시트 안내', 'AI 운영 매뉴얼', '이 시트는', '안내'];
 const POLICY_BLANK_COLS = 3;      // 새 정책을 적을 빈 칸
 
 /**
@@ -1036,7 +1169,14 @@ const POLICY_BLANK_COLS = 3;      // 새 정책을 적을 빈 칸
  * ⚠ 공급사별 `@제외` 규칙으로 막지 마라. 이건 **모든 제공시트에 있는 우리 탭**이라
  *   공급사가 늘 때마다 규칙을 또 적어야 하고, 안 적은 곳은 조용히 소음을 낸다.
  */
-export const OUR_NON_INVENTORY_TABS = [POLICY_TAB_NAME, 'AI 인계', 'AI 정제'];
+// 「정책 작성법」은 2026-08-18 정책 표기 매뉴얼 탭 — 재고표가 아니다(publish-policy-guide 가 찍는다).
+export const SHEET_IDENTITY_TAB = '이 시트는';
+export const LEGACY_NOTICE_TAB = '⚠ 구버전 — 안 씀';
+/** 공급사 시트 안 「상품시트」 탭 — 발행된 판매시트에서 그 공급사 줄을 그대로 옮긴 사본(사장님 2026-08-19 「공급사가 입력하는 거랑 상품시트에 올라갈 거를 미리 똑같이」). 재고 탭이 아니다. */
+export const SUPPLIER_PREVIEW_TAB = '상품시트';
+/** 공급사 시트마다 붙이는 「차종마스터」 사본 탭(사장님 2026-08-19 「공급사시트에 차종마스터 탭을 다 붙여 넣고」) — 정본은 원천대장, publish-vehicle-master-tab 이 통째로 다시 쓴다. */
+export const VEHICLE_MASTER_COPY_TAB = '차종마스터';
+export const OUR_NON_INVENTORY_TABS = [...POLICY_TAB_ALIASES, COMPANY_INFO_TAB_NAME, 'AI 인계', 'AI 정제', '정책 작성법', '작성 안내', '정제시트 안내', '공지사항', 'AI 운영 매뉴얼', SHEET_IDENTITY_TAB, LEGACY_NOTICE_TAB, SUPPLIER_PREVIEW_TAB, VEHICLE_MASTER_COPY_TAB];
 export const isOurNonInventoryTab = (title: unknown) =>
   OUR_NON_INVENTORY_TABS.some((t) => String(title ?? '').trim() === t);
 
@@ -1317,7 +1457,7 @@ export function buildNumberFormats(gid: number, columns = TEMPLATE_COLUMNS, rowC
     const plain = /연식/.test(c.name);
     if (!money && !plain) continue;
     /**
-     * ★**대여료는 굵게, 보증금은 연하게**(사장님 확정 2026-08-11).
+     * ★**대여료는 굵게, 보증금은 보통 굵기** — 글자색은 둘 다 검정(사장님 2026-08-11 굵기 · 2026-08-19 「폰트 그냥 검정색으로」).
      *   금액 칸이 열 몇 개씩 나란히 서 있으면 어느 게 매달 내는 돈이고 어느 게 한 번 내는
      *   돈인지 눈으로 안 갈린다. 굵기로 가른다 — 파는 값이 대여료이므로 그쪽을 세운다.
      */
@@ -1330,9 +1470,10 @@ export function buildNumberFormats(gid: number, columns = TEMPLATE_COLUMNS, rowC
           userEnteredFormat: {
             horizontalAlignment: 'RIGHT',
             numberFormat: { type: 'NUMBER', pattern: money ? '#,##0' : '0' },
+            // ★글자는 검정(사장님 2026-08-19 「기간별 대여료 폰트 그냥 검정색으로」) — 보증금 회색 글자는 뺐다. 굵기만 대여료 굵게·보증금 보통.
             textFormat: {
               fontSize: 10, fontFamily: FONT, bold: rent,
-              ...(deposit ? { foregroundColorStyle: { rgbColor: { red: 0.42, green: 0.45, blue: 0.50 } } } : {}),
+              foregroundColorStyle: { rgbColor: { red: 0, green: 0, blue: 0 } },
             },
           },
         },

@@ -69,6 +69,7 @@ const product: EntityRecord = {
 const room: EntityRecord = {
   _key: 'CH_p1_U0001', product_code: 'p1', agent_code: 'U0001',
   vehicle_name: '스포티지', car_number: '12가3456', provider_company_code: 'RP013',
+  last_message: '차량 문의', last_message_at: 1,
 };
 const baseContract: EntityRecord = {
   contract_code: 'C-1', product_code: 'p1', agent_code: 'U0001', agent_name: '김영업',

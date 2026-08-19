@@ -45,7 +45,7 @@ export const POLICY_DEFAULTS: PolicyDefault[] = [
     source: '프리패스 표준 장기대여 기본 상품 — 신차는 별도 정책으로 등록',
   },
   {
-    key: 'screening_criteria', label: '심사기준', value: '신용무관',
+    key: 'screening_criteria', label: '심사조건', value: '무심사', // 사장님 2026-08-19 셋(무심사·소득확인·신용조회) — 옛 「신용무관」=무심사
     source: '프리패스 저신용·무심사 영업 기본정책',
   },
   {
@@ -53,7 +53,7 @@ export const POLICY_DEFAULTS: PolicyDefault[] = [
     source: '심사기준 「신용무관」과 동일한 기본값',
   },
   {
-    key: 'basic_driver_age', label: '기본연령', value: 26,
+    key: 'basic_driver_age', label: '기본운전자연령', value: '만 26세 이상', // 사장님 2026-08-19 — 시트 규격 글자(select)
     source: '프리패스 표준 계약서 만 26세 이상 보험 기준',
   },
   {
@@ -61,23 +61,23 @@ export const POLICY_DEFAULTS: PolicyDefault[] = [
     source: '프리패스 연령별 면책금 표의 최저 계약 가능 연령',
   },
   {
-    key: 'driver_age_upper_limit', label: '연령상한', value: 70,
+    key: 'driver_age_upper_limit', label: '최대연령', value: '만 70세 이하', // 시트 규격 글자
     source: '프리패스 기본정책 만 70세 이하',
   },
   {
-    key: 'license_period', label: '면허 경력요건', value: '제한없음',
+    key: 'license_period', label: '면허 경력요건', value: '1년 이상', // 사장님 2026-08-19 프리패스 기본 정책(손오공 시트 기본행)
     source: '프리패스 기본정책 — 별도 지정이 없으면 면허 경력 제한 없음',
   },
   {
-    key: 'age_lowering_cost', label: '연령하향 비용', value: 100000,
+    key: 'age_lowering_cost', label: '연령 하향 요금', value: '10만원', // 정액·정률 겸용 글자(policy-money-rate 가 읽음)
     source: '프리패스 기본정책 — 연령하향 계약 월 10만원',
   },
   {
-    key: 'annual_mileage', label: '약정 주행거리', value: '연 20,000km',
+    key: 'annual_mileage', label: '약정 주행거리', value: '연 30,000km', // 사장님 2026-08-19 프리패스 기본 정책
     source: '프리패스 기본정책 — 연간 2만km',
   },
   {
-    key: 'mileage_upcharge_per_10000km', label: '1만km 추가', value: 100000,
+    key: 'mileage_upcharge_per_10000km', label: '1만km 추가', value: '대여료의 10%', // 사장님 2026-08-19 — 정률
     source: '프리패스 기본정책 — 약정 주행거리 1만km 추가 시 월 10만원',
   },
   {
@@ -97,7 +97,7 @@ export const POLICY_DEFAULTS: PolicyDefault[] = [
     source: '프리패스 기본 영업지역',
   },
   {
-    key: 'delivery_fee', label: '탁송비', value: null,
+    key: 'delivery_fee', label: '탁송비', value: '일부지원', // 사장님 2026-08-19 프리패스 기본 정책
     source: '차량·지역별 실제 탁송비 협의 후 확정',
   },
   {
@@ -109,19 +109,19 @@ export const POLICY_DEFAULTS: PolicyDefault[] = [
     source: '프리패스 기본정책 — 보증금 카드 수납 가능',
   },
   {
-    key: 'personal_driver_scope', label: '개인 운전범위', value: '계약자와 배우자 및 직계가족',
+    key: 'personal_driver_scope', label: '개인운전자범위', value: '본인+직계가족', // 사장님 2026-08-19 프리패스 기본 정책(시트 규격 글자)
     source: '프리패스 개인계약 기본 운전자 범위',
   },
   {
-    key: 'business_driver_scope', label: '사업자 운전범위', value: '법인 임직원 및 계약자 가족',
+    key: 'business_driver_scope', label: '법인운전자범위', value: '임직원', // 사장님 2026-08-19
     source: '프리패스 사업자계약 기본 운전자 범위',
   },
   {
-    key: 'additional_driver_allowance_count', label: '추가인원', value: 1,
+    key: 'additional_driver_allowance_count', label: '추가운전 인원', value: '1인까지', // 시트 규격 글자
     source: '프리패스 기본정책 — 추가 운전자 1인',
   },
   {
-    key: 'additional_driver_cost', label: '추가운전비', value: 50000,
+    key: 'additional_driver_cost', label: '추가운전 요금', value: '5만원', // 정액·정률 겸용 글자
     source: '프리패스 기본정책 — 추가 운전자 월 5만원',
   },
   {
@@ -129,7 +129,7 @@ export const POLICY_DEFAULTS: PolicyDefault[] = [
     source: '공급사별 정산 약정 우선 — 기본은 별도 약정으로 명시',
   },
   {
-    key: 'self_body_deductible', label: '자손 면책금', value: '없음',
+    key: 'self_body_deductible', label: '자손 면책금', value: '30만원', // 사장님 2026-08-19
     source: '프리패스 공통값 — 계약회사 실제 가입증권과 다르면 공급사 정책에서 수정',
   },
   {
@@ -142,11 +142,11 @@ export const POLICY_DEFAULTS: PolicyDefault[] = [
   },
   /* ── 미납 제재 ── 각 금원의 계약상 납부기한 다음 날부터 계산 */
   {
-    key: 'engine_control_overdue_days', label: '운행제한(시동제어) 기준일', value: 3,
+    key: 'engine_control_overdue_days', label: '시동제어 기준일', value: '3일', // 시트 규격 글자
     source: '계약서 「각 납부기한 다음 날부터 계산하여 연체 3일째 18시 미납 시 시동제어」',
   },
   {
-    key: 'auto_terminate_overdue_days', label: '차량회수·해지 기준일', value: 10,
+    key: 'auto_terminate_overdue_days', label: '차량회수 기준일', value: '10일',
     source: '계약서 「10일째 미납 시 최고 후 계약 해지·회수」',
   },
   {
@@ -160,15 +160,15 @@ export const POLICY_DEFAULTS: PolicyDefault[] = [
     source: '프리패스 표준값 연 24% — 관계 법령상 허용 한도 내에서 적용',
   },
   {
-    key: 'succession_allowed', label: '승계 가능여부', value: '협의',
+    key: 'succession_allowed', label: '승계 가능여부', value: '가능', // 사장님 2026-08-19
     source: '프리패스 표준은 회사 사전승인 후 협의 — 계약회사별 가능·협의·불가를 확인해 수정',
   },
   {
-    key: 'succession_fee', label: '승계수수료(원)', value: 1000000,
+    key: 'succession_fee', label: '승계수수료', value: '100만원', // 정액·정률 겸용 글자
     source: '프리패스 공급 렌터카사 평균 운영값 100만원 — 계약회사별 실제 적용금액을 확인해 수정',
   },
   {
-    key: 'deposit_return_days', label: '보증금 반환기한(일)', value: 7,
+    key: 'deposit_return_days', label: '보증금 반환기한', value: '7일',
     source: '계약서 「과태료·사고 여부 확인 후 1주일 안에 고객 지정 계좌로 반환」',
   },
 
@@ -186,7 +186,7 @@ export const POLICY_DEFAULTS: PolicyDefault[] = [
 
   /* ── 제재 ── */
   {
-    key: 'accident_termination_count', label: '사고 다발 시 계약해지 기준(N회)', value: 3,
+    key: 'accident_termination_count', label: '사고 다발 해지기준', value: '3회',
     source: '계약서 「사고 발생 시점 1년 이내 임차인 과실비율 50% 이상의 사고 3회 누적 시 계약 해지」',
   },
   {
@@ -200,7 +200,7 @@ export const POLICY_DEFAULTS: PolicyDefault[] = [
     source: '서식 05항 「임대인 지정 또는 사전 합의된 정비점」 · 계약서 「임의 수리 시 전액 임차인 부담」',
   },
   {
-    key: 'replacement_car_policy', label: '대차 정책', value: '미제공',
+    key: 'replacement_car_policy', label: '대차 제공', value: '불가', // 사장님 2026-08-19 표기
     // 「지원 불가」는 부정조건이다 — 비워 두면 손님이 대차되는 줄 안다.
     source: '계약서 「대차서비스 지원 불가 합니다」',
   },
@@ -215,7 +215,7 @@ export const POLICY_DEFAULTS: PolicyDefault[] = [
     source: '프리패스 공통 변동 문구 — 공급사가 고정 가입처를 쓰는 경우 실제 명칭으로 수정',
   },
   {
-    key: 'insurance_included', label: '보험 포함 여부', value: '포함(회사 가입)',
+    key: 'insurance_included', label: '보험료', value: '보험료 포함', // 시트 규격 글자
     source: '프리패스 표준 렌트계약서 — 월 대여료에 보험료 포함',
   },
   {
@@ -223,19 +223,19 @@ export const POLICY_DEFAULTS: PolicyDefault[] = [
     source: '프리패스 공통값 — 계약회사 실제 가입증권과 다르면 공급사 정책에서 수정',
   },
   {
-    key: 'property_compensation_limit', label: '대물배상', value: '2억원',
+    key: 'property_compensation_limit', label: '대물배상', value: '1억원', // 사장님 2026-08-19 — 영업용 기본 1억원(A4 서식 기본과 일치)
     source: '프리패스 공통값 — 계약회사 실제 가입증권과 다르면 공급사 정책에서 수정',
   },
   {
-    key: 'self_body_accident', label: '자기신체사고', value: '사망·후유장애 1인당 3천만원 · 부상 1인당 1,500만원',
+    key: 'self_body_accident', label: '자기신체사고', value: '1억원', // 사장님 2026-08-19 프리패스 기본 정책
     source: '프리패스 표준값 — 계약회사 실제 가입증권과 일치하는지 확인 후 적용',
   },
   {
-    key: 'uninsured_damage', label: '무보험차상해', value: '미가입',
+    key: 'uninsured_damage', label: '무보험보상', value: '없음', // 사장님 2026-08-19 프리패스 기본 정책
     source: '프리패스 표준값 — 계약회사 실제 가입증권과 일치하는지 확인 후 적용',
   },
   {
-    key: 'own_damage_compensation', label: '자차 보상', value: '차량가 기준',
+    key: 'own_damage_compensation', label: '자차보상한도', value: '차량가액', // 시트 규격 글자
     source: '프리패스 공통값 — 계약회사 실제 자차면책 규정과 다르면 공급사 정책에서 수정',
   },
   {
@@ -263,21 +263,21 @@ export const POLICY_DEFAULTS: PolicyDefault[] = [
 
   /* ── 상품 기본 ── */
   {
-    key: 'maintenance_service', label: '정비 상품', value: '미제공',
+    key: 'maintenance_service', label: '정비 상품', value: '불포함', // 사장님 2026-08-19 표기
     source: '계약서 「정비상품 선택을 안할경우 정비 및 소모품 교체는 고객이 부담」 — 선택 안 함이 기본',
   },
   {
-    key: 'annual_roadside_assistance', label: '긴급출동', value: '연 5회',
+    key: 'annual_roadside_assistance', label: '긴급출동', value: '연간 5회', // 시트 규격 글자
     source: '프리패스 공통값 — 계약회사 실제 긴급출동 특약과 다르면 공급사 정책에서 수정',
   },
 
   /* ── 사장님 지정(2026-08-09) ── 계약서에 숫자가 없어 새로 정한 프리패스 표준 */
   {
-    key: 'over_mileage_rate_domestic', label: '초과 주행요금 · 국산(1km당)', value: 200,
+    key: 'over_mileage_rate_domestic', label: '초과주행 국산(1km당)', value: '200원',
     source: '프리패스 표준(2026-08-09 지정) — 국산차 1km 초과당 200원',
   },
   {
-    key: 'over_mileage_rate_imported', label: '초과 주행요금 · 수입(1km당)', value: 400,
+    key: 'over_mileage_rate_imported', label: '초과주행 수입(1km당)', value: '400원',
     source: '프리패스 표준(2026-08-09 지정) — 수입차 1km 초과당 400원',
   },
   {
@@ -285,11 +285,11 @@ export const POLICY_DEFAULTS: PolicyDefault[] = [
     source: '프리패스 표준(2026-08-09 지정) — 약관 제22조가 참조하는 값',
   },
   {
-    key: 'early_termination_rate_under1y', label: '중도해지 위약금 · 1년 미만(0~1)', value: 0.3,
+    key: 'early_termination_rate_under1y', label: '중도해지 위약금 · 1년 미만', value: '30%', // 잔여 대여료의 30% — 겸용 글자
     source: '프리패스 표준(2026-08-09 지정) — 잔여기간 대여료의 30%',
   },
   {
-    key: 'early_termination_rate_over1y', label: '중도해지 위약금 · 1년 이상(0~1)', value: 0.2,
+    key: 'early_termination_rate_over1y', label: '중도해지 위약금 · 1년 이상', value: '20%',
     source: '프리패스 표준(2026-08-09 지정) — 잔여기간 대여료의 20%',
   },
 
@@ -328,16 +328,28 @@ export function overMileageRateFor(
   const key = isDomesticMaker(String(maker || ''))
     ? 'over_mileage_rate_domestic'
     : 'over_mileage_rate_imported';
-  const n = Number(p[key]);
-  if (Number.isFinite(n) && n > 0) return n;
+  const n = policyNumber(p[key]);   // 「200원」·200 둘 다
+  if (n !== null && n > 0) return n;
   /**
    * 국산·수입을 나눠 정하지 않은 공급사가 대부분이다 — 그 경우 **한 값을 둘 다에 쓴다.**
    * 실측(2026-08-12): 32개 정책 전부 `_domestic`·`_imported` 가 비어 있고
    * `over_mileage_rate_per_km` 만 채워져 있어, 계약서의 초과주행 요금이 통째로 빈칸이었다.
    * 나눠 정한 곳은 위에서 이미 걸러졌으므로 여기서 덮어쓸 일은 없다.
    */
-  const flat = Number(p.over_mileage_rate_per_km);
-  return Number.isFinite(flat) && flat > 0 ? flat : null;
+  const flat = policyNumber(p.over_mileage_rate_per_km);
+  return flat !== null && flat > 0 ? flat : null;
+}
+
+/** 시트 규격 글자(「7일」「3회」「200원」「만 26세 이상」)에서 숫자만 — 옛 숫자값도 그대로. 없음·제한없음은 null. */
+export function policyNumber(v: unknown): number | null {
+  if (typeof v === 'number') return Number.isFinite(v) ? v : null;
+  const t = String(v ?? '').replace(/,/g, '').trim();
+  if (!t || /^(없음|제한없음|무제한|협의)$/.test(t)) return null;
+  const m = t.match(/-?\d+(?:\.\d+)?/);
+  if (!m) return null;
+  const n = Number(m[0]);
+  if (!Number.isFinite(n)) return null;
+  return /만원$/.test(t.replace(/\s/g, '')) ? Math.round(n * 10_000) : n;
 }
 
 /**

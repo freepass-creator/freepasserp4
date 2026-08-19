@@ -1,9 +1,14 @@
 /** 아이언렌트카 웹 공급사 소스 전수 read-only 점검. 운영 write 없음. */
 import { fetchIronRentcarCatalog } from '../lib/server/ironrentcar-source';
 import { ironRentcarExistingRows, planIronRentcarReconcile } from '../lib/domain/ironrentcar-reconcile';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import type { EntityRecord } from '../lib/intake/entities';
 import { mergeV3V4Records } from '../lib/firebase/rtdb-records';
+
+const arg = (name: string): string => {
+  const index = process.argv.indexOf(name);
+  return index >= 0 ? String(process.argv[index + 1] || '') : '';
+};
 
 const catalog = await fetchIronRentcarCatalog({ cacheMs: 0 });
 const products = catalog.items.map((item) => item.product);
@@ -16,6 +21,30 @@ const privateLeak = products.filter((product) => 'vehicle_price' in product).len
 console.log(`아이언 웹 read-only: 전체 ${catalog.listings} · 활성 ${catalog.active} · 판매완료 ${catalog.sold} · 신차 ${catalog.newCount} · 중고 ${catalog.usedCount}`);
 console.log(`상세 변환: ${catalog.items.length}/${catalog.listings} · 오류 ${catalog.errors.length} · 차번누락 ${missingPlate} · 가격누락 ${missingPrice} · 사진누락 ${missingImage} · 중복차번 ${duplicatePlates} · 공개원가누수 ${privateLeak}`);
 console.log(`revision=${catalog.revision} complete=${catalog.complete}`);
+const outFile = arg('--out');
+if (outFile) {
+  writeFileSync(outFile, JSON.stringify({
+    fetchedAt: catalog.fetchedAt,
+    revision: catalog.revision,
+    complete: catalog.complete,
+    counts: {
+      listings: catalog.listings,
+      active: catalog.active,
+      sold: catalog.sold,
+      new: catalog.newCount,
+      used: catalog.usedCount,
+    },
+    items: catalog.items.map((item) => ({
+      externalId: item.externalId,
+      sourceUrl: item.sourceUrl,
+      condition: item.condition,
+      sold: item.sold,
+      product: item.product,
+      policySnapshot: item.policySnapshot,
+    })),
+  }, null, 2), 'utf8');
+  console.log(`audit-json=${outFile}`);
+}
 if (process.argv.includes('--show-source')) {
   for (const item of catalog.items) {
     const raw = item.product._raw_vehicle && typeof item.product._raw_vehicle === 'object'
@@ -39,10 +68,6 @@ if (!catalog.complete || missingPlate || missingPrice || missingImage || duplica
   process.exit(1);
 }
 
-const arg = (name: string): string => {
-  const index = process.argv.indexOf(name);
-  return index >= 0 ? String(process.argv[index + 1] || '') : '';
-};
 const v3File = arg('--v3');
 const v4File = arg('--v4');
 const backupFile = arg('--backup');

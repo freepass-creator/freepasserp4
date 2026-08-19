@@ -22,10 +22,12 @@
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import {
-  POLICY_KEY_COLUMNS, POLICY_PREFILL, POLICY_SHEET_FIELDS, USE_COLOR, USE_LABEL,
+  POLICY_KEY_COLUMNS, POLICY_PREFILL, POLICY_RETIRED_FIELDS, POLICY_SHEET_FIELDS, USE_LABEL,
   policyBlocks, policySheetHeader,
 } from '../lib/domain/policy-sheet-layout';
 import { POLICY_VALUE_LISTS } from '../lib/domain/supplier-template-sheet';
+import { POLICY_CHECK_FIELD_NAMES, POLICY_FIELD_RENAMES } from '../lib/domain/policy-value-spec';
+import { policyCellValue, policyRowLive } from '../lib/domain/supplier-policy-read';
 
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
@@ -34,7 +36,7 @@ const arg = (k: string, d = '') => (process.argv.find((a) => a.startsWith(`--${k
 const APPLY = process.argv.includes('--apply');
 const ONE = arg('sheet');
 const NAME = arg('name', '프리패스 재고');
-const TAB = '정책';
+import { POLICY_TAB_NAME, policyTabTitle } from '../lib/domain/supplier-template-sheet';
 
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 const jwt = new JWT({
@@ -71,6 +73,7 @@ let done = 0, already = 0, skipped = 0, bad = 0;
 for (const t of targets.sort((a, b) => a.name.localeCompare(b.name, 'ko'))) {
   const meta = await call(`${SH}/${t.id}?fields=properties.title,sheets.properties(sheetId,title,hidden,gridProperties(rowCount,columnCount))`);
   const book = S(meta.properties?.title) || t.name;
+  const TAB = policyTabTitle(((meta.sheets || []) as Rec[]).map((s) => S(s.properties?.title))) || '';
   const p = ((meta.sheets || []) as Rec[]).map((s) => s.properties).find((x) => S(x.title) === TAB);
   if (!p) { skipped++; console.log(`  ⏭ ${book} — 정책 탭이 없다`); continue; }
 
@@ -111,11 +114,12 @@ for (const t of targets.sort((a, b) => a.name.localeCompare(b.name, 'ko'))) {
   let nameRow: string[] | undefined;
   if (isWide) {
     const hdr = rows[0].map(S);
-    rows.slice(1).forEach((r, k) => { if (r.some((c) => S(c))) cols.push([k, S(r[0]) || '(프리패스 기본)']); });
+    // 체크 열의 FALSE 는 값이 아니다(빈 체크박스) — 그것만 있는 줄은 정책이 아니다.
+    rows.slice(1).forEach((r, k) => { if (policyRowLive(hdr, r)) cols.push([k, S(r[0]) || '(프리패스 기본)']); });
     hdr.forEach((h, ci) => {
       if (!h || /^정책코드$|^정책명$/.test(norm(h))) return;
       const m = new Map<number, string>();
-      cols.forEach(([k]) => { const x = S(rows[k + 1]?.[ci]); if (x) m.set(k, x); });
+      cols.forEach(([k]) => { const x = policyCellValue(h, rows[k + 1]?.[ci]); if (x) m.set(k, x); });
       byField.set(h, m);
     });
     nameRow = undefined;
@@ -134,8 +138,58 @@ for (const t of targets.sort((a, b) => a.name.localeCompare(b.name, 'ko'))) {
     }
   }
 
-  // 새 규격에 없는 옛 항목은 버리지 않고 뒤에 붙인다.
-  const extra = [...byField.keys()].filter((f) => !HEADER.some((h) => norm(h) === norm(f)));
+  // ★개명(POLICY_FIELD_RENAMES) — 옛 이름 열의 값은 새 이름 열로 옮긴다(둘 다 있으면 새 이름 값이 이긴다).
+  for (const [oldName, newName] of Object.entries(POLICY_FIELD_RENAMES)) {
+    const oldKey = [...byField.keys()].find((k) => norm(k) === norm(oldName));
+    if (!oldKey) continue;
+    const newKey = [...byField.keys()].find((k) => norm(k) === norm(newName)) || newName;
+    const merged = new Map(byField.get(oldKey)!);
+    for (const [i, v] of byField.get(newKey) || []) if (S(v)) merged.set(i, v);
+    byField.set(newKey, merged);
+    byField.delete(oldKey);
+  }
+  // ★폐지 열 「추가주행 방식」 — 「불가」였고 금액이 비었으면 금액 칸에 「불가」를 옮긴다. 그 밖엔 금액 표기가 방식을 말하므로 버린다.
+  {
+    const modeKey = [...byField.keys()].find((k) => norm(k) === norm('추가주행 방식'));
+    const feeKey = [...byField.keys()].find((k) => norm(k) === norm('추가주행 금액'));
+    if (modeKey) {
+      const modes = byField.get(modeKey)!;
+      const fees = byField.get(feeKey || '추가주행 금액') || new Map<number, string>();
+      for (const [i, mode] of modes) if (/불가/.test(mode) && !S(fees.get(i))) fees.set(i, '불가');
+      byField.set(feeKey || '추가주행 금액', fees);
+    }
+  }
+  // ★「추가운전 요금」 옛 합성값(「1인까지 · 1인당 월 5만원」·「불가」·「제한없음 · …」) → 「추가운전 인원」 + 「추가운전 요금(1인당 월)」 두 칸(사장님 2026-08-19).
+  {
+    const feeKey = [...byField.keys()].find((k) => norm(k) === norm('추가운전 요금'));
+    if (feeKey) {
+      const fees = byField.get(feeKey)!;
+      const countKey = [...byField.keys()].find((k) => norm(k) === norm('추가운전 인원')) || '추가운전 인원';
+      const counts = byField.get(countKey) || new Map<number, string>();
+      for (const [i, raw] of [...fees.entries()]) {
+        const parts = S(raw).split(/\s*·\s*/);
+        const head = S(parts[0]);
+        if (/^불가$/.test(head)) { if (!S(counts.get(i))) counts.set(i, '불가'); fees.set(i, '불가'); continue; }
+        if (parts.length === 2 && /인까지|제한없음/.test(head)) {
+          if (!S(counts.get(i))) counts.set(i, head);
+          fees.set(i, S(parts[1]).replace(/^1인당\s*/, '').replace(/^월\s*/, ''));
+        }
+      }
+      byField.set(countKey, counts);
+    }
+  }
+  // ★폐지 「추가운전」(가부) — 「불가」였고 인원이 비었으면 「추가운전 인원」에 「불가」를 옮긴다.
+  {
+    const gateKey = [...byField.keys()].find((k) => norm(k) === norm('추가운전'));
+    if (gateKey) {
+      const countKey = [...byField.keys()].find((k) => norm(k) === norm('추가운전 인원')) || '추가운전 인원';
+      const counts = byField.get(countKey) || new Map<number, string>();
+      for (const [i, v] of byField.get(gateKey)!) if (/불가/.test(v) && !S(counts.get(i))) counts.set(i, '불가');
+      byField.set(countKey, counts);
+    }
+  }
+  // 새 규격에 없는 옛 항목은 버리지 않고 뒤에 붙인다 — 폐지 열(POLICY_RETIRED_FIELDS)만 예외.
+  const extra = [...byField.keys()].filter((f) => !HEADER.some((h) => norm(h) === norm(f)) && !POLICY_RETIRED_FIELDS.some((r) => norm(r) === norm(f)));
   const header = [...HEADER, ...extra];
 
   const body = cols.map(([i, code]) => header.map((h) => {
@@ -167,6 +221,7 @@ for (const t of targets.sort((a, b) => a.name.localeCompare(b.name, 'ko'))) {
 
   const gid = p.sheetId as number;
   const reqs: Rec[] = formatOnly ? [] : [
+    ...(TAB !== POLICY_TAB_NAME ? [{ updateSheetProperties: { properties: { sheetId: gid, title: POLICY_TAB_NAME }, fields: 'title' } }] : []),
     { updateCells: { range: { sheetId: gid }, fields: 'userEnteredValue,userEnteredFormat' } },
     { updateSheetProperties: { properties: { sheetId: gid, gridProperties: { frozenRowCount: 1, frozenColumnCount: 2 } }, fields: 'gridProperties.frozenRowCount,gridProperties.frozenColumnCount' } },
   ];
@@ -175,17 +230,22 @@ for (const t of targets.sort((a, b) => a.name.localeCompare(b.name, 'ko'))) {
   }
   if (reqs.length) await call(`${SH}/${t.id}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests: reqs }) });
   if (!formatOnly) {
-    await call(`${SH}/${t.id}/values/${encodeURIComponent(`'${TAB}'!A1`)}?valueInputOption=USER_ENTERED`, {
+    await call(`${SH}/${t.id}/values/${encodeURIComponent(`'${POLICY_TAB_NAME}'!A1`)}?valueInputOption=USER_ENTERED`, {
       method: 'PUT', body: JSON.stringify({ values: [header, ...body] }),
     });
   }
 
   // ── 블록 색과 머리글 메모 — 공급사가 «왜 채우는지» 알아야 채운다
   const fmt: Rec[] = [];
+  // ★열이 늘고 줄고 자리가 바뀌면 옛 드롭다운·머리 메모가 «그 자리»에 남는다(2026-08-19 손오공: 전용계좌 칸에 탁송비 목록이 떴다).
+  //   먼저 탭 전체의 데이터 검증과 머리행 메모를 지우고 새 규격을 입힌다.
+  if (formatOnly && TAB !== POLICY_TAB_NAME) fmt.push({ updateSheetProperties: { properties: { sheetId: gid, title: POLICY_TAB_NAME }, fields: 'title' } });
+  fmt.push({ setDataValidation: { range: { sheetId: gid } } });
+  fmt.push({ repeatCell: { range: { sheetId: gid, startRowIndex: 0, endRowIndex: 1 }, cell: { note: '' }, fields: 'note' } });
   for (const b of policyBlocks()) {
     fmt.push({ repeatCell: {
       range: { sheetId: gid, startRowIndex: 0, endRowIndex: 1, startColumnIndex: b.from, endColumnIndex: b.to },
-      cell: { userEnteredFormat: { backgroundColor: rgb(USE_COLOR[b.use]), textFormat: { bold: true, fontSize: 9 }, wrapStrategy: 'WRAP', verticalAlignment: 'MIDDLE' } },
+      cell: { userEnteredFormat: { backgroundColor: rgb(b.color), textFormat: { bold: true, fontSize: 9 }, wrapStrategy: 'WRAP', verticalAlignment: 'MIDDLE' } },
       fields: 'userEnteredFormat(backgroundColor,textFormat,wrapStrategy,verticalAlignment)',
     } });
   }
@@ -207,6 +267,18 @@ for (const t of targets.sort((a, b) => a.name.localeCompare(b.name, 'ko'))) {
    */
   let drops = 0;
   header.forEach((name, i) => {
+    // ⑩ 제출서류 — 체크박스(사장님 2026-08-19 「체크하게」).
+    //   ⚠ BOOLEAN 검증은 빈칸을 FALSE 로 채워 버린다 → 정책 줄 + 10줄까지만 건다(200줄에 걸면 유령 정책 198개 — 손오공 실측).
+    //   그 아래 남은 FALSE 는 지운다. 새 정책 줄은 윗줄을 복사하면 체크박스가 따라온다.
+    if (POLICY_CHECK_FIELD_NAMES.includes(name)) {
+      drops++;
+      fmt.push({ updateCells: { range: { sheetId: gid, startRowIndex: body.length, startColumnIndex: i, endColumnIndex: i + 1 }, fields: 'userEnteredValue' } });
+      fmt.push({ setDataValidation: {
+        range: { sheetId: gid, startRowIndex: 1, endRowIndex: body.length + 10, startColumnIndex: i, endColumnIndex: i + 1 },
+        rule: { condition: { type: 'BOOLEAN' }, showCustomUi: true, strict: false },
+      } });
+      return;
+    }
     const list = POLICY_VALUE_LISTS[name];
     if (!list?.length) return;
     drops++;
@@ -225,12 +297,21 @@ for (const t of targets.sort((a, b) => a.name.localeCompare(b.name, 'ko'))) {
 
   // ── 되읽어 칸 단위 대조 (값을 다시 쓴 때만)
   if (formatOnly) { console.log(`       서식 다시 입힘 — 드롭다운 ${drops}칸`); continue; }
-  const back = await call(`${SH}/${t.id}/values/${encodeURIComponent(`'${TAB}'`)}`) as { values?: string[][] };
+  const back = await call(`${SH}/${t.id}/values/${encodeURIComponent(`'${POLICY_TAB_NAME}'`)}`) as { values?: string[][] };
   const got = (back.values || []) as string[][];
   const want = [header, ...body];
   let miss = 0;
-  want.forEach((r, ri) => r.forEach((c, ci) => { if (S(c) !== S(got[ri]?.[ci])) miss++; }));
-  if (miss) { bad++; console.log(`       ⛔ 되읽으니 ${miss}칸이 다르다 — 백업 ${backup}`); }
+  const diffs: string[] = [];
+  want.forEach((r, ri) => r.forEach((c, ci) => {
+    const back = S(got[ri]?.[ci]);
+    if (S(c) === back) return;
+    // 체크박스 칸(BOOLEAN 검증)은 빈칸을 FALSE 로 돌려준다 — 같은 뜻이라 어긋남이 아니다.
+    if (POLICY_CHECK_FIELD_NAMES.includes(header[ci]) && !S(c) && back === 'FALSE') return;
+    miss++;
+    if (diffs.length < 6) diffs.push(`${header[ci] || ci}[${ri}] 「${S(c)}」→「${back}」`);
+  }));
+  if (miss) { bad++; console.log(`       ⛔ 되읽으니 ${miss}칸이 다르다 — 백업 ${backup}
+         ${diffs.join(' · ')}`); }
   else console.log(`       ✓ ${want.length}줄 × ${header.length}열 그대로 · 드롭다운 ${drops}칸 · 백업 ${backup}`);
 }
 console.log(`\n  돌림 ${done} · 이미 가로 ${already} · 건너뜀 ${skipped}${bad ? ` · ⛔ 어긋남 ${bad}` : ''}`);

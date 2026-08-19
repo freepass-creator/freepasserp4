@@ -44,6 +44,7 @@ export function productPatchPreconditionMatches(
   opts: {
     overlayFallback?: boolean;
     guardFields?: readonly string[];
+    ignoredFields?: readonly string[];
   } = {},
 ): boolean {
   if (!current && !opts.overlayFallback) return false;
@@ -51,6 +52,7 @@ export function productPatchPreconditionMatches(
     ...Object.keys(patch),
     ...(opts.guardFields ?? PRODUCT_PATCH_GUARD_FIELDS),
   ]);
+  for (const field of opts.ignoredFields ?? []) fields.delete(field);
   for (const field of fields) {
     const actual = opts.overlayFallback && !hasOwn(current, field)
       ? expected[field]

@@ -104,7 +104,9 @@ export const SALES_LAYER: PolicyField[] = [
   { key: 'payment_timing', label: '대여료 납부 조건', layer: 'sales', exposure: 'contract', article: '제6조', decides: '대여료 납부 시점', why: '선불·후불은 결제수단과 별개인 계약조건. 정책 기본값을 가져오되 계약 건별로 확정한다' },
 
   // ④ 승인 여부를 결정하는 것 — 손님에게 절대 안 나간다
-  { key: 'screening_criteria', label: '심사기준', layer: 'sales', exposure: 'internal', decides: '계약 승인 여부', why: '⚠ 내부 심사 기준. 손님 화면·계약서에 절대 실리지 않는다 — 우리가 그 사람을 어떻게 평가했는지다' },
+  { key: 'screening_criteria', label: '심사조건', layer: 'sales', exposure: 'internal', decides: '계약 승인 여부', why: '⚠ 내부 심사 기준. 손님 화면·계약서에 절대 실리지 않는다 — 우리가 그 사람을 어떻게 평가했는지다' },
+  { key: 'disqualification_conditions', label: '불가조건', layer: 'sales', exposure: 'internal', decides: '계약 가능 여부(상담)', why: '⚠ 내부 상담 기준(「3년 이내 음주이력」). 손님 화면·계약서에 실리지 않는다' },
+  { key: 'sales_notes', label: '특이사항(영업)', layer: 'sales', exposure: 'internal', decides: '영업 상담 안내', why: '영업자가 알아야 할 그 밖의 조건. 손님 화면·계약서에 실리지 않는다' },
   { key: 'credit_grade', label: '신용등급', layer: 'sales', exposure: 'internal', decides: '계약 승인 여부', why: '⚠ 위와 같음' },
 
   // ⑤ 상담 안내 — 결정도 적용도 아닌 것
@@ -168,6 +170,47 @@ export const CONTRACT_LAYER: PolicyField[] = [
 
 export const ALL_POLICY_FIELDS = [...PRODUCT_LAYER, ...SALES_LAYER, ...CONTRACT_LAYER];
 
+export type PolicyReadinessStatus = '판매조건 부족' | '계약조건 부족' | '완료';
+
+/** 판매 시트와 상품 선택에 필요한 최소 정책. 내부 심사·계약 약관은 포함하지 않는다. */
+export const SALES_READY_FIELDS: PolicyField[] = [
+  PRODUCT_LAYER.find((field) => field.key === 'annual_mileage')!,
+  PRODUCT_LAYER.find((field) => field.key === 'basic_driver_age')!,
+  PRODUCT_LAYER.find((field) => field.key === 'license_period')!,
+  SALES_LAYER.find((field) => field.key === 'driver_age_lowering')!,
+  SALES_LAYER.find((field) => field.key === 'deposit_installment')!,
+  SALES_LAYER.find((field) => field.key === 'rental_region')!,
+  SALES_LAYER.find((field) => field.key === 'delivery_fee')!,
+];
+
+export function policyReadiness(
+  policy: Record<string, unknown> | null | undefined,
+  partner?: Record<string, unknown> | null,
+): {
+  status: PolicyReadinessStatus;
+  salesMissing: PolicyField[];
+  contractMissing: PolicyField[];
+  contractRequired: boolean;
+} {
+  const record = policy || {};
+  const salesRequired = [...SALES_READY_FIELDS];
+  const lowering = String(record.driver_age_lowering || '').trim();
+  if (lowering && !/불가|없음|미운영/.test(lowering)) {
+    const cost = SALES_LAYER.find((field) => field.key === 'age_lowering_cost');
+    if (cost) salesRequired.push(cost);
+  }
+  const salesMissing = salesRequired.filter((field) => !has(record, field.key));
+  const contractRequired = contractLayerOf(record, partner) === 'contract';
+  const issue = contractRequired ? canIssueContract(record, partner) : null;
+  const contractMissing = issue?.missing || [];
+  return {
+    status: salesMissing.length ? '판매조건 부족' : contractRequired && !issue?.ok ? '계약조건 부족' : '완료',
+    salesMissing,
+    contractMissing,
+    contractRequired,
+  };
+}
+
 /**
  * 전자계약에 실제로 표시되는 상품·보험 고정값.
  * `CONTRACT_LAYER`만 검사하면 담보가 빈 보험포함 계약도 발행될 수 있으므로 별도 게이트로 둔다.
@@ -221,21 +264,51 @@ export function policyLayerOf(policy: Record<string, unknown> | null | undefined
 }
 
 /**
+ * 계약서 사용 여부의 신규 SSOT는 파트너사다.
+ * 기존 공급사는 파트너 값이 아직 없으므로 정책의 contract_authoring을 읽어 무중단 호환한다.
+ */
+export function contractLayerOf(
+  policy: Record<string, unknown> | null | undefined,
+  partner?: Record<string, unknown> | null,
+): PolicyLayer {
+  const enabled = String(partner?.esign_contract_enabled ?? '').trim();
+  if (enabled === '사용' || enabled === 'yes' || enabled === 'true') return 'contract';
+  if (enabled === '미사용' || enabled === 'no' || enabled === 'false') return 'product';
+  return policyLayerOf(policy);
+}
+
+/** 계약작성 회사 선택에 노출할 공급사인가. 파트너 미설정 레거시는 계약 정책으로 복원한다. */
+export function partnerUsesFreepassContract(
+  partner: Record<string, unknown> | null | undefined,
+  policies: Record<string, unknown>[] = [],
+): boolean {
+  const enabled = String(partner?.esign_contract_enabled ?? '').trim();
+  if (enabled === '사용' || enabled === 'yes' || enabled === 'true') return true;
+  if (enabled === '미사용' || enabled === 'no' || enabled === 'false') return false;
+  return policies.some((policy) => policyLayerOf(policy) === 'contract');
+}
+
+/**
  * 전자계약을 발행할 수 있는가.
  * 계약 층이 아니거나 필수 항목이 비면 막는다 — 서명 뒤에는 봉인되어 고치지 못한다.
  */
-export function canIssueContract(policy: Record<string, unknown> | null | undefined): {
+export function canIssueContract(
+  policy: Record<string, unknown> | null | undefined,
+  partner?: Record<string, unknown> | null,
+): {
   ok: boolean; layer: PolicyLayer; missing: PolicyField[]; reason: string;
 } {
-  const layer = policyLayerOf(policy);
+  const layer = contractLayerOf(policy, partner);
   if (layer !== 'contract') {
-    return { ok: false, layer, missing: [], reason: '이 공급사는 상품만 공급합니다 — 계약서는 공급사가 직접 작성합니다.' };
+    return { ok: false, layer, missing: [], reason: '파트너사에서 프리패스 전자계약을 사용하지 않도록 설정했습니다.' };
   }
   const p = policy || {};
   const companyInsurance = !/별도|개인/.test(String(p.insurance_included || '').trim());
   const ownDamageCovered = companyInsurance && !/미가입|없음/.test(String(p.own_damage_compensation || '').trim());
+  // 사장님 2026-08-19 — 가입 보험사·자차 처리 제외·지정 정비점은 공급사에게 안 묻는다(시트에서 뺌). 계약서엔 표준 문구로 나가므로 게이트에서도 뺀다.
+  const NOT_ASKED = new Set(['insurer_name', 'self_damage_exclusions', 'designated_garage', 'deposit_overdue_rounds']);
   const required = [
-    ...CONTRACT_LAYER,
+    ...CONTRACT_LAYER.filter((f) => !NOT_ASKED.has(f.key)),
     ...ISSUE_BASE_FIELDS,
     ...(companyInsurance ? ISSUE_INSURANCE_FIELDS : []),
     ...(ownDamageCovered ? ISSUE_OWN_DAMAGE_FIELDS : []),

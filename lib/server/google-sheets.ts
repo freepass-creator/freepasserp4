@@ -20,7 +20,7 @@ const SCOPE = 'https://www.googleapis.com/auth/spreadsheets';
 const API = 'https://sheets.googleapis.com/v4/spreadsheets';
 
 /** 한글이 섞인 표라 한글 자체가 예쁜 폰트를 쓴다. 없으면 구글시트가 알아서 대체한다. */
-const SHEET_FONT = 'Noto Sans KR';
+const SHEET_FONT = 'Roboto';   // 사장님 2026-08-18 — 모든 구글시트 Roboto 로 통일
 const HEADER_BG = { red: 0.17, green: 0.24, blue: 0.31 };
 const OK_BG = { red: 0.85, green: 0.94, blue: 0.86 };
 const NO_BG = { red: 0.93, green: 0.93, blue: 0.93 };

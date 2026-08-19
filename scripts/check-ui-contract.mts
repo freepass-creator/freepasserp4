@@ -150,6 +150,7 @@ if (!liveWidthReader.includes('window.innerWidth') || liveWidthReader.includes('
 
 // 문의→계약 이동은 같은 권한 스코프의 계약 캐시를 즉시 보여주고, 목록과 무관한 정산 read가
 // 계약 행 표시를 막지 않아야 한다. 모바일 탭 전환이 매번 skeleton으로 돌아가는 회귀를 막는다.
+// (2026-08-19 사장님: 계약진행=/contract 는 목록+5단계 진행 화면으로 복귀. 전자계약은 /esign 계약서관리 하나.)
 const contractPageSource = readFileSync(join(ROOT, 'app/contract/page.tsx'), 'utf8');
 if (!contractPageSource.includes("peekList('contract', co)")) {
   hits.push('app/contract/page.tsx: 같은 세션 계약 캐시로 목록 첫 페인트 유지');
@@ -158,6 +159,11 @@ const contractRowsReadyAt = contractPageSource.indexOf('setRows(mine);');
 const settlementBackgroundAt = contractPageSource.indexOf('void settlementsP.then');
 if (contractRowsReadyAt < 0 || settlementBackgroundAt < 0 || contractRowsReadyAt > settlementBackgroundAt) {
   hits.push('app/contract/page.tsx: 계약 목록 표시는 정산 선조회 완료보다 먼저 처리');
+}
+// 계약서관리(/esign)는 EsignSendCenter 하나가 목록 데이터를 직접 읽는다 — 페이지에서 엔진을 복제하지 않는다.
+const esignCenterSource = readFileSync(join(ROOT, 'components/EsignSendCenter.tsx'), 'utf8');
+if (!esignCenterSource.includes("getStore().list('contract', companyId)")) {
+  hits.push('components/EsignSendCenter.tsx: 계약 목록 데이터 직접 조립 유지');
 }
 
 if (hits.length) {

@@ -6,8 +6,10 @@
  *
  *   npx tsx scripts/sim-supplier-sheet-read.mts
  */
+import { readFileSync } from 'node:fs';
 import {
-  SHEET_GRID_FIELDS, findPlateAndStatusColumns, readSupplierSheet, sheetIdFromUrl,
+  SHEET_GRID_FIELDS, findPlateAndStatusColumns, isRetryableSheetsReadFailure,
+  readSupplierSheet, sheetIdFromUrl,
 } from '../lib/domain/supplier-sheet-read';
 import type { SheetsGridResponse } from '../lib/domain/sheet-visible-grid';
 import type { EntityRecord } from '../lib/intake/entities';
@@ -138,6 +140,19 @@ ok('필드 마스크에 hidden 이 들어 있다', SHEET_GRID_FIELDS.includes('h
   '빠지면 ②가 조용히 죽는다');
 ok('필드 마스크에 숨김 행 메타가 들어 있다',
   SHEET_GRID_FIELDS.includes('hiddenByFilter') && SHEET_GRID_FIELDS.includes('hiddenByUser'));
+ok('읽기 재시도는 쿼터와 일시적 서버 오류만 허용한다',
+  isRetryableSheetsReadFailure(429, 'quota exceeded')
+  && isRetryableSheetsReadFailure(503, 'backend error')
+  && !isRetryableSheetsReadFailure(403, 'permission denied'));
+const serverSheetsSource = readFileSync('lib/server/google-sheet-visible.ts', 'utf8');
+ok('Workspace 상품마스터 읽기는 명시된 위임 사용자로 토큰을 발급한다',
+  serverSheetsSource.includes('GOOGLE_WORKSPACE_SUBJECT')
+  && serverSheetsSource.includes("'pyh@teamjpk.com'")
+  && serverSheetsSource.includes('{ sub: delegatedSubject }'));
+ok('서버 Sheets 모듈은 위임 토큰으로 읽기 endpoint만 제공한다',
+  serverSheetsSource.includes("scope: 'https://www.googleapis.com/auth/spreadsheets'")
+  && !serverSheetsSource.includes(':batchUpdate')
+  && !serverSheetsSource.includes('valueInputOption='));
 ok('시트 주소에서 ID 를 뽑는다',
   sheetIdFromUrl('https://docs.google.com/spreadsheets/d/1AVW2uFy94qLPV4TU/edit?gid=9#gid=9') === '1AVW2uFy94qLPV4TU');
 {

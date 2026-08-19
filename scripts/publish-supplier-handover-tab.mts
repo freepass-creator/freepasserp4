@@ -21,7 +21,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
-import { AI_TAIL_COLUMNS } from '../lib/domain/supplier-template-sheet';
+import { AI_TAIL_COLUMNS, supplierSheetLabel } from '../lib/domain/supplier-template-sheet';
 import { POLICY_SHEET_FIELDS, USE_LABEL } from '../lib/domain/policy-sheet-layout';
 import { readPolicyTab } from '../lib/domain/supplier-policy-read';
 
@@ -89,7 +89,7 @@ for (const id of targets) {
   try { meta = await call(`${SH}/${id}?fields=properties.title,sheets.properties(sheetId,title,hidden)`); }
   catch (e) { console.log(`  ✗ ${id} — 못 읽음 ${(e as Error).message.slice(0, 60)}`); continue; }
   const book = S(meta.properties?.title);
-  const who = book.replace(' 프리패스 재고', '');
+  const who = supplierSheetLabel(book);
   const sheets = (meta.sheets || []) as Rec[];
 
   // 재고 탭들을 훑어 규격을 «재서» 적는다. 손으로 적으면 시트가 바뀌어도 문서가 안 따라간다.
@@ -123,7 +123,8 @@ for (const id of targets) {
    */
   const todo: string[][] = [];
   try {
-    const pv = await call(`${SH}/${id}/values/${encodeURIComponent("'정책'")}`) as { values?: string[][] };
+    let pv: { values?: string[][] } = {};
+    for (const tab of ['운영정책', '정책']) { try { pv = await call(`${SH}/${id}/values/${encodeURIComponent(`'${tab}'`)}`) as { values?: string[][] }; if (pv.values?.length) break; } catch { /* 다음 별칭 */ } }
     const book = readPolicyTab((pv.values || []) as string[][]);
     const own = [...book.entries()].filter(([k]) => k);
     const missing = POLICY_SHEET_FIELDS.filter((f) => !own.some(([, m]) => S(m.get(f.name))));
@@ -140,6 +141,7 @@ for (const id of targets) {
     }
     for (const [use, names] of byUse) todo.push(['', use, names.join(' · ')]);
     if (missing.length) todo.push(['', '어떻게', '「정책」 탭 한 줄만 채우면 된다. 대부분 눌러서 고르면 된다(드롭다운). 차마다 적을 필요 없다.']);
+    todo.push(['', '표기 규격', '금액 「50만원·5천만원·1억5천만원」 · 나이 「만 21세까지·만 26세 이상·만 70세 이하」 · 거리 「연 20,000km」 · 비율 「30%」 · 가·부 「가능/불가/협의」 · 추가운전은 가능 여부만, 요금은 「N인까지 · 1인당 월 M만원」. 머리글 메모(빨간 삼각형)에 칸별 규격이 있다. 정본 lib/domain/policy-value-spec.ts · 매뉴얼 docs/SUPPLIER_POLICY_SHEET_MANUAL.md (2026-08-18 — 공급사 시트에 별도 안내 탭은 두지 않는다, 사장님)']);
     todo.push(['', '', '']);
   } catch { /* 정책 탭이 없으면 건너뛴다 */ }
 

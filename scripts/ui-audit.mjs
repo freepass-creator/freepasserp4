@@ -7,7 +7,7 @@ import { writeFileSync, mkdirSync } from 'fs';
 const require = createRequire(new URL('../package.json', import.meta.url));
 const { chromium } = require('playwright');
 
-const BASE = 'http://localhost:4005';
+const BASE = process.env.UI_AUDIT_BASE || 'http://localhost:4005';
 const OUT = process.argv[2] || "tmp/ui-audit";
 mkdirSync(`${OUT}/shots`, { recursive: true });
 

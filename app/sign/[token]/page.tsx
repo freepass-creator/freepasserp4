@@ -196,6 +196,8 @@ export default function SignPage() {
   const [supportingFiles, setSupportingFiles] = useState<Record<string, File | null>>({});
   const [busy, setBusy] = useState(false);
   const [preparingImage, setPreparingImage] = useState(false);
+  // 관리자 미리보기(?preview=1) — 서버는 peek 로 읽기만 하고, 화면은 입력 검증·진행 기록·제출을 하지 않는다.
+  const [preview, setPreview] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const idRef = useRef<HTMLInputElement>(null);
   const selfieRef = useRef<HTMLInputElement>(null);
@@ -207,7 +209,9 @@ export default function SignPage() {
 
   useEffect(() => {
     let cancelled = false;
-    void fetch(`/api/freepass-esign/public/${encodeURIComponent(String(token))}`, { cache: 'no-store' })
+    const isPreview = new URLSearchParams(window.location.search).get('preview') === '1';
+    setPreview(isPreview);
+    void fetch(`/api/freepass-esign/public/${encodeURIComponent(String(token))}${isPreview ? '?peek=1' : ''}`, { cache: 'no-store' })
       .then(async (response) => {
         const body = await response.json().catch(() => ({})) as PublicResponse;
         if (!response.ok && !body.status) throw new Error(body.error || '전자계약을 열지 못했습니다.');
@@ -434,6 +438,11 @@ export default function SignPage() {
 
   const next = async () => {
     if (!step || busy) return;
+    if (preview) {
+      // 미리보기는 화면만 넘긴다 — 검증도 기록도 없다.
+      setStepIndex((index) => Math.min(index + 1, steps.length - 1));
+      return;
+    }
     if (step.kind === 'privacy' && !UPFRONT_CONSENTS.every((key) => consents.has(key))) {
       return toast('필수 개인정보 동의를 각각 선택해 주세요.', 'error');
     }
@@ -493,6 +502,7 @@ export default function SignPage() {
 
   const submit = async () => {
     if (busy || preparingImage) return;
+    if (preview) return toast('관리자 미리보기입니다. 제출되지 않습니다.', 'error');
     if (!inked.current) return toast('전자서명을 입력해 주세요.', 'error');
     if (!REQUIRED_CONSENTS.every((key) => consents.has(key))) return toast('필수 동의가 남았습니다.', 'error');
     if (pages.some((page) => !confirmations[S(page.key)])) return toast('확인하지 않은 계약 조건이 있습니다.', 'error');
@@ -587,7 +597,7 @@ export default function SignPage() {
       <div className={styles.frame}>
       <header className={styles.header}>
         <div className={styles.headerMeta}>
-          <div style={{ fontSize: FS.sub, color: C.mute, fontWeight: FW.meta, letterSpacing: '0.02em' }}>프리패스 · 전자계약</div>
+          <div style={{ fontSize: FS.sub, color: C.mute, fontWeight: FW.meta, letterSpacing: '0.02em' }}>프리패스 · 전자계약{preview ? ' · 관리자 미리보기(입력·제출 안 됨)' : ''}</div>
           <span style={{ flex: 1 }} />
           <div style={{ fontSize: FS.cap, color: C.mute, fontWeight: FW.meta, fontVariantNumeric: 'tabular-nums' }}>{stepNo} / {steps.length}</div>
         </div>

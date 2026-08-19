@@ -32,19 +32,18 @@ export function MembersList({
 
   const shown = rows.slice(0, limit);
   const remaining = Math.max(0, rows.length - limit);
+  // 등록 중엔 등록 행이 «선택됨»으로 남는다 — 계약서관리 「새 계약 만들기」와 같은 규격(사장님 2026-08-19).
+  //   예전엔 생성 코드(sup_…)를 이름으로 한 유령 행이 목록 맨 위에 생겨 「왜 그래 되지」였다.
   const draftFillsSlot = creating && selected === 'new';
+  void draft;
 
   return (
     <>
-      {draftFillsSlot ? (
-        <MemberListRow row={draft} kind={tab} selected />
-      ) : (
-        <MemberCreateRow kind={tab} onClick={onCreate} />
-      )}
+      <MemberCreateRow kind={tab} selected={draftFillsSlot} onClick={draftFillsSlot ? () => {} : onCreate} />
       {!rows.length ? (
         <CenterNote>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-            <span>{filtered ? '검색 결과 없음' : `${tab === 'user' ? '계정' : '회사'} 없음`}</span>
+            <span>{filtered ? '검색 결과 없음' : `${tab === 'user' ? '회원' : '파트너사'} 없음`}</span>
             {filtered ? <Btn title="조건 해제" size="sm" variant="ghost" onClick={onClearConditions}>조건 해제</Btn> : null}
           </div>
         </CenterNote>

@@ -16,7 +16,7 @@ export interface Session {
   code: string;
   company_code: string;
   agent_channel_code: string; // 채널(팀) — 필터·요율용. 방키/계약 agent_code 와 분리
-  user_code: string;          // 사람키 — /q?a= · CH_{매물}_{user_code}
+  user_code: string;          // ERP 업무 사용자키. Firebase uid와 분리하며 기존 코드는 별칭으로만 유지.
   /** 가입 승인 상태. 'pending' = 관리자 승인 대기(앱 사용 차단). 값 없음 = 이 필드 이전 회원 → 정상. */
   status?: string;
   /** 관리자가 끈 계정. '아니오'/false = 비활성 — 로그인은 되지만 앱 사용은 막아야 한다. */

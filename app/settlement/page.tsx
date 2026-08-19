@@ -118,7 +118,14 @@ export default function MonthlySettlement() {
       setPartners(partnerRows);
       setUsers(userRows);
       const availableMonths = [...new Set(all.map(monthOf).filter(Boolean))].sort();
-      setMonth(availableMonths.at(-1) || new Date().toISOString().slice(0, 7));
+      const wanted = typeof window !== 'undefined'
+        ? new URLSearchParams(window.location.search).get('s')
+        : null;
+      const target = wanted ? all.find((settlement) => (
+        String(settlement._key || settlement.settlement_code) === wanted
+      )) : null;
+      setMonth((target && monthOf(target)) || availableMonths.at(-1) || new Date().toISOString().slice(0, 7));
+      setSelectedKey(target ? String(target._key || target.settlement_code) : null);
       setOk(true);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -254,6 +261,10 @@ export default function MonthlySettlement() {
   const changeMonth = (nextMonth: string) => {
     setMonth(nextMonth);
     setSelectedKey(null);
+    const url = new URL(window.location.href);
+    url.searchParams.delete('s');
+    const queryString = url.searchParams.toString();
+    window.history.replaceState({}, '', `${url.pathname}${queryString ? `?${queryString}` : ''}${url.hash}`);
   };
   const monthIndex = months.indexOf(month);
   const stepMonth = (direction: number) => {
@@ -261,9 +272,19 @@ export default function MonthlySettlement() {
     if (nextIndex >= 0 && nextIndex < months.length) changeMonth(months[nextIndex]);
   };
   const selectSettlement = (settlement: EntityRecord) => {
-    setSelectedKey(String(settlement._key || settlement.settlement_code));
+    const key = String(settlement._key || settlement.settlement_code);
+    setSelectedKey(key);
+    const url = new URL(window.location.href);
+    url.searchParams.set('s', key);
+    window.history.replaceState({}, '', `${url.pathname}?${url.searchParams.toString()}${url.hash}`);
   };
-  const clearSelection = () => setSelectedKey(null);
+  const clearSelection = () => {
+    setSelectedKey(null);
+    const url = new URL(window.location.href);
+    url.searchParams.delete('s');
+    const queryString = url.searchParams.toString();
+    window.history.replaceState({}, '', `${url.pathname}${queryString ? `?${queryString}` : ''}${url.hash}`);
+  };
   const clearConditions = () => {
     setQueryInput('');
     setQuery('');

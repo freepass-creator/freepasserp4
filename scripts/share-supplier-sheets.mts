@@ -14,6 +14,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
+import { supplierSheetLabel } from '../lib/domain/supplier-template-sheet';
 
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
@@ -43,7 +44,7 @@ const found = await api(`https://www.googleapis.com/drive/v3/files?q=${q}&pageSi
 
 let need = 0; let done = 0;
 for (const f of ((found.files || []) as Rec[])) {
-  const label = S(f.name).replace('프리패스 재고 · ', '');
+  const label = supplierSheetLabel(S(f.name));
   const perms = await api(`https://www.googleapis.com/drive/v3/files/${S(f.id)}/permissions?fields=permissions(id,type,role,emailAddress)`);
   const list = (perms.permissions || []) as Rec[];
   const hasSa = list.some((p) => S(p.emailAddress).toLowerCase() === SA_EMAIL.toLowerCase());

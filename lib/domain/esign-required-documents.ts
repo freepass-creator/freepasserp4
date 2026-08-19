@@ -7,7 +7,7 @@ export type EsignRequiredDocument = {
 
 type Rec = Record<string, unknown>;
 const S = (value: unknown) => String(value ?? '').trim();
-export const MAX_ESIGN_REQUIRED_DOCUMENTS = 6;
+export const MAX_ESIGN_REQUIRED_DOCUMENTS = 10; // 시트 체크 6(사장님 2026-08-19) + 기타서류
 
 export const ESIGN_DOCUMENT_PRESETS: Array<{
   key: string;

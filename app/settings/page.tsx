@@ -304,7 +304,7 @@ export default function Settings() {
           <div>
             <SectionLabel mt={0}>카탈로그 공유</SectionLabel>
             <div style={{ fontSize: FS.sub, color: C.faint, marginBottom: 8, lineHeight: 1.45 }}>
-              이 링크로 들어온 손님 문의는 나에게 귀속됩니다. 카톡·문자로 공유하세요.
+              내 영업자 정보가 연결된 상품 안내 링크입니다. 카톡·문자로 손님에게 공유하세요.
             </div>
             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
               <div style={{ flex: 1, minWidth: 0, fontSize: FS.sub, color: C.ink, background: C.head, borderRadius: R, padding: '8px 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{shareUrl}</div>

@@ -23,7 +23,7 @@ import { JWT } from 'google-auth-library';
 import { canonProductType, isListableProduct, priceList, priceVariants } from '../lib/domain/product';
 import { autoMapHeaders, canonSheetVehicleStatus, parsePriceColumns } from '../lib/domain/sheet-import';
 import { NOT_SHEET_BACKED, SHEET_GRID_FIELDS, readSupplierSheet } from '../lib/domain/supplier-sheet-read';
-import { periodColumnName } from '../lib/domain/supplier-template-sheet';
+import { periodColumnName, supplierSheetLabel } from '../lib/domain/supplier-template-sheet';
 import type { EntityRecord } from '../lib/intake/entities';
 
 type Rec = Record<string, any>;
@@ -165,7 +165,7 @@ const found = await api(`https://www.googleapis.com/drive/v3/files?q=${q}&pageSi
 let filledSheets = 0; let filledCars = 0;
 for (const f of ((found.files || []) as Rec[])) {
   const id = S(f.id);
-  const label = S(f.name).replace('프리패스 재고 · ', '');
+  const label = supplierSheetLabel(S(f.name));
   const code = codeOf(label);
   if (!code) { console.log(`  △ ${label.padEnd(12)} 공급사를 못 찾음`); continue; }
   if (ONLY.length && !ONLY.includes(code)) continue;

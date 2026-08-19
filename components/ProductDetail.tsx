@@ -1,10 +1,10 @@
 ﻿'use client';
-import { useState, useEffect, type CSSProperties, type ReactNode } from 'react';
+import { Fragment, useState, useEffect, type ReactNode } from 'react';
 import { type EntityRecord } from '@/lib/intake/entities';
-import { priceList, detailSections, cheapest, type Audience } from '@/lib/domain/product';
+import { detailSections, type Audience } from '@/lib/domain/product';
 import { useProductPhotoState } from '@/components/use-product-photos';
 import { getRole } from '@/lib/domain/deal';
-import { won, Badge, Btn, C, R, NUM, FW, FS, ICON, CloseBtn, IconBtn, SCRIM } from '@/components/ui';
+import { won, Badge, Btn, C, R, NUM, FW, FS, ICON, CloseBtn, IconBtn, SCRIM, FormCard } from '@/components/ui';
 import { toast } from '@/components/Toaster';
 import { downloadPhotoZip, downloadSinglePhoto } from '@/lib/client/download-photo-zip';
 import { useDragScroll } from '@/lib/use-drag-scroll';
@@ -24,15 +24,8 @@ import { ChevronLeft, ChevronRight, Download, LoaderCircle } from 'lucide-react'
  * 차이는 페이지 껍데기 배열(패딩·하단바·스와이프)만. dense/모바일 폰트 분기 금지.
  * /m · 소통·계약 패널 · /q 공용.
  */
-const LAB_W = 92;
 /** work(영업자 작업화면) 사진 **폭** 상한 — 16:10 그대로 460×288. 상세 칸이 넓어져도 사진만 커지진 않는다. */
 const WORK_PHOTO_W = 460;
-const lab: CSSProperties = {
-  width: LAB_W, flex: `0 0 ${LAB_W}px`, color: C.mute, fontSize: FS.body,
-};
-const box: CSSProperties = {
-  border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg, overflow: 'hidden',
-};
 
 /**
  * 빈 슬롯(`-`)을 흐리게 — 지우지는 않는다.
@@ -52,15 +45,14 @@ function dimDashes(v: ReactNode): ReactNode {
   ));
 }
 
-function KvRow({ label, children, first }: { label: string; children: ReactNode; first?: boolean }) {
+function FactCell({ label, children, wide = false }: { label: string; children: ReactNode; wide?: boolean }) {
   return (
     <div style={{
-      display: 'flex', alignItems: 'center', gap: 8,
-      padding: '7px 12px', fontSize: FS.body,
-      borderTop: first ? 'none' : `1px solid ${C.line2}`,
+      minWidth: 0, padding: '8px 4px',
+      gridColumn: wide ? '1 / -1' : undefined,
     }}>
-      <span style={lab}>{label}</span>
-      <span style={{ minWidth: 0, flex: 1, fontVariantNumeric: 'tabular-nums' }}>{children}</span>
+      <span style={{ display: 'block', marginBottom: 4, color: C.mute, fontSize: FS.cap, fontWeight: FW.strong }}>{label}</span>
+      <span style={{ display: 'block', minWidth: 0, fontSize: FS.body, fontVariantNumeric: 'tabular-nums', overflowWrap: 'anywhere', lineHeight: 1.5 }}>{children}</span>
     </div>
   );
 }
@@ -104,16 +96,10 @@ export function ProductPhotoDownloadButton({ p }: { p: EntityRecord }) {
   );
 }
 
-export function ProductDetail({ p, audience, layout = 'brochure', priceAside = false }: {
+export function ProductDetail({ p, audience, layout = 'brochure' }: {
   p: EntityRecord;
   audience?: Audience;
   layout?: DetailLayout;
-  /**
-   * 가격표를 본문에서 뺀다 — 넓은 화면에서 **우측 보조패널**이 대신 들고 있을 때.
-   * 헤이딜러 구조: 본문은 차 설명, 우측은 돈과 행동. 손님·영업자·공급사가 같은 골격을 쓴다.
-   * 좁은 화면에는 보조패널이 없으므로 가격은 본문 제자리에 남는다(2026-08-08 결정).
-   */
-  priceAside?: boolean;
 }) {
   const mobile = useIsMobile();
   const [lb, setLb] = useState<number | null>(null);
@@ -143,10 +129,6 @@ export function ProductDetail({ p, audience, layout = 'brochure', priceAside = f
   const [swipeX, setSwipeX] = useState<number | null>(null); // 메인 사진 좌우 스와이프
   const stepPhoto = (dir: number) => { if (photos.length > 1) setMain((m) => (m + dir + photos.length) % photos.length); };
   const secs = detailSections(p, aud);
-  const prices = priceList(p);
-  const cheap = cheapest(p);
-  const pol = (p._policy || {}) as Record<string, unknown>;
-  const caption = [pol.basic_driver_age, pol.annual_mileage, pol.insurance_included].filter(Boolean).join(' · ');
   const { idMain, idExt } = idParts(p);
   const photoFileName = String(p.car_number || p.vehicle_no || p.plate_no || p.product_code || idMain || '차량사진');
   // 사진이 칼럼 맨 위에서 얼마나 내려와 있는지 = 우측 대여료 카드가 내려와야 할 만큼.
@@ -261,7 +243,6 @@ export function ProductDetail({ p, audience, layout = 'brochure', priceAside = f
                 ><ChevronRight size={ICON.xl} strokeWidth={2.5} /></IconBtn>
               </>
             )}
-            {/* 표시(문의중·최근)는 별표 **왼쪽** — 누르는 자리는 언제나 맨 오른쪽 하나로 고정. */}
             {aud !== 'customer' && !work && (
               <span style={{ position: 'absolute', top: 8, right: 8, zIndex: 2, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
                 <ProductStateMarks p={p} onPhoto />
@@ -312,57 +293,58 @@ export function ProductDetail({ p, audience, layout = 'brochure', priceAside = f
       ))}
       </div>
 
-      {/* 3 섹션 — 데이터=detailSections. 표기 원자=웹·모바일 동일.
-          본문은 **아무것도 고정하지 않는다.** 금액은 우측 대여료 카드가 틀고정으로 들고 있고,
-          여기서 또 붙이면 스크롤할 때 사진이 밀려 올라가는 것처럼 보인다(2026-08-08 지적). */}
-      {secs.filter((sec) => !(priceAside && sec.kind === 'price')).map((sec) => (
-        <div key={sec.title} style={{ marginTop: 11 }}>
-          <div style={{ fontSize: FS.title, fontWeight: FW.title, color: C.ink, marginBottom: 4 }}>{sec.title}</div>
-          {sec.kind === 'price' ? (
-            <ProductPriceTable p={p} />
-          ) : sec.kind === 'ins' ? (
-            <div style={box}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: FS.body, tableLayout: 'fixed' }}>
-                <thead><tr>{['항목', '보장한도', '면책금'].map((h, i) => <th key={h} style={{ width: '33.33%', textAlign: i === 0 ? 'left' : i === 1 ? 'center' : 'right', padding: '5px 10px', background: C.head, borderBottom: `1px solid ${C.line}`, fontSize: FS.cap, fontWeight: FW.strong, color: C.mute }}>{h}</th>)}</tr></thead>
-                <tbody>{sec.rows.map(([lbl, limit, ded], i) => (
-                  <tr key={lbl} style={{ borderTop: i ? `1px solid ${C.line2}` : 'none' }}>
-                    <td style={{ padding: '5px 10px', color: C.mute }}>{lbl}</td>
-                    <td style={{ padding: '5px 10px', textAlign: 'center', color: limit ? C.ink : C.faint, fontVariantNumeric: 'tabular-nums' }}>{limit || '—'}</td>
-                    <td style={{ padding: '5px 10px', textAlign: 'right', color: ded ? C.ink : C.faint, fontVariantNumeric: 'tabular-nums' }}>{ded || '—'}</td>
-                  </tr>
-                ))}</tbody>
-              </table>
-              {sec.note && <div style={{ padding: '7px 10px', fontSize: FS.cap, color: C.mute, borderTop: `1px solid ${C.line2}`, background: C.head, display: 'flex', gap: 7, alignItems: 'center' }}><span style={{ fontSize: FS.micro, fontWeight: FW.label, color: C.faint }}>부가</span>{sec.note}</div>}
-            </div>
-          ) : sec.kind === 'chips' ? (
-            <div style={{ ...box, padding: '8px 10px' }}>
+      {/* 3 섹션 — 사진 다음 읽기 순서 SSOT:
+          차량스펙(제조사) → 대여료조건 → 보험조건 → 계약조건 → 기타사항. */}
+      {secs.map((sec) => (
+        <section key={sec.title} style={{ marginTop: 16 }}>
+          <FormCard title={sec.title} hint={sec.hint}>
+            {sec.kind === 'price' ? (
+              <ProductPriceTable p={p} />
+            ) : sec.kind === 'ins' ? (
+              <div style={{ overflow: 'hidden' }}>
+                <table aria-label="보험 보장한도와 면책금" style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: FS.body }}>
+                  <thead><tr>
+                    <th scope="col" style={{ width: '28%', padding: '6px 4px', textAlign: 'left', color: C.mute, fontSize: FS.cap, fontWeight: FW.strong }}>항목</th>
+                    <th scope="col" style={{ width: '36%', padding: '6px 4px', textAlign: 'right', color: C.mute, fontSize: FS.cap, fontWeight: FW.strong }}>보장한도</th>
+                    <th scope="col" style={{ width: '36%', padding: '6px 4px', textAlign: 'right', color: C.mute, fontSize: FS.cap, fontWeight: FW.strong }}>면책금</th>
+                  </tr></thead>
+                  <tbody>{sec.rows.map(([lbl, limit, ded]) => (
+                    <tr key={lbl}>
+                      <th scope="row" style={{ padding: '7px 4px', textAlign: 'left', fontWeight: FW.strong, whiteSpace: 'nowrap' }}>{lbl}</th>
+                      <td style={{ padding: '7px 4px', textAlign: 'right', color: limit ? C.ink : C.faint, fontVariantNumeric: 'tabular-nums', overflowWrap: 'anywhere' }}>{limit || '—'}</td>
+                      <td style={{ padding: '7px 4px', textAlign: 'right', color: ded ? C.ink : C.faint, fontVariantNumeric: 'tabular-nums', overflowWrap: 'anywhere' }}>{ded || '—'}</td>
+                    </tr>
+                  ))}</tbody>
+                </table>
+                {sec.note && <div style={{ padding: '7px 4px 0', fontSize: FS.cap, color: C.mute, display: 'flex', gap: 7, alignItems: 'center' }}><span style={{ fontSize: FS.micro, fontWeight: FW.label, color: C.faint }}>부가</span>{sec.note}</div>}
+              </div>
+            ) : sec.kind === 'chips' ? (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
                 {sec.items.map((o) => <span key={o} style={{ fontSize: FS.sub, color: C.mute, background: C.head, borderRadius: R, padding: '2px 8px' }}>{o}</span>)}
               </div>
-            </div>
-          ) : (
-            // kv — 행·옵션 칩 원자 동일. chipsAfter=1이면 첫 행 뒤에 OptionChips(all).
-            <div style={box}>
-              {kvRows(sec.rows).map(([k, v], i) => (
-                <div key={`${k}-${i}`}>
-                  <KvRow label={k} first={i === 0}>
-                    {v ? dimDashes(v) : <span style={{ color: C.faint }}>—</span>}
-                  </KvRow>
-                  {sec.chips && sec.chipsAfter === 1 && i === 0 && (
-                    <KvRow label={sec.chipsLabel || '선택옵션'}>
-                      <OptionChips p={p} expand />
-                    </KvRow>
-                  )}
-                </div>
-              ))}
-              {sec.chips && sec.chips.length > 0 && sec.chipsAfter == null && (
-                <KvRow label={sec.chipsLabel || '선택옵션'} first={kvRows(sec.rows).length === 0}>
-                  <OptionChips p={p} expand />
-                </KvRow>
-              )}
-            </div>
-          )}
-        </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: mobile ? 'repeat(2, minmax(0, 1fr))' : 'repeat(auto-fit, minmax(220px, 1fr))', columnGap: 14, rowGap: 2 }}>
+                {kvRows(sec.rows).map(([k, v], i) => (
+                  <Fragment key={`${k}-${i}`}>
+                    <FactCell label={k} wide={['차량', '동력', '색상', '운전자 범위', '결제 · 위약', '특이사항'].includes(k) || v.length > 32}>
+                      {v ? dimDashes(v) : <span style={{ color: C.faint }}>—</span>}
+                    </FactCell>
+                    {sec.chips && sec.chipsAfter === 1 && i === 0 && (
+                      <FactCell label={sec.chipsLabel || '선택옵션'} wide>
+                        <OptionChips p={p} expand />
+                      </FactCell>
+                    )}
+                  </Fragment>
+                ))}
+                {sec.chips && sec.chips.length > 0 && sec.chipsAfter == null && (
+                  <FactCell label={sec.chipsLabel || '선택옵션'} wide>
+                    <OptionChips p={p} expand />
+                  </FactCell>
+                )}
+              </div>
+            )}
+          </FormCard>
+        </section>
       ))}
 
       {lb !== null && photos.length > 0 && (

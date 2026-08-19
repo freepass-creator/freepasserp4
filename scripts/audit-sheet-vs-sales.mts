@@ -13,6 +13,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
+import { pickPublishedSalesTabs, standardMoneyIndex } from '../lib/domain/sales-published-tabs';
 import { SHEET_GRID_FIELDS, readSupplierSheet } from '../lib/domain/supplier-sheet-read';
 import type { EntityRecord } from '../lib/intake/entities';
 
@@ -70,25 +71,29 @@ const SHEETS = 'https://sheets.googleapis.com/v4/spreadsheets';
 
 // ── ① 판매리스트 읽기 ────────────────────────────────────────────────────────
 const salesMeta = await api(`${SHEETS}/${SALES}?fields=sheets.properties(title,hidden)`);
-const salesTab = ((salesMeta.sheets || []) as Rec[])
-  .find((s) => !s.properties.hidden && S(s.properties.title).startsWith('상품리스트'))?.properties.title;
-if (!salesTab) throw new Error('판매리스트 탭을 못 찾음');
-const sv = await api(`${SHEETS}/${SALES}/values/${encodeURIComponent(`'${String(salesTab).replace(/'/g, "''")}'`)}`) as { values?: string[][] };
-const srows = (sv.values || []) as string[][];
-const shdr = (srows[0] || []).map(S);
-const sPlate = shdr.indexOf('차량번호');
-if (sPlate < 0) throw new Error('판매리스트에 차량번호 열이 없다');
+// ★발행된 표 = 상품리스트 · 손오공구독 · 오플구독 세 탭의 합(2026-08-19).
+const publishedTabs = pickPublishedSalesTabs(((salesMeta.sheets || []) as Rec[]).filter((s) => !s.properties.hidden).map((s) => S(s.properties.title)));
+if (!publishedTabs.some((t) => t.prefix === '상품리스트')) throw new Error('판매리스트 탭을 못 찾음');
+const salesTab = publishedTabs.map((t) => t.title).join(' + ');
 /** 차번 → 판매리스트가 든 돈. */
 const sales = new Map<string, Record<string, string>>();
-for (const r of srows.slice(1)) {
-  const pl = norm(r[sPlate]);
-  if (!pl) continue;
-  const rec: Record<string, string> = {};
-  for (const name of Object.keys(MONEY)) {
-    const i = shdr.indexOf(name);
-    if (i >= 0) rec[name] = money(r[i]);
+for (const tab of publishedTabs) {
+  const sv = await api(`${SHEETS}/${SALES}/values/${encodeURIComponent(`'${tab.title.replace(/'/g, "''")}'`)}`) as { values?: string[][] };
+  const srows = (sv.values || []) as string[][];
+  const shdr = (srows[0] || []).map(S);
+  const sPlate = shdr.indexOf('차량번호');
+  if (sPlate < 0) throw new Error(`「${tab.title}」에 차량번호 열이 없다`);
+  for (const r of srows.slice(1)) {
+    const pl = norm(r[sPlate]);
+    if (!pl || sales.has(pl)) continue;
+    const rec: Record<string, string> = {};
+    for (const name of Object.keys(MONEY)) {
+      // 갈래 탭(손오공구독·오플구독)은 표준 칸 이름 대신 공급사 기간별 대여료가 서 있다 — 별칭으로 되찾는다.
+      const i = standardMoneyIndex(tab.prefix, shdr, name);
+      if (i >= 0) rec[name] = money(r[i]);
+    }
+    sales.set(pl, rec);
   }
-  sales.set(pl, rec);
 }
 console.log(`■ 공급사시트 ↔ 판매리스트 — 돈 대조\n`);
 console.log(`  판매리스트 「${salesTab}」 ${sales.size}대`);

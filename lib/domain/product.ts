@@ -138,6 +138,8 @@ export function isStandardPeriod(m: number): boolean {
 /** priceList 결과 캐시 — 로드된 매물 객체는 세션 내 불변이라 첫 계산 후 재사용(무효화 불필요).
  *  matchProduct·정렬·카드 렌더가 같은 매물을 여러 번 훑어도 캐시히트. 반환 배열은 읽기 전용으로만 쓰인다(호출부 비변형 확인). */
 const priceListCache = new WeakMap<object, Price[]>();
+/** 가격 키 변형 「인수형」 — `${m}_인수형`. 표준 표에서 빼고 인수형 표로 따로 보여 준다. */
+export const ACQUISITION_VARIANT = '인수형';
 
 /**
  * 주행거리 변형을 접지 않은 가격 목록.
@@ -243,6 +245,9 @@ export function priceList(p: EntityRecord): Price[] {
   const byM = new Map<number, { e: Price; rank: number }>();
   for (const [k, v] of Object.entries(price)) {
     if (ignoreAutoplusLegacy && AUTOPLUS_LEGACY_PRICE_KEYS.has(k)) continue;
+    // 인수형(만기 인수)은 «같은 기간의 다른 상품» — 표준(반납형) 표에 섞지 않는다(acquisitionPriceList 가 따로 보여 준다).
+    //  예전엔 「그 밖」 순위로 남아 반납형이 없는 기간(예: 60개월)에 인수형 대여료가 표준가처럼 찍혔다(2026-08-18).
+    if (k.endsWith(`_${ACQUISITION_VARIANT}`)) continue;
     const rawRent = num(v?.rent); if (rawRent <= 0) continue;
     const { rent, deposit } = normalizeWonPair(rawRent, v?.deposit);
     // 대여료 이상치 방어(v3 이식) — 하한 10만·상한 2천만 밖 = 오입력(자릿수 오타·노트 숫자 추출 등) → 제외.
@@ -260,6 +265,37 @@ export function priceList(p: EntityRecord): Price[] {
   priceListCache.set(p as object, result);
   return result;
 }
+
+/**
+ * **인수형(만기 인수) 가격표** — `price[m_인수형]` 만 따로 뽑는다(손오공·웰릭스 구독 상품).
+ *
+ * ★왜(2026-08-18 · 사장님 「샘플 반영」·「상품시트 = ERP」): 판매시트엔 「손오공인수형구독」 탭이 따로 있는데
+ *   ERP 는 `priceList` 가 기간별로 표준가(반납형)만 남겨 **인수형이 화면에 아예 안 보였다**. 인수형은
+ *   «같은 기간의 다른 상품»(만기에 차를 인수)이므로 접지 않고 별도 표로 보여 준다.
+ *   위생 규칙은 priceList 와 같다(대여료 10만~2천만 · 운영 기간만). 정렬은 기간 오름차순.
+ */
+const acquisitionCache = new WeakMap<object, Price[]>();
+export function acquisitionPriceList(p: EntityRecord): Price[] {
+  const cached = acquisitionCache.get(p as object);
+  if (cached) return cached;
+  const price = (p.price || {}) as Record<string, { rent?: number; deposit?: number; fee?: number }>;
+  const out: Price[] = [];
+  for (const [k, v] of Object.entries(price)) {
+    const m = /^(\d+)_인수형$/.exec(k);
+    if (!m) continue;
+    const rawRent = num(v?.rent); if (rawRent <= 0) continue;
+    const { rent, deposit } = normalizeWonPair(rawRent, v?.deposit);
+    if (rent < 100_000 || rent > 20_000_000) continue;
+    const months = Number(m[1]);
+    if (!isOperatedPeriod(months)) continue;
+    out.push({ m: months, rent, deposit, fee: num(v?.fee) });
+  }
+  out.sort((a, b) => a.m - b.m);
+  acquisitionCache.set(p as object, out);
+  return out;
+}
+/** 인수형(만기 인수) 상품이 붙은 매물 — 라인업 칩·필터 축(가상 상품구분 값)에서 쓴다. */
+export function hasAcquisitionPlan(p: EntityRecord): boolean { return acquisitionPriceList(p).length > 0; }
 
 /** 선택 기간의 가격 (없으면 가장 가까운 기간) */
 export function priceAt(p: EntityRecord, target: number): Price | null {
@@ -282,7 +318,7 @@ export function vehicleName(p: EntityRecord): string {
 export const CREDIT_UNSET = '미입력';
 
 /**
- * 심사표기 — 무심사 / 소득확인 (3글자 뱃지 SSOT. 정책 screening_criteria 우선)
+ * 심사표기 — 무심사 / 소득확인 / 신용조회 (뱃지 SSOT. 정책 screening_criteria 우선 · 사장님 2026-08-19 셋으로 확정)
  *
  * ★신호가 없으면 «무심사»가 아니라 `미입력` 이다(2026-08-06).
  *   예전 기본값은 '무심사' 였다. 그런데 정책코드가 없는 매물이 366대 중 338대(92%)라,
@@ -292,7 +328,8 @@ export const CREDIT_UNSET = '미입력';
 export function creditDisplay(p: EntityRecord): string {
   const v = String(policyOf(p).screening_criteria || p.screening_criteria || p.credit_grade || '');
   if (/무심사|신용 *무관|소득 *무관|저신용/.test(v)) return '무심사';
-  if (/신용 *조회|신용 *필요|소득 *확인|소득 *조회|등급|심사\s*필|심사\s*필요|소득확/.test(v)) return '소득확인';
+  if (/신용 *조회|신용 *필요|신용 *확인|신용 *심사|중신용|고신용|등급|심사\s*필|심사\s*필요/.test(v)) return '신용조회';
+  if (/소득 *확인|소득 *조회|소득확|소득 *증빙/.test(v)) return '소득확인';
   return v || CREDIT_UNSET;
 }
 /** 무보증(보증금 0 상품) — 저신용 손님의 핵심 진입장벽 해소. 영업자 셀링포인트. */
@@ -528,10 +565,10 @@ export type KvRow = [string, string];
 export type InsRow = [string, string, string]; // [구분, 보장한도, 면책금]
 // tier: main=손님·영업자 핵심(차량·대여료), sub=부가(보험·계약조건·기타). 상세에서 시각 구분.
 export type DetailSection =
-  | { title: string; tier?: 'main' | 'sub'; kind: 'kv'; rows: KvRow[]; chips?: string[]; chipsLabel?: string; chipsAfter?: number }
-  | { title: string; tier?: 'main' | 'sub'; kind: 'ins'; rows: InsRow[]; note?: string }
-  | { title: string; tier?: 'main' | 'sub'; kind: 'price' }
-  | { title: string; tier?: 'main' | 'sub'; kind: 'chips'; items: string[] };
+  | { title: string; hint?: string; tier?: 'main' | 'sub'; kind: 'kv'; rows: KvRow[]; chips?: string[]; chipsLabel?: string; chipsAfter?: number }
+  | { title: string; hint?: string; tier?: 'main' | 'sub'; kind: 'ins'; rows: InsRow[]; note?: string }
+  | { title: string; hint?: string; tier?: 'main' | 'sub'; kind: 'price' }
+  | { title: string; hint?: string; tier?: 'main' | 'sub'; kind: 'chips'; items: string[] };
 export type Audience = 'customer' | 'agent' | 'admin';
 
 export function detailSections(p: EntityRecord, audience: Audience = 'agent'): DetailSection[] {
@@ -550,13 +587,13 @@ export function detailSections(p: EntityRecord, audience: Audience = 'agent'): D
     const n = Number(p.engine_cc) || fuelEmbeddedCc(p.fuel_type);
     return n > 0 ? `${n.toLocaleString()}cc` : '미입력';
   })();
-  // 1) 차량 세부정보 = 신원 → 옵션칩 → 연식·주행 / 동력 / 색상 / 분류 / 최초등록
+  // 1) 차량스펙(제조사 기준) = 신원 → 옵션칩 → 연식·주행 / 동력 / 색상 / 분류 / 최초등록
   const carRows: KvRow[] = [
+    ['차량', [pv('maker'), pv('sub_model') || pv('model'), pv('variant'), pv('trim_name')].filter(Boolean).join(' ') || '미입력'],
     // 차량번호는 손님에게도 보인다 — 공유 견적서에서 «어느 차인지»를 특정하는 유일한 값이다.
     //  (없는 매물이 있다: 재렌트·재구독은 공급사 시트에 번호판을 안 적는 경우가 있어
     //   빈 줄을 만들지 않도록 값이 있을 때만 넣는다. 나머지 행의 `-` 규칙과 다른 이유다.)
     ...(pv('car_number') ? [['차량번호', pv('car_number')] as KvRow] : []),
-    ['차량', [pv('maker'), pv('sub_model') || pv('model'), pv('variant'), pv('trim_name')].filter(Boolean).join(' ') || '미입력'],
     ['연식 · 주행', (() => {
       const base = gSlots([yearDisplay(p.year), kmDisplay(p.mileage)]);
       const acc = pv('accident_history');
@@ -600,7 +637,7 @@ export function detailSections(p: EntityRecord, audience: Audience = 'agent'): D
   const roadside = String(pol.annual_roadside_assistance ?? pol.roadside_assistance ?? '');
   const insNote = roadside ? `긴급출동 ${roadside}` : '';
 
-  // 3) 계약조건 = 역할별 묶음(진입 / 사용제한 / 담보 / 결제 / 운전자 / 물류 / 서비스)
+  // 3) 계약조건 = 심사·약정·담보·결제·운전자·물류·서비스
   const meta = (rec.sheet_meta || {}) as Record<string, unknown>;
   const m2 = (k: string) => { const v = meta[k]; return v == null ? '' : String(v); };
   const autoplusMileage = isAutoplusProduct(p) ? autoplusMileageUpchargeLabel(p) : '';
@@ -612,30 +649,37 @@ export function detailSections(p: EntityRecord, audience: Audience = 'agent'): D
     ['보증금', g([s('deposit_installment') && `분납 ${s('deposit_installment')}`, s('deposit_card_payment') && `카드 ${s('deposit_card_payment')}`])],
     ['결제 · 위약', g([s('payment_method'), s('penalty_condition') && `위약 ${s('penalty_condition')}`])],
     ['운전 연령', g([s('basic_driver_age') && `기본 ${s('basic_driver_age')}`, s('driver_age_upper_limit') && `상한 ${s('driver_age_upper_limit')}`, m2('age_21') && `21세 ${m2('age_21')}`, m2('age_23') && `23세 ${m2('age_23')}`])],
-    ['운전자 범위', g([s('personal_driver_scope'), s('business_driver_scope'), s('additional_driver_allowance_count') && `추가 ${s('additional_driver_allowance_count')}명`, s('additional_driver_cost')])],
+    ['운전자 범위', g([s('personal_driver_scope'), s('business_driver_scope'), s('additional_driver_allowance_count') && `추가운전 ${/^\d+$/.test(s('additional_driver_allowance_count')) ? `${s('additional_driver_allowance_count')}인까지` : s('additional_driver_allowance_count')}`, s('additional_driver_cost')])],
     ['대여지역 · 탁송', g([s('rental_region'), s('delivery_fee') && `탁송 ${s('delivery_fee')}`])],
     ['정비 서비스', s('maintenance_service')],
   ];
 
   const opts = parseProductOptions(p.options);
+  const memo = String(p.partner_memo ?? p.note ?? '').trim();
+  const otherRows: KvRow[] = [];
+  if (memo) otherRows.push(['특이사항', memo]);
+  if (isAdmin) {
+    otherRows.push(
+      ['원가 · 위치', g([money(p.vehicle_price, '원'), pv('location') && `위치 ${pv('location')}`])],
+      ['차령 · 차대', g([pv('vehicle_age_expiry_date') && `만료 ${ymdDisplay(pv('vehicle_age_expiry_date'))}`, pv('vin')])],
+      ['등록증', g([pv('transmission'), pv('cert_car_name'), pv('type_number'), pv('engine_type')])],
+      ['정책', g([String(pol.policy_name ?? p.policy_name ?? ''), String(pol.policy_code ?? p.policy_code ?? ''), String(pol.policy_type ?? '')])],
+      ['공급사', pv('provider_name') || pv('provider_company_code') || '-'],
+      ['상품', g([pv('product_code'), String(p._key ?? '')])],
+      ['수수료 환수', s('commission_clawback_condition')],
+    );
+  }
 
-  // 손님·영업자 시선: 메인(대여료/보증금=얼마 먼저, 차량정보=스펙+옵션) → 부가(보험, 계약조건, 기타).
+  // 상세 읽기 순서 SSOT(사장님 2026-08-19):
+  // 사진(뷰) → 차량스펙(제조사) → 대여료조건 → 보험조건 → 계약조건 → 기타사항.
   const out: DetailSection[] = [
-    { title: '대여료 / 보증금', tier: 'main', kind: 'price' },
-    { title: '차량 세부정보', tier: 'main', kind: 'kv', rows: carRows, chips: opts, chipsLabel: '선택옵션', chipsAfter: 1 },
-    { title: '보험정보', tier: 'sub', kind: 'ins', rows: insRows, note: insNote },
-    { title: '계약조건', tier: 'sub', kind: 'kv', rows: condRows },
+    { title: '차량스펙', hint: '제조사 기준', tier: 'main', kind: 'kv', rows: carRows, chips: opts, chipsLabel: '선택옵션', chipsAfter: 1 },
+    { title: '대여료조건', hint: '기간별 대여료 · 보증금', tier: 'main', kind: 'price' },
+    { title: '보험조건', hint: '보장한도 · 면책', tier: 'sub', kind: 'ins', rows: insRows, note: insNote },
+    { title: '계약조건', hint: '심사 · 약정 · 운전자', tier: 'sub', kind: 'kv', rows: condRows },
   ];
-  // 기타정보(관리자) = 원가·이력·등록증·코드·정산. 역할별 묶음.
-  if (isAdmin) out.push({ title: '기타정보', tier: 'sub', kind: 'kv', rows: [
-    ['원가 · 위치', g([money(p.vehicle_price, '원'), pv('location') && `위치 ${pv('location')}`])],
-    ['차령 · 차대', g([pv('vehicle_age_expiry_date') && `만료 ${ymdDisplay(pv('vehicle_age_expiry_date'))}`, pv('vin')])],
-    ['등록증', g([pv('transmission'), pv('cert_car_name'), pv('type_number'), pv('engine_type')])],
-    ['정책', g([String(pol.policy_name ?? p.policy_name ?? ''), String(pol.policy_code ?? p.policy_code ?? ''), String(pol.policy_type ?? '')])],
-    ['공급사', pv('provider_name') || pv('provider_company_code') || '-'],
-    ['상품', g([pv('product_code'), String(p._key ?? '')])],
-    ['수수료 환수', s('commission_clawback_condition')],
-    ['특이사항', String(p.partner_memo ?? p.note ?? '')],
-  ] });
+  if (otherRows.length) {
+    out.push({ title: '기타사항', tier: 'sub', kind: 'kv', rows: otherRows });
+  }
   return out;
 }

@@ -70,8 +70,11 @@ const rows = Object.values<Rec>(prods)
   .filter((p) => p && typeof p === 'object' && !dead(p) && isStockedProduct(p as any))
   .filter((p) => code(p) !== 'RP023' && !(code(p) === 'RP012' && /구독/.test(canonProductType(p.product_type) || '')));
 
-type Verdict = '✓' | '✗제조사' | '✗모델' | '✗세부모델' | '✗파워트레인' | '✗세부트림';
+type Verdict = '✓' | '✗차종정보미입력' | '✗제조사' | '✗모델' | '✗세부모델' | '✗파워트레인' | '✗세부트림';
 const judge = (p: Rec): { verdict: Verdict; note: string } => {
+  if (!S(p.maker) && !S(p.model) && !S(p.sub_model) && !S(p.variant) && !S(p.trim_name)) {
+    return { verdict: '✗차종정보미입력', note: `${S(p.car_number)} (${code(p) || '공급사미상'})` };
+  }
   const maker = mk(p.maker);
   if (!makers.has(maker)) return { verdict: '✗제조사', note: S(p.maker) };
   const pool = byMaker.get(maker) || [];
@@ -94,7 +97,7 @@ const judge = (p: Rec): { verdict: Verdict; note: string } => {
 
 const tally = new Map<Verdict, number>();
 const gaps = new Map<string, { verdict: Verdict; n: number }>();
-const lines: string[] = ['차량번호,제조사,모델,세부모델,파워트레인,세부트림,판정,없는 축'];
+const lines: string[] = ['상품키,차량번호,제조사,모델,세부모델,파워트레인,세부트림,판정,없는 축'];
 for (const p of rows) {
   const { verdict, note } = judge(p);
   tally.set(verdict, (tally.get(verdict) || 0) + 1);
@@ -103,17 +106,23 @@ for (const p of rows) {
     const g = gaps.get(key) || { verdict, n: 0 };
     g.n++; gaps.set(key, g);
   }
-  lines.push([p.car_number, p.maker, p.model, p.sub_model, p.variant, p.trim_name, verdict, note]
+  lines.push([p._key || p.product_code, p.car_number, p.maker, p.model, p.sub_model, p.variant, p.trim_name, verdict, note]
     .map((c) => `"${S(c).replace(/"/g, '""')}"`).join(','));
 }
 console.log(`■ 상품리스트 ${rows.length}대 판정`);
 for (const [k, n] of [...tally].sort((a, b) => b[1] - a[1])) console.log(`   ${k.padEnd(8)} ${String(n).padStart(4)}대  ${(n / rows.length * 100).toFixed(1)}%`);
 
-console.log(`\n■ 마스터에 만들어야 할 것 — 같은 결손끼리 묶었다 (${gaps.size}종)`);
-for (const [key, g] of [...gaps].sort((a, b) => b[1].n - a[1].n).slice(0, 40)) {
+const missingProductInfo = [...gaps].filter(([, g]) => g.verdict === '✗차종정보미입력');
+const masterGaps = [...gaps].filter(([, g]) => g.verdict !== '✗차종정보미입력');
+console.log(`\n■ 마스터에 만들어야 할 것 — 같은 결손끼리 묶었다 (${masterGaps.length}종)`);
+for (const [key, g] of masterGaps.sort((a, b) => b[1].n - a[1].n).slice(0, 40)) {
   console.log(`   ${String(g.n).padStart(3)}대  ${key.split('|')[0].padEnd(8)} ${key.split('|')[1]}`);
 }
-if (gaps.size > 40) console.log(`   … 그 밖 ${gaps.size - 40}종`);
+if (masterGaps.length > 40) console.log(`   … 그 밖 ${masterGaps.length - 40}종`);
+console.log(`\n■ 공급사 상품행 차종정보 미입력 (${missingProductInfo.length}종)`);
+for (const [key, g] of missingProductInfo.sort((a, b) => b[1].n - a[1].n)) {
+  console.log(`   ${String(g.n).padStart(3)}대  ${key.split('|')[1]}`);
+}
 
 const csv = arg('csv');
 if (csv) { mkdirSync('tmp', { recursive: true }); writeFileSync(csv, lines.join('\n'), 'utf8'); console.log(`\n  CSV: ${csv} (${lines.length}행)`); }

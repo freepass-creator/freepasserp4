@@ -56,7 +56,8 @@ export function selectMasterVariant(
   deps: MasterVariantScoreDeps,
 ): MasterVariantScoreResult {
   const fuel = normFuel(product.fuel_type);
-  const displacement = (Number(product.engine_cc) || 0) / 1000;
+  const displacementCc = Number(product.engine_cc) || 0;
+  const displacement = displacementCc / 1000;
   const wantedSeats = Number(product.seats) > 0 ? Number(product.seats) : 0;
   const wantedDrive = deps.normDrive(product.drive_type);
   const seatMatters = seatAxisMatters(entry);
@@ -76,7 +77,13 @@ export function selectMasterVariant(
       else if (fuel && candidateFuel && (candidateFuel.includes(fuel) || fuel.includes(candidateFuel))) score += 1;
       else if (fuel && candidateFuel) score -= 3;
 
-      if (displacement && candidate.displacement_l) {
+      if (displacementCc && candidate.engine_cc) {
+        const deltaCc = Math.abs(candidate.engine_cc - displacementCc);
+        if (deltaCc === 0) score += 2.2;
+        else if (deltaCc <= 15) score += 1.4;
+        else if (deltaCc <= 50) score += 0.7;
+        else score -= Math.min(1.5, deltaCc / 1000);
+      } else if (displacement && candidate.displacement_l) {
         score += Math.max(0, 1 - Math.abs(candidate.displacement_l - displacement) * 1.2);
       }
 

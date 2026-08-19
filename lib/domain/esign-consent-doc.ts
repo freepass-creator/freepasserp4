@@ -17,6 +17,7 @@
  *   값은 `value`(사람이 읽는 문자열)로 굳혀 보내고, 원본은 `raw` 에 남긴다.
  */
 import type { EntityRecord } from '@/lib/intake/entities';
+import { moneyOrRateText } from './policy-money-rate';
 import {
   CUSTOMER_INSURANCE_NOTE, findContractKind, showsInsuranceLimits, type InsuranceSide,
 } from '@/lib/domain/esign-contract-kind';
@@ -65,7 +66,10 @@ export const wonText = (v: unknown): string => `${N(v).toLocaleString('ko-KR')}�
  * 않는 것과 같은 이유다.
  */
 export function depositInstallmentText(chosen: unknown, policy: unknown): string {
-  const n = N(chosen);
+  const chosenText = S(chosen);
+  // 계약서관리 초안이 굳힌 값(「일시납」·「2회 분납」·「무보증」)은 그대로 쓴다.
+  if (/무보증/.test(chosenText)) return '무보증';
+  const n = /일시납/.test(chosenText) ? 1 : (Number(chosenText.match(/(\d+)\s*회/)?.[1] || 0) || N(chosen));
   if (n > 1) return `${n}회 분납`;
   if (n === 1) return '일시납';
   // 선택값이 없으면 정책의 「~ 가능」은 내보내지 않는다.
@@ -199,6 +203,15 @@ const kept = (rows: ConsentRow[]): ConsentRow[] => rows
  * 계약 하나 → 손님이 확인할 묶음 4개.
  * 값이 통째로 빈 묶음은 **떨어뜨리지 않고 남긴다** — 「차량정보 없음」이 화면에 보여야 사고를 잡는다.
  */
+/** 계약서관리 초안(contract_draft JSON)에 굳힌 보증금 납부 방식 — esign_inputs 가 없을 때의 정본. */
+function draftDepositInstallment(contract: Rec): string {
+  try {
+    const raw = typeof contract.contract_draft === 'string' ? JSON.parse(contract.contract_draft) : contract.contract_draft;
+    if (raw && typeof raw === 'object' && !Array.isArray(raw)) return S((raw as Rec).deposit_installment);
+  } catch { /* 깨진 초안은 빈값 */ }
+  return '';
+}
+
 export function buildConsentGroups(
   contract: EntityRecord,
   policy?: Rec | null,
@@ -271,7 +284,7 @@ export function buildConsentGroups(
         { label: '출고 시 주행거리', value: N(c.mileage_snapshot) ? `${N(c.mileage_snapshot).toLocaleString('ko-KR')}km` : '', raw: c.mileage_snapshot },
         { label: '만기 인수가격', value: S(inputs.buyout_price), raw: inputs.buyout_price },
         // 「3회 분납 가능」은 영업 단계의 말이다. 이 계약에서 몇 회로 굳었는지만 적는다.
-        { label: '보증금 분납', value: depositInstallmentText(inputs.deposit_installment_count, p.deposit_installment), raw: p.deposit_installment },
+        { label: '보증금 분납', value: depositInstallmentText(inputs.deposit_installment_count || draftDepositInstallment(c), p.deposit_installment), raw: p.deposit_installment },
         { label: '탁송비', value: S(p.delivery_fee), raw: p.delivery_fee },
         /*
          * 「대여지역」·「심사기준」은 뺐다(2026-08-09 정합성 점검).
@@ -297,7 +310,7 @@ export function buildConsentGroups(
         { label: '연체 시', value: TERMS_PAYMENT.overdue, article: '제24조' },
         { label: '중도해지 위약금', value: S(p.penalty_condition), raw: p.penalty_condition, article: '제8조' },
         { label: '계약 승계', value: S(p.succession_allowed), raw: p.succession_allowed, article: '제8조·제10조' },
-        { label: '계약 승계수수료', value: N(p.succession_fee) ? wonText(p.succession_fee) : '', raw: p.succession_fee, article: '제8조·제10조' },
+        { label: '계약 승계수수료', value: moneyOrRateText(p.succession_fee, { legacy: 'won', wonStyle: 'comma', naText: '승계 불가', noneText: '없음' }), raw: p.succession_fee, article: '제8조·제10조' },
         { label: '지연손해금', value: TERMS_PAYMENT.lateInterest, article: '제25조' },
         // 「1주일 안에」가 기한이다 — 약관에 묻히면 손님이 언제 돌려받는지 모른다.
         { label: '보증금 반환', value: TERMS_PAYMENT.depositReturn, article: '제6조' },
@@ -321,8 +334,8 @@ export function buildConsentGroups(
          * 하향·추가운전자 «요금»은 이 계약에서 실제로 선택했을 때만 확정값으로 실린다.
          * 선택하지 않았으면 그 줄은 존재하지 않는다(2026-08-09 정합성 점검).
          */
-        { label: '연령 하향 요금', value: optionRate(inputs.age_lowering_selected, p.age_lowering_cost), raw: p.age_lowering_cost },
-        { label: '추가운전자 요금', value: optionRate(inputs.additional_driver, p.additional_driver_cost), raw: p.additional_driver_cost },
+        { label: '연령 하향 요금', value: optionRate(inputs.age_lowering_selected, moneyOrRateText(p.age_lowering_cost, { legacy: 'won', per: '월', wonStyle: 'comma' })), raw: p.age_lowering_cost },
+        { label: '추가운전자 요금', value: optionRate(inputs.additional_driver, moneyOrRateText(p.additional_driver_cost, { legacy: 'won', per: '1인당 월', wonStyle: 'comma', noneText: '무료' })), raw: p.additional_driver_cost },
       ]),
       confirmLabel: '운전자 범위를 확인했습니다',
       required: true,

@@ -10,10 +10,11 @@ import { vehicleNameOf } from '@/lib/domain/vehicle-name';
 import { businessRegistrationNumberOf } from '@/lib/domain/business-identity';
 import { parseDraft, type ContractPayload } from '@/lib/domain/contract-send';
 import { FIELD_MAP, type AtomSource } from '@/lib/domain/esign-field-map';
-import { overMileageRateFor } from '@/lib/domain/policy-defaults';
+import { overMileageRateFor, policyNumber } from '@/lib/domain/policy-defaults';
 import { canonProductType } from '@/lib/domain/product';
 import { handoverStartOf, rentalPeriodEnd, rentalPeriodText } from '@/lib/domain/rental-period';
 import { additionalDriverCostLabel } from '@/lib/domain/esign-vehicle-selection';
+import { moneyOrRateText } from '@/lib/domain/policy-money-rate';
 
 type Row = Record<string, unknown>;
 
@@ -22,6 +23,24 @@ const text = (value: unknown): string => String(value ?? '').trim();
 function moneyCell(n: unknown): string {
   const v = Number(n) || 0;
   return v ? v.toLocaleString() : '';
+}
+
+function percentageCell(value: unknown): string {
+  const raw = text(value);
+  if (!raw) return '';
+  const parsed = Number(raw.replace(/[^\d.-]/g, ''));
+  if (!Number.isFinite(parsed)) return '';
+  const percent = Math.abs(parsed) <= 1 ? parsed * 100 : parsed;
+  return Number.isInteger(percent) ? String(percent) : String(Number(percent.toFixed(2)));
+}
+
+function dailyMoneyCell(value: unknown): string {
+  const raw = text(value);
+  if (!raw) return '';
+  if (/1\s*일|일당|\/\s*일/.test(raw)) return raw;
+  const parsed = Number(raw.replace(/[^\d.-]/g, ''));
+  if (Number.isFinite(parsed) && parsed > 0) return `1일 ${parsed.toLocaleString()}원`;
+  return `1일 ${raw}`;
 }
 
 /** 보험 면책금처럼 작은 표 칸에서는 300,000원보다 30만원이 빠르게 읽힌다. */
@@ -104,9 +123,10 @@ export function buildTemplateFieldsFromRecords(args: {
     co: coKey,
     ins,
     ...companyInject,
-    contract_code: text(contract.contract_code),
+    // 계약서에 보이는 번호와 내부 RTDB 키를 분리한다. 기존 계약은 contract_code로 호환.
+    contract_code: text(contract.contract_number || contract.contract_code),
     contract_date: contractDate,
-    car_number: car || text(product?.car_number),
+    car_number: car || text(product?.car_number) || '차량번호 미정',
     vehicle_name: vehicleNameOf(
       { kind: 'contract', contract: contract as never, product: product as never },
       { tier: 'full', fallback: 'none' },
@@ -139,8 +159,8 @@ export function buildTemplateFieldsFromRecords(args: {
     auto_debit_date: text(contract.auto_debit_day || pol.payment_due_date || pol.auto_debit_day),
     invoice_type: text(pol.invoice_type) || '세금계산서',
     invoice_cycle: text(pol.invoice_cycle) || '월 1회',
-    driver_scope: text(contract.driver_scope || pol.driver_scope),
-    driver_age: text(pol.basic_driver_age),
+    driver_scope: text(contract.driver_scope || pol.personal_driver_scope || pol.driver_scope),
+    driver_age: text(contract.driver_age_snapshot || pol.basic_driver_age),
     additional_driver_cost: additionalDriverCostLabel(pol.additional_driver_cost),
     annual_mileage: text(pol.annual_mileage),
     over_mileage_rate: overMileageRate ? `1km당 ${overMileageRate.toLocaleString()}원` : '',
@@ -164,18 +184,22 @@ export function buildTemplateFieldsFromRecords(args: {
       ? `연 ${(Number(pol.late_fee_rate) * (Number(pol.late_fee_rate) <= 1 ? 100 : 1)).toLocaleString()}%`
       : '',
     succession_allowed: text(pol.succession_allowed),
-    succession_fee: moneyCell(pol.succession_fee),
-    deposit_return_term: Number(pol.deposit_return_days) > 0
-      ? `반납·정산 후 ${Number(pol.deposit_return_days).toLocaleString()}일 이내`
+    // 사장님 2026-08-19 — 정액·정률·개월분 겸용. 「30%」→「잔여 대여료의 30%」 · 「월 대여료 2개월분」 · 「100만원」 · 옛 0.3/1000000 도 읽는다.
+    succession_fee: moneyOrRateText(pol.succession_fee, { legacy: 'won', wonStyle: 'comma', naText: '승계 불가', noneText: '없음' }),
+    early_termination_rate_y1: moneyOrRateText(pol.early_termination_rate_under1y, { legacy: 'rate', rateBase: '잔여 대여료의', wonStyle: 'comma' }),
+    early_termination_rate_y2: moneyOrRateText(pol.early_termination_rate_over1y, { legacy: 'rate', rateBase: '잔여 대여료의', wonStyle: 'comma' }),
+    // 시트 규격 글자(「7일」「3일」「10일」)에서 숫자만 — 계약서 문장이 「연체 3일째」로 이어진다.
+    deposit_return_term: (policyNumber(pol.deposit_return_days) ?? 0) > 0
+      ? `반납·정산 후 ${(policyNumber(pol.deposit_return_days) as number).toLocaleString()}일 이내`
       : '',
-    engine_control_overdue_days: text(pol.engine_control_overdue_days),
-    auto_terminate_overdue_days: text(pol.auto_terminate_overdue_days),
+    engine_control_overdue_days: policyNumber(pol.engine_control_overdue_days) != null ? String(policyNumber(pol.engine_control_overdue_days)) : text(pol.engine_control_overdue_days),
+    auto_terminate_overdue_days: policyNumber(pol.auto_terminate_overdue_days) != null ? String(policyNumber(pol.auto_terminate_overdue_days)) : text(pol.auto_terminate_overdue_days),
     deposit_overdue_rounds: text(pol.deposit_overdue_rounds),
     claim_basis: text(pol.claim_basis),
     impound_keep_term: Number(pol.impound_keep_days) > 0
       ? `반환 통지 후 ${Number(pol.impound_keep_days).toLocaleString()}일`
       : '',
-    impound_fee: moneyCell(pol.impound_fee_per_day),
+    impound_fee: dailyMoneyCell(pol.impound_fee ?? pol.impound_fee_per_day),
     gps_installed: text(pol.gps_installed),
     buyback_price: moneyCell(contract.buyout_price),
     insurance_condition: ins === '포함' ? '회사 포함' : '고객 별도',

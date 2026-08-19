@@ -111,4 +111,11 @@ const adminView = mergeSettlementPrivate(split.publicRecord, split.providerRecor
 check('admin view has derived net', adminView.net_amount, 60000);
 setSession(null);
 
+const authSrc = fs.readFileSync(path.join(process.cwd(), 'lib/firebase/auth.ts'), 'utf8');
+check('unregistered bizNo is not blocked', authSrc.includes('미등록 사업자번호입니다'), false);
+check('unmatched identity defaults to personal agent', authSrc.includes("company_code = 'SP999'"), true);
+check('default approve assigns personal agent', authSrc.includes('바로 승인 = 개인영업자'), true);
+check('approve writes members overlay', authSrc.includes('v4/users/${uid}'), true);
+check('partner match reads v4 overlay', authSrc.includes("get(ref(db, 'v4/partners'))"), true);
+
 console.log(`authorization simulation: ${passed}/${passed} PASS`);

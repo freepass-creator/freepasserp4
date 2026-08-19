@@ -21,7 +21,7 @@ import {
   POLICY_COLUMN_FIELDS, POLICY_TAB_NAME, buildBaseFont, buildChipColors, buildColumns,
   buildNumberFormats, buildPolicyTabFormat, buildPolicyTabValues, buildRowHeights, buildSectionBanding,
   buildTableRequest, buildTemplateFormat, buildTemplateValues, columnWidth, FREEPASS_STANDARD,
-  POLICY_TAB_FIELD_ROWS, resetSheetRequests, tableWidth, yearOptions, supplierSheetName } from '../lib/domain/supplier-template-sheet';
+  POLICY_TAB_FIELD_ROWS, resetSheetRequests, tableWidth, yearOptions, supplierSheetName, SHEET_NAME_MATCH, supplierSheetLabel } from '../lib/domain/supplier-template-sheet';
 import { POLICY_DEFAULTS } from '../lib/domain/policy-defaults';
 import type { EntityRecord } from '../lib/intake/entities';
 
@@ -140,9 +140,15 @@ for (const r of POLICY_TAB_FIELD_ROWS) {
  *   든 문서를 **공급사 시트로 찾는다** — 표준을 같은 이름으로 두면 공급사 하나가 더 생긴 것처럼
  *   세어지고, 정제칸 채우기·코드 박기가 빈 표준에까지 들어간다.
  */
-const title = arg('title') || supplierSheetName(NAME);
-const q = encodeURIComponent(`mimeType='application/vnd.google-apps.spreadsheet' and 'me' in owners and trashed=false and name = '${title}'`);
-const found = ((await api(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`)).files || []) as Rec[];
+/**
+ * ★이름 규격은 「MMDD 공급사 프리패스 재고 [제공]」(2026-08-18, `supplierSheetName`). 날짜는 만든 날(배포일).
+ *   찾을 때는 이름 전체가 아니라 «라벨이 같은 프리패스 재고 시트»로 찾는다 — 날짜·표식이 붙어 있어도 같은 시트다(중복 생성 방지).
+ */
+const kst = (d = new Date()) => { const x = new Date(d.getTime() + 9 * 3600 * 1000); return `${String(x.getUTCMonth() + 1).padStart(2, '0')}${String(x.getUTCDate()).padStart(2, '0')}`; };
+const title = arg('title') || supplierSheetName(NAME, { kind: '제공', date: kst() });
+const q = encodeURIComponent(`mimeType='application/vnd.google-apps.spreadsheet' and 'me' in owners and trashed=false and name contains '${arg('title') ? title : SHEET_NAME_MATCH}'`);
+const found = (((await api(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)&pageSize=100`)).files || []) as Rec[])
+  .filter((f) => (arg('title') ? S(f.name) === title : supplierSheetLabel(S(f.name)) === S(NAME)));
 console.log(`\n  대상 「${title}」 ${found[0] ? '(이미 있음 — 다시 찍음)' : '(새로 만듦)'}`);
 if (!APPLY) { console.log('\n※ dry-run. 실제 반영은 --apply\n'); process.exit(0); }
 

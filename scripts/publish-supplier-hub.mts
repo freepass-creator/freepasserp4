@@ -16,9 +16,11 @@
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { NOT_SHEET_BACKED } from '../lib/domain/supplier-sheet-read';
-import { buildRowHeights, isVehicleTab, supplierSheetLabel } from '../lib/domain/supplier-template-sheet';
+import { buildRowHeights, isVehicleTab, supplierSheetLabel,  isPolicyTabTitle } from '../lib/domain/supplier-template-sheet';
 import { isStockedProduct } from '../lib/domain/product';
 import type { EntityRecord } from '../lib/intake/entities';
+import { DEFAULT_PRODUCT_MASTER_SHEET_ID } from '../lib/domain/product-master-sheet';
+import { MIRROR_SOURCES } from '../lib/domain/mirror-sources';
 
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
@@ -126,7 +128,7 @@ for (const f of ((found.files || []) as Rec[])) {
     if (isVehicleTab(title)) {
       if (!stockGid) stockGid = gid;
       rows += rd.slice(1).filter((r) => ((r?.values || []) as Rec[]).some((c) => S(c?.formattedValue))).length;
-    } else if (title === '정책') {
+    } else if (isPolicyTabTitle(title)) {
       policyGid = gid;
       // 1행이 정책코드 줄 — 라벨 칸을 빼고 값이 있는 칸이 정책 수다.
       policies = ((rd[0]?.values || []) as Rec[]).slice(1).filter((c) => S(c?.formattedValue)).length;
@@ -168,9 +170,14 @@ for (const r of chRows.slice(1)) {
 // 링크 두 칸은 줄 종류에 따라 가리키는 곳이 다르다 — 공급사줄은 재고·정책, 영업자줄은 신·구 상품리스트.
 // ★링크는 **한 줄에 하나**다(사장님 확정 2026-08-11). 재고와 정책은 같은 파일의 두 탭이라
 //   따로 걸 이유가 없다 — 열면 아래 탭으로 오간다.
+/**
+ * ★사장님 2026-08-18 — 「실제 원본·정제시트 구분 명확하게」.
+ *   「원본(공급사가 적는 곳)」 = 공급사가 실제로 값을 넣는 곳. 제공시트 공급사는 우리 시트가 곧 원본(「= 정제시트」로 표시).
+ *   「정제시트(우리 규격 · 문패)」 = 발행기·상품마스터가 읽는 우리 규격 시트. 정제시트 공급사는 원본 ≠ 정제시트.
+ */
 const HEADERS = ['구분', '코드', '연동방식', 'ERP 재고', '목록에 선 것',
-  '시트 열기', '정책 수', '입력된 행',
-  'ERP 가 지금 읽는 곳', '그 주소(복사용)', '우리가 뜬 사본', '해야 할 일'];
+  '원본(공급사가 적는 곳)', '정제시트(우리 규격 · 문패)', '정책 수', '입력된 행',
+  '정제시트 주소(복사용)', '우리가 뜬 사본', '해야 할 일'];
 
 const rows: (string | number | Cell)[][] = [];
 const seen = new Set<string>();
@@ -187,29 +194,44 @@ for (const p of Object.values<Rec>(partners)) {
   seen.add(code);
 
   const st = stock.get(code) || { alive: 0, listed: 0 };
-  const how = NOT_SHEET_BACKED.has(code) ? '홈페이지 자동수집'
-    : mine && liveUrl && !liveUrl.includes(mine.id) ? '공급사 자기 시트(우리 시트는 배포 대기)'
-      : mine ? '우리 제공 시트'
-        : '공급사 자기 시트';
-  const todo = NOT_SHEET_BACKED.has(code) ? '없음 — 홈페이지가 정본'
-    : !mine ? '공급사가 자기 시트로 준다 — 우리 양식은 안 만듦'
-      : mine.rows === 0 ? '① 시트 전달 → ② 공급사가 입력 → ③ 다 채우면 ERP 연결을 이 시트로 바꾼다'
-        : liveUrl.includes(mine.id) ? '연결 완료'
-          : `입력 ${mine.rows}행 — 확인 후 ERP 연결을 이 시트로 바꾼다`;
+  /** ★정제시트(원본을 미러하는 우리 시트) — 사장님 2026-08-18. 원본은 mirror-sources 표에만 있다. */
+  const mirror = MIRROR_SOURCES.find((m) => m.code === code);
+  // ★사장님 2026-08-18 — 「자기 시트 쓰는 곳은 딱 4곳뿐(아이카·오플·이안카·아이언), 나머지는 버전의 차이」. 그 밖은 «옛 우리 시트(구버전)»이지 자기 시트가 아니다.
+  const how = mirror ? (mirror.kind === 'iron' ? '정제시트 ← 홈페이지(30분 미러)' : '정제시트 ← 공급사 자기 시트(30분 미러)')
+    : NOT_SHEET_BACKED.has(code) ? '홈페이지 자동수집'
+      : mine && liveUrl && !liveUrl.includes(mine.id) ? '제공시트 구버전 읽는 중(신버전 [제공]으로 전환 대기)'
+        : mine ? '제공시트(공급사가 직접 적음 = 원본 = 정제시트)'
+          : '옛 우리 시트(구버전) — 신버전 [제공] 없음';
+  const todo = mirror ? `원본: ${mirror.kind === 'iron' ? 'https://www.ironrentcar.com' : `https://docs.google.com/spreadsheets/d/${mirror.from}/edit`} — 상태·대여료는 원본에서 고친다(정제시트에서 고쳐도 되돌아감). 정제칸·정책은 정제시트에서`
+    : NOT_SHEET_BACKED.has(code) ? '없음 — 홈페이지가 정본'
+      : !mine ? '공급사가 자기 시트로 준다 — 우리 양식은 안 만듦'
+        : mine.rows === 0 ? '① 시트 전달 → ② 공급사가 입력 → ③ 다 채우면 ERP 연결을 이 시트로 바꾼다'
+          : liveUrl.includes(mine.id) ? '연결 완료'
+            : `입력 ${mine.rows}행 — 확인 후 ERP 연결을 이 시트로 바꾼다`;
 
+  const originCell: Cell | string = mirror
+    ? (mirror.kind === 'iron' ? openLink('https://www.ironrentcar.com', '홈페이지(원본)') : openLink(`https://docs.google.com/spreadsheets/d/${mirror.from}/edit`, '자기 시트(원본)'))
+    // ★사장님 2026-08-19 — 「우리가 제공하고 그걸 원본으로 쓰는 사람들은 그게 수정하는 곳이지, 정제시트가 곧 그들한테는 원본시트」
+    //   → [제공] 공급사의 「원본」 칸도 제공시트 링크(사장님이 원천대장에서 손으로 복사해 둔 것을 코드로 고정).
+    //   (전엔 「= 정제시트(…)」 글자를 썼는데 USER_ENTERED 라 수식으로 읽혀 #ERROR! 가 떴다 — 글자를 '=' 로 시작하지 말 것.)
+    : mine && liveUrl.includes(mine.id) ? openLink(link(mine.id, mine.stockGid), '제공시트 열기')
+      : liveUrl ? openLink(liveUrl, '옛 우리 시트(구버전)') : '';
+  const refinedCell: Cell | string = mine ? openLink(link(mine.id, mine.stockGid), mirror ? '정제시트 열기' : '제공시트 열기') : '(없음 — 자기 시트를 직접 읽음)';
   rows.push([
     name, code, how, st.alive, st.listed,
-    mine ? openLink(link(mine.id, mine.stockGid), '열기') : '',
+    originCell,
+    refinedCell,
     mine ? mine.policies : '',
     mine ? mine.rows : '',
-    NOT_SHEET_BACKED.has(code) ? 'ironrentcar.com' : openLink(liveUrl, '원본 열기'),
-    // 주소를 «글자»로도 낸다 — 링크만 있으면 복사해 남에게 보낼 수가 없다(사장님 지적).
-    NOT_SHEET_BACKED.has(code) ? 'https://www.ironrentcar.com' : liveUrl,
+    // 주소를 «글자»로도 낸다 — 링크만 있으면 복사해 남에게 보낼 수가 없다(사장님 지적). 문패가 읽는 주소.
+    liveUrl,
     copyByCode.has(code) ? openLink(link(copyByCode.get(code)!.id), '사본 열기') : '',
     todo,
   ]);
 }
-rows.sort((a, b) => Number(b[3]) - Number(a[3]));
+// ★정렬: 정제시트(미러) 묶음 먼저, 그 안에서 ERP 재고 많은 순 → 제공시트 묶음(사장님 2026-08-19 「손오공 줄을 아이언 밑으로 보내는 게 맞아 보임」).
+const isMirrorRow = (r: (string | number | Cell)[]) => /^정제시트/.test(String(r[2]));
+rows.sort((a, b) => (Number(isMirrorRow(b)) - Number(isMirrorRow(a))) || (Number(b[3]) - Number(a[3])));
 
 /**
  * 맨 윗줄은 **영업자용 시트**다 — 공급사가 아니라 우리가 찍어 내보내는 쪽이다.
@@ -237,85 +259,99 @@ rows.unshift([
 console.log(`■ 공급사시트 정리표 ${APPLY ? '(반영)' : '(dry-run)'}\n`);
 console.log(`  ${'공급사'.padEnd(16)}${'코드'.padEnd(10)}${'재고'.padStart(6)}${'목록'.padStart(6)}${'정책'.padStart(6)}${'입력'.padStart(6)}   연동방식`);
 for (const r of rows) {
-  console.log(`  ${S(r[0]).slice(0, 15).padEnd(16)}${S(r[1]).padEnd(10)}${String(r[3]).padStart(6)}${String(r[4]).padStart(6)}${String(r[6] || '-').padStart(6)}${String(r[7] || '-').padStart(6)}   ${S(r[2])}`);
+  console.log(`  ${S(r[0]).slice(0, 15).padEnd(16)}${S(r[1]).padEnd(10)}${String(r[3]).padStart(6)}${String(r[4]).padStart(6)}${String(r[7] || '-').padStart(6)}${String(r[8] || '-').padStart(6)}   ${S(r[2])}`);
 }
 console.log(`\n  ${rows.length}곳 · 나눠 줄 시트 ${rows.filter((r) => S(r[5])).length}개`);
 
 if (!APPLY) { console.log('\n※ dry-run. 실제 반영은 --apply\n'); process.exit(0); }
 
-const meta = await api(`https://sheets.googleapis.com/v4/spreadsheets/${HUB}?fields=sheets(properties(sheetId,title))`);
-const sheet = ((meta.sheets || []) as Rec[]).find((s) => S(s.properties?.title) === TAB_HINT) || ((meta.sheets || []) as Rec[])[0];
-const gid = Number(sheet?.properties?.sheetId ?? 0);
-const TAB = S(sheet?.properties?.title);
-
-await api(`https://sheets.googleapis.com/v4/spreadsheets/${HUB}/values/${encodeURIComponent(A1(TAB))}:clear`, { method: 'POST', body: '{}' });
-const isCell = (v: unknown): v is Cell => !!v && typeof v === 'object' && 'url' in (v as Rec);
-const flat = rows.map((r) => r.map((v) => (isCell(v) ? v.label : v)));
-await api(`https://sheets.googleapis.com/v4/spreadsheets/${HUB}/values/${encodeURIComponent(A1(TAB, 'A1'))}?valueInputOption=USER_ENTERED`, {
-  method: 'PUT', body: JSON.stringify({ values: [HEADERS, ...flat] }),
-});
-
-await api(`https://sheets.googleapis.com/v4/spreadsheets/${HUB}:batchUpdate`, {
-  method: 'POST',
-  body: JSON.stringify({
-    requests: [
-      { repeatCell: {
-        range: { sheetId: gid, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: HEADERS.length },
-        cell: { userEnteredFormat: {
-          backgroundColorStyle: { rgbColor: { red: 0.13, green: 0.20, blue: 0.33 } },
-          textFormat: { bold: true, fontSize: 10, fontFamily: 'Roboto', foregroundColorStyle: { rgbColor: { red: 1, green: 1, blue: 1 } } },
-          verticalAlignment: 'MIDDLE',
-        } },
-        fields: 'userEnteredFormat(backgroundColorStyle,textFormat,verticalAlignment)',
-      } },
-      { repeatCell: {
-        range: { sheetId: gid, startRowIndex: 1, endRowIndex: rows.length + 1, startColumnIndex: 0, endColumnIndex: HEADERS.length },
-        cell: { userEnteredFormat: { textFormat: { fontSize: 10, fontFamily: 'Roboto' }, verticalAlignment: 'MIDDLE' } },
-        fields: 'userEnteredFormat(textFormat,verticalAlignment)',
-      } },
-      { updateSheetProperties: { properties: { sheetId: gid, gridProperties: { frozenRowCount: 1, frozenColumnCount: 1 } }, fields: 'gridProperties(frozenRowCount,frozenColumnCount)' } },
-      // 칸마다 고정 너비 — autoResize 는 주소 길이를 따라가 열이 화면 밖으로 나간다.
-      ...[168, 76, 210, 84, 92, 84, 68, 84, 104, 300, 96, 380].map((w, i) => ({
-        updateDimensionProperties: {
-          range: { sheetId: gid, dimension: 'COLUMNS', startIndex: i, endIndex: i + 1 },
-          properties: { pixelSize: w }, fields: 'pixelSize',
-        },
-      })),
-      // ★행 높이 — 기본 21px 은 붙어 보여 답답하다. 공급사 시트와 같은 규격으로 둔다.
-      ...buildRowHeights(gid, rows.length + 1),
-      // 글자가 칸을 넘치면 다음 줄로 흐르지 않고 잘리게 둔다 — 줄 높이가 들쭉날쭉해지면
-      // 표가 아니라 문단처럼 보인다. 링크는 어차피 눌러서 여는 것이지 읽는 게 아니다.
-      { repeatCell: {
-        range: { sheetId: gid, startRowIndex: 0, endRowIndex: rows.length + 1, startColumnIndex: 0, endColumnIndex: HEADERS.length },
-        cell: { userEnteredFormat: { wrapStrategy: 'CLIP' } },
-        fields: 'userEnteredFormat.wrapStrategy',
-      } },
-    ],
-  }),
-});
 /**
- * 글자에 링크 걸기 — **서식을 다 건 뒤**에 한다.
- * `repeatCell` 로 글꼴을 통째로 덮으면 `textFormatRuns`(글자 링크)가 같이 지워진다.
- * 값 쓰기 직후에 걸었더니 링크가 통째로 사라졌다(실측 2026-08-11).
+ * ★같은 표를 두 곳에 찍는다 — 「프리패스 공급사시트 정리」(사람용 허브)와 **원천대장 「공급사연동」 탭**.
+ *   원천대장 쪽이 옛 사본으로 남아 사장님이 «정제시트가 없다»고 보셨다(2026-08-18). 한 곳만 찍으면 반드시 갈린다.
  */
-const linkCells: Rec[] = [];
-rows.forEach((r, ri) => r.forEach((v, ci) => {
-  if (!isCell(v)) return;
-  linkCells.push({
-    updateCells: {
-      range: { sheetId: gid, startRowIndex: ri + 1, endRowIndex: ri + 2, startColumnIndex: ci, endColumnIndex: ci + 1 },
-      rows: [{ values: [{
-        userEnteredValue: { stringValue: v.label },
-        textFormatRuns: [{ startIndex: 0, format: { link: { uri: v.url }, underline: true, foregroundColorStyle: { rgbColor: { red: 0.10, green: 0.34, blue: 0.68 } } } }],
-      }] }],
-      fields: 'userEnteredValue,textFormatRuns',
-    },
-  });
-}));
-if (linkCells.length) {
-  await api(`https://sheets.googleapis.com/v4/spreadsheets/${HUB}:batchUpdate`, {
-    method: 'POST', body: JSON.stringify({ requests: linkCells }),
-  });
-}
+async function writeTo(book: string): Promise<string> {
+  const meta = await api(`https://sheets.googleapis.com/v4/spreadsheets/${book}?fields=sheets(properties(sheetId,title))`);
+  const sheet = ((meta.sheets || []) as Rec[]).find((s) => S(s.properties?.title) === TAB_HINT) || ((meta.sheets || []) as Rec[])[0];
+  const gid = Number(sheet?.properties?.sheetId ?? 0);
+  const TAB = S(sheet?.properties?.title);
 
-console.log(`\n  반영 완료 — ${link(HUB, gid)}\n`);
+  await api(`https://sheets.googleapis.com/v4/spreadsheets/${book}/values/${encodeURIComponent(A1(TAB))}:clear`, { method: 'POST', body: '{}' });
+  const isCell = (v: unknown): v is Cell => !!v && typeof v === 'object' && 'url' in (v as Rec);
+  const flat = rows.map((r) => r.map((v) => (isCell(v) ? v.label : v)));
+  await api(`https://sheets.googleapis.com/v4/spreadsheets/${book}/values/${encodeURIComponent(A1(TAB, 'A1'))}?valueInputOption=USER_ENTERED`, {
+    method: 'PUT', body: JSON.stringify({ values: [HEADERS, ...flat] }),
+  });
+
+  await api(`https://sheets.googleapis.com/v4/spreadsheets/${book}:batchUpdate`, {
+    method: 'POST',
+    body: JSON.stringify({
+      requests: [
+        { repeatCell: {
+          range: { sheetId: gid, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: HEADERS.length },
+          cell: { userEnteredFormat: {
+            backgroundColorStyle: { rgbColor: { red: 0.13, green: 0.20, blue: 0.33 } },
+            textFormat: { bold: true, fontSize: 10, fontFamily: 'Roboto', foregroundColorStyle: { rgbColor: { red: 1, green: 1, blue: 1 } } },
+            verticalAlignment: 'MIDDLE',
+          } },
+          fields: 'userEnteredFormat(backgroundColorStyle,textFormat,verticalAlignment)',
+        } },
+        { repeatCell: {
+          range: { sheetId: gid, startRowIndex: 1, endRowIndex: rows.length + 1, startColumnIndex: 0, endColumnIndex: HEADERS.length },
+          cell: { userEnteredFormat: { textFormat: { fontSize: 10, fontFamily: 'Roboto' }, verticalAlignment: 'MIDDLE' } },
+          fields: 'userEnteredFormat(textFormat,verticalAlignment)',
+        } },
+        { updateSheetProperties: { properties: { sheetId: gid, gridProperties: { frozenRowCount: 1, frozenColumnCount: 1 } }, fields: 'gridProperties(frozenRowCount,frozenColumnCount)' } },
+        // 칸마다 고정 너비 — autoResize 는 주소 길이를 따라가 열이 화면 밖으로 나간다.
+        ...[168, 76, 230, 84, 92, 150, 150, 68, 84, 300, 96, 380].map((w, i) => ({
+          updateDimensionProperties: {
+            range: { sheetId: gid, dimension: 'COLUMNS', startIndex: i, endIndex: i + 1 },
+            properties: { pixelSize: w }, fields: 'pixelSize',
+          },
+        })),
+        // ★행 높이 — 기본 21px 은 붙어 보여 답답하다. 공급사 시트와 같은 규격으로 둔다.
+        ...buildRowHeights(gid, rows.length + 1),
+        // 글자가 칸을 넘치면 다음 줄로 흐르지 않고 잘리게 둔다 — 줄 높이가 들쭉날쭉해지면
+        // 표가 아니라 문단처럼 보인다. 링크는 어차피 눌러서 여는 것이지 읽는 게 아니다.
+        { repeatCell: {
+          range: { sheetId: gid, startRowIndex: 0, endRowIndex: rows.length + 1, startColumnIndex: 0, endColumnIndex: HEADERS.length },
+          cell: { userEnteredFormat: { wrapStrategy: 'CLIP' } },
+          fields: 'userEnteredFormat.wrapStrategy',
+        } },
+      ],
+    }),
+  });
+  /**
+   * 글자에 링크 걸기 — **서식을 다 건 뒤**에 한다.
+   * `repeatCell` 로 글꼴을 통째로 덮으면 `textFormatRuns`(글자 링크)가 같이 지워진다.
+   * 값 쓰기 직후에 걸었더니 링크가 통째로 사라졌다(실측 2026-08-11).
+   */
+  const linkCells: Rec[] = [];
+  rows.forEach((r, ri) => r.forEach((v, ci) => {
+    if (!isCell(v)) return;
+    linkCells.push({
+      updateCells: {
+        range: { sheetId: gid, startRowIndex: ri + 1, endRowIndex: ri + 2, startColumnIndex: ci, endColumnIndex: ci + 1 },
+        rows: [{ values: [{
+          userEnteredValue: { stringValue: v.label },
+          textFormatRuns: [{ startIndex: 0, format: { link: { uri: v.url }, underline: true, foregroundColorStyle: { rgbColor: { red: 0.10, green: 0.34, blue: 0.68 } } } }],
+        }] }],
+        fields: 'userEnteredValue,textFormatRuns',
+      },
+    });
+  }));
+  if (linkCells.length) {
+    await api(`https://sheets.googleapis.com/v4/spreadsheets/${book}:batchUpdate`, {
+      method: 'POST', body: JSON.stringify({ requests: linkCells }),
+    });
+  }
+  return link(book, gid);
+}
+const written: string[] = [];
+for (const book of [HUB, DEFAULT_PRODUCT_MASTER_SHEET_ID]) {
+  try { written.push(await writeTo(book)); }
+  catch (e) { console.log(`  ✗ ${book.slice(0, 8)}… — ${String((e as Error).message).slice(0, 160)}`); process.exitCode = 1; }
+}
+console.log(`
+  반영 완료 — ${written.join(' · ')}
+`);
+

@@ -10,7 +10,13 @@ import { ExcelResultsTable } from './ExcelResultsTable';
 
 // 뷰 컨테이너 스타일 SSOT — 실제 렌더와 로딩 스켈레톤이 같은 상수를 공유(재타이핑 드리프트=레이아웃 점프 방지).
 const CARD_GRID: CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 14 };
-const LIST_GRID: CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 520px), 1fr))', gap: 6 };
+// 상세(list): 브라우저 폭에 맞춰 1~3열. 카드 최소 약 400px, 4열은 정보 과밀이라 상한 3.
+// (100%-12px)/3 = gap 6×2 보정. max(400px, …) 로 좁은 화면은 1~2열.
+const LIST_GRID: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fill, minmax(max(400px, calc((100% - 12px) / 3)), 1fr))',
+  gap: 6,
+};
 const MOBILE_FEED_WRAP: CSSProperties = { background: C.taupeBg, borderTop: `1px solid ${C.line2}` };
 
 type Props = {
@@ -169,7 +175,7 @@ function CardGridSkeleton({ count }: { count: number }) {
   );
 }
 
-// 상세(list) 데스크톱 — 실제 그리드 minmax(520)/gap6 + WebRow(88썸네일·fp-card).
+// 상세(list) 데스크톱 — LIST_GRID(1~3열) + WebRow(88썸네일·fp-card).
 function RowListSkeleton({ count }: { count: number }) {
   return (
     <div role="status" aria-label="불러오는 중" style={LIST_GRID}>

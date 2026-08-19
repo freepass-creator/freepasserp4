@@ -10,6 +10,7 @@ import {
   variantSeatsDiffer,
   masterVariantOptionLabel,
 } from '../lib/domain/vehicle-master-match.ts';
+import { selectMasterVariant } from '../lib/domain/vehicle-master-variant.ts';
 
 const raw = JSON.parse(readFileSync('public/data/vehicle-master.json', 'utf8')) as
   | { entries: any[] }
@@ -76,6 +77,26 @@ if (exactFail) issues.push(`exact self-check fails: ${exactFail}`);
 else ok.push('exact self-check 0 fails');
 
 // ── 2. Regression cases (snapToMaster = 실경로) ──
+{
+  const entry = {
+    maker: '테스트', model: '정확배기', sub_model: '정확배기 X1', gen_code: 'X1',
+    year_start: '2020', year_end: '현재', variants: [
+      { label: '가솔린 A', fuel: '가솔린', engine_cc: 1591, displacement_l: 1.6, turbo: false, drivetrain: '2WD', seat: 5, battery_kwh: null, trims: [] },
+      { label: '가솔린 B', fuel: '가솔린', engine_cc: 1598, displacement_l: 1.6, turbo: false, drivetrain: '2WD', seat: 5, battery_kwh: null, trims: [] },
+    ],
+  } as any;
+  const { variant } = selectMasterVariant(
+    { fuel_type: '가솔린', engine_cc: '1598' } as any,
+    entry,
+    [entry],
+    entry.model,
+    '',
+    false,
+    { norm: (v) => String(v || '').replace(/\s+/g, '').toLowerCase(), normDrive: (v) => String(v || '') },
+  );
+  if (variant?.engine_cc !== 1598) issues.push(`exact cc priority: ${variant?.engine_cc || 'none'}`);
+  else ok.push('exact engine_cc priority');
+}
 {
   const r = snapToMaster(
     { maker: '제네시스', model: 'G80', year: 2022, catalog_id: '', variant: '', trim_name: '', sub_model: '' } as any,

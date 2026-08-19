@@ -23,7 +23,7 @@ type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
 const N = (v: unknown) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
 
-/** 손님에게 보여도 되는 정책 필드 — 보험·조건·연령. 수수료·환수·내부 운영값은 없다. */
+/** 손님에게 보여도 되는 정책 필드 — 보험·계약조건·연령. 심사·신용·수수료 등 내부값은 없다. */
 const PUBLIC_POLICY_FIELDS = [
   'policy_name', 'policy_type',
   'insurance_included',
@@ -35,7 +35,6 @@ const PUBLIC_POLICY_FIELDS = [
   'own_damage_compensation', 'own_damage_repair_ratio', 'own_damage_compensation_rate',
   'own_damage_min_deductible', 'own_damage_max_deductible',
   'annual_roadside_assistance', 'roadside_assistance',
-  'credit_grade', 'screening_criteria',
   'annual_mileage', 'mileage_upcharge_per_10000km',
   'deposit_installment', 'deposit_card_payment', 'payment_method', 'payment_timing',
   'penalty_condition', 'rental_region', 'delivery_fee',
@@ -52,7 +51,7 @@ const PUBLIC_PRODUCT_FIELDS = [
   'ext_color', 'int_color', 'drive_type', 'seats', 'transmission', 'usage',
   'options', 'product_type', 'vehicle_status', 'accident_history',
   'cert_car_name', 'location', 'note',
-  'credit_grade', 'insurance_included', 'annual_mileage',
+  'insurance_included', 'annual_mileage',
 ] as const;
 
 /** 기간별 대여료 — 값이 있는 기간만. 음수·0은 버린다(0원 견적 방지). */

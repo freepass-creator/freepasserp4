@@ -12,6 +12,7 @@ const partners: EntityRecord[] = [
   { _key: 'RP006', partner_code: 'RP006', name: '(주)아이언렌트카', partner_type: 'provider' },
   { _key: 'RP012', partner_code: 'RP012', name: '손오공', partner_type: 'provider' },
   { _key: 'RP023', partner_code: 'RP023', name: '오토플러스 주식회사', partner_type: 'provider' },
+  { _key: 'PT-0012', partner_code: 'RP030', partner_name: '주식회사 제이앤제이렌트카', partner_type: 'provider' },
 ];
 const table = [
   ['차량번호', '상태', '상품', '제조사', '차종', '세부모델', '파워', '트림', '주행', '12개월', '공급사', '정책코드', '배기량'],
@@ -41,9 +42,39 @@ assert.equal(iron?.sheet_source_row, 3);
 assert.equal(iron?.vehicle_status, '계약중');
 assert.deepEqual(iron?.price, { '12': { rent: 640000, deposit: 0 } });
 
-const blocked = planDailySheetSync({ fetched, existing: [], deleted: [], partners });
-assert.equal(blocked.ok, false);
-assert.match(blocked.blockReason, /계약 엔진과 일치하지 않습니다/);
+const jj = importSalesInventorySheet({
+  table: [table[0], [...table[1].slice(0, 10), 'J&J', ...table[1].slice(11)]],
+  partners,
+  entries,
+  tabTitle: '상품리스트',
+  tabGid: '1',
+});
+assert.equal(jj.products[0]?.provider_company_code, 'RP030');
+
+const sourceContractUnavailable = planDailySheetSync({ fetched, existing: [], deleted: [], partners });
+assert.equal(sourceContractUnavailable.ok, true);
+const sourceContractProduct = sourceContractUnavailable.creates.find((row) => row.car_number === '109호4734');
+assert.equal(sourceContractProduct?.vehicle_status, '출고불가');
+assert.equal(sourceContractProduct?.sheet_status_owner, 'sheet');
+assert.equal(sourceContractProduct?.sheet_block_reason, 'source_contract_status');
+assert.equal(sourceContractProduct?.locked_by_contract, undefined);
+const releasedFetched = importSalesInventorySheet({
+  table: [table[0], [table[2][0], '출고가능', ...table[2].slice(2)]],
+  partners,
+  entries,
+  tabTitle: '상품리스트',
+  tabGid: '1',
+});
+const releasedPlan = planDailySheetSync({
+  fetched: releasedFetched,
+  existing: [sourceContractProduct as EntityRecord],
+  deleted: [],
+  partners,
+});
+const releasedPatch = releasedPlan.patches.find((item) => item.key === sourceContractProduct?.product_code)?.patch;
+assert.equal(releasedPatch?.vehicle_status, '출고가능');
+assert.equal(releasedPatch?.sheet_status_owner, null);
+assert.equal(releasedPatch?.sheet_block_reason, null);
 const allowed = planDailySheetSync({
   fetched,
   existing: [{ ...iron, _key: iron?.product_code, locked_by_contract: 'CT-1' } as EntityRecord],

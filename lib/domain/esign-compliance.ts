@@ -182,7 +182,7 @@ export const COMPLIANCE_ITEMS: ComplianceItem[] = [
     requirement: '보증 채무의 최고액을 서면으로 특정하고 보증인이 직접 서명한다.',
     level: '필수',
     risk: '보증계약이 무효가 된다.',
-    coveredBy: '⚠ 연대보증 계약일 때만 — 현재 미구현',
+    coveredBy: '별도 연대보증 약정서(A4 부속서식)의 보증 최고액·보증인 서명 + 주계약 발행 혼입 차단',
   },
   {
     key: 'minor_check',

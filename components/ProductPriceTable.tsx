@@ -1,14 +1,17 @@
 'use client';
 import { type EntityRecord } from '@/lib/intake/entities';
-import { cheapest, priceList } from '@/lib/domain/product';
+import { acquisitionPriceList, cheapest, priceList } from '@/lib/domain/product';
 import { won, C, R, NUM, FW, FS } from '@/components/ui';
 
 /**
  * 기간별 대여료 표 — **가격 표기의 유일한 원자**.
  *
  * 상세 본문(좁은 화면)과 우측 보조패널(넓은 화면)이 같은 표를 쓴다. 헤이딜러처럼
- * «본문은 차 설명, 우측은 돈과 행동»으로 가르되, 자리만 다르고 표는 하나여야 한다 —
- * 두 벌이면 최저가 표시나 무보증 문구가 곧 어긋난다(2026-08-08 결정).
+ * 기간·월대여료·보증금은 행간 비교가 핵심이므로 세 열을 한 줄에 고정한다.
+ *
+ * ★인수형(만기 인수) — 손오공·웰릭스 구독은 같은 기간에 «반납형»과 «인수형» 두 값이 있다. 위 표는 반납형(표준가),
+ *   아래 「인수형(만기 인수)」 표는 `acquisitionPriceList`. 판매시트 「손오공인수형구독」 탭과 같은 값(2026-08-18).
+ *   /m(영업자)·/q(손님) 공용 — 손님도 인수형을 본다(시트에도 있는 값).
  */
 export function ProductPriceTable({ p, bare = false }: {
   p: EntityRecord;
@@ -16,48 +19,65 @@ export function ProductPriceTable({ p, bare = false }: {
   bare?: boolean;
 }) {
   const prices = priceList(p);
+  const acquisition = acquisitionPriceList(p);
   const cheap = cheapest(p);
   const pol = (p._policy || {}) as Record<string, unknown>;
   const caption = [pol.basic_driver_age, pol.annual_mileage, pol.insurance_included].filter(Boolean).join(' · ');
   return (
     <div style={bare
-      ? { background: C.taupeBg, overflow: 'hidden' }
-      : { border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg, overflow: 'hidden' }}>
-      <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: FS.body, tableLayout: 'fixed' }}>
-        <thead>
-          <tr>
-            {['기간', '월대여료', '보증금'].map((h, i) => (
-              <th
-                key={h}
-                style={{
-                  width: '33.33%', padding: '6px 10px',
-                  textAlign: i === 0 ? 'left' : i === 1 ? 'center' : 'right',
-                  background: C.head, borderBottom: `1px solid ${C.line}`,
-                  fontSize: FS.cap, color: C.mute, fontWeight: FW.strong,
-                }}
-              >{h}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {prices.length === 0 ? (
-            <tr><td colSpan={3} style={{ padding: 12, textAlign: 'center', color: C.faint }}>가격 문의</td></tr>
-          ) : prices.map((pr, i) => {
+      ? { overflow: 'hidden' }
+      : { overflow: 'hidden' }}>
+      {prices.length === 0 ? (
+        <div style={{ padding: 12, textAlign: 'center', color: C.faint, fontSize: FS.body }}>가격 문의</div>
+      ) : (
+        <table aria-label="기간별 대여료와 보증금" style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: FS.body }}>
+          <thead>
+            <tr>
+              <th scope="col" style={{ width: '28%', padding: '6px 10px', textAlign: 'left', color: C.mute, fontSize: FS.cap, fontWeight: FW.strong }}>기간</th>
+              <th scope="col" style={{ width: '36%', padding: '6px 10px', textAlign: 'right', color: C.mute, fontSize: FS.cap, fontWeight: FW.strong }}>월대여료</th>
+              <th scope="col" style={{ width: '36%', padding: '6px 10px', textAlign: 'right', color: C.mute, fontSize: FS.cap, fontWeight: FW.strong }}>보증금</th>
+            </tr>
+          </thead>
+          <tbody>{prices.map((pr) => {
             const isCheap = !!cheap && pr.m === cheap.m;
+            const depositLabel = pr.deposit > 0 ? won(pr.deposit) : '무보증';
             return (
-              <tr key={pr.m} style={{ borderTop: i ? `1px solid ${C.line2}` : 'none', background: isCheap ? C.selected : 'transparent' }}>
-                <td style={{ padding: '6px 10px' }}>
+              <tr
+                key={pr.m}
+                style={{
+                  background: isCheap ? C.selected : 'transparent',
+                }}
+              >
+                <td style={{ padding: '7px 10px', fontWeight: FW.strong, whiteSpace: 'nowrap' }}>
                   {pr.m}개월
-                  {isCheap && <span style={{ marginLeft: 5, fontSize: FS.micro, fontWeight: FW.label, color: C.taupeBg, background: C.brand, borderRadius: R, padding: '1px 5px', verticalAlign: 'middle' }}>최저</span>}
+                  {isCheap && <span style={{ marginLeft: 4, fontSize: FS.micro, fontWeight: FW.label, color: C.taupeBg, background: C.brand, borderRadius: R, padding: '1px 4px' }}>최저</span>}
                 </td>
-                <td style={{ padding: '6px 10px', textAlign: 'center', fontWeight: FW.head, color: C.brand, fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{won(pr.rent)}</td>
-                <td style={{ padding: '6px 10px', textAlign: 'right', fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{pr.deposit > 0 ? won(pr.deposit) : '무보증'}</td>
+                <td style={{ padding: '7px 10px', textAlign: 'right', fontSize: FS.title, fontWeight: FW.title, color: C.brand, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{won(pr.rent)}</td>
+                <td style={{ padding: '7px 10px', textAlign: 'right', fontFamily: NUM, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{depositLabel}</td>
               </tr>
             );
-          })}
-        </tbody>
-      </table>
-      {caption && <div style={{ padding: '6px 10px', fontSize: FS.cap, color: C.faint, borderTop: `1px solid ${C.line2}` }}>* {caption} 기준</div>}
+          })}</tbody>
+        </table>
+      )}
+      {acquisition.length > 0 && (
+        <table aria-label="인수형(만기 인수) 기간별 대여료와 보증금" style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: FS.body, marginTop: 8, borderTop: `1px solid ${C.line}` }}>
+          <thead>
+            <tr>
+              <th scope="col" style={{ width: '28%', padding: '8px 10px 6px', textAlign: 'left', color: C.mute, fontSize: FS.cap, fontWeight: FW.strong, whiteSpace: 'nowrap' }}>인수형 <span style={{ fontWeight: FW.meta, color: C.faint }}>만기 인수</span></th>
+              <th scope="col" style={{ width: '36%', padding: '8px 10px 6px', textAlign: 'right', color: C.mute, fontSize: FS.cap, fontWeight: FW.strong }}>월대여료</th>
+              <th scope="col" style={{ width: '36%', padding: '8px 10px 6px', textAlign: 'right', color: C.mute, fontSize: FS.cap, fontWeight: FW.strong }}>보증금</th>
+            </tr>
+          </thead>
+          <tbody>{acquisition.map((pr) => (
+            <tr key={`acq-${pr.m}`}>
+              <td style={{ padding: '7px 10px', fontWeight: FW.strong, whiteSpace: 'nowrap' }}>{pr.m}개월</td>
+              <td style={{ padding: '7px 10px', textAlign: 'right', fontSize: FS.title, fontWeight: FW.title, color: C.ink, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{won(pr.rent)}</td>
+              <td style={{ padding: '7px 10px', textAlign: 'right', fontFamily: NUM, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{pr.deposit > 0 ? won(pr.deposit) : '무보증'}</td>
+            </tr>
+          ))}</tbody>
+        </table>
+      )}
+      {caption && <div style={{ padding: '6px 10px 0', fontSize: FS.cap, color: C.faint }}>* {caption} 기준</div>}
     </div>
   );
 }

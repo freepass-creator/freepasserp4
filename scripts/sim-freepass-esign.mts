@@ -6,6 +6,7 @@ import {
   esignDraftAdditionalDriverCount,
   validateEsignCenterContract,
 } from '../lib/domain/esign-center';
+import { contractLayerOf, partnerUsesFreepassContract } from '../lib/domain/policy-tier';
 
 const read = (path: string) => readFileSync(path, 'utf8');
 const adminRoute = read('app/api/freepass-esign/contracts/[contractCode]/route.ts');
@@ -32,7 +33,15 @@ const middleware = read('middleware.ts');
 const esignCenter = read('lib/domain/esign-center.ts');
 const esignInputs = read('lib/domain/esign-inputs.ts');
 const formControls = read('components/ui/form-controls.tsx');
+const membersPage = read('app/members/page.tsx');
+const memberFilter = read('features/members/member-filter.ts');
+const listRows = read('components/list-rows.tsx');
+const policyPage = read('app/policy/page.tsx');
 const packageJson = JSON.parse(read('package.json')) as { scripts?: Record<string, string> };
+
+assert.equal(contractLayerOf({ contract_authoring: '프리패스가 작성' }, { esign_contract_enabled: '미사용' }), 'product');
+assert.equal(contractLayerOf({ contract_authoring: '공급사가 작성' }, { esign_contract_enabled: '사용' }), 'contract');
+assert.equal(partnerUsesFreepassContract({}, [{ contract_authoring: '프리패스가 작성' }]), true);
 
 assert.match(adminRoute, /v4\/esign_sessions/);
 assert.match(adminRoute, /v4\/esign_private/);
@@ -96,7 +105,7 @@ assert.match(firebaseAdmin, /code\.startsWith\('auth\/'\)/);
 assert.match(firebaseAdmin, /throw verifyError/);
 assert.match(panes, /getIdToken\(forceRefresh\)/);
 assert.match(panes, /response\.status === 401/);
-assert.match(panes, /새 링크 다시 생성/);
+assert.match(panes, /링크 다시 만들기/);
 assert.match(panes, /loadError/);
 assert.match(firebaseAdmin, /waitMs <= 5_000/);
 assert.match(firebaseAdmin, /verifyIdToken\(token\)/);
@@ -107,7 +116,7 @@ assert.match(middleware, /LEGACY_TOKEN/);
 assert.match(middleware, /chakhandeal\.vercel\.app/);
 assert.match(middleware, /pathname === '\/'/);
 assert.match(middleware, /target\.pathname = '\/esign'/);
-assert.match(sendCenter, /\/login\?next=\/esign/);
+assert.match(sendCenter, /\/login\?next=\$\{encodeURIComponent\(basePath\)\}/);
 assert.match(esignPreviewPage, /\/login\?next=\/esign/);
 const loginPage = read('app/login/page.tsx');
 assert.match(loginPage, /function loginDestination/);
@@ -188,9 +197,12 @@ assert.match(signedSnapshot, /drv\$\{slot\}_name/);
 assert.match(contractTemplate, /if\(ageSel && !SEALED\)/);
 assert.doesNotMatch(publicPage, /contract-sign-public|@\/lib\/domain\/sign/);
 assert.match(esignPage, /return <EsignSendCenter \/>/);
-assert.match(sendCenter, /label: '회사선택'/);
+assert.match(sendCenter, /label: '공급사'/);
+assert.doesNotMatch(sendCenter, /label: '회사선택'/);
 assert.match(sendCenter, /label: '계약서 종류'/);
 assert.match(sendCenter, /label: '계약정책'/);
+assert.match(sendCenter, /params\.get\('product'\)/);
+assert.match(sendCenter, /contractVehicleSnapshot\(product\)/);
 assert.ok(sendCenter.indexOf("...SUPPLIER_FIELDS") < sendCenter.indexOf("...TEMPLATE_FIELDS"));
 assert.ok(sendCenter.indexOf("...TEMPLATE_FIELDS") < sendCenter.indexOf("...POLICY_FIELDS"));
 assert.equal(
@@ -203,30 +215,51 @@ assert.doesNotMatch(sendCenter, /초안만 저장/);
 assert.doesNotMatch(sendCenter, /회사를 선택하면 해당 회사 정책만/);
 assert.doesNotMatch(sendCenter, /이 공급사는 상품만 공급합니다/);
 assert.doesNotMatch(sendCenter, /이 정책 필수값 확인/);
-assert.match(sendCenter, /FreepassEsignLinkPane/);
-assert.match(sendCenter, /FreepassEsignProgressPane/);
-assert.match(sendCenter, /입력 내용 확인/);
-assert.match(sendCenter, /계약조건 저장하기/);
+// 2026-08-19 재편 — 상태는 useFreepassEsign 한 번, 칸 2·3=계약 진행(StagePane) · 칸 4=계약서·링크(DocumentPane)
+assert.match(sendCenter, /useFreepassEsign\(selected, load\)/);
+assert.match(sendCenter, /FreepassEsignStagePane/);
+assert.match(sendCenter, /FreepassEsignDocumentPane/);
+assert.doesNotMatch(sendCenter, /FreepassEsignLinkPane|FreepassEsignProgressPane|ContractSendWorkspace/);
+assert.doesNotMatch(sendCenter, /④ 계약서 확인·링크 만들기/);
+// 사장님 2026-08-19: 3장(공급사·차량·대여조건) 채우면 바로 만든다 — 4번 카드 없음.
+// 선택한 정책이 어떤 조건인지는 칸 4 「계약내용 확인」에 접지 않고 쭉 펼친다. 공급사 정보가 비면 「파트너사관리에서 입력」.
+assert.doesNotMatch(sendCenter, /title="계약서 만들기"|number=\{4\}/);
+assert.match(sendCenter, /<EsignContractContentPane/);
+assert.match(sendCenter, /openPartnerManager = \(\) => router\.push\('\/members\?tab=partner'\)/);
+assert.match(sendCenter, /onFixPartner=\{hasPartnerProblem\(draftProblems\) \? openPartnerManager : null\}/);
+assert.match(panes, /export function EsignContractContentPane/);
+assert.match(panes, /파트너사관리에서 \{partnerName \|\| '공급사'\} 정보 입력/);
+assert.match(panes, /공급사\(임대인\) 정보 — 계약서에 그대로 실림/);
+assert.match(panes, /계약정책 조건 · /);
+assert.match(panes, /계약내용 확인 · 발행 당시 동결값/);
+assert.doesNotMatch(panes, /<details>[\s\S]*발행 당시 계약 내용/);
+assert.match(sendCenter, /계약서 만들기/);
+assert.doesNotMatch(sendCenter, /A4 미리보기 → 계약 링크 만들기 → 링크 복사/);
+assert.match(sendCenter, /계약서를 확인하고 링크를 만드세요/);
 assert.match(sendCenter, /미지정 · 링크를 받은 사람이 직접 입력/);
 assert.doesNotMatch(sendCenter, /BUSINESS_FIELDS/);
 assert.doesNotMatch(sendCenter, /window\.open\('about:blank'/);
-assert.match(sendCenter, /selected && createdDraft/);
-assert.match(sendCenter, /개인정보 없는 계약서를 확인하고 고객 작성 링크를 만드세요/);
-assert.match(sendCenter, /inlineResultRef\.current\?\.scrollIntoView/);
+assert.doesNotMatch(sendCenter, /createdDraft|inlineResultRef|개인정보 없는 계약서를 확인하고 고객 작성 링크를 만드세요/);
 assert.match(sendCenter, /전체 입력 지우기/);
 assert.doesNotMatch(sendCenter, /⑥ 계약서 만들기/);
-assert.ok(sendCenter.indexOf('② ERP 차량 선택') < sendCenter.indexOf('③ 기간·운전자 연령·대여 조건'));
-assert.ok(sendCenter.indexOf('③ 기간·운전자 연령·대여 조건') < sendCenter.indexOf('④ 특약사항'));
+// 초안 카드 순서 1 계약 기준 → 2 차량 → 3 대여조건(특약 포함) → 바로 「계약서 만들기」 — 전부 한 열, 가로폭 전체
+assert.ok(sendCenter.indexOf('title="계약 기준"') < sendCenter.indexOf('title="차량"'));
+assert.ok(sendCenter.indexOf('title="차량"') < sendCenter.indexOf('title="대여조건"'));
+assert.ok(sendCenter.indexOf('title="대여조건"') < sendCenter.indexOf('<SectionLabel>특약사항</SectionLabel>'));
+assert.ok(sendCenter.indexOf('<SectionLabel>특약사항</SectionLabel>') < sendCenter.indexOf("'계약서 만들기'"));
+assert.doesNotMatch(sendCenter, /repeat\(auto-fit, minmax\(min\(100%, 560px\)/);
+assert.match(sendCenter, /state=\{!draftBaseReady \? 'waiting' : draftVehicleReady \? 'complete' : 'active'\}/);
 assert.doesNotMatch(sendCenter, /④ 고객 정보/);
 assert.doesNotMatch(sendCenter, /const CUSTOMER_FIELDS/);
 assert.match(sendCenter, /fields=\{VEHICLE_CONTRACT_FIELDS\}/);
-assert.match(sendCenter, /fields=\{RENT_CONTRACT_FIELDS\}/);
+assert.match(sendCenter, /fields=\{RENT_PAYMENT_FIELDS\}/);
+assert.ok(sendCenter.indexOf("key: 'rentAmount'") < sendCenter.indexOf("key: 'paymentTiming'"));
 assert.match(sendCenter, /setDraftValue\('specialTerms', value\)/);
 assert.doesNotMatch(sendCenter, /const ADDITIONAL_DRIVER_SLOTS =/);
 assert.doesNotMatch(sendCenter, /addAdditionalDriver/);
 assert.doesNotMatch(sendCenter, /removeAdditionalDriver/);
 assert.match(sendCenter, /draftAdditionalDriverLimit/);
-assert.match(sendCenter, /고객이 계약 링크에서 직접 입력하고 면허증 첨부/);
+assert.match(sendCenter, /고객이 링크에서 입력 \(최대 \$\{draftAdditionalDriverLimit\}명\) · 면허증 첨부/);
 assert.match(esignCenter, /esignAdditionalDriverLimit/);
 assert.match(esignCenter, /additional_driver: additionalDriverCount \? `\$\{additionalDriverCount\}인 지정` : '없음'/);
 assert.match(esignCenter, /emergency_relation: S\(form\.emergencyRelation\)/);
@@ -240,6 +273,9 @@ assert.match(esignInputs, /add_driver_name: 'drv1_name'/);
 assert.match(formControls, /const minHeight = Math\.ceil/);
 assert.match(formControls, /style=\{\{ boxSizing: 'border-box', minHeight/);
 assert.match(sendCenter, /차량번호·차종 검색 또는 눌러서 선택/);
+assert.match(sendCenter, /availableVehicleCountsByProvider/);
+assert.match(sendCenter, /출고가능 \$\{\(availableVehicleCountsByProvider/);
+assert.match(sendCenter, /partnerUsesFreepassContract/);
 assert.match(sendCenter, /vehiclePickerOpen/);
 assert.match(sendCenter, /<EsignVehicleSelectRow/);
 assert.match(sendCenter, /setVehiclePickerOpen\(false\)/);
@@ -248,27 +284,81 @@ assert.match(sendCenter, /key: 'document'/);
 assert.match(sendCenter, /title: '계약서·링크'/);
 assert.doesNotMatch(sendCenter, /key: 'send'/);
 assert.doesNotMatch(sendCenter, /key: 'progress'/);
-assert.match(sendCenter, /mobileLayout="swap"/);
+assert.match(sendCenter, /mobileLayout="stack"/);
+assert.doesNotMatch(sendCenter, /mobileLayout="swap"/);
+assert.match(sendCenter, /width: 360 \}/);
+assert.match(sendCenter, /paneRatio=\{2\}/);
 assert.match(sendCenter, /isEsignUiAllowed/);
 assert.match(esignPreviewPage, /isEsignUiAllowed/);
 assert.match(authGate, /role === 'admin' \|\| role === 'agent'/);
-assert.match(topBar, /href: '\/esign'.*roles: \['agent', 'admin'\]/);
-assert.match(tabbar, /role === 'agent'[\s\S]*href: '\/esign'/);
+// 사장님 2026-08-19: 계약서관리(/esign)는 관리자 메뉴 — 관리 그룹 맨 위
+assert.match(topBar, /href: '\/esign'.*roles: \['admin'\]/);
+// 사장님 2026-08-19: 파트너사관리·회원관리는 메뉴에 있어야 하고, 재고관리 아래 구분선(=별도 그룹)으로 가른다.
+const simpleGroups = topBar.match(/const SIMPLE_GROUPS[\s\S]*?\n\}\];/)?.[0] || '';
+assert.match(simpleGroups, /\/members\?tab=partner/);
+assert.match(simpleGroups, /\/members\?tab=user/);
+// 그룹이 둘(=구분선 하나): 앞 그룹에 일하는 메뉴(재고관리 …), 뒤 그룹에 관리 메뉴(계약서관리·파트너사관리·회원관리).
+const simpleGroupBlocks = simpleGroups.split(/\n\}, \{\n/);
+assert.equal(simpleGroupBlocks.length, 2);
+assert.match(simpleGroupBlocks[0], /'\/inventory'/);
+assert.doesNotMatch(simpleGroupBlocks[0], /\/members\?tab=partner|'\/esign'/);
+assert.match(simpleGroupBlocks[1], /'\/esign'[\s\S]*\/members\?tab=partner[\s\S]*\/members\?tab=user/);
+assert.match(sendCenter, /공급사·계약정책 관리/);
+assert.match(membersPage, /esign_contract_enabled/);
+// 사장님 2026-08-19 — 파트너사 4패널(목록·기본정보·운영정책·수수료정책). 정책관리 메뉴는 없고, 운영정책 패널에서 공급사별 등록·수정·삭제(partnerPolicyUrl → /policy?provider=…&return=partner).
+assert.match(membersPage, /title: '운영정책'/);
+assert.match(membersPage, /title: '수수료정책'/);
+assert.match(membersPage, /출고가능 차량/);
+// 정책 등록·수정은 파트너사관리 안 인라인 편집기(PartnerPolicyEditor — 시트와 같은 차례·선택지)로, 삭제는 줄의 「삭제」로.
+assert.match(membersPage, /<PartnerPolicyEditor/);
+assert.match(membersPage, /removePartnerPolicy/);
+assert.doesNotMatch(simpleGroups, /'\/policy'/);
+assert.match(memberFilter, /\{ key: 'user', label: '회원' \}/);
+assert.match(memberFilter, /\{ key: 'partner', label: '파트너사' \}/);
+assert.match(memberFilter, /\{ key: 'sales', label: '영업자' \}/);
+assert.match(memberFilter, /\{ key: 'provider', label: '공급사 직원' \}/);
+assert.match(listRows, /영업채널·공급사를 등록합니다/);
+assert.match(listRows, /가입을 마친 영업자·공급사 직원을 소속에 연결합니다/);
+assert.match(membersPage, /memberRoleGroup\(row\.role\) !== 'operator'/);
+assert.match(membersPage, /partnerTypeLabel\(row\.partner_type[\s\S]*?\) !== '운영사'/);
+assert.match(membersPage, /label: '소속', type: 'select'/);
+assert.match(membersPage, /roleGroup === 'provider' \? type === '공급사' : type === '영업채널'/);
+assert.match(membersPage, /company_name: partner \? partnerCompanyDisplayName\(partner\)/);
+assert.match(membersPage, /agent_channel_code: group === 'sales' \? v : ''/);
+assert.match(membersPage, /소속 \$\{requiredType\}를 선택하세요/);
+assert.match(policyPage, /파트너사 관리에서 회사별 정책을 추가하세요/);
+assert.doesNotMatch(policyPage, /const G_ESIGN = \['contract_authoring'/);
+// 사장님 2026-08-19: 계약서관리(/esign)는 하단탭에 없다(관리자 메뉴) — 라우트 판정만 admin 으로 남는다.
+assert.doesNotMatch(tabbar, /href: '\/esign'/);
+assert.match(tabbar, /path === '\/esign' \|\| path\.startsWith\('\/esign\/'\)\) return role == null \|\| role === 'admin'/);
 assert.match(workflowGuide, /상품 확인은 구글시트가 기준입니다/);
 assert.match(workflowGuide, /문의는 기존 카카오톡방/);
 assert.match(workflowGuide, /router\.push\('\/esign'\)/);
 assert.doesNotMatch(esignPage, /function LegacyEsignPage/);
-assert.match(sendCenter, /필수입력 \$\{draftBlocks\.length\}개 확인/);
-assert.doesNotMatch(sendCenter, /disabled=\{busy \|\| draftBlocks\.length > 0\}/);
-assert.match(panes, /발행 당시 계약 내용 보기/);
-assert.match(panes, /approving: '승인 처리 중'/);
-assert.match(panes, /① 생성된 계약서 미리보기/);
-assert.match(panes, /② 계약 링크 만들기/);
-assert.match(panes, /계약 링크 만들기/);
+// BLOCK 이면 버튼이 비활성 — 실패 경로가 정상 버튼처럼 보이지 않는다(정본 §1-6)
+assert.doesNotMatch(sendCenter, /필수입력 \$\{draftBlocks\.length\}개 확인/);
+assert.match(sendCenter, /disabled=\{busy \|\| !draftReachedReview \|\| draftBlocks\.length > 0 \|\| !!draftTemplateError\}/);
+assert.match(panes, /발행 당시 동결값\(고객이 보는 순서\)/);
+assert.match(panes, /'승인 처리 중'/);
+// 번호는 스테퍼 하나 — 카드 안 ①② 금지
+assert.doesNotMatch(panes, /① A4 계약서 확인|② 모바일 미리보기·전달 링크 준비|① 발송 전 미리보기|② 계약 링크 복사·전달/);
+assert.match(panes, /'링크 만들기'/);
+assert.match(panes, /ESIGN_CENTER_STAGES\.map/);
+assert.match(panes, /journeyRows/);
+assert.doesNotMatch(panes, /ESIGN_STEPS/);
 assert.match(panes, /HTTP \$\{response\.status\}/);
-assert.match(panes, /수신자를 미리 지정하지 않는 고객 작성 링크/);
-assert.match(panes, /① 계약 링크 복사·전달/);
-assert.match(panes, /ariaLabel="계약 링크"/);
+assert.match(panes, /수신자를 미리 지정하지 않는 링크/);
+assert.match(panes, /모바일 미리보기/);
+assert.match(panes, /A4 미리보기/);
+assert.match(panes, /params\.set\('view', 'a4'\)/);
+assert.match(panes, /params\.set\('back', basePath\)/);
+assert.match(esignPreviewPage, /get\('view'\) === 'a4'/);
+assert.match(esignPreviewPage, /format=pdf/);
+assert.match(esignPreviewPage, /PDF 다운로드/);
+assert.match(esignPreviewPage, /downloadDocument/);
+assert.doesNotMatch(panes, /A4 계약서 출력|A4 PDF 저장/);
+assert.match(read('lib/server/freepass-esign-document.ts'), /includePrintButton: false/);
+assert.match(panes, /ariaLabel="고객 링크"/);
 assert.match(panes, /고객에게 전달/);
 assert.doesNotMatch(panes, /영업자에게 전달|영업자가 고객에게 전달/);
 assert.match(panes, /const canReview = currentUser\?\.role === 'admin'/);
@@ -280,6 +370,8 @@ assert.doesNotMatch(deal.match(/export async function createDirectEsignContract[
 assert.match(deal, /source !== 'direct' && !customerName/);
 assert.match(deal, /source === 'excel' \? \{[\s\S]*?customer_name: customerName/);
 assert.match(panes, /최초 제출자가 계약자로 접수됩니다/);
+assert.match(adminRoute, /esignProductAvailabilityBlocker/);
+assert.match(adminRoute, /freshApprovalBundle/);
 
 assert.ok(packageJson.scripts?.dev?.includes('next dev -p 4004'));
 assert.ok(!packageJson.scripts?.dev?.includes('ensure-chakhandeal-dev'));
@@ -320,3 +412,31 @@ assert.match(validateEsignCenterContract({
 }, null, driverPolicy).find((check) => check.key === 'additional_driver')?.message || '', /추가 운전자 2/);
 
 console.log('✓ 프리패스 자체 전자계약: 영업자·관리자 작성/링크 생성 · 관리자 검토 분리 · 민감정보 서버 저장');
+
+// ── 2026-08-19 재편 박제 ──
+// 관리자 미리보기는 손님 「열람」을 오염시키지 않는다: preview=1 → peek=1 → 서버 무쓰기
+assert.match(esignPreviewPage, /preview=1/);
+assert.match(esignPreviewPage, /backPath/);
+assert.match(publicPage, /get\('preview'\) === '1'/);
+assert.match(publicPage, /\?peek=1/);
+assert.match(publicPage, /관리자 미리보기입니다\. 제출되지 않습니다/);
+assert.match(publicRoute, /searchParams\.get\('peek'\) === '1'/);
+assert.match(publicRoute, /if \(!peek && !Number\(session\.openedAt \|\| 0\)\)/);
+assert.match(publicRoute, /if \(!peek\) await db\.ref\(`v4\/esign_sessions\/\$\{hash\}\/snapshot\/landlord`\)/);
+assert.match(publicRoute, /const opened = Number\(current\.openedAt \|\| 0\) \? \{\} : \{ status: 'opened', openedAt: now \}/);
+// 단계 SSOT — 목록 뱃지·스테퍼·필터 칩·이력이 같은 이름
+assert.match(esignCenter, /export const ESIGN_CENTER_STAGES: readonly EsignCenterStage\[\] = \['작성', '발송 전', '고객 작성 중', '검토 대기', '완료'\]/);
+assert.match(esignCenter, /export function esignCenterStage\(/);
+assert.match(esignCenter, /export function esignCenterFlags\(/);
+assert.doesNotMatch(esignCenter, /esignCenterBucket|EsignCenterBucket|'발송대기'|'서명중'|'확인필요'/);
+assert.match(listRows, /stage: EsignCenterStage/);
+assert.match(listRows, /flagLabel \? <Badge tone="red" variant="solid">\{flagLabel\}<\/Badge> : null/);
+assert.match(sendCenter, /QUEUE_FILTERS/);
+assert.match(sendCenter, /listHeader=\{listHeader\}/);
+assert.match(sendCenter, /<EsignStageStepper current="작성" \/>/);
+assert.match(sendCenter, /attentionLabel="확인 필요"/);
+// 용어표: 위치 지시어·옛 이름 금지
+assert.doesNotMatch(sendCenter, /오른쪽 계약서·링크 패널|왼쪽 맨 위의|아래에서 A4/);
+assert.doesNotMatch(sendCenter, /계약회사|회원사|렌터카사/);
+assert.doesNotMatch(panes, /프리패스 데이터 확인|직원 업무 순서|발송 후 진행 흐름/);
+

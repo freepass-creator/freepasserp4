@@ -25,7 +25,7 @@ export function WorkPage({
   mobileLayout = 'stack', mobileSwapKey, onMobileSwapKeyChange, countSuffix = '건', hideDock,
   listTools, contextTitle, paneRatio, listMaxWidth, hideList = false,
   attentionLabel, attentionCount, hideWebDock = false,
-  backKind = 'list',
+  backKind = 'list', mobileBreakpoint = 760,
 }: {
   title: string;
   /** 상단바 라벨(미지정 시 title). 예: 계약진행중 / 출고가능 */
@@ -54,6 +54,8 @@ export function WorkPage({
    * 신규 입력처럼 «선택」이 아니라 「작성 중」이면 cancel(취소)을 쓴다.
    */
   backKind?: NavBackKind;
+  /** 업무 복잡도에 따라 데스크톱 분할을 단일 작업 흐름으로 바꾸는 폭. 기본은 전역 모바일 기준. */
+  mobileBreakpoint?: number;
   /** 데스크톱 루트 업무화면에서 의미 없는 하단 이전/액션 바를 제거한다. */
   hideWebDock?: boolean;
   listTools?: ListToolsConfig;
@@ -74,7 +76,7 @@ export function WorkPage({
   /** 신규 작성 전용 화면처럼 기존 목록 열 자체가 필요 없는 경우 사용한다. */
   hideList?: boolean;
 }) {
-  const mobile = useIsMobile();
+  const mobile = useIsMobile(mobileBreakpoint);
   // 키보드가 올라오면 하단독을 접는다 — 입력칸 바로 위에 독이 겹쳐 앉는 걸 막는다.
   //  focus 가 아니라 시각 뷰포트로 재는 이유는 use-keyboard.ts 참고(뒤로가기로 키보드만 내리면
   //  입력칸은 계속 focus 라 독이 안 돌아온다). 호출부의 hideDock 과 OR 로 합친다.
@@ -146,6 +148,11 @@ export function WorkPage({
   const resolvedTools: ListToolsConfig | undefined = listTools ?? (
     search ? { search } : undefined
   );
+  // 상단바가 이미 같은 목록 건수를 보여주면 목록 헤더에서 반복하지 않는다.
+  // statusCount(전체 KPI)와 listCount(검색 결과)가 달라질 때만 목록 쪽 결과 건수를 남긴다.
+  const desktopListCount = statusCount !== undefined && listCount !== statusCount
+    ? listCount
+    : undefined;
 
   if (mobile) {
     if (!selected) {
@@ -243,7 +250,7 @@ export function WorkPage({
       <div style={{ display: 'flex', height: hideWebDock ? 'calc(100dvh - var(--topbar-h))' : 'calc(100dvh - var(--topbar-h) - var(--fp-bar-h))', borderTop: `1px solid ${C.line}`, overflowX: 'hidden', background: C.bg }}>
         {!hideList ? (
           <div style={col('1 1 0', { minWidth: 0, overflow: 'hidden', ...(listMaxWidth ? { maxWidth: listMaxWidth } : null) })}>
-            <PaneHead title={title} count={listCount == null || listCount === '' ? undefined : `${listCount}${countSuffix}`} right={resolvedTools?.action ? (
+            <PaneHead title={title} count={desktopListCount == null || desktopListCount === '' ? undefined : `${desktopListCount}${countSuffix}`} right={resolvedTools?.action ? (
               <Btn size="sm" disabled={resolvedTools.action.disabled} onClick={resolvedTools.action.onClick}>{resolvedTools.action.label}</Btn>
             ) : undefined} />
             {listHeader}

@@ -8,11 +8,9 @@
  *
  * ★**돈은 해석하지 않는다.** 요금·보증금·상태는 시트 칸에 있는 글자를 그 자리에 옮길 뿐이다.
  *   보증금을 규칙으로 계산하지 않고, 기간을 자리로 짐작하지 않는다 — 오늘 틀린 게 전부 그거였다.
- * ★**차명만 차종마스터로 올린다**(사장님 2026-08-12 — 「니가 학습해서 차종마스터 값으로 옮겨줄수 있어?」).
- *   공급사마다 「G70」·「제네시스 G70 2.0T」처럼 제각각이라 그대로 두면 정렬도 검색도 안 된다.
- *   ★이건 오늘 틀린 것과 **다른 일**이다. 차종 스냅은 실측 98.5% 맞았고, 틀린 건 요금 매핑이었다.
- *   ⚠ 확신도가 낮으면(low) **안 올린다** — 공급사 원문을 그대로 둔다. 틀린 차명이 붙느니 낫다.
- *   ⚠ 원문은 「공급사표기」 칸에 그대로 남긴다. 무엇을 무엇으로 바꿨는지 눈으로 확인할 수 있어야 한다.
+ * ★**차명도 해석하지 않는다**(사장님 2026-08-19 — 「제조사·모델까지만, 안 틀리는 게 중요」).
+ *   제조사·모델은 공급사 「제조사(정제)/제조사」「모델명/모델」만. 차명은 「차명(트림)」 원문 그대로.
+ *   세부모델·세부트림·차종마스터 스냅·상품마스터 3축 정본으로 **올리지 않는다**(틀린 세부축이 붙느니 원문이 낫다).
  *   ⚠ 그래서 공급사 시트가 틀리면 여기도 틀린다. 그건 «공급사에 물어볼 일»이 되고,
  *     영업자가 우리를 의심할 일은 없어진다 — 이 표의 값어치는 정확히 거기에 있다.
  * ★읽는 법만 `readSupplierSheet` 를 쓴다(숨긴 행·숨긴 탭·어댑터 헤더). 그건 «해석»이 아니라
@@ -23,21 +21,29 @@
  *   npx tsx scripts/publish-origin-tab.mts
  *   npx tsx scripts/publish-origin-tab.mts --apply
  */
+import { canonMakerDisplay } from '../lib/domain/maker-display';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { NOT_SHEET_BACKED, SHEET_GRID_FIELDS, readSupplierSheet } from '../lib/domain/supplier-sheet-read';
-import { companyAlias } from '../lib/domain/identity';
+import { companyAlias, supplierNameKeys } from '../lib/domain/identity';
 import { fetchHubPartners } from '../lib/domain/sheet-hub-sync';
-import { snapToMaster } from '../lib/domain/vehicle-master-match';
 import { buildSalesFormatRequests, columnWidths, rgb, LINK, FONT, SIZE, ITALIC } from '../lib/domain/sales-sheet-format';
 import { productType } from '../lib/domain/sales-sheet-clean';
-import { SALES_ALIAS, SALES_COLUMNS } from '../lib/domain/sales-sheet-mapping';
+import { SALES_ALIAS, SALES_COLUMNS, SALES_RETIRED_COLUMNS } from '../lib/domain/sales-sheet-mapping';
 import { HANDOVER_TAB, STALE_DAYS, daysSince, readLog } from '../lib/domain/supplier-handover-log';
-import { isOurNonInventoryTab } from '../lib/domain/supplier-template-sheet';
-import { pickPolicy, policyCell, readPolicyTab, type PolicyBook } from '../lib/domain/supplier-policy-read';
-import type { MasterEntry } from '../lib/domain/vehicle-master-types';
-import type { EntityRecord } from '../lib/intake/entities';
-
+import { SHEET_NAME_MATCH, isOurNonInventoryTab, supplierSheetLabel } from '../lib/domain/supplier-template-sheet';
+import { mileageCompact, pickPolicy, policyCell, readPolicyTab, type PolicyBook } from '../lib/domain/supplier-policy-read';
+import { POLICY_TAB_ALIASES } from '../lib/domain/supplier-template-sheet';
+/** 정책 탭 값 — 「운영정책」 먼저, 없으면 옛 「정책」(사장님 2026-08-19 탭 개명 · 아직 안 바꾼 시트 호환). */
+async function readPolicyValues(id: string): Promise<string[][]> {
+  for (const tab of POLICY_TAB_ALIASES) {
+    try {
+      const pv = await api(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${encodeURIComponent(`'${tab}'`)}`) as { values?: string[][] };
+      if (pv.values?.length) return pv.values as string[][];
+    } catch { /* 다음 별칭 */ }
+  }
+  return [];
+}
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
 const norm = (v: unknown) => S(v).replace(/\s+/g, '');
@@ -50,6 +56,15 @@ const SHEET = arg('sheet', '1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs');
  *   「상품리스트」가 둘이 되고, 누가 어느 걸 보는지 알 수 없어진다(실측 2026-08-14 · 두 번째 사고).
  */
 const TAB = arg('tab', '상품리스트');
+/**
+ * ★`--only=공급사코드[:탭글자]` — 그 공급사(그 탭)만 실어 **별도 탭**을 찍는다(사장님 2026-08-19 「상품리스트 · 손오공구독(반납/인수) · 오플구독 탭 3개로 회귀」).
+ *   같은 발행기·같은 정본 차명·같은 열이라 상품리스트와 규격이 갈리지 않는다. @제외는 무시한다(그 공급사를 실으려는 것이니까).
+ *   예) --only=RP012:구독 --tab=손오공구독 --at=1 · --only=RP023 --tab=오플구독 --at=2 (그 뒤 publish-sonogong-tab 이 원본 요금 블록을 덧붙인다)
+ * ★`--at=N` — 새 탭을 만들 때 자리(0=맨 앞). 상품리스트 0 · 손오공구독 1 · 오플구독 2.
+ */
+const ONLY = (() => { const v = arg('only'); if (!v) return null; const [code, tab = ''] = v.split(':'); return { code: code.trim(), tab: tab.trim() }; })();
+const AT = Number(arg('at', '0')) || 0;
+const inScope = (code: string, tabTitle: string) => !ONLY || (ONLY.code === code && (!ONLY.tab || S(tabTitle).includes(ONLY.tab)));
 const DB = 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app';
 /** 「공급사시트정리」 — 공급사명 | 공급사코드 | 시트주소. 주소의 정본이다. */
 const INDEX_SHEET = arg('index', '1TVeVXyJJRx0SzD2vxqy3eEjSojmMIWXSu7AdsKmpfmY');
@@ -87,13 +102,10 @@ let COLUMNS: string[] = SALES_COLUMNS;
 /** 실제로 쓸 매핑. 아래에서 판매시트 「AI 인계」 @매핑 표를 읽어 채운다. */
 let ALIAS: Record<string, string[]> = SALES_ALIAS;
 
-/** 차종마스터 — 차명을 올릴 때만 쓴다. 돈에는 손대지 않는다. */
-const masterRaw = JSON.parse(readFileSync('public/data/vehicle-master.json', 'utf8')) as Rec;
-const MASTER = ((Array.isArray(masterRaw) ? masterRaw : masterRaw.entries) || []) as MasterEntry[];
-
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
+// drive 는 「○○ 프리패스 재고」 시트를 **이름으로 찾는 데만**(files.list) 쓴다 — fill-supplier-ai-columns 와 같은 위임 스코프.
 const gT = (await new JWT({ email: sa.client_email, key: sa.private_key,
-  scopes: ['https://www.googleapis.com/auth/spreadsheets'], subject: 'pyh@teamjpk.com' }).getAccessToken()).token;
+  scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'], subject: 'pyh@teamjpk.com' }).getAccessToken()).token;
 /**
  * ⚠ 시트 API 는 «분당 읽기» 쿼터가 있다. 공급사 18곳을 연달아 읽으면 중간에 429 가 난다.
  *   재시도가 없으면 그 공급사가 「시트를 못 읽었다」 한 줄로 떨어지고, 그날 표에서
@@ -178,8 +190,23 @@ for (const p of Object.values<Rec>(partners)) {
       const col = S(r[1]);
       if (col) order.push(col);
     }
-    if (order.length) COLUMNS = order;
-    console.log(`  매핑을 판매시트 「AI 인계」에서 읽었다 — ${COLUMNS.length}열 · 후보 있는 칸 ${Object.keys(map).length}\n`);
+    // ★뺀 열(SALES_RETIRED_COLUMNS)은 시트 @매핑에 남아 있어도 세우지 않는다(사장님 2026-08-18 — 파워트레인 · 2026-08-19 — 세부모델·세부트림).
+    const retired = order.filter((c) => SALES_RETIRED_COLUMNS.includes(c));
+    if (order.length) COLUMNS = order.filter((c) => !SALES_RETIRED_COLUMNS.includes(c));
+    for (const c of retired) delete ALIAS[c];
+    // ★제조사·모델·차명 후보는 코드 정본(시트에 옛 「모델,차종」이 남아 있어도 모델명 우선).
+    for (const k of ['제조사', '모델', '차명'] as const) {
+      if (SALES_ALIAS[k]) ALIAS[k] = SALES_ALIAS[k];
+    }
+    // 시트 @매핑에 「차명」이 없으면 모델 다음에 끼워 넣는다.
+    if (!COLUMNS.includes('차명')) {
+      const at = COLUMNS.indexOf('모델');
+      COLUMNS = at >= 0
+        ? [...COLUMNS.slice(0, at + 1), '차명', ...COLUMNS.slice(at + 1)]
+        : [...COLUMNS.slice(0, 3), '차명', ...COLUMNS.slice(3)];
+    }
+    console.log(`  매핑을 판매시트 「AI 인계」에서 읽었다 — ${COLUMNS.length}열 · 후보 있는 칸 ${Object.keys(ALIAS).length}${retired.length ? ` · 뺀 열 ${retired.join('·')} 은 안 세운다` : ''}
+`);
   } catch (e) {
     console.log(`  ⚠ @매핑 표를 못 읽어 **코드의 예비값**으로 돈다 — ${String((e as Error).message).slice(0, 80)}\n`);
   }
@@ -201,8 +228,15 @@ try {
   }
   console.log(`  치환 사전 「AI 정제」 ${SUBST.size}줄\n`);
 } catch (e) { console.log(`  ⚠ 「AI 정제」를 못 읽어 치환 없이 돈다 — ${String((e as Error).message).slice(0, 60)}\n`); }
-/** 열 이름 그대로 사전을 찾는다 — 외장/내장/제조사/모델/세부모델/세부트림. */
-const clean = (col: string, val: string) => SUBST.get(`${col}|${S(val)}`) ?? S(val);
+/** 열 이름 그대로 사전을 찾는다 — 외장/내장/제조사/모델/차명. */
+const clean = (col: string, val: string) => {
+  const v = SUBST.get(`${col}|${S(val)}`) ?? S(val);
+  // ★제조사 표기 규격(maker-display) — 사장님 2026-08-18 「르노라고만 하고 KGM」. 치환 사전보다 뒤에, 사전에 없어도 맞춘다.
+  return col === '제조사' ? canonMakerDisplay(v) : v;
+};
+
+/** 모델명이 비어 영업자가 분류를 못 하는 차 — 세어 화면에 보인다. */
+const missingModel: string[] = [];
 
 /**
  * ★**상품리스트에서 뺄 것** — 「AI 인계」 @제외 표가 정한다.
@@ -227,7 +261,7 @@ try {
   console.log(`  제외 규칙 ${EXCLUDE.length}개 — ${EXCLUDE.map((x) => x.code + (x.tab ? `:${x.tab}` : '')).join(' · ') || '(없음)'}\n`);
 } catch { /* 없으면 아무것도 안 뺀다 */ }
 const excluded = (code: string, tabTitle: string) =>
-  EXCLUDE.some((x) => x.code === code && (!x.tab || S(tabTitle).includes(x.tab)));
+  ONLY ? !inScope(code, tabTitle) : EXCLUDE.some((x) => x.code === code && (!x.tab || S(tabTitle).includes(x.tab)));
 
 {
   const idx = await api(`https://sheets.googleapis.com/v4/spreadsheets/${INDEX_SHEET}/values/A1:Z200`) as { values?: string[][] };
@@ -250,6 +284,32 @@ const excluded = (code: string, tabTitle: string) =>
   console.log(`  문패 「공급사시트정리」에서 ${n}곳을 읽었다\n`);
 }
 
+/**
+ * ★**정책의 정본은 우리 「○○ 프리패스 재고」 시트의 「정책」 탭이다 — 문패가 어디를 가리키든.**
+ *   (사장님 2026-08-18 — 「옵션 다음으로 각 가지고와야 하는 것들 아직 안 가지고 온 거지?」)
+ *   실측 2026-08-18: 정책 탭이 안 읽힌 8곳(렌트존·SA·리더스·손오공·스타·우리캐피탈·오플·이안카) 중 7곳은
+ *   우리 시트에 정책이 **다 적혀 있는데** 문패가 공급사 자체 시트/규격화시트를 가리켜 그 문서의 「정책」을 찾다 빈손이었다.
+ *   재고는 문패를 따라 읽되(돈은 공급사 글자 그대로), 정책은 여기서 찾은 우리 시트에서 읽는다.
+ *   문패 시트에 정책이 있으면 그것을 먼저 쓴다(같은 문서인 경우가 대부분이다).
+ * ⚠ 이름으로 잇는다 — `supplierNameKeys`(문패명 ↔ 시트명 「SA」↔「에스에이」 같은 짝) 하나만 쓴다. 따로 짐작하지 않는다.
+ */
+const OUR_POLICY_SHEETS: { id: string; name: string; keys: Set<string> }[] = [];
+try {
+  const q = `name contains '${SHEET_NAME_MATCH}' and mimeType = 'application/vnd.google-apps.spreadsheet' and trashed = false`;
+  const r = await api(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)&pageSize=100&includeItemsFromAllDrives=true&supportsAllDrives=true`);
+  for (const f of ((r.files || []) as Rec[])) {
+    const who = supplierSheetLabel(f.name);
+    OUR_POLICY_SHEETS.push({ id: S(f.id), name: who, keys: supplierNameKeys(who) });
+  }
+  console.log(`  우리 제공시트 ${OUR_POLICY_SHEETS.length}곳을 드라이브에서 찾았다 — 정책은 여기서 읽는다\n`);
+} catch (e) { console.log(`  ⚠ 우리 제공시트 목록을 못 읽어 정책은 문패 시트에서만 읽는다 — ${String((e as Error).message).slice(0, 60)}\n`); }
+const ourPolicySheetFor = (partnerName: string, code: string) => {
+  const keys = new Set([...supplierNameKeys(partnerName), ...supplierNameKeys(companyAlias(partnerName) || ''), code].filter(Boolean));
+  return OUR_POLICY_SHEETS.find((sh) => [...sh.keys].some((k) => keys.has(k))) || null;
+};
+/** 정책을 어디서 읽었나 — 문패 시트 / 우리 제공시트 / 못 읽음. 화면에 센다. */
+const policySource: Record<string, number> = { 문패시트: 0, 우리제공시트: 0, 없음: 0 };
+
 console.log(`■ 공급사 시트를 그대로 영업자 표로 ${APPLY ? '(반영)' : '(dry-run)'}\n`);
 const rows: string[][] = [];
 const failures: string[] = [];
@@ -257,8 +317,6 @@ const failures: string[] = [];
 const skippedTabs: string[] = [];
 /** 규격화시트인데 동기화가 멈춘 곳 — 값이 조용히 낡는 유일한 경로다. */
 const staleSheets: string[] = [];
-/** 차종마스터가 못 알아본 차 — 정제칸으로 사람이 닫아야 할 목록이다. */
-const unmatched: string[] = [];
 /** 정책 탭을 못 읽은 공급사 — 그 집 부가정보가 통째로 빈다. */
 const noPolicy: string[] = [];
 /** 정책이 여럿인데 코드가 비어 «어느 정책인지 못 정한» 차. */
@@ -279,6 +337,7 @@ let dupes = 0;
 /** @제외 규칙으로 건너뛴 탭 수 — 조용히 빠지면 «왜 줄었나»를 못 찾는다. */
 let skippedByRule = 0;
 for (const [code, p] of [...byCode].sort()) {
+  if (ONLY && ONLY.code !== code) continue;   // 범위 밖 공급사는 읽지도 않는다(--only)
   if (NOT_SHEET_BACKED.has(code)) { failures.push(`${S(p.partner_name || p.name)}(${code}) — 홈페이지 수집이라 시트가 없다`); continue; }
   // 후보 주소를 차례로 열어 **표가 나오는 첫 번째**를 쓴다. 하나도 안 나오면 그 공급사는 «모름»이다.
   let read: ReturnType<typeof readSupplierSheet> | null = null;
@@ -291,7 +350,7 @@ for (const [code, p] of [...byCode].sort()) {
     if (!id) continue;
     try {
       const grid = await api(`https://sheets.googleapis.com/v4/spreadsheets/${id}?includeGridData=true&fields=${encodeURIComponent(SHEET_GRID_FIELDS)}`);
-      const got = readSupplierSheet(grid as never, p as EntityRecord);
+      const got = readSupplierSheet(grid as never, p as Rec);
       if (got.tabs.length) { read = got; readId = id; readTitle = S((grid as Rec).properties?.title); break; }
       lastErr = '표가 있는 탭이 없다';
     } catch (e) { lastErr = String((e as Error).message).slice(0, 50); }
@@ -333,9 +392,19 @@ for (const [code, p] of [...byCode].sort()) {
    */
   let book: PolicyBook = new Map();
   try {
-    const pv = await api(`https://sheets.googleapis.com/v4/spreadsheets/${readId}/values/${encodeURIComponent("'정책'")}`) as { values?: string[][] };
-    book = readPolicyTab((pv.values || []) as string[][]);
+    book = readPolicyTab(await readPolicyValues(readId));
   } catch { /* 정책 탭이 없는 시트도 있다 */ }
+  if (book.size) policySource['문패시트']++;
+  else {
+    // ★문패 시트에 정책이 없으면 우리 「○○ 프리패스 재고」 정책 탭에서 읽는다(정책의 정본).
+    const mine = ourPolicySheetFor(S(p.partner_name || p.name), code);
+    if (mine && mine.id !== readId) {
+      try {
+        book = readPolicyTab(await readPolicyValues(mine.id));
+      } catch { /* 우리 시트에 정책 탭이 없으면 아래에서 센다 */ }
+    }
+    if (book.size) policySource['우리제공시트']++; else policySource['없음']++;
+  }
   if (!book.size) noPolicy.push(`${who}(${code})`);
   /**
    * ★**규격화시트가 낡았는지 본다.**
@@ -384,42 +453,11 @@ for (const [code, p] of [...byCode].sort()) {
       /** 후보를 차례로 보고 **값이 든 첫 칸**을 쓴다. 정제칸이 비면 공급사 원문으로 떨어진다. */
       const cell = (c: string) => { for (const i of idx.get(c) || []) { const v = S(r[i]); if (v) return v; } return ''; };
       /**
-       * 차명을 마스터에 올린다. 공급사 원문은 「차종 + 세부모델」을 이어 붙인 문장을 쓴다 —
-       * 트림까지 한 문장으로 줘야 세대·사양이 잡힌다(짧은 이름은 엉뚱한 세대로 붙는다).
+       * ★제조사·모델·차명만 시트에서 옮긴다(사장님 2026-08-19).
+       *   마스터 스냅·상품마스터 3축·정제칸 재판단 없음 — 틀린 세부축이 붙느니 원문이 낫다.
+       *   모델이 비면 목록에만 남긴다(지어내지 않는다).
        */
-      /**
-       * ★공급사마다 **긴 차명이 다른 칸에 온다.** 어떤 곳은 「세부모델」에,
-       *   어떤 곳은 「세부트림」 자리에 「그랜저IG F/L 자가용 가솔린 2.5 PREMIUM A/T」를 통째로 넣는다.
-       *   그래서 **세 칸을 다 이어 붙여** 한 문장으로 만들어 마스터에 올린다.
-       *   짧은 이름만 주면 엉뚱한 세대로 붙는다(「쏘나타」→1990년대 Y3).
-       */
-      /**
-       * ★**정제칸에 이미 적혀 있으면 그 글자를 쓴다 — 다시 판단하지 않는다**
-       *   (사장님 2026-08-14 — 「매물을 접하면 우리식으로 바꿔서 상태값만 공급사거를 참고한다」).
-       *   차종은 한 번 정하면 안 바뀌는 값이다. 그런데 예전엔 발행할 때마다 마스터를 다시 돌려
-       *   **정제칸을 덮었다.** 그래서 ①사람이 손으로 고쳐 놔도 다음 발행에 되돌아갔고
-       *   ②마스터가 바뀌면 지난주와 다른 답이 나왔다.
-       *   ⚠ 실측 2026-08-14: 정제칸을 채운 직후 다시 스냅이 돌아 44대의 파워트레인이
-       *     「하이브리드 1.6 2WD」 → 「하이브리드 2WD 6인승」으로 **배기량이 빠진 채** 뒤집혔다.
-       *   ★표식은 「파워트레인」이다 — 공급사가 손으로 적는 칸이 아니라 우리가 채우는 칸이다.
-       *   ★이름으로 **딱 그 칸만** 본다(별칭을 안 쓴다). 별칭으로 찾으면 정제칸이 비었을 때
-       *     공급사 원문이 잡혀 「정제된 것」으로 착각한다.
-       */
-      const exact = (name: string) => { const i = hdr.indexOf(name); return i >= 0 ? S(r[i]) : ''; };
-      const already = !!exact('파워트레인');
-
-      const rawName = already ? '' : [cell('모델'), cell('세부모델'), cell('세부트림')].filter(Boolean).join(' ').trim();
-      const snap = rawName ? snapToMaster({
-        maker: cell('제조사'), model: cell('모델'), sub_model: [cell('세부모델'), cell('세부트림')].filter(Boolean).join(' '),
-        fuel_type: cell('연료'),
-      } as EntityRecord, MASTER) : null;
-      // ⚠ 낮은 확신도는 안 쓴다 — 틀린 차명이 붙느니 공급사 원문이 낫다.
-      const ok = snap && (snap.confidence === 'high' || snap.confidence === 'medium');
-      /**
-       * ★못 알아본 차는 **세어서 보여 준다.** 화면 밖에 두면 잊힌다.
-       *   공급사 입력은 안 건드린다 — 고칠 자리는 우리 «정제칸»과 「AI 정제」 치환 사전이다.
-       */
-      if (!ok && rawName) unmatched.push(`${who} ${S(r[first('차량번호')])} 「${rawName.slice(0, 44)}」`);
+      if (!cell('모델')) missingModel.push(`${who} ${S(r[first('차량번호')])} 「${cell('차명').slice(0, 44)}」`);
       /**
        * 그 차에 적용될 정책. 코드가 비면 그 공급사 정책이 **하나뿐일 때 그것**을 쓴다.
        * ⚠ 여럿인데 비면 «못 정했다»로 세어 화면에 알린다 — 짐작해 붙이면 그게 우리 오류다.
@@ -435,31 +473,6 @@ for (const [code, p] of [...byCode].sort()) {
         if (c === '공급사') return who;
         if (c === '입고일자') return '';          // 원본도 비어 있다. 자리만 지킨다.
         /**
-         * 차명 축 넷만 마스터로 올린다. **돈·상태·비고는 시트 글자 그대로** —
-         * 여기서 숫자를 건드리면 그게 곧 «우리가 만든 오류»다.
-         */
-        /**
-         * ★이미 정제된 차는 **시트 글자 그대로** 싣는다. 여기가 「다시 판단하지 않는다」가
-         *   실제로 지켜지는 자리다. 정제칸 이름으로 딱 그 칸만 읽는다.
-         * ⚠ 세부트림은 **없는 차가 정상**이다 — 비었다고 공급사 원문(「기본」 같은 것)으로
-         *   떨어지면 안 된다. 그래서 별칭을 안 쓰고 빈 값을 그대로 내보낸다.
-         */
-        if (already) {
-          if (c === '제조사') return clean(c, exact('제조사(정제)') || cell(c));
-          if (c === '모델') return clean(c, exact('모델'));
-          if (c === '세부모델') return clean(c, exact('세부모델'));
-          if (c === '파워트레인') return clean(c, exact('파워트레인'));
-          if (c === '세부트림') return clean(c, exact('세부트림'));
-        }
-        if (ok) {
-          if (c === '제조사') return clean(c, S(snap!.maker) || cell(c));
-          if (c === '모델') return clean(c, S(snap!.model) || cell(c));
-          if (c === '세부모델') return clean(c, S(snap!.sub_model) || cell(c));
-          if (c === '파워트레인') return clean(c, S(snap!.variant) || cell(c));
-          // 마스터가 트림을 못 고르면 **비운다.** 긴 문장을 트림 칸에 남기지 않는다.
-          if (c === '세부트림') return clean(c, S(snap!.trim_name));
-        }
-        /**
          * ★구분은 **세 가지로만** 선다 — 신차렌트·중고렌트·중고구독(사장님 2026-08-14).
          *   공급사 시트에 「신차」·「재렌트」·「신차(선출고)」가 섞여 있어, 그대로 옮기면
          *   같은 상품이 네 이름으로 서고 필터가 안 걸린다. 뜻은 그대로 두고 «이름»만 캐논으로 갈아 넣는다.
@@ -470,7 +483,12 @@ for (const [code, p] of [...byCode].sort()) {
          *   없을 때만 「정책」 탭에서 가져온다. 정책은 «그 공급사의 기본 조건»이다.
          */
         const own = clean(c, cell(c));
-        if (own) return own;
+        if (own) return c === '연주행' ? mileageCompact(own) : own;   // 연주행은 「2만」 꼴로(사장님 2026-08-19)
+        // ★전용계좌 — 정책 탭에서 뺐다(사장님 2026-08-19 「정책에 계좌는 빼자, 통장사본 받아서 업로드」). 파트너 레코드(회사정보)의 계좌가 정본.
+        if (c === '전용계좌') {
+          const bank = [S(p.bank_name), S(p.bank_account), S(p.bank_holder)].filter(Boolean).join(' ');
+          return bank || policyCell(c, pol);
+        }
         return policyCell(c, pol);
       }));
       n++;
@@ -490,15 +508,41 @@ for (const [code, p] of [...byCode].sort()) {
 const RENT_COLUMNS = ['1개월', '12개월', '24개월', '36개월', '48개월', '60개월'];
 const plateAt0 = COLUMNS.indexOf('차량번호');
 const stateAt0 = COLUMNS.indexOf('배차상태');
+/**
+ * ★**대여료 칸에 숫자가 없으면 「-」**(사장님 2026-08-18 — 「숫자 없는 곳을 0으로 보면 — 「-」를 넣어서 이곳은 대여료가 없다·운영 안 함으로 / 불가도 필요 없다」).
+ *   공급사가 「불가」·「x」·빈칸으로 적은 기간은 전부 「-」로 싣는다 — 영업자가 «그 기간은 안 판다»로 한눈에 읽게. 숫자 아닌 글자(「연수×대여료」 같은 규칙 문장)는 그대로 둔다.
+ */
+{
+  const MONEY_COLS = ['단기보증', '1개월', '12개월', '장기보증', '24개월', '36개월', '48개월', '60개월'];
+  const idxs = MONEY_COLS.map((c) => COLUMNS.indexOf(c)).filter((i) => i >= 0);
+  const NONE = /^(불가|불가능|x|X|-|—|―|없음|미운영|미판매|해당없음|n\/a|N\/A)$/;
+  let dashed = 0;
+  for (const r of rows) for (const i of idxs) { const v = S(r[i]); if (!v || NONE.test(v)) { if (v !== '-') dashed++; r[i] = '-'; } }
+  console.log(`  대여료 칸 「-」 표시 ${dashed}칸(빈칸·불가 → 그 기간 운영 안 함)`);
+}
+/**
+ * ★**출고불가는 판매시트에 싣지 않는다**(사장님 2026-08-18 — 「출고불가 빼고 해줘야지」).
+ *   영업자 표는 «팔 수 있는 차»의 표다. 출고불가 줄은 공급사 시트·상품마스터에는 그대로 남는다(지우는 게 아니라 안 싣는 것).
+ *   판정은 공급사 시트 글자 그대로(우리 규격 시트는 「출고불가」 하나로 적는다). 빼는 수를 화면에 남긴다.
+ */
+{
+  const before = rows.length;
+  const kept = rows.filter((r) => !/출고불가/.test(S(r[stateAt0])));
+  const dropped = before - kept.length;
+  rows.length = 0; rows.push(...kept);
+  console.log(`  출고불가 ${dropped}대는 판매시트에 안 싣는다(공급사 시트·상품마스터에는 그대로) → ${rows.length}대
+`);
+}
 const rentAt = RENT_COLUMNS.map((c) => COLUMNS.indexOf(c)).filter((i) => i >= 0);
+const hasMoney = (v: string) => /\d/.test(S(v));   // 「-」·빈칸은 돈이 아니다
 const split = (pick: (r: string[]) => boolean) => {
   let a = 0, b = 0;
   for (const r of rows) { if (!pick(r)) continue; if (fromOurs.get(S(r[plateAt0]))) a++; else b++; }
   return { ours: a, other: b, all: a + b };
 };
 const all = split(() => true);
-const noMoney = split((r) => !rentAt.some((i) => S(r[i])));
-const noMoneySellable = split((r) => !rentAt.some((i) => S(r[i])) && !/출고불가|계약중/.test(S(r[stateAt0])));
+const noMoney = split((r) => !rentAt.some((i) => hasMoney(r[i])));
+const noMoneySellable = split((r) => !rentAt.some((i) => hasMoney(r[i])) && !/출고불가|계약중/.test(S(r[stateAt0])));
 console.log(`\n  ${'─'.repeat(58)}`);
 console.log(`  우리 시트 ${all.ours}대 · 아닌 시트 ${all.other}대 · 총 ${all.all}대`
   + `${dupes ? `   (같은 차가 두 번 나와 건너뛴 줄 ${dupes})` : ''}${skippedByRule ? ` (@제외 탭 ${skippedByRule})` : ''}`);
@@ -512,15 +556,15 @@ if (ambiguous.length) {
 }
 if (noPolicy.length) {
   console.log('');
-  console.log(`  ▲ 정책 탭을 못 읽은 공급사 ${noPolicy.length} — 그 집 부가정보가 빈다`);
+  console.log(`  ▲ 정책 탭을 못 읽은 공급사 ${noPolicy.length} — 그 집 부가정보가 빈다 (정책 출처: 문패시트 ${policySource['문패시트']} · 우리 제공시트 ${policySource['우리제공시트']} · 없음 ${policySource['없음']})`);
   console.log(`     ${noPolicy.join(' · ')}`);
 }
-if (unmatched.length) {
+if (missingModel.length) {
   console.log(`
-  ▲ 차종마스터가 못 알아본 차 ${unmatched.length}대 — 모델·파워트레인·세부트림이 빈다`);
-  for (const u of unmatched.slice(0, 15)) console.log(`     ${u}`);
-  if (unmatched.length > 15) console.log(`     … 모두 ${unmatched.length}대`);
-  console.log('     ⚠ 공급사 입력은 건드리지 마라. 고칠 자리는 제공시트 «정제칸»과 「AI 정제」 치환 사전이다.');
+  ▲ 모델명이 비어 있는 차 ${missingModel.length}대 — 분류 칸이 빈다(지어내지 않았다)`);
+  for (const u of missingModel.slice(0, 15)) console.log(`     ${u}`);
+  if (missingModel.length > 15) console.log(`     … 모두 ${missingModel.length}대`);
+  console.log('     공급사 시트 「모델명」 또는 정제칸 「모델」을 채우면 다음 발행에 실린다.');
 }
 if (staleSheets.length) {
   console.log(`
@@ -580,10 +624,35 @@ let gid = ((meta.sheets || []) as Rec[]).find((s) => S(s.properties?.title).star
       + '공급사가 실제로 뺀 것인지 우리가 못 읽은 것인지 먼저 보라 — 맞으면 --force-shrink');
   }
   if (prev && drop > 0) console.log(`  직전 ${prev}대 → 지금 ${rows.length}대 (${Math.round(drop * 100)}% 감소)`);
+  /**
+   * ★**공급사 하나가 통째로 0대가 되면 멈춘다** — 총 대수 20% 규칙만으로는 못 잡는다.
+   *   실측 2026-08-18 16:53: 병행 작업으로 읽기 쿼터(429)가 바닥나 우리 시트 몇 곳이 «빈 표»로 읽혔고,
+   *   총 475→415대(12.6%)라 20% 가드를 지나 **60대가 빠진 표가 발행됐다.** 0대는 «없다»가 아니라 «모름»이다.
+   *   직전 표의 「공급사」 칸을 세어 «지난번엔 있었는데 지금 0인 공급사»가 하나라도 있으면 쓰지 않는다.
+   * ★시트를 통째로 못 읽은 공급사(「시트를 못 읽었다」)가 있어도 쓰지 않는다 — 같은 이유.
+   * ⚠ 공급사가 정말 재고를 다 뺐거나 문패에서 뺀 날은 `--force-shrink` 로 지나간다.
+   */
+  if (!process.argv.includes('--force-shrink')) {
+    const unread = failures.filter((f) => /시트를 못 읽었다/.test(f));
+    if (unread.length) throw new Error(`시트를 통째로 못 읽은 공급사 ${unread.length}곳 — 발행하지 않는다(0대는 «모름»이다): ${unread.join(' / ').slice(0, 300)} — 맞으면 --force-shrink`);
+    if (prevTitle) {
+      const supplierAt = COLUMNS.indexOf('공급사');
+      const prevRows = ((await api(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}/values/${encodeURIComponent(`'${prevTitle.replace(/'/g, "''")}'`)}`)).values || []) as string[][];
+      const prevHdr = (prevRows[0] || []).map(S);
+      const prevAt = prevHdr.indexOf('공급사');
+      if (prevAt >= 0 && supplierAt >= 0) {
+        const count = (list: string[][], at: number) => { const m = new Map<string, number>(); for (const r of list) { const w = S(r[at]); if (w) m.set(w, (m.get(w) || 0) + 1); } return m; };
+        const before = count(prevRows.slice(1), prevAt);
+        const now = count(rows, supplierAt);
+        const gone = [...before].filter(([w, n]) => n >= 3 && !(now.get(w) || 0)).map(([w, n]) => `${w} ${n}대→0`);
+        if (gone.length) throw new Error(`직전 표에 있던 공급사가 통째로 0대 — 발행하지 않는다: ${gone.join(' · ')} (못 읽은 것인지 먼저 보라 — 맞으면 --force-shrink)`);
+      }
+    }
+  }
 }
 if (gid == null) {
   const made = await api(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}:batchUpdate`, {
-    method: 'POST', body: JSON.stringify({ requests: [{ addSheet: { properties: { title: TAB, index: 0 } } }] }),
+    method: 'POST', body: JSON.stringify({ requests: [{ addSheet: { properties: { title: TAB, index: AT } } }] }),
   });
   gid = Number(((made.replies || []) as Rec[])[0]?.addSheet?.properties?.sheetId ?? 0);
 }
@@ -618,6 +687,7 @@ await api(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}/values/${encod
       bandedRangeIds: ((me.bandedRanges || []) as Rec[]).map((b) => Number(b.bandedRangeId)),
       conditionalFormatCount: ((me.conditionalFormats || []) as unknown[]).length,
       widths: columnWidths(COLUMNS, rows),
+      tabTitle: title,
     }) }),
   });
 }
