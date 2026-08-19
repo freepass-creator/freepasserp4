@@ -8,6 +8,7 @@ import { ENTITIES, type EntityRecord } from '@/lib/intake/entities';
 import { isAdminUiAllowed } from '@/lib/auth-gate';
 import { parseAuditChanges, auditDomainOf, normalizeAuditRecord, AUDIT_DOMAIN_OPTS } from '@/lib/domain/audit';
 import { Page, Btn, Badge, PillTabs, FilterChips, FilterGroup, C, R, Loading, CenterNote, FW, FS, NUM } from '@/components/ui';
+import { NAV_LABEL } from '@/lib/tabbar';
 
 // 감사·휴지통 — 전 데이터 write 관장(매물·대여료·계약·정산·채팅·회원). store 자동 기록.
 const TRASH_ENTITIES = ['product', 'contract', 'settlement', 'policy', 'partner', 'user', 'room', 'customer'];
@@ -102,7 +103,9 @@ export default function AuditTrash() {
   if (ok === null) return <Loading />;
 
   return (
-    <Page title="감사 · 휴지통"
+    <Page title={NAV_LABEL.audit}
+      meta={tab === 'audit' ? logs.length : deleted.length}
+      found={tab === 'audit' && !!(q.trim() || domain) ? shownLogs.length : null}
       listTools={tab === 'audit' ? {
         search: { value: q, onChange: setQ, placeholder: '차번·계약·채팅·행위자 검색' },
         filter: {

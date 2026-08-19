@@ -13,24 +13,24 @@ import { WebListTools } from '@/components/WebListTools';
 
 /**
  * 업무 페이지 = [목록 | 패널].
- * 상단바 상태 = PageStatus(상품검색과 동일: 아이콘+라벨+건수).
+ * 상단바 상태 = PageStatus(상품검색과 동일: 아이콘+페이지명+전체건수, 목록이 줄면 「중」).
  * 목록 툴 = 모바일 PageToolBar 시트 / 웹 검색행+정렬·필터(동일 listTools).
  */
 export type WorkPane = { key: string; title: string; node: ReactNode; width?: number; icon?: LucideIcon };
 export type WorkMobileLayout = 'stack' | 'swap';
 
 export function WorkPage({
-  title, statusLabel, statusCount, listCount, list, listHeader, panes, selected, onBack, search, actions,
+  title, statusCount, listCount, list, listHeader, panes, selected, onBack, search, actions,
   headerActions,
   mobileLayout = 'stack', mobileSwapKey, onMobileSwapKeyChange, countSuffix = '건', hideDock,
   listTools, contextTitle, paneRatio, listMaxWidth, hideList = false,
-  attentionLabel, attentionCount, hideWebDock = false,
+  hideWebDock = false,
   backKind = 'list',
 }: {
   title: string;
-  /** 상단바 라벨(미지정 시 title). 예: 계약진행중 / 출고가능 */
+  /** 상단바 라벨(미지정 시 title). 호출부 호환용 — 헤더는 title 고정. */
   statusLabel?: string;
-  /** 상단바 건수(미지정 시 listCount). 필터와 무관한 KPI */
+  /** 상단바 전체 건수(미지정 시 listCount). 목록 건수와 다르면 「N단위 중 M단위」. */
   statusCount?: number | null;
   listCount?: ReactNode;
   list: ReactNode;
@@ -58,7 +58,7 @@ export function WorkPage({
   hideWebDock?: boolean;
   listTools?: ListToolsConfig;
   contextTitle?: ReactNode;
-  /** 처리·안읽음 등 보조 건수(상품검색 「검색 M」자리) */
+  /** 호출부 호환용. 상단바에는 넣지 않음(미회신 등은 목록 칩). */
   attentionLabel?: string;
   attentionCount?: number | null;
   /**
@@ -88,13 +88,14 @@ export function WorkPage({
     if (mobileSwapKey == null) setInnerSwap(key);
   };
 
-  const barLabel = statusLabel || title;
   const icon = statusIconFor(title);
-  const barCountSrc = statusCount !== undefined ? statusCount : listCount;
-  const countNum = barCountSrc == null || barCountSrc === ''
+  const listN = listCount == null || listCount === ''
     ? null
-    : (typeof barCountSrc === 'number' || typeof barCountSrc === 'string' ? barCountSrc : null);
-  const att = attentionCount != null && attentionCount > 0 ? attentionCount : null;
+    : (typeof listCount === 'number' || typeof listCount === 'string' ? listCount : null);
+  const totalN = statusCount !== undefined ? statusCount : listN;
+  const foundN = statusCount !== undefined && listN != null && totalN != null && listN !== totalN
+    ? listN
+    : null;
 
   let barTitle: ReactNode;
   if (selected && contextTitle != null && contextTitle !== '') {
@@ -118,18 +119,17 @@ export function WorkPage({
     barTitle = (
       <PageStatus
         icon={icon}
-        label={barLabel}
-        count={countNum}
+        label={title}
+        count={totalN}
         unit={countSuffix}
-        secondaryLabel={att != null ? (attentionLabel || '확인') : undefined}
-        secondaryCount={att}
+        found={foundN}
       />
     );
   }
 
   useAppBar(
     { title: barTitle, actions: selected ? headerActions : undefined },
-    [selected, title, barLabel, contextTitle, countNum, att, attentionLabel, countSuffix, headerActions],
+    [selected, title, contextTitle, totalN, foundN, countSuffix, headerActions],
   );
 
   useEffect(() => {

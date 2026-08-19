@@ -525,7 +525,9 @@ export default function PolicyMgmt() {
   }];
   return (
     <>
-      <WorkPage title={NAV_LABEL.policy} listCount={rows === null ? null : shown.length} list={rows === null ? <FeedRowSkeleton /> : listEl} panes={panes} selected={!!sel} onBack={clearSel}
+      <WorkPage title={NAV_LABEL.policy}
+        statusCount={rows === null ? null : rows.length}
+        listCount={rows === null ? null : shown.length} list={rows === null ? <FeedRowSkeleton /> : listEl} panes={panes} selected={!!sel} onBack={clearSel}
         paneRatio={!mobile ? 3 : undefined}
         contextTitle={sel ? (creating ? '신규 정책' : String(form.policy_name || form.policy_code || '')) : undefined}
         actions={dockActions}

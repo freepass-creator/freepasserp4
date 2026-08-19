@@ -234,24 +234,15 @@ export function EsignSendCenter() {
   }, [partners]);
 
   /** 이 발송센터에서 새로 만든 계약만 표시한다. 기존 ERP 계약원장은 섞지 않는다. */
-  const sendRows = useMemo(() => (contracts || [])
+  const sendAll = useMemo(() => (contracts || [])
     .filter(isEsignCenterContract)
-    .filter((row) => ['direct', 'excel'].includes(esignContractSource(row)))
-    .filter((row) => {
-      const q = query.trim().toLowerCase();
-      if (!q) return true;
-      return [row.customer_name, row.vehicle_name_snapshot, row.car_number_snapshot, row.contract_code]
-        .some((value) => S(value).toLowerCase().includes(q));
-    }), [contracts, query]);
-
-  const sendAttention = useMemo(() => sendRows.filter((row) => {
-    const checks = validateEsignCenterContract(
-      row,
-      partnerMap.get(S(row.provider_company_code)) || null,
-      policyMap.get(S(row.policy_code)) || null,
-    );
-    return esignCenterBucket(row, checks) === '확인필요';
-  }).length, [sendRows, partnerMap, policyMap]);
+    .filter((row) => ['direct', 'excel'].includes(esignContractSource(row))), [contracts]);
+  const sendRows = useMemo(() => sendAll.filter((row) => {
+    const q = query.trim().toLowerCase();
+    if (!q) return true;
+    return [row.customer_name, row.vehicle_name_snapshot, row.car_number_snapshot, row.contract_code]
+      .some((value) => S(value).toLowerCase().includes(q));
+  }), [sendAll, query]);
 
   const setDraftValue = (key: string, value: string) => {
     if (key === 'policyCode') {
@@ -565,10 +556,7 @@ export function EsignSendCenter() {
     <>
       <WorkPage
         title="전자계약"
-        statusLabel="계약목록"
-        statusCount={sendRows.length}
-        attentionLabel="확인"
-        attentionCount={sendAttention}
+        statusCount={sendAll.length}
         listCount={sendRows.length}
         list={list}
         panes={panes}

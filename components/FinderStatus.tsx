@@ -3,8 +3,23 @@ import { PageStatus } from '@/components/PageStatus';
 import { NAV_ICON, NAV_LABEL } from '@/lib/tabbar';
 
 /**
- * 홈 상단 상태 — NAV_LABEL.product + 필터 결과 건수. 다른 목록과 동일하게 상단바에 노출.
+ * 상품찾기 상단 — 페이지명 + 총대수, 조건 있으면 「N대 중 M대」.
  */
-export function FinderStatus({ count }: { count?: number | null }) {
-  return <PageStatus icon={NAV_ICON.product} label={NAV_LABEL.product} count={count} unit="대" />;
+export function FinderStatus({
+  total,
+  found,
+}: {
+  total?: number | null;
+  found?: number | null;
+}) {
+  const ready = total != null;
+  return (
+    <PageStatus
+      icon={NAV_ICON.product}
+      label={NAV_LABEL.product}
+      count={ready ? total : null}
+      unit="대"
+      found={ready && found != null && found !== total ? found : null}
+    />
+  );
 }

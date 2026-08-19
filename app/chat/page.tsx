@@ -550,7 +550,7 @@ export default function Chat() {
       && isInquiryOnly(contract)
       && replyAttentionFor(rm, role) === 'unreplied';
   }).length;
-  // 관리자 = 내가 눌러야 넘어가는 건 수. 상단바 KPI·필터 칩이 같은 숫자를 쓴다.
+  // 관리자 = 내가 눌러야 넘어가는 건 수. 목록 칩이 같은 숫자를 쓴다.
   const myTurnN = role === 'admin'
     ? activityRooms.filter((rm) => deskItemOf(rm, roomContract(rm) || null).bucket === 'mine').length
     : 0;
@@ -559,10 +559,7 @@ export default function Chat() {
     <>
     <WorkPage
       title={role === 'admin' ? '상담데스크' : NAV_LABEL.chat}
-      statusLabel="미회신"
-      statusCount={rooms === null ? null : inquiryUnrepliedN}
-      attentionLabel="미확인"
-      attentionCount={rooms === null ? undefined : inquiryUnreadN}
+      statusCount={rooms === null ? null : activityRooms.length}
       listCount={rooms === null ? null : shownRooms.length}
       list={rooms === null ? <FeedRowSkeleton /> : roomListEl}
       listHeader={role === 'admin' && rooms !== null ? (

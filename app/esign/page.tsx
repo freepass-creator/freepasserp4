@@ -199,10 +199,6 @@ function LegacyEsignPage() {
     () => (sel ? resolveContractSources(sel, products, policies) : { product: null, policy: null }),
     [sel, products, policies],
   );
-  const attention = useMemo(
-    () => (rows || []).filter((c) => ['반려', '만료'].includes(esignStage(c).state)).length,
-    [rows],
-  );
   // 패널 머리의 건수 — 「몇 개 묶음이 나가나」. 값 없는 묶음은 빠지므로 이 수가 곧 손님이 볼 화면 수다.
   const groupCount = useMemo(
     () => (sel ? buildConsentGroups(sel, sources.policy).filter((g) => g.rows.length).length : 0),
@@ -463,11 +459,8 @@ function LegacyEsignPage() {
     <>
       <WorkPage
         title={NAV_LABEL.esign}
-        statusLabel={NAV_LABEL.esign}
         statusCount={rows === null ? null : rows.length}
         listCount={rows === null ? null : shown.length}
-        attentionLabel="확인 필요"
-        attentionCount={attention || undefined}
         list={listEl}
         listTools={{
           search: { value: query, onChange: setQuery, placeholder: '차번·계약번호·고객명' },

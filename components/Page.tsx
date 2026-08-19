@@ -14,10 +14,12 @@ import { WebListTools } from '@/components/WebListTools';
  *   모바일 = MobilePageShell (툴·시트). 건수는 상단바로.
  */
 export function Page({
-  title, meta, left, right, bottomActions, search, listTools, tools, countSuffix = '건', children,
+  title, meta, found, left, right, bottomActions, search, listTools, tools, countSuffix = '건', children,
 }: {
   title?: ReactNode;
   meta?: ReactNode;
+  /** 목록이 줄었을 때만. 상단바 「N단위 중 M단위」. */
+  found?: number | string | null;
   left?: ReactNode;
   right?: ReactNode;
   bottomActions?: ReactNode;
@@ -32,6 +34,8 @@ export function Page({
   const countVal = meta == null || meta === ''
     ? null
     : (typeof meta === 'number' || typeof meta === 'string' ? meta : null);
+  const foundVal = found == null || found === '' ? null : found;
+  const showFound = foundVal != null && countVal != null && String(foundVal) !== String(countVal);
 
   const statusTitle = titleStr
     ? (
@@ -40,6 +44,7 @@ export function Page({
         label={titleStr.replace(/\s*·\s*.*$/, '') || titleStr}
         count={countVal != null ? String(countVal).replace(/건$/, '') : null}
         unit={countSuffix}
+        found={showFound ? foundVal : null}
       />
     )
     : (title != null && title !== '' ? title : undefined);
@@ -48,7 +53,7 @@ export function Page({
     statusTitle != null
       ? { title: statusTitle, actions: right ?? undefined }
       : (right != null ? { actions: right } : {}),
-    [title, meta, countSuffix, right],
+    [title, meta, found, countSuffix, right],
   );
 
   const resolvedTools: ListToolsConfig | undefined = listTools ?? (search ? { search } : undefined);

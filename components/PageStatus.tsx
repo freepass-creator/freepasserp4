@@ -4,31 +4,35 @@ import { FileText, ScrollText, Users, History, Search, Wrench } from 'lucide-rea
 import { C, NUM, FW, FS, R, ICON, ctrlH } from '@/components/ui';
 import { NAV_ICON } from '@/lib/tabbar';
 
+function fmt(n: number | string) {
+  return typeof n === 'number' ? n.toLocaleString() : n;
+}
+
 /**
- * 상단바 상태창 SSOT — 상품검색과 동일 DNA.
- *   [아이콘] 라벨 N단위 · (선택) 보조 라벨 M단위
+ * 상단바 상태창 SSOT.
+ *   [아이콘] 라벨 N단위
+ *   조건 있으면  [아이콘] 라벨 N단위 중 M단위
+ *   선택 상세면 secondaryLabel 만(차명·계약자).
  */
 export function PageStatus({
   icon: Icon,
   label,
   count,
   unit = '건',
+  found,
   secondaryLabel,
-  secondaryCount,
-  secondaryUnit,
 }: {
   icon: LucideIcon;
   label: string;
   count?: number | string | null;
   unit?: string;
+  found?: number | string | null;
   secondaryLabel?: string;
-  secondaryCount?: number | string | null;
-  secondaryUnit?: string;
 }) {
   const n = count == null || count === '' ? null : count;
-  const sn = secondaryCount == null || secondaryCount === '' ? null : secondaryCount;
-  const sUnit = secondaryUnit ?? unit;
+  const fn = found == null || found === '' ? null : found;
   const chip = ctrlH(false, 'sm');
+  const unitStyle = { marginLeft: 1, fontSize: FS.sub, fontWeight: FW.strong, color: C.mute } as const;
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 8,
@@ -50,28 +54,29 @@ export function PageStatus({
         <span style={{ color: C.mute, fontWeight: FW.strong, fontSize: FS.body }}>{label}</span>
         {n != null ? (
           <span style={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>
-            {typeof n === 'number' ? n.toLocaleString() : n}
-            <span style={{ marginLeft: 1, fontSize: FS.sub, fontWeight: FW.strong, color: C.mute }}>{unit}</span>
+            {fmt(n)}
+            <span style={unitStyle}>{unit}</span>
           </span>
+        ) : null}
+        {fn != null ? (
+          <>
+            <span style={{ color: C.mute, fontWeight: FW.strong, fontSize: FS.body }}>중</span>
+            <span style={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>
+              {fmt(fn)}
+              <span style={unitStyle}>{unit}</span>
+            </span>
+          </>
         ) : null}
         {secondaryLabel ? (
           <>
             <span style={{ color: C.line, fontWeight: FW.meta, margin: '0 2px' }}>·</span>
             <span style={{
-              color: sn != null ? C.brand : C.ink,
+              color: C.ink,
               fontWeight: FW.strong,
               fontSize: FS.body,
               overflow: 'hidden',
               textOverflow: 'ellipsis',
             }}>{secondaryLabel}</span>
-            {sn != null ? (
-              <span style={{
-                fontFamily: NUM, fontVariantNumeric: 'tabular-nums', color: C.brand,
-              }}>
-                {typeof sn === 'number' ? sn.toLocaleString() : sn}
-                <span style={{ marginLeft: 1, fontSize: FS.sub, fontWeight: FW.strong }}>{sUnit}</span>
-              </span>
-            ) : null}
           </>
         ) : null}
       </div>
