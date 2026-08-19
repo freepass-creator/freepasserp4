@@ -352,10 +352,17 @@ export default function Finder() {
 
   // 상단바 카운트 = 지금 보는 뷰 기준(엑셀=헤더필터 반영 excelRows / 그 외=list) → 화면·푸터와 일치.
   const headlineCount = renderView === 'excel' ? excelRows.length : list.length;
-  // 상단바 상태창 = PageStatus SSOT (웹·모바일 동일)
+  const colFilterN = Object.values(colFilter).reduce((n, set) => n + set.size, 0);
+  const searching = !!(q || activeCount(s) > 0 || models.size > 0 || interestFlt.size > 0 || colFilterN > 0);
+  // 상단바 상태창 = PageStatus SSOT (웹·모바일 동일) — 총대수, 조건 있으면 N대 중 M대
   useAppBar({
-    title: <FinderStatus count={headlineCount} />,
-  }, [headlineCount]);
+    title: (
+      <FinderStatus
+        total={rows == null ? null : totalVisible}
+        found={searching ? headlineCount : null}
+      />
+    ),
+  }, [rows, totalVisible, headlineCount, searching]);
 
   // 기간 필터 1개만 = 카드 앵커 가격. 복수/전체 = 최저가.
   const focusMonth = periods.size === 1 ? [...periods][0] : undefined;
@@ -398,7 +405,6 @@ export default function Finder() {
       applyBag(typeof patch === 'function' ? patch(cur) : { ...cur, ...patch });
     }
   };
-  const colFilterN = Object.values(colFilter).reduce((n, set) => n + set.size, 0);
   const sidebarAc = filterDraft
     ? activeCount({ q: '', periods: v.periods, rent: v.rent, dep: v.dep, mile: v.mile, fuel: v.fuel, ptype: v.ptype, credit: v.credit, perks: v.perks, promo: v.promo, dyn: v.dyn, vehicle: v.vehicle }) + v.models.size + v.interest.size + (v.sort !== FINDER_DEFAULT_SORT ? 1 : 0) + colFilterN
     : activeCount(s) + models.size + colFilterN;

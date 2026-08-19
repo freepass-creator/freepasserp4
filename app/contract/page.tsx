@@ -33,7 +33,6 @@ import {
   contractMonthLabel as labelMonth,
   contractMonthOptions,
   contractPreviewCount,
-  contractWorkflowGroup,
   filterContracts,
   type ContractFilter as ContFilter,
   type ContractSort as ContSort,
@@ -641,8 +640,8 @@ export default function ContractsSettlement() {
 
   return (
     <>
-      <WorkPage title={NAV_LABEL.contract || '계약'} statusLabel="처리 대기"
-        statusCount={rows === null ? null : rows.filter((c) => !['계약완료', '계약취소'].includes(contractWorkflowGroup(c))).length}
+      <WorkPage title={NAV_LABEL.contract || '계약'}
+        statusCount={rows === null ? null : rows.length}
         listCount={rows === null ? null : shownAll.length}
         list={rows === null ? <FeedRowSkeleton /> : listEl} panes={panes} selected={!!sel} onBack={clearSel}
         contextTitle={selC ? joinMetaText([

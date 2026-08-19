@@ -33,7 +33,6 @@ import {
   normalizeSettlementDisplayStatus,
   settlementListDisplay,
   settlementNetTone,
-  settlementNeedsAttention,
   settlementWarning,
   type SettlementListDisplay,
 } from '@/lib/domain/settlement-display';
@@ -270,8 +269,6 @@ export default function MonthlySettlement() {
     setSort('date_desc');
     setStatus('all');
   };
-  const pendingCount = monthRows.filter(settlementNeedsAttention).length;
-
   const list = shown.length ? shown.map((settlement) => {
     const key = String(settlement._key || settlement.settlement_code);
     const display = displayOf(settlement);
@@ -397,10 +394,7 @@ export default function MonthlySettlement() {
     <>
       <WorkPage
         title={NAV_LABEL.settlement}
-        statusLabel="정산 확인"
-        statusCount={pendingCount}
-        attentionLabel="월 전체"
-        attentionCount={monthRows.length}
+        statusCount={monthRows.length}
         listCount={shown.length}
         list={list}
         listHeader={(

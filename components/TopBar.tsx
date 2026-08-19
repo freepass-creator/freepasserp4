@@ -35,6 +35,7 @@ const GROUPS: { title: string; items: { href?: string; label: string; icon: Luci
   ] },
   { title: '공급관리', items: [
     { href: '/inventory', label: NAV_LABEL.inventory, icon: NAV_ICON.inventory, roles: ['provider', 'admin'] },
+    // 예전 「정책관리」 메뉴명 폐기 — 같은 자리(`/policy`)를 파트너사 관리로 표기한다.
     { href: '/policy', label: NAV_LABEL.policy, icon: ScrollText, roles: ['provider', 'admin'] },
   ] },
   { title: '관리자', items: [
@@ -53,12 +54,12 @@ const GROUPS: { title: string; items: { href?: string; label: string; icon: Luci
 
 /** 라우트 → 상태 라벨(앱바 title 없을 때). */
 function statusFromPath(path: string): ReactNode {
-  // WorkPage KPI 라벨과 맞춤 — 마운트 전 NAV→KPI 플래시 방지
+  // 마운트 전 NAV 페이지명 플래시 방지 — 건수는 페이지가 올린다
   if (path === '/') return <PageStatus icon={NAV_ICON.product} label={NAV_LABEL.product} />;
   if (path.startsWith('/m/')) return <PageStatus icon={NAV_ICON.product} label="상품 상세" />;
-  if (path.startsWith('/chat')) return <PageStatus icon={NAV_ICON.chat} label="문의 미확인" />;
-  if (path.startsWith('/contract')) return <PageStatus icon={NAV_ICON.contract} label="계약진행중" />;
-  if (path.startsWith('/inventory')) return <PageStatus icon={NAV_ICON.inventory} label="전체매물" />;
+  if (path.startsWith('/chat')) return <PageStatus icon={NAV_ICON.chat} label={NAV_LABEL.chat} />;
+  if (path.startsWith('/contract')) return <PageStatus icon={NAV_ICON.contract} label={NAV_LABEL.contract} />;
+  if (path.startsWith('/inventory')) return <PageStatus icon={NAV_ICON.inventory} label={NAV_LABEL.inventory} />;
   if (path.startsWith('/sonogong')) return <PageStatus icon={RefreshCw} label="중고차 렌트구독 견적기" />;
   if (path.startsWith('/welrix')) return <PageStatus icon={Sparkles} label="신차장기렌터카 견적기" />;
   if (path.startsWith('/policy')) return <PageStatus icon={statusIconFor('정책')} label={NAV_LABEL.policy} />;

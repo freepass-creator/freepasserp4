@@ -30,6 +30,7 @@ import {
   ESIGN_POLICY_SELECTION_SESSION_KEY,
   type EsignPolicySelection,
 } from '@/lib/domain/esign-policy-return';
+import { NAV_LABEL } from '@/lib/tabbar';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
 import { EsignCenterListRow, EsignCreateRow } from '@/components/list-rows';
 import { FreepassEsignLinkPane, FreepassEsignProgressPane } from '@/components/FreepassEsignPanes';
@@ -234,24 +235,15 @@ export function EsignSendCenter() {
   }, [partners]);
 
   /** 이 발송센터에서 새로 만든 계약만 표시한다. 기존 ERP 계약원장은 섞지 않는다. */
-  const sendRows = useMemo(() => (contracts || [])
+  const sendAll = useMemo(() => (contracts || [])
     .filter(isEsignCenterContract)
-    .filter((row) => ['direct', 'excel'].includes(esignContractSource(row)))
-    .filter((row) => {
-      const q = query.trim().toLowerCase();
-      if (!q) return true;
-      return [row.customer_name, row.vehicle_name_snapshot, row.car_number_snapshot, row.contract_code]
-        .some((value) => S(value).toLowerCase().includes(q));
-    }), [contracts, query]);
-
-  const sendAttention = useMemo(() => sendRows.filter((row) => {
-    const checks = validateEsignCenterContract(
-      row,
-      partnerMap.get(S(row.provider_company_code)) || null,
-      policyMap.get(S(row.policy_code)) || null,
-    );
-    return esignCenterBucket(row, checks) === '확인필요';
-  }).length, [sendRows, partnerMap, policyMap]);
+    .filter((row) => ['direct', 'excel'].includes(esignContractSource(row))), [contracts]);
+  const sendRows = useMemo(() => sendAll.filter((row) => {
+    const q = query.trim().toLowerCase();
+    if (!q) return true;
+    return [row.customer_name, row.vehicle_name_snapshot, row.car_number_snapshot, row.contract_code]
+      .some((value) => S(value).toLowerCase().includes(q));
+  }), [sendAll, query]);
 
   const setDraftValue = (key: string, value: string) => {
     if (key === 'policyCode') {
@@ -407,7 +399,7 @@ export function EsignSendCenter() {
           </>
         ) : null}
         {draftPartner && draftPolicy ? (
-          <ListGroup header="자동 적용되는 회원사·정책값" footer="이 값은 정책관리에서만 변경할 수 있습니다.">
+          <ListGroup header="자동 적용되는 회원사·정책값" footer={`이 값은 ${NAV_LABEL.policy}에서만 변경할 수 있습니다.`}>
             <DetailRow label="회원사" value={S(draftPartner.name || draftPartner.partner_name)} />
             <DetailRow label="계약 정책" value={S(draftPolicy.policy_name || draftPolicy.policy_code)} />
             <DetailRow label="임대인" value={[draftPartner.ceo || draftPartner.ceo_name, draftPartner.phone].filter(Boolean).join(' · ') || '정책 확인 필요'} stacked />
@@ -565,10 +557,7 @@ export function EsignSendCenter() {
     <>
       <WorkPage
         title="전자계약"
-        statusLabel="계약목록"
-        statusCount={sendRows.length}
-        attentionLabel="확인"
-        attentionCount={sendAttention}
+        statusCount={sendAll.length}
         listCount={sendRows.length}
         list={list}
         panes={panes}

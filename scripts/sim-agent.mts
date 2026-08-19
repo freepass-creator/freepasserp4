@@ -50,7 +50,7 @@ const MENU: { href: string; label: string; roles: Role[] }[] = [
   { href: '/chat', label: '계약문의', roles: ['agent', 'provider', 'admin'] },
   { href: '/contract', label: '정산관리', roles: ['agent', 'admin'] },
   { href: '/inventory', label: '재고관리', roles: ['provider', 'admin'] },
-  { href: '/policy', label: '정책관리', roles: ['provider', 'admin'] },
+  { href: '/policy', label: '파트너사 관리', roles: ['provider', 'admin'] },
   { href: '/settlement', label: '월별정산', roles: ['admin'] },
   { href: '/members', label: '회원·파트너', roles: ['admin'] },
   { href: '/audit', label: '감사·휴지통', roles: ['admin'] },

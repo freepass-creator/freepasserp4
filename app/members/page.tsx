@@ -607,7 +607,9 @@ export default function Members() {
 
   return (
     <>
-      <WorkPage title={NAV_LABEL.members} listCount={shown.length} list={listEl} panes={panes} selected={!!sel} onBack={clearSel}
+      <WorkPage title={NAV_LABEL.members}
+        statusCount={rows.length}
+        listCount={shown.length} list={listEl} panes={panes} selected={!!sel} onBack={clearSel}
         contextTitle={sel ? (creating ? '신규' : String(form.name || form.partner_code || form.user_code || '')) : undefined}
         actions={editActions}
         listTools={{

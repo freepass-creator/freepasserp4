@@ -298,7 +298,7 @@ export default function Inventory() {
   return (
     <>
       {/* 상단 = 이 목록에 올라온 전체 매물(출고불가 포함). 공급사는 자기 회사분만. */}
-      <WorkPage title={NAV_LABEL.inventory} statusLabel="전체매물"
+      <WorkPage title={NAV_LABEL.inventory}
         statusCount={rows === null ? null : rows.length}
         countSuffix="대"
         listCount={rows === null ? null : filtered.length}
