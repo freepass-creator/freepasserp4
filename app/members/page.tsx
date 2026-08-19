@@ -11,7 +11,7 @@ import { readAllPartnersPrivate, readAllUsersPrivate, writePartnerPrivate, write
 import { migrateSensitiveToPrivate } from '@/lib/firebase/migrate-private';
 import { newId } from '@/lib/domain/ids';
 import {
-  ACTOR_TONE, PaneHead, PaneBody, Btn, Badge, DetailRow, FormGrid, FormCard, FormReadList, ListGroup,
+  ACTOR_TONE, PaneHead, PaneBody, Btn, Badge, DetailRow, FormGrid, FormCard, ListGroup,
   ButtonLabel, C, R, NUM, Loading, CenterNote, FilterChips, FilterGroup, Message, PageActions, FW, FS, ICON,
 } from '@/components/ui';
 import { Eye, Play, RotateCcw, ShieldCheck, UserCheck, UserRoundX } from 'lucide-react';
@@ -381,10 +381,10 @@ export default function Members() {
   const userBasicHint = '계정 식별정보와 소속 회사를 관리합니다.';
   const userAccessHint = '역할과 활성 상태는 메뉴 접근 및 데이터 범위의 기준입니다.';
   const userOperationHint = '영업지급율(0~1)은 월대여료 대비 영업자 지급 비율이며 정산 R2 기준입니다.';
-  const feeHint = '공급사 수수료율(0~1)은 정산 R1 계산 기준입니다.';
+  const feeHint = '공급사 수수료율(0~1)은 정산 R1 계산 기준입니다. 계좌는 전자계약 대여료 입금용입니다.';
   const partnerOpHint = autoplusForm
     ? '오토플러스 시트는 보증금 열이 없으므로 「국산 2개월치 · 수입 3개월치」 규칙이 필수입니다. 미설정하면 가격없음으로 동기화가 차단됩니다.'
-    : '시트 gid·헤더·어댑터·보증금 규칙은 재고 가져오기 때 적용됩니다.';
+    : '상품시트 주소와 gid·헤더·어댑터·보증금 규칙은 재고 가져오기 때 적용됩니다.';
   const partnerDepositSelect = {
     deposit_rule: [
       { value: '', label: '미설정 · 시트 보증금만 사용' },
@@ -403,17 +403,6 @@ export default function Members() {
       showNotes={extra?.showNotes}
       selectOptions={extra?.selectOptions}
     />
-  );
-  const fieldGroup = (
-    title: string,
-    keys: string[],
-    cols: number,
-    hint?: string,
-    extra?: { showNotes?: boolean; selectOptions?: Record<string, { value: string; label: string }[]> },
-  ) => (
-    canEdit
-      ? <FormCard title={title} hint={hint}>{grid(keys, cols, extra)}</FormCard>
-      : <FormReadList header={title} footer={hint} fields={fieldsIn(keys)} form={form} selectOptions={extra?.selectOptions} />
   );
 
   const approveBar = tab === 'user' && pending ? (
@@ -476,7 +465,7 @@ export default function Members() {
     return <Badge tone={type === '공급사' ? 'blue' : type === '분류 필요' ? 'red' : 'gray'}>{type}</Badge>;
   })();
   const partnerCompanyRead = (
-    <ListGroup header="회사정보" footer="전자계약 임대인 표시 · 가입 시 소속 매칭">
+    <ListGroup footer="전자계약 임대인 표시 · 가입 시 소속 매칭">
       <DetailRow label="상호/이름" value={strOf(form.name)} />
       <DetailRow label="별칭" value={strOf(form.alias)} />
       <DetailRow label="유형" value={partnerTypeTone} />
@@ -484,14 +473,25 @@ export default function Members() {
       <DetailRow label="자동차대여사업 등록번호" value={strOf(form.rental_business_no)} />
       <DetailRow label="대표번호" value={strOf(form.phone)} />
       <DetailRow label="사업장 주소" value={strOf(form.address)} stacked={!!strOf(form.address)} />
+      <DetailRow label="대표자" value={strOf(form.ceo)} />
+      <DetailRow label="실무자" value={strOf(form.contact)} />
     </ListGroup>
   );
   const partnerOpRead = (
     <>
+      <DetailRow label="구글시트 URL" value={strOf(form.sheet_url)} stacked={!!strOf(form.sheet_url)} />
       <DetailRow label="시트 gid" value={strOf(form.sheet_tab)} />
       <DetailRow label="헤더 행" value={strOf(form.header_row)} />
       <DetailRow label="시트 어댑터" value={strOf(form.adapter_id) || (autoplusForm ? '오토플러스식 · 자동' : '일반 · 기본')} />
       <DetailRow label="보증금 계산규칙" value={depositRuleLabel(form.deposit_rule)} />
+    </>
+  );
+  const partnerFeeRead = (
+    <>
+      <DetailRow label="공급사 수수료율" value={ratePct(form.fee_rate)} />
+      <DetailRow label="입금은행" value={strOf(form.bank_name)} />
+      <DetailRow label="예금주" value={strOf(form.bank_holder)} />
+      <DetailRow label="입금계좌번호" value={strOf(form.bank_account)} stacked={!!strOf(form.bank_account)} />
     </>
   );
 
@@ -500,34 +500,13 @@ export default function Members() {
   );
 
   const partnerBasicBody = canEdit ? (
-    <>
-      <FormCard title="회사정보" hint="전자계약 임대인 표시 · 가입 시 소속 매칭">
-        {grid(['name', 'alias'], 2)}
-        <div style={{ marginTop: 10 }}>{grid(['partner_type', 'business_number', 'rental_business_no', 'phone'], 2)}</div>
-        <div style={{ marginTop: 10 }}>{grid(['address'], 1)}</div>
-      </FormCard>
-      {fieldGroup('대표자', ['ceo'], 1)}
-      {fieldGroup('실무자', ['contact'], 1)}
-      <FormCard title="계좌" hint="전자계약 대여료 입금계좌. 예금주 비우면 상호 사용">
-        {grid(['bank_name', 'bank_holder'], 2)}
-        <div style={{ marginTop: 10 }}>{grid(['bank_account'], 1)}</div>
-      </FormCard>
-      {fieldGroup('상품시트', ['sheet_url'], 1, '공급사 재고 시트 주소. gid가 URL에 있으면 생략 가능', { showNotes: true })}
-    </>
-  ) : (
-    <>
-      {partnerCompanyRead}
-      {fieldGroup('대표자', ['ceo'], 1)}
-      {fieldGroup('실무자', ['contact'], 1)}
-      {fieldGroup('계좌', ['bank_name', 'bank_holder', 'bank_account'], 2, '전자계약 대여료 입금계좌. 예금주 비우면 상호 사용')}
-      <FormReadList
-        header="상품시트"
-        footer="공급사 재고 시트 주소. gid가 URL에 있으면 생략 가능"
-        fields={fieldsIn(['sheet_url'])}
-        form={form}
-      />
-    </>
-  );
+    <FormCard hint="전자계약 임대인 표시 · 가입 시 소속 매칭">
+      {grid(['name', 'alias'], 2)}
+      <div style={{ marginTop: 10 }}>{grid(['partner_type', 'business_number', 'rental_business_no', 'phone'], 2)}</div>
+      <div style={{ marginTop: 10 }}>{grid(['address'], 1)}</div>
+      <div style={{ marginTop: 10 }}>{grid(['ceo', 'contact'], 2)}</div>
+    </FormCard>
+  ) : partnerCompanyRead;
 
   // 4프레임 = 목록 1 + 업무 패널 3. 파트너 = 기본정보 · 운영정책 · 수수료정책.
   const basicPane = (
@@ -632,7 +611,10 @@ export default function Members() {
           <>
             {canEdit ? (
               <FormCard hint={partnerOpHint}>
-                {grid(['deposit_rule', 'adapter_id', 'sheet_tab', 'header_row'], 2, { showNotes: true, selectOptions: partnerDepositSelect })}
+                {grid(['sheet_url'], 1, { showNotes: true })}
+                <div style={{ marginTop: 10 }}>
+                  {grid(['deposit_rule', 'adapter_id', 'sheet_tab', 'header_row'], 2, { showNotes: true, selectOptions: partnerDepositSelect })}
+                </div>
               </FormCard>
             ) : (
               <>{partnerOpRead}{paneHint(partnerOpHint)}</>
@@ -658,10 +640,12 @@ export default function Members() {
           canEdit ? (
             <FormCard hint={feeHint}>
               {grid(['fee_rate'], 1, { showNotes: true })}
+              <div style={{ marginTop: 10 }}>{grid(['bank_name', 'bank_holder'], 2)}</div>
+              <div style={{ marginTop: 10 }}>{grid(['bank_account'], 1)}</div>
             </FormCard>
           ) : (
             <>
-              <DetailRow label="공급사 수수료율" value={ratePct(form.fee_rate)} />
+              {partnerFeeRead}
               {paneHint(feeHint)}
             </>
           )
