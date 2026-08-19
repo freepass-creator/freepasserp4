@@ -30,6 +30,7 @@ import {
   ESIGN_POLICY_SELECTION_SESSION_KEY,
   type EsignPolicySelection,
 } from '@/lib/domain/esign-policy-return';
+import { NAV_LABEL } from '@/lib/tabbar';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
 import { EsignCenterListRow, EsignCreateRow } from '@/components/list-rows';
 import { FreepassEsignLinkPane, FreepassEsignProgressPane } from '@/components/FreepassEsignPanes';
@@ -398,7 +399,7 @@ export function EsignSendCenter() {
           </>
         ) : null}
         {draftPartner && draftPolicy ? (
-          <ListGroup header="자동 적용되는 회원사·정책값" footer="이 값은 정책관리에서만 변경할 수 있습니다.">
+          <ListGroup header="자동 적용되는 회원사·정책값" footer={`이 값은 ${NAV_LABEL.policy}에서만 변경할 수 있습니다.`}>
             <DetailRow label="회원사" value={S(draftPartner.name || draftPartner.partner_name)} />
             <DetailRow label="계약 정책" value={S(draftPolicy.policy_name || draftPolicy.policy_code)} />
             <DetailRow label="임대인" value={[draftPartner.ceo || draftPartner.ceo_name, draftPartner.phone].filter(Boolean).join(' · ') || '정책 확인 필요'} stacked />

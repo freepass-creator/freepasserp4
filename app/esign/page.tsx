@@ -664,12 +664,12 @@ function NewEsignDataPane({
 
       {!policyCount ? (
         <Badge tone="red" variant="solid">
-          등록된 계약 정책이 없습니다. 정책관리에서 정책을 먼저 등록해 주세요.
+          등록된 계약 정책이 없습니다. {NAV_LABEL.policy}에서 정책을 먼저 등록해 주세요.
         </Badge>
       ) : null}
       {policyGate && !policyGate.ok ? (
         <Badge tone="amber" variant="solid">
-          데이터 저장은 가능합니다. 링크 발행 전 정책관리의 전자계약 필수항목을 완료해 주세요.
+          데이터 저장은 가능합니다. 링크 발행 전 {NAV_LABEL.policy}의 전자계약 필수항목을 완료해 주세요.
         </Badge>
       ) : null}
 
@@ -699,7 +699,7 @@ function DataPane({
   return (
     <PaneStack>
         {!policy ? (
-          <Badge tone="red" variant="solid">정책이 연결되지 않아 보험 조건이 빕니다 — 정책관리 확인</Badge>
+          <Badge tone="red" variant="solid">정책이 연결되지 않아 보험 조건이 빕니다 — {NAV_LABEL.policy} 확인</Badge>
         ) : null}
         {policy && !issueGate.ok ? (
           <Badge tone="red" variant="solid">링크 발행 전 정책 확인 — {issueGate.reason}</Badge>
@@ -727,7 +727,7 @@ function DataPane({
         </ListGroup>
 
         <div style={{ fontSize: FS.cap, color: C.faint }}>
-          출처 — 손님·계약조건은 계약, 상품정보는 재고관리, 보험·연령은 정책관리.
+          출처 — 손님·계약조건은 계약, 상품정보는 재고관리, 보험·연령은 {NAV_LABEL.policy}.
         </div>
     </PaneStack>
   );

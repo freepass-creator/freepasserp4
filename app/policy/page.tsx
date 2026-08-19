@@ -252,7 +252,7 @@ export default function PolicyMgmt() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ok, rows, launchRequest]);
 
-  // 메뉴에서 정책관리 재진입 → 목록
+  // 메뉴에서 파트너사 관리 재진입 → 목록
   useEffect(() => {
     const on = (e: Event) => {
       if ((e as CustomEvent).detail !== '/policy') return;
@@ -365,7 +365,7 @@ export default function PolicyMgmt() {
     }
     if (!await confirmDialog({ title: '정책 삭제', message: `정책 「${form.policy_name || form.policy_code}」을(를) 삭제할까요?\n휴지통에서 복구할 수 있습니다.`, danger: true, okLabel: '삭제' })) return;
     try {
-      await getStore().remove('policy', co, String(form.policy_code), '정책관리 삭제');
+      await getStore().remove('policy', co, String(form.policy_code), `${NAV_LABEL.policy} 삭제`);
     } catch (e) {
       toast(`삭제 실패: ${String((e as Error)?.message || e)}`, 'error');
       return;

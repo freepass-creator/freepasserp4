@@ -35,6 +35,7 @@ const GROUPS: { title: string; items: { href?: string; label: string; icon: Luci
   ] },
   { title: '공급관리', items: [
     { href: '/inventory', label: NAV_LABEL.inventory, icon: NAV_ICON.inventory, roles: ['provider', 'admin'] },
+    // 예전 「정책관리」 메뉴명 폐기 — 같은 자리(`/policy`)를 파트너사 관리로 표기한다.
     { href: '/policy', label: NAV_LABEL.policy, icon: ScrollText, roles: ['provider', 'admin'] },
   ] },
   { title: '관리자', items: [

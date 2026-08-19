@@ -149,7 +149,7 @@ export async function POST(request: Request) {
   if (!gate.ok) {
     return json({
       error: gate.layer !== 'contract'
-        ? '이 공급사는 상품만 공급합니다 — 계약서는 공급사가 직접 작성합니다. 정책관리 「전자계약」에서 정책 단계를 «계약»으로 바꾸세요.'
+        ? '이 공급사는 상품만 공급합니다 — 계약서는 공급사가 직접 작성합니다. 파트너사 관리 「전자계약」에서 정책 단계를 «계약»으로 바꾸세요.'
         : `정책 「전자계약」 항목이 비어 있어 발송할 수 없습니다: ${gate.missing.map((m: PolicyField) => m.label).join(' · ')}`,
     }, 409);
   }
