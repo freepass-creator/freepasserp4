@@ -11,7 +11,7 @@ import { readAllPartnersPrivate, readAllUsersPrivate, writePartnerPrivate, write
 import { migrateSensitiveToPrivate } from '@/lib/firebase/migrate-private';
 import { newId } from '@/lib/domain/ids';
 import {
-  ACTOR_TONE, PaneHead, PaneBody, Btn, Badge, DetailRow, FormGrid, FormCard,
+  ACTOR_TONE, PaneHead, PaneBody, Btn, Badge, DetailRow, FormGrid, FormCard, FormReadList, ListGroup,
   ButtonLabel, C, R, NUM, Loading, CenterNote, FilterChips, FilterGroup, Message, PageActions, FW, FS, ICON,
 } from '@/components/ui';
 import { Eye, Play, RotateCcw, ShieldCheck, UserCheck, UserRoundX } from 'lucide-react';
@@ -355,15 +355,11 @@ export default function Members() {
   // 관리자 신규 등록은 이미 생성된 Firebase Auth 계정과 정확히 연결할 수 있어야 한다.
   // UID는 관계·권한의 루트 키이므로 생성 중에만 입력을 허용하고 기존 레코드 편집에서는 계속 숨긴다.
   const fieldsIn = (keys: string[]) => keys.map((k) => byKey[k]).filter(Boolean) as Field[];
-  const basicFields = tab === 'user'
-    ? fieldsIn(creating ? ['uid', 'name', 'user_code', 'company_code', 'company_name'] : ['name', 'user_code', 'company_code', 'company_name'])
-    : fieldsIn(['name', 'partner_type', 'business_number', 'contact']);
-  const accessFields = tab === 'user'
-    ? fieldsIn(['role', 'is_active'])
-    : fieldsIn(['fee_rate']);
-  const operationFields = tab === 'user'
-    ? fieldsIn(['agent_channel_code', 'agent_payout_rate', 'is_team_manager'])
-    : fieldsIn(['sheet_url', 'sheet_tab', 'header_row', 'adapter_id', 'deposit_rule']);
+  const basicFields = fieldsIn(creating
+    ? ['uid', 'name', 'user_code', 'company_code', 'company_name']
+    : ['name', 'user_code', 'company_code', 'company_name']);
+  const accessFields = fieldsIn(['role', 'is_active']);
+  const operationFields = fieldsIn(['agent_channel_code', 'agent_payout_rate', 'is_team_manager']);
   const canEdit = creating || editing;
   const modeBanner = creating ? (
     <Message variant="info">신규 {tab === 'user' ? '계정' : '회사'} — 필수 항목을 입력한 뒤 저장하세요.</Message>
@@ -381,18 +377,44 @@ export default function Members() {
   const accountState = memberAccountState(form);
   const inactive = accountState === 'inactive';
   const pending = accountState === 'pending';
-  const accessTitle = tab === 'user' ? '소속·권한' : '정산·운영';
-  const operationTitle = tab === 'user' ? '영업설정' : '데이터연동';
-  const basicHint = tab === 'user' ? '계정 식별정보와 소속 회사를 관리합니다.' : '회사 식별정보와 기본 연락처를 관리합니다.';
-  const accessHint = tab === 'user'
-    ? '역할과 활성 상태는 메뉴 접근 및 데이터 범위의 기준입니다.'
-    : '공급사 수수료율(0~1)은 정산 R1 계산 기준입니다.';
   const autoplusForm = tab === 'partner' && isAutoplusPartner(form);
-  const operationHint = tab === 'user'
-    ? '영업지급율(0~1)은 월대여료 대비 영업자 지급 비율이며 정산 R2 기준입니다.'
-    : autoplusForm
-      ? '오토플러스 시트는 보증금 열이 없으므로 「국산 2개월치 · 수입 3개월치」 규칙이 필수입니다. 미설정하면 가격없음으로 동기화가 차단됩니다.'
-      : '구글시트 URL을 넣으면 재고·시트 연동에서 관리자가 일괄 가져올 수 있습니다.';
+  const userBasicHint = '계정 식별정보와 소속 회사를 관리합니다.';
+  const userAccessHint = '역할과 활성 상태는 메뉴 접근 및 데이터 범위의 기준입니다.';
+  const userOperationHint = '영업지급율(0~1)은 월대여료 대비 영업자 지급 비율이며 정산 R2 기준입니다.';
+  const feeHint = '공급사 수수료율(0~1)은 정산 R1 계산 기준입니다.';
+  const partnerOpHint = autoplusForm
+    ? '오토플러스 시트는 보증금 열이 없으므로 「국산 2개월치 · 수입 3개월치」 규칙이 필수입니다. 미설정하면 가격없음으로 동기화가 차단됩니다.'
+    : '시트 gid·헤더·어댑터·보증금 규칙은 재고 가져오기 때 적용됩니다.';
+  const partnerDepositSelect = {
+    deposit_rule: [
+      { value: '', label: '미설정 · 시트 보증금만 사용' },
+      { value: 'months_per_year', label: '기간 1년당 월대여료 1개월치' },
+      { value: 'rent_multiple', label: autoplusForm
+        ? '국산 2개월치 · 수입 3개월치 · 오토플러스'
+        : '국산 2개월치 · 수입 3개월치' },
+    ],
+  };
+  const grid = (keys: string[], cols: number, extra?: { showNotes?: boolean; selectOptions?: Record<string, { value: string; label: string }[]> }) => (
+    <FormGrid
+      fields={fieldsIn(keys)}
+      form={form}
+      onChange={onChange}
+      cols={cols}
+      showNotes={extra?.showNotes}
+      selectOptions={extra?.selectOptions}
+    />
+  );
+  const fieldGroup = (
+    title: string,
+    keys: string[],
+    cols: number,
+    hint?: string,
+    extra?: { showNotes?: boolean; selectOptions?: Record<string, { value: string; label: string }[]> },
+  ) => (
+    canEdit
+      ? <FormCard title={title} hint={hint}>{grid(keys, cols, extra)}</FormCard>
+      : <FormReadList header={title} footer={hint} fields={fieldsIn(keys)} form={form} selectOptions={extra?.selectOptions} />
+  );
 
   const approveBar = tab === 'user' && pending ? (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: C.selected, borderRadius: R, marginBottom: 8 }}>
@@ -418,29 +440,15 @@ export default function Members() {
       }
     : undefined;
 
-  const basicRead = tab === 'user' ? (
+  const userBasicRead = (
     <>
       <DetailRow label="이름" value={strOf(form.name)} />
       <DetailRow label="회원번호" value={strOf(form.user_code)} />
       <DetailRow label="회사명" value={strOf(form.company_name)} />
       <DetailRow label="회사코드" value={strOf(form.company_code)} />
     </>
-  ) : (
-    <>
-      <DetailRow label="상호/이름" value={strOf(form.name)} />
-      <DetailRow
-        label="유형"
-        value={(() => {
-          const type = partnerTypeLabel(form.partner_type, form.partner_code || form._key);
-          return <Badge tone={type === '공급사' ? 'blue' : type === '분류 필요' ? 'red' : 'gray'}>{type}</Badge>;
-        })()}
-      />
-      <DetailRow label="사업자번호" value={businessRegistrationNumberOf(form, 'partner')} />
-      <DetailRow label="연락처" value={strOf(form.contact)} />
-    </>
   );
-
-  const accessRead = tab === 'user' ? (
+  const userAccessRead = (
     <>
       <DetailRow
         label="역할"
@@ -455,19 +463,31 @@ export default function Members() {
           : <Badge tone={inactive ? 'gray' : 'green'} variant="quiet">{inactive ? '비활성' : '활성'}</Badge>}
       />
     </>
-  ) : (
-    <DetailRow label="공급사 수수료율" value={ratePct(form.fee_rate)} />
   );
-
-  const operationRead = tab === 'user' ? (
+  const userOperationRead = (
     <>
       <DetailRow label="영업채널" value={strOf(form.agent_channel_code)} />
       <DetailRow label="영업지급율" value={ratePct(form.agent_payout_rate)} />
       <DetailRow label="팀매니저" value={strOf(form.is_team_manager)} />
     </>
-  ) : (
+  );
+  const partnerTypeTone = (() => {
+    const type = partnerTypeLabel(form.partner_type, form.partner_code || form._key);
+    return <Badge tone={type === '공급사' ? 'blue' : type === '분류 필요' ? 'red' : 'gray'}>{type}</Badge>;
+  })();
+  const partnerCompanyRead = (
+    <ListGroup header="회사정보" footer="전자계약 임대인 표시 · 가입 시 소속 매칭">
+      <DetailRow label="상호/이름" value={strOf(form.name)} />
+      <DetailRow label="별칭" value={strOf(form.alias)} />
+      <DetailRow label="유형" value={partnerTypeTone} />
+      <DetailRow label="사업자번호" value={businessRegistrationNumberOf(form, 'partner')} />
+      <DetailRow label="자동차대여사업 등록번호" value={strOf(form.rental_business_no)} />
+      <DetailRow label="대표번호" value={strOf(form.phone)} />
+      <DetailRow label="사업장 주소" value={strOf(form.address)} stacked={!!strOf(form.address)} />
+    </ListGroup>
+  );
+  const partnerOpRead = (
     <>
-      <DetailRow label="구글시트 URL" value={strOf(form.sheet_url)} stacked={!!strOf(form.sheet_url)} />
       <DetailRow label="시트 gid" value={strOf(form.sheet_tab)} />
       <DetailRow label="헤더 행" value={strOf(form.header_row)} />
       <DetailRow label="시트 어댑터" value={strOf(form.adapter_id) || (autoplusForm ? '오토플러스식 · 자동' : '일반 · 기본')} />
@@ -479,7 +499,37 @@ export default function Members() {
     <div style={{ fontSize: FS.micro, color: C.faint, marginTop: 8 }}>{text}</div>
   );
 
-  // 4프레임 = 목록 1 + 업무 패널 3 (HANDOFF·정책/재고와 동일). 필드 그룹만 패널로 나눈다.
+  const partnerBasicBody = canEdit ? (
+    <>
+      <FormCard title="회사정보" hint="전자계약 임대인 표시 · 가입 시 소속 매칭">
+        {grid(['name', 'alias'], 2)}
+        <div style={{ marginTop: 10 }}>{grid(['partner_type', 'business_number', 'rental_business_no', 'phone'], 2)}</div>
+        <div style={{ marginTop: 10 }}>{grid(['address'], 1)}</div>
+      </FormCard>
+      {fieldGroup('대표자', ['ceo'], 1)}
+      {fieldGroup('실무자', ['contact'], 1)}
+      <FormCard title="계좌" hint="전자계약 대여료 입금계좌. 예금주 비우면 상호 사용">
+        {grid(['bank_name', 'bank_holder'], 2)}
+        <div style={{ marginTop: 10 }}>{grid(['bank_account'], 1)}</div>
+      </FormCard>
+      {fieldGroup('상품시트', ['sheet_url'], 1, '공급사 재고 시트 주소. gid가 URL에 있으면 생략 가능', { showNotes: true })}
+    </>
+  ) : (
+    <>
+      {partnerCompanyRead}
+      {fieldGroup('대표자', ['ceo'], 1)}
+      {fieldGroup('실무자', ['contact'], 1)}
+      {fieldGroup('계좌', ['bank_name', 'bank_holder', 'bank_account'], 2, '전자계약 대여료 입금계좌. 예금주 비우면 상호 사용')}
+      <FormReadList
+        header="상품시트"
+        footer="공급사 재고 시트 주소. gid가 URL에 있으면 생략 가능"
+        fields={fieldsIn(['sheet_url'])}
+        form={form}
+      />
+    </>
+  );
+
+  // 4프레임 = 목록 1 + 업무 패널 3. 파트너 = 기본정보 · 운영정책 · 수수료정책.
   const basicPane = (
     <>
       <PaneHead title="기본정보" />
@@ -487,15 +537,17 @@ export default function Members() {
         {sel ? (
           <>
             {modeBanner}
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: FS.cap, color: C.faint, marginBottom: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: FS.cap, color: C.faint }}>
               <span style={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums', fontWeight: FW.strong, color: C.mute }}>{strOf(form[idFieldOf(tab)])}</span>
             </div>
-            {canEdit ? (
-              <FormCard hint={basicHint}>
-                <FormGrid fields={basicFields} form={form} onChange={onChange} cols={2} />
-              </FormCard>
-            ) : (
-              <>{basicRead}{paneHint(basicHint)}</>
+            {tab === 'partner' ? partnerBasicBody : (
+              canEdit ? (
+                <FormCard hint={userBasicHint}>
+                  <FormGrid fields={basicFields} form={form} onChange={onChange} cols={2} />
+                </FormCard>
+              ) : (
+                <>{userBasicRead}{paneHint(userBasicHint)}</>
+              )
             )}
           </>
         ) : (
@@ -507,21 +559,21 @@ export default function Members() {
 
   const accessPane = (
     <>
-      <PaneHead title={accessTitle} />
+      <PaneHead title="소속·권한" />
       <PaneBody pad>
         {sel ? (
           <>
             {approveBar}
             {canEdit ? (
-              <FormCard hint={accessHint}>
+              <FormCard hint={userAccessHint}>
                 <FormGrid fields={accessFields} form={form} onChange={onChange} cols={2} selectOptions={roleSelectOptions} />
               </FormCard>
             ) : (
-              <>{accessRead}{paneHint(accessHint)}</>
+              <>{userAccessRead}{paneHint(userAccessHint)}</>
             )}
           </>
         ) : (
-          <CenterNote>목록에서 대상을 선택하면 {tab === 'user' ? '권한' : '정산 기준'}을 확인할 수 있습니다.</CenterNote>
+          <CenterNote>목록에서 대상을 선택하면 권한을 확인할 수 있습니다.</CenterNote>
         )}
       </PaneBody>
     </>
@@ -550,41 +602,18 @@ export default function Members() {
     </div>
   );
 
-  const operationPane = (
+  const userOperationPane = (
     <>
-      <PaneHead title={operationTitle} />
+      <PaneHead title="영업설정" />
       <PaneBody pad>
         {sel ? (
-          <>
-            {canEdit ? (
-              <FormCard hint={operationHint}>
-                <FormGrid
-                  fields={operationFields}
-                  form={form}
-                  onChange={onChange}
-                  cols={2}
-                  selectOptions={tab === 'partner' ? {
-                    deposit_rule: [
-                      { value: '', label: '미설정 · 시트 보증금만 사용' },
-                      { value: 'months_per_year', label: '기간 1년당 월대여료 1개월치' },
-                      { value: 'rent_multiple', label: autoplusForm
-                        ? '국산 2개월치 · 수입 3개월치 · 오토플러스'
-                        : '국산 2개월치 · 수입 3개월치' },
-                    ],
-                  } : undefined}
-                />
-              </FormCard>
-            ) : (
-              <>{operationRead}{paneHint(operationHint)}</>
-            )}
-            {tab === 'partner' ? (
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
-                <Btn title="깨진 컬럼 매핑과 헤더 서명만 초기화" size="sm" variant="ghost" onClick={resetSheetMapping} disabled={saving}>
-                  <ButtonLabel icon={<RotateCcw size={ICON.md} aria-hidden />}>시트 매핑 초기화</ButtonLabel>
-                </Btn>
-              </div>
-            ) : null}
-          </>
+          canEdit ? (
+            <FormCard hint={userOperationHint}>
+              <FormGrid fields={operationFields} form={form} onChange={onChange} cols={2} />
+            </FormCard>
+          ) : (
+            <>{userOperationRead}{paneHint(userOperationHint)}</>
+          )
         ) : (
           <>
             <CenterNote>목록에서 대상을 선택하면 업무 연동 설정을 확인할 수 있습니다.</CenterNote>
@@ -595,11 +624,68 @@ export default function Members() {
     </>
   );
 
-  const panes: WorkPane[] = [
-    { key: 'basic', title: '기본', node: basicPane },
-    { key: 'access', title: tab === 'user' ? '권한' : '정산', node: accessPane },
-    { key: 'operation', title: tab === 'user' ? '영업' : '연동', node: operationPane },
-  ];
+  const partnerOperationPane = (
+    <>
+      <PaneHead title="운영정책" />
+      <PaneBody pad>
+        {sel ? (
+          <>
+            {canEdit ? (
+              <FormCard hint={partnerOpHint}>
+                {grid(['deposit_rule', 'adapter_id', 'sheet_tab', 'header_row'], 2, { showNotes: true, selectOptions: partnerDepositSelect })}
+              </FormCard>
+            ) : (
+              <>{partnerOpRead}{paneHint(partnerOpHint)}</>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Btn title="깨진 컬럼 매핑과 헤더 서명만 초기화" size="sm" variant="ghost" onClick={resetSheetMapping} disabled={saving}>
+                <ButtonLabel icon={<RotateCcw size={ICON.md} aria-hidden />}>시트 매핑 초기화</ButtonLabel>
+              </Btn>
+            </div>
+          </>
+        ) : (
+          <CenterNote>목록에서 회사를 선택하면 운영정책을 확인할 수 있습니다.</CenterNote>
+        )}
+      </PaneBody>
+    </>
+  );
+
+  const partnerFeePane = (
+    <>
+      <PaneHead title="수수료정책" />
+      <PaneBody pad>
+        {sel ? (
+          canEdit ? (
+            <FormCard hint={feeHint}>
+              {grid(['fee_rate'], 1, { showNotes: true })}
+            </FormCard>
+          ) : (
+            <>
+              <DetailRow label="공급사 수수료율" value={ratePct(form.fee_rate)} />
+              {paneHint(feeHint)}
+            </>
+          )
+        ) : (
+          <>
+            <CenterNote>목록에서 회사를 선택하면 수수료정책을 확인할 수 있습니다.</CenterNote>
+            {adminTools}
+          </>
+        )}
+      </PaneBody>
+    </>
+  );
+
+  const panes: WorkPane[] = tab === 'user'
+    ? [
+      { key: 'basic', title: '기본', node: basicPane },
+      { key: 'access', title: '권한', node: accessPane },
+      { key: 'operation', title: '영업', node: userOperationPane },
+    ]
+    : [
+      { key: 'basic', title: '기본', node: basicPane },
+      { key: 'operation', title: '운영', node: partnerOperationPane },
+      { key: 'fee', title: '수수료', node: partnerFeePane },
+    ];
 
   const fltCount = tab === 'user'
     ? (roleFlt !== 'all' ? 1 : 0) + (activeFlt !== 'all' ? 1 : 0)
