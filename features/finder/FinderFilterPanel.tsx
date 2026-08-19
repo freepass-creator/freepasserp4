@@ -217,7 +217,7 @@ export function FinderFilterPanel({ model }: { model: FinderFilterPanelModel }) 
         {(rentOpts.length > 0) && <FilterGroup title="월대여료" count={value.rent.size} defaultOpen onClear={() => update({ rent: new Set() })}><ToggleChips selected={value.rent} onToggle={(key) => update((current) => ({ ...current, rent: toggleInSet(current.rent, key) }))} options={rentOpts} /></FilterGroup>}
         {(depOpts.length > 0) && <FilterGroup title="보증금" count={value.dep.size} defaultOpen={value.dep.size > 0} onClear={() => update({ dep: new Set() })}><ToggleChips selected={value.dep} onToggle={(key) => update((current) => ({ ...current, dep: toggleInSet(current.dep, key) }))} options={depOpts} /></FilterGroup>}
         {(present.hasVehicle || vehicleFilterCount(value.vehicle) > 0) && (
-          <FilterGroup title="차종(제조사, 모델, 트림 등)" count={vehicleFilterCount(value.vehicle)} defaultOpen onClear={() => update({ vehicle: { ...EMPTY_VEHICLE_FILTER } })}>
+          <FilterGroup title="차종(제조사, 모델)" count={vehicleFilterCount(value.vehicle)} defaultOpen onClear={() => update({ vehicle: { ...EMPTY_VEHICLE_FILTER } })}>
             <div style={{ flex: '1 1 100%', width: '100%', minWidth: 0 }}>
               <VehicleMasterFilter products={cascadeProducts} value={value.vehicle} onChange={(vehicle) => update({ vehicle })} />
             </div>

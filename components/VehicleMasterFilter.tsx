@@ -1,19 +1,14 @@
 'use client';
 /**
- * 파인더 차종 — 매물 집계 5단 계단(선택 시 다음 단만 노출).
+ * 파인더 차종 퀵필터 — 제조사 → 모델만.
+ * 세부모델·파워·트림은 여기 안 연다. 제조사만 골랐을 때 그 제조사 세부모델이
+ * 펼쳐지던 것(모델 칸에 세대명이 뜨거나 다음 단이 세부모델인 것)을 막는다.
  *
  * **드롭다운이다. 칩이 아니다.**
- * 한때 다섯 단을 모두 칩으로 펼친 적이 있는데(2026-08-08), 모델만 60종이 넘어
- * 좌측 패널이 칩으로 가득 차고 그 아래 연료·주행거리·기간은 스크롤 밖으로 밀렸다.
- * 고를 것이 많은 축은 접어 두고 «고른 뒤에 다음 단»을 여는 편이 훑기 쉽다.
+ * 옵션 라벨에 대수(count)를 붙인다 — 「그랜저 (12)」.
  *
- * 옵션 라벨에 대수(count)를 붙인다 — 「그랜저 (12)」. 몇 대짜리인지 모르고 고르면
- * 빈 결과를 보고 되돌아오게 된다.
- * 다음에 고를 칸 = 라벨 옆 →다음단계 힌트 + select accent.
- *
- * ★값은 «배열»이다. 화면은 한 단에 하나만 고르게 하지만 그릇은 배열을 유지한다 —
- *   product-filters·useFinderResults·프리셋이 모두 배열로 읽는다. 여기서 문자열로
- *   되돌리면 그 일곱 파일이 함께 흔들린다.
+ * ★값은 «배열»이다. 화면은 한 단에 하나만 고르게 하지만 그릇은 배열을 유지한다.
+ * 제조사·모델을 고르면 아래 축(세부모델·파워·트림)은 비운다.
  */
 import { useMemo, type ReactNode } from 'react';
 import { C, Select, FS, FW } from '@/components/ui';
@@ -78,21 +73,9 @@ export function VehicleMasterFilter({ products, value, onChange }: {
 
   const maker = one('maker');
   const model = one('model');
-  const subModel = one('sub_model');
-  const variant = one('variant');
-  const trimName = one('trim_name');
 
-  const nextKey = !maker ? 'maker'
-    : !model ? 'model'
-      : !subModel ? 'sub_model'
-        : !variant ? 'variant'
-          : !trimName ? 'trim_name'
-            : null;
-  const nextHint = nextKey === 'maker' ? '모델'
-    : nextKey === 'model' ? '세부모델'
-      : nextKey === 'sub_model' ? '파워트레인'
-        : nextKey === 'variant' ? '세부트림'
-          : null;
+  const nextKey = !maker ? 'maker' : !model ? 'model' : null;
+  const nextHint = nextKey === 'maker' ? '모델' : null;
 
   if (!products.length) {
     return <div style={{ fontSize: FS.sub, color: C.faint }}>매물이 없어 고를 수 없습니다</div>;
@@ -129,39 +112,6 @@ export function VehicleMasterFilter({ products, value, onChange }: {
             onChange={(v) => pick({ model: v, sub_model: '', variant: '', trim_name: '' })}
             options={tree.models.map((o) => ({ value: o.value, label: optLabel(o) }))}
             style={nextKey === 'model' ? accent : undefined}
-          />
-        </Step>
-      )}
-
-      {!!model && (
-        <Step label="세부모델" nextHint={nextHint} active={nextKey === 'sub_model'}>
-          <Select
-            full placeholder={nextKey === 'sub_model' ? '세부모델 선택' : '전체'} value={subModel}
-            onChange={(v) => pick({ sub_model: v, variant: '', trim_name: '' })}
-            options={tree.subs.map((o) => ({ value: o.value, label: optLabel(o) }))}
-            style={nextKey === 'sub_model' ? accent : undefined}
-          />
-        </Step>
-      )}
-
-      {!!subModel && (
-        <Step label="파워트레인" nextHint={nextHint} active={nextKey === 'variant'}>
-          <Select
-            full placeholder={nextKey === 'variant' ? '파워트레인 선택' : '전체'} value={variant}
-            onChange={(v) => pick({ variant: v, trim_name: '' })}
-            options={tree.variants.map((o) => ({ value: o.value, label: optLabel(o) }))}
-            style={nextKey === 'variant' ? accent : undefined}
-          />
-        </Step>
-      )}
-
-      {!!variant && (
-        <Step label="세부트림" active={nextKey === 'trim_name'}>
-          <Select
-            full placeholder={nextKey === 'trim_name' ? '세부트림 선택' : '전체'} value={trimName}
-            onChange={(v) => pick({ trim_name: v })}
-            options={tree.trims.map((o) => ({ value: o.value, label: optLabel(o) }))}
-            style={nextKey === 'trim_name' ? accent : undefined}
           />
         </Step>
       )}
