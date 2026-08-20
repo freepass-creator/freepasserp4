@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>계약서 개선안 — 표지·본문 (claude)</title>
+<style>
+  /* 운영 서식(public/contract-template/rental-contract.html)의 팔레트를 그대로 쓴다. 이 파일은 목업이다. */
+  @font-face{font-family:"Pretendard";font-weight:400;src:url("../../public/fonts/Pretendard-Regular.woff2") format("woff2")}
+  @font-face{font-family:"Pretendard";font-weight:500;src:url("../../public/fonts/Pretendard-Medium.woff2") format("woff2")}
+  @font-face{font-family:"Pretendard";font-weight:600;src:url("../../public/fonts/Pretendard-SemiBold.woff2") format("woff2")}
+  @font-face{font-family:"Pretendard";font-weight:700;src:url("../../public/fonts/Pretendard-Bold.woff2") format("woff2")}
+  :root{
+    --accent:#1f3b63; --accent-ink:#16304f; --accent-bg:#eef1f6;
+    --tint:#f8fafc; --th:#f3f5f8;
+    --ink:#0f172a; --ink2:#334155; --mute:#64748b; --faint:#94a3b8;
+    --line:#e6eaf0; --bd2:#aeb7c4; --bg:#f1f4f8; --card:#fff;
+    --radius:4px; --radius-box:8px; --hair:0.4pt;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);font-family:"Pretendard",-apple-system,"Segoe UI",sans-serif;color:var(--ink);
+       font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+  .note{max-width:210mm;margin:18px auto 10px;padding:12px 14px;background:#fff;border:1px solid var(--line);
+        border-radius:var(--radius-box);font-size:13px;line-height:1.65;color:var(--ink2)}
+  .note b{color:var(--ink)}
+  .note .tag{display:inline-block;padding:1px 6px;margin-right:6px;border-radius:999px;background:var(--accent-bg);
+             color:var(--accent);font-size:11px;font-weight:600}
+  /* ── A4 한 장 ─────────────────────────────── */
+  .page{width:210mm;min-height:297mm;margin:14px auto;background:var(--card);padding:16mm 15mm 14mm;
+        box-shadow:0 1px 3px rgba(15,27,53,.10);position:relative;display:flex;flex-direction:column}
+  .rhead{display:flex;justify-content:space-between;align-items:baseline;
+         padding-bottom:3mm;border-bottom:1px solid var(--line)}
+  .rhead .co{font-size:11pt;font-weight:700}
+  .rhead .meta{font-size:8.5pt;color:var(--mute);text-align:right;line-height:1.5}
+  .rhead .meta b{color:var(--ink2);font-weight:600}
+  .rfoot{margin-top:auto;padding-top:4mm;border-top:1px solid var(--line);
+         display:flex;justify-content:space-between;font-size:8pt;color:var(--faint)}
+
+  /* ── 표지 ─────────────────────────────────── */
+  .cover-mid{flex:1;display:flex;flex-direction:column;justify-content:center;gap:14mm;padding:6mm 0}
+  .kicker{font-size:8.5pt;font-weight:600;letter-spacing:.18em;color:var(--accent)}
+  .doc-title{font-size:24pt;font-weight:700;letter-spacing:-.02em;margin:2mm 0 0}
+  .brief{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border:1px solid var(--line);
+         border-radius:var(--radius-box);overflow:hidden}
+  .brief div{padding:7mm 5mm;background:var(--tint);border-right:1px solid var(--line)}
+  .brief div:last-child{border-right:0}
+  .brief .l{font-size:9pt;font-weight:500;color:var(--mute);margin-bottom:2.5mm}
+  .brief .v{font-size:15pt;font-weight:700;letter-spacing:-.01em;white-space:nowrap}
+  .parties-lead{font-size:9.5pt;color:var(--mute);margin-bottom:2.5mm}
+  .parties{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:var(--radius-box);overflow:hidden}
+  .parties > div{padding:6mm;border-right:1px solid var(--line)}
+  .parties > div:last-child{border-right:0}
+  .parties .r{font-size:9pt;font-weight:500;color:var(--mute)}
+  .parties .n{font-size:12pt;font-weight:700;margin-top:2mm}
+  .parties .s{font-size:9pt;color:var(--mute);margin-top:1.5mm}
+  .effect{font-size:9pt;color:var(--mute);margin-top:3mm}
+  .signline{display:flex;justify-content:space-between;align-items:flex-end;font-size:9.5pt;color:var(--ink2)}
+
+  /* ── 본문 ─────────────────────────────────── */
+  .section{margin-top:24px;margin-bottom:12px}
+  .rhead + .section{margin-top:14px}
+  .sec-h{display:flex;align-items:center;gap:8px;padding-bottom:2.5px;
+         border-bottom:1px solid var(--line);margin-bottom:3mm}
+  .sec-h .no{width:16px;height:16px;border-radius:3px;background:var(--accent);color:#fff;
+             font-size:8.5pt;font-weight:700;display:flex;align-items:center;justify-content:center}
+  .sec-h .t{font-size:12pt;font-weight:700;letter-spacing:-.018em}
+
+  /* ★한 표 안에서는 한 크기 — 라벨 9.5pt / 값 10.5pt 고정 */
+  .kv{display:grid;grid-template-columns:32mm 1fr 32mm 1fr;border-top:var(--hair) solid var(--bd2)}
+  .kv.two{grid-template-columns:32mm 1fr}
+  .kv .k{background:var(--th);padding:2.2mm 3mm;font-size:9.5pt;font-weight:500;color:var(--mute);
+         border-bottom:var(--hair) solid var(--bd2);display:flex;align-items:center}
+  .kv .v{padding:2.2mm 3.2mm;font-size:10.5pt;font-weight:400;color:var(--ink);
+         border-bottom:var(--hair) solid var(--bd2);display:flex;align-items:center;gap:4px}
+  .kv .v.span3{grid-column:2 / 5}
+  .kv .k.key{background:var(--accent-bg);color:var(--ink2);font-weight:600}
+  .kv .v.key{font-weight:600;padding-top:2.9mm;padding-bottom:2.9mm}
+  .kv .v .unit{font-size:9pt;color:var(--mute);font-weight:400}
+  .fill{color:var(--faint);font-size:9pt;font-weight:500;border-bottom:1px dotted var(--line);min-width:20mm}
+  .dash{color:var(--faint)}
+  .prose{margin:3mm 0 0;padding:2mm 0 2mm 3.4mm;border-left:3px solid var(--accent)}
+  .prose .pl{font-size:9.5pt;font-weight:500;color:var(--mute);margin-bottom:1.2mm}
+  .prose .pt{font-size:10.5pt;line-height:1.6}
+  .foot-note{margin-top:2.5mm;font-size:8.5pt;line-height:1.55;color:var(--mute)}
+
+  /* ── 치수표 ───────────────────────────────── */
+  .spec{max-width:210mm;margin:20px auto 40px;background:#fff;border:1px solid var(--line);
+        border-radius:var(--radius-box);overflow:hidden}
+  .spec h3{margin:0;padding:10px 14px;font-size:13px;background:var(--th);border-bottom:1px solid var(--line)}
+  .spec table{width:100%;border-collapse:collapse;font-size:12px}
+  .spec th,.spec td{padding:7px 12px;border-bottom:1px solid var(--line);text-align:left}
+  .spec th{color:var(--mute);font-weight:500;width:34%}
+  @media print{ body{background:#fff} .note,.spec{display:none} .page{margin:0;box-shadow:none} }
+</style>
+</head>
+<body>
+
+<div class="note">
+  <span class="tag">개선안</span><b>계약서 A4 — 표지·본문 개선 목업</b>
+  · 종합 설계시안(<code>DESIGN_SPEC_2026-08-20.md</code>) 5장의 <b>C1·C2·C3</b>을 고친 모습입니다. 운영 서식은 건드리지 않은 별도 목업입니다.<br>
+  <b>C1</b> 표지 요지 4칸을 <b>세로 가운데</b>로 — 아래가 백지로 남지 않게 위·가운데·아래 세 덩어리로 나눔 ·
+  <b>C2</b> 요지 「대여기간」은 <b>36개월</b>만(기준일 설명은 본문 03에) ·
+  <b>C3</b> <b>한 표 안에서는 한 크기</b>(라벨 9.5pt / 값 10.5pt 고정) — 값에 따라 글자가 작아지지 않음
+</div>
+
+<!-- ══════════ 1p 표지 ══════════ -->
+<div class="page">
+  <div class="rhead">
+    <div class="co">[샘플] 프리패스테스트렌터카 주식회사</div>
+    <div class="meta">계약서 번호 <b>FPS-SAMPLE-01</b></div>
+  </div>
+
+  <div class="cover-mid">
+    <div>
+      <div class="kicker">LONG-TERM VEHICLE RENTAL AGREEMENT</div>
+      <div class="doc-title">자동차 장기대여 계약서</div>
+    </div>
+
+    <!-- ★C1·C2 — 요지 4칸. 표지에서 딱 한 번만 크게. -->
+    <div class="brief">
+      <div><div class="l">월 대여료</div><div class="v">420,000원</div></div>
+      <div><div class="l">보증금</div><div class="v">840,000원</div></div>
+      <div><div class="l">대여기간</div><div class="v">36개월</div></div>
+      <div><div class="l">차량</div><div class="v">00가0001</div></div>
+    </div>
+
+    <div>
+      <div class="parties-lead">본 자동차 임대차 계약은 아래 당사자 간 체결됩니다</div>
+      <div class="parties">
+        <div>
+          <div class="r">임대인 (회사)</div>
+          <div class="n">[샘플] 프리패스테스트렌터카 주식회사</div>
+          <div class="s">대표 김샘플 · 02-0000-0001</div>
+        </div>
+        <div>
+          <div class="r">임차인 (고객) · 개인</div>
+          <div class="n">홍길동</div>
+          <div class="s">010-1234-5678</div>
+        </div>
+      </div>
+      <div class="effect">본 계약은 양 당사자가 서면에 서명·기명날인하거나 전자서명을 완료한 때 효력이 발생합니다.</div>
+    </div>
+  </div>
+
+  <div class="signline">
+    <div>계약 체결일 2026-08-20 · 체결 장소 <span class="fill">&nbsp;</span></div>
+    <div style="font-weight:700">[샘플] 프리패스테스트렌터카 주식회사</div>
+  </div>
+</div>
+
+<!-- ══════════ 2p 본문 ══════════ -->
+<div class="page">
+  <div class="rhead">
+    <div class="co" style="font-size:10pt">자동차 장기대여 계약서</div>
+    <div class="meta">계약번호 <b>FPS-SAMPLE-01</b><br>체결일 2026-08-20</div>
+  </div>
+
+  <div class="section">
+    <div class="sec-h"><div class="no">01</div><div class="t">계약자 정보</div></div>
+    <div class="kv">
+      <div class="k">성명</div><div class="v span3" style="font-weight:600">홍길동</div>
+      <div class="k">주민등록번호</div><div class="v"><span class="fill">고객 작성</span></div>
+      <div class="k">운전면허번호</div><div class="v"><span class="fill">고객 작성</span></div>
+      <div class="k">연락처</div><div class="v">010-1234-5678</div>
+      <div class="k">비상 연락처</div><div class="v"><span class="fill">고객 작성</span></div>
+      <div class="k">주소</div><div class="v span3"><span class="fill">고객 작성</span></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="sec-h"><div class="no">02</div><div class="t">대여 차량 정보</div></div>
+    <div class="kv">
+      <div class="k">차량번호</div><div class="v" style="font-weight:600">00가0001</div>
+      <div class="k">차대번호</div><div class="v"><span class="dash">—</span></div>
+      <div class="k">차명</div><div class="v span3">현대 아반떼 CN7 가솔린 1.6 모던</div>
+      <div class="k">선택 옵션</div><div class="v span3">내비게이션, 후방카메라</div>
+      <div class="k">외장 색상</div><div class="v">흰색</div>
+      <div class="k">내장 색상</div><div class="v"><span class="dash">—</span></div>
+      <div class="k">연식</div><div class="v">2026</div>
+      <div class="k">연료</div><div class="v">가솔린</div>
+      <div class="k">출고 시 주행거리</div><div class="v">10km</div>
+      <div class="k">차량 구분</div><div class="v">신차렌트</div>
+    </div>
+    <div class="foot-note">※ 차량 식별은 자동차등록증상 차량번호·차대번호 기준이며, 옵션·사양·색상의 단순 오기는 계약 취소 사유로 인정되지 않습니다. (약관 제2조 및 제12조)</div>
+  </div>
+
+  <div class="section">
+    <div class="sec-h"><div class="no">03</div><div class="t">대여 조건</div></div>
+    <!-- ★핵심표 — 돈 4줄만 라벨 면을 바꾸고 값을 600으로. 크기는 본문과 같다(C3). -->
+    <div class="kv">
+      <div class="k key">월 대여료</div><div class="v key">420,000원 <span class="unit">VAT 포함</span></div>
+      <div class="k key">보증금</div><div class="v key">840,000원</div>
+      <div class="k key">대여 기간</div><div class="v key">36개월 <span class="unit">차량 인도일로부터</span></div>
+      <div class="k key">보증금 납부</div><div class="v key">일시납</div>
+      <div class="k">상품 유형</div><div class="v">렌트 반납형 (인수 선택 가능)</div>
+      <div class="k">차량 인도일</div><div class="v">차량 인도 시 확정</div>
+      <div class="k">대여 종료일</div><div class="v">차량 인도일 기준 산정</div>
+      <div class="k">만기 인수옵션</div><div class="v">만기 반납 · 인수 별도 협의</div>
+      <div class="k">운전자 연령</div><div class="v">만 26세 이상</div>
+      <div class="k">운전 가능 범위</div><div class="v">본인+직계가족</div>
+    </div>
+
+    <div class="sec-h" style="margin-top:5mm"><div class="t" style="font-size:10.5pt">약정 · 부가 조건</div></div>
+    <div class="kv">
+      <div class="k">연간 약정주행</div><div class="v">연 30,000km</div>
+      <div class="k">초과주행 요금</div><div class="v">1km당 200원</div>
+      <div class="k">중도해지 수수료</div><div class="v span3">차량인도일로부터 1년 미만 잔여 대여료의 30% / 1년 이상 잔여 대여료의 20%</div>
+      <div class="k">계약 승계수수료</div><div class="v">1,000,000원</div>
+      <div class="k">승계 조건</div><div class="v">가능 · 회사 사전 승인</div>
+      <div class="k">부가 장비</div><div class="v span3">GPS 장착 · 하이패스 · 블랙박스</div>
+    </div>
+
+    <!-- ★문단블록 — 서술은 표에서 빼고 좌측 선으로 -->
+    <div class="prose">
+      <div class="pl">연체 · 시동제어</div>
+      <div class="pt">각 납부기한 다음 날부터 계산하여 연체 <b>3일째 18시 미납 시 시동제어</b> · <b>10일째 미납 시 최고 후 계약 해지·회수</b>합니다. (보증금 분납금도 각 회차 납부기한 기준)</div>
+    </div>
+    <div class="prose">
+      <div class="pl">초과주행 정산</div>
+      <div class="pt">초과주행 요금은 계약 종료·중도해지·반환 시 정산합니다. 다만 계약기간 중 객관적으로 확인된 주행거리가 사용기간에 비례한 약정거리를 초과하면 확인 시점까지의 초과분을 청구할 수 있으며, 이미 납부한 금액은 최종 정산에서 중복 청구하지 않습니다. (약관 제23조)</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="sec-h"><div class="no">07</div><div class="t">특약 사항</div></div>
+    <div class="kv two">
+      <div class="k">정책 조건</div><div class="v">GPS·블랙박스 임의 탈거 시 손해배상</div>
+      <div class="k">이번 계약</div><div class="v"><span class="dash">—</span></div>
+    </div>
+    <div class="foot-note">※ 본 특약은 약관 및 위 계약 조건에 우선하여 적용되며, 기재가 없을 경우 「없음」으로 봅니다. 양 당사자가 합의한 사항만 효력이 있습니다.</div>
+  </div>
+
+  <div class="rfoot">
+    <div>[샘플] 프리패스테스트렌터카 주식회사</div>
+    <div>자동차 장기대여 계약서 · 2 / 10</div>
+  </div>
+</div>
+
+<div class="spec">
+  <h3>치수 표 — 코드 토큰으로 옮길 값</h3>
+  <table>
+    <tr><th>본문 값</th><td>10.5pt / 400 / <code>--ink</code></td></tr>
+    <tr><th>표 라벨</th><td>9.5pt / 500 / <code>--mute</code> · 바탕 <code>--th</code> · 라벨 폭 32mm</td></tr>
+    <tr><th>핵심표(돈 4줄)</th><td>라벨 바탕 <code>--accent-bg</code> · 값 600 · 행 높이 +0.7mm</td></tr>
+    <tr><th>섹션 제목</th><td>12pt / 700 · 아래 <code>1px --line</code> 밑줄 · 번호칩 16×16 <code>--accent</code></td></tr>
+    <tr><th>섹션 여백</th><td>위 24px / 아래 12px (비대칭)</td></tr>
+    <tr><th>표지 대제목</th><td>24pt / 700 · 키커 8.5pt/600 letter-spacing .18em</td></tr>
+    <tr><th>표지 요지 4칸</th><td>값 15pt/700 · 라벨 9pt/500 · 바탕 <code>--tint</code> · 모서리 <code>--radius-box 8px</code></td></tr>
+    <tr><th>표지 배치</th><td>제목 / 요지 / 당사자를 <code>flex</code> 세로 가운데 정렬 · 간격 14mm</td></tr>
+    <tr><th>빈칸</th><td>고객 입력분 <code>고객 작성</code> 9pt <code>--faint</code> + 점선 · 정보 없음 <code>—</code></td></tr>
+    <tr><th>문단블록</th><td>좌측 <code>3px --accent</code> · 라벨 9.5pt/500 · 본문 10.5pt/1.6</td></tr>
+    <tr><th>표선</th><td>0.4pt <code>--bd2</code> · 모서리 0(표는 각지게)</td></tr>
+    <tr><th>숫자</th><td><code>font-variant-numeric: tabular-nums</code> 문서 전역</td></tr>
+  </table>
+</div>
+
+</body>
+</html>
