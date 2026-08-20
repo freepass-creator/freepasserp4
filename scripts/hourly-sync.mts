@@ -10,7 +10,9 @@
  *   ⑥ 판매시트 발행(상품리스트 · 손오공구독 · 오플구독)
  *   ⑥′ (건너뜀) 상품마스터는 이제 안 거친다 — ERP 가 판매시트를 그대로 읽는다. `--with-product-master` 로만 켠다
  *   ⑦ ERP 일일 동기(sheet/sync-daily) — 실패해도 밤 02:00 크론이 다시 돈다(경고만)
+ *   ⑦′ ERP 를 시트 그대로 비춤 — 사진링크 · 모델/차명 · 시트에 없는 차 출고불가(일일 동기가 안 옮기는 것들)
  *   ⑧ 시트↔ERP 대조(audit-sheet-erp-parity) — 매시 기록에 「안 뜨는 차 N대」로 남긴다
+ *   ⑨ 상태 갈림 신호(audit-status-drift) — 원본→정제시트→판매시트→ERP 중 «어디서 갈렸나». 고치지 않고 신호만
  *
  * 기본 dry-run(무엇이 바뀌는지만), 실제 반영은 --apply. 기록은 tmp/hourly-sync-log.txt(줄마다 한 번의 실행) · 자세한 출력은 tmp/hourly-sync-last.txt.
  *   npx tsx scripts/hourly-sync.mts --apply
@@ -37,12 +39,75 @@ const run = (label: string, args: string[], pick: RegExp): { ok: boolean; picked
   console.log(`── ${label} ${r.status === 0 ? '✓' : '✗'}`); for (const l of picked.slice(0, 6)) console.log(`   ${l.slice(0, 220)}`);
   return { ok: r.status === 0, picked };
 };
+/**
+ * ★**멈추면 메일로 알린다**(사장님 2026-08-20 「동기가 멈추면 메일로」).
+ *   실측 2026-08-20 — 08:12 부터 12:13 까지 네 시간 멈춰 있었는데 **아무도 몰랐다.**
+ *   기록은 파일에만 남았고 사장님이 「동기화 됐나?」 물어봐서 알았다. 자동은 «멈췄다는 사실이
+ *   사람에게 닿을 때» 완성된다.
+ * ⚠ 매시 실패하면 매시 메일이 온다 — 그러면 아무도 안 본다. **처음 실패한 때와 그 뒤 3시간마다**만 보낸다.
+ *   다시 성공하면 「복구됨」을 한 번 보내고 세는 것을 지운다.
+ *   보내는 도구는 이미 있는 `C:\dev\mailtool\send_mail.py`(GMAIL_ADDRESS·GMAIL_APP_PASSWORD 환경변수).
+ */
+const ALERT_STATE = 'tmp/hourly-sync-alert.json';
+/** 받는 사람 — 대표·강지수 팀장·박태윤(사장님 2026-08-20 「내거랑 강지수팀장이랑 박태윤이랑 같이 메일가게」). */
+const ALERT_TO = (process.env.FP_ALERT_TO || 'pyh@teamjpk.com,kjs@teamjpk.com,pty@teamjpk.com')
+  .split(',').map((x) => x.trim()).filter(Boolean);
+const ALERT_GAP_MS = 3 * 60 * 60 * 1000;
+type AlertState = { failingSince?: string; lastAlertAt?: number; count?: number };
+const readAlert = (): AlertState => { try { return JSON.parse(readFileSync(ALERT_STATE, 'utf8')) as AlertState; } catch { return {}; } };
+const sendMail = (subject: string, body: string) => {
+  try {
+    const bodyFile = 'tmp/hourly-sync-alert-body.txt';
+    writeFileSync(bodyFile, body, 'utf8');
+    const to = ALERT_TO.flatMap((addr) => ['--to', addr]);
+    const r = spawnSync('python', ['C:/dev/mailtool/send_mail.py', ...to, '--subject', subject, '--body-file', bodyFile, '--from-name', '프리패스 자동동기'], { encoding: 'utf8', timeout: 120_000 });
+    if (r.status !== 0) console.log(`   ⚠ 알림 메일 실패 — ${(r.stderr || r.stdout || '').split(/\r?\n/).filter(Boolean).slice(-2).join(' ')}`);
+    else console.log(`   ✉ 알림 메일 보냄 → ${ALERT_TO.join(' · ')}`);
+  } catch (e) { console.log(`   ⚠ 알림 메일 실패 — ${(e as Error).message.slice(0, 120)}`); }
+};
+/** 실패했을 때 — 처음이거나 3시간이 지났으면 보낸다. */
+const alertFail = (why: string) => {
+  const st = readAlert();
+  const now = Date.now();
+  const count = (st.count || 0) + 1;
+  const since = st.failingSince || kst();
+  const due = !st.lastAlertAt || (now - st.lastAlertAt) >= ALERT_GAP_MS;
+  writeFileSync(ALERT_STATE, JSON.stringify({ failingSince: since, lastAlertAt: due ? now : st.lastAlertAt, count }));
+  if (!due) return;
+  sendMail(
+    `[프리패스] 시트→ERP 자동동기 멈춤 — ${why}`,
+    [
+      `멈춘 단계: ${why}`,
+      `처음 멈춘 때: ${since} · 그 뒤 ${count}번 연속 실패`,
+      `이번 실행: ${kst()} KST`,
+      '',
+      '이 동안 ERP 는 마지막으로 성공한 값에 머뭅니다(공급사 시트를 고쳐도 안 넘어갑니다).',
+      '',
+      '푸는 법 — C:/dev/aiops/docs/sop/영업/ERP반영.md 「멈출 때」',
+      '자세한 기록 — C:/dev/freepasserp4/tmp/hourly-sync-last.txt',
+      '',
+      '── 마지막 실행 꼬리 ──',
+      out.slice(-25).join('\n'),
+    ].join('\n'),
+  );
+};
+/** 다시 성공했을 때 — 멈춰 있었다면 한 번만 「복구됨」. */
+const alertRecovered = () => {
+  const st = readAlert();
+  if (!st.failingSince) return;
+  writeFileSync(ALERT_STATE, JSON.stringify({}));
+  sendMail(
+    '[프리패스] 시트→ERP 자동동기 복구됨',
+    [`${st.failingSince} 부터 ${st.count || 0}번 멈춰 있던 자동동기가 ${kst()} KST 에 다시 끝까지 돌았습니다.`, '', line.join(' · ')].join('\n'),
+  );
+};
 const stop = (why: string) => {
   out.push(`\n⛔ 중단 — ${why}`); line.push(`중단(${why})`);
   writeFileSync('tmp/hourly-sync-last.txt', out.join('\n'));
   appendFileSync('tmp/hourly-sync-log.txt', `${kst()} ${APPLY ? '반영' : '미리'} ${Math.round((Date.now() - started) / 1000)}초 · ${line.join(' · ')}\n`);
   rmSync(LOCK, { force: true });
   console.log(`⛔ 중단 — ${why}`);
+  if (APPLY) alertFail(why);
   process.exit(1);
 };
 
@@ -100,12 +165,43 @@ if (process.argv.includes('--with-product-master')) {
 const erp = run('⑦ ERP 일일 동기', ['--require', './tmp/codex-server-only-shim.cjs', 'scripts/run-sheet-daily-sync-local.mts', ...A], /반영|미리보기|원본 |✗/);
 line.push(erp.ok ? (erp.picked.find((l) => /원본 /.test(l))?.slice(0, 60) || 'ERP ok') : 'ERP 실패');
 
+/**
+ * ⑦′ **ERP 를 시트 그대로 비춘다 — 사진·이름·부재**(사장님 2026-08-20 「지금 기준으로 ERP 를 갈아엎어 줘야지
+ *   사진 정보까지」 · 「모델 차명으로만 하기로 했잖아」 · 「이거 매뉴얼로 지정해서 이렇게 시트랑 연동되게 하자」).
+ *   일일 동기(⑦)는 셀 «값»만 옮긴다. 그래서 이 셋이 빠져 시트를 고쳐도 ERP 가 안 따라왔다.
+ *     · 사진 — 차량번호 «셀 링크»로 다녀서 아예 안 옮겨졌다(35우0775 에 161허1176 사진이 떠 있었다)
+ *     · 이름 — 08-15 상품마스터가 박아 둔 옛 이름이 남았다(아반떼MD 를 「더 뉴 아반떼 CN7 스마트」로 불렀다)
+ *     · 부재 — 부재처리는 공급사별로 돌아 «공급사 빈 차»(EXT_… 키)가 영영 남았다
+ *   셋 다 **판매시트가 정본**이고, 시트에 없으면 ERP 도 비운다(남의 차 사진·남의 차 이름보다 «없음»이 낫다).
+ *   실패해도 멈추지 않는다 — ⑧ 대조가 어긋남을 그대로 보여 준다.
+ */
+const mp = run("⑦′ 사진 시트대로", ['scripts/mirror-sales-photos.mts', ...A], /고칠 차|끝 —/);
+const mn = run("⑦′ 이름 시트대로", ['scripts/mirror-sales-vehicle-name.mts', ...A], /고칠 차|끝 —/);
+const ma = run("⑦′ 시트에 없는 차 출고불가", ['scripts/mirror-sales-absent.mts', ...A], /뜨는 차|끝 —/);
+line.push([
+  mp.ok ? (mp.picked.find((l) => /고칠 차/.test(l))?.replace('■ ERP 사진링크 ', '') || '사진 ok') : '사진 실패',
+  mn.ok ? (mn.picked.find((l) => /고칠 차/.test(l))?.replace('■ 이름 ', '') || '이름 ok') : '이름 실패',
+  ma.ok ? (ma.picked.find((l) => /뜨는 차/.test(l))?.replace('■ 판매시트에 없는데 상품찾기에 ', '') || '부재 ok') : '부재 실패',
+].join(' · '));
+
 // ⑧ 대조 — 판매시트 ↔ ERP 가 실제로 같은지 매 시간 확인해 기록에 남긴다(규칙 정본 lib/domain/sheet-erp-parity.ts).
 const chk = run('⑧ 시트↔ERP 대조', ['scripts/audit-sheet-erp-parity.mts'], /판매시트 |안 뜨는 차|없는 차/);
 line.push(chk.picked.find((l) => /안 뜨는 차/.test(l))?.replace('■ ', '') || '대조 ok');
+
+/**
+ * ⑨ **상태가 어디서 갈렸나 — 신호만 낸다**(사장님 2026-08-20 「이거는 신호를 줘야 해 — 아이언은 홈피에서
+ *   출고불가가 된 건지, 다른 데는 시트에서 출고불가가 된 건지 정제시트랑 원본시트랑 다 확인해야지」).
+ *   고치지 않는다 — 자동으로 되돌리면 사람이 내린 판단을 지운다. 기록에 「상태 갈림 N대」로 남긴다.
+ */
+const drift = run('⑨ 상태 갈림 신호', ['scripts/audit-status-drift.mts'], /상태가 다른 차|★/);
+// 미확인(동일 차번 상태 충돌 등)은 감사가 읽어 낸 유의미한 신호다. 이때 exit=2가
+// 나도 요약을 버리고 «0»이나 단순 실패로 적지 않는다. 요약 자체가 없을 때만 실패다.
+const driftSummary = drift.picked.find((l) => /상태가 다른 차/.test(l))?.replace('■ ', '');
+line.push(driftSummary || '상태 갈림 검사 실패');
 
 out.push(`\n■ 끝 ${kst()} KST · ${Math.round((Date.now() - started) / 1000)}초`);
 writeFileSync('tmp/hourly-sync-last.txt', out.join('\n'));
 appendFileSync('tmp/hourly-sync-log.txt', `${kst()} ${APPLY ? '반영' : '미리'} ${Math.round((Date.now() - started) / 1000)}초 · ${line.join(' · ')}\n`);
 rmSync(LOCK, { force: true });
+if (APPLY) alertRecovered();   // 멈춰 있었다면 「복구됨」을 한 번 보낸다
 console.log(`■ 끝 — ${Math.round((Date.now() - started) / 1000)}초 · 기록 tmp/hourly-sync-log.txt`);

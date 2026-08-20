@@ -40,15 +40,15 @@ export function specLine(product: EntityRecord): string {
   ].filter(Boolean).join(' · ');
 }
 
-function cardYear(product: EntityRecord): string {
+export function cardYear(product: EntityRecord): string {
   return yearDisplay(product.year) || '미입력';
 }
 
-function cardFuel(product: EntityRecord): string {
+export function cardFuel(product: EntityRecord): string {
   return fuelDisplay(product.fuel_type) || '미입력';
 }
 
-function cardMileage(product: EntityRecord): string {
+export function cardMileage(product: EntityRecord): string {
   return kmDisplay(product.mileage) || '미입력';
 }
 
@@ -68,4 +68,12 @@ export function cardTitle(product: EntityRecord, mobileNarrow = false): string {
   if (mobileNarrow) return idMobile(product);
   const { idMain, idExt } = idParts(product);
   return [idMain, idExt].filter(Boolean).join(' ');
+}
+
+/**
+ * **차번 옆 한 줄 — 연식 · 주행 · 연료**(사장님 2026-08-20 「차량번호에 26년 주행거리 연료까지는 넣어주자 ·
+ * 지금 주행거리만 나오는데」). 카드 표기(`specLineCard`)와 같은 함수를 써서 화면마다 표기가 갈리지 않게 한다.
+ */
+export function plateSpecLine(product: EntityRecord): string {
+  return [cardYear(product), cardMileage(product), cardFuel(product)].filter(Boolean).join(' · ');
 }

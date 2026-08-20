@@ -208,7 +208,14 @@ function partsOfRecord(p: EntityRecord, tier: NameTier, omitMaker: boolean): Omi
   }
 
   const makerAliases = [rawMaker, maker];
-  const rawMain = text(sub || model);
+  /**
+   * ★**이름은 「제조사 + 차명(세부모델+트림)」이다**(사장님 2026-08-20 「차명을 써야 한다니까 모델만 쓰면 우짜냐 ·
+   *   제조사+차명(세부모델+세부트림) 여기를 써야지」). 공급사가 적어 준 차명(`supplier_vehicle_name`)이 있으면
+   *   **그것이 이름**이다 — 우리가 세부모델·트림을 짐작해 조립한 이름은 틀리면 그대로 거짓말이 된다
+   *   (실측 2026-08-20: 빌린카 29부7772 아반떼MD 를 「더 뉴 아반떼 CN7 스마트」로 부르고 있었다).
+   *   차명이 없을 때만 예전처럼 `sub_model ‖ model` 로 만든다.
+   */
+  const rawMain = text(S((display as Record<string, unknown>).supplier_vehicle_name) || sub || model);
   let main = removeKnownPhrases(rawMain, makerAliases);
   // 실데이터: maker=테슬라, 차종 공란, variant=EV RWD, trim="테슬라 모델Y RWD".
   // 제조사가 들어간 완성형 trim에 한해서만 제원 토큰을 걷어 모델명을 복원한다.
