@@ -92,7 +92,9 @@ export async function POST(
   const { firebaseAdminDatabase } = await import('@/lib/server/firebase-admin');
   const savedAt = Date.now();
   const saved = await firebaseAdminDatabase().ref(`v4/esign_sessions/${hash}`).transaction((current) => {
-    if (!current || Number(current.revokedAt || 0)) return;
+    // Admin SDK는 첫 transaction 콜백에 null을 줄 수 있다. abort하지 말고 서버 값을 읽어 재시도한다.
+    if (!current) return current;
+    if (Number(current.revokedAt || 0)) return;
     if (!['sent', 'opened'].includes(S(current.status)) || Number(current.expiresAt || 0) <= Date.now()) return;
     const liveSnapshot = record(current.snapshot);
     if (!normalizeEsignRequiredDocuments(liveSnapshot.requiredDocuments).some((row) => row.key === docKey)) return;
