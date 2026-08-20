@@ -112,10 +112,28 @@ export function useFinderResults(params: Params) {
       result = result.filter((product) => codes.has(String(product.product_code || product._key || '')));
     }
     if (sort) {
+      /**
+       * ★**인기차량순 = 매물이 많은 차종부터**(사장님 2026-08-20 「정렬에 인기차량순 · 매물 많은 거부터 보여주는 거지」).
+       *   «지금 걸러진 목록» 안에서 모델별 대수를 세어 많은 모델을 앞에 둔다 — 같은 모델은 대여료 낮은 순.
+       *   조회수 같은 별도 지표를 만들지 않는다. 우리가 많이 들고 있는 차가 곧 잘 나가는 차다.
+       */
+      const modelKey = (product: EntityRecord) => String(product.model || product.sub_model || '').replace(/\s+/g, '');
+      const modelCount = new Map<string, number>();
+      if (sort === 'popular') for (const product of result) {
+        const key = modelKey(product); if (!key) continue;
+        modelCount.set(key, (modelCount.get(key) || 0) + 1);
+      }
       result.sort((a, b) => {
         const mile = (product: EntityRecord) => numOr(product.mileage, sort === 'mile_asc' ? Infinity : -1);
         const year = (product: EntityRecord) => numOr(product.year, 0);
         switch (sort) {
+          case 'popular': {
+            const na = modelCount.get(modelKey(a)) || 0;
+            const nb = modelCount.get(modelKey(b)) || 0;
+            if (nb !== na) return nb - na;
+            const byModel = modelKey(a).localeCompare(modelKey(b), 'ko');   // 대수가 같으면 모델끼리 붙여 둔다
+            return byModel || rentForSort(a) - rentForSort(b);
+          }
           case 'desc': return rentForSort(b) - rentForSort(a);
           case 'dep_asc': return depositForSort(a) - depositForSort(b);
           case 'dep_desc': return depositForSort(b) - depositForSort(a);
