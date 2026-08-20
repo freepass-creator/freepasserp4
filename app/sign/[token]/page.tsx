@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { useParams } from 'next/navigation';
 import { ArrowLeft, Check, Eraser, Eye, FileDown, FileText, ImagePlus, Plus, Send, Trash2 } from 'lucide-react';
 import {
-  Btn, ButtonLabel, C, DetailRow, Dropzone, fmtPhone, FS, FW, ICON, Input,
+  Badge, Btn, ButtonLabel, C, DetailRow, Dropzone, fmtPhone, FS, FW, ICON, Input,
   ListGroup, Loading, R,
 } from '@/components/ui';
 import { toast } from '@/components/Toaster';
@@ -156,6 +156,73 @@ async function prepareImage(file: File, label: string): Promise<File> {
   } finally {
     URL.revokeObjectURL(objectUrl);
   }
+}
+
+const BUNDLES = [
+  { id: 0 as const, name: '확인' },
+  { id: 1 as const, name: '작성' },
+  { id: 2 as const, name: '동의·서명' },
+];
+
+function bundleOf(kind: JourneyStep['kind']): 0 | 1 | 2 {
+  if (kind === 'summary' || kind === 'privacy') return 0;
+  if (kind === 'identity' || kind === 'additional-driver' || kind === 'documents') return 1;
+  return 2;
+}
+
+function stepGuide(step: JourneyStep | undefined): string {
+  if (!step) return '';
+  if (step.kind === 'summary') return '차종·금액·기간이 맞는지 확인합니다.';
+  if (step.kind === 'privacy') return '본인확인 자료를 받기 전에 수집 동의를 받습니다.';
+  if (step.kind === 'identity') return '계약서에 들어갈 본인 정보와 확인 사진을 작성합니다.';
+  if (step.kind === 'additional-driver') return '함께 운전할 사람이 있으면 등록합니다. 없으면 다음으로 가면 됩니다.';
+  if (step.kind === 'documents') return '렌터카사가 이 계약에 요청한 서류를 첨부합니다.';
+  if (step.kind === 'section') return step.page?.note || '이 조건이 계약 내용입니다. 확인하고 다음으로 갑니다.';
+  if (step.kind === 'agreement') return '약관을 끝까지 읽은 뒤 동의를 선택합니다.';
+  return '확인한 계약·약관에 전자서명합니다.';
+}
+
+function gistOf(text: string): { gist: string; full: string; collapse: boolean } {
+  const full = text.trim();
+  const bracket = full.match(/\[([^[\]]{2,40})\]/);
+  if (bracket && full.length > 48) return { gist: bracket[1], full, collapse: true };
+  const sentence = full.split(/(?<=다\.|요\.|니다\.)\s/)[0] || full;
+  if (full.length > 56 && sentence !== full) return { gist: sentence, full, collapse: true };
+  return { gist: full, full, collapse: false };
+}
+
+function ReqTag() {
+  return <Badge tone="red" variant="solid">필수</Badge>;
+}
+
+function FileThumb({ file }: { file: File | null }) {
+  const [url, setUrl] = useState('');
+  useEffect(() => {
+    if (!file || !file.type.startsWith('image/')) {
+      setUrl('');
+      return undefined;
+    }
+    const next = URL.createObjectURL(file);
+    setUrl(next);
+    return () => URL.revokeObjectURL(next);
+  }, [file]);
+  if (!url) return null;
+  return <img className={styles.thumb} src={url} alt="" />;
+}
+
+function ConditionRow({ label, value }: { label: string; value: string }) {
+  const { gist, full, collapse } = gistOf(value || '—');
+  return (
+    <div>
+      <DetailRow label={label} value={gist} />
+      {collapse ? (
+        <details className={styles.gistMore}>
+          <summary>자세히</summary>
+          <div className={styles.gistBody}>{full}</div>
+        </details>
+      ) : null}
+    </div>
+  );
 }
 
 function ConsentChoice({
@@ -619,23 +686,38 @@ export default function SignPage() {
   const inputStyle: CSSProperties = { display: 'block', marginTop: 4 };
   const upfrontDone = UPFRONT_CONSENTS.every((key) => consents.has(key));
   const stepNo = Math.min(stepIndex + 1, steps.length);
+  const bundle = bundleOf(step?.kind || 'summary');
+  const rentWon = Number(contract.rent_amount_snapshot || 0).toLocaleString('ko-KR');
+  const depositWon = Number(contract.deposit_amount_snapshot || 0)
+    ? `${Number(contract.deposit_amount_snapshot).toLocaleString('ko-KR')}원`
+    : '무보증';
+  const periodText = contract.rent_month_snapshot ? `${contract.rent_month_snapshot}개월` : '—';
 
   return (
     <main className={styles.shell}>
       <div className={styles.frame}>
       <header className={styles.header}>
-        <div className={styles.headerMeta}>
-          <div style={{ fontSize: FS.sub, color: C.mute, fontWeight: FW.meta, letterSpacing: '0.02em' }}>프리패스 · 전자계약{preview ? ' · 관리자 미리보기(입력·제출 안 됨)' : ''}</div>
-          <span style={{ flex: 1 }} />
-          <div style={{ fontSize: FS.cap, color: C.mute, fontWeight: FW.meta, fontVariantNumeric: 'tabular-nums' }}>{stepNo} / {steps.length}</div>
+        <div className={styles.stepper} aria-label="진행 묶음">
+          {BUNDLES.map((item, index) => (
+            <div key={item.name} className={`${styles.stepperItem} ${bundle === item.id ? styles.on : ''}`} style={{ flex: index === BUNDLES.length - 1 ? 'none' : 1 }}>
+              <span className={`${styles.stepperDot} ${bundle === item.id ? styles.on : ''}`}>{index + 1}</span>
+              <span className={styles.stepperName}>{item.name}</span>
+              {index < BUNDLES.length - 1 ? <span className={styles.stepperLine} /> : null}
+            </div>
+          ))}
         </div>
-        <h1 style={{ fontSize: FS.page, fontWeight: FW.head, margin: '5px 0 11px', letterSpacing: '-0.02em' }}>{step?.title || '전자계약'}</h1>
-        <div className={styles.progressTrack}>
+        <div className={styles.headerMeta}>
+          <h1 style={{ fontSize: FS.title, fontWeight: FW.head, margin: 0, letterSpacing: '-0.02em' }}>{step?.title || '전자계약'}</h1>
+          <span style={{ flex: 1 }} />
+          <div style={{ fontSize: FS.cap, color: C.mute, fontWeight: FW.meta, fontVariantNumeric: 'tabular-nums' }}>{stepNo} / {steps.length}{preview ? ' · 미리보기' : ''}</div>
+        </div>
+        <div className={styles.progressTrack} style={{ marginTop: 10 }}>
           <div className={styles.progressValue} style={{ width: `${(stepNo / Math.max(steps.length, 1)) * 100}%` }} />
         </div>
       </header>
 
       <section className={styles.content}>
+      <p className={styles.guide}>{stepGuide(step)}</p>
       {view.rejectReason ? (
         <div style={{ marginBottom: 12, padding: '10px 12px', borderRadius: R, background: C.warnBg, color: C.warn, fontSize: FS.sub, fontWeight: FW.strong }}>
           보완 요청: {view.rejectReason}

@@ -87,8 +87,6 @@ export function badgeSpecs(product: EntityRecord, hideCredit = false, short = fa
       label: short ? (STATUS_SHORT[status] ?? status) : status,
       tone: vehicleTone(status) as BadgeTone,
       variant: status === '계약중' ? 'solid' : undefined,
-      // 차량상태만 알약 — 하나뿐인 «변하는 값»이다(즉시출고→계약중→출고불가).
-      shape: 'pill',
       pulse: status === '계약중',
     });
   }

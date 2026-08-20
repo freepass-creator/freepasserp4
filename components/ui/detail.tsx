@@ -2,7 +2,7 @@
 import React from 'react';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { ChevronDown } from 'lucide-react';
-import { C, R, NUM, ctrlH, ctrlInputFs, FW, FS, SH, KV_LABEL_W, PILL_R } from './tokens';
+import { C, R, R_CARD, NUM, ctrlH, ctrlInputFs, FW, FS, SH, KV_LABEL_W, PILL_R } from './tokens';
 import { useIsMobile } from '@/lib/use-mobile';
 
 /* 상세 — 섹션/그리드/행 */
@@ -115,7 +115,7 @@ export const DT = {
 
 /**
  * 상세 섹션 표 — 머리띠 + (열이름 줄) + 본문. 상세의 모든 섹션이 이걸 쓴다.
- *   tone: main=흰 카드(핵심) · sub=바탕 없음(부가) · agent=앰버(손님 화면에서 통째로 빠지는 칸)
+ *   tone: main=흰 카드(핵심) · sub=테두리만 옅은 카드(부가) · agent=좌측 네이비 바(손님 화면에서 통째로 빠지는 칸)
  */
 export type DetailTone = 'main' | 'sub' | 'agent';
 export function DetailTable({ title, hint, mark, icon, tone = 'main', headTone = 'plain', span, cols, widths, label, children }: {
@@ -148,7 +148,10 @@ export function DetailTable({ title, hint, mark, icon, tone = 'main', headTone =
   children: React.ReactNode;
 }) {
   const box: React.CSSProperties = tone === 'agent'
-    ? { border: `1px solid ${C.warnLine}`, background: C.warnBg }
+    // 영업자 것 = **좌측 4px 네이비 바**. 면을 앰버로 통째로 칠하면 「주의·수기입력」과 뜻이 겹치고,
+    // 옆 섹션들과 바탕색이 달라져 «같은 규격» 이 깨진다. 한 변만 물들이면 소속은 말하되 규격은 지킨다.
+    // (2026-08-20 외부 시안 6벌 중 5벌이 좌측 바로 모였다. 손님 화면에선 이 블록이 통째로 빠진다.)
+    ? { border: `1px solid ${C.line}`, borderLeft: `4px solid ${C.brand}`, background: C.taupeBg }
     // sub 를 투명(=페이지 회색)으로 두면 머리띠(C.head)가 배경과 거의 같은 색이라 사라진다.
     // 「모든 섹션이 같은 띠로 시작」이 규격이므로 바탕은 다 흰 카드로 두고, 무게는 테두리 굵기로만 준다.
     : tone === 'sub'
@@ -156,7 +159,7 @@ export function DetailTable({ title, hint, mark, icon, tone = 'main', headTone =
       : { border: `1px solid ${C.line}`, background: C.taupeBg };
   const inverted = headTone === 'invert';
   return (
-    <div style={{ ...box, borderRadius: R, overflow: 'hidden' }}>
+    <div style={{ ...box, borderRadius: R_CARD, overflow: 'hidden' }}>
       <table aria-label={label || (typeof title === 'string' ? title : undefined)} style={DT.table}>
         {widths ? <colgroup>{widths.map((w, i) => <col key={i} style={w == null ? undefined : { width: w }} />)}</colgroup> : null}
         <thead>

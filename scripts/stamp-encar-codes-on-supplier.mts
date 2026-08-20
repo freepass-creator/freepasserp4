@@ -3,6 +3,7 @@
  *
  *   차종트림코드 = T-0001 (모델×세부모델×세부트림이 하나로 모일 때만)
  *   모델 · 세부모델 · 세부트림 — 차명+연식+연료+배기량으로 변환(정제칸이 있으면)
+ *   못 정하면 점검사항에 「뭘 적어 달라」를 남긴다. 이미 있는 트림행키는 안 지운다.
  * ★ERP 「차종코드」는 안 건드린다.
  *
  *   npx tsx scripts/stamp-encar-codes-on-supplier.mts
@@ -14,6 +15,7 @@ import { canonMakerDisplay } from '../lib/domain/maker-display';
 import { companyAlias, supplierNameKeys } from '../lib/domain/identity';
 import {
   ENCAR_TRIM_CODE_COLUMN,
+  REQUEST_COLUMN_NAME,
   SHEET_NAME_MATCH, isOurNonInventoryTab, supplierSheetLabel,
 } from '../lib/domain/supplier-template-sheet';
 
@@ -95,10 +97,35 @@ const ATOM_ROWS: Atom[] = atoms.values.map((r) => {
   };
 }).filter((a) => a.u && a.t);
 
+const MODELS_BY_MAKER = new Map<string, string[]>();
+for (const a of ATOM_ROWS) {
+  const list = MODELS_BY_MAKER.get(a.maker) || [];
+  if (a.model && !list.includes(a.model)) list.push(a.model);
+  MODELS_BY_MAKER.set(a.maker, list);
+}
+for (const list of MODELS_BY_MAKER.values()) list.sort((a, b) => b.length - a.length);
+const inferModel = (maker: string, nameHay: string) =>
+  (MODELS_BY_MAKER.get(maker) || []).find((m) => m.length >= 2 && nameHay.includes(m)) || '';
+
+const TRIM_NOTE = '▶트림:';
+const stripTrimNote = (v: string) => S(v).replace(new RegExp(`\\s*${TRIM_NOTE}[^|]*`, 'g'), '').replace(/^\s*\|\s*|\s*\|\s*$/g, '').replace(/\s*\|\s*\|\s*/g, ' | ').trim();
+const mergeTrimNote = (existing: string, note: string) => {
+  const other = stripTrimNote(existing);
+  if (!note) return other;
+  const tagged = note.startsWith(TRIM_NOTE) ? note : `${TRIM_NOTE} ${note}`;
+  return other ? `${other} | ${tagged}` : tagged;
+};
+const uniq = (xs: string[]) => [...new Set(xs.map(S).filter(Boolean))];
+const listed = (xs: string[], n = 6) => {
+  const u = uniq(xs);
+  return u.slice(0, n).join(' / ') + (u.length > n ? ` 외 ${u.length - n}` : '');
+};
+
 const TRIM_ALIAS: Record<string, string> = {
   premium: '프리미엄', exclusive: '익스클루시브', prestige: '프레스티지', signature: '시그니처',
   inspiration: '인스퍼레이션', trendy: '트렌디', modern: '모던', smart: '스마트',
   leblanc: '르브랑', nobless: '노블레스', gravity: '그래비티',
+  비즈니스: '모빌리티', 비지니스: '모빌리티', business: '모빌리티',
 };
 const hay = (v: unknown) => nk(v);
 const hasTok = (h: string, tok: string) => {
@@ -163,7 +190,7 @@ const keepIf = (hit: Atom[], pred: (a: Atom) => boolean) => {
   return next.length ? next : hit;
 };
 
-type Ctx = { maker: string; model: string; nameHay: string; fuel: string; cc: number; seats: number; drive: string; year: number };
+type Ctx = { maker: string; model: string; nameHay: string; trimHay: string; fuel: string; cc: number; seats: number; drive: string; year: number };
 
 /** 연식·연료·배기량·차명으로 후보를 줄인다. 이름 토큰만 맞추던 방식은 세대를 놓친다. */
 const narrowAtoms = (ctx: Ctx): Atom[] => {
@@ -202,14 +229,44 @@ const narrowAtoms = (ctx: Ctx): Atom[] => {
     const toks = a.subName.split(/\s+/).map(nk).filter((t) => t && !WEAK_TOK.has(t) && t !== a.model);
     return toks.length ? toks.every((t) => hasTok(ctx.nameHay, t) || a.codes.includes(t)) : ctx.nameHay.includes(a.sub);
   });
-  if (namedSub.length) hit = namedSub;
-  const namedTrim = hit.filter((a) => trimInName(ctx.nameHay, a.trimName));
+  if (namedSub.length) {
+    const contained = namedSub.filter((a) => a.sub.length > a.model.length && ctx.nameHay.includes(a.sub));
+    const pool = contained.length ? contained : namedSub;
+    const max = Math.max(...pool.map((a) => a.sub.length));
+    hit = pool.filter((a) => a.sub.length === max);
+  }
+  const trimHay = ctx.trimHay || ctx.nameHay;
+  const namedTrim = hit.filter((a) => trimInName(trimHay, a.trimName));
   if (namedTrim.length) {
     const n = (a: Atom) => trimParts(a.trimName).length;
     const max = Math.max(...namedTrim.map(n));
     hit = namedTrim.filter((a) => n(a) === max);
   }
   return hit;
+};
+
+const inspectNote = (ctx: Ctx, hit: Atom[], carName: string, makerDisp: string): string => {
+  if (!ctx.maker) return `${TRIM_NOTE} 제조사를 적어 주세요 (현대 · 기아 · 제네시스 · 르노 · KGM …).`;
+  if (!ATOM_ROWS.some((a) => a.maker === ctx.maker)) {
+    return `${TRIM_NOTE} 차명에 모델·트림을 정확히 적어 주세요. 예: E200 Avantgarde · 520i Luxury · Cooper Classic`;
+  }
+  if (!S(carName)) return `${TRIM_NOTE} 차명(세부모델+트림)을 모델·세대·트림까지 적어 주세요. 예: 더 뉴 그랜저 GN7 캘리그래피`;
+  if (!hit.length) {
+    const bits = ['차명에 모델·세대·트림을 정확히 적어 주세요'];
+    if (!ctx.year) bits.push('연식(네 자리, 예: 2022)');
+    if (!ctx.fuel) bits.push('연료(가솔린·디젤·하이브리드·전기)');
+    return `${TRIM_NOTE} ${bits.join(' · ')}.`;
+  }
+  const models = uniq(hit.map((a) => a.modelName));
+  const subs = uniq(hit.map((a) => a.subName));
+  const trims = uniq(hit.map((a) => a.trimName));
+  if (models.length > 1) return `${TRIM_NOTE} 모델명을 구분해 주세요. 후보: ${listed(models)}`;
+  if (subs.length > 1) return `${TRIM_NOTE} 차명에 세대를 구분해 주세요. 후보: ${listed(subs, 5)}`;
+  if (trims.length > 1) return `${TRIM_NOTE} 차명에 트림을 적어 주세요. 후보: ${listed(trims)}`;
+  const missing: string[] = [];
+  if (!ctx.year) missing.push('연식(네 자리, 예: 2022)');
+  if (!ctx.fuel) missing.push('연료(가솔린·디젤·하이브리드·전기)');
+  return `${TRIM_NOTE} 트림을 특정할 수 없습니다.${missing.length ? ` ${missing.join(' · ')}도 적어 주세요.` : ' 차명·연식·연료를 다시 확인해 주세요.'}`;
 };
 
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
@@ -259,7 +316,8 @@ const targets: { id: string; name: string }[] = [];
 }
 console.log(`■ 엔카 코드 심기 ${APPLY ? '반영' : '미리보기'} — ${targets.length}곳 · 원자 ${ATOM_ROWS.length} · 트림행키 ${new Set(ATOM_ROWS.map((a) => a.t)).size}`);
 
-let totCars = 0, totT = 0, totNoT = 0, totSkip = 0, totNoCol = 0;
+let totCars = 0, totT = 0, totKeep = 0, totFill = 0, totNoT = 0, totNote = 0, totSkip = 0, totNoCol = 0;
+const samples: string[] = [];
 for (const t of targets) {
   const meta = await call(`${SH}/${t.id}?fields=sheets.properties(sheetId,title,hidden)`);
   const titles = ((meta.sheets || []) as Rec[])
@@ -273,7 +331,7 @@ for (const t of targets) {
   catch (e) { console.log(`  ✗ ${t.name} — ${(e as Error).message.slice(0, 80)}`); continue; }
 
   const updates: { range: string; values: string[][] }[] = [];
-  let cars = 0, tSet = 0, noT = 0, skip = 0, noCol = 0;
+  let cars = 0, tSet = 0, keep = 0, fill = 0, noT = 0, notes = 0, noCol = 0;
   const counts = { set: 0, skip: 0 };
   ((got.valueRanges || []) as Rec[]).forEach((vr, ti) => {
     const title = titles[ti];
@@ -286,42 +344,79 @@ for (const t of targets) {
     hdr.forEach((h, i) => { if (h && !at.has(h)) at.set(h, i); });
     if ((at.get(ENCAR_TRIM_CODE_COLUMN) ?? -1) < 0) { noCol++; return; }
     const plateAt = at.get('차량번호') ?? -1;
+    const checkName = at.has(REQUEST_COLUMN_NAME) ? REQUEST_COLUMN_NAME : at.has('요청사항') ? '요청사항' : '';
+    const checkAt = checkName ? (at.get(checkName) ?? -1) : -1;
     if (plateAt < 0) return;
     for (let r = hRow + 1; r < grid.length; r++) {
       const row = grid[r] || [];
       if (!S(row[plateAt])) continue;
       cars++;
-      const maker = makerKey(pick(row, at, ['제조사']));
-      const model = nk(pick(row, at, ['모델명']));
+      const nowTraw = S(row[at.get(ENCAR_TRIM_CODE_COLUMN) ?? -1]);
+      const nowT = /^T-\d+$/.test(nowTraw) && ATOM_ROWS.some((a) => a.t === nowTraw) ? nowTraw : '';
+      const nowCheck = checkAt >= 0 ? S(row[checkAt]) : '';
+      const makerDisp = pick(row, at, ['제조사']) || pick(row, at, ['제조사(정제)']);
+      const maker = makerKey(makerDisp);
+      let model = nk(pick(row, at, ['모델명'])) || nk(pick(row, at, ['모델']));
       const carName = pick(row, at, ['차명(세부모델+트림)']);
-      const nameHay = injectGen(hay(`${model} ${carName} ${pick(row, at, ['옵션'])}`), carName, model);
-      const fuel = fuelKey(`${pick(row, at, ['연료'])} ${carName}`);
-      const cc = ccNum(pick(row, at, ['배기량'])) || litersCc(carName) || litersCc(pick(row, at, ['연료']));
-      const seats = Number((carName.match(/(\d+)\s*인승/) || [])[1] || 0);
-      const drive = driveKey(`${carName} ${pick(row, at, ['옵션'])}`);
-      const year = yearOf(pick(row, at, ['연식']), pick(row, at, ['최초등록일']), carName);
-      const ctx = { maker, model, nameHay, fuel, cc, seats, drive, year };
-      const hit = maker && (nameHay || year || fuel) ? narrowAtoms(ctx) : [];
-      const tCodes = [...new Set(hit.map((a) => a.t))];
-      const tCode = tCodes.length === 1 ? tCodes[0] : '';
-      const ofTrim = tCode ? hit.filter((a) => a.t === tCode) : hit;
-      const modelName = agree(hit.map((a) => a.modelName));
-      const subName = agree(hit.map((a) => a.subName));
-      const trimName = tCode ? (ofTrim[0]?.trimName || '') : agree(hit.map((a) => a.trimName));
-      if (!tCode) noT++;
-      if (ONLY.size && cars <= 8) {
-        console.log(`     ${tCode || '-'} ${subName || modelName || ''} ${trimName} 「${carName.slice(0, 42)}」`);
+      const opt = pick(row, at, ['옵션']);
+      let trimHay = injectGen(hay(`${model} ${carName}`), carName, model);
+      let nameHay = trimHay + nk(opt);
+      if (!model && maker) {
+        model = inferModel(maker, nameHay);
+        if (model) {
+          trimHay = injectGen(hay(`${model} ${carName}`), carName, model);
+          nameHay = trimHay + nk(opt);
+        }
       }
-      put(updates, title, at, ENCAR_TRIM_CODE_COLUMN, r + 1, tCode, S(row[at.get(ENCAR_TRIM_CODE_COLUMN) ?? -1]), counts);
-      put(updates, title, at, '모델', r + 1, modelName, S(row[at.get('모델') ?? -1]), counts);
-      put(updates, title, at, '세부모델', r + 1, subName, S(row[at.get('세부모델') ?? -1]), counts);
-      put(updates, title, at, '세부트림', r + 1, trimName, S(row[at.get('세부트림') ?? -1]), counts);
-      if (tCode) tSet++;
+      const fuel = fuelKey(`${pick(row, at, ['연료'])} ${pick(row, at, ['연료(정제)'])} ${carName}`);
+      const cc = ccNum(pick(row, at, ['배기량(정제)'])) || ccNum(pick(row, at, ['배기량'])) || litersCc(carName) || litersCc(pick(row, at, ['연료']));
+      const seats = Number((carName.match(/(\d+)\s*인승/) || [])[1] || 0);
+      const drive = driveKey(`${carName} ${opt}`);
+      const year = yearOf(pick(row, at, ['연식']), pick(row, at, ['최초등록일']), carName);
+      const ctx: Ctx = { maker, model, nameHay, trimHay, fuel, cc, seats, drive, year };
+      let hit = maker && (nameHay || year || fuel) ? narrowAtoms(ctx) : [];
+      const modelHint = pick(row, at, ['모델']);
+      const subHint = pick(row, at, ['세부모델']);
+      const trimHint = pick(row, at, ['세부트림']);
+      if (modelHint) hit = keepIf(hit, (a) => a.modelName === modelHint || a.model === nk(modelHint));
+      if (subHint) hit = keepIf(hit, (a) => a.subName === subHint || a.sub === nk(subHint));
+      if (trimHint) hit = keepIf(hit, (a) => a.trimName === trimHint || a.trim === nk(trimHint) || trimInName(hay(trimHint), a.trimName));
+      let tCode = '';
+      if (nowT && ATOM_ROWS.some((a) => a.t === nowT)) {
+        tCode = nowT;
+        hit = ATOM_ROWS.filter((a) => a.t === nowT);
+        keep++;
+      } else {
+        const tCodes = [...new Set(hit.map((a) => a.t))];
+        tCode = tCodes.length === 1 ? tCodes[0] : '';
+        if (tCode) fill++;
+      }
+      const ofTrim = tCode ? hit.filter((a) => a.t === tCode) : hit;
+      const modelName = tCode ? (agree(ofTrim.map((a) => a.modelName)) || agree(hit.map((a) => a.modelName))) : agree(hit.map((a) => a.modelName));
+      const subName = tCode ? (agree(ofTrim.map((a) => a.subName)) || agree(hit.map((a) => a.subName))) : agree(hit.map((a) => a.subName));
+      const trimName = tCode ? (ofTrim[0]?.trimName || '') : agree(hit.map((a) => a.trimName));
+      if (tCode) {
+        tSet++;
+        put(updates, title, at, ENCAR_TRIM_CODE_COLUMN, r + 1, tCode, nowTraw, counts);
+        put(updates, title, at, '모델', r + 1, modelName, S(row[at.get('모델') ?? -1]), counts);
+        put(updates, title, at, '세부모델', r + 1, subName, S(row[at.get('세부모델') ?? -1]), counts);
+        put(updates, title, at, '세부트림', r + 1, trimName, S(row[at.get('세부트림') ?? -1]), counts);
+        if (checkName && nowCheck.includes(TRIM_NOTE)) {
+          put(updates, title, at, checkName, r + 1, mergeTrimNote(nowCheck, ''), nowCheck, counts);
+        }
+      } else {
+        noT++;
+        const note = inspectNote(ctx, hit, carName, makerDisp);
+        if (note && checkName) {
+          put(updates, title, at, checkName, r + 1, mergeTrimNote(nowCheck, note), nowCheck, counts);
+          notes++;
+        }
+        if (note && samples.length < 40) samples.push(`${t.name} ${S(row[plateAt])} 「${carName.slice(0, 36)}」 ${note}`);
+      }
     }
   });
-  skip = counts.skip;
-  totCars += cars; totT += tSet; totNoT += noT; totSkip += skip; totNoCol += noCol;
-  console.log(`  ${t.name.padEnd(12)} ${String(cars).padStart(4)}대  T ${tSet}  트림못정함 ${noT}${noCol ? '  열없음' : ''}`);
+  totCars += cars; totT += tSet; totKeep += keep; totFill += fill; totNoT += noT; totNote += notes; totSkip += counts.skip; totNoCol += noCol;
+  console.log(`  ${t.name.padEnd(12)} ${String(cars).padStart(4)}대  T ${tSet}(유지 ${keep}·채움 ${fill})  못정함 ${noT}  점검사항 ${notes}${noCol ? '  열없음' : ''}`);
   if (APPLY && updates.length) {
     for (let i = 0; i < updates.length; i += 400) {
       await call(`${SH}/${t.id}/values:batchUpdate`, {
@@ -333,5 +428,9 @@ for (const t of targets) {
   }
   await sleep(400);
 }
-console.log(`\n  ${totCars}대 · 트림행키 ${totT} · 트림못정함 ${totNoT}${totNoCol ? ` · 열없는탭 ${totNoCol}` : ''}`);
+console.log(`\n  ${totCars}대 · 트림행키 ${totT}(유지 ${totKeep}·채움 ${totFill}) · 못정함 ${totNoT} · 점검사항 ${totNote}${totNoCol ? ` · 열없는탭 ${totNoCol}` : ''}`);
+if (samples.length) {
+  console.log('  못 채운 예:');
+  for (const s of samples.slice(0, 25)) console.log(`    ${s}`);
+}
 console.log(APPLY ? '  반영 완료\n' : '※ dry-run. 반영은 --apply\n');

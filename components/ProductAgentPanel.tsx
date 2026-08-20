@@ -12,7 +12,7 @@ import { sectionIcon } from '@/components/section-icons';
 import { copyText } from '@/lib/clipboard';
 import { toast } from '@/components/Toaster';
 import { useIsMobile } from '@/lib/use-mobile';
-import { won, Btn, C, R, PILL_R, NUM, FW, FS, ICON, DetailTable, DT } from '@/components/ui';
+import { won, Btn, C, R, PILL_R, NUM, FW, FS, ICON, DetailTable, DT, R_CARD } from '@/components/ui';
 
 /**
  * **상품상세 우측 영업자 패널**(사장님 2026-08-20 목업 「이렇게 상품상세 우측에 들어가는거잖아」).
@@ -164,20 +164,21 @@ export function ProductAgentPanel({ p, audience, pinnedShare }: {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       {/*
         ⓪ 패널 머리 — **이 칼럼이 무엇인지 맨 위에서 말한다**(사장님 2026-08-20 「영업자 전용 패널이라고 왜 상단에 안해주냐고」).
-           앰버 = 우리 시스템에서 「영업자 전용」의 색이다(영업 정보 표와 같은 계열). 아래 남색 카드들과 안 겹친다.
+           **좌측 4px 네이비 바** = 「영업자 것」의 표식. 아래 섹션 표들(DetailTable tone='agent')과 같은 문법이라
+           패널 안에서 색축이 하나로 선다. 앰버는 「주의·수기입력」 뜻으로 돌려보냈다.
            손님 화면엔 이 칼럼이 통째로 안 붙으므로, 그 사실은 칸마다가 아니라 **여기 한 번**만 적는다.
       */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
-        border: `1px solid ${C.warnLine}`, background: C.warnBg, borderRadius: R, padding: '6px 10px',
+        border: `1px solid ${C.line}`, borderLeft: `4px solid ${C.brand}`, background: C.taupeBg,
+        borderRadius: R_CARD, padding: '6px 10px',
       }}>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: FS.sub, fontWeight: FW.title, color: C.ink }}>
-          <span aria-hidden style={{ width: 7, height: 7, borderRadius: '50%', background: C.warn, flex: '0 0 auto' }} />
+        <span style={{ fontSize: FS.sub, fontWeight: FW.title, color: C.ink }}>
           영업자 전용 패널
         </span>
         <span style={{
-          flex: '0 0 auto', fontSize: FS.micro, fontWeight: FW.label, color: C.warn,
-          border: `1px solid ${C.warn}`, borderRadius: PILL_R, padding: '0 6px', lineHeight: 1.6,
+          flex: '0 0 auto', fontSize: FS.micro, fontWeight: FW.label, color: C.mute,
+          border: `1px solid ${C.line}`, borderRadius: PILL_R, padding: '0 6px', lineHeight: 1.6,
         }}>손님 화면엔 없음</span>
       </div>
 
