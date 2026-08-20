@@ -174,5 +174,16 @@ assert.equal(
   null,
   '현재 계약이 선점한 차량은 계속 진행할 수 있어야 한다',
 );
+// ★즉시출고 = 출고가능(차량 목록 `isContractAvailableVehicle` 과 같은 규칙). 목록엔 뜨는데 게이트가 막으면 «고를 수는 있는데 못 보내는» 차가 생긴다(2026-08-20 실측 5대).
+assert.equal(
+  esignProductAvailabilityBlocker(vehicleContract, { ...availableProduct, vehicle_status: '즉시출고' }),
+  null,
+  '즉시출고 차량은 발행할 수 있어야 한다',
+);
+assert.equal(
+  esignProductAvailabilityBlocker(vehicleContract, { ...availableProduct, vehicle_status: '상품화중' })?.key,
+  'vehicle_availability',
+  '상품화중 차량은 막아야 한다',
+);
 
 console.log('✓ 전자계약 source gate: direct/excel 독립 발송 · ERP 약정 유지 · BLOCK 우회 차단');

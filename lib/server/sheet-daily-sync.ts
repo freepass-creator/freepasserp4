@@ -17,6 +17,7 @@ import type { EntityRecord } from '@/lib/intake/entities';
 import { firebaseAdminDatabase } from '@/lib/server/firebase-admin';
 import type { SheetConflictResolution } from '@/lib/domain/sheet-conflict-resolution';
 import { fetchProductMasterSheet } from '@/lib/server/product-master-sheet';
+import { fetchSalesInventorySheet } from '@/lib/server/sales-inventory-sheet';
 import { isolateProductMasterBlockedProviders } from '@/lib/domain/product-master-import';
 import { newId } from '@/lib/domain/ids';
 
@@ -347,13 +348,25 @@ export async function runDailySheetSync(opts: { dryRun?: boolean; providerCodes?
       readResolutions(db),
     ]);
     const requestedCodes = [...new Set((opts.providerCodes || []).map((code) => String(code).trim()).filter(Boolean))];
-    const rawFetched = await fetchProductMasterSheet({
-      partners,
-      providerCodes: requestedCodes,
-      knownProviderCodes: initialState.active
-        .map((row) => String(row.provider_company_code || row.partner_code || '').trim())
-        .filter(Boolean),
-    });
+    /**
+     * ★어디서 읽나 — 기본은 **영업자 상품리스트(판매시트)**다(사장님 2026-08-20 「영업자가 보는 거랑 우리 ERP랑 바로 연동하자 · 일단 상품마스터 안 거치고」).
+     *   판매시트는 매시간 공급사 시트에서 새로 발행되므로 영업자가 보는 화면과 ERP 가 같은 표를 본다.
+     *   상품마스터 경유로 되돌리려면 SHEET_DAILY_SOURCE=product_master.
+     */
+    const source = String(process.env.SHEET_DAILY_SOURCE || 'sales_inventory').trim();
+    const rawFetched = source === 'product_master'
+      ? await fetchProductMasterSheet({
+        partners,
+        providerCodes: requestedCodes,
+        knownProviderCodes: initialState.active
+          .map((row) => String(row.provider_company_code || row.partner_code || '').trim())
+          .filter(Boolean),
+      })
+      : await fetchSalesInventorySheet({
+        partners,
+        entries: masterEntries(),
+        providerCodes: requestedCodes,
+      });
     const isolated = isolateProductMasterBlockedProviders(rawFetched);
     const fetched = isolated.fetched;
     const manualBlockedResults: DailySheetSyncProviderResult[] = isolated.blocked.map((item) => ({

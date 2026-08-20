@@ -33,7 +33,7 @@ export const MIRROR_ALIAS: [string, string[]][] = [
   ['모델명', ['차종', '모델', '차종분류']],
   // 차명은 아래 composeVehicleName 이 차종/차종분류·세부모델·트림을 합쳐 만든다.
   //   ★「모델명」 열이 있는 정제시트는 합치지 않고 공급사 원문(모델명(트림풀명)) 그대로 — 「차명원문」 으로 따로 내보낸다.
-  ['차명(트림)', ['차명(트림)', '모델명(트림풀명)', '모델명(풀명)', '모델명(트림)', '차명', '모델명', '세부모델', '트림']],
+  ['차명(세부모델+트림)', ['차명(세부모델+트림)', '모델명(트림풀명)', '모델명(풀명)', '모델명(트림)', '차명', '모델명', '세부모델', '트림']],
   ['옵션', ['옵션', '선택옵션']],
   ['외부색상', ['외부색상', '외장색상', '외장색', '외장', '색상']],
   ['내부색상', ['내부색상', '내장색상', '내장색', '내장']],
@@ -92,6 +92,20 @@ const STATUS_ALLOWED = new Set(VALUE_LISTS['상태'] || []);
  * 원문 조각을 «겹치지 않게» 이어 붙인다 — 「BMW X1」+「X1(2세대) 20i」 → 「BMW X1(2세대) 20i」,
  * 「싼타페」+「디 올뉴 싼타페 …」 → 그대로. 이미 들어 있는 토큰은 다시 안 붙인다.
  */
+/**
+ * ★같은 말이 두 번 들어간 차명을 정리한다(사장님 2026-08-19 「쏘나타 쏘나타 DN8 이런 거는 쏘나타 DN8로 바로 할 수 있잖아」).
+ *   「A B A B」→「A B」 · 붙어 있는 「A A」→「A」 · 첫 말이 뒤에 또 나오면 첫 말을 뺀다(숫자 토큰은 그대로).
+ *   정본 구현은 scripts/tidy-vehicle-names.mts 와 같은 규칙 — 여기서는 정제시트 유입 때 미리 적용한다.
+ */
+export function tidyDuplicateWords(raw: unknown): string {
+  const k = (t: string) => t.toLowerCase().replace(/[\s\-_./()（）·,]/g, '');
+  let toks = S(raw).replace(/\s+/g, ' ').split(' ').filter(Boolean);
+  if (toks.length >= 2 && toks.length % 2 === 0) { const h = toks.length / 2; if (k(toks.slice(0, h).join(' ')) === k(toks.slice(h).join(' '))) toks = toks.slice(0, h); }
+  for (let i = 0; i < toks.length - 1;) { if (k(toks[i]) && k(toks[i]) === k(toks[i + 1])) toks.splice(i, 1); else i++; }
+  if (toks.length > 2 && k(toks[0]).length >= 2 && !/\d/.test(toks[0]) && toks.slice(1).some((t) => k(t) === k(toks[0]))) toks = toks.slice(1);
+  return toks.join(' ').trim();
+}
+
 export function composeVehicleName(prefix: string, primary: string, suffix = ''): string {
   const p = S(primary);
   const has = (hay: string, needle: string) => normName(hay).toLowerCase().includes(normName(needle).toLowerCase());
@@ -140,8 +154,8 @@ export function projectSourceRow(row: Map<string, string>): Map<string, string> 
   const pick = (cands: string[]) => { for (const c of cands) { const v = row.get(normName(c)); if (S(v)) return S(v); } return ''; };
   for (const [ours, cands] of MIRROR_ALIAS) {
     let v = pick(cands);
-    if (ours === '차명(트림)') {
-      if (v) out.set('차명원문', v);   // ★「모델명」 열이 있는 정제시트는 이것을 차명(트림)에 쓴다(합치지 않음)
+    if (ours === '차명(세부모델+트림)') {
+      if (v) out.set('차명원문', tidyDuplicateWords(composeVehicleName('', v, pick(TRIM_SUFFIX_CANDIDATES))));   // ★「모델명」 열이 있는 정제시트는 이것을 차명(세부모델+트림)에 쓴다 — 공급사 원문 그대로(차종 안 붙임, 트림 글자가 따로 있으면 뒤에 한 번만)
       v = composeVehicleName(pick(MODEL_PREFIX_CANDIDATES), v, pick(TRIM_SUFFIX_CANDIDATES));
     }
     if (ours === '모델명' && v) {
@@ -168,7 +182,7 @@ export function sourceColumnsFor(sourceHeader: string[]): Map<string, string[]> 
   const first = (cands: string[]) => { for (const c of cands) { const v = byNorm.get(normName(c)); if (v) return v; } return ''; };
   const out = new Map<string, string[]>();
   for (const [ours, cands] of MIRROR_ALIAS) {
-    const parts = ours === '차명(트림)'
+    const parts = ours === '차명(세부모델+트림)'
       ? [first(MODEL_PREFIX_CANDIDATES), first(cands), first(TRIM_SUFFIX_CANDIDATES)].filter(Boolean)
       : [first(cands)].filter(Boolean);
     if (parts.length) out.set(normName(ours), [...new Set(parts)]);

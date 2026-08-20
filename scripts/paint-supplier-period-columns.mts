@@ -20,7 +20,7 @@ const S = (v: unknown) => String(v ?? '').trim();
 const APPLY = process.argv.includes('--apply');
 const arg = (k: string, d = '') => (process.argv.find((a) => a.startsWith(`--${k}=`)) || '').slice(k.length + 3) || d;
 const ONE = arg('sheet');
-const MARK = '차명(트림)';
+const MARK = '차명(세부모델+트림)';
 /** 판매시트에 없는 규격 예비 기간 — 단기 블록 색을 이어 쓴다. */
 const EXTRA_BG: Record<string, string> = { '18개월': 'B0DBE0', '72개월': 'A7B9F9', '84개월': '99AEF8' };
 

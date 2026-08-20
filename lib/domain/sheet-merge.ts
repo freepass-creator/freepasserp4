@@ -19,7 +19,7 @@ const PROTECTED = new Set([
 /** 공급사가 시트에서 책임지고 갱신하는 재고 원자. 원본에 값이 오면 ERP 수기값보다 우선한다. */
 export const SUPPLIER_OWNED_PRODUCT_FIELDS = new Set([
   'vehicle_status', 'status_label_raw', 'product_type',
-  'maker', 'model', 'sub_model', 'variant', 'trim_name', 'trim_extra',
+  'maker', 'model', 'sub_model', 'variant', 'trim_name', 'trim_extra', 'supplier_vehicle_name',
   'year', 'first_registration_date', 'fuel_type', 'engine_cc', 'mileage',
   'ext_color', 'int_color', 'seats', 'drive_type', 'vehicle_class', 'usage',
   'options', 'photo_link', 'location', 'price',

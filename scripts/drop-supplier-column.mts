@@ -5,7 +5,7 @@
  *   차종은 모델·세부모델·세부트림 3축(판매시트·차종마스터에서 이미 뺐다). 정제칸의 「파워트레인」도 같은 이유로 뺀다.
  * ★열을 **통째로 지운다**(deleteDimension) — 값·서식·드롭다운·표 범위·줄무늬가 같이 줄어든다. 값을 지우고 빈 열을 남기지 않는다.
  * ★값이 들어 있는 열도 지운다 — 파워트레인은 연료·배기량 정제칸이 이미 품고 있는 정보다. 지우기 전 그 값을 tmp/ 에 백업한다(되돌릴 길).
- * ⚠ 재고 탭(머리행에 「차명(트림)」)만 본다. 정책·안내·AI 인계 탭은 안 건드린다.
+ * ⚠ 재고 탭(머리행에 「차명(세부모델+트림)」)만 본다. 정책·안내·AI 인계 탭은 안 건드린다.
  *
  *   npx tsx scripts/drop-supplier-column.mts --name=파워트레인
  *   npx tsx scripts/drop-supplier-column.mts --name=파워트레인 --apply
@@ -58,7 +58,7 @@ for (const t of targets) {
     if (p.hidden || isOurNonInventoryTab(title)) continue;
     const v = await call(`${SH}/${t.id}/values/${encodeURIComponent(`'${title.replace(/'/g, "''")}'`)}`) as { values?: string[][] };
     const rows = ((v.values || []) as string[][]).map((r) => r.map(S));
-    const hi = rows.findIndex((r) => r.some((c) => norm(c) === '차명(트림)'));
+    const hi = rows.findIndex((r) => r.some((c) => norm(c) === '차명(세부모델+트림)'));
     if (hi < 0) continue;
     const ci = rows[hi].findIndex((h) => norm(h) === norm(NAME));
     if (ci < 0) { absent++; console.log(`  · ${t.name.padEnd(10)} 「${title}」 — 「${NAME}」 열 없음`); continue; }

@@ -49,6 +49,8 @@ export const LEGACY_SHEETS: LegacySheet[] = [
   { id: '1IFV4_rNq4hW_KornQpz1ppBWbziCyklTo6oOH0BaUc8', name: '렌트존', kind: '옛 제공시트', code: 'PT-0001', owner: 'tbag4783@gmail.com', retiredOn: '2026-08-18' },
   { id: '1V4dqn5e8dtTLjX_wnHx5wOup0arU3TAtsvEvuh0sisY', name: '우리캐피탈렌터카', kind: '옛 제공시트', code: 'RP020', owner: 'tbag4783@gmail.com', retiredOn: '2026-08-18' },
   { id: '1C5rRLQOPyFM3UoVfIHN79fud099H6m-_QOtUnlFykvo', name: 'SA렌터카', kind: '옛 제공시트', code: 'PT-0023', owner: 'tbag4783@gmail.com', retiredOn: '2026-08-18' },
+  // 2026-08-20 (법인별 재고 탭 분리) — 경진렌트카는 경진 문서의 「경진렌트재고」 탭으로 합쳤다
+  { id: '1WKgvtP2yh-9CYPomiXQSNRTNgU2qvntF2H1zScEmnao', name: '경진렌트카', kind: '옛 제공시트', code: 'RP015', owner: 'pyh@teamjpk.com', retiredOn: '2026-08-20', note: '경진카·경진렌트카를 한 문서 두 탭으로 합침 — 재고 1대(133하6443)는 「경진렌트재고」 탭으로 옮겼다' },
   // 문패·판매시트 옛 것
   { id: '1rjRptCmXLzIFo147hxt0LYtdgZScgchmTvsrkzc32B8', name: '공급사시트정리', kind: '옛 문패', replacedBy: HUB_CODE_SHEET_ID, owner: 'pyh@teamjpk.com', retiredOn: '2026-08-14', note: '2026-08-10 만든 사본 — 코드는 1TVeVXyJ… 문패만 읽는다' },
   { id: '1G0tPyFI4JIfc-Ijd5qJNbgPGzcs2Ek5hQJwDHuml8VU', name: '프리패스 상품리스트', kind: '옛 판매시트', replacedBy: SALES_SHEET_ID, owner: 'dudguq@gmail.com', retiredOn: '2026-08-14', note: '옛 내보내기 시트(「시트1」) — 지금 판매시트와 이름이 같아 헷갈렸다(2026-08-19 ERP 「구글시트 열기」 링크 사고)' },

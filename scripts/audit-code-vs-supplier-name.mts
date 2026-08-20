@@ -1,8 +1,8 @@
 /**
- * **상품마스터 확정 코드의 «모델» ↔ 지금 공급사 시트 차명(트림) 대조** — 코드가 엉뚱한 차에 붙어 있으면(셀토스 줄에 쏘나타 코드) 여기서 걸린다. 읽기 전용(기본).
+ * **상품마스터 확정 코드의 «모델» ↔ 지금 공급사 시트 차명(세부모델+트림) 대조** — 코드가 엉뚱한 차에 붙어 있으면(셀토스 줄에 쏘나타 코드) 여기서 걸린다. 읽기 전용(기본).
  *   사장님 2026-08-19 「왜 담당자가 자꾸 차량번호별로 스펙이 안 맞는다고 하나 — 공급사 정제시트부터 추적해 봐」 → 실측: 08-10 새 시트가 줄이 밀린 채 만들어졌을 때
  *   상품마스터에 박힌 코드가 공급사 칸을 바로잡은 뒤에도 남아, 정제칸 채우기(정본이 이김)가 잘못된 이름을 다시 썼다(손오공 161허1165 셀토스 ↔ 코드 쏘나타 DN8).
- *   판정: 코드의 모델 이름(별칭)·세부모델 개발코드가 지금 차명(트림)·옵션 원문에 하나도 없으면 「모델 불일치」.
+ *   판정: 코드의 모델 이름(별칭)·세부모델 개발코드가 지금 차명(세부모델+트림)·옵션 원문에 하나도 없으면 「모델 불일치」.
  *   --demote --apply: 그 줄의 상품마스터 코드·적용값 비움 + 검수필요 + 사유, 결정 파일의 그 차 결정 제거 → resolve-unmatched-vehicles → fill → 발행으로 원문 기준 재정립.
  *
  *   npx tsx scripts/audit-code-vs-supplier-name.mts [--demote --apply]
@@ -47,7 +47,7 @@ const MODEL_ALIAS: Record<string, string[]> = {
   A6: ['a6'], A4: ['a4'], 모델3: ['model3', '모델 3'], 모델Y: ['modely', '모델 y'], X5: ['x5'], X3: ['x3'], GLC: ['glc'], GLE: ['gle'],
 };
 
-// 문패 → 21곳 → 코드|차번 → 지금 원문(제조사 차명(트림) 옵션)
+// 문패 → 21곳 → 코드|차번 → 지금 원문(제조사 차명(세부모델+트림) 옵션)
 const hub = ((await call(`${SH}/${HUB_CODE_SHEET_ID}/values/A1:Z200`)).values || []) as string[][];
 const hi = hub.findIndex((r) => r.some((c) => /공급사코드|코드/.test(S(c))) && r.some((c) => /시트주소|주소|URL/i.test(S(c))));
 const hh = (hub[hi] || []).map(S); const ci = hh.findIndex((c) => /공급사코드|코드/.test(c)); const ui = hh.findIndex((c) => /시트주소|주소|URL/i.test(c));
@@ -58,8 +58,8 @@ for (const r of hub.slice(hi + 1)) {
   for (const sh of (m.sheets || []) as Rec[]) {
     const title = S(sh.properties.title); if (sh.properties.hidden || isOurNonInventoryTab(title)) continue;
     const rows = (((await call(`${SH}/${id}/values/${encodeURIComponent(`'${title.replace(/'/g, "''")}'!A1:BZ700`)}`)).values || []) as string[][]).map((x) => x.map(S));
-    const h0 = rows.findIndex((x) => x.includes('차량번호') && x.some((c) => c.replace(/\s/g, '') === '차명(트림)')); if (h0 < 0) continue;
-    const h = rows[h0]; const pi = h.indexOf('차량번호'); const ni = h.findIndex((c) => c.replace(/\s/g, '') === '차명(트림)'); const mi = h.indexOf('제조사'); const oi = h.indexOf('옵션');
+    const h0 = rows.findIndex((x) => x.includes('차량번호') && x.some((c) => c.replace(/\s/g, '') === '차명(세부모델+트림)')); if (h0 < 0) continue;
+    const h = rows[h0]; const pi = h.indexOf('차량번호'); const ni = h.findIndex((c) => c.replace(/\s/g, '') === '차명(세부모델+트림)'); const mi = h.indexOf('제조사'); const oi = h.indexOf('옵션');
     for (const x of rows.slice(h0 + 1)) { const p = S(x[pi]).replace(/\s/g, ''); if (!p) continue; const key = `${code}|${p}`; if (!rawByKey.has(key)) rawByKey.set(key, `${S(x[mi])} ${S(x[ni])} ${oi >= 0 ? S(x[oi]) : ''}`); }
   }
 }

@@ -13,9 +13,56 @@ export function productKey(product: EntityRecord | null | undefined): string {
 
 export function productMatchesTemplate(product: EntityRecord, template: EsignTemplate | null): boolean {
   if (!template) return false;
-  const type = S(product.product_type || product.contract_type);
-  if (!type) return template.contractKind === '렌탈';
-  return template.contractKind === '렌탈' ? /렌트/.test(type) : /구독/.test(type);
+  return productContractKind(product) === template.contractKind;
+}
+
+/**
+ * 이 차가 렌트인가 구독인가 — 계약서 종류를 «사람이 고르지 않고» 차량이 정한다(사장님 2026-08-20).
+ *   상품구분이 비어 있으면 렌트로 본다(프리패스 기본 상품이 렌트).
+ */
+export function productContractKind(product: EntityRecord | null | undefined): '렌탈' | '구독' {
+  return /구독/.test(S(product?.product_type || product?.contract_type)) ? '구독' : '렌탈';
+}
+
+/**
+ * 시트 「운영정책」 첫 줄 라벨이 차량의 정책코드 칸에 그대로 들어간 것 —
+ * 「(프리패스 기본)」은 정책코드가 아니라 «공급사 고유 정책 없이 프리패스 기본을 따른다»는 표시다.
+ * 실측 2026-08-20: 출고가능 276대 중 114대가 이 라벨이었다.
+ */
+export function isBasePolicyLabel(code: unknown): boolean {
+  return /^\(?\s*프리패스\s*기본\s*\)?$/.test(S(code));
+}
+
+export type VehiclePolicyPick = {
+  policy: EntityRecord | null;
+  /** 어떻게 정했나 — 화면이 «자동인지 사람이 골라야 하는지»를 이 값으로 말한다. */
+  how: '차량 정책' | '공급사 정책' | '미정';
+};
+
+/**
+ * ★차량이 정책을 데려온다(사장님 2026-08-20 「차량선택(정책없으면 정책까지 선택)」).
+ *   ① 차량의 정책코드로 그 공급사 정책을 찾으면 그것
+ *   ② 못 찾거나 「(프리패스 기본)」이면 — 그 차 상품구분(렌트/구독)에 맞는 공급사 정책이 **하나뿐일 때만** 그것
+ *   ③ 그래도 못 정하면 미정 → 화면에서 사람이 고른다. 찍어서 고르지 않는다(남의 조건이 계약서에 실린다).
+ */
+export function resolveVehiclePolicy(
+  product: EntityRecord | null | undefined,
+  providerPolicies: EntityRecord[],
+): VehiclePolicyPick {
+  if (!product) return { policy: null, how: '미정' };
+  const code = S(product.policy_code);
+  if (code && !isBasePolicyLabel(code)) {
+    const hit = providerPolicies.find((row) => S(row.policy_code) === code || S(row._key) === code);
+    if (hit) return { policy: hit, how: '차량 정책' };
+  }
+  const kind = productContractKind(product);
+  const sameKind = providerPolicies.filter((row) => {
+    const type = S(row.policy_type);
+    if (!type) return true;
+    return kind === '구독' ? /구독/.test(type) : !/구독/.test(type);
+  });
+  if (sameKind.length === 1) return { policy: sameKind[0], how: '공급사 정책' };
+  return { policy: null, how: '미정' };
 }
 
 /** 계약서에 바로 배정할 수 있는 차량. 즉시출고는 출고가능과 같은 가용 재고로 본다. */
@@ -25,6 +72,12 @@ export function isContractAvailableVehicle(product: EntityRecord): boolean {
     && !S(product.locked_by_contract);
 }
 
+/**
+ * 계약서에 배정할 차량 후보.
+ * ★`template` 은 이제 «선택»이다(사장님 2026-08-20 순서: 회사 → 차량 → …).
+ *   계약서 종류를 아직 모르는 단계에서도 그 공급사 출고가능 차량을 다 보여 주고, 종류는 고른 차가 정한다.
+ *   기발행 계약을 다시 여는 등 종류가 이미 정해진 자리에서는 예전처럼 그 종류만 걸러 준다.
+ */
 export function searchContractVehicles(
   products: EntityRecord[],
   providerCode: string,
@@ -32,11 +85,11 @@ export function searchContractVehicles(
   query: string,
 ): EntityRecord[] {
   const normalized = S(query).replace(/\s/g, '').toLowerCase();
-  if (!providerCode || !template) return [];
+  if (!providerCode) return [];
   const numberQuery = digits(normalized);
   return products
     .filter((product) => S(product.provider_company_code) === providerCode)
-    .filter((product) => productMatchesTemplate(product, template))
+    .filter((product) => !template || productMatchesTemplate(product, template))
     // 계약서에 배정하는 선택창이므로 판매 카탈로그와 달리 출고가능 재고만 노출한다.
     // 대여료가 아직 없어도 차량은 보여 주고 이번 계약에서 최종 금액을 직접 확정한다.
     .filter(isContractAvailableVehicle)

@@ -74,13 +74,13 @@ for (const t of targets) {
   const meta = await call(`${SH}/${t.id}?fields=sheets.properties(sheetId,title,hidden,index)`);
   const props = ((meta.sheets || []) as Rec[]).map((x) => x.properties as Rec);
   const tabs = props.filter((p) => S(p.title) !== SHEET_IDENTITY_TAB).map((p) => `${p.hidden ? '[숨김] ' : ''}${S(p.title)}`);
-  // 재고 탭 열 수(실측): 머리행(차량번호·차명(트림))의 비어 있지 않은 칸 수
+  // 재고 탭 열 수(실측): 머리행(차량번호·차명(세부모델+트림))의 비어 있지 않은 칸 수
   let stockColumns: number | undefined;
   const veh = props.find((p) => !p.hidden && isVehicleTab(S(p.title)));
   if (veh) {
     const v = await call(`${SH}/${t.id}/values/${encodeURIComponent(`'${S(veh.title).replace(/'/g, "''")}'!A1:BZ12`)}`) as { values?: string[][] };
     const rows = (v.values || []).map((r) => r.map(S));
-    const h = rows.find((r) => r.includes('차량번호') && r.some((c) => c.replace(/\s/g, '') === '차명(트림)'));
+    const h = rows.find((r) => r.includes('차량번호') && r.some((c) => c.replace(/\s/g, '') === '차명(세부모델+트림)'));
     if (h) stockColumns = h.filter(Boolean).length;
   }
   let editors = '';

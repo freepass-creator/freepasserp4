@@ -32,7 +32,7 @@ import { codeMatchesRawName } from '../lib/domain/code-vs-name';
 import { loadColorMasterAliases } from '../lib/domain/color-master-sheet';
 import { classifyVehicleClass } from '../lib/domain/vehicle-class';
 import { SALES_ALIAS } from '../lib/domain/sales-sheet-mapping';
-import { AI_TAIL_COLUMNS, supplierSheetLabel } from '../lib/domain/supplier-template-sheet';
+import { AI_TAIL_COLUMNS, ENCAR_MASTER_CODE_COLUMN, ENCAR_TRIM_CODE_COLUMN, supplierSheetLabel } from '../lib/domain/supplier-template-sheet';
 import { companyAlias, supplierNameKeys } from '../lib/domain/identity';
 import { MASTER_SHEET_ID, MASTER_TAB, masterCells, pickConfirmedMasterCode, readMasterSheet } from '../lib/domain/vehicle-master-sheet';
 import type { MasterEntry, VehicleTrimMasterArtifact } from '../lib/domain/vehicle-master-types';
@@ -133,13 +133,13 @@ const trimEvidenced = (plate: string, trim: string) => { const t = S(trim).toLow
 try {
   const { DEFAULT_PRODUCT_MASTER_SHEET_ID, PRODUCT_MASTER_TAB } = await import('../lib/domain/product-master-sheet');
   const pmBase = `https://sheets.googleapis.com/v4/spreadsheets/${DEFAULT_PRODUCT_MASTER_SHEET_ID}/values/`;
-  const pm = await api(`${pmBase}${encodeURIComponent(`'${PRODUCT_MASTER_TAB}'!A:AX`)}`) as { values?: unknown[][] };
+  const pm = await api(`${pmBase}${encodeURIComponent(`'${PRODUCT_MASTER_TAB}'!A:AZ`)}`) as { values?: unknown[][] };
   const adoptedValues = await api(`${pmBase}${encodeURIComponent("'차종마스터_규격채택'!A:AD")}`) as { values?: unknown[][] };
   const artifact = JSON.parse(readFileSync('public/data/vehicle-trim-master.json', 'utf8')) as VehicleTrimMasterArtifact;
   let preferMasterNames = false;
   try { preferMasterNames = Number(JSON.parse(readFileSync('data/vehicle-trim-key-registry.json', 'utf8')).schemaVersion) >= 3; } catch { /* keep false */ }
   ADOPTED = adoptedSpecByKey(adoptedValues.values || []);
-  // ★트림 근거 = 상품마스터 「공급사 입력 차명」·「공급사 원문보존」(공급사가 적은 그대로). 우리가 옛 ERP 값으로 미리 채운 시트 차명(트림)은 근거가 아니다(순환).
+  // ★트림 근거 = 상품마스터 「공급사 입력 차명」·「공급사 원문보존」(공급사가 적은 그대로). 우리가 옛 ERP 값으로 미리 채운 시트 차명(세부모델+트림)은 근거가 아니다(순환).
   { const rows = ((pm.values || []) as unknown[][]).map((r) => (r || []).map((c) => S(c))); const h = rows[0] || []; const pi = h.indexOf('차량번호'); const cols = ['공급사 입력 차명', '공급사 원문보존'].map((c) => h.indexOf(c)).filter((i) => i >= 0);
     for (const r of rows.slice(1)) { const pl = S(r[pi]).replace(/\s/g, ''); if (pl) EVIDENCE.set(pl, cols.map((i) => S(r[i])).join(' ').toLowerCase().replace(/[\s\-_./()（）·]/g, '')); }
     // 결정 파일의 supplier_text(검토 때 본 공급사 원문)도 근거다 — 상품마스터 원문보존이 옛 것일 수 있다.
@@ -178,6 +178,8 @@ const targets: { code: string; name: string; id: string }[] = [];
 
 /** 정제칸 이름 — 이 목록이 곧 «우리가 채우는 칸»의 정본이다. */
 const TAIL = AI_TAIL_COLUMNS.map((c) => c.name);
+/** 엔카 U/SM 코드는 ERP 트림행키 채우기가 안 건드린다 — stamp-encar-codes-on-supplier 가 박는다. */
+const SKIP_ENCAR_CODES = new Set([ENCAR_TRIM_CODE_COLUMN, ENCAR_MASTER_CODE_COLUMN]);
 
 console.log(`\n■ 공급사 시트 정제칸 채우기 ${APPLY ? '(반영)' : '(dry-run — 아직 안 쓴다)'} · 대상 ${targets.length}곳\n`);
 
@@ -311,9 +313,9 @@ for (const t of targets) {
        */
       /**
        * ★시트에 남아 있는 차종코드는 «원문과 맞을 때만» 믿는다(2026-08-19 실측 — 손오공 161허1165 셀토스 줄에 쏘나타 DN8 코드가 남아
-       *   상품마스터에 코드가 없자 그 시트 코드를 정본으로 믿고 매일 쏘나타를 다시 썼다). 코드 모델이 제조사·차명(트림)·옵션 원문에 없으면 버린다.
+       *   상품마스터에 코드가 없자 그 시트 코드를 정본으로 믿고 매일 쏘나타를 다시 썼다). 코드 모델이 제조사·차명(세부모델+트림)·옵션 원문에 없으면 버린다.
        */
-      const rawSupplierText = [exactCell('제조사'), exactCell('차명(트림)'), exactCell('옵션')].join(' ');
+      const rawSupplierText = [exactCell('제조사'), exactCell('차명(세부모델+트림)'), exactCell('옵션')].join(' ');
       const sheetCode0 = exactCell('차종코드');
       const sheetCode = (sheetCode0 && BOOK.byCode.get(sheetCode0) && !codeMatchesRawName(BOOK.byCode.get(sheetCode0) as { model?: string; sub_model?: string }, rawSupplierText)) ? '' : sheetCode0;
       if (sheetCode0 && !sheetCode) { staleSheetCode++; if (staleList.length < 20) staleList.push(`${t.name} ${plate} 시트 코드 「${sheetCode0}」 ≠ 원문 「${rawSupplierText.slice(0, 40)}」 → 안 믿음`); }
@@ -410,6 +412,7 @@ for (const t of targets) {
 
       for (const [name, ci] of tailAt) {
         if (ci < 0) continue;
+        if (SKIP_ENCAR_CODES.has(name)) continue;
         const now = S(row[ci]);
         const v = S(want[name]);
         /**

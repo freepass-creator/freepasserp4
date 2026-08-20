@@ -36,7 +36,7 @@ const arg = (k: string, d = '') => (process.argv.find((a) => a.startsWith(`--${k
 const APPLY = process.argv.includes('--apply');
 const ONE = arg('sheet');
 const NAME = arg('name', '프리패스 재고');
-import { POLICY_TAB_NAME, policyTabTitle } from '../lib/domain/supplier-template-sheet';
+import { POLICY_TAB_NAME, isPolicyTabTitle } from '../lib/domain/supplier-template-sheet';
 
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 const jwt = new JWT({
@@ -55,6 +55,8 @@ const call = async (u: string, init?: RequestInit): Promise<Rec> => {
   }
 };
 const SH = 'https://sheets.googleapis.com/v4/spreadsheets';
+/** 0-based 열 번호 → A1 표기(AA 이후도). */
+const colA1 = (i: number): string => { let n = i, s = ''; do { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26) - 1; } while (n >= 0); return s; };
 const rgb = (h: string) => ({ red: parseInt(h.slice(0, 2), 16) / 255, green: parseInt(h.slice(2, 4), 16) / 255, blue: parseInt(h.slice(4, 6), 16) / 255 });
 const stamp = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 16).replace(/[:T]/g, '');
 
@@ -73,13 +75,20 @@ let done = 0, already = 0, skipped = 0, bad = 0;
 for (const t of targets.sort((a, b) => a.name.localeCompare(b.name, 'ko'))) {
   const meta = await call(`${SH}/${t.id}?fields=properties.title,sheets.properties(sheetId,title,hidden,gridProperties(rowCount,columnCount))`);
   const book = S(meta.properties?.title) || t.name;
-  const TAB = policyTabTitle(((meta.sheets || []) as Rec[]).map((s) => S(s.properties?.title))) || '';
-  const p = ((meta.sheets || []) as Rec[]).map((s) => s.properties).find((x) => S(x.title) === TAB);
-  if (!p) { skipped++; console.log(`  ⏭ ${book} — 정책 탭이 없다`); continue; }
+  /**
+   * ★한 문서에 정책 탭이 **여럿**일 수 있다 — 법인이 둘인 곳(빌린카/엘씨 · 경진카/경진렌트 · 스타/스카이)은
+   *   「빌린카운영정책 · 엘씨운영정책」처럼 갈라 적는다. 예전엔 「운영정책」 하나만 찾아 그 6개 탭이 통째로 안 돌았다(2026-08-20 실측).
+   * ⚠ 「○○운영정책」은 **이름을 바꾸지 않는다** — 둘을 「운영정책」으로 만들면 어느 법인 것인지 사라진다. 옛 이름 「정책」만 표준명으로 바꾼다.
+   */
+  const policyTabs = ((meta.sheets || []) as Rec[]).map((s) => s.properties).filter((x) => isPolicyTabTitle(S(x?.title)));
+  if (!policyTabs.length) { skipped++; console.log(`  ⏭ ${book} — 정책 탭이 없다`); continue; }
+  for (const p of policyTabs) {
+  const TAB = S(p.title);
+  const label = policyTabs.length > 1 ? `${book} 〔${TAB}〕` : book;
 
   const v = await call(`${SH}/${t.id}/values/${encodeURIComponent(`'${TAB}'`)}`) as { values?: string[][] };
   const rows = (v.values || []) as string[][];
-  if (!rows.length) { skipped++; console.log(`  ⏭ ${book} — 정책 탭이 비었다`); continue; }
+  if (!rows.length) { skipped++; console.log(`  ⏭ ${label} — 정책 탭이 비었다`); continue; }
 
   /**
    * 이미 가로인가 — 첫 줄이 「정책코드 · 정책명 · …」이면 그렇다.
@@ -100,7 +109,7 @@ for (const t of targets.sort((a, b) => a.name.localeCompare(b.name, 'ko'))) {
        */
       formatOnly = true;
     } else {
-      console.log(`  ↻ ${book} — 가로인데 열 차례가 규격과 다르다. 다시 눕힌다`);
+      console.log(`  ↻ ${label} — 가로인데 열 차례가 규격과 다르다. 다시 눕힌다`);
     }
   }
 
@@ -206,9 +215,9 @@ for (const t of targets.sort((a, b) => a.name.localeCompare(b.name, 'ko'))) {
   const total = Math.max(1, (body.length - 1) * (header.length - 2));
   if (formatOnly) {
     already++;
-    console.log(`  = ${book} — 이미 가로다. 서식만 다시 입힌다 (정책 ${body.length - 1}개 · 채운 칸 ${Math.round(filled / total * 100)}%)`);
+    console.log(`  = ${label} — 이미 가로다. 서식만 다시 입힌다 (정책 ${body.length - 1}개 · 채운 칸 ${Math.round(filled / total * 100)}%)`);
   } else {
-    console.log(`  → ${book} — 정책 ${body.length - 1}개 · ${header.length}열${extra.length ? ` (옛 항목 ${extra.length}개 뒤에 붙임: ${extra.join(', ')})` : ''}`);
+    console.log(`  → ${label} — 정책 ${body.length - 1}개 · ${header.length}열${extra.length ? ` (옛 항목 ${extra.length}개 뒤에 붙임: ${extra.join(', ')})` : ''}`);
     console.log(`       공급사가 채운 칸 ${filled}/${total} (${Math.round(filled / total * 100)}%)`);
     done++;
   }
@@ -216,12 +225,13 @@ for (const t of targets.sort((a, b) => a.name.localeCompare(b.name, 'ko'))) {
 
   // ── 백업 먼저 (값을 다시 쓸 때만)
   if (!formatOnly) mkdirSync('tmp', { recursive: true });
-  const backup = `tmp/policy-backup-${book.replace(/[^\w가-힣]+/g, '_')}-${stamp}.json`;
+  const backup = `tmp/policy-backup-${label.replace(/[^\w가-힣]+/g, '_')}-${stamp}.json`;
   if (!formatOnly) writeFileSync(backup, JSON.stringify({ book, at: stamp, rows }, null, 1), 'utf8');
 
   const gid = p.sheetId as number;
+  const renameToStandard = TAB === '정책';   // 「○○운영정책」은 법인 구분이라 그대로 둔다
   const reqs: Rec[] = formatOnly ? [] : [
-    ...(TAB !== POLICY_TAB_NAME ? [{ updateSheetProperties: { properties: { sheetId: gid, title: POLICY_TAB_NAME }, fields: 'title' } }] : []),
+    ...(renameToStandard ? [{ updateSheetProperties: { properties: { sheetId: gid, title: POLICY_TAB_NAME }, fields: 'title' } }] : []),
     { updateCells: { range: { sheetId: gid }, fields: 'userEnteredValue,userEnteredFormat' } },
     { updateSheetProperties: { properties: { sheetId: gid, gridProperties: { frozenRowCount: 1, frozenColumnCount: 2 } }, fields: 'gridProperties.frozenRowCount,gridProperties.frozenColumnCount' } },
   ];
@@ -230,16 +240,35 @@ for (const t of targets.sort((a, b) => a.name.localeCompare(b.name, 'ko'))) {
   }
   if (reqs.length) await call(`${SH}/${t.id}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests: reqs }) });
   if (!formatOnly) {
-    await call(`${SH}/${t.id}/values/${encodeURIComponent(`'${POLICY_TAB_NAME}'!A1`)}?valueInputOption=USER_ENTERED`, {
+    await call(`${SH}/${t.id}/values/${encodeURIComponent(`'${renameToStandard ? POLICY_TAB_NAME : TAB}'!A1`)}?valueInputOption=USER_ENTERED`, {
       method: 'PUT', body: JSON.stringify({ values: [header, ...body] }),
     });
+  } else {
+    /**
+     * ★이미 가로라 값을 다시 쓰지 않는 시트에도 «(프리패스 기본) 줄의 빈칸»은 PREFILL 로 채운다(사장님 2026-08-20 심사조건 무심사).
+     *   그 줄의 정본은 POLICY_PREFILL 이다 — 항목을 새로 정할 때마다 시트를 손으로 열지 않게.
+     *   ⚠ 채운 칸은 건드리지 않는다(공급사가 고친 값을 되돌리면 안 된다). 기본줄 = 코드가 비었거나 「(프리패스 기본)」인 첫 줄.
+     */
+    const baseRow = rows.findIndex((r, i) => i > 0 && (!S(r[0]) || /프리패스 기본/.test(S(r[0]))) && policyRowLive(header, r));
+    if (baseRow > 0) {
+      const data = header.flatMap((name, ci) => {
+        const want = POLICY_PREFILL[name];
+        if (!want || ci < POLICY_KEY_COLUMNS.length) return [];
+        if (policyCellValue(name, rows[baseRow]?.[ci])) return [];
+        return [{ range: `'${POLICY_TAB_NAME}'!${colA1(ci)}${baseRow + 1}`, values: [[want]] }];
+      });
+      if (data.length) {
+        await call(`${SH}/${t.id}/values:batchUpdate`, { method: 'POST', body: JSON.stringify({ valueInputOption: 'USER_ENTERED', data }) });
+        console.log(`       기본줄 빈칸 ${data.length}칸을 프리패스 표준값으로 채움`);
+      }
+    }
   }
 
   // ── 블록 색과 머리글 메모 — 공급사가 «왜 채우는지» 알아야 채운다
   const fmt: Rec[] = [];
   // ★열이 늘고 줄고 자리가 바뀌면 옛 드롭다운·머리 메모가 «그 자리»에 남는다(2026-08-19 손오공: 전용계좌 칸에 탁송비 목록이 떴다).
   //   먼저 탭 전체의 데이터 검증과 머리행 메모를 지우고 새 규격을 입힌다.
-  if (formatOnly && TAB !== POLICY_TAB_NAME) fmt.push({ updateSheetProperties: { properties: { sheetId: gid, title: POLICY_TAB_NAME }, fields: 'title' } });
+  if (formatOnly && renameToStandard) fmt.push({ updateSheetProperties: { properties: { sheetId: gid, title: POLICY_TAB_NAME }, fields: 'title' } });
   fmt.push({ setDataValidation: { range: { sheetId: gid } } });
   fmt.push({ repeatCell: { range: { sheetId: gid, startRowIndex: 0, endRowIndex: 1 }, cell: { note: '' }, fields: 'note' } });
   for (const b of policyBlocks()) {
@@ -297,7 +326,7 @@ for (const t of targets.sort((a, b) => a.name.localeCompare(b.name, 'ko'))) {
 
   // ── 되읽어 칸 단위 대조 (값을 다시 쓴 때만)
   if (formatOnly) { console.log(`       서식 다시 입힘 — 드롭다운 ${drops}칸`); continue; }
-  const back = await call(`${SH}/${t.id}/values/${encodeURIComponent(`'${POLICY_TAB_NAME}'`)}`) as { values?: string[][] };
+  const back = await call(`${SH}/${t.id}/values/${encodeURIComponent(`'${renameToStandard ? POLICY_TAB_NAME : TAB}'`)}`) as { values?: string[][] };
   const got = (back.values || []) as string[][];
   const want = [header, ...body];
   let miss = 0;
@@ -313,6 +342,7 @@ for (const t of targets.sort((a, b) => a.name.localeCompare(b.name, 'ko'))) {
   if (miss) { bad++; console.log(`       ⛔ 되읽으니 ${miss}칸이 다르다 — 백업 ${backup}
          ${diffs.join(' · ')}`); }
   else console.log(`       ✓ ${want.length}줄 × ${header.length}열 그대로 · 드롭다운 ${drops}칸 · 백업 ${backup}`);
+  }
 }
 console.log(`\n  돌림 ${done} · 이미 가로 ${already} · 건너뜀 ${skipped}${bad ? ` · ⛔ 어긋남 ${bad}` : ''}`);
 if (!APPLY) console.log('\n※ dry-run. 실제 반영은 --apply — 한 곳 먼저 시험하라(--sheet=<ID>)\n');

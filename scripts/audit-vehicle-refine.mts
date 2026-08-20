@@ -37,7 +37,7 @@ const PERIOD = new Map<string, { start: number; end: number }>();
   for (const r of masterValues.slice(1)) { const c = S(r[ci]); if (!c) continue; const start = yr(r[ys]) || yr(r[ps]); const end = yr(r[ye]) || yr(r[pe]) || (start ? 2100 : 0); if (start) PERIOD.set(c, { start, end }); } }
 const subRows = new Map<string, { fuel: string; cc: number; start: number; end: number }[]>();
 for (const row of BOOK.byCode.values()) { const k = `${key(canonMakerDisplay(row.maker))}|${key(row.subModel)}`; const p = PERIOD.get(row.code); subRows.set(k, [...(subRows.get(k) || []), { fuel: normFuel(row.fuel), cc: Number(S(row.cc).replace(/[^\d]/g, '')) || 0, start: p?.start || 0, end: p?.end || 2100 }]); }
-const pm = await call(`${SH}/${DEFAULT_PRODUCT_MASTER_SHEET_ID}/values/${encodeURIComponent(`'${PRODUCT_MASTER_TAB}'!A1:AX2000`)}`) as { values?: string[][] };
+const pm = await call(`${SH}/${DEFAULT_PRODUCT_MASTER_SHEET_ID}/values/${encodeURIComponent(`'${PRODUCT_MASTER_TAB}'!A1:AZ2000`)}`) as { values?: string[][] };
 const PM = new Map<string, string>();
 { const rows = ((pm.values || []) as string[][]).map((r) => r.map(S)); const h = rows[0] || []; const pi = h.indexOf('차량번호'), ci = h.indexOf('차종코드'), vi = h.indexOf('검증상태'); for (const r of rows.slice(1)) if (S(r[pi]) && S(r[ci]) && S(r[vi]) === '확정') PM.set(norm(r[pi]), S(r[ci])); }
 const GEN = /\b([A-Z]{1,3}\d{1,2}[A-Z]?|[A-Z]{2,4})\b/g;
@@ -63,7 +63,7 @@ for (const f of ((found.files || []) as Rec[]).sort((a, b) => S(a.name).localeCo
     for (const r of rows.slice(1)) {
       const plate = norm(r[pi]); if (!plate || /출고불가/.test(g(r, '상태'))) continue;
       cars++;
-      const code = g(r, '차종코드'); const sub = g(r, '세부모델'); const rawName = g(r, '차명(트림)'); const rawMaker = canonMakerDisplay(g(r, '제조사'));
+      const code = g(r, '차종코드'); const sub = g(r, '세부모델'); const rawName = g(r, '차명(세부모델+트림)'); const rawMaker = canonMakerDisplay(g(r, '제조사'));
       const rawFuel = fuelOf(g(r, '연료')); const rawCc = ccOf(g(r, '배기량')); const year = Number((g(r, '연식').match(/20\d\d/) || g(r, '최초등록일').match(/20\d\d/) || [0])[0]) || 0;
       const gens = [...`${rawName}`.toUpperCase().matchAll(GEN)].map((m) => m[1]).filter((x) => GEN_TOKENS.has(x) && !/^(AWD|FWD|RWD|LPI|LPG|GDI|CVT|DCT|SUV|EV|HEV|PHEV|MY|AT|MT|SBW|HUD|II|III|IV|VI|VII|DE|MP|GT|GL|SE|LE|RE|N|X)$/.test(x));
       const push = (kind: string, detail: string) => issues.push({ supplier, plate, kind, detail });

@@ -71,7 +71,7 @@ for (const t of targets) {
     if (p.hidden || isOurNonInventoryTab(title)) continue;
     const cur = await call(`${SH}/${t.id}/values/${encodeURIComponent(`'${title.replace(/'/g, "''")}'!A1:BZ700`)}`) as { values?: string[][] };
     const grid = ((cur.values || []) as string[][]).map((r) => r.map(S));
-    const hi = grid.findIndex((r) => r.some((c) => norm(c) === '차명(트림)'));
+    const hi = grid.findIndex((r) => r.some((c) => norm(c) === '차명(세부모델+트림)'));
     if (hi < 0) continue;
     const header = grid[hi];
     // 옛 revision — 마지막부터 거슬러 «차량번호가 있는 줄이 있는» 첫 것(표 안 열이 비어 있던 revision 은 건너뛴다)
@@ -79,7 +79,7 @@ for (const t of targets) {
     for (let i = usable.length - 1; i >= 0 && i >= usable.length - 14; i--) {
       let rows: string[][];
       try { rows = await csvAt(t.id, Number(p.sheetId), S(usable[i].id)); } catch (e) { console.log(`     (rev ${usable[i].id} export 실패 — ${String((e as Error).message).slice(0, 60)})`); continue; }
-      const oh = rows.findIndex((r) => r.some((c) => norm(c) === '차명(트림)'));
+      const oh = rows.findIndex((r) => r.some((c) => norm(c) === '차명(세부모델+트림)'));
       if (oh < 0) continue;
       const opl = rows[oh].findIndex((c) => norm(c) === '차량번호');
       const body = rows.slice(oh + 1).filter((r) => r.some(Boolean));

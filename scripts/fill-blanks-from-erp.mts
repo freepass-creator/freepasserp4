@@ -108,7 +108,7 @@ for (const p of Object.values<Rec>(prods)) {
   if (pl) byPlate.set(pl, p);
 }
 
-/** 차명(트림) — 한 칸에 이어 쓴다. `prefill-supplier-sheets` 와 같은 규칙이어야 한다. */
+/** 차명(세부모델+트림) — 한 칸에 이어 쓴다. `prefill-supplier-sheets` 와 같은 규칙이어야 한다. */
 const carName = (p: Rec): string => {
   const parts = [S(p.sub_model) || S(p.model), S(p.variant), S(p.trim_name)].filter(Boolean);
   const out: string[] = [];
@@ -129,7 +129,7 @@ const valueFor = (name: string, p: Rec): string | number => {
     case '상태': return S(p.vehicle_status);
     case '분류': return S(canonProductType(p.product_type)) || S(p.product_type);
     case '제조사': return S(p.maker);
-    case '차명(트림)': return carName(p);
+    case '차명(세부모델+트림)': return carName(p);
     case '옵션': return S(p.options);
     case '외부색상': return S(p.ext_color);
     case '내부색상': return S(p.int_color);

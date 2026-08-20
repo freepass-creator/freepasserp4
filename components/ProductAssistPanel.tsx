@@ -24,7 +24,12 @@ import { hasRoomStoredActivity } from '@/lib/domain/room-activity';
 import { CHAT_NOTICE_BODY, CHAT_NOTICE_CONTACTS, CHAT_NOTICE_TITLE } from '@/lib/domain/chat-notice';
 
 /**
- * 매물 상세 옆 **업무 보조 칼럼** — 계약진행과 문의·대화만 담당한다.
+ * 매물 상세 옆 **업무 보조 칼럼**.
+ *
+ * ★2026-08-20 재편(사장님 「계약진행은 없애기로 했잖아」 + 우측 패널 목업) —
+ *   칼럼 맨 위는 `top` 슬롯(= 영업자 패널: 요약·영업 정보·손님 전달)이고, 계약진행 카드는 **안 그린다**.
+ *   계약 진입은 하단독 「계약문의」 → `/chat` 동선이 그대로 있어 막히지 않는다.
+ *   계약 상태 계산(`contract`·`stageBadge`)은 **지우지 않고 남겨 둔다** — 되돌리려면 카드 한 장을 다시 그리면 된다.
  *
  * ★넓은 화면 = `position:fixed` 뷰포트 고정. 본문(매물정보)이 스크롤돼도 보조패널은 안 움직인다.
  *   플로우에는 폭만 잡는 spacer 를 두어 본문이 밑으로 파고들지 않게 한다.
@@ -51,7 +56,7 @@ export function useAssistColumn(): boolean {
 const CONTRACT_HEAD = '계약진행';
 const CHROME_GAP = 14;
 
-export function ProductAssistPanel({ product, role }: { product: EntityRecord; role: Role }) {
+export function ProductAssistPanel({ product, role, top }: { product: EntityRecord; role: Role; top?: ReactNode }) {
   const narrow = useIsMobile(ASSIST_BP);
   const router = useRouter();
   const co = getCompanyId();
@@ -160,12 +165,25 @@ export function ProductAssistPanel({ product, role }: { product: EntityRecord; r
   const stage = contractStage(contract);
   const stageBadge = contract ? <Badge tone={stage.tone}>{stage.label}</Badge> : null;
 
-  // 본문 머리(차명·칩)만큼 — 업무 패널 윗선 = 사진 윗선.
-  const headOffset = 'var(--fp-detail-head-h, 0px)';
-  // fixed 는 뷰포트 기준 — 상단바 아래 + 머리 정렬.
-  // 바닥은 sticky 하단독(이전·공유·계약문의) **윗선에 딱** — 여백 없이 맞닿게.
-  const fixedTop = `calc(var(--topbar-h) + ${CHROME_GAP}px + ${headOffset})`;
-  const fixedBottom = `calc(var(--fp-bar-h) + var(--fp-dock-safe, 0px))`;
+  /**
+   * fixed 는 뷰포트 기준 — **상단바 바로 아래**에서 시작한다. **위아래 같은 간격**(CHROME_GAP)을 둔다.
+   * 예전엔 바닥을 하단독 윗선에 «여백 없이 딱» 붙였는데, 패널이 길어지자 마지막 버튼이 독에
+   * 맞닿아 잘린 것처럼 보였다(사장님 2026-08-20 「위아래로 적당한 간격 유지」).
+   * 위는 이 값이 곧 «상단에 부딪혔을 때 멈추는 자리»다 — 상단바에 닿지 않고 CHROME_GAP 만큼 띄워 선다.
+   *
+   * ★예전엔 여기에 본문 머리 높이(`--fp-detail-head-h`)를 더해 **패널 윗선을 사진 윗선에 맞췄다.**
+   *   사진이 있는 차와 없는 차에서 패널 시작 높이가 달라지고, 사진이 큰 차에서는 패널이 한참 내려가
+   *   위쪽이 텅 비었다. 패널은 사진과 상관없는 물건이다 — 사진에 맞추지 않는다
+   *   (사장님 2026-08-20 「상단바 밑에부터 바로 시작 · 사진 이런거 구분하지 말고」).
+   */
+  const fixedTop = `calc(var(--topbar-h) + ${CHROME_GAP}px)`;
+  const fixedBottom = `calc(var(--fp-bar-h) + var(--fp-dock-safe, 0px) + ${CHROME_GAP}px)`;
+  /**
+   * 영업자 패널이 칼럼을 차지하면 **칼럼 자체가 스크롤**한다.
+   * 그러면 아래 카드들은 «남는 높이»를 못 받는다(남는 높이가 0이면 0으로 찌그러진다) —
+   * grow 대신 실제 높이를 준다. 안 그러면 대화·문의가 사라진 것처럼 보인다.
+   */
+  const stacked = !!top;
 
   const chatBody = roomId ? (
     <ChatThread roomId={roomId} />
@@ -221,8 +239,8 @@ export function ProductAssistPanel({ product, role }: { product: EntityRecord; r
     <AsideCard
       title="문의"
       right={inbox?.length ? <Badge tone={unreadN ? 'red' : 'gray'}>{inbox.length}</Badge> : null}
-      grow={!narrow}
-      fixedH={narrow ? '40dvh' : undefined}
+      grow={!narrow && !stacked}
+      fixedH={narrow ? '40dvh' : stacked ? '38dvh' : undefined}
     >
       {inbox === null ? (
         <div style={{ padding: 12, fontSize: FS.cap, color: C.faint }}>불러오는 중…</div>
@@ -253,24 +271,15 @@ export function ProductAssistPanel({ product, role }: { product: EntityRecord; r
 
   const body = (
     <>
-      {/* 우측은 행동만 둔다. 차량·가격·조건·보험은 본문에서 한 흐름으로 읽는다. */}
+      {/* 맨 위 = 영업자 패널(요약·영업 정보·손님 전달). 차량·가격·조건·보험 «전체»는 본문이 읽힌다.
+          제 높이 그대로 선다(안 줄인다) — 넘치면 칼럼이 스크롤한다. */}
+      {top ? <div style={{ flex: '0 0 auto' }}>{top}</div> : null}
       {!canDeal ? null : (
-        <>
-          <AsideCard title={CONTRACT_HEAD} right={stageBadge} cap="42%">
-            <ContractPanel
-              product={product}
-              // 관리자·공급사에는 방을 넘기지 않는다 — 방은 영업자별이라 남의 딜을 잡는다.
-              roomId={asksRoom ? (roomId || undefined) : undefined}
-              stepView="focus"
-              onChange={reloadContract}
-            />
+        asksRoom ? (
+          <AsideCard title={NAV_LABEL.chat} grow={!stacked} fixedH={stacked ? '46dvh' : undefined}>
+            {chatBody}
           </AsideCard>
-          {asksRoom ? (
-            <AsideCard title={NAV_LABEL.chat} grow>
-              {chatBody}
-            </AsideCard>
-          ) : inboxCard}
-        </>
+        ) : inboxCard
       )}
     </>
   );
@@ -279,26 +288,17 @@ export function ProductAssistPanel({ product, role }: { product: EntityRecord; r
   if (narrow) {
     return (
       <aside
-        aria-label="계약·대화"
+        aria-label="영업자 패널·대화"
         style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 14, width: '100%', minWidth: 0 }}
       >
+        {/* 좁은 화면도 같은 배열 — 영업자 패널 → (대화 | 문의 목록). 폭이 없을 뿐 항목은 웹과 같다. */}
+        {top}
         {!canDeal ? null : (
-          <>
-            {/* 좁은 화면도 같은 배열 — 계약진행 → (대화 | 문의 목록). */}
-            <AsideCard title={CONTRACT_HEAD} right={stageBadge}>
-              <ContractPanel
-                product={product}
-                roomId={asksRoom ? (roomId || undefined) : undefined}
-                stepView="focus"
-                onChange={reloadContract}
-              />
+          asksRoom ? (
+            <AsideCard title={NAV_LABEL.chat} fixedH="60dvh">
+              {chatBody}
             </AsideCard>
-            {asksRoom ? (
-              <AsideCard title={NAV_LABEL.chat} fixedH="60dvh">
-                {chatBody}
-              </AsideCard>
-            ) : inboxCard}
-          </>
+          ) : inboxCard
         )}
       </aside>
     );
@@ -332,6 +332,9 @@ export function ProductAssistPanel({ product, role }: { product: EntityRecord; r
           gap: 10,
           minHeight: 0,
           maxHeight: canDeal ? undefined : 'unset',
+          // 패널이 뷰포트보다 길면 **칼럼이 스크롤**한다. 예전엔 넘치는 만큼 그냥 잘렸다.
+          overflowY: stacked ? 'auto' : undefined,
+          overscrollBehavior: 'contain',
           zIndex: 40,
           boxSizing: 'border-box',
           pointerEvents: 'auto',

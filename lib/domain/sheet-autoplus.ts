@@ -141,9 +141,14 @@ export function importAutoplusTables(opts: AutoplusTablesImportOptions): Autoplu
   const headerRow = opts.headerRow ?? 0;
   const tabResponses = new Map<string, string>();
   assertDistinctSheetTable(tabResponses, opts.mainRaw, `본탭 gid ${opts.mainGid || AUTOPLUS_GID_MAIN}`);
-  assertDistinctSheetTable(tabResponses, opts.promoRaw, `프로모션 gid ${opts.promoGid || AUTOPLUS_GID_PROMO}`);
+  /**
+   * ★프로모션 탭은 이제 없을 수 있다 — 판매시트 기본 세팅이 탭 3개(상품리스트·손오공구독·오플구독)로 굳었다(사장님 2026-08-19).
+   *   호출 쪽이 같은 탭을 두 번 넘기면(프로모션 자리에 오플구독) «프로모션 없음»으로 읽는다. 서로 다른 탭이면 예전처럼 둘을 합친다.
+   */
+  const promoSameAsMain = (opts.promoGid || '') === (opts.mainGid || '');
+  if (!promoSameAsMain) assertDistinctSheetTable(tabResponses, opts.promoRaw, `프로모션 gid ${opts.promoGid || AUTOPLUS_GID_PROMO}`);
   const mainT = SHEET_ADAPTERS.autoplus.prepareTable(opts.mainRaw, { headerRow });
-  const promoT = prepareAutoplusPromoTable(opts.promoRaw);
+  const promoT = promoSameAsMain ? [] : prepareAutoplusPromoTable(opts.promoRaw);
   if (mainT.length < 2) throw new Error('오토플러스 본탭 헤더+데이터 없음');
 
   const main = importSheetTable(mainT, {
@@ -156,7 +161,10 @@ export function importAutoplusTables(opts: AutoplusTablesImportOptions): Autoplu
     pendingOccurrence: opts.pendingOccurrence,
     photoByPlate: opts.mainPhotos,
   });
-  const promo = importSheetTable(promoT, {
+  const emptyImport = (): ReturnType<typeof importSheetTable> => importSheetTable([['차량번호']], {
+    providerCode: opts.providerCode, entries: opts.entries, depositRule: opts.depositRule,
+  });
+  const promo = promoT.length < 2 ? emptyImport() : importSheetTable(promoT, {
     providerCode: opts.providerCode,
     entries: opts.entries,
     // 프로모션은 코드가 만든 고정 헤더다. 본탭의 저장 index/signature를 재사용하면

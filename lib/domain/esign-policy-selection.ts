@@ -2,6 +2,7 @@ import type { EntityRecord } from '@/lib/intake/entities';
 import { FREEPASS_POLICY_PACK } from '@/lib/domain/policy-defaults';
 import { canIssueContract } from '@/lib/domain/policy-tier';
 import type { EsignTemplate } from '@/lib/domain/esign-templates';
+import { policyUsableBy } from './policy-access';
 
 const S = (value: unknown) => String(value ?? '').trim();
 
@@ -38,7 +39,7 @@ export function policiesForTemplate(
   providerCode: string,
   template: EsignTemplate | null,
 ): EntityRecord[] {
-  const linked = rows.filter((row) => S(row.provider_company_code) === providerCode);
+  const linked = rows.filter((row) => policyUsableBy(row, providerCode));
   return template ? linked.filter((row) => policyMatchesTemplate(row, template)) : linked;
 }
 
@@ -54,7 +55,7 @@ export function preferredPolicyForTemplate(
 
 /** 같은 공급사 정책 중 발송 가능한 프리패스 공통 렌트·보험포함 정책을 우선한다. */
 export function preferredContractPolicy(rows: EntityRecord[], providerCode: string): EntityRecord | null {
-  const linked = rows.filter((row) => S(row.provider_company_code) === providerCode);
+  const linked = rows.filter((row) => policyUsableBy(row, providerCode));
   const rentRows = linked.filter((row) => /렌트/.test([
     row.policy_name, row.product_type, row.contract_type, row.policy_type,
   ].map(S).join(' ')));

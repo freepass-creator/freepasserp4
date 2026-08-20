@@ -7,12 +7,12 @@ import { newId } from '@/lib/domain/ids';
 import { applyPolicyDefaults } from '@/lib/domain/policy-defaults';
 import { PART_COLOR, PART_LABEL, POLICY_DOCUMENT_CHECKS } from '@/lib/domain/policy-sheet-layout';
 import {
-  DOC_CHECK_NAMES, VIRTUAL_DOCS_KEY, VIRTUAL_DOCS_OTHER_KEY, partnerPolicyFormParts, virtualDisqKey,
+  DOC_CHECK_NAMES, VIRTUAL_DOCS_KEY, partnerPolicyFormParts, virtualDisqKey, virtualDocExtraKey, virtualExtraTermKey,
 } from '@/lib/domain/partner-policy-form';
 import {
   normalizeEsignRequiredDocuments, serializeEsignRequiredDocuments, type EsignRequiredDocument,
 } from '@/lib/domain/esign-required-documents';
-import { Btn, C, FS, FW, FormCard, FormGrid, Message } from '@/components/ui';
+import { Btn, C, FS, FW, FormCard, FormGrid, Message, R } from '@/components/ui';
 import { toast } from '@/components/Toaster';
 import { haptic } from '@/lib/haptics';
 
@@ -35,7 +35,7 @@ const S = (v: unknown) => String(v ?? '').trim();
 const DISQ_JOIN = ' · ';
 const DOC_CHECK_KEYS = new Set(POLICY_DOCUMENT_CHECKS.map((d) => d.key));
 
-type Virtual = { disq: string[]; docs: string[]; docsOther: string };
+type Virtual = { disq: string[]; docs: string[]; docsExtra: string[]; extraTerms: string[] };
 
 function virtualFrom(policy: EntityRecord | null): Virtual {
   const disqRaw = S(policy?.disqualification_conditions);
@@ -47,7 +47,13 @@ function virtualFrom(policy: EntityRecord | null): Virtual {
   return {
     disq: [0, 1, 2, 3].map((i) => disq[i] || ''),
     docs: [...new Set(checked)],
-    docsOther: other.join(DISQ_JOIN),
+    // 체크 밖 서류 — 「필요서류 1~4」 네 칸으로 나눠 담는다(넘치면 마지막 칸에 「·」로 이어 붙인다).
+    docsExtra: [0, 1, 2, 3].map((i) => (i === 3 ? other.slice(3).join(DISQ_JOIN) : other[i] || '')),
+    // 기타사항 — 계약서 특약 칸에 «한 줄에 하나»로 실리므로 줄 단위로 나눠 담는다(사장님 2026-08-20).
+    extraTerms: (() => {
+      const lines = S(policy?.policy_extra_terms).split(/\n+/).map((x) => x.trim()).filter(Boolean);
+      return [0, 1, 2, 3].map((i) => (i === 3 ? lines.slice(3).join('\n') : lines[i] || ''));
+    })(),
   };
 }
 
@@ -55,8 +61,10 @@ function documentsOf(v: Virtual): EsignRequiredDocument[] {
   const rows: EsignRequiredDocument[] = POLICY_DOCUMENT_CHECKS
     .filter((d) => v.docs.includes(d.name))
     .map((d) => ({ key: d.key, label: d.name, note: d.note, required: true }));
-  v.docsOther.split(/[·,/\n]+/).map((x) => x.trim()).filter(Boolean).forEach((label, i) => {
-    rows.push({ key: `other_${i + 1}`, label: label.slice(0, 40), note: '', required: true });
+  v.docsExtra.forEach((cell, i) => {
+    cell.split(/[·,/\n]+/).map((x) => x.trim()).filter(Boolean).forEach((label, k) => {
+      rows.push({ key: `extra_${i + 1}${k ? `_${k + 1}` : ''}`, label: label.slice(0, 40), note: '', required: true });
+    });
   });
   return rows;
 }
@@ -74,7 +82,7 @@ export function PartnerPolicyEditor({
   const co = getCompanyId();
   const isNew = !policy;
   const [form, setForm] = useState<EntityRecord>({});
-  const [virtual, setVirtual] = useState<Virtual>({ disq: ['', '', '', ''], docs: [], docsOther: '' });
+  const [virtual, setVirtual] = useState<Virtual>({ disq: ['', '', '', ''], docs: [], docsExtra: ['', '', '', ''], extraTerms: ['', '', '', ''] });
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const partFields = useMemo(() => partnerPolicyFormParts(), []);
@@ -100,7 +108,10 @@ export function PartnerPolicyEditor({
     ...form,
     [virtualDisqKey(0)]: virtual.disq[0], [virtualDisqKey(1)]: virtual.disq[1], [virtualDisqKey(2)]: virtual.disq[2], [virtualDisqKey(3)]: virtual.disq[3],
     [VIRTUAL_DOCS_KEY]: virtual.docs.join(','),
-    [VIRTUAL_DOCS_OTHER_KEY]: virtual.docsOther,
+    [virtualDocExtraKey(0)]: virtual.docsExtra[0], [virtualDocExtraKey(1)]: virtual.docsExtra[1],
+    [virtualDocExtraKey(2)]: virtual.docsExtra[2], [virtualDocExtraKey(3)]: virtual.docsExtra[3],
+    [virtualExtraTermKey(0)]: virtual.extraTerms[0], [virtualExtraTermKey(1)]: virtual.extraTerms[1],
+    [virtualExtraTermKey(2)]: virtual.extraTerms[2], [virtualExtraTermKey(3)]: virtual.extraTerms[3],
   };
   const onChange = (key: string, value: string) => {
     setDirty(true);
@@ -110,7 +121,16 @@ export function PartnerPolicyEditor({
       return;
     }
     if (key === VIRTUAL_DOCS_KEY) { setVirtual((v) => ({ ...v, docs: value.split(',').map((x) => x.trim()).filter(Boolean) })); return; }
-    if (key === VIRTUAL_DOCS_OTHER_KEY) { setVirtual((v) => ({ ...v, docsOther: value })); return; }
+    if (key.startsWith('__extra_term_')) {
+      const i = Number(key.slice('__extra_term_'.length));
+      setVirtual((v) => ({ ...v, extraTerms: v.extraTerms.map((x, k) => (k === i ? value : x)) }));
+      return;
+    }
+    if (key.startsWith('__doc_extra_')) {
+      const i = Number(key.slice('__doc_extra_'.length));
+      setVirtual((v) => ({ ...v, docsExtra: v.docsExtra.map((x, k) => (k === i ? value : x)) }));
+      return;
+    }
     setForm((f) => ({ ...f, [key]: value }));
   };
 
@@ -126,6 +146,7 @@ export function PartnerPolicyEditor({
         ...form,
         provider_company_code: providerCode,
         disqualification_conditions: disq,
+        policy_extra_terms: virtual.extraTerms.map((x) => x.trim()).filter(Boolean).join('\n'),
         esign_required_documents: docs.length ? serializeEsignRequiredDocuments(docs) : '',
       };
       // 정책관리 페이지와 같은 저장 규칙 — 최초 패키지만 자동 보충(명시값·삭제 의사가 기본값보다 우선).
@@ -161,7 +182,7 @@ export function PartnerPolicyEditor({
           key={part}
           title={(
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <span aria-hidden style={{ width: 10, height: 10, borderRadius: 3, background: `#${PART_COLOR[part]}`, border: `1px solid ${C.line}` }} />
+              <span aria-hidden style={{ width: 10, height: 10, borderRadius: R, background: `#${PART_COLOR[part]}`, border: `1px solid ${C.line}` }} />
               {PART_LABEL[part]}
             </span>
           )}

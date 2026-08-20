@@ -123,6 +123,12 @@ export function liveValuesFromSupplierProduct(
   if (status) values['차량상태'] = status;
   const policy = S(product.policy_code);
   if (policy) values['정책코드'] = policy;
+  // ★모델명·차명 — 공급사 시트가 정본(2026-08-20). 상품찾기·ERP 가 이 두 칸을 그대로 쓴다.
+  //   importSheetTable 은 「모델명」을 model, 「차명(세부모델+트림)」을 trim_extra(원문)·sub_model 로 담는다.
+  const modelName = S(product.model_name_raw) || S(product.model);
+  if (modelName) values['모델명'] = modelName;
+  const vehicleName = S(product.supplier_vehicle_name) || S(product.trim_extra) || S(product.vehicle_name_raw);
+  if (vehicleName) values['차명'] = vehicleName;
 
   const price = (product.price && typeof product.price === 'object')
     ? product.price as Record<string, { rent?: number; deposit?: number }>

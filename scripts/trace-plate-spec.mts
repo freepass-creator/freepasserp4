@@ -42,7 +42,7 @@ const decisions = (JSON.parse(readFileSync('data/product-vehicle-review-decision
 let v4: Record<string, Rec> = {};
 try { const { initializeApp, cert, getApps } = await import('firebase-admin/app'); const { getDatabase } = await import('firebase-admin/database'); if (!getApps().length) initializeApp({ credential: cert(sa), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' }); v4 = ((await getDatabase().ref('v4/products').get()).val() || {}) as Record<string, Rec>; } catch (e) { console.log('(ERP 못 읽음)', String((e as Error).message).slice(0, 60)); }
 
-const RAW = ['상태', '분류', '제조사', '차명(트림)', '옵션', '외부색상', '내부색상', '연식', '주행거리', '연료', '배기량', '차량가격', '최초등록일'];
+const RAW = ['상태', '분류', '제조사', '차명(세부모델+트림)', '옵션', '외부색상', '내부색상', '연식', '주행거리', '연료', '배기량', '차량가격', '최초등록일'];
 const REF = ['차종코드', '제조사(정제)', '모델', '세부모델', '세부트림', '선택옵션', '외장색상', '내장색상', '배기량(정제)', '연료(정제)', '차종분류'];
 const SALES = ['배차상태', '구분', '공급사', '제조사', '모델', '세부모델', '세부트림', '외장', '내장', '연식', 'Km', '차종구분', '옵션', '연료', '배기량'];
 for (const plate of PLATES) {
@@ -52,7 +52,7 @@ for (const plate of PLATES) {
     const m = await call(`${SH}/${s.id}?fields=sheets.properties(title,hidden)`);
     for (const sh of (m.sheets || []) as Rec[]) { const title = S(sh.properties.title); if (sh.properties.hidden || isOurNonInventoryTab(title)) continue;
       const rows = (((await call(`${SH}/${s.id}/values/${encodeURIComponent(`'${title.replace(/'/g, "''")}'!A1:BZ700`)}`)).values || []) as string[][]).map((r) => r.map(S));
-      const h0 = rows.findIndex((r) => r.includes('차량번호') && r.some((c) => norm(c) === '차명(트림)')); if (h0 < 0) continue; const h = rows[h0]; const pi = h.indexOf('차량번호');
+      const h0 = rows.findIndex((r) => r.includes('차량번호') && r.some((c) => norm(c) === '차명(세부모델+트림)')); if (h0 < 0) continue; const h = rows[h0]; const pi = h.indexOf('차량번호');
       rows.slice(h0 + 1).forEach((r, k) => { if (norm(r[pi]) !== plate) return;
         console.log(`① 공급사 시트 ${s.name}(${s.code}) 「${title}」 ${h0 + 2 + k}행\n   원문: ${pick(h, r, RAW)}\n   정제칸: ${pick(h, r, REF)}`); });
     }

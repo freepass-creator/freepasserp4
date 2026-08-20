@@ -34,10 +34,11 @@ export async function fetchSalesInventorySheet(input: {
     ? `영업자 상품리스트 탭 없음(gid ${pinnedGid})`
     : `영업자 상품리스트 탭 없음(${prefix}*)`);
   if (main.hidden) throw new Error(`숨김 영업자 상품리스트는 연동할 수 없습니다(${main.title})`);
+  // ★판매시트 기본 세팅은 탭 3개다(상품리스트·손오공구독·오플구독, 사장님 2026-08-19 확정).
+  //   「오플프로모션」은 그 뒤 없어졌다 — 있으면 읽고 없으면 오플구독 탭으로 갈음한다(없다고 연동을 막지 않는다).
   const required = [
     { key: 'sonogong', prefix: SALES_SONOGONG_TAB_PREFIX },
     { key: 'autoplusMain', prefix: SALES_AUTOPLUS_MAIN_TAB_PREFIX },
-    { key: 'autoplusPromo', prefix: SALES_AUTOPLUS_PROMO_TAB_PREFIX },
   ] as const;
   const selected = new Map(required.map((item) => [
     item.key,
@@ -48,11 +49,11 @@ export async function fetchSalesInventorySheet(input: {
 
   const sonogong = selected.get('sonogong')!;
   const autoplusMain = selected.get('autoplusMain')!;
-  const autoplusPromo = selected.get('autoplusPromo')!;
+  const autoplusPromo = tabs.find((tab) => !tab.hidden && tab.title.startsWith(SALES_AUTOPLUS_PROMO_TAB_PREFIX)) || autoplusMain;
   // 네 탭을 같은 Grid 스냅샷으로 읽어 갱신 도중 서로 다른 시점의 재고가 섞이지 않게 한다.
   const grid = await fetchVisibleGoogleSheetGrid(
     spreadsheetId,
-    [main.gid, sonogong.gid, autoplusMain.gid, autoplusPromo.gid],
+    [...new Set([main.gid, sonogong.gid, autoplusMain.gid, autoplusPromo.gid])],
   );
   const canonicalOptions = {
     // 상품리스트·손오공구독의 필터/행 숨김은 영업자의 조회 상태일 뿐 삭제 지시가 아니다.

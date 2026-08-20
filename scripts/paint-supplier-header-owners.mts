@@ -52,7 +52,7 @@ for (const t of targets) {
     if (p.hidden || isOurNonInventoryTab(title)) continue;
     const v = await call(`${SH}/${t.id}/values/${encodeURIComponent(`'${title.replace(/'/g, "''")}'!A1:BZ1`)}`) as { values?: string[][] };
     const header = ((v.values || [])[0] || []).map(S);
-    if (!header.some((c) => norm(c) === '차명(트림)')) continue;
+    if (!header.some((c) => norm(c) === '차명(세부모델+트림)')) continue;
     const reqs = buildHeaderOwnerColors(p.sheetId, header.map((name) => ({ name })));
     console.log(`  ${APPLY ? '✓' : '→'} ${t.name.padEnd(10)} 「${title}」 보라 머리 ${reqs.length}칸`);
     if (!APPLY || !reqs.length) continue;

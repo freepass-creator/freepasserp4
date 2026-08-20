@@ -6,7 +6,7 @@
  *
  * ★**빈 칸만** 채운다. 값이 있으면 손대지 않는다.
  * ★지어내지 않는다 — 근거가 있는 것만 채운다.
- *     제조사  차명(트림)에 든 모델 이름을 **차종마스터**에서 찾아 그 제조사를 쓴다.
+ *     제조사  차명(세부모델+트림)에 든 모델 이름을 **차종마스터**에서 찾아 그 제조사를 쓴다.
  *     연식    최초등록일의 연도(「22-03」 → 2022). 최초등록일이 없으면 비워 둔다.
  *     분류    주행거리로 신차/중고를 가르고(1,000km 미만이면 신차), 렌트/구독은
  *             같은 시트의 다른 줄이 쓰는 쪽을 따른다. 그것도 없으면 렌트로 둔다.
@@ -93,7 +93,7 @@ for (const f of files) {
   const rows = ((vals.values || []) as string[][]);
   const hdr = (rows[0] || []).map(S);
   const i = (n: string) => hdr.indexOf(n);
-  const iPlate = i('차량번호'); const iMaker = i('제조사'); const iName = i('차명(트림)');
+  const iPlate = i('차량번호'); const iMaker = i('제조사'); const iName = i('차명(세부모델+트림)');
   const iYear = i('연식'); const iFirst = i('최초등록일'); const iType = i('분류'); const iKm = i('주행거리');
   if (iPlate < 0) continue;
   const body = rows.slice(1);

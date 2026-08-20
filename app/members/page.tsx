@@ -46,6 +46,7 @@ import { parseDepositRule } from '@/lib/domain/sheet-import';
 import { isAutoplusPartner } from '@/lib/domain/sheet-autoplus';
 import { canIssueContract, partnerUsesFreepassContract } from '@/lib/domain/policy-tier';
 import { PartnerPolicyEditor } from '@/components/PartnerPolicyEditor';
+import { ESIGN_RESUME_URL } from '@/lib/domain/policy-navigation';
 import { isContractAvailableVehicle } from '@/lib/domain/esign-vehicle-selection';
 import { isStockedProduct } from '@/lib/domain/product';
 import { missingProviderContractIdentity, providerContractIdentity } from '@/lib/domain/esign-template-profile';
@@ -200,6 +201,8 @@ export default function Members() {
   };
   // ?partner=코드 — 정책 편집(/policy?provider=…)에서 「파트너사관리로」 돌아오면 그 공급사가 열린 채로(사장님 2026-08-19).
   const requestedPartner = String(searchParams.get('partner') || '').trim();
+  /** 전자계약 작성 중에 고치러 온 경우 — 다 고치면 그 계약으로 돌아간다(초안은 세션에 있다). */
+  const returnToEsign = searchParams.get('return') === 'esign';
   const partnerParamApplied = useRef('');
   useEffect(() => {
     if (!ok || tab !== 'partner' || !requestedPartner || !rows.length) return;
@@ -1294,6 +1297,14 @@ export default function Members() {
 
   return (
     <>
+      {returnToEsign ? (
+        <div style={{ padding: '8px 12px' }}>
+          <Message variant="info">
+            전자계약 작성 중입니다 — 여기서 고치고 돌아가면 작성하던 내용이 그대로 이어집니다.{' '}
+            <Btn size="sm" href={ESIGN_RESUME_URL}>← 작성 중이던 전자계약으로</Btn>
+          </Message>
+        </div>
+      ) : null}
       <WorkPage title={tab === 'partner' ? NAV_LABEL.partners : NAV_LABEL.members} listCount={shown.length} list={listEl} panes={panes} selected={!!sel} onBack={clearSel}
         contextTitle={sel ? (creating ? (tab === 'user' ? '가입회원 연결' : '신규 파트너사') : String(form.name || form.partner_code || form.user_code || '')) : undefined}
         actions={editActions}

@@ -80,7 +80,7 @@ for (const t of suppliers) {
     const title = S(sh.properties?.title); if (sh.properties?.hidden || isOurNonInventoryTab(title)) continue;
     const v = await call(`${SH}/${t.id}/values/${encodeURIComponent(`'${title.replace(/'/g, "''")}'!A1:BZ700`)}`) as { values?: string[][] };
     const rows = ((v.values || []) as string[][]).map((r) => r.map(S));
-    const h = rows.findIndex((r) => r.includes('차량번호') && r.some((c) => norm(c) === '차명(트림)')); if (h < 0) continue;
+    const h = rows.findIndex((r) => r.includes('차량번호') && r.some((c) => norm(c) === '차명(세부모델+트림)')); if (h < 0) continue;
     const hdr = rows[h]; const pi = hdr.indexOf('차량번호'); const di = hdr.findIndex((c) => norm(c) === '입고일자'); if (di < 0) continue;
     const updates: { range: string; values: string[][] }[] = [];
     rows.slice(h + 1).forEach((r, k) => {

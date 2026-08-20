@@ -29,7 +29,7 @@ const auth = new JWT({ email: S(sa.client_email), key: S(sa.private_key),
 const token = (await Promise.race([auth.getAccessToken(),
   new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Google OAuth timeout')), 30_000))])).token;
 const base = `https://sheets.googleapis.com/v4/spreadsheets/${DEFAULT_PRODUCT_MASTER_SHEET_ID}`;
-const range = encodeURIComponent(`'${PRODUCT_MASTER_TAB}'!A:AX`);
+const range = encodeURIComponent(`'${PRODUCT_MASTER_TAB}'!A:AZ`);
 const api = async (url: string, init?: RequestInit) => {
   const response = await fetch(url, { ...init, headers: { Authorization: `Bearer ${token}`,
     'Content-Type': 'application/json', ...(init?.headers || {}) }, signal: AbortSignal.timeout(30_000) });

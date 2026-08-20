@@ -20,6 +20,7 @@
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { POLICY_TAB_ALIASES, POLICY_COLUMN_FIELDS, supplierSheetLabel } from '../lib/domain/supplier-template-sheet';
+import { policyUsableBy } from '../lib/domain/policy-access';
 import { COMPANY_INFO_TAB_TITLE } from '../lib/domain/company-info-sheet';
 import { readPolicyTab } from '../lib/domain/supplier-policy-read';
 import { companyInfoToPartner, foldPolicyValue, sheetPolicyToErp } from '../lib/domain/policy-sheet-to-erp';
@@ -88,15 +89,39 @@ let same = 0, blanks = 0, missingInErp = 0, writes = 0;
 const backup: Rec = { at: new Date().toISOString(), policies: {}, partners: {} };
 const labelOf = new Map(POLICY_COLUMN_FIELDS.map((c) => [c.field, c.name]));
 
+/**
+ * 한 문서를 «법인 여럿»이 나눠 쓴다(2026-08-20) — 스타/스카이 · 경진카/경진렌트 · 빌린카/엘씨.
+ * 파일 이름으로 공급사를 하나만 고르면 둘째 법인 정책이 통째로 안 들어온다.
+ * 그래서 그 문서를 가리키는 파트너를 «모두» 찾고, 각자 `policy_tab`(gid) 탭만 읽는다.
+ */
+const ownersOf = (fileId: string, fallbackCode: string): { code: string; policyTab: string }[] => {
+  const list = Object.values<Rec>(partners)
+    .filter((p) => !dead(p) && S(p.sheet_url).includes(fileId))
+    .map((p) => ({ code: S(p.partner_code) || S(p._key), policyTab: S(p.policy_tab) }));
+  if (list.length) return list;
+  return fallbackCode ? [{ code: fallbackCode, policyTab: '' }] : [];
+};
+
 for (const f of ((found.files || []) as Rec[])) {
+  // 폐기 표시된 옛 시트는 안 읽는다 — 이름에 「프리패스 재고」가 남아 있어 그냥 두면 옛 정책이 다시 들어온다
+  if (/\[구버전[·・]?폐기\]/.test(S(f.name))) continue;
   const who = supplierSheetLabel(f.name);
-  const code = codeOf(who);
-  if (!code) { console.log(`  △ ${who.padEnd(12)} 파트너를 못 찾음 — 건너뜀`); continue; }
+  const owners = ownersOf(S(f.id), codeOf(who));
+  if (!owners.length) { console.log(`  △ ${who.padEnd(12)} 파트너를 못 찾음 — 건너뜀`); continue; }
+  let titleByGid = new Map<string, string>();
+  if (owners.some((o) => o.policyTab)) {
+    const meta = await api(`https://sheets.googleapis.com/v4/spreadsheets/${S(f.id)}?fields=sheets(properties(title,sheetId))`);
+    titleByGid = new Map(((meta.sheets || []) as Rec[]).map((sh) => [String(sh.properties?.sheetId), S(sh.properties?.title)]));
+  }
+
+ for (const owner of owners) {
+  const code = owner.code;
   if (ONLY && code !== ONLY) continue;
 
-  // ── 운영정책
+  // ── 운영정책 — 그 법인의 탭만(gid). 없으면 옛 이름들로 찾는다.
   let rows: string[][] = [];
-  for (const tab of POLICY_TAB_ALIASES) {
+  const tabs = [titleByGid.get(owner.policyTab), ...POLICY_TAB_ALIASES].filter(Boolean) as string[];
+  for (const tab of tabs) {
     try { const v = await api(`https://sheets.googleapis.com/v4/spreadsheets/${S(f.id)}/values/${encodeURIComponent(`'${tab}'`)}`); if (v?.values?.length) { rows = v.values; break; } } catch { /* 다음 별칭 */ }
   }
   const book = readPolicyTab(rows);
@@ -105,7 +130,8 @@ for (const f of ((found.files || []) as Rec[])) {
     if (!pc) continue;   // (프리패스 기본)
     const erp = Object.values<Rec>(policies).find((x) => !dead(x) && (S(x.policy_code) === pc || S(x._key) === pc));
     if (!erp) { missingInErp++; console.log(`  ★ ${who.padEnd(12)} 정책 「${pc}」 가 ERP 에 없다 — 정책관리에서 먼저 만든다`); continue; }
-    if (S(erp.provider_company_code) && S(erp.provider_company_code) !== code) { console.log(`  ⛔ ${who.padEnd(12)} 정책 「${pc}」 는 다른 회사(${erp.provider_company_code}) 것 — 건너뜀`); continue; }
+    // 관계사라 같이 쓰는 정책(`shared_with`)은 통과시킨다 — 아니면 남의 회사 정책이라 건너뛴다
+    if (S(erp.provider_company_code) && !policyUsableBy(erp, code)) { console.log(`  ⛔ ${who.padEnd(12)} 정책 「${pc}」 는 다른 회사(${erp.provider_company_code}) 것 — 건너뜀`); continue; }
     const { patch, review, blank } = sheetPolicyToErp(row);
     b += blank; blanks += blank;
     review.forEach((r) => reviews.push(`${who} · ${pc} · ${r.name}: 「${r.raw}」 — ${r.note}`));
@@ -127,7 +153,9 @@ for (const f of ((found.files || []) as Rec[])) {
     }
   }
   const pcs = [...book.keys()].filter(Boolean);
-  console.log(`  ${who.padEnd(12)}정책 ${pcs.length}개 · 칸 ${n} — 같음 ${n - d - fill} · 다름 ${d} · ERP 빈칸 ${fill} · 시트 빈칸 ${b}`);
+  // 한 문서에 법인이 둘이면 파일 이름만으론 어느 쪽인지 모른다 — 코드를 같이 찍는다
+  const tag = owners.length > 1 ? `${who}(${code})` : who;
+  console.log(`  ${tag.padEnd(16)}정책 ${pcs.length}개 · 칸 ${n} — 같음 ${n - d - fill} · 다름 ${d} · ERP 빈칸 ${fill} · 시트 빈칸 ${b}`);
 
   // ── 회사정보 → 파트너
   try {
@@ -154,6 +182,7 @@ for (const f of ((found.files || []) as Rec[])) {
       }
     }
   } catch { /* 회사정보 탭 없음 */ }
+ }
 }
 
 const fills = diffs.filter((x) => x.kind === '빈칸채움').length;

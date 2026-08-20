@@ -120,7 +120,7 @@ const result = importAutoplusTables({
 });
 
 const targetValues = process.argv.includes('--compare-target')
-  ? await sheetValues(token, TARGET_SHEET_ID, '상품마스터!A1:AX1000')
+  ? await sheetValues(token, TARGET_SHEET_ID, '상품마스터!A1:AZ1000')
   : [];
 const normalize = (value: unknown) => String(value ?? '').replace(/\s+/g, '').trim();
 const sourceRowsByPlate = new Map<string, { tab: string; headers: string[]; row: string[] }>();

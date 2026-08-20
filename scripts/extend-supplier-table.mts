@@ -50,7 +50,7 @@ for (const t of targets) {
     const p = sh.properties; const title = S(p.title);
     if (p.hidden || isOurNonInventoryTab(title)) continue;
     const hdr = (((await call(`${SH}/${t.id}/values/${encodeURIComponent(`'${title.replace(/'/g, "''")}'!A1:BZ1`)}`) as { values?: string[][] }).values || [])[0] || []).map(S);
-    if (!hdr.some((c) => c.replace(/\s/g, '') === '차명(트림)') || !hdr.includes('차량번호')) continue;
+    if (!hdr.some((c) => c.replace(/\s/g, '') === '차명(세부모델+트림)') || !hdr.includes('차량번호')) continue;
     const width = hdr.length;
     const table = ((sh.tables || []) as Rec[])[0];
     if (!table) { noTable++; console.log(`  · ${t.name.padEnd(10)} 「${title}」 표 없음(그대로)`); continue; }

@@ -23,17 +23,17 @@ const FRAME_H = 720;
  * ⚠ 웹에서만 — 모바일은 링크를 그냥 열면 그게 손님 화면이다.
  * ⚠ 하단독(sticky/transform) 안에서 쓰이므로 모달은 body 로 포털한다 — 안 그러면 fixed 가 독 안에 갇혀 안 보인다.
  */
-export function CustomerPreviewButton({ p }: { p: EntityRecord }) {
+export function CustomerPreviewButton({ p, full }: { p: EntityRecord; full?: boolean }) {
   const [open, setOpen] = useState(false);
   const a = actor(getRole());
   const url = guestShareUrl(p, a.code || a.uid);
   const copy = () => { void copyText(url).then((ok) => toast(ok ? '손님용 매물 링크 복사됨' : '링크를 복사하지 못했습니다', ok ? 'ok' : 'error')); };
   return (
     <>
-      <Btn title="손님 화면 미리보기" variant="ghost" size="sm" onClick={() => setOpen(true)}>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+      <Btn title="손님 화면 미리보기" variant="ghost" size={full ? 'md' : 'sm'} full={full} onClick={() => setOpen(true)}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: full ? 6 : 5 }}>
           <Smartphone size={ICON.md} aria-hidden />
-          손님 화면
+          {full ? '손님 화면으로 보기' : '손님 화면'}
         </span>
       </Btn>
       {open && typeof document !== 'undefined' && createPortal(

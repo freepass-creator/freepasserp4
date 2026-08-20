@@ -17,7 +17,7 @@ const dead = (p: Rec) => p?._deleted === true || !!p?.deletedAt || S(p?.status) 
  * 크롤러는 로그인하지 않으므로 데이터는 서비스계정으로 읽는다. 제목·가격 외에는 내보내지 않는다.
  */
 /**
- * 견적 링크는 **뿌리는 것**이지 **찾아지는 것**이 아니다.
+ * 상품 안내 링크는 **뿌리는 것**이지 **찾아지는 것**이 아니다.
  *
  * 담당자가 손님에게 보내는 링크다. 검색에 걸리면 그 손님에게 제시한 차·금액이 아무나
  * 검색해 볼 수 있는 것이 된다. noindex 는 검색 색인만 막고 **카톡·문자 미리보기(OG)는
@@ -67,7 +67,7 @@ export async function generateMetadata(
   const { code } = await params;
   const key = decodeURIComponent(String(code));
   const product = await loadProduct(key);
-  if (!product) return { title: '렌터카 견적', robots: NO_INDEX };
+  if (!product) return { title: '렌터카 상품 안내', robots: NO_INDEX };
 
   const name = vehicleName(product) || S((product as Rec).car_number);
   const rent = cheapestRent(product);
@@ -81,12 +81,12 @@ export async function generateMetadata(
   const image = await firstImage(origin, S((product as Rec).photo_link));
 
   return {
-    title: `${name} · 렌터카 견적`,
-    description: parts.join(' · ') || '장기렌터카 견적',
+    title: `${name} · 상품 안내`,
+    description: parts.join(' · ') || '장기렌터카 상품 안내',
     robots: NO_INDEX,
     openGraph: {
-      title: `${name} · 렌터카 견적`,
-      description: parts.join(' · ') || '장기렌터카 견적',
+      title: `${name} · 상품 안내`,
+      description: parts.join(' · ') || '장기렌터카 상품 안내',
       type: 'website',
       ...(image ? { images: [{ url: image }] } : {}),
     },

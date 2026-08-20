@@ -33,7 +33,7 @@ const dataRow = (plate: string, status: string, rent: string) => {
   set('차량번호', plate); set('상태', status); set('분류', '중고렌트');
   set('제조사', '현대');
   // 차명 한 칸에 트림까지 — 표준양식이 권하는 방식 그대로 시험한다.
-  set('차명(트림)', '쏘나타 디 엣지 DN8 2.0 가솔린 인스퍼레이션');
+  set('차명(세부모델+트림)', '쏘나타 디 엣지 DN8 2.0 가솔린 인스퍼레이션');
   set('연식', '2024'); set('연료', '가솔린'); set('주행거리', '12000');
   set('외부색상', '흰색'); set('내부색상', '검정'); set('사진링크', 'https://drive.google.com/drive/folders/abc');
   set('정책코드', 'POL-0047');

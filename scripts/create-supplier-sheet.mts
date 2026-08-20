@@ -99,7 +99,7 @@ const rows = src.map(({ row, hdr, photo }) => {
   put('상태', canonSheetVehicleStatus(pick('vehicle_status')));
   put('분류', S(canonProductType(pick('product_type'))) || pick('product_type'));
   put('제조사', pick('maker'));
-  put('차명(트림)', [pick('sub_model') || pick('model'), pick('trim_name')].filter(Boolean).join(' ').trim());
+  put('차명(세부모델+트림)', [pick('sub_model') || pick('model'), pick('trim_name')].filter(Boolean).join(' ').trim());
   put('옵션', pick('options'));
   put('외부색상', pick('ext_color'));
   put('내부색상', pick('int_color'));

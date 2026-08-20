@@ -9,7 +9,7 @@
  *     ⚠ 그중 **웰릭스 재고탭에 실제로 있는 열만** 표준으로 본다(웰릭스가 표준) — 6개월·18개월·72개월 같은 규격 예비열은 표준에서 뺀다.
  *   · 표준 밖 열(6개월·18개월·차종·구독 블록…)은 **지우지 않고** 원래 왼쪽 이웃 뒤에 그대로 붙여 둔다.
  *   · 열을 옮길 뿐이다 — `moveDimension` 이라 값·서식·드롭다운·너비가 열과 함께 간다. 셀을 다시 쓰지 않는다.
- *   · 「차명(트림)」이 머리행에 있는 탭(재고·렌트재고·구독재고·재렌트…)만 대상. 정책·AI 인계는 안 건드린다.
+ *   · 「차명(세부모델+트림)」이 머리행에 있는 탭(재고·렌트재고·구독재고·재렌트…)만 대상. 정책·AI 인계는 안 건드린다.
  * 안전
  *   · 쓰기 전 머리행·전체 값을 `tmp/unify-columns-backup-<이름>-<탭>-<때>.json` 에 뜬다.
  *   · 옮긴 뒤 머리행을 되읽어 목표와 같은지 대조한다. 다르면 그 탭 이름을 화면에 찍는다(값은 그대로다 — 열만 움직였다).
@@ -30,7 +30,7 @@ const arg = (k: string, d = '') => (process.argv.find((a) => a.startsWith(`--${k
 const APPLY = process.argv.includes('--apply');
 const ONE = arg('sheet');
 const BASE = arg('base', '1T9az8BfEpM-QUllo5Sr2VxOcJBy3UvXPAvkuGy4C6hI');   // 웰릭스 프리패스 재고
-const MARK = '차명(트림)';
+const MARK = '차명(세부모델+트림)';
 
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 const jwt = new JWT({ email: sa.client_email, key: sa.private_key,

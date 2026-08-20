@@ -1,5 +1,5 @@
 /**
- * 손오공 「모델명」 칸 채우기 — 정제칸 「모델」 있으면 그걸, 없으면 차명(트림)에서 스냅.
+ * 손오공 「모델명」 칸 채우기 — 정제칸 「모델」 있으면 그걸, 없으면 차명(세부모델+트림)에서 스냅.
  * 기본 dry-run, 반영은 --apply. 이미 값이 있으면 덮지 않음(--overwrite 만 덮음).
  *
  *   npx tsx scripts/fill-sonogong-model-column.mts
@@ -17,7 +17,7 @@ const APPLY = process.argv.includes('--apply');
 const OVERWRITE = process.argv.includes('--overwrite');
 const SHEET_ID = '1WIFn5ObK_nCVGLTjj6rO96i6vxub1QzJmiVW0BpJLcA';
 const COL = '모델명';
-const NAME = '차명(트림)';
+const NAME = '차명(세부모델+트림)';
 const REFINE = '모델';
 const MAKER = '제조사';
 

@@ -135,12 +135,12 @@ const byCode = new Map<string, Rec & { sheet_urls: string[] }>();
 
 // ── 상품마스터 + 매뉴얼
 const base = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}`;
-const liveResp = await api(`${base}/values/${encodeURIComponent(`'${PRODUCT_MASTER_TAB}'!A:AX`)}`) as { values?: unknown[][] };
+const liveResp = await api(`${base}/values/${encodeURIComponent(`'${PRODUCT_MASTER_TAB}'!A:AZ`)}`) as { values?: unknown[][] };
 const masterValues = (liveResp.values || []).map((row) => row.map((c) => String(c ?? '')));
 const headers = (masterValues[0] || []).map(S);
 if (headers.length !== PRODUCT_MASTER_COLUMNS.length
   || PRODUCT_MASTER_COLUMNS.some((name, i) => headers[i] !== name)) {
-  throw new Error('상품마스터 A:AX 헤더 불일치');
+  throw new Error('상품마스터 A:AZ 헤더 불일치');
 }
 const col = (name: string) => headers.indexOf(name);
 const manualResp = await api(`${base}/values/${encodeURIComponent(`'${PRODUCT_MASTER_MANUAL_TAB}'!A:Z`)}`) as { values?: unknown[][] };
@@ -328,7 +328,7 @@ const colLetter = (index: number) => {
 
 if (APPLY) {
   // CAS: 차량번호·최종갱신 재조회
-  const fresh = await api(`${base}/values/${encodeURIComponent(`'${PRODUCT_MASTER_TAB}'!A:AX`)}`) as { values?: unknown[][] };
+  const fresh = await api(`${base}/values/${encodeURIComponent(`'${PRODUCT_MASTER_TAB}'!A:AZ`)}`) as { values?: unknown[][] };
   const freshValues = fresh.values || [];
   for (const plan of allPlans) {
     if (plan.kind === 'append') {
@@ -359,7 +359,7 @@ if (APPLY) {
     });
   }
   if (appendRows.length) {
-    await api(`${base}/values/${encodeURIComponent(`'${PRODUCT_MASTER_TAB}'!A:AX`)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, {
+    await api(`${base}/values/${encodeURIComponent(`'${PRODUCT_MASTER_TAB}'!A:AZ`)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, {
       method: 'POST',
       body: JSON.stringify({ values: appendRows }),
     });

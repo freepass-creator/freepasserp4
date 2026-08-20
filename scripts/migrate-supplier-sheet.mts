@@ -297,7 +297,7 @@ async function migrateOne(code: string, o: { apply: boolean; useTarget: boolean 
      */
     // 차명 조립은 `vehicle-defaults.composeVehicleName` 하나만 쓴다 —
     // 스크립트마다 따로 이으면 같은 차가 곳곳에서 다르게 보인다.
-    set('차명(트림)', composeVehicleName(p as never, master as never[]));
+    set('차명(세부모델+트림)', composeVehicleName(p as never, master as never[]));
     set('연식', p.year);
     set('최초등록일', p.first_registration_date);
     set('연료', p.fuel_type);
@@ -348,7 +348,7 @@ async function migrateOne(code: string, o: { apply: boolean; useTarget: boolean 
 
   console.log(`\n  표준 표: ${rows.length}행 · ${TEMPLATE_COLUMNS.length}열`);
   const filled = (n: string) => rows.filter((r) => S(r[idx(n)])).length;
-  console.log('  채워진 칸 — ' + ['차량번호','상태','분류','제조사','차명(트림)','옵션','외부색상','내부색상','연식','주행거리','연료','배기량','인승','구동','정책코드','사진링크','차대번호']
+  console.log('  채워진 칸 — ' + ['차량번호','상태','분류','제조사','차명(세부모델+트림)','옵션','외부색상','내부색상','연식','주행거리','연료','배기량','인승','구동','정책코드','사진링크','차대번호']
     .map((n) => `${n} ${filled(n)}`).join(' · '));
   console.log(`  정책 — 연결된 매물 ${policySeeded}/${products.length} · 쓰는 정책 ${usedPolicies.size}종`);
   console.log('  요금     — ' + TEMPLATE_COLUMNS.filter((c) => /보증|개월|기타기간/.test(c.name))

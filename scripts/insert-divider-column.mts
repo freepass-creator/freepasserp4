@@ -48,7 +48,7 @@ else {
   targets = excludeMirrorSheets(targets);
 }
 console.log(`■ 구분선 열 넣기 + 정책코드 이동 ${APPLY ? '반영' : '미리보기'} — ${targets.length}곳`);
-const AI_FIRST = AI_TAIL_COLUMNS[0].name;   // 차종코드
+const AI_FIRST = '차종코드';   // 정제칸 첫 열(엔카 코드 2칸이 정책코드와 이 열 사이에 온다)
 let done = 0;
 for (const t of targets) {
   const meta = await call(`${SH}/${t.id}?fields=sheets.properties(sheetId,title,hidden,gridProperties(columnCount,rowCount))`);
@@ -56,7 +56,7 @@ for (const t of targets) {
     const p = sh.properties; const title = S(p.title);
     if (p.hidden || isOurNonInventoryTab(title)) continue;
     let hdr = (((await call(`${SH}/${t.id}/values/${encodeURIComponent(`'${title.replace(/'/g, "''")}'!A1:BZ1`)}`) as { values?: string[][] }).values || [])[0] || []).map(S);
-    if (!hdr.some((c) => norm(c) === '차명(트림)')) continue;
+    if (!hdr.some((c) => norm(c) === '차명(세부모델+트림)')) continue;
     const gid = p.sheetId;
     const steps: string[] = [];
     const reqs: Rec[] = [];

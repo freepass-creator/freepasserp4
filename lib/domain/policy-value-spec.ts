@@ -73,7 +73,8 @@ export const POLICY_VALUE_RULES: PolicyValueRule[] = [
   { name: '자손보상', kind: 'money', allowed: ['1천5백만원', '3천만원', '5천만원', '1억원', '미가입'], format: '금액 — 「1억원」·「5천만원」·「1천5백만원」. 「1.5억원」처럼 소수 억 금지 → 「1억5천만원」', examples: ['1억원', '1천5백만원'] },
   { name: '무보험보상', kind: 'enum', openEnum: true, allowed: ['없음', '1억원', '2억원', '3억원', '5억원'], format: '금액 또는 「없음」', examples: ['2억원', '없음'], synonyms: { '미가입': '없음', '없슴': '없음', '해당없음': '없음' } },
   { name: '기본주행', kind: 'km', allowed: ['연 10,000km', '연 15,000km', '연 20,000km', '연 25,000km', '연 30,000km', '연 40,000km', '무제한', '협의'], format: '「연 20,000km」 — 소문자 km·천 단위 쉼표. 「연간 2만Km」 금지', examples: ['연 20,000km', '연 30,000km'] },
-  { name: '정비', kind: 'enum', allowed: ['포함', '불포함', '협의'], format: '「포함 / 불포함 / 협의」', examples: ['불포함'], synonyms: { '미제공': '불포함', '미포함': '불포함', '제공': '포함', '포함됨': '포함' } },
+  // 사장님 2026-08-20 — 정비는 «있다/없다»가 아니라 «어디까지»다: 오일교환만 해 주는 곳이 많다. 프리패스 표준은 「미제공」.
+  { name: '정비', kind: 'enum', allowed: ['미제공', '연1회오일', '연2회오일', '제공', '협의'], format: '「미제공 / 연1회오일 / 연2회오일 / 제공 / 협의」', examples: ['미제공', '연2회오일'], synonyms: { '불포함': '미제공', '미포함': '미제공', '없음': '미제공', '포함': '제공', '포함됨': '제공', '정비포함': '제공', '연1회 오일': '연1회오일', '연 1회 오일': '연1회오일', '오일1회': '연1회오일', '연2회 오일': '연2회오일', '연 2회 오일': '연2회오일', '오일2회': '연2회오일' } },
   { name: '보증금분납', kind: 'enum', openEnum: true, allowed: ['불가', '가능', '2회까지', '3회까지', '4회까지', '6회까지', '협의'], format: '「가능 / 불가 / 협의」, 횟수가 정해져 있으면 「N회까지」', examples: ['가능', '2회까지'], synonyms: { ...YESNO_SYN, '2회': '2회까지', '3회': '3회까지' } },
   { name: '승계 가능여부', kind: 'enum', allowed: YESNO, format: '「가능 / 불가 / 협의」', examples: ['협의'], synonyms: YESNO_SYN },
   // 사장님 2026-08-19 — 「승계수수료 불가도 있고 · 50 100 200 300 400 500」
@@ -113,7 +114,14 @@ export const POLICY_VALUE_RULES: PolicyValueRule[] = [
   { name: '운전경력증명서', kind: 'check', allowed: [], format: '체크', examples: ['TRUE'] },
   { name: '소득자료(계좌)', kind: 'check', allowed: [], format: '체크', examples: ['TRUE'] },
   { name: '소득자료(기관)', kind: 'check', allowed: [], format: '체크', examples: ['TRUE'] },
-  { name: '기타서류', kind: 'text', allowed: [], format: '위 여섯 밖에 더 받는 서류 — 여럿이면 「·」로', examples: ['재직증명서 · 사업자등록증'] },
+  { name: '필요서류 1', kind: 'text', allowed: [], format: '체크 여섯 밖에 더 받는 서류 하나 — 「재직증명서」', examples: ['재직증명서', '사업자등록증', '건강보험 자격득실확인서'] },
+  { name: '필요서류 2', kind: 'text', allowed: [], format: '체크 여섯 밖에 더 받는 서류 하나 — 「재직증명서」', examples: ['재직증명서', '사업자등록증', '건강보험 자격득실확인서'] },
+  { name: '필요서류 3', kind: 'text', allowed: [], format: '체크 여섯 밖에 더 받는 서류 하나 — 「재직증명서」', examples: ['재직증명서', '사업자등록증', '건강보험 자격득실확인서'] },
+  { name: '필요서류 4', kind: 'text', allowed: [], format: '체크 여섯 밖에 더 받는 서류 하나 — 「재직증명서」', examples: ['재직증명서', '사업자등록증', '건강보험 자격득실확인서'] },
+  { name: '기타사항 1', kind: 'text', allowed: [], format: '위 항목에 없는 계약조건 하나 — 계약서 특약 칸에 그대로 실린다', examples: ['블랙박스 임의 탈거 시 손해배상', '연 2회 이상 사고 시 보험료 차액 부담'] },
+  { name: '기타사항 2', kind: 'text', allowed: [], format: '위 항목에 없는 계약조건 하나 — 계약서 특약 칸에 그대로 실린다', examples: ['블랙박스 임의 탈거 시 손해배상', '연 2회 이상 사고 시 보험료 차액 부담'] },
+  { name: '기타사항 3', kind: 'text', allowed: [], format: '위 항목에 없는 계약조건 하나 — 계약서 특약 칸에 그대로 실린다', examples: ['블랙박스 임의 탈거 시 손해배상', '연 2회 이상 사고 시 보험료 차액 부담'] },
+  { name: '기타사항 4', kind: 'text', allowed: [], format: '위 항목에 없는 계약조건 하나 — 계약서 특약 칸에 그대로 실린다', examples: ['블랙박스 임의 탈거 시 손해배상', '연 2회 이상 사고 시 보험료 차액 부담'] },
 
   // ── ③ 계약서 조문
   { name: '자차수리비율', kind: 'percent', allowed: ['20%', '30%', '50%'], format: '「20%」', examples: ['20%'] },
@@ -147,6 +155,7 @@ export const POLICY_VALUE_RULE_BY_NAME: Record<string, PolicyValueRule> = Object
 /** 정책 항목 이름 변경 이력 — 옛 머리글을 읽으면 새 이름으로 본다. */
 export const POLICY_FIELD_RENAMES: Record<string, string> = {
   '불가조건': '불가조건 1', // 사장님 2026-08-19 — 한 칸 → 4칸(1~4)
+  '기타서류': '필요서류 1', // 사장님 2026-08-20 — 한 칸 → 4칸(1~4)
   '추가운전자': '추가운전',
   '추가운전자 요금': '추가운전 요금',
   '대차 정책': '대차 제공', // 사장님 2026-08-19

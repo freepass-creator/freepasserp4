@@ -9,17 +9,18 @@
  *
  * ★시트와 다른 두 가지(ERP 원자가 하나라서) — 가상 키(`__…`)로 받아 저장 때 접는다
  *   · 불가조건 1~4  → `__disq_0..3` → disqualification_conditions 하나(「·」)
- *   · ⑩ 제출서류 체크 6 → `__docs`(칩, 「,」로 이음) · 기타서류 → `__docs_other` → esign_required_documents(JSON)
+ *   · ⑩ 제출서류 체크 6 → `__docs`(칩, 「,」로 이음) · 필요서류 1~4 → `__doc_extra_0..3` → esign_required_documents(JSON)
  */
 import { ENTITIES, type Field } from '@/lib/intake/entities';
 import {
-  POLICY_DISQUALIFICATION_COLUMNS, POLICY_DOCUMENT_CHECKS, POLICY_DOCUMENT_OTHER, POLICY_SHEET_FIELDS, type PolicyPart,
+  POLICY_DISQUALIFICATION_COLUMNS, POLICY_DOCUMENT_CHECKS, POLICY_DOCUMENT_EXTRA_COLUMNS, POLICY_EXTRA_TERM_COLUMNS, POLICY_SHEET_FIELDS, type PolicyPart,
 } from './policy-sheet-layout';
 import { POLICY_COLUMN_FIELDS } from './supplier-template-sheet';
 
 export const DOC_CHECK_NAMES = POLICY_DOCUMENT_CHECKS.map((d) => d.name);
 export const VIRTUAL_DOCS_KEY = '__docs';
-export const VIRTUAL_DOCS_OTHER_KEY = '__docs_other';
+export const virtualDocExtraKey = (i: number) => `__doc_extra_${i}`;
+export const virtualExtraTermKey = (i: number) => `__extra_term_${i}`;
 export const virtualDisqKey = (i: number) => `__disq_${i}`;
 
 export type PartnerPolicyFormPart = { part: PolicyPart; fields: Field[] };
@@ -40,7 +41,10 @@ export function partnerPolicyFormParts(): PartnerPolicyFormPart[] {
         if (!docsAdded) { fields.push({ key: VIRTUAL_DOCS_KEY, label: '제출서류 (체크)', type: 'chips', options: [...DOC_CHECK_NAMES], manual: true, note: '체크한 서류를 전자계약 링크에서 손님에게 첨부 요청' }); docsAdded = true; }
         continue;
       }
-      if (sf.name === POLICY_DOCUMENT_OTHER) { fields.push({ key: VIRTUAL_DOCS_OTHER_KEY, label: sf.name, type: 'text', manual: true, note: sf.note }); continue; }
+      const termIndex = (POLICY_EXTRA_TERM_COLUMNS as readonly string[]).indexOf(sf.name);
+      if (termIndex >= 0) { fields.push({ key: virtualExtraTermKey(termIndex), label: sf.name, type: 'text', manual: true, note: sf.note }); continue; }
+      const extraIndex = (POLICY_DOCUMENT_EXTRA_COLUMNS as readonly string[]).indexOf(sf.name);
+      if (extraIndex >= 0) { fields.push({ key: virtualDocExtraKey(extraIndex), label: sf.name, type: 'text', manual: true, note: sf.note }); continue; }
       const key = nameToKey.get(sf.name);
       const ef = key ? byKey[key] : undefined;
       if (!ef) continue;

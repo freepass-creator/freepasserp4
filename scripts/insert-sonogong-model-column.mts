@@ -1,5 +1,5 @@
 /**
- * 손오공 제공시트만 — 「차명(트림)」 앞에 「모델명」 열 1칸 삽입.
+ * 손오공 제공시트만 — 「차명(세부모델+트림)」 앞에 「모델명」 열 1칸 삽입.
  * 기본 dry-run, 반영은 --apply.
  *
  *   npx tsx scripts/insert-sonogong-model-column.mts
@@ -15,8 +15,8 @@ const norm = (v: unknown) => S(v).replace(/\s+/g, '');
 const APPLY = process.argv.includes('--apply');
 const SHEET_ID = '1WIFn5ObK_nCVGLTjj6rO96i6vxub1QzJmiVW0BpJLcA'; // 손오공 제공시트
 const COLUMN = '모델명';
-const BEFORE = '차명(트림)';
-const NOTE = '공급사가 적는 모델(예: 아반떼 · 그랜저). 차명(트림)은 세부 표기 그대로.';
+const BEFORE = '차명(세부모델+트림)';
+const NOTE = '공급사가 적는 모델(예: 아반떼 · 그랜저). 차명(세부모델+트림)은 세부 표기 그대로.';
 
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 const jwt = new JWT({

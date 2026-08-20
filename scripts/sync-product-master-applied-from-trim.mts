@@ -58,13 +58,13 @@ const api = async (url: string, init?: RequestInit) => {
 };
 
 const base = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}`;
-const range = encodeURIComponent(`'${PRODUCT_MASTER_TAB}'!A:AX`);
+const range = encodeURIComponent(`'${PRODUCT_MASTER_TAB}'!A:AZ`);
 const live = await api(`${base}/values/${range}`) as { values?: unknown[][] };
 const values = live.values || [];
 const headers = (values[0] || []).map(S);
 if (headers.length !== PRODUCT_MASTER_COLUMNS.length
   || PRODUCT_MASTER_COLUMNS.some((name, index) => headers[index] !== name)) {
-  throw new Error('상품마스터 A:AX 헤더 불일치');
+  throw new Error('상품마스터 A:AZ 헤더 불일치');
 }
 
 const plan = planProductMasterAppliedNamesFromTrim({ values, byKey });

@@ -21,7 +21,8 @@ assert.equal(normalizeEsignRequiredDocuments(Array.from({ length: 20 }, (_, inde
   key: `doc_${index}`, label: `서류 ${index}`, required: true,
 }))).length, MAX_ESIGN_REQUIRED_DOCUMENTS);
 
-const read = (path: string) => readFileSync(path, 'utf8');
+// ⚠ 줄끝 정규화 — core.autocrlf=true 라 체크아웃하면 CRLF 로 깔린다. 소스 문자열 단언이 줄끝에 걸려 깨지면 안 된다(2026-08-20).
+const read = (path: string) => readFileSync(path, 'utf8').replace(/\r\n/g, '\n');
 const server = read('lib/server/freepass-esign.ts');
 const publicRoute = read('app/api/freepass-esign/public/[token]/route.ts');
 const uploadRoute = read('app/api/freepass-esign/public/[token]/supporting-document/[docKey]/route.ts');

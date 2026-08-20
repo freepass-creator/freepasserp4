@@ -40,7 +40,7 @@ export const USE_COLOR: Record<PolicyUse, string> = {
  *   계약서 «읽는 순서»와 다르다 — 이건 «답하는 순서». `use`(쓰는 곳)는 그대로 «왜 채우나»다.
  *   정본 표: docs/POLICY_ITEMS_FINAL_2026-08-19.md §8.
  */
-export type PolicyPart = '분기' | '주행' | '운전자' | '돈' | '보험' | '정비' | '위반' | '승계' | '영업' | '서류';
+export type PolicyPart = '분기' | '주행' | '운전자' | '돈' | '보험' | '정비' | '위반' | '승계' | '영업' | '서류' | '기타';
 export const PART_LABEL: Record<PolicyPart, string> = {
   분기: '① 이 정책은 어떤 상품인가',
   주행: '② 주행·차량 이용 조건',
@@ -51,11 +51,12 @@ export const PART_LABEL: Record<PolicyPart, string> = {
   위반: '⑦ 위반·제재·해지',
   승계: '⑧ 승계',
   영업: '⑨ 영업 안내',
-  서류: '⑩ 제출서류 — 계약 때 손님이 내는 것(체크)',
+  서류: '⑩ 제출서류 — 계약 때 손님이 내는 것(체크 6 + 직접 입력 4)',
+  기타: '⑪ 기타사항 — 위 항목에 없는 계약조건(계약서에 실림)',
 };
 /** 파트 머리 색 — 눈으로 «어디까지가 한 묶음»인지. */
 export const PART_COLOR: Record<PolicyPart, string> = {
-  분기: 'D0DAF5', 주행: 'D9F0DC', 운전자: 'D6EBF7', 돈: 'FDE3C8', 보험: 'E6DAF5', 정비: 'EAF5D0', 위반: 'F8D4D4', 승계: 'EADBC8', 영업: 'E6E6E6', 서류: 'FFF2CC',
+  분기: 'D0DAF5', 주행: 'D9F0DC', 운전자: 'D6EBF7', 돈: 'FDE3C8', 보험: 'E6DAF5', 정비: 'EAF5D0', 위반: 'F8D4D4', 승계: 'EADBC8', 영업: 'E6E6E6', 서류: 'FFF2CC', 기타: 'DDEDE7',
 };
 
 export type PolicyField = { name: string; use: PolicyUse; part: PolicyPart; note: string };
@@ -70,7 +71,7 @@ export const POLICY_SHEET_FIELDS: PolicyField[] = [
   // ★맨 앞 = 심사(사장님 2026-08-19 「운영정책 맨 앞에 심사조건」). 영업자 화면 심사 뱃지 — 손님·계약서엔 안 나간다.
   { name: '심사조건', use: '상품시트', part: '분기', note: '무심사 / 소득확인 / 신용조회 — 영업자 화면 심사 뱃지. 손님·계약서엔 안 나감' },
   { name: '보험료', use: '상품시트', part: '분기', note: '보험료 포함 / 보험료 별도 — 「별도」면 ⑤ 보험 칸은 안 채운다' },
-  { name: '정비', use: '둘다', part: '분기', note: '포함 / 불포함 / 협의' },
+  { name: '정비', use: '둘다', part: '분기', note: '미제공 / 연1회오일 / 연2회오일 / 제공 / 협의 — 오일교환만 해 주는 곳은 「연N회오일」(사장님 2026-08-20)' },
   { name: '추가운전 인원', use: '둘다', part: '분기', note: '추가운전자 몇 명까지 — 「불가 / 1~5인까지 / 제한없음」(사장님 2026-08-19). 「불가」면 요금은 안 채운다. 고객 링크의 추가운전자 등록 칸 수' },
   { name: '보증금분납', use: '둘다', part: '분기', note: '불가 / 2회까지 / 3회까지 / 협의 — 정책은 가능 여부·최대 회차. 실제 회차는 계약서 만들 때 고른다' },
   { name: '승계 가능여부', use: '둘다', part: '분기', note: '가능 / 불가 / 협의 — 계약을 다른 사람에게 넘길 수 있나. 「가능」이면 승계수수료도' },
@@ -143,7 +144,15 @@ export const POLICY_SHEET_FIELDS: PolicyField[] = [
   { name: '운전경력증명서', use: '계약서', part: '서류', note: '체크 = 손님에게 받는다' },
   { name: '소득자료(계좌)', use: '계약서', part: '서류', note: '체크 = 통장 거래내역 등 계좌 소득자료' },
   { name: '소득자료(기관)', use: '계약서', part: '서류', note: '체크 = 소득금액증명원·건강보험 자격득실 등 기관 발급 소득자료' },
-  { name: '기타서류', use: '계약서', part: '서류', note: '위 여섯 밖에 더 받는 서류 — 여럿이면 「·」로' },
+  { name: '필요서류 1', use: '계약서', part: '서류', note: '위 여섯 밖에 더 받는 서류 1 — 한 칸에 하나씩 직접 적습니다(사장님 2026-08-20). 없으면 비움' },
+  { name: '필요서류 2', use: '계약서', part: '서류', note: '위 여섯 밖에 더 받는 서류 2 — 한 칸에 하나씩 직접 적습니다(사장님 2026-08-20). 없으면 비움' },
+  { name: '필요서류 3', use: '계약서', part: '서류', note: '위 여섯 밖에 더 받는 서류 3 — 한 칸에 하나씩 직접 적습니다(사장님 2026-08-20). 없으면 비움' },
+  { name: '필요서류 4', use: '계약서', part: '서류', note: '위 여섯 밖에 더 받는 서류 4 — 한 칸에 하나씩 직접 적습니다(사장님 2026-08-20). 없으면 비움' },
+  // ── ⑪ 기타사항 — 위 항목에 없는 계약조건을 그대로 적는 자리(사장님 2026-08-20). ★불가조건과 달리 **계약서에 실린다**(특약 칸).
+  { name: '기타사항 1', use: '계약서', part: '기타', note: '위 항목에 없는 계약조건 1 — 한 칸에 하나씩. 계약서 특약 칸에 그대로 실립니다' },
+  { name: '기타사항 2', use: '계약서', part: '기타', note: '위 항목에 없는 계약조건 2 — 한 칸에 하나씩. 계약서 특약 칸에 그대로 실립니다' },
+  { name: '기타사항 3', use: '계약서', part: '기타', note: '위 항목에 없는 계약조건 3 — 한 칸에 하나씩. 계약서 특약 칸에 그대로 실립니다' },
+  { name: '기타사항 4', use: '계약서', part: '기타', note: '위 항목에 없는 계약조건 4 — 한 칸에 하나씩. 계약서 특약 칸에 그대로 실립니다' },
 ];
 
 /**
@@ -192,8 +201,9 @@ export const POLICY_PREFILL: Record<string, string> = {
    *   바꾸려면 여기만 고친다(시트 여러 곳을 손으로 맞추지 않는다).
    */
   // ① 분기
+  심사조건: '무심사',   // 사장님 2026-08-20 — 프리패스 표준은 무심사(저신용·무심사 영업이 우리 자리)
   보험료: '보험료 포함',
-  정비: '불포함',
+  정비: '미제공',
   '추가운전 인원': '1인까지',
   보증금분납: '2회까지',
   '승계 가능여부': '가능',
@@ -249,7 +259,7 @@ export const POLICY_PREFILL: Record<string, string> = {
 
 /**
  * ⑩ 제출서류 체크 칸 → 전자계약 첨부 요청(esign_required_documents) 항목.
- *   시트에서 체크된 열만 서류 목록이 되고, 「기타서류」 글은 「·」「,」「/」로 나눠 항목이 된다.
+ *   시트에서 체크된 열 + 「필요서류 1~4」에 적은 글이 서류 목록이 된다.
  */
 export const POLICY_DOCUMENT_CHECKS: { name: string; key: string; note: string }[] = [
   { name: '본인서명사실확인서', key: 'self_signature_confirmation', note: '최근 3개월 이내 발급본을 첨부해 주세요.' },
@@ -259,7 +269,14 @@ export const POLICY_DOCUMENT_CHECKS: { name: string; key: string; note: string }
   { name: '소득자료(계좌)', key: 'income_bank', note: '급여가 들어오는 계좌의 최근 3개월 거래내역을 첨부해 주세요.' },
   { name: '소득자료(기관)', key: 'income_agency', note: '소득금액증명원 또는 건강보험 자격득실확인서 최근 발급본을 첨부해 주세요.' },
 ];
-export const POLICY_DOCUMENT_OTHER = '기타서류';
+/** 자유 입력 서류 4칸(사장님 2026-08-20) — 체크 6과 함께 esign_required_documents 하나로 접힌다. */
+export const POLICY_DOCUMENT_EXTRA_COLUMNS = ['필요서류 1', '필요서류 2', '필요서류 3', '필요서류 4'] as const;
+
+/**
+ * ⑪ 기타사항 4칸(사장님 2026-08-20) — 넷을 줄바꿈으로 이어 ERP 정책 `policy_extra_terms` 하나가 되고,
+ * 계약서 「특약 사항」 칸에 이 계약의 특약보다 **먼저** 실린다(정책에서 온 조건 → 이 계약의 합의 순).
+ */
+export const POLICY_EXTRA_TERM_COLUMNS = ['기타사항 1', '기타사항 2', '기타사항 3', '기타사항 4'] as const;
 
 /** 불가조건 칸 4개(사장님 2026-08-19) — 넷을 「·」로 이어 ERP 정책 disqualification_conditions 하나가 된다. */
 export const POLICY_DISQUALIFICATION_COLUMNS = ['불가조건 1', '불가조건 2', '불가조건 3', '불가조건 4'] as const;

@@ -365,7 +365,7 @@ export default function Settings() {
             />
             <div style={{ marginTop: 8, fontSize: FS.sub, color: C.faint, lineHeight: 1.45 }}>
               미로그인 데모용(영업·공급). 관리자 메뉴는 관리자 계정 로그인이 필요합니다.
-              손님 공유 링크는 카탈로그·견적(`/catalog`, `/q/…`)으로 전달하세요.
+              손님 공유 링크는 카탈로그·상품 안내(`/catalog`, `/q/…`)로 전달하세요.
             </div>
           </div>
         ) : null}

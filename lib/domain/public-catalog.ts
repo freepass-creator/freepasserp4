@@ -38,10 +38,12 @@ const PUBLIC_POLICY_FIELDS = [
   'annual_mileage', 'mileage_upcharge_per_10000km',
   'deposit_installment', 'deposit_card_payment', 'payment_method', 'payment_timing',
   'penalty_condition', 'rental_region', 'delivery_fee',
-  'basic_driver_age', 'driver_age_lowering', 'driver_age_upper_limit', 'license_period',
+  'basic_driver_age', 'driver_age_lowering', 'age_lowering_cost', 'driver_age_upper_limit', 'license_period',
   'personal_driver_scope', 'business_driver_scope',
   'additional_driver_allowance_count', 'additional_driver_cost',
   'maintenance_service',
+  // 사고 나면 손님이 가장 먼저 묻는 값 — 상세 「정비 · 대차」가 쓴다(2026-08-20).
+  'replacement_car_policy',
 ] as const;
 
 /** 손님에게 보여도 되는 매물 필드 — 차량 스펙과 대여 조건. */

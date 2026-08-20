@@ -40,7 +40,8 @@ const partOrder = [...new Set(POLICY_SHEET_FIELDS.map((f) => f.part))];
 assert.deepEqual(parts.map((p) => p.part), partOrder);
 const mapped = new Set(POLICY_COLUMN_FIELDS.map((c) => c.name));
 for (const sf of POLICY_SHEET_FIELDS) {
-  const virtualOk = /^불가조건 \d$/.test(sf.name) || DOC_CHECK_NAMES.includes(sf.name) || sf.name === '기타서류';
+  // 가상 키로 받는 칸 — 불가조건 1~4, 제출서류 체크 6, 필요서류 1~4(모두 ERP 원자 하나로 접힌다)
+  const virtualOk = /^(불가조건|필요서류|기타사항) \d$/.test(sf.name) || DOC_CHECK_NAMES.includes(sf.name);
   assert.ok(mapped.has(sf.name) || virtualOk, `시트 열 「${sf.name}」 이 ERP 원자에 안 붙어 있다`);
 }
 

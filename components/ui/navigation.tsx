@@ -64,6 +64,7 @@ export function BottomNav({
   zIndex = 45,
   backShowLabel = false,
   sticky = false,
+  gapTop,
 }: {
   actions?: React.ReactNode;
   maxWidth?: number;
@@ -76,6 +77,11 @@ export function BottomNav({
   zIndex?: number;
   /** 모바일 목록/이전에도 텍스트 라벨(swap 독). */
   backShowLabel?: boolean;
+  /**
+   * sticky 독 **위**의 여백. 본문 마지막 표와 독이 맞닿아 표의 일부처럼 보이는 걸 막는다.
+   * 페이지 하단 패딩으로 만들면 안 된다 — sticky 는 그만큼 위로 떠서 바가 브라우저 바닥에서 떨어진다.
+   */
+  gapTop?: number;
 }) {
   const mobile = useIsMobile();
   React.useEffect(() => {
@@ -126,7 +132,7 @@ export function BottomNav({
   };
   // sticky = 화면이 아니라 **자기가 속한 칼럼**을 따라다닌다. 옆에 보조 칼럼이 서서
   //  본문이 화면 중앙이 아닐 때 «상세 밑»을 지키는 유일한 방법이다(고정독은 화면 기준이라 어긋난다).
-  if (sticky) return <div className="fp-action-dock fp-action-dock--sticky" style={{ ...chrome, position: 'sticky', bottom: 0 }}>{inner}</div>;
+  if (sticky) return <div className="fp-action-dock fp-action-dock--sticky" style={{ ...chrome, position: 'sticky', bottom: 0, marginTop: gapTop }}>{inner}</div>;
   return (
     <div className="fp-action-dock" style={{
       ...chrome,

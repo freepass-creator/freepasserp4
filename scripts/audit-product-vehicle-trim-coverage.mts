@@ -558,7 +558,7 @@ export function assertProductMasterHeader(header: unknown[]): asserts header is 
   if (unexpected.length) throw new Error(`상품마스터 알 수 없는 열(${unexpected.join(', ')})`);
   if (cells.length !== PRODUCT_MASTER_COLUMNS.length
     || PRODUCT_MASTER_COLUMNS.some((name, index) => cells[index] !== name)) {
-    throw new Error('상품마스터 열 순서가 규격과 다릅니다(A:AX 50열)');
+    throw new Error('상품마스터 열 순서가 규격과 다릅니다(A:AZ 50열)');
   }
 }
 
@@ -1052,7 +1052,7 @@ async function loadLiveTable(sheetId: string): Promise<unknown[][]> {
   if (!tokenResponse.ok || !tokenBody.access_token) {
     throw new Error(tokenBody.error_description || `OAuth ${tokenResponse.status}`);
   }
-  const range = encodeURIComponent(`'${PRODUCT_MASTER_TAB}'!A:AX`);
+  const range = encodeURIComponent(`'${PRODUCT_MASTER_TAB}'!A:AZ`);
   const response = await fetch(
     `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}?valueRenderOption=FORMATTED_VALUE`,
     { headers: { Authorization: `Bearer ${tokenBody.access_token}` }, signal: AbortSignal.timeout(45_000) },

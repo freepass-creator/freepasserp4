@@ -3,7 +3,7 @@
  *
  * ★범위는 3축(모델·세부모델·세부트림) — 사장님 2026-08-18 확정. 코드는 3축이 확정되고 알려진 축과
  *   모순 없는 automatic 영구키가 하나일 때만(decision=CODE) 박는다.
- * - 이 스크립트는 읽기 전용이다. 라이브 상품마스터 A:AX 를 읽어 결정별 행·지문을 확인하고,
+ * - 이 스크립트는 읽기 전용이다. 라이브 상품마스터 A:AZ 를 읽어 결정별 행·지문을 확인하고,
  *   CODE 결정을 `apply-product-master-vehicle-coverage.mts` 가 받는 guarded 보고서(SAFE_CANDIDATE)로 내보낸다.
  *   실제 write 는 그 writer 가 CAS·스냅샷·재조회를 걸고 한다. 여기서 만든 보고서는 10분 안에 써야 한다.
  * - TRIPLE/PARTIAL/HOLD 는 코드 없이 요약만 낸다. 그 결정은 백로그 감사(`audit-product-vehicle-resolution-backlog`)가
@@ -86,11 +86,11 @@ const api = async (url: string) => {
   return JSON.parse(text) as Rec;
 };
 const base = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}`;
-const live = await api(`${base}/values/${encodeURIComponent(`'${PRODUCT_MASTER_TAB}'!A:AX`)}`) as { values?: unknown[][] };
+const live = await api(`${base}/values/${encodeURIComponent(`'${PRODUCT_MASTER_TAB}'!A:AZ`)}`) as { values?: unknown[][] };
 const values = live.values || [];
 const headers = (values[0] || []).map(S);
 if (headers.length !== PRODUCT_MASTER_COLUMNS.length || PRODUCT_MASTER_COLUMNS.some((name, index) => headers[index] !== name)) {
-  throw new Error('상품마스터 A:AX 헤더 불일치');
+  throw new Error('상품마스터 A:AZ 헤더 불일치');
 }
 const col = (name: (typeof PRODUCT_MASTER_COLUMNS)[number]) => PRODUCT_MASTER_COLUMNS.indexOf(name);
 const width = PRODUCT_MASTER_COLUMNS.length;

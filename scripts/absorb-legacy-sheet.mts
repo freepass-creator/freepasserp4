@@ -81,7 +81,7 @@ for (const p of stockTabs) {
   const title = S(p.title);
   const v = await call(`${SH}/${TO}/values/${encodeURIComponent(`'${title.replace(/'/g, "''")}'`)}`) as { values?: string[][] };
   const rows = ((v.values || []) as string[][]).map((r) => r.map(S));
-  const hi = rows.findIndex((r) => r.some((c) => norm(c) === '차명(트림)'));
+  const hi = rows.findIndex((r) => r.some((c) => norm(c) === '차명(세부모델+트림)'));
   if (hi !== 0) continue;
   const hdr = rows[0]; const pi = hdr.findIndex((h) => norm(h) === '차량번호'); if (pi < 0) continue;
   const plateRow = new Map<string, number>(); rows.slice(1).forEach((r, k) => { const pl = norm(r[pi]); if (pl && !plateRow.has(pl)) plateRow.set(pl, k + 1); });

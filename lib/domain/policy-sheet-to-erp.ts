@@ -5,13 +5,13 @@
  *   · 시트 열 이름 → ERP 필드는 supplier-template-sheet.POLICY_COLUMN_FIELDS 한 곳(정본).
  *   · 값은 시트 규격 글자 그대로 담는다(정책관리 선택지 = 시트 드롭다운, entities.sheetOpts). 숫자 칸(나이·일·회·원)만 숫자로 굳힌다.
  *   · **빈칸은 안 낸다** — 공급사가 아직 안 적은 칸으로 ERP 값을 지우지 않는다.
- *   · ⑩ 제출서류 체크 6칸 + 기타서류 → esign_required_documents(JSON) 하나로 접는다. 체크가 하나도 없고 기타도 비면 안 낸다.
+ *   · ⑩ 제출서류 체크 6칸 + 필요서류 1~4 → esign_required_documents(JSON) 하나로 접는다. 하나도 없으면 안 낸다.
  *   · 규격에 안 맞는 값(normalize 가 review)은 패치에 넣지 않고 review 로 돌려준다 — 사람이 본다.
  */
 import { ENTITIES } from '@/lib/intake/entities';
 import { COMPANY_INFO_FIELDS } from './company-info-sheet';
 import { serializeEsignRequiredDocuments, type EsignRequiredDocument } from './esign-required-documents';
-import { POLICY_DISQUALIFICATION_COLUMNS, POLICY_DOCUMENT_CHECKS, POLICY_DOCUMENT_OTHER } from './policy-sheet-layout';
+import { POLICY_DISQUALIFICATION_COLUMNS, POLICY_DOCUMENT_CHECKS, POLICY_DOCUMENT_EXTRA_COLUMNS, POLICY_EXTRA_TERM_COLUMNS } from './policy-sheet-layout';
 import { POLICY_FIELD_RENAMES, isCheckedValue, normalizePolicyValue } from './policy-value-spec';
 import { parseMoneyOrRate } from './policy-money-rate';
 import { POLICY_COLUMN_FIELDS } from './supplier-template-sheet';
@@ -71,17 +71,20 @@ export function sheetPolicyToErp(row: Map<string, string>): SheetPolicyPatch {
   // 불가조건 1~4 → 하나(사장님 2026-08-19 「불가조건 1 2 3 4로」). 빈칸은 건너뛰고 「·」로 잇는다.
   const disq = POLICY_DISQUALIFICATION_COLUMNS.map((n) => get(n)).filter(Boolean);
   if (disq.length) patch.disqualification_conditions = disq.join(' · ');
+  // 기타사항 1~4 → 하나. 계약서 특약 칸에 «한 줄에 하나»로 실리므로 줄바꿈으로 잇는다(사장님 2026-08-20).
+  const extra = POLICY_EXTRA_TERM_COLUMNS.map((n) => get(n)).filter(Boolean);
+  if (extra.length) patch.policy_extra_terms = extra.join('\n');
 
   // ⑩ 제출서류 — 체크 → esign_required_documents
   const docs: EsignRequiredDocument[] = POLICY_DOCUMENT_CHECKS
     .filter((d) => isCheckedValue(get(d.name)))
     .map((d) => ({ key: d.key, label: d.name, note: d.note, required: true }));
-  const other = get(POLICY_DOCUMENT_OTHER);
-  if (other) {
-    other.split(/[·,/\n]+/).map((x) => x.trim()).filter(Boolean).forEach((label, i) => {
-      docs.push({ key: `other_${i + 1}`, label: label.slice(0, 40), note: '', required: true });
+  // 필요서류 1~4 — 한 칸에 하나씩 직접 적은 것(사장님 2026-08-20). 한 칸에 「·」로 여럿을 적어도 갈라 읽는다.
+  POLICY_DOCUMENT_EXTRA_COLUMNS.forEach((name, i) => {
+    get(name).split(/[·,/\n]+/).map((x) => x.trim()).filter(Boolean).forEach((label, k) => {
+      docs.push({ key: `extra_${i + 1}${k ? `_${k + 1}` : ''}`, label: label.slice(0, 40), note: '', required: true });
     });
-  }
+  });
   if (docs.length) patch.esign_required_documents = serializeEsignRequiredDocuments(docs);
 
   return { patch, review, blank };

@@ -57,7 +57,7 @@ for (const t of targets) {
     if (p.hidden || isOurNonInventoryTab(title)) continue;
     const v = await call(`${SH}/${t.id}/values/${encodeURIComponent(`'${title.replace(/'/g, "''")}'`)}`) as { values?: string[][] };
     const rows = ((v.values || []) as string[][]).map((r) => r.map(S));
-    const hi = rows.findIndex((r) => r.some((c) => norm(c) === '차명(트림)'));
+    const hi = rows.findIndex((r) => r.some((c) => norm(c) === '차명(세부모델+트림)'));
     if (hi < 0) continue;
     const hdr = rows[hi];
     const mi = hdr.findIndex((h) => norm(h) === '제조사'); const ai = hdr.findIndex((h) => norm(h) === '제조사(정제)');

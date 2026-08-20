@@ -52,11 +52,11 @@ if (existingView && !REFRESH) {
 if (!existingView && (meta.sheets || []).some((sheet) => sheet.properties?.sheetId === VIEW_SHEET_ID)) {
   throw new Error(`예정 sheetId ${VIEW_SHEET_ID}가 이미 사용 중입니다.`);
 }
-const source = await api(`${base}/values/${encodeURIComponent(`'${PRODUCT_MASTER_TAB}'!A1:AX`)}?majorDimension=ROWS&valueRenderOption=UNFORMATTED_VALUE`) as { values?: unknown[][] };
+const source = await api(`${base}/values/${encodeURIComponent(`'${PRODUCT_MASTER_TAB}'!A1:AZ`)}?majorDimension=ROWS&valueRenderOption=UNFORMATTED_VALUE`) as { values?: unknown[][] };
 const sourceRows = source.values || [];
 const liveHeaders = (sourceRows[0] || []).map((value) => String(value ?? '').trim());
 if (PRODUCT_MASTER_COLUMNS.some((header, index) => liveHeaders[index] !== header)) {
-  throw new Error('상품마스터 A:AX 헤더가 코드 정본과 다릅니다.');
+  throw new Error('상품마스터 A:AZ 헤더가 코드 정본과 다릅니다.');
 }
 if (sourceColumns.some((column, index) => liveHeaders[columnIndex(column)] !== sourceHeaders[index])) {
   throw new Error('조회 탭 원본 열 매핑이 실제 헤더와 다릅니다.');
@@ -68,7 +68,7 @@ const selected = sourceColumns.map((column) => column === 'D'
   ? `REGEXREPLACE('${PRODUCT_MASTER_TAB}'!D2:D,"^20[0-9]{2}([ ]*~[ ]*20[0-9]{2})?[ ]+","")`
   : `'${PRODUCT_MASTER_TAB}'!${column}2:${column}`).join(',');
 const formula = `=ARRAYFORMULA(FILTER({IF((('${PRODUCT_MASTER_TAB}'!E2:E<>"확정")+('${PRODUCT_MASTER_TAB}'!J2:J<>"운영"))>0,"확인 필요","정상"),${selected}},'${PRODUCT_MASTER_TAB}'!A2:A<>""))`;
-const plan = { mode: APPLY ? 'apply' : 'dry_run', source: `${PRODUCT_MASTER_TAB}!A:AX`, sourceCount, viewTab: VIEW_TAB, columns: headers };
+const plan = { mode: APPLY ? 'apply' : 'dry_run', source: `${PRODUCT_MASTER_TAB}!A:AZ`, sourceCount, viewTab: VIEW_TAB, columns: headers };
 if (!APPLY) {
   console.log(JSON.stringify(plan, null, 2));
   process.exit(0);

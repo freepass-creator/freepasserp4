@@ -7,6 +7,8 @@ import { MAX_PROMO_BADGES as PROMO_MAX, PROMO_BADGES_ACTIVE, PROMO_BADGES_PLANNE
 import { fuelDisplay, fuelEmbeddedCc, yearDisplay, makerDisplay } from '@/lib/domain/vehicle-master-match';
 import { kmDisplay, ymdDisplay } from '@/lib/format';
 import { vehicleNameOf } from '@/lib/domain/vehicle-name';
+import { moneyOrRateText, moneyOrRatePercent, wonLabel } from '@/lib/domain/policy-money-rate';
+import { policyEsignRequiredDocuments } from '@/lib/domain/esign-required-documents';
 export { PROMO_BADGES, PROMO_BADGES_ACTIVE, PROMO_BADGES_PLANNED, MAX_PROMO_BADGES } from '@/lib/intake/entities';
 
 /**
@@ -563,13 +565,127 @@ export function vehicleTone(s: string): 'green' | 'blue' | 'amber' | 'gray' | 'r
 /* ── 매물 상세 = 정책 전면(원자단위). freepasserp3 product-detail-rows 이식 + audience 게이팅 ── */
 export type KvRow = [string, string];
 export type InsRow = [string, string, string]; // [구분, 보장한도, 면책금]
-// tier: main=손님·영업자 핵심(차량·대여료), sub=부가(보험·계약조건·기타). 상세에서 시각 구분.
+/**
+ * **영업자 패널 둘째 표 — 계약 단계 정책**(운영정책 시트 `use: 계약서`).
+ *
+ * 상담용(`agentPanelRows`)과 굳이 나누는 이유: 성격이 다르다.
+ *   상담용 = «이 손님이 되나, 얼마 드나» — 전화 받자마자 답해야 하는 값
+ *   계약용 = «계약하면 어떻게 되나» — 도장 찍기 전에 확인하는 값
+ * 한 표에 열몇 줄을 몰아 두면 상담 중에 위 여섯 줄을 못 찾는다(정책이 55열이라 계속 늘어난다).
+ *
+ * 손님 화면에는 안 나간다 — 이 값들은 계약서와 약관이 싣는다.
+ */
+export function agentContractRows(p: EntityRecord, audience: Audience = 'agent'): KvRow[] {
+  if (audience === 'customer') return [];
+  const pol = policyOf(p);
+  const rec = p as Record<string, unknown>;
+  const s = (k: string) => { const v = pol[k] ?? rec[k]; return v == null ? '' : String(v); };
+  const g = (a: unknown[]) => a.filter(Boolean).join(' · ');
+  // 제출서류 = 시트 체크 6 + 기타. 「무슨 서류 필요해요?」에 영업자가 바로 답해야 한다.
+  const docs = policyEsignRequiredDocuments(pol).map((d) => d.label).join(' · ');
+  /**
+   * 기간·횟수 칸은 **단위를 붙여 찍는다**(사장님 2026-08-20 「보증금반환 30은 30일 안에 해준다는건가?」).
+   * 규격(`policy-value-spec`)은 「N일」·「N회」로 쓰게 하고 **「숫자만 금지」**라고 못박았지만, 시트엔
+   * 숫자만 들어온 값이 있다. 그대로 찍으면 30일인지 30개월인지 모른다 — 위약금 `0.3` 과 같은 부류다.
+   * 값을 고치는 건 시트 쪽 일이고, 화면은 **읽을 수 있게** 만든다.
+   */
+  const unit = (k: string, u: string) => { const v = s(k); return v && /^\d+$/.test(v) ? `${v}${u}` : v; };
+  return [
+    ['결제', g([s('payment_method'), s('payment_timing'), s('payment_due_date') && `납부일 ${s('payment_due_date')}`])],
+    ['보증금 반환', unit('deposit_return_days', '일') && `반납 후 ${unit('deposit_return_days', '일')} 이내`],
+    ['법인 운전자범위', s('business_driver_scope')],
+    ['연체 제재', g([
+      unit('engine_control_overdue_days', '일') && `시동제어 ${unit('engine_control_overdue_days', '일')}`,
+      unit('auto_terminate_overdue_days', '일') && `회수 ${unit('auto_terminate_overdue_days', '일')}`,
+    ])],
+    ['사고 해지기준', unit('accident_termination_count', '회') && `1년 내 ${unit('accident_termination_count', '회')}`],
+    ['GPS', s('gps_installed')],
+    ['제출서류', docs],
+  ];
+}
+
+/**
+ * 섹션 무게 — 상세가 «다 똑같은 카드 다섯 장»으로 납작해지지 않게 하는 축.
+ *   main  = 손님·영업자 핵심(차량스펙·대여료). 카드가 떠 보인다.
+ *   sub   = 부가(보험·계약조건·기타). 선을 낮춰 가라앉힌다.
+ *   agent = 영업자 전용. **손님 화면(audience='customer')에서는 섹션째 만들어지지 않는다** —
+ *           숨기는 게 아니라 애초에 없다. 「모드 토글」로 가리면 손님 앞에서 잘못 눌러 새어 나간다.
+ */
+export type DetailTier = 'main' | 'sub' | 'agent';
 export type DetailSection =
-  | { title: string; hint?: string; tier?: 'main' | 'sub'; kind: 'kv'; rows: KvRow[]; chips?: string[]; chipsLabel?: string; chipsAfter?: number }
-  | { title: string; hint?: string; tier?: 'main' | 'sub'; kind: 'ins'; rows: InsRow[]; note?: string }
-  | { title: string; hint?: string; tier?: 'main' | 'sub'; kind: 'price' }
-  | { title: string; hint?: string; tier?: 'main' | 'sub'; kind: 'chips'; items: string[] };
+  | { title: string; hint?: string; tier?: DetailTier; kind: 'kv'; rows: KvRow[]; chips?: string[]; chipsLabel?: string; chipsAfter?: number }
+  | { title: string; hint?: string; tier?: DetailTier; kind: 'ins'; rows: InsRow[]; note?: string }
+  | { title: string; hint?: string; tier?: DetailTier; kind: 'price' }
+  | { title: string; hint?: string; tier?: DetailTier; kind: 'chips'; items: string[] };
 export type Audience = 'customer' | 'agent' | 'admin';
+
+/**
+ * **영업자 패널 줄 — 상품상세 우측 고정 패널이 쓰는 값**(사장님 2026-08-20 목업).
+ *
+ * 상세 본문에는 안 넣는다. 본문에도 넣으면 같은 값이 한 화면에 두 번 찍힌다(「한 칸 한 원자」).
+ * 손님 화면(`audience='customer'`)에서는 **패널 자체가 안 붙는다** — 숨기는 게 아니라 없다.
+ *
+ * ★무엇을 싣나 = «상담 중에 손님이 묻는데 화면에 없던 값».
+ *   · 보증금 분납·카드결제 — 사장님 지목. 계약조건 표 안에 뭉쳐 있어 상담 중 못 찾았다.
+ *   · 심사 — 이 손님이 되는 차인지가 첫 질문이다.
+ *   · 중도해지 위약금 — 본문의 「결제 · 위약」은 상담 표기 하나(1년 미만 30%)뿐이라
+ *     «1년 넘기면요?»에 못 답했다. 경과별 실요율 두 칸을 여기서 처음 보여 준다.
+ *   · 주행 초과요금(1km당) — 「1만km 상향」(가격표)과 다른 값이다.
+ *   · 승계 — 지금까지 전자계약에만 있었다. 해지는 위약금을 물고 끝내지만 승계는 남은 기간을
+ *     새 임차인이 이어받아 손님이 낼 돈이 전혀 다르다.
+ *
+ * ★노출 범위(사장님 2026-08-20 「위약금·승계만 공개」): 공급사명·차고지·수수료 환수는 관리자만.
+ *   영업사원이 공급사를 알면 직거래 여지가 생기고, 손님과 화면을 같이 볼 때 새기 때문이다.
+ */
+export function agentPanelRows(p: EntityRecord, audience: Audience = 'agent'): KvRow[] {
+  if (audience === 'customer') return [];
+  const pol = policyOf(p);
+  const rec = p as Record<string, unknown>;
+  const pv = (k: string) => { const v = rec[k]; return v == null ? '' : String(v); };
+  const s = (k: string) => { const v = pol[k] ?? rec[k]; return v == null ? '' : String(v); };
+  const g = (a: unknown[]) => a.filter(Boolean).join(' · ');
+  const raw = (k: string) => pol[k] ?? rec[k];
+  /**
+   * 정액·정률 겸용 칸이라 **그대로 찍으면 안 된다** — 같은 뜻이 「30%」·「0.3」·「200원」·200 으로 섞여 들어온다.
+   * 전자계약이 쓰는 포맷터를 그대로 태운다(표기 경로를 둘로 만들면 계약서와 상담 화면이 갈린다).
+   */
+  const termRate = (k: string) => {
+    const n = moneyOrRatePercent(raw(k), { legacy: 'rate' });
+    return n != null ? `${n}%` : moneyOrRateText(raw(k), { legacy: 'rate' });
+  };
+  const perKm = (k: string) => moneyOrRateText(raw(k), { legacy: 'won', noneText: '없음' });
+  const rateU = termRate('early_termination_rate_under1y');
+  const rateO = termRate('early_termination_rate_over1y');
+  const rates = g([rateU && `1년 미만 ${rateU}`, rateO && `1년 이상 ${rateO}`]);
+  const kmD = perKm('over_mileage_rate_domestic');
+  const kmI = perKm('over_mileage_rate_imported');
+  const succFee = moneyOrRateText(raw('succession_fee'), { legacy: 'won', naText: '승계 불가', noneText: '없음' });
+  // 승계가 「불가」면 수수료를 붙이지 않는다 — 「불가 · 수수료 승계 불가」처럼 같은 말이 두 번 나온다.
+  const succNo = /불가/.test(s('succession_allowed')) || succFee === '승계 불가';
+
+  const rows: KvRow[] = [
+    ['심사', creditDisplay(p)],
+    // 계약이 «안 되는» 조건 — 상담 초반에 손님을 거르는 값이라 심사 바로 뒤에 둔다.
+    //  시트의 불가조건 1~4 는 `policy-sheet-to-erp` 가 「·」로 이어 한 칸으로 만든다.
+    ['불가조건', s('disqualification_conditions')],
+    ['영업 특이사항', s('sales_notes')],
+    ['보증금 분납', s('deposit_installment')],
+    ['보증금 카드결제', s('deposit_card_payment')],
+    // 요율 두 칸이 비면 상담 표기(penalty_condition)로 물러선다 — 빈 줄보다 낫다.
+    ['중도해지 위약금', rates ? `${rates} · 잔여 대여료 기준` : s('penalty_condition')],
+    ['주행 초과요금', g([kmD && `국산 ${kmD}/km`, kmI && `수입 ${kmI}/km`])],
+    ['승계', succNo ? (s('succession_allowed') || '불가') : g([s('succession_allowed'), succFee && `수수료 ${succFee}`])],
+  ];
+  if (audience === 'admin') {
+    rows.push(
+      ['공급사', pv('provider_name') || pv('provider_company_code') || ''],
+      ['차고지', pv('location')],
+      // 수수료 환수는 뺐다(사장님 2026-08-20 「일단 빼줘」) — 우리와 공급사 사이 약정이라 상담에 안 쓴다.
+      //  값은 정책(`commission_clawback_condition`)에 그대로 있고, 필요해지면 이 줄만 되살리면 된다.
+    );
+  }
+  return rows;
+}
 
 export function detailSections(p: EntityRecord, audience: Audience = 'agent'): DetailSection[] {
   const pol = policyOf(p);
@@ -577,7 +693,6 @@ export function detailSections(p: EntityRecord, audience: Audience = 'agent'): D
   const isAdmin = audience === 'admin';
   const pv = (k: string) => { const v = rec[k]; return v == null ? '' : String(v); };
   const s = (k: string) => { const v = pol[k] ?? rec[k]; return v == null ? '' : String(v); }; // 정책 우선 → 매물 폴백
-  const money = (v: unknown, suf: string) => (v ? Number(v).toLocaleString() + suf : '');
 
   const g = (a: unknown[]) => a.filter(Boolean).join(' · ');
   // 묶음 슬롯 = 빠진 칸도 `-`로 자리 유지(동력·분류처럼 같이 쓰는 축).
@@ -613,6 +728,20 @@ export function detailSections(p: EntityRecord, audience: Audience = 'agent'): D
     // 공급사 원본이 `25-11-5` 처럼 들쭉날쭉해서 표기만 YYYY-MM-DD 로 맞춘다(못 읽으면 원본 그대로).
     ['최초등록', ymdDisplay(pv('first_registration_date')) || '미입력'],
   ];
+  /**
+   * 차량가격 = 공급사 시트 「차량가격」(별칭 소비자가격·차량가·차량가액 — `sheet-import`) = **차량 출고가**.
+   * 우리 매입원가가 아니다. 판매시트에도 「소비자가격」 열로 이미 나가고, 취등록세·인수금의 기준이라
+   * 상담에서 자주 묻는 값이다(사장님 2026-08-20 「차량정보에 차량가격을 빼먹었네」).
+   *
+   * ⚠ **값이 오는 역할에만 줄을 세운다.** `vehicle_price` 는 RTDB `products_private` 로 갈라져 있고
+   *   `rtdb-adapter.readProductPrivate` 가 admin·provider 에게만 읽어 병합한다 — 영업사원 브라우저엔
+   *   애초에 안 온다. 그런데도 줄을 세우면 «우리도 모르는 값»처럼 「—」가 찍혀 영업자가 손님에게
+   *   잘못 말한다. 손님 화면은 화이트리스트(`public-catalog`)에서 빠져 있어 어차피 값이 없다.
+   *   → 영업사원·손님에게도 보이려면 노출 결정 + 규칙·리더 변경이 필요하다(표시 문제가 아니다).
+   */
+  if (audience !== 'customer' && (p.vehicle_price || isAdmin)) {
+    carRows.push(['차량가격', p.vehicle_price ? wonLabel(Number(p.vehicle_price)) : '']);
+  }
 
   // 2) 보험 3열 [구분, 한도, 면책금] — 6항목 항상 노출(값 없으면 뷰에서 '—')
   // 자차 면책: 비율형=「수리비의 OO%」(+구간) / 정액형(비율 없음)=금액만(동일값이면 단일)
@@ -641,37 +770,54 @@ export function detailSections(p: EntityRecord, audience: Audience = 'agent'): D
   const meta = (rec.sheet_meta || {}) as Record<string, unknown>;
   const m2 = (k: string) => { const v = meta[k]; return v == null ? '' : String(v); };
   const autoplusMileage = isAutoplusProduct(p) ? autoplusMileageUpchargeLabel(p) : '';
+  /**
+   * 계약조건 = **손님이 고르는 데 필요한 정책**(운영정책 시트에서 `use: 상품시트 | 둘다`).
+   *
+   * ★심사조건은 **손님에게 안 보인다**(정책 정본 `policy-sheet-layout` 「영업자 화면 심사 뱃지 — 손님·계약서엔 안 나감」).
+   *   게다가 `screening_criteria` 는 손님 화이트리스트(`public-catalog`)에 없어 값이 안 넘어가므로,
+   *   줄만 두면 손님에게 **「심사 · 미입력」**이 찍힌다. 보여선 안 되는 칸이 빈 값으로 보이는 최악의 조합이라 아예 뺀다.
+   *   영업자는 우측 패널(`agentPanelRows`)에서 본다.
+   */
   const condRows: KvRow[] = [
-    ['심사', creditDisplay(p)],
+    ...(audience === 'customer' ? [] : [['심사', creditDisplay(p)] as KvRow]),
     ['주행 약정', isAutoplusProduct(p)
       ? g(['연 2만km', autoplusMileage && `1만km 추가 ${autoplusMileage}`])
       : g([s('annual_mileage'), s('mileage_upcharge_per_10000km') && `1만km초과 ${s('mileage_upcharge_per_10000km')}`])],
     ['보증금', g([s('deposit_installment') && `분납 ${s('deposit_installment')}`, s('deposit_card_payment') && `카드 ${s('deposit_card_payment')}`])],
     ['결제 · 위약', g([s('payment_method'), s('penalty_condition') && `위약 ${s('penalty_condition')}`])],
-    ['운전 연령', g([s('basic_driver_age') && `기본 ${s('basic_driver_age')}`, s('driver_age_upper_limit') && `상한 ${s('driver_age_upper_limit')}`, m2('age_21') && `21세 ${m2('age_21')}`, m2('age_23') && `23세 ${m2('age_23')}`])],
+    // 연령인하·하향 요금은 시트 규격 칸(`driver_age_lowering`·`age_lowering_cost`). 옛 sheet_meta 21·23세 칸은 뒤에 남겨 둔다.
+    ['운전 연령', g([
+      s('basic_driver_age') && `기본 ${s('basic_driver_age')}`,
+      s('driver_age_upper_limit') && `상한 ${s('driver_age_upper_limit')}`,
+      s('driver_age_lowering') && `하향 ${s('driver_age_lowering')}${s('age_lowering_cost') ? ` ${s('age_lowering_cost')}` : ''}`,
+      m2('age_21') && `21세 ${m2('age_21')}`,
+      m2('age_23') && `23세 ${m2('age_23')}`,
+    ])],
+    ['면허 경력', s('license_period')],
     ['운전자 범위', g([s('personal_driver_scope'), s('business_driver_scope'), s('additional_driver_allowance_count') && `추가운전 ${/^\d+$/.test(s('additional_driver_allowance_count')) ? `${s('additional_driver_allowance_count')}인까지` : s('additional_driver_allowance_count')}`, s('additional_driver_cost')])],
     ['대여지역 · 탁송', g([s('rental_region'), s('delivery_fee') && `탁송 ${s('delivery_fee')}`])],
-    ['정비 서비스', s('maintenance_service')],
+    // 대차는 사고가 나면 손님이 가장 먼저 묻는 값인데 화면 어디에도 없었다.
+    ['정비 · 대차', g([s('maintenance_service'), s('replacement_car_policy') && `대차 ${s('replacement_car_policy')}`])],
   ];
 
   const opts = parseProductOptions(p.options);
   const memo = String(p.partner_memo ?? p.note ?? '').trim();
   const otherRows: KvRow[] = [];
   if (memo) otherRows.push(['특이사항', memo]);
+  // 관리자 진단값 — 데이터가 맞는지 확인하는 칸이라 상담에 안 쓴다(상담용은 우측 패널 `agentPanelRows`).
+  //  공급사·차고지·수수료 환수는 패널이 들고 있어 여기서 뺐다 — 같은 값을 두 번 찍지 않는다.
   if (isAdmin) {
     otherRows.push(
-      ['원가 · 위치', g([money(p.vehicle_price, '원'), pv('location') && `위치 ${pv('location')}`])],
       ['차령 · 차대', g([pv('vehicle_age_expiry_date') && `만료 ${ymdDisplay(pv('vehicle_age_expiry_date'))}`, pv('vin')])],
       ['등록증', g([pv('transmission'), pv('cert_car_name'), pv('type_number'), pv('engine_type')])],
       ['정책', g([String(pol.policy_name ?? p.policy_name ?? ''), String(pol.policy_code ?? p.policy_code ?? ''), String(pol.policy_type ?? '')])],
-      ['공급사', pv('provider_name') || pv('provider_company_code') || '-'],
       ['상품', g([pv('product_code'), String(p._key ?? '')])],
-      ['수수료 환수', s('commission_clawback_condition')],
     );
   }
 
   // 상세 읽기 순서 SSOT(사장님 2026-08-19):
   // 사진(뷰) → 차량스펙(제조사) → 대여료조건 → 보험조건 → 계약조건 → 기타사항.
+  //  영업자 전용 값은 본문이 아니라 **우측 영업자 패널**(`agentPanelRows`)이 들고 간다.
   const out: DetailSection[] = [
     { title: '차량스펙', hint: '제조사 기준', tier: 'main', kind: 'kv', rows: carRows, chips: opts, chipsLabel: '선택옵션', chipsAfter: 1 },
     { title: '대여료조건', hint: '기간별 대여료 · 보증금', tier: 'main', kind: 'price' },

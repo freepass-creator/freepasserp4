@@ -280,6 +280,34 @@ export default function SignPage() {
   ], [additionalDriverLimit, pages, requiredDocuments.length]);
   const step = steps[Math.min(stepIndex, Math.max(steps.length - 1, 0))];
 
+  /**
+   * ★관리자 「손님 화면 따라보기」(사장님 2026-08-20) — 미리보기일 때만 바깥 창이 단계를 넘길 수 있다.
+   *   같은 출처의 `fp-esign-preview` 만 받고, 현재 단계를 `fp-esign-preview-state` 로 되돌려 준다.
+   *   ⚠ 실제 고객 화면(미리보기 아님)에서는 아무것도 하지 않는다 — 바깥에서 손님 화면을 조종할 수 없어야 한다.
+   */
+  useEffect(() => {
+    if (!preview) return undefined;
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      const data = event.data as { type?: string; action?: string } | null;
+      if (!data || data.type !== 'fp-esign-preview') return;
+      if (data.action === 'next') setStepIndex((index) => Math.min(index + 1, steps.length - 1));
+      else if (data.action === 'prev') setStepIndex((index) => Math.max(index - 1, 0));
+      else if (data.action === 'first') setStepIndex(0);
+    };
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, [preview, steps.length]);
+  useEffect(() => {
+    if (!preview || window.parent === window) return;
+    window.parent.postMessage({
+      type: 'fp-esign-preview-state',
+      index: Math.min(stepIndex, Math.max(steps.length - 1, 0)),
+      total: steps.length,
+      title: step?.title || '',
+    }, window.location.origin);
+  }, [preview, stepIndex, steps.length, step?.title]);
+
   useEffect(() => {
     const key = step?.key;
     const element = readRef.current;

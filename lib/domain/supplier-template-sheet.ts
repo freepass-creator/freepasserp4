@@ -173,7 +173,7 @@ export const POLICY_COLUMN_NAMES = POLICY_COLUMNS.map((c) => c.name);
  *   (사장님 2026-08-14 — 「공급사시트에 AI가 작업해주는 칸들을 만들어서 1회성으로 파워트레인
  *    작업해놓고 그걸 갖고 오자」 · 「차종마스터만 그 뒤쪽에 넣어두자는 거고」)
  *
- *   공급사는 지금까지 하던 대로 **「차명(트림)」 한 칸에** 적는다.
+ *   공급사는 지금까지 하던 대로 **「차명(세부모델+트림)」 한 칸에** 적는다.
  *   그 문장을 차종마스터에 걸어 축으로 갈라 놓는 것이 우리 일이고, 그 결과가 이 칸들이다.
  *
  * ★**맨 뒤에 붙인다.** 앞을 재배치하지 않는다 —
@@ -189,12 +189,23 @@ export const POLICY_COLUMN_NAMES = POLICY_COLUMNS.map((c) => c.name);
 /**
  * ★공급사가 «차 이름»으로 적는 것은 **세 칸뿐**이다(사장님 2026-08-14 —
  *   「공급사한테 입력시키는 건 단순해야 하니까 / 제조사 세부모델(트림) 옵션 이렇게만 입력시키고」).
- *     제조사 · 차명(트림) · 옵션
+ *     제조사 · 차명(세부모델+트림) · 옵션
  *   그 셋을 받아 아래 여섯 칸으로 갈라 놓는 것이 우리 일이고, 상품시트는 이 여섯 칸을 실어 간다.
  * ⚠ 「제조사」는 앞에 이미 있어 이름이 겹친다 — 정제본만 「제조사(정제)」로 단다.
  *   한 시트에 같은 이름이 둘이면 열을 이름으로 찾는 스크립트가 엉뚱한 칸을 집는다.
  */
+/** 엔카 중고차 원자ID(U-0001). ERP 트림행키(`mf-…::vNN::tNN`)가 아니다. */
+export const ENCAR_TRIM_CODE_COLUMN = '차종트림코드';
+/** 엔카 중고차 세부모델ID(SM-0001). ERP 마스터ID가 아니다. */
+export const ENCAR_MASTER_CODE_COLUMN = '차종마스터코드';
+
 export const AI_TAIL_COLUMNS: { name: string; note: string; required?: boolean }[] = [
+  /**
+   * ★엔카 중고차 차종마스터 코드(2026-08-20 — 공급사시트 맨 끝·정책코드 다음).
+   *   ERP 「차종코드」(트림행키)와 자리가 겹치면 안 된다. 값은 U-0001 / SM-0001.
+   */
+  { name: ENCAR_TRIM_CODE_COLUMN, note: '★프리패스가 채움 — 엔카 중고차 원자ID (U-0001). 세부모델×세부트림×연료×배기량×인승×구동. ERP 트림행키가 아니다' },
+  { name: ENCAR_MASTER_CODE_COLUMN, note: '★프리패스가 채움 — 엔카 중고차 세부모델ID (SM-0001). ERP 마스터ID가 아니다' },
   /**
    * ★★**이 칸 하나가 정본이다**(사장님 2026-08-14 — 「그 차에 대해서 코드를 박아두면
    *   절대 틀릴 일이 없음. 차량번호에 코드 박아두면 되잖아」).
@@ -277,12 +288,12 @@ const FRONT_COLUMNS: { name: string; note: string; required?: boolean }[] = [
   //   매칭 쪽에서 풀어야 한다.
   // 중요한 건 목록이 아니라 **긴 이름**이다. 트림까지 한 칸에 이어 쓰면 세대·사양까지 잡힌다.
   //
-  // ★열 이름이 「차명(트림)」이어야 한다. 「차명」으로 두면 파서가 그 칸을 **model** 로 보내고,
+  // ★열 이름이 「차명(세부모델+트림)」이어야 한다. 「차명」으로 두면 파서가 그 칸을 **model** 로 보내고,
   //   매처가 짧은 이름으로 모델을 잠가 **엉뚱한 세대**를 고른다 —
   //   「쏘나타 디 엣지 DN8 2.0 가솔린 인스퍼레이션」이 1990년대 「쏘나타 II Y3」로 붙었다(실측).
-  //   「차명(트림)」은 trim_name 으로 가서 문장 전체를 보고 제대로 잡고, 원문도 추가표기로 남는다.
+  //   「차명(세부모델+트림)」은 trim_name 으로 가서 문장 전체를 보고 제대로 잡고, 원문도 추가표기로 남는다.
   //   기존 공급사들이 98.5% 맞는 것도 다들 「모델명(트림)」 열을 쓰기 때문이다.
-  { name: '차명(트림)', note: '더 뉴 아반떼 CN7 1.6 가솔린 인스퍼레이션 — 트림까지 한 칸에', required: true },
+  { name: '차명(세부모델+트림)', note: '더 뉴 아반떼 CN7 1.6 가솔린 인스퍼레이션 — 트림까지 한 칸에', required: true },
   /**
    * ★**열 차례 — 사장님 2026-08-18 확정**: 「차명 · 옵션 · 외부색상 · 내부색상 · 연식 · 주행거리 · 연료 · 배기량 · 대여료 구간」.
    *   (「각 공급사 이제 진짜로 통일하자 · 웰릭스 기준으로 다 맞추고 · 제발 제발」)
@@ -300,9 +311,9 @@ const FRONT_COLUMNS: { name: string; note: string; required?: boolean }[] = [
   // 소비자가 — 파는 값(대여료)이 아니라 차 자체의 값이다. 그래서 차량정보 쪽에 둔다.
   { name: '차량가격', note: '소비자가(원, 숫자만) — 대여료가 아니다' },
   // ★제조사스펙은 **배기량까지**다(사장님 확정 2026-08-11).
-  //   인승·구동은 물어보지 않는다 — 차명(트림)이 정해지면 차종마스터가 아는 값이고,
+  //   인승·구동은 물어보지 않는다 — 차명(세부모델+트림)이 정해지면 차종마스터가 아는 값이고,
   //   공급사에게 한 칸 더 채우게 하는 값어치가 없다. 카니발 9인승 같은 구분도
-  //   「차명(트림)」에 이미 들어온다.
+  //   「차명(세부모델+트림)」에 이미 들어온다.
 ];
 
 /**
@@ -399,7 +410,7 @@ const POLICY_REF_COLUMN: { name: string; note: string; required?: boolean } = {
 };
 /**
  * ★**구분선 열** — 사장님 2026-08-18 「정책코드를 차종코드 앞으로 옮겨 주고, 정책코드 앞에 한 줄 넣어서 여기는 손대는 거 아닌 느낌 — 전체 통일」.
- *   이 열 오른쪽(정책코드 · 정제칸 11)은 전부 프리패스/AI 칸이다. 이름은 「│」 하나, 값은 없다, 폭 6px, 어두운 색.
+ *   이 열 오른쪽(정책코드 · 차종트림코드 · 차종마스터코드 · 정제칸)은 전부 프리패스/AI 칸이다. 이름은 「│」 하나, 값은 없다, 폭 6px, 어두운 색.
  *   읽는 도구는 전부 이름으로 읽으므로 이 열을 무시한다(별칭 없음). 안내 탭에서는 목록에 안 싣는다(`divider`).
  */
 export const DIVIDER_COLUMN: { name: string; note: string; required?: boolean; divider: true } = {
@@ -407,7 +418,7 @@ export const DIVIDER_COLUMN: { name: string; note: string; required?: boolean; d
 };
 export const isDividerColumn = (name: unknown) => String(name ?? '').trim() === DIVIDER_COLUMN.name;
 
-/** 표준 차례(2026-08-18) — 렌트사 칸(차량번호 … 사진링크) │ 정책코드 · (정제칸 11). 정책코드가 정제칸 바로 앞이다. */
+/** 표준 차례 — 렌트사 칸(차량번호 … 사진링크) │ 정책코드 · 차종트림코드 · 차종마스터코드 · 정제칸. */
 export const REQUEST_COLUMN_NAME = '점검사항';
 /** 처음 이름(2026-08-19 잠깐 「요청사항」이었다 → 사장님 「요청사항은 아니고 점검사항이라고 하자」). insert-request-column 이 머리글을 갈아 준다. */
 export const REQUEST_COLUMN_OLD_NAMES = ['요청사항'];
@@ -448,7 +459,7 @@ const LIVE_COLUMNS = [
 /**
  * 어느 칸이 누구 것인가.
  *  · live — 매번 공급사 값으로 갱신한다(상태·기간별 대여료·보증금)
- *  · ours — 우리가 정한다. 공급사가 못 덮는다(정제칸 12 + 정책코드)
+ *  · ours — 우리가 정한다. 공급사가 못 덮는다(정책코드 · 엔카 코드 2 · 정제칸)
  *  · once — 처음 한 번 옮겨 오고 그 뒤로는 우리 것이다(차명 원문·색·연식·옵션·차량가격 …)
  * ⚠ 기간 대여료는 「기타기간①」처럼 제목을 바꿔 쓰는 칸도 있어 **이름에 «개월»이 들어가면 live** 로 본다.
  */
@@ -558,7 +569,15 @@ export const supplierSheetNameParts = (name: string): { date: string; label: str
 };
 
 export const VEHICLE_TABS = ['재고', '렌트재고', '구독재고'] as const;
-export const isVehicleTab = (title: string) => (VEHICLE_TABS as readonly string[]).includes(String(title ?? '').trim());
+/**
+ * 재고 탭인가.
+ *
+ * ★한 문서에서 **법인별로 재고를 나눠** 쓰기 시작했다(사장님 2026-08-20) —
+ *   스타 문서의 「스타재고 · 스카이재고」, 경진 문서의 「경진카재고 · 경진렌트재고」.
+ *   그래서 이름을 못박지 않고 **「…재고」로 끝나면 재고 탭**으로 본다.
+ *   「재고 작성 안내」처럼 뒤에 말이 더 붙는 탭은 걸리지 않는다(끝에 붙어야 한다).
+ */
+export const isVehicleTab = (title: string) => /재고$/.test(String(title ?? '').trim());
 
 /** 구독 전용 열 구성 — 렌트와 다른 표다. 단기 없음 · 인수형/반납형 두 벌. */
 export const buildSubscriptionColumns = (usedKeys: string[] = []) => [
@@ -630,7 +649,7 @@ const grid = (gid: number, r0: number, r1: number, c0: number, c1: number) =>
 /**
  * ★머리행 색으로 «누가 적는 칸인가»를 가른다(사장님 2026-08-18 — 「렌트사가 입력하는 줄과 자동으로 입력되는 줄(AI가) 테이블 헤더 색깔 구분」).
  *   · 렌트사가 적는 칸(차량번호~사진링크) = 남색(기본)
- *   · 프리패스/AI 가 적는 칸(정제칸 차종코드~차종분류 + 정책코드) = **보라** — `columnOwner === 'ours'` 와 같은 기준이라 표와 규칙이 안 갈린다.
+ *   · 프리패스/AI 가 적는 칸(정책코드 · 차종트림코드 · 차종마스터코드 · 정제칸) = **보라** — `columnOwner === 'ours'` 와 같은 기준이라 표와 규칙이 안 갈린다.
  */
 export const HEADER_OURS_COLOR = { red: 0.36, green: 0.25, blue: 0.55 };
 /** 구분선 열 — 머리부터 아래까지 어두운 보라 한 줄(폭 6px). 값 없음. */
@@ -820,13 +839,14 @@ export function buildBaseFont(gid: number, columnCount: number, rowCount = 500):
 /** 칸마다 필요한 만큼. 긴 글이 들어오는 칸만 넓히고 나머지는 좁혀 한 화면에 더 담는다. */
 export function columnWidth(name: string): number {
   if (isDividerColumn(name)) return 6;
-  if (name === '차명(트림)') return 300;
+  if (name === '차명(세부모델+트림)') return 300;
   if (name === '옵션') return 240;
   if (name === '사진링크') return 200;
   if (/보증|개월/.test(name)) return 100;
   if (/^기타기간/.test(name)) return 100;
   // 날짜 칸은 같은 너비로 — 「2026-08-12」가 안 잘리는 최소치다. 입고일자와 최초등록일은 같은 꼴이다.
   if (name === '차량번호' || name === '정책코드' || name === '최초등록일' || name === '입고일자') return 104;
+  if (name === ENCAR_TRIM_CODE_COLUMN || name === ENCAR_MASTER_CODE_COLUMN) return 120;
   /**
    * ★칩(드롭다운) 칸 — **가장 긴 값이 잘리지 않을 만큼만**(사장님 확정 2026-08-11).
    *   칩 여백과 화살표가 자리를 먹으므로 글자수만으로는 모자란다. 실측으로 잡은 값이다.
@@ -1150,7 +1170,18 @@ export const FREEPASS_STANDARD: Record<string, string> = {
  */
 export const POLICY_TAB_NAME = '운영정책';
 export const POLICY_TAB_ALIASES: readonly string[] = ['운영정책', '정책'];
-export const isPolicyTabTitle = (title: unknown): boolean => POLICY_TAB_ALIASES.includes(String(title ?? '').trim());
+/**
+ * 정책 탭인가.
+ *
+ * ★한 문서에 법인이 둘일 때 정책도 갈라 적는다(사장님 2026-08-20) —
+ *   「스타운영정책 · 스카이운영정책」, 「경진카운영정책 · 경진렌트운영정책」, 「빌린카운영정책 · 엘씨운영정책」.
+ *   그래서 «…운영정책»으로 끝나면 정책 탭으로 본다. 어느 탭이 어느 법인 것인지는
+ *   파트너의 `policy_tab`(gid)이 가른다 — 이름으로 넘겨짚지 않는다.
+ */
+export const isPolicyTabTitle = (title: unknown): boolean => {
+  const t = String(title ?? '').trim();
+  return t === '정책' || /운영정책$/.test(t);
+};
 export const policyTabTitle = (titles: unknown[]): string | undefined => POLICY_TAB_ALIASES.find((a) => titles.some((t) => String(t ?? '').trim() === a));
 export const COMPANY_INFO_TAB_NAME = '회사정보';
 /**

@@ -28,7 +28,7 @@ const arg = (k: string, d = '') => (process.argv.find((a) => a.startsWith(`--${k
 const ONE = arg('sheet');
 const sleep = (ms: number) => new Promise((ok) => setTimeout(ok, ms));
 const colA1 = (i: number) => { let t = '', n = i + 1; while (n > 0) { const r = (n - 1) % 26; t = String.fromCharCode(65 + r) + t; n = Math.floor((n - 1) / 26); } return t; };
-const WATCH = ['상태', '분류', '제조사', '차명(트림)', '옵션', '외부색상', '내부색상', '연식', '주행거리', '연료', '배기량', '차량가격', '최초등록일', '사진링크', '정책코드', '차종코드', '모델', '세부모델', '세부트림'];
+const WATCH = ['상태', '분류', '제조사', '차명(세부모델+트림)', '옵션', '외부색상', '내부색상', '연식', '주행거리', '연료', '배기량', '차량가격', '최초등록일', '사진링크', '정책코드', '차종코드', '모델', '세부모델', '세부트림'];
 const FROM_AI: [string, string][] = [['제조사', '제조사(정제)'], ['연료', '연료(정제)'], ['배기량', '배기량(정제)'], ['외부색상', '외장색상'], ['내부색상', '내장색상']];
 
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
@@ -64,7 +64,7 @@ for (const t of targets) {
     if (p.hidden || isOurNonInventoryTab(title)) continue;
     const v = await call(`${SH}/${t.id}/values/${encodeURIComponent(`'${title.replace(/'/g, "''")}'!A1:BZ700`)}`) as { values?: string[][] };
     const rows = ((v.values || []) as string[][]).map((r) => r.map(S));
-    const hi = rows.findIndex((r) => r.some((c) => norm(c) === '차명(트림)'));
+    const hi = rows.findIndex((r) => r.some((c) => norm(c) === '차명(세부모델+트림)'));
     if (hi < 0) continue;
     const hdr = rows[hi]; const at = new Map<string, number>(); hdr.forEach((h, i) => { if (h && !at.has(norm(h))) at.set(norm(h), i); });
     const pi = at.get('차량번호') ?? -1; if (pi < 0) continue;

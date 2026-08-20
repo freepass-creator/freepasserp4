@@ -80,7 +80,7 @@ for (const r of srows.slice(1)) {
 }
 // ── 상품마스터
 const base = `${SH}/${DEFAULT_PRODUCT_MASTER_SHEET_ID}`;
-const pv = await call(`${base}/values/${encodeURIComponent(`'${PRODUCT_MASTER_TAB}'!A1:AX2000`)}`) as { values?: string[][] };
+const pv = await call(`${base}/values/${encodeURIComponent(`'${PRODUCT_MASTER_TAB}'!A1:AZ2000`)}`) as { values?: string[][] };
 const prows = ((pv.values || []) as string[][]).map((r) => r.map(S)); const ph = prows[0] || [];
 const pat = (n: string) => ph.indexOf(n);
 for (const n of ['차량번호', '차량상태', '최종갱신', '원천']) if (pat(n) < 0) throw new Error(`상품마스터 머리행에 「${n}」 없음`);
@@ -145,7 +145,7 @@ for (const rowNo of touchedRows) { writes.push({ range: `'${PRODUCT_MASTER_TAB}'
 for (let i = 0; i < writes.length; i += 500) await call(`${base}/values:batchUpdate`, { method: 'POST', body: JSON.stringify({ valueInputOption: 'USER_ENTERED', data: writes.slice(i, i + 500) }) });
 console.log(`  ✓ 반영 ${writes.length}칸`);
 // 되읽어 검증
-const again = await call(`${base}/values/${encodeURIComponent(`'${PRODUCT_MASTER_TAB}'!A1:AX2000`)}`) as { values?: string[][] };
+const again = await call(`${base}/values/${encodeURIComponent(`'${PRODUCT_MASTER_TAB}'!A1:AZ2000`)}`) as { values?: string[][] };
 const rows2 = ((again.values || []) as string[][]).map((r) => r.map(S)); let bad = 0;
 for (const r of rows2.slice(1)) { const s = sales.get(norm(r[pat('차량번호')])); if (!s) continue; for (const m of [...SHORT, ...LONG]) { if (num(r[pat(`${m}개월 대여료`)]) !== s.rent[m]) bad++; const isShort = (SHORT as readonly string[]).includes(m); const dn = isShort ? s.short : s.long; const nd = isShort ? s.shortNoDep : s.longNoDep; if (s.rent[m] && dn && num(r[pat(`${m}개월 보증금`)]) !== dn) bad++; if (s.rent[m] && !dn && nd && !isNoDeposit(r[pat(`${m}개월 보증금`)])) bad++; } if (S(r[pat('차량상태')]) !== s.state) bad++; }
 console.log(bad ? `  ✗ 되읽기 어긋남 ${bad}칸` : '  ✓ 되읽기 일치 — 상품리스트 ↔ 상품마스터(→ERP) 같다');

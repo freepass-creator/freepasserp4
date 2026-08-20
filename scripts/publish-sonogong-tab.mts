@@ -106,8 +106,8 @@ console.log(`  「${tabTitle}」 ${baseRows.length}대 · 열 ${shdr.length}${ke
 // ── ② 원본 시트 — 블록 값(차번별)
 const gv = await api(`${SH}/${SRC}/values/${encodeURIComponent(`'${SRC_TAB.replace(/'/g, "''")}'!A1:BZ700`)}`) as { values?: string[][] };
 const ggrid = ((gv.values || []) as string[][]).map((r) => r.map(S));
-const ghi = ggrid.findIndex((r) => r.some((c) => norm(c) === norm('차명(트림)')) && r.some((c) => norm(c) === '차량번호'));
-if (ghi < 0) throw new Error(`「${SRC_TAB}」 머리행(차량번호·차명(트림))을 못 찾았다`);
+const ghi = ggrid.findIndex((r) => r.some((c) => norm(c) === norm('차명(세부모델+트림)')) && r.some((c) => norm(c) === '차량번호'));
+if (ghi < 0) throw new Error(`「${SRC_TAB}」 머리행(차량번호·차명(세부모델+트림))을 못 찾았다`);
 const ghdr = ggrid[ghi];
 const gAt = (name: string) => { let i = ghdr.findIndex((h) => norm(h) === norm(name)); if (i < 0 && ALIASES[name]) i = ghdr.findIndex((h) => ALIASES[name].test(norm(h))); return i; };
 const gpi = gAt('차량번호'); const gphoto = gAt('사진링크');

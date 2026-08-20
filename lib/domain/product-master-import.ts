@@ -50,7 +50,7 @@ function headerIndex(table: string[][]): HeaderIndex {
   if (unexpected.length) throw new Error(`상품마스터 알 수 없는 열(${unexpected.join(', ')})`);
   if (header.length !== PRODUCT_MASTER_COLUMNS.length
     || PRODUCT_MASTER_COLUMNS.some((name, index) => header[index] !== name)) {
-    throw new Error('상품마스터 열 순서가 규격과 다릅니다(A:AX 50열)');
+    throw new Error('상품마스터 열 순서가 규격과 다릅니다(A:AZ 50열)');
   }
   return Object.fromEntries(PRODUCT_MASTER_COLUMNS.map((name, index) => [name, index])) as HeaderIndex;
 }
@@ -296,18 +296,28 @@ function rowProduct(input: {
       source_text: meaningful(raw),
     },
   };
+  /**
+   * ★공급사가 적은 «모델명»·«차명»(2026-08-20 사장님 단순화) — 원문보존에서 그대로 뽑아 ERP 에 싣는다.
+   *   상품찾기는 이 두 칸(모델·차명)만 보여 준다. 세부모델·트림은 화면에서 감춰 뒀다(vehicle-detail-axes).
+   */
+  const supplierModel = rawField(raw, ['모델명', '모델']);
+  const supplierName = rawField(raw, ['차명(세부모델+트림)', '차명(트림)', '차명']);
+  if (supplierName) product.supplier_vehicle_name = supplierName;
   if (master) Object.assign(product, trimIdentity(master, input.adopted, input.preferMasterNames));
   else {
-    // 미매칭도 차번·가격·상태는 ERP에 올린다. 다만 차종을 지어내지 않고 공급사 입력 차명을
-    // 검수용 모델 한 칸에만 보존해, 상품찾기에서 차량 자체가 사라지지 않게 한다.
+    // 미매칭도 차번·가격·상태는 ERP에 올린다. 차종은 지어내지 않는다 —
+    // ⚠ 예전엔 model 칸에 원문 한 줄(「기아 · 중형 · K5 3세대 · LPG2.0 · 배기 …」)을 통째로 넣어
+    //   상품찾기 모델 열이 문장으로 보였다(실측 2026-08-20 아이카 59대). 이제 공급사 「모델명」만 넣는다.
     product.maker = rawMaker;
-    product.model = sourceName;
+    product.model = supplierModel || sourceName;
     const decision = input.decisionsByPlate?.get(carNumber);
     if (decision) {
       const review = reviewIdentityFromDecision(decision);
       if (review) product._review_identity = review;
     }
   }
+  // 매칭된 차도 «모델»은 공급사 모델명(엔카 규격)이 정본이다 — 마스터 이름은 세부모델·트림 쪽에 남는다.
+  if (supplierModel) product.model = supplierModel;
   if (parsedMileage !== undefined) product.mileage = parsedMileage;
   if (!product.engine_cc && parsedCc !== undefined) product.engine_cc = String(parsedCc);
   const parsedYear = yearAtom(rawField(raw, ['연식', '년식']));

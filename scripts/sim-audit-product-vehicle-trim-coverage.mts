@@ -133,7 +133,7 @@ assert.equal(registrationYearMonth(''), '');
   const direct = signalsFromPartial({
     차량번호: '11가0098',
     '공급사 입력 차명': 'BMW 520i M Spt 가솔린 1,999 최초등록 2025-03',
-    '공급사 원문보존': '원본탭: 재고 | 차명(트림): 520i M Spt | 연료: 가솔린 | 배기량: 1,999 | 최초등록일: 2025-03 | 제조사(정제): BMW | 세부모델: E34 | 구동: AWD',
+    '공급사 원문보존': '원본탭: 재고 | 차명(세부모델+트림): 520i M Spt | 연료: 가솔린 | 배기량: 1,999 | 최초등록일: 2025-03 | 제조사(정제): BMW | 세부모델: E34 | 구동: AWD',
   });
   assert.notEqual(direct.trim, 'E34');
   assert.equal(direct.drivetrain, '');

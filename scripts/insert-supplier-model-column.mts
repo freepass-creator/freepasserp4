@@ -1,5 +1,5 @@
 /**
- * 전 공급사 「프리패스 재고」 시트 — 「차명(트림)」 앞에 「모델명」 열 삽입.
+ * 전 공급사 「프리패스 재고」 시트 — 「차명(세부모델+트림)」 앞에 「모델명」 열 삽입.
  * 기본 dry-run, 반영은 --apply. 이미 있으면 건너뜀.
  *
  *   npx tsx scripts/insert-supplier-model-column.mts
@@ -16,8 +16,8 @@ const norm = (v: unknown) => S(v).replace(/\s+/g, '');
 const APPLY = process.argv.includes('--apply');
 const ONLY = (process.argv.find((a) => a.startsWith('--only=')) || '').slice(7).trim();
 const COLUMN = '모델명';
-const BEFORE = '차명(트림)';
-const NOTE = '공급사·프리패스가 적는 모델(예: 아반떼 · 그랜저). 차명(트림)은 세부 표기 그대로.';
+const BEFORE = '차명(세부모델+트림)';
+const NOTE = '공급사·프리패스가 적는 모델(예: 아반떼 · 그랜저). 차명(세부모델+트림)은 세부 표기 그대로.';
 
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 const jwt = new JWT({

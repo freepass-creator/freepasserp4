@@ -243,7 +243,7 @@ check('저장 위치가 아니라 헤더 이름으로 이동한 열을 다시 �
   movedSignedHeader.mapping);
 
 const migratedStandardHeaders = importSheetTable([
-  ['차량번호', '상태', '차명(트림)'],
+  ['차량번호', '상태', '차명(세부모델+트림)'],
 ], {
   providerCode: 'RP', entries: [{} as never],
   profile: { car_number: 0, vehicle_status: 1, model: 2, partner_memo: 3 },

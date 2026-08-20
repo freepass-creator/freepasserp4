@@ -222,6 +222,15 @@ export function buildTemplateFieldsFromRecords(args: {
     contract_start: base.contract_start,
     contract_end: base.contract_end,
   };
+  /**
+   * ★특약 사항 = «정책의 기타사항» + «이 계약의 특약»(사장님 2026-08-20 「없는 내용을 별도로 적되, 계약서에 들어가는 항목」).
+   *   정책에서 온 줄을 먼저 싣는다 — 그 공급사 조건이 먼저고, 이 계약만의 합의가 뒤다. 둘 다 없으면 계약서가 「없음」으로 적는다.
+   */
+  const policyExtraTerms = text(pol.policy_extra_terms);
+  const ownSpecialTerms = text(fields.special_terms || draft.special_terms || contract.special_terms);
+  const mergedSpecialTerms = [policyExtraTerms, ownSpecialTerms].filter(Boolean).join('\n');
+  if (mergedSpecialTerms) fields.special_terms = mergedSpecialTerms;
+
   if (overrides.car_number) fields.car_number = overrides.car_number;
   if (overrides.vehicle_name) fields.vehicle_name = overrides.vehicle_name;
   if (overrides.fuel) fields.fuel = overrides.fuel;

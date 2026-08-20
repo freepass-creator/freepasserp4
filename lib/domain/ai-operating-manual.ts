@@ -10,6 +10,7 @@ import { AI_TOUCH_RULES } from './ai-touch-rules';
 import { SHEET_READING_RULES } from './sheet-reading-rules';
 import { VEHICLE_REFINE_FLOW } from './vehicle-refine-flow';
 import { MIRROR_SOURCES } from './mirror-sources';
+import { SHEET_ERP_PARITY_RULES, SHEET_ERP_PARITY_SUMMARY, SHEET_ERP_PARITY_VERSION } from './sheet-erp-parity';
 
 export type ManualRow = [string, string, string];
 export type ManualSection = { title: string; rows: ManualRow[] };
@@ -23,7 +24,7 @@ const IDS = {
 const url = (id: string, gid?: number) => `https://docs.google.com/spreadsheets/d/${id}/edit${gid !== undefined ? `#gid=${gid}` : ''}`;
 
 export const AI_MANUAL_TITLE = 'AI 운영 매뉴얼';
-export const AI_MANUAL_VERSION = '2026-08-19 v11';
+export const AI_MANUAL_VERSION = '2026-08-20 v12';
 
 export function buildAiOperatingManual(): ManualSection[] {
   return [
@@ -47,6 +48,10 @@ export function buildAiOperatingManual(): ManualSection[] {
       ['정책(보험·연령·주행·분납…)', '공급사 시트 「정책」 탭 한 줄이 정책 하나, 재고 「정책코드」로 조인. 표기 규격 `policy-value-spec.ts`. 비면 「(프리패스 기본)」.', '판매시트 정책 43열은 여기서 나간다'],
       ['열 구성', '판매시트 = AI 인계 @매핑(코드 SALES_MAPPING 은 예비) · 공급사 시트 = TEMPLATE_COLUMNS(28)+정제칸(11) · 상품마스터 = PRODUCT_MASTER_COLUMNS(50). 이름으로 읽는다 — 이름·차례를 바꾸지 말 것.', ''],
       ['공급사 시트 주소', '문패 「공급사시트정리」. 정제시트 원본 주소는 mirror-sources.ts.', ''],
+    ] },
+    { title: '2′. ★판매시트 = ERP — 맞추는 규칙(2026-08-20 사장님 확정)', rows: [
+      ['한 줄 요약', SHEET_ERP_PARITY_SUMMARY, `버전 ${SHEET_ERP_PARITY_VERSION}`],
+      ...SHEET_ERP_PARITY_RULES,
     ] },
     { title: '3. 차명 정제 흐름 — 차종마스터·상품마스터에 맞추고 → 정제칸에 박고 → 상품시트로', rows: VEHICLE_REFINE_FLOW.map((f) => [f.step, f.what, f.where] as ManualRow) },
     { title: '4. AI(자동화)가 적고 만지는 칸 — 이 밖의 칸을 기계가 건드리면 버그다', rows: [
@@ -81,7 +86,7 @@ export function buildAiOperatingManual(): ManualSection[] {
     ] },
     { title: '7. 무엇이 틀렸을 때 어디를 고치나', rows: [
       ['★예방 규칙(2026-08-19) — 트림 근거 없으면 빈칸 · 색상은 규격 안으로', '① 트림: 공급사 원문(상품마스터 「공급사 입력 차명」·「공급사 원문보존」·결정 supplier_text)에 트림 글자가 없으면 코드/트림을 박지 않는다(변형에 트림이 하나뿐일 때만 예외). 정제칸 채우기(fill-supplier-ai-columns)는 정본에 트림이 없으면 근거 없는 스냅 트림을 비우고, 정본이 코드 없음이면 옛 코드도 비운다. 매일 ⑥ 「트림 근거 대조」(audit-trim-evidence → 원천대장 탭)에서 근거 없음·다른 트림이 0이어야 한다. 근거 없음이 나오면 사람이 보고 --demote --apply. ② 색상: 규격 12색(외장)/10색(내장) 밖은 「기타」, 별칭은 원천대장 「색상마스터」 @별칭에 사람이 적는다(publish-color-master-tab, 미매칭은 기계가 모아 줌). ERP 도 규격색으로(product-master-import applyColors, 배포 필요).', 'audit-trim-evidence [--demote --apply] · publish-color-master-tab --apply'],
-      ['★제보가 왔다(차명·트림이 실차와 다름) — 처리 순서', '① 추적: 공급사 시트 차명(트림) · 정제칸 · 상품마스터 차종코드/검증상태 · 결정 파일 · 발행 탭에서 그 값이 어디서 왔나 본다(대개 트림 없는 옛 원문에 첫 트림 t01 이 붙은 것). ② 차종마스터에서 맞는 트림 코드를 찾는다(같은 세대·연료·배기량 v 안의 t). ③ 결정 파일에 CODE 결정(제보 근거를 basis 에)을 넣고 plan → apply-product-master-vehicle-coverage --apply(가드 writer, 스냅샷 남음). ④ fill-supplier-ai-columns --apply 로 정제칸을 정본에 맞춤(코드·세부트림 바로잡힘). ⑤ 발행(run-daily ④). 공급사 시트 왼쪽 차명(트림) 글자는 렌트사 칸이라 기계가 안 덮는다 — 공급사에 알려 고치게 한다. 실측 2026-08-19 리더스 125호1238 K8 GL3 LPG: 프레스티지(t01)→트렌디(t03).', 'plan-product-vehicle-review-decisions → apply-product-master-vehicle-coverage --report=tmp/product-vehicle-review-decisions-report.json --apply → fill-supplier-ai-columns --apply → run-daily'],
+      ['★제보가 왔다(차명·트림이 실차와 다름) — 처리 순서', '① 추적: 공급사 시트 차명(세부모델+트림) · 정제칸 · 상품마스터 차종코드/검증상태 · 결정 파일 · 발행 탭에서 그 값이 어디서 왔나 본다(대개 트림 없는 옛 원문에 첫 트림 t01 이 붙은 것). ② 차종마스터에서 맞는 트림 코드를 찾는다(같은 세대·연료·배기량 v 안의 t). ③ 결정 파일에 CODE 결정(제보 근거를 basis 에)을 넣고 plan → apply-product-master-vehicle-coverage --apply(가드 writer, 스냅샷 남음). ④ fill-supplier-ai-columns --apply 로 정제칸을 정본에 맞춤(코드·세부트림 바로잡힘). ⑤ 발행(run-daily ④). 공급사 시트 왼쪽 차명(세부모델+트림) 글자는 렌트사 칸이라 기계가 안 덮는다 — 공급사에 알려 고치게 한다. 실측 2026-08-19 리더스 125호1238 K8 GL3 LPG: 프레스티지(t01)→트렌디(t03).', 'plan-product-vehicle-review-decisions → apply-product-master-vehicle-coverage --report=tmp/product-vehicle-review-decisions-report.json --apply → fill-supplier-ai-columns --apply → run-daily'],
       ['ERP 목록 대수가 판매시트보다 적음', 'audit-sales-vs-erp 로 이유별로 가른다. ① ERP 만 출고불가(표식 없음) = 병합 규칙이 수기 보류로 오인 → 상품마스터 경로는 덮게 고쳤다(sheet-merge, 배포 필요) · 즉시 복구는 allow_sheet_reactivate=true 후 sync-daily ② 유효가격 0 = 대여료·보증금 쌍이 없다(공급사 시트) ③ 시트 계약중 = ERP 출고불가 투영(정상) ④ 번호미정 = 차량번호 나오면 합류.', 'audit-sales-vs-erp · sync-daily'],
       ['ERP 에 어떤 기간이 안 보임(영업자 표엔 대여료 있음)', '그 기간 보증금이 비어 있다 — ERP 는 대여료·보증금 쌍이 있어야 싣는다. 공급사 시트 단기보증(1·12)/장기보증(24~60) 을 채우게 하고(무보증이면 「무보증」이라 적게) 일일 반영. ⑤′ 경고 목록에 차번이 나온다.', 'sync-product-master-from-sales'],
       ['차 이름이 틀림', '코드 있는 차: 상품마스터 차종코드(결정 파일 CODE → plan/apply-product-master-vehicle-coverage). 코드 없는 차: 결정 파일 TRIPLE/PARTIAL 또는 resolve-unmatched-vehicles → 정제칸 채움 → 발행.', ''],

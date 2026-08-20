@@ -59,7 +59,7 @@ for (const t of suppliers) {
   for (const sh of (m.sheets || []) as Rec[]) {
     const title = S(sh.properties.title); if (sh.properties.hidden || isOurNonInventoryTab(title)) continue;
     const rows = (((await call(`${SH}/${t.id}/values/${encodeURIComponent(`'${title.replace(/'/g, "''")}'!A1:BZ700`)}`)).values || []) as string[][]).map((r) => r.map(S));
-    const hi = rows.findIndex((r) => r.includes('차량번호') && r.some((c) => norm(c) === '차명(트림)')); if (hi < 0) continue;
+    const hi = rows.findIndex((r) => r.includes('차량번호') && r.some((c) => norm(c) === '차명(세부모델+트림)')); if (hi < 0) continue;
     const h = rows[hi]; const at = (x: string) => h.findIndex((y) => norm(y) === norm(x)); const pi = at('차량번호');
     const updates: { range: string; values: string[][] }[] = [];
     rows.slice(hi + 1).forEach((r, k) => {

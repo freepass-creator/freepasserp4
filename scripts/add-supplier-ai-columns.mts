@@ -16,7 +16,7 @@
  *   열을 안 옮기면 값이 밀릴 위험 자체가 없다. 공급사가 매일 보는 화면도 그대로다.
  * ★이미 있는 칸은 다시 만들지 않는다. 두 번 돌려도 안전하다.
  *
- * ⚠ 우리 제공시트만 손댄다. 가르는 표식은 열 이름 「차명(트림)」이다.
+ * ⚠ 우리 제공시트만 손댄다. 가르는 표식은 열 이름 「차명(세부모델+트림)」이다.
  * ⚠ 값은 안 채운다 — 채우는 것은 `fill-supplier-ai-columns.mts` 가 한다.
  *
  *   npx tsx scripts/add-supplier-ai-columns.mts
@@ -35,7 +35,7 @@ const arg = (k: string, d = '') => (process.argv.find((a) => a.startsWith(`--${k
 const APPLY = process.argv.includes('--apply');
 const ONE = arg('sheet');
 const NAME = arg('name', '프리패스 재고');
-const MARK = '차명(트림)';
+const MARK = '차명(세부모델+트림)';
 
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 const jwt = new JWT({

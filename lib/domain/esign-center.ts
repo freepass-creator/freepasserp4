@@ -106,10 +106,12 @@ export function esignProductAvailabilityBlocker(
   if (S(product.provider_company_code) !== S(row.provider_company_code)) {
     return { key: 'vehicle_provider', label: 'ERP 차량', level: 'BLOCK', message: '선택한 공급사의 차량이 아닙니다' };
   }
-  const status = S(product.vehicle_status);
+  const status = S(product.vehicle_status).replace(/\s/g, '');
   const owner = S(product.locked_by_contract);
   const ownLock = !!S(row.contract_code) && owner === S(row.contract_code);
-  if (status !== '출고가능' && !ownLock) {
+  // ★즉시출고도 출고가능과 같은 가용 재고다(`isContractAvailableVehicle` 과 같은 규칙) —
+  //   차량 목록엔 뜨는데 발송 게이트가 막던 것을 2026-08-20 실측에서 잡았다(즉시출고 5대).
+  if (status !== '출고가능' && status !== '즉시출고' && !ownLock) {
     return { key: 'vehicle_availability', label: 'ERP 차량', level: 'BLOCK', message: '차량이 더 이상 출고가능 상태가 아닙니다' };
   }
   return null;
@@ -289,21 +291,29 @@ export function validateEsignCenterContract(
   if (!S(row.customer_address)) add('customer_address', '고객 주소', 'PASS', '고객이 서명 링크에서 입력');
   if (!S(row.car_number_snapshot)) add('car_number', '차량번호', 'WARNING', '신차·번호미정 여부 확인');
 
-  if (S(row.provider_company_code)) {
-    if (!partner) add('partner_profile', '업체 고정값', 'WARNING', '업체 고정값을 찾지 못했습니다');
-    else {
-      if (!S(partner.name || partner.partner_name)) add('company_name', '임대인 상호', 'BLOCK', '임대인 상호 없음');
-      if (!S(partner.business_number || partner.business_no)) add('company_biz_no', '사업자등록번호', 'BLOCK', '사업자등록번호 없음');
-      if (!S(partner.ceo || partner.ceo_name)) add('company_ceo', '대표자', 'BLOCK', '업체 대표자 없음');
-      if (!S(partner.address)) add('company_address', '업체 주소', 'BLOCK', '업체 주소 없음');
-      // 자동차대여사업 등록번호는 묻지 않는다(사장님 2026-08-19 「대여사업등록정보까지는 필요없을 거 같음」) — 있으면 계약서에 싣고, 없어도 막지 않는다.
-      if (!S(partner.bank_name)) add('payment_bank', '입금은행', 'WARNING', '업체 입금은행 없음');
-      if (!S(partner.bank_account)) add('payment_account_no', '입금계좌', 'WARNING', '업체 입금계좌 없음');
-      if (!S(partner.bank_holder || partner.name || partner.partner_name)) add('payment_account_holder', '예금주', 'WARNING', '업체 예금주 없음');
-    }
-  }
+  if (S(row.provider_company_code)) for (const check of esignPartnerChecks(partner)) checks.push(check);
 
   return checks;
+}
+
+/**
+ * 공급사(임대인) 정보만 따로 본다 — **계약을 만들기 전에도** 물어볼 수 있어야 한다(사장님 2026-08-20
+ * 「전자계약 돌릴 거면 거기서 뭐 없어서 안 된다 이런 표시 해주지?」). 회사만 골라도 이 값들은 이미 정해져 있다.
+ * ⚠ 계약 검증(validateEsignCenterContract)도 이 함수를 쓴다 — 같은 이유를 두 곳에 적지 않는다.
+ */
+export function esignPartnerChecks(partner?: Record<string, unknown> | null): EsignCheck[] {
+  const out: EsignCheck[] = [];
+  const put = (key: string, label: string, level: EsignCheckLevel, message: string) => out.push({ key, label, level, message });
+  if (!partner) { put('partner_profile', '업체 고정값', 'WARNING', '업체 고정값을 찾지 못했습니다'); return out; }
+  if (!S(partner.name || partner.partner_name)) put('company_name', '임대인 상호', 'BLOCK', '임대인 상호 없음');
+  if (!S(partner.business_number || partner.business_no)) put('company_biz_no', '사업자등록번호', 'BLOCK', '사업자등록번호 없음');
+  if (!S(partner.ceo || partner.ceo_name)) put('company_ceo', '대표자', 'BLOCK', '업체 대표자 없음');
+  if (!S(partner.address)) put('company_address', '업체 주소', 'BLOCK', '업체 주소 없음');
+  // 자동차대여사업 등록번호는 묻지 않는다(사장님 2026-08-19 「대여사업등록정보까지는 필요없을 거 같음」) — 있으면 계약서에 싣고, 없어도 막지 않는다.
+  if (!S(partner.bank_name)) put('payment_bank', '입금은행', 'WARNING', '업체 입금은행 없음');
+  if (!S(partner.bank_account)) put('payment_account_no', '입금계좌', 'WARNING', '업체 입금계좌 없음');
+  if (!S(partner.bank_holder || partner.name || partner.partner_name)) put('payment_account_holder', '예금주', 'WARNING', '업체 예금주 없음');
+  return out;
 }
 
 export function esignBlockingChecks(

@@ -19,6 +19,7 @@ import { JWT } from 'google-auth-library';
 import { SHEET_GRID_FIELDS, readSupplierSheet } from '../lib/domain/supplier-sheet-read';
 import { hasPolicyColumns, policyFieldsFrom, policySameKey, policyTabRowFrom, POLICY_SAME_KEYS, wonOf } from '../lib/domain/supplier-row-policy';
 import { policySheetHeader } from '../lib/domain/policy-sheet-layout';
+import { POLICY_TAB_ALIASES, policyTabTitle } from '../lib/domain/supplier-template-sheet';
 import type { EntityRecord } from '../lib/intake/entities';
 
 type Rec = Record<string, any>;
@@ -109,10 +110,15 @@ for (const g of groups.values()) {
 }
 
 // ── ③ 정제시트 정책 탭 — 머리행·기본 줄은 두고, 이 공급사 접두 줄만 다시 쓴다
-const pol = await call(`${SH}/${TO}/values/${encodeURIComponent("'정책'")}`) as { values?: string[][] };
+// ★탭 이름은 시트마다 「운영정책」·「정책」 둘 다 있다(정책 규격 v2 이후 「운영정책」). 실제 탭 이름으로 잡는다 — 이름을 고정하면 400 Unable to parse range 로 죽는다(2026-08-19 실측).
+const bookMeta = await call(`${SH}/${TO}?fields=sheets.properties(title)`) as Rec;
+const titles = ((bookMeta.sheets || []) as Rec[]).map((x) => S(x.properties?.title));
+const POLICY_TAB = policyTabTitle(titles);
+if (!POLICY_TAB) throw new Error(`정제시트에 정책 탭이 없다(${POLICY_TAB_ALIASES.join('·')})`);
+const pol = await call(`${SH}/${TO}/values/${encodeURIComponent(`'${POLICY_TAB}'`)}`) as { values?: string[][] };
 const prow = ((pol.values || []) as string[][]).map((r) => r.map(S));
 const hdr = prow[0] || [];
-if (!hdr.length || hdr[0] !== '정책코드') throw new Error('정제시트 「정책」 탭 머리행이 규격(정책코드 …)이 아니다 — transpose-policy-tab 먼저');
+if (!hdr.length || hdr[0] !== '정책코드') throw new Error(`정제시트 「${POLICY_TAB}」 탭 머리행이 규격(정책코드 …)이 아니다 — transpose-policy-tab 먼저`);
 const stdHdr = policySheetHeader();
 const missingCols = stdHdr.filter((c) => !hdr.includes(c));
 if (missingCols.length) console.log(`  ▲ 정책 탭에 없는 규격 열 ${missingCols.length}: ${missingCols.join(' · ')}`);
@@ -124,7 +130,7 @@ for (const { code, g, reused } of assigned) {
 // ── ④ 재고 정책코드
 const st = await call(`${SH}/${TO}/values/${encodeURIComponent("'재고'")}`) as { values?: string[][] };
 const srows = ((st.values || []) as string[][]).map((r) => r.map(S));
-const shi = srows.findIndex((r) => r.some((c) => norm(c) === '차명(트림)'));
+const shi = srows.findIndex((r) => r.some((c) => norm(c) === '차명(세부모델+트림)'));
 const shdr = srows[shi] || [];
 const spi = shdr.findIndex((h) => norm(h) === '차량번호'); const sci = shdr.findIndex((h) => norm(h) === '정책코드');
 if (spi < 0 || sci < 0) throw new Error('재고 탭에 차량번호/정책코드 열이 없다');
@@ -142,8 +148,8 @@ srows.slice(shi + 1).forEach((r, k) => {
 });
 console.log(`  재고 정책코드 넣을 줄 ${setN}${keptHuman ? ` · 사람이 고른 코드라 둔 줄 ${keptHuman}` : ''}`);
 if (!APPLY) { console.log('※ dry-run. 반영은 --apply'); process.exit(0); }
-await call(`${SH}/${TO}/values/${encodeURIComponent(`'정책'!A2:${colA1(Math.max(hdr.length, 1) - 1)}${Math.max(prow.length + assigned.length + 5, 60)}`)}:clear`, { method: 'POST', body: '{}' });
-await call(`${SH}/${TO}/values/${encodeURIComponent("'정책'!A2")}?valueInputOption=RAW`, { method: 'PUT', body: JSON.stringify({ values: [...keep, ...newRows] }) });
+await call(`${SH}/${TO}/values/${encodeURIComponent(`'${POLICY_TAB}'!A2:${colA1(Math.max(hdr.length, 1) - 1)}${Math.max(prow.length + assigned.length + 5, 60)}`)}:clear`, { method: 'POST', body: '{}' });
+await call(`${SH}/${TO}/values/${encodeURIComponent(`'${POLICY_TAB}'!A2`)}?valueInputOption=RAW`, { method: 'PUT', body: JSON.stringify({ values: [...keep, ...newRows] }) });
 if (cellWrites.length) await call(`${SH}/${TO}/values:batchUpdate`, { method: 'POST', body: JSON.stringify({ valueInputOption: 'RAW', data: cellWrites }) });
-console.log(`  ✓ 정책 탭 ${keep.length + newRows.length}줄(기존 유지 ${keep.length} + ${CODE} ${newRows.length}) · 재고 정책코드 ${setN}줄`);
+console.log(`  ✓ 「${POLICY_TAB}」 탭 ${keep.length + newRows.length}줄(기존 유지 ${keep.length} + ${CODE} ${newRows.length}) · 재고 정책코드 ${setN}줄`);
 console.log(`  → 이어서: npx tsx scripts/normalize-policy-values.mts --sheet=${TO} --apply`);

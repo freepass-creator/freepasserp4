@@ -8,7 +8,8 @@ import {
 } from '../lib/domain/esign-center';
 import { contractLayerOf, partnerUsesFreepassContract } from '../lib/domain/policy-tier';
 
-const read = (path: string) => readFileSync(path, 'utf8');
+// ⚠ 줄끝 정규화 — core.autocrlf=true 라 체크아웃하면 CRLF 로 깔린다. 소스 문자열 단언이 줄끝에 걸려 깨지면 안 된다(2026-08-20).
+const read = (path: string) => readFileSync(path, 'utf8').replace(/\r\n/g, '\n');
 const adminRoute = read('app/api/freepass-esign/contracts/[contractCode]/route.ts');
 const publicRoute = read('app/api/freepass-esign/public/[token]/route.ts');
 const publicDocumentRoute = read('app/api/freepass-esign/public/[token]/document/route.ts');
@@ -199,12 +200,14 @@ assert.doesNotMatch(publicPage, /contract-sign-public|@\/lib\/domain\/sign/);
 assert.match(esignPage, /return <EsignSendCenter \/>/);
 assert.match(sendCenter, /label: '공급사'/);
 assert.doesNotMatch(sendCenter, /label: '회사선택'/);
-assert.match(sendCenter, /label: '계약서 종류'/);
+// 사장님 2026-08-20 — 계약서 종류 select 폐지. 차량 상품구분 × 정책 보험조건으로 정해진다(고르지 않는다).
+assert.doesNotMatch(sendCenter, /label: '계약서 종류'/);
+assert.match(sendCenter, /templateForKindAndInsurance\(productContractKind\(draftProduct\), insuranceSideFromPolicy\(draftPolicy\)\)/);
 assert.match(sendCenter, /label: '계약정책'/);
 assert.match(sendCenter, /params\.get\('product'\)/);
 assert.match(sendCenter, /contractVehicleSnapshot\(product\)/);
-assert.ok(sendCenter.indexOf("...SUPPLIER_FIELDS") < sendCenter.indexOf("...TEMPLATE_FIELDS"));
-assert.ok(sendCenter.indexOf("...TEMPLATE_FIELDS") < sendCenter.indexOf("...POLICY_FIELDS"));
+assert.match(sendCenter, /const COMPANY_STEP_FIELDS: Field\[\] = \[\.\.\.SUPPLIER_FIELDS\]/);
+assert.match(sendCenter, /const VEHICLE_POLICY_FIELDS: Field\[\] = \[\.\.\.POLICY_FIELDS\]/);
 assert.equal(
   emptyEsignDraftInput('direct', '2026-08-14').standardTemplateId,
   'freepass-rent-standard',
@@ -221,11 +224,10 @@ assert.match(sendCenter, /FreepassEsignStagePane/);
 assert.match(sendCenter, /FreepassEsignDocumentPane/);
 assert.doesNotMatch(sendCenter, /FreepassEsignLinkPane|FreepassEsignProgressPane|ContractSendWorkspace/);
 assert.doesNotMatch(sendCenter, /④ 계약서 확인·링크 만들기/);
-// 사장님 2026-08-19: 3장(공급사·차량·대여조건) 채우면 바로 만든다 — 4번 카드 없음.
 // 선택한 정책이 어떤 조건인지는 칸 4 「계약내용 확인」에 접지 않고 쭉 펼친다. 공급사 정보가 비면 「파트너사관리에서 입력」.
-assert.doesNotMatch(sendCenter, /title="계약서 만들기"|number=\{4\}/);
+assert.doesNotMatch(sendCenter, /title="계약서 만들기"/);
 assert.match(sendCenter, /<EsignContractContentPane/);
-assert.match(sendCenter, /openPartnerManager = \(\) => router\.push\('\/members\?tab=partner'\)/);
+assert.match(sendCenter, /partnerManagePartnerUrl\(draft\?\.providerCompanyCode/);
 assert.match(sendCenter, /onFixPartner=\{hasPartnerProblem\(draftProblems\) \? openPartnerManager : null\}/);
 assert.match(panes, /export function EsignContractContentPane/);
 assert.match(panes, /파트너사관리에서 \{partnerName \|\| '공급사'\} 정보 입력/);
@@ -242,10 +244,35 @@ assert.doesNotMatch(sendCenter, /window\.open\('about:blank'/);
 assert.doesNotMatch(sendCenter, /createdDraft|inlineResultRef|개인정보 없는 계약서를 확인하고 고객 작성 링크를 만드세요/);
 assert.match(sendCenter, /전체 입력 지우기/);
 assert.doesNotMatch(sendCenter, /⑥ 계약서 만들기/);
-// 초안 카드 순서 1 계약 기준 → 2 차량 → 3 대여조건(특약 포함) → 바로 「계약서 만들기」 — 전부 한 열, 가로폭 전체
-assert.ok(sendCenter.indexOf('title="계약 기준"') < sendCenter.indexOf('title="차량"'));
-assert.ok(sendCenter.indexOf('title="차량"') < sendCenter.indexOf('title="대여조건"'));
-assert.ok(sendCenter.indexOf('title="대여조건"') < sendCenter.indexOf('<SectionLabel>특약사항</SectionLabel>'));
+/**
+ * ★초안 카드 순서(사장님 2026-08-20) — 1 회사 → 2 차량(정책 없으면 정책까지) → 3 기간별 대여료 → 4 조건 → 「계약서 만들기」.
+ *   차량 후보는 회사만 정해지면 열린다(계약서 종류를 먼저 고르지 않는다).
+ */
+assert.ok(sendCenter.indexOf('title="회사"') < sendCenter.indexOf('title="차량"'));
+assert.ok(sendCenter.indexOf('title="차량"') < sendCenter.indexOf('title="기간별 대여료"'));
+assert.ok(sendCenter.indexOf('title="기간별 대여료"') < sendCenter.indexOf('title="조건"'));
+assert.ok(sendCenter.indexOf('title="조건"') < sendCenter.indexOf('<SectionLabel>특약사항</SectionLabel>'));
+assert.match(sendCenter, /const draftVehicleReady = !!\(draftProduct && draftPolicy && draftTemplate\)/);
+assert.match(sendCenter, /resolveVehiclePolicy\(product, providerPolicies\)/);
+/**
+ * ★막는 이유는 «그걸 아는 단계»에서 바로 보여 준다(사장님 2026-08-20 「뭐 없어서 안 된다 이런 표시 해주지?」).
+ *   회사만 골라도 임대인 정보는 이미 정해져 있고, 정책을 고르면 그 정책의 빈칸도 안다 — 4장을 다 채우고 알게 하지 않는다.
+ */
+assert.match(sendCenter, /draftSupplierBlockers/);
+// 고치러 갈 때 초안을 담아 두고 간다 — 돌아오면 그대로 이어서 발송(사장님 2026-08-20). 담아 두지 않으면 「주소 한 칸」에 네 칸을 다시 채운다.
+assert.match(sendCenter, /const openPartnerManager = \(\) => \{[\s\S]{0,200}ESIGN_POLICY_DRAFT_SESSION_KEY/);
+assert.match(membersPage, /return=esign|returnToEsign/);
+assert.match(membersPage, /작성 중이던 전자계약으로/);
+assert.match(sendCenter, /draftPolicyBlockers/);
+assert.match(sendCenter, /회사정보 \$\{blocked\}개 필요/);
+assert.match(read('lib/domain/esign-center.ts'), /export function esignPartnerChecks/);
+// 손님 화면 따라보기 — 오버레이 + 다음/자동 넘김(postMessage). 고객 화면은 미리보기일 때만 바깥 조종을 받는다.
+const walkthrough = read('components/EsignCustomerWalkthrough.tsx');
+assert.match(walkthrough, /fp-esign-preview/);
+assert.match(walkthrough, /event\.origin !== window\.location\.origin/);
+assert.match(walkthrough, /window\.location\.origin\}\$\{parsed\.pathname\}/, '고객 링크는 현재 출처로 옮겨 띄워야 postMessage 가 통한다');
+assert.match(publicPage, /if \(!preview\) return undefined;/, '실제 고객 화면은 바깥에서 조종할 수 없어야 한다');
+assert.match(publicPage, /fp-esign-preview-state/);
 assert.ok(sendCenter.indexOf('<SectionLabel>특약사항</SectionLabel>') < sendCenter.indexOf("'계약서 만들기'"));
 assert.doesNotMatch(sendCenter, /repeat\(auto-fit, minmax\(min\(100%, 560px\)/);
 assert.match(sendCenter, /state=\{!draftBaseReady \? 'waiting' : draftVehicleReady \? 'complete' : 'active'\}/);

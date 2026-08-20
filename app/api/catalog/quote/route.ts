@@ -11,7 +11,8 @@ const S = (v: unknown) => String(v ?? '').trim();
 const dead = (p: Rec) => p?._deleted === true || !!p?.deletedAt || S(p?.status) === 'deleted';
 
 /**
- * 손님 공개 견적 — `/q/{code}` 가 쓴다. **인증 없이** 호출된다.
+ * 손님 공개 **상품 안내** — `/q/{code}` 가 쓴다. **인증 없이** 호출된다.
+ * (경로·파일 이름의 `quote` 는 그대로 둔다 — 이미 나간 링크와 배포 경로가 걸려 있다. 바뀐 건 손님이 읽는 글자뿐.)
  *
  * 브라우저에 RTDB 권한을 주지 않는다. 서버가 서비스계정으로 읽고
  * `sanitizeProductForGuest` 화이트리스트만 통과시킨다(원가·VIN·수수료·회원 PII 제외).
@@ -39,12 +40,12 @@ export async function GET(request: Request) {
       if (hit) { key = hit[0]; product = hit[1]; }
     }
     if (!product || dead(product)) {
-      return NextResponse.json({ error: '현재 견적 가능한 상품이 아닙니다.' }, { status: 404 });
+      return NextResponse.json({ error: '현재 안내 가능한 상품이 아닙니다.' }, { status: 404 });
     }
     const merged = { ...product, _key: key, product_code: S(product.product_code) || key } as EntityRecord;
     // 판매 가능 여부는 서버가 판정한다 — 만료·출고불가 매물이 링크로 계속 열리면 안 된다.
     if (!isOfferableProduct(merged)) {
-      return NextResponse.json({ error: '현재 견적 가능한 상품이 아닙니다.' }, { status: 404 });
+      return NextResponse.json({ error: '현재 안내 가능한 상품이 아닙니다.' }, { status: 404 });
     }
 
     /**
@@ -82,6 +83,6 @@ export async function GET(request: Request) {
     );
   } catch (error) {
     console.error('[catalog/quote]', error instanceof Error ? error.message : 'unknown');
-    return NextResponse.json({ error: '견적을 불러오지 못했습니다.' }, { status: 503 });
+    return NextResponse.json({ error: '상품 안내를 불러오지 못했습니다.' }, { status: 503 });
   }
 }

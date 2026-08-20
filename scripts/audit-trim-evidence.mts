@@ -4,7 +4,7 @@
  * ★사장님 2026-08-19 — 제보(125호1238 K8 트렌디인데 프레스티지) 뒤 「이런 상황 예방해 보자 · 트림 없는 거는 그냥 트림 비우는 거로 했잖아」.
  *   원인 유형 = 공급사 원문에 트림 글자가 없는데(「K8 GL3 21-」) 그 변형(같은 세대·연료·배기량 v)의 **첫 트림 t01** 이 코드로 박힘.
  *   판정(코드 확정 차마다):
- *     근거 있음   — 원문(상품마스터 「공급사 입력 차명」·「공급사 원문보존」 + 지금 공급사 시트 차명(트림)/옵션)에 코드 트림 이름 또는 트림별칭이 있다.
+ *     근거 있음   — 원문(상품마스터 「공급사 입력 차명」·「공급사 원문보존」 + 지금 공급사 시트 차명(세부모델+트림)/옵션)에 코드 트림 이름 또는 트림별칭이 있다.
  *     유일 트림   — 원문에 트림 글자가 없지만 그 변형에 트림이 하나뿐이다(고를 여지가 없음 → 그대로).
  *     다른 트림   — 원문에 **다른** 트림 글자가 있다(불일치 → 사람 확인, 결정 파일 CODE 로 바로잡을 후보).
  *     근거 없음   — 원문에 트림 글자가 없고 변형에 트림이 여럿이다 → ★트림을 비운다(--demote): 상품마스터 차종코드·적용값 비움 + 검증상태 「검수필요」 + 검수사유,
@@ -58,11 +58,11 @@ const pmv = await call(`${SH}/${M}/values/${encodeURIComponent(`'${PRODUCT_MASTE
 const pm = ((pmv.values || []) as string[][]).map((r) => r.map(S)); const ph = pm[0]; const at = (n: string) => ph.indexOf(n);
 for (const n of ['차량번호', '공급사코드', '차종코드', '검증상태', '차량상태']) if (at(n) < 0) throw new Error(`상품마스터 머리행에 「${n}」 없음`);
 // ★근거로 삼는 원문 = 상품마스터 「공급사 입력 차명」·「공급사 원문보존」(공급사가 적은 그대로) — 「차종마스터 적용값」은 우리가 박은 값이라 근거가 아니다.
-//   지금 공급사 시트 차명(트림)은 --sheet-text 를 줄 때만 본다: 우리가 옛 ERP 값으로 미리 채운 시트(예: 리더스 「K8 GL3 LPG 3.5 2WD 프레스티지」)가 있어 순환 근거가 된다.
+//   지금 공급사 시트 차명(세부모델+트림)은 --sheet-text 를 줄 때만 본다: 우리가 옛 ERP 값으로 미리 채운 시트(예: 리더스 「K8 GL3 LPG 3.5 2WD 프레스티지」)가 있어 순환 근거가 된다.
 const rawCols = ['공급사 입력 차명', '공급사 원문보존'].filter((c) => at(c) >= 0);
 const USE_SHEET_TEXT = process.argv.includes('--sheet-text');
 
-// ── 21곳 공급사 시트 — 차번별 차명(트림)·옵션(지금 값)
+// ── 21곳 공급사 시트 — 차번별 차명(세부모델+트림)·옵션(지금 값)
 const q = `name contains '${SHEET_NAME_MATCH}' and mimeType = 'application/vnd.google-apps.spreadsheet' and trashed = false`;
 const found = await call(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)&pageSize=100&includeItemsFromAllDrives=true&supportsAllDrives=true`);
 const suppliers = ((found.files || []) as Rec[]).map((f) => ({ id: S(f.id), name: supplierSheetLabel(S(f.name)) }));
@@ -73,8 +73,8 @@ for (const t of suppliers) {
     const title = S(sh.properties?.title); if (sh.properties?.hidden || isOurNonInventoryTab(title)) continue;
     const v = await call(`${SH}/${t.id}/values/${encodeURIComponent(`'${title.replace(/'/g, "''")}'!A1:BZ700`)}`) as { values?: string[][] };
     const rows = ((v.values || []) as string[][]).map((r) => r.map(S));
-    const hi = rows.findIndex((r) => r.includes('차량번호') && r.some((c) => c.replace(/\s/g, '') === '차명(트림)')); if (hi < 0) continue;
-    const h = rows[hi]; const pi = h.indexOf('차량번호'); const ni = h.findIndex((c) => c.replace(/\s/g, '') === '차명(트림)'); const oi = h.indexOf('옵션'); const ti = h.indexOf('세부트림');
+    const hi = rows.findIndex((r) => r.includes('차량번호') && r.some((c) => c.replace(/\s/g, '') === '차명(세부모델+트림)')); if (hi < 0) continue;
+    const h = rows[hi]; const pi = h.indexOf('차량번호'); const ni = h.findIndex((c) => c.replace(/\s/g, '') === '차명(세부모델+트림)'); const oi = h.indexOf('옵션'); const ti = h.indexOf('세부트림');
     rows.slice(hi + 1).forEach((r, k) => { const p = plateOf(r[pi]); if (!p) return; sheetText.set(p, `${sheetText.get(p) || ''} ${S(r[ni])} ${oi >= 0 ? S(r[oi]) : ''}`); if (ti >= 0 && !sheetTrimCell.has(p)) sheetTrimCell.set(p, { id: t.id, tab: title, row: hi + 1 + k + 1, col: ti, value: S(r[ti]) }); });
   }
 }

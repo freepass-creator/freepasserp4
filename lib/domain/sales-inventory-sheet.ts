@@ -45,7 +45,7 @@ function numericCell(value: unknown): string {
   return numeric && Number.isFinite(Number(numeric)) ? String(Number(numeric)) : '';
 }
 
-function normalizeSalesRows(table: string[][]): string[][] {
+export function normalizeSalesRows(table: string[][]): string[][] {
   const headers = table[0] || [];
   const mileage = headers.findIndex((header) => /^(주행|주행거리)$/.test(S(header)));
   const engine = headers.findIndex((header) => /^(배기량|배기|cc)$/i.test(S(header)));
@@ -314,6 +314,11 @@ export function importSalesInventoryWorkbook(input: {
   if (wants('RP023')) {
     const partner = partnerByCode.get('RP023');
     if (!partner) throw new Error('영업자 상품리스트 공급사 설정 없음(RP023)');
+    /**
+     * ★오플구독은 「12개월 2만km」처럼 **주행 구간별 요금**이라 오플 전용 파서로 읽는다(일반 파서는 그 요금을 못 읽어 전부 «가격없음»이 된다).
+     *   보증금은 시트에 글자(「국산: 월 대여료×2」)로 적히므로 규칙으로 만든다(depositRule).
+     *   프로모션 탭이 없으면 본탭만 읽는다(2026-08-19 탭 3개 확정).
+     */
     const result = importAutoplusTables({
       mainRaw: input.autoplusMain.rows,
       promoRaw: input.autoplusPromo.rows,
@@ -338,10 +343,10 @@ export function importSalesInventoryWorkbook(input: {
       noPriceSkippedCount: result.noPriceSkippedCount,
       skippedCount: result.skipped,
       duplicateCount: result.duplicateCount,
-      blockingDuplicateCount: result.blockingDuplicateCount,
+      blockingDuplicateCount: result.duplicateCount,
       invalidCount: result.invalidCount,
       issueSamples: result.issueSamples,
-      message: `✓ ${S(partner.name || partner.partner_name || '오토플러스')} [오플 2탭] — ${result.imported}매물`,
+      message: `✓ ${S(partner.name || partner.partner_name || '오토플러스')} [오플구독] — ${result.imported}매물`,
       products: result.products,
     });
   }

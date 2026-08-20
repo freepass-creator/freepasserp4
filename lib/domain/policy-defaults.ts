@@ -263,7 +263,7 @@ export const POLICY_DEFAULTS: PolicyDefault[] = [
 
   /* ── 상품 기본 ── */
   {
-    key: 'maintenance_service', label: '정비 상품', value: '불포함', // 사장님 2026-08-19 표기
+    key: 'maintenance_service', label: '정비', value: '미제공', // 사장님 2026-08-20 — 프리패스 표준은 미제공
     source: '계약서 「정비상품 선택을 안할경우 정비 및 소모품 교체는 고객이 부담」 — 선택 안 함이 기본',
   },
   {

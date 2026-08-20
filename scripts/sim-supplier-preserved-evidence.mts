@@ -2,9 +2,9 @@ import assert from 'node:assert/strict';
 import { splitSupplierPreservedEvidence } from '../lib/domain/supplier-preserved-evidence';
 
 const split = splitSupplierPreservedEvidence(
-  '원본탭: 재고 | 차명(트림): 520i M Spt | 제조사(정제): BMW | 세부모델: E34 | 구동: AWD',
+  '원본탭: 재고 | 차명(세부모델+트림): 520i M Spt | 제조사(정제): BMW | 세부모델: E34 | 구동: AWD',
 );
-assert.equal(split.supplierDirect, '원본탭: 재고 | 차명(트림): 520i M Spt');
+assert.equal(split.supplierDirect, '원본탭: 재고 | 차명(세부모델+트림): 520i M Spt');
 assert.equal(split.normalizedTail, '제조사(정제): BMW | 세부모델: E34 | 구동: AWD');
 assert.equal(split.hasNormalizedTail, true);
 assert.match(split.full, /E34/);

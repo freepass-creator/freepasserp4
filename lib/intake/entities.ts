@@ -188,6 +188,8 @@ export const ENTITIES: Record<string, Entity> = {
       { key: 'screening_criteria', label: '심사조건', type: 'select', options: sheetOpts('심사조건'), manual: true, note: '⚠ 내부용 · 손님에게 안 나감 · 시트 「심사조건」' },
       { key: 'disqualification_conditions', label: '불가조건', type: 'text', manual: true, note: '⚠ 내부용 · 계약이 안 되는 조건 — 「3년 이내 음주이력」 · 시트 「불가조건」' },
       { key: 'sales_notes', label: '특이사항(영업)', type: 'text', manual: true, note: '⚠ 내부용 · 영업자가 알아야 할 조건 — 「21,23세 대여는 법인/사업자만」 · 시트 「특이사항」' },
+      // 사장님 2026-08-20 — 표에 없는 계약조건. 특이사항(영업용)과 달리 **계약서 특약 칸에 실린다** · 시트 「기타사항 1~4」
+      { key: 'policy_extra_terms', label: '기타사항(계약서)', type: 'text', manual: true, note: '위 항목에 없는 계약조건 · 계약서 특약 칸에 그대로 실림 · 시트 「기타사항 1~4」' },
       { key: 'credit_grade', label: '신용등급', type: 'select', options: ['무관', '1~3등급', '4~6등급', '7등급 이하'], manual: true, note: '⚠ 내부용' },
       { key: 'basic_driver_age', label: '기본운전자연령', type: 'select', options: sheetOpts('기본운전자연령'), manual: true, note: '「만 26세 이상」 · 면책금 산정 기준 · 시트 「기본운전자연령」' },
       { key: 'driver_age_lowering', label: '연령하향', type: 'select', options: sheetOpts('연령인하'), manual: true, note: '선택지 · 계약서엔 확정 나이만 · 시트 「연령인하」' },

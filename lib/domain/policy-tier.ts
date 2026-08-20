@@ -107,6 +107,7 @@ export const SALES_LAYER: PolicyField[] = [
   { key: 'screening_criteria', label: '심사조건', layer: 'sales', exposure: 'internal', decides: '계약 승인 여부', why: '⚠ 내부 심사 기준. 손님 화면·계약서에 절대 실리지 않는다 — 우리가 그 사람을 어떻게 평가했는지다' },
   { key: 'disqualification_conditions', label: '불가조건', layer: 'sales', exposure: 'internal', decides: '계약 가능 여부(상담)', why: '⚠ 내부 상담 기준(「3년 이내 음주이력」). 손님 화면·계약서에 실리지 않는다' },
   { key: 'sales_notes', label: '특이사항(영업)', layer: 'sales', exposure: 'internal', decides: '영업 상담 안내', why: '영업자가 알아야 할 그 밖의 조건. 손님 화면·계약서에 실리지 않는다' },
+  { key: 'policy_extra_terms', label: '기타사항(계약서)', layer: 'contract', exposure: 'contract', decides: '계약서 특약', why: '표에 없는 계약조건 — 계약서 특약 칸에 그대로 실린다(사장님 2026-08-20). 손님이 서명 전에 읽는 글이다' },
   { key: 'credit_grade', label: '신용등급', layer: 'sales', exposure: 'internal', decides: '계약 승인 여부', why: '⚠ 위와 같음' },
 
   // ⑤ 상담 안내 — 결정도 적용도 아닌 것

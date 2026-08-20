@@ -54,7 +54,7 @@ const PERIOD = new Map<string, { start: number; end: number }>();
 }
 const masterRaw = JSON.parse(readFileSync('public/data/vehicle-master.json', 'utf8')) as Rec;
 const ENTRIES = ((Array.isArray(masterRaw) ? masterRaw : masterRaw.entries) || []) as MasterEntry[];
-const pm = await call(`${SH}/${DEFAULT_PRODUCT_MASTER_SHEET_ID}/values/${encodeURIComponent(`'${PRODUCT_MASTER_TAB}'!A:AX`)}`) as { values?: unknown[][] };
+const pm = await call(`${SH}/${DEFAULT_PRODUCT_MASTER_SHEET_ID}/values/${encodeURIComponent(`'${PRODUCT_MASTER_TAB}'!A:AZ`)}`) as { values?: unknown[][] };
 const adoptedValues = await call(`${SH}/${DEFAULT_PRODUCT_MASTER_SHEET_ID}/values/${encodeURIComponent("'차종마스터_규격채택'!A:AD")}`) as { values?: unknown[][] };
 const artifact = JSON.parse(readFileSync('public/data/vehicle-trim-master.json', 'utf8')) as VehicleTrimMasterArtifact;
 const decisionsFile = loadProductVehicleReviewDecisions();
@@ -91,7 +91,7 @@ for (const f of (found.files || []) as Rec[]) {
       const plate = norm(r[pi]); if (!plate || /출고불가/.test(S(r[si])) || S(r[ci])) continue;
       if (NORMALIZED.has(plate) || decided.has(plate)) continue;
       const g = (n: string) => { const i = at(n); return i < 0 ? '' : S(r[i]); };
-      cars.push({ plate, supplier, code: companyAlias(supplier) || supplier, maker: canonMakerDisplay(g('제조사(정제)') || g('제조사')), name: [g('차명(트림)'), g('모델명'), g('세부모델') && !g('차명(트림)') ? g('세부모델') : ''].filter(Boolean).join(' '), fuel: fuelOf(g('연료') || g('연료(정제)')), cc: ccOf(g('배기량') || g('배기량(정제)')), year: (S(g('연식')).match(/20\d\d/) || S(g('최초등록일')).match(/20\d\d/) || [''])[0], options: g('옵션'), sub: g('세부모델'), trimRaw: g('세부트림') });
+      cars.push({ plate, supplier, code: companyAlias(supplier) || supplier, maker: canonMakerDisplay(g('제조사(정제)') || g('제조사')), name: [g('차명(세부모델+트림)'), g('모델명'), g('세부모델') && !g('차명(세부모델+트림)') ? g('세부모델') : ''].filter(Boolean).join(' '), fuel: fuelOf(g('연료') || g('연료(정제)')), cc: ccOf(g('배기량') || g('배기량(정제)')), year: (S(g('연식')).match(/20\d\d/) || S(g('최초등록일')).match(/20\d\d/) || [''])[0], options: g('옵션'), sub: g('세부모델'), trimRaw: g('세부트림') });
     }
     await sleep(300);
   }

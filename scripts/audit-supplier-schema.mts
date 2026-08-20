@@ -45,7 +45,7 @@ const get = async (u: string) => {
 };
 const SH = 'https://sheets.googleapis.com/v4/spreadsheets';
 
-/** 그 시트의 «재고 탭» 머리행. 우리 양식의 표식은 「차명(트림)」이다. */
+/** 그 시트의 «재고 탭» 머리행. 우리 양식의 표식은 「차명(세부모델+트림)」이다. */
 async function headerOf(id: string): Promise<{ book: string; tabs: { tab: string; hdr: string[]; row: number }[] }> {
   const meta = await get(`${SH}/${id}?fields=properties.title,sheets.properties(title,hidden)`);
   const out: { tab: string; hdr: string[]; row: number }[] = [];
@@ -55,7 +55,7 @@ async function headerOf(id: string): Promise<{ book: string; tabs: { tab: string
     if (/정책|안내|공지/.test(tab)) continue;
     const v = await get(`${SH}/${id}/values/${encodeURIComponent(`'${tab.replace(/'/g, "''")}'!A1:BZ12`)}`) as { values?: string[][] };
     const rows = (v.values || []) as string[][];
-    const hi = rows.findIndex((r) => r.some((c) => norm(c) === norm('차명(트림)')));
+    const hi = rows.findIndex((r) => r.some((c) => norm(c) === norm('차명(세부모델+트림)')));
     if (hi < 0) continue;
     out.push({ tab, hdr: rows[hi].map(S).filter(Boolean), row: hi + 1 });
   }

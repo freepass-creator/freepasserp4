@@ -97,7 +97,7 @@ const raw = new Map<string, { cc: number; fuel: string; name: string; ours: bool
       const pi = at('차량번호') >= 0 ? at('차량번호') : at('차번');
       if (pi < 0) continue;
       /** ⚠ 공급사가 적은 칸만 본다 — 「배기량(정제)」·「연료(정제)」는 우리가 채운 칸이다. */
-      const ci = at('배기량'), fi = at('연료'), ni = at('차명(트림)');
+      const ci = at('배기량'), fi = at('연료'), ni = at('차명(세부모델+트림)');
       for (const row of t.table.slice(1)) {
         const p = plate(row[pi]);
         if (!p || raw.has(p)) continue;
@@ -142,7 +142,7 @@ const bad: { why: string; cars: Car[] }[] = [];
 const masterOf = new Map<string, { code: string; fuel: string; cc: number; name: string }>();
 let codeless = 0;
 try {
-  const pm = await api(`https://sheets.googleapis.com/v4/spreadsheets/${DEFAULT_PRODUCT_MASTER_SHEET_ID}/values/${encodeURIComponent(`'${PRODUCT_MASTER_TAB}'!A:AX`)}`) as { values?: string[][] };
+  const pm = await api(`https://sheets.googleapis.com/v4/spreadsheets/${DEFAULT_PRODUCT_MASTER_SHEET_ID}/values/${encodeURIComponent(`'${PRODUCT_MASTER_TAB}'!A:AZ`)}`) as { values?: string[][] };
   const pv = (pm.values || []) as string[][];
   const ph = (pv[0] || []).map(S);
   const pPlate = ph.indexOf('차량번호'), pCode = ph.indexOf('차종코드');

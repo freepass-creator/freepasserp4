@@ -3,7 +3,7 @@
  *
  * 기본은 dry-run이며 `--apply` 없이는 절대 쓰지 않는다. 행번호·차량번호·현재키를
  * 라이브 Sheet에서 다시 비교하고, 지정된 5개 열 외에는 갱신하지 않는다.
- * A:AX 전체 rewrite 없음. 기존 차종마스터/registry write 없음.
+ * A:AZ 전체 rewrite 없음. 기존 차종마스터/registry write 없음.
  *
  * dry-run: npx tsx scripts/apply-blocked-product-key-replacements.mts
  * apply:   npx tsx scripts/apply-blocked-product-key-replacements.mts --apply
@@ -53,7 +53,7 @@ const auth = new JWT({
 const token = (await auth.getAccessToken()).token;
 const endpoint = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}`;
 const fetchRows = async () => {
-  const range = encodeURIComponent(`'${PRODUCT_MASTER_TAB}'!A:AX`);
+  const range = encodeURIComponent(`'${PRODUCT_MASTER_TAB}'!A:AZ`);
   const response = await fetch(`${endpoint}/values/${range}`, {
     headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(30_000),
   });

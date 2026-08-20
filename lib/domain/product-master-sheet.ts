@@ -68,11 +68,21 @@ export const PRODUCT_MASTER_VARIANT_PRICE_COLUMNS = [
   '인수형 60개월 대여료', '인수형 60개월 보증금',
 ] as const;
 
+/**
+ * ★공급사가 적은 «모델명»·«차명»(2026-08-20 사장님 단순화) — ERP 상품찾기가 이 두 칸만 보여 준다.
+ *   모델명 = 검색되는 모델 이름(엔카 기준) · 차명 = 공급사 원문(세부모델+트림) 그대로.
+ *   차종코드가 없어도 이 둘은 늘 있다 — 예전엔 코드 없는 차의 model 칸에 「제조사 · 중형 · … · 배기 …」 한 줄이 통째로 들어가
+ *   상품찾기 모델 열이 문장으로 보였다(실측 2026-08-20 아이카 59대).
+ *   매일 갱신되는 live 칸이다(공급사 시트가 정본).
+ */
+export const PRODUCT_MASTER_SUPPLIER_NAME_COLUMNS = ['모델명', '차명'] as const;
+
 export const PRODUCT_MASTER_COLUMNS = [
   ...PRODUCT_MASTER_BASE_COLUMNS,
   ...productMasterPriceColumns,
   ...PRODUCT_MASTER_VARIANT_PRICE_COLUMNS,
   ...PRODUCT_MASTER_SYSTEM_COLUMNS,
+  ...PRODUCT_MASTER_SUPPLIER_NAME_COLUMNS,
 ] as const;
 
 /** 손오공 구독: 기간별 월대여료 × 약정연수. */
@@ -274,6 +284,8 @@ export function isProductMasterLiveColumn(column: unknown): boolean {
   const name = S(column).replace(/\s+/g, '');
   return name === '차량상태'
     || name === '정책코드'
+    || name === '모델명'
+    || name === '차명'
     || /^\d+개월(?:대여료|보증금)$/.test(name)
     || /^(?:18|24|36)개월3만km(?:대여료|보증금)$/.test(name)
     || /^인수형(?:36|48|60)개월(?:대여료|보증금)$/.test(name);

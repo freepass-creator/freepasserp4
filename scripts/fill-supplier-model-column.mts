@@ -1,5 +1,5 @@
 /**
- * 전 공급사 「모델명」 채우기 — 차명(트림) 스냅 우선, 없으면 정제칸 「모델」, 그다음 글자 매칭.
+ * 전 공급사 「모델명」 채우기 — 차명(세부모델+트림) 스냅 우선, 없으면 정제칸 「모델」, 그다음 글자 매칭.
  * 기본 dry-run, 반영은 --apply. 이미 값 있으면 유지(--overwrite 만 덮음).
  *
  *   npx tsx scripts/fill-supplier-model-column.mts
@@ -17,7 +17,7 @@ const APPLY = process.argv.includes('--apply');
 const OVERWRITE = process.argv.includes('--overwrite');
 const ONLY = (process.argv.find((a) => a.startsWith('--only=')) || '').slice(7).trim();
 const COL = '모델명';
-const NAME = '차명(트림)';
+const NAME = '차명(세부모델+트림)';
 const REFINE = '모델';
 const MAKER = '제조사';
 

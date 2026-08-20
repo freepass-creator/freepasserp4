@@ -33,7 +33,7 @@ const APPLY = process.argv.includes('--apply');
 const ONE = arg('sheet');
 const NAME = arg('name', '프리패스 재고');
 const TAB = 'AI 인계';
-const MARK = '차명(트림)';
+const MARK = '차명(세부모델+트림)';
 
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 const jwt = new JWT({
@@ -175,7 +175,7 @@ for (const id of targets) {
     ['1. 지금 규격', '탭', ''],
     ...specs.map((s) => ['', s[0], `${s[1]} · ${s[2]}`]),
     ['', '', ''],
-    ['2. 누가 어느 칸을 채우나', '★공급사', '차 이름은 세 칸만 — 제조사 · 차명(트림) · 옵션. 그 밖에 상태·색·연식·연료·주행·요금·보증금.'],
+    ['2. 누가 어느 칸을 채우나', '★공급사', '차 이름은 세 칸만 — 제조사 · 차명(세부모델+트림) · 옵션. 그 밖에 상태·색·연식·연료·주행·요금·보증금.'],
     ['', '★프리패스', AI_TAIL_COLUMNS.map((c) => c.name).join(' · ')],
     ['', '한 번만', '정제칸은 차량번호마다 한 번만 채운다. 값이 있는 칸은 기계가 다시 안 덮는다.'],
     ['', '고치려면', '그 칸을 비우고 다시 돌리거나 손으로 바로 고친다. 비워 두면 기계가 다시 넣는다.'],

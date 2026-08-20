@@ -126,7 +126,7 @@ for (const f of ((files.files || []) as Rec[])) {
     const pAt = at.get('차량번호') ?? -1;
     if (pAt < 0) return;
     /** 공급사가 적은 «원문»만 모은다 — 우리가 채운 정제칸은 판단 근거로 안 준다(돌고 돈다). */
-    const RAW = ['제조사', '차명(트림)', '연식', '연료', '배기량', '옵션', '외부색상', '분류'];
+    const RAW = ['제조사', '차명(세부모델+트림)', '연식', '연료', '배기량', '옵션', '외부색상', '분류'];
     for (let r = hRow + 1; r < grid.length; r++) {
       const row = grid[r] || [];
       const plate = S(row[pAt]);
@@ -142,7 +142,7 @@ for (const f of ((files.files || []) as Rec[])) {
         const i = at.get(c); if (i !== undefined && S(row[i])) 원문[`참고_${c}`] = S(row[i]);
       }
       const maker = S(원문['제조사'] || 원문['참고_모델'] || '');
-      const modelText = [원문['참고_세부모델'], 원문['참고_모델'], 원문['차명(트림)']].filter(Boolean).join(' ');
+      const modelText = [원문['참고_세부모델'], 원문['참고_모델'], 원문['차명(세부모델+트림)']].filter(Boolean).join(' ');
       const cand = candidatesFor(maker, modelText);
       jobs.push({
         공급사: who, 차량번호: plate, 시트: id, 탭: title, 행: r + 1,

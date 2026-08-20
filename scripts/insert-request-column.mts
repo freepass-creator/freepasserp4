@@ -51,7 +51,7 @@ for (const t of targets) {
     const p = sh.properties; const title = S(p.title);
     if (p.hidden || isOurNonInventoryTab(title)) continue;
     const hdr = (((await call(`${SH}/${t.id}/values/${encodeURIComponent(`'${title.replace(/'/g, "''")}'!A1:BZ1`)}`) as { values?: string[][] }).values || [])[0] || []).map(S);
-    if (!hdr.some((c) => norm(c) === '차명(트림)') || !hdr.some((c) => norm(c) === '차량번호')) continue;
+    if (!hdr.some((c) => norm(c) === '차명(세부모델+트림)') || !hdr.some((c) => norm(c) === '차량번호')) continue;
     if (hdr.some((c) => norm(c) === REQUEST_COLUMN_NAME)) { skipped++; console.log(`  · ${t.name.padEnd(10)} 「${title}」 이미 있음`); continue; }
     // 옛 이름(요청사항)이면 머리글만 갈아 준다(값·서식·표는 그대로)
     const oldAt = hdr.findIndex((c) => REQUEST_COLUMN_OLD_NAMES.some((o) => norm(o) === norm(c)));

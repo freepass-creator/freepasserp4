@@ -9,7 +9,7 @@
  * ★**돈은 해석하지 않는다.** 요금·보증금·상태는 시트 칸에 있는 글자를 그 자리에 옮길 뿐이다.
  *   보증금을 규칙으로 계산하지 않고, 기간을 자리로 짐작하지 않는다 — 오늘 틀린 게 전부 그거였다.
  * ★**차명도 해석하지 않는다**(사장님 2026-08-19 — 「제조사·모델까지만, 안 틀리는 게 중요」).
- *   제조사·모델은 공급사 「제조사(정제)/제조사」「모델명/모델」만. 차명은 「차명(트림)」 원문 그대로.
+ *   제조사·모델은 공급사 「제조사(정제)/제조사」「모델명/모델」만. 차명은 「차명(세부모델+트림)」 원문 그대로.
  *   세부모델·세부트림·차종마스터 스냅·상품마스터 3축 정본으로 **올리지 않는다**(틀린 세부축이 붙느니 원문이 낫다).
  *   ⚠ 그래서 공급사 시트가 틀리면 여기도 틀린다. 그건 «공급사에 물어볼 일»이 되고,
  *     영업자가 우리를 의심할 일은 없어진다 — 이 표의 값어치는 정확히 거기에 있다.
@@ -336,6 +336,37 @@ const fromOurs = new Map<string, boolean>();
 let dupes = 0;
 /** @제외 규칙으로 건너뛴 탭 수 — 조용히 빠지면 «왜 줄었나»를 못 찾는다. */
 let skippedByRule = 0;
+/**
+ * ★**한 문서를 관계사 둘이 나눠 쓰면 «탭 이름»으로 가른다**(스타/스카이 · 빌린카/엘씨 · 경진카/경진렌트).
+ *   문패 「공급사시트정리」는 공급사명 | 공급사코드 | 시트주소 세 칸뿐이라, 관계사 두 줄이 **같은 주소**를 물면
+ *   그 문서가 통째로 한쪽 코드에 붙는다 — 실측 2026-08-20: 「빌린카재고」 47대가 **엘씨 46대**로 세어졌고
+ *   (엘씨재고 탭은 0대였다) 「빌린카 45대→0」 가드에 걸려 상품리스트 발행이 멈췄다. ERP 가 네 시간 낡았다.
+ *   그래서 같은 주소를 쓰는 코드가 둘 이상이면, 재고 탭은 **이름이 자기 회사를 말하는 코드**에만 준다.
+ *   어느 회사 이름도 아닌 탭(그냥 「재고」)은 **문패에 먼저 적힌 코드**가 가져간다 — 한 장짜리 옛 문서가 그렇다.
+ */
+const codesBySheet = new Map<string, string[]>();
+for (const [code, p] of byCode) {
+  for (const url of ((p.sheet_urls || []) as string[])) {
+    const id = (S(url).match(/\/d\/([\w-]+)/) || [])[1]; if (!id) continue;
+    const list = codesBySheet.get(id) || []; if (!list.includes(code)) list.push(code);
+    codesBySheet.set(id, list);
+  }
+}
+const partnerNameKey = (c: string) => norm(S(byCode.get(c)?.partner_name || byCode.get(c)?.name || c)).replace(/렌트카|렌터카|주식회사|\(주\)/g, '');
+/** 이 탭이 이 코드의 것인가 — 문서를 혼자 쓰면 늘 참. */
+const tabBelongsTo = (sheetId: string, code: string, title: string): boolean => {
+  const mates = codesBySheet.get(sheetId) || [];
+  if (mates.length < 2) return true;
+  const t = norm(title);
+  const claimed = mates.map((c) => ({ c, n: partnerNameKey(c) })).filter((x) => x.n && t.includes(x.n));
+  // ⚠ 이름이 서로 «포함»되는 짝이 있다(경진 ⊂ 경진카). 그러면 **더 긴 이름**이 이긴다 —
+  //   안 그러면 「경진카재고」를 둘이 같이 실어 같은 차가 두 번 선다.
+  if (claimed.length) {
+    const longest = Math.max(...claimed.map((x) => x.n.length));
+    return claimed.some((x) => x.c === code && x.n.length === longest);
+  }
+  return mates[0] === code;
+};
 for (const [code, p] of [...byCode].sort()) {
   if (ONLY && ONLY.code !== code) continue;   // 범위 밖 공급사는 읽지도 않는다(--only)
   if (NOT_SHEET_BACKED.has(code)) { failures.push(`${S(p.partner_name || p.name)}(${code}) — 홈페이지 수집이라 시트가 없다`); continue; }
@@ -421,6 +452,8 @@ for (const [code, p] of [...byCode].sort()) {
   let n = 0;
   for (const t of read.tabs) {
     if (isOurNonInventoryTab(S(t.title))) continue;    // 우리 탭은 재고표가 아니다
+    // 관계사가 한 문서를 나눠 쓰면 그 탭의 임자만 싣는다(빌린카재고→빌린카 · 엘씨재고→엘씨).
+    if (!tabBelongsTo(readId, code, S(t.title))) continue;
     // 별도 탭이 따로 싣는 것은 여기서 뺀다 — 같은 차가 두 탭에 서면 사고다.
     // ⚠ 몇 대를 들고 있던 탭인지 같이 적는다 — 안 적으면 «조용히 사라진 차»를 못 본다.
     if (excluded(code, S(t.title))) {
@@ -530,8 +563,19 @@ const stateAt0 = COLUMNS.indexOf('배차상태');
   const kept = rows.filter((r) => !/출고불가/.test(S(r[stateAt0])));
   const dropped = before - kept.length;
   rows.length = 0; rows.push(...kept);
-  console.log(`  출고불가 ${dropped}대는 판매시트에 안 싣는다(공급사 시트·상품마스터에는 그대로) → ${rows.length}대
-`);
+  console.log(`  출고불가 ${dropped}대는 판매시트에 안 싣는다(공급사 시트·상품마스터에는 그대로) → ${rows.length}대`);
+  /**
+   * ★**차량번호가 없는 줄(「미정」)도 안 싣는다**(사장님 2026-08-20 「어찌 됐든 상품시트랑 동일해야 하고, 영업자가 불편하더라도 매칭이 중요함」).
+   *   차량번호가 이 표의 열쇠다 — 번호가 없으면 ERP·계약·사진 어디에도 못 붙어 영업자 표에만 남는 «맞출 수 없는 줄»이 된다.
+   *   번호가 나오면 다음 발행에 자동으로 합류한다(공급사 시트에는 그대로 있다).
+   */
+  const REAL_PLATE = /^\d{2,3}[가-힣]\d{4}$/;
+  const beforePlate = rows.length;
+  const withPlate = rows.filter((r) => REAL_PLATE.test(S(r[plateAt0]).replace(/\s/g, '')));
+  const noPlate = beforePlate - withPlate.length;
+  rows.length = 0; rows.push(...withPlate);
+  if (noPlate) console.log(`  차량번호 미정 ${noPlate}대도 안 싣는다(번호가 나오면 다음 발행에 합류) → ${rows.length}대`);
+  console.log('');
 }
 const rentAt = RENT_COLUMNS.map((c) => COLUMNS.indexOf(c)).filter((i) => i >= 0);
 const hasMoney = (v: string) => /\d/.test(S(v));   // 「-」·빈칸은 돈이 아니다

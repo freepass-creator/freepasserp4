@@ -7,6 +7,9 @@ import {
   contractRentForAge,
   contractVehicleSnapshot,
   searchContractVehicles,
+  productContractKind,
+  resolveVehiclePolicy,
+  isBasePolicyLabel,
 } from '@/lib/domain/esign-vehicle-selection';
 
 const rentTemplate = findTemplate('freepass-rent-standard');
@@ -61,4 +64,37 @@ assert.equal(contractRentForAge(product, 48, policy, 26), null);
 assert.equal(additionalDriverCostLabel(50000), '월 50,000원 / 1인');
 assert.equal(additionalDriverCostLabel('월 5만원'), '월 50,000원 / 1인');
 assert.equal(additionalDriverCostLabel('무료'), '별도 비용 없음');
-console.log('PASS: ERP 차량검색·스냅샷·기간가격·연령하향 대여료');
+/**
+ * ★차량이 정책을 데려온다(사장님 2026-08-20 순서: 회사 → 차량(정책 없으면 정책까지) → 대여료 → 조건).
+ *   실측 2026-08-20: 출고가능 276대 중 114대가 정책코드 칸에 시트 라벨 「(프리패스 기본)」을 갖고 있었다 —
+ *   그건 정책코드가 아니라 «공급사 고유 정책 없음» 표시라, 그 공급사 정책이 하나뿐일 때만 그것으로 잇고 아니면 사람이 고른다.
+ */
+assert.equal(isBasePolicyLabel('(프리패스 기본)'), true);
+assert.equal(isBasePolicyLabel('프리패스 기본'), true);
+assert.equal(isBasePolicyLabel('POL-0020'), false);
+assert.equal(productContractKind({ product_type: '중고구독' }), '구독');
+assert.equal(productContractKind({ product_type: '신차렌트' }), '렌탈');
+assert.equal(productContractKind({}), '렌탈', '상품구분이 비면 렌트로 본다');
+
+const rentPolicy = { policy_code: 'POL-R', policy_type: '신차렌트' };
+const subPolicy = { policy_code: 'POL-S', policy_type: '중고구독' };
+const twoRent = [rentPolicy, { policy_code: 'POL-R2', policy_type: '신차렌트' }];
+// ① 차량의 정책코드가 맞으면 그것
+assert.deepEqual(
+  resolveVehiclePolicy({ policy_code: 'POL-S', product_type: '중고구독' }, [rentPolicy, subPolicy]),
+  { policy: subPolicy, how: '차량 정책' },
+);
+// ② 「(프리패스 기본)」 — 그 상품구분 정책이 하나뿐이면 그것
+assert.equal(resolveVehiclePolicy({ policy_code: '(프리패스 기본)', product_type: '중고구독' }, [rentPolicy, subPolicy]).how, '공급사 정책');
+// ③ 후보가 둘이면 찍지 않는다 — 사람이 고른다
+assert.deepEqual(resolveVehiclePolicy({ policy_code: '(프리패스 기본)', product_type: '신차렌트' }, twoRent), { policy: null, how: '미정' });
+// ④ ERP 에 없는 코드(RP006_WEB 실측)도 미정으로 떨어진다 — 남의 정책을 찍어 넣지 않는다
+assert.deepEqual(resolveVehiclePolicy({ policy_code: 'RP006_WEB', product_type: '신차렌트' }, twoRent), { policy: null, how: '미정' });
+
+// 계약서 종류를 아직 모를 때(=회사만 고른 단계) 차량 후보는 상품구분으로 걸러지지 않는다.
+assert.deepEqual(
+  searchContractVehicles([product, subscription, otherProvider], 'RP012', null, '').map((row) => row.product_code),
+  ['RP012_12가3456', 'RP012_34나5678'],
+);
+
+console.log('PASS: ERP 차량검색·스냅샷·기간가격·연령하향 대여료 · 차량→정책 승계');

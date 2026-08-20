@@ -39,7 +39,8 @@ import {
   Badge, Btn, ButtonLabel, C, CenterNote, DetailRow, FS, FW, ICON,
   Input, ListGroup, R, SectionLabel, Textarea,
 } from '@/components/ui';
-import { CheckCircle2, Copy, ExternalLink, FileDown, Link2Off, RefreshCw, Smartphone, XCircle } from 'lucide-react';
+import { CheckCircle2, Copy, ExternalLink, FileDown, Link2Off, RefreshCw, XCircle } from 'lucide-react';
+import { EsignCustomerWalkthroughButton } from '@/components/EsignCustomerWalkthrough';
 
 type Rec = Record<string, unknown>;
 export type AdminState = {
@@ -323,12 +324,15 @@ export const POLICY_PROBLEM_KEYS = new Set(['policy', 'policy_readiness', 'addit
 
 export function EsignProblemList({
   problems,
+  header = '발송 전 확인',
   footer,
   onFixPolicy,
   onFixPartner,
   partnerName = '',
 }: {
   problems: EsignCheck[];
+  /** 목록 머리 — 단계 카드 안에서는 「지금 없는 것」처럼 그 자리 말로 바꾼다(사장님 2026-08-20). */
+  header?: string;
   footer?: string;
   onFixPolicy?: (() => void) | null;
   /** 공급사 정보가 비어 있을 때 — 파트너사관리로. 사장님 2026-08-19 「전자계약 보내려면 파트너관리 가서 정보를 다 입력하라고」 */
@@ -341,7 +345,7 @@ export function EsignProblemList({
     || (partnerProblems.length ? `공급사 정보(${partnerProblems.map((check) => check.label).join('·')})는 파트너사관리에서 입력합니다.` : undefined);
   return (
     <>
-      <ListGroup header="발송 전 확인" footer={resolvedFooter}>
+      <ListGroup header={header} footer={resolvedFooter}>
         {problems.map((check) => (
           <DetailRow
             key={check.key}
@@ -356,7 +360,7 @@ export function EsignProblemList({
           {onFixPartner && partnerProblems.length ? (
             <Btn size="sm" onClick={onFixPartner}>파트너사관리에서 {partnerName || '공급사'} 정보 입력</Btn>
           ) : null}
-          {onFixPolicy ? <Btn variant="ghost" size="sm" onClick={onFixPolicy}>정책관리에서 바로 수정</Btn> : null}
+          {onFixPolicy ? <Btn variant="ghost" size="sm" onClick={onFixPolicy}>파트너사관리에서 정책 수정</Btn> : null}
         </div>
       ) : null}
     </>
@@ -518,7 +522,7 @@ export function FreepassEsignStagePane({
   policy: EntityRecord | null;
   providerName: string;
   problems: EsignCheck[];
-  /** 정책 문제일 때 「정책관리에서 바로 수정」 — 이동은 화면(센터)이 안다. */
+  /** 정책 문제일 때 「파트너사관리에서 정책 수정」 — 이동은 화면(센터)이 안다(파트너사관리 › 운영정책 인라인 편집기). */
   onFixPolicy?: (() => void) | null;
   onFixPartner?: (() => void) | null;
 }) {
@@ -852,10 +856,15 @@ export function FreepassEsignDocumentPane({
       <ButtonLabel icon={<ExternalLink size={ICON.md} aria-hidden />}>A4 미리보기</ButtonLabel>
     </Btn>
   );
-  const mobileButton = issued ? (
-    <Btn title="고객이 휴대폰에서 보는 화면 미리보기(열람으로 기록되지 않음)" variant="ghost" onClick={() => window.open(previewUrl('mobile'), '_blank', 'noreferrer')}>
-      <ButtonLabel icon={<Smartphone size={ICON.md} aria-hidden />}>모바일 미리보기</ButtonLabel>
-    </Btn>
+  /**
+   * 손님 화면 — 새 탭 대신 **오버레이로 보면서 「다음」을 눌러 안내**한다(사장님 2026-08-20).
+   *   같은 출처 링크에 ?preview=1 을 붙여 폰 프레임으로 띄운다(열람·제출 기록 없음).
+   */
+  const mobileButton = issued && link ? (
+    <EsignCustomerWalkthroughButton
+      url={`${link}${link.includes('?') ? '&' : '?'}preview=1`}
+      customerName={S(current.customer_name)}
+    />
   ) : null;
   const linkBlock = (
     <div style={{ display: 'grid', gap: 5 }}>

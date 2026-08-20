@@ -80,7 +80,7 @@ async function refreshSheetSnapshot(
   const token = await jwt.getAccessToken();
   if (!token.token) throw new Error('Google Sheets 읽기 토큰 발급 실패');
   const ranges = [
-    `${PRODUCT_MASTER_TAB}!A1:AX1000`,
+    `${PRODUCT_MASTER_TAB}!A1:AZ1000`,
     `${PRODUCT_MASTER_MANUAL_TAB}!A1:L1000`,
     `${PRODUCT_MASTER_COLUMN_MAPPING_TAB}!A1:Q1000`,
   ];

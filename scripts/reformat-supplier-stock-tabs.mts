@@ -6,7 +6,7 @@
  *   그래서 **한 생성기**(create-supplier-sheet 와 같은 buildBaseFont·buildTemplateFormat·buildChipColors·buildNumberFormats·
  *   buildRowHeights·buildTableRequest·buildSectionBanding·COL_BG)를 모든 재고 탭에 다시 돌린다 — 머리행 그대로, 값 그대로.
  *   같은 생성기라 «표준이 둘» 이 되지 않는다(format-sonogong-subscription-tab·rebuild-mirror-tab-layout 과 같은 길).
- * ★탭의 머리행(차명(트림)이 있는 줄)이 1행이 아닌 탭은 건너뛰고 화면에 남긴다(생성기가 1행 머리를 전제한다).
+ * ★탭의 머리행(차명(세부모델+트림)이 있는 줄)이 1행이 아닌 탭은 건너뛰고 화면에 남긴다(생성기가 1행 머리를 전제한다).
  * ⚠⚠ **`deleteTable` 은 표 안의 값까지 지운다**(실측 2026-08-18 17:52 — 22개 재고 탭이 통째로 비어 revision 에서 되살렸다,
  *   `restore-stock-tabs-from-revision`). 그래서 지우기 전에 탭 값을 통째로 읽어 두고, 서식을 다 입힌 뒤 **값을 그대로 다시 쓴다**
  *   (UNFORMATTED_VALUE 로 읽어 숫자·날짜 원자를 지키고 USER_ENTERED 로 쓴다). 되쓴 값 수가 읽은 값 수와 다르면 멈춘다.
@@ -83,7 +83,7 @@ for (const t of targets) {
     if (p.hidden || isOurNonInventoryTab(title)) continue;
     const v = await call(`${SH}/${t.id}/values/${encodeURIComponent(`'${title.replace(/'/g, "''")}'!A1:BZ6`)}`) as { values?: string[][] };
     const grid = ((v.values || []) as string[][]).map((r) => r.map(S));
-    const hi = grid.findIndex((r) => r.some((c) => norm(c) === '차명(트림)'));
+    const hi = grid.findIndex((r) => r.some((c) => norm(c) === '차명(세부모델+트림)'));
     if (hi < 0) continue;
     if (hi !== 0) { skipped.push(`${t.name}「${title}」 머리행 ${hi + 1}행`); continue; }
     const header = grid[0];

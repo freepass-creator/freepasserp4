@@ -2,7 +2,7 @@
  * **재고 탭 앞칸(차량번호~연료)을 구글 버전기록에서 «같은 줄»로 되살린다.** 기본 dry-run, 반영은 `--apply`.
  *
  * ★사고(2026-08-18 16:51~16:58) — `reformat-supplier-stock-tabs` 가 표(Table)를 deleteTable 로 지웠다 다시 만들었고,
- *   구글의 deleteTable 은 **표 안의 값까지 지운다.** 21곳 22개 재고 탭의 A~L(차량번호·입고일자·상태·분류·제조사·차명(트림)·옵션·
+ *   구글의 deleteTable 은 **표 안의 값까지 지운다.** 21곳 22개 재고 탭의 A~L(차량번호·입고일자·상태·분류·제조사·차명(세부모델+트림)·옵션·
  *   외부색상·내부색상·연식·주행거리·연료)이 비었다. 그 오른쪽(배기량·차량가격·대여료·정책코드·정제칸)은 그대로다 — **줄 자리는 안 바뀌었다.**
  * ★그래서 «차량번호로 맞추기»가 아니라 **줄 번호로 맞춘다** — 옛 revision 의 k번째 줄 = 지금 k번째 줄. 맞는지는 남아 있는 칸으로 검증한다
  *   (배기량·차량가격·대여료·정책코드·정제칸 가운데 양쪽에 값이 있는 칸이 하나 이상 같아야 쓴다). 하나라도 다르면 그 줄은 안 쓰고 보고한다.
@@ -79,7 +79,7 @@ for (const t of targets) {
     if (p.hidden || isOurNonInventoryTab(title)) continue;
     const cur = await call(`${SH}/${t.id}/values/${encodeURIComponent(`'${title.replace(/'/g, "''")}'!A1:BZ900`)}`) as { values?: string[][] };
     const grid = ((cur.values || []) as string[][]).map((r) => r.map(S));
-    const hi = grid.findIndex((r) => r.some((c) => norm(c) === '차명(트림)'));
+    const hi = grid.findIndex((r) => r.some((c) => norm(c) === '차명(세부모델+트림)'));
     if (hi < 0) continue;
     const header = grid[hi];
     const at = new Map<string, number>(); header.forEach((h, i) => { if (h && !at.has(norm(h))) at.set(norm(h), i); });
@@ -92,7 +92,7 @@ for (const t of targets) {
     for (let i = revs.length - 1; i >= 0 && i >= revs.length - 12; i--) {
       let rows: string[][];
       try { rows = await csvAt(t.id, Number(p.sheetId), S(revs[i].id)); } catch (e) { console.log(`     (rev ${S(revs[i].id)} export 실패 — ${String((e as Error).message).slice(0, 60)})`); continue; }
-      const oh = rows.findIndex((r) => r.some((c) => norm(c) === '차명(트림)'));
+      const oh = rows.findIndex((r) => r.some((c) => norm(c) === '차명(세부모델+트림)'));
       if (oh < 0) continue;
       const ohdr = rows[oh];
       const opAt = ohdr.findIndex((h) => norm(h) === '차량번호');

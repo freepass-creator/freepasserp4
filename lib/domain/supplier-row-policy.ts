@@ -105,7 +105,7 @@ export function policyFieldsFrom(hdr: string[], row: string[]): Rec {
   put('driver_age_lowering', age.level);
   put('age_lowering_cost', age.cost);
   put('deposit_installment', yesNo(at(/^분납/), '가능', '불가'));
-  put('maintenance_service', yesNo(at(/^정비/), '포함', '불포함'));
+  put('maintenance_service', yesNo(at(/^정비/), '제공', '미제공'));   // 사장님 2026-08-20 표기(정규화기가 「연N회오일」까지 읽는다)
   put('personal_driver_scope', at(/^운전자범위|^운전범위/));
   put('bank_account', at(/^전용계좌|^계좌/));
   put('notes', at(/^기타$|^비고|^특이사항/));

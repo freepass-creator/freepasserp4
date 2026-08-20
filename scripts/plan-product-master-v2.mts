@@ -82,14 +82,14 @@ const targetSheet = sheets.find((item: Rec) => S(item.title) === PRODUCT_MASTER_
 if (!sourceSheet || Number(sourceSheet.sheetId) !== 679088240) throw new Error('상품마스터 sheetId 기준선이 다릅니다.');
 if (!reviewSheet || Number(reviewSheet.sheetId) !== 271777427) throw new Error('차종마스터_규격검토 sheetId 기준선이 다릅니다.');
 
-const productRange = `'${PRODUCT_MASTER_TAB}'!A1:AX${Number(sourceSheet.gridProperties?.rowCount || 1000)}`;
+const productRange = `'${PRODUCT_MASTER_TAB}'!A1:AZ${Number(sourceSheet.gridProperties?.rowCount || 1000)}`;
 const productValues = readValues(productRange, 'UNFORMATTED_VALUE');
 const productFormattedValues = readValues(productRange, 'FORMATTED_VALUE');
 const reviewValues = readValues(`'차종마스터_규격검토'!A1:X${Number(reviewSheet.gridProperties?.rowCount || 2098)}`);
 const headers = (productValues[0] || []).map(S);
 if (headers.length !== PRODUCT_MASTER_COLUMNS.length
   || PRODUCT_MASTER_COLUMNS.some((column, index) => headers[index] !== column)) {
-  throw new Error('라이브 상품마스터 A:AX 50열 기준선이 다릅니다.');
+  throw new Error('라이브 상품마스터 A:AZ 50열 기준선이 다릅니다.');
 }
 const sourceRows = productValues.slice(1).filter((row) => row.some((cell) => S(cell)));
 const sourceFormattedRows = productFormattedValues.slice(1).filter((row) => row.some((cell) => S(cell)));
@@ -374,7 +374,7 @@ const report = {
     candidateCellNote: '후보 공통축으로 표시한 셀은 확정 차종코드가 아니며 셀 메모로 출처를 표시',
   },
   cutoverGate: {
-    currentRuntimeContract: '상품마스터 A:AX 50열',
+    currentRuntimeContract: '상품마스터 A:AZ 50열',
     plannedRuntimeContract: `${PRODUCT_MASTER_V2_TAB} A:BJ 62열`,
     runtimeParserMigrationRequired: true,
     liveWriteRequiresImmediateApproval: true,

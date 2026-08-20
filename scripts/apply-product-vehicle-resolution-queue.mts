@@ -49,7 +49,7 @@ const api = async (url: string, init?: RequestInit) => {
   return body ? JSON.parse(body) as Rec : {};
 };
 const base = `https://sheets.googleapis.com/v4/spreadsheets/${DEFAULT_PRODUCT_MASTER_SHEET_ID}`;
-const range = encodeURIComponent(`'${PRODUCT_MASTER_TAB}'!A:AX`);
+const range = encodeURIComponent(`'${PRODUCT_MASTER_TAB}'!A:AZ`);
 const live = await api(`${base}/values/${range}`) as { values?: unknown[][] };
 const values = live.values || [];
 const headers = (values[0] || []).map(S);

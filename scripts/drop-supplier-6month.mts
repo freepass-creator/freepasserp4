@@ -12,7 +12,7 @@
  *   ⚠ 여백 칸은 장기보증 블록 오른쪽이다 — 6개월은 원래 단기라 보증금 관할이 바뀐다.
  *     운영하지 않는 기간이라 보관 목적이면 무해하지만, 되살릴 땐 이 점을 먼저 본다.
  *
- * ⚠ **우리가 만든 제공시트만 손댄다.** 가르는 표식은 열 이름 「차명(트림)」이다
+ * ⚠ **우리가 만든 제공시트만 손댄다.** 가르는 표식은 열 이름 「차명(세부모델+트림)」이다
  *   (`move-supplier-column.mts` 와 같은 규칙 — 소유자로 거르면 우리 것까지 막힌다).
  * ⚠ 이미 6개월 열이 없으면 건너뛴다. 두 번 돌려도 안전하다.
  * ⚠ 열을 지우면 표(Table)의 열 번호가 밀린다 — 끝나고 `fix-supplier-table.mts --apply` 를 돌린다.
@@ -30,7 +30,7 @@ const arg = (k: string, d = '') => (process.argv.find((a) => a.startsWith(`--${k
 const APPLY = process.argv.includes('--apply');
 const ONE = arg('sheet');
 const NAME = arg('name', '프리패스 재고');
-const MARK = arg('mark', '차명(트림)');
+const MARK = arg('mark', '차명(세부모델+트림)');
 /** 걷어낼 열. */
 const DROP = arg('drop', '6개월');
 

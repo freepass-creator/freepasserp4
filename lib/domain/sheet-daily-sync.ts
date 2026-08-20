@@ -85,22 +85,18 @@ function normalizeSourceContractStatuses(
     const locked = before && (String(before.vehicle_status || '').trim() === '계약중'
       || !!String(before.locked_by_contract || '').trim());
     if (locked) return row;
+    /**
+     * ★2026-08-20 사장님 「ERP 에는 출고불가만 안 나타내는 거야 — 상품화중·계약중은 다 표시된다」.
+     *   시트가 「계약중」이라고 적으면 ERP 도 계약중으로 둔다(마크로 알린다). 예전엔 출고불가로 투영해
+     *   목록에서 사라졌고, 왜 안 보이는지 아무도 몰랐다(실측 손오공구독 308너3464·159무8252).
+     *   계약락(ERP 계약 엔진)은 여전히 별도다 — 시트가 그 락을 만들지도, 풀지도 못한다.
+     */
     unavailableProjected++;
-    const existingSheetBlockedAt = before
-      && before.sheet_status_owner === 'sheet'
-      && String(before.sheet_block_reason || '') === 'source_contract_status'
-      ? before.sheet_blocked_at
-      : undefined;
     return {
       ...row,
-      // 시트 상태는 판매 가능 여부의 정본이지만 ERP 계약락의 정본은 아니다.
-      // 계약 엔진과 연결되지 않은 시트 계약중은 출고불가로만 투영한다.
-      vehicle_status: '출고불가',
+      vehicle_status: '계약중',
       sheet_status_owner: 'sheet',
       sheet_block_reason: 'source_contract_status',
-      // 같은 원본을 매일 읽어도 최초 차단 시각은 바꾸지 않는다. 실행시각을 매번 쓰면
-      // 실제 상태·가격이 같아도 영구히 수정 1건으로 남아 사후 멱등성 검증이 실패한다.
-      sheet_blocked_at: existingSheetBlockedAt ?? now,
     };
   });
   return { products, unavailableProjected };
@@ -332,8 +328,10 @@ export function planProductMasterProviderBatches(input: {
   resolutions?: SheetConflictResolution[];
   now?: number;
 }): ProductMasterProviderPlan[] {
-  if (input.fetched.sourceKind !== 'product_master') {
-    throw new Error('공급사별 독립 계획은 상품마스터 정본만 허용합니다');
+  // ★정본은 «규격화된 판매 표»다 — 상품마스터(옛 경로)와 영업자 상품리스트(2026-08-20 사장님 「영업자가 보는 거랑 ERP 랑 바로 연동」) 둘 다 여기로 온다.
+  //   공급사 원본 시트(supplier_sources)는 규격이 제각각이라 이 경로를 못 쓴다.
+  if (input.fetched.sourceKind !== 'product_master' && input.fetched.sourceKind !== 'sales_inventory') {
+    throw new Error('공급사별 독립 계획은 규격화된 판매 표(상품마스터·영업자 상품리스트)만 허용합니다');
   }
   // 실차번은 공급사보다 상위인 전역 식별자다. 공급사별로 먼저 쪼개면 같은 번호를
   // 서로 다른 두 공급사가 보낸 충돌을 각 단건 계획이 보지 못한다. 전체 스냅샷에서

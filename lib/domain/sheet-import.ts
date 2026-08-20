@@ -27,7 +27,7 @@ export const HEADER_ALIASES: Record<string, string> = {
   //   짧은 이름으로 모델을 잠그고 트림·세대를 못 정해 검수로 떨어졌다(실측 2026-08-07 · 16대).
   '모델명(트림풀명)': 'trim_name',
   '모델명(트림)': 'trim_name', '모델명(풀명)': 'trim_name', '모델명(상세)': 'trim_name',
-  '차명(트림)': 'trim_name', '모델(트림)': 'trim_name', 모델명트림: 'trim_name',
+  '차명(세부모델+트림)': 'trim_name', '모델(트림)': 'trim_name', 모델명트림: 'trim_name',
   모델명: 'model',
   세부모델: 'sub_model', 세부: 'sub_model', 상세모델: 'sub_model', 세부차명: 'sub_model',
   파워: 'variant', 파워트레인: 'variant', 엔진: 'variant',

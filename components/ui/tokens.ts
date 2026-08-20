@@ -4,10 +4,11 @@ export const C = {
   line: 'var(--border)', line2: 'var(--border-soft)',
   bg: 'var(--bg-page)', zebra: 'var(--bg-stripe)', head: 'var(--bg-header)', hover: 'var(--bg-hover)',
   danger: 'var(--red-text)', ok: 'var(--green-text)', warn: 'var(--orange-text)', accent: 'var(--text-link)',
-  brand: 'var(--brand)', taupe: 'var(--text-sub)', taupeBg: 'var(--bg-card)', taupeLine: 'var(--border)',
+  brand: 'var(--brand)', brandDeep: 'var(--brand-h)', taupe: 'var(--text-sub)', taupeBg: 'var(--bg-card)', taupeLine: 'var(--border)',
   placeholder: 'var(--bg-placeholder)', // 사진/빈 서피스 배경
   selected: 'var(--bg-selected)',       // 선택 행/항목 강조 배경
   warnBg: 'var(--orange-bg)',           // 수기입력·주의 앰버 틴트 배경(=#fff7ed)
+  warnLine: 'var(--orange-border)',     // 앰버 면(面)의 테두리. C.warn(글자색)을 테두리로 쓰면 알림 배너만큼 시끄럽다
   okBg: 'var(--green-bg)',              // 완료 스텝·성공 틴트
   inverse: 'var(--text-inverse)',       // 대비 글자(흰/검정 — 테마 따라)
   focusRing: 'var(--focus-ring)',       // 포커스 링 틴트

@@ -92,7 +92,7 @@ export function normalizedNameForKey(
 }
 
 /**
- * 상품마스터 A:AX 값(머리글 포함) + 채택 이름 + artifact + 결정 → 차량번호별 정규화 차명.
+ * 상품마스터 A:AZ 값(머리글 포함) + 채택 이름 + artifact + 결정 → 차량번호별 정규화 차명.
  * 상품마스터에서 코드가 빈 차는 결정으로, 결정도 없으면 넣지 않는다.
  */
 export function buildPlateNormalization(input: {

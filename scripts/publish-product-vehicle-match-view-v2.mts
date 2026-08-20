@@ -140,7 +140,7 @@ const readSpreadsheetMetadata = async () => {
 
 const readAndVerifySource = async () => {
   const metadata = await readSpreadsheetMetadata();
-  const response = await api(`${base}/values/${encodeURIComponent(`'${PRODUCT_MASTER_TAB}'!A1:AX`)}?majorDimension=ROWS`);
+  const response = await api(`${base}/values/${encodeURIComponent(`'${PRODUCT_MASTER_TAB}'!A1:AZ`)}?majorDimension=ROWS`);
   const values = (response.values || []) as unknown[][];
   const headers = (values[0] || []).map(S);
   if (PRODUCT_MASTER_COLUMNS.some((header, index) => headers[index] !== header)) throw new Error('상품마스터 헤더 불일치');

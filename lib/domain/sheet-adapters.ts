@@ -172,10 +172,13 @@ export const SHEET_ADAPTERS: Record<SheetAdapterId, SheetAdapter> = {
       else if (body.length >= 1) {
         const maybeGuide = body[0] || [];
         const guideBlank = !maybeGuide.some((c) => String(c || '').trim());
-        const plateCell = String(maybeGuide[1] || '').replace(/\s/g, '');
+        // ★차량번호 열 위치는 표마다 다르다 — 옛 오플 원본은 2번째, 우리 「오플구독」 발행표는 3번째다.
+        //   위치를 1로 못 박아 두면 우리 표의 **첫 차가 안내행으로 오인돼 통째로 빠진다**(실측 2026-08-20 48나2076).
+        const plateIdx = header.findIndex((cell) => /차량번호|차번/.test(String(cell ?? '')));
+        const plateCell = String(maybeGuide[plateIdx >= 0 ? plateIdx : 1] || '').replace(/\s/g, '');
         const pendingPlate = /^(?:-|–|—|0|미정|번호미정|차량미정|신차|미등록|미발급)$/i.test(plateCell)
           || (!plateCell && maybeGuide.slice(2, 9).some((cell) => String(cell || '').trim()));
-        const guideNoPlate = !/차량번호|차번/.test(String(maybeGuide[0] || ''))
+        const guideNoPlate = !/차량번호|차번/.test(String(maybeGuide[plateIdx >= 0 ? plateIdx : 0] || ''))
           && !isExactRealPlate(plateCell)
           && !pendingPlate;
         if (guideBlank || guideNoPlate) body = body.slice(1);
