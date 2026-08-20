@@ -10,7 +10,6 @@
   @font-face{font-family:"Pretendard";font-weight:500;font-style:normal;font-display:block;src:url("/fonts/Pretendard-Medium.woff2") format("woff2")}
   @font-face{font-family:"Pretendard";font-weight:600;font-style:normal;font-display:block;src:url("/fonts/Pretendard-SemiBold.woff2") format("woff2")}
   @font-face{font-family:"Pretendard";font-weight:700;font-style:normal;font-display:block;src:url("/fonts/Pretendard-Bold.woff2") format("woff2")}
-  @font-face{font-family:"Pretendard";font-weight:800;font-style:normal;font-display:block;src:url("/fonts/Pretendard-ExtraBold.woff2") format("woff2")}
   /* ============================================================
      자동차 장기대여 계약서 — ERP형(데이터필드 채움) · 모던 디자인
      · [data-field="키"] 텍스트를 ERP가 주입 (freepasserp3 호환 스키마)
@@ -40,7 +39,7 @@
   */
   --th:#f3f5f8; --bd:#6f7d90; --bd2:#aeb7c4;
   --bd2-onfill:var(--bd2); /* 배경색과 무관하게 모든 표선은 같은 색 */
-  --table-rule:0.4pt;
+  --table-rule:0.55pt;   /* 0.4pt 는 인쇄에서 사라질 만큼 얇아 문서가 얍실해 보였다(2026-08-20) */
   --hair:var(--table-rule);
   --hair-vert:var(--table-rule);
   --hair-edge:var(--table-rule);
@@ -73,7 +72,7 @@
   .bd-sec.policy{background:#fffdf6;border-color:#ece2c4}
   .bd-sec.policy .bd-t{color:#b45309}
   .bd-acct{font-size:11px;font-weight:700;color:#334155;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:5px;padding:7px 9px}
-  .bd-t{font-size:10.5px;font-weight:800;color:var(--accent-ink);letter-spacing:.03em;margin-bottom:9px}
+  .bd-t{font-size:10.5px;font-weight:700;color:var(--accent-ink);letter-spacing:.03em;margin-bottom:9px}
   .bd-row{margin-bottom:8px}
   .bd-row:last-child{margin-bottom:0}
   .bd-row label{display:block;font-size:10px;color:#64748b;margin-bottom:3px;font-weight:600}
@@ -104,12 +103,12 @@
   .page-dense .section{margin-top:4.5mm;margin-bottom:4.5mm}
   .page-dense .kv .k,.page-dense .kv .v{padding-top:5px;padding-bottom:5px}
   .page-dense .subhead{margin-top:4mm;margin-bottom:1.5mm}
-  /* 계약자·차량·대여 조건은 한 장 안에서 함께 확인되어야 한다. 내용은 줄이지 않고 표의 세로 여백만 조밀하게 둔다. */
+  /* 계약자·차량·대여 조건은 한 장 안에서 함께 확인되어야 한다. 본문 글자 규격은 유지하고 세로 여백만 조밀하게 둔다. */
   .page-conditions .section{margin-top:16px;margin-bottom:7px}
   .page-conditions .rhead + .section{margin-top:0}
-  .page-conditions .kv .k,.page-conditions .kv .v{padding-top:5.5px;padding-bottom:5.5px}
+  .page-conditions .kv .k,.page-conditions .kv .v{padding-top:3px;padding-bottom:3px}
   .page-conditions .subhead{margin-top:4mm;margin-bottom:1mm}
-  .page-conditions .prose-block{margin-top:1.5mm;padding:5px 8px;font-size:9.5px;line-height:1.45}
+  .page-conditions .prose-block{margin-top:1.5mm;padding:3px 0 3px 7px;font-size:10.5pt;line-height:1.42}
   /* 보험 페이지는 보장표·자차·사고절차가 한 묶음이다. 마지막 경고문만 다음 장으로
      밀리면 빈 페이지처럼 보이므로 세로 리듬만 조밀하게 유지한다. */
   .page-insurance .section{font-size:10px}
@@ -148,7 +147,7 @@
   .sec-h .no{flex:0 0 auto;width:20px;height:20px;border-radius:3px;background:var(--accent);color:#fff;
              font-size:9.5px;font-weight:700;display:grid;place-items:center;letter-spacing:-.01em}
   .sec-h .no svg{width:14px;height:14px}
-  .sec-h .t{font-size:12pt;font-weight:700;letter-spacing:-.018em}
+  .sec-h .t{font-size:12.5pt;font-weight:700;letter-spacing:-.018em}
   .sec-h .sub{font-size:9.5px;color:var(--faint);margin-left:auto;font-weight:600}
 
   /*
@@ -157,25 +156,26 @@
     - 상·하단·내부선을 구분하지 않고 같은 0.4pt 단일선으로 통일한다.
     - 라운드는 경고·서명·당사자 카드처럼 표가 아닌 독립 블록에만 사용한다.
   */
+  /* 표에 «틀»을 준다 — 위·아래만 있던 선에 좌우를 더해 한 덩어리로 보이게(2026-08-20). */
   .kv{display:grid;grid-template-columns:repeat(4,1fr);
-      border:0;border-top:var(--table-rule) solid var(--bd2);border-bottom:0;
+      border:var(--table-rule) solid var(--bd2);border-bottom:0;
       border-radius:0;overflow:hidden}
   /* 앞 표와 한 덩어리로 이어지는 조건부 행. 인라인 스타일로 선 규격을 변형하지 않는다. */
   .kv.kv-cont{margin-top:0;border-top:0}
-  .kv .k{background:var(--th);padding:7px 9px;font-size:10px;font-weight:500;color:var(--mute);
+  .kv .k{background:var(--th);padding:4px 8px;font-size:9.5pt;font-weight:500;color:var(--mute);
          display:flex;align-items:center;border-bottom:var(--hair) solid var(--bd2);white-space:nowrap}
-  .kv .v{padding:7px 10px;font-size:11px;font-weight:400;color:var(--ink);display:flex;align-items:center;
+  .kv .v{padding:4px 9px;font-size:10.5pt;font-weight:400;color:var(--ink);display:flex;align-items:center;
          border-bottom:var(--hair) solid var(--bd2);font-variant-numeric:tabular-nums}
   /* 핵심표 — 03 대여 조건의 돈 4줄. 라벨 면 accent-bg, 값 600, 행 +2px */
   .kv .k.key{background:var(--accent-bg);color:var(--ink2);font-weight:600}
-  .kv .v.key{font-weight:600;padding-top:9px;padding-bottom:9px}
+  .kv .v.key{font-weight:600;padding-top:6px;padding-bottom:6px}
   /* 금액·기간·날짜·요율 등 한 덩어리로 읽는 짧은 값은 임의로 두 줄이 되지 않는다. */
   .kv .v.one-line{white-space:nowrap;word-break:keep-all;font-variant-numeric:tabular-nums}
   /* 손님이 링크에서 채울 빈칸 — 비워두지 않고 «고객 작성» + 점선 */
   .customer-fill{color:var(--faint)!important;font-size:10px!important;font-weight:500!important;
                  border-bottom:1px dotted var(--line);min-width:22mm}
   /* 정책명이 붙어 조금 긴 단일값은 줄을 내리는 대신 한 단계만 작게 표시한다. */
-  .kv .v.one-line.tight{font-size:10px}
+  .kv .v.one-line.tight{font-size:9.5pt}
   .kv .span2{grid-column:span 3}     /* 값이 라벨1+값3 폭 차지 */
   .kv .full{grid-column:1 / -1}
   /* 긴 설명 셀은 일반 텍스트 흐름 — flex가 inline <b>/<span>을 조각내 줄바꿈 깨지는 것 방지 */
@@ -184,20 +184,18 @@
   .kv .v.strong{font-weight:700}
   /* 선택 관계인이 없을 때는 섹션명을 반복하지 않고 상태값만 한 줄로 명시한다. */
   .empty-contract-option{border-top:var(--table-rule) solid var(--bd2);border-bottom:var(--hair) solid var(--bd2);
-    padding:8px 10px;font-size:10.8px;font-weight:700;color:var(--ink);background:var(--card)}
+    padding:6px 9px;font-size:10.5pt;font-weight:700;color:var(--ink);background:var(--card)}
   /* 특약은 제목을 반복하지 않는다. 내용이 있을 때만 작성란 높이를 확보하고, 없으면 한 줄로 접는다. */
   .special-terms-value{border-top:var(--table-rule) solid var(--bd2);border-bottom:var(--hair) solid var(--bd2);
-    padding:9px 10px;min-height:35mm;font-size:10.8px;line-height:1.55;color:var(--ink);white-space:pre-wrap}
+    padding:7px 9px;min-height:35mm;font-size:10.5pt;line-height:1.55;color:var(--ink);white-space:pre-wrap}
   .special-terms-value.is-empty{min-height:0;font-weight:700}
-  .kv .v .unit{color:var(--mute);font-weight:500;margin-left:2px;font-size:9.5px}
+  .kv .v .unit{color:var(--mute);font-weight:500;margin-left:2px;font-size:9.5pt}
 
-  /* 서술 조건 — 세로 바가 아니라 «담는 박스»(사장님 2026-08-20).
-     표와 구분되되 광고물처럼 튀지 않게 옅은 면 + 실선 한 겹만. 라벨은 박스 안 머리로 올린다. */
-  .prose-block{margin:3mm 0 0;padding:6px 9px;background:var(--tint);
-               border:1px solid var(--line);border-radius:var(--radius);
-               font-size:10.5px;font-weight:400;line-height:1.55;color:var(--ink)}
+  /* 서술 조건 — 표에서 꺼내 들여쓰고, 좌측 3px 세로 바로 조건 문단임을 구분한다. */
+  .prose-block{margin:3mm 0 0;padding:4px 0 4px 9px;border-left:3px solid var(--accent);
+               font-size:10.5pt;font-weight:400;line-height:1.55;color:var(--ink)}
   .prose-block + .prose-block{margin-top:2mm}
-  .prose-block .pb-l{font-size:9.5px;font-weight:600;color:var(--accent);margin-bottom:2.5px}
+  .prose-block .pb-l{font-size:9.5pt;font-weight:500;color:var(--mute);margin-bottom:2.5px}
 
   /* 강조 수치 줄 (월 대여료·보증금 등) */
   .moneyrow{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:3mm}
@@ -210,11 +208,11 @@
   .money .mv small{font-size:10px;font-weight:600;color:var(--mute)}
 
   /* 일반 표 — 같은 가로줄·같은 보이는 무게 */
-  table.tbl{width:100%;border-collapse:collapse;font-size:10.5px;
+  table.tbl{width:100%;border-collapse:collapse;font-size:10.5pt;
             border:0;border-top:var(--table-rule) solid var(--bd2);border-bottom:0;
             border-radius:0;font-variant-numeric:tabular-nums}
-  table.tbl th{background:var(--th);color:var(--mute);font-weight:500;font-size:10px;padding:7px 8px;text-align:left;border-bottom:var(--hair) solid var(--bd2)}
-  table.tbl td{padding:7px 8px;border-bottom:var(--hair) solid var(--bd2);color:var(--ink);font-variant-numeric:tabular-nums}
+  table.tbl th{background:var(--th);color:var(--mute);font-weight:500;font-size:9.5pt;padding:4px 7px;text-align:left;border-bottom:var(--hair) solid var(--bd2)}
+  table.tbl td{padding:4px 7px;border-bottom:var(--hair) solid var(--bd2);color:var(--ink);font-variant-numeric:tabular-nums}
   /* th→td, td→th가 섞여도 세로선이 빠지지 않게 «인접한 모든 셀»을 기준으로 잡는다. */
   table.tbl thead tr > * + *{border-left:var(--hair-vert) solid var(--bd2)}
   table.tbl tbody tr > * + *{border-left:var(--hair-vert) solid var(--bd2)}
@@ -243,21 +241,21 @@
   .terms-cols .t-sub{padding-left:4.8mm;text-indent:-3.3mm;text-align:left;color:var(--ink2);margin-bottom:.4mm;font-variant-numeric:tabular-nums}
   .terms-cols .t-sub b{font-weight:700;color:var(--ink)}
   /* 형광펜 강조 (주요사항) */
-  .mark{background:linear-gradient(transparent 36%, #ffe88a 36% 94%, transparent 94%);font-weight:700;padding:0 1.5px}
+  .mark{background:var(--accent-bg);font-weight:700;padding:0 1.5px}
   .terms-cols .mark{color:var(--ink)}
   /* 사고 처리 절차 */
   .acc-steps{font-size:10px;color:var(--ink2);line-height:1.5;margin-top:1mm}
   .acc-steps > div{display:flex;gap:8px;align-items:flex-start;padding:2.3mm 0;border-bottom:var(--hair) solid var(--bd)}
   .acc-steps > div:last-child{border-bottom:none}
-  .acc-steps b{flex:0 0 auto;width:16px;height:16px;border-radius:3px;background:var(--accent);color:#fff;font-size:9px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;margin-top:1px}
+  .acc-steps b{flex:0 0 auto;width:16px;height:16px;border-radius:3px;background:var(--accent);color:#fff;font-size:9px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;margin-top:1px}
   /* 유의사항 — 본문과 규격 통일(박스·액센트 없음, ※ 회색 소문자) */
   .callout{font-size:9.5px;color:var(--mute);line-height:1.55;margin-top:2.5mm}
   /* 경고 박스 — 중대 위반(현장이탈·뺑소니 등) 강조 */
   .warnbox{margin-top:3mm;display:flex;gap:8px;align-items:flex-start;background:var(--danger-bg,#fdeaea);border:1px solid var(--danger-bd,#f2c2c2);border-left:3px solid var(--danger,#c0392b);border-radius:var(--radius);padding:8px 10px}
   .warnbox .wi{flex:0 0 auto;color:var(--danger,#c0392b);margin-top:1px}
   .warnbox .wt{font-size:10px;line-height:1.55;color:var(--ink)}
-  .warnbox .wt b{color:var(--danger,#c0392b);font-weight:800}
-  .warnbox .wh{display:block;font-weight:800;color:var(--danger,#c0392b);font-size:10.5px;margin-bottom:2px;letter-spacing:-.01em}
+  .warnbox .wt b{color:var(--danger,#c0392b);font-weight:700}
+  .warnbox .wh{display:block;font-weight:700;color:var(--danger,#c0392b);font-size:10.5px;margin-bottom:2px;letter-spacing:-.01em}
   .callout::before{content:"※ "}
   .special{border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;
            font-size:10.5px;color:var(--ink);background:var(--card)}
@@ -274,32 +272,32 @@
   .sign-box .nm{flex:1;border-bottom:1px solid var(--ink2);padding-bottom:3px;font-size:12px;font-weight:700}
   .sign-box .seal{flex:0 0 auto;font-size:9px;color:var(--faint)}
   .sign-co{flex:1}
-  .sign-co .scn{font-size:12px;font-weight:800;border-bottom:1px solid var(--ink2);padding-bottom:3px}
+  .sign-co .scn{font-size:12px;font-weight:700;border-bottom:1px solid var(--ink2);padding-bottom:3px}
   .sign-co .scs{font-size:8.5px;color:var(--mute);margin-top:3px}
   .sign-date{text-align:center;font-size:11px;letter-spacing:.1em;color:var(--ink2);margin:6mm 0 5mm;font-weight:600}
 
   /* 동의 및 서명·날인 */
   .agree-all{display:flex;gap:9px;align-items:center;background:var(--accent-bg);border:1px solid #cfe0ff;
-             border-radius:4px;padding:9px 12px;font-weight:800;font-size:11.5px;margin-bottom:3mm;cursor:pointer}
+             border-radius:4px;padding:9px 12px;font-weight:700;font-size:11.5px;margin-bottom:3mm;cursor:pointer}
   .agree-all input{width:16px;height:16px;flex:0 0 auto;accent-color:var(--accent)}
   .agree-list{margin:0 0 6mm}
   .agree-item{display:flex;gap:9px;align-items:flex-start;padding:2.6mm 1mm;border-bottom:1px solid var(--line2);font-size:11px;line-height:1.5;cursor:pointer}
   .agree-item:last-child{border-bottom:none}
   .agree-item input{width:15px;height:15px;flex:0 0 auto;margin-top:1px;accent-color:var(--accent)}
   .annexbox{border:1px solid var(--bd);border-radius:var(--radius);padding:8px 11px;margin:0 0 5mm;background:var(--th)}
-  .annexbox .annex-h{font-size:10px;font-weight:800;color:var(--ink2);margin-bottom:4px;letter-spacing:-.01em}
+  .annexbox .annex-h{font-size:10px;font-weight:700;color:var(--ink2);margin-bottom:4px;letter-spacing:-.01em}
   .annexbox .annex-items{display:grid;grid-template-columns:1fr 1fr;gap:3px 14px;font-size:10px;color:var(--ink)}
   .annexbox .annex-note{font-size:9px;color:var(--mute);margin-top:6px;line-height:1.55}
   .esign{margin-top:5mm;border-top:1px solid var(--line);padding-top:5mm}
   .esign-date{text-align:center;font-size:11px;letter-spacing:.1em;color:var(--ink2);margin-bottom:6mm;font-weight:600}
   .esign-row{display:grid;grid-template-columns:1fr 1fr;gap:8mm}
-  .esign-lbl{font-size:9.5px;font-weight:800;color:var(--accent);margin-bottom:4px}
+  .esign-lbl{font-size:9.5px;font-weight:700;color:var(--accent);margin-bottom:4px}
   .esign-pad{height:24mm;border:1px solid var(--line2);border-radius:4px;background:var(--tint);
              display:grid;place-items:center;color:var(--faint);font-size:10px;overflow:hidden}
   .esign-pad img{max-width:92%;max-height:92%}
   /* 자동 전자직인 — 빨간 원형 도장 (직인 이미지 없을 때) */
   .esign-pad .seal-auto{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;
-    width:18mm;height:18mm;border:1.3mm solid #c0392b;border-radius:50%;color:#c0392b;font-weight:800;
+    width:18mm;height:18mm;border:1.3mm solid #c0392b;border-radius:50%;color:#c0392b;font-weight:700;
     font-size:8px;line-height:1.15;text-align:center;transform:rotate(-7deg);opacity:.9;padding:2px;box-sizing:border-box;word-break:keep-all}
   .esign-pad .seal-auto i{font-style:normal;font-size:6.5px;font-weight:700;margin-top:1px}
   .esign-pad .seal-img{max-width:88%;max-height:88%}
@@ -318,12 +316,17 @@
   .cover-no .cn-type{display:inline-block;font-size:9px;font-weight:700;color:#fff;background:var(--accent);
                      border-radius:3px;padding:2px 10px;margin-bottom:6px;letter-spacing:.04em}
   .cover-no b{color:var(--ink);font-weight:700;letter-spacing:.02em}
-  .cover-hero{margin-top:8mm}
+  /* 제목+요지를 표지 세로 가운데로(사장님 2026-08-20). 아래 당사자 묶음도 margin-top:auto 라
+     남는 여백이 위아래로 갈려 «위–가운데–아래» 세 덩어리가 된다. 표지 아래가 백지로 남지 않는다. */
+  .cover-hero{margin-top:auto}
   .cover-kicker{font-size:9.5px;font-weight:600;color:var(--accent);letter-spacing:.2em;margin-bottom:8px}
   .cover-title{font-size:24pt;font-weight:700;letter-spacing:-.04em;line-height:1.18}
   .cover-lead{font-size:11px;color:var(--mute);line-height:1.65;margin-top:11px;max-width:138mm}
   /* 계약 당사자와 체결정보는 표지 하단의 한 묶음으로 배치한다. */
-  .cover-parties-cap{margin-top:auto;font-size:10px;color:var(--mute);font-weight:500;margin-bottom:6px;letter-spacing:0}
+  /* ⚠ 여기에 margin-top:auto 를 두면 표지의 남는 여백이 «위·중간·아래» 세 군데로 갈려
+     제목+요지가 위쪽 1/3 에 걸린다. 자동 여백은 두 군데(제목 위 · 요지 아래)만 둔다 —
+     그래야 제목+요지가 진짜 가운데에 서고 당사자 묶음이 바닥에 붙는다(사장님 2026-08-20). */
+  .cover-parties-cap{font-size:10px;color:var(--mute);font-weight:500;margin-bottom:6px;letter-spacing:0}
 /*
   값이 안 온 칸은 봉인본에서 비워진다. 완전히 빈칸이면 «빠뜨린 건지 원래 없는 건지» 알 수 없으므로
   종이 계약서처럼 옅은 밑줄만 남겨 «기재란»임을 보인다.
@@ -339,11 +342,10 @@
   .cover-parties .cp-sub{font-size:9.5px;color:var(--mute);margin-top:3px}
   .cover-parties .cp-x{flex:0 0 auto;display:grid;place-items:center;width:44px;background:var(--accent);
                        color:#fff;font-size:9px;font-weight:700;letter-spacing:.06em}
-  .cover-sum{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8mm}
+  .cover-sum{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:9mm;margin-bottom:auto}
   .cover-sum .cs{border:1px solid var(--line);border-radius:var(--radius-box);padding:10px 13px;background:var(--tint)}
   .cover-sum .cs .csl{font-size:10px;color:var(--mute);font-weight:500;margin-bottom:4px;letter-spacing:.02em}
   .cover-sum .cs .csv{font-size:20px;font-weight:700;letter-spacing:-.02em;line-height:1.2;font-variant-numeric:tabular-nums}
-  .cover-sum .cs .csv[data-cover-field="rent_month"]{font-size:15px;line-height:1.35}
   .cover-sum .cs .cssub{font-size:9px;color:var(--faint);margin-top:2px;font-weight:600}
   .cover-foot{margin-top:9mm;padding-top:7mm;border-top:1px solid var(--line);
               display:flex;justify-content:space-between;align-items:flex-end;font-size:9.5px;color:var(--mute)}
@@ -365,14 +367,14 @@
 
       [data-main-exclude=""]{display:none!important}
     </style>
-<script>window.__SEALED__={"state":{"co":"auto","ins":"포함"},"fields":{"co":"auto","ins":"포함","company_name":"[샘플] 프리패스테스트렌터카 주식회사","company_ceo":"김샘플","company_ceo_title":"대표","company_biz_no":"1108100001","company_phone":"02-0000-0001","company_address":"서울특별시 강서구 양천로 100, 1층 (샘플동)","rental_business_no":"","payment_bank":"신한","payment_account_no":"110-000-000001","payment_account_holder":"[샘플] 프리패스테스트렌터카 주식회사","contract_code":"FPS-SAMPLE-01","contract_date":"2026-08-20","car_number":"00가0001","vehicle_name":"현대 아반떼 CN7 가솔린 1.6 모던","fuel":"가솔린","model_year":"2026","options":"내비게이션, 후방카메라","vehicle_price":"","vin":"","color_exterior":"흰색","color_interior":"","odometer_delivery":"10","vehicle_classification":"","customer_name":"홍길동","customer_phone":"01012345678","customer_address":"","customer_birth":"","rent_amount":"420,000","deposit_amount":"840,000","rent_month":"차량 인도일로부터 36개월","contract_start":"차량 인도 시 확정","contract_end":"차량 인도일 기준 산정","delivery_location":"","deposit_installment":"일시납","payment_cycle":"월납","payment_timing":"선불","payment_method":"CMS 자동이체","auto_debit_date":"매월 25일","invoice_type":"세금계산서","invoice_cycle":"월 1회","driver_scope":"본인+직계가족","driver_age":"만 26세 이상","additional_driver_cost":"월 50,000원 / 1인","annual_mileage":"연 30,000km","over_mileage_rate":"1km당 200원","accident_termination_count":"3회","maintenance_product":"미제공","maintenance_replacement":"불가","designated_garage":"지정 협력 정비공장","replacement_car_policy":"불가","coverage_liability_person":"무한","coverage_liability_property":"1억원","coverage_self_injury":"1억원","coverage_uninsured":"없음","self_damage_coverage":"차량가액","emergency_dispatch_limit":"연간 5회","deductible_liability_person":"30만원","deductible_liability_property":"30만원","self_damage_deductible_rate":"20%","self_damage_deductible_min":"50만원","self_damage_deductible_max":"100만원","late_fee_rate":"연 24%","succession_allowed":"가능","succession_fee":"1,000,000원","early_termination_rate_y1":"잔여 대여료의 30%","early_termination_rate_y2":"잔여 대여료의 20%","deposit_return_term":"반납·정산 후 7일 이내","engine_control_overdue_days":"3","auto_terminate_overdue_days":"10","deposit_overdue_rounds":"2","claim_basis":"잔여 대여료","impound_keep_term":"반환 통지 후 7일","impound_fee":"1일 10,000원","gps_installed":"장착","buyback_price":"","insurance_condition":"회사 포함","special_terms":"GPS·블랙박스 임의 탈거 시 손해배상\n차량 반납 시 실내 흡연 흔적은 별도 청구"}};</script></head>
+<script>window.__SEALED__={"state":{"co":"auto","ins":"포함"},"fields":{"co":"auto","ins":"포함","company_name":"[샘플] 프리패스테스트렌터카 주식회사","company_ceo":"김샘플","company_ceo_title":"대표","company_biz_no":"1108100001","company_phone":"02-0000-0001","company_address":"서울특별시 강서구 양천로 100, 1층 (샘플동)","rental_business_no":"","payment_bank":"신한","payment_account_no":"110-000-000001","payment_account_holder":"[샘플] 프리패스테스트렌터카 주식회사","contract_code":"FPS-SAMPLE-01","contract_date":"2026-08-20","car_number":"00가0001","vehicle_name":"현대 아반떼 CN7 가솔린 1.6 모던","fuel":"가솔린","model_year":"2026","options":"내비게이션, 후방카메라","vehicle_price":"","vin":"","color_exterior":"흰색","color_interior":"","odometer_delivery":"10km","vehicle_classification":"","customer_name":"홍길동","customer_phone":"01012345678","customer_address":"","customer_birth":"","rent_amount":"420,000","deposit_amount":"840,000","rent_month":"차량 인도일로부터 36개월","contract_start":"차량 인도 시 확정","contract_end":"차량 인도일 기준 산정","delivery_location":"","deposit_installment":"일시납","payment_cycle":"월납","payment_timing":"선불","payment_method":"CMS 자동이체","auto_debit_date":"매월 25일","invoice_type":"세금계산서","invoice_cycle":"월 1회","driver_scope":"본인+직계가족","driver_age":"만 26세 이상","additional_driver_cost":"월 50,000원 / 1인","annual_mileage":"연 30,000km","over_mileage_rate":"1km당 200원","accident_termination_count":"3회","maintenance_product":"미제공","maintenance_replacement":"불가","designated_garage":"지정 협력 정비공장","replacement_car_policy":"불가","coverage_liability_person":"무한","coverage_liability_property":"1억원","coverage_self_injury":"1억원","coverage_uninsured":"없음","self_damage_coverage":"차량가액","emergency_dispatch_limit":"연간 5회","deductible_liability_person":"30만원","deductible_liability_property":"30만원","self_damage_deductible_rate":"20%","self_damage_deductible_min":"50만원","self_damage_deductible_max":"100만원","late_fee_rate":"연 24%","succession_allowed":"가능","succession_fee":"1,000,000원","early_termination_rate_y1":"잔여 대여료의 30%","early_termination_rate_y2":"잔여 대여료의 20%","deposit_return_term":"반납·정산 후 7일 이내","engine_control_overdue_days":"3","auto_terminate_overdue_days":"10","deposit_overdue_rounds":"2","claim_basis":"잔여 대여료","impound_keep_term":"반환 통지 후 7일","impound_fee":"1일 10,000원","gps_installed":"장착","buyback_price":"","insurance_condition":"회사 포함","special_terms":"GPS·블랙박스 임의 탈거 시 손해배상\n차량 반납 시 실내 흡연 흔적은 별도 청구"}};</script></head>
 <body class="cloak">
 
 <aside class="builder" id="builder">
   <div class="bd-head">
     <a href="../index.html">← 허브</a>
     <button class="bd-reset" id="bdReset" type="button">초기화</button>
-    <button class="bd-print" onclick="window.print()">🖨 인쇄 · PDF</button>
+    <button class="bd-print" onclick="window.print()">인쇄 · PDF</button>
   </div>
   <div id="bdForm"></div>
   <div class="bd-hint">이 입력 패널은 <b>단독 실행용 하네스</b>입니다. 다른 ERP에 임베드할 때는 <b>?embed=1</b> 로 열면 패널이 숨겨지고, 외부 ERP가 <b>Contract.setData({…})</b> 로 값을 주입합니다.</div>
@@ -1466,6 +1468,9 @@
     keys.forEach(function(k){
       var source=fieldNodes(k)[0];
       var value=source ? String(source.textContent||'').replace(/\s+/g,' ').trim() : '';
+      /* 표지 요지는 «값 하나»만 크게 보여 준다(사장님 2026-08-20 「대여기간은 36개월로만」).
+         본문 03 의 「차량 인도일로부터 36개월」을 그대로 끌어오면 칸이 세 줄로 깨진다. 기준일 설명은 본문에 있다. */
+      if(k==='rent_month'){ var m=value.match(/\d+\s*개월/); if(m) value=m[0].replace(/\s+/g,''); }
       document.querySelectorAll('[data-cover-field="'+k+'"]').forEach(function(el){
         var unit=el.getAttribute('data-cover-unit')||'';
         el.textContent=value ? value+unit : '—';
