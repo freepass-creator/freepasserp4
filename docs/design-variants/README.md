@@ -20,3 +20,6 @@
 | 파일 | 만든이 | 안 | 상태 |
 |---|---|---|---|
 | — | Gemini | A | 받음(2026-08-20, 60점 — 기획서 부록에 평가 정리) |
+| [cursor-a.html](cursor-a.html) | Cursor | A | 받음(2026-08-20) — 모서리 2px, 층=테두리 |
+| [cursor-b.html](cursor-b.html) | Cursor | B | 받음(2026-08-20) — 카드 8 / 컨트롤 4, 층=면 대비 |
+| [cursor-c.html](cursor-c.html) | Cursor | C | 받음(2026-08-20) — 12/8/4~6, 그림자 1단, 대여료=선택 카드 |

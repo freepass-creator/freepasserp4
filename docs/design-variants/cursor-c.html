@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>C안 — 상품 목록·상세</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<style>
+:root{
+  --page:#f6f7f9; --card:#ffffff; --head:#f7f8fa; --stripe:#fafbfc; --sel:#e8f0ff;
+  --ink:#18181b; --sub:#52525b; --dim:#a1a1aa;
+  --line:#e2e5ea; --line-soft:#edf0f3; --line-strong:#cbd1d9;
+  --brand:#1B2A4A; --brand-deep:#0F1B35;
+  --ok:#166534; --ok-bg:#f0fdf4; --ok-line:#bbf7d0;
+  --no:#b91c1c; --no-bg:#fef2f2; --no-line:#fecaca;
+  --wa:#c2410c; --wa-bg:#fff7ed; --wa-line:#fed7aa;
+  --am:#a16207; --am-bg:#fefce8; --am-line:#fef08a;
+  --gy:#52525b; --gy-bg:#f4f4f5; --gy-line:#e4e4e7;
+  --r-wrap:12px; --r-card:8px; --r:6px; --r-ctrl:4px;
+  --ctrl:32px; --bar:56px; --label:116px;
+  --sh:0 1px 2px rgba(15,27,53,.06);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  background:var(--page); color:var(--ink);
+  font-family:'Pretendard Variable',Pretendard,'Apple SD Gothic Neo','Segoe UI',system-ui,sans-serif;
+  font-size:13px; line-height:1.45; -webkit-font-smoothing:antialiased;
+}
+.num{font-variant-numeric:tabular-nums}
+.doc{max-width:1200px; margin:0 auto; padding:28px 20px 80px}
+.one{font-size:13px; font-weight:650; margin:0 0 6px}
+.meta{font-size:11px; color:var(--dim); margin:0 0 28px}
+.scr-label{font-size:11px; color:var(--sub); font-weight:650; margin:36px 0 8px; letter-spacing:.02em}
+
+.screen{background:var(--card); border:1px solid var(--line); border-radius:var(--r-wrap); overflow:hidden; box-shadow:var(--sh)}
+.bar{height:var(--bar); display:flex; align-items:center; gap:8px; padding:0 12px;
+     background:var(--card); border-bottom:1px solid var(--line)}
+.bar.bot{border-bottom:0; border-top:1px solid var(--line); justify-content:space-between}
+.brand{font-size:13px; font-weight:700; color:var(--brand); margin-right:8px; white-space:nowrap}
+.search{height:var(--ctrl); flex:1; max-width:280px; border:1px solid var(--line); border-radius:var(--r-ctrl);
+        padding:0 10px; font-size:13px; color:var(--ink); background:var(--page)}
+.search::placeholder{color:var(--dim)}
+.chips{display:flex; gap:6px; flex-wrap:nowrap; overflow:hidden}
+.chip{height:var(--ctrl); padding:0 12px; border:1px solid var(--line); border-radius:var(--r);
+      background:var(--page); color:var(--sub); font-size:12px; font-weight:600; display:inline-flex; align-items:center; white-space:nowrap}
+.chip.on{background:var(--brand); color:#fff; border-color:var(--brand)}
+.seg{display:flex; border:1px solid var(--line); border-radius:var(--r-ctrl); overflow:hidden; height:var(--ctrl); background:var(--page)}
+.seg span{padding:0 12px; font-size:12px; font-weight:600; color:var(--sub); display:flex; align-items:center; border-right:1px solid var(--line)}
+.seg span:last-child{border-right:0}
+.seg span.on{background:var(--brand); color:#fff}
+.btn{height:var(--ctrl); padding:0 12px; border:1px solid var(--line); border-radius:var(--r-ctrl);
+     background:var(--card); color:var(--ink); font-size:13px; font-weight:600; display:inline-flex; align-items:center}
+.btn.pri{background:var(--brand); color:#fff; border-color:var(--brand)}
+.spacer{flex:1}
+.count{font-size:11px; color:var(--dim)}
+.body{padding:14px; background:var(--page)}
+
+/* 뱃지 — 자리+모양. 상태=알약, 분류·혜택=6 */
+.b{display:inline-flex; align-items:center; height:20px; padding:0 8px;
+   font-size:10px; font-weight:650; line-height:1; white-space:nowrap; border:1px solid transparent}
+.b-st{border-radius:999px}
+.b-st.ok{background:var(--ok-bg); color:var(--ok); border-color:var(--ok-line)}
+.b-st.wa{background:var(--wa-bg); color:var(--wa); border-color:var(--wa-line)}
+.b-st.am{background:var(--am-bg); color:var(--am); border-color:var(--am-line)}
+.b-st.gy{background:var(--gy-bg); color:var(--gy); border-color:var(--gy-line)}
+.b-cl{border-radius:var(--r); background:var(--gy-bg); color:var(--sub); border-color:var(--gy-line); font-weight:600}
+.b-cl.ok{background:var(--ok-bg); color:var(--ok); border-color:var(--ok-line)}
+.b-pk{border-radius:var(--r); background:var(--gy-bg); color:var(--ink); border-color:var(--line-strong)}
+
+.grid{display:grid; grid-template-columns:repeat(3,1fr); gap:12px}
+.card{background:var(--card); border:1px solid var(--line); border-radius:var(--r-card); overflow:hidden; display:flex; flex-direction:column; box-shadow:var(--sh)}
+.card.sel{border:2px solid var(--brand); box-shadow:none}
+.photo{aspect-ratio:2/1; background:#edf0f3; display:flex; align-items:center; justify-content:center;
+       color:var(--dim); font-size:11px}
+.photo.empty{background:repeating-linear-gradient(45deg,#f4f4f5,#f4f4f5 8px,#edf0f3 8px,#edf0f3 16px)}
+.core{display:flex; gap:4px; padding:6px 12px; background:var(--head); min-height:28px; align-items:center; border-top:1px solid var(--line-soft)}
+.card-body{padding:10px 12px 12px; display:flex; flex-direction:column; gap:6px; flex:1}
+.title{font-size:14.5px; font-weight:650; line-height:1.3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.opts{display:flex; gap:4px; overflow:hidden; height:20px; flex-wrap:nowrap}
+.opt{display:inline-flex; align-items:center; height:20px; padding:0 6px; border:1px solid var(--line);
+     border-radius:var(--r); font-size:10px; color:var(--sub); white-space:nowrap; flex:none}
+.specs{font-size:11px; color:var(--sub); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; height:16px}
+.perk-row{display:flex; gap:4px; flex-wrap:wrap; min-height:20px; align-items:center}
+.perk-none{font-size:11px; color:var(--dim)}
+.price-row{display:flex; align-items:baseline; gap:8px; min-height:28px; border-top:1px solid var(--line-soft); padding-top:8px; margin-top:2px}
+.anchor{font-size:18px; font-weight:700; letter-spacing:-.02em; line-height:1}
+.anchor small{font-size:13px; font-weight:400; color:var(--sub); margin-left:1px}
+.rest{font-size:12px; color:var(--dim); display:flex; gap:8px}
+.wait{font-size:12px; color:var(--dim)}
+
+.tbl-wrap{margin-top:10px; background:var(--card); border:1px solid var(--line); border-radius:var(--r-card); overflow:hidden; box-shadow:var(--sh)}
+table.list{width:100%; border-collapse:collapse; font-size:13px}
+table.list th{background:var(--head); color:var(--sub); font-size:11px; font-weight:600; text-align:left;
+              padding:8px 10px; border-bottom:1px solid var(--line); white-space:nowrap}
+table.list td{padding:8px 10px; border-bottom:1px solid var(--line-soft); vertical-align:middle}
+table.list tr:nth-child(even) td{background:var(--stripe)}
+table.list tr.sel td{background:var(--sel)}
+table.list tr:last-child td{border-bottom:0}
+.mini{width:64px; height:32px; background:#edf0f3; border:1px solid var(--line); border-radius:var(--r-ctrl);
+      display:flex; align-items:center; justify-content:center; font-size:10px; color:var(--dim); flex:none}
+.mini.empty{background:repeating-linear-gradient(45deg,#f4f4f5,#f4f4f5 6px,#edf0f3 6px,#edf0f3 12px)}
+.t-name{font-size:14.5px; font-weight:650; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:280px}
+.t-spec{font-size:11px; color:var(--sub)}
+.b-row{display:flex; gap:4px; flex-wrap:wrap}
+
+.detail{display:grid; grid-template-columns:8fr 4fr; height:740px; background:var(--page)}
+.guest{overflow:auto; padding:14px; display:flex; flex-direction:column; gap:12px; border-right:1px solid var(--line)}
+.agent{display:flex; flex-direction:column; min-height:0; background:var(--card); border-left:4px solid var(--brand)}
+.agent-h{flex:none; height:36px; display:flex; align-items:center; padding:0 12px;
+         background:var(--brand); color:#fff; font-size:14.5px; font-weight:650}
+.agent-h span{font-size:11px; color:#fff; font-weight:600; margin-left:8px; opacity:.75}
+.agent-b{flex:1; overflow:auto; padding:12px; display:flex; flex-direction:column; gap:14px}
+.agent-f{flex:none; display:flex; gap:8px; padding:10px 12px; border-top:1px solid var(--line); background:var(--card)}
+.agent-f .btn{flex:1; justify-content:center}
+
+.gallery{display:flex; gap:8px; background:var(--card); border:1px solid var(--line); border-radius:var(--r-card); padding:8px; box-shadow:var(--sh)}
+.main-ph{flex:1; aspect-ratio:2/1; background:#edf0f3; border:1px solid var(--line); border-radius:var(--r);
+         display:flex; align-items:center; justify-content:center; color:var(--dim); font-size:12px}
+.thumbs{width:48px; display:flex; flex-direction:column; gap:4px; flex:none}
+.nav{height:var(--ctrl); border:1px solid var(--line); border-radius:var(--r-ctrl); background:var(--page);
+     color:var(--sub); font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center}
+.th{height:36px; background:#edf0f3; border:1px solid var(--line); border-radius:var(--r-ctrl);
+    display:flex; align-items:center; justify-content:center; font-size:10px; color:var(--dim)}
+.th.on{border:2px solid var(--brand)}
+
+.head-card{background:var(--card); border:1px solid var(--line); border-radius:var(--r-card); padding:12px 14px; box-shadow:var(--sh)}
+.head-card h1{font-size:18px; font-weight:700; margin:0 0 6px; letter-spacing:-.02em}
+.head-meta{display:flex; gap:8px; align-items:center; font-size:12px; color:var(--sub)}
+
+.sec{background:var(--card); border:1px solid var(--line); border-radius:var(--r-card); overflow:hidden; box-shadow:var(--sh)}
+.sec-h{display:flex; align-items:center; gap:8px; height:36px; padding:0 12px; background:var(--head); border-bottom:1px solid var(--line)}
+.sec-h b{font-size:13px; font-weight:650}
+.sec-h em{font-size:11px; color:var(--dim); font-style:normal; font-weight:600; margin-left:auto}
+.sec-b{padding:10px 12px}
+.kv{display:grid; grid-template-columns:var(--label) 1fr; gap:0; font-size:13px}
+.kv dt{color:var(--sub); font-size:12px; padding:6px 8px 6px 0; border-bottom:1px solid var(--line-soft)}
+.kv dd{margin:0; padding:6px 0; border-bottom:1px solid var(--line-soft)}
+.kv dt:last-of-type,.kv dd:last-of-type{border-bottom:0}
+.empty{color:var(--dim)}
+.opts-inline{display:flex; gap:4px; flex-wrap:wrap}
+
+/* 대여료 = 선택 카드 목록 */
+.fare-g{font-size:11px; color:var(--sub); font-weight:650; margin:0 0 6px}
+.fare{display:flex; flex-direction:column; gap:6px; margin:0 0 12px}
+.fare:last-child{margin-bottom:0}
+.fare-item{display:flex; align-items:center; gap:12px; padding:8px 12px; border:1px solid var(--line);
+           border-radius:var(--r-card); background:var(--card); min-height:44px}
+.fare-item.on{border:2px solid var(--brand); background:var(--sel); padding:7px 11px}
+.fare-item.void{opacity:.7}
+.fare-l{flex:1; min-width:0}
+.fare-term{font-size:13px; font-weight:650}
+.fare-dep{font-size:11px; color:var(--sub); margin-top:2px}
+.fare-r{text-align:right; flex:none}
+.fare-amt{font-size:13px; font-weight:650}
+.fare-item.on .fare-amt{font-size:18px; font-weight:700; letter-spacing:-.02em}
+.fare-amt small{font-size:13px; font-weight:400; color:var(--sub)}
+.mark{display:inline-flex; align-items:center; height:18px; padding:0 6px; margin-left:6px;
+      border-radius:var(--r); font-size:10px; font-weight:650; background:var(--brand); color:#fff; vertical-align:middle}
+
+.ag-sec{font-size:11px; color:var(--sub); font-weight:650; margin:0 0 6px}
+.ag-block dt{color:var(--sub); font-size:12px; margin:0 0 2px}
+.ag-block dd{margin:0 0 10px; font-size:13px}
+
+.spec-tbl{width:100%; border-collapse:collapse; font-size:12.5px; background:var(--card);
+          border:1px solid var(--line); border-radius:var(--r-card); overflow:hidden; margin-top:8px; box-shadow:var(--sh)}
+.spec-tbl th,.spec-tbl td{text-align:left; padding:7px 10px; border-bottom:1px solid var(--line-soft); vertical-align:top}
+.spec-tbl th{background:var(--head); color:var(--sub); font-weight:600; font-size:11px; white-space:nowrap}
+.spec-tbl tr:last-child td{border-bottom:0}
+.solve{margin:36px 0 8px; font-size:14.5px; font-weight:650}
+.solve-p{font-size:12px; color:var(--sub); margin:0 0 10px}
+</style>
+</head>
+<body>
+<div class="doc">
+
+<p class="one">C안 — 모서리 3단(컨테이너 12 / 서피스 8 / 컨트롤 4~6). 옅은 그림자 1단 + 면 대비. 대여료는 표 대신 선택 카드 목록. 뱃지는 자리+모양(상태=알약, 분류·혜택=6).</p>
+<p class="meta">색·글자 6단·굵기 700 상한·상단바 56은 세 안 공통. 데이터는 기획서 5절만.</p>
+
+<p class="scr-label">화면 A — 상품 목록 (격자)</p>
+<div class="screen">
+  <div class="bar">
+    <span class="brand">프리패스</span>
+    <input class="search" placeholder="차명 · 옵션" value="">
+    <div class="chips">
+      <span class="chip on">전체 6</span>
+      <span class="chip">즉시출고</span>
+      <span class="chip">출고가능</span>
+      <span class="chip">계약중</span>
+    </div>
+    <span class="chip">최신</span>
+    <div class="seg"><span class="on">격자</span><span>표</span></div>
+  </div>
+  <div class="body">
+    <div class="grid">
+
+      <article class="card sel">
+        <div class="photo">a.jpg</div>
+        <div class="core">
+          <span class="b b-st ok">즉시출고</span>
+          <span class="b b-cl">중고렌트</span>
+          <span class="b b-cl ok">무심사</span>
+        </div>
+        <div class="card-body">
+          <div class="title">현대 그랜저 GN7 2.5 가솔린 캘리그래피</div>
+          <div class="opts">
+            <span class="opt">파노라마 선루프</span><span class="opt">빌트인 캠</span><span class="opt">20인치 휠</span><span class="opt">HUD</span>
+          </div>
+          <div class="specs">2024 · 12,400km · 가솔린 · 쉬머링 실버 / 블랙</div>
+          <div class="perk-row">
+            <span class="b b-pk">분납</span><span class="b b-pk">무보증</span><span class="b b-pk">무사고</span>
+          </div>
+          <div class="price-row">
+            <span class="anchor num">598,000<small>원</small></span>
+            <span class="rest"><span>48개월</span><span>36개월 612,000원</span></span>
+          </div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="photo empty">사진 준비중</div>
+        <div class="core">
+          <span class="b b-st am">출고협의</span>
+          <span class="b b-cl">신차렌트</span>
+          <span class="b b-cl">소득확인</span>
+        </div>
+        <div class="card-body">
+          <div class="title">기아 카니발 KA4 3.5 가솔린 시그니처</div>
+          <div class="opts"><span class="opt">9인승</span><span class="opt">듀얼 선루프</span></div>
+          <div class="specs">2025 · - · 가솔린 · -</div>
+          <div class="perk-row"><span class="b b-pk">만21세</span></div>
+          <div class="price-row">
+            <span class="anchor num">742,000<small>원</small></span>
+            <span class="rest"><span>60개월</span><span>48개월 789,000원</span></span>
+          </div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="photo">c.jpg</div>
+        <div class="core">
+          <span class="b b-st wa">계약중</span>
+          <span class="b b-cl">중고구독</span>
+          <span class="b b-cl ok">무심사</span>
+        </div>
+        <div class="card-body">
+          <div class="title">제네시스 G80 2.5T AWD</div>
+          <div class="opts">
+            <span class="opt">나파가죽</span><span class="opt">렉시콘</span><span class="opt">HUD</span><span class="opt">마사지시트</span><span class="opt">후륜조향</span>
+          </div>
+          <div class="specs">2023 · 38,900km · 가솔린 · 어비스 블랙 / 브라운</div>
+          <div class="perk-row">
+            <span class="b b-pk">분납</span><span class="b b-pk">무보증</span><span class="b b-pk">만21세</span><span class="b b-pk">경력무관</span><span class="b b-pk">무사고</span>
+          </div>
+          <div class="price-row">
+            <span class="anchor num">1,120,000<small>원</small></span>
+            <span class="rest"><span>36개월</span></span>
+          </div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="photo">d.jpg</div>
+        <div class="core">
+          <span class="b b-st wa">상품화중</span>
+          <span class="b b-cl">신차구독</span>
+          <span class="b b-cl">소득확인</span>
+        </div>
+        <div class="card-body">
+          <div class="title">테슬라 모델Y 롱레인지</div>
+          <div class="opts"></div>
+          <div class="specs">2025 · - · 전기 · -</div>
+          <div class="perk-row"><span class="perk-none">혜택 없음</span></div>
+          <div class="price-row"><span class="wait">요금 산출 대기중</span></div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="photo">e.jpg</div>
+        <div class="core">
+          <span class="b b-st ok">출고가능</span>
+          <span class="b b-cl">중고렌트</span>
+          <span class="b b-cl ok">무심사</span>
+        </div>
+        <div class="card-body">
+          <div class="title">현대 아반떼 CN7 1.6 가솔린 모던</div>
+          <div class="opts"><span class="opt">스마트키</span></div>
+          <div class="specs">2022 · 64,100km · 가솔린 · 화이트 / 블랙</div>
+          <div class="perk-row"><span class="b b-pk">무보증</span></div>
+          <div class="price-row">
+            <span class="anchor num">352,000<small>원</small></span>
+            <span class="rest"><span>36개월</span><span>24개월 389,000원</span></span>
+          </div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="photo">f.jpg</div>
+        <div class="core">
+          <span class="b b-st gy">출고불가</span>
+          <span class="b b-cl">중고렌트</span>
+          <span class="b b-cl">소득확인</span>
+        </div>
+        <div class="card-body">
+          <div class="title">BMW 5시리즈 520i M스포츠</div>
+          <div class="opts"><span class="opt">하만카돈</span><span class="opt">파노라마</span></div>
+          <div class="specs">2021 · 71,200km · 가솔린 · 미네랄 화이트 / 블랙</div>
+          <div class="perk-row"><span class="b b-pk">무사고</span></div>
+          <div class="price-row">
+            <span class="anchor num">698,000<small>원</small></span>
+            <span class="rest"><span>36개월</span></span>
+          </div>
+        </div>
+      </article>
+
+    </div>
+
+    <p class="scr-label" style="margin:16px 0 8px">같은 6대 — 표 뷰 (격자에서 옵션만 버림. 뱃지 모양·금액 앵커는 같음)</p>
+    <div class="tbl-wrap">
+      <table class="list">
+        <thead>
+          <tr>
+            <th style="width:72px">사진</th>
+            <th>차량</th>
+            <th>CORE</th>
+            <th>혜택</th>
+            <th style="width:168px">요금</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="sel">
+            <td><div class="mini">a.jpg</div></td>
+            <td>
+              <div class="t-name">현대 그랜저 GN7 2.5 가솔린 캘리그래피</div>
+              <div class="t-spec">2024 · 12,400km · 가솔린 · 쉬머링 실버 / 블랙</div>
+            </td>
+            <td><div class="b-row"><span class="b b-st ok">즉시출고</span><span class="b b-cl">중고렌트</span><span class="b b-cl ok">무심사</span></div></td>
+            <td><div class="b-row"><span class="b b-pk">분납</span><span class="b b-pk">무보증</span><span class="b b-pk">무사고</span></div></td>
+            <td>
+              <span class="anchor num">598,000<small>원</small></span>
+              <div class="rest">48개월 · 36개월 612,000원</div>
+            </td>
+          </tr>
+          <tr>
+            <td><div class="mini empty">준비중</div></td>
+            <td>
+              <div class="t-name">기아 카니발 KA4 3.5 가솔린 시그니처</div>
+              <div class="t-spec">2025 · - · 가솔린 · -</div>
+            </td>
+            <td><div class="b-row"><span class="b b-st am">출고협의</span><span class="b b-cl">신차렌트</span><span class="b b-cl">소득확인</span></div></td>
+            <td><div class="b-row"><span class="b b-pk">만21세</span></div></td>
+            <td>
+              <span class="anchor num">742,000<small>원</small></span>
+              <div class="rest">60개월 · 48개월 789,000원</div>
+            </td>
+          </tr>
+          <tr>
+            <td><div class="mini">c.jpg</div></td>
+            <td>
+              <div class="t-name">제네시스 G80 2.5T AWD</div>
+              <div class="t-spec">2023 · 38,900km · 가솔린 · 어비스 블랙 / 브라운</div>
+            </td>
+            <td><div class="b-row"><span class="b b-st wa">계약중</span><span class="b b-cl">중고구독</span><span class="b b-cl ok">무심사</span></div></td>
+            <td><div class="b-row"><span class="b b-pk">분납</span><span class="b b-pk">무보증</span><span class="b b-pk">만21세</span><span class="b b-pk">경력무관</span><span class="b b-pk">무사고</span></div></td>
+            <td>
+              <span class="anchor num">1,120,000<small>원</small></span>
+              <div class="rest">36개월</div>
+            </td>
+          </tr>
+          <tr>
+            <td><div class="mini">d.jpg</div></td>
+            <td>
+              <div class="t-name">테슬라 모델Y 롱레인지</div>
+              <div class="t-spec">2025 · - · 전기 · -</div>
+            </td>
+            <td><div class="b-row"><span class="b b-st wa">상품화중</span><span class="b b-cl">신차구독</span><span class="b b-cl">소득확인</span></div></td>
+            <td><span class="perk-none">혜택 없음</span></td>
+            <td><span class="wait">요금 산출 대기중</span></td>
+          </tr>
+          <tr>
+            <td><div class="mini">e.jpg</div></td>
+            <td>
+              <div class="t-name">현대 아반떼 CN7 1.6 가솔린 모던</div>
+              <div class="t-spec">2022 · 64,100km · 가솔린 · 화이트 / 블랙</div>
+            </td>
+            <td><div class="b-row"><span class="b b-st ok">출고가능</span><span class="b b-cl">중고렌트</span><span class="b b-cl ok">무심사</span></div></td>
+            <td><div class="b-row"><span class="b b-pk">무보증</span></div></td>
+            <td>
+              <span class="anchor num">352,000<small>원</small></span>
+              <div class="rest">36개월 · 24개월 389,000원</div>
+            </td>
+          </tr>
+          <tr>
+            <td><div class="mini">f.jpg</div></td>
+            <td>
+              <div class="t-name">BMW 5시리즈 520i M스포츠</div>
+              <div class="t-spec">2021 · 71,200km · 가솔린 · 미네랄 화이트 / 블랙</div>
+            </td>
+            <td><div class="b-row"><span class="b b-st gy">출고불가</span><span class="b b-cl">중고렌트</span><span class="b b-cl">소득확인</span></div></td>
+            <td><div class="b-row"><span class="b b-pk">무사고</span></div></td>
+            <td>
+              <span class="anchor num">698,000<small>원</small></span>
+              <div class="rest">36개월</div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="bar bot">
+    <span class="btn">이전</span>
+    <span class="count">6대</span>
+    <span class="btn">목록</span>
+  </div>
+</div>
+
+<p class="scr-label">화면 B — 상품 상세 (좌 손님 8 : 우 영업자 4). 손님 화면 = 좌측만.</p>
+<div class="screen">
+  <div class="bar">
+    <span class="brand">프리패스</span>
+    <span class="btn">목록</span>
+    <span class="spacer"></span>
+    <span class="count">영업자 보기</span>
+  </div>
+  <div class="detail">
+    <div class="guest">
+      <div class="gallery">
+        <div class="main-ph">1.jpg</div>
+        <div class="thumbs">
+          <div class="nav">∧</div>
+          <div class="th on">1</div>
+          <div class="th">2</div>
+          <div class="th">3</div>
+          <div class="th">4</div>
+          <div class="nav">∨</div>
+        </div>
+      </div>
+
+      <div class="head-card">
+        <h1>현대 그랜저 GN7 2.5 가솔린 캘리그래피</h1>
+        <div class="head-meta">
+          <span class="b b-st ok">즉시출고</span>
+          <span>12가3456</span>
+        </div>
+      </div>
+
+      <section class="sec">
+        <div class="sec-h"><b>1 차량스펙</b></div>
+        <div class="sec-b">
+          <dl class="kv">
+            <dt>차량</dt><dd>현대 그랜저 GN7</dd>
+            <dt>차량번호</dt><dd>12가3456</dd>
+            <dt>연식 · 주행</dt><dd>2024년식 · 12,400km</dd>
+            <dt>동력</dt><dd>가솔린 · 2,497cc</dd>
+            <dt>색상</dt><dd>쉬머링 실버 / 블랙</dd>
+            <dt>분류</dt><dd class="empty">-</dd>
+            <dt>최초등록</dt><dd>2024-03-11</dd>
+            <dt>차량가격</dt><dd class="num">4,280만원</dd>
+            <dt>선택옵션</dt><dd>
+              <div class="opts-inline">
+                <span class="opt">파노라마 선루프</span><span class="opt">빌트인 캠</span><span class="opt">20인치 휠</span><span class="opt">HUD</span>
+              </div>
+            </dd>
+          </dl>
+        </div>
+      </section>
+
+      <section class="sec">
+        <div class="sec-h"><b>2 대여료조건</b><em>선택 카드 · 18px는 선택된 하나만</em></div>
+        <div class="sec-b">
+          <div class="fare-g">반납형</div>
+          <div class="fare">
+            <div class="fare-item">
+              <div class="fare-l"><div class="fare-term">24개월</div><div class="fare-dep">보증금 0원</div></div>
+              <div class="fare-r"><span class="fare-amt num">690,000<small>원</small></span></div>
+            </div>
+            <div class="fare-item">
+              <div class="fare-l"><div class="fare-term">36개월</div><div class="fare-dep">보증금 0원</div></div>
+              <div class="fare-r"><span class="fare-amt num">612,000<small>원</small></span></div>
+            </div>
+            <div class="fare-item on">
+              <div class="fare-l"><div class="fare-term">48개월 <span class="mark">최저</span></div><div class="fare-dep">보증금 0원</div></div>
+              <div class="fare-r"><span class="fare-amt num">598,000<small>원</small></span></div>
+            </div>
+            <div class="fare-item void">
+              <div class="fare-l"><div class="fare-term">60개월</div><div class="fare-dep">보증금 -</div></div>
+              <div class="fare-r"><span class="fare-amt empty">-</span></div>
+            </div>
+          </div>
+          <div class="fare-g">인수형</div>
+          <div class="fare">
+            <div class="fare-item">
+              <div class="fare-l"><div class="fare-term">36개월</div><div class="fare-dep">보증금 3,000,000원</div></div>
+              <div class="fare-r"><span class="fare-amt num">735,000<small>원</small></span></div>
+            </div>
+            <div class="fare-item">
+              <div class="fare-l"><div class="fare-term">48개월</div><div class="fare-dep">보증금 3,000,000원</div></div>
+              <div class="fare-r"><span class="fare-amt num">681,000<small>원</small></span></div>
+            </div>
+            <div class="fare-item">
+              <div class="fare-l"><div class="fare-term">60개월</div><div class="fare-dep">보증금 3,000,000원</div></div>
+              <div class="fare-r"><span class="fare-amt num">654,000<small>원</small></span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="sec">
+        <div class="sec-h"><b>3 보험조건</b></div>
+        <div class="sec-b">
+          <dl class="kv">
+            <dt>대인</dt><dd>무한</dd>
+            <dt>대물</dt><dd>3억</dd>
+            <dt>자손사고</dt><dd>1억</dd>
+            <dt>무보험상해</dt><dd>2억</dd>
+            <dt>자차손해</dt><dd>면책 30만원</dd>
+            <dt>비고</dt><dd>만 26세 이상 · 1년 이상</dd>
+          </dl>
+        </div>
+      </section>
+
+      <section class="sec">
+        <div class="sec-h"><b>4 계약조건</b></div>
+        <div class="sec-b">
+          <dl class="kv">
+            <dt>심사</dt><dd><span class="b b-cl ok">무심사</span></dd>
+            <dt>주행 약정</dt><dd>연 2만km · 초과 km당 100원</dd>
+            <dt>보증금</dt><dd>차량가 대비 별도</dd>
+            <dt>결제 · 위약</dt><dd>자동이체 · 잔여 대여료의 30%</dd>
+            <dt>운전 연령</dt><dd>만 26세 이상 (하향 만 21세 +30,000원)</dd>
+            <dt>면허 경력</dt><dd>1년 이상</dd>
+            <dt>운전자 범위</dt><dd>계약자 본인 · 배우자</dd>
+            <dt>대여지역 · 탁송</dt><dd>전국 · 탁송료 별도</dd>
+            <dt>정비 · 대차</dt><dd>자가정비 · 대차 미제공</dd>
+            <dt>특이사항</dt><dd class="empty">-</dd>
+          </dl>
+        </div>
+      </section>
+
+      <section class="sec">
+        <div class="sec-h"><b>5 기타사항</b></div>
+        <div class="sec-b">
+          <dl class="kv">
+            <dt>차령 · 차대</dt><dd class="empty">-</dd>
+            <dt>등록증</dt><dd class="empty">-</dd>
+            <dt>정책</dt><dd>FP-RP012-RENT</dd>
+            <dt>상품</dt><dd>veh_k7m2p9x4qz</dd>
+          </dl>
+        </div>
+      </section>
+    </div>
+
+    <aside class="agent">
+      <div class="agent-h">영업자 전용 <span>이 블록은 손님 화면에 없음</span></div>
+      <div class="agent-b">
+        <div>
+          <div class="ag-sec">영업 정보</div>
+          <dl class="ag-block">
+            <dt>심사</dt><dd><span class="b b-cl ok">무심사</span></dd>
+            <dt>불가조건</dt><dd>채무불이행·회생/파산 이력 불가, 사업자 6개월 미만 불가</dd>
+            <dt>영업 특이사항</dt><dd>탁송 3일 소요. 인수형은 선입금 후 배차.</dd>
+            <dt>보증금 분납</dt><dd>3회 분납 가능</dd>
+            <dt>보증금 카드결제</dt><dd>가능 (수수료 고객 부담)</dd>
+            <dt>중도해지 위약금</dt><dd>잔여 대여료의 30%</dd>
+            <dt>주행 초과요금</dt><dd>km당 100원</dd>
+            <dt>승계</dt><dd>가능 (수수료 30만원)</dd>
+          </dl>
+        </div>
+        <div>
+          <div class="ag-sec">계약 조건</div>
+          <dl class="ag-block">
+            <dt>결제</dt><dd>자동이체 (매월 25일)</dd>
+            <dt>보증금 반환</dt><dd>반납 후 7일 이내</dd>
+            <dt>법인 운전자범위</dt><dd>임직원 전원</dd>
+            <dt>연체 제재</dt><dd>시동제어 15일 · 회수 30일</dd>
+            <dt>사고 해지기준</dt><dd>1년 내 3회</dd>
+            <dt>GPS</dt><dd>장착</dd>
+            <dt>제출서류</dt><dd>신분증, 운전면허증, 사업자등록증</dd>
+          </dl>
+        </div>
+      </div>
+      <div class="agent-f">
+        <span class="btn">텍스트복사</span>
+        <span class="btn pri">링크복사</span>
+      </div>
+    </aside>
+  </div>
+  <div class="bar bot">
+    <span class="btn">이전</span>
+    <span class="count">12가3456</span>
+    <span class="btn">목록</span>
+  </div>
+</div>
+
+<h2 class="solve">이 안의 풀이</h2>
+<p class="solve-p">8절 문제에 대한 C안의 답. 숫자는 아래 치수 표.</p>
+<table class="spec-tbl">
+  <thead><tr><th>문제</th><th>C안</th></tr></thead>
+  <tbody>
+    <tr><td>평평함</td><td>모서리 3단 — 화면 12 / 카드·섹션 8 / 컨트롤 4·칩·뱃지분류 6. 층은 면 대비 + 그림자 1단(0 1px 2px rgba(15,27,53,.06)). 선택 카드는 그림자 끄고 2px 네이비.</td></tr>
+    <tr><td>뱃지 8개</td><td>자리+모양. CORE=사진 밑 띠, 혜택=본문 줄. 상태=알약 999. 분류=사각 6. 혜택=사각 6 + 테두리 #cbd1d9(분류보다 한 단계 진함) + 주글자. 죽이지 않음. 격자·표 같은 모양.</td></tr>
+    <tr><td>빈 값</td><td>값 없음 <code>-</code> / 사진 없음 「사진 준비중」 / 혜택 0 「혜택 없음」(높이 20) / 요금 없음 「요금 산출 대기중」(높이 28). 60개월 반납형은 카드로 남기되 흐림.</td></tr>
+    <tr><td>격자 ↔ 표</td><td>표에서 버리는 것 = 옵션 칩뿐. 알약·사각·18px 앵커는 두 뷰 동일.</td></tr>
+    <tr><td>금액 앵커</td><td>목록: 최저 대여료 하나만 18px. 상세: 선택된 카드만 18px, 나머지는 13px.</td></tr>
+    <tr><td>영업자 것</td><td>머리띠만 네이비 반전(#1B2A4A / 흰 글자) + 좌측 4px 바. 몸은 흰 면. 면 전체 반전 없음. 경고 뱃지 없음. 바닥 버튼은 flex로 고정(absolute 아님).</td></tr>
+    <tr><td>최저가</td><td>표를 쓰지 않음. 반납형·인수형 두 덩어리의 선택 카드 목록. 선택된 카드=2px 네이비 + #e8f0ff + 「최저」 칩. 18px는 그 카드의 금액만.</td></tr>
+    <tr><td>섹션 5개</td><td>같은 규격. 머리띠 #f7f8fa + 번호. 아이콘·색점·세로 바 없음(머리띠 색으로만).</td></tr>
+  </tbody>
+</table>
+
+<h2 class="solve">치수 표</h2>
+<table class="spec-tbl">
+  <thead>
+    <tr><th>항목</th><th>높이</th><th>좌우여백</th><th>모서리</th><th>글자</th><th>굵기</th><th>바탕/글자/테두리</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>뱃지 — 상태</td><td>20</td><td>8</td><td>999 (알약)</td><td>10</td><td>650</td><td>틴트 3종(즉시출고·출고가능=#f0fdf4/#166534/#bbf7d0 · 상품화중·계약중=#fff7ed/#c2410c/#fed7aa · 출고협의=#fefce8/#a16207/#fef08a · 출고불가=#f4f4f5/#52525b/#e4e4e7)</td></tr>
+    <tr><td>뱃지 — 분류</td><td>20</td><td>8</td><td>6</td><td>10</td><td>600</td><td>#f4f4f5 / #52525b / #e4e4e7. 무심사만 초록 틴트</td></tr>
+    <tr><td>뱃지 — 혜택</td><td>20</td><td>8</td><td>6</td><td>10</td><td>650</td><td>#f4f4f5 / #18181b / #cbd1d9 (분류보다 테두리만 한 단계 진함)</td></tr>
+    <tr><td>목록 카드</td><td>—</td><td>본문 12</td><td>8</td><td>제목 14.5 / 본문 13</td><td>650 / 400</td><td>#ffffff / #18181b / #e2e5ea + 그림자 1단. 선택 시 테두리 2px #1B2A4A, 그림자 없음</td></tr>
+    <tr><td>표 머리</td><td>32</td><td>10</td><td>0 (컨테이너 8)</td><td>11</td><td>600</td><td>#f7f8fa / #52525b / #e2e5ea</td></tr>
+    <tr><td>표 행 / 선택된 행</td><td>40</td><td>10</td><td>0</td><td>13</td><td>400</td><td>행 #ffffff·짝 #fafbfc / 선택 #e8f0ff. 테두리 #edf0f3. 대여료 선택카드 높이 44 / 여백 12 / 모서리 8</td></tr>
+    <tr><td>섹션 머리</td><td>36</td><td>12</td><td>8 (섹션)</td><td>13</td><td>650</td><td>#f7f8fa / #18181b / #e2e5ea (머리띠)</td></tr>
+    <tr><td>영업자 블록</td><td>—</td><td>본문 12</td><td>0 (화면 12)</td><td>제목 14.5 / 본문 13 / 라벨 12</td><td>650 / 400</td><td>머리 #1B2A4A / #ffffff. 몸 #ffffff / #18181b / 좌측 바 4px #1B2A4A</td></tr>
+    <tr><td>버튼 — 주 / 보조</td><td>32 (모바일 36)</td><td>12</td><td>4</td><td>13</td><td>600</td><td>주 #1B2A4A/#ffffff/#1B2A4A · 보조 #ffffff/#18181b/#e2e5ea</td></tr>
+    <tr><td>필터칩</td><td>32 (모바일 36)</td><td>12</td><td>6</td><td>12</td><td>600</td><td>꺼짐 #f6f7f9/#52525b/#e2e5ea · 켜짐 #1B2A4A/#ffffff/#1B2A4A</td></tr>
+  </tbody>
+</table>
+<p class="meta" style="margin-top:12px">공통: 상단·하단바 56 · 카드 사진 2:1 · 상세 라벨폭 116(목록 카드에는 안 씀) · 굵기 최대 700 · 숫자 tabular-nums. 그림자 = 0 1px 2px rgba(15,27,53,.06) 한 단계만.</p>
+
+</div>
+</body>
+</html>
