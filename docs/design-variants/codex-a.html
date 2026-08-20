@@ -30,6 +30,7 @@
     .topbar-title { margin-right:8px; color:var(--brand-deep); font-size:14.5px; font-weight:700; white-space:nowrap; }
     .search { width:min(310px,28vw); height:32px; padding:0 10px; border:1px solid var(--line-strong); border-radius:2px; background:var(--card); color:var(--ink); font-size:12px; }
     .control,.view-button,.copy-button { height:32px; padding:0 10px; border:1px solid var(--line-strong); border-radius:2px; background:var(--card); color:var(--sub); font-size:12px; font-weight:600; white-space:nowrap; }
+    .filter-chip { height:32px; padding:0 10px; border:1px solid var(--brand); border-radius:2px; background:var(--selected); color:var(--brand-deep); font-size:11px; font-weight:650; white-space:nowrap; }
     .view-switch { display:flex; margin-left:auto; }
     .view-button + .view-button { margin-left:-1px; }
     .view-button.is-active { position:relative; border-color:var(--brand); background:var(--selected); color:var(--brand-deep); }
@@ -63,6 +64,7 @@
     .benefit-empty { align-self:center; color:var(--sub); font-size:11px; font-weight:600; }
     .price-area { display:flex; min-height:46px; align-items:end; justify-content:space-between; gap:8px; margin-top:auto; padding-top:8px; border-top:1px solid var(--line-soft); }
     .price-main { color:var(--brand-deep); font-size:18px; font-weight:700; font-variant-numeric:tabular-nums; letter-spacing:-0.02em; white-space:nowrap; }
+    .price-period { margin-right:4px; color:var(--sub); font-size:11px; font-weight:600; letter-spacing:0; }
     .price-main .won { font-size:13px; font-weight:400; }
     .price-side { text-align:right; color:var(--sub); font-size:12px; font-variant-numeric:tabular-nums; white-space:nowrap; }
     .price-side small { display:block; color:var(--dim); font-size:11px; }
@@ -88,8 +90,8 @@
     .detail-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:12px; }
     .detail-title { margin:0; color:var(--ink); font-size:18px; font-weight:700; line-height:1.25; }
     .detail-number { margin:4px 0 0; color:var(--sub); font-size:12px; font-variant-numeric:tabular-nums; }
-    .gallery { display:grid; grid-template-columns:44px minmax(0,1fr); gap:8px; height:248px; margin-bottom:14px; }
-    .thumb-column { display:grid; grid-template-rows:18px repeat(6,1fr) 18px; gap:3px; min-height:0; }
+    .gallery { display:grid; grid-template-columns:44px minmax(0,1fr); gap:8px; height:272px; margin-bottom:14px; }
+    .thumb-column { display:grid; grid-template-rows:32px repeat(6,1fr) 32px; gap:3px; min-height:0; }
     .arrow { display:flex; align-items:center; justify-content:center; border:1px solid var(--line-strong); border-radius:2px; background:var(--card); color:var(--sub); font-size:12px; font-weight:700; }
     .thumb { display:flex; align-items:center; justify-content:center; overflow:hidden; border:1px solid var(--line); border-radius:2px; background:var(--head); color:var(--sub); font-size:10px; font-variant-numeric:tabular-nums; }
     .thumb.is-active { border:2px solid var(--brand); color:var(--brand-deep); font-weight:650; }
@@ -127,33 +129,44 @@
     .spec-sheet td:first-child { font-weight:650; white-space:nowrap; }
     .spec-sheet td:nth-child(n+2) { color:var(--sub); }
     @media (max-width:1199px) {
-      .detail-frame { height:auto; }
-      .detail-body { grid-template-columns:1fr; overflow:visible; }
+      .detail-body { grid-template-columns:1fr; overflow:auto; }
       .customer-pane { overflow:visible; }
       .sales-panel { min-height:650px; border-top:4px solid var(--brand); border-left:0; }
     }
     @media (max-width:760px) {
       .artifact { padding:16px 10px 44px; }
       .design-note { margin-bottom:14px; }
-      .topbar { flex-wrap:wrap; height:auto; min-height:56px; padding:8px; }
-      .topbar-title { margin-right:2px; }
-      .search { flex:1; width:auto; min-width:120px; height:36px; }
-      .control,.view-button,.copy-button { height:36px; }
+      .topbar { height:56px; min-height:56px; flex-wrap:nowrap; gap:4px; padding:0 6px; overflow:hidden; }
+      .topbar-title { margin-right:0; }
+      .search { flex:1; width:auto; min-width:0; height:36px; }
+      .control,.view-button,.copy-button,.filter-chip { height:36px; padding:0 5px; }
+      .topbar-title { display:none; }
       .view-switch { margin-left:0; }
-      .list-frame { height:auto; grid-template-rows:auto auto 56px; }
-      .list-body { overflow:visible; padding:10px; }
+      .list-frame { height:844px; grid-template-rows:56px minmax(0,1fr) 56px; }
+      .list-body { overflow:auto; padding:10px; }
       .product-grid { grid-template-columns:1fr; }
       .table-preview table { min-width:1000px; }
       .product-card { min-height:400px; }
-      .detail-frame { grid-template-rows:auto auto 56px; }
-      .detail-body { overflow:visible; }
-      .gallery { height:214px; grid-template-columns:40px minmax(0,1fr); }
+      .detail-frame { height:844px; grid-template-rows:56px minmax(0,1fr) 56px; }
+      .detail-body { overflow:auto; }
+      .gallery { height:250px; grid-template-columns:40px minmax(0,1fr); }
+      .thumb-column { grid-template-rows:36px repeat(6,1fr) 36px; }
       .detail-title { font-size:18px; }
       .customer-pane { padding:10px; }
       .sales-content { overflow:visible; }
       .sales-panel { min-height:0; }
       .spec-sheet { overflow:auto; }
       .spec-sheet table { min-width:920px; }
+    }
+    .list-body > .table-preview { display:none; }
+    .list-frame.is-table .product-grid { display:none; }
+    .list-frame.is-table .table-preview { display:block; }
+    .table-badges { flex-wrap:nowrap; }
+    .arrow { font-size:14px; }
+    th,td,.spec-line { font-variant-numeric:tabular-nums; }
+    @media (max-width:760px) {
+      .sales-panel { height:650px; min-height:650px; }
+      .sales-content { overflow:auto; }
     }
   </style>
 </head>
@@ -167,7 +180,8 @@
         <header class="topbar">
           <strong class="topbar-title">상품 목록</strong>
           <input class="search" aria-label="차명 검색" placeholder="차명 검색">
-          <button class="control" type="button">필터</button>
+          <button class="filter-chip" type="button">무심사</button>
+          <button class="filter-chip" type="button">분납</button>
           <button class="control" type="button">정렬</button>
           <div class="view-switch" aria-label="보기 전환">
             <button class="view-button is-active" type="button" aria-pressed="true">격자</button>
@@ -187,7 +201,7 @@
                 <div class="option-line"><span class="option-chip">파노라마 선루프</span><span class="option-chip">빌트인 캠</span><span class="option-chip">20인치 휠</span><span class="option-chip">HUD</span></div>
                 <div class="spec-line"><span>2024</span><span>12,400km</span><span>가솔린</span><span>쉬머링 실버 / 블랙</span></div>
                 <div class="benefit-rack"><span class="benefit">분납</span><span class="benefit">무보증</span><span class="benefit">무사고</span></div>
-                <div class="price-area"><div class="price-main">598,000<span class="won">원</span></div><div class="price-side"><small>36개월</small>612,000원</div></div>
+                <div class="price-area"><div class="price-main"><span class="price-period">48개월</span>598,000<span class="won">원</span></div><div class="price-side"><small>36개월</small>612,000원</div></div>
               </div>
             </article>
 
@@ -198,7 +212,7 @@
                 <div class="option-line"><span class="option-chip">9인승</span><span class="option-chip">듀얼 선루프</span></div>
                 <div class="spec-line"><span>2025</span><span>-</span><span>가솔린</span><span>-</span></div>
                 <div class="benefit-rack"><span class="benefit">만21세</span></div>
-                <div class="price-area"><div class="price-main">742,000<span class="won">원</span></div><div class="price-side"><small>48개월</small>789,000원</div></div>
+                <div class="price-area"><div class="price-main"><span class="price-period">60개월</span>742,000<span class="won">원</span></div><div class="price-side"><small>48개월</small>789,000원</div></div>
               </div>
             </article>
 
@@ -212,7 +226,7 @@
                 <div class="option-line"><span class="option-chip">나파가죽</span><span class="option-chip">렉시콘</span><span class="option-chip">HUD</span><span class="option-chip">마사지시트</span><span class="option-chip">후륜조향</span></div>
                 <div class="spec-line"><span>2023</span><span>38,900km</span><span>가솔린</span><span>어비스 블랙 / 브라운</span></div>
                 <div class="benefit-rack"><span class="benefit">분납</span><span class="benefit">무보증</span><span class="benefit">만21세</span><span class="benefit">경력무관</span><span class="benefit">무사고</span></div>
-                <div class="price-area"><div class="price-main">1,120,000<span class="won">원</span></div><div class="price-side"><small>36개월</small>1,120,000원</div></div>
+                <div class="price-area"><div class="price-main"><span class="price-period">36개월</span>1,120,000<span class="won">원</span></div></div>
               </div>
             </article>
 
@@ -240,7 +254,7 @@
                 <div class="option-line"><span class="option-chip">스마트키</span></div>
                 <div class="spec-line"><span>2022</span><span>64,100km</span><span>가솔린</span><span>화이트 / 블랙</span></div>
                 <div class="benefit-rack"><span class="benefit">무보증</span></div>
-                <div class="price-area"><div class="price-main">352,000<span class="won">원</span></div><div class="price-side"><small>24개월</small>389,000원</div></div>
+                <div class="price-area"><div class="price-main"><span class="price-period">36개월</span>352,000<span class="won">원</span></div><div class="price-side"><small>24개월</small>389,000원</div></div>
               </div>
             </article>
 
@@ -254,12 +268,12 @@
                 <div class="option-line"><span class="option-chip">하만카돈</span><span class="option-chip">파노라마</span></div>
                 <div class="spec-line"><span>2021</span><span>71,200km</span><span>가솔린</span><span>미네랄 화이트 / 블랙</span></div>
                 <div class="benefit-rack"><span class="benefit">무사고</span></div>
-                <div class="price-area"><div class="price-main">698,000<span class="won">원</span></div><div class="price-side"><small>36개월</small>698,000원</div></div>
+                <div class="price-area"><div class="price-main"><span class="price-period">36개월</span>698,000<span class="won">원</span></div></div>
               </div>
             </article>
           </div>
 
-          <section class="table-preview" aria-labelledby="table-a-title">
+          <section class="table-preview" aria-labelledby="table-a-title" hidden>
             <h2 class="table-caption" id="table-a-title">표 보기 · 1행 = 1대</h2>
             <div class="scroll-table">
               <table>
@@ -337,5 +351,24 @@
       </div>
     </section>
   </main>
+  <script>
+    const listFrame = document.querySelector('.list-frame');
+    const productGrid = listFrame?.querySelector('.product-grid');
+    const tablePreview = listFrame?.querySelector('.table-preview');
+    if (listFrame && productGrid && tablePreview) {
+      tablePreview.hidden = false;
+      listFrame.querySelectorAll('.view-button').forEach((button) => {
+        button.addEventListener('click', () => {
+          const tableMode = button.textContent.trim() === '표';
+          listFrame.classList.toggle('is-table', tableMode);
+          listFrame.querySelectorAll('.view-button').forEach((item) => {
+            const active = item === button;
+            item.classList.toggle('is-active', active);
+            item.setAttribute('aria-pressed', String(active));
+          });
+        });
+      });
+    }
+  </script>
 </body>
 </html>
