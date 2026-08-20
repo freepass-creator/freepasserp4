@@ -22,6 +22,9 @@
     @media (max-width:760px) { .artifact { padding:16px 10px 44px; } .design-note { margin-bottom:14px; } .topbar { height:56px; min-height:56px; flex-wrap:nowrap; gap:4px; padding:0 6px; overflow:hidden; } .topbar-title { margin-right:0; } .search { flex:1; width:auto; min-width:0; height:36px; } .control,.view-button,.copy-button { height:36px; padding:0 5px; } .view-switch { margin-left:0; } .list-frame { height:844px; grid-template-rows:56px minmax(0,1fr) 56px; } .list-body { overflow:auto; padding:10px; } .product-grid { grid-template-columns:1fr; } .table-preview table { min-width:1000px; } .detail-frame { height:844px; grid-template-rows:56px minmax(0,1fr) 56px; } .detail-body { overflow:auto; padding:10px; } .customer-pane,.sales-content { overflow:visible; } .gallery { height:250px; grid-template-columns:42px minmax(0,1fr); } .thumb-column { grid-template-rows:36px repeat(6,1fr) 36px; } .sales-panel { min-height:0; } .spec-sheet { overflow:auto; } .spec-sheet table { min-width:920px; } }
     .filter-chip { height:32px; padding:0 10px; border:1px solid var(--brand); border-radius:6px; background:var(--selected); color:var(--brand-deep); font-size:11px; font-weight:650; white-space:nowrap; }
     .list-body > .table-preview { display:none; }
+    .list-frame.is-table .product-grid { display:none; }
+    .list-frame.is-table .table-preview { display:block; }
+    .table-badges { flex-wrap:nowrap; }
     .price-main::before { margin-right:4px; color:var(--sub); font-size:11px; font-weight:600; letter-spacing:0; }
     .product-card:nth-child(1) .price-main::before { content:"48개월"; }
     .product-card:nth-child(2) .price-main::before { content:"60개월"; }
@@ -34,6 +37,7 @@
     .arrow { font-size:14px; }
     .price-table .selected-price td:first-child { border-left:2px solid var(--brand); }
     .sales-panel { border-left:4px solid var(--brand); }
+    .spec-sheet tbody tr:nth-child(8) td:last-child::after { content:" · 좌측 #1B2A4A 4px"; }
     th,td,.spec-line { font-variant-numeric:tabular-nums; }
     @media (max-width:760px) {
       .topbar-title { display:none; }
@@ -86,5 +90,24 @@
     </section>
     <section class="spec-sheet" aria-labelledby="c-spec-title"><h1 class="spec-title" id="c-spec-title">C안 치수 표</h1><div class="scroll-table"><table><thead><tr><th>항목</th><th>높이</th><th>좌우여백</th><th>모서리</th><th>글자</th><th>굵기</th><th>바탕 / 글자 / 테두리</th></tr></thead><tbody><tr><td>뱃지 — 상태</td><td>22px</td><td>8px</td><td>6px</td><td>10px</td><td>650</td><td>상태 틴트 / 상태 틴트 / 상태 틴트</td></tr><tr><td>뱃지 — 분류</td><td>20px</td><td>8px</td><td>4px</td><td>10px</td><td>600</td><td>#f4f4f5 / #52525b / #e4e4e7</td></tr><tr><td>뱃지 — 혜택</td><td>24px</td><td>10px</td><td>6px</td><td>10px</td><td>650</td><td>#e8f0ff / #0F1B35 / #1B2A4A</td></tr><tr><td>목록 카드</td><td>최소 424px</td><td>16px</td><td>8px</td><td>13px · 제목 14.5px</td><td>400 · 제목 700</td><td>#ffffff / #18181b / #e2e5ea · 옅은 1단 그림자</td></tr><tr><td>표 머리</td><td>36px</td><td>12px</td><td>외곽 8px</td><td>12px</td><td>600</td><td>#f7f8fa / #52525b / #e2e5ea</td></tr><tr><td>표 행 / 선택된 행</td><td>42px / 42px</td><td>12px</td><td>0</td><td>12px</td><td>400 / 650</td><td>#ffffff / #e8f0ff · #0F1B35 / #edf0f3 · 좌측 #1B2A4A 2px</td></tr><tr><td>섹션 머리</td><td>40px</td><td>12px</td><td>8px</td><td>14.5px</td><td>700</td><td>#ffffff / #0F1B35 / 하단 #e2e5ea · 세로 #1B2A4A 4px</td></tr><tr><td>영업자 블록</td><td>—</td><td>16px</td><td>외곽 12px · 내부 8px</td><td>13px</td><td>400</td><td>#ffffff · 머리 #f7f8fa / #18181b / 상단 #1B2A4A 4px · #e2e5ea · 옅은 1단 그림자</td></tr><tr><td>버튼 — 주 / 보조</td><td>32px / 모바일 36px</td><td>10px</td><td>6px</td><td>12px</td><td>600</td><td>#1B2A4A / #ffffff / #1B2A4A · #ffffff / #0F1B35 / #cbd1d9</td></tr><tr><td>필터칩</td><td>32px / 모바일 36px</td><td>10px</td><td>6px</td><td>12px</td><td>600</td><td>#ffffff · 선택 #e8f0ff / #52525b · #0F1B35 / #cbd1d9 · 선택 #1B2A4A</td></tr></tbody></table></div></section>
   </main>
+  <script>
+    const listFrame = document.querySelector('.list-frame');
+    const productGrid = listFrame?.querySelector('.product-grid');
+    const tablePreview = listFrame?.querySelector('.table-preview');
+    if (listFrame && productGrid && tablePreview) {
+      tablePreview.hidden = false;
+      listFrame.querySelectorAll('.view-button').forEach((button) => {
+        button.addEventListener('click', () => {
+          const tableMode = button.textContent.trim() === '표';
+          listFrame.classList.toggle('is-table', tableMode);
+          listFrame.querySelectorAll('.view-button').forEach((item) => {
+            const active = item === button;
+            item.classList.toggle('is-active', active);
+            item.setAttribute('aria-pressed', String(active));
+          });
+        });
+      });
+    }
+  </script>
 </body>
 </html>
