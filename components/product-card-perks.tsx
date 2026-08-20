@@ -1,11 +1,11 @@
 'use client';
 
 import type { CSSProperties } from 'react';
-import { Wallet, UserRound, Briefcase, ShieldCheck, Sparkles, Coins, type LucideIcon } from 'lucide-react';
+import { Sparkles, type LucideIcon } from 'lucide-react';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { benefitSignals, eventSignals } from '@/lib/domain/product';
 import { C, FW, FS, ICON } from '@/components/ui';
-import { toneText } from '@/components/ui/badges';
+import { Badge } from '@/components/ui/badges';
 import { benefitTip } from '@/components/product-card-badges';
 
 /** MetaIcon — 혜택용. iconColor로 아이콘만 색(혜택 신호). */
@@ -27,25 +27,6 @@ export function MetaIcon({ icon: Icon, text, size = ICON.sm, strong, iconColor, 
   );
 }
 
-function benefitIcon(key: string): LucideIcon {
-  if (key === 'ins') return Coins;
-  if (key === 'nd') return Wallet;
-  if (key === 'age') return UserRound;
-  if (key === 'exp') return Briefcase;
-  if (key === 'acc') return ShieldCheck;
-  return Sparkles;
-}
-
-/** 혜택 아이콘 색 — 뱃지 tone과 맞춤(혜택이라 살짝 색). */
-function benefitIconColor(key: string): string {
-  if (key === 'ins') return toneText('teal');
-  if (key === 'nd') return toneText('purple');
-  if (key === 'age') return toneText('teal');
-  if (key === 'exp') return toneText('purple');
-  if (key === 'acc') return toneText('green');
-  return C.brand;
-}
-
 function metaRow(dense: boolean, _mobile: boolean, strong?: boolean, clamp?: boolean, inline?: boolean): CSSProperties {
   // 카드 메타 = 웹/모바일 동일 치수
   const fs = FS.cap;
@@ -59,35 +40,39 @@ function metaRow(dense: boolean, _mobile: boolean, strong?: boolean, clamp?: boo
   };
 }
 
-/** CardBenefits — 조건(분납·무보증·연령·경력·무사고).
- *  clamp=한 줄 말줄임 · inline=상태 뱃지 뒤에 이어붙임(width 100% 금지). */
+/**
+ * CardBenefits — 조건(분납·무보증·연령·경력·무사고).
+ *
+ * **뱃지로 낸다.** 예전엔 아이콘+글자였는데 키마다 다른 아이콘 5개 + 다른 색 5가지라,
+ * 한 카드에 다 붙으면 CORE 뱃지 3개와 뒤엉켜 무엇이 상태고 무엇이 혜택인지 안 잡혔다.
+ * 회색 면 하나에 글자만 주색으로 통일하면 색이 5→1, 아이콘이 5→0 으로 줄고
+ * «사각=혜택 / 알약=상태» 로 모양이 종류를 말해 준다. (2026-08-20 외부 시안 6벌 전부 이 결론)
+ *
+ * clamp=한 줄 말줄임 · inline=상태 뱃지 뒤에 이어붙임(width 100% 금지).
+ */
 export function CardBenefits({ p, dense, clamp, inline }: {
   p: EntityRecord; dense?: boolean; clamp?: boolean; inline?: boolean;
 }) {
   const items = benefitSignals(p);
+  const row: CSSProperties = {
+    display: 'flex', alignItems: 'center', gap: dense ? 4 : 5,
+    flexWrap: clamp || inline ? 'nowrap' : 'wrap',
+    overflow: clamp || inline ? 'hidden' : undefined,
+    // 혜택이 없는 차에서도 줄 높이를 지킨다 — 안 그러면 나란한 카드의 바닥선이 어긋난다.
+    minHeight: 20,
+    lineHeight: 1.35, minWidth: 0,
+    width: inline ? undefined : (clamp ? '100%' : undefined),
+    flex: inline ? '0 1 auto' : undefined,
+  };
   if (!items.length) {
     return (
-      <div style={{
-        fontSize: FS.cap,
-        color: C.faint, lineHeight: 1.35,
-        flex: inline ? '0 0 auto' : undefined,
-        whiteSpace: inline ? 'nowrap' : undefined,
-      }}>조건없음</div>
+      <div style={{ ...row, fontSize: FS.cap, color: C.faint, whiteSpace: inline ? 'nowrap' : undefined }}>조건없음</div>
     );
   }
-  const ico = ICON.sm;
   return (
-    <div style={metaRow(!!dense, false, true, clamp, inline)}>
+    <div style={row}>
       {items.map((s) => (
-        <MetaIcon
-          key={s.key}
-          icon={benefitIcon(s.key)}
-          text={s.label}
-          size={ico}
-          strong
-          iconColor={benefitIconColor(s.key)}
-          title={benefitTip(s.key, s.label)}
-        />
+        <Badge key={s.key} variant="perk" title={benefitTip(s.key, s.label)}>{s.label}</Badge>
       ))}
     </div>
   );
@@ -136,22 +121,14 @@ export function CardPerkLine({ p, dense, inline }: {
       }}>조건없음</div>
     );
   }
-  const ico = ICON.sm;
   return (
     <div style={{
       ...metaRow(!!dense, false, true, !inline),
+      gap: 5, minHeight: 20,
       ...(inline ? { width: undefined, flex: '0 1 auto', overflow: 'hidden', lineHeight: 1.2 } : null),
     }}>
       {bens.map((s) => (
-        <MetaIcon
-          key={s.key}
-          icon={benefitIcon(s.key)}
-          text={s.label}
-          size={ico}
-          strong
-          iconColor={benefitIconColor(s.key)}
-          title={benefitTip(s.key, s.label)}
-        />
+        <Badge key={s.key} variant="perk" title={benefitTip(s.key, s.label)}>{s.label}</Badge>
       ))}
     </div>
   );

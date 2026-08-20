@@ -63,12 +63,21 @@ console.log(`\n■ 판매시트에 있는데 상품찾기에 안 뜨는 차 ${mi
 for (const [r, n] of Object.entries(why).sort((a: any, b: any) => b[1] - a[1])) console.log(`   ${String(n).padStart(3)}대  ${r}`);
 for (const r of rows.slice(0, 25)) console.log(`     ${r.plate.padEnd(10)} ${r.reason} · 시트 ${r.시트상태}(${r.시트탭.split(' ')[0]}) · 상품마스터 ${r.pm}`);
 
+/**
+ * ★**샘플 공급사는 어긋남이 아니다**(사장님 2026-08-20 「샘플차 잠시 · 그거 샘플계약서 때문에 그런 거니까 ·
+ *   샘플공급사 남겨둬라」). `SAMPLE01`(00가0001·00가0002)은 샘플계약서를 만들려고 ERP 에만 두는 차다 —
+ *   판매시트에 없는 것이 정상이라 여기서 빼고, 몇 대인지만 따로 적는다.
+ */
+const SAMPLE_CODES = new Set(['SAMPLE01']);
+const isSample = (e: Rec) => SAMPLE_CODES.has(S(e.provider_company_code));
 // 반대로 ERP 에만 뜨는 차
-const extra = offerable.filter(([p]) => !sales.has(p));
+const sampleOnly = offerable.filter(([p, e]) => !sales.has(p) && isSample(e));
+const extra = offerable.filter(([p, e]) => !sales.has(p) && !isSample(e));
 console.log(`\n■ 상품찾기에 뜨는데 판매시트에 없는 차 ${extra.length}대`);
 const extraWhy: Rec = {};
 for (const [p, e] of extra) { const k = `${S(e.provider_company_code) || '?'} · ${S(e.vehicle_status)}`; extraWhy[k] = (extraWhy[k] || 0) + 1; }
 for (const [k2, n] of Object.entries(extraWhy).sort((a: any, b: any) => b[1] - a[1]).slice(0, 12)) console.log(`   ${String(n).padStart(3)}대  ${k2}`);
+if (sampleOnly.length) console.log(`   (샘플 ${sampleOnly.length}대는 뺐다 — 샘플계약서용이라 판매시트에 없는 것이 정상: ${sampleOnly.map(([p]) => p).join(' · ')})`);
 console.log('   예:', extra.slice(0, 12).map(([p, e]) => `${p}(${S(e.provider_company_code)}/${S(e.vehicle_status)})`).join(' · '));
 writeFileSync('tmp/sheet-erp-parity.json', JSON.stringify({ at: new Date().toISOString(), sales: sales.size, offerable: offerable.length, missing: rows, extra: extra.map(([p, e]) => ({ plate: p, code: S(e.provider_company_code), status: S(e.vehicle_status), updatedBy: S(e.updatedBy), updatedAt: S(e.updatedAt) })) }, null, 1));
 process.exit(0);

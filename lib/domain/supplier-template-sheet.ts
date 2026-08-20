@@ -194,18 +194,23 @@ export const POLICY_COLUMN_NAMES = POLICY_COLUMNS.map((c) => c.name);
  * ⚠ 「제조사」는 앞에 이미 있어 이름이 겹친다 — 정제본만 「제조사(정제)」로 단다.
  *   한 시트에 같은 이름이 둘이면 열을 이름으로 찾는 스크립트가 엉뚱한 칸을 집는다.
  */
-/** 엔카 중고차 원자ID(U-0001). ERP 트림행키(`mf-…::vNN::tNN`)가 아니다. */
+/** 엔카 트림행키(T-0001). 공급사 시트에 박는 엔카 코드는 이 한 칸. 제원·이름은 원자 수집 시트. */
 export const ENCAR_TRIM_CODE_COLUMN = '차종트림코드';
-/** 엔카 중고차 세부모델ID(SM-0001). ERP 마스터ID가 아니다. */
+/** @deprecated 공급사에 안 둔다. 원자ID는 차종마스터 수집 시트. 남은 열 지울 때만 쓴다. */
 export const ENCAR_MASTER_CODE_COLUMN = '차종마스터코드';
+/** @deprecated 공급사에 안 둔다. 제원 칸은 원자 수집 시트. 남은 열 지울 때만 쓴다. */
+export const ENCAR_MASTER_LABEL_COLUMN = '마스터표기';
+/** 정책코드 다음에 두는 엔카 칸 — 트림행키만. */
+export const ENCAR_CODE_BLOCK = [ENCAR_TRIM_CODE_COLUMN] as const;
+/** 예전에 공급사에 넣었다가 원자 시트로 옮긴 칸. insert 스크립트가 지운다. */
+export const ENCAR_RETIRED_COLUMNS = [ENCAR_MASTER_CODE_COLUMN, ENCAR_MASTER_LABEL_COLUMN] as const;
 
 export const AI_TAIL_COLUMNS: { name: string; note: string; required?: boolean }[] = [
   /**
-   * ★엔카 중고차 차종마스터 코드(2026-08-20 — 공급사시트 맨 끝·정책코드 다음).
-   *   ERP 「차종코드」(트림행키)와 자리가 겹치면 안 된다. 값은 U-0001 / SM-0001.
+   * ★엔카 중고차 코드(2026-08-20). 트림행키(T)와 마스터코드(U)는 결이 다르다.
+   *   모델·세부모델·세부트림이 같으면 트림코드는 같고, 연료·배기량·인승·구동이 다르면 마스터코드만 갈린다.
    */
-  { name: ENCAR_TRIM_CODE_COLUMN, note: '★프리패스가 채움 — 엔카 중고차 원자ID (U-0001). 세부모델×세부트림×연료×배기량×인승×구동. ERP 트림행키가 아니다' },
-  { name: ENCAR_MASTER_CODE_COLUMN, note: '★프리패스가 채움 — 엔카 중고차 세부모델ID (SM-0001). ERP 마스터ID가 아니다' },
+  { name: ENCAR_TRIM_CODE_COLUMN, note: '★프리패스가 채움 — 트림행키 T-0001. 모델×세부모델×세부트림. 제원은 원자 수집 시트에서 본다' },
   /**
    * ★★**이 칸 하나가 정본이다**(사장님 2026-08-14 — 「그 차에 대해서 코드를 박아두면
    *   절대 틀릴 일이 없음. 차량번호에 코드 박아두면 되잖아」).
@@ -225,17 +230,15 @@ export const AI_TAIL_COLUMNS: { name: string; note: string; required?: boolean }
    */
   { name: '차종코드', note: '★프리패스가 채움 — 차종마스터 트림행키. 이 코드가 정본이고 뒤 칸들은 여기서 나온 표시값이다' },
   { name: '제조사(정제)', note: '★프리패스가 채움 — 르노코리아처럼 마스터가 쓰는 이름으로 맞춘 값' },
-  { name: '모델', note: '★프리패스가 채움 — 그랜저 · 아반떼' },
-  { name: '세부모델', note: '★프리패스가 채움 — 그랜저 IG · 아반떼 CN7' },
-  // ★「파워트레인」 정제칸은 뺐다(사장님 2026-08-18 — 「모델 세부모델 파워트레인 세부트림 이렇게 있는데 파워트레인 없애」).
-  //   차종은 모델·세부모델·세부트림 3축, 연료·배기량은 따로 칸이 있다. 21곳 시트에서 열을 지웠다(`scripts/drop-supplier-column.mts`).
-  { name: '세부트림', note: '★프리패스가 채움 — 르브랑 · 인스퍼레이션. 트림이 없는 차는 빈칸이 정상이다' },
+  { name: '모델', note: '★프리패스가 채움 — 차명·연식·연료로 변환한 1차모델. 그랜저 · 아반떼' },
+  { name: '세부모델', note: '★프리패스가 채움 — 차명·연식·연료로 변환한 세부모델. 더 뉴 그랜저 GN7' },
+  { name: '세부트림', note: '★프리패스가 채움 — 차명에서 변환한 세부트림. 트림 글자가 없으면 빈칸이 정상' },
   { name: '선택옵션', note: '★프리패스가 채움 — 공급사 「옵션」 원문을 표기 통일한 값' },
   // ★색도 정제한다(사장님 2026-08-14). 공급사 입력칸은 「외부색상·내부색상」이고 정제본은
   //   「외장색상·내장색상」이다 — 이름이 안 겹쳐야 열을 이름으로 찾는 스크립트가 안 헷갈린다.
   //   판정은 `lib/domain/color-master.snapColor` 가 한다(EXT_COLORS·INT_COLORS + 별칭 87키).
-  { name: '외장색상', note: '★프리패스가 채움 — 「아틀라스 화이트」처럼 공급사가 쓴 말을 우리 색 목록으로 맞춘 값' },
-  { name: '내장색상', note: '★프리패스가 채움 — 「블랙원톤」처럼 공급사가 쓴 말을 우리 색 목록으로 맞춘 값' },
+  { name: '외장색상', note: '★프리패스가 채움 — 공급사 외부색상을 규격색으로 한 번만 맞춘 값. 이미 있으면 안 덮는다' },
+  { name: '내장색상', note: '★프리패스가 채움 — 공급사 내부색상을 규격색으로 한 번만 맞춘 값. 이미 있으면 안 덮는다' },
   /**
    * ★배기량·연료도 차종 정보다(사장님 2026-08-14 — 「우리가 필요한 차종정보」 열 가지).
    *   ⚠ **파워트레인에서 나온다.** 「가솔린 2.5」가 이미 둘을 품고 있으므로 같은 스냅에서 뽑으면
@@ -846,7 +849,9 @@ export function columnWidth(name: string): number {
   if (/^기타기간/.test(name)) return 100;
   // 날짜 칸은 같은 너비로 — 「2026-08-12」가 안 잘리는 최소치다. 입고일자와 최초등록일은 같은 꼴이다.
   if (name === '차량번호' || name === '정책코드' || name === '최초등록일' || name === '입고일자') return 104;
-  if (name === ENCAR_TRIM_CODE_COLUMN || name === ENCAR_MASTER_CODE_COLUMN) return 120;
+  if (name === ENCAR_TRIM_CODE_COLUMN) return 120;
+  if (name === '모델' || name === '세부모델') return 160;
+  if (name === '세부트림') return 140;
   /**
    * ★칩(드롭다운) 칸 — **가장 긴 값이 잘리지 않을 만큼만**(사장님 확정 2026-08-11).
    *   칩 여백과 화살표가 자리를 먹으므로 글자수만으로는 모자란다. 실측으로 잡은 값이다.

@@ -36,6 +36,7 @@ export function CardRailBadges({ p, audience = 'agent', dense, align = 'end' }: 
           key={spec.key}
           tone={spec.tone}
           variant={spec.variant || 'line'}
+          shape={spec.shape}
           pulse={spec.pulse}
           size={FS.sub}
           title={badgeTip(spec.key, spec.label)}

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
-import { C, R, SH } from '@/components/ui';
+import { C, R_CARD, SH } from '@/components/ui';
 import {
   CardTitle, CardSpecs, CardThumb,
   OptionChips,
@@ -37,7 +37,7 @@ export const ProductCard = memo(function ProductCard({ p, audience = 'agent', hr
     <Link href={to} onClick={() => haptic.nav()}
       className="fp-card"
       style={{
-        display: 'flex', flexDirection: 'column', borderRadius: R, overflow: 'hidden',
+        display: 'flex', flexDirection: 'column', borderRadius: R_CARD, overflow: 'hidden',
         textDecoration: 'none', color: 'inherit',
         border: `1px solid ${C.line}`,
         boxShadow: SH.cardRest,

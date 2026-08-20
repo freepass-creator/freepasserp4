@@ -69,7 +69,9 @@ export type BadgeSpec = {
   key: string;
   label: string;
   tone: BadgeTone;
-  variant?: 'line' | 'solid' | 'quiet';
+  variant?: 'line' | 'solid' | 'quiet' | 'perk';
+  /** 알약=상태(변하는 것) · 사각=분류(안 변하는 것). 색을 안 보고도 종류가 잡히게. */
+  shape?: 'pill' | 'rect';
   pulse?: boolean;
 };
 
@@ -85,6 +87,8 @@ export function badgeSpecs(product: EntityRecord, hideCredit = false, short = fa
       label: short ? (STATUS_SHORT[status] ?? status) : status,
       tone: vehicleTone(status) as BadgeTone,
       variant: status === '계약중' ? 'solid' : undefined,
+      // 차량상태만 알약 — 하나뿐인 «변하는 값»이다(즉시출고→계약중→출고불가).
+      shape: 'pill',
       pulse: status === '계약중',
     });
   }
@@ -108,7 +112,7 @@ export function photoMarkSpecs(product: EntityRecord, audience: Audience = 'agen
 /** hideStatus = 차량상태를 다른 곳(작업화면 상단 요약바)이 이미 들고 있을 때. 같은 배지를 두 번 찍지 않는다. */
 export function badges(product: EntityRecord, overlay = false, hideCredit = false, short = false, audience: Audience = 'agent', opts?: { hideStatus?: boolean }): ReactNode {
   return (<>{badgeSpecs(product, hideCredit, short, audience).filter((spec) => !(opts?.hideStatus && spec.key === 'st')).map((spec) => (
-    <Badge key={spec.key} tone={spec.tone} variant={spec.variant || 'line'} overlay={overlay} pulse={spec.pulse} title={badgeTip(spec.key, spec.label)}>{spec.label}</Badge>
+    <Badge key={spec.key} tone={spec.tone} variant={spec.variant || 'line'} shape={spec.shape} overlay={overlay} pulse={spec.pulse} title={badgeTip(spec.key, spec.label)}>{spec.label}</Badge>
   ))}</>);
 }
 
@@ -118,7 +122,7 @@ export function BadgesClip({ p, max = 3 }: { p: EntityRecord; max?: number }) {
   const remaining = specs.length - shown.length;
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, flex: '0 0 auto' }}>
-      {shown.map((spec) => <Badge key={spec.key} tone={spec.tone} variant={spec.variant || 'line'} pulse={spec.pulse} title={badgeTip(spec.key, spec.label)}>{spec.label}</Badge>)}
+      {shown.map((spec) => <Badge key={spec.key} tone={spec.tone} variant={spec.variant || 'line'} shape={spec.shape} pulse={spec.pulse} title={badgeTip(spec.key, spec.label)}>{spec.label}</Badge>)}
       {remaining > 0 && <Badge tone="gray">+{remaining}</Badge>}
     </span>
   );

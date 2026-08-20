@@ -89,6 +89,14 @@
   --scrim-heavy: rgba(15,23,42,0.42);
   --scrim-black: rgba(0,0,0,0.92); /* 라이트박스·문서 미리보기 */
 }
+/* 숫자 폭 고정 — 표에 세로로 쌓이는 금액이 행마다 흔들리지 않게.
+ * --font-mono 가 이름과 달리 Pretendard(가변폭)라 서체만으로는 자릿수가 안 맞는다.
+ * 표 밖의 낱개 숫자에는 tokens.ts TNUM 을 얹는다. */
+table,
+.fp-num {
+  font-variant-numeric: tabular-nums;
+}
+
 
 /* 다크 테마 — 토큰만 덮어씀(원자·페이지는 C.* 그대로) */
 html[data-theme="dark"] {

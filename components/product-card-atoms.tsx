@@ -235,6 +235,7 @@ export function CardThumb({ p, audience = 'agent', fill, w, h, heart = false, ma
               key={s.key}
               tone={s.tone}
               variant={s.variant || 'line'}
+              shape={s.shape}
               frosted
               pulse={s.pulse}
               title={badgeTip(s.key, s.label)}

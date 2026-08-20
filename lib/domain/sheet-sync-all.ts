@@ -566,13 +566,21 @@ export function findSheetSyncExistingConflicts(
     .filter((row) => !isPendingSheetRow(row))
     .map(syncPlate)
     .filter(Boolean));
-  const unownedDeletedMatches = deleted.flatMap((row) => {
+  /**
+   * ★**판매시트 경로에서는 이 충돌로 막지 않는다**(사장님 2026-08-20 「다른 거 다 끊어내고 상품시트만 반영하자」).
+   *   판매시트에는 「공급사」 칸이 있어 **주인이 적혀 있다.** 삭제 이력 쪽 주인이 비었다는 이유로 그 공급사를
+   *   통째로 멈춰 세우면 시트가 아무리 맞아도 ERP 가 낡은 채로 남는다 — 실측 2026-08-20:
+   *   109호4958 한 건(삭제 이력 `PD-260507-007` 의 공급사 칸이 빈 것) 때문에 **아이카 105대가 통째로
+   *   ERP 에 못 들어갔고**, 시트에서 빠진 아이카 차 17대가 상품찾기에 남아 있었다.
+   *   같은 이유로 `deletedCollisions` 도 이미 막는 목록에서 빠져 있다(위 주석). 상품마스터 경로만 종전대로 본다.
+   */
+  const unownedDeletedMatches = fetched.sourceKind === 'product_master' ? deleted.flatMap((row) => {
     const plate = syncPlate(row);
     if (!plate || isPendingSheetRow(row) || !createPlates.has(plate) || sheetProviderOf(row, providerCodes)) return [];
     const owners = incomingOwners.get(plate);
     if (!owners?.size) return [];
     return [`${plate} (${String(row._key || row.product_code || '키없음')} ↔ ${[...owners].join(',')})`];
-  });
+  }) : [];
 
   const existingByKey = new Map(existing.map((row) => [String(row._key || row.product_code || ''), row]));
   // ★상품마스터 경로는 표식 없는 출고불가를 «수기 보류»로 보지 않는다(sheet-merge 와 같은 규칙, 2026-08-19) —

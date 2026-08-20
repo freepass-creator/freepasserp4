@@ -14,11 +14,25 @@ export const C = {
   focusRing: 'var(--focus-ring)',       // 포커스 링 틴트
 };
 export const R = 4; // = --radius (jpkerp5 표준 4px)
+/**
+ * 카드·패널처럼 «담는 것»의 모서리 = --radius-lg. 표·컨트롤·뱃지는 R(4) 그대로 둔다.
+ *
+ * 왜 두 단계인가: 전부 R 하나면 담는 것과 담기는 것이 같은 모양이라 층이 안 생기고
+ * 화면이 종이 한 장처럼 평평해진다. (2026-08-20 외부 시안 6벌 대조 — 6벌 모두 카드를
+ * 컨트롤보다 크게 잡았다. 3단 12/8/4까지 가면 B2B 밀도에 과해 2단에서 멈춘다.)
+ */
+export const R_CARD = 8;
 /** 상태 배지·칩의 완전한 캡슐 모양. */
 export const PILL_R = 999;
 /** 재고·업로드 썸네일 폭 SSOT (PhotoUpload·공급사 사진 그리드). */
 export const THUMB_W = 76;
 export const NUM = 'var(--font-mono)';
+/**
+ * 숫자 폭 고정 — 세로로 쌓이는 금액이 행마다 흔들리지 않게.
+ * ⚠ `--font-mono` 는 이름과 달리 Pretendard(가변폭)라 서체 지정만으로는 자릿수가 안 맞는다.
+ *   금액·수량·기간처럼 열로 서는 숫자에는 이걸 같이 얹는다. (표 전체는 globals.css 가 이미 건다)
+ */
+export const TNUM = { fontVariantNumeric: 'tabular-nums' } as const;
 
 /** 그림자 SSOT — globals.css --shadow-* 브릿지. 하드코딩 boxShadow 금지. */
 export const SH = {

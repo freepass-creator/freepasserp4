@@ -32,7 +32,7 @@ import { codeMatchesRawName } from '../lib/domain/code-vs-name';
 import { loadColorMasterAliases } from '../lib/domain/color-master-sheet';
 import { classifyVehicleClass } from '../lib/domain/vehicle-class';
 import { SALES_ALIAS } from '../lib/domain/sales-sheet-mapping';
-import { AI_TAIL_COLUMNS, ENCAR_MASTER_CODE_COLUMN, ENCAR_TRIM_CODE_COLUMN, supplierSheetLabel } from '../lib/domain/supplier-template-sheet';
+import { AI_TAIL_COLUMNS, ENCAR_MASTER_CODE_COLUMN, ENCAR_MASTER_LABEL_COLUMN, ENCAR_TRIM_CODE_COLUMN, supplierSheetLabel } from '../lib/domain/supplier-template-sheet';
 import { companyAlias, supplierNameKeys } from '../lib/domain/identity';
 import { MASTER_SHEET_ID, MASTER_TAB, masterCells, pickConfirmedMasterCode, readMasterSheet } from '../lib/domain/vehicle-master-sheet';
 import type { MasterEntry, VehicleTrimMasterArtifact } from '../lib/domain/vehicle-master-types';
@@ -179,7 +179,7 @@ const targets: { code: string; name: string; id: string }[] = [];
 /** 정제칸 이름 — 이 목록이 곧 «우리가 채우는 칸»의 정본이다. */
 const TAIL = AI_TAIL_COLUMNS.map((c) => c.name);
 /** 엔카 U/SM 코드는 ERP 트림행키 채우기가 안 건드린다 — stamp-encar-codes-on-supplier 가 박는다. */
-const SKIP_ENCAR_CODES = new Set([ENCAR_TRIM_CODE_COLUMN, ENCAR_MASTER_CODE_COLUMN]);
+const SKIP_ENCAR_CODES = new Set([ENCAR_TRIM_CODE_COLUMN, ENCAR_MASTER_CODE_COLUMN, ENCAR_MASTER_LABEL_COLUMN]);
 
 console.log(`\n■ 공급사 시트 정제칸 채우기 ${APPLY ? '(반영)' : '(dry-run — 아직 안 쓴다)'} · 대상 ${targets.length}곳\n`);
 
@@ -413,6 +413,8 @@ for (const t of targets) {
       for (const [name, ci] of tailAt) {
         if (ci < 0) continue;
         if (SKIP_ENCAR_CODES.has(name)) continue;
+        if (S(exactCell(ENCAR_TRIM_CODE_COLUMN)) && ['모델', '세부모델', '세부트림'].includes(name)) continue;
+        if (S(exactCell(ENCAR_MASTER_CODE_COLUMN)) && ['배기량(정제)', '연료(정제)'].includes(name)) continue;
         const now = S(row[ci]);
         const v = S(want[name]);
         /**
