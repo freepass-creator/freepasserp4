@@ -51,7 +51,7 @@ const MAX_IMAGE_BYTES = 1_500_000;
 const S = (value: unknown) => String(value ?? '').trim();
 const PROGRESS_KEYS = new Set([
   'summary', 'privacy', 'identity', 'vehicle', 'rental', 'payment', 'driver',
-  'additional_driver', 'insurance', 'accident', 'service', 'agreement', 'signature',
+  'additional_driver', 'documents', 'insurance', 'accident', 'service', 'agreement', 'signature',
 ]);
 
 function json(body: Record<string, unknown>, status = 200) {
