@@ -41,9 +41,10 @@
   .doc-title{font-size:24pt;font-weight:700;letter-spacing:-.02em;margin:2mm 0 0}
   .brief{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border:1px solid var(--line);
          border-radius:var(--radius-box);overflow:hidden}
-  .brief div{padding:7mm 5mm;background:var(--tint);border-right:1px solid var(--line)}
-  .brief div:last-child{border-right:0}
-  .brief .l{font-size:9pt;font-weight:500;color:var(--mute);margin-bottom:2.5mm}
+  /* ⚠ 자식 선택자(>)를 반드시 쓴다 — .brief div 로 하면 안쪽 라벨/값 div 까지 잡혀 칸이 부풀고 선이 겹친다. */
+  .brief > div{padding:5mm 5mm;background:var(--tint);border-right:1px solid var(--line)}
+  .brief > div:last-child{border-right:0}
+  .brief .l{font-size:9pt;font-weight:500;color:var(--mute);margin-bottom:2mm}
   .brief .v{font-size:15pt;font-weight:700;letter-spacing:-.01em;white-space:nowrap}
   .parties-lead{font-size:9.5pt;color:var(--mute);margin-bottom:2.5mm}
   .parties{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:var(--radius-box);overflow:hidden}
@@ -77,9 +78,13 @@
   .kv .v .unit{font-size:9pt;color:var(--mute);font-weight:400}
   .fill{color:var(--faint);font-size:9pt;font-weight:500;border-bottom:1px dotted var(--line);min-width:20mm}
   .dash{color:var(--faint)}
-  .prose{margin:3mm 0 0;padding:2mm 0 2mm 3.4mm;border-left:3px solid var(--accent)}
-  .prose .pl{font-size:9.5pt;font-weight:500;color:var(--mute);margin-bottom:1.2mm}
-  .prose .pt{font-size:10.5pt;line-height:1.6}
+  /* 서술 조건 — 세로 바 대신 «담는 박스»(사장님 2026-08-20). 표와 구분되되 광고물처럼 튀지 않게
+     옅은 면 + 실선 한 겹만. 라벨은 박스 안 머리로. */
+  .prose{margin:3mm 0 0;padding:3mm 4mm;background:var(--tint);
+         border:1px solid var(--line);border-radius:var(--radius)}
+  .prose + .prose{margin-top:2mm}
+  .prose .pl{font-size:9.5pt;font-weight:600;color:var(--accent);margin-bottom:1.5mm}
+  .prose .pt{font-size:10.5pt;line-height:1.6;color:var(--ink)}
   .foot-note{margin-top:2.5mm;font-size:8.5pt;line-height:1.55;color:var(--mute)}
 
   /* ── 치수표 ───────────────────────────────── */
@@ -99,7 +104,8 @@
   · 종합 설계시안(<code>DESIGN_SPEC_2026-08-20.md</code>) 5장의 <b>C1·C2·C3</b>을 고친 모습입니다. 운영 서식은 건드리지 않은 별도 목업입니다.<br>
   <b>C1</b> 표지 요지 4칸을 <b>세로 가운데</b>로 — 아래가 백지로 남지 않게 위·가운데·아래 세 덩어리로 나눔 ·
   <b>C2</b> 요지 「대여기간」은 <b>36개월</b>만(기준일 설명은 본문 03에) ·
-  <b>C3</b> <b>한 표 안에서는 한 크기</b>(라벨 9.5pt / 값 10.5pt 고정) — 값에 따라 글자가 작아지지 않음
+  <b>C3</b> <b>한 표 안에서는 한 크기</b>(라벨 9.5pt / 값 10.5pt 고정) — 값에 따라 글자가 작아지지 않음 ·
+  <b>C4</b> 서술 조건(연체·초과주행)은 <b>세로 바 대신 박스</b>로 담음
 </div>
 
 <!-- ══════════ 1p 표지 ══════════ -->
@@ -247,7 +253,7 @@
     <tr><th>표지 요지 4칸</th><td>값 15pt/700 · 라벨 9pt/500 · 바탕 <code>--tint</code> · 모서리 <code>--radius-box 8px</code></td></tr>
     <tr><th>표지 배치</th><td>제목 / 요지 / 당사자를 <code>flex</code> 세로 가운데 정렬 · 간격 14mm</td></tr>
     <tr><th>빈칸</th><td>고객 입력분 <code>고객 작성</code> 9pt <code>--faint</code> + 점선 · 정보 없음 <code>—</code></td></tr>
-    <tr><th>문단블록</th><td>좌측 <code>3px --accent</code> · 라벨 9.5pt/500 · 본문 10.5pt/1.6</td></tr>
+    <tr><th>서술 박스</th><td>면 <code>--tint</code> · 테두리 <code>1px --line</code> · 모서리 <code>--radius 4px</code> · 안여백 3mm 4mm · 라벨 9.5pt/600 <code>--accent</code> · 본문 10.5pt/1.6 · 박스끼리 간격 2mm</td></tr>
     <tr><th>표선</th><td>0.4pt <code>--bd2</code> · 모서리 0(표는 각지게)</td></tr>
     <tr><th>숫자</th><td><code>font-variant-numeric: tabular-nums</code> 문서 전역</td></tr>
   </table>
