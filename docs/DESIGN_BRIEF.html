@@ -1,0 +1,432 @@
+<title>상품 목록·상세 디자인 기획서</title>
+<style>
+  :root{
+    --page:#f6f7f9; --card:#ffffff; --head:#f7f8fa; --stripe:#fafbfc; --sel:#e8f0ff;
+    --ink:#18181b; --sub:#52525b; --dim:#a1a1aa; --inv:#ffffff;
+    --line:#e2e5ea; --line-soft:#edf0f3; --line-strong:#cbd1d9;
+    --brand:#1B2A4A; --brand-deep:#0F1B35;
+    --ok:#166534; --ok-bg:#f0fdf4; --ok-line:#bbf7d0;
+    --no:#b91c1c; --no-bg:#fef2f2; --no-line:#fecaca;
+    --wa:#c2410c; --wa-bg:#fff7ed; --wa-line:#fed7aa;
+    --am:#a16207; --am-bg:#fefce8; --am-line:#fef08a;
+    --gy:#52525b; --gy-bg:#f4f4f5; --gy-line:#e4e4e7;
+    --r:4px;
+  }
+  :root:not([data-theme="light"]){ }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --page:#111317; --card:#191c21; --head:#1d2127; --stripe:#16191d; --sel:#1c2a44;
+      --ink:#e7e9ec; --sub:#a8adb5; --dim:#6f757e; --line:#2a2f37; --line-soft:#23272e; --line-strong:#3a4048;
+      --brand:#9fb4d8; --brand-deep:#c4d3ea;
+    }
+  }
+  :root[data-theme="dark"]{
+    --page:#111317; --card:#191c21; --head:#1d2127; --stripe:#16191d; --sel:#1c2a44;
+    --ink:#e7e9ec; --sub:#a8adb5; --dim:#6f757e; --line:#2a2f37; --line-soft:#23272e; --line-strong:#3a4048;
+    --brand:#9fb4d8; --brand-deep:#c4d3ea;
+  }
+
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--page); color:var(--ink);
+    font-family:'Pretendard Variable',Pretendard,'Apple SD Gothic Neo','Segoe UI',system-ui,sans-serif;
+    font-size:13px; line-height:1.65; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:940px; margin:0 auto; padding:32px 20px 96px}
+
+  h1{font-size:18px; font-weight:700; margin:0 0 4px; letter-spacing:-0.02em}
+  h2{font-size:14.5px; font-weight:650; margin:44px 0 12px; padding-bottom:8px; border-bottom:1px solid var(--line);
+     display:flex; align-items:center; gap:8px}
+  h2::before{content:''; width:3px; height:14px; background:var(--brand); border-radius:1px; flex:none}
+  h3{font-size:13px; font-weight:650; margin:22px 0 8px}
+  p{margin:0 0 10px}
+  ul,ol{margin:0 0 12px; padding-left:20px}
+  li{margin:3px 0}
+  strong{font-weight:650}
+  code{font-size:12px; background:var(--gy-bg); color:var(--ink); border:1px solid var(--gy-line);
+       border-radius:3px; padding:1px 5px}
+  a{color:var(--brand)}
+
+  .lede{color:var(--sub); font-size:12px; margin:0 0 2px}
+  .meta{color:var(--dim); font-size:11px}
+
+  .card{background:var(--card); border:1px solid var(--line); border-radius:var(--r); padding:16px 18px; margin:12px 0}
+  .rule{border:0; border-top:1px solid var(--line-soft); margin:28px 0}
+
+  table{width:100%; border-collapse:collapse; margin:10px 0 16px; font-size:12.5px; background:var(--card);
+        border:1px solid var(--line); border-radius:var(--r); overflow:hidden}
+  th,td{text-align:left; padding:7px 10px; border-bottom:1px solid var(--line-soft); vertical-align:top}
+  th{background:var(--head); color:var(--sub); font-weight:600; font-size:12px; white-space:nowrap}
+  tbody tr:last-child td{border-bottom:0}
+  tbody tr:nth-child(even){background:var(--stripe)}
+  .num{font-variant-numeric:tabular-nums}
+
+  pre{background:var(--card); border:1px solid var(--line); border-radius:var(--r); padding:12px 14px;
+      overflow-x:auto; font-size:11.5px; line-height:1.6; margin:10px 0 16px;
+      font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+
+  .ascii{white-space:pre; font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+         font-size:11.5px; line-height:1.5; background:var(--card); border:1px solid var(--line);
+         border-radius:var(--r); padding:14px; overflow-x:auto; margin:10px 0 16px}
+
+  .bad{border-left:3px solid var(--no); background:var(--no-bg); color:#7f1d1d}
+  .good{border-left:3px solid var(--ok); background:var(--ok-bg); color:#14532d}
+  .note{border-left:3px solid var(--wa); background:var(--wa-bg); color:#7c2d12}
+  .bad,.good,.note{padding:12px 16px; border-radius:var(--r); margin:12px 0; font-size:12.5px}
+  .bad strong,.good strong,.note strong{color:inherit}
+
+  .sw{display:flex; flex-wrap:wrap; gap:8px; margin:10px 0 18px}
+  .sw div{border:1px solid var(--line); border-radius:var(--r); overflow:hidden; width:132px; background:var(--card)}
+  .sw i{display:block; height:34px}
+  .sw span{display:block; padding:5px 7px; font-size:10.5px; line-height:1.45; color:var(--sub)}
+  .sw b{display:block; color:var(--ink); font-weight:600; font-size:11px}
+
+  .bdg{display:inline-flex; align-items:center; height:20px; padding:0 7px; border-radius:var(--r);
+       font-size:10px; font-weight:600; line-height:1; margin:2px 3px 2px 0; white-space:nowrap}
+  .b-ok{background:var(--ok-bg); color:var(--ok); border:1px solid var(--ok-line)}
+  .b-no{background:var(--no-bg); color:var(--no); border:1px solid var(--no-line)}
+  .b-wa{background:var(--wa-bg); color:var(--wa); border:1px solid var(--wa-line)}
+  .b-am{background:var(--am-bg); color:var(--am); border:1px solid var(--am-line)}
+  .b-gy{background:var(--gy-bg); color:var(--gy); border:1px solid var(--gy-line)}
+
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:14px}
+  @media (max-width:720px){ .grid2{grid-template-columns:1fr} }
+  .q{counter-reset:none}
+  .q li{margin:8px 0}
+</style>
+
+<div class="wrap">
+
+<p class="lede">프리패스 장기렌터카 ERP · 디자인 기획서</p>
+<h1>상품 목록 · 상품 상세</h1>
+<p class="meta">2026-08-20 · 이 문서 하나로 작업합니다. 형태·색·치수 규격을 받는 것이 목적이며, 기능·데이터 구조는 우리 것이 정본입니다.</p>
+
+<h2>1. 무엇을 만드나</h2>
+<p><strong>「상품 목록」과 「상품 상세」 두 화면을, 서로 다른 3안으로.</strong> 한 안 = HTML 한 장(두 화면을 위아래로 담으면 됩니다). 동작은 필요 없습니다.</p>
+<div class="bad"><strong>가장 중요한 규칙 — 아래 「데이터」에 있는 값만 씁니다.</strong> 없는 항목을 지어내면 그 안은 못 씁니다. 우리 화면에 옮길 수 없기 때문입니다.</div>
+
+<h2>2. 쓰는 사람과 상황</h2>
+<ul>
+  <li><strong>영업사원</strong>이 하루에 수백 대를 훑습니다. 손님 앞에서 화면을 돌려 보여 줍니다.</li>
+  <li>B2C 쇼핑몰이 아니라 <strong>업무 도구</strong>입니다. 한 화면에 많이 담기고 빨리 훑히는 게 예쁜 것보다 중요합니다.</li>
+  <li>웹과 모바일이 같은 규격입니다. <strong>모바일에서 글자를 키우지 않습니다.</strong></li>
+</ul>
+
+<h3>두 축 — 이 제품의 뼈대</h3>
+<table>
+  <thead><tr><th style="width:110px">축</th><th>무엇</th><th>손님 화면에서는</th></tr></thead>
+  <tbody>
+    <tr><td><strong>손님이 보는 것</strong></td><td>차 · 요금 · 보험 · 계약조건</td><td>그대로 보임</td></tr>
+    <tr><td><strong>영업자만 보는 것</strong></td><td>심사 · 불가조건 · 분납 · 카드결제 · 위약금 · 승계</td><td><strong>블록이 통째로 없음</strong> (숨기는 게 아니라 존재하지 않음)</td></tr>
+    <tr><td><strong>관리자만 보는 것</strong></td><td>공급사명 · 차고지</td><td>없음. 영업사원에게도 안 보임</td></tr>
+  </tbody>
+</table>
+
+<h2>3. 화면 A — 상품 목록</h2>
+<div class="ascii">[상단바 56px]  검색 · 필터칩 · 정렬 · [격자|표] 전환
+──────────────────────────────────────────────
+격자 뷰 : 카드 3열(웹) / 1열(모바일)
+표   뷰 : 한 줄 = 한 대
+──────────────────────────────────────────────
+[하단바 56px — 브라우저 바닥에 딱 붙음]</div>
+
+<h3>카드 한 장의 구성</h3>
+<table>
+  <thead><tr><th style="width:96px">자리</th><th>내용</th></tr></thead>
+  <tbody>
+    <tr><td>사진</td><td>가로:세로 = <strong>2:1</strong></td></tr>
+    <tr><td>사진 위</td><td>CORE 뱃지 3개 — 차량상태 · 상품유형 · 심사기준</td></tr>
+    <tr><td>제목</td><td>차명 (제조사 + 모델 + 세부모델/트림). 길어서 잘립니다</td></tr>
+    <tr><td>옵션</td><td>칩 나열 (넘치면 잘림)</td></tr>
+    <tr><td>스펙</td><td>연식 · 주행 · 연료 · 색상</td></tr>
+    <tr><td>혜택</td><td>혜택 뱃지 <strong>0~5개</strong></td></tr>
+    <tr><td>금액</td><td>기간별 대여료. 큰 글씨 앵커는 <strong>하나만</strong></td></tr>
+  </tbody>
+</table>
+
+<h3>뱃지 사전 — 실제로 쓰이는 값 전부</h3>
+<table>
+  <thead><tr><th style="width:96px">갈래</th><th>값</th><th style="width:96px">개수</th></tr></thead>
+  <tbody>
+    <tr><td>차량상태</td><td>
+      <span class="bdg b-ok">즉시출고</span><span class="bdg b-ok">출고가능</span><span class="bdg b-wa">상품화중</span>
+      <span class="bdg b-am">출고협의</span><span class="bdg b-wa">계약중</span><span class="bdg b-gy">출고불가</span></td><td>항상 1</td></tr>
+    <tr><td>상품유형</td><td>
+      <span class="bdg b-gy">신차렌트</span><span class="bdg b-gy">신차구독</span><span class="bdg b-gy">중고렌트</span><span class="bdg b-gy">중고구독</span></td><td>항상 1</td></tr>
+    <tr><td>심사기준</td><td><span class="bdg b-ok">무심사</span><span class="bdg b-gy">소득확인</span></td><td>항상 1</td></tr>
+    <tr><td>혜택</td><td>
+      <span class="bdg b-gy">분납</span><span class="bdg b-gy">무보증</span><span class="bdg b-gy">만21세</span>
+      <span class="bdg b-gy">경력무관</span><span class="bdg b-gy">무사고</span></td><td>0~5</td></tr>
+  </tbody>
+</table>
+<div class="note"><strong>이 화면의 제일 어려운 문제.</strong> 성격이 다른 뱃지가 한 카드에 <strong>최대 8개</strong> 붙습니다(상태1 + 유형1 + 심사1 + 혜택5). 위 색은 예시일 뿐이니 그대로 따를 필요 없습니다. 시끄럽지 않게 하는 규격을 제안해 주세요.</div>
+<div class="bad"><strong>혜택 뱃지를 «약하게 만들어» 푸는 건 오답입니다.</strong> 「분납」·「무보증」은 영업사원이 카드에서 가장 먼저 찾는 값입니다. 흐리게 만들면 카드가 조용해지는 대신 쓸모가 없어집니다. 세기를 낮추지 말고 <strong>갈래를 나눠서</strong> — 자리 또는 모양으로 — 풀어 주세요.</div>
+
+<h2>4. 화면 B — 상품 상세</h2>
+<div class="ascii">[상단바 56px 고정]
+┌──────────────────────────────┬────────────────────┐
+│ 좌: 손님 영역                  │ 우: 영업자 전용 패널    │
+│  사진 (주사진 + 세로 썸네일 열,   │  상단바 밑부터 시작      │
+│        ∧∨ 로 한 칸씩 이동)      │  화면에 고정            │
+│  1 차량스펙                    │  안에서 본문만 스크롤     │
+│  2 대여료조건 (표)              │   · 영업 정보           │
+│  3 보험조건                    │   · 계약 조건           │
+│  4 계약조건                    │   · [바닥 고정 2단]      │
+│  5 기타사항                    │     텍스트복사 · 링크복사  │
+└──────────────────────────────┴────────────────────┘
+[하단바 56px 고정]</div>
+<ul>
+  <li>좌:우 ≈ <strong>8:4</strong>. 폭 1200px 미만이면 영업자 패널이 본문 아래로 내려갑니다.</li>
+  <li><strong>썸네일은 세로 열</strong>입니다. 주사진 옆에 세로로 쌓이고 ∧∨ 로 한 칸씩 움직입니다. 가로 스크롤이 아닙니다.</li>
+  <li>영업자 패널의 <strong>바닥 두 버튼은 스크롤해도 바닥에 붙어</strong> 있어야 합니다. 본문만 스크롤됩니다.</li>
+  <li><strong>손님 화면은 좌측만</strong> 그대로 씁니다. 우측 패널이 없는 상태가 손님이 보는 화면입니다.</li>
+</ul>
+
+<h2>5. 데이터 — 이것만 씁니다</h2>
+<p>빈 값은 <strong>일부러</strong> 뒀습니다. 실제로 이렇습니다.</p>
+
+<h3>목록용 (6대)</h3>
+<pre>[
+ {"차명":"현대 그랜저 GN7 2.5 가솔린 캘리그래피","사진":"a.jpg","상태":"즉시출고","유형":"중고렌트","심사":"무심사",
+  "혜택":["분납","무보증","무사고"],"연식":"2024","주행":"12,400km","연료":"가솔린","색상":"쉬머링 실버 / 블랙",
+  "옵션":["파노라마 선루프","빌트인 캠","20인치 휠","HUD"],
+  "요금":[{"기간":"36개월","대여료":"612,000원"},{"기간":"48개월","대여료":"598,000원"}]},
+
+ {"차명":"기아 카니발 KA4 3.5 가솔린 시그니처","사진":"","상태":"출고협의","유형":"신차렌트","심사":"소득확인",
+  "혜택":["만21세"],"연식":"2025","주행":"","연료":"가솔린","색상":"","옵션":["9인승","듀얼 선루프"],
+  "요금":[{"기간":"48개월","대여료":"789,000원"},{"기간":"60개월","대여료":"742,000원"}]},
+
+ {"차명":"제네시스 G80 2.5T AWD","사진":"c.jpg","상태":"계약중","유형":"중고구독","심사":"무심사",
+  "혜택":["분납","무보증","만21세","경력무관","무사고"],"연식":"2023","주행":"38,900km","연료":"가솔린",
+  "색상":"어비스 블랙 / 브라운","옵션":["나파가죽","렉시콘","HUD","마사지시트","후륜조향"],
+  "요금":[{"기간":"36개월","대여료":"1,120,000원"}]},
+
+ {"차명":"테슬라 모델Y 롱레인지","사진":"d.jpg","상태":"상품화중","유형":"신차구독","심사":"소득확인",
+  "혜택":[],"연식":"2025","주행":"","연료":"전기","색상":"","옵션":[],
+  "요금":[]},
+
+ {"차명":"현대 아반떼 CN7 1.6 가솔린 모던","사진":"e.jpg","상태":"출고가능","유형":"중고렌트","심사":"무심사",
+  "혜택":["무보증"],"연식":"2022","주행":"64,100km","연료":"가솔린","색상":"화이트 / 블랙",
+  "옵션":["스마트키"],"요금":[{"기간":"24개월","대여료":"389,000원"},{"기간":"36개월","대여료":"352,000원"}]},
+
+ {"차명":"BMW 5시리즈 520i M스포츠","사진":"f.jpg","상태":"출고불가","유형":"중고렌트","심사":"소득확인",
+  "혜택":["무사고"],"연식":"2021","주행":"71,200km","연료":"가솔린","색상":"미네랄 화이트 / 블랙",
+  "옵션":["하만카돈","파노라마"],"요금":[{"기간":"36개월","대여료":"698,000원"}]}
+]</pre>
+
+<h3>상세용 (위 첫 번째 차)</h3>
+<pre>{
+ "사진": ["1.jpg","2.jpg","3.jpg","4.jpg","5.jpg","6.jpg"],
+ "머리": {"차명":"현대 그랜저 GN7 2.5 가솔린 캘리그래피","차량번호":"12가3456","상태":"즉시출고"},
+
+ "차량스펙": {"차량":"현대 그랜저 GN7","차량번호":"12가3456","연식 · 주행":"2024년식 · 12,400km",
+   "동력":"가솔린 · 2,497cc","색상":"쉬머링 실버 / 블랙","분류":"","최초등록":"2024-03-11",
+   "차량가격":"4,280만원","선택옵션":["파노라마 선루프","빌트인 캠","20인치 휠","HUD"]},
+
+ "대여료조건": {
+   "반납형":[{"기간":"24개월","대여료":"690,000원","보증금":"0원"},
+             {"기간":"36개월","대여료":"612,000원","보증금":"0원"},
+             {"기간":"48개월","대여료":"598,000원","보증금":"0원"},
+             {"기간":"60개월","대여료":"","보증금":""}],
+   "인수형":[{"기간":"36개월","대여료":"735,000원","보증금":"3,000,000원"},
+             {"기간":"48개월","대여료":"681,000원","보증금":"3,000,000원"},
+             {"기간":"60개월","대여료":"654,000원","보증금":"3,000,000원"}]},
+
+ "보험조건": {"대인":"무한","대물":"3억","자손사고":"1억","무보험상해":"2억",
+   "자차손해":"면책 30만원","비고":"만 26세 이상 · 1년 이상"},
+
+ "계약조건": {"심사":"무심사","주행 약정":"연 2만km · 초과 km당 100원","보증금":"차량가 대비 별도",
+   "결제 · 위약":"자동이체 · 잔여 대여료의 30%","운전 연령":"만 26세 이상 (하향 만 21세 +30,000원)",
+   "면허 경력":"1년 이상","운전자 범위":"계약자 본인 · 배우자","대여지역 · 탁송":"전국 · 탁송료 별도",
+   "정비 · 대차":"자가정비 · 대차 미제공","특이사항":""},
+
+ "기타사항": {"차령 · 차대":"","등록증":"","정책":"FP-RP012-RENT","상품":"veh_k7m2p9x4qz"},
+
+ "영업자전용": {
+   "영업 정보":{"심사":"무심사","불가조건":"채무불이행·회생/파산 이력 불가, 사업자 6개월 미만 불가",
+     "영업 특이사항":"탁송 3일 소요. 인수형은 선입금 후 배차.","보증금 분납":"3회 분납 가능",
+     "보증금 카드결제":"가능 (수수료 고객 부담)","중도해지 위약금":"잔여 대여료의 30%",
+     "주행 초과요금":"km당 100원","승계":"가능 (수수료 30만원)"},
+   "계약 조건":{"결제":"자동이체 (매월 25일)","보증금 반환":"반납 후 7일 이내",
+     "법인 운전자범위":"임직원 전원","연체 제재":"시동제어 15일 · 회수 30일",
+     "사고 해지기준":"1년 내 3회","GPS":"장착","제출서류":"신분증, 운전면허증, 사업자등록증"}}
+}</pre>
+
+<h3>없는 것 — 만들어 넣지 마세요</h3>
+<p>영업자 수당·마진 금액 · 출력(마력) · 연비 · 승차인원 · 잔존가치 · 선납금 · 재고 수량 · 출고 소요일 · 사은품 · 절세 안내 · 타사 비교 · 캐피탈 지정.</p>
+<p class="meta">참고: 「영업자 수당」은 개념은 있으나 공급사 수수료율이 아직 입력되지 않아 <strong>금액을 띄울 수 없습니다.</strong></p>
+
+<h2>6. 디자인 토큰 — 이 값을 그대로</h2>
+
+<h3>색</h3>
+<div class="sw">
+  <div><i style="background:#f6f7f9"></i><span><b>#f6f7f9</b>페이지 바탕</span></div>
+  <div><i style="background:#ffffff"></i><span><b>#ffffff</b>카드</span></div>
+  <div><i style="background:#f7f8fa"></i><span><b>#f7f8fa</b>표 머리</span></div>
+  <div><i style="background:#fafbfc"></i><span><b>#fafbfc</b>줄무늬</span></div>
+  <div><i style="background:#e8f0ff"></i><span><b>#e8f0ff</b>선택된 행</span></div>
+</div>
+<div class="sw">
+  <div><i style="background:#18181b"></i><span><b>#18181b</b>글자 · 주</span></div>
+  <div><i style="background:#52525b"></i><span><b>#52525b</b>글자 · 보조</span></div>
+  <div><i style="background:#a1a1aa"></i><span><b>#a1a1aa</b>글자 · 흐림</span></div>
+  <div><i style="background:#e2e5ea"></i><span><b>#e2e5ea</b>테두리</span></div>
+  <div><i style="background:#edf0f3"></i><span><b>#edf0f3</b>테두리 · 연함</span></div>
+  <div><i style="background:#cbd1d9"></i><span><b>#cbd1d9</b>테두리 · 진함</span></div>
+</div>
+<div class="sw">
+  <div><i style="background:#1B2A4A"></i><span><b>#1B2A4A</b>브랜드 네이비</span></div>
+  <div><i style="background:#0F1B35"></i><span><b>#0F1B35</b>진한 네이비</span></div>
+</div>
+<p class="meta"><strong>브랜드색은 네이비 하나입니다.</strong> 인디고·에메랄드를 새로 들이지 마세요.</p>
+
+<table>
+  <thead><tr><th style="width:80px">상태 틴트</th><th>바탕</th><th>글자</th><th>테두리</th><th>쓰는 곳</th></tr></thead>
+  <tbody class="num">
+    <tr><td>초록</td><td>#f0fdf4</td><td>#166534</td><td>#bbf7d0</td><td>가능·완료·무심사</td></tr>
+    <tr><td>빨강</td><td>#fef2f2</td><td>#b91c1c</td><td>#fecaca</td><td>불가·경고</td></tr>
+    <tr><td>주황</td><td>#fff7ed</td><td>#c2410c</td><td>#fed7aa</td><td>주의·진행중</td></tr>
+    <tr><td>노랑</td><td>#fefce8</td><td>#a16207</td><td>#fef08a</td><td>협의·보류</td></tr>
+    <tr><td>회색</td><td>#f4f4f5</td><td>#52525b</td><td>#e4e4e7</td><td>중립·분류</td></tr>
+  </tbody>
+</table>
+
+<h3>글자 — 이 6단만</h3>
+<table>
+  <thead><tr><th style="width:70px">크기</th><th>쓰는 곳</th></tr></thead>
+  <tbody class="num">
+    <tr><td>18px</td><td>페이지·섹션 대제목</td></tr>
+    <tr><td>14.5px</td><td>목록 행 제목 · 패널 제목</td></tr>
+    <tr><td>13px</td><td>본문</td></tr>
+    <tr><td>12px</td><td>보조 설명 · 부제</td></tr>
+    <tr><td>11px</td><td>캡션 · 메타</td></tr>
+    <tr><td>10px</td><td>뱃지 안 · 최소 라벨</td></tr>
+  </tbody>
+</table>
+<ul>
+  <li>굵기 <strong>최대 700</strong>. 800·900 금지. 위계는 <strong>크기와 색 대비</strong>로 냅니다.</li>
+  <li>서체 Pretendard. 숫자는 <code>font-variant-numeric: tabular-nums</code>.</li>
+</ul>
+
+<h3>치수</h3>
+<table>
+  <tbody class="num">
+    <tr><th style="width:180px">컨트롤 높이</th><td>웹 32px · 모바일 36px</td></tr>
+    <tr><th>상단바 · 하단바</th><td>56px (하단바는 브라우저 바닥에 딱 붙음)</td></tr>
+    <tr><th>아이콘</th><td>14 / 16 / 18 / 20 중에서만</td></tr>
+    <tr><th>카드 썸네일</th><td>2:1</td></tr>
+    <tr><th>라벨-값 2열의 라벨 폭</th><td>116px 고정 — <strong>상세 화면 전용</strong></td></tr>
+  </tbody>
+</table>
+<div class="note"><strong>라벨폭 116px을 목록 카드에 쓰지 마세요.</strong> 카드 폭이 360px밖에 안 되는데 라벨이 116을 먹으면 값 자리가 240px만 남아 옵션·색상이 바로 잘립니다. 116은 상세 화면에서 카드끼리 값 시작선을 맞추기 위한 규격입니다. 목록 카드는 라벨 없이 값만, 또는 아주 짧은 라벨로.</div>
+
+<h3>모서리 — 이번 기획의 논점</h3>
+<p>지금 우리는 <strong>전부 4px 한 단계</strong>라 화면이 평평합니다. 세 안이 여기서 갈립니다.</p>
+<table>
+  <thead><tr><th style="width:60px">안</th><th style="width:200px">모서리</th><th>층을 무엇으로 만드나</th></tr></thead>
+  <tbody>
+    <tr><td><strong>A</strong></td><td>2px 한 단계</td><td>테두리 굵기·색 대비로만. 그림자 없음</td></tr>
+    <tr><td><strong>B</strong></td><td>2단 — 카드 8 / 표·컨트롤 4</td><td>면 대비(바탕 vs 카드)로. 그림자 없음</td></tr>
+    <tr><td><strong>C</strong></td><td>3단 — 컨테이너 12 / 서피스 8 / 컨트롤 4~6</td><td>아주 옅은 그림자 1단 + 면 대비</td></tr>
+  </tbody>
+</table>
+<p class="meta">나머지 규격(색 · 글자 6단 · 굵기 700 상한 · 상단바 56)은 세 안 모두 같습니다.</p>
+
+<h2>7. 하지 말 것</h2>
+<ul>
+  <li>900 굵기, 20px 이상 제목(6단에 없는 크기)</li>
+  <li>그라디언트 — 배경 · 로고 · 뱃지 어디에도</li>
+  <li><code>backdrop-filter: blur</code></li>
+  <li>hover 시 카드가 뜨거나 사진이 확대되는 효과</li>
+  <li>펄스 · 핑 애니메이션</li>
+  <li>이모지. 장식용 아이콘 남발(섹션 머리에 1개까지 허용)</li>
+  <li>다크모드</li>
+  <li><strong>데이터에 없는 항목을 지어내는 것</strong></li>
+</ul>
+
+<h2>8. 풀어 줬으면 하는 문제</h2>
+<ol class="q">
+  <li><strong>평평함</strong> — 모서리 · 면 · 테두리 · 그림자 중 무엇으로 층을 만드나. 그림자는 최소로 하고 싶습니다.</li>
+  <li><strong>뱃지 8개</strong> — 한 카드에 상태1 + 유형1 + 심사1 + 혜택5가 붙습니다. 시끄럽지 않게 하는 규격은? 모양(알약 vs 사각)으로 가르나, 색으로만 가르나, 자리로 가르나. <strong>높이 · 좌우 여백 · 모서리 · 글자 크기를 숫자로</strong> 제안해 주세요.</li>
+  <li><strong>빈 값</strong> — 사진 없는 차, 요금 없는 차, 혜택 0개인 차, 상세의 빈 5칸. 「-」로 두나 / 행을 없애나 / 흐린 「미입력」이라 쓰나. 카드 높이가 들쭉날쭉해지지 않게.</li>
+  <li><strong>격자 ↔ 표</strong> — 같은 카드가 한 줄이 될 때 무엇을 버리고 무엇을 남기나. <strong>같은 값은 두 뷰에서 같은 모양</strong>이어야 합니다.</li>
+  <li><strong>금액 앵커</strong> — 기간이 0~4개로 들쭉날쭉합니다. 큰 글씨는 하나만 세우고 싶은데, 무엇을 세우고 나머지는 어떻게 보이나.</li>
+  <li><strong>영업자 것 표시</strong> — 면 전체 반전 / 좌측 4px 색 바 / 연한 틴트 중 무엇인가. 손님 화면에선 그 블록이 통째로 빠진다는 점을 감안할 것.</li>
+  <li><strong>대여료 표의 최저가 표시</strong> — 행 배경 / 좌측 바 / 우측 체크 / 머리 칩. <strong>반납형·인수형 두 덩어리가 한 표 안에</strong> 있다는 게 어려운 점입니다. 표 대신 「선택 카드 목록」으로 푸는 안도 환영합니다.</li>
+  <li><strong>섹션 5개</strong> — 같은 규격으로 두되 성격은 구분하고 싶습니다. 아이콘 / 색점 / 머리띠 색 / 세로 바 중 무엇인가.</li>
+</ol>
+
+<h2>9. 시험대 — 3안 모두 이 두 카드를 넣어 주세요</h2>
+<div class="grid2">
+  <div class="card">
+    <h3 style="margin-top:0">시험 ① 뱃지가 8개인 카드</h3>
+    <p class="meta" style="margin-bottom:8px">제네시스 G80 2.5T AWD</p>
+    <p>
+      <span class="bdg b-wa">계약중</span><span class="bdg b-gy">중고구독</span><span class="bdg b-ok">무심사</span>
+      <span class="bdg b-gy">분납</span><span class="bdg b-gy">무보증</span><span class="bdg b-gy">만21세</span>
+      <span class="bdg b-gy">경력무관</span><span class="bdg b-gy">무사고</span>
+    </p>
+    <p style="margin-bottom:0">옵션도 5개(나파가죽·렉시콘·HUD·마사지시트·후륜조향)입니다. <strong>이 카드가 시끄럽지 않은지</strong>가 첫 번째 시험대입니다.</p>
+  </div>
+  <div class="card">
+    <h3 style="margin-top:0">시험 ② 거의 빈 카드</h3>
+    <p class="meta" style="margin-bottom:8px">테슬라 모델Y 롱레인지</p>
+    <p>사진 있음 · <strong>주행 · 색상 · 옵션 · 혜택 · 요금이 전부 없음</strong></p>
+    <p style="margin-bottom:0">뱃지는 상태 · 유형 · 심사 3개뿐입니다. <strong>이 카드가 망가져 보이지 않는지</strong>가 두 번째 시험대입니다.</p>
+  </div>
+</div>
+
+<h2>10. 내놓을 것</h2>
+<ol>
+  <li><strong>HTML 한 장 × 3안.</strong> 한 장 안에 목록 · 상세 두 화면을 위아래로. Tailwind CDN 가능, 동작 불필요.</li>
+  <li>각 안 맨 위에 <strong>한 줄 설명</strong> — 무엇이 다른지. (예: 「A안 — 모서리 2px, 층은 테두리 굵기로만」)</li>
+  <li><strong>치수 표</strong>를 3안 각각에 대해 채울 것. 우리가 코드 토큰으로 옮겨야 하므로 <strong>이게 없으면 못 씁니다.</strong></li>
+</ol>
+<table>
+  <thead><tr><th>항목</th><th>높이</th><th>좌우여백</th><th>모서리</th><th>글자</th><th>굵기</th><th>바탕/글자/테두리</th></tr></thead>
+  <tbody>
+    <tr><td>뱃지 — 상태</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+    <tr><td>뱃지 — 분류</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+    <tr><td>뱃지 — 혜택</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+    <tr><td>목록 카드</td><td>—</td><td></td><td></td><td></td><td></td><td></td></tr>
+    <tr><td>표 머리</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+    <tr><td>표 행 / 선택된 행</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+    <tr><td>섹션 머리</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+    <tr><td>영업자 블록</td><td>—</td><td></td><td></td><td></td><td></td><td></td></tr>
+    <tr><td>버튼 — 주 / 보조</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+    <tr><td>필터칩</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+  </tbody>
+</table>
+
+<hr class="rule">
+
+<h2>부록. 먼저 낸 시안에서 나온 오해 — 반복하지 마세요</h2>
+<p class="meta">이 기획서로 이미 한 벌을 받아 봤습니다. 잘 푼 것과 틀린 것을 그대로 옮깁니다.</p>
+
+<div class="good">
+<strong>잘 푼 것 — 이 수준이면 됩니다</strong>
+<ul style="margin-bottom:0">
+  <li>빈 값을 네 갈래로 나눠 처리: 값 없음 <code>-</code> / 사진 없음 「사진 준비중」 / 혜택 0개 「혜택 없음」 + <strong>줄 높이 고정</strong> / 요금 없음 「요금 산출 대기중」</li>
+  <li>금액 앵커 하나 — 18px 하나 + 나머지는 우측 12px 흐리게. 「원」을 13px normal로 낮춰 숫자만 세움</li>
+  <li>반납형·인수형을 <code>rowspan</code>으로 묶고 인수형 시작에 2px 굵은 선</li>
+  <li>섹션 머리를 아이콘도 색점도 아닌 <strong>3~4px 세로 바</strong>로</li>
+  <li>영업자 패널을 면 전체 반전 대신 <strong>좌측 4px 네이비 바 + 상단 머리띠</strong>로</li>
+</ul>
+</div>
+
+<div class="bad">
+<strong>틀린 것 — 같은 실수를 하지 마세요</strong>
+<ol style="margin-bottom:0">
+  <li>혜택 뱃지를 투명 배경 + 회색 테두리로 <strong>죽여 버렸습니다.</strong> 8개 문제를 「약하게」로 풀면 안 됩니다.</li>
+  <li>뱃지 3개를 <strong>사진 좌상단에 몰았습니다.</strong> 차 정면을 가리고, 셋 다 같은 사각+틴트라 색만 다를 뿐 한 덩어리로 읽힙니다.</li>
+  <li>라벨폭 <strong>116px을 목록 카드에</strong> 썼습니다. 값이 잘립니다.</li>
+  <li>세로 썸네일을 <strong>가로 스크롤</strong>로 그렸습니다.</li>
+  <li>영업자 패널 바닥 버튼을 <code>position:absolute</code>로 둬서 <strong>스크롤하면 같이 밀립니다.</strong></li>
+  <li>영업자 패널에 「고객 노출 주의」 빨강 뱃지를 달았습니다. 그 블록은 손님 화면에 <strong>아예 없으므로</strong> 경고가 불필요합니다.</li>
+  <li>상세 제목에 <strong>20px</strong>을 썼습니다. 6단에 없는 크기입니다.</li>
+  <li>격자는 상태를 뱃지로, 표는 글자로 표시해 <strong>두 뷰의 규격이 어긋났습니다.</strong></li>
+  <li><strong>치수 표를 내지 않았습니다.</strong> 이게 없으면 코드로 옮길 수 없습니다.</li>
+</ol>
+</div>
+
+</div>

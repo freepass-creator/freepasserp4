@@ -525,6 +525,12 @@ export function draftInputRecord(form: EsignDraftInput): EntityRecord {
     emergency_contact: form.emergencyContact,
     emergency_relation: form.emergencyRelation,
     additional_driver: additionalDriverCount ? `${additionalDriverCount}인 지정` : '없음',
+    /**
+     * ★검증기는 «이 계약에서 고른 값»을 계약 레코드와 같은 자리(contract_draft)에서 읽는다.
+     *   저장 전 초안에도 저장 때와 **같은 모양**으로 실어 준다 — 안 그러면 화면에서 고른 보증금 납부 회차를
+     *   검증기가 못 봐서 보증금 있는 계약이 영원히 「일시납 또는 분납 회차를 선택해 주세요」로 막힌다(2026-08-20 실측).
+     */
+    contract_draft: JSON.stringify(draftTemplateFields(form)),
     drv1_name: form.additionalDriverName,
     drv1_relation: form.additionalDriverRelation,
     drv1_phone: form.additionalDriverPhone,

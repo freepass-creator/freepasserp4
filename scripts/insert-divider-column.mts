@@ -14,7 +14,7 @@
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { excludeMirrorSheets } from '../lib/domain/mirror-sources';
-import { AI_TAIL_COLUMNS, DIVIDER_COLUMN, SHEET_NAME_MATCH, buildDividerFormat, buildHeaderOwnerColors, isDividerColumn, isOurNonInventoryTab, supplierSheetLabel } from '../lib/domain/supplier-template-sheet';
+import { DIVIDER_COLUMN, SHEET_NAME_MATCH, buildDividerFormat, buildHeaderOwnerColors, isDividerColumn, isOurNonInventoryTab, supplierSheetLabel } from '../lib/domain/supplier-template-sheet';
 
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
