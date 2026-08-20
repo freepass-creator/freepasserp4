@@ -273,7 +273,10 @@ export async function GET(
   let liveSession = session;
   if (!peek && !Number(session.openedAt || 0)) {
     const openedClaim = await db.ref(`v4/esign_sessions/${hash}`).transaction((current) => {
-      if (!current || Number(current.revokedAt || 0)) return;
+      // Admin SDK transaction은 로컬 캐시가 비어 있으면 첫 호출에 null을 줄 수 있다.
+      // null을 abort하면 실제 세션을 다시 읽지 못해 손님 화면이 영구히 진행되지 않는다.
+      if (!current) return current;
+      if (Number(current.revokedAt || 0)) return;
       if (Number(current.expiresAt || 0) <= Date.now()) return;
       if (!['sent', 'opened'].includes(S(current.status)) || Number(current.openedAt || 0)) return;
       return { ...current, status: 'opened', openedAt: now };
@@ -345,7 +348,9 @@ export async function POST(
     const bundle = await loadFreepassEsignBundle(contractCode);
     if (!bundle) return json({ error: '계약을 찾을 수 없습니다.' }, 404);
     const progressClaim = await bundle.db.ref(`v4/esign_sessions/${hash}`).transaction((current) => {
-      if (!current || Number(current.revokedAt || 0)) return;
+      // 첫 null 스냅샷은 그대로 돌려줘야 서버의 실제 값을 읽고 재시도한다.
+      if (!current) return current;
+      if (Number(current.revokedAt || 0)) return;
       if (!['sent', 'opened'].includes(S(current.status))) return;
       if (Number(current.expiresAt || 0) <= Date.now()) return;
       const saved = record(current.progress);
