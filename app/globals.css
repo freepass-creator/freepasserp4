@@ -14,21 +14,27 @@
   --fw-normal: 400; --fw-medium: 500; --fw-semibold: 600; --fw-bold: 700;
   --line-height: 1.5;
 
-  /* Neutral palette */
-  --bg-page: #f6f7f9;   --bg-card: #ffffff;    --bg-header: #f7f8fa;
-  --bg-sunken: #f1f3f6; --bg-hover: #f0f3f7;   --bg-selected: #e8f0ff;
-  --bg-stripe: #fafbfc; --bg-elevated: #ffffff; --bg-disabled: #f2f3f5;
-  --bg-placeholder: #eef1f5;
+  /* Neutral palette — «계단»이 있어야 면이 뜬다.
+   * 2026-08-20 이전 값은 페이지 97.0 / 머리 97.3 / 줄무늬 98.4 / 카드 100 으로
+   * 서로 다른 네 면이 밝기 3% 안에 몰려 있었다. 그래서 모서리·그림자·테두리를 아무리 손봐도
+   * 화면이 종이 한 장처럼 평평했다(사장님 「전체적으로 다 그래」).
+   * 아래는 같은 계열 안에서 계단만 벌린 값 — 색상(hue)은 그대로 네이비-중성이다.
+   *   가라앉은 면 91 · 페이지 93 · 머리 95 · 줄무늬 97.5 · 카드 100 */
+  --bg-page: #eaedf2;   --bg-card: #ffffff;    --bg-header: #eef1f6;
+  --bg-sunken: #e2e6ec; --bg-hover: #e6ecf5;   --bg-selected: #dde8fb;
+  --bg-stripe: #f7f8fb; --bg-elevated: #ffffff; --bg-disabled: #edeff3;
+  --bg-placeholder: #e4e8ee;
 
   /* Text hierarchy */
   --text-main: #18181b;   --text-sub: #52525b;   --text-weak: #a1a1aa;
   --text-muted: #d4d4d8;  --text-inverse: #ffffff; --text-link: #2563eb;
 
-  /* Borders */
-  --border: #e2e5ea;  --border-soft: #edf0f3;  --border-strong: #cbd1d9;  --border-focus: #1B2A4A;
+  /* Borders — 카드 위에서 보이도록 한 단계씩 진하게(선이 안 보이면 표가 안 선다). */
+  --border: #d5dae2;  --border-soft: #e4e8ee;  --border-strong: #bcc4cf;  --border-focus: #1B2A4A;
 
   /* Brand — 프리패스 네이비 + 스카이 */
-  --brand: #1B2A4A;   --brand-h: #0F1B35;   --brand-bg: #eef2f7;   --brand-soft: #f8fafc;
+  /* --brand-soft = 엑셀 머리띠. 흰색에 가까우면 머리가 본문에 묻힌다. */
+  --brand: #1B2A4A;   --brand-h: #0F1B35;   --brand-bg: #e6ecf5;   --brand-soft: #eaeff7;
   --sky: #9EC5F3;     --sky-bg: #eef5fe;
   --focus-ring: rgba(27, 42, 74, 0.18);
 
@@ -78,7 +84,7 @@
   --fp-dock-safe: env(safe-area-inset-bottom, 0px);
 
   --z-dropdown: 100; --z-modal: 1000; --z-toast: 2000;
-  --shadow-sm: 0 1px 2px rgba(15,23,42,0.035);
+  --shadow-sm: 0 1px 2px rgba(15,23,42,0.06);
   --shadow: 0 1px 3px rgba(15,23,42,0.055), 0 1px 2px rgba(15,23,42,0.025);
   --shadow-md: 0 8px 20px -8px rgba(15,23,42,0.18), 0 2px 5px rgba(15,23,42,0.045);
   --shadow-lg: 0 10px 24px -4px rgba(0,0,0,0.10), 0 4px 8px -2px rgba(0,0,0,0.04);

@@ -49,7 +49,7 @@
   *{margin:0;padding:0;box-sizing:border-box;word-break:keep-all;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   body{font-family:"Pretendard",-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
        background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;
-       font-feature-settings:"tnum";font-kerning:normal;text-rendering:optimizeLegibility;line-height:1.58}
+       font-feature-settings:"tnum";font-variant-numeric:tabular-nums;font-kerning:normal;text-rendering:optimizeLegibility;line-height:1.58}
   body.cloak{visibility:hidden}  /* 로딩 중 깜빡임 차단 — 렌더 완료 후 해제 */
 
   /* ===== 좌측 입력 빌더(하네스) — 단독 실행용. ?embed=1 또는 body.embed 시 숨김 ===== */
@@ -101,7 +101,7 @@
   /* 정비·결제 페이지는 표 행이 많아 기본 간격이면 푸터만 다음 종이로 밀린다. 내용은 줄이지 않고 세로 여백만 압축한다. */
   /* 표 행이 많은 장에 붙인다. 내용을 «줄이지 않고» 세로 간격만 좁혀 297mm 안에 넣는다.
      정비·결제에 이어 자동차 보험 장도 넘쳤다(면책금 안내·사고 대응 절차가 늘어) — 같은 손잡이를 쓴다. */
-  .page-dense .section{margin-bottom:4.5mm}
+  .page-dense .section{margin-top:4.5mm;margin-bottom:4.5mm}
   .page-dense .kv .k,.page-dense .kv .v{padding-top:5px;padding-bottom:5px}
   .page-dense .subhead{margin-top:4mm;margin-bottom:1.5mm}
   /* 보험 페이지는 보장표·자차·사고절차가 한 묶음이다. 마지막 경고문만 다음 장으로
@@ -319,8 +319,7 @@
   값이 안 온 칸은 봉인본에서 비워진다. 완전히 빈칸이면 «빠뜨린 건지 원래 없는 건지» 알 수 없으므로
   종이 계약서처럼 옅은 밑줄만 남겨 «기재란»임을 보인다.
 */
-.cover-sum .cs .csv:empty::before,.cover-sum .cs .cssub:empty::before{content:"";display:inline-block;width:26mm;border-bottom:1px dotted var(--bd);vertical-align:middle}
-.cover-sum .cs .cssub:empty::before{width:18mm}
+  .cover-sum .cs .csv.is-empty{color:var(--faint);font-weight:500}
   .cover-parties{display:flex;align-items:stretch;border:1px solid var(--line);border-radius:var(--radius-box);overflow:hidden}
   .cover-parties .cp{flex:1;padding:13px 16px;background:var(--tint)}
   .cover-parties .cp:first-child{border-right:1px solid var(--line)}
@@ -392,23 +391,23 @@
       <h1 class="cover-title" data-field="doc_title">자동차 장기대여 계약서</h1>
     </div>
 
-    <!-- 계약 요지 4칸 — 본문에 이미 있는 값을 끌어올린다. 표지에서만 크게. -->
-    <div class="cover-sum">
+    <!-- 계약 요지 4칸 — 기존 값만 읽어 와 표지에서 크게 보여 준다. -->
+    <div class="cover-sum" aria-label="계약 정보">
       <div class="cs">
         <div class="csl">월 대여료</div>
-        <div class="csv"><span data-field="rent_amount">0</span>원</div>
+        <div class="csv" data-cover-field="rent_amount" data-cover-unit="원">—</div>
       </div>
       <div class="cs">
         <div class="csl">보증금</div>
-        <div class="csv"><span data-field="deposit_amount">0</span>원</div>
+        <div class="csv" data-cover-field="deposit_amount" data-cover-unit="원">—</div>
       </div>
       <div class="cs">
         <div class="csl">대여기간</div>
-        <div class="csv" data-field="rent_month">차량 인도일로부터 00개월</div>
+        <div class="csv" data-cover-field="rent_month">—</div>
       </div>
       <div class="cs">
         <div class="csl">차량</div>
-        <div class="csv" data-field="car_number">00가0000</div>
+        <div class="csv" data-cover-field="car_number">—</div>
       </div>
     </div>
 

@@ -56,7 +56,7 @@
   background: var(--bg-card);
 }
 
-.stepperDot.on {
+.stepperDotOn {
   background: var(--brand);
   border-color: var(--brand);
   color: var(--text-inverse);
@@ -69,7 +69,7 @@
   white-space: nowrap;
 }
 
-.stepperItem.on .stepperName {
+.stepperItemOn .stepperName {
   color: var(--text-main);
 }
 

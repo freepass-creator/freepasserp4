@@ -699,8 +699,8 @@ export default function SignPage() {
       <header className={styles.header}>
         <div className={styles.stepper} aria-label="진행 묶음">
           {BUNDLES.map((item, index) => (
-            <div key={item.name} className={`${styles.stepperItem} ${bundle === item.id ? styles.on : ''}`} style={{ flex: index === BUNDLES.length - 1 ? 'none' : 1 }}>
-              <span className={`${styles.stepperDot} ${bundle === item.id ? styles.on : ''}`}>{index + 1}</span>
+            <div key={item.name} className={`${styles.stepperItem} ${bundle === item.id ? styles.stepperItemOn : ''}`} style={{ flex: index === BUNDLES.length - 1 ? 'none' : 1 }}>
+              <span className={`${styles.stepperDot} ${bundle === item.id ? styles.stepperDotOn : ''}`}>{index + 1}</span>
               <span className={styles.stepperName}>{item.name}</span>
               {index < BUNDLES.length - 1 ? <span className={styles.stepperLine} /> : null}
             </div>
@@ -727,19 +727,33 @@ export default function SignPage() {
 
       {step?.kind === 'summary' ? (
         <>
-          <div style={{ fontSize: FS.title, fontWeight: FW.head, marginBottom: 6, letterSpacing: '-0.015em' }}>
+          <div className={styles.summaryQuad}>
+            <div className={styles.summaryCell}>
+              <div className={styles.summaryLabel}>월 대여료</div>
+              <div className={styles.summaryValue}>{rentWon}원</div>
+            </div>
+            <div className={styles.summaryCell}>
+              <div className={styles.summaryLabel}>보증금</div>
+              <div className={styles.summaryValue}>{depositWon}</div>
+            </div>
+            <div className={styles.summaryCell}>
+              <div className={styles.summaryLabel}>대여기간</div>
+              <div className={styles.summaryValue}>{periodText}</div>
+            </div>
+            <div className={styles.summaryCell}>
+              <div className={styles.summaryLabel}>차량</div>
+              <div className={styles.summaryValue}>{vehicleNumber}</div>
+            </div>
+          </div>
+          <div style={{ fontSize: FS.title, fontWeight: FW.head, marginBottom: 10, letterSpacing: '-0.015em' }}>
             {S(form.customer_name) ? `${S(form.customer_name)}님, 아래 계약이 맞습니까?` : '아래 계약 내용을 먼저 확인해 주세요.'}
           </div>
-          <p style={{ fontSize: FS.sub, color: C.mute, lineHeight: 1.65, margin: '0 0 18px' }}>
-            차종·차량번호·기간·금액이 다르면 서명하지 말고 계약 담당자에게 알려 주세요.
-            이해하기 어렵거나 추가 설명이 필요한 조건도 서명 전에 질문해 주세요.
-          </p>
           <ListGroup header={S(snapshot.contractKind?.title) || S(snapshot.template?.label) || '자동차 대여 계약서'}>
             <DetailRow label="임대인 회사명" value={S(snapshot.landlord?.companyName) || S(snapshot.templateFields?.company_name) || '—'} />
             <DetailRow label="차량" value={`${vehicleNumber} · ${vehicleModel}`} />
-            <DetailRow label="계약기간" value={contract.rent_month_snapshot ? `${contract.rent_month_snapshot}개월` : '—'} />
-            <DetailRow label="월 대여료" value={`${Number(contract.rent_amount_snapshot || 0).toLocaleString('ko-KR')}원`} />
-            <DetailRow label="보증금" value={Number(contract.deposit_amount_snapshot || 0) ? `${Number(contract.deposit_amount_snapshot).toLocaleString('ko-KR')}원` : '무보증'} />
+            <DetailRow label="계약기간" value={periodText} />
+            <DetailRow label="월 대여료" value={`${rentWon}원`} />
+            <DetailRow label="보증금" value={depositWon} />
             <DetailRow label="계약번호" value={S(contract.contract_code) || '—'} />
           </ListGroup>
           <div style={{ marginTop: 14, padding: '10px 12px', border: `1px solid ${C.line}`, borderRadius: R, color: C.mute, fontSize: FS.cap, lineHeight: 1.6 }}>
@@ -784,10 +798,6 @@ export default function SignPage() {
 
       {step?.kind === 'privacy' ? (
         <>
-          <div style={{ fontSize: FS.title, fontWeight: FW.head }}>먼저 동의가 필요합니다</div>
-          <p style={{ fontSize: FS.sub, color: C.mute, lineHeight: 1.6 }}>
-            운전면허증·얼굴 사진과 렌터카사 요청서류를 받기 전에 필요한 동의를 각각 받습니다. 미리 선택된 항목은 없습니다.
-          </p>
           {(snapshot.consentAtoms || []).filter((atom) => atom.group !== 'bank').map((atom) => (
             <ListGroup key={atom.key} header={atom.label}>
               <DetailRow label="수집·이용 항목" value={(atom.items || []).join(', ') || '—'} stacked />
@@ -807,41 +817,67 @@ export default function SignPage() {
 
       {step?.kind === 'identity' ? (
         <>
-          <div style={{ fontSize: FS.title, fontWeight: FW.head, marginBottom: 10 }}>계약자 정보</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <label style={label}>성명 *<Input value={form.customer_name} onChange={(value) => set('customer_name', value)} full style={inputStyle} /></label>
-            <label style={label}>연락처 *<Input value={form.customer_phone} onChange={(value) => set('customer_phone', fmtPhone(value))} inputMode="tel" full style={inputStyle} /></label>
-            <label style={label}>주민등록번호 *<Input value={form.customer_id} onChange={(value) => set('customer_id', value)} inputMode="numeric" placeholder="계약·매출증빙용" full style={inputStyle} /></label>
-            <label style={label}>운전면허번호 *<Input value={form.driver_license_no} onChange={(value) => set('driver_license_no', value)} placeholder="면허증에 표시된 번호" full style={inputStyle} /></label>
-            <label style={label}>주소 *<Input value={form.customer_address} onChange={(value) => set('customer_address', value)} full style={inputStyle} /></label>
-            <label style={label}>비상연락 관계/성명<Input value={form.emergency_name} onChange={(value) => set('emergency_name', value)} placeholder="예: 모 홍길순" full style={inputStyle} /></label>
-            <label style={label}>비상연락처<Input value={form.emergency_phone} onChange={(value) => set('emergency_phone', fmtPhone(value))} inputMode="tel" full style={inputStyle} /></label>
-          </div>
-          <div style={{ fontSize: FS.title, fontWeight: FW.head, margin: '24px 0 10px' }}>본인확인 자료</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8 }}>
+          <ListGroup header="계약자 정보">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '10px 12px 12px' }}>
+              <label>
+                <div className={styles.fieldLabel}>성명 <ReqTag /></div>
+                <Input value={form.customer_name} onChange={(value) => set('customer_name', value)} full style={inputStyle} />
+              </label>
+              <label>
+                <div className={styles.fieldLabel}>연락처 <ReqTag /></div>
+                <Input value={form.customer_phone} onChange={(value) => set('customer_phone', fmtPhone(value))} inputMode="tel" full style={inputStyle} />
+              </label>
+              <label>
+                <div className={styles.fieldLabel}>주민등록번호 <ReqTag /></div>
+                <Input value={form.customer_id} onChange={(value) => set('customer_id', value)} inputMode="numeric" placeholder="계약·매출증빙용" full style={inputStyle} />
+              </label>
+              <label>
+                <div className={styles.fieldLabel}>운전면허번호 <ReqTag /></div>
+                <Input value={form.driver_license_no} onChange={(value) => set('driver_license_no', value)} placeholder="면허증에 표시된 번호" full style={inputStyle} />
+              </label>
+              <label>
+                <div className={styles.fieldLabel}>주소 <ReqTag /></div>
+                <Input value={form.customer_address} onChange={(value) => set('customer_address', value)} full style={inputStyle} />
+              </label>
+            </div>
+          </ListGroup>
+          <ListGroup header="비상 연락처">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '10px 12px 12px' }}>
+              <label>
+                <div className={styles.fieldLabel}>비상연락 관계/성명</div>
+                <Input value={form.emergency_name} onChange={(value) => set('emergency_name', value)} placeholder="예: 모 홍길순" full style={inputStyle} />
+              </label>
+              <label>
+                <div className={styles.fieldLabel}>비상연락처</div>
+                <Input value={form.emergency_phone} onChange={(value) => set('emergency_phone', fmtPhone(value))} inputMode="tel" full style={inputStyle} />
+              </label>
+            </div>
+          </ListGroup>
+          <ListGroup header="본인확인 자료">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8, padding: '10px 12px 12px' }}>
             <Dropzone variant="photo" active={!!idCard} onClick={() => idRef.current?.click()} title="운전면허증 사진 첨부">
+              <FileThumb file={idCard} />
               <ImagePlus size={ICON.md} color={idCard ? C.ok : C.faint} />
               <span style={{ fontSize: FS.sub, fontWeight: FW.strong }}>{idCard?.name || '운전면허증 사진'}</span>
+              <ReqTag />
               <span style={{ fontSize: FS.micro, color: C.faint }}>{preparingImage ? '사진 준비 중' : '큰 파일은 자동 압축'}</span>
               <input ref={idRef} type="file" accept="image/*" style={{ display: 'none' }} onClick={(event) => event.stopPropagation()} onChange={(event) => { void chooseImage(event.target.files?.[0] || null, '운전면허증', setIdCard); event.currentTarget.value = ''; }} />
             </Dropzone>
             <Dropzone variant="photo" active={!!selfie} onClick={() => selfieRef.current?.click()} title="본인 셀카 첨부">
+              <FileThumb file={selfie} />
               <ImagePlus size={ICON.md} color={selfie ? C.ok : C.faint} />
               <span style={{ fontSize: FS.sub, fontWeight: FW.strong }}>{selfie?.name || '본인 셀카'}</span>
+              <ReqTag />
               <span style={{ fontSize: FS.micro, color: C.faint }}>{preparingImage ? '사진 준비 중' : '얼굴이 선명한 사진'}</span>
               <input ref={selfieRef} type="file" accept="image/*" capture="user" style={{ display: 'none' }} onClick={(event) => event.stopPropagation()} onChange={(event) => { void chooseImage(event.target.files?.[0] || null, '본인 셀카', setSelfie); event.currentTarget.value = ''; }} />
             </Dropzone>
-          </div>
+            </div>
+          </ListGroup>
         </>
       ) : null}
 
       {step?.kind === 'additional-driver' ? (
         <>
-          <div style={{ fontSize: FS.title, fontWeight: FW.head }}>추가 운전자 등록</div>
-          <p style={{ fontSize: FS.sub, color: C.mute, lineHeight: 1.65 }}>
-            이 계약은 추가 운전자를 최대 {additionalDriverLimit}명까지 등록할 수 있습니다.
-            추가 운전자가 없으면 등록하지 않고 다음으로 이동하세요.
-          </p>
           <ListGroup>
             <DetailRow label="운전 가능 범위" value={S(snapshot.additionalDriverPolicy?.driverScope) || '계약서 기재 운전자'} stacked />
             <DetailRow label="추가운전자 비용" value={additionalDriverCost} stacked />
@@ -920,11 +956,6 @@ export default function SignPage() {
 
       {step?.kind === 'documents' ? (
         <>
-          <div style={{ fontSize: FS.title, fontWeight: FW.head }}>렌터카사 요청서류</div>
-          <p style={{ fontSize: FS.sub, color: C.mute, lineHeight: 1.65 }}>
-            {S(snapshot.landlord?.companyName) || '계약 렌터카사'}에서 이 계약에 필요한 서류입니다.
-            사진으로 촬영하거나 PDF를 첨부해 주세요.
-          </p>
           <div style={{ display: 'grid', gap: 10 }}>
             {requiredDocuments.map((document) => {
               const file = supportingFiles[document.key];
@@ -937,6 +968,7 @@ export default function SignPage() {
                     onClick={() => supportingFileRefs.current[document.key]?.click()}
                     title={`${document.label} 첨부`}
                   >
+                    <FileThumb file={file && file.type.startsWith('image/') ? file : null} />
                     <FileText size={ICON.md} color={file || uploaded ? C.ok : C.faint} />
                     <span style={{ fontSize: FS.sub, fontWeight: FW.strong }}>
                       {file?.name || (uploaded ? `${document.label} 제출 완료` : document.label)}
@@ -969,7 +1001,6 @@ export default function SignPage() {
 
       {step?.kind === 'section' && step.page ? (
         <>
-          <p style={{ fontSize: FS.sub, color: C.mute, lineHeight: 1.6 }}>{step.page.note}</p>
           <div
             ref={readRef}
             onScroll={onRead}
@@ -977,7 +1008,7 @@ export default function SignPage() {
           >
             <ListGroup>
               {(step.page.rows || []).map((row, index) => (
-                <DetailRow key={`${row.label}-${index}`} label={row.label || '항목'} value={row.value || '—'} stacked />
+                <ConditionRow key={`${row.label}-${index}`} label={row.label || '항목'} value={row.value || '—'} />
               ))}
             </ListGroup>
           </div>
@@ -987,7 +1018,6 @@ export default function SignPage() {
 
       {step?.kind === 'agreement' ? (
         <>
-          <p style={{ fontSize: FS.sub, color: C.mute }}>약관을 끝까지 읽은 뒤 계약과 약관 동의를 선택해 주세요.</p>
           <div
             ref={readRef}
             onScroll={onRead}
@@ -1049,9 +1079,12 @@ export default function SignPage() {
       </section>
 
       <div className={styles.navigation}>
-        <Btn title="이전" variant="ghost" disabled={stepIndex <= 0 || busy} onClick={() => setStepIndex((index) => Math.max(0, index - 1))}>
+        <div className={styles.navPrev}>
+        <Btn full title="이전" variant="ghost" disabled={stepIndex <= 0 || busy} onClick={() => setStepIndex((index) => Math.max(0, index - 1))}>
           <ButtonLabel icon={<ArrowLeft size={ICON.md} aria-hidden />}>이전</ButtonLabel>
         </Btn>
+        </div>
+        <div className={styles.navNext}>
         {step?.kind === 'signature' ? (
           <Btn full title="본인확인 자료와 전자서명 제출" disabled={busy || preparingImage} onClick={() => void submit()}>
             <ButtonLabel icon={<Send size={ICON.md} aria-hidden />}>{busy ? '안전하게 제출 중…' : '확인하고 전자서명 제출'}</ButtonLabel>
@@ -1061,6 +1094,7 @@ export default function SignPage() {
             {busy ? '확인 기록 중…' : step?.kind === 'summary' ? '개인정보 입력 단계로 이동' : step?.kind === 'section' ? (step.page?.confirmLabel || '확인하고 다음') : step?.kind === 'agreement' ? (snapshot.agreement?.confirmLabel || '동의하고 서명으로') : '다음'}
           </Btn>
         )}
+        </div>
       </div>
       </div>
     </main>
