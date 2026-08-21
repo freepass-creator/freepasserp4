@@ -12,7 +12,7 @@ import { sectionIcon } from '@/components/section-icons';
 import { copyText } from '@/lib/clipboard';
 import { toast } from '@/components/Toaster';
 import { useIsMobile } from '@/lib/use-mobile';
-import { won, Btn, C, R, PILL_R, NUM, FW, FS, ICON, DetailTable, DT, R_CARD } from '@/components/ui';
+import { won, Btn, C, R, NUM, FW, FS, ICON, DetailTable, DT, R_CARD, SH } from '@/components/ui';
 
 /**
  * **상품상세 우측 영업자 패널**(사장님 2026-08-20 목업 「이렇게 상품상세 우측에 들어가는거잖아」).
@@ -42,7 +42,7 @@ import { won, Btn, C, R, PILL_R, NUM, FW, FS, ICON, DetailTable, DT, R_CARD } fr
 export const AGENT_COL_BP = 1200;
 /** 칼럼 폭 · 본문과의 간격 — 페이지가 flex gap 을 맞추려면 알아야 한다. */
 const AGENT_COL_W = 380;
-export const AGENT_COL_GAP = 16;
+export const AGENT_COL_GAP = 28;
 /** 위아래 같은 숨 간격 — 위는 곧 «상단에 부딪혔을 때 멈추는 자리»다. */
 const CHROME_GAP = 14;
 
@@ -131,31 +131,29 @@ export function ProductAgentPanel({ p, audience, pinnedShare }: {
    */
   const invTh: CSSProperties = {
     padding: '5px 10px', textAlign: 'left', fontSize: FS.cap, fontWeight: FW.strong,
-    color: INV.dim, background: C.brandDeep, whiteSpace: 'nowrap',
+    color: C.mute, background: C.head, whiteSpace: 'nowrap', borderBottom: `1px solid ${C.line}`,
   };
   const invThR: CSSProperties = { ...invTh, textAlign: 'right' };
   const invLabel: CSSProperties = {
     padding: '6px 10px', textAlign: 'left', fontWeight: FW.strong, fontSize: FS.body,
-    color: C.inverse, whiteSpace: 'nowrap',
+    color: C.ink, whiteSpace: 'nowrap',
   };
   const invTd: CSSProperties = {
-    padding: '6px 10px', textAlign: 'right', color: C.inverse,
+    padding: '6px 10px', textAlign: 'right', color: C.ink,
     fontFamily: NUM, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
   };
   const invTr = (i: number, on = false): CSSProperties => ({
-    borderTop: i ? `1px solid ${INV.line}` : 'none',
-    background: on ? INV.soft : 'transparent',
+    borderTop: i ? `1px solid ${C.line2}` : 'none',
+    background: on ? C.selected : 'transparent',
   });
-  /** 선택된 행 표시 = 왼쪽 굵은 바. 바탕만으로는 구조 띠와 헷갈린다. */
-  const pickBar = (on: boolean): CSSProperties => (on ? { boxShadow: `inset 3px 0 0 ${C.inverse}` } : {});
 
   const priceRow = (kind: string, m: number, rent: number, deposit: number, i: number, best: boolean) => (
     <tr key={`${kind}:${m}`} style={invTr(i, best)}>
-      <th scope="row" style={{ ...invLabel, ...pickBar(best) }}>
+      <th scope="row" style={invLabel}>
         {m}개월
-        {best ? <span style={{ marginLeft: 5, fontSize: FS.micro, fontWeight: FW.label, color: INV.dim }}>최저</span> : null}
+        {best ? <span style={{ marginLeft: 5, fontSize: FS.micro, fontWeight: FW.label, color: C.mute }}>최저</span> : null}
       </th>
-      <td style={{ ...invTd, fontWeight: FW.head, fontSize: FS.title }}>{won(rent)}</td>
+      <td style={{ ...invTd, fontWeight: FW.head, fontSize: FS.title, color: C.brand }}>{won(rent)}</td>
       <td style={invTd}>{deposit > 0 ? won(deposit) : '무보증'}</td>
     </tr>
   );
@@ -164,27 +162,39 @@ export function ProductAgentPanel({ p, audience, pinnedShare }: {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       {/*
         ⓪ 패널 머리 — **이 칼럼이 무엇인지 맨 위에서 말한다**(사장님 2026-08-20 「영업자 전용 패널이라고 왜 상단에 안해주냐고」).
-           **좌측 4px 네이비 바** = 「영업자 것」의 표식. 아래 섹션 표들(DetailTable tone='agent')과 같은 문법이라
-           패널 안에서 색축이 하나로 선다. 앰버는 「주의·수기입력」 뜻으로 돌려보냈다.
+           표식은 **글자 한 줄**로 끝낸다. 면을 칠하거나(앰버) 좌측 바를 두르면 블록을 감싸는 인용문처럼 읽힌다
+           (사장님 2026-08-20 「좌측에 바로 감싸는 느낌, 별로」). 소속은 이미 «우측 칼럼에 있다»는 위치와
+           아래 표들의 반전 머리띠가 말하고 있다.
            손님 화면엔 이 칼럼이 통째로 안 붙으므로, 그 사실은 칸마다가 아니라 **여기 한 번**만 적는다.
       */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
-        border: `1px solid ${C.line}`, borderLeft: `4px solid ${C.brand}`, background: C.taupeBg,
-        borderRadius: R_CARD, padding: '6px 10px',
+        background: C.taupeBg, padding: '2px 2px 0',
       }}>
         <span style={{ fontSize: FS.sub, fontWeight: FW.title, color: C.ink }}>
           영업자 전용 패널
         </span>
+        {/* 「손님 비공개」 — 네 글자로 줄였다. 「손님 화면엔 없음」은 설명문이라 딱지 자리에 길고,
+            읽는 사람(영업사원)에겐 «안 나간다»는 사실만 필요하다. 연한 네이비 틴트로 눈에는 걸리게 둔다. */}
         <span style={{
-          flex: '0 0 auto', fontSize: FS.micro, fontWeight: FW.label, color: C.mute,
-          border: `1px solid ${C.line}`, borderRadius: PILL_R, padding: '0 6px', lineHeight: 1.6,
-        }}>손님 화면엔 없음</span>
+          flex: '0 0 auto', fontSize: FS.micro, fontWeight: FW.label,
+          color: C.brand, background: 'var(--brand-bg)',
+          borderRadius: R, padding: '1px 6px', lineHeight: 1.6,
+        }}>손님 비공개</span>
       </div>
 
-      {/* ① 대여료 — 전 기간 목록(반전). 패널이 늘 떠 있으니 본문 위로 올라가지 않아도 «얼마»가 보인다. */}
-      <div style={{ background: C.brand, color: C.inverse, borderRadius: R, overflow: 'hidden' }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, padding: '9px 10px' }}>
+      {/*
+        ① 대여료 — 전 기간 목록. 패널이 늘 떠 있으니 본문 위로 올라가지 않아도 «얼마»가 보인다.
+        ⚠ 예전엔 카드 전체가 반전(네이비 면)이었는데 되돌렸다 — 사장님 2026-08-20
+          「영업자 보는 거 너무 반전 대여료표라서 조금 연하게, 강조할 곳은 아니니까」.
+          영업자 패널은 «참고하는 곳»이지 결론을 내리는 곳이 아니다. 결론(고른 조건)은 본문 표가 든다.
+          그래서 반전은 **머리띠 한 줄**만 남기고 몸통은 흰 카드로 — 패널 안 다른 표들과 문법도 같아진다.
+      */}
+      <div style={{ background: C.taupeBg, borderRadius: R_CARD, overflow: 'hidden' }}>
+        <div style={{
+          display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, padding: '9px 10px',
+          background: C.brand, color: C.inverse,
+        }}>
           <span style={{ fontSize: FS.body, fontWeight: FW.title, minWidth: 0, overflowWrap: 'anywhere' }}>{vehicleName(p)}</span>
           {plate ? (
             <span style={{
@@ -209,7 +219,7 @@ export function ProductAgentPanel({ p, audience, pinnedShare }: {
                 <>
                   {/* 인수형은 «같은 기간의 다른 상품» — 표를 쪼개지 않고 갈래 줄 하나로 나눈다(본문 표와 같은 규칙). */}
                   <tr>
-                    <th scope="colgroup" colSpan={3} style={{ ...invTh, borderTop: `2px solid ${C.inverse}` }}>
+                    <th scope="colgroup" colSpan={3} style={{ ...invTh, borderTop: `2px solid ${C.line}` }}>
                       인수형 · 만기 인수
                     </th>
                   </tr>
@@ -219,19 +229,19 @@ export function ProductAgentPanel({ p, audience, pinnedShare }: {
             </tbody>
           </table>
         ) : (
-          <div style={{ padding: '0 10px 10px', fontSize: FS.cap, color: INV.dim }}>
+          <div style={{ padding: '10px', fontSize: FS.cap, color: C.faint }}>
             대여료 미입력 — 손님 안내 전에 요금을 넣어야 합니다.
           </div>
         )}
       </div>
 
-      {/* ② 영업 정보 — 반전 머리띠 + 앰버 본문(손님에게 보여주지 않는 칸). */}
+      {/* ② 영업 정보 — 머리띠는 스카이. 본문(네이비 반전)과 구역이 갈리되 더 세지는 않다. */}
       <DetailTable
         title="영업 정보"
         hint="상담용"
         icon={sectionIcon('영업 정보')}
         tone="agent"
-        headTone="invert"
+        accent="agent"
         span={2}
         widths={['44%', undefined]}
         label="영업자 상담용 정보"
@@ -254,7 +264,7 @@ export function ProductAgentPanel({ p, audience, pinnedShare }: {
           hint="계약 단계"
           icon={sectionIcon('계약 조건')}
           tone="agent"
-          headTone="invert"
+          accent="agent"
           span={2}
           widths={['44%', undefined]}
           label="계약 단계 정책"
@@ -327,8 +337,16 @@ export function ProductAgentColumn({ p, audience }: { p: EntityRecord; audience?
         aria-label="영업자 패널"
         style={{
           position: 'fixed',
-          // 사진 윗선에 맞추지 않는다 — 사진 크기에 따라 시작 높이가 달라지면 패널이 매번 다른 자리에 선다.
-          top: `calc(var(--topbar-h) + ${CHROME_GAP}px)`,
+          /*
+           * **상단바에 딱 붙는다.** 사진 윗선에 맞추지 않는다 — 사진 크기에 따라 시작 높이가 달라지면
+           * 패널이 매번 다른 자리에 선다(사장님 2026-08-20 「상단바 밑에부터 바로 시작」).
+           *
+           * 아래는 하단바 선에 박혀 있는데(「하단에 박아달라는 거였어 하단바처럼」) 위만 14px 떠 있어
+           * 위아래가 어긋나 보였다 — 한쪽만 뜬 판은 «걸쳐 놓은 것»으로 읽힌다.
+           * 양끝을 붙이면 **위에서 아래까지 꽂힌 칼럼**이 되어 본문과 성격이 확실히 갈린다.
+           * 그래서 모서리도 안 둥글린다 — 양끝이 닿아 있는데 모서리만 둥글면 어디에도 안 닿은 것처럼 보인다.
+           */
+          top: 'var(--topbar-h)',
           // 바닥은 **하단바와 같은 선**(사장님 2026-08-20 「하단에 박아달라는 거였어 하단바처럼」).
           //  독 위로 띄우면 공유 줄만 붕 떠서 «독의 일부»로 안 읽힌다.
           bottom: 0,
@@ -344,10 +362,25 @@ export function ProductAgentColumn({ p, audience }: { p: EntityRecord; audience?
           zIndex: 40,
           boxSizing: 'border-box',
           pointerEvents: 'auto',
+          /*
+           * **한 층 올라온 판**(사장님 2026-08-20 「한층 올라와 있는 느낌으로 다른 그레이드」).
+           *
+           * 처음엔 내려앉은 바닥(`--bg-sunken`)을 깔았는데 안 읽혔다 — 페이지 바탕을 #eaedf2 로 낮춘 뒤라
+           * sunken(#e2e6ec)과 두 단계밖에 차이가 안 났다. 가라앉히는 쪽은 여지가 없다.
+           * 그래서 반대로 «띄운다»: 흰 판 + 진짜 그림자(--shadow-md) + 위 두 모서리만 둥글게.
+           * 페이지(회색)보다 위, 본문 카드(같은 흰색이지만 그림자 없음)보다도 위 — 층이 하나 더 생긴다.
+           *
+           * 안의 블록들은 테두리를 벗는다(detail.tsx tone='agent') — 판이 이미 테두리를 가졌으므로
+           * 블록마다 또 두르면 «상자 속 상자»가 되어 도로 시끄러워진다. 구획은 머리띠가 나눈다.
+           */
+          background: C.taupeBg,
+          borderLeft: `1px solid ${C.line}`,
+          borderRight: `1px solid ${C.line}`,
+          boxShadow: SH.cardHover,
         }}
       >
         {/* 굴러가는 쪽 */}
-        <div style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto', overscrollBehavior: 'contain' }}>
+        <div style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto', overscrollBehavior: 'contain', padding: `${CHROME_GAP}px 12px 0` }}>
           <ProductAgentPanel p={p} audience={audience} pinnedShare />
         </div>
         {/*
@@ -361,8 +394,9 @@ export function ProductAgentColumn({ p, audience }: { p: EntityRecord; audience?
         */}
         <div style={{
           flex: '0 0 auto',
-          background: C.bg,
-          padding: 'var(--fp-bar-pad-y) 0',
+          background: C.taupeBg,
+          borderTop: `1px solid ${C.line2}`,
+          padding: 'var(--fp-bar-pad-y) 12px',
           paddingBottom: 'calc(var(--fp-bar-pad-y) + var(--fp-dock-safe, 0px))',
         }}>
           <ProductAgentShareActions p={p} />

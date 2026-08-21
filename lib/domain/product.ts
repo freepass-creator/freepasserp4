@@ -613,7 +613,19 @@ export function agentContractRows(p: EntityRecord, audience: Audience = 'agent')
  */
 export type DetailTier = 'main' | 'sub' | 'agent';
 export type DetailSection =
-  | { title: string; hint?: string; tier?: DetailTier; kind: 'kv'; rows: KvRow[]; chips?: string[]; chipsLabel?: string; chipsAfter?: number }
+  | {
+      title: string; hint?: string; tier?: DetailTier; kind: 'kv'; rows: KvRow[];
+      chips?: string[]; chipsLabel?: string; chipsAfter?: number;
+      /**
+       * **짝지어 흐르는 격자**(웹 2열). 값이 짧고 서로 대등해 «비교»가 아니라 «훑기»인 섹션만.
+       *
+       * 섹션의 성격은 장식이 아니라 «값이 어떻게 행동하는가»에서 나온다(사장님 2026-08-20
+       * 「차량스펙만의 느낌, 대여료만의 느낌이 있어야」). 차량스펙은 값이 한 낱말이라 두 열로 흘려도
+       * 읽히지만, 계약조건은 값이 문장이라 두 열로 쪼개면 줄이 접혀 오히려 못 읽는다.
+       * 그래서 2열/1열 차이는 취향이 아니라 값 길이가 정한다 — 규격을 어겨도 어색하지 않은 이유다.
+       */
+      pair?: boolean;
+    }
   | { title: string; hint?: string; tier?: DetailTier; kind: 'ins'; rows: InsRow[]; note?: string }
   | { title: string; hint?: string; tier?: DetailTier; kind: 'price' }
   | { title: string; hint?: string; tier?: DetailTier; kind: 'chips'; items: string[] };
@@ -704,7 +716,16 @@ export function detailSections(p: EntityRecord, audience: Audience = 'agent'): D
   })();
   // 1) 차량스펙(제조사 기준) = 신원 → 옵션칩 → 연식·주행 / 동력 / 색상 / 분류 / 최초등록
   const carRows: KvRow[] = [
-    ['차량', [pv('maker'), pv('sub_model') || pv('model'), pv('variant'), pv('trim_name')].filter(Boolean).join(' ') || '미입력'],
+    /**
+      * **모델명 = 전문(全文)**. 제조사 + 모델 + 세부모델·트림까지 다 붙인다
+      * (사장님 2026-08-20 「여기에 위에 풀로 다 들어가야지」).
+      *
+      * 한 번 「제조사 + 모델」로 줄였다가 되돌렸다. 줄인 이유는 «제목과 겹친다»였는데, 실제로는
+      * **제목이 한 줄로 잘린다** — 목록·상세 머리의 차명은 폭을 넘으면 «…»로 끝난다.
+      * 그래서 전문을 끝까지 읽을 수 있는 자리가 이 칸뿐이다. 겹치는 게 아니라 «잘린 것을 펴는» 자리다.
+      * 값 칸은 `DT.td`(overflowWrap:anywhere)라 길면 줄을 바꿔 다 보인다.
+      */
+    ['모델명', [pv('maker'), pv('sub_model') || pv('model'), pv('variant'), pv('trim_name')].filter(Boolean).join(' ') || '미입력'],
     // 차량번호는 손님에게도 보인다 — 공유 견적서에서 «어느 차인지»를 특정하는 유일한 값이다.
     //  (없는 매물이 있다: 재렌트·재구독은 공급사 시트에 번호판을 안 적는 경우가 있어
     //   빈 줄을 만들지 않도록 값이 있을 때만 넣는다. 나머지 행의 `-` 규칙과 다른 이유다.)
@@ -714,17 +735,42 @@ export function detailSections(p: EntityRecord, audience: Audience = 'agent'): D
       const acc = pv('accident_history');
       return acc ? `${base} · ${acc}` : base;
     })()],
+    /*
+     * **한 줄에는 한 축만 넣는다**(사장님 2026-08-20 「인승과 동력이 무슨 상관이고 · 차종 크기 구분을 상품분류랑 같이 넣어놓고」).
+     *
+     * 예전엔 이렇게 섞여 있었다:
+     *   동력 = 연료 · 구동 · 배기량 · **인승**        ← 인승은 «차의 몸»이지 동력이 아니다
+     *   분류 = 차급 · 용도 · **중고렌트**             ← 중고렌트는 «상품 형태»지 차종 분류가 아니다
+     * 값이 옆에 나란히 서면 사람은 «같은 갈래»로 읽는다. 그래서 축을 갈라 세운다:
+     *   동력 = 엔진이 어떻게 굴러가나 (연료 · 구동 · 배기량)
+     *   차종 = 차가 어떤 몸인가       (차급 · 인승 · 용도)
+     * 상품 형태(신차렌트·중고구독)는 여기서 뺀다 — 카드·상세 머리의 CORE 뱃지가 이미 들고 있어
+     * 같은 값이 한 화면에 두 번 찍힌다(「한 칸 한 원자」).
+     */
     ['동력', gSlots([
       fuelDisplay(p.fuel_type) || pv('fuel_type'),
       pv('drive_type'),
       ccLabel,
-      p.seats ? `${p.seats}인승` : '',
     ])],
-    ['색상', [
-      `외장색 ${pv('ext_color') || '미입력'}`,
-      `내장색 ${pv('int_color') || '미입력'}`,
-    ].join(' · ')],
-    ['분류', gSlots([pv('vehicle_class'), pv('usage'), canonProductType(p.product_type)])],
+    /*
+     * 색은 «빈칸»과 «하이픈»이 같은 뜻이다 — 공급사 시트에 `-`·`—`·`.`·`N/A` 가 값으로 들어온다
+     * (사장님 2026-08-20 「내장색 미입력으로 가 줘야 하고」 — 화면에 「내장색 -」로 찍히고 있었다).
+     * 빈 문자열만 걸러 내면 하이픈이 색 이름 행세를 한다. 여기서 한 번에 미입력으로 눕힌다.
+     */
+    ['색상', (() => {
+      const colorOf = (key: string) => {
+        const v = pv(key);
+        return !v || /^[-–—.]+$/.test(v) || /^(n\/?a|없음|미정)$/i.test(v) ? '미입력' : v;
+      };
+      return [`외장색 ${colorOf('ext_color')}`, `내장색 ${colorOf('int_color')}`].join(' · ');
+    })()],
+    /*
+     * 차종 = 차급 + 인승. **용도(자가용/영업용/관용)는 뺐다**(사장님 2026-08-20 「용도 빼」) —
+     * 등록증에서 오는 값인데 우리 데이터엔 대부분 비어 있고, 렌터카는 어차피 대여용이라
+     * 상담에서 쓸 일이 없다. 빈 칸이 「미입력」으로 서서 «무엇이 빈 건지»만 헷갈리게 했다.
+     * 빈 값은 자리를 남기지 않는다(`gSlots` 아님) — 성격이 다른 값이 모인 줄이라 있는 것만 잇는다.
+     */
+    ['차종', g([pv('vehicle_class'), p.seats ? `${p.seats}인승` : ''])],
     // 공급사 원본이 `25-11-5` 처럼 들쭉날쭉해서 표기만 YYYY-MM-DD 로 맞춘다(못 읽으면 원본 그대로).
     ['최초등록', ymdDisplay(pv('first_registration_date')) || '미입력'],
   ];
@@ -784,7 +830,15 @@ export function detailSections(p: EntityRecord, audience: Audience = 'agent'): D
       ? g(['연 2만km', autoplusMileage && `1만km 추가 ${autoplusMileage}`])
       : g([s('annual_mileage'), s('mileage_upcharge_per_10000km') && `1만km초과 ${s('mileage_upcharge_per_10000km')}`])],
     ['보증금', g([s('deposit_installment') && `분납 ${s('deposit_installment')}`, s('deposit_card_payment') && `카드 ${s('deposit_card_payment')}`])],
-    ['결제 · 위약', g([s('payment_method'), s('penalty_condition') && `위약 ${s('penalty_condition')}`])],
+    /*
+     * **손님 화면에는 위약금을 안 싣는다**(사장님 2026-08-20 「손님 보는 거에는 위약금이나 이런 패널티 조항은 빼자」).
+     * 상담 자리에서 «어떤 차를 얼마에» 를 보는 화면인데 벌칙 조항이 같이 서면 계약서를 읽는 화면이 된다.
+     * 위약 조건 자체는 없애는 게 아니라 **말할 사람이 말하도록** 옮긴 것이다 —
+     * 영업자 패널의 「중도해지 위약금」이 그대로 들고 있고, 확정된 조건은 전자계약서가 든다.
+     */
+    ...(audience === 'customer'
+      ? [['결제', s('payment_method')] as KvRow]
+      : [['결제 · 위약', g([s('payment_method'), s('penalty_condition') && `위약 ${s('penalty_condition')}`])] as KvRow]),
     // 연령인하·하향 요금은 시트 규격 칸(`driver_age_lowering`·`age_lowering_cost`). 옛 sheet_meta 21·23세 칸은 뒤에 남겨 둔다.
     ['운전 연령', g([
       s('basic_driver_age') && `기본 ${s('basic_driver_age')}`,
@@ -819,7 +873,7 @@ export function detailSections(p: EntityRecord, audience: Audience = 'agent'): D
   // 사진(뷰) → 차량스펙(제조사) → 대여료조건 → 보험조건 → 계약조건 → 기타사항.
   //  영업자 전용 값은 본문이 아니라 **우측 영업자 패널**(`agentPanelRows`)이 들고 간다.
   const out: DetailSection[] = [
-    { title: '차량스펙', hint: '제조사 기준', tier: 'main', kind: 'kv', rows: carRows, chips: opts, chipsLabel: '선택옵션', chipsAfter: 1 },
+    { title: '차량스펙', hint: '제조사 기준', tier: 'main', kind: 'kv', rows: carRows, chips: opts, chipsLabel: '선택옵션', chipsAfter: 1, pair: true },
     { title: '대여료조건', hint: '기간별 대여료 · 보증금', tier: 'main', kind: 'price' },
     { title: '보험조건', hint: '보장한도 · 면책', tier: 'sub', kind: 'ins', rows: insRows, note: insNote },
     { title: '계약조건', hint: '심사 · 약정 · 운전자', tier: 'sub', kind: 'kv', rows: condRows },

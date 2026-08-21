@@ -1,6 +1,7 @@
 ﻿'use client';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback, useDeferredValue, type CSSProperties, type MouseEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import { Sheet } from 'lucide-react';
 import { getCompanyId } from '@/lib/tenant';
 import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
@@ -22,7 +23,7 @@ import {
 } from '@/lib/finder-filter-presets';
 import { toast } from '@/components/Toaster';
 import { StartGuide, useStartGuide } from '@/components/StartGuide';
-import { C, R, FS, CenterNote, ContextMenu, useContextMenu } from '@/components/ui';
+import { C, R, FS, CenterNote, ContextMenu, useContextMenu, FW, ICON } from '@/components/ui';
 import { useAuthReady, useSession } from '@/lib/auth-context';
 import { useAppBar } from '@/lib/appbar';
 import { FINDER_RESET_LIMIT } from '@/lib/finder-session';
@@ -61,7 +62,14 @@ const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : use
 /** 필터·검색·정렬만 유지. limit(더보기/전체보기)는 절대 저장하지 않음. */
 
 
+/**
+ * `excel` = **판매시트 그대로 보기**(SheetView). 이름만 옛 키를 쓴다 —
+ * 저장된 세션·즐겨찾기가 그 값을 들고 있어 바꾸면 뷰가 초기화된다.
+ * 원본 셀은 시트에서 읽고, 검색·필터는 서버가 확정한 ERP 상세 주소를 기준으로만 교집합한다.
+ */
 type FinderView = 'card' | 'list' | 'excel';
+/** 판매시트 직접 보기로 전환한 뒤의 개인 보기 설정 키. 기존 카드/엑셀 설정은 한 번만 무시해 전원이 새 기본 화면을 본다. */
+const FINDER_VIEW_STORAGE_KEY = 'fp4_finder_view_v2';
 function isFinderView(value: unknown): value is FinderView {
   return value === 'card' || value === 'list' || value === 'excel';
 }
@@ -83,7 +91,10 @@ export default function Finder() {
   const [models, setModels] = useState<Set<string>>(() => new Set()); // 인기차종 빠른필터(모델명)
   const [sort, setSort] = useState(FINDER_DEFAULT_SORT);
   const [interestFlt, setInterestFlt] = useState<Set<InterestKey>>(new Set());
-  const [view, setViewState] = useState<FinderView>('card');
+  // 상품 화면의 정본은 판매시트다. 첫 진입은 시트로 열고, 필요할 때만 카드/상세로 바꾼다.
+  const [view, setViewState] = useState<FinderView>('excel');
+  /** 판매시트가 실제로 표시 중인 행 수 — 상단 헤더의 시트 전용 대수다. */
+  const [sheetVisibleCount, setSheetVisibleCount] = useState<number | null>(null);
   const [homeTool, setHomeTool] = useState<HomeTool | null>(null); // 모바일 필터 시트
   const [filterDraft, setFilterDraft] = useState<FilterBag | null>(null);
   /** 시트 연 순간의 라이브 스냅 — 취소/필터버튼 닫기 시 여기로 회귀(최근·관심·정렬 포함). */
@@ -206,7 +217,9 @@ export default function Finder() {
   const setView = (v: string) => {
     if (!isFinderView(v)) return;
     setViewState(v);
-    if (typeof window !== 'undefined') localStorage.setItem('fp4_finder_view', v);
+    // 이전 시트 탭의 대수가 카드/상세 헤더에 잠깐 남지 않게 즉시 비운다.
+    setSheetVisibleCount(null);
+    if (typeof window !== 'undefined') localStorage.setItem(FINDER_VIEW_STORAGE_KEY, v);
   };
   const deferredView = useDeferredValue(view);
   // effView = 툴바 하이라이트용(즉시) · renderView = 목록·데이터용(지연). 모바일은 카드만(뷰·다운로드 미제공).
@@ -279,7 +292,7 @@ export default function Finder() {
 
   // 보기 설정 복원 = 페인트 전(layout effect) → 새로고침 시 저장된 뷰 그대로.
   useIsoLayoutEffect(() => {
-    const v = typeof window !== 'undefined' ? localStorage.getItem('fp4_finder_view') : null;
+    const v = typeof window !== 'undefined' ? localStorage.getItem(FINDER_VIEW_STORAGE_KEY) : null;
     if (isFinderView(v)) setViewState(v);
     // 세부 메뉴는 떠 있는 패널 — 새로고침 때 자동으로 열지 않음. 사이드바 접힘 CSS 잔상 방지.
     if (typeof window !== 'undefined') {
@@ -326,13 +339,47 @@ export default function Finder() {
   });
 
   const foundCount = renderView === 'excel' ? excelRows.length : list.length;
+  const sheetOnly = effView === 'excel';
   const colFilterN = Object.values(colFilter).reduce((n, set) => n + set.size, 0);
   const searching = !!(q || activeCount(s) > 0 || models.size > 0 || interestFlt.size > 0 || colFilterN > 0);
+  // SheetView는 원본 문자열을 EntityRecord로 추측 변환하지 않는다. 이미 ERP 엔진이 판정한
+  // list의 정확한 상세 주소만 전달해, 같은 검색·필터 결과를 원본 시트 순서 그대로 보여 준다.
+  const sheetFinderFilterActive = !!(q || activeCount(s) > 0 || models.size > 0 || interestFlt.size > 0);
+  const sheetFinderAllowedDetailHrefs = useMemo(() => list
+    .map((product) => {
+      const code = String(product.product_code || product._key || '');
+      return code ? `/m/${encodeURIComponent(code)}` : '';
+    })
+    .filter((href): href is string => !!href), [list]);
 
   // 상단바 상태창 = PageStatus SSOT (웹·모바일 동일)
+  const headerCount = sheetOnly ? sheetVisibleCount : (rows == null ? null : totalVisible);
   useAppBar({
-    title: <FinderStatus total={rows == null ? null : totalVisible} found={foundCount} searching={searching} />,
-  }, [rows, totalVisible, foundCount, searching]);
+    title: (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+        {/*
+          상단바 이름은 **어느 뷰에서나 「상품찾기 N대」로 같다**(사장님 2026-08-21
+          「우측 상단에 동일하게 상품찾기 0000대 하고 그 뒤에다가 시트 아이콘 넣고 프리패스 상품리스트」).
+          시트 뷰라고 이름을 통째로 바꿔 버리면 «다른 화면에 왔나» 싶고, 뒤로 갔을 때 이름이 또 바뀐다.
+          «지금 무엇을 보고 있는지»는 이름을 갈아치우는 대신 **뒤에 딱지 하나**로 덧붙인다.
+        */}
+        <FinderStatus
+          total={headerCount}
+          found={sheetOnly ? undefined : foundCount}
+          searching={sheetOnly ? false : searching}
+        />
+        {sheetOnly ? (
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', gap: 5, flex: '0 0 auto',
+            fontSize: FS.cap, fontWeight: FW.label, color: C.mute,
+            border: `1px solid ${C.line}`, borderRadius: R, padding: '2px 8px', whiteSpace: 'nowrap',
+          }}>
+            <Sheet size={ICON.sm} aria-hidden />프리패스 상품리스트
+          </span>
+        ) : null}
+      </span>
+    ),
+  }, [foundCount, headerCount, searching, sheetOnly]);
 
   // 기간 필터 1개만 = 카드 앵커 가격. 복수/전체 = 최저가.
   const focusMonth = periods.size === 1 ? [...periods][0] : undefined;
@@ -478,9 +525,11 @@ export default function Finder() {
     clearFavorites: () => clearInterestList('fav'),
   };
 
+  /* 시트 원본은 유지하고, 검색·퀵필터는 위의 exact href 교집합으로 그대로 적용한다. */
+
   return (
     <div className={`fp-finder is-nofilter${mobile && homeTool ? ` is-tool-${homeTool}` : ''}`}>
-      <section className="fp-finder-main" ref={finderMainRef}>
+      <section className={`fp-finder-main${sheetOnly ? ' is-sheet-view' : ''}`} ref={finderMainRef}>
         <FinderToolbar
           mobile={mobile}
           query={qInput}
@@ -514,7 +563,7 @@ export default function Finder() {
         ) : null}
         {/* pane = 관심함 틀고정 + 목록 스크롤(카드) / 엑셀은 본문 안 시트 스크롤 */}
         <div className="fp-finder-pane">
-          <AgentWorkflowGuide />
+          {!sheetOnly && <AgentWorkflowGuide />}
           {!mobile && (
             <div className="fp-finder-interest-bar">
               <InterestPanel
@@ -558,6 +607,11 @@ export default function Finder() {
                 setLimit(activeList.length);
               }
             }}
+            sheetFinderFilterActive={sheetFinderFilterActive}
+            sheetFinderFilterReady={rows !== null}
+            sheetFinderAllowedDetailHrefs={sheetFinderAllowedDetailHrefs}
+            sheetFinderSortActive={Boolean(sort)}
+            onSheetVisibleCountChange={sheetOnly ? setSheetVisibleCount : undefined}
           />
         </div>
       </section>

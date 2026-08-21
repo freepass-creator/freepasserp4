@@ -5,7 +5,7 @@ import type { CSSProperties, ReactNode } from 'react';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
-import { C, R, SH } from '@/components/ui';
+import { C, R_CARD, SH } from '@/components/ui';
 import {
   CardTitle, CardSpecs, CardPerkLine, CardThumb, CardRailBadges,
   PricePeekRoot, PriceAmounts, PeriodChips, PeriodRange, OptionChips,
@@ -34,10 +34,12 @@ export const ProductRowCard = memo(function ProductRowCard({ p, focusMonth }: { 
     : <WebRow p={p} focusMonth={focusMonth} />;
 });
 
-function Cell({ right, children }: { right?: boolean; children?: ReactNode }) {
+/** full = 두 칸을 통째로 쓰는 줄(옵션). 우측 칸을 비워 두면 옵션이 절반 폭에서 잘린다. */
+function Cell({ right, full, children }: { right?: boolean; full?: boolean; children?: ReactNode }) {
   return (
     <div style={{
       minWidth: 0,
+      ...(full ? { gridColumn: '1 / -1' } : null),
       display: 'flex', alignItems: 'center',
       justifyContent: right ? 'flex-end' : 'flex-start',
       minHeight: 22,
@@ -70,13 +72,17 @@ function WebRow({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) {
   return (
     <Link href={href} onClick={() => haptic.nav()} className="fp-card" style={{
       display: 'flex', gap: 14, alignItems: 'stretch',
-      borderRadius: R,
+      // 웹 한 줄도 «카드»다 — 격자 카드와 같은 모서리를 쓴다(모바일 줄은 붙어 흐르므로 0 유지).
+      borderRadius: R_CARD,
       padding: '10px 12px',
       border: `1px solid ${C.line}`,
       boxShadow: SH.cardRest,
       textDecoration: 'none', color: 'inherit',
     } satisfies CSSProperties}>
-      <CardThumb p={p} w={88} marks={false} heart />
+      {/* 관심(별)은 **상품 상세에서만** 단다(사장님 2026-08-20 「상세보기 화면에도 관심 버튼은 상세페이지서만」).
+          모바일 목록은 이미 그렇게 돼 있었는데 웹 한 줄만 예외로 남아 있었다 —
+          목록은 «훑는» 자리라 손가락·마우스가 지나가는 길에 별이 눌리고, 훑는 중엔 관심 여부를 정할 일도 없다. */}
+      <CardThumb p={p} w={88} marks={false} />
 
       <PricePeekRoot p={p} focusMonth={focusMonth} style={{
         display: 'grid',
@@ -96,8 +102,10 @@ function WebRow({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) {
         </Cell>
         <Cell right><CardRailBadges p={p} /></Cell>
 
-        <Cell><OptionChips p={p} clamp /></Cell>
-        <Cell right />
+        {/* 옵션 = 한 줄 전체. 차명 옆 뱃지 칸까지 내려와 «꽉 채운다»
+            (사장님 2026-08-20 「2열은 옵션으로 꽉 채우는 거로」) — 옵션은 길이가 제각각이라
+            절반 폭에 두면 대부분 …로 잘려 정작 무엇이 붙었는지 못 읽는다. */}
+        <Cell full><OptionChips p={p} clamp /></Cell>
 
         <Cell><CardSpecs p={p} /></Cell>
         <Cell right><PriceAmounts align="end" /></Cell>
@@ -122,7 +130,7 @@ function MobileRow({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) 
       borderBottom: `1px solid ${C.line2}`,
       textDecoration: 'none', color: 'inherit',
     } satisfies CSSProperties}>
-      {/* 모바일 목록 = 찜 없음(썸네일 버튼은 상세에서만). 웹 가로카드는 heart 유지. */}
+      {/* 목록(웹·모바일) = 찜 없음. 관심 등록은 상품 상세에서만. */}
       <CardThumb p={p} w={56} marks={false} />
 
       <PricePeekRoot p={p} focusMonth={focusMonth} style={{

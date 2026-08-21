@@ -97,7 +97,11 @@ export function PriceRentDep({ align = 'end' }: { align?: 'start' | 'end' }) {
         <span style={{ fontSize: FS.micro, fontWeight: FW.body, color: peeking ? C.mute : C.faint, transition: 'color 0.12s ease' }}>월</span>
         <span style={{
           fontSize: FS.page, fontWeight: FW.head, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em',
-          color: peeking ? C.brand : C.ink, transition: 'color 0.12s ease',
+          // 카드에서 «포인트 색을 쓰는 자리»는 여기 하나다 — 금액이 카드의 결론이다(사장님 2026-08-20
+          // 「이 색깔을 군데군데 포인트로 잘 쓰면 세련돼 보인다」). 예전엔 마우스를 올려야 네이비가 됐는데,
+          // 그러면 훑는 동안에는 카드가 전부 무채라 결론이 어디인지 안 잡혔다.
+          // 기간칩을 짚는 중(peeking)에는 한 단계 더 진하게 가서 «지금 보는 값»이라는 신호를 남긴다.
+          color: peeking ? C.brandDeep : C.brand, transition: 'color 0.12s ease',
         }}>{man(focus.rent)}</span>
       </span>
       <span style={{

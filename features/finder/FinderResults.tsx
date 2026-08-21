@@ -6,7 +6,7 @@ import type { ColSort } from './excel-columns';
 import { ProductCard } from '@/components/ProductCard';
 import { ProductRowCard } from '@/components/ProductRowCard';
 import { Btn, C, CenterNote, EXCEL_ROW_H, FS, R, SH, Skeleton, ctrlH } from '@/components/ui';
-import { ExcelResultsTable } from './ExcelResultsTable';
+import { SheetView } from './SheetView';
 
 // 뷰 컨테이너 스타일 SSOT — 실제 렌더와 로딩 스켈레톤이 같은 상수를 공유(재타이핑 드리프트=레이아웃 점프 방지).
 const CARD_GRID: CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 14 };
@@ -45,20 +45,38 @@ type Props = {
   onShowAll: () => void;
   /** 보기 전환(startTransition) 중 — 프리즈 체감 완화용 dim */
   pending?: boolean;
+  /** 판매시트에 같은 ERP 검색·필터 결과를 적용하기 위한 서버 확정 상세 주소 목록. */
+  sheetFinderFilterActive?: boolean;
+  sheetFinderFilterReady?: boolean;
+  sheetFinderAllowedDetailHrefs?: string[];
+  sheetFinderSortActive?: boolean;
+  onSheetVisibleCountChange?: (count: number | null) => void;
 };
 
 export function FinderResults(props: Props) {
   const loading = props.rows == null;
   // 로딩 중 is-excel 금지 — 엑셀 flex/overflow 레이아웃에 리스트 스켈레톤이 끼면
   // 중간 공백·아래쪽 떠 있는 행(잔상)이 생긴다.
-  const excelBody = !loading && props.view === 'excel';
+  /* 시트 본문 = flex + 자체 스크롤. 기본 본문은 블록이라 SheetView 의 flex:1 이 높이를 못 받아 0으로 접힌다. */
+  const excelBody = props.view === 'excel';
   return (
     <div
       ref={props.bodyRef}
       className={`fp-finder-body${excelBody ? ' is-excel' : ''}`}
       style={props.pending ? { opacity: 0.55, transition: 'opacity .15s ease', pointerEvents: 'none' } : undefined}
     >
-      {loading ? (
+      {/* 시트 값은 서버에서 직접 읽되, ERP 검색·필터 결과는 서버 확정 상세 주소로만 안전하게 교집합한다. */}
+      {props.view === 'excel' ? (
+        <SheetView
+          mobile={props.mobile}
+          finderFilterActive={props.sheetFinderFilterActive}
+          finderFilterReady={props.sheetFinderFilterReady}
+          finderAllowedDetailHrefs={props.sheetFinderAllowedDetailHrefs}
+          finderSortActive={props.sheetFinderSortActive}
+          sheetProducts={props.rows || []}
+          onVisibleCountChange={props.onSheetVisibleCountChange}
+        />
+      ) : loading ? (
         <FinderSkeleton view={props.view} mobile={props.mobile} />
       ) : props.list.length === 0 ? (
         <CenterNote>
@@ -89,23 +107,8 @@ export function FinderResults(props: Props) {
             </div>
           ))}
         </div>
-      ) : (
-        <ExcelResultsTable
-          rows={props.shown}
-          list={props.list}
-          months={props.months}
-          filterOpen={props.filterOpen}
-          colFilter={props.colFilter}
-          setColFilter={props.setColFilter}
-          colSort={props.colSort}
-          setColSort={props.setColSort}
-          openCol={props.openCol}
-          setOpenCol={props.setOpenCol}
-          onRowClick={props.onOpenProduct}
-          onRowContextMenu={props.onProductContext}
-        />
-      )}
-      {!loading && props.moreCount > 0 && (
+      ) : null}
+      {props.view !== 'excel' && !loading && props.moreCount > 0 && (
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, flexWrap: 'wrap',
           ...(props.mobile ? { padding: '10px 12px', borderTop: `1px solid ${C.line2}` } : { marginTop: 14 }),

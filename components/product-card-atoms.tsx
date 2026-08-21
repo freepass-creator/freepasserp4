@@ -10,12 +10,13 @@ import { ProductStateMarks } from '@/components/ProductStateMarks';
 import { ProductPhotoImage } from '@/components/ProductPhoto';
 import { yearDisplay } from '@/lib/domain/vehicle-master-match';
 import { kmDisplay } from '@/lib/format';
+import { fuelDisplay } from '@/lib/domain/vehicle-master-match';
 export { productOptions, OptionChips, OptionsInline } from '@/components/product-card-options';
 import {
   badgeTip, badgeSpecs, photoMarkSpecs,
   type BadgeSpec,
 } from '@/components/product-card-badges';
-import type { BadgeTone } from '@/components/ui/badges';
+import { toneAccent, type BadgeTone } from '@/components/ui/badges';
 export {
   CarGlyph, badgeTip, benefitTip, badgeSpecs, photoMarkSpecs, badges, BadgesClip,
   type BadgeSpec,
@@ -33,7 +34,7 @@ import {
   specLine, specLineCard,
 } from '@/components/product-card-identity';
 export {
-  idParts, idMobile, specLine, specLineCard, cardTitle,
+  idParts, idMobile, specLine, specLineCard, cardTitle, plateSpecLine,
 } from '@/components/product-card-identity';
 export { Plate, CardTitle } from '@/components/product-card-identity-view';
 export { CardKind, CardRailBadges } from '@/components/product-card-badge-view';
@@ -90,7 +91,16 @@ export function CardSpecs({ p, dense, audience = 'agent', plateYear, listing }: 
   const plate = String(p.car_number || '').trim();
   const year = fmtCardYear(p);
   const fs = FS.cap;
-  const body = plateYear ? year : listing ? [year, kmDisplay(p.mileage)].filter(Boolean).join(' · ') : specLineCard(p);
+  /**
+   * 목록 줄 = 연식 · 주행 · **연료**. 연료가 빠져 있던 것을 되살린다
+   * (사장님 2026-08-20 「주행거리 뒤에 연료 안 나온다」 — `listing` 변형이 2026-08-19 들어오면서 잘렸다).
+   * 연료는 차를 고를 때 «주행거리 다음»으로 먼저 걸러 보는 값이라 한 줄에 같이 있어야 한다.
+   */
+  const body = plateYear
+    ? year
+    : listing
+      ? [year, kmDisplay(p.mileage), fuelDisplay(p.fuel_type) || String(p.fuel_type || '').trim()].filter(Boolean).join(' · ')
+      : specLineCard(p);
   const tip = [
     showPlateSlot && plate ? plate : '',
     plateYear ? year : listing ? body : specLine(p),
@@ -224,22 +234,44 @@ export function CardThumb({ p, audience = 'agent', fill, w, h, heart = false, ma
         }} />
       )}
 
+      {/*
+        CORE 3(출고·상품·심사) = **한 덩어리 다크 글래스 바**.
+        흰 뱃지 세 장을 사진 위에 띄우면 스티커 붙인 것처럼 보인다(사장님 2026-08-20 「좀 촌스럽지 않게」).
+        떠 있는 물체를 3개에서 1개로 줄이고, 값 사이는 얇은 세로선으로만 나눈다 —
+        사진 위 글자는 «어두운 유리 + 흰 글자»가 가장 조용하고 어떤 차 색에도 안 묻는다.
+        색 정보는 버리지 않는다: 차량상태만 앞에 **작은 색점**으로 남긴다(초록=출고가능·주황=계약중…).
+      */}
       {hasCore && (
-        <div style={{
-          position: 'absolute', bottom: pad, right: pad, zIndex: 2,
-          display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 3,
-          maxWidth: '92%', overflow: 'hidden',
-        }}>
-          {coreSpecs.map((s) => (
-            <Badge
-              key={s.key}
-              tone={s.tone}
-              variant={s.variant || 'line'}
-              shape={s.shape}
-              frosted
-              pulse={s.pulse}
-              title={badgeTip(s.key, s.label)}
-            >{s.label}</Badge>
+        <div
+          className={coreSpecs.some((x) => x.pulse) ? 'fp-badge-pulse' : undefined}
+          style={{
+            position: 'absolute', bottom: pad, right: pad, zIndex: 2,
+            display: 'inline-flex', alignItems: 'center', height: 22,
+            padding: '0 8px', borderRadius: R, maxWidth: '92%', overflow: 'hidden',
+            background: listThumb ? SCRIM.heavy : SCRIM.light,
+            border: `1px solid color-mix(in srgb, ${C.inverse} 16%, transparent)`,
+            backdropFilter: listThumb ? undefined : 'blur(8px)',
+            WebkitBackdropFilter: listThumb ? undefined : 'blur(8px)',
+            color: C.inverse, fontSize: FS.micro, fontWeight: FW.strong,
+            letterSpacing: '-0.01em', whiteSpace: 'nowrap', lineHeight: 1,
+          }}
+        >
+          {coreSpecs.map((s, i) => (
+            <span key={s.key} title={badgeTip(s.key, s.label)} style={{ display: 'inline-flex', alignItems: 'center' }}>
+              {i > 0 && (
+                <span aria-hidden style={{
+                  width: 1, height: 9, margin: '0 7px', flex: '0 0 auto',
+                  background: `color-mix(in srgb, ${C.inverse} 30%, transparent)`,
+                }} />
+              )}
+              {s.key === 'st' && (
+                <span aria-hidden style={{
+                  width: 5, height: 5, borderRadius: '50%', marginRight: 5, flex: '0 0 auto',
+                  background: toneAccent(s.tone),
+                }} />
+              )}
+              {s.label}
+            </span>
           ))}
         </div>
       )}

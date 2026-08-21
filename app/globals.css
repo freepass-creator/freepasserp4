@@ -84,6 +84,16 @@
   --fp-dock-safe: env(safe-area-inset-bottom, 0px);
 
   --z-dropdown: 100; --z-modal: 1000; --z-toast: 2000;
+  /* ERP 안 판매시트의 작업면 토큰 — 원본 Google Sheet의 행·열 밀도를 기준으로 한다. */
+  --fp-sheet-grid: #dadce0;
+  --fp-sheet-rail: #f8f9fa;
+  --fp-sheet-rail-active: #e6f4ea;
+  --fp-sheet-selection: #188038;
+  --fp-sheet-ink: #202124;
+  --fp-sheet-row-h: 22px;
+  --fp-sheet-letter-h: 24px;
+  --fp-sheet-index-w: 48px;
+  --fp-sheet-formula-h: 32px;
   --shadow-sm: 0 1px 2px rgba(15,23,42,0.06);
   --shadow: 0 1px 3px rgba(15,23,42,0.055), 0 1px 2px rgba(15,23,42,0.025);
   --shadow-md: 0 8px 20px -8px rgba(15,23,42,0.18), 0 2px 5px rgba(15,23,42,0.045);
@@ -165,6 +175,15 @@ html, body {
   -moz-osx-font-smoothing: grayscale;
   /* 한글 트래킹 — erp3와 동일(-0.01em). 조밀·샤프하게(작은 크기에서 뭉침 완화). */
   letter-spacing: -0.01em;
+  /*
+   * **줄바꿈은 낱말 단위로**(사장님 2026-08-20 「손님 화면 미리보 / 기 … 줄바꿈 전역에서 잘 표현해 주고」).
+   * 브라우저 기본값은 한글을 «글자» 단위로 끊어서 「미리보|기」처럼 낱말 가운데가 갈린다.
+   *   keep-all      → 낱말은 안 쪼갠다. 띄어쓰기에서만 넘어간다.
+   *   break-word    → 그런데 한 낱말이 칸보다 길면(긴 코드·URL) 넘쳐 나가므로, 그때만 예외로 끊는다.
+   * 둘을 같이 걸어야 «보통은 낱말 단위, 어쩔 수 없을 때만 강제»가 된다.
+   */
+  word-break: keep-all;
+  overflow-wrap: break-word;
   /* text-rendering:optimizeLegibility 금지 — 커닝/리가처 강제로 한글 획이 굵고 불균일해진다(두꺼워 보이는 원인). */
 }
 /* 앱 셸 = [상단바 고정 | 스크롤 영역]. 상단바는 스크롤에 안 끌려감. */
@@ -231,12 +250,16 @@ button, input, select, textarea { font-family: inherit; }
   100% { box-shadow: 0 0 0 0 rgba(185, 28, 28, 0); }
 }
 /* 계약중 뱃지 — 은은한 주황 펄스(주의 환기, 과하지 않게) */
+/* 계약중 — **은은하게 빛난다**(사장님 2026-08-20 「계약중인 거는 은은하게 빛나야지, 강조」).
+ * 예전엔 빛나면서 opacity 를 0.88 로 같이 떨어뜨렸다 — 밝아지는 게 아니라 «깜빡이며 흐려지는» 것으로 읽혔다.
+ * 지금은 투명도를 건드리지 않고 테두리 빛(ring)만 0 → 4px 로 번진다. 값은 그대로 또렷하고 둘레만 숨을 쉰다.
+ * 색은 계약중 뱃지와 같은 주황 계열(--orange-text #ea580c) — 새 색을 들이지 않는다. */
 @keyframes fp-badge-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(234, 88, 12, 0); opacity: 1; }
-  50% { box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.22); opacity: 0.88; }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(234, 88, 12, 0.34); }
+  55% { box-shadow: 0 0 0 4px rgba(234, 88, 12, 0); }
 }
 .fp-badge-pulse {
-  animation: fp-badge-pulse 1.6s ease-in-out infinite;
+  animation: fp-badge-pulse 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
 /* IconBtn 건수 — 우측 상단 모서리(버튼 밖). inset(top/right:2) 금지=아이콘과 겹침. */
 .fp-icon-count {
@@ -424,6 +447,12 @@ html[data-fp-filter="0"] .fp-finder > .fp-sidebar { display: none; }
   /* 툴바 · 퀵필터 한 줄 · 목록 */
   grid-template-rows: var(--fp-bar-h) auto minmax(0, 1fr);
 }
+/* 판매시트도 공통 퀵필터를 써서 카드·상세 보기와 같은 세 행을 유지한다. */
+.fp-finder-main.is-sheet-view { grid-template-rows: var(--fp-bar-h) auto minmax(0, 1fr); }
+.fp-finder-main.is-sheet-view .fp-finder-body.is-excel {
+  padding: 0;
+  background: var(--bg-card);
+}
 /* pane = 관심함 틀고정(스크롤 밖) + 목록 본문 스크롤. 엑셀은 본문 안 시트가 스크롤. */
 .fp-finder-pane {
   min-height: 0; overflow: hidden;
@@ -436,10 +465,17 @@ html[data-fp-filter="0"] .fp-finder > .fp-sidebar { display: none; }
   padding: 10px var(--fp-frame-pad-x) 0;
   padding-right: calc(var(--fp-frame-pad-x) + var(--fp-pane-sb, 0px));
   box-sizing: border-box;
-  /* 카드 여러 장일 때 본문을 다 가리지 않게 */
-  max-height: min(28vh, 240px);
-  overflow-y: auto;
+  /* 열면 본문을 밀고 **다 보인다** — 안에서 스크롤시키지 않는다(사장님 2026-08-20
+   * 「공간이 확 밀리면서 최근 본 거 다 보여야지」). 높이는 목록 상한 20개(product-interest.ts)로 막는다.
+   * 웹은 한 줄에 6~7장이라 20개면 3줄이다. */
   overscroll-behavior: contain;
+}
+/* 모바일만 1열이라 20개면 20줄이 된다 — 목록이 통째로 밀려나므로 여기서만 높이를 묶는다. */
+@media (max-width: 760px) {
+  .fp-finder-interest-bar {
+    max-height: min(52vh, 420px);
+    overflow-y: auto;
+  }
 }
 .fp-finder-interest-bar:empty { display: none; }
 .fp-finder-pane > .fp-finder-body {
@@ -711,6 +747,7 @@ html[data-fp-filter="0"] .fp-finder > .fp-sidebar { display: none; }
 .fp-finder-sheet-slot,
 .fp-finder-view-switch { display: inline-flex; flex: 0 0 auto; }
 .fp-finder-sort { margin-left: 6px; }
+/* 폭은 «칸 수 × 한 칸»이다 — 뷰 3개 기준. 칸을 늘리면 여기도 같이 늘려야 아이콘이 안 밀린다. */
 .fp-finder-view-switch { width: 204px; }
 .fp-finder-view-switch button > span {
   flex: 0 0 auto;
@@ -1049,5 +1086,181 @@ button, a, [role="button"], .fp-press, .fp-chip {
 .fp-card.fp-card-row[data-attention="red"] {
   box-shadow: inset 3px 0 0 var(--bdg-red-ac);
   background: color-mix(in srgb, var(--bdg-red-bg) 48%, var(--bg-card));
+}
+
+.fp-sheet-view {
+  display: flex; flex: 1 1 0; flex-direction: column; min-height: 0;
+  color: var(--fp-sheet-ink); background: var(--bg-card);
+  letter-spacing: 0;
+}
+/* 초기 인증·불러오기·오류는 다른 Finder 보기와 같은 페이지 바닥에서 보인다.
+ * 표를 받은 뒤의 .fp-sheet-view / .fp-sheet-view__grid만 흰 스프레드시트 작업면이다. */
+.fp-sheet-view__state { display: flex; flex: 1 1 0; min-height: 0; width: 100%; background: var(--bg-page); }
+.fp-sheet-view__global-filter { display: inline-flex; flex: 0 0 auto; align-items: center; min-height: 20px; padding: 0 6px; border: 1px solid var(--green-border); border-radius: var(--radius-sm); background: var(--green-bg); color: var(--green-text); font-size: var(--text-xs); font-weight: var(--fw-semibold); white-space: nowrap; }
+.fp-sheet-view__clear { display: inline-flex; align-items: center; gap: 4px; color: var(--text-sub); font-size: var(--text-xs); font-weight: var(--fw-semibold); white-space: nowrap; }
+.fp-sheet-view__open-original { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 4px; color: var(--text-sub); font-size: var(--text-xs); font-weight: var(--fw-semibold); text-decoration: none; white-space: nowrap; }
+.fp-sheet-view__open-original:hover, .fp-sheet-view__open-original:focus-visible { color: var(--blue-text); text-decoration: underline; text-underline-offset: 2px; }
+.fp-sheet-view__open-original:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.fp-sheet-view__refreshing { animation: fp-sheet-spin .8s linear infinite; }
+@keyframes fp-sheet-spin { to { transform: rotate(360deg); } }
+
+.fp-sheet-view__grid { flex: 1 1 0; min-height: 0; overflow: auto; overscroll-behavior: contain; background: var(--bg-card); }
+.fp-sheet-view__table { border-collapse: separate; border-spacing: 0; table-layout: fixed; background: var(--bg-card); }
+.fp-sheet-view__table th,
+.fp-sheet-view__table td {
+  box-sizing: border-box; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  border-right: 1px solid var(--fp-sheet-grid); border-bottom: 1px solid var(--fp-sheet-grid);
+  vertical-align: middle;
+}
+.fp-sheet-view__letter {
+  position: sticky; top: 0; z-index: 4; height: var(--fp-sheet-letter-h); min-width: 62px; padding: 0 5px;
+  background: var(--fp-sheet-rail); color: var(--text-weak); font-size: var(--text-xs); font-weight: var(--fw-semibold); text-align: center;
+}
+.fp-sheet-view__corner {
+  position: sticky; top: 0; left: 0; z-index: 6; width: var(--fp-sheet-index-w); min-width: var(--fp-sheet-index-w); padding: 0;
+  background: var(--fp-sheet-rail);
+}
+.fp-sheet-view__header {
+  position: sticky; top: var(--fp-sheet-letter-h); z-index: 3;
+  min-width: 62px; padding: 0; border-top: 1px solid var(--fp-sheet-grid) !important; border-bottom: 2px solid var(--fp-sheet-grid) !important; text-align: center;
+}
+.fp-sheet-view__row-head {
+  position: sticky; top: var(--fp-sheet-letter-h); left: 0; z-index: 5; width: var(--fp-sheet-index-w); min-width: var(--fp-sheet-index-w); padding: 0;
+  border-top: 1px solid var(--fp-sheet-grid) !important; border-bottom: 2px solid var(--fp-sheet-grid) !important;
+  background: var(--fp-sheet-rail); color: var(--text-weak); font-size: var(--text-xs); font-weight: var(--fw-semibold); text-align: center;
+}
+.fp-sheet-view__header[data-filtered="true"],
+.fp-sheet-view__header[data-sorted] { box-shadow: inset 0 -3px 0 var(--fp-sheet-selection); }
+.fp-sheet-view__header-trigger {
+  display: flex; align-items: center; justify-content: center; gap: 2px; width: 100%; height: 100%; min-width: 0; padding: 0 5px;
+  color: inherit; background: transparent; text-align: inherit;
+}
+.fp-sheet-view__header-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fp-sheet-view__header-chevron { flex: 0 0 13px; color: var(--text-weak); opacity: .62; }
+.fp-sheet-view__header-trigger:hover .fp-sheet-view__header-chevron,
+.fp-sheet-view__header-trigger:focus-visible .fp-sheet-view__header-chevron,
+.fp-sheet-view__header-trigger[data-active="true"] .fp-sheet-view__header-chevron { color: var(--fp-sheet-selection); opacity: 1; }
+.fp-sheet-view__header-trigger:hover { background: color-mix(in srgb, var(--blue-bg) 34%, transparent); }
+.fp-sheet-view__header-trigger:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+.fp-sheet-view__cell { min-width: 62px; padding: 0 5px; }
+.fp-sheet-view__row-index {
+  position: sticky; left: 0; z-index: 2; width: var(--fp-sheet-index-w); min-width: var(--fp-sheet-index-w); padding: 0;
+  background: var(--fp-sheet-rail); color: var(--text-weak); font-size: var(--text-xs); font-weight: var(--fw-semibold); text-align: center;
+}
+.fp-sheet-view__row-select { color: inherit; font-size: inherit; font-weight: inherit; }
+.fp-sheet-view__row-select:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+/* 일반 셀은 Google Sheets처럼 기본 화살표다. 선택 윤곽/방향키가 동작해도 십자 커서는 편집 가능하다는 오해를 준다. */
+.fp-sheet-view__row { cursor: default; }
+@media (hover: hover) {
+  .fp-sheet-view__row:not([data-selected="true"]):hover .fp-sheet-view__cell,
+  .fp-sheet-view__row:not([data-selected="true"]):hover .fp-sheet-view__row-index {
+    box-shadow: inset 0 0 0 999px color-mix(in srgb, var(--blue-bg) 28%, transparent);
+  }
+}
+.fp-sheet-view__row[data-selected="true"] .fp-sheet-view__cell,
+.fp-sheet-view__row[data-selected="true"] .fp-sheet-view__row-index {
+  box-shadow: inset 0 0 0 999px var(--bg-selected), inset 0 1px 0 var(--blue-border), inset 0 -1px 0 var(--blue-border);
+}
+.fp-sheet-view__row[data-selected="true"] .fp-sheet-view__row-index { box-shadow: inset 2px 0 0 var(--blue-border), inset 0 0 0 999px var(--bg-selected), inset 0 1px 0 var(--blue-border), inset 0 -1px 0 var(--blue-border); }
+.fp-sheet-view__row[data-selected="true"] .fp-sheet-view__cell:last-child { box-shadow: inset -2px 0 0 var(--blue-border), inset 0 0 0 999px var(--bg-selected), inset 0 1px 0 var(--blue-border), inset 0 -1px 0 var(--blue-border); }
+.fp-sheet-view__row[data-selected="true"] .fp-sheet-view__cell[data-active-cell="true"] {
+  position: relative; z-index: 2;
+  box-shadow: inset 0 0 0 2px var(--fp-sheet-selection), inset 0 0 0 999px var(--bg-selected), inset 0 1px 0 var(--blue-border), inset 0 -1px 0 var(--blue-border);
+}
+.fp-sheet-view__cell:focus-visible { position: relative; z-index: 2; outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+.fp-sheet-view__detail-link {
+  display: inline-flex; max-width: 100%; align-items: center; justify-content: center;
+  overflow: hidden; color: var(--blue-text); cursor: pointer; text-decoration: underline; text-underline-offset: 2px;
+  white-space: nowrap;
+}
+.fp-sheet-view__detail-link:hover { color: var(--blue-text); background: var(--blue-bg); }
+.fp-sheet-view__detail-link:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+.fp-sheet-view__plate-plain { color: var(--fp-sheet-ink); }
+.fp-sheet-view__empty { height: 80px; padding: 0 12px; color: var(--text-weak); font-size: var(--text-sm); text-align: center; }
+.fp-sheet-view__tabs-wrap {
+  display: flex; flex: 0 0 auto; align-items: center; height: 38px; min-height: 38px; box-sizing: border-box;
+  gap: 0; padding: 0; border-top: 1px solid var(--fp-sheet-grid); background: var(--fp-sheet-rail);
+}
+.fp-sheet-view__tab-menu { position: relative; display: flex; flex: 0 0 auto; align-self: stretch; align-items: center; padding: 0 4px; border-right: 1px solid var(--fp-sheet-grid); }
+.fp-sheet-view__tab-menu-list {
+  position: absolute; z-index: 51; bottom: calc(100% + 1px); left: 4px; display: flex; flex-direction: column;
+  width: min(304px, calc(100vw - 16px)); max-height: min(360px, calc(100dvh - 92px)); overflow: auto;
+  padding: 4px 0; border: 1px solid var(--fp-sheet-grid); border-radius: var(--radius-sm); background: var(--bg-card); box-shadow: var(--shadow-menu);
+}
+.fp-sheet-view__tab-menu-item { --fp-sheet-tab-menu-bg: transparent; --fp-sheet-tab-menu-color: var(--text-main); min-height: var(--fp-ctrl-h); font-size: var(--text-base); }
+.fp-sheet-view__tab-menu-item:hover { --fp-sheet-tab-menu-bg: var(--bg-hover); }
+.fp-sheet-view__tab-menu-item[data-active="true"] { --fp-sheet-tab-menu-bg: color-mix(in srgb, var(--fp-sheet-tab-color) 13%, var(--bg-card)); --fp-sheet-tab-menu-color: var(--fp-sheet-tab-color); font-weight: var(--fw-semibold); }
+.fp-sheet-view__tab-menu-item:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+.fp-sheet-view__tab-menu-check { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; color: var(--fp-sheet-tab-color); }
+.fp-sheet-view__tab-menu-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
+.fp-sheet-view__tab-menu-item > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fp-sheet-view__tabs { display: flex; flex: 1 1 auto; min-width: 0; gap: 0; overflow-x: auto; align-self: stretch; }
+.fp-sheet-view__tab {
+  flex: 0 0 auto; align-self: stretch; height: 37px; min-height: 37px; box-sizing: border-box; margin: 0; padding: 0 10px 0 12px;
+  border: none !important; border-right: 1px solid var(--fp-sheet-grid) !important; border-bottom: 2px solid var(--fp-sheet-tab-color, var(--border-strong)) !important; border-radius: 0;
+  background: transparent; color: var(--text-sub); cursor: pointer; font: inherit; font-size: var(--text-base); font-weight: var(--fw-medium); line-height: 36px; letter-spacing: 0; white-space: nowrap;
+}
+/*
+ * 탭 = **구글시트와 같은 문법**(사장님 2026-08-21 「하단에 탭도 더 구분되어지게 구글시트랑 동일하게」).
+ *   · 고른 탭   = 아주 옅은 시트색 면 + 글자/2px 하단선.
+ *   · 나머지 탭 = 진한 회색 글자 + 실제 sheet tab-color 하단선.
+ * 버튼 치수·hit area는 공용 Btn을 유지하고, 색만 실제 시트 탭 색을 쓴다.
+ */
+.fp-sheet-view__tab { position: relative; }
+.fp-sheet-view__tab[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--fp-sheet-tab-color) 14%, var(--fp-sheet-rail));
+  color: var(--fp-sheet-tab-color);
+}
+.fp-sheet-view__tab.is-loading::after { content: '…'; margin-left: 3px; }
+.fp-sheet-view__tab.fp-press:hover { background: color-mix(in srgb, var(--fp-sheet-tab-color) 8%, var(--fp-sheet-rail)); filter: none; box-shadow: none; }
+.fp-sheet-view__tab:focus-visible { z-index: 1; outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+.fp-sheet-view__tab-tools { display: flex; flex: 0 0 auto; align-items: center; gap: 8px; min-width: 0; padding: 0 6px; }
+.fp-sheet-view__tab-meta { min-width: max-content; color: var(--text-weak); font-size: var(--text-xs); white-space: nowrap; }
+
+/* 실제 판매시트 문자열만 대상으로 한 열 필터 — API가 이미 권한별로 지운 열은 여기에도 없다. */
+.fp-sheet-filter-popover {
+  position: fixed; z-index: 81; display: flex; flex-direction: column; width: min(304px, calc(100vw - 16px)); max-height: min(456px, calc(100dvh - 16px));
+  overflow: hidden; border: 1px solid var(--fp-sheet-grid); border-radius: var(--radius-sm); background: var(--bg-card);
+  box-shadow: var(--shadow-md); color: var(--text-main); font-family: inherit;
+}
+.fp-sheet-filter-popover__sorts { display: flex; flex-direction: column; padding: 3px 0 4px; border-bottom: 1px solid var(--fp-sheet-grid); }
+.fp-sheet-filter-popover__sort-command { --fp-sheet-filter-command-bg: transparent; --fp-sheet-filter-command-color: var(--text-main); min-height: 34px; font-size: var(--text-base); font-weight: var(--fw-medium); }
+.fp-sheet-filter-popover__sort-command:hover { --fp-sheet-filter-command-bg: var(--bg-hover); }
+.fp-sheet-filter-popover__sort-command[data-active="true"] { --fp-sheet-filter-command-bg: var(--bg-hover); --fp-sheet-filter-command-color: var(--text-main); font-weight: var(--fw-semibold); }
+.fp-sheet-filter-popover__sort-command:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+.fp-sheet-filter-popover__sort-icon { color: var(--text-sub); }
+.fp-sheet-filter-popover__sort-command[data-active="true"] .fp-sheet-filter-popover__sort-icon { color: currentColor; }
+.fp-sheet-filter-popover__sort-check { justify-self: end; }
+.fp-sheet-filter-popover__values-heading { display: flex; align-items: center; gap: 6px; min-height: 30px; padding: 0 12px; color: var(--text-sub); font-size: var(--text-sm); font-weight: var(--fw-semibold); }
+.fp-sheet-filter-popover__selection-state { color: var(--text-weak); font-size: var(--text-xs); font-weight: var(--fw-medium); }
+.fp-sheet-filter-popover__values-heading > span:last-child { margin-left: auto; color: var(--text-weak); font-size: var(--text-xs); font-weight: var(--fw-medium); white-space: nowrap; }
+.fp-sheet-filter-popover__search { padding: 0 10px 8px; border-bottom: 1px solid var(--fp-sheet-grid); }
+.fp-sheet-filter-popover__search input { height: 34px; font-size: var(--text-base); }
+.fp-sheet-filter-popover__value {
+  --fp-sheet-filter-value-bg: transparent; --fp-sheet-filter-value-color: var(--text-main);
+  min-height: 36px; cursor: pointer; font-size: var(--text-base);
+}
+.fp-sheet-filter-popover__value:hover { --fp-sheet-filter-value-bg: var(--bg-hover); }
+.fp-sheet-filter-popover__value[data-active="true"] { --fp-sheet-filter-value-bg: transparent; }
+.fp-sheet-filter-popover__checkmark {
+  display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; box-sizing: border-box;
+  border: 1px solid var(--text-sub); border-radius: 2px; background: var(--bg-card); color: transparent;
+}
+.fp-sheet-filter-popover__checkmark[data-active="true"] {
+  border-color: var(--fp-sheet-selection); background: var(--fp-sheet-selection); color: var(--text-inverse);
+}
+.fp-sheet-filter-popover__value:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+.fp-sheet-filter-popover__value > span:not(.fp-sheet-filter-popover__checkmark) { display: -webkit-box; min-width: 0; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-height: 1.35; }
+.fp-sheet-filter-popover__value small { justify-self: end; color: var(--text-weak); font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
+.fp-sheet-filter-popover__values { min-height: 0; overflow: auto; padding: 4px 0; scrollbar-gutter: stable; }
+.fp-sheet-filter-popover__empty { margin: 0; padding: 16px 12px; color: var(--text-weak); font-size: var(--text-base); text-align: center; }
+.fp-sheet-filter-popover__actions { display: flex; justify-content: flex-end; align-items: center; gap: 8px; min-height: 54px; padding: 0 16px; border-top: 1px solid var(--fp-sheet-grid); background: var(--bg-card); }
+.fp-sheet-filter-popover__actions .fp-press { flex: 0 0 auto; }
+
+@media (max-width: 760px) {
+  .fp-finder-main.is-sheet-view .fp-finder-body.is-excel { display: flex; flex-direction: column; overflow: hidden; padding: 0 0 var(--fp-finder-dock-h); }
+  .fp-sheet-view__toolbar { gap: 8px; padding: 0 8px; }
+  .fp-sheet-view__result-count { display: none; }
+  .fp-sheet-view__tab-meta { display: none; }
 }
 

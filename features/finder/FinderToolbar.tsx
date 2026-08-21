@@ -1,7 +1,6 @@
 ﻿'use client';
 
-import { FileSpreadsheet, LayoutGrid, List, SlidersHorizontal, Table } from 'lucide-react';
-import { PRODUCT_SHEET_URL } from '@/lib/product-sheet';
+import { LayoutGrid, List, SlidersHorizontal, Sheet } from 'lucide-react';
 import { InterestTriggers, type InterestTab } from '@/components/InterestRail';
 import { C, CountPill, IconBtn, IconSeg, SearchInput, Select, ICON } from '@/components/ui';
 import { FINDER_SORTS } from './filter-state';
@@ -9,7 +8,12 @@ import { FINDER_SORTS } from './filter-state';
 const VIEWS = [
   { key: 'card', label: '간단', Icon: LayoutGrid },
   { key: 'list', label: '상세', Icon: List },
-  { key: 'excel', label: '엑셀', Icon: Table },
+  /**
+   * 「시트」 = 판매시트 그대로 보기(features/finder/SheetView.tsx).
+   * 예전 「엑셀」(우리가 그리던 표)을 **대체**한다 — 상품리스트의 정본이 시트라 우리가 흉내 낼 이유가 없다.
+   * 키는 `excel` 그대로 둔다: 저장된 세션·즐겨찾기 링크가 그 값을 들고 있어서 바꾸면 뷰가 초기화된다.
+   */
+  { key: 'excel', label: '시트', Icon: Sheet },
 ];
 
 type Props = {
@@ -35,7 +39,7 @@ export function FinderToolbar(props: Props) {
       value={props.query}
       onChange={props.onQuery}
       placeholder="예: 21세 그랜저, 무보증 쏘나타"
-      aria-label="차량과 조건 통합검색"
+      ariaLabel="차량과 조건 통합검색"
       style={{ flex: '1 1 0', minWidth: 0 }}
       inputStyle={{ background: C.selected }}
     />
@@ -72,15 +76,6 @@ export function FinderToolbar(props: Props) {
           <InterestTriggers recentN={props.recentCount} favN={props.favoriteCount} tab={props.interestTab} onTab={props.onInterestTab} />
         </div>
         <div className="fp-finder-view-group">
-          {/* 자리 상시 예약 — 뷰 전환 시 우측 그룹 폭이 변해 검색창이 점프하는 것 방지. */}
-          {/* 엑셀 다운로드를 없애고 구글시트로 보낸다. 시트가 상품리스트의 배포처이고,
-              엑셀 받기·필터·공유가 거기서 다 된다 — 우리가 파일을 만들어 줄 이유가 없다. */}
-          <span className="fp-finder-sheet-slot">
-            <a href={PRODUCT_SHEET_URL} target="_blank" rel="noopener noreferrer" title="상품 구글시트를 새 탭에서 엽니다">
-              <FileSpreadsheet size={ICON.md} aria-hidden />
-              <span>구글시트 열기</span>
-            </a>
-          </span>
           <span className="fp-finder-view-switch" role="group" aria-label="상품 보기 방식">
             <IconSeg
               showLabel

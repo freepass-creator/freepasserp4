@@ -2,6 +2,7 @@
 import type { ReactNode } from 'react';
 import { Car, FileText, Info, ReceiptText, ShieldCheck, UserRoundCog } from 'lucide-react';
 import { ICON } from '@/components/ui';
+import type { SectionAccent } from '@/components/ui/detail';
 
 /**
  * 상세 섹션 머리 그림 — **섹션마다 다른 유일한 것**(사장님 2026-08-20 「같은 규격에서 좀 특색있게」).
@@ -28,4 +29,26 @@ const SECTION_ICON: Record<string, ReactNode> = {
 /** 섹션 이름 → 머리 그림. 없는 섹션은 그림 없이 선다(빈 자리를 만들지 않는다). */
 export function sectionIcon(title: string): ReactNode {
   return SECTION_ICON[title];
+}
+
+/**
+ * 섹션 이름 → **머리띠 무게**. 색은 «성격»이 아니라 «중요도»를 말한다
+ * (사장님 2026-08-20 「중요한 섹션은 메인 컬러, 부가적인 건 좀 다르게」).
+ *
+ *   차를 고르는 데 필요한 것 = 네이비   — 차량스펙 · 대여료조건
+ *   조건·규칙              = 무채     — 보험조건 · 계약조건
+ *   식별값                 = 흐린 무채 — 기타사항
+ *
+ * 영업자 패널의 표들은 반전 머리띠(headTone='invert')를 쓰므로 여기 색을 타지 않는다.
+ */
+const SECTION_ACCENT: Record<string, SectionAccent> = {
+  차량스펙: 'main',
+  대여료조건: 'main',
+  보험조건: 'sub',
+  계약조건: 'sub',
+  기타사항: 'trace',
+};
+
+export function sectionAccent(title: string): SectionAccent {
+  return SECTION_ACCENT[title] || 'sub';
 }

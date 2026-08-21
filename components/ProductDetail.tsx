@@ -8,7 +8,7 @@ import { Badge, C, R, NUM, FW, FS, ICON, CloseBtn, IconBtn, SCRIM, DetailTable, 
 import { toast } from '@/components/Toaster';
 import { downloadSinglePhoto } from '@/lib/client/download-photo-zip';
 import {
-  badges, Plate, idParts, CardBenefits, CardEvents, OptionChips,
+  badges, Plate, idParts, CardBenefits, CardEvents, OptionChips, plateSpecLine,
 } from '@/components/product-card-atoms';
 import { FavHeart } from '@/components/FavHeart';
 import { ProductStateMarks } from '@/components/ProductStateMarks';
@@ -16,7 +16,8 @@ import { ProductPhotoImage, ProductPhotoPlaceholder } from '@/components/Product
 import { ProductPriceTable } from '@/components/ProductPriceTable';
 import { useIsMobile } from '@/lib/use-mobile';
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Download } from 'lucide-react';
-import { sectionIcon } from '@/components/section-icons';
+import { sectionIcon, sectionAccent } from '@/components/section-icons';
+import { ColorValue } from '@/components/color-swatch';
 
 /**
  * 매물 상세 SSOT — 웹·모바일 **동일 원자·동일 타이포**.
@@ -146,6 +147,10 @@ export function ProductDetail({ p, audience, layout = 'brochure' }: {
           marginTop: work ? 0 : 8, rowGap: 6,
         }}>
           {aud !== 'customer' && !work && <Plate p={p} />}
+          {/* 차번 옆 한 줄 — 연식 · 주행 · 연료(사장님 2026-08-20 「차량번호에 26년 주행거리 연료까지는 넣어주자」). */}
+          {!work && plateSpecLine(p) && (
+            <span style={{ fontSize: FS.sub, color: C.mute, fontVariantNumeric: 'tabular-nums' }}>{plateSpecLine(p)}</span>
+          )}
           {/* work = 차번·상태를 요약바가 이미 들고 있다. 같은 값을 두 번 찍지 않는다. */}
           {badges(p, false, false, false, aud, { hideStatus: work })}
           <CardBenefits p={p} inline />
@@ -163,11 +168,9 @@ export function ProductDetail({ p, audience, layout = 'brochure' }: {
       <div>
       {(photos.length ? (
         <div style={work ? { maxWidth: WORK_PHOTO_W, marginBottom: 4 } : undefined}>
-          {/* 「전체받기」는 우측 영업자 패널의 「사진 N장 내려받기」가 맡는다 — 같은 동작을 두 곳에 두지 않는다
-              (사장님 2026-08-20). 여기는 이름표만 남긴다. */}
-          {!mobile ? (
-            <div style={{ fontSize: FS.title, fontWeight: FW.title, color: C.ink, marginBottom: 4 }}>차량사진</div>
-          ) : null}
+          {/* 이름표 없음 — 사진을 보고 「차량사진」이라 적는 건 빈말이다(사장님 2026-08-20 「없어도 되지 않을까」).
+              원래 이 줄에 「전체받기」가 붙어 있어 제목이 필요했는데, 그 동작이 우측 영업자 패널의
+              「사진 N장 내려받기」로 옮겨 가면서 이름표만 껍데기로 남아 있었다. */}
           {/*
             사진 = 큰 사진 + **세로 썸네일 칸**(사장님 2026-08-20 「세로로 하기로 했잖아 · 거기서 또 상하스크롤이 되니까」).
             가로 줄이던 때는 사진이 20장 넘으면 옆으로 한참 밀어야 했고, 밀다가 페이지가 같이 움직였다.
@@ -227,7 +230,13 @@ export function ProductDetail({ p, audience, layout = 'brochure' }: {
             )}
             <span style={{ position: 'absolute', right: 8, bottom: 8, background: SCRIM.heavy, color: C.inverse, fontSize: FS.cap, fontWeight: FW.strong, padding: '2px 8px', borderRadius: R, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', pointerEvents: 'none' }}>{mainIdx + 1} / {photos.length}</span>
           </div>
-          {photos.length > 1 && (
+          {/*
+            **폰에서는 작은 사진칸을 안 만든다**(사장님 2026-08-20 「모바일에서는 작은 사진칸 필요 없지, 그냥 눌러서 보는 형태가 더 빠르잖아」).
+            좁은 폭에서 72px 을 썸네일에 떼 주면 큰 사진이 그만큼 줄어드는데, 정작 폰에서는
+            큰 사진을 눌러 전체보기로 넘기는 게 빠르다(좌우 넘김·핀치줌이 다 된다).
+            웹은 마우스가 있어 «훑어보고 고르는» 썸네일이 값을 한다 — 그래서 화면마다 다르게 둔다.
+          */}
+          {photos.length > 1 && !mobile && (
             <div style={{ flex: `0 0 ${THUMB_COL_W}px`, position: 'relative' }}>
               {thumbOverflow && (
                 <IconBtn
@@ -307,37 +316,95 @@ export function ProductDetail({ p, audience, layout = 'brochure' }: {
           {sec.kind === 'price' ? (
             <ProductPriceTable p={p} title={sec.title} hint={sec.hint} tone={sec.tier} />
           ) : sec.kind === 'ins' ? (
+            (() => {
+              /*
+               * 보험 = **가로 배치**(사장님 2026-08-20 「보험은 이렇게 표현해 줘도 되는데」 — 약관 요약표 형태).
+               *   담보가 «열»이 되고 「보상 한도 / 사고 시 면책금」이 «행»이 된다.
+               *
+               * 세로(담보 한 줄씩)에서 바꾼 이유: 보험은 담보마다 값이 한 낱말(무한·1억원·30만원)이라
+               * 세로로 세우면 오른쪽이 텅 비고 줄만 길어진다. 가로로 누이면 한 눈에 «어디까지 막아 주나»가
+               * 한 줄로 읽히고, 면책금 줄과 세로로 맞물려 담보별 비교도 된다.
+               *
+               * 긴급출동은 한도·면책이 있는 담보가 아니지만 열로 세운다 — 손님이 늘 같이 묻는 값이라
+               * 표 밖 쪽지로 빼면 못 본다(면책 칸은 「없음」으로 채운다).
+               */
+              const cover = sec.rows.map(([lbl, limit, ded]) => ({ lbl, limit, ded }));
+              if (sec.note) cover.push({ lbl: '긴급출동', limit: sec.note, ded: '' });
+
+              /*
+               * **모바일은 세로**(사장님 2026-08-20 「모바일은 그냥 세로로 보게 해 줘야지, 웹 화면이랑 다르게 해야 할 것도 있는 거지」).
+               * 가로 배치는 담보 6개가 열이 되는데 폰 폭에서는 한 칸이 40px 남짓이라
+               * 「무한」이 「무 / 한」으로 서 버린다(실제로 글자가 세로로 섰다).
+               * 폰에서는 담보 하나가 한 줄이고, 한도·면책이 그 줄의 두 칸이 된다 — 값이 옆으로 눕는다.
+               */
+              if (mobile) {
+                return (
+                  <DetailTable
+                    title={sec.title}
+                    hint={sec.hint}
+                    icon={sectionIcon(sec.title)}
+                    accent={sectionAccent(sec.title)}
+                    tone={sec.tier}
+                    span={3}
+                    label="보험 보장한도와 면책금"
+                    widths={['34%', '33%', '33%']}
+                    cols={<>
+                      <th scope="col" style={DT.colTh}>항목</th>
+                      <th scope="col" style={{ ...DT.colTh, textAlign: 'right' }}>보상 한도</th>
+                      <th scope="col" style={{ ...DT.colTh, textAlign: 'right' }}>면책금</th>
+                    </>}
+                  >
+                    {cover.map((c, i) => (
+                      <tr key={c.lbl} style={DT.tr(i)}>
+                        <th scope="row" style={{ ...DT.labelTh, width: undefined }}>{c.lbl}</th>
+                        <td style={{ ...DT.tdR, color: c.limit ? C.ink : C.faint, fontWeight: c.limit ? FW.title : undefined }}>{c.limit || '—'}</td>
+                        <td style={{ ...DT.tdR, color: c.ded ? C.ink : C.faint }}>{c.ded || '없음'}</td>
+                      </tr>
+                    ))}
+                  </DetailTable>
+                );
+              }
+
+              const span = cover.length + 1;
+              const headW = 108;
+              const cellW = `calc((100% - ${headW}px) / ${cover.length})`;
+              const cell = (v: string, strong?: boolean): React.CSSProperties => ({
+                ...DT.td, textAlign: 'center', verticalAlign: 'middle',
+                color: v ? C.ink : C.faint,
+                ...(strong && v ? { fontSize: FS.title, fontWeight: FW.title } : null),
+              });
+              return (
             <DetailTable
               title={sec.title}
               hint={sec.hint}
               icon={sectionIcon(sec.title)}
+              accent={sectionAccent(sec.title)}
               tone={sec.tier}
-              span={3}
+              span={span}
               label="보험 보장한도와 면책금"
-              widths={['32%', '34%', '34%']}
+              widths={[headW, ...cover.map(() => cellW)]}
               cols={<>
-                <th scope="col" style={DT.colTh}>항목</th>
-                <th scope="col" style={{ ...DT.colTh, textAlign: 'right' }}>보장한도</th>
-                <th scope="col" style={{ ...DT.colTh, textAlign: 'right' }}>면책금</th>
+                <th scope="col" style={DT.colTh} />
+                {cover.map((c) => (
+                  <th key={c.lbl} scope="col" style={{ ...DT.colTh, textAlign: 'center' }}>{c.lbl}</th>
+                ))}
               </>}
             >
-              {sec.rows.map(([lbl, limit, ded], i) => (
-                <tr key={lbl} style={DT.tr(i)}>
-                  <th scope="row" style={{ ...DT.labelTh, width: undefined }}>{lbl}</th>
-                  <td style={{ ...DT.tdR, color: limit ? C.ink : C.faint }}>{limit || '—'}</td>
-                  <td style={{ ...DT.tdR, color: ded ? C.ink : C.faint }}>{ded || '—'}</td>
-                </tr>
-              ))}
-              {/* 긴급출동은 한도·면책이 아니라 담보가 아니다 — 표 밖 쪽지 대신 마지막 줄로 붙여 표 하나로 끝낸다. */}
-              {sec.note ? (
-                <tr style={DT.tr(1)}>
-                  <th scope="row" style={{ ...DT.labelTh, width: undefined }}>부가</th>
-                  <td colSpan={2} style={DT.td}>{sec.note}</td>
-                </tr>
-              ) : null}
+              {/* 보험은 «얼마까지»가 전부인 섹션이다 — 한도 줄만 한 단계 키워 훑을 때 숫자가 먼저 잡히게 한다.
+                  면책금은 보조값이라 본문 크기 그대로 둔다(둘 다 키우면 다시 평평해진다). */}
+              <tr style={DT.tr(0)}>
+                <th scope="row" style={{ ...DT.labelTh, width: undefined }}>보상 한도</th>
+                {cover.map((c) => <td key={c.lbl} style={cell(c.limit, true)}>{c.limit || '—'}</td>)}
+              </tr>
+              <tr style={DT.tr(1)}>
+                <th scope="row" style={{ ...DT.labelTh, width: undefined }}>사고 시 면책금</th>
+                {cover.map((c) => <td key={c.lbl} style={cell(c.ded)}>{c.ded || '없음'}</td>)}
+              </tr>
             </DetailTable>
+              );
+            })()
           ) : sec.kind === 'chips' ? (
-            <DetailTable title={sec.title} hint={sec.hint} icon={sectionIcon(sec.title)} tone={sec.tier} span={1}>
+            <DetailTable title={sec.title} hint={sec.hint} icon={sectionIcon(sec.title)} accent={sectionAccent(sec.title)} tone={sec.tier} span={1}>
               <tr style={DT.tr(0)}>
                 <td style={DT.td}>
                   <span style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
@@ -347,14 +414,21 @@ export function ProductDetail({ p, audience, layout = 'brochure' }: {
               </tr>
             </DetailTable>
           ) : (
+            (() => {
+              /* 값이 짧고 대등한 섹션(차량스펙)만 웹에서 두 열로 흘린다 — 훑는 섹션과 읽는 섹션이 갈린다.
+                 모바일은 폭이 없어 늘 한 열. 값이 «문장»인 계약조건은 두 열로 쪼개면 줄이 접혀 더 못 읽는다. */
+              const two = !!sec.pair && !mobile;
+              const cells = two ? 4 : 2;
+              return (
             <DetailTable
               title={sec.title}
               hint={sec.hint}
               icon={sectionIcon(sec.title)}
+              accent={sectionAccent(sec.title)}
               tone={sec.tier}
-              span={2}
+              span={cells}
               mark={sec.tier === 'agent' ? '영업자 전용' : undefined}
-              widths={[KV_LABEL_W, undefined]}
+              widths={two ? [KV_LABEL_W, undefined, KV_LABEL_W, undefined] : [KV_LABEL_W, undefined]}
             >
               {(() => {
                 /* 선택옵션은 «칸 하나»가 아니라 이 표의 한 줄이다 — 칩 뭉치가 표 밖으로 빠지면
@@ -362,24 +436,53 @@ export function ProductDetail({ p, audience, layout = 'brochure' }: {
                 const chipRow = (key: string, i: number) => (
                   <tr key={key} style={DT.tr(i)}>
                     <th scope="row" style={DT.labelTh}>{sec.chipsLabel || '선택옵션'}</th>
-                    <td style={DT.td}><OptionChips p={p} expand /></td>
+                    <td style={DT.td} colSpan={cells - 1}><OptionChips p={p} expand /></td>
                   </tr>
                 );
                 const hasChips = !!sec.chips && sec.chips.length > 0;
+                /* 기타사항 = 식별값(코드·날짜). 읽는 값이 아니라 «대조하는 값»이라 가장 조용하게 둔다. */
+                const quiet = sec.title === '기타사항';
+                const valStyle = quiet ? { ...DT.td, color: C.mute } : DT.td;
+                const cell = (k: string, v: string) => (<>
+                  <th scope="row" style={DT.labelTh}>{k}</th>
+                  {/* 색상만 글자 대신 «점 + 글자» — 상담에서 색은 읽는 값이 아니라 «보는 값»이다
+                      (사장님 2026-08-20 「색상은 텍스트로만 보여주는 게 아니고 컬러 뱃지같은 거」). */}
+                  <td style={valStyle}>
+                    {!v ? <span style={{ color: C.faint }}>—</span>
+                      : k === '색상' ? <ColorValue value={v} />
+                        : dimDashes(v)}
+                  </td>
+                </>);
+                const rows = kvRows(sec.rows);
                 const out: ReactNode[] = [];
-                kvRows(sec.rows).forEach(([k, v], i) => {
-                  out.push(
-                    <tr key={`${k}-${i}`} style={DT.tr(out.length)}>
-                      <th scope="row" style={DT.labelTh}>{k}</th>
-                      <td style={DT.td}>{v ? dimDashes(v) : <span style={{ color: C.faint }}>—</span>}</td>
-                    </tr>,
-                  );
+                if (two) {
+                  /* 칩 줄은 짝을 이루지 않고 통째로 한 줄을 쓴다(칩이 두 열에 걸쳐 흐르면 뭉텅이가 된다). */
+                  const head = hasChips && sec.chipsAfter === 1 ? rows.slice(0, 1) : [];
+                  const rest = rows.slice(head.length);
+                  head.forEach(([k, v], i) => out.push(<tr key={`h-${i}`} style={DT.tr(out.length)}>{cell(k, v)}<th style={DT.labelTh} /><td style={valStyle} /></tr>));
+                  if (head.length && hasChips) out.push(chipRow('chips', out.length));
+                  for (let i = 0; i < rest.length; i += 2) {
+                    const a = rest[i]; const b = rest[i + 1];
+                    out.push(
+                      <tr key={`p-${i}`} style={DT.tr(out.length)}>
+                        {cell(a[0], a[1])}
+                        {b ? cell(b[0], b[1]) : <><th style={DT.labelTh} /><td style={valStyle} /></>}
+                      </tr>,
+                    );
+                  }
+                  if (hasChips && sec.chipsAfter == null) out.push(chipRow('chips', out.length));
+                  return out;
+                }
+                rows.forEach(([k, v], i) => {
+                  out.push(<tr key={`${k}-${i}`} style={DT.tr(out.length)}>{cell(k, v)}</tr>);
                   if (hasChips && sec.chipsAfter === 1 && i === 0) out.push(chipRow('chips', out.length));
                 });
                 if (hasChips && sec.chipsAfter == null) out.push(chipRow('chips', out.length));
                 return out;
               })()}
             </DetailTable>
+              );
+            })()
           )}
         </section>
       ))}

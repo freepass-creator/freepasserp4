@@ -300,3 +300,44 @@ export async function writeSheetTable(input: WriteSheetTableInput): Promise<{ ro
   await call(`/${spreadsheetId}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests }) });
   return { rows: rows.length, tabTitle };
 }
+
+/** 시트 한 탭의 값 격자 — 화면에 «시트 그대로» 그리기 위한 읽기. */
+export type SheetGrid = { tab: string; header: string[]; rows: string[][]; readAt: string };
+
+/**
+ * **판매시트를 서버가 읽어 온다** — 사장님 2026-08-20
+ * 「앞으로 상품시트 공유 안 하고 로그인해야만 저 시트가 보이게끔」.
+ *
+ * 지금까지는 브라우저가 구글시트로 직접 갔고, 그래서 «누가 보느냐»를 시트 공유설정이 정했다
+ * (실측: 익명 CSV 로 358행 전량 + 소비자가격·차고지까지 열렸다).
+ * 이제 문지기를 ERP 로 옮긴다: 브라우저 → ERP(로그인 확인) → 서버(서비스계정) → 시트.
+ * 시트를 완전 비공개로 잠가도 ERP 안에서는 그대로 보인다.
+ *
+ * ⚠ 잠근 뒤에는 **서비스계정 이메일에 최소 «뷰어»로 공유**돼 있어야 한다
+ *   (`sheetsServiceAccountEmail()` 로 주소를 확인한다). 안 되어 있으면 403 이 난다.
+ * ⚠ 서식(색·굵기)은 안 가져온다. 값만 읽고 «시트처럼 보이는 것»은 화면이 그린다 —
+ *   서식까지 끌어오면 시트를 손볼 때마다 화면이 같이 흔들린다.
+ */
+export async function readSheetGrid(spreadsheetId: string, tabTitle: string): Promise<SheetGrid> {
+  const range = encodeURIComponent(`'${tabTitle.replace(/'/g, "''")}'`);
+  // FORMATTED_VALUE = 시트에 «보이는 그대로»(1,234,000 · 2024년식). 계산은 ERP 쪽 원자가 따로 한다.
+  const body = await call(`/${spreadsheetId}/values/${range}?valueRenderOption=FORMATTED_VALUE&majorDimension=ROWS`);
+  const values = (body.values as string[][] | undefined) || [];
+  const [head = [], ...rest] = values;
+  const width = Math.max(head.length, ...rest.map((r) => r.length), 0);
+  const pad = (r: string[]) => Array.from({ length: width }, (_, i) => String(r[i] ?? ''));
+  return {
+    tab: tabTitle,
+    header: pad(head),
+    // 완전히 빈 줄은 버린다 — 시트 아래쪽 여백이 빈 행으로 딸려 온다.
+    rows: rest.map(pad).filter((r) => r.some((c) => c !== '')),
+    readAt: new Date().toISOString(),
+  };
+}
+
+/** 스프레드시트의 보이는 탭 이름들 — 화면 하단 탭(상품리스트·손오공구독·오플구독)을 만든다. */
+export async function listSheetTabs(spreadsheetId: string): Promise<string[]> {
+  const body = await call(`/${spreadsheetId}?fields=sheets.properties(title,hidden)`);
+  const sheets = (body.sheets as { properties?: { title?: string; hidden?: boolean } }[] | undefined) || [];
+  return sheets.filter((x) => !x.properties?.hidden).map((x) => String(x.properties?.title || '')).filter(Boolean);
+}

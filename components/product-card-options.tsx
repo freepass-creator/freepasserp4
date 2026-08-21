@@ -73,11 +73,17 @@ export function OptionChips({ p, clamp, lines = 1, expand }: {
   }, [options.join('\0'), clamp, wrap2, expand]);
 
   if (!options.length) {
+    /*
+     * 빈 값 문구 — 「옵션미입력」은 우리끼리 쓰는 말이라 화면에 그대로 나가면 딱딱하다
+     * (사장님 2026-08-20 「옵션 없으면 없다고 해주고 · 잘 정제해서」).
+     * 두 경우를 구분하지 않는다: 옵션이 «정말 없는 차»와 «공급사가 아직 안 적은 차»를 우리는 알 수 없다.
+     * 그래서 둘 다 담는 한 문장으로 쓴다 — 손님 앞에서 읽어도 어색하지 않은 말이어야 한다.
+     */
     return (
       <div style={{
         fontSize: FS.cap, color: C.faint, lineHeight: 1.45,
         minWidth: 0, width: '100%',
-      }}>옵션미입력</div>
+      }}>선택옵션이 없거나 아직 등록되지 않았습니다</div>
     );
   }
   if (expand) {

@@ -74,6 +74,8 @@ export const MAX_PROMO_BADGES = 2;
 /** 구표기 → 현재 뱃지 (저장·필터 호환). */
 export const PROMO_BADGE_LEGACY: Record<string, string> = { 추가수수료면제: '수수료+' };
 export const PRODUCT_TYPES = ['신차렌트', '중고렌트', '신차구독', '중고구독'] as const; // 렌트/구독 × 신차/중고
+/** 차종분류(vehicle_class) 표시·필터 순서 SSOT. 세그먼트 × 차형 표기다. */
+export const VEHICLE_CLASS_VALUES = ['경형', '소형', '소형 SUV', '준중형', '준중형 SUV', '중형', '중형 SUV', '중형 RV', '중형 픽업', '준대형', '준대형 SUV', '대형', '대형 SUV', '대형 RV', '소형화물', '승합', '수입'] as const;
 /** 구표기 → 캐논(필터·뱃지·저장 호환). */
 export const PRODUCT_TYPE_LEGACY: Record<string, typeof PRODUCT_TYPES[number]> = {
   재렌트: '중고렌트', 중고렌트: '중고렌트',
@@ -121,12 +123,12 @@ export const ENTITIES: Record<string, Entity> = {
       { key: 'car_number', label: '차량번호', type: 'text', required: true, ocrFrom: 'car_number', manual: true },
       // ── 차종 5단계 ──
       { key: 'maker', label: '제조사', type: 'text' },
-      { key: 'model', label: '모델', type: 'text' },
+      { key: 'model', label: '모델명', type: 'text' },
       { key: 'sub_model', label: '세부모델', type: 'text' },
       { key: 'variant', label: '파워트레인', type: 'text', note: '5단계 — 연료·배기량·구동·배터리' },
       { key: 'trim_name', label: '세부트림', type: 'text', note: '마스터 실트림만' },
       { key: 'trim_extra', label: '추가표기', type: 'text', manual: true, note: '마스터 밖 자유입력(런칭·휠·패키지 등). 규격 트림 아님' },
-      { key: 'vehicle_class', label: '차종분류', type: 'select', options: ['경형', '소형', '소형 SUV', '준중형', '준중형 SUV', '중형', '중형 SUV', '중형 RV', '중형 픽업', '준대형', '준대형 SUV', '대형', '대형 SUV', '대형 RV', '소형화물', '승합', '수입'], note: '세그먼트[ 차형] — 예: 중형 SUV. 구표기 차급' },
+      { key: 'vehicle_class', label: '차종분류', type: 'select', options: [...VEHICLE_CLASS_VALUES], note: '세그먼트[ 차형] — 예: 중형 SUV. 구표기 차급' },
       // ── 스펙(등록증) ──
       { key: 'year', label: '연식', type: 'text', ocrFrom: 'car_year_month' },
       { key: 'fuel_type', label: '연료', type: 'select', options: [...FUEL_TYPES], ocrFrom: 'fuel_type' },
@@ -337,7 +339,7 @@ export const ENTITIES: Record<string, Entity> = {
       { key: 'product_code', label: '상품코드', type: 'text' },
       { key: 'vehicle_number', label: '차량번호', type: 'text' },
       { key: 'maker', label: '제조사', type: 'text' },
-      { key: 'model', label: '모델', type: 'text' },
+      { key: 'model', label: '모델명', type: 'text' },
       { key: 'sub_model', label: '세부모델', type: 'text' },
       { key: 'agent_uid', label: '영업자UID', type: 'text' },
       { key: 'agent_code', label: '영업자코드', type: 'text' },

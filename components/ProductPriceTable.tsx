@@ -2,7 +2,7 @@
 import { useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { acquisitionPriceList, cheapest, priceList } from '@/lib/domain/product';
-import { won, C, FW, FS, PILL_R, DetailTable, DT, type DetailTone } from '@/components/ui';
+import { won, C, R, FW, FS, DetailTable, DT, type DetailTone } from '@/components/ui';
 import { sectionIcon } from '@/components/section-icons';
 
 /**
@@ -14,8 +14,12 @@ import { sectionIcon } from '@/components/section-icons';
  *   값은 판매시트 「손오공인수형구독」 탭과 같다(2026-08-18). /m(영업자)·/q(손님) 공용.
  *
  * ★행 선택 — 상담 중 «이 조건으로 갑시다» 하고 한 줄을 짚어 둔다.
- *   기본 선택이 최저가 행이라 **누르기 전 화면은 예전과 같다**. 배경만으로는 최저와 선택이 구분되지 않으므로
- *   「최저」는 배지가, 「지금 고른 줄」은 좌측 브랜드 바가 맡는다.
+ *   고른 줄은 **연한 네이비 면 + 네이비 굵은 글자**다. 세 번 갈아엎은 자리라 이유를 남긴다:
+ *     ① 옅은 배경 + 좌측 3px 바 → 바가 줄을 «감싸» 인용문처럼 읽힘(사장님 「바 형태 별로」)
+ *     ② 반전(네이비 면 + 흰 글자) → 섹션 머리띠가 반전으로 바뀌면서 **한 섹션에 반전이 둘**이 됨
+ *        (사장님 「대여료 강조한 색깔도 좀 다르게 · 약간 연한색으로」)
+ *     ③ **지금** — 머리띠가 강(반전)이면 선택 줄은 중(연한 면)이어야 위계가 선다.
+ *   같은 네이비 안에서 «강→중»으로 내려가므로 색은 하나인데 층은 둘이다.
  */
 export function ProductPriceTable({ p, title = '대여료조건', hint, tone }: {
   p: EntityRecord;
@@ -32,7 +36,6 @@ export function ProductPriceTable({ p, title = '대여료조건', hint, tone }: 
   const [pick, setPick] = useState<string | null>(null);
   const sel = pick ?? (cheap ? `반납:${cheap.m}` : null);
 
-  /** 선택 표시는 좌측 3px 바 — border 로 그리면 그 줄만 폭이 밀려 숫자 열이 어긋난다. */
   const row = (kind: '반납' | '인수', m: number, rent: number, deposit: number, i: number, cheapest_: boolean) => {
     const key = `${kind}:${m}`;
     const on = sel === key;
@@ -47,19 +50,16 @@ export function ProductPriceTable({ p, title = '대여료조건', hint, tone }: 
         }}
         style={{ ...DT.tr(i), background: on ? C.selected : 'transparent', cursor: 'pointer' }}
       >
-        <th scope="row" style={{
-          ...DT.labelTh, width: undefined, color: C.ink,
-          ...(on ? { boxShadow: `inset 3px 0 0 ${C.brand}` } : {}),
-        }}>
+        <th scope="row" style={{ ...DT.labelTh, width: undefined, color: on ? C.brand : C.ink, fontWeight: on ? FW.head : undefined }}>
           {m}개월
           {cheapest_ && (
             <span style={{
-              marginLeft: 5, fontSize: FS.micro, fontWeight: FW.label,
-              color: C.taupeBg, background: C.brand, borderRadius: PILL_R, padding: '1px 5px',
+              marginLeft: 5, fontSize: FS.micro, fontWeight: FW.label, borderRadius: R, padding: '1px 5px',
+              color: C.taupeBg, background: C.brand,
             }}>최저</span>
           )}
         </th>
-        <td style={{ ...DT.tdR, fontSize: FS.title, fontWeight: FW.title, color: C.brand }}>{won(rent)}</td>
+        <td style={{ ...DT.tdR, fontSize: FS.title, fontWeight: on ? FW.head : FW.title, color: C.brand }}>{won(rent)}</td>
         <td style={DT.tdR}>{deposit > 0 ? won(deposit) : '무보증'}</td>
       </tr>
     );
@@ -67,10 +67,12 @@ export function ProductPriceTable({ p, title = '대여료조건', hint, tone }: 
 
   const colTh: CSSProperties = { ...DT.colTh, textAlign: 'right' };
   return (
+    /* accent="main" — 차를 고르는 데 필요한 구간. 머리띠 색은 중요도를 말한다. */
     <DetailTable
       title={title}
       hint={hint}
       icon={typeof title === 'string' ? sectionIcon(title) : undefined}
+      accent="main"
       tone={tone}
       span={3}
       label="기간별 대여료와 보증금"
