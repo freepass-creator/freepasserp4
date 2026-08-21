@@ -219,8 +219,8 @@ export const ENCAR_MASTER_LABEL_COLUMN = '마스터표기';
 /** 정책코드 다음에 두는 엔카 칸 — 아는 층만 채운다. */
 export const ENCAR_CODE_BLOCK = [ENCAR_MODEL_KEY_COLUMN, ENCAR_SUB_KEY_COLUMN, ENCAR_TRIM_KEY_COLUMN] as const;
 /**
- * 우리 기본스펙(2026-08-20). 차종마스터에서 확정되는 값만 박는다.
- * 공급사 왼쪽 칸(제조사·연식·주행거리·배기량·연료·외부색상·내부색상)과 이름이 겹치면 정제 이름을 쓴다.
+ * 우리 기본스펙. **글자는 fill 이 차종마스터(vehicle-master.json)에서 박는다.**
+ * stamp(엔카)는 행키(M/SM/T)만. 공급사 왼쪽 칸과 이름이 겹치면 정제 이름을 쓴다.
  */
 export const ENCAR_SPEC_BLOCK = [
   '원산지',
@@ -264,6 +264,16 @@ export const AI_TAIL_COLUMNS: { name: string; note: string; required?: boolean }
 
 const FRONT_COLUMNS: { name: string; note: string; required?: boolean }[] = [
   { name: '차량번호', note: '12가3456. 신차로 번호 전이면 비우고 차대번호를 채운다', required: true },
+  /**
+   * ★**차대번호(VIN) — 번호 나오기 전 신차의 «진짜 신원»**(사장님 2026-08-21 「실제로 출고 확정되면
+   *   차량번호 없이 올린다고 · 차량번호 없이 노출 구현할 수 있을 거 같은데 · 그렇게 해야 해」).
+   *   VIN 은 번호판이 나오기 전에도 안 바뀐다. 그래서 실번호가 붙는 날 **같은 차로 이어붙일 수 있다**
+   *   (`product.vehicleIdentity` 가 실번호 → VIN → 임시번호 순으로 본다).
+   * ⚠ VIN 이 없으면 «행 내용»으로 신차를 알아볼 수밖에 없는데, 그러면 시트에서 셀 하나만 고쳐도
+   *   식별이 바뀌어 **같은 차가 계약중 하나·출고가능 하나로 둘이 된다**(트윈 중복판매).
+   *   실측 2026-08-21: 21곳 중 차대번호를 쓰는 곳이 0 이라 번호미정 신차가 통째로 안 실리고 있었다.
+   */
+  { name: '차대번호', note: '신차로 번호 전이면 여기를 채운다(17자리). 번호가 나오면 차량번호에 적고 이 칸은 그대로 둔다' },
   /**
    * ★**상품으로 내놓은 날**이다(사장님 2026-08-12). 차를 산 날도, 등록한 날도 아니다.
    *   이 날로부터 며칠째 안 나가는지가 재고일수다 — 오래 서 있는 차를 찾아내는 유일한 근거라

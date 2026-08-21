@@ -19,7 +19,7 @@
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { MIRROR_SOURCES, type MirrorSource } from '../lib/domain/mirror-sources';
-import { MIRROR_ALIAS, sourceColumnsFor } from '../lib/domain/mirror-sheet-mapping';
+import { MIRROR_ALIAS, MIRROR_OWNER_RULE, isMirrorFollowSource, sourceColumnsFor } from '../lib/domain/mirror-sheet-mapping';
 import { MAKER_STANDARD_NOTE } from '../lib/domain/maker-display';
 import { mergeAutoplusHeaderRows } from '../lib/domain/sheet-adapters';
 import { AI_TAIL_COLUMNS, columnOwner, isDividerColumn } from '../lib/domain/supplier-template-sheet';
@@ -42,12 +42,13 @@ const NOTES: Record<string, string[]> = {
   RP004: [
     '원본 「(수정본)아이카 장기차량 리스트」의 장기특별이벤트·중고재렌트·신차선출고 세 탭을 읽는다(월렌트·수수료 탭은 재고가 아니라 안 읽는다).',
     '원본에서 **숨긴 줄**은 «안 파는 차»로 본다 — 여기서는 상태가 출고불가로 내려간다. 아이카가 줄을 다시 펴면 다음 미러에 되살아난다.',
-    '원본 「월렌트」 칸은 우리 「1개월」, 「소비자가격」은 「차량가격」, 「트림」(+차종분류)은 「차명(세부모델+트림)」, 「최초등록 26-7-24」는 「2026-07-24」로 온다.',
+    '원본 「월렌트」 칸은 우리 「1개월」, 「소비자가격」은 「차량가격」. 「차종분류」는 모델 이름(카니발·BMW 5시리즈 — 준중형 SUV 가 아님)이고, 「트림」과 합쳐 「차명(세부모델+트림)」이 된다. 「최초등록 26-7-24」는 「2026-07-24」로 온다.',
     '줄에 붙은 대인·대물·자차·자손·연주행은 「정책」 탭 RP004_… 줄로 접혀 들어가고 재고 「정책코드」가 그 줄을 가리킨다.',
   ],
   RP023: [
     '원본 「New 오토플러스 재고 리스트」의 판매차량리스트(첫 현재재고 블록만)·EV 프로모션 탭을 읽는다. 공지사항은 안 읽는다.',
     '대여료 블록만 오플 구조다 — 「장기보증 · 12개월2만 · 12개월3만 · 18개월2만 · 18개월3만 · 24개월2만 · 24개월3만 · 36개월2만 · 36개월3만」(2만/3만 = 연 약정주행). ERP 파서는 「12개월3만」을 그대로 읽는다 — 열 이름을 바꾸지 말 것.',
+    '「차종」+「모델명」(풀 트림 문장, 예: X1(2세대) 20i xDrive x라인)이 「차명(세부모델+트림)」. 모델명만 옮기면 차종(X1·K8)이 빠진다.',
     '보증금은 원본에 없다 → 「장기보증」을 비워 둔다. ERP 가 공급사 보증금 규칙(partner.deposit_rule)으로 채운다. 여기에 계산해 넣지 않는다.',
     '「판매시작일」은 「입고일자」로 온다(재고일수 계산). 「판매상태 할인판매」는 「출고가능」으로 규격화된다.',
     '조건 칸이 없어 정책은 「(프리패스 기본)」이다. 판매시트에서는 오플 전체가 「상품리스트」에서 빠지고 「오플구독·오플프로모션」 탭(원본 통째 복사)에 선다.',
@@ -167,16 +168,18 @@ async function buildRows(m: MirrorSource, header: string[], maps: TabMap[]): Pro
   for (const f of VEHICLE_REFINE_FLOW) R(f.step, f.what, f.where, '');
   R('', '', '', '');
   R('3. 칸마다 누가 정본인가 (정제시트 「재고」 머리행 차례)', '', '', '');
+  R('한 줄', MIRROR_OWNER_RULE, '', 'mirror-sheet-mapping.MIRROR_FOLLOW_SOURCE · columnOwner');
   R('칸', '정본 · 갱신 규칙', '원본에서 이 이름으로 온다', '비고');
   for (const name of header) {
     if (!name) continue;
     if (isDividerColumn(name)) { R(name, '구분선 — 여기부터 오른쪽은 프리패스/AI 칸', '(값 없음)', ''); continue; }
-    const owner = columnOwner(name);
+    const owner = isMirrorFollowSource(name) ? 'live' : columnOwner(name);
     const isAi = AI_TAIL_COLUMNS.some((c) => c.name === name);
     const from = isAi ? '(원본 아님 — 프리패스가 채움)' : (aliasOf.get(name) || (/개월/.test(name) ? '같은 이름' : '같은 이름'));
     const note = name === '상태' ? '원문을 ERP 와 같은 규격값(즉시출고/출고가능/상품화중/출고협의/출고불가)으로 맞춘다. 원본에서 사라진 차는 출고불가'
       : name === '정책코드' ? (m.policies ? '원본 줄의 조건 칸을 정책 탭으로 접어 넣고 여기 코드가 붙는다(sync-mirror-policies). 사람이 다른 코드를 고르면 그대로 둔다' : '비면 「(프리패스 기본)」')
-        : name === '차명(세부모델+트림)' ? '원본 여러 칸(차종/차종분류·모델명·세부모델·트림)을 겹치지 않게 합친 원문. 정제된 이름은 뒤 정제칸(모델·세부모델·세부트림)'
+        : name === '차명(세부모델+트림)' ? '원본 여러 칸(차종/차종분류·모델명·세부모델·트림)을 겹치지 않게 합친 원문. 매번 원본을 따른다. 정제된 이름은 뒤 정제칸(모델·세부모델·세부트림)'
+          : name === '옵션' ? '원본 옵션 칸 그대로. 매번 원본을 따른다. 정제된 선택옵션은 오른쪽 칸'
           : /입고일자|최초등록일/.test(name) ? '「23-9-21」·「2025. 3. 25」는 「2023-09-21」 꼴로. 날짜 아닌 글자는 안 옮긴다'
             : name === '연료' ? '휘발유→가솔린 · EV→전기 · 경유→디젤로 맞춘다'
               : name === '분류' ? '신차/재렌트/구독 표기를 신차렌트·중고렌트·신차구독·중고구독으로 맞춘다'
@@ -185,8 +188,8 @@ async function buildRows(m: MirrorSource, header: string[], maps: TabMap[]): Pro
   }
   R('', '', '', '');
   R('4. 여기서 고치는 것 / 원본에서 고치는 것', '', '', '');
-  R('여기서', '정제칸(차종코드~차종분류) · 정책코드 · 정책 탭 · 차명(세부모델+트림)/색/연식/옵션/차량가격 같은 «처음 한 번» 칸(옮겨 온 뒤로는 우리 기록 — 미러가 되돌리지 않는다)', '', '');
-  R('원본에서', '상태 · 기간별 대여료 · 보증금 — 여기서 고쳐도 다음 미러(30분)가 원본 값으로 되돌린다. 틀리면 공급사에 원본을 고쳐 달라고 한다.', '', '');
+  R('여기서', '정제칸(행키·기본스펙·차종코드~차종분류) · 정책코드 · 정책 탭 · 색/연식/주행거리/차량가격 같은 «처음 한 번» 칸(옮겨 온 뒤로는 우리 기록 — 미러가 되돌리지 않는다)', '', '');
+  R('원본에서', '상태 · 기간별 대여료 · 보증금 · 차명(세부모델+트림) · 옵션 — 여기서 고쳐도 다음 미러가 원본 값으로 되돌린다. 틀리면 공급사에 원본을 고쳐 달라고 한다.', '', '');
   R('하지 말 것', '줄 지우기(그 차의 정제 작업이 같이 사라진다 — 안 파는 차는 상태만 출고불가) · 열 이름 바꾸기·옮기기(이름으로 읽는다) · 판매시트에서 고치기(다음 발행에 사라진다)', '', '');
   R('', '', '', '');
   R(`5. ${m.name} 특이사항`, '', '', '');

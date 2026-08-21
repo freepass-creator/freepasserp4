@@ -496,10 +496,20 @@ for (const [code, p] of [...byCode].sort()) {
     if (first('차량번호') < 0) continue;
     for (const r of t.table.slice(1)) {
       const plate = norm(r[first('차량번호')]);
-      if (!plate) continue;
-      // 같은 차가 두 탭에 있으면 먼저 나온 쪽만 싣는다 — 영업자 표에 같은 차가 두 줄이면 안 된다.
-      if (seenPlate.has(plate)) { dupes++; continue; }
-      seenPlate.add(plate);
+      /**
+       * ★**번호 전 신차도 싣는다 — 차대번호가 있으면**(사장님 2026-08-21).
+       *   출고가 확정돼도 번호판은 며칠 뒤에 나온다. 그때까지 영업자 표에서 빠지면 팔 수가 없다.
+       *   차량번호 칸은 비워 두고(없는 번호를 지어내지 않는다) 「차대번호」로 그 차를 가린다.
+       * ⚠ 둘 다 없으면 여전히 안 싣는다 — 그 줄은 어느 차인지 알 방법이 없다.
+       */
+      const vinAt = first('차대번호');
+      const vin = vinAt >= 0 ? norm(r[vinAt]) : '';
+      if (!plate && !vin) continue;
+      const key = plate || `VIN:${vin}`;
+      if (seenPlate.has(key)) { dupes++; continue; }
+      seenPlate.add(key);
+
+      // 중복 판정은 위에서 끝냈다(차번 없으면 VIN 으로).
       // 그 탭에서 뽑힌 사진 링크가 있으면 담아 둔다(맨 마지막에 셀에 건다).
       const photo = S((t as Rec).photoByPlate?.[plate] || (t as Rec).photoByPlate?.[S(r[first('차량번호')])]);
       if (photo.startsWith('http')) photoOf.set(plate, photo);
@@ -608,10 +618,22 @@ const stateAt0 = COLUMNS.indexOf('배차상태');
    */
   const REAL_PLATE = /^\d{2,3}[가-힣]\d{4}$/;
   const beforePlate = rows.length;
-  const withPlate = rows.filter((r) => REAL_PLATE.test(S(r[plateAt0]).replace(/\s/g, '')));
-  const noPlate = beforePlate - withPlate.length;
-  rows.length = 0; rows.push(...withPlate);
-  if (noPlate) console.log(`  차량번호 미정 ${noPlate}대도 안 싣는다(번호가 나오면 다음 발행에 합류) → ${rows.length}대`);
+  /**
+   * ★**번호가 없어도 차대번호가 있으면 싣는다**(사장님 2026-08-21 「실제로 출고 확정되면 차량번호 없이 올린다고 ·
+   *   차량번호 없이 노출 구현할 수 있을 거 같은데 · 그렇게 해야 해」).
+   *   출고 확정과 번호판 발급 사이에 며칠이 뜬다. 그 사이 표에서 빠지면 팔 수가 없다.
+   *   차량번호 칸은 **비워 둔 채** 「차대번호」로 그 차를 가린다 — 없는 번호를 지어내지 않는다.
+   *   VIN 은 번호 나오기 전에도 안 바뀌어서, 실번호가 붙는 날 같은 차로 이어붙는다(product.vehicleIdentity).
+   * ⚠ 둘 다 없는 줄만 뺀다. 그건 어느 차인지 알 방법이 없다.
+   */
+  const vinAt0 = COLUMNS.indexOf('차대번호');
+  const keep = rows.filter((r) => REAL_PLATE.test(S(r[plateAt0]).replace(/\s/g, ''))
+    || (vinAt0 >= 0 && S(r[vinAt0]).replace(/\s/g, '').length >= 6));
+  const noPlate = beforePlate - keep.length;
+  const vinOnly = keep.filter((r) => !REAL_PLATE.test(S(r[plateAt0]).replace(/\s/g, ''))).length;
+  rows.length = 0; rows.push(...keep);
+  if (noPlate) console.log(`  차번·차대번호가 다 없는 ${noPlate}대는 안 싣는다 → ${rows.length}대`);
+  if (vinOnly) console.log(`  번호 전 신차 ${vinOnly}대는 차대번호로 싣는다(번호가 나오면 같은 차로 이어붙는다)`);
   console.log('');
 }
 const rentAt = RENT_COLUMNS.map((c) => COLUMNS.indexOf(c)).filter((i) => i >= 0);

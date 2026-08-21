@@ -27,7 +27,13 @@ export type LegacySheet = {
 export const HUB_CODE_SHEET_ID = '1TVeVXyJJRx0SzD2vxqy3eEjSojmMIWXSu7AdsKmpfmY';   // 문패 「공급사시트정리」(코드가 읽는다)
 export const HUB_HUMAN_SHEET_ID = '1cRn_XbuJXQMlVCATtDN4EpQy-KVEi65tCwcvCxdFk8w';  // 허브 「프리패스 공급사시트 정리」(사람이 본다 · ERP sheet_url 동기)
 export const SALES_SHEET_ID = '1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs';      // 판매시트 「프리패스 상품리스트」
-export const MASTER_SHEET_ID = '1T_RrErmGoj_yG9S1u7n--2NDolTOw8wA8ROQjPWuAlg';     // 원천대장 「ERP4 차종마스터 원천대장」
+export const MASTER_SHEET_ID = '1T_RrErmGoj_yG9S1u7n--2NDolTOw8wA8ROQjPWuAlg';     // 원천대장 「ERP4 차종마스터 원천대장」(상품마스터 · mf- 차종코드)
+/** 엔카 중고차 시세 원자 시트(M/SM/T/U). 정제칸 이름 사전이 아니다 — 이름은 vehicle-master.json. */
+export const ENCAR_MASTER_SHEET_ID = '1oMB9eoNnQFxUyRK4CSxYh_hKrtCf7s_79xLs-GYwXCE';
+/** 라이브 원장 문서 전체에 쓰지 못하게(엔카 사본 연동용). 탭 단위는 assertNotLiveVehicleMasterTabWrite. */
+export function assertNotLiveVehicleMasterWrite(id: string, what = 'write') {
+  if (String(id || '').trim() === MASTER_SHEET_ID) throw new Error(`refusing to ${what} live ERP 차종마스터 (${id})`);
+}
 
 export const LEGACY_SHEETS: LegacySheet[] = [
   // 문패가 2026-08-14 21:10 에 [제공] 시트로 넘어간 곳(tmp/hub-switch-log.txt)

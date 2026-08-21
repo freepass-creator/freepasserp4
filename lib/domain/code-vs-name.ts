@@ -19,6 +19,8 @@ export const MODEL_ALIAS: Record<string, string[]> = {
   '1시리즈': ['1series', '118', '120', '1 시리즈'], '3시리즈': ['3series', '320', '330', '3 시리즈'], '5시리즈': ['5series', '520', '530', '5 시리즈'], '7시리즈': ['7series', '740', '7 시리즈'],
   'E-클래스': ['e-class', 'e200', 'e220', 'e300', 'e클래스', 'e 클래스'], 'S-클래스': ['s-class', 's350', 's450', 's500', 's클래스'], 'C-클래스': ['c-class', 'c200', 'c220', 'c클래스'],
   A6: ['a6'], A4: ['a4'], 모델3: ['model3', '모델 3'], 모델Y: ['modely', '모델 y'], X5: ['x5'], X3: ['x3'], GLC: ['glc'], GLE: ['gle'],
+  RAV4: ['rav4', '라브4'], 엑센트: ['accent', '액센트'], SM7: ['sm7'],
+  200: ['200'],
 };
 
 export type CodeNameRecord = { model?: string; sub_model?: string; maker?: string };

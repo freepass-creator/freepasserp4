@@ -11,7 +11,7 @@
  *
  * ★**통째로 덮어쓰지 않는다.**
  *   정제칸 11개와 정책코드는 «우리가 써 넣은 것»이라 매번 덮으면 그 작업이 통째로 날아간다.
- *   그 밖(요금·보증금·상태·주행거리·색·차명…)은 공급사 것이라 늘 원본을 따른다.
+ *   상태·대여료·보증금·차명·옵션은 원본을 매번 따른다. 색·연식·주행거리·차량가격은 처음 한 번.
  * ★**행을 지우지 않는다.**
  *   원본에서 사라진 차는 상태만 「출고불가」로 바꾸고 줄은 남긴다 —
  *   지우면 그 차에 해 둔 정제 작업이 같이 사라지고, 다시 들어오면 처음부터 해야 한다.
@@ -25,9 +25,9 @@
  *   npx tsx scripts/sync-mirror-sheet.mts --source=iron --to=<우리시트ID> --code=RP006   # 아이언 = ironrentcar.com
  *   npx tsx scripts/sync-mirror-sheet.mts --from=… --to=… --code=RP023 --refresh-once [--apply]   # 정제시트를 «공급사 원문 그대로 + 모델명만 규격» 규칙으로 다시 세움(2026-08-19)
  *
- * ★2026-08-19 사장님 「공급사가 올린 정보 그대로 쓸 거고 모델명만 제대로 · 제조사·모델명만 검색되면 되고 연료·연식·배기량은 있는 대로」 —
- *   정제시트에 「모델명」 열이 있으면: 차명(세부모델+트림)=원본 모델명(트림풀명) 그대로(합치지 않음) · 모델명=원본 차종에서 제조사 말·연료 꼬리를 뗀 뒤 차종마스터 모델 이름(알면) · 제조사=원본 또는 차종에서 뗀 말.
- *   「모델명」 열이 없는 정제시트(아이카·이안카·아이언)는 예전 그대로(차종+차명 합침) — 열을 넣으면 같은 규칙이 켜진다.
+ * ★2026-08-21 — 왼쪽 차명·옵션은 원본 글자 정본. 정제시트 「모델명」 열이 있어도 차종/트림을 합친 차명을 쓴다
+ *   (트림만 남기면 이안카 「K8」·아이카 「BMW 5시리즈」가 빠지고, 한 번 짧게 들어온 값이 once 에 굳는다).
+ *   모델명 열 = 검색용 모델 이름. 엔카 정제칸(모델·세부모델·세부트림)은 stamp 가 차명에서 읽는다.
  *
  * ★2026-08-18 — **열 이름이 달라도 옮긴다**(`mirror-sheet-mapping.projectSourceRow`).
  *   아이카 「배차상태·트림·외장·Km·소비자가격」, 오토플러스 「차종+모델명·판매상태」, 이안카 「차종분류+세부모델+트림」이
@@ -37,8 +37,8 @@
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { SHEET_GRID_FIELDS, readSupplierSheet } from '../lib/domain/supplier-sheet-read';
+import { projectSourceRow, splitMakerModel, unmappedSourceColumns, isMirrorFollowSource } from '../lib/domain/mirror-sheet-mapping';
 import { AI_TAIL_COLUMNS, columnOwner, isOurNonInventoryTab } from '../lib/domain/supplier-template-sheet';
-import { projectSourceRow, splitMakerModel, unmappedSourceColumns } from '../lib/domain/mirror-sheet-mapping';
 import { snapToMaster, type MasterEntry } from '../lib/domain/vehicle-master-match';
 import { canonMakerDisplay } from '../lib/domain/maker-display';
 import { MIRROR_SOURCES } from '../lib/domain/mirror-sources';
@@ -57,9 +57,8 @@ const CODE = arg('code', 'RP000');
 /** 원본이 시트가 아닌 공급사 — `iron`(ironrentcar.com 홈페이지 수집). */
 const SOURCE = arg('source', 'sheet');
 /**
- * ★--refresh-once — «한 번만 옮기는 칸»(차명 원문·옵션·색·연식·주행거리·연료·배기량·최초등록일·차량가격)을 이번 한 번 원본으로 다시 맞춘다.
- *   사장님 2026-08-19 「공급사가 올린 정보 그대로 쓸 거고 모델명만 제대로」 — 정제시트를 그 규칙으로 다시 세울 때 쓴다. 평소엔 안 준다(우리 기록 보호).
- *   정제칸(ours)·정책코드는 이 플래그로도 안 건드린다.
+ * ★--refresh-once — «한 번만 옮기는 칸»(색·연식·주행거리·연료·배기량·최초등록일·차량가격)을 이번 한 번 원본으로 다시 맞춘다.
+ *   차명·옵션은 평소에도 원본을 따른다(MIRROR_FOLLOW_SOURCE). 정제칸(ours)·정책코드는 이 플래그로도 안 건드린다.
  */
 const REFRESH_ONCE = process.argv.includes('--refresh-once');
 /** 차종마스터(모델 이름 규격) — 정제시트 「모델명」을 마스터 모델 이름으로 맞출 때만 쓴다(확신 high·medium). */
@@ -92,7 +91,8 @@ if (!TO || (SOURCE === 'sheet' && !FROM)) throw new Error('--from=<원본ID> --t
  *
  *   · live — 매번 공급사를 따라간다(상태·기간 대여료·보증금)
  *   · ours — 우리가 정한다(정제칸·정책코드). 공급사가 못 덮는다
- *   · once — **처음 한 번만** 옮겨 온다. 그 뒤로는 우리 것이다(차명 원문·색·연식·옵션·차량가격…)
+ *   · once — **처음 한 번만** 옮겨 온다. 그 뒤로는 우리 것이다(색·연식·차량가격…)
+ *   · 차명·옵션 — 정제시트에서는 원본을 매번 따른다(`isMirrorFollowSource`). 한 번만 옮기면 첫 수입이 잘리거나 짧게 들어온 값이 굳는다.
  *
  * ⚠ 예전엔 «우리 칸만 지키고 나머지 전부를 매번 덮었다.» 그래서 한 번 정리해 둔
  *   차명·색·연식이 다음 동기화에 원문으로 되돌아갔다. 그게 「우리만의 시트로 변환한다」와 어긋난다.
@@ -256,7 +256,6 @@ for (const t of tabs) {
     // ★「모델명」 열이 있는 정제시트 — 차명(세부모델+트림)=공급사 원문 그대로(합치지 않음), 모델명=검색되는 모델 이름, 제조사=원본 또는 차종에서 뗀 말.
     if (t.mi >= 0) {
       const mm = modelNameOf(from);
-      if (from.get('차명원문')) from.set(norm('차명(세부모델+트림)'), from.get('차명원문')!);
       if (mm.model) from.set('모델명', mm.model);
       if (mm.maker && !S(from.get('제조사'))) from.set('제조사', mm.maker);
     }
@@ -287,7 +286,7 @@ for (const t of tabs) {
        *   매번 원문으로 되돌리면 정리한 값이 사라지고, 사람이 고쳐도 다음날 없어진다.
        */
       // ★배기량은 «원본이 값을 줄 때만» 덮는다 — 옛 값이 마스터 스냅에서 온 틀린 값일 수 있다(아이언 G80 2.5T 인데 3,300).
-      if (owner === 'once' && now && !REFRESH_ONCE && norm(name) !== '배기량') { onceKept++; return; }
+      if (owner === 'once' && now && !REFRESH_ONCE && !isMirrorFollowSource(name) && norm(name) !== '배기량') { onceKept++; return; }
       if (owner === 'once' && now && !REFRESH_ONCE && norm(name) === '배기량' && !next) { onceKept++; return; }
       // ★사진링크가 이미 우리 드라이브(drive.google.com)면 원본의 외부 주소로 되돌리지 않는다(사장님 2026-08-19 「구글드라이브가 아닌 건 우리 거로 받아와서 링크」).
       if (norm(name) === '사진링크' && /drive\.google\.com/.test(now)) { onceKept++; return; }
@@ -332,7 +331,7 @@ const one = tabs.length === 1 ? tabs[0] : null;
 const newRows: string[][] = one
   ? fresh.map((plate) => {
     const from = src.get(plate)!;
-    if (one.mi >= 0) { const mm = modelNameOf(from); if (from.get('차명원문')) from.set(norm('차명(세부모델+트림)'), from.get('차명원문')!); if (mm.model) from.set('모델명', mm.model); if (mm.maker && !S(from.get('제조사'))) from.set('제조사', mm.maker); }
+    if (one.mi >= 0) { const mm = modelNameOf(from); if (mm.model) from.set('모델명', mm.model); if (mm.maker && !S(from.get('제조사'))) from.set('제조사', mm.maker); }
     // 새 차는 통째로 옮겨 온다 — 「처음 한 번」이 바로 이 자리다. 우리 칸은 기본값(정책코드 등)만.
     // ★입고일자가 원본에 없으면 «우리 시트에 처음 선 날»(오늘 KST) — 재고일수의 기준이 그 뜻이다(사장님 2026-08-18 「빈 칸 다 보라고」).
     const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10);

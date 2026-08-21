@@ -14,7 +14,8 @@ import { DEFAULT_PRODUCT_MASTER_SHEET_ID } from '../lib/domain/product-master-sh
 import { FONT_DEFAULT, SIZE } from '../lib/domain/sales-sheet-format';
 import { VEHICLE_REFINE_FLOW } from '../lib/domain/vehicle-refine-flow';
 import { MIRROR_SOURCES } from '../lib/domain/mirror-sources';
-import { EXTERNAL_LEGACY_ORIGINS, LEGACY_SHEETS } from '../lib/domain/legacy-sheets';
+import { MIRROR_OWNER_RULE } from '../lib/domain/mirror-sheet-mapping';
+import { EXTERNAL_LEGACY_ORIGINS, LEGACY_SHEETS, ENCAR_MASTER_SHEET_ID } from '../lib/domain/legacy-sheets';
 import { CORE_BOOKS, STATUS_HELP, rosterRowFor, sheetUrl, type SheetIdentityInput } from '../lib/domain/sheet-identity';
 import { LEGACY_SHEET_PREFIX, SHEET_NAME_MATCH, supplierSheetLabel } from '../lib/domain/supplier-template-sheet';
 
@@ -76,10 +77,11 @@ row('', '상태 어휘', Object.entries(STATUS_HELP).map(([k, v]) => `${k} = ${v
 row();
 row('1. 시트 목록', '시트', '무엇의 정본인가 · 누가 만지나', '위치');
 row('', '「○○ 프리패스 재고」 21곳', '공급사 재고(차량번호·상태·기간별 대여료/보증금·정책코드)와 정책 조건의 정본. 재고·정책 탭은 공급사가, 정제칸(차종코드~차종분류)은 프리패스가. 탭: 재고 · (구독재고) · 정책 · 작성 안내 · [숨김] AI 인계. 열 차례는 웰릭스 표준(대여료 블록만 공급사 구조가 다를 수 있다 — 손오공 구독·오토플러스 2만/3만).', '드라이브 검색 「프리패스 재고」');
-row('', '**정제시트** = 자체시트·홈페이지를 쓰는 공급사의 「○○ 프리패스 재고」', '아이카(원본 시트 1LqW…) · 오토플러스(1TJB…) · 이안카(1fJu…) · 아이언(ironrentcar.com) — 공급사는 자기 것을 계속 쓰고, 우리가 30분마다 정제시트로 옮겨 담는다(상태·대여료는 매번, 정제칸·정책코드는 우리 것, 나머지는 처음 한 번). 문패는 넷 다 정제시트를 가리킨다(2026-08-18). 상품마스터·판매시트는 정제시트만 읽는다 — 「상품마스터로 올 때는 어찌됐든 정제시트 통해서」. 원본 주소는 코드 mirror-sources.ts 한 표.', 'npx tsx scripts/sync-mirror-all.mts --apply · 자체시트인데 아직 문패가 자기 시트인 곳: 손오공·리더스·스타·렌트존·우리캐피탈·SA(오플은 판매시트 오플 탭 통째 복사)');
+row('', '**정제시트** = 자체시트·홈페이지를 쓰는 공급사의 「○○ 프리패스 재고」', `아이카(원본 시트 1LqW…) · 오토플러스(1TJB…) · 이안카(1fJu…) · 아이언(ironrentcar.com) — 공급사는 자기 것을 계속 쓰고, 우리가 30분마다 정제시트로 옮겨 담는다(${MIRROR_OWNER_RULE}). 문패는 넷 다 정제시트를 가리킨다(2026-08-18). 상품마스터·판매시트는 정제시트만 읽는다 — 「상품마스터로 올 때는 어찌됐든 정제시트 통해서」. 원본 주소는 코드 mirror-sources.ts 한 표.`, 'npx tsx scripts/sync-mirror-all.mts --apply · 자체시트인데 아직 문패가 자기 시트인 곳: 손오공·리더스·스타·렌트존·우리캐피탈·SA(오플은 판매시트 오플 탭 통째 복사)');
 row('', '「공급사시트정리」(문패)', '공급사코드 → 발행기가 읽을 시트 주소. 여기 적힌 주소가 그 공급사의 재고 정본이다.', url(HUB));
 row('', '「프리패스 상품리스트」(판매시트)', '영업자가 보는 표. 기계가 찍는 사본 — 손으로 고치지 않는다. 탭 3개(2026-08-19 회귀): 상품리스트(21곳 − 오플 − 손오공 구독) · 손오공구독(보증금 반납형·기간별 반납형+인수형) · 오플구독(12개월 2만km … 36개월 3만km) — 같은 발행기, 갈래 탭은 공통 대여료 블록 대신 그 공급사 기간별 대여료, 같은 차는 한 탭에만 · [숨김] AI 인계(@매핑=열 구성 정본 · @제외) · AI 정제(치환 사전) · 이 시트는.', url(SALES));
-row('', '원천대장 「차종마스터」', '영구 차종코드(트림행키) 원장. Gemini 가 정리 중 — 이름·기간 등 차종 정보는 여기서만 고친다. 코드는 삭제·재사용·의미변경 금지.', url(MASTER, 1159482177));
+row('', '원천대장 「차종마스터」', 'ERP 차종코드(mf- 트림행키) 보관. 상품마스터 「차종코드」가 여기를 가리킨다. 이름·기간 등 차명 사전은 아래 엔카 차종마스터. 코드는 삭제·재사용·의미변경 금지. 이 탭에 엔카 줄을 쓰지 않는다.', url(MASTER, 1159482177));
+row('', '엔카 차종마스터', '차명·제원 사전(정본). 탭 「안내」·「차종마스터」·「세부모델」. 키 M/SM/T/U. 공급사 행키+기본스펙·사본 탭은 여기서 나온다.', url(ENCAR_MASTER_SHEET_ID));
 row('', '원천대장 「차종마스터_규격검토」→「차종마스터_규격채택」', '검토(제조사·모델·세부모델·세부트림 3축)와 그 채택본. 판매시트 차명은 채택 이름을 쓴다. 검토 값을 고치면 채택본 재게시가 따라와야 한다.', url(MASTER, 271777427));
 row('', '원천대장 「상품마스터」', '차량번호 → 차종코드 정본(ERP 가 읽는 입력). 상태·대여료·보증금은 갱신기(live) → 발행된 상품리스트 값으로 맞춤(⑤′) — 영업자 표와 같다. 코드는 결정 파일 → guarded writer 로만 박는다.', url(MASTER, 1357902468));
 row('', '원천대장 「공급사 데이터 매뉴얼」·「공급사 열 매핑」·「공급사연동」', '공급사별 정본·읽는 탭·헤더행·우선순위·차명 조합·가격/상태 규칙·원본 URL, 원본 열 매핑, 연동 상태.', url(MASTER, 1773021401));
@@ -87,7 +89,7 @@ row('', '리포 data/product-vehicle-review-decisions.json', '차량번호별 3�
 row();
 row('2. 흐름 — 매일', '순서', '무엇이 무엇을 읽어 무엇을 찍나', '명령');
 row('', '★한 방', '공급사가 고친 것을 일괄 반영: 정제칸 채움 → 못 정한 차 결정 → 상품리스트·인수형 발행 → 상품마스터 갱신 → 상품마스터 ← 상품리스트 맞춤(ERP 정확 일치) → 검수(돈·정제칸·빈 칸·ERP 일치 게이트). 한 단계 실패하면 멈춘다. AI 에게 「일일 반영 돌려」.', 'npx tsx scripts/run-daily.mts --apply (미리보기: --apply 빼고 · 미러 포함: --with-mirror · 가드 통과: --force-shrink)');
-row('', '① 원본 → 정제시트', '아이카·오토플러스·이안카(시트)·아이언(홈페이지)을 정제시트로 옮긴다(정제칸·정책코드는 안 덮는다, 줄은 안 지운다·사라진 차는 출고불가). 줄별 조건 칸(대인·대물·자차…)은 정책 탭 정책코드로. 30분마다 mirror-sync.yml, 발행 직전 sheet-sync.yml — 둘 다 main 에 있어야 돈다.', 'npx tsx scripts/sync-mirror-all.mts --apply (한 곳: sync-mirror-sheet / 정책: sync-mirror-policies)');
+row('', '① 원본 → 정제시트', `아이카·오토플러스·이안카(시트)·아이언(홈페이지)을 정제시트로 옮긴다(${MIRROR_OWNER_RULE}). 줄별 조건 칸(대인·대물·자차…)은 정책 탭 정책코드로. 30분마다 mirror-sync.yml, 발행 직전 sheet-sync.yml — 둘 다 main 에 있어야 돈다.`, 'npx tsx scripts/sync-mirror-all.mts --apply (한 곳: sync-mirror-sheet / 정책: sync-mirror-policies)');
 row('', '② 정제칸', '새 차의 정제칸(파워트레인·세부트림…)을 빈 칸만 채운다.', 'npx tsx scripts/fill-supplier-ai-columns.mts --apply');
 row('', '③ 판매시트 발행', '20곳 재고 → 상품리스트. 차명은 상품마스터 코드→규격채택 이름, 코드 없으면 3축 결정, 그다음 정제칸·원문. 정책 43칸은 우리 제공시트 「정책」 탭. 돈·상태는 공급사 글자 그대로.', 'npx tsx scripts/publish-origin-tab.mts --apply');
 row('', '④ 손오공구독·오플구독 탭(탭 3개, 2026-08-19 회귀)', '상품리스트(21곳 − 오플 − 손오공 구독) · 손오공구독(공통 대여료 블록 자리에 보증금 반납형·12~60개월 반납형·보증금 인수형·36/48/60개월 인수형) · 오플구독(그 자리에 12개월 2만km … 36개월 3만km). 같은 발행기(--only)라 차명·나머지 열이 같고, 같은 차는 한 탭에만(@제외 RP023·RP012:구독). 표준 칸은 별칭으로 되찾는다(sales-published-tabs.ts). ⚠ 2026-08-18 하루는 한 탭이었다(오플 12개월←12개월3만·24/36개월←2만 별칭은 표준 칸에 남아 있다). 옛 메모: 오플 탭·옛 손오공구독 탭은 지웠다.', 'publish-sonogong-tab --apply');
@@ -101,8 +103,9 @@ row();
 row('3. 무엇이 틀렸을 때 어디를 고치나', '증상', '고치는 곳', '그다음');
 row('', '차 이름(모델·세부모델·트림)이 틀림', '코드가 있는 차: 상품마스터 차종코드(결정 파일 CODE → plan-product-vehicle-review-decisions → apply-product-master-vehicle-coverage --apply). 코드 없는 차: 결정 파일 TRIPLE/PARTIAL.', '판매시트 재발행');
 row('', '마스터의 차종 이름·기간이 틀림', '차종마스터_규격검토(Gemini) → 규격채택 재게시(apply-vehicle-master-review-adoption).', '판매시트 재발행');
-row('', '대여료·보증금·상태가 틀림', '그 공급사 재고 정본 — 우리 시트에 직접 쓰는 공급사면 「프리패스 재고」 재고 탭, 정제시트 공급사(아이카·오플·이안카·아이언)면 **공급사 원본/홈페이지**(정제시트에서 고쳐도 다음 미러가 원본으로 되돌린다 — 상태·대여료는 live). 판매시트에서 고치지 않는다.', '①③⑤');
-row('', '정제시트 공급사의 차명·색·연식을 고침', '정제시트 재고 탭에서 고친다(처음 한 번 옮긴 뒤로는 우리 기록 — 미러가 되돌리지 않는다). 정제칸·정책코드도 정제시트에서.', '');
+row('', '대여료·보증금·상태가 틀림', '그 공급사 재고 정본 — 우리 시트에 직접 쓰는 공급사면 「프리패스 재고」 재고 탭, 정제시트 공급사(아이카·오플·이안카·아이언)면 **공급사 원본/홈페이지**(정제시트에서 고쳐도 다음 미러가 원본으로 되돌린다 — 상태·대여료·차명·옵션은 live). 판매시트에서 고치지 않는다.', '①③⑤');
+row('', '정제시트 공급사의 차명·옵션이 틀림', '원본 시트/홈페이지에서 고친다(다음 미러가 정제시트 왼쪽을 덮는다). 정제칸·정책코드·색·연식·가격은 정제시트에서(once·ours).', '① stamp');
+row('', '정제시트 공급사의 색·연식을 고침', '정제시트 재고 탭에서 고친다(처음 한 번 옮긴 뒤로는 우리 기록 — 미러가 되돌리지 않는다). 정제칸·정책코드도 정제시트에서.', '');
 row('', '정책 조건(보험·연령·주행…)이 틀림/빔', '그 공급사 「프리패스 재고」 정책 탭(표기 규격은 정책 탭 머리글 메모·docs/SUPPLIER_POLICY_SHEET_MANUAL.md). 차에 정책코드가 없으면 「프리패스 기본」으로 떨어진다.', '③');
 row('', '판매시트 열이 빠지거나 자리가 다름', '판매시트 [숨김] AI 인계 @매핑(코드의 SALES_MAPPING 이 예비). 뺀 열은 SALES_RETIRED_COLUMNS.', 'publish-handover-tab --apply → ③');
 row('', '공급사 시트 주소가 바뀜', '문패 「공급사시트정리」.', '③');
