@@ -4,6 +4,7 @@ import { Copy, Download, Link2, LoaderCircle } from 'lucide-react';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { acquisitionPriceList, agentContractRows, agentPanelRows, cheapest, priceList, vehicleName, type Audience } from '@/lib/domain/product';
 import { actor, getRole } from '@/lib/domain/deal';
+import { getSession } from '@/lib/auth-session';
 import { formatProductForCopy, guestShareUrl } from '@/lib/domain/product-share';
 import { useProductPhotoState } from '@/components/use-product-photos';
 import { downloadPhotoZip } from '@/lib/client/download-photo-zip';
@@ -11,7 +12,7 @@ import { CustomerPreviewButton } from '@/components/CustomerPreviewModal';
 import { sectionIcon } from '@/components/section-icons';
 import { copyText } from '@/lib/clipboard';
 import { toast } from '@/components/Toaster';
-import { useIsMobile } from '@/lib/use-mobile';
+import { AGENT_COL_BP } from '@/components/product-agent-layout';
 import { won, Btn, C, R, NUM, FW, FS, ICON, DetailTable, DT, R_CARD, SH } from '@/components/ui';
 
 /**
@@ -38,18 +39,10 @@ import { won, Btn, C, R, NUM, FW, FS, ICON, DetailTable, DT, R_CARD, SH } from '
  *   요금이 없으면 보낼 값이 없다고 **아래가 말해 준다** — 버튼을 지우면 기능이 없는 줄 안다.
  */
 
-/** 우측 칼럼이 서는 최소 폭. 이보다 좁으면 본문 아래로 쌓는다. */
-export const AGENT_COL_BP = 1200;
 /** 칼럼 폭 · 본문과의 간격 — 페이지가 flex gap 을 맞추려면 알아야 한다. */
 const AGENT_COL_W = 380;
-export const AGENT_COL_GAP = 28;
 /** 위아래 같은 숨 간격 — 위는 곧 «상단에 부딪혔을 때 멈추는 자리»다. */
 const CHROME_GAP = 14;
-
-/** 지금 우측 칼럼이 실제로 서는가 — 페이지가 본문 하단 여백을 정할 때 쓴다. */
-export function useAgentColumn(): boolean {
-  return !useIsMobile(AGENT_COL_BP);
-}
 
 /** 남색 면 위의 선·글자 — 반전면에서는 C.line·C.mute 가 안 보인다(어두운 바탕에 어두운 선). */
 const INV = {
@@ -74,7 +67,8 @@ export function ProductAgentShareActions({ p }: { p: EntityRecord }) {
     else prompt('링크', url);
   };
   const copySummary = async () => {
-    if (await copyText(formatProductForCopy(p))) toast('상품 텍스트가 복사되었습니다', 'ok');
+    const currentActor = actor(role);
+    if (await copyText(formatProductForCopy(p, { name: currentActor.name, phone: getSession()?.phone }))) toast('상품 텍스트가 복사되었습니다', 'ok');
     else toast('상품 텍스트를 복사하지 못했습니다', 'error');
   };
   return (

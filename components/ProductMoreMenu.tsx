@@ -9,6 +9,7 @@ import { hideProduct } from '@/lib/product-hide';
 import { passProduct, isPassed, unpassProduct, subscribePassed } from '@/lib/product-pass';
 import { vehicleName } from '@/lib/domain/product';
 import { actor, getRole } from '@/lib/domain/deal';
+import { getSession } from '@/lib/auth-session';
 import { formatProductForCopy, guestShareUrl } from '@/lib/domain/product-share';
 import { toast } from '@/components/Toaster';
 import { BottomSheet } from '@/components/BottomSheet';
@@ -23,7 +24,7 @@ import { copyText } from '@/lib/clipboard';
  *   · 관심없음 — 목록 맨 뒤로
  *   · 숨기기 — 목록에서 완전 제외
  */
-export function ProductMoreMenu({ p }: { p: EntityRecord }) {
+export function ProductMoreMenu({ p, align = 'middle' }: { p: EntityRecord; align?: 'middle' | 'top' }) {
   const mobile = useIsMobile();
   const [open, setOpen] = useState(false);
   const code = String(p.product_code || p._key || '');
@@ -31,14 +32,23 @@ export function ProductMoreMenu({ p }: { p: EntityRecord }) {
   const [passed, setPassed] = useState(false);
   const role = getRole();
   const canDeal = role === 'agent' || role === 'admin';
+  // 모바일 피드의 모든 카드가 이 메뉴를 가진다. 목록을 열자마자 카드 수만큼
+  // interest/pass 구독을 만들면 스크롤·필터 반응이 둔해진다. 실제 메뉴를 연 한
+  // 카드만 최신 상태를 구독하면 된다.
   useEffect(() => {
-    setFav(isFav(code));
-    return subscribeInterest(() => setFav(isFav(code)));
-  }, [code]);
-  useEffect(() => {
-    setPassed(isPassed(code));
-    return subscribePassed(() => setPassed(isPassed(code)));
-  }, [code]);
+    if (!open) return;
+    const sync = () => {
+      setFav(isFav(code));
+      setPassed(isPassed(code));
+    };
+    sync();
+    const unsubscribeInterest = subscribeInterest(sync);
+    const unsubscribePassed = subscribePassed(sync);
+    return () => {
+      unsubscribeInterest();
+      unsubscribePassed();
+    };
+  }, [code, open]);
 
   // 웹 = 우클릭·설정으로. ⋯ 트리거는 모바일만.
   if (!mobile) return null;
@@ -46,6 +56,9 @@ export function ProductMoreMenu({ p }: { p: EntityRecord }) {
   const openMenu = (e: MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    // effect가 붙기 전 한 프레임도 과거 상태가 보이지 않게 즉시 읽는다.
+    setFav(isFav(code));
+    setPassed(isPassed(code));
     setOpen(true);
   };
 
@@ -96,7 +109,8 @@ export function ProductMoreMenu({ p }: { p: EntityRecord }) {
           {item(
             '텍스트 복사',
             async () => {
-              if (await copyText(formatProductForCopy(p))) toast('상품 텍스트가 복사되었습니다', 'ok');
+              const currentActor = actor(role);
+              if (await copyText(formatProductForCopy(p, { name: currentActor.name, phone: getSession()?.phone }))) toast('상품 텍스트가 복사되었습니다', 'ok');
               else toast('상품 텍스트를 복사하지 못했습니다', 'error');
             },
             { icon: <Copy size={ICON.lg} color={C.brand} />, haptic: 'select' },
@@ -162,8 +176,8 @@ export function ProductMoreMenu({ p }: { p: EntityRecord }) {
         style={{
           position: 'absolute',
           right: mobile ? -10 : -8,
-          top: '50%',
-          transform: 'translateY(-50%)',
+          top: align === 'top' ? 4 : '50%',
+          transform: align === 'top' ? undefined : 'translateY(-50%)',
           zIndex: 2,
           width: hit, height: hit,
           border: 'none', background: 'none', color: C.mute,

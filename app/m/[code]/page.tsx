@@ -1,5 +1,6 @@
 ﻿'use client';
 import { useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { useParams, useRouter } from 'next/navigation';
 import { getStore, peekCached } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
@@ -10,7 +11,7 @@ import { Btn, BottomNav, Loading, CenterNote, C, FS, R } from '@/components/ui';
 import { ProductDetail } from '@/components/ProductDetail';
 import { SimpleInquiry } from '@/components/SimpleInquiry';
 import { ReportButton } from '@/components/ReportButton';
-import { ProductAgentPanel, ProductAgentColumn, useAgentColumn, AGENT_COL_GAP } from '@/components/ProductAgentPanel';
+import { useAgentColumn, AGENT_COL_GAP } from '@/components/product-agent-layout';
 import { getRole } from '@/lib/domain/deal';
 import { touchRecent } from '@/lib/product-interest';
 import { useAuthReady } from '@/lib/auth-context';
@@ -21,6 +22,17 @@ import { PageStatus } from '@/components/PageStatus';
 import { NAV_ICON } from '@/lib/tabbar';
 import { useContentColumn } from '@/lib/content-column';
 import { fetchSheetLiveStatuses, SHEET_LIVE_STATUS_POLL_MS } from '@/lib/firebase/sheet-live-status-client';
+
+// 가격/전달/사진 보조 패널은 상품 본문보다 늦게 떠도 된다. 상세 첫 페인트에서는
+// 가벼운 layout hook만 쓰고, 실제 영업 보조 UI는 역할·폭이 필요한 시점에 불러온다.
+const ProductAgentPanel = dynamic(() => import('@/components/ProductAgentPanel').then((m) => m.ProductAgentPanel), {
+  ssr: false,
+  loading: () => <Loading label="영업 도구를 여는 중…" />,
+});
+const ProductAgentColumn = dynamic(() => import('@/components/ProductAgentPanel').then((m) => m.ProductAgentColumn), {
+  ssr: false,
+  loading: () => <Loading label="영업 도구를 여는 중…" />,
+});
 
 // 매물 상세(전체화면) = ProductDetail 원자 + 하단 액션바(이전·소통·손님공유·계약).
 export default function Detail() {

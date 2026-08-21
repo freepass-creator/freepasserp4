@@ -13,9 +13,7 @@ import { NAV_LABEL } from '@/lib/tabbar';
 import { toggleInSet } from '@/lib/set';
 import { useInventoryResults, type InventorySort as InvSort } from '@/features/inventory/useInventoryResults';
 import { InventoryListPanel, type InventoryListPanelModel } from '@/features/inventory/InventoryListPanel';
-import {
-  InventoryFixedPane, InventoryVariablePane, type InventoryEditorModel,
-} from '@/features/inventory/InventoryEditorPanes';
+import type { InventoryEditorModel } from '@/features/inventory/InventoryEditorPanes';
 import { useInventoryVehicleTools } from '@/features/inventory/useInventoryVehicleTools';
 import { useInventoryEditorLifecycle } from '@/features/inventory/useInventoryEditorLifecycle';
 import { useInventoryAccessEffects, useInventoryData } from '@/features/inventory/useInventoryData';
@@ -38,6 +36,16 @@ function sameStringSet(a: Set<string>, b: Set<string>): boolean {
 const SheetSync = dynamic(() => import('@/components/SheetSync').then((m) => m.SheetSync), {
   ssr: false,
   loading: () => <CenterNote>시트 연동 불러오는 중…</CenterNote>,
+});
+// 목록을 훑는 단계에서는 차량 기본·운영 편집폼이 보이지 않는다. OCR/폼 구성까지 초기 번들에
+// 넣지 않고, 실제 매물을 선택한 뒤에만 가져와 재고 목록과 검색의 첫 반응을 가볍게 한다.
+const InventoryFixedPane = dynamic(() => import('@/features/inventory/InventoryEditorPanes').then((m) => m.InventoryFixedPane), {
+  ssr: false,
+  loading: () => <CenterNote>기본 정보를 여는 중…</CenterNote>,
+});
+const InventoryVariablePane = dynamic(() => import('@/features/inventory/InventoryEditorPanes').then((m) => m.InventoryVariablePane), {
+  ssr: false,
+  loading: () => <CenterNote>운영 정보를 여는 중…</CenterNote>,
 });
 
 // 재고관리 4프레임 = [매물 목록 | 기본 | 운영 | 연동·반영].

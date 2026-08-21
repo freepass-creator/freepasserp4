@@ -122,51 +122,60 @@ function WebRow({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) {
  */
 function MobileRow({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) {
   const href = `/m/${encodeURIComponent(String(p.product_code || p._key))}`;
+  const cardStyle = {
+    display: 'flex', gap: 12, alignItems: 'stretch',
+    borderRadius: 0,
+    padding: '10px 12px',
+    borderBottom: `1px solid ${C.line2}`,
+    textDecoration: 'none', color: 'inherit',
+  } satisfies CSSProperties;
+  const linkedContentStyle = {
+    ...cardStyle,
+    border: 'none', borderRadius: 0,
+    width: '100%', minWidth: 0, boxSizing: 'border-box',
+  } satisfies CSSProperties;
+
   return (
-    <Link href={href} onClick={() => haptic.nav()} className="fp-card fp-card-row" style={{
-      display: 'flex', gap: 12, alignItems: 'stretch',
-      borderRadius: 0,
-      padding: '10px 12px',
-      borderBottom: `1px solid ${C.line2}`,
-      textDecoration: 'none', color: 'inherit',
-    } satisfies CSSProperties}>
-      {/* 목록(웹·모바일) = 찜 없음. 관심 등록은 상품 상세에서만. */}
-      <CardThumb p={p} w={56} marks={false} />
+    <div className="fp-card fp-card-row" style={{ ...cardStyle, position: 'relative' }}>
+      <Link href={href} onClick={() => haptic.nav()} style={linkedContentStyle}>
+        {/* 목록(웹·모바일) = 찜 없음. 관심 등록은 상품 상세에서만. */}
+        <CardThumb p={p} w={56} marks={false} />
 
-      <PricePeekRoot p={p} focusMonth={focusMonth} style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 5,
-        flex: '1 1 auto',
-        minWidth: 0,
-        alignSelf: 'stretch',
-        justifyContent: 'center',
-      }}>
-        {/* 1 차량명 + ⋯ */}
-        <div style={{ position: 'relative', minWidth: 0, paddingRight: 22 }}>
-          <CardTitle p={p} narrow />
-          <ProductMoreMenu p={p} />
-        </div>
-
-        {/* 2 차량번호 · 연식 */}
-        <CardSpecs p={p} plateYear />
-
-        {/* 3 대여료 · 보증금 · 최저~최대 운영기간
-            PeriodRange 칩(h20) + 큰 금액 ascent로 행2↔3이 ~1px 넓어 보임 → 행 전체 -1 */}
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 8, lineHeight: 1.2,
-          minWidth: 0, width: '100%', overflow: 'hidden',
-          marginTop: -1,
+        <PricePeekRoot p={p} focusMonth={focusMonth} style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 5,
+          flex: '1 1 auto',
+          minWidth: 0,
+          alignSelf: 'stretch',
+          justifyContent: 'center',
         }}>
-          <div style={{ flex: '1 1 auto', minWidth: 0, overflow: 'hidden' }}>
-            <PriceAmounts align="start" />
+          {/* 1 차량명 — 메뉴는 Link sibling이어야 중첩 interactive element가 아니다. */}
+          <div style={{ position: 'relative', minWidth: 0, paddingRight: 22 }}>
+            <CardTitle p={p} narrow />
           </div>
-          <PeriodRange />
-        </div>
 
-        {/* 4 우대 */}
-        <CardPerkLine p={p} inline />
-      </PricePeekRoot>
-    </Link>
+          {/* 2 차량번호 · 연식 */}
+          <CardSpecs p={p} plateYear />
+
+          {/* 3 대여료 · 보증금 · 최저~최대 운영기간
+              PeriodRange 칩(h20) + 큰 금액 ascent로 행2↔3이 ~1px 넓어 보임 → 행 전체 -1 */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8, lineHeight: 1.2,
+            minWidth: 0, width: '100%', overflow: 'hidden',
+            marginTop: -1,
+          }}>
+            <div style={{ flex: '1 1 auto', minWidth: 0, overflow: 'hidden' }}>
+              <PriceAmounts align="start" />
+            </div>
+            <PeriodRange />
+          </div>
+
+          {/* 4 우대 */}
+          <CardPerkLine p={p} inline />
+        </PricePeekRoot>
+      </Link>
+      <ProductMoreMenu p={p} align="top" />
+    </div>
   );
 }

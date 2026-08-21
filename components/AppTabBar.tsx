@@ -1,14 +1,14 @@
 'use client';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { useEffect, useState, useCallback } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import { useIsMobile } from '@/lib/use-mobile';
 import { useKeyboardOpen } from '@/lib/use-keyboard';
 import { haptic } from '@/lib/haptics';
-import { C, CountPill, FS, FW, SH, ICON } from '@/components/ui';
+import { Btn, C, CountPill, FS, FW, SH, ICON } from '@/components/ui';
 import { getRole, type Role } from '@/lib/domain/deal';
 import { useSession } from '@/lib/auth-context';
-import { loadMenuBadges, type MenuBadgeMap } from '@/lib/domain/menu-badges';
+import { useMenuBadges } from '@/lib/menu-badge-store';
 import { appTabsFor, isTabRoute, useTabBarHidden } from '@/lib/tabbar';
 import { refreshCurrentPage } from '@/lib/page-refresh';
 import { toast } from '@/components/Toaster';
@@ -34,12 +34,12 @@ function setTabCss(on: boolean) {
 export default function AppTabBar() {
   const mobile = useIsMobile();
   const path = usePathname();
+  const router = useRouter();
   const hidden = useTabBarHidden();
   const session = useSession();
   const kb = useKeyboardOpen();
   // null = 역할 미확정(첫 페인트). agent 가정으로 탭 수 점프 금지.
   const [role, setRole] = useState<Role | null>(null);
-  const [badges, setBadges] = useState<MenuBadgeMap>({});
 
   useEffect(() => {
     setRole(getRole());
@@ -58,34 +58,27 @@ export default function AppTabBar() {
       ? session.role
       : role;
 
-  const refreshBadges = useCallback((r: Role) => {
-    let alive = true;
-    loadMenuBadges(r).then((m) => { if (alive) setBadges(m); }).catch(() => {});
-    return () => { alive = false; };
-  }, []);
-
-  useEffect(() => {
-    if (!tabRole) return;
-    // 앞선 요청은 취소하고 다시 — 취소자를 버리면 언마운트 뒤 늦은 응답이 setState 한다.
-    let cancel = refreshBadges(tabRole);
-    const run = () => { cancel(); cancel = refreshBadges(tabRole); };
-    // 보이는 동안만 주기 갱신 — 상대가 보낸 새 문의는 이쪽에 알릴 계기가 없다(QA SYNC-1).
-    //  모바일은 앱 전환 복귀에 focus 가 안 오는 경우가 있어 visibilitychange 도 같이 듣는다.
-    const tick = () => { if (document.visibilityState === 'visible') run(); };
-    const id = window.setInterval(tick, 30_000);
-    window.addEventListener('focus', run);
-    document.addEventListener('visibilitychange', tick);
-    window.addEventListener('fp:unread', run);
-    return () => {
-      cancel();
-      window.clearInterval(id);
-      window.removeEventListener('focus', run);
-      document.removeEventListener('visibilitychange', tick);
-      window.removeEventListener('fp:unread', run);
-    };
-  }, [tabRole, refreshBadges]);
+  const { badges } = useMenuBadges(tabRole, `${session?.uid || ''}:${session?.rawRole || ''}:${session?.company_code || ''}`);
 
   const tabs = tabRole ? appTabsFor(tabRole) : [];
+  // 고정 하단 탭은 다음 이동 후보가 2~4개로 매우 작다. 유휴 시간에 route shell만
+  // 미리 받아 두면 탭을 누른 뒤 네트워크 왕복 때문에 화면이 멈춘 듯 보이지 않는다.
+  // 개별 상품 상세는 수백 개라 여기서 prefetch하지 않는다.
+  useEffect(() => {
+    if (!tabRole) return;
+    const preload = () => {
+      for (const tab of appTabsFor(tabRole)) {
+        if (tab.href !== path && !tab.soon) router.prefetch(tab.href);
+      }
+    };
+    const idle = typeof window.requestIdleCallback === 'function'
+      ? window.requestIdleCallback(preload, { timeout: 1_500 })
+      : window.setTimeout(preload, 350);
+    return () => {
+      if (typeof window.cancelIdleCallback === 'function' && typeof idle === 'number') window.cancelIdleCallback(idle);
+      else window.clearTimeout(idle as number);
+    };
+  }, [path, router, tabRole]);
   // 키보드가 올라오면 하단탭을 접는다. 키보드가 탭바를 밀어 올려 입력칸 바로 위에 겹쳐 앉고,
   //  오타 한 번에 다른 화면으로 튄다. 접으면 --fp-tabbar-h 도 0이 돼 본문이 그 자리를 되찾는다.
   //  ⚠ **focus 가 아니라 시각 뷰포트 축소로 잰다**(use-keyboard.ts) — 뒤로가기로 키보드만 내려도
@@ -138,10 +131,11 @@ export default function AppTabBar() {
           if (t.soon) {
             // 준비중 — 자리만 보여주고 이동하지 않는다(햄버거 soon 과 같은 규칙).
             return (
-              <button
+              <Btn
                 key={t.href}
                 type="button"
                 aria-disabled
+                haptic={false}
                 onClick={() => { haptic.tap(); toast(`${t.label}은 준비중입니다`, 'info'); }}
                 style={{
                   position: 'relative', flex: '1 1 0', minWidth: 0,
@@ -154,7 +148,7 @@ export default function AppTabBar() {
               >
                 <t.icon size={ICON.xl} strokeWidth={2.2} />
                 <span style={{ whiteSpace: 'nowrap' }}>{t.label}</span>
-              </button>
+              </Btn>
             );
           }
           return (

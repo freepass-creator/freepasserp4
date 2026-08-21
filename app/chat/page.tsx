@@ -1,5 +1,6 @@
 'use client';
 import { useCallback, useEffect, useRef, useState, useMemo, type ReactNode } from 'react';
+import dynamic from 'next/dynamic';
 import { getStore, type StoreAdapter } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
@@ -13,10 +14,6 @@ import { providerNameMap, withProviderNames } from '@/lib/domain/identity';
 import { PaneHead, Btn, IconBtn, Badge, C, R, Loading, CenterNote, PaneBody, FilterChips, FilterGroup, FS, FW, NUM, ICON, FeedRowSkeleton } from '@/components/ui';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
 import { CHAT_NOTICE_BODY, CHAT_NOTICE_CONTACTS, CHAT_NOTICE_TITLE, showChatNotice } from '@/lib/domain/chat-notice';
-import { ChatThread } from '@/components/ChatThread';
-import { ProductDetail } from '@/components/ProductDetail';
-import { ContractPanel } from '@/components/ContractPanel';
-import { ContractDocs } from '@/components/ContractDocs';
 import { haptic } from '@/lib/haptics';
 import { ChatRoomRow } from '@/components/list-rows';
 import { NAV_LABEL } from '@/lib/tabbar';
@@ -63,6 +60,25 @@ import {
   verifyDuplicateRoomMessages,
   type EmptyRoomDedupeEvidence,
 } from '@/features/chat/room-dedupe';
+
+// 상담 목록을 여는 순간에는 대화·상품·계약·서류 패널이 보이지 않는다. 무거운 편집기까지
+// 같은 초기 번들에 넣지 않고, 실제 방을 선택한 뒤에만 가져와 목록/검색/메뉴 전환을 가볍게 한다.
+const ChatThread = dynamic(() => import('@/components/ChatThread').then((m) => m.ChatThread), {
+  ssr: false,
+  loading: () => <Loading label="대화를 여는 중…" />,
+});
+const ProductDetail = dynamic(() => import('@/components/ProductDetail').then((m) => m.ProductDetail), {
+  ssr: false,
+  loading: () => <Loading label="상품 정보를 여는 중…" />,
+});
+const ContractPanel = dynamic(() => import('@/components/ContractPanel').then((m) => m.ContractPanel), {
+  ssr: false,
+  loading: () => <Loading label="계약 진행상황을 여는 중…" />,
+});
+const ContractDocs = dynamic(() => import('@/components/ContractDocs').then((m) => m.ContractDocs), {
+  ssr: false,
+  loading: () => <Loading label="첨부 서류를 여는 중…" />,
+});
 
 async function emptyRoomDedupeEvidence(
   rooms: EntityRecord[],

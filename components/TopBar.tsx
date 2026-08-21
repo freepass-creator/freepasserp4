@@ -1,14 +1,15 @@
 'use client';
 import Link from 'next/link';
-import { usePathname, useSearchParams } from 'next/navigation';
-import { useState, useEffect, useCallback, type CSSProperties, type ReactNode } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useState, useEffect, type CSSProperties, type ReactNode } from 'react';
 import { Menu, X, Search, FileText, FileSignature, Settings, ChevronLeft, List, History, Users, Wrench, HelpCircle, Sparkles, RefreshCw, type LucideIcon } from 'lucide-react';
 import { useAppBarSlots } from '@/lib/appbar';
 import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
 import { getRole, actor, type Role } from '@/lib/domain/deal';
 import { useSession } from '@/lib/auth-context';
-import { loadMenuBadges, menuItemBadge, type MenuBadgeMap } from '@/lib/domain/menu-badges';
+import { menuItemBadge } from '@/lib/domain/menu-badges';
+import { useMenuBadges } from '@/lib/menu-badge-store';
 import { C, R, CountPill, NUM, ctrlH, ctrlFs, FW, FS, Btn, IconBtn, BottomNav, SH, ICON } from '@/components/ui';
 import { NAV_ICON, NAV_LABEL } from '@/lib/tabbar';
 import { refreshCurrentPage } from '@/lib/page-refresh';
@@ -207,12 +208,7 @@ function NavMenu({ mobile, open: openProp, setOpen: setOpenProp }: {
   const setOpen = setOpenProp ?? setOpenLocal;
   // SSR·첫 클라 동일 — getRole()은 마운트 후(hydration mismatch 방지).
   const [role, setRole] = useState<Role>('agent');
-  const [badges, setBadges] = useState<MenuBadgeMap>({});
-  const refreshBadges = useCallback((r: Role) => {
-    let alive = true;
-    loadMenuBadges(r).then((m) => { if (alive) setBadges(m); }).catch(() => {});
-    return () => { alive = false; };
-  }, []);
+  const { badges, refresh: refreshBadges } = useMenuBadges(role, `${session?.uid || ''}:${session?.rawRole || ''}:${session?.company_code || ''}`);
   useEffect(() => {
     setRole(getRole());
     const onRole = (e: Event) => setRole((e as CustomEvent).detail as Role);
@@ -225,27 +221,9 @@ function NavMenu({ mobile, open: openProp, setOpen: setOpenProp }: {
     };
   }, [session]);
   useEffect(() => {
-    // 앞선 요청은 취소하고 다시 — 취소자를 버리면 언마운트 뒤 늦은 응답이 setState 한다.
-    let cancel = refreshBadges(role);
-    const run = () => { cancel(); cancel = refreshBadges(role); };
-    // 보이는 동안만 주기 갱신 — 상대가 보낸 새 문의는 이쪽에 알릴 계기가 없다(QA SYNC-1).
-    //  focus 만으로는 모바일에서 앱 전환 복귀가 안 잡혀 visibilitychange 도 같이 듣는다.
-    const tick = () => { if (document.visibilityState === 'visible') run(); };
-    const id = window.setInterval(tick, 30_000);
-    window.addEventListener('focus', run);
-    document.addEventListener('visibilitychange', tick);
-    window.addEventListener('fp:unread', run);
-    return () => {
-      cancel();
-      window.clearInterval(id);
-      window.removeEventListener('focus', run);
-      document.removeEventListener('visibilitychange', tick);
-      window.removeEventListener('fp:unread', run);
-    };
-  }, [role, refreshBadges]);
-  useEffect(() => {
-    if (open) refreshBadges(role);
+    if (open) refreshBadges();
   }, [open, role, refreshBadges]);
+  const router = useRouter();
   const path = usePathname();
   const searchParams = useSearchParams();
   // 메뉴 href 가 쿼리(`/members?tab=partner`)를 가질 수 있다 — 경로는 pathname, 쿼리는 searchParams 로 각각 대조.
@@ -267,6 +245,26 @@ function NavMenu({ mobile, open: openProp, setOpen: setOpenProp }: {
     ...g,
     items: g.items.filter((it) => (seesAll || !it.roles || it.roles.includes(menuRole)) && !(mobile && it.hideMobile)),
   })).filter((g) => g.items.length);
+  // 전체메뉴는 사용자가 다음 화면을 고르는 순간이다. 실제로 보이는 소수의 route shell만
+  // 유휴 시간에 미리 받아 두면 메뉴에서 누른 뒤 멈춘 듯한 전환을 줄일 수 있다.
+  // 수백 개 상품 상세나 soon 항목은 이 범위에 넣지 않는다.
+  useEffect(() => {
+    if (!open) return;
+    const preload = () => {
+      for (const group of groups) {
+        for (const item of group.items) if (item.href && !item.soon && !isActive(item.href)) router.prefetch(item.href);
+      }
+    };
+    const idle = typeof window.requestIdleCallback === 'function'
+      ? window.requestIdleCallback(preload, { timeout: 1_200 })
+      : window.setTimeout(preload, 220);
+    return () => {
+      if (typeof window.cancelIdleCallback === 'function' && typeof idle === 'number') window.cancelIdleCallback(idle);
+      else window.clearTimeout(idle as number);
+    };
+  // groups is derived from role/session and re-created every render; its primitive visibility inputs are enough.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, menuRole, path, searchParams, router]);
   const line = C.line, ink = C.ink, mute = C.mute, weak = C.faint;
   // 웹=좌측 드롭다운 · 모바일=풀스크린
   const panel: CSSProperties = mobile

@@ -1,5 +1,6 @@
 'use client';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
@@ -45,11 +46,17 @@ import { businessRegistrationNumberOf, normalizeBusinessRegistrationNumber } fro
 import { parseDepositRule } from '@/lib/domain/sheet-import';
 import { isAutoplusPartner } from '@/lib/domain/sheet-autoplus';
 import { canIssueContract, partnerUsesFreepassContract } from '@/lib/domain/policy-tier';
-import { PartnerPolicyEditor } from '@/components/PartnerPolicyEditor';
 import { ESIGN_RESUME_URL } from '@/lib/domain/policy-navigation';
 import { isContractAvailableVehicle } from '@/lib/domain/esign-vehicle-selection';
 import { isStockedProduct } from '@/lib/domain/product';
 import { missingProviderContractIdentity, providerContractIdentity } from '@/lib/domain/esign-template-profile';
+
+// 회원 목록을 훑을 때는 공급사별 운영정책 편집기를 렌더·다운로드할 이유가 없다.
+// 공급사를 선택해 정책을 실제로 열었을 때만 준비해 관리자 목록 전환을 가볍게 한다.
+const PartnerPolicyEditor = dynamic(() => import('@/components/PartnerPolicyEditor').then((m) => m.PartnerPolicyEditor), {
+  ssr: false,
+  loading: () => <Loading label="운영정책을 여는 중…" />,
+});
 // 사용자·파트너 관리(관리자) — 역할·활성·영업지급율(user) / 유형·공급사수수료율(partner). 여기 율이 정산 R1/R2 SSOT.
 // status(가입승인)는 폼에서 제외 — v4 오버레이가 아니라 approveUser 로 "최상위"에 기록해야 게이트가 인식. 아래 승인 버튼 전용.
 const idFieldOf = (t: Tab) => (t === 'user' ? 'uid' : 'partner_code');
@@ -110,6 +117,8 @@ export default function Members() {
   const [saving, setSaving] = useState(false);
   const [approveBusy, setApproveBusy] = useState(false);
   const [q, setQ] = useState('');
+  // 입력값은 즉시 보이고, 수백 건의 회원/파트너 검색·정렬만 낮은 우선순위로 보낸다.
+  const deferredQ = useDeferredValue(q);
   const [sort, setSort] = useState<MemSort | ''>('name');
   const [roleFlt, setRoleFlt] = useState<'all' | 'sales' | 'provider'>('all');
   const [activeFlt, setActiveFlt] = useState<MemActive>('all');
@@ -632,8 +641,8 @@ export default function Members() {
   };
 
   const shown = useMemo(() => filterMembers({
-    rows, tab, query: q, sort, role: roleFlt, active: activeFlt, partnerType: ptypeFlt,
-  }), [rows, tab, q, sort, roleFlt, activeFlt, ptypeFlt]);
+    rows, tab, query: deferredQ, sort, role: roleFlt, active: activeFlt, partnerType: ptypeFlt,
+  }), [rows, tab, deferredQ, sort, roleFlt, activeFlt, ptypeFlt]);
 
   const selectedPartnerCode = tab === 'partner'
     ? String(form.partner_code || form._key || '').trim()

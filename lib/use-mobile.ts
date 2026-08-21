@@ -37,15 +37,48 @@ export function MobileBpProvider({
 
 export const MOBILE_BP = 760;
 
-function subscribe(cb: () => void) {
+/**
+ * 목록의 카드·배지·버튼은 모두 모바일 폭을 알아야 한다. 컴포넌트마다 resize/matchMedia
+ * listener를 붙이면 40개 카드만 있어도 같은 이벤트를 수십 번 처리하게 된다. breakpoint별
+ * 구독자를 한 곳에 모아, 실제 viewport 변경 때만 한 번 fan-out 한다.
+ */
+const breakpointListeners = new Map<number, Set<() => void>>();
+let viewportListening = false;
+
+function notifyViewportSubscribers() {
+  for (const listeners of breakpointListeners.values()) {
+    for (const listener of listeners) listener();
+  }
+}
+
+function startViewportListener() {
+  if (viewportListening || typeof window === 'undefined') return;
+  viewportListening = true;
+  window.addEventListener('resize', notifyViewportSubscribers, { passive: true });
+  window.addEventListener('orientationchange', notifyViewportSubscribers, { passive: true });
+}
+
+function stopViewportListenerIfIdle() {
+  if (!viewportListening || breakpointListeners.size > 0 || typeof window === 'undefined') return;
+  viewportListening = false;
+  window.removeEventListener('resize', notifyViewportSubscribers);
+  window.removeEventListener('orientationchange', notifyViewportSubscribers);
+}
+
+function subscribeBreakpoint(bp: number, cb: () => void) {
   if (typeof window === 'undefined') return () => {};
-  const mq = window.matchMedia(`(max-width: ${MOBILE_BP - 1}px)`);
-  const on = () => cb();
-  mq.addEventListener('change', on);
-  window.addEventListener('resize', on);
+  let listeners = breakpointListeners.get(bp);
+  if (!listeners) {
+    listeners = new Set();
+    breakpointListeners.set(bp, listeners);
+  }
+  listeners.add(cb);
+  startViewportListener();
   return () => {
-    mq.removeEventListener('change', on);
-    window.removeEventListener('resize', on);
+    const current = breakpointListeners.get(bp);
+    current?.delete(cb);
+    if (current && current.size === 0) breakpointListeners.delete(bp);
+    stopViewportListenerIfIdle();
   };
 }
 
@@ -73,13 +106,15 @@ export function isMobileViewport(bp = MOBILE_BP): boolean {
  */
 export function useIsMobile(bp = MOBILE_BP): boolean {
   const ssrHint = useContext(SsrMobileCtx);
+  const subscribe = useCallback((cb: () => void) => subscribeBreakpoint(bp, cb), [bp]);
+  const getClient = useCallback(() => readWidthMobile(bp), [bp]);
   const getServer = useCallback(
     () => (ssrHint != null ? ssrHint : false),
     [ssrHint],
   );
   return useSyncExternalStore(
     subscribe,
-    () => readWidthMobile(bp),
+    getClient,
     getServer,
   );
 }

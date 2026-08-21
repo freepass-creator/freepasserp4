@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
 import {
   Page, Btn, ButtonLabel, C, SectionLabel, DetailGrid, ListGroup, ListRow, FilterChips, NUM, Input, Select, FS, R, fmtPhone, ICON,
 } from '@/components/ui';
@@ -21,12 +22,17 @@ import { useIsMobile } from '@/lib/use-mobile';
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { isStockedProduct } from '@/lib/domain/product';
-import { downloadInventoryPhotoArchives } from '@/lib/client/download-photo-zip';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { NAV_LABEL } from '@/lib/tabbar';
 import { copyText } from '@/lib/clipboard';
-import { ProductPreferences } from '@/features/settings/ProductPreferences';
-import { MyFiles } from '@/features/settings/MyFiles';
+// 설정의 파일/상품 선호 패널은 스크롤 아래의 보조 기능이다. 계정·화면 설정을 먼저
+// 반응시키고, 해당 섹션이 필요할 때만 불러온다.
+const ProductPreferences = dynamic(() => import('@/features/settings/ProductPreferences').then((m) => m.ProductPreferences), {
+  ssr: false,
+});
+const MyFiles = dynamic(() => import('@/features/settings/MyFiles').then((m) => m.MyFiles), {
+  ssr: false,
+});
 /** 로컬 미인증 데모 — 관리자 승격 금지. */
 const DEMO_ROLES: { key: Role; label: string }[] = [
   { key: 'agent', label: '영업자' },
@@ -228,6 +234,9 @@ export default function Settings() {
         okLabel: '사진 받기',
       });
       if (!approved) return;
+      // ZIP 생성기와 사진 resolver는 관리자만 가끔 쓰는 무거운 경로다. 설정을 열 때
+      // 내려받지 않고, 실제 다운로드를 확정한 뒤에만 가져온다.
+      const { downloadInventoryPhotoArchives } = await import('@/lib/client/download-photo-zip');
       const result = await downloadInventoryPhotoArchives(targets, ({ batch, batches }) => setPhotoDownloadLabel(`사진 묶는 중 ${batch}/${batches}`));
       toast(`ZIP ${result.archives}개 · 차량 ${result.vehicles}대 · 사진 ${result.photos}장${result.noPhoto ? ` · 사진없음 ${result.noPhoto}대` : ''}${result.failed ? ` · 실패 ${result.failed}장` : ''}`, result.failed ? 'info' : 'ok');
     } catch (error) {

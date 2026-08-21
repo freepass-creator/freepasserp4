@@ -35,16 +35,10 @@ export const ProductCard = memo(function ProductCard({ p, audience = 'agent', hr
   const mobile = useIsMobile();
   const to = href ?? `/m/${encodeURIComponent(String(p.product_code || p._key))}`;
   const gap = mobile ? 5 : 6; // = ProductRowCard rowGap SSOT
+  const hasOverflowMenu = mobile && audience !== 'customer';
 
-  return (
-    <Link href={to} onClick={() => haptic.nav()}
-      className="fp-card"
-      style={{
-        display: 'flex', flexDirection: 'column', borderRadius: R_CARD, overflow: 'hidden',
-        textDecoration: 'none', color: 'inherit',
-        border: `1px solid ${C.line}`,
-        boxShadow: SH.cardRest,
-      }}>
+  const content = (
+    <>
       {/* 1 — CORE 뱃지 3 = thumb 우하 */}
       <CardThumb p={p} audience={audience} fill marks={false} coreBadges />
 
@@ -52,9 +46,11 @@ export const ProductCard = memo(function ProductCard({ p, audience = 'agent', hr
         padding: mobile ? '10px 12px' : '10px 12px',
         display: 'flex', flexDirection: 'column', gap, flex: 1, minWidth: 0,
       }}>
-        <div style={{ position: 'relative', minWidth: 0, paddingRight: audience !== 'customer' && mobile ? 22 : 0 }}>
+        <div style={{ position: 'relative', minWidth: 0, paddingRight: hasOverflowMenu ? 22 : 0 }}>
           <CardTitle p={p} />
-          {audience !== 'customer' && <ProductMoreMenu p={p} />}
+          {/* 링크 안 button은 모바일 Safari/Chrome의 탭·포커스 순서를 흔든다.
+              메뉴는 아래 카드 sibling으로 분리한다. */}
+          {!hasOverflowMenu && audience !== 'customer' && <ProductMoreMenu p={p} />}
         </div>
         <CardSpecs p={p} audience={audience} dense listing />
 
@@ -69,6 +65,35 @@ export const ProductCard = memo(function ProductCard({ p, audience = 'agent', hr
           <PeriodPerkBand p={p} dense gap={gap} />
         </PricePeekRoot>
       </div>
+    </>
+  );
+
+  const cardStyle = {
+    display: 'flex', flexDirection: 'column', borderRadius: R_CARD, overflow: 'hidden',
+    textDecoration: 'none', color: 'inherit',
+    border: `1px solid ${C.line}`,
+    boxShadow: SH.cardRest,
+  } as const;
+  const linkedContentStyle = {
+    ...cardStyle,
+    border: 'none', boxShadow: 'none', borderRadius: 0,
+    width: '100%', minWidth: 0, boxSizing: 'border-box',
+  } as const;
+
+  if (hasOverflowMenu) {
+    return (
+      <div className="fp-card" style={{ ...cardStyle, position: 'relative' }}>
+        <Link href={to} onClick={() => haptic.nav()} style={linkedContentStyle}>
+          {content}
+        </Link>
+        <ProductMoreMenu p={p} align="top" />
+      </div>
+    );
+  }
+
+  return (
+    <Link href={to} onClick={() => haptic.nav()} className="fp-card" style={cardStyle}>
+      {content}
     </Link>
   );
 });
