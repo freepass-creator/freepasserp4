@@ -1,4 +1,4 @@
-# AI 운영 매뉴얼 (2026-08-21 v17)
+# AI 운영 매뉴얼 (2026-08-21 v18)
 
 정본: `lib/domain/ai-operating-manual.ts` — 모든 시트의 「AI 운영 매뉴얼」 탭과 이 문서는 같은 글이다.
 
@@ -6,7 +6,7 @@
 
 | 항목 | 내용 | 어디서/명령 |
 |---|---|---|
-| 무엇 | 프리패스 재고·차종·판매시트 운영을 «어떤 AI가 와도 같은 방식으로» 하기 위한 운영 매뉴얼. 정본은 리포 `lib/domain/ai-operating-manual.ts`, 이 탭은 그 사본(모든 시트에 같은 글). | 버전 2026-08-21 v17 |
+| 무엇 | 프리패스 재고·차종·판매시트 운영을 «어떤 AI가 와도 같은 방식으로» 하기 위한 운영 매뉴얼. 정본은 리포 `lib/domain/ai-operating-manual.ts`, 이 탭은 그 사본(모든 시트에 같은 글). | 버전 2026-08-21 v18 |
 | 먼저 할 일 | ① 이 탭을 끝까지 읽는다 ② 원천대장 「시트 지도」·리포 IMPLEMENTATION_LOG.md 최근 날짜를 읽는다 ③ 손댈 시트의 안내 탭(「작성 안내」/「정제시트 안내」)을 읽는다 ④ 무엇이든 쓰기 전에 dry-run 을 먼저 본다. | C:\dev\freepasserp4 · 자격증명 tmp/firebase-auth/sa.json(pyh@teamjpk.com 위임) |
 | 원칙 3 | 값은 한 곳에만 산다(정본이 이긴다) · 지어내지 않는다(모르면 빈칸·목록) · 쓰기 도구는 전부 dry-run 기본, `--apply` 로만 쓰고 되돌릴 로그를 남긴다. |  |
 
@@ -29,6 +29,7 @@
 | ★시트 상태 표기(2026-08-19) | 지금 읽는 시트 21곳 = 이름 끝 「[연동중]」. 옛 우리 시트(옛 제공시트 15·옛 문패·옛 판매시트·옛 공급사 상품리스트 = 18곳, `lib/domain/legacy-sheets.ts`) = 이름 앞 「[구버전·폐기]」 + 첫 탭 「⚠ 구버전 — 안 씀」(지금 쓰는 시트 링크) — 아무도 안 읽는다. 외부(공급사 소유) 원본은 이름을 건드리지 않고 원본으로만 안다(mirror-sources). 시트마다 「이 시트는」 탭 = 상태·구성(탭·열)·바라보는 곳·주는 곳·주기·고치는 곳(정본 `lib/domain/sheet-identity.ts`). 전 시트 명부는 원천대장 「시트 지도」 0장. | rename-supplier-sheets --apply(연동중) · retire-legacy-sheets --apply(구버전) · publish-sheet-identity-tab --apply · publish-sheet-map-tab --apply |
 | 문패 「공급사시트정리」 | 공급사코드 → 발행기·상품마스터가 읽을 시트 주소. 21곳 전부 우리 시트를 가리킨다(2026-08-18). | https://docs.google.com/spreadsheets/d/1TVeVXyJJRx0SzD2vxqy3eEjSojmMIWXSu7AdsKmpfmY/edit |
 | 판매시트 「프리패스 상품리스트」 | 영업자가 보는 표 — 기계가 찍는 사본, 손으로 고치지 않는다. ★기본 세팅(사장님 2026-08-19 확정 「이제 이게 기본 세팅이야」) = 탭 3개: 「상품리스트 …」(21곳 − 오플 − 손오공 구독, 출고불가 제외) · 「손오공구독 …」·「오플구독 …」 — 같은 발행기·같은 정본 차명이지만 우리 공통 대여료 블록(단기보증·1개월·12개월·장기보증·24~60개월) 대신 **그 공급사의 기간별 대여료**가 그 자리에 선다(손오공: 보증금 반납형(연수×대여료)·12~60개월 반납형·보증금 인수형·36/48/60개월 인수형 / 오플: 12개월 2만km·12개월 3만km·18…36개월 3만km). 같은 차는 한 탭에만. 표준 칸은 별칭으로 되찾는다(sales-published-tabs.ts). [숨김] AI 인계(@매핑=열 구성 정본·@제외) · AI 정제(치환 사전) · 이 시트는. | https://docs.google.com/spreadsheets/d/1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs/edit |
+| 영업채널 카드시트(「상품시트」 갈래) | 영업채널(제휴 딜러)에 그대로 넘기는 상품 **카드**(7행 × 13열 = 한 대). 판매시트와 같은 공급사 재고에서 나오지만 서식이 다르다 — 판매시트 서식(sales-sheet-format)을 씌우지 마라. 실을 차 기준은 판매시트와 같다(**출고불가만 제외** · 출고가능이 아니면 차량번호 아래에 상태를 적는다). 차명=정제칸 세부모델 그대로(세대코드 유지·인승 안 붙임) · 등급=세부트림 · 금액은 그 차의 **최저 대여료와 그 기간**(렌트는 장기보증 고정 · 구독 반납형은 보증금=연수×대여료). 조건 칸·머리띠는 그 공급사 「운영정책」 탭에서 뽑는다. 채널 문서를 손으로 고치면 다음 발행에 지워진다. 정본 `lib/domain/channel-card-sheet.ts` · 매뉴얼 `docs/영업채널-카드시트-매뉴얼.md`. 지금 채널: 천이컴퍼니(손오공 장기렌트·구독 반납형 / 웰릭스). | npx tsx scripts/publish-channel-cards.mts --apply |
 | 원천대장 「ERP4 차종마스터 원천대장」 | 차종마스터 탭 = ERP 차종코드(mf-) 보관 · 차종마스터_규격검토/규격채택 · 상품마스터(차량번호→차종코드) · 시트 지도. **차명·제원 사전은 `public/data/vehicle-master.json`(규격채택).** 라이브 원장 「차종마스터」 탭에 쓰지 않는다. 엔카 원자 시트는 중고 시세용. | https://docs.google.com/spreadsheets/d/1T_RrErmGoj_yG9S1u7n--2NDolTOw8wA8ROQjPWuAlg/edit |
 | 엔카 차종마스터 | 중고차 시세 원자 시트. 탭 「안내」·「차종마스터」·「세부모델」. 키 M/SM/T/U. **정제칸 이름 사전이 아니다**(우리 차종마스터가 사전). 라이브 ERP 원장과 다른 문서. | https://docs.google.com/spreadsheets/d/1oMB9eoNnQFxUyRK4CSxYh_hKrtCf7s_79xLs-GYwXCE/edit |
 | 리포 파일 | data/product-vehicle-review-decisions.json(3축 결정) · public/data/vehicle-trim-master.json(artifact) · lib/domain/mirror-sources.ts(정제시트 원본표) · lib/domain/supplier-template-sheet.ts(공급사 시트 표준) · lib/domain/sales-sheet-mapping.ts(판매시트 열·별칭·제외) · lib/domain/product-master-sheet.ts(상품마스터 열). | C:\dev\freepasserp4 |
@@ -113,6 +114,7 @@
 | ②′ 엔카 행키(선택) | M/SM/T 는 ② 이름과 맞을 때만. 엔카에 없다고 비슷한 모델로 안 붙임. | npx tsx scripts/stamp-encar-codes-on-supplier.mts --apply |
 | ③ 못 정한 차 | 코드 없는 팔 수 있는 차를 차종마스터와 대조해 결정(CODE/PARTIAL)으로 넣는다 → ② 다시. 못 정한 것은 검토 큐. | npx tsx scripts/resolve-unmatched-vehicles.mts --apply · plan/apply-product-master-vehicle-coverage |
 | ④ 판매시트 발행(탭 3개) | 상품리스트(21곳 − @제외 오플·손오공 구독 · 출고불가 제외 · 빈 대여료 「-」) → 손오공구독(--only=RP012:구독 → publish-sonogong-tab: 공통 대여료 블록을 걷어 내고 그 자리에 보증금 반납형·12~60개월 반납형·보증금 인수형·36/48/60개월 인수형) → 오플구독(--only=RP023 → publish-sonogong-tab --tab=오플구독: 12개월 2만km … 36개월 3만km). 블록 기본값·표시 이름·별칭은 sales-published-tabs.ts 한 곳. 공급사 하나가 0대로 줄면 멈춘다(맞으면 --force-shrink). 발행된 표 = 세 탭의 합. | publish-origin-tab --apply · publish-origin-tab --only=RP012:구독 --tab=손오공구독 --at=1 --apply · publish-sonogong-tab --apply · publish-origin-tab --only=RP023 --tab=오플구독 --at=2 --apply · publish-sonogong-tab --tab=오플구독 --apply |
+| ④″ 영업채널 카드시트 | 판매시트를 찍은 뒤 같은 재고로 영업채널 카드 문서를 다시 찍는다(사장님 2026-08-21 「상품시트 업데이트될때 같이 하게끔」). 탭을 통째로 갈아 끼우고 숨김 탭 「이 시트는」·「AI 운영 매뉴얼」·문서 이름 「MMDD <채널> 상품카드 [영업채널] [연동중]」·teamjpk.com 도메인 편집 권한까지 발행기가 맞춘다. 대여료가 한 칸도 없는 차는 빼고 차번을 남긴다(--keep-no-price 로 실을 수 있다). | npx tsx scripts/publish-channel-cards.mts --apply |
 | ⑤ 상품마스터 갱신 → ERP | 문패 21곳 → 상품마스터 상태·정책·기간별 돈(차종코드·차명 잠금칸은 안 덮음) → ERP 일일 동기(02:00 KST). | npx tsx scripts/sync-product-master-live.mts --apply |
 | ⑤′ 상품마스터 ← 상품리스트 맞춤(ERP 정확 일치) | ★발행된 상품리스트 값이 정본 — 상품마스터의 차량상태·1·12·24·36·48·60개월 대여료·보증금을 그 값으로 덮고 되읽어 0 어긋남을 확인한다. ERP 는 상품마스터를 읽으므로 이걸로 영업자 표 = ERP. 「-」는 비움 · 보증금은 숫자일 때만 덮음, 「무보증」은 0(비우면 ERP 가 그 기간을 뺀다) · 손오공 「연수×대여료」 글자면 계산값 유지 · 번호미정 차는 못 실림(번호 나오면 자동 합류) · 대여료만 있고 보증금 없는 기간은 ERP 가 뺀다(경고로 세어 줌 — 공급사가 단기보증/장기보증을 채워야 같아진다). | npx tsx scripts/sync-product-master-from-sales.mts --apply |
 | ⑥ 검수 | 돈 대조 0 · 정제칸 대조 · 양식 대조 · 빈 칸 · 상품리스트↔상품마스터 일치 · **차종마스터 잠금**(stamp가 이름을 안 쓰는지, fill이 json을 읽는지). | audit-sheet-vs-sales · audit-vehicle-refine · check-vehicle-master-lock · verify-master-pass |
