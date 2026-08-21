@@ -72,6 +72,12 @@ report.push(`④ 오플 블록 ${p3b.ok ? '✓' : '✗'} ${p3b.picked.find((l) =
 // ★공급사 시트마다 「상품시트」 탭 — 발행된 판매시트에서 그 공급사 줄을 그대로(사장님 2026-08-19 「공급사가 입력하는 거랑 상품시트에 올라갈 거를 미리 똑같이」).
 const p4 = run('④ 공급사 시트 「상품시트」 탭', ['scripts/publish-supplier-preview-tabs.mts', ...A], /반영 |못 찾은|Error/);
 report.push(`④ 공급사 상품시트 탭 ${p4.ok ? '✓' : '✗'} ${p4.picked.find((l) => /반영 /.test(l)) || ''}`);
+// ★④″ 영업채널 카드시트(사장님 2026-08-21 — 「상품시트 업데이트될때 같이 하게끔 · 상품시트로 분류해서」).
+//   같은 공급사 제공시트에서 나오는 「상품시트」 갈래 — 우리 영업자용 표가 아니라 남의 회사 영업자가 보는 카드다.
+//   정본 lib/domain/channel-card-sheet.ts · 매뉴얼 docs/영업채널-카드시트-매뉴얼.md
+const p5 = run('④″ 영업채널 카드시트', ['scripts/publish-channel-cards.mts', ...A], /대 \(출고불가|반영 완료|대여료가 한 칸도|Error|못 찾|⚠/);
+report.push(`④″ 영업채널 ${p5.ok ? '✓' : '✗'} ${p5.picked.find((l) => /반영 완료/.test(l)) || ''}`);
+if (!p5.ok) stop('영업채널 카드시트 발행 실패');
 
 const pm = run('⑤ 상품마스터 갱신', ['scripts/sync-product-master-live.mts', ...A, ...(FORCE ? ['--force-shrink'] : []), '--dump=tmp/run-daily-pm.json'], /^문패|중단|Error/);
 report.push(`⑤ 상품마스터 ${pm.ok ? '✓' : '✗'}`); if (!pm.ok) stop('상품마스터 갱신 실패');
