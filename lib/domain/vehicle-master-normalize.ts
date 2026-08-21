@@ -238,7 +238,9 @@ export function unpackVehicleSignalsEngine(
       for (const [alias, canonical] of Object.entries(deps.modelAlias)) {
         if (!modelProbe.includes(alias)) continue;
         const real = models.find((model) => deps.norm(model) === deps.norm(canonical))
-          || models.find((model) => deps.norm(model) === alias);
+          || allModels.find((model) => deps.norm(model) === deps.norm(canonical))
+          || models.find((model) => deps.norm(model) === alias)
+          || allModels.find((model) => deps.norm(model) === alias);
         if (real) {
           hitModel = real;
           break;
@@ -330,7 +332,7 @@ export function unpackVehicleSignalsEngine(
       && deps.norm(modelRaw).includes(deps.norm(hitModel))
       && deps.norm(modelRaw) !== deps.norm(hitModel)
     );
-    if (!modelRaw || deps.looksCompoundVehicleText(modelRaw) || peeled) {
+    if (!modelRaw || deps.looksCompoundVehicleText(modelRaw) || peeled || deps.norm(modelRaw) !== deps.norm(hitModel)) {
       /**
        * ★문장을 모델명으로 갈아끼우기 전에 **원문을 남긴다.**
        *

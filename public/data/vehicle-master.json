@@ -4832,9 +4832,9 @@
       "title": "기아 더 뉴 니로 SG2",
       "variants": [
         {
-          "label": "",
-          "fuel": null,
-          "displacement_l": null,
+          "label": "하이브리드 1.6",
+          "fuel": "하이브리드",
+          "displacement_l": 1.6,
           "turbo": false,
           "drivetrain": null,
           "seat": null,
@@ -4843,7 +4843,8 @@
             "트렌디",
             "프레스티지",
             "시그니처"
-          ]
+          ],
+          "default": true
         }
       ],
       "trims": [
@@ -9482,6 +9483,58 @@
       ]
     },
     {
+      "id": "mf-001.md-019.sm-cn8",
+      "maker": "현대",
+      "model": "아반떼",
+      "sub_model": "디 올 뉴 아반떼 CN8",
+      "gen_code": "CN8",
+      "origin": "국산",
+      "year_start": "2026",
+      "year_end": "현재",
+      "title": "현대 디 올 뉴 아반떼 CN8",
+      "aliases": [
+        "디 올 뉴 아반떼",
+        "올 뉴 아반떼",
+        "8세대 아반떼"
+      ],
+      "variants": [
+        {
+          "label": "가솔린 2.0",
+          "fuel": "가솔린",
+          "displacement_l": 2,
+          "turbo": false,
+          "drivetrain": null,
+          "seat": null,
+          "battery_kwh": null,
+          "trims": [
+            "모던",
+            "프리미엄",
+            "인스퍼레이션"
+          ],
+          "default": true
+        },
+        {
+          "label": "하이브리드 1.6",
+          "fuel": "하이브리드",
+          "displacement_l": 1.6,
+          "turbo": false,
+          "drivetrain": null,
+          "seat": null,
+          "battery_kwh": null,
+          "trims": [
+            "모던",
+            "프리미엄",
+            "인스퍼레이션"
+          ]
+        }
+      ],
+      "trims": [
+        "모던",
+        "프리미엄",
+        "인스퍼레이션"
+      ]
+    },
+    {
       "id": "mf-001.md-019.sm-cn7",
       "maker": "현대",
       "model": "아반떼",
@@ -9489,7 +9542,7 @@
       "gen_code": "CN7",
       "origin": "국산",
       "year_start": "2023",
-      "year_end": "현재",
+      "year_end": "2026",
       "title": "현대 더 뉴 아반떼 CN7",
       "variants": [
         {
@@ -12753,6 +12806,55 @@
       ]
     },
     {
+      "id": "mf-001.md-062.sm-ax03",
+      "maker": "현대",
+      "model": "캐스퍼",
+      "sub_model": "캐스퍼 일렉트릭",
+      "gen_code": "AX03",
+      "origin": "국산",
+      "year_start": "2024",
+      "year_end": "현재",
+      "title": "현대 캐스퍼 일렉트릭",
+      "aliases": [
+        "캐스퍼 전기",
+        "CASPER Electric",
+        "캐스퍼 EV"
+      ],
+      "variants": [
+        {
+          "label": "전기 42kWh",
+          "fuel": "전기",
+          "displacement_l": null,
+          "turbo": false,
+          "drivetrain": null,
+          "seat": 4,
+          "battery_kwh": 42,
+          "trims": [
+            "프리미엄"
+          ]
+        },
+        {
+          "label": "전기 49kWh",
+          "fuel": "전기",
+          "displacement_l": null,
+          "turbo": false,
+          "drivetrain": null,
+          "seat": 4,
+          "battery_kwh": 49,
+          "trims": [
+            "인스퍼레이션",
+            "크로스"
+          ],
+          "default": true
+        }
+      ],
+      "trims": [
+        "프리미엄",
+        "인스퍼레이션",
+        "크로스"
+      ]
+    },
+    {
       "id": "mf-001.md-062.sm-ax1",
       "maker": "현대",
       "model": "캐스퍼",
@@ -12904,6 +13006,93 @@
         "인스퍼레이션",
         "크로스",
         "프리미엄"
+      ]
+    },
+    {
+      "id": "mf-001.md-060.sm-us4-ev",
+      "maker": "현대",
+      "model": "스타리아",
+      "sub_model": "더 뉴 스타리아 일렉트릭",
+      "gen_code": "US4",
+      "origin": "국산",
+      "year_start": "2026",
+      "year_end": "현재",
+      "title": "현대 더 뉴 스타리아 일렉트릭",
+      "aliases": [
+        "스타리아 일렉트릭",
+        "스타리아 EV",
+        "스타리아 전기",
+        "더 뉴 스타리아 EV"
+      ],
+      "variants": [
+        {
+          "label": "전기 84kWh",
+          "fuel": "전기",
+          "displacement_l": null,
+          "turbo": false,
+          "drivetrain": null,
+          "seat": 3,
+          "battery_kwh": 84,
+          "trims": [
+            "카고"
+          ]
+        },
+        {
+          "label": "전기 84kWh",
+          "fuel": "전기",
+          "displacement_l": null,
+          "turbo": false,
+          "drivetrain": null,
+          "seat": 5,
+          "battery_kwh": 84,
+          "trims": [
+            "카고"
+          ]
+        },
+        {
+          "label": "전기 84kWh",
+          "fuel": "전기",
+          "displacement_l": null,
+          "turbo": false,
+          "drivetrain": null,
+          "seat": 11,
+          "battery_kwh": 84,
+          "trims": [
+            "투어러",
+            "라운지"
+          ],
+          "default": true
+        },
+        {
+          "label": "전기 84kWh",
+          "fuel": "전기",
+          "displacement_l": null,
+          "turbo": false,
+          "drivetrain": null,
+          "seat": 7,
+          "battery_kwh": 84,
+          "trims": [
+            "라운지"
+          ]
+        },
+        {
+          "label": "전기 84kWh",
+          "fuel": "전기",
+          "displacement_l": null,
+          "turbo": false,
+          "drivetrain": null,
+          "seat": 6,
+          "battery_kwh": 84,
+          "trims": [
+            "리무진"
+          ]
+        }
+      ],
+      "trims": [
+        "카고",
+        "투어러",
+        "라운지",
+        "리무진"
       ]
     },
     {
@@ -13515,6 +13704,40 @@
         "프라다 GP380",
         "프라다 GP500",
         "프라임팩"
+      ]
+    },
+    {
+      "id": "mf-001.md-061.sm-ne-n",
+      "maker": "현대",
+      "model": "아이오닉5",
+      "sub_model": "아이오닉5 N",
+      "gen_code": "NE",
+      "origin": "국산",
+      "year_start": "2023",
+      "year_end": "현재",
+      "title": "현대 아이오닉5 N",
+      "aliases": [
+        "아이오닉 5 N",
+        "IONIQ 5 N",
+        "아이오닉5N"
+      ],
+      "variants": [
+        {
+          "label": "전기 84kWh AWD",
+          "fuel": "전기",
+          "displacement_l": null,
+          "turbo": false,
+          "drivetrain": "AWD",
+          "seat": null,
+          "battery_kwh": 84,
+          "trims": [
+            "에센셜"
+          ],
+          "default": true
+        }
+      ],
+      "trims": [
+        "에센셜"
       ]
     },
     {

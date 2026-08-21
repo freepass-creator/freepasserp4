@@ -241,6 +241,24 @@ if (!aliasCases.some(([en, ko]) => canonMasterTrim(en) !== ko)) {
   }
 }
 
+// ── 7. 공급사 차명 표기(2026-08-21) — 마스터에 있는 차를 표기 때문에 못 붙이면 안 된다 ──
+{
+  const cases: { label: string; rec: Record<string, unknown>; want: { model: string; sub?: string } }[] = [
+    { label: '라브4', rec: { maker: '도요타', model: '라브4', vehicle_name: '라브4 하이브리드 2.5', year: 2021 }, want: { model: 'RAV4' } },
+    { label: 'A6 C9', rec: { maker: '아우디', model: 'A6', vehicle_name: 'A6 C9 45 TFSI', year: 2026 }, want: { model: 'A6', sub: 'A6 C9' } },
+    { label: 'SM7', rec: { maker: '르노', model: 'SM7', vehicle_name: 'SM7 노바 2.0 LPe', year: 2016 }, want: { model: 'SM7' } },
+    { label: '엑센트 Accent', rec: { maker: '현대', model: 'Accent', vehicle_name: 'Accent 1.6', year: 2015 }, want: { model: '엑센트' } },
+    { label: 'K5 TF', rec: { maker: '기아', model: 'K5', vehicle_name: 'K5 TF LPG 2.0', year: 2012 }, want: { model: 'K5', sub: 'K5 TF' } },
+    { label: '200 1세대', rec: { maker: '크라이슬러', model: '200', vehicle_name: '200 1세대', year: 2012 }, want: { model: '200', sub: '200 1세대' } },
+  ];
+  for (const c of cases) {
+    const r = snapToMaster(c.rec as any, master);
+    if (!r || r.model !== c.want.model) issues.push(`${c.label}: ${r ? `${r.maker} ${r.model} ${r.sub_model}` : 'no snap'}`);
+    else if (c.want.sub && r.sub_model !== c.want.sub) issues.push(`${c.label}: sub ${r.sub_model}`);
+    else ok.push(`${c.label} → ${r.model} ${r.sub_model} (${r.confidence})`);
+  }
+}
+
 const report = {
   ok,
   issues,

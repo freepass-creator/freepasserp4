@@ -274,7 +274,12 @@ export const carYear = (p: EntityRecord): number => parseYear(p.year) || parseYe
 //  · model=제조사만("테슬라") → sub_model 이 모델신호
 const GEN_PREF = ['디올뉴', '올뉴', '더뉴', '신형'];
 const IMPORT_MK = ['벤츠', '메르세데스', 'bmw', '아우디', '테슬라', '볼보', '미니', '폭스바겐', '지프', '포드', '렉서스'];
-const MODEL_ALIAS: Record<string, string> = { e클래스: 'e-클래스', c클래스: 'c-클래스', s클래스: 's-클래스', a클래스: 'a-클래스', b클래스: 'b-클래스', g클래스: 'g-클래스', 팰리: '팰리세이드', 아반데: '아반떼', 그랜져: '그랜저', 소나타: '쏘나타', 펠리세이드: '팰리세이드' };
+const MODEL_ALIAS: Record<string, string> = {
+  e클래스: 'e-클래스', c클래스: 'c-클래스', s클래스: 's-클래스', a클래스: 'a-클래스', b클래스: 'b-클래스', g클래스: 'g-클래스',
+  팰리: '팰리세이드', 아반데: '아반떼', 그랜져: '그랜저', 소나타: '쏘나타', 펠리세이드: '팰리세이드',
+  // 공급사 표기 → 우리 차종마스터 모델명(2026-08-21 실측: 마스터엔 있는데 스냅이 못 알아봄)
+  라브4: 'rav4', accent: '엑센트', 액센트: '엑센트',
+};
 /** Canonical model token and reviewed source spellings that map to it. */
 export function modelIdentityAliases(value: unknown): string[] {
   const input = norm(value);

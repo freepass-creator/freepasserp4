@@ -27,6 +27,9 @@
 5. **엔진 우회 금지.** 계약 단계·취소는 `applyStepCheck`/`cancelContract`, 저장·삭제는 `getStore()`.
    차량 상태는 엔진이 단일 writer — 페이지에서 직접 바꾸지 않는다.
 6. 잘 돌아가던 기능·정책·UI는 **명시 요청 없이 변경 금지.** 버그 발견 시 고치지 말고 보고.
+7. **차종마스터.** 이름=`public/data/vehicle-master.json`. 코드=`data/vehicle-trim-key-registry.json`.
+   라이브 「차종마스터」 탭 쓰기 금지. stamp는 엔카 M/SM/T만. fill이 정제칸 글자.
+   코드 재사용·의미 변경 금지. 마스터에 없으면 빈칸. `check-vehicle-master-lock` · `verify-master-pass`.
 
 ## 반드시
 - 모바일 입력 **16px**(미만이면 iOS 확대 = 버그), 터치 타깃 **40px**. 크기 하드코딩 말고 `ctrlH()`/`ctrlInputFs()`/`useIsMobile()`.

@@ -1,9 +1,11 @@
 /**
- * **재고 탭 — 정책코드 다음에 트림행키만 둔다.** 기본 dry-run, 반영은 `--apply`.
+ * **재고 탭 — 정책코드 다음에 행키 셋을 둔다.** 기본 dry-run, 반영은 `--apply`.
  *
- *   차종트림코드
+ *   모델행키 | 세부모델행키 | 세부트림행키 | 원산지 … 차종구분 | 차종코드 | 선택옵션 | 외장색상 | 내장색상 | 차종분류
+ * ★예전 차종트림코드는 세부트림행키로 이름만 바꾼다(T 값 유지).
  * ★마스터표기·차종마스터코드는 공급사에서 지운다. 제원은 원자 수집 시트.
- * ★모델·세부모델·세부트림이 트림행키 바로 뒤에 붙어 있으면 정제칸(제조사(정제) 다음)으로 옮긴다.
+ * ★모델·세부모델·세부트림이 행키 바로 뒤에 붙어 있으면 정제칸(제조사(정제) 다음)으로 옮긴다.
+ * ★색 정제칸(외장색상·내장색상)이 빠졌으면 차종구분 뒤에 넣는다.
  *
  *   npx tsx scripts/insert-encar-code-columns.mts
  *   npx tsx scripts/insert-encar-code-columns.mts --apply
@@ -11,8 +13,8 @@
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import {
-  AI_TAIL_COLUMNS, ENCAR_CODE_BLOCK, ENCAR_RETIRED_COLUMNS, ENCAR_TRIM_CODE_COLUMN,
-  SHEET_NAME_MATCH, buildHeaderOwnerColors, columnWidth, isOurNonInventoryTab, supplierSheetLabel,
+  AI_TAIL_COLUMNS, ENCAR_CODE_BLOCK, ENCAR_OLD_TRIM_CODE_COLUMN, ENCAR_RETIRED_COLUMNS,
+  ENCAR_SPEC_BLOCK, ENCAR_TRIM_KEY_COLUMN, SHEET_NAME_MATCH, buildHeaderOwnerColors, columnWidth, isOurNonInventoryTab, supplierSheetLabel,
 } from '../lib/domain/supplier-template-sheet';
 
 type Rec = Record<string, any>;
@@ -24,8 +26,11 @@ const ONE = arg('sheet');
 const sleep = (ms: number) => new Promise((ok) => setTimeout(ok, ms));
 const colA1 = (i: number) => { let t = '', n = i + 1; while (n > 0) { const r = (n - 1) % 26; t = String.fromCharCode(65 + r) + t; n = Math.floor((n - 1) / 26); } return t; };
 const NOTE = (name: string) => AI_TAIL_COLUMNS.find((c) => c.name === name)?.note || '';
-const BLOCK = [...ENCAR_CODE_BLOCK];
+const BLOCK = [...ENCAR_CODE_BLOCK, ...ENCAR_SPEC_BLOCK];
+/** 기본스펙 뒤에 남는 정제칸 — 행키 삽입 때 밀려 사라졌다. 색·옵션·ERP코드는 여기. */
+const AFTER_SPEC = ['차종코드', '선택옵션', '외장색상', '내장색상', '차종분류'] as const;
 const NAMES = ['모델', '세부모델', '세부트림'];
+const DROP_AFTER = [...ENCAR_RETIRED_COLUMNS];
 
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 const jwt = new JWT({ email: sa.client_email, key: sa.private_key, scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'], subject: 'pyh@teamjpk.com' });
@@ -54,13 +59,21 @@ else {
 }
 
 const doneShape = (hdr: string[], polAt: number) => {
-  if (polAt < 0 || norm(hdr[polAt + 1] || '') !== norm(ENCAR_TRIM_CODE_COLUMN)) return false;
-  if (ENCAR_RETIRED_COLUMNS.some((n) => hdr.some((h) => norm(h) === norm(n)))) return false;
-  if (NAMES.includes(hdr[polAt + 2] || '')) return false;
+  if (polAt < 0) return false;
+  for (let k = 0; k < BLOCK.length; k++) {
+    if (norm(hdr[polAt + 1 + k] || '') !== norm(BLOCK[k])) return false;
+  }
+  const afterAt = polAt + 1 + BLOCK.length;
+  for (let k = 0; k < AFTER_SPEC.length; k++) {
+    if (norm(hdr[afterAt + k] || '') !== norm(AFTER_SPEC[k])) return false;
+  }
+  if (hdr.some((h) => norm(h) === norm(ENCAR_OLD_TRIM_CODE_COLUMN))) return false;
+  if (DROP_AFTER.some((n) => hdr.some((h) => norm(h) === norm(n)))) return false;
+  if (NAMES.includes(hdr[polAt + 1 + BLOCK.length] || '')) return false;
   return true;
 };
 
-console.log(`■ 엔카 트림행키(정책코드 다음) ${APPLY ? '반영' : '미리보기'} — ${targets.length}곳 · 공급사는 ${BLOCK.join(' | ')} 만`);
+console.log(`■ 엔카 행키+기본스펙+색(정책코드 다음) ${APPLY ? '반영' : '미리보기'} — ${targets.length}곳 · ${[...BLOCK, ...AFTER_SPEC].join(' | ')}`);
 let done = 0, skipped = 0;
 for (const t of targets) {
   const meta = await call(`${SH}/${t.id}?fields=sheets.properties(sheetId,title,hidden,gridProperties(columnCount))`);
@@ -84,14 +97,22 @@ for (const t of targets) {
       hdr = hdr.filter((_, k) => k !== i);
       steps.push(`지우기 ${name}`);
     };
+    const rename = async (from: string, to: string) => {
+      const i = hdr.findIndex((h) => norm(h) === norm(from));
+      if (i < 0) return;
+      if (hdr.some((h) => norm(h) === norm(to))) return;
+      if (!APPLY) { hdr[i] = to; steps.push(`이름 ${from}→${to}`); return; }
+      await call(`${SH}/${t.id}/values/${encodeURIComponent(`'${title.replace(/'/g, "''")}'!${colA1(i)}1`)}?valueInputOption=RAW`, { method: 'PUT', body: JSON.stringify({ values: [[to]] }) });
+      hdr[i] = to;
+      steps.push(`이름 ${from}→${to}`);
+    };
     const place = async (name: string, dest: number) => {
       const i = hdr.findIndex((h) => norm(h) === norm(name));
       if (i === dest) return;
       if (!APPLY) { steps.push(i < 0 ? `넣기 ${name}@${colA1(dest)}` : `옮기기 ${name} ${colA1(i)}→${colA1(dest)}`); return; }
       if (i < 0) {
-        const width = Number(p.gridProperties?.columnCount) || hdr.length;
         const reqs: Rec[] = [];
-        if (dest + 1 > width) reqs.push({ appendDimension: { sheetId: gid, dimension: 'COLUMNS', length: dest + 1 - width } });
+        if (dest >= hdr.length) reqs.push({ appendDimension: { sheetId: gid, dimension: 'COLUMNS', length: dest + 1 - hdr.length } });
         reqs.push({ insertDimension: { range: { sheetId: gid, dimension: 'COLUMNS', startIndex: dest, endIndex: dest + 1 }, inheritFromBefore: false } });
         await call(`${SH}/${t.id}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests: reqs }) });
         hdr = [...hdr.slice(0, dest), name, ...hdr.slice(dest)];
@@ -111,15 +132,31 @@ for (const t of targets) {
       steps.push(`옮기기 ${name}`);
     };
     console.log(`  ${APPLY ? '✓' : '→'} ${t.name.padEnd(10)} 「${title}」`);
-    await place(ENCAR_TRIM_CODE_COLUMN, polAt + 1);
-    if (APPLY) { hdr = await loadHdr(); await sleep(250); }
-    for (const name of ENCAR_RETIRED_COLUMNS) {
+    await rename(ENCAR_OLD_TRIM_CODE_COLUMN, ENCAR_TRIM_KEY_COLUMN);
+    if (APPLY) { hdr = await loadHdr(); await sleep(200); }
+    for (let k = 0; k < BLOCK.length; k++) {
+      await place(BLOCK[k], polAt + 1 + k);
+      if (APPLY) { hdr = await loadHdr(); await sleep(250); }
+    }
+    if (APPLY) hdr = await loadHdr();
+    const specEnd = hdr.findIndex((h) => norm(h) === norm(BLOCK[BLOCK.length - 1]));
+    if (specEnd >= 0) {
+      for (let k = 0; k < AFTER_SPEC.length; k++) {
+        await place(AFTER_SPEC[k], specEnd + 1 + k);
+        if (APPLY) { hdr = await loadHdr(); await sleep(250); }
+      }
+    }
+    for (const name of DROP_AFTER) {
       await drop(name);
       if (APPLY) await sleep(200);
     }
+    if (hdr.some((h) => norm(h) === norm(ENCAR_TRIM_KEY_COLUMN))) {
+      await drop(ENCAR_OLD_TRIM_CODE_COLUMN);
+      if (APPLY) await sleep(200);
+    }
     if (APPLY) hdr = await loadHdr();
-    const tAt = hdr.findIndex((h) => norm(h) === norm(ENCAR_TRIM_CODE_COLUMN));
-    const namesStuck = tAt >= 0 && norm(hdr[tAt + 1] || '') === '모델';
+    const lastCode = hdr.findIndex((h) => norm(h) === norm(BLOCK[BLOCK.length - 1]));
+    const namesStuck = lastCode >= 0 && NAMES.includes(hdr[lastCode + 1] || '');
     if (namesStuck) {
       const makerAt = hdr.findIndex((h) => norm(h) === '제조사(정제)');
       if (makerAt >= 0) {
@@ -129,16 +166,16 @@ for (const t of targets) {
         }
       }
     }
-    if (junk.length && APPLY) {
-      hdr = await loadHdr();
-      const still = hdr.map((h, i) => ({ h, i })).filter((x) => /^Column\s*\d+$/i.test(x.h));
-      if (still.length) {
+    hdr = await loadHdr();
+    const still = hdr.map((h, i) => ({ h, i })).filter((x) => /^Column\s*\d+$/i.test(x.h));
+    if (still.length) {
+      if (APPLY) {
         await call(`${SH}/${t.id}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests: still.sort((a, b) => b.i - a.i).map((x) => ({ deleteDimension: { range: { sheetId: gid, dimension: 'COLUMNS', startIndex: x.i, endIndex: x.i + 1 } } })) }) });
-        steps.push(`찌꺼기 ${still.map((x) => x.h).join(',')}`);
       }
+      steps.push(`찌꺼기 ${still.map((x) => x.h).join(',')}`);
     }
     if (steps.length) console.log(`     ${steps.join(' · ')}`);
-    else if (!APPLY) console.log(`     트림행키만 · 마스터표기/마스터코드 제거`);
+    else if (!APPLY) console.log(`     행키 3 + 기본스펙 · 차종트림코드→세부트림행키`);
     done++;
     if (APPLY) await sleep(400);
   }

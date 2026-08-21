@@ -1,5 +1,9 @@
 /**
- * **「ERP4 차종마스터 원천대장」을 읽는 한 곳.**
+ * **라이브 원천대장 「차종마스터」를 읽는 한 곳 — ERP `차종코드`(mf- 트림행키).**
+ *
+ * ★차명·제원 사전은 `public/data/vehicle-master.json`(규격채택)이다. 엔카 원자 시트는 시세 행키용.
+ *   이 파일은 상품마스터·공급사 「차종코드」 칸이 쓰는 **mf- 키 책**이다. 여기 ID를 엔카 시트로 바꾸지 마라.
+ *   이 탭에는 **쓰지 않는다** (`assertNotLiveVehicleMasterTabWrite`). 코드 의미 변경·재사용 금지.
  *
  * ★왜(사장님 2026-08-14 — 「그 차에 대해서 코드를 박아두면 절대 틀릴 일이 없음.
  *   차량번호에 코드 박아두면 되잖아」)
@@ -17,15 +21,19 @@
  *   파워트레인을 구별할 방법이 없다. 시트에는 순번이 있어 구별된다.
  * ⚠ 신규 후보는 상태 정책을 통과한 행만 쓴다. `검증중/1차확인·교차확인`은 수동 선택,
  *   `확정/확정`은 자동 선택까지 허용하고 나머지는 과거 코드 조회에만 남긴다.
+ * ⚠ 라이브 「차종마스터」 탭에는 쓰지 않는다(`assertNotLiveVehicleMasterWrite`).
  */
 
+import { ENCAR_MASTER_SHEET_ID } from './legacy-sheets';
+import { resolvePowertrainLabel } from './vehicle-powertrain-label';
 import {
   vehicleTrimUsageTier,
   type MasterManagementStatus,
   type MasterVerificationStatus,
   type VehicleTrimUsageTier,
 } from './vehicle-trim-master';
-import { resolvePowertrainLabel } from './vehicle-powertrain-label';
+export { ENCAR_MASTER_SHEET_ID, assertNotLiveVehicleMasterWrite } from './legacy-sheets';
+export { assertNotLiveVehicleMasterTabWrite } from './vehicle-master-lock';
 
 const S = (v: unknown) => String(v ?? '').trim();
 
