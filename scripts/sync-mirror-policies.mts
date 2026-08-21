@@ -118,11 +118,15 @@ if (!POLICY_TAB) throw new Error(`정제시트에 정책 탭이 없다(${POLICY_
 const pol = await call(`${SH}/${TO}/values/${encodeURIComponent(`'${POLICY_TAB}'`)}`) as { values?: string[][] };
 const prow = ((pol.values || []) as string[][]).map((r) => r.map(S));
 const hdr = prow[0] || [];
-if (!hdr.length || hdr[0] !== '정책코드') throw new Error(`정제시트 「${POLICY_TAB}」 탭 머리행이 규격(정책코드 …)이 아니다 — transpose-policy-tab 먼저`);
+// ★열은 이름으로 찾는다 — 자리로 찾지 않는다(2026-08-21).
+//   운영정책 v2 에서 맨 앞이 「정책UID」가 되며 「정책코드」가 둘째 칸으로 밀렸는데, 자리를 박아 둔 옛 검사가
+//   아이카·이안카 정책 미러를 매일 죽이고 있었다 — 그 바람에 일일 반영이 ① 에서 멈춰 아무것도 발행되지 않았다.
+const codeAt = hdr.findIndex((h) => h === '정책코드');
+if (!hdr.length || codeAt < 0) throw new Error(`정제시트 「${POLICY_TAB}」 탭 머리행에 「정책코드」 열이 없다(있는 열: ${hdr.filter(Boolean).slice(0, 12).join('·')}…)`);
 const stdHdr = policySheetHeader();
 const missingCols = stdHdr.filter((c) => !hdr.includes(c));
 if (missingCols.length) console.log(`  ▲ 정책 탭에 없는 규격 열 ${missingCols.length}: ${missingCols.join(' · ')}`);
-const keep = prow.slice(1).filter((r) => S(r[0]) && !S(r[0]).startsWith(`${CODE}_`));
+const keep = prow.slice(1).filter((r) => S(r[codeAt]) && !S(r[codeAt]).startsWith(`${CODE}_`));
 const newRows = assigned.map(({ code, g }) => hdr.map((h) => (h === '정책코드' ? code : h === '정책명' ? `${CODE} 시트 조건 ${g.sampleTab}` : (g.tab[h] || ''))));
 for (const { code, g, reused } of assigned) {
   console.log(`  ${code}${reused ? '(ERP 기존)' : '(새)'} — ${g.plates.length}대 · ${Object.entries(g.tab).map(([k, v]) => `${k}=${v}`).join(' · ').slice(0, 220)}`);

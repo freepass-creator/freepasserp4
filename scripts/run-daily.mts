@@ -6,14 +6,23 @@
  *     npx tsx scripts/run-daily.mts --apply
  *   (AI 에게는 「일일 반영 돌려」 = 이 명령. 자동화는 main 의 sheet-sync.yml 이 매일 09:10 에 같은 차례로 돈다.)
  *
+ * ★★사장님이 2026-08-21 에 로직을 바꿨다. 지금 흐름은 이 세 줄이다:
+ *     ① 자체 원본시트를 쓰는 4곳(이안카·아이카·오토플러스·아이언)만 정제시트로 가져온다
+ *        — 나머지 17곳은 공급사가 우리 제공시트에 바로 채워 넣으므로 그 시트가 곧 원본이자 정제시트다(가져올 게 없다)
+ *     ② 차종마스터 → 정제시트 정제칸에 필요정보를 입력한다
+ *     ③ 거기서 상품시트와 천이시트(영업채널 카드)로 옮겨온다
+ *   **상품마스터(→ERP)는 이 줄에 없다** — 「상품마스터 연동 안함」. 돌리려면 `--with-master`.
+ *
  * 차례(AI 운영 매뉴얼 5장과 같다):
- *   ① 정제시트 갱신(--with-mirror 일 때만 — 사장님이 수식으로 연동하면 생략)
- *   ② 정제칸 채움(21곳, 차량번호 정본 대조)
+ *   ① 정제시트 갱신(--with-mirror — 원본시트 쓰는 4곳. 사장님이 수식으로 연동하면 생략)
+ *   ①″ 정제칸 원문 재정렬
+ *   ② 정제칸 채움(21곳, 차량번호 정본 대조) ← 차종마스터가 사전
  *   ③ 못 정한 차 결정(resolve) → 새 결정이 있으면 ② 한 번 더
- *   ④ 판매시트 발행(상품리스트 → 손오공구독(+인수형 블록) → 오플구독(+오플 요금 블록) — 탭 3개, 2026-08-19)
- *   ⑤ 상품마스터 갱신(→ 02:00 ERP 동기)
- *   ⑤′ 상품마스터 ← 상품리스트 맞춤(발행값이 정본 — ERP 와 영업자 표가 정확히 같아진다)
- *   ⑥ 검수(돈 대조 · 정제칸 대조 · 빈 칸 · 상품리스트↔상품마스터 일치 게이트)
+ *   ④ 상품시트 발행(상품리스트 → 손오공구독(+인수형 블록) → 오플구독(+오플 요금 블록) — 탭 3개, 2026-08-19)
+ *      + 공급사 시트마다 「상품시트」 탭
+ *   ④″ 천이시트(영업채널 카드시트) 발행 — 2026-08-21
+ *   ⑤·⑤′ 상품마스터 — **기본 건너뜀**(--with-master 일 때만)
+ *   ⑥ 검수(돈 대조 · 정제칸 대조 · 빈 칸 · 트림 근거)
  * ★한 단계가 실패하면 거기서 멈추고 무엇이 실패했는지 남긴다(다음 단계로 안 넘어간다 — 낡은 값을 발행하지 않기 위해).
  *   발행 가드(공급사 하나가 0대로 줄면 멈춤)에 걸리면 사람이 확인 후 `--force-shrink` 로 다시.
  */
@@ -22,6 +31,8 @@ import { writeFileSync } from 'node:fs';
 
 const APPLY = process.argv.includes('--apply');
 const WITH_MIRROR = process.argv.includes('--with-mirror');
+/** 상품마스터(→ERP)는 기본으로 안 돈다 — 사장님 2026-08-21 「상품마스터 연동 안함」. */
+const WITH_MASTER = process.argv.includes('--with-master');
 const FORCE = process.argv.includes('--force-shrink');
 const started = Date.now();
 const kst = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 16).replace('T', ' ');
@@ -79,11 +90,20 @@ const p5 = run('④″ 영업채널 카드시트', ['scripts/publish-channel-car
 report.push(`④″ 영업채널 ${p5.ok ? '✓' : '✗'} ${p5.picked.find((l) => /반영 완료/.test(l)) || ''}`);
 if (!p5.ok) stop('영업채널 카드시트 발행 실패');
 
-const pm = run('⑤ 상품마스터 갱신', ['scripts/sync-product-master-live.mts', ...A, ...(FORCE ? ['--force-shrink'] : []), '--dump=tmp/run-daily-pm.json'], /^문패|중단|Error/);
-report.push(`⑤ 상품마스터 ${pm.ok ? '✓' : '✗'}`); if (!pm.ok) stop('상품마스터 갱신 실패');
-// ★상품리스트 ↔ 상품마스터(→ERP) 정확 일치 — 발행된 판매시트 값을 정본으로 상품마스터 상태·기간별 대여료·보증금을 덮는다(사장님 2026-08-18).
-const ps = run('⑤′ 상품마스터 ← 상품리스트 맞춤', ['scripts/sync-product-master-from-sales.mts', ...A], /어긋난 칸|되읽기|번호미정|보증금이 없는|✗|Error/);
-report.push(`⑤′ 일치 ${ps.ok ? '✓' : '✗'} ${ps.picked.find((l) => /어긋난 칸/.test(l)) || ''}`); if (!ps.ok) stop('상품마스터 ← 상품리스트 맞춤 실패');
+// ★⑤·⑤′ 상품마스터는 **기본으로 건너뛴다**(사장님 2026-08-21 — 「상품마스터 연동 안함」).
+//   그날 사장님이 그린 흐름은 이렇다: 차종마스터 → 정제시트 정제칸에 필요정보 입력 → 상품시트·천이시트로 옮겨오기.
+//   상품마스터(→ERP)는 그 줄에 없다. 돌리려면 `--with-master` 를 명시한다(--with-mirror 와 같은 꼴).
+//   ⚠ 건너뛰면 ERP 는 시트를 따라오지 않는다. ERP 를 맞출 때는 사람이 --with-master 로 돌린다.
+if (WITH_MASTER) {
+  const pm = run('⑤ 상품마스터 갱신', ['scripts/sync-product-master-live.mts', ...A, ...(FORCE ? ['--force-shrink'] : []), '--dump=tmp/run-daily-pm.json'], /^문패|중단|Error/);
+  report.push(`⑤ 상품마스터 ${pm.ok ? '✓' : '✗'}`); if (!pm.ok) stop('상품마스터 갱신 실패');
+  // ★상품리스트 ↔ 상품마스터(→ERP) 정확 일치 — 발행된 판매시트 값을 정본으로 상품마스터 상태·기간별 대여료·보증금을 덮는다(사장님 2026-08-18).
+  const ps = run('⑤′ 상품마스터 ← 상품리스트 맞춤', ['scripts/sync-product-master-from-sales.mts', ...A], /어긋난 칸|되읽기|번호미정|보증금이 없는|✗|Error/);
+  report.push(`⑤′ 일치 ${ps.ok ? '✓' : '✗'} ${ps.picked.find((l) => /어긋난 칸/.test(l)) || ''}`); if (!ps.ok) stop('상품마스터 ← 상품리스트 맞춤 실패');
+} else {
+  console.log('\n■ ⑤·⑤′ 상품마스터 — 건너뜀(사장님 2026-08-21 「상품마스터 연동 안함」 · 돌리려면 --with-master)');
+  report.push('⑤·⑤′ 상품마스터 건너뜀(--with-master 로 돌린다)');
+}
 
 if (APPLY) {
   const a1 = run('⑥ 돈 대조(공급사 시트 ↔ 판매시트)', ['scripts/audit-sheet-vs-sales.mts'], /어긋난 칸|판매리스트에만|공급사시트에만/);
@@ -95,9 +115,12 @@ if (APPLY) {
   const a5 = run('⑥ 트림 근거 대조', ['scripts/audit-trim-evidence.mts', '--apply'], /^■|대  /);
   report.push(`⑥ 트림 근거 ${a5.picked.filter((l) => /근거 없음|다른 트림/.test(l)).join(' · ') || '(근거 없음 0)'}`);
   report.push(`⑥ 빈 칸 ${a3.picked[0] || ''}`);
-  const a4 = run('⑥ 상품리스트 ↔ 상품마스터(→ERP) 일치 게이트', ['scripts/sync-product-master-from-sales.mts', '--audit-only'], /어긋난 칸|✓ 일치|✗|번호미정/);
-  report.push(`⑥ ERP 일치 ${a4.ok ? '✓' : '✗'} ${a4.picked.find((l) => /어긋난 칸/.test(l)) || ''}`);
-  if (!a4.ok) stop('상품리스트 ↔ 상품마스터 어긋남 — ERP 가 영업자 표와 다르게 읽는다');
+  // ★ERP 일치 게이트는 상품마스터를 돌렸을 때만 뜻이 있다 — 안 돌렸으면 어긋나는 게 당연하다(사장님 2026-08-21 「상품마스터 연동 안함」).
+  if (WITH_MASTER) {
+    const a4 = run('⑥ 상품리스트 ↔ 상품마스터(→ERP) 일치 게이트', ['scripts/sync-product-master-from-sales.mts', '--audit-only'], /어긋난 칸|✓ 일치|✗|번호미정/);
+    report.push(`⑥ ERP 일치 ${a4.ok ? '✓' : '✗'} ${a4.picked.find((l) => /어긋난 칸/.test(l)) || ''}`);
+    if (!a4.ok) stop('상품리스트 ↔ 상품마스터 어긋남 — ERP 가 영업자 표와 다르게 읽는다');
+  }
 } else report.push('⑥ 검수는 --apply 뒤에 돈다');
 report.push(`끝 — ${Math.round((Date.now() - started) / 1000)}초`);
 writeFileSync('tmp/run-daily-report.txt', report.join('\n'));
