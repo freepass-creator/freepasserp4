@@ -52,8 +52,9 @@ export const HEADER_ALIASES: Record<string, string> = {
   // 표준양식 헤더(2026-08-08). 열은 만들어 놓고 별칭이 없어 값이 통째로 버려지고 있었다.
   구동: 'drive_type', 구동방식: 'drive_type', 사륜: 'drive_type', 굴림: 'drive_type',
   // 렌트시트 「차종」=모델명(쏘나타). 세그먼트×차형 = 차종분류(구 차급).
+  // 발행 판매시트는 같은 값을 「차종구분」(옵션 뒤 열)으로 낸다.
   차종: 'model',
-  차종분류: 'vehicle_class', 차급: 'vehicle_class',
+  차종분류: 'vehicle_class', 차종구분: 'vehicle_class', 차급: 'vehicle_class',
   상태: 'vehicle_status', 판매상태: 'vehicle_status', 재고상태: 'vehicle_status',
   구분: 'product_type', 상품구분: 'product_type', 렌트구분: 'product_type',
   // 표준양식 헤더(2026-08-08). '차종분류'(vehicle_class)와 헷갈리지 않는다 — 정확일치가 먼저다.
@@ -64,6 +65,13 @@ export const HEADER_ALIASES: Record<string, string> = {
   // 표준양식(2026-08-08). 정책코드를 적으면 **그 정책이 우선**한다 — 면책금·연령·면허를
   //   칸마다 적을 필요가 없다. 개별 정책 열은 «지금 붙은 정책이 무엇인지» 보여주는 표시일 뿐이다.
   정책코드: 'policy_code', 정책번호: 'policy_code',
+  /**
+   * ★**「정책UID」가 정본 참조다**(사장님 2026-08-21 「uid 만 안 바뀌면 되잖아」 · ERP 표준 3층
+   *   대체키/업무코드/표시명). `pol_…` 는 뜻이 없어 정책명·업무코드(POL-0035)가 바뀌어도 안 깨진다.
+   *   판매시트에 이 열이 생기기 전까지 ERP 상품 **808대의 policy_code 가 빈칸**이었다(실측 2026-08-21) —
+   *   상품마스터 경로를 접으면서 정책이 지나갈 칸이 사라졌기 때문이다.
+   */
+  정책UID: 'policy_code',
 };
 
 // 매핑 대상 표준 필드(에디터 드롭다운). 라벨=한글, key=매물 필드.

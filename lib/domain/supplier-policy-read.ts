@@ -63,14 +63,25 @@ export type PolicyBook = Map<string, Map<string, string>>;
 export function readPolicyTab(rows: string[][]): PolicyBook {
   const book: PolicyBook = new Map();
   if (!rows.length) return book;
-  // ── 가로: 첫 줄이 「정책코드 · 정책명 · …」
-  if (norm(rows[0]?.[0]) === '정책코드' && norm(rows[0]?.[1]) === '정책명' && S(rows[0]?.[2])) {
+  /**
+   * ── 가로: 첫 줄에 「정책코드」·「정책명」이 있는 표.
+   * ★**열 자리를 못 박지 않는다 — 이름으로 찾는다.**
+   *   예전엔 A열=정책코드·B열=정책명으로 굳혀 두었는데, 2026-08-21 앞에 「정책UID」 열을 하나 끼우자
+   *   그 판정이 깨져 **정책 탭을 통째로 못 읽었다**. 열은 언제든 하나 더 생긴다.
+   */
+  const headAt = rows[0]?.map((c) => norm(c)) || [];
+  const codeCol = headAt.indexOf('정책코드');
+  const nameCol = headAt.indexOf('정책명');
+  if (codeCol >= 0 && nameCol >= 0) {
     const hdr = rows[0].map(S);
     for (const r of rows.slice(1)) {
       if (!policyRowLive(hdr, r)) continue;
-      const code = /프리패스 기본/.test(S(r[0])) ? '' : S(r[0]);
+      const code = /프리패스 기본/.test(S(r[codeCol])) ? '' : S(r[codeCol]);
       const m = new Map<string, string>();
-      hdr.forEach((h, i) => { if (h && !/^정책코드$|^정책명$/.test(norm(h))) { const v = policyCellValue(h, r[i]); if (v) setWithAliases(m, h, v); } });
+      hdr.forEach((h, i) => { if (h && !/^정책코드$|^정책명$|^정책uid$/.test(norm(h).toLowerCase())) { const v = policyCellValue(h, r[i]); if (v) setWithAliases(m, h, v); } });
+      /** UID 는 값이 아니라 이름표다 — 정책 값 묶음에 섞지 않고 따로 담는다(ERP·계약서가 이걸 참조한다). */
+      const uidCol = headAt.findIndex((h) => h.toLowerCase() === '정책uid');
+      if (uidCol >= 0 && S(r[uidCol])) m.set('__uid', S(r[uidCol]));
       book.set(code, m);
     }
     return book;
@@ -189,7 +200,14 @@ export function insuranceSeparate(p: Map<string, string>): boolean {
  */
 export function ageCell(p: Map<string, string>, age: 21 | 23): string {
   const scope = S(p.get('연령인하'));
-  const fee = S(p.get('연령 하향 요금'));
+  /**
+   * ★그 나이 칸이 있으면 **그것이 이긴다**(사장님 2026-08-21 「정책에도 21세+ 23세+ 넣어줘」).
+   *   나이마다 할증이 다른 집이 있다. 없으면 예전처럼 「연령 하향 요금」 한 값을 두 나이에 같이 쓴다.
+   */
+  const own = S(p.get(`${age}세+`));
+  const fee = own || S(p.get('연령 하향 요금'));
+  if (own && /불가/.test(own)) return '불가';
+  if (own && !scope) return manOnly(own) || own;
   if (!scope) return '';
   if (/불가/.test(scope)) return '불가';
   if (/협의/.test(scope)) return '협의';
@@ -430,8 +448,8 @@ export function policyCell(column: string, p: Map<string, string>): string {
   if (column === '보험료') return S(p.get('보험료')).replace(/^보험료\s*/, '');   // 머리글이 「보험료」라 칸에는 포함/별도만
   if (column === '승계') return successionCell(p);
   if (column === '운전자범위') return driverScopeCell(p);
-  if (column === '21세') return ageCell(p, 21);
-  if (column === '23세') return ageCell(p, 23);
+  if (column === '21세' || column === '21세+') return ageCell(p, 21);
+  if (column === '23세' || column === '23세+') return ageCell(p, 23);
   // 추가운전(가능 여부)·추가운전 요금(N인까지 · 1인당 월 M만원) — 옛 머리글(추가운전자·추가운전자 요금)도 읽는다.
   if (column === '추가운전') return extraDriverCell(p);
   if (column === '추가운전 요금') return extraDriverFeeCell(p);

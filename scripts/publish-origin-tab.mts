@@ -34,13 +34,33 @@ import { HANDOVER_TAB, STALE_DAYS, daysSince, readLog } from '../lib/domain/supp
 import { SHEET_NAME_MATCH, isOurNonInventoryTab, supplierSheetLabel } from '../lib/domain/supplier-template-sheet';
 import { mileageCompact, pickPolicy, policyCell, readPolicyTab, type PolicyBook } from '../lib/domain/supplier-policy-read';
 import { POLICY_TAB_ALIASES } from '../lib/domain/supplier-template-sheet';
+import { classifyVehicleClass } from '../lib/domain/vehicle-class';
 /** 정책 탭 값 — 「운영정책」 먼저, 없으면 옛 「정책」(사장님 2026-08-19 탭 개명 · 아직 안 바꾼 시트 호환). */
-async function readPolicyValues(id: string): Promise<string[][]> {
-  for (const tab of POLICY_TAB_ALIASES) {
+/**
+ * 정책 탭을 읽는다. 이름이 「운영정책」·「정책」이 아닐 수 있다 —
+ * ★**관계사가 한 문서를 나눠 쓰면 「빌린카운영정책」·「엘씨운영정책」처럼 회사 이름이 앞에 붙는다.**
+ *   별칭 둘만 찾던 예전 코드는 그 여섯 곳(빌린카·엘씨·스타·스카이·경진카·경진렌트)을 통째로 못 읽어,
+ *   재고 탭에 정책코드가 멀쩡히 있어도 **정책 칸이 전부 비어 나갔다**(실측 2026-08-21 · 67대).
+ *   그래서 탭 목록을 받아 «이름에 정책이 든 탭»을 차례로 본다. `brand` 가 있으면 그 회사 탭을 먼저 본다.
+ */
+async function readPolicyValues(id: string, brand = ''): Promise<string[][]> {
+  let titles: string[] = [];
+  try {
+    const meta = await api(`https://sheets.googleapis.com/v4/spreadsheets/${id}?fields=sheets.properties(title,hidden)`) as Rec;
+    titles = ((meta.sheets || []) as Rec[]).map((sh) => S(sh.properties?.title)).filter((t) => /정책/.test(t));
+  } catch { /* 목록을 못 받으면 별칭만 본다 */ }
+  const b = norm(brand).replace(/재고/g, '');
+  const order = [
+    ...(b ? titles.filter((t) => norm(t).includes(b)) : []),
+    ...POLICY_TAB_ALIASES.filter((t) => titles.includes(t)),
+    ...titles,
+    ...POLICY_TAB_ALIASES,
+  ];
+  for (const tab of [...new Set(order)]) {
     try {
-      const pv = await api(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${encodeURIComponent(`'${tab}'`)}`) as { values?: string[][] };
+      const pv = await api(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${encodeURIComponent(`'${tab.replace(/'/g, "''")}'`)}`) as { values?: string[][] };
       if (pv.values?.length) return pv.values as string[][];
-    } catch { /* 다음 별칭 */ }
+    } catch { /* 다음 후보 */ }
   }
   return [];
 }
@@ -423,7 +443,7 @@ for (const [code, p] of [...byCode].sort()) {
    */
   let book: PolicyBook = new Map();
   try {
-    book = readPolicyTab(await readPolicyValues(readId));
+    book = readPolicyTab(await readPolicyValues(readId, S(p.partner_name || p.name)));
   } catch { /* 정책 탭이 없는 시트도 있다 */ }
   if (book.size) policySource['문패시트']++;
   else {
@@ -431,7 +451,7 @@ for (const [code, p] of [...byCode].sort()) {
     const mine = ourPolicySheetFor(S(p.partner_name || p.name), code);
     if (mine && mine.id !== readId) {
       try {
-        book = readPolicyTab(await readPolicyValues(mine.id));
+        book = readPolicyTab(await readPolicyValues(mine.id, S(p.partner_name || p.name)));
       } catch { /* 우리 시트에 정책 탭이 없으면 아래에서 센다 */ }
     }
     if (book.size) policySource['우리제공시트']++; else policySource['없음']++;
@@ -511,6 +531,23 @@ for (const [code, p] of [...byCode].sort()) {
          *   같은 상품이 네 이름으로 서고 필터가 안 걸린다. 뜻은 그대로 두고 «이름»만 캐논으로 갈아 넣는다.
          */
         if (c === '구분') return productType(clean(c, cell(c)));
+        // 정책 UID — 그 차가 문 정책의 대체키. 못 정했으면 비운다(짐작해 넣으면 남의 조건이 붙는다).
+        if (c === '정책UID') return S(pol.get('__uid'));
+        /**
+         * ★**차종구분 = 「차종크기 + 차종구분」**(사장님 2026-08-21 「준중형 SUV 이런 거 옵션 뒤에 박아주라」).
+         *   신규 차종마스터(2026-08-21)가 둘을 나눠 준다 — 크기(경형·소형·준중형·중형·준대형·대형) × 구분(SUV·세단·해치백…).
+         *   공급사 시트 정제칸에 이미 채워져 있다(실측 2026-08-21: 673대 중 크기 630 · 구분 643).
+         *   ⚠ 둘 다 비면 **모델명으로 만든다**(vehicle-class SSOT) — 빈 칸으로 두면 영업자가 차급으로 못 고른다.
+         */
+        if (c === '차종구분') {
+          const sizeAt = hdr.indexOf('차종크기');
+          const kindAt = hdr.indexOf('차종구분');
+          const joined = [sizeAt >= 0 ? S(r[sizeAt]) : '', kindAt >= 0 ? S(r[kindAt]) : ''].filter(Boolean).join(' ');
+          if (joined) return joined;
+          const own2 = clean(c, cell(c));
+          if (own2) return own2;
+          return classifyVehicleClass({ model: cell('모델'), sub_model: cell('차명') } as never);
+        }
         /**
          * ★재고탭에 값이 있으면 **그쪽이 이긴다** — 그 차만의 예외일 수 있다.
          *   없을 때만 「정책」 탭에서 가져온다. 정책은 «그 공급사의 기본 조건»이다.
