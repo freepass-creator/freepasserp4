@@ -60,7 +60,22 @@ assert.match(adminRoute, /freepassEsignEventUpdates\(contractCode, 'rejected'/);
 assert.match(adminRoute, /freepassEsignEventUpdates\(contractCode, 'approved'/);
 assert.match(esignServer, /FREEPASS_ESIGN_PUBLIC_BASE_URL/);
 assert.match(adminRoute, /publicFreepassSignUrl\(token, requestOrigin\)/);
-assert.match(adminRoute, /canonicalFreepassSignUrl\(bundle\.contract\.esign_sign_url\)/);
+assert.match(adminRoute, /internal_sign_url/);
+assert.match(adminRoute, /esign_sign_url: null/);
+assert.match(adminRoute, /protectedSignUrl/);
+assert.match(adminRoute, /privatizeLegacySignUrl/);
+assert.match(adminRoute, /hashFreepassSignToken\(token\) === hash/);
+assert.match(adminRoute, /submission\?\.internal_sign_url/);
+assert.doesNotMatch(adminRoute, /submission\?\.internal_sign_url \|\| bundle\.contract\.esign_sign_url/);
+assert.match(adminRoute, /계약 목록에서는 즉시[\s\S]*제거/);
+assert.match(adminRoute, /hasFrozenFreepassTemplateState\(session\)/);
+assert.match(adminRoute, /frozenSessionTemplateId\(currentSession\)/);
+const activeSessionIndexes = [...adminRoute.matchAll(/activeSession\(currentSession\) && hasFrozenFreepassTemplateState\(currentSession\)/g)].map((match) => match.index ?? -1);
+assert.equal(activeSessionIndexes.length, 2, '발행 전·claim 후 모두 기존 링크를 먼저 안전 이관해야 한다');
+assert.ok(activeSessionIndexes[0]! < adminRoute.indexOf('const blocked = esignIssueBlockers'), '기존 고객 링크 이관은 현재 정책 blocker보다 먼저 실행한다');
+assert.ok(activeSessionIndexes[1]! < adminRoute.indexOf('const refreshedBlocked = esignIssueBlockers'), 'claim 후 재확인에서도 기존 고객 링크 이관을 먼저 실행한다');
+assert.match(publicRoute, /childUpdates\(`esign_private\/\$\{contractCode\}\/\$\{hash\}`, submission\)/);
+assert.match(publicDocumentRoute, /hasFrozenFreepassTemplateState\(session\)/);
 assert.match(adminRoute, /approvalClaimId/);
 assert.match(adminRoute, /status: 'approving'/);
 assert.match(adminRoute, /다른 관리자가 이미 승인 처리 중/);
@@ -107,6 +122,12 @@ assert.match(firebaseAdmin, /throw verifyError/);
 assert.match(panes, /getIdToken\(forceRefresh\)/);
 assert.match(panes, /response\.status === 401/);
 assert.match(panes, /링크 다시 만들기/);
+assert.match(panes, /linkRecoveryNeeded/);
+assert.match(panes, /고객 링크 복구/);
+const recoveryCardStart = panes.indexOf("} else if (linkRecoveryNeeded)");
+const recoveryCard = panes.slice(recoveryCardStart, panes.indexOf("} else if (stage === '발송 전' && !issued)", recoveryCardStart));
+assert.match(recoveryCard, /disabled=\{busy\}/);
+assert.doesNotMatch(recoveryCard, /selectionError|blocked\.length/);
 assert.match(panes, /loadError/);
 assert.match(firebaseAdmin, /waitMs <= 5_000/);
 assert.match(firebaseAdmin, /verifyIdToken\(token\)/);
@@ -158,13 +179,27 @@ assert.doesNotMatch(publicRoute, /getStore\(\)/);
 assert.match(publicPage, /\/api\/freepass-esign\/public\/\$\{encodeURIComponent/);
 assert.match(publicPage, /임대인 회사명/);
 assert.match(publicPage, /snapshot\.landlord\?\.companyName/);
-assert.match(publicPage, /차량번호 미정/);
+// 신차 임시번호는 A4 완료본과 같이 「미정 (신차)」로 보여 실제 등록번호처럼 오인하지 않는다.
+assert.match(publicPage, /snapshot\.templateState\?\.car === '신차'/);
+assert.match(publicPage, /'미정 \(신차\)'/);
 assert.match(publicPage, /model_snapshot/);
-assert.match(publicPage, /운전면허번호 \*/);
-assert.match(publicPage, /성명 \*/);
-assert.match(publicPage, /연락처 \*/);
+// 필수 표시는 별표가 아니라 시각 태그다. 추가 운전자 입력값·검증 키는 그대로 유지한다.
+assert.match(publicPage, /function ReqTag\(\)/);
+assert.match(publicPage, /<ReqTag \/>/);
+assert.doesNotMatch(publicPage, /운전면허번호 \*/);
+assert.doesNotMatch(publicPage, /성명 \*/);
+assert.doesNotMatch(publicPage, /연락처 \*/);
+// 조건값은 축약본을 새로 만들지 않는다. 긴 정책값은 접힘 안에 같은 원문을 두고,
+// article은 조문 참조로만 표시한다.
+assert.match(publicPage, /function ConditionRow\(\{ label, value, article \}/);
+assert.match(publicPage, /<details className=\{styles\.policyDetail\}>/);
+assert.match(publicPage, /<div className=\{styles\.policyBody\}>\{policyValue\}<\/div>/);
+assert.match(publicPage, /관련 약관 \{article\}/);
+assert.match(publicPage, /const formatDeposit = \(value: unknown\)/);
+assert.match(publicPage, /Number\(digits\) === 0 \? '무보증'/);
 assert.doesNotMatch(publicPage, /customer_name: S\(contract\.customer_name\)/);
 assert.match(publicPage, /if \(!form\.driver_license_no\.trim\(\)\)/);
+assert.match(publicPage, /metrics\.points >= 5 && metrics\.pathLength >= 55/);
 assert.match(publicPage, /kind: 'additional-driver'/);
 assert.match(publicPage, /추가 운전자 등록/);
 assert.match(publicPage, /additionalDriverCost/);
@@ -245,15 +280,20 @@ assert.doesNotMatch(sendCenter, /createdDraft|inlineResultRef|개인정보 없�
 assert.match(sendCenter, /전체 입력 지우기/);
 assert.doesNotMatch(sendCenter, /⑥ 계약서 만들기/);
 /**
- * ★초안 카드 순서(사장님 2026-08-20) — 1 회사 → 2 차량(정책 없으면 정책까지) → 3 기간별 대여료 → 4 조건 → 「계약서 만들기」.
- *   차량 후보는 회사만 정해지면 열린다(계약서 종류를 먼저 고르지 않는다).
+ * 차량번호가 첫 선택이다. 공급사는 선택적인 검색 필터이고 차량을 고르면 자동으로 확정된다.
+ * 기간·약정주행거리·연령은 같은 금액 결정 축으로 계약 생성 전에 모두 확인한다.
  */
-assert.ok(sendCenter.indexOf('title="회사"') < sendCenter.indexOf('title="차량"'));
-assert.ok(sendCenter.indexOf('title="차량"') < sendCenter.indexOf('title="기간별 대여료"'));
+assert.match(sendCenter, /차량번호·차명을 바로 검색하거나, 공급사로 먼저 좁혀서 고를 수 있습니다/);
+assert.match(sendCenter, /providerCompanyCode: S\(product\.provider_company_code\)/);
+assert.match(sendCenter, /title="차량번호 선택"/);
+assert.ok(sendCenter.indexOf('title="차량번호 선택"') < sendCenter.indexOf('title="기간별 대여료"'));
 assert.ok(sendCenter.indexOf('title="기간별 대여료"') < sendCenter.indexOf('title="조건"'));
 assert.ok(sendCenter.indexOf('title="조건"') < sendCenter.indexOf('<SectionLabel>특약사항</SectionLabel>'));
 assert.match(sendCenter, /const draftVehicleReady = !!\(draftProduct && draftPolicy && draftTemplate\)/);
 assert.match(sendCenter, /resolveVehiclePolicy\(product, providerPolicies\)/);
+assert.match(sendCenter, /contractMileageOptions\(/);
+assert.match(sendCenter, /contractRentForTerms\(/);
+assert.match(sendCenter, /specialTermsChoice/);
 /**
  * ★막는 이유는 «그걸 아는 단계»에서 바로 보여 준다(사장님 2026-08-20 「뭐 없어서 안 된다 이런 표시 해주지?」).
  *   회사만 골라도 임대인 정보는 이미 정해져 있고, 정책을 고르면 그 정책의 빈칸도 안다 — 4장을 다 채우고 알게 하지 않는다.
@@ -275,7 +315,7 @@ assert.match(publicPage, /if \(!preview\) return undefined;/, '실제 고객 화
 assert.match(publicPage, /fp-esign-preview-state/);
 assert.ok(sendCenter.indexOf('<SectionLabel>특약사항</SectionLabel>') < sendCenter.indexOf("'계약서 만들기'"));
 assert.doesNotMatch(sendCenter, /repeat\(auto-fit, minmax\(min\(100%, 560px\)/);
-assert.match(sendCenter, /state=\{!draftBaseReady \? 'waiting' : draftVehicleReady \? 'complete' : 'active'\}/);
+assert.match(sendCenter, /state=\{draftVehicleReady \? 'complete' : 'active'\}/);
 assert.doesNotMatch(sendCenter, /④ 고객 정보/);
 assert.doesNotMatch(sendCenter, /const CUSTOMER_FIELDS/);
 assert.match(sendCenter, /fields=\{VEHICLE_CONTRACT_FIELDS\}/);
@@ -330,7 +370,7 @@ assert.equal(simpleGroupBlocks.length, 2);
 assert.match(simpleGroupBlocks[0], /'\/inventory'/);
 assert.doesNotMatch(simpleGroupBlocks[0], /\/members\?tab=partner|'\/esign'/);
 assert.match(simpleGroupBlocks[1], /'\/esign'[\s\S]*\/members\?tab=partner[\s\S]*\/members\?tab=user/);
-assert.match(sendCenter, /공급사·계약정책 관리/);
+assert.doesNotMatch(sendCenter, /공급사·계약정책 관리/);
 assert.match(membersPage, /esign_contract_enabled/);
 // 사장님 2026-08-19 — 파트너사 4패널(목록·기본정보·운영정책·수수료정책). 정책관리 메뉴는 없고, 운영정책 패널에서 공급사별 등록·수정·삭제(partnerPolicyUrl → /policy?provider=…&return=partner).
 assert.match(membersPage, /title: '운영정책'/);
@@ -358,7 +398,7 @@ assert.doesNotMatch(policyPage, /const G_ESIGN = \['contract_authoring'/);
 // 사장님 2026-08-19: 계약서관리(/esign)는 하단탭에 없다(관리자 메뉴) — 라우트 판정만 admin 으로 남는다.
 assert.doesNotMatch(tabbar, /href: '\/esign'/);
 assert.match(tabbar, /path === '\/esign' \|\| path\.startsWith\('\/esign\/'\)\) return role == null \|\| role === 'admin'/);
-assert.match(workflowGuide, /상품 확인은 구글시트가 기준입니다/);
+assert.match(workflowGuide, /상품 확인은 ERP 안의 상품리스트가 기준입니다/);
 assert.match(workflowGuide, /문의는 기존 카카오톡방/);
 assert.match(workflowGuide, /router\.push\('\/esign'\)/);
 assert.doesNotMatch(esignPage, /function LegacyEsignPage/);
@@ -466,4 +506,3 @@ assert.match(sendCenter, /attentionLabel="확인 필요"/);
 assert.doesNotMatch(sendCenter, /오른쪽 계약서·링크 패널|왼쪽 맨 위의|아래에서 A4/);
 assert.doesNotMatch(sendCenter, /계약회사|회원사|렌터카사/);
 assert.doesNotMatch(panes, /프리패스 데이터 확인|직원 업무 순서|발송 후 진행 흐름/);
-

@@ -10,6 +10,15 @@ function record(value: unknown): SignedSnapshotRecord | null {
     : null;
 }
 
+function signedAtText(value: unknown): string {
+  const at = Number(value || 0);
+  if (!Number.isFinite(at) || at <= 0) return '';
+  return new Intl.DateTimeFormat('ko-KR', {
+    timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  }).format(new Date(at)).replace(/\. /g, '.').replace(/\.$/, '').replace(',', '');
+}
+
 /**
  * 발행 시점의 조건 스냅샷은 그대로 두되, 고객이 본인확인 단계에서 직접 확정한
  * 계약자 정보는 완료본을 만들 때만 합성한다. 주민등록번호·주소를 공개 계약 노드나
@@ -26,6 +35,8 @@ export function snapshotWithPrivateSubmission(
   const additionalDrivers = Array.isArray(submission.additional_drivers)
     ? submission.additional_drivers.map(record).filter((row): row is SignedSnapshotRecord => !!row).slice(0, 3)
     : [];
+  const insuranceEvidence = record(submission.customer_insurance_evidence);
+  const insuranceEvidenceHash = S(insuranceEvidence?.sha256);
   const confirmedFields: SignedSnapshotRecord = {
     customer_name: S(submission.customer_name),
     customer_phone: S(submission.customer_phone),
@@ -34,10 +45,16 @@ export function snapshotWithPrivateSubmission(
     customer_birth: resident?.birthDate || '',
     driver_license_no: driverLicenseNo,
     driver_or_biz_no: driverLicenseNo,
-    emergency_contact: [S(submission.emergency_name), S(submission.emergency_phone)]
+    emergency_contact: [S(submission.emergency_relation), S(submission.emergency_name), S(submission.emergency_phone)]
       .filter(Boolean)
       .join(' · '),
     additional_driver: additionalDrivers.length ? `${additionalDrivers.length}인 지정` : '없음',
+    esign_signed_at: signedAtText(submission.submittedAt),
+    esign_consent_status: '필수 동의·계약조건 확인 완료',
+    esign_supporting_document_count: String(Array.isArray(submission.supporting_documents) ? submission.supporting_documents.length : 0),
+    customer_insurance_evidence: insuranceEvidenceHash
+      ? `가입증명서 제출·관리자 확인 (${insuranceEvidenceHash.slice(0, 12)})`
+      : '',
   };
   additionalDrivers.forEach((driver, index) => {
     const slot = index + 1;

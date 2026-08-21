@@ -36,10 +36,10 @@ import type { EsignTemplate } from '@/lib/domain/esign-templates';
 import { copyText } from '@/lib/clipboard';
 import { toast } from '@/components/Toaster';
 import {
-  Badge, Btn, ButtonLabel, C, CenterNote, DetailRow, FS, FW, ICON,
+  Badge, Btn, ButtonLabel, C, CenterNote, Checkbox, DetailRow, FS, FW, ICON,
   Input, ListGroup, R, SectionLabel, Textarea,
 } from '@/components/ui';
-import { CheckCircle2, Copy, ExternalLink, FileDown, Link2Off, RefreshCw, XCircle } from 'lucide-react';
+import { CheckCircle2, Copy, ExternalLink, FileDown, FileText, Link2Off, RefreshCw, XCircle } from 'lucide-react';
 import { EsignCustomerWalkthroughButton } from '@/components/EsignCustomerWalkthrough';
 
 type Rec = Record<string, unknown>;
@@ -55,7 +55,7 @@ export type AdminState = {
     additionalDriverPolicy?: { limit?: number; cost?: string };
     requiredDocuments?: Array<{ key?: string; label?: string; required?: boolean }>;
     template?: { label?: string; version?: string };
-    contractKind?: { title?: string; maturity?: string };
+    contractKind?: { title?: string; maturity?: string; insuranceSide?: string };
   } | null;
   session?: {
     status?: string;
@@ -531,8 +531,14 @@ export function FreepassEsignStagePane({
   const { code, state, current, sessionStatus, issued, stage, busy, setBusy, loadError, load, run } = esign;
   const [reason, setReason] = useState('');
   const [supplementItems, setSupplementItems] = useState<Set<string>>(new Set(['identity', 'signature']));
+  const [customerInsuranceEvidenceConfirmed, setCustomerInsuranceEvidenceConfirmed] = useState(false);
 
   const flags = flagsOf(esign, problems);
+  const customerInsuranceEvidenceRequired = state?.snapshot?.contractKind?.insuranceSide === '고객직접'
+    || (state?.snapshot?.requiredDocuments || []).some((document) => document.key === 'customer_insurance_certificate');
+  useEffect(() => {
+    setCustomerInsuranceEvidenceConfirmed(false);
+  }, [code, state?.session?.submittedAt]);
   const flagLabel = esignCenterFlagLabel(flags);
   const blocked = problems.filter((check) => check.level === 'BLOCK');
   const times = stageTimes(esign);
@@ -726,8 +732,19 @@ export function FreepassEsignStagePane({
                   ))}
                 </div>
                 <Textarea value={reason} onChange={setReason} placeholder="보완 사유 (예: 운전면허증 글자가 흐려 확인이 어렵습니다)" full />
+                {customerInsuranceEvidenceRequired ? (
+                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '10px 12px', border: `1px solid ${C.warn}`, borderRadius: R, background: C.warnBg, fontSize: FS.cap, color: C.ink, lineHeight: 1.5 }}>
+                    <Checkbox
+                      checked={customerInsuranceEvidenceConfirmed}
+                      onChange={setCustomerInsuranceEvidenceConfirmed}
+                      ariaLabel="가입증명서의 회사 질권 설정 확인"
+                      style={{ marginTop: 2 }}
+                    />
+                    <span><b>자동차보험 가입증명서에서 회사 질권 설정을 확인했습니다.</b><br />확인 후 승인하면 파일의 해시와 확인시각만 봉인되며, 보험증권 원본은 비공개로 보관됩니다.</span>
+                  </label>
+                ) : null}
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                  <Btn title="본인확인 및 전자서명 승인 — PDF 생성·봉인" disabled={busy} onClick={() => void run({ action: 'approve' }, '승인하고 봉인했습니다.')}>
+                  <Btn title="본인확인 및 전자서명 승인 — PDF 생성·봉인" disabled={busy || (customerInsuranceEvidenceRequired && !customerInsuranceEvidenceConfirmed)} onClick={() => void run({ action: 'approve', ...(customerInsuranceEvidenceRequired ? { customerInsuranceEvidenceConfirmed } : {}) }, '승인하고 봉인했습니다.')}>
                     <ButtonLabel icon={<CheckCircle2 size={ICON.md} aria-hidden />}>승인</ButtonLabel>
                   </Btn>
                   <Btn title="같은 링크로 보완 요청" variant="ghost" disabled={busy || supplementItems.size === 0} onClick={() => void run({ action: 'reject', reason, items: [...supplementItems] }, '같은 링크로 보완을 요청했습니다.')}>
@@ -839,6 +856,7 @@ export function FreepassEsignDocumentPane({
   const maturity = maturityOf(current) || '반납형';
   const spec = contractKindFor(tpl, maturity);
   const selectionError = tpl && spec ? standardTemplateSelectionError(tpl, spec, policy) : '';
+  const linkRecoveryNeeded = issued && !link && ['sent', 'opened'].includes(sessionStatus);
 
   const issue = (success: string) => run({ action: 'issue', standardTemplateId: tpl.id, contractKind: spec?.key }, success);
   const copyLink = () => {
@@ -882,6 +900,24 @@ export function FreepassEsignDocumentPane({
       <EsignStageCard tone="flag" title="링크 다시 만들기" description={flags.revoked ? '해지된 링크는 다시 쓸 수 없습니다.' : '유효기간이 지난 링크는 다시 쓸 수 없습니다.'}>
         <Btn full title="같은 계약 내용으로 새 고객 링크 만들기" disabled={busy || blocked.length > 0} onClick={() => void issue('새 링크를 만들었습니다. 링크를 복사해 고객에게 전달하세요.')}>
           {busy ? '링크 만드는 중…' : '링크 다시 만들기'}
+        </Btn>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>{a4Button}</div>
+      </EsignStageCard>
+    );
+  } else if (linkRecoveryNeeded) {
+    card = (
+      <EsignStageCard
+        tone="flag"
+        title="고객 링크 복구"
+        description="기존 링크를 서버 전용 보관소로 안전하게 옮깁니다. 기존 링크를 확인할 수 없으면 새 링크로 교체합니다."
+      >
+        <Btn
+          full
+          title="고객 링크를 안전하게 복구하거나 새로 발행"
+          disabled={busy}
+          onClick={() => void issue('고객 링크를 안전하게 복구했습니다. 링크를 복사해 고객에게 전달하세요.')}
+        >
+          {busy ? '링크 복구 중…' : '고객 링크 복구'}
         </Btn>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>{a4Button}</div>
       </EsignStageCard>
@@ -937,6 +973,9 @@ export function FreepassEsignDocumentPane({
           <ButtonLabel icon={<FileDown size={ICON.md} aria-hidden />}>완료 PDF</ButtonLabel>
         </Btn>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          <Btn title="차량별 또는 같은 임차인 여러 차량의 사실확인서 발급" variant="ghost" onClick={() => window.open(`/erp5/esign/issuance?contract=${encodeURIComponent(code)}`, '_blank', 'noreferrer')}>
+            <ButtonLabel icon={<FileText size={ICON.md} aria-hidden />}>발급 서류</ButtonLabel>
+          </Btn>
           {current.esign_verify_url ? (
             <Btn title="봉인 검증 페이지" variant="ghost" onClick={() => window.open(S(current.esign_verify_url), '_blank', 'noreferrer')}>봉인 검증</Btn>
           ) : null}

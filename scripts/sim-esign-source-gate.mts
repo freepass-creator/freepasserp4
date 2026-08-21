@@ -95,6 +95,24 @@ const negativeDeposit = esignIssueBlockers(
 );
 assert.ok(negativeDeposit.some((row) => row.key === 'deposit_amount'), '음수 보증금은 0원으로 조용히 바꾸지 말고 발행을 차단해야 한다');
 
+const pricedProduct = {
+  product_code: 'RP012_12가3456', provider_company_code: 'RP012', vehicle_status: '출고가능', product_type: '중고렌트',
+  price: { '48_3만': { rent: 600_000, deposit: 0 }, '48_4만': { rent: 700_000, deposit: 0 } },
+};
+const pricedPolicy = { ...policy, annual_mileage: '연 3만km', mileage_upcharge_per_10000km: 100_000 };
+const pricedContract = {
+  ...valid, contract_source: 'direct', product_code: pricedProduct.product_code,
+  pricing_snapshot_version: 'v1', annual_mileage_snapshot: '연 4만km', price_variant_snapshot: '48_4만',
+  mileage_surcharge_snapshot: 0, age_surcharge_snapshot: 0, rent_amount_snapshot: 700_000,
+  driver_age_snapshot: '만 26세 이상',
+  special_terms_choice_snapshot: '없음', special_terms_snapshot: '없음',
+};
+assert.ok(!esignIssueBlockers(pricedContract, partner, pricedPolicy, pricedProduct).some((row) => row.key === 'pricing_snapshot'), '가격표 기준의 주행거리 선택은 발행 가능해야 한다');
+assert.ok(esignIssueBlockers({ ...pricedContract, rent_amount_snapshot: 699_000 }, partner, pricedPolicy, pricedProduct)
+  .some((row) => row.key === 'pricing_snapshot'), '기간·주행거리·연령과 다른 월대여료는 발행을 막아야 한다');
+assert.ok(esignIssueBlockers({ ...pricedContract, special_terms_choice_snapshot: '있음', special_terms_snapshot: '' }, partner, pricedPolicy, pricedProduct)
+  .some((row) => row.key === 'special_terms'), '특약 있음인데 내용이 비어 있으면 발행을 막아야 한다');
+
 const missingVehicle = esignIssueBlockers(
   { ...valid, contract_source: 'direct', vehicle_name_snapshot: '' },
   partner,

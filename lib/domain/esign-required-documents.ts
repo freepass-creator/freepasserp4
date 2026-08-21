@@ -1,3 +1,5 @@
+import { CUSTOMER_INSURANCE_NOTE } from '@/lib/domain/esign-contract-kind';
+
 export type EsignRequiredDocument = {
   key: string;
   label: string;
@@ -8,6 +10,17 @@ export type EsignRequiredDocument = {
 type Rec = Record<string, unknown>;
 const S = (value: unknown) => String(value ?? '').trim();
 export const MAX_ESIGN_REQUIRED_DOCUMENTS = 10; // 시트 체크 6(사장님 2026-08-19) + 기타서류
+
+/**
+ * 고객 직접가입 상품은 보험 증명서가 없으면 출고할 수 없다.
+ * 문구는 구독 약정서 정본에서 이미 쓰는 안내를 재사용한다. 원본 파일은 private 경로에만 둔다.
+ */
+export const CUSTOMER_INSURANCE_CERTIFICATE: EsignRequiredDocument = {
+  key: 'customer_insurance_certificate',
+  label: '자동차보험 가입증명서(회사 질권 설정)',
+  note: CUSTOMER_INSURANCE_NOTE,
+  required: true,
+};
 
 export const ESIGN_DOCUMENT_PRESETS: Array<{
   key: string;
@@ -86,6 +99,36 @@ export function policyEsignRequiredDocuments(policy: Rec | null | undefined): Es
   return normalizeEsignRequiredDocuments(
     policy?.esign_required_documents ?? policy?.required_documents,
   );
+}
+
+/** 여러 출처의 요구서류를 키 기준으로 합친다. 앞쪽 항목을 우선해 고객 화면의 순서도 고정한다. */
+export function mergeEsignRequiredDocuments(
+  ...groups: Array<EsignRequiredDocument[] | null | undefined>
+): EsignRequiredDocument[] {
+  const byKey = new Map<string, EsignRequiredDocument>();
+  for (const group of groups) {
+    for (const document of normalizeEsignRequiredDocuments(group || [])) {
+      const current = byKey.get(document.key);
+      byKey.set(document.key, current
+        ? { ...current, required: current.required || document.required }
+        : document);
+    }
+  }
+  return [...byKey.values()].slice(0, MAX_ESIGN_REQUIRED_DOCUMENTS);
+}
+
+/**
+ * 프리패스 전자계약의 봉인 요구서류.
+ * 보험별도는 정책이 추가서류를 비워도 보험가입증명서를 반드시 맨 앞에 넣는다.
+ */
+export function freepassEsignRequiredDocuments(
+  policy: Rec | null | undefined,
+  insuranceSide: '회사포함' | '고객직접',
+): EsignRequiredDocument[] {
+  const policyDocuments = policyEsignRequiredDocuments(policy);
+  return insuranceSide === '고객직접'
+    ? mergeEsignRequiredDocuments([CUSTOMER_INSURANCE_CERTIFICATE], policyDocuments)
+    : policyDocuments;
 }
 
 export function serializeEsignRequiredDocuments(documents: EsignRequiredDocument[]): string {

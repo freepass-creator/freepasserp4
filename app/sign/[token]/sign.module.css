@@ -159,36 +159,89 @@
   display: block;
 }
 
-.gistMore {
-  margin: 0 12px 8px;
-  font-size: 12px;
-  color: var(--text-sub);
+.policyDetail {
+  min-width: 0;
 }
 
-.gistMore summary {
+.policyDetail summary {
   cursor: pointer;
   font-weight: 650;
   color: var(--text-main);
-  padding: 4px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   list-style: none;
 }
 
-.gistMore summary::-webkit-details-marker {
+.policyDetail summary::-webkit-details-marker {
   display: none;
 }
 
-.gistBody {
-  padding: 8px 0 4px;
+.policyPreview {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.policyToggle {
+  flex: none;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-sub);
+}
+
+.policyBody {
+  padding-top: 8px;
   font-size: 12px;
   line-height: 1.65;
   color: var(--text-main);
   white-space: pre-wrap;
 }
 
+.conditionRow {
+  display: grid;
+  grid-template-columns: minmax(0, 40%) minmax(0, 60%);
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.conditionLabel,
+.conditionValue {
+  min-width: 0;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.conditionLabel {
+  color: var(--text-sub);
+  background: var(--bg-header);
+  font-weight: 500;
+}
+
+.conditionValue {
+  color: var(--text-main);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.articleRef {
+  display: block;
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--text-sub);
+}
+
 .navigation {
+  position: sticky;
+  z-index: 4;
+  bottom: 0;
   display: flex;
   gap: 8px;
   margin-top: 14px;
+  padding-top: 12px;
+  background: var(--bg-page);
 }
 
 .navPrev {

@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import {
+  hasFrozenFreepassTemplateState,
   loadFreepassSessionByToken,
+  sha256,
   uploadPrivateEsignFile,
   type EsignRecord,
 } from '@/lib/server/freepass-esign';
@@ -56,6 +58,9 @@ export async function POST(
   const loaded = await loadFreepassSessionByToken(token);
   if (!loaded) return json({ error: '유효하지 않은 전자계약 링크입니다.' }, 404);
   const { hash, session } = loaded;
+  if (!hasFrozenFreepassTemplateState(session)) {
+    return json({ error: '계약서 서식이 갱신되어 이 링크로는 첨부할 수 없습니다. 담당자에게 새 링크 발행을 요청해 주세요.' }, 409);
+  }
   const status = S(session.status);
   if (Number(session.revokedAt || 0) || !['sent', 'opened'].includes(status)) {
     return json({ error: '지금은 첨부서류를 제출할 수 없습니다.' }, 409);
@@ -83,8 +88,11 @@ export async function POST(
   const contractCode = S(session.contractCode);
   if (!contractCode) return json({ error: '계약 연결정보가 없습니다.' }, 409);
   const originalName = originalFileName(request.headers.get('x-file-name') || '', requested.label);
+  // 내용 주소를 경로에 넣어, 제출 상태 변경과 동시에 시작한 업로드가 기존 증빙 객체를 덮지 못하게 한다.
+  // 같은 바이트는 같은 경로여도 해시가 같으므로 무결성이 유지된다.
+  const contentSha256 = sha256(bytes);
   const asset = await uploadPrivateEsignFile(
-    `esign-private/${contractCode}/${hash}/supporting/${docKey}.${extension(contentType)}`,
+    `esign-private/${contractCode}/${hash}/supporting/${docKey}/${contentSha256}.${extension(contentType)}`,
     bytes,
     contentType,
   );

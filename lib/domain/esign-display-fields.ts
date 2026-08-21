@@ -139,6 +139,7 @@ export const DISPLAY_SECTIONS: DisplaySection[] = [
       f('vehicle_name', '차종', '계약', true),
       f('model_year', '연식', '계약', true),
       f('fuel', '유종', '계약', true),
+      f('engine_cc', '배기량', '재고', false),
       f('color_exterior', '외부 색상', '재고', true),
       f('odometer_delivery', '출고 시 주행거리', '재고', true),
       f('vehicle_classification', '차량 구분', '재고', true),

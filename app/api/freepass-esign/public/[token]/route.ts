@@ -2,12 +2,14 @@ import { NextResponse } from 'next/server';
 import {
   FREEPASS_ESIGN_REQUIRED_CONSENTS,
   freepassEsignEventUpdates,
+  hasFrozenFreepassTemplateState,
   loadFreepassEsignBundle,
   loadFreepassSessionByToken,
   sha256,
   uploadPrivateEsignFile,
   type EsignRecord,
 } from '@/lib/server/freepass-esign';
+import { hasMeaningfulFreepassSignature } from '@/lib/server/freepass-esign-signature';
 import { driverAgeRange, residentAgeOn, residentIdInfo } from '@/lib/domain/esign-resident-id';
 import { normalizeEsignRequiredDocuments } from '@/lib/domain/esign-required-documents';
 
@@ -133,6 +135,9 @@ function validateSubmission(payload: EsignRecord, snapshot: EsignRecord) {
   if (!signature.startsWith('data:image/png;base64,') || signature.length > 600000) {
     throw new Error('전자서명을 다시 입력해 주세요.');
   }
+  if (!hasMeaningfulFreepassSignature(signature)) {
+    throw new Error('서명란에 성명을 또렷하게 적어 주세요. 한 점 또는 너무 짧은 표시는 사용할 수 없습니다.');
+  }
   if (!FREEPASS_ESIGN_REQUIRED_CONSENTS.every((key) => consents.includes(key))) {
     throw new Error('필수 약관 동의가 누락되었습니다.');
   }
@@ -147,7 +152,7 @@ function validateSubmission(payload: EsignRecord, snapshot: EsignRecord) {
   for (const [key, limit] of [
     ['customer_id', 30], ['customer_address', 200],
     ['driver_license_no', 30],
-    ['emergency_name', 40], ['emergency_phone', 30],
+    ['emergency_relation', 30], ['emergency_name', 40], ['emergency_phone', 30],
   ] as const) {
     if (S(payload[key]).length > limit) throw new Error('입력값이 너무 깁니다.');
   }
@@ -167,6 +172,12 @@ function validateSubmission(payload: EsignRecord, snapshot: EsignRecord) {
   }
   if (!S(payload.driver_license_no)) throw new Error('운전면허번호를 입력해 주세요.');
   if (!S(payload.customer_address)) throw new Error('계약서에 기재할 주소를 입력해 주세요.');
+  const emergencyRelation = S(payload.emergency_relation);
+  const emergencyName = S(payload.emergency_name);
+  const emergencyPhone = S(payload.emergency_phone).replace(/\D/g, '');
+  if (!emergencyRelation) throw new Error('비상연락 관계를 입력해 주세요.');
+  if (!emergencyName) throw new Error('비상연락 성명을 입력해 주세요.');
+  if (emergencyPhone.length < 10 || emergencyPhone.length > 11) throw new Error('비상연락처를 정확히 입력해 주세요.');
   const additionalDriverPolicy = record(snapshot.additionalDriverPolicy);
   const additionalDriverLimit = Math.max(0, Math.min(3, Number(additionalDriverPolicy.limit || 0)));
   const rawAdditionalDrivers = Array.isArray(payload.additional_drivers) ? payload.additional_drivers : [];
@@ -192,7 +203,10 @@ function validateSubmission(payload: EsignRecord, snapshot: EsignRecord) {
       consentAt: Number(driver.consentAt),
     };
   });
-  return { name, phone, signature, consents, confirmations, additionalDrivers };
+  return {
+    name, phone, signature, consents, confirmations, additionalDrivers,
+    emergencyRelation, emergencyName, emergencyPhone,
+  };
 }
 
 function supportingDocumentsFor(session: EsignRecord): EsignRecord[] {
@@ -240,6 +254,11 @@ export async function GET(
   if (Number(session.expiresAt || 0) <= now && !['pending_review', 'approving', 'rejecting', 'signed'].includes(status)) {
     return json({ status: '만료', error: '만료된 전자계약 링크입니다.' }, 410);
   }
+  // 구형 스냅샷은 PDF 동결 단계에서 완료할 수 없다. signed 완료본은 이미 생성된
+  // 고객 사본을 계속 열 수 있게 두되, 그 외 상태에서는 PII 수집/승인을 막는다.
+  if (status !== 'signed' && !hasFrozenFreepassTemplateState(session)) {
+    return json({ error: '계약서 서식이 갱신되어 이 링크로는 진행할 수 없습니다. 담당자에게 새 링크 발행을 요청해 주세요.' }, 409);
+  }
   if (['pending_review', 'approving', 'rejecting', 'signed'].includes(status)) {
     const documentUrl = status === 'signed'
       ? `/api/freepass-esign/public/${encodeURIComponent(token)}/document`
@@ -254,7 +273,6 @@ export async function GET(
   if (!['sent', 'opened'].includes(status)) {
     return json({ error: '지금은 전자계약을 열 수 없습니다.' }, 409);
   }
-
   const contractCode = S(session.contractCode);
   if (!contractCode) return json({ error: '계약 연결정보가 없습니다.' }, 409);
   const bundle = await loadFreepassEsignBundle(contractCode);
@@ -331,6 +349,9 @@ export async function POST(
   if (!loaded) return json({ error: '유효하지 않은 전자계약 링크입니다.' }, 404);
   const { hash, session } = loaded;
   const now = Date.now();
+  if (!hasFrozenFreepassTemplateState(session)) {
+    return json({ error: '계약서 서식이 갱신되어 이 링크로는 진행할 수 없습니다. 담당자에게 새 링크 발행을 요청해 주세요.' }, 409);
+  }
   if (!submissionClaimAvailable(session, now) || Number(session.expiresAt || 0) <= now) {
     return json({ error: '이미 제출했거나 만료된 링크입니다.' }, 409);
   }
@@ -465,8 +486,9 @@ export async function POST(
       customer_id: S(payload.customer_id),
       customer_address: S(payload.customer_address),
       driver_license_no: S(payload.driver_license_no),
-      emergency_name: S(payload.emergency_name),
-      emergency_phone: S(payload.emergency_phone),
+      emergency_relation: parsed.emergencyRelation,
+      emergency_name: parsed.emergencyName,
+      emergency_phone: parsed.emergencyPhone,
       additional_drivers: parsed.additionalDrivers.map((driver, index) => ({
         ...driver,
         licensePath: additionalDriverAssets[index].path,
@@ -524,7 +546,8 @@ export async function POST(
     };
     // 고객 제출자료·검토상태·목록표시는 하나의 상태이므로 부분 완료가 생기지 않게 원자적으로 저장한다.
     await bundle.db.ref('v4').update({
-      [`esign_private/${contractCode}/${hash}`]: submission,
+      // 발행 때 서버 전용으로 보관한 fps_ 링크를 덮어쓰지 않는다.
+      ...childUpdates(`esign_private/${contractCode}/${hash}`, submission),
       ...childUpdates(`esign_sessions/${hash}`, sessionUpdate),
       ...childUpdates(`contracts/${contractCode}`, contractUpdate),
       ...freepassEsignEventUpdates(contractCode, 'submitted', requestEvidence(request, hash)),

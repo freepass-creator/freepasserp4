@@ -203,13 +203,18 @@ const kept = (rows: ConsentRow[]): ConsentRow[] => rows
  * 계약 하나 → 손님이 확인할 묶음 4개.
  * 값이 통째로 빈 묶음은 **떨어뜨리지 않고 남긴다** — 「차량정보 없음」이 화면에 보여야 사고를 잡는다.
  */
-/** 계약서관리 초안(contract_draft JSON)에 굳힌 보증금 납부 방식 — esign_inputs 가 없을 때의 정본. */
-function draftDepositInstallment(contract: Rec): string {
+/** 계약서관리 초안(contract_draft JSON)에 굳힌 선택값. */
+function contractDraftFields(contract: Rec): Rec {
   try {
     const raw = typeof contract.contract_draft === 'string' ? JSON.parse(contract.contract_draft) : contract.contract_draft;
-    if (raw && typeof raw === 'object' && !Array.isArray(raw)) return S((raw as Rec).deposit_installment);
+    if (raw && typeof raw === 'object' && !Array.isArray(raw)) return raw as Rec;
   } catch { /* 깨진 초안은 빈값 */ }
-  return '';
+  return {};
+}
+
+/** 계약서관리 초안에 굳힌 보증금 납부 방식 — esign_inputs 가 없을 때의 정본. */
+function draftDepositInstallment(contract: Rec): string {
+  return S(contractDraftFields(contract).deposit_installment);
 }
 
 export function buildConsentGroups(
@@ -220,9 +225,14 @@ export function buildConsentGroups(
 ): ConsentGroup[] {
   const c = contract as Rec;
   const p = (policy || {}) as Rec;
+  const draft = contractDraftFields(c);
   const contractKind = findContractKind(S(c.esign_contract_kind || c.contract_kind));
   // 관리자·손님이 따로 넣은 값(만기 인수가격·분납 회차 등)은 계약 본체가 아니라 여기 모인다.
   const inputs = (c.esign_inputs || {}) as Rec;
+  const selectedAnnualMileage = S(c.annual_mileage_snapshot || draft.annual_mileage || p.annual_mileage);
+  const selectedDriverAge = S(c.driver_age_snapshot || draft.driver_age || p.basic_driver_age);
+  const ownSpecialTerms = S(c.special_terms_snapshot || draft.special_terms);
+  const specialTerms = [S(p.policy_extra_terms), ownSpecialTerms !== '없음' ? ownSpecialTerms : ''].filter(Boolean).join('\n') || '없음';
 
   const vehicleName = S(c.vehicle_name_snapshot)
     || [c.maker_snapshot, c.model_snapshot, c.sub_model_snapshot].map(S).filter(Boolean).join(' ');
@@ -264,7 +274,7 @@ export function buildConsentGroups(
         { label: '월 대여료', value: N(c.rent_amount_snapshot) ? wonText(c.rent_amount_snapshot) : '', raw: c.rent_amount_snapshot, article: '제6조' },
         // 보증금 0 은 «무보증»이라는 뜻이라 빈칸으로 떨어뜨리지 않는다.
         { label: '보증금', value: N(c.deposit_amount_snapshot) ? wonText(c.deposit_amount_snapshot) : '무보증', raw: c.deposit_amount_snapshot, article: '제6조' },
-        { label: '약정 주행거리', value: S(p.annual_mileage), raw: p.annual_mileage, article: '제23조' },
+        { label: '약정 주행거리', value: selectedAnnualMileage, raw: selectedAnnualMileage, article: '제23조' },
         /*
          * ⚠ `mileage_upcharge_per_10000km`(「1만km 추가」)은 여기 오지 않는다.
          *   그건 **약정을 정할 때 쓰는 가격표**다 — 2만km면 월 65만원, 3만km면 75만원.
@@ -323,7 +333,7 @@ export function buildConsentGroups(
       title: '운전자',
       note: '이 차를 몰 수 있는 사람의 범위입니다. 범위를 벗어난 사람이 몰다 사고가 나면 보험이 적용되지 않습니다.',
       rows: kept([
-        { label: '운전자 연령', value: driverAgeLabel(p.basic_driver_age), raw: p.basic_driver_age, article: '제13조' },
+        { label: '운전자 연령', value: driverAgeLabel(selectedDriverAge), raw: selectedDriverAge, article: '제13조' },
         { label: '면허 경력요건', value: S(p.license_period), raw: p.license_period },
         { label: '운전자 범위(개인)', value: S(p.personal_driver_scope), raw: p.personal_driver_scope, article: '제13조' },
         { label: '운전자 범위(사업자)', value: S(p.business_driver_scope), raw: p.business_driver_scope, article: '제13조' },
@@ -349,7 +359,7 @@ export function buildConsentGroups(
       // 남긴 건 숫자가 박힌 것뿐이다. 「대인 30만원」이 약관 8,856자에 묻히면 손님이 못 본다.
       rows: kept([
         // 면책금은 정책 단일값이 아니라 **연령에서 파생**한다(계약서 「운전자 연령 선택시 자동입력」).
-        { label: '면책금(고객부담금)', value: deductibleForAge(p.basic_driver_age), article: '제18조' },
+        { label: '면책금(고객부담금)', value: deductibleForAge(selectedDriverAge), article: '제18조' },
         { label: '면허 1년 이하', value: TERMS_ACCIDENT.licenseUnder1Year, article: '제13조' },
         { label: '사고 접수', value: TERMS_ACCIDENT.caution, article: '제17조' },
         { label: '현장 이탈', value: TERMS_ACCIDENT.onSite, article: '제17조' },
@@ -381,7 +391,7 @@ export function buildConsentGroups(
         { label: '계약 연장·해지', value: TERMS_SERVICE.renewal, article: '제10조' },
         { label: '검사대행', value: TERMS_SERVICE.inspection, article: '제14조' },
         { label: '서비스품목', value: TERMS_SERVICE.serviceItems, article: '제14조' },
-        { label: '특약사항', value: TERMS_SERVICE.special },
+        { label: '특약사항', value: specialTerms, raw: specialTerms, article: '제4조' },
       ]),
       confirmLabel: '정비·기타 조건을 확인했습니다',
       required: true,

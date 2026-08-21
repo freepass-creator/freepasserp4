@@ -15,13 +15,19 @@ import { findContractKind } from '@/lib/domain/esign-contract-kind';
 import {
   findTemplate,
   standardTemplateSelectionError,
-  templatesForContract,
 } from '@/lib/domain/esign-templates';
-import { buildTemplateFieldsFromRecords } from '@/lib/domain/esign-template-fields';
+import {
+  buildTemplateFieldsFromRecords,
+  freepassVehicleStateIssueError,
+  frozenTemplateStateFromRecords,
+  isFrozenTemplateState,
+  omitTemplateSemanticStateFields,
+} from '@/lib/domain/esign-template-fields';
 import { pendingConsents } from '@/lib/domain/esign-inputs';
 import { esignAdditionalDriverLimit } from '@/lib/domain/esign-center';
-import { additionalDriverCostLabel } from '@/lib/domain/esign-vehicle-selection';
-import { policyEsignRequiredDocuments } from '@/lib/domain/esign-required-documents';
+import { additionalDriverCostLabel, productMatchesTemplate } from '@/lib/domain/esign-vehicle-selection';
+import { freepassEsignRequiredDocuments } from '@/lib/domain/esign-required-documents';
+import { isUsableInsurerName } from '@/lib/domain/policy-tier';
 
 export type EsignRecord = Record<string, unknown>;
 
@@ -83,6 +89,12 @@ function recordFromNode(value: unknown): EsignRecord | null {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as EsignRecord : null;
 }
 
+/** 발행 당시 상품·보험·당사자 상태를 모두 봉인한 세션만 고객 링크로 재사용한다. */
+export function hasFrozenFreepassTemplateState(session: EsignRecord | null | undefined): boolean {
+  const snapshot = recordFromNode(session?.snapshot);
+  return !!snapshot && isFrozenTemplateState(snapshot.templateState);
+}
+
 function mergeRecord(legacy: unknown, overlay: unknown): EsignRecord | null {
   const a = recordFromNode(legacy);
   const b = recordFromNode(overlay);
@@ -127,8 +139,9 @@ export async function loadFreepassEsignBundle(contractCode: string) {
     db.ref('v4/partners').get().catch(() => null),
   ]);
 
-  // 공급사에게 안 묻는 공통 조건(지연손해금·보관료·통지기한·청구 기준·가입 보험사·정비점·자차 처리 제외 …)은
-  // 프리패스 표준값으로 채워 계약서에 빈칸이 나가지 않게 한다. 이미 있는 값은 덮지 않는다(다른 읽기 경로와 같은 규칙).
+  // 공급사에게 안 묻는 공통 조건(지연손해금·보관료·통지기한·청구 기준·정비점·자차 처리 제외 …)은
+  // 프리패스 표준값으로 채워 계약서에 빈칸이 나가지 않게 한다. 회사 보험형의 보험사명은
+  // 체결일 사실이므로 기본 안내문이 아니라 실제 명칭을 별도로 확인한다. 이미 있는 값은 덮지 않는다.
   const storedPolicy = mergeRecord(legacyPolicy?.val(), overlayPolicy?.val());
   return {
     db,
@@ -155,13 +168,28 @@ function parseDraft(value: unknown): Record<string, string> {
   }
 }
 
+/** 공개 링크는 개인 본인확인 화면이다. 법인·개인사업자 서명 권한 흐름을 개인 주민번호 흐름으로 추정하지 않는다. */
+function unsupportedCustomerTypeIssueError(contract: EsignRecord): string {
+  const customerType = S(contract.customer_type || contract.contract_customer_type || contract.customer_type_snapshot);
+  if (customerType === '법인') return '법인 전자계약은 법인 서명권자·권한확인 절차가 준비된 뒤 발행할 수 있습니다.';
+  if (customerType === '개인사업자') return '개인사업자 전자계약은 사업자 서류·세금계산서 발행정보 절차가 준비된 뒤 발행할 수 있습니다.';
+  const businessFlag = S(contract.customer_is_business).toLowerCase();
+  if (!customerType && ['예', 'true', 'yes', '1'].includes(businessFlag)) {
+    return '사업자 계약은 customer_type(개인사업자 또는 법인)를 확정한 뒤 별도 전자계약 절차로 발행해 주세요.';
+  }
+  return '';
+}
+
 function publicContractSnapshot(contract: EsignRecord): EsignRecord {
   const keys = [
     'contract_code', 'contract_date',
     'car_number_snapshot', 'vehicle_name_snapshot', 'maker_snapshot', 'model_snapshot',
     'sub_model_snapshot', 'variant_snapshot', 'trim_name_snapshot', 'trim_extra_snapshot',
     'year_snapshot', 'fuel_type_snapshot', 'rent_month_snapshot', 'rent_amount_snapshot',
-    'deposit_amount_snapshot', 'payment_timing_snapshot', 'policy_name_snapshot', 'provider_company_code',
+    'deposit_amount_snapshot', 'payment_timing_snapshot', 'driver_age_snapshot', 'annual_mileage_snapshot',
+    'price_variant_snapshot', 'mileage_surcharge_snapshot', 'age_surcharge_snapshot',
+    'pricing_snapshot_version', 'special_terms_choice_snapshot', 'special_terms_snapshot',
+    'policy_name_snapshot', 'provider_company_code',
   ];
   const out: EsignRecord = {};
   for (const key of keys) if (contract[key] !== undefined && contract[key] !== null) out[key] = contract[key];
@@ -182,11 +210,19 @@ export function buildFreepassIssueSnapshot(args: {
   if (!template || !spec || template.contractKind !== spec.kind) {
     throw new Error('표준계약서 종류와 인수/반납 조합이 올바르지 않습니다.');
   }
-  if (!templatesForContract(args.contract).some((row) => row.id === template.id)) {
-    throw new Error('이 계약에서 사용할 수 없는 표준계약서입니다.');
+  // 요청 body의 contractKind/template ID를 믿지 않는다. 계약의 차량 상품구분이 본문 종류를 결정한다.
+  if (!args.product || !productMatchesTemplate(args.product, template)) {
+    throw new Error('선택한 표준계약서가 차량 상품구분과 맞지 않습니다.');
   }
   const selectionError = standardTemplateSelectionError(template, spec, args.policy);
   if (selectionError) throw new Error(selectionError);
+  const customerTypeError = unsupportedCustomerTypeIssueError(args.contract);
+  if (customerTypeError) throw new Error(customerTypeError);
+  const vehicleStateError = freepassVehicleStateIssueError(args.contract, args.product);
+  if (vehicleStateError) throw new Error(vehicleStateError);
+  if (template.insuranceSide === '회사포함' && !isUsableInsurerName(args.policy?.insurer_name)) {
+    throw new Error('보험포함 계약은 계약 체결일 기준 실제 가입 보험사·공제조합을 정책에 입력한 뒤 발행해 주세요.');
+  }
 
   const contract = {
     ...args.contract,
@@ -198,6 +234,9 @@ export function buildFreepassIssueSnapshot(args: {
     esign_insurance_side: template.insuranceSide,
   };
   const overrides = { ...parseDraft(args.contract.contract_draft), ...(args.templateFields || {}) };
+  // 보험포함의 보험사명은 계약별 초안이 아니라 정책에 확정한 체결일 사실이다.
+  // API body/과거 contract_draft가 이 값을 바꾸면 다른 보험사명으로 봉인될 수 있다.
+  if (template.insuranceSide === '회사포함') delete overrides.insurer_name;
   const templateSnapshot = buildTemplateFieldsFromRecords({
     contract,
     policy: args.policy,
@@ -205,14 +244,32 @@ export function buildFreepassIssueSnapshot(args: {
     product: args.product,
     overrides,
   });
+  const templateState = frozenTemplateStateFromRecords({
+    contract,
+    product: args.product,
+    insuranceSide: template.insuranceSide,
+  });
+  if (template.insuranceSide === '회사포함' && !isUsableInsurerName(templateSnapshot.fields.insurer_name)) {
+    throw new Error('보험포함 계약서에 실제 가입 보험사·공제조합이 표시되지 않습니다. 정책을 확인해 주세요.');
+  }
+  if (template.insuranceSide === '회사포함'
+    && S(templateSnapshot.fields.insurer_name) !== S(args.policy?.insurer_name)) {
+    throw new Error('보험포함 계약서의 보험사명은 정책에 확정한 실제 가입 보험사·공제조합과 일치해야 합니다.');
+  }
   const consentGroups = buildConsentGroups(contract, args.policy, template.insuranceSide);
   const landlordCompanyName = S(
     args.partner?.company_name || args.partner?.name || args.partner?.partner_name,
   );
+  // 고객 직접가입 보험의 질권자는 실제 임대인 법인명으로 동결되어야 한다.
+  // 빈 파트너를 "회사"라는 일반어로 봉인하면 가입증명서 대조 자체가 불가능하다.
+  if (template.insuranceSide === '고객직접' && !landlordCompanyName) {
+    throw new Error('보험별도 계약은 질권 설정을 확인할 임대인 상호를 먼저 입력해 주세요.');
+  }
   const additionalDriverLimit = esignAdditionalDriverLimit(args.policy);
-  const requiredDocuments = policyEsignRequiredDocuments(args.policy);
+  const requiredDocuments = freepassEsignRequiredDocuments(args.policy, template.insuranceSide);
   const consentAtoms = [
-    ...pendingConsents(contract),
+    // CMS는 별도 신청서·동의 절차에서 처리한다. 본계약 링크에 은행 동의를 섞지 않는다.
+    ...pendingConsents(contract).filter((atom) => atom.group !== 'bank'),
     ...(requiredDocuments.length ? [{
       key: 'supporting_documents_consent',
       label: '추가 제출서류 수집·이용 및 계약 렌터카사 제공 동의',
@@ -258,8 +315,9 @@ export function buildFreepassIssueSnapshot(args: {
       sections: SAMPLE_AGREEMENT.sections,
       confirmLabel: AGREEMENT_CONFIRM_LABEL,
     },
-    templateFields: templateSnapshot.fields,
-    templateState: templateSnapshot.state,
+    // state 키는 어떤 초안/관리자 입력으로도 완료 PDF의 상품·보험 분기를 바꾸면 안 된다.
+    templateFields: omitTemplateSemanticStateFields(templateSnapshot.fields),
+    templateState,
   };
 }
 
@@ -335,6 +393,21 @@ export async function uploadPrivateEsignFile(path: string, bytes: Uint8Array, co
     },
   });
   return { path, sha256: sha256(bytes), size: bytes.byteLength, contentType };
+}
+
+/**
+ * 이미 제출된 첨부서류가 봉인 직전에도 같은 바이트인지 확인한다.
+ * 공개 업로드와 제출 상태 전이가 겹쳐도 RTDB 포인터의 해시와 Storage 실물이 달라지면 승인하지 않는다.
+ */
+export async function privateEsignFileSha256(path: unknown): Promise<string | null> {
+  const safePath = S(path);
+  if (!safePath.startsWith('esign-private/') || safePath.includes('..') || safePath.includes('\u0000')) return null;
+  try {
+    const [bytes] = await freepassStorageBucket().file(safePath).download();
+    return sha256(bytes);
+  } catch {
+    return null;
+  }
 }
 
 export function eventRows(value: unknown): EsignRecord[] {

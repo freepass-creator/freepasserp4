@@ -69,6 +69,13 @@ export const FIELD_MAP: FieldMap[] = [
   { field: 'customer_birth', label: '생년월일', from: '본인확인', note: '주민등록번호에서 완료본 생성 시 파생' },
   { field: 'customer_id', label: '주민등록번호', from: '본인확인', note: '계약·세금계산서 발행에 필요한 범위에서 확인' },
   { field: 'driver_license_no', label: '면허번호', from: '본인확인', note: '면허증 첨부자료에서 확인' },
+  { field: 'customer_insurance_evidence', label: '개인보험 가입증명서 확인', from: '본인확인', note: '보험별도형에서 고객 제출 증명서의 해시로 확인' },
+
+  /* ── 전자서명 봉인 기록(완료본 전용) ── */
+  { field: 'esign_consent_status', label: '전자계약 동의 상태', from: '파생', note: '필수 동의·계약조건 확인 완료' },
+  { field: 'esign_signed_at', label: '전자서명 시각', from: '파생', note: '고객 제출 시각' },
+  { field: 'esign_seal_hash', label: '전자문서 봉인 해시', from: '파생', note: '완료 PDF 봉인 SHA-256의 단축 참조' },
+  { field: 'esign_verify_path', label: '전자문서 검증 경로', from: '표기', note: '프리패스 ERP 봉인 검증' },
   { field: 'driver_or_biz_no', label: '주민/사업자번호', from: '본인확인' },
   { field: 'emergency_contact', label: '비상연락처', from: '입력', atom: 'emergency_contact' },
 
@@ -89,6 +96,7 @@ export const FIELD_MAP: FieldMap[] = [
   { field: 'vin', label: '차대번호', from: '재고', atom: 'vin' },
   { field: 'model_year', label: '연식', from: '계약', atom: 'year_snapshot' },
   { field: 'fuel', label: '유종', from: '계약', atom: 'fuel_type_snapshot' },
+  { field: 'engine_cc', label: '배기량', from: '재고', atom: 'engine_cc', note: '전기·수소 차량은 공란' },
   { field: 'options', label: '옵션', from: '재고', atom: 'options' },
   { field: 'color_exterior', label: '외부 색상', from: '재고', atom: 'ext_color' },
   { field: 'color_interior', label: '내부 색상', from: '재고', atom: 'int_color' },

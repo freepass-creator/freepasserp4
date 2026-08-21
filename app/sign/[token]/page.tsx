@@ -20,6 +20,20 @@ const CONSENT_LABELS: Record<(typeof REQUIRED_CONSENTS)[number], string> = {
 };
 const CLIENT_IMAGE_BYTES = 1_350_000;
 const S = (value: unknown) => String(value ?? '').trim();
+const formatWon = (value: unknown) => {
+  const raw = S(value);
+  if (!raw) return '—';
+  const digits = raw.replace(/[^\d-]/g, '');
+  if (!digits) return raw;
+  const amount = Number(digits);
+  return Number.isFinite(amount) ? `${amount.toLocaleString('ko-KR')}원` : raw;
+};
+const formatDeposit = (value: unknown) => {
+  const raw = S(value);
+  if (!raw) return '—';
+  const digits = raw.replace(/[^\d-]/g, '');
+  return digits && Number(digits) === 0 ? '무보증' : formatWon(raw);
+};
 const VEHICLE_MAKER_PREFIX = /^(?:메르세데스[- ]?벤츠|KG모빌리티|르노코리아|르노삼성|한국지엠|제네시스|쉐보레|폭스바겐|캐딜락|포르쉐|폴스타|현대|기아|르노|KGM|쌍용|대우|벤츠|BMW|아우디|테슬라|미니|볼보|지프|BYD)\s+/i;
 
 function compactVehicleModel(
@@ -36,7 +50,7 @@ function compactVehicleModel(
   if (fuel) fallback = fallback.replace(new RegExp(`\\s*${fuel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`), '');
   fallback = fallback.replace(/\s+(?:\d+(?:\.\d+)?|\d{3,4}cc)$/i, '').trim();
   fallback = fallback.replace(VEHICLE_MAKER_PREFIX, '').trim();
-  return fallback || '모델명 미정';
+  return fallback || '—';
 }
 
 type ConsentPage = {
@@ -52,6 +66,7 @@ type PublicSnapshot = {
   contract?: Record<string, unknown>;
   landlord?: { companyName?: string };
   templateFields?: Record<string, string>;
+  templateState?: { car?: string };
   contractKind?: { title?: string; label?: string; maturity?: string; maturityNote?: string };
   template?: { label?: string; version?: string };
   additionalDriverPolicy?: {
@@ -176,23 +191,14 @@ function stepGuide(step: JourneyStep | undefined): string {
   if (step.kind === 'privacy') return '본인확인 자료를 받기 전에 수집 동의를 받습니다.';
   if (step.kind === 'identity') return '계약서에 들어갈 본인 정보와 확인 사진을 작성합니다.';
   if (step.kind === 'additional-driver') return '함께 운전할 사람이 있으면 등록합니다. 없으면 다음으로 가면 됩니다.';
-  if (step.kind === 'documents') return '렌터카사가 이 계약에 요청한 서류를 첨부합니다.';
+  if (step.kind === 'documents') return '렌터카사 요청서류를 첨부합니다.';
   if (step.kind === 'section') return step.page?.note || '이 조건이 계약 내용입니다. 확인하고 다음으로 갑니다.';
   if (step.kind === 'agreement') return '약관을 끝까지 읽은 뒤 동의를 선택합니다.';
   return '확인한 계약·약관에 전자서명합니다.';
 }
 
-function gistOf(text: string): { gist: string; full: string; collapse: boolean } {
-  const full = text.trim();
-  const bracket = full.match(/\[([^[\]]{2,40})\]/);
-  if (bracket && full.length > 48) return { gist: bracket[1], full, collapse: true };
-  const sentence = full.split(/(?<=다\.|요\.|니다\.)\s/)[0] || full;
-  if (full.length > 56 && sentence !== full) return { gist: sentence, full, collapse: true };
-  return { gist: full, full, collapse: false };
-}
-
 function ReqTag() {
-  return <Badge tone="red" variant="solid">필수</Badge>;
+  return <Badge tone="red" variant="solid" size={9}>필수</Badge>;
 }
 
 function FileThumb({ file }: { file: File | null }) {
@@ -210,17 +216,24 @@ function FileThumb({ file }: { file: File | null }) {
   return <img className={styles.thumb} src={url} alt="" />;
 }
 
-function ConditionRow({ label, value }: { label: string; value: string }) {
-  const { gist, full, collapse } = gistOf(value || '—');
+function ConditionRow({ label, value, article }: { label: string; value: string; article?: string }) {
+  const policyValue = value || '—';
+  const isLongValue = policyValue.length > 32;
   return (
-    <div>
-      <DetailRow label={label} value={gist} />
-      {collapse ? (
-        <details className={styles.gistMore}>
-          <summary>자세히</summary>
-          <div className={styles.gistBody}>{full}</div>
-        </details>
-      ) : null}
+    <div className={styles.conditionRow}>
+      <div className={styles.conditionLabel}>{label}</div>
+      <div className={styles.conditionValue}>
+        {isLongValue ? (
+          <details className={styles.policyDetail}>
+            <summary>
+              <span className={styles.policyPreview} title={policyValue}>{policyValue}</span>
+              <span className={styles.policyToggle} aria-hidden>전문 보기 ▾</span>
+            </summary>
+            <div className={styles.policyBody}>{policyValue}</div>
+          </details>
+        ) : <span>{policyValue}</span>}
+        {article ? <span className={styles.articleRef}>관련 약관 {article}</span> : null}
+      </div>
     </div>
   );
 }
@@ -249,7 +262,7 @@ export default function SignPage() {
   const [form, setForm] = useState({
     customer_name: '', customer_phone: '', customer_id: '', customer_address: '',
     driver_license_no: '',
-    emergency_name: '', emergency_phone: '',
+    emergency_relation: '', emergency_name: '', emergency_phone: '',
   });
   const [consents, setConsents] = useState<Set<string>>(new Set());
   const [confirmations, setConfirmations] = useState<Record<string, number>>({});
@@ -273,6 +286,7 @@ export default function SignPage() {
   const readRef = useRef<HTMLDivElement>(null);
   const drawing = useRef(false);
   const inked = useRef(false);
+  const signatureMetrics = useRef({ points: 0, pathLength: 0, last: null as { x: number; y: number } | null });
 
   useEffect(() => {
     let cancelled = false;
@@ -326,7 +340,7 @@ export default function SignPage() {
   const requiredDocuments = snapshot.requiredDocuments || [];
   const uploadedSupportingDocumentKeys = new Set(view?.uploadedSupportingDocumentKeys || []);
   const additionalDriverLimit = Math.max(0, Math.min(3, Number(snapshot.additionalDriverPolicy?.limit || 0)));
-  const additionalDriverCost = S(snapshot.additionalDriverPolicy?.cost) || '별도 비용 없음';
+  const additionalDriverCost = S(snapshot.additionalDriverPolicy?.cost) || '—';
   const pages = useMemo(
     () => snapshot.consentPages || snapshot.consentGroups || [],
     [snapshot.consentGroups, snapshot.consentPages],
@@ -401,6 +415,8 @@ export default function SignPage() {
     const { x, y } = pos(event.nativeEvent);
     context.beginPath();
     context.moveTo(x, y);
+    signatureMetrics.current.points += 1;
+    signatureMetrics.current.last = { x, y };
     canvasRef.current!.setPointerCapture(event.pointerId);
   };
   const move = (event: React.PointerEvent) => {
@@ -409,18 +425,24 @@ export default function SignPage() {
     const canvas = canvasRef.current!;
     const context = canvas.getContext('2d')!;
     const { x, y } = pos(event.nativeEvent);
+    const metrics = signatureMetrics.current;
+    if (metrics.last) metrics.pathLength += Math.hypot(x - metrics.last.x, y - metrics.last.y);
+    metrics.points += 1;
+    metrics.last = { x, y };
     context.lineTo(x, y);
     context.strokeStyle = getComputedStyle(canvas).color;
     context.lineWidth = 2.4;
     context.lineCap = 'round';
     context.lineJoin = 'round';
     context.stroke();
-    inked.current = true;
+    // 화면에서도 점 찍기·아주 짧은 선을 막고, 서버 PNG 검증과 같은 방향의 안내를 준다.
+    inked.current = metrics.points >= 5 && metrics.pathLength >= 55;
   };
   const clearSignature = () => {
     const canvas = canvasRef.current;
     if (canvas) canvas.getContext('2d')!.clearRect(0, 0, canvas.width, canvas.height);
     inked.current = false;
+    signatureMetrics.current = { points: 0, pathLength: 0, last: null };
   };
   const set = (key: keyof typeof form, value: string) => setForm((prev) => ({ ...prev, [key]: value }));
   const addAdditionalDriver = () => {
@@ -546,7 +568,8 @@ export default function SignPage() {
       if (form.customer_id.replace(/\D/g, '').length !== 13) return toast('주민등록번호 13자리를 입력해 주세요.', 'error');
       if (!form.driver_license_no.trim()) return toast('운전면허번호를 입력해 주세요.', 'error');
       if (!form.customer_address.trim()) return toast('계약서에 기재할 주소를 입력해 주세요.', 'error');
-      if (!idCard || !selfie) return toast('운전면허증과 본인 셀카를 모두 첨부해 주세요.', 'error');
+      if (!form.emergency_relation.trim() || !form.emergency_name.trim()) return toast('비상연락 관계와 성명을 입력해 주세요.', 'error');
+      if (!/^\d{10,11}$/.test(form.emergency_phone.replace(/\D/g, ''))) return toast('비상연락처를 정확히 입력해 주세요.', 'error');
     }
     if (step.kind === 'additional-driver') {
       const incomplete = additionalDrivers.findIndex((driver, index) => (
@@ -598,7 +621,7 @@ export default function SignPage() {
   const submit = async () => {
     if (busy || preparingImage) return;
     if (preview) return toast('관리자 미리보기입니다. 제출되지 않습니다.', 'error');
-    if (!inked.current) return toast('전자서명을 입력해 주세요.', 'error');
+    if (!inked.current) return toast('서명란에 성명을 또렷하게 적어 주세요.', 'error');
     if (!REQUIRED_CONSENTS.every((key) => consents.has(key))) return toast('필수 동의가 남았습니다.', 'error');
     if (pages.some((page) => !confirmations[S(page.key)])) return toast('확인하지 않은 계약 조건이 있습니다.', 'error');
     if (!idCard || !selfie) return toast('운전면허증과 본인 셀카를 모두 첨부해 주세요.', 'error');
@@ -680,32 +703,34 @@ export default function SignPage() {
   );
 
   const contract = snapshot.contract || {};
-  const vehicleNumber = S(contract.car_number_snapshot) || '차량번호 미정';
+  // 신차·임시번호는 A4 완료본과 같은 값으로 보여 실제 번호처럼 오인되지 않게 한다.
+  const vehicleNumber = snapshot.templateState?.car === '신차'
+    ? '미정 (신차)'
+    : S(contract.car_number_snapshot) || '—';
   const vehicleModel = compactVehicleModel(contract, snapshot.templateFields);
   const label: CSSProperties = { fontSize: FS.sub, color: C.mute, fontWeight: FW.strong };
   const inputStyle: CSSProperties = { display: 'block', marginTop: 4 };
   const upfrontDone = UPFRONT_CONSENTS.every((key) => consents.has(key));
   const stepNo = Math.min(stepIndex + 1, steps.length);
   const bundle = bundleOf(step?.kind || 'summary');
-  const rentWon = Number(contract.rent_amount_snapshot || 0).toLocaleString('ko-KR');
-  const depositWon = Number(contract.deposit_amount_snapshot || 0)
-    ? `${Number(contract.deposit_amount_snapshot).toLocaleString('ko-KR')}원`
-    : '무보증';
-  const periodText = contract.rent_month_snapshot ? `${contract.rent_month_snapshot}개월` : '—';
+  const rentWon = formatWon(contract.rent_amount_snapshot);
+  const depositWon = formatDeposit(contract.deposit_amount_snapshot);
+  const rentMonth = S(contract.rent_month_snapshot);
+  const periodText = rentMonth ? (rentMonth.endsWith('개월') ? rentMonth : `${rentMonth}개월`) : '—';
 
   return (
     <main className={styles.shell}>
       <div className={styles.frame}>
       <header className={styles.header}>
-        <div className={styles.stepper} aria-label="진행 묶음">
+        <nav className={styles.stepper} aria-label="진행 묶음">
           {BUNDLES.map((item, index) => (
-            <div key={item.name} className={`${styles.stepperItem} ${bundle === item.id ? styles.stepperItemOn : ''}`} style={{ flex: index === BUNDLES.length - 1 ? 'none' : 1 }}>
+            <div key={item.name} className={`${styles.stepperItem} ${bundle === item.id ? styles.stepperItemOn : ''}`} aria-current={bundle === item.id ? 'step' : undefined} style={{ flex: index === BUNDLES.length - 1 ? 'none' : 1 }}>
               <span className={`${styles.stepperDot} ${bundle === item.id ? styles.stepperDotOn : ''}`}>{index + 1}</span>
               <span className={styles.stepperName}>{item.name}</span>
               {index < BUNDLES.length - 1 ? <span className={styles.stepperLine} /> : null}
             </div>
           ))}
-        </div>
+        </nav>
         <div className={styles.headerMeta}>
           <h1 style={{ fontSize: FS.title, fontWeight: FW.head, margin: 0, letterSpacing: '-0.02em' }}>{step?.title || '전자계약'}</h1>
           <span style={{ flex: 1 }} />
@@ -730,7 +755,7 @@ export default function SignPage() {
           <div className={styles.summaryQuad}>
             <div className={styles.summaryCell}>
               <div className={styles.summaryLabel}>월 대여료</div>
-              <div className={styles.summaryValue}>{rentWon}원</div>
+              <div className={styles.summaryValue}>{rentWon}</div>
             </div>
             <div className={styles.summaryCell}>
               <div className={styles.summaryLabel}>보증금</div>
@@ -752,7 +777,7 @@ export default function SignPage() {
             <DetailRow label="임대인 회사명" value={S(snapshot.landlord?.companyName) || S(snapshot.templateFields?.company_name) || '—'} />
             <DetailRow label="차량" value={`${vehicleNumber} · ${vehicleModel}`} />
             <DetailRow label="계약기간" value={periodText} />
-            <DetailRow label="월 대여료" value={`${rentWon}원`} />
+            <DetailRow label="월 대여료" value={rentWon} />
             <DetailRow label="보증금" value={depositWon} />
             <DetailRow label="계약번호" value={S(contract.contract_code) || '—'} />
           </ListGroup>
@@ -844,11 +869,15 @@ export default function SignPage() {
           <ListGroup header="비상 연락처">
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '10px 12px 12px' }}>
               <label>
-                <div className={styles.fieldLabel}>비상연락 관계/성명</div>
-                <Input value={form.emergency_name} onChange={(value) => set('emergency_name', value)} placeholder="예: 모 홍길순" full style={inputStyle} />
+                <div className={styles.fieldLabel}>관계 <ReqTag /></div>
+                <Input value={form.emergency_relation} onChange={(value) => set('emergency_relation', value)} placeholder="예: 모, 배우자, 형제자매" full style={inputStyle} />
               </label>
               <label>
-                <div className={styles.fieldLabel}>비상연락처</div>
+                <div className={styles.fieldLabel}>성명 <ReqTag /></div>
+                <Input value={form.emergency_name} onChange={(value) => set('emergency_name', value)} placeholder="예: 홍길순" full style={inputStyle} />
+              </label>
+              <label>
+                <div className={styles.fieldLabel}>비상연락처 <ReqTag /></div>
                 <Input value={form.emergency_phone} onChange={(value) => set('emergency_phone', fmtPhone(value))} inputMode="tel" full style={inputStyle} />
               </label>
             </div>
@@ -891,16 +920,17 @@ export default function SignPage() {
                   <ButtonLabel icon={<Trash2 size={ICON.sm} aria-hidden />}>삭제</ButtonLabel>
                 </Btn>
               </div>
-              <label style={label}>성명 *<Input value={driver.name} onChange={(value) => updateAdditionalDriver(index, 'name', value)} full style={inputStyle} /></label>
-              <label style={label}>관계 *<Input value={driver.relation} onChange={(value) => updateAdditionalDriver(index, 'relation', value)} placeholder="예: 배우자, 가족" full style={inputStyle} /></label>
-              <label style={label}>연락처 *<Input value={driver.phone} onChange={(value) => updateAdditionalDriver(index, 'phone', fmtPhone(value))} inputMode="tel" full style={inputStyle} /></label>
-              <label style={label}>운전면허번호 *<Input value={driver.driverLicenseNo} onChange={(value) => updateAdditionalDriver(index, 'driverLicenseNo', value)} placeholder="면허증에 표시된 번호" full style={inputStyle} /></label>
+              <label style={label}><span className={styles.fieldLabel}>성명 <ReqTag /></span><Input value={driver.name} onChange={(value) => updateAdditionalDriver(index, 'name', value)} full style={inputStyle} /></label>
+              <label style={label}><span className={styles.fieldLabel}>관계 <ReqTag /></span><Input value={driver.relation} onChange={(value) => updateAdditionalDriver(index, 'relation', value)} placeholder="예: 배우자, 가족" full style={inputStyle} /></label>
+              <label style={label}><span className={styles.fieldLabel}>연락처 <ReqTag /></span><Input value={driver.phone} onChange={(value) => updateAdditionalDriver(index, 'phone', fmtPhone(value))} inputMode="tel" full style={inputStyle} /></label>
+              <label style={label}><span className={styles.fieldLabel}>운전면허번호 <ReqTag /></span><Input value={driver.driverLicenseNo} onChange={(value) => updateAdditionalDriver(index, 'driverLicenseNo', value)} placeholder="면허증에 표시된 번호" full style={inputStyle} /></label>
               <Dropzone
                 variant="photo"
                 active={!!additionalDriverLicenses[index]}
                 onClick={() => additionalDriverLicenseRefs.current[index]?.click()}
                 title={`추가 운전자 ${index + 1} 운전면허증 사진 첨부`}
               >
+                <FileThumb file={additionalDriverLicenses[index]} />
                 <ImagePlus size={ICON.md} color={additionalDriverLicenses[index] ? C.ok : C.faint} />
                 <span style={{ fontSize: FS.sub, fontWeight: FW.strong }}>{additionalDriverLicenses[index]?.name || '운전면허증 사진'}</span>
                 <span style={{ fontSize: FS.micro, color: C.faint }}>{preparingImage ? '사진 준비 중' : '큰 파일은 자동 압축'}</span>
@@ -922,7 +952,7 @@ export default function SignPage() {
               </Dropzone>
               <Btn
                 full
-                title={`추가 운전자 개인정보 제공·면허증 제출${additionalDriverCost === '별도 비용 없음' ? '' : ` 및 ${additionalDriverCost} 적용`} 동의`}
+                title={`추가 운전자 개인정보 제공·면허증 제출${additionalDriverCost === '—' ? '' : ` 및 ${additionalDriverCost} 적용`} 동의`}
                 variant={driver.consent ? 'solid' : 'ghost'}
                 onClick={() => updateAdditionalDriver(index, 'consent', !driver.consent)}
                 style={{ justifyContent: 'flex-start' }}
@@ -973,6 +1003,7 @@ export default function SignPage() {
                     <span style={{ fontSize: FS.sub, fontWeight: FW.strong }}>
                       {file?.name || (uploaded ? `${document.label} 제출 완료` : document.label)}
                     </span>
+                    {document.required ? <ReqTag /> : null}
                     <span style={{ fontSize: FS.micro, color: C.faint }}>
                       {document.required ? '필수 · ' : '선택 · '}사진 또는 PDF · 파일당 5MB 이하
                     </span>
@@ -1008,7 +1039,7 @@ export default function SignPage() {
           >
             <ListGroup>
               {(step.page.rows || []).map((row, index) => (
-                <ConditionRow key={`${row.label}-${index}`} label={row.label || '항목'} value={row.value || '—'} />
+                <ConditionRow key={`${row.label}-${index}`} label={row.label || '항목'} value={row.value || '—'} article={row.article} />
               ))}
             </ListGroup>
           </div>

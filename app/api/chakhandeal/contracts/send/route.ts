@@ -8,8 +8,8 @@ import {
   findTemplate,
   isEsignTemplateAllowed,
   standardTemplateSelectionError,
-  templatesForContract,
 } from '@/lib/domain/esign-templates';
+import { productMatchesTemplate } from '@/lib/domain/esign-vehicle-selection';
 import {
   missingProviderContractIdentity,
   providerContractIdentity,
@@ -113,11 +113,6 @@ export async function POST(request: Request) {
     return json({ error: '인수 계약은 만기 인수가격을 확정해야 발행할 수 있습니다.' }, 409);
   }
 
-  // 그 공급사가 쓸 수 있는 양식인지 서버에서 다시 본다 — 화면이 좁혀 놨어도 요청은 위조된다.
-  if (!templatesForContract(contract).some((template) => template.id === standardTemplate.id)) {
-    return json({ error: '이 계약에서 사용할 수 없는 표준계약서입니다.' }, 403);
-  }
-
   // 표준계약서의 임대인 영역은 공급사별 법정 표시값만 주입한다. 이 값이 비면
   // 표준/커스텀 어느 쪽도 당사자가 없는 계약서가 되므로 발행 전에 닫는다.
   const providerCode = codeText(contract.provider_company_code);
@@ -160,9 +155,15 @@ export async function POST(request: Request) {
   const carSnap = codeText(contract.car_number_snapshot).replace(/\s/g, '');
   let product: Row | null = null;
   if (productCode) {
-    const pSnap = await db.ref(`v4/products/${productCode}`).get().catch(() => null);
-    product = (pSnap?.val() as Row | null)
-      ?? ((await db.ref(`products/${productCode}`).get().catch(() => null))?.val() as Row | null);
+    // v4 상품은 v3의 부분 오버레이일 수 있다. 한쪽만 쓰면 배기량·색상·주행거리처럼
+    // 아직 v3에 남아 있는 계약 출력값이 발행본에서 빈칸으로 굳는다.
+    const [legacyProductSnap, overlayProductSnap] = await Promise.all([
+      db.ref(`products/${productCode}`).get().catch(() => null),
+      db.ref(`v4/products/${productCode}`).get().catch(() => null),
+    ]);
+    const legacyProduct = legacyProductSnap?.val() as Row | null;
+    const overlayProduct = overlayProductSnap?.val() as Row | null;
+    if (legacyProduct || overlayProduct) product = { ...(legacyProduct || {}), ...(overlayProduct || {}) };
   }
   if (!product && carSnap) {
     const [legacyProducts, overlayProducts] = await Promise.all([
@@ -179,10 +180,16 @@ export async function POST(request: Request) {
       }
       return null;
     };
-    product = findByCar(overlayProducts?.val()) || findByCar(legacyProducts?.val());
+    const legacyProduct = findByCar(legacyProducts?.val());
+    const overlayProduct = findByCar(overlayProducts?.val());
+    if (legacyProduct || overlayProduct) product = { ...(legacyProduct || {}), ...(overlayProduct || {}) };
   }
   if (!carSnap && !codeText(product?.car_number)) {
     return json({ error: '차량번호가 없어 발송할 수 없습니다. 약정·재고를 확인해 주세요.' }, 409);
+  }
+  // body의 표준계약서 ID를 믿지 않는다. 차량 상품구분(렌트/구독)이 본문 종류를 결정한다.
+  if (!product || !productMatchesTemplate(product, standardTemplate)) {
+    return json({ error: '선택한 표준계약서가 차량 상품구분과 맞지 않습니다.' }, 409);
   }
 
   try {

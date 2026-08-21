@@ -9,9 +9,18 @@ const outputDir = path.join(root, 'output', 'pdf');
 const actualMode = process.argv.includes('--actual');
 const withDriver = process.argv.includes('--with-driver');
 const withGuarantor = process.argv.includes('--with-guarantor');
+const insuranceSeparate = process.argv.includes('--insurance-separate');
+const outerColorOnly = process.argv.includes('--outer-color-only');
+const noColor = process.argv.includes('--no-color');
 const outputPath = path.join(
   outputDir,
-  withDriver && withGuarantor
+  noColor
+    ? 'freepass-standard-rental-contract-v1-no-color-review.pdf'
+    : insuranceSeparate
+    ? 'freepass-standard-rental-contract-v1-insurance-separate-review.pdf'
+    : outerColorOnly
+    ? 'freepass-standard-rental-contract-v1-outer-color-review.pdf'
+    : withDriver && withGuarantor
     ? 'freepass-standard-rental-contract-v1-optional-parties-review.pdf'
     : withGuarantor
     ? 'freepass-standard-rental-contract-v1-guarantor-review.pdf'
@@ -51,6 +60,7 @@ const fields: Record<string, string> = {
   vin: 'KMH-SAMPLE-000001',
   vehicle_name: '2026 현대 아반떼 1.6 가솔린 모던',
   fuel: '가솔린',
+  engine_cc: '1,598cc',
   model_year: '2026년식',
   options: '내비게이션, 후방카메라, 스마트크루즈',
   color_exterior: '아틀라스 화이트',
@@ -115,6 +125,18 @@ const fields: Record<string, string> = {
   special_terms: '없음',
 };
 
+if (noColor) {
+  fields.color_exterior = '';
+  fields.color_interior = '';
+} else if (outerColorOnly) {
+  fields.color_interior = '';
+}
+
+if (insuranceSeparate) {
+  fields.product_label = '렌트 · 개인보험형';
+  fields.insurance_condition = '개인보험형 (임차인이 본인 명의로 직접 가입)';
+}
+
 if (withDriver) {
   Object.assign(fields, {
     driver_scope: '계약자 본인 · 추가 운전자 3인',
@@ -145,7 +167,7 @@ if (withGuarantor) {
 }
 
 const sealed = {
-  state: { co: 'auto', pd: '렌트선택형', ins: '포함', ct: '개인', car: '등록완료', tax: '개인' },
+  state: { co: 'auto', pd: '렌트선택형', ins: insuranceSeparate ? '별도' : '포함', ct: '개인', car: '등록완료', tax: '개인' },
   fields,
   signature: '',
   sealHash: 'REVIEW-DRAFT-NOT-FOR-SIGNATURE',
@@ -172,7 +194,7 @@ const browser = await chromium.launch({ headless: true, executablePath });
 try {
   const page = await browser.newPage();
   await page.setContent(html, { waitUntil: 'load', timeout: 30_000 });
-  const pretendardFaces = await page.evaluate(async () => {
+  const fontFaces = await page.evaluate(async () => {
     await document.fonts.ready;
     const faces: { family: string; weight: string; status: string }[] = [];
     document.fonts.forEach((face) => {
@@ -182,8 +204,8 @@ try {
     });
     return faces;
   });
-  if (!pretendardFaces.length || pretendardFaces.some((face) => face.status !== 'loaded')) {
-    throw new Error(`Pretendard 폰트 로딩 실패: ${JSON.stringify(pretendardFaces)}`);
+  if (!fontFaces.length || fontFaces.some((face) => face.status !== 'loaded')) {
+    throw new Error(`Pretendard 폰트 로딩 실패: ${JSON.stringify(fontFaces)}`);
   }
   if (!actualMode) await page.evaluate(() => {
     const variableFields = [
@@ -211,6 +233,56 @@ try {
     (window as Window & { __rebuildTerms?: () => void }).__rebuildTerms?.();
     await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
   });
+  const optionalPartyState = await page.evaluate(() => ({
+    driverEmpty: (document.querySelector('[data-empty="driver"]') as HTMLElement | null)?.style.display || '',
+    driverDetail: (document.querySelector('[data-hide-when-empty="driver"]') as HTMLElement | null)?.style.display || '',
+    driverTable: (document.querySelector('table[data-list="additional_drivers"]') as HTMLElement | null)?.style.display || '',
+    guarantorEmpty: (document.querySelector('[data-empty="guarantor"]') as HTMLElement | null)?.style.display || '',
+    guarantorDetail: (document.querySelector('[data-hide-when-empty="guarantor"]') as HTMLElement | null)?.style.display || '',
+    optionalPage: (document.querySelector('[data-contract-page="special-parties"]') as HTMLElement | null)?.style.display || '',
+  }));
+  const driverExpanded = optionalPartyState.driverEmpty === 'none'
+    && optionalPartyState.driverDetail !== 'none'
+    && optionalPartyState.driverTable !== 'none';
+  const guarantorExpanded = optionalPartyState.guarantorEmpty === 'none'
+    && optionalPartyState.guarantorDetail !== 'none';
+  const expectedOptionalPage = withDriver || withGuarantor;
+  if (
+    driverExpanded !== withDriver
+    || guarantorExpanded !== withGuarantor
+    || (optionalPartyState.optionalPage !== 'none') !== expectedOptionalPage
+  ) {
+    throw new Error(`선택 관계인 봉인 출력 상태 불일치: ${JSON.stringify(optionalPartyState)}`);
+  }
+  console.log(`optional-party-state=${JSON.stringify(optionalPartyState)}`);
+  const insuranceState = await page.evaluate(() => ({
+    condition: document.querySelector('[data-field="insurance_condition"]')?.textContent?.replace(/\s+/g, ' ').trim() || '',
+    included: (document.querySelector('[data-ins="inc"]') as HTMLElement | null)?.style.display || '',
+    separate: (document.querySelector('[data-ins="sep"]') as HTMLElement | null)?.style.display || '',
+  }));
+  if (
+    insuranceState.condition !== (insuranceSeparate ? '개인보험형 (임차인이 본인 명의로 직접 가입)' : '보험료 포함 (월 대여료에 포함)')
+    || (insuranceState.included !== 'none') === insuranceSeparate
+    || (insuranceState.separate !== 'none') !== insuranceSeparate
+  ) {
+    throw new Error(`보험형 봉인 출력 상태 불일치: ${JSON.stringify(insuranceState)}`);
+  }
+  console.log(`insurance-state=${JSON.stringify(insuranceState)}`);
+  const colorState = await page.evaluate(() => {
+    const cell = document.querySelector('[data-color-empty]')?.parentElement;
+    return {
+      shown: cell?.innerText.replace(/\s+/g, ' ').trim() || '',
+      exterior: (document.querySelector('[data-color-part="exterior"]') as HTMLElement | null)?.style.display || '',
+      separator: (document.querySelector('[data-color-separator]') as HTMLElement | null)?.style.display || '',
+      interior: (document.querySelector('[data-color-part="interior"]') as HTMLElement | null)?.style.display || '',
+      empty: (document.querySelector('[data-color-empty]') as HTMLElement | null)?.style.display || '',
+    };
+  });
+  const expectedColor = noColor ? '—' : outerColorOnly ? '아틀라스 화이트' : '아틀라스 화이트 / 블랙';
+  if (colorState.shown !== expectedColor) {
+    throw new Error(`색상 한 칸 봉인 출력 불일치: ${JSON.stringify(colorState)}`);
+  }
+  console.log(`color-state=${JSON.stringify(colorState)}`);
   const flowFragments = await page.evaluate(() => ({
     grouped: document.querySelectorAll('.terms-cols [data-flow-group]').length,
     fragments: document.querySelectorAll('.terms-cols .t-flow-fragment').length,
@@ -246,7 +318,10 @@ try {
       sheetHeight: Math.round(sheetRect.height * 10) / 10,
     };
   }));
-  if (termsPageFrames.length !== 3 || termsPageFrames.some((frame) => !frame.headVisible || frame.headTop < 0 || frame.bodyBottom > frame.sheetHeight)) {
+  // 약관은 읽고 동의하는 본문이라 10.5px/1.28로 조판한다. 세 페이지에서 자연스럽게 읽히도록 한다.
+  // 작은 글씨로 세 페이지에 억지로 압축하는 회귀를 막는다.
+  const expectedTermsPages = 3;
+  if (termsPageFrames.length !== expectedTermsPages || termsPageFrames.some((frame) => !frame.headVisible || frame.headTop < 0 || frame.bodyBottom > frame.sheetHeight)) {
     throw new Error(`약관 A4 페이지 프레임 이탈: ${JSON.stringify(termsPageFrames)}`);
   }
   if (!termsMetrics.length || termsMetrics.some((metric) => metric.overflow)) {
@@ -254,7 +329,7 @@ try {
   }
   const fillRatios = termsMetrics.map((metric) => metric.used / metric.available);
   const usedHeights = termsMetrics.map((metric) => metric.used);
-  if (Math.min(...fillRatios) < 0.985 || Math.max(...usedHeights) - Math.min(...usedHeights) > 18) {
+  if (Math.min(...fillRatios) < 0.89 || Math.max(...usedHeights) - Math.min(...usedHeights) > 45) {
     throw new Error(`약관 A4 단 균형 이탈: ${JSON.stringify(termsMetrics)}`);
   }
   console.log(`terms-metrics=${JSON.stringify(termsMetrics)}`);

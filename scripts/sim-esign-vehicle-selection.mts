@@ -4,7 +4,9 @@ import { findTemplate } from '@/lib/domain/esign-templates';
 import {
   additionalDriverCostLabel,
   contractDriverAgeOptions,
+  contractMileageOptions,
   contractRentForAge,
+  contractRentForTerms,
   contractVehicleSnapshot,
   searchContractVehicles,
   productContractKind,
@@ -36,6 +38,7 @@ const policy = {
 } as EntityRecord;
 
 assert.deepEqual(searchContractVehicles([product, subscription, otherProvider], 'RP012', rentTemplate, '').map((row) => row.product_code), ['RP012_12가3456']);
+assert.deepEqual(searchContractVehicles([product, subscription, otherProvider], '', null, '3456').map((row) => row.product_code), ['RP012_12가3456', 'RP004_12가3456', 'RP012_34나5678']);
 assert.deepEqual(searchContractVehicles([product, subscription, otherProvider], 'RP012', rentTemplate, '345').map((row) => row.product_code), ['RP012_12가3456']);
 assert.deepEqual(searchContractVehicles([product, subscription, otherProvider], 'RP012', rentTemplate, '아반떼').map((row) => row.product_code), ['RP012_12가3456']);
 assert.deepEqual(searchContractVehicles([product, subscription], 'RP012', subscriptionTemplate, '5678').map((row) => row.product_code), ['RP012_34나5678']);
@@ -61,6 +64,28 @@ assert.deepEqual(contractDriverAgeOptions({ ...policy, driver_age_lowering: '만
 assert.deepEqual(contractRentForAge(product, 36, policy, 26), { rent: 650000, deposit: 3000000, ageSurcharge: 0 });
 assert.deepEqual(contractRentForAge(product, 36, policy, 21), { rent: 750000, deposit: 3000000, ageSurcharge: 100000 });
 assert.equal(contractRentForAge(product, 48, policy, 26), null);
+const mileagePolicy = { ...policy, annual_mileage: '연 3만km', mileage_upcharge_per_10000km: 100000 } as EntityRecord;
+assert.deepEqual(contractMileageOptions(product, 36, mileagePolicy), [
+  { label: '연 3만km', priceVariantKey: '', mileageSurcharge: 0, source: '정책 가산' },
+  { label: '연 4만km', priceVariantKey: '', mileageSurcharge: 100000, source: '정책 가산' },
+]);
+assert.deepEqual(contractRentForTerms(product, 36, mileagePolicy, 21, contractMileageOptions(product, 36, mileagePolicy)[1]), {
+  rent: 850000, deposit: 3000000, ageSurcharge: 100000, mileageSurcharge: 100000, priceVariantKey: '',
+});
+const variantProduct = { ...product, price: { '36_3만': { rent: 650000, deposit: 3000000 }, '36_4만': { rent: 780000, deposit: 3000000 } } } as EntityRecord;
+assert.deepEqual(contractMileageOptions(variantProduct, 36, mileagePolicy), [
+  { label: '연 3만km', priceVariantKey: '36_3만', mileageSurcharge: 0, source: '상품 가격표' },
+  { label: '연 4만km', priceVariantKey: '36_4만', mileageSurcharge: 0, source: '상품 가격표' },
+]);
+assert.deepEqual(contractRentForTerms(variantProduct, 36, mileagePolicy, 26, contractMileageOptions(variantProduct, 36, mileagePolicy)[1]), {
+  rent: 780000, deposit: 3000000, ageSurcharge: 0, mileageSurcharge: 0, priceVariantKey: '36_4만',
+});
+assert.deepEqual(
+  contractMileageOptions({ ...variantProduct, price: { ...(variantProduct.price as object), '36_인수형': { rent: 850000, deposit: 0 } } }, 36, mileagePolicy)
+    .map((option) => option.label),
+  ['연 3만km', '연 4만km'],
+  '인수형 가격키는 약정주행거리 선택지에 섞이면 안 된다',
+);
 assert.equal(additionalDriverCostLabel(50000), '월 50,000원 / 1인');
 assert.equal(additionalDriverCostLabel('월 5만원'), '월 50,000원 / 1인');
 assert.equal(additionalDriverCostLabel('무료'), '별도 비용 없음');

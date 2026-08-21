@@ -145,7 +145,7 @@
       "$token": {
         ".read": "(data.child('status').val() === 'sent' && data.child('revoked_at').val() === null && (data.child('expires_at').val() === null || data.child('expires_at').val() > now)) || (auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || data.child('agent_uid').val() === auth.uid || ((root.child('users').child(auth.uid).child('role').val() === 'agent_admin' || root.child('users').child(auth.uid).child('role').val() === 'agent_manager') && data.child('agent_channel_code').val() === root.child('users').child(auth.uid).child('agent_channel_code').val())))",
         ".write": "(auth != null && root.child('users').child(auth.uid).child('status').val() !== 'pending' && root.child('users').child(auth.uid).child('is_active').val() !== '아니오' && root.child('users').child(auth.uid).child('is_active').val() !== false && root.child('users').child(auth.uid).child('status').val() !== 'deleted' && root.child('users').child(auth.uid).child('status').val() !== 'rejected' && (root.child('users').child(auth.uid).child('role').val() === 'admin' || (root.child('users').child(auth.uid).child('role').val() === 'agent' && ((data.exists() && data.child('agent_uid').val() === auth.uid) || (!data.exists() && newData.child('agent_uid').val() === auth.uid))) || ((root.child('users').child(auth.uid).child('role').val() === 'agent_admin' || root.child('users').child(auth.uid).child('role').val() === 'agent_manager') && root.child('users').child(auth.uid).child('agent_channel_code').val() !== null && root.child('users').child(auth.uid).child('agent_channel_code').val() !== '' && ((data.exists() && data.child('agent_channel_code').val() === root.child('users').child(auth.uid).child('agent_channel_code').val()) || (!data.exists() && newData.child('agent_channel_code').val() === root.child('users').child(auth.uid).child('agent_channel_code').val()))))) || (auth == null && data.exists() && data.child('revoked_at').val() === null && (data.child('expires_at').val() === null || data.child('expires_at').val() > now) && data.child('status').val() === 'sent' && newData.child('status').val() === 'pending_review' && newData.child('sign_consents').val() === 'rental_terms,privacy,credit,gps,cms' && newData.child('sign_consent_version').val() === 'v1')",
-        ".validate": "newData.hasChildren(['sign_token', 'status', 'contract_code', 'expires_at']) && newData.child('sign_token').val() === $token && (!data.exists() || (newData.child('contract_code').val() === data.child('contract_code').val() && newData.child('product_code').val() === data.child('product_code').val() && newData.child('agent_uid').val() === data.child('agent_uid').val() && newData.child('agent_channel_code').val() === data.child('agent_channel_code').val() && newData.child('provider_company_code').val() === data.child('provider_company_code').val() && newData.child('rent_amount_snapshot').val() === data.child('rent_amount_snapshot').val() && newData.child('deposit_amount_snapshot').val() === data.child('deposit_amount_snapshot').val() && newData.child('rent_month_snapshot').val() === data.child('rent_month_snapshot').val() && (newData.child('expires_at').val() === data.child('expires_at').val() || (auth != null && !data.child('expires_at').exists() && newData.child('expires_at').isNumber()))))",
+        ".validate": "newData.hasChildren(['sign_token', 'status', 'contract_code', 'expires_at']) && newData.child('sign_token').val() === $token && (!data.exists() || (newData.child('contract_code').val() === data.child('contract_code').val() && newData.child('product_code').val() === data.child('product_code').val() && newData.child('agent_uid').val() === data.child('agent_uid').val() && newData.child('agent_channel_code').val() === data.child('agent_channel_code').val() && newData.child('provider_company_code').val() === data.child('provider_company_code').val() && newData.child('rent_amount_snapshot').val() === data.child('rent_amount_snapshot').val() && newData.child('deposit_amount_snapshot').val() === data.child('deposit_amount_snapshot').val() && newData.child('rent_month_snapshot').val() === data.child('rent_month_snapshot').val() && newData.child('annual_mileage_snapshot').val() === data.child('annual_mileage_snapshot').val() && newData.child('price_variant_snapshot').val() === data.child('price_variant_snapshot').val() && newData.child('mileage_surcharge_snapshot').val() === data.child('mileage_surcharge_snapshot').val() && newData.child('age_surcharge_snapshot').val() === data.child('age_surcharge_snapshot').val() && newData.child('pricing_snapshot_version').val() === data.child('pricing_snapshot_version').val() && newData.child('special_terms_choice_snapshot').val() === data.child('special_terms_choice_snapshot').val() && newData.child('special_terms_snapshot').val() === data.child('special_terms_snapshot').val() && (newData.child('expires_at').val() === data.child('expires_at').val() || (auth != null && !data.child('expires_at').exists() && newData.child('expires_at').isNumber()))))",
         "status": {
           ".validate": "(auth != null && (newData.val() === 'sent' || newData.val() === 'pending_review' || newData.val() === 'signed' || newData.val() === 'revoked')) || (auth == null && data.val() === 'sent' && newData.val() === 'pending_review')"
         },
@@ -477,6 +477,27 @@
             ".validate": "!data.exists() || newData.val() === data.val()"
           },
           "deposit_amount_snapshot": {
+            ".validate": "!data.exists() || newData.val() === data.val()"
+          },
+          "annual_mileage_snapshot": {
+            ".validate": "!data.exists() || newData.val() === data.val()"
+          },
+          "price_variant_snapshot": {
+            ".validate": "!data.exists() || newData.val() === data.val()"
+          },
+          "mileage_surcharge_snapshot": {
+            ".validate": "!data.exists() || newData.val() === data.val()"
+          },
+          "age_surcharge_snapshot": {
+            ".validate": "!data.exists() || newData.val() === data.val()"
+          },
+          "pricing_snapshot_version": {
+            ".validate": "!data.exists() || newData.val() === data.val()"
+          },
+          "special_terms_choice_snapshot": {
+            ".validate": "!data.exists() || newData.val() === data.val()"
+          },
+          "special_terms_snapshot": {
             ".validate": "!data.exists() || newData.val() === data.val()"
           },
           "fee_rate_snapshot": {

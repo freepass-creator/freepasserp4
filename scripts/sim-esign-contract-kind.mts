@@ -137,13 +137,24 @@ check('사고 다발 해지가 실린다',
   rowsOf('accident').includes('3회') && rowsOf('accident').includes('계약 해지'),
   rowsOf('accident').slice(0, 160));
 check('보험사가 실린다', rowsOf('accident').includes('렌터카 공제조합'));
-check('GPS 특약이 실린다', rowsOf('service').includes('GPS'));
+check('특약은 정적 문구가 아니라 계약별 합의로 확인한다', !rowsOf('service').includes('GPS') && rowsOf('service').includes('특약사항=없음'));
 check('대차 불가가 실린다', rowsOf('service').includes('대차서비스 지원 불가'));
 // 과태료 절차는 약관 제16조로 보냈다(IN_AGREEMENT) — 섹션에 있으면 같은 말을 두 번 읽힌다.
 check('과태료 절차는 약관으로 보냈다', !rowsOf('service').includes('보증금에서 차감'));
 // 면책금은 정책 단일값이 아니라 연령에서 파생된다(계약서 「운전자 연령 선택시 자동입력」).
 check('면책금은 연령에서 파생', rowsOf('accident').includes('대인 30만원'), rowsOf('accident').slice(0, 80));
 check('연령 모르면 계약 불가 안내', deductibleForAge('').includes('만 21세 미만 계약 불가'));
+const selectedTermsGroups = buildConsentGroups(r({
+  ...contract,
+  driver_age_snapshot: '만 21세 이상',
+  annual_mileage_snapshot: '연 4만km',
+  special_terms_snapshot: '주말 인도',
+  contract_draft: JSON.stringify({ special_terms: '변경 전 초안' }),
+}), policy, '회사포함');
+const selectedRows = (key: string) => selectedTermsGroups.find((group) => group.key === key)!.rows;
+check('고객 동의에는 선택한 약정주행거리가 실린다', selectedRows('rental').some((row) => row.label === '약정 주행거리' && row.value === '연 4만km'));
+check('고객 동의에는 선택한 운전자 연령이 실린다', selectedRows('driver').some((row) => row.label === '운전자 연령' && row.value.includes('21')));
+check('고객 동의에는 실제 특약 전문이 실린다', selectedRows('service').some((row) => row.label === '특약사항' && row.value === '주말 인도'));
 
 // ── 화면 규격 — 1섹션 = 1화면, 쪼개지 않는다 ──
 const pages = paginateForMobile(groups);

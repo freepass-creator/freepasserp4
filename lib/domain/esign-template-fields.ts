@@ -15,14 +15,112 @@ import { canonProductType } from '@/lib/domain/product';
 import { handoverStartOf, rentalPeriodEnd, rentalPeriodText } from '@/lib/domain/rental-period';
 import { additionalDriverCostLabel } from '@/lib/domain/esign-vehicle-selection';
 import { moneyOrRateText } from '@/lib/domain/policy-money-rate';
+import { findContractKind } from '@/lib/domain/esign-contract-kind';
+import { isExactRealPlate, TEMP_PLATE_RE } from '@/lib/domain/product';
 
 type Row = Record<string, unknown>;
 
+/** HTML의 상품·보험·당사자 상태는 계약 본문과 같은 봉인값이어야 한다. */
+export const TEMPLATE_SEMANTIC_STATE_KEYS = ['co', 'pd', 'ins', 'ct', 'car', 'tax'] as const;
+export type TemplateSemanticStateKey = typeof TEMPLATE_SEMANTIC_STATE_KEYS[number];
+export type FrozenTemplateState = {
+  co: 'auto';
+  pd: '구독인수형' | '구독선택형' | '렌트인수형' | '렌트선택형';
+  ins: '포함' | '별도';
+  ct: '개인' | '법인';
+  car: '신차' | '등록완료';
+  tax: '개인' | '사업자';
+};
+
+export function isFrozenTemplateState(value: unknown): value is FrozenTemplateState {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const state = value as Record<string, unknown>;
+  return state.co === 'auto'
+    && ['구독인수형', '구독선택형', '렌트인수형', '렌트선택형'].includes(String(state.pd))
+    && ['포함', '별도'].includes(String(state.ins))
+    && ['개인', '법인'].includes(String(state.ct))
+    && ['신차', '등록완료'].includes(String(state.car))
+    && ['개인', '사업자'].includes(String(state.tax));
+}
+
 const text = (value: unknown): string => String(value ?? '').trim();
+
+function productStateOf(contract: Row, product: Row | null | undefined): FrozenTemplateState['pd'] {
+  const spec = findContractKind(text(contract.esign_contract_kind || contract.contract_kind));
+  if (spec) {
+    if (spec.kind === '구독') return spec.maturity === '인수형' ? '구독인수형' : '구독선택형';
+    return spec.maturity === '인수형' ? '렌트인수형' : '렌트선택형';
+  }
+  return /구독/.test(text(product?.product_type || contract.product_type)) ? '구독선택형' : '렌트선택형';
+}
+
+function customerStateOf(contract: Row): Pick<FrozenTemplateState, 'ct' | 'tax'> {
+  // customer_is_business만으로는 개인사업자와 법인을 구분할 수 없다. 정본 customer_type만 사용한다.
+  const type = text(contract.customer_type || contract.contract_customer_type || contract.customer_type_snapshot);
+  if (type === '법인') return { ct: '법인', tax: '개인' };
+  if (type === '개인사업자') return { ct: '개인', tax: '사업자' };
+  return { ct: '개인', tax: '개인' };
+}
+
+/** 발행 스냅샷에만 쓰는 상태. templateFields/초안 입력은 이 값을 바꿀 수 없다. */
+export function frozenTemplateStateFromRecords(args: {
+  contract: Row;
+  product?: Row | null;
+  insuranceSide?: '회사포함' | '고객직접';
+}): FrozenTemplateState {
+  const contract = args.contract || {};
+  const product = args.product || null;
+  const plate = text(contract.car_number_snapshot || contract.car_number || product?.car_number);
+  const pending = contract.is_pending_plate === true || product?.is_pending_plate === true || TEMP_PLATE_RE.test(plate);
+  const insuranceSide = args.insuranceSide || text(contract.esign_insurance_side) as '회사포함' | '고객직접';
+  return {
+    co: 'auto',
+    pd: productStateOf(contract, product),
+    ins: insuranceSide === '고객직접' ? '별도' : '포함',
+    ...customerStateOf(contract),
+    car: pending ? '신차' : '등록완료',
+  };
+}
+
+/** 완성본에서 상태키가 fields로 다시 덮이지 않게 발행 경계에서 제거한다. */
+export function omitTemplateSemanticStateFields(fields: ContractPayload): ContractPayload {
+  const next = { ...fields };
+  for (const key of TEMPLATE_SEMANTIC_STATE_KEYS) delete next[key];
+  return next;
+}
+
+/** 실차번호도 임시번호도 아닌 차량은 계약서에 신차/등록완료 중 어느 쪽으로도 단정할 수 없다. */
+export function freepassVehicleStateIssueError(contract: Row, product?: Row | null): string {
+  const source = product || null;
+  const plate = text(contract.car_number_snapshot || contract.car_number || source?.car_number);
+  const pending = contract.is_pending_plate === true || source?.is_pending_plate === true || TEMP_PLATE_RE.test(plate);
+  if (pending || isExactRealPlate(plate)) return '';
+  return '차량번호가 실차번호 또는 신차 임시번호인지 확인한 뒤 전자계약을 발행해 주세요.';
+}
 
 function moneyCell(n: unknown): string {
   const v = Number(n) || 0;
   return v ? v.toLocaleString() : '';
+}
+
+/** 재고 원값만 계약서 표기로 다듬는다. 1.6L처럼 cc가 확정되지 않은 값은 추정하지 않는다. */
+function engineCcCell(value: unknown): string {
+  const raw = text(value);
+  if (!raw) return '';
+  const matched = raw.match(/^([\d,]+)\s*(?:cc|㏄)?$/i);
+  if (!matched) return raw;
+  const cc = Number(matched[1].replace(/,/g, ''));
+  return Number.isFinite(cc) && cc > 0 ? `${cc.toLocaleString('ko-KR')}cc` : '';
+}
+
+/** 재고 주행거리는 계약서에서 천 단위와 km 단위를 빠뜨리지 않는다. */
+function mileageCell(value: unknown): string {
+  const raw = text(value);
+  if (!raw) return '';
+  if (/km\b/i.test(raw)) return raw;
+  const numeric = raw.replace(/[\s,]/g, '');
+  if (!/^\d+(?:\.\d+)?$/.test(numeric)) return raw;
+  return `${Number(numeric).toLocaleString('ko-KR')}km`;
 }
 
 function percentageCell(value: unknown): string {
@@ -83,7 +181,7 @@ export function buildTemplateFieldsFromRecords(args: {
   product?: Row | null;
   /** 요청·화면에서 온 직접 입력 */
   overrides?: Record<string, string> | null;
-}): { fields: ContractPayload; state: { co?: string; ins?: string } } {
+}): { fields: ContractPayload; state: { co: string; pd: FrozenTemplateState['pd']; ins: FrozenTemplateState['ins']; ct: FrozenTemplateState['ct']; car: FrozenTemplateState['car']; tax: FrozenTemplateState['tax'] } } {
   const contract = args.contract || {};
   const product = args.product || null;
   const pol = args.policy || {};
@@ -132,6 +230,7 @@ export function buildTemplateFieldsFromRecords(args: {
       { tier: 'full', fallback: 'none' },
     ),
     fuel: text(contract.fuel_type_snapshot || product?.fuel_type),
+    engine_cc: engineCcCell(product?.engine_cc),
     model_year: yr ? (/년식/.test(yr) ? yr : `${yr}년식`) : '',
     options: Array.isArray(product?.options)
       ? (product!.options as string[]).join(', ')
@@ -140,7 +239,7 @@ export function buildTemplateFieldsFromRecords(args: {
     vin: text(product?.vin),
     color_exterior: text(product?.ext_color),
     color_interior: text(product?.int_color),
-    odometer_delivery: text(product?.mileage),
+    odometer_delivery: mileageCell(product?.mileage),
     vehicle_classification: canonProductType(product?.product_type),
     customer_name: text(contract.customer_name),
     customer_phone: text(contract.customer_phone),
@@ -162,7 +261,7 @@ export function buildTemplateFieldsFromRecords(args: {
     driver_scope: text(contract.driver_scope || pol.personal_driver_scope || pol.driver_scope),
     driver_age: text(contract.driver_age_snapshot || pol.basic_driver_age),
     additional_driver_cost: additionalDriverCostLabel(pol.additional_driver_cost),
-    annual_mileage: text(pol.annual_mileage),
+    annual_mileage: text(contract.annual_mileage_snapshot || pol.annual_mileage),
     over_mileage_rate: overMileageRate ? `1km당 ${overMileageRate.toLocaleString()}원` : '',
     accident_termination_count: text(pol.accident_termination_count),
     maintenance_product: text(pol.maintenance_service),
@@ -173,6 +272,7 @@ export function buildTemplateFieldsFromRecords(args: {
     coverage_liability_property: text(pol.property_compensation_limit),
     coverage_self_injury: text(pol.self_body_accident),
     coverage_uninsured: text(pol.uninsured_damage),
+    insurer_name: text(pol.insurer_name),
     self_damage_coverage: text(pol.own_damage_compensation),
     emergency_dispatch_limit: text(pol.annual_roadside_assistance),
     deductible_liability_person: manwonText(pol.injury_deductible),
@@ -180,6 +280,8 @@ export function buildTemplateFieldsFromRecords(args: {
     self_damage_deductible_rate: text(pol.own_damage_repair_ratio),
     self_damage_deductible_min: text(pol.own_damage_min_deductible),
     self_damage_deductible_max: text(pol.own_damage_max_deductible),
+    self_damage_exclusions: text(pol.self_damage_exclusions),
+    extra_deductibles: text(pol.extra_deductibles),
     late_fee_rate: Number(pol.late_fee_rate) > 0
       ? `연 ${(Number(pol.late_fee_rate) * (Number(pol.late_fee_rate) <= 1 ? 100 : 1)).toLocaleString()}%`
       : '',
@@ -227,20 +329,33 @@ export function buildTemplateFieldsFromRecords(args: {
    *   정책에서 온 줄을 먼저 싣는다 — 그 공급사 조건이 먼저고, 이 계약만의 합의가 뒤다. 둘 다 없으면 계약서가 「없음」으로 적는다.
    */
   const policyExtraTerms = text(pol.policy_extra_terms);
-  const ownSpecialTerms = text(fields.special_terms || draft.special_terms || contract.special_terms);
+  const rawOwnSpecialTerms = text(contract.special_terms_snapshot || fields.special_terms || draft.special_terms || contract.special_terms);
+  // 「없음」은 UI에서 특약 유무를 확인했다는 sentinel이지 정책 기타사항 뒤에 붙일 계약별 특약이 아니다.
+  const ownSpecialTerms = rawOwnSpecialTerms === '없음' ? '' : rawOwnSpecialTerms;
   const mergedSpecialTerms = [policyExtraTerms, ownSpecialTerms].filter(Boolean).join('\n');
-  if (mergedSpecialTerms) fields.special_terms = mergedSpecialTerms;
+  // 초안/templateFields에 남은 과거 문구가 봉인 PDF를 덮지 못하도록 항상 합성 결과만 쓴다.
+  fields.special_terms = mergedSpecialTerms || '없음';
 
   if (overrides.car_number) fields.car_number = overrides.car_number;
   if (overrides.vehicle_name) fields.vehicle_name = overrides.vehicle_name;
   if (overrides.fuel) fields.fuel = overrides.fuel;
   if (overrides.model_year) fields.model_year = overrides.model_year;
 
+  const frozenState = frozenTemplateStateFromRecords({
+    contract,
+    product,
+    insuranceSide: ins === '별도' ? '고객직접' : '회사포함',
+  });
   return {
     fields,
     state: {
       co: fields.co || coKey,
-      ins: fields.ins || ins,
+      pd: frozenState.pd,
+      // 서식 편집기는 fields.ins를 사용할 수 있지만, 발행 스냅샷은 별도의 frozen state를 쓴다.
+      ins: frozenState.ins,
+      ct: frozenState.ct,
+      car: frozenState.car,
+      tax: frozenState.tax,
     },
   };
 }

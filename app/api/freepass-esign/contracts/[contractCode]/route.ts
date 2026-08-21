@@ -9,10 +9,13 @@ import {
   canManageFreepassEsign,
   canReviewFreepassEsign,
   eventRows,
+  freepassSignTokenFromUrl,
   hashFreepassSignToken,
   freepassEsignEventUpdates,
+  hasFrozenFreepassTemplateState,
   loadFreepassEsignBundle,
   makeFreepassSignToken,
+  privateEsignFileSha256,
   publicFreepassSignUrl,
   sessionHashFromContract,
   sha256,
@@ -104,6 +107,57 @@ function activeSession(session: EsignRecord | null, now = Date.now()) {
     && Number(session.expiresAt || 0) > now;
 }
 
+function frozenSessionTemplateId(session: EsignRecord | null): string {
+  const snapshot = session?.snapshot;
+  if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot)) return '';
+  const template = (snapshot as EsignRecord).template;
+  if (!template || typeof template !== 'object' || Array.isArray(template)) return '';
+  return S((template as EsignRecord).id);
+}
+
+/** 봉인 직전 Storage 실물과 제출 때 저장한 SHA-256을 다시 대조한다. */
+async function supportingDocumentsIntegrityError(
+  contractCode: string,
+  hash: string,
+  documents: EsignRecord[],
+): Promise<string> {
+  const root = `esign-private/${contractCode}/${hash}/supporting/`;
+  const checks = await Promise.all(documents.map(async (document) => {
+    const label = S(document.label) || '첨부서류';
+    const path = S(document.path);
+    const expected = S(document.sha256).toLowerCase();
+    if (!path || !/^[a-f0-9]{64}$/.test(expected) || !path.startsWith(root)) {
+      return `${label}의 보안 참조를 확인할 수 없습니다.`;
+    }
+    const actual = await privateEsignFileSha256(path);
+    return actual && actual === expected ? '' : `${label}의 원본 무결성을 다시 확인해 주세요.`;
+  }));
+  return checks.find(Boolean) || '';
+}
+
+/**
+ * 과거에 v4 계약 목록에 남긴 raw fps_ 링크는 다음 관리 작업에서 private 노드로 옮긴다.
+ * 해시가 현재 세션과 정확히 맞을 때만 옮긴다. 일치하지 않는 값도 계약 목록에서는 즉시
+ * 제거한다. 목록 노드의 raw URL은 bearer credential이라 유효성 검증에 실패한 값을
+ * 응답으로 되돌려 보내면 안 된다.
+ */
+async function privatizeLegacySignUrl(
+  bundle: LoadedBundle,
+  contractCode: string,
+  hash: string,
+  rawUrl: unknown,
+): Promise<void> {
+  const legacyUrl = S(rawUrl);
+  const token = freepassSignTokenFromUrl(legacyUrl);
+  const updates: EsignRecord = {
+    [`contracts/${contractCode}/esign_sign_url`]: null,
+  };
+  if (token && hashFreepassSignToken(token) === hash) {
+    updates[`esign_private/${contractCode}/${hash}/internal_sign_url`] = legacyUrl;
+  }
+  await bundle.db.ref('v4').update(updates);
+}
+
 type LoadedBundle = NonNullable<Awaited<ReturnType<typeof loadFreepassEsignBundle>>>;
 
 async function stateResponse(
@@ -121,6 +175,9 @@ async function stateResponse(
   ]) : [null, null, await bundle.db.ref(`v4/esign_events/${contractCode}`).get().catch(() => null)];
   const session = sessionSnap?.val() as EsignRecord | null;
   const submission = privateSnap?.val() as EsignRecord | null;
+  // fps_ 토큰은 완료 PDF까지 여는 bearer credential이다. 계약 목록 노드에는 보관하지 않고
+  // 서버 전용 private 노드에서만 꺼내 권한을 통과한 API 응답으로 전달한다.
+  const protectedSignUrl = canonicalFreepassSignUrl(S(submission?.internal_sign_url));
   const additionalDrivers = Array.isArray(submission?.additional_drivers)
     ? submission.additional_drivers.slice(0, 3).map((value, index) => {
       const driver = value && typeof value === 'object' && !Array.isArray(value) ? value as EsignRecord : {};
@@ -155,7 +212,7 @@ async function stateResponse(
   return {
     contract: {
       ...bundle.contract,
-      esign_sign_url: canonicalFreepassSignUrl(bundle.contract.esign_sign_url),
+      esign_sign_url: protectedSignUrl,
     },
     snapshot: session?.snapshot || null,
     session: session ? {
@@ -234,14 +291,30 @@ export async function POST(
      * 기본 렌트 v1.0만 정본이며 구독 2종은 아직 `sample-v1`이다. 선택한 서식을 기준으로
      * 발행 문마다 잠가야 샘플 문안이 손님에게 나가는 우회가 생기지 않는다.
      */
-    if (!isEsignTemplateAllowed(process.env.VERCEL_ENV, body.standardTemplateId)) {
-      return json({ error: '표준계약서 최종 승인 전이라 운영 발행이 잠겨 있습니다.' }, 503);
-    }
     if (S(contract.sign_status) === '서명완료') {
       return json({ error: '완료 계약서는 변경하거나 다시 발송할 수 없습니다. 새 회차 계약서를 만드세요.' }, 409);
     }
     if (S(contract.esign_provider) === 'chakhandeal' && S(contract.esign_id)) {
       return json({ error: '이미 착한거래로 발행된 계약입니다. 기존 진행내역에서 마무리해 주세요.' }, 409);
+    }
+    const currentHash = sessionHashFromContract(contract);
+    let currentSession: EsignRecord | null = null;
+    if (currentHash) {
+      currentSession = (await bundle.db.ref(`v4/esign_sessions/${currentHash}`).get().catch(() => null))?.val() as EsignRecord | null;
+      if (activeSession(currentSession) && hasFrozenFreepassTemplateState(currentSession)) {
+        if (!isEsignTemplateAllowed(process.env.VERCEL_ENV, frozenSessionTemplateId(currentSession))) {
+          return json({ error: '표준계약서 최종 승인 전이라 운영 발행이 잠겨 있습니다.' }, 503);
+        }
+        try { await privatizeLegacySignUrl(bundle, contractCode, currentHash, contract.esign_sign_url); }
+        catch { return json({ error: '기존 고객 링크를 안전한 보관소로 옮기지 못했습니다. 잠시 후 다시 시도해 주세요.' }, 503); }
+        const state = await stateResponse(contractCode, canReviewFreepassEsign(actor));
+        const signUrl = S(state?.contract?.esign_sign_url);
+        if (signUrl) return json({ ok: true, reused: true, signUrl, ...(state || {}) });
+      }
+    }
+
+    if (!isEsignTemplateAllowed(process.env.VERCEL_ENV, body.standardTemplateId)) {
+      return json({ error: '표준계약서 최종 승인 전이라 운영 발행이 잠겨 있습니다.' }, 503);
     }
     const blocked = esignIssueBlockers(contract, bundle.partner, bundle.policy, bundle.product);
     if (blocked.length) {
@@ -252,15 +325,6 @@ export async function POST(
           : blocked.map((row) => row.message).join(' · '),
         blocked,
       }, 409);
-    }
-
-    const currentHash = sessionHashFromContract(contract);
-    let currentSession: EsignRecord | null = null;
-    if (currentHash) {
-      currentSession = (await bundle.db.ref(`v4/esign_sessions/${currentHash}`).get().catch(() => null))?.val() as EsignRecord | null;
-      if (activeSession(currentSession) && S(contract.esign_sign_url)) {
-        return json({ ok: true, reused: true, signUrl: canonicalFreepassSignUrl(contract.esign_sign_url), ...(await stateResponse(contractCode, canReviewFreepassEsign(actor)) || {}) });
-      }
     }
 
     // 한 계약에서 두 직원이 동시에 눌러도 고객 링크는 하나만 발행한다.
@@ -303,16 +367,23 @@ export async function POST(
       if (S(contract.esign_provider) === 'chakhandeal' && S(contract.esign_id)) {
         return json({ error: '이미 착한거래로 발행된 계약입니다. 기존 진행내역에서 마무리해 주세요.' }, 409);
       }
-      const refreshedBlocked = esignIssueBlockers(contract, bundle.partner, bundle.policy, bundle.product);
-      if (refreshedBlocked.length) {
-        return json({ error: refreshedBlocked.map((row) => row.message).join(' · '), blocked: refreshedBlocked }, 409);
-      }
       const refreshedHash = sessionHashFromContract(contract);
       currentSession = refreshedHash
         ? (await bundle.db.ref(`v4/esign_sessions/${refreshedHash}`).get().catch(() => null))?.val() as EsignRecord | null
         : null;
-      if (activeSession(currentSession) && S(contract.esign_sign_url)) {
-        return json({ ok: true, reused: true, signUrl: canonicalFreepassSignUrl(contract.esign_sign_url), ...(await stateResponse(contractCode, canReviewFreepassEsign(actor), bundle) || {}) });
+      if (activeSession(currentSession) && hasFrozenFreepassTemplateState(currentSession)) {
+        if (!isEsignTemplateAllowed(process.env.VERCEL_ENV, frozenSessionTemplateId(currentSession))) {
+          return json({ error: '표준계약서 최종 승인 전이라 운영 발행이 잠겨 있습니다.' }, 503);
+        }
+        try { await privatizeLegacySignUrl(bundle, contractCode, refreshedHash, contract.esign_sign_url); }
+        catch { return json({ error: '기존 고객 링크를 안전한 보관소로 옮기지 못했습니다. 잠시 후 다시 시도해 주세요.' }, 503); }
+        const state = await stateResponse(contractCode, canReviewFreepassEsign(actor), bundle);
+        const signUrl = S(state?.contract?.esign_sign_url);
+        if (signUrl) return json({ ok: true, reused: true, signUrl, ...(state || {}) });
+      }
+      const refreshedBlocked = esignIssueBlockers(contract, bundle.partner, bundle.policy, bundle.product);
+      if (refreshedBlocked.length) {
+        return json({ error: refreshedBlocked.map((row) => row.message).join(' · '), blocked: refreshedBlocked }, 409);
       }
       const currentStatus = S(currentSession?.status);
       if (['submitting', 'pending_review', 'approving', 'rejecting'].includes(currentStatus)) {
@@ -371,7 +442,8 @@ export async function POST(
         esign_provider: 'freepass',
         esign_id: esignId,
         esign_session_hash: hash,
-        esign_sign_url: signUrl,
+        // 고객 bearer 링크는 public contract 노드에 평문 저장하지 않는다.
+        esign_sign_url: null,
         standard_template_id: standardTemplateId,
         esign_standard_template_label: S(snapshot.template.label),
         esign_template_id: standardTemplateId,
@@ -401,6 +473,7 @@ export async function POST(
       await bundle.db.ref('v4').update({
         ...replacedSessionUpdates,
         [`esign_sessions/${hash}`]: sessionValue,
+        [`esign_private/${contractCode}/${hash}`]: { internal_sign_url: signUrl, issuedAt: now },
         ...childUpdates(`contracts/${contractCode}`, contractUpdate),
         ...freepassEsignEventUpdates(contractCode, 'issued', { actorUid: actor.uid, esignId }),
       });
@@ -537,6 +610,9 @@ export async function POST(
 
   if (action === 'approve') {
     if (!canReviewFreepassEsign(actor)) return json({ error: '관리자만 전자계약을 최종 승인할 수 있습니다.' }, 403);
+    if (!hasFrozenFreepassTemplateState(session)) {
+      return json({ error: '계약서 서식이 갱신되어 이 링크로는 최종 승인할 수 없습니다. 고객 자료를 확인한 뒤 새 링크를 발행해 주세요.' }, 409);
+    }
     const now = Date.now();
     const staleApproval = S(session.status) === 'approving'
       && Number(session.approvingAt || 0) > 0
@@ -595,17 +671,80 @@ export async function POST(
       await releaseApprovalClaim();
       return json({ error: availabilityBlocker.message, blocked: [availabilityBlocker] }, 409);
     }
+    const issueSnapshot = claimedSession.snapshot && typeof claimedSession.snapshot === 'object' && !Array.isArray(claimedSession.snapshot)
+      ? claimedSession.snapshot as EsignRecord
+      : {};
+    const snapshotKind = issueSnapshot.contractKind && typeof issueSnapshot.contractKind === 'object' && !Array.isArray(issueSnapshot.contractKind)
+      ? issueSnapshot.contractKind as EsignRecord
+      : {};
+    const snapshotLandlord = issueSnapshot.landlord && typeof issueSnapshot.landlord === 'object' && !Array.isArray(issueSnapshot.landlord)
+      ? issueSnapshot.landlord as EsignRecord
+      : {};
+    const snapshotFields = issueSnapshot.templateFields && typeof issueSnapshot.templateFields === 'object' && !Array.isArray(issueSnapshot.templateFields)
+      ? issueSnapshot.templateFields as EsignRecord
+      : {};
+    // 보증인이 있는 계약은 보증인 본인의 전자서명까지 갖춰야 한다. 현재 고객 링크는
+    // 임차인 서명만 수집하므로, 서명 없는 보증 약정이 완료 PDF에 섞여 나가지 않게 막는다.
+    const hasGuarantor = [
+      'guarantor_name', 'guarantor_rrn', 'guarantor_phone', 'guarantor_address',
+      'guarantor_relation', 'guarantor_occupation', 'guarantee_limit', 'guarantee_period',
+    ]
+      .some((key) => !!S(snapshotFields[key]));
+    if (hasGuarantor && !S(submission.guarantorSignature)) {
+      await releaseApprovalClaim();
+      return json({ error: '연대보증인이 있는 계약은 보증인 본인의 전자서명 완료 후 승인할 수 있습니다.' }, 409);
+    }
+    const requiresCustomerInsuranceEvidence = S(snapshotKind.insuranceSide) === '고객직접'
+      || (Array.isArray(issueSnapshot.requiredDocuments) && issueSnapshot.requiredDocuments.some((value) => {
+        const document = value && typeof value === 'object' && !Array.isArray(value) ? value as EsignRecord : {};
+        return S(document.key) === 'customer_insurance_certificate';
+      }));
+    const rawSupportingDocuments = Array.isArray(submission.supporting_documents)
+      ? submission.supporting_documents.map((value) => (
+        value && typeof value === 'object' && !Array.isArray(value) ? value as EsignRecord : {}
+      ))
+      : [];
+    const supportingIntegrityError = await supportingDocumentsIntegrityError(contractCode, hash, rawSupportingDocuments);
+    if (supportingIntegrityError) {
+      await releaseApprovalClaim();
+      return json({ error: `${supportingIntegrityError} 고객에게 보완 요청 후 다시 승인해 주세요.` }, 409);
+    }
+    const insuranceCertificate = rawSupportingDocuments.find((document) => S(document.key) === 'customer_insurance_certificate');
+    let customerInsuranceEvidence: EsignRecord | null = null;
+    if (requiresCustomerInsuranceEvidence) {
+      const certificate = insuranceCertificate;
+      if (!S(snapshotLandlord.companyName)) {
+        await releaseApprovalClaim();
+        return json({ error: '보험별도 계약의 질권자(임대인 상호)가 봉인되지 않아 승인할 수 없습니다. 새 링크를 발행해 주세요.' }, 409);
+      }
+      if (!certificate || !S(certificate.path) || !S(certificate.sha256)) {
+        await releaseApprovalClaim();
+        return json({ error: '보험별도 계약은 자동차보험 가입증명서를 제출해야 승인할 수 있습니다.' }, 409);
+      }
+      if (body.customerInsuranceEvidenceConfirmed !== true) {
+        await releaseApprovalClaim();
+        return json({ error: '가입증명서에서 회사 질권 설정을 확인한 뒤 승인해 주세요.' }, 409);
+      }
+      customerInsuranceEvidence = {
+        certificateKey: 'customer_insurance_certificate',
+        sha256: S(certificate.sha256),
+        lienholder: S(snapshotLandlord.companyName),
+        verifiedAt: now,
+        verifiedBy: actor.uid,
+      };
+    }
     const consentTimes = submission.consentTimes && typeof submission.consentTimes === 'object'
       ? submission.consentTimes as EsignRecord
       : {};
     const completedConsents = { ...consentTimes, identity_verified: now, signed: now };
-    const signedSnapshot = snapshotWithPrivateSubmission(claimedSession.snapshot as EsignRecord, submission);
-    const sealedSupportingDocuments = Array.isArray(submission.supporting_documents)
-      ? submission.supporting_documents.map((value) => {
-        const document = value && typeof value === 'object' && !Array.isArray(value) ? value as EsignRecord : {};
+    const signedSubmission = customerInsuranceEvidence
+      ? { ...submission, customer_insurance_evidence: customerInsuranceEvidence }
+      : submission;
+    const signedSnapshot = snapshotWithPrivateSubmission(issueSnapshot, signedSubmission);
+    const sealedSupportingDocuments = rawSupportingDocuments
+      .map((document) => {
         return { key: S(document.key), sha256: S(document.sha256) };
-      }).filter((document) => document.key && document.sha256)
-      : [];
+      }).filter((document) => document.key && document.sha256);
     const sealHash = sha256(JSON.stringify({
       snapshot: signedSnapshot,
       submittedAt: submission.submittedAt,
@@ -613,6 +752,7 @@ export async function POST(
       idCardSha256: submission.idCardSha256,
       selfieSha256: submission.selfieSha256,
       supportingDocuments: sealedSupportingDocuments,
+      customerInsuranceEvidence,
       consents: completedConsents,
       approvedAt: now,
     }));
@@ -639,11 +779,13 @@ export async function POST(
         status: 'approved', approvedAt: now, sealHash,
         pdfPath: archived.pdfPath,
         pdfSha256: archived.documentSha256,
+        ...(customerInsuranceEvidence ? { customer_insurance_evidence: customerInsuranceEvidence } : {}),
     };
     const verification: EsignRecord = {
         provider: 'freepass', contractCode, signedAt: now, sealHash,
         documentSha256: archived.documentSha256,
         supportingDocuments: sealedSupportingDocuments,
+        ...(customerInsuranceEvidence ? { customerInsuranceEvidence } : {}),
     };
     const contractUpdate: EsignRecord = {
         sign_status: '서명완료',
@@ -656,6 +798,11 @@ export async function POST(
           selfieSha256: S(submission.selfieSha256),
           verifiedAt: now,
         },
+        ...(customerInsuranceEvidence ? {
+          esign_customer_insurance_verified_at: now,
+          esign_customer_insurance_verified_by: actor.uid,
+          esign_customer_insurance_certificate_sha256: S(customerInsuranceEvidence.sha256),
+        } : {}),
         esign_seal_hash: sealHash,
         esign_verify_url: verifyUrl,
         esign_document_sha256: archived.documentSha256,
@@ -669,7 +816,11 @@ export async function POST(
         ...childUpdates(`esign_private/${contractCode}/${hash}`, privateUpdate),
         [`esign_verifications/${sealHash}`]: verification,
         ...childUpdates(`contracts/${contractCode}`, contractUpdate),
-        ...freepassEsignEventUpdates(contractCode, 'approved', { actorUid: actor.uid, sealHash }),
+        ...freepassEsignEventUpdates(contractCode, 'approved', {
+          actorUid: actor.uid,
+          sealHash,
+          ...(customerInsuranceEvidence ? { customerInsuranceEvidenceConfirmed: true } : {}),
+        }),
       });
     } catch (error) {
       await releaseApprovalClaim();

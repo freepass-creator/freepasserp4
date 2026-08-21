@@ -60,7 +60,40 @@ async function loadContractBundle(contractCode: string) {
   ]);
   const partner = partnerFromNodes(legacyPartnersSnap?.val(), overlayPartnersSnap?.val(), providerCode);
 
-  return { contract, policy, partner, db };
+  // 미리보기·직접입력에서도 발행과 같은 재고 값을 쓴다. v4는 v3 위의 오버레이이므로
+  // 한쪽만 고르면 배기량·색상처럼 아직 v3에만 있는 값이 빠질 수 있다.
+  const productCode = codeText(contract.product_code);
+  const plate = codeText(contract.car_number_snapshot || contract.car_number).replace(/\s/g, '');
+  let product: Row | null = null;
+  if (productCode) {
+    const [legacyProductSnap, overlayProductSnap] = await Promise.all([
+      db.ref(`products/${productCode}`).get().catch(() => null),
+      db.ref(`v4/products/${productCode}`).get().catch(() => null),
+    ]);
+    const legacyProduct = legacyProductSnap?.val() as Row | null;
+    const overlayProduct = overlayProductSnap?.val() as Row | null;
+    if (legacyProduct || overlayProduct) product = { ...(legacyProduct || {}), ...(overlayProduct || {}) };
+  }
+  if (!product && plate) {
+    const [legacyProductsSnap, overlayProductsSnap] = await Promise.all([
+      db.ref('products').get().catch(() => null),
+      db.ref('v4/products').get().catch(() => null),
+    ]);
+    const findByPlate = (node: unknown): Row | null => {
+      if (!node || typeof node !== 'object' || Array.isArray(node)) return null;
+      for (const [key, raw] of Object.entries(node as Record<string, unknown>)) {
+        if (!raw || typeof raw !== 'object' || Array.isArray(raw)) continue;
+        const row = raw as Row;
+        if (codeText(row.car_number).replace(/\s/g, '') === plate) return { ...row, _key: key };
+      }
+      return null;
+    };
+    const legacyProduct = findByPlate(legacyProductsSnap?.val());
+    const overlayProduct = findByPlate(overlayProductsSnap?.val());
+    if (legacyProduct || overlayProduct) product = { ...(legacyProduct || {}), ...(overlayProduct || {}) };
+  }
+
+  return { contract, policy, partner, product, db };
 }
 
 /**
@@ -142,6 +175,7 @@ export async function GET(
     contract: bundle.contract,
     policy: bundle.policy,
     partner: bundle.partner,
+    product: bundle.product,
   });
   const rows = templateFieldRowsForEdit(fields);
   const emptyCount = rows.filter((r) => !r.value).length;
@@ -200,6 +234,7 @@ export async function PATCH(
     contract: bundle.contract,
     policy: bundle.policy,
     partner: bundle.partner,
+    product: bundle.product,
     overrides: patch,
   });
 
