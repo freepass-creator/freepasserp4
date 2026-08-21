@@ -1,4 +1,4 @@
-# AI 운영 매뉴얼 (2026-08-21 v16)
+# AI 운영 매뉴얼 (2026-08-21 v17)
 
 정본: `lib/domain/ai-operating-manual.ts` — 모든 시트의 「AI 운영 매뉴얼」 탭과 이 문서는 같은 글이다.
 
@@ -6,7 +6,7 @@
 
 | 항목 | 내용 | 어디서/명령 |
 |---|---|---|
-| 무엇 | 프리패스 재고·차종·판매시트 운영을 «어떤 AI가 와도 같은 방식으로» 하기 위한 운영 매뉴얼. 정본은 리포 `lib/domain/ai-operating-manual.ts`, 이 탭은 그 사본(모든 시트에 같은 글). | 버전 2026-08-21 v16 |
+| 무엇 | 프리패스 재고·차종·판매시트 운영을 «어떤 AI가 와도 같은 방식으로» 하기 위한 운영 매뉴얼. 정본은 리포 `lib/domain/ai-operating-manual.ts`, 이 탭은 그 사본(모든 시트에 같은 글). | 버전 2026-08-21 v17 |
 | 먼저 할 일 | ① 이 탭을 끝까지 읽는다 ② 원천대장 「시트 지도」·리포 IMPLEMENTATION_LOG.md 최근 날짜를 읽는다 ③ 손댈 시트의 안내 탭(「작성 안내」/「정제시트 안내」)을 읽는다 ④ 무엇이든 쓰기 전에 dry-run 을 먼저 본다. | C:\dev\freepasserp4 · 자격증명 tmp/firebase-auth/sa.json(pyh@teamjpk.com 위임) |
 | 원칙 3 | 값은 한 곳에만 산다(정본이 이긴다) · 지어내지 않는다(모르면 빈칸·목록) · 쓰기 도구는 전부 dry-run 기본, `--apply` 로만 쓰고 되돌릴 로그를 남긴다. |  |
 
@@ -19,6 +19,7 @@
 | 공급사 정보 | 공급사는 **차량번호 왼쪽 칸**으로 정보를 준다(제조사·차종·차명(세부모델+트림)·연료·연식). 그 글자를 마스터에 건다. 배기량 칸 숫자가 차명(3.5 · LPG 3.0)과 달라도 차명이 이긴다 — 공급사가 잘못 올린 것이 아니다. | 실측 손오공 281노9792 그랜저 IG LPG 3.0 PREMIUM · 스타 101호5187 카니발 KA4 가솔린 3.5 노블레스 |
 | 같은 세대 다른 엔진 | 아반떼 CN7 1.6과 2.0은 같은 세대의 변형이다. 스냅이 다른 배기를 집었다고 「세대 오류」로 한 칸도 안 채우지 않는다. 맞는 변형을 고른다. |  |
 | 누가 어느 칸 | fill = 제조사(정제)·모델·세부모델·세부트림·연료(정제)·배기량(정제). stamp = 엔카 행키 M/SM/T 만(정제칸 이름·연료와 같을 때). 모델 글자를 엔카 스탬프가 쓰지 않는다. | fill-supplier-ai-columns · stamp-encar-codes-on-supplier |
+| 코드 | 트림행키(mf-…)는 영구. 삭제·재사용·의미 변경 금지. 책 = `data/vehicle-trim-key-registry.json`. 원천대장 「차종마스터」 탭은 **읽기만**. 새 차종은 json에 행을 넣고, 코드는 레지스트리에 없는 키만 붙인다. | lib/domain/vehicle-master-lock.ts · check-vehicle-master-lock · verify-master-pass |
 
 ## 1. 시트 지도(요약) — 정본은 원천대장 「시트 지도」 탭
 
@@ -114,7 +115,7 @@
 | ④ 판매시트 발행(탭 3개) | 상품리스트(21곳 − @제외 오플·손오공 구독 · 출고불가 제외 · 빈 대여료 「-」) → 손오공구독(--only=RP012:구독 → publish-sonogong-tab: 공통 대여료 블록을 걷어 내고 그 자리에 보증금 반납형·12~60개월 반납형·보증금 인수형·36/48/60개월 인수형) → 오플구독(--only=RP023 → publish-sonogong-tab --tab=오플구독: 12개월 2만km … 36개월 3만km). 블록 기본값·표시 이름·별칭은 sales-published-tabs.ts 한 곳. 공급사 하나가 0대로 줄면 멈춘다(맞으면 --force-shrink). 발행된 표 = 세 탭의 합. | publish-origin-tab --apply · publish-origin-tab --only=RP012:구독 --tab=손오공구독 --at=1 --apply · publish-sonogong-tab --apply · publish-origin-tab --only=RP023 --tab=오플구독 --at=2 --apply · publish-sonogong-tab --tab=오플구독 --apply |
 | ⑤ 상품마스터 갱신 → ERP | 문패 21곳 → 상품마스터 상태·정책·기간별 돈(차종코드·차명 잠금칸은 안 덮음) → ERP 일일 동기(02:00 KST). | npx tsx scripts/sync-product-master-live.mts --apply |
 | ⑤′ 상품마스터 ← 상품리스트 맞춤(ERP 정확 일치) | ★발행된 상품리스트 값이 정본 — 상품마스터의 차량상태·1·12·24·36·48·60개월 대여료·보증금을 그 값으로 덮고 되읽어 0 어긋남을 확인한다. ERP 는 상품마스터를 읽으므로 이걸로 영업자 표 = ERP. 「-」는 비움 · 보증금은 숫자일 때만 덮음, 「무보증」은 0(비우면 ERP 가 그 기간을 뺀다) · 손오공 「연수×대여료」 글자면 계산값 유지 · 번호미정 차는 못 실림(번호 나오면 자동 합류) · 대여료만 있고 보증금 없는 기간은 ERP 가 뺀다(경고로 세어 줌 — 공급사가 단기보증/장기보증을 채워야 같아진다). | npx tsx scripts/sync-product-master-from-sales.mts --apply |
-| ⑥ 검수 | 돈 대조 0 · 정제칸 대조 · 양식 대조 · 빈 칸 · 상품리스트↔상품마스터 일치 게이트(어긋나면 실패). | audit-sheet-vs-sales · audit-vehicle-refine · audit-supplier-schema · audit-stock-gaps · sync-product-master-from-sales --audit-only |
+| ⑥ 검수 | 돈 대조 0 · 정제칸 대조 · 양식 대조 · 빈 칸 · 상품리스트↔상품마스터 일치 · **차종마스터 잠금**(stamp가 이름을 안 쓰는지, fill이 json을 읽는지). | audit-sheet-vs-sales · audit-vehicle-refine · check-vehicle-master-lock · verify-master-pass |
 | ⑦ ERP 목록 ↔ 판매시트 대조(ERP 동기 뒤) | 시트에 있는데 ERP 목록에 없는 차와 이유(상태 어긋남 · 유효가격 0 · ERP 에 없음). 상태 어긋남(ERP 만 출고불가)이 나오면 sheet-merge 규칙(상품마스터 유입은 표식 없는 출고불가를 덮음, 2026-08-19)이 배포됐는지 확인 — 미배포면 1회 허용 플래그(allow_sheet_reactivate) 후 sync-daily 재실행. 유효가격 0 은 공급사 몫(대여료·보증금 쌍) · 시트 계약중은 ERP 출고불가 투영(정상) · 번호미정은 못 실림. | npx tsx scripts/audit-sales-vs-erp.mts |
 | ★당분간 ERP 연동은 AI 가 맡는다(사장님 2026-08-19) | 자동화(sheet-sync.yml main 반영·작업 스케줄러·수식 연동)를 켜기 전까지, 사장님 오더 「상품시트 동기화」/「일일 반영」 이 오면 AI 가 ① run-daily 미리보기 → --apply(시트 쪽) ② ERP 일일 동기 dry_run → 실행(curl /api/sheet/sync-daily, 시크릿 tmp/cron-secret.txt) ③ 결과 보고(발행 대수·상품마스터 변경·ERP 갱신/실패·경고 38칸류)를 한 번에 한다. ERP 쪽은 매일 02:00 KST 크론이 따로 돌므로 시트 쪽만 낮에 돌리면 밤에 자동 반영된다. 실행 기록: RTDB v4/sheet_sync_runs. | npx tsx scripts/run-daily.mts --apply → curl -s "https://freepasserp.com/api/sheet/sync-daily?dry_run=1" -H "Authorization: Bearer <secret>" → 같은 주소 dry_run 없이 |
 | 자동화 | .github/workflows/sheet-sync.yml(매일)·mirror-sync.yml(30분) — main 에 올라가야 돈다. 올리기 전까지는 사람/AI 가 위 차례로 돌린다. |  |
@@ -134,6 +135,7 @@
 | 정제시트 미러와 수식 연동을 같이 켜기 | 서로 덮는다. 수식으로 걸면 mirror-sources 에서 뺀다. |  |
 | 표기 규격 어기기 | 제조사 르노·KGM(maker-display) · 상태 6값 · 분류 4값 · 연료 6값 · 날짜 YYYY-MM-DD · 정책 표기(policy-value-spec) · 시트 이름 「MMDD 공급사 프리패스 재고 [제공／정제]」. |  |
 | 엔카에 없다고 비슷한 차로 붙이기 | 가솔린 A6를 A6 e-트론에, 니로를 니로EV에. 우리 차종마스터에 먼저 넣고, 없으면 빈칸. | 실측 2026-08-21 |
+| 라이브 「차종마스터」 탭에 쓰기 / mf- 코드 재사용 | 이름은 vehicle-master.json, 코드 책은 vehicle-trim-key-registry.json. 탭은 읽기만. 코드 한 줄의 뜻을 바꾸면 이미 박힌 차가 전부 틀린다. | assertNotLiveVehicleMasterTabWrite · check-vehicle-master-lock |
 | 배기량 칸으로 차종을 뒤집기 | 차명에 가솔린 3.5·LPG 3.0이 있으면 그게 공급사가 준 정보다. 배기량 칸 2,000/2,700으로 「공급사가 잘못 올렸다」고 정제칸을 비우지 않는다. | 281노9792 · 101호5187 |
 
 ## 7. 무엇이 틀렸을 때 어디를 고치나
