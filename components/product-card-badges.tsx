@@ -78,26 +78,37 @@ export function badgeSpecs(product: EntityRecord, hideCredit = false, short = fa
   const credit = creditDisplay(product);
   const rawProductType = String(product.product_type || '');
   const productType = canonProductType(rawProductType) || rawProductType;
+  /**
+   * ★**세 갈래를 «모양»으로 가른다**(사장님 2026-08-22 「뱃지가 계약중처럼 각 3가지 구분이 각각에 따라 좀 달라야 하는데
+   *   지금 다 동일하지 — 개선해줘」). 전에는 셋 다 테두리(line)라 색만 달랐고, 색은 톤이 비슷하면 한 덩어리로 읽힌다.
+   *
+   *   ① 출고상태(st) = **채운 면(solid)** — 지금 살 수 있나. 셋 중 제일 먼저 봐야 하는 값이라 제일 세게.
+   *   ② 상품구분(pt) = **테두리(line)** — 어떤 상품인가. 분류라 중간 세기.
+   *   ③ 심사(cd)     = **연한 면(quiet)** — 조건. 참고값이라 제일 약하게.
+   *
+   * 세기가 «급함»의 차례와 같아서, 색을 못 가려도 모양만으로 어느 갈래인지 알 수 있다.
+   * 계약중만 pulse 를 유지한다 — 그건 «지금 움직이는 건»이라 상태 안에서 한 번 더 갈린다.
+   */
   const specs: BadgeSpec[] = [];
   if (status && audience !== 'customer') {
     specs.push({
       key: 'st',
       label: short ? (STATUS_SHORT[status] ?? status) : status,
       tone: vehicleTone(status) as BadgeTone,
-      variant: status === '계약중' ? 'solid' : undefined,
+      variant: 'solid',
       pulse: status === '계약중',
     });
   }
   if (productType) {
-    const style = productTypeStyle(productType);
     specs.push({
       key: 'pt',
       label: short ? (PRODUCT_TYPE_SHORT[productType] ?? productType) : productType,
-      tone: style.tone,
-      variant: style.variant,
+      // 구독을 solid 로 세우던 규칙은 뺐다 — solid 는 이제 «상태»의 문법이다. 구독은 톤(색)으로 갈린다.
+      tone: productTypeStyle(productType).tone,
+      variant: 'line',
     });
   }
-  if (!hideCredit && credit) specs.push({ key: 'cd', label: credit, tone: CREDIT_TONE(credit) });
+  if (!hideCredit && credit) specs.push({ key: 'cd', label: credit, tone: CREDIT_TONE(credit), variant: 'quiet' });
   return specs;
 }
 

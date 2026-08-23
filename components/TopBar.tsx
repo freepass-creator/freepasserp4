@@ -11,7 +11,7 @@ import { useSession } from '@/lib/auth-context';
 import { menuItemBadge } from '@/lib/domain/menu-badges';
 import { useMenuBadges } from '@/lib/menu-badge-store';
 import { C, R, CountPill, NUM, ctrlH, ctrlFs, FW, FS, Btn, IconBtn, BottomNav, SH, ICON } from '@/components/ui';
-import { NAV_ICON, NAV_LABEL } from '@/lib/tabbar';
+import { NAV_ICON, NAV_LABEL, appTabsFor } from '@/lib/tabbar';
 import { refreshCurrentPage } from '@/lib/page-refresh';
 import { PageStatus, statusIconFor } from '@/components/PageStatus';
 import { getStore, peekList } from '@/lib/store';
@@ -20,7 +20,7 @@ import { BRAND, VERSION, BUILD } from '@/lib/brand';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { companyAlias } from '@/lib/domain/identity';
 
-// 상단바 = 상태창(어디·몇 건). 웹 메뉴=좌측 · 모바일 메뉴=우측.
+// 상단바 = 상태창(어디·몇 건). 웹 메뉴=좌측 · **모바일은 메뉴(햄버거) 없음**(2026-08-22 — 하단탭 4개가 전부, 관리자 화면은 설정 › 관리).
 // 웹 우측 = 오늘·소속·이름·직책. 주탭 아이콘·워딩 = NAV_ICON / NAV_LABEL SSOT.
 const ALL_ROLES: Role[] = ['agent', 'provider', 'admin'];
 const GROUPS: { title: string; items: { href?: string; label: string; icon: LucideIcon; soon?: boolean; roles?: Role[]; hideMobile?: boolean }[] }[] = [
@@ -241,9 +241,17 @@ function NavMenu({ mobile, open: openProp, setOpen: setOpenProp }: {
     : role;
   // 관리자는 역할 게이트를 통과한다 — 모든 메뉴가 보인다(항목마다 roles 에 admin 을 넣지 않아도 되게 여기서 규칙화).
   const seesAll = menuRole === 'admin';
+  /**
+   * 모바일 = **하단탭에 있는 항목은 메뉴에서 뺀다** — 다만 2026-08-22 저녁 확정으로 모바일 NavMenu 는
+   * TopBar 에서 아예 렌더되지 않는다(사장님 「햄버거 안 없어짐」 — 관리자까지 전부 제거,
+   * 관리자 전용 화면은 설정 › 관리 ListRow 로). 이 필터는 웹엔 영향 없고, 모바일을 되살릴 때의 규칙으로 남긴다.
+   */
+  const tabHrefs = mobile ? new Set(appTabsFor(menuRole).map((t) => t.href)) : null;
   const groups = SIMPLE_GROUPS.map((g) => ({
     ...g,
-    items: g.items.filter((it) => (seesAll || !it.roles || it.roles.includes(menuRole)) && !(mobile && it.hideMobile)),
+    items: g.items.filter((it) => (seesAll || !it.roles || it.roles.includes(menuRole))
+      && !(mobile && it.hideMobile)
+      && !(tabHrefs && tabHrefs.has((it.href || '').split('?')[0]))),
   })).filter((g) => g.items.length);
   // 전체메뉴는 사용자가 다음 화면을 고르는 순간이다. 실제로 보이는 소수의 route shell만
   // 유휴 시간에 미리 받아 두면 메뉴에서 누른 뒤 멈춘 듯한 전환을 줄일 수 있다.
@@ -273,16 +281,21 @@ function NavMenu({ mobile, open: openProp, setOpen: setOpenProp }: {
   const iPad = mobile ? '14px 20px' : '10px 12px';
   const iFont = mobile ? 16 : FS.body;
   const iSize = mobile ? 20 : 15;
+  // 모바일에서 탭 중복을 걷어내고 남는 항목이 없으면 버튼째 숨긴다(위 주석). 훅은 전부 위에서 이미 돌았다.
+  if (mobile && !groups.length) return null;
   return (
     <div style={{ position: 'relative', flex: '0 0 auto' }}>
       <IconBtn
         title={open ? (mobile ? '더보기 닫기' : '전체메뉴 닫기') : (mobile ? '더보기' : '전체메뉴')}
         onClick={() => { haptic.nav(); setOpen((o) => !o); }}
+        /* 모바일 = **박스 없는 맨 아이콘**(사장님 2026-08-22 「상단에는 아이콘에 박스가 없이 그냥 아이콘만」— 회색 칩은 하루 만에 회귀).
+           글리프는 검색줄 필터 버튼과 같은 ICON.md(「밑에 필터랑 크기가 같던가」). 버튼(36) 안에서 잉크가 10px 안으로 들어가므로
+           marginRight -10 으로 잉크 우측 끝을 12px 기준선에 앉힌다 — 터치 영역은 36 그대로다. */
         style={mobile
-          ? { border: 'none', background: open ? C.hover : 'transparent', color: ink }
+          ? { border: 'none', background: 'transparent', color: ink, marginRight: -10 }
           : { background: open ? C.hover : C.taupeBg, color: ink, border: `1px solid ${line}` }}
       >
-        {open ? <X size={mobile ? 20 : ICON.lg} /> : <Menu size={mobile ? 20 : ICON.lg} />}
+        {open ? <X size={mobile ? ICON.md : ICON.lg} strokeWidth={2.25} /> : <Menu size={mobile ? ICON.md : ICON.lg} strokeWidth={2.25} />}
       </IconBtn>
       {open && (<>
         {!mobile && <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 74 }} />}
@@ -385,7 +398,8 @@ export default function TopBar() {
       {/* 왼쪽 여백은 **본문 칼럼을 따라간다**(--fp-col-l, lib/content-column) — 햄버거와 하단 「이전」이
           같은 세로선에 서야 한다. 본문이 화면 중앙이 아닐 때(옆에 보조 칼럼) 화면 기준으로는 못 맞춘다.
           변수를 안 쓰는 페이지는 0 → max() 가 기본값 14 를 지킨다. 우측(로그인 정보)은 화면 끝 그대로. */}
-      <header className="fp-topbar" style={{ position: 'sticky', top: 0, zIndex: 70, height: 'var(--topbar-h)', display: 'flex', alignItems: 'center', gap: 8, padding: '0 12px 0 14px', paddingLeft: mobile ? undefined : 'max(14px, var(--fp-col-l, 0px))', background: C.taupeBg, borderBottom: `1px solid ${line}`, boxSizing: 'border-box', boxShadow: 'var(--shadow-sm)' }}>
+      {/* 상단바 = 하단 라인 «하나만» — 그림자 없음. 모바일 좌우 12px = 검색줄·목록과 같은 세로선(사장님 2026-08-22 「좌우 여백·배열」). */}
+      <header className="fp-topbar" style={{ position: 'sticky', top: 0, zIndex: 70, height: 'var(--topbar-h)', display: 'flex', alignItems: 'center', gap: 8, padding: mobile ? '0 12px' : '0 14px', paddingLeft: mobile ? undefined : 'max(14px, var(--fp-col-l, 0px))', background: C.taupeBg, borderBottom: `1px solid ${line}`, boxSizing: 'border-box' }}>
         {/* 웹=메뉴 좌측 · 모바일=우측 */}
         {!mobile && <NavMenu mobile={false} open={menuOpen} setOpen={setMenuOpen} />}
         {/* 좌·중앙 = 상태 — 탭하면 이 페이지 새로 온 느낌(스크롤↑·목록·시트닫기) */}
@@ -422,6 +436,8 @@ export default function TopBar() {
           </span>
         )}
         {!mobile && <WebSessionMeta />}
+        {/* 모바일 햄버거 = **탭에 없는 메뉴가 남는 역할(관리자)만**(사장님 2026-08-22 밤 「관리자 햄버거 ㅇㅋ, 다른 거 할 것도 있으니까」
+            — 전부 뺐다가 되돌림). 영업자·공급사는 메뉴가 탭과 완전 중복이라 NavMenu 가 스스로 안 그린다(빈 메뉴 → null). */}
         {mobile && <NavMenu mobile open={menuOpen} setOpen={setMenuOpen} />}
       </header>
       {/* 모바일 이전만 하단독 — 우측 액션은 상단(위)으로. 액션 중복 금지. */}

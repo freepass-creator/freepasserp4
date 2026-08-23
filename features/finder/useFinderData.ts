@@ -1,40 +1,40 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import type { EntityRecord } from '@/lib/intake/entities';
-import { getStore, peekList } from '@/lib/store';
-import { seedIfEmpty } from '@/lib/seed';
-import { firebaseReady } from '@/lib/firebase/client';
-import { fetchSheetLiveStatuses, SHEET_LIVE_STATUS_POLL_MS } from '@/lib/firebase/sheet-live-status-client';
-import { withProviderNames } from '@/lib/domain/identity';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { listHiddenCodes, subscribeHidden } from '@/lib/product-hide';
 import { listPassedCodes, subscribePassed } from '@/lib/product-pass';
+import {
+  discardOtherFinderData,
+  getFinderDataSnapshot,
+  subscribeFinderData,
+  type FinderDataParams,
+} from '@/features/finder/finder-data-store';
 
-type Params = {
-  companyId: string;
-  authReady: boolean;
-  sessionUid?: string;
-};
+type Params = FinderDataParams;
 
-function withLiveStatuses(rows: EntityRecord[], statuses: Record<string, string>): EntityRecord[] {
-  let changed = false;
-  const next = rows.map((row) => {
-    const key = String(row._key || row.product_code || '');
-    if (!Object.prototype.hasOwnProperty.call(statuses, key)) return row;
-    const status = String(statuses[key] || '').trim();
-    if (String(row.vehicle_status || '').trim() === status) return row;
-    changed = true;
-    return { ...row, vehicle_status: status };
-  });
-  return changed ? next : rows;
-}
+/**
+ * 상품찾기·ERP5·상품 상세가 쓰는 목록 단일 진입점.
+ * 데이터/실시간 상태는 사용자별 공용 store에서 읽고, 화면 고유인 숨김·통과 표식만 여기서 구독한다.
+ */
+export function useFinderData(params: Params) {
+  const key = `${params.companyId}::${params.sessionUid || 'anonymous'}::${params.sessionScope || 'default'}::${params.authReady ? 'ready' : 'waiting'}`;
+  const subscribe = useMemo(
+    () => (listener: () => void) => subscribeFinderData(params, listener),
+    // params object 자체는 호출마다 새로 만들어질 수 있어 primitive만 계약으로 쓴다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [key],
+  );
+  const getSnapshot = useMemo(
+    () => () => getFinderDataSnapshot(params),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [key],
+  );
+  const rows = useSyncExternalStore(subscribe, getSnapshot, () => null);
 
-export function useFinderData({ companyId, authReady, sessionUid }: Params) {
-  const [rows, setRows] = useState<EntityRecord[] | null>(() => peekList('product', companyId));
-  const [hiddenCodes, setHiddenCodes] = useState<Set<string>>(() => new Set());
-  const [passedCodes, setPassedCodes] = useState<Set<string>>(() => new Set());
-  const latestLiveStatuses = useRef<Record<string, string> | null>(null);
+  useEffect(() => { discardOtherFinderData(params.sessionUid, params.sessionScope); }, [params.sessionUid, params.sessionScope]);
 
+  const [hiddenCodes, setHiddenCodes] = useState<Set<string>>(() => new Set(listHiddenCodes()));
+  const [passedCodes, setPassedCodes] = useState<Set<string>>(() => new Set(listPassedCodes()));
   useEffect(() => {
     const refreshHidden = () => setHiddenCodes(new Set(listHiddenCodes()));
     const refreshPassed = () => setPassedCodes(new Set(listPassedCodes()));
@@ -42,83 +42,8 @@ export function useFinderData({ companyId, authReady, sessionUid }: Params) {
     refreshPassed();
     const unsubscribeHidden = subscribeHidden(refreshHidden);
     const unsubscribePassed = subscribePassed(refreshPassed);
-    return () => {
-      unsubscribeHidden();
-      unsubscribePassed();
-    };
+    return () => { unsubscribeHidden(); unsubscribePassed(); };
   }, []);
-
-  useEffect(() => {
-    if (firebaseReady() && !authReady) return;
-    let active = true;
-    (async () => {
-      try {
-        await seedIfEmpty(companyId);
-      } catch (error) {
-        console.warn('[finder] 시드 실패(계속):', error);
-      }
-      try {
-        const timeout = <T,>(promise: Promise<T>) => Promise.race([
-          promise,
-          new Promise<T>((_, reject) => setTimeout(() => reject(new Error('finder list timeout')), 15000)),
-        ]);
-        const [products, partners] = await timeout(Promise.all([
-          getStore().list('product', companyId),
-          getStore().list('partner', companyId),
-        ]));
-        if (active) {
-          const named = withProviderNames(products, partners);
-          setRows(latestLiveStatuses.current
-            ? withLiveStatuses(named, latestLiveStatuses.current)
-            : named);
-        }
-      } catch (error) {
-        console.warn('[finder] 매물 로드 실패:', error);
-        if (active) setRows([]);
-      }
-    })();
-    return () => {
-      active = false;
-    };
-  }, [authReady, companyId, sessionUid]);
-
-  useEffect(() => {
-    if (!firebaseReady() || !authReady || !sessionUid) return;
-    let active = true;
-    let refreshing = false;
-    const controller = new AbortController();
-    const refresh = async () => {
-      if (!active || refreshing || document.visibilityState === 'hidden') return;
-      refreshing = true;
-      try {
-        const statuses = await fetchSheetLiveStatuses(controller.signal);
-        if (!active || !statuses) return;
-        latestLiveStatuses.current = statuses;
-        setRows((current) => current ? withLiveStatuses(current, statuses) : current);
-      } catch (error) {
-        if ((error as Error)?.name !== 'AbortError') {
-          console.warn('[finder] 차량상태 실시간 갱신 실패(기존 상태 유지):', (error as Error).message);
-        }
-      } finally {
-        refreshing = false;
-      }
-    };
-    const onFocus = () => { void refresh(); };
-    const onVisibility = () => {
-      if (document.visibilityState === 'visible') void refresh();
-    };
-    void refresh();
-    const timer = window.setInterval(() => { void refresh(); }, SHEET_LIVE_STATUS_POLL_MS);
-    window.addEventListener('focus', onFocus);
-    document.addEventListener('visibilitychange', onVisibility);
-    return () => {
-      active = false;
-      controller.abort();
-      window.clearInterval(timer);
-      window.removeEventListener('focus', onFocus);
-      document.removeEventListener('visibilitychange', onVisibility);
-    };
-  }, [authReady, companyId, sessionUid]);
 
   return { rows, hiddenCodes, passedCodes };
 }

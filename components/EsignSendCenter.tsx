@@ -16,13 +16,12 @@ import type { EntityRecord, Field } from '@/lib/intake/entities';
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { isEsignUiAllowed } from '@/lib/auth-gate';
-import { createDirectEsignContract } from '@/lib/domain/deal';
+import { createFreepassDirectContract, type CreateFreepassDirectContractInput } from '@/lib/firebase/freepass-esign-client';
 import {
   DEPOSIT_INSTALLMENT_NONE,
   ESIGN_CENTER_STAGES,
   depositInstallmentOptions,
   draftInputRecord,
-  draftTemplateFields,
   emptyEsignDraftInput,
   esignAdditionalDriverLimit,
   esignCenterFlagLabel,
@@ -294,18 +293,28 @@ export function EsignSendCenter({
   const policyReturnApplied = useRef(false);
   const linkedProductApplied = useRef(false);
   const erp5DraftApplied = useRef(false);
+  // 네트워크 응답이 끊겨도 같은 생성 요청은 같은 private idempotency key로 다시 보낸다.
+  // 입력이 바뀌면 fingerprint가 달라져 새 요청으로 분리한다.
+  const directCreateRequest = useRef<{ fingerprint: string; id: string } | null>(null);
   // 초안 카드 앵커 — 다음 카드가 열리는 순간 그 카드를 패널 맨 위로 올린다(표가 아래로만 자라지 않게).
   const vehicleStepRef = useRef<HTMLElement>(null);
   const rentStepRef = useRef<HTMLElement>(null);
   const condStepRef = useRef<HTMLElement>(null);
   const createRowRef = useRef<HTMLDivElement>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (freshContracts = false) => {
+    const store = getStore();
+    const listFreshWithHealth = store.listFreshWithHealth;
+    const contractsRead = freshContracts && typeof listFreshWithHealth === 'function'
+      ? listFreshWithHealth.call(store, 'contract', companyId).then((health) => (
+        health.complete ? health.rows : store.list('contract', companyId)
+      ))
+      : store.list('contract', companyId);
     const [contractRows, partnerRows, policyRows, productRows] = await Promise.all([
-      getStore().list('contract', companyId),
-      getStore().list('partner', companyId).catch(() => [] as EntityRecord[]),
-      getStore().list('policy', companyId).catch(() => [] as EntityRecord[]),
-      getStore().list('product', companyId).catch(() => [] as EntityRecord[]),
+      contractsRead,
+      store.list('partner', companyId).catch(() => [] as EntityRecord[]),
+      store.list('policy', companyId).catch(() => [] as EntityRecord[]),
+      store.list('product', companyId).catch(() => [] as EntityRecord[]),
     ]);
     setContracts(contractRows);
     setPartners(partnerRows);
@@ -342,7 +351,7 @@ export function EsignSendCenter({
       sessionStorage.removeItem(ESIGN_POLICY_SELECTION_SESSION_KEY);
       window.history.replaceState(null, '', basePath);
     }
-  }, [contracts]);
+  }, [basePath, contracts]);
 
   const selected = useMemo(
     () => (contracts || []).find((row) => contractKey(row) === selectedCode) || null,
@@ -673,36 +682,37 @@ export function EsignSendCenter({
     }
     setBusy(true);
     try {
-      const code = await createDirectEsignContract({
-        source: draft.source,
-        importTemplateId: draft.importTemplateId,
-        providerCompanyCode: draft.providerCompanyCode,
+      const driverAge = Number(S(draft.driverAge).match(/(\d{2})/)?.[1] || 0);
+      const input: Omit<CreateFreepassDirectContractInput, 'requestId'> = {
         policyCode: draft.policyCode,
-        standardTemplateId: draftTemplate.id,
-        contractKind: draftContractKind.key,
-        maturity: draft.maturity,
         contractDate: draft.contractDate,
-        productCode: draft.productCode,
-        vehicleName: draft.vehicleName,
-        carNumber: draft.carNumber,
-        modelYear: draft.modelYear,
-        fuel: draft.fuel,
+        productCode: S(draft.productCode),
         rentMonths: Number(draft.rentMonths),
-        rentAmount: Number(draft.rentAmount),
-        depositAmount: Number(draft.depositAmount),
-        paymentTiming: draft.paymentTiming,
-        driverAge: draft.driverAge,
-        annualMileage: draft.annualMileage,
-        priceVariantKey: draft.priceVariantKey,
-        mileageSurcharge: draft.mileageSurcharge,
-        ageSurcharge: draft.ageSurcharge,
-        specialTermsChoice: draft.specialTermsChoice,
+        annualMileage: S(draft.annualMileage),
+        priceVariantKey: S(draft.priceVariantKey),
+        driverAge,
+        maturity: draft.maturity,
+        depositInstallment: S(draft.depositInstallment),
+        paymentTiming: draft.paymentTiming === '후불' ? '후불' : '선불',
+        specialTermsChoice: draft.specialTermsChoice === '있음' ? '있음' : '없음',
         specialTerms: draft.specialTerms,
-        templateFields: draftTemplateFields(draft),
-      });
-      await load();
+        buyoutPrice: draft.buyoutPrice,
+        driverScope: draft.driverScope,
+        maintenanceProduct: draft.maintenanceProduct,
+      };
+      const fingerprint = JSON.stringify(input);
+      if (!directCreateRequest.current || directCreateRequest.current.fingerprint !== fingerprint) {
+        directCreateRequest.current = {
+          fingerprint,
+          id: globalThis.crypto?.randomUUID?.()
+            || `create-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`,
+        };
+      }
+      const code = await createFreepassDirectContract({ requestId: directCreateRequest.current.id, ...input });
+      await load(true);
       setSelectedCode(code);
       setDraft(null);
+      directCreateRequest.current = null;
       toast('계약서를 만들었습니다. 계약서를 확인하고 링크를 만드세요.', 'ok');
     } catch (error) {
       toast(error instanceof Error ? error.message : '계약서를 만들지 못했습니다.', 'error');
@@ -757,19 +767,12 @@ export function EsignSendCenter({
     ? (queueMap.get(contractKey(selected)) || { stage: esignCenterStage(selected), flagLabel: '', problems: [] })
     : null;
   const selectedProviderName = partnerCompanyDisplayName(selectedPartner) || '';
-  /**
-   * 정책 고치러 가기 — 파트너사관리 › 운영정책 패널의 그 정책 편집기로(사장님 2026-08-19 「정책관리는 파트너사관리 안에서」).
-   *   초안은 저장 전이라 세션에 담아 두고 다녀온다.
-   */
+  /** 정책은 파트너사관리에서 수정한다. 초안은 저장 전이라 왕복 중에만 세션에 보관한다. */
   const openPolicyEditor = (policyCode: string, providerCode: string) => {
     if (draft) sessionStorage.setItem(ESIGN_POLICY_DRAFT_SESSION_KEY, JSON.stringify(draft));
     router.push(partnerPolicyManageUrl(providerCode, policyCode));
   };
-  /**
-   * 공급사 정보(대표자·주소·등록번호·계좌)는 파트너사관리에서만 채운다(사장님 2026-08-19).
-   * ★작성 중이던 계약을 세션에 담아 두고 간다 — 고치고 돌아오면 그대로 이어서 발송한다(사장님 2026-08-20).
-   *   담아 두지 않으면 「주소 한 칸」 때문에 네 칸을 처음부터 다시 채워야 했다.
-   */
+  /** 임대인 정보는 공유 기준정보이므로 파트너사관리에서만 수정한다. */
   const openPartnerManager = () => {
     if (draft) sessionStorage.setItem(ESIGN_POLICY_DRAFT_SESSION_KEY, JSON.stringify(draft));
     router.push(partnerManagePartnerUrl(draft?.providerCompanyCode || S(selected?.provider_company_code)));
@@ -825,14 +828,14 @@ export function EsignSendCenter({
               ) : null}
             </div>
               <div
-                  style={{ position: 'relative', zIndex: vehiclePickerOpen ? 20 : undefined, display: 'grid', gap: 6 }}
+                  style={{ position: 'relative', zIndex: vehiclePickerOpen ? 20 : undefined, display: 'grid', gap: 3 }}
                   onFocusCapture={() => setVehiclePickerOpen(true)}
                   onBlurCapture={(event) => {
                     const next = event.relatedTarget;
                     if (!(next instanceof Node) || !event.currentTarget.contains(next)) setVehiclePickerOpen(false);
                   }}
                 >
-                  <div style={{ fontSize: FS.sub, fontWeight: FW.label, color: C.mute }}>차량번호·차명</div>
+                  <div style={{ fontSize: FS.cap, color: C.mute }}>차량번호·차명<span style={{ color: C.danger }}> *</span></div>
                   <SearchInput
                     value={vehicleQuery}
                     onChange={(value) => {
@@ -1144,6 +1147,7 @@ export function EsignSendCenter({
             providerName={selectedProviderName}
             problems={selectedEntry.problems}
             basePath={basePath}
+            onCreateNewContract={beginDirect}
           />
         ) : draft && draftBaseReady ? (
           // 초안: 선택한 공급사·계약서·정책이 어떤 조건인지 접지 않고 쭉 펼친다(사장님 2026-08-19).

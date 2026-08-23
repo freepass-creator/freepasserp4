@@ -157,7 +157,7 @@ export function excelMakerChars(mode: ExcelColMode): number {
 export function excelSubChars(mode: ExcelColMode): number {
   return mode === 'filter' ? EXCEL_MAX.subSlim : EXCEL_MAX.sub;
 }
-/** 파워·트림 — 필터가 차지한 폭에서는 8자, 전체보기에서는 10자. */
+/** 세부트림 — 필터가 차지한 폭에서는 8자, 전체보기에서는 10자. */
 export function excelNameChars(mode: ExcelColMode): number {
   return mode === 'filter' ? EXCEL_MAX.nameSlim : EXCEL_MAX.name;
 }
@@ -177,7 +177,7 @@ export function excelModelWidth(_mode: ExcelColMode, hasOpts: boolean): number |
 /**
  * 엑셀 열 규격 SSOT
  *  · tight = 표시 최대만큼만(절대 안 불어남) → 옵션에 폭 양보.
- *  · name  = 세부모델·파워·트림 10자. 옵션 있으면 tight.
+ *  · name  = 세부모델·트림 10자. 옵션 있으면 tight.
  *  · opts  = 최소 확보 + 남는 폭 흡수(width 100%).
  */
 export const EXCEL_MAX = {
@@ -313,7 +313,7 @@ export function excelPriceW(mode: ExcelColMode): number {
 
 /** 메타 열 탈락 순서 — 차번·대여료는 여기 없음. full은 공급사·심사·조건부터. */
 const EXCEL_FIT_DROP_FILTER: readonly string[] = [
-  'options', 'variant', 'trim_name', 'sub_model',
+  'options', 'vehicle_class', 'engine_cc', 'trim_name', 'sub_model',
   'ext_color', 'int_color', 'fuel_type', 'year', 'mileage',
   'maker', 'model', 'product_type', 'vehicle_status',
 ];
@@ -340,7 +340,6 @@ function excelMetaColPx(field: string, mode: ExcelColMode, hasOpts: boolean): nu
       return typeof mw === 'number' ? sampleWPx(`${'가'.repeat(mw)}…`, pad) : sampleWPx(String(mw), pad);
     }
     case 'sub_model': return sampleWPx(`${'가'.repeat(excelSubChars(mode))}…`, pad);
-    case 'variant':
     case 'trim_name': return sampleWPx(`${'가'.repeat(excelNameChars(mode))}…`, pad);
     case 'options': return hasOpts
       ? (mode === 'filter' ? EXCEL_W.opts.empty : EXCEL_W.opts.min)
@@ -350,6 +349,8 @@ function excelMetaColPx(field: string, mode: ExcelColMode, hasOpts: boolean): nu
     case 'year': return sampleWPx(EXCEL_MAX.year, pad);
     case 'mileage': return sampleWPx(EXCEL_MAX.mile, pad);
     case 'fuel_type': return sampleWPx(`${'가'.repeat(excelFuelChars(mode))}…`, pad);
+    case 'engine_cc': return sampleWPx('9,999cc', pad);
+    case 'vehicle_class': return sampleWPx('준대형 세단', pad);
     case 'provider_name': return sampleWPx(`${'가'.repeat(EXCEL_MAX.provider)}…`, pad);
     case 'credit': return EXCEL_W.credit;
     case 'cond': return EXCEL_W.cond;
@@ -372,9 +373,8 @@ export function excelFitPlan(opts: {
   const { mode, hasOpts } = opts;
   const allMonths = [...opts.months].sort((a, b) => a - b);
   const baseMeta = [
-    'vehicle_status', 'product_type', 'maker',
-    'sub_model', 'variant', 'trim_name', 'options',
-    'ext_color', 'int_color', 'year', 'mileage', 'fuel_type',
+    'vehicle_status', 'product_type', 'maker', 'model', 'sub_model', 'trim_name',
+    'ext_color', 'int_color', 'year', 'mileage', 'fuel_type', 'engine_cc', 'vehicle_class', 'options',
     'provider_name',
     ...(mode === 'full' ? ['credit', 'cond'] : []),
   ];

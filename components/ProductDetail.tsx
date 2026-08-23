@@ -76,6 +76,58 @@ export function ProductDetail({ p, audience, layout = 'brochure' }: {
   useEffect(() => { setMain(0); }, [p.product_code]);
   const mainIdx = Math.min(main, Math.max(0, photos.length - 1));
   /**
+   * ★**상세를 열면 그 페이지 사진을 미리 받아 둔다**(사장님 2026-08-22 「모바일에서는 사진 1장씩 다운받는 거 없어도 되고,
+   *   화면 열리면 미리 다 다운받는 거 있잖아, 무리 안 하는 선에서」 · 「웹도 어느 정도 표준만큼은 해야지, 상세페이지 열면
+   *   미리 받아둬야지 그 페이지 만큼은」).
+   *   폰에는 썸네일 칸이 없어 «넘겨야» 다음 장을 안다 — 그때부터 받으면 한 박자 하얗게 뜬다.
+   *   웹은 썸네일이 작은 판으로만 뜨므로, 큰 사진으로 넘길 때 다시 기다린다.
+   *
+   * ⚠ «무리 안 하는 선» — 세 가지로 지킨다:
+   *   ① **앞 8장까지만.** 26장짜리 매물도 있는데 다 받으면 데이터·메모리를 그만큼 쓴다. 손님 앞에서 넘기는 건 대개 앞쪽이다.
+   *   ② **유휴 시간에.** 큰 사진이 먼저 떠야 하므로 `requestIdleCallback` 뒤로 미룬다(미지원 브라우저는 600ms 뒤).
+   *   ③ **낮은 우선순위.** `fetchPriority='low'` 로 지금 보는 사진의 대역을 뺏지 않는다.
+   *   ⚠ 이 페이지 사진만 데운다 — 목록의 다른 매물까지 미리 받지 않는다(그게 «무리»다).
+   */
+  /**
+   * ★**사진 보기가 열려 있는 동안만 확대를 되돌린다**(사장님 2026-08-22 「사진 눌러서 사진 볼 때 사진은 확대되어야지」).
+   *
+   * ⚠ `touch-action` 은 **조상이 막으면 자식이 못 되살린다**(효과는 조상들과의 교집합이다).
+   *   그래서 라이트박스 판에 `auto` 를 줘도, body 에 걸린 `manipulation` 이 이미 더블탭 확대를 끈 뒤라 소용이 없다.
+   *   열려 있는 동안만 **root 에 표식**을 달아 globals.css 가 body 규칙을 풀게 한다(닫으면 원래대로).
+   */
+  useEffect(() => {
+    const root = document.documentElement;
+    if (lb === null) { root.classList.remove('fp-photo-zoom'); return; }
+    root.classList.add('fp-photo-zoom');
+    return () => root.classList.remove('fp-photo-zoom');
+  }, [lb]);
+  const photoKey = photos.join('|');
+  useEffect(() => {
+    if (photos.length < 2) return;
+    const targets = photos.slice(0, 8).filter((src, i) => src && i !== mainIdx && !src.startsWith('data:'));
+    if (!targets.length) return;
+    let cancelled = false;
+    const warm = () => {
+      if (cancelled) return;
+      for (const src of targets) {
+        const img = new Image();
+        img.decoding = 'async';
+        (img as HTMLImageElement & { fetchPriority?: string }).fetchPriority = 'low';
+        img.src = src;
+      }
+    };
+    const idle = typeof window.requestIdleCallback === 'function'
+      ? window.requestIdleCallback(warm, { timeout: 2_000 })
+      : window.setTimeout(warm, 600);
+    return () => {
+      cancelled = true;
+      if (typeof window.cancelIdleCallback === 'function' && typeof idle === 'number') window.cancelIdleCallback(idle);
+      else window.clearTimeout(idle as number);
+    };
+    // photoKey = 사진 목록이 «내용»으로 바뀔 때만 다시 데운다(배열 identity 는 렌더마다 바뀐다).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [photoKey]);
+  /**
    * 메인 사진을 넘기면 **옆 썸네일 칸도 따라간다**.
    *
    * 지금까지는 테두리만 옮겨 다녀서, 26장짜리 매물에서 몇 장 넘기면 «지금 보는 사진»이
@@ -135,7 +187,8 @@ export function ProductDetail({ p, audience, layout = 'brochure' }: {
       {/* 1 헤더 — 차명 → 차번·상태·상품·심사 → 우대·이벤트 (원자 공용).
           work 에서는 차명·차번은 우측 카드·상단바가 들고 있어 제목 줄을 뺀다.
           대신 사진 위에 얹혀 있던 관심(하트)이 사라지지 않게 칩 줄로 내려 붙인다. */}
-      <div style={{ marginBottom: 11 }}>
+      {/* 12 = 섹션 사이 공통 리듬(2026-08-22 여백 규격화 — 11 같은 어중간한 값 금지). */}
+      <div style={{ marginBottom: 12 }}>
         {!work && (
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
             <h1 style={{ fontSize: FS.page, fontWeight: FW.title, letterSpacing: '-0.02em', margin: 0, lineHeight: 1.25 }}>{idMain}</h1>
@@ -158,7 +211,7 @@ export function ProductDetail({ p, audience, layout = 'brochure' }: {
           {/* 사진 없음도 매물의 성질이다 — 별도 줄을 잡아먹지 않게 칩으로 붙인다.
               (안 그리면 «없는 건지 안 뜬 건지»를 모른다. 사진 없는 차가 절반 가까이다.) */}
           {work && photos.length === 0 && !pending && <Badge tone="gray" variant="quiet" title="등록된 사진이 없습니다">사진없음</Badge>}
-          {work && aud !== 'customer' && <ProductStateMarks p={p} />}
+          {work && aud !== 'customer' && <ProductStateMarks p={p} showSeen={false} />}
           {work && aud !== 'customer' && <FavHeart p={p} compact />}
         </div>
       </div>
@@ -224,7 +277,7 @@ export function ProductDetail({ p, audience, layout = 'brochure' }: {
             )}
             {aud !== 'customer' && !work && (
               <span style={{ position: 'absolute', top: 8, right: 8, zIndex: 2, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                <ProductStateMarks p={p} onPhoto />
+                <ProductStateMarks p={p} onPhoto showSeen={false} />
                 <FavHeart p={p} onPhoto />
               </span>
             )}
@@ -354,13 +407,20 @@ export function ProductDetail({ p, audience, layout = 'brochure' }: {
                       <th scope="col" style={{ ...DT.colTh, textAlign: 'right' }}>면책금</th>
                     </>}
                   >
-                    {cover.map((c, i) => (
-                      <tr key={c.lbl} style={DT.tr(i)}>
-                        <th scope="row" style={{ ...DT.labelTh, width: undefined }}>{c.lbl}</th>
-                        <td style={{ ...DT.tdR, color: c.limit ? C.ink : C.faint, fontWeight: c.limit ? FW.title : undefined }}>{c.limit || '—'}</td>
-                        <td style={{ ...DT.tdR, color: c.ded ? C.ink : C.faint }}>{c.ded || '없음'}</td>
-                      </tr>
-                    ))}
+                    {cover.map((c, i) => {
+                      /* 자차 면책 「수리비의 20% · 50~100만원」 은 2줄로(사장님 2026-08-22 「수리비의 00%, 한 칸 내리고 50~100만원」)
+                         — 폰 폭 한 줄이면 어중간한 자리에서 접힌다. 비율·구간이 다 있을 때만 「 · 」에서 가른다. */
+                      const dedLines = /수리비/.test(c.ded) && c.ded.includes(' · ') ? c.ded.split(' · ') : null;
+                      return (
+                        <tr key={c.lbl} style={DT.tr(i)}>
+                          <th scope="row" style={{ ...DT.labelTh, width: undefined }}>{c.lbl}</th>
+                          <td style={{ ...DT.tdR, color: c.limit ? C.ink : C.faint, fontWeight: c.limit ? FW.title : undefined }}>{c.limit || '—'}</td>
+                          <td style={{ ...DT.tdR, color: c.ded ? C.ink : C.faint }}>
+                            {dedLines ? dedLines.map((l, j) => <div key={j}>{l}</div>) : (c.ded || '없음')}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </DetailTable>
                 );
               }
@@ -487,8 +547,11 @@ export function ProductDetail({ p, audience, layout = 'brochure' }: {
         </section>
       ))}
 
+      {/* ★사진 보기에서는 **확대가 살아야 한다**(사장님 2026-08-22 「사진 눌러서 사진 볼 때 사진은 확대되어야지」).
+          페이지 전체에는 `touch-action: manipulation` 을 걸어 «의도 안 한 더블탭 확대»를 막았는데(globals.css),
+          여기까지 막으면 사진을 키워 볼 수가 없다 — 열려 있는 동안 root 표식(`fp-photo-zoom`)으로 풀고 이 판도 `auto` 로 둔다. */}
       {lb !== null && photos.length > 0 && (
-        <div onClick={() => setLb(null)} style={{ position: 'fixed', inset: 0, zIndex: 80, background: SCRIM.black, overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: '48px 12px' }}>
+        <div onClick={() => setLb(null)} style={{ position: 'fixed', inset: 0, zIndex: 80, background: SCRIM.black, overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: '48px 12px', touchAction: 'auto' }}>
           <CloseBtn
             title="닫기"
             onClick={(e) => { e.stopPropagation(); setLb(null); }}
@@ -500,7 +563,10 @@ export function ProductDetail({ p, audience, layout = 'brochure' }: {
           <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: 880, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
             {photos.map((ph, i) => (
               <div key={i} style={{ position: 'relative' }}>
-                {(
+                {/* 한 장씩 받기 = **웹만**(사장님 2026-08-22 「모바일에서 1장 1장 사진 다운되는 거 버튼 없애라도」).
+                    폰은 사진을 길게 눌러 저장하는 게 손에 익고, 여러 장이면 영업자 패널의 「사진 N장 내려받기」(ZIP)가 있다.
+                    큰 사진 위 우측 버튼이 손가락에 먼저 걸려 넘기다가 눌리는 일이 잦았다. */}
+                {!mobile && (
                   <IconBtn
                     title={`사진 ${i + 1} 한 장 받기`}
                     onClick={(e) => { e.stopPropagation(); void downloadOnePhoto(ph, i); }}

@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { getRole } from '@/lib/domain/deal';
 import { Page, Section, DetailGrid, SectionLabel, Disclosure, CopyBlock, CenterNote, Loading, Btn, C, FW, FS, R } from '@/components/ui';
 import { GUIDE, FAQ, matchFaq } from '@/lib/domain/faq';
@@ -18,6 +18,7 @@ function Para({ lines }: { lines: string[] }) {
 export default function Faq() {
   const [role, setRole] = useState<string | null>(null);
   const [q, setQ] = useState('');
+  const deferredQ = useDeferredValue(q);
 
   useEffect(() => {
     setRole(getRole());
@@ -25,6 +26,12 @@ export default function Faq() {
     window.addEventListener('fp:role', on);
     return () => window.removeEventListener('fp:role', on);
   }, []);
+
+  const searching = q.trim() !== '';
+  const groups = useMemo(() => FAQ
+    .map((g) => ({ ...g, items: g.items.filter((it) => matchFaq(it, deferredQ)) }))
+    .filter((g) => g.items.length > 0), [deferredQ]);
+  const hits = groups.reduce((n, g) => n + g.items.length, 0);
 
   if (role === null) return <Loading />;
   // 관리자는 전부 볼 수 있어야 한다(내용 검수·문의 대응). 영업자 대상 안내지만 관리자를 막지 않는다.
@@ -38,12 +45,6 @@ export default function Faq() {
       </Page>
     );
   }
-
-  const searching = q.trim() !== '';
-  const groups = FAQ
-    .map((g) => ({ ...g, items: g.items.filter((it) => matchFaq(it, q)) }))
-    .filter((g) => g.items.length > 0);
-  const hits = groups.reduce((n, g) => n + g.items.length, 0);
 
   return (
     <Page

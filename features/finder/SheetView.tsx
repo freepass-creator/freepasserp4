@@ -1,18 +1,19 @@
 'use client';
 
 import Link from 'next/link';
-import { Check, ChevronDown, Copy, ExternalLink, Menu, RefreshCw, RotateCcw } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
+import { Check, ChevronDown, Copy, ExternalLink, Link2, Menu, RefreshCw, RotateCcw } from 'lucide-react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type MutableRefObject, type ReactNode } from 'react';
 import { onIdTokenChanged, type User } from 'firebase/auth';
 import { getAuthClient } from '@/lib/firebase/client';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { actor, getRole, type Role } from '@/lib/domain/deal';
+import { getSession } from '@/lib/auth-session';
 import { isOfferableProduct } from '@/lib/domain/product';
 import { guestShareUrl, formatProductForCopy } from '@/lib/domain/product-share';
 import { sanitizeProductForGuest } from '@/lib/domain/public-catalog';
 import { copyText } from '@/lib/clipboard';
 import { toast } from '@/components/Toaster';
-import { Btn, C, CenterNote, FS, FW, ICON, IconBtn, R } from '@/components/ui';
+import { Btn, C, CenterNote, FS, FW, ICON, IconBtn, Loading, R } from '@/components/ui';
 import { COLOR_INK } from '@/lib/domain/color-master';
 import { MASTER_CATEGORY_COLORS } from '@/lib/domain/category-colors';
 import {
@@ -61,10 +62,34 @@ type Grid = {
 type SheetRow = { values: string[]; sourceIndex: number; detailHref: string | null };
 type ActiveCell = { sourceIndex: number; column: number } | null;
 type OpenColumn = { column: number; x: number; y: number } | null;
+type SheetContextMenu = { sourceIndex: number; column: number; x: number; y: number } | null;
 type GridLoadError = Error & { status?: number; detail?: string };
 
 const collator = new Intl.Collator('ko-KR', { numeric: true, sensitivity: 'base' });
 const ROW_INDEX_WIDTH = 48;
+const SHEET_ROW_HEIGHT = rowPx(SIZE);
+const SHEET_ROW_OVERSCAN = 14;
+/**
+ * 페이지 이동 뒤에도 같은 로그인 사용자가 곧바로 표를 다시 볼 수 있는 휘발성 캐시.
+ * localStorage/HTTP cache는 역할별 마스킹 결과를 남길 수 있어 쓰지 않는다. UID가 바뀌거나
+ * 현재 세션에서 토큰/역할이 바뀌면 반드시 전부 폐기한다.
+ */
+let sessionGridCacheUid: string | null = null;
+const sessionGridCache = new Map<string, Grid>();
+function clearSessionGridCache() {
+  sessionGridCacheUid = null;
+  sessionGridCache.clear();
+}
+function cachedSessionGrid(uid: string, key: string) {
+  return sessionGridCacheUid === uid ? sessionGridCache.get(key) : undefined;
+}
+function storeSessionGrid(uid: string, key: string, grid: Grid) {
+  if (sessionGridCacheUid !== uid) {
+    sessionGridCacheUid = uid;
+    sessionGridCache.clear();
+  }
+  sessionGridCache.set(key, grid);
+}
 const FOCUSABLE_TARGET = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[contenteditable="true"],[tabindex]:not([tabindex="-1"])';
 const TAB_MENU_ITEM_STYLE: CSSProperties = {
   display: 'grid', gridTemplateColumns: '16px 10px minmax(0, 1fr)', alignItems: 'center', gap: 8,
@@ -73,6 +98,11 @@ const TAB_MENU_ITEM_STYLE: CSSProperties = {
 };
 const isNumeric = (value: string) => /^[₩$]?[\d,]+(?:\.\d+)?%?$/.test(value.trim()) && /\d/.test(value);
 const sheetColor = (hex?: string) => hex ? (hex.startsWith('#') ? hex : `#${hex}`) : undefined;
+/** 본문보다 큰 글자가 아니라, 한 단계 묵직한 면과 굵기로 헤더를 구분한다. */
+const sheetHeaderBackground = (header: string) => {
+  const source = sheetColor(colBgFor(header));
+  return source ? `color-mix(in srgb, ${source} 88%, var(--text-sub))` : 'var(--fp-sheet-header-rail)';
+};
 const shouldRestoreControlFocus = (target: EventTarget | null) => !(target instanceof Element) || !target.closest(FOCUSABLE_TARGET);
 const sheetCellId = (sourceIndex: number, column: number) => `fp-sheet-cell-${sourceIndex}-${column}`;
 const detailHrefFor = (product: EntityRecord) => {
@@ -145,6 +175,115 @@ function compareCell(a: string, b: string) {
   return collator.compare(a, b);
 }
 
+/**
+ * 방향키 이동은 데이터/필터를 다시 계산하지 않는 단순 선택 동작이다.
+ * 300행×수십 열의 표 전체가 activeCell 변경마다 다시 그려지면 한 칸 이동에도
+ * 브라우저가 버벅이므로, 선택이 바뀐 행(이전·현재)만 다시 렌더한다.
+ */
+const SheetGridRow = memo(function SheetGridRow({
+  headers,
+  values,
+  sourceIndex,
+  detailHref,
+  plateColumn,
+  activeColumn,
+  initialRow,
+  rowHeight,
+  bodyFont,
+  cellRefs,
+  onActivate,
+  onFocusCell,
+  onCellKeyDown,
+  onCellContextMenu,
+}: {
+  headers: string[];
+  values: string[];
+  sourceIndex: number;
+  detailHref: string | null;
+  plateColumn: number;
+  activeColumn: number | null;
+  initialRow: boolean;
+  rowHeight: number;
+  bodyFont: string;
+  cellRefs: MutableRefObject<Map<string, HTMLTableCellElement>>;
+  onActivate: (sourceIndex: number, column: number, moveFocus?: boolean) => void;
+  onFocusCell: (sourceIndex: number, column: number) => void;
+  onCellKeyDown: (event: ReactKeyboardEvent<HTMLTableCellElement>, sourceIndex: number, column: number, detailHref: string | null) => void;
+  onCellContextMenu: (event: ReactMouseEvent<HTMLTableCellElement>, sourceIndex: number, column: number) => void;
+}) {
+  const selected = activeColumn !== null;
+  return (
+    <tr
+      role="row"
+      className="fp-sheet-view__row"
+      data-source-index={sourceIndex}
+      data-detail-ready={detailHref ? 'true' : undefined}
+      data-selected={selected ? 'true' : undefined}
+    >
+      <th scope="row" role="rowheader" className="fp-sheet-view__row-index">
+        <Btn
+          type="button"
+          variant="bare"
+          className="fp-sheet-view__row-select"
+          title={`${sourceIndex + 2}번 행 선택 · 방향키로 셀 이동`}
+          aria-label={`${sourceIndex + 2}번 행 선택 · 방향키로 셀 이동`}
+          aria-pressed={selected}
+          haptic={false}
+          onClick={() => onActivate(sourceIndex, 0, true)}
+          style={{ width: '100%', height: '100%' }}
+        >{sourceIndex + 2}</Btn>
+      </th>
+      {headers.map((header, index) => {
+        const value = values[index] || '';
+        const ink = valueColor(header, value);
+        const isPlateCell = index === plateColumn;
+        const isDetailCell = isPlateCell && !!detailHref;
+        const isActiveCell = activeColumn === index;
+        return (
+          <td
+            key={index}
+            id={sheetCellId(sourceIndex, index)}
+            role="gridcell"
+            className="fp-sheet-view__cell"
+            title={isDetailCell ? 'ERP 상품 상세 열기' : (value || undefined)}
+            tabIndex={isActiveCell || (initialRow && index === 0) ? 0 : -1}
+            aria-selected={isActiveCell}
+            data-active-cell={isActiveCell ? 'true' : undefined}
+            ref={(element) => {
+              const id = sheetCellId(sourceIndex, index);
+              if (element) cellRefs.current.set(id, element);
+              else cellRefs.current.delete(id);
+            }}
+            onFocus={() => onFocusCell(sourceIndex, index)}
+            onClick={() => onActivate(sourceIndex, index)}
+            onKeyDown={(event) => onCellKeyDown(event, sourceIndex, index, isDetailCell ? detailHref : null)}
+            onContextMenu={(event) => onCellContextMenu(event, sourceIndex, index)}
+            style={{
+              height: rowHeight,
+              background: sheetColor(colBgFor(header)) || C.taupeBg,
+              color: ink || C.ink,
+              fontSize: bodyFont,
+              fontWeight: isMoneyColumn(header) || header === '차량번호' || ink ? FW.strong : FW.body,
+              textAlign: columnAlign(header, value),
+            }}
+          >{isDetailCell ? (
+            <Link
+              href={detailHref!}
+              className="fp-sheet-view__detail-link"
+              tabIndex={-1}
+              aria-label={`차량번호 ${value} · ERP 상품 상세 열기`}
+              onClick={(event) => {
+                event.stopPropagation();
+                onActivate(sourceIndex, index);
+              }}
+            >{value}</Link>
+          ) : isPlateCell ? <span className="fp-sheet-view__plate-plain" title="ERP 상세 미연결">{value}</span> : value}</td>
+        );
+      })}
+    </tr>
+  );
+});
+
 export function SheetView({
   mobile,
   finderFilterActive = false,
@@ -181,21 +320,29 @@ export function SheetView({
   const [sort, setSort] = useState<SheetSort>(null);
   const [openColumn, setOpenColumn] = useState<OpenColumn>(null);
   const [activeCell, setActiveCell] = useState<ActiveCell>(null);
+  const [contextMenu, setContextMenu] = useState<SheetContextMenu>(null);
   const [tabMenuOpen, setTabMenuOpen] = useState(false);
   /** 탭 전환은 네트워크가 아니라 이 메모리 캐시에서 즉시 한다. 민감한 표는 localStorage에 남기지 않는다. */
   const gridCache = useRef(new Map<string, Grid>());
   const inFlight = useRef(new Map<string, Promise<Grid>>());
   const gridScrollRef = useRef<HTMLDivElement>(null);
+  const gridScrollFrame = useRef<number | null>(null);
   const tabMenuRef = useRef<HTMLDivElement>(null);
   const cellRefs = useRef(new Map<string, HTMLTableCellElement>());
+  const [gridScrollTop, setGridScrollTop] = useState(0);
+  const [gridViewportHeight, setGridViewportHeight] = useState(0);
   const activeRequest = useRef(0);
   const cacheEpoch = useRef(0);
+  const seenAuthSignal = useRef(false);
+  const roleReady = useRef(false);
+  const viewerRoleRef = useRef<Role>('agent');
   const [authVersion, setAuthVersion] = useState(0);
 
-  const invalidateGridCache = useCallback(() => {
+  const invalidateGridCache = useCallback((includeSessionCache = false) => {
     cacheEpoch.current += 1;
     gridCache.current.clear();
     inFlight.current.clear();
+    if (includeSessionCache) clearSessionGridCache();
   }, []);
 
   useEffect(() => {
@@ -204,6 +351,11 @@ export function SheetView({
     return onIdTokenChanged(auth, (user) => {
       // 같은 UID라도 ID token custom claim/역할은 바뀔 수 있다. 이전 역할의 마스킹 결과를
       // 메모리에 남기지 않도록 토큰이 바뀔 때마다 전부 폐기한다.
+      // 첫 listener signal은 페이지 재진입 때도 발생한다. 같은 UID의 휘발성 캐시는
+      // 그대로 써서 즉시 표시하되, 실행 중 토큰 갱신·사용자 교체는 무조건 폐기한다.
+      const mustDropSessionCache = seenAuthSignal.current || sessionGridCacheUid !== (user?.uid || null);
+      if (mustDropSessionCache) clearSessionGridCache();
+      seenAuthSignal.current = true;
       invalidateGridCache();
       activeRequest.current += 1;
       setGrid(null);
@@ -220,7 +372,18 @@ export function SheetView({
   }, [invalidateGridCache]);
 
   useEffect(() => {
-    const syncRole = () => setViewerRole(getRole());
+    const syncRole = () => {
+      const nextRole = getRole();
+      if (roleReady.current && nextRole !== viewerRoleRef.current) {
+        // admin/non-admin 전환은 같은 UID여도 응답 열 구성이 달라질 수 있다.
+        invalidateGridCache(true);
+        activeRequest.current += 1;
+        setGrid(null);
+      }
+      roleReady.current = true;
+      viewerRoleRef.current = nextRole;
+      setViewerRole(nextRole);
+    };
     syncRole();
     window.addEventListener('fp:role', syncRole);
     window.addEventListener('fp:session', syncRole);
@@ -241,6 +404,12 @@ export function SheetView({
       const error = new Error('로그인이 필요합니다.') as GridLoadError;
       error.status = 401;
       throw error;
+    }
+    const sessionCached = cachedSessionGrid(user.uid, want) || (want ? undefined : cachedSessionGrid(user.uid, '__default__'));
+    if (sessionCached) {
+      gridCache.current.set(sessionCached.tab, sessionCached);
+      if (!want) gridCache.current.set('__default__', sessionCached);
+      return sessionCached;
     }
     const epoch = cacheEpoch.current;
     const task = (async () => {
@@ -263,6 +432,8 @@ export function SheetView({
       }
       gridCache.current.set(loaded.tab, loaded);
       if (!want) gridCache.current.set('__default__', loaded);
+      storeSessionGrid(user.uid, loaded.tab, loaded);
+      if (!want) storeSessionGrid(user.uid, '__default__', loaded);
       return loaded;
     })();
     inFlight.current.set(key, task);
@@ -316,7 +487,7 @@ export function SheetView({
   const refreshAllTabs = useCallback(() => {
     // 강제 새로고침은 현재 탭만 즉시 다시 읽고, 성공 뒤 나머지 공개 탭을 백그라운드에서
     // 채운다. 기존 preload 응답은 epoch가 달라 캐시에 되살아나지 않는다.
-    invalidateGridCache();
+    invalidateGridCache(true);
     void load(tab);
   }, [invalidateGridCache, load, tab]);
 
@@ -331,6 +502,12 @@ export function SheetView({
   const gridReadAt = grid?.readAt || '';
   useEffect(() => {
     setActiveCell(null);
+    setContextMenu(null);
+  }, [gridTab, gridReadAt]);
+  useEffect(() => {
+    const scrollport = gridScrollRef.current;
+    if (scrollport) scrollport.scrollTop = 0;
+    setGridScrollTop(0);
   }, [gridTab, gridReadAt]);
 
   const sourceRows = useMemo<SheetRow[]>(() => grid?.rows.map((values, sourceIndex) => ({
@@ -366,6 +543,23 @@ export function SheetView({
     });
     return matched;
   }, [filters, finderAllowed, finderFilterActive, finderFilterPending, finderSortActive, finderSortRanks, sort, sourceRows]);
+  const activeVisibleIndex = useMemo(
+    () => activeCell ? visibleRows.findIndex((row) => row.sourceIndex === activeCell.sourceIndex) : -1,
+    [activeCell, visibleRows],
+  );
+  const renderedRows = useMemo(() => {
+    const count = visibleRows.length;
+    if (!count) return { rows: [] as SheetRow[], start: 0, end: 0 };
+    const viewport = Math.max(gridViewportHeight, 480);
+    let start = Math.max(0, Math.floor(gridScrollTop / SHEET_ROW_HEIGHT) - SHEET_ROW_OVERSCAN);
+    let end = Math.min(count, Math.ceil((gridScrollTop + viewport) / SHEET_ROW_HEIGHT) + SHEET_ROW_OVERSCAN);
+    // 방향키로 overscan 밖의 행을 고르면, 새 셀이 mount된 뒤 focus/스크롤을 넘긴다.
+    if (activeVisibleIndex >= 0) {
+      start = Math.min(start, Math.max(0, activeVisibleIndex - SHEET_ROW_OVERSCAN));
+      end = Math.max(end, Math.min(count, activeVisibleIndex + SHEET_ROW_OVERSCAN + 1));
+    }
+    return { rows: visibleRows.slice(start, end), start, end };
+  }, [activeVisibleIndex, gridScrollTop, gridViewportHeight, visibleRows]);
   const selectedSourceIndex = activeCell?.sourceIndex ?? null;
   const selectedRow = useMemo(
     () => selectedSourceIndex === null ? null : visibleRows.find((row) => row.sourceIndex === selectedSourceIndex) || null,
@@ -382,24 +576,83 @@ export function SheetView({
     return next;
   }, [sheetProducts]);
   const selectedProduct = selectedRow?.detailHref ? productByDetailHref.get(selectedRow.detailHref) || null : null;
+  const contextRow = useMemo(
+    () => contextMenu ? visibleRows.find((row) => row.sourceIndex === contextMenu.sourceIndex) || null : null,
+    [contextMenu, visibleRows],
+  );
+  const contextProduct = contextRow?.detailHref ? productByDetailHref.get(contextRow.detailHref) || null : null;
+  const canCopyContextForCustomer = (viewerRole === 'agent' || viewerRole === 'admin')
+    && !!contextProduct && isOfferableProduct(contextProduct);
   const canCopyForCustomer = (viewerRole === 'agent' || viewerRole === 'admin') && !!selectedProduct && isOfferableProduct(selectedProduct);
   const customerCopyTitle = !selectedRow
     ? '표에서 차량 행을 먼저 선택하세요'
     : !selectedRow.detailHref || !selectedProduct
-      ? 'ERP 상세가 연결된 차량만 손님용으로 복사할 수 있습니다'
+      ? 'ERP 상세가 연결된 차량만 복사할 수 있습니다'
       : !isOfferableProduct(selectedProduct)
-        ? '현재 손님 안내가 가능한 가격이 반영된 차량만 복사할 수 있습니다'
+        ? '현재 고객 안내가 가능한 가격이 반영된 차량만 복사할 수 있습니다'
         : viewerRole !== 'agent' && viewerRole !== 'admin'
-          ? '손님용 복사는 영업·관리자만 사용할 수 있습니다'
-          : '선택한 차량의 손님용 안내문과 링크를 복사합니다';
+          ? '링크·텍스트 복사는 영업·관리자만 사용할 수 있습니다'
+          : '선택한 차량의 링크 또는 텍스트를 복사합니다';
   const activateCell = useCallback((sourceIndex: number, column: number, moveFocus = false) => {
     setActiveCell({ sourceIndex, column });
     if (!moveFocus) return;
     window.requestAnimationFrame(() => {
       const cell = cellRefs.current.get(sheetCellId(sourceIndex, column));
       cell?.focus({ preventScroll: true });
-      cell?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      const scrollport = gridScrollRef.current;
+      if (!cell || !scrollport) return;
+      // scrollIntoView()는 화면 안의 옆 셀로 이동할 때도 상위 스크롤 체인을 모두 계산한다.
+      // 시트식 키 반복은 그 비용이 눈에 띄므로, 현재 viewport 밖으로 나갈 때만 해당 축을 옮긴다.
+      // sticky 행번호·열문자·헤더 아래는 실제로 셀을 볼 수 없는 영역이다. 이 inset을
+      // 빼지 않으면 대상 셀이 scrollport 안에는 있어도 고정 레일 밑에 가려진다.
+      const stickyGutter = 4;
+      const topInset = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--fp-sheet-letter-h'))
+        + Math.max(SHEET_ROW_HEIGHT + 6, 28) + stickyGutter;
+      // table offsetTop은 virtual spacer·sticky header가 섞이면 scrollTop과 같은 좌표계가
+      // 아니다. 실제 화면 좌표로 비교해야 아래/오른쪽 끝에서 정확히 한 번만 움직인다.
+      const cellRect = cell.getBoundingClientRect();
+      const portRect = scrollport.getBoundingClientRect();
+      const visibleLeft = portRect.left + ROW_INDEX_WIDTH + stickyGutter;
+      const visibleRight = portRect.right - stickyGutter;
+      const visibleTop = portRect.top + topInset;
+      const visibleBottom = portRect.bottom - stickyGutter;
+      const edge = 0.5; // table 1px border·소수점 layout 오차를 같은 경계로 취급한다.
+      let nextLeft = scrollport.scrollLeft;
+      let nextTop = scrollport.scrollTop;
+      // Google Sheets처럼 선택 셀이 현재 작업 viewport 안에 있는 동안에는 화면을 움직이지
+      // 않는다. 고정 레일/끝 경계에 **닿는 순간**에만 정확히 필요한 거리만 민다.
+      if (cellRect.left <= visibleLeft + edge) nextLeft -= visibleLeft - cellRect.left + edge;
+      else if (cellRect.right >= visibleRight - edge) nextLeft += cellRect.right - visibleRight + edge;
+      if (cellRect.top <= visibleTop + edge) nextTop -= visibleTop - cellRect.top + edge;
+      else if (cellRect.bottom >= visibleBottom - edge) nextTop += cellRect.bottom - visibleBottom + edge;
+      if (nextLeft !== scrollport.scrollLeft || nextTop !== scrollport.scrollTop) {
+        scrollport.scrollTo({ left: Math.max(0, nextLeft), top: Math.max(0, nextTop), behavior: 'instant' });
+      }
     });
+  }, [invalidateGridCache]);
+  const focusCell = useCallback((sourceIndex: number, column: number) => {
+    setActiveCell((current) => current?.sourceIndex === sourceIndex && current.column === column
+      ? current : { sourceIndex, column });
+  }, []);
+  const handleGridScroll = useCallback(() => {
+    if (gridScrollFrame.current !== null) return;
+    gridScrollFrame.current = window.requestAnimationFrame(() => {
+      gridScrollFrame.current = null;
+      const scrollport = gridScrollRef.current;
+      if (scrollport) setGridScrollTop(scrollport.scrollTop);
+    });
+  }, []);
+  useEffect(() => {
+    const scrollport = gridScrollRef.current;
+    if (!scrollport) return;
+    const measure = () => setGridViewportHeight(scrollport.clientHeight);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(scrollport);
+    return () => observer.disconnect();
+  }, [grid]);
+  useEffect(() => () => {
+    if (gridScrollFrame.current !== null) window.cancelAnimationFrame(gridScrollFrame.current);
   }, []);
   const handleCellKeyDown = useCallback((event: ReactKeyboardEvent<HTMLTableCellElement>, sourceIndex: number, column: number, detailHref: string | null) => {
     const rowAt = visibleRows.findIndex((row) => row.sourceIndex === sourceIndex);
@@ -426,19 +679,50 @@ export function SheetView({
     event.preventDefault();
     activateCell(visibleRows[nextRow].sourceIndex, nextColumn, true);
   }, [activateCell, grid?.header.length, visibleRows]);
-  const copyCustomerSummary = useCallback(async () => {
-    if (!selectedProduct || !canCopyForCustomer) return;
-    const code = String(selectedProduct.product_code || selectedProduct._key || '').trim();
+  const copyCustomerProduct = useCallback(async (product: EntityRecord | null, kind: 'all' | 'text' | 'link' = 'all') => {
+    if (!product || (viewerRole !== 'agent' && viewerRole !== 'admin') || !isOfferableProduct(product)) return;
+    const code = String(product.product_code || product._key || '').trim();
     if (!code) return;
-    const safeProduct = sanitizeProductForGuest(code, selectedProduct);
+    const safeProduct = sanitizeProductForGuest(code, product);
     const currentActor = actor(viewerRole);
-    const text = [
-      formatProductForCopy(safeProduct),
-      guestShareUrl(safeProduct, publicAgentShareCode(currentActor)),
-    ].filter(Boolean).join('\n\n');
-    if (await copyText(text)) toast('손님용 안내문과 매물 링크를 복사했습니다.', 'ok');
-    else toast('손님용 안내문을 복사하지 못했습니다.', 'error');
-  }, [canCopyForCustomer, selectedProduct, viewerRole]);
+    const copyValue = kind === 'text'
+      ? formatProductForCopy(safeProduct, { name: currentActor.name, phone: getSession()?.phone })
+      : kind === 'link'
+        ? guestShareUrl(safeProduct, publicAgentShareCode(currentActor))
+        : [formatProductForCopy(safeProduct, { name: currentActor.name, phone: getSession()?.phone }), guestShareUrl(safeProduct, publicAgentShareCode(currentActor))].filter(Boolean).join('\n\n');
+    const success = kind === 'text' ? '상품 텍스트가 복사되었습니다.'
+      : kind === 'link' ? '손님용 매물 링크 복사됨'
+        : '상품 텍스트와 손님용 매물 링크를 복사했습니다.';
+    if (await copyText(copyValue)) toast(success, 'ok');
+    else toast(kind === 'link' ? '링크를 복사하지 못했습니다' : '상품 텍스트를 복사하지 못했습니다', 'error');
+  }, [viewerRole]);
+  const openCellContextMenu = useCallback((event: ReactMouseEvent<HTMLTableCellElement>, sourceIndex: number, column: number) => {
+    event.preventDefault();
+    event.stopPropagation();
+    activateCell(sourceIndex, column, false);
+    const width = 292;
+    const height = 162;
+    const gutter = 8;
+    setContextMenu({
+      sourceIndex,
+      column,
+      x: Math.max(gutter, Math.min(event.clientX, window.innerWidth - width - gutter)),
+      y: Math.max(gutter, Math.min(event.clientY, window.innerHeight - height - gutter)),
+    });
+  }, [activateCell]);
+  useEffect(() => {
+    if (!contextMenu) return;
+    const dismiss = () => setContextMenu(null);
+    const dismissWithEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') dismiss();
+    };
+    window.addEventListener('pointerdown', dismiss);
+    window.addEventListener('keydown', dismissWithEscape);
+    return () => {
+      window.removeEventListener('pointerdown', dismiss);
+      window.removeEventListener('keydown', dismissWithEscape);
+    };
+  }, [contextMenu]);
   useEffect(() => {
     if (activeCell && !visibleRows.some((row) => row.sourceIndex === activeCell.sourceIndex)) setActiveCell(null);
   }, [activeCell, visibleRows]);
@@ -550,7 +834,7 @@ export function SheetView({
       </div>,
     );
   }
-  if (!grid) return pane('loading', <span role="status" aria-live="polite" style={{ fontSize: FS.sub, color: C.faint }}>{authReady ? '시트를 불러오는 중…' : '로그인 상태를 확인하는 중…'}</span>);
+  if (!grid) return pane('loading', <Loading label={authReady ? '시트를 불러오는 중…' : '로그인 상태를 확인하는 중…'} />);
 
   const selectSheetTab = (title: string, restoreTabFocus = false) => {
     setTabMenuOpen(false);
@@ -584,17 +868,17 @@ export function SheetView({
   };
 
   const bodyFont = `${SIZE}pt`;
-  const sourceRowHeight = rowPx(SIZE);
-  // 데이터 행은 원본의 촘촘함을 지키고, 클릭해 여는 ERP 필터 헤더만 한 단계 읽기 쉽게 둔다.
+  const sourceRowHeight = SHEET_ROW_HEIGHT;
+  // 데이터 행과 글자 크기는 같게 유지하고, 헤더는 굵기·면만 한 단계 묵직하게 한다.
   const headerRowHeight = Math.max(sourceRowHeight + 6, 28);
-  const headerFont = `${Math.max(SIZE + 1, 10)}pt`;
+  const headerFont = bodyFont;
   const plateColumn = grid.header.findIndex((header) => /^(차량번호|차번|차량 번호)$/.test(header.trim()));
 
   return (
     <div className="fp-sheet-view" style={{ fontFamily: FONT }} data-mobile={mobile ? '1' : undefined}>
       {/* 가로·세로 스크롤은 이 한 곳에서만. table-layout:fixed + 명시 폭으로 원본 열폭을 지킨다. */}
-      <div ref={gridScrollRef} className="fp-sheet-view__grid">
-        <table className="fp-sheet-view__table" role="grid" aria-label={`${tab} 판매시트`} style={{ width: `max(100%, ${tableWidth}px)` }}>
+      <div ref={gridScrollRef} className="fp-sheet-view__grid" onScroll={handleGridScroll}>
+        <table className="fp-sheet-view__table" role="grid" aria-label={`${tab} 판매시트`} aria-rowcount={visibleRows.length + 2} style={{ width: `max(100%, ${tableWidth}px)` }}>
           <colgroup>
             <col style={{ width: ROW_INDEX_WIDTH }} />
             {widths.map((width, index) => <col key={grid.header[index] || index} style={{ width }} />)}
@@ -624,10 +908,10 @@ export function SheetView({
                     aria-sort={sorted === 'asc' ? 'ascending' : sorted === 'desc' ? 'descending' : undefined}
                     style={{
                       height: headerRowHeight,
-                      background: sheetColor(colBgFor(header)) || 'var(--fp-sheet-rail)',
-                      color: C.ink,
-                      fontSize: headerFont,
-                      fontWeight: isMoneyColumn(header) || header === '차량번호' ? FW.strong : FW.label,
+                       background: sheetHeaderBackground(header),
+                       color: C.ink,
+                       fontSize: headerFont,
+                       fontWeight: FW.strong,
                     }}
                   >
                     <Btn
@@ -657,87 +941,82 @@ export function SheetView({
             </tr>
           </thead>
           <tbody role="rowgroup">
-            {visibleRows.length ? visibleRows.map(({ values, sourceIndex, detailHref }) => (
-              <tr
+            {visibleRows.length && renderedRows.start > 0 ? (
+              <tr className="fp-sheet-view__spacer" aria-hidden="true"><td colSpan={grid.header.length + 1} style={{ height: renderedRows.start * sourceRowHeight }} /></tr>
+            ) : null}
+            {visibleRows.length ? renderedRows.rows.map(({ values, sourceIndex, detailHref }) => (
+              <SheetGridRow
                 key={sourceIndex}
-                role="row"
-                className="fp-sheet-view__row"
-                data-source-index={sourceIndex}
-                data-detail-ready={detailHref ? 'true' : undefined}
-                data-selected={selectedSourceIndex === sourceIndex ? 'true' : undefined}
-              >
-                <th scope="row" role="rowheader" className="fp-sheet-view__row-index">
-                  <Btn
-                    type="button"
-                    variant="bare"
-                    className="fp-sheet-view__row-select"
-                    title={`${sourceIndex + 2}번 행 선택 · 방향키로 셀 이동`}
-                    aria-label={`${sourceIndex + 2}번 행 선택 · 방향키로 셀 이동`}
-                    aria-pressed={selectedSourceIndex === sourceIndex}
-                    haptic={false}
-                    onClick={() => activateCell(sourceIndex, 0, true)}
-                    style={{ width: '100%', height: '100%' }}
-                  >{sourceIndex + 2}</Btn>
-                </th>
-                {grid.header.map((header, index) => {
-                  const value = values[index] || '';
-                  const ink = valueColor(header, value);
-                  const isPlateCell = index === plateColumn;
-                  const isDetailCell = index === plateColumn && !!detailHref;
-                  const isActiveCell = activeCell?.sourceIndex === sourceIndex && activeCell.column === index;
-                  const isInitialCell = !activeCell && visibleRows[0]?.sourceIndex === sourceIndex && index === 0;
-                  return (
-                    <td
-                      key={index}
-                      id={sheetCellId(sourceIndex, index)}
-                      role="gridcell"
-                      className="fp-sheet-view__cell"
-                      title={isDetailCell ? 'ERP 상품 상세 열기' : (value || undefined)}
-                      tabIndex={isActiveCell || isInitialCell ? 0 : -1}
-                      aria-selected={isActiveCell}
-                      data-active-cell={isActiveCell ? 'true' : undefined}
-                      ref={(element) => {
-                        const id = sheetCellId(sourceIndex, index);
-                        if (element) cellRefs.current.set(id, element);
-                        else cellRefs.current.delete(id);
-                      }}
-                      onFocus={() => {
-                        setActiveCell((current) => current?.sourceIndex === sourceIndex && current.column === index
-                          ? current : { sourceIndex, column: index });
-                      }}
-                      onClick={() => activateCell(sourceIndex, index)}
-                      // Enter는 실제 파란 차량번호 링크 칸에서만 상세를 연다. 같은 행의 다른
-                      // 스프레드시트 셀까지 상세 이동으로 해석하면 키보드 셀 탐색과 충돌한다.
-                      onKeyDown={(event) => handleCellKeyDown(event, sourceIndex, index, isDetailCell ? detailHref : null)}
-                      style={{
-                        height: sourceRowHeight,
-                        background: sheetColor(colBgFor(header)) || C.taupeBg,
-                        color: ink || C.ink,
-                        fontSize: bodyFont,
-                        fontWeight: isMoneyColumn(header) || header === '차량번호' || ink ? FW.strong : FW.body,
-                        textAlign: columnAlign(header, value),
-                      }}
-                    >{isDetailCell ? (
-                      <Link
-                        href={detailHref!}
-                        className="fp-sheet-view__detail-link"
-                        tabIndex={-1}
-                        aria-label={`차량번호 ${value} · ERP 상품 상세 열기`}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          activateCell(sourceIndex, index);
-                        }}
-                      >{value}</Link>
-                    ) : isPlateCell ? <span className="fp-sheet-view__plate-plain" title="ERP 상세 미연결">{value}</span> : value}</td>
-                  );
-                })}
-              </tr>
+                headers={grid.header}
+                values={values}
+                sourceIndex={sourceIndex}
+                detailHref={detailHref}
+                plateColumn={plateColumn}
+                activeColumn={activeCell?.sourceIndex === sourceIndex ? activeCell.column : null}
+                initialRow={!activeCell && visibleRows[0]?.sourceIndex === sourceIndex}
+                rowHeight={sourceRowHeight}
+                bodyFont={bodyFont}
+                cellRefs={cellRefs}
+                onActivate={activateCell}
+                onFocusCell={focusCell}
+                onCellKeyDown={handleCellKeyDown}
+                onCellContextMenu={openCellContextMenu}
+              />
             )) : (
-              <tr><td className="fp-sheet-view__empty" colSpan={grid.header.length + 1}>{finderFilterPending ? 'ERP 조건을 확인하는 중…' : '필터 조건에 맞는 상품이 없습니다.'}</td></tr>
+            <tr><td className="fp-sheet-view__empty" colSpan={grid.header.length + 1}>{finderFilterPending
+              ? <Loading label="ERP 상품 조건을 불러오는 중…" minHeight={94} delayedAfterMs={0} />
+              : '필터 조건에 맞는 상품이 없습니다.'}</td></tr>
             )}
+            {visibleRows.length && renderedRows.end < visibleRows.length ? (
+              <tr className="fp-sheet-view__spacer" aria-hidden="true"><td colSpan={grid.header.length + 1} style={{ height: (visibleRows.length - renderedRows.end) * sourceRowHeight }} /></tr>
+            ) : null}
           </tbody>
         </table>
       </div>
+
+      {contextMenu ? (
+        <div
+          role="menu"
+          aria-label="선택한 행 작업"
+          className="fp-sheet-view__context-menu"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+          onPointerDown={(event) => event.stopPropagation()}
+        >
+          {contextRow?.detailHref ? (
+            <Link
+              role="menuitem"
+              className="fp-sheet-view__context-action"
+              href={contextRow.detailHref}
+              onClick={() => setContextMenu(null)}
+            ><ExternalLink size={16} strokeWidth={1.9} aria-hidden />상세 보기</Link>
+          ) : (
+            <span className="fp-sheet-view__context-action is-disabled" aria-disabled="true">ERP 상세 미연결</span>
+          )}
+          <span className="fp-sheet-view__context-divider" aria-hidden />
+          <button
+            type="button"
+            role="menuitem"
+            className="fp-sheet-view__context-action"
+            disabled={!canCopyContextForCustomer}
+            title={canCopyContextForCustomer ? '차명·대여료·보증금을 카톡에 붙여넣을 글로 복사합니다' : '고객 안내가 가능한 ERP 상품만 복사할 수 있습니다'}
+            onClick={() => {
+              void copyCustomerProduct(contextProduct, 'text');
+              setContextMenu(null);
+            }}
+          ><Copy size={16} strokeWidth={1.9} aria-hidden />텍스트 복사</button>
+          <button
+            type="button"
+            role="menuitem"
+            className="fp-sheet-view__context-action"
+            disabled={!canCopyContextForCustomer}
+            title={canCopyContextForCustomer ? '손님용 매물 링크를 복사합니다' : '고객 안내가 가능한 ERP 상품만 복사할 수 있습니다'}
+            onClick={() => {
+              void copyCustomerProduct(contextProduct, 'link');
+              setContextMenu(null);
+            }}
+          ><Link2 size={16} strokeWidth={1.9} aria-hidden />손님 전달</button>
+        </div>
+      ) : null}
 
       <div className="fp-sheet-view__tabs-wrap">
         <div ref={tabMenuRef} className="fp-sheet-view__tab-menu">
@@ -823,8 +1102,17 @@ export function SheetView({
             disabled={!canCopyForCustomer}
             title={customerCopyTitle}
             haptic={false}
-            onClick={() => void copyCustomerSummary()}
-          ><Copy size={ICON.sm} aria-hidden />손님용 복사</Btn>
+            onClick={() => void copyCustomerProduct(selectedProduct, 'link')}
+          ><Link2 size={ICON.sm} aria-hidden />링크 복사</Btn>
+          <Btn
+            type="button"
+            size="sm"
+            variant="ghost"
+            disabled={!canCopyForCustomer}
+            title={customerCopyTitle}
+            haptic={false}
+            onClick={() => void copyCustomerProduct(selectedProduct, 'text')}
+          ><Copy size={ICON.sm} aria-hidden />텍스트 복사</Btn>
           {finderFilterActive ? <span className="fp-sheet-view__global-filter">{finderFilterPending ? 'ERP 조건 확인 중' : 'ERP 조건 적용'}</span> : null}
           {hasTableState ? (
             <Btn type="button" variant="bare" className="fp-sheet-view__clear" title="필터와 정렬 초기화" onClick={clearTableState} haptic={false}>

@@ -129,11 +129,17 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
     setBusy(true);
     try {
       await runContractMutation(async () => {
-        if (!hasTermFrozen(contract)) {
-          await freezeContractTerm(contract, product, m);
+        const store = getStore();
+        if (store.backend.startsWith('rtdb')) {
+          // 운영에서는 기간·금액·요율·고객연락처·약정완료를 서버 한 전이로 묶는다.
+          // 한 항목만 성공해 마지막 단계에서 정산이 막히는 부분완료를 만들지 않는다.
+          const { completeContractAgreementFromClient } = await import('@/lib/firebase/contract-term-client');
+          await completeContractAgreementFromClient(co, String(contract.contract_code), m, cust.name.trim(), cust.phone.trim());
+          return;
         }
-        await getStore().update('contract', co, String(contract.contract_code), { customer_name: cust.name.trim(), customer_phone: cust.phone.trim() });
-        const fresh = (await getStore().get('contract', co, String(contract.contract_code))) || contract;
+        if (!hasTermFrozen(contract)) await freezeContractTerm(contract, product, m);
+        await store.update('contract', co, String(contract.contract_code), { customer_name: cust.name.trim(), customer_phone: cust.phone.trim() });
+        const fresh = (await store.get('contract', co, String(contract.contract_code))) || contract;
         await applyStepCheck(fresh, 'provider_agreement_done', 'yes');
       }, () => load(epoch), notifyChange);
     } catch (e) { toast(String((e as Error)?.message || e), 'error'); } finally {

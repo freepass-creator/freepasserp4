@@ -5,7 +5,7 @@ import {
   MessageCircleMore, MessageCircle, MessageCircleWarning, MessageCircleCheck, MessageCircleX,
   FileText, FileClock, FileCheck2, FileX2, ClipboardList,
   FileSignature, Send, MailOpen, PenLine, TimerOff,
-  CircleCheck, Package, Handshake, Ban, Car, ShieldCheck, Plus,
+  CircleCheck, Package, Handshake, Ban, CarFront, ShieldCheck, Plus,
   Building2, UserPlus, UserRoundCheck, UserRoundX,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -115,7 +115,7 @@ function inventoryStatusIcon(p: EntityRecord): { icon: LucideIcon; tone: BadgeTo
   if (st === '출고불가') return { icon: Ban, tone, title: '출고불가' };
   if (st === UNKNOWN_VEHICLE_STATUS) return { icon: FileX2, tone: 'red', title: st };
   if (p._needs_master_review) return { icon: ClipboardList, tone: 'amber', title: '검수 필요' };
-  return { icon: Car, tone, title: st || '재고' };
+  return { icon: CarFront, tone, title: st || '재고' };
 }
 
 /**
@@ -291,7 +291,7 @@ export const EsignVehicleSelectRow = memo(function EsignVehicleSelectRow({
     <FeedListRow
       selected={selected}
       onClick={() => onClick(p)}
-      thumb={<FeedThumbIcon icon={selected ? CircleCheck : Car} tone={selected ? 'green' : 'gray'} title={selected ? '선택됨' : '차량 선택'} decorative />}
+      thumb={<FeedThumbIcon icon={selected ? CircleCheck : CarFront} tone={selected ? 'green' : 'gray'} title={selected ? '선택됨' : '차량 선택'} decorative />}
       lines={[
         <FeedTitle key="t">{plate} · {vehicle}</FeedTitle>,
         <FeedSub key="s">{dotJoin([priceText, spec])}</FeedSub>,

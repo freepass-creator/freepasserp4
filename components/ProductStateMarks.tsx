@@ -27,17 +27,19 @@ function useRecentCodes(): Set<string> {
   return codes;
 }
 
-export function ProductStateMarks({ p, size = ICON.md, onPhoto = false, compact = false }: {
+export function ProductStateMarks({ p, size = ICON.md, onPhoto = false, compact = false, showSeen = true }: {
   p: EntityRecord;
   size?: number;
   /** 사진 위 — 반투명 판(별표와 같은 문법). 아니면 솔리드. */
   onPhoto?: boolean;
   compact?: boolean;
+  /** 「본 매물」 시계 표시 여부 — **상세 페이지는 끈다**(들어온 순간 최근에 쌓여 항상 켜지는 무의미한 표시, 2026-08-22). */
+  showSeen?: boolean;
 }) {
   const mobile = useIsMobile();
   const code = String(p.product_code || p._key || '');
   const inquired = useInquiredCodes().has(code);
-  const recent = useRecentCodes().has(code);
+  const recent = useRecentCodes().has(code) && showSeen;
   // 아무 상태도 아니면 자리 자체를 만들지 않는다 — «회색 비활성 아이콘»을 늘어놓지 않는다.
   if (!code || (!inquired && !recent)) return null;
 

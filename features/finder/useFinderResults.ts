@@ -46,10 +46,13 @@ export function useFinderResults(params: Params) {
     perks, promo, dynamic, vehicle, models, sort, interest, recent, favorites,
     hiddenCodes, passedCodes, filterDraft, effectiveView, columnFilter, columnSort,
   } = params;
-  const state: FState = {
+  // 검색 입력(qInput)은 상위에서 즉시 갱신되지만, 여기에는 확정된 query만 온다.
+  // 이 객체까지 렌더마다 새로 만들면 useDeferredValue가 타이핑과 무관하게 매번 새
+  // 작업으로 인식해 필터·정렬 메모가 무효화된다.
+  const state = useMemo<FState>(() => ({
     q: query, periods, rent, dep: deposit, mile: mileage, fuel,
     ptype: productType, credit, perks, promo, dyn: dynamic, vehicle,
-  };
+  }), [query, periods, rent, deposit, mileage, fuel, productType, credit, perks, promo, dynamic, vehicle]);
   const deferredState = useDeferredValue(state);
   const deferredModels = useDeferredValue(models);
 

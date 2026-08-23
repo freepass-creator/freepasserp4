@@ -22,7 +22,7 @@ export function ButtonLabel({ icon, children }: { icon: React.ReactNode; childre
   );
 }
 
-export function Btn({ children, mobileIcon, onClick, variant = 'solid', size = 'md', disabled, href, style, full, type = 'button', className, title, haptic = 'tap', 'aria-label': ariaLabel, 'aria-pressed': ariaPressed, 'data-active': dataActive }: {
+export function Btn({ children, mobileIcon, onClick, variant = 'solid', size = 'md', disabled, href, style, full, type = 'button', className, title, haptic = 'tap', id, 'aria-label': ariaLabel, 'aria-disabled': ariaDisabled, 'aria-pressed': ariaPressed, 'aria-expanded': ariaExpanded, 'aria-haspopup': ariaHasPopup, 'aria-controls': ariaControls, 'data-active': dataActive }: {
   children: React.ReactNode;
   /**
    * 모바일 아이콘 only — 화이트리스트(뒤로·닫기·메뉴·검색·필터·정렬·공유·더보기·새로고침)만.
@@ -39,10 +39,15 @@ export function Btn({ children, mobileIcon, onClick, variant = 'solid', size = '
   type?: 'button' | 'submit';
   className?: string;
   title?: string;
+  id?: string;
   /** 내장 햅틱. false=끄기. 핸들러 안 수동 haptic.* 금지(이중발동). */
   haptic?: BtnHaptic;
   'aria-label'?: string;
+  'aria-disabled'?: boolean;
   'aria-pressed'?: boolean;
+  'aria-expanded'?: boolean;
+  'aria-haspopup'?: boolean | 'dialog' | 'grid' | 'listbox' | 'menu' | 'tree';
+  'aria-controls'?: string;
   'data-active'?: string;
 }) {
   const mobile = useIsMobile();
@@ -77,9 +82,14 @@ export function Btn({ children, mobileIcon, onClick, variant = 'solid', size = '
   const childLabel = typeof children === 'string' || typeof children === 'number' ? String(children) : undefined;
   const accessibleLabel = ariaLabel || title || (iconOnly ? childLabel : undefined);
   const a11y = {
+    ...(id ? { id } : null),
     ...(title ? { title } : null),
     ...(accessibleLabel ? { 'aria-label': accessibleLabel } : null),
+    ...(ariaDisabled != null ? { 'aria-disabled': ariaDisabled } : null),
     ...(ariaPressed != null ? { 'aria-pressed': ariaPressed } : null),
+    ...(ariaExpanded != null ? { 'aria-expanded': ariaExpanded } : null),
+    ...(ariaHasPopup != null ? { 'aria-haspopup': ariaHasPopup } : null),
+    ...(ariaControls ? { 'aria-controls': ariaControls } : null),
     ...(dataActive != null ? { 'data-active': dataActive } : null),
   };
   const handleClick = onClick
@@ -91,7 +101,7 @@ export function Btn({ children, mobileIcon, onClick, variant = 'solid', size = '
 }
 
 /** 정사각 아이콘 버튼 — CTRL.md. style로 셸·특수 배치 1:1 오버라이드 가능. */
-export function IconBtn({ children, onClick, onPointerDown, title, active, disabled, style, className, haptic = 'tap' }: {
+export function IconBtn({ children, onClick, onPointerDown, title, active, disabled, style, className, haptic = 'tap', id, 'aria-expanded': ariaExpanded, 'aria-controls': ariaControls }: {
   children: React.ReactNode;
   onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
   onPointerDown?: (e: React.PointerEvent<HTMLButtonElement>) => void;
@@ -102,12 +112,16 @@ export function IconBtn({ children, onClick, onPointerDown, title, active, disab
   className?: string;
   /** 내장 햅틱. false=끄기. 핸들러 안 수동 haptic.* 금지(이중발동). */
   haptic?: BtnHaptic;
+  id?: string;
+  'aria-expanded'?: boolean;
+  'aria-controls'?: string;
 }) {
   const mobile = useIsMobile();
   const h = ctrlH(mobile);
   return (
     <button
       type="button"
+      id={id}
       className={className ? `fp-press ${className}` : 'fp-press'}
       onClick={(e) => { fireHaptic(haptic); onClick?.(e); }}
       onPointerDown={onPointerDown}
@@ -115,6 +129,8 @@ export function IconBtn({ children, onClick, onPointerDown, title, active, disab
       title={title}
       aria-label={title}
       aria-pressed={active || undefined}
+      aria-expanded={ariaExpanded}
+      aria-controls={ariaControls}
       style={{
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
         height: h, width: h, boxSizing: 'border-box', padding: 0, borderRadius: R,

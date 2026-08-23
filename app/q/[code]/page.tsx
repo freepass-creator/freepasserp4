@@ -1,123 +1,97 @@
-'use client';
-import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
-import { type EntityRecord } from '@/lib/intake/entities';
-import { vehicleName } from '@/lib/domain/product';
-import { ProductDetail } from '@/components/ProductDetail';
-import { C, R, Loading, CenterNote, Btn, FW, FS, ICON, SH } from '@/components/ui';
-import { haptic } from '@/lib/haptics';
-import { Phone } from 'lucide-react';
+import type { Metadata } from 'next';
+import { QuoteView } from './QuoteView';
+import { loadGuestQuote } from '@/lib/server/guest-quote';
+import { vehicleNameOf } from '@/lib/domain/vehicle-name';
+import { cheapest } from '@/lib/domain/product';
+import { fuelDisplay, yearDisplay } from '@/lib/domain/vehicle-master-match';
+import { kmDisplay, man } from '@/lib/format';
 
 /**
- * 손님 대면 **상품 안내**(화이트라벨).
- * ★이름(사장님 2026-08-20): 「견적」이 아니라 「상품 안내」다 — 이 화면은 12~60개월 요율표를 통째로
- *   보여 주고 손님이 고르는 안내지, 손님 조건을 확정해 «당신은 월 얼마»를 적는 견적서가 아니다.
- *   경로(`/q`)와 API 이름은 그대로 둔다 — 이미 손님에게 나간 링크가 깨진다.
- * Phase2: 사진·요금·조건 손롤 삭제 → ProductDetail(audience=customer).
- * 이 페이지는 귀속(?a=)·상담 CTA·화이트라벨 크롬만 담당.
+ * 손님 대면 **상품 안내**(화이트라벨) — 이 파일은 «서버 껍데기»다. 화면은 `QuoteView`(클라이언트)가 그린다.
  *
- * ★데이터는 **서버 API**(`/api/catalog/quote`)에서 받는다. 예전엔 브라우저가 RTDB 를 직접
- *   읽었는데, 규칙이 인증을 요구해서 **비로그인 손님에게는 401 → 항상 빈 화면**이었다
- *   (2026-07-30 QA 「영업 공유 퍼널 전면 불능」 · 2026-08-08 재확인).
- *   규칙을 열면 원가·수수료·회원까지 새므로, 서버가 서비스계정으로 읽고 화이트리스트만 준다.
+ * ★서버로 나눈 이유 = **카톡·문자 미리보기**(사장님 2026-08-22 「손님한테 나가는 공유링크가 freepasserp.com 은
+ *   안 떠도 될 것 같고 담당자명이 뜨는 게 나을 것 같음, 우리를 최대한 감춰야 하고」).
+ *   미리보기 카드는 **서버가 내려준 og 태그**만 읽는다 — 클라이언트에서 `document.title` 을 바꿔도
+ *   카톡은 그 전에 태그를 긁어 가므로 예전에는 루트 레이아웃의 `freepasserp.com — 장기렌터카 영업지원 플랫폼`이
+ *   그대로 나갔다(우리 정체가 손님 카톡방에 먼저 뜬다).
+ *   여기서 제목=**차량번호 차명**, 설명 2줄(연식·주행·연료 / 기간·월대여료·보증금),
+ *   사이트 이름=**담당자**로 덮어쓴다.
+ *
+ * ⚠ 남는 것: 링크의 **도메인 글자(freepasserp.com)** 자체는 미리보기 카드·주소창에 보인다 —
+ *   그건 표기 문제가 아니라 «어느 주소로 여느냐»라서, 지우려면 손님용 도메인을 따로 붙여야 한다(미결).
  */
+export const dynamic = 'force-dynamic';
 
-/** 손님 화면 본문 폭 — 하단바 안쪽도 같은 폭·같은 좌우 여백을 써서 왼쪽 선이 맞는다. */
-const GUEST_W = 760;
+type Params = { params: Promise<{ code: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
 
-export default function Quote() {
-  const { code } = useParams<{ code: string }>();
-  const key = decodeURIComponent(String(code));
-  const [p, setP] = useState<EntityRecord | null | undefined>(undefined);
-  const [agent, setAgent] = useState<EntityRecord | null>(null);
+const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) || '';
 
-  useEffect(() => { (async () => {
-    const a = typeof window !== 'undefined'
-      ? (new URLSearchParams(window.location.search).get('a') || localStorage.getItem('fp4_attr'))
-      : null;
-    if (a && typeof window !== 'undefined') localStorage.setItem('fp4_attr', a);
-    try {
-      const q = new URLSearchParams({ code: key });
-      if (a) q.set('a', a);
-      const res = await fetch(`/api/catalog/quote?${q}`, { cache: 'no-store' });
-      const body = await res.json().catch(() => ({})) as { product?: EntityRecord; agent?: EntityRecord | null };
-      setP(res.ok && body.product ? body.product : null);
-      setAgent(body.agent || null);
-    } catch {
-      setP(null);
-    }
-  })(); /* eslint-disable-next-line */ }, [key]);
+export async function generateMetadata({ params, searchParams }: Params): Promise<Metadata> {
+  const { code } = await params;
+  const sp = await searchParams;
+  // 조각은 통째로 넘긴다 — 가르는 판단은 loadGuestQuote 가 «못 찾았을 때만» 한다(하이픈 품은 상품키 보호).
+  const seg = decodeURIComponent(String(code || ''));
+  const share = one(sp.a);
 
-  useEffect(() => { if (p) document.title = `${vehicleName(p)} · 상품 안내`; }, [p]);
+  // 상품이 없거나 읽기에 실패해도 **브랜드가 새면 안 된다** — 중립 문구로 떨어뜨린다.
+  // ⚠ title 은 **absolute** 로 준다 — 루트 레이아웃 template(`%s · freepasserp.com`)이 브랜드를 도로 붙인다.
+  const neutral: Metadata = {
+    title: { absolute: '상품 안내' },
+    description: '차량 상품 안내입니다.',
+    robots: { index: false, follow: false },
+    openGraph: { title: '상품 안내', description: '차량 상품 안내입니다.', siteName: '상품 안내', type: 'website' },
+    twitter: { card: 'summary', title: '상품 안내', description: '차량 상품 안내입니다.' },
+  };
 
-  if (p === undefined) return <Loading />;
-  // 판매 가능 여부는 서버가 이미 판정했다(만료·출고불가면 404). 여기서 다시 걸지 않는다.
-  if (!p) return <CenterNote>현재 안내 가능한 상품이 아닙니다.</CenterNote>;
+  try {
+    const found = await loadGuestQuote(seg, share);
+    if (!found) return neutral;
+    const { product, agent } = found;
+    /**
+     * 미리보기 3줄(사장님 2026-08-22 확정):
+     *   제목  **차량번호 차명**
+     *   1줄   연식 · 주행 · 연료      ← 차번은 제목이 들었으니 여기서 빼 중복을 없앤다
+     *   2줄   기간 · 월대여료 · 보증금  ← 손님이 실제로 묻는 값(최저 기간, 카드가 보여 주는 그 조건)
+     * 담당자는 여기 넣지 않는다 — 사이트명 줄이 든다(「연식 나오는 줄에 담당자 정보가 있으면 안 되지」).
+     */
+    const plate = String(product.car_number || '').trim();
+    const vehicle = vehicleNameOf({ kind: 'product', product }, { tier: 'full', fallback: 'none' }) || '차량 상품';
+    const name = [plate, vehicle].filter(Boolean).join(' ');
+    const specLine = [
+      yearDisplay(product.year),
+      kmDisplay(product.mileage),
+      fuelDisplay(product.fuel_type) || String(product.fuel_type || '').trim(),
+    ].filter(Boolean).join(' · ');
+    const best = cheapest(product);
+    const priceLine = best && best.rent > 0
+      ? [`${best.m}개월`, `월 ${man(best.rent)}`, best.deposit > 0 ? `보증 ${man(best.deposit)}` : '무보증'].join(' · ')
+      : '';
+    const desc = [specLine, priceLine].filter(Boolean).join('\n') || '차량 상품 안내입니다.';
+    // 사이트 이름 자리 = 담당자. 우리 브랜드(BRAND)는 손님 화면에 어디에도 쓰지 않는다.
+    const who = String(agent?.name || '').trim();
+    const siteName = who ? `담당 ${who}` : '상품 안내';
+    const images = Array.isArray(product.image_urls) ? (product.image_urls as string[]).slice(0, 1) : [];
 
-  const agentName = agent ? String(agent.name || '') : '';
-  const phone = agent
-    ? String(agent.phone || agent.mobile || agent.tel || agent.contact || '').replace(/\s/g, '')
-    : '';
-  const telHref = phone ? `tel:${phone.replace(/[^0-9+]/g, '')}` : '';
-  const inverse = 'var(--text-inverse)';
+    return {
+      title: { absolute: name },
+      description: desc,
+      robots: { index: false, follow: false },
+      openGraph: {
+        type: 'website',
+        title: name,
+        // 담당자는 **사이트명 줄**이 든다 — 스펙 줄에 또 붙이면 한 줄에 성격이 다른 두 정보가 섞인다
+        // (사장님 2026-08-22 「연식 나오는 줄에 담당자 정보가 있으면 안 되지」).
+        description: desc,
+        siteName,
+        ...(images.length ? { images } : null),
+      },
+      twitter: { card: images.length ? 'summary_large_image' : 'summary', title: name, description: desc, ...(images.length ? { images } : null) },
+    };
+  } catch {
+    return neutral;
+  }
+}
 
-  return (
-    <>
-    <div style={{
-      display: 'flex', justifyContent: 'center',
-      // 하단바가 마지막 줄을 덮지 않게 바 높이만큼 비운다(바가 없으면 평소 여백).
-      padding: telHref ? '18px 18px calc(var(--fp-bar-h) + var(--fp-dock-safe, env(safe-area-inset-bottom)) + 18px)' : '18px 18px 28px',
-    }}>
-    <main style={{ flex: '1 1 auto', minWidth: 0, maxWidth: GUEST_W }}>
-      <div style={{ fontSize: FS.sub, color: C.mute, letterSpacing: '0.04em', marginBottom: 10 }}>상품 안내</div>
-      <ProductDetail p={p} audience="customer" />
-      {/* 담당자·전화는 하단바가 늘 들고 있다 — 본문에 같은 말을 또 적지 않는다. */}
-      {!telHref ? (
-        <div style={{ marginTop: 24, padding: '14px 16px', background: C.brand, color: inverse, borderRadius: R }}>
-          <div style={{ fontSize: FS.body, fontWeight: FW.title }}>상담 문의</div>
-          <div style={{ fontSize: FS.body, marginTop: 4, opacity: 0.9 }}>
-            {agentName ? `담당 영업자 ${agentName}에게 연락 주세요.` : '담당 영업자에게 연락 주세요.'}
-          </div>
-        </div>
-      ) : null}
-      <div style={{ marginTop: 14, fontSize: FS.cap, color: C.faint }}>본 안내는 참고용이며 심사·재고에 따라 변동될 수 있습니다.</div>
-    </main>
-    </div>
-
-    {/*
-      손님 하단바 — **담당자에게 바로 전화**(사장님 2026-08-20).
-      ERP 하단독과 **같은 규격**을 쓴다: 높이 `--fp-bar-h` · 세로 패딩 `--fp-bar-pad-y` · 같은 껍데기(윗선·그림자·안전영역).
-      숫자를 손으로 찍으면 ERP 바가 바뀔 때 이 바만 어긋난다.
-      안쪽은 본문 칼럼(GUEST_W)과 같은 폭·같은 좌우 여백이라 **담당자 이름이 본문 왼쪽 선에 맞는다**.
-    */}
-    {telHref ? (
-      <div style={{
-        position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 50,
-        background: C.taupeBg, borderTop: `1px solid ${C.line}`, boxShadow: SH.dock,
-        paddingBottom: 'var(--fp-dock-safe, env(safe-area-inset-bottom))',
-      }}>
-        <div style={{
-          maxWidth: GUEST_W, margin: '0 auto', boxSizing: 'border-box',
-          height: 'var(--fp-bar-h)', padding: '0 18px',
-          display: 'flex', alignItems: 'center', gap: 12,
-        }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: FS.cap, color: C.mute, lineHeight: 1.2 }}>담당 영업자</div>
-            <div style={{
-              fontSize: FS.body, fontWeight: FW.title, lineHeight: 1.3,
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-            }}>
-              {agentName || '상담 담당자'}{phone ? ` · ${phone}` : ''}
-            </div>
-          </div>
-          <Btn href={telHref} onClick={() => haptic.nav()} title="담당 영업자에게 전화합니다">
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <Phone size={ICON.md} aria-hidden />전화 상담
-            </span>
-          </Btn>
-        </div>
-      </div>
-    ) : null}
-    </>
-  );
+export default function QuotePage() {
+  return <QuoteView />;
 }

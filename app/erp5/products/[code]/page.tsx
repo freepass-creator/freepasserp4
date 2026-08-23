@@ -5,6 +5,7 @@ import { ArrowLeft, ArrowUpRight, CarFront } from 'lucide-react';
 import { useAuthReady, useSession } from '@/lib/auth-context';
 import { getCompanyId } from '@/lib/tenant';
 import { useFinderData } from '@/features/finder/useFinderData';
+import { finderDataScope } from '@/features/finder/finder-data-store';
 import { useProductPhotoState } from '@/components/use-product-photos';
 import { benefitSignals, canonProductType, creditDisplay, priceList, vehicleName } from '@/lib/domain/product';
 import { ICON } from '@/components/ui';
@@ -22,7 +23,7 @@ export default function Erp5ProductDetail() {
   const { code } = useParams<{ code: string }>();
   const authReady = useAuthReady();
   const session = useSession();
-  const { rows } = useFinderData({ companyId: getCompanyId(), authReady, sessionUid: session?.uid });
+  const { rows } = useFinderData({ companyId: getCompanyId(), authReady, sessionUid: session?.uid, sessionScope: finderDataScope(session) });
   const product = (rows || []).find((row) => String(row.product_code || row._key || '') === code);
   const { photos, pending } = useProductPhotoState(product || {}, 1280);
   if (rows == null) return <main className={styles.detailLoading}>차량 정보를 불러오는 중입니다.</main>;

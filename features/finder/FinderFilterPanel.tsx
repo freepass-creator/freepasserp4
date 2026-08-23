@@ -9,9 +9,8 @@ import {
 import { toggleInSet } from '@/lib/set';
 import { VehicleMasterFilter } from '@/components/VehicleMasterFilter';
 import { FINDER_DEFAULT_SORT, FINDER_SORTS } from './filter-state';
-import { Badge, Btn, C, CountPill, FilterGroup, FS, FW, Select, ToggleChips, ctrlH } from '@/components/ui';
-import type { FilterBag, InterestKey } from './filter-state';
-import type { FinderFilterPreset } from '@/lib/finder-filter-presets';
+import { Badge, Btn, C, CountPill, FilterGroup, FS, FW, Select, ToggleChips } from '@/components/ui';
+import type { FilterBag } from './filter-state';
 
 type FilterUpdate = Partial<FilterBag> | ((current: FilterBag) => FilterBag);
 
@@ -36,8 +35,6 @@ export type FinderFilterPanelModel = {
   foundCount: number;
   searching: boolean;
   activeCount: number;
-  /** 축만(즐겨찾기 저장 가능 여부). interest·정렬·엑셀 제외. */
-  presetSaveCount: number;
   draftOpen: boolean;
   value: FilterBag;
   rows: EntityRecord[];
@@ -45,25 +42,14 @@ export type FinderFilterPanelModel = {
   popularModels: { key: string; label: string; count?: number }[];
   present: ReturnType<typeof presentFilterOptions>;
   aggregate: ReturnType<typeof aggregateDyn>;
-  recentCount: number;
-  favoriteCount: number;
-  presets: FinderFilterPreset[];
-  activePresetId: string | null;
-  onSavePreset: () => void;
-  onApplyPreset: (id: string) => void;
-  onRemovePreset: (id: string) => void;
   update: (patch: FilterUpdate) => void;
   reset: () => void;
-  clearRecent: () => void;
-  clearFavorites: () => void;
 };
 
 export function FinderFilterPanel({ model }: { model: FinderFilterPanelModel }) {
   const {
-    mobile, totalVisible, foundCount, searching, activeCount, presetSaveCount, draftOpen, value, cascadeProducts,
-    popularModels, present, aggregate, recentCount, favoriteCount,
-    presets, activePresetId, onSavePreset, onApplyPreset, onRemovePreset,
-    update, reset, clearRecent, clearFavorites,
+    mobile, totalVisible, foundCount, searching, activeCount, draftOpen, value, cascadeProducts,
+    popularModels, present, aggregate, update, reset,
   } = model;
 
   const toggleDynamic = (key: string, selected: string) => update((current) => {
@@ -110,100 +96,10 @@ export function FinderFilterPanel({ model }: { model: FinderFilterPanelModel }) 
         </div>
       )}
       <div className="fp-sidebar-body">
-        <FilterGroup
-          title="즐겨찾는 조건"
-          count={activePresetId ? 1 : 0}
-          defaultOpen
-          first
-          actions={(() => {
-            const height = ctrlH(mobile);
-            const style = {
-              marginLeft: 4, flex: '0 0 auto', fontSize: mobile ? FS.sub : FS.cap,
-              fontWeight: FW.strong, minHeight: height, minWidth: 40,
-              padding: mobile ? '0 8px' : '0 6px',
-            };
-            return (
-              <>
-                {activePresetId ? (
-                  <Btn
-                    variant="bare"
-                    title="즐겨찾기 삭제"
-                    haptic="impact"
-                    onClick={() => { onRemovePreset(activePresetId); }}
-                    style={{ ...style, color: C.mute }}
-                  >
-                    삭제
-                  </Btn>
-                ) : null}
-                <Btn
-                  variant="bare"
-                  title="현재 조건 저장"
-                  haptic="select"
-                  disabled={presetSaveCount <= 0}
-                  onClick={() => { onSavePreset(); }}
-                  style={{ ...style, color: presetSaveCount > 0 ? C.accent : C.mute }}
-                >
-                  저장
-                </Btn>
-              </>
-            );
-          })()}
-        >
-          {presets.length > 0 ? (
-            <ToggleChips
-              selected={activePresetId ? new Set<string>([activePresetId]) : new Set<string>()}
-              onToggle={(id) => { onApplyPreset(id); }}
-              options={presets.map((preset) => ({ key: preset.id, label: preset.label }))}
-            />
-          ) : (
-            <span style={{ fontSize: FS.cap, color: C.faint, lineHeight: 1.45 }}>
-              조건을 켠 뒤 저장하면 여기에 모입니다
-            </span>
-          )}
-        </FilterGroup>
-        {draftOpen && (
-          <>
-            <FilterGroup
-              title="최근·관심"
-              count={value.interest.size}
-              defaultOpen
-              actions={(() => {
-                const height = ctrlH(mobile);
-                const style = {
-                  marginLeft: 4, flex: '0 0 auto', fontSize: mobile ? FS.sub : FS.cap,
-                  fontWeight: FW.strong, minHeight: height, minWidth: 40,
-                  padding: mobile ? '0 8px' : '0 6px',
-                };
-                if (value.interest.size > 0) {
-                  return <Btn variant="bare" title="해제" haptic="select" onClick={() => update({ interest: new Set() })} style={{ ...style, color: C.accent }}>해제</Btn>;
-                }
-                return <>
-                  <Btn variant="bare" title="최근 비우기" haptic="impact" disabled={recentCount === 0} onClick={clearRecent} style={{ ...style, color: C.mute }}>최근 비우기</Btn>
-                  <Btn variant="bare" title="관심 비우기" haptic="impact" disabled={favoriteCount === 0} onClick={clearFavorites} style={{ ...style, color: C.mute }}>관심 비우기</Btn>
-                </>;
-              })()}
-            >
-              <ToggleChips
-                selected={value.interest}
-                onToggle={(key) => update((current) => ({ ...current, interest: toggleInSet(current.interest, key as InterestKey) }))}
-                options={[
-                  { key: 'recent', label: recentCount ? `최근 ${recentCount}` : '최근' },
-                  { key: 'fav', label: favoriteCount ? `관심 ${favoriteCount}` : '관심' },
-                ]}
-              />
-            </FilterGroup>
-            <FilterGroup title="정렬" count={value.sort !== FINDER_DEFAULT_SORT ? 1 : 0} defaultOpen onClear={() => update({ sort: FINDER_DEFAULT_SORT })}>
-              <div style={{ flex: '1 1 100%', width: '100%', minWidth: 0 }}>
-                <Select
-                  full value={value.sort || FINDER_DEFAULT_SORT} onChange={(key) => update({ sort: key })}
-                  options={FINDER_SORTS}
-                />
-              </div>
-            </FilterGroup>
-          </>
-        )}
+        {/* 요상한 것 없음(사장님 2026-08-22 「즐겨찾기 이런 거 다 빼고, 위에서부터 직관적으로 인기차종부터 영업자들이 찾을 것들로만」)
+            — 즐겨찾는 조건(프리셋)·최근·관심 필터를 걷어냈다. 첫 그룹은 인기차종, 정렬은 모바일 시트 맨 아래(웹은 툴바 셀렉트). */}
         {(popularOpts.length > 0) && (
-          <FilterGroup title={<>인기차종 <Badge tone="amber" variant="solid">BEST</Badge></>} count={value.models.size} defaultOpen={!draftOpen} onClear={() => update({ models: new Set() })}>
+          <FilterGroup title={<>인기차종 <Badge tone="amber" variant="solid">BEST</Badge></>} count={value.models.size} defaultOpen first onClear={() => update({ models: new Set() })}>
             <ToggleChips selected={value.models} onToggle={(key) => update((current) => ({ ...current, models: toggleInSet(current.models, key) }))} options={popularOpts} />
           </FilterGroup>
         )}
@@ -270,6 +166,17 @@ export function FinderFilterPanel({ model }: { model: FinderFilterPanelModel }) 
             </FilterGroup>
           );
         })()}
+        {/* 정렬 — 모바일 시트에만, 맨 아래(웹은 툴바 셀렉트가 담당). 필터 축이 아니라 끝에 둔다. */}
+        {draftOpen && (
+          <FilterGroup title="정렬" count={value.sort !== FINDER_DEFAULT_SORT ? 1 : 0} defaultOpen onClear={() => update({ sort: FINDER_DEFAULT_SORT })}>
+            <div style={{ flex: '1 1 100%', width: '100%', minWidth: 0 }}>
+              <Select
+                full value={value.sort || FINDER_DEFAULT_SORT} onChange={(key) => update({ sort: key })}
+                options={FINDER_SORTS}
+              />
+            </div>
+          </FilterGroup>
+        )}
       </div>
     </>
   );

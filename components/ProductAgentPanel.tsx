@@ -1,11 +1,10 @@
 'use client';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import { Copy, Download, Link2, LoaderCircle } from 'lucide-react';
+import { Download, LoaderCircle, Share2 } from 'lucide-react';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { acquisitionPriceList, agentContractRows, agentPanelRows, cheapest, priceList, vehicleName, type Audience } from '@/lib/domain/product';
 import { actor, getRole } from '@/lib/domain/deal';
-import { getSession } from '@/lib/auth-session';
-import { formatProductForCopy, guestShareUrl } from '@/lib/domain/product-share';
+import { guestShareUrl } from '@/lib/domain/product-share';
 import { useProductPhotoState } from '@/components/use-product-photos';
 import { downloadPhotoZip } from '@/lib/client/download-photo-zip';
 import { CustomerPreviewButton } from '@/components/CustomerPreviewModal';
@@ -52,46 +51,42 @@ const INV = {
 };
 
 /**
- * 손님에게 **보내는** 두 버튼 — 좌우 2열.
- * 우측 칼럼에서는 이 줄이 패널 아래에 **고정**돼 스크롤과 무관하게 늘 보인다
- * (사장님 2026-08-20 「링크랑 텍스트 복사는 고정해서 밑에서 보이게 · 버튼도 좌우로」).
- * 「손님 전달」 같은 이름표는 붙이지 않는다 — 버튼 글자가 이미 무슨 일인지 말한다.
+ * 손님에게 **보내는** 버튼 — 「링크 공유」 하나(웹·모바일 공통).
+ * (사장님 2026-08-22 「텍스트복사 빼자, 링크 공유하기 버튼만 · 바로 공유할 수 있게끔 · 웹도 링크 공유로」
+ *  — 텍스트 복사는 삭제. 예전 2열 「링크 복사·텍스트 복사」에서 줄였다.)
+ * 누르면 **바로** OS 공유시트(navigator.share — 카톡·문자 등)로 가고,
+ * 공유시트가 없는 환경(대부분의 데스크톱 브라우저)은 링크를 복사하고 알려 준다.
+ * 우측 칼럼에서는 이 줄이 패널 아래에 고정돼 스크롤과 무관하게 늘 보인다.
  */
-export function ProductAgentShareActions({ p }: { p: EntityRecord }) {
+export function ProductAgentShareActions({ p, full }: { p: EntityRecord; full?: boolean }) {
   const role = getRole();
-  const sendLink = async () => {
+  const share = async () => {
     const a = actor(role);
     const url = guestShareUrl(p, a.code || a.uid);
     if (navigator.share) { navigator.share({ title: vehicleName(p), url }).catch(() => {}); return; }
-    if (await copyText(url)) toast('손님용 매물 링크 복사됨', 'ok');
+    if (await copyText(url)) toast('손님용 매물 링크 복사됨 — 카톡·문자에 붙여넣으세요', 'ok');
     else prompt('링크', url);
   };
-  const copySummary = async () => {
-    const currentActor = actor(role);
-    if (await copyText(formatProductForCopy(p, { name: currentActor.name, phone: getSession()?.phone }))) toast('상품 텍스트가 복사되었습니다', 'ok');
-    else toast('상품 텍스트를 복사하지 못했습니다', 'error');
-  };
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-      <Btn full title="손님용 매물 링크를 복사합니다" onClick={sendLink}>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-          <Link2 size={ICON.md} aria-hidden />링크 복사
-        </span>
-      </Btn>
-      <Btn full title="차명·대여료·보증금을 카톡에 붙여넣을 글로 복사합니다" onClick={copySummary}>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-          <Copy size={ICON.md} aria-hidden />텍스트 복사
-        </span>
-      </Btn>
-    </div>
+    <Btn full={full} title="손님용 매물 링크를 바로 공유합니다" onClick={share}>
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+        <Share2 size={ICON.md} aria-hidden />링크 공유
+      </span>
+    </Btn>
   );
 }
 
-export function ProductAgentPanel({ p, audience, pinnedShare }: {
+export function ProductAgentPanel({ p, audience, pinnedShare, mobile }: {
   p: EntityRecord;
   audience?: Audience;
-  /** 공유 두 버튼을 칼럼이 아래에 고정해 따로 그린다 — 본문에서는 빼서 같은 버튼이 두 번 서지 않게. */
+  /** 공유 두 버튼이 딴 데(우측 칼럼 하단 고정·모바일 하단독)에 있다 — 본문에서는 빼서 같은 버튼이 두 번 서지 않게. */
   pinnedShare?: boolean;
+  /**
+   * 모바일(좁은 화면, 상세 본문 끝에 쌓일 때) — 사장님 2026-08-22
+   * 「대여료표가 없어도 되고(본문 기간별 대여료 표와 중복), 영업정보도 패널 잘 박스로 묶어 줘야지」.
+   * ① 대여료 카드를 빼고, 패널 전체를 카드 한 장(테두리·모서리)으로 감싸 «여기부터 영업자 것»이 한눈에 갈리게.
+   */
+  mobile?: boolean;
 }) {
   const role = getRole();
   const aud: Audience = audience || (role === 'admin' ? 'admin' : 'agent');
@@ -153,7 +148,11 @@ export function ProductAgentPanel({ p, audience, pinnedShare }: {
   );
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+    /* 모바일 = 카드로 감싸지 않는다(사장님 2026-08-22 「경계를 명확히 하고 위에랑 동일한 형태로 섹션표로」)
+       — 박스로 묶으면 안쪽 표가 본문 표보다 10px 좁아져 규격이 갈린다. 경계는 아래 반전 바 하나가 긋고,
+       표들은 본문과 같은 DetailTable 그대로 선다. */
+    <div style={{ display: 'flex', flexDirection: 'column', gap: mobile ? 12 : 10 }}>
+      {/* gap 12(모바일) = 본문 섹션 사이 간격과 같은 공통규격(사장님 2026-08-22). 웹 칼럼은 10 유지. */}
       {/*
         ⓪ 패널 머리 — **이 칼럼이 무엇인지 맨 위에서 말한다**(사장님 2026-08-20 「영업자 전용 패널이라고 왜 상단에 안해주냐고」).
            표식은 **글자 한 줄**로 끝낸다. 면을 칠하거나(앰버) 좌측 바를 두르면 블록을 감싸는 인용문처럼 읽힌다
@@ -161,6 +160,22 @@ export function ProductAgentPanel({ p, audience, pinnedShare }: {
            아래 표들의 반전 머리띠가 말하고 있다.
            손님 화면엔 이 칼럼이 통째로 안 붙으므로, 그 사실은 칸마다가 아니라 **여기 한 번**만 적는다.
       */}
+      {mobile ? (
+        /* 모바일 = **경계 바**(반전 네이비) — 여기부터 영업자 것임을 바 하나가 명확히 긋는다
+           (사장님 2026-08-22 「영업자전용패널이라고 바나 뭐 나눠지는 경계를 명확히 하고, 위에랑 동일한 형태로 섹션표로」).
+           반전은 패널의 문법(웹 대여료 머리띠와 같은 색) — 본문 표의 회색 머리띠와 확실히 갈린다. */
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+          background: C.brand, color: C.inverse, borderRadius: R, padding: '8px 12px',
+        }}>
+          <span style={{ fontSize: FS.body, fontWeight: FW.title }}>영업자 전용 패널</span>
+          <span style={{
+            flex: '0 0 auto', fontSize: FS.micro, fontWeight: FW.label,
+            border: `1px solid ${INV.line}`, background: INV.soft, borderRadius: R,
+            padding: '1px 6px', lineHeight: 1.6,
+          }}>손님 비공개</span>
+        </div>
+      ) : (
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
         background: C.taupeBg, padding: '2px 2px 0',
@@ -176,6 +191,7 @@ export function ProductAgentPanel({ p, audience, pinnedShare }: {
           borderRadius: R, padding: '1px 6px', lineHeight: 1.6,
         }}>손님 비공개</span>
       </div>
+      )}
 
       {/*
         ① 대여료 — 전 기간 목록. 패널이 늘 떠 있으니 본문 위로 올라가지 않아도 «얼마»가 보인다.
@@ -184,6 +200,8 @@ export function ProductAgentPanel({ p, audience, pinnedShare }: {
           영업자 패널은 «참고하는 곳»이지 결론을 내리는 곳이 아니다. 결론(고른 조건)은 본문 표가 든다.
           그래서 반전은 **머리띠 한 줄**만 남기고 몸통은 흰 카드로 — 패널 안 다른 표들과 문법도 같아진다.
       */}
+      {/* 모바일은 대여료 카드를 통째로 뺀다 — 바로 위 본문 「기간별 대여료」 표와 같은 값이 두 번 선다(사장님 2026-08-22). */}
+      {mobile ? null : (
       <div style={{ background: C.taupeBg, borderRadius: R_CARD, overflow: 'hidden' }}>
         <div style={{
           display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, padding: '9px 10px',
@@ -228,13 +246,16 @@ export function ProductAgentPanel({ p, audience, pinnedShare }: {
           </div>
         )}
       </div>
+      )}
 
       {/* ② 영업 정보 — 머리띠는 스카이. 본문(네이비 반전)과 구역이 갈리되 더 세지는 않다. */}
       <DetailTable
         title="영업 정보"
         hint="상담용"
         icon={sectionIcon('영업 정보')}
-        tone="agent"
+        /* 모바일 = 본문 섹션과 같은 흰 카드+테두리(tone main). agent 톤(투명 몸통)은 웹 우측 칼럼 전용인데
+           모바일에 그대로 오니 「배경이랑 한몸」이 됐다(사장님 2026-08-22 — 박스 라인이든 배경이든 위계). */
+        tone={mobile ? 'main' : 'agent'}
         accent="agent"
         span={2}
         widths={['44%', undefined]}
@@ -257,7 +278,7 @@ export function ProductAgentPanel({ p, audience, pinnedShare }: {
           title="계약 조건"
           hint="계약 단계"
           icon={sectionIcon('계약 조건')}
-          tone="agent"
+          tone={mobile ? 'main' : 'agent'}
           accent="agent"
           span={2}
           widths={['44%', undefined]}
@@ -289,7 +310,7 @@ export function ProductAgentPanel({ p, audience, pinnedShare }: {
       </Btn>
 
       {/* 좁은 화면 = 고정할 칼럼이 없다 → 공유 버튼도 흐름 끝에 그대로 선다. */}
-      {!pinnedShare ? <ProductAgentShareActions p={p} /> : null}
+      {!pinnedShare ? <ProductAgentShareActions p={p} full /> : null}
     </div>
   );
 }
@@ -393,7 +414,7 @@ export function ProductAgentColumn({ p, audience }: { p: EntityRecord; audience?
           padding: 'var(--fp-bar-pad-y) 12px',
           paddingBottom: 'calc(var(--fp-bar-pad-y) + var(--fp-dock-safe, 0px))',
         }}>
-          <ProductAgentShareActions p={p} />
+          <ProductAgentShareActions p={p} full />
         </div>
       </aside>
     </>

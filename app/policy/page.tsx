@@ -1,5 +1,6 @@
 'use client';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { getStore, peekList } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
@@ -17,7 +18,6 @@ import { NAV_LABEL } from '@/lib/tabbar';
 import { canIssueContract, CONTRACT_LAYER, policyReadiness, type PolicyField, type PolicyReadinessStatus } from '@/lib/domain/policy-tier';
 import { FREEPASS_POLICY_PACK, POLICY_DEFAULTS, applyPolicyDefaults } from '@/lib/domain/policy-defaults';
 import { retainVisibleSelection } from '@/features/work-list-display';
-import { PolicyRequiredDocumentsEditor } from '@/components/PolicyRequiredDocumentsEditor';
 import { providerNameMap } from '@/lib/domain/identity';
 import { scopeManagedPolicies } from '@/lib/domain/policy-access';
 import { partnerManageUrl } from '@/lib/domain/policy-navigation';
@@ -26,6 +26,13 @@ import {
   ESIGN_POLICY_SELECTION_SESSION_KEY,
   type EsignPolicySelection,
 } from '@/lib/domain/esign-policy-return';
+
+// 정책 목록·기본 조건을 볼 때는 전자계약 필수서류 편집기가 필요 없다.
+// 전자계약 섹션을 선택한 뒤에만 준비해 정책관리의 첫 입력/검색 반응을 유지한다.
+const PolicyRequiredDocumentsEditor = dynamic(() => import('@/components/PolicyRequiredDocumentsEditor').then((m) => m.PolicyRequiredDocumentsEditor), {
+  ssr: false,
+  loading: () => <Loading label="필수 서류 설정을 여는 중…" />,
+});
 
 type PolSort = 'name' | 'code' | 'type';
 type PolScope = 'all' | 'incomplete' | 'mine' | 'shared';
@@ -116,6 +123,7 @@ export default function PolicyMgmt() {
   const [form, setForm] = useState<EntityRecord>({});
   const [dirty, setDirty] = useState(false);
   const [q, setQ] = useState('');
+  const deferredQ = useDeferredValue(q);
   const [ok, setOk] = useState<boolean | null>(null);
   const [sort, setSort] = useState<PolSort | ''>('name');
   const [scope, setScope] = useState<PolScope>('all');
@@ -376,7 +384,7 @@ export default function PolicyMgmt() {
     .filter((p) => matchPolicyQuery({
       ...p,
       provider_name: providerAliases[String(p.provider_company_code || '').trim()] || p.provider_name,
-    }, q))
+    }, deferredQ))
     .filter((p) => {
       if (scope === 'all') return true;
       if (scope === 'incomplete') {
@@ -394,7 +402,7 @@ export default function PolicyMgmt() {
       if (sort === 'type') return String(a.policy_type || '').localeCompare(String(b.policy_type || ''), 'ko')
         || String(a.policy_name || '').localeCompare(String(b.policy_name || ''), 'ko');
       return String(a.policy_name || a.policy_code || '').localeCompare(String(b.policy_name || b.policy_code || ''), 'ko');
-    }), [rows, q, scope, sort, providerAliases, partnerByCode, providerScope]);
+    }), [rows, deferredQ, scope, sort, providerAliases, partnerByCode, providerScope]);
 
   const policySelectOptions = useMemo(() => ({
     provider_company_code: Object.entries(providerAliases)

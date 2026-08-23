@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
+import { memo, useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
@@ -18,7 +18,7 @@ const ACT_TONE: Record<string, 'green' | 'amber' | 'red' | 'gray' | 'blue' | 'te
 const label = (k: string) => ENTITIES[k]?.label || k;
 const fmt = (ms: unknown) => { const n = Number(ms); return n ? new Date(n).toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'; };
 
-function AuditRow({ log }: { log: EntityRecord }) {
+const AuditRow = memo(function AuditRow({ log }: { log: EntityRecord }) {
   const [open, setOpen] = useState(false);
   const changes = useMemo(() => parseAuditChanges(log), [log]);
   const samples = Array.isArray(log.samples) ? (log.samples as string[]) : [];
@@ -62,7 +62,7 @@ function AuditRow({ log }: { log: EntityRecord }) {
       )}
     </div>
   );
-}
+});
 
 export default function AuditTrash() {
   const co = getCompanyId();
@@ -73,6 +73,7 @@ export default function AuditTrash() {
   const [deleted, setDeleted] = useState<{ entity: string; rec: EntityRecord }[]>([]);
   const [domain, setDomain] = useState('');
   const [q, setQ] = useState('');
+  const deferredQ = useDeferredValue(q);
 
   const loadTrash = async () => {
     const out: { entity: string; rec: EntityRecord }[] = [];
@@ -89,14 +90,14 @@ export default function AuditTrash() {
   useEffect(() => { (async () => { if (!isAdminUiAllowed()) { router.replace('/'); return; } await seedIfEmpty(co); await load(); setOk(true); })(); /* eslint-disable-next-line */ }, []);
 
   const shownLogs = useMemo(() => {
-    const qq = q.trim().toLowerCase();
+    const qq = deferredQ.trim().toLowerCase();
     return logs.filter((l) => {
       if (domain && auditDomainOf(l) !== domain) return false;
       if (!qq) return true;
       const blob = [l.target_key, l.summary, l.actor_name, l.action, l.entity, l.room_id, ...(Array.isArray(l.samples) ? l.samples as string[] : [])].join(' ').toLowerCase();
       return blob.includes(qq);
     }).slice(0, 500);
-  }, [logs, domain, q]);
+  }, [logs, domain, deferredQ]);
   const restore = async (entity: string, key: string) => { await getStore().restore(entity, co, key); await load(); };
 
   if (ok === null) return <Loading />;

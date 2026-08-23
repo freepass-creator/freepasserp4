@@ -81,7 +81,8 @@ function fmtCardYear(p: EntityRecord): string {
 
 /** CardSpecs — 객관 스펙 한 줄.
  *  기본 = 차량번호 · 연식 · 연료 · 주행 · 배기량. 없으면 `-`.
- *  plateYear = 모바일 목록용(차번 · 연식만). 연료·주행·배기·심사는 /m.
+ *  plateYear = 모바일 목록용 — **차번 · 연식 · 주행 · 연료**(사장님 2026-08-22 「상품목록에 차량번호 연식
+ *    주행거리 연료까지는 보여줘야 한다고, 지금 연식만 있잖아」. 1행에서 세부트림을 뺀 만큼 이 줄이 차를 설명한다).
  *  차번 = 운영자만(손님 숨김). 텍스트만 · 살짝 두껍게.
  */
 export function CardSpecs({ p, dense, audience = 'agent', plateYear, listing }: {
@@ -97,13 +98,13 @@ export function CardSpecs({ p, dense, audience = 'agent', plateYear, listing }: 
    * 연료는 차를 고를 때 «주행거리 다음»으로 먼저 걸러 보는 값이라 한 줄에 같이 있어야 한다.
    */
   const body = plateYear
-    ? year
+    ? [year, kmDisplay(p.mileage), fuelDisplay(p.fuel_type) || String(p.fuel_type || '').trim()].filter(Boolean).join(' · ')
     : listing
       ? [year, kmDisplay(p.mileage), fuelDisplay(p.fuel_type) || String(p.fuel_type || '').trim()].filter(Boolean).join(' · ')
       : specLineCard(p);
   const tip = [
     showPlateSlot && plate ? plate : '',
-    plateYear ? year : listing ? body : specLine(p),
+    plateYear || listing ? body : specLine(p),
   ].filter(Boolean).join(' · ');
   return (
     <div title={tip || undefined} style={{

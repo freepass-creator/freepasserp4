@@ -54,11 +54,14 @@ export type AdminState = {
     }>;
     additionalDriverPolicy?: { limit?: number; cost?: string };
     requiredDocuments?: Array<{ key?: string; label?: string; required?: boolean }>;
+    consentProfile?: { version?: string; cmsRequiredBeforeHandover?: boolean };
     template?: { label?: string; version?: string };
     contractKind?: { title?: string; maturity?: string; insuranceSide?: string };
   } | null;
   session?: {
     status?: string;
+    customerLinkUsable?: boolean;
+    reissueRequiresNewContract?: boolean;
     issuedAt?: number;
     openedAt?: number;
     submittedAt?: number;
@@ -342,7 +345,7 @@ export function EsignProblemList({
   if (!problems.length) return null;
   const partnerProblems = problems.filter((check) => PARTNER_PROBLEM_KEYS.has(check.key));
   const resolvedFooter = footer
-    || (partnerProblems.length ? `공급사 정보(${partnerProblems.map((check) => check.label).join('·')})는 파트너사관리에서 입력합니다.` : undefined);
+    || (partnerProblems.length ? `공급사 정보(${partnerProblems.map((check) => check.label).join('·')})를 확인해 주세요.` : undefined);
   return (
     <>
       <ListGroup header={header} footer={resolvedFooter}>
@@ -534,8 +537,18 @@ export function FreepassEsignStagePane({
   const [customerInsuranceEvidenceConfirmed, setCustomerInsuranceEvidenceConfirmed] = useState(false);
 
   const flags = flagsOf(esign, problems);
+  const statePending = !state;
   const customerInsuranceEvidenceRequired = state?.snapshot?.contractKind?.insuranceSide === '고객직접'
     || (state?.snapshot?.requiredDocuments || []).some((document) => document.key === 'customer_insurance_certificate');
+  const cmsRequiredBeforeHandover = state?.snapshot?.consentProfile?.cmsRequiredBeforeHandover === true;
+  const needsConsentReissue = issued
+    && ['sent', 'opened'].includes(sessionStatus)
+    && state?.session?.customerLinkUsable === false;
+  const reissueRequiresNewContract = needsConsentReissue
+    && state?.session?.reissueRequiresNewContract === true;
+  const legacyCompletedSession = issued
+    && stage === '완료'
+    && state?.session?.customerLinkUsable === false;
   useEffect(() => {
     setCustomerInsuranceEvidenceConfirmed(false);
   }, [code, state?.session?.submittedAt]);
@@ -583,7 +596,25 @@ export function FreepassEsignStagePane({
   const events = state?.events || [];
 
   let stageCard: ReactNode = null;
-  if (flags.revoked || flags.expired) {
+  if (statePending && issued) {
+    stageCard = (
+      <EsignStageCard
+        tone="flag"
+        title="전자계약 상태 확인 중"
+        description="서버에서 현재 전자계약 기준을 확인하고 있습니다. 확인이 끝날 때까지 고객 링크를 전달하지 마세요."
+      />
+    );
+  } else if (needsConsentReissue) {
+    stageCard = (
+      <EsignStageCard
+        tone="flag"
+        title="고객 링크를 다시 만들어야 합니다"
+        description={reissueRequiresNewContract
+          ? '이전 동의 기준 링크는 더 이상 고객 정보를 받지 않습니다. 이 구 회차는 서버 동결 기준이 없어 새 계약서를 만들어야 합니다.'
+          : '이전 동의 기준 링크는 더 이상 고객 정보를 받지 않습니다. 「계약서·링크」에서 새 고객 링크를 만드세요.'}
+      />
+    );
+  } else if ((flags.revoked || flags.expired) && !needsConsentReissue) {
     stageCard = (
       <EsignStageCard
         tone="flag"
@@ -763,14 +794,22 @@ export function FreepassEsignStagePane({
     stageCard = (
       <EsignStageCard
         title="완료 — 봉인된 계약서"
-        description="승인 시점의 데이터·서명·타임스탬프로 봉인됐습니다. PDF는 「계약서·링크」에서 엽니다. 인도일을 확정하면 계약 시작·종료일이 정해집니다."
+        description={legacyCompletedSession
+          ? '구 동의 기준으로 완료된 회차입니다. 봉인 PDF 열람은 유지하지만 인도·차량잠금·정산은 현행 전자계약으로 새로 진행해야 합니다.'
+          : cmsRequiredBeforeHandover
+          ? '승인 시점의 데이터·서명·타임스탬프로 봉인됐습니다. CMS 별도 등록이 끝나기 전에는 인도일을 확정할 수 없습니다.'
+          : '승인 시점의 데이터·서명·타임스탬프로 봉인됐습니다. PDF는 「계약서·링크」에서 엽니다. 인도일을 확정하면 계약 시작·종료일이 정해집니다.'}
         tone="quiet"
       >
         <ListGroup>
           <DetailRow label="승인·봉인" value={stamp(times['완료'])} />
           <DetailRow label="봉인 해시" value={S(current.esign_seal_hash) ? `${S(current.esign_seal_hash).slice(0, 16)}…` : '—'} />
         </ListGroup>
-        {canReview ? (
+        {canReview && legacyCompletedSession ? (
+          <div style={{ padding: '10px 12px', border: `1px solid ${C.warn}`, borderRadius: R, background: C.warnBg, fontSize: FS.cap, lineHeight: 1.55 }}>
+            구 동의 기준 회차는 인도일을 확정할 수 없습니다. 봉인 PDF만 보관하고, 현행 동의 기준으로 새 전자계약을 만들어 진행하세요.
+          </div>
+        ) : canReview ? (
           <>
             <SectionLabel>인도일 확정</SectionLabel>
             {savedDate ? (
@@ -779,12 +818,18 @@ export function FreepassEsignStagePane({
                 {savedHandover?.contract_start ? ` · ${S(savedHandover.contract_start)} ~ ${S(savedHandover.contract_end)}` : ''}
               </div>
             ) : <div style={{ fontSize: FS.cap, color: C.faint }}>아직 인도일 없음</div>}
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 220px) auto', gap: 6, alignItems: 'center' }}>
-              <Input type="date" value={handoverDate} onChange={setHandoverDate} ariaLabel="차량 인도일" full />
-              <Btn title={savedDate ? '인도일 다시 확정' : '인도일 확정'} disabled={busy || !/^\d{4}-\d{2}-\d{2}$/.test(handoverDate)} onClick={() => void saveHandover()}>
-                {busy ? '저장 중…' : savedDate ? '인도일 다시 확정' : '인도일 확정'}
-              </Btn>
-            </div>
+            {cmsRequiredBeforeHandover ? (
+              <div style={{ padding: '10px 12px', border: `1px solid ${C.warn}`, borderRadius: R, background: C.warnBg, fontSize: FS.cap, lineHeight: 1.55 }}>
+                CMS 출금동의·예금주 인증은 별도 등록 절차입니다. 현재 전자계약에는 실제 CMS 등록 기능이 없으므로, 등록 증빙이 연동되기 전까지 인도일을 확정할 수 없습니다.
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 220px) auto', gap: 6, alignItems: 'center' }}>
+                <Input type="date" value={handoverDate} onChange={setHandoverDate} ariaLabel="차량 인도일" full />
+                <Btn title={savedDate ? '인도일 다시 확정' : '인도일 확정'} disabled={busy || !/^\d{4}-\d{2}-\d{2}$/.test(handoverDate)} onClick={() => void saveHandover()}>
+                  {busy ? '저장 중…' : savedDate ? '인도일 다시 확정' : '인도일 확정'}
+                </Btn>
+              </div>
+            )}
           </>
         ) : null}
       </EsignStageCard>
@@ -839,6 +884,7 @@ export function FreepassEsignDocumentPane({
   providerName,
   problems,
   basePath = '/esign',
+  onCreateNewContract = null,
 }: {
   esign: FreepassEsign;
   policy: EntityRecord | null;
@@ -846,17 +892,30 @@ export function FreepassEsignDocumentPane({
   providerName: string;
   problems: EsignCheck[];
   basePath?: string;
+  onCreateNewContract?: (() => void) | null;
 }) {
   const { code, state, current, sessionStatus, issued, stage, busy, run } = esign;
   const flags = flagsOf(esign, problems);
   const blocked = problems.filter((check) => check.level === 'BLOCK');
-  const link = S(current.esign_sign_url);
+  // 목록 캐시는 구형 public URL을 잠깐 품고 있을 수 있다. 서버 상태 응답을 받기 전에는
+  // bearer 링크를 화면·클립보드·고객 미리보기 어느 쪽에도 쓰지 않는다.
+  const statePending = !state;
+  const savedLink = statePending ? '' : S(current.esign_sign_url);
   const linkExpiresAt = N(state?.session?.expiresAt || current.sign_expires_at);
   const tpl = findTemplate(current.standard_template_id) || defaultStandardTemplate();
   const maturity = maturityOf(current) || '반납형';
   const spec = contractKindFor(tpl, maturity);
   const selectionError = tpl && spec ? standardTemplateSelectionError(tpl, spec, policy) : '';
-  const linkRecoveryNeeded = issued && !link && ['sent', 'opened'].includes(sessionStatus);
+  // v1 링크는 고객 화면에서 개인정보를 더 받지 않고 재발행 안내(409)로 닫는다.
+  // 목록에서 계속 복사·따라보기가 가능하면 끊긴 링크를 다시 전달하게 되므로, 영업 화면도
+  // 같은 경계를 보여 주고 현재 정책으로 새 v2 링크를 발행하게 한다.
+  const needsConsentReissue = issued
+    && ['sent', 'opened'].includes(sessionStatus)
+    && state?.session?.customerLinkUsable === false;
+  const reissueRequiresNewContract = needsConsentReissue
+    && state?.session?.reissueRequiresNewContract === true;
+  const link = needsConsentReissue ? '' : savedLink;
+  const linkRecoveryNeeded = issued && !savedLink && ['sent', 'opened'].includes(sessionStatus);
 
   const issue = (success: string) => run({ action: 'issue', standardTemplateId: tpl.id, contractKind: spec?.key }, success);
   const copyLink = () => {
@@ -895,11 +954,42 @@ export function FreepassEsignDocumentPane({
   );
 
   let card: ReactNode;
-  if (flags.revoked || flags.expired) {
+  if (statePending && issued) {
+    card = (
+      <EsignStageCard
+        tone="flag"
+        title="고객 링크 확인 중"
+        description="서버에서 현재 전자계약 기준을 확인하고 있습니다. 확인이 끝날 때까지 링크를 전달하지 마세요."
+      />
+    );
+  } else if ((flags.revoked || flags.expired) && !needsConsentReissue) {
     card = (
       <EsignStageCard tone="flag" title="링크 다시 만들기" description={flags.revoked ? '해지된 링크는 다시 쓸 수 없습니다.' : '유효기간이 지난 링크는 다시 쓸 수 없습니다.'}>
         <Btn full title="같은 계약 내용으로 새 고객 링크 만들기" disabled={busy || blocked.length > 0} onClick={() => void issue('새 링크를 만들었습니다. 링크를 복사해 고객에게 전달하세요.')}>
           {busy ? '링크 만드는 중…' : '링크 다시 만들기'}
+        </Btn>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>{a4Button}</div>
+      </EsignStageCard>
+    );
+  } else if (needsConsentReissue) {
+    card = (
+      <EsignStageCard
+        tone="flag"
+        title={reissueRequiresNewContract ? '새 계약서 만들기' : '고객 링크 다시 만들기'}
+        description={reissueRequiresNewContract
+          ? '이전 동의 기준 링크는 더 이상 고객 정보를 받지 않습니다. 이 구 회차는 서버 동결 기준이 없어 새 계약서로 다시 작성해야 합니다.'
+          : '이전 동의 기준 링크는 더 이상 고객 정보를 받지 않습니다. 현재 계약 조건으로 새 고객 링크를 만드세요.'}
+      >
+        <Btn
+          full
+          title={reissueRequiresNewContract ? '새 전자계약 초안 만들기' : '현재 계약 조건으로 새 고객 링크 만들기'}
+          disabled={busy || (reissueRequiresNewContract && !onCreateNewContract)}
+          onClick={() => {
+            if (reissueRequiresNewContract) onCreateNewContract?.();
+            else void issue('새 동의 기준으로 고객 링크를 만들었습니다. 링크를 복사해 고객에게 전달하세요.');
+          }}
+        >
+          {busy ? '링크 만드는 중…' : reissueRequiresNewContract ? '새 계약서 만들기' : '새 고객 링크 만들기'}
         </Btn>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>{a4Button}</div>
       </EsignStageCard>

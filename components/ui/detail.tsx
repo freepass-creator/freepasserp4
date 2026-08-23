@@ -83,8 +83,11 @@ export const DT = {
   } as React.CSSProperties,
   /** 섹션 이름을 인 머리띠 — 모든 섹션이 이 회색 띠로 시작한다(카드가 달라도 시작선이 같다). */
   band: {
-    padding: '7px 10px', textAlign: 'left', background: C.head,
-    borderBottom: `1px solid ${C.line}`, fontWeight: FW.body,
+    /* C.head(#eef1f6)는 흰 카드와 붙어 띠가 사라졌고, --border(#d5dae2)도 폰에서는 「아직 배경이랑 거의 동일」
+       (사장님 2026-08-22 두 번 지적) — 한 단계 더 올려 --border-strong(#bcc4cf). 무채 유지, 글자는 C.ink 그대로. */
+    padding: '7px 10px', textAlign: 'left', background: 'var(--border-strong)',
+    /* 밑줄 없음(2026-08-21 사장님 「굳이 라인 없어도 되는 곳에 라인」) — 띠 배경이 이미 경계다. */
+    fontWeight: FW.body,
   } as React.CSSProperties,
   /** 값 칸이 여러 개인 표만 쓰는 열이름 줄(기간·월대여료·보증금 / 보장한도·면책금). */
   colTh: {
@@ -225,11 +228,12 @@ export function DetailTable({ title, hint, mark, icon, tone = 'main', headTone =
         <thead>
           <tr>
             <th scope="col" colSpan={span} style={inverted
-              ? { ...DT.band, background: C.brand, borderBottomColor: C.brand }
-              : { ...DT.band, background: ac.bg, borderBottomColor: ac.line }}>
+              ? { ...DT.band, background: C.brand }
+              /* 색 밴드(ACCENT) 되돌림(사장님 2026-08-22 「색깔도 그렇고 원래 상태랑 봐봐」) — 섹션 머리띠는 원래 회색 하나다. */
+              : DT.band}>
               <span style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                 {icon ? (
-                  <span aria-hidden style={{ display: 'inline-flex', color: inverted ? C.inverse : ac.ink, opacity: inverted ? 0.85 : 1 }}>{icon}</span>
+                  <span aria-hidden style={{ display: 'inline-flex', color: inverted ? C.inverse : C.mute, opacity: inverted ? 0.85 : 1 }}>{icon}</span>
                 ) : null}
                 <span style={{ fontSize: FS.sub, fontWeight: FW.title, color: inverted ? C.inverse : C.ink }}>{title}</span>
                 {hint ? <span style={{ fontSize: FS.cap, color: inverted ? C.inverse : C.faint, opacity: inverted ? 0.75 : 1 }}>{hint}</span> : null}

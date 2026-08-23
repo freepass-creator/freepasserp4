@@ -5,6 +5,7 @@ import { ArrowLeft, Check, Copy, Send } from 'lucide-react';
 import { useAuthReady, useSession } from '@/lib/auth-context';
 import { getCompanyId } from '@/lib/tenant';
 import { useFinderData } from '@/features/finder/useFinderData';
+import { finderDataScope } from '@/features/finder/finder-data-store';
 import { cheapest, priceList, vehicleName } from '@/lib/domain/product';
 import { Btn, ICON } from '@/components/ui';
 import styles from './workspace.module.css';
@@ -19,7 +20,7 @@ const mileage = (value: unknown) => {
 export function SelectionReview({ mode }: { mode: 'compare' | 'proposal' }) {
   const authReady = useAuthReady();
   const session = useSession();
-  const { rows } = useFinderData({ companyId: getCompanyId(), authReady, sessionUid: session?.uid });
+  const { rows } = useFinderData({ companyId: getCompanyId(), authReady, sessionUid: session?.uid, sessionScope: finderDataScope(session) });
   const [codes, setCodes] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
 

@@ -2,6 +2,7 @@
 import type { LucideIcon } from 'lucide-react';
 import { FileText, ScrollText, Users, History, Search, Wrench } from 'lucide-react';
 import { C, NUM, FW, FS, R, ICON, ctrlH } from '@/components/ui';
+import { useIsMobile } from '@/lib/use-mobile';
 import { NAV_ICON } from '@/lib/tabbar';
 
 /**
@@ -25,21 +26,25 @@ export function PageStatus({
   secondaryCount?: number | string | null;
   secondaryUnit?: string;
 }) {
+  const mobile = useIsMobile();
   const n = count == null || count === '' ? null : count;
   const sn = secondaryCount == null || secondaryCount === '' ? null : secondaryCount;
   const sUnit = secondaryUnit ?? unit;
   const chip = ctrlH(false, 'sm');
   return (
     <div style={{
-      display: 'flex', alignItems: 'center', gap: 8,
+      display: 'flex', alignItems: 'center', gap: mobile ? 7 : 8,
       minWidth: 0, width: '100%',
     }}>
+      {/* 모바일 = **박스 없는 맨 아이콘**(사장님 2026-08-22 「좌측 상단 아이콘도 박스에 들어가 있으면 안 되는데」)
+          — 우측 햄버거와 같은 문법·같은 글리프 크기(ICON.md). 잉크가 곧 왼쪽 12px 기준선이 된다.
+          웹은 회색 칩 유지(좌측 전체메뉴 버튼이 테두리를 가져 둘이 짝을 이룬다). */}
       <span style={{
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        width: chip, height: chip, flex: '0 0 auto', borderRadius: R,
-        background: C.head, color: C.mute,
+        flex: '0 0 auto', color: C.mute,
+        ...(mobile ? null : { width: chip, height: chip, borderRadius: R, background: C.head }),
       }}>
-        <Icon size={ICON.sm} strokeWidth={2.25} />
+        <Icon size={mobile ? ICON.md : ICON.sm} strokeWidth={2.25} />
       </span>
       <div style={{
         display: 'flex', alignItems: 'baseline', gap: 6,
@@ -87,6 +92,7 @@ export function statusIconFor(titleOrPath: string): LucideIcon {
   if (s === '계약' || s.startsWith('/contract')) return NAV_ICON.contract;
   if (s.includes('재고') || s.startsWith('/inventory')) return NAV_ICON.inventory;
   if (s.includes('설정') || s.startsWith('/settings')) return NAV_ICON.settings;
+  if (s.includes('내가본') || s.startsWith('/interest')) return NAV_ICON.interest;
   if (s.includes('정책') || s.startsWith('/policy')) return ScrollText;
   if (s.includes('정산') || s.startsWith('/settlement')) return FileText;
   if (s.includes('회원') || s.startsWith('/members')) return Users;

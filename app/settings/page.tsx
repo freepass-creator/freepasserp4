@@ -259,7 +259,8 @@ export default function Settings() {
     <Page title="설정">
       {/* 웹 = 폭 활용 2단(섹션 원자는 그대로, 배열만 컬럼) · 모바일 = 단일 세로 스크롤. */}
       <style>{`
-        .fp-settings-grid { max-width: 560px; width: 100%; box-sizing: border-box; margin: 0 auto; padding: 12px 0; display: flex; flex-direction: column; gap: 20px; }
+        /* 그룹 간 16 — 섹션 리듬(12)보다 한 단 넓게(제목이 얇은 글자라 12면 그룹이 붙어 보임), 20은 과했다(2026-08-22 공통규격 정리). */
+        .fp-settings-grid { max-width: 560px; width: 100%; box-sizing: border-box; margin: 0 auto; padding: 12px 0; display: flex; flex-direction: column; gap: 16px; }
         @media (min-width: 760px) {
           .fp-settings-grid { max-width: 960px; padding: 18px 16px 28px; display: block; column-count: 2; column-gap: 30px; }
           .fp-settings-grid > * { break-inside: avoid; -webkit-column-break-inside: avoid; margin-bottom: 22px; }
@@ -362,6 +363,7 @@ export default function Settings() {
           favoriteCount={favN}
           passed={passed}
           hidden={hidden}
+          showInterest={!mobile}
         />
 
         {demoRole ? (
@@ -403,6 +405,7 @@ export default function Settings() {
                 </div>
               </div>
             )}
+            {/* 관리자 전용 화면(월별정산·계약서관리 등) 입구는 모바일도 햄버거다(2026-08-22 밤 「관리자 햄버거 ㅇㅋ」 — 여기 두면 중복). */}
             <ListRow main="개발도구" href="/dev" />
             <ListRow main={NAV_LABEL.dataCheck} href="/data-check" />
             <ListRow main={NAV_LABEL.audit} href="/audit" />

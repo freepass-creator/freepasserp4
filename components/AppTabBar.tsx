@@ -14,10 +14,9 @@ import { refreshCurrentPage } from '@/lib/page-refresh';
 import { toast } from '@/components/Toaster';
 
 /**
- * 모바일 하단 탭.
- *   영업자: 상품찾기 · 계약진행 · 전자계약
- *   공급사: 상품찾기 · 계약진행 · 재고관리
- *   관리자: 상품찾기 · 계약진행 · 정산확인 · 재고관리
+ * 모바일 하단 탭 — 역할 무관 4개 고정(사장님 2026-08-22).
+ *   영업자: 상품찾기 · 계약진행 · 내가본상품 · 설정
+ *   공급사·관리자: 상품찾기 · 계약진행 · 재고관리 · 설정
  * 라벨 = NAV_LABEL SSOT · 아이콘 = NAV_ICON SSOT (상단 메뉴와 동일)
  */
 function setTabCss(on: boolean) {
@@ -116,8 +115,8 @@ export default function AppTabBar() {
         boxSizing: 'border-box',
         paddingBottom: 'env(safe-area-inset-bottom, 0px)',
         background: C.taupeBg,
+        /* 하단바 = 상단 라인 «하나만»(사장님 2026-08-22 검수) — 그림자 없음. */
         borderTop: `1px solid ${C.line}`,
-        boxShadow: SH.dock,
       }}
     >
       <div style={{

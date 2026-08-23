@@ -5,12 +5,20 @@ import type { CSSProperties, ReactNode } from 'react';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
-import { C, R_CARD, SH } from '@/components/ui';
+import { C, FS, FW, R_CARD, SH } from '@/components/ui';
+import { vehicleNameOf } from '@/lib/domain/vehicle-name';
+
+/**
+ * 모바일 목록 1행 이름 = **세부모델 + 세부트림**(제조사 뺌 · 사장님 2026-08-22).
+ * `omitMaker` 는 «상위 UI 가 제조사를 확정한 자리»에서만 쓰는 옵션인데, 목록은 사진이 그 역할을 한다.
+ * tier full 이라야 트림까지 붙는다(short 는 세부모델까지).
+ */
+const listName = (p: EntityRecord): string =>
+  vehicleNameOf({ kind: 'product', product: p }, { tier: 'full', omitMaker: true, fallback: 'plate' });
 import {
   CardTitle, CardSpecs, CardPerkLine, CardThumb, CardRailBadges,
   PricePeekRoot, PriceAmounts, PeriodChips, PeriodRange, OptionChips,
 } from '@/components/product-card-atoms';
-import { ProductMoreMenu } from '@/components/ProductMoreMenu';
 
 /**
  * 상세카드 SSOT
@@ -21,8 +29,8 @@ import { ProductMoreMenu } from '@/components/ProductMoreMenu';
  *   3 스펙(+차번)       | 기간·대여료·보증금
  *   4 조건              | 기간칩
  *
- * 모바일 피드 4줄(세로 · 썸네일 좌) — 영업 스캔. 옵션·뱃지·연료/주행은 /m:
- *   1 차량명 (+⋯)
+ * 모바일 피드 4줄(세로 · 썸네일 좌) — 영업 스캔. 옵션·뱃지·연료/주행은 /m. ⋮메뉴 없음(2026-08-22):
+ *   1 차량명
  *   2 차량번호 · 연식
  *   3 대여료 · 보증금 · 최저~최대 운영기간
  *   4 우대조건
@@ -122,21 +130,24 @@ function WebRow({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) {
  */
 function MobileRow({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) {
   const href = `/m/${encodeURIComponent(String(p.product_code || p._key))}`;
-  const cardStyle = {
+  /**
+   * ⚠ 여백은 **안쪽 Link 한 곳에만** 둔다(2026-08-22 사장님 「모바일 여백 더 준 거 같은데」).
+   *   perf 개편(b507cd06)이 ⋯메뉴 배치용 겉 div 를 씌우며 안팎 둘 다 padding 10×12 를 걸어
+   *   행 여백이 두 배(상하 20·좌우 24)가 됐었다 — 겉은 하단선·position 만 갖는다.
+   */
+  const linkedContentStyle = {
     display: 'flex', gap: 12, alignItems: 'stretch',
     borderRadius: 0,
-    padding: '10px 12px',
-    borderBottom: `1px solid ${C.line2}`,
+    /* 행 상하 8px — 모바일 밀도(사장님 2026-08-22). 글자 크기는 그대로, 여백만 조인다. */
+    padding: '8px 12px',
     textDecoration: 'none', color: 'inherit',
-  } satisfies CSSProperties;
-  const linkedContentStyle = {
-    ...cardStyle,
-    border: 'none', borderRadius: 0,
     width: '100%', minWidth: 0, boxSizing: 'border-box',
   } satisfies CSSProperties;
 
   return (
-    <div className="fp-card fp-card-row" style={{ ...cardStyle, position: 'relative' }}>
+    /* 가로라인 구분(사장님 2026-08-22 「가로라인 구분이 무난, 제일 넓게 쓰는 방법」 — 박스형은 하루 써 보고 회귀).
+       테두리·모서리·그림자 없이 하단 hairline 하나가 경계다 — 한 화면에 한두 줄 더 들어온다. */
+    <div className="fp-card fp-card-row" style={{ position: 'relative', borderBottom: `1px solid ${C.line}`, background: C.taupeBg }}>
       <Link href={href} onClick={() => haptic.nav()} style={linkedContentStyle}>
         {/* 목록(웹·모바일) = 찜 없음. 관심 등록은 상품 상세에서만. */}
         <CardThumb p={p} w={56} marks={false} />
@@ -144,15 +155,21 @@ function MobileRow({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) 
         <PricePeekRoot p={p} focusMonth={focusMonth} style={{
           display: 'flex',
           flexDirection: 'column',
-          gap: 5,
+          gap: 4,
           flex: '1 1 auto',
           minWidth: 0,
           alignSelf: 'stretch',
           justifyContent: 'center',
         }}>
-          {/* 1 차량명 — 메뉴는 Link sibling이어야 중첩 interactive element가 아니다. */}
-          <div style={{ position: 'relative', minWidth: 0, paddingRight: 22 }}>
-            <CardTitle p={p} narrow />
+          {/* 1 **세부모델 + 세부트림**(제조사 없음) + 뱃지 — 사장님 2026-08-22
+             「모바일 목록에서 제조사는 빼고 그냥 세부모델만… 목록에 나오는 거는 세부모델 세부트림, 짤리는 건 어쩔 수 없고」.
+             제조사는 사진과 모델 이름으로 이미 알아본다. 조립은 vehicle-name SSOT(omitMaker) — 손으로 붙이지 않는다. */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+            <div title={listName(p)} style={{
+              fontSize: FS.title, fontWeight: FW.title, color: C.ink, lineHeight: 1.2,
+              minWidth: 0, flex: '0 1 auto', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>{listName(p)}</div>
+            <CardRailBadges p={p} dense align="start" />
           </div>
 
           {/* 2 차량번호 · 연식 */}
@@ -175,7 +192,7 @@ function MobileRow({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) 
           <CardPerkLine p={p} inline />
         </PricePeekRoot>
       </Link>
-      <ProductMoreMenu p={p} align="top" />
+      {/* ⋮메뉴 없음(사장님 2026-08-22 「모바일 상품목록에서 우측 세로점 빼자, 필요없다」) — 숨김·넘김은 웹 목록에서. */}
     </div>
   );
 }

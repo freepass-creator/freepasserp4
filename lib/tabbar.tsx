@@ -1,7 +1,7 @@
 'use client';
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import {
-  CarFront, MessageCircleMore, FileText, FileSignature, Box, Settings, type LucideIcon,
+  CarFront, MessageCircleMore, FileText, FileSignature, Box, Settings, Star, type LucideIcon,
 } from 'lucide-react';
 import type { Role } from '@/lib/domain/deal';
 
@@ -38,6 +38,7 @@ export const NAV_ICON = {
   inventory: Box,
   settlement: FileText,
   settings: Settings,
+  interest: Star,
 } as const satisfies Record<string, LucideIcon>;
 
 /**
@@ -53,6 +54,8 @@ export const NAV_LABEL = {
   contract: '계약진행 및 정산',
   inventory: '재고관리',
   settings: '설정',
+  // 내가본상품 = 이 기기의 관심(찜)·최근 본 상품 모음(product-interest) — 모바일 하단탭 입구(사장님 2026-08-22)
+  interest: '내가본상품',
   policy: '정책관리',
   // 계약서관리(/esign) = 계약서를 만들어 손님에게 보내고 서명을 추적하는 곳. /contract(계약진행)와 축이 다르다 —
   //   저기는 «내 계약이 어디까지 왔나», 여기는 «계약서를 보낸다/손님이 서명했나»(2026-08-08 결정).
@@ -90,7 +93,9 @@ export type AppTab = {
  * 하단 탭 항목 — 햄버거(TopBar SIMPLE_GROUPS)와 같은 규칙.
  *   · 계약진행(/contract) = 목록 + 그 계약이 어디까지 왔는지(5단계) 보는 곳(사장님 2026-08-19).
  *   · 계약서관리(/esign)는 관리자 메뉴로 갔다 — 하단탭엔 없다.
- *   · 공급사·관리자만 재고 추가.
+ *   · **역할 무관 4탭 고정**(사장님 2026-08-22 「하단 버튼이 4개잖아 — 상품찾기·계약진행·재고관리/내가본상품·설정」):
+ *     3번 칸만 갈린다 — 영업자=내가본상품(관심·최근) · 공급사/관리자=재고관리.
+ *     정산확인은 탭에서 뺐다(햄버거 관리 메뉴에 그대로) — 모바일에서 매일 여는 화면이 아니다.
  */
 export function appTabsFor(role: Role): AppTab[] {
   const tabs: AppTab[] = [
@@ -98,12 +103,12 @@ export function appTabsFor(role: Role): AppTab[] {
     { href: '/finder', label: tabLabel('product'), icon: NAV_ICON.product },
     { href: '/contract', label: tabLabel('contract'), icon: NAV_ICON.contract, badgeKey: '/contract' },
   ];
-  if (role === 'admin') {
-    tabs.push({ href: '/settlement', label: '정산확인', icon: NAV_ICON.settlement });
-  }
   if (role === 'provider' || role === 'admin') {
     tabs.push({ href: '/inventory', label: tabLabel('inventory'), icon: NAV_ICON.inventory });
+  } else {
+    tabs.push({ href: '/interest', label: tabLabel('interest'), icon: NAV_ICON.interest });
   }
+  tabs.push({ href: '/settings', label: tabLabel('settings'), icon: NAV_ICON.settings });
   return tabs;
 }
 
@@ -114,6 +119,7 @@ export function isTabRoute(path: string, role?: Role): boolean {
   if (path === '/settlement' || path.startsWith('/settlement/')) return role == null || role === 'admin';
   if (path === '/esign' || path.startsWith('/esign/')) return role == null || role === 'admin';
   if (path === '/settings' || path.startsWith('/settings/')) return true;
+  if (path === '/interest' || path.startsWith('/interest/')) return true;
   if (path === '/inventory' || path.startsWith('/inventory/')) {
     return role == null || role === 'provider' || role === 'admin';
   }

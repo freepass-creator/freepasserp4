@@ -1,6 +1,6 @@
 'use client';
 
-import type { CSSProperties, Dispatch, MouseEvent, RefObject, SetStateAction } from 'react';
+import { memo, type CSSProperties, type Dispatch, type MouseEvent, type RefObject, type SetStateAction } from 'react';
 import type { EntityRecord } from '@/lib/intake/entities';
 import type { ColSort } from './excel-columns';
 import { ProductCard } from '@/components/ProductCard';
@@ -17,7 +17,9 @@ const LIST_GRID: CSSProperties = {
   gridTemplateColumns: 'repeat(auto-fill, minmax(max(400px, calc((100% - 12px) / 3)), 1fr))',
   gap: 6,
 };
-const MOBILE_FEED_WRAP: CSSProperties = { background: C.taupeBg, borderTop: `1px solid ${C.line2}` };
+/* 라인형 피드(사장님 2026-08-22 「가로라인 구분이 무난, 제일 넓게 쓰는 방법」 — 박스형은 하루 써 보고 회귀).
+   행이 화면 끝까지 서고 경계는 행 하단 hairline. 여백은 행 안(8×12)에만 — 감싸는 쪽 gap·padding 금지(이중 여백). */
+const MOBILE_FEED_WRAP: CSSProperties = { background: C.taupeBg };
 
 type Props = {
   bodyRef: RefObject<HTMLDivElement>;
@@ -53,7 +55,7 @@ type Props = {
   onSheetVisibleCountChange?: (count: number | null) => void;
 };
 
-export function FinderResults(props: Props) {
+export const FinderResults = memo(function FinderResults(props: Props) {
   const loading = props.rows == null;
   // 로딩 중 is-excel 금지 — 엑셀 flex/overflow 레이아웃에 리스트 스켈레톤이 끼면
   // 중간 공백·아래쪽 떠 있는 행(잔상)이 생긴다.
@@ -122,7 +124,7 @@ export function FinderResults(props: Props) {
       )}
     </div>
   );
-}
+});
 
 /**
  * 뷰별 로딩 스켈레톤 — 각 뷰의 실제 컨테이너 dims를 그대로 미러링해 데이터 도착 시 레이아웃 shift 0.

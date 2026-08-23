@@ -9,18 +9,6 @@ import { type EntityRecord } from '@/lib/intake/entities';
 import { activeCount, EMPTY_VEHICLE_FILTER, normalizeVehicleFilter, type VehicleFilter } from '@/lib/domain/product-filters';
 import { isStockedProduct } from '@/lib/domain/product';
 import { InterestPanel, useInterestLists, useInterestTab, useInterestTabGuard } from '@/components/InterestRail';
-import { clearRecent, clearFavs } from '@/lib/product-interest';
-import {
-  clearAxesKeepMeta,
-  filterFromBag,
-  listPresets,
-  presetAxesCount,
-  removePreset,
-  samePresetAxes,
-  savePreset,
-  subscribePresets,
-  type FinderFilterPreset,
-} from '@/lib/finder-filter-presets';
 import { toast } from '@/components/Toaster';
 import { StartGuide, useStartGuide } from '@/components/StartGuide';
 import { C, R, FS, CenterNote, ContextMenu, useContextMenu, FW, ICON } from '@/components/ui';
@@ -45,6 +33,7 @@ import {
 import type { ColSort } from '@/features/finder/excel-columns';
 import { FinderFilterPanel, type FinderFilterPanelModel } from '@/features/finder/FinderFilterPanel';
 import { useFinderData } from '@/features/finder/useFinderData';
+import { finderDataScope } from '@/features/finder/finder-data-store';
 import { useFinderResults } from '@/features/finder/useFinderResults';
 import { buildProductContextItems } from '@/features/finder/product-context';
 import { FinderToolbar } from '@/features/finder/FinderToolbar';
@@ -55,7 +44,8 @@ import { AgentWorkflowGuide } from '@/components/AgentWorkflowGuide';
 /** 홈 모바일 툴 — 필터 시트만. */
 type HomeTool = 'filter';
 /** 드래프트 dirty 판정 — 최근·관심·정렬 포함(빠지면 취소해도 회귀 안 됨). */
-const PAGE = 100; // 첫 화면·더보기 단위
+const PAGE = 100; // 웹 첫 화면·더보기 단위
+const MOBILE_PAGE = 40; // 모바일은 카드 100개 동시 mount를 피한다.
 const PAGE_HARD = 500; // 전체 보기 상한(가상스크롤 전 안전장치)
 // SSR 경고 없이 페인트 전 실행 — localStorage 복원처럼 첫 페인트에 맞아야 하는 상태용.
 const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
@@ -109,13 +99,6 @@ export default function Finder() {
   const [limit, setLimit] = useState(PAGE); // 목록·엑셀 공통 페이징(더보기)
   const [interestTab, setInterestTab] = useInterestTab();
   const { recent: storedInterestRecent, favs: storedInterestFavs } = useInterestLists();
-  const [presets, setPresets] = useState<FinderFilterPreset[]>([]);
-
-  useEffect(() => {
-    setPresets(listPresets());
-    return subscribePresets(() => { setPresets(listPresets()); });
-  }, []);
-
   const liveBag = useCallback((): FilterBag => ({
     periods, rent, dep, mile, fuel, ptype, credit, perks, promo, dyn, vehicle, models, sort, interest: interestFlt,
   }), [periods, rent, dep, mile, fuel, ptype, credit, perks, promo, dyn, vehicle, models, sort, interestFlt]);
@@ -192,6 +175,7 @@ export default function Finder() {
     companyId: co,
     authReady,
     sessionUid: session?.uid,
+    sessionScope: finderDataScope(session),
   });
   const interestProductIndex = useMemo(
     () => new Map((rows || []).map((product) => [String(product.product_code || product._key), product])),
@@ -225,6 +209,8 @@ export default function Finder() {
   // effView = 툴바 하이라이트용(즉시) · renderView = 목록·데이터용(지연). 모바일은 카드만(뷰·다운로드 미제공).
   const effView = mobile ? 'card' : view;
   const renderView = mobile ? 'card' : deferredView;
+  const pageSize = mobile ? MOBILE_PAGE : PAGE;
+  const pageHard = mobile ? 200 : PAGE_HARD;
 
   // 필터·정렬 복원(세션). 상세 다녀오면 limit만 PAGE(필터 유지).
   useEffect(() => {
@@ -256,7 +242,7 @@ export default function Finder() {
       try {
         if (!sessionStorage.getItem(FINDER_RESET_LIMIT)) return;
         sessionStorage.removeItem(FINDER_RESET_LIMIT);
-        setLimit(PAGE);
+        setLimit(pageSize);
       } catch { /* */ }
     };
     apply();
@@ -269,7 +255,7 @@ export default function Finder() {
       window.removeEventListener('focus', apply);
       window.removeEventListener('fp:finder-reset-limit', apply);
     };
-  }, []);
+  }, [pageSize]);
 
   // 필터 저장 — 마운트 직후 빈값으로 세션을 덮지 않음(첫 effect skip)
   const filterSaveSkip = useRef(true);
@@ -386,7 +372,7 @@ export default function Finder() {
 
   // 필터·정렬·관심탭 바뀌면 더보기 리셋
   // interestTab(레일 뷰어 토글)은 목록 필터가 아님(list는 interestFlt로 필터) → 리셋 deps에서 제외(레일 열 때 페이지네이션 초기화 방지).
-  useEffect(() => { setLimit(PAGE); }, [q, periods, rent, dep, mile, fuel, ptype, credit, perks, promo, dyn, vehicle, sort, colFilter, colSort, models, interestFlt]);
+  useEffect(() => { setLimit(pageSize); }, [pageSize, q, periods, rent, dep, mile, fuel, ptype, credit, perks, promo, dyn, vehicle, sort, colFilter, colSort, models, interestFlt]);
 
   // 툴바·관심바 오른쪽 패딩(--fp-pane-sb) = 세로막대 폭. 카드·엑셀 둘 다 scrollbar-gutter:stable이라
   // 막대 폭은 OS 상수 → 뷰마다 재측정하면 값이 순간 튀어 버튼이 꿀렁임. 1회 측정 + resize만.
@@ -426,7 +412,7 @@ export default function Finder() {
     ? activeCount({ q: '', periods: v.periods, rent: v.rent, dep: v.dep, mile: v.mile, fuel: v.fuel, ptype: v.ptype, credit: v.credit, perks: v.perks, promo: v.promo, dyn: v.dyn, vehicle: v.vehicle }) + v.models.size + v.interest.size + (v.sort !== FINDER_DEFAULT_SORT ? 1 : 0) + colFilterN
     : activeCount(s) + models.size + colFilterN;
 
-  const reset = () => {
+  const reset = useCallback(() => {
     // 사이드 초기화 = 엑셀 헤더 필터·정렬도 전부 해제
     setColFilter({});
     setColSort(null);
@@ -437,74 +423,35 @@ export default function Finder() {
     }
     clearSavedFilters();
     setQInput(''); setQ(''); setPeriods(new Set()); setRent(new Set()); setDep(new Set()); setMile(new Set()); setFuel(new Set()); setPtype(new Set()); setCredit(new Set()); setPerks(new Set()); setPromo(new Set()); setDyn({}); setVehicle({ ...EMPTY_VEHICLE_FILTER }); setSort(FINDER_DEFAULT_SORT); setModels(new Set()); setInterestFlt(new Set());
-  };
+  }, []);
   const filterBadge = activeCount(s) + models.size + interestFlt.size + (sort !== FINDER_DEFAULT_SORT ? 1 : 0) + colFilterN;
   // 더보기 = 지금 보고 있는 목록 기준(엑셀=헤더필터·정렬 반영분). 100개 미만이면 버튼 없음.
   const activeList = renderView === 'excel' ? excelRows : list;
   const shown = useMemo(() => activeList.slice(0, limit), [activeList, limit]);
   const moreN = Math.max(0, activeList.length - shown.length);
-  const go = (p: EntityRecord) => router.push(`/m/${encodeURIComponent(String(p.product_code || p._key))}`);
-  const productCtxItems = (p: EntityRecord) => buildProductContextItems(p, router.push);
-  const onProductCtx = (e: MouseEvent, p: EntityRecord) => {
+  const go = useCallback((p: EntityRecord) => router.push(`/m/${encodeURIComponent(String(p.product_code || p._key))}`), [router]);
+  const productCtxItems = useCallback((p: EntityRecord) => buildProductContextItems(p, router.push), [router]);
+  const onProductCtx = useCallback((e: MouseEvent, p: EntityRecord) => {
     if (mobile) return;
     productCtx.open(e, p);
-  };
-
-  const clearInterestList = (kind: InterestKey) => {
-    if (kind === 'recent') clearRecent();
-    else clearFavs();
-    setInterestFlt((previous) => {
-      const next = new Set(previous);
-      next.delete(kind);
-      return next;
-    });
-    setFilterSnap((snapshot) => {
-      if (!snapshot) return snapshot;
-      const interest = new Set(snapshot.interest);
-      interest.delete(kind);
-      return { ...snapshot, interest };
-    });
-    toast(kind === 'recent' ? '최근 목록을 비웠습니다' : '관심을 비웠습니다', 'info');
-  };
-
-  const presetSaveCount = presetAxesCount(v);
-  const activePresetId = useMemo(() => {
-    const hit = presets.find((preset) => samePresetAxes(filterFromBag(preset.bag), v));
-    return hit?.id ?? null;
-  }, [presets, v]);
-
-  const onSavePreset = () => {
-    const saved = savePreset(v);
-    if (!saved) {
-      toast(presetSaveCount <= 0 ? '저장할 조건이 없습니다' : '같은 조건이 이미 있습니다', 'info');
-      return;
+  }, [mobile, productCtx]);
+  const onMore = useCallback(() => setLimit((current) => current + pageSize), [pageSize]);
+  const onShowAll = useCallback(() => {
+    if (activeList.length > pageHard) {
+      setLimit(pageHard);
+      toast(`성능상 ${pageHard.toLocaleString()}대까지 표시합니다. 검색·필터로 좁혀주세요.`, 'info');
+    } else {
+      setLimit(activeList.length);
     }
-    toast('즐겨찾는 조건에 저장했습니다', 'ok');
-  };
+  }, [activeList.length, pageHard]);
 
-  const onApplyPreset = (id: string) => {
-    const preset = presets.find((item) => item.id === id);
-    if (!preset) return;
-    const meta = { sort: v.sort, interest: v.interest };
-    if (activePresetId === id) {
-      bump(() => clearAxesKeepMeta(v));
-      return;
-    }
-    bump(() => filterFromBag(preset.bag, meta));
-  };
-
-  const onRemovePreset = (id: string) => {
-    removePreset(id);
-    toast('즐겨찾는 조건을 삭제했습니다', 'info');
-  };
-
+  /* 즐겨찾기(프리셋)·최근·관심 필터는 걷어냈다(사장님 2026-08-22 「요상한 거 다 빼자」 — lib/finder-filter-presets 는 미사용). */
   const filterPanelModel: FinderFilterPanelModel = {
     mobile,
     totalVisible,
     foundCount,
     searching,
     activeCount: sidebarAc,
-    presetSaveCount,
     draftOpen: filterDraft != null,
     value: v,
     rows: rows || [],
@@ -512,17 +459,8 @@ export default function Finder() {
     popularModels: popModels,
     present,
     aggregate: agg,
-    recentCount: interestRecent.length,
-    favoriteCount: interestFavs.length,
-    presets,
-    activePresetId,
-    onSavePreset,
-    onApplyPreset,
-    onRemovePreset,
     update: bump,
     reset,
-    clearRecent: () => clearInterestList('recent'),
-    clearFavorites: () => clearInterestList('fav'),
   };
 
   /* 시트 원본은 유지하고, 검색·퀵필터는 위의 exact href 교집합으로 그대로 적용한다. */
@@ -546,7 +484,7 @@ export default function Finder() {
           interestTab={interestTab}
           onInterestTab={setInterestTab}
         />
-        {/* 퀵필터 한 줄 — 「세부」는 떠 있는 메뉴. 사이드바 없음. */}
+        {/* 퀵필터 한 줄 — 웹만. 모바일은 검색창+필터 버튼만 깔끔하게(사장님 2026-08-22 「모바일은 퀵필터 넣지 말자」). */}
         {!mobile ? (
           <FinderQuickFilters
             value={v}
@@ -563,7 +501,8 @@ export default function Finder() {
         ) : null}
         {/* pane = 관심함 틀고정 + 목록 스크롤(카드) / 엑셀은 본문 안 시트 스크롤 */}
         <div className="fp-finder-pane">
-          {!sheetOnly && <AgentWorkflowGuide />}
+          {/* 안내 배너 = 웹만 — 버튼 둘(엑셀 상품리스트·전자계약) 다 모바일에 없는 동선이고 목록 한 줄 반을 먹는다(사장님 2026-08-22 「모바일은 불필요한 거 다 걷어내자」). */}
+          {!sheetOnly && !mobile && <AgentWorkflowGuide />}
           {!mobile && (
             <div className="fp-finder-interest-bar">
               <InterestPanel
@@ -598,15 +537,8 @@ export default function Finder() {
             openCol={openCol}
             setOpenCol={setOpenCol}
             moreCount={moreN}
-            onMore={() => setLimit((current) => current + PAGE)}
-            onShowAll={() => {
-              if (activeList.length > PAGE_HARD) {
-                setLimit(PAGE_HARD);
-                toast(`성능상 ${PAGE_HARD.toLocaleString()}대까지 표시합니다. 검색·필터로 좁혀주세요.`, 'info');
-              } else {
-                setLimit(activeList.length);
-              }
-            }}
+            onMore={onMore}
+            onShowAll={onShowAll}
             sheetFinderFilterActive={sheetFinderFilterActive}
             sheetFinderFilterReady={rows !== null}
             sheetFinderAllowedDetailHrefs={sheetFinderAllowedDetailHrefs}
