@@ -193,7 +193,7 @@ const legacyContracting: EntityRecord = {
 const legacyContractingMerged = softMergeProduct(legacyContracting, {
   product_code: 'NEW_KEY', vehicle_status: '출고가능', maker: '현대', model: '아반떼',
 });
-check('legacy 계약중도 시트가 출고가능으로 해제하지 않음', legacyContractingMerged.vehicle_status === '계약중');
+check('locked_by_contract 없는 계약중은 판매시트 현재상태로 해제', legacyContractingMerged.vehicle_status === '출고가능');
 check('alt-key 매칭 시 기존 product_code 불변', legacyContractingMerged.product_code === 'OLD_KEY');
 
 // 관리자 화면의 표준 CSV는 기간 열 뒤에 단기/장기보증 열이 온다. 이 순서도 가격을 읽어야 한다.
@@ -509,18 +509,20 @@ const stock: EntityRecord[] = [
 ];
 const present = new Set(['RP_1가1111']);
 const absent = planAbsentBlocked({ existing: stock, providerCode: 'RP', presentKeys: present });
-check('부재 1건만 출고불가 patch', absent.patches.length === 1 && absent.patches[0].key === 'RP_4가4444');
-check('락·레거시 계약중 매물은 부재 patch 스킵', absent.skipped_locked === 2
-  && absent.patches.every((p) => p.key !== 'RP_2가2222' && p.key !== 'RP_5가5555'));
+check('실제 계약락 외 부재 2건을 출고불가 patch', absent.patches.length === 2
+  && ['RP_4가4444', 'RP_5가5555'].every((key) => absent.patches.some((p) => p.key === key)));
+check('실제 계약락 매물만 부재 patch 스킵', absent.skipped_locked === 1
+  && absent.patches.every((p) => p.key !== 'RP_2가2222'));
 check('이미 출고불가 제외', absent.already_blocked === 1);
 check('다른 공급사 안 건드림', absent.patches.every((p) => p.key.startsWith('RP_')));
 check('예전 key prefix보다 명시 공급사 소유코드 우선',
   absent.patches.every((p) => p.key !== 'RP_8가8888'));
-check('부재 patch 상태=출고불가', absent.patches[0]?.patch.vehicle_status === '출고불가');
+const rp4AbsentPatch = absent.patches.find((p) => p.key === 'RP_4가4444');
+check('부재 patch 상태=출고불가', rp4AbsentPatch?.patch.vehicle_status === '출고불가');
 check('부재 자동차단은 시트 소유 provenance를 기록',
-  absent.patches[0]?.patch.sheet_status_owner === 'sheet'
-  && absent.patches[0]?.patch.sheet_block_reason === 'missing_or_excluded');
-const sheetBlocked = { ...stock[3], ...absent.patches[0]?.patch };
+  rp4AbsentPatch?.patch.sheet_status_owner === 'sheet'
+  && rp4AbsentPatch?.patch.sheet_block_reason === 'missing_or_excluded');
+const sheetBlocked = { ...stock[3], ...rp4AbsentPatch?.patch };
 const sheetReturned = softMergeProduct(sheetBlocked, {
   product_code: 'RP_4가4444', car_number: '4가4444', vehicle_status: '출고가능',
 });
@@ -1025,14 +1027,28 @@ check('되살림 2차는 임시번호에 쓰지 않음',
       car_number: '100신0001', is_pending_plate: true, _deleted: true,
     }],
   ) === null);
-const unownedDeletedConflict = findSheetSyncExistingConflicts(conflictFetch, [], [{
+const unownedDeletedConflict = findSheetSyncExistingConflicts({
+  ...conflictFetch,
+  sourceKind: 'sales_inventory',
+}, [], [{
   ...conflictProduct,
   _key: 'legacy-deleted', product_code: 'legacy-deleted', provider_company_code: '', partner_code: '', source_schema: '',
   _deleted: true,
 }]);
-check('공급사 귀속 없는 삭제 이력도 동일 실차번 신규 재생성 차단',
-  unownedDeletedConflict.unownedDeletedMatches.length === 1
-  && sheetSyncExistingConflictReason(unownedDeletedConflict).includes('미확정 삭제이력'));
+check('판매시트는 공급사 없는 삭제 이력 하나로 신규 반영을 막지 않음',
+  unownedDeletedConflict.unownedDeletedMatches.length === 0
+  && !sheetSyncExistingConflictReason(unownedDeletedConflict).includes('미확정 삭제이력'));
+const productMasterUnownedDeletedConflict = findSheetSyncExistingConflicts({
+  ...conflictFetch,
+  sourceKind: 'product_master',
+}, [], [{
+  ...conflictProduct,
+  _key: 'legacy-deleted', product_code: 'legacy-deleted', provider_company_code: '', partner_code: '', source_schema: '',
+  _deleted: true,
+}]);
+check('상품마스터는 공급사 귀속 없는 삭제 이력의 신규 재생성을 차단',
+  productMasterUnownedDeletedConflict.unownedDeletedMatches.length === 1
+  && sheetSyncExistingConflictReason(productMasterUnownedDeletedConflict).includes('미확정 삭제이력'));
 const inferredLegacyPlan = planProductUpsert([conflictProduct], [{
   ...conflictProduct,
   _key: '1가1111_RP', product_code: '1가1111_RP', provider_company_code: '', partner_code: '', source_schema: '',

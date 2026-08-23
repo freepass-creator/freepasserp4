@@ -44,6 +44,19 @@ rules.policies['.write'] = `${active} && ${admin}`;
 // 앱 화면 게이트를 우회해 SDK로 직접 읽는 승인대기·비활성·삭제·반려·미배정 역할을 차단한다.
 rules.v4.products['.read'] = `${active} && ${assignedRoles}`;
 
+// 수수료율은 서버 Admin SDK가 정산·전자계약 seal을 만들 때만 읽는다. RTDB Rules는
+// 부모 grant가 자식 deny를 이기므로, agent 계열이 parent를 읽게 두면 다른 공급사
+// 요율까지 모두 노출된다. 관리자 전체·공급사 자기 node만 명시적으로 허용한다.
+rules.v4.partners_private = rules.v4.partners_private || {};
+rules.v4.partners_private['.read'] = `${active} && ${admin}`;
+rules.v4.partners_private['.write'] = `${active} && ${admin}`;
+rules.v4.partners_private.$pid = rules.v4.partners_private.$pid || {};
+rules.v4.partners_private.$pid['.read'] = `${active} && ${providerRoles} && ${user}.child('company_code').val() !== null && ${user}.child('company_code').val() !== '' && ${user}.child('company_code').val() === $pid`;
+
+// 일반 계약의 서버 정산 기준은 browser SDK에서 읽거나 쓸 수 없다. $other:false에만
+// 기대지 않고 이 경계를 후보에도 명시해 향후 wildcard 확장 때 깨지지 않게 한다.
+rules.v4.contract_settlement_seals = { '.read': false, '.write': false };
+
 // 공개서명은 제출 전(sent)에만 익명 조회. 제출 후 PII·서명 재조회는 소유 영업조직만 가능하다.
 const sign = rules.contract_sign.$token;
 sign['.read'] = `(auth == null && data.child('status').val() === 'sent' && data.child('revoked_at').val() === null && (data.child('expires_at').val() === null || data.child('expires_at').val() > now)) || (${active} && (${admin} || data.child('agent_uid').val() === auth.uid || ((${role} === 'agent_admin' || ${role} === 'agent_manager') && data.child('agent_channel_code').val() === ${user}.child('agent_channel_code').val())))`;
@@ -55,9 +68,12 @@ partners.$pid['.write'] = `${active} && newData.exists() && (${admin} || (${prov
 
 const policies = rules.v4.policies;
 delete policies['.write'];
-policies.$policy_id = policies.$policy_id || {};
-policies.$policy_id['.write'] = `${active} && newData.exists() && (${admin} || (${providerRoles} && ${user}.child('company_code').val() !== null && ${user}.child('company_code').val() !== '' && ((data.exists() && data.child('provider_company_code').val() === ${user}.child('company_code').val()) || (!data.exists() && newData.child('provider_company_code').val() === ${user}.child('company_code').val())) && newData.child('provider_company_code').val() === ${user}.child('company_code').val()))`;
-policies.$policy_id.provider_company_code = {
+// 원본 wildcard 이름을 재사용해야 RTDB가 같은 부모에 여러 default rule($pid/$policy_id)을
+// 두었다고 거부하지 않는다.
+const policyWildcard = Object.keys(policies).find((key) => key.startsWith('$')) || '$policy_id';
+policies[policyWildcard] = policies[policyWildcard] || {};
+policies[policyWildcard]['.write'] = `${active} && newData.exists() && (${admin} || (${providerRoles} && ${user}.child('company_code').val() !== null && ${user}.child('company_code').val() !== '' && ((data.exists() && data.child('provider_company_code').val() === ${user}.child('company_code').val()) || (!data.exists() && newData.child('provider_company_code').val() === ${user}.child('company_code').val())) && newData.child('provider_company_code').val() === ${user}.child('company_code').val()))`;
+policies[policyWildcard].provider_company_code = {
   '.validate': `!data.exists() || newData.val() === data.val() || ${admin}`,
 };
 
@@ -78,6 +94,15 @@ product._key['.validate'] = "newData.val() === $code";
 
 // 계약 생성 스냅샷과 정산 기준일은 생성 뒤 절대 변경하지 않는다.
 const contract = rules.v4.contracts.$contract_id;
+const contractParentWrite = String(contract['.write'] || '');
+const requiredInitialIdentityMarkers = [
+  "newData.child('agent_uid').isString()",
+  "newData.child('agent_code').val() === root.child('users').child(newData.child('agent_uid').val()).child('user_code').val()",
+  "newData.child('agent_channel_code').val() === root.child('users').child(newData.child('agent_uid').val()).child('agent_channel_code').val()",
+];
+if (!requiredInitialIdentityMarkers.every((marker) => contractParentWrite.includes(marker))) {
+  throw new Error('원본 Rules의 신규 계약 영업자 UID·코드·채널 결속 gate를 확인하지 못했습니다. 후보 생성을 중단합니다.');
+}
 
 /**
  * 레거시(v3 전용) 계약의 **첫 v4 오버레이 쓰기**를 허용한다.
@@ -131,7 +156,10 @@ contract.vehicle_identity_hash = { '.validate': serverClaimOnly };
 contract.agent_balance_paid = { '.validate': serverClaimOnly };
 contract.provider_balance_confirmed = { '.validate': serverClaimOnly };
 
-const agentControlled = `!newData.exists() || newData.val() === data.val() || ${admin} || ${role} === 'agent' || ${role} === 'agent_admin' || ${role} === 'agent_manager'`;
+// 고객/서명 필드는 자기 영업조직만 수정할 수 있고, 삭제는 서버/Admin 경로가 아닌 이상
+// 허용하지 않는다. `!newData.exists()`를 앞에 두면 부모 write가 열린 공급사도 PII를
+// null로 지울 수 있으므로 반드시 역할 조건 안에서만 새 값을 허용한다.
+const agentControlled = `newData.val() === data.val() || (newData.exists() && (${admin} || ${role} === 'agent' || ${role} === 'agent_admin' || ${role} === 'agent_manager'))`;
 const originalContractSignStatus = contract.sign_status['.validate'];
 for (const field of [
   'customer_name', 'customer_phone', 'customer_id', 'customer_address',
@@ -144,9 +172,9 @@ contract.sign_status = {
   '.validate': `newData.val() === data.val() || ((${admin} || ${role} === 'agent' || ${role} === 'agent_admin' || ${role} === 'agent_manager') && (${originalContractSignStatus}))`,
 };
 
-contract.memo_agent = { '.validate': `!newData.exists() || newData.val() === data.val() || ${admin} || ${role} === 'agent' || ${role} === 'agent_admin' || ${role} === 'agent_manager'` };
-contract.memo_provider = { '.validate': `!newData.exists() || newData.val() === data.val() || ${admin} || ${role} === 'provider' || ${role} === 'provider_admin'` };
-contract.memo_admin = { '.validate': `!newData.exists() || newData.val() === data.val() || ${admin}` };
+contract.memo_agent = { '.validate': `newData.val() === data.val() || (newData.exists() && (${admin} || ${role} === 'agent' || ${role} === 'agent_admin' || ${role} === 'agent_manager'))` };
+contract.memo_provider = { '.validate': `newData.val() === data.val() || (newData.exists() && (${admin} || ${role} === 'provider' || ${role} === 'provider_admin'))` };
+contract.memo_admin = { '.validate': `newData.val() === data.val() || (newData.exists() && ${admin})` };
 
 const doneContract = [
   "newData.parent().child('agent_delivery_inquiry').val() === 'yes'",
@@ -161,35 +189,55 @@ const doneContract = [
   "newData.parent().child('agent_handover_confirmed').val() === 'yes'",
   "newData.parent().child('provider_release_completed').val() === 'yes'",
 ].join(' && ');
-contract.contract_status['.validate'] = `newData.val() === data.val() || (!data.parent().exists() && newData.val() === '계약요청') || (newData.val() === '계약취소' && (${admin} || ${role} === 'agent' || ${role} === 'agent_admin' || ${role} === 'agent_manager' || ((${role} === 'provider' || ${role} === 'provider_admin') && (newData.parent().child('provider_delivery_response').val() === '출고 불가' || newData.parent().child('provider_docs_review').val() === '부결')))) || (newData.val() === '계약완료' && (${doneContract}))`;
+// Candidate는 legacy 완료 경로를 조정하지만, 현재 운영 Rules의 직접 전자계약
+// seal·서명·승인·인도 증빙 gate를 빼면 안 된다. 원본 마지막 suffix를 보존해
+// 완료 전이에만 결합한다. marker가 사라지면 후보 생성 자체를 실패시킨다.
+const currentStatusValidate = String(contract.contract_status?.['.validate'] || '');
+const directCompletionMarker = " && ((newData.parent().child('contract_source').val() !== 'direct'";
+const directCompletionStart = currentStatusValidate.lastIndexOf(directCompletionMarker);
+const directCompletionGate = directCompletionStart >= 0
+  ? currentStatusValidate.slice(directCompletionStart)
+  : '';
+const requiredDirectGateMarkers = [
+  'contract_source', 'esign_contract_seals', 'esign_sessions', 'esign_private',
+  'esign_verifications', 'esign_handover_verifications', 'freepass-consent-v2',
+  'paymentMethod', 'requiresExternalPaymentAuthorization',
+];
+if (!directCompletionGate || !requiredDirectGateMarkers.every((marker) => directCompletionGate.includes(marker))) {
+  throw new Error('직접 전자계약 완료 증빙 gate를 원본 Rules에서 찾지 못했습니다. 후보 생성을 중단합니다.');
+}
+// v3 원장은 운영 정본이므로, 후보의 간략한 단계 흐름도 원본이 가진 취소·완료 원장
+// 보호를 반드시 유지한다. 이를 빼면 취소된 v3 계약에 최초 v4 overlay를 만들며
+// 계약요청/완료로 되살릴 수 있다.
+const legacyContractStatus = `root.child('contracts').child($contract_id).child('contract_status').val()`;
+const canStartCandidateRequest = `!data.parent().exists() && newData.val() === '계약요청' && ${legacyContractStatus} !== '계약취소' && ${legacyContractStatus} !== '계약완료' && (${admin} || ${role} === 'agent' || ${role} === 'agent_admin' || ${role} === 'agent_manager')`;
+const canCancelCandidateContract = `newData.val() === '계약취소' && data.val() !== '계약완료' && (${admin} || ${role} === 'agent' || ${role} === 'agent_admin' || ${role} === 'agent_manager' || ((${role} === 'provider' || ${role} === 'provider_admin') && (newData.parent().child('provider_delivery_response').val() === '출고 불가' || newData.parent().child('provider_delivery_response').val() === '불가' || newData.parent().child('provider_docs_review').val() === '부결')))`;
+const canCompleteCandidateContract = `newData.val() === '계약완료' && data.val() !== '계약취소' && ${legacyContractStatus} !== '계약취소' && (${doneContract})${directCompletionGate}`;
+contract.contract_status['.validate'] = `newData.val() === data.val() || (${canStartCandidateRequest}) || (${canCancelCandidateContract}) || (${canCompleteCandidateContract})`;
+const candidateStatusValidate = String(contract.contract_status['.validate']);
+if (!requiredDirectGateMarkers.every((marker) => candidateStatusValidate.includes(marker))
+  || !candidateStatusValidate.includes("root.child('contracts').child($contract_id).child('contract_status').val() !== '계약취소'")
+  || !candidateStatusValidate.includes("root.child('contracts').child($contract_id).child('contract_status').val() !== '계약완료'")) {
+  throw new Error('후보 Rules에 직접 전자계약 완료 증빙 gate가 보존되지 않았습니다.');
+}
 
-// 정산 생성은 ST_{계약코드}, 계약 당사자·귀속·완료 게이트에 결속한다.
-// 앱은 정산을 먼저 만들고 계약완료를 뒤에 기록하므로, 모든 체크 완료 상태도 허용한다.
-const settlements = rules.v4.settlements.$sid;
-const contractRef = "root.child('v4').child('contracts').child(newData.child('contract_code').val())";
-const contractDoneAtRoot = [
-  `${contractRef}.child('agent_delivery_inquiry').val() === 'yes'`,
-  `(${contractRef}.child('provider_delivery_response').val() === '출고 가능' || ${contractRef}.child('provider_delivery_response').val() === '출고 협의')`,
-  `${contractRef}.child('agent_docs_submitted').val() === 'yes'`, `${contractRef}.child('provider_docs_review').val() === '승인'`,
-  `${contractRef}.child('agent_balance_paid').val() === 'yes'`, `${contractRef}.child('agent_final_paid').val() === 'yes'`,
-  `${contractRef}.child('provider_balance_confirmed').val() === 'yes'`, `${contractRef}.child('provider_agreement_done').val() === 'yes'`,
-  `${contractRef}.child('provider_agreement_sent').val() === 'yes'`, `${contractRef}.child('agent_handover_confirmed').val() === 'yes'`,
-  `${contractRef}.child('provider_release_completed').val() === 'yes'`,
-].join(' && ');
-const settlementParticipant = participant(contractRef);
-settlements['.write'] = `${active} && newData.exists() && (${admin} || (!data.exists() && $sid === 'ST_' + newData.child('contract_code').val() && ${contractRef}.exists() && (${contractRef}.child('contract_status').val() === '계약완료' || (${contractRef}.child('contract_status').val() === '계약요청' && ${contractDoneAtRoot})) && ${settlementParticipant} && newData.child('provider_company_code').val() === ${contractRef}.child('provider_company_code').val() && newData.child('agent_code').val() === ${contractRef}.child('agent_code').val() && newData.child('agent_channel_code').val() === ${contractRef}.child('agent_channel_code').val() && newData.child('settlement_status').val() === '정산대기'))`;
-
-// private 금액은 같은 계약의 동결 월대여료·율과 수학적으로 일치해야 최초 생성된다.
-const privateGuard = (kind) => {
-  const c = "root.child('v4').child('contracts').child(newData.child('contract_code').val())";
-  const ownership = `newData.child('provider_company_code').val() === ${c}.child('provider_company_code').val() && newData.child('agent_code').val() === ${c}.child('agent_code').val() && newData.child('agent_channel_code').val() === ${c}.child('agent_channel_code').val()`;
-  const amount = kind === 'provider'
-    ? `newData.child('fee_rate').isNumber() && newData.child('fee_amount').isNumber() && newData.child('fee_rate').val() === (${c}.child('fee_rate_snapshot').exists() ? ${c}.child('fee_rate_snapshot').val() : 0.1) && newData.child('fee_amount').val() >= (${c}.child('rent_amount_snapshot').val() * newData.child('fee_rate').val()) - 0.5 && newData.child('fee_amount').val() < (${c}.child('rent_amount_snapshot').val() * newData.child('fee_rate').val()) + 0.5`
-    : `newData.child('agent_payout').isNumber() && newData.child('agent_payout').val() >= (${c}.child('rent_amount_snapshot').val() * ${c}.child('payout_rate_snapshot').val()) - 0.5 && newData.child('agent_payout').val() < (${c}.child('rent_amount_snapshot').val() * ${c}.child('payout_rate_snapshot').val()) + 0.5`;
-  return `${active} && newData.exists() && (${admin} || (!data.exists() && newData.child('settlement_code').val() === $sid && newData.child('contract_code').isString() && $sid === 'ST_' + newData.child('contract_code').val() && ${c}.exists() && (${c}.child('contract_status').val() === '계약완료' || ${c}.child('provider_release_completed').val() === 'yes') && ${participant(c)} && ${ownership} && ${amount}))`;
+// 정산은 서버 전용 writer가 현재 private 요율·계약 seal·차량 선점을 함께 검증한다.
+// 후보 Rules가 과거의 client-side 계산식으로 되돌아가면 금액 위조와 runtime drift가 재발하므로,
+// 원본의 admin-only client 경계를 보존한다. Admin SDK의 정상 서버 발행은 Rules를 우회한다.
+const nonAdminSettlementRoles = ["role').val() === 'agent'", "role').val() === 'agent_admin'", "role').val() === 'agent_manager'", "role').val() === 'provider'", "role').val() === 'provider_admin'"];
+const isAdminOnlyClientWrite = (rule) => {
+  const source = String(rule || '');
+  return source.includes("role').val() === 'admin'")
+    && !nonAdminSettlementRoles.some((marker) => source.includes(marker));
 };
-rules.v4.settlements_provider_private.$sid['.write'] = privateGuard('provider');
-rules.v4.settlements_agent_private.$sid['.write'] = privateGuard('agent');
+const settlementWriters = [
+  rules.v4.settlements?.$sid?.['.write'],
+  rules.v4.settlements_provider_private?.$sid?.['.write'],
+  rules.v4.settlements_agent_private?.$sid?.['.write'],
+];
+if (!settlementWriters.every(isAdminOnlyClientWrite)) {
+  throw new Error('원본 Rules의 서버 전용 정산 write 경계를 확인하지 못했습니다. 후보 생성을 중단합니다.');
+}
 
 fs.writeFileSync(outputPath, `${JSON.stringify(document, null, 2)}\n`, 'utf8');
 console.log(path.relative(rootDir, outputPath).replaceAll('\\', '/'));

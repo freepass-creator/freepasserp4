@@ -9,8 +9,9 @@
  * ★**돈은 해석하지 않는다.** 요금·보증금·상태는 시트 칸에 있는 글자를 그 자리에 옮길 뿐이다.
  *   보증금을 규칙으로 계산하지 않고, 기간을 자리로 짐작하지 않는다 — 오늘 틀린 게 전부 그거였다.
  * ★**차명도 해석하지 않는다**(사장님 2026-08-19 — 「제조사·모델까지만, 안 틀리는 게 중요」).
- *   제조사·모델은 공급사 「제조사(정제)/제조사」「모델명/모델」만. 차명은 「차명(세부모델+트림)」 원문 그대로.
- *   세부모델·세부트림·차종마스터 스냅·상품마스터 3축 정본으로 **올리지 않는다**(틀린 세부축이 붙느니 원문이 낫다).
+ *   제조사·모델은 공급사 「제조사(정제)/제조사」「모델명/모델」만.
+ *   차명은 「차명(정제)」(모델+세부모델+세부트림 한 칸)을 싣고, 없으면 공급사 원문.
+ *   차종구분은 「차종분류」 한 칸(준대형 세단) 또는 「차종분류코드」가 가리키는 글자.
  *   ⚠ 그래서 공급사 시트가 틀리면 여기도 틀린다. 그건 «공급사에 물어볼 일»이 되고,
  *     영업자가 우리를 의심할 일은 없어진다 — 이 표의 값어치는 정확히 거기에 있다.
  * ★읽는 법만 `readSupplierSheet` 를 쓴다(숨긴 행·숨긴 탭·어댑터 헤더). 그건 «해석»이 아니라
@@ -29,12 +30,13 @@ import { companyAlias, supplierNameKeys } from '../lib/domain/identity';
 import { fetchHubPartners } from '../lib/domain/sheet-hub-sync';
 import { buildSalesFormatRequests, columnWidths, rgb, LINK, FONT, SIZE, ITALIC } from '../lib/domain/sales-sheet-format';
 import { productType } from '../lib/domain/sales-sheet-clean';
-import { SALES_ALIAS, SALES_COLUMNS, SALES_RETIRED_COLUMNS } from '../lib/domain/sales-sheet-mapping';
+import { parsePublishedSalesMapping, SALES_ALIAS, SALES_COLUMNS } from '../lib/domain/sales-sheet-mapping';
 import { HANDOVER_TAB, STALE_DAYS, daysSince, readLog } from '../lib/domain/supplier-handover-log';
 import { SHEET_NAME_MATCH, isOurNonInventoryTab, supplierSheetLabel } from '../lib/domain/supplier-template-sheet';
 import { mileageCompact, pickPolicy, policyCell, readPolicyTab, type PolicyBook } from '../lib/domain/supplier-policy-read';
 import { POLICY_TAB_ALIASES } from '../lib/domain/supplier-template-sheet';
-import { classifyVehicleClass } from '../lib/domain/vehicle-class';
+import { classifyVehicleClass, composeRefinedVehicleName } from '../lib/domain/vehicle-class';
+import { vehicleClassDisplay } from '../lib/domain/vehicle-class-catalog';
 /** 정책 탭 값 — 「운영정책」 먼저, 없으면 옛 「정책」(사장님 2026-08-19 탭 개명 · 아직 안 바꾼 시트 호환). */
 /**
  * 정책 탭을 읽는다. 이름이 「운영정책」·「정책」이 아닐 수 있다 —
@@ -192,39 +194,10 @@ for (const p of Object.values<Rec>(partners)) {
   try {
     const v = await api(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}/values/${encodeURIComponent("'AI 인계'!A1:C400")}`) as { values?: string[][] };
     const rows = (v.values || []) as string[][];
-    const from = rows.findIndex((r) => S(r[0]) === '@매핑');
-    if (from < 0) throw new Error('@매핑 줄이 없다');
-    const map: Record<string, string[]> = {};
-    for (const r of rows.slice(from + 1)) {
-      if (S(r[0]) === '@매핑끝') break;
-      const col = S(r[1]);
-      const cands = S(r[2]).split(',').map((x) => x.trim()).filter((x) => x && !x.startsWith('('));
-      if (col && cands.length) map[col] = cands;
-    }
-    if (!Object.keys(map).length) throw new Error('@매핑 표가 비었다');
-    ALIAS = map;
-    // 표에 적힌 차례가 곧 열 차례다. 「공급사」는 문패 이름으로 채우므로 후보가 없어도 열은 세운다.
-    const order: string[] = [];
-    for (const r of rows.slice(from + 1)) {
-      if (S(r[0]) === '@매핑끝') break;
-      const col = S(r[1]);
-      if (col) order.push(col);
-    }
-    // ★뺀 열(SALES_RETIRED_COLUMNS)은 시트 @매핑에 남아 있어도 세우지 않는다(사장님 2026-08-18 — 파워트레인 · 2026-08-19 — 세부모델·세부트림).
-    const retired = order.filter((c) => SALES_RETIRED_COLUMNS.includes(c));
-    if (order.length) COLUMNS = order.filter((c) => !SALES_RETIRED_COLUMNS.includes(c));
-    for (const c of retired) delete ALIAS[c];
-    // ★제조사·모델·차명 후보는 코드 정본(시트에 옛 「모델,차종」이 남아 있어도 모델명 우선).
-    for (const k of ['제조사', '모델', '차명'] as const) {
-      if (SALES_ALIAS[k]) ALIAS[k] = SALES_ALIAS[k];
-    }
-    // 시트 @매핑에 「차명」이 없으면 모델 다음에 끼워 넣는다.
-    if (!COLUMNS.includes('차명')) {
-      const at = COLUMNS.indexOf('모델');
-      COLUMNS = at >= 0
-        ? [...COLUMNS.slice(0, at + 1), '차명', ...COLUMNS.slice(at + 1)]
-        : [...COLUMNS.slice(0, 3), '차명', ...COLUMNS.slice(3)];
-    }
+    const parsed = parsePublishedSalesMapping(rows);
+    ALIAS = parsed.aliases;
+    COLUMNS = parsed.columns;
+    const retired = parsed.retired;
     console.log(`  매핑을 판매시트 「AI 인계」에서 읽었다 — ${COLUMNS.length}열 · 후보 있는 칸 ${Object.keys(ALIAS).length}${retired.length ? ` · 뺀 열 ${retired.join('·')} 은 안 세운다` : ''}
 `);
   } catch (e) {
@@ -544,19 +517,30 @@ for (const [code, p] of [...byCode].sort()) {
         // 정책 UID — 그 차가 문 정책의 대체키. 못 정했으면 비운다(짐작해 넣으면 남의 조건이 붙는다).
         if (c === '정책UID') return S(pol.get('__uid'));
         /**
-         * ★**차종구분 = 「차종크기 + 차종구분」**(사장님 2026-08-21 「준중형 SUV 이런 거 옵션 뒤에 박아주라」).
-         *   신규 차종마스터(2026-08-21)가 둘을 나눠 준다 — 크기(경형·소형·준중형·중형·준대형·대형) × 구분(SUV·세단·해치백…).
-         *   공급사 시트 정제칸에 이미 채워져 있다(실측 2026-08-21: 673대 중 크기 630 · 구분 643).
-         *   ⚠ 둘 다 비면 **모델명으로 만든다**(vehicle-class SSOT) — 빈 칸으로 두면 영업자가 차급으로 못 고른다.
+         * ★차종구분 = 정제칸 「차종분류」 한 칸(준대형 세단). 코드면 표에서 글자를 불러온다.
+         *   크기+구분을 붙이지 않는다(실측 2026-08-21 A6=중형 SUV · 팰리세이드=대형 MPV).
          */
         if (c === '차종구분') {
-          const sizeAt = hdr.indexOf('차종크기');
-          const kindAt = hdr.indexOf('차종구분');
-          const joined = [sizeAt >= 0 ? S(r[sizeAt]) : '', kindAt >= 0 ? S(r[kindAt]) : ''].filter(Boolean).join(' ');
-          if (joined) return joined;
-          const own2 = clean(c, cell(c));
+          const classAt = hdr.indexOf('차종분류');
+          const codeAt = hdr.indexOf('차종분류코드');
+          const fromClass = vehicleClassDisplay(classAt >= 0 ? S(r[classAt]) : '');
+          const fromCode = vehicleClassDisplay(codeAt >= 0 ? S(r[codeAt]) : '');
+          if (fromClass) return fromClass;
+          if (fromCode) return fromCode;
+          const own2 = vehicleClassDisplay(clean(c, cell(c)));
           if (own2) return own2;
           return classifyVehicleClass({ model: cell('모델'), sub_model: cell('차명') } as never);
+        }
+        if (c === '차명') {
+          const refinedAt = hdr.indexOf('차명(정제)');
+          const refined = refinedAt >= 0 ? S(r[refinedAt]) : '';
+          if (refined) return refined;
+          const combined = composeRefinedVehicleName(
+            S(r[hdr.indexOf('모델')] || ''),
+            S(r[hdr.indexOf('세부모델')] || ''),
+            S(r[hdr.indexOf('세부트림')] || ''),
+          );
+          if (combined) return combined;
         }
         /**
          * ★재고탭에 값이 있으면 **그쪽이 이긴다** — 그 차만의 예외일 수 있다.

@@ -14,6 +14,7 @@ import { applyPolicyDefaults } from '../lib/domain/policy-defaults';
 
 const policy = applyPolicyDefaults({
   policy_code: 'POL-T', provider_company_code: 'RP-T', deposit_installment: '2회까지',
+  insurer_name: '테스트손해보험',
 }).next as Record<string, unknown>;
 const partner = {
   partner_code: 'RP-T', name: '테스트렌터카', ceo: '홍길동',
@@ -22,6 +23,7 @@ const partner = {
 const product = {
   product_code: 'RP-T_00가0001', provider_company_code: 'RP-T',
   vehicle_status: '출고가능', vehicle_name: '테스트 차량',
+  price: { 36: { rent: 420000, deposit: 840000 } },
 };
 
 const base = {
@@ -36,6 +38,11 @@ const base = {
   depositAmount: '840000',
   paymentTiming: '선불' as const,
   driverAge: '만 26세 이상',
+  annualMileage: '연 3만km',
+  priceVariantKey: '',
+  mileageSurcharge: 0,
+  ageSurcharge: 0,
+  specialTermsChoice: '없음' as const,
 };
 
 const blocksOf = (form: typeof base) => validateEsignCenterContract(draftInputRecord(form), partner, policy, product)
@@ -67,4 +74,15 @@ assert.equal(free.filter((c) => c.key === 'deposit_installment').length, 0, '보
 const record = draftInputRecord({ ...base, depositInstallment: '일시납' });
 assert.equal(JSON.parse(String(record.contract_draft)).deposit_installment, '일시납');
 
-console.log('✓ 초안 발송 게이트: 보증금 회차 선택이 검증기에 전달됨 · 정책 밖 회차 차단 · 무보증 예외');
+// ⑥ 직접 작성에는 서버가 재계산할 v1 가격근거가 필수다. 없는 레코드를 RTDB에
+// 직접 넣어도 임의 월대여료가 전자계약/정산으로 흘러가면 안 된다.
+const unprovenPrice = validateEsignCenterContract({
+  ...record,
+  pricing_snapshot_version: '',
+}, partner, policy, product).filter((c) => c.level === 'BLOCK');
+assert.ok(
+  unprovenPrice.some((c) => c.key === 'pricing_snapshot_version'),
+  '직접 작성 계약은 가격근거 버전 없이는 발행을 막아야 한다',
+);
+
+console.log('✓ 초안 발송 게이트: 보증금 회차 선택·정책 밖 회차·무보증 예외·직접계약 가격근거');

@@ -76,13 +76,13 @@ check('SEC-R6 v4 partners/policies provider write는 소유 공급사에 결속'
 
 const settlement = rules.v4?.settlements?.$sid as Rule | undefined;
 const settlementWrite = text(settlement?.['.write']);
-const settlementValidationSurface = JSON.stringify(settlement || {});
-const nonAdminCreatesSettlement = settlementWrite.includes("role').val() === 'agent'")
-  || settlementWrite.includes("role').val() === 'provider'");
-check('SEC-R7 agent/provider settlement 생성은 완료 계약과 코드·귀속이 결속',
-  !nonAdminCreatesSettlement
-    || (settlementValidationSurface.includes("child('contracts')") && settlementValidationSurface.includes('계약완료')),
-  text(settlement?.['.validate']));
+const settlementClientWriteClosed = ![
+  "role').val() === 'agent'", "role').val() === 'agent_admin'", "role').val() === 'agent_manager'",
+  "role').val() === 'provider'", "role').val() === 'provider_admin'",
+].some((role) => settlementWrite.includes(role))
+  && settlementWrite.includes("role').val() === 'admin'");
+check('SEC-R7 정산 원장은 non-admin 클라이언트 write를 닫음',
+  settlementClientWriteClosed, settlementWrite);
 
 for (const [node, label] of [
   ['settlements_provider_private', 'R1'],
@@ -90,12 +90,12 @@ for (const [node, label] of [
 ] as const) {
   const rule = rules.v4?.[node]?.$sid as Rule | undefined;
   const write = text(rule?.['.write']);
-  const validationSurface = JSON.stringify(rule || {});
-  const clientCanCreate = write.includes('!data.exists()')
-    && (write.includes("role').val() === 'agent'") || write.includes("role').val() === 'provider'"));
-  check(`SEC-R8 ${label} private 최초 금액은 신뢰 레코드와 결속`,
-    !clientCanCreate || validationSurface.includes("child('contracts')") || validationSurface.includes("child('settlements')"),
-    label);
+  const privateClientWriteClosed = ![
+    "role').val() === 'agent'", "role').val() === 'agent_admin'", "role').val() === 'agent_manager'",
+    "role').val() === 'provider'", "role').val() === 'provider_admin'",
+  ].some((role) => write.includes(role))
+    && write.includes("role').val() === 'admin'");
+  check(`SEC-R8 ${label} private 금액 direct write를 닫음`, privateClientWriteClosed, write);
 }
 
 const contract = rules.v4?.contracts?.$contract_id as Rule | undefined;
@@ -132,6 +132,40 @@ const providerCanCancel = statusValidate.includes(".val() === 'provider'")
 check('SEC-R12 계약취소는 영업자/관리자 또는 공급사 거부사유에만 허용',
   cancelRoles && (!providerCanCancel || (statusValidate.includes('출고 불가') && statusValidate.includes('부결'))),
   statusValidate);
+
+const firstCreateRoleFields = [
+  'agent_delivery_inquiry', 'agent_docs_submitted', 'agent_final_paid', 'provider_agreement_done', 'agent_handover_confirmed',
+  'provider_delivery_response', 'provider_docs_review', 'provider_agreement_sent', 'provider_release_completed',
+].filter((field) => text(contract?.[field]?.['.validate']).includes('!data.parent().exists()'));
+check('SEC-R13 신규 계약도 역할별 진행단계 검증을 우회하지 않음', firstCreateRoleFields.length === 0, firstCreateRoleFields.join(', '));
+
+const rateLeaves = ['fee_rate_snapshot', 'payout_rate_snapshot'].map((field) => text(contract?.[field]?.['.validate']));
+check('SEC-R14 계약 요율은 관리자 서버 동결 외 최초 주입·삭제를 막음',
+  rateLeaves.every((rule) => !rule.includes('!data.parent().exists()') && rule.includes("role').val() === 'admin'"))
+    && contractParentValidate.includes("!data.child('fee_rate_snapshot').exists()")
+    && contractParentValidate.includes("!data.child('payout_rate_snapshot').exists()"),
+  rateLeaves.join(' | '));
+
+const signStatusRule = text(contract?.sign_status?.['.validate']);
+const agreementSentRule = text(contract?.provider_agreement_sent?.['.validate']);
+check('SEC-R15 신규 계약 서명완료·약정발송은 증적 없이 선주입할 수 없음',
+  !signStatusRule.includes('!data.parent().exists()')
+    && !agreementSentRule.includes('!data.parent().exists()'),
+  `${signStatusRule} | ${agreementSentRule}`);
+
+const legacySignStatus = text(rules.contract_sign?.$token?.status?.['.validate']);
+check('SEC-R16 legacy 공개서명은 최초 sent·익명 제출·관리자 승인 순서만 허용',
+  legacySignStatus.includes("!data.exists() && auth != null && newData.val() === 'sent'")
+    && legacySignStatus.includes("auth == null && data.val() === 'sent' && newData.val() === 'pending_review'")
+    && !legacySignStatus.includes("auth != null && (newData.val() === 'sent' || newData.val() === 'pending_review'"),
+  legacySignStatus);
+
+const publicSignUrlRule = text(contract?.esign_sign_url?.['.validate']);
+check('SEC-R17 계약 공개 FPS 링크는 클라이언트가 새로 넣거나 바꿀 수 없음',
+  publicSignUrlRule.includes('!newData.exists()')
+    && publicSignUrlRule.includes('data.exists()')
+    && publicSignUrlRule.includes('newData.val() === data.val()'),
+  publicSignUrlRule);
 
 const failed = cases.filter((item) => !item.ok);
 for (const item of cases) {

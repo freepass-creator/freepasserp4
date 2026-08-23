@@ -13,13 +13,14 @@
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { pickPublishedSalesTabs } from '../lib/domain/sales-published-tabs';
-import { SHEET_NAME_MATCH, SUPPLIER_PREVIEW_TAB, supplierSheetLabel } from '../lib/domain/supplier-template-sheet';
+import { SUPPLIER_PREVIEW_TAB, supplierSheetLabel } from '../lib/domain/supplier-template-sheet';
+import { buildSupplierPreviewValues, normalizeSupplierLabel, supplierSalesLabel } from '../lib/domain/supplier-preview-parity';
 import { buildSalesFormatRequests, columnWidths, rgb, LINK, FONT, SIZE, ITALIC } from '../lib/domain/sales-sheet-format';
 import { SALES_SHEET_ID } from '../lib/domain/legacy-sheets';
 
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
-const norm = (v: unknown) => S(v).replace(/\s+/g, '').toLowerCase();
+const norm = normalizeSupplierLabel;
 const APPLY = process.argv.includes('--apply');
 const sleep = (ms: number) => new Promise((ok) => setTimeout(ok, ms));
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
@@ -35,10 +36,10 @@ const call = async (u: string, init?: RequestInit): Promise<Rec> => {
   }
 };
 const SH = 'https://sheets.googleapis.com/v4/spreadsheets';
+const DRIVE = 'https://www.googleapis.com/drive/v3/files';
+const PARTNER_REGISTRY_ID = '1TpYMQh9yxMjww7OjxIkQIC79Uig4tKJamkFeTxjtr68';
 
-/** 판매시트 「공급사」 표기 → 공급사 시트 라벨(다르게 적힌 것만) */
-const SUPPLIER_ALIAS: Record<string, string> = { SA: '에스에이', 'J&J': '제이앤제이렌트카', 에코: '에코렌트카', 경진: '경진렌트카', 오토플러스: '오토플러스' };
-const labelOf = (salesName: string) => SUPPLIER_ALIAS[S(salesName)] || S(salesName);
+const labelOf = supplierSalesLabel;
 
 // ── 발행된 세 탭 읽기(값 + 차량번호 링크)
 const smeta = await call(`${SH}/${SALES_SHEET_ID}?fields=sheets.properties(title,hidden)`);
@@ -60,14 +61,78 @@ for (const t of tabs) {
     block.rows.push(r);
   });
 }
-// ── 공급사 시트 목록
-const q = `name contains '${SHEET_NAME_MATCH}' and mimeType = 'application/vnd.google-apps.spreadsheet' and trashed = false`;
-const found = await call(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)&pageSize=100&includeItemsFromAllDrives=true&supportsAllDrives=true`);
-const suppliers = ((found.files || []) as Rec[]).map((f) => ({ id: S(f.id), name: supplierSheetLabel(S(f.name)) })).sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+// ── 공급사 시트 목록 — 파일명 검색이 아니라 「프리패스 거래처 정리」의 거래중·정제/제공 링크만 쓴다.
+// 파일명 검색은 폐기된 경진 문서까지 잡아 실제 반영 대상을 잘못 고를 수 있었다(2026-08-21 실측).
+const cellText = (cell: Rec | undefined) => S(cell?.formattedValue);
+const cellLink = (cell: Rec | undefined) => S(cell?.hyperlink)
+  || S((cell?.textFormatRuns || []).find((run: Rec) => run.format?.link?.uri)?.format?.link?.uri);
+const sheetIdFromUrl = (url: string) => /\/spreadsheets\/d\/([^/?#]+)/.exec(url)?.[1] || '';
+const registryRanges = ["'공급사'!A2:C100", "'공급사'!L2:M100"];
+const registryQuery = registryRanges.map((range) => `ranges=${encodeURIComponent(range)}`).join('&');
+const registryFields = 'sheets(data(startRow,startColumn,rowData(values(formattedValue,hyperlink,textFormatRuns))))';
+const registry = await call(`${SH}/${PARTNER_REGISTRY_ID}?includeGridData=true&${registryQuery}&fields=${encodeURIComponent(registryFields)}`);
+const registryData = registry.sheets?.[0]?.data || [];
+const registryLeft = registryData[0]?.rowData || [];
+const registryLinks = registryData[1]?.rowData || [];
+const linked: { id: string; company: string; code: string }[] = [];
+const missingLinks: { company: string; code: string }[] = [];
+for (let index = 0; index < Math.max(registryLeft.length, registryLinks.length); index++) {
+  const left = registryLeft[index]?.values || [];
+  if (cellText(left[0]) !== '거래중') continue;
+  const company = cellText(left[1]);
+  const code = cellText(left[2]);
+  const target = sheetIdFromUrl(cellLink(registryLinks[index]?.values?.[1]));
+  if (target) linked.push({ id: target, company, code });
+  else missingLinks.push({ company, code });
+}
+const supplierMap = new Map<string, { id: string; name: string; code: string }>();
+const deprecatedLinks: { company: string; code: string; name: string }[] = [];
+const duplicateTargetIds: { id: string; companies: string[] }[] = [];
+const linkedById = new Map<string, { company: string; code: string }[]>();
+for (const item of linked) linkedById.set(item.id, [...(linkedById.get(item.id) || []), { company: item.company, code: item.code }]);
+for (const [id, items] of linkedById) {
+  if (items.length > 1) duplicateTargetIds.push({ id, companies: items.map((item) => `${item.company}(${item.code})`) });
+}
+for (const item of linked) {
+  const file = await call(`${DRIVE}/${item.id}?fields=id,name&supportsAllDrives=true`);
+  const fileName = S(file.name);
+  if (/구버전|폐기/.test(fileName)) {
+    deprecatedLinks.push({ company: item.company, code: item.code, name: fileName });
+    continue;
+  }
+  supplierMap.set(item.id, { id: item.id, name: supplierSheetLabel(fileName) || item.company, code: item.code });
+}
+const suppliers = [...supplierMap.values()].sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+const duplicateLabels = suppliers
+  .map((supplier) => norm(supplier.name))
+  .filter((label, index, all) => all.indexOf(label) !== index);
 const stamp = tabs.map((t) => t.title.replace(/^.*?(\d\d\.\d\d \d\d:\d\d).*$/, '$1'))[0] || '';
-console.log(`■ 공급사 시트 「${SUPPLIER_PREVIEW_TAB}」 탭 ${APPLY ? '반영' : '미리보기'} — 판매시트 ${tabs.map((t) => t.title).join(' + ')} → ${suppliers.length}곳`);
+console.log(`■ 공급사 시트 「${SUPPLIER_PREVIEW_TAB}」 탭 ${APPLY ? '반영' : '미리보기'} — 판매시트 ${tabs.map((t) => t.title).join(' + ')} → 관리대장 링크 ${suppliers.length}곳`);
+if (missingLinks.length) console.log(`  ⚠ 거래중이지만 정제/제공 링크가 없는 공급사 ${missingLinks.length}곳: ${missingLinks.map((item) => `${item.company}(${item.code})`).join(' · ')}`);
+if (deprecatedLinks.length) console.log(`  ⛔ 거래중 행이 구버전·폐기 문서를 가리킴 ${deprecatedLinks.length}곳: ${deprecatedLinks.map((item) => `${item.company}(${item.code})`).join(' · ')}`);
+if (duplicateTargetIds.length) console.log(`  ⛔ 같은 정제/제공 링크가 여러 거래중 행에 중복됨 ${duplicateTargetIds.length}건`);
+if (duplicateLabels.length) console.log(`  ⛔ 정규화한 공급사명이 중복됨 ${[...new Set(duplicateLabels)].join(' · ')}`);
 const unmatched = [...bySupplier.keys()].filter((l) => !suppliers.some((s) => norm(s.name) === norm(l)));
 if (unmatched.length) console.log(`  ⚠ 시트를 못 찾은 공급사 표기: ${unmatched.join(' · ')}`);
+const blockingTargetProblems = missingLinks.length + deprecatedLinks.length + duplicateTargetIds.length + duplicateLabels.length + unmatched.length;
+if (APPLY && blockingTargetProblems) throw new Error('거래처 관리대장·공급사 매칭 오류를 바로잡기 전에는 상품시트 발행 금지');
+
+// 판매시트에 0대인 대상은 정상 공백일 수 있다. 그러나 기존 상품행이 있으면 별칭 실패 가능성이 있으므로 쓰기 전에 전부 검사한다.
+const suspiciousEmptyTargets: string[] = [];
+if (APPLY) {
+  for (const supplier of suppliers) {
+    const blocks = bySupplier.get([...bySupplier.keys()].find((label) => norm(label) === norm(supplier.name)) || '') || [];
+    if (blocks.some((block) => block.rows.length)) continue;
+    try {
+      const current = await call(`${SH}/${supplier.id}/values/${encodeURIComponent(`'${SUPPLIER_PREVIEW_TAB}'!A1:CZ2000`)}`);
+      const rows = (current.values || []) as string[][];
+      if (rows.length > 1 && !rows.flat().some((cell) => /발행된 판매시트에 이 공급사 줄이 없습니다/.test(S(cell)))) suspiciousEmptyTargets.push(supplier.name);
+    } catch (error) {
+      if (!/Unable to parse range|400/.test(String((error as Error).message))) throw error;
+    }
+  }
+  if (suspiciousEmptyTargets.length) throw new Error(`판매시트 0대인데 기존 상품행이 있는 공급사: ${suspiciousEmptyTargets.join(' · ')} — 별칭/상태 확인 전 덮어쓰기 금지`);
+}
 let done = 0;
 for (const s of suppliers) {
   const blocks = bySupplier.get([...bySupplier.keys()].find((l) => norm(l) === norm(s.name)) || '') || [];
@@ -83,15 +148,14 @@ for (const s of suppliers) {
     gid = added.replies?.[0]?.addSheet?.properties?.sheetId;
   }
   // 값: 블록마다 (머리행 + 줄), 블록 사이 빈 줄 하나. 첫 블록 머리행이 표의 머리(서식 기준).
-  const values: string[][] = []; const linkCells: { row: number; col: number; plate: string; url: string }[] = [];
+  const linkCells: { row: number; col: number; plate: string; url: string }[] = [];
   const first = blocks[0];
   const columns = first ? first.header : ['공급사', '차량번호', '(발행된 판매시트에 이 공급사 줄이 없습니다 — 출고불가만 있거나 아직 발행 전)'];
-  if (!first) values.push(columns);
+  const values = buildSupplierPreviewValues(blocks);
   blocks.forEach((b, bi) => {
-    if (bi > 0) values.push([]);
-    values.push(b.header);
+    const blockStart = blocks.slice(0, bi).reduce((n, prev, prevIndex) => n + prev.rows.length + 1 + (prevIndex > 0 ? 1 : 0), 0) + (bi > 0 ? 1 : 0);
     const pi = b.header.indexOf('차량번호');
-    b.rows.forEach((r, k) => { const rowIdx = values.length; values.push(r); const url = b.links.get(k); if (url) linkCells.push({ row: rowIdx, col: pi, plate: S(r[pi]), url }); });
+    b.rows.forEach((r, k) => { const rowIdx = blockStart + 1 + k; const url = b.links.get(k); if (url) linkCells.push({ row: rowIdx, col: pi, plate: S(r[pi]), url }); });
   });
   await call(`${SH}/${s.id}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests: [{ updateCells: { range: { sheetId: gid }, fields: 'userEnteredValue' } }] }) });
   await call(`${SH}/${s.id}/values/${encodeURIComponent(`'${SUPPLIER_PREVIEW_TAB}'!A1`)}?valueInputOption=RAW`, { method: 'PUT', body: JSON.stringify({ values }) });
@@ -111,3 +175,4 @@ for (const s of suppliers) {
   done++; await sleep(600);
 }
 console.log(APPLY ? `  반영 ${done}곳` : '※ dry-run. 반영은 --apply');
+if (!APPLY && blockingTargetProblems) process.exit(2);

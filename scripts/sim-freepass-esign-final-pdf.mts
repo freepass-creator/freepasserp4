@@ -58,7 +58,9 @@ try {
     deposit_installment: '일시납',
     insurance_condition: '개인보험형 (임차인이 본인 명의로 직접 가입)',
     customer_insurance_evidence: '가입증명서 제출 · 관리자 확인 (참조 0123456789ab)',
-    esign_consent_status: '필수 동의·계약조건 확인 완료',
+    esign_consent_status: '3건 필수 동의·계약조건 확인 완료',
+    esign_consent_keys: 'rental_terms,privacy,supporting_documents_consent',
+    esign_consent_summary: '자동차 임대차 계약 약관 · 개인정보 수집·이용 및 계약 이행에 필요한 제공 동의 · 추가 제출서류 수집·이용 및 계약 렌터카사 제공 동의',
     esign_signed_at: '2026.08.21. 13:42',
     co: 'sonogong', pd: '렌트선택형', ins: '포함', ct: '법인', car: '등록완료', tax: '사업자',
   };
@@ -87,6 +89,11 @@ try {
     vin: document.querySelector('[data-field="vin"]')?.textContent?.replace(/\s+/g, ' ').trim() || '',
     evidence: document.querySelector('[data-field="customer_insurance_evidence"]')?.textContent?.replace(/\s+/g, ' ').trim() || '',
     signedAt: document.querySelector('[data-field="esign_signed_at"]')?.textContent?.replace(/\s+/g, ' ').trim() || '',
+    consentSummary: document.querySelector('[data-field="esign_consent_summary"]')?.textContent?.replace(/\s+/g, ' ').trim() || '',
+    rentalTermsChecked: (document.querySelector('[data-consent-key="rental_terms"] .agchk') as HTMLInputElement | null)?.checked || false,
+    privacyChecked: (document.querySelector('[data-consent-key="privacy"] .agchk') as HTMLInputElement | null)?.checked || false,
+    gpsDisplay: (document.querySelector('[data-consent-key="gps"]') as HTMLElement | null)?.style.display || '',
+    supportingDisplay: (document.querySelector('[data-consent-key="supporting_documents_consent"]') as HTMLElement | null)?.style.display || '',
     signature: (document.querySelector('[data-sign="customer"] img') as HTMLImageElement | null)?.src || '',
     signatureCount: document.querySelectorAll('[data-sign="customer"] img').length,
   }));
@@ -97,6 +104,11 @@ try {
   assert.equal(rendered.vin, 'KMH-VERIFY-VIN-0001');
   assert.match(rendered.evidence, /가입증명서 제출 · 관리자 확인/);
   assert.equal(rendered.signedAt, '2026.08.21. 13:42');
+  assert.match(rendered.consentSummary, /추가 제출서류/);
+  assert.equal(rendered.rentalTermsChecked, true);
+  assert.equal(rendered.privacyChecked, true);
+  assert.equal(rendered.gpsDisplay, 'none');
+  assert.notEqual(rendered.supportingDisplay, 'none');
   assert.match(rendered.signature, /^data:image\/png;base64,/);
   assert.equal(rendered.signatureCount, 1);
   await page.emulateMedia({ media: 'print' });

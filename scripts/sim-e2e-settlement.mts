@@ -79,7 +79,9 @@ const roomId = await ensureRoom(product);
 const contractCode = await createContractRequest(product, { customerName: '', customerPhone: '' }, roomId);
 let contract = (await store.get('contract', co, contractCode))!;
 check('2a. 계약 생성(계약요청)', contract.contract_status === '계약요청', contractCode);
-check('2b. 요율 동결(스냅샷)', Number(contract.fee_rate_snapshot) === 0.1 && Number(contract.payout_rate_snapshot) === 0.04,
+// 계약 생성 브라우저는 private 수수료율을 봉인하지 않는다. 운영에서는 서버 정산 writer가
+// trusted rate source를 읽어 한 번만 계산한다. LocalAdapter도 같은 경계를 기대해야 한다.
+check('2b. 브라우저 계약의 요율 미동결(서버 정산에서 확정)', contract.fee_rate_snapshot == null && contract.payout_rate_snapshot == null,
   { fee: contract.fee_rate_snapshot, payout: contract.payout_rate_snapshot });
 
 const steps: [string, string, string][] = [

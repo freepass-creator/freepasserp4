@@ -26,7 +26,8 @@
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { INCLUDE_MIRROR, isMirrorSheet } from '../lib/domain/mirror-sources';
-import { AI_TAIL_COLUMNS } from '../lib/domain/supplier-template-sheet';
+import { isLegacySheetId } from '../lib/domain/legacy-sheets';
+import { AI_TAIL_COLUMNS, LEGACY_SHEET_PREFIX } from '../lib/domain/supplier-template-sheet';
 
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
@@ -65,7 +66,11 @@ if (ONE) targets.push(ONE);
 else {
   const q = `name contains '${NAME}' and mimeType = 'application/vnd.google-apps.spreadsheet' and trashed = false`;
   const r = await call(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)&pageSize=100&includeItemsFromAllDrives=true&supportsAllDrives=true`);
-  for (const f of (r.files || []) as Rec[]) if (INCLUDE_MIRROR || !isMirrorSheet(S(f.id))) targets.push(S(f.id));
+  for (const f of (r.files || []) as Rec[]) {
+    if (!INCLUDE_MIRROR && isMirrorSheet(S(f.id))) continue;
+    if (isLegacySheetId(S(f.id)) || S(f.name).startsWith(LEGACY_SHEET_PREFIX) || /구버전/.test(S(f.name))) continue;
+    targets.push(S(f.id));
+  }
   if (!INCLUDE_MIRROR) console.log('  (정제시트는 제외 — 사장님 「너는 우리 제공 시트만 맡아」 · 포함하려면 --include-mirror)');
 }
 console.log(`■ 차종마스터 정제칸 붙이기 ${APPLY ? '반영' : '미리보기(dry-run)'} — 대상 ${targets.length}곳`);

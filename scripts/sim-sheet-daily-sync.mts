@@ -1,7 +1,7 @@
 import type { EntityRecord } from '../lib/intake/entities';
 import { findSheetSyncExistingConflicts, type PartnerFetchLine, type PartnerSheetsFetch } from '../lib/domain/sheet-sync-all';
 import { planDailySheetSync } from '../lib/domain/sheet-daily-sync';
-import { buildSheetManualFieldList } from '../lib/domain/sheet-merge';
+import { buildSheetManualFieldList, stripSheetPrivatePatchFields } from '../lib/domain/sheet-merge';
 import {
   KEEP_EXISTING_PRICES,
   PRICE_PERIOD_CONFLICT,
@@ -82,6 +82,32 @@ const first = planDailySheetSync({
 check('정상 일일 연동 계획 통과', first.ok, first.blockReason);
 check('신규 시트 행은 자체 재고 create', first.creates.length === 1 && first.counts.created === 1);
 check('기존 시트 행은 변경분 patch', first.counts.updated === 1);
+const privateCreate = planDailySheetSync({
+  fetched: fetched([sheetProduct('57다7891', {
+    vehicle_price: 30_000_000,
+    vin: 'TEST-VIN-MUST-NOT-PERSIST',
+    account_number: 'TEST-ACCOUNT-MUST-NOT-PERSIST',
+    price: {
+      '36': { rent: 500_000, deposit: 1_000_000, fee: 1_000, commission: 2_000, fee_memo: 'internal' },
+      '48': { fee: 3_000 },
+    },
+  })]),
+  existing: [],
+  deleted: [],
+  partners,
+  now: 101,
+});
+const privateCreateRecord = privateCreate.creates[0];
+check('신규 시트 행의 private 필드는 버리고 공개 가격만 create', privateCreate.ok
+  && privateCreate.creates.length === 1
+  && privateCreateRecord?.vehicle_price === undefined
+  && privateCreateRecord?.vin === undefined
+  && privateCreateRecord?.account_number === undefined
+  && JSON.stringify(privateCreateRecord?.price) === JSON.stringify({ '36': { rent: 500_000, deposit: 1_000_000 } }),
+  privateCreateRecord);
+check('수수료만 있는 가격 기간은 빈 공개 price로 남기지 않음', JSON.stringify(stripSheetPrivatePatchFields({
+  price: { '48': { fee: 3_000 } },
+})) === JSON.stringify({ price: {} }));
 const deletedReappeared = sheetProduct('78라9012', {
   _deleted: true,
   deletedAt: '2026-08-10T00:00:00.000Z',
@@ -444,6 +470,14 @@ check('성공 반영은 run id와 감사로그를 함께 남김',
   dailyServerSource.includes('sheet_sync_run_id: runId')
   && dailyServerSource.includes('audit_logs/${auditId}')
   && dailyServerSource.includes("action: 'sheet_daily_sync'"));
+check('운영 제품 반영은 영향 키 원본 백업 성공 뒤에만 시작',
+  dailyServerSource.includes('await writeProductSyncBackup(db, companyId, runId, freshRunnable)')
+  && dailyServerSource.indexOf('await writeProductSyncBackup(db, companyId, runId, freshRunnable)')
+    < dailyServerSource.indexOf('for (const item of freshRunnable)'));
+check('롤백은 해당 run id가 찍힌 제품만 복원하고 이후 변경이 있으면 전체 차단',
+  dailyServerSource.includes("String(current?.sheet_sync_run_id || '') === sourceRunId")
+  && dailyServerSource.includes('if (fresh.conflicts.length)')
+  && dailyServerSource.includes("status: 'rolled_back'"));
 check('공급사 checkpoint는 파트너 노드를 교체하지 않고 leaf 필드만 병합',
   dailyServerSource.includes('metadata[`partners/${checkpoint.key}/${field}`] = value')
   && !dailyServerSource.includes('metadata[`partners/${checkpoint.key}`] = clean'));
@@ -461,11 +495,13 @@ check('상품마스터는 공급사별 독립 계획·반영·사후검증으로
 check('CAS 실패 상태·감사 원장에는 차량 식별키를 노출하지 않음',
   dailyServerSource.includes('동기화 중 공급사 재고가 변경됐습니다')
   && !dailyServerSource.includes('`(${conflictKey})`'));
-check('차단·실패·dry-run도 실행 원장에 상태와 사유를 남김',
+check('실제 차단·실패는 실행 원장에 남기되 dry-run은 락·상태·실행 원장을 쓰지 않음',
   dailyServerSource.includes('sheet_sync_runs/${runId}')
   && dailyServerSource.includes("writeRun(db, runId, 'blocked'")
   && dailyServerSource.includes("writeRun(db, runId, 'failed'")
-  && dailyServerSource.includes("writeRun(db, runId, 'dry_run'"));
+  && !dailyServerSource.includes("writeRun(db, runId, 'dry_run'")
+  && dailyServerSource.includes('if (!opts.dryRun) await acquireLease')
+  && dailyServerSource.includes("if (!opts.dryRun) {\n      await db.ref(STATUS_PATH).set"));
 const statusRouteSource = readFileSync('app/api/sheet/sync-status/route.ts', 'utf8');
 check('운영 상태 API는 Firebase 관리자 인증을 요구', statusRouteSource.includes('verifyAdminBearer'));
 const resolutionRouteSource = readFileSync('app/api/sheet/conflict-resolutions/route.ts', 'utf8');
@@ -476,9 +512,13 @@ check('가격 유지 승인 API는 관리자 인증·v4 원장·계약보호 재
 const packageJson = JSON.parse(readFileSync('package.json', 'utf8')) as {
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
+  scripts?: Record<string, string>;
 };
 check('Firebase Admin은 배포 런타임 dependency',
   !!packageJson.dependencies?.['firebase-admin'] && !packageJson.devDependencies?.['firebase-admin']);
+check('롤백 명령은 별도 --apply 없이는 dry-run',
+  packageJson.scripts?.['rollback:sales-erp']?.includes('rollback-sheet-daily-sync-local.mts') === true
+  && readFileSync('scripts/rollback-sheet-daily-sync-local.mts', 'utf8').includes('dryRun: !APPLY'));
 
 const failed = cases.filter((item) => !item.ok);
 for (const item of cases) console.log(`${item.ok ? 'PASS' : 'FAIL'} ${item.name}`, item.ok ? '' : item.detail ?? '');

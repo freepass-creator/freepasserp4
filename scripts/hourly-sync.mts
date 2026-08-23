@@ -1,207 +1,91 @@
 /**
- * **한 시간마다 도는 시트 동기화 한 방** — 사장님 2026-08-19 「내가 말 안 해도 공급사시트 반영해서 한 시간에 한 번씩 새로운 차나 없어진 거 출고불가나 이런 거 작업해 줄 수 있나 · 알아서 돌아가는 시스템」.
+ * 판매시트 3탭 → ERP 시간별 동기.
  *
- * 차례(한 단계가 실패하면 거기서 멈추고 기록에 남긴다 — 낡은 값을 발행하지 않기 위해):
- *   ① 정제시트 갱신(아이카·오토플러스·이안카·아이언 = 원본에서 새 차·사라진 차(출고불가)·요금·상태를 가져온다)
- *   ② 차명 중복 정리(「쏘나타 쏘나타 DN8」 → 「쏘나타 DN8」)
- *   ③ 모델명 통일(엔카 기준: 벤츠 E200 → E-클래스 · BMW 520i → 5시리즈)
- *   ④ 입고일자 채움(그 차량번호가 우리 쪽에 처음 올라온 날)
- *   ⑤ 차량번호 셀에 사진링크 걸기
- *   ⑥ 판매시트 발행(상품리스트 · 손오공구독 · 오플구독)
- *   ⑥′ (건너뜀) 상품마스터는 이제 안 거친다 — ERP 가 판매시트를 그대로 읽는다. `--with-product-master` 로만 켠다
- *   ⑦ ERP 일일 동기(sheet/sync-daily) — 실패해도 밤 02:00 크론이 다시 돈다(경고만)
- *   ⑦′ ERP 를 시트 그대로 비춤 — 사진링크 · 모델/차명 · 시트에 없는 차 출고불가(일일 동기가 안 옮기는 것들)
- *   ⑧ 시트↔ERP 대조(audit-sheet-erp-parity) — 매시 기록에 「안 뜨는 차 N대」로 남긴다
- *   ⑨ 상태 갈림 신호(audit-status-drift) — 원본→정제시트→판매시트→ERP 중 «어디서 갈렸나». 고치지 않고 신호만
- *
- * 기본 dry-run(무엇이 바뀌는지만), 실제 반영은 --apply. 기록은 tmp/hourly-sync-log.txt(줄마다 한 번의 실행) · 자세한 출력은 tmp/hourly-sync-last.txt.
- *   npx tsx scripts/hourly-sync.mts --apply
- * ⚠ 겹쳐 돌지 않는다 — tmp/hourly-sync.lock 이 있으면(30분 안) 그냥 끝낸다(작업 스케줄러가 겹쳐 부르는 것 대비).
+ * 상위 공급사·정제·판매시트는 별도 담당 정본이므로 이 작업은 절대 수정·재발행하지 않는다.
+ * 기본은 완전한 읽기 전용 감사, `--apply`일 때만 ERP 동기 함수를 한 번 실행한다.
  */
 import { appendFileSync, existsSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 
 const APPLY = process.argv.includes('--apply');
-const A = APPLY ? ['--apply'] : [];
-const kst = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 16).replace('T', ' ');
 const started = Date.now();
+const kst = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 16).replace('T', ' ');
 const LOCK = 'tmp/hourly-sync.lock';
-if (existsSync(LOCK) && Date.now() - statSync(LOCK).mtimeMs < 30 * 60_000) { console.log('앞의 실행이 아직 돈다(lock) — 이번은 건너뛴다'); process.exit(0); }
-writeFileSync(LOCK, kst());
+const LEGACY_LOCK_STALE_MS = 2 * 60 * 60_000;
+const SERVER_ONLY_SHIM = ['./scripts/lib/server-only-shim.cjs'];
 
-const out: string[] = [`■ 시간별 동기화 ${APPLY ? '반영' : '미리보기'} ${kst()} KST`];
-const line: string[] = [];
-const run = (label: string, args: string[], pick: RegExp): { ok: boolean; picked: string[] } => {
-  const r = spawnSync(process.platform === 'win32' ? 'npx.cmd' : 'npx', ['tsx', ...args], { encoding: 'utf8', shell: process.platform === 'win32', env: process.env, maxBuffer: 64 * 1024 * 1024 });
-  const lines = `${r.stdout || ''}\n${r.stderr || ''}`.split(/\r?\n/).map((l) => l.trimEnd()).filter((l) => l && !/DEP0190|trace-deprecation|Assertion/.test(l));
-  const picked = lines.filter((l) => pick.test(l)).map((l) => l.trim());
-  out.push(`\n── ${label} ${r.status === 0 ? '✓' : '✗'}`, ...lines.slice(-40).map((l) => `   ${l.slice(0, 300)}`));
-  console.log(`── ${label} ${r.status === 0 ? '✓' : '✗'}`); for (const l of picked.slice(0, 6)) console.log(`   ${l.slice(0, 220)}`);
-  return { ok: r.status === 0, picked };
-};
-/**
- * ★**멈추면 메일로 알린다**(사장님 2026-08-20 「동기가 멈추면 메일로」).
- *   실측 2026-08-20 — 08:12 부터 12:13 까지 네 시간 멈춰 있었는데 **아무도 몰랐다.**
- *   기록은 파일에만 남았고 사장님이 「동기화 됐나?」 물어봐서 알았다. 자동은 «멈췄다는 사실이
- *   사람에게 닿을 때» 완성된다.
- * ⚠ 매시 실패하면 매시 메일이 온다 — 그러면 아무도 안 본다. **처음 실패한 때와 그 뒤 3시간마다**만 보낸다.
- *   다시 성공하면 「복구됨」을 한 번 보내고 세는 것을 지운다.
- *   보내는 도구는 이미 있는 `C:\dev\mailtool\send_mail.py`(GMAIL_ADDRESS·GMAIL_APP_PASSWORD 환경변수).
- */
-const ALERT_STATE = 'tmp/hourly-sync-alert.json';
-/** 받는 사람 — 대표·강지수 팀장·박태윤(사장님 2026-08-20 「내거랑 강지수팀장이랑 박태윤이랑 같이 메일가게」). */
-const ALERT_TO = (process.env.FP_ALERT_TO || 'pyh@teamjpk.com,kjs@teamjpk.com,pty@teamjpk.com')
-  .split(',').map((x) => x.trim()).filter(Boolean);
-const ALERT_GAP_MS = 3 * 60 * 60 * 1000;
-type AlertState = { failingSince?: string; lastAlertAt?: number; count?: number };
-const readAlert = (): AlertState => { try { return JSON.parse(readFileSync(ALERT_STATE, 'utf8')) as AlertState; } catch { return {}; } };
-const sendMail = (subject: string, body: string) => {
+function activeLock(): boolean {
+  if (!existsSync(LOCK)) return false;
   try {
-    const bodyFile = 'tmp/hourly-sync-alert-body.txt';
-    writeFileSync(bodyFile, body, 'utf8');
-    const to = ALERT_TO.flatMap((addr) => ['--to', addr]);
-    const r = spawnSync('python', ['C:/dev/mailtool/send_mail.py', ...to, '--subject', subject, '--body-file', bodyFile, '--from-name', '프리패스 자동동기'], { encoding: 'utf8', timeout: 120_000 });
-    if (r.status !== 0) console.log(`   ⚠ 알림 메일 실패 — ${(r.stderr || r.stdout || '').split(/\r?\n/).filter(Boolean).slice(-2).join(' ')}`);
-    else console.log(`   ✉ 알림 메일 보냄 → ${ALERT_TO.join(' · ')}`);
-  } catch (e) { console.log(`   ⚠ 알림 메일 실패 — ${(e as Error).message.slice(0, 120)}`); }
-};
-/** 실패했을 때 — 처음이거나 3시간이 지났으면 보낸다. */
-const alertFail = (why: string) => {
-  const st = readAlert();
-  const now = Date.now();
-  const count = (st.count || 0) + 1;
-  const since = st.failingSince || kst();
-  const due = !st.lastAlertAt || (now - st.lastAlertAt) >= ALERT_GAP_MS;
-  writeFileSync(ALERT_STATE, JSON.stringify({ failingSince: since, lastAlertAt: due ? now : st.lastAlertAt, count }));
-  if (!due) return;
-  sendMail(
-    `[프리패스] 시트→ERP 자동동기 멈춤 — ${why}`,
-    [
-      `멈춘 단계: ${why}`,
-      `처음 멈춘 때: ${since} · 그 뒤 ${count}번 연속 실패`,
-      `이번 실행: ${kst()} KST`,
-      '',
-      '이 동안 ERP 는 마지막으로 성공한 값에 머뭅니다(공급사 시트를 고쳐도 안 넘어갑니다).',
-      '',
-      '푸는 법 — C:/dev/aiops/docs/sop/영업/ERP반영.md 「멈출 때」',
-      '자세한 기록 — C:/dev/freepasserp4/tmp/hourly-sync-last.txt',
-      '',
-      '── 마지막 실행 꼬리 ──',
-      out.slice(-25).join('\n'),
-    ].join('\n'),
-  );
-};
-/** 다시 성공했을 때 — 멈춰 있었다면 한 번만 「복구됨」. */
-const alertRecovered = () => {
-  const st = readAlert();
-  if (!st.failingSince) return;
-  writeFileSync(ALERT_STATE, JSON.stringify({}));
-  sendMail(
-    '[프리패스] 시트→ERP 자동동기 복구됨',
-    [`${st.failingSince} 부터 ${st.count || 0}번 멈춰 있던 자동동기가 ${kst()} KST 에 다시 끝까지 돌았습니다.`, '', line.join(' · ')].join('\n'),
-  );
-};
-const stop = (why: string) => {
-  out.push(`\n⛔ 중단 — ${why}`); line.push(`중단(${why})`);
-  writeFileSync('tmp/hourly-sync-last.txt', out.join('\n'));
-  appendFileSync('tmp/hourly-sync-log.txt', `${kst()} ${APPLY ? '반영' : '미리'} ${Math.round((Date.now() - started) / 1000)}초 · ${line.join(' · ')}\n`);
+    const lock = JSON.parse(readFileSync(LOCK, 'utf8')) as { pid?: number };
+    if (Number.isInteger(lock.pid) && Number(lock.pid) > 0) {
+      process.kill(Number(lock.pid), 0);
+      return true;
+    }
+  } catch { /* 옛 잠금 또는 끝난 PID */ }
+  return Date.now() - statSync(LOCK).mtimeMs < LEGACY_LOCK_STALE_MS;
+}
+
+if (activeLock()) {
+  console.log('앞의 ERP 동기화가 아직 실행 중입니다 — 이번 호출을 건너뜁니다.');
+  process.exit(0);
+}
+writeFileSync(LOCK, JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString() }));
+
+const detail: string[] = [`■ 판매시트→ERP ${APPLY ? '반영' : '읽기 감사'} ${kst()} KST`];
+const summary: string[] = [];
+const mask = (value: string): string => value
+  .replace(/(\d{2,3}[가-힣])\d{4}/g, '$1****')
+  .replace(/\b[A-HJ-NPR-Z0-9]{17}\b/g, '[VIN 마스킹]');
+
+function run(label: string, args: string[], pick: RegExp): { ok: boolean; picked: string[] } {
+  const result = spawnSync(process.platform === 'win32' ? 'npx.cmd' : 'npx', ['tsx', ...args], {
+    encoding: 'utf8',
+    shell: process.platform === 'win32',
+    env: process.env,
+    maxBuffer: 64 * 1024 * 1024,
+  });
+  const lines = `${result.stdout || ''}\n${result.stderr || ''}`
+    .split(/\r?\n/)
+    .map((line) => mask(line.trimEnd()))
+    .filter((line) => line && !/DEP0190|trace-deprecation|Assertion/.test(line));
+  const picked = lines.filter((line) => pick.test(line)).map((line) => line.trim());
+  detail.push(`\n── ${label} ${result.status === 0 ? '✓' : '✗'}`, ...lines.slice(-50).map((line) => `   ${line.slice(0, 300)}`));
+  console.log(`── ${label} ${result.status === 0 ? '✓' : '✗'}`);
+  for (const line of picked.slice(0, 8)) console.log(`   ${line.slice(0, 220)}`);
+  return { ok: result.status === 0, picked };
+}
+
+function finish(exitCode: number, reason = ''): never {
+  const seconds = Math.round((Date.now() - started) / 1000);
+  if (reason) detail.push(`\n⛔ 중단 — ${reason}`);
+  detail.push(`\n■ 끝 ${kst()} KST · ${seconds}초`);
+  writeFileSync('tmp/hourly-sync-last.txt', detail.join('\n'));
+  appendFileSync('tmp/hourly-sync-log.txt', `${kst()} ${APPLY ? 'ERP반영' : '감사'} ${seconds}초 · ${summary.join(' · ')}${reason ? ` · 중단(${reason})` : ''}\n`);
   rmSync(LOCK, { force: true });
-  console.log(`⛔ 중단 — ${why}`);
-  if (APPLY) alertFail(why);
-  process.exit(1);
-};
+  if (reason) console.log(`⛔ 중단 — ${reason}`);
+  else console.log(`■ 끝 — ${seconds}초 · 기록 tmp/hourly-sync-log.txt`);
+  process.exit(exitCode);
+}
 
-// ① 정제시트(원본이 자체시트·홈페이지인 4곳) — 새 차 추가 · 사라진 차 출고불가 · 요금/상태 갱신
-const s1 = run('① 정제시트 갱신', ['scripts/sync-mirror-all.mts', ...A], /새 차|사라진|갱신할|끝|실패|✓|✗/);
-if (!s1.ok) stop('정제시트 갱신 실패');
-line.push(`정제시트 ${s1.picked.find((l) => /새 차/.test(l))?.replace(/\s+/g, ' ').slice(0, 60) || 'ok'}`);
+try {
+  const preflight = run('① 판매시트 읽기·커밋 경계', ['--require', ...SERVER_ONLY_SHIM, 'scripts/audit-sales-sync-preflight.mts'], /판매시트 ERP 사전감사|커밋 경계|커밋 차단|영구 부여기록/);
+  summary.push(preflight.ok ? '사전감사 통과' : '사전감사 실패');
+  if (!preflight.ok) finish(1, '판매시트 사전감사 실패');
 
-// ② 차명 중복 정리 → ③ 모델명 통일(엔카 기준)
-const s2 = run('② 차명 중복 정리', ['scripts/tidy-vehicle-names.mts', ...A], /합계/);
-if (!s2.ok) stop('차명 정리 실패'); line.push(s2.picked[0]?.replace('■ ', '차명 ') || '차명 0');
-const s3 = run('③ 모델명 통일', ['scripts/normalize-model-names.mts', ...A], /합계/);
-if (!s3.ok) stop('모델명 통일 실패'); line.push(s3.picked[0]?.replace('■ ', '모델명 ') || '모델명 0');
+  if (APPLY) {
+    const sync = run('② ERP 동기', ['--require', ...SERVER_ONLY_SHIM, 'scripts/run-sheet-daily-sync-local.mts', '--apply'], /반영|원본 |미리보기|보류|실패|✗/);
+    summary.push(sync.ok ? 'ERP 반영 통과' : 'ERP 반영 실패');
+    if (!sync.ok) finish(1, 'ERP 동기 실패');
+  } else {
+    summary.push('ERP 미변경');
+    console.log('── ② ERP 동기 — 건너뜀(읽기 감사 모드)');
+  }
 
-// ④ 입고일자(처음 올라온 날) → ⑤ 차량번호 셀 사진링크
-const s4 = run('④ 입고일자', ['tmp/fill-intake-date.mts', ...A], /반영 끝|dry-run|쓸 칸/);
-if (!s4.ok) stop('입고일자 실패'); line.push('입고일자 ok');
-const s5 = run('⑤ 차량번호 링크', ['scripts/publish-plate-links.mts', ...A], /합계/);
-if (!s5.ok) stop('차량번호 링크 실패'); line.push(s5.picked[0]?.replace('■ 합계 — ', '') || '링크 0');
-
-// ⑥ 판매시트 3탭
-const p1 = run('⑥ 상품리스트', ['scripts/publish-origin-tab.mts', ...A], /우리 시트 |반영 완료|중단|Error/);
-if (!p1.ok) stop('상품리스트 발행 실패(공급사 0대 가드면 확인 후 --force-shrink)');
-line.push(p1.picked.find((l) => /반영 완료/.test(l))?.replace('반영 완료 — 탭 ', '') || '상품리스트 ok');
-const p2 = run('⑥ 손오공구독', ['scripts/publish-origin-tab.mts', '--only=RP012:구독', '--tab=손오공구독', '--at=1', ...A], /반영 완료|중단|Error/);
-if (!p2.ok) stop('손오공구독 발행 실패');
-const p2b = run('⑥ 손오공 요금블록', ['scripts/publish-sonogong-tab.mts', ...A], /반영 완료|Error/);
-if (!p2b.ok) stop('손오공 요금블록 실패');
-const p3 = run('⑥ 오플구독', ['scripts/publish-origin-tab.mts', '--only=RP023', '--tab=오플구독', '--at=2', ...A], /반영 완료|중단|Error/);
-if (!p3.ok) stop('오플구독 발행 실패');
-const p3b = run('⑥ 오플 요금블록', ['scripts/publish-sonogong-tab.mts', '--tab=오플구독', ...A], /반영 완료|Error/);
-if (!p3b.ok) stop('오플 요금블록 실패');
-
-// ⑥′ 상품마스터 — ERP 가 읽는 표. 공급사 시트 유입 갱신 → 발행값(판매시트)으로 맞춤.
-//    ★2026-08-20 사장님 「erp랑도 연동해서 맞추고 있는 건가?」 — 이 두 단계가 빠져 상품마스터가 08-15 에 멈춰 있었고
-//      새 차 28대(아이언 5·아이카 9·이안카 13 등)가 ERP 에 못 들어갔다. 이제 매시간 같이 돈다.
-/**
- * ★2026-08-20 — **상품마스터는 안 거친다.** 사장님 「영업자가 보는 거랑 우리 ERP 랑 바로 연동하자 · 일단
- *   상품마스터 안 거치고」 · 「상품마스터 참조 안 하잖아 이제」. ERP 는 판매시트 3탭을 그대로 읽고,
- *   상품마스터는 «취급 이력 원장»으로만 남는다(탭 이름도 「상품마스터_구버전」).
- *   ⚠ 그런데 이 두 단계가 남아 있어 **매시 동기가 여기서 죽었다** — 구버전 탭은 50열이라 규격 52열과
- *     안 맞아 「상품마스터 A:AZ 헤더 불일치」가 나고, 뒤의 ⑦·⑧ 이 통째로 안 돌아 ERP 가 낡은 채로 있었다
- *     (실측 2026-08-20 10:07~12:13 · ERP 가 08:12 값에 멈춰 있었다).
- *   이력 원장을 갱신하고 싶은 날만 `--with-product-master` 로 켠다. 실패해도 발행·ERP 를 막지 않는다.
- */
-if (process.argv.includes('--with-product-master')) {
-  const m1 = run("⑥′ 상품마스터 갱신(이력 원장)", ['scripts/sync-product-master-live.mts', ...A], /created|문패|Error/);
-  const m2 = run("⑥′ 상품마스터 ← 판매시트", ['scripts/sync-product-master-from-sales.mts', ...A], /어긋난 칸|되읽기|✓|Error/);
-  line.push(m1.ok && m2.ok ? (m2.picked.find((l) => /어긋난 칸/.test(l))?.replace('어긋난 칸', 'PM 어긋난 칸') || 'PM ok') : 'PM 실패(경고)');
-} else line.push('PM 건너뜀(구버전)');
-
-// ⑦ ERP 일일 동기 — 로컬 코드로 돈다(배포본과 같은 함수). 실패는 경고(밤 02:00 크론이 다시 돈다).
-//    ★2026-08-20 — ERP 원본이 «영업자 상품리스트»로 바뀌었다(lib/domain/sheet-erp-parity 규칙 ①).
-//      배포 전에는 배포본 API 가 옛 경로(상품마스터)라, 로컬 스크립트로 돌려야 시트와 ERP 가 같아진다.
-const erp = run('⑦ ERP 일일 동기', ['--require', './tmp/codex-server-only-shim.cjs', 'scripts/run-sheet-daily-sync-local.mts', ...A], /반영|미리보기|원본 |✗/);
-line.push(erp.ok ? (erp.picked.find((l) => /원본 /.test(l))?.slice(0, 60) || 'ERP ok') : 'ERP 실패');
-
-/**
- * ⑦′ **ERP 를 시트 그대로 비춘다 — 사진·이름·부재**(사장님 2026-08-20 「지금 기준으로 ERP 를 갈아엎어 줘야지
- *   사진 정보까지」 · 「모델 차명으로만 하기로 했잖아」 · 「이거 매뉴얼로 지정해서 이렇게 시트랑 연동되게 하자」).
- *   일일 동기(⑦)는 셀 «값»만 옮긴다. 그래서 이 셋이 빠져 시트를 고쳐도 ERP 가 안 따라왔다.
- *     · 사진 — 차량번호 «셀 링크»로 다녀서 아예 안 옮겨졌다(35우0775 에 161허1176 사진이 떠 있었다)
- *     · 이름 — 08-15 상품마스터가 박아 둔 옛 이름이 남았다(아반떼MD 를 「더 뉴 아반떼 CN7 스마트」로 불렀다)
- *     · 부재 — 부재처리는 공급사별로 돌아 «공급사 빈 차»(EXT_… 키)가 영영 남았다
- *   셋 다 **판매시트가 정본**이고, 시트에 없으면 ERP 도 비운다(남의 차 사진·남의 차 이름보다 «없음»이 낫다).
- *   실패해도 멈추지 않는다 — ⑧ 대조가 어긋남을 그대로 보여 준다.
- */
-const mp = run("⑦′ 사진 시트대로", ['scripts/mirror-sales-photos.mts', ...A], /고칠 차|끝 —/);
-const mn = run("⑦′ 이름 시트대로", ['scripts/mirror-sales-vehicle-name.mts', ...A], /고칠 차|끝 —/);
-const ma = run("⑦′ 시트에 없는 차 출고불가", ['scripts/mirror-sales-absent.mts', ...A], /뜨는 차|끝 —/);
-line.push([
-  mp.ok ? (mp.picked.find((l) => /고칠 차/.test(l))?.replace('■ ERP 사진링크 ', '') || '사진 ok') : '사진 실패',
-  mn.ok ? (mn.picked.find((l) => /고칠 차/.test(l))?.replace('■ 이름 ', '') || '이름 ok') : '이름 실패',
-  ma.ok ? (ma.picked.find((l) => /뜨는 차/.test(l))?.replace('■ 판매시트에 없는데 상품찾기에 ', '') || '부재 ok') : '부재 실패',
-].join(' · '));
-
-// ⑧ 대조 — 판매시트 ↔ ERP 가 실제로 같은지 매 시간 확인해 기록에 남긴다(규칙 정본 lib/domain/sheet-erp-parity.ts).
-const chk = run('⑧ 시트↔ERP 대조', ['scripts/audit-sheet-erp-parity.mts'], /판매시트 |안 뜨는 차|없는 차/);
-line.push(chk.picked.find((l) => /안 뜨는 차/.test(l))?.replace('■ ', '') || '대조 ok');
-
-/**
- * ⑨ **상태가 어디서 갈렸나 — 신호만 낸다**(사장님 2026-08-20 「이거는 신호를 줘야 해 — 아이언은 홈피에서
- *   출고불가가 된 건지, 다른 데는 시트에서 출고불가가 된 건지 정제시트랑 원본시트랑 다 확인해야지」).
- *   고치지 않는다 — 자동으로 되돌리면 사람이 내린 판단을 지운다. 기록에 「상태 갈림 N대」로 남긴다.
- */
-const drift = run('⑨ 상태 갈림 신호', ['scripts/audit-status-drift.mts'], /상태가 다른 차|★/);
-// 미확인(동일 차번 상태 충돌 등)은 감사가 읽어 낸 유의미한 신호다. 이때 exit=2가
-// 나도 요약을 버리고 «0»이나 단순 실패로 적지 않는다. 요약 자체가 없을 때만 실패다.
-const driftSummary = drift.picked.find((l) => /상태가 다른 차/.test(l))?.replace('■ ', '');
-line.push(driftSummary || '상태 갈림 검사 실패');
-
-out.push(`\n■ 끝 ${kst()} KST · ${Math.round((Date.now() - started) / 1000)}초`);
-writeFileSync('tmp/hourly-sync-last.txt', out.join('\n'));
-appendFileSync('tmp/hourly-sync-log.txt', `${kst()} ${APPLY ? '반영' : '미리'} ${Math.round((Date.now() - started) / 1000)}초 · ${line.join(' · ')}\n`);
-rmSync(LOCK, { force: true });
-if (APPLY) alertRecovered();   // 멈춰 있었다면 「복구됨」을 한 번 보낸다
-console.log(`■ 끝 — ${Math.round((Date.now() - started) / 1000)}초 · 기록 tmp/hourly-sync-log.txt`);
+  const parity = run('③ 판매시트↔ERP·상품찾기 대조', ['--require', ...SERVER_ONLY_SHIM, 'scripts/audit-sheet-erp-parity.mts'], /판매시트 |판매→상품찾기|ERP→판매|핵심값 불일치|계약락 상태 예외/);
+  summary.push(parity.ok ? '정합성 통과' : '정합성 불일치');
+  if (!parity.ok) finish(2, '판매시트와 ERP/상품찾기 불일치');
+  finish(0);
+} catch (error) {
+  finish(1, `실행 예외: ${String((error as Error)?.message || error)}`);
+}

@@ -27,6 +27,13 @@ const RAW_ALLOW = new Map<string, Allow>([
   ['components/PhotoUpload.tsx', { counts: { input: 1 }, reason: '숨김 사진 선택기' }],
   ['features/inventory/InventoryEditorPanes.tsx', { counts: { input: 1 }, reason: '숨김 OCR 파일 선택기' }],
   ['app/settlement/page.tsx', { counts: { input: 1 }, reason: '숨김 정산 엑셀 선택기' }],
+  /**
+   * 우클릭 메뉴 한 장 안에서 «상세 보기»는 <a>, «ERP 상세 미연결»은 <span>, 복사 둘은 <button>이다.
+   * 셋이 .fp-sheet-view__context-action 한 클래스로 **똑같이 보여야** 하는데, Btn은 bare에서도
+   * padding·background·display를 인라인으로 덮어써 클래스를 이긴다 — 원자를 넣으면 그 줄만 어긋난다.
+   * 개수를 2로 못 박아 새 raw 컨트롤은 계속 걸리게 둔다. 갚을 빚: components/ui/ContextMenu SSOT 로 옮긴다.
+   */
+  ['features/finder/SheetView.tsx', { counts: { button: 2 }, reason: '한 클래스로 <a>·<span>과 같은 모양이어야 하는 우클릭 메뉴 항목' }],
 ]);
 
 // 기능상 native 요소가 필요한 명시 예외: 파일 선택기와 이미지 갤러리의 행/셀 버튼.
@@ -161,8 +168,11 @@ if (contractRowsReadyAt < 0 || settlementBackgroundAt < 0 || contractRowsReadyAt
   hits.push('app/contract/page.tsx: 계약 목록 표시는 정산 선조회 완료보다 먼저 처리');
 }
 // 계약서관리(/esign)는 EsignSendCenter 하나가 목록 데이터를 직접 읽는다 — 페이지에서 엔진을 복제하지 않는다.
+// 서버가 새 direct 계약을 만든 직후에는 cache health를 확인해 fresh read를 할 수 있으므로,
+// `getStore().list(...)` 한 줄 형태가 아니라 같은 store 인스턴스의 목록 read를 확인한다.
 const esignCenterSource = readFileSync(join(ROOT, 'components/EsignSendCenter.tsx'), 'utf8');
-if (!esignCenterSource.includes("getStore().list('contract', companyId)")) {
+if (!esignCenterSource.includes('const store = getStore()')
+  || !esignCenterSource.includes("store.list('contract', companyId)")) {
   hits.push('components/EsignSendCenter.tsx: 계약 목록 데이터 직접 조립 유지');
 }
 

@@ -105,6 +105,10 @@ const policy: Rec = {
   provider_company_code: PARTNER_CODE,
   // 보험포함 완료본은 체결일 당시 가입처를 봉인한다. 기본 안내문으로는 발행하지 않는다.
   insurer_name: '[샘플] 프리패스테스트손해보험',
+  // CMS 출금동의·예금주 인증은 별도 흐름이므로, 고객 링크 전체 E2E 샘플은
+  // 자동수납이 아닌 계좌이체로 고정한다. 이 값이 없으면 기본 CMS 정책으로
+  // 서명 뒤 인도 단계에서 멈출 수 있다.
+  payment_method: '계좌이체',
   contract_authoring: '프리패스가 작성',
   esign_required_documents: fromSheet.esign_required_documents
     || serializeEsignRequiredDocuments(POLICY_DOCUMENT_CHECKS.map((d) => ({ key: d.key, label: d.name, note: d.note, required: true }))),

@@ -79,7 +79,8 @@ for (const t of targets) {
   const rows = ((v.values || []) as string[][]).map((r) => r.map(S));
   if (!rows.length) { console.log(`  · ${t.name.padEnd(10)} 정책 탭 비어 있음 — 건너뜀`); continue; }
   const header = rows[0];
-  if (header[0] !== '정책코드') { console.log(`  · ${t.name.padEnd(10)} 가로 규격 아님(첫 칸 「${header[0]}」) — 건너뜀. transpose-policy-tab 먼저`); continue; }
+  // ★이름으로 본다 — 자리로 보지 않는다(2026-08-21 「정책UID」가 앞에 생겨 정책코드가 밀렸다).
+  if (!header.some((h) => h === '정책코드')) { console.log(`  · ${t.name.padEnd(10)} 가로 규격 아님(「정책코드」 열 없음 · 있는 열: ${header.filter(Boolean).slice(0, 8).join('·')}) — 건너뜀. transpose-policy-tab 먼저`); continue; }
 
   const updates: { range: string; values: string[][] }[] = [];
   const before: Rec[] = [];

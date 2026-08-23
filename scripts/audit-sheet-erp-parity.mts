@@ -1,83 +1,221 @@
 /**
- * **판매시트(영업자 표) ↔ ERP 대조** — 대수와 «다른 차»를 이유별로 보여 준다. 읽기 전용.
- *   규칙 정본은 `lib/domain/sheet-erp-parity.ts`(시트 「AI 운영 매뉴얼」 탭에도 같은 글이 실린다).
- *   기대값: 「판매시트에 있는데 ERP 에 안 뜨는 차 0」. ERP 에만 있는 차는 계약락 걸린 차뿐이어야 한다.
- *
- *   npx tsx scripts/audit-sheet-erp-parity.mts
+ * 판매시트 3탭 ↔ ERP/상품찾기 차량번호·핵심값 대조. 읽기 전용.
+ * 차번 집합뿐 아니라 상태·차명 축·대여료·보증금까지 모두 같아야 성공한다.
  */
-import { readFileSync, writeFileSync } from 'node:fs';
-import { JWT } from 'google-auth-library';
-import { initializeApp, cert, getApps } from 'firebase-admin/app';
-import { getDatabase } from 'firebase-admin/database';
-import { DEFAULT_PRODUCT_MASTER_SHEET_ID, PRODUCT_MASTER_TAB } from '../lib/domain/product-master-sheet';
-import { isHiddenFromCatalog, isOfferableProduct } from '../lib/domain/product';
-import { SHEET_ERP_PARITY_SUMMARY } from '../lib/domain/sheet-erp-parity';
-type Rec = Record<string, any>;
-const S = (v: unknown) => String(v ?? '').trim(); const P = (v: unknown) => S(v).replace(/\s/g, '');
-const sa = JSON.parse(readFileSync('tmp/firebase-auth/sa.json', 'utf8'));
-const jwt = new JWT({ email: sa.client_email, key: sa.private_key, scopes: ['https://www.googleapis.com/auth/spreadsheets'], subject: 'pyh@teamjpk.com' });
-const tok = (await jwt.getAccessToken()).token; const H = { Authorization: 'Bearer ' + tok };
-const get = async (id: string, rng: string) => (((await (await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${encodeURIComponent(rng)}`, { headers: H })).json()) as any).values || []).map((r: string[]) => r.map(S));
+import nextEnv from '@next/env';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { dirname } from 'node:path';
+import type { EntityRecord } from '../lib/intake/entities';
+import { isStockedProduct } from '../lib/domain/product';
+import { isContractEngineLocked } from '../lib/domain/sheet-merge';
+import {
+  hasOpenContractReference,
+  indexInventoryRows,
+  inventoryPlate,
+} from '../lib/domain/sheet-inventory-identity';
 
-const SALES = '1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs';
-const meta = await (await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SALES}?fields=sheets.properties(title)`, { headers: H })).json() as any;
-const sales = new Map<string, Rec>();
-for (const t of meta.sheets.map((s: any) => S(s.properties.title)).filter((t: string) => /상품리스트|손오공구독|오플구독/.test(t))) {
-  const rows = await get(SALES, `'${t}'!A1:N600`); const h = rows[0]; const c = (n: string) => h.indexOf(n);
-  for (const r of rows.slice(1)) { const p = P(r[c('차량번호')]); if (p) sales.set(p, { tab: t, 상태: S(r[c('배차상태')]), 제조사: S(r[c('제조사')]), 모델: S(r[c('모델')]) }); }
+nextEnv.loadEnvConfig(process.cwd());
+process.env.NEXT_PUBLIC_DATA_BACKEND = 'rtdb';
+
+const [{ firebaseAdminDatabase }, { fetchSalesInventorySheet }, { readContracts, readPartners, readProducts }] = await Promise.all([
+  import('../lib/server/firebase-admin'),
+  import('../lib/server/sales-inventory-sheet'),
+  import('../lib/server/sheet-daily-sync'),
+]);
+
+const S = (value: unknown) => String(value ?? '').trim();
+const plate = inventoryPlate;
+const text = (value: unknown) => S(value).replace(/\s+/g, ' ');
+const money = (value: unknown): number | null => {
+  const raw = S(value).replace(/,/g, '');
+  if (!raw) return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+};
+const maskedPlate = (value: string) => value.length <= 4 ? '****' : `${value.slice(0, -4)}****`;
+const OUT = 'tmp/sheet-erp-parity.json';
+
+const companyId = S(process.env.SHEET_SYNC_COMPANY_ID || 'freepass');
+const db = firebaseAdminDatabase();
+const partners = await readPartners(db, companyId);
+const [fetched, erpState, contracts] = await Promise.all([
+  fetchSalesInventorySheet({ partners }),
+  readProducts(db, companyId),
+  readContracts(db, companyId),
+]);
+
+const salesIndex = indexInventoryRows(fetched.products);
+const finderIndex = indexInventoryRows(erpState.active.filter(isStockedProduct));
+const allErpIndex = indexInventoryRows(erpState.active);
+const salesParserDuplicates = fetched.lines.reduce((sum, line) => sum + (line.blockingDuplicateCount ?? line.duplicateCount ?? 0), 0);
+
+type FieldDiff = { field: string; sales: unknown; erp: unknown };
+type PlateDiff = { plate: string; provider: string; tab: string; fields: FieldDiff[] };
+const valueDiffs: PlateDiff[] = [];
+const lockedStatusOverrides: Array<{ plate: string; sales: string; erp: string; contract: string }> = [];
+
+const coreFields: Array<[string, keyof EntityRecord]> = [
+  ['상태', 'vehicle_status'],
+  ['원본상태', 'status_label_raw'],
+  ['상품구분', 'product_type'],
+  ['제조사', 'maker'],
+  ['모델', 'model'],
+  ['세부모델', 'sub_model'],
+  ['세부트림', 'trim_name'],
+  ['폐지파워트레인', 'variant'],
+  ['폐지추가트림', 'trim_extra'],
+  ['공급사차명', 'supplier_vehicle_name'],
+  ['외장', 'ext_color'],
+  ['내장', 'int_color'],
+  ['연식', 'year'],
+  ['최초등록', 'first_registration_date'],
+  ['주행거리', 'mileage'],
+  ['연료', 'fuel_type'],
+  ['배기량', 'engine_cc'],
+  ['차종구분', 'vehicle_class'],
+  ['인승', 'seats'],
+  ['구동', 'drive_type'],
+  ['원산지', 'origin'],
+  ['용도', 'usage'],
+  ['옵션', 'options'],
+  ['사진', 'photo_link'],
+  ['위치', 'location'],
+  ['정책코드', 'policy_code'],
+  ['공급사메모', 'partner_memo'],
+  ['소스탭', 'sheet_source_tab'],
+  ['소스행', 'sheet_source_row'],
+];
+
+function priceTerms(row: EntityRecord): Record<string, Record<string, unknown>> {
+  return row.price && typeof row.price === 'object' && !Array.isArray(row.price)
+    ? row.price as Record<string, Record<string, unknown>>
+    : {};
 }
-const pm = await get(DEFAULT_PRODUCT_MASTER_SHEET_ID, `'${PRODUCT_MASTER_TAB}'!A1:AX3000`);
-const ph = pm[0]; const pi = (n: string) => ph.indexOf(n);
-const pmBy = new Map<string, Rec>();
-for (const r of pm.slice(1)) { const p = P(r[pi('차량번호')]); if (p) pmBy.set(p, { 상태: S(r[pi('차량상태')]), 관리: S(r[pi('관리상태')]), 검증: S(r[pi('검증상태')]) }); }
 
-if (!getApps().length) initializeApp({ credential: cert(sa), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });
-const prods = ((await getDatabase().ref('v4/products').get()).val() || {}) as Record<string, Rec>;
-const live = new Map<string, Rec>(); const dead = new Map<string, Rec>();
-for (const [key, p] of Object.entries(prods)) {
-  const plate = P(p.car_number || p.car_number_snapshot || ''); if (!plate) continue;
-  const rec = { key, ...p };
-  if (p?._deleted === true || S(p?.status) === 'deleted') { dead.set(plate, rec); continue; }
-  const cur = live.get(plate);
-  if (!cur || S(p.updatedAt) > S(cur.updatedAt)) live.set(plate, rec);
+for (const [identity, salesItem] of salesIndex.byIdentity) {
+  const erpItem = allErpIndex.byIdentity.get(identity);
+  if (!erpItem) continue;
+  const p = plate(salesItem.row.car_number || salesItem.row.car_number_snapshot);
+  const fields: FieldDiff[] = [];
+  const sales = salesItem.row;
+  const erp = erpItem.row;
+  const engineLocked = isContractEngineLocked(erp);
+  for (const [label, key] of coreFields) {
+    const left = text(sales[key]);
+    const right = text(erp[key]);
+    if (left === right) continue;
+    if (key === 'vehicle_status' && engineLocked && right === '계약중') {
+      lockedStatusOverrides.push({ plate: p, sales: left, erp: right, contract: S(erp.locked_by_contract) });
+      continue;
+    }
+    fields.push({ field: label, sales: left, erp: right });
+  }
+
+  const salesPrice = priceTerms(sales);
+  const erpPrice = priceTerms(erp);
+  const periods = new Set([...Object.keys(salesPrice), ...Object.keys(erpPrice)]);
+  for (const period of [...periods].sort()) {
+    for (const field of ['rent', 'deposit'] as const) {
+      const left = money(salesPrice[period]?.[field]);
+      const right = money(erpPrice[period]?.[field]);
+      if (left !== right) fields.push({ field: `${period}.${field}`, sales: left, erp: right });
+    }
+  }
+  if (fields.length) {
+    valueDiffs.push({
+      plate: p,
+      provider: S(sales.provider_company_code),
+      tab: S(sales.sheet_source_tab),
+      fields,
+    });
+  }
 }
-// ★상품찾기 목록 기준 = «출고불가만 숨김»(사장님 2026-08-20 「ERP에는 출고불가만 안 나타내는 거야, 상품화중·계약중은 다 표시」).
-const offerable = [...live.entries()].filter(([, p]) => !isHiddenFromCatalog(p as any));
-const quotable = [...live.entries()].filter(([, p]) => isOfferableProduct(p as any));
-console.log(`■ 규칙 — ${SHEET_ERP_PARITY_SUMMARY}
-`);
-console.log(`■ 판매시트 ${sales.size}대 · 상품마스터(취급 이력 원장) ${pmBy.size}대`);
-console.log(`■ ERP 살아있는 차 ${live.size}대 · 상품찾기 목록(출고불가만 숨김) ${offerable.length}대 · 그중 견적 가능(대여료 있음) ${quotable.length}대 · 삭제된 차 ${dead.size}대`);
 
-// 시트에는 있는데 ERP 노출 안 되는 차
-const offerableSet = new Set(offerable.map(([p]) => p));
-const missing = [...sales.keys()].filter((p) => !offerableSet.has(p));
-const why: Rec = {}; const rows: Rec[] = [];
-for (const p of missing) {
-  const e = live.get(p); const d = dead.get(p); const m = pmBy.get(p);
-  const reason = !e && !d ? 'ERP 에 아예 없음' : !e && d ? 'ERP 에서 삭제됨' : `ERP 상태 ${S(e!.vehicle_status) || '(빈)'}${S(e!.management_status) ? `/관리 ${S(e!.management_status)}` : ''}`;
-  why[reason] = (why[reason] || 0) + 1;
-  rows.push({ plate: p, reason, 시트상태: sales.get(p)!.상태, 시트탭: sales.get(p)!.tab, pm: m ? `${m.상태}/${m.관리}/${m.검증}` : '(상품마스터 없음)' });
-}
-console.log(`\n■ 판매시트에 있는데 상품찾기에 안 뜨는 차 ${missing.length}대`);
-for (const [r, n] of Object.entries(why).sort((a: any, b: any) => b[1] - a[1])) console.log(`   ${String(n).padStart(3)}대  ${r}`);
-for (const r of rows.slice(0, 25)) console.log(`     ${r.plate.padEnd(10)} ${r.reason} · 시트 ${r.시트상태}(${r.시트탭.split(' ')[0]}) · 상품마스터 ${r.pm}`);
+const missing = [...salesIndex.byIdentity.keys()].filter((identity) => !finderIndex.byIdentity.has(identity)).map((identity) => {
+  const sales = salesIndex.byIdentity.get(identity)!.row;
+  const erp = allErpIndex.byIdentity.get(identity)?.row;
+  return {
+    plate: plate(sales.car_number || sales.car_number_snapshot),
+    provider: S(sales.provider_company_code),
+    tab: S(sales.sheet_source_tab),
+    salesStatus: S(sales.vehicle_status),
+    reason: !erp ? 'ERP 없음' : `상품찾기 비노출(${S(erp.vehicle_status) || '상태 빈칸'})`,
+  };
+});
 
-/**
- * ★**샘플 공급사는 어긋남이 아니다**(사장님 2026-08-20 「샘플차 잠시 · 그거 샘플계약서 때문에 그런 거니까 ·
- *   샘플공급사 남겨둬라」). `SAMPLE01`(00가0001·00가0002)은 샘플계약서를 만들려고 ERP 에만 두는 차다 —
- *   판매시트에 없는 것이 정상이라 여기서 빼고, 몇 대인지만 따로 적는다.
- */
-const SAMPLE_CODES = new Set(['SAMPLE01']);
-const isSample = (e: Rec) => SAMPLE_CODES.has(S(e.provider_company_code));
-// 반대로 ERP 에만 뜨는 차
-const sampleOnly = offerable.filter(([p, e]) => !sales.has(p) && isSample(e));
-const extra = offerable.filter(([p, e]) => !sales.has(p) && !isSample(e));
-console.log(`\n■ 상품찾기에 뜨는데 판매시트에 없는 차 ${extra.length}대`);
-const extraWhy: Rec = {};
-for (const [p, e] of extra) { const k = `${S(e.provider_company_code) || '?'} · ${S(e.vehicle_status)}`; extraWhy[k] = (extraWhy[k] || 0) + 1; }
-for (const [k2, n] of Object.entries(extraWhy).sort((a: any, b: any) => b[1] - a[1]).slice(0, 12)) console.log(`   ${String(n).padStart(3)}대  ${k2}`);
-if (sampleOnly.length) console.log(`   (샘플 ${sampleOnly.length}대는 뺐다 — 샘플계약서용이라 판매시트에 없는 것이 정상: ${sampleOnly.map(([p]) => p).join(' · ')})`);
-console.log('   예:', extra.slice(0, 12).map(([p, e]) => `${p}(${S(e.provider_company_code)}/${S(e.vehicle_status)})`).join(' · '));
-writeFileSync('tmp/sheet-erp-parity.json', JSON.stringify({ at: new Date().toISOString(), sales: sales.size, offerable: offerable.length, missing: rows, extra: extra.map(([p, e]) => ({ plate: p, code: S(e.provider_company_code), status: S(e.vehicle_status), updatedBy: S(e.updatedBy), updatedAt: S(e.updatedAt) })) }, null, 1));
-process.exit(0);
+const extra = [...finderIndex.byIdentity.keys()].filter((identity) => !salesIndex.byIdentity.has(identity)).map((identity) => {
+  const erp = finderIndex.byIdentity.get(identity)!.row;
+  const locked = isContractEngineLocked(erp);
+  return {
+    plate: plate(erp.car_number || erp.car_number_snapshot),
+    provider: S(erp.provider_company_code),
+    erpStatus: S(erp.vehicle_status),
+    sheetStatusOwner: S(erp.sheet_status_owner),
+    sheetBlockReason: S(erp.sheet_block_reason),
+    locked,
+    contract: S(erp.locked_by_contract),
+    // 판매시트는 출고불가 행을 싣지 않으므로 현재 상위 상태 증거 없이는 자동 예외로 승인하지 않는다.
+    verdict: locked ? '상위 시트 출고불가 근거 확인 필요' : '오류',
+  };
+});
+
+// DB에만 남은 출고불가 행도 정본 집합 밖이면 별도 오류다. 단순히 finder에서 숨겼다는
+// 이유로 통과시키면 ERP 재고와 판매시트의 차량번호 집합이 영구히 갈린다. 계약엔진 락은
+// 현재 상위 원본의 출고불가 근거까지 확인해야 예외가 되므로 이 감사에서는 fail-closed한다.
+const erpOnly = [...allErpIndex.byIdentity.keys()].filter((identity) => !salesIndex.byIdentity.has(identity)).map((identity) => {
+  const erp = allErpIndex.byIdentity.get(identity)!.row;
+  const locked = isContractEngineLocked(erp);
+  const erpPlate = plate(erp.car_number || erp.car_number_snapshot);
+  const openContract = hasOpenContractReference(erp, contracts);
+  return {
+    plate: erpPlate,
+    provider: S(erp.provider_company_code),
+    erpStatus: S(erp.vehicle_status),
+    finderVisible: isStockedProduct(erp),
+    locked,
+    openContract,
+    contract: S(erp.locked_by_contract),
+    verdict: locked
+      ? '상위 원본 출고불가 근거 확인 필요'
+      : openContract ? '진행계약 참조 확인 필요' : 'ERP 정본 집합 초과',
+  };
+});
+
+const report = {
+  at: new Date().toISOString(),
+  source: '프리패스 상품리스트 판매시트 3탭',
+  counts: {
+    sales: salesIndex.byIdentity.size,
+    finder: finderIndex.byIdentity.size,
+    erpActive: allErpIndex.byIdentity.size,
+    salesParserDuplicates,
+    erpDuplicates: allErpIndex.duplicates.length,
+    missing: missing.length,
+    extra: extra.length,
+    erpOnly: erpOnly.length,
+    valueDiffPlates: valueDiffs.length,
+    lockedStatusOverrides: lockedStatusOverrides.length,
+  },
+  missing,
+  extra,
+  erpOnly,
+  valueDiffs,
+  duplicates: { salesParser: salesParserDuplicates, erp: allErpIndex.duplicates },
+  lockedStatusOverrides,
+};
+mkdirSync(dirname(OUT), { recursive: true });
+writeFileSync(OUT, JSON.stringify(report, null, 2) + '\n', 'utf8');
+
+console.log(`■ 판매시트 ${report.counts.sales}대 · 상품찾기 ${report.counts.finder}대 · ERP 활성 ${report.counts.erpActive}대`);
+console.log(`■ 판매→상품찾기 누락 ${missing.length}대 · 상품찾기→판매 초과 ${extra.length}대`);
+console.log(`■ ERP→판매 집합 초과 ${erpOnly.length}대(상품찾기 노출 ${erpOnly.filter((row) => row.finderVisible).length}대)`);
+console.log(`■ 핵심값 불일치 ${valueDiffs.length}대 · 판매 중복 ${salesParserDuplicates}건 · ERP 중복 ${allErpIndex.duplicates.length}건`);
+console.log(`■ 계약락 상태 예외 ${lockedStatusOverrides.length}대 · 보고 ${OUT}`);
+for (const row of missing.slice(0, 12)) console.log(`   누락 ${maskedPlate(row.plate)} · ${row.reason} · ${row.provider}`);
+for (const row of extra.slice(0, 12)) console.log(`   초과 ${maskedPlate(row.plate)} · ${row.verdict} · ${row.provider}`);
+for (const row of valueDiffs.slice(0, 12)) console.log(`   값 ${maskedPlate(row.plate)} · ${row.fields.map((item) => item.field).join(', ')} · ${row.provider}`);
+
+const failed = !!(salesParserDuplicates || allErpIndex.duplicates.length || missing.length || erpOnly.length || valueDiffs.length);
+const { deleteApp, getApps } = await import('firebase-admin/app');
+await Promise.all(getApps().map((app) => deleteApp(app)));
+process.exit(failed ? 2 : 0);

@@ -102,8 +102,8 @@ const FILL: Array<{ sub: string; trim: string; variants: string[]; why: string }
     why: '재고 원문「SLX」 2대 · 마스터엔「SLX 스페셜」만 있어 짧은 표기 append',
   },
   {
-    sub: '더 뉴 싼타페 TM', trim: 'H-Pick', variants: ['가솔린', '디젤', '하이브리드'],
-    why: '재고 원문「H-PICK」 1대 · 이웃 세대(MX5) 표기「H-Pick」에 맞춤',
+    sub: '더 뉴 싼타페 TM', trim: 'H-PICK', variants: ['가솔린', '디젤', '하이브리드'],
+    why: '재고 원문「H-PICK」 1대 · 이웃 세대(MX5) 표기「H-PICK」에 맞춤',
   },
   {
     sub: '더 뉴 K8 GL3', trim: '프리미엄', variants: ['가솔린', 'LPG', '하이브리드'],

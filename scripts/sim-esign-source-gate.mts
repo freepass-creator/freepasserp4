@@ -18,17 +18,26 @@ const policy = applyPolicyDefaults({
   own_damage_min_deductible: '50만원', own_damage_max_deductible: '100만원',
   annual_roadside_assistance: '연 5회',
 }).next;
+const sourceProduct = {
+  product_code: 'RP012_SOURCE', provider_company_code: 'RP012', vehicle_status: '출고가능', product_type: '중고렌트',
+  price: { '48_3만': { rent: 600_000, deposit: 0 } },
+};
 const valid = {
-  provider_company_code: 'RP012', policy_code: 'POL-1', customer_name: '테스트 고객', customer_phone: '01012345678',
+  provider_company_code: 'RP012', policy_code: 'POL-1', product_code: sourceProduct.product_code, customer_name: '테스트 고객', customer_phone: '01012345678',
   customer_address: '서울특별시 테스트구 1', auto_debit_date: '매월 10일',
   vehicle_name_snapshot: '테스트 차량', rent_month_snapshot: 48, rent_amount_snapshot: 600_000,
   deposit_amount_snapshot: 0,
+  // v1 직접/Excel 작성도 기간·주행거리·연령 기준을 계약 시점에 동결해야 한다.
+  // 상품 가격표를 함께 주지 않는 이 공통 source gate에서는 존재·형식만 확인한다.
+  pricing_snapshot_version: 'v1', annual_mileage_snapshot: '연 3만km', price_variant_snapshot: '48_3만',
+  mileage_surcharge_snapshot: 0, age_surcharge_snapshot: 0, driver_age_snapshot: '만 26세 이상',
+  special_terms_choice_snapshot: '없음', special_terms_snapshot: '없음',
 };
 
-assert.deepEqual(esignIssueBlockers({ ...valid, contract_source: 'direct' }, partner, policy), [], '직접 작성은 ERP 약정 단계 없이 발송 가능해야 한다');
-assert.deepEqual(esignIssueBlockers({ ...valid, contract_source: 'excel' }, partner, policy), [], 'Excel 입력은 ERP 약정 단계 없이 발송 가능해야 한다');
+assert.deepEqual(esignIssueBlockers({ ...valid, contract_source: 'direct' }, partner, policy, sourceProduct), [], '직접 작성은 ERP 약정 단계 없이 발송 가능해야 한다');
+assert.deepEqual(esignIssueBlockers({ ...valid, contract_source: 'excel' }, partner, policy, sourceProduct), [], 'Excel 입력은 ERP 약정 단계 없이 발송 가능해야 한다');
 assert.deepEqual(
-  esignIssueBlockers({ ...valid, contract_source: 'direct', customer_name: '', customer_phone: '' }, partner, policy),
+  esignIssueBlockers({ ...valid, contract_source: 'direct', customer_name: '', customer_phone: '' }, partner, policy, sourceProduct),
   [],
   '직접 전자계약은 고객명·연락처 없이 링크를 만들고 고객이 직접 입력할 수 있어야 한다',
 );
@@ -57,7 +66,7 @@ assert.deepEqual(esignIssueBlockers({
   ...valid,
   contract_source: 'direct',
   contract_draft: JSON.stringify({ drv1_name: '김추가', drv1_relation: '배우자', drv1_phone: '01022223333' }),
-}, partner, policy), [], '추가 운전자 3개 기본정보가 모두 있으면 발행 가능해야 한다');
+}, partner, policy, sourceProduct), [], '추가 운전자 3개 기본정보가 모두 있으면 발행 가능해야 한다');
 
 const missingPhone = esignIssueBlockers({ ...valid, contract_source: 'excel', customer_phone: '' }, partner, policy);
 assert.ok(missingPhone.some((row) => row.key === 'customer_phone'), 'Excel 입력도 공통 BLOCK 검증을 우회할 수 없어야 한다');
@@ -79,7 +88,7 @@ assert.ok(!incompletePolicy.some((row) => row.key === 'driver_age'), '정책 완
 
 const erpBlocked = esignIssueBlockers({ ...valid, contract_source: 'erp' }, partner, policy);
 assert.ok(erpBlocked.some((row) => row.key === 'erp_agreement'), 'ERP 계약은 기존 약정 단계가 필요해야 한다');
-assert.deepEqual(esignIssueBlockers({ ...valid, contract_source: 'erp', provider_agreement_done: 'yes' }, partner, policy), []);
+assert.deepEqual(esignIssueBlockers({ ...valid, contract_source: 'erp', provider_agreement_done: 'yes' }, partner, policy, sourceProduct), []);
 
 const erpWrongPolicy = esignIssueBlockers(
   { ...valid, contract_source: 'erp', provider_agreement_done: 'yes' },

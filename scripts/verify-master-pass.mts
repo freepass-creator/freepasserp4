@@ -187,7 +187,14 @@ const aliasCases: [string, string][] = [
   ['FLUX', '플럭스'],
   [' Exclusive ', '익스클루시브'],
   ['Inspiration', '인스퍼레이션'],
-  ['N Line', 'N라인'],
+  ['N라인', 'N Line'],
+  ['n-line', 'N Line'],
+  ['X라인', 'X Line'],
+  ['H-픽', 'H-PICK'],
+  ['H-Pick', 'H-PICK'],
+  ['모던 N라인', '모던 N Line'],
+  ['GT라인', 'GT Line'],
+  ['N', 'N'],
 ];
 for (const [en, ko] of aliasCases) {
   const got = canonMasterTrim(en);
@@ -218,27 +225,40 @@ if (!aliasCases.some(([en, ko]) => canonMasterTrim(en) !== ko)) {
   }
 }
 
-// ── 6. Master KO trims + domestic marketing Latin (엔진코드 GDI/DOHC 제외) ──
+// ── 6. 등급어는 한글, 제조사 라틴 고유명은 라틴 정본 (엔진코드 GDI/DOHC 제외) ──
 {
-  const marketingEn = /^(premium|modern|exclusive|inspiration|prestige|noblesse|x[\s-]?line|gt[\s-]?line|n[\s-]?line|flux)$/i;
-  const domesticLatin: string[] = [];
+  const gradeEn = /^(premium|modern|exclusive|inspiration|prestige|noblesse|flux)$/i;
+  const latinizedKo = /(N라인|X라인|GT라인|H-픽)/;
+  const domesticGradeEn: string[] = [];
+  const domesticLatinizedKo: string[] = [];
   const masterTrims = new Set<string>();
   for (const e of master) {
     for (const t of [...(e.trims || []), ...(e.variants || []).flatMap((v: any) => v.trims || [])]) {
       const s = String(t).trim();
       if (!s || /\(세부/.test(s) || s === '없음') continue;
       masterTrims.add(s);
-      if (e.origin === '국산' && marketingEn.test(s)) domesticLatin.push(`${e.model}:${s}`);
+      if (e.origin !== '국산') continue;
+      if (gradeEn.test(s)) domesticGradeEn.push(`${e.model}:${s}`);
+      if (latinizedKo.test(s)) domesticLatinizedKo.push(`${e.model}:${s}`);
     }
   }
-  const samples = ['프리미엄', '모던', '플럭스', '인스퍼레이션', '익스클루시브', 'X라인', 'GT라인'];
+  const samples = ['프리미엄', '모던', '플럭스', '인스퍼레이션', '익스클루시브', 'X Line', 'GT Line', 'N Line', 'H-PICK'];
   const covered = samples.filter((ko) => [...masterTrims].some((t) => t === ko || t.includes(ko))).length;
-  ok.push(`master KO trim samples: ${covered}/${samples.length}`);
-  if (domesticLatin.length) {
-    issues.push(`domestic still has EN marketing trims: ${domesticLatin.slice(0, 8).join(', ')}`);
+  ok.push(`master trim samples: ${covered}/${samples.length}`);
+  if (domesticGradeEn.length) {
+    issues.push(`domestic still has EN grade words: ${domesticGradeEn.slice(0, 8).join(', ')}`);
   } else {
-    ok.push('domestic marketing trims Koreanized (X/GT/N Line)');
+    ok.push('domestic grade words Koreanized (Premium/Modern/…)');
   }
+  if (domesticLatinizedKo.length) {
+    issues.push(`domestic still Koreanized brand Latin: ${domesticLatinizedKo.slice(0, 8).join(', ')}`);
+  } else {
+    ok.push('brand Latin kept (H-PICK / N Line / X Line / GT Line)');
+  }
+  const avanteN = [...masterTrims].some((t) => t === 'N');
+  const avanteNLine = [...masterTrims].some((t) => t === 'N Line' || t.includes('N Line'));
+  if (avanteN && avanteNLine) ok.push('N ≠ N Line (both exist)');
+  else issues.push(`N vs N Line split missing (N=${avanteN} N Line=${avanteNLine})`);
 }
 
 // ── 7. 공급사 차명 표기(2026-08-21) — 마스터에 있는 차를 표기 때문에 못 붙이면 안 된다 ──
@@ -250,6 +270,19 @@ if (!aliasCases.some(([en, ko]) => canonMasterTrim(en) !== ko)) {
     { label: '엑센트 Accent', rec: { maker: '현대', model: 'Accent', vehicle_name: 'Accent 1.6', year: 2015 }, want: { model: '엑센트' } },
     { label: 'K5 TF', rec: { maker: '기아', model: 'K5', vehicle_name: 'K5 TF LPG 2.0', year: 2012 }, want: { model: 'K5', sub: 'K5 TF' } },
     { label: '200 1세대', rec: { maker: '크라이슬러', model: '200', vehicle_name: '200 1세대', year: 2012 }, want: { model: '200', sub: '200 1세대' } },
+    { label: '캐스퍼 일렉트릭', rec: { maker: '현대', model: '캐스퍼', vehicle_name: '캐스퍼 일렉트릭 인스퍼레이션', year: 2025, fuel_type: '전기' }, want: { model: '캐스퍼', sub: '캐스퍼 일렉트릭 AX1e' } },
+    { label: '디 올 뉴 아반떼', rec: { maker: '현대', model: '아반떼', vehicle_name: '디 올 뉴 아반떼 가솔린 2.0 인스퍼레이션', year: 2026 }, want: { model: '아반떼', sub: '아반떼 CN8' } },
+    { label: '디 올뉴 싼타페', rec: { maker: '현대', model: '싼타페', vehicle_name: '디 올뉴 싼타페 가솔린 2.5 2WD 익스클루시브', year: 2026 }, want: { model: '싼타페', sub: '싼타페 MX5' } },
+    { label: '더 뉴 니로 HEV', rec: { maker: '기아', model: '니로', vehicle_name: '더 뉴 니로 하이브리드 1.6 시그니처', year: 2026 }, want: { model: '니로', sub: '더 뉴 니로 SG2' } },
+    { label: '스타리아 일렉트릭', rec: { maker: '현대', model: '스타리아', vehicle_name: '더 뉴 스타리아 일렉트릭 라운지 7인승', year: 2026, fuel_type: '전기' }, want: { model: '스타리아', sub: '더 뉴 스타리아 라운지 US4' } },
+    { label: '아이오닉5 N', rec: { maker: '현대', model: '아이오닉5', vehicle_name: '아이오닉 5 N 에센셜', year: 2025, fuel_type: '전기' }, want: { model: '아이오닉5', sub: '아이오닉5 N' } },
+    { label: '아이오닉5 NE', rec: { maker: '현대', model: '아이오닉5', sub_model: '아이오닉5 NE', vehicle_name: '아이오닉 5 Long Range 프레스티지', year: 2022, fuel_type: '전기' }, want: { model: '아이오닉5', sub: '아이오닉5 NE' } },
+    { label: 'G80 RG3 FL', rec: { maker: '제네시스', model: 'G80', sub_model: 'G80 RG3 FL', vehicle_name: 'G80 RG3 2025 가솔린 2.5T AWD', year: 2025 }, want: { model: 'G80', sub: 'G80 RG3' } },
+    { label: 'GV70 JK1 FL', rec: { maker: '제네시스', model: 'GV70', sub_model: 'GV70 JK1 FL', vehicle_name: '신형 GV70 2.5T 2WD', year: 2024 }, want: { model: 'GV70', sub: 'GV70 JK1' } },
+    { label: 'GV80 JX1 FL', rec: { maker: '제네시스', model: 'GV80', sub_model: 'GV80 JX1 FL', vehicle_name: 'GV80 JX1 가솔린 3.5 AWD', year: 2024 }, want: { model: 'GV80', sub: 'GV80 JX1' } },
+    { label: '쏘나타 디 엣지', rec: { maker: '현대', model: '쏘나타', sub_model: '쏘나타 DN8 디 엣지', vehicle_name: '디 엣지 쏘나타DN8 가솔린 2.0', year: 2024 }, want: { model: '쏘나타', sub: '쏘나타 디 엣지 DN8' } },
+    { label: '모델 Y FL', rec: { maker: '테슬라', model: '모델 Y', sub_model: '모델 Y FL', vehicle_name: '모델 Y FL Long Range', year: 2025, fuel_type: '전기' }, want: { model: '모델 Y', sub: '모델 Y' } },
+    { label: '모델 3 FL', rec: { maker: '테슬라', model: '모델 3', sub_model: '모델 3 FL', vehicle_name: '모델 3 FL Long Range', year: 2025, fuel_type: '전기' }, want: { model: '모델 3', sub: '모델 3' } },
   ];
   for (const c of cases) {
     const r = snapToMaster(c.rec as any, master);

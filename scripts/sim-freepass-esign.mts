@@ -1,11 +1,15 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import {
   emptyEsignDraftInput,
   esignAdditionalDriverLimit,
   esignDraftAdditionalDriverCount,
   validateEsignCenterContract,
 } from '../lib/domain/esign-center';
+import {
+  canonicalFreepassDirectManualTerms,
+  canonicalFreepassDirectManualTermsDraft,
+} from '../lib/domain/freepass-direct-manual-terms';
 import { contractLayerOf, partnerUsesFreepassContract } from '../lib/domain/policy-tier';
 
 // ⚠ 줄끝 정규화 — core.autocrlf=true 라 체크아웃하면 CRLF 로 깔린다. 소스 문자열 단언이 줄끝에 걸려 깨지면 안 된다(2026-08-20).
@@ -20,6 +24,7 @@ const documentRoute = read('app/api/freepass-esign/contracts/[contractCode]/docu
 const handoverRoute = read('app/api/freepass-esign/contracts/[contractCode]/handover/route.ts');
 const signedSnapshot = read('lib/domain/esign-signed-snapshot.ts');
 const esignPage = read('app/esign/page.tsx');
+const sampleContractRoute = read('app/esign/sample-contract/route.ts');
 const esignPreviewPage = read('app/esign/preview/[contractCode]/page.tsx');
 const sendCenter = read('components/EsignSendCenter.tsx');
 const workflowGuide = read('components/AgentWorkflowGuide.tsx');
@@ -44,6 +49,20 @@ assert.equal(contractLayerOf({ contract_authoring: '프리패스가 작성' }, {
 assert.equal(contractLayerOf({ contract_authoring: '공급사가 작성' }, { esign_contract_enabled: '사용' }), 'contract');
 assert.equal(partnerUsesFreepassContract({}, [{ contract_authoring: '프리패스가 작성' }]), true);
 
+// RTDB JSON object의 child 순서가 달라도 같은 직접계약 초안은 seal과 다시 맞아야 한다.
+// 반대로 임의 PDF 필드 key를 끼워 넣는 입력은 발행 전에 닫는다.
+const orderedDirectTerms = canonicalFreepassDirectManualTermsDraft({
+  special_terms: '없음', deposit_installment: '일시납', special_terms_choice: '없음',
+});
+const reorderedDirectTerms = canonicalFreepassDirectManualTermsDraft({
+  deposit_installment: '일시납', special_terms_choice: '없음', special_terms: '없음',
+});
+assert.equal(orderedDirectTerms, reorderedDirectTerms);
+assert.equal(canonicalFreepassDirectManualTermsDraft({ unsafe_pdf_field: '위조' }), null);
+assert.deepEqual(canonicalFreepassDirectManualTerms(orderedDirectTerms), {
+  deposit_installment: '일시납', special_terms: '없음', special_terms_choice: '없음',
+});
+
 assert.match(adminRoute, /v4\/esign_sessions/);
 assert.match(adminRoute, /v4\/esign_private/);
 assert.match(adminRoute, /canManageFreepassEsign/);
@@ -59,23 +78,39 @@ assert.match(adminRoute, /freepassEsignEventUpdates\(contractCode, 'revoked'/);
 assert.match(adminRoute, /freepassEsignEventUpdates\(contractCode, 'rejected'/);
 assert.match(adminRoute, /freepassEsignEventUpdates\(contractCode, 'approved'/);
 assert.match(esignServer, /FREEPASS_ESIGN_PUBLIC_BASE_URL/);
+assert.match(esignServer, /resolveFreepassSettlementRateBasis/);
+assert.match(esignServer, /v4\/partners_private/);
+assert.match(esignServer, /v4\/users_private/);
+assert.match(esignServer, /admin_review_required/);
 assert.match(adminRoute, /publicFreepassSignUrl\(token, requestOrigin\)/);
 assert.match(adminRoute, /internal_sign_url/);
+assert.match(adminRoute, /settlement_rate_status/);
+assert.match(adminRoute, /fee_rate_snapshot: settlementRateBasis\.feeRate/);
+assert.match(adminRoute, /payout_rate_snapshot: settlementRateBasis\.payoutRate/);
+assert.match(adminRoute, /settlement_rate_basis/);
 assert.match(adminRoute, /esign_sign_url: null/);
 assert.match(adminRoute, /protectedSignUrl/);
 assert.match(adminRoute, /privatizeLegacySignUrl/);
 assert.match(adminRoute, /hashFreepassSignToken\(token\) === hash/);
 assert.match(adminRoute, /submission\?\.internal_sign_url/);
 assert.doesNotMatch(adminRoute, /submission\?\.internal_sign_url \|\| bundle\.contract\.esign_sign_url/);
-assert.match(adminRoute, /계약 목록에서는 즉시[\s\S]*제거/);
+const legacyUrlMigrationStart = adminRoute.indexOf('async function privatizeLegacySignUrl');
+const legacyUrlMigrationEnd = adminRoute.indexOf('\ntype LoadedBundle', legacyUrlMigrationStart);
+const legacyUrlMigration = adminRoute.slice(legacyUrlMigrationStart, legacyUrlMigrationEnd);
+assert.match(legacyUrlMigration, /privateRef\.transaction/);
+assert.match(legacyUrlMigration, /contractRef\.transaction/);
+assert.match(legacyUrlMigration, /sessionHashFromContract\(row\)/);
+assert.doesNotMatch(legacyUrlMigration, /ref\('v4'\)\.update\(/);
 assert.match(adminRoute, /hasFrozenFreepassTemplateState\(session\)/);
+assert.match(adminRoute, /hasFrozenFreepassConsentProfile\(session\)/);
 assert.match(adminRoute, /frozenSessionTemplateId\(currentSession\)/);
-const activeSessionIndexes = [...adminRoute.matchAll(/activeSession\(currentSession\) && hasFrozenFreepassTemplateState\(currentSession\)/g)].map((match) => match.index ?? -1);
-assert.equal(activeSessionIndexes.length, 2, '발행 전·claim 후 모두 기존 링크를 먼저 안전 이관해야 한다');
-assert.ok(activeSessionIndexes[0]! < adminRoute.indexOf('const blocked = esignIssueBlockers'), '기존 고객 링크 이관은 현재 정책 blocker보다 먼저 실행한다');
-assert.ok(activeSessionIndexes[1]! < adminRoute.indexOf('const refreshedBlocked = esignIssueBlockers'), 'claim 후 재확인에서도 기존 고객 링크 이관을 먼저 실행한다');
+const activeSessionIndexes = [...adminRoute.matchAll(/activeSession\(currentSession\)\s*&&\s*hasFrozenFreepassTemplateState\(currentSession\)\s*&&\s*hasFrozenFreepassConsentProfile\(currentSession\)/g)].map((match) => match.index ?? -1);
+assert.equal(activeSessionIndexes.length, 1, '기존 링크 이관은 issuance claim을 잡은 뒤 한 곳에서만 실행한다');
+assert.ok(activeSessionIndexes[0]! > adminRoute.indexOf('if (!issueClaim.committed'), '기존 고객 링크 이관은 issuance claim 아래에서 실행한다');
+assert.ok(activeSessionIndexes[0]! < adminRoute.indexOf('const refreshedBlocked = issueBlockersFor'), '기존 고객 링크 이관은 현재 정책 blocker보다 먼저 실행한다');
 assert.match(publicRoute, /childUpdates\(`esign_private\/\$\{contractCode\}\/\$\{hash\}`, submission\)/);
 assert.match(publicDocumentRoute, /hasFrozenFreepassTemplateState\(session\)/);
+assert.match(publicDocumentRoute, /hasFrozenFreepassConsentProfile\(session\)/);
 assert.match(adminRoute, /approvalClaimId/);
 assert.match(adminRoute, /status: 'approving'/);
 assert.match(adminRoute, /다른 관리자가 이미 승인 처리 중/);
@@ -106,6 +141,7 @@ assert.match(esignServer, /actor\?\.rawRole === 'admin'/);
 assert.match(documentRoute, /canAccessFreepassEsignContract/);
 assert.match(assetRoute, /canReviewFreepassEsign/);
 assert.match(handoverRoute, /canReviewFreepassEsign/);
+assert.match(handoverRoute, /cmsRequiredBeforeHandover === true/);
 assert.match(adminRoute, /관리자만 전자계약 보완을 요청/);
 assert.match(adminRoute, /관리자만 전자계약을 최종 승인/);
 assert.match(esignServer, /additionalDriverPolicy/);
@@ -122,6 +158,25 @@ assert.match(firebaseAdmin, /throw verifyError/);
 assert.match(panes, /getIdToken\(forceRefresh\)/);
 assert.match(panes, /response\.status === 401/);
 assert.match(panes, /링크 다시 만들기/);
+assert.match(panes, /needsConsentReissue/);
+assert.match(panes, /이전 동의 기준 링크는 더 이상 고객 정보를 받지 않습니다/);
+assert.match(panes, /고객 링크를 다시 만들어야 합니다/);
+assert.match(panes, /「계약서·링크」에서 새 고객 링크를 만드세요/);
+assert.match(panes, /구 동의 기준으로 완료된 회차입니다/);
+assert.match(panes, /구 동의 기준 회차는 인도일을 확정할 수 없습니다/);
+assert.match(panes, /reissueRequiresNewContract/);
+assert.match(panes, /새 계약서 만들기/);
+assert.match(adminRoute, /reissueRequiresNewContract/);
+assert.match(adminRoute, /const requiresServerSeal = !bundle\.legacyContractExists \|\| isIndependentEsignSource\(bundle\.contract\)/);
+assert.match(panes, /전자계약 상태 확인 중/);
+assert.match(panes, /const link = needsConsentReissue \? '' : savedLink/);
+assert.match(panes, /\(flags\.revoked \|\| flags\.expired\) && !needsConsentReissue/);
+assert.match(adminRoute, /customerLinkUsable:\s*hasFrozenFreepassTemplateState\(session\)\s*&&\s*hasFrozenFreepassConsentProfile\(session\)/);
+const documentPaneStart = panes.indexOf('export function FreepassEsignDocumentPane');
+const consentReissueCardStart = panes.indexOf("} else if (needsConsentReissue)", documentPaneStart);
+const consentReissueCard = panes.slice(consentReissueCardStart, panes.indexOf("} else if (linkRecoveryNeeded)", consentReissueCardStart));
+assert.match(consentReissueCard, /disabled=\{busy \|\| \(reissueRequiresNewContract && !onCreateNewContract\)\}/);
+assert.doesNotMatch(consentReissueCard, /selectionError|blocked\.length/);
 assert.match(panes, /linkRecoveryNeeded/);
 assert.match(panes, /고객 링크 복구/);
 const recoveryCardStart = panes.indexOf("} else if (linkRecoveryNeeded)");
@@ -233,6 +288,11 @@ assert.match(signedSnapshot, /drv\$\{slot\}_name/);
 assert.match(contractTemplate, /if\(ageSel && !SEALED\)/);
 assert.doesNotMatch(publicPage, /contract-sign-public|@\/lib\/domain\/sign/);
 assert.match(esignPage, /return <EsignSendCenter \/>/);
+// 검토용 샘플도 정적 PDF 사본이 아니라 실제 봉인 HTML/PDF 경로를 재사용해야 한다.
+assert.match(sampleContractRoute, /buildFrozenFreepassHtml\(SAMPLE_SNAPSHOT, '', ''\)/);
+assert.match(sampleContractRoute, /renderFreepassPdf\(html\)/);
+assert.doesNotMatch(sampleContractRoute, /readFile|freepass-standard-rental-contract-v1-review\.pdf/);
+assert.equal(existsSync('public/contract-template/freepass-standard-rental-contract-v1-review.pdf'), false);
 assert.match(sendCenter, /label: '공급사'/);
 assert.doesNotMatch(sendCenter, /label: '회사선택'/);
 // 사장님 2026-08-20 — 계약서 종류 select 폐지. 차량 상품구분 × 정책 보험조건으로 정해진다(고르지 않는다).
@@ -243,6 +303,21 @@ assert.match(sendCenter, /params\.get\('product'\)/);
 assert.match(sendCenter, /contractVehicleSnapshot\(product\)/);
 assert.match(sendCenter, /const COMPANY_STEP_FIELDS: Field\[\] = \[\.\.\.SUPPLIER_FIELDS\]/);
 assert.match(sendCenter, /const VEHICLE_POLICY_FIELDS: Field\[\] = \[\.\.\.POLICY_FIELDS\]/);
+  // 공유 공급사·정책 master는 계약 작성 화면에서 임시값으로 만들거나 바꾸지 않는다.
+  // 영업자도 사용할 수 있는 화면이므로 보완은 권한·revision을 가진 관리 화면에서만 한다.
+  assert.doesNotMatch(sendCenter, /applyPolicyDefaults\(/);
+  assert.doesNotMatch(sendCenter, /프리패스 기본으로 정책 등록/);
+  assert.doesNotMatch(sendCenter, /공급사 정책으로 저장하고 적용/);
+  assert.doesNotMatch(sendCenter, /선택한 정책 보완/);
+  assert.doesNotMatch(sendCenter, /getStore\(\)\.update\('policy'/);
+  assert.doesNotMatch(sendCenter, /getStore\(\)\.save\('policy'/);
+  assert.doesNotMatch(sendCenter, /contract_authoring: '프리패스가 작성'/);
+  assert.match(sendCenter, /const openPolicyEditor/);
+  assert.match(sendCenter, /router\.push\(partnerPolicyManageUrl\(providerCode, policyCode\)\)/);
+  assert.match(sendCenter, /const openPartnerManager/);
+  assert.match(sendCenter, /router\.push\(partnerManagePartnerUrl\(/);
+  assert.match(sendCenter, /ESIGN_POLICY_DRAFT_SESSION_KEY/);
+assert.match(sendCenter, /\.\.\.policyDraftPatch\(policy\)/);
 assert.equal(
   emptyEsignDraftInput('direct', '2026-08-14').standardTemplateId,
   'freepass-rent-standard',
@@ -262,10 +337,9 @@ assert.doesNotMatch(sendCenter, /④ 계약서 확인·링크 만들기/);
 // 선택한 정책이 어떤 조건인지는 칸 4 「계약내용 확인」에 접지 않고 쭉 펼친다. 공급사 정보가 비면 「파트너사관리에서 입력」.
 assert.doesNotMatch(sendCenter, /title="계약서 만들기"/);
 assert.match(sendCenter, /<EsignContractContentPane/);
-assert.match(sendCenter, /partnerManagePartnerUrl\(draft\?\.providerCompanyCode/);
-assert.match(sendCenter, /onFixPartner=\{hasPartnerProblem\(draftProblems\) \? openPartnerManager : null\}/);
+  assert.match(sendCenter, /onFixPartner=\{openPartnerManager\}/);
+  assert.match(sendCenter, /onFixPolicy=\{draft\.policyCode \? \(\) => openPolicyEditor/);
 assert.match(panes, /export function EsignContractContentPane/);
-assert.match(panes, /파트너사관리에서 \{partnerName \|\| '공급사'\} 정보 입력/);
 assert.match(panes, /공급사\(임대인\) 정보 — 계약서에 그대로 실림/);
 assert.match(panes, /계약정책 조건 · /);
 assert.match(panes, /계약내용 확인 · 발행 당시 동결값/);
@@ -299,8 +373,13 @@ assert.match(sendCenter, /specialTermsChoice/);
  *   회사만 골라도 임대인 정보는 이미 정해져 있고, 정책을 고르면 그 정책의 빈칸도 안다 — 4장을 다 채우고 알게 하지 않는다.
  */
 assert.match(sendCenter, /draftSupplierBlockers/);
-// 고치러 갈 때 초안을 담아 두고 간다 — 돌아오면 그대로 이어서 발송(사장님 2026-08-20). 담아 두지 않으면 「주소 한 칸」에 네 칸을 다시 채운다.
-assert.match(sendCenter, /const openPartnerManager = \(\) => \{[\s\S]{0,200}ESIGN_POLICY_DRAFT_SESSION_KEY/);
+  // 공급사 정보도 공유 master이므로 이 화면의 직접 저장을 금지하고 파트너사관리로 넘긴다.
+  assert.match(sendCenter, /openPartnerManager/);
+  assert.match(sendCenter, /openPolicyEditor/);
+  assert.doesNotMatch(sendCenter, /getStore\(\)\.update\('partner'/);
+  assert.doesNotMatch(sendCenter, /getStore\(\)\.save\('partner'/);
+  assert.doesNotMatch(sendCenter, /공급사 정보를 임시 저장했습니다/);
+  assert.doesNotMatch(sendCenter, /INLINE_PARTNER_FIELDS/);
 assert.match(membersPage, /return=esign|returnToEsign/);
 assert.match(membersPage, /작성 중이던 전자계약으로/);
 assert.match(sendCenter, /draftPolicyBlockers/);

@@ -37,7 +37,14 @@ try {
   const files = staged.split('\n').filter(Boolean);
   const head = files.slice(0, 3).map((f) => f.replace(/^docs\//, '')).join(' · ');
   const more = files.length > 3 ? ` 외 ${files.length - 3}건` : '';
-  git('commit', '-m', `문서 — ${head}${more}`);
+  /**
+   * ★`-- docs` 를 붙인다. 실측 2026-08-21 14:28 — 이게 없어서 **남이 담아 둔 코드 23개를**
+   *   《문서 —》 커밋에 통째로 삼키고 GitHub 에 밀었다. 손으로 되돌렸다.
+   *   `git commit` 은 «지금 index 에 담긴 전부»를 커밋한다. add 를 docs 로 좁혀도 소용없다 —
+   *   이 리포는 여러 세션이 동시에 만져서 index 에 늘 남의 것이 함께 있다.
+   *   경로를 대면 그 경로만 커밋한다.
+   */
+  git('commit', '-m', `문서 — ${head}${more}`, '--', 'docs');
   say(`커밋 ${files.length}건: ${files.join(', ')}`);
 
   git('pull', '--rebase', '--autostash', 'origin', branch);

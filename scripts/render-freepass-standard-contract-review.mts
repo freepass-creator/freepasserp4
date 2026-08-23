@@ -318,7 +318,7 @@ try {
       sheetHeight: Math.round(sheetRect.height * 10) / 10,
     };
   }));
-  // 약관은 읽고 동의하는 본문이라 10.5px/1.28로 조판한다. 세 페이지에서 자연스럽게 읽히도록 한다.
+  // 약관은 읽고 동의하는 본문이라 10.5px/1.32로 조판한다. 같은 조 안의 문장 리듬을 조금 풀되, 세 페이지에서 자연스럽게 읽히도록 한다.
   // 작은 글씨로 세 페이지에 억지로 압축하는 회귀를 막는다.
   const expectedTermsPages = 3;
   if (termsPageFrames.length !== expectedTermsPages || termsPageFrames.some((frame) => !frame.headVisible || frame.headTop < 0 || frame.bodyBottom > frame.sheetHeight)) {

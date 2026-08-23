@@ -25,6 +25,7 @@ import {
   assertEncarSpecFillGuards,
   atomConflictsName,
   driveKey,
+  fuelKey,
   fuelFromVehicle,
   keepIf,
   inYear,
@@ -35,6 +36,7 @@ import {
   S,
   turboIn,
 } from '../lib/domain/encar-spec-fill';
+import { canonMakerDisplay } from '../lib/domain/maker-display';
 import {
   ENCAR_MODEL_KEY_COLUMN,
   ENCAR_OLD_TRIM_CODE_COLUMN,
