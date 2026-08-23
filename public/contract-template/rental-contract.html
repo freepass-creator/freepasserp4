@@ -580,11 +580,11 @@
     <div class="section" data-accent="main">
       <div class="sec-h"><div class="no">02</div><div class="t">대여 차량 정보</div></div>
       <div class="kv">
-        <div class="k">차량번호</div><div class="v strong" data-field="car_number">00가0000</div>
-        <div class="k">차대번호</div><div class="v" data-field="vin">VIN</div>
         <div class="k">차명</div><div class="v strong span2" data-field="vehicle_name">현대 쏘나타 디 엣지 2.0 가솔린 익스클루시브</div>
         <div class="k">선택 옵션</div><div class="v span2" data-field="options">-</div>
-        <div class="k">색상</div><div class="v span2"><span data-color-part="exterior" data-field="color_exterior">색상</span><span class="dim" data-color-separator> / </span><span data-color-part="interior" data-field="color_interior">색상</span><span data-color-empty style="display:none">—</span></div>
+        <div class="k">대여 상품</div><div class="v span2" data-field="vehicle_classification">-</div>
+        <div class="k">차량번호</div><div class="v strong" data-field="car_number">00가0000</div>
+        <div class="k">차대번호</div><div class="v" data-field="vin">VIN</div>
         <!--
           「차량 가격」을 뺐다(2026-08-10). vehicle_price 는 ERP 에서 «관리자 전용 원가»로
           정의된 값이다 - 공급사 매입가가 손님 계약서에 인쇄되면 안 된다.
@@ -597,7 +597,7 @@
         <div class="k">연료</div><div class="v" data-field="fuel">가솔린</div>
         <div class="k">배기량</div><div class="v one-line" data-field="engine_cc">-</div>
         <div class="k">출고 시 주행거리</div><div class="v one-line" data-field="odometer_delivery">0 km</div>
-        <div class="k">차량 구분</div><div class="v span2" data-field="vehicle_classification">-</div>
+        <div class="k">색상</div><div class="v span2"><span data-color-part="exterior" data-field="color_exterior">색상</span><span class="dim" data-color-separator> / </span><span data-color-part="interior" data-field="color_interior">색상</span><span data-color-empty style="display:none">—</span></div>
       </div>
       <div class="note" data-note="newcar" style="display:none"><span class="em">신차(출고 전)</span>는 차량번호·차대번호가 미정이며, 출고·등록 후 확정되면 임차인에게 서면(문자 포함)으로 통지하고 차량 인수증에 기재합니다.</div>
       <!--
@@ -1139,10 +1139,11 @@
       <div class="sec-h"><div class="no">10</div><div class="t">동의 및 확인 사항</div></div>
       <label class="agree-all"><input type="checkbox" id="agreeAll" disabled><span>아래 필수 계약사항을 모두 확인하고 동의합니다</span><span class="agree-view-note">모바일 전자계약에서 진행</span></label>
       <div class="agree-list">
-        <label class="agree-item"><input type="checkbox" class="agchk" disabled><span>본인은 계약서의 <b>대여 조건·보험·정비 주요사항</b><span data-note="usedcar-inline" style="display:none"> 및 <b>중고차량의 경년변화·통상적인 사용흔적</b></span>, 사고 시 <b>보험·공제 또는 자차손해면책의 적용 제한 및 비용부담 기준</b>을 확인하였고, 질문·설명을 요청할 기회를 제공받았습니다.</span></label>
-        <label class="agree-item"><input type="checkbox" class="agchk" disabled><span><b>자동차 임대차 계약 약관</b> 전문을 수령·확인하고 이에 동의합니다.</span></label>
-        <label class="agree-item"><input type="checkbox" class="agchk" disabled><span><b>개인정보 수집·이용 및 계약 이행에 필요한 제3자 제공</b>에 동의합니다. <span class="dim" style="color:var(--mute)">(계약 체결·이행·세금계산서 발행 목적 / 보유기간 계약 종료 후 5년 / 약관 제27조 및 서명 전 개인정보 처리 안내)</span></span></label>
-        <label class="agree-item"><input type="checkbox" class="agchk" disabled><span><b>차량 위치정보(GPS) 수집·이용</b>에 동의합니다. <span class="dim" style="color:var(--mute)">(도난방지·사고대응·계약위반 시 차량보호·회수 목적 / 약관 제24조 및 서명 전 위치정보 처리 안내)</span></span></label>
+        <label class="agree-item" data-consent-key="contract_conditions"><input type="checkbox" class="agchk" disabled><span>본인은 계약서의 <b>대여 조건·보험·정비 주요사항</b><span data-note="usedcar-inline" style="display:none"> 및 <b>중고차량의 경년변화·통상적인 사용흔적</b></span>, 사고 시 <b>보험·공제 또는 자차손해면책의 적용 제한 및 비용부담 기준</b>을 확인하였고, 질문·설명을 요청할 기회를 제공받았습니다.</span></label>
+        <label class="agree-item" data-consent-key="rental_terms"><input type="checkbox" class="agchk" disabled><span><b>자동차 임대차 계약 약관</b> 전문을 수령·확인하고 이에 동의합니다.</span></label>
+        <label class="agree-item" data-consent-key="privacy"><input type="checkbox" class="agchk" disabled><span><b>개인정보 수집·이용 및 계약 이행에 필요한 제3자 제공</b>에 동의합니다. <span class="dim" style="color:var(--mute)">(계약 체결·이행·세금계산서 발행 목적 / 보유기간 계약 종료 후 5년 / 약관 제27조 및 서명 전 개인정보 처리 안내)</span></span></label>
+        <label class="agree-item" data-consent-key="gps"><input type="checkbox" class="agchk" disabled><span><b>차량 위치정보(GPS) 수집·이용</b>에 동의합니다. <span class="dim" style="color:var(--mute)">(도난방지·사고대응·계약위반 시 차량보호·회수 목적 / 약관 제24조 및 서명 전 위치정보 처리 안내)</span></span></label>
+        <label class="agree-item" data-consent-key="supporting_documents_consent" style="display:none"><input type="checkbox" class="agchk" disabled><span><b>추가 제출서류 수집·이용 및 임대인 제공</b>에 동의합니다. <span class="dim" style="color:var(--mute)">(요청된 계약 심사·체결·이행 서류에 한함)</span></span></label>
         <label class="agree-item" data-main-exclude><input type="checkbox" class="agopt" disabled><span><b>[선택] 개인신용정보 수집·이용 및 제공·조회</b>에 동의합니다. <span class="dim" style="color:var(--mute)">(실제 신용정보 조회 계약에만 별도 적용하며 필수 전체동의에 포함되지 않음)</span></span></label>
       </div>
 
@@ -1181,6 +1182,7 @@
       <div id="sealedEvidence" class="sealed-evidence" aria-label="전자계약 완료 기록">
         <div class="ttl">전자계약 완료 기록</div>
         <div><span data-field="esign_consent_status">필수 동의·계약조건 확인 완료</span> · 전자서명 시각 <span data-field="esign_signed_at">—</span></div>
+        <div>동의 항목 <span data-field="esign_consent_summary">—</span></div>
         <div>봉인 해시 <span data-field="esign_seal_hash">—</span> · 검증 경로 <span data-field="esign_verify_path">—</span></div>
       </div>
     </div>
@@ -1646,7 +1648,7 @@
       p.innerHTML='<div class="pbody">'
         +'<div class="rhead"><div class="rh-doc">'+tt+'</div>'
         +'<div class="rh-meta">'+co+'</div></div>'
-        +'<div class="terms-cols" style="display:grid;grid-template-columns:1fr 1fr;gap:7.2mm;font-size:var(--fs-terms);line-height:1.28;color:var(--ink)"><div class="tc tcL"></div><div class="tc tcR"></div></div>'
+        +'<div class="terms-cols" style="display:grid;grid-template-columns:1fr 1fr;gap:7.2mm;font-size:var(--fs-terms);line-height:1.32;color:var(--ink)"><div class="tc tcL"></div><div class="tc tcR"></div></div>'
         +'</div><div class="pagefoot"><span class="pf-co">'+co+'</span><span>약관 · <span class="num"></span></span></div>';
       stage.appendChild(p);
       return p;
@@ -2163,7 +2165,7 @@
   var GROUPS=[
     {t:'계약자', f:[['customer_name','성명/법인명'],['customer_id','주민/법인등록번호'],['driver_or_biz_no','면허/사업자번호'],['customer_phone','연락처'],['customer_email','이메일'],['customer_address','주소',2],['emergency_contact','비상 연락처',2]]},
     {t:'세금계산서 발행처', f:[['tax_issue_type','발행 구분'],['tax_biz_name','상호'],['tax_biz_no','사업자등록번호'],['tax_ceo','대표자'],['tax_biz_type_item','업태/종목'],['tax_email','세금계산서 이메일'],['tax_biz_address','사업장 주소']]},
-    {t:'대여 차량', f:[['car_number','차량번호'],['vin','차대번호'],['vehicle_name','차명(전체) ★필수',2],['options','선택 옵션',2],['color_exterior','외장 색상'],['color_interior','내장 색상'],['model_year','연식'],['fuel','연료'],['engine_cc','배기량'],['odometer_delivery','출고 시 주행거리'],['vehicle_classification','차량 구분'],['vehicle_price','차량 가격']]},
+    {t:'대여 차량', f:[['vehicle_name','차명(전체) ★필수',2],['options','선택 옵션',2],['vehicle_classification','대여 상품'],['car_number','차량번호'],['vin','차대번호'],['model_year','연식'],['fuel','연료'],['engine_cc','배기량'],['odometer_delivery','출고 시 주행거리'],['color_exterior','외장 색상'],['color_interior','내장 색상']]},
     {t:'대여 조건', f:[['rent_month','대여기간'],['contract_start','차량 인도일'],['contract_end','대여 종료일'],['rent_amount','월 대여료'],['deposit_amount','보증금'],['deposit_installment','보증금 분납'],['driver_age','운전자 연령'],['driver_scope','운전 가능 범위'],['buyback_price','만기 인수가'],['special_terms','특약사항 (예외·추가 합의만)',2]]},
     {t:'추가 운전자 (선택)', f:[['drv1_name','성명'],['drv1_relation','관계'],['drv1_phone','연락처']]},
     {t:'연대보증인 (선택)', f:[['guarantor_name','성명'],['guarantor_rrn','주민등록번호'],['guarantor_relation','임차인과의 관계'],['guarantor_phone','연락처'],['guarantor_occupation','직업'],['guarantor_address','주소',2],['guarantee_limit','보증 최고액'],['guarantee_period','보증 기간']]},
@@ -2305,16 +2307,25 @@
     }); });
   }
 
-  /* 완료본은 실제 제출된 네 필수 동의와 전자서명 사실을 종이에도 재현한다. */
+  /* 완료본은 발행 시 봉인한 동의 profile과 실제 제출을 종이에도 재현한다. */
   function applySealedAgreementEvidence(sealed){
     if(!sealed || !sealed.signature) return;
+    var fields=sealed.fields||{};
+    var consentKeys=String(fields.esign_consent_keys==null?'':fields.esign_consent_keys).split(',').map(function(k){ return String(k||'').trim(); }).filter(Boolean);
+    var required={contract_conditions:true};
+    consentKeys.forEach(function(key){ required[key]=true; });
+    document.querySelectorAll('[data-consent-key]').forEach(function(row){
+      var key=row.getAttribute('data-consent-key')||'';
+      var included=!!required[key];
+      row.style.display=included?'':'none';
+      var box=row.querySelector('.agchk');
+      if(box){ box.checked=included; box.disabled=true; }
+    });
     var all=document.getElementById('agreeAll');
     if(all){ all.checked=true; all.disabled=true; }
-    document.querySelectorAll('.agchk').forEach(function(box){ box.checked=true; box.disabled=true; });
     var evidence=document.getElementById('sealedEvidence');
     if(evidence) evidence.style.display='block';
-    var fields=sealed.fields||{};
-    ['esign_consent_status','esign_signed_at','esign_seal_hash','esign_verify_path'].forEach(function(k){
+    ['esign_consent_status','esign_consent_summary','esign_signed_at','esign_seal_hash','esign_verify_path'].forEach(function(k){
       if(String(fields[k]==null?'':fields[k]).trim()!=='') setDom(k, fields[k]);
     });
   }

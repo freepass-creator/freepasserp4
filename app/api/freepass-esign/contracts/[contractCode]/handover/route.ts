@@ -3,6 +3,8 @@ import { verifyActiveBearer } from '@/lib/server/firebase-admin';
 import {
   appendFreepassEsignEvent,
   canReviewFreepassEsign,
+  hasFrozenFreepassConsentProfile,
+  hasFrozenFreepassTemplateState,
   loadFreepassEsignBundle,
   sessionHashFromContract,
   validContractCode,
@@ -62,14 +64,31 @@ export async function POST(
   ]);
   const session = record(sessionSnap?.val());
   const sealHash = S(session.sealHash);
-  if (S(session.contractCode) !== contractCode || S(session.status) !== 'signed' || !/^[a-f0-9]{64}$/i.test(sealHash)) {
+  if (S(session.provider) !== 'freepass' || S(session.contractCode) !== contractCode || S(session.status) !== 'signed' || !/^[a-f0-9]{64}$/i.test(sealHash)) {
     return json({ error: '봉인된 전자계약 완료 기록을 확인할 수 없어 인도일을 확정할 수 없습니다.' }, 409);
   }
+  // 완료 PDF 열람은 과거 회차도 보존하지만, 인도·차량잠금·정산으로 이어지는
+  // 업무 전이는 현재 동의 규격을 모두 봉인한 계약만 허용한다.
+  if (!hasFrozenFreepassTemplateState(session) || !hasFrozenFreepassConsentProfile(session)) {
+    return json({ error: '계약서 또는 동의 프로필이 갱신되어 이 링크로는 인도일을 확정할 수 없습니다. 새 링크를 발행해 주세요.' }, 409);
+  }
   const verification = record((await bundle.db.ref(`v4/esign_verifications/${sealHash}`).get().catch(() => null))?.val());
-  if (S(verification.contractCode) !== contractCode || S(verification.sealHash) !== sealHash) {
+  const privateSubmission = record(privateSnap?.val());
+  const documentSha256 = S(verification.documentSha256);
+  if (S(verification.provider) !== 'freepass'
+    || S(verification.contractCode) !== contractCode
+    || S(verification.sealHash) !== sealHash
+    || !/^[a-f0-9]{64}$/i.test(documentSha256)
+    || S(privateSubmission.pdfSha256) !== documentSha256) {
     return json({ error: '전자계약 봉인 검증기록을 확인할 수 없어 인도일을 확정할 수 없습니다.' }, 409);
   }
   const snapshot = record(session.snapshot);
+  const consentProfile = record(snapshot.consentProfile);
+  if (consentProfile.cmsRequiredBeforeHandover === true) {
+    // CMS 출금동의·예금주 인증은 본계약과 별도 절차다. 현재 전자계약 경로에는
+    // 해당 외부 등록의 봉인 증빙이 없으므로, 임의의 완료 표기로 인도를 열지 않는다.
+    return json({ error: 'CMS 자동이체 계약은 예금주 인증과 출금동의가 완료된 별도 CMS 등록 후 인도일을 확정할 수 있습니다.' }, 409);
+  }
   const snapshotKind = record(snapshot.contractKind);
   const insuranceSide = S(snapshotKind.insuranceSide);
   if (insuranceSide !== '회사포함' && insuranceSide !== '고객직접') {
@@ -103,7 +122,20 @@ export async function POST(
     confirmedAt: now,
     confirmedBy: actor.uid,
   };
-  await bundle.db.ref(`v4/contracts/${contractCode}`).update({ esign_handover: handover });
+  // 공개 계약의 인도일 표기는 업무 화면용 사본이다. 계약완료·정산에서는 아래
+  // server-only 검증기록만 신뢰해 영업자/공급사가 public 값을 바꿔 우회하지 못하게 한다.
+  const handoverVerification = {
+    provider: 'freepass',
+    contractCode,
+    sessionHash: hash,
+    sealHash,
+    documentSha256,
+    ...handover,
+  };
+  await bundle.db.ref('v4').update({
+    [`contracts/${contractCode}/esign_handover`]: handover,
+    [`esign_handover_verifications/${contractCode}`]: handoverVerification,
+  });
   await appendFreepassEsignEvent(contractCode, 'handover_confirmed', {
     actorUid: actor.uid,
     handoverDate: date,

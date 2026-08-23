@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import {
+  hasFrozenFreepassConsentProfile,
   hasFrozenFreepassTemplateState,
   loadFreepassSessionByToken,
   type EsignRecord,
@@ -58,8 +59,8 @@ export async function GET(
     if (!['sent', 'opened'].includes(status)) {
       return json({ error: '계약 전 A4 미리보기는 개인정보 제출 전에만 열 수 있습니다.' }, 409);
     }
-    if (!hasFrozenFreepassTemplateState(session)) {
-      return json({ error: '계약서 서식이 갱신되어 이 링크로는 A4 미리보기를 열 수 없습니다. 담당자에게 새 링크 발행을 요청해 주세요.' }, 409);
+    if (!hasFrozenFreepassTemplateState(session) || !hasFrozenFreepassConsentProfile(session)) {
+      return json({ error: '계약서 또는 동의 프로필이 갱신되어 이 링크로는 A4 미리보기를 열 수 없습니다. 담당자에게 새 링크 발행을 요청해 주세요.' }, 409);
     }
     if (Number(session.expiresAt || 0) <= Date.now()) {
       return json({ error: '만료된 전자계약 링크입니다.' }, 410);

@@ -19,6 +19,28 @@ function signedAtText(value: unknown): string {
   }).format(new Date(at)).replace(/\. /g, '.').replace(/\.$/, '').replace(',', '');
 }
 
+function frozenConsentEvidence(snapshot: SignedSnapshotRecord, submission: SignedSnapshotRecord) {
+  const profile = record(snapshot.consentProfile);
+  const keys = Array.isArray(profile?.requiredKeys)
+    ? profile!.requiredKeys.map(S).filter(Boolean)
+    : [];
+  const times = record(submission.consentTimes) || {};
+  // 제출 API가 이미 이 값들을 검증하지만, 완료 PDF를 만드는 마지막 경계에서도
+  // 누락된 동의를 "완료"로 표기하지 않는다.
+  if (!keys.length || keys.some((key) => !Number(times[key] || 0))) {
+    return { keys: '', status: '', summary: '' };
+  }
+  const atoms = Array.isArray(profile?.atoms) ? profile!.atoms.map(record).filter((row): row is SignedSnapshotRecord => !!row) : [];
+  const labels = keys.map((key) => key === 'rental_terms'
+    ? '자동차 임대차 계약 약관'
+    : S(atoms.find((atom) => S(atom.key) === key)?.label) || key);
+  return {
+    keys: keys.join(','),
+    status: `${keys.length}건 필수 동의·계약조건 확인 완료`,
+    summary: labels.join(' · '),
+  };
+}
+
 /**
  * 발행 시점의 조건 스냅샷은 그대로 두되, 고객이 본인확인 단계에서 직접 확정한
  * 계약자 정보는 완료본을 만들 때만 합성한다. 주민등록번호·주소를 공개 계약 노드나
@@ -37,6 +59,7 @@ export function snapshotWithPrivateSubmission(
     : [];
   const insuranceEvidence = record(submission.customer_insurance_evidence);
   const insuranceEvidenceHash = S(insuranceEvidence?.sha256);
+  const consentEvidence = frozenConsentEvidence(snapshot, submission);
   const confirmedFields: SignedSnapshotRecord = {
     customer_name: S(submission.customer_name),
     customer_phone: S(submission.customer_phone),
@@ -50,7 +73,9 @@ export function snapshotWithPrivateSubmission(
       .join(' · '),
     additional_driver: additionalDrivers.length ? `${additionalDrivers.length}인 지정` : '없음',
     esign_signed_at: signedAtText(submission.submittedAt),
-    esign_consent_status: '필수 동의·계약조건 확인 완료',
+    esign_consent_status: consentEvidence.status,
+    esign_consent_keys: consentEvidence.keys,
+    esign_consent_summary: consentEvidence.summary,
     esign_supporting_document_count: String(Array.isArray(submission.supporting_documents) ? submission.supporting_documents.length : 0),
     customer_insurance_evidence: insuranceEvidenceHash
       ? `가입증명서 제출·관리자 확인 (${insuranceEvidenceHash.slice(0, 12)})`

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import {
-  FREEPASS_ESIGN_REQUIRED_CONSENTS,
   freepassEsignEventUpdates,
+  hasFrozenFreepassConsentProfile,
   hasFrozenFreepassTemplateState,
   loadFreepassEsignBundle,
   loadFreepassSessionByToken,
@@ -91,6 +91,21 @@ function record(value: unknown): EsignRecord {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as EsignRecord : {};
 }
 
+/** 고객이 체크할 키는 발행 당시 봉인한 profile에서만 읽는다. */
+function requiredConsentKeys(snapshot: EsignRecord): string[] {
+  const profile = record(snapshot.consentProfile);
+  const keys = Array.isArray(profile.requiredKeys) ? profile.requiredKeys.map(S).filter(Boolean) : [];
+  if (!keys.includes('rental_terms') || !keys.includes('privacy') || keys.length !== new Set(keys).size) {
+    throw new Error('동의 프로필이 올바르지 않아 새 링크 발행이 필요합니다.');
+  }
+  const atoms = Array.isArray(profile.atoms) ? profile.atoms.map(record) : [];
+  const allowed = new Set(['rental_terms', ...atoms.map((atom) => S(atom.key)).filter(Boolean)]);
+  if (keys.some((key) => !allowed.has(key))) {
+    throw new Error('동의 프로필이 올바르지 않아 새 링크 발행이 필요합니다.');
+  }
+  return keys;
+}
+
 function requestEvidence(request: Request, sessionHash: string) {
   const forwarded = S(request.headers.get('x-forwarded-for')).split(',')[0].trim();
   const ip = forwarded || S(request.headers.get('x-real-ip')) || 'unknown';
@@ -138,7 +153,12 @@ function validateSubmission(payload: EsignRecord, snapshot: EsignRecord) {
   if (!hasMeaningfulFreepassSignature(signature)) {
     throw new Error('서명란에 성명을 또렷하게 적어 주세요. 한 점 또는 너무 짧은 표시는 사용할 수 없습니다.');
   }
-  if (!FREEPASS_ESIGN_REQUIRED_CONSENTS.every((key) => consents.includes(key))) {
+  const requiredConsents = requiredConsentKeys(snapshot);
+  const allowedConsents = new Set(requiredConsents);
+  if (consents.length !== new Set(consents).size || consents.some((key) => !allowedConsents.has(key))) {
+    throw new Error('동의 항목이 현재 계약의 발행 프로필과 일치하지 않습니다. 새 링크를 확인해 주세요.');
+  }
+  if (!requiredConsents.every((key) => consents.includes(key))) {
     throw new Error('필수 약관 동의가 누락되었습니다.');
   }
   const confirmations = record(payload.sectionConfirmations);
@@ -256,8 +276,8 @@ export async function GET(
   }
   // 구형 스냅샷은 PDF 동결 단계에서 완료할 수 없다. signed 완료본은 이미 생성된
   // 고객 사본을 계속 열 수 있게 두되, 그 외 상태에서는 PII 수집/승인을 막는다.
-  if (status !== 'signed' && !hasFrozenFreepassTemplateState(session)) {
-    return json({ error: '계약서 서식이 갱신되어 이 링크로는 진행할 수 없습니다. 담당자에게 새 링크 발행을 요청해 주세요.' }, 409);
+  if (status !== 'signed' && (!hasFrozenFreepassTemplateState(session) || !hasFrozenFreepassConsentProfile(session))) {
+    return json({ error: '계약서 또는 동의 프로필이 갱신되어 이 링크로는 진행할 수 없습니다. 담당자에게 새 링크 발행을 요청해 주세요.' }, 409);
   }
   if (['pending_review', 'approving', 'rejecting', 'signed'].includes(status)) {
     const documentUrl = status === 'signed'
@@ -349,8 +369,8 @@ export async function POST(
   if (!loaded) return json({ error: '유효하지 않은 전자계약 링크입니다.' }, 404);
   const { hash, session } = loaded;
   const now = Date.now();
-  if (!hasFrozenFreepassTemplateState(session)) {
-    return json({ error: '계약서 서식이 갱신되어 이 링크로는 진행할 수 없습니다. 담당자에게 새 링크 발행을 요청해 주세요.' }, 409);
+  if (!hasFrozenFreepassTemplateState(session) || !hasFrozenFreepassConsentProfile(session)) {
+    return json({ error: '계약서 또는 동의 프로필이 갱신되어 이 링크로는 진행할 수 없습니다. 담당자에게 새 링크 발행을 요청해 주세요.' }, 409);
   }
   if (!submissionClaimAvailable(session, now) || Number(session.expiresAt || 0) <= now) {
     return json({ error: '이미 제출했거나 만료된 링크입니다.' }, 409);

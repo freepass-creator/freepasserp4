@@ -660,7 +660,8 @@ export default function ContractsSettlement() {
         listTools={{
           search: { value: qInput, onChange: setQInput, placeholder: '계약·차번·계약자·전화·영업·공급…' },
           action: !mobile && setts.length ? { label: '엑셀', icon: Download, onClick: () => downloadSettlementsExcel(setts, new Date().toISOString().slice(0, 10), role) } : undefined,
-          sort: { value: sort, onChange: (v) => setSort(v as ContSort | ''), options: CONT_SORTS, defaultValue: 'date' },
+          /* 모바일 = 정렬 없음(기본 최근순) — 사장님 2026-08-22 「계약진행도 어려운 필터 없이 최대한 심플하게」. */
+          sort: mobile ? undefined : { value: sort, onChange: (v) => setSort(v as ContSort | ''), options: CONT_SORTS, defaultValue: 'date' },
           filter: {
             count: filterActive,
             title: '조건 검색',
@@ -676,30 +677,41 @@ export default function ContractsSettlement() {
             },
             body: (
               <>
+                {/* 계약월은 웹만 — 모바일 필터는 업무단계 칩 하나로(사장님 2026-08-22 「어려운 필터 없이 최대한 심플하게」). */}
+                {!mobile && (
                 <FilterGroup
                   title="계약월"
                   count={uiMonth ? 1 : 0}
                   defaultOpen
-                  first={!mobile}
-                  onClear={() => mobile ? setDraftMonthFlt('') : setMonthFlt('')}
+                  first
+                  onClear={() => setMonthFlt('')}
                 >
                   <div style={{ flex: '1 1 100%', width: '100%', minWidth: 0 }}>
                     <Select
                       full
                       value={uiMonth}
-                      onChange={(v) => mobile ? setDraftMonthFlt(v) : setMonthFlt(v)}
+                      onChange={(v) => setMonthFlt(v)}
                       placeholder="전체"
                       options={monthOptions}
                     />
                   </div>
                 </FilterGroup>
+                )}
                 <FilterGroup
                   title="업무단계"
                   count={uiFlt === '진행' ? 0 : 1}
                   defaultOpen
+                  first={mobile}
                   onClear={() => mobile ? setDraftFlt('진행') : setFlt('진행')}
                 >
-                  <FilterChips value={uiFlt} onChange={mobile ? setDraftFlt : setFlt} options={CONT_FILTERS} />
+                  {/* 모바일 = 굵은 다섯 칩만(단계별 «N 진행»·테스트 제외) — 단계 상세는 열 눌러 보는 게 아니라 카드가 이미 보여 준다. */}
+                  <FilterChips
+                    value={uiFlt}
+                    onChange={mobile ? setDraftFlt : setFlt}
+                    options={mobile
+                      ? CONT_FILTERS.filter((o) => ['all', '진행', '확인 필요', '계약완료', '계약취소'].includes(String(o.key)))
+                      : CONT_FILTERS}
+                  />
                 </FilterGroup>
               </>
             ),

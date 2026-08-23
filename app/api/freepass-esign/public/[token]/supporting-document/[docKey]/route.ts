@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import {
+  hasFrozenFreepassConsentProfile,
   hasFrozenFreepassTemplateState,
   loadFreepassSessionByToken,
   sha256,
@@ -58,8 +59,8 @@ export async function POST(
   const loaded = await loadFreepassSessionByToken(token);
   if (!loaded) return json({ error: '유효하지 않은 전자계약 링크입니다.' }, 404);
   const { hash, session } = loaded;
-  if (!hasFrozenFreepassTemplateState(session)) {
-    return json({ error: '계약서 서식이 갱신되어 이 링크로는 첨부할 수 없습니다. 담당자에게 새 링크 발행을 요청해 주세요.' }, 409);
+  if (!hasFrozenFreepassTemplateState(session) || !hasFrozenFreepassConsentProfile(session)) {
+    return json({ error: '계약서 또는 동의 프로필이 갱신되어 이 링크로는 첨부할 수 없습니다. 담당자에게 새 링크 발행을 요청해 주세요.' }, 409);
   }
   const status = S(session.status);
   if (Number(session.revokedAt || 0) || !['sent', 'opened'].includes(status)) {

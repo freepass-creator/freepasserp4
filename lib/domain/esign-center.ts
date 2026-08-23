@@ -242,7 +242,11 @@ export function validateEsignCenterContract(
     }
   }
 
-  if (policy) {
+  // 기본 운전자 연령 자체가 정책 완성도에서 BLOCK이면, 계약에 남은 과거 연령값을
+  // 다시 대조해 같은 원인을 두 번 경고하지 않는다. 정책을 보완하면 아래 대조가
+  // 자동으로 다시 켜져 가격·면책 기준을 검증한다.
+  const policyMissingBasicDriverAge = policyIssueGate?.missing.some((field) => field.key === 'basic_driver_age') === true;
+  if (policy && !policyMissingBasicDriverAge) {
     const ageText = S(row.driver_age_snapshot || contractDraft.driver_age || policy.basic_driver_age);
     if (ageText) {
       const age = Number(ageText.match(/\d{2}/)?.[0] || 0);
@@ -251,6 +255,12 @@ export function validateEsignCenterContract(
         add('driver_age', '운전자 연령', 'BLOCK', '선택한 운전자 연령이 이 정책의 허용 범위와 다릅니다');
       } else add('driver_age', '운전자 연령', 'PASS', ageText);
     }
+  }
+
+  // 독립 작성 계약은 가격근거 v1이 있어야 한다. 이 값이 없으면 RTDB를 직접 호출해
+  // 임의의 월대여료를 넣은 뒤 발행 서버의 요율만 적용하는 우회가 가능하다.
+  if (isIndependentEsignSource(row) && S(row.pricing_snapshot_version) !== 'v1') {
+    add('pricing_snapshot_version', '대여료 산정', 'BLOCK', '기간·약정주행거리·연령 기준 가격근거가 없는 계약은 발행할 수 없습니다');
   }
 
   // v1 직접 전자계약은 기간·약정주행·연령이 금액을 결정한다. 생성 화면 밖에서

@@ -10,14 +10,6 @@ import {
 import { toast } from '@/components/Toaster';
 import styles from './sign.module.css';
 
-const REQUIRED_CONSENTS = ['rental_terms', 'privacy', 'credit', 'gps'] as const;
-const UPFRONT_CONSENTS = ['privacy', 'credit', 'gps'] as const;
-const CONSENT_LABELS: Record<(typeof REQUIRED_CONSENTS)[number], string> = {
-  rental_terms: '자동차 대여계약 및 약관',
-  privacy: '개인정보 수집·이용',
-  credit: '신용정보 조회·제공',
-  gps: '차량 위치(GPS) 수집',
-};
 const CLIENT_IMAGE_BYTES = 1_350_000;
 const S = (value: unknown) => String(value ?? '').trim();
 const formatWon = (value: unknown) => {
@@ -94,6 +86,22 @@ type PublicSnapshot = {
     recipients?: Array<{ name?: string; purpose?: string }>;
     refusalNote?: string;
   }>;
+  consentProfile?: {
+    version?: string;
+    requiredKeys?: string[];
+    cmsRequiredBeforeHandover?: boolean;
+    atoms?: Array<{
+      key?: string;
+      label?: string;
+      group?: string;
+      required?: boolean;
+      items?: string[];
+      purpose?: string;
+      retention?: string;
+      recipients?: Array<{ name?: string; purpose?: string }>;
+      refusalNote?: string;
+    }>;
+  };
   agreement?: {
     title?: string;
     version?: string;
@@ -240,17 +248,19 @@ function ConditionRow({ label, value, article }: { label: string; value: string;
 
 function ConsentChoice({
   consentKey,
+  label,
   checked,
   onToggle,
 }: {
-  consentKey: (typeof REQUIRED_CONSENTS)[number];
+  consentKey: string;
+  label: string;
   checked: boolean;
   onToggle: () => void;
 }) {
   return (
-    <Btn full title={CONSENT_LABELS[consentKey]} variant={checked ? 'solid' : 'ghost'} onClick={onToggle} style={{ justifyContent: 'flex-start' }}>
+    <Btn full title={label} variant={checked ? 'solid' : 'ghost'} onClick={onToggle} style={{ justifyContent: 'flex-start' }}>
       <span style={{ width: 18 }}>{checked ? <Check size={ICON.sm} aria-hidden /> : null}</span>
-      {CONSENT_LABELS[consentKey]} (필수)
+      {label} (필수)
     </Btn>
   );
 }
@@ -337,6 +347,13 @@ export default function SignPage() {
   }, [token, view?.status]);
 
   const snapshot = view?.snapshot || {};
+  const consentProfile = snapshot.consentProfile || {};
+  const consentAtoms = consentProfile.atoms || snapshot.consentAtoms || [];
+  const requiredConsents = [...new Set((consentProfile.requiredKeys || []).map(S).filter(Boolean))];
+  const upfrontConsents = requiredConsents.filter((key) => key !== 'rental_terms');
+  const consentLabel = (key: string) => key === 'rental_terms'
+    ? '자동차 대여계약 및 약관'
+    : S(consentAtoms.find((atom) => S(atom.key) === key)?.label) || '필수 동의';
   const requiredDocuments = snapshot.requiredDocuments || [];
   const uploadedSupportingDocumentKeys = new Set(view?.uploadedSupportingDocumentKeys || []);
   const additionalDriverLimit = Math.max(0, Math.min(3, Number(snapshot.additionalDriverPolicy?.limit || 0)));
@@ -560,7 +577,7 @@ export default function SignPage() {
       setStepIndex((index) => Math.min(index + 1, steps.length - 1));
       return;
     }
-    if (step.kind === 'privacy' && !UPFRONT_CONSENTS.every((key) => consents.has(key))) {
+    if (step.kind === 'privacy' && !upfrontConsents.every((key) => consents.has(key))) {
       return toast('필수 개인정보 동의를 각각 선택해 주세요.', 'error');
     }
     if (step.kind === 'identity') {
@@ -622,7 +639,7 @@ export default function SignPage() {
     if (busy || preparingImage) return;
     if (preview) return toast('관리자 미리보기입니다. 제출되지 않습니다.', 'error');
     if (!inked.current) return toast('서명란에 성명을 또렷하게 적어 주세요.', 'error');
-    if (!REQUIRED_CONSENTS.every((key) => consents.has(key))) return toast('필수 동의가 남았습니다.', 'error');
+    if (!requiredConsents.every((key) => consents.has(key))) return toast('필수 동의가 남았습니다.', 'error');
     if (pages.some((page) => !confirmations[S(page.key)])) return toast('확인하지 않은 계약 조건이 있습니다.', 'error');
     if (!idCard || !selfie) return toast('운전면허증과 본인 셀카를 모두 첨부해 주세요.', 'error');
     setBusy(true);
@@ -710,7 +727,7 @@ export default function SignPage() {
   const vehicleModel = compactVehicleModel(contract, snapshot.templateFields);
   const label: CSSProperties = { fontSize: FS.sub, color: C.mute, fontWeight: FW.strong };
   const inputStyle: CSSProperties = { display: 'block', marginTop: 4 };
-  const upfrontDone = UPFRONT_CONSENTS.every((key) => consents.has(key));
+  const upfrontDone = upfrontConsents.every((key) => consents.has(key));
   const stepNo = Math.min(stepIndex + 1, steps.length);
   const bundle = bundleOf(step?.kind || 'summary');
   const rentWon = formatWon(contract.rent_amount_snapshot);
@@ -823,7 +840,7 @@ export default function SignPage() {
 
       {step?.kind === 'privacy' ? (
         <>
-          {(snapshot.consentAtoms || []).filter((atom) => atom.group !== 'bank').map((atom) => (
+          {consentAtoms.map((atom) => (
             <ListGroup key={atom.key} header={atom.label}>
               <DetailRow label="수집·이용 항목" value={(atom.items || []).join(', ') || '—'} stacked />
               <DetailRow label="목적" value={atom.purpose || '—'} stacked />
@@ -832,11 +849,16 @@ export default function SignPage() {
             </ListGroup>
           ))}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {UPFRONT_CONSENTS.map((key) => (
-              <ConsentChoice key={key} consentKey={key} checked={consents.has(key)} onToggle={() => toggleConsent(key)} />
+            {upfrontConsents.map((key) => (
+              <ConsentChoice key={key} consentKey={key} label={consentLabel(key)} checked={consents.has(key)} onToggle={() => toggleConsent(key)} />
             ))}
           </div>
           {!upfrontDone ? <p style={{ color: C.warn, fontSize: FS.cap }}>모든 필수 항목을 선택해야 계속할 수 있습니다.</p> : null}
+          {consentProfile.cmsRequiredBeforeHandover ? (
+            <p style={{ color: C.mute, fontSize: FS.cap, lineHeight: 1.6 }}>
+              자동이체(CMS) 출금 동의와 예금주 인증은 본계약과 별도로 진행됩니다. 완료 전에는 차량 인도일을 확정할 수 없습니다.
+            </p>
+          ) : null}
         </>
       ) : null}
 
@@ -1064,7 +1086,12 @@ export default function SignPage() {
           </div>
           {!readThrough.agreement ? <p style={{ color: C.warn, fontSize: FS.cap }}>약관을 끝까지 내려 읽어 주세요.</p> : null}
           <div style={{ marginTop: 10 }}>
-            <ConsentChoice consentKey="rental_terms" checked={consents.has('rental_terms')} onToggle={() => toggleConsent('rental_terms')} />
+            <ConsentChoice
+              consentKey="rental_terms"
+              label={consentLabel('rental_terms')}
+              checked={consents.has('rental_terms')}
+              onToggle={() => toggleConsent('rental_terms')}
+            />
           </div>
         </>
       ) : null}
@@ -1077,7 +1104,7 @@ export default function SignPage() {
             <DetailRow label="계약서" value={S(snapshot.contractKind?.title) || S(snapshot.template?.label) || '자동차 대여 계약서'} />
             <DetailRow label="약관" value={`${S(snapshot.agreement?.title) || '자동차 대여 약관'} · ${S(snapshot.agreement?.version) || '—'}`} stacked />
             <DetailRow label="계약 조건 확인" value={`${Object.keys(confirmations).length} / ${pages.length} 섹션`} />
-            <DetailRow label="필수 동의" value={`${[...consents].length} / ${REQUIRED_CONSENTS.length}건`} />
+            <DetailRow label="필수 동의" value={`${requiredConsents.filter((key) => consents.has(key)).length} / ${requiredConsents.length}건`} />
             <DetailRow label="본인확인 자료" value={idCard && selfie ? '운전면허증·셀카 첨부' : '누락'} />
             {requiredDocuments.length ? (
               <DetailRow

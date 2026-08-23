@@ -170,6 +170,30 @@ export function isDirectEditableField(from: AtomSource | string | null | undefin
   return DIRECT_EDIT_SOURCES.has(String(from || '') as AtomSource);
 }
 
+// 고객/영업 화면의 초안과 issue body는 신뢰 경계 밖이다. 계약 금액·차량·보험·임대인·정책
+// 원자를 여기서 다시 덮으면 RTDB에 직접 만든 초안 한 건으로 봉인 PDF의 사실관계가 바뀐다.
+// 아래는 본 계약에 적어도 무방한 계약별 입력만 허용하고, 나머지는 authoritative record에서만 만든다.
+const ISSUE_INPUT_FIELDS = new Set([
+  'deposit_installment', 'deposit_round_1', 'deposit_round_2', 'deposit_round_3',
+  'auto_debit_date', 'buyback_price', 'driver_scope', 'maintenance_product',
+  'special_terms', 'special_terms_choice',
+  'additional_driver',
+  'drv1_name', 'drv1_relation', 'drv1_phone',
+  'drv2_name', 'drv2_relation', 'drv2_phone',
+  'drv3_name', 'drv3_relation', 'drv3_phone',
+  'emergency_contact', 'emergency_relation',
+]);
+
+function issueInputFields(value: Record<string, string> | null | undefined): ContractPayload {
+  const out: ContractPayload = {};
+  for (const [key, raw] of Object.entries(value || {})) {
+    const field = text(key);
+    const input = text(raw);
+    if (ISSUE_INPUT_FIELDS.has(field) && input) out[field] = input;
+  }
+  return out;
+}
+
 /**
  * 계약·정책·파트너·(선택)상품 → data-field 맵.
  * `overrides` / `contract_draft` 가 비어 있지 않은 키로 덮어쓴다.
@@ -307,11 +331,8 @@ export function buildTemplateFieldsFromRecords(args: {
     insurance_condition: ins === '포함' ? '회사 포함' : '고객 별도',
   };
 
-  const draft = parseDraft(contract.contract_draft);
-  const overrides: ContractPayload = {};
-  for (const [k, v] of Object.entries(args.overrides || {})) {
-    if (v != null && String(v).trim() !== '') overrides[k] = String(v).trim();
-  }
+  const draft = issueInputFields(parseDraft(contract.contract_draft));
+  const overrides = issueInputFields(args.overrides);
 
   const fields: ContractPayload = {
     ...base,
@@ -335,11 +356,6 @@ export function buildTemplateFieldsFromRecords(args: {
   const mergedSpecialTerms = [policyExtraTerms, ownSpecialTerms].filter(Boolean).join('\n');
   // 초안/templateFields에 남은 과거 문구가 봉인 PDF를 덮지 못하도록 항상 합성 결과만 쓴다.
   fields.special_terms = mergedSpecialTerms || '없음';
-
-  if (overrides.car_number) fields.car_number = overrides.car_number;
-  if (overrides.vehicle_name) fields.vehicle_name = overrides.vehicle_name;
-  if (overrides.fuel) fields.fuel = overrides.fuel;
-  if (overrides.model_year) fields.model_year = overrides.model_year;
 
   const frozenState = frozenTemplateStateFromRecords({
     contract,

@@ -12,11 +12,16 @@ import {
   freepassSignTokenFromUrl,
   hashFreepassSignToken,
   freepassEsignEventUpdates,
+  freepassDirectSealMatchesContract,
+  hasFrozenFreepassConsentProfile,
   hasFrozenFreepassTemplateState,
+  isInactiveFreepassContract,
   loadFreepassEsignBundle,
   makeFreepassSignToken,
   privateEsignFileSha256,
   publicFreepassSignUrl,
+  readFreepassDirectContractSeal,
+  resolveFreepassSettlementRateBasis,
   sessionHashFromContract,
   sha256,
   validContractCode,
@@ -136,10 +141,11 @@ async function supportingDocumentsIntegrityError(
 }
 
 /**
- * 과거에 v4 계약 목록에 남긴 raw fps_ 링크는 다음 관리 작업에서 private 노드로 옮긴다.
- * 해시가 현재 세션과 정확히 맞을 때만 옮긴다. 일치하지 않는 값도 계약 목록에서는 즉시
- * 제거한다. 목록 노드의 raw URL은 bearer credential이라 유효성 검증에 실패한 값을
- * 응답으로 되돌려 보내면 안 된다.
+ * 과거에 v4 계약 목록에 남긴 raw fps_ 링크는 private 노드로 옮긴다.
+ * private 복사와 public 제거는 서로 다른 RTDB 노드라 한 transaction으로 묶을 수 없다.
+ * 따라서 각각 현재 token/hash를 다시 확인하는 transaction으로 처리한다. 동시 발행으로
+ * 값이 바뀌면 public 값을 지우지 않고 요청을 실패시킨다. hash가 맞지 않는 raw URL은
+ * private로 복사하지 않되, 현재 값이라는 것이 확인될 때만 목록에서 제거한다.
  */
 async function privatizeLegacySignUrl(
   bundle: LoadedBundle,
@@ -149,16 +155,127 @@ async function privatizeLegacySignUrl(
 ): Promise<void> {
   const legacyUrl = S(rawUrl);
   const token = freepassSignTokenFromUrl(legacyUrl);
-  const updates: EsignRecord = {
-    [`contracts/${contractCode}/esign_sign_url`]: null,
-  };
-  if (token && hashFreepassSignToken(token) === hash) {
-    updates[`esign_private/${contractCode}/${hash}/internal_sign_url`] = legacyUrl;
+  const transferable = !!token && hashFreepassSignToken(token) === hash;
+  const initialSession = (await bundle.db.ref(`v4/esign_sessions/${hash}`).get()).val() as EsignRecord | null;
+  if (!initialSession || S(initialSession.contractCode) !== contractCode || S(initialSession.provider) !== 'freepass') {
+    throw new Error('기존 고객 링크의 세션 연결을 확인하지 못했습니다.');
   }
-  await bundle.db.ref('v4').update(updates);
+  const sameToken = (first: unknown, second: unknown) => {
+    const a = freepassSignTokenFromUrl(first);
+    const b = freepassSignTokenFromUrl(second);
+    return !!a && !!b && a === b;
+  };
+  const privateRef = bundle.db.ref(`v4/esign_private/${contractCode}/${hash}`);
+  if (transferable) {
+    let privateConflict = false;
+    await privateRef.transaction((current) => {
+      const row = current && typeof current === 'object' && !Array.isArray(current) ? current as EsignRecord : {};
+      const existing = S(row.internal_sign_url);
+      if (existing) {
+        if (!sameToken(existing, legacyUrl)) privateConflict = true;
+        return;
+      }
+      return { ...row, internal_sign_url: legacyUrl };
+    }, undefined, false);
+    if (privateConflict) throw new Error('기존 고객 링크의 private 보관값이 달라 이관하지 않았습니다.');
+  }
+
+  const contractRef = bundle.db.ref(`v4/contracts/${contractCode}`);
+  let contractChanged = false;
+  await contractRef.transaction((current) => {
+    const row = current && typeof current === 'object' && !Array.isArray(current) ? current as EsignRecord : null;
+    if (!row) { contractChanged = true; return; }
+    const currentUrl = S(row.esign_sign_url);
+    const currentHash = sessionHashFromContract(row);
+    if (currentUrl === '' && currentHash === hash) return;
+    if (currentUrl !== legacyUrl || currentHash !== hash) { contractChanged = true; return; }
+    return { ...row, esign_sign_url: null };
+  }, undefined, false);
+
+  const [contractSnap, privateSnap, sessionSnap] = await Promise.all([
+    contractRef.get(),
+    transferable ? privateRef.child('internal_sign_url').get() : Promise.resolve(null),
+    bundle.db.ref(`v4/esign_sessions/${hash}`).get(),
+  ]);
+  const currentContract = contractSnap.val() as EsignRecord | null;
+  const finalSession = sessionSnap.val() as EsignRecord | null;
+  if (contractChanged || !currentContract || S(currentContract.esign_sign_url)
+    || sessionHashFromContract(currentContract) !== hash
+    || !finalSession || S(finalSession.contractCode) !== contractCode || S(finalSession.provider) !== 'freepass'
+    || (transferable && !sameToken(privateSnap?.val(), legacyUrl))) {
+    throw new Error('기존 고객 링크가 이관 중 변경되어 공개값을 안전하게 정리하지 못했습니다.');
+  }
 }
 
 type LoadedBundle = NonNullable<Awaited<ReturnType<typeof loadFreepassEsignBundle>>>;
+
+type IssueSources = {
+  contract: EsignRecord;
+  policy: EsignRecord | null;
+  product: EsignRecord | null;
+  partner: EsignRecord | null;
+  standardTemplateId: string;
+  contractKind: string;
+  settlementRateBasis: Awaited<ReturnType<typeof resolveFreepassSettlementRateBasis>> | null;
+  sealed: boolean;
+};
+
+/**
+ * v4-only 계약은 UI/RTDB가 만든 projection이 아니라 private direct seal로만 발행한다.
+ * legacy 원장이 있는 ERP 계약은 기존 호환 경로를 유지하되, legacy 직접/엑셀 초안은
+ * 재검증 없이 봉인하지 않는다.
+ */
+async function issueSourcesFor(
+  bundle: LoadedBundle,
+  contractCode: string,
+  body: EsignRecord,
+): Promise<{ sources: IssueSources | null; error: string }> {
+  const sealSnap = await bundle.db.ref(`v4/esign_contract_seals/${contractCode}`).get().catch(() => null);
+  const seal = readFreepassDirectContractSeal(sealSnap?.val());
+  if (seal) {
+    if (seal.contractCode !== contractCode || !freepassDirectSealMatchesContract(bundle.contract, seal.contract)) {
+      return { sources: null, error: '서버가 동결한 계약 기준과 현재 계약값이 달라 발행할 수 없습니다. 새 계약서를 만들어 주세요.' };
+    }
+    return {
+      sources: {
+        contract: seal.contract,
+        policy: seal.policy,
+        product: seal.product,
+        partner: seal.partner,
+        standardTemplateId: seal.templateId,
+        contractKind: seal.contractKind,
+        settlementRateBasis: seal.settlementRateBasis,
+        sealed: true,
+      },
+      error: '',
+    };
+  }
+  if (!bundle.legacyContractExists || isIndependentEsignSource(bundle.contract)) {
+    return { sources: null, error: '이 직접·엑셀 계약 초안은 서버 동결 기준이 없어 발행할 수 없습니다. 새 계약서로 다시 만들어 주세요.' };
+  }
+  return {
+    sources: {
+      contract: bundle.contract,
+      policy: bundle.policy,
+      product: bundle.product,
+      partner: bundle.partner,
+      standardTemplateId: S(body.standardTemplateId),
+      contractKind: S(body.contractKind),
+      settlementRateBasis: null,
+      sealed: false,
+    },
+    error: '',
+  };
+}
+
+function issueBlockersFor(sources: IssueSources, currentContract: EsignRecord, currentProduct: EsignRecord | null) {
+  const blocked = esignIssueBlockers(sources.contract, sources.partner, sources.policy, sources.product);
+  // seal 안의 차량은 발행 근거, live 차량은 재고/선점 상태 확인용이다. 둘을 섞으면
+  // 공급사가 product_type을 바꿔 수수료 기준을 바꾸거나, 반대로 이미 선점된 차를 발행할 수 있다.
+  const liveAvailability = esignProductAvailabilityBlocker(currentContract, currentProduct);
+  if (liveAvailability && !blocked.some((row) => row.key === liveAvailability.key)) blocked.push(liveAvailability);
+  return blocked;
+}
 
 async function stateResponse(
   contractCode: string,
@@ -175,6 +292,16 @@ async function stateResponse(
   ]) : [null, null, await bundle.db.ref(`v4/esign_events/${contractCode}`).get().catch(() => null)];
   const session = sessionSnap?.val() as EsignRecord | null;
   const submission = privateSnap?.val() as EsignRecord | null;
+  // 구 direct/excel 초안은 public projection만으로 만들던 시절의 자료일 수 있다. 현재
+  // 발행기는 private seal이 없는 이 초안을 재사용하지 않으므로, UI가 빈번한 409 대신
+  // 처음부터 새 계약서 작성으로 안내할 수 있게 같은 판정을 내려준다.
+  const requiresServerSeal = !bundle.legacyContractExists || isIndependentEsignSource(bundle.contract);
+  const directSealSnap = requiresServerSeal
+    ? await bundle.db.ref(`v4/esign_contract_seals/${contractCode}`).get().catch(() => null)
+    : null;
+  const directSeal = readFreepassDirectContractSeal(directSealSnap?.val());
+  const reissueRequiresNewContract = requiresServerSeal
+    && (!directSeal || !freepassDirectSealMatchesContract(bundle.contract, directSeal.contract));
   // fps_ 토큰은 완료 PDF까지 여는 bearer credential이다. 계약 목록 노드에는 보관하지 않고
   // 서버 전용 private 노드에서만 꺼내 권한을 통과한 API 응답으로 전달한다.
   const protectedSignUrl = canonicalFreepassSignUrl(S(submission?.internal_sign_url));
@@ -217,6 +344,10 @@ async function stateResponse(
     snapshot: session?.snapshot || null,
     session: session ? {
       status: S(session.status),
+      // 프런트는 이 서버 판정만 보고 고객 링크를 복사·미리보기 한다. template/consent
+      // 동결 조건을 UI가 따로 흉내 내면 누락된 구형 snapshot을 살아 있는 링크로 오인할 수 있다.
+      customerLinkUsable: hasFrozenFreepassTemplateState(session) && hasFrozenFreepassConsentProfile(session),
+      reissueRequiresNewContract,
       issuedAt: Number(session.issuedAt || 0),
       openedAt: Number(session.openedAt || 0),
       submittedAt: Number(session.submittedAt || 0),
@@ -283,7 +414,7 @@ export async function POST(
   if (!bundle) return json({ error: '계약을 찾을 수 없습니다.' }, 404);
   let contract = bundle.contract;
   if (!canAccessFreepassEsignContract(actor, contract)) return json({ error: '계약을 찾을 수 없습니다.' }, 404);
-  if (S(contract.contract_status) === '계약취소') return json({ error: '취소 계약은 전자계약을 진행할 수 없습니다.' }, 409);
+  if (isInactiveFreepassContract(contract)) return json({ error: '취소 또는 폐기된 계약은 전자계약을 진행할 수 없습니다.' }, 409);
 
   if (action === 'issue') {
     /**
@@ -297,37 +428,10 @@ export async function POST(
     if (S(contract.esign_provider) === 'chakhandeal' && S(contract.esign_id)) {
       return json({ error: '이미 착한거래로 발행된 계약입니다. 기존 진행내역에서 마무리해 주세요.' }, 409);
     }
-    const currentHash = sessionHashFromContract(contract);
     let currentSession: EsignRecord | null = null;
-    if (currentHash) {
-      currentSession = (await bundle.db.ref(`v4/esign_sessions/${currentHash}`).get().catch(() => null))?.val() as EsignRecord | null;
-      if (activeSession(currentSession) && hasFrozenFreepassTemplateState(currentSession)) {
-        if (!isEsignTemplateAllowed(process.env.VERCEL_ENV, frozenSessionTemplateId(currentSession))) {
-          return json({ error: '표준계약서 최종 승인 전이라 운영 발행이 잠겨 있습니다.' }, 503);
-        }
-        try { await privatizeLegacySignUrl(bundle, contractCode, currentHash, contract.esign_sign_url); }
-        catch { return json({ error: '기존 고객 링크를 안전한 보관소로 옮기지 못했습니다. 잠시 후 다시 시도해 주세요.' }, 503); }
-        const state = await stateResponse(contractCode, canReviewFreepassEsign(actor));
-        const signUrl = S(state?.contract?.esign_sign_url);
-        if (signUrl) return json({ ok: true, reused: true, signUrl, ...(state || {}) });
-      }
-    }
 
-    if (!isEsignTemplateAllowed(process.env.VERCEL_ENV, body.standardTemplateId)) {
-      return json({ error: '표준계약서 최종 승인 전이라 운영 발행이 잠겨 있습니다.' }, 503);
-    }
-    const blocked = esignIssueBlockers(contract, bundle.partner, bundle.policy, bundle.product);
-    if (blocked.length) {
-      const independent = isIndependentEsignSource(contract);
-      return json({
-        error: independent
-          ? `계약서 필수값을 확인해 주세요: ${blocked.map((row) => row.message).join(' · ')}`
-          : blocked.map((row) => row.message).join(' · '),
-        blocked,
-      }, 409);
-    }
-
-    // 한 계약에서 두 직원이 동시에 눌러도 고객 링크는 하나만 발행한다.
+    // 기존 링크 private 이관까지 이 claim 아래에서만 한다. 같은 계약의 병렬 발행이
+    // raw URL/private/session을 바꾸는 사이에 stale 값을 옮기지 않게 한다.
     const issueClaimId = hashFreepassSignToken(makeFreepassSignToken());
     const issueClaimAt = Date.now();
     const issueClaimRef = bundle.db.ref(`v4/esign_issue_claims/${contractCode}`);
@@ -358,8 +462,8 @@ export async function POST(
       }
       bundle = refreshedBundle;
       contract = refreshedBundle.contract;
-      if (S(contract.contract_status) === '계약취소') {
-        return json({ error: '취소 계약은 전자계약을 진행할 수 없습니다.' }, 409);
+      if (isInactiveFreepassContract(contract)) {
+        return json({ error: '취소 또는 폐기된 계약은 전자계약을 진행할 수 없습니다.' }, 409);
       }
       if (S(contract.sign_status) === '서명완료') {
         return json({ error: '완료 계약서는 변경하거나 다시 발송할 수 없습니다. 새 회차 계약서를 만드세요.' }, 409);
@@ -371,7 +475,9 @@ export async function POST(
       currentSession = refreshedHash
         ? (await bundle.db.ref(`v4/esign_sessions/${refreshedHash}`).get().catch(() => null))?.val() as EsignRecord | null
         : null;
-      if (activeSession(currentSession) && hasFrozenFreepassTemplateState(currentSession)) {
+      if (activeSession(currentSession)
+        && hasFrozenFreepassTemplateState(currentSession)
+        && hasFrozenFreepassConsentProfile(currentSession)) {
         if (!isEsignTemplateAllowed(process.env.VERCEL_ENV, frozenSessionTemplateId(currentSession))) {
           return json({ error: '표준계약서 최종 승인 전이라 운영 발행이 잠겨 있습니다.' }, 503);
         }
@@ -381,7 +487,17 @@ export async function POST(
         const signUrl = S(state?.contract?.esign_sign_url);
         if (signUrl) return json({ ok: true, reused: true, signUrl, ...(state || {}) });
       }
-      const refreshedBlocked = esignIssueBlockers(contract, bundle.partner, bundle.policy, bundle.product);
+      const refreshedSources = await issueSourcesFor(bundle, contractCode, body);
+      if (!refreshedSources.sources) return json({ error: refreshedSources.error }, 409);
+      const sources = refreshedSources.sources;
+      if (!isEsignTemplateAllowed(process.env.VERCEL_ENV, sources.standardTemplateId)) {
+        return json({ error: '표준계약서 최종 승인 전이라 운영 발행이 잠겨 있습니다.' }, 503);
+      }
+      const refreshedBlocked = issueBlockersFor(
+        sources,
+        contract,
+        sources.sealed ? bundle.v4Product : bundle.product,
+      );
       if (refreshedBlocked.length) {
         return json({ error: refreshedBlocked.map((row) => row.message).join(' · '), blocked: refreshedBlocked }, 409);
       }
@@ -390,10 +506,10 @@ export async function POST(
         return json({ error: '고객 제출 또는 관리자 확인이 진행 중인 계약은 새 링크를 만들 수 없습니다.' }, 409);
       }
 
-    const standardTemplateId = S(body.standardTemplateId);
-    const contractKind = S(body.contractKind);
+    const standardTemplateId = sources.standardTemplateId;
+    const contractKind = sources.contractKind;
     const templateFields: Record<string, string> = {};
-    if (body.templateFields && typeof body.templateFields === 'object' && !Array.isArray(body.templateFields)) {
+    if (!sources.sealed && body.templateFields && typeof body.templateFields === 'object' && !Array.isArray(body.templateFields)) {
       for (const [key, value] of Object.entries(body.templateFields as EsignRecord)) {
         const k = S(key);
         const v = S(value);
@@ -404,16 +520,27 @@ export async function POST(
     let snapshot;
     try {
       snapshot = buildFreepassIssueSnapshot({
-        contract,
-        policy: bundle.policy,
-        product: bundle.product,
-        partner: bundle.partner,
+        contract: sources.contract,
+        policy: sources.policy,
+        product: sources.product,
+        partner: sources.partner,
         standardTemplateId,
         contractKind,
         templateFields,
       });
     } catch (error) {
       return json({ error: error instanceof Error ? error.message : '계약서 조합을 확정하지 못했습니다.' }, 409);
+    }
+
+    let settlementRateBasis;
+    try {
+      settlementRateBasis = sources.settlementRateBasis || await resolveFreepassSettlementRateBasis({
+        db: bundle.db,
+        contract: sources.contract,
+        product: sources.product,
+      });
+    } catch (error) {
+      return json({ error: error instanceof Error ? error.message : '정산 기준을 동결하지 못했습니다.' }, 409);
     }
 
     const revision = Math.max(1, Number(contract.esign_revision || 0) + 1);
@@ -452,6 +579,21 @@ export async function POST(
         contract_kind: contractKind,
         esign_maturity: S(snapshot.contractKind.maturity),
         esign_insurance_side: S(snapshot.contractKind.insuranceSide),
+        // 상품구분·요율은 계약을 만든 브라우저 값이 아니라 발행 서버가 다시 읽은 기준값으로
+        // 동결한다. private 요율이 하나라도 비어 있으면 금액을 추정하지 않고 정산만 보류한다.
+        product_type_snapshot: settlementRateBasis.productType,
+        settlement_rate_status: settlementRateBasis.status,
+        ...(settlementRateBasis.status === 'sealed' ? {
+          fee_rate_snapshot: settlementRateBasis.feeRate,
+          payout_rate_snapshot: settlementRateBasis.payoutRate,
+          settlement_rate_sealed_at: now,
+          settlement_rate_sealed_by: 'freepass-esign-server',
+        } : {
+          fee_rate_snapshot: null,
+          payout_rate_snapshot: null,
+          settlement_rate_sealed_at: null,
+          settlement_rate_sealed_by: null,
+        }),
         sign_status: '발행',
         sign_sent_at: now,
         sign_expires_at: expiresAt,
@@ -473,7 +615,17 @@ export async function POST(
       await bundle.db.ref('v4').update({
         ...replacedSessionUpdates,
         [`esign_sessions/${hash}`]: sessionValue,
-        [`esign_private/${contractCode}/${hash}`]: { internal_sign_url: signUrl, issuedAt: now },
+        [`esign_private/${contractCode}/${hash}`]: {
+          internal_sign_url: signUrl,
+          issuedAt: now,
+          settlement_rate_basis: {
+            product_type: settlementRateBasis.productType,
+            fee_rate: settlementRateBasis.feeRate,
+            payout_rate: settlementRateBasis.payoutRate,
+            status: settlementRateBasis.status,
+            sealed_at: now,
+          },
+        },
         ...childUpdates(`contracts/${contractCode}`, contractUpdate),
         ...freepassEsignEventUpdates(contractCode, 'issued', { actorUid: actor.uid, esignId }),
       });
@@ -610,8 +762,8 @@ export async function POST(
 
   if (action === 'approve') {
     if (!canReviewFreepassEsign(actor)) return json({ error: '관리자만 전자계약을 최종 승인할 수 있습니다.' }, 403);
-    if (!hasFrozenFreepassTemplateState(session)) {
-      return json({ error: '계약서 서식이 갱신되어 이 링크로는 최종 승인할 수 없습니다. 고객 자료를 확인한 뒤 새 링크를 발행해 주세요.' }, 409);
+    if (!hasFrozenFreepassTemplateState(session) || !hasFrozenFreepassConsentProfile(session)) {
+      return json({ error: '계약서 또는 동의 프로필이 갱신되어 이 링크로는 최종 승인할 수 없습니다. 고객 자료를 확인한 뒤 새 링크를 발행해 주세요.' }, 409);
     }
     const now = Date.now();
     const staleApproval = S(session.status) === 'approving'
