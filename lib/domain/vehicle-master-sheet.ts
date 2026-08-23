@@ -288,5 +288,11 @@ export function masterCells(row: MasterRow | undefined): Record<string, string> 
     '세부트림': row.trim,
     '배기량(정제)': row.cc,
     '연료(정제)': row.fuel,
+    /**
+     * ★인승 — 정제칸 신설(2026-08-22 · 사장님 「구동 뒤에 인승 넣어줘」).
+     *   원장 「인승」 열은 숫자만 남겨 두므로(readMasterSheet `seat`) 그대로 흘린다.
+     *   그전까지 인승은 정제칸에 자리가 없어 ERP 스냅만 들고 있었고, 마스터 참조를 끊은 뒤로는 새 차가 못 채워졌다.
+     */
+    '인승': row.seat,
   };
 }

@@ -10,13 +10,12 @@
  * 그래서 안내를 «화면 설명 한 벌»로 바꾸고 역할 분기를 없앴다. 문구는 영업자 기준으로 쓴다.
  *
  * 내용은 실제 코드에서 확인한 것만 적었다 —
- *   · 기본 보기 = 엑셀 (`app/page.tsx`: useState('excel'))
- *   · 보기 3종 = 간단(card) │ 상세(list) │ 엑셀(excel) (`FinderToolbar.tsx` VIEWS)
- *   · 고른 보기는 유지된다 (`app/page.tsx`: localStorage 'fp4_finder_view')
- *   · 엑셀 열 제목 클릭 = 그 열 필터·정렬 (`ExcelResultsTable.tsx` hdrTh)
- *   · 행 클릭 = 상품 상세로 이동 (`app/page.tsx` go → /m/{product_code})
- *   · 구글시트 아이콘은 엑셀 보기일 때만 뜬다 (`FinderToolbar.tsx`)
- *   · 모바일은 간단 보기 고정이라 전환이 없다 (`app/page.tsx`: effView = mobile ? 'card' : view)
+ *   · 기본 보기 = 판매시트 (`app/finder/page.tsx`: useState('excel'))
+ *   · 보기 3종 = 간단(card) │ 상세(list) │ 시트(excel) (`FinderToolbar.tsx` VIEWS)
+ *   · 고른 보기는 유지된다 (`app/finder/page.tsx`: localStorage 'fp4_finder_view_v2')
+ *   · 시트 = ERP가 인증 후 읽어 온 판매시트 격자 (`SheetView.tsx`)
+ *   · 간단·상세의 행 클릭 = 상품 상세로 이동 (`app/finder/page.tsx` go → /m/{product_code})
+ *   · 모바일은 간단 보기 고정이라 전환이 없다 (`app/finder/page.tsx`: effView = mobile ? 'card' : view)
  */
 
 export type StartStep = {
@@ -36,12 +35,12 @@ export type StartGuide = {
 const GUIDE: StartGuide = {
   headline: '상품 목록을 보는 방법입니다',
   steps: [
-    { title: '엑셀로 봅니다', desc: '기본은 표 형태입니다. 열 제목을 누르면 그 열만 추려 보거나 정렬할 수 있습니다.' },
-    { title: '보기를 바꿉니다', desc: '우측 상단에서 간단·상세·엑셀로 바꿉니다. 고른 보기는 다음에 들어와도 그대로입니다.' },
-    { title: '좁혀서 찾습니다', desc: '왼쪽 필터와 검색으로 좁힙니다. 걸어둔 조건 개수가 필터 아이콘에 숫자로 뜹니다.' },
-    { title: '한 대를 엽니다', desc: '행을 누르면 그 차량 상세로 들어가고, 문의는 거기서 엽니다.' },
+    { title: '판매시트로 봅니다', desc: '기본은 ERP 안의 상품리스트입니다. 로그인 권한에 맞는 판매시트만 표시됩니다.' },
+    { title: '보기를 바꿉니다', desc: '우측 상단에서 간단·상세·시트로 바꿉니다. 고른 보기는 다음에 들어와도 그대로입니다.' },
+    { title: '좁혀서 찾습니다', desc: '간단·상세 보기에서는 검색과 필터로 좁힐 수 있습니다. 시트 보기에는 원본 표만 표시됩니다.' },
+    { title: '한 대를 엽니다', desc: '간단·상세 보기에서 차량을 누르면 상세로 들어가고, 문의는 거기서 엽니다.' },
   ],
-  footer: '엑셀 보기에서는 우측 상단 시트 아이콘으로 전체 상품을 구글시트에서 열 수 있습니다. 휴대폰에서는 간단 보기로 고정됩니다.',
+  footer: '상품리스트는 구글시트 탭을 열지 않고 ERP 안에서 표시합니다. 휴대폰에서는 간단 보기로 고정됩니다.',
 };
 
 /** 시작안내는 한 벌뿐이다 — 역할로 갈리지 않는다. */

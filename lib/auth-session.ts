@@ -12,6 +12,8 @@ export interface Session {
   role: V4Role;
   rawRole: string;        // v3 원본(agent_admin 등) — 세부 권한 후속용
   name: string;
+  /** 고객 공유 문구에 쓰는 본인 프로필 연락처. 없으면 절대 임의 값으로 채우지 않는다. */
+  phone: string;
   /** 목록·방·계약 귀속키. 공급사=company_code, 영업자=user_code(사람), 관리자=user_code|uid */
   code: string;
   company_code: string;

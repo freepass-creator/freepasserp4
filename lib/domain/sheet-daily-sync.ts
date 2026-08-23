@@ -13,6 +13,7 @@ import {
   type PartnerSheetsFetch,
 } from '@/lib/domain/sheet-sync-all';
 import {
+  isContractEngineLocked,
   planAbsentBlocked,
   planProductUpsert,
   resolveSheetReviveTarget,
@@ -82,8 +83,7 @@ function normalizeSourceContractStatuses(
     const before = byKey.get(rowKey(row)) || byProviderPlate.get(
       `${String(row.provider_company_code || row.partner_code || '').trim()}|${plate(row)}`,
     );
-    const locked = before && (String(before.vehicle_status || '').trim() === '계약중'
-      || !!String(before.locked_by_contract || '').trim());
+    const locked = before && isContractEngineLocked(before);
     if (locked) return row;
     /**
      * ★2026-08-20 사장님 「ERP 에는 출고불가만 안 나타내는 거야 — 상품화중·계약중은 다 표시된다」.
@@ -135,7 +135,7 @@ export function planDailySheetSync(input: {
   const now = input.now ?? Date.now();
   const sourceStatuses = normalizeSourceContractStatuses(canonical.products, input.existing, now);
   if (sourceStatuses.unavailableProjected) {
-    notes.push(`시트 계약중 ${sourceStatuses.unavailableProjected}대는 ERP 계약락 없이 출고불가로 반영`);
+    notes.push(`시트 계약중 ${sourceStatuses.unavailableProjected}대는 계약락과 별개로 ERP에 계약중 그대로 반영`);
   }
   const rawConflicts = findSheetSyncExistingConflicts(input.fetched, input.existing, input.deleted);
   const resolutionResult = applySheetConflictResolutions({
@@ -182,12 +182,16 @@ export function planDailySheetSync(input: {
     return { ok: false, blockReason: conflictBlock, creates: [], patches: [], checkpoints: [], counts, notes };
   }
 
-  const ingress = prepareMasterIngress(sourceStatuses.products.map((row) => {
+  const preparedRows = sourceStatuses.products.map((row) => {
     const clean = { ...row };
     delete clean._sheet_contract_status;
-    delete clean._sheet_price_scope;
     return clean;
-  }));
+  });
+  // 판매시트는 이미 정제 완료된 직접 정본이다. 여기서 다시 차종마스터 확정/검토를
+  // 판정하면 현재 셀을 옛 마스터 기준으로 왜곡한다.
+  const ingress = input.fetched.sourceKind === 'sales_inventory'
+    ? { products: preparedRows, confirmed: preparedRows.length, review: 0 }
+    : prepareMasterIngress(preparedRows);
   counts.confirmed = ingress.confirmed;
   counts.review = ingress.review;
   const upsert = planProductUpsert(ingress.products, input.existing);
@@ -200,7 +204,9 @@ export function planDailySheetSync(input: {
   for (const row of upsert.creates) {
     const target = resolveSheetReviveTarget(row, input.deleted);
     if (!target || claimedReviveKeys.has(target.key)) {
-      creates.push(row);
+      // Sheet는 공개 재고 writer다. 신규 생성도 기존 수정·복구와 같은 경계로
+      // 원가·VIN·계좌·수수료를 제거해야 server apply 단계가 fail-closed로 멈추지 않는다.
+      creates.push(stripSheetPrivatePatchFields(row));
       continue;
     }
     claimedReviveKeys.add(target.key);

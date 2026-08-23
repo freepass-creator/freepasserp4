@@ -66,6 +66,11 @@ import { unpackVehicleSignalsEngine } from '@/lib/domain/vehicle-master-normaliz
 import { selectMasterEntry } from '@/lib/domain/vehicle-master-score';
 import { selectMasterVariant } from '@/lib/domain/vehicle-master-variant';
 import {
+  applyLatinBrandTokens,
+  canonLatinBrandTrim,
+  latinBrandNeedles,
+} from '@/lib/domain/vehicle-master-lock';
+import {
   auditMasterFitEngine,
   isMasterPath,
   masterPathSet,
@@ -136,8 +141,8 @@ export {
 } from '@/lib/domain/vehicle-master-variant';
 
 /**
- * 수집 영문 트림 → 마스터 한글 트림.
- * 마스터 JSON은 한글 SSOT. 공급사·시트·OCR이 Premium/FLUX 등으로 주면 여기서 한글 노드로 맞춤.
+ * 수집 영문 등급어 → 마스터 한글 등급어.
+ * H-PICK·N Line·X Line·GT Line 은 제조사 공식 라틴 고유명이라 여기 넣지 않는다.
  */
 const TRIM_EN_KO: Record<string, string> = {
   smart: '스마트',
@@ -167,41 +172,34 @@ const TRIM_EN_KO: Record<string, string> = {
   le: 'LE',
   se: 'SE',
   sel: 'SEL',
-  xline: 'X라인',
-  'x line': 'X라인',
-  'x-line': 'X라인',
-  'n line': 'N라인',
-  nline: 'N라인',
-  'n-line': 'N라인',
-  'gt line': 'GT라인',
-  'gt-line': 'GT라인',
-  gtline: 'GT라인',
-  'gt ligne': 'GT라인',
   avantgarde: '아방가르드',
   'm sport': 'M 스포츠',
   'm sport pack': 'M 스포츠',
   'm sport package': 'M 스포츠',
-  'x라인 스페셜에디션': 'X라인',
-  'x라인 스페셜 에디션': 'X라인',
+  'x라인 스페셜에디션': 'X Line',
+  'x라인 스페셜 에디션': 'X Line',
+  'x line 스페셜에디션': 'X Line',
+  'x-line 스페셜에디션': 'X Line',
 };
 
-/** 영문·표기흔들림 → 마스터 한글 트림. pool이 있으면 그중 실제 노드만 채택. */
+/** 영문·표기흔들림 → 마스터 정본 트림. pool이 있으면 그중 실제 노드만 채택. */
 export function canonMasterTrim(raw: unknown, pool?: string[] | null): string {
   const src = String(raw ?? '').trim();
   if (!src || isNoTrimLabel(src)) return '';
   const key = src.toLowerCase().replace(/\s+/g, ' ').trim();
-  const mapped = TRIM_EN_KO[key] || TRIM_EN_KO[key.replace(/-/g, ' ')] || src;
+  const mapped = canonLatinBrandTrim(src)
+    || TRIM_EN_KO[key]
+    || TRIM_EN_KO[key.replace(/-/g, ' ')]
+    || applyLatinBrandTokens(src);
   const list = pool && pool.length ? realMasterTrims(pool) : null;
   if (!list) return mapped;
   if (list.includes(mapped)) return mapped;
   if (list.includes(src)) return src;
   const nm = norm(mapped);
-  const byNorm = list.find((t) => norm(t) === nm);
+  const byNorm = list.find((t) => norm(t) === nm || latinBrandNeedles(t).some((n) => norm(n) === nm));
   if (byNorm) return byNorm;
-  // 마스터가 아직 영문 노드(X Line)인데 신호는 한글(X라인)·영문 별칭인 경우
   const byAlias = list.find((t) => {
-    const tk = String(t).toLowerCase().replace(/\s+/g, ' ').trim();
-    const tMapped = TRIM_EN_KO[tk] || TRIM_EN_KO[tk.replace(/-/g, ' ')] || t;
+    const tMapped = applyLatinBrandTokens(t);
     return tMapped === mapped || norm(tMapped) === nm;
   });
   return byAlias || '';
@@ -342,11 +340,21 @@ const genOrder = (entries: MasterEntry[]): Map<string, string[]> => {
 };
 const ordinalGen = (text: unknown): number => { const m = /([1-9])\s*세대/.exec(String(text ?? '')); return m ? Number(m[1]) : 0; };
 const grams = (s: string) => { const g = new Set<string>(); for (let i = 0; i < s.length - 1; i++) g.add(s.slice(i, i + 2)); return g; };
+/** 짧은 쪽이 긴 쪽에 들어 있어도, 뒤에 영문·숫자가 이어지면 다른 토큰이다. 아이오닉5 N ⊂ 아이오닉5 NE 를 같은 차로 보지 않는다. */
+const tokenIncludes = (short: string, long: string): boolean => {
+  const i = long.indexOf(short);
+  if (i < 0) return false;
+  const before = i > 0 ? long[i - 1] : '';
+  const after = long[i + short.length] || '';
+  if (before && /[0-9a-z]/i.test(before)) return false;
+  if (after && /[0-9a-z]/i.test(after)) return false;
+  return true;
+};
 const sim = (a: string, b: string): number => {
   const na = norm(a), nb = norm(b);
   if (!na || !nb) return 0;
   if (na === nb) return 1;
-  if (nb.includes(na) || na.includes(nb)) return 0.75;
+  if (tokenIncludes(na, nb) || tokenIncludes(nb, na)) return 0.75;
   const ga = grams(na), gb = grams(nb); if (!ga.size || !gb.size) return 0;
   let inter = 0; ga.forEach((x) => { if (gb.has(x)) inter++; });
   return inter / Math.max(ga.size, gb.size);
@@ -475,9 +483,13 @@ export function snapToMaster(p: EntityRecord, entries: MasterEntry[]): SnapResul
           .filter(([, ko]) => ko === t || ko === tAsKo || norm(ko) === norm(t))
           .map(([en]) => en);
         const nblob = norm(signalBlob);
+        const needles = [...new Set([t, tAsKo, ...enKeys, ...latinBrandNeedles(t)])];
         if (nblob.includes(norm(t)) && norm(t).length >= 3) { trim = t; break; }
         if (nblob.includes(norm(tAsKo)) && norm(tAsKo).length >= 3) { trim = t; break; }
-        if (enKeys.some((en) => nblob.includes(norm(en)) || signalBlob.toLowerCase().includes(en))) {
+        if (needles.some((n) => {
+          const nn = norm(n);
+          return nn.length >= 3 && (nblob.includes(nn) || signalBlob.toLowerCase().includes(n.toLowerCase()));
+        })) {
           trim = t;
           break;
         }

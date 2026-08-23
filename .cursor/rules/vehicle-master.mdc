@@ -12,4 +12,5 @@ alwaysApply: true
 - `stamp-encar-codes-on-supplier` 는 행키만. `put(..., '모델')` 금지 — `assertStampColumnAllowed` 가 막는다.
 - 공급사 정보는 차량번호 왼쪽(제조사·차종·차명). 배기량 칸으로 차명을 뒤집지 않음.
 - 작업 후: `npx tsx scripts/check-vehicle-master-lock.mts` 그리고 `npx tsx scripts/verify-master-pass.mts`.
-- 정본: `lib/domain/vehicle-master-lock.ts` · AI 운영 매뉴얼 0′장.
+- 차종분류는 **한 칸**(준대형 세단) + 코드 `vc-15` (`lib/domain/vehicle-class-catalog.ts`). 판매시트는 크기+구분을 붙이지 않고 이 조합값을 싣는다. 차명(정제)=모델+세부모델+세부트림.
+- 제조사 공식 라틴 고유명은 한글화하지 않는다: **H-PICK**, 기아 **X Line**, 현대 **N Line**, **GT Line**. 아반떼 N·아이오닉5 N 의 **N** 은 고성능 라인(트림 N Line 과 합치지 않음). 등급어(Premium→프리미엄)만 한글.

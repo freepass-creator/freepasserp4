@@ -9,7 +9,7 @@
  *   상품리스트 한 탭만 읽으면 오플 88·손오공 구독 43대가 «없는 차»로 보인다(2026-08-18 저녁 하루는 한 탭이었다).
  * ★탭 이름은 「접두 MM.DD HH:MM · N대」. 접두마다 한 장만 산다(발행기가 같은 접두 탭을 갈아 끼움).
  */
-import { isImportBrand } from './sheet-import';
+import { isImportBrand } from './vehicle-origin';
 
 export const SALES_PUBLISHED_TAB_PREFIXES = ['상품리스트', '손오공구독', '오플구독'] as const;
 export type SalesPublishedPrefix = (typeof SALES_PUBLISHED_TAB_PREFIXES)[number];
@@ -81,4 +81,26 @@ export function standardMoneyIndex(prefix: SalesPublishedPrefix, header: string[
   const aliases = (SALES_TAB_MONEY_ALIASES[prefix] as Record<string, string[] | undefined>)[name] || [];
   for (const a of aliases) { const i = header.findIndex((h) => normHead(h) === normHead(a)); if (i >= 0) return i; }
   return -1;
+}
+
+/**
+ * 「AI 인계」 @매핑의 기본 열을 갈래 탭의 최종 열로 바꾼다.
+ * publish-sonogong-tab 기본 동작과 감사기가 공유하는 스키마 계약이다.
+ */
+export function publishedSalesColumns(prefix: SalesPublishedPrefix, baseColumns: string[]): string[] {
+  if (prefix === '상품리스트') return [...baseColumns];
+  const native = NATIVE_MONEY_BLOCK[prefix];
+  const labels = native.block.map(nativeMoneyLabel);
+  const norm = (value: unknown) => String(value ?? '').trim().replace(/\s+/g, '').replace(/km$/i, '').replace(/[()（）]/g, '');
+  const nativeNames = [...native.block, ...labels, ...(native.lead ? [native.lead.name] : [])];
+  const removed = (header: string) =>
+    nativeNames.some((name) => norm(name) === norm(header))
+    || (STANDARD_MONEY_COLUMNS as readonly string[]).some((name) => norm(name) === norm(header));
+  const kept = baseColumns.filter((header) => !removed(header));
+  const classIndex = kept.findIndex((header) => norm(header) === norm('차종구분'));
+  const kmIndex = kept.findIndex((header) => /^(km|주행거리)$/i.test(norm(header)));
+  const anchorIndex = classIndex >= 0 ? classIndex : kmIndex;
+  const insertAt = anchorIndex >= 0 ? anchorIndex + 1 : kept.length;
+  const block = [...(native.lead ? [native.lead.name] : []), ...labels];
+  return [...kept.slice(0, insertAt), ...block, ...kept.slice(insertAt)];
 }

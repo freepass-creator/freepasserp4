@@ -6,6 +6,7 @@ import {
   type PartnerSheetsFetch,
 } from '@/lib/domain/sheet-sync-all';
 import {
+  isContractEngineLocked,
   isManualSheetHold,
   planAbsentBlocked,
   sheetProviderOf,
@@ -35,8 +36,6 @@ const keyOf = (row: EntityRecord): string => String(row._key || row.product_code
 const plateOf = (row: EntityRecord): string => String(row.car_number || row.car_number_snapshot || '')
   .replace(/\s/g, '');
 const isPending = (row: EntityRecord): boolean => row.is_pending_plate === true || /^100신\d{4,}$/.test(plateOf(row));
-const isEngineLocked = (row: EntityRecord): boolean => Boolean(String(row.locked_by_contract || '').trim())
-  || String(row.vehicle_status || '').trim() === '계약중';
 const isLiveStatusOwnedBlock = (row: EntityRecord): boolean => row.sheet_status_owner === 'sheet'
   && ['missing_or_excluded', SOURCE_CONTRACT_REASON].includes(String(row.sheet_block_reason || ''));
 
@@ -170,7 +169,7 @@ export function planSheetLiveStatusSync(input: {
       continue;
     }
     counts.matched++;
-    if (isEngineLocked(before)) {
+    if (isContractEngineLocked(before)) {
       counts.lockedPreserved++;
       continue;
     }

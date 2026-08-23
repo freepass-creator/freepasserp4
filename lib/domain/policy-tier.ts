@@ -99,6 +99,7 @@ export const SALES_LAYER: PolicyField[] = [
 
   // ③ 납부 방식을 결정하는 것
   { key: 'deposit_installment', label: '보증금 분납 가능 회차', layer: 'sales', exposure: 'sales', decides: '보증금 납부 방식', why: '선택지. 계약서에는 «3회 분납»처럼 굳은 값만' },
+  { key: 'rental_card_payment', label: '대여료카드', layer: 'sales', exposure: 'sales', decides: '대여료 납부 방식·카드 수수료', why: '결제 수단' },
   { key: 'deposit_card_payment', label: '보증카드', layer: 'sales', exposure: 'sales', decides: '보증금 납부 방식', why: '결제 수단' },
   { key: 'payment_method', label: '결제방식', layer: 'sales', exposure: 'contract', article: '제6조', decides: '대여료 납부 방식', why: 'CMS·카드 등' },
   { key: 'payment_timing', label: '대여료 납부 조건', layer: 'sales', exposure: 'contract', article: '제6조', decides: '대여료 납부 시점', why: '선불·후불은 결제수단과 별개인 계약조건. 정책 기본값을 가져오되 계약 건별로 확정한다' },
@@ -222,6 +223,7 @@ const ISSUE_BASE_FIELDS: PolicyField[] = [
     'annual_mileage', 'basic_driver_age', 'license_period', 'insurance_included',
     'maintenance_service', 'personal_driver_scope', 'business_driver_scope',
   ].includes(field.key)),
+  ...SALES_LAYER.filter((field) => field.key === 'payment_method'),
 ];
 
 const ISSUE_INSURANCE_FIELDS: PolicyField[] = [
@@ -247,6 +249,23 @@ const has = (p: Record<string, unknown>, k: string) => {
   const v = p?.[k];
   return v !== undefined && v !== null && String(v).trim() !== '';
 };
+
+/**
+ * 회사 보험형 완료본에는 체결일 당시 실제 가입처가 찍혀야 한다.
+ * 기본 안내문·대시·미정 같은 값은 보험사명이 아니므로 발행 단계에서 막는다.
+ */
+export function isUsableInsurerName(value: unknown): boolean {
+  const name = String(value ?? '').trim();
+  if (!name) return false;
+  // 공급사 정책 읽기·값 규격에서 이미 "값 없음"으로 취급하는 표현과 같은 기준을 쓴다.
+  // 공백·영문 대소문자만 바꿔 발행 게이트를 우회하면 안 된다.
+  const normalized = name.replace(/\s+/g, '').toLowerCase();
+  return !new Set([
+    '-', '—', '?', '없음', '해당없음', '미정', '미입력', '미기재', '미가입',
+    '공급사기재', '입력요망', '기재요망', '추후기재', 'n/a', 'na',
+    '계약체결일기준가입보험사·공제조합(차량별상이)',
+  ]).has(normalized);
+}
 
 /**
  * 이 공급사 계약서를 «누가 쓰는가».
@@ -306,15 +325,21 @@ export function canIssueContract(
   const p = policy || {};
   const companyInsurance = !/별도|개인/.test(String(p.insurance_included || '').trim());
   const ownDamageCovered = companyInsurance && !/미가입|없음/.test(String(p.own_damage_compensation || '').trim());
-  // 사장님 2026-08-19 — 가입 보험사·자차 처리 제외·지정 정비점은 공급사에게 안 묻는다(시트에서 뺌). 계약서엔 표준 문구로 나가므로 게이트에서도 뺀다.
-  const NOT_ASKED = new Set(['insurer_name', 'self_damage_exclusions', 'designated_garage', 'deposit_overdue_rounds']);
+  // 자차 처리 제외·지정 정비점은 공통 약관 문구를 쓰지만, 회사 보험형의 가입 보험사명은
+  // 체결일 사실이라 기본 안내문으로 대체할 수 없다.
+  const NOT_ASKED = new Set(['self_damage_exclusions', 'designated_garage', 'deposit_overdue_rounds']);
   const required = [
-    ...CONTRACT_LAYER.filter((f) => !NOT_ASKED.has(f.key)),
+    // 개인 직접가입형은 회사의 가입 보험사명이 계약 사실이 아니므로 요구하거나 인쇄하지 않는다.
+    ...CONTRACT_LAYER.filter((f) => !NOT_ASKED.has(f.key) && (companyInsurance || f.key !== 'insurer_name')),
     ...ISSUE_BASE_FIELDS,
     ...(companyInsurance ? ISSUE_INSURANCE_FIELDS : []),
     ...(ownDamageCovered ? ISSUE_OWN_DAMAGE_FIELDS : []),
   ];
-  const missing = required.filter((f, index) => required.findIndex((candidate) => candidate.key === f.key) === index && !has(p, f.key));
+  const missing = required.filter((f, index) => {
+    if (required.findIndex((candidate) => candidate.key === f.key) !== index) return false;
+    if (f.key === 'insurer_name') return !isUsableInsurerName(p.insurer_name);
+    return !has(p, f.key);
+  });
   return {
     ok: missing.length === 0,
     layer,

@@ -183,6 +183,14 @@ export function selectMasterEntry(
     }
     if (productIsCoupe !== bodyPattern.test(`${entry.sub_model || ''} ${entry.title || ''}`)) score -= 6;
 
+    // FL·디 엣지·부분변경은 같은 세대코드의 구형 줄에 붙이면 안 된다.
+    {
+      const wantFl = /(?:\bfl\b|페이스\s*리프트|부분변경|디\s*엣지)/i.test(signalBlob);
+      const entryFl = /(?:\bfl\b|페이스|부분변경|디\s*엣지|더\s*뉴)/i.test(`${entry.sub_model || ''} ${entry.title || ''} ${(entry.aliases || []).join(' ')}`);
+      if (wantFl && entryFl) score += 2.6;
+      else if (wantFl && !entryFl) score -= 2.2;
+    }
+
     // 레이·모닝: 승용과 밴은 세부모델이 다름(인승 옵션 아님).
     // 신호에 «밴»·2인승 이하면 밴 서브, 그 외(빈 신호 포함)는 승용 서브를 고른다.
     {

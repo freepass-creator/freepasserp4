@@ -4,7 +4,7 @@ export function policySectionForField(key: string): PolicySection {
   if (/^(injury_|property_|self_body_|uninsured_|own_damage_|annual_roadside_|insurer_|designated_garage|self_damage_|replacement_car_)/.test(key)) return 'ins';
   if (['basic_driver_age', 'driver_age_lowering', 'driver_age_upper_limit', 'license_period', 'age_lowering_cost', 'screening_criteria', 'disqualification_conditions', 'sales_notes', 'credit_grade'].includes(key)) return 'basic';
   if (key === 'policy_extra_terms') return 'esign';
-  if (['annual_mileage', 'mileage_upcharge_per_10000km', 'payment_method', 'payment_timing', 'payment_due_date', 'rental_region', 'delivery_fee', 'deposit_installment', 'deposit_card_payment', 'insurance_included', 'personal_driver_scope', 'business_driver_scope', 'additional_driver_allowance_count', 'additional_driver_cost', 'maintenance_service', 'commission_clawback_condition'].includes(key)) return 'terms';
+  if (['annual_mileage', 'mileage_upcharge_per_10000km', 'payment_method', 'payment_timing', 'payment_due_date', 'rental_region', 'delivery_fee', 'deposit_installment', 'rental_card_payment', 'deposit_card_payment', 'insurance_included', 'personal_driver_scope', 'business_driver_scope', 'additional_driver_allowance_count', 'additional_driver_cost', 'maintenance_service', 'commission_clawback_condition'].includes(key)) return 'terms';
   return 'esign';
 }
 

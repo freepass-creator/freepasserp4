@@ -1,0 +1,69 @@
+{
+  "updated": "2026-08-22T07:10:13.484Z",
+  "encar": {
+    "rows": 4075,
+    "sm": 428,
+    "t": 2463
+  },
+  "aliases": [
+    {
+      "from": "G80 RG3 FL",
+      "to": "G80 RG3",
+      "gen": "RG3",
+      "plates": 16,
+      "status": "json"
+    },
+    {
+      "from": "GV70 JK1 FL",
+      "to": "GV70 JK1",
+      "gen": "JK1",
+      "plates": 6,
+      "status": "json"
+    },
+    {
+      "from": "GV80 JX1 FL",
+      "to": "GV80 JX1",
+      "gen": "JX1",
+      "plates": 4,
+      "status": "json"
+    },
+    {
+      "from": "쏘나타 DN8 디 엣지",
+      "to": "쏘나타 디 엣지 DN8",
+      "gen": "DN8",
+      "plates": 6,
+      "status": "json"
+    },
+    {
+      "from": "모델 Y FL",
+      "to": "모델 Y",
+      "plates": 9,
+      "status": "json"
+    },
+    {
+      "from": "아이오닉5 NE",
+      "to": "아이오닉5 NE",
+      "gen": "NE",
+      "plates": 8,
+      "status": "json"
+    }
+  ],
+  "missingEncar": [
+    {
+      "sub": "E-클래스 W214",
+      "n": 3,
+      "note": "엔카 중고 시트에 e클래스 없음. 키 발명 금지"
+    },
+    {
+      "sub": "A6 C9",
+      "n": 1,
+      "note": "엔카에 가솔린 A6 없으면 e-트론으로 안 붙임"
+    }
+  ],
+  "lastStamp": {
+    "cars": 693,
+    "tKeep": 586,
+    "tFill": 11,
+    "tHold": 96
+  }
+}

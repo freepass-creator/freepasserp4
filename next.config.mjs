@@ -30,6 +30,12 @@ const nextConfig = (phase) => ({
   env: {
     NEXT_PUBLIC_BUILD_NO: BUILD_NO,
     NEXT_PUBLIC_BUILD_SHA: BUILD_SHA,
+    /**
+     * ★배포 도장 — 빌드할 때마다 반드시 바뀐다(git 과 무관). 우리는 커밋 없이 작업트리째 CLI 배포하므로
+     *   BUILD_NO/SHA 는 배포 간에 같을 수 있다(사장님 2026-08-22 「캐시를 무력화하면서 개선해야지」).
+     *   VersionWatcher 가 /api/version 의 이 값과 자기 번들 값을 견줘 다르면 스스로 새로고침한다.
+     */
+    NEXT_PUBLIC_BUILD_STAMP: new Date().toISOString(),
   },
   // 모바일 SSR 힌트 — 쿠키 없을 때 Sec-CH-UA-Mobile 로 맞춤
   async headers() {

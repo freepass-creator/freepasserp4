@@ -21,10 +21,12 @@ import { partnerSheetOpts, resolveAdapter } from '@/lib/domain/sheet-adapters';
 import { createPlateAllocator, storedPendingSignature, type PendingPlateMap } from '@/lib/domain/pending-plate';
 import {
   applyAbsentBlocked,
+  isContractEngineLocked,
   isManualSheetHold,
   listSheetReconcileState,
   planAbsentBlocked,
   planProductUpsert,
+  SALES_EXACT_PRODUCT_FIELDS,
   sheetProviderOf,
   SUPPLIER_OWNED_PRODUCT_FIELDS,
   sheetReconcileStateRevision,
@@ -358,6 +360,22 @@ export function canonicalSheetProductsFromLines(
       if (String(row.source || '').trim() !== 'sheet') {
         return { products: [], reason: `${at} 시트 provenance 누락` };
       }
+      if (fetched.sourceKind === 'sales_inventory') {
+        if (row._sales_sheet_authoritative !== true) {
+          return { products: [], reason: `${at} 판매시트 권위 표식 누락` };
+        }
+        const missingExactFields = [...SALES_EXACT_PRODUCT_FIELDS]
+          .filter((field) => !Object.prototype.hasOwnProperty.call(row, field));
+        if (missingExactFields.length) {
+          return {
+            products: [],
+            reason: `${at} 판매시트 정확치환 필드 누락 (${missingExactFields.join(', ')})`,
+          };
+        }
+        if (!row.price || typeof row.price !== 'object' || Array.isArray(row.price)) {
+          return { products: [], reason: `${at} 판매시트 가격맵 형식 오류` };
+        }
+      }
       if (row.is_pending_plate !== undefined && typeof row.is_pending_plate !== 'boolean') {
         return { products: [], reason: `${at} 번호미정 플래그 형식 오류` };
       }
@@ -574,7 +592,11 @@ export function findSheetSyncExistingConflicts(
    *   ERP 에 못 들어갔고**, 시트에서 빠진 아이카 차 17대가 상품찾기에 남아 있었다.
    *   같은 이유로 `deletedCollisions` 도 이미 막는 목록에서 빠져 있다(위 주석). 상품마스터 경로만 종전대로 본다.
    */
-  const unownedDeletedMatches = fetched.sourceKind === 'product_master' ? deleted.flatMap((row) => {
+  // 중앙 판매시트에는 현재 공급사가 명시되어 있으므로 소유자 없는 옛 tombstone 하나가
+  // 전체 반영을 막지 않는다. 반면 공급사 원본 직행·레거시 경로는 현재 ERP 입력 경로가
+  // 아니며 소유 근거도 약하므로 종전처럼 fail-closed 한다.
+  const directSalesSource = fetched.sourceKind === 'sales_inventory';
+  const unownedDeletedMatches = !directSalesSource ? deleted.flatMap((row) => {
     const plate = syncPlate(row);
     if (!plate || isPendingSheetRow(row) || !createPlates.has(plate) || sheetProviderOf(row, providerCodes)) return [];
     const owners = incomingOwners.get(plate);
@@ -583,12 +605,12 @@ export function findSheetSyncExistingConflicts(
   }) : [];
 
   const existingByKey = new Map(existing.map((row) => [String(row._key || row.product_code || ''), row]));
-  // ★상품마스터 경로는 표식 없는 출고불가를 «수기 보류»로 보지 않는다(sheet-merge 와 같은 규칙, 2026-08-19) —
-  //   해제 후보로 hard-block 하지도, 보호 목록으로 세지도 않는다. 직접 시트 경로만 종전대로.
-  const productMasterSource = fetched.sourceKind === 'product_master';
+  // ★중앙 판매시트·레거시 상품마스터 정본은 표식 없는 출고불가를 «수기 보류»로 보지 않는다.
+  //   최신 운영 계약에서 판매시트 상태보다 우선하는 예외는 계약 엔진 락뿐이다.
+  const authoritativeStatusSource = fetched.sourceKind === 'product_master' || directSalesSource;
   const manualReactivations = [...new Set(upsertPlan.patches
     .filter(({ key, patch }) => {
-      if (productMasterSource) return false;
+      if (authoritativeStatusSource) return false;
       const before = existingByKey.get(key);
       return !!before
         && isManualSheetHold(before)
@@ -605,7 +627,7 @@ export function findSheetSyncExistingConflicts(
     const provider = sheetProviderOf(incoming, providerCodes);
     const before = existingByKey.get(key)
       || existingByPlate.get(`${provider}|${syncPlate(incoming)}`);
-    if (!before || productMasterSource) return [];
+    if (!before || authoritativeStatusSource) return [];
     const manualHold = isManualSheetHold(before)
       && String(incoming.vehicle_status || '') !== '출고불가';
     return manualHold ? [String(before._key || before.product_code || key)] : [];
@@ -631,6 +653,9 @@ export function findSheetSyncExistingConflicts(
   });
 
   const missingPricePeriods = fetched.products.flatMap((incoming) => {
+    // 판매시트 3탭은 ERP 가격의 직접 정본이다. 셀이 비거나 기간 열이 사라졌다면
+    // 그 현재값대로 비워야 하며, 옛 ERP 기간을 보존하거나 승인 충돌로 되살리지 않는다.
+    if (incoming._sales_sheet_authoritative === true) return [];
     const key = String(incoming.product_code || incoming._key || '');
     const provider = sheetProviderOf(incoming, providerCodes);
     const keyed = existingByKey.get(key);
@@ -693,7 +718,7 @@ export function findSheetSyncExistingConflicts(
     const pairedNew = new Set<string>();
     for (const oldRow of missing) {
       const oldFamily = pendingVehicleFamily(oldRow);
-      const locked = !!oldRow.locked_by_contract || String(oldRow.vehicle_status || '') === '계약중';
+      const locked = isContractEngineLocked(oldRow);
       // 정제 상품마스터에서 이미 출고불가인 과거 번호미정 이력은 새 실차에 억지로
       // 연결하지 않는다. 옛 행은 그대로 판매차단 상태를 보존하고 새 실차는 별도 상품으로
       // 받으면 신원 혼합이 없다. 판매중이거나 계약락인 번호미정은 기존처럼 계속 차단한다.
@@ -719,7 +744,7 @@ export function findSheetSyncExistingConflicts(
     const pairedReal = new Set<string>();
     for (const oldRow of missing) {
       const family = pendingVehicleFamily(oldRow);
-      const locked = !!oldRow.locked_by_contract || String(oldRow.vehicle_status || '') === '계약중';
+      const locked = isContractEngineLocked(oldRow);
       if (fetched.sourceKind === 'product_master'
         && !locked
         && String(oldRow.vehicle_status || '').trim() === '출고불가') continue;

@@ -36,7 +36,7 @@ const PUBLIC_POLICY_FIELDS = [
   'own_damage_min_deductible', 'own_damage_max_deductible',
   'annual_roadside_assistance', 'roadside_assistance',
   'annual_mileage', 'mileage_upcharge_per_10000km',
-  'deposit_installment', 'deposit_card_payment', 'payment_method', 'payment_timing',
+  'deposit_installment', 'deposit_card_payment', 'rental_card_payment', 'payment_method', 'payment_timing',
   'penalty_condition', 'rental_region', 'delivery_fee',
   'basic_driver_age', 'driver_age_lowering', 'age_lowering_cost', 'driver_age_upper_limit', 'license_period',
   'personal_driver_scope', 'business_driver_scope',

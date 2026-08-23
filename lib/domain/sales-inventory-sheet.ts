@@ -1,7 +1,7 @@
 /**
  * 레거시 영업자 상품리스트 파서.
  *
- * 현행 ERP 정본은 상품마스터이며, 이 모듈은 과거 스냅샷 감사·회귀검증을 위해 남긴다.
+ * 현행 ERP 직접 정본은 판매시트 3탭이며, 이 모듈이 그 값을 재해석 없이 ERP 입력으로 바꾼다.
  * 탭 이름의 날짜·대수는 매번 바뀌므로 이름 prefix로 고르고, 공급사 표기는 파트너명에
  * 정확히 대응시킨다. 이름이 없거나 두 곳에 걸리면 잘못된 공급사로 저장하지 않고 전부 막는다.
  */
@@ -9,6 +9,7 @@ import type { EntityRecord } from '@/lib/intake/entities';
 import type { MasterEntry } from '@/lib/domain/vehicle-master-types';
 import { importSheetTable } from '@/lib/domain/sheet-import';
 import { importAutoplusTables } from '@/lib/domain/sheet-autoplus';
+import { createPlateAllocator, type PlateAllocator } from '@/lib/domain/pending-plate';
 import {
   sheetPartnerRosterRevision,
   type PartnerFetchLine,
@@ -116,10 +117,14 @@ function sheetPartnerRevision(partners: EntityRecord[], codes: Set<string>): str
 export function importSalesInventorySheet(input: {
   table: string[][];
   partners: EntityRecord[];
-  entries: MasterEntry[];
+  /** 하위호환 인자. 판매시트 직접 유입에서는 차종마스터를 읽지 않는다. */
+  entries?: MasterEntry[];
   tabTitle: string;
   tabGid: string;
   providerCodes?: string[];
+  /** 워크북 여러 탭에서 같은 공급사의 번호미정 순번을 공유한다. */
+  plateAllocators?: Map<string, PlateAllocator>;
+  pendingOccurrences?: Map<string, Map<string, number>>;
 }): PartnerSheetsFetch {
   const headers = input.table[0] || [];
   const providerColumn = headers.findIndex((header) => /^(공급사|렌트사|제공사|업체명)$/.test(S(header)));
@@ -154,21 +159,39 @@ export function importSalesInventorySheet(input: {
   }
 
   const partnerByCode = new Map(input.partners.map((partner) => [S(partner.partner_code || partner._key), partner]));
+  const allocators = input.plateAllocators || new Map<string, PlateAllocator>();
+  const occurrences = input.pendingOccurrences || new Map<string, Map<string, number>>();
+  const allocatorFor = (code: string, partner: EntityRecord): PlateAllocator => {
+    let allocator = allocators.get(code);
+    if (!allocator) {
+      allocator = createPlateAllocator(
+        partner.pending_plates as Record<string, string[]> | undefined,
+        Number(partner.pending_plate_seq) || 0,
+      );
+      allocators.set(code, allocator);
+    }
+    return allocator;
+  };
   const lines: PartnerFetchLine[] = [];
   for (const [code, group] of grouped) {
     const partner = partnerByCode.get(code);
     if (!partner) throw new Error(`영업자 상품리스트 공급사 설정 없음(${code})`);
+    const allocator = allocatorFor(code, partner);
+    const pendingOccurrence = occurrences.get(code) || new Map<string, number>();
+    occurrences.set(code, pendingOccurrence);
     const result = importSheetTable(normalizeSalesRows(group.rows), {
       providerCode: code,
-      entries: input.entries,
+      entries: [],
+      authoritativeRefinedRows: true,
+      plateAllocator: allocator,
+      pendingOccurrence,
       acceptAssignedPendingPlate: true,
       compactPriceCells: true,
       preserveCanonicalContractStatus: true,
     });
     for (const product of result.products) {
-      // 이 표가 표현하는 가격 범위는 표준 1·12·24·36·48·60개월뿐이다.
-      // 6개월·주행거리 변형 같은 기존 상세가는 지우지 않고 ERP에 보존한다.
-      product._sheet_price_scope = 'sales_standard_months';
+      // 판매시트에 있는 기간·금액 전체가 현재값이다. 표에서 사라진 옛 ERP 기간을
+      // 보존하면 영업자 표와 ERP가 다시 갈리므로 별도 가격 범위를 두지 않는다.
       const localRow = Number(product.sheet_source_row) || 0;
       product.sheet_source_row = group.sourceRows[localRow - 2] || localRow;
       product.sheet_source_gid = input.tabGid;
@@ -193,6 +216,7 @@ export function importSalesInventorySheet(input: {
       blockingDuplicateCount: result.duplicateCount,
       invalidCount: result.invalidCount,
       issueSamples: result.issueSamples,
+      plateAlloc: result.products.some((product) => product.is_pending_plate === true) ? allocator.snapshot() : undefined,
       message: `✓ ${label} [영업자 상품리스트] — ${result.imported}매물`,
       products: result.products,
     });
@@ -248,39 +272,63 @@ function mergePartnerLines(lines: PartnerFetchLine[]): PartnerFetchLine[] {
     before.blockingDuplicateCount = (before.blockingDuplicateCount || 0) + (line.blockingDuplicateCount || 0);
     before.invalidCount += line.invalidCount;
     before.issueSamples = [...before.issueSamples, ...line.issueSamples, ...duplicateAcrossTabs].slice(0, 12);
+    if (line.plateAlloc) before.plateAlloc = line.plateAlloc;
     before.message = `✓ ${before.label} [영업자 상품리스트] — ${before.imported}매물`;
   }
   return [...byCode.values()].sort((a, b) => a.label.localeCompare(b.label, 'ko'));
 }
 
-/** 판매용 워크북의 4개 운영 탭을 탭별 규격으로 읽고 한 ERP 정본으로 합친다. */
+/** 판매용 워크북의 3개 운영 탭을 탭별 규격으로 읽고 한 ERP 정본으로 합친다. */
 export function importSalesInventoryWorkbook(input: {
   main: SalesInventoryWorkbookTab;
   sonogong: SalesInventoryWorkbookTab;
   autoplusMain: SalesInventoryWorkbookTab;
-  autoplusPromo: SalesInventoryWorkbookTab;
+  /** 과거 호출 호환 전용. ERP 판매시트 경로에서는 전달하지 않는다. */
+  autoplusPromo?: SalesInventoryWorkbookTab;
   partners: EntityRecord[];
-  entries: MasterEntry[];
+  /** 하위호환 인자. 판매시트 직접 유입에서는 차종마스터를 읽지 않는다. */
+  entries?: MasterEntry[];
   providerCodes?: string[];
 }): PartnerSheetsFetch {
   const requested = new Set((input.providerCodes || []).map(S).filter(Boolean));
   const wants = (code: string) => !requested.size || requested.has(code);
+  const partnerByCode = new Map(input.partners.map((partner) => [S(partner.partner_code || partner._key), partner]));
+  const plateAllocators = new Map<string, PlateAllocator>();
+  const pendingOccurrences = new Map<string, Map<string, number>>();
+  const allocatorFor = (code: string, partner: EntityRecord): PlateAllocator => {
+    let allocator = plateAllocators.get(code);
+    if (!allocator) {
+      allocator = createPlateAllocator(
+        partner.pending_plates as Record<string, string[]> | undefined,
+        Number(partner.pending_plate_seq) || 0,
+      );
+      plateAllocators.set(code, allocator);
+    }
+    return allocator;
+  };
   const base = importSalesInventorySheet({
     table: input.main.rows,
     partners: input.partners,
     entries: input.entries,
     tabTitle: input.main.title,
     tabGid: input.main.gid,
+    plateAllocators,
+    pendingOccurrences,
   });
   const fetchedLines = base.lines.filter((line) => wants(line.code));
-  const partnerByCode = new Map(input.partners.map((partner) => [S(partner.partner_code || partner._key), partner]));
 
   if (wants('RP012')) {
     const partner = partnerByCode.get('RP012');
     if (!partner) throw new Error('영업자 상품리스트 공급사 설정 없음(RP012)');
+    const allocator = allocatorFor('RP012', partner);
+    const pendingOccurrence = pendingOccurrences.get('RP012') || new Map<string, number>();
+    pendingOccurrences.set('RP012', pendingOccurrence);
     const result = importSheetTable(normalizeSalesRows(input.sonogong.rows), {
       providerCode: 'RP012',
-      entries: input.entries,
+      entries: [],
+      authoritativeRefinedRows: true,
+      plateAllocator: allocator,
+      pendingOccurrence,
       acceptAssignedPendingPlate: true,
       compactPriceCells: true,
       preserveCanonicalContractStatus: true,
@@ -306,6 +354,7 @@ export function importSalesInventoryWorkbook(input: {
       blockingDuplicateCount: result.duplicateCount,
       invalidCount: result.invalidCount,
       issueSamples: result.issueSamples,
+      plateAlloc: result.products.some((product) => product.is_pending_plate === true) ? allocator.snapshot() : undefined,
       message: `✓ ${S(partner.name || partner.partner_name || '손오공')} [손오공구독] — ${result.imported}매물`,
       products: result.products,
     });
@@ -314,6 +363,9 @@ export function importSalesInventoryWorkbook(input: {
   if (wants('RP023')) {
     const partner = partnerByCode.get('RP023');
     if (!partner) throw new Error('영업자 상품리스트 공급사 설정 없음(RP023)');
+    const allocator = allocatorFor('RP023', partner);
+    const pendingOccurrence = pendingOccurrences.get('RP023') || new Map<string, number>();
+    pendingOccurrences.set('RP023', pendingOccurrence);
     /**
      * ★오플구독은 「12개월 2만km」처럼 **주행 구간별 요금**이라 오플 전용 파서로 읽는다(일반 파서는 그 요금을 못 읽어 전부 «가격없음»이 된다).
      *   보증금은 시트에 글자(「국산: 월 대여료×2」)로 적히므로 규칙으로 만든다(depositRule).
@@ -321,16 +373,19 @@ export function importSalesInventoryWorkbook(input: {
      */
     const result = importAutoplusTables({
       mainRaw: input.autoplusMain.rows,
-      promoRaw: input.autoplusPromo.rows,
+      promoRaw: input.autoplusPromo?.rows || [],
       providerCode: 'RP023',
-      entries: input.entries,
+      entries: [],
+      authoritativeRefinedRows: true,
+      plateAllocator: allocator,
+      pendingOccurrence,
       depositRule: 'rent_multiple',
       mainPhotos: input.autoplusMain.photoByPlate,
-      promoPhotos: input.autoplusPromo.photoByPlate,
+      promoPhotos: input.autoplusPromo?.photoByPlate,
       mainGid: input.autoplusMain.gid,
-      promoGid: input.autoplusPromo.gid,
+      promoGid: input.autoplusPromo?.gid,
       mainTabTitle: input.autoplusMain.title,
-      promoTabTitle: input.autoplusPromo.title,
+      promoTabTitle: input.autoplusPromo?.title,
     });
     fetchedLines.push({
       code: 'RP023',
@@ -346,6 +401,7 @@ export function importSalesInventoryWorkbook(input: {
       blockingDuplicateCount: result.duplicateCount,
       invalidCount: result.invalidCount,
       issueSamples: result.issueSamples,
+      plateAlloc: result.products.some((product) => product.is_pending_plate === true) ? allocator.snapshot() : undefined,
       message: `✓ ${S(partner.name || partner.partner_name || '오토플러스')} [오플구독] — ${result.imported}매물`,
       products: result.products,
     });
@@ -354,7 +410,7 @@ export function importSalesInventoryWorkbook(input: {
   const lines = mergePartnerLines(fetchedLines);
   if (requested.size) {
     const missing = [...requested].filter((code) => !lines.some((line) => line.code === code));
-    if (missing.length) throw new Error(`영업자 상품리스트 4개 탭에 요청 공급사가 없습니다(${missing.join(', ')})`);
+    if (missing.length) throw new Error(`영업자 상품리스트 3개 탭에 요청 공급사가 없습니다(${missing.join(', ')})`);
   }
   const products = lines.flatMap((line) => line.products);
   const codes = new Set(lines.map((line) => line.code));

@@ -134,7 +134,7 @@ export const POLICY_VALUE_RULES: PolicyValueRule[] = [
   { name: '기본운전자연령', kind: 'age_min', allowed: ['만 21세 이상', '만 23세 이상', '만 24세 이상', '만 25세 이상', '만 26세 이상', '만 27세 이상', '만 30세 이상'], format: '「만 N세 이상」. 「26」처럼 숫자만 금지', examples: ['만 26세 이상'] },
   { name: '긴급출동', kind: 'per_year_count', allowed: ['없음', '연간 2회', '연간 3회', '연간 4회', '연간 5회', '연간 6회', '무제한'], format: '「연간 N회」 또는 「무제한 / 없음」', examples: ['연간 5회'] },
   { name: '대차 제공', kind: 'enum', allowed: ['불가', '동급 대차', '협의'], format: '「불가 / 동급 대차 / 협의」', examples: ['불가'], synonyms: { '미제공': '불가', '없음': '불가', '제공': '동급 대차', '동급': '동급 대차' } },
-  { name: 'GPS 장착', kind: 'enum', allowed: ['장착', '미장착'], format: '「장착 / 미장착」', examples: ['장착'], synonyms: { '있음': '장착', '없음': '미장착', '설치': '장착', '미설치': '미장착' } },
+  { name: 'GPS 장착', kind: 'enum', allowed: ['장착', '미장착'], format: '「장착 / 미장착」', examples: ['장착'], synonyms: { '있음': '장착', '없음': '미장착', '설치': '장착', '미설치': '미장착', 'GPS 장착': '장착', 'GPS 설치': '장착', 'GPS 있음': '장착', 'GPS 미장착': '미장착', 'GPS 미설치': '미장착', 'GPS 없음': '미장착' } },
   { name: '사고 다발 해지기준', kind: 'count', allowed: ['없음', '2회', '3회', '4회', '5회'], format: '「N회」 — 1년 내 과실 50% 이상 사고 횟수. 숫자만 금지', examples: ['3회'] },
 
   // ── ④ 아직 안 쓰임
@@ -143,7 +143,10 @@ export const POLICY_VALUE_RULES: PolicyValueRule[] = [
   { name: '초과주행 국산(1km당)', kind: 'money', allowed: ['100원', '150원', '200원', '250원', '300원'], format: '1km당 「N원」. 숫자만 금지', examples: ['200원'] },
   { name: '초과주행 수입(1km당)', kind: 'money', allowed: ['200원', '300원', '400원', '500원'], format: '1km당 「N원」', examples: ['400원'] },
   { name: '법인운전자범위', kind: 'enum', openEnum: true, allowed: ['임직원', '임직원+가족', '대표자 본인', '협의'], format: '「임직원 / 임직원+가족 / 대표자 본인 / 협의」', examples: ['임직원+가족'], synonyms: { '법인임직원및계약자가족': '임직원+가족', '계약사업자임직원및관계자': '임직원', '법인임직원': '임직원', '임직원및관계자': '임직원', '대표자본인만': '대표자 본인', '대표자만': '대표자 본인' } },
-  { name: '보증금카드결제', kind: 'enum', allowed: YESNO, format: '「가능 / 불가 / 협의」', examples: ['가능'], synonyms: YESNO_SYN },
+  // ★한 칸에 「불가」 아니면 수수료율(사장님 2026-08-21 「거기에 불가 또는 수수료율만 적어놓으면 되겄네」).
+  //   수수료 칸을 따로 두지 않는다. 옛 값 「가능」은 지우지 않고 둔다 — 율을 모른다는 뜻이지 틀린 값이 아니다.
+  { name: '대여료카드결제', kind: 'money_or_rate', openEnum: true, allowed: ['불가', '무료', '1%', '1.5%', '2%', '2.5%', '3%', '협의', '가능'], format: '「불가」 아니면 수수료율 「1.5%」. 수수료 없이 되면 「무료」, 아직 안 정했으면 「협의」. 「가능」은 옛 값(율 모름)', examples: ['1.5%', '불가'], synonyms: { '가능': '가능', '불가능': '불가', '안됨': '불가', '카드불가': '불가', '없음': '무료', '수수료없음': '무료', '무료가능': '무료', '0%': '무료' } },
+  { name: '보증금카드결제', kind: 'money_or_rate', openEnum: true, allowed: ['불가', '무료', '1%', '1.5%', '2%', '2.5%', '3%', '협의', '가능'], format: '「불가」 아니면 수수료율 「1.5%」. 수수료 없이 되면 「무료」, 아직 안 정했으면 「협의」. 「가능」은 옛 값(율 모름)', examples: ['불가', '무료'], synonyms: { '가능': '가능', '불가능': '불가', '안됨': '불가', '카드불가': '불가', '없음': '무료', '수수료없음': '무료', '무료가능': '무료', '0%': '무료' } },
 
   // ── ⑤ 2026-08-19 신설 — 계약서 제6조·제7조·제24조가 참조하는데 시트에 없던 것(정본 docs/POLICY_ITEMS_FINAL_2026-08-19.md §8)
   { name: '결제방식', kind: 'enum', allowed: ['CMS 자동이체', '카드 자동결제', '계좌이체'], format: '「CMS 자동이체 / 카드 자동결제 / 계좌이체」', examples: ['CMS 자동이체'], synonyms: { 'CMS': 'CMS 자동이체', '자동이체': 'CMS 자동이체', 'cms자동이체': 'CMS 자동이체', '카드': '카드 자동결제', '카드결제': '카드 자동결제', '이체': '계좌이체' } },
@@ -220,7 +223,10 @@ const enumMatch = (rule: PolicyValueRule, raw: string): string | null => {
   const c = compact(raw);
   const hit = rule.allowed.find((a) => compact(a) === c);
   if (hit) return hit;
-  const syn = rule.synonyms?.[c];
+  // 동의어 표는 사람이 읽기 좋은 원문 표기("CMS" 등)로도 관리한다. 입력값과
+  // 키를 같은 compact 규칙으로 대조해야 대소문자·공백 차이 때문에 뜻이 확정된
+  // 값을 review로 잘못 보내지 않는다.
+  const syn = Object.entries(rule.synonyms || {}).find(([key]) => compact(key) === c)?.[1];
   return syn ?? null;
 };
 

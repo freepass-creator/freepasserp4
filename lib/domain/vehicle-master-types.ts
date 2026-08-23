@@ -31,6 +31,11 @@ export type MasterEntry = {
   id: string;
   maker: string;
   model: string;
+  /**
+   * 세부모델(세대) 정본. 모델이 구분만 되면 된다 — **모델+개발코드**.
+   * 풀체인지 첫 줄=`아반떼 CN8` · 같은 코드 페리=`더 뉴 아반떼 CN8`.
+   * `디 올 뉴`/`올 뉴`는 aliases. 세부모델에 넣으면 다음 페리가 `더 뉴 디 올 뉴 …`가 된다.
+   */
   sub_model: string;
   gen_code: string;
   origin: string;
