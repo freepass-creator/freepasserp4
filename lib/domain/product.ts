@@ -682,6 +682,8 @@ export function agentPanelRows(p: EntityRecord, audience: Audience = 'agent'): K
     ['불가조건', s('disqualification_conditions')],
     ['영업 특이사항', s('sales_notes')],
     ['보증금 분납', s('deposit_installment')],
+    // ★두 칸 다 「불가」 아니면 수수료율이 적힌다(2026-08-21) — 값을 그대로 보인다.
+    ['대여료 카드결제', s('rental_card_payment')],
     ['보증금 카드결제', s('deposit_card_payment')],
     // 요율 두 칸이 비면 상담 표기(penalty_condition)로 물러선다 — 빈 줄보다 낫다.
     ['중도해지 위약금', rates ? `${rates} · 잔여 대여료 기준` : s('penalty_condition')],
@@ -724,8 +726,16 @@ export function detailSections(p: EntityRecord, audience: Audience = 'agent'): D
       * **제목이 한 줄로 잘린다** — 목록·상세 머리의 차명은 폭을 넘으면 «…»로 끝난다.
       * 그래서 전문을 끝까지 읽을 수 있는 자리가 이 칸뿐이다. 겹치는 게 아니라 «잘린 것을 펴는» 자리다.
       * 값 칸은 `DT.td`(overflowWrap:anywhere)라 길면 줄을 바꿔 다 보인다.
+      *
+      * ★조립은 vehicle-name SSOT(T2 full — 상세·계약·공유가 쓰는 그 이름)로 — 손조립을 쓰면
+      *   제목·공유 문구와 글자가 어긋난다(사장님 2026-08-22 「표 안에 차명도 동일하게」).
       */
-    ['모델명', [pv('maker'), pv('sub_model') || pv('model'), pv('variant'), pv('trim_name')].filter(Boolean).join(' ') || '미입력'],
+    /**
+     * ★**차명 = 세부모델 + 세부트림**(사장님 2026-08-22 「표현은 기본이 차명 = 세부모델 + 세부트림」).
+     *   제조사는 뺀다 — 바로 위 제목 줄이 이미 들고 있고, 정제칸이 축을 갈라 둔 뒤로는
+     *   «차명»이라 부르는 것이 곧 이 두 축이다(배기량·연료 같은 제원은 아래 부가정보 줄이 든다).
+     */
+    ['차명', vehicleNameOf({ kind: 'product', product: p }, { tier: 'full', omitMaker: true }) || '미입력'],
     // 차량번호는 손님에게도 보인다 — 공유 견적서에서 «어느 차인지»를 특정하는 유일한 값이다.
     //  (없는 매물이 있다: 재렌트·재구독은 공급사 시트에 번호판을 안 적는 경우가 있어
     //   빈 줄을 만들지 않도록 값이 있을 때만 넣는다. 나머지 행의 `-` 규칙과 다른 이유다.)
@@ -830,6 +840,7 @@ export function detailSections(p: EntityRecord, audience: Audience = 'agent'): D
       ? g(['연 2만km', autoplusMileage && `1만km 추가 ${autoplusMileage}`])
       : g([s('annual_mileage'), s('mileage_upcharge_per_10000km') && `1만km초과 ${s('mileage_upcharge_per_10000km')}`])],
     ['보증금', g([s('deposit_installment') && `분납 ${s('deposit_installment')}`, s('deposit_card_payment') && `카드 ${s('deposit_card_payment')}`])],
+    ['대여료 카드결제', s('rental_card_payment')],
     /*
      * **손님 화면에는 위약금을 안 싣는다**(사장님 2026-08-20 「손님 보는 거에는 위약금이나 이런 패널티 조항은 빼자」).
      * 상담 자리에서 «어떤 차를 얼마에» 를 보는 화면인데 벌칙 조항이 같이 서면 계약서를 읽는 화면이 된다.
@@ -857,6 +868,19 @@ export function detailSections(p: EntityRecord, audience: Audience = 'agent'): D
   const opts = parseProductOptions(p.options);
   const memo = String(p.partner_memo ?? p.note ?? '').trim();
   const otherRows: KvRow[] = [];
+  /**
+   * ★**공급사 차명 원문**(사장님 2026-08-22 「상세페이지 기타에 공급사 차명을 넣어주자, 정제된 거 말고 · 모바일도」).
+   *   위 「차명」 칸은 정제값(세부모델+세부트림)이다. 이 칸은 **공급사가 시트에 적은 글자 그대로**라
+   *   둘이 다르면 «우리가 어떻게 바꿔 읽었나»가 한눈에 보인다 — 담당자가 공급사와 통화할 때 쓰는 이름이기도 하다.
+   *   ⚠ **정제값과 같아 보여도 세운다**(사장님 2026-08-23 「정제하지 말고 넣어주자고 혹시나 해서」) —
+   *     띄어쓰기 한 칸만 달라도 공급사와 말이 어긋나는 자리라, «없다»와 «같다»를 담당자가 구분할 수 있어야 한다.
+   */
+  const supplierName = audience === 'customer' ? '' : String(p.supplier_vehicle_name ?? '').trim();
+  const supplierOptions = audience === 'customer' ? '' : String(p.supplier_options ?? '').trim();
+  // 손님 화면엔 안 낸다 — 우리가 어떻게 바꿔 읽었는지는 내부 대조용이다(화이트리스트에도 없어 값 자체가 안 온다).
+  if (supplierName) otherRows.push(['공급사 차명', supplierName]);
+  // 「2중 보관」의 나머지 반쪽(사장님 2026-08-23) — 위 「선택옵션」은 정제값이고 이 줄은 공급사가 적은 글자다.
+  if (supplierOptions) otherRows.push(['공급사 옵션', supplierOptions]);
   if (memo) otherRows.push(['특이사항', memo]);
   // 관리자 진단값 — 데이터가 맞는지 확인하는 칸이라 상담에 안 쓴다(상담용은 우측 패널 `agentPanelRows`).
   //  공급사·차고지·수수료 환수는 패널이 들고 있어 여기서 뺐다 — 같은 값을 두 번 찍지 않는다.

@@ -12,6 +12,8 @@
  *
  * ⚠ **빈 칸에만 쓴다.** 이미 글자가 있으면 그게 사람이 고친 값이든 지난번에 채운 값이든
  *   손대지 않는다. 이 규칙 하나가 이 도구를 몇 번 돌려도 안전하게 만든다.
+ * ⚠ **예외: 차종분류·차종분류코드·차명(정제)** 는 정해지면 **덮는다.**
+ *   판매시트는 이 조합 한 칸을 싣는다. 크기+구분을 붙이면 A6가 중형 SUV로 나간다.
  * ⚠ **확신도가 낮으면 안 쓴다.** 차명 다섯 축은 high·medium 일 때만 채우고, 낮으면 비워 둔다.
  *   빈 칸은 «사람이 볼 목록»으로 남지만, 틀린 차명은 아무도 안 본다.
  * ⚠ 돈·상태·주행거리에는 손대지 않는다. 그건 공급사가 정하는 값이라 정제할 것이 없다.
@@ -23,15 +25,17 @@
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { INCLUDE_MIRROR, isMirrorSheet } from '../lib/domain/mirror-sources';
+import { isLegacySheetId } from '../lib/domain/legacy-sheets';
 import { canonMakerDisplay } from '../lib/domain/maker-display';
 import { snapToMaster } from '../lib/domain/vehicle-master-match';
 import { fuelDisplay } from '../lib/domain/vehicle-master-format';
 import { snapColorOrEtc } from '../lib/domain/color-master';
 import { codeMatchesRawName } from '../lib/domain/code-vs-name';
 import { loadColorMasterAliases } from '../lib/domain/color-master-sheet';
-import { classifyVehicleClass } from '../lib/domain/vehicle-class';
+import { classifyVehicleClass, composeRefinedVehicleName, isRextonSports, splitVehicleClass } from '../lib/domain/vehicle-class';
+import { vehicleClassCodeFromLabel, canonVehicleClassLabel } from '../lib/domain/vehicle-class-catalog';
 import { SALES_ALIAS } from '../lib/domain/sales-sheet-mapping';
-import { AI_TAIL_COLUMNS, ENCAR_CODE_BLOCK, ENCAR_MASTER_CODE_COLUMN, ENCAR_MASTER_LABEL_COLUMN, ENCAR_OLD_TRIM_CODE_COLUMN, isOurNonInventoryTab, supplierSheetLabel } from '../lib/domain/supplier-template-sheet';
+import { AI_TAIL_COLUMNS, ENCAR_CODE_BLOCK, ENCAR_MASTER_CODE_COLUMN, ENCAR_MASTER_LABEL_COLUMN, ENCAR_OLD_TRIM_CODE_COLUMN, isOurNonInventoryTab, LEGACY_SHEET_PREFIX, supplierSheetLabel } from '../lib/domain/supplier-template-sheet';
 import { companyAlias, supplierNameKeys } from '../lib/domain/identity';
 import { MASTER_SHEET_ID, MASTER_TAB, masterCells, pickConfirmedMasterCode, readMasterSheet } from '../lib/domain/vehicle-master-sheet';
 import type { MasterEntry, VehicleTrimMasterArtifact } from '../lib/domain/vehicle-master-types';
@@ -189,6 +193,7 @@ const targets: { code: string; name: string; id: string }[] = [];
   for (const f of ((r.files || []) as Rec[])) {
     const nm = S(f.name);
     const who = companyAlias(supplierSheetLabel(nm)) || supplierSheetLabel(nm);
+    if (nm.startsWith(LEGACY_SHEET_PREFIX) || /구버전/.test(nm) || isLegacySheetId(S(f.id))) continue;
     if (ONLY.size && ![...supplierNameKeys(who)].some((k) => ONLY.has(k))) continue;
     if (!INCLUDE_MIRROR && isMirrorSheet(S(f.id))) continue;   // 정제시트는 사장님·제미나이 몫(2026-08-18) — --include-mirror 로만
     targets.push({ code: '', name: who, id: S(f.id) });
@@ -355,7 +360,14 @@ for (const t of targets) {
       if (pick.code && mrow) codeSet++;
 
       /** 코드가 정해진 차는 **마스터 값**을, 아니면 예전처럼 스냅 값을 쓴다. */
-      const fromCode = masterCells(mrow);
+      /**
+       * ⚠ **치환 사전을 반드시 거친다.** 여기를 그냥 흘리면 차종코드가 박힌 차만 사전을 건너뛴다 —
+       *   실측 2026-08-23: 「AI 정제」에 「디 올 뉴 싼타페 MX5」→「디 올 뉴 싼타페」를 넣고 돌렸는데
+       *   493대 중 465대가 그대로였다. 코드가 박힌 차는 이 줄로 와서 마스터 글자를 날것으로 썼기 때문이다.
+       */
+      const fromCode = Object.fromEntries(
+        Object.entries(masterCells(mrow)).map(([k, v]) => [k, clean(k, S(v))]),
+      ) as Record<string, string>;
       if (fromCode['제조사(정제)']) fromCode['제조사(정제)'] = canonMakerDisplay(fromCode['제조사(정제)']);
       /** ★차종구분 정본 = 규격채택(차종분류+차체형태) — 코드/결정으로 트림행키가 정해진 차. 없으면 모델 이름 스냅(classifyVehicleClass). */
       const normalForClass = NORMALIZED.get(plate.replace(/\s/g, ''));
@@ -390,8 +402,6 @@ for (const t of targets) {
         '외장색상': snapColorOrEtc(exactCell('외부색상') || exactCell('외장색') || exactCell('색상'), 'ext'),
         '내장색상': snapColorOrEtc(exactCell('내부색상') || exactCell('내장색'), 'int'),
         '선택옵션': clean('옵션', cell('옵션')),
-        // 차종분류는 모델 이름으로 정한다 — 차명이 확실할 때만.
-        '차종분류': adoptedClass || (ok ? classifyVehicleClass({ maker: S(snap!.maker), model: S(snap!.model), sub_model: S(snap!.sub_model) } as EntityRecord) : ''),
         /**
          * ★★**코드가 이긴다.** 코드가 정해진 차는 위의 스냅 값 대신 **마스터 값**을 쓴다.
          *   맨 마지막에 덮어써서 순서 때문에 뒤집히지 않게 한다 —
@@ -409,19 +419,45 @@ for (const t of targets) {
       if (normal) {
         // ★정본이 «코드 없음»(TRIPLE/PARTIAL/HOLD 결정)이면 시트에 남은 옛 코드도 비운다 — 안 그러면 트림을 비운 뒤에도 옛 코드(첫 트림 t01)가 정제칸에 눌러앉는다(2026-08-19 실측 125호2615).
         want['차종코드'] = normal.trim_row_key || '';
-        want['제조사(정제)'] = canonMakerDisplay(normal.maker) || want['제조사(정제)'];
-        want['모델'] = normal.model || want['모델'];
-        want['세부모델'] = normal.sub_model || want['세부모델'];
+        // ⚠ 정본 이름도 **치환 사전을 거쳐야 한다** — 안 그러면 정본이 있는 차만 사전을 건너뛴다(2026-08-23 실측: 그게 대부분이었다).
+        want['제조사(정제)'] = canonMakerDisplay(clean('제조사', normal.maker)) || want['제조사(정제)'];
+        want['모델'] = clean('모델', normal.model) || want['모델'];
+        want['세부모델'] = clean('세부모델', normal.sub_model) || want['세부모델'];
         // ★트림은 정본에 있는 것만. 정본(부분 결정)에 트림이 없으면 — 공급사 원문에 그 트림 글자가 있을 때만 스냅 트림을 남기고, 아니면 빈칸
         //   (사장님 2026-08-19 「트림 없는 거는 그냥 트림 비우는 거로」 — 첫 트림 추정·옛 ERP 값 재유입을 막는다).
-        want['세부트림'] = normal.trim || (trimEvidenced(plate, want['세부트림'], carName) ? want['세부트림'] : '');
+        want['세부트림'] = clean('세부트림', normal.trim) || (trimEvidenced(plate, want['세부트림'], carName) ? want['세부트림'] : '');
         if (normal.fuel) want['연료(정제)'] = fuelDisplay(normal.fuel) || normal.fuel;
         if (normal.engine_cc) want['배기량(정제)'] = String(normal.engine_cc);
         normalUsed++;
       } else if (!pick.code) {
         const strict = !!snap && snap.confidence === 'high' && !ccMismatch;
-        if (!strict) { for (const k of ['모델', '세부모델', '세부트림', '배기량(정제)', '연료(정제)', '차종분류']) want[k] = ''; clearLowSnap = true; }
+        if (!strict) { for (const k of ['모델', '세부모델', '세부트림', '배기량(정제)', '연료(정제)', '차종분류', '차종분류코드', '차명(정제)', '차종크기', '차종구분']) want[k] = ''; clearLowSnap = true; }
         else forceSnap = true;   // 정본은 없지만 확신 high — 지금 공급사 글자에서 나온 값으로 맞춘다(옛 스냅 값이 남아 있으면 바로잡음)
+      }
+
+      /**
+       * ★차종분류는 한 칸(준대형 세단) + 코드(vc-15). 판매시트는 이 조합값을 싣는다.
+       *   모델+세부모델+세부트림도 차명(정제) 한 칸. 렉스턴 스포츠는 픽업이 이긴다.
+       */
+      {
+        const classModel = S(want['모델']);
+        const classSub = S(want['세부모델']);
+        // 신규 차종마스터의 원자 신호로 맞춘 현재 스냅을 먼저 쓴다.
+        // 과거 규격채택 값은 세부모델 단위의 낡은 분류일 수 있어(그랑 콜레오스 MPV 등)
+        // 현재 원문·인승과 충돌할 때 우선권을 줄 수 없다.
+        let classText = '';
+        if (isRextonSports(classModel, classSub)) classText = '중형 픽업';
+        else if ((ok || normal) && classModel) {
+          classText = classifyVehicleClass({ maker: S(want['제조사(정제)']), model: classModel, sub_model: classSub, seats: snap?.seats } as EntityRecord);
+        }
+        if (!classText) classText = adoptedClass;
+        classText = canonVehicleClassLabel(classText);
+        const parts = splitVehicleClass(classText);
+        want['차종분류'] = classText;
+        want['차종분류코드'] = vehicleClassCodeFromLabel(classText);
+        want['차명(정제)'] = composeRefinedVehicleName(classModel, classSub, want['세부트림']);
+        want['차종크기'] = parts.size;
+        want['차종구분'] = parts.kind;
       }
 
       for (const [name, ci] of tailAt) {
@@ -456,7 +492,16 @@ for (const t of targets) {
          * ⚠ 사람이 값을 고치고 싶으면 **코드를 고쳐야** 한다. 표시칸을 고치면 다시 덮인다 —
          *   그게 「코드가 정본」의 뜻이다.
          */
-        if (normal && ['차종코드', '제조사(정제)', '모델', '세부모델', '세부트림', '배기량(정제)', '연료(정제)', ...(adoptedClass ? ['차종분류'] : [])].includes(name)) {
+        if (['차종분류', '차종분류코드', '차명(정제)', '차종크기', '차종구분'].includes(name) && (S(want['차종분류']) || S(want['차명(정제)']))) {
+          const target = S(want[name]);
+          if (now !== target) {
+            if (now) { codeFixed++; if (codeFixList.length < 20) codeFixList.push(`${t.name} ${plate} ${name} 「${now}」 → 「${target || '(빈칸)'}」`); }
+            else if (target) filled++;
+            if (target || now) updates.push({ range: `${a1Tab(title)}!${colA1(ci)}${r + 1}`, values: [[target]] });
+          } else if (now) kept++;
+          continue;
+        }
+        if (normal && ['차종코드', '제조사(정제)', '모델', '세부모델', '세부트림', '배기량(정제)', '연료(정제)'].includes(name)) {
           const target = S(want[name]);
           // 정본(부분 결정)에 트림이 없을 때: 지금 칸의 트림이 공급사 원문(원문보존·결정 supplier_text)에 있으면 남기고, 근거 없으면 비운다(2026-08-19 「트림 없는 거는 비운다」).
           if (name === '세부트림' && !target && normal.source !== 'code' && now && trimEvidenced(plate, now, carName)) { kept++; continue; }
@@ -476,7 +521,7 @@ for (const t of targets) {
           } else if (now) kept++;
           continue;
         }
-        if (clearLowSnap && ['모델', '세부모델', '세부트림', '배기량(정제)', '연료(정제)', '차종분류'].includes(name) && now && !exactCell('차종코드')) {
+        if (clearLowSnap && ['모델', '세부모델', '세부트림', '배기량(정제)', '연료(정제)', '차종분류', '차종분류코드', '차명(정제)', '차종크기', '차종구분'].includes(name) && now && !exactCell('차종코드')) {
           clearedLow++; if (clearedList.length < 20) clearedList.push(`${t.name} ${plate} ${name} 「${now}」 → (빈칸 · 정본 없음·확신 낮음)`);
           updates.push({ range: `${a1Tab(title)}!${colA1(ci)}${r + 1}`, values: [['']] });
           continue;

@@ -2,18 +2,16 @@
 
 import type { ComponentProps, RefObject } from 'react';
 import { ENTITIES, type EntityRecord, type Field } from '@/lib/intake/entities';
+import { catalogOptions, type VehicleCatalog } from '@/lib/domain/vehicle-catalog';
 import {
   PaneHead, PaneBody, Btn, ButtonLabel, FormGrid, FormReadList, FormCard, C, R, CenterNote, Dropzone,
   SectionLabel, Select, Message, FW, FS, THUMB_W, ICON, ListGroup, DetailRow,
 } from '@/components/ui';
-import { VehicleMasterPicker } from '@/components/VehicleMasterPicker';
-import { SnapTrace } from '@/components/SnapTrace';
 import { PhotoUpload } from '@/components/PhotoUpload';
 import { PriceMatrix } from '@/components/PriceMatrix';
 import { ClipboardPaste, Copy, RotateCcw, ScanLine } from 'lucide-react';
 import { useIsMobile } from '@/lib/use-mobile';
 
-type MasterPick = Parameters<NonNullable<ComponentProps<typeof VehicleMasterPicker>['onPick']>>[0];
 type Price = ComponentProps<typeof PriceMatrix>['price'];
 type Photos = ComponentProps<typeof PhotoUpload>['photos'];
 
@@ -31,12 +29,13 @@ export type InventoryEditorModel = {
   partners: EntityRecord[];
   supplierPhotos: string[];
   isAdmin: boolean;
+  /** 차종사전(신규마스터) — 차명 축의 선택지. 못 읽었으면 빈 사전이고, 그때도 손입력은 그대로 된다. */
+  catalog: VehicleCatalog;
   onReset: () => void;
   onCopy: () => void;
   onPaste: () => void;
   onOcrFiles: (files: FileList | null) => void;
-  onMasterPick: (value: MasterPick) => void;
-  onRematch: () => void;
+  /* onMasterPick·onRematch 는 뺐다(2026-08-22) — 차종마스터 선택기·재매칭 UI 를 걷어내면서 부를 곳이 없어졌다. */
   onFieldChange: (key: string, value: string) => void;
   onPriceChange: (price: Price) => void;
   onPhotosChange: (photos: Photos) => void;
@@ -47,8 +46,24 @@ function editorHelpers(model: InventoryEditorModel, readAsRows = false) {
   const byKey = Object.fromEntries(ENTITIES.product.fields.map((field) => [field.key, field]));
   const group = (keys: string[]): Field[] => keys.map((key) => byKey[key]).filter(Boolean) as Field[];
   const canEdit = model.creating || model.editing;
+  /**
+   * ★**차종사전(신규마스터)이 차명 축의 선택지를 준다**(사장님 2026-08-23
+   *   「기존 재고관리 상품등록은 신규마스터를 반영해서 입력값을 만든다」).
+   *   앞 축이 정해질수록 뒤 축이 좁아진다 — 제조사를 고르면 그 제조사의 모델만, 모델을 고르면 그 세부모델만.
+   *   ⚠ 닫힌 목록이 아니다. 사전에 없는 이름도 그대로 칠 수 있다(`catalog` 칸 = 입력창 + 추천목록).
+   */
+  const picked = {
+    maker: String(model.form.maker ?? '').trim(),
+    model: String(model.form.model ?? '').trim(),
+    sub_model: String(model.form.sub_model ?? '').trim(),
+  };
+  const catalogOpts: Record<string, string[]> = {};
+  for (const field of ENTITIES.product.fields) {
+    if (field.type !== 'catalog' || !field.catalogAxis) continue;
+    catalogOpts[field.key] = catalogOptions(model.catalog, field.catalogAxis, picked);
+  }
   const fields = (keys: string[], cols = 2) => (
-    <FormGrid fields={group(keys)} form={model.form} onChange={model.onFieldChange} cols={cols} disabled={!canEdit} />
+    <FormGrid fields={group(keys)} form={model.form} onChange={model.onFieldChange} cols={cols} disabled={!canEdit} selectOptions={catalogOpts} />
   );
   const section = (title: string, keys: string[], cols = 2, hint?: string) => (
     readAsRows
@@ -66,7 +81,7 @@ export function InventoryFixedPane({ model }: { model: InventoryEditorModel }) {
   const readAsRows = mobile && !(model.creating || model.editing);
   const { canEdit, group, section } = editorHelpers(model, readAsRows);
   const modeBanner = model.creating ? (
-    <Message variant="info">신규 상품 등록 — 등록증(사진·파일) 올리기 또는 차종 마스터부터 입력하세요.</Message>
+    <Message variant="info">신규 상품 등록 — 등록증(사진·파일) 올리기 또는 차종·차명부터 입력하세요.</Message>
   ) : model.editing ? (
     <Message variant="warning">수정 중 · 저장해야 반영됩니다</Message>
   ) : null;
@@ -118,39 +133,39 @@ export function InventoryFixedPane({ model }: { model: InventoryEditorModel }) {
               </span>
             </Dropzone>
           </div> : null}
-          {readAsRows ? (
-            <FormReadList
-              header="차종 마스터"
-              fields={group(['maker', 'model', 'sub_model', 'variant', 'trim_name', 'trim_extra'])}
-              form={form}
-            />
-          ) : <div style={{ pointerEvents: canEdit ? undefined : 'none', opacity: canEdit ? 1 : 0.85 }}>
-            <SectionLabel mt={0}>차종 마스터</SectionLabel>
-            <VehicleMasterPicker
-              key={model.selectedCode || 'none'}
-              value={{
-                maker: String(form.maker || ''), model: String(form.model || ''),
-                sub_model: String(form.sub_model || ''), catalog_id: String(form.catalog_id || ''),
-                variant: String(form.variant || ''), trim_name: String(form.trim_name || ''),
-                trim_extra: String(form.trim_extra || ''),
-              }}
-              onPick={model.onMasterPick}
-            />
-          </div>}
-          {(form.gen_year_start || form._snap_confidence) ? (
-            <div style={{ fontSize: FS.cap, color: C.mute, marginTop: -4 }}>
-              {form.gen_year_start ? `생산 ${form.gen_year_start}~${form.gen_year_end}` : ''}
-              {form._snap_confidence ? `${form.gen_year_start ? ' · ' : ''}매칭 ${form._snap_confidence}` : ''}
-            </div>
-          ) : null}
-          {!model.creating && (
-            <SnapTrace
-              form={form}
-              onRematch={canEdit && (form._needs_master_review || form._snap_confidence === 'low' || !form._snapped) ? model.onRematch : undefined}
-            />
-          )}
+          {/*
+            **차명 축의 선택지는 «차종사전(신규마스터)»이 준다**(사장님 2026-08-23
+              「차종마스터 관련 싹 다 걷어내고 정제칸을 정확히 반영한다 · 기존 재고관리 상품등록은 신규마스터를 반영해서 입력값을 만든다」).
+
+            옛 차종마스터(public/data/vehicle-master.json 1.7MB)는 **따로 관리하는 대장**이라 시트와 갈렸다 —
+            트림을 못 찾으면 빈칸으로 만들었고, 이름엔 개발 코드가 박혀 있었고(「디 올 뉴 싼타페 MX5」),
+            한 번 확정된 값은 시트가 못 덮었다. 그래서 2026-08-22 참조를 끊고 여기를 자유 텍스트로 뒀는데,
+            그러니 이번엔 **손으로 넣은 차와 시트에서 온 차의 이름이 갈렸다.**
+
+            지금 사전(vehicle-catalog.json)은 **공급사 정제칸에 실제로 적혀 있는 조합**에서 파생한다.
+            따로 관리할 대장이 없으니 어긋날 대상이 없다. 정제칸을 고치면 사전이 따라오고, 반대 방향은 없다.
+            ⚠ 닫힌 목록이 아니다 — 사전에 없는 이름도 그대로 칠 수 있다(새 차는 언제나 목록 밖에서 온다).
+          */}
+          {/*
+            ★**판매시트와 같은 차례**(사장님 2026-08-22 「재고관리도 모델 세부모델 세부트림으로 정리하고 거기에 연식 배기량 이런 거
+              넣을 수 있게 · 시트랑 ERP랑 일치시키면 되거든」).
+            공급사 정제칸 = 판매시트 = ERP 가 같은 축·같은 차례로 서야 «어디를 고치면 되나»가 헷갈리지 않는다.
+            ⚠ 파워트레인(variant)·추가표기(trim_extra)는 뺐다 — 파워트레인은 폐지(연료·배기량이 그 자리),
+              추가표기는 실측 0대이고 정제칸에도 없다.
+          */}
+          {/* 차례·구성은 판매시트와 같다 — 옵션 뒤 참고축(원산지·구동·인승)까지 그대로(2026-08-22). */}
+          {section('차량정보', ['maker', 'model', 'sub_model', 'trim_name', 'ext_color', 'int_color', 'year', 'mileage', 'fuel_type', 'engine_cc', 'vehicle_class', 'origin', 'drive_type', 'seats'], 2,
+            '공급사 정제시트·판매시트와 같은 차례 — 여기 값이 곧 ERP 값이다')}
           {section('선택옵션', ['options'], 1, '구분 = , 또는 /')}
-          {section('신원', ['car_number', 'vehicle_class'], 2, '차량번호는 필수 · 차종분류=세그먼트[ 차형]')}
+          {/*
+            ★**공급사 원문 두 칸 — 「2중 보관」**(사장님 2026-08-23 「차명이랑 옵션 공급사가 기본으로 입력한 칸은
+              별도로 수집해서 보관한다 2중 보관이지」).
+            위 칸들은 정제값이라 «우리가 어떻게 바꿔 읽었나»이고, 여기는 «공급사가 뭐라고 적었나»다.
+            정제가 틀렸을 때 되짚을 유일한 근거이므로 손대지 않는다.
+          */}
+          {section('공급사 원문 (2중 보관)', ['supplier_vehicle_name', 'supplier_options'], 1,
+            '공급사가 적은 그대로 — 고치지 마세요. 정제가 틀렸을 때 대조하는 자리입니다')}
+          {section('차량번호', ['car_number'], 2, '차량번호는 필수')}
           {model.isAdmin && readAsRows ? (
             <ListGroup header="공급사" footer="계약·채팅·정산의 공급사 권한 범위">
               <DetailRow
@@ -186,7 +201,9 @@ export function InventoryFixedPane({ model }: { model: InventoryEditorModel }) {
               </label>
             </FormCard>
           ) : null}
-          {section('제원 · 스펙', ['year', 'fuel_type', 'engine_cc', 'seats', 'drive_type', 'transmission', 'usage', 'ext_color', 'int_color', 'first_registration_date'], 2)}
+          {/* 시트가 나르지 않는 칸 — 여기 값은 ERP 에만 있다(정제칸에 없으므로 동기가 채우지도 지우지도 않는다). */}
+          {section('부가 제원', ['transmission', 'usage', 'first_registration_date', 'accident_history'], 2,
+            '판매시트에 없는 값 — ERP 에서만 관리한다')}
           {model.isAdmin && section('원가 · 이력 · 등록증', ['vehicle_price', 'location', 'vin', 'vehicle_age_expiry_date', 'cert_car_name', 'type_number', 'engine_type', 'partner_memo'])}
         </> : <CenterNote>{EMPTY_NOTE}</CenterNote>}
       </PaneBody>
@@ -237,7 +254,7 @@ export function InventoryVariablePane({ model }: { model: InventoryEditorModel }
             />
             <div style={{ marginTop: 10 }}>{fields(['event_tags'], 1)}</div>
           </FormCard>}
-          {section('주행 · 사고', ['mileage', 'accident_history'])}
+          {/* 주행거리는 「차량정보」(판매시트 차례)로, 사고이력은 「부가 제원」으로 옮겼다 — 같은 칸을 두 곳에서 고치지 않게(2026-08-22). */}
           <div>
             <SectionLabel mt={0}>대여료 · 보증금</SectionLabel>
             <div style={{ fontSize: FS.cap, color: C.faint, margin: '-2px 0 8px', lineHeight: 1.4 }}>넣은 기간만 상품에 노출</div>

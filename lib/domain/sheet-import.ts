@@ -6,9 +6,21 @@
  */
 import { snapToMaster, applySnap, fuelDisplay, fuelEmbeddedCc, type MasterEntry } from '@/lib/domain/vehicle-master-match';
 import { applyColors } from '@/lib/domain/color-master';
-import { type EntityRecord } from '@/lib/intake/entities';
+import { canonDriveType, type EntityRecord } from '@/lib/intake/entities';
 import { normalizeProductOptionsText, isExactRealPlate, normalizeWonPair } from '@/lib/domain/product';
 import { pendingSignature, previewPlateAllocator, type PlateAllocator } from '@/lib/domain/pending-plate';
+import { IMPORT_BRANDS, isImportBrand } from '@/lib/domain/vehicle-origin';
+
+export { isImportBrand } from '@/lib/domain/vehicle-origin';
+
+const AUTHORITATIVE_SALES_STATUSES = new Set([
+  '', '즉시출고', '출고가능', '상품화중', '출고협의', '계약중', '출고불가',
+  // 오플 판매 탭의 확정 어휘. 원문은 status_label_raw에 보존하고 ERP 상태만 규격화한다.
+  '판매중', '할인판매',
+]);
+
+const authoritativeSalesStatus = (raw: string): string =>
+  raw === '판매중' || raw === '할인판매' ? '출고가능' : raw;
 
 // ── 헤더 별칭 사전 ── 렌트사 시트 컬럼명 → 프리패스 표준 필드. 국산 렌트 시트는 대동소이 → 자동 90%.
 export const HEADER_ALIASES: Record<string, string> = {
@@ -51,6 +63,12 @@ export const HEADER_ALIASES: Record<string, string> = {
   변속기: 'transmission', 변속: 'transmission', 미션: 'transmission',
   // 표준양식 헤더(2026-08-08). 열은 만들어 놓고 별칭이 없어 값이 통째로 버려지고 있었다.
   구동: 'drive_type', 구동방식: 'drive_type', 사륜: 'drive_type', 굴림: 'drive_type',
+  /**
+   * ★원산지 = 국산/수입. **보증금 배율(국산 ×2 · 수입 ×3)의 근거**라 표시값이 아니라 «돈»이다.
+   *   전에는 차종마스터 스냅의 origin 에만 기댔는데, 마스터 참조를 끊으면서(2026-08-22) 시트가 나르게 했다.
+   *   정제칸 「원산지」는 98% 차 있다(실측 2026-08-22).
+   */
+  원산지: 'origin', 국산수입: 'origin',
   // 렌트시트 「차종」=모델명(쏘나타). 세그먼트×차형 = 차종분류(구 차급).
   // 발행 판매시트는 같은 값을 「차종구분」(옵션 뒤 열)으로 낸다.
   차종: 'model',
@@ -61,6 +79,14 @@ export const HEADER_ALIASES: Record<string, string> = {
   분류: 'product_type',
   사진: 'photo_link', 사진링크: 'photo_link', 이미지: 'photo_link', 사진url: 'photo_link', 이미지링크: 'photo_link',
   옵션: 'options', 선택옵션: 'options',
+  /**
+   * ★**공급사 원문 두 칸 — 「2중 보관」**(사장님 2026-08-23 「차명이랑 옵션 … 별도로 수집해서 보관한다 2중 보관이지」).
+   *   이름 끝에 「(원문)」이 붙어 있어 `옵션`·`차명` 별칭보다 **정확일치가 먼저 이긴다**(autoMapHeaders).
+   *   ⚠ 「차명(원문)」을 그냥 「차명」으로 두면 `차명: 'model'` 과 겹쳐 왼쪽의 「모델」이 먼저 자리를 잡고 값이 버려진다 —
+   *     실제로 그래서 판매시트 「차명」이 ERP 로 한 번도 못 갔다.
+   */
+  '차명(원문)': 'supplier_vehicle_name',
+  '옵션(원문)': 'supplier_options',
   메모: 'partner_memo', 비고: 'partner_memo', 특이사항: 'partner_memo',
   // 표준양식(2026-08-08). 정책코드를 적으면 **그 정책이 우선**한다 — 면책금·연령·면허를
   //   칸마다 적을 필요가 없다. 개별 정책 열은 «지금 붙은 정책이 무엇인지» 보여주는 표시일 뿐이다.
@@ -424,25 +450,15 @@ export type ImportResult = {
 };
 
 // 수입 브랜드(v3 IMPORT_BRAND_KEYWORDS 이식) — 보증금 컬럼 없는 시트에서 배율 판정(수입3·국산2).
-const IMPORT_BRANDS = ['bmw', 'benz', 'mercedes', '벤츠', 'audi', '아우디', 'volvo', '볼보', 'lexus', '렉서스',
-  'porsche', '포르쉐', 'jaguar', '재규어', 'land rover', '랜드로버', 'mini', '미니', 'volkswagen', '폭스바겐', 'peugeot',
-  '푸조', 'maserati', '마세라티', 'bentley', '벤틀리', 'rolls', '롤스', 'ferrari', '페라리', 'lamborghini', '람보르기니',
-  'tesla', '테슬라', 'lincoln', '링컨', 'toyota', '토요타', 'honda', '혼다', 'nissan', '닛산',
-  'infiniti', '인피니티', 'jeep', '지프', 'chrysler', '크라이슬러', 'ford', '포드', 'cadillac', '캐딜락',
-  'polestar', '폴스타', 'citroen', '시트로엥', 'fiat', '피아트', 'alfa romeo', '알파로메오',
-  'dodge', '닷지', 'gmc', 'ram'];
 const DOMESTIC_BRANDS = ['현대', '기아', '제네시스', '르노코리아', '르노삼성', '르노', '쉐보레', '한국gm', 'kg모빌리티', 'kgm', '쌍용'];
-export function isImportBrand(name: string): boolean {
-  const nl = String(name || '').toLowerCase();
-  return IMPORT_BRANDS.some((b) => nl.includes(b));
-}
 function brandDepositMultiplier(rec: EntityRecord): 0 | 2 | 3 {
   // 차종마스터에 스냅된 행은 origin을 SSOT로 쓴다. 제조사 키워드 목록은
   // 미스냅·레거시 행을 위한 보수적 폴백일 뿐이며, 모르는 브랜드를 국산으로 추정하지 않는다.
   const origin = String(rec.origin ?? '').trim().toLowerCase();
   const confidence = String(rec._snap_confidence ?? '');
   const trustedOrigin = confidence === 'high' || confidence === 'medium'
-    || rec._deposit_origin_trusted === true;
+    || rec._deposit_origin_trusted === true
+    || rec._sales_sheet_authoritative === true;
   if (trustedOrigin && (origin === '국산' || origin === 'domestic')) return 2;
   if (trustedOrigin && (origin === '수입' || origin === 'import' || origin === 'imported')) return 3;
   // low 스냅의 maker는 마스터 후보 하나를 임의 선택한 결과일 수 있다. 이때는 스냅된
@@ -755,8 +771,13 @@ export function importSheetTable(table: string[][], opts: {
   compactPriceCells?: boolean;
   /** 영업자 정본의 기존 계약중 표시는 유지하되, 신규 계약중 생성은 계획 단계에서 차단한다. */
   preserveCanonicalContractStatus?: boolean;
+  /**
+   * 판매시트 3탭처럼 정제 완료된 행을 그대로 ERP에 투영한다.
+   * 차종마스터 스냅·색상 재정규화·빈값 보존 병합을 우회하고, 현재 셀의 빈칸까지 권위값으로 본다.
+   */
+  authoritativeRefinedRows?: boolean;
 }): ImportResult {
-  if (!opts.entries?.length) throw new Error('차종마스터 필수 — importSheetTable');
+  if (!opts.authoritativeRefinedRows && !opts.entries?.length) throw new Error('차종마스터 필수 — importSheetTable');
   const headers = table[0] || [];
   const dataRows = table.slice(1);
   const autoMapping = autoMapHeaders(headers);
@@ -792,7 +813,10 @@ export function importSheetTable(table: string[][], opts: {
               const single = autoMapHeaders([header]);
               const combinedVehicleName = field === 'model'
                 && single.trim_name === 0
-                && /^(차명|모델)\(?트림\)?$/.test(normalizeSheetHeader(header));
+                // 표준 차량명 열은 원래 `차명(트림)`이었고, 세부모델까지 드러내도록
+                // `차명(세부모델+트림)`으로 개편됐다. 둘 다 한 차량 이름 열이므로,
+                // 저장된 옛 `model` 매핑을 정확히 하나인 현재 열로만 재결합한다.
+                && /^(차명|모델)(?:\(?트림\)?|\(세부모델\+트림\))$/.test(normalizeSheetHeader(header));
               return single[field] === 0 || combinedVehicleName ? index : -1;
             })
             .filter((index) => index >= 0);
@@ -973,22 +997,56 @@ export function importSheetTable(table: string[][], opts: {
     // **출고불가는 올리지 않는다**. 단, 먼저 차량 신원을 검증해야 한다.
     // 차번·차명이 없는 안내행에 상태 글자만 있다고 "전 행 명시적 출고불가"로 오인하면
     // 기존 공급사 재고 전체가 차단될 수 있다.
-    const canonicalContractStatus = opts.preserveCanonicalContractStatus
-      && String(rec.vehicle_status || '').trim() === '계약중';
-    if (!canonicalContractStatus && isSheetExcluded(rec.vehicle_status)) { excludedCount++; continue; }
+    const rawStatus = String(rec.vehicle_status || '').trim();
+    const canonicalContractStatus = opts.preserveCanonicalContractStatus && rawStatus === '계약중';
+    if (opts.authoritativeRefinedRows) {
+      if (!AUTHORITATIVE_SALES_STATUSES.has(rawStatus)) {
+        skipped++; invalidCount++;
+        addIssue(`행 ${rowNo} 판매시트 상태 규격외 · ${rawStatus}`);
+        continue;
+      }
+      if (rawStatus === '출고불가') { excludedCount++; continue; }
+    } else if (!canonicalContractStatus && isSheetExcluded(rec.vehicle_status)) {
+      excludedCount++;
+      continue;
+    }
     rec.provider_company_code = opts.providerCode;
     rec.partner_code = opts.providerCode;
     rec.source = 'sheet';
     rec.source_schema = opts.providerCode;                 // 공급사별 소스 태깅 → "이 렌트사만 빼기" 한방
-    const rawStatus = String(rec.vehicle_status || '').trim();
-    if (rawStatus) rec.status_label_raw = rawStatus;
+    rec.status_label_raw = rawStatus;
     // 상태 컬럼이 없거나 빈 행도 canon SSOT를 거친다. 별도 기본값 분기를 두면
     // canon의 안전 기본값(출고협의)과 다시 어긋난다.
-    rec.vehicle_status = canonicalContractStatus ? '계약중' : canonSheetVehicleStatus(rawStatus);
+    rec.vehicle_status = opts.authoritativeRefinedRows
+      ? authoritativeSalesStatus(rawStatus)
+      : canonicalContractStatus ? '계약중' : canonSheetVehicleStatus(rawStatus);
     if (canonicalContractStatus) rec._sheet_contract_status = true;
-    if (!rec.product_type) rec.product_type = '중고렌트';
+    if (!opts.authoritativeRefinedRows && !rec.product_type) rec.product_type = '중고렌트';
+    if (opts.authoritativeRefinedRows) {
+      // 이 표는 이미 정제된 판매 정본이다. 누락 셀도 현재값이므로 과거 ERP 값을 남기지 않게
+      // 비교 대상 필드를 전부 명시한다. 파워트레인은 폐지 축이라 항상 비운다.
+      const exactFields = [
+        'status_label_raw', 'product_type', 'maker', 'model', 'sub_model', 'trim_name', 'trim_extra',
+        // 공급사 원문 두 칸 — 「2중 보관」(2026-08-23). 판매시트가 정본이므로 빈 셀도 «지금 값»이다.
+        'supplier_vehicle_name', 'supplier_options', 'ext_color', 'int_color',
+        'year', 'mileage', 'fuel_type', 'engine_cc', 'vehicle_class', 'origin', 'usage',
+        'drive_type', 'seats', 'first_registration_date', 'location',
+        'options', 'photo_link', 'policy_code', 'partner_memo',
+      ];
+      for (const field of exactFields) {
+        if (rec[field] == null) rec[field] = '';
+      }
+      rec.variant = '';
+      rec._sales_sheet_authoritative = true;
+    }
+    /**
+     * ★구동 글자를 규격으로 맞춘다(2026-08-23 · 사장님 「오류를 없게 하는 것이 관건」).
+     *   `FWD`·`전륜(FF)`·`xDrive`·`콰트로` 처럼 같은 뜻 다른 말이 섞여 들어오면 필터·검색이 갈린다.
+     *   ⚠ 규격에 없고 별칭에도 없는 말은 **그대로 둔다** — 짐작해서 바꾸는 게 다음 사고다.
+     */
+    if (rec.drive_type) rec.drive_type = canonDriveType(rec.drive_type);
     // 연료칸 "가솔린1.0"·"LPG3.0" → 연료/배기 분리
-    if (rec.fuel_type) {
+    if (!opts.authoritativeRefinedRows && rec.fuel_type) {
       const fuel = fuelDisplay(rec.fuel_type);
       const cc = fuelEmbeddedCc(rec.fuel_type);
       if (fuel) rec.fuel_type = fuel;
@@ -998,9 +1056,42 @@ export function importSheetTable(table: string[][], opts: {
     const rawPriceIdentity: EntityRecord = {
       maker: rec.maker, model: rec.model, sub_model: rec.sub_model,
     };
-    const res = snapToMaster(rec, opts.entries);
+    /**
+     * ★**시트가 준 정제값은 스냅이 덮지 않는다**(사장님 2026-08-22 「ERP 에는 정제를 쓰는 게 맞고 정제만 잘해 두면 되니까」·
+     *   「차종마스터 이제 참조 안 한다」).
+     *
+     * ⚠ 왜 필요한가 — `applySnap` 은 `sub_model`·`trim_name`·`vehicle_class` 를 **마스터 값으로 무조건 갈아끼운다.**
+     *   마스터가 트림을 못 찾으면 `trim_name` 을 **빈칸으로 만든다**(applySnap trimOut). 그래서 판매시트에
+     *   세부모델 100%·세부트림 88% 가 실려 있어도 ERP 는 33%/19% 로 떨어졌다(실측 2026-08-22).
+     *   또 마스터 스냅은 옛 값이라 트림에 연료·배기가 섞여 있었다(「2.5 T 가솔린」) — 정제칸은 그걸 축별로 갈라 둔 정리본이다.
+     *
+     * 스냅 자체는 남긴다 — 제조사 원산지(보증금 규칙)·연료·배기 보정 등 **시트에 없는 칸**을 여전히 채운다.
+     * 여기서는 «시트가 값을 준 칸»만 되돌린다(시트가 비면 스냅 값을 그대로 쓴다).
+     */
+    const fromSheet = {
+      model: String(rec.model ?? '').trim(),
+      sub_model: String(rec.sub_model ?? '').trim(),
+      trim_name: String(rec.trim_name ?? '').trim(),
+      vehicle_class: String(rec.vehicle_class ?? '').trim(),
+    };
+    /** 시트가 준 파워트레인(정제시트엔 그 칸이 없어 거의 항상 빈 값) — 아래에서 이것만 남긴다. */
+    const sheetVariant = String(rec.variant ?? '').trim();
+    const res = opts.authoritativeRefinedRows ? null : snapToMaster(rec, opts.entries);
     if (res) Object.assign(rec, applySnap(rec, res, { source: 'ingress' }));
-    Object.assign(rec, applyColors(rec));
+    for (const [field, value] of Object.entries(fromSheet)) {
+      if (value) (rec as EntityRecord)[field] = value;
+    }
+    /**
+     * ★**파워트레인은 스냅이 지어내지 않는다**(사장님 2026-08-22 「정제칸 쓰기로 했는데 왜 아직도 파워트레인이 나오지 ·
+     *   예전 거 아예 다 삭제해, 파워트레인 없고 · 정제시트만 바라보는 거야」).
+     *
+     * 차명 표현의 기본은 **세부모델 + 세부트림**이고 엔진 이야기는 「연료」·「배기량」 칸이 따로 든다.
+     * `applySnap` 이 마스터 값으로 variant 를 채우면 차명에 「2.2 디젤」이 다시 끼어드는데,
+     * 판매시트는 그 축을 안 나르므로 **한 번 들어오면 지울 길이 없다**
+     * (실측 2026-08-22: 3,737대가 그렇게 굳어 있어 scripts/clear-legacy-variant.mts 로 비웠다).
+     */
+    (rec as EntityRecord).variant = opts.authoritativeRefinedRows ? '' : sheetVariant;
+    if (!opts.authoritativeRefinedRows) Object.assign(rec, applyColors(rec));
     // 가격 — 기간별 대여료 컬럼 파싱(+보증금 컬럼 or 공급사 규칙). snap 후 maker 확정 시점.
     const rawMakerPresent = !!String(rawPriceIdentity.maker ?? '').trim();
     // For maker-less labels such as `K5 HEV`, use the snapped canonical path only
@@ -1075,7 +1166,7 @@ export function importSheetTable(table: string[][], opts: {
     }   // 시트 내 차번(임시번호 포함) 중복 제거
     rec.sheet_source_row = rowNo;
     rec.product_code = `${opts.providerCode}_${car}`;      // 식별 = 공급사_차번(오플식)
-    rec.price = price;
+    rec.price = opts.authoritativeRefinedRows ? (price || {}) : price;
     if (res) snap[res.confidence]++; else snap.none++;
     products.push(rec);
   }

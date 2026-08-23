@@ -20,10 +20,23 @@ import { POLICY_VALUE_RULE_BY_NAME } from '@/lib/domain/policy-value-spec';
  */
 const sheetOpts = (name: string): string[] => [...(POLICY_VALUE_RULE_BY_NAME[name]?.allowed ?? [])];
 
-export type FieldType = 'text' | 'number' | 'date' | 'select' | 'chips';
+/**
+ * `catalog` — 선택지가 **차종사전(신규마스터)** 에서 온다. 앞 축이 정해질수록 뒤 축이 좁아진다(캐스케이드).
+ *   선택지가 코드에 박혀 있지 않고 **공급사 정제칸에 실제로 적힌 조합**에서 나오므로 시트와 갈릴 수가 없다.
+ *   목록에 없는 이름도 손으로 적을 수 있다 — 새 차가 들어오는 길을 막으면 안 된다(사전은 다음 갱신 때 그 값을 흡수한다).
+ */
+export type FieldType = 'text' | 'number' | 'date' | 'select' | 'chips' | 'catalog';
+export type CatalogAxis = 'maker' | 'model' | 'sub_model' | 'trim_name';
 export type Field = {
   key: string; label: string; type: FieldType; required?: boolean;
   options?: string[]; disabledOptions?: string[];
+  /** catalog 전용 — 차종사전의 어느 축인가. 앞 축의 값으로 뒤 축을 좁힌다. */
+  catalogAxis?: CatalogAxis;
+  /**
+   * **보여주기만 한다** — 편집 모드에서도 못 고친다(사장님 2026-08-23 「오류 없게끔 그냥 보여 주는 개념으로 간다」).
+   * 공급사 원문처럼 «고치면 대조할 근거가 사라지는» 칸에 쓴다. 값은 파이프라인이 넣는다.
+   */
+  readOnly?: boolean;
   /** chips 전용 — 최대 선택 개수. 숫자 범위는 range를 쓴다(이름 충돌 주의). */
   max?: number;
   /** number 전용 — 허용 범위 [min, max]. 벗어나면 폼이 경고한다(율 오입력 방지). */
@@ -74,8 +87,10 @@ export const MAX_PROMO_BADGES = 2;
 /** 구표기 → 현재 뱃지 (저장·필터 호환). */
 export const PROMO_BADGE_LEGACY: Record<string, string> = { 추가수수료면제: '수수료+' };
 export const PRODUCT_TYPES = ['신차렌트', '중고렌트', '신차구독', '중고구독'] as const; // 렌트/구독 × 신차/중고
-/** 차종분류(vehicle_class) 표시·필터 순서 SSOT. 세그먼트 × 차형 표기다. */
-export const VEHICLE_CLASS_VALUES = ['경형', '소형', '소형 SUV', '준중형', '준중형 SUV', '중형', '중형 SUV', '중형 RV', '중형 픽업', '준대형', '준대형 SUV', '대형', '대형 SUV', '대형 RV', '소형화물', '승합', '수입'] as const;
+import { VEHICLE_CLASS_LABELS } from '@/lib/domain/vehicle-class-catalog';
+
+/** 차종분류(vehicle_class) 표시·필터 순서 SSOT. 한 칸 = 세그먼트+차형(준대형 세단). */
+export const VEHICLE_CLASS_VALUES = [...VEHICLE_CLASS_LABELS, '경형', '소형', '준중형', '중형', '준대형', '대형', '대형 RV', '중형 RV', '소형화물', '승합', '수입'] as const;
 /** 구표기 → 캐논(필터·뱃지·저장 호환). */
 export const PRODUCT_TYPE_LEGACY: Record<string, typeof PRODUCT_TYPES[number]> = {
   재렌트: '중고렌트', 중고렌트: '중고렌트',
@@ -83,6 +98,31 @@ export const PRODUCT_TYPE_LEGACY: Record<string, typeof PRODUCT_TYPES[number]> =
   신차렌트: '신차렌트', 신차구독: '신차구독',
 };
 export const FUEL_TYPES = ['가솔린', '디젤', 'LPG', '하이브리드', '전기', '수소'] as const;
+/**
+ * ★구동 규격 — **공급사 정제칸 「구동방식」과 같은 글자**(사장님 2026-08-23 「오류를 없게 하는 것이 관건」).
+ *   재고관리 선택지가 「전륜(FF)·4륜(AWD)」처럼 다른 말이면 같은 차가 두 글자로 갈린다.
+ *
+ *   `4WD` 는 규격에 남긴다 — 파트타임 4륜(렉스턴 스포츠·토레스)과 상시 4륜(AWD)은
+ *   손님에게 실제로 다른 값이다. 정제칸이 절반 비어 있어 아직 안 보일 뿐이다.
+ */
+export const DRIVE_TYPES = ['2WD', 'AWD', '4WD'] as const;
+/**
+ * 규격 밖 글자 → 규격. **비우지 않고 옮긴다** — 옛 차종마스터 스냅이 남긴 말이지 틀린 정보는 아니다.
+ * ⚠ 여기 없는 말은 손대지 않는다. 모르는 값을 짐작해서 바꾸면 그게 다음 사고다.
+ */
+export const DRIVE_TYPE_ALIAS: Record<string, string> = {
+  FWD: '2WD', RWD: '2WD', '전륜(FF)': '2WD', '후륜(FR)': '2WD', 전륜: '2WD', 후륜: '2WD',
+  xDrive: 'AWD', XDRIVE: 'AWD', 콰트로: 'AWD', '4MATIC': 'AWD', '4모션': 'AWD', 'quattro': 'AWD',
+  '4륜(AWD)': 'AWD', '4륜(4WD)': '4WD', '4륜': '4WD',
+};
+/** 구동 글자를 규격으로 맞춘다. 규격이면 그대로, 별칭이면 옮기고, 모르는 말이면 그대로 둔다. */
+export function canonDriveType(value: unknown): string {
+  const raw = String(value ?? '').trim();
+  if (!raw) return '';
+  if ((DRIVE_TYPES as readonly string[]).includes(raw)) return raw;
+  const hit = DRIVE_TYPE_ALIAS[raw] || DRIVE_TYPE_ALIAS[raw.toUpperCase()];
+  return hit || raw;
+}
 export const QUOTE_STATES = ['초안', '발송', '열람', '계약전환', '만료'] as const; // v4 신규
 
 /* ── 정책 세 층 (docs/POLICY-LAYERS.md · lib/domain/policy-tier.ts) ── */
@@ -121,28 +161,63 @@ export const ENTITIES: Record<string, Entity> = {
     fields: [
       { key: 'product_code', label: '상품코드', type: 'text', manual: true, note: '내부 ID — 화면 비노출' },
       { key: 'car_number', label: '차량번호', type: 'text', required: true, ocrFrom: 'car_number', manual: true },
-      // ── 차종 5단계 ──
-      { key: 'maker', label: '제조사', type: 'text' },
-      { key: 'model', label: '모델명', type: 'text' },
-      { key: 'sub_model', label: '세부모델', type: 'text' },
-      { key: 'variant', label: '파워트레인', type: 'text', note: '5단계 — 연료·배기량·구동·배터리' },
-      { key: 'trim_name', label: '세부트림', type: 'text', note: '마스터 실트림만' },
-      { key: 'trim_extra', label: '추가표기', type: 'text', manual: true, note: '마스터 밖 자유입력(런칭·휠·패키지 등). 규격 트림 아님' },
+      /**
+       * ── 차명 축 넷 ── (사장님 2026-08-23 「차종마스터 관련 싹 다 걷어내고 정제칸을 정확히 반영한다 ·
+       *   기존 재고관리 상품등록은 신규마스터를 반영해서 입력값을 만든다」)
+       *
+       * **신규마스터 = 정제칸**이다. 옛 차종마스터(원천대장·mf- 코드·프로젝트 코드 박힌 이름)는 참조하지 않는다.
+       * 여기 선택지는 `public/data/vehicle-catalog.json` — 공급사 정제칸에 **실제로 적혀 있는 조합**에서 파생한다.
+       * 그래서 시트와 ERP 가 갈릴 수가 없다(따로 관리하는 대장이 없으니 어긋날 대상이 없다).
+       *
+       * ⚠ 「파워트레인(variant)」·「추가표기(trim_extra)」 칸은 **폐지했다**(2026-08-23).
+       *   엔진 이야기는 「연료」·「배기량」이 들고, 이름에 섞으면 전 화면이 지저분해진다.
+       */
+      { key: 'maker', label: '제조사', type: 'catalog', catalogAxis: 'maker' },
+      // ★필수는 둘뿐 — 차량번호·모델명(사장님 2026-08-23 「필수입력은 차량번호야 모델명인 거지」).
+      //   나머지는 없는 게 정상인 차가 있다. 필수를 늘리면 등록이 막히고, 막히면 사람이 아무 값이나 적는다.
+      { key: 'model', label: '모델명', type: 'catalog', catalogAxis: 'model', required: true },
+      { key: 'sub_model', label: '세부모델', type: 'catalog', catalogAxis: 'sub_model' },
+      { key: 'trim_name', label: '세부트림', type: 'catalog', catalogAxis: 'trim_name' },
       { key: 'vehicle_class', label: '차종분류', type: 'select', options: [...VEHICLE_CLASS_VALUES], note: '세그먼트[ 차형] — 예: 중형 SUV. 구표기 차급' },
       // ── 스펙(등록증) ──
       { key: 'year', label: '연식', type: 'text', ocrFrom: 'car_year_month' },
       { key: 'fuel_type', label: '연료', type: 'select', options: [...FUEL_TYPES], ocrFrom: 'fuel_type' },
       { key: 'mileage', label: '주행거리(km)', type: 'number', ocrFrom: 'mileage' },
       { key: 'accident_history', label: '사고여부', type: 'select', options: ['무사고', '단순수리', '사고이력', '전손이력'], manual: true, note: '차량 상태·이력' },
-      { key: 'drive_type', label: '구동', type: 'select', options: ['전륜(FF)', '후륜(FR)', '4륜(AWD)', '4륜(4WD)'] },
+      /**
+       * ★구동 — **정제칸 「구동방식」과 같은 글자만**(2026-08-23).
+       *   전에는 「전륜(FF)·후륜(FR)·4륜(AWD)·4륜(4WD)」였는데 정제칸은 `2WD`·`AWD` 두 값이라,
+       *   재고관리에서 고친 값과 시트에서 온 값이 **같은 차에서 다른 글자**가 됐다.
+       *   ERP 에 남아 있던 `xDrive`·`콰트로`·`4MATIC`·`FWD` 는 옛 차종마스터 스냅 잔재다.
+       */
+      { key: 'drive_type', label: '구동', type: 'select', options: [...DRIVE_TYPES], note: '정제칸 「구동방식」과 같은 글자' },
       { key: 'seats', label: '인승', type: 'number', ocrFrom: 'seats' },
+      /**
+       * ★원산지 — 국산/수입. **보증금 배율(국산 ×2 · 수입 ×3)의 근거**라 표시값이 아니라 돈이 걸린 값이다.
+       *   차종마스터 참조를 끊은 뒤로(2026-08-22) 공급사 정제칸 「원산지」 → 판매시트 → 여기가 유일한 길이다.
+       */
+      { key: 'origin', label: '원산지', type: 'select', options: ['국산', '수입'] },
       { key: 'engine_cc', label: '배기량(cc)', type: 'number', ocrFrom: 'displacement' },
       { key: 'ext_color', label: '외부색상', type: 'select', options: [...EXT_COLORS], manual: true },
       { key: 'int_color', label: '내부색상', type: 'select', options: [...INT_COLORS], manual: true },
       { key: 'usage', label: '용도', type: 'select', options: ['자가용', '영업용', '관용'], ocrFrom: 'usage_type' },
       { key: 'first_registration_date', label: '최초등록일', type: 'date', ocrFrom: 'first_registration_date' },
-      { key: 'vin', label: '차대번호', type: 'text', ocrFrom: 'vin', manual: true, note: '관리자 전용' },
-      { key: 'options', label: '선택옵션', type: 'text', manual: true, note: '구분=, 또는 / · 차종마스터 다음·차량번호 앞' },
+      /**
+       * ★차대번호(VIN) — **ERP 전용 부가입력**(사장님 2026-08-22 「차대번호는 상품리스트에 안 올라가」·
+       *   2026-08-23 「차대번호는 부가입력으로만 살려 두고 ERP 전용으로」).
+       *   판매시트 열은 없다(SALES_RETIRED_COLUMNS). 번호판 나오기 전 신차를 같은 차로 잇는 데 쓴다
+       *   (product.vehicleIdentity: 실번호 → VIN → 임시번호). 영업자가 손님 앞에서 볼 값이 아니다.
+       */
+      { key: 'vin', label: '차대번호', type: 'text', ocrFrom: 'vin', manual: true, note: 'ERP 전용 · 상품리스트엔 안 올라감' },
+      { key: 'options', label: '선택옵션', type: 'text', manual: true, note: '정제칸 「선택옵션」 · 구분은 , 또는 /' },
+      /**
+       * ★**공급사 원문 두 칸 — 「2중 보관」**(사장님 2026-08-23 「차명이랑 옵션 … 별도로 수집해서 보관한다 2중 보관이지」).
+       *   위 정제값과 달리 **공급사가 적은 글자 그대로**다.
+       * ⚠ **보여주기만 한다**(사장님 「오류 없게끔 그냥 보여 주는 개념으로 간다」) — 고치면 대조할 근거가 사라지고,
+       *   고쳐 봐야 다음 동기가 판매시트 값으로 도로 덮는다. 고칠 곳은 공급사 시트다.
+       */
+      { key: 'supplier_vehicle_name', label: '공급사 차명(원문)', type: 'text', readOnly: true, note: '공급사가 적은 그대로 · 보기 전용' },
+      { key: 'supplier_options', label: '공급사 옵션(원문)', type: 'text', readOnly: true, note: '공급사가 적은 그대로 · 보기 전용' },
       // ── 마켓플레이스 상태·구분 ──
       { key: 'vehicle_status', label: '상품상태', type: 'select', options: [...VEHICLE_STATES], manual: true },
       { key: 'product_type', label: '상품구분', type: 'select', options: [...PRODUCT_TYPES], manual: true },
@@ -405,6 +480,12 @@ export const ENTITIES: Record<string, Entity> = {
       { key: 'rent_month_snapshot', label: '대여기간(개월)', type: 'number' },
       { key: 'rent_amount_snapshot', label: '월대여료(원)', type: 'number', manual: true },
       { key: 'deposit_amount_snapshot', label: '보증금(원)', type: 'number', manual: true },
+      { key: 'annual_mileage_snapshot', label: '약정주행거리', type: 'text', manual: true },
+      { key: 'price_variant_snapshot', label: '가격표 기준', type: 'text', manual: true },
+      { key: 'mileage_surcharge_snapshot', label: '주행거리 가산(월)', type: 'number', manual: true },
+      { key: 'age_surcharge_snapshot', label: '연령 가산(월)', type: 'number', manual: true },
+      { key: 'special_terms_choice_snapshot', label: '특약 확인', type: 'select', options: ['없음', '있음'], manual: true },
+      { key: 'special_terms_snapshot', label: '특약사항', type: 'text', manual: true },
       // ── 고객 snapshot ──
       { key: 'customer_uid', label: '고객UID', type: 'text' },
       { key: 'customer_name', label: '계약자명', type: 'text', required: true, ocrFrom: 'holder_name' },

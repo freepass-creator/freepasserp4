@@ -18,6 +18,7 @@ import { useInventoryVehicleTools } from '@/features/inventory/useInventoryVehic
 import { useInventoryEditorLifecycle } from '@/features/inventory/useInventoryEditorLifecycle';
 import { useInventoryAccessEffects, useInventoryData } from '@/features/inventory/useInventoryData';
 import { retainVisibleSelection } from '@/features/work-list-display';
+import { EMPTY_CATALOG, type VehicleCatalog } from '@/lib/domain/vehicle-catalog';
 const INV_SORTS: { value: InvSort; label: string }[] = [
   { value: 'status', label: '상태순' },
   { value: 'name', label: '차명순' },
@@ -68,6 +69,21 @@ export default function Inventory() {
     loadProducts: load,
   } = useInventoryData(co);
   const [sel, setSel] = useState<string | null>(null);
+  /**
+   * ★차종사전(신규마스터) — 차명 축의 선택지(사장님 2026-08-23 「기존 재고관리 상품등록은 신규마스터를 반영해서 입력값을 만든다」).
+   *   `public/data/vehicle-catalog.json` 은 공급사 정제칸에서 파생한다(`scripts/build-vehicle-catalog.mts`).
+   * ⚠ 못 받아도 화면은 그대로 돈다 — 선택지가 비고 손입력만 남을 뿐, 등록을 막지 않는다.
+   *   옛 차종마스터(1.7MB)와 달리 이 파일은 작아 첫 화면을 붙잡지 않는다.
+   */
+  const [catalog, setCatalog] = useState<VehicleCatalog>(EMPTY_CATALOG);
+  useEffect(() => {
+    let alive = true;
+    fetch('/data/vehicle-catalog.json')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => { if (alive && data?.rows) setCatalog(data as VehicleCatalog); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
   const [form, setForm] = useState<EntityRecord>({});
   const [dirty, setDirty] = useState(false);
   const [q, setQ] = useState(''); // 검색창 즉시 반영(입력·힌트·조건해제)
@@ -85,8 +101,6 @@ export default function Inventory() {
   const {
     loadMaster,
     selectProduct: selectP,
-    normalizeVehicle,
-    applyMasterPick,
     runOcr,
     ocrBusy,
     ocrInputRef: ocrRef,
@@ -247,12 +261,11 @@ export default function Inventory() {
     partners,
     supplierPhotos,
     isAdmin,
+    catalog,
     onReset: resetForm,
     onCopy: copyForm,
     onPaste: pasteForm,
     onOcrFiles: runOcr,
-    onMasterPick: applyMasterPick,
-    onRematch: normalizeVehicle,
     onFieldChange: onChange,
     onPriceChange: (price) => {
       setForm((current) => ({ ...current, price }));

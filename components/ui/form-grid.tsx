@@ -49,6 +49,116 @@ function isYesNoActive(field: Field): boolean {
   return opts.includes('예') && opts.includes('아니오');
 }
 
+/**
+ * 큰 업무 폼은 한 글자를 입력해도 상위 form 객체가 새로 만들어진다. 각 칸을 분리하지
+ * 않으면 보이지 않는 수십 개의 select/chip까지 함께 다시 그려져 모바일 키입력이 밀린다.
+ * 값·설정이 바뀐 칸만 다시 그리도록 필드 단위로 메모한다.
+ */
+const FormGridField = React.memo(function FormGridField({
+  field,
+  value,
+  mobile,
+  disabled: lockedByCaller,
+  options: overrideOpts,
+  showNotes,
+  onChange,
+}: {
+  field: Field;
+  value: string;
+  mobile: boolean;
+  disabled?: boolean;
+  options?: SelectOption[];
+  showNotes?: boolean;
+  onChange: (key: string, value: string) => void;
+}) {
+  // 「보여주기만」 칸은 편집 모드에서도 잠긴다(사장님 2026-08-23 「오류 없게끔 그냥 보여 주는 개념으로 간다」).
+  const disabled = lockedByCaller || !!field.readOnly;
+  const empty = value === '' || value == null;
+  const background = disabled ? C.head : empty ? (field.manual || field.required ? C.warnBg : C.head) : C.taupeBg;
+  const numeric = field.type === 'number';
+  // range 지정 = 소수 입력 필드(율). 여기서 fmtNumber(toLocaleString)를 태우면
+  // "0." 이 "0" 으로 되접혀 소수점을 아예 못 찍는다 → 0.1 을 치면 1 이 저장된다(QA RATE-1의 입력측 원인).
+  const decimal = numeric && !!field.range;
+  const num = value === '' ? NaN : Number(value);
+  const outOfRange = !!field.range && value !== ''
+    && (!Number.isFinite(num) || num < field.range[0] || num > field.range[1]);
+  const phone = /phone|연락처|전화/.test(field.key);
+  const span = field.type === 'chips' || isYesNoActive(field) ? { gridColumn: '1 / -1' as const } : undefined;
+  const baseOpts: SelectOption[] = overrideOpts || (field.options || []);
+  // select 값은 글자로 비교한다 — 옛 숫자값(7·0.3)이 select 원자에 남아 있으면 옵션이 두 번 끼어 key 경고가 났다(2026-08-19).
+  const selValue = value == null ? '' : String(value);
+  const hasValue = !!selValue && baseOpts.some((option) => (typeof option === 'string' ? option : option.value) === selValue);
+  const selectOpts: SelectOption[] = selValue && field.type === 'select' && !hasValue
+    ? [selValue, ...baseOpts]
+    : baseOpts;
+  const inputStyle: React.CSSProperties = {
+    display: 'block', width: '100%', marginTop: 3, boxSizing: 'border-box',
+    height: ctrlH(mobile), padding: `0 ${ctrlPadX(mobile)}px`,
+    border: `1px solid ${C.line}`, borderRadius: R, fontSize: ctrlInputFs(mobile), color: C.ink,
+  };
+
+  return (
+    <label data-field={field.key} style={{ fontSize: FS.cap, color: C.mute, ...span }}>
+      {field.label}
+      {field.required && <span style={{ color: C.danger }}> *</span>}
+      {field.manual && !disabled && <span style={{ color: C.warn }}> ·직접</span>}
+      {field.max ? <span style={{ color: C.faint }}> ·최대 {field.max}</span> : null}
+      {isYesNoActive(field) ? (
+        <div style={{ marginTop: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, minHeight: ctrlH(mobile), padding: mobile ? '0 4px 0 0' : '0 2px 0 0', boxSizing: 'border-box' }}>
+          <span style={{ fontSize: FS.body, color: C.ink }}>{value === '아니오' ? '비활성' : '활성'}</span>
+          <Switch title={field.label} checked={value !== '아니오'} disabled={disabled} onChange={(on) => onChange(field.key, on ? '예' : '아니오')} />
+        </div>
+      ) : field.type === 'select' ? (
+        <SheetSelect value={selValue} disabled={disabled} full placeholder="—" title={field.label} onChange={(v) => onChange(field.key, v)} options={selectOpts} searchable={selectOpts.length > 8} style={{ marginTop: 3, background, opacity: disabled ? 0.85 : 1 }} />
+      ) : field.type === 'catalog' ? (
+        /**
+         * ★차종사전(신규마스터) 칸 — **고를 수도 있고 칠 수도 있다**(사장님 2026-08-23
+         *   「기존 재고관리 상품등록은 신규마스터를 반영해서 입력값을 만든다」).
+         *   선택지는 공급사 정제칸에 실제로 적힌 조합에서 온다(`vehicle-catalog`).
+         * ⚠ 닫힌 목록으로 만들지 마라 — 새 차는 언제나 목록에 없는 이름으로 들어온다.
+         *   `datalist` 는 **보여주기만** 하고 자유 입력을 막지 않는다. 그 값은 다음 사전 갱신 때 흡수된다.
+         */
+        <>
+          <input type="text" list={`cat-${field.key}`} value={selValue} disabled={disabled}
+            placeholder={baseOpts.length ? `${baseOpts.length}가지 중에서 · 없으면 직접` : '직접 입력'}
+            onChange={(event) => onChange(field.key, event.target.value)}
+            style={{ ...inputStyle, background, cursor: disabled ? 'default' : undefined, opacity: disabled ? 0.85 : 1 }} />
+          <datalist id={`cat-${field.key}`}>
+            {baseOpts.map((option) => {
+              const v = typeof option === 'string' ? option : option.value;
+              return <option key={v} value={v} />;
+            })}
+          </datalist>
+        </>
+      ) : field.type === 'chips' ? (
+        <div style={{ marginTop: 5, pointerEvents: disabled ? 'none' : undefined, opacity: disabled ? 0.85 : 1 }}>
+          {(() => {
+            const selected = new Set(value.split(/[,/#|]/).map((item) => item.trim()).filter(Boolean));
+            const locked = new Set(field.disabledOptions || []);
+            const options = [...(field.options || [])];
+            for (const item of selected) if (!options.includes(item)) options.push(item);
+            return <ToggleChips size="sm" selected={selected} options={options.map((option) => ({ key: option, label: locked.has(option) ? `${option} ·운영예정` : option, disabled: locked.has(option) }))} onToggle={(key) => {
+              if (disabled || locked.has(key)) return;
+              const next = new Set(selected);
+              if (next.has(key)) next.delete(key);
+              else { if (field.max != null && next.size >= field.max) return; next.add(key); }
+              onChange(field.key, [...next].filter((item) => !locked.has(item)).join(','));
+            }} />;
+          })()}
+        </div>
+      ) : (
+        <>
+          <input type={field.type === 'date' ? 'date' : 'text'} inputMode={decimal ? 'decimal' : numeric ? 'numeric' : phone ? 'tel' : undefined} value={decimal ? value : numeric ? fmtNumber(value) : phone ? fmtPhone(value) : value} disabled={disabled}
+            onChange={(event) => onChange(field.key, numeric ? event.target.value.replace(/[^\d.]/g, '') : phone ? fmtPhone(event.target.value) : event.target.value)}
+            style={{ ...inputStyle, background: outOfRange ? C.warnBg : background, borderColor: outOfRange ? C.danger : C.line, cursor: disabled ? 'default' : undefined, opacity: disabled ? 0.85 : 1 }} />
+          {outOfRange && field.range && <span style={{ display: 'block', marginTop: 3, fontSize: FS.cap, color: C.danger }}>{field.range[0]}~{field.range[1]} 범위로 입력하세요 (예: 10% → 0.1)</span>}
+        </>
+      )}
+      {showNotes && field.note && !outOfRange && <span style={{ display: 'block', marginTop: 3, fontSize: FS.cap, color: C.faint, lineHeight: 1.45 }}>{field.note}</span>}
+    </label>
+  );
+});
+
 export function FormGrid({
   fields,
   form,
@@ -76,148 +186,14 @@ export function FormGrid({
 }) {
   const mobile = useIsMobile();
   const columns = mobile ? 1 : cols;
-  const inputStyle: React.CSSProperties = {
-    display: 'block',
-    width: '100%',
-    marginTop: 3,
-    boxSizing: 'border-box',
-    height: ctrlH(mobile),
-    padding: `0 ${ctrlPadX(mobile)}px`, // Input과 동일 — 스키마 폼이 툴바 입력과 1px 어긋나던 것 제거
-    border: `1px solid ${C.line}`,
-    borderRadius: R,
-    fontSize: ctrlInputFs(mobile),
-    // 조회(disabled) 모드에서 브라우저 기본 회색이 얹히면 입력된 값이 placeholder처럼 읽힌다.
-    //  흐림은 아래 opacity 하나로만 표현한다(Input 원자와 같은 규칙).
-    color: C.ink,
-  };
+  // 상위 화면의 onChange는 보통 form state를 다시 만드는 함수라 렌더마다 바뀐다.
+  // ref 경유의 안정 dispatcher로 바꿔야 memoized field가 실제로 입력 칸 단위로 유지된다.
+  const onChangeRef = React.useRef(onChange);
+  onChangeRef.current = onChange;
+  const dispatchChange = React.useCallback((key: string, value: string) => onChangeRef.current(key, value), []);
   return (
     <div style={{ display: 'grid', gridTemplateColumns: `repeat(${columns},1fr)`, gap: 9 }}>
-      {fields.map((field) => {
-        const value = (form[field.key] as string) ?? '';
-        const empty = value === '' || value == null;
-        const background = disabled ? C.head : empty ? (field.manual || field.required ? C.warnBg : C.head) : C.taupeBg;
-        const numeric = field.type === 'number';
-        // range 지정 = 소수 입력 필드(율). 여기서 fmtNumber(toLocaleString)를 태우면
-        // "0." 이 "0" 으로 되접혀 소수점을 아예 못 찍는다 → 0.1 을 치면 1 이 저장된다(QA RATE-1의 입력측 원인).
-        const decimal = numeric && !!field.range;
-        const num = value === '' ? NaN : Number(value);
-        const outOfRange = !!field.range && value !== ''
-          && (!Number.isFinite(num) || num < field.range[0] || num > field.range[1]);
-        const phone = /phone|연락처|전화/.test(field.key);
-        const span = field.type === 'chips' || isYesNoActive(field) ? { gridColumn: '1 / -1' as const } : undefined;
-        const overrideOpts = selectOptions?.[field.key];
-        const baseOpts: SelectOption[] = overrideOpts || (field.options || []);
-        // select 값은 글자로 비교한다 — 옛 숫자값(7·0.3)이 select 원자에 남아 있으면 옵션이 두 번 끼어 key 경고가 났다(2026-08-19).
-        const selValue = value === null || value === undefined ? '' : String(value);
-        const hasValue = !!selValue && baseOpts.some((o) => (typeof o === 'string' ? o : o.value) === selValue);
-        const selectOpts: SelectOption[] = selValue && field.type === 'select' && !hasValue
-          ? [selValue, ...baseOpts]
-          : [...baseOpts];
-        return (
-          <label key={field.key} data-field={field.key} style={{ fontSize: FS.cap, color: C.mute, ...span }}>
-            {field.label}
-            {field.required && <span style={{ color: C.danger }}> *</span>}
-            {field.manual && !disabled && <span style={{ color: C.warn }}> ·직접</span>}
-            {field.max ? <span style={{ color: C.faint }}> ·최대 {field.max}</span> : null}
-            {isYesNoActive(field) ? (
-              <div style={{
-                marginTop: 3,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: 12,
-                minHeight: ctrlH(mobile),
-                padding: mobile ? '0 4px 0 0' : '0 2px 0 0',
-                boxSizing: 'border-box',
-              }}>
-                <span style={{ fontSize: FS.body, color: C.ink }}>{value === '아니오' ? '비활성' : '활성'}</span>
-                <Switch
-                  title={field.label}
-                  checked={value !== '아니오'}
-                  disabled={disabled}
-                  onChange={(on) => onChange(field.key, on ? '예' : '아니오')}
-                />
-              </div>
-            ) : field.type === 'select' ? (
-              <SheetSelect
-                value={selValue}
-                disabled={disabled}
-                full
-                placeholder="—"
-                title={field.label}
-                onChange={(v) => onChange(field.key, v)}
-                options={selectOpts}
-                searchable={selectOpts.length > 8}
-                style={{ marginTop: 3, background, opacity: disabled ? 0.85 : 1 }}
-              />
-            ) : field.type === 'chips' ? (
-              <div style={{ marginTop: 5, pointerEvents: disabled ? 'none' : undefined, opacity: disabled ? 0.85 : 1 }}>
-                {(() => {
-                  const selected = new Set(value.split(/[,/#|]/).map((item) => item.trim()).filter(Boolean));
-                  const locked = new Set(field.disabledOptions || []);
-                  const options = [...(field.options || [])];
-                  for (const item of selected) if (!options.includes(item)) options.push(item);
-                  return (
-                    <ToggleChips
-                      size="sm"
-                      selected={selected}
-                      options={options.map((option) => ({
-                        key: option,
-                        label: locked.has(option) ? `${option} ·운영예정` : option,
-                        disabled: locked.has(option),
-                      }))}
-                      onToggle={(key) => {
-                        if (disabled || locked.has(key)) return;
-                        const next = new Set(selected);
-                        if (next.has(key)) next.delete(key);
-                        else {
-                          if (field.max != null && next.size >= field.max) return;
-                          next.add(key);
-                        }
-                        onChange(field.key, [...next].filter((item) => !locked.has(item)).join(','));
-                      }}
-                    />
-                  );
-                })()}
-              </div>
-            ) : (
-              <>
-                <input
-                  type={field.type === 'date' ? 'date' : 'text'}
-                  inputMode={decimal ? 'decimal' : numeric ? 'numeric' : phone ? 'tel' : undefined}
-                  value={decimal ? value : numeric ? fmtNumber(value) : phone ? fmtPhone(value) : value}
-                  disabled={disabled}
-                  onChange={(event) => onChange(
-                    field.key,
-                    numeric ? event.target.value.replace(/[^\d.]/g, '') : phone ? fmtPhone(event.target.value) : event.target.value,
-                  )}
-                  style={{
-                    ...inputStyle,
-                    background: outOfRange ? C.warnBg : background,
-                    borderColor: outOfRange ? C.danger : C.line,
-                    cursor: disabled ? 'default' : undefined,
-                    opacity: disabled ? 0.85 : 1,
-                  }}
-                />
-                {outOfRange && field.range && (
-                  <span style={{ display: 'block', marginTop: 3, fontSize: FS.cap, color: C.danger }}>
-                    {field.range[0]}~{field.range[1]} 범위로 입력하세요 (예: 10% → 0.1)
-                  </span>
-                )}
-              </>
-            )}
-            {/*
-              설명은 «칸 밑»에 둔다. 라벨 옆에 붙이면 라벨이 길어져 그리드가 흔들리고,
-              범위 오류 문구와 자리를 다투게 된다. 오류가 떠 있을 때는 그쪽이 먼저다.
-            */}
-            {showNotes && field.note && !outOfRange && (
-              <span style={{ display: 'block', marginTop: 3, fontSize: FS.cap, color: C.faint, lineHeight: 1.45 }}>
-                {field.note}
-              </span>
-            )}
-          </label>
-        );
-      })}
+      {fields.map((field) => <FormGridField key={field.key} field={field} value={String(form[field.key] ?? '')} mobile={mobile} disabled={disabled} options={selectOptions?.[field.key]} showNotes={showNotes} onChange={dispatchChange} />)}
     </div>
   );
 }
