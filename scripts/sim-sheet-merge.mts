@@ -1025,7 +1025,7 @@ check('되살림 2차는 임시번호에 쓰지 않음',
       car_number: '100신0001', is_pending_plate: true, _deleted: true,
     }],
   ) === null);
-const unownedDeletedConflict = findSheetSyncExistingConflicts(conflictFetch, [], [{
+const unownedDeletedConflict = findSheetSyncExistingConflicts({ ...conflictFetch, sourceKind: 'product_master' }, [], [{
   ...conflictProduct,
   _key: 'legacy-deleted', product_code: 'legacy-deleted', provider_company_code: '', partner_code: '', source_schema: '',
   _deleted: true,
