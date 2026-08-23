@@ -38,3 +38,8 @@ tmp/
 # Firebase Rules 후보·에뮬레이터 생성물 — builder/probe 소스만 버전관리
 /scripts/ruleprobe/release-candidate.rules.json
 /scripts/ruleprobe/firebase-debug.log
+
+# 에뮬레이터·로컬 실행 산출물 — 사람이 만든 파일이 아니다(2026-08-23)
+*-debug.log
+firebase.current-local.json
+scripts/ruleprobe/firebase.current-local.json
