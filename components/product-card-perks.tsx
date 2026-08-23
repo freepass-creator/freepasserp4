@@ -3,10 +3,10 @@
 import type { CSSProperties } from 'react';
 import { Sparkles, type LucideIcon } from 'lucide-react';
 import { type EntityRecord } from '@/lib/intake/entities';
-import { benefitSignals, eventSignals } from '@/lib/domain/product';
+import { benefitSignals, creditDisplay, eventSignals } from '@/lib/domain/product';
 import { C, FW, FS, ICON } from '@/components/ui';
-import { Badge } from '@/components/ui/badges';
-import { benefitTip } from '@/components/product-card-badges';
+import { Badge, CREDIT_TONE } from '@/components/ui/badges';
+import { badgeTip, benefitTip } from '@/components/product-card-badges';
 
 /** MetaIcon — 혜택용. iconColor로 아이콘만 색(혜택 신호). */
 export function MetaIcon({ icon: Icon, text, size = ICON.sm, strong, iconColor, title }: {
@@ -104,13 +104,15 @@ export function CardEvents({ p, dense, clamp, inline }: {
 
 /** 상세 4행 좌 · 간단 기간옆 — 조건. 없으면 조건없음.
  *  inline = 기간칩과 같은 wrap 흐름(width 100% 금지 → 60개월 옆으로 붙음).
+ *  creditFirst = 모바일 목록에서 상담 우선순위인 심사기준을 혜택보다 앞에 둔다.
  */
-export function CardPerkLine({ p, dense, inline }: {
-  p: EntityRecord; dense?: boolean; inline?: boolean;
+export function CardPerkLine({ p, dense, inline, creditFirst }: {
+  p: EntityRecord; dense?: boolean; inline?: boolean; creditFirst?: boolean;
 }) {
   const bens = benefitSignals(p);
+  const credit = creditFirst ? creditDisplay(p) : '';
   const fs = FS.cap;
-  if (!bens.length) {
+  if (!bens.length && !credit) {
     return (
       <div style={{
         fontSize: fs, color: C.faint, lineHeight: 1.35,
@@ -127,6 +129,9 @@ export function CardPerkLine({ p, dense, inline }: {
       gap: 5, minHeight: 20,
       ...(inline ? { width: undefined, flex: '0 1 auto', overflow: 'hidden', lineHeight: 1.2 } : null),
     }}>
+      {credit && (
+        <Badge tone={CREDIT_TONE(credit)} title={badgeTip('cd', credit)}>{credit}</Badge>
+      )}
       {bens.map((s) => (
         <Badge key={s.key} variant="perk" title={benefitTip(s.key, s.label)}>{s.label}</Badge>
       ))}

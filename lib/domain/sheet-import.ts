@@ -784,7 +784,7 @@ export function importSheetTable(table: string[][], opts: {
               const single = autoMapHeaders([header]);
               const combinedVehicleName = field === 'model'
                 && single.trim_name === 0
-                && /^(차명|모델)\(?트림\)?$/.test(normalizeSheetHeader(header));
+                && /^(차명|모델)\(?트림\)?$|^차명\(세부모델\+트림\)$/.test(normalizeSheetHeader(header));
               return single[field] === 0 || combinedVehicleName ? index : -1;
             })
             .filter((index) => index >= 0);

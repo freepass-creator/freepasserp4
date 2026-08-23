@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, Pause, Play, Smartphone } from 'lucide-react';
-import { Badge, Btn, ButtonLabel, C, FS, FW, ICON, Modal, R } from '@/components/ui';
+import { Badge, Btn, ButtonLabel, C, FS, FW, ICON, Modal, R, SH } from '@/components/ui';
 
 /**
  * **「손님 화면 따라보기」 — 관리자가 손님이 볼 화면을 보면서 전화로 안내한다**(사장님 2026-08-20
@@ -86,7 +86,7 @@ export function EsignCustomerWalkthrough({ url, customerName, onClose }: {
         </div>
         <div style={{
           width: FRAME_W, height: FRAME_H, borderRadius: R, overflow: 'hidden',
-          border: `8px solid ${C.ink}`, background: C.bg, boxShadow: '0 10px 30px rgba(0,0,0,.18)',
+          border: `8px solid ${C.ink}`, background: C.bg, boxShadow: SH.modal,
         }}>
           <iframe
             ref={frameRef}
