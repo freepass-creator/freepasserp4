@@ -21,7 +21,7 @@ export const SUPPLIER_OWNED_PRODUCT_FIELDS = new Set([
   'vehicle_status', 'status_label_raw', 'product_type',
   'maker', 'model', 'sub_model', 'variant', 'trim_name', 'trim_extra', 'supplier_vehicle_name', 'supplier_options',
   'year', 'first_registration_date', 'fuel_type', 'engine_cc', 'mileage',
-  'ext_color', 'int_color', 'seats', 'drive_type', 'vehicle_class', 'usage',
+  'ext_color', 'int_color', 'seats', 'drive_type', 'battery_capacity', 'vehicle_class', 'usage',
   'options', 'photo_link', 'location', 'price',
   'policy_code',
   'sheet_source_gid', 'sheet_source_tab', 'sheet_source_row',
@@ -34,7 +34,7 @@ export const SUPPLIER_OWNED_PRODUCT_FIELDS = new Set([
  */
 const PRODUCT_MASTER_IDENTITY_FIELDS = new Set([
   'maker', 'model', 'sub_model', 'catalog_id', 'trim_row_key',
-  'variant', 'trim_name', 'fuel_type', 'engine_cc', 'seats', 'drive_type',
+  'variant', 'trim_name', 'fuel_type', 'engine_cc', 'seats', 'drive_type', 'battery_capacity',
   'vehicle_class', 'gen_year_start', 'gen_year_end',
 ]);
 
@@ -43,8 +43,15 @@ export const SALES_EXACT_PRODUCT_FIELDS = new Set([
   'vehicle_status', 'status_label_raw', 'product_type',
   'maker', 'model', 'sub_model', 'variant', 'trim_name', 'trim_extra', 'supplier_vehicle_name', 'supplier_options',
   'year', 'first_registration_date', 'fuel_type', 'engine_cc', 'mileage',
-  'ext_color', 'int_color', 'seats', 'drive_type', 'vehicle_class', 'origin', 'usage',
-  'options', 'photo_link', 'location', 'price', 'policy_code', 'partner_memo',
+  'ext_color', 'int_color', 'seats', 'drive_type', 'battery_capacity', 'vehicle_class', 'origin', 'usage',
+  /**
+   * ⚠ `photo_link` 는 여기 **없다.** 유입이 판매시트 경로에서 사진을 일부러 버리기 때문이다
+   *   (`sheet-import`: 「사진은 번호판·폴더 증거를 검증하기 전까지 판매 정본에서 ERP 로 자동 반영하지 않는다」).
+   *   그런데 이 목록에 넣어 두면 «키가 없다»고 **공급사 19곳을 통째로 보류**시킨다 —
+   *   실측 2026-08-23: 재고를 리셋해 ERP 사진이 사라지자 그날로 동기가 멈췄다.
+   *   두 규칙이 서로를 막고 있었다. 사진을 판매시트로 나르기로 정하면 그때 다시 넣는다.
+   */
+  'options', 'location', 'price', 'policy_code', 'partner_memo',
   'sheet_source_gid', 'sheet_source_tab', 'sheet_source_row',
 ]);
 

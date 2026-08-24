@@ -71,10 +71,10 @@ export const SALES_AXES: SalesAxis[] = [
     why: '엔진 이야기는 차명이 아니라 이 칸이 든다(파워트레인 폐지)' },
   { column: '배기량', erpField: 'engine_cc', align: 'right', fromRefined: true, refinedColumn: '배기량(정제)', minFillSheet: 80, minFillErp: 85,
     why: '연료와 짝. 전기차는 비는 게 정상이라 100% 가 아니다' },
+  { column: '배터리용량', erpField: 'battery_capacity', align: 'right', fromRefined: true, refinedColumn: '배터리용량(정제)', minFillSheet: 0, minFillErp: 0,
+    why: '전기차 kWh. 내연은 비는 게 정상. 세부모델만 알아도 값이 하나로 모이면 채운다' },
   { column: '차종구분', erpField: 'vehicle_class', align: 'left', fromRefined: true, refinedColumn: '차종분류', minFillSheet: 90, minFillErp: 90,
     why: '준중형 세단·중형 SUV 한 칸. 크기+구분을 우리가 붙이지 않는다' },
-  { column: '옵션', erpField: 'options', align: 'left', fromRefined: true, refinedColumn: '선택옵션', minFillSheet: 80, minFillErp: 80,
-    why: '정제칸 「선택옵션」(표기 통일본)' },
   { column: '원산지', erpField: 'origin', align: 'left', fromRefined: true, minFillSheet: 90, minFillErp: 90,
     why: '★국산/수입 — **보증금 배율(국산 ×2·수입 ×3)의 근거**. 표시값이 아니라 돈이다' },
   { column: '구동', erpField: 'drive_type', align: 'left', fromRefined: true, refinedColumn: '구동방식', minFillSheet: 30, minFillErp: 30,
@@ -94,8 +94,8 @@ export const SALES_AXES: SalesAxis[] = [
    */
   { column: '차명(원문)', erpField: 'supplier_vehicle_name', align: 'left', fromRefined: false, minFillSheet: 60, minFillErp: 60,
     why: '공급사가 적은 차명 그대로. 정제값과 대조하는 자리 · 상세 「기타」에 선다' },
-  { column: '옵션(원문)', erpField: 'supplier_options', align: 'left', fromRefined: false, minFillSheet: 0, minFillErp: 0,
-    why: '공급사가 적은 옵션 그대로. 정제칸 「선택옵션」이 덮어 버리던 값 · 새 칸이라 아직 안 찼다' },
+  { column: '옵션(원문)', erpField: 'options', align: 'left', fromRefined: false, minFillSheet: 0, minFillErp: 0,
+    why: '공급사가 적은 옵션 그대로. ERP options도 이 원문 하나를 쓴다' },
 ];
 
 /**

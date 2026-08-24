@@ -198,6 +198,12 @@ export const ENTITIES: Record<string, Entity> = {
        */
       { key: 'origin', label: '원산지', type: 'select', options: ['국산', '수입'] },
       { key: 'engine_cc', label: '배기량(cc)', type: 'number', ocrFrom: 'displacement' },
+      /**
+       * ★배터리용량 — **전기차의 배기량 자리**(사장님 2026-08-23 「배터리용량 등등 쓸 수 있는 거 쭈욱 쓰는 거야」).
+       *   전기차는 `engine_cc` 가 비는 게 정상이라 차를 가르는 값이 하나 모자랐다(판매가능 474대 중 전기차 33대).
+       * ⚠ 정제칸 「배터리용량(정제)」에서 온다. 값이 하나로 모일 때만 채운다. 내연은 빈칸이 정상.
+       */
+      { key: 'battery_capacity', label: '배터리용량(kWh)', type: 'number', note: '전기차만 · 정제칸 「배터리용량」' },
       { key: 'ext_color', label: '외부색상', type: 'select', options: [...EXT_COLORS], manual: true },
       { key: 'int_color', label: '내부색상', type: 'select', options: [...INT_COLORS], manual: true },
       { key: 'usage', label: '용도', type: 'select', options: ['자가용', '영업용', '관용'], ocrFrom: 'usage_type' },

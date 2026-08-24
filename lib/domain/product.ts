@@ -20,10 +20,18 @@ export function parseProductOptions(raw: unknown): string[] {
   return String(raw ?? '').split(/[,/]/).map((s) => s.trim()).filter(Boolean);
 }
 
-/** 외부·시트 옵션 문자열 → `,`/`/` 구분만 남기고 저장용 한 줄. (`·` `;` `|` 개행 → `,`) */
+/**
+ * 외부·시트 옵션 문자열 → `,`/`/` 구분만 남기고 저장용 한 줄. (`·` `;` `|` 개행 → `,`)
+ *
+ * ★**콤마 뒤에 공백을 넣지 않는다**(2026-08-23 — 「있는 걸 그대로 나르기」).
+ *   예전에는 `join(', ')` 이라 판매시트 「전동사이드미러,열선시트」가 ERP 에서 「전동사이드미러, 열선시트」가 됐다
+ *   (audit:passthrough 실측 143건). 값이 틀린 건 아니지만 **옮기는 길에서 글자를 바꾸는 것**이라 시트와 ERP 가 갈렸다.
+ *   보기 좋게 만드는 일은 화면이 한다 — 표시·칩·검색·상세는 전부 `parseProductOptions` 를 거치고 그쪽이 조각을 trim 한다.
+ * ⚠ 구분자 통일(`·` `;` `|` 개행 → `,`)은 그대로 둔다. 그건 표기 가공이 아니라 «구분자를 하나로»다.
+ */
 export function normalizeProductOptionsText(raw: unknown): string {
   const cleaned = String(raw ?? '').replace(/[·;|｜\n\r]+/g, ',');
-  return parseProductOptions(cleaned).join(', ');
+  return parseProductOptions(cleaned).join(',');
 }
 
 /** 상품구분 캐논 — 재렌트→중고렌트 · 재구독→중고구독. 필터·뱃지·매칭 SSOT. */
@@ -298,6 +306,92 @@ export function acquisitionPriceList(p: EntityRecord): Price[] {
 }
 /** 인수형(만기 인수) 상품이 붙은 매물 — 라인업 칩·필터 축(가상 상품구분 값)에서 쓴다. */
 export function hasAcquisitionPlan(p: EntityRecord): boolean { return acquisitionPriceList(p).length > 0; }
+
+/**
+ * **주행거리별 대여료** — `price[「N_M만」]` 을 그대로 뽑는다(오토플러스 12개월3만·24개월2만 …).
+ *
+ * ★왜(사장님 2026-08-23 「입력할 때 기간에 입력하는데 그때 **주행거리 정해서 넣고 싶으면 그렇게 넣게** 하고
+ *   **ERP 에 표시해 주는 거지 상세페이지에**」)
+ *   위 `priceList` 는 주행거리 변형을 **기간별 하나로 접는다**(2만 우선). 표준 표가 두 줄로 갈리면
+ *   «얼마인가»에 답이 둘이 되기 때문이다. 그래서 3만km 요금이 화면에서 통째로 사라졌다 —
+ *   실측 2026-08-23: 오토플러스 79대가 12_3만·18_3만·24_3만·36_2만 … 을 갖고도 상세에 안 보였다.
+ *   접는 것은 그대로 두고, **여기서 원본을 따로 꺼내 상세에 보여 준다**(인수형과 같은 방식).
+ *
+ * ⚠ 공급사가 주행거리를 안 적으면 이 표는 빈다 — 그때 주행 약정은 **정책값**이 든다(계약조건 「주행 약정」).
+ */
+export type PricePlan = {
+  /** 기간(개월) */
+  m: number;
+  /** 이 요금의 조건 — 「연 3만km」·「만기인수」처럼 **기간마다 다른 것**만. 없으면 빈 문자열. */
+  condition: string;
+  rent: number;
+  deposit: number;
+  /** 표준(반납형)인가 — 최저가 표시는 표준만 대상으로 한다. */
+  standard: boolean;
+};
+
+/**
+ * **기간 × 조건 × 대여료 × 보증금** — 상세 대여료 표가 쓰는 한 장짜리 목록.
+ *
+ * ★왜(사장님 2026-08-23 「ERP 표에 기간 대여료 보증금만 있는데 · **기간 조건 대여료 보증금**,
+ *   조건에 만 26세 이상·연간 3만km 약정 이런 식으로 당겨와서 기간별 표시해 주면 어때?
+ *   그럼 오플 거도 무난하게 담고 직관적이고 좋을 거 같은데」)
+ *
+ *   전에는 표를 셋으로 갈랐다 — 표준(`priceList`, 기간별 하나로 접음) · 주행거리별 · 인수형.
+ *   접는 바람에 오플 3만km 요금이 화면에서 사라졌고, 갈라 놓으니 «같은 차의 요금»이 세 군데 흩어졌다.
+ *   **조건을 한 열로 세우면** 접을 이유가 없다 — 같은 기간에 조건이 둘이면 두 줄로 서면 그만이다.
+ *
+ * ⚠ 위생 규칙은 `priceList` 와 같다(대여료 10만~2천만 · 운영 기간만).
+ * ⚠ 연령·보험처럼 **모든 줄에 같은 조건**은 여기 안 넣는다 — 표 아래 한 줄로 붙인다(같은 말 반복 금지).
+ */
+const planCache = new WeakMap<object, PricePlan[]>();
+export function pricePlanList(p: EntityRecord): PricePlan[] {
+  const cached = planCache.get(p as object);
+  if (cached) return cached;
+  const price = (p.price || {}) as Record<string, { rent?: number; deposit?: number }>;
+  const pol = (p._policy || {}) as Record<string, unknown>;
+  /** 공급사가 요금에 주행거리를 안 붙였으면 정책 약정이 그 조건이다(없으면 조건 없음 — 지어내지 않는다). */
+  const policyMileage = String(pol.annual_mileage ?? '').trim();
+  const out: PricePlan[] = [];
+  for (const [k, v] of Object.entries(price)) {
+    const rawRent = num(v?.rent); if (rawRent <= 0) continue;
+    const { rent, deposit } = normalizeWonPair(rawRent, v?.deposit);
+    if (rent < 100_000 || rent > 20_000_000) continue;
+    const bar = k.indexOf('_');
+    const m = Number(bar >= 0 ? k.slice(0, bar) : k);
+    if (!isOperatedPeriod(m)) continue;
+    const variant = bar >= 0 ? k.slice(bar + 1) : '';
+    const km = /^[1-9]\d*만$/.test(variant) ? `연 ${variant}km` : '';
+    const condition = variant === ACQUISITION_VARIANT ? '만기인수' : (km || policyMileage);
+    out.push({ m, condition, rent, deposit, standard: !variant || !!km });
+  }
+  // 기간 오름차순 → 같은 기간이면 싼 것 먼저(조건이 헐한 쪽이 위로).
+  out.sort((a, b) => a.m - b.m || a.rent - b.rent);
+  planCache.set(p as object, out);
+  return out;
+}
+
+const mileageCache = new WeakMap<object, { m: number; mileage: string; rent: number; deposit: number }[]>();
+export function mileagePriceList(p: EntityRecord): { m: number; mileage: string; rent: number; deposit: number }[] {
+  const cached = mileageCache.get(p as object);
+  if (cached) return cached;
+  const price = (p.price || {}) as Record<string, { rent?: number; deposit?: number }>;
+  const out: { m: number; mileage: string; rent: number; deposit: number }[] = [];
+  for (const [k, v] of Object.entries(price)) {
+    const hit = /^(\d+)_([1-9]\d*만)$/.exec(k);
+    if (!hit) continue;
+    const rawRent = num(v?.rent); if (rawRent <= 0) continue;
+    const { rent, deposit } = normalizeWonPair(rawRent, v?.deposit);
+    if (rent < 100_000 || rent > 20_000_000) continue;
+    const months = Number(hit[1]);
+    if (!isOperatedPeriod(months)) continue;
+    out.push({ m: months, mileage: hit[2], rent, deposit });
+  }
+  // 기간 오름차순 → 같은 기간이면 주행거리 오름차순(2만 → 3만).
+  out.sort((a, b) => a.m - b.m || Number(a.mileage.replace('만', '')) - Number(b.mileage.replace('만', '')));
+  mileageCache.set(p as object, out);
+  return out;
+}
 
 /** 선택 기간의 가격 (없으면 가장 가까운 기간) */
 export function priceAt(p: EntityRecord, target: number): Price | null {
@@ -712,7 +806,14 @@ export function detailSections(p: EntityRecord, audience: Audience = 'agent'): D
   // 묶음 슬롯 = 빠진 칸도 `-`로 자리 유지(동력·분류처럼 같이 쓰는 축).
   const gSlots = (parts: (string | number | false | null | undefined)[]) =>
     parts.map((x) => (x != null && x !== '' && x !== false ? String(x) : '미입력')).join(' · ');
+  /**
+   * 배기량 자리 — **전기차는 배터리 용량이 그 자리를 든다**(사장님 2026-08-23 「배터리용량 등등 쓸 수 있는 거 쭈욱」).
+   * 전기차에 `engine_cc` 가 비는 것은 정상이라 그동안 이 칸이 늘 「미입력」이었다.
+   * 둘 다 없을 때만 미입력 — 「있는 것만 쓴다」.
+   */
   const ccLabel = (() => {
+    const kwh = Number(p.battery_capacity) || 0;
+    if (kwh > 0) return `${kwh}kWh`;
     const n = Number(p.engine_cc) || fuelEmbeddedCc(p.fuel_type);
     return n > 0 ? `${n.toLocaleString()}cc` : '미입력';
   })();
@@ -780,9 +881,12 @@ export function detailSections(p: EntityRecord, audience: Audience = 'agent'): D
      * 상담에서 쓸 일이 없다. 빈 칸이 「미입력」으로 서서 «무엇이 빈 건지»만 헷갈리게 했다.
      * 빈 값은 자리를 남기지 않는다(`gSlots` 아님) — 성격이 다른 값이 모인 줄이라 있는 것만 잇는다.
      */
-    ['차종', g([pv('vehicle_class'), p.seats ? `${p.seats}인승` : ''])],
-    // 공급사 원본이 `25-11-5` 처럼 들쭉날쭉해서 표기만 YYYY-MM-DD 로 맞춘다(못 읽으면 원본 그대로).
-    ['최초등록', ymdDisplay(pv('first_registration_date')) || '미입력'],
+    /* 차종 = 차급 · 인승 · 원산지. 원산지를 여기 세운 것은 «쓸 수 있는 원자는 쭉 쓴다»(사장님 2026-08-23)에 따른 것 —
+       98% 차 있는데 화면 어디에도 안 서 있었다. 국산/수입은 **보증금 배율(국산 ×2 · 수입 ×3)의 근거**라
+       표시값이 아니라 돈이 걸린 값이다. 빈 값은 자리를 남기지 않는다(`g`) — 있는 것만 잇는다. */
+    ['차종', g([pv('vehicle_class'), p.seats ? `${p.seats}인승` : '', pv('origin')])],
+    /* 최초등록일은 「기타사항」으로 옮겼다(사장님 2026-08-23 「최초등록일은 기타사항에 들어가 주는 거고」) —
+       차를 고르는 값이 아니라 참고값이다. 차량스펙은 «어떤 차인가»를 가르는 원자만 든다. */
   ];
   /**
    * 차량가격 = 공급사 시트 「차량가격」(별칭 소비자가격·차량가·차량가액 — `sheet-import`) = **차량 출고가**.
@@ -825,7 +929,7 @@ export function detailSections(p: EntityRecord, audience: Audience = 'agent'): D
   // 3) 계약조건 = 심사·약정·담보·결제·운전자·물류·서비스
   const meta = (rec.sheet_meta || {}) as Record<string, unknown>;
   const m2 = (k: string) => { const v = meta[k]; return v == null ? '' : String(v); };
-  const autoplusMileage = isAutoplusProduct(p) ? autoplusMileageUpchargeLabel(p) : '';
+  /* 오토플러스 전용 주행 상향요금 라벨은 뺐다(2026-08-23) — 주행 약정은 정책값만 쓴다. 위 「주행 약정」 주석 참고. */
   /**
    * 계약조건 = **손님이 고르는 데 필요한 정책**(운영정책 시트에서 `use: 상품시트 | 둘다`).
    *
@@ -836,9 +940,15 @@ export function detailSections(p: EntityRecord, audience: Audience = 'agent'): D
    */
   const condRows: KvRow[] = [
     ...(audience === 'customer' ? [] : [['심사', creditDisplay(p)] as KvRow]),
-    ['주행 약정', isAutoplusProduct(p)
-      ? g(['연 2만km', autoplusMileage && `1만km 추가 ${autoplusMileage}`])
-      : g([s('annual_mileage'), s('mileage_upcharge_per_10000km') && `1만km초과 ${s('mileage_upcharge_per_10000km')}`])],
+    /**
+     * ★**주행 약정 = 정책값. 없으면 「미입력」**(사장님 2026-08-23 「정책에 주행거리가 비어 있으면
+     *   그냥 빈 주행거리가 미입력으로 되는 거지 뭐」).
+     * ⚠ 전에는 오토플러스만 **「연 2만km」를 코드에 박아** 보여 줬다. 그런데 실측 2026-08-23 —
+     *   오플 79대의 정책(`pol_freepassstd`) 기본주행이 **빈칸**이라, 화면은 「연 2만km」라고 말하는데
+     *   12개월 요금은 실제로 **3만km 조건**이었다. 없는 값을 코드가 지어내면 그게 곧 거짓말이 된다.
+     *   요금이 몇 km 기준인지는 아래 대여료 표의 **「주행거리별」 줄**이 글자 그대로 보여 준다.
+     */
+    ['주행 약정', g([s('annual_mileage'), s('mileage_upcharge_per_10000km') && `1만km초과 ${s('mileage_upcharge_per_10000km')}`]) || '미입력'],
     ['보증금', g([s('deposit_installment') && `분납 ${s('deposit_installment')}`, s('deposit_card_payment') && `카드 ${s('deposit_card_payment')}`])],
     ['대여료 카드결제', s('rental_card_payment')],
     /*
@@ -881,6 +991,9 @@ export function detailSections(p: EntityRecord, audience: Audience = 'agent'): D
   if (supplierName) otherRows.push(['공급사 차명', supplierName]);
   // 「2중 보관」의 나머지 반쪽(사장님 2026-08-23) — 위 「선택옵션」은 정제값이고 이 줄은 공급사가 적은 글자다.
   if (supplierOptions) otherRows.push(['공급사 옵션', supplierOptions]);
+  // 공급사 원본이 `25-11-5` 처럼 들쭉날쭉해서 표기만 YYYY-MM-DD 로 맞춘다(못 읽으면 원본 그대로).
+  const firstReg = ymdDisplay(pv('first_registration_date'));
+  if (firstReg) otherRows.push(['최초등록', firstReg]);
   if (memo) otherRows.push(['특이사항', memo]);
   // 관리자 진단값 — 데이터가 맞는지 확인하는 칸이라 상담에 안 쓴다(상담용은 우측 패널 `agentPanelRows`).
   //  공급사·차고지·수수료 환수는 패널이 들고 있어 여기서 뺐다 — 같은 값을 두 번 찍지 않는다.

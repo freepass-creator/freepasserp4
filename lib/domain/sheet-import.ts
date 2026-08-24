@@ -86,7 +86,9 @@ export const HEADER_ALIASES: Record<string, string> = {
    *     실제로 그래서 판매시트 「차명」이 ERP 로 한 번도 못 갔다.
    */
   '차명(원문)': 'supplier_vehicle_name',
-  '옵션(원문)': 'supplier_options',
+  '옵션(원문)': 'options',
+  /** 배터리용량 — 전기차의 «배기량» 자리(사장님 2026-08-23). 단위 kWh, 숫자만 담는다. */
+  배터리용량: 'battery_capacity', '배터리용량(정제)': 'battery_capacity', '배터리 용량': 'battery_capacity', kWh: 'battery_capacity',
   메모: 'partner_memo', 비고: 'partner_memo', 특이사항: 'partner_memo',
   // 표준양식(2026-08-08). 정책코드를 적으면 **그 정책이 우선**한다 — 면책금·연령·면허를
   //   칸마다 적을 필요가 없다. 개별 정책 열은 «지금 붙은 정책이 무엇인지» 보여주는 표시일 뿐이다.
@@ -738,6 +740,27 @@ export function parseCompactPriceColumns(
     const normalized = normalizeWonPair(rent, deposit);
     price[match[1]] = { rent: normalized.rent, deposit: normalized.deposit };
   }
+  /**
+   * ★**「그 밖 요금」 — 우리 규격 밖 기간을 ERP 로 들여온다**
+   *   (사장님 2026-08-23 「ERP 에는 다 반영할 수 있고 기존 시트에는 우리 규격만」).
+   *   판매시트 앞쪽 요금 열은 영업자가 보는 «우리 규격»이라 72개월·18개월2만 같은 건 자리가 없다.
+   *   발행기가 그런 요금을 이 한 칸에 `72개월:390000|18개월2만:780000` 로 모아 두고, 여기서 푼다.
+   * ⚠ 보증금은 안 온다 — 규격 밖 기간에 보증금을 지어내지 않는다(무보증이 아니라 «모른다»).
+   */
+  const extraAt = headers.findIndex((h) => String(h ?? '').trim() === '그 밖 요금');
+  if (extraAt >= 0) {
+    for (const chunk of String(cells[extraAt] ?? '').split('|')) {
+      const hit = /^\s*(\d+)개월([1-9]\d*만)?\s*:\s*(\d+)\s*$/.exec(chunk);
+      if (!hit) continue;
+      const rent = Number(hit[3]);
+      if (!(rent > 0)) continue;
+      const key = hit[2] ? `${hit[1]}_${hit[2]}` : hit[1];
+      // 이미 규격 열로 들어온 기간은 덮지 않는다 — 규격이 이긴다.
+      if (price[key]) continue;
+      const normalized = normalizeWonPair(rent, 0);
+      price[key] = { rent: normalized.rent, deposit: 0 };
+    }
+  }
   return Object.keys(price).length ? price : null;
 }
 
@@ -881,9 +904,27 @@ export function importSheetTable(table: string[][], opts: {
     if (cells.every((cell) => !String(cell ?? '').trim())) continue;
     const rec: EntityRecord = {};
     for (const [field, idx] of Object.entries(mapping)) { const v = String(cells[idx] ?? '').trim(); if (v) rec[field] = v; }
-    if (rec.options) rec.options = normalizeProductOptionsText(rec.options);
-    // 셀 링크에서 온 사진 — 시트에 사진 «열»이 따로 있으면 그쪽이 우선이다(공급사가 명시한 값).
-    if (!String(rec.photo_link || '').trim() && opts.photoByPlate) {
+    // 판매시트는 「옵션(원문)」 하나만 쓰며, ERP도 그 글자를 가공 없이 사용한다.
+    if (opts.authoritativeRefinedRows && rec.options) rec.supplier_options = rec.options;
+    if (!opts.authoritativeRefinedRows && rec.options) rec.options = normalizeProductOptionsText(rec.options);
+    /**
+     * ★**사진은 시트에 있는 그대로 ERP 로 간다**(사장님 2026-08-23 「오플은 기존 시트에 있는 거 그대로 갖고오면 돼」·
+     *   「이게 이미 사진링크에 번호가 있는데 이걸 반영 못 했다는 게 어이가없네」).
+     *
+     *   2026-08-20 사고(남의 차 86건) 뒤로 판매 정본 경로의 사진을 **통째로 버렸다**(`delete rec.photo_link`).
+     *   막는 것은 맞았지만 자리가 틀렸다 — 시트에 멀쩡한 링크가 있어도 화면엔 사진이 안 떴다.
+     *
+     * ★**검증은 «시트에 넣을 때» 한다.** 사진링크를 시트에 쓰는 도구들이 문지기를 거친다 —
+     *   `restore-photo-links-from-backup` · `adopt-web-photos` · `sync-plate-cell-links`.
+     *   폴더 이름의 차번이 다르거나 한 주소를 여러 차가 나눠 쓰면 **거기서** 안 쓴다.
+     *   여기(유입)에서는 폴더 «이름»을 알 수 없다(시트만 읽으므로) — 드라이브 주소엔 id 뿐이라
+     *   차번을 대조할 방법이 없다. 그래서 옮기는 길에서 판정하려 들지 않고 **시트를 믿는다.**
+     *
+     * ⚠ 상시 검증: `npx tsx scripts/audit-photo-folder-match.mts` — 남의 차 폴더를 가리키는 줄을 잡는다.
+     */
+    // 일반 공급사 시트의 셀 링크는 기존 호환 경로를 유지하되, 아래 exact 차량번호 확정 전에
+    // 붙이지 않는다. (판매 정본 경로는 위에서 무조건 차단된다.)
+    if (!opts.authoritativeRefinedRows && !String(rec.photo_link || '').trim() && opts.photoByPlate) {
       const key = String(rec.car_number || '').replace(/\s/g, '').match(/\d{2,3}[가-힣]\d{4}/)?.[0];
       const linked = key ? opts.photoByPlate[key] : '';
       if (linked) rec.photo_link = linked;
@@ -1028,10 +1069,12 @@ export function importSheetTable(table: string[][], opts: {
       const exactFields = [
         'status_label_raw', 'product_type', 'maker', 'model', 'sub_model', 'trim_name', 'trim_extra',
         // 공급사 원문 두 칸 — 「2중 보관」(2026-08-23). 판매시트가 정본이므로 빈 셀도 «지금 값»이다.
-        'supplier_vehicle_name', 'supplier_options', 'ext_color', 'int_color',
+        'supplier_vehicle_name', 'supplier_options', 'battery_capacity', 'ext_color', 'int_color',
         'year', 'mileage', 'fuel_type', 'engine_cc', 'vehicle_class', 'origin', 'usage',
         'drive_type', 'seats', 'first_registration_date', 'location',
-        'options', 'photo_link', 'policy_code', 'partner_memo',
+        // 사진은 별도 OCR·원본 대조 승인 경로만 쓴다. 여기 넣으면 판매시트의 빈값/오매칭 URL이
+        // 기존 ERP 사진을 자동 삭제·교체한다.
+        'options', 'policy_code', 'partner_memo',
       ];
       for (const field of exactFields) {
         if (rec[field] == null) rec[field] = '';
