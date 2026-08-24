@@ -3,7 +3,7 @@ import type { EntityRecord } from '@/lib/intake/entities';
 /** 차종 변환 추적 필드 — 원본·이력·감사 diff 공용. */
 export const SNAP_TRACK_KEYS = [
   'maker', 'model', 'sub_model', 'variant', 'trim_name', 'year',
-  'fuel_type', 'engine_cc', 'seats', 'drive_type', 'vehicle_class',
+  'fuel_type', 'engine_cc', 'battery_capacity', 'seats', 'drive_type', 'vehicle_class',
 ] as const;
 
 export type SnapTrackKey = (typeof SNAP_TRACK_KEYS)[number];
@@ -17,6 +17,7 @@ export const SNAP_TRACK_LABEL: Record<SnapTrackKey, string> = {
   year: '연식',
   fuel_type: '연료',
   engine_cc: '배기량',
+  battery_capacity: '배터리용량',
   seats: '인승',
   drive_type: '구동',
   vehicle_class: '차종분류',

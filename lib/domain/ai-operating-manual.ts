@@ -10,6 +10,7 @@ import { AI_TOUCH_RULES } from './ai-touch-rules';
 import { SHEET_READING_RULES } from './sheet-reading-rules';
 import { VEHICLE_REFINE_FLOW } from './vehicle-refine-flow';
 import { MIRROR_SOURCES } from './mirror-sources';
+import { VEHICLE_MASTER_MATCH_PLAYBOOK } from './vehicle-master-playbook';
 import { SHEET_ERP_PARITY_RULES, SHEET_ERP_PARITY_SUMMARY, SHEET_ERP_PARITY_VERSION } from './sheet-erp-parity';
 
 export type ManualRow = [string, string, string];
@@ -25,7 +26,7 @@ const IDS = {
 const url = (id: string, gid?: number) => `https://docs.google.com/spreadsheets/d/${id}/edit${gid !== undefined ? `#gid=${gid}` : ''}`;
 
 export const AI_MANUAL_TITLE = 'AI 운영 매뉴얼';
-export const AI_MANUAL_VERSION = '2026-08-22 v21';
+export const AI_MANUAL_VERSION = '2026-08-23 v23';
 
 export function buildAiOperatingManual(): ManualSection[] {
   return [
@@ -42,8 +43,10 @@ export function buildAiOperatingManual(): ManualSection[] {
       ['같은 세대 다른 엔진', '아반떼 CN7 1.6과 2.0은 같은 세대의 변형이다. 스냅이 다른 배기를 집었다고 「세대 오류」로 한 칸도 안 채우지 않는다. 맞는 변형을 고른다.', ''],
       ['누가 어느 칸', 'fill = 제조사(정제)·모델·세부모델·세부트림·연료(정제)·배기량(정제). stamp = 엔카 행키 M/SM/T 만(정제칸 이름·연료와 같을 때). 모델 글자를 엔카 스탬프가 쓰지 않는다.', 'fill-supplier-ai-columns · stamp-encar-codes-on-supplier'],
       ['코드', '트림행키(mf-…)는 영구. 삭제·재사용·의미 변경 금지. 책 = `data/vehicle-trim-key-registry.json`. 원천대장 「차종마스터」 탭은 **읽기만**. 새 차종은 json에 행을 넣고, 코드는 레지스트리에 없는 키만 붙인다.', 'lib/domain/vehicle-master-lock.ts · check-vehicle-master-lock · verify-master-pass'],
-      ['세대 이름', '세부모델 정본은 **모델+개발코드**로 가른다. 풀체인지 첫 줄=`아반떼 CN8`(기존 `아반떼 CN7`과 같은 꼴). 같은 코드 페리=`더 뉴 아반떼 CN8`. `디 올 뉴`·`올 뉴`는 광고 접두 → **aliases만**. 세부모델에 넣으면 다음 페리가 `더 뉴 디 올 뉴 아반떼 CN8`이 된다. 새 줄 넣기 전에 그 모델의 기존 세대 이름을 본다.', '실측 2026-08-21 아반떼 CN8 · vehicle-master-lock SUBMODEL_NAME_RULE'],
+      ['세대 이름', '세부모델 정본은 **모델+개발코드**로 가른다. 풀체인지 첫 줄=`아반떼 CN8`·`K5 DL3`·`싼타페 MX5`. 같은 코드 페리=`더 뉴 아반떼 CN8`. `디 올 뉴`·`올 뉴`는 광고 접두 → **aliases만**.', '실측 2026-08-21 아반떼 CN8 · 2026-08-23 K5 DL3 · SUBMODEL_NAME_RULE'],
+      ['★개발코드는 안 뗀다', '정제칸·손님 화면에서 DL3·MX5·GN7·CN8 을 깎지 않는다. 「손님이 읽기 어렵다」는 이유로 떼면 `K5 DL3`가 `K5`가 되어 **세대를 못 가른다**(JF·TF·DL3가 한 이름이 된다). 광고 접두(`디 올 뉴`)만 별칭으로 뺀다. `add-submodel-code-strip-rules`·`normalize-erp-submodel-codes` 는 **폐기(거부)**. fill·발행기는 그런 「AI 정제」 줄을 **무시**한다.', '실측 2026-08-23 「AI 정제」 186줄 K5 DL3→K5 · ai-refine-guard'],
     ] },
+    { title: '0″. ★차종마스터·코드 — 커서가 쓰고, 다른 AI는 가져다 쓴다(2026-08-23)', rows: VEHICLE_MASTER_MATCH_PLAYBOOK },
     { title: '1. 시트 지도(요약) — 정본은 원천대장 「시트 지도」 탭', rows: [
       ['공급사 시트 21곳', '「MMDD 공급사 프리패스 재고 [제공|정제]」. 제공 17 = 우리가 만들어 주고 공급사가 직접 적는다(=원본=정제시트). 정제 4 = 공급사 자체 시트·홈페이지(원본)를 우리가 옮겨 담는다(아이카·오토플러스·이안카·아이언, `lib/domain/mirror-sources.ts`). 탭: 재고(구독재고) · 정책 · [숨김]AI 인계 · 작성 안내/정제시트 안내 · AI 운영 매뉴얼 · 이 시트는.', '드라이브 검색 「프리패스 재고」'],
       ['★시트 상태 표기(2026-08-19)', '지금 읽는 시트 21곳 = 이름 끝 「[연동중]」. 옛 우리 시트(옛 제공시트 15·옛 문패·옛 판매시트·옛 공급사 상품리스트 = 18곳, `lib/domain/legacy-sheets.ts`) = 이름 앞 「[구버전·폐기]」 + 첫 탭 「⚠ 구버전 — 안 씀」(지금 쓰는 시트 링크) — 아무도 안 읽는다. 외부(공급사 소유) 원본은 이름을 건드리지 않고 원본으로만 안다(mirror-sources). 시트마다 「이 시트는」 탭 = 상태·구성(탭·열)·바라보는 곳·주는 곳·주기·고치는 곳(정본 `lib/domain/sheet-identity.ts`). 전 시트 명부는 원천대장 「시트 지도」 0장.', 'rename-supplier-sheets --apply(연동중) · retire-legacy-sheets --apply(구버전) · publish-sheet-identity-tab --apply · publish-sheet-map-tab --apply'],
@@ -129,7 +132,7 @@ export function buildAiOperatingManual(): ManualSection[] {
       ['ERP 목록 대수가 판매시트보다 적음', '차량번호 집합으로 바로 대조한다. 판매시트→ERP 누락은 가격 공란·상품화중·출고협의·계약중을 정상 사유로 빼지 않는다. 삭제 표시·옛 수기 출고불가·키 중복·공급사 소유 충돌을 근거와 함께 찾고 ERP 반영 계층만 고친다.', 'audit-sheet-erp-parity · run-sheet-daily-sync-local'],
       ['ERP 에 어떤 기간이 안 보임(영업자 표엔 대여료 있음)', '판매시트와 ERP의 같은 차량번호·같은 기간키에서 대여료와 보증금을 각각 비교한다. 판매시트 공란은 ERP의 옛 금액을 지우는 현재값이며, 숫자가 있는데 파서가 못 읽은 경우만 ERP 파서 오류로 고친다. 상위 시트를 역수정하지 않는다.', 'audit-sheet-erp-parity'],
       ['차 이름이 틀림', 'ERP·상품찾기가 판매시트의 제조사·모델·세부모델·세부트림을 그대로 받았는지 먼저 확인한다. 판매시트와 ERP가 다르면 ERP 반영 오류다. 판매시트 자체가 틀리면 차량번호·관측값을 근거로 정제 담당에게 보고하고 ERP가 임의 추정하지 않는다.', 'audit-sheet-erp-parity'],
-      ['마스터의 이름·기간이 틀림', '차종마스터_규격검토(Gemini) → 규격채택 재게시 → 발행.', ''],
+      ['마스터의 이름·기간이 틀림', '규격검토 탭은 제미나이가 봐도 된다. **json·mf- 반영은 커서만.** 라이브 차종마스터 탭에 쓰지 않는다.', 'vehicle-master-playbook'],
       ['대여료·보증금·상태가 틀림', '공급사 시트(제공) 또는 원본(정제) → 발행. 판매시트에서 고치지 않는다.', ''],
       ['정제시트 차명·옵션이 틀림', '공급사 원본 시트/홈페이지에서. 정제시트에서 고쳐도 다음 미러가 되돌린다. 정제칸(모델·세부모델·세부트림)은 fill(우리 차종마스터).', 'sync-mirror-all → fill-supplier-ai-columns --include-mirror'],
       ['정책 조건이 틀림/빔', '공급사 시트 「정책」 탭(정제시트는 sync-mirror-policies 가 원본 줄에서 접어 넣음) → 발행.', ''],
@@ -155,6 +158,7 @@ export function buildAiOperatingManual(): ManualSection[] {
       ['정제시트 매뉴얼이 once 라고 적혀 있으면 차명이 첫 수입에 굳는다(2026-08-21)', '「차명·옵션은 처음 한 번」으로 적혀 있으면 원본이 바뀌어도 정제시트가 안 따라간다. 글과 코드가 갈리면 매뉴얼을 고친다(정제시트 안내·시트 지도). 정본은 MIRROR_FOLLOW_SOURCE.', 'publish-mirror-guide-tab · publish-sheet-map-tab'],
       ['엔카 원자로 정제칸 이름을 쓰면 A6가 e-트론이 된다(2026-08-21)', '우리 차종마스터에 A6 C8가 있는데 엔카 1차모델에 A6 e-트론만 있어 그걸 박았다. 사전은 vehicle-master.json. stamp는 행키만.', 'fill-supplier-ai-columns · stamp-encar-codes-on-supplier'],
       ['디 올 뉴를 세부모델에 박으면 페리 때 이름이 쌓인다(2026-08-21)', '아반떼 풀체인지를 `디 올 뉴 아반떼 CN8`로 넣으면 다음 부분변경이 `더 뉴 디 올 뉴 아반떼 CN8`이 된다. 정본은 `아반떼 CN8`. 광고 접두는 aliases.', '아반떼 CN7 / 더 뉴 아반떼 CN7 기존 줄'],
+      ['개발코드를 「정제」로 떼면 세대를 못 가른다(2026-08-23)', '사장님이 109호5391 「정제칸 이상하다」고 한 것은 `디 올 뉴`가 남은 것이었는데, AI가 개발코드(MX5·DL3)를 손님용으로 깎는다고 오해해 「AI 정제」에 `K5 DL3`→`K5` 등 186줄을 넣었다. 정본은 모델+코드. 광고 접두만 별칭. 코드떨기 도구는 폐기.', '아이카 109호3267 K5·109호5391 싼타페 MX5 · revert-submodel-code-strip'],
       ['배기량 칸으로 차명을 뒤집으면 안 된다(2026-08-21)', '카니발 KA4 가솔린 3.5 · 그랜저 IG LPG 3.0 PREMIUM 인데 배기량 칸 2,000·2,700으로 막았다. 공급사 정보는 차량번호 왼쪽 차종·차명이다.', '281노9792 · 101호5187'],
     ] },
   ];

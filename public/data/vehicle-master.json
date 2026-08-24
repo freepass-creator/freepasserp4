@@ -4405,12 +4405,17 @@
       "id": "mf-002.md-064.sm-sp3",
       "maker": "기아",
       "model": "셀토스",
-      "sub_model": "더 2026 셀토스 SP3",
+      "sub_model": "셀토스 SP3",
       "gen_code": "SP3",
       "origin": "국산",
       "year_start": "2026",
       "year_end": "현재",
-      "title": "기아 더 2026 셀토스 SP3",
+      "title": "기아 셀토스 SP3",
+      "aliases": [
+        "더 2026 셀토스 SP3",
+        "더 2026 셀토스",
+        "디 올 뉴 셀토스 SP3"
+      ],
       "variants": [
         {
           "label": "가솔린 1.6 2WD",
@@ -4889,12 +4894,20 @@
       "id": "mf-002.md-061.sm-sg2__디-new-니로-sg2",
       "maker": "기아",
       "model": "니로",
-      "sub_model": "디 올 뉴 니로 SG2",
+      "sub_model": "니로 SG2",
       "gen_code": "SG2",
       "origin": "국산",
       "year_start": "2022",
       "year_end": "2025",
-      "title": "기아 디 올 뉴 니로 SG2",
+      "title": "기아 니로 SG2",
+      "aliases": [
+        "디 올 뉴 니로 SG2",
+        "디 올 뉴 니로",
+        "디 올뉴 니로",
+        "디올뉴니로",
+        "디 올 뉴 니로 EV",
+        "디올뉴니로EV"
+      ],
       "variants": [
         {
           "label": "하이브리드 1.6",
@@ -12522,12 +12535,18 @@
       "id": "mf-001.md-055.sm-sx2",
       "maker": "현대",
       "model": "코나",
-      "sub_model": "디 올 뉴 코나 SX2",
+      "sub_model": "코나 SX2",
       "gen_code": "SX2",
       "origin": "국산",
       "year_start": "2023",
       "year_end": "현재",
-      "title": "현대 디 올 뉴 코나 SX2",
+      "title": "현대 코나 SX2",
+      "aliases": [
+        "디 올 뉴 코나 SX2",
+        "디 올 뉴 코나",
+        "디 올뉴 코나",
+        "디올뉴코나"
+      ],
       "variants": [
         {
           "label": "가솔린 1.6T 2WD",
@@ -16837,8 +16856,7 @@
           "seat": null,
           "battery_kwh": null,
           "trims": [
-            "(세부등급 없음)",
-            "기본형"
+            "(세부등급 없음)"
           ]
         },
         {
@@ -16881,8 +16899,7 @@
       ],
       "trims": [
         "(세부등급 없음)",
-        "런칭",
-        "기본형"
+        "런칭"
       ]
     },
     {

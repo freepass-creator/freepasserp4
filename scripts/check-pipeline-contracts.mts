@@ -29,17 +29,19 @@ assert.deepEqual(mapping.columns.slice(0, 3), ['차량번호', '제조사', '모
 // 차대번호(VIN)는 상품리스트에 안 올린다(사장님 2026-08-22) — @매핑에 남아 있어도 발행기가 세우지 않는다.
 assert.ok(!mapping.columns.includes('차대번호'));
 assert.ok(mapping.retired.includes('차대번호'));
-assert.equal(mapping.aliases.모델[0], '모델명');
+assert.equal(mapping.aliases.모델[0], '모델');
 /**
- * ★공급사 원문 두 칸 — 「2중 보관」(2026-08-23). @매핑에 없으면 **옵션 바로 앞**에 «차명(원문) → 옵션(원문)» 차례로 선다.
+ * ★공급사 원문 두 칸 — 「2중 보관」(2026-08-23). @매핑에 없으면 원산지 바로 앞에 «차명(원문) → 옵션(원문)» 차례로 선다.
  * ⚠ 옛 이름 「차명」은 폐지했다 — `HEADER_ALIASES.차명 = 'model'` 과 겹쳐 왼쪽의 「모델」이 먼저 자리를 잡는 바람에
  *   그 열이 ERP 로 한 번도 못 갔다. 되살리지 마라.
  */
-const optAt = mapping.columns.indexOf('옵션');
-assert.deepEqual(mapping.columns.slice(optAt - 2, optAt), ['차명(원문)', '옵션(원문)']);
+const supplierAt = mapping.columns.indexOf('공급사');
+assert.deepEqual(mapping.columns.slice(supplierAt - 2, supplierAt), ['차명(원문)', '옵션(원문)']);
+assert.ok(!mapping.columns.includes('옵션'));
 assert.ok(!mapping.columns.includes('차명'));
 // `retired` 는 «시트 @매핑에 있었는데 폐지된 것»만 담는다 — 이 붙박이 표엔 「차명」이 없으므로 목록 자체를 본다.
 assert.ok(SALES_RETIRED_COLUMNS.includes('차명'));
+assert.ok(SALES_RETIRED_COLUMNS.includes('옵션'));
 
 /**
  * ★**ERP 세부축은 판매시트가 나른다**(사장님 2026-08-22 「ERP 에는 정제를 쓰는 게 맞고 정제만 잘해 두면 되니까」).
@@ -53,7 +55,7 @@ for (const col of ['세부모델', '세부트림', '차종구분']) {
 // 원문 두 칸은 **공급사 원문 열**을 집는다(정제칸이 아니라) — 정제 조합을 여기 넣으면 2중 보관이 아니라 같은 값 두 번이 된다.
 assert.equal(mapping.aliases['차명(원문)']?.[0], '차명(세부모델+트림)');
 assert.equal(mapping.aliases['옵션(원문)']?.[0], '옵션');
-assert.equal(mapping.aliases['옵션']?.[0], '선택옵션');
+assert.equal(mapping.aliases['옵션'], undefined);
 
 assert.throws(() => parsePublishedSalesMapping([
   ['@매핑', '', ''], ['', '차량번호', '차량번호'], ['', '차량번호', '차번'], ['', '공급사', '공급사'], ['@매핑끝', '', ''],

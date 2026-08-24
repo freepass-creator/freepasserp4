@@ -42,10 +42,9 @@
   - **축을 더하거나 뺄 때는 `lib/domain/sales-axis-registry.ts` 에 «한 줄»을 먼저 적는다.** 거기가 유일한 선언이고, `npm run check:axes` 가 여섯 곳(정제칸·판매시트 열·정렬·ERP 별칭·재고관리 칸·폐지 목록)이 그 선언과 같은지 대조해 **다르면 실패**시킨다. 예전엔 여섯 곳을 손으로 챙겨야 해서 하루에 두 번 빠뜨렸다(정렬이 조용히 가운데로 · ERP 별칭 없어 6,605대 중 0건).
   - 그다음 순서 — ① `SALES_MAPPING`(차례=열 차례) ② `LEFT/RIGHT_COLUMNS` ③ `HEADER_ALIASES` ④ `publish-handover-tab --apply` ⑤ 3탭 재발행 ⑥ ERP 동기. 뺄 때는 줄만 지우지 말고 `SALES_RETIRED_COLUMNS` 에 적어라(안 그러면 맨 뒤로 옮겨 붙는다).
   - 현재 매핑 확인: `npm run sync:contract` — **문서와 다르면 코드가 정답.**
-  - 검사: `npm run check:sync`(축 선언+열 계약+매뉴얼) · `npm run audit:axes`(값이 실제로 ERP 까지 갔나) — 전부 초록이어야 배포.
-- **차종마스터는 이제 참조하지 않는다(2026-08-22).** 정본은 공급사 **정제칸**이다. 재고관리 선택기·매칭근거 UI 제거됨, 유입 스냅이 정제값을 덮지 못하게 막음.
-  아래 잠금 규칙은 «마스터 원장 자체를 손댈 때»만 적용된다 — 상품 이름을 마스터로 다시 맞히는 일은 하지 마라.
-  이름 사전 = `public/data/vehicle-master.json`. 트림행키(mf-) 책 = `data/vehicle-trim-key-registry.json`. 원천대장 「차종마스터」 탭은 **읽기만**. 엔카 원자는 시세 행키(M/SM/T)만. 코드 삭제·재사용·의미 변경 금지. **세부모델 = 모델+개발코드**(`아반떼 CN8` · 페리 `더 뉴 아반떼 CN8`). 잠금 검사: `npx tsx scripts/check-vehicle-master-lock.mts` · `npx tsx scripts/verify-master-pass.mts`. 정본 설명: `lib/domain/vehicle-master-lock.ts`.
+  - 검사: `npm run check:sync`(축 선언+열 계약+매뉴얼) · `npm run audit:axes`(값이 실제로 ERP 까지 갔나) · `npm run audit:passthrough`(**글자가 도중에 안 바뀌나**) — 전부 초록이어야 배포.
+  - ★**옮기는 길에서 값을 «가공»하지 마라**(2026-08-23 사장님 「니가 빼면 안 되고 있는 걸 그대로 갖고 오는 거잖아 · 그렇게 로직을 짜야 해」). 정제칸 원자를 **그대로 나르고**, 붙이는 일(차명 = 세부모델+세부트림)만 ERP·화면에서 한다. 값이 틀렸으면 **정제시트·차종마스터를 고치지, 발행기·유입·표시에 치환을 끼워 넣지 않는다.** 실제로 08-23 오전에 개발코드를 깎다가 정제칸을 덮었다 — 자세한 내력·경계·남은 «바뀜» 3갈래는 **`docs/MEMO-정제칸-원자-그대로-2026-08-23.md`**.
+- **차종마스터·코드 쓰기 = 커서만**(2026-08-23 사장님). json 이름·aliases·mf- 키 의미·「AI 정제」 정본 매핑. 다른 AI(클로드·코덱스·제미나이)는 `snapToMaster`·fill·stamp 로 **가져다 쓰기만**. 맞추는 요령은 AI 운영 매뉴얼 0″장 · `lib/domain/vehicle-master-playbook.ts`. 키를 새로 만들거나 개발코드를 떼거나 라이브 차종마스터 탭에 쓰지 마라. 이슈만 남긴다.
 - **`database.rules.json` 게시는 사람이 실데이터로 검증 후에만.** 로컬 에뮬레이터 통과 ≠ 실데이터 안전(레거시 스냅샷/필드로 정당 write가 막힐 수 있음).
 - **RTDB v3+v4 이중읽기 tolerance**(`.catch(() => [])`)를 throw로 바꾸지 않는다 — 계약·정산 페이지가 통째로 안 열린다.
 - **디자인 토큰 SSOT**(`components/ui/tokens.ts`): 색·폰트·컨트롤 치수 하드코딩 금지. 뱃지 색 = `--bdg-*` CSS 변수.

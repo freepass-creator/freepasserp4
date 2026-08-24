@@ -72,6 +72,8 @@ export type SnapResult = {
   trim_name?: string;
   fuel_type?: string;
   engine_cc?: string;
+  /** 전기·플러그인 kWh. 내연은 비는 게 정상. 트림이 없어도 세부모델에서 하나로 모이면 채운다. */
+  battery_kwh?: string;
   seats?: string;
   drive_type?: string;
   year?: string;

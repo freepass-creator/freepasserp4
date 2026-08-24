@@ -287,12 +287,53 @@ export function masterCells(row: MasterRow | undefined): Record<string, string> 
     '파워트레인': row.powertrain,
     '세부트림': row.trim,
     '배기량(정제)': row.cc,
+    '배터리용량(정제)': row.batteryKwh && Number(row.batteryKwh) > 0
+      ? String(Number(Number(row.batteryKwh).toFixed(2)))
+      : '',
     '연료(정제)': row.fuel,
+    '구동방식': row.driveType,
     /**
      * ★인승 — 정제칸 신설(2026-08-22 · 사장님 「구동 뒤에 인승 넣어줘」).
      *   원장 「인승」 열은 숫자만 남겨 두므로(readMasterSheet `seat`) 그대로 흘린다.
      *   그전까지 인승은 정제칸에 자리가 없어 ERP 스냅만 들고 있었고, 마스터 참조를 끊은 뒤로는 새 차가 못 채워졌다.
      */
     '인승': row.seat,
+  };
+}
+
+/**
+ * 세부모델 제원 — 라이브 코드 책에서 **값이 하나로 모일 때만**.
+ * 트림이 없어도 연료·배기량·배터리·구동은 모이면 채운다. 갈리거나 없으면 빈값.
+ */
+export function uniqueBookSpecs(
+  book: MasterBook,
+  maker: unknown,
+  model: unknown,
+  subModel: unknown,
+  hint?: { fuel?: string },
+): { fuel?: string; engine_cc?: string; battery_kwh?: string; drive_type?: string } {
+  const key = [maker, model, subModel].map((v) => S(v).replace(/\s+/g, ' ').toLowerCase()).join('|');
+  let rows = book.rows.filter((r) => r.usageTier !== 'blocked'
+    && [r.maker, r.model, r.subModel].map((v) => S(v).replace(/\s+/g, ' ').toLowerCase()).join('|') === key);
+  const fuelHint = S(hint?.fuel);
+  if (fuelHint) {
+    const narrowed = rows.filter((r) => S(r.fuel) === fuelHint);
+    if (narrowed.length) rows = narrowed;
+  }
+  if (!rows.length) return {};
+  const one = (vals: string[]) => {
+    const xs = vals.map((v) => S(v));
+    if (!xs.length || xs.some((x) => !x)) return undefined;
+    return new Set(xs).size === 1 ? xs[0] : undefined;
+  };
+  const kwh = (v: unknown) => {
+    const n = Number(String(v ?? '').replace(/[^\d.]/g, ''));
+    return n > 0 ? String(Number(n.toFixed(2))) : '';
+  };
+  return {
+    fuel: one(rows.map((r) => r.fuel)),
+    engine_cc: one(rows.map((r) => r.cc)),
+    battery_kwh: one(rows.map((r) => kwh(r.batteryKwh))),
+    drive_type: one(rows.map((r) => r.driveType)),
   };
 }

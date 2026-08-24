@@ -8,6 +8,9 @@
  *   트림행키(mf-) 책 = `data/vehicle-trim-key-registry.json` (원천대장 「차종마스터」 탭은 **읽기만**)
  *   엔카 원자 시트 = 중고 시세 행키(M/SM/T)만. 정제칸 이름을 쓰지 않는다.
  *
+ * ★쓰기(이름·mf- 의미) = 커서만. 다른 AI는 snap/fill/stamp 로 가져다 쓴다.
+ *   요령 = `lib/domain/vehicle-master-playbook.ts` (운영 매뉴얼 0″장).
+ *
  * 검사: `npx tsx scripts/check-vehicle-master-lock.mts`
  * 스냅 회귀: `npx tsx scripts/verify-master-pass.mts`
  */
@@ -24,12 +27,15 @@ export const VEHICLE_NAME_DICTIONARY = 'public/data/vehicle-master.json';
 export const VEHICLE_CODE_REGISTRY = 'data/vehicle-trim-key-registry.json';
 export const LIVE_VEHICLE_MASTER_SHEET_ID = MASTER_SHEET_ID;
 export const LIVE_VEHICLE_MASTER_TAB = '차종마스터';
+export { VEHICLE_MASTER_OWNER, VEHICLE_MASTER_WRITE_ONLY, VEHICLE_MASTER_READ_API, VEHICLE_MASTER_MATCH_PLAYBOOK } from './vehicle-master-playbook';
 
 /**
  * 세부모델 이름 — 모델이 구분만 되면 된다. 기존 그 모델 줄을 보고 따른다.
  * 풀체인지 첫 줄 = `{모델} {코드}` (아반떼 CN8, 아반떼 CN7, 팰리세이드 LX3).
  * 같은 코드 부분변경 = `더 뉴 {모델} {코드}` (더 뉴 아반떼 CN7).
  * `디 올 뉴`/`올 뉴`/`The all new` 는 aliases. 세부모델에 박으면 다음 페리가 `더 뉴 디 올 뉴 …`가 된다.
+ * ⚠ 개발코드(DL3·MX5·GN7·CN8)는 **화면 세부모델에서 떼지 않는다.**
+ *   08-23 AI가 「손님이 읽기 어렵다」로 `K5 DL3`→`K5` 를 만들어 세대를 못 가렸다.
  */
 export const SUBMODEL_NAME_RULE = 'model+gen_code';
 
@@ -93,7 +99,7 @@ export function latinBrandNeedles(phrase: string): string[] {
 /** fill 이 우리 차종마스터에서 박는 칸. stamp(엔카)가 쓰면 A6가 e-트론이 된다. */
 export const FILL_OWNED_COLUMNS = [
   '제조사(정제)', '모델', '세부모델', '세부트림',
-  '배기량(정제)', '연료(정제)', '구동방식',
+  '배기량(정제)', '배터리용량(정제)', '연료(정제)', '구동방식',
   '차종분류', '차종분류코드', '차명(정제)', '원산지',
   '차종코드', '연식',
 ] as const;

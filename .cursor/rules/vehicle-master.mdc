@@ -1,16 +1,15 @@
 ---
-description: 차종마스터 이름 사전·mf- 코드 잠금. 다른 AI가 만져도 엔카로 이름을 덮거나 라이브 탭에 쓰지 못하게.
+description: 차종마스터·mf- 코드는 커서가 쓴다. 다른 AI는 요령대로 가져다 쓰기만.
 alwaysApply: true
 ---
 
 # 차종마스터·코드
 
-- 이름 사전: `public/data/vehicle-master.json` (규격채택). 엔카 원자 시트는 시세 행키(M/SM/T)만.
-- 트림행키 책: `data/vehicle-trim-key-registry.json`. 원천대장 「차종마스터」 탭은 **읽기만**.
+- **쓰기 = 커서만.** json 이름·aliases, `vehicle-trim-key-registry.json` 의 mf- 의미, 「AI 정제」 정본 매핑, 새 키 발급. 코덱스·클로드·제미나이는 **고치지 말고 이슈만** 남긴다.
+- **가져다 쓰기 = 어떤 AI든.** `snapToMaster` · `fill-supplier-ai-columns` · `stamp-encar-codes-on-supplier`(M/SM/T만). 요령 정본: `lib/domain/vehicle-master-playbook.ts` · 운영 매뉴얼 0″장.
+- 이름 사전: `public/data/vehicle-master.json`. 엔카 원자 시트는 시세 행키만. 원천대장 「차종마스터」 탭은 **읽기만**.
 - 코드(`mf-…::vNN::tNN`)는 영구. 삭제·재사용·의미 변경 금지.
-- 신규 차종 → json에 먼저 넣는다 → `fill-supplier-ai-columns --include-mirror` 가 정제칸에 박는다. 없으면 빈칸.
-- `stamp-encar-codes-on-supplier` 는 행키만. `put(..., '모델')` 금지 — `assertStampColumnAllowed` 가 막는다.
-- 공급사 정보는 차량번호 왼쪽(제조사·차종·차명). 배기량 칸으로 차명을 뒤집지 않음.
-- 작업 후: `npx tsx scripts/check-vehicle-master-lock.mts` 그리고 `npx tsx scripts/verify-master-pass.mts`.
-- 차종분류는 **한 칸**(준대형 세단) + 코드 `vc-15` (`lib/domain/vehicle-class-catalog.ts`). 판매시트는 크기+구분을 붙이지 않고 이 조합값을 싣는다. 차명(정제)=모델+세부모델+세부트림.
-- 제조사 공식 라틴 고유명은 한글화하지 않는다: **H-PICK**, 기아 **X Line**, 현대 **N Line**, **GT Line**. 아반떼 N·아이오닉5 N 의 **N** 은 고성능 라인(트림 N Line 과 합치지 않음). 등급어(Premium→프리미엄)만 한글.
+- 세부모델 = **모델+개발코드** (`K5 DL3` · `싼타페 MX5`). `디 올 뉴`는 aliases만. 개발코드를 손님용이라고 떼지 마라. fill은 그런 「AI 정제」 줄을 무시한다.
+- 모르면 빈칸. 비슷한 차로 안 붙임. 인승·cc 지어내지 않음. 트림 후보 여럿이면 차종코드 안 박음.
+- 라틴 고유명: **H-PICK** · **N Line** · **X Line** · **GT Line**. N ≠ N Line. 등급어만 한글.
+- 작업 후: `npx tsx scripts/check-vehicle-master-lock.mts` · `npx tsx scripts/verify-master-pass.mts`.

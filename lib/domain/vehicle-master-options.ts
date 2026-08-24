@@ -59,3 +59,24 @@ export function isNoTrimLabel(value: unknown): boolean {
 export function realMasterTrims(list: string[] | null | undefined): string[] {
   return (list || []).filter((trim) => !isNoTrimLabel(trim));
 }
+
+const S = (v: unknown) => String(v ?? '').trim();
+
+/** G80 RG3 계열인가 — 사장님 2026-08-23 「기본등급 · 세부트림 없음 · Black만 예외」 */
+export function isG80Rg3Line(maker: string, model: string, subModel: string): boolean {
+  return S(maker) === '제네시스' && S(model) === 'G80' && /RG3/i.test(S(subModel));
+}
+
+/** 스냅·정제칸에 쓸 트림 풀 — G80 RG3는 Black만 남긴다. */
+export function salesTrimPool(maker: string, model: string, subModel: string, pool: string[] | null | undefined): string[] {
+  const src = realMasterTrims(pool);
+  return isG80Rg3Line(maker, model, subModel) ? src.filter((t) => t === 'Black') : src;
+}
+
+/** 판매시트·정제칸에 나갈 세부트림 — G80 RG3는 Black만, 나머지는 빈칸. */
+export function canonSalesTrim(maker: string, model: string, subModel: string, trim: string): string {
+  const t = S(trim);
+  if (isNoTrimLabel(t)) return '';
+  if (isG80Rg3Line(maker, model, subModel) && t !== 'Black') return '';
+  return t;
+}

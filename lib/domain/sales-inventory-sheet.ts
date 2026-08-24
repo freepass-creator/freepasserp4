@@ -333,7 +333,6 @@ export function importSalesInventoryWorkbook(input: {
       compactPriceCells: true,
       preserveCanonicalContractStatus: true,
       depositRule: 'months_per_year',
-      photoByPlate: input.sonogong.photoByPlate,
     });
     for (const product of result.products) {
       product._sheet_price_scope = 'sales_all_periods';
@@ -380,8 +379,6 @@ export function importSalesInventoryWorkbook(input: {
       plateAllocator: allocator,
       pendingOccurrence,
       depositRule: 'rent_multiple',
-      mainPhotos: input.autoplusMain.photoByPlate,
-      promoPhotos: input.autoplusPromo?.photoByPlate,
       mainGid: input.autoplusMain.gid,
       promoGid: input.autoplusPromo?.gid,
       mainTabTitle: input.autoplusMain.title,

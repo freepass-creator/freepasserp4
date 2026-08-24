@@ -91,6 +91,7 @@ const POLICY_VIEW: { label: string; key?: string; from?: (pol: Rec) => string }[
  */
 const PRODUCT_VIEW: { label: string; key: string }[] = [
   { label: '배기량', key: 'engine_cc' },
+  { label: '배터리용량', key: 'battery_capacity' },
   { label: '차급', key: 'vehicle_class' },
   { label: '최초등록', key: 'first_registration_date' },
   { label: '출고지', key: 'location' },

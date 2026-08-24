@@ -16,6 +16,7 @@ import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { snapColorOrEtc } from '../lib/domain/color-master';
 import { loadColorMasterAliases } from '../lib/domain/color-master-sheet';
+import { substFromAiRefineRows } from '../lib/domain/ai-refine-guard';
 import { SHEET_NAME_MATCH, isOurNonInventoryTab, supplierSheetLabel } from '../lib/domain/supplier-template-sheet';
 
 type Rec = Record<string, any>;
@@ -42,8 +43,9 @@ const SH = 'https://sheets.googleapis.com/v4/spreadsheets';
 // 치환 사전(발행기·fill 과 같은 것)
 const SUBST = new Map<string, string>();
 try {
-  const v = await call(`${SH}/${SALES_SHEET}/values/${encodeURIComponent("'AI 정제'!A1:C2000")}`) as { values?: string[][] };
-  for (const r of ((v.values || []) as string[][])) { const kind = S(r[0]), from = S(r[1]), to = S(r[2]); if (!kind.startsWith('@') || kind === '@설명' || !from || !to) continue; SUBST.set(`${kind.slice(1)}|${from}`, to); }
+  const v = await call(`${SH}/${SALES_SHEET}/values/${encodeURIComponent("'AI 정제'!A1:C4000")}`) as { values?: string[][] };
+  const subst = substFromAiRefineRows((v.values || []) as string[][]);
+  for (const [k, val] of subst.map) SUBST.set(k, val);
 } catch { /* 없으면 치환 없이 */ }
 const clean = (col: string, val: string) => SUBST.get(`${col}|${S(val)}`) ?? S(val);
 try { await loadColorMasterAliases(call as (u: string) => Promise<Record<string, unknown>>); } catch { /* 코드 별칭만 */ }

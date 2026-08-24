@@ -32,6 +32,7 @@ import { JWT } from 'google-auth-library';
 import { buildCatalog } from '../lib/domain/vehicle-catalog';
 import { SHEET_NAME_MATCH, isOurNonInventoryTab } from '../lib/domain/supplier-template-sheet';
 import { SALES_SHEET_ID, MASTER_SHEET_ID } from '../lib/domain/legacy-sheets';
+import { substFromAiRefineRows } from '../lib/domain/ai-refine-guard';
 
 /** 사람이 손으로 차종을 더하는 자리. 숨은 탭이다 — 영업자 표를 어지럽히지 않는다. */
 const CATALOG_TAB = '차종사전';
@@ -64,12 +65,9 @@ const SH = 'https://sheets.googleapis.com/v4/spreadsheets';
 const SUBST = new Map<string, string>();
 try {
   const v = await api(`${SH}/${SALES_SHEET_ID}/values/${encodeURIComponent("'AI 정제'!A1:C4000")}`) as { values?: string[][] };
-  for (const r of ((v.values || []) as string[][])) {
-    const kind = S(r[0]), from = S(r[1]), to = S(r[2]);
-    if (!kind.startsWith('@') || kind === '@설명' || !from || !to) continue;
-    SUBST.set(`${kind.slice(1)}|${from}`, to);
-  }
-  console.log(`  치환 사전 「AI 정제」 ${SUBST.size}줄`);
+  const subst = substFromAiRefineRows((v.values || []) as string[][]);
+  for (const [k, val] of subst.map) SUBST.set(k, val);
+  console.log(`  치환 사전 「AI 정제」 ${SUBST.size}줄${subst.skipped ? ` · 개발코드 떨기 ${subst.skipped}줄 무시` : ''}`);
 } catch (e) {
   console.log(`  ⚠ 「AI 정제」를 못 읽어 치환 없이 돈다 — ${String((e as Error).message).slice(0, 60)}`);
 }
@@ -81,15 +79,21 @@ const mrows = ((mv.values || []) as string[][]).map((r) => (r || []).map(S));
 const mhead = mrows[0] || [];
 const [cMaker, cModel, cSub, cTrim] = ['제조사', '모델', '세부모델', '세부트림'].map((n) => mhead.indexOf(n));
 if (cMaker < 0 || cModel < 0) throw new Error('차종마스터에 「제조사」·「모델」 열이 없다 — 열 이름이 바뀌었는지 보라');
+/**
+ * ★**마스터 글자를 그대로 담는다 — 여기서 빼거나 바꾸지 않는다.**
+ *   (사장님 2026-08-23 「니가 빼면 안 되고 있는 걸 그대로 갖고 오는 거잖아 · 그렇게 로직을 짜야 해」)
+ * ⚠ 2026-08-23 오전에 「AI 정제」 치환을 태웠다가 되돌렸다. 개발코드(MX5·GN7)를 떼려던 것인데,
+ *   그러면 드롭다운 이름과 마스터·정제칸이 갈린다. 이름이 잘못돼 보이면 **마스터 시트를 고친다.**
+ */
 const rows: { maker: string; model: string; sub_model: string; trim_name: string }[] = [];
 for (const r of mrows.slice(1)) {
-  const maker = clean('제조사', S(r[cMaker]));
+  const maker = S(r[cMaker]);
   if (!maker || !S(r[cModel])) continue;
   rows.push({
     maker,
-    model: clean('모델', S(r[cModel])),
-    sub_model: cSub >= 0 ? clean('세부모델', S(r[cSub])) : '',
-    trim_name: cTrim >= 0 ? clean('세부트림', S(r[cTrim])) : '',
+    model: S(r[cModel]),
+    sub_model: cSub >= 0 ? S(r[cSub]) : '',
+    trim_name: cTrim >= 0 ? S(r[cTrim]) : '',
   });
 }
 console.log(`  차종마스터 ${rows.length}줄`);

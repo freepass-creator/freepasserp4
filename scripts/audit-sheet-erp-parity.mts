@@ -77,7 +77,7 @@ const coreFields: Array<[string, keyof EntityRecord]> = [
   ['구동', 'drive_type'],
   ['원산지', 'origin'],
   ['용도', 'usage'],
-  ['옵션', 'options'],
+  ['옵션(원문)', 'options'],
   ['사진', 'photo_link'],
   ['위치', 'location'],
   ['정책코드', 'policy_code'],

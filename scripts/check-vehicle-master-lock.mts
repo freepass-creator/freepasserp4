@@ -7,9 +7,11 @@
  *   npx tsx scripts/check-vehicle-master-lock.mts
  */
 import { readFileSync } from 'node:fs';
-import { FILL_OWNED_COLUMNS, VEHICLE_CODE_REGISTRY, VEHICLE_NAME_DICTIONARY } from '../lib/domain/vehicle-master-lock';
+import { FILL_OWNED_COLUMNS, VEHICLE_CODE_REGISTRY, VEHICLE_NAME_DICTIONARY, VEHICLE_MASTER_OWNER } from '../lib/domain/vehicle-master-lock';
 import { classifyVehicleClass, composeRefinedVehicleName } from '../lib/domain/vehicle-class';
 import { vehicleClassCodeFromLabel } from '../lib/domain/vehicle-class-catalog';
+import { stripModelCode } from '../lib/domain/submodel-code';
+import { isForbiddenSubmodelStrip } from '../lib/domain/ai-refine-guard';
 
 const stamp = readFileSync('scripts/stamp-encar-codes-on-supplier.mts', 'utf8');
 const fill = readFileSync('scripts/fill-supplier-ai-columns.mts', 'utf8');
@@ -50,6 +52,18 @@ check('차명 조합', composeRefinedVehicleName('아반떼', '아반떼 CN8', '
   check('싼타페 MX5 정본', mx5?.sub_model === '싼타페 MX5', mx5 ? `세부모델 「${mx5.sub_model}」` : 'MX5 행 없음');
   check('디올뉴를 MX5 세부모델에 안 씀', !/디\s*올\s*뉴/.test(String(mx5?.sub_model || '')), mx5 ? 'aliases만' : 'MX5 없음');
   check('싼타페 MX5 별칭', !!mx5?.aliases?.includes('디 올 뉴 싼타페 MX5') && !!mx5?.aliases?.includes('디 올뉴 싼타페'), mx5 ? `aliases ${(mx5.aliases || []).length}` : '없음');
+  const k5dl3 = entries.find((x) => x.model === 'K5' && x.sub_model === 'K5 DL3');
+  check('K5 DL3 정본', k5dl3?.sub_model === 'K5 DL3' && k5dl3?.gen_code === 'DL3', k5dl3 ? `세부모델 「${k5dl3.sub_model}」` : '없음');
+  const niroSg2 = entries.find((x) => x.model === '니로' && String(x.gen_code || '') === 'SG2' && x.sub_model === '니로 SG2') as { sub_model?: string; aliases?: string[] } | undefined;
+  check('니로 SG2 정본', niroSg2?.sub_model === '니로 SG2', niroSg2 ? 'aliases만 디올뉴' : '없음');
+  check('디올뉴를 니로 SG2 세부모델에 안 씀', !/디\s*올\s*뉴/.test(String(niroSg2?.sub_model || '')), 'aliases만');
+  const konaSx2 = entries.find((x) => x.model === '코나' && String(x.gen_code || '') === 'SX2') as { sub_model?: string; aliases?: string[] } | undefined;
+  check('코나 SX2 정본', konaSx2?.sub_model === '코나 SX2', konaSx2 ? `세부모델 「${konaSx2.sub_model}」` : '없음');
+  check('디올뉴를 코나 SX2 세부모델에 안 씀', !/디\s*올\s*뉴/.test(String(konaSx2?.sub_model || '')), 'aliases만');
+  const seltosSp3 = entries.find((x) => x.model === '셀토스' && String(x.gen_code || '') === 'SP3') as { sub_model?: string; aliases?: string[] } | undefined;
+  check('셀토스 SP3 정본', seltosSp3?.sub_model === '셀토스 SP3', seltosSp3 ? `세부모델 「${seltosSp3.sub_model}」` : '없음');
+  const adSub = entries.filter((x) => /디\s*올\s*뉴/.test(String(x.sub_model || '')));
+  check('세부모델에 디올뉴 없음', adSub.length === 0, adSub.length ? adSub.map((x) => x.sub_model).slice(0, 6).join(', ') : 'aliases만');
   const casperEv = entries.find((x) => x.model === '캐스퍼' && /일렉트릭|AX1e/i.test(String(x.sub_model || '') + String(x.gen_code || '')));
   check('캐스퍼 EV 정본', casperEv?.sub_model === '캐스퍼 일렉트릭 AX1e' && casperEv?.gen_code === 'AX1e', casperEv ? `세부모델 「${casperEv.sub_model}」 ${casperEv.gen_code}` : 'AX1e 행 없음');
   const stariaEvName = entries.filter((x) => x.model === '스타리아' && /일렉트릭/.test(String(x.sub_model || '')));
@@ -89,6 +103,24 @@ check('차명 조합', composeRefinedVehicleName('아반떼', '아반떼 CN8', '
   }
   check('국산 트림 라틴 정본', leftover.length === 0, leftover.length ? leftover.slice(0, 6).join(', ') : 'N라인·X라인·H-픽 없음');
   check('N ≠ N Line', hasN && hasNLine, hasN && hasNLine ? '고성능 N 과 트림 N Line 분리' : `N=${hasN} N Line=${hasNLine}`);
+}
+
+{
+  check('K5 DL3 코드를 안 뗌', stripModelCode('K5 DL3', 'K5', '기아') === 'K5 DL3', stripModelCode('K5 DL3', 'K5', '기아'));
+  check('그랜저 GN7 코드를 안 뗌', stripModelCode('그랜저 GN7', '그랜저', '현대') === '그랜저 GN7', stripModelCode('그랜저 GN7', '그랜저', '현대'));
+  check('싼타페 MX5 코드를 안 뗌', stripModelCode('싼타페 MX5', '싼타페', '현대') === '싼타페 MX5', stripModelCode('싼타페 MX5', '싼타페', '현대'));
+  const stripTool = readFileSync('scripts/add-submodel-code-strip-rules.mts', 'utf8');
+  const erpStrip = readFileSync('scripts/normalize-erp-submodel-codes.mts', 'utf8');
+  check('코드떨기 도구 폐기', stripTool.includes('거부') && stripTool.includes('process.exit(1)'), 'add-submodel-code-strip-rules');
+  check('ERP 코드떨기 폐기', erpStrip.includes('거부') && erpStrip.includes('process.exit(1)'), 'normalize-erp-submodel-codes');
+  check('fill이 코드를 안 깎음', !fill.includes('stripModelCode') && !fill.includes('wouldStripModelCode'), 'fill 은 「AI 정제」 사전만');
+  check('차종마스터 쓰기 담당', VEHICLE_MASTER_OWNER === '커서' && lock.includes('VEHICLE_MASTER_OWNER'), `담당 ${VEHICLE_MASTER_OWNER}`);
+  const manual = readFileSync('lib/domain/ai-operating-manual.ts', 'utf8');
+  check('매뉴얼 0″ 요령', manual.includes('VEHICLE_MASTER_MATCH_PLAYBOOK') && manual.includes('0″'), 'vehicle-master-playbook → AI 운영 매뉴얼');
+  check('fill이 코드떨기 사전을 막음', fill.includes('substFromAiRefineRows'), 'ai-refine-guard');
+  check('발행기가 코드떨기 사전을 막음', pub.includes('substFromAiRefineRows'), 'publish-origin-tab');
+  check('K5 DL3→K5 매핑 거부', isForbiddenSubmodelStrip('K5 DL3', 'K5'), 'ai-refine-guard');
+  check('디올뉴 MX5→싼타페 MX5 는 허용', !isForbiddenSubmodelStrip('디 올 뉴 싼타페 MX5', '싼타페 MX5'), '광고 접두만 별칭');
 }
 
 for (const col of FILL_OWNED_COLUMNS) {
