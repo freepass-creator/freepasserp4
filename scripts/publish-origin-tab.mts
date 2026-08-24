@@ -37,6 +37,7 @@ import { mileageCompact, pickPolicy, policyCell, readPolicyTab, type PolicyBook 
 import { POLICY_TAB_ALIASES } from '../lib/domain/supplier-template-sheet';
 import { classifyVehicleClass, composeRefinedVehicleName } from '../lib/domain/vehicle-class';
 import { vehicleClassDisplay } from '../lib/domain/vehicle-class-catalog';
+import { substFromAiRefineRows } from '../lib/domain/ai-refine-guard';
 /** 정책 탭 값 — 「운영정책」 먼저, 없으면 옛 「정책」(사장님 2026-08-19 탭 개명 · 아직 안 바꾼 시트 호환). */
 /**
  * 정책 탭을 읽는다. 이름이 「운영정책」·「정책」이 아닐 수 있다 —
@@ -213,13 +214,10 @@ for (const p of Object.values<Rec>(partners)) {
  */
 const SUBST = new Map<string, string>();
 try {
-  const v = await api(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}/values/${encodeURIComponent("'AI 정제'!A1:D2000")}`) as { values?: string[][] };
-  for (const r of ((v.values || []) as string[][])) {
-    const kind = S(r[0]), from = S(r[1]), to = S(r[2]);
-    if (!kind.startsWith('@') || kind === '@설명' || !from || !to) continue;
-    SUBST.set(`${kind.slice(1)}|${from}`, to);
-  }
-  console.log(`  치환 사전 「AI 정제」 ${SUBST.size}줄\n`);
+  const v = await api(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}/values/${encodeURIComponent("'AI 정제'!A1:D4000")}`) as { values?: string[][] };
+  const subst = substFromAiRefineRows((v.values || []) as string[][]);
+  for (const [k, val] of subst.map) SUBST.set(k, val);
+  console.log(`  치환 사전 「AI 정제」 ${SUBST.size}줄${subst.skipped ? ` · 개발코드 떨기 ${subst.skipped}줄 무시` : ''}\n`);
 } catch (e) { console.log(`  ⚠ 「AI 정제」를 못 읽어 치환 없이 돈다 — ${String((e as Error).message).slice(0, 60)}\n`); }
 /** 열 이름 그대로 사전을 찾는다 — 외장/내장/제조사/모델/차명. */
 const clean = (col: string, val: string) => {
@@ -465,6 +463,18 @@ for (const [code, p] of [...byCode].sort()) {
      */
     const pickAll = (name: string) => (ALIAS[name] || []).map((c) => hdr.indexOf(c)).filter((i) => i >= 0);
     const idx = new Map(COLUMNS.map((c) => [c, pickAll(c)]));
+    /**
+     * ★**규격 밖 요금 열** — 「그 밖 요금」 한 칸에 모아 ERP 로 나른다
+     *   (사장님 2026-08-23 「ERP 에는 다 반영할 수 있고 기존 시트에는 우리 규격만」).
+     *   공급사가 「72개월」·「18개월2만」처럼 우리 열에 없는 기간을 쓰면 그 요금이 통째로 버려졌다.
+     *   여기서 **판매시트 열·별칭 어디에도 안 잡힌 요금 헤더**를 골라 둔다.
+     */
+    const claimed = new Set<number>();
+    for (const list of idx.values()) for (const i of list) claimed.add(i);
+    const FEE_HEADER = /^(\d+)개월(?:[1-9]\d*만|[（(]?(?:인수형|반납형)[)）]?)?$/;
+    const extraFeeAt = hdr
+      .map((h, i) => ({ name: S(h).replace(/\s+/g, ''), i }))
+      .filter(({ name, i }) => name && !claimed.has(i) && FEE_HEADER.test(name));
     const first = (c: string) => (idx.get(c) || [])[0] ?? -1;
     if (first('차량번호') < 0) continue;
     for (const r of t.table.slice(1)) {
@@ -482,10 +492,9 @@ for (const [code, p] of [...byCode].sort()) {
       if (seenPlate.has(key)) { dupes++; continue; }
       seenPlate.add(key);
 
-      // 중복 판정은 위에서 끝냈다(차번 없으면 VIN 으로).
-      // 그 탭에서 뽑힌 사진 링크가 있으면 담아 둔다(맨 마지막에 셀에 건다).
-      const photo = S((t as Rec).photoByPlate?.[plate] || (t as Rec).photoByPlate?.[S(r[first('차량번호')])]);
-      if (photo.startsWith('http')) photoOf.set(plate, photo);
+      // 사진은 번호판·폴더·OCR 증거를 승인한 별도 복구 경로에서만 넣는다.
+      // 원본 행의 URL을 여기서 그대로 재발행하면 외부 정제시트의 사진 오매칭이
+      // 중앙 판매시트와 ERP까지 다시 전파된다.
       /** 후보를 차례로 보고 **값이 든 첫 칸**을 쓴다. 정제칸이 비면 공급사 원문으로 떨어진다. */
       const cell = (c: string) => { for (const i of idx.get(c) || []) { const v = S(r[i]); if (v) return v; } return ''; };
       /**
@@ -507,6 +516,19 @@ for (const [code, p] of [...byCode].sort()) {
       fromOurs.set(plate, ours);
       rows.push(COLUMNS.map((c) => {
         if (c === '공급사') return who;
+        /**
+         * 「그 밖 요금」 = 규격 밖 기간의 요금을 `이름:값|이름:값` 로 모은다. 값이 없으면 빈칸.
+         * ⚠ 사람이 읽는 칸이 아니다 — `sheet-import` 가 풀어서 `price` 에 담는다.
+         */
+        if (c === '그 밖 요금') {
+          const parts: string[] = [];
+          for (const { name, i } of extraFeeAt) {
+            const raw = S(r[i]).replace(/[^\d]/g, '');
+            const n = Number(raw);
+            if (n > 0) parts.push(`${name}:${n}`);
+          }
+          return parts.join('|');
+        }
         if (c === '입고일자') return '';          // 원본도 비어 있다. 자리만 지킨다.
         /**
          * ★구분은 **세 가지로만** 선다 — 신차렌트·중고렌트·중고구독(사장님 2026-08-14).
@@ -775,36 +797,17 @@ await api(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}/values/${encod
       conditionalFormatCount: ((me.conditionalFormats || []) as unknown[]).length,
       widths: columnWidths(COLUMNS, rows),
       tabTitle: title,
+      // 차량번호 셀에 사진 링크를 거는 데 쓴다(서식층 맨 끝).
+      body: rows,
     }) }),
   });
 }
-/**
- * ★차량번호 셀에 사진링크를 건다.
- * ⚠ **맨 마지막에** 넣는다 — 뒤에 `repeatCell` 이 한 번이라도 오면 링크가 통째로 지워진다.
- * ⚠ 글자 서식(run)이 칸 서식을 덮으므로 링크 색·밑줄을 여기에도 준다.
- */
+// 차량번호 셀의 사진 링크는 서식층(`buildSalesFormatRequests` 맨 끝)이 세 탭에 똑같이 건다.
+// ⚠ 여기서 따로 걸지 마라 — 여기 있던 코드는 「사진」 칸이 아니라 «원본 차번 셀 링크»만 봐서
+//    갈래 탭은 되고 상품리스트만 0대로 남았다(사장님 2026-08-24 「사진링크를 좀 동일하게 처리해줘야지」).
 {
-  const rgbLink = rgb(LINK);
-  const pi = COLUMNS.indexOf('차량번호');
-  const linked = rows
-    .map((r, k) => ({ row: k + 1, plate: S(r[pi]), url: photoOf.get(norm(r[pi])) || '' }))
-    .filter((x) => pi >= 0 && x.plate && x.url.startsWith('http'));
-  for (let k = 0; k < linked.length; k += 200) {
-    await api(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}:batchUpdate`, {
-      method: 'POST',
-      body: JSON.stringify({ requests: linked.slice(k, k + 200).map((x) => ({
-        updateCells: {
-          range: { sheetId: gid, startRowIndex: x.row, endRowIndex: x.row + 1, startColumnIndex: pi, endColumnIndex: pi + 1 },
-          rows: [{ values: [{
-            userEnteredValue: { stringValue: x.plate },
-            // ⚠ 글꼴을 여기 손으로 적지 마라 — 서식 모듈만 바꾸면 이 칸만 옛 글꼴로 남는다(실측 2026-08-14).
-            textFormatRuns: [{ startIndex: 0, format: { link: { uri: x.url }, foregroundColor: rgbLink, underline: true, italic: ITALIC, fontFamily: FONT, fontSize: SIZE } }],
-          }] }],
-          fields: 'userEnteredValue,textFormatRuns',
-        },
-      })) }),
-    });
-  }
-  console.log(`  차량번호에 사진링크 ${linked.length}대 · 링크 없는 차 ${rows.length - linked.length}대는 글자만`);
+  const pi = COLUMNS.indexOf('사진');
+  const linked = pi < 0 ? 0 : rows.filter((r) => S(r[pi]).startsWith('http')).length;
+  console.log(`  차량번호에 사진링크 ${linked}대 · 링크 없는 차 ${rows.length - linked}대는 글자만`);
 }
 console.log(`\n  반영 완료 — 탭 「${title}」\n  https://docs.google.com/spreadsheets/d/${SHEET}/edit#gid=${gid}\n`);

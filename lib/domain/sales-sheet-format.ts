@@ -76,7 +76,8 @@ export const LEFT_COLUMNS = ['제조사', '모델', '세부모델', '세부트�
  * ⚠ 「무한/30」·「400/50~100」 같은 보험 칸은 숫자가 아니라 **글**이다 — 가운데로 둔다.
  */
 export const RIGHT_COLUMNS = [
-  'Km', '주행거리', '배기량', '소비자가격', '차량가격',
+  // 배터리용량 = kWh 숫자 — 배기량과 같은 갈래라 같이 오른쪽 정렬(2026-08-23).
+  'Km', '주행거리', '배기량', '배터리용량', '소비자가격', '차량가격',
   '단기보증', '장기보증', '보증금',
   '1개월', '6개월', '12개월', '24개월', '36개월', '48개월', '60개월',
   '보증금 반납형', '12개월 반납형', '24개월 반납형', '36개월 반납형', '48개월 반납형', '60개월 반납형',
@@ -85,6 +86,7 @@ export const RIGHT_COLUMNS = [
   '21세', '23세', '21세+', '23세+', '1만+',
   // 인승은 숫자 — 오른쪽(2026-08-22 신설). 「5」·「9」가 세로로 맞아야 승합차를 눈으로 고른다.
   '인승',
+  '배터리용량',
 ];
 
 /** 날짜는 가운데(사장님 2026-08-14). 바탕 서식이 이미 가운데라 «굳혀 두는» 뜻이다. */
@@ -238,6 +240,11 @@ export type FormatInput = {
   tabTitle?: string;
   /** 머리글 메모 추가분(SALES_NOTES 에 없는 칸 — 갈래 탭 원본 요금 칸 등). */
   extraNotes?: Record<string, string>;
+  /**
+   * 찍은 본문 줄(머리행 아래). **차량번호 셀에 사진 링크를 거는 데 쓴다.**
+   * 안 주면 링크를 안 건다 — 값은 그대로다.
+   */
+  body?: string[][];
 };
 
 /**
@@ -420,6 +427,49 @@ export function buildSalesFormatRequests(input: FormatInput): Record<string, unk
   // 표 오른쪽에 남은 빈 열을 잘라 낸다 — 「빈 칸인데 300px」 같은 자리가 생긴다.
   const now = input.columnCountNow || n;
   if (now > n) out.push({ deleteDimension: { range: { sheetId: gid, dimension: 'COLUMNS', startIndex: n, endIndex: now } } });
+
+  /**
+   * ★**차량번호를 누르면 사진 폴더로 간다** — 세 탭이 같은 규칙을 쓴다.
+   *   사장님 2026-08-24 「손오공하고 오플은 들어가 있는데 상품리스트에는 링크가 없다고 사진링크가」.
+   *   사장님이 «사진링크»라고 부르시는 것은 「사진」 칸의 주소 «글자»가 아니라 **차번 셀의 파란 링크**다 —
+   *   원본 오토플러스 시트가 「★★★ 차량번호 클릭 후 차량이미지 다운로드 가능합니다 ★★★」라고
+   *   가르쳐 놓았다. 갈래 탭 발행기만 이 일을 하고 상품리스트 발행기는 안 해서 갈렸다
+   *   (「같은 건데 왜 몇 개만 저러냐」). 그래서 발행기가 아니라 **여기 한 곳**에 둔다.
+   *
+   * ⚠ **판단하지 않는다.** 「사진」 칸에 있는 주소를 그대로 건다. 그 주소가 그 차 것인지는
+   *   **공급사 시트에 넣을 때** 문지기(`photo-link-guard`)가 이미 봤다. 나르는 길에서 또 고르면
+   *   빠지는 차가 생긴다(「니가 빼면 안 되고 있는 걸 그대로 갖고 오는 거잖아」).
+   * ⚠ **맨 끝이어야 한다.** 뒤에 `repeatCell` 이 오면 링크가 통째로 지워진다.
+   * ⚠ 사진이 빠진 차는 옛 링크를 걷어낸다 — 안 지우면 지난번 주소가 남아 남의 차로 간다.
+   */
+  const ipl = idx('차량번호');
+  const iph = idx('사진');
+  if (ipl >= 0 && iph >= 0 && input.body) {
+    out.push({ repeatCell: {
+      range: { sheetId: gid, startRowIndex: H + 1, startColumnIndex: ipl, endColumnIndex: ipl + 1 },
+      cell: { userEnteredFormat: { textFormat: {} } },
+      fields: 'userEnteredFormat.textFormat.link',
+    } });
+    input.body.forEach((r, i) => {
+      const uri = String(r[iph] ?? '').trim();
+      const plate = String(r[ipl] ?? '').trim();
+      if (!plate || !/^https?:\/\//i.test(uri)) return;
+      out.push({ updateCells: {
+        range: {
+          sheetId: gid, startRowIndex: H + 1 + i, endRowIndex: H + 2 + i,
+          startColumnIndex: ipl, endColumnIndex: ipl + 1,
+        },
+        rows: [{ values: [{
+          userEnteredValue: { stringValue: plate },
+          textFormatRuns: [{ startIndex: 0, format: {
+            link: { uri }, foregroundColor: rgb(LINK), underline: true,
+            italic: ITALIC, fontFamily: FONT, fontSize: SIZE,
+          } }],
+        }] }],
+        fields: 'userEnteredValue,textFormatRuns',
+      } });
+    });
+  }
 
   return out;
 }

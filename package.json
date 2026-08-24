@@ -47,6 +47,7 @@
     "sync:contract": "tsx scripts/print-sync-contract.mts",
     "check:sync": "tsx scripts/check-sales-axes.mts && tsx scripts/check-pipeline-contracts.mts && tsx scripts/check-manual-drift.mts",
     "check:axes": "tsx scripts/check-sales-axes.mts",
+    "check:photo-link": "tsx --require ./scripts/lib/server-only-shim.cjs scripts/check-plate-photo-link.mts",
     "audit:axes": "tsx scripts/audit-axis-coverage.mts",
     "check:encar-spec-fill": "tsx scripts/check-encar-spec-fill.mts",
     "encar:learn": "tsx scripts/learn-encar.mts",
@@ -63,7 +64,8 @@
     "audit:sales-erp-plan": "tsx --require ./scripts/lib/server-only-shim.cjs scripts/audit-sales-sheet-sync.mts",
     "audit:sales-erp-parity": "tsx --require ./scripts/lib/server-only-shim.cjs scripts/audit-sheet-erp-parity.mts",
     "rollback:sales-erp": "tsx --require ./scripts/lib/server-only-shim.cjs scripts/rollback-sheet-daily-sync-local.mts",
-    "fix:refine-class": "tsx scripts/fix-refine-vehicle-class.mts"
+    "fix:refine-class": "tsx scripts/fix-refine-vehicle-class.mts",
+    "audit:passthrough": "tsx scripts/audit-passthrough.mts"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",

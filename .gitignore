@@ -43,3 +43,6 @@ tmp/
 *-debug.log
 firebase.current-local.json
 scripts/ruleprobe/firebase.current-local.json
+
+# 파이썬 캐시
+__pycache__/
