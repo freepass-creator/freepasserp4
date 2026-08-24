@@ -1,7 +1,7 @@
 'use client';
 import { useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import { type EntityRecord } from '@/lib/intake/entities';
-import { acquisitionPriceList, cheapest, priceList } from '@/lib/domain/product';
+import { cheapest, pricePlanList, type PricePlan } from '@/lib/domain/product';
 import { won, C, R, FW, FS, DetailTable, DT, type DetailTone } from '@/components/ui';
 import { sectionIcon } from '@/components/section-icons';
 
@@ -27,17 +27,24 @@ export function ProductPriceTable({ p, title = '대여료조건', hint, tone }: 
   hint?: ReactNode;
   tone?: DetailTone;
 }) {
-  const prices = priceList(p);
-  const acquisition = acquisitionPriceList(p);
+  const plans = pricePlanList(p);
   const cheap = cheapest(p);
   const pol = (p._policy || {}) as Record<string, unknown>;
   const caption = [pol.basic_driver_age, pol.annual_mileage, pol.insurance_included].filter(Boolean).join(' · ');
   // 선택 키 = `반납:36`·`인수:36`. 갈래가 달라도 «지금 고른 조건»은 하나뿐이다.
   const [pick, setPick] = useState<string | null>(null);
-  const sel = pick ?? (cheap ? `반납:${cheap.m}` : null);
+  const cheapPlan = plans.filter((x) => x.standard).sort((a, b) => a.rent - b.rent)[0] || null;
+  const sel = pick ?? (cheapPlan ? `${cheapPlan.m}:${cheapPlan.condition}` : null);
 
-  const row = (kind: '반납' | '인수', m: number, rent: number, deposit: number, i: number, cheapest_: boolean) => {
-    const key = `${kind}:${m}`;
+  /**
+   * ★**한 줄 = 기간 × 조건 × 대여료 × 보증금**(사장님 2026-08-23 「기간 조건 대여료 보증금 · 조건에
+   *   만 26세 이상, 연간 3만km 약정 이런 식으로 당겨와서 기간별 표시해 주면 어때? 그럼 오플 거도
+   *   무난하게 담고 직관적이고」).
+   *   전에는 표를 셋으로 갈랐다(표준·주행거리별·인수형). 조건을 열로 세우니 갈 이유가 없다 —
+   *   같은 기간에 조건이 둘이면 **두 줄로 서면 그만**이고, 오플의 2만/3만도 저절로 담긴다.
+   */
+  const row = (pr: PricePlan, i: number, cheapest_: boolean) => {
+    const key = `${pr.m}:${pr.condition}`;
     const on = sel === key;
     return (
       <tr
@@ -51,7 +58,7 @@ export function ProductPriceTable({ p, title = '대여료조건', hint, tone }: 
         style={{ ...DT.tr(i), background: on ? C.selected : 'transparent', cursor: 'pointer' }}
       >
         <th scope="row" style={{ ...DT.labelTh, width: undefined, color: on ? C.brand : C.ink, fontWeight: on ? FW.head : undefined }}>
-          {m}개월
+          {pr.m}개월
           {cheapest_ && (
             <span style={{
               marginLeft: 5, fontSize: FS.micro, fontWeight: FW.label, borderRadius: R, padding: '1px 5px',
@@ -59,8 +66,10 @@ export function ProductPriceTable({ p, title = '대여료조건', hint, tone }: 
             }}>최저</span>
           )}
         </th>
-        <td style={{ ...DT.tdR, fontSize: FS.title, fontWeight: on ? FW.head : FW.title, color: C.brand }}>{won(rent)}</td>
-        <td style={DT.tdR}>{deposit > 0 ? won(deposit) : '무보증'}</td>
+        {/* 조건이 없으면 «없다»가 아니라 «안 정해졌다» — 하이픈으로 자리만 지킨다. */}
+        <td style={{ ...DT.td, color: pr.condition ? C.ink : C.faint }}>{pr.condition || '—'}</td>
+        <td style={{ ...DT.tdR, fontSize: FS.title, fontWeight: on ? FW.head : FW.title, color: C.brand }}>{won(pr.rent)}</td>
+        <td style={DT.tdR}>{pr.deposit > 0 ? won(pr.deposit) : '무보증'}</td>
       </tr>
     );
   };
@@ -74,35 +83,24 @@ export function ProductPriceTable({ p, title = '대여료조건', hint, tone }: 
       icon={typeof title === 'string' ? sectionIcon(title) : undefined}
       accent="main"
       tone={tone}
-      span={3}
-      label="기간별 대여료와 보증금"
-      widths={['32%', '34%', '34%']}
+      span={4}
+      label="기간별 조건과 대여료·보증금"
+      widths={['20%', '30%', '26%', '24%']}
       cols={<>
         <th scope="col" style={DT.colTh}>기간</th>
+        <th scope="col" style={DT.colTh}>조건</th>
         <th scope="col" style={colTh}>월대여료</th>
         <th scope="col" style={colTh}>보증금</th>
       </>}
     >
-      {prices.length === 0 ? (
-        <tr><td colSpan={3} style={{ ...DT.td, textAlign: 'center', color: C.faint }}>가격 문의</td></tr>
-      ) : prices.map((pr, i) => row('반납', pr.m, pr.rent, pr.deposit, i, !!cheap && pr.m === cheap.m))}
-
-      {acquisition.length > 0 ? (
-        <>
-          {/* 갈래 줄 — 표를 둘로 쪼개지 않고 여기서 나눈다. */}
-          <tr>
-            <th scope="colgroup" colSpan={3} style={DT.split}>
-              인수형 <span style={{ fontWeight: FW.body, color: C.faint }}>만기에 차를 인수 · 같은 기간의 다른 상품</span>
-            </th>
-          </tr>
-          {acquisition.map((pr, i) => row('인수', pr.m, pr.rent, pr.deposit, i, false))}
-        </>
-      ) : null}
+      {plans.length === 0 ? (
+        <tr><td colSpan={4} style={{ ...DT.td, textAlign: 'center', color: C.faint }}>가격 문의</td></tr>
+      ) : plans.map((pr, i) => row(pr, i, !!cheapPlan && pr.m === cheapPlan.m && pr.condition === cheapPlan.condition))}
 
       {caption ? (
         <tr style={DT.tr(1)}>
           <th scope="row" style={{ ...DT.labelTh, width: undefined }}>기준</th>
-          <td colSpan={2} style={DT.td}>{caption}</td>
+          <td colSpan={3} style={DT.td}>{caption}</td>
         </tr>
       ) : null}
     </DetailTable>

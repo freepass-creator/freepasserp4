@@ -407,6 +407,25 @@ button, input, select, textarea { font-family: inherit; }
   .fp-action-dock__actions > .fp-press[data-variant="solid"] { flex: 1 1 auto; min-width: 104px; }
   .fp-action-dock__actions > .fp-press[data-variant="ghost"] { flex: 0 0 auto; }
 
+  /* ★상단바 좌우 여백은 **CSS 가 정한다**(사장님 2026-08-23 「상품찾기 상단 아이콘 위치가 틀어지는 거 같은데 ·
+     새로고침 하면 괜찮아지고」).
+     전에는 TopBar 가 인라인으로 `padding: mobile ? '0 12px' : '0 14px'` + `paddingLeft: max(14px, var(--fp-col-l))`
+     를 줬는데, 그 `mobile` 은 `useIsMobile()` = **JS 판정**이다. 첫 방문엔 쿠키 `fp_m` 이 없어
+     SSR·하이드레이션이 «데스크톱»으로 잡히고, 그때 웹 격자 좌측 칸(--fp-col-l)만큼 아이콘이 밀린다.
+     새로고침하면 쿠키가 생겨 처음부터 모바일로 그려지니 멀쩡해 보였다 — 그게 증상의 정체다.
+     CSS 미디어쿼리는 JS 와 무관하게 첫 페인트부터 맞으므로 여기로 옮긴다. */
+  .fp-topbar { padding: 0 12px !important; }
+
+  /* ★햄버거 = **박스 없는 맨 아이콘**(사장님 2026-08-22). 잉크 우측 끝을 12px 기준선에 앉히려 -10 당긴다 —
+     터치 영역(36)은 그대로다. 글리프는 검색줄 필터와 같은 16px(ICON.md).
+     ⚠ 인라인 스타일을 이겨야 하므로 !important 다. 인라인은 데스크톱 기준만 적는다(TopBar). */
+  .fp-topbar__menu {
+    border: none !important;
+    background: transparent !important;
+    margin-right: -10px !important;
+  }
+  .fp-topbar__menu svg { width: 16px !important; height: 16px !important; }
+
   /* 상단 상태가 우선 보이고 우측 도구는 필요한 폭만 사용한다. */
   .fp-topbar__main,
   .fp-topbar__status { min-width: 0; }

@@ -103,12 +103,19 @@ function WebRow({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) {
         minWidth: 0,
         alignSelf: 'stretch',
       }}>
-        <Cell>
-          <div style={{ position: 'relative', minWidth: 0, width: '100%' }}>
-            <CardTitle p={p} />
+        {/*
+          ★**뱃지는 이름 바로 뒤**(사장님 2026-08-23 「어떤 건 우측정렬 어떤 건 차종 뒤에 붙고 · 규격 통일 좀」).
+          예전엔 웹만 별도 칸에 우측정렬이라, 같은 뱃지가 모바일에선 이름 옆·웹에선 줄 끝에 섰다.
+          두 줄을 한 칸으로 합쳐 **어느 화면이든 이름 뒤**로 통일한다.
+        */}
+        <Cell full>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, width: '100%' }}>
+            <div style={{ position: 'relative', minWidth: 0, flex: '0 1 auto', overflow: 'hidden' }}>
+              <CardTitle p={p} />
+            </div>
+            <CardRailBadges p={p} />
           </div>
         </Cell>
-        <Cell right><CardRailBadges p={p} /></Cell>
 
         {/* 옵션 = 한 줄 전체. 차명 옆 뱃지 칸까지 내려와 «꽉 채운다»
             (사장님 2026-08-20 「2열은 옵션으로 꽉 채우는 거로」) — 옵션은 길이가 제각각이라
@@ -169,7 +176,7 @@ function MobileRow({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) 
               fontSize: FS.title, fontWeight: FW.title, color: C.ink, lineHeight: 1.2,
               minWidth: 0, flex: '0 1 auto', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             }}>{listName(p)}</div>
-            <CardRailBadges p={p} dense align="start" />
+            <CardRailBadges p={p} dense />
           </div>
 
           {/* 2 차량번호 · 연식 */}

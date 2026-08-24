@@ -5,7 +5,7 @@ import { canonProductType, type Audience } from '@/lib/domain/product';
 import { Badge, FS } from '@/components/ui';
 import { productTypeStyle } from '@/components/ui/badges';
 import {
-  badgeTip, badgeSpecs, type BadgeSpec,
+  badgeTip, badgeSpecs, type BadgeSpec, HEAD_BADGE_KEYS,
 } from '@/components/product-card-badges';
 
 export function CardKind({ p }: { p: EntityRecord }) {
@@ -15,14 +15,24 @@ export function CardKind({ p }: { p: EntityRecord }) {
   return <Badge tone={style.tone} variant={style.variant} title={badgeTip('pt', productType)}>{productType}</Badge>;
 }
 
-export function CardRailBadges({ p, audience = 'agent', dense, align = 'end' }: {
+/**
+ * ★**뱃지는 언제나 «이름 바로 뒤»에 붙는다**(사장님 2026-08-23 「뱃지가 어떤 건 우측정렬 어떤 건 차종 뒤에 붙고 ·
+ *   중구난방인데 규격 통일 좀」).
+ *
+ *   전에는 부르는 쪽마다 자리를 정했다 — 웹 행은 별도 칸에 우측정렬(`align='end'`),
+ *   모바일 행은 차명 옆(`align='start'`). 같은 뱃지가 화면마다 다른 데 서니 눈이 매번 다시 찾는다.
+ *   **기본을 «이름 뒤(start)»로 못 박는다** — 뱃지는 그 차를 설명하는 말이라 이름에 붙어 있어야 한다.
+ *   표(엑셀보기)처럼 «칸이 정해진 자리»만 `align="end"` 를 명시해서 쓴다.
+ */
+export function CardRailBadges({ p, audience = 'agent', dense, align = 'start' }: {
   p: EntityRecord;
   audience?: Audience;
   dense?: boolean;
   align?: 'start' | 'end';
 }) {
-  const order = ['st', 'pt', 'cd'] as const;
-  const byKey = new Map(badgeSpecs(p, false, false, audience).map((spec) => [spec.key, spec]));
+  // 머리 뱃지 차례는 product-card-badges 가 정한다(HEAD_BADGE_KEYS) — 여기서 따로 적으면 또 갈린다.
+  const order = HEAD_BADGE_KEYS;
+  const byKey = new Map(badgeSpecs(p, true, false, audience).map((spec) => [spec.key, spec]));
   const specs = order.map((key) => byKey.get(key)).filter(Boolean) as BadgeSpec[];
   if (!specs.length) return null;
   return (

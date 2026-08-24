@@ -112,8 +112,21 @@ export function badgeSpecs(product: EntityRecord, hideCredit = false, short = fa
   return specs;
 }
 
+/**
+ * ★**머리에 서는 뱃지는 「출고상태 + 상품구분」 둘뿐**
+ *   (사장님 2026-08-23 「무심사/소득확인 이거는 아래 하단에 조건으로 보내자 — 계약조건이니까.
+ *    위에는 출고상태랑 상품구분 뱃지만 두자」).
+ *
+ *   심사(cd = 무심사·소득확인)는 «지금 살 수 있나»가 아니라 «어떤 조건인가»다. 상세 「계약조건」 섹션이 든다.
+ *   그동안 목록 카드·상세 머리·요약줄 **세 곳이 각각** `['st','pt','cd']` 를 적고 있어서
+ *   한 곳만 고치면 나머지가 그대로 남았다(2026-08-23 실측: 상세만 고쳤더니 목록에 그대로 떴다).
+ *   그래서 차례를 여기 한 곳에서 정한다 — 쓰는 쪽은 이 상수를 읽는다.
+ */
+export const HEAD_BADGE_KEYS = ['st', 'pt'] as const;
+
 export function photoMarkSpecs(product: EntityRecord, audience: Audience = 'agent'): BadgeSpec[] {
-  return badgeSpecs(product, false, true, audience).filter((spec) => spec.key === 'st' || spec.key === 'cd');
+  // 사진 위 마크도 같은 규칙 — 심사는 안 올린다.
+  return badgeSpecs(product, true, true, audience).filter((spec) => spec.key === 'st');
 }
 
 /** hideStatus = 차량상태를 다른 곳(작업화면 상단 요약바)이 이미 들고 있을 때. 같은 배지를 두 번 찍지 않는다. */

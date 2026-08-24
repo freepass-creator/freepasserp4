@@ -204,8 +204,12 @@ export function ProductDetail({ p, audience, layout = 'brochure' }: {
           {!work && plateSpecLine(p) && (
             <span style={{ fontSize: FS.sub, color: C.mute, fontVariantNumeric: 'tabular-nums' }}>{plateSpecLine(p)}</span>
           )}
-          {/* work = 차번·상태를 요약바가 이미 들고 있다. 같은 값을 두 번 찍지 않는다. */}
-          {badges(p, false, false, false, aud, { hideStatus: work })}
+          {/* work = 차번·상태를 요약바가 이미 들고 있다. 같은 값을 두 번 찍지 않는다.
+              ★**상단은 「출고상태 + 상품구분」 둘만**(사장님 2026-08-23 「모바일에서 상단에 출고가능 중고렌트 무심사
+                이거를 무심사/소득확인 이거는 아래 하단에 조건으로 보내자 — 계약조건이니까. 위에는 출고상태랑
+                상품구분 뱃지만 두자」). 심사(무심사·소득확인)는 «지금 살 수 있나»가 아니라 «어떤 조건인가»라
+                아래 「계약조건」 섹션이 든다 — 거기 이미 「심사」 줄로 서 있어 그동안 같은 값이 두 번 나갔다. */}
+          {badges(p, false, true, false, aud, { hideStatus: work })}
           <CardBenefits p={p} inline />
           <CardEvents p={p} inline />
           {/* 사진 없음도 매물의 성질이다 — 별도 줄을 잡아먹지 않게 칩으로 붙인다.

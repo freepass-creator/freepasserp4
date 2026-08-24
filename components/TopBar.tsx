@@ -290,12 +290,17 @@ function NavMenu({ mobile, open: openProp, setOpen: setOpenProp }: {
         onClick={() => { haptic.nav(); setOpen((o) => !o); }}
         /* 모바일 = **박스 없는 맨 아이콘**(사장님 2026-08-22 「상단에는 아이콘에 박스가 없이 그냥 아이콘만」— 회색 칩은 하루 만에 회귀).
            글리프는 검색줄 필터 버튼과 같은 ICON.md(「밑에 필터랑 크기가 같던가」). 버튼(36) 안에서 잉크가 10px 안으로 들어가므로
-           marginRight -10 으로 잉크 우측 끝을 12px 기준선에 앉힌다 — 터치 영역은 36 그대로다. */
-        style={mobile
-          ? { border: 'none', background: 'transparent', color: ink, marginRight: -10 }
-          : { background: open ? C.hover : C.taupeBg, color: ink, border: `1px solid ${line}` }}
+           marginRight -10 으로 잉크 우측 끝을 12px 기준선에 앉힌다 — 터치 영역은 36 그대로다.
+
+           ★**모바일 모양은 CSS 가 준다**(사장님 2026-08-23 「상단 아이콘 위치가 틀어지는 거 같은데 · 새로고침 하면 괜찮아지고」).
+             여기 인라인은 **데스크톱 기준**만 적는다. 전에는 `mobile ? … : …` 로 갈랐는데 그 `mobile` 은
+             `useIsMobile()` = JS 판정이라, 쿠키 `fp_m` 이 없는 첫 방문에서 하이드레이션이 «데스크톱»으로 잡히고
+             테두리 있는 박스가 marginRight 없이 그려져 **아이콘이 12px 밀렸다.** 새로고침하면 쿠키가 생겨 멀쩡해 보였다.
+             CSS 미디어쿼리는 첫 페인트부터 맞으므로 `.fp-topbar__menu` 규칙(globals.css)이 모양을 정한다. */
+        className="fp-topbar__menu"
+        style={{ background: open ? C.hover : C.taupeBg, color: ink, border: `1px solid ${line}` }}
       >
-        {open ? <X size={mobile ? ICON.md : ICON.lg} strokeWidth={2.25} /> : <Menu size={mobile ? ICON.md : ICON.lg} strokeWidth={2.25} />}
+        {open ? <X size={ICON.lg} strokeWidth={2.25} /> : <Menu size={ICON.lg} strokeWidth={2.25} />}
       </IconBtn>
       {open && (<>
         {!mobile && <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 74 }} />}
@@ -399,7 +404,7 @@ export default function TopBar() {
           같은 세로선에 서야 한다. 본문이 화면 중앙이 아닐 때(옆에 보조 칼럼) 화면 기준으로는 못 맞춘다.
           변수를 안 쓰는 페이지는 0 → max() 가 기본값 14 를 지킨다. 우측(로그인 정보)은 화면 끝 그대로. */}
       {/* 상단바 = 하단 라인 «하나만» — 그림자 없음. 모바일 좌우 12px = 검색줄·목록과 같은 세로선(사장님 2026-08-22 「좌우 여백·배열」). */}
-      <header className="fp-topbar" style={{ position: 'sticky', top: 0, zIndex: 70, height: 'var(--topbar-h)', display: 'flex', alignItems: 'center', gap: 8, padding: mobile ? '0 12px' : '0 14px', paddingLeft: mobile ? undefined : 'max(14px, var(--fp-col-l, 0px))', background: C.taupeBg, borderBottom: `1px solid ${line}`, boxSizing: 'border-box' }}>
+      <header className="fp-topbar" style={{ position: 'sticky', top: 0, zIndex: 70, height: 'var(--topbar-h)', display: 'flex', alignItems: 'center', gap: 8, padding: '0 14px', paddingLeft: 'max(14px, var(--fp-col-l, 0px))', background: C.taupeBg, borderBottom: `1px solid ${line}`, boxSizing: 'border-box' }}>
         {/* 웹=메뉴 좌측 · 모바일=우측 */}
         {!mobile && <NavMenu mobile={false} open={menuOpen} setOpen={setMenuOpen} />}
         {/* 좌·중앙 = 상태 — 탭하면 이 페이지 새로 온 느낌(스크롤↑·목록·시트닫기) */}

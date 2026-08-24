@@ -154,7 +154,7 @@ export function InventoryFixedPane({ model }: { model: InventoryEditorModel }) {
               추가표기는 실측 0대이고 정제칸에도 없다.
           */}
           {/* 차례·구성은 판매시트와 같다 — 옵션 뒤 참고축(원산지·구동·인승)까지 그대로(2026-08-22). */}
-          {section('차량정보', ['maker', 'model', 'sub_model', 'trim_name', 'ext_color', 'int_color', 'year', 'mileage', 'fuel_type', 'engine_cc', 'vehicle_class', 'origin', 'drive_type', 'seats'], 2,
+          {section('차량정보', ['maker', 'model', 'sub_model', 'trim_name', 'ext_color', 'int_color', 'year', 'mileage', 'fuel_type', 'engine_cc', 'battery_capacity', 'vehicle_class', 'origin', 'drive_type', 'seats'], 2,
             '공급사 정제시트·판매시트와 같은 차례 — 여기 값이 곧 ERP 값이다')}
           {section('선택옵션', ['options'], 1, '구분 = , 또는 /')}
           {/*

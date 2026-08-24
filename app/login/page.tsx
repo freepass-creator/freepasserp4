@@ -298,7 +298,12 @@ const LOGIN_CSS = `
 .fp-login .login-page{align-items:stretch;padding:max(24px,env(safe-area-inset-top)) 0 max(24px,env(safe-area-inset-bottom));gap:20px;}
 .fp-login .login-brand,.fp-login .login-brand span{font-size:22px;text-align:center;}
 .fp-login .login-brand{padding:0 24px;}
-.fp-login .login-card{box-shadow:none;border:0;border-radius:0;padding:0 24px;gap:20px;max-width:none;}
+/* ★모바일 로그인은 **한 면이 흰 바탕**이다(사장님 2026-08-23 「모바일 로그인 화면에 배경하고 로그인 박스랑 좀 다르고」).
+   카드에서 테두리·그림자·모서리를 걷어 전체폭으로 폈는데 **배경만 흰색(--bg-card)으로 남아**,
+   회색 페이지(--bg-page) 위에 경계 없는 흰 띠가 떠 보였다(실측 412px: 페이지 234,237,242 / 카드 255,255,255).
+   카드 배경을 투명으로 두고 **바탕을 흰색으로** 올린다 — 부팅 중 html.fp-pending-m 도 흰색이라 깜빡임도 사라진다. */
+.fp-login,.fp-login .login-page{background:var(--bg-card);}
+.fp-login .login-card{box-shadow:none;border:0;border-radius:0;padding:0 24px;gap:20px;max-width:none;background:transparent;}
 .fp-login .login-field input,.fp-login .login-field select{height:48px;font-size:16px;border-radius:4px;padding:0 16px;}
 .fp-login .login-field label{font-size:13px;}
 .fp-login .login-submit{height:48px;font-size:16px;border-radius:4px;}
