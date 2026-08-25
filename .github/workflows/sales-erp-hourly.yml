@@ -1,0 +1,34 @@
+name: 판매·천이·ERP 시간별 동기
+
+on:
+  schedule:
+    # 평일 KST 09:00~18:00. 원본→정제 점검(매시 08:50~) 뒤에 실행한다.
+    - cron: '0 0-9 * * 1-5'
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: '실제로 반영'
+        type: boolean
+        default: false
+
+concurrency:
+  group: sales-erp-hourly
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: 'npm' }
+      - run: npm ci
+      - name: 자격증명 준비
+        env: { SA: ${{ secrets.GOOGLE_SA_JSON }} }
+        run: |
+          test -n "$SA" || { echo '::error::GOOGLE_SA_JSON 시크릿이 없습니다.'; exit 1; }
+          mkdir -p tmp/firebase-auth
+          printf '%s' "$SA" > tmp/firebase-auth/sa.json
+      - name: 정제완료본 → 판매·천이·ERP
+        run: npx tsx scripts/run-sales-erp-hourly.mts --apply
