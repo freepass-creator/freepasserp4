@@ -76,6 +76,14 @@ export function readPolicyTab(rows: string[][]): PolicyBook {
     const hdr = rows[0].map(S);
     for (const r of rows.slice(1)) {
       if (!policyRowLive(hdr, r)) continue;
+      /**
+       * ★**정책코드와 정책명이 둘 다 비면 정책이 아니다 — 건너뛴다.**
+       *   ⚠ 실측 2026-08-25 렌트존: 보험 칸 몇 개만 남은 «유령 줄»이 있었는데
+       *     코드가 빈 줄이라 키가 `''` 로 같아져 **「프리패스 표준」 줄을 통째로 덮었다.**
+       *     그 줄엔 전용계좌가 없어 판매시트 계좌 칸이 빈 채로 나갔다.
+       *   프리패스 기본 줄은 코드(「(프리패스 기본)」)든 이름(「프리패스 표준」)이든 하나는 적혀 있다.
+       */
+      if (!S(r[codeCol]) && !S(r[nameCol])) continue;
       const code = /프리패스 기본/.test(S(r[codeCol])) ? '' : S(r[codeCol]);
       const m = new Map<string, string>();
       hdr.forEach((h, i) => { if (h && !/^정책코드$|^정책명$|^정책uid$/.test(norm(h).toLowerCase())) { const v = policyCellValue(h, r[i]); if (v) setWithAliases(m, h, v); } });
@@ -176,7 +184,9 @@ function manOnly(v: string): string {
 }
 
 /**
- * 자차 — 「차량가액 / 수리비 20%, 최대 50~100만원」(사장님 2026-08-19). 보상기준 / 자기부담률, 면책 최소~최대(만원).
+ * 자차 — 「차량가액 / **수리비의** 20%, 최대 50~100만원」. 보상기준 / 자기부담률, 면책 최소~최대(만원).
+ * ★사장님 2026-08-25 「자차는 수리비의 00%, 최대 00~000만원이고」 — 「수리비 20%」가 아니라 **「수리비의 20%」**다.
+ *   조사 하나 차이지만 「수리비 20만원」으로 읽히던 것을 「수리비의 20%」로 못 박는다.
  * 자기부담률이 없으면 「차량가액 / 최대 50~100만원」, 최소=최대면 「최대 100만원」.
  */
 export function ownDamageCell(p: Map<string, string>): string {
@@ -185,7 +195,7 @@ export function ownDamageCell(p: Map<string, string>): string {
   const lo = manOnly(S(p.get('자차최소면책금')));
   const hi = manOnly(S(p.get('자차최대면책금')));
   const range = lo && hi && lo !== hi ? `${lo}~${hi}만원` : (lo || hi ? `${lo || hi}만원` : '');
-  const parts = [rate ? `수리비 ${rate}` : '', range ? `최대 ${range}` : ''].filter(Boolean).join(', ');
+  const parts = [rate ? `수리비의 ${rate}` : '', range ? `최대 ${range}` : ''].filter(Boolean).join(', ');
   if (cover && parts) return `${cover} / ${parts}`;
   return cover || parts || '';
 }
