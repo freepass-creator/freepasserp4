@@ -1,7 +1,7 @@
 'use client';
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import {
-  CarFront, MessageCircleMore, FileText, FileSignature, Box, Settings, Star, type LucideIcon,
+  CarFront, MessageCircleMore, FileText, FileSignature, Box, Settings, Star, type LucideIcon, Banknote,
 } from 'lucide-react';
 import type { Role } from '@/lib/domain/deal';
 
@@ -37,6 +37,7 @@ export const NAV_ICON = {
   esign: FileSignature,
   inventory: Box,
   settlement: FileText,
+  ledger: Banknote,
   settings: Settings,
   interest: Star,
 } as const satisfies Record<string, LucideIcon>;
@@ -61,6 +62,13 @@ export const NAV_LABEL = {
   //   저기는 «내 계약이 어디까지 왔나», 여기는 «계약서를 보낸다/손님이 서명했나»(2026-08-08 결정).
   //   2026-08-19 사장님: 메뉴는 관리자 쪽(관리 그룹 맨 위, 파트너사관리 위)으로. 계약진행은 목록+진행상황 화면(원래 /contract).
   esign: '계약서관리',
+  /**
+   * 정산관리(/settlement/ledger) = 계약서를 보낸 «그다음». 계약이 인도되고 청구가 나가는 곳.
+   * ★계약서관리 바로 밑에 둔다(사장님 2026-08-26 「계약서관리 밑에 정산관리 메뉴 만들어 주고
+   *   그 메뉴에서 관리하자」) — 일이 이어지는 차례가 곧 메뉴 차례다.
+   * ⚠ 월별정산(/settlement)과 다르다. 저건 옛 엔티티 위의 관리자 정산서고, 이건 «정산원장»이다.
+   */
+  ledger: '정산관리',
   settlement: '월별정산',
   members: '회원관리',
   partners: '파트너사관리',

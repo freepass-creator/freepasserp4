@@ -31,6 +31,8 @@ const GROUPS: { title: string; items: { href?: string; label: string; icon: Luci
     { href: '/chat', label: NAV_LABEL.chat, icon: NAV_ICON.chat, roles: ALL_ROLES },
     { href: '/contract', label: NAV_LABEL.contract, icon: NAV_ICON.contract, roles: ['agent', 'provider', 'admin'] },
     { href: '/esign', label: NAV_LABEL.esign, icon: FileSignature, roles: ['admin'] },
+    // 계약서관리 바로 밑 — 계약서를 보낸 그다음이 인도·청구다(사장님 2026-08-26).
+    { href: '/settlement/ledger', label: NAV_LABEL.ledger, icon: NAV_ICON.ledger, roles: ['admin'] },
   ] },
   { title: '견적·구독', items: [
     { href: '/sonogong', label: '중고 픽업구독', icon: RefreshCw, roles: ALL_ROLES },

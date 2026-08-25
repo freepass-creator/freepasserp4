@@ -132,6 +132,25 @@ export const stageOf = (r: SettlementRow, now = new Date()): Stage => {
   return '완료실적';
 };
 
+/**
+ * **화면에서 보는 칸.** 시트의 「접수」 한 탭을 둘로 가른다
+ * (사장님 2026-08-26 「당월접수탭 있고 미완료탭 있어서」).
+ * ```
+ * 당월접수   이번 달에 받은 계약. 인도됐든 아니든 — 그게 이 달 실적이다
+ * 미완료     지난달 이전에 받았는데 아직 차가 안 나간 것. **위에 오래 있을수록 위험하다**
+ * 분납실적 · 완료실적 · 취소   시트와 같다
+ * ```
+ * ⚠ 시트의 `stageOf` 는 그대로 둔다 — 저건 «줄이 어느 탭에 저장되나»이고,
+ *   이건 «사람이 어느 칸에서 보나»다. 둘을 섞으면 저장과 표시가 얽힌다.
+ */
+export type Bucket = '당월접수' | '미완료' | '분납실적' | '완료실적' | '취소';
+export const bucketOf = (r: SettlementRow, now = new Date()): Bucket => {
+  const stage = stageOf(r, now);
+  if (stage !== '접수') return stage as Bucket;
+  return r.receivedAt && ym(r.receivedAt) === ym(midnight(now)) ? '당월접수' : '미완료';
+};
+export const BUCKETS: Bucket[] = ['당월접수', '미완료', '분납실적', '완료실적', '취소'];
+
 // ── 돈 ────────────────────────────────────────────────────────────
 export const VAT = 0.1;
 
