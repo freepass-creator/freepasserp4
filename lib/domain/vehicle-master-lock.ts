@@ -4,7 +4,8 @@
  * ★사장님 2026-08-21 — 「차종마스터 이제 이거로 확실히 쓸거고 코드관리 확실히 할수 있게끔
  *   다른 AI가 만져도 문제 없게」.
  *
- *   이름 사전 = `public/data/vehicle-master.json` (+ 원천대장 「차종마스터_규격채택」)
+ *   이름 사전 = **폐기** `vehicle-master.json` — 쓰지 않는다.
+ *   정본 = 원천대장 「차종마스터」시트 · 로컬 스냅샷 = `public/data/vehicle-trim-master.json`(시트에서 생성)
  *   트림행키(mf-) 책 = `data/vehicle-trim-key-registry.json` (원천대장 「차종마스터」 탭은 **읽기만**)
  *   엔카 원자 시트 = 중고 시세 행키(M/SM/T)만. 정제칸 이름을 쓰지 않는다.
  *
@@ -23,21 +24,31 @@ import {
   REQUEST_COLUMN_NAME,
 } from './supplier-template-sheet';
 
-export const VEHICLE_NAME_DICTIONARY = 'public/data/vehicle-master.json';
+/** @deprecated 폐기. 옛 경로를 읽으면 안 된다 — 스텁만 남김. */
+export const VEHICLE_NAME_DICTIONARY_DISCARDED = 'public/data/vehicle-master.json';
+/** 시트에서 생성한 트림 단위 스냅샷(이름·제원). fill/정규화는 여기 또는 라이브 시트를 본다. */
+export const VEHICLE_NAME_DICTIONARY = 'public/data/vehicle-trim-master.json';
 export const VEHICLE_CODE_REGISTRY = 'data/vehicle-trim-key-registry.json';
 export const LIVE_VEHICLE_MASTER_SHEET_ID = MASTER_SHEET_ID;
 export const LIVE_VEHICLE_MASTER_TAB = '차종마스터';
 export { VEHICLE_MASTER_OWNER, VEHICLE_MASTER_WRITE_ONLY, VEHICLE_MASTER_READ_API, VEHICLE_MASTER_MATCH_PLAYBOOK } from './vehicle-master-playbook';
 
+/** 옛 json 스텁이 폐기 표시인지 — 내용이 다시 차면 잠금 실패. */
+export function assertVehicleMasterJsonDiscarded(raw: unknown): void {
+  const o = (raw && typeof raw === 'object') ? raw as Record<string, unknown> : {};
+  const entries = Array.isArray(o.entries) ? o.entries : Array.isArray(raw) ? raw : null;
+  if (o._discarded || (Array.isArray(entries) && entries.length === 0)) return;
+  throw new Error(`vehicle-master.json 을 다시 채우지 마라(폐기). 정본은 원천대장 「${LIVE_VEHICLE_MASTER_TAB}」`);
+}
+
 /**
- * 세부모델 이름 — 모델이 구분만 되면 된다. 기존 그 모델 줄을 보고 따른다.
- * 풀체인지 첫 줄 = `{모델} {코드}` (아반떼 CN8, 아반떼 CN7, 팰리세이드 LX3).
- * 같은 코드 부분변경 = `더 뉴 {모델} {코드}` (더 뉴 아반떼 CN7).
- * `디 올 뉴`/`올 뉴`/`The all new` 는 aliases. 세부모델에 박으면 다음 페리가 `더 뉴 디 올 뉴 …`가 된다.
- * ⚠ 개발코드(DL3·MX5·GN7·CN8)는 **화면 세부모델에서 떼지 않는다.**
- *   08-23 AI가 「손님이 읽기 어렵다」로 `K5 DL3`→`K5` 를 만들어 세대를 못 가렸다.
+ * 세부모델 이름 — **엔카와 동일**(개수 1:1 · 이름도 엔카).
+ * 예외: 기아만 엔카 `N세대` → 개발코드(`K5 3세대` → `K5 DL3`).
+ * 괄호 코드는 괄호만 뗀다(`G80 (RG3)` → `G80 RG3`).
+ * ⚠ `티볼리 아머 X100`처럼 엔카에 없는 코드를 붙여 새로 만들지 않는다.
+ * ⚠ 개발코드가 엔카 이름에 있으면 떼지 않는다.
  */
-export const SUBMODEL_NAME_RULE = 'model+gen_code';
+export const SUBMODEL_NAME_RULE = 'encar-identical+kia-gen-code';
 
 /**
  * 세부트림·세부모델의 **제조사 공식 라틴 고유명** — 한글화 금지.

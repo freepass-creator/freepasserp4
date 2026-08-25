@@ -45,7 +45,9 @@ export const SALES_SECTIONS: readonly { title: string; why: string; columns: rea
   {
     title: '이 차 한 대',
     why: '차종이 아니라 «그 차»에 붙는 것. 입고일자는 공급사만 관리한다(사장님 2026-08-24).',
-    columns: ['최초등록', '차고지', '사진'],
+    // ★「사진」 열은 뺐다(사장님 2026-08-25 「사진링크는 필요없음 차량번호에 거니까」).
+    //   사진은 **차량번호 셀에 파란 링크로** 걸린다 — 주소 글자를 또 보여 줄 이유가 없다.
+    columns: ['최초등록', '차고지'],
   },
   {
     title: '값',
@@ -55,7 +57,9 @@ export const SALES_SECTIONS: readonly { title: string; why: string; columns: rea
   {
     title: '정책 — 문패',
     why: '어느 정책을 보고 있는지. 심사조건은 사장님 지시로 정책 맨 앞이다.',
-    columns: ['정책UID', '심사조건'],
+    // ★「정책UID」는 뺐다(사장님 2026-08-25 「정책 uid 이런것도 상품리스트에 필요없지」).
+    //   기계가 조인에 쓰는 대체키라 영업자가 볼 것이 아니다. 공급사 시트에서도 숨겨 둔 열이다.
+    columns: ['심사조건'],
   },
   {
     title: '정책 — 운전자',

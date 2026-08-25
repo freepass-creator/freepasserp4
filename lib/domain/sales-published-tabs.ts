@@ -11,8 +11,14 @@
  */
 import { isImportBrand } from './vehicle-origin';
 
+/** 보이는 탭 막대 왼쪽부터 이 차례. 발행기가 `--at` 없이 찍어도 이 자리를 지킨다. */
 export const SALES_PUBLISHED_TAB_PREFIXES = ['상품리스트', '손오공구독', '오플구독'] as const;
 export type SalesPublishedPrefix = (typeof SALES_PUBLISHED_TAB_PREFIXES)[number];
+
+export function salesPublishedTabIndex(prefix: string): number {
+  const at = (SALES_PUBLISHED_TAB_PREFIXES as readonly string[]).indexOf(prefix);
+  return at >= 0 ? at : 0;
+}
 
 /** 탭 이름 목록에서 접두마다 발행 탭 하나씩(숨김 제외는 호출자가). 없는 접두는 뺀다. */
 export function pickPublishedSalesTabs(titles: string[]): { prefix: SalesPublishedPrefix; title: string }[] {

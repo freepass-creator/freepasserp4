@@ -29,6 +29,7 @@ import { isLegacySheetId } from '../lib/domain/legacy-sheets';
 import { canonMakerDisplay } from '../lib/domain/maker-display';
 import { snapToMaster, uniqueVariantSpecs } from '../lib/domain/vehicle-master-match';
 import { canonSalesTrim } from '../lib/domain/vehicle-master-options';
+import { applyLatinBrandTokens } from '../lib/domain/vehicle-master-lock';
 import { fuelDisplay } from '../lib/domain/vehicle-master-format';
 import { snapColorOrEtc } from '../lib/domain/color-master';
 import { codeMatchesRawName } from '../lib/domain/code-vs-name';
@@ -391,7 +392,7 @@ for (const t of targets) {
         '모델': ok ? S(snap!.model) : '',
         '세부모델': ok ? S(snap!.sub_model) : '',
         // 「파워트레인」 정제칸은 뺐다(2026-08-18) — 열이 남아 있는 시트가 있어도 더 채우지 않는다.
-        '세부트림': ok ? canonSalesTrim(canonMakerDisplay(S(snap!.maker)), S(snap!.model), S(snap!.sub_model), S(snap!.trim_name)) : '',
+        '세부트림': ok ? applyLatinBrandTokens(canonSalesTrim(canonMakerDisplay(S(snap!.maker)), S(snap!.model), S(snap!.sub_model), S(snap!.trim_name))) : '',
         /**
          * ★배기량은 **마스터가 돌려준 `engine_cc` 를 그대로** 쓴다.
          * ⚠ 파워트레인 «글자»에서 숫자를 긁지 마라. 그렇게 했다가 배터리 용량과 구동축 숫자를
@@ -435,7 +436,7 @@ for (const t of targets) {
         want['세부모델'] = normal.sub_model || want['세부모델'];
         // ★트림은 정본에 있는 것만. 정본(부분 결정)에 트림이 없으면 — 공급사 원문에 그 트림 글자가 있을 때만 스냅 트림을 남기고, 아니면 빈칸
         //   (사장님 2026-08-19 「트림 없는 거는 그냥 트림 비우는 거로」 — 첫 트림 추정·옛 ERP 값 재유입을 막는다).
-        want['세부트림'] = canonSalesTrim(want['제조사(정제)'], want['모델'], want['세부모델'], normal.trim || (trimEvidenced(plate, want['세부트림'], carName) ? want['세부트림'] : ''));
+        want['세부트림'] = applyLatinBrandTokens(canonSalesTrim(want['제조사(정제)'], want['모델'], want['세부모델'], normal.trim || (trimEvidenced(plate, want['세부트림'], carName) ? want['세부트림'] : '')));
         if (normal.fuel) want['연료(정제)'] = fuelDisplay(normal.fuel) || normal.fuel;
         if (normal.engine_cc) want['배기량(정제)'] = String(normal.engine_cc);
         if (normal.battery_kwh) want['배터리용량(정제)'] = String(normal.battery_kwh);

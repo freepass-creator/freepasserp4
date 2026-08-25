@@ -31,7 +31,7 @@
  * ⚠ 대신 같은 pt 에서 Roboto 보다 **넓고 크다.** 열너비 계수(7.9)와 행높이(24px)를
  *   같이 키워 뒀다. 글꼴만 바꾸고 이 둘을 안 바꾸면 40열이 빽빽해지고 글자가 위아래로 낀다.
  */
-import { SALES_NOTES } from './sales-sheet-mapping';
+import { SALES_NOTES, SALES_HIDDEN_COLUMNS } from './sales-sheet-mapping';
 import { COLOR_INK } from './color-master';
 import { MASTER_CATEGORY_COLORS } from './category-colors';
 
@@ -423,6 +423,19 @@ export function buildSalesFormatRequests(input: FormatInput): Record<string, unk
     range: { sheetId: gid, dimension: 'COLUMNS', startIndex: i, endIndex: i + 1 },
     properties: { pixelSize: px }, fields: 'pixelSize',
   } }));
+
+  /**
+   * ★**영업자 눈에서 치우는 열** — 값은 그대로 두고 열만 접는다(`SALES_HIDDEN_COLUMNS`).
+   *   「사진」은 차번 링크를 만드는 재료라 지우면 링크가 같이 죽는다.
+   */
+  for (const name of SALES_HIDDEN_COLUMNS) {
+    const i = idx(name);
+    if (i < 0) continue;
+    out.push({ updateDimensionProperties: {
+      range: { sheetId: gid, dimension: 'COLUMNS', startIndex: i, endIndex: i + 1 },
+      properties: { hiddenByUser: true }, fields: 'hiddenByUser',
+    } });
+  }
 
   // 표 오른쪽에 남은 빈 열을 잘라 낸다 — 「빈 칸인데 300px」 같은 자리가 생긴다.
   const now = input.columnCountNow || n;

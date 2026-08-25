@@ -14,13 +14,13 @@ import {
   trimKeyRecordsFromValues,
   type TrimKeyRegistry,
 } from '../lib/domain/vehicle-trim-key-contract';
-import { buildVehicleTrimMasterArtifact, type VehicleTrimMasterArtifact } from '../lib/domain/vehicle-trim-master';
+import { buildVehicleTrimMasterArtifact } from '../lib/domain/vehicle-trim-master';
 
 type Rec = Record<string, unknown>;
 const S = (v: unknown) => String(v ?? '').trim();
 const APPLY = process.argv.includes('--apply');
 const CONFIRM = 'RENAME_GRANDEUR_GN11_SUBMODEL_V1';
-const FROM = '더 뉴 그랜저 GN11';
+const FROM = '더 뉴 그랜저 GN7';
 const TO = '그랜저 GN11';
 const arg = (name: string, fallback = '') =>
   (process.argv.find((v) => v.startsWith(`--${name}=`)) || '').slice(name.length + 3) || fallback;
@@ -85,11 +85,6 @@ mkdirSync('tmp', { recursive: true });
 const snapshotPath = `tmp/grandeur-gn11-submodel-rename-snapshot-${Date.now()}.json`;
 writeFileSync(snapshotPath, `${JSON.stringify({ values, patches }, null, 2)}\n`);
 
-const priorArtifact = JSON.parse(readFileSync('public/data/vehicle-trim-master.json', 'utf8')) as VehicleTrimMasterArtifact;
-const priorPowertrainByKey = new Map(
-  (priorArtifact.records || []).map((r) => [r.trim_row_key, r.powertrain] as const),
-);
-
 if (patches.length) {
   await api(`${base}/values:batchUpdate`, {
     method: 'POST',
@@ -125,7 +120,7 @@ if (!audit.ok) throw new Error(`키감사 실패: ${audit.issues.slice(0, 5).map
 writeFileSync('data/vehicle-trim-key-registry.json', `${JSON.stringify(nextRegistry, null, 2)}\n`);
 writeFileSync(
   'public/data/vehicle-trim-master.json',
-  `${JSON.stringify(buildVehicleTrimMasterArtifact(afterValues, MASTER_SHEET_ID, MASTER_TAB, { priorPowertrainByKey }), null, 2)}\n`,
+  `${JSON.stringify(buildVehicleTrimMasterArtifact(afterValues, MASTER_SHEET_ID, MASTER_TAB), null, 2)}\n`,
 );
 
 console.log(JSON.stringify({

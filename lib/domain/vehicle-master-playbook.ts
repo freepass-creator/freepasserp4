@@ -11,7 +11,7 @@ export const VEHICLE_MASTER_OWNER = '커서';
 
 /** 여기 적힌 파일을 고치는 것은 담당(커서)만. 다른 AI는 이슈만 남긴다. */
 export const VEHICLE_MASTER_WRITE_ONLY = [
-  'public/data/vehicle-master.json',
+  'public/data/vehicle-trim-master.json', // 시트에서만 생성(generate:vehicle-trim-master --write). 손으로 이름 고치지 말 것
   'data/vehicle-trim-key-registry.json',
   'data/product-vehicle-review-decisions.json',
   'lib/domain/submodel-code.ts',
@@ -33,14 +33,18 @@ export type PlaybookRow = [string, string, string];
 
 /** 맞추는 요령 — 다른 AI가 스냅·fill 할 때 이 순서만 따른다. 새 규칙을 만들지 않는다. */
 export const VEHICLE_MASTER_MATCH_PLAYBOOK: PlaybookRow[] = [
-  ['담당', `쓰기(json 이름·aliases·mf- 키 의미·「AI 정제」 정본 매핑·새 키 발급) = **${VEHICLE_MASTER_OWNER}만**. 라이브 원장 「차종마스터」 탭은 누구든 쓰지 않는다. 다른 AI는 이슈만 남기고 키·이름을 바꾸지 않는다.`, 'vehicle-master-lock · VEHICLE_MASTER_WRITE_ONLY'],
+  ['담당', `쓰기(시트 이름·mf- 키 의미·「AI 정제」 정본 매핑·새 키 발급) = **${VEHICLE_MASTER_OWNER}만**. 이름·제원 작업 정본 = 엔카 작업 시트. 라이브 원장 mf- 에는 아직 안 씀. \`vehicle-master.json\` 은 **폐기**. 다른 AI는 이슈만 남기고 키·이름을 바꾸지 않는다.`, 'vehicle-master-lock · VEHICLE_MASTER_WRITE_ONLY'],
   ['가져다 쓰기', '스냅·fill·stamp·발행은 어떤 AI든 된다. 책은 읽고 칸에 옮기기만 한다. 비슷한 차로 붙이거나 빈 인승·cc를 채우거나 mf- 를 새로 만들지 않는다.', VEHICLE_MASTER_READ_API.join(' · ')],
-  ['사전', '이름 = `public/data/vehicle-master.json`. 코드 책 = `data/vehicle-trim-key-registry.json`. 엔카 원자 시트는 중고 시세 행키(M/SM/T)만 — 정제칸 이름이 아니다.', '엔카에 가솔린 A6 없다고 A6 e-트론을 박지 않음'],
-  ['세부모델', '풀체인지 = **모델+개발코드** (`K5 DL3` · `싼타페 MX5` · `아반떼 CN8`). 같은 코드 페리 = `더 뉴 {모델} {코드}`. `디 올 뉴`/`올 뉴`/`The all new` 는 **aliases만**.', 'SUBMODEL_NAME_RULE'],
-  ['개발코드', '화면·정제칸에서 DL3·MX5·GN7·CN8 을 떼지 않는다. 「손님이 읽기 어렵다」는 이유로 깎으면 세대가 한 이름이 된다. 「AI 정제」에 그런 줄이 있어도 fill·발행기가 **무시**한다.', 'ai-refine-guard · 실측 2026-08-23 K5 DL3→K5'],
-  ['트림 글자', '등급어만 한글(Premium→프리미엄). 제조사 공식 라틴은 정본: **H-PICK** · **N Line** · **X Line** · **GT Line**. 아반떼 N·아이오닉5 N 의 **N** 은 고성능 — N Line 과 합치지 않음.', 'LATIN_BRAND_TRIM_CANON'],
-  ['공급사 원문', '정보는 **차량번호 왼쪽**(제조사·차종·차명(세부모델+트림)·연료·연식). 배기량 칸 숫자가 차명(가솔린 3.5 · LPG 3.0)과 달라도 차명이 이긴다.', '281노9792 · 101호5187'],
-  ['모르면 빈칸', '마스터에 없으면 비슷한 차로 안 붙인다. 트림 후보가 여럿이면 **차종코드를 안 박는다**(PARTIAL). 인승·cc·kWh 를 지어내지 않는다.', '팰리세이드 9인승=대형 MPV · 7인승=대형 SUV — 인승이 있을 때만'],
-  ['키 의미', 'mf- 한 줄의 뜻은 **레지스트리**. json variant 라벨과 달라도 키 뜻을 바꾸지 않는다. 삭제·재사용 금지.', 'vehicle-trim-key-registry.json'],
-  ['새 차종', 'json에 행을 먼저 넣는다(담당) → fill 이 정제칸에 박는다. 엔카 키를 만들지 않는다.', 'fill-supplier-ai-columns --include-mirror'],
+  ['사전', '작업 정본 = 엔카 작업 시트(차종·제원·배터리 탭). 라이브 원장 mf- 에는 아직 안 씀. vehicle-master.json으로 세부모델을 지어내지 않는다.', 'docs/차종마스터-엔카작업시트-매뉴얼.md'],
+  ['세부모델', '엔카와 개수 1:1. 예외는 기아 N세대→개발코드만(K5 3세대 → K5 DL3). 괄호 없음(G80 (RG3) → G80 RG3). 연식종료 2019 이전(NF)은 넣지 않는다. 티볼리에 X100을 붙이지 않는다.', '엔카 iNav · 7년 창'],
+  ['세부트림', '배기량으로 쪼개지 않는다. 2.5 세 개 + 3.5에만 있는 하나 = 네 개. 괄호 없음. 등급 이름이 없으면 기본형. 렌터카·택시·장애인용은 트림이 아니다. 5링크·리프처럼 차가 다른 것만 풀어 쓴다.', '합집합 · 파워트레인≠트림'],
+  ['제원', '연료·배기량·구동은 제원마스터 허용값. 차종 행을 cc마다 쪼개지 않는다. 인승은 원문이 하나로 모일 때만.', '제원마스터 탭'],
+  ['배터리', '전기만 전기차배터리마스터. 세부모델별 공식 kWh. 팩이 둘이면 행 둘. 화이트리스트로 아무 kWh나 고르지 않는다.', '전기차배터리마스터 탭'],
+  ['개발코드', '세부모델 이름에 엔카가 이미 넣었거나, 기아 N세대 치환으로만 들어간다. 「손님이 읽기 어렵다」로 이름을 깎지 않는다.', 'ai-refine-guard · K5 DL3'],
+  ['트림 글자', '합친 뒤의 트림 이름. 등급어 한글화는 엔카가 영문일 때만. H-PICK·N Line·GT Line은 한글화 금지.', 'LATIN_BRAND_TRIM_CANON'],
+  ['공급사 원문', '정보는 차량번호 왼쪽(제조사·차종·차명·연료·연식). 배기량 칸 숫자가 차명과 달라도 차명이 이긴다.', '281노9792 · 101호5187'],
+  ['정제칸', '칸마다 따로 붙인다. 마스터 값이 하나로 모일 때만. 빈 칸은 채우고 잘못이면 바로잡는다. 추측이면 그대로.', '연료(정제)·배기량(정제)·구동방식·인승·배터리용량(정제)'],
+  ['모르면 빈칸', '엔카·시트에 없으면 비슷한 차로 안 붙인다. 트림 후보가 여럿이면 차종코드를 안 박는다(PARTIAL).', ''],
+  ['키 의미', 'mf- 한 줄의 뜻은 **레지스트리**. 삭제·재사용 금지. 트림 매칭과 코드(연료·cc 갈림)는 다른 층이다.', 'vehicle-trim-key-registry.json'],
+  ['새 차종', '엔카에 맞춰 작업 시트에 먼저 넣는다 → 승인 후 정제시트 fill → 확정되면 라이브 원장. 로컬 json으로 이름을 만들지 않는다.', '엔카 작업 시트'],
 ];

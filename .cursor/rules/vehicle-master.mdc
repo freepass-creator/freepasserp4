@@ -1,15 +1,15 @@
 ---
-description: 차종마스터·mf- 코드는 커서가 쓴다. 다른 AI는 요령대로 가져다 쓰기만.
+description: 차종마스터·mf- 코드는 커서가 쓴다. 세부모델·트림은 엔카와 동일.
 alwaysApply: true
 ---
 
 # 차종마스터·코드
 
-- **쓰기 = 커서만.** json 이름·aliases, `vehicle-trim-key-registry.json` 의 mf- 의미, 「AI 정제」 정본 매핑, 새 키 발급. 코덱스·클로드·제미나이는 **고치지 말고 이슈만** 남긴다.
-- **가져다 쓰기 = 어떤 AI든.** `snapToMaster` · `fill-supplier-ai-columns` · `stamp-encar-codes-on-supplier`(M/SM/T만). 요령 정본: `lib/domain/vehicle-master-playbook.ts` · 운영 매뉴얼 0″장.
-- 이름 사전: `public/data/vehicle-master.json`. 엔카 원자 시트는 시세 행키만. 원천대장 「차종마스터」 탭은 **읽기만**.
-- 코드(`mf-…::vNN::tNN`)는 영구. 삭제·재사용·의미 변경 금지.
-- 세부모델 = **모델+개발코드** (`K5 DL3` · `싼타페 MX5`). `디 올 뉴`는 aliases만. 개발코드를 손님용이라고 떼지 마라. fill은 그런 「AI 정제」 줄을 무시한다.
-- 모르면 빈칸. 비슷한 차로 안 붙임. 인승·cc 지어내지 않음. 트림 후보 여럿이면 차종코드 안 박음.
-- 라틴 고유명: **H-PICK** · **N Line** · **X Line** · **GT Line**. N ≠ N Line. 등급어만 한글.
-- 작업 후: `npx tsx scripts/check-vehicle-master-lock.mts` · `npx tsx scripts/verify-master-pass.mts`.
+- **쓰기 = 커서만.** 시트 이름·`vehicle-trim-key-registry.json` mf- 의미·「AI 정제」 매핑·새 키. 다른 AI는 **고치지 말고 이슈만**.
+- **정본 = 구글 시트(엔카 기준).** `vehicle-master.json` **폐기**. 로컬 json으로 세부모델 이름을 지어내지 않는다.
+- **세부모델 = 엔카와 동일**(개수 1:1 · 이름도 엔카). 예외만 **기아 N세대→개발코드**(`K5 3세대` → `K5 DL3`). `티볼리 아머 X100`처럼 엔카에 없는 코드를 붙이지 마라(엔카=`티볼리 아머`).
+- **세부트림 = 그 세부모델에 달린 엔카 트림만**(글자 그대로). 같은 세부모델 안에서는 **연료·배기량·인승·구동 무시** — 배기가 달라도 트림 이름만 같으면 매칭.
+- 코드(`mf-…::vNN::tNN`)는 영구. 삭제·재사용·의미 변경 금지. 트림 매칭 ≠ 코드(제원) 확정.
+- 모르면 빈칸. 비슷한 차로 안 붙임.
+- 라틴 고유명: **H-PICK** · **N Line** · **X Line** · **GT Line**. N ≠ N Line.
+- 요령 정본: `lib/domain/vehicle-master-playbook.ts`

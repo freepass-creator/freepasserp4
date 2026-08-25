@@ -31,6 +31,7 @@ import { fetchHubPartners } from '../lib/domain/sheet-hub-sync';
 import { buildSalesFormatRequests, columnWidths, rgb, LINK, FONT, SIZE, ITALIC } from '../lib/domain/sales-sheet-format';
 import { productType } from '../lib/domain/sales-sheet-clean';
 import { parsePublishedSalesMapping, SALES_ALIAS, SALES_COLUMNS } from '../lib/domain/sales-sheet-mapping';
+import { salesPublishedTabIndex } from '../lib/domain/sales-published-tabs';
 import { HANDOVER_TAB, STALE_DAYS, daysSince, readLog } from '../lib/domain/supplier-handover-log';
 import { SHEET_NAME_MATCH, isOurNonInventoryTab, supplierSheetLabel } from '../lib/domain/supplier-template-sheet';
 import { mileageCompact, pickPolicy, policyCell, readPolicyTab, type PolicyBook } from '../lib/domain/supplier-policy-read';
@@ -82,11 +83,11 @@ const TAB = arg('tab', '상품리스트');
 /**
  * ★`--only=공급사코드[:탭글자]` — 그 공급사(그 탭)만 실어 **별도 탭**을 찍는다(사장님 2026-08-19 「상품리스트 · 손오공구독(반납/인수) · 오플구독 탭 3개로 회귀」).
  *   같은 발행기·같은 정본 차명·같은 열이라 상품리스트와 규격이 갈리지 않는다. @제외는 무시한다(그 공급사를 실으려는 것이니까).
- *   예) --only=RP012:구독 --tab=손오공구독 --at=1 · --only=RP023 --tab=오플구독 --at=2 (그 뒤 publish-sonogong-tab 이 원본 요금 블록을 덧붙인다)
- * ★`--at=N` — 새 탭을 만들 때 자리(0=맨 앞). 상품리스트 0 · 손오공구독 1 · 오플구독 2.
+ *   예) --only=RP012:구독 --tab=손오공구독 · --only=RP023 --tab=오플구독 (그 뒤 publish-sonogong-tab 이 원본 요금 블록을 덧붙인다)
+ * ★탭 자리 — 상품리스트 0 · 손오공구독 1 · 오플구독 2 (`salesPublishedTabIndex`). `--at=N` 은 덮어쓸 때만.
  */
 const ONLY = (() => { const v = arg('only'); if (!v) return null; const [code, tab = ''] = v.split(':'); return { code: code.trim(), tab: tab.trim() }; })();
-const AT = Number(arg('at', '0')) || 0;
+const AT = process.argv.some((a) => a.startsWith('--at=')) ? (Number(arg('at')) || 0) : salesPublishedTabIndex(TAB);
 const inScope = (code: string, tabTitle: string) => !ONLY || (ONLY.code === code && (!ONLY.tab || S(tabTitle).includes(ONLY.tab)));
 const DB = 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app';
 /** 「공급사시트정리」 — 공급사명 | 공급사코드 | 시트주소. 주소의 정본이다. */
@@ -770,7 +771,7 @@ const title = `${TAB} ${stamp.slice(5, 10).replace('-', '.')} ${stamp.slice(11, 
 await api(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}:batchUpdate`, {
   method: 'POST',
   body: JSON.stringify({ requests: [
-    { updateSheetProperties: { properties: { sheetId: gid, title }, fields: 'title' } },
+    { updateSheetProperties: { properties: { sheetId: gid, title, index: AT }, fields: 'title,index' } },
     // 옛 내용을 지우고 새로 쓴다. 값만 지운다 — 서식은 아래에서 다시 입힌다.
     { updateCells: { range: { sheetId: gid }, fields: 'userEnteredValue' } },
   ] }),
