@@ -60,7 +60,7 @@ const jwt = new JWT({
 const tok = (await jwt.getAccessToken()).token;
 const suppliers = new Map<string, number>();
 const agents = new Map<string, number>();
-for (const tab of ['접수', '취소', '분납실적', '완료실적']) {
+for (const tab of ['접수', '취소', '분납실적', '완납실적']) {
   const u = `https://sheets.googleapis.com/v4/spreadsheets/${LEDGER}/values/${encodeURIComponent(`${a1(tab)}!A1:BZ3000`)}`;
   const got = await (await fetch(u, { headers: { Authorization: `Bearer ${tok}` } })).json() as { values?: unknown[][] };
   const all = (got.values || []).map((r) => (r || []).map(S));

@@ -42,7 +42,7 @@ const api = async (u: string, init?: RequestInit): Promise<any> => {
 // ── 실적에서 역산 ────────────────────────────────────────────────
 type Hit = { sup: string; prod: string; term: number; rate: number; side: 0 | 1 };
 const hits: Hit[] = [];
-for (const tab of ['접수', '취소', '분납실적', '완료실적']) {
+for (const tab of ['접수', '취소', '분납실적', '완납실적']) {
   const got = await api(`${SH}/${LEDGER}/values/${encodeURIComponent(`${a1(tab)}!A1:BZ3000`)}?valueRenderOption=UNFORMATTED_VALUE`);
   const all = ((got?.values || []) as unknown[][]).map((r) => (r || []).map(S));
   const hi = all.findIndex((r) => r.includes('차량번호'));

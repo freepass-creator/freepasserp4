@@ -20,7 +20,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { SETTLEMENT_LEDGER_ID as LEDGER } from '../lib/domain/settlement-ledger';
 
-const TABS = ['접수', '취소', '분납실적', '완료실적'];
+const TABS = ['접수', '취소', '분납실적', '완납실적'];
 const TOL = 2;                      // 원 단위 반올림 오차는 봐 준다
 const CSV = process.argv.includes('--csv');
 const S = (v: unknown) => String(v ?? '').trim();

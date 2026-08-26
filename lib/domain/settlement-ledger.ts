@@ -26,14 +26,14 @@ export const SETTLEMENT_LEDGER_ID = '1BjGBqAjRLEb9ZMKarpQsMF-q_UjdgmEqBAl1uVk8SR
  *              「접수 ← 여기서 접수를 하고 한줄한줄을 옮겨가는거로 하자」
  *   · 취소      계약 불가(취소). 접수에 남겨 두면 일하는 표가 흐려진다 —「취소탭 하나 둘까?」
  *   · 분납실적   인도됐고 분납 만료가 안 지났다. 지나고 환수가 없으면 **저절로 빠진다**
- *   · 완료실적   인도됐고 일시납이거나 만료가 지났다. 환수도 여기 남는다
+ *   · 완납실적   인도됐고 일시납이거나 만료가 지났다. 환수도 여기 남는다
  *   · 청구      **청구월로 쌓는 장부.** 2026-08부터. 환수는 마이너스 한 줄
  *
  * ★**청구월이 관문이다**(「접수를 받을때 거기에 청구월이 생성될거고 그 청구월기준으로
  *   청구서에 반영하면 되는거고」). 인도되면 청구월이 박히고 그 순간 접수에서 나간다.
  *
  * ★불변식 둘이 서로 반대다.
- *   · **분납실적 ↔ 완료실적 — 같은 차가 공존할 수 없다.** 한 줄은 한 탭에만 있다
+ *   · **분납실적 ↔ 완납실적 — 같은 차가 공존할 수 없다.** 한 줄은 한 탭에만 있다
  *   · **청구 ↔ 환수 — 공존할 수 있다.** 같은 차가 청구(+) 한 줄, 환수(−) 한 줄
  *
  * ★**한 계약의 키는 「차량번호 + 접수일」이다.** 같은 차가 다시 나간다 —
@@ -49,7 +49,7 @@ export const SETTLEMENT_LEDGER_ID = '1BjGBqAjRLEb9ZMKarpQsMF-q_UjdgmEqBAl1uVk8SR
 export const SETTLEMENT_INTAKE_TAB = '접수';
 export const SETTLEMENT_CANCEL_TAB = '취소';
 export const SETTLEMENT_WATCH_TAB = '분납실적';
-export const SETTLEMENT_DONE_TAB = '완료실적';
+export const SETTLEMENT_DONE_TAB = '완납실적';
 export const SETTLEMENT_BILLING_TAB = '청구';
 export const SETTLEMENT_TABS = [SETTLEMENT_INTAKE_TAB, SETTLEMENT_CANCEL_TAB, SETTLEMENT_WATCH_TAB,
   SETTLEMENT_DONE_TAB, SETTLEMENT_BILLING_TAB] as const;

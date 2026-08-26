@@ -50,7 +50,7 @@ const sheet = async (u: string) => {
 
 // ─────────────────────────── ① 이 달 청구가 서는 건의 영업담당자
 const agents = new Map<string, { n: number; won: number; suppliers: Set<string>; code: string }>();
-for (const tab of ['접수', '취소', '분납실적', '완료실적']) {
+for (const tab of ['접수', '취소', '분납실적', '완납실적']) {
   const got = await sheet(`https://sheets.googleapis.com/v4/spreadsheets/${LEDGER}/values/${encodeURIComponent(`${a1(tab)}!A1:BZ3000`)}?valueRenderOption=UNFORMATTED_VALUE`);
   const all = ((got.values || []) as unknown[][]).map((r) => (r || []).map(S));
   const hi = all.findIndex((r) => r.includes('차량번호'));

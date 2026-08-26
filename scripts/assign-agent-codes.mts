@@ -22,7 +22,7 @@ import { SETTLEMENT_LEDGER_ID as LEDGER } from '../lib/domain/settlement-ledger'
 import { nameKey } from '../lib/domain/settlement-view';
 
 const APPLY = process.argv.includes('--apply');
-const TABS = ['접수', '취소', '분납실적', '완료실적'];
+const TABS = ['접수', '취소', '분납실적', '완납실적'];
 const COL = '영업자코드';
 /**
  * ★사장님 2026-08-26 「일단 영업자는 관리자가 이름 연락처로 입력해서 정산할수 있게끔하고

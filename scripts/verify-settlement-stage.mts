@@ -12,7 +12,7 @@ import { JWT } from 'google-auth-library';
 import { SETTLEMENT_LEDGER_ID as LEDGER } from '../lib/domain/settlement-ledger';
 import { billingLines, billingMonth, moneyOf, stageOf, type SettlementRow, type Stage } from '../lib/domain/settlement-stage';
 
-const TABS: Stage[] = ['접수', '취소', '분납실적', '완료실적'];
+const TABS: Stage[] = ['접수', '취소', '분납실적', '완납실적'];
 const S = (v: unknown) => String(v ?? '').trim();
 const N = (v: unknown) => { const n = Number(S(v).replace(/[,\s원]/g, '')); return Number.isFinite(n) ? n : 0; };
 const ON = (v: unknown) => /^(TRUE|참|Y|예|1)$/i.test(S(v));
@@ -70,7 +70,7 @@ console.log(`\n■ 원장 ${rows.length}줄을 코드로 다시 가른다\n`);
 const mine = new Map<Stage, number>(); const sheet = new Map<Stage, number>();
 /**
  * ★**「넘어갈 때가 된 것」과 「규칙이 갈린 것」은 다르다.**
- *   분납실적 → 완료실적 은 분납 만기가 지나 «시트를 다시 굴리면 되는» 상태다. 정상이다.
+ *   분납실적 → 완납실적 은 분납 만기가 지나 «시트를 다시 굴리면 되는» 상태다. 정상이다.
  *   그 밖의 어긋남만 빨강이다 — 둘을 같이 빨강으로 두면 사람이 빨강을 무시하게 된다(2026-08-26).
  */
 const ripe: string[] = [];
@@ -81,7 +81,7 @@ for (const { row, sheetStage } of rows) {
   sheet.set(sheetStage, (sheet.get(sheetStage) || 0) + 1);
   if (s === sheetStage) continue;
   const line = `${row.plate.padEnd(11)} 시트 ${sheetStage} → 코드 ${s}`;
-  (sheetStage === '분납실적' && s === '완료실적' ? ripe : broken).push(line);
+  (sheetStage === '분납실적' && s === '완납실적' ? ripe : broken).push(line);
 }
 console.log(`   ${'자리'.padEnd(8)}${'시트'.padStart(6)}${'코드'.padStart(6)}`);
 for (const t of TABS) console.log(`   ${t.padEnd(8)}${String(sheet.get(t) || 0).padStart(6)}${String(mine.get(t) || 0).padStart(6)}${(sheet.get(t) || 0) === (mine.get(t) || 0) ? '  ✓' : '  ⛔'}`);
@@ -121,7 +121,7 @@ if (unassigned) console.log(`   ⚠ 환수인데 환수일이 없어 달을 못 
 const ok = broken.length === 0;
 console.log(`\n${ok
   ? (ripe.length
-    ? `■ 초록 — 규칙은 안 갈렸다. 다만 ${ripe.length}줄이 완료실적으로 넘어갈 때가 됐다(시트를 굴리면 제자리).`
+    ? `■ 초록 — 규칙은 안 갈렸다. 다만 ${ripe.length}줄이 완납실적으로 넘어갈 때가 됐다(시트를 굴리면 제자리).`
     : '■ 초록 — 코드가 시트와 같은 수를 낸다. ERP 를 이 위에 얹어도 된다.')
   : '⛔ 빨강 — 규칙이 갈렸다. 고치기 전에는 ERP 에 얹지 마라.'}\n`);
 process.exit(ok ? 0 : 1);

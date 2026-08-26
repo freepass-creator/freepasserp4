@@ -22,7 +22,7 @@ import { SETTLEMENT_LEDGER_ID as LEDGER } from '../lib/domain/settlement-ledger'
 
 /** 원본 「프리패스모빌리티계약현황」 — 개인 gmail 소유. 우리는 읽기만 된다. */
 const SRC = '10gsCRpRZZVI9WGZK0b1JeGeti9mQFt4ojWXHqPCW-Ls';
-const TABS = ['접수', '취소', '분납실적', '완료실적'];
+const TABS = ['접수', '취소', '분납실적', '완납실적'];
 
 /**
  * 채울 칸 — 원장 열 이름 → 원본 열 이름 후보(공백·줄바꿈 지운 뒤 견준다).

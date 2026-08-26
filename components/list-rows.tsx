@@ -765,3 +765,54 @@ export function PolicyListRow({
     />
   );
 }
+
+/**
+ * **정산원장 한 줄 — 목록·실적상태·청구현황이 «같은 행»을 쓴다.**
+ *
+ * ★사장님 2026-08-26 「목록규격은 다 통일하라고... 2줄타입으로」
+ *   「이 페이지만의 규격을 쓰지말고 통일된 규격 쓰라고」 「엑셀형 없어도 돼」.
+ *   업무 목록의 표준은 `FeedListRow` 2줄이다 — 재고·계약·계약서관리가 다 이걸 쓴다.
+ *   판마다 다른 표를 짜면 같은 계약이 판마다 다르게 보인다.
+ *
+ * ★2줄에 담는 것 — 위: 차량명 + 청구액 / 아래: 상태배지 · 차번 · 고객 · 공급사 · 영업자.
+ * ⚠ 금액은 «관리자 화면 전용»이다. 이 행은 정산관리에서만 쓴다.
+ */
+export function LedgerListRow({
+  row, selected, onClick, right,
+}: {
+  row: {
+    plate: string; model: string; customer: string; supplier: string; agent: string;
+    billState: string; claim?: number; delivered: boolean; cancelled: boolean;
+  };
+  selected?: boolean;
+  onClick: () => void;
+  /** 행에서 바로 하는 일(인도완료 등). 없으면 안 그린다. */
+  right?: ReactNode;
+}) {
+  const icon = row.cancelled ? Ban : row.delivered ? CircleCheck : FileClock;
+  const tone: BadgeTone = row.cancelled ? 'red' : row.delivered ? 'green' : 'gray';
+  return (
+    <FeedListRow
+      selected={selected}
+      onClick={onClick}
+      thumb={<FeedThumbIcon icon={icon} tone={tone} title={row.billState} decorative />}
+      lines={[
+        <FeedTitleRow
+          key="t"
+          title={<FeedTitle>{row.model || row.plate || '차량 미확인'}</FeedTitle>}
+          meta={right ?? (row.claim ? (
+            <span style={{ fontSize: FS.sub, fontWeight: FW.head, color: C.ink, fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>
+              {won(row.claim)}
+            </span>
+          ) : null)}
+        />,
+        <div key="s" style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden', width: '100%' }}>
+          <Badge tone={tone}>{row.billState}</Badge>
+          <div style={{ flex: '1 1 auto', minWidth: 0, overflow: 'hidden' }}>
+            <FeedSub>{[row.plate, row.customer, row.supplier, row.agent].filter(Boolean).join(' · ')}</FeedSub>
+          </div>
+        </div>,
+      ]}
+    />
+  );
+}

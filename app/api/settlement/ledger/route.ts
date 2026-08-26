@@ -195,7 +195,7 @@ export async function PATCH(req: Request) {
     return Number.isNaN(+d) ? '' : iso(d);
   };
 
-  for (const tab of ['접수', '취소', '분납실적', '완료실적']) {
+  for (const tab of ['접수', '취소', '분납실적', '완납실적']) {
     const range = encodeURIComponent(`'${tab}'!A1:BZ3000`);
     const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SETTLEMENT_LEDGER_ID}/values/${range}?valueRenderOption=UNFORMATTED_VALUE`, {
       headers: { Authorization: `Bearer ${token}` }, cache: 'no-store',

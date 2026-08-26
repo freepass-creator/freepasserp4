@@ -13,7 +13,7 @@ import { JWT } from 'google-auth-library';
 import { SETTLEMENT_LEDGER_ID } from '@/lib/domain/settlement-ledger';
 import type { SettlementRow } from '@/lib/domain/settlement-stage';
 
-export const LEDGER_TABS = ['접수', '취소', '분납실적', '완료실적'] as const;
+export const LEDGER_TABS = ['접수', '취소', '분납실적', '완납실적'] as const;
 export const ledgerUrl = () => `https://docs.google.com/spreadsheets/d/${SETTLEMENT_LEDGER_ID}/edit`;
 
 const S = (v: unknown) => String(v ?? '').trim();

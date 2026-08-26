@@ -31,7 +31,7 @@ import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { SETTLEMENT_LEDGER_ID as LEDGER } from '../lib/domain/settlement-ledger';
 
-const TABS = ['접수', '취소', '분납실적', '완료실적'];
+const TABS = ['접수', '취소', '분납실적', '완납실적'];
 /** 검산이 이 비율보다 낮으면 아무것도 안 쓴다. */
 const MIN_MATCH = 0.9;
 /** 원 단위 반올림 오차는 봐 준다. */

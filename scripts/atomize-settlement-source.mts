@@ -154,7 +154,7 @@ console.log(`   → 판매수수료가 «적혀 있는» 계약 ${written.length
 // ─────────────────────────────────────────────── ② 지금 원장과 겹치나
 const led = await api(`https://sheets.googleapis.com/v4/spreadsheets/${LEDGER}/values/${encodeURIComponent(`${a1('접수')}!A1:BZ3000`)}?valueRenderOption=UNFORMATTED_VALUE`);
 const ledKeys = new Set<string>();
-for (const tab of ['접수', '취소', '분납실적', '완료실적']) {
+for (const tab of ['접수', '취소', '분납실적', '완납실적']) {
   const got = tab === '접수' ? led : await api(`https://sheets.googleapis.com/v4/spreadsheets/${LEDGER}/values/${encodeURIComponent(`${a1(tab)}!A1:BZ3000`)}?valueRenderOption=UNFORMATTED_VALUE`);
   const all = ((got.values || []) as unknown[][]).map((r) => (r || []).map(S));
   const hi = all.findIndex((r) => r.includes('차량번호'));

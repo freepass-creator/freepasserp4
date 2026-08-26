@@ -26,7 +26,7 @@ import { JWT } from 'google-auth-library';
 import { SETTLEMENT_LEDGER_ID as LEDGER } from '../lib/domain/settlement-ledger';
 
 const TAB = '월별 요약';
-const SRC = ['접수', '취소', '분납실적', '완료실적'];
+const SRC = ['접수', '취소', '분납실적', '완납실적'];
 const VAT = 0.1;
 const OUT = ['월', '접수', '인도', '인도 전', '취소', '인도율',
   '청구 건수', '청구액', '지급액', '우리몫', '환수 건수'] as const;

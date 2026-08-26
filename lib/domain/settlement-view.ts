@@ -221,7 +221,7 @@ export function countsOf(rows: PublicRow[]): { label: string; n: number }[] {
     { label: '진행중', n: live.filter((r) => !r.delivered).length },
     { label: '인도완료', n: live.filter((r) => r.delivered).length },
     { label: '분납 진행중', n: live.filter((r) => r.bucket === '분납실적').length },
-    { label: '실적 확정', n: live.filter((r) => r.bucket === '완료실적').length },
+    { label: '실적 확정', n: live.filter((r) => r.bucket === '완납실적').length },
     { label: '취소', n: rows.filter((r) => r.cancelled).length },
   ];
 }

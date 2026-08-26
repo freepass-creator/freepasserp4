@@ -75,14 +75,14 @@ export type SettlementRow = SettlementChecks & {
 };
 
 /** 계약이 앉는 자리. **한 줄은 한 곳에만** 있다 — 겹치면 대수가 두 번 세어진다. */
-export type Stage = '접수' | '취소' | '분납실적' | '완료실적';
+export type Stage = '접수' | '취소' | '분납실적' | '완납실적';
 
 const p2 = (n: number) => String(n).padStart(2, '0');
 export const ym = (d: Date) => `${d.getFullYear()}-${p2(d.getMonth() + 1)}`;
 const addMonths = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth() + n, d.getDate());
 /**
  * ★**«오늘»은 자정이다.** `new Date()` 에는 시각이 붙어 있어서, 만료가 «오늘»인 건이
- *   「이미 지났다」로 판정된다 — 실측 2026-08-25 에 분납 4건이 그렇게 완료실적으로 새어 나갔다.
+ *   「이미 지났다」로 판정된다 — 실측 2026-08-25 에 분납 4건이 그렇게 완납실적으로 새어 나갔다.
  *   날짜끼리 견줄 때는 시각을 떨어내고 본다.
  */
 export const midnight = (d = new Date()) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -142,7 +142,7 @@ export const billingMonth = (r: SettlementRow): string | null => {
 /**
  * **이 계약이 앉을 자리.** 위에서부터 걸러 내려간다 — 순서가 곧 규칙이다.
  * ★당월 접수건은 인도돼도 «이달이 마무리될 때까지» 접수에 남는다
- *   (사장님 「완료실적으로 넘기는거는 이달 마무리 되면」). 그게 그 달 실적이다.
+ *   (사장님 「완납실적으로 넘기는거는 이달 마무리 되면」). 그게 그 달 실적이다.
  */
 export const stageOf = (r: SettlementRow, now = new Date()): Stage => {
   const today = midnight(now);
@@ -151,7 +151,7 @@ export const stageOf = (r: SettlementRow, now = new Date()): Stage => {
   if (r.receivedAt && ym(r.receivedAt) === ym(today)) return '접수';   // 당월 실적은 아직 여기
   const due = instalmentDueDate(r);
   if (due && due >= today && !r.clawback) return '분납실적';
-  return '완료실적';
+  return '완납실적';
 };
 
 /**
@@ -160,18 +160,18 @@ export const stageOf = (r: SettlementRow, now = new Date()): Stage => {
  * ```
  * 당월접수   이번 달에 받은 계약. 인도됐든 아니든 — 그게 이 달 실적이다
  * 미완료     지난달 이전에 받았는데 아직 차가 안 나간 것. **위에 오래 있을수록 위험하다**
- * 분납실적 · 완료실적 · 취소   시트와 같다
+ * 분납실적 · 완납실적 · 취소   시트와 같다
  * ```
  * ⚠ 시트의 `stageOf` 는 그대로 둔다 — 저건 «줄이 어느 탭에 저장되나»이고,
  *   이건 «사람이 어느 칸에서 보나»다. 둘을 섞으면 저장과 표시가 얽힌다.
  */
-export type Bucket = '당월접수' | '미완료' | '분납실적' | '완료실적' | '취소';
+export type Bucket = '당월접수' | '미완료' | '분납실적' | '완납실적' | '취소';
 export const bucketOf = (r: SettlementRow, now = new Date()): Bucket => {
   const stage = stageOf(r, now);
   if (stage !== '접수') return stage as Bucket;
   return r.receivedAt && ym(r.receivedAt) === ym(midnight(now)) ? '당월접수' : '미완료';
 };
-export const BUCKETS: Bucket[] = ['당월접수', '미완료', '분납실적', '완료실적', '취소'];
+export const BUCKETS: Bucket[] = ['당월접수', '미완료', '분납실적', '완납실적', '취소'];
 
 // ── 돈 ────────────────────────────────────────────────────────────
 export const VAT = 0.1;
