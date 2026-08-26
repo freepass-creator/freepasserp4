@@ -40,10 +40,22 @@ import { billingMonth, roundsOf, type SettlementRow } from './settlement-stage';
  * 계약취소   시트 「계약취소」 체크
  * ```
  */
-export type BillState = '인도대기' | '청구예정' | '미청구' | '분납중' | '청구완료' | '환수' | '계약취소';
+export type BillState = '인도대기' | '청구예정' | '미청구' | '분납중' | '청구완료' | '환수' | '계약취소' | '기록전';
 
 /** 이 순서로 화면에 세운다 — **손이 필요한 것이 앞**이다. */
-export const BILL_STATES: BillState[] = ['미청구', '분납중', '인도대기', '청구예정', '청구완료', '환수', '계약취소'];
+export const BILL_STATES: BillState[] = ['미청구', '분납중', '인도대기', '청구예정', '청구완료', '환수', '계약취소', '기록전'];
+
+/**
+ * **청구서 발행을 ERP 에 기록하기 시작한 달.**
+ *
+ * ★★그 앞은 «청구를 안 한 것»이 아니라 **«우리가 모르는 것»**이다.
+ *   발행 기록이 없다고 「미청구」라 부르면 363건이 미청구로 뜨는데, 그건 사실이 아니다 —
+ *   실제로는 대부분 청구가 나갔고 기록만 안 남았다.
+ * ★★소급해서 발행 기록을 만들지 않는다. 보냈는지 확인 안 된 것을 「보냈다」고 적으면
+ *   그건 기록이 아니라 거짓말이다. 모르는 것은 「모른다」고 둔다.
+ * ⚠ 이 달을 앞당기려면 **그 달 청구서가 실제로 나갔다는 근거**가 있어야 한다.
+ */
+export const INVOICE_LOG_SINCE = '2026-08';
 
 export const BILL_TONE: Record<BillState, 'gray' | 'blue' | 'green' | 'red' | 'amber'> = {
   인도대기: 'gray',
@@ -53,6 +65,7 @@ export const BILL_TONE: Record<BillState, 'gray' | 'blue' | 'green' | 'red' | 'a
   청구완료: 'green',
   환수: 'red',
   계약취소: 'red',
+  기록전: 'gray',
 };
 
 /** 왜 이 상태인지 한 줄. 화면에 그대로 쓴다 — 말이 갈리면 사람이 헷갈린다. */
@@ -64,6 +77,7 @@ export const BILL_WHY: Record<BillState, string> = {
   청구완료: '청구서가 나갔고 분납도 끝났습니다.',
   환수: '깨졌습니다. 그 달에 마이너스로 서 있습니다.',
   계약취소: '계약이 취소됐습니다.',
+  기록전: '청구 기록을 남기기 전(2026-08 이전)입니다. 실제로 청구했는지는 원장·통장으로 확인합니다.',
 };
 
 /** 청구서 한 장을 가리키는 열쇠 — 달 + 공급사. 청구는 공급사별로 한 장씩 나간다. */
@@ -77,7 +91,13 @@ const ymOf = (d: Date) => `${d.getFullYear()}-${p2(d.getMonth() + 1)}`;
  * @param issued  발행된 청구서 열쇠 모음(`issuedKey`). **없으면 아무것도 「청구완료」가 아니다** —
  *                모르는 것을 「됐다」로 치면 안 된 것이 조용히 넘어간다.
  */
-export function billStateOf(r: SettlementRow, issued: Set<string>, now = new Date()): BillState {
+export function billStateOf(
+  r: SettlementRow,
+  issued: Set<string>,
+  now = new Date(),
+  /** 이 달부터 발행 기록이 있다. 그 앞은 「모른다」. */
+  since = INVOICE_LOG_SINCE,
+): BillState {
   if (r.cancelled) return '계약취소';
   if (r.clawback) return '환수';
   const m = billingMonth(r);
@@ -85,6 +105,8 @@ export function billStateOf(r: SettlementRow, issued: Set<string>, now = new Dat
 
   const thisMonth = ymOf(now);
   if (m > thisMonth) return '청구예정';
+  // ★기록을 남기기 시작한 달 이전은 «모르는» 것이다. 「미청구」라고 부르면 안 한 것처럼 보인다.
+  if (m < since) return '기록전';
   if (!issued.has(issuedKey(m, r.supplier))) return '미청구';
 
   // 청구서는 나갔다. 분납이 남아 있으면 아직 되돌아올 수 있다.
