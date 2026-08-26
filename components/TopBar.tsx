@@ -96,12 +96,16 @@ function statusFromPath(path: string): ReactNode {
   if (path === '/finder') return <PageStatus icon={NAV_ICON.product} label={NAV_LABEL.product} />;
   if (path.startsWith('/m/')) return <PageStatus icon={NAV_ICON.product} label="상품 상세" />;
   if (path.startsWith('/chat')) return <PageStatus icon={NAV_ICON.chat} label="문의 미확인" />;
-  if (path.startsWith('/contract')) return <PageStatus icon={NAV_ICON.contract} label="계약진행" />;
+  if (path.startsWith('/contract')) return <PageStatus icon={NAV_ICON.contract} label={NAV_LABEL.contract} />;
   if (path.startsWith('/inventory')) return <PageStatus icon={NAV_ICON.inventory} label={NAV_LABEL.inventory} />;
   if (path.startsWith('/sonogong')) return <PageStatus icon={RefreshCw} label="중고차 렌트구독 견적기" />;
   if (path.startsWith('/welrix')) return <PageStatus icon={Sparkles} label="신차장기렌터카 견적기" />;
   if (path.startsWith('/policy')) return <PageStatus icon={statusIconFor('정책')} label={NAV_LABEL.policy} />;
   if (path.startsWith('/esign')) return <PageStatus icon={FileSignature} label={NAV_LABEL.esign} />;
+  // ⚠ **긴 경로를 먼저 본다.** `/settlement` 가 `/settlement/ledger` 를 먼저 잡아채면
+  //   정산관리에 들어가도 상단바에 「월별정산」이 뜬다(실측 2026-08-26).
+  if (path.startsWith('/settlement/ledger')) return <PageStatus icon={NAV_ICON.ledger} label={NAV_LABEL.ledger} />;
+  if (path.startsWith('/settlement/invoice')) return <PageStatus icon={NAV_ICON.ledger} label="정산서" />;
   if (path.startsWith('/settlement')) return <PageStatus icon={statusIconFor('정산')} label={NAV_LABEL.settlement} />;
   if (path.startsWith('/members')) return <PageStatus icon={statusIconFor('회원')} label={NAV_LABEL.members} />;
   if (path.startsWith('/audit')) return <PageStatus icon={statusIconFor('감사')} label={NAV_LABEL.audit} />;

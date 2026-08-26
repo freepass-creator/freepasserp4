@@ -14,7 +14,9 @@ import { NextResponse } from 'next/server';
 import { SETTLEMENT_LEDGER_ID } from '@/lib/domain/settlement-ledger';
 import { billingMonth, bucketOf, moneyOf, stageOf, nextInstalment } from '@/lib/domain/settlement-stage';
 import { iso, ledgerError, ledgerUrl, readLedger, sheetsToken } from '@/lib/server/settlement-ledger-read';
-import { verifyActiveBearer } from '@/lib/server/firebase-admin';
+import { firebaseAdminApp, verifyActiveBearer } from '@/lib/server/firebase-admin';
+import { getDatabase } from 'firebase-admin/database';
+import { billStateOf, issuedKey } from '@/lib/domain/settlement-billstate';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -40,12 +42,27 @@ export async function GET(req: Request) {
   if (!token) return NextResponse.json({ ok: false, reason: ledgerError() || '서비스계정을 못 읽었다' }, { status: 503 });
 
   const read = await readLedger(token);
+
+  /**
+   * ★**「청구완료」는 «청구서가 나갔나»로 판정한다.** 날짜가 지났다고 나간 게 아니다 —
+   *   날짜로 치면 「청구한 줄 알았는데 아무도 안 보낸」 건이 조용히 완료로 넘어간다.
+   *   발행 기록이 없으면 아무것도 청구완료가 아니다(모르는 것을 「됐다」로 치지 않는다).
+   */
+  const invoiceSnap = await getDatabase(firebaseAdminApp()).ref('v4/settlement_invoices').get().catch(() => null);
+  const invoices = (invoiceSnap?.val() || {}) as Record<string, { month?: string; axis?: string; party?: string }>;
+  const issued = new Set(
+    Object.values(invoices)
+      .filter((v) => S(v?.axis) === '공급사')
+      .map((v) => issuedKey(S(v?.month), S(v?.party))),
+  );
+
   const rows = read.map(({ row, extra }) => ({
     ...row,
     ...extra,
     receivedAt: iso(row.receivedAt), deliveredAt: iso(row.deliveredAt), clawbackAt: iso(row.clawbackAt),
     stage: stageOf(row), bucket: bucketOf(row), billingMonth: billingMonth(row), money: moneyOf(row),
     nextRound: iso(nextInstalment(row)),
+    billState: billStateOf(row, issued),
   }));
 
   return NextResponse.json({
@@ -104,6 +121,9 @@ export async function POST(req: Request) {
     // ★영업담당자는 «고른» 값이라 코드가 같이 온다. 코드가 있어야 동명이인이 갈린다.
     //   사람이 이름을 타이핑하면 그 줄은 나중에 누구 실적인지 못 정한다(실측 2026-08-26).
     영업채널: S(form.channel), 영업담당자: S(form.agent), 영업자코드: S(form.agentCode),
+    // ★명부에 없는 영업자는 «연락처»가 신원이다(사장님 2026-08-26) —
+    //   계정이 없어도 정산이 돌고, 나중에 그 사람이 가입하면 번호로 붙는다.
+    영업자연락처: S(form.agentPhone),
     상품구분: S(form.product), 계약기간: S(form.term),
     보증금: S(form.deposit), 렌탈료: S(form.rent), 차량가액: S(form.price),
     분납여부: S(form.payKind),

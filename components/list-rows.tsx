@@ -327,6 +327,22 @@ export function ContractCreateRow({ onClick }: { onClick: () => void }) {
   );
 }
 
+/**
+ * 정산관리 목록 맨 위 — **계약접수**를 만드는 자리.
+ * ★사장님 2026-08-26 「계약접수 생성해서 재고관리처럼 한다고」 — 등록은 버튼이 아니라 «목록 맨 위 행»이다.
+ *   재고·계약·계약서관리가 다 그 모양이라 정산만 다르면 손이 헷갈린다.
+ */
+export function SettlementCreateRow({ onClick }: { onClick: () => void }) {
+  return (
+    <CreateListRow
+      label="계약접수"
+      hint="계약금이 들어온 계약을 여기서 접수합니다"
+      ariaLabel="계약접수"
+      onClick={onClick}
+    />
+  );
+}
+
 /** 계약서관리 목록 맨 위 — 개인정보 없는 계약조건을 저장하고 고객 작성 링크를 만드는 시작점. */
 export function EsignCreateRow({ selected, onClick }: { selected?: boolean; onClick: () => void }) {
   return (
