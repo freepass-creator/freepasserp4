@@ -23,6 +23,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ledgerFetch } from '@/lib/firebase/ledger-client';
 import type { AdminRow, PublicRow } from '@/lib/domain/settlement-view';
+import { canBill, confirmLabel, confirmTone, type Confirmation } from '@/lib/domain/settlement-confirm';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
 import {
   Badge, Btn, C, CenterNote, DetailRow, FilterChips, FilterGroup, FS, FW, Input, ListGroup, ListRow,
@@ -82,6 +83,10 @@ export function ContractSettlement() {
   const [axis, setAxis] = useState<Axis>('공급사');
   /** 인도일 — 체크만 켜면 청구월이 안 서니 날짜를 같이 받는다. */
   const [deliverOn, setDeliverOn] = useState('');
+  /** 실적 확인 — 청구 앞에 놓인 문(사장님 2026-08-26 「거기서 한번 걸러지는구조야」). */
+  const [confirm, setConfirm] = useState<{ mine?: Confirmation | null; list?: Confirmation[]; note?: string } | null>(null);
+  const [disputeOn, setDisputeOn] = useState(false);
+  const [disputeNote, setDisputeNote] = useState('');
 
   const load = async () => {
     try {
@@ -141,6 +146,57 @@ export function ContractSettlement() {
     }
     return [...m].sort((a, b) => (b[1].claim - b[1].pay) - (a[1].claim - a[1].pay));
   }, [billable, axis]);
+
+  /** 그 달 확인 상태를 읽는다 — 관리자는 전부, 본인은 자기 것. */
+  const loadConfirm = async (m: string) => {
+    if (!m) { setConfirm(null); return; }
+    try {
+      const res = await ledgerFetch(`/api/settlement/confirm?month=${encodeURIComponent(m)}`);
+      setConfirm(await res.json());
+    } catch { setConfirm(null); }
+  };
+  useEffect(() => { loadConfirm(month); }, [month]);
+
+  /**
+   * **확인하거나 이의를 건다 — 본인만.**
+   * ★관리자는 대신 눌러 줄 수 없다(서버가 막는다). 대신 누를 수 있으면 그 문은 문이 아니다.
+   */
+  const sendConfirm = async (state: '확인' | '이의') => {
+    setBusy(true);
+    try {
+      const res = await ledgerFetch('/api/settlement/confirm', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ month, state, note: state === '이의' ? disputeNote : '' }),
+      });
+      const body = await res.json() as { ok: boolean; reason?: string };
+      if (!body.ok) { toast(body.reason || '보내지 못했습니다'); return; }
+      toast(state === '확인' ? '실적을 확인했습니다' : '이의를 접수했습니다');
+      setDisputeOn(false); setDisputeNote('');
+      await loadConfirm(month);
+    } finally { setBusy(false); }
+  };
+
+  /**
+   * ★관리자가 보는 «관문» — 이 달 청구를 막고 있는 영업자들.
+   *   확인이 안 끝난 사람이 있으면 그 사람 건이 든 공급사 청구서가 못 나간다.
+   */
+  const agentGate = useMemo(() => {
+    if (!admin || !month) return [];
+    const byAgent = new Map<string, number>();
+    for (const r of billable) byAgent.set(r.agent || '(미기재)', (byAgent.get(r.agent || '(미기재)') || 0) + 1);
+    const list = confirm?.list || [];
+    const out: { agent: string; n: number; why: string }[] = [];
+    for (const [agent, n] of byAgent) {
+      const c = list.find((v) => (v.who || '').replace(/\s/g, '') === agent.replace(/\s/g, '')) || null;
+      const { ok, why } = canBill(c, n);
+      if (!ok) out.push({ agent, n, why });
+    }
+    return out.sort((a, b) => b.n - a.n);
+  }, [admin, month, billable, confirm]);
+  const confirmedAgents = useMemo(
+    () => new Set(billable.map((r) => r.agent || '(미기재)')).size,
+    [billable],
+  );
 
   /**
    * 한 줄의 «진행»만 고친다. 금액은 여기서 못 고친다 — 서버가 흰 목록으로 막는다.
@@ -228,6 +284,37 @@ export function ContractSettlement() {
         ))}
       </div>
 
+      {/* ★실적 확인 — 청구 앞에 놓인 문(사장님 2026-08-26).
+             영업자·공급사가 «내 실적이 이게 맞다»고 해야 공급사에 청구가 나간다.
+             ⚠ 묻는 것은 «건»이지 «금액»이 아니다. 이 화면에는 금액이 애초에 안 온다. */}
+      {!admin && month && (
+        <div style={{ ...card, display: 'grid', gap: 7, marginBottom: 8 }}>
+          <div style={{ display: 'flex', gap: 7, alignItems: 'center', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: FS.body, fontWeight: FW.head }}>{month} 실적 확인</span>
+            <Badge tone={confirmTone(confirm?.mine || null, billable.length)}>
+              {confirmLabel(confirm?.mine || null, billable.length)}
+            </Badge>
+            <span style={{ fontSize: FS.cap, color: C.mute }}>{billable.length}건</span>
+          </div>
+          {confirm?.note && <div style={{ fontSize: FS.cap, color: C.danger }}>{confirm.note}</div>}
+          {!canBill(confirm?.mine || null, billable.length).ok && (
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              <Btn disabled={busy} onClick={() => sendConfirm('확인')}>이 {billable.length}건이 맞습니다</Btn>
+              <Btn variant="ghost" disabled={busy} onClick={() => setDisputeOn((v) => !v)}>다른 게 있습니다</Btn>
+            </div>
+          )}
+          {disputeOn && (
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              <Input value={disputeNote} onChange={setDisputeNote} placeholder="무엇이 다른지 적어 주세요 (차량번호 등)" />
+              <Btn variant="danger" disabled={busy || !disputeNote.trim()} onClick={() => sendConfirm('이의')}>이의 보내기</Btn>
+            </div>
+          )}
+          <div style={{ fontSize: FS.micro, color: C.mute, lineHeight: 1.5 }}>
+            확인하시면 공급사에 청구가 나갑니다. 수수료 금액은 이 화면에서 다루지 않습니다.
+          </div>
+        </div>
+      )}
+
       {/* 정산 — 금액이 온 사람에게만 그린다(= 관리자).
           ★축이 둘이다: **공급사 = 받을 곳 · 영업채널 = 줄 곳.**
             사장님 2026-08-26 「관리자는 나중에 공급사별 영업채널별 정산서까지 만들어 낼수 있어야해」.
@@ -303,8 +390,24 @@ export function ContractSettlement() {
               </span>
             </div>
           )}
+          {/* ★청구의 관문 — 「받아서 주는」 구조라 영업자 확인이 먼저다(사장님 2026-08-26).
+                 누가 아직 안 했는지 여기서 보여야 전화를 건다. 종이 뽑고 나서 알면 늦다. */}
+          {month && (
+            <div style={{ borderTop: '1px solid ' + C.line, paddingTop: 7, fontSize: FS.cap, lineHeight: 1.6 }}>
+              <b>영업자 실적 확인</b>{' '}
+              {agentGate.length === 0
+                ? <span style={{ color: C.ok }}>{confirmedAgents}명 전부 확인 — 청구해도 됩니다</span>
+                : (
+                  <span style={{ color: C.danger }}>
+                    {agentGate.length}명이 아직입니다 —{' '}
+                    {agentGate.slice(0, 6).map((g) => `${g.agent}(${g.n}건)`).join(' · ')}
+                    {agentGate.length > 6 ? ` 외 ${agentGate.length - 6}명` : ''}
+                  </span>
+                )}
+            </div>
+          )}
           <div style={{ fontSize: FS.micro, color: C.mute }}>
-            정산서 발행은 아직 붙이지 않았습니다 — 먼저 이 표가 맞게 갈라지는지 확인하세요.
+            표의 한 줄이 정산서 한 장입니다. 확인이 안 끝나면 종이에 붉게 표시됩니다.
           </div>
         </div>
       )}

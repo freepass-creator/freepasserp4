@@ -18,6 +18,7 @@ import { billingMonth } from '@/lib/domain/settlement-stage';
 import { nameKey } from '@/lib/domain/settlement-view';
 import { EMPTY_PARTY, buildInvoice, type InvoiceParty } from '@/lib/domain/settlement-invoice';
 import { driftOf, invoiceKey, nextInvoiceNo, type IssuedInvoice } from '@/lib/domain/settlement-invoice-code';
+import { canBill, type Confirmation } from '@/lib/domain/settlement-confirm';
 import { newId } from '@/lib/domain/ids';
 
 export const dynamic = 'force-dynamic';
@@ -27,6 +28,8 @@ export const runtime = 'nodejs';
 const ISSUER_CODE = 'OP001';
 /** 발행 기록 — v4 overlay 에만 쓴다. v3 노드는 건드리지 않는다(.cursorrules 4). */
 const ISSUED_NODE = 'v4/settlement_invoices';
+/** 실적 확인 — 청구 앞에 놓인 문. 여기를 통과해야 공급사에 나간다. */
+const CONFIRM_NODE = 'v4/settlement_confirmations';
 
 const S = (v: unknown) => String(v ?? '').trim();
 
@@ -99,6 +102,29 @@ export async function GET(req: Request) {
   // ★이미 발행된 문서면 그 번호를 «다시 쓴다». 재인쇄할 때마다 번호가 바뀌면 문서가 아니다.
   const issued = await findIssued(month, axis, party);
 
+  /**
+   * ★★**영업자 실적 확인이 먼저다**(사장님 2026-08-26
+   *   「영업자한테 실적 먼저 확인하고 그게 ㅇㅋ 되면 공급사에 청구 거기서 한번 걸러지는구조야」).
+   *   공급사 청구서는 그 줄들을 판 **영업담당자들이 다 확인해야** 나간다.
+   *   ⚠ 막지는 않고 «말한다» — 종이에 붉게 세워서 사람이 보고 멈추게 한다.
+   *     서버가 문서 생성을 막아 버리면 급할 때 우회로가 생기고, 우회로가 곧 구멍이 된다.
+   */
+  const gate: string[] = [];
+  if (axis === '공급사') {
+    const confirms = ((await db.ref(CONFIRM_NODE).get().catch(() => null))?.val() || {}) as Record<string, Confirmation>;
+    const ofMonth = Object.values(confirms).filter((c) => c.month === month);
+    const byAgent = new Map<string, number>();
+    for (const x of rows) {
+      const a = S(x.row.agent) || '(영업담당자 미기재)';
+      byAgent.set(a, (byAgent.get(a) || 0) + 1);
+    }
+    for (const [agent, n] of byAgent) {
+      const c = ofMonth.find((v) => nameKey(v.who) === nameKey(agent)) || null;
+      const { ok, why } = canBill(c, n);
+      if (!ok) gate.push(`${agent} (${n}건) — ${why}`);
+    }
+  }
+
   return NextResponse.json({
     ok: true,
     ...invoice,
@@ -107,6 +133,8 @@ export async function GET(req: Request) {
     issuedAt: issued?.issuedAt || 0,
     // 발행 뒤 원장이 바뀌었으면 말한다 — 조용히 다른 금액을 인쇄하면 안 된다.
     driftNote: driftOf(issued, { supply: invoice.supply, vat: invoice.vat, lines: invoice.lines.length }),
+    // 실적 확인이 안 끝났으면 종이에 붉게 세운다 — 「받아서 주는」 구조라 먼저 걸러야 한다.
+    gate,
     // 상대를 못 특정했으면 말한다 — 조용히 빈 회사로 두면 그대로 인쇄된다.
     receiverNote: cands.length === 1 ? '' : cands.length === 0
       ? `「${party}」로 등록된 회사를 못 찾았습니다. 사업자 정보가 빈 채로 나갑니다.`

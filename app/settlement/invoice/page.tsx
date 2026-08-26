@@ -19,6 +19,8 @@ type Payload = Invoice & {
   ok: boolean; reason?: string; receiverNote?: string;
   /** ① 대체키 stl_ · ② 사람이 읽는 문서번호. 발행 전이면 둘 다 빈다. */
   code?: string; invoiceNo?: string; issuedAt?: number; driftNote?: string;
+  /** 영업자 실적 확인이 아직 안 끝난 사람들. 「받아서 주는」 구조라 먼저 걸러야 한다. */
+  gate?: string[];
 };
 
 const won = (n: number) => Math.round(n).toLocaleString('ko-KR');
@@ -116,6 +118,17 @@ function InvoiceBody() {
       </div>
 
       {/* ★채워야 나갈 수 있는 것 — 조용히 인쇄하면 그 상태로 상대에게 간다 */}
+      {/* ★영업자 실적 확인이 먼저다 — 여기가 «걸러지는» 자리다.
+             공급사에 잘못 청구하고 되돌리는 것은 돈보다 신용이 깎인다. */}
+      {(data.gate?.length ?? 0) > 0 && (
+        <div style={{ border: '2px solid #c00', color: '#c00', padding: '9px 11px', marginBottom: 14, fontSize: 12, lineHeight: 1.7 }}>
+          <b>영업자 실적 확인이 아직 안 끝났습니다.</b> 확인을 받고 보내세요 —
+          <ul style={{ margin: '5px 0 0', paddingLeft: 18 }}>
+            {data.gate!.map((g) => <li key={g}>{g}</li>)}
+          </ul>
+        </div>
+      )}
+
       {(data.missing?.length > 0 || data.receiverNote || data.driftNote) && (
         <div style={{ border: '1px solid #c00', color: '#c00', padding: '8px 10px', marginBottom: 14, fontSize: 12, lineHeight: 1.6 }}>
           {data.missing?.length > 0 && <div>이 칸이 비어 있습니다 — <b>{data.missing.join(' · ')}</b>. 채우고 보내세요.</div>}
