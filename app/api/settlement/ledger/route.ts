@@ -121,3 +121,88 @@ export async function POST(req: Request) {
   if (!wrote.ok) return NextResponse.json({ ok: false, reason: `쓰지 못했다 ${wrote.status} ${(await wrote.text()).slice(0, 160)}` }, { status: 502 });
   return NextResponse.json({ ok: true, plate, row: rowIndex + 1, receivedAt: iso(today) });
 }
+
+/**
+ * **한 줄의 진행을 고친다 — 계약서·인도완료·취소·환수.**
+ *
+ * ★사장님 2026-08-26 「급한건 당월거랑 당장 이번달말일로 정산해서 9월초에 청구할거를 챙기는거」.
+ *   말일까지 **인도가 켜져야 그 달 청구로 들어온다.** 그걸 시트에서만 켤 수 있으면
+ *   담당자가 마감 날 시트를 열어야 한다 — 그래서 ERP 에서 켠다.
+ *
+ * ★★**고칠 수 있는 칸을 흰 목록으로 못 박는다.** 금액·요율은 여기서 못 고친다 —
+ *   수수료는 요율표에서 나오는 것이고, 화면에서 손대기 시작하면 그날로 정본이 둘이 된다.
+ * ★★**인도완료를 켜려면 인도일이 있어야 한다.** 날짜 없이 켜면 청구월이 안 서고,
+ *   「인도는 됐는데 청구가 없는」 줄이 조용히 생긴다. 그래서 날짜를 같이 받는다.
+ * ★줄은 **차량번호+접수일**로 찾는다. 차번만으로 찾으면 재계약 때 옛 줄을 고친다.
+ * ⚠ 자리를 세지 않는다 — 머리글에서 칸 이름을 찾아 쓴다. 원장도 칸이 늘 수 있다.
+ */
+const EDITABLE: Record<string, '체크' | '날짜' | '돈' | '글'> = {
+  계약서: '체크', 인도완료: '체크', 계약취소: '체크', 환수: '체크',
+  인도일: '날짜', 환수일: '날짜', 환수금액: '돈', 환수사유: '글',
+};
+
+export async function PATCH(req: Request) {
+  const denied = await admin(req);
+  if (denied) return denied;
+  const token = await sheetsToken();
+  if (!token) return NextResponse.json({ ok: false, reason: ledgerError() || '서비스계정을 못 읽었다' }, { status: 503 });
+
+  const body = await req.json().catch(() => ({})) as { plate?: string; receivedAt?: string; patch?: Record<string, string> };
+  const plate = S(body.plate);
+  const received = S(body.receivedAt);
+  const patch = body.patch || {};
+  if (!plate) return NextResponse.json({ ok: false, reason: '차량번호가 없다' }, { status: 400 });
+
+  const bad = Object.keys(patch).filter((k) => !EDITABLE[k]);
+  if (bad.length) return NextResponse.json({ ok: false, reason: `여기서 못 고치는 칸이다 — ${bad.join(', ')}` }, { status: 400 });
+
+  // ★인도를 켜는데 날짜가 없으면 막는다. 청구월이 안 서는 줄을 만들지 않는다.
+  if (/^(TRUE|true)$/.test(S(patch['인도완료'])) && !S(patch['인도일'])) {
+    return NextResponse.json({ ok: false, reason: '인도일을 같이 넣어야 한다 — 날짜가 없으면 청구월이 안 선다' }, { status: 400 });
+  }
+
+  const colA1 = (i: number) => { let t = '', n = i + 1; while (n > 0) { const r = (n - 1) % 26; t = String.fromCharCode(65 + r) + t; n = Math.floor((n - 1) / 26); } return t; };
+  const SERIAL0 = Date.UTC(1899, 11, 30);
+  const dateOf = (v: string) => {
+    const n = Number(v);
+    if (Number.isFinite(n) && n > 20000 && n < 80000) {
+      const u = new Date(SERIAL0 + Math.round(n) * 86_400_000);
+      return iso(new Date(u.getUTCFullYear(), u.getUTCMonth(), u.getUTCDate()));
+    }
+    const d = new Date(v);
+    return Number.isNaN(+d) ? '' : iso(d);
+  };
+
+  for (const tab of ['접수', '취소', '분납실적', '완료실적']) {
+    const range = encodeURIComponent(`'${tab}'!A1:BZ3000`);
+    const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SETTLEMENT_LEDGER_ID}/values/${range}?valueRenderOption=UNFORMATTED_VALUE`, {
+      headers: { Authorization: `Bearer ${token}` }, cache: 'no-store',
+    });
+    if (!res.ok) continue;
+    const got = await res.json() as { values?: unknown[][] };
+    const all = (got.values || []).map((r) => (r || []).map(S));
+    const hi = all.findIndex((r) => r.includes('차량번호'));
+    if (hi < 0) continue;
+    const head = all[hi];
+    const iPlate = head.indexOf('차량번호');
+    const iRecv = head.indexOf('접수일');
+    const at = all.slice(hi + 1).findIndex((r) => S(r[iPlate]) === plate
+      && (!received || dateOf(S(r[iRecv])) === received));
+    if (at < 0) continue;
+
+    const data = Object.entries(patch)
+      .map(([k, v]) => ({ col: head.indexOf(k), k, v: EDITABLE[k] === '체크' ? (/^(TRUE|true)$/.test(S(v)) ? 'TRUE' : 'FALSE') : S(v) }))
+      .filter((x) => x.col >= 0)
+      .map((x) => ({ range: `'${tab}'!${colA1(x.col)}${hi + 2 + at}`, values: [[x.v]] }));
+    if (!data.length) return NextResponse.json({ ok: false, reason: '고칠 칸을 원장에서 못 찾았다' }, { status: 400 });
+
+    const wrote = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SETTLEMENT_LEDGER_ID}/values:batchUpdate`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ valueInputOption: 'USER_ENTERED', data }),
+    });
+    if (!wrote.ok) return NextResponse.json({ ok: false, reason: `쓰지 못했다 ${wrote.status} ${(await wrote.text()).slice(0, 160)}` }, { status: 502 });
+    return NextResponse.json({ ok: true, plate, tab, row: hi + 2 + at, patch });
+  }
+  return NextResponse.json({ ok: false, reason: `${plate}${received ? ` (접수 ${received})` : ''} 를 원장에서 못 찾았다` }, { status: 404 });
+}

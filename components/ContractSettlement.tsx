@@ -80,6 +80,8 @@ export function ContractSettlement() {
   const [form, setForm] = useState<Record<string, string>>({ product: '장기렌트', payKind: '일시납' });
   const [month, setMonth] = useState('');
   const [axis, setAxis] = useState<Axis>('공급사');
+  /** 인도일 — 체크만 켜면 청구월이 안 서니 날짜를 같이 받는다. */
+  const [deliverOn, setDeliverOn] = useState('');
 
   const load = async () => {
     try {
@@ -92,6 +94,17 @@ export function ContractSettlement() {
   useEffect(() => { load(); }, []);
 
   const all = useMemo(() => data?.rows || [], [data]);
+
+  /**
+   * ★들어오면 **이번 달**이 잡혀 있어야 한다. 「전체 달」로 시작하면 마감이 안 보인다 —
+   *   급한 건 언제나 «이번 달 말일까지 무엇이 들어오나»다(사장님 2026-08-26).
+   */
+  useEffect(() => {
+    if (month || !all.length) return;
+    const now = new Date();
+    const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    if (all.some((r) => r.billingMonth === thisMonth)) setMonth(thisMonth);
+  }, [all, month]);
   const rows = useMemo(() => all.filter((r) => inTab(r, tab)), [all, tab]);
   const picked = useMemo(() => all.find((r) => r.plate + r.receivedAt === sel) || null, [all, sel]);
   const admin = data?.role === 'admin';
@@ -112,6 +125,11 @@ export function ContractSettlement() {
     ),
     [billable],
   );
+  /** 인도는 됐는데 청구가 0 — 요율도 적힌 값도 없다. 이대로 두면 «그냥 안 청구된다». */
+  const blocked = useMemo(() => billable.filter((r) => !r.claim), [billable]);
+  /** 아직 인도 전 — 말일까지 인도되면 이 달 청구로 들어온다. 「없다」가 아니라 「아직」이다. */
+  const waiting = useMemo(() => all.filter((r) => !r.cancelled && !r.delivered), [all]);
+  const waitingWorth = useMemo(() => waiting.reduce((s, r) => s + (r.claim || 0), 0), [waiting]);
   /** 공급사 = 받을 곳 · 영업채널 = 줄 곳. 정산서는 이 표의 한 줄이 된다. */
   const grouped = useMemo(() => {
     const m = new Map<string, { n: number; claim: number; pay: number }>();
@@ -123,6 +141,25 @@ export function ContractSettlement() {
     }
     return [...m].sort((a, b) => (b[1].claim - b[1].pay) - (a[1].claim - a[1].pay));
   }, [billable, axis]);
+
+  /**
+   * 한 줄의 «진행»만 고친다. 금액은 여기서 못 고친다 — 서버가 흰 목록으로 막는다.
+   * ★고친 뒤 반드시 다시 읽는다. 자리(접수/분납/완료)는 시트가 정하는 것이지 화면이 정하는 게 아니다.
+   */
+  const patchRow = async (patch: Record<string, string>) => {
+    if (!picked) return;
+    setBusy(true);
+    try {
+      const res = await ledgerFetch('/api/settlement/ledger', {
+        method: 'PATCH', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ plate: picked.plate, receivedAt: picked.receivedAt, patch }),
+      });
+      const body = await res.json() as { ok: boolean; reason?: string };
+      if (!body.ok) { toast(body.reason || '고치지 못했습니다'); return; }
+      setDeliverOn('');
+      await load();
+    } finally { setBusy(false); }
+  };
 
   const submit = async () => {
     if (!form.plate?.trim()) { toast('차량번호를 적어 주세요'); return; }
@@ -240,6 +277,22 @@ export function ContractSettlement() {
               </tbody>
             </table>
           </div>
+          {/* ★마감 — 「없다」와 「아직」을 가른다.
+              사장님 2026-08-26 「이번달말일로 정산해서 9월초에 청구할거를 챙기는거」.
+              인도 전은 청구가 «없는» 게 아니라 «아직»이다. 섞으면 말일에 인도될 건을 놓치고,
+              놓친 건은 그대로 다음 달로 밀린다. 그래서 셋을 따로 센다. */}
+          {month && (
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: FS.cap, borderTop: '1px solid ' + C.line, paddingTop: 7 }}>
+              <span>확정 <b style={{ color: C.ink }}>{billable.length}</b>건</span>
+              <span style={{ color: blocked.length ? C.danger : C.mute }}>
+                막힘 <b>{blocked.length}</b>건{blocked.length ? ' — 요율도 적힌 값도 없어 그냥 안 청구된다' : ''}
+              </span>
+              <span style={{ color: C.mute }}>
+                아직 <b>{waiting.length}</b>건 — 말일까지 인도되면 이 달로 들어온다
+                {waitingWorth ? ` (${won(waitingWorth)})` : ''}
+              </span>
+            </div>
+          )}
           <div style={{ fontSize: FS.micro, color: C.mute }}>
             정산서 발행은 아직 붙이지 않았습니다 — 먼저 이 표가 맞게 갈라지는지 확인하세요.
           </div>
@@ -317,6 +370,42 @@ export function ContractSettlement() {
         ))}
         {picked.cancelled && <div><Badge tone="red">계약취소</Badge></div>}
       </div>
+
+      {/* ★진행을 여기서 켠다 — 관리자만.
+          사장님 2026-08-26 「이번달말일로 정산해서 9월초에 청구할거를 챙기는거」.
+          **말일까지 인도가 켜져야 그 달 청구로 들어온다.** 그걸 시트에서만 켤 수 있으면
+          담당자가 마감 날 시트를 열어야 한다. 그래서 여기서 켠다.
+          ⚠ 켤 수 있는 것은 진행뿐이다 — 금액·요율은 여기서 못 고친다(정본이 둘이 된다). */}
+      {admin && (
+        <div style={{ ...card, display: 'grid', gap: 7, marginBottom: 10, background: C.head }}>
+          <div style={{ fontSize: FS.cap, fontWeight: FW.head, color: C.ink }}>진행 고치기</div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            <Btn variant={picked.paper ? 'ghost' : 'solid'} disabled={busy}
+              onClick={() => patchRow({ 계약서: picked.paper ? 'FALSE' : 'TRUE' })}>
+              {picked.paper ? '계약서 해제' : '계약서 완료'}
+            </Btn>
+            <Btn variant={picked.cancelled ? 'ghost' : 'danger'} disabled={busy}
+              onClick={() => patchRow({ 계약취소: picked.cancelled ? 'FALSE' : 'TRUE' })}>
+              {picked.cancelled ? '취소 해제' : '계약취소'}
+            </Btn>
+          </div>
+          {/* ★인도는 «날짜»가 본체다. 날짜 없이 체크만 켜면 청구월이 안 선다 — 서버도 막는다. */}
+          {picked.delivered ? (
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: FS.cap, color: C.mute }}>인도 {picked.deliveredAt}</span>
+              <Btn variant="ghost" disabled={busy}
+                onClick={() => patchRow({ 인도완료: 'FALSE', 인도일: '' })}>인도 해제</Btn>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+              <Input value={deliverOn} onChange={setDeliverOn} placeholder="인도일 2026-08-31" />
+              <Btn disabled={busy || !deliverOn.trim()}
+                onClick={() => patchRow({ 인도완료: 'TRUE', 인도일: deliverOn.trim() })}>인도완료</Btn>
+              <span style={{ fontSize: FS.micro, color: C.mute }}>인도일을 넣어야 청구월이 섭니다</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 정산 — 금액이 온 사람에게만. 안 왔으면 아래 안내가 대신 선다 */}
       {admin ? (
