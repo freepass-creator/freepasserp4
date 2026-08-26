@@ -66,7 +66,7 @@ const partners = {
 const us = partners['OP001'] || {};
 const US: InvoiceParty = {
   name: CORP.name, bizNo: CORP.bizNo, ceo: CORP.ceo, address: CORP.addr, phone: CORP.phone,
-  bank: S(us.bank_name || us.bank), account: S(us.account_no || us.account), holder: S(us.account_holder || us.holder),
+  bank: S(us.bank_name), account: S(us.bank_account), holder: S(us.bank_holder),
 };
 
 /** 상대 — CI 정본이 상호·사업자번호·대표를 안다. 계좌는 거래처 등록에서. */
@@ -77,7 +77,14 @@ const partyOf = (alias: string): InvoiceParty => {
     ...EMPTY_PARTY,
     name: S(ci?.legal) || alias, bizNo: S(ci?.bizNo), ceo: S(ci?.ceo),
     address: S(ci?.addr), phone: S(ci?.tel),
-    bank: S(p.bank_name || p.bank), account: S(p.account_no || p.account), holder: S(p.account_holder),
+    /**
+     * ★★**정산 계좌만 쓴다.** CI 정본의 `rentAccount`(대여료 전용계좌)를 여기 쓰면 안 된다 —
+     *   그건 고객이 대여료를 넣는 정책 칸이고, 우리가 지급하는 곳이 아니다(2026-08-26 착각했다).
+     * ⚠ 없으면 비운다. 종이가 「모름」이라고 말하는 게 틀린 계좌보다 낫다.
+     */
+    ...(S(ci?.payAccount)
+      ? { bank: S(ci?.payAccount), account: '', holder: '' }
+      : { bank: S(p.bank_name), account: S(p.bank_account), holder: S(p.bank_holder) }),
   };
 };
 

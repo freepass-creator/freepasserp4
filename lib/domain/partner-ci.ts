@@ -42,6 +42,25 @@ export type PartnerCi = {
   tel: string;
   /** 홈페이지 — 있는 곳만 */
   web: string;
+  /**
+   * **대여료 전용계좌** — 고객이 «대여료를 넣는» 곳이다. `은행 번호 예금주` 한 줄.
+   *
+   * ★★★**정산 계좌가 아니다.** 정산서에 쓰면 안 된다.
+   *   ⚠ 2026-08-26 에 계좌를 찾다가 판매시트 「전용계좌」 열(65)을 정산 계좌로 착각했다.
+   *     그건 «정책» 칸이다(`company-info-sheet.ts` — 정책 탭에서 옮겨 온 값).
+   *     공급사에게는 우리가 «받는» 쪽이라 애초에 상대 계좌가 필요 없고,
+   *     퍼시픽처럼 공급사이면서 영업채널인 곳에 잘못 쓰면 **돈이 엉뚱한 데로 간다.**
+   * ★그래도 담아 둔다 — 대여료 문의가 오면 여기를 본다. 쓰는 자리를 헷갈리지만 않으면 된다.
+   */
+  rentAccount: string;
+  /**
+   * **정산 계좌** — 우리가 «지급»할 때 돈이 가는 곳. 영업채널만 해당한다.
+   * ⚠ 아직 아무 곳도 모른다(2026-08-26). 통장 사본을 받아 채워야 한다.
+   *   ⚠ **지어내지 않는다.** 틀린 계좌가 찍히면 돈이 남에게 간다.
+   */
+  payAccount: string;
+  /** 다른 표가 다르게 부르는 이름. 판매시트는 「에스에이」를 `SA` 로 적는다. */
+  alias2?: string[];
   /** ERP 거래처 코드(있으면) */
   code: string;
   /** 값의 출처 */
@@ -69,6 +88,8 @@ export const PARTNER_CI: readonly PartnerCi[] = [
     addr: '서울특별시 강서구 양천로53길 30, 서서울모터리움 1205호', tel: '', web: 'automgt.co.kr',
     code: 'RP012', src: 'erp+web',
     // ★우리(1004호)와 같은 건물 1205호다. 주소를 헷갈리지 말 것.
+    rentAccount: '신한 100-032-471576 (주)손오공렌터카',
+    payAccount: '',
   },
   {
     alias: '오토플러스', legal: '오토플러스 주식회사', bizNo: '105-86-06429', ceo: '이윤석',
@@ -77,31 +98,43 @@ export const PARTNER_CI: readonly PartnerCi[] = [
     // ★autoplus.co.kr 은 스크립트 렌더라 푸터를 못 읽었다. 직영 플랫폼 「리본카」(reborncar.co.kr)
     //   푸터에서 확보했다(2026-08-26). 통신판매업 2020-서울영등포-1338.
     conflict: '★ERP 등록값이 999-99-99999(가짜)다 — 위 번호로 고쳐야 한다. 거래 112건으로 가장 큰 공급사다',
+    rentAccount: '',
+    payAccount: '',
   },
   {
     alias: '웰릭스', legal: '웰릭스모빌리티 주식회사', bizNo: '379-88-01956', ceo: '이창영',
     addr: '경기도 김포시 고촌읍 아라육로152번길 45, 에이동 229호', tel: '1544-3871',
     web: 'welrixmobility.com', code: 'RP013', src: 'erp+web',
     conflict: '대표 — ERP 이창호 / 홈페이지 이창영(홈페이지를 따랐다). 같은 사업자번호가 JPK모빌리티(차두준)로도 나온다',
+    rentAccount: '신한 140-013-750928 웰릭스모빌리티(주)',
+    payAccount: '',
   },
   {
     alias: '아이언', legal: '주식회사 아이언렌트카', bizNo: '715-88-00129', ceo: '김기문',
     addr: '', tel: '', web: '', code: 'RP006', src: 'erp',
+    rentAccount: '',
+    payAccount: '',
   },
   {
     alias: '아이카', legal: '주식회사 아이카', bizNo: '503-88-01369', ceo: '김영혁',
     addr: '경기도 수원시 권선구 수인로 43-2', tel: '1661-3922', web: 'icar.or.kr',
     code: 'RP004', src: 'erp+web',
     // 통신판매업 2020-수원권선-0121 · cs sky_belly@naver.com (홈페이지 푸터, 2026-08-26)
+    rentAccount: '',
+    payAccount: '',
   },
   {
     alias: '우리캐피탈', legal: '우리캐피탈렌터카 주식회사', bizNo: '142-81-15688', ceo: '손삼호',
     addr: '경기도 용인시 처인구 중부대로 1123', tel: '', web: 'wooricap-rentacar.com',
     code: 'RP020', src: 'erp+web',
+    rentAccount: '국민 274101-04-182593 우리캐피탈렌터카(주)',
+    payAccount: '',
   },
   {
     alias: '스위치', legal: '주식회사 스위치플랜', bizNo: '158-81-03213', ceo: '박영현',
     addr: '', tel: '', web: '', code: 'RP014', src: 'erp',
+    rentAccount: '신한 140-014-386616 스위치플랜 주식회사',
+    payAccount: '',
   },
   {
     alias: '스타스카이', legal: '주식회사 스타스카이', bizNo: '206-86-03184', ceo: '조기배',
@@ -110,66 +143,98 @@ export const PARTNER_CI: readonly PartnerCi[] = [
     conflict: '★사업자번호가 한 자리 어긋난다 — ERP 206-86-0**3**184 / 웹 206-86-0**9**184. '
       + '게다가 ERP 에 「스타」(RP018)가 206-86-09184 로 «따로» 등록돼 있다. '
       + '둘이 같은 회사인지, 한쪽이 오타인지 확인해야 한다(대표가 둘 다 조기배)',
+    rentAccount: '기업 141-066418-04-025 (주)스타스카이',
+    payAccount: '',
   },
   {
     alias: '경진카', legal: '경진카 주식회사', bizNo: '725-81-02483', ceo: '유희주',
     addr: '', tel: '', web: '', code: 'RP016', src: 'erp',
+    rentAccount: '',
+    payAccount: '',
   },
   {
     alias: '경진렌트카', legal: '경진렌트카', bizNo: '129-86-87637', ceo: '유진수',
     addr: '', tel: '', web: '', code: 'RP015', src: 'erp',
+    rentAccount: '',
+    payAccount: '',
   },
   {
     alias: 'KH', legal: '주식회사 케이에이치', bizNo: '721-81-01202', ceo: '이광호',
     addr: '', tel: '', web: '', code: 'RP010', src: 'erp',
     conflict: '정식 상호가 「케이에이치」인지 「KH」인지 미확인 — 사업자등록증 확인 필요',
+    rentAccount: '기업 486-061377-04-043 KH렌트카',
+    payAccount: '',
   },
   {
     alias: '퍼시픽', legal: '주식회사 퍼시픽', bizNo: '105-87-13233', ceo: '이원진',
     addr: '', tel: '', web: '', code: 'RP022', src: 'erp',
     conflict: '같은 이름이 영업채널에도 있다 — 같은 곳인지 확인 필요',
+    rentAccount: '신한 140-015-656880 퍼시픽모빌리티㈜',
+    payAccount: '',
   },
   {
     alias: '에이스', legal: '주식회사 에이스', bizNo: '393-81-01841', ceo: '백은영',
     addr: '', tel: '', web: '', code: 'RP019', src: 'erp',
+    rentAccount: '국민 808801-04-217021 (주)에이스렌트카',
+    payAccount: '',
   },
   {
     alias: '리더스', legal: '주식회사 리더스렌터카', bizNo: '215-87-46138', ceo: '김종철',
     addr: '', tel: '', web: '', code: 'RP008', src: 'erp',
+    rentAccount: '국민 337101-04-215464 리더스렌트카',
+    payAccount: '',
   },
   {
     alias: '리더스렌트카', legal: '주식회사 리더스렌터카', bizNo: '215-87-46138', ceo: '김종철',
     addr: '', tel: '', web: '', code: 'RP008', src: 'erp',
+    rentAccount: '국민 337101-04-215464 리더스렌트카',
+    payAccount: '',
   },
   {
     alias: '렌트존', legal: '주식회사 렌트존', bizNo: '113-86-54067', ceo: '엄은정',
     addr: '', tel: '', web: '', code: 'PT-0001', src: 'erp',
+    rentAccount: '우리 1005-001-948600 (주)렌트존',
+    payAccount: '',
   },
   {
     alias: '빌린카', legal: '주식회사 빌린카', bizNo: '247-87-03117', ceo: '최우영',
     addr: '', tel: '', web: '', code: 'RP021', src: 'erp',
+    rentAccount: '하나 634-910022-15404 (주)빌린카(영업소)',
+    payAccount: '',
   },
   {
     alias: '퍼스트', legal: '주식회사 퍼스트', bizNo: '872-86-00447', ceo: '이현식',
     addr: '', tel: '', web: '', code: 'RP009', src: 'erp',
+    rentAccount: '',
+    payAccount: '',
   },
   {
     alias: '센트로', legal: '주식회사 센트로', bizNo: '128-88-00500', ceo: '김태현',
     addr: '', tel: '', web: '', code: 'RP017', src: 'erp',
+    rentAccount: '신한 140-011-380331 (주)센트로렌트카',
+    payAccount: '',
   },
   {
     alias: '엘씨렌트', legal: '주식회사 엘씨', bizNo: '819-81-00849', ceo: '이치헌',
     addr: '', tel: '', web: '', code: 'PT-0026', src: 'erp',
     // ★이 곳 차량만 계약서가 손오공 명의다(기존에 확인된 사실).
+    // ⚠ 예금주가 「손오공렌트카(대전지점)」이다 — 상호와 다르지만 그 계좌로 받는다.
+    rentAccount: '신한 100-034-538803 (주)손오공렌트카(대전지점)',
+    payAccount: '',
   },
   {
     alias: '에스에이', legal: '주식회사 에스에이렌터카', bizNo: '217-81-42626', ceo: '김성호',
     addr: '', tel: '', web: '', code: 'PT-0023', src: 'erp',
+    alias2: ['SA'],   // 판매시트는 「SA」 로 적는다
+    rentAccount: '우리 1005-402-748053 (주)에스에이렌터카',
+    payAccount: '',
   },
   {
     alias: 'JPK', legal: '제이피케이모빌리티 주식회사', bizNo: '', ceo: '',
     addr: '', tel: '', web: 'jpkmobility.com', code: '', src: 'web',
     conflict: '웹에서 웰릭스모빌리티와 사업자번호(379-88-01956)가 겹쳐 나온다 — 관계 확인 필요',
+    rentAccount: '',
+    payAccount: '',
   },
 
   // ── 영업채널 (차를 파는 곳 · 우리가 지급한다) ────────────────────────────
@@ -178,12 +243,16 @@ export const PARTNER_CI: readonly PartnerCi[] = [
     addr: '경기도 김포시 운곡로 4-1, 103호', tel: '1688-0987', web: '하허호.com',
     code: 'SP001', src: 'erp+web',
     conflict: '상호 띄어쓰기 — ERP 「하허호무심사 주식회사」 / 홈페이지 「주식회사 하허호 무심사」',
+    rentAccount: '',
+    payAccount: '',
   },
   {
     alias: '렌트야', legal: '주식회사 렌트야', bizNo: '598-88-01028', ceo: '이주열',
     addr: '대전광역시 서구 도안북로93번길 31, 도안더블루힐 405호', tel: '1599-1080', web: 'nae-cha.com',
     code: 'SP002', src: 'erp+web',
     conflict: 'nae-cha.com 이 응답하지 않는다(2026-08-26) — 주소·전화는 검색 결과라 사업자등록증 대조 필요',
+    rentAccount: '',
+    payAccount: '',
   },
   {
     alias: '카핑', legal: '카핑', bizNo: '310-10-93045', ceo: '지홍석',
@@ -191,41 +260,60 @@ export const PARTNER_CI: readonly PartnerCi[] = [
     web: 'carping1.com', code: '', src: 'web',
     conflict: 'ERP 거래처 미등록(홈페이지 푸터로만 확인, 2026-08-26). 사업자번호 가운데 10 — 개인사업자다. '
       + '공동대표 「지홍석 외 1명」 — 나머지 한 명 모름. ★거래액 23건이라 등록이 시급하다',
+    rentAccount: '',
+    payAccount: '',
   },
   {
     alias: 'SI오토', legal: '주식회사 에스아이그룹', bizNo: '437-88-00928', ceo: '이세인',
     addr: '', tel: '', web: '', code: 'SP010', src: 'erp',
+    rentAccount: '',
+    payAccount: '',
   },
   {
     alias: '오토원트', legal: '주식회사 오토원트', bizNo: '609-88-02424', ceo: '신선호',
     addr: '', tel: '', web: '', code: 'PT-0015', src: 'erp',
+    rentAccount: '',
+    payAccount: '',
   },
   {
     alias: 'SMC', legal: '주식회사 에스엠씨', bizNo: '467-13-01181', ceo: '양정욱',
     addr: '', tel: '', web: '', code: 'SP008', src: 'erp',
     conflict: 'ERP 표기가 「에스엠씨(S.M.C)」 — 정식 상호에 (S.M.C)가 붙는지 미확인',
+    rentAccount: '',
+    payAccount: '',
   },
   {
     alias: '카렉토', legal: '카렉토', bizNo: '439-14-02595', ceo: '이성현',
     addr: '', tel: '', web: '', code: 'PT-0020', src: 'erp',
     conflict: '사업자번호 가운데가 14 — 개인사업자로 보인다. 「주식회사」를 붙이면 안 된다',
+    rentAccount: '',
+    payAccount: '',
   },
   {
     alias: '에이카솔루션', legal: '에이카솔루션', bizNo: '601-08-03295', ceo: '김민구',
     addr: '', tel: '', web: '', code: 'SP007', src: 'erp',
     conflict: '사업자번호 가운데가 08 — 개인사업자로 보인다',
+    rentAccount: '',
+    payAccount: '',
   },
   {
     alias: '프리패스', legal: '프리패스모빌리티 주식회사', bizNo: '528-88-02988', ceo: '박영협',
     addr: '서울시 강서구 양천로 53길 30, 서서울모터리움 1004호', tel: '02-6956-8835',
     web: 'freepassmobility.com', code: 'OP001', src: 'erp',
     // ★우리 자신. 우리가 영업채널로 뛴 건이 3건 있다.
+    rentAccount: '',
+    payAccount: '',
   },
 ];
 
 const KEY = (v: unknown) => String(v ?? '').replace(/[\s()（）㈜(주)·.,-]/g, '').toLowerCase();
 
-const BY_ALIAS = new Map(PARTNER_CI.map((p) => [KEY(p.alias), p]));
+const BY_ALIAS = new Map<string, PartnerCi>();
+for (const p of PARTNER_CI) {
+  BY_ALIAS.set(KEY(p.alias), p);
+  // ★다른 표가 다르게 부르는 이름도 같은 곳으로 보낸다(판매시트 「SA」 = 에스에이).
+  for (const a of p.alias2 || []) if (!BY_ALIAS.has(KEY(a))) BY_ALIAS.set(KEY(a), p);
+}
 
 /**
  * 별칭으로 CI 를 찾는다. 못 찾으면 `null` — **별칭을 정식 상호인 척 돌려주지 않는다.**
@@ -245,5 +333,7 @@ export const ciGapsOf = (alias: unknown): string[] => {
   if (!ci.legal) gaps.push('정식 상호');
   if (!ci.bizNo) gaps.push('사업자등록번호');
   if (!ci.ceo) gaps.push('대표자');
+  // ★정산 계좌가 없으면 돈이 갈 곳을 모르는 채로 종이가 나간다. 대여료 전용계좌는 다른 것이다.
+  if (!ci.payAccount) gaps.push('정산계좌');
   return gaps.length ? [`${ci.alias} — ${gaps.join(' · ')} 모름`] : [];
 };
