@@ -15,7 +15,11 @@ import { useSearchParams } from 'next/navigation';
 import { ledgerFetch } from '@/lib/firebase/ledger-client';
 import type { Invoice } from '@/lib/domain/settlement-invoice';
 
-type Payload = Invoice & { ok: boolean; reason?: string; receiverNote?: string };
+type Payload = Invoice & {
+  ok: boolean; reason?: string; receiverNote?: string;
+  /** ① 대체키 stl_ · ② 사람이 읽는 문서번호. 발행 전이면 둘 다 빈다. */
+  code?: string; invoiceNo?: string; issuedAt?: number; driftNote?: string;
+};
 
 const won = (n: number) => Math.round(n).toLocaleString('ko-KR');
 
@@ -49,6 +53,28 @@ function InvoiceBody() {
   const axis = q.get('axis') || '공급사';
   const party = q.get('party') || '';
   const [data, setData] = useState<Payload | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  /**
+   * **발행 — 번호를 붙인다.** 붙는 순간 그건 나간 문서다.
+   * ★두 번 눌러도 번호는 하나다(서버가 이미 있으면 그것을 돌려준다).
+   */
+  const issue = async () => {
+    if (!data) return;
+    setBusy(true);
+    try {
+      const res = await ledgerFetch('/api/settlement/invoice', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          month: data.month, axis: data.axis, party: data.party,
+          supply: data.supply, vat: data.vat, total: data.total, lines: data.lines.length,
+        }),
+      });
+      const body = await res.json() as { ok: boolean; reason?: string; code?: string; invoiceNo?: string; issuedAt?: number };
+      if (!body.ok) { alert(body.reason || '발행하지 못했습니다'); return; }
+      setData({ ...data, code: body.code, invoiceNo: body.invoiceNo, issuedAt: body.issuedAt, driftNote: '' });
+    } finally { setBusy(false); }
+  };
 
   useEffect(() => {
     (async () => {
@@ -77,6 +103,12 @@ function InvoiceBody() {
           style={{ padding: '7px 14px', fontSize: 13, border: `1px solid ${INK}`, background: INK, color: '#fff', cursor: 'pointer' }}>
           인쇄 / PDF 저장
         </button>
+        {!data.invoiceNo && (
+          <button type="button" onClick={issue} disabled={busy}
+            style={{ padding: '7px 14px', fontSize: 13, border: `1px solid ${INK}`, background: '#fff', color: INK, cursor: 'pointer' }}>
+            {busy ? '발행 중…' : '번호 발행'}
+          </button>
+        )}
         <button type="button" onClick={() => window.close()}
           style={{ padding: '7px 14px', fontSize: 13, border: `1px solid ${LINE}`, background: '#fff', color: INK, cursor: 'pointer' }}>
           닫기
@@ -84,16 +116,21 @@ function InvoiceBody() {
       </div>
 
       {/* ★채워야 나갈 수 있는 것 — 조용히 인쇄하면 그 상태로 상대에게 간다 */}
-      {(data.missing?.length > 0 || data.receiverNote) && (
+      {(data.missing?.length > 0 || data.receiverNote || data.driftNote) && (
         <div style={{ border: '1px solid #c00', color: '#c00', padding: '8px 10px', marginBottom: 14, fontSize: 12, lineHeight: 1.6 }}>
           {data.missing?.length > 0 && <div>이 칸이 비어 있습니다 — <b>{data.missing.join(' · ')}</b>. 채우고 보내세요.</div>}
           {data.receiverNote && <div>{data.receiverNote}</div>}
+          {data.driftNote && <div>{data.driftNote} 다시 발행하지 말고 어느 쪽이 맞는지 먼저 보세요.</div>}
         </div>
       )}
 
       <div style={{ textAlign: 'center', marginBottom: 16 }}>
         <div style={{ fontSize: 24, fontWeight: 800, letterSpacing: 6 }}>{data.kind}</div>
         <div style={{ fontSize: 13, color: MUTE, marginTop: 4 }}>{data.month} · {data.party}</div>
+        {/* ★문서번호 — 붙으면 안 바뀐다. 없으면 «발행 전»이라고 말한다. 종이에 번호가 없으면 대사를 못 한다. */}
+        <div style={{ fontSize: 12, color: data.invoiceNo ? INK : '#c00', marginTop: 2 }}>
+          {data.invoiceNo ? `문서번호 ${data.invoiceNo}` : '발행 전 — 번호를 발행하고 보내세요'}
+        </div>
       </div>
 
       <div style={{ display: 'flex', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>

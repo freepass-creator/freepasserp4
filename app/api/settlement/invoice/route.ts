@@ -17,26 +17,35 @@ import { iso, ledgerError, readLedger, sheetsToken } from '@/lib/server/settleme
 import { billingMonth } from '@/lib/domain/settlement-stage';
 import { nameKey } from '@/lib/domain/settlement-view';
 import { EMPTY_PARTY, buildInvoice, type InvoiceParty } from '@/lib/domain/settlement-invoice';
+import { driftOf, invoiceKey, nextInvoiceNo, type IssuedInvoice } from '@/lib/domain/settlement-invoice-code';
+import { newId } from '@/lib/domain/ids';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 /** 우리 법인 — partners 에 들어 있다(실측 2026-08-26). */
 const ISSUER_CODE = 'OP001';
+/** 발행 기록 — v4 overlay 에만 쓴다. v3 노드는 건드리지 않는다(.cursorrules 4). */
+const ISSUED_NODE = 'v4/settlement_invoices';
 
 const S = (v: unknown) => String(v ?? '').trim();
 
+/**
+ * 회사 한 곳을 정산서에 실을 모양으로.
+ * ⚠ **키 이름이 한 가지가 아니다.** 실측 2026-08-26 — `partners/OP001` 은 `partner_name`·`ceo_name`
+ *   을 쓰는데 `name`·`ceo` 만 읽고 있어 대표자가 빈칸으로 나갔다. 빈칸은 조용해서 안 보인다.
+ */
 const toParty = (raw: unknown, fallbackName = ''): InvoiceParty => {
   const o = (raw || {}) as Record<string, unknown>;
   return {
     name: S(o.name || o.partner_name || o.company_name) || fallbackName,
     bizNo: S(o.business_number || o.business_no || o.biz_no),
-    ceo: S(o.ceo),
-    address: S(o.address),
-    phone: S(o.phone),
-    bank: S(o.bank_name),
-    account: S(o.bank_account),
-    holder: S(o.bank_holder),
+    ceo: S(o.ceo || o.ceo_name || o.representative),
+    address: S(o.address || o.addr || o.company_address),
+    phone: S(o.phone || o.tel),
+    bank: S(o.bank_name || o.bank),
+    account: S(o.bank_account || o.account_no || o.account),
+    holder: S(o.bank_holder || o.account_holder),
   };
 };
 
@@ -87,12 +96,70 @@ export async function GET(req: Request) {
     clawbacks: clawbacks.map((x) => ({ ...x.row, clawbackReason: x.extra.clawbackReason })),
   });
 
+  // ★이미 발행된 문서면 그 번호를 «다시 쓴다». 재인쇄할 때마다 번호가 바뀌면 문서가 아니다.
+  const issued = await findIssued(month, axis, party);
+
   return NextResponse.json({
     ok: true,
     ...invoice,
+    code: issued?.code || '',
+    invoiceNo: issued?.invoiceNo || '',
+    issuedAt: issued?.issuedAt || 0,
+    // 발행 뒤 원장이 바뀌었으면 말한다 — 조용히 다른 금액을 인쇄하면 안 된다.
+    driftNote: driftOf(issued, { supply: invoice.supply, vat: invoice.vat, lines: invoice.lines.length }),
     // 상대를 못 특정했으면 말한다 — 조용히 빈 회사로 두면 그대로 인쇄된다.
     receiverNote: cands.length === 1 ? '' : cands.length === 0
       ? `「${party}」로 등록된 회사를 못 찾았습니다. 사업자 정보가 빈 채로 나갑니다.`
       : `「${party}」로 시작하는 회사가 ${cands.length}곳이라 하나로 못 정했습니다.`,
   });
+}
+
+/** 발행 기록을 찾는다 — 같은 달·같은 축·같은 상대면 같은 문서다. */
+async function findIssued(month: string, axis: string, party: string): Promise<IssuedInvoice | null> {
+  const snap = await getDatabase(firebaseAdminApp()).ref(ISSUED_NODE).get().catch(() => null);
+  const all = (snap?.val() || {}) as Record<string, IssuedInvoice>;
+  const want = invoiceKey(month, axis, party);
+  return Object.values(all).find((v) => invoiceKey(v.month, v.axis, v.party) === want) || null;
+}
+
+/**
+ * **발행 — 번호를 붙인다.** 붙는 순간 그건 나간 문서다.
+ *
+ * ★사장님 2026-08-26 「정산코드랑 이런거는 신규코드 발행 매뉴얼에 따르고」.
+ *   규격(`docs/ERP5_CODE_SYSTEM.md`) 그대로 — 대체키 `stl_` + 사람이 읽는 번호는 별도 필드.
+ * ★**두 번 눌러도 번호는 하나다.** 이미 있으면 그것을 돌려준다.
+ * ⚠ v4 overlay 에만 쓴다. v3 노드는 건드리지 않는다.
+ */
+export async function POST(req: Request) {
+  const who = await verifyActiveBearer(req).catch(() => null);
+  if (!who) return NextResponse.json({ ok: false, reason: '로그인이 필요합니다.' }, { status: 401 });
+  if (who.role !== 'admin') return NextResponse.json({ ok: false, reason: '관리자만 발행할 수 있습니다.' }, { status: 403 });
+
+  const body = await req.json().catch(() => ({})) as {
+    month?: string; axis?: string; party?: string; supply?: number; vat?: number; total?: number; lines?: number;
+  };
+  const month = S(body.month);
+  const axis = S(body.axis) === '영업채널' ? '영업채널' : '공급사';
+  const party = S(body.party);
+  if (!month || !party) return NextResponse.json({ ok: false, reason: '청구월과 상대를 지정해 주세요.' }, { status: 400 });
+
+  const already = await findIssued(month, axis, party);
+  if (already) return NextResponse.json({ ok: true, ...already, reused: true });
+
+  const db = getDatabase(firebaseAdminApp());
+  const snap = await db.ref(ISSUED_NODE).get().catch(() => null);
+  const all = (snap?.val() || {}) as Record<string, IssuedInvoice>;
+  const rec: IssuedInvoice = {
+    code: newId('settlement'),
+    invoiceNo: nextInvoiceNo(month, axis, Object.values(all).map((v) => v.invoiceNo)),
+    month, axis, party,
+    supply: Number(body.supply) || 0,
+    vat: Number(body.vat) || 0,
+    total: Number(body.total) || 0,
+    lines: Number(body.lines) || 0,
+    issuedAt: Date.now(),
+    issuedBy: who.uid,
+  };
+  await db.ref(`${ISSUED_NODE}/${rec.code}`).set(rec);
+  return NextResponse.json({ ok: true, ...rec, reused: false });
 }

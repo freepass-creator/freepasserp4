@@ -42,7 +42,7 @@ RAW_ALLOW.set('components/ConsultPanel.tsx', { counts: { input: 1 }, reason: '�
 // ★정산서는 «종이»다. ERP 테마를 따라가면 다크 모드에서 인쇄했을 때 까맣게 나간다 —
 //   그래서 흰 바탕·검은 글씨로 고정하고, 인쇄에서 빠질 버튼(인쇄·닫기)도 공용 원자를 안 쓴다.
 //   공용 Btn 은 테마 토큰을 물고 있어 이 페이지에 들어오면 그 고정이 깨진다.
-RAW_ALLOW.set('app/settlement/invoice/page.tsx', { counts: { button: 2 }, reason: '인쇄용 종이 화면 — 테마 비의존 고정(인쇄/닫기, no-print)' });
+RAW_ALLOW.set('app/settlement/invoice/page.tsx', { counts: { button: 3 }, reason: '인쇄용 종이 화면 — 테마 비의존 고정(인쇄/번호 발행/닫기, no-print)' });
 
 const RADIUS_ISLANDS = new Set([
   'app/global-error.tsx',
