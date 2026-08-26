@@ -38,7 +38,7 @@ import { WorkPage, type WorkPane } from '@/components/WorkPage';
 import { LedgerListRow, SettlementCreateRow } from '@/components/list-rows';
 import {
   Badge, Btn, C, CenterNote, DetailRow, FilterChips, FormGrid, FS, Input,
-  ListGroup, ListRow, Loading, NUM, PaneBody, PaneHead, R_CARD, Select, won,
+  ListGroup, ListRow, Loading, NUM, PaneBody, PaneHead, SectionLabel, Select, Switch, won,
 } from '@/components/ui';
 import { toast } from '@/components/Toaster';
 import { Banknote, ClipboardList, ListChecks } from 'lucide-react';
@@ -104,6 +104,8 @@ export default function SettlementLedgerPage() {
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState<Record<string, string>>({ product: '장기렌트', payKind: '일시납' });
   const [agentList, setAgentList] = useState<{ code: string; name: string; channel: string; label: string }[]>([]);
+  /** 인도일 — 체크만 켜면 청구월이 안 서니 날짜를 같이 받는다. */
+  const [deliverOn, setDeliverOn] = useState('');
 
   // ③ 실적상태 — 자기 검색·필터
   const [pQ, setPQ] = useState('');
@@ -257,8 +259,6 @@ export default function SettlementLedgerPage() {
   if (err) return <CenterNote>정산원장을 못 읽었습니다 — {err}</CenterNote>;
   if (!data) return <Loading />;
 
-  const card: React.CSSProperties = { border: `1px solid ${C.line}`, borderRadius: R_CARD, padding: '2px 10px' };
-  const kv = (k: string, v: string) => <DetailRow key={k} label={k} value={v} valueColor={C.ink} />;
 
   // ─────────────────────────────── ① 접수목록
   const list = (
@@ -331,38 +331,71 @@ export default function SettlementLedgerPage() {
     </div>
   );
 
+  /**
+   * ─────────────────── ② 접수내용
+   * ★플랫폼 상세 원자로 짠다(사장님 2026-08-26 「상세페이지 활용해서 표랑 입력이랑 그런거 활용좀」) —
+   *   `ListGroup` + `DetailRow` + `SectionLabel`. 카드·여백을 손으로 만들면 화면마다 달라진다.
+   * ★★**상태값은 여기서 바로 바꾼다**(「상태값 쉽게 바꿀수 있어야하고」) —
+   *   계약서·인도완료·계약취소·환수 넷을 스위치로 둔다. 원장의 체크 넷과 같은 것이다.
+   * ⚠ 인도완료를 켜면 **인도일이 필요하다** — 날짜 없이 켜면 청구월이 안 선다(서버도 막는다).
+   */
   const intake = picked ? (
     <>
-      <div style={card}>
-        {kv('차량번호', picked.plate)}
-        {kv('모델명', picked.model)}
-        {kv('고객명', picked.customer)}
-        {picked.phone ? kv('연락처', picked.phone) : null}
-        {kv('공급사', picked.supplier)}
-        {kv('영업담당자', picked.agent)}
-        {kv('영업채널', picked.channel)}
-        {kv('상품구분', picked.product)}
-        {kv('계약기간', picked.term ? `${picked.term}개월` : '')}
-        {kv('렌탈료', picked.rent ? won(picked.rent) : '')}
-        {kv('보증금', picked.deposit ? won(picked.deposit) : '')}
-        {kv('차량가액', picked.price ? won(picked.price) : '')}
-        {kv('분납여부', picked.payKind)}
-        {kv('접수일', picked.receivedAt)}
-      </div>
-      {/* 업무에 꼭 필요한 것만 — 접수 → 계약서 → 인도 → 청구. 인도는 실적상태에서 켠다 */}
-      <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
-        <Btn variant={picked.paper ? 'ghost' : 'solid'} disabled={busy}
-          onClick={() => patchRow(picked, { 계약서: picked.paper ? 'FALSE' : 'TRUE' })}>
-          {picked.paper ? '계약서 해제' : '계약서 완료'}
-        </Btn>
-        <Btn variant={picked.cancelled ? 'ghost' : 'danger'} disabled={busy}
-          onClick={() => patchRow(picked, { 계약취소: picked.cancelled ? 'FALSE' : 'TRUE' })}>
-          {picked.cancelled ? '취소 해제' : '계약취소'}
-        </Btn>
-        {picked.delivered && (
-          <Btn variant="ghost" disabled={busy} onClick={() => patchRow(picked, { 인도완료: 'FALSE', 인도일: '' })}>인도 해제</Btn>
-        )}
-      </div>
+      <ListGroup header="계약">
+        <DetailRow label="차량번호" value={picked.plate} />
+        <DetailRow label="모델명" value={picked.model} />
+        <DetailRow label="고객명" value={picked.customer} />
+        {picked.phone ? <DetailRow label="연락처" value={picked.phone} /> : null}
+        <DetailRow label="공급사" value={picked.supplier} />
+        <DetailRow label="영업담당자" value={picked.agent} />
+        <DetailRow label="영업채널" value={picked.channel} />
+      </ListGroup>
+
+      <ListGroup header="조건">
+        <DetailRow label="상품구분" value={picked.product} />
+        <DetailRow label="계약기간" value={picked.term ? `${picked.term}개월` : ''} />
+        <DetailRow label="렌탈료" value={picked.rent ? won(picked.rent) : ''} />
+        <DetailRow label="보증금" value={picked.deposit ? won(picked.deposit) : ''} />
+        <DetailRow label="차량가액" value={picked.price ? won(picked.price) : ''} />
+        <DetailRow label="분납여부" value={picked.payKind} />
+      </ListGroup>
+
+      <ListGroup header="상태" footer="원장의 체크 넷입니다. 여기서 바꾸면 시트에 그대로 갑니다.">
+        <DetailRow label="접수일" value={picked.receivedAt} />
+        <DetailRow
+          label="계약서"
+          control
+          value={<Switch checked={picked.paper} disabled={busy}
+            onChange={(next) => patchRow(picked, { 계약서: next ? 'TRUE' : 'FALSE' })} />}
+        />
+        <DetailRow
+          label="인도완료"
+          control
+          value={picked.delivered ? (
+            <Switch checked disabled={busy}
+              onChange={() => patchRow(picked, { 인도완료: 'FALSE', 인도일: '' })} />
+          ) : (
+            <span style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+              <Input value={deliverOn} onChange={setDeliverOn} placeholder="2026-08-31" />
+              <Btn size="sm" disabled={busy || !deliverOn.trim()}
+                onClick={() => patchRow(picked, { 인도완료: 'TRUE', 인도일: deliverOn.trim() })}>켜기</Btn>
+            </span>
+          )}
+        />
+        <DetailRow label="인도일" value={picked.deliveredAt} />
+        <DetailRow
+          label="계약취소"
+          control
+          value={<Switch checked={picked.cancelled} disabled={busy}
+            onChange={(next) => patchRow(picked, { 계약취소: next ? 'TRUE' : 'FALSE' })} />}
+        />
+        <DetailRow
+          label="환수"
+          control
+          value={<Switch checked={picked.clawback} disabled={busy}
+            onChange={(next) => patchRow(picked, { 환수: next ? 'TRUE' : 'FALSE' })} />}
+        />
+      </ListGroup>
     </>
   ) : <CenterNote>목록에서 계약을 고르거나, 맨 위 「계약접수」를 누르세요.</CenterNote>;
 
@@ -464,18 +497,13 @@ export default function SettlementLedgerPage() {
         )}
 
       {picked && (
-        <div>
-          <div style={{ display: 'flex', gap: 7, alignItems: 'center', marginBottom: 6, flexWrap: 'wrap' }}>
-            <Badge tone={BILL_TONE[picked.billState]}>{picked.billState}</Badge>
-            <span style={{ fontSize: FS.cap, color: C.mute }}>{BILL_WHY[picked.billState]}</span>
-          </div>
-          <div style={card}>
-            {kv('청구월', picked.billingMonth || '인도 전')}
-            {kv('청구액', picked.money.claim ? won(picked.money.claim) : '')}
-            {kv('지급액', picked.money.pay ? won(picked.money.pay) : '')}
-            {kv('우리몫', picked.money.margin ? won(picked.money.margin) : '')}
-          </div>
-        </div>
+        <ListGroup header={`고른 계약 — ${picked.plate}`} footer={BILL_WHY[picked.billState]}>
+          <DetailRow label="청구상태" value={<Badge tone={BILL_TONE[picked.billState]}>{picked.billState}</Badge>} />
+          <DetailRow label="청구월" value={picked.billingMonth || '인도 전'} />
+          <DetailRow label="청구액" value={picked.money.claim ? won(picked.money.claim) : ''} />
+          <DetailRow label="지급액" value={picked.money.pay ? won(picked.money.pay) : ''} />
+          <DetailRow label="우리몫" value={picked.money.margin ? won(picked.money.margin) : ''} />
+        </ListGroup>
       )}
 
       <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
@@ -488,10 +516,10 @@ export default function SettlementLedgerPage() {
   const panes: WorkPane[] = [
     {
       key: 'intake', title: creating ? '계약접수' : '접수내용', icon: ClipboardList,
-      node: <><PaneHead title={creating ? '계약접수' : '접수내용'} /><PaneBody>{creating ? createForm : intake}</PaneBody></>,
+      node: <><PaneHead title={creating ? '계약접수' : '접수내용'} /><PaneBody pad>{creating ? createForm : intake}</PaneBody></>,
     },
-    { key: 'progress', title: '실적상태', icon: ListChecks, node: <><PaneHead title="실적상태" /><PaneBody>{progress}</PaneBody></> },
-    { key: 'billing', title: '청구현황', icon: Banknote, node: <><PaneHead title="청구현황" /><PaneBody>{billing}</PaneBody></> },
+    { key: 'progress', title: '실적상태', icon: ListChecks, node: <><PaneHead title="실적상태" /><PaneBody pad>{progress}</PaneBody></> },
+    { key: 'billing', title: '청구현황', icon: Banknote, node: <><PaneHead title="청구현황" /><PaneBody pad>{billing}</PaneBody></> },
   ];
 
   return (
