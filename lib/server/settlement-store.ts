@@ -89,9 +89,16 @@ export async function listEvents(key: LedgerKey): Promise<LedgerEvent[]> {
 export type StoreResult = { ok: true } | { ok: false; reason: string; status: number };
 const fail = (reason: string, status = 502): StoreResult => ({ ok: false, reason, status });
 
-/** 접수할 때 받는 것. **모델명·공급사·수수료는 안 받는다** — 기계가 채운다. */
+/**
+ * 접수할 때 받는 것.
+ * ★★**모델명·공급사는 «고른 차»에서 따라온다**(사장님 2026-08-26 「차량번호 선택해서」).
+ *   지어내는 게 아니라 재고에서 끌어오는 것이라 넣는 게 맞다 —
+ *   비워 두면 수수료율을 못 찾아 「청구액이 안 잡힌다」가 된다(실측: 원장에 그런 줄이 있다).
+ * ⚠ 수수료·청구월은 여전히 안 받는다. 그건 요율표에서 나온다.
+ */
 export type IntakeInput = {
-  plate: string; customer?: string; phone?: string;
+  plate: string; model?: string; supplier?: string;
+  customer?: string; phone?: string;
   channel?: string; agent?: string; agentCode?: string; agentPhone?: string;
   product?: string; term?: string; deposit?: string; rent?: string; price?: string; payKind?: string;
 };
@@ -181,6 +188,8 @@ export async function appendIntake(input: IntakeInput): Promise<StoreResult & { 
   const today = iso(new Date());
   const put: Record<string, string> = {
     접수일: today, 차량번호: plate,
+    // 고른 차에서 따라온 것 — 비면 요율을 못 찾는다
+    모델명: S(input.model), 공급사: S(input.supplier),
     고객명: S(input.customer), 고객연락처: S(input.phone),
     영업채널: S(input.channel), 영업담당자: S(input.agent), 영업자코드: S(input.agentCode),
     영업자연락처: S(input.agentPhone),
