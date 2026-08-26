@@ -208,6 +208,54 @@ export const SETTLEMENT_ATOMS: Atom[] = [
 ];
 
 /**
+ * **「상태 표기」 글자 하나를 체크 넷으로 푼다.**
+ *
+ * ★원본에는 체크가 없다. 계약서·인도완료·취소·환수가 글자 하나에 뭉쳐 있었다.
+ *   실측 2026-08-26 — 원본 3,028줄에 쓰인 글자는 **7가지뿐**이다. 그래서 표로 다 적을 수 있다.
+ * ```
+ * 1924줄  계약 완료          계약서 ✓ 인도 ✓
+ *  579줄  계약서 업로드        계약서 ✓ 인도 ✗   ← 계약서만 올라간 단계다
+ *  220줄  계약 불가(취소)      취소 ✓
+ *  204줄  계약진행중          아직 아무것도 아님
+ *   98줄  환수               환수 ✓ (인도까지는 갔던 건)
+ *    2줄  연장               ⚠ 아직 안 정했다
+ *    1줄  대기 중(이슈발생)     진행중 + 이슈
+ * ```
+ * ★★**인도완료는 글자에서 안 끌어낸다 — 「인도일」이라는 «사실»에서 끌어낸다.**
+ *   글자는 사람이 안 고치고 넘어가는 일이 잦다. 날짜는 안 적으면 티가 난다.
+ *   그래서 `delivered = 인도일 있음` 이 이기고, 글자는 계약서·취소·환수에만 쓴다.
+ */
+export const STATUS_TO_CHECKS: { word: string; paper?: boolean; cancelled?: boolean; clawback?: boolean; note?: string }[] = [
+  { word: '계약 완료', paper: true },
+  { word: '계약서 업로드', paper: true, note: '계약서는 썼고 인도가 아직이다' },
+  { word: '계약 불가(취소)', cancelled: true },
+  { word: '계약진행중' },
+  { word: '환수', paper: true, clawback: true, note: '인도까지 갔다가 깨진 건' },
+  { word: '연장', note: '⚠ 아직 안 정했다 — 새 계약인지 같은 계약이 늘어난 것인지(2줄)' },
+  { word: '대기 중(이슈발생)', note: '진행중 + 이슈. 사람이 봐야 한다(1줄)' },
+];
+
+const flatWord = (v: string) => String(v ?? '').replace(/[\s()（）]/g, '');
+/** 글자 → 체크. 모르는 글자는 **아무것도 안 켠다** — 지어내면 그게 실적이 된다. */
+export function checksFromStatus(word: string): { paper: boolean; cancelled: boolean; clawback: boolean; known: boolean } {
+  const hit = STATUS_TO_CHECKS.find((s) => flatWord(s.word) === flatWord(word));
+  return {
+    paper: !!hit?.paper, cancelled: !!hit?.cancelled, clawback: !!hit?.clawback,
+    known: !!hit || !String(word ?? '').trim(),
+  };
+}
+
+/**
+ * **차량번호가 열쇠가 못 되는 값.** 원본에 「미정」이 그대로 적혀 있다 —
+ * 이걸 열쇠로 쓰면 서로 다른 계약 다섯 건이 한 건으로 접힌다(실측).
+ */
+export const NOT_A_PLATE = /^(미정|미배정|미상|없음|-|tbd)$/i;
+export const plateKeyOf = (v: unknown) => {
+  const t = String(v ?? '').replace(/[\s-]/g, '');
+  return NOT_A_PLATE.test(t) ? '' : t;
+};
+
+/**
  * **틀에 안 담는 원본 열.** 버리는 이유를 적어 둔다 —
  * 안 적어 두면 다음 사람이 「빠뜨렸나?」 하고 다시 가져온다.
  */
