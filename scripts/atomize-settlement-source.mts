@@ -88,7 +88,7 @@ for (const tab of tabs) {
   }
 }
 
-console.log(`\n■ 부었다 — 데이터 탭 ${dataTabs}개 · ${rows.length}줄`);
+console.log(`\n■ 부었다 — 데이터 탭 ${dataTabs}개 · 차번 있는 ${rows.length}줄 · 차번이 「미정」이라 열쇠가 못 되는 ${noPlate.length}줄`);
 
 // ─────────────────────────────────────────────── ① 겹치는가
 /** 한 계약의 열쇠 — 차번+접수일. 접수일이 없으면 차번+인도일로 버틴다. */
