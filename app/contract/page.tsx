@@ -21,7 +21,7 @@ import { initAuth } from '@/lib/firebase/auth';
 import { man } from '@/lib/format';
 import { PaneHead, PaneBody, Badge, Btn, ButtonLabel, Input, won, C, R, NUM, Loading, CenterNote, ListGroup, SETTLEMENT_STATUS_TONE, FilterChips, FilterGroup, Select, FW, FS, FeedRowSkeleton, KV_LABEL_W, rowPadY, ICON, Modal, FormGrid } from '@/components/ui';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
-import { ContractSettlement } from '@/components/ContractSettlement';
+import { MyLedger } from '@/components/MyLedger';
 import { ContractPanel } from '@/components/ContractPanel';
 import { ContractDocs } from '@/components/ContractDocs';
 import { ContractCreateRow, ContractListRow } from '@/components/list-rows';
@@ -782,19 +782,30 @@ function ContractsAdminDesk() {
 }
 
 /**
- * **계약·정산확인 — 한 페이지를 전 역할이 같이 쓴다.**
+ * **계약·정산확인 — 영업자·공급사가 «가지고 가는» 화면.**
  *
  * ★사장님 2026-08-26
- *   「관리자가 접수해서 계약진행확인이랑 정산확인할수 있는 페이지를 계약/정산확인 메뉴에
- *    페이지로 하나만 만들어서 범용적으로 확인할수 있게끔」 → 「아 그냥 그 페이지를 같이 쓰는거로??」 「그래그래」
+ *   「관리자랑 영업자 공급사가 보는 페이지가 달랐으면 좋겟음 한페이지에 하면 오류가 많이 날거 같아」
+ *   「관리자가 정보를 만들고 그걸 가지고 가는거로」
  *
- * 그래서 역할로 «페이지»를 가르지 않는다. 페이지는 하나이고 **담기는 것만** 갈린다 —
- * 관리자는 접수·금액·연락처까지, 영업자·공급사는 내 것만·금액 없이.
- * 가르는 자리는 화면이 아니라 서버다(`/api/settlement/mine`).
- *
+ * 그래서 화면을 갈랐다 —
+ * ```
+ * 정산관리 /settlement/ledger   관리자가 «만드는» 곳. 접수·진행·금액·정산서
+ * 계약·정산확인 /contract        영업자·공급사가 «가지고 가는» 곳. 금액 없음
+ * ```
+ * ★★한 화면에 역할 분기를 쌓지 않는다. 조건 하나 어긋나면 관리자용이 새어 나간다.
  * ⚠ 옛 계약 책상(`ContractsAdminDesk`)은 RTDB 계약·서류·전자계약 흐름이라 지우지 않았다.
- *   원장과 축이 달라 여기에 섞으면 둘 다 흐려진다. 필요해지면 별도 자리로 꺼낸다.
+ *   원장과 축이 달라 섞으면 둘 다 흐려진다. 관리자가 들어오면 그쪽을 보여 준다.
  */
 export default function ContractPage() {
-  return <ContractSettlement />;
+  const [role, setRole] = useState<Role | null>(null);
+  useEffect(() => {
+    const read = () => setRole((getSession()?.role as Role) || getRole());
+    read();
+    window.addEventListener('fp:session', read);
+    window.addEventListener('fp:role', read);
+    return () => { window.removeEventListener('fp:session', read); window.removeEventListener('fp:role', read); };
+  }, []);
+  if (role === null) return <Loading />;
+  return role === 'admin' ? <ContractsAdminDesk /> : <MyLedger />;
 }

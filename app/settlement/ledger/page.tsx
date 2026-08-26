@@ -14,6 +14,7 @@
  * ★**판정은 화면이 안 한다.** 자리·청구월·수수료는 `lib/domain/settlement-stage.ts` 가 정한다.
  */
 import { useEffect, useMemo, useState } from 'react';
+import { canBill, type Confirmation } from '@/lib/domain/settlement-confirm';
 import { ledgerFetch } from '@/lib/firebase/ledger-client';
 import { C, FS, FW, R_CARD, NUM, won, Btn, Select, Input, CenterNote, Loading } from '@/components/ui';
 import { toast } from '@/components/Toaster';
@@ -44,6 +45,8 @@ export default function SettlementLedgerPage() {
   const [err, setErr] = useState('');
   const [tab, setTab] = useState<string>('진행중');
   const [month, setMonth] = useState('');
+  /** 실적 확인 — 청구 앞에 놓인 문. 누가 아직 안 했는지 여기서 보여야 전화를 건다. */
+  const [confirms, setConfirms] = useState<Confirmation[]>([]);
   const [supplier, setSupplier] = useState('');
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -59,6 +62,16 @@ export default function SettlementLedgerPage() {
     } catch (e) { setErr(String((e as Error)?.message || e)); }
   };
   useEffect(() => { load(); }, []);
+  useEffect(() => {
+    if (!month) { setConfirms([]); return; }
+    (async () => {
+      try {
+        const res = await ledgerFetch(`/api/settlement/confirm?month=${encodeURIComponent(month)}`);
+        const body = await res.json() as { ok: boolean; list?: Confirmation[] };
+        setConfirms(body.ok ? (body.list || []) : []);
+      } catch { setConfirms([]); }
+    })();
+  }, [month]);
 
   const rows = data?.rows || [];
   const months = useMemo(() => [...new Set(rows.map((r) => r.billingMonth).filter(Boolean) as string[])].sort().reverse(), [rows]);
@@ -78,6 +91,23 @@ export default function SettlementLedgerPage() {
     }
     return [...m].sort((a, b) => b[1].claim - a[1].claim);
   }, [rows, month, supplier]);
+  /** 이 달 청구를 막고 있는 영업자들. 확인이 안 끝난 사람 건이 든 공급사 청구서는 못 나간다. */
+  const gate = useMemo(() => {
+    if (!month) return [] as { agent: string; n: number }[];
+    const byAgent = new Map<string, number>();
+    for (const r of rows) {
+      if (r.cancelled || r.billingMonth !== month) continue;
+      const a = r.agent || '(미기재)';
+      byAgent.set(a, (byAgent.get(a) || 0) + 1);
+    }
+    const out: { agent: string; n: number }[] = [];
+    for (const [agent, n] of byAgent) {
+      const c = confirms.find((v) => (v.who || '').replace(/\s/g, '') === agent.replace(/\s/g, '')) || null;
+      if (!canBill(c, n).ok) out.push({ agent, n });
+    }
+    return out.sort((a, b) => b.n - a.n);
+  }, [month, rows, confirms]);
+
   const tot = billing.reduce((a, [, v]) => ({ n: a.n + v.n, claim: a.claim + v.claim, pay: a.pay + v.pay }), { n: 0, claim: 0, pay: 0 });
 
   const shown = useMemo(() => rows
@@ -97,6 +127,28 @@ export default function SettlementLedgerPage() {
       toast(`${body.plate} 접수했습니다`);
       setForm({ product: '장기렌트', payKind: '일시납' });
       setOpen(false);
+      await load();
+    } finally { setBusy(false); }
+  };
+
+  /**
+   * **인도완료를 켠다 — 인도일은 오늘.**
+   * ★날짜 없이 체크만 켜면 청구월이 안 서고 「인도는 됐는데 청구가 없는」 줄이 조용히 생긴다.
+   *   서버도 그걸 막는다. 오늘이 아닌 날짜는 시트에서 고친다.
+   */
+  const markDelivered = async (r: Row) => {
+    const today = new Date();
+    const day = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    if (!window.confirm(`${r.plate} — 인도일 ${day} 로 인도완료 처리할까요?`)) return;
+    setBusy(true);
+    try {
+      const res = await ledgerFetch('/api/settlement/ledger', {
+        method: 'PATCH', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ plate: r.plate, receivedAt: r.receivedAt, patch: { 인도완료: 'TRUE', 인도일: day } }),
+      });
+      const body = await res.json() as { ok: boolean; reason?: string };
+      if (!body.ok) { toast(body.reason || '고치지 못했습니다'); return; }
+      toast(`${r.plate} 인도완료`);
       await load();
     } finally { setBusy(false); }
   };
@@ -162,9 +214,24 @@ export default function SettlementLedgerPage() {
             {tot.n}건 · 청구 <b style={{ color: C.ink }}>{won(tot.claim)}</b> · 지급 {won(tot.pay)} · 수익 <b style={{ color: C.ink }}>{won(tot.claim - tot.pay)}</b>
           </span>
         </div>
+        {/* ★청구의 관문 — 「받아서 주는」 구조라 영업자 확인이 먼저다(사장님 2026-08-26).
+               종이 뽑고 나서 알면 늦으니 표 위에 세운다. */}
+        {month && (
+          <div style={{ fontSize: FS.cap, lineHeight: 1.6 }}>
+            <b>영업자 실적 확인</b>{' '}
+            {gate.length === 0
+              ? <span style={{ color: C.ok }}>막는 사람 없음 — 청구해도 됩니다</span>
+              : (
+                <span style={{ color: C.danger }}>
+                  {gate.length}명이 아직입니다 — {gate.slice(0, 6).map((g) => `${g.agent}(${g.n}건)`).join(' · ')}
+                  {gate.length > 6 ? ` 외 ${gate.length - 6}명` : ''}
+                </span>
+              )}
+          </div>
+        )}
         <div style={{ overflowX: 'auto' }}>
           <table style={{ borderCollapse: 'collapse', width: '100%' }}>
-            <thead><tr>{['공급사', '건수', '청구액', '지급액', '수익'].map((h) => <th key={h} style={th}>{h}</th>)}</tr></thead>
+            <thead><tr>{['공급사', '건수', '청구액', '지급액', '수익', ''].map((h, i) => <th key={h + i} style={th}>{h}</th>)}</tr></thead>
             <tbody>
               {billing.map(([sup, v]) => (
                 <tr key={sup} style={{ borderTop: `1px solid ${C.line}` }}>
@@ -173,9 +240,18 @@ export default function SettlementLedgerPage() {
                   <td style={tdNum}>{won(v.claim)}</td>
                   <td style={tdNum}>{won(v.pay)}</td>
                   <td style={{ ...tdNum, fontWeight: FW.head }}>{won(v.claim - v.pay)}</td>
+                  <td style={{ ...td, textAlign: 'right' }}>
+                    {/* ★표의 한 줄이 곧 정산서 한 장이다. 달을 안 고르면 못 뽑는다 —
+                           달 없는 정산서는 무엇을 청구하는 건지 알 수 없다. */}
+                    <Btn variant="bare" disabled={!month}
+                      onClick={() => window.open(
+                        `/settlement/invoice?month=${encodeURIComponent(month)}&axis=${encodeURIComponent('공급사')}&party=${encodeURIComponent(sup)}`,
+                        '_blank',
+                      )}>청구서</Btn>
+                  </td>
                 </tr>
               ))}
-              {!billing.length && <tr><td colSpan={5} style={{ ...td, color: C.mute, padding: 18 }}>그 조건에 청구할 것이 없다</td></tr>}
+              {!billing.length && <tr><td colSpan={6} style={{ ...td, color: C.mute, padding: 18 }}>그 조건에 청구할 것이 없다</td></tr>}
             </tbody>
           </table>
         </div>
@@ -191,7 +267,7 @@ export default function SettlementLedgerPage() {
         <table style={{ borderCollapse: 'collapse', width: '100%' }}>
           <thead>
             <tr>{['접수일', '차량번호', '공급사', '고객명', '담당', '상품구분', '기간', '렌탈료', '분납',
-              '계약서', '인도', '인도일', '취소', '환수', '청구월', '청구액', '지급액', '우리몫', '다음회차']
+              '계약서', '인도', '인도일', '취소', '환수', '청구월', '청구액', '지급액', '우리몫', '다음회차', '진행']
               .map((h) => <th key={h} style={th}>{h}</th>)}</tr>
           </thead>
           <tbody>
@@ -216,9 +292,18 @@ export default function SettlementLedgerPage() {
                 <td style={tdNum}>{r.money.pay ? won(r.money.pay) : ''}</td>
                 <td style={{ ...tdNum, fontWeight: FW.meta }}>{r.money.margin ? won(r.money.margin) : ''}</td>
                 <td style={td}>{r.nextRound}</td>
+                <td style={td}>
+                  {/* ★말일까지 인도가 켜져야 그 달 청구로 들어온다(사장님 2026-08-26).
+                         시트를 안 열고 여기서 켠다. 인도일은 «오늘»로 박는다 —
+                         다른 날짜가 필요하면 시트에서 고친다(여기서 날짜를 받으면 표가 무거워진다). */}
+                  {!r.delivered && !r.cancelled && (
+                    <Btn variant="bare" disabled={busy}
+                      onClick={() => markDelivered(r)}>인도완료</Btn>
+                  )}
+                </td>
               </tr>
             ))}
-            {!shown.length && <tr><td colSpan={19} style={{ ...td, color: C.mute, padding: 20 }}>없다</td></tr>}
+            {!shown.length && <tr><td colSpan={20} style={{ ...td, color: C.mute, padding: 20 }}>없다</td></tr>}
           </tbody>
         </table>
       </div>

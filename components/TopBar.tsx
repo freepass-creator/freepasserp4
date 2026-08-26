@@ -67,7 +67,10 @@ const SIMPLE_GROUPS: typeof GROUPS = [{
     // ★사장님 2026-08-26 「계약 정산확인 한개매뉴로」 — 영업자·공급사에게 계약진행과 정산확인은
     //   같은 질문의 앞뒤다(「내 계약이 어떻게 되나」 → 「그래서 몇 건이냐」). 입구를 둘로 두면 매번 헤맨다.
     //   관리자는 들어가면 기존 계약 책상, 영업자·공급사는 원장에서 «내 것만»(금액 없음).
-    { href: '/contract', label: '계약·정산확인', icon: NAV_ICON.contract, roles: ALL_ROLES },
+    // ★화면을 갈랐다(사장님 2026-08-26 「관리자랑 영업자 공급사가 보는 페이지가 달랐으면」).
+    //   여기는 «가지고 가는» 곳 — 영업자·공급사가 내 계약과 내 실적 건수를 본다. 금액은 안 온다.
+    //   «만드는» 곳은 정산관리(/settlement/ledger)이고 관리자만 본다.
+    { href: '/contract', label: '계약·정산확인', icon: NAV_ICON.contract, roles: ['agent', 'provider'] },
     // 관리자 월별정산(RTDB) — 원장과 축이 달라 따로 둔다.
     { href: '/settlement', label: '월별정산', icon: FileText, roles: ['admin'] },
     { href: '/inventory', label: '재고관리', icon: NAV_ICON.inventory, roles: ['provider', 'admin'] },
