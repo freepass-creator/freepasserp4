@@ -25,6 +25,7 @@
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { normalizeRecord, type SettlementRecord } from '../lib/domain/settlement-record';
 import { billingMonth, type SettlementRow } from '../lib/domain/settlement-stage';
 import { EMPTY_PARTY, buildInvoice, type InvoiceParty } from '../lib/domain/settlement-invoice';
@@ -87,6 +88,21 @@ const partyOf = (alias: string): InvoiceParty => {
       : { bank: S(p.bank_name), account: S(p.bank_account), holder: S(p.bank_holder) }),
   };
 };
+
+/**
+ * ★★★**뽑기 전에 «갈라졌나»부터 본다.**
+ *   시트와 ERP 가 둘 다 살아 있어서, 사람이 시트에 적으면 ERP 가 모른다.
+ *   실측 2026-08-26: 그렇게 한 건이 빠질 뻔했다(시트 432 · ERP 431).
+ *   ⚠ 사람이 기억해서 검사를 돌리길 기대하지 않는다 — 여기서 «자동으로» 막는다.
+ */
+{
+  const r = spawnSync('npx', ['tsx', 'scripts/check-settlement-drift.mts'], { stdio: 'inherit', shell: true });
+  if (r.status !== 0) {
+    console.log('\n✕ 시트와 ERP 가 갈렸습니다 — 정산서를 뽑지 않았습니다.');
+    console.log('   npx tsx scripts/migrate-settlement-to-erp.mts --apply  로 맞춘 뒤 다시 부르세요.\n');
+    process.exit(1);
+  }
+}
 
 const rows = Object.values((await db.ref('v4/settlement_rows').get()).val() || {}).map((r) => normalizeRecord(r as SettlementRecord));
 const live = rows.filter((r) => !r.cancelled && billingMonth(asRow(r)) === MONTH);

@@ -34,6 +34,10 @@ const fail: string[] = [];
 const ok = (why: string, c: boolean) => { console.log(`  ${c ? '○' : '✕'} ${why}`); if (!c) fail.push(why); };
 
 const PLATE = '99시험0001';
+// ★줄 수를 «못 박지» 않는다. 원장은 계속 늘어난다 — 시험 전 개수를 재 두고 그것과 맞댄다.
+//   2026-08-26 에 431 로 박아 뒀다가 한 줄이 늘자 검사가 거짓으로 빨개졌다.
+const before: any = await (await fetch(API, { headers: H })).json();
+const BEFORE = Number(before.count) || 0;
 console.log('\n■ ERP 저장소 — 접수·수정\n');
 
 // ① 접수
@@ -82,7 +86,7 @@ const code = Object.entries(all).find(([, r]) => S(r?.plate) === PLATE)?.[0];
 if (code) await getDatabase().ref(`v4/settlement_rows/${code}`).remove();
 const list3: any = await (await fetch(API, { headers: H })).json();
 ok('시험 줄을 치웠다', !list3.rows?.some((r: any) => S(r.plate) === PLATE));
-ok('원래 줄 수로 돌아왔다', list3.count === 431);
+ok('원래 줄 수로 돌아왔다', list3.count === BEFORE);
 
 console.log(fail.length ? `\n✕ ${fail.length}건 어긋남\n` : '\n○ 다 맞음\n');
 process.exit(fail.length ? 1 : 0);
