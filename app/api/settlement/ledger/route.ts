@@ -158,9 +158,19 @@ export async function POST(req: Request) {
  * ★줄은 **차량번호+접수일**로 찾는다. 차번만으로 찾으면 재계약 때 옛 줄을 고친다.
  * ⚠ 자리를 세지 않는다 — 머리글에서 칸 이름을 찾아 쓴다. 원장도 칸이 늘 수 있다.
  */
-const EDITABLE: Record<string, '체크' | '날짜' | '돈' | '글'> = {
+const EDITABLE: Record<string, '체크' | '날짜' | '돈' | '수' | '글'> = {
+  // 진행 — 실적의 관문
   계약서: '체크', 인도완료: '체크', 계약취소: '체크', 환수: '체크',
   인도일: '날짜', 환수일: '날짜', 환수금액: '돈', 환수사유: '글',
+  // 뼈대·조건 — **사람이 적는 칸**이라 사람이 고칠 수 있어야 한다(오타·조건 변경).
+  //   사장님 2026-08-26 「수정입력저장이 거의 동일하게 나와야지」 —
+  //   고칠 수 없으면 「수정」 버튼이 있으나 마나다.
+  고객명: '글', 고객연락처: '글', 영업채널: '글', 영업담당자: '글', 영업자연락처: '글',
+  영업자코드: '글', 상품구분: '글', 분납여부: '글', 비고: '글',
+  계약기간: '수', 보증금: '돈', 렌탈료: '돈', 차량가액: '돈',
+  // ⚠ **없는 것에 뜻이 있다** — 판매수수료·출고수수료·수수료율·청구금액·지급액은 여기 없다.
+  //   그건 요율표에서 나오는 값이라 화면에서 손대면 그날로 정본이 둘이 된다.
+  //   고쳐야 할 일이 생기면 시트에서 고치고, 왜 고쳤는지 남긴다.
 };
 
 export async function PATCH(req: Request) {
@@ -213,7 +223,11 @@ export async function PATCH(req: Request) {
     if (at < 0) continue;
 
     const data = Object.entries(patch)
-      .map(([k, v]) => ({ col: head.indexOf(k), k, v: EDITABLE[k] === '체크' ? (/^(TRUE|true)$/.test(S(v)) ? 'TRUE' : 'FALSE') : S(v) }))
+      .map(([k, v]) => ({
+        col: head.indexOf(k), k,
+        // 체크는 TRUE/FALSE 로 굳혀 쓴다 — 시트가 '참'·'Y' 를 섞어 받으면 읽는 쪽이 갈린다.
+        v: EDITABLE[k] === '체크' ? (/^(TRUE|true)$/.test(S(v)) ? 'TRUE' : 'FALSE') : S(v),
+      }))
       .filter((x) => x.col >= 0)
       .map((x) => ({ range: `'${tab}'!${colA1(x.col)}${hi + 2 + at}`, values: [[x.v]] }));
     if (!data.length) return NextResponse.json({ ok: false, reason: '고칠 칸을 원장에서 못 찾았다' }, { status: 400 });
