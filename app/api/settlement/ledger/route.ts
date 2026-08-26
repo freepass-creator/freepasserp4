@@ -101,7 +101,9 @@ export async function POST(req: Request) {
   const put: Record<string, string> = {
     접수일: iso(today), 차량번호: plate,
     고객명: S(form.customer), 고객연락처: S(form.phone),
-    영업채널: S(form.channel), 영업담당자: S(form.agent),
+    // ★영업담당자는 «고른» 값이라 코드가 같이 온다. 코드가 있어야 동명이인이 갈린다.
+    //   사람이 이름을 타이핑하면 그 줄은 나중에 누구 실적인지 못 정한다(실측 2026-08-26).
+    영업채널: S(form.channel), 영업담당자: S(form.agent), 영업자코드: S(form.agentCode),
     상품구분: S(form.product), 계약기간: S(form.term),
     보증금: S(form.deposit), 렌탈료: S(form.rent), 차량가액: S(form.price),
     분납여부: S(form.payKind),

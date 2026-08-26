@@ -93,8 +93,13 @@ if (dbUrl) {
 const byName = new Map<string, { uid: string; u: U }[]>();
 const byCode = new Map<string, { uid: string; u: U }>();
 for (const [uid, u] of Object.entries(users)) {
+  // ★★**user_code 는 유일하지 않다**(실측 2026-08-26) — `S0002` 를 이하민(활성)과
+  //   홍길동(삭제된 테스트 계정)이 같이 갖고 있었다. 삭제 계정이 뒤에 오면 산 사람을 덮는다.
+  //   그래서 코드로 사람을 찾을 때는 **죽은 계정을 먼저 거른다.**
+  const st = S(u?.status);
+  const dead = st === 'deleted' || st === 'rejected';
   const code = S((u as U & { user_code?: string })?.user_code);
-  if (code) byCode.set(code, { uid, u });
+  if (code && !dead && !byCode.has(code)) byCode.set(code, { uid, u });
   const k = nameKey(u?.name);
   if (!k) continue;
   (byName.get(k) || byName.set(k, []).get(k)!).push({ uid, u });

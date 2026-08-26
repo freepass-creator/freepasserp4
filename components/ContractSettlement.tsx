@@ -87,6 +87,11 @@ export function ContractSettlement() {
   const [confirm, setConfirm] = useState<{ mine?: Confirmation | null; list?: Confirmation[]; note?: string } | null>(null);
   const [disputeOn, setDisputeOn] = useState(false);
   const [disputeNote, setDisputeNote] = useState('');
+  /**
+   * 고를 영업담당자 명부. ★**타이핑하게 두지 않는다** — 고르게 하고 코드는 기계가 채운다.
+   * 입구를 안 고치면 새 줄마다 동명이인 문제가 다시 생긴다(사장님 2026-08-26).
+   */
+  const [agentList, setAgentList] = useState<{ code: string; name: string; channel: string; label: string }[]>([]);
 
   const load = async () => {
     try {
@@ -97,6 +102,18 @@ export function ContractSettlement() {
     }
   };
   useEffect(() => { load(); }, []);
+
+  // 관리자만 명부를 받는다 — 접수는 관리자가 한다.
+  useEffect(() => {
+    if (data?.role !== 'admin' || agentList.length) return;
+    (async () => {
+      try {
+        const res = await ledgerFetch('/api/settlement/agents');
+        const body = await res.json() as { ok: boolean; list?: typeof agentList };
+        if (body.ok && body.list) setAgentList(body.list);
+      } catch { /* 명부를 못 받아도 접수 자체는 막지 않는다 */ }
+    })();
+  }, [data?.role, agentList.length]);
 
   const all = useMemo(() => data?.rows || [], [data]);
 
@@ -259,8 +276,18 @@ export function ContractSettlement() {
             <Input value={form.plate || ''} onChange={set('plate')} placeholder="차량번호 ★" />
             <Input value={form.customer || ''} onChange={set('customer')} placeholder="고객명" />
             <Input value={form.phone || ''} onChange={set('phone')} placeholder="고객연락처" />
-            <Input value={form.channel || ''} onChange={set('channel')} placeholder="영업채널" />
-            <Input value={form.agent || ''} onChange={set('agent')} placeholder="영업담당자" />
+            {/* ★영업담당자는 «고른다». 고르면 영업채널과 영업자코드가 같이 따라온다 —
+                   사람이 이름을 타이핑하면 그 줄은 나중에 누구 실적인지 못 정한다. */}
+            <Select
+              value={form.agentCode || ''}
+              onChange={(v) => {
+                const a = agentList.find((x) => x.code === v);
+                setForm((f) => ({ ...f, agentCode: v, agent: a?.name || '', channel: a?.channel || f.channel || '' }));
+              }}
+              options={[{ value: '', label: agentList.length ? '영업담당자 고르기 ★' : '명부를 못 받았습니다' },
+                ...agentList.map((a) => ({ value: a.code, label: a.label }))]}
+            />
+            <Input value={form.channel || ''} onChange={set('channel')} placeholder="영업채널(자동)" />
             <Select value={form.product || ''} onChange={set('product')} options={PRODUCTS} />
             <Input value={form.term || ''} onChange={set('term')} placeholder="계약기간(개월)" inputMode="numeric" />
             <Input value={form.deposit || ''} onChange={set('deposit')} placeholder="보증금" inputMode="numeric" />

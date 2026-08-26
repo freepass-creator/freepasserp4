@@ -28,23 +28,46 @@ export const runtime = 'nodejs';
 const NODE = 'v4/settlement_confirmations';
 const S = (v: unknown) => String(v ?? '').trim();
 
+
+/**
+ * **같은 사람의 계정을 모은다 — 전화번호로.**
+ * ★실측 2026-08-26: 이하민·정동근·신선호가 각각 계정 둘인데 **전화번호가 같았다.**
+ *   중복 계정이 아니라 같은 사람이 두 번 가입한 것이다. 합치는 건 사람이 정할 일이고,
+ *   그때까지 실적이 막혀 있을 이유는 없다 — 어느 쪽으로 로그인해도 내 것이 보이게 한다.
+ * ⚠ 전화번호가 없으면 «자기 코드 하나»뿐이다. 없는 것을 같다고 보지 않는다.
+ */
+const digits = (v: unknown) => String(v ?? '').replace(/\D/g, '');
+async function siblingCodes(db: ReturnType<typeof getDatabase>, me: { user_code?: string; phone?: string }): Promise<string[]> {
+  const mine = S(me.user_code);
+  const ph = digits(me.phone);
+  if (!ph || ph.length < 9) return mine ? [mine] : [];
+  const all = ((await db.ref('users').get().catch(() => null))?.val() || {}) as Record<string, { user_code?: string; phone?: string; status?: string }>;
+  const out = new Set(mine ? [mine] : []);
+  for (const u of Object.values(all)) {
+    const st = S(u?.status);
+    if (st === 'deleted' || st === 'rejected') continue;
+    if (digits(u?.phone) === ph && S(u?.user_code)) out.add(S(u.user_code));
+  }
+  return [...out];
+}
+
 /** 이 사람이 원장에서 불리는 이름 — 확인의 주체이자 열쇠. */
-async function whoAmI(who: { uid: string; role: string; companyCode: string }): Promise<{ name: string; role: 'agent' | 'provider' | 'admin'; code: string; channel: string }> {
+async function whoAmI(who: { uid: string; role: string; companyCode: string }): Promise<{ name: string; role: 'agent' | 'provider' | 'admin'; code: string; codes: string[]; channel: string }> {
   const db = getDatabase(firebaseAdminApp());
   if (who.role === 'provider') {
     const code = S(who.companyCode);
-    if (!code) return { name: '', role: 'provider', code: '', channel: '' };
+    if (!code) return { name: '', role: 'provider', code: '', codes: [], channel: '' };
     const [a, b] = await Promise.all([
       db.ref(`partners/${code}`).get().catch(() => null),
       db.ref(`v4/partners/${code}`).get().catch(() => null),
     ]);
     const p = (a?.val() || b?.val() || {}) as { name?: string; partner_name?: string; company_name?: string };
-    return { name: S(p.name || p.partner_name || p.company_name), role: 'provider', code: '', channel: '' };
+    return { name: S(p.name || p.partner_name || p.company_name), role: 'provider', code: '', codes: [], channel: '' };
   }
-  const u = (await db.ref(`users/${who.uid}`).get().catch(() => null))?.val() as { name?: string; user_code?: string; company_name?: string } | null;
+  const u = (await db.ref(`users/${who.uid}`).get().catch(() => null))?.val() as { name?: string; user_code?: string; company_name?: string; phone?: string } | null;
   return {
     name: S(u?.name), role: who.role === 'admin' ? 'admin' : 'agent',
-    code: S(u?.user_code), channel: S(u?.company_name),
+    code: S(u?.user_code), codes: await siblingCodes(db, u || {}), channel: S(u?.company_name),
   };
 }
 
@@ -101,7 +124,7 @@ export async function POST(req: Request) {
   const viewer: Viewer = me.role === 'provider'
     ? { role: 'provider', supplier: me.name, agent: '' }
     // ★코드가 있으면 코드로 자기 줄을 찾는다. 이름은 겹쳐도 코드는 안 겹친다.
-    : { role: 'agent', supplier: '', agent: me.name, agentCode: me.code, channel: me.channel };
+    : { role: 'agent', supplier: '', agent: me.name, agentCode: me.code, agentCodes: me.codes, channel: me.channel };
   const lines = await myLines(month, viewer);
   if (lines < 0) return NextResponse.json({ ok: false, reason: ledgerError() || '원장을 못 읽었습니다.' }, { status: 503 });
 

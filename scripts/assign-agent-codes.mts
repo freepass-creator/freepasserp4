@@ -43,7 +43,9 @@ const dbUrl = S(process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL);
 if (!dbUrl) { console.log('⛔ NEXT_PUBLIC_FIREBASE_DATABASE_URL 이 없다'); process.exit(1); }
 const rtdb = new JWT({ email: sa.client_email, key: sa.private_key, scopes: ['https://www.googleapis.com/auth/firebase.database', 'https://www.googleapis.com/auth/userinfo.email'] });
 const rtok = (await rtdb.getAccessToken()).token;
-type U = { name?: string; user_code?: string; company_name?: string; status?: string; is_active?: unknown; role?: string };
+type U = { name?: string; user_code?: string; company_name?: string; status?: string; is_active?: unknown; role?: string; phone?: string };
+/** 전화번호는 표기가 제각각이다 — 01072954455 / 010-7295-4455. 숫자만 남겨 맞댄다. */
+const digits = (v: unknown) => String(v ?? '').replace(/\D/g, '');
 const users = (await (await fetch(`${dbUrl}/users.json`, { headers: { Authorization: `Bearer ${rtok}` } })).json()) as Record<string, U>;
 
 const live = Object.entries(users || {}).filter(([, u]) => {
@@ -64,6 +66,20 @@ function codeFor(agent: string, channel: string): { code: string; why: string } 
   const hits = byName.get(nameKey(agent)) || [];
   if (hits.length === 0) return { code: '', why: '계정 없음' };
   if (hits.length === 1) return { code: S(hits[0].u.user_code), why: '' };
+  /**
+   * ★**같은 전화번호면 같은 사람이다.** 실측 2026-08-26 —
+   *   이하민(S0002·S0032) · 정동근(U0123·U0125) · 신선호(U0031·U0127) 셋 다 번호가 같았다.
+   *   중복 계정이 아니라 «같은 사람이 두 번 가입»한 것이라, 어느 코드를 박아도 그 사람이다.
+   *   ⚠ 원장에는 **코드**를 박는다. 전화번호는 PII 라 시트에 퍼뜨리지 않고,
+   *     번호는 바뀌지만 코드는 안 바뀐다(그게 코드 규격을 둔 이유다).
+   *   같은 사람이면 **가장 오래된 코드**를 쓴다 — 골라야 할 때 흔들리지 않는 쪽으로.
+   */
+  const phones = new Set(hits.map((h) => digits(h.u.phone)).filter((v) => v.length >= 9));
+  if (phones.size === 1 && hits.every((h) => digits(h.u.phone).length >= 9)) {
+    const codes = hits.map((h) => S(h.u.user_code)).filter(Boolean).sort();
+    if (codes.length) return { code: codes[0], why: '' };
+  }
+
   // 동명이인 — 소속으로 좁힌다
   const ch = nameKey(channel);
   if (!ch) return { code: '', why: `동명이인 ${hits.length}명인데 영업채널이 비어 있다` };

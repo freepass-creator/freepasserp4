@@ -45,10 +45,19 @@ export type Viewer = {
    */
   channel?: string;
   /**
-   * 영업자코드(`usr_`). **있으면 이것이 이긴다** — 이름은 겹쳐도 코드는 안 겹친다.
+   * 영업자코드. **있으면 이것이 이긴다** — 이름은 겹쳐도 코드는 안 겹친다.
    * ★사장님 2026-08-26 「각각 영업자한테 코드를 부여해야할거 같어 / 동명이인 거르려면」.
    */
   agentCode?: string;
+  /**
+   * **같은 사람의 코드 전부.** 한 사람이 계정을 두 번 만든 경우가 있다 —
+   * 실측 2026-08-26: 이하민(S0002·S0032) · 정동근(U0123·U0125) · 신선호(U0031·U0127).
+   * 셋 다 **전화번호가 같다.** 중복 계정이 아니라 «같은 사람이 두 번 가입»한 것이다.
+   *
+   * ★★그래서 계정을 합치지 않고 **둘 다 같은 사람으로 본다.** 어느 쪽으로 로그인해도 내 실적이 보인다.
+   *   계정 병합은 로그인·이력이 걸린 일이라 사람이 정할 일이고, 그때까지 실적이 막혀 있을 이유는 없다.
+   */
+  agentCodes?: string[];
 };
 
 /**
@@ -145,9 +154,10 @@ export function scopeRows(rows: SettlementRow[], viewer: Viewer): SettlementRow[
     return rows.filter((r) => isSameCompany(r.supplier, mine, viewer.rivals || []));
   }
   // ★코드가 양쪽에 다 있으면 **코드가 이긴다.** 이름은 겹쳐도 코드는 안 겹친다.
-  const code = S(viewer.agentCode);
-  if (code) {
-    const coded = rows.filter((r) => S(r.agentCode) === code);
+  //   ★같은 사람이 두 번 가입한 경우가 있어 «내 코드들»을 다 본다(전화번호가 같은 계정).
+  const codes = new Set([S(viewer.agentCode), ...(viewer.agentCodes || []).map(S)].filter(Boolean));
+  if (codes.size) {
+    const coded = rows.filter((r) => codes.has(S(r.agentCode)));
     // 아직 코드가 안 박힌 옛 줄이 있으니, 코드로 잡힌 게 하나도 없을 때만 이름으로 내려간다.
     if (coded.length) return coded;
   }

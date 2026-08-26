@@ -31,6 +31,29 @@ export const runtime = 'nodejs';
 
 const S = (v: unknown) => String(v ?? '').trim();
 
+
+/**
+ * **같은 사람의 계정을 모은다 — 전화번호로.**
+ * ★실측 2026-08-26: 이하민·정동근·신선호가 각각 계정 둘인데 **전화번호가 같았다.**
+ *   중복 계정이 아니라 같은 사람이 두 번 가입한 것이다. 합치는 건 사람이 정할 일이고,
+ *   그때까지 실적이 막혀 있을 이유는 없다 — 어느 쪽으로 로그인해도 내 것이 보이게 한다.
+ * ⚠ 전화번호가 없으면 «자기 코드 하나»뿐이다. 없는 것을 같다고 보지 않는다.
+ */
+const digits = (v: unknown) => String(v ?? '').replace(/\D/g, '');
+async function siblingCodes(db: ReturnType<typeof getDatabase>, me: { user_code?: string; phone?: string }): Promise<string[]> {
+  const mine = S(me.user_code);
+  const ph = digits(me.phone);
+  if (!ph || ph.length < 9) return mine ? [mine] : [];
+  const all = ((await db.ref('users').get().catch(() => null))?.val() || {}) as Record<string, { user_code?: string; phone?: string; status?: string }>;
+  const out = new Set(mine ? [mine] : []);
+  for (const u of Object.values(all)) {
+    const st = S(u?.status);
+    if (st === 'deleted' || st === 'rejected') continue;
+    if (digits(u?.phone) === ph && S(u?.user_code)) out.add(S(u.user_code));
+  }
+  return [...out];
+}
+
 /**
  * 원장은 코드가 아니라 «상호·사람 이름»으로 적혀 있다. 그래서 이름을 찾아 온다.
  * ★공급사는 **등록된 다른 상호도 같이** 들고 간다 — 원장이 「웰릭스」처럼 줄여 적혀 있어
@@ -39,9 +62,12 @@ const S = (v: unknown) => String(v ?? '').trim();
 async function viewerOf(who: { uid: string; role: 'agent' | 'provider' | 'admin'; companyCode: string }): Promise<Viewer> {
   const db = getDatabase(firebaseAdminApp());
   if (who.role !== 'provider') {
-    const u = (await db.ref(`users/${who.uid}`).get().catch(() => null))?.val() as { name?: string; user_code?: string; company_name?: string } | null;
+    const u = (await db.ref(`users/${who.uid}`).get().catch(() => null))?.val() as { name?: string; user_code?: string; company_name?: string; phone?: string } | null;
     // ★코드가 있으면 코드가 이긴다 — 원장에 이름만 있으면 동명이인을 못 가른다(사장님 2026-08-26).
-    return { role: who.role, supplier: '', agent: S(u?.name), agentCode: S(u?.user_code), channel: S(u?.company_name) };
+    return {
+      role: who.role, supplier: '', agent: S(u?.name),
+      agentCode: S(u?.user_code), agentCodes: await siblingCodes(db, u || {}), channel: S(u?.company_name),
+    };
   }
   const code = S(who.companyCode);
   if (!code) return { role: who.role, supplier: '', agent: '' };
