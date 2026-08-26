@@ -57,12 +57,17 @@ async function clearScopedStoreCache(): Promise<void> {
   }
 }
 
-/** 구 승인제에서 pending으로 남은 미배정 자가가입자만 서버 검증을 거쳐 즉시 활성화한다. */
+/**
+ * pending 을 서버 검증을 거쳐 즉시 활성화한다 — 두 갈래다.
+ *   ① 구 승인제에서 pending 으로 남은 미배정 자가가입자
+ *   ② **우리 워크스페이스 직원**(사장님 2026-08-26 「우리 워크스페이스 직원들은 자동으로 통과되게」)
+ */
 async function activateLegacySelfSignup(
   user: User,
   profile: Record<string, unknown>,
 ): Promise<Record<string, unknown>> {
-  if (!selfServeActivationDecision(profile, user.uid).eligible) return profile;
+  // ★여기 판정은 «미리 걸러 보는 것»일 뿐이다. 진짜 판정은 서버가 토큰으로 다시 한다.
+  if (!selfServeActivationDecision(profile, user.uid, { email: user.email || '', emailVerified: user.emailVerified }).eligible) return profile;
   try {
     const response = await fetch('/api/auth/self-activate', {
       method: 'POST',
