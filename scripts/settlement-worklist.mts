@@ -12,7 +12,9 @@
  */
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
-import { SETTLEMENT_LEDGER_ID as LEDGER } from '../lib/domain/settlement-ledger';
+import { initializeApp, cert, getApps } from 'firebase-admin/app';
+import { getDatabase } from 'firebase-admin/database';
+import { normalizeRecord, type SettlementRecord } from '../lib/domain/settlement-record';
 import { billingMonth, moneyOf, paidRoundsOf, roundsOf, type SettlementRow } from '../lib/domain/settlement-stage';
 import { alertsOf, countAlerts, levelOf, type Alert } from '../lib/domain/settlement-alert';
 
@@ -37,44 +39,26 @@ const toDate = (v: unknown): Date | null => {
 const p2 = (n: number) => String(n).padStart(2, '0');
 const iso = (d: Date | null) => (d ? `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}` : '');
 
+/**
+ * ★★**정본은 ERP 다**(2026-08-26 이관). 시트를 읽지 않는다 —
+ *   시트만 고치면 할 일이 안 뜨고, ERP 만 고치면 시트 기준 목록이 거짓이 된다.
+ *   ⚠ 되돌릴 일이 생기면 `settlement-store.ts` 의 `STORE` 를 보고 여기도 같이 맞춘다.
+ */
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
-const jwt = new JWT({ email: sa.client_email, key: sa.private_key, subject: 'pyh@teamjpk.com', scopes: ['https://www.googleapis.com/auth/spreadsheets'] });
-const api = async (u: string) => {
-  const t = (await jwt.getAccessToken()).token;
-  const r = await fetch(u, { headers: { Authorization: `Bearer ${t}` } });
-  const x = await r.text();
-  if (!r.ok) throw new Error(`${r.status} ${x.slice(0, 160)}`);
-  return x ? JSON.parse(x) as { values?: unknown[][] } : {};
-};
+if (!getApps().length) {
+  initializeApp({ credential: cert(sa), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });
+}
 
 type Rec = { row: SettlementRow; tab: string; channel: string };
-const recs: Rec[] = [];
-for (const tab of ['접수', '취소', '분납실적', '완납실적']) {
-  const got = await api(`https://sheets.googleapis.com/v4/spreadsheets/${LEDGER}/values/${encodeURIComponent(`${a1(tab)}!A1:BZ3000`)}?valueRenderOption=UNFORMATTED_VALUE`);
-  const all = ((got.values || []) as unknown[][]).map((r) => (r || []).map(S));
-  const hi = all.findIndex((r) => r.includes('차량번호'));
-  if (hi < 0) continue;
-  const h = all[hi];
-  const at = (n: string) => h.indexOf(n);
-  for (const r of all.slice(hi + 1)) {
-    const plate = S(r[at('차량번호')]);
-    if (!plate) continue;
-    recs.push({
-      tab, channel: S(r[at('영업채널')]),
-      row: {
-        plate, supplier: S(r[at('공급사')]), agent: S(r[at('영업담당자')]), product: S(r[at('상품구분')]),
-        term: N(r[at('계약기간')]), rent: N(r[at('렌탈료')]), price: N(r[at('차량가액')]), payKind: S(r[at('분납여부')]),
-        paidRounds: N(r[at('납입회차')]),
-        receivedAt: toDate(r[at('접수일')]), deliveredAt: toDate(r[at('인도일')]), clawbackAt: toDate(r[at('환수일')]),
-        clawbackAmount: N(r[at('환수금액')]),
-        paper: ON(r[at('계약서')]), delivered: !!toDate(r[at('인도일')]),
-        cancelled: ON(r[at('계약취소')]), clawback: ON(r[at('환수')]),
-        claimWritten: N(r[at('판매수수료')]), payWritten: N(r[at('출고수수료')]),
-        supplierRate: N(r[at('공급사수수료율')]), agentRate: N(r[at('에이전시수수료율')]),
-      },
-    });
-  }
-}
+const recs: Rec[] = Object.values((await getDatabase().ref('v4/settlement_rows').get()).val() || {})
+  .map((raw) => normalizeRecord(raw as SettlementRecord))
+  .map((r) => ({
+    tab: '', channel: S(r.channel),
+    row: {
+      ...r,
+      receivedAt: toDate(r.receivedAt), deliveredAt: toDate(r.deliveredAt), clawbackAt: toDate(r.clawbackAt),
+    } as unknown as SettlementRow,
+  }));
 
 const ctx = { issued: new Set<string>() };
 const withAlerts = recs.map((x) => ({ ...x, alerts: alertsOf(x.row, ctx) })).filter((x) => x.alerts.length);
@@ -104,6 +88,9 @@ const show = (kind: Alert['kind'], title: string, todo: string) => {
 };
 
 console.log('\n\n──────── 사람이 «정해야» 하는 것 ────────');
+// ★날짜부터 본다 — 다른 판정이 다 날짜 위에 선다.
+show('날짜뒤집힘', '인도일이 접수일보다 빠르다', '둘 중 하나가 오타다. 그대로 두면 틀린 달로 청구된다');
+show('인도가미래', '인도일이 아직 오지 않은 날이다', '날짜를 고치거나 인도완료를 끈다');
 show('취소인데인도', '취소인데 인도까지 갔다', '환수를 켜고 금액·날짜를 넣거나, 인도일이 잘못 들어갔는지 본다');
 show('청구액없음', '청구액이 안 잡힌다', '요율표를 확인한다. 이대로 두면 이 건은 그냥 안 청구된다');
 show('환수미완', '환수인데 날짜나 금액이 없다', '환수일을 넣는다 — 없으면 어느 달에서 뺄지 못 정한다');

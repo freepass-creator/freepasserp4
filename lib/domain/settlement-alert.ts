@@ -27,7 +27,7 @@ export type Alert = {
   | '분납임박' | '분납지남' | '분납부러짐'
   | '인도지연' | '서류없이인도'
   | '환수미완' | '취소인데인도'
-  | '청구액없음';
+  | '청구액없음' | '날짜뒤집힘' | '인도가미래';
   level: AlertLevel;
   /** 사람이 읽는 한마디 */
   label: string;
@@ -70,6 +70,31 @@ export function alertsOf(r: SettlementRow, ctx: AlertContext): Alert[] {
 
   const state: BillState = billStateOf(r, ctx.issued, now);
   const thisMonth = ymOf(now);
+
+  /**
+   * ⓪ **날짜가 말이 되나** — 다른 판정이 다 이 위에 선다.
+   *
+   * ★★인도일이 접수일보다 «앞»이면 그 줄은 못 믿는다. 청구월이 인도일에서 서기 때문에
+   *   틀린 날짜가 곧 틀린 달의 청구가 된다.
+   *   실측 2026-08-26: 아이카 3건이 그랬다(접수 7/28 · 인도 7/23, 각 1,567,650원).
+   *   ⚠ 「같은 날」은 정상이다 — 접수와 인도가 하루에 끝나는 계약이 실제로 많다.
+   * ★★인도일이 «미래»면 아직 안 나간 차다. 그런데 청구월은 이미 서 있다 —
+   *   달이 바뀌기 전에 청구서가 나가면 «없는 실적»을 청구하는 것이 된다.
+   */
+  if (r.receivedAt && r.deliveredAt && midnight(r.deliveredAt) < midnight(r.receivedAt)) {
+    out.push({
+      kind: '날짜뒤집힘', level: '급함', icon: 'CalendarX2',
+      label: '인도일이 접수일보다 빠르다',
+      todo: '둘 중 하나가 오타입니다. 청구월이 인도일에서 서기 때문에 그대로 두면 틀린 달로 청구됩니다.',
+    });
+  }
+  if (r.deliveredAt && midnight(r.deliveredAt) > midnight(now)) {
+    out.push({
+      kind: '인도가미래', level: '급함', icon: 'CalendarClock',
+      label: '인도일이 아직 오지 않은 날이다',
+      todo: '아직 안 나간 차인데 청구월이 서 있습니다. 날짜를 고치거나, 인도완료를 끄세요.',
+    });
+  }
 
   // ① 돈이 이미 샜나
   if (r.cancelled && r.delivered && !r.clawback) {
