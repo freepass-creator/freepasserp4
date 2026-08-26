@@ -256,7 +256,7 @@ export function ContractSettlement() {
             <table style={{ borderCollapse: 'collapse', width: '100%' }}>
               <thead>
                 <tr>
-                  {[axis, '건수', '청구액', '지급액', '수익'].map((h, i) => (
+                  {[axis, '건수', '청구액', '지급액', '수익', ''].map((h, i) => (
                     <th key={h} style={{
                       padding: '4px 7px', fontSize: FS.micro, color: C.mute, fontWeight: FW.meta,
                       textAlign: i === 0 ? 'left' : 'right', whiteSpace: 'nowrap', borderBottom: '1px solid ' + C.line,
@@ -272,6 +272,16 @@ export function ContractSettlement() {
                     <td style={numTd}>{won(v.claim)}</td>
                     <td style={numTd}>{won(v.pay)}</td>
                     <td style={{ ...numTd, fontWeight: FW.head }}>{won(v.claim - v.pay)}</td>
+                    <td style={{ padding: '2px 7px', textAlign: 'right' }}>
+                      {/* 표의 한 줄이 곧 정산서 한 장이다 — 달을 고르지 않으면 뽑을 수 없다 */}
+                      <Btn variant="bare" disabled={!month}
+                        onClick={() => window.open(
+                          `/settlement/invoice?month=${encodeURIComponent(month)}&axis=${encodeURIComponent(axis)}&party=${encodeURIComponent(name)}`,
+                          '_blank',
+                        )}>
+                        {axis === '공급사' ? '청구서' : '지급명세'}
+                      </Btn>
+                    </td>
                   </tr>
                 ))}
               </tbody>
