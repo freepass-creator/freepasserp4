@@ -39,8 +39,9 @@ const S = (v: unknown) => String(v ?? '').trim();
 async function viewerOf(who: { uid: string; role: 'agent' | 'provider' | 'admin'; companyCode: string }): Promise<Viewer> {
   const db = getDatabase(firebaseAdminApp());
   if (who.role !== 'provider') {
-    const u = (await db.ref(`users/${who.uid}`).get().catch(() => null))?.val() as { name?: string } | null;
-    return { role: who.role, supplier: '', agent: S(u?.name) };
+    const u = (await db.ref(`users/${who.uid}`).get().catch(() => null))?.val() as { name?: string; user_code?: string; company_name?: string } | null;
+    // ★코드가 있으면 코드가 이긴다 — 원장에 이름만 있으면 동명이인을 못 가른다(사장님 2026-08-26).
+    return { role: who.role, supplier: '', agent: S(u?.name), agentCode: S(u?.user_code), channel: S(u?.company_name) };
   }
   const code = S(who.companyCode);
   if (!code) return { role: who.role, supplier: '', agent: '' };

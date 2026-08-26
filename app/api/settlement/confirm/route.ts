@@ -29,20 +29,23 @@ const NODE = 'v4/settlement_confirmations';
 const S = (v: unknown) => String(v ?? '').trim();
 
 /** 이 사람이 원장에서 불리는 이름 — 확인의 주체이자 열쇠. */
-async function whoAmI(who: { uid: string; role: string; companyCode: string }): Promise<{ name: string; role: 'agent' | 'provider' | 'admin' }> {
+async function whoAmI(who: { uid: string; role: string; companyCode: string }): Promise<{ name: string; role: 'agent' | 'provider' | 'admin'; code: string; channel: string }> {
   const db = getDatabase(firebaseAdminApp());
   if (who.role === 'provider') {
     const code = S(who.companyCode);
-    if (!code) return { name: '', role: 'provider' };
+    if (!code) return { name: '', role: 'provider', code: '', channel: '' };
     const [a, b] = await Promise.all([
       db.ref(`partners/${code}`).get().catch(() => null),
       db.ref(`v4/partners/${code}`).get().catch(() => null),
     ]);
     const p = (a?.val() || b?.val() || {}) as { name?: string; partner_name?: string; company_name?: string };
-    return { name: S(p.name || p.partner_name || p.company_name), role: 'provider' };
+    return { name: S(p.name || p.partner_name || p.company_name), role: 'provider', code: '', channel: '' };
   }
-  const u = (await db.ref(`users/${who.uid}`).get().catch(() => null))?.val() as { name?: string } | null;
-  return { name: S(u?.name), role: who.role === 'admin' ? 'admin' : 'agent' };
+  const u = (await db.ref(`users/${who.uid}`).get().catch(() => null))?.val() as { name?: string; user_code?: string; company_name?: string } | null;
+  return {
+    name: S(u?.name), role: who.role === 'admin' ? 'admin' : 'agent',
+    code: S(u?.user_code), channel: S(u?.company_name),
+  };
 }
 
 /** 그 달 이 사람의 «청구가 서는» 건수. 확인은 이 수에 대고 하는 것이다. */
@@ -97,7 +100,8 @@ export async function POST(req: Request) {
 
   const viewer: Viewer = me.role === 'provider'
     ? { role: 'provider', supplier: me.name, agent: '' }
-    : { role: 'agent', supplier: '', agent: me.name };
+    // ★코드가 있으면 코드로 자기 줄을 찾는다. 이름은 겹쳐도 코드는 안 겹친다.
+    : { role: 'agent', supplier: '', agent: me.name, agentCode: me.code, channel: me.channel };
   const lines = await myLines(month, viewer);
   if (lines < 0) return NextResponse.json({ ok: false, reason: ledgerError() || '원장을 못 읽었습니다.' }, { status: 503 });
 

@@ -34,6 +34,21 @@ export type Viewer = {
    * ⚠ 안 주면 줄임말을 안 푼다 — 못 푸는 쪽이 남의 계약을 보여 주는 쪽보다 낫다.
    */
   rivals?: string[];
+  /**
+   * 영업자의 소속 채널. **이름이 겹칠 때만** 채운다.
+   *
+   * ★실측 2026-08-26 — 원장에는 영업담당자가 «이름»으로만 적혀 있는데 같은 이름 계정이 둘이었다.
+   *   「이승호」는 렌트야와 임시소속에 하나씩, 「이하민」은 하허호에 둘, 「정동근」은 개인영업채널과 바름카.
+   *   이름만으로 맞추면 셋 다 «누구인지 정할 수 없다»가 되어 실적 확인이 영영 안 열린다.
+   * ★★**겹칠 때만 소속을 본다.** 늘 소속까지 요구하면, 회사명 표기가 조금만 달라도
+   *   멀쩡한 사람이 0줄을 보게 된다. 필요한 곳에서만 좁힌다.
+   */
+  channel?: string;
+  /**
+   * 영업자코드(`usr_`). **있으면 이것이 이긴다** — 이름은 겹쳐도 코드는 안 겹친다.
+   * ★사장님 2026-08-26 「각각 영업자한테 코드를 부여해야할거 같어 / 동명이인 거르려면」.
+   */
+  agentCode?: string;
 };
 
 /**
@@ -126,10 +141,20 @@ export function scopeRows(rows: SettlementRow[], viewer: Viewer): SettlementRow[
   if (viewer.role === 'admin') return rows;
   const mine = nameKey(viewer.role === 'provider' ? viewer.supplier : viewer.agent);
   if (!mine) return [];
-  const belongs = viewer.role === 'provider'
-    ? (v: string) => isSameCompany(v, mine, viewer.rivals || [])
-    : (v: string) => nameKey(v) === mine;
-  return rows.filter((r) => belongs(viewer.role === 'provider' ? r.supplier : r.agent));
+  if (viewer.role === 'provider') {
+    return rows.filter((r) => isSameCompany(r.supplier, mine, viewer.rivals || []));
+  }
+  // ★코드가 양쪽에 다 있으면 **코드가 이긴다.** 이름은 겹쳐도 코드는 안 겹친다.
+  const code = S(viewer.agentCode);
+  if (code) {
+    const coded = rows.filter((r) => S(r.agentCode) === code);
+    // 아직 코드가 안 박힌 옛 줄이 있으니, 코드로 잡힌 게 하나도 없을 때만 이름으로 내려간다.
+    if (coded.length) return coded;
+  }
+  // ★이름이 겹치는 사람만 소속까지 맞춘다. 안 겹치면 이름만으로 충분하다.
+  const ch = nameKey(viewer.channel);
+  return rows.filter((r) => !S(r.agentCode) && nameKey(r.agent) === mine
+    && (!ch || nameKey(r.channel) === ch || !nameKey(r.channel)));
 }
 
 /**

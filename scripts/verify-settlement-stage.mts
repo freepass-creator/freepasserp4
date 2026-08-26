@@ -68,19 +68,32 @@ for (const tab of TABS) {
 
 console.log(`\n■ 원장 ${rows.length}줄을 코드로 다시 가른다\n`);
 const mine = new Map<Stage, number>(); const sheet = new Map<Stage, number>();
-const wrong: string[] = [];
+/**
+ * ★**「넘어갈 때가 된 것」과 「규칙이 갈린 것」은 다르다.**
+ *   분납실적 → 완료실적 은 분납 만기가 지나 «시트를 다시 굴리면 되는» 상태다. 정상이다.
+ *   그 밖의 어긋남만 빨강이다 — 둘을 같이 빨강으로 두면 사람이 빨강을 무시하게 된다(2026-08-26).
+ */
+const ripe: string[] = [];
+const broken: string[] = [];
 for (const { row, sheetStage } of rows) {
   const s = stageOf(row);
   mine.set(s, (mine.get(s) || 0) + 1);
   sheet.set(sheetStage, (sheet.get(sheetStage) || 0) + 1);
-  if (s !== sheetStage) wrong.push(`${row.plate.padEnd(11)} 시트 ${sheetStage} → 코드 ${s}`);
+  if (s === sheetStage) continue;
+  const line = `${row.plate.padEnd(11)} 시트 ${sheetStage} → 코드 ${s}`;
+  (sheetStage === '분납실적' && s === '완료실적' ? ripe : broken).push(line);
 }
 console.log(`   ${'자리'.padEnd(8)}${'시트'.padStart(6)}${'코드'.padStart(6)}`);
 for (const t of TABS) console.log(`   ${t.padEnd(8)}${String(sheet.get(t) || 0).padStart(6)}${String(mine.get(t) || 0).padStart(6)}${(sheet.get(t) || 0) === (mine.get(t) || 0) ? '  ✓' : '  ⛔'}`);
-if (wrong.length) {
-  console.log(`\n   ⛔ 자리가 다른 줄 ${wrong.length}`);
-  for (const w of wrong.slice(0, 12)) console.log(`      ${w}`);
-  if (wrong.length > 12) console.log(`      … 외 ${wrong.length - 12}줄`);
+if (ripe.length) {
+  console.log(`\n   · 넘어갈 때가 된 줄 ${ripe.length} — 분납 만기가 지났다. 시트를 다시 굴리면 제자리로 간다`);
+  for (const w of ripe.slice(0, 8)) console.log(`      ${w}`);
+  if (ripe.length > 8) console.log(`      … 외 ${ripe.length - 8}줄`);
+}
+if (broken.length) {
+  console.log(`\n   ⛔ 규칙이 갈린 줄 ${broken.length}`);
+  for (const w of broken.slice(0, 12)) console.log(`      ${w}`);
+  if (broken.length > 12) console.log(`      … 외 ${broken.length - 12}줄`);
 }
 
 // ── 청구 — 월별 합계가 시트와 같은가
@@ -105,6 +118,10 @@ for (const [m, c] of [...byMonth].sort().reverse()) {
 }
 if (unassigned) console.log(`   ⚠ 환수인데 환수일이 없어 달을 못 정한 줄 ${unassigned}`);
 
-const ok = TABS.every((t) => (sheet.get(t) || 0) === (mine.get(t) || 0));
-console.log(`\n${ok ? '■ 초록 — 코드가 시트와 같은 수를 낸다. ERP 를 이 위에 얹어도 된다.' : '⛔ 빨강 — 규칙이 갈렸다. 고치기 전에는 ERP 에 얹지 마라.'}\n`);
+const ok = broken.length === 0;
+console.log(`\n${ok
+  ? (ripe.length
+    ? `■ 초록 — 규칙은 안 갈렸다. 다만 ${ripe.length}줄이 완료실적으로 넘어갈 때가 됐다(시트를 굴리면 제자리).`
+    : '■ 초록 — 코드가 시트와 같은 수를 낸다. ERP 를 이 위에 얹어도 된다.')
+  : '⛔ 빨강 — 규칙이 갈렸다. 고치기 전에는 ERP 에 얹지 마라.'}\n`);
 process.exit(ok ? 0 : 1);

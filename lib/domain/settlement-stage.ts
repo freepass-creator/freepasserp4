@@ -45,6 +45,16 @@ export type SettlementRow = SettlementChecks & {
   deposit?: number;
   /** 모델명 — 차량번호만으로는 사람이 못 알아본다. */
   model?: string;
+  /**
+   * 영업자코드 — `usr_` 대체키. **동명이인을 가르는 열쇠**다.
+   * ★이름은 겹치지만 코드는 안 겹친다. 코드가 있으면 이름보다 코드가 이긴다.
+   */
+  agentCode?: string;
+  /**
+   * 영업채널 — 지급이 나가는 «회사». 영업담당자(사람)와 다른 축이다.
+   * ★동명이인을 가르는 데도 쓴다 — 원장에 이름만 있어 「이승호」가 둘이면 소속으로 갈린다(실측 2026-08-26).
+   */
+  channel?: string;
   /** 고객명. ⚠ 고객연락처는 여기 담지 않는다 — PII 는 관리자 화면에서만 흐른다. */
   customer?: string;
   receivedAt: Date | null;
