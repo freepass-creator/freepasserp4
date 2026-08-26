@@ -47,7 +47,18 @@ export const EDITABLE_FIELDS: Record<string, '체크' | '날짜' | '돈' | '수'
   // 진행 — 실적의 관문
   계약서: '체크', 인도완료: '체크', 계약취소: '체크', 환수: '체크',
   인도일: '날짜', 환수일: '날짜', 환수금액: '돈', 환수사유: '글',
-  // 뼈대·조건 — 사람이 적는 칸이라 사람이 고칠 수 있어야 한다(오타·조건 변경)
+  /**
+   * 뼈대·조건 — 사람이 적는 칸이라 사람이 고칠 수 있어야 한다(오타·조건 변경).
+   *
+   * ★사장님 2026-08-26 「정산시트에 모델명 넣을수 있게 해주고 / 공급사 다음에 모델명 쓰면 되겄다」.
+   *   접수 때는 차를 고르면 모델명이 따라오지만, «차량번호를 직접 입력»한 건은 따라올 데가 없고
+   *   따라온 값이 틀렸을 때도 고칠 자리가 없었다. 그래서 둘 다 연다.
+   * ★★**순서가 뜻이다** — 공급사 다음이 모델명이다. 화면 입력 칸도 이 차례로 세운다.
+   * ⚠ **공급사를 고치면 돈의 상대가 바뀐다.** 청구서가 서는 축이 공급사라,
+   *   고치는 순간 그 줄의 청구가 다른 회사로 옮겨 간다. 이력(`v4/settlement_events`)에
+   *   남으니 되짚을 수는 있지만, 발행된 청구서가 있으면 그 문서와 어긋나게 된다.
+   */
+  공급사: '글', 모델명: '글',
   고객명: '글', 고객연락처: '글', 영업채널: '글', 영업담당자: '글', 영업자연락처: '글',
   영업자코드: '글', 상품구분: '글', 분납여부: '글', 비고: '글',
   계약기간: '수', 보증금: '돈', 렌탈료: '돈', 차량가액: '돈',
@@ -96,11 +107,33 @@ const fail = (reason: string, status = 502): StoreResult => ({ ok: false, reason
  *   비워 두면 수수료율을 못 찾아 「청구액이 안 잡힌다」가 된다(실측: 원장에 그런 줄이 있다).
  * ⚠ 수수료·청구월은 여전히 안 받는다. 그건 요율표에서 나온다.
  */
+/**
+ * 접수 한 건에 사람이 넘기는 것.
+ *
+ * ★사장님 2026-08-26 「담당자가 취급하는 정보가
+ *   **언제 · 어떤 차를 · 누가(영업자가) · 누구한테 · 어떤 조건 · 어떤 방식 · 어떤 상태**인지」.
+ *   그 문장이 이 타입의 차례이자 화면의 차례다.
+ */
 export type IntakeInput = {
+  /**
+   * 언제 — 접수일. 비우면 오늘.
+   * ⚠ **줄 열쇠의 절반이다**(차량번호 + 접수일). 오타가 나면 그 줄이 딴 줄이 된다.
+   *   ★그래서 «미래 날짜»는 받지 않는다 — 손이 미끄러진 것이지 접수가 아니다.
+   */
+  receivedAt?: string;
   plate: string; model?: string; supplier?: string;
   customer?: string; phone?: string;
   channel?: string; agent?: string; agentCode?: string; agentPhone?: string;
   product?: string; term?: string; deposit?: string; rent?: string; price?: string; payKind?: string;
+  /**
+   * 어떤 상태 — 접수 시점에 이미 켜져 있는 것.
+   *
+   * ★★실측 2026-08-26: 접수 42줄 중 **계약서 95%(40) · 인도완료 76%(32)** 가 이미 켜져 있었다.
+   *   전에는 넷을 다 FALSE 로 박아서, 접수하자마자 상세로 다시 들어가 켜야 했다 — 두 번 일했다.
+   * ⚠ **인도완료를 켜려면 인도일이 있어야 한다.** 날짜가 없으면 청구월이 안 서고
+   *   「인도는 됐는데 청구가 없는」 줄이 조용히 생긴다. 아래에서 막는다.
+   */
+  paper?: boolean | string; delivered?: boolean | string; deliveredAt?: string;
 };
 
 // ─────────────────────────────────────────────────────────── 읽기
@@ -185,9 +218,35 @@ export async function appendIntake(input: IntakeInput): Promise<StoreResult & { 
   if (at < 0) at = all.length - hi - 1;
   const rowIndex = hi + 1 + at;
 
+  /**
+   * ★접수일은 사람이 준 값이 이긴다 — 밀려서 적는 일이 있다.
+   *   ⚠ 못 읽는 값이나 «미래»면 오늘로 되돌린다. 조용히 이상한 날짜를 박지 않는다.
+   */
   const today = iso(new Date());
+  const asked = dayOf(S(input.receivedAt));
+  const received = asked && asked <= today ? asked : today;
+  if (S(input.receivedAt) && received !== dayOf(S(input.receivedAt))) {
+    return fail(`접수일 「${S(input.receivedAt)}」 은 못 씁니다 — 오늘(${today}) 이후일 수 없습니다`, 400);
+  }
+
+  /**
+    * ★★**「예/아니오」가 «문자»로 온다.** 화면 select 가 그렇게 보낸다.
+    *   ⚠ `if (input.paper)` 로 받으면 **「아니오」도 참**이다 — 빈 문자열이 아니니까.
+    *     그러면 계약서가 늘 켜진 채 접수된다(2026-08-26 확인).
+    *   ★그래서 «참으로 볼 말»을 정해 두고 그것만 참으로 읽는다.
+    */
+  const YES = (v: unknown) => v === true || /^(예|TRUE|true|Y|1|참)$/i.test(S(v));
+  const paperOn = YES(input.paper);
+  const delivOn = YES(input.delivered);
+
+  // ★인도완료는 인도일과 «같이» 온다. 날짜 없이 켜면 청구월이 안 선다.
+  const delivDay = dayOf(S(input.deliveredAt));
+  if (delivOn && !delivDay) {
+    return fail('인도완료를 켜려면 인도일을 같이 넣어야 합니다 — 날짜가 없으면 청구월이 안 섭니다', 400);
+  }
+
   const put: Record<string, string> = {
-    접수일: today, 차량번호: plate,
+    접수일: received, 차량번호: plate,
     // 고른 차에서 따라온 것 — 비면 요율을 못 찾는다
     모델명: S(input.model), 공급사: S(input.supplier),
     고객명: S(input.customer), 고객연락처: S(input.phone),
@@ -196,7 +255,11 @@ export async function appendIntake(input: IntakeInput): Promise<StoreResult & { 
     상품구분: S(input.product), 계약기간: S(input.term),
     보증금: S(input.deposit), 렌탈료: S(input.rent), 차량가액: S(input.price),
     분납여부: S(input.payKind),
-    계약서: 'FALSE', 인도완료: 'FALSE', 계약취소: 'FALSE', 환수: 'FALSE',
+    // 어떤 상태 — 접수 때 이미 켜져 있는 것을 그대로 받는다. 취소·환수는 늘 꺼진 채 시작한다.
+    계약서: paperOn ? 'TRUE' : 'FALSE',
+    인도완료: delivOn ? 'TRUE' : 'FALSE',
+    인도일: delivDay,
+    계약취소: 'FALSE', 환수: 'FALSE',
   };
   const data = Object.entries(put)
     .map(([k, v]) => ({ col: head.indexOf(k), v }))
@@ -205,7 +268,7 @@ export async function appendIntake(input: IntakeInput): Promise<StoreResult & { 
 
   const wrote = await writeCells(token, data);
   if (!wrote.ok) return wrote;
-  return { ok: true, plate, receivedAt: today };
+  return { ok: true, plate, receivedAt: received };
 }
 
 /**
@@ -239,24 +302,31 @@ export async function patchRow(key: LedgerKey, patch: Record<string, string>, by
       && (!received || dayOf(S(r[iRecv])) === received));
     if (at < 0) continue;
 
-    const data = Object.entries(patch)
+    // ★칸 이름(`k`)을 끝까지 들고 간다 — 이력이 무슨 칸을 고쳤는지 알아야 한다.
+    const cells = Object.entries(patch)
       .map(([k, v]) => ({
         col: head.indexOf(k), k,
         // 체크는 TRUE/FALSE 로 굳혀 쓴다 — '참'·'Y' 가 섞이면 읽는 쪽이 갈린다.
         v: EDITABLE_FIELDS[k] === '체크' ? (/^(TRUE|true)$/.test(S(v)) ? 'TRUE' : 'FALSE') : S(v),
       }))
-      .filter((x) => x.col >= 0)
-      .map((x) => ({ range: `'${tabName}'!${colA1(x.col)}${hi + 2 + at}`, values: [[x.v]] }));
+      .filter((x) => x.col >= 0);
+    const data = cells.map((x) => ({ range: `'${tabName}'!${colA1(x.col)}${hi + 2 + at}`, values: [[x.v]] }));
     if (!data.length) return fail('고칠 칸을 원장에서 못 찾았습니다', 400);
     const before = all[hi + 1 + at];
     const wrote = await writeCells(token, data);
     if (!wrote.ok) return wrote;
     // ★쓴 «다음»에 남긴다. 안 써졌는데 남기면 이력이 거짓말을 한다.
-    await recordEvents(key, data
-      .map((d, i) => ({ d, k: Object.keys(patch)[i] }))
-      .map(({ k }) => ({
-        at: Date.now(), by, field: k,
-        from: S(before[head.indexOf(k)]), to: S(patch[k]),
+    /**
+     * ★★이력은 **실제로 쓴 칸**만 남긴다.
+     *   ⚠ 예전엔 `Object.keys(patch)[i]` 로 이름을 붙였는데, 바로 위에서
+     *     `.filter((x) => x.col >= 0)` 로 «원장에 없는 칸»을 걸러 낸 뒤라 번호가 밀린다.
+     *     원장에 없는 칸이 하나라도 섞이면 이력에 **엉뚱한 칸 이름과 값**이 남았다.
+     *     `data` 가 자기 칸 이름(`k`)을 이미 들고 있으니 그것을 쓴다.
+     */
+    await recordEvents(key, cells
+      .map((x) => ({
+        at: Date.now(), by, field: x.k,
+        from: S(before[head.indexOf(x.k)]), to: S(patch[x.k]),
       }))
       .filter((e) => e.from !== e.to)).catch(() => { /* 이력이 안 남아도 저장은 살린다 */ });
     return wrote;

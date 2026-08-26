@@ -97,7 +97,9 @@ const cell = (m: string) => { if (!by.has(m)) by.set(m, zero()); return by.get(m
 
 for (const x of rows) {
   const st = S(get(x, '상태'));
-  const recv = ym(get(x, '접수일')) || ymKey(get(x, '접수년'), get(x, '접수월'));
+  // ★접수 달은 «접수일 하나»에서 나온다. 접수년·접수월 대비책은 2026-08-26 에 걷어냈다
+  //   — 작동한 적이 없다(접수일 없는 줄은 년·월도 비어 있었다).
+  const recv = ym(get(x, '접수일'));
   const bill = ymKey(get(x, '청구년'), get(x, '청구월'));
   const back = /환수/.test(st);
   // ── 왼쪽: 접수 기준 실적

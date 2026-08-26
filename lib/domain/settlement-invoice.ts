@@ -18,6 +18,7 @@
  *   사업자번호를 지어내면 그게 그대로 세금계산서에 실린다.
  */
 import { VAT, moneyOf, type SettlementRow } from './settlement-stage';
+import { ciOf, ciGapsOf, bizNoPretty } from './partner-ci';
 
 /** 정산서에 실리는 회사 한 곳. 없는 값은 빈 문자열이고, 지어내지 않는다. */
 export type InvoiceParty = {
@@ -122,12 +123,33 @@ export function buildInvoice(opts: {
   const supply = lines.reduce((s, l) => s + l.amount, 0);
   const vat = lines.reduce((s, l) => s + l.vat, 0);
 
+  /**
+   * **받는 곳의 신원은 CI 정본에서 메운다.**
+   *
+   * ★사장님 2026-08-26 「청구회사를 좀 정중하게 별도로 이름이랑 CI까지 확인해서 해주고」.
+   * ★시트는 별칭(「손오공」)만 안다 — 정식 상호는 `lib/domain/partner-ci.ts` 가 안다.
+   * ★★**부르는 쪽이 준 값이 이긴다.** 여기서 메우는 건 «비어 있는 칸»뿐이다.
+   *   화면에서 사람이 고쳐 넣은 값을 정본이 덮으면 그 수정이 조용히 사라진다.
+   */
+  const ci = ciOf(opts.party);
+  const receiver: InvoiceParty = {
+    ...opts.receiver,
+    name: S(opts.receiver.name) || S(ci?.legal),
+    bizNo: bizNoPretty(S(opts.receiver.bizNo) || S(ci?.bizNo)),
+    ceo: S(opts.receiver.ceo) || S(ci?.ceo),
+    address: S(opts.receiver.address) || S(ci?.addr),
+    phone: S(opts.receiver.phone) || S(ci?.tel),
+  };
+
   const missing: string[] = [];
   if (!S(opts.issuer.name)) missing.push('발행자 상호');
   if (!S(opts.issuer.bizNo)) missing.push('발행자 사업자등록번호');
   if (claim && !S(opts.issuer.account)) missing.push('입금계좌');
-  if (!S(opts.receiver.name)) missing.push('받는 곳 상호');
-  if (!S(opts.receiver.bizNo)) missing.push('받는 곳 사업자등록번호');
+  if (!claim && !S(receiver.account)) missing.push('지급계좌');
+  if (!S(receiver.name)) missing.push('받는 곳 상호');
+  if (!S(receiver.bizNo)) missing.push('받는 곳 사업자등록번호');
+  // CI 정본이 아직 모르는 칸도 같이 알려 준다 — 발송 전에 채우라고.
+  missing.push(...ciGapsOf(opts.party));
 
   return {
     axis: opts.axis,
@@ -135,7 +157,7 @@ export function buildInvoice(opts: {
     month: opts.month,
     party: opts.party,
     issuer: opts.issuer,
-    receiver: opts.receiver,
+    receiver,
     lines,
     supply, vat, total: supply + vat,
     clawback,

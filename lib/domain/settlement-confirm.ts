@@ -32,6 +32,7 @@
  *   이름은 겹치고 바뀌지만 채널은 지급이 나가는 단위다(실측: 동명이인 3명).
  * ⚠ 확인은 **되돌릴 수 있다** — 청구가 나가기 전까지는. 나간 뒤에는 환수로 다룬다.
  */
+import { nameKey } from './settlement-view';
 
 /** 한 사람(또는 한 공급사)의 한 달 실적에 대한 답. */
 export type ConfirmState = '대기' | '확인' | '이의';
@@ -89,12 +90,105 @@ export const confirmKey = (month: string, who: string) =>
 export function canBill(c: Confirmation | null, nowLines: number): { ok: boolean; why: string } {
   if (!c || c.state === '대기') return { ok: false, why: '영업자 실적 확인을 아직 안 받았습니다.' };
   if (c.state === '이의') {
-    return { ok: false, why: `영업자가 ${c.disputed.length || ''}건에 이의를 걸었습니다${c.note ? ` — ${c.note}` : ''}.` };
+    /**
+     * ⚠ **`disputed` 가 없을 수 있다.** RTDB 는 «빈 배열을 저장하지 않는다» —
+     *   차량번호를 짚지 않고 사유만 적어 이의를 걸면 `disputed: []` 로 쓰이고,
+     *   다시 읽을 때는 그 칸이 통째로 사라진 채 온다. `c.disputed.length` 로 바로 만지면
+     *   공급사 청구서(`/api/settlement/invoice`)가 500 으로 죽는다 (2026-08-26 확인).
+     * ★타입이 `string[]` 이라 컴파일러는 못 잡는다. 저장소 사정은 규칙이 스스로 막아야 한다.
+     */
+    const n = c.disputed?.length || 0;
+    return { ok: false, why: `영업자가 ${n ? `${n}건에 ` : ''}이의를 걸었습니다${c.note ? ` — ${c.note}` : ''}.` };
   }
   if (nowLines > c.lines) {
     return { ok: false, why: `확인받은 뒤 ${nowLines - c.lines}건이 늘었습니다. 다시 확인을 받아야 합니다.` };
   }
   return { ok: true, why: '' };
+}
+
+/**
+ * **공급사 청구 한 장에 걸린 영업채널들의 확인 관문.**
+ *
+ * 청구서와 확인 모두 «월 × 영업채널» 단위다. 화면은 이 결과를 보여 주고,
+ * 서버 발행은 같은 결과가 비어 있을 때만 기록한다. 둘이 따로 세면 경고와
+ * 실제 발행 판단이 갈라진다. (코덱스, 2026-08-26)
+ *
+ * ★★★**여기는 «막히나»보다 «잘못 열리나»가 먼저다.**
+ *   못 막히면 확인을 한 번 더 받으면 그만이지만, 잘못 열리면
+ *   **확인 안 한 실적이 청구서에 실려 나간다.** 애매하면 «안 붙인다».
+ *   ⚠ 2026-08-26 검증에서 실제로 뚫렸다 — 확인 「리더스렌트카」 하나로 채널 「리더스」가,
+ *     확인 「오토」 하나로 「오토원트」·「오토디렉션」이 통과했다. 이름 붙이기에
+ *     유일성 검사가 없어서다. 아래 `pickConfirmation` 이 그것을 막는다.
+ *   ⚠ 검사는 `scripts/check-provider-gate.mts` — «잘못 열리는» 경우 4개가 들어 있다.
+ *     이 함수를 고치면 **그것부터 돌린다.**
+ */
+export type ProviderBillGateRow = { channel?: unknown; agent?: unknown };
+export type ProviderBillGate = { channel: string; lines: number; why: string };
+
+export function providerBillGate(rows: ProviderBillGateRow[], confirmations: Confirmation[]): ProviderBillGate[] {
+  const byChannel = new Map<string, number>();
+  for (const row of rows) {
+    // 확인은 채널 단위다. 담당자 이름으로 대신 붙이면 다른 채널 확인을 잘못 통과시킬 수 있다.
+    const channel = S(row.channel) || '(영업채널 미기재)';
+    byChannel.set(channel, (byChannel.get(channel) || 0) + 1);
+  }
+
+  const gate: ProviderBillGate[] = [];
+  const channels = [...byChannel.keys()];
+  for (const [channel, lines] of byChannel) {
+    const { ok, why } = canBill(pickConfirmation(channel, confirmations, channels), lines);
+    if (!ok) gate.push({ channel, lines, why });
+  }
+  return gate;
+}
+
+/**
+ * **이 채널의 확인을 «확실할 때만» 붙인다.**
+ *
+ * ★★관문은 돈이 나가는 자리다. 못 붙이면 한 번 더 확인받으면 그만이지만,
+ *   잘못 붙이면 **확인 안 한 실적이 청구서에 실려 나간다.** 그래서 애매하면 «안 붙인다».
+ *
+ * 붙이는 규칙 — 집 규칙(`isSameCompany`)과 같다.
+ * ```
+ * ① 이름이 똑같으면      붙인다
+ * ② 계정 이름이 원장 이름으로 «시작»하면  ─┐ 셋을 다 만족할 때만 붙인다
+ *      · 그렇게 걸리는 확인이 «하나뿐»이고   │  (하허호 ─ 하허호무심사)
+ *      · 그 확인이 «다른 채널»에도 걸리지 않을 때
+ * ③ 그 밖                안 붙인다 → 막힌다
+ * ```
+ * ⚠ **반대 방향(`want.startsWith(got)`)은 쓰지 않는다.** 2026-08-26 검사에서 구멍이 났다 —
+ *   「오토」로 뭉뚱그려 확인 하나를 남기면 «오토원트»와 «오토디렉션»이 둘 다 열렸다.
+ * ⚠ **유일성을 안 보면** 「리더스렌트카」 확인 하나로 「리더스」까지 열렸다.
+ *   앞머리가 겹치는 상대가 실제로 있다(공급사 리더스 · 리더스렌트카).
+ */
+function pickConfirmation(channel: string, confirmations: Confirmation[], allChannels: string[]): Confirmation | null {
+  const want = nameKey(channel);
+  if (!want) return null;
+
+  const exact = confirmations.find((c) => nameKey(c.who) === want);
+  if (exact) return exact;
+
+  /**
+   * 줄여 적힌 이름 붙이기 — **방향은 둘 다 있다.**
+   *   · 원장 「하허호」        ↔ 계정 「하허호무심사」   (계정이 길다)
+   *   · 원장 「하허호무심사」   ↔ 계정 「하허호」        (원장이 길다)
+   * ⚠ 그래서 방향 하나를 막는 것으로는 못 고친다. **유일성**으로 막아야 한다.
+   */
+  const fits = (a: string, b: string) => a.startsWith(b) || b.startsWith(a);
+  const cands = confirmations.filter((c) => {
+    const got = nameKey(c.who);
+    return !!got && got !== want && fits(got, want);
+  });
+  // 걸리는 확인이 둘 이상이면 누구 것인지 모른다 — 안 붙인다.
+  if (cands.length !== 1) return null;
+
+  // 그 확인이 이 문서의 «다른 채널»에도 걸린다면 역시 모른다 — 안 붙인다.
+  const got = nameKey(cands[0].who);
+  const alsoFits = allChannels.some((other) => {
+    const k = nameKey(other);
+    return !!k && k !== want && fits(got, k);
+  });
+  return alsoFits ? null : cands[0];
 }
 
 /** 사람이 읽는 한마디 — 화면과 정산서가 같은 말을 써야 한다. */

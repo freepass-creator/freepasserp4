@@ -136,12 +136,37 @@ const BOXES = [PAPER_BOX, DONE_BOX, CANCEL_BOX, CLAW_BOX];
  *   나누면 연도 하나, 월 하나로 걸린다. 숫자로 넣어야 정렬도 1·2·…·12 로 선다.
  * ⚠ 도구들이 쓰는 열쇠는 여전히 「2026-08」이다 — 두 칸을 이어 붙여 만든다(`ymKey`).
  */
-const CUR_FRONT: string[] = ['접수일', '접수년', '접수월', '차량번호', '공급사', '고객명', '고객연락처', '영업채널', '영업담당자',
-  '상품구분', '계약기간', '보증금', '렌탈료', '차량가액', '분납여부', PAPER_BOX, DONE_BOX, '인도일', '청구년', '청구월',
+/**
+ * **앞에 서는 칸 — 담당자의 «의식의 흐름» 그대로.**
+ *
+ * ★사장님 2026-08-26 「담당자가 취급하는 정보가
+ *   **언제 · 어떤 차를 · 누가(영업자가) · 누구한테 · 어떤 조건으로 · 어떤 방식으로 · 어떤 상태인지**」
+ *   「공급사 다음에 모델명 쓰면 되겄다」.
+ *   ★★**ERP 접수 폼(`app/settlement/ledger/page.tsx`)과 «같은 차례»여야 한다.**
+ *     시트를 보다가 ERP 로 넘어가도 눈이 같은 자리를 찾게. 한쪽만 고치면 어긋난다.
+ *
+ * ```
+ * 언제        접수일
+ * 어떤 차를    차량번호 · 공급사 · 모델명
+ * 누가        영업채널 · 영업담당자 · 영업자연락처
+ * 누구한테     고객명 · 고객연락처
+ * 어떤 조건     상품구분 · 계약기간 · 렌탈료 · 보증금 · 차량가액
+ * 어떤 방식     분납여부
+ * 어떤 상태     계약서 · 인도완료 · 인도일  → 그 뒤는 기계가 내는 청구·환수
+ * ```
+ * ⚠ 모델명이 뒤(Z열)에 처박혀 있었다(2026-08-26). 차 정보인데 환수 뒤에 있었다.
+ */
+const CUR_FRONT: string[] = ['접수일',
+  '차량번호', '공급사', '모델명',
+  '영업채널', '영업담당자', '영업자연락처',
+  '고객명', '고객연락처',
+  '상품구분', '계약기간', '렌탈료', '보증금', '차량가액', '분납여부',
+  PAPER_BOX, DONE_BOX, '인도일', '청구년', '청구월',
   CANCEL_BOX, NEXT_DAY, CLAW_BOX, CLAW_WHY, CLAW_DAY, CLAW_AMT, '상태'];
 /** 팀장이 손대는 칸 — 이 밖은 기계 칸이라 잠근다. */
 // ★공급사는 «청구할 상대»라 앞에 선다. 기계가 채우는 칸이다.
-const MACHINE_FRONT = ['접수년', '접수월', '청구년', '청구월', '공급사', NEXT_DAY];
+// ★접수년·접수월은 뺐다 — 접수일 하나가 원자다(2026-08-26). 청구년·청구월은 남는다.
+const MACHINE_FRONT = ['청구년', '청구월', '공급사', NEXT_DAY];
 const STAFF: string[] = CUR_FRONT.filter((h) => !MACHINE_FRONT.includes(h));
 /**
  * ★**탭마다 열리는 칸이 다르다.** 양식(색·정렬·체크박스·메모)은 넷이 같지만,
@@ -174,8 +199,7 @@ const PAY_KINDS = ['일시납', '2회분납', '3회분납'];
  */
 const HINT: Record<string, string> = {
   공급사: '차를 대는 회사이자 **청구할 상대**입니다. 기계가 채웁니다 — 월 + 공급사로 걸면 그게 그 달 그 회사에 끊을 계산서입니다.',
-  접수년: '기계가 냅니다 — 접수일의 연도. 연도만 걸러 볼 때 씁니다.',
-  접수월: '기계가 냅니다 — 접수일의 달(1~12). **이 달이 그 달 실적입니다.**',
+  접수일: '사람이 적습니다 — **접수 날짜 한 칸**. 연·월은 따로 두지 않습니다(2026-08-26).',
   청구년: '기계가 냅니다 — 인도일의 연도.',
   청구월: '기계가 냅니다 — 인도일의 달(1~12). **이 달에 청구가 나갑니다.** 접수월과 다를 수 있습니다.',
   접수일: '계약금이 들어온 날. 비워 두면 기계가 오늘로 채웁니다. 한 번 박히면 안 바뀝니다 — 실적을 세는 축이라 흔들리면 돈이 흔들립니다.',
@@ -235,21 +259,25 @@ const ABOUT: Record<string, string> = {};
 /** ★말을 하나로. 원본의 「정산월」이 곧 사장님이 말하는 「청구월」이다. */
 const RENAME: Record<string, string> = { 정산월: '청구월' };
 
+/**
+ * **공지칸 — 짧게. 방법만.**
+ *
+ * ★사장님 2026-08-26 「공지칸에 너무 주저리 써놨다 / 심플하게 방법을 알려주면 되는거지」.
+ * ★★**세 줄 안.** 규격이 «10pt 세 줄»(`크기.공지높이` 56)이라 그 이상은 잘린다.
+ *   ⚠ 설명이 길어지면 여기가 아니라 「매뉴얼」 탭에 쓴다. 공지칸은 «지금 뭘 하나»만 말한다.
+ */
 Object.assign(ABOUT, {
-  [CUR]: '접수 — 미처리 이월건 + 당월 접수건. 접수일 빠른 것이 위이고, 아래 빈 줄에 이어 적습니다. '
-    + '① 계약금이 들어오면 «연노랑 칸»에 적습니다. 회색 칸은 기계가 채우니 비워 두세요(잠겨 있습니다). '
-    + '② 계약서를 다 쓰면 「계약서」에 체크합니다. ③ 차가 나가면 「인도완료」에 체크합니다 — 그날이 인도일이 되고 청구월이 박힙니다. '
-    + '날짜가 다르면 「인도일」 칸만 고치세요, 적힌 값이 이깁니다. ④ 취소되면 「계약취소」, 나중에 돈을 되돌리면 「환수」에 체크합니다. '
-    + '**당월 건은 인도돼도 이달이 마무리될 때까지 여기 남습니다**(초록 줄 = 이번 달 실적). '
-    + '달이 바뀌면 분납이면 「분납실적」, 일시납이면 「완납실적」으로 옮겨집니다.',
-  [CANCEL]: '취소 — 계약금이 들어왔다가 취소된 것. 접수에 두면 일하는 표가 흐려져서 따로 뺐습니다. 되살아나면 접수로 다시 옮깁니다.',
-  [PAY]: '분납실적 — 인도됐고 보증금 분납이 아직 안 끝난 것. **1회차는 인도 때 냈고**, 「다음회차일」이 다음에 들어올 날입니다 — '
-    + '그 날이 지났는데 소식이 없으면 **「환수」에 체크하고 환수일·환수금액을 적으세요.** 분납이 부러진 것도 환수로 적습니다. '
-    + '켜면 줄이 주황이 되고 청구에서 그만큼 빠지며, 더 굴러갈 회차가 없어 「완납실적」으로 옮겨집니다. 만료 = 인도일 + 회차개월. '
-    + '만료가 지나고 환수가 없으면 제대로 이행된 것이라 저절로 완납실적으로 넘어갑니다. 만료 가까운 순으로 놓입니다.',
-  [DONE]: '완납실적 — 끝난 것. 일시납이면 인도완료를 체크하는 순간 바로 여기로 오고, 분납은 만료가 지나면 옵니다. '
-    + '환수도 여기 남습니다. 청구서는 «분납실적 + 완납실적»에서 만듭니다. 쌓기만 하고 손대지 않습니다.',
+  [CUR]: '접수 — 계약금이 들어온 계약을 빈 줄에 이어 적습니다. 연노랑 칸만 적으면 됩니다.\n'
+    + '적는 차례는 왼쪽부터 그대로 — 언제 · 어떤 차 · 누가 · 누구한테 · 어떤 조건 · 어떤 상태.\n'
+    + '인도완료를 체크하면 청구월이 박히고 실적 탭으로 넘어갑니다. 자세한 건 「매뉴얼」 탭.',
+  [CANCEL]: '취소 — 계약금이 들어왔다가 취소된 것. 손댈 것 없습니다. 되살아나면 접수로 돌아갑니다.',
+  [PAY]: '분납실적 — 인도됐고 보증금 분납이 안 끝난 것. 만료 가까운 순입니다.\n'
+    + '「다음회차일」이 지났는데 안 들어오면 → 「환수」 체크 + 환수사유 · 환수일 · 환수금액.\n'
+    + '만료가 지나고 환수가 없으면 저절로 완납실적으로 갑니다.',
+  [DONE]: '완납실적 — 끝난 것. 쌓기만 합니다. 청구서는 «분납실적 + 완납실적»에서 만듭니다.\n'
+    + '나중에 환수가 생기면 → 「환수」 체크 + 환수사유 · 환수일 · 환수금액.',
 });
+
 
 const APPLY = process.argv.includes('--apply');
 const S = (v: unknown) => String(v ?? '').trim();
@@ -355,7 +383,7 @@ if (iPlate < 0 || iDeliver < 0 || iBillM < 0) { console.log('⛔ 「차량번호
  */
 {
   // ★새 칸은 머리글에 «먼저» 세운다 — 없으면 뒤에서 `at()` 이 -1 을 돌려주고 판정이 통째로 어긋난다.
-  for (const c of [PAPER_BOX, CANCEL_BOX, CLAW_BOX, CLAW_WHY, CLAW_DAY, CLAW_AMT, NEXT_DAY, '접수년', '청구년']) if (!head.includes(c)) head.push(c);
+  for (const c of [PAPER_BOX, CANCEL_BOX, CLAW_BOX, CLAW_WHY, CLAW_DAY, CLAW_AMT, NEXT_DAY, '청구년']) if (!head.includes(c)) head.push(c);
   const iPaper = head.indexOf(PAPER_BOX), iCan = head.indexOf(CANCEL_BOX);
   const iClaw = head.indexOf(CLAW_BOX), iAmt = head.indexOf(CLAW_AMT), iSt = at('상태');
   let made = 0, canned = 0, clawed = 0;
@@ -534,7 +562,8 @@ const cur: string[][] = [], cancel: string[][] = [], pay: string[][] = [], done:
 const curDone: string[][] = [];
 /** ★열쇠는 여전히 「2026-08」이다 — 나뉜 두 칸을 이어 붙여 만든다. */
 const ymKey = (y: string, m: string) => (S(y) && S(m) ? `${S(y)}-${String(Number(m)).padStart(2, '0')}` : '');
-const recvMonth = (r: string[]) => { const x = d(r[iRecv]); return x ? ym(x) : ymKey(S(r[at('접수년')]), S(r[at('접수월')])); };
+// ★접수 달은 접수일 하나에서 나온다 — 접수년·접수월 대비책은 걷어냈다(2026-08-26).
+const recvMonth = (r: string[]) => { const x = d(r[iRecv]); return x ? ym(x) : ''; };
 const billKey = (r: string[]) => ymKey(S(r[at('청구년')]), S(r[at('청구월')]));
 for (const row of seen.values()) {
   const st = S(row[iState]);
@@ -549,19 +578,12 @@ for (const row of seen.values()) {
     else done.push(row);
   }
 }
-/**
- * ★**접수월도 «글자»로 박는다.** 청구월과 똑같은 함정이다 —
- *   `USER_ENTERED` 로 「2026-06」을 쓰면 구글이 날짜로 바꿔 `46174` 로 되돌아온다(실측 2026-08-25).
- *   접수일에서 다시 내고, 쓸 때 RAW 로 덮는다.
+/*
+ * ★★**접수년·접수월을 더 이상 채우지 않는다** (2026-08-26, 사장님 「접수일만 적는거로」).
+ *   여기서 접수일을 보고 두 칸을 다시 내던 자리였다. 접수일 하나가 원자이고,
+ *   연·월이 필요하면 읽는 쪽이 그때 계산한다 — 같은 사실을 세 칸에 두면 어긋날 자리만 생긴다.
+ *   ⚠ 청구년·청구월은 그대로다. 청구는 「청구일」 칸이 없어 그 둘이 원자다.
  */
-{
-  const iRecvY = at('접수년'), iRecvM = at('접수월');
-  for (const row of seen.values()) {
-    const x = d(row[iRecv]);
-    if (iRecvY >= 0) row[iRecvY] = x ? String(x.getFullYear()) : '';
-    if (iRecvM >= 0) row[iRecvM] = x ? String(x.getMonth() + 1) : '';
-  }
-}
 
 // ★다음 회차일을 박아 둔다 — 사람이 «언제 확인해야 하나»를 여기서 본다.
 {
@@ -693,10 +715,24 @@ for (const [tab, rowsIn, extra] of [[CUR, curBody, BLANK], [CANCEL, cancel.map((
         { repeatCell: { range: { sheetId: Number(gid) }, cell: { userEnteredFormat: { textFormat: { fontFamily: FONT, fontSize: 10 } } }, fields: 'userEnteredFormat.textFormat(fontFamily,fontSize)' } },
         // 1행 — 설명. 칸을 합쳐 한 문장으로 읽히게 한다.
         { mergeCells: { range: { sheetId: Number(gid), startRowIndex: 0, endRowIndex: 1, startColumnIndex: 1, endColumnIndex: hd.length }, mergeType: 'MERGE_ROWS' } },
-        { repeatCell: { range: { sheetId: Number(gid), startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 1 }, cell: { userEnteredFormat: { textFormat: { fontFamily: FONT, fontSize: 11, bold: true } } }, fields: 'userEnteredFormat.textFormat' } },
-        { repeatCell: { range: { sheetId: Number(gid), startRowIndex: 0, endRowIndex: 1 }, cell: { userEnteredFormat: { textFormat: { fontFamily: FONT, fontSize: 10, foregroundColor: { red: 0.25, green: 0.29, blue: 0.35 } }, backgroundColor: { red: 0.97, green: 0.98, blue: 1 }, verticalAlignment: 'MIDDLE', wrapStrategy: 'WRAP' } }, fields: 'userEnteredFormat(textFormat,backgroundColor,verticalAlignment,wrapStrategy)' } },
-        // ★설명 줄은 글이 다 보이게 연다(사장님 2026-08-25 「위에 업무 설명하는 헤더 좀 더 크게 열어주고」).
-        { updateDimensionProperties: { range: { sheetId: Number(gid), dimension: 'ROWS', startIndex: 0, endIndex: 1 }, properties: { pixelSize: 62 }, fields: 'pixelSize' } },
+        /**
+         * ★**1행은 «공지줄»이다** — A1 은 탭 이름(제목), B1 부터가 그 탭 업무 설명.
+         *
+         * ★★★**규격은 내가 정하지 않는다.** 정본이 따로 있다 —
+         *   원장 「시트 규격」 탭 · aiops/lib/siteu-gyugyeok.mjs 의 공지꼴·크기.
+         *   사장님 2026-08-26 「시트작성 매뉴얼이 있을건데 / 그 부분 색깔을 다른 시트랑 비교해봐」.
+         * ```
+         * 제목(A1)    #0b5394 · 흰 · 14pt 굵게 · 가운데
+         * 공지(B1~)   #0b5394 · 흰 · 10pt **굵지 않게** · 왼쪽 · WRAP · 높이 56 (세 줄)
+         * 선          두르지 않는다 — 바탕색이 이미 경계다
+         * ```
+         *   ⚠ 2026-08-26 에 여기만 «연한 바탕 14pt» → 다시 «9pt 굵게» 로 두 번 헛짚었다.
+         *     규격을 기억으로 쓰지 말고 정본을 읽어라.
+         */
+        { repeatCell: { range: { sheetId: Number(gid), startRowIndex: 0, endRowIndex: 1 }, cell: { userEnteredFormat: { textFormat: { fontFamily: FONT, fontSize: 10, bold: false, foregroundColor: { red: 1, green: 1, blue: 1 } }, backgroundColor: { red: 11 / 255, green: 83 / 255, blue: 148 / 255 }, horizontalAlignment: 'LEFT', verticalAlignment: 'MIDDLE', wrapStrategy: 'WRAP', padding: { left: 12, right: 16, top: 6, bottom: 6 } } }, fields: 'userEnteredFormat(textFormat,backgroundColor,horizontalAlignment,verticalAlignment,wrapStrategy,padding)' } },
+        { repeatCell: { range: { sheetId: Number(gid), startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 1 }, cell: { userEnteredFormat: { textFormat: { fontFamily: FONT, fontSize: 14, bold: true, foregroundColor: { red: 1, green: 1, blue: 1 } }, horizontalAlignment: 'CENTER' } }, fields: 'userEnteredFormat(textFormat,horizontalAlignment)' } },
+        // ★공지 세 줄 = 56px (정본 크기.공지높이).
+        { updateDimensionProperties: { range: { sheetId: Number(gid), dimension: 'ROWS', startIndex: 0, endIndex: 1 }, properties: { pixelSize: 56 }, fields: 'pixelSize' } },
         // 2행 — 머리글
         { repeatCell: { range: { sheetId: Number(gid), startRowIndex: 1, endRowIndex: 2 }, cell: { userEnteredFormat: { textFormat: { fontFamily: FONT, fontSize: 10, bold: true }, backgroundColor: { red: 0.93, green: 0.95, blue: 0.99 }, horizontalAlignment: 'CENTER' } }, fields: 'userEnteredFormat(textFormat,backgroundColor,horizontalAlignment)' } },
         { updateSheetProperties: { properties: { sheetId: Number(gid), gridProperties: { frozenRowCount: 2, frozenColumnCount: 1 } }, fields: 'gridProperties(frozenRowCount,frozenColumnCount)' } },

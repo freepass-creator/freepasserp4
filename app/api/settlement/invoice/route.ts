@@ -18,7 +18,9 @@ import { billingMonth } from '@/lib/domain/settlement-stage';
 import { nameKey } from '@/lib/domain/settlement-view';
 import { EMPTY_PARTY, buildInvoice, type InvoiceParty } from '@/lib/domain/settlement-invoice';
 import { driftOf, invoiceKey, nextInvoiceNo, type IssuedInvoice } from '@/lib/domain/settlement-invoice-code';
-import { canBill, type Confirmation } from '@/lib/domain/settlement-confirm';
+import { invoiceDocHtml, invoicePageHtml } from '@/lib/server/settlement-invoice-html';
+import { invoiceXlsx, invoiceFileName } from '@/lib/server/settlement-invoice-xlsx';
+import { providerBillGate, type Confirmation } from '@/lib/domain/settlement-confirm';
 import { newId } from '@/lib/domain/ids';
 
 export const dynamic = 'force-dynamic';
@@ -61,6 +63,27 @@ export async function GET(req: Request) {
   const month = S(url.searchParams.get('month'));
   const axis = S(url.searchParams.get('axis')) === '영업채널' ? '영업채널' : '공급사';
   const party = S(url.searchParams.get('party'));
+  /**
+   * **내려받기 갈래.**
+   *
+   * ★사장님 2026-08-26 「정산서 다운로드하기랑 엑셀 다운로드 하기 있어야해」.
+   * ```
+   * (없음)  화면이 쓰는 JSON — 미리보기·게이트·빈칸 안내가 다 들어 있다
+   * html    A4 정산서. 브라우저에서 열고 «인쇄 → PDF로 저장» 하면 그게 PDF 다
+   * xlsx    상대가 자기 장부에 붙여 넣는 자료
+   * ```
+   * ★★**PDF 를 서버에서 굽지 않는다.** 그러려면 헤드리스 크롬을 얹어야 하는데,
+   *   배포가 무거워지고 한글 폰트가 서버마다 달라 «글자가 깨진 청구서»가 나간다.
+   *   브라우저 인쇄가 폰트·여백까지 우리가 맞춰 둔 그대로 나온다.
+   * ★★**게이트·발행번호는 세 갈래가 같이 쓴다** — 아래 계산이 끝난 뒤에 갈라진다.
+   *   먼저 갈라놓으면 「엑셀로 받으면 미확인 건도 나가는」 구멍이 생긴다.
+   */
+  const format = S(url.searchParams.get('format')).toLowerCase();
+  /** 화면 미리보기 — 번호 없이도 A4 를 본다. 내려받기는 발행된 문서만. */
+  const preview = S(url.searchParams.get('preview')) === '1';
+  if (format && format !== 'html' && format !== 'xlsx') {
+    return NextResponse.json({ ok: false, reason: 'format 은 html 또는 xlsx 입니다.' }, { status: 400 });
+  }
   if (!month || !party) return NextResponse.json({ ok: false, reason: '청구월과 상대를 지정해 주세요.' }, { status: 400 });
 
   const token = await sheetsToken();
@@ -105,34 +128,59 @@ export async function GET(req: Request) {
   /**
    * ★★**영업자 실적 확인이 먼저다**(사장님 2026-08-26
    *   「영업자한테 실적 먼저 확인하고 그게 ㅇㅋ 되면 공급사에 청구 거기서 한번 걸러지는구조야」).
-   *   공급사 청구서는 그 줄들을 판 **영업담당자들이 다 확인해야** 나간다.
-   *   ⚠ 막지는 않고 «말한다» — 종이에 붉게 세워서 사람이 보고 멈추게 한다.
-   *     서버가 문서 생성을 막아 버리면 급할 때 우회로가 생기고, 우회로가 곧 구멍이 된다.
+   *   공급사 청구서는 그 줄들을 판 **영업채널들이 다 확인해야** 나간다.
+   *   미확인은 미리보기에서 붉게 보이고, 번호 발행은 POST가 원장을 다시 읽어 서버에서 막는다.
    */
-  const gate: string[] = [];
+  let gate: string[] = [];
   if (axis === '공급사') {
     const confirms = ((await db.ref(CONFIRM_NODE).get().catch(() => null))?.val() || {}) as Record<string, Confirmation>;
     const ofMonth = Object.values(confirms).filter((c) => c.month === month);
-    /**
-     * ★★**관문은 «영업채널» 단위다**(사장님 2026-08-26 「공급사 영업채널 청구서가 각각 있음」) —
-     *   청구서가 「달 × 상대」로 나가니 확인도 그 단위여야 짝이 맞는다.
-     *   사람 이름으로 세면 동명이인 때문에 영영 안 열린다(실측: 원장 56명 중 3명이 동명이인).
-     */
-    const byChannel = new Map<string, number>();
-    for (const x of rows) {
-      const ch = S(x.extra.channel) || S(x.row.agent) || '(영업채널 미기재)';
-      byChannel.set(ch, (byChannel.get(ch) || 0) + 1);
+    gate = providerBillGate(rows.map((x) => ({ channel: x.extra.channel, agent: x.row.agent })), ofMonth)
+      .map((item) => `${item.channel} (${item.lines}건) — ${item.why}`);
+  }
+
+  /**
+   * ★내려받기는 **발행된 문서만** 준다.
+   *   번호 없는 종이가 밖으로 나가면 나중에 「그건 몇 번 문서였냐」에 답할 수 없다.
+   *   미리보기는 화면(JSON)에서 얼마든지 본다.
+   */
+  if (format) {
+    const downloading = !preview;
+    if (downloading && !issued) {
+      return NextResponse.json(
+        { ok: false, reason: '아직 발행 전입니다. 발행하면 문서번호가 붙고 그때 내려받을 수 있습니다.' },
+        { status: 409 },
+      );
     }
-    for (const [channel, n] of byChannel) {
-      // 채널 이름이 줄여 적혀 있어도(하허호 ↔ 하허호무심사) 앞머리로 붙인다.
-      const c = ofMonth.find((v) => {
-        const a = nameKey(v.who);
-        const b = nameKey(channel);
-        return !!a && !!b && (a === b || a.startsWith(b) || b.startsWith(a));
-      }) || null;
-      const { ok, why } = canBill(c, n);
-      if (!ok) gate.push(`${channel} (${n}건) — ${why}`);
+    if (downloading && gate.length) {
+      return NextResponse.json(
+        { ok: false, reason: `실적 확인이 안 끝났습니다 — ${gate.join(' / ')}` },
+        { status: 409 },
+      );
     }
+    if (format === 'xlsx' && preview) {
+      return NextResponse.json({ ok: false, reason: '엑셀은 발행 후 내려받습니다.' }, { status: 400 });
+    }
+    const stamp = issued ? { invoiceNo: issued.invoiceNo, issuedAt: issued.issuedAt } : undefined;
+    const name = invoiceFileName(invoice, format === 'xlsx' ? 'xlsx' : 'html');
+    // ★파일 이름이 한글이라 filename* (RFC 5987) 로 준다. filename= 만 주면 «???.xlsx» 가 된다.
+    const disp = downloading
+      ? `attachment; filename="invoice.${format}"; filename*=UTF-8''${encodeURIComponent(name)}`
+      : 'inline';
+    if (format === 'xlsx') {
+      const buf = invoiceXlsx(invoice, stamp);
+      return new NextResponse(new Uint8Array(buf), {
+        headers: {
+          'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'Content-Disposition': disp,
+          'Cache-Control': 'no-store',
+        },
+      });
+    }
+    const html = invoicePageHtml(name.replace(/\.html$/, ''), invoiceDocHtml(invoice, stamp));
+    return new NextResponse(html, {
+      headers: { 'Content-Type': 'text/html; charset=utf-8', 'Content-Disposition': disp, 'Cache-Control': 'no-store' },
+    });
   }
 
   return NextResponse.json({
@@ -185,6 +233,24 @@ export async function POST(req: Request) {
   if (already) return NextResponse.json({ ok: true, ...already, reused: true });
 
   const db = getDatabase(firebaseAdminApp());
+  if (axis === '공급사') {
+    // UI 경고가 아니라 서버에서 다시 원장을 읽어 막는다. 직접 API 호출로 우회할 수 없다.
+    const token = await sheetsToken();
+    if (!token) return NextResponse.json({ ok: false, reason: ledgerError() || '원장을 못 읽었습니다.' }, { status: 503 });
+    const read = await readLedger(token);
+    const partyKey = nameKey(party);
+    const rows = read.filter((x) => nameKey(x.row.supplier) === partyKey
+      && !x.row.cancelled && billingMonth(x.row) === month);
+    const confirms = ((await db.ref(CONFIRM_NODE).get().catch(() => null))?.val() || {}) as Record<string, Confirmation>;
+    const gate = providerBillGate(rows.map((x) => ({ channel: x.extra.channel, agent: x.row.agent })),
+      Object.values(confirms).filter((item) => item.month === month));
+    if (gate.length) {
+      return NextResponse.json({
+        ok: false,
+        reason: `영업채널 실적 확인이 끝나야 발행할 수 있습니다 — ${gate.map((item) => `${item.channel} (${item.lines}건)`).join(' · ')}`,
+      }, { status: 409 });
+    }
+  }
   const snap = await db.ref(ISSUED_NODE).get().catch(() => null);
   const all = (snap?.val() || {}) as Record<string, IssuedInvoice>;
   const rec: IssuedInvoice = {

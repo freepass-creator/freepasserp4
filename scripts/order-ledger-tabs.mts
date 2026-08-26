@@ -11,8 +11,15 @@ import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { SETTLEMENT_LEDGER_ID as LEDGER } from '../lib/domain/settlement-ledger';
 
-const ORDER = ['이 시트는', '접수', '취소', '분납실적', '완납실적', '청구', '청구요약', '월별 요약', '수수료표'];
-const GUIDE_TAB = '이 시트는';
+const ORDER = ['매뉴얼', '접수', '취소', '분납실적', '완납실적', '청구', '청구요약', '월별 요약', '수수료표'];
+/**
+ * ★사장님 2026-08-26 「정산원장에 이시트는 이거 매뉴얼아냐??? 그럼 매뉴얼로 바꿔야지」.
+ *   맞다 — 내용이 매뉴얼이라 이름도 매뉴얼이다.
+ * ⚠ 다른 시트(공급사 21곳)는 아직 「이 시트는」을 쓴다. 여기만 먼저 바꿨다 —
+ *   맞추려면 그쪽도 같이 바꿔야 한다. 아래 `OLD_TAB` 이 있으면 이름만 갈아 끼운다.
+ */
+const GUIDE_TAB = '매뉴얼';
+const OLD_TAB = '이 시트는';
 
 const APPLY = process.argv.includes('--apply');
 const S = (v: unknown) => String(v ?? '').trim();
@@ -47,9 +54,17 @@ const GUIDE: string[][] = [
   ['', '**인도완료를 체크하면 그 줄은 바로 나간다** — 분납이면 「분납실적」, 일시납이면 「완납실적」으로.'],
   ['', '그래서 접수 탭에는 «아직 차가 안 나간 것»만 남는다. 이번 달 실적은 「월별 요약」에서 본다.'],
   ['', ''],
-  ['★팀장이 매일 하는 일', '① 계약금이 들어오면 접수 탭 빈 줄의 «연노랑 칸» 13개를 적는다.'],
-  ['', '   차량번호 · 고객명 · 고객연락처 · 영업채널 · 영업담당자 · 상품구분 ·'],
-  ['', '   계약기간 · 보증금 · 렌탈료 · 분납여부 — 여기까지가 계약금 받을 때 아는 것이다.'],
+  ['★적는 차례', '왼쪽부터 그대로다 — 담당자가 생각하는 차례로 칸을 세웠다(2026-08-26).'],
+  ['', '   **언제**(접수일) → **어떤 차를**(차량번호 · 공급사 · 모델명)'],
+  ['', '   → **누가**(영업채널 · 영업담당자 · 영업자연락처) → **누구한테**(고객명 · 고객연락처)'],
+  ['', '   → **어떤 조건·방식으로**(상품구분 · 계약기간 · 렌탈료 · 보증금 · 차량가액 · 분납여부)'],
+  ['', '   → **어떤 상태인지**(계약서 · 인도완료 · 인도일).'],
+  ['', 'ERP 「정산관리」 접수 화면도 같은 차례다. 시트를 보다 ERP 로 넘어가도 눈이 같은 자리를 찾게.'],
+  ['', '연락처 둘은 안 적어도 된다 — 동명이인 가릴 때 쓴다.'],
+  ['', '차량가액은 «선출고 · 견적출고»면 반드시 적는다. 비면 수수료가 0원이 된다.'],
+  ['★접수일은 한 칸', '접수년 · 접수월 칸은 걷어냈다(2026-08-26). 날짜 한 칸이면 연 · 월은 기계가 안다.'],
+  ['', '⚠ 접수일은 «줄을 가르는 열쇠»의 절반이다. 오타가 나면 그 줄이 딴 줄이 된다.'],
+  ['★팀장이 매일 하는 일', '① 계약금이 들어오면 접수 탭 빈 줄의 «연노랑 칸»을 위 차례대로 적는다.'],
   ['', '② 계약서를 다 쓰면 「계약서」에 체크한다.'],
   ['', '③ 차가 나가면 「인도완료」에 체크한다. 그날이 인도일이 되고 청구월이 박힌다.'],
   ['', '   실제 인도일이 다르면 「인도일」 칸만 고친다 — 적힌 값이 이긴다.'],
@@ -115,6 +130,28 @@ const SIDE_COLOR: Record<string, { red: number; green: number; blue: number }> =
 
 const meta = await api(`${SH}/${LEDGER}?fields=sheets.properties(sheetId,title,index,hidden)`);
 const props: any[] = (meta.sheets || []).map((s: any) => s.properties);
+
+/**
+ * ★★**이름부터 갈아 끼운다 — 순서를 세기 «전»에.**
+ *   사장님 2026-08-26 「이시트는 이거 매뉴얼아냐??? 그럼 매뉴얼로 바꿔야지」.
+ *   ⚠ 순서 뒤에 두면 「이 시트는」이 ORDER 에 없어 맨 뒤로 밀려난 «다음»에 이름이 바뀐다.
+ *   ⚠ 새 탭을 만들지 않는다 — 만들면 매뉴얼이 둘이 되어 어느 쪽이 정본인지 모른다.
+ */
+{
+  const has = props.find((x) => S(x.title) === GUIDE_TAB);
+  const old = props.find((x) => S(x.title) === OLD_TAB);
+  if (!has && old) {
+    if (APPLY) {
+      await api(`${SH}/${LEDGER}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests: [
+        { updateSheetProperties: { properties: { sheetId: old.sheetId, title: GUIDE_TAB }, fields: 'title' } },
+      ] }) });
+      console.log(`   ✓ 탭 이름 「${OLD_TAB}」 → 「${GUIDE_TAB}」`);
+    } else {
+      console.log(`   · 탭 이름 「${OLD_TAB}」 → 「${GUIDE_TAB}」 로 바꿉니다`);
+    }
+    old.title = GUIDE_TAB;
+  }
+}
 const now = props.filter((p) => !p.hidden).sort((a, b) => a.index - b.index).map((p) => S(p.title));
 const want = [...ORDER.filter((t) => now.includes(t)), ...now.filter((t) => !ORDER.includes(t))];
 
