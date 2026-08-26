@@ -32,7 +32,27 @@ import {
   LEDGER_TABS, iso, ledgerError, readLedger, sheetsToken, type LedgerExtra,
 } from './settlement-ledger-read';
 
+import * as erp from './settlement-erp-store';
+
 const S = (v: unknown) => String(v ?? '').trim();
+
+/**
+ * ★★★**어디에 담나 — 여기 한 줄이 정한다.**
+ *
+ * ★사장님 2026-08-26 「시트는 나중에 한번 데이터 가져갈때만 쓰고
+ *   그 이후에는 파이어베이스에 기입해서 정산해야지」.
+ *
+ * ```
+ * 'erp'    파이어베이스 v4/settlement_rows   ← 정본
+ * 'sheet'  구글 정산원장 네 탭               ← 되돌릴 곳
+ * ```
+ *   ★부르는 쪽(화면·API)은 어느 쪽인지 «모른다». 모양이 같아서다.
+ *   ⚠ 되돌리려면 `STORE = 'sheet'` 한 글자만 고친다. 그 밖은 아무것도 안 건드린다.
+ *   ⚠ 옮긴 뒤 시트는 **지우지 않는다.** 되돌릴 곳이 있어야 갈아탈 수 있다.
+ *
+ * ★환경변수로도 갈 수 있다 — 배포에서 한 번 되돌려 보고 싶을 때.
+ */
+export const STORE: 'erp' | 'sheet' = S(process.env.SETTLEMENT_STORE) === 'sheet' ? 'sheet' : 'erp';
 
 /** 한 줄을 가리키는 열쇠. ⚠ ERP 이관 때 `stl_` 로 바뀐다 — 그때 여기만 고친다. */
 export type LedgerKey = { plate: string; receivedAt: string };
@@ -139,6 +159,7 @@ export type IntakeInput = {
 // ─────────────────────────────────────────────────────────── 읽기
 
 export async function listRows(): Promise<{ row: SettlementRow; tab: string; extra: LedgerExtra }[] | null> {
+  if (STORE === 'erp') return erp.listRows();
   const token = await sheetsToken();
   if (!token) return null;
   return readLedger(token);
@@ -199,6 +220,7 @@ const dayOf = (v: string) => {
  * ⚠ 청구월·모델명·공급사·수수료는 비워 둔다. 여기서 지어내면 그게 그대로 청구액이 된다.
  */
 export async function appendIntake(input: IntakeInput): Promise<StoreResult & { plate?: string; receivedAt?: string }> {
+  if (STORE === 'erp') return erp.appendIntake(input);
   const token = await sheetsToken();
   if (!token) return fail(ledgerError() || '저장소를 열지 못했습니다', 503);
   const plate = S(input.plate);
@@ -280,6 +302,10 @@ export async function appendIntake(input: IntakeInput): Promise<StoreResult & { 
  * ⚠ 자리를 세지 않는다. 머리글에서 칸 이름을 찾아 쓴다 — 원장도 칸이 늘 수 있다.
  */
 export async function patchRow(key: LedgerKey, patch: Record<string, string>, by = ''): Promise<StoreResult> {
+  // ★고칠 수 있는 칸은 «여기»가 흰 목록으로 거른다 — 저장소가 어디든 같은 규칙이다.
+  const notAllowed = Object.keys(patch).filter((k) => !EDITABLE_FIELDS[k]);
+  if (notAllowed.length) return fail(`여기서 못 고치는 칸입니다 — ${notAllowed.join(', ')}`, 400);
+  if (STORE === 'erp') return erp.patchRow(key, patch, by);
   const token = await sheetsToken();
   if (!token) return fail(ledgerError() || '저장소를 열지 못했습니다', 503);
   const plate = S(key.plate);
