@@ -24,6 +24,8 @@
  * ⚠ **금액·요율은 이 문으로 안 들어온다.** 수수료는 요율표에서 나오는 값이라
  *   화면에서 손대면 그날로 정본이 둘이 된다(`EDITABLE_FIELDS` 에 없다).
  */
+import { getDatabase } from 'firebase-admin/database';
+import { firebaseAdminApp } from '@/lib/server/firebase-admin';
 import { SETTLEMENT_LEDGER_ID } from '@/lib/domain/settlement-ledger';
 import type { SettlementRow } from '@/lib/domain/settlement-stage';
 import {
@@ -49,7 +51,40 @@ export const EDITABLE_FIELDS: Record<string, '체크' | '날짜' | '돈' | '수'
   고객명: '글', 고객연락처: '글', 영업채널: '글', 영업담당자: '글', 영업자연락처: '글',
   영업자코드: '글', 상품구분: '글', 분납여부: '글', 비고: '글',
   계약기간: '수', 보증금: '돈', 렌탈료: '돈', 차량가액: '돈',
+  // ★부러졌을 때 «그 회차에서 멈춰 세우는» 칸. 비면 기간 비례로 계산된다.
+  //   1회차는 인도 때 보증금과 같이 내므로, 인도됐으면 최소 1이다(사장님 2026-08-26).
+  납입회차: '수',
 };
+
+/**
+ * **한 줄이 지나온 길을 남긴다.**
+ * ★사장님 2026-08-26 「접수된거를 계속 물고 가야지」 —
+ *   상태만 있고 «언제 그렇게 됐는지»가 없으면, 청구가 틀렸을 때 되짚을 근거가 없다.
+ *   실측: 원장에는 접수일·인도일·환수일뿐이라 「계약서를 언제 켰나」를 아무도 모른다.
+ * ★★**시트가 아니라 ERP 에 남긴다.** 시트는 곧 안 쓴다 — 이력은 처음부터 ERP 것이다.
+ * ⚠ v4 overlay 에만 쓴다. v3 노드는 안 건드린다.
+ */
+const EVENT_NODE = 'v4/settlement_events';
+
+export type LedgerEvent = { at: number; by: string; field: string; from: string; to: string };
+
+/** RTDB 키에 못 쓰는 글자(`. $ # [ ] /`)를 뺀다. */
+const eventKey = (k: LedgerKey) => keyOf(k).replace(/[.$#[\]/\s]/g, '_');
+
+async function recordEvents(key: LedgerKey, changes: LedgerEvent[]): Promise<void> {
+  if (!changes.length) return;
+  const db = getDatabase(firebaseAdminApp());
+  const base = db.ref(`${EVENT_NODE}/${eventKey(key)}`);
+  // 한 번에 여러 칸이 바뀌어도 각각 한 줄로 남긴다 — 뭉치면 무엇이 바뀌었는지 못 읽는다.
+  await Promise.all(changes.map((c) => base.push(c)));
+}
+
+/** 한 줄이 지나온 길을 읽는다. 없으면 빈 배열 — 「없다」가 아니라 「아직 안 남겼다」. */
+export async function listEvents(key: LedgerKey): Promise<LedgerEvent[]> {
+  const snap = await getDatabase(firebaseAdminApp()).ref(`${EVENT_NODE}/${eventKey(key)}`).get().catch(() => null);
+  const all = (snap?.val() || {}) as Record<string, LedgerEvent>;
+  return Object.values(all).sort((a, b) => a.at - b.at);
+}
 
 export type StoreResult = { ok: true } | { ok: false; reason: string; status: number };
 const fail = (reason: string, status = 502): StoreResult => ({ ok: false, reason, status });
@@ -172,7 +207,7 @@ export async function appendIntake(input: IntakeInput): Promise<StoreResult & { 
  * ★줄은 **차량번호+접수일**로 찾는다 — 차번만으로 찾으면 재계약 때 옛 줄을 고친다.
  * ⚠ 자리를 세지 않는다. 머리글에서 칸 이름을 찾아 쓴다 — 원장도 칸이 늘 수 있다.
  */
-export async function patchRow(key: LedgerKey, patch: Record<string, string>): Promise<StoreResult> {
+export async function patchRow(key: LedgerKey, patch: Record<string, string>, by = ''): Promise<StoreResult> {
   const token = await sheetsToken();
   if (!token) return fail(ledgerError() || '저장소를 열지 못했습니다', 503);
   const plate = S(key.plate);
@@ -204,7 +239,18 @@ export async function patchRow(key: LedgerKey, patch: Record<string, string>): P
       .filter((x) => x.col >= 0)
       .map((x) => ({ range: `'${tabName}'!${colA1(x.col)}${hi + 2 + at}`, values: [[x.v]] }));
     if (!data.length) return fail('고칠 칸을 원장에서 못 찾았습니다', 400);
-    return writeCells(token, data);
+    const before = all[hi + 1 + at];
+    const wrote = await writeCells(token, data);
+    if (!wrote.ok) return wrote;
+    // ★쓴 «다음»에 남긴다. 안 써졌는데 남기면 이력이 거짓말을 한다.
+    await recordEvents(key, data
+      .map((d, i) => ({ d, k: Object.keys(patch)[i] }))
+      .map(({ k }) => ({
+        at: Date.now(), by, field: k,
+        from: S(before[head.indexOf(k)]), to: S(patch[k]),
+      }))
+      .filter((e) => e.from !== e.to)).catch(() => { /* 이력이 안 남아도 저장은 살린다 */ });
+    return wrote;
   }
   return fail(`${plate}${received ? ` (접수 ${received})` : ''} 를 원장에서 못 찾았습니다`, 404);
 }

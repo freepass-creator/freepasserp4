@@ -31,16 +31,16 @@ const S = (v: unknown) => String(v ?? '').trim();
  * ⚠ 이게 없던 동안 이 라우트는 로그인조차 없이 열려 있었다 — 금액과 고객연락처가 통째로 나갔다.
  *   화면을 관리자에게만 보여 주는 것과 API 를 관리자에게만 여는 것은 다르다. URL 은 누구나 친다.
  */
-async function admin(req: Request): Promise<Response | null> {
+async function admin(req: Request): Promise<{ denied: Response } | { uid: string }> {
   const who = await verifyActiveBearer(req).catch(() => null);
-  if (!who) return NextResponse.json({ ok: false, reason: '로그인이 필요합니다.' }, { status: 401 });
-  if (who.role !== 'admin') return NextResponse.json({ ok: false, reason: '관리자만 볼 수 있습니다.' }, { status: 403 });
-  return null;
+  if (!who) return { denied: NextResponse.json({ ok: false, reason: '로그인이 필요합니다.' }, { status: 401 }) };
+  if (who.role !== 'admin') return { denied: NextResponse.json({ ok: false, reason: '관리자만 볼 수 있습니다.' }, { status: 403 }) };
+  return { uid: who.uid };
 }
 
 export async function GET(req: Request) {
-  const denied = await admin(req);
-  if (denied) return denied;
+  const who = await admin(req);
+  if ('denied' in who) return who.denied;
 
   const read = await listRows();
   if (!read) return NextResponse.json({ ok: false, reason: storeError() || '원장을 못 읽었습니다.' }, { status: 503 });
@@ -73,8 +73,8 @@ export async function GET(req: Request) {
 
 /** **계약 접수** — 저장소에 한 줄을 더한다. 접수일은 오늘로 박힌다. */
 export async function POST(req: Request) {
-  const denied = await admin(req);
-  if (denied) return denied;
+  const who = await admin(req);
+  if ('denied' in who) return who.denied;
   const form = await req.json().catch(() => ({})) as IntakeInput;
   const out = await appendIntake(form);
   if (!out.ok) return NextResponse.json({ ok: false, reason: out.reason }, { status: out.status });
@@ -86,10 +86,11 @@ export async function POST(req: Request) {
  * ⚠ 금액·요율은 그 목록에 없다 — 화면에서 손대면 그날로 정본이 둘이 된다.
  */
 export async function PATCH(req: Request) {
-  const denied = await admin(req);
-  if (denied) return denied;
+  const who = await admin(req);
+  if ('denied' in who) return who.denied;
   const body = await req.json().catch(() => ({})) as { plate?: string; receivedAt?: string; patch?: Record<string, string> };
-  const out = await patchRow({ plate: S(body.plate), receivedAt: S(body.receivedAt) }, body.patch || {});
+  // ★누가 고쳤는지 같이 남긴다 — 이력에 사람이 없으면 되짚을 때 쓸모가 없다.
+  const out = await patchRow({ plate: S(body.plate), receivedAt: S(body.receivedAt) }, body.patch || {}, who.uid);
   if (!out.ok) return NextResponse.json({ ok: false, reason: out.reason }, { status: out.status });
   return NextResponse.json({ ok: true });
 }

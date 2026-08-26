@@ -104,7 +104,7 @@ export async function readLedger(token: string): Promise<{ row: SettlementRow; t
           term: N(r[at('계약기간')]), rent: N(r[at('렌탈료')]), price: N(r[at('차량가액')]),
           deposit: N(r[at('보증금')]), model: S(r[at('모델명')]), customer: S(r[at('고객명')]),
           channel: S(r[at('영업채널')]), agentCode: S(r[at('영업자코드')]),
-          agentPhone: S(r[at('영업자연락처')]),
+          agentPhone: S(r[at('영업자연락처')]), paidRounds: N(r[at('납입회차')]),
           payKind: S(r[at('분납여부')]),
           receivedAt: toDate(r[at('접수일')]), deliveredAt: toDate(r[at('인도일')]), clawbackAt: toDate(r[at('환수일')]),
           clawbackAmount: N(r[at('환수금액')]),

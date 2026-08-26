@@ -41,6 +41,12 @@ export type SettlementRow = SettlementChecks & {
   price: number;
   /** 「일시납」·「2회분납」·「3회분납」. 회차 수가 곧 개월 수다. */
   payKind: string;
+  /**
+   * **받은 회차.** 비어 있으면 기간 비례로 «계산»한다 —
+   * 부러졌을 때만 사람이 그 회차를 박아 멈춰 세운다(사장님 2026-08-26).
+   * ★1회차는 인도 때 보증금과 같이 내므로, 인도됐으면 최소 1이다.
+   */
+  paidRounds?: number;
   /** 보증금 — **계약 조건**이지 정산 금액이 아니다. 영업자·공급사에게도 보인다(사장님 2026-08-26). */
   deposit?: number;
   /** 모델명 — 차량번호만으로는 사람이 못 알아본다. */
@@ -108,6 +114,44 @@ export const instalmentDueDate = (r: SettlementRow) => {
   const n = roundsOf(r.payKind);
   return n >= 2 && r.deliveredAt ? addMonths(r.deliveredAt, n) : null;
 };
+/**
+ * **몇 회차까지 받았나.**
+ *
+ * ★사장님 2026-08-26
+ *   「이건 그냥 기간 비례해서 그 기간 지나갓으면 낸거고 아니면 거기서 부러지겠지」
+ *   「2회 분납은 2회차만 챙기면 되는거지 1회차는 납부하면서 완료한거고 /
+ *    인도하면서 보증금 1회차는 무조건 낼테니까」
+ *
+ * 그래서 두 가지다 —
+ *   · **적혀 있으면 그 값이 이긴다** — 부러졌을 때 사람이 그 회차에서 멈춰 세운다
+ *   · 안 적혀 있으면 **기간 비례** — k회차 예정일이 지났으면 받은 것으로 본다
+ * ★1회차는 인도 때 보증금과 같이 내므로 **인도됐으면 무조건 1회차는 받은 것**이다.
+ */
+export const paidRoundsOf = (r: SettlementRow, now = new Date()): number => {
+  const n = roundsOf(r.payKind);
+  if (!r.deliveredAt) return 0;
+  const written = Number(r.paidRounds);
+  if (Number.isFinite(written) && written >= 1) return Math.min(n, Math.round(written));
+  const today = midnight(now);
+  let paid = 1; // 인도 = 1회차
+  for (let k = 2; k <= n; k++) if (addMonths(r.deliveredAt, k - 1) <= today) paid = k;
+  return paid;
+};
+
+/**
+ * **부러졌나** — 받아야 할 날이 지났는데 아직 못 받은 것.
+ * ★적힌 회차가 있어야 «부러졌다»고 말할 수 있다. 안 적혀 있으면 기간 비례라 늘 «받은 것»이 되고,
+ *   그건 사실이 아니라 «아직 아니라고 말한 사람이 없다»는 뜻이다.
+ */
+export const brokenOf = (r: SettlementRow, now = new Date()): boolean => {
+  const n = roundsOf(r.payKind);
+  if (n < 2 || !r.deliveredAt) return false;
+  const paid = paidRoundsOf(r, now);
+  if (paid >= n) return false;
+  const due = addMonths(r.deliveredAt, paid); // 다음 회차 예정일
+  return due < midnight(now);
+};
+
 /** 다음에 돈이 들어올 날. 다 지났으면 없다. 1회차는 인도 때 냈으니 2회차부터 본다. */
 export const nextInstalment = (r: SettlementRow, now = new Date()) => {
   const today = midnight(now);
