@@ -41,6 +41,12 @@ export type SettlementRow = SettlementChecks & {
   price: number;
   /** 「일시납」·「2회분납」·「3회분납」. 회차 수가 곧 개월 수다. */
   payKind: string;
+  /** 보증금 — **계약 조건**이지 정산 금액이 아니다. 영업자·공급사에게도 보인다(사장님 2026-08-26). */
+  deposit?: number;
+  /** 모델명 — 차량번호만으로는 사람이 못 알아본다. */
+  model?: string;
+  /** 고객명. ⚠ 고객연락처는 여기 담지 않는다 — PII 는 관리자 화면에서만 흐른다. */
+  customer?: string;
   receivedAt: Date | null;
   deliveredAt: Date | null;
   clawbackAt: Date | null;

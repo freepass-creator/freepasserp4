@@ -1,128 +1,55 @@
 /**
- * **정산원장(구글시트)을 읽어 ERP 로 넘긴다.** 읽기만 한다 — 쓰지 않는다.
+ * **정산원장(구글시트) — 관리자용.** GET 은 읽고, POST 는 「접수」에 한 줄 더한다.
  *
  * ★사장님 2026-08-26 「일단 로컬에서 정산관리하는거」.
  *   시트가 아직 정본이고 팀장이 거기서 적는다. ERP 는 **먼저 보여주기부터** 한다 —
  *   쓰기를 같이 열면 입구가 둘이 되고, 그게 오늘 종일 정리한 것을 되돌린다.
  *
  * ★**판정은 여기서 안 한다.** 자리·청구월·수수료는 전부 `lib/domain/settlement-stage.ts` 가 정한다.
- *   이 라우트는 시트 칸을 그 타입으로 옮겨 담기만 한다 — 규칙이 두 군데 있으면 반드시 갈린다.
- * ★관리자만 본다. 고객연락처가 들어 있다.
+ * ★**시트 칸 → 타입 옮겨 담기도 여기서 안 한다.** `lib/server/settlement-ledger-read.ts` 하나뿐이다 —
+ *   영업자·공급사용(`/api/settlement/mine`)이 같은 원장을 읽는다. 읽는 코드가 둘이면 반드시 갈린다.
+ * ★관리자만 본다. **고객연락처와 금액이 다 들어 있다** — 역할용은 절대 이 라우트를 부르지 않는다.
  */
 import { NextResponse } from 'next/server';
-import { readFile } from 'node:fs/promises';
-import { JWT } from 'google-auth-library';
 import { SETTLEMENT_LEDGER_ID } from '@/lib/domain/settlement-ledger';
-import { billingMonth, bucketOf, moneyOf, stageOf, nextInstalment, type SettlementRow } from '@/lib/domain/settlement-stage';
+import { billingMonth, bucketOf, moneyOf, stageOf, nextInstalment } from '@/lib/domain/settlement-stage';
+import { iso, ledgerError, ledgerUrl, readLedger, sheetsToken } from '@/lib/server/settlement-ledger-read';
+import { verifyActiveBearer } from '@/lib/server/firebase-admin';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-const TABS = ['접수', '취소', '분납실적', '완료실적'] as const;
 const S = (v: unknown) => String(v ?? '').trim();
-const N = (v: unknown) => { const n = Number(S(v).replace(/[,\s원]/g, '')); return Number.isFinite(n) ? n : 0; };
-const ON = (v: unknown) => /^(TRUE|참|Y|예|1)$/i.test(S(v));
-
-/** ★구글 날짜는 숫자로 온다 — `45301` 을 그냥 `new Date` 에 넣으면 45301년이 된다. */
-const SERIAL0 = Date.UTC(1899, 11, 30);
-const toDate = (v: string): Date | null => {
-  const t = S(v);
-  if (!t) return null;
-  const n = Number(t);
-  if (Number.isFinite(n) && n > 20000 && n < 80000) {
-    const u = new Date(SERIAL0 + Math.round(n) * 86_400_000);
-    return new Date(u.getUTCFullYear(), u.getUTCMonth(), u.getUTCDate());
-  }
-  const x = new Date(t);
-  return Number.isNaN(+x) ? null : x;
-};
-const iso = (d: Date | null) => (d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` : '');
-
-type ServiceAccount = { client_email: string; private_key: string };
-let tokenCache: { value: string; expiresAt: number } | null = null;
-/** 왜 못 읽었는지 화면에 그대로 보여 준다 — 「안 된다」만 뜨면 고칠 데를 못 찾는다. */
-let lastError = '';
 
 /**
- * 서비스계정으로 시트 토큰을 받는다. **도메인 위임(pyh)**으로 열어야 원장이 보인다.
- * ★토큰 발급을 직접 짜지 않는다 — `google-auth-library` 가 이미 있고 스크립트 열댓 개가 그걸로 돈다.
- *   직접 짰더니 `unsupported_grant_type` 이 났다(실측 2026-08-26).
- * ⚠ **`readonly` 스코프는 도메인 위임에서 거부된다**(`unauthorized_client`) — 위임에 등록된
- *   스코프와 «정확히» 같아야 한다. 읽기만 하는 것은 코드가 지킨다(이 라우트에 쓰기 경로가 없다).
+ * **관리자인지 서버가 확인한다.**
+ * ⚠ 이게 없던 동안 이 라우트는 로그인조차 없이 열려 있었다 — 금액과 고객연락처가 통째로 나갔다.
+ *   화면을 관리자에게만 보여 주는 것과 API 를 관리자에게만 여는 것은 다르다. URL 은 누구나 친다.
  */
-async function sheetsToken(): Promise<string> {
-  if (tokenCache && tokenCache.expiresAt > Date.now() + 60_000) return tokenCache.value;
-  let raw = String(process.env.FIREBASE_SERVICE_ACCOUNT_JSON || '').trim();
-  if (!raw) {
-    const file = String(process.env.GOOGLE_APPLICATION_CREDENTIALS || 'tmp/firebase-auth/sa.json').trim();
-    raw = await readFile(file, 'utf8').catch(() => '');
-  }
-  if (!raw) { lastError = '서비스계정 파일을 못 읽었다 (GOOGLE_APPLICATION_CREDENTIALS)'; return ''; }
-  const account = JSON.parse(raw) as Partial<ServiceAccount>;
-  if (!account.client_email || !account.private_key) { lastError = '서비스계정에 client_email·private_key 가 없다'; return ''; }
-  try {
-    const jwt = new JWT({
-      email: account.client_email,
-      key: account.private_key.replace(/\n/g, String.fromCharCode(10)),
-      subject: 'pyh@teamjpk.com',
-      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-    });
-    const got = await jwt.getAccessToken();
-    if (!got.token) { lastError = '토큰이 비어 있다'; return ''; }
-    tokenCache = { value: got.token, expiresAt: Date.now() + 55 * 60_000 };
-    return got.token;
-  } catch (e) {
-    lastError = `토큰 발급 실패 — ${String((e as Error)?.message || e).slice(0, 200)}`;
-    return '';
-  }
+async function admin(req: Request): Promise<Response | null> {
+  const who = await verifyActiveBearer(req).catch(() => null);
+  if (!who) return NextResponse.json({ ok: false, reason: '로그인이 필요합니다.' }, { status: 401 });
+  if (who.role !== 'admin') return NextResponse.json({ ok: false, reason: '관리자만 볼 수 있습니다.' }, { status: 403 });
+  return null;
 }
 
-export async function GET() {
+export async function GET(req: Request) {
+  const denied = await admin(req);
+  if (denied) return denied;
   const token = await sheetsToken();
-  if (!token) return NextResponse.json({ ok: false, reason: lastError || '서비스계정을 못 읽었다' }, { status: 503 });
+  if (!token) return NextResponse.json({ ok: false, reason: ledgerError() || '서비스계정을 못 읽었다' }, { status: 503 });
 
-  const rows: (SettlementRow & { stage: string; bucket: string; billingMonth: string | null; money: ReturnType<typeof moneyOf>; nextRound: string })[] = [];
-  for (const tab of TABS) {
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SETTLEMENT_LEDGER_ID}/values/${encodeURIComponent(`'${tab}'!A1:BZ3000`)}?valueRenderOption=UNFORMATTED_VALUE`;
-    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' });
-    if (!res.ok) continue;
-    const body = await res.json() as { values?: unknown[][] };
-    const all = (body.values || []).map((r) => (r || []).map(S));
-    // ★머리글은 1행이 아니라 «「차량번호」가 있는 줄»이다 — 1행에는 탭 설명이 붙어 있다.
-    const hi = all.findIndex((r) => r.includes('차량번호'));
-    if (hi < 0) continue;
-    const head = all[hi];
-    const at = (n: string) => head.indexOf(n);
-    for (const r of all.slice(hi + 1)) {
-      const plate = S(r[at('차량번호')]);
-      if (!plate) continue;
-      const row: SettlementRow = {
-        plate, supplier: S(r[at('공급사')]), agent: S(r[at('영업담당자')]), product: S(r[at('상품구분')]),
-        term: N(r[at('계약기간')]), rent: N(r[at('렌탈료')]), price: N(r[at('차량가액')]), payKind: S(r[at('분납여부')]),
-        receivedAt: toDate(r[at('접수일')]), deliveredAt: toDate(r[at('인도일')]), clawbackAt: toDate(r[at('환수일')]),
-        clawbackAmount: N(r[at('환수금액')]),
-        paper: ON(r[at('계약서')]), delivered: !!toDate(r[at('인도일')]),
-        cancelled: ON(r[at('계약취소')]), clawback: ON(r[at('환수')]),
-        claimWritten: N(r[at('판매수수료')]), payWritten: N(r[at('출고수수료')]),
-        supplierRate: N(r[at('공급사수수료율')]), agentRate: N(r[at('에이전시수수료율')]),
-      };
-      rows.push({
-        ...row,
-        customer: S(r[at('고객명')]),
-        stage: stageOf(row), bucket: bucketOf(row), billingMonth: billingMonth(row), money: moneyOf(row),
-        nextRound: iso(nextInstalment(row)),
-      } as never);
-    }
-  }
+  const read = await readLedger(token);
+  const rows = read.map(({ row, extra }) => ({
+    ...row,
+    ...extra,
+    receivedAt: iso(row.receivedAt), deliveredAt: iso(row.deliveredAt), clawbackAt: iso(row.clawbackAt),
+    stage: stageOf(row), bucket: bucketOf(row), billingMonth: billingMonth(row), money: moneyOf(row),
+    nextRound: iso(nextInstalment(row)),
+  }));
+
   return NextResponse.json({
-    ok: true,
-    readAt: new Date().toISOString(),
-    ledgerUrl: `https://docs.google.com/spreadsheets/d/${SETTLEMENT_LEDGER_ID}/edit`,
-    count: rows.length,
-    rows: rows.map((r) => ({
-      ...r,
-      receivedAt: iso(r.receivedAt), deliveredAt: iso(r.deliveredAt), clawbackAt: iso(r.clawbackAt),
-    })),
+    ok: true, readAt: new Date().toISOString(), ledgerUrl: ledgerUrl(), count: rows.length, rows,
   });
 }
 
@@ -140,8 +67,10 @@ export async function GET() {
  *   여기서 지어내면 그게 그대로 청구액이 된다.
  */
 export async function POST(req: Request) {
+  const denied = await admin(req);
+  if (denied) return denied;
   const token = await sheetsToken();
-  if (!token) return NextResponse.json({ ok: false, reason: lastError || '서비스계정을 못 읽었다' }, { status: 503 });
+  if (!token) return NextResponse.json({ ok: false, reason: ledgerError() || '서비스계정을 못 읽었다' }, { status: 503 });
 
   const form = await req.json().catch(() => ({})) as Record<string, string>;
   const plate = S(form.plate);

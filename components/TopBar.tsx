@@ -64,8 +64,12 @@ const SIMPLE_GROUPS: typeof GROUPS = [{
   title: '',
   items: [
     { href: '/finder', label: '상품찾기', icon: NAV_ICON.product, roles: ALL_ROLES },
-    { href: '/contract', label: '계약진행', icon: NAV_ICON.contract, roles: ALL_ROLES },
-    { href: '/settlement', label: '정산확인', icon: FileText, roles: ['admin'] },
+    // ★사장님 2026-08-26 「계약 정산확인 한개매뉴로」 — 영업자·공급사에게 계약진행과 정산확인은
+    //   같은 질문의 앞뒤다(「내 계약이 어떻게 되나」 → 「그래서 몇 건이냐」). 입구를 둘로 두면 매번 헤맨다.
+    //   관리자는 들어가면 기존 계약 책상, 영업자·공급사는 원장에서 «내 것만»(금액 없음).
+    { href: '/contract', label: '계약·정산확인', icon: NAV_ICON.contract, roles: ALL_ROLES },
+    // 관리자 월별정산(RTDB) — 원장과 축이 달라 따로 둔다.
+    { href: '/settlement', label: '월별정산', icon: FileText, roles: ['admin'] },
     { href: '/inventory', label: '재고관리', icon: NAV_ICON.inventory, roles: ['provider', 'admin'] },
     // 정책관리(/policy)는 메뉴에서 뺐다(사장님 2026-08-19 「이제 필요 없고, 파트너사관리에서 공급사별로 등록·수정·삭제」).
     //  /policy 는 파트너사관리 › 계약정책에서 여는 편집 화면으로만 산다(provider=코드 스코프 · return=partner). 공급사 정책 입력은 제공시트 「운영정책」 탭.
@@ -75,6 +79,10 @@ const SIMPLE_GROUPS: typeof GROUPS = [{
   items: [
     // 관리자 전용 — 페이지(/members)는 하나, 탭 쿼리로 파트너사·회원을 가른다(사장님 2026-08-19: 메뉴에 있어야 함).
     { href: '/esign', label: NAV_LABEL.esign, icon: NAV_ICON.esign, roles: ['admin'] },
+    // 계약서관리 바로 밑 — 계약서를 보낸 그다음이 인도·청구다(사장님 2026-08-26).
+    //   정산관리(/settlement/ledger) = 접수를 만들고 인도·청구를 굴리는 곳.
+    //   정산확인(/settlement) = 관리자가 만들어 놓은 정산을 «확인»하는 곳. 축이 다르다.
+    { href: '/settlement/ledger', label: NAV_LABEL.ledger, icon: NAV_ICON.ledger, roles: ['admin'] },
     { href: '/members?tab=partner', label: NAV_LABEL.partners, icon: Users, roles: ['admin'] },
     { href: '/members?tab=user', label: NAV_LABEL.members, icon: Users, roles: ['admin'] },
   ],

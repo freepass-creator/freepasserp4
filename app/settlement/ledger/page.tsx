@@ -14,6 +14,7 @@
  * ★**판정은 화면이 안 한다.** 자리·청구월·수수료는 `lib/domain/settlement-stage.ts` 가 정한다.
  */
 import { useEffect, useMemo, useState } from 'react';
+import { ledgerFetch } from '@/lib/firebase/ledger-client';
 import { C, FS, FW, R_CARD, NUM, won, Btn, Select, Input, CenterNote, Loading } from '@/components/ui';
 import { toast } from '@/components/Toaster';
 
@@ -32,7 +33,7 @@ const TABS = ['진행중', '당월접수', '미완료', '분납실적', '완료�
 const inTab = (r: Row, t: string) => (t === '진행중' ? r.bucket === '당월접수' || r.bucket === '미완료' : r.bucket === t);
 
 /** 색 규칙은 시트와 같다. 센 것이 이긴다. */
-const toneOf = (r: Row) => (r.cancelled ? '#FDE7E7' : r.clawback ? '#FFF4D6' : r.delivered ? '#EBF7EB' : 'transparent');
+const toneOf = (r: Row) => (r.cancelled ? C.dangerBg : r.clawback ? C.warnBg : r.delivered ? C.okBg : 'transparent');
 const Check = ({ on }: { on: boolean }) => <span style={{ color: on ? C.ink : C.line }}>{on ? '☑' : '☐'}</span>;
 
 const PRODUCTS = ['장기렌트', '선출고', '견적출고', '구독', '오플구독'];
@@ -51,7 +52,7 @@ export default function SettlementLedgerPage() {
   const load = async () => {
     setErr('');
     try {
-      const res = await fetch('/api/settlement/ledger', { cache: 'no-store' });
+      const res = await ledgerFetch('/api/settlement/ledger');
       const body = await res.json() as Payload;
       if (!body.ok) { setErr(body.reason || '읽지 못했다'); return; }
       setData(body);
@@ -88,7 +89,7 @@ export default function SettlementLedgerPage() {
     if (!String(form.plate || '').trim()) { toast('차량번호를 적어 주세요'); return; }
     setBusy(true);
     try {
-      const res = await fetch('/api/settlement/ledger', {
+      const res = await ledgerFetch('/api/settlement/ledger', {
         method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(form),
       });
       const body = await res.json() as { ok: boolean; reason?: string; plate?: string };

@@ -11,6 +11,7 @@ export const C = {
   warnBg: 'var(--orange-bg)',           // 수기입력·주의 앰버 틴트 배경(=#fff7ed)
   warnLine: 'var(--orange-border)',     // 앰버 면(面)의 테두리. C.warn(글자색)을 테두리로 쓰면 알림 배너만큼 시끄럽다
   okBg: 'var(--green-bg)',              // 완료 스텝·성공 틴트
+  dangerBg: 'var(--red-bg)',            // 취소·반려 틴트 배경. 다크에서도 같이 뒤집힌다(생 hex 로 쓰면 안 뒤집힌다)
   inverse: 'var(--text-inverse)',       // 대비 글자(흰/검정 — 테마 따라)
   focusRing: 'var(--focus-ring)',       // 포커스 링 틴트
 };

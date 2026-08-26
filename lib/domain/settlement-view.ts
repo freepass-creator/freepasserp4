@@ -1,0 +1,203 @@
+/**
+ * **정산원장을 «남에게 보여줄 모양»으로 깎는다.** 순수 함수 — 여기엔 시트도 네트워크도 없다.
+ *
+ * ★사장님 2026-08-26
+ *   「관리자가 정산관리에서 입력하는것이 계약진행, 정산확인에서 영업자공급사들이 볼수 있게끔」
+ *   「대여료 기간 보증금같은것들만 확인하고 정산금액은 거기에서는 안보이게」
+ *
+ * 그래서 축이 이렇게 갈린다 —
+ * ```
+ * 정산관리 /settlement/ledger   관리자가 «넣는» 곳.   금액이 다 보인다
+ * 계약진행 /contract            영업자·공급사가 «내 계약이 어떻게 되나» 보는 곳
+ * 정산확인 /settlement          영업자·공급사가 «내 실적이 몇 건인가» 보는 곳
+ *                              ↑ 이 둘은 대여료·기간·보증금까지. **정산 금액은 없다**
+ * ```
+ *
+ * ★★**금액은 화면에서 숨기는 게 아니라 여기서 «안 싣는다».**
+ *   `display:none` 이나 조건부 렌더로 가리면 API 응답에는 그대로 들어 있다 —
+ *   개발자도구 한 번이면 다 보인다. 그건 안 가린 것이다.
+ *   그래서 `PublicRow` 에는 수수료 칸이 **타입에 아예 없다.** 넣으려면 타입을 고쳐야 하고,
+ *   타입을 고치려면 이 주석을 읽게 된다. 그게 이 파일이 하는 일의 전부다.
+ *   ⚠ 이 때문에 `{ ...row }` 스프레드가 금지다 — 칸을 하나하나 손으로 옮겨 담는다.
+ */
+import { bucketOf, stageOf, type Bucket, type SettlementRow, type Stage } from './settlement-stage';
+
+/** 보는 사람. **이름으로 맞춘다** — 원장이 코드가 아니라 상호·사람 이름으로 적혀 있다. */
+export type Viewer = {
+  role: 'agent' | 'provider' | 'admin';
+  /** 공급사가 볼 때 맞출 상호. 예 「제일오토렌탈」 */
+  supplier: string;
+  /** 영업자가 볼 때 맞출 사람 이름. 원장 「영업담당자」 칸과 맞춘다. */
+  agent: string;
+  /**
+   * 등록된 «다른» 공급사 상호 전부. 줄여 쓴 이름을 풀 때 **겹치는지 보려고** 받는다.
+   * ⚠ 안 주면 줄임말을 안 푼다 — 못 푸는 쪽이 남의 계약을 보여 주는 쪽보다 낫다.
+   */
+  rivals?: string[];
+};
+
+/**
+ * 밖으로 나가는 한 줄. **돈은 대여료·보증금뿐이고 둘 다 계약 조건이다.**
+ * 여기 없는 것 — 판매수수료·출고수수료·청구금액·지급액·인센티브·부가세·대행료·환수금액·수수료율.
+ * ⚠ 차량가액도 뺐다. 계약 조건처럼 보이지만 «선출고 수수료의 기준값»이라 요율을 역산할 수 있다.
+ * ⚠ 고객연락처도 뺐다. PII 는 관리자 화면 밖으로 내보내지 않는다.
+ */
+export type PublicRow = {
+  plate: string;
+  model: string;
+  supplier: string;
+  agent: string;
+  product: string;
+  /** 계약기간(개월) */
+  term: number;
+  /** 보증금 */
+  deposit: number;
+  /** 대여료 */
+  rent: number;
+  payKind: string;
+  customer: string;
+  receivedAt: string;
+  deliveredAt: string;
+  /** 계약서를 썼나 */
+  paper: boolean;
+  /** 인도가 됐나 — 실적을 세는 관문이다 */
+  delivered: boolean;
+  cancelled: boolean;
+  /** 어느 자리에 앉아 있나 */
+  stage: Stage;
+  bucket: Bucket;
+  /** 사람이 읽는 한마디 */
+  status: string;
+};
+
+const S = (v: unknown) => String(v ?? '').trim();
+const p2 = (n: number) => String(n).padStart(2, '0');
+const iso = (d: Date | null) => (d ? `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}` : '');
+
+/**
+ * 상호 대조용 — 「(주)제일오토렌탈」과 「제일오토렌탈」이 같은 곳이라는 걸 사람은 알고 코드는 모른다.
+ * ⚠ **법인격 표기를 «통째로» 먼저 뗀다.** 괄호만 지우면 `(주)…` 가 `주…` 로 남아 안 맞는다(실측).
+ */
+export const nameKey = (v: unknown) => S(v)
+  .replace(/[（）]/g, (c) => (c === '（' ? '(' : ')'))
+  .replace(/\(\s*(주|유|재|사|합)\s*\)|㈜|주식회사|유한회사|유한책임회사/g, '')
+  .replace(/[\s()·\-_.]/g, '')
+  .toLowerCase();
+
+/** 한 줄을 밖에 보일 모양으로. **칸을 손으로 옮겨 담는다** — 스프레드를 쓰면 돈이 딸려 나온다. */
+export function publicRowOf(r: SettlementRow, now = new Date()): PublicRow {
+  const stage = stageOf(r, now);
+  const bucket = bucketOf(r, now);
+  return {
+    plate: S(r.plate),
+    model: S(r.model),
+    supplier: S(r.supplier),
+    agent: S(r.agent),
+    product: S(r.product),
+    term: Number(r.term) || 0,
+    deposit: Number(r.deposit) || 0,
+    rent: Number(r.rent) || 0,
+    payKind: S(r.payKind),
+    customer: S(r.customer),
+    receivedAt: iso(r.receivedAt),
+    deliveredAt: iso(r.deliveredAt),
+    paper: !!r.paper,
+    delivered: !!r.delivered,
+    cancelled: !!r.cancelled,
+    stage,
+    bucket,
+    status: statusOf(r, stage),
+  };
+}
+
+/** 상태 한마디 — 금액을 말하지 않고 «지금 어디까지 왔나»만 말한다. */
+export function statusOf(r: SettlementRow, stage = stageOf(r)): string {
+  if (r.cancelled) return '계약취소';
+  if (!r.delivered) return r.paper ? '계약서 완료 · 인도 대기' : '접수 · 계약서 대기';
+  if (stage === '분납실적') return '인도완료 · 분납 진행중';
+  return '인도완료';
+}
+
+/**
+ * **내 것만 남긴다.** 못 알아보면 «전부»가 아니라 «0줄»이다 —
+ * 실패했을 때 열리는 쪽으로 기울면 그건 잠금장치가 아니다.
+ */
+export function scopeRows(rows: SettlementRow[], viewer: Viewer): SettlementRow[] {
+  if (viewer.role === 'admin') return rows;
+  const mine = nameKey(viewer.role === 'provider' ? viewer.supplier : viewer.agent);
+  if (!mine) return [];
+  const belongs = viewer.role === 'provider'
+    ? (v: string) => isSameCompany(v, mine, viewer.rivals || [])
+    : (v: string) => nameKey(v) === mine;
+  return rows.filter((r) => belongs(viewer.role === 'provider' ? r.supplier : r.agent));
+}
+
+/**
+ * **원장에 줄여 쓴 상호를 등록 상호에 붙인다 — 단, «유일할 때만».**
+ *
+ * ★실측 2026-08-26: 원장 27곳 중 14곳이 등록과 글자가 달라 그 공급사는 155줄을 «0줄»로 봤다.
+ *   원장은 사람이 손으로 적어 짧다 — 「웰릭스」·「아이언」·「스위치」.
+ *   등록은 정식 상호다 — 「웰릭스모빌리티」·「(주)아이언렌트카」·「스위치플랜」.
+ *   ⚠ 이건 버그로 신고가 안 들어온다. 공급사 눈에는 「권한이 막혔나 보다」로 보인다.
+ *
+ * 규칙은 하나다. **줄임말이 내 상호의 앞머리이고, 그 앞머리로 시작하는 등록사가 나뿐일 때만** 붙인다.
+ *   「웰릭스」로 시작하는 등록사가 웰릭스모빌리티 하나뿐 → 붙인다.
+ *   「리더스」로 시작하는 등록사가 둘이면 → **아무에게도 안 붙인다.**
+ * ⚠ 헐겁게 풀면 남의 계약이 보인다. 못 푸는 것은 불편이고, 잘못 푸는 것은 사고다.
+ */
+export function isSameCompany(ledgerName: string, myKey: string, rivals: string[]): boolean {
+  const v = nameKey(ledgerName);
+  if (!v) return false;
+  if (v === myKey) return true;
+  if (v.length < 2 || !myKey.startsWith(v)) return false;
+  return !rivals.some((r) => { const k = nameKey(r); return k !== myKey && k.startsWith(v); });
+}
+
+/**
+ * **관리자가 보는 한 줄 — 여기에만 금액이 붙는다.**
+ *
+ * ★사장님 2026-08-26 「관리자가 접수해서 계약진행확인이랑 정산확인할수 있는 페이지를
+ *   계약/정산확인 메뉴에 페이지로 하나만 만들어서 범용적으로 확인할수 있게끔」.
+ *   화면은 하나지만 **담기는 것이 역할마다 다르다.** 관리자만 이 모양을 받는다.
+ * ⚠ 이 함수를 부르는 자리는 «역할을 서버가 검증한 뒤»여야 한다. 화면 분기로는 못 막는다.
+ */
+export type AdminRow = PublicRow & {
+  claim: number;
+  pay: number;
+  net: number;
+  billingMonth: string;
+  clawback: boolean;
+  clawbackAt: string;
+  clawbackAmount: number;
+  /**
+   * 영업채널 — **정산서를 끊는 축이다**(사장님 2026-08-26
+   * 「관리자는 나중에 공급사별 영업채널별 정산서까지 만들어 낼수 있어야해」).
+   * 공급사는 «받을 곳», 영업채널은 «줄 곳». 두 축으로 갈라야 정산서가 나온다.
+   */
+  channel: string;
+  /** 고객연락처 — PII. 관리자 화면에서만 흐른다. */
+  phone: string;
+};
+
+/** 정산확인이 묻는 것 — **몇 건인가**. 금액은 세지 않는다. */
+export function countsOf(rows: PublicRow[]): { label: string; n: number }[] {
+  const live = rows.filter((r) => !r.cancelled);
+  return [
+    { label: '진행중', n: live.filter((r) => !r.delivered).length },
+    { label: '인도완료', n: live.filter((r) => r.delivered).length },
+    { label: '분납 진행중', n: live.filter((r) => r.bucket === '분납실적').length },
+    { label: '실적 확정', n: live.filter((r) => r.bucket === '완료실적').length },
+    { label: '취소', n: rows.filter((r) => r.cancelled).length },
+  ];
+}
+
+/** 「26년08월」로 묶어 준다 — 실적은 달로 세는 게 몸에 배어 있다. */
+export function byMonth(rows: PublicRow[]): { month: string; rows: PublicRow[] }[] {
+  const m = new Map<string, PublicRow[]>();
+  for (const r of rows) {
+    const d = r.deliveredAt || r.receivedAt;
+    const k = d ? d.slice(0, 7) : '미정';
+    (m.get(k) || m.set(k, []).get(k)!).push(r);
+  }
+  return [...m].sort((a, b) => (a[0] < b[0] ? 1 : -1)).map(([month, rs]) => ({ month, rows: rs }));
+}
