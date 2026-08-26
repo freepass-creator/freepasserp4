@@ -782,21 +782,22 @@ function ContractsAdminDesk() {
 }
 
 /**
- * **계약·정산확인 — 영업자·공급사가 «가지고 가는» 화면.**
+ * **계약·정산확인 — 영업자·공급사가 «가지고 가는» 화면. 아직 준비중이다.**
  *
- * ★사장님 2026-08-26
- *   「관리자랑 영업자 공급사가 보는 페이지가 달랐으면 좋겟음 한페이지에 하면 오류가 많이 날거 같아」
- *   「관리자가 정보를 만들고 그걸 가지고 가는거로」
+ * ★사장님 2026-08-26 「계약정산확인은 아직 준비중으로 해주고」.
+ *   화면과 API 는 다 살아 있다(`MyLedger` · `/api/settlement/mine` · 실적 확인 문).
+ *   막아 둔 이유는 **영업자 계정이 아직 정비 안 됐기 때문**이다 —
+ *   실측 2026-08-26: 8월 영업담당자 9명 중 1명은 계정이 아예 없고, 코드가 안 박힌 줄도 40개다.
+ *   그 상태로 열면 「내 실적이 왜 이것뿐이냐」는 문의부터 받는다.
  *
- * 그래서 화면을 갈랐다 —
- * ```
- * 정산관리 /settlement/ledger   관리자가 «만드는» 곳. 접수·진행·금액·정산서
- * 계약·정산확인 /contract        영업자·공급사가 «가지고 가는» 곳. 금액 없음
- * ```
- * ★★한 화면에 역할 분기를 쌓지 않는다. 조건 하나 어긋나면 관리자용이 새어 나간다.
- * ⚠ 옛 계약 책상(`ContractsAdminDesk`)은 RTDB 계약·서류·전자계약 흐름이라 지우지 않았다.
- *   원장과 축이 달라 섞으면 둘 다 흐려진다. 관리자가 들어오면 그쪽을 보여 준다.
+ * ★★**열려면 아래 한 줄만 바꾼다.** 걷어낸 게 아니라 잠가 둔 것이다 —
+ *   `READY = true`. 지우고 다시 짜는 것보다 이게 되돌리기 쉽다.
+ *
+ * ⚠ 관리자는 여기서 기존 «계약 책상»(RTDB 계약·서류·전자계약)을 그대로 쓴다.
+ *   원장(정산관리)과 축이 다른 화면이라 섞지 않았다.
  */
+const READY = false;
+
 export default function ContractPage() {
   const [role, setRole] = useState<Role | null>(null);
   useEffect(() => {
@@ -807,5 +808,14 @@ export default function ContractPage() {
     return () => { window.removeEventListener('fp:session', read); window.removeEventListener('fp:role', read); };
   }, []);
   if (role === null) return <Loading />;
-  return role === 'admin' ? <ContractsAdminDesk /> : <MyLedger />;
+  if (role === 'admin') return <ContractsAdminDesk />;
+  if (!READY) {
+    return (
+      <CenterNote>
+        준비중입니다.<br />
+        내 계약·실적은 곧 여기서 보실 수 있습니다. 그때까지는 담당자에게 문의해 주세요.
+      </CenterNote>
+    );
+  }
+  return <MyLedger />;
 }

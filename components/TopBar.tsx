@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useState, useEffect, type CSSProperties, type ReactNode } from 'react';
-import { Menu, X, Search, FileText, FileSignature, Settings, ChevronLeft, List, History, Users, Wrench, HelpCircle, Sparkles, RefreshCw, type LucideIcon } from 'lucide-react';
+import { Menu, X, Search, FileSignature, Settings, ChevronLeft, List, History, Users, Wrench, HelpCircle, Sparkles, RefreshCw, type LucideIcon } from 'lucide-react';
 import { useAppBarSlots } from '@/lib/appbar';
 import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
@@ -43,7 +43,9 @@ const GROUPS: { title: string; items: { href?: string; label: string; icon: Luci
     { href: '/members?tab=partner', label: NAV_LABEL.partners, icon: Users, roles: ['admin'] },
   ] },
   { title: '관리자', items: [
-    { href: '/settlement', label: NAV_LABEL.settlement, icon: FileText, roles: ['admin'] },
+    // ⚠ 월별정산(RTDB)은 메뉴에서 뺐다(사장님 2026-08-26 「월별정산?? 이거는 필요없지 이제」).
+    //   정산은 원장(정산관리)으로 모았다. 페이지는 남아 있다 — 계약 책상이 만든 옛 RTDB 정산 기록이
+    //   아직 거기에만 보이기 때문이다. 그 기록까지 정리되면 그때 페이지도 걷는다.
     { href: '/members?tab=user', label: NAV_LABEL.members, icon: Users, roles: ['admin'] },
     { href: '/audit', label: NAV_LABEL.audit, icon: History, roles: ['admin'] },
     { href: '/data-check', label: NAV_LABEL.dataCheck, icon: Search, roles: ['admin'] },
@@ -70,9 +72,10 @@ const SIMPLE_GROUPS: typeof GROUPS = [{
     // ★화면을 갈랐다(사장님 2026-08-26 「관리자랑 영업자 공급사가 보는 페이지가 달랐으면」).
     //   여기는 «가지고 가는» 곳 — 영업자·공급사가 내 계약과 내 실적 건수를 본다. 금액은 안 온다.
     //   «만드는» 곳은 정산관리(/settlement/ledger)이고 관리자만 본다.
-    { href: '/contract', label: '계약·정산확인', icon: NAV_ICON.contract, roles: ['agent', 'provider'] },
+    // 준비중 — 눌러 보고 비어 있으면 「고장났나」로 읽힌다. 이름에 적어 둔다(사장님 2026-08-26).
+    { href: '/contract', label: '계약·정산확인 (준비중)', icon: NAV_ICON.contract, roles: ['agent', 'provider'] },
     // 관리자 월별정산(RTDB) — 원장과 축이 달라 따로 둔다.
-    { href: '/settlement', label: '월별정산', icon: FileText, roles: ['admin'] },
+    // 월별정산(RTDB)은 뺐다 — 정산은 정산관리(원장) 하나로 본다.
     { href: '/inventory', label: '재고관리', icon: NAV_ICON.inventory, roles: ['provider', 'admin'] },
     // 정책관리(/policy)는 메뉴에서 뺐다(사장님 2026-08-19 「이제 필요 없고, 파트너사관리에서 공급사별로 등록·수정·삭제」).
     //  /policy 는 파트너사관리 › 계약정책에서 여는 편집 화면으로만 산다(provider=코드 스코프 · return=partner). 공급사 정책 입력은 제공시트 「운영정책」 탭.
