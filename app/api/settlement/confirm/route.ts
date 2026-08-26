@@ -66,7 +66,10 @@ async function whoAmI(who: { uid: string; role: string; companyCode: string }): 
   }
   const u = (await db.ref(`users/${who.uid}`).get().catch(() => null))?.val() as { name?: string; user_code?: string; company_name?: string; phone?: string } | null;
   return {
-    name: S(u?.name), role: who.role === 'admin' ? 'admin' : 'agent',
+    // ★확인의 주체는 «채널»이다 — 청구서가 나가는 단위와 같아야 짝이 맞는다.
+    //   채널이 없는 개인 영업자는 이름으로 버틴다(그 사람이 곧 상대다).
+    name: S(u?.company_name) || S(u?.name),
+    role: who.role === 'admin' ? 'admin' : 'agent',
     code: S(u?.user_code), codes: await siblingCodes(db, u || {}), channel: S(u?.company_name),
   };
 }

@@ -214,6 +214,33 @@ export type AdminRow = PublicRow & {
   phone: string;
 };
 
+/**
+ * **자기 쪽 금액만 붙은 줄.**
+ *
+ * ★사장님 2026-08-26 「영업자 청구서를 만들어서 확인하는 작업이 있어야지」 —
+ *   건수만 보고 「맞다」고 하기는 어렵다. 자기가 받을 돈을 봐야 확인이 된다.
+ *   (2026-08-26 앞선 지시 「일단 금액은 적지 않을거야」에서 «일단»이 풀린 것이다.)
+ *
+ * ★★**각자 자기 쪽 금액만 본다.**
+ * ```
+ * 영업자   지급액   내가 «받을» 것
+ * 공급사   청구액   내가 «낼» 것
+ * 우리 몫  —        아무도 못 본다. 청구−지급은 관리자 화면에만 있다
+ * ```
+ *   한쪽 금액만 실으면 다른 쪽을 역산할 수 없다 — 그게 이 분리의 이유다.
+ * ⚠ 그래서 이 타입에는 «금액이 하나»뿐이다. 둘을 담으면 뺄셈으로 우리 몫이 나온다.
+ */
+export type PartyRow = PublicRow & {
+  /** 영업자면 지급액, 공급사면 청구액. **무엇인지는 `moneyLabel` 이 말한다.** */
+  amount: number;
+  /** 부가세 포함 — 실제로 오갈 돈 */
+  amountTotal: number;
+  billingMonth: string;
+};
+
+/** 그 금액이 무엇인가. 화면이 지어내지 않게 서버가 말해 준다. */
+export const moneyLabelOf = (role: 'agent' | 'provider') => (role === 'agent' ? '지급액' : '청구액');
+
 /** 정산확인이 묻는 것 — **몇 건인가**. 금액은 세지 않는다. */
 export function countsOf(rows: PublicRow[]): { label: string; n: number }[] {
   const live = rows.filter((r) => !r.cancelled);

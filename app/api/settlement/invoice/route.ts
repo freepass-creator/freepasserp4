@@ -113,15 +113,25 @@ export async function GET(req: Request) {
   if (axis === '공급사') {
     const confirms = ((await db.ref(CONFIRM_NODE).get().catch(() => null))?.val() || {}) as Record<string, Confirmation>;
     const ofMonth = Object.values(confirms).filter((c) => c.month === month);
-    const byAgent = new Map<string, number>();
+    /**
+     * ★★**관문은 «영업채널» 단위다**(사장님 2026-08-26 「공급사 영업채널 청구서가 각각 있음」) —
+     *   청구서가 「달 × 상대」로 나가니 확인도 그 단위여야 짝이 맞는다.
+     *   사람 이름으로 세면 동명이인 때문에 영영 안 열린다(실측: 원장 56명 중 3명이 동명이인).
+     */
+    const byChannel = new Map<string, number>();
     for (const x of rows) {
-      const a = S(x.row.agent) || '(영업담당자 미기재)';
-      byAgent.set(a, (byAgent.get(a) || 0) + 1);
+      const ch = S(x.extra.channel) || S(x.row.agent) || '(영업채널 미기재)';
+      byChannel.set(ch, (byChannel.get(ch) || 0) + 1);
     }
-    for (const [agent, n] of byAgent) {
-      const c = ofMonth.find((v) => nameKey(v.who) === nameKey(agent)) || null;
+    for (const [channel, n] of byChannel) {
+      // 채널 이름이 줄여 적혀 있어도(하허호 ↔ 하허호무심사) 앞머리로 붙인다.
+      const c = ofMonth.find((v) => {
+        const a = nameKey(v.who);
+        const b = nameKey(channel);
+        return !!a && !!b && (a === b || a.startsWith(b) || b.startsWith(a));
+      }) || null;
       const { ok, why } = canBill(c, n);
-      if (!ok) gate.push(`${agent} (${n}건) — ${why}`);
+      if (!ok) gate.push(`${channel} (${n}건) — ${why}`);
     }
   }
 
