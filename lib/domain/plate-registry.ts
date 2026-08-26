@@ -47,13 +47,23 @@ export type PlateEntry = {
   trim: string;
   /** 공급사 — 이름(코드 아님). 정산원장이 이름으로 적기 때문이다 */
   supplier: string;
+  /**
+   * 사진 폴더 주소 — **차량번호 셀에 걸리는 그 링크**다.
+   *
+   * ★사장님 2026-08-26 「차량번호 누르면 들어가는거」.
+   *   집 규격이다(`lib/domain/sales-sheet-format.ts` — 차번 셀에 파란 링크).
+   * ⚠ **여기서 판단하지 않는다.** 그 주소가 그 차 것인지는 공급사 시트에 넣을 때
+   *   문지기(`photo-link-guard`)가 이미 봤다. 나르는 길에서 또 고르면 빠지는 차가 생긴다
+   *   (사장님 「니가 빼면 안 되고 있는 걸 그대로 갖고 오는 거잖아」).
+   */
+  photo: string;
   /** 처음 본 날 · 마지막으로 본 날 (`YYYY-MM-DD`) */
   firstSeen: string;
   lastSeen: string;
 };
 
 /** 들어오는 값 — 어디서 왔든 이 모양으로 바꿔서 준다. */
-export type PlateInput = { plate: unknown; model?: unknown; subModel?: unknown; trim?: unknown; supplier?: unknown };
+export type PlateInput = { plate: unknown; model?: unknown; subModel?: unknown; trim?: unknown; supplier?: unknown; photo?: unknown };
 
 /**
  * 화면·문서에 찍는 «차명» — 세부모델 + 세부트림.
@@ -93,9 +103,11 @@ export function mergeEntry(prev: PlateEntry | null, next: PlateInput, today: str
   const subModel = S(next.subModel);
   const trim = S(next.trim);
   const supplier = S(next.supplier);
+  // ★주소처럼 안 생긴 값은 안 담는다 — 「사진 없음」 같은 글자가 링크로 걸리면 죽은 링크가 된다.
+  const photo = /^https?:\/\//i.test(S(next.photo)) ? S(next.photo) : '';
 
   if (!prev) {
-    return { plate, model, subModel, trim, supplier, firstSeen: today, lastSeen: today };
+    return { plate, model, subModel, trim, supplier, photo, firstSeen: today, lastSeen: today };
   }
 
   // ★새 값이 있으면 이긴다. **없으면 옛 값을 지키다** — 빈 값으로 덮지 않는다.
@@ -105,11 +117,12 @@ export function mergeEntry(prev: PlateEntry | null, next: PlateInput, today: str
     subModel: subModel || prev.subModel,
     trim: trim || prev.trim,
     supplier: supplier || prev.supplier,
+    photo: photo || prev.photo,
     firstSeen: prev.firstSeen || today,
     lastSeen: today,
   };
   const same = merged.model === prev.model && merged.subModel === prev.subModel
-    && merged.trim === prev.trim && merged.supplier === prev.supplier
+    && merged.trim === prev.trim && merged.supplier === prev.supplier && merged.photo === prev.photo
     && merged.lastSeen === prev.lastSeen && merged.plate === prev.plate;
   return same ? null : merged;
 }

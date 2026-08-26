@@ -12,6 +12,7 @@
  * ① 「차량대장」 탭   v4/plate_registry 를 통째로 내려 적는다 (차번·모델·세부모델·세부트림·공급사)
  * ② 유효성 걷어내기   차량번호 칸의 옛 드롭다운을 지운다 — 「잘못됨」이 안 뜨게
  * ③ 공급사·모델명 수식 차번을 적으면 대장에서 끌어온다
+ * ④ 차번 셀 링크    누르면 사진 폴더로 간다 (판매시트와 같은 규격)
  * ```
  *
  * ★★★**수식은 «비었을 때만» 채우게 짠다.**
@@ -65,6 +66,8 @@ if (!reg.length) { console.log('\n   대장이 비어 있다 — build-plate-reg
 
 const HEAD = ['차량번호', '모델', '세부모델', '세부트림', '공급사', '처음 본 날', '마지막 본 날'];
 const BODY = reg.map((e) => [S(e.plate), S(e.model), S(e.subModel), S(e.trim), S(e.supplier), S(e.firstSeen), S(e.lastSeen)]);
+/** 차번 → 사진 폴더. 차번 셀에 파란 링크로 건다(집 규격). */
+const PHOTO = new Map(reg.filter((e) => /^https?:/i.test(S(e.photo))).map((e) => [S(e.plate), S(e.photo)]));
 
 // ── 시트 구조 ──────────────────────────────────────────────
 const meta = await api(`${LEDGER}?fields=sheets.properties(sheetId,title,index,gridProperties.rowCount)`) as
@@ -186,6 +189,53 @@ const put = async (colIdx: number, make: (r: number) => string, label: string) =
 
 await put(iSup, (r) => `=IF(${pl(r)}="","",${look(r, 5)})`, '공급사');
 await put(iModel, (r) => `=IF(${pl(r)}="","",IFERROR(IF(${look(r, 3)}="",${look(r, 2)},${look(r, 3)})&IF(${look(r, 4)}=""," "," ")&${look(r, 4)},""))`, '모델명');
+
+/**
+ * ── ④ 차량번호를 누르면 사진 폴더로 ──────────────────────────
+ *
+ * ★사장님 2026-08-26 「차량번호 누르면 들어가는거」.
+ *   집 규격이다 — 판매시트 세 탭이 이미 그렇게 한다(`lib/domain/sales-sheet-format.ts`).
+ *   ★사장님이 «사진링크»라고 부르시는 것은 「사진」 칸의 «글자»가 아니라 **차번 셀의 파란 링크**다.
+ *
+ * ⚠ **판단하지 않는다.** 그 주소가 그 차 것인지는 공급사 시트에 넣을 때 문지기가 이미 봤다.
+ *   나르는 길에서 또 고르면 빠지는 차가 생긴다(사장님 「있는 걸 그대로 갖고 오는 거잖아」).
+ * ⚠ **사진이 없는 차는 옛 링크를 걷어낸다** — 안 지우면 지난번 주소가 남아 «남의 차»로 간다.
+ * ⚠ **맨 끝이어야 한다.** 뒤에 서식을 다시 입히면 링크가 통째로 지워진다.
+ */
+const linkCell = (plate: string, uri: string) => ({
+  userEnteredValue: { stringValue: plate },
+  textFormatRuns: [{ startIndex: 0, format: { link: { uri }, foregroundColor: { red: 0.06, green: 0.33, blue: 0.8 }, underline: true } }],
+});
+
+const targets: { sheetId: number; name: string; col: number; from: number; to: number; plates: string[] }[] = [
+  { sheetId: gid, name: TAB, col: 0, from: 2, to: BODY.length + 2, plates: BODY.map((r) => r[0]) },
+  {
+    sheetId: intake.sheetId, name: INTAKE, col: iPlate, from: first - 1, to: gridRows,
+    plates: Array.from({ length: gridRows - (first - 1) }, (_, k) => S(rows3[first - 1 + k]?.[iPlate])),
+  },
+];
+
+for (const t of targets) {
+  // ① 그 열의 옛 링크를 통째로 걷어낸다
+  const reqs: unknown[] = [{ repeatCell: {
+    range: { sheetId: t.sheetId, startRowIndex: t.from, endRowIndex: t.to, startColumnIndex: t.col, endColumnIndex: t.col + 1 },
+    cell: { userEnteredFormat: { textFormat: {} } }, fields: 'userEnteredFormat.textFormat.link',
+  } }];
+  // ② 사진이 있는 차만 다시 건다
+  let n = 0;
+  t.plates.forEach((plate, k) => {
+    const uri = PHOTO.get(plate);
+    if (!plate || !uri) return;
+    n++;
+    reqs.push({ updateCells: {
+      range: { sheetId: t.sheetId, startRowIndex: t.from + k, endRowIndex: t.from + k + 1, startColumnIndex: t.col, endColumnIndex: t.col + 1 },
+      rows: [{ values: [linkCell(plate, uri)] }],
+      fields: 'userEnteredValue,textFormatRuns',
+    } });
+  });
+  await api(`${LEDGER}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests: reqs }) });
+  console.log(`   ✓ ${t.name} — 차번 누르면 사진으로 ${n}대 (없는 차는 링크를 걷어냄)`);
+}
 
 console.log(`\n   https://docs.google.com/spreadsheets/d/${LEDGER}/edit\n`);
 process.exit(0);

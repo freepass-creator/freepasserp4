@@ -23,6 +23,11 @@
  * ★★**차명은 세 축 그대로.** 모델 · 세부모델 · 세부트림을 각각 담는다.
  *   이어 붙여 한 칸에 담으면 다시 못 가른다.
  *
+ * ★★**사진 링크는 «차번 셀»에 걸려 있다** — 값이 아니라 서식(`textFormatRuns.format.link`)이다.
+ *   사장님 2026-08-26 「차량번호 누르면 들어가는거」. 그래서 값만 읽으면 «안 보인다» —
+ *   `includeGridData` 로 격자를 통째로 받아야 한다(집 규칙: 사진은 차번 셀 링크에도 있다).
+ *   ⚠ **판단하지 않는다.** 그 차 것인지는 공급사 시트에 넣을 때 문지기가 이미 봤다.
+ *
  * ⚠ **덮어쓰지 않는다.** 이미 아는 값은 새 값이 «있을 때만» 바뀐다(`mergeEntry`).
  * ⚠ 저장은 `v4/plate_registry` 한 곳. v3 노드는 건드리지 않는다.
  *
@@ -72,8 +77,17 @@ for (const head of TAB_HEADS) {
   const tab = meta.sheets.map((s) => S(s.properties.title)).find((t) => t.startsWith(head));
   if (!tab) { console.log(`   ✕ 「${head}…」 탭을 못 찾았다`); continue; }
 
-  const got = await api(`${SALES_SHEET_ID}/values/${encodeURIComponent(`'${tab.replace(/'/g, "''")}'!A1:CZ4000`)}?valueRenderOption=UNFORMATTED_VALUE`) as { values?: unknown[][] };
-  const all = ((got.values || []) as unknown[][]).map((r) => (r || []).map(S));
+  // ★격자로 받는다 — 사진 링크가 «셀 서식»에 있어 값만 읽으면 안 보인다.
+  const range = `'${tab.replace(/'/g, "''")}'!A1:CZ4000`;
+  const grid = await api(`${SALES_SHEET_ID}?ranges=${encodeURIComponent(range)}&includeGridData=true&fields=${encodeURIComponent('sheets.data.rowData.values(formattedValue,hyperlink,textFormatRuns.format.link.uri)')}`) as
+    { sheets?: { data?: { rowData?: { values?: { formattedValue?: string; hyperlink?: string; textFormatRuns?: { format?: { link?: { uri?: string } } }[] }[] }[] }[] }[] };
+  const rowData = grid.sheets?.[0]?.data?.[0]?.rowData || [];
+  const all = rowData.map((r) => (r.values || []).map((c) => S(c?.formattedValue)));
+  /** 그 줄 차번 셀에 걸린 링크. `hyperlink` 든 글자 서식이든 다 본다. */
+  const linkAt = (row: number, col: number) => {
+    const c = rowData[row]?.values?.[col];
+    return S(c?.hyperlink) || S(c?.textFormatRuns?.find((x) => x?.format?.link?.uri)?.format?.link?.uri);
+  };
   const hi = all.findIndex((r) => r.includes('차량번호'));
   if (hi < 0) { console.log(`   ✕ 「${tab}」 머리글에 «차량번호»가 없다`); continue; }
 
@@ -84,15 +98,19 @@ for (const head of TAB_HEADS) {
   const iT = at('세부트림'); const iS = at('공급사');
   if (iS < 0) console.log(`   ⚠ 「${tab}」 에 «공급사» 칸이 없다 — 공급사는 비워 담는다`);
 
-  const list = all.slice(hi + 1)
-    .filter((r) => S(r[iP]))
-    .map((r) => ({
-      plate: r[iP],
-      model: iM >= 0 ? r[iM] : '',
-      subModel: iSm >= 0 ? r[iSm] : '',
-      trim: iT >= 0 ? r[iT] : '',
-      supplier: iS >= 0 ? r[iS] : '',
-    }));
+  const list: PlateInput[] = [];
+  for (let r = hi + 1; r < all.length; r++) {
+    const row = all[r];
+    if (!S(row[iP])) continue;
+    list.push({
+      plate: row[iP],
+      model: iM >= 0 ? row[iM] : '',
+      subModel: iSm >= 0 ? row[iSm] : '',
+      trim: iT >= 0 ? row[iT] : '',
+      supplier: iS >= 0 ? row[iS] : '',
+      photo: linkAt(r, iP),
+    });
+  }
   rows.push(...list);
   console.log(`   ${tab.padEnd(30)} ${list.length}대`);
 }
@@ -108,6 +126,7 @@ console.log(`   쌓인 뒤 모두 ${Object.keys(after).length}대`);
 
 const gap = (k: keyof PlateEntry) => Object.values(after).filter((e) => !S(e[k])).length;
 console.log(`   빈칸 — 모델 ${gap('model')} · 세부모델 ${gap('subModel')} · 세부트림 ${gap('trim')} · 공급사 ${gap('supplier')}`);
+console.log(`   ★사진 링크가 있는 차 ${Object.values(after).filter((e) => S(e.photo)).length}대 / ${Object.keys(after).length}`);
 
 for (const e of Object.values(changed).slice(0, 5)) {
   console.log(`      ${e.plate.padEnd(10)} ${carName(e).padEnd(26)} ${e.supplier || '공급사?'}`);

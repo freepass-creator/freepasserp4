@@ -71,10 +71,12 @@ export const PARTNER_CI: readonly PartnerCi[] = [
     // ★우리(1004호)와 같은 건물 1205호다. 주소를 헷갈리지 말 것.
   },
   {
-    alias: '오토플러스', legal: '오토플러스 주식회사', bizNo: '', ceo: '이윤석',
-    addr: '', tel: '', web: 'autoplus.co.kr', code: 'RP023', src: 'erp+web',
-    conflict: '★ERP 사업자번호가 999-99-99999 — 채워 넣은 가짜 값이다. 홈페이지 푸터도 못 읽었다(스크립트 렌더). '
-      + '거래 112건으로 가장 큰 공급사인데 신원이 비어 있다 — 사업자등록증을 받아야 한다',
+    alias: '오토플러스', legal: '오토플러스 주식회사', bizNo: '105-86-06429', ceo: '이윤석',
+    addr: '서울특별시 영등포구 선유동2로 57, 이레빌딩 신관 11층', tel: '1544-2277',
+    web: 'autoplus.co.kr', code: 'RP023', src: 'web',
+    // ★autoplus.co.kr 은 스크립트 렌더라 푸터를 못 읽었다. 직영 플랫폼 「리본카」(reborncar.co.kr)
+    //   푸터에서 확보했다(2026-08-26). 통신판매업 2020-서울영등포-1338.
+    conflict: '★ERP 등록값이 999-99-99999(가짜)다 — 위 번호로 고쳐야 한다. 거래 112건으로 가장 큰 공급사다',
   },
   {
     alias: '웰릭스', legal: '웰릭스모빌리티 주식회사', bizNo: '379-88-01956', ceo: '이창영',
@@ -103,7 +105,11 @@ export const PARTNER_CI: readonly PartnerCi[] = [
   },
   {
     alias: '스타스카이', legal: '주식회사 스타스카이', bizNo: '206-86-03184', ceo: '조기배',
-    addr: '', tel: '', web: '', code: 'RP005', src: 'erp',
+    addr: '서울특별시 성동구 아차산로7길 36, 303-2호(성수동2가)', tel: '',
+    web: 'sratskyrent.wixsite.com/starskyrentcar', code: 'RP005', src: 'erp+web',
+    conflict: '★사업자번호가 한 자리 어긋난다 — ERP 206-86-0**3**184 / 웹 206-86-0**9**184. '
+      + '게다가 ERP 에 「스타」(RP018)가 206-86-09184 로 «따로» 등록돼 있다. '
+      + '둘이 같은 회사인지, 한쪽이 오타인지 확인해야 한다(대표가 둘 다 조기배)',
   },
   {
     alias: '경진카', legal: '경진카 주식회사', bizNo: '725-81-02483', ceo: '유희주',
