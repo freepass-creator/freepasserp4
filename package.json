@@ -20,6 +20,7 @@
     "check:fonts": "tsx scripts/check-fonts.mts",
     "check:tokens": "tsx scripts/check-tokens.mts",
     "check:ui": "tsx scripts/check-ui-contract.mts",
+    "check:design": "tsx scripts/check-design-locked.mts",
     "check:template-drift": "tsx scripts/check-template-drift.mts",
     "check:release": "tsx scripts/check-release.mts",
     "check:b2b-release": "tsx scripts/check-b2b-release.mts",

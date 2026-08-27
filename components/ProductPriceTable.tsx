@@ -112,12 +112,29 @@ export function ProductPriceTable({ p, title = '대여료조건', hint, tone }: 
         const split = ret.length > 0 && acq.length > 0;
         const best = (pr: PricePlan) => !!cheapPlan && pr.m === cheapPlan.m && pr.condition === cheapPlan.condition;
         if (!split) return plans.map((pr, i) => row(pr, i, best(pr)));
-        const groupHead = (label: string, note: string) => (
+        /*
+         * ★**두 갈래에 위계를 준다**(사장님 2026-08-28 「인수형을 좀 더 위계를 줘서 구분을 해 주면 어때」).
+         *
+         *   반납형은 **기본**이라 조용해도 된다 — 면 없이 회색 글자.
+         *   인수형은 **다른 상품**이라 눈에 걸려야 한다 — 연회색 면 + 먹색 굵은 글자 + 위쪽 진한 구분선.
+         *   둘 사이에 «단»이 하나 벌어져, 표를 훑다가 갈래가 바뀌는 지점을 놓치지 않는다.
+         *
+         *   ⚠ **새 색(hue)을 들이지 않는다**(`docs/DESIGN_COLOR_LADDER.md` — 색은 네이비 하나,
+         *     다른 건 세기뿐). 판매시트는 인수형을 보라로 칠하지만 그건 시트 규격이고,
+         *     화면에서 보라를 들이면 무지개가 된다(초록·앰버로 칠했다가 되돌린 적이 있다).
+         *     그래서 위계는 **무채의 세기와 굵기**로만 준다.
+         *   ⚠ 이 섹션 머리띠는 이미 1단(반전)이고 선택 줄이 2단이다. 갈래 줄은 그 아래 단을 쓴다 —
+         *     한 섹션에 같은 단이 두 번 오면 위계가 무너진다.
+         */
+        const groupHead = (label: string, note: string, strong: boolean) => (
           <tr key={`g-${label}`}>
             <th colSpan={4} scope="colgroup" style={{
               ...DT.labelTh, width: undefined, textAlign: 'left',
-              background: C.sunken, color: C.ink, fontWeight: FW.head,
-              borderTop: `1px solid ${C.line}`,
+              background: strong ? C.sunken : 'transparent',
+              color: strong ? C.ink : C.mute,
+              fontWeight: strong ? FW.head : FW.label,
+              borderTop: strong ? `2px solid ${C.lineStrong}` : `1px solid ${C.line2}`,
+              letterSpacing: strong ? '-0.01em' : undefined,
             }}>
               {label}
               <span style={{ marginLeft: 6, fontSize: FS.cap, fontWeight: FW.meta, color: C.mute }}>{note}</span>
@@ -125,9 +142,9 @@ export function ProductPriceTable({ p, title = '대여료조건', hint, tone }: 
           </tr>
         );
         return [
-          groupHead('반납형', '만기에 차를 반납한다'),
+          groupHead('반납형', '만기에 차를 반납한다', false),
           ...ret.map((pr, i) => row(pr, i, best(pr))),
-          groupHead('인수형', '만기에 차를 인수한다'),
+          groupHead('인수형', '만기에 차를 인수한다', true),
           ...acq.map((pr, i) => row(pr, i, false)),
         ];
       })()}
