@@ -38,7 +38,7 @@ import { WorkPage, type WorkPane } from '@/components/WorkPage';
 import { WebListTools } from '@/components/WebListTools';
 import { LedgerListRow, SettlementCreateRow } from '@/components/list-rows';
 import {
-  Badge, Btn, C, CenterNote, DetailTable, DtRow, FilterChips, FormGrid, FormReadList,
+  Badge, Btn, C, CenterNote, DetailTable, DtRow, FilterChips, WorkFields, WorkDock, WorkModeBanner,
   FS, Input, KV_LABEL_W, ListRow, Loading, NUM, PageActions, PaneBody, PaneHead, Select, Switch, won,
 } from '@/components/ui';
 import { toast } from '@/components/Toaster';
@@ -132,11 +132,30 @@ const TERMS_FIELDS: Field[] = [
   { key: 'price', label: '차량가액', type: 'number', note: '선출고·견적출고면 반드시 — 비면 수수료가 0원이 됩니다' },
   { key: 'payKind', label: '분납여부', type: 'select', options: PAY_KIND_OPTS },
 ];
-/** 어떤 상태인지 */
-const STATE_FIELDS: Field[] = [
-  { key: 'paper', label: '계약서', type: 'select', options: YN },
-  { key: 'delivered', label: '인도완료', type: 'select', options: YN },
-  { key: 'deliveredAt', label: '인도일', type: 'date', note: '인도완료가 「예」면 반드시 넣으세요' },
+/**
+ * ★**접수 폼에 «상태» 칸을 두지 않는다.** 사장님 2026-08-27
+ *   「erp에 정산에 접수할때는 계약서랑 이런거 없지... 접수는 말그대로 접수 단계잖아」
+ *   「간단하게 빠르게 접수만 하면 되는거고」
+ *   「시트처럼 체크할건 체크하게끔해」 「계약취소 체크」 「인도완료 체크 이런식으로」
+ *
+ *   계약서·인도완료·인도일은 접수 «뒤에» 벌어지는 일이다. 접수하는 사람은 그때 그걸 모른다.
+ *   물어봐야 늘 「아니오」를 고르게 되고, 칸만 셋 늘어 접수가 느려진다.
+ *   ⇒ 상태는 **실적상태 목록에서 체크로 켠다**(아래 `CHECKS`).
+ * ⚠ 접수 기록 자체에는 계약서·인도완료가 «아니오»로 들어간다 —
+ *   칸을 안 물을 뿐이지 값이 없는 게 아니다. 없으면 규칙이 판정을 못 한다.
+ */
+
+/**
+ * **목록에서 체크로 켜는 것** — 시트에서 체크하듯이.
+ * ★서버(`settlement-store` `EDITABLE_FIELDS`)가 «체크»로 허용한 칸만 여기 둔다.
+ *   여기 없는 칸을 넣어도 서버가 400 으로 막는다 — 화면은 편의일 뿐이다.
+ * ⚠ 켤 때 «딸려 오는 것»이 있는 칸은 `deliver`·`ask` 로 적어 둔다.
+ */
+const CHECKS: { key: 'paper' | 'delivered' | 'cancelled'; label: string; column: string; ask?: boolean }[] = [
+  { key: 'paper', label: '계약서', column: '계약서' },
+  { key: 'delivered', label: '인도완료', column: '인도완료' },
+  // ★취소는 그 줄을 청구에서 통째로 빼낸다. 한 번 묻는다.
+  { key: 'cancelled', label: '취소', column: '계약취소', ask: true },
 ];
 
 const VIEW_CONTRACT: Field[] = [
@@ -227,32 +246,25 @@ function LedgerCreateForm({
    *     그래서 필수가 아니라 메모다. 비어도 접수는 된다.
    */
   const sellerFields = SELLER_FIELDS;
-  /** 인도완료가 「예」일 때만 인도일을 세운다 — 안 그러면 늘 비어 있는 칸이 하나 는다. */
-  const delivering = form.delivered === '예';
-  const stateFields = STATE_FIELDS
-    .filter((f) => f.key !== 'deliveredAt' || delivering)
-    .map((f) => (f.key === 'deliveredAt' ? { ...f, required: true } : f));
 
   return (
     <>
-      <div style={{ fontSize: FS.cap, color: C.mute, lineHeight: 1.6 }}>
-        계약금이 들어온 계약을 적습니다.
-        {' '}<b style={{ color: C.ink }}>언제 · 어떤 차를 · 누가 · 누구한테 · 어떤 조건으로 · 어떤 상태인지</b> 순서입니다.
-        {' '}청구월·수수료는 기계가 채웁니다.
-      </div>
-      <FormGrid title="언제 · 어떤 차를" accent="main" fields={CAR_FIELDS}
-        form={form as unknown as EntityRecord} onChange={onChange} showNotes />
-      <FormGrid title="누가 팔았나" accent="sub" fields={sellerFields}
-        form={form as unknown as EntityRecord} onChange={onChange} selectOptions={selectOptions} showNotes />
-      <FormGrid title="누구한테" accent="sub" fields={CUSTOMER_FIELDS}
-        form={form as unknown as EntityRecord} onChange={onChange} showNotes />
-      <FormGrid title="어떤 조건으로 · 어떤 방식으로" accent="sub" fields={TERMS_FIELDS}
-        form={form as unknown as EntityRecord} onChange={onChange} showNotes />
-      <FormGrid title="어떤 상태인지" accent="sub" fields={stateFields}
-        form={form as unknown as EntityRecord} onChange={onChange} showNotes />
-      <PageActions
-        cancel={{ onClick: onCancel, disabled: busy }}
-        save={{ onClick: () => onSubmit(form), disabled: busy, label: busy ? '접수 중…' : '접수하기' }}
+      <WorkModeBanner mode="create" create="계약금이 들어온 계약을 적습니다. 언제 · 어떤 차를 · 누가 · 누구한테 · 어떤 조건으로 까지입니다. 계약서·인도는 실적상태에서 체크로 켭니다." />
+      <WorkFields mode="create" title="언제 · 어떤 차를" accent="main" fields={CAR_FIELDS}
+        form={form as unknown as EntityRecord} onChange={onChange} />
+      <WorkFields mode="create" title="누가 팔았나" accent="sub" fields={sellerFields}
+        form={form as unknown as EntityRecord} onChange={onChange} selectOptions={selectOptions} />
+      <WorkFields mode="create" title="누구한테" accent="sub" fields={CUSTOMER_FIELDS}
+        form={form as unknown as EntityRecord} onChange={onChange} />
+      <WorkFields mode="create" title="어떤 조건으로 · 어떤 방식으로" accent="sub" fields={TERMS_FIELDS}
+        form={form as unknown as EntityRecord} onChange={onChange} />
+      <WorkDock
+        mode="create"
+        selected
+        saving={busy}
+        onCancel={onCancel}
+        onSave={() => onSubmit(form)}
+        saveLabel={busy ? '접수 중…' : '접수하기'}
       />
     </>
   );
@@ -446,11 +458,22 @@ export default function SettlementLedgerPage() {
    * ★날짜 없이 체크만 켜면 청구월이 안 서고 「인도는 됐는데 청구가 없는」 줄이 조용히 생긴다.
    *   다른 날짜가 필요하면 시트에서 고친다.
    */
-  const markDelivered = async (r: Row) => {
+  /**
+   * **체크 하나 켜고 끄기** — 시트에서 체크하듯이(사장님 2026-08-27).
+   *
+   * ★**인도완료에는 «인도일»이 딸려 온다.** 인도일이 청구월을 세우는 값이라서다.
+   *   켜면 오늘로 박고, 끄면 **같이 지운다** — 안 지우면 「인도 안 했는데 인도일이 있는」 줄이 남고,
+   *   그 줄은 규칙이 청구월을 세우려 들어 청구서에 실린다.
+   * ★끄는 것도 된다. 잘못 누른 것을 못 되돌리면 아무도 안 누른다.
+   */
+  const toggleCheck = async (r: Row, c: (typeof CHECKS)[number]) => {
+    const on = !r[c.key];
     const t = new Date();
     const day = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
-    if (!window.confirm(`${r.plate} — 인도일 ${day} 로 인도완료 처리할까요?`)) return;
-    await patchRow(r, { 인도완료: 'TRUE', 인도일: day });
+    if (c.ask && !window.confirm(`${r.plate} — ${on ? `「${c.label}」으로 표시할까요? 청구에서 빠집니다.` : `「${c.label}」을 풀까요?`}`)) return;
+    const patch: Record<string, string> = { [c.column]: on ? 'TRUE' : 'FALSE' };
+    if (c.key === 'delivered') patch['인도일'] = on ? day : '';
+    await patchRow(r, patch);
   };
 
   if (err) return <CenterNote>정산원장을 못 읽었습니다 — {err}</CenterNote>;
@@ -460,7 +483,7 @@ export default function SettlementLedgerPage() {
   // ─────────────────────────────── ① 접수목록
   const list = (
     <>
-      <SettlementCreateRow onClick={() => { setCreating(true); setSel(''); }} />
+      <SettlementCreateRow selected={creating} onClick={() => { setCreating(true); setSel(''); }} />
       {shown.length === 0
         ? <CenterNote>그 조건에 해당하는 계약이 없습니다.</CenterNote>
         : shown.map((r) => (
@@ -481,11 +504,12 @@ export default function SettlementLedgerPage() {
 
   /**
    * ─────────────────── ② 접수내용
-   * 보기·접수가 같은 DetailTable(FormGrid/FormReadList). 상태 스위치만 값 칸에 둔다.
+   * 보기·접수가 같은 DetailTable(WorkFields). 상태 스위치만 값 칸에 둔다.
    */
   const intake = picked ? (
     <>
-      <FormGrid
+      <WorkFields
+        mode="edit"
         title="계약"
         accent="main"
         fields={VIEW_CONTRACT.map((f) => (EDIT_COLUMN[f.key]
@@ -523,7 +547,8 @@ export default function SettlementLedgerPage() {
         />
       )}
 
-      <FormReadList
+      <WorkFields
+        mode="view"
         title="조건"
         accent="sub"
         fields={VIEW_TERMS}
@@ -584,8 +609,17 @@ export default function SettlementLedgerPage() {
         : perf.map((r) => (
           <LedgerListRow key={keyOf(r)} row={{ ...r, claim: r.money.claim }}
             selected={sel === keyOf(r)} onClick={() => pick(r)}
-            right={r.delivered || r.cancelled ? undefined : (
-              <Btn variant="bare" disabled={busy} onClick={() => markDelivered(r)}>인도완료</Btn>
+            /* ★셋을 늘 보인다 — 「켤 수 있을 때만」 보이면 지금 무엇이 켜져 있는지 목록에서 안 보인다. */
+            right={(
+              <span style={{ display: 'inline-flex', gap: 2, flexWrap: 'nowrap' }}>
+                {CHECKS.map((c) => (
+                  <Btn key={c.key} size="sm" variant="bare" disabled={busy}
+                    onClick={() => toggleCheck(r, c)}
+                    style={{ color: r[c.key] ? C.ok : C.faint, paddingInline: 5 }}>
+                    {r[c.key] ? '☑' : '☐'}{c.label}
+                  </Btn>
+                ))}
+              </span>
             )}
           />
         ))}
