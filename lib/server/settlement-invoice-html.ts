@@ -470,7 +470,8 @@ export const INVOICE_CSS = `
     display:flex; justify-content:space-between; align-items:flex-end; gap:10mm; }
   .ft b { color:#e8ecf2; font-weight:700; }
   .ft .nm { font-size:12px; color:#fff; font-weight:700; letter-spacing:-.2px; }
-  .ft .k { color:#7b8798; font-weight:600; margin-right:5px; }
+  .ft .site { text-align:right; color:#8e9aab; line-height:1.7; white-space:nowrap; }
+  .ft .pg { display:block; margin-top:3px; color:#6b7688; }
   .ft .pg { white-space:nowrap; }
 `;
 
@@ -554,10 +555,15 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
   <div class="ft">
     <div>
       <span class="nm">${esc(CORP.name)}</span>  사업자등록번호 <b>${esc(CORP.bizNo)}</b>  ·  대표 <b>${esc(CORP.ceo)}</b><br>
-      ${esc(CORP.addr)}<br>
-      ${esc(CORP.web)}
+      ${esc(CORP.addr)}
     </div>
-    <div class="pg">${pages.length > 1 ? `${page + 1} / ${pages.length}` : ''}</div>
+    <!-- ★홈페이지·ERP 는 «오른쪽 아래»로. 왼쪽만 세 줄이고 오른쪽이 비어 한쪽으로 쏠렸다
+         (사장님 2026-08-27 「하단 아래쪽에 넣어서 약간 밸런스 맞춰줘」).
+         띠 우측의 ERP 브랜드와 세로로 맞물려 종이 오른쪽이 위아래로 닫힌다. -->
+    <div class="site">
+      ${esc(CORP.web)}<br>${esc(CORP.erp)}
+      ${pages.length > 1 ? `<span class="pg">${page + 1} / ${pages.length}</span>` : ''}
+    </div>
   </div>`;
 
   /**
@@ -585,9 +591,13 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
         ${logoImg(inv.party)}
         <div>
           <div class="nm">${shown(inv.receiver.name)}<span>귀중</span></div>
+          <!-- ★회원사 «대표명»은 안 찍는다(사장님 2026-08-27 「회원사 대표명은 빼자」).
+               상호와 사업자등록번호면 어느 법인인지 어긋날 데가 없다.
+               대표는 바뀌는데 종이는 안 바뀐다 — 틀린 이름이 남느니 없는 게 낫다.
+               ⚠ 발행인(우리) 대표는 꼬리에 남는다. 내는 사람은 밝혀야 한다. -->
           <div class="id">사업자등록번호 <b>${
     inv.receiver.bizNo ? esc(inv.receiver.bizNo) : miss
-  }</b>${S(inv.receiver.ceo) ? `　대표 <b>${esc(inv.receiver.ceo)}</b>` : ''}</div>
+  }</b></div>
         </div>
       </div>
     </div>
