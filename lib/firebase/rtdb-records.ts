@@ -69,11 +69,22 @@ export function toV4Record(entity: string, childKey: string, record: RtdbRecord,
     case 'product': {
       const code = String(record.product_code || childKey);
       const linkedPolicy = record._policy || (record.policy_code && joinMap ? (joinMap[record.policy_code as string] as unknown) : undefined);
-      // 정책 미연결·부분입력 상품도 항상 프리패스 표준으로 결정된다. 연결 정책의 명시값이
-      // 우선이고 빈 항목에만 기본값을 채우므로 공급사 고유 조건은 덮지 않는다.
-      const policy = applyPolicyDefaults(
-        linkedPolicy && typeof linkedPolicy === 'object' ? linkedPolicy as RtdbRecord : {},
-      ).next;
+      /**
+       * ★**정책이 안 붙었으면 채우지 않는다**(사장님 2026-08-07 「없으면 없다 · 미입력이면
+       *   미입력이다 · 차라리 대여료만 맞게 보여주는 게 낫지」).
+       *
+       * 전에는 미연결 상품도 `applyPolicyDefaults({})` 로 프리패스 표준을 통째로 얹었다.
+       * 그런데 절연 뒤 매물이 든 옛 `policy_code`(pol_xxx)가 새 정책 키(FP-RP0xx-RENT)와
+       * 안 맞아 **816대 전부 미연결**이었고, 그래서 화면이 816대에 똑같은 조건을 보였다 —
+       * 그 공급사가 주지도 않은 조건을. 영업자가 그걸 손님에게 그대로 말하면 없는 약속을 한다.
+       * **빈칸보다 나쁘다**: 빈칸은 물어보게 만들지만 지어낸 값은 안 물어보게 만든다.
+       *
+       * 연결된 정책에는 그대로 기본값을 얹는다 — 공급사 정책에 «표준을 따른다»는 뜻이 있고,
+       * 빈칸을 일부러 비운 정책은 `policy_default_pack` 이 지켜 준다(applyPolicyDefaults 참고).
+       */
+      const policy = linkedPolicy && typeof linkedPolicy === 'object'
+        ? applyPolicyDefaults(linkedPolicy as RtdbRecord).next
+        : {};
       // product_uid = erp3 원본 키(EXT_/PD*/pushId). v4 오버레이는 childKey===product_code 이라
       //  여기서 childKey를 uid로 채우면 라이브 EXT uid를 덮어 문의방 조인이 끊긴다.
       const uidExplicit = record.product_uid != null && String(record.product_uid).trim() !== ''

@@ -83,9 +83,14 @@ function publicImages(p: Rec): string[] {
 }
 
 export function publicPolicy(policy: Rec | null | undefined): Rec | null {
-  // 공급사 정책이 없거나 일부만 입력돼도 손님·영업 화면은 프리패스 기본 정책으로
-  // 같은 답을 낸다. 명시된 공급사 값은 유지하고 빈 항목만 보충한다.
-  const effective = applyPolicyDefaults(policy || {}).next as Rec;
+  /**
+   * 정책이 **붙어 있을 때만** 빈 항목을 프리패스 표준으로 보충한다.
+   * 아예 안 붙은 매물은 «모르는 것»이라 지어내지 않는다(사장님 2026-08-07 「없으면 없다」).
+   * 손님 화면에 지어낸 조건이 서면 그게 곧 약속이 된다 — 위 rtdb-records 의 같은 판단.
+   */
+  const effective = (policy && Object.keys(policy).length
+    ? applyPolicyDefaults(policy).next
+    : {}) as Rec;
   const out: Rec = {};
   for (const k of PUBLIC_POLICY_FIELDS) {
     const v = effective[k];
