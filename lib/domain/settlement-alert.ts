@@ -16,6 +16,7 @@
  */
 import { billStateOf, type BillState } from './settlement-billstate';
 import { brokenOf, midnight, nextInstalment, paidRoundsOf, roundsOf, type SettlementRow } from './settlement-stage';
+import { BILL_DAY, DUE_DAY, billDate } from './settlement-cycle';
 
 /** 급수 — **돈이 새고 있나**로 매긴다. */
 export type AlertLevel = '급함' | '살필것';
@@ -126,26 +127,34 @@ export function alertsOf(r: SettlementRow, ctx: AlertContext): Alert[] {
    *
    * ```
    * 인도월 = 이번 달      마감대기   아직 달이 안 끝났다. 조용히 둔다
-   * 인도월 = 지난 달      이달청구   ★지금 해야 하는 것 — 이 달 안에 나가야 한다
+   * 인도월 = 지난 달      이달청구   ★지금 해야 하는 것 — 3일이 지났으면 «급함»
    * 인도월 ≤ 두 달 전     청구지연   늦었다. 한 주기를 넘겼다
    * ```
+   * ★날짜는 `settlement-cycle` 에서 온다 — 정산서에 찍히는 그 숫자와 «같은 것»을 본다.
+   *   한쪽만 고치면 「10일까지」라고 보내 놓고 15일에야 독촉하게 된다.
    */
   if (state === '미청구') {
     const m = String(r.deliveredAt ? ymOf(r.deliveredAt) : '');
     const prev = ymOf(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+    // ★지난 달 몫은 «3일»이 지나면 재촉한다. 그 전엔 정상 흐름이라 조용히 둔다.
+    const late = m === prev && now >= (billDate(m) ?? now);
     out.push(!m || m === thisMonth
       ? {
         // ★등급은 「살필것」이다 — «급함»이 아니다. 정상 흐름이라 재촉하지 않는다.
         //   ⚠ 새 등급(「조용」)을 만들지 않는다. 등급이 늘면 화면·보고서가 다 갈린다.
         kind: '마감대기', level: '살필것', icon: 'CalendarCheck',
-        label: '이 달 인도분 — 말일 마감 뒤 다음 달 초에 청구한다',
+        label: `이 달 인도분 — 말일 마감 뒤 다음 달 ${BILL_DAY}일에 청구한다`,
         todo: '아직 달이 안 끝났습니다. 지금은 둡니다.',
       }
       : m === prev
         ? {
-          kind: '이달청구', level: '살필것', icon: 'FileWarning',
-          label: '지난 달 인도분 — 이 달 안에 청구해야 한다',
-          todo: '영업자 확인을 받고 이 달 안에 발행하세요.',
+          kind: '이달청구', level: late ? '급함' : '살필것', icon: 'FileWarning',
+          label: late
+            ? `지난 달 인도분 — 청구일(${BILL_DAY}일)이 지났다`
+            : `지난 달 인도분 — ${BILL_DAY}일에 청구한다`,
+          todo: late
+            ? `영업자 확인을 받고 지금 발행하세요. 입금 기한은 ${DUE_DAY}일입니다.`
+            : `영업자 확인을 미리 받아 두세요. ${BILL_DAY}일에 나갑니다.`,
         }
         : {
           kind: '청구지연', level: '급함', icon: 'AlarmClockOff',

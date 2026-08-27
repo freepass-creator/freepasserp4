@@ -116,6 +116,7 @@
  * 청구금액     kv 에서 뺌 — vcard 에 이미 크게 있다
  * ```
  */
+import { dueDate } from '@/lib/domain/settlement-cycle';
 import { CORP, CORP_COLOR } from '@/lib/domain/corporate-ci';
 import { feeShow, type Invoice } from '@/lib/domain/settlement-invoice';
 
@@ -138,6 +139,16 @@ const period = (m: string) => {
   const y = Number(x[1]); const mo = Number(x[2]);
   return `${y}. ${p2(mo)}. 01 ~ ${p2(mo)}. ${p2(new Date(y, mo, 0).getDate())}`;
 };
+
+/**
+ * **입금 기한** — 날짜는 `settlement-cycle` 에서 온다. 여기서 정하지 않는다.
+ *
+ * ★청구서인데 「언제까지 넣으세요」가 없었다. 받는 쪽이 제일 먼저 묻는 게 그건데
+ *   종이가 답을 안 했다. 금액·계좌만 있고 기한이 없으면 «언젠가»가 된다.
+ * ★종이와 알림이 «같은 날짜»를 봐야 한다 — 한쪽만 고치면
+ *   「10일까지」라고 보내 놓고 15일에야 독촉하게 된다.
+ */
+const dueDay = (m: string) => { const d = dueDate(m); return d ? day(d) : ''; };
 
 const NAVY = CORP_COLOR.main;
 const DEEP = CORP_COLOR.deep;
@@ -172,19 +183,20 @@ const ico = (k: keyof typeof ICO | string) => `<svg class="i" viewBox="0 0 24 24
  * 표 한 줄                     44.3px
  *
  *            표 밖이 먹는 자리                     남는 줄
- * 한장        띠·제목·요약·소제목·합계·청구안내·맺음말      10
+ * 한장        띠·제목·요약·소제목·합계·청구안내·맺음말       9
  * 첫장        띠·제목·요약·소제목                      14
  * 가운데       띠·소제목                             18
- * 끝장        띠·소제목·합계·청구안내·맺음말             14
+ * 끝장        띠·소제목·합계·청구안내·맺음말             13
  * ```
- * ⚠ 「청구 안내」를 가로 표에서 세로 표로 바꾸자 그 칸이 세 줄 높아져
- *   한장·끝장이 각각 한 줄씩 줄었다. **칸 하나 고치면 상한이 흔들린다.**
+ * ⚠ **칸 하나 고치면 상한이 흔들린다.** 2026-08-27 하루에 세 번 흔들렸다 —
+ *   섹션 간격을 넓혔고, 안내를 가로에서 세로로 눕혔고, 안내에 두 줄(기한·계산서)을 더했다.
+ *   그때마다 한 장에 들어가는 줄이 줄었다. 고치고 나면 «반드시» 넘침 검사를 돌린다.
  * ⚠ 간격·글자크기를 건드리면 이 숫자가 다 흔들린다. 반드시 넘침 검사를 다시 돌린다.
  */
-const CAP_SOLO = 10;
+const CAP_SOLO = 9;
 const CAP_FIRST = 14;
 const CAP_MID = 18;
-const CAP_LAST = 14;
+const CAP_LAST = 13;
 
 /**
  * 줄을 장으로 자른다.
@@ -368,6 +380,8 @@ export const INVOICE_CSS = `
   .vtab tr:last-child th { border-bottom-left-radius:var(--r-box); }
   .vtab tr:last-child td { border-bottom:1px solid var(--ln); border-bottom-right-radius:var(--r-box); }
   .vtab td.mono { font-variant-numeric:tabular-nums; letter-spacing:-.1px; }
+  /* ★기한은 이 칸에서 제일 먼저 눈에 들어와야 한다 — 받는 쪽이 제일 먼저 찾는 값이다. */
+  .vtab td.due { color:var(--tl-d); font-size:13px; font-weight:800; letter-spacing:-.2px; }
 
   /* 한 줄 짜리 — 회원사·계좌. 표로 만들 만큼의 내용이 아니다. */
   .ctab td { font-variant-numeric:tabular-nums; }
@@ -437,7 +451,7 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
     </div>
     <div class="mt">
       사업자등록번호<b>${esc(CORP.bizNo)}</b>  대표<b>${esc(CORP.ceo)}</b><br>
-      정산월<b>${esc(monthKo(inv.month))}</b>  발행<b>${day(issued)}</b>
+      정산월<b>${esc(monthKo(inv.month))}</b>
     </div>
   </div>
 `;
@@ -529,7 +543,15 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
     <div class="sec-h">${ico('계좌')}${claim ? '청구 안내' : '지급 안내'}</div>
     <table class="vtab">
       <tbody>
+        <tr><th>${claim ? '입금 기한' : '지급 예정일'}</th><td class="mono due">${esc(dueDay(inv.month))}</td></tr>
         <tr><th>${claim ? '입금 계좌' : '지급 계좌'}</th><td class="mono">${shown(accText)}</td></tr>
+        <!-- ★계산서를 «누가» 끊는지 종이가 말해야 한다.
+             우리가 받는 쪽(청구서)이면 용역을 준 게 우리라 우리가 끊는다.
+             우리가 주는 쪽(지급명세서)이면 상대가 끊어 줘야 우리가 지급한다 —
+             이 한 줄이 없으면 「계산서 언제 주냐」로 전화가 온다. -->
+        <tr><th>세금계산서</th><td>${
+    claim ? '위 금액으로 별도 발행해 드립니다' : '위 금액으로 발행해 주시기 바랍니다'
+  }</td></tr>
         <tr><th>담당</th><td>${esc(CORP.staff)}</td></tr>
         <tr><th>연락처</th><td class="mono">${esc(CORP.phone)}</td></tr>
         <tr><th>이메일</th><td>${esc(CORP.email)}</td></tr>
