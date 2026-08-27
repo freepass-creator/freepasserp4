@@ -37,7 +37,8 @@ export {
   idParts, idMobile, specLine, specLineCard, cardTitle, plateSpecLine,
 } from '@/components/product-card-identity';
 export { Plate, CardTitle } from '@/components/product-card-identity-view';
-export { CardKind, CardRailBadges } from '@/components/product-card-badge-view';
+// CardKind(상자 뱃지)는 지웠다 — 아무도 안 쓰는데 남겨 두면 다시 상자가 생긴다(2026-08-28).
+export { CardRailBadges, SignalMarks } from '@/components/product-card-badge-view';
 
 /**
  * ═══════════════════════════════════════════════════════════

@@ -4,18 +4,18 @@ import { type EntityRecord } from '@/lib/intake/entities';
 import { detailSections, type Audience } from '@/lib/domain/product';
 import { useProductPhotoState } from '@/components/use-product-photos';
 import { getRole } from '@/lib/domain/deal';
-import { Badge, C, R, NUM, FW, FS, ICON, CloseBtn, IconBtn, SCRIM, DetailTable, DT, KV_LABEL_W } from '@/components/ui';
+import { C, R, NUM, FW, FS, ICON, CloseBtn, IconBtn, SCRIM, DetailTable, DT, KV_LABEL_W } from '@/components/ui';
 import { toast } from '@/components/Toaster';
 import { downloadSinglePhoto } from '@/lib/client/download-photo-zip';
 import {
-  badges, Plate, idParts, CardBenefits, CardEvents, OptionChips, plateSpecLine,
+  SignalMarks, MetaIcon, Plate, idParts, CardBenefits, CardEvents, OptionChips, plateSpecLine,
 } from '@/components/product-card-atoms';
 import { FavHeart } from '@/components/FavHeart';
 import { ProductStateMarks } from '@/components/ProductStateMarks';
 import { ProductPhotoImage, ProductPhotoPlaceholder } from '@/components/ProductPhoto';
 import { ProductPriceTable } from '@/components/ProductPriceTable';
 import { useIsMobile } from '@/lib/use-mobile';
-import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Download } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Download, ImageOff } from 'lucide-react';
 import { sectionIcon, sectionAccent } from '@/components/section-icons';
 import { ColorValue } from '@/components/color-swatch';
 
@@ -209,12 +209,16 @@ export function ProductDetail({ p, audience, layout = 'brochure' }: {
                 이거를 무심사/소득확인 이거는 아래 하단에 조건으로 보내자 — 계약조건이니까. 위에는 출고상태랑
                 상품구분 뱃지만 두자」). 심사(무심사·소득확인)는 «지금 살 수 있나»가 아니라 «어떤 조건인가»라
                 아래 「계약조건」 섹션이 든다 — 거기 이미 「심사」 줄로 서 있어 그동안 같은 값이 두 번 나갔다. */}
-          {badges(p, false, true, false, aud, { hideStatus: work })}
+          {/* 상자 대신 아이콘 + 글자(사장님 2026-08-28 「박스 뱃지 쓰지 말고 아이콘 텍스트 형태로」).
+              바로 옆 우대조건 줄이 이미 그 문법이라, 한 줄에 두 문법이 서지 않게 맞춘다. */}
+          <SignalMarks p={p} audience={aud} hideStatus={work} />
           <CardBenefits p={p} inline />
           <CardEvents p={p} inline />
           {/* 사진 없음도 매물의 성질이다 — 별도 줄을 잡아먹지 않게 칩으로 붙인다.
               (안 그리면 «없는 건지 안 뜬 건지»를 모른다. 사진 없는 차가 절반 가까이다.) */}
-          {work && photos.length === 0 && !pending && <Badge tone="gray" variant="quiet" title="등록된 사진이 없습니다">사진없음</Badge>}
+          {work && photos.length === 0 && !pending && (
+            <MetaIcon icon={ImageOff} text="사진없음" size={ICON.sm} strong iconColor={C.mute} title="등록된 사진이 없습니다" />
+          )}
           {work && aud !== 'customer' && <ProductStateMarks p={p} showSeen={false} />}
           {work && aud !== 'customer' && <FavHeart p={p} compact />}
         </div>
