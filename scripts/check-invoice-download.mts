@@ -83,8 +83,15 @@ ok('모서리·간격이 공통 규격이다', html.includes('--r-box:7px') && h
   && !/border-radius:\d/.test(boxCss.slice(boxCss.indexOf('.doc {'))));
 // ★청구서의 입금계좌는 «우리 정보»라 꼬리에 있다 — 본문에 칸을 따로 두지 않는다.
 //   (2026-08-27 「회사 정보에 담당자 안내랑 이메일 넣으면 계좌 정보도 넣으면 되잖아」)
-ok('입금계좌가 꼬리에 있다', /class="ft">[\s\S]{0,600}입금계좌/.test(html));
-ok('담당 연락처·메일이 꼬리에 있다', /class="ft">[\s\S]{0,700}>담당<[\s\S]{0,90}@/.test(html));
+// ★계좌·담당은 «이 건을 처리할 때 쓰는 정보»라 본문 섹션에 있고,
+//   꼬리는 «누가 발행했나»만 말한다 (2026-08-27 「하단은 그냥 회사 정보인거고」).
+ok('입금·문의 섹션이 선다', /입금 · 문의[\s\S]{0,400}class="stab txt"/.test(html));
+ok('담당·연락처·메일이 그 표에 있다', /class="stab txt"[\s\S]{0,600}@/.test(html));
+ok('꼬리는 회사 정보만이다', /class="ft">[\s\S]{0,500}?<div class="pg">/.test(html)
+  && !/class="ft">[\s\S]{0,500}?(?:@|입금계좌)/.test(html));
+// ★CI 한글 상호는 낱자로 나눠 flex 가 고르게 벌린다 — justify 로 두 번 실패했다.
+ok('한글 상호가 낱자로 나뉜다', /class="ko">(?:<i[^>]*>[^<]<\/i>){12}<\/div>/.test(html));
+ok('「주식회사」 앞에 한 칸이 있다', /class="ko">[\s\S]{0,300}?<i class="w">주<\/i>/.test(html));
 ok('본문에 계좌 칸을 두지 않는다', !/class="sec-h">(?:<svg[^>]*>[\s\S]*?<\/svg>)?입금 계좌/.test(html));
 ok('차량번호는 표 좌측 라벨열 — 뱃지 아님', /<th class="rl">60호1234<\/th>/.test(html) && !html.includes('class="plate"'));
 ok('헤더에 남색을 쓴다', html.includes('linear-gradient(120deg,#1B2A4A'));

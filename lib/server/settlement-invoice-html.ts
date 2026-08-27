@@ -241,13 +241,20 @@ export const INVOICE_CSS = `
     line-height:1.05; white-space:nowrap; }
   .hd .co b { font-weight:600; }
   .hd .co i { font-weight:300; font-style:normal; opacity:.92; }
-  /* ★한글을 영문 폭에 맞춘다 — 남는 만큼만 «낱자 사이»가 벌어진다.
-     ⚠ 사장님 2026-08-27 지적: 낱말 사이 한 곳에 여백이 다 몰려
-       「프리패스모빌리티 ——— 주식회사」로 벌어져 있었다.
-       띄어쓰기를 빼고 inter-character 로 낱자마다 나눠 준다. */
-  .hd .ko { display:block; font-size:9.5px; color:#c8d7ee; margin-top:2px; font-weight:500; letter-spacing:0;
-    line-height:1.25; text-align:justify; text-align-last:justify;
-    text-justify:inter-character; -ms-text-justify:distribute; }
+  /* ★한글을 영문 폭에 맞춘다 — 낱자를 «직접» 나눠 놓는다.
+     ⚠ text-align:justify 로 두 번 실패했다. 벌어질 자리가 띄어쓰기 한 곳뿐이라
+       여백이 거기로 다 몰려 「프리패스모빌리티 ——— 주식회사」가 됐고,
+       띄어쓰기를 빼니 이번엔 「프 리 패 스 …」로 낱자가 다 흩어졌다.
+       text-justify:inter-character 는 크롬이 안 듣는다 — 재 보니 띄어쓰기가 28.6px,
+       낱자는 8.2px 였다. **브라우저 기능에 기대지 않는다.**
+     ⇒ 낱자를 각각 넣고 flex space-between 으로 고르게 나눈다.
+       「주식회사」 앞 한 칸은 margin 으로 «따로» 준다 —
+       그래야 균등하면서도 상호로 읽힌다
+       (사장님 2026-08-27 「양쪽 균등 좋은데 그래도 주식회사 앞에 한칸은 띄어야지」). */
+  .hd .ko { display:flex; justify-content:space-between; font-size:9.5px; color:#c8d7ee;
+    margin-top:2px; font-weight:500; line-height:1.25; }
+  .hd .ko i { font-style:normal; }
+  .hd .ko i.w { margin-left:4px; }   /* 「주식회사」 앞 한 칸 */
   .hd .tt { font-size:12px; color:#dbe6f5; margin-top:5px; font-weight:600; }
   .hd .mt { text-align:right; font-size:10.5px; color:#a9bdda; line-height:1.75; }
   .hd .mt b { color:#fff; font-weight:700; margin-left:7px; font-variant-numeric:tabular-nums; }
@@ -291,6 +298,14 @@ export const INVOICE_CSS = `
   .stab td.neg { color:var(--neg); }
   .stab td.k { background:var(--bg); color:var(--tl-d); font-size:20px; font-weight:800; letter-spacing:-.6px;
     border-bottom-right-radius:var(--r-box); }
+  /* ★글자 표 — 금액표와 같은 뼈대인데 숫자가 아니라 «말»이 든다.
+     사장님 2026-08-27 「담당자 연락처랑 그런거 표 별도로 있어야 한다고, 하단은 그냥 회사 정보인거고」.
+     ⇒ 계좌·담당은 «이 정산건을 처리할 때 쓰는 정보»라 본문 섹션이 맞고,
+       꼬리는 «누가 발행했나»만 말한다. 둘은 쓰임이 다르다. */
+  .stab.txt th, .stab.txt td { text-align:left; }
+  .stab.txt td { font-size:12px; font-weight:600; color:var(--ink); padding:8px 12px; }
+  .stab.txt td:first-child { font-size:12px; font-weight:700; color:var(--ink); }
+  .stab.txt td.mono { font-variant-numeric:tabular-nums; letter-spacing:-.1px; }
 
   /* 한 줄 짜리 — 회원사·계좌. 표로 만들 만큼의 내용이 아니다. */
   .line { display:flex; align-items:baseline; gap:10px; padding:8px 12px; border:1px solid var(--ln);
@@ -352,13 +367,22 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
   const plus = inv.lines.filter((l) => !l.minus);
   const pages = paginate(inv.lines);
 
+  /**
+   * 한글 상호를 «낱자»로 쪼갠다 — flex 가 고르게 나눠 준다.
+   * 낱말이 바뀌는 첫 자에만 `w` 를 붙여 앞에 한 칸을 준다.
+   */
+  const koLock = CORP.name
+    .split(/\s+/)
+    .map((word, wi) => [...word].map((ch, ci) => `<i${wi && !ci ? ' class="w"' : ''}>${esc(ch)}</i>`).join(''))
+    .join('');
+
   const head = (page: number) => `
   <div class="hd">
     <div class="bl">
       <div class="mk">${MARK}</div>
       <div class="wm">
         <div class="co"><b>${esc(CORP.markMain)}</b><i>${esc(CORP.markSub)}</i></div>
-        <div class="ko">${esc(CORP.name.replace(/\s+/g, ''))}</div>
+        <div class="ko">${koLock}</div>
       </div>
     </div>
     <div class="mt">
@@ -369,19 +393,17 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
 `;
 
   /**
-   * 꼬리 — **회사 · 담당 · 계좌를 한 곳에.** 사장님 2026-08-27
-   *   「우리 회사 정보에 담당자 안내랑 이메일 같은거 넣으면 계좌 정보도 넣으면 되잖아」.
-   *   ⇒ 본문에 계좌 칸을 따로 두지 않는다. 어차피 «우리 정보»라 여기가 제자리다.
-   * ⚠ 지급명세서면 계좌가 «상대» 것이라 여기 두면 안 된다 — 그때만 본문에 세운다.
+   * 꼬리 — **회사 정보만.** 사장님 2026-08-27 「하단은 그냥 회사 정보인거고」.
+   *   계좌·담당·연락처는 «이 건을 처리할 때 쓰는 정보»라 본문 섹션(입금·문의)에 있다.
+   *   여기는 «누가 발행했나» — 상호·사업자번호·대표·주소. 쓰임이 다르니 자리도 다르다.
+   * ⚠ 지급명세서면 본문 계좌가 «상대» 것이다. 꼬리(우리 정보)와 섞지 않는다.
    */
   const foot = (page: number) => `
   <div class="ft">
     <div>
-      <span class="nm">${esc(CORP.name)}</span>  사업자등록번호 ${esc(CORP.bizNo)}  ·  대표 ${esc(CORP.ceo)}<br>
-      <span class="k">주소</span>${esc(CORP.addr)}<br>
-      <span class="k">담당</span>${esc(CORP.ceo)}  ${esc(CORP.phone)}  ${esc(CORP.email)}${
-    claim ? `<br><span class="k">입금계좌</span><b>${shown(accText)}</b>` : ''
-  }
+      <span class="nm">${esc(CORP.name)}</span>  사업자등록번호 <b>${esc(CORP.bizNo)}</b>  ·  대표 <b>${esc(CORP.ceo)}</b><br>
+      ${esc(CORP.addr)}<br>
+      본 정산서는 정산원장을 기준으로 산출되었으며 세금계산서를 대신하지 않습니다.
     </div>
     <div class="pg">${pages.length > 1 ? `${page + 1} / ${pages.length}` : ''}</div>
   </div>`;
@@ -453,13 +475,27 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
    * ★방향에 따라 우리 계좌 / 상대 계좌로 뒤집힌다.
    */
   const payKv = `
+  <div class="sec">
+    <div class="sec-h">${ico('계좌')}${claim ? '입금 · 문의' : '지급 · 문의'}<span class="muted">${
+      claim ? '아래 계좌로 입금해 주시기 바랍니다' : '아래 계좌로 입금해 드립니다'
+    }</span></div>
+    <table class="stab txt">
+      <thead><tr>
+        <th style="width:38%">${claim ? '입금 계좌' : '지급 계좌'}</th>
+        <th style="width:14%">담당</th><th style="width:22%">연락처</th><th>이메일</th>
+      </tr></thead>
+      <tbody><tr>
+        <td class="mono">${shown(accText)}</td>
+        <td>${esc(CORP.staff)}</td>
+        <td class="mono">${esc(CORP.phone)}</td>
+        <td>${esc(CORP.email)}</td>
+      </tr></tbody>
+    </table>
+  </div>
   <div class="closing">
     ${claim ? '위와 같이 청구합니다' : '위와 같이 지급합니다'}
     <span>${esc(day(issued))}</span>
-  </div>
-  ${claim ? '' : `<div class="foot2">
-    <div><span class="k">지급 계좌</span>${shown(accText)}</div>
-  </div>`}`;
+  </div>`;
 
   /**
    * ★**안내 박스를 두지 않는다.** 사장님 2026-08-27 「하단에 이런표도 의미없어」.
