@@ -8,6 +8,8 @@ import { ENCAR_MASTER_SHEET_ID, assertNotLiveVehicleMasterWrite } from './legacy
 
 export { ENCAR_MASTER_SHEET_ID };
 export const ENCAR_MASTER_TAB = '차종마스터';
+export const ENCAR_SPEC_TAB = '제원마스터';
+export const ENCAR_BATTERY_TAB = '전기차배터리마스터';
 export const ENCAR_MASTER_URL = `https://docs.google.com/spreadsheets/d/${ENCAR_MASTER_SHEET_ID}/edit`;
 /** 공급사 사본 탭 A1 에 넣는 연동 수식. 원본이 바뀌면 같이 바뀐다. */
 export const ENCAR_MASTER_IMPORT_FORMULA = `=IMPORTRANGE("${ENCAR_MASTER_URL}","${ENCAR_MASTER_TAB}!A:AB")`;

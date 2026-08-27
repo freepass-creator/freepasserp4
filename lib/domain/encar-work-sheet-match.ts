@@ -35,26 +35,111 @@ function reportsDir(): string {
   throw new Error('엔카 작업 시트 json 없음 (vehicle_name_master.json)');
 }
 
+function hdrIndex(hdr: string[], ...cands: string[]): number {
+  const n = (s: string) => s.replace(/\s+/g, '').toLowerCase();
+  const folded = hdr.map(n);
+  for (const c of cands) {
+    const i = folded.indexOf(n(c));
+    if (i >= 0) return i;
+  }
+  return -1;
+}
+
+function looksLikeNameHeader(row: string[]): boolean {
+  const f = row.map((c) => c.replace(/\s+/g, ''));
+  return f.includes('제조사') && f.includes('모델') && f.includes('세부모델');
+}
+
+function looksLikeYearMonth(v: string): boolean {
+  return /^(?:\d{4}-\d{2}|현재|보류)$/.test(S(v));
+}
+
+/** 구글 시트(머리글) · 로컬 json(열 차례 두 가지) 모두. 생산시작·종료는 매칭에 안 쓴다. */
+export function workBookFromTabs(input: {
+  names: unknown[][];
+  specs: unknown[][];
+  batteries: unknown[][];
+}): WorkBook {
+  const namesGrid = (input.names || []).map((r) => (r || []).map(S));
+  const specGrid = (input.specs || []).map((r) => (r || []).map(S));
+  const batGrid = (input.batteries || []).map((r) => (r || []).map(S));
+  if (!namesGrid.length) throw new Error('차종마스터 비어 있음');
+
+  let nameStart = 0;
+  let originI = 0, makerI = 1, modelI = 2, subI = 3, trimI = 4;
+  if (looksLikeNameHeader(namesGrid[0])) {
+    const hdr = namesGrid[0];
+    originI = hdrIndex(hdr, '원산지');
+    makerI = hdrIndex(hdr, '제조사');
+    modelI = hdrIndex(hdr, '모델');
+    subI = hdrIndex(hdr, '세부모델');
+    trimI = hdrIndex(hdr, '세부트림');
+    if (makerI < 0 || modelI < 0 || subI < 0 || trimI < 0) {
+      throw new Error(`차종마스터 헤더가 다름: ${hdr.join('|')}`);
+    }
+    nameStart = 1;
+  } else {
+    const sample = namesGrid.find((r) => S(r[4]));
+    if (sample && looksLikeYearMonth(sample[4])) trimI = 6;
+  }
+
+  const names: NameRow[] = namesGrid.slice(nameStart).map((r) => ({
+    origin: S(r[originI]), maker: S(r[makerI]), model: S(r[modelI]), sub: S(r[subI]), trim: S(r[trimI]),
+  })).filter((r) => r.maker && r.model);
+  if (names.length < 50) throw new Error(`차종마스터 행이 너무 적음 (${names.length})`);
+
+  let specStart = 0;
+  let kindI = 0, valI = 1;
+  if (specGrid.length && hdrIndex(specGrid[0], '구분') >= 0) {
+    kindI = hdrIndex(specGrid[0], '구분');
+    valI = hdrIndex(specGrid[0], '값');
+    if (valI < 0) throw new Error(`제원마스터 헤더가 다름: ${specGrid[0].join('|')}`);
+    specStart = 1;
+  }
+  const fuels = new Set<string>();
+  const ccs = new Set<number>();
+  const drives = new Set<string>();
+  for (const r of specGrid.slice(specStart)) {
+    const kind = S(r[kindI]);
+    const val = S(r[valI]);
+    if (kind === '연료') fuels.add(val);
+    else if (kind === '배기량(cc)' || kind === '배기량') {
+      const n = Number(val);
+      if (n >= 800) ccs.add(n);
+    } else if (kind === '구동방식') drives.add(val);
+  }
+
+  let batStart = 0;
+  let bMaker = 0, bModel = 1, bSub = 2, bKwh = 3, bNote = 4;
+  if (batGrid.length && hdrIndex(batGrid[0], '제조사') >= 0 && hdrIndex(batGrid[0], '세부모델') >= 0) {
+    const hdr = batGrid[0];
+    bMaker = hdrIndex(hdr, '제조사');
+    bModel = hdrIndex(hdr, '모델');
+    bSub = hdrIndex(hdr, '세부모델');
+    bKwh = hdrIndex(hdr, '배터리(kWh)', '배터리용량(kWh)', '배터리용량', 'kWh');
+    bNote = hdrIndex(hdr, '비고');
+    if (bMaker < 0 || bModel < 0 || bSub < 0 || bKwh < 0) {
+      throw new Error(`전기차배터리마스터 헤더가 다름: ${hdr.join('|')}`);
+    }
+    batStart = 1;
+  }
+  const batteries: BatteryRow[] = batGrid.slice(batStart).map((r) => ({
+    maker: S(r[bMaker]), model: S(r[bModel]), sub: S(r[bSub]), kwh: S(r[bKwh]), note: bNote >= 0 ? S(r[bNote]) : '',
+  })).filter((r) => r.maker && r.kwh);
+
+  return { names, fuels, ccs, drives, batteries };
+}
+
 export function loadEncarWorkBook(): WorkBook {
   const dir = reportsDir();
   const namesJson = JSON.parse(readFileSync(`${dir}/vehicle_name_master.json`, 'utf8')) as { values: string[][] };
   const specJson = JSON.parse(readFileSync(`${dir}/spec_value_master.json`, 'utf8')) as { values: (string | number)[][] };
   const batJson = JSON.parse(readFileSync(`${dir}/ev_battery_master.json`, 'utf8')) as { values: string[][] };
-  const names: NameRow[] = (namesJson.values || []).map((r) => ({
-    origin: S(r[0]), maker: S(r[1]), model: S(r[2]), sub: S(r[3]), trim: S(r[4]),
-  })).filter((r) => r.maker && r.model);
-  const fuels = new Set<string>();
-  const ccs = new Set<number>();
-  const drives = new Set<string>();
-  for (const [kind, val] of specJson.values || []) {
-    if (kind === '연료') fuels.add(S(val));
-    else if (kind === '배기량(cc)') { const n = Number(val); if (n >= 800) ccs.add(n); }
-    else if (kind === '구동방식') drives.add(S(val));
-  }
-  const batteries: BatteryRow[] = (batJson.values || []).map((r) => ({
-    maker: S(r[0]), model: S(r[1]), sub: S(r[2]), kwh: S(r[3]), note: S(r[4]),
-  }));
-  return { names, fuels, ccs, drives, batteries };
+  return workBookFromTabs({
+    names: namesJson.values || [],
+    specs: specJson.values || [],
+    batteries: batJson.values || [],
+  });
 }
 
 export function fold(v: unknown): string {
