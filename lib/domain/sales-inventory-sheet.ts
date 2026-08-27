@@ -328,7 +328,9 @@ export function importSalesInventoryWorkbook(input: {
     pendingOccurrences.set('RP012', pendingOccurrence);
     const rp012Opts = {
       providerCode: 'RP012',
-      entries: [],
+      // `as const` 가 빈 배열을 readonly 로 굳혀 importSheetTable 의 MasterEntry[] 에 안 들어간다.
+      // 명시 단언으로 가변 배열임을 못 박는다(차종마스터는 이 경로에서 쓰지 않는다 — 정제행이 정본).
+      entries: [] as MasterEntry[],
       authoritativeRefinedRows: true,
       plateAllocator: allocator,
       pendingOccurrence,

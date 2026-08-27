@@ -674,7 +674,15 @@ export function agentContractRows(p: EntityRecord, audience: Audience = 'agent')
   const pol = policyOf(p);
   const rec = p as Record<string, unknown>;
   const s = (k: string) => { const v = pol[k] ?? rec[k]; return v == null ? '' : String(v); };
-  const g = (a: unknown[]) => a.filter(Boolean).join(' · ');
+  /**
+   * 조각을 이어 붙인다 — **같은 값은 한 번만**.
+   *
+   * 예전엔 중복을 안 걸러서 한 칸에 같은 글자가 두 번 찍혔다(실측 2026-08-07):
+   *   상품 = RP014_188호3065 · RP014_188호3065   (product_code 와 _key 가 같은 값)
+   *   정책 = 무심사 · 무심사                      (policy_name 과 policy_type 이 같은 말)
+   * 두 칸을 이어 붙이는 자리는 «둘이 다를 수도 있다»는 뜻이지 «둘 다 찍는다»는 뜻이 아니다.
+   */
+  const g = (a: unknown[]) => [...new Set(a.filter(Boolean).map((x) => String(x).trim()).filter(Boolean))].join(' · ');
   // 제출서류 = 시트 체크 6 + 기타. 「무슨 서류 필요해요?」에 영업자가 바로 답해야 한다.
   const docs = policyEsignRequiredDocuments(pol).map((d) => d.label).join(' · ');
   /**
@@ -749,7 +757,15 @@ export function agentPanelRows(p: EntityRecord, audience: Audience = 'agent'): K
   const rec = p as Record<string, unknown>;
   const pv = (k: string) => { const v = rec[k]; return v == null ? '' : String(v); };
   const s = (k: string) => { const v = pol[k] ?? rec[k]; return v == null ? '' : String(v); };
-  const g = (a: unknown[]) => a.filter(Boolean).join(' · ');
+  /**
+   * 조각을 이어 붙인다 — **같은 값은 한 번만**.
+   *
+   * 예전엔 중복을 안 걸러서 한 칸에 같은 글자가 두 번 찍혔다(실측 2026-08-07):
+   *   상품 = RP014_188호3065 · RP014_188호3065   (product_code 와 _key 가 같은 값)
+   *   정책 = 무심사 · 무심사                      (policy_name 과 policy_type 이 같은 말)
+   * 두 칸을 이어 붙이는 자리는 «둘이 다를 수도 있다»는 뜻이지 «둘 다 찍는다»는 뜻이 아니다.
+   */
+  const g = (a: unknown[]) => [...new Set(a.filter(Boolean).map((x) => String(x).trim()).filter(Boolean))].join(' · ');
   const raw = (k: string) => pol[k] ?? rec[k];
   /**
    * 정액·정률 겸용 칸이라 **그대로 찍으면 안 된다** — 같은 뜻이 「30%」·「0.3」·「200원」·200 으로 섞여 들어온다.
@@ -802,7 +818,15 @@ export function detailSections(p: EntityRecord, audience: Audience = 'agent'): D
   const pv = (k: string) => { const v = rec[k]; return v == null ? '' : String(v); };
   const s = (k: string) => { const v = pol[k] ?? rec[k]; return v == null ? '' : String(v); }; // 정책 우선 → 매물 폴백
 
-  const g = (a: unknown[]) => a.filter(Boolean).join(' · ');
+  /**
+   * 조각을 이어 붙인다 — **같은 값은 한 번만**.
+   *
+   * 예전엔 중복을 안 걸러서 한 칸에 같은 글자가 두 번 찍혔다(실측 2026-08-07):
+   *   상품 = RP014_188호3065 · RP014_188호3065   (product_code 와 _key 가 같은 값)
+   *   정책 = 무심사 · 무심사                      (policy_name 과 policy_type 이 같은 말)
+   * 두 칸을 이어 붙이는 자리는 «둘이 다를 수도 있다»는 뜻이지 «둘 다 찍는다»는 뜻이 아니다.
+   */
+  const g = (a: unknown[]) => [...new Set(a.filter(Boolean).map((x) => String(x).trim()).filter(Boolean))].join(' · ');
   // 묶음 슬롯 = 빠진 칸도 `-`로 자리 유지(동력·분류처럼 같이 쓰는 축).
   const gSlots = (parts: (string | number | false | null | undefined)[]) =>
     parts.map((x) => (x != null && x !== '' && x !== false ? String(x) : '미입력')).join(' · ');
