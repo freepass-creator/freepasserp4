@@ -1,0 +1,49 @@
+# ★ Vercel 업로드 제외 — .vercelignore 가 없으면 Vercel 은 .gitignore 를 무시하고 폴더를
+#   통째로 올린다(tmp 15,451개로 15,000개 한도 초과 + .env·PII 덤프까지 올라감 2026-08-28).
+#   그래서 .gitignore 와 «같은» 제외 규칙을 여기 둔다. 앱 빌드는 이 중 무엇도 필요로 하지 않는다
+#   (.next 는 Vercel 이 원격에서 다시 빌드, 런타임 데이터는 RTDB).
+/node_modules
+/.next
+/.next-verify
+/.next-*
+/out
+/build
+next-env.d.ts
+*.tsbuildinfo
+.env
+.env.local
+.env*.local
+.DS_Store
+npm-debug.log*
+
+.vercel
+.env*
+/tmp/
+tmp/
+
+# 운영 RTDB 덤프(PII) — 배포물에 절대 포함 금지
+/backup.json
+/backup-*.json
+/companies.json
+/partners.json
+/hn.json
+/*-rtdb-*.json
+
+# 로컬 AI/배포 검증 작업공간과 생성물
+/.codex/
+/.codex-deploy-*/
+/output/
+
+# 원본 계약자료·차량 마스터 수동 백업
+/계약서양식/
+/public/data/*.bak*
+
+# Firebase Rules 후보·에뮬레이터 생성물
+/scripts/ruleprobe/release-candidate.rules.json
+/scripts/ruleprobe/firebase-debug.log
+*-debug.log
+firebase.current-local.json
+scripts/ruleprobe/firebase.current-local.json
+
+# 파이썬 캐시
+__pycache__/
