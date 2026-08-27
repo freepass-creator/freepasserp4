@@ -480,8 +480,17 @@ html[data-fp-filter="0"] .fp-finder > .fp-sidebar { display: none; }
 }
 .fp-sidebar-head { background: var(--bg-card); padding-right: var(--fp-bar-pad-x); }
 .fp-finder-toolbar,
-.fp-page-toolbar { background: var(--bg-page); min-width: 0; }
-/* 검색창 바깥은 무색(사장님 2026-08-22 「검색창 외부에도 색깔은 없지? 회색으로 돼 있는데」) — 모바일 툴바도 웹(--primary)과 같은 흰 바탕. */
+/*
+ * 검색창 바깥은 무색 — 흰 바탕이다.
+ *   사장님 2026-08-22 「검색창 외부에도 색깔은 없지? 회색으로 돼 있는데」
+ *   사장님 2026-08-28 「검색창 주변 회색으로 되어 있는데」  ← 같은 말을 두 번 하시게 했다.
+ *
+ * ⚠ 08-22 에 고칠 때 **웹 툴바(.fp-finder-toolbar)만 흰색으로 바꾸고 모바일 툴바
+ *   (.fp-page-toolbar)는 --bg-page(#eaedf2 = 회색) 그대로 뒀다.** 그래서 웹에서는 고쳐진 것처럼
+ *   보이고 모바일에서만 회색이 남아 같은 지적이 다시 왔다.
+ *   둘은 «같은 자리»다 — 한쪽만 고치면 반드시 되돌아온다. 바꿀 때는 두 줄을 같이 본다.
+ */
+.fp-page-toolbar { background: var(--bg-card); min-width: 0; }
 .fp-finder-toolbar { background: var(--bg-card); }
 .fp-sidebar-body,
 .fp-finder-body {
@@ -1097,8 +1106,14 @@ button, a, [role="button"], .fp-press, .fp-chip {
      manipulation = 일반 스크롤·핀치줌은 유지(접근성). 연타 토글(간단/상세/엑셀) 줌 유발 차단. */
   touch-action: manipulation;
 }
-/* (2026-08-21 사장님 「모바일 얼룩무늬」 — 목록 지브라 제거. 행 경계는 하단선 하나로 충분하다. 되살리려면 아래 주석 해제)
-.fp-card.fp-card-row:nth-child(even) { background: var(--bg-stripe); } */
+/*
+ * ★**목록 얼룩무늬(지브라)는 있어야 한다** — 사장님 2026-08-28 「목록이 구분되라고 얼룩무늬를 넣었고」.
+ *
+ * ⚠ 2026-08-21 에 사장님 말씀 「모바일 얼룩무늬」를 **«빼 달라»로 잘못 읽고 이 줄을 주석 처리**했다.
+ *   넣어 달라는 말이었다. 행 경계를 하단선 하나로 줄였더니 긴 목록에서 줄이 구분되지 않는다.
+ *   되살린다 — 지우려면 사장님께 다시 확인하고 이 주석을 고친다.
+ */
+.fp-card.fp-card-row:nth-child(even) { background: var(--bg-stripe); }
 @media (hover: hover) {
   /* 목록 행 호버 — 커서 위치 표시(배경). 선택·등록 중 행은 그 불을 유지한다. */
   .fp-card.fp-card-row:hover {

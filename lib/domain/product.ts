@@ -595,7 +595,7 @@ export function hasMinimumListingFields(p: EntityRecord): boolean {
 /**
  * **목록에 실을 수 있는 상품** — 상품찾기·카탈로그·최근·관심.
  *
- * = 재고 전체매물 − 출고불가(·삭제). 차번·대여료 없어도 목록에 올린다(2026-08-07 사장님).
+ * = 재고 전체매물 − 출고불가(·삭제). 차번·대여료 없어도 목록에 올린다(2026-08-28 사장님).
  * 차종 검수 대기(`_needs_master_review`)도 빼지 않는다 — 미확정은 «표시»로 알린다.
  *
  * ★단건(공유 링크 `/q`, 상세 `/m`)은 `isOfferableProduct` 가 따로 판단한다 —
@@ -677,7 +677,7 @@ export function agentContractRows(p: EntityRecord, audience: Audience = 'agent')
   /**
    * 조각을 이어 붙인다 — **같은 값은 한 번만**.
    *
-   * 예전엔 중복을 안 걸러서 한 칸에 같은 글자가 두 번 찍혔다(실측 2026-08-07):
+   * 예전엔 중복을 안 걸러서 한 칸에 같은 글자가 두 번 찍혔다(실측 2026-08-28):
    *   상품 = RP014_188호3065 · RP014_188호3065   (product_code 와 _key 가 같은 값)
    *   정책 = 무심사 · 무심사                      (policy_name 과 policy_type 이 같은 말)
    * 두 칸을 이어 붙이는 자리는 «둘이 다를 수도 있다»는 뜻이지 «둘 다 찍는다»는 뜻이 아니다.
@@ -760,7 +760,7 @@ export function agentPanelRows(p: EntityRecord, audience: Audience = 'agent'): K
   /**
    * 조각을 이어 붙인다 — **같은 값은 한 번만**.
    *
-   * 예전엔 중복을 안 걸러서 한 칸에 같은 글자가 두 번 찍혔다(실측 2026-08-07):
+   * 예전엔 중복을 안 걸러서 한 칸에 같은 글자가 두 번 찍혔다(실측 2026-08-28):
    *   상품 = RP014_188호3065 · RP014_188호3065   (product_code 와 _key 가 같은 값)
    *   정책 = 무심사 · 무심사                      (policy_name 과 policy_type 이 같은 말)
    * 두 칸을 이어 붙이는 자리는 «둘이 다를 수도 있다»는 뜻이지 «둘 다 찍는다»는 뜻이 아니다.
@@ -821,7 +821,7 @@ export function detailSections(p: EntityRecord, audience: Audience = 'agent'): D
   /**
    * 조각을 이어 붙인다 — **같은 값은 한 번만**.
    *
-   * 예전엔 중복을 안 걸러서 한 칸에 같은 글자가 두 번 찍혔다(실측 2026-08-07):
+   * 예전엔 중복을 안 걸러서 한 칸에 같은 글자가 두 번 찍혔다(실측 2026-08-28):
    *   상품 = RP014_188호3065 · RP014_188호3065   (product_code 와 _key 가 같은 값)
    *   정책 = 무심사 · 무심사                      (policy_name 과 policy_type 이 같은 말)
    * 두 칸을 이어 붙이는 자리는 «둘이 다를 수도 있다»는 뜻이지 «둘 다 찍는다»는 뜻이 아니다.
@@ -1026,7 +1026,7 @@ export function detailSections(p: EntityRecord, audience: Audience = 'agent'): D
       ['차령 · 차대', g([pv('vehicle_age_expiry_date') && `만료 ${ymdDisplay(pv('vehicle_age_expiry_date'))}`, pv('vin')])],
       ['등록증', g([pv('transmission'), pv('cert_car_name'), pv('type_number'), pv('engine_type')])],
       /**
-       * ★**「상품」 줄은 없앴다**(사장님 2026-08-07 「상품 중복됐던 건 아예 정보가 없어도 되지 ·
+       * ★**「상품」 줄은 없앴다**(사장님 2026-08-28 「상품 중복됐던 건 아예 정보가 없어도 되지 ·
        *   위에 차량번호 같은 거 다 있는데」). product_code 는 대부분 `RP014_188호3065` 처럼
        *   **공급사코드 + 차량번호를 붙인 것**이라, 위 차량스펙의 「차량번호」와 같은 말을 두 번 한다.
        *   기계가 매물을 세는 열쇠지 사람이 읽는 값이 아니다 — 진단이 필요하면 URL·개발도구에 있다.

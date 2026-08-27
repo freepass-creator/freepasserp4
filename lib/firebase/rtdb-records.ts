@@ -70,7 +70,7 @@ export function toV4Record(entity: string, childKey: string, record: RtdbRecord,
       const code = String(record.product_code || childKey);
       const linkedPolicy = record._policy || (record.policy_code && joinMap ? (joinMap[record.policy_code as string] as unknown) : undefined);
       /**
-       * ★**정책이 안 붙었으면 채우지 않는다**(사장님 2026-08-07 「없으면 없다 · 미입력이면
+       * ★**정책이 안 붙었으면 채우지 않는다**(사장님 2026-08-28 「없으면 없다 · 미입력이면
        *   미입력이다 · 차라리 대여료만 맞게 보여주는 게 낫지」).
        *
        * 전에는 미연결 상품도 `applyPolicyDefaults({})` 로 프리패스 표준을 통째로 얹었다.

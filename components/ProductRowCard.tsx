@@ -154,7 +154,11 @@ function MobileRow({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) 
   return (
     /* 가로라인 구분(사장님 2026-08-22 「가로라인 구분이 무난, 제일 넓게 쓰는 방법」 — 박스형은 하루 써 보고 회귀).
        테두리·모서리·그림자 없이 하단 hairline 하나가 경계다 — 한 화면에 한두 줄 더 들어온다. */
-    <div className="fp-card fp-card-row" style={{ position: 'relative', borderBottom: `1px solid ${C.line}`, background: C.taupeBg }}>
+    /* ⚠ 배경을 인라인으로 칠하지 않는다 — 인라인은 클래스를 이기므로 목록 얼룩무늬(지브라)가
+         통째로 안 보인다(2026-08-28 실측: 08-21 에 지브라를 주석 처리하고 08-23 에 이 인라인
+         흰 배경이 들어와, 두 겹으로 줄 구분이 사라져 있었다).
+         기본 흰 바탕은 `.fp-card` 가, 짝수 줄 얼룩은 `.fp-card-row:nth-child(even)` 이 든다. */
+    <div className="fp-card fp-card-row" style={{ position: 'relative', borderBottom: `1px solid ${C.line}` }}>
       <Link href={href} onClick={() => haptic.nav()} style={linkedContentStyle}>
         {/* 목록(웹·모바일) = 찜 없음. 관심 등록은 상품 상세에서만. */}
         <CardThumb p={p} w={56} marks={false} />
