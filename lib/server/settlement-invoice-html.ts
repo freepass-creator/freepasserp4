@@ -324,10 +324,13 @@ export const INVOICE_CSS = `
   .titlerow .tr .k { font-size:10px; color:var(--faint); font-weight:600; letter-spacing:2px; }
   .titlerow .tr .nm { margin-top:5px; font-size:19px; font-weight:700; letter-spacing:-.6px; color:var(--ink);
     line-height:1.2; }
-  /* 회원사 로고 — 상호 «앞»에 나란히. 글자 높이에 맞춰 눕힌다.
+  /* 회원사 로고 — **신원 줄 앞**에 선다(사장님 2026-08-27
+     「주식회사 손오공렌터카 아래 사업자등록번호 있는 여기 앞에 CI 넣어주면 좋잖아」).
+     ★상호 앞이 아니라 여기가 맞다 — 상호는 19px 굵은 글씨라 이미 제 몫을 한다.
+       거기에 그림까지 붙이면 둘이 싸운다. 아래 줄은 옅어서 그림이 «신원 표»처럼 읽힌다.
      ⚠ 크게 키우지 마라. 이 종이의 주인은 우리 CI 고, 이건 «받는 쪽 표시»다. */
-  .titlerow .tr .plogo { height:22px; max-width:96px; object-fit:contain; object-position:right center;
-    vertical-align:-4px; margin-right:9px; }
+  .titlerow .tr .plogo { height:16px; max-width:84px; object-fit:contain; object-position:right center;
+    vertical-align:-3px; margin-right:9px; }
   .titlerow .tr .nm span { margin-left:8px; font-size:12px; font-weight:600; color:var(--mut); letter-spacing:0; }
   .titlerow .tr .id { margin-top:5px; font-size:10.5px; color:var(--faint); }
   .titlerow .tr .id b { color:var(--mut); font-weight:600; font-variant-numeric:tabular-nums; }
@@ -361,6 +364,8 @@ export const INVOICE_CSS = `
   .closing { margin-top:var(--sec-lg); font-size:11.5px; font-weight:700; color:var(--tl-d);
     display:flex; justify-content:space-between; align-items:baseline; }
   .closing span { color:var(--faint); font-weight:500; font-size:10.5px; }
+  /* 인사 한 줄 — 맺음말 «위». 옅게 둔다. 이 종이의 본론은 위의 숫자다. */
+  .closing .thx { font-size:11px; font-weight:500; color:var(--mut); margin-bottom:4px; }
   .pad { padding-top:var(--sec-lg); }
 
   /* ★칸은 «쪼개지지 않는다» — 소제목만 앞 장에 남고 표가 뒷장으로 넘어가면 못 읽는다.
@@ -567,8 +572,8 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
            「청구회사를 좀 정중하게」 · 2026-08-27 「위계를 잘줘서 멋있게」.
            ⚠ 로고는 안 넣는다. 파일도 없고, 남의 상표를 우리 청구서에 얹는 건 별개 문제다.
              우리가 모은 CI 는 «문자로 된 신원» — 정식 상호·사업자번호·대표다. -->
-      <div class="nm">${logoImg(inv.party)}${shown(inv.receiver.name)}<span>귀중</span></div>
-      <div class="id">사업자등록번호 <b>${
+      <div class="nm">${shown(inv.receiver.name)}<span>귀중</span></div>
+      <div class="id">${logoImg(inv.party)}사업자등록번호 <b>${
     inv.receiver.bizNo ? esc(inv.receiver.bizNo) : miss
   }</b>${S(inv.receiver.ceo) ? `　대표 <b>${esc(inv.receiver.ceo)}</b>` : ''}</div>
     </div>
@@ -657,7 +662,15 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
     </table>
   </div>
   <div class="closing">
-    ${claim ? '위와 같이 청구합니다' : '위와 같이 지급합니다'}
+    <div>
+      <!-- ★한 달 치를 한 장으로 맺는 종이다. 숫자만 던지고 끝내지 않는다
+           (사장님 2026-08-27 「월정산이니까 이번 한달도 감사드립니다 이런거」).
+           ⚠ 길게 늘이지 마라. 한 줄이면 인사고, 세 줄이면 광고다. -->
+      <div class="thx">${
+    claim ? '이번 한 달도 함께해 주셔서 감사합니다.' : '이번 한 달도 애써 주셔서 감사합니다.'
+  }</div>
+      ${claim ? '위와 같이 청구합니다' : '위와 같이 지급합니다'}
+    </div>
     <span>${esc(day(issued))}</span>
   </div>`;
 
