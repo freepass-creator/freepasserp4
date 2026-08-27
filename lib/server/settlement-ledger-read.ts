@@ -83,6 +83,7 @@ export async function sheetsToken(): Promise<string> {
  */
 export type LedgerExtra = {
   phone: string; clawbackReason: string;
+  supplierCode: string;
   channel: string; channelCode: string;
   contractNo: string; note: string;
 };
@@ -126,6 +127,7 @@ export async function readLedger(token: string): Promise<{ row: SettlementRow; t
           phone: S(r[at('고객연락처')]), clawbackReason: S(r[at('환수사유')]),
           // ⚠ 시트에는 코드 칸이 «아직 없다» — 있으면 읽고 없으면 빈칸이다.
           //   비어도 관문은 이름으로 붙는다. 정본(ERP)에는 백필로 채워 둔다.
+          supplierCode: S(r[at('공급사코드')]),
           channel: S(r[at('영업채널')]), channelCode: S(r[at('영업채널코드')]),
           contractNo: S(r[at('계약번호')]), note: S(r[at('비고')]),
         },

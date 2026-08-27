@@ -17,6 +17,7 @@ import { iso } from '@/lib/server/settlement-ledger-read';
 import { listRows, storeError } from '@/lib/server/settlement-store';
 import { billingMonth } from '@/lib/domain/settlement-stage';
 import { nameKey } from '@/lib/domain/settlement-view';
+import { partnerRefsOf, partyCodeOf } from '@/lib/domain/partner-code';
 import { EMPTY_PARTY, buildInvoice, type InvoiceParty } from '@/lib/domain/settlement-invoice';
 import { driftOf, invoiceKey, nextInvoiceNo, type IssuedInvoice } from '@/lib/domain/settlement-invoice-code';
 import { invoiceDocHtml, invoicePageHtml } from '@/lib/server/settlement-invoice-html';
@@ -97,15 +98,6 @@ export async function GET(req: Request) {
    */
   const read = await listRows();
   if (!read) return NextResponse.json({ ok: false, reason: storeError() || '원장을 못 읽었습니다.' }, { status: 503 });
-  const key = nameKey(party);
-  const isParty = (x: (typeof read)[number]) =>
-    nameKey(axis === '공급사' ? x.row.supplier : x.extra.channel) === key;
-
-  // 청구 줄 — 그 달에 «청구가 서는» 것만. 취소는 빠진다.
-  const rows = read.filter((x) => isParty(x) && !x.row.cancelled && billingMonth(x.row) === month);
-  // 환수 줄 — 환수일이 «그 달»에 든 것만. 청구를 고치지 않고 마이너스로 새로 선다.
-  const clawbacks = read.filter((x) => isParty(x) && x.row.clawback && x.row.clawbackAt
-    && iso(x.row.clawbackAt).slice(0, 7) === month);
 
   const db = getDatabase(firebaseAdminApp());
   const [issuerSnap, allSnap, allV4Snap] = await Promise.all([
@@ -113,13 +105,55 @@ export async function GET(req: Request) {
     db.ref('partners').get().catch(() => null),
     db.ref('v4/partners').get().catch(() => null),
   ]);
-  const registry = { ...((allV4Snap?.val() || {}) as Record<string, unknown>), ...((allSnap?.val() || {}) as Record<string, unknown>) };
-  // 상대 찾기 — 원장 이름이 줄여 적혀 있어 «앞머리가 유일할 때만» 붙인다(scopeRows 와 같은 규칙).
+  const base = (allSnap?.val() || {}) as Record<string, unknown>;
+  const over = (allV4Snap?.val() || {}) as Record<string, unknown>;
+
+  /**
+   * ★★**이 청구서가 «누구 것인지»를 코드로 고른다** (사장님 2026-08-27 「공급사랑 제대로 맞추고」).
+   *
+   *   `party` 로 오는 것은 원장에 적힌 이름이다. 그 이름의 코드를 한 번 구해 두고,
+   *   줄 고르기도 상대 찾기도 «그 코드»로 한다. 코드를 모르면 예전처럼 이름으로 간다.
+   * ⚠ 명부는 축으로 먼저 거른다 — 안 거르면 원장 채널 「퍼시픽」이
+   *   «공급사» RP022 퍼시픽에 붙는다(실측 2026-08-27).
+   */
+  const refs = partnerRefsOf(base, over, axis);
+  const key = nameKey(party);
+  const partyCode = partyCodeOf(party, axis, refs).code;
+  const codeOf = (x: (typeof read)[number]) => S(axis === '공급사' ? x.extra.supplierCode : x.extra.channelCode);
+  const nameOf = (x: (typeof read)[number]) => (axis === '공급사' ? x.row.supplier : x.extra.channel);
+  /**
+   * ★코드가 양쪽에 다 있으면 코드로, 아니면 이름으로.
+   * ⚠ 코드가 있는 청구서에 «코드 없는 줄»을 이름으로 끌어오지 않는다 —
+   *   백필이 덜 된 줄이 조용히 섞이면 청구서가 이 달만 슬쩍 커진다.
+   *   덜 채운 줄은 그 이름으로 «따로» 서고, 표에 보인다. 그게 낫다.
+   */
+  const isParty = (x: (typeof read)[number]) => (partyCode
+    ? codeOf(x) === partyCode
+    : !codeOf(x) && nameKey(nameOf(x)) === key);
+
+  // 청구 줄 — 그 달에 «청구가 서는» 것만. 취소는 빠진다.
+  const rows = read.filter((x) => isParty(x) && !x.row.cancelled && billingMonth(x.row) === month);
+  // 환수 줄 — 환수일이 «그 달»에 든 것만. 청구를 고치지 않고 마이너스로 새로 선다.
+  const clawbacks = read.filter((x) => isParty(x) && x.row.clawback && x.row.clawbackAt
+    && iso(x.row.clawbackAt).slice(0, 7) === month);
+
+  /**
+   * 상대 찾기 — **코드가 있으면 코드로.** 없을 때만 옛 규칙(앞머리가 유일할 때만).
+   * ★여기서 찾는 것이 종이에 박히는 상호·사업자등록번호·계좌다. 잘못 붙으면
+   *   «남의 회사 사업자번호가 찍힌 청구서»가 나간다 — 돈보다 신용이 깎인다.
+   */
+  const registry = { ...over, ...base };
+  const byCode = partyCode
+    ? Object.entries(registry).find(([k, v]) => k === partyCode
+      || S((v as Record<string, unknown>)?.partner_code) === partyCode)?.[1]
+    : undefined;
   const cands = Object.values(registry).filter((p) => {
     const k = nameKey(toParty(p).name);
     return !!k && (k === key || k.startsWith(key));
   });
-  const receiver = cands.length === 1 ? toParty(cands[0], party) : { ...EMPTY_PARTY, name: party };
+  const receiver = byCode ? toParty(byCode, party)
+    : cands.length === 1 ? toParty(cands[0], party)
+      : { ...EMPTY_PARTY, name: party };
 
   const invoice = buildInvoice({
     axis, month, party,

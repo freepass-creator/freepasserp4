@@ -73,7 +73,10 @@
     "audit:sales-erp-parity": "tsx --require ./scripts/lib/server-only-shim.cjs scripts/audit-sheet-erp-parity.mts",
     "rollback:sales-erp": "tsx --require ./scripts/lib/server-only-shim.cjs scripts/rollback-sheet-daily-sync-local.mts",
     "fix:refine-class": "tsx scripts/fix-refine-vehicle-class.mts",
-    "audit:passthrough": "tsx scripts/audit-passthrough.mts"
+    "audit:passthrough": "tsx scripts/audit-passthrough.mts",
+    "settlement:codes": "tsx scripts/backfill-party-code.mts",
+    "settlement:codes:apply": "tsx scripts/backfill-party-code.mts --apply",
+    "check:party-code": "tsx scripts/check-party-code.mts"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",

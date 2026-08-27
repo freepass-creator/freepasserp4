@@ -127,7 +127,7 @@ export async function GET(req: Request) {
   const extraOf = new Map(read.map((x) => [x.row, x.extra] as const));
   const mine = scopeRows(read.map((x) => x.row), viewer);
   const rows = who.role === 'admin'
-    ? mine.map((r) => adminRowOf(r, extraOf.get(r) || { phone: '', clawbackReason: '', channel: '', channelCode: '', contractNo: '', note: '' }))
+    ? mine.map((r) => adminRowOf(r, extraOf.get(r) || { phone: '', clawbackReason: '', supplierCode: '', channel: '', channelCode: '', contractNo: '', note: '' }))
     : mine.map((r) => publicRowOf(r));
 
   return NextResponse.json({

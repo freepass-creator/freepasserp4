@@ -30,6 +30,12 @@ export type SettlementRecord = {
   plate: string;
   model: string;
   supplier: string;
+  /**
+   * **공급사 코드.** 사장님 2026-08-27 「공급사랑 제대로 맞추고」.
+   * ★영업채널과 «같은 이유·같은 규칙»이다 — `lib/domain/partner-code.ts`.
+   * ⚠ 명부를 읽는 노드가 축마다 다르다. 공급사는 `partners`(v3, RP0xx)가 바탕이다.
+   */
+  supplierCode: string;
   channel: string;
   /**
    * **영업채널 코드.** 사장님 2026-08-27 「원장과 코드로 해야지」.
@@ -132,6 +138,7 @@ export function recordFromSheet(cell: (name: string) => string, opts?: { code?: 
     plate: S(cell('차량번호')),
     model: S(cell('모델명')),
     supplier: S(cell('공급사')),
+    supplierCode: S(cell('공급사코드')),
     channel: S(cell('영업채널')),
     // ★시트에는 코드 칸이 없다. 이름만 옮겨 담고 코드는 «명부를 아는 곳»에서 채운다
     //   (`scripts/backfill-channel-code.mts`). 여기서 짐작해 넣으면 시트가 정본인 척하게 된다.
@@ -189,7 +196,8 @@ export function normalizeRecord(r: Partial<SettlementRecord>): SettlementRecord 
   const now = Date.now();
   return {
     code: S(r.code) || newId('settlement'),
-    plate: S(r.plate), model: S(r.model), supplier: S(r.supplier),
+    plate: S(r.plate), model: S(r.model),
+    supplier: S(r.supplier), supplierCode: S(r.supplierCode),
     channel: S(r.channel), channelCode: S(r.channelCode),
     agent: S(r.agent), agentCode: S(r.agentCode), agentPhone: S(r.agentPhone),
     customer: S(r.customer), phone: S(r.phone),
