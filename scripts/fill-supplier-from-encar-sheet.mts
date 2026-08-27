@@ -11,6 +11,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { isLegacySheetId } from '../lib/domain/legacy-sheets';
+import { ENCAR_BATTERY_TAB, ENCAR_MASTER_SHEET_ID, ENCAR_MASTER_TAB, ENCAR_SPEC_TAB } from '../lib/domain/encar-master-sheet';
 import { isMirrorSheet } from '../lib/domain/mirror-sources';
 import { VEHICLE_CLASS_VALUES } from '../lib/intake/entities';
 import { isOurNonInventoryTab, LEGACY_SHEET_PREFIX, supplierSheetLabel, SHEET_NAME_MATCH } from '../lib/domain/supplier-template-sheet';
@@ -19,8 +20,8 @@ import {
   ENCAR_FILL_COLUMNS,
   attachFromEncarSheet,
   fold,
-  loadEncarWorkBook,
   selfCheckEncarMatch,
+  workBookFromTabs,
   type Attach,
   type EncarFillColumn,
 } from '../lib/domain/encar-work-sheet-match';
@@ -31,14 +32,6 @@ const APPLY = process.argv.includes('--apply');
 const SKIP_MIRROR = process.argv.includes('--no-mirror');
 const arg = (k: string, d = '') => (process.argv.find((a) => a.startsWith(`--${k}=`)) || '').slice(k.length + 3) || d;
 const ONLY = new Set(arg('who').split(/[,\s]+/).map(S).filter(Boolean));
-
-const book = loadEncarWorkBook();
-const checks = selfCheckEncarMatch(book);
-if (checks.length) {
-  console.error('⛔ 매처 자가검증 실패\n' + checks.map((x) => `  ${x}`).join('\n'));
-  process.exit(1);
-}
-console.log(`  엔카 작업 시트 차종 ${book.names.length}행 · 제원 연료 ${book.fuels.size} · cc ${book.ccs.size} · 구동 ${book.drives.size} · 배터리 ${book.batteries.length} · 자가검증 통과`);
 
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 const jwt = new JWT({
@@ -61,6 +54,25 @@ const api = async (url: string, init?: RequestInit): Promise<Rec> => {
     throw new Error(body?.error?.message || `HTTP ${res.status}`);
   }
 };
+
+const a1Range = (tab: string) => `'${tab.replace(/'/g, "''")}'`;
+const workQs = [ENCAR_MASTER_TAB, ENCAR_SPEC_TAB, ENCAR_BATTERY_TAB]
+  .map((t) => `ranges=${encodeURIComponent(`${a1Range(t)}!A1:Z5000`)}`)
+  .join('&');
+const workGot = await api(`https://sheets.googleapis.com/v4/spreadsheets/${ENCAR_MASTER_SHEET_ID}/values:batchGet?${workQs}&majorDimension=ROWS`);
+const workRanges = ((workGot.valueRanges || []) as Rec[]);
+const book = workBookFromTabs({
+  names: (workRanges[0]?.values || []) as unknown[][],
+  specs: (workRanges[1]?.values || []) as unknown[][],
+  batteries: (workRanges[2]?.values || []) as unknown[][],
+});
+const checks = selfCheckEncarMatch(book);
+if (checks.length) {
+  console.error('⛔ 매처 자가검증 실패 (구글 시트 정본)\n' + checks.map((x) => `  ${x}`).join('\n'));
+  process.exit(1);
+}
+console.log(`  엔카 작업 시트 차종 ${book.names.length}행 · 제원 연료 ${book.fuels.size} · cc ${book.ccs.size} · 구동 ${book.drives.size} · 배터리 ${book.batteries.length} · 자가검증 통과`);
+
 const colA1 = (i: number) => { let s = ''; for (let n = i + 1; n > 0;) { const r = (n - 1) % 26; s = String.fromCharCode(65 + r) + s; n = Math.floor((n - 1) / 26); } return s; };
 const a1Tab = (t: string) => `'${t.replace(/'/g, "''")}'`;
 

@@ -287,10 +287,28 @@ function canonFuel(blob: string, allowed: Set<string>): string {
   const f = fold(raw);
   const hits = new Set<string>();
   for (const [src, dst] of Object.entries(FUEL_MAP)) {
-    if (f.includes(fold(src)) && allowed.has(dst)) hits.add(dst);
+    if (!allowed.has(dst)) continue;
+    const sf = fold(src);
+    if (!sf) continue;
+    if (sf.length <= 3 && /[a-z]/.test(sf)) {
+      const re = new RegExp(`(?:^|[^a-z0-9])${sf}(?:[^a-z0-9]|$)`);
+      if (re.test(f)) hits.add(dst);
+      continue;
+    }
+    if (f.includes(sf)) hits.add(dst);
   }
   if (hits.size === 1) return [...hits][0];
   return '';
+}
+
+function stripThousands(s: string): string {
+  let out = S(s);
+  let prev = '';
+  while (out !== prev) {
+    prev = out;
+    out = out.replace(/(\d),(\d{3})(?!\d)/g, '$1$2');
+  }
+  return out;
 }
 
 function litersIn(text: string): number[] {
@@ -310,7 +328,7 @@ function ccMatchesLiter(cc: number, liter: number): boolean {
 
 function canonCc(ccCell: string, carName: string, allowed: Set<number>, fuel: string): string {
   if (fuel === '전기' || fuel === '수소') return '';
-  const blob = [S(ccCell), S(carName)].filter(Boolean).join(' ');
+  const blob = stripThousands([S(ccCell), S(carName)].filter(Boolean).join(' '));
   if (!blob) return '';
   const exact = [...new Set([...blob.matchAll(/(\d{3,5})\s*(?:cc)?/gi)].map((m) => Number(m[1])).filter((n) => allowed.has(n)))];
   const liters = litersIn(carName);
@@ -443,6 +461,10 @@ export function selfCheckEncarMatch(book: WorkBook): string[] {
     { 모델: '아이오닉5', 세부모델: '아이오닉5', '배터리용량(정제)': '77.4' }, '아이오닉5 LR');
   chk({ maker: '기아', kind: 'K5', carName: 'K5 시그니처', fuel: '', cc: '', drive: '', seats: '', year: '' },
     { 모델: 'K5' }, 'K5 세대없음');
+  chk({ maker: '기아', kind: '스포티지', carName: '디 올뉴 스포티지', fuel: '디젤', cc: '1,998', drive: '', seats: '', year: '' },
+    { '배기량(정제)': '1998' }, '콤마배기량');
+  chk({ maker: '기아', kind: 'K8', carName: '더 뉴 K8 1.6 터보 하이브리드 / 노블레스', fuel: 'HEV', cc: '', drive: '', seats: '', year: '' },
+    { '연료(정제)': '하이브리드' }, 'HEV≠전기');
   const k5bare = attachFromEncarSheet({ maker: '기아', kind: 'K5', carName: 'K5 시그니처', fuel: '', cc: '', drive: '', seats: '', year: '' }, book);
   if (k5bare['세부모델']) bad.push(`K5 세대없이 세부모델 ${k5bare['세부모델']}`);
   const nTrim = attachFromEncarSheet({ maker: '현대', kind: '아반떼', carName: '아반떼 CN7 자가용 가솔린 1.6 법인전용', fuel: '가솔린', cc: '', drive: '', seats: '', year: '' }, book);

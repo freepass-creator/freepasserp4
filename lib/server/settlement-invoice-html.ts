@@ -116,6 +116,7 @@
  * 청구금액     kv 에서 뺌 — vcard 에 이미 크게 있다
  * ```
  */
+import { logoOf } from '@/lib/domain/partner-logo';
 import { dueDate } from '@/lib/domain/settlement-cycle';
 import { CORP, CORP_COLOR } from '@/lib/domain/corporate-ci';
 import { feeShow, type Invoice } from '@/lib/domain/settlement-invoice';
@@ -124,7 +125,18 @@ const S = (v: unknown) => String(v ?? '').trim();
 const esc = (v: unknown) => S(v).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] || c);
 const num = (n: number) => Math.round(n).toLocaleString('ko-KR');
 /** ★「없다」가 아니라 「모른다」 — 집 규칙. */
-const miss = '<span class="miss">모름</span>';
+/**
+ * 아직 안 채운 칸.
+ *
+ * ★**「모름」이라 쓰지 않는다.** 사장님 2026-08-27
+ *   「입금계좌 모름 이런거 하지말고 미입력 이런거로 해라 뭐 모름이야 나중에 채워넣을건데」.
+ *
+ *   집 규칙의 「없다 말고 모른다」는 **우리끼리 셈할 때** 쓰는 말이다 —
+ *   자료에 구멍이 있는데 「없다」고 단정하지 말라는 뜻이다.
+ *   ★대외 문서는 다르다. 상대가 보는 종이에 「모름」이라고 적으면
+ *     «우리도 우리 계좌를 모른다»는 소리가 된다. 그냥 아직 안 적은 칸이다.
+ */
+const miss = '<span class="miss">미입력</span>';
 const shown = (v: unknown) => (S(v) ? esc(v) : miss);
 const join = (...v: unknown[]) => v.map(S).filter(Boolean).join(' · ');
 const p2 = (n: number) => String(n).padStart(2, '0');
@@ -188,15 +200,18 @@ const ico = (k: keyof typeof ICO | string) => `<svg class="i" viewBox="0 0 24 24
  * 가운데       띠·소제목                             18
  * 끝장        띠·소제목·합계·청구안내·맺음말             13
  * ```
+ * ★**여유 20px 밑으로는 안 내려간다.** 2026-08-27 에 비고 한 줄을 넣었더니
+ *   한장이 «-0.2px»가 됐다. 딱 맞는 것과 넘치는 것 사이에 아무것도 없다 —
+ *   차명이 한 번만 접혀도 꼬리를 덮는다. 그래서 한 줄을 포기하고 9로 내렸다.
  * ⚠ **칸 하나 고치면 상한이 흔들린다.** 2026-08-27 하루에 세 번 흔들렸다 —
  *   섹션 간격을 넓혔고, 안내를 가로에서 세로로 눕혔고, 안내에 두 줄(기한·계산서)을 더했다.
  *   그때마다 한 장에 들어가는 줄이 줄었다. 고치고 나면 «반드시» 넘침 검사를 돌린다.
  * ⚠ 간격·글자크기를 건드리면 이 숫자가 다 흔들린다. 반드시 넘침 검사를 다시 돌린다.
  */
-const CAP_SOLO = 10;
+const CAP_SOLO = 9;
 const CAP_FIRST = 14;
 const CAP_MID = 18;
-const CAP_LAST = 14;
+const CAP_LAST = 13;
 
 /**
  * 줄을 장으로 자른다.
@@ -271,6 +286,11 @@ export const INVOICE_CSS = `
   @media print { .noprint { display:none !important; } }
 
   /* 풀블리드 헤더 밴드 — 견적서와 같은 자리·같은 비율, 색만 남색 */
+  /* ★띠에는 «이름»만 둔다. 사장님 2026-08-27 「상단에 이런거 하단에 있는데 중복이잖아」.
+     사업자번호·대표는 꼬리에, 정산월은 제목 밑에 이미 있었다 —
+     오른쪽 셋이 전부 «다른 데 또 있는 말»이었다. 걷어내고 대신
+     「차라리 우측상단에 freepasserp.com 이거 브랜드 넣던가」를 넣었다.
+     ⇒ 좌 = 법인 CI(누가 냈나) · 우 = 서비스 브랜드(어디서 굴러가나). 겹치지 않는다. */
   .hd { display:flex; justify-content:space-between; align-items:center; margin:0 -14mm; padding:12px 14mm 11px;
     background:linear-gradient(120deg,${NAVY} 0%,${DEEP} 100%); color:#fff; }
   /* ★CI 락업 — 마크 + 워드마크 2줄. 사장님 2026-08-27
@@ -295,12 +315,22 @@ export const INVOICE_CSS = `
     padding-bottom:var(--sec-h); border-bottom:2px solid var(--tl); }
   .titlerow .ti { font-size:23px; font-weight:800; letter-spacing:-.5px; color:var(--ink); line-height:1.15; }
   .titlerow .pr { margin-top:4px; font-size:11px; color:var(--mut); font-weight:500; }
+  /* ★수신 쪽 위계 — 셋이 «확실히» 갈려야 한다.
+     ①「회원사」  10px 옅게 · 자간 넓게   — 이건 «칸 이름»이다
+     ② 상호      19px 굵게 · 먹색        — 이 종이가 갈 곳
+     ③ 신원      10.5px 옅게 · 라벨 붙여  — 확인용, 읽을 사람만 읽는다
+     처음엔 셋이 15/10.5/10 이라 크기가 비슷해 어디를 봐야 할지가 없었다. */
   .titlerow .tr { text-align:right; }
-  .titlerow .tr .k { font-size:10px; color:var(--faint); font-weight:600;
-    display:inline-flex; align-items:center; gap:4px; }
-  .titlerow .tr .k .i { width:11px; height:11px; }
-  .titlerow .tr .nm { margin-top:3px; font-size:15px; font-weight:700; letter-spacing:-.3px; color:var(--ink); }
-  .titlerow .tr .id { margin-top:2px; font-size:10.5px; color:var(--mut); }
+  .titlerow .tr .k { font-size:10px; color:var(--faint); font-weight:600; letter-spacing:2px; }
+  .titlerow .tr .nm { margin-top:5px; font-size:19px; font-weight:700; letter-spacing:-.6px; color:var(--ink);
+    line-height:1.2; }
+  /* 회원사 로고 — 상호 «앞»에 나란히. 글자 높이에 맞춰 눕힌다.
+     ⚠ 크게 키우지 마라. 이 종이의 주인은 우리 CI 고, 이건 «받는 쪽 표시»다. */
+  .titlerow .tr .plogo { height:22px; max-width:96px; object-fit:contain; object-position:right center;
+    vertical-align:-4px; margin-right:9px; }
+  .titlerow .tr .nm span { margin-left:8px; font-size:12px; font-weight:600; color:var(--mut); letter-spacing:0; }
+  .titlerow .tr .id { margin-top:5px; font-size:10.5px; color:var(--faint); }
+  .titlerow .tr .id b { color:var(--mut); font-weight:600; font-variant-numeric:tabular-nums; }
   /* ★CI 워드마크 — Exo 2 · freepass(600) + mobility(300). CI 센터 규격 그대로. */
   .hd .co { font-family:'Exo 2','Pretendard Variable',Pretendard,sans-serif; font-size:17px; letter-spacing:-.3px;
     line-height:1.05; white-space:nowrap; }
@@ -319,10 +349,12 @@ export const INVOICE_CSS = `
   .hd .ko { display:flex; justify-content:space-between; font-size:9.5px; color:#c8d7ee;
     margin-top:2px; font-weight:500; line-height:1.25; }
   .hd .ko i { font-style:normal; }
-  .hd .ko i.w { margin-left:4px; }   /* 「주식회사」 앞 한 칸 */
-  .hd .mt { text-align:right; font-size:10.5px; color:#a9bdda; line-height:1.75; }
-  .hd .mt b { color:#fff; font-weight:700; margin-left:7px; font-variant-numeric:tabular-nums; }
-  .hd .mt .miss { color:#f0a9a0; font-weight:700; }
+  .hd .ko i.w { margin-left:4px; }   /* 낱말 사이 한 칸 */
+  /* ★오른쪽 — ERP 브랜드. 좌와 «같은 규칙»으로 짜되 한 치수 작다.
+     문서를 내는 건 법인이라 CI 가 앞선다. 브랜드는 곁들이는 자리다. */
+  .hd .br { text-align:right; }
+  .hd .br .co { font-size:14px; color:#dbe6f5; }
+  .hd .br .ko { font-size:8.5px; color:#9fb6d8; margin-top:3px; }
 
   /* ★맺음말 — 글자 한 줄. 박스를 두르지 않는다(사장님 2026-08-27 「박스가 필요한가」).
      한 문장을 상자에 가두면 그 상자가 무슨 칸인 줄 안다. */
@@ -331,7 +363,13 @@ export const INVOICE_CSS = `
   .closing span { color:var(--faint); font-weight:500; font-size:10.5px; }
   .pad { padding-top:var(--sec-lg); }
 
-  .sec { margin-top:var(--sec); }
+  /* ★칸은 «쪼개지지 않는다» — 소제목만 앞 장에 남고 표가 뒷장으로 넘어가면 못 읽는다.
+     (사장님 2026-08-27 「정산 내역 길어지면 청구안내칸 페이지 바꿔서 잘 넘어가게」)
+     ⚠ 이건 «둘째 자물쇠»다. 첫째는 장별 상한(CAP_*) — 애초에 넘칠 일이 없게 잘라 둔다.
+       그래도 글자 크기·서체가 달라지면 밀릴 수 있어 인쇄기에게도 일러 둔다. */
+  .sec { margin-top:var(--sec); break-inside:avoid; page-break-inside:avoid; }
+  .vtab, .stab { break-inside:avoid; page-break-inside:avoid; }
+  .closing { break-inside:avoid; page-break-inside:avoid; }
   /* ★밑줄을 긋지 않는다. 아이콘 + 글자가 칸의 이름이고, 박스는 아래 «면»이 보여 준다. */
   .sec-h { font-size:11.5px; font-weight:700; color:var(--tl-d); letter-spacing:-.1px; margin-bottom:var(--sec-h);
     display:flex; align-items:center; gap:6px; }
@@ -385,12 +423,16 @@ export const INVOICE_CSS = `
   .vtab tr:last-child th:first-child { border-bottom-left-radius:var(--r-box); }
   .vtab tr:last-child td:last-child { border-bottom-right-radius:var(--r-box); }
   .vtab td.mono { font-variant-numeric:tabular-nums; letter-spacing:-.1px; }
+  /* 비고 — 적을 자리를 남긴다. 비어 있어도 줄은 선다. */
+  .vtab td.memo { height:22px; color:var(--mut); font-weight:500; }
   /* ★결제일은 이 칸에서 제일 먼저 눈에 들어와야 한다 — 받는 쪽이 제일 먼저 찾는 값이다.
      ⚠ 「기한」이라 부르지 않는다. 밀린 사람한테 쓰는 말이라 회원사에 보낼 종이엔 안 맞는다
        (사장님 2026-08-27 「입금 기한 이라고 하면 좀 그러니까」 · 「부탁조로 해야지」). */
   .vtab td.due { color:var(--tl-d); font-size:13px; font-weight:800; letter-spacing:-.2px; }
   .vtab td.due em { font-style:normal; color:var(--mut); font-size:10.5px; font-weight:500; margin-left:6px;
     letter-spacing:0; }
+  /* 계산서 한마디 — 날짜 뒤에 조용히 붙는다. 줄을 따로 주지 않는다. */
+  .vtab td em.cav { color:var(--faint); font-size:10px; font-weight:500; margin-left:14px; }
 
   /* 한 줄 짜리 — 회원사·계좌. 표로 만들 만큼의 내용이 아니다. */
   .ctab td { font-variant-numeric:tabular-nums; }
@@ -441,10 +483,29 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
   const pages = paginate(inv.lines);
 
   /**
-   * 한글 상호를 «낱자»로 쪼갠다 — flex 가 고르게 나눠 준다.
+   * 한글을 «낱자»로 쪼갠다 — flex 가 고르게 나눠 준다.
    * 낱말이 바뀌는 첫 자에만 `w` 를 붙여 앞에 한 칸을 준다.
+   * ★좌(법인 CI)·우(ERP 브랜드) 둘이 «같은 함수»를 쓴다 — 사장님 2026-08-27
+   *   「똑같이 좌우간격 맞춰서」. 한쪽만 손보면 두 자물쇠가 어긋난다.
    */
-  const koLock = CORP.name
+  /**
+   * 회원사 로고 — **파일이 있을 때만** 붙는다. 없으면 상호 글자만 선다.
+   *
+   * ★사장님 2026-08-27 「다 허락받았으니까」 —
+   *   그래서 «자리»를 만들어 둔다. 다만 **파일이 없으면 아무것도 안 그린다** —
+   *   깨진 그림 상자가 뜨느니 이름만 반듯한 게 낫다.
+   * ★값은 data URI 다. 종이는 «혼자서» 열려야 한다 —
+   *   바깥 주소를 걸면 메일로 보낸 뒤 그림이 안 뜬다.
+   *
+   * 넣는 법  assets/partner-logo/<별칭>.png 에 두고
+   *          npx tsx scripts/embed-partner-logos.mts
+   */
+  const logoImg = (alias: string) => {
+    const src = logoOf(alias);
+    return src ? `<img class="plogo" src="${src}" alt="">` : '';
+  };
+
+  const spread = (text: string) => text
     .split(/\s+/)
     .map((word, wi) => [...word].map((ch, ci) => `<i${wi && !ci ? ' class="w"' : ''}>${esc(ch)}</i>`).join(''))
     .join('');
@@ -455,24 +516,27 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
       <div class="mk">${MARK}</div>
       <div class="wm">
         <div class="co"><b>${esc(CORP.markMain)}</b><i>${esc(CORP.markSub)}</i></div>
-        <div class="ko">${koLock}</div>
+        <div class="ko">${spread(CORP.name)}</div>
       </div>
     </div>
-    <div class="mt">
-      사업자등록번호<b>${esc(CORP.bizNo)}</b>  대표<b>${esc(CORP.ceo)}</b><br>
-      정산월<b>${esc(monthKo(inv.month))}</b>
+    <div class="br">
+      <div class="co"><b>${esc(CORP.erpMain)}</b><i>${esc(CORP.erpSub)}</i></div>
+      <div class="ko">${spread(CORP.tagline)}</div>
     </div>
   </div>
 `;
 
   /**
-   * 꼬리 — **회사 정보 · 홈페이지 · ERP 주소만.** 사장님 2026-08-27
-   *   「하단은 그냥 회사정보, 홈피, erp주소만 있으면 되고」.
+   * 꼬리 — **법인 정보 · 법인 홈페이지.**
+   *   ⚠ ERP 주소(`freepasserp.com`)는 **띠 오른쪽으로 갔다** — 여기 또 적으면 겹친다
+   *     (사장님 2026-08-27 「중복되는거는 빼주고 어정쩡하게 넣지마」).
+   *     좌상단 = 법인 CI · 우상단 = 서비스 브랜드 · 꼬리 = 발행인 신원. 셋이 안 겹친다.
    *   계좌·담당·연락처는 «이 건을 처리할 때 쓰는 정보»라 본문 「청구 안내」에 있다.
    *   여기는 «누가 발행했나»와 «어디로 찾아오나». 쓰임이 다르니 자리도 다르다.
-   * ★세금계산서 이야기는 «종이에서 아예 뺐다» (사장님 2026-08-27 「세금계산서는 아예 빼도 돼」).
-   *   누가 언제 끊는지는 이미 아는 사이라 종이가 되풀이할 일이 아니다.
-   *   ⚠ 다시 넣고 싶어지면 «그 문장이 없어서 곤란한 사람이 있나»를 먼저 물어라.
+   * ★세금계산서는 «줄을 따로 주지 않는다» — 날짜 뒤에 한마디로 붙인다
+   *   (사장님 2026-08-27 「입금 요청일 까지 로 해놓고 그뒤에 세금계산서 내용을 써주면 되잖아」).
+   *   맞다. 한 줄을 통째로 쓸 만한 이야기가 아니었다. 「이 종이는 계산서가 아니다」는
+   *   되풀이할 말이라 아예 뺐고, «별도 발행한다»만 남겼다.
    * ⚠ 지급명세서면 본문 계좌가 «상대» 것이다. 꼬리(우리 정보)와 섞지 않는다.
    */
   const foot = (page: number) => `
@@ -480,7 +544,7 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
     <div>
       <span class="nm">${esc(CORP.name)}</span>  사업자등록번호 <b>${esc(CORP.bizNo)}</b>  ·  대표 <b>${esc(CORP.ceo)}</b><br>
       ${esc(CORP.addr)}<br>
-      ${esc(CORP.web)}  ·  ${esc(CORP.erp)}
+      ${esc(CORP.web)}
     </div>
     <div class="pg">${pages.length > 1 ? `${page + 1} / ${pages.length}` : ''}</div>
   </div>`;
@@ -498,11 +562,15 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
       <div class="pr">${esc(monthKo(inv.month))}  ·  ${esc(period(inv.month))}</div>
     </div>
     <div class="tr">
-      <div class="k">${ico('회원사')}회원사</div>
-      <div class="nm">${shown(inv.receiver.name)}</div>
-      <div class="id">${inv.receiver.bizNo ? esc(inv.receiver.bizNo) : miss}${
-    S(inv.receiver.ceo) ? ` · 대표 ${esc(inv.receiver.ceo)}` : ''
-  }</div>
+      <div class="k">회원사</div>
+      <!-- ★「귀중」 — 이 종이가 «누구에게 가는지»를 말한다. 사장님 2026-08-26
+           「청구회사를 좀 정중하게」 · 2026-08-27 「위계를 잘줘서 멋있게」.
+           ⚠ 로고는 안 넣는다. 파일도 없고, 남의 상표를 우리 청구서에 얹는 건 별개 문제다.
+             우리가 모은 CI 는 «문자로 된 신원» — 정식 상호·사업자번호·대표다. -->
+      <div class="nm">${logoImg(inv.party)}${shown(inv.receiver.name)}<span>귀중</span></div>
+      <div class="id">사업자등록번호 <b>${
+    inv.receiver.bizNo ? esc(inv.receiver.bizNo) : miss
+  }</b>${S(inv.receiver.ceo) ? `　대표 <b>${esc(inv.receiver.ceo)}</b>` : ''}</div>
     </div>
   </div>`;
 
@@ -562,7 +630,11 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
              둘 다 옆에 뭘 붙이면 좁아진다. 짧은 넷만 두 쌍으로 앉힌다. -->
         <tr>
           <th>${claim ? '입금 요청일' : '지급 예정일'}</th>
-          <td class="mono due" colspan="3">${esc(dueDay(inv.month))}<em>${claim ? '까지' : ''}</em></td>
+          <td class="mono due" colspan="3">${esc(dueDay(inv.month))}<em>${claim ? '까지' : ''}</em><em class="cav">${
+    // ★계산서는 «줄을 따로 주지 않는다». 날짜 뒤에 붙이면 한 줄로 끝난다
+    //   (사장님 2026-08-27 「입금 요청일 까지 로 해놓고 그뒤에 세금계산서 내용을 써주면 되잖아」).
+    claim ? '세금계산서는 별도 발행해 드립니다' : '세금계산서 발행 부탁드립니다'
+  }</em></td>
         </tr>
         <tr>
           <th>${claim ? '입금 계좌' : '지급 계좌'}</th><td class="mono" colspan="3">${shown(accText)}</td>
@@ -574,6 +646,12 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
         <tr>
           <th>이메일</th><td>${esc(CORP.email)}</td>
           <th>팩스</th><td class="mono">${shown(CORP.fax)}</td>
+        </tr>
+        <!-- ★비고 — 맨 아래 한 줄을 다 쓴다(사장님 2026-08-27).
+             ⚠ **비워 두는 게 맞다.** 채울 값이 아직 없다 — 지어서 넣으면
+               모든 회원사에게 같은 말이 나간다. 종이에 적을 일이 생기면 여기다 쓴다. -->
+        <tr>
+          <th>비고</th><td class="memo" colspan="3">${esc(S((inv as { memo?: string }).memo))}</td>
         </tr>
       </tbody>
     </table>

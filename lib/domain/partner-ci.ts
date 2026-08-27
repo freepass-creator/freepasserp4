@@ -328,12 +328,14 @@ export const legalNameOf = (alias: unknown): string => ciOf(alias)?.legal || Str
  *  ★주소는 정산서에 안 싣는다(사장님 2026-08-26) — 빈칸 경고 대상이 아니다. */
 export const ciGapsOf = (alias: unknown): string[] => {
   const ci = ciOf(alias);
-  if (!ci) return [`${String(alias ?? '').trim()} — 거래처 등록 없음(정식 상호·사업자번호 모름)`];
+  if (!ci) return [`${String(alias ?? '').trim()} — 거래처 등록 없음(정식 상호·사업자번호 미입력)`];
   const gaps: string[] = [];
   if (!ci.legal) gaps.push('정식 상호');
   if (!ci.bizNo) gaps.push('사업자등록번호');
   if (!ci.ceo) gaps.push('대표자');
   // ★정산 계좌가 없으면 돈이 갈 곳을 모르는 채로 종이가 나간다. 대여료 전용계좌는 다른 것이다.
   if (!ci.payAccount) gaps.push('정산계좌');
-  return gaps.length ? [`${ci.alias} — ${gaps.join(' · ')} 모름`] : [];
+  // ★「모름」이 아니라 「미입력」이다 — 아직 안 적은 칸이지 알 수 없는 값이 아니다
+    //   (사장님 2026-08-27 「뭐 모름이야 나중에 채워넣을건데」).
+  return gaps.length ? [`${ci.alias} — ${gaps.join(' · ')} 미입력`] : [];
 };
