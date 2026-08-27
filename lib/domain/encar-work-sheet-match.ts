@@ -38,14 +38,16 @@ function hdrIndex(hdr: string[], ...cands: string[]): number {
 
 function looksLikeNameHeader(row: string[]): boolean {
   const f = row.map((c) => c.replace(/\s+/g, ''));
-  return f.includes('제조사') && f.includes('모델') && f.includes('세부모델');
+  return f.includes('제조사') && f.includes('모델') && f.includes('세부모델') && f.includes('세부트림');
 }
 
-function looksLikeYearMonth(v: string): boolean {
-  return /^(?:\d{4}-\d{2}|현재|보류)$/.test(S(v));
+function findHeaderRow(grid: string[][], test: (row: string[]) => boolean): number {
+  const n = Math.min(grid.length, 8);
+  for (let i = 0; i < n; i++) if (test(grid[i] || [])) return i;
+  return -1;
 }
 
-/** 구글 시트(머리글) · 로컬 json(열 차례 두 가지) 모두. 생산시작·종료는 매칭에 안 쓴다. */
+/** 머리글 이름만. 열 자리·1행 고정은 규격 통일 때 밀릴 수 있다. */
 export function workBookFromTabs(input: {
   names: unknown[][];
   specs: unknown[][];
@@ -56,45 +58,33 @@ export function workBookFromTabs(input: {
   const batGrid = (input.batteries || []).map((r) => (r || []).map(S));
   if (!namesGrid.length) throw new Error('차종마스터 비어 있음');
 
-  let nameStart = 0;
-  let originI = 0, makerI = 1, modelI = 2, subI = 3, trimI = 4, startI = -1, endI = -1;
-  if (looksLikeNameHeader(namesGrid[0])) {
-    const hdr = namesGrid[0];
-    originI = hdrIndex(hdr, '원산지');
-    makerI = hdrIndex(hdr, '제조사');
-    modelI = hdrIndex(hdr, '모델');
-    subI = hdrIndex(hdr, '세부모델');
-    trimI = hdrIndex(hdr, '세부트림');
-    startI = hdrIndex(hdr, '생산시작');
-    endI = hdrIndex(hdr, '생산종료');
-    if (makerI < 0 || modelI < 0 || subI < 0 || trimI < 0) {
-      throw new Error(`차종마스터 헤더가 다름: ${hdr.join('|')}`);
-    }
-    nameStart = 1;
-  } else {
-    const sample = namesGrid.find((r) => S(r[4]));
-    if (sample && looksLikeYearMonth(sample[4])) {
-      trimI = 6;
-      startI = 4;
-      endI = 5;
-    }
+  const nameHdrRow = findHeaderRow(namesGrid, looksLikeNameHeader);
+  if (nameHdrRow < 0) throw new Error(`차종마스터 머리글을 못 찾음: ${(namesGrid[0] || []).join('|')}`);
+  const hdr = namesGrid[nameHdrRow];
+  const originI = hdrIndex(hdr, '원산지');
+  const makerI = hdrIndex(hdr, '제조사');
+  const modelI = hdrIndex(hdr, '모델');
+  const subI = hdrIndex(hdr, '세부모델');
+  const trimI = hdrIndex(hdr, '세부트림');
+  const startI = hdrIndex(hdr, '생산시작');
+  const endI = hdrIndex(hdr, '생산종료');
+  if (makerI < 0 || modelI < 0 || subI < 0 || trimI < 0) {
+    throw new Error(`차종마스터 헤더가 다름: ${hdr.join('|')}`);
   }
 
-  const names: NameRow[] = namesGrid.slice(nameStart).map((r) => ({
-    origin: S(r[originI]), maker: S(r[makerI]), model: S(r[modelI]), sub: S(r[subI]), trim: S(r[trimI]),
+  const names: NameRow[] = namesGrid.slice(nameHdrRow + 1).map((r) => ({
+    origin: originI >= 0 ? S(r[originI]) : '',
+    maker: S(r[makerI]), model: S(r[modelI]), sub: S(r[subI]), trim: S(r[trimI]),
     start: startI >= 0 ? S(r[startI]) : '',
     end: endI >= 0 ? S(r[endI]) : '',
   })).filter((r) => r.maker && r.model);
   if (names.length < 50) throw new Error(`차종마스터 행이 너무 적음 (${names.length})`);
 
-  let specStart = 0;
-  let kindI = 0, valI = 1;
-  if (specGrid.length && hdrIndex(specGrid[0], '구분') >= 0) {
-    kindI = hdrIndex(specGrid[0], '구분');
-    valI = hdrIndex(specGrid[0], '값');
-    if (valI < 0) throw new Error(`제원마스터 헤더가 다름: ${specGrid[0].join('|')}`);
-    specStart = 1;
-  }
+  const specHdrRow = findHeaderRow(specGrid, (row) => hdrIndex(row, '구분') >= 0 && hdrIndex(row, '값') >= 0);
+  const kindI = specHdrRow >= 0 ? hdrIndex(specGrid[specHdrRow], '구분') : 0;
+  const valI = specHdrRow >= 0 ? hdrIndex(specGrid[specHdrRow], '값') : 1;
+  if (specGrid.length && specHdrRow < 0) throw new Error(`제원마스터 머리글을 못 찾음: ${(specGrid[0] || []).join('|')}`);
+  const specStart = specHdrRow >= 0 ? specHdrRow + 1 : 0;
   const fuels = new Set<string>();
   const ccs = new Set<number>();
   const drives = new Set<string>();
@@ -108,28 +98,27 @@ export function workBookFromTabs(input: {
     } else if (kind === '구동방식') drives.add(val);
   }
 
-  let batStart = 0;
+  const batHdrRow = findHeaderRow(batGrid, (row) => hdrIndex(row, '제조사') >= 0 && hdrIndex(row, '세부모델') >= 0);
   let bMaker = 0, bModel = 1, bSub = 2, bKwh = 3, bNote = 4;
-  if (batGrid.length && hdrIndex(batGrid[0], '제조사') >= 0 && hdrIndex(batGrid[0], '세부모델') >= 0) {
-    const hdr = batGrid[0];
-    bMaker = hdrIndex(hdr, '제조사');
-    bModel = hdrIndex(hdr, '모델');
-    bSub = hdrIndex(hdr, '세부모델');
-    bKwh = hdrIndex(hdr, '배터리(kWh)', '배터리용량(kWh)', '배터리용량', 'kWh');
-    bNote = hdrIndex(hdr, '비고');
+  if (batHdrRow >= 0) {
+    const bh = batGrid[batHdrRow];
+    bMaker = hdrIndex(bh, '제조사');
+    bModel = hdrIndex(bh, '모델');
+    bSub = hdrIndex(bh, '세부모델');
+    bKwh = hdrIndex(bh, '배터리(kWh)', '배터리용량(kWh)', '배터리용량', 'kWh');
+    bNote = hdrIndex(bh, '비고');
     if (bMaker < 0 || bModel < 0 || bSub < 0 || bKwh < 0) {
-      throw new Error(`전기차배터리마스터 헤더가 다름: ${hdr.join('|')}`);
+      throw new Error(`전기차배터리마스터 헤더가 다름: ${bh.join('|')}`);
     }
-    batStart = 1;
   }
-  const batteries: BatteryRow[] = batGrid.slice(batStart).map((r) => ({
+  const batteries: BatteryRow[] = batGrid.slice(batHdrRow >= 0 ? batHdrRow + 1 : 0).map((r) => ({
     maker: S(r[bMaker]), model: S(r[bModel]), sub: S(r[bSub]), kwh: S(r[bKwh]), note: bNote >= 0 ? S(r[bNote]) : '',
   })).filter((r) => r.maker && r.kwh);
 
   return { names, fuels, ccs, drives, batteries };
 }
 
-/** 폐기. 정본은 구글 작업 시트. 로컬 json 열 차례가 시트와 달라 트림이 생산시작이 된다. */
+/** 폐기. 정본은 구글 작업 시트. 머리글 이름으로 읽는다. */
 export function loadEncarWorkBook(): WorkBook {
   throw new Error('vehicle_name_master.json 폐기. 구글 작업 시트만 쓴다 (loadEncarWorkSheetGrids → workBookFromTabs)');
 }

@@ -10,6 +10,8 @@ export { ENCAR_MASTER_SHEET_ID };
 export const ENCAR_MASTER_TAB = '차종마스터';
 export const ENCAR_SPEC_TAB = '제원마스터';
 export const ENCAR_BATTERY_TAB = '전기차배터리마스터';
+/** 필수 칸 이름. 자리는 머리글로 찾고, 규격 통일로 밀려도 된다. 생산시작·종료는 세부트림 뒤가 맞다. */
+export const ENCAR_NAME_COLUMNS = ['원산지', '제조사', '모델', '세부모델', '세부트림', '생산시작', '생산종료'] as const;
 export const ENCAR_MASTER_URL = `https://docs.google.com/spreadsheets/d/${ENCAR_MASTER_SHEET_ID}/edit`;
 /** 공급사 사본 탭 A1 에 넣는 연동 수식. 원본이 바뀌면 같이 바뀐다. */
 export const ENCAR_MASTER_IMPORT_FORMULA = `=IMPORTRANGE("${ENCAR_MASTER_URL}","${ENCAR_MASTER_TAB}!A:AB")`;

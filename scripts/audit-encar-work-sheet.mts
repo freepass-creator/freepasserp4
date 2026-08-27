@@ -11,6 +11,7 @@ import {
   ENCAR_MASTER_SHEET_ID,
   ENCAR_MASTER_TAB,
   ENCAR_MASTER_URL,
+  ENCAR_NAME_COLUMNS,
   ENCAR_SPEC_TAB,
   loadEncarWorkSheetGrids,
 } from '../lib/domain/encar-master-sheet';
@@ -88,10 +89,19 @@ const latin = [...new Set(book.names.filter((r) => /N Line|X Line|H-PICK|GT Line
 
 const subKeys = new Set(book.names.map((r) => `${r.maker}|${r.model}|${r.sub}`));
 const batOrphan = book.batteries.filter((b) => !subKeys.has(`${b.maker}|${b.model}|${b.sub}`));
-const batHdr = (grids.batteries[0] || []).map(S);
-const specHdr = (grids.specs[0] || []).map(S);
-const nameHdr = (grids.names[0] || []).map(S);
-const batAllRows = (grids.batteries || []).slice(1).filter((r) => S(r[0]));
+const hdrRow = (grid: unknown[][], ...need: string[]) => {
+  const n = (s: string) => S(s).replace(/\s+/g, '');
+  const want = need.map(n);
+  const i = (grid || []).slice(0, 8).findIndex((r) => want.every((w) => (r || []).some((c) => n(String(c ?? '')) === w)));
+  return i < 0 ? 0 : i;
+};
+const nameHdrAt = hdrRow(grids.names as unknown[][], '제조사', '세부모델', '세부트림');
+const specHdrAt = hdrRow(grids.specs as unknown[][], '구분', '값');
+const batHdrAt = hdrRow(grids.batteries as unknown[][], '제조사', '세부모델');
+const batHdr = ((grids.batteries[batHdrAt] || []) as unknown[]).map(S);
+const specHdr = ((grids.specs[specHdrAt] || []) as unknown[]).map(S);
+const nameHdr = ((grids.names[nameHdrAt] || []) as unknown[]).map(S);
+const batAllRows = ((grids.batteries || []) as unknown[][]).slice(batHdrAt + 1).filter((r) => S(r[0]));
 
 const issues: string[] = [];
 if (missingTabs.length) issues.push(`없는 탭: ${missingTabs.join(', ')}`);
@@ -107,6 +117,13 @@ if (g80plain.length) issues.push(`제네시스 세부모델 G80(DH 아님) ${g80
 if (!k5dl3.length) issues.push('K5 DL3 없음');
 if (batOrphan.length) issues.push(`배터리 고아 세부모델 ${batOrphan.length}`);
 if (book.fuels.size < 4) issues.push('제원 연료가 너무 적음');
+{
+  const missing = ENCAR_NAME_COLUMNS.filter((c) => !nameHdr.some((h) => h.replace(/\s+/g, '') === c.replace(/\s+/g, '')));
+  if (missing.length) issues.push(`머리글 없음 ${missing.join(' · ')}`);
+  const trimAt = nameHdr.findIndex((h) => h.replace(/\s+/g, '') === '세부트림');
+  const startAt = nameHdr.findIndex((h) => h.replace(/\s+/g, '') === '생산시작');
+  if (trimAt >= 0 && startAt >= 0 && startAt < trimAt) issues.push('생산시작이 세부트림보다 앞');
+}
 
 const report = {
   at: new Date().toISOString(),
