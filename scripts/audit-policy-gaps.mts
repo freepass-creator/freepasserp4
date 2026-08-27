@@ -79,3 +79,28 @@ for (const r of rows) {
 }
 console.log('※ 값을 주시면 정책에 넣습니다. 「없음」이라고 하시면 화면에 「미입력」으로 섭니다 —');
 console.log('   지어내지 않습니다(사장님 2026-08-28 「없는 데는 없다고 해」).');
+
+/**
+ * ★**«채워져 있다»와 «확인됐다»는 다르다.**
+ *
+ * FP-* 정책 21건은 원래 이름·코드 6칸만 다른 **똑같은 기본 묶음**이었다(실측 2026-08-28).
+ * 그중 프리패스 표준과 «글자까지 같은» 531칸은 걷어냈지만, 나머지는 그대로 남아 있다.
+ * 남은 값이 여러 공급사에서 **한 글자도 안 틀리고 같다면**, 그건 그 공급사가 준 값이 아니라
+ * 우리가 깔아 둔 값일 가능성이 크다. 그 구분을 여기서 보여 준다 — 채운 척하지 않기 위해서.
+ */
+console.log('\n── 채워진 값 중 «여러 공급사가 똑같이 들고 있는 것» ──');
+const fpCodes = Object.keys(policies).filter((k) => /^FP-RP\d{3}-RENT$/.test(k));
+for (const [key, label] of ASKED) {
+  const vals = new Map<string, number>();
+  for (const k of fpCodes) {
+    const v = S(policies[k]?.[key]);
+    if (v) vals.set(v, (vals.get(v) || 0) + 1);
+  }
+  if (!vals.size) { console.log(`  ${label.padEnd(14)} 전부 빈칸`); continue; }
+  const top = [...vals].sort((a, b) => b[1] - a[1])[0];
+  const uniq = vals.size;
+  const mark = top[1] >= 10 ? '★같은 값 다수' : uniq >= 5 ? '  공급사마다 다름' : '  일부만 다름';
+  console.log(`  ${label.padEnd(14)} ${mark}  ${top[1]}곳이 「${top[0].slice(0, 22)}」 · 서로 다른 값 ${uniq}가지`);
+}
+console.log('\n※ 「★같은 값 다수」 = 그 공급사가 확인해 준 값이 아니라 우리가 깔아 둔 기본값일 수 있다.');
+console.log('   사장님이 공급사별 확정값을 주시면 그때 «확인된 값»이 된다.');
