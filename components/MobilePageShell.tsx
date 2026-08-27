@@ -206,6 +206,35 @@ export function MobilePageShell({
 
   const showInfoBar = !hasListToolbar && (searchCfg != null || toolbarRight != null || (count != null && count !== '') || info != null);
 
+  /**
+   * ★**필터는 검색창 «안»에 든다**(사장님 2026-08-28 「모바일 검색창 세부필터 버튼 좌우 크기가 이상함」).
+   *
+   *   전에는 검색칸 옆에 네모 버튼을 따로 세웠다. 그러면 여백이 세 가지가 된다 —
+   *   툴바 왼쪽 16 · 검색칸과 버튼 사이 8 · 툴바 오른쪽 16. 눈에는 그게 «크기가 안 맞는» 걸로 보인다.
+   *
+   *   `SearchInput` 에는 이걸 위한 `trailing` 슬롯이 **이미 만들어져 있었다**(얇은 세로선까지 —
+   *   「검색은 글자, 필터는 조건」이라는 표시). 그런데 아무도 안 쓰고 있었다.
+   *   새로 만들지 않고 그걸 쓴다 — 한 칸이 되니 여백 문제가 자리째 사라진다.
+   */
+  const filterBtn = filterCfg ? (
+    <span style={{ position: 'relative', display: 'inline-flex' }}>
+      <IconBtn
+        title={filterBadge > 0 ? `필터 ${filterBadge}` : (filterCfg.label || '필터')}
+        active={sheet === 'filter'}
+        onClick={() => { if (sheet === 'filter') discardFilter(); else openFilter(); }}
+        // 입력칸 «안»에 앉으므로 테두리를 지운다 — 칸 안에 칸이 있는 것처럼 보이지 않게.
+        style={{ border: 'none', background: 'transparent', width: 30, height: 30 }}
+      >
+        <SlidersHorizontal size={ICON.md} />
+      </IconBtn>
+      {filterBadge > 0 ? (
+        <span className="fp-icon-count">
+          <CountPill n={filterBadge} tone="accent" />
+        </span>
+      ) : null}
+    </span>
+  ) : null;
+
   const searchFilterBar = useSearchFilter && hasListToolbar ? (
     <div className="fp-page-toolbar" style={{ gap: 8 }}>
       {searchCfg ? (
@@ -214,24 +243,9 @@ export function MobilePageShell({
           onChange={searchCfg.onChange}
           placeholder={searchCfg.placeholder || '검색'}
           style={{ flex: '1 1 0', minWidth: 0 }}
+          trailing={filterBtn}
         />
       ) : <span style={{ flex: 1, minWidth: 0 }} />}
-      {filterCfg ? (
-        <span style={{ position: 'relative', display: 'inline-flex', flex: '0 0 auto' }}>
-          <IconBtn
-            title={filterBadge > 0 ? `필터 ${filterBadge}` : (filterCfg.label || '필터')}
-            active={sheet === 'filter'}
-            onClick={() => { if (sheet === 'filter') discardFilter(); else openFilter(); }}
-          >
-            <SlidersHorizontal size={ICON.lg} />
-          </IconBtn>
-          {filterBadge > 0 ? (
-            <span className="fp-icon-count">
-              <CountPill n={filterBadge} tone="accent" />
-            </span>
-          ) : null}
-        </span>
-      ) : null}
       {lt?.action ? (
         // 컨트롤 규격: CTA(등록 등)는 결정적 액션 → 모바일도 아이콘+텍스트(라벨 소거 금지).
         <Btn
