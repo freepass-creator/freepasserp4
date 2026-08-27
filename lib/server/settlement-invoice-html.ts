@@ -119,7 +119,7 @@
 import { logoOf } from '@/lib/domain/partner-logo';
 import { dueDate } from '@/lib/domain/settlement-cycle';
 import { CORP, CORP_COLOR } from '@/lib/domain/corporate-ci';
-import { feeShow, type Invoice } from '@/lib/domain/settlement-invoice';
+import { feeShow, maskName, type Invoice } from '@/lib/domain/settlement-invoice';
 
 const S = (v: unknown) => String(v ?? '').trim();
 const esc = (v: unknown) => S(v).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] || c);
@@ -621,7 +621,12 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
       <th class="rl">${esc(l.plate)}</th>
       <td class="l">${shown(l.model)}<span class="sub">${
     // 계약조건 — 누구에게·무슨 상품·몇 개월
-    esc(join(l.customer, l.product, l.term ? `${l.term}개월` : '')) || '&nbsp;'
+    // ★★고객 이름은 «여기서» 가린다 — 「문세준」 → 「문*준」(사장님 2026-08-27).
+    //   이 종이는 남의 회사가 본다. 회원사는 차량번호로 그 건을 찾으니
+    //   이름은 «같은 차 다른 계약»을 가르는 곁다리다. 가운데만 가려도 그 구실은 그대로 한다.
+    //   ⚠ 엑셀에는 온전한 이름이 남는다 — 엑셀은 우리가 대조할 때 쓰는 것이다.
+    //     ★엑셀을 밖으로 보내면 가린 게 소용없다. 나가는 건 PDF 다.
+    esc(join(maskName(l.customer), l.product, l.term ? `${l.term}개월` : '')) || '&nbsp;'
   }</span></td>
       <td class="l calc">${
     // ★산출조건 — 이 수수료가 «어떻게 나왔는지». 칸으로 세워야 표가 스스로 설명한다.
