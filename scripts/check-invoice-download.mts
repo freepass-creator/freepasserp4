@@ -84,7 +84,7 @@ ok('모서리·간격이 공통 규격이다', html.includes('--r-box:7px') && h
 // ★청구서의 입금계좌는 «우리 정보»라 꼬리에 있다 — 본문에 칸을 따로 두지 않는다.
 //   (2026-08-27 「회사 정보에 담당자 안내랑 이메일 넣으면 계좌 정보도 넣으면 되잖아」)
 ok('입금계좌가 꼬리에 있다', /class="ft">[\s\S]{0,600}입금계좌/.test(html));
-ok('담당 연락처·메일이 꼬리에 있다', /class="ft">[\s\S]{0,600}담당 [\s\S]{0,80}@/.test(html));
+ok('담당 연락처·메일이 꼬리에 있다', /class="ft">[\s\S]{0,700}>담당<[\s\S]{0,90}@/.test(html));
 ok('본문에 계좌 칸을 두지 않는다', !/class="sec-h">(?:<svg[^>]*>[\s\S]*?<\/svg>)?입금 계좌/.test(html));
 ok('차량번호는 표 좌측 라벨열 — 뱃지 아님', /<th class="rl">60호1234<\/th>/.test(html) && !html.includes('class="plate"'));
 ok('헤더에 남색을 쓴다', html.includes('linear-gradient(120deg,#1B2A4A'));

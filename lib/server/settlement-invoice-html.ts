@@ -241,9 +241,13 @@ export const INVOICE_CSS = `
     line-height:1.05; white-space:nowrap; }
   .hd .co b { font-weight:600; }
   .hd .co i { font-weight:300; font-style:normal; opacity:.92; }
-  /* ★한글을 영문 폭에 맞춘다 — 남는 만큼만 글자 사이가 벌어진다. */
+  /* ★한글을 영문 폭에 맞춘다 — 남는 만큼만 «낱자 사이»가 벌어진다.
+     ⚠ 사장님 2026-08-27 지적: 낱말 사이 한 곳에 여백이 다 몰려
+       「프리패스모빌리티 ——— 주식회사」로 벌어져 있었다.
+       띄어쓰기를 빼고 inter-character 로 낱자마다 나눠 준다. */
   .hd .ko { display:block; font-size:9.5px; color:#c8d7ee; margin-top:2px; font-weight:500; letter-spacing:0;
-    line-height:1.25; text-align:justify; text-align-last:justify; }
+    line-height:1.25; text-align:justify; text-align-last:justify;
+    text-justify:inter-character; -ms-text-justify:distribute; }
   .hd .tt { font-size:12px; color:#dbe6f5; margin-top:5px; font-weight:600; }
   .hd .mt { text-align:right; font-size:10.5px; color:#a9bdda; line-height:1.75; }
   .hd .mt b { color:#fff; font-weight:700; margin-left:7px; font-variant-numeric:tabular-nums; }
@@ -318,9 +322,14 @@ export const INVOICE_CSS = `
   .warn { margin-top:var(--sec); font-size:10px; color:#c0392b; font-weight:600; }
   .miss { color:#c0392b; font-weight:700; }
 
-  .ft { position:absolute; left:0; right:0; bottom:0; padding:8px 14mm; background:var(--ink); color:#9aa4b0; font-size:10px; line-height:1.55;
+  /* ★꼬리 = 발행자 정보. 사장님 2026-08-27 「하단에 우리회사 정보는 안주니」
+     — 있기는 했는데 10px 회색이라 «안 보였다». 틀은 그대로 두고 크기·간격만 올린다. */
+  .ft { position:absolute; left:0; right:0; bottom:0; padding:11px 14mm 12px; background:var(--ink);
+    color:#aab4c2; font-size:10.5px; line-height:1.75;
     display:flex; justify-content:space-between; align-items:flex-end; gap:10mm; }
   .ft b { color:#e8ecf2; font-weight:700; }
+  .ft .nm { font-size:12px; color:#fff; font-weight:700; letter-spacing:-.2px; }
+  .ft .k { color:#7b8798; font-weight:600; margin-right:5px; }
   .ft .pg { white-space:nowrap; }
 `;
 
@@ -349,7 +358,7 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
       <div class="mk">${MARK}</div>
       <div class="wm">
         <div class="co"><b>${esc(CORP.markMain)}</b><i>${esc(CORP.markSub)}</i></div>
-        <div class="ko">${esc(CORP.name)}</div>
+        <div class="ko">${esc(CORP.name.replace(/\s+/g, ''))}</div>
       </div>
     </div>
     <div class="mt">
@@ -368,10 +377,10 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
   const foot = (page: number) => `
   <div class="ft">
     <div>
-      <b>${esc(CORP.name)}</b>  ·  사업자등록번호 ${esc(CORP.bizNo)}  ·  대표 ${esc(CORP.ceo)}<br>
-      ${esc(CORP.addr)}<br>
-      담당 ${esc(CORP.phone)}  ·  ${esc(CORP.email)}${
-    claim ? `　|　입금계좌 <b>${shown(accText)}</b>` : ''
+      <span class="nm">${esc(CORP.name)}</span>  사업자등록번호 ${esc(CORP.bizNo)}  ·  대표 ${esc(CORP.ceo)}<br>
+      <span class="k">주소</span>${esc(CORP.addr)}<br>
+      <span class="k">담당</span>${esc(CORP.ceo)}  ${esc(CORP.phone)}  ${esc(CORP.email)}${
+    claim ? `<br><span class="k">입금계좌</span><b>${shown(accText)}</b>` : ''
   }
     </div>
     <div class="pg">${pages.length > 1 ? `${page + 1} / ${pages.length}` : ''}</div>
