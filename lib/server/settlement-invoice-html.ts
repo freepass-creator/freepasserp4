@@ -191,8 +191,14 @@ export const INVOICE_CSS = `
     --tl:${NAVY}; --tl-d:${DEEP};
     --ink:#18181b; --mut:#52525b; --faint:#a1a1aa;
     --ln:#d5dae2; --bg:#eef2f8; --neg:#b03a2e;
-    /* ★모서리·간격·칸 여백 — 여기 한 곳에서 정한다. 자리마다 다시 적지 않는다. */
-    --r-box:7px; --sec:10px; --cell:5px 10px;
+    /* ★모서리·간격·칸 여백 — 여기 한 곳에서 정한다. 자리마다 다시 적지 않는다.
+       ⚠ 2026-08-27 재 보니 셋이 맨숫자로 박혀 있었다(.pad 12 · .titlerow 14 · .closing 14).
+         값은 맞았지만 «규격 밖»이라 한 곳을 고쳐도 안 따라온다. 이름을 붙였다. */
+    --r-box:7px;      /* 표·박스 모서리 — 네 귀퉁이 다 */
+    --sec:10px;       /* 칸 사이 */
+    --sec-lg:14px;    /* ★단락이 바뀌는 자리 — 띠 다음 첫 칸, 맺음말 앞 */
+    --band:12px;      /* 띠 아래 숨 */
+    --cell:5px 10px;  /* 표 칸 안 여백 */
   }
   * { box-sizing:border-box; margin:0; }
   html, body { margin:0; background:#fff; }
@@ -227,7 +233,7 @@ export const INVOICE_CSS = `
 
   /* ★띠 아래 첫 칸 — 좌 문서 이름 / 우 회원사. 이 종이가 «무엇이고 누구 것인지»를 한 줄에. */
   .titlerow { display:flex; justify-content:space-between; align-items:flex-end; gap:14mm;
-    margin-top:14px; padding-bottom:10px; border-bottom:2px solid var(--tl); }
+    margin-top:var(--sec-lg); padding-bottom:var(--sec); border-bottom:2px solid var(--tl); }
   .titlerow .ti { font-size:23px; font-weight:800; letter-spacing:-.5px; color:var(--ink); line-height:1.15; }
   .titlerow .pr { margin-top:4px; font-size:11px; color:var(--mut); font-weight:500; }
   .titlerow .tr { text-align:right; }
@@ -255,17 +261,16 @@ export const INVOICE_CSS = `
     margin-top:2px; font-weight:500; line-height:1.25; }
   .hd .ko i { font-style:normal; }
   .hd .ko i.w { margin-left:4px; }   /* 「주식회사」 앞 한 칸 */
-  .hd .tt { font-size:12px; color:#dbe6f5; margin-top:5px; font-weight:600; }
   .hd .mt { text-align:right; font-size:10.5px; color:#a9bdda; line-height:1.75; }
   .hd .mt b { color:#fff; font-weight:700; margin-left:7px; font-variant-numeric:tabular-nums; }
   .hd .mt .miss { color:#f0a9a0; font-weight:700; }
 
   /* ★맺음말 — 글자 한 줄. 박스를 두르지 않는다(사장님 2026-08-27 「박스가 필요한가」).
      한 문장을 상자에 가두면 그 상자가 무슨 칸인 줄 안다. */
-  .closing { margin-top:14px; font-size:11.5px; font-weight:700; color:var(--tl-d);
+  .closing { margin-top:var(--sec-lg); font-size:11.5px; font-weight:700; color:var(--tl-d);
     display:flex; justify-content:space-between; align-items:baseline; }
   .closing span { color:var(--faint); font-weight:500; font-size:10.5px; }
-  .pad { padding-top:12px; }
+  .pad { padding-top:var(--band); }
 
   .sec { margin-top:var(--sec); }
   /* ★밑줄을 긋지 않는다. 아이콘 + 글자가 칸의 이름이고, 박스는 아래 «면»이 보여 준다. */
@@ -308,12 +313,6 @@ export const INVOICE_CSS = `
   .stab.txt td.mono { font-variant-numeric:tabular-nums; letter-spacing:-.1px; }
 
   /* 한 줄 짜리 — 회원사·계좌. 표로 만들 만큼의 내용이 아니다. */
-  .line { display:flex; align-items:baseline; gap:10px; padding:8px 12px; border:1px solid var(--ln);
-    border-radius:var(--r-box); background:#fafbfd; font-size:11.5px; }
-  .line .k { flex:none; color:var(--faint); font-size:10.5px; font-weight:600; display:inline-flex; align-items:center; gap:4px; }
-  .line .k .i { width:12px; height:12px; }
-  .line .v { color:var(--ink); font-weight:600; }
-  .line .v em { font-style:normal; color:var(--mut); font-weight:500; margin-left:8px; }
   .ctab td { font-variant-numeric:tabular-nums; }
   .ctab td.l { text-align:left; }
   .ctab .sub { display:block; font-size:10px; color:var(--mut); font-weight:400; margin-top:1px; }
@@ -326,12 +325,6 @@ export const INVOICE_CSS = `
   .ctab tr.pay td { background:#eef2f8; font-weight:700; }
   .ctab tr.pay b { color:var(--tl-d); font-size:15px; font-weight:800; }
   .ctab tbody tr:last-child th, .ctab tbody tr:last-child td { border-bottom:0; }
-
-  /* ★아래 두 줄 — 계좌와 문의처. ★금액은 위 요약표에 이미 크게 있다(사장님 2026-08-27
-     「입금계좌도 굳이 거창하게 저렇게 위에 금액있는데」). 여기선 «어디로·누구에게»만 말한다. */
-  .foot2 { margin-top:6px; display:flex; justify-content:space-between; gap:10mm; font-size:11px; }
-  .foot2 .k { color:var(--faint); font-weight:600; font-size:10px; margin-right:8px; }
-  .foot2 > div { color:var(--ink); font-weight:600; }
 
   /* 발송 전 확인 — 우리끼리 보는 표시. 인쇄하면 사라진다. */
   .warn { margin-top:var(--sec); font-size:10px; color:#c0392b; font-weight:600; }
