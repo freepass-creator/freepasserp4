@@ -23,7 +23,11 @@ export const RENT_STANDARD_VERSION = 'v1.0';
 export type StandardTemplateKey =
   | 'freepass-rent-standard'
   | 'freepass-subscription-insurance-included'
-  | 'freepass-subscription-insurance-separate';
+  | 'freepass-subscription-insurance-separate'
+  | 'sonogong-rent-draft'
+  | 'sonogong-subscription-insurance-included'
+  | 'sonogong-subscription-insurance-separate'
+  | 'sonogong-pickup-confirmation';
 
 /** 모든 파생 계약서의 모체. 배열 순서가 바뀌어도 신규 계약의 기본값은 변하지 않는다. */
 export const DEFAULT_STANDARD_TEMPLATE_ID: StandardTemplateKey = 'freepass-rent-standard';
@@ -71,6 +75,47 @@ export const STANDARD_CONTRACT_TEMPLATES: EsignTemplate[] = [
     title: '자동차 구독 계약서',
     note: '고객이 보험을 별도로 가입합니다. 기본은 만기 반납이며 인수조건이 있을 때만 인수옵션을 기재합니다.',
   },
+  {
+    id: 'sonogong-rent-draft',
+    label: '손오공 렌트 계약서',
+    version: 'draft-v1',
+    isSample: true,
+    contractKind: '렌탈',
+    insuranceSide: '회사포함',
+    title: '자동차 장기대여 계약서',
+    note: '손오공 렌트 계약서 검토 양식입니다. 전자발행 승인 전까지 발송할 수 없습니다.',
+  },
+  {
+    id: 'sonogong-subscription-insurance-included',
+    label: '손오공 구독 계약서 · 보험료 포함',
+    version: 'draft-v1',
+    isSample: true,
+    contractKind: '구독',
+    insuranceSide: '회사포함',
+    title: '자동차 구독 계약서',
+    note: '손오공 구독 약정서 기반 검토 양식입니다. 전자발행 승인 전까지 발송할 수 없습니다.',
+  },
+  {
+    id: 'sonogong-subscription-insurance-separate',
+    label: '손오공 구독 계약서 · 보험료 별도',
+    version: 'draft-v1',
+    isSample: true,
+    contractKind: '구독',
+    insuranceSide: '고객직접',
+    title: '자동차 구독 계약서',
+    note: '손오공 구독 약정서 기반 검토 양식입니다. 전자발행 승인 전까지 발송할 수 없습니다.',
+  },
+  {
+    id: 'sonogong-pickup-confirmation',
+    label: '손오공 차량 픽업 확인서',
+    version: 'draft-v1',
+    isSample: true,
+    // 확인서는 요금 계약이 아니지만, 기존 미리보기 계약 종류 타입과의 호환을 위해 렌탈 축을 사용한다.
+    contractKind: '렌탈',
+    insuranceSide: '회사포함',
+    title: '차량 픽업 확인서',
+    note: '차량 인수·상태 확인용 검토 양식입니다. 계약 금액이나 고객 서명 링크를 만들 수 없습니다.',
+  },
 ];
 
 /** 기존 호출부 호환용 이름. 내용은 표준계약서 3벌이다. */
@@ -83,6 +128,22 @@ export function isEsignTemplateAllowed(environment: string | undefined, template
   if (!selected) return STANDARD_CONTRACT_TEMPLATES.every((template) => !template.isSample);
   const template = findTemplate(selected);
   return !!template && !template.isSample;
+}
+
+/**
+ * 수기 오퍼는 고객 링크를 실제로 만드는 별도 운영 경계다. 샘플/초안 서식은 개발 환경에서
+ * 자동으로 열지 않고, 운영에서는 배포 설정에 명시한 ID만 허용한다.
+ */
+export function isManualOfferTemplateAllowed(environment: string | undefined, templateId: unknown): boolean {
+  const id = S(templateId);
+  const template = findTemplate(id);
+  if (!template) return false;
+  const allowed = S(process.env.FREEPASS_ESIGN_MANUAL_TEMPLATE_ALLOWLIST)
+    .split(',').map((value) => value.trim()).filter(Boolean);
+  if (environment === 'production') return allowed.includes(id);
+  // 테스트는 명시적 allowlist 또는 비샘플 정본만 허용한다. 샘플을 테스트할 때도
+  // `FREEPASS_ESIGN_MANUAL_TEMPLATE_ALLOWLIST`를 넣어야 한다.
+  return !template.isSample || allowed.includes(id);
 }
 
 export function findTemplate(id: unknown): EsignTemplate | null {

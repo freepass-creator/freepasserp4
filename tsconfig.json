@@ -33,13 +33,14 @@
     "**/*.tsx",
     ".next-buildcheck/types/**/*.ts",
     ".next-codex-vehicle-claim-api-off/types/**/*.ts",
+    ".next-codex-vehicle-claim-api-on/types/**/*.ts",
     ".next-dev-qa/types/**/*.ts",
     ".next-dev/types/**/*.ts",
     ".next-erp5/types/**/*.ts",
     ".next-qa/types/**/*.ts",
     ".next/types/**/*.ts",
     "next-env.d.ts",
-    ".next-codex-vehicle-claim-api-on/types/**/*.ts"
+    ".next-ui-qa/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",

@@ -18,11 +18,15 @@
    (`Input` `Textarea` `SearchInput` `Btn` `IconBtn` `Select` `Badge` `ListRow` `FeedListRow` `PaneHead` `PaneBody`).
    숨김 파일선택(`type="file"` + `display:none`)만 예외. **필요한 원자가 없으면 만들지 말고 보고.**
 2. 여러 화면이 쓰는 **공용 원자를 자체 컴포넌트로 교체 금지.** 개선 필요해 보여도 보고만 한다.
-   업무 목록행 SSOT = `FeedListRow` + `list-rows`(문의·계약·재고·정책). 단순 행만 `ListRow`.
+   업무 목록행 SSOT = `FeedListRow` + `list-rows`. 정본=계약서관리(`/esign`) 목록. 등록=`CreateListRow`. 더보기=`ListMoreBar`. 단순 행만 `ListRow`.
+   목록 도구 = 검색+필터(정렬은 필터 안). 목록 위 페이지 전용 배너·큐 칩 금지.
 3. 업무 페이지 레이아웃을 손으로 짜지 않는다 → 반드시 `WorkPage` + `panes` **4패널**
    (계약문의: 목록·채팅·상세(→첨부)·진행 / 계약정산: 목록·진행·첨부·정산상태 /
-    재고관리: 목록·기본정보·운영정보·업로드 / 정책관리: 목록·기본심사·계약조건·보험)
-   예외: 회원관리 = WorkPage 1패널 + `ListRow`.
+    재고관리: 목록·기본정보·운영정보·업로드 / 정책관리: 목록·기본심사·계약조건·보험 /
+    회원관리: 목록·기본정보·소속권한(또는 정산운영)·영업설정(또는 데이터연동))
+   필드 표 SSOT = `WorkFields`/`WorkTable`/`WorkRow`/`WorkInput`/`WorkSelect`/`WorkDock` (`components/ui/work-mode.tsx`). 정본=재고관리.
+   매물 고르기 = `ProductRowCard`/`ProductCard`(공용 카드 규격. `/finder`만 쓴다고 페이지 규격이 되지 않는다).
+   **페이지 전용 규격 금지.** 공용 원자를 만들어 두고 페이지는 갖다 쓴다.
 4. **v3(운영 중) 노드에 write 금지.** 쓰기는 `v4/` 오버레이로만. `database.rules.json` 수정·배포 금지.
 5. **엔진 우회 금지.** 계약 단계·취소는 `applyStepCheck`/`cancelContract`, 저장·삭제는 `getStore()`.
    차량 상태는 엔진이 단일 writer — 페이지에서 직접 바꾸지 않는다.

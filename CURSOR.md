@@ -79,8 +79,8 @@
 이미 여러 화면이 쓰는 공용 컴포넌트를 **자체 컴포넌트로 교체 금지.**
 개선이 필요해 보여도 보고만 한다. 하나를 바꾸면 그 원자를 쓰는 모든 화면의 톤이 깨진다.
 
-**업무 목록행 SSOT** = `FeedListRow`(`components/ui/feedrow`) + 도메인행(`components/list-rows`: Chat/Contract/Inventory/Policy).
-보조·설정·회원 등 단순 행만 `ListRow`. 페이지에서 자체 목록행을 새로 만들지 말 것.
+**업무 목록행 SSOT** = `FeedListRow` + `components/list-rows`. **정본 = 계약서관리(`/esign`) 목록** (`EsignCenterListRow`). 문의·계약·재고·정책·회원·정산·원장은 같은 2줄(제목행+보조줄)만 쓴다.
+등록 행 = `CreateListRow`. 더보기 = `ListMoreBar`. 페이지에서 자체 목록행·푸터를 새로 만들지 말 것. 설정·개발 등 단순 행만 `ListRow`.
 
 ### 🚫 2-3. 페이지에 레이아웃을 손으로 짜지 않는다
 업무 페이지는 **4패널 고정**이며 반드시 `WorkPage`에 `panes` 배열로 선언한다.
@@ -93,9 +93,13 @@
 | 정책관리 (`app/policy`) | 목록 | 기본·심사 | 계약조건 | 보험 |
 | 회원관리 (`app/members`) | 목록 | 기본정보 | 소속·권한(유) / 정산·운영(파) | 영업설정(유) / 데이터연동(파) |
 
-회원 목록 행은 `ListRow`/`MemberListRow`(Feed 아님). 계정(users)·회사(partners) 전환은 `listHeader`가 아니라 필터「목록」(`FilterChips`). 역할 필터는 계정 목록에만.
+회원 목록 행은 `MemberListRow`(Feed). 계정(users)·회사(partners) 전환은 `listHeader`가 아니라 필터「목록」(`FilterChips`). 역할 필터는 계정 목록에만.
 
-패널 배치·모바일 전환·목록 도구(검색/정렬/필터)는 **셸이 담당**한다. 페이지는 내용만 넣는다.
+패널 배치·모바일 전환·목록 도구(검색/필터)는 **셸이 담당**한다. 정렬은 필터 안 `FilterChips`. 페이지는 내용만 넣는다.
+
+**필드 표 SSOT** = `components/ui/work-mode.tsx` (`DESIGN.md` §6). 정본은 재고관리. 표·입력·드롭다운은 `WorkTable`/`WorkRow`/`WorkInput`/`WorkSelect` 를 갖다 쓴다.
+매물 고르기(`/finder`·`/catalog`)는 이 표가 아니라 매물 카드 규격(`ProductRowCard`/`ProductCard`)을 쓴다 — 페이지 예외가 아니다.
+페이지에서 `FormGrid`/`FormReadList` 를 직접 갈라 쓰지 않는다.
 
 ### 🚫 2-4. v3(운영 중) 데이터를 건드리지 않는다
 - v3는 **읽기 전용**. 쓰기는 전부 `v4/` 오버레이로만 간다(`lib/firebase/rtdb-adapter.ts`).

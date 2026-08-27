@@ -93,18 +93,16 @@ export function ToggleChips<T extends string>({
     opacity: locked ? 0.55 : 1,
     transition: 'background .1s, border-color .1s, color .1s',
   });
-  /** 색상칩 — 칩 전체 칠하지 않고, 라벨 글자만 은은히 감싸는 wash(텍스트 뒤 그림자에 가깝게). */
-  const labelWash = (swatch: string, active: boolean): React.CSSProperties | undefined => {
-    if (active) return undefined;
-    return {
-      borderRadius: R,
-      padding: '2px 5px',
-      margin: '-2px -5px',
-      background: `color-mix(in srgb, ${swatch} 16%, transparent)`,
-      boxShadow: `0 0 0 1px color-mix(in srgb, ${swatch} 12%, transparent)`,
-      textShadow: `0 0 10px color-mix(in srgb, ${swatch} 40%, transparent)`,
-    };
-  };
+  const swatchDot = (hex: string, active: boolean): React.CSSProperties => ({
+    display: 'inline-block',
+    width: 10,
+    height: 10,
+    borderRadius: R,
+    background: hex,
+    border: `1px solid ${active ? C.taupeBg : C.line}`,
+    flex: '0 0 auto',
+    boxSizing: 'border-box',
+  });
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: mobile ? 8 : 6 }}>
       {options.map((option) => {
@@ -127,7 +125,10 @@ export function ToggleChips<T extends string>({
             title={locked ? '운영예정' : undefined}
           >
             {option.swatch ? (
-              <span style={labelWash(option.swatch, active)}>{option.label}</span>
+              <>
+                <span aria-hidden style={swatchDot(option.swatch, active)} />
+                {option.label}
+              </>
             ) : option.label}
             {option.count != null ? (
               <span

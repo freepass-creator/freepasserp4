@@ -4,9 +4,10 @@ import { useParams } from 'next/navigation';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { vehicleName } from '@/lib/domain/product';
 import { ProductDetail } from '@/components/ProductDetail';
-import { C, R, Loading, CenterNote, Btn, FW, FS, ICON, SH } from '@/components/ui';
+import { C, Loading, CenterNote, Btn, Message, FW, FS, ICON, SH } from '@/components/ui';
 import { haptic } from '@/lib/haptics';
 import { Phone } from 'lucide-react';
+import { GUEST_W } from '@/lib/guest-layout';
 
 /**
  * 손님 대면 **상품 안내**(화이트라벨).
@@ -21,9 +22,6 @@ import { Phone } from 'lucide-react';
  *   (2026-07-30 QA 「영업 공유 퍼널 전면 불능」 · 2026-08-08 재확인).
  *   규칙을 열면 원가·수수료·회원까지 새므로, 서버가 서비스계정으로 읽고 화이트리스트만 준다.
  */
-
-/** 손님 화면 본문 폭 — 하단바 안쪽도 같은 폭·같은 좌우 여백을 써서 왼쪽 선이 맞는다. */
-const GUEST_W = 760;
 
 export function QuoteView() {
   const { code } = useParams<{ code: string }>();
@@ -59,7 +57,6 @@ export function QuoteView() {
     ? String(agent.phone || agent.mobile || agent.tel || agent.contact || '').replace(/\s/g, '')
     : '';
   const telHref = phone ? `tel:${phone.replace(/[^0-9+]/g, '')}` : '';
-  const inverse = 'var(--text-inverse)';
 
   return (
     <>
@@ -72,15 +69,15 @@ export function QuoteView() {
       <div style={{ fontSize: FS.sub, color: C.mute, letterSpacing: '0.04em', marginBottom: 10 }}>상품 안내</div>
       <ProductDetail p={p} audience="customer" />
       {/* 담당자·전화는 하단바가 늘 들고 있다 — 본문에 같은 말을 또 적지 않는다. */}
-      {!telHref ? (
-        <div style={{ marginTop: 24, padding: '14px 16px', background: C.brand, color: inverse, borderRadius: R }}>
-          <div style={{ fontSize: FS.body, fontWeight: FW.title }}>상담 문의</div>
-          <div style={{ fontSize: FS.body, marginTop: 4, opacity: 0.9 }}>
-            {agentName ? `담당 영업자 ${agentName}에게 연락 주세요.` : '담당 영업자에게 연락 주세요.'}
-          </div>
-        </div>
-      ) : null}
-      <div style={{ marginTop: 14, fontSize: FS.cap, color: C.faint }}>본 안내는 참고용이며 심사·재고에 따라 변동될 수 있습니다.</div>
+          {!telHref ? (
+          <Message variant="info">
+            <div style={{ fontWeight: FW.title }}>상담 문의</div>
+            <div>
+              {agentName ? `담당 영업자 ${agentName}에게 연락 주세요.` : '담당 영업자에게 연락 주세요.'}
+            </div>
+          </Message>
+          ) : null}
+      <Message variant="info">본 안내는 참고용이며 심사·재고에 따라 변동될 수 있습니다.</Message>
     </main>
     </div>
 

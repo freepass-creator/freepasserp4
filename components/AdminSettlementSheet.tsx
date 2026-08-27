@@ -7,7 +7,7 @@ import {
   ADMIN_SETTLE_BLOCKS, computeAdminSettlement, importCompletedForMonth,
   monthTotals, saveAdminSettlement,
 } from '@/lib/domain/admin-settlement';
-import { Btn, C, CenterNote, ctrlH, FS, FW, Input, ListRow, R, Select, SectionLabel, won, NUM, FeedRowSkeleton } from '@/components/ui';
+import { Btn, C, CenterNote, FS, FW, ListGroup, ListRow, Message, NUM, WorkInput, WorkRow, WorkSelect, WorkTable, won, FeedRowSkeleton } from '@/components/ui';
 import { toast } from '@/components/Toaster';
 import { useIsMobile } from '@/lib/use-mobile';
 
@@ -73,7 +73,7 @@ export function AdminSettlementSheet({ month }: { month: string }) {
         <div style={{ fontSize: FS.cap, color: C.mute }}>
           청구 {won(tot.bill)} · 지급 {won(tot.pay)} · 수익 <b style={{ color: C.brand }}>{won(tot.profit)}</b> ({tot.n}건)
         </div>
-        <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg, maxHeight: mobile ? 200 : 480, overflowY: 'auto' }}>
+        <ListGroup style={{ maxHeight: mobile ? 200 : 480, overflowY: 'auto' }}>
           {shown.length === 0
             ? <CenterNote>이 달 정산서 없음 — 정산완료 불러오기</CenterNote>
             : shown.map((r) => (
@@ -83,10 +83,10 @@ export function AdminSettlementSheet({ month }: { month: string }) {
                 right={<span style={{ fontSize: FS.cap, fontWeight: FW.head, color: C.brand, fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{won(r.monthly_profit)}</span>}
               />
             ))}
-        </div>
+        </ListGroup>
       </div>
 
-      <div style={{ flex: 1, minWidth: 0, border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg, padding: 12, overflowY: 'auto', maxHeight: mobile ? undefined : 520 }}>
+      <div style={{ flex: 1, minWidth: 0, overflowY: 'auto', maxHeight: mobile ? undefined : 520 }}>
         {!sel ? <CenterNote>왼쪽에서 정산서를 선택하세요</CenterNote> : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -95,29 +95,31 @@ export function AdminSettlementSheet({ month }: { month: string }) {
               <Btn title="정산서 저장" size="sm" onClick={save} disabled={busy}>저장</Btn>
             </div>
             {ADMIN_SETTLE_BLOCKS.map((block) => (
-              <div key={block.key}>
-                <SectionLabel>{block.title}</SectionLabel>
-                <div style={{ display: 'grid', gridTemplateColumns: mobile ? '1fr' : '1fr 1fr', gap: 8, marginTop: 6 }}>
-                  {block.fields.map((f) => (
-                    <div key={f.k} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                      <span style={{ fontSize: FS.cap, color: C.mute, fontWeight: FW.strong }}>{f.label}{f.calc ? ' (자동)' : ''}</span>
-                      {f.type === 'select' ? (
-                        <Select value={String(form[f.k] ?? '')} onChange={(v) => setField(f.k, v)} options={(f.opts || []).map((o) => ({ value: o, label: o }))} size="sm" full />
-                      ) : f.calc ? (
-                        <div style={{ height: ctrlH(mobile, 'sm'), display: 'flex', alignItems: 'center', padding: '0 8px', borderRadius: R, background: C.head, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', fontSize: FS.body, fontWeight: FW.head }}>{String(form[f.k] ?? '')}</div>
-                      ) : (
-                        <Input value={form[f.k] == null ? '' : String(form[f.k])} onChange={(v) => setField(f.k, v)}
-                          size="sm" full inputMode={f.type === 'num' ? 'numeric' : undefined}
-                          style={f.type === 'num' ? { fontFamily: NUM, fontVariantNumeric: 'tabular-nums' } : undefined} />
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <WorkTable key={block.key} title={block.title}>
+                {block.fields.map((f) => (
+                  <WorkRow
+                    key={f.k}
+                    label={f.calc ? `${f.label} (자동)` : f.label}
+                    valueStyle={f.type === 'num' || f.calc ? { fontFamily: NUM, fontVariantNumeric: 'tabular-nums' } : undefined}
+                  >
+                    {f.type === 'select' ? (
+                      <WorkSelect value={String(form[f.k] ?? '')} onChange={(v) => setField(f.k, v)} options={f.opts || []} />
+                    ) : f.calc ? (
+                      String(form[f.k] ?? '')
+                    ) : (
+                      <WorkInput
+                        value={form[f.k] == null ? '' : String(form[f.k])}
+                        onChange={(v) => setField(f.k, v)}
+                        type={f.type === 'date' ? 'date' : undefined}
+                        inputMode={f.type === 'num' ? 'numeric' : undefined}
+                        style={f.type === 'num' ? { fontFamily: NUM, fontVariantNumeric: 'tabular-nums' } : undefined}
+                      />
+                    )}
+                  </WorkRow>
+                ))}
+              </WorkTable>
             ))}
-            <div style={{ fontSize: FS.cap, color: C.faint, borderTop: `1px solid ${C.line2}`, paddingTop: 8 }}>
-              부가세=합계×10% · 청구/지급=합계+부가세 · 당월수익=청구−지급. 청구·지급 칸을 직접 넣으면 그 값이 우선입니다.
-            </div>
+            <Message variant="info">부가세=합계×10% · 청구/지급=합계+부가세 · 당월수익=청구−지급. 청구·지급 칸을 직접 넣으면 그 값이 우선입니다.</Message>
           </div>
         )}
       </div>

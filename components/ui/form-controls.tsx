@@ -46,7 +46,7 @@ export function Select({ value, onChange, options, groups, placeholder, ariaLabe
   );
 }
 
-export function Input({ value, onChange, placeholder, ariaLabel, size = 'md', type = 'text', inputMode, width, full, style, onEnter, onKeyDown, onFocus, onBlur, autoFocus, disabled, readOnly, noAutofill, enterKeyHint }: {
+export function Input({ value, onChange, placeholder, ariaLabel, size = 'md', type = 'text', inputMode, width, full, style, onEnter, onKeyDown, onFocus, onBlur, autoFocus, disabled, readOnly, noAutofill, enterKeyHint, list }: {
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
@@ -68,9 +68,12 @@ export function Input({ value, onChange, placeholder, ariaLabel, size = 'md', ty
   noAutofill?: boolean;
   /** 모바일 키보드 확인키 라벨(채팅=send). */
   enterKeyHint?: 'enter' | 'done' | 'go' | 'next' | 'previous' | 'search' | 'send';
+  /** catalog datalist 연결. 자유 입력은 막지 않는다. */
+  list?: string;
 }) {
   const mobile = useIsMobile();
   return <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} aria-label={ariaLabel || placeholder} type={type} inputMode={inputMode} autoFocus={autoFocus} disabled={disabled} readOnly={readOnly}
+    list={list}
     onFocus={onFocus} onBlur={onBlur} enterKeyHint={enterKeyHint}
     {...(noAutofill ? {
       autoComplete: 'off', autoCorrect: 'off', autoCapitalize: 'none', spellCheck: false,
@@ -149,7 +152,7 @@ export function SearchInput({ value, onChange, placeholder = '검색', ariaLabel
     const t = window.setTimeout(() => ref.current?.focus(), 60);
     return () => window.clearTimeout(t);
   }, [autoFocus]);
-  const slotW = mobile ? 36 : 20;
+  const slotW = mobile ? ctrlH(mobile) : 20;
   // 오른쪽 슬롯 총 폭 — X 자리는 값이 없어도 비워 둔다(지울 때 글자가 튀지 않게).
   const rightPad = trailing ? slotW * 2 + 12 : (mobile ? 40 : 28);
   return (
@@ -166,7 +169,7 @@ export function SearchInput({ value, onChange, placeholder = '검색', ariaLabel
       }}>
         {value ? (
           <button type="button" aria-label="검색어 지우기" onMouseDown={(e) => e.preventDefault()} onClick={() => onChange('')}
-            style={{ pointerEvents: 'auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: slotW, height: mobile ? 36 : 17, padding: 0, borderRadius: '50%', border: 'none', background: 'transparent', color: C.mute, cursor: 'pointer' }}>
+            style={{ pointerEvents: 'auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: slotW, height: mobile ? ctrlH(mobile) : 17, padding: 0, borderRadius: '50%', border: 'none', background: 'transparent', color: C.mute, cursor: 'pointer' }}>
             <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: mobile ? 22 : 17, height: mobile ? 22 : 17, borderRadius: '50%', background: C.line2 }}>
               <X size={mobile ? 14 : 11} />
             </span>

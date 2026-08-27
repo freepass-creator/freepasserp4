@@ -12,7 +12,7 @@ import { sectionIcon } from '@/components/section-icons';
 import { copyText } from '@/lib/clipboard';
 import { toast } from '@/components/Toaster';
 import { AGENT_COL_BP } from '@/components/product-agent-layout';
-import { won, Btn, C, R, NUM, FW, FS, ICON, DetailTable, DT, R_CARD, SH } from '@/components/ui';
+import { won, Btn, C, R, NUM, FW, FS, ICON, CenterNote, DetailTable, DT, R_CARD, SH } from '@/components/ui';
 
 /**
  * **상품상세 우측 영업자 패널**(사장님 2026-08-20 목업 「이렇게 상품상세 우측에 들어가는거잖아」).
@@ -241,9 +241,7 @@ export function ProductAgentPanel({ p, audience, pinnedShare, mobile }: {
             </tbody>
           </table>
         ) : (
-          <div style={{ padding: '10px', fontSize: FS.cap, color: C.faint }}>
-            대여료 미입력 — 손님 안내 전에 요금을 넣어야 합니다.
-          </div>
+          <CenterNote minHeight={80}>대여료 미입력 — 손님 안내 전에 요금을 넣어야 합니다.</CenterNote>
         )}
       </div>
       )}

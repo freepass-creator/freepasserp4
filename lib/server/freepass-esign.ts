@@ -32,7 +32,7 @@ import {
 } from '@/lib/domain/freepass-esign-consents';
 import { esignAdditionalDriverLimit } from '@/lib/domain/esign-center';
 import { additionalDriverCostLabel, productMatchesTemplate } from '@/lib/domain/esign-vehicle-selection';
-import { freepassEsignRequiredDocuments } from '@/lib/domain/esign-required-documents';
+import { ESIGN_DOCUMENT_PRESETS, freepassEsignRequiredDocuments } from '@/lib/domain/esign-required-documents';
 import { isUsableInsurerName } from '@/lib/domain/policy-tier';
 import { isContractCancelled } from '@/lib/domain/contract';
 import {
@@ -517,6 +517,32 @@ export async function loadFreepassDirectSource(productCode: string, policyCode: 
   return { db, product, policy, partner };
 }
 
+/**
+ * 승인된 수기 오퍼는 ERP 재고 상품이 아닌 실차번호/차종을 쓴다. 그래도 정책·임대인은
+ * 브라우저가 아니라 서버가 현재 정본에서 읽어 seal에 복사한다.
+ */
+export async function loadFreepassManualOfferSource(providerCode: string, policyCode: string): Promise<{
+  db: Database;
+  policy: EsignRecord | null;
+  partner: EsignRecord | null;
+}> {
+  const db = firebaseAdminDatabase();
+  const providerKey = S(providerCode);
+  const policyKey = S(policyCode);
+  const [legacyPolicy, overlayPolicy, legacyPartners, overlayPartners] = await Promise.all([
+    policyKey ? db.ref(`policies/${policyKey}`).get().catch(() => null) : Promise.resolve(null),
+    policyKey ? db.ref(`v4/policies/${policyKey}`).get().catch(() => null) : Promise.resolve(null),
+    db.ref('partners').get().catch(() => null),
+    db.ref('v4/partners').get().catch(() => null),
+  ]);
+  const storedPolicy = mergeRecord(legacyPolicy?.val(), overlayPolicy?.val());
+  return {
+    db,
+    policy: storedPolicy ? applyPolicyDefaults(storedPolicy).next as EsignRecord : null,
+    partner: partnerFromNodes(legacyPartners?.val(), overlayPartners?.val(), providerKey),
+  };
+}
+
 function parseDraft(value: unknown): Record<string, string> {
   try {
     const raw = typeof value === 'string' ? JSON.parse(value) : value;
@@ -533,11 +559,10 @@ function parseDraft(value: unknown): Record<string, string> {
   }
 }
 
-/** 공개 링크는 개인 본인확인 화면이다. 법인·개인사업자 서명 권한 흐름을 개인 주민번호 흐름으로 추정하지 않는다. */
-function unsupportedCustomerTypeIssueError(contract: EsignRecord): string {
+/** 유형은 승인 오퍼가 seal한 값만 쓴다. business flag만 있는 계약은 개인/법인 흐름을 추정하지 않는다. */
+function customerTypeIssueError(contract: EsignRecord): string {
   const customerType = S(contract.customer_type || contract.contract_customer_type || contract.customer_type_snapshot);
-  if (customerType === '법인') return '법인 전자계약은 법인 서명권자·권한확인 절차가 준비된 뒤 발행할 수 있습니다.';
-  if (customerType === '개인사업자') return '개인사업자 전자계약은 사업자 서류·세금계산서 발행정보 절차가 준비된 뒤 발행할 수 있습니다.';
+  if (customerType && !['개인', '개인사업자', '법인'].includes(customerType)) return '계약자 유형을 확인할 수 없습니다. 승인 기본조건을 확인해 주세요.';
   const businessFlag = S(contract.customer_is_business).toLowerCase();
   if (!customerType && ['예', 'true', 'yes', '1'].includes(businessFlag)) {
     return '사업자 계약은 customer_type(개인사업자 또는 법인)를 확정한 뒤 별도 전자계약 절차로 발행해 주세요.';
@@ -581,7 +606,7 @@ export function buildFreepassIssueSnapshot(args: {
   }
   const selectionError = standardTemplateSelectionError(template, spec, args.policy);
   if (selectionError) throw new Error(selectionError);
-  const customerTypeError = unsupportedCustomerTypeIssueError(args.contract);
+  const customerTypeError = customerTypeIssueError(args.contract);
   if (customerTypeError) throw new Error(customerTypeError);
   const vehicleStateError = freepassVehicleStateIssueError(args.contract, args.product);
   if (vehicleStateError) throw new Error(vehicleStateError);
@@ -634,7 +659,17 @@ export function buildFreepassIssueSnapshot(args: {
       : '계약서와 개인정보 동의에 표시할 임대인 상호를 먼저 입력해 주세요.');
   }
   const additionalDriverLimit = esignAdditionalDriverLimit(args.policy);
-  const requiredDocuments = freepassEsignRequiredDocuments(args.policy, template.insuranceSide);
+  const customerType = S(args.contract.customer_type || args.contract.customer_type_snapshot);
+  const partyPreset = customerType === '법인' ? 'corporate' : customerType === '개인사업자' ? 'business' : '';
+  const partyDocuments = ESIGN_DOCUMENT_PRESETS.find((preset) => preset.key === partyPreset)?.documents || [];
+  // 보험·정책 서류와 계약자 유형 서류를 모두 동결한다. 같은 key는 한 번만 남겨
+  // 고객 업로드/관리자 검토 기준이 갈라지지 않게 한다.
+  const requiredDocuments = [...freepassEsignRequiredDocuments(args.policy, template.insuranceSide), ...partyDocuments]
+    .filter((document, index, rows) => rows.findIndex((candidate) => candidate.key === document.key) === index);
+  const partyKeys = partyDocuments.map((document) => document.key);
+  if (partyKeys.some((key) => !requiredDocuments.some((document) => document.required && document.key === key))) {
+    throw new Error('계약자 유형별 필수 증빙을 동결하지 못했습니다. 승인 기본조건을 확인해 주세요.');
+  }
   const consentProfile = buildFreepassConsentProfile({
     landlordCompanyName,
     gpsInstalled: templateSnapshot.fields.gps_installed,

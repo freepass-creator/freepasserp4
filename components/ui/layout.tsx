@@ -31,7 +31,7 @@ export function PaneHead({ title, count, right }: {
 export function PaneBody({ children, pad = false }: { children: React.ReactNode; pad?: boolean }) {
   return (
     <div
-      className="fp-pane-scroll"
+      className={pad ? 'fp-pane-scroll fp-pane-pad' : 'fp-pane-scroll'}
       style={{
         flex: 1, overflowY: 'auto', minHeight: 0,
         ...(pad ? {

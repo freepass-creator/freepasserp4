@@ -7,8 +7,9 @@
 
 ## 0. 절대 원칙
 
-**숫자와 색을 직접 쓰지 않는다. 토큰을 쓴다.**
-토큰에 없으면 → **만들지 말고 보고**한다. (새 값 도입 = 디자인 판단 = 커서 레인 아님)
+**페이지가 규격을 가지면 안 된다.** 공용 규격을 만들어 두고 페이지는 그걸 갖다 쓴다.
+지금 그 화면만 쓰는 규격이어도 「그 페이지 규격」이 아니다. **아직 다른 화면이 안 쓰는 공용 규격**이다.
+새 UI가 필요하면 페이지에 짜지 말고 **원자를 만들고** 페이지는 배열만 한다.
 
 ---
 
@@ -75,13 +76,16 @@ ctrlChipH(mobile)         // 필터칩 높이
 | 버튼 / 아이콘버튼 | `Btn` / `IconBtn` |
 | 선택 | `Select` |
 | 상태 뱃지 / 카운트 | `Badge` / `CountPill` |
-| 목록 행 | `ListRow` · `FeedListRow`(문의·계약·재고·정책) |
+| 업무 목록 행 | `FeedListRow` + `list-rows`(정본=`/esign`) · 등록=`CreateListRow` · 단순 행만 `ListRow` |
+| 목록 더보기 | `ListMoreBar`(업무 목록·매물 목록 공통) |
+| 목록 도구 | `WorkPage` `listTools` — 검색 + 필터. 정렬은 필터 안 `FilterChips`. 툴바 `sort` Select 금지 |
+| 매물 카드 | `ProductRowCard`(상세) · `ProductCard`(간단) — 정본 슬롯=`product-card-atoms`. 지금 `/finder`·`/catalog`가 씀 |
 | 패널 | `PaneHead` / `PaneBody` / `Panel` |
 | 업무 페이지 골격 | `WorkPage` + `panes`(4패널) |
 | 빈 화면 | `CenterNote` |
 | 로딩 | `Loading` |
 | 필터칩·섹션라벨 | `FilterChips` / `SectionLabel` |
-| 폼 | `FormGrid` / `FormCard` |
+| 폼 | `WorkFields`(업무 표) / `FormCard`(표가 아닌 묶음) |
 
 🚫 `<input> <textarea> <select> <button>` 직접 작성 금지 (숨김 `type="file"`만 예외).
 🚫 **공용 원자를 자체 컴포넌트로 교체 금지.** 필요하면 보고.
@@ -138,7 +142,37 @@ ctrlChipH(mobile)         // 필터칩 높이
 
 ---
 
-## 6. 작업 후 자가점검
+## 6. 업무 페이지 필드 표 SSOT — 재고관리가 정본
+
+이 절은 **업무 표 문법**이다. 매물을 고르는 화면은 표가 아니라 **매물 카드 문법**(`ProductRowCard`/`ProductCard`)을 쓴다.
+상품찾기(`/finder`)가 그 카드 문법을 지금 거의 혼자 쓰는 것이지, 파인더 전용 규격이 있는 게 아니다.
+
+코드 정본 = `components/ui/work-mode.tsx`. 페이지에서 `FormGrid`/`FormReadList` 를 직접 갈라 쓰지 않는다.
+표·버튼·드롭다운·입력칸을 페이지에서 손수 짜지 말고 아래를 갖다 쓴다.
+
+| 필요 | 원자 | 읽히는 것 |
+|---|---|---|
+| 스키마 표 | `WorkFields` | 엔티티 필드 배열. 머리띠 → 라벨 \| 값 |
+| 자유 표 | `WorkTable` + `WorkRow` | 같은 표. 스키마가 없을 때 |
+| 표 안 갈래 | `WorkSplit` | 한 표 안에서 구간만 나눔. 표를 안에 또 넣지 않음 |
+| 표 안 입력 | `WorkInput` | `Input`. 크기=재고 표와 같음 |
+| 표 안 드롭다운 | `WorkSelect` | `SheetSelect`(웹 Select · 모바일 시트) |
+| 표 안 여러 줄 | `WorkTextarea` | `Textarea` |
+| 버튼 | `Btn` | 공용 버튼. 새로 만들지 않음 |
+| 보기 | `WorkFields mode="view"` | 글자. 입력칸처럼 안 보인다 |
+| 수정 | `WorkFields mode="edit"` | 같은 자리, 값 칸을 고친다 |
+| 신규 | `WorkFields mode="create"` | 같은 자리, 빈칸부터 채운다 |
+| 배너 | `WorkModeBanner` | 첫 업무 패널에만 |
+| 하단 | `WorkDock` | 보기=수정·삭제 / 신규·수정=취소·저장 |
+
+골격은 기존 그대로: `WorkPage` + `panes` + `PaneHead`/`PaneBody pad` + 목록 도구. 대화·사진은 `ChatThread`·`PhotoUpload`.
+표가 아닌 묶음(사진·칩만 있는 블록)만 `FormCard`.
+
+**껍데기는 페이지가 정하지 않는다.** 업무 목록 정본=`/esign`(행=`FeedListRow` 2줄, 등록=`CreateListRow`, 도구=검색+필터). 매물 목록 정본=`ProductRowCard`/`ProductCard`. 긴 목록만 `ListMoreBar`. 목록 위 배너·큐 칩·페이지 전용 행/푸터를 두지 않는다.
+
+---
+
+## 7. 작업 후 자가점검
 
 1. 내가 추가한 코드에 `fontSize: 숫자`가 있는가? → `FS.*`로 교체
 2. `#`으로 시작하는 색이 있는가? → `C.*`로 교체

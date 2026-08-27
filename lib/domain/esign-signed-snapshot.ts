@@ -68,6 +68,9 @@ export function snapshotWithPrivateSubmission(
     customer_birth: resident?.birthDate || '',
     driver_license_no: driverLicenseNo,
     driver_or_biz_no: driverLicenseNo,
+    tax_biz_name: S(submission.tax_biz_name), tax_biz_no: S(submission.tax_biz_no), tax_ceo: S(submission.tax_ceo),
+    tax_biz_type_item: S(submission.tax_biz_type_item), tax_email: S(submission.tax_email), tax_biz_address: S(submission.tax_biz_address),
+    tax_issue_type: S(submission.tax_issue_type),
     emergency_contact: [S(submission.emergency_relation), S(submission.emergency_name), S(submission.emergency_phone)]
       .filter(Boolean)
       .join(' · '),

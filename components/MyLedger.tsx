@@ -23,7 +23,7 @@ import { canBill, confirmLabel, confirmTone, type Confirmation } from '@/lib/dom
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
 import {
   Badge, Btn, C, CenterNote, DetailRow, FilterChips, FilterGroup, FS, FW, Input,
-  ListGroup, ListRow, Loading, NUM, PaneBody, PaneHead, R, R_CARD, won,
+  ListGroup, ListRow, Loading, Message, NUM, PaneBody, PaneHead, R, R_CARD, won,
 } from '@/components/ui';
 import { toast } from '@/components/Toaster';
 import { CheckCircle2, ListChecks } from 'lucide-react';
@@ -234,9 +234,7 @@ export function MyLedger() {
         {picked.cancelled && <div><Badge tone="red">계약취소</Badge></div>}
       </div>
 
-      <div style={{ fontSize: FS.micro, color: C.mute, lineHeight: 1.5, border: '1px solid ' + C.line, borderRadius: R, padding: '7px 9px' }}>
-        수수료·정산 금액은 이 화면에서 다루지 않습니다. 정산 내역은 담당자에게 확인하세요.
-      </div>
+      <Message variant="info">수수료·정산 금액은 이 화면에서 다루지 않습니다. 정산 내역은 담당자에게 확인하세요.</Message>
     </>
   ) : <CenterNote>목록에서 계약을 고르세요.</CenterNote>;
 

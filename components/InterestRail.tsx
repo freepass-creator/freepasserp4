@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { useEffect, useState, type MouseEvent } from 'react';
 import { Star, History, StarOff, Trash2, X, MessageCircle } from 'lucide-react';
-import { C, R, Btn, ButtonLabel, IconBtn, NUM, ctrlH, ctrlFs, FW, FS, ICON } from '@/components/ui';
+import { C, R, Btn, ButtonLabel, IconBtn, NUM, ctrlH, ctrlFs, FW, FS, ICON, CenterNote } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { vehicleName, cheapest, isStockedProduct } from '@/lib/domain/product';
 import {
@@ -270,9 +270,9 @@ export function InterestPanel({
         <Btn mobileIcon={<X size={ICON.lg} />} title="관심함 닫기" size="sm" variant="ghost" haptic="back" onClick={onClose}>닫기</Btn>
       </div>
       {items.length === 0 ? (
-        <div style={{ fontSize: FS.sub, color: C.faint, padding: '4px 0' }}>
+        <CenterNote minHeight={48}>
           {tab === 'recent' ? '아직 본 상품이 없습니다' : tab === 'fav' ? '관심 상품이 없습니다' : '문의한 상품이 없습니다'}
-        </div>
+        </CenterNote>
       ) : (
         <div style={{
           display: 'grid', width: '100%',

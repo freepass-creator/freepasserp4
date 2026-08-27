@@ -259,6 +259,9 @@ button, input, select, textarea { font-family: inherit; }
   border-radius: var(--radius-pill);
   background-clip: padding-box;
 }
+/* pad 패널은 세로 flex. overflow:hidden 카드(상세 표)가 기본 min-height:auto=0 으로
+   줄어 내용이 잘리고 패널 스크롤이 안 생긴다 — 자식은 높이 유지, 스크롤은 패널이 한다. */
+.fp-pane-pad > * { flex-shrink: 0; }
 
 /* 처리 필요 표시(위험 섹션) — ui의 Sec/ObjCard가 참조 */
 .attn-dot {
@@ -802,36 +805,6 @@ html[data-fp-filter="0"] .fp-finder > .fp-sidebar { display: none; }
   text-overflow: clip !important;
 }
 
-/* 관리자 상담데스크 — 처리 상태를 필터 안에 숨기지 않고 목록 바로 위에 노출한다. */
-.fp-chat-queue-summary {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 10px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  border-bottom: 1px solid var(--border);
-  background: var(--brand-soft);
-}
-.fp-chat-queue-summary::-webkit-scrollbar { display: none; }
-.fp-chat-queue-summary > * { flex: 0 0 auto; }
-
-/* 정책관리 — 네 개의 긴 폼을 동시에 늘어놓지 않고 한 작업면에서 탭으로 전환한다. */
-.fp-policy-tabs {
-  flex: 0 0 auto;
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--border);
-  background: var(--brand-soft);
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-.fp-policy-tabs::-webkit-scrollbar { display: none; }
-.fp-policy-tabs > div { flex-wrap: nowrap !important; }
-.fp-policy-form-frame {
-  width: 100%;
-  max-width: 880px;
-  margin: 0 auto;
-}
 /* 화면 전체가 아니라 필터를 제외한 실제 상품 목록 폭에 반응한다. */
 @container finder-toolbar (max-width: 1180px) {
   .fp-finder-toolbar-main { grid-template-columns: minmax(280px, 1fr) auto auto; }
@@ -1111,6 +1084,12 @@ html[data-fp-filter="0"] .fp-finder > .fp-sidebar { display: none; }
 .fp-card.fp-card-row:active {
   background: var(--bg-hover);
 }
+.fp-card.fp-card-row[data-selected="true"]:active {
+  background: var(--bg-selected);
+}
+.fp-card.fp-card-row[data-create="true"][data-selected="true"]:active {
+  background: var(--orange-bg);
+}
 /* 전역 탭 하이라이트 억제 — 모바일 기본 파란 플래시 제거(버튼·링크·터치 행). */
 button, a, [role="button"], .fp-press, .fp-chip {
   -webkit-tap-highlight-color: transparent;
@@ -1121,10 +1100,23 @@ button, a, [role="button"], .fp-press, .fp-chip {
 /* (2026-08-21 사장님 「모바일 얼룩무늬」 — 목록 지브라 제거. 행 경계는 하단선 하나로 충분하다. 되살리려면 아래 주석 해제)
 .fp-card.fp-card-row:nth-child(even) { background: var(--bg-stripe); } */
 @media (hover: hover) {
-  /* 목록 행 호버 — 커서 위치 표시(배경). 지브라 뒤에 둬 짝수 행에서도 호버가 이김. selected 인라인엔 양보. */
+  /* 목록 행 호버 — 커서 위치 표시(배경). 선택·등록 중 행은 그 불을 유지한다. */
   .fp-card.fp-card-row:hover {
     background: var(--bg-hover);
   }
+  .fp-card.fp-card-row[data-selected="true"]:hover {
+    background: var(--bg-selected);
+  }
+  .fp-card.fp-card-row[data-create="true"][data-selected="true"]:hover {
+    background: var(--orange-bg);
+  }
+}
+.fp-card.fp-card-row[data-selected="true"] {
+  background: var(--bg-selected);
+}
+.fp-card.fp-card-row[data-create="true"][data-selected="true"] {
+  background: var(--orange-bg);
+  box-shadow: inset 3px 0 0 var(--orange-text);
 }
 /* 상담 목록 처리 신호 — 지브라·호버 뒤에 두어 미확인/미회신 선과 배경이 사라지지 않는다. */
 .fp-card.fp-card-row[data-attention="amber"] {

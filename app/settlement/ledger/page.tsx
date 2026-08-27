@@ -29,7 +29,7 @@
  * ⚠ **금액을 고치는 버튼은 두지 않는다.** 수수료는 요율표에서 나온다 —
  *   화면에서 손대기 시작하면 그날로 정본이 둘이 된다. 고칠 일은 시트에서 고친다.
  */
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ledgerFetch } from '@/lib/firebase/ledger-client';
 import { BILL_STATES, BILL_TONE, BILL_WHY, type BillState } from '@/lib/domain/settlement-billstate';
 import { providerBillGate, type Confirmation } from '@/lib/domain/settlement-confirm';
@@ -39,7 +39,8 @@ import { WebListTools } from '@/components/WebListTools';
 import { LedgerListRow, SettlementCreateRow } from '@/components/list-rows';
 import {
   Badge, Btn, C, CenterNote, DetailTable, DtRow, FilterChips, WorkFields, WorkDock, WorkModeBanner,
-  FS, Input, KV_LABEL_W, ListRow, Loading, NUM, PageActions, PaneBody, PaneHead, Select, Switch, won,
+  WorkTable, WorkRow, WorkInput,
+  KV_LABEL_W, ListRow, Loading, NUM, PageActions, PaneBody, PaneHead, Select, Switch, won,
 } from '@/components/ui';
 import { toast } from '@/components/Toaster';
 import { Banknote, ClipboardList, ListChecks } from 'lucide-react';
@@ -67,11 +68,6 @@ const PAY_KIND_OPTS = ['일시납', '2회분납', '3회분납'];
 
 const hay = (r: Row) => `${r.plate} ${r.model} ${r.customer} ${r.supplier} ${r.agent} ${r.channel}`.toLowerCase();
 const hit = (r: Row, q: string) => !q.trim() || hay(r).includes(q.trim().toLowerCase());
-
-const TABLE_INP: React.CSSProperties = {
-  border: 'none', borderRadius: 0, background: 'transparent', padding: 0,
-  height: 'auto', fontSize: FS.body, lineHeight: 1.5, width: '100%',
-};
 
 type AgentOpt = { code: string; name: string; channel: string; label: string };
 
@@ -579,7 +575,7 @@ export default function SettlementLedgerPage() {
               onChange={() => patchRow(picked, { 인도완료: 'FALSE', 인도일: '' })} />
           ) : (
             <span style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-              <Input value={deliverOn} onChange={setDeliverOn} placeholder="—" style={TABLE_INP} />
+              <WorkInput value={deliverOn} onChange={setDeliverOn} placeholder="—" />
               <Btn size="sm" disabled={busy || !deliverOn.trim()}
                 onClick={() => patchRow(picked, { 인도완료: 'TRUE', 인도일: deliverOn.trim() })}>켜기</Btn>
             </span>
@@ -601,9 +597,6 @@ export default function SettlementLedgerPage() {
   // ─────────────────────────────── ③ 실적상태 — 같은 2줄 행. 인도는 여기서 켠다
   const progress = (
     <>
-      <div style={{ padding: '8px 12px', fontSize: FS.cap, color: C.mute }}>
-        {perf.length}건 · 인도완료 {perf.filter((r) => r.delivered).length} · 인도 전 {perf.filter((r) => !r.delivered && !r.cancelled).length}
-      </div>
       {perf.length === 0
         ? <CenterNote>그 조건에 해당하는 계약이 없습니다.</CenterNote>
         : perf.map((r) => (
@@ -629,10 +622,6 @@ export default function SettlementLedgerPage() {
   // ─────────────────────────────── ④ 청구현황 — 같은 2줄 행. 청구서는 여기서 뽑는다
   const billing = (
     <>
-      <div style={{ padding: '8px 12px', fontSize: FS.cap, color: C.mute, fontVariantNumeric: NUM }}>
-        {tot.n}건 · 청구 <b style={{ color: C.ink }}>{won(tot.claim)}</b> · 수익 <b style={{ color: C.ink }}>{won(tot.claim - tot.pay)}</b>
-      </div>
-
       {/*
         **영업채널 실적 확인 — 막는 곳을 «누를 수 있게» 둔다.**
 
@@ -644,45 +633,43 @@ export default function SettlementLedgerPage() {
         ⚠ 이름을 손으로 치게 하지 않는다 — 원장에 뜬 채널만 누른다. 오타는 아무 문도 안 연다.
       */}
       {month && (
-        <div style={{ padding: '0 12px 8px', fontSize: FS.cap, lineHeight: 1.6 }}>
-          <b>영업채널 실적 확인</b>{' '}
-          {gate.length === 0
-            ? <span style={{ color: C.ok }}>막는 곳 없음 — 청구해도 됩니다</span>
-            : <span style={{ color: C.danger }}>{gate.length}곳이 아직입니다</span>}
-          {proxied.length > 0 && (
-            <span style={{ color: C.mute }}>{'  ·  '}우리가 적은 것 {proxied.length}곳</span>
-          )}
-
+        <WorkTable
+          title="영업채널 실적 확인"
+          hint={gate.length === 0
+            ? '막는 곳 없음 — 청구해도 됩니다'
+            : `${gate.length}곳이 아직입니다${proxied.length ? ` · 우리가 적은 것 ${proxied.length}곳` : ''}`}
+          accent="sub"
+        >
           {gate.map((g) => (
-            <div key={g.code || g.channel} style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
-              <span style={{ minWidth: 128, color: C.ink }}>{g.channel} <span style={{ color: C.mute }}>{g.lines}건</span></span>
+            <WorkRow key={g.code || g.channel} label={g.channel}>
               {memoFor === g.channel ? (
-                <>
-                  <Input value={memoNote} autoFocus size="sm" style={{ flex: 1, minWidth: 0 }}
+                <span style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <WorkInput
+                    value={memoNote}
+                    autoFocus
                     placeholder="어떻게 확인받았나 — 전화·카톡 등"
                     onChange={setMemoNote}
                     onEnter={() => writeMemo(g.channel)}
-                    onKeyDown={(e) => { if (e.key === 'Escape') { setMemoFor(''); setMemoNote(''); } }} />
+                    onKeyDown={(e) => { if (e.key === 'Escape') { setMemoFor(''); setMemoNote(''); } }}
+                  />
                   <Btn size="sm" disabled={busy} onClick={() => writeMemo(g.channel)}>적기</Btn>
                   <Btn size="sm" variant="ghost" onClick={() => { setMemoFor(''); setMemoNote(''); }}>취소</Btn>
-                </>
+                </span>
               ) : (
-                <>
-                  <span style={{ flex: 1, minWidth: 0, color: C.mute }}>{g.why}</span>
+                <span style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <span>{g.lines}건 · {g.why}</span>
                   <Btn size="sm" variant="bare" disabled={busy}
                     onClick={() => { setMemoFor(g.channel); setMemoNote(''); }}>대신 적기</Btn>
-                </>
+                </span>
               )}
-            </div>
+            </WorkRow>
           ))}
-
           {proxied.map((c) => (
-            <div key={c.key} style={{ marginTop: 3, color: C.mute }}>
-              <span style={{ display: 'inline-block', minWidth: 128, color: C.ink }}>{c.who}</span>
+            <WorkRow key={c.key} label={c.who}>
               대신 적음 · {c.proxyBy || '관리자'} · {c.note}
-            </div>
+            </WorkRow>
           ))}
-        </div>
+        </WorkTable>
       )}
 
       {byParty.length === 0
@@ -717,11 +704,6 @@ export default function SettlementLedgerPage() {
           <DtRow i={4} label="우리몫" valueStyle={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{picked.money.margin ? won(picked.money.margin) : ''}</DtRow>
         </DetailTable>
       )}
-
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', padding: '8px 12px' }}>
-        <Btn variant="ghost" onClick={load}>다시 읽기</Btn>
-        <Btn variant="ghost" onClick={() => window.open(data.ledgerUrl, '_blank')}>시트 열기</Btn>
-      </div>
     </>
   );
 
@@ -733,7 +715,7 @@ export default function SettlementLedgerPage() {
     {
       key: 'progress', title: '실적상태', icon: ListChecks, node: (
         <>
-          <PaneHead title="실적상태" />
+          <PaneHead title="실적상태" count={perf.length} />
           <WebListTools tools={{
             search: { value: pQ, onChange: setPQ, placeholder: '차번·고객·공급사·영업자…' },
             filter: {
@@ -762,7 +744,16 @@ export default function SettlementLedgerPage() {
     {
       key: 'billing', title: '청구현황', icon: Banknote, node: (
         <>
-          <PaneHead title="청구현황" />
+          <PaneHead
+            title="청구현황"
+            count={tot.n}
+            right={(
+              <span style={{ display: 'inline-flex', gap: 8 }}>
+                <Btn size="sm" variant="ghost" onClick={load}>다시 읽기</Btn>
+                <Btn size="sm" variant="ghost" onClick={() => window.open(data.ledgerUrl, '_blank')}>시트 열기</Btn>
+              </span>
+            )}
+          />
           <WebListTools tools={{
             search: { value: bQ, onChange: setBQ, placeholder: '차번·고객·공급사·영업자…' },
             filter: {
@@ -812,6 +803,8 @@ export default function SettlementLedgerPage() {
         search: { value: q, onChange: setQ, placeholder: '차번·고객·공급사·영업자…' },
         filter: {
           count: stage === '진행중' ? 0 : 1,
+          title: '접수상태',
+          onClear: () => setStage('진행중'),
           body: (
             <FilterChips
               options={STAGES.map((t) => ({ key: t, label: t, count: rows.filter((r) => hit(r, q) && inStage(r, t)).length }))}

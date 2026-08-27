@@ -53,15 +53,15 @@ export const SUBMODEL_NAME_RULE = 'encar-identical+kia-gen-code+g80-dh';
 
 /**
  * 세부트림·세부모델의 **제조사 공식 라틴 고유명** — 한글화 금지.
- * Premium→프리미엄 같은 등급어와 다르다. H-PICK·N Line·X Line·GT Line 은 상품명,
+ * Premium→프리미엄 같은 등급어와 다르다. H-PICK·N Line·X Line·GT-Line 은 상품명,
  * 아반떼 N·아이오닉5 N 의 N 은 고성능 라인(트림 N Line 과 합치지 않음).
  */
-export const LATIN_BRAND_TRIM_CANON = ['H-PICK', 'N Line', 'X Line', 'GT Line'] as const;
+export const LATIN_BRAND_TRIM_CANON = ['H-PICK', 'N Line', 'X Line', 'GT-Line'] as const;
 const LATIN_BRAND_TRIM_FOLD: Record<string, (typeof LATIN_BRAND_TRIM_CANON)[number]> = {
   'h-pick': 'H-PICK', 'h pick': 'H-PICK', 'hpick': 'H-PICK', 'h-픽': 'H-PICK', 'h픽': 'H-PICK',
   'n line': 'N Line', 'n-line': 'N Line', 'nline': 'N Line', 'n라인': 'N Line', '엔 라인': 'N Line', '엔라인': 'N Line',
   'x line': 'X Line', 'x-line': 'X Line', 'xline': 'X Line', 'x라인': 'X Line',
-  'gt line': 'GT Line', 'gt-line': 'GT Line', 'gtline': 'GT Line', 'gt라인': 'GT Line', 'gt ligne': 'GT Line',
+  'gt line': 'GT-Line', 'gt-line': 'GT-Line', 'gtline': 'GT-Line', 'gt라인': 'GT-Line', 'gt ligne': 'GT-Line',
 };
 
 /** 문장 안의 라틴 고유명만 정본으로. 홀로 선 N(아반떼 N·아이오닉5 N)은 건드리지 않는다. */
@@ -75,9 +75,9 @@ export function applyLatinBrandTokens(raw: unknown): string {
   s = s.replace(/\bN[\s\-]*Line\b/gi, 'N Line');
   s = s.replace(/X[\s\-]*라인/gi, 'X Line');
   s = s.replace(/\bX[\s\-]*Line\b/gi, 'X Line');
-  s = s.replace(/GT[\s\-]*라인/gi, 'GT Line');
-  s = s.replace(/\bGT[\s\-]*Ligne\b/gi, 'GT Line');
-  s = s.replace(/\bGT[\s\-]*Line\b/gi, 'GT Line');
+  s = s.replace(/GT[\s\-]*라인/gi, 'GT-Line');
+  s = s.replace(/\bGT[\s\-]*Ligne\b/gi, 'GT-Line');
+  s = s.replace(/\bGT[\s\-]*Line\b/gi, 'GT-Line');
   return s.replace(/\s+/g, ' ').trim();
 }
 
@@ -97,6 +97,7 @@ export function latinBrandNeedles(phrase: string): string[] {
   out.add(canon
     .replace(/\bN Line\b/g, 'N라인')
     .replace(/\bX Line\b/g, 'X라인')
+    .replace(/\bGT-Line\b/g, 'GT라인')
     .replace(/\bGT Line\b/g, 'GT라인')
     .replace(/H-PICK/g, 'H-픽'));
   for (const [alias, token] of Object.entries(LATIN_BRAND_TRIM_FOLD)) {

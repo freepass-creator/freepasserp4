@@ -13,7 +13,7 @@ import { getCompanyId } from '@/lib/tenant';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { productImages, productExternalImages, scrapableSources, productPhotos } from '@/lib/domain/product-photos';
 import { isAdminUiAllowed } from '@/lib/auth-gate';
-import { Page, Btn, Input, C, R, NUM, SectionLabel, Badge, CenterNote, Loading, FW, FS } from '@/components/ui';
+import { Page, Btn, Input, SectionLabel, CenterNote, Loading, ListRow, WorkTable, WorkRow, CopyBlock } from '@/components/ui';
 
 type Probe = { path: string; state: 'ok' | 'denied' | 'timeout' | 'error'; count: number; detail: string; ms: number };
 
@@ -152,23 +152,18 @@ export default function Diag() {
   };
 
   const tone = (s: Probe['state']) => (s === 'ok' ? 'green' : s === 'denied' ? 'red' : s === 'timeout' ? 'amber' : 'gray') as 'green' | 'red' | 'amber' | 'gray';
-  const kv = (k: string, v: string) => (
-    <div key={k} style={{ display: 'flex', gap: 8, fontSize: FS.sub, padding: '3px 0' }}>
-      <span style={{ color: C.mute, minWidth: 120 }}>{k}</span>
-      <span style={{ color: C.ink, fontFamily: NUM, wordBreak: 'break-all' }}>{v}</span>
-    </div>
-  );
 
   if (allowed !== true) return <Loading />;
 
   return (
     <Page title="진단" meta="RTDB 연결·권한·건수">
-      <SectionLabel mt={0}>환경</SectionLabel>
-      {kv('firebaseReady', String(firebaseReady()))}
-      {kv('DATA_BACKEND', String(process.env.NEXT_PUBLIC_DATA_BACKEND || '(없음)'))}
-      {kv('companyId', co)}
-      {kv('auth.currentUser', user ? `${user.uid} · ${user.email || ''}${user.isAnonymous ? ' · 익명' : ''}` : '(없음 — 토큰 미복원 또는 비로그인)')}
-      {kv('session', sess ? `${sess.role} · ${sess.name} · company=${sess.company_code || '-'}` : '(없음)')}
+      <WorkTable title="환경">
+        <WorkRow label="firebaseReady">{String(firebaseReady())}</WorkRow>
+        <WorkRow label="DATA_BACKEND">{String(process.env.NEXT_PUBLIC_DATA_BACKEND || '(없음)')}</WorkRow>
+        <WorkRow label="companyId">{co}</WorkRow>
+        <WorkRow label="auth.currentUser">{user ? `${user.uid} · ${user.email || ''}${user.isAnonymous ? ' · 익명' : ''}` : '(없음 — 토큰 미복원 또는 비로그인)'}</WorkRow>
+        <WorkRow label="session">{sess ? `${sess.role} · ${sess.name} · company=${sess.company_code || '-'}` : '(없음)'}</WorkRow>
+      </WorkTable>
 
       <div style={{ marginTop: 16 }}>
         <Btn onClick={run} disabled={busy}>{busy ? '진단 중…' : '진단 실행'}</Btn>
@@ -177,17 +172,15 @@ export default function Diag() {
       {probes && (
         <div style={{ marginTop: 16 }}>
           <SectionLabel mt={0}>노드별 읽기</SectionLabel>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {probes.map((p) => (
-              <div key={p.path} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', border: `1px solid ${C.line}`, borderRadius: R, padding: '6px 10px' }}>
-                <span style={{ fontFamily: NUM, fontSize: FS.sub, minWidth: 130, color: C.ink }}>{p.path}</span>
-                <Badge tone={tone(p.state)}>{p.state}</Badge>
-                <span style={{ fontFamily: NUM, fontSize: FS.sub, fontWeight: FW.head, color: C.ink }}>{p.state === 'ok' ? `${p.count}건` : '—'}</span>
-                <span style={{ fontSize: FS.cap, color: C.faint }}>{p.ms}ms</span>
-                {p.detail && <span style={{ fontSize: FS.cap, color: C.mute, flex: 1, minWidth: 0 }}>{p.detail}</span>}
-              </div>
-            ))}
-          </div>
+          {probes.map((p) => (
+            <ListRow
+              key={p.path}
+              badge={p.state}
+              badgeTone={tone(p.state)}
+              main={p.path}
+              sub={[p.state === 'ok' ? `${p.count}건` : '—', `${p.ms}ms`, p.detail].filter(Boolean).join(' · ')}
+            />
+          ))}
         </div>
       )}
 
@@ -195,7 +188,7 @@ export default function Diag() {
         <div style={{ marginTop: 16 }}>
           <SectionLabel mt={0}>스토어 경유 최종 목록</SectionLabel>
           {storeInfo.map((l, i) => (
-            <div key={i} style={{ fontSize: FS.sub, color: C.ink, fontFamily: NUM, padding: '3px 0' }}>{l}</div>
+            <ListRow key={i} main={l} />
           ))}
         </div>
       )}
@@ -208,13 +201,7 @@ export default function Diag() {
           <Input value={photoQ} onChange={setPhotoQ} placeholder="예: 161허1402" />
           <Btn onClick={runPhoto} disabled={photoBusy}>{photoBusy ? '확인 중…' : '사진 확인'}</Btn>
         </div>
-        {photoOut && (
-          <pre style={{
-            marginTop: 10, fontSize: FS.cap, lineHeight: 1.6, color: C.ink, background: C.head,
-            border: `1px solid ${C.line}`, borderRadius: R, padding: 12,
-            whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontFamily: NUM,
-          }}>{photoOut.join('\n')}</pre>
-        )}
+        {photoOut ? <CopyBlock text={photoOut.join('\n')} label="로그 복사" /> : null}
       </div>
     </Page>
   );

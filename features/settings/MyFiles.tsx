@@ -2,12 +2,12 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Btn, ButtonLabel, C, CenterNote, FilterChips, FS, FW, ICON, ListGroup, Loading, NUM, R, SectionLabel,
+  Btn, ButtonLabel, CenterNote, FilterChips, ICON, ListGroup, ListRow, Loading, Message, SectionLabel,
 } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { listMyFiles, MY_FILE_KIND_LABEL, type MyFile, type MyFileKind } from '@/lib/domain/my-files';
 import { fileSizeText } from '@/lib/format';
-import { FileText, Image as ImageIcon, ExternalLink } from 'lucide-react';
+import { ExternalLink } from 'lucide-react';
 
 type FilterKey = 'all' | MyFileKind;
 
@@ -85,48 +85,30 @@ export function MyFiles({ uid }: { uid: string }) {
         <ListGroup>
           <div style={{ maxHeight: mobile ? 260 : 380, overflowY: 'auto' }}>
           {shown.map((f) => {
-            const isImg = /^image\//.test(f.type);
-            const meta = [MY_FILE_KIND_LABEL[f.kind], f.ownerLabel, fileSizeText(f.size), fmtDate(f.at)]
-              .filter(Boolean).join(' · ');
+            const meta = [f.ownerLabel, fileSizeText(f.size), fmtDate(f.at)].filter(Boolean).join(' · ');
             return (
-              <div
+              <ListRow
                 key={f.id}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 10,
-                  padding: '10px 12px', borderBottom: `1px solid ${C.line}`,
-                }}
-              >
-                {isImg
-                  ? <ImageIcon size={ICON.md} color={C.mute} aria-hidden />
-                  : <FileText size={ICON.md} color={C.mute} aria-hidden />}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div
-                    title={f.name}
-                    style={{
-                      fontSize: FS.body, fontWeight: FW.strong, color: C.ink,
-                      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                    }}
-                  >
-                    {f.name}
-                  </div>
-                  <div style={{ fontSize: FS.micro, color: C.faint, fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>
-                    {meta}
-                  </div>
-                </div>
-                <Btn size="sm" variant="ghost" href={f.url} title="새 탭에서 열기">
-                  <ButtonLabel icon={<ExternalLink size={ICON.md} aria-hidden />}>열기</ButtonLabel>
-                </Btn>
-              </div>
+                badge={MY_FILE_KIND_LABEL[f.kind]}
+                badgeTone={f.kind === 'contract' ? 'blue' : 'gray'}
+                main={f.name}
+                sub={meta}
+                right={(
+                  <Btn size="sm" variant="ghost" href={f.url} title="새 탭에서 열기">
+                    <ButtonLabel icon={<ExternalLink size={ICON.md} aria-hidden />}>열기</ButtonLabel>
+                  </Btn>
+                )}
+              />
             );
           })}
           </div>
         </ListGroup>
       )}
 
-      <p style={{ margin: '8px 2px 0', fontSize: FS.micro, color: C.faint, lineHeight: 1.5, borderRadius: R }}>
+      <Message variant="info">
         내가 올린 파일만 보입니다. 삭제는 파일이 등록된 원본 업무 화면에서 하세요.
         링크는 받은 사람이 열 수 있으니 외부 공유에 주의하세요.
-      </p>
+      </Message>
     </div>
   );
 }

@@ -76,7 +76,7 @@ export function ExcelFilterPopover({
         borderRadius: R, border: `1.5px solid ${on ? C.brand : C.line}`,
         background: on ? C.brand : C.taupeBg, display: 'inline-flex',
         alignItems: 'center', justifyContent: 'center', color: C.taupeBg,
-        fontSize: 10, fontWeight: FW.head, lineHeight: 1,
+        fontSize: FS.micro, fontWeight: FW.head, lineHeight: 1,
       }}
     >{on ? <Check size={ICON.sm} aria-hidden /> : null}</span>
   );

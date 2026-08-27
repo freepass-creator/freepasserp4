@@ -108,9 +108,12 @@ export function publishedSalesColumns(prefix: SalesPublishedPrefix, baseColumns:
   const labels = native.block.map(nativeMoneyLabel);
   const norm = (value: unknown) => String(value ?? '').trim().replace(/\s+/g, '').replace(/km$/i, '').replace(/[()（）]/g, '');
   const nativeNames = [...native.block, ...labels, ...(native.lead ? [native.lead.name] : [])];
+  // 갈래 탭(손오공구독·픽업구독·오플구독)엔 그 공급사가 안 쓰는 빈 칸을 빼둔다 — 상품리스트에만 남긴다(사장님 2026-08-27 「6개월 어정쩡하게 붙은 거 날려줘」).
+  const 갈래제외 = ['6개월'];
   const removed = (header: string) =>
     nativeNames.some((name) => norm(name) === norm(header))
-    || (STANDARD_MONEY_COLUMNS as readonly string[]).some((name) => norm(name) === norm(header));
+    || (STANDARD_MONEY_COLUMNS as readonly string[]).some((name) => norm(name) === norm(header))
+    || 갈래제외.some((name) => norm(name) === norm(header));
   const kept = baseColumns.filter((header) => !removed(header));
   const classIndex = kept.findIndex((header) => norm(header) === norm('차종구분'));
   const kmIndex = kept.findIndex((header) => /^(km|주행거리)$/i.test(norm(header)));

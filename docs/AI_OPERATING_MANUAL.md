@@ -1,4 +1,4 @@
-# AI 운영 매뉴얼 (2026-08-27 v26)
+# AI 운영 매뉴얼 (2026-08-27 v27)
 
 정본: `lib/domain/ai-operating-manual.ts` — 모든 시트의 「AI 운영 매뉴얼」 탭과 이 문서는 같은 글이다.
 
@@ -6,7 +6,7 @@
 
 | 항목 | 내용 | 어디서/명령 |
 |---|---|---|
-| 무엇 | 프리패스 재고·차종·판매시트 운영을 «어떤 AI가 와도 같은 방식으로» 하기 위한 운영 매뉴얼. 정본은 리포 `lib/domain/ai-operating-manual.ts`, 이 탭은 그 사본(모든 시트에 같은 글). | 버전 2026-08-27 v26 |
+| 무엇 | 프리패스 재고·차종·판매시트 운영을 «어떤 AI가 와도 같은 방식으로» 하기 위한 운영 매뉴얼. 정본은 리포 `lib/domain/ai-operating-manual.ts`, 이 탭은 그 사본(모든 시트에 같은 글). | 버전 2026-08-27 v27 |
 | 먼저 할 일 | ① 이 탭을 끝까지 읽는다 ② 원천대장 「시트 지도」·리포 IMPLEMENTATION_LOG.md 최근 날짜를 읽는다 ③ 손댈 시트의 안내 탭(「작성 안내」/「정제시트 안내」)을 읽는다 ④ 무엇이든 쓰기 전에 dry-run 을 먼저 본다. | C:\dev\freepasserp4 · 자격증명 tmp/firebase-auth/sa.json(pyh@teamjpk.com 위임) |
 | 원칙 3 | 값은 한 곳에만 산다(정본이 이긴다) · 지어내지 않는다(모르면 빈칸·목록) · 쓰기 도구는 전부 dry-run 기본, `--apply` 로만 쓰고 되돌릴 로그를 남긴다. |  |
 
@@ -16,11 +16,11 @@
 |---|---|---|
 | 순서 | 신규 차종은 **엔카 작업 시트에 먼저** → 승인 후 정제시트 정제칸 → 상품시트. 라이브 ERP 원장·mf- 는 확정 전 안 씀. 마스터에 없으면 비슷한 차로 안 붙이고 빈칸. | docs/차종마스터-엔카작업시트-매뉴얼.md · fill 은 아직 안 함 |
 | 사전 | 이름·제원 작업 정본 = 엔카 작업 시트(차종·제원·배터리). vehicle-master.json 으로 이름을 지어내지 않는다. 엔카에 없는 수입차를 비슷한 차로 안 박는다. 라이브 「차종마스터」 탭에 아직 쓰지 않는다. | https://docs.google.com/spreadsheets/d/1oMB9eoNnQFxUyRK4CSxYh_hKrtCf7s_79xLs-GYwXCE/edit |
-| ★라틴 고유명 | 등급어만 한글화(Premium→프리미엄). 제조사 공식 라틴은 정본: **H-PICK** · 기아 **X Line** · 현대 **N Line** · **GT Line**. 아반떼 N·아이오닉5 N 의 **N** 은 고성능 라인 — N Line 과 합치지 않음. N라인·X라인·H-픽은 별칭. | vehicle-master-lock LATIN_BRAND_TRIM_CANON · canonMasterTrim |
+| ★라틴 고유명 | 등급어만 한글화(Premium→프리미엄). 제조사 공식 라틴은 정본: **H-PICK** · 기아 **X Line** · 현대 **N Line** · **GT-Line**. 아반떼 N·아이오닉5 N 의 **N** 은 고성능 라인 — N Line 과 합치지 않음. N라인·X라인·H-픽·GT라인은 별칭. | vehicle-master-lock LATIN_BRAND_TRIM_CANON · canonMasterTrim |
 | 공급사 정보 | 공급사는 **차량번호 왼쪽 칸**으로 정보를 준다(제조사·차종·차명(세부모델+트림)·연료·연식). 그 글자를 마스터에 건다. 배기량 칸 숫자가 차명(3.5 · LPG 3.0)과 달라도 차명이 이긴다 — 공급사가 잘못 올린 것이 아니다. | 실측 손오공 281노9792 그랜저 IG LPG 3.0 PREMIUM · 스타 101호5187 카니발 KA4 가솔린 3.5 노블레스 |
 | 같은 세대 다른 엔진 | 아반떼 CN7 1.6과 2.0은 같은 세대의 변형이다. 스냅이 다른 배기를 집었다고 「세대 오류」로 한 칸도 안 채우지 않는다. 맞는 변형을 고른다. |  |
 | 누가 어느 칸 | fill = 모델·세부모델·세부트림 + 연료(정제)·배기량(정제)·구동방식·인승·배터리용량(정제). 칸마다 따로, 하나로 모일 때만. 정제시트 fill = 엔카 작업 시트(빈 칸 + 같은 차 표기). stamp = 엔카 행키 M/SM/T 만. | fill-supplier-from-encar-sheet · stamp-encar-codes-on-supplier |
-| 코드 | 트림행키(mf-…)는 영구. 삭제·재사용·의미 변경 금지. 책 = `data/vehicle-trim-key-registry.json`. 원천대장 「차종마스터」 탭은 **읽기만**. 새 차종은 json에 행을 넣고, 코드는 레지스트리에 없는 키만 붙인다. | lib/domain/vehicle-master-lock.ts · check-vehicle-master-lock · verify-master-pass |
+| 코드 | 트림행키(mf-…)는 영구. 삭제·재사용·의미 변경 금지. 책 = `data/vehicle-trim-key-registry.json`. 원천대장 「차종마스터」 탭은 **읽기만**. 새 차종은 **엔카 작업 시트**에 넣고, 코드는 레지스트리에 없는 키만 붙인다. `vehicle-master.json` 으로 이름을 만들지 않는다. | lib/domain/vehicle-master-lock.ts · check-vehicle-master-lock · verify-master-pass |
 | 세대 이름 | 세부모델 = 엔카 이름 1:1. 예외 둘만: **기아** N세대→개발코드(`K5 3세대`→`K5 DL3`), **우리 시트만** 제네시스 1세대 `G80 DH`(엔카는 `G80`). FL 분할은 예외 아님. 괄호 없음(`G80 (RG3)`→`G80 RG3`). NF처럼 연식종료 2019 이전은 넣지 않는다. | docs/차종마스터-엔카작업시트-매뉴얼.md |
 | ★개발코드는 안 뗀다 | 정제칸·손님 화면에서 DL3·MX5·GN7·CN8 을 깎지 않는다. 「손님이 읽기 어렵다」는 이유로 떼면 `K5 DL3`가 `K5`가 되어 **세대를 못 가른다**(JF·TF·DL3가 한 이름이 된다). 광고 접두(`디 올 뉴`)만 별칭으로 뺀다. `add-submodel-code-strip-rules`·`normalize-erp-submodel-codes` 는 **폐기(거부)**. fill·발행기는 그런 「AI 정제」 줄을 **무시**한다. | 실측 2026-08-23 「AI 정제」 186줄 K5 DL3→K5 · ai-refine-guard |
 
@@ -29,7 +29,7 @@
 | 항목 | 내용 | 어디서/명령 |
 |---|---|---|
 | 담당 | 쓰기(시트 이름·mf- 키 의미·「AI 정제」 정본 매핑·새 키 발급) = **커서만**. 이름·제원 작업 정본 = 엔카 작업 시트. 라이브 원장 mf- 에는 아직 안 씀. `vehicle-master.json` 은 **폐기**. 다른 AI는 이슈만 남기고 키·이름을 바꾸지 않는다. | vehicle-master-lock · VEHICLE_MASTER_WRITE_ONLY |
-| 가져다 쓰기 | 스냅·fill·stamp·발행은 어떤 AI든 된다. 책은 읽고 칸에 옮기기만 한다. 비슷한 차로 붙이거나 빈 인승·cc를 채우거나 mf- 를 새로 만들지 않는다. | snapToMaster (lib/domain/vehicle-master-match.ts) · fill-supplier-ai-columns — 정제칸에 책 글자를 박는다(키를 안 만든다) · stamp-encar-codes-on-supplier — M/SM/T 만(이름과 같을 때) · pickConfirmedMasterCode — 이미 있는 mf- 를 고른다 · check-vehicle-master-lock · verify-master-pass |
+| 가져다 쓰기 | 스냅·fill·stamp·발행은 어떤 AI든 된다. 책은 읽고 칸에 옮기기만 한다. 비슷한 차로 붙이거나 빈 인승·cc를 채우거나 mf- 를 새로 만들지 않는다. | snapToMaster (lib/domain/vehicle-master-match.ts) · fill-supplier-from-encar-sheet — 엔카 작업 시트로 정제칸(키를 안 만든다) · stamp-encar-codes-on-supplier — M/SM/T 만(이름과 같을 때) · pickConfirmedMasterCode — 이미 있는 mf- 를 고른다 · check-vehicle-master-lock · verify-master-pass |
 | 사전 | 작업 정본 = 엔카 작업 시트(차종·제원·배터리 탭). 라이브 원장 mf- 에는 아직 안 씀. vehicle-master.json으로 세부모델을 지어내지 않는다. | docs/차종마스터-엔카작업시트-매뉴얼.md |
 | 세부모델 | 엔카와 개수·이름 1:1. 괄호 없음(G80 (RG3) → G80 RG3). 연식종료 2019 이전(NF)은 넣지 않는다. | 엔카 iNav · 7년 창 |
 | 예외(이 둘만) | ① 기아만 N세대→개발코드(K5 3세대 → K5 DL3). 엔카에 이미 코드가 있으면 그대로. ② 우리 시트만 제네시스 1세대 G80 DH(엔카는 G80). FL 분할·티볼리 X100·다른 비기아 개발코드는 예외 아님. | docs/차종마스터-엔카작업시트-매뉴얼.md |
@@ -37,12 +37,12 @@
 | 제원 | 연료·배기량·구동은 제원마스터 허용값. 차종 행을 cc마다 쪼개지 않는다. 인승은 원문이 하나로 모일 때만. | 제원마스터 탭 |
 | 배터리 | 전기만 전기차배터리마스터. 세부모델별 공식 kWh. 팩이 둘이면 행 둘. 화이트리스트로 아무 kWh나 고르지 않는다. | 전기차배터리마스터 탭 |
 | 개발코드 | 엔카에 이미 있으면 그대로. 우리가 새로 붙이는 것은 예외 둘뿐(기아 N세대, 우리 시트 G80 DH). 「손님이 읽기 어렵다」로 이름을 깎지 않는다. | ai-refine-guard · K5 DL3 · G80 DH |
-| 트림 글자 | 합친 뒤의 트림 이름. 등급어 한글화는 엔카가 영문일 때만. H-PICK·N Line·GT Line은 한글화 금지. | LATIN_BRAND_TRIM_CANON |
+| 트림 글자 | 합친 뒤의 트림 이름. 등급어 한글화는 엔카가 영문일 때만. H-PICK·N Line·GT-Line은 한글화 금지. | LATIN_BRAND_TRIM_CANON |
 | 공급사 원문 | 정보는 차량번호 왼쪽(제조사·차종·차명·연료·연식). 배기량 칸 숫자가 차명과 달라도 차명이 이긴다. | 281노9792 · 101호5187 |
 | 정제칸 | 칸마다 따로 붙인다. 마스터 값이 하나로 모일 때만. 빈 칸은 채우고 잘못이면 바로잡는다. 추측이면 그대로. | 연료(정제)·배기량(정제)·구동방식·인승·배터리용량(정제) |
 | 모르면 빈칸 | 엔카·시트에 없으면 비슷한 차로 안 붙인다. 트림 후보가 여럿이면 차종코드를 안 박는다(PARTIAL). |  |
 | 키 의미 | mf- 한 줄의 뜻은 **레지스트리**. 삭제·재사용 금지. 트림 매칭과 코드(연료·cc 갈림)는 다른 층이다. | vehicle-trim-key-registry.json |
-| 새 차종 | 엔카에 맞춰 작업 시트에 먼저 넣는다 → 승인 후 정제시트 fill → 확정되면 라이브 원장. 로컬 json으로 이름을 만들지 않는다. | 엔카 작업 시트 |
+| 새 차종 | 엔카에 맞춰 작업 시트에 먼저 넣는다 → 승인 후 정제시트 fill → 확정되면 라이브 원장. 로컬 json으로 이름을 만들지 않는다. 작업 시트에서 JSON을 생성·비교하지 않는다. | 엔카 작업 시트 |
 
 ## 1. 시트 지도(요약) — 정본은 원천대장 「시트 지도」 탭
 
@@ -50,11 +50,11 @@
 |---|---|---|
 | 공급사 시트 21곳 | 「MMDD 공급사 프리패스 재고 [제공／정제]」. 제공 17 = 우리가 만들어 주고 공급사가 직접 적는다(=원본=정제시트). 정제 4 = 공급사 자체 시트·홈페이지(원본)를 우리가 옮겨 담는다(아이카·오토플러스·이안카·아이언, `lib/domain/mirror-sources.ts`). 탭: 재고(구독재고) · 정책 · [숨김]AI 인계 · 작성 안내/정제시트 안내 · AI 운영 매뉴얼 · 이 시트는. | 드라이브 검색 「프리패스 재고」 |
 | ★시트 상태 표기(2026-08-19) | 지금 읽는 시트 21곳 = 이름 끝 「[연동중]」. 옛 우리 시트(옛 제공시트 15·옛 문패·옛 판매시트·옛 공급사 상품리스트 = 18곳, `lib/domain/legacy-sheets.ts`) = 이름 앞 「[구버전·폐기]」 + 첫 탭 「⚠ 구버전 — 안 씀」(지금 쓰는 시트 링크) — 아무도 안 읽는다. 외부(공급사 소유) 원본은 이름을 건드리지 않고 원본으로만 안다(mirror-sources). 시트마다 「이 시트는」 탭 = 상태·구성(탭·열)·바라보는 곳·주는 곳·주기·고치는 곳(정본 `lib/domain/sheet-identity.ts`). 전 시트 명부는 원천대장 「시트 지도」 0장. | rename-supplier-sheets --apply(연동중) · retire-legacy-sheets --apply(구버전) · publish-sheet-identity-tab --apply · publish-sheet-map-tab --apply |
-| 문패 「공급사시트정리」 | 공급사코드 → 판매시트 발행기가 읽을 시트 주소. ERP는 이 문패나 상품마스터를 직접 읽지 않고 발행 완료된 판매시트 3탭만 읽는다. | https://docs.google.com/spreadsheets/d/1TVeVXyJJRx0SzD2vxqy3eEjSojmMIWXSu7AdsKmpfmY/edit |
-| 판매시트 「프리패스 상품리스트」 | 영업자가 보는 표 — 기계가 찍는 사본, 손으로 고치지 않는다. **발행 단계는 공급사 시트의 완성된 정제칸을 그대로 3개 판매 탭으로 옮길 뿐, 상품마스터를 거치거나 값을 다시 정제하지 않는다.** ★탭 3개: 「상품리스트 …」(21곳 − 오플 − 손오공 구독, 출고불가 제외) · 「손오공구독 …」·「오플구독 …」. 손오공은 반납형·인수형 기간별 금액을 모두 보존한다. 오플은 연 2만km가 기본이며 **12개월만 3만km**다(12개월 2만km 없음). 폐기된 오플프로모션 탭은 ERP가 읽지 않는다. 같은 차는 한 탭에만. 표준 칸은 별칭으로 되찾는다(sales-published-tabs.ts). [숨김] AI 인계(@매핑=열 구성 정본·@제외) · AI 정제(치환 사전) · 이 시트는. | https://docs.google.com/spreadsheets/d/1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs/edit |
+| 문패 「공급사시트정리」 | 공급사코드 → 판매시트 발행기가 읽을 시트 주소. ERP는 이 문패나 상품마스터를 직접 읽지 않고 발행 완료된 판매시트 4탭만 읽는다. | https://docs.google.com/spreadsheets/d/1TVeVXyJJRx0SzD2vxqy3eEjSojmMIWXSu7AdsKmpfmY/edit |
+| 판매시트 「프리패스 상품리스트」 | 영업자가 보는 표 — 기계가 찍는 사본, 손으로 고치지 않는다. **발행 단계는 공급사 시트의 완성된 정제칸을 그대로 4개 판매 탭으로 옮길 뿐, 상품마스터를 거치거나 값을 다시 정제하지 않는다.** ★탭 4개: 「상품리스트 …」(21곳 − 오플 − 손오공 구독/픽업, 출고불가 제외) · 「손오공구독 …」(구독재고=SON_NO_KONG) · 「픽업구독 …」(픽업재고=TCAR/T카, 2026-08-27) · 「오플구독 …」. 손오공구독·픽업구독은 반납형·인수형 기간별 금액을 모두 보존한다. 오플은 연 2만km가 기본이며 **12개월만 3만km**다(12개월 2만km 없음). 폐기된 오플프로모션 탭은 ERP가 읽지 않는다. 같은 차는 한 탭에만. 표준 칸은 별칭으로 되찾는다(sales-published-tabs.ts). [숨김] AI 인계(@매핑=열 구성 정본·@제외) · AI 정제(치환 사전) · 이 시트는. | https://docs.google.com/spreadsheets/d/1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs/edit |
 | 영업채널 카드시트(천이시트 갈래) | 정제/제공시트는 세 갈래로 나간다: 중앙 판매시트→ERP, 중앙 판매시트→공급사 「상품시트」(1대=1행·열은 판매시트 「AI 인계」 @매핑과 동일), 손오공·웰릭스 원천→천이시트(7행×13열=한 대). 세 출력은 병렬 사본이며 셀 주소를 서로 복사하지 않는다. 천이카드는 머리글 이름→buildCard 매핑으로 변환하고 J:L에는 최저가 한 벌만 표시한다. 실을 차 기준은 판매시트와 같다(**출고불가만 제외** · 출고가능이 아니면 차량번호 아래에 상태를 적는다). 차명=정제칸 세부모델 그대로 · 등급=세부트림 · 조건 칸은 「운영정책」. 검수는 상품시트의 행 전체와 천이 카드 91셀을 따로 비교한다(audit-pipeline-destinations). 정본 `lib/domain/channel-card-sheet.ts` · 매뉴얼 `docs/영업채널-카드시트-매뉴얼.md`. | npx tsx scripts/publish-channel-cards.mts --apply · npx tsx scripts/audit-pipeline-destinations.mts |
 | 원천대장 「ERP4 차종마스터 원천대장」 | 라이브 ERP 차종코드(mf-)·규격채택·상품마스터·시트 지도. **이름·제원 작업 정본이 아님**(아직 안 바꿈). 색상마스터는 여기. | https://docs.google.com/spreadsheets/d/1T_RrErmGoj_yG9S1u7n--2NDolTOw8wA8ROQjPWuAlg/edit |
-| 엔카 작업 시트 | 이름·제원 작업 정본. 탭: 안내 · 차종마스터(원산지·제조사·모델·세부모델·세부트림) · 제원마스터(연료·cc·구동) · 전기차배터리마스터. 트림은 배기량 합집합. 정제시트 fill은 아직. 라이브 원장과 다른 문서. | https://docs.google.com/spreadsheets/d/1oMB9eoNnQFxUyRK4CSxYh_hKrtCf7s_79xLs-GYwXCE/edit |
+| 엔카 작업 시트 | 이름·제원 작업 정본. 탭: 안내 · 차종마스터(원산지·제조사·모델·세부모델·세부트림·생산시작·생산종료) · 제원마스터(연료·cc·구동) · 전기차배터리마스터. 트림은 배기량 합집합. 정제시트 fill은 아직. 라이브 원장과 다른 문서. | https://docs.google.com/spreadsheets/d/1oMB9eoNnQFxUyRK4CSxYh_hKrtCf7s_79xLs-GYwXCE/edit |
 | 리포 파일 | data/product-vehicle-review-decisions.json(3축 결정) · public/data/vehicle-trim-master.json(artifact) · lib/domain/mirror-sources.ts(정제시트 원본표) · lib/domain/supplier-template-sheet.ts(공급사 시트 표준) · lib/domain/sales-sheet-mapping.ts(판매시트 열·별칭·제외) · lib/domain/product-master-sheet.ts(상품마스터 열). | C:\dev\freepasserp4 |
 | 정제시트 원본표 | 아이카(RP004) ← 시트 1LqWVs2o1-wpPqFiYkOjcQldmIXqtBMKYp0A1SKEir5w · 오토플러스(RP023) ← 시트 1TJBG4PABgly7EtGG6Os5GcY9La7kDR_yex56KHhXe2U · 이안카(RP031) ← 시트 1fJuFSdaW559niD0ow7vVC3qcgjy8KRb8Cr3U8Of01vs · 아이언(RP006) ← ironrentcar.com | 수식 연동을 켜면 그 공급사를 표에서 뺀다(둘이 서로 덮는다) |
 
@@ -92,8 +92,8 @@
 |---|---|---|
 | ★2026-08-22 확정 — 정제칸이 정본, ERP 는 정제칸만 본다 | 사장님 「ERP 에는 정제를 쓰는 게 맞고 정제만 잘해 두면 되니까 · 정제시트만 바라보는 거야 · 정제칸은 내가 확실하게 챙길게」. **차명 축은 넷뿐이다 — 제조사 · 모델 · 세부모델 · 세부트림.** 표현의 기본은 «차명 = 세부모델 + 세부트림»이고, 제조사는 제목 줄이 든다. **파워트레인은 폐지했다** — 엔진 이야기는 「연료」·「배기량」 칸이 따로 든다(ERP 잔재 3,737대는 2026-08-22 에 비웠고, 스냅이 다시 채우지 못하게 막았다). 배기량·연료·색상·차종구분은 «차를 설명하는 부가정보»로 차명 옆에 나란히 둔다. 재고관리 편집 화면도 판매시트와 **같은 차례**로 세운다(제조사·모델·세부모델·세부트림·외장·내장·연식·주행·연료·배기량·차종구분) — 시트와 ERP 를 눈으로 대조할 수 있어야 한다. | sales-sheet-mapping(판매시트 열) · sheet-import(스냅이 정제값을 덮지 않는다) · InventoryEditorPanes(재고관리 차례) |
 | ⓪ 정제시트 원문(차명·옵션) | 아이카·오토플러스·이안카·아이언은 원본에서 차명(세부모델+트림)·옵션을 **매번** 가져온다. 아이카=차종분류(모델 이름, 준중형 SUV 아님)+트림 · 오토플러스=차종+모델명(풀 트림 문장) · 이안카=차종분류+세부모델+트림 · 아이언=홈페이지 제목. 정제시트에서 고쳐도 다음 미러가 원본으로 되돌린다. 정제된 이름(모델·세부모델·세부트림)은 오른쪽 정제칸. 색·연식·가격은 처음 한 번. | sync-mirror-all --apply · 숨김 탭 「정제시트 안내」 · lib/domain/mirror-sheet-mapping.ts (MIRROR_FOLLOW_SOURCE) |
-| ① 사전 = 우리 차종마스터 | 한 줄 = 제조사·모델·세부모델(세대)·변형(연료·배기량·구동)·트림. 세부모델 정본은 모델+개발코드(풀체인지 `아반떼 CN8`·`K5 DL3` · 페리 `더 뉴 아반떼 CN8`). 디 올 뉴는 별칭. **개발코드는 정제칸에서 떼지 않는다**(08-23 `K5 DL3`→`K5` 사고). 제조사 공식 라틴(H-PICK·N Line·X Line·GT Line)은 한글화하지 않고, 고성능 N(아반떼 N)은 N Line 과 합치지 않는다. 재고에 있는 차는 여기에 반영돼 있다. 라이브 ERP 「차종마스터」 탭에는 쓰지 않는다. 색은 색상마스터. | public/data/vehicle-master.json · 원천대장 「차종마스터_규격채택」 · LATIN_BRAND_TRIM_CANON · stripModelCode 항등 |
-| ①′ 신규 차종이 상품에 들어오면 | **먼저 차종마스터화한다.** 마스터에 없는 모델·세대·트림을 비슷한 차로 짐작해 정제칸에 박지 않는다. 넣은 뒤에만 ②를 돌린다. 마스터에 없으면 정제칸은 비우고 목록으로 남긴다. | vehicle-master.json / 규격채택에 행을 넣는다(사람·검토). 라이브 ERP 차종마스터 탭 금지 |
+| ① 사전 = 엔카 작업 시트 | 한 줄 = 원산지·제조사·모델·세부모델·세부트림(+생산시작·생산종료). 세부모델 정본은 엔카 1:1(예외 둘: 기아 N세대→개발코드, 우리 시트만 G80 DH). **개발코드는 정제칸에서 떼지 않는다**(08-23 `K5 DL3`→`K5` 사고). 제조사 공식 라틴(H-PICK·N Line·X Line·GT-Line)은 한글화하지 않고, 고성능 N(아반떼 N)은 N Line 과 합치지 않는다. 라이브 ERP 「차종마스터」 탭에는 쓰지 않는다. 색은 색상마스터. JSON으로 이름을 만들지 않는다. | 엔카 작업 시트 · LATIN_BRAND_TRIM_CANON · docs/차종마스터-엔카작업시트-매뉴얼.md |
+| ①′ 신규 차종이 상품에 들어오면 | **먼저 엔카 작업 시트에 넣는다.** 마스터에 없는 모델·세대·트림을 비슷한 차로 짐작해 정제칸에 박지 않는다. 넣은 뒤에만 ②를 돌린다. 마스터에 없으면 정제칸은 비우고 목록으로 남긴다. JSON을 생성하지 않는다. | 엔카 작업 시트에 행을 넣는다(사람·검토). 라이브 ERP 차종마스터 탭 금지 · vehicle-master.json 폐기 |
 | ② 정제칸 = 판매시트·ERP 로 그대로 나가는 값 | 공급사가 준 정보는 **차량번호 왼쪽**이다. 정제칸: 제조사(정제)·모델·**세부모델·세부트림**·연료(정제)·배기량(정제)·**차종분류(한 칸)+차종분류코드**·외장색상·내장색상·선택옵션·원산지. 판매시트는 이 값을 **축 그대로** 싣는다(2026-08-22 — 예전엔 「차명(정제)」 조합 한 칸만 실었다). 크기+구분을 붙이지 않는다. 파워트레인 칸은 없다. | fill-supplier-ai-columns --apply --include-mirror |
 | ③ 정제시트에서 세 갈래로 내보낸다 | ① ERP: 정제/제공시트 → 중앙 판매시트 3탭 → ERP가 판매시트를 직접 읽는다. ② 공급사 「상품시트」: 중앙 판매시트에서 그 공급사 행을 판매시트 「AI 인계」 @매핑 열 그대로·1대=1행으로 복제한다. ③ 천이시트: 손오공·웰릭스 정제/제공시트를 1대=7행×13열 카드로 별도 변환하며 J:L에는 최저가 한 벌만 넣는다. 세 출력은 서로의 입력이 아닌 병렬 사본이므로 셀 주소를 서로 복사하지 않는다. 출고불가는 제외하고, 대여료 없는 판매시트 칸은 「-」. | publish-origin-tab / publish-sonogong-tab → run-sheet-daily-sync-local(ERP) · publish-supplier-preview-tabs(상품시트) · publish-channel-cards(천이) · audit-sheet-erp-parity + audit-pipeline-destinations |
 | ④ 엔카 행키(선택) | 모델행키 M · 세부모델행키 SM · 세부트림행키 T 는 중고 시세용. **②에서 박은 차종마스터 이름과 같을 때만** 붙인다. 엔카 원자에 가솔린 A6가 없다고 A6 e-트론 키를 넣지 않는다. 이름·연료와 어긋난 leftover 는 지운다. | stamp-encar-codes-on-supplier --apply (이름 락). 엔카 시트로 모델·세부모델을 덮지 않음 |
@@ -140,12 +140,12 @@
 | ② 정제칸 완성 확인 | 발행 전제는 제조사(정제)·모델·세부모델·세부트림·연료·배기량 등 정제칸이 이미 완성된 상태다. 판매 발행은 이 값을 고치지 않고 그대로 옮긴다. 정제칸 보정이 필요할 때만 별도 작업으로 실행하며 정제시트는 --include-mirror. | 필요할 때만: npx tsx scripts/fill-supplier-ai-columns.mts --apply --include-mirror |
 | ②′ 엔카 행키(선택) | M/SM/T 는 ② 이름과 맞을 때만. 엔카에 없다고 비슷한 모델로 안 붙임. | npx tsx scripts/stamp-encar-codes-on-supplier.mts --apply |
 | ③ 미완성 정제칸 | 미완성 차는 판매 발행에서 임의 보정하지 않는다. 원본·정제 기준을 별도 검토해 정제칸을 완성한 뒤 발행한다. | 검토 큐(발행 단계에서 자동 실행 금지) |
-| ④ 판매시트 발행(탭 3개) | 상품리스트(21곳 − @제외 오플·손오공 구독 · 출고불가 제외 · 빈 대여료 「-」) → 손오공구독(반납형·인수형 기간별 금액) → 오플구독(연 2만km 기본, 12개월만 3만km). **오플 12개월 2만km와 폐기된 오플프로모션 탭은 발행·ERP 입력에서 제외**한다. 블록 기본값·표시 이름·별칭은 sales-published-tabs.ts 한 곳. 공급사 하나가 0대로 줄면 멈춘다(맞으면 --force-shrink). 발행된 표 = 세 탭의 합. | publish-origin-tab --apply · publish-sonogong-tab --apply · publish-sonogong-tab --tab=오플구독 --apply |
+| ④ 판매시트 발행(탭 4개) | 상품리스트(21곳 − @제외 오플·손오공 구독/픽업 · 출고불가 제외 · 빈 대여료 「-」) → 손오공구독(구독재고=SON_NO_KONG, 반납형·인수형 기간별 금액) → 픽업구독(픽업재고=TCAR_EXTERNAL/T카, 2026-08-27 추가 — **인수형도 반납형과 같은 12~60 전 기간**. 손오공구독은 SON에 인수형 12·24가 없어 36/48/60만이지만 T카는 상세 estimates에 12·24 인수형이 있다) → 오플구독(연 2만km 기본, 12개월만 3만km). **오플 12개월 2만km와 폐기된 오플프로모션 탭은 발행·ERP 입력에서 제외**한다. ★손오공 구독/픽업 「옵션」·「선택옵션」 = **유상옵션 원문(괄호 안 금액은 뺀다 — 「시트패키지, 베이직플러스」)**, API 기본장비 목록(options[])은 노이즈라 안 쓴다. 가격은 손오공 상세 estimates(creditType LOW)에서 뽑는다(목록보다 완전 — 인수형 12·24 포함). 재고시트 채움은 aiops `손오공.mjs`→`손오공-재고시트.mjs`. 블록 기본값·표시 이름·별칭은 sales-published-tabs.ts 한 곳. 공급사 하나가 0대로 줄면 멈춘다(맞으면 --force-shrink). 발행된 표 = 네 탭의 합. | publish-origin-tab --apply · publish-sonogong-tab --apply · publish-sonogong-tab --tab=픽업구독 --apply · publish-sonogong-tab --tab=오플구독 --apply |
 | ④′ 공급사 「상품시트」 | 중앙 판매시트에서 해당 공급사 행을 판매시트 「AI 인계」 @매핑 열 그대로·1대=1행으로 복제한다. 대상 문서는 「프리패스 거래처 정리」 공급사 탭에서 `거래중`이고 정제/제공 링크가 있는 행만 쓴다. Drive 파일명 검색 금지. 링크 없음·중복·`[구버전·폐기]` 링크·공급사 미매칭이 하나라도 있으면 쓰기 전 전체 발행을 막는다. 머리글 이름·순서·행 전체가 모두 같아야 하며 공급사 전용 열을 빼거나 더하지 않는다. | npx tsx scripts/publish-supplier-preview-tabs.mts --apply |
 | ④″ 천이시트 | 손오공·웰릭스 정제/제공시트를 7행×13열 카드로 별도 변환한다. 공급사 「상품시트」와 셀 위치가 다르고 J:L에는 최저가 한 벌만 표시한다. 탭을 통째로 갈아 끼우며 대여료가 한 칸도 없는 차는 기본 제외한다. | npx tsx scripts/publish-channel-cards.mts --apply |
-| ⑤ ERP 직접 동기 | ERP는 상품마스터를 거치지 않고 중앙 판매시트 3탭을 직접 읽는다. 공급사 「상품시트」와 천이시트는 ERP 입력이 아니라 같은 정제/제공시트에서 나간 병렬 출력이다. 사전감사·dry-run diff를 확인하고 직전 승인 뒤에만 `--apply`한다. | npm run audit:sales-sync-preflight · npm run audit:sales-erp-plan · npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/run-sheet-daily-sync-local.mts [--apply] |
+| ⑤ ERP 직접 동기 | ERP는 상품마스터를 거치지 않고 중앙 판매시트 4탭을 직접 읽는다. 공급사 「상품시트」와 천이시트는 ERP 입력이 아니라 같은 정제/제공시트에서 나간 병렬 출력이다. 사전감사·dry-run diff를 확인하고 직전 승인 뒤에만 `--apply`한다. | npm run audit:sales-sync-preflight · npm run audit:sales-erp-plan · npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/run-sheet-daily-sync-local.mts [--apply] |
 | ⑤′ ERP 백업·롤백 | 운영 반영은 영향 상품의 RTDB 공개 노드 원본 백업이 성공한 뒤에만 시작한다. 롤백은 같은 실행 ID가 찍힌 행만 대상으로 하며, 후속 수기/동기화 변경이 한 건이라도 있으면 전체 중단한다. 롤백도 미리보기와 별도 직전 승인을 거친다. | v4/sheet_sync_backups/{runId} · npm run rollback:sales-erp -- --run={runId} [--apply] |
-| ⑥ 검수 | ERP는 현재 판매시트 3탭과 차량번호 집합·상태·제조사·모델·세부모델·세부트림·연료·배기량·모든 기간의 대여료/보증금을 대조한다. 공급사 상품시트·천이시트는 별도 담당 출력이라 ERP 감사와 합쳐 자동수정하지 않는다. | audit-sheet-erp-parity · audit-pipeline-destinations |
+| ⑥ 검수 | ERP는 현재 판매시트 4탭과 차량번호 집합·상태·제조사·모델·세부모델·세부트림·연료·배기량·모든 기간의 대여료/보증금을 대조한다. 공급사 상품시트·천이시트는 별도 담당 출력이라 ERP 감사와 합쳐 자동수정하지 않는다. | audit-sheet-erp-parity · audit-pipeline-destinations |
 | ⑦ ERP 목록 ↔ 판매시트 대조(ERP 동기 뒤) | 판매시트에만 있는 차량은 오류다. ERP에만 있는 차량도 원칙적으로 오류이며, 계약 엔진 락이 있고 현재 상위 원본이 출고불가임을 확인한 경우만 사유가 있는 예외다. 근거를 못 읽으면 자동 통과시키지 않는다. | npm run audit:sales-erp-parity |
 | 매시간 기본 실행 | Windows 작업 스케줄러 `freepass-hourly-sync` 기본 모드는 판매시트·ERP를 읽기 전용으로 대조한다. `--apply`는 직전 승인 후 판매시트→ERP를 한 번 반영하고 다시 읽어 검증한다. 상위 시트·공급사 상품시트·천이시트는 쓰지 않는다. | scripts/hourly-sync.mts |
 | 상위 발행 자동화 | 중앙 판매시트·공급사 상품시트·천이시트 발행은 별도 담당 작업이다. ERP 정합성 점검자가 임의 재발행하지 않으며 대상·범위·diff 확인과 직전 승인을 받은 별도 실행으로 분리한다. | scripts/run-daily.mts |
@@ -191,7 +191,7 @@
 | 항목 | 내용 | 어디서/명령 |
 |---|---|---|
 | 공급사 시트 | 재고 탭 40열 = 렌트사 칸 28(차량번호…사진링크) │ 정책코드 · 정제칸 11. 머리 남색(렌트사)/보라(프리패스). Roboto · 표+칩 · 대여료 배경(단기 청록·장기 파랑) · 상태/분류 칩색 안 겹침. 대여료 블록만 공급사 구조 예외(손오공 구독 인수형/반납형 · 오토플러스 2만/3만). | supplier-template-sheet.ts |
-| 판매시트 | 탭 3개 = 상품리스트(파랑 탭) · 손오공구독(보라 탭) · 오플구독(초록 탭)(같은 발행기, 열 = AI 인계 @매핑 · 갈래 탭은 공통 대여료 블록 자리에 그 공급사 기간별 대여료 · 오플구독은 「보증금」 칸에 산출 규칙 글자 + 머리글 메모에 오플 보증금표). ★차종구분 열(사장님 2026-08-19): 연식과 Km 사이 「차종구분」 = 공급사 시트 정제칸 「차종분류」(차종마스터 규격채택 차종분류+차체형태 → 「준중형 SUV」·「준대형 세단」, 코드 없는 차는 모델 이름 스냅) — 판매시트에만 보이고 공급사 시트는 fill-supplier-ai-columns 가 자동으로 채운다. ★금액 규격(사장님 2026-08-19): 기간별 대여료·보증금·차량가격은 우측 정렬+굵게, 기간은 배경색(단기 청록·장기 파랑·인수형 보라, 길수록 짙게) — 이름 목록이 아니라 머리글 모양(N개월…/…보증…)으로 판정(sales-sheet-format isMoneyColumn·colBgFor). 「보증금 카드결제」 같은 정책 칸은 금액 아님. 글자색: 제조사(규격검토와 같은 색표) · 연료 · 외장/내장(규격색별, 색상마스터) · 구분 · 배차상태 — 차종구분은 색 없음(「과하네」). 차명 정본→정제칸→원문. 출고불가 제외. 빈 대여료 「-」. 구분 색(마젠타·초록·보라·청록)은 상태 색(파랑·주황·회색)과 안 겹침. 같은 차는 한 탭에만(@제외 RP023 · RP012:구독). | sales-sheet-mapping.ts · sales-sheet-format.ts |
+| 판매시트 | 탭 4개 = 상품리스트(파랑 탭) · 손오공구독(보라 탭) · 픽업구독(T카, 2026-08-27) · 오플구독(초록 탭)(같은 발행기, 열 = AI 인계 @매핑 · 갈래 탭은 공통 대여료 블록 자리에 그 공급사 기간별 대여료 · 손오공구독·픽업구독은 반납형·인수형 · 오플구독은 「보증금」 칸에 산출 규칙 글자 + 머리글 메모에 오플 보증금표). ★차종구분 열(사장님 2026-08-19): 연식과 Km 사이 「차종구분」 = 공급사 시트 정제칸 「차종분류」(차종마스터 규격채택 차종분류+차체형태 → 「준중형 SUV」·「준대형 세단」, 코드 없는 차는 모델 이름 스냅) — 판매시트에만 보이고 공급사 시트는 fill-supplier-ai-columns 가 자동으로 채운다. ★금액 규격(사장님 2026-08-19): 기간별 대여료·보증금·차량가격은 우측 정렬+굵게, 기간은 배경색(단기 청록·장기 파랑·인수형 보라, 길수록 짙게) — 이름 목록이 아니라 머리글 모양(N개월…/…보증…)으로 판정(sales-sheet-format isMoneyColumn·colBgFor). 「보증금 카드결제」 같은 정책 칸은 금액 아님. 글자색: 제조사(규격검토와 같은 색표) · 연료 · 외장/내장(규격색별, 색상마스터) · 구분 · 배차상태 — 차종구분은 색 없음(「과하네」). 차명 정본→정제칸→원문. 출고불가 제외. 빈 대여료 「-」. 구분 색(마젠타·초록·보라·청록)은 상태 색(파랑·주황·회색)과 안 겹침. 같은 차는 한 탭에만(@제외 RP023 · RP012:구독). | sales-sheet-mapping.ts · sales-sheet-format.ts |
 | 상품마스터(구버전 이력 원장) | 현재 ERP 입력이 아니며 ERP 동기 명령에서 선택할 수 없다. 이력 자료를 별도로 다루더라도 중앙 판매시트→ERP 경로와 섞지 않는다. | product-master-sheet.ts |
 | 정책 표기 | 만 21세까지 · 연 20,000km · 50만원/5천만원/1억5천만원 · 가능/불가/협의 · 추가운전 요금 「N인까지 · 1인당 월 M만원」. | policy-value-spec.ts · docs/SUPPLIER_POLICY_SHEET_MANUAL.md |
 

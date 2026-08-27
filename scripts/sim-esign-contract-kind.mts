@@ -84,13 +84,16 @@ check('인수형 12개월은 10%', penaltyAmount('인수형', 10_000_000, 12).ra
 check('위약금 계산', penaltyAmount('반납형', 10_000_000, 24).amount === 2_000_000);
 check('잔여액 0이면 0원', penaltyAmount('반납형', 0, 24).amount === 0);
 
-// ── 표준계약서 3벌 × 인수/반납, 공급사로 안 좁힌다 ──
-check('표준계약서는 정확히 3벌', ALL_TEMPLATES.length === 3, ALL_TEMPLATES.map((item) => item.label));
+// ── 프리패스 표준 3벌 + 손오공 전용 4벌. 전용 양식은 표준 3벌을 대체하지 않는다. ──
+const freepassStandardTemplates = ALL_TEMPLATES.filter((item) => item.id.startsWith('freepass-'));
+const sonogongTemplates = ALL_TEMPLATES.filter((item) => item.id.startsWith('sonogong-'));
+check('프리패스 표준계약서는 정확히 3벌', freepassStandardTemplates.length === 3, freepassStandardTemplates.map((item) => item.label));
+check('손오공 전용 양식 4벌이 별도로 등록됨', sonogongTemplates.length === 4, sonogongTemplates.map((item) => item.label));
 check('렌트 1벌·구독 보험포함 1벌·구독 보험별도 1벌',
-  ALL_TEMPLATES.map((item) => `${item.contractKind}:${item.insuranceSide}`).join('|')
+  freepassStandardTemplates.map((item) => `${item.contractKind}:${item.insuranceSide}`).join('|')
   === '렌탈:회사포함|구독:회사포함|구독:고객직접');
 check('3벌 모두 인수/반납 선택 가능',
-  ALL_TEMPLATES.flatMap((template) => [
+  freepassStandardTemplates.flatMap((template) => [
     contractKindFor(template, '인수형'), contractKindFor(template, '반납형'),
   ]).length === 6);
 const rentTemplate = findTemplate('freepass-rent-standard')!;
@@ -105,16 +108,16 @@ check('구독 보험포함서식 + 보험별도 정책 조합 차단',
 check('구독 보험별도서식 + 보험별도 정책 조합 통과',
   standardTemplateSelectionError(subSeparateTemplate, contractKindFor(subSeparateTemplate, '인수형'), { insurance_included: '개인보험형(손님 직접)' }) === '');
 check('공급사가 달라도 표준계약서 3벌은 같다',
-  templatesForContract(r({ provider_company_code: 'RP023' })).length === 3
-  && templatesForContract(r({ provider_company_code: 'RP012' })).length === 3);
+  templatesForContract(r({ provider_company_code: 'RP023' })).filter((item) => item.id.startsWith('freepass-')).length === 3
+  && templatesForContract(r({ provider_company_code: 'RP012' })).filter((item) => item.id.startsWith('freepass-')).length === 3);
 check('유형 미확정 계약에는 임의 기본을 박지 않음', sentTemplateOf(r({})) === null);
 check('기발행 구독 보험별도형 복원',
   sentTemplateOf(r({ contract_kind: 'sub_buyout', esign_insurance_side: '고객직접' }))?.id
   === 'freepass-subscription-insurance-separate');
 check('모르는 표준계약서는 null', findTemplate('없는유형') === null);
-check('렌트 정본만 운영 가능하고 구독 2종은 샘플로 잠긴다',
+check('렌트 정본만 운영 가능하고 구독·손오공 양식은 샘플로 잠긴다',
   ALL_TEMPLATES.filter((t) => !t.isSample).map((t) => t.id).join('|') === 'freepass-rent-standard'
-  && ALL_TEMPLATES.filter((t) => t.isSample).length === 2);
+  && ALL_TEMPLATES.filter((t) => t.isSample).length === 6);
 
 // ── 섹션 구성 — 기존 계약서 내용이 다 들어갔는가 ──
 const groups = buildConsentGroups(contract, policy, '회사포함');

@@ -5,7 +5,7 @@ import type { EntityRecord } from '@/lib/intake/entities';
 import type { ColSort } from './excel-columns';
 import { ProductCard } from '@/components/ProductCard';
 import { ProductRowCard } from '@/components/ProductRowCard';
-import { Btn, C, CenterNote, EXCEL_ROW_H, FS, R, SH, Skeleton, ctrlH } from '@/components/ui';
+import { Btn, C, CenterNote, EXCEL_ROW_H, ListMoreBar, R, SH, Skeleton, ctrlH } from '@/components/ui';
 import { SheetView } from './SheetView';
 
 // 뷰 컨테이너 스타일 SSOT — 실제 렌더와 로딩 스켈레톤이 같은 상수를 공유(재타이핑 드리프트=레이아웃 점프 방지).
@@ -43,6 +43,7 @@ type Props = {
   openCol: { field: string; x: number; y: number } | null;
   setOpenCol: Dispatch<SetStateAction<{ field: string; x: number; y: number } | null>>;
   moreCount: number;
+  pageSize: number;
   onMore: () => void;
   onShowAll: () => void;
   /** 보기 전환(startTransition) 중 — 프리즈 체감 완화용 dim */
@@ -110,17 +111,15 @@ export const FinderResults = memo(function FinderResults(props: Props) {
           ))}
         </div>
       ) : null}
-      {props.view !== 'excel' && !loading && props.moreCount > 0 && (
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, flexWrap: 'wrap',
-          ...(props.mobile ? { padding: '10px 12px', borderTop: `1px solid ${C.line2}` } : { marginTop: 14 }),
-        }}>
-          <span style={{ fontSize: props.mobile ? FS.body : FS.sub, color: C.mute }}>
-            {props.shown.length.toLocaleString()} / {(props.shown.length + props.moreCount).toLocaleString()}대
-          </span>
-          <Btn title={`더보기 ${Math.min(100, props.moreCount)}대`} variant="ghost" onClick={props.onMore}>더보기 · {Math.min(100, props.moreCount).toLocaleString()}대</Btn>
-          <Btn title={`전체 ${props.shown.length + props.moreCount}대 보기`} variant="ghost" onClick={props.onShowAll}>전체 보기</Btn>
-        </div>
+      {props.view !== 'excel' && !loading && (
+        <ListMoreBar
+          shown={props.shown.length}
+          total={props.shown.length + props.moreCount}
+          unit="대"
+          pageSize={props.pageSize}
+          onMore={props.onMore}
+          onShowAll={props.onShowAll}
+        />
       )}
     </div>
   );

@@ -9,7 +9,7 @@ import {
 import { toggleInSet } from '@/lib/set';
 import { VehicleMasterFilter } from '@/components/VehicleMasterFilter';
 import { FINDER_DEFAULT_SORT, FINDER_SORTS } from './filter-state';
-import { Badge, Btn, C, CountPill, FilterGroup, FS, FW, Select, ToggleChips } from '@/components/ui';
+import { Badge, Btn, C, CountPill, FilterChips, FilterGroup, FS, FW, ToggleChips } from '@/components/ui';
 import type { FilterBag } from './filter-state';
 
 type FilterUpdate = Partial<FilterBag> | ((current: FilterBag) => FilterBag);
@@ -48,7 +48,7 @@ export type FinderFilterPanelModel = {
 
 export function FinderFilterPanel({ model }: { model: FinderFilterPanelModel }) {
   const {
-    mobile, totalVisible, foundCount, searching, activeCount, draftOpen, value, cascadeProducts,
+    mobile, totalVisible, foundCount, searching, activeCount, value, cascadeProducts,
     popularModels, present, aggregate, update, reset,
   } = model;
 
@@ -84,12 +84,7 @@ export function FinderFilterPanel({ model }: { model: FinderFilterPanelModel }) 
           </span>
           <span style={{ flex: 1 }} />
           {activeCount > 0 && (
-            <Btn
-              variant="bare"
-              haptic="select"
-              onClick={() => { reset(); }}
-              style={{ color: C.accent, fontSize: FS.cap, fontWeight: FW.strong, padding: '4px 6px' }}
-            >
+            <Btn variant="bare" haptic="select" onClick={() => { reset(); }}>
               초기화
             </Btn>
           )}
@@ -97,7 +92,7 @@ export function FinderFilterPanel({ model }: { model: FinderFilterPanelModel }) 
       )}
       <div className="fp-sidebar-body">
         {/* 요상한 것 없음(사장님 2026-08-22 「즐겨찾기 이런 거 다 빼고, 위에서부터 직관적으로 인기차종부터 영업자들이 찾을 것들로만」)
-            — 즐겨찾는 조건(프리셋)·최근·관심 필터를 걷어냈다. 첫 그룹은 인기차종, 정렬은 모바일 시트 맨 아래(웹은 툴바 셀렉트). */}
+            — 즐겨찾는 조건(프리셋)·최근·관심 필터를 걷어냈다. 첫 그룹은 인기차종, 정렬은 필터 안 FilterChips. */}
         {(popularOpts.length > 0) && (
           <FilterGroup title={<>인기차종 <Badge tone="amber" variant="solid">BEST</Badge></>} count={value.models.size} defaultOpen first onClear={() => update({ models: new Set() })}>
             <ToggleChips selected={value.models} onToggle={(key) => update((current) => ({ ...current, models: toggleInSet(current.models, key) }))} options={popularOpts} />
@@ -166,17 +161,15 @@ export function FinderFilterPanel({ model }: { model: FinderFilterPanelModel }) 
             </FilterGroup>
           );
         })()}
-        {/* 정렬 — 모바일 시트에만, 맨 아래(웹은 툴바 셀렉트가 담당). 필터 축이 아니라 끝에 둔다. */}
-        {draftOpen && (
-          <FilterGroup title="정렬" count={value.sort !== FINDER_DEFAULT_SORT ? 1 : 0} defaultOpen onClear={() => update({ sort: FINDER_DEFAULT_SORT })}>
-            <div style={{ flex: '1 1 100%', width: '100%', minWidth: 0 }}>
-              <Select
-                full value={value.sort || FINDER_DEFAULT_SORT} onChange={(key) => update({ sort: key })}
-                options={FINDER_SORTS}
-              />
-            </div>
-          </FilterGroup>
-        )}
+        {/* 정렬 — 필터 안 칩(업무 목록과 같음). 툴바 Select는 두지 않는다. */}
+        <FilterGroup title="정렬" count={value.sort !== FINDER_DEFAULT_SORT ? 1 : 0} defaultOpen onClear={() => update({ sort: FINDER_DEFAULT_SORT })}>
+          <FilterChips
+            value={value.sort || FINDER_DEFAULT_SORT}
+            onChange={(key) => update({ sort: key })}
+            options={FINDER_SORTS.map((option) => ({ key: option.value, label: option.label }))}
+            clearKey={FINDER_DEFAULT_SORT}
+          />
+        </FilterGroup>
       </div>
     </>
   );

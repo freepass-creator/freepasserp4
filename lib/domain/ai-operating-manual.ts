@@ -26,7 +26,7 @@ const IDS = {
 const url = (id: string, gid?: number) => `https://docs.google.com/spreadsheets/d/${id}/edit${gid !== undefined ? `#gid=${gid}` : ''}`;
 
 export const AI_MANUAL_TITLE = 'AI 운영 매뉴얼';
-export const AI_MANUAL_VERSION = '2026-08-27 v26';
+export const AI_MANUAL_VERSION = '2026-08-27 v27';
 
 export function buildAiOperatingManual(): ManualSection[] {
   return [
@@ -38,11 +38,11 @@ export function buildAiOperatingManual(): ManualSection[] {
     { title: '0′. ★확정 규칙(2026-08-21) — 오류 없이 굳힌 것. 어기면 버그다', rows: [
       ['순서', '신규 차종은 **엔카 작업 시트에 먼저** → 승인 후 정제시트 정제칸 → 상품시트. 라이브 ERP 원장·mf- 는 확정 전 안 씀. 마스터에 없으면 비슷한 차로 안 붙이고 빈칸.', 'docs/차종마스터-엔카작업시트-매뉴얼.md · fill 은 아직 안 함'],
       ['사전', '이름·제원 작업 정본 = 엔카 작업 시트(차종·제원·배터리). vehicle-master.json 으로 이름을 지어내지 않는다. 엔카에 없는 수입차를 비슷한 차로 안 박는다. 라이브 「차종마스터」 탭에 아직 쓰지 않는다.', url(IDS.엔카마스터)],
-      ['★라틴 고유명', '등급어만 한글화(Premium→프리미엄). 제조사 공식 라틴은 정본: **H-PICK** · 기아 **X Line** · 현대 **N Line** · **GT Line**. 아반떼 N·아이오닉5 N 의 **N** 은 고성능 라인 — N Line 과 합치지 않음. N라인·X라인·H-픽은 별칭.', 'vehicle-master-lock LATIN_BRAND_TRIM_CANON · canonMasterTrim'],
+      ['★라틴 고유명', '등급어만 한글화(Premium→프리미엄). 제조사 공식 라틴은 정본: **H-PICK** · 기아 **X Line** · 현대 **N Line** · **GT-Line**. 아반떼 N·아이오닉5 N 의 **N** 은 고성능 라인 — N Line 과 합치지 않음. N라인·X라인·H-픽·GT라인은 별칭.', 'vehicle-master-lock LATIN_BRAND_TRIM_CANON · canonMasterTrim'],
       ['공급사 정보', '공급사는 **차량번호 왼쪽 칸**으로 정보를 준다(제조사·차종·차명(세부모델+트림)·연료·연식). 그 글자를 마스터에 건다. 배기량 칸 숫자가 차명(3.5 · LPG 3.0)과 달라도 차명이 이긴다 — 공급사가 잘못 올린 것이 아니다.', '실측 손오공 281노9792 그랜저 IG LPG 3.0 PREMIUM · 스타 101호5187 카니발 KA4 가솔린 3.5 노블레스'],
       ['같은 세대 다른 엔진', '아반떼 CN7 1.6과 2.0은 같은 세대의 변형이다. 스냅이 다른 배기를 집었다고 「세대 오류」로 한 칸도 안 채우지 않는다. 맞는 변형을 고른다.', ''],
       ['누가 어느 칸', 'fill = 모델·세부모델·세부트림 + 연료(정제)·배기량(정제)·구동방식·인승·배터리용량(정제). 칸마다 따로, 하나로 모일 때만. 정제시트 fill = 엔카 작업 시트(빈 칸 + 같은 차 표기). stamp = 엔카 행키 M/SM/T 만.', 'fill-supplier-from-encar-sheet · stamp-encar-codes-on-supplier'],
-      ['코드', '트림행키(mf-…)는 영구. 삭제·재사용·의미 변경 금지. 책 = `data/vehicle-trim-key-registry.json`. 원천대장 「차종마스터」 탭은 **읽기만**. 새 차종은 json에 행을 넣고, 코드는 레지스트리에 없는 키만 붙인다.', 'lib/domain/vehicle-master-lock.ts · check-vehicle-master-lock · verify-master-pass'],
+      ['코드', '트림행키(mf-…)는 영구. 삭제·재사용·의미 변경 금지. 책 = `data/vehicle-trim-key-registry.json`. 원천대장 「차종마스터」 탭은 **읽기만**. 새 차종은 **엔카 작업 시트**에 넣고, 코드는 레지스트리에 없는 키만 붙인다. `vehicle-master.json` 으로 이름을 만들지 않는다.', 'lib/domain/vehicle-master-lock.ts · check-vehicle-master-lock · verify-master-pass'],
       ['세대 이름', '세부모델 = 엔카 이름 1:1. 예외 둘만: **기아** N세대→개발코드(`K5 3세대`→`K5 DL3`), **우리 시트만** 제네시스 1세대 `G80 DH`(엔카는 `G80`). FL 분할은 예외 아님. 괄호 없음(`G80 (RG3)`→`G80 RG3`). NF처럼 연식종료 2019 이전은 넣지 않는다.', 'docs/차종마스터-엔카작업시트-매뉴얼.md'],
       ['★개발코드는 안 뗀다', '정제칸·손님 화면에서 DL3·MX5·GN7·CN8 을 깎지 않는다. 「손님이 읽기 어렵다」는 이유로 떼면 `K5 DL3`가 `K5`가 되어 **세대를 못 가른다**(JF·TF·DL3가 한 이름이 된다). 광고 접두(`디 올 뉴`)만 별칭으로 뺀다. `add-submodel-code-strip-rules`·`normalize-erp-submodel-codes` 는 **폐기(거부)**. fill·발행기는 그런 「AI 정제」 줄을 **무시**한다.', '실측 2026-08-23 「AI 정제」 186줄 K5 DL3→K5 · ai-refine-guard'],
     ] },

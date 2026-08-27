@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import { ArrowLeft, Check, Eraser, Eye, FileDown, FileText, ImagePlus, Plus, Send, Trash2 } from 'lucide-react';
 import {
   Badge, Btn, ButtonLabel, C, DetailRow, Dropzone, fmtPhone, FS, FW, ICON, Input,
-  ListGroup, Loading, R,
+  ListGroup, Loading, Message, R,
 } from '@/components/ui';
 import { toast } from '@/components/Toaster';
 import styles from './sign.module.css';
@@ -58,7 +58,7 @@ type PublicSnapshot = {
   contract?: Record<string, unknown>;
   landlord?: { companyName?: string };
   templateFields?: Record<string, string>;
-  templateState?: { car?: string };
+  templateState?: { car?: string; ct?: string; tax?: string };
   contractKind?: { title?: string; label?: string; maturity?: string; maturityNote?: string };
   template?: { label?: string; version?: string };
   additionalDriverPolicy?: {
@@ -272,6 +272,7 @@ export default function SignPage() {
   const [form, setForm] = useState({
     customer_name: '', customer_phone: '', customer_id: '', customer_address: '',
     driver_license_no: '',
+    tax_biz_name: '', tax_biz_no: '', tax_ceo: '', tax_biz_type_item: '', tax_email: '', tax_biz_address: '',
     emergency_relation: '', emergency_name: '', emergency_phone: '',
   });
   const [consents, setConsents] = useState<Set<string>>(new Set());
@@ -581,9 +582,12 @@ export default function SignPage() {
       return toast('필수 개인정보 동의를 각각 선택해 주세요.', 'error');
     }
     if (step.kind === 'identity') {
+      const corporate = view?.snapshot?.templateState?.ct === '법인';
+      const soleProprietor = view?.snapshot?.templateState?.tax === '사업자';
       if (!form.customer_name.trim() || !form.customer_phone.trim()) return toast('성명과 연락처를 입력해 주세요.', 'error');
-      if (form.customer_id.replace(/\D/g, '').length !== 13) return toast('주민등록번호 13자리를 입력해 주세요.', 'error');
-      if (!form.driver_license_no.trim()) return toast('운전면허번호를 입력해 주세요.', 'error');
+      if (form.customer_id.replace(/\D/g, '').length !== 13) return toast(corporate ? '법인등록번호 13자리를 입력해 주세요.' : '주민등록번호 13자리를 입력해 주세요.', 'error');
+      if (corporate ? form.driver_license_no.replace(/\D/g, '').length !== 10 : !form.driver_license_no.trim()) return toast(corporate ? '사업자등록번호 10자리를 입력해 주세요.' : '운전면허번호를 입력해 주세요.', 'error');
+      if (soleProprietor && (!form.tax_biz_name.trim() || form.tax_biz_no.replace(/\D/g, '').length !== 10 || !form.tax_ceo.trim() || !form.tax_biz_type_item.trim() || !/^\S+@\S+\.\S+$/.test(form.tax_email) || !form.tax_biz_address.trim())) return toast('세금계산서 사업자 정보를 모두 정확히 입력해 주세요.', 'error');
       if (!form.customer_address.trim()) return toast('계약서에 기재할 주소를 입력해 주세요.', 'error');
       if (!form.emergency_relation.trim() || !form.emergency_name.trim()) return toast('비상연락 관계와 성명을 입력해 주세요.', 'error');
       if (!/^\d{10,11}$/.test(form.emergency_phone.replace(/\D/g, ''))) return toast('비상연락처를 정확히 입력해 주세요.', 'error');
@@ -685,7 +689,7 @@ export default function SignPage() {
       <div className={styles.frame}>
         <div className={styles.statusCard}>
           <h1 style={{ fontSize: FS.page, fontWeight: FW.head, margin: '0 0 8px' }}>지금은 열 수 없는 링크입니다</h1>
-          <p style={{ color: C.mute, fontSize: FS.body, lineHeight: 1.65, margin: 0 }}>{view?.error || '이미 제출을 마쳤거나 링크가 만료되었습니다.'}</p>
+          <Message variant="warning">{view?.error || '이미 제출을 마쳤거나 링크가 만료되었습니다.'}</Message>
         </div>
       </div>
     </main>
@@ -698,9 +702,9 @@ export default function SignPage() {
           <h1 style={{ fontSize: FS.page, fontWeight: FW.head, margin: '10px 0 6px' }}>
             {view.status === '서명완료' ? '전자계약이 완료되었습니다' : '제출이 접수되었습니다'}
           </h1>
-          <p style={{ color: C.mute, fontSize: FS.body, lineHeight: 1.65, margin: '0 0 18px' }}>
+          <Message variant="success">
             {view.status === '서명완료' ? '관리자 확인과 문서 봉인이 완료되었습니다.' : '담당자가 본인확인 자료·추가서류·서명을 확인한 뒤 계약을 확정합니다.'}
-          </p>
+          </Message>
           {view.status === '서명완료' && view.documentUrl ? (
             <div style={{ display: 'grid', gap: 8 }}>
               <Btn full title="완료 계약서 보기" variant="ghost" onClick={() => window.open(view.documentUrl, '_blank', 'noreferrer')}>
@@ -709,9 +713,9 @@ export default function SignPage() {
               <Btn full title="완료 계약서 PDF 다운로드" onClick={() => window.open(view.downloadUrl || `${view.documentUrl}?download=1`, '_blank', 'noreferrer')}>
                 <ButtonLabel icon={<FileDown size={ICON.md} aria-hidden />}>PDF 다운로드</ButtonLabel>
               </Btn>
-              <p style={{ color: C.faint, fontSize: FS.cap, lineHeight: 1.6, margin: '4px 0 0' }}>
+              <Message variant="info">
                 관리자 확인과 문서 봉인이 끝난 확정본입니다. 보관용으로 내려받아 주세요.
-              </p>
+              </Message>
             </div>
           ) : null}
         </div>
@@ -734,6 +738,10 @@ export default function SignPage() {
   const depositWon = formatDeposit(contract.deposit_amount_snapshot);
   const rentMonth = S(contract.rent_month_snapshot);
   const periodText = rentMonth ? (rentMonth.endsWith('개월') ? rentMonth : `${rentMonth}개월`) : '—';
+  const isSonogongSubscription = /손오공/.test(S(snapshot.landlord?.companyName) || S(snapshot.templateFields?.company_name))
+    && /구독/.test(S(snapshot.contractKind?.title) || S(snapshot.template?.label));
+  const feeLabel = isSonogongSubscription ? '월 구독료' : '월 대여료';
+  const periodLabel = isSonogongSubscription ? '구독기간' : '대여기간';
 
   return (
     <main className={styles.shell}>
@@ -761,17 +769,17 @@ export default function SignPage() {
       <section className={styles.content}>
       <p className={styles.guide}>{stepGuide(step)}</p>
       {view.rejectReason ? (
-        <div style={{ marginBottom: 12, padding: '10px 12px', borderRadius: R, background: C.warnBg, color: C.warn, fontSize: FS.sub, fontWeight: FW.strong }}>
+        <Message variant="warning">
           보완 요청: {view.rejectReason}
           {(view.supplementItems || []).length ? ` · ${(view.supplementItems || []).join(' · ')}` : ''}
-        </div>
+        </Message>
       ) : null}
 
       {step?.kind === 'summary' ? (
         <>
           <div className={styles.summaryQuad}>
             <div className={styles.summaryCell}>
-              <div className={styles.summaryLabel}>월 대여료</div>
+              <div className={styles.summaryLabel}>{feeLabel}</div>
               <div className={styles.summaryValue}>{rentWon}</div>
             </div>
             <div className={styles.summaryCell}>
@@ -779,7 +787,7 @@ export default function SignPage() {
               <div className={styles.summaryValue}>{depositWon}</div>
             </div>
             <div className={styles.summaryCell}>
-              <div className={styles.summaryLabel}>대여기간</div>
+              <div className={styles.summaryLabel}>{periodLabel}</div>
               <div className={styles.summaryValue}>{periodText}</div>
             </div>
             <div className={styles.summaryCell}>
@@ -793,14 +801,17 @@ export default function SignPage() {
           <ListGroup header={S(snapshot.contractKind?.title) || S(snapshot.template?.label) || '자동차 대여 계약서'}>
             <DetailRow label="임대인 회사명" value={S(snapshot.landlord?.companyName) || S(snapshot.templateFields?.company_name) || '—'} />
             <DetailRow label="차량" value={`${vehicleNumber} · ${vehicleModel}`} />
-            <DetailRow label="계약기간" value={periodText} />
-            <DetailRow label="월 대여료" value={rentWon} />
+            <DetailRow label={periodLabel} value={periodText} />
+            <DetailRow label={feeLabel} value={rentWon} />
             <DetailRow label="보증금" value={depositWon} />
             <DetailRow label="계약번호" value={S(contract.contract_code) || '—'} />
           </ListGroup>
-          <div style={{ marginTop: 14, padding: '10px 12px', border: `1px solid ${C.line}`, borderRadius: R, color: C.mute, fontSize: FS.cap, lineHeight: 1.6 }}>
+          {isSonogongSubscription ? <ListGroup header="구독 계약 중요 확인">
+            <DetailRow label="확인 항목" value="구독료·구독기간 · 만기 반납/인수 · 보험료 포함/별도 · 정비서비스 · 중도해지·반납 조건" stacked />
+          </ListGroup> : null}
+          <Message variant="info">
             계약서와 아래 모바일 화면은 개인정보 입력이나 동의 없이 먼저 볼 수 있습니다. 미리보기만으로 동의·서명 처리되지 않습니다.
-          </div>
+          </Message>
           {view.previewDocumentUrl ? (
             <div style={{ marginTop: 10 }}>
               <Btn full title="계약서 미리보기" onClick={() => window.open(view.previewDocumentUrl, '_blank', 'noreferrer')}>
@@ -853,21 +864,22 @@ export default function SignPage() {
               <ConsentChoice key={key} consentKey={key} label={consentLabel(key)} checked={consents.has(key)} onToggle={() => toggleConsent(key)} />
             ))}
           </div>
-          {!upfrontDone ? <p style={{ color: C.warn, fontSize: FS.cap }}>모든 필수 항목을 선택해야 계속할 수 있습니다.</p> : null}
+          {!upfrontDone ? <Message variant="warning">모든 필수 항목을 선택해야 계속할 수 있습니다.</Message> : null}
           {consentProfile.cmsRequiredBeforeHandover ? (
-            <p style={{ color: C.mute, fontSize: FS.cap, lineHeight: 1.6 }}>
+            <Message variant="info">
               자동이체(CMS) 출금 동의와 예금주 인증은 본계약과 별도로 진행됩니다. 완료 전에는 차량 인도일을 확정할 수 없습니다.
-            </p>
+            </Message>
           ) : null}
         </>
       ) : null}
 
       {step?.kind === 'identity' ? (
         <>
+          {(() => { const corporate = view?.snapshot?.templateState?.ct === '법인'; const soleProprietor = view?.snapshot?.templateState?.tax === '사업자'; return <>
           <ListGroup header="계약자 정보">
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '10px 12px 12px' }}>
               <label>
-                <div className={styles.fieldLabel}>성명 <ReqTag /></div>
+                <div className={styles.fieldLabel}>{corporate ? '법인명' : '성명'} <ReqTag /></div>
                 <Input value={form.customer_name} onChange={(value) => set('customer_name', value)} full style={inputStyle} />
               </label>
               <label>
@@ -875,12 +887,12 @@ export default function SignPage() {
                 <Input value={form.customer_phone} onChange={(value) => set('customer_phone', fmtPhone(value))} inputMode="tel" full style={inputStyle} />
               </label>
               <label>
-                <div className={styles.fieldLabel}>주민등록번호 <ReqTag /></div>
+                <div className={styles.fieldLabel}>{corporate ? '법인등록번호' : '주민등록번호'} <ReqTag /></div>
                 <Input value={form.customer_id} onChange={(value) => set('customer_id', value)} inputMode="numeric" placeholder="계약·매출증빙용" full style={inputStyle} />
               </label>
               <label>
-                <div className={styles.fieldLabel}>운전면허번호 <ReqTag /></div>
-                <Input value={form.driver_license_no} onChange={(value) => set('driver_license_no', value)} placeholder="면허증에 표시된 번호" full style={inputStyle} />
+                <div className={styles.fieldLabel}>{corporate ? '사업자등록번호' : '운전면허번호'} <ReqTag /></div>
+                <Input value={form.driver_license_no} onChange={(value) => set('driver_license_no', value)} placeholder={corporate ? '사업자등록증에 표시된 번호' : '면허증에 표시된 번호'} full style={inputStyle} />
               </label>
               <label>
                 <div className={styles.fieldLabel}>주소 <ReqTag /></div>
@@ -888,10 +900,20 @@ export default function SignPage() {
               </label>
             </div>
           </ListGroup>
-          <ListGroup header="비상 연락처">
+          {soleProprietor ? <ListGroup header="세금계산서 사업자 정보">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '10px 12px 12px' }}>
+              <label><div className={styles.fieldLabel}>상호 <ReqTag /></div><Input value={form.tax_biz_name} onChange={(value) => set('tax_biz_name', value)} full style={inputStyle} /></label>
+              <label><div className={styles.fieldLabel}>사업자등록번호 <ReqTag /></div><Input value={form.tax_biz_no} onChange={(value) => set('tax_biz_no', value)} inputMode="numeric" full style={inputStyle} /></label>
+              <label><div className={styles.fieldLabel}>대표자 <ReqTag /></div><Input value={form.tax_ceo} onChange={(value) => set('tax_ceo', value)} full style={inputStyle} /></label>
+              <label><div className={styles.fieldLabel}>업태·종목 <ReqTag /></div><Input value={form.tax_biz_type_item} onChange={(value) => set('tax_biz_type_item', value)} full style={inputStyle} /></label>
+              <label><div className={styles.fieldLabel}>세금계산서 이메일 <ReqTag /></div><Input value={form.tax_email} onChange={(value) => set('tax_email', value)} inputMode="email" full style={inputStyle} /></label>
+              <label><div className={styles.fieldLabel}>사업장 주소 <ReqTag /></div><Input value={form.tax_biz_address} onChange={(value) => set('tax_biz_address', value)} full style={inputStyle} /></label>
+            </div>
+          </ListGroup> : null}
+          <ListGroup header={corporate ? '담당자 연락처' : '비상 연락처'}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '10px 12px 12px' }}>
               <label>
-                <div className={styles.fieldLabel}>관계 <ReqTag /></div>
+                <div className={styles.fieldLabel}>{corporate ? '직책·관계' : '관계'} <ReqTag /></div>
                 <Input value={form.emergency_relation} onChange={(value) => set('emergency_relation', value)} placeholder="예: 모, 배우자, 형제자매" full style={inputStyle} />
               </label>
               <label>
@@ -904,7 +926,7 @@ export default function SignPage() {
               </label>
             </div>
           </ListGroup>
-          <ListGroup header="본인확인 자료">
+          <ListGroup header={corporate ? '담당자 본인확인 자료' : '본인확인 자료'}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8, padding: '10px 12px 12px' }}>
             <Dropzone variant="photo" active={!!idCard} onClick={() => idRef.current?.click()} title="운전면허증 사진 첨부">
               <FileThumb file={idCard} />
@@ -923,7 +945,7 @@ export default function SignPage() {
               <input ref={selfieRef} type="file" accept="image/*" capture="user" style={{ display: 'none' }} onClick={(event) => event.stopPropagation()} onChange={(event) => { void chooseImage(event.target.files?.[0] || null, '본인 셀카', setSelfie); event.currentTarget.value = ''; }} />
             </Dropzone>
             </div>
-          </ListGroup>
+          </ListGroup></>; })()}
         </>
       ) : null}
 
@@ -1000,9 +1022,9 @@ export default function SignPage() {
               </ButtonLabel>
             </Btn>
           </div>
-          <p style={{ fontSize: FS.cap, color: C.faint, lineHeight: 1.6 }}>
+          <Message variant="info">
             회사의 운전자격·보험 적용 확인이 완료되기 전에는 추가 운전자가 차량을 운전할 수 없습니다.
-          </p>
+          </Message>
         </>
       ) : null}
 
@@ -1046,9 +1068,9 @@ export default function SignPage() {
               );
             })}
           </div>
-          <p style={{ fontSize: FS.cap, color: C.faint, lineHeight: 1.6 }}>
+          <Message variant="info">
             첨부 원본은 계약 검토 관리자만 확인할 수 있으며 공개 계약정보에는 노출되지 않습니다.
-          </p>
+          </Message>
         </>
       ) : null}
 
@@ -1065,7 +1087,7 @@ export default function SignPage() {
               ))}
             </ListGroup>
           </div>
-          {step.page.requireReadThrough && !readThrough[step.key] ? <p style={{ color: C.warn, fontSize: FS.cap }}>아래까지 모두 확인하면 다음으로 갈 수 있습니다.</p> : null}
+          {step.page.requireReadThrough && !readThrough[step.key] ? <Message variant="warning">아래까지 모두 확인하면 다음으로 갈 수 있습니다.</Message> : null}
         </>
       ) : null}
 
@@ -1084,7 +1106,7 @@ export default function SignPage() {
             ))}
             <div style={{ textAlign: 'center', color: C.faint, fontSize: FS.cap }}>— 약관 끝 —</div>
           </div>
-          {!readThrough.agreement ? <p style={{ color: C.warn, fontSize: FS.cap }}>약관을 끝까지 내려 읽어 주세요.</p> : null}
+          {!readThrough.agreement ? <Message variant="warning">약관을 끝까지 내려 읽어 주세요.</Message> : null}
           <div style={{ marginTop: 10 }}>
             <ConsentChoice
               consentKey="rental_terms"
@@ -1099,7 +1121,7 @@ export default function SignPage() {
       {step?.kind === 'signature' ? (
         <>
           <div style={{ fontSize: FS.title, fontWeight: FW.head }}>무엇에 서명하나</div>
-          <p style={{ fontSize: FS.sub, color: C.mute, lineHeight: 1.6 }}>아래 서명은 위 계약서·확인한 모든 조건·약관에 대한 전자서명입니다.</p>
+          <Message variant="info">아래 서명은 위 계약서·확인한 모든 조건·약관에 대한 전자서명입니다.</Message>
           <ListGroup>
             <DetailRow label="계약서" value={S(snapshot.contractKind?.title) || S(snapshot.template?.label) || '자동차 대여 계약서'} />
             <DetailRow label="약관" value={`${S(snapshot.agreement?.title) || '자동차 대여 약관'} · ${S(snapshot.agreement?.version) || '—'}`} stacked />
@@ -1131,7 +1153,7 @@ export default function SignPage() {
               style={{ width: '100%', aspectRatio: '600 / 180', display: 'block', color: C.ink, touchAction: 'none', cursor: 'crosshair' }}
             />
           </Dropzone>
-          <p style={{ fontSize: FS.cap, color: C.faint, lineHeight: 1.6 }}>서명시각과 단계별 확인시각이 기록되며, 관리자 확정 후에는 내용을 바꿀 수 없습니다.</p>
+          <Message variant="info">서명시각과 단계별 확인시각이 기록되며, 관리자 확정 후에는 내용을 바꿀 수 없습니다.</Message>
         </>
       ) : null}
       </section>

@@ -4,13 +4,12 @@ import type { ComponentProps, RefObject } from 'react';
 import { ENTITIES, type EntityRecord, type Field } from '@/lib/intake/entities';
 import { catalogOptions, type VehicleCatalog } from '@/lib/domain/vehicle-catalog';
 import {
-  PaneHead, PaneBody, Btn, ButtonLabel, FormGrid, FormReadList, FormCard, C, R, CenterNote, Dropzone,
-  SectionLabel, Select, Message, FW, FS, THUMB_W, ICON, ListGroup, DetailRow,
+  PaneHead, PaneBody, Btn, ButtonLabel, FormCard, WorkFields, WorkModeBanner, workMode,
+  CenterNote, Dropzone, Badge, FW, FS, THUMB_W, ICON, C, R,
 } from '@/components/ui';
 import { PhotoUpload } from '@/components/PhotoUpload';
 import { PriceMatrix } from '@/components/PriceMatrix';
 import { ClipboardPaste, Copy, RotateCcw, ScanLine } from 'lucide-react';
-import { useIsMobile } from '@/lib/use-mobile';
 
 type Price = ComponentProps<typeof PriceMatrix>['price'];
 type Photos = ComponentProps<typeof PhotoUpload>['photos'];
@@ -42,10 +41,20 @@ export type InventoryEditorModel = {
   onInteriorChange: (url: string | null) => void;
 };
 
-function editorHelpers(model: InventoryEditorModel, readAsRows = false) {
+const INV_ACCENT: Record<string, 'main' | 'sub' | 'trace'> = {
+  '차량정보': 'main',
+  '차량번호': 'main',
+  '상태 · 구분 · 정책': 'main',
+  '공급사': 'sub',
+  '부가 제원': 'sub',
+  '공급사 원문 (2중 보관)': 'trace',
+  '원가 · 이력 · 등록증': 'trace',
+};
+
+function editorHelpers(model: InventoryEditorModel) {
   const byKey = Object.fromEntries(ENTITIES.product.fields.map((field) => [field.key, field]));
   const group = (keys: string[]): Field[] => keys.map((key) => byKey[key]).filter(Boolean) as Field[];
-  const canEdit = model.creating || model.editing;
+  const mode = workMode(model.creating, model.editing);
   /**
    * ★**차종사전(신규마스터)이 차명 축의 선택지를 준다**(사장님 2026-08-23
    *   「기존 재고관리 상품등록은 신규마스터를 반영해서 입력값을 만든다」).
@@ -62,41 +71,47 @@ function editorHelpers(model: InventoryEditorModel, readAsRows = false) {
     if (field.type !== 'catalog' || !field.catalogAxis) continue;
     catalogOpts[field.key] = catalogOptions(model.catalog, field.catalogAxis, picked);
   }
-  const fields = (keys: string[], cols = 2) => (
-    <FormGrid fields={group(keys)} form={model.form} onChange={model.onFieldChange} cols={cols} disabled={!canEdit} selectOptions={catalogOpts} />
-  );
-  const section = (title: string, keys: string[], cols = 2, hint?: string) => (
-    readAsRows
-      ? <FormReadList header={title} footer={hint} fields={group(keys)} form={model.form} />
-      : <FormCard title={title} hint={hint}>{fields(keys, cols)}</FormCard>
-  );
-  return { canEdit, group, fields, section };
+  const section = (title: string, keys: string[], cols = 2, hint?: string) => {
+    const accent = INV_ACCENT[title] || 'sub';
+    return (
+      <WorkFields
+        mode={mode}
+        title={title}
+        hint={hint}
+        fields={group(keys)}
+        form={model.form}
+        onChange={model.onFieldChange}
+        cols={cols}
+        selectOptions={catalogOpts}
+        accent={accent}
+      />
+    );
+  };
+  return { mode, group, catalogOpts, section };
 }
 
 const EMPTY_NOTE = '상품을 고르거나 · 상품등록을 누르세요.';
 
 export function InventoryFixedPane({ model }: { model: InventoryEditorModel }) {
   const { form } = model;
-  const mobile = useIsMobile();
-  const readAsRows = mobile && !(model.creating || model.editing);
-  const { canEdit, group, section } = editorHelpers(model, readAsRows);
-  const modeBanner = model.creating ? (
-    <Message variant="info">신규 상품 등록 — 등록증(사진·파일) 올리기 또는 차종·차명부터 입력하세요.</Message>
-  ) : model.editing ? (
-    <Message variant="warning">수정 중 · 저장해야 반영됩니다</Message>
-  ) : null;
+  const { mode, section } = editorHelpers(model);
+  const canEdit = mode !== 'view';
 
   return (
     <>
-      <PaneHead title="기본정보" />
+      <PaneHead
+        title="기본 정보"
+        count={model.creating ? '신규 입력' : model.editing ? '수정 중' : model.selected ? '조회' : undefined}
+        right={canEdit && model.dirty ? <Badge tone="amber">미저장</Badge> : undefined}
+      />
       <PaneBody pad>
         {model.selected ? <>
-          {modeBanner}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: FS.cap, color: C.faint, minHeight: 18 }}>
-            {form.provider_company_code ? <span>{String(form.provider_company_code)}</span> : null}
-            <span style={{ flex: 1 }} />
-            {canEdit && model.dirty ? <span style={{ color: C.warn }}>● 미저장</span> : null}
-          </div>
+          {mode !== 'view' ? (
+            <WorkModeBanner
+              mode={mode}
+              create="신규 상품 등록 — 등록증(사진·파일) 올리기 또는 차종·차명부터 입력하세요."
+            />
+          ) : null}
           {canEdit ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 2 }}>
               <Btn title="입력 초기화" variant="ghost" size="sm" onClick={model.onReset}>
@@ -112,27 +127,22 @@ export function InventoryFixedPane({ model }: { model: InventoryEditorModel }) {
               </Btn>
             </div>
           ) : null}
-          {canEdit ? <div style={{
-            border: `1px solid ${C.line}`, borderRadius: R, background: C.selected, padding: '10px 12px',
-            opacity: canEdit ? 1 : 0.75, pointerEvents: canEdit ? undefined : 'none',
-            display: 'flex', flexDirection: 'column', gap: 8,
-          }}>
-            <SectionLabel mt={0} mb={0}>자동차등록증</SectionLabel>
-            <div style={{ fontSize: FS.micro, color: C.faint, lineHeight: 1.4 }}>사진·PDF · 빈 칸 자동채움</div>
+          {canEdit ? <FormCard title="자동차등록증" hint="사진·PDF · 빈 칸 자동채움">
+            <div style={{ display: 'grid', gap: 8 }}>
             <input ref={model.ocrInputRef} type="file" accept="image/*,application/pdf,.pdf" onChange={(e) => model.onOcrFiles(e.target.files)} style={{ display: 'none' }} />
             <Dropzone
               variant="file"
               disabled={model.ocrBusy || !canEdit}
               onClick={() => model.ocrInputRef.current?.click()}
               title={model.ocrBusy ? '등록증 인식 중' : '등록증 올리기'}
-              style={{ padding: '12px 10px', width: '100%' }}
             >
               <ScanLine size={ICON.md} color={C.brand} aria-hidden />
               <span style={{ fontSize: FS.cap, fontWeight: FW.strong, color: C.brand }}>
                 {model.ocrBusy ? '인식 중…' : '등록증 올리기'}
               </span>
             </Dropzone>
-          </div> : null}
+            </div>
+          </FormCard> : null}
           {/*
             **차명 축의 선택지는 «차종사전(신규마스터)»이 준다**(사장님 2026-08-23
               「차종마스터 관련 싹 다 걷어내고 정제칸을 정확히 반영한다 · 기존 재고관리 상품등록은 신규마스터를 반영해서 입력값을 만든다」).
@@ -153,10 +163,9 @@ export function InventoryFixedPane({ model }: { model: InventoryEditorModel }) {
             ⚠ 파워트레인(variant)·추가표기(trim_extra)는 뺐다 — 파워트레인은 폐지(연료·배기량이 그 자리),
               추가표기는 실측 0대이고 정제칸에도 없다.
           */}
-          {/* 차례·구성은 판매시트와 같다 — 옵션 뒤 참고축(원산지·구동·인승)까지 그대로(2026-08-22). */}
-          {section('차량정보', ['maker', 'model', 'sub_model', 'trim_name', 'ext_color', 'int_color', 'year', 'mileage', 'fuel_type', 'engine_cc', 'battery_capacity', 'vehicle_class', 'origin', 'drive_type', 'seats'], 2,
+          {/* 차례·구성은 판매시트와 같다. 선택옵션은 세부트림 다음 한 줄(섹션 아님) — 항목은 칩. */}
+          {section('차량정보', ['maker', 'model', 'sub_model', 'trim_name', 'options', 'ext_color', 'int_color', 'year', 'mileage', 'fuel_type', 'engine_cc', 'battery_capacity', 'vehicle_class', 'origin', 'drive_type', 'seats'], 2,
             '공급사 정제시트·판매시트와 같은 차례 — 여기 값이 곧 ERP 값이다')}
-          {section('선택옵션', ['options'], 1, '구분 = , 또는 /')}
           {/*
             ★**공급사 원문 두 칸 — 「2중 보관」**(사장님 2026-08-23 「차명이랑 옵션 공급사가 기본으로 입력한 칸은
               별도로 수집해서 보관한다 2중 보관이지」).
@@ -166,41 +175,29 @@ export function InventoryFixedPane({ model }: { model: InventoryEditorModel }) {
           {section('공급사 원문 (2중 보관)', ['supplier_vehicle_name', 'supplier_options'], 1,
             '공급사가 적은 그대로 — 고치지 마세요. 정제가 틀렸을 때 대조하는 자리입니다')}
           {section('차량번호', ['car_number'], 2, '차량번호는 필수')}
-          {model.isAdmin && readAsRows ? (
-            <ListGroup header="공급사" footer="계약·채팅·정산의 공급사 권한 범위">
-              <DetailRow
-                label="공급사"
-                value={(() => {
-                  const code = String(form.provider_company_code || '');
-                  const partner = model.partners.find((item) => String(item.partner_code || item._key || '') === code);
-                  return partner ? `${String(partner.name || partner.company_name || partner.partner_name || code)} (${code})` : code;
-                })()}
+          {model.isAdmin ? (() => {
+            const providerOptions = model.partners
+              .filter((partner) => String(partner.partner_type || '') !== '영업채널')
+              .map((partner) => ({
+                value: String(partner.partner_code || partner._key || ''),
+                label: `${String(partner.name || partner.company_name || partner.partner_name || partner.partner_code || '공급사')} (${String(partner.partner_code || partner._key || '')})`,
+              }))
+              .filter((option) => option.value);
+            const providerField: Field = { key: 'provider_company_code', label: '공급사', type: 'select', required: true };
+            return (
+              <WorkFields
+                mode={mode}
+                title="공급사"
+                hint="계약·채팅·정산의 공급사 권한 범위를 결정합니다."
+                accent="sub"
+                cols={1}
+                fields={[providerField]}
+                form={model.form}
+                onChange={model.onFieldChange}
+                selectOptions={{ provider_company_code: providerOptions }}
               />
-            </ListGroup>
-          ) : model.isAdmin ? (
-            <FormCard title="공급사" hint="계약·채팅·정산의 공급사 권한 범위를 결정합니다.">
-              <label style={{ fontSize: FS.cap, color: C.mute }}>공급사 *
-                <div style={{ marginTop: 3 }}>
-                  <Select
-                    value={String(form.provider_company_code || '')}
-                    onChange={(value) => model.onFieldChange('provider_company_code', value)}
-                    placeholder="— 공급사 선택 —"
-                    full
-                    disabled={!canEdit}
-                    options={model.partners
-                      // 레거시 공급사 파트너는 partner_type이 비어 있는 경우가 있다.
-                      // 영업채널로 명시된 파트너만 제외하고 관리자에게 배정 후보로 제공한다.
-                      .filter((partner) => String(partner.partner_type || '') !== '영업채널')
-                      .map((partner) => ({
-                        value: String(partner.partner_code || partner._key || ''),
-                        label: `${String(partner.name || partner.company_name || partner.partner_name || partner.partner_code || '공급사')} (${String(partner.partner_code || partner._key || '')})`,
-                      }))
-                      .filter((option) => option.value)}
-                  />
-                </div>
-              </label>
-            </FormCard>
-          ) : null}
+            );
+          })() : null}
           {/* 시트가 나르지 않는 칸 — 여기 값은 ERP 에만 있다(정제칸에 없으므로 동기가 채우지도 지우지도 않는다). */}
           {section('부가 제원', ['transmission', 'usage', 'first_registration_date', 'accident_history'], 2,
             '판매시트에 없는 값 — ERP 에서만 관리한다')}
@@ -213,9 +210,8 @@ export function InventoryFixedPane({ model }: { model: InventoryEditorModel }) {
 
 export function InventoryVariablePane({ model }: { model: InventoryEditorModel }) {
   const { form } = model;
-  const mobile = useIsMobile();
-  const readAsRows = mobile && !(model.creating || model.editing);
-  const { canEdit, group, fields, section } = editorHelpers(model, readAsRows);
+  const { mode, group, catalogOpts } = editorHelpers(model);
+  const canEdit = mode !== 'view';
   const providerCode = String(form.provider_company_code || '');
   const policyField: Field = {
     key: 'policy_code',
@@ -232,45 +228,27 @@ export function InventoryVariablePane({ model }: { model: InventoryEditorModel }
   }));
   return (
     <>
-      <PaneHead title="운영정보" />
+      <PaneHead title="운영 조건" count={model.creating ? '신규 입력' : model.editing ? '수정 중' : model.selected ? '조회' : undefined} />
       <PaneBody pad>
         {model.selected ? <>
-          {readAsRows ? (
-            <FormReadList
-              header="상태 · 구분 · 정책"
-              footer="상품 운영 상태와 연결 정책"
+          <WorkFields
+              title="상태 · 구분 · 정책"
+              hint="상품 운영 상태와 연결 정책"
+              accent="main"
+              cols={1}
+              mode={mode}
               fields={[...group(['vehicle_status', 'product_type', 'deposit_free']), policyField, ...group(['event_tags'])]}
               form={model.form}
-              selectOptions={{ policy_code: policyOptions }}
-            />
-          ) : <FormCard title="상태 · 구분 · 정책" hint="상품 운영 상태와 연결 정책">
-            <FormGrid
-              fields={[...group(['vehicle_status', 'product_type', 'deposit_free']), policyField]}
-              form={model.form}
               onChange={model.onFieldChange}
-              cols={1}
-              disabled={!canEdit}
-              selectOptions={{ policy_code: policyOptions }}
+              selectOptions={{ ...catalogOpts, policy_code: policyOptions }}
             />
-            <div style={{ marginTop: 10 }}>{fields(['event_tags'], 1)}</div>
-          </FormCard>}
-          {/* 주행거리는 「차량정보」(판매시트 차례)로, 사고이력은 「부가 제원」으로 옮겼다 — 같은 칸을 두 곳에서 고치지 않게(2026-08-22). */}
-          <div>
-            <SectionLabel mt={0}>대여료 · 보증금</SectionLabel>
-            <div style={{ fontSize: FS.cap, color: C.faint, margin: '-2px 0 8px', lineHeight: 1.4 }}>넣은 기간만 상품에 노출</div>
-            <PriceMatrix price={form.price} onChange={model.onPriceChange} readOnly={!canEdit} />
-          </div>
-          <div>
-            <SectionLabel mt={0}>사진</SectionLabel>
-            <div style={{ fontSize: FS.cap, color: C.faint, margin: '-2px 0 8px', lineHeight: 1.4 }}>
-              {canEdit ? '탭=크게 · 꾹=대표/실내/삭제' : '탭하면 크게 볼 수 있습니다'}
-            </div>
+          <PriceMatrix price={form.price} onChange={model.onPriceChange} readOnly={!canEdit} />
+          <FormCard title="사진" hint={canEdit ? '탭=크게 · 꾹=대표/실내/삭제' : '탭하면 크게 볼 수 있습니다'}>
             <PhotoUpload hideTitle productCode={String(form.product_code || model.selectedCode || '')} photos={form.photos} interiorUrl={String(form.interior_photo || '')}
               onChange={model.onPhotosChange} onInteriorChange={model.onInteriorChange} readOnly={!canEdit} />
-          </div>
+          </FormCard>
           {model.supplierPhotos.length > 0 && (
-            <div>
-              <SectionLabel mt={0}>공급사 사진 <span style={{ fontSize: FS.cap, fontWeight: FW.body, color: C.faint }}>· 연동(읽기전용) {model.supplierPhotos.length}장</span></SectionLabel>
+            <FormCard title={`공급사 사진 · 연동(읽기전용) ${model.supplierPhotos.length}장`}>
               <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${THUMB_W}px, 1fr))`, gap: 6 }}>
                 {model.supplierPhotos.map((url, index) => (
                   <a key={index} href={url} target="_blank" rel="noreferrer" style={{ display: 'block', aspectRatio: '4 / 3', borderRadius: R, overflow: 'hidden', background: C.placeholder, border: `1px solid ${C.line}` }}>
@@ -278,7 +256,7 @@ export function InventoryVariablePane({ model }: { model: InventoryEditorModel }
                   </a>
                 ))}
               </div>
-            </div>
+            </FormCard>
           )}
         </> : <CenterNote>{EMPTY_NOTE}</CenterNote>}
       </PaneBody>

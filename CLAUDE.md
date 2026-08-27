@@ -14,7 +14,7 @@
 - 그래서 세션 시작 때 나는: 노가다 성격이면 "커서로 이렇게 시키세요" **오더를 제안**하고 나는 설계·게이트에 집중해 토큰을 아낀다.
 
 ## 절대원칙
-1. **페이지 = 공용 원자·껍데기 배열만.** 로직·스타일 손롤 금지. 있는 원자 안 쓰고 raw `<button>/<input>/<select>/<div style>` 새로 짜는 순간 규격 붕괴. 새 UI가 필요하면 페이지가 아니라 **원자를 고치거나 만든다**(SSOT).
+1. **페이지 = 공용 원자·껍데기 배열만.** 페이지 전용 규격 금지. 로직·스타일 손롤 금지. 있는 원자 안 쓰고 raw `<button>/<input>/<select>/<div style>` 새로 짜는 순간 규격 붕괴. 새 UI가 필요하면 페이지가 아니라 **원자를 고치거나 만든다**(SSOT). 한 화면만 쓰더라도 그건 공용 규격이다.
 2. **데이터·상태·디자인 = 단일출처.** 저장은 `getStore()`, 상태동기화는 엔진(`settlement-engine`) 경유. 페이지가 직접 `vehicle_status` 등 바꾸지 말 것.
 3. **웹·모바일 양립 + 모바일다움.** 신규/변경 기능은 웹·모바일 양쪽 동작. 모바일은 반응형 축소가 아니라 **네이티브 앱**.
 
@@ -32,9 +32,9 @@
 |---|---|---|
 | 토큰 | `C`·`R`·`NUM`·`CTRL`·`ctrlH`/`ctrlFs`/`ctrlInputFs`/`ctrlChipH` (`tokens.ts`) | 하드코딩 hex/height/radius |
 | 버튼 | `Btn`(solid/ghost/danger·sm/md·href)·`IconBtn`·`IconSeg` | `<button>` |
-| 입력 | `Input`(full)·`SearchInput`(돋보기·X·full)·`Select`(full)·`FormGrid`(스키마폼)·`fmtPhone` | `<input>/<select>` |
+| 입력 | `Input`(full)·`SearchInput`(돋보기·X·full)·`Select`(full)·`WorkFields`/`WorkTable`/`WorkRow`(업무 표)·`WorkInput`/`WorkSelect`/`WorkTextarea`(표 안 칸)·`FormGrid`(스키마폼 내부)·`fmtPhone` | `<input>/<select>` · 페이지에서 `FormGrid`/`FormReadList` 직접 분기 · 표 줄을 CSS grid로 손짜기 |
 | 탭·필터 | `PillTabs`·`FilterChips`(단일+count)·`ToggleChips`(다중)·`FilterGroup`(접이식축+해제) | 탭/필터 `<button>` 群 |
-| 목록 | `ListRow` | 손 목록행 |
+| 목록 | `FeedListRow` + `list-rows`(정본=`/esign`) · 등록 `CreateListRow` · 더보기 `ListMoreBar` · 단순 행 `ListRow` | 손 목록행 |
 | 상태·라벨 | `Badge`·`CompanyBadge`·`CountPill` · 톤맵(`productTypeStyle`·`CREDIT_TONE`·`VEHICLE_STATUS_TONE`·`SETTLEMENT_STATUS_TONE`·`ACTOR_TONE`) (`badges.tsx`) | 로컬 색맵 |
 | 로딩·빈·알림 | `Loading`·`CenterNote`·`Message` · `toast`/`Toaster` | "불러오는 중" 손롤 |
 | 껍데기 | `Page`·`MobilePageShell`(모바일 4단 SSOT)·`WorkPage`·`BottomNav`·`TopBar`·`PaneHead`·`PaneBody`·`SectionLabel` | 손 레이아웃 |
@@ -82,7 +82,7 @@
    - **목록** = 같은 페이지 상세→목록 (`list`) — WorkPage 선택 시
    - 홈 이동은 TopBar 메뉴 (하단 홈 버튼 없음)
 
-**홈(매물 검색)만 예외** — 상단=건수·관심 / **하단 독=검색·정렬·필터**.
+**홈(매물 검색)** — 업무 4패널이 아니라 매물 카드 화면. 상단=건수·관심 / 하단 독=검색·정렬·필터(공용 원자). 페이지 전용 규격이 아니다.
 
 - `useIsMobile(bp=760)`. 선택 후 WorkPage: stack=상하 / swap=좌우스와이프+버튼(채팅↔계약진행). 바텀시트, 햅틱(`haptic.*`).
 - 스크롤 컨테이너 = `.fp-main-pad`(html/body overflow hidden). 고정바=뷰포트 기준.

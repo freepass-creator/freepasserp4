@@ -193,7 +193,7 @@ const aliasCases: [string, string][] = [
   ['H-픽', 'H-PICK'],
   ['H-Pick', 'H-PICK'],
   ['모던 N라인', '모던 N Line'],
-  ['GT라인', 'GT Line'],
+  ['GT라인', 'GT-Line'],
   ['N', 'N'],
 ];
 for (const [en, ko] of aliasCases) {
@@ -242,7 +242,7 @@ if (!aliasCases.some(([en, ko]) => canonMasterTrim(en) !== ko)) {
       if (latinizedKo.test(s)) domesticLatinizedKo.push(`${e.model}:${s}`);
     }
   }
-  const samples = ['프리미엄', '모던', '플럭스', '인스퍼레이션', '익스클루시브', 'X Line', 'GT Line', 'N Line', 'H-PICK'];
+  const samples = ['프리미엄', '모던', '플럭스', '인스퍼레이션', '익스클루시브', 'X Line', 'GT-Line', 'N Line', 'H-PICK'];
   const covered = samples.filter((ko) => [...masterTrims].some((t) => t === ko || t.includes(ko))).length;
   ok.push(`master trim samples: ${covered}/${samples.length}`);
   if (domesticGradeEn.length) {
@@ -253,7 +253,7 @@ if (!aliasCases.some(([en, ko]) => canonMasterTrim(en) !== ko)) {
   if (domesticLatinizedKo.length) {
     issues.push(`domestic still Koreanized brand Latin: ${domesticLatinizedKo.slice(0, 8).join(', ')}`);
   } else {
-    ok.push('brand Latin kept (H-PICK / N Line / X Line / GT Line)');
+    ok.push('brand Latin kept (H-PICK / N Line / X Line / GT-Line)');
   }
   const avanteN = [...masterTrims].some((t) => t === 'N');
   const avanteNLine = [...masterTrims].some((t) => t === 'N Line' || t.includes('N Line'));

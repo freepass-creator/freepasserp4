@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { FileDown, FileStack, Search } from 'lucide-react';
 import { getAuthClient } from '@/lib/firebase/client';
-import { Btn, ButtonLabel, C, Checkbox, FS, FW, ICON, Input, ListGroup } from '@/components/ui';
+import { Btn, ButtonLabel, Checkbox, ICON, Input, ListGroup, ListRow, Message, Page } from '@/components/ui';
 
 type Row = {
   contractCode: string;
@@ -82,15 +82,49 @@ export default function RentalFactIssuancePage() {
     const next = new Set(current); next.has(code) ? next.delete(code) : next.add(code); return next;
   });
 
-  return <main style={{ maxWidth: 980, margin: '0 auto', padding: 20, display: 'grid', gap: 12 }}>
-    <header><div style={{ color: C.mute, fontSize: FS.cap, fontWeight: FW.strong }}>발급용 부속서류 · 본계약과 별도</div><h1 style={{ margin: '3px 0 0', fontSize: FS.title, letterSpacing: '-0.03em' }}>임대차 계약 사실확인서</h1><p style={{ margin: '5px 0 0', color: C.mute, fontSize: FS.body }}>전자계약 완료와 인도일 확정 기록을 기준으로, 차량 1대 또는 같은 임차인의 여러 대를 발급합니다.</p></header>
-    <ListGroup header="발급 기준 계약" footer={message}>
-      <div style={{ display: 'flex', gap: 6, padding: 8 }}><Input value={anchor} onChange={setAnchor} ariaLabel="기준 계약번호" placeholder="계약번호 입력" full /><Btn title="계약 불러오기" onClick={() => void load()} disabled={busy}><ButtonLabel icon={<Search size={ICON.md} />}>불러오기</ButtonLabel></Btn></div>
-    </ListGroup>
-    {rows.length ? <ListGroup header={`발급 차량 · ${selectedRows.length}대 선택`} footer="한 대만 선택하면 개별 확인서, 두 대 이상이면 같은 임차인의 차량을 한 확인서 표로 발급합니다.">
-      <div style={{ overflowX: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse', fontSize: FS.cap }}><thead><tr style={{ color: C.mute, textAlign: 'left' }}><th style={{ padding: 8 }}>선택</th><th>계약번호</th><th>차량번호</th><th>차명</th><th>임대차 기간</th></tr></thead><tbody>{rows.map((row) => <tr key={row.contractCode} style={{ borderTop: `1px solid ${C.line}`, opacity: row.selectable ? 1 : .55 }}><td style={{ padding: 8 }}><Checkbox checked={selected.has(row.contractCode)} disabled={!row.selectable || busy} onChange={() => toggle(row.contractCode)} ariaLabel={`${row.contractCode} 선택`} /></td><td>{row.contractCode}</td><td style={{ fontWeight: FW.strong }}>{row.carNumber || '—'}</td><td>{row.vehicleName || '—'}</td><td>{row.contractStart && row.contractEnd ? `${row.contractStart} ~ ${row.contractEnd}` : '인도일 미확정'}</td></tr>)}</tbody></table></div>
-      <div style={{ padding: 8 }}><Btn full title="선택 차량 확인서 PDF 열기" disabled={busy || !selectedRows.length} onClick={() => void issue()}><ButtonLabel icon={<FileDown size={ICON.md} />}>{selectedRows.length > 1 ? `${selectedRows.length}대 일괄 확인서 열기` : '선택 차량 확인서 열기'}</ButtonLabel></Btn></div>
-    </ListGroup> : null}
-    <a href="/erp5/esign" style={{ color: C.mute, fontSize: FS.cap, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}><FileStack size={ICON.sm} />계약서관리로 돌아가기</a>
-  </main>;
+  return (
+    <Page title="임대차 계약 사실확인서">
+      <Message variant="info">전자계약 완료와 인도일 확정 기록을 기준으로, 차량 1대 또는 같은 임차인의 여러 대를 발급합니다.</Message>
+      <ListGroup header="발급 기준 계약" footer={message}>
+        <div style={{ display: 'flex', gap: 6, padding: 8 }}>
+          <Input value={anchor} onChange={setAnchor} ariaLabel="기준 계약번호" placeholder="계약번호 입력" full />
+          <Btn title="계약 불러오기" onClick={() => void load()} disabled={busy}>
+            <ButtonLabel icon={<Search size={ICON.md} />}>불러오기</ButtonLabel>
+          </Btn>
+        </div>
+      </ListGroup>
+      {rows.length ? (
+        <ListGroup header={`발급 차량 · ${selectedRows.length}대 선택`} footer="한 대만 선택하면 개별 확인서, 두 대 이상이면 같은 임차인의 차량을 한 확인서 표로 발급합니다.">
+          {rows.map((row) => {
+            const period = row.contractStart && row.contractEnd ? `${row.contractStart} ~ ${row.contractEnd}` : '인도일 미확정';
+            return (
+              <ListRow
+                key={row.contractCode}
+                badge={row.selectable ? undefined : '불가'}
+                main={`${row.carNumber || '—'} · ${row.vehicleName || '—'}`}
+                sub={`${row.contractCode} · ${period}`}
+                selected={selected.has(row.contractCode)}
+                right={(
+                  <Checkbox
+                    checked={selected.has(row.contractCode)}
+                    disabled={!row.selectable || busy}
+                    onChange={() => toggle(row.contractCode)}
+                    ariaLabel={`${row.contractCode} 선택`}
+                  />
+                )}
+              />
+            );
+          })}
+          <div style={{ padding: 8 }}>
+            <Btn full title="선택 차량 확인서 PDF 열기" disabled={busy || !selectedRows.length} onClick={() => void issue()}>
+              <ButtonLabel icon={<FileDown size={ICON.md} />}>{selectedRows.length > 1 ? `${selectedRows.length}대 일괄 확인서 열기` : '선택 차량 확인서 열기'}</ButtonLabel>
+            </Btn>
+          </div>
+        </ListGroup>
+      ) : null}
+      <Btn variant="ghost" href="/erp5/esign" title="계약서관리로 돌아가기">
+        <ButtonLabel icon={<FileStack size={ICON.sm} />}>계약서관리로 돌아가기</ButtonLabel>
+      </Btn>
+    </Page>
+  );
 }

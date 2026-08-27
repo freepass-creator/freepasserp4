@@ -86,7 +86,7 @@ check('차명 조합', composeRefinedVehicleName('아반떼', '아반떼 CN8', '
 
 {
   const matchSrc = readFileSync('lib/domain/vehicle-master-match.ts', 'utf8');
-  check('라틴 고유명 잠금', lock.includes('LATIN_BRAND_TRIM_CANON') && lock.includes("'H-PICK'") && lock.includes("'N Line'"), 'H-PICK·N Line·X Line·GT Line');
+  check('라틴 고유명 잠금', lock.includes('LATIN_BRAND_TRIM_CANON') && lock.includes("'H-PICK'") && lock.includes("'N Line'") && lock.includes("'GT-Line'"), 'H-PICK·N Line·X Line·GT-Line');
   check('TRIM_EN_KO가 N라인을 정본으로 안 씀', !matchSrc.includes("'n line': 'N라인'") && !matchSrc.includes("nline: 'N라인'"), 'N Line 정본');
   const raw = JSON.parse(readFileSync(VEHICLE_NAME_DICTIONARY, 'utf8')) as { entries?: { origin?: string; model?: string; trims?: string[]; variants?: { trims?: string[] }[] }[] };
   const leftover: string[] = [];

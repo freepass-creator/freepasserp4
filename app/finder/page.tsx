@@ -475,8 +475,6 @@ export default function Finder() {
           filterBadge={filterBadge}
           filterSheetOpen={homeTool === 'filter'}
           onToggleFilterSheet={toggleFilterSheet}
-          sort={sort}
-          onSort={setSort}
           view={effView}
           onView={setView}
           recentCount={interestRecent.length}
@@ -537,6 +535,7 @@ export default function Finder() {
             openCol={openCol}
             setOpenCol={setOpenCol}
             moreCount={moreN}
+            pageSize={pageSize}
             onMore={onMore}
             onShowAll={onShowAll}
             sheetFinderFilterActive={sheetFinderFilterActive}

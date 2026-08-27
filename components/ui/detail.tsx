@@ -51,14 +51,14 @@ export function SectionLabel({ children, mt = 2, mb = 5 }: { children: React.Rea
   return <div style={{ fontSize: FS.sub, fontWeight: FW.title, color: C.ink, margin: `${mt}px 0 ${mb}px` }}>{children}</div>;
 }
 
-/** 폼 구역 카드 — SectionLabel + 테두리·패딩. 재고·정책·회원 편집 SSOT.
- *  섹션 무게(main/sub/영업자전용)가 필요한 상세 화면은 FormCard 가 아니라 `DetailTable` 을 쓴다. */
+/** 표가 아닌 블록(드롭존·칩 묶음)용 카드. 라벨|값 섹션은 FormGrid/FormReadList → DetailTable.
+ *  모서리는 상세 표와 같게 R_CARD. */
 export function FormCard({ title, hint, children }: { title?: React.ReactNode; hint?: React.ReactNode; children: React.ReactNode }) {
   return (
     <div>
       {title != null && title !== '' ? <SectionLabel mt={0}>{title}</SectionLabel> : null}
       {hint ? <div style={{ fontSize: FS.cap, color: C.faint, margin: title != null ? '-2px 0 8px' : '0 0 8px', lineHeight: 1.4 }}>{hint}</div> : null}
-      <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg, padding: '10px 12px' }}>
+      <div style={{ border: `1px solid ${C.line}`, borderRadius: R_CARD, background: C.taupeBg, padding: '10px 12px' }}>
         {children}
       </div>
     </div>
@@ -83,8 +83,8 @@ export const DT = {
   } as React.CSSProperties,
   /** 섹션 이름을 인 머리띠 — 모든 섹션이 이 회색 띠로 시작한다(카드가 달라도 시작선이 같다). */
   band: {
-    /* C.head(#eef1f6)는 흰 카드와 붙어 띠가 사라졌고, --border(#d5dae2)도 폰에서는 「아직 배경이랑 거의 동일」
-       (사장님 2026-08-22 두 번 지적) — 한 단계 더 올려 --border-strong(#bcc4cf). 무채 유지, 글자는 C.ink 그대로. */
+    /* C.head는 흰 카드와 붙어 띠가 사라졌고, --border도 폰에서는 「아직 배경이랑 거의 동일」
+       (사장님 2026-08-22 두 번 지적) — 한 단계 더 올려 --border-strong. 무채 유지, 글자는 C.ink 그대로. */
     padding: '7px 10px', textAlign: 'left', background: 'var(--border-strong)',
     /* 밑줄 없음(2026-08-21 사장님 「굳이 라인 없어도 되는 곳에 라인」) — 띠 배경이 이미 경계다. */
     fontWeight: FW.body,
@@ -222,7 +222,7 @@ export function DetailTable({ title, hint, mark, icon, tone = 'main', headTone =
   const inverted = headTone === 'invert' || accent === 'main';
   const ac = ACCENT[accent] || ACCENT.sub;
   return (
-    <div style={{ ...box, borderRadius: R_CARD, overflow: 'hidden' }}>
+    <div style={{ ...box, borderRadius: R_CARD, overflow: 'hidden', flexShrink: 0 }}>
       <table aria-label={label || (typeof title === 'string' ? title : undefined)} style={DT.table}>
         {widths ? <colgroup>{widths.map((w, i) => <col key={i} style={w == null ? undefined : { width: w }} />)}</colgroup> : null}
         <thead>
@@ -260,6 +260,22 @@ export function DetailTable({ title, hint, mark, icon, tone = 'main', headTone =
 
 /* 빈값 폴백 대시 — 인라인 '—' 통일. */
 export function Dash() { return <span style={{ color: C.faint }}>—</span>; }
+
+/** 상세 표 한 줄(라벨|값). 페이지가 tr/th/td 를 손대지 않게. 빈 값은 — . */
+export function DtRow({ i, label, children, valueStyle }: {
+  i: number;
+  label: React.ReactNode;
+  children?: React.ReactNode;
+  valueStyle?: React.CSSProperties;
+}) {
+  const empty = children == null || children === '';
+  return (
+    <tr style={DT.tr(i)}>
+      <th scope="row" style={DT.labelTh}>{label}</th>
+      <td style={{ ...DT.td, ...valueStyle }}>{empty ? <Dash /> : children}</td>
+    </tr>
+  );
+}
 
 /* 접이식 항목 — 제목 줄만 보이고 눌러야 펼쳐진다(QnA·도움말).
  * Sec(페이지 섹션: 숨김·드래그 정렬 포함)과 별개. 이건 목록 안 한 줄짜리.

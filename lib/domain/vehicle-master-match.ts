@@ -146,7 +146,7 @@ export {
 
 /**
  * 수집 영문 등급어 → 마스터 한글 등급어.
- * H-PICK·N Line·X Line·GT Line 은 제조사 공식 라틴 고유명이라 여기 넣지 않는다.
+ * H-PICK·N Line·X Line·GT-Line 은 제조사 공식 라틴 고유명이라 여기 넣지 않는다.
  */
 const TRIM_EN_KO: Record<string, string> = {
   smart: '스마트',

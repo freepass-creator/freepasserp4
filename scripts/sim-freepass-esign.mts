@@ -10,11 +10,15 @@ import {
   canonicalFreepassDirectManualTerms,
   canonicalFreepassDirectManualTermsDraft,
 } from '../lib/domain/freepass-direct-manual-terms';
+import { approvedFreepassManualOffer } from '../lib/domain/freepass-manual-offer';
 import { contractLayerOf, partnerUsesFreepassContract } from '../lib/domain/policy-tier';
+import { searchContractVehicles } from '../lib/domain/esign-vehicle-selection';
 
 // ⚠ 줄끝 정규화 — core.autocrlf=true 라 체크아웃하면 CRLF 로 깔린다. 소스 문자열 단언이 줄끝에 걸려 깨지면 안 된다(2026-08-20).
 const read = (path: string) => readFileSync(path, 'utf8').replace(/\r\n/g, '\n');
 const adminRoute = read('app/api/freepass-esign/contracts/[contractCode]/route.ts');
+const manualOfferCreateRoute = read('app/api/freepass-esign/manual-offers/create/route.ts');
+const manualOfferAdminRoute = read('app/api/freepass-esign/manual-offers/route.ts');
 const publicRoute = read('app/api/freepass-esign/public/[token]/route.ts');
 const publicDocumentRoute = read('app/api/freepass-esign/public/[token]/document/route.ts');
 const publicPage = read('app/sign/[token]/page.tsx');
@@ -62,6 +66,56 @@ assert.equal(canonicalFreepassDirectManualTermsDraft({ unsafe_pdf_field: '위조
 assert.deepEqual(canonicalFreepassDirectManualTerms(orderedDirectTerms), {
   deposit_installment: '일시납', special_terms: '없음', special_terms_choice: '없음',
 });
+assert.deepEqual(canonicalFreepassDirectManualTerms({ buyback_option: '만기 협의' }), { buyback_option: '만기 협의' });
+const manualOffer = approvedFreepassManualOffer('manual_offer_01', {
+  status: 'approved', provider_company_code: 'SONOGONG', policy_code: 'sonogong_policy',
+  standard_template_id: 'sonogong-rent-draft', product_type: '렌탈', rent_months: 36,
+  rent_amount: 500000, deposit_amount: 0, annual_mileage: '연 20,000km', driver_age: '만 26세 이상',
+  payment_timing: '선불', maturity: '반납형', deposit_installment: '일시납',
+});
+assert.equal(manualOffer?.templateId, 'sonogong-rent-draft');
+assert.equal(manualOffer?.customerType, '개인');
+assert.equal(approvedFreepassManualOffer('manual_offer_corp', {
+  status: 'approved', provider_company_code: 'SONOGONG', policy_code: 'sonogong_policy', standard_template_id: 'sonogong-rent-draft', product_type: '렌탈',
+  rent_months: 36, rent_amount: 500000, deposit_amount: 0, annual_mileage: '연 20,000km', driver_age: '만 26세 이상', payment_timing: '선불', maturity: '반납형', customer_type: '법인',
+})?.customerType, '법인');
+assert.equal(approvedFreepassManualOffer('manual_offer_invalid_customer_type', {
+  status: 'approved', provider_company_code: 'SONOGONG', policy_code: 'sonogong_policy', standard_template_id: 'sonogong-rent-draft', product_type: '렌탈',
+  rent_months: 36, rent_amount: 500000, deposit_amount: 0, annual_mileage: '연 20,000km', driver_age: '만 26세 이상', payment_timing: '선불', maturity: '반납형', customer_type: '임의구분',
+}), null);
+assert.equal(approvedFreepassManualOffer('manual_offer_02', { ...manualOffer, status: 'draft' }), null);
+assert.match(manualOfferCreateRoute, /ref\('v4\/esign_manual_offers'\)/);
+assert.match(manualOfferAdminRoute, /actor\?\.rawRole === 'admin'/);
+assert.match(manualOfferAdminRoute, /status: 'draft'/);
+assert.match(manualOfferAdminRoute, /\['approve', 'disable'\]/);
+assert.match(manualOfferAdminRoute, /같은 계약서 범위에 승인된 기본조건이 이미 있거나 상태가 변경되었습니다/);
+assert.match(manualOfferAdminRoute, /ref\('v4\/esign_manual_offers'\);\s*const approvedAt[\s\S]*?root\.transaction/);
+assert.match(manualOfferAdminRoute, /S\(fresh\.status\) !== 'draft'/);
+assert.match(manualOfferCreateRoute, /수기 계약에는 승인 오퍼 밖의 금액·정책·서식 값을 넣을 수 없습니다/);
+assert.match(manualOfferCreateRoute, /offer\.templateId === expectedTemplateId/);
+assert.match(manualOfferCreateRoute, /canUseOffer\(actor, offer\)/);
+assert.match(manualOfferCreateRoute, /이 계약서의 기본 조건 설정이 필요합니다|승인 계약조건이 없습니다/);
+assert.match(manualOfferCreateRoute, /차량 픽업 확인서는 고객 서명 링크를 만들 수 없습니다/);
+assert.match(esignServer, /customerType === '법인' \? 'corporate'/);
+assert.match(esignServer, /partyDocuments/);
+assert.match(esignServer, /function customerTypeIssueError/);
+assert.doesNotMatch(esignServer, /function unsupportedCustomerTypeIssueError/);
+assert.match(esignServer, /계약자 유형별 필수 증빙을 동결하지 못했습니다/);
+assert.match(manualOfferCreateRoute, /loadFreepassManualOfferSource/);
+assert.match(manualOfferCreateRoute, /buyback_option: '만기 협의'/);
+assert.match(manualOfferCreateRoute, /templateRow\.id\.startsWith\('sonogong-'/);
+// ERP 차량 빠른계약은 브라우저 가격·정책을 받지 않고, 상품 코드+기간만 보내 서버가
+// v4 상품 원장 가격표/재고 상태를 다시 확인한 뒤 seal 한다.
+assert.match(manualOfferCreateRoute, /loadFreepassDirectSource\(productCode, offer\.policyCode\)/);
+assert.match(manualOfferCreateRoute, /isStockedProduct\(product\).*isContractAvailableVehicle\(product\)/);
+assert.match(manualOfferCreateRoute, /priceList\(product as never\)\.find\(\(price\) => price\.m === rentMonths\)/);
+assert.match(manualOfferCreateRoute, /선택한 기간의 차량 가격표를 확인할 수 없습니다/);
+assert.match(manualOfferCreateRoute, /rent_amount_snapshot: sealedRent, deposit_amount_snapshot: sealedDeposit/);
+assert.match(manualOfferCreateRoute, /customer_type: offer\.customerType, customer_type_snapshot: offer\.customerType/);
+assert.match(manualOfferCreateRoute, /product_offer_created/);
+assert.match(manualOfferCreateRoute, /v4\/esign_contract_seals/);
+assert.match(manualOfferCreateRoute, /manual_offer_created/);
+assert.match(esignServer, /loadFreepassManualOfferSource/);
 
 assert.match(adminRoute, /v4\/esign_sessions/);
 assert.match(adminRoute, /v4\/esign_private/);
@@ -253,7 +307,13 @@ assert.match(publicPage, /관련 약관 \{article\}/);
 assert.match(publicPage, /const formatDeposit = \(value: unknown\)/);
 assert.match(publicPage, /Number\(digits\) === 0 \? '무보증'/);
 assert.doesNotMatch(publicPage, /customer_name: S\(contract\.customer_name\)/);
-assert.match(publicPage, /if \(!form\.driver_license_no\.trim\(\)\)/);
+assert.match(publicPage, /const corporate = view\?\.snapshot\?\.templateState\?\.ct === '법인'/);
+assert.match(publicPage, /사업자등록번호 10자리를 입력해 주세요/);
+assert.match(publicPage, /세금계산서 사업자 정보/);
+assert.match(publicPage, /tax_biz_name: '', tax_biz_no: ''/);
+assert.match(publicRoute, /세금계산서 사업자 정보를 확인해 주세요/);
+assert.match(publicRoute, /tax_issue_type: '개인사업자 \(사업자등록번호 발행\)'/);
+assert.match(signedSnapshot, /tax_biz_name: S\(submission\.tax_biz_name\)/);
 assert.match(publicPage, /metrics\.points >= 5 && metrics\.pathLength >= 55/);
 assert.match(publicPage, /kind: 'additional-driver'/);
 assert.match(publicPage, /추가 운전자 등록/);
@@ -287,7 +347,7 @@ assert.match(signedSnapshot, /driver_or_biz_no: driverLicenseNo/);
 assert.match(signedSnapshot, /drv\$\{slot\}_name/);
 assert.match(contractTemplate, /if\(ageSel && !SEALED\)/);
 assert.doesNotMatch(publicPage, /contract-sign-public|@\/lib\/domain\/sign/);
-assert.match(esignPage, /return <EsignSendCenter \/>/);
+assert.match(esignPage, /return <EsignSendCenter quickEntry \/>/);
 // 검토용 샘플도 정적 PDF 사본이 아니라 실제 봉인 HTML/PDF 경로를 재사용해야 한다.
 assert.match(sampleContractRoute, /buildFrozenFreepassHtml\(SAMPLE_SNAPSHOT, '', ''\)/);
 assert.match(sampleContractRoute, /renderFreepassPdf\(html\)/);
@@ -362,7 +422,36 @@ assert.match(sendCenter, /providerCompanyCode: S\(product\.provider_company_code
 assert.match(sendCenter, /title="차량번호 선택"/);
 assert.ok(sendCenter.indexOf('title="차량번호 선택"') < sendCenter.indexOf('title="기간별 대여료"'));
 assert.ok(sendCenter.indexOf('title="기간별 대여료"') < sendCenter.indexOf('title="조건"'));
-assert.ok(sendCenter.indexOf('title="조건"') < sendCenter.indexOf('<SectionLabel>특약사항</SectionLabel>'));
+assert.ok(sendCenter.indexOf('<WorkTable title="계약서 종류">') < sendCenter.indexOf('<WorkTable title="차량"'));
+assert.ok(sendCenter.indexOf('<WorkTable title="차량"') < sendCenter.indexOf("<WorkTable title={quickIsPickup ? '차량 인수 확인' : '계약조건'}>"));
+// 빠른 작성은 ERP 차량이면 상품 가격표를 읽기 전용으로 보여 주고, 직접 입력이면 같은 조건을 직원이 적는다.
+assert.match(sendCenter, /const QUICK_MANUAL_PERIODS = \[12, 24, 36, 48, 60\]/);
+assert.match(sendCenter, /const useManualVehicle = \(\) =>/);
+assert.match(sendCenter, /차량 직접입력으로 전환/);
+assert.match(sendCenter, /if \(quickEntry\) \{[\s\S]*productPrice = priceList\(draftProduct\)/);
+assert.match(sendCenter, /상품 가격표에서 표시됩니다/);
+assert.match(sendCenter, /<WorkSplit label="추가 계약조건"/);
+// /esign 빠른 작성은 손오공 전용 원문 세 종류를 고르고, 구독일 때만 보험료를 고른다.
+assert.match(sendCenter, /손오공 렌트 계약서/);
+assert.match(sendCenter, /손오공 구독 계약서/);
+assert.match(sendCenter, /손오공 차량 픽업 확인서/);
+assert.match(sendCenter, /quickContractType === 'sonogong-subscription'/);
+assert.match(sendCenter, /보험료 포함/);
+assert.match(sendCenter, /보험료 별도/);
+assert.match(sendCenter, /quickIsPickup/);
+assert.match(sendCenter, /차량 인수 확인/);
+assert.match(sendCenter, /손오공 픽업 확인서 준비 중/);
+// 손오공 빠른작성의 만기 협의는 선택값이 아니라 서버 seal과 같은 고정 조항이다.
+assert.match(sendCenter, /quickMaturityConsultation/);
+assert.match(sendCenter, /만기 협의/);
+assert.match(sendCenter, /만기 협의 · 인수가 미정/);
+// 빠른 작성은 공통 WorkTable 위에 동일한 value/input 행을 쓴다.
+assert.match(sendCenter, /<WorkTable title="계약서 종류">/);
+assert.match(sendCenter, /<WorkRow label="발송 상태"/);
+assert.match(sendCenter, /<WorkRow label="월 대여료\/구독료"/);
+assert.match(sendCenter, /<WorkRow label="만기 조건">만기 협의/);
+assert.match(read('lib/domain/esign-templates.ts'), /'sonogong-rent-draft'/);
+assert.match(read('lib/domain/esign-templates.ts'), /'sonogong-pickup-confirmation'/);
 assert.match(sendCenter, /const draftVehicleReady = !!\(draftProduct && draftPolicy && draftTemplate\)/);
 assert.match(sendCenter, /resolveVehiclePolicy\(product, providerPolicies\)/);
 assert.match(sendCenter, /contractMileageOptions\(/);
@@ -392,7 +481,7 @@ assert.match(walkthrough, /event\.origin !== window\.location\.origin/);
 assert.match(walkthrough, /window\.location\.origin\}\$\{parsed\.pathname\}/, '고객 링크는 현재 출처로 옮겨 띄워야 postMessage 가 통한다');
 assert.match(publicPage, /if \(!preview\) return undefined;/, '실제 고객 화면은 바깥에서 조종할 수 없어야 한다');
 assert.match(publicPage, /fp-esign-preview-state/);
-assert.ok(sendCenter.indexOf('<SectionLabel>특약사항</SectionLabel>') < sendCenter.indexOf("'계약서 만들기'"));
+assert.ok(sendCenter.indexOf('<QuickFormField label="특약사항">') < sendCenter.indexOf("'계약서 만들기'"));
 assert.doesNotMatch(sendCenter, /repeat\(auto-fit, minmax\(min\(100%, 560px\)/);
 assert.match(sendCenter, /state=\{draftVehicleReady \? 'complete' : 'active'\}/);
 assert.doesNotMatch(sendCenter, /④ 고객 정보/);
@@ -424,15 +513,35 @@ assert.match(sendCenter, /출고가능 \$\{\(availableVehicleCountsByProvider/);
 assert.match(sendCenter, /partnerUsesFreepassContract/);
 assert.match(sendCenter, /vehiclePickerOpen/);
 assert.match(sendCenter, /<EsignVehicleSelectRow/);
+// 차량번호 일부 숫자만으로 전체 출고가능 재고에서 바로 후보를 찾고, 빠른 선택 분기는
+// 정책을 자동 매칭하지 않는다. 후보 행에는 가격표 요약도 함께 보인다.
+const plateHits = searchContractVehicles([
+  { product_code: 'plate-a', provider_company_code: 'A', car_number: '12가3456', model: '테스트A', vehicle_status: '출고가능', price: { 12: { rent: 500000, deposit: 0 } } },
+  { product_code: 'plate-b', provider_company_code: 'B', car_number: '34나7890', model: '테스트B', vehicle_status: '출고가능', price: { 12: { rent: 600000, deposit: 1000000 } } },
+] as never, '', null, '345');
+assert.deepEqual(plateHits.map((row) => String(row.product_code)), ['plate-a']);
+assert.match(sendCenter, /quickEntry \? '' : \(draft\?\.providerCompanyCode \|\| ''\)/);
+assert.match(sendCenter, /const offerDraft = quickEntry;/);
+assert.match(sendCenter, /productCode: S\(draft\.productCode\),\s*rentMonths: Number\(draft\.rentMonths\)/);
+assert.match(sendCenter, /const quickOfferReady = manualOfferReady \|\| productOfferReady;/);
+assert.match(sendCenter, /const quickMaturityConsultation = quickEntry && !quickIsPickup;/);
+assert.match(sendCenter, /만기 협의 · 인수 조건과 금액은 별도 협의합니다/);
+assert.doesNotMatch(sendCenter, /quickMaturityPreviewOnly/);
+assert.match(read('components/list-rows.tsx'), /보증금 \$\{won\(price\.deposit\)\}/);
+const selectionStart = sendCenter.indexOf('const selectVehicle =');
+const quickVehicleBranch = sendCenter.slice(selectionStart, sendCenter.indexOf('const providerPolicies', selectionStart));
+assert.doesNotMatch(quickVehicleBranch, /resolveVehiclePolicy/);
 assert.match(sendCenter, /setVehiclePickerOpen\(false\)/);
-assert.match(sendCenter, /key: 'workflow'/);
+assert.match(sendCenter, /key: 'input'/);
 assert.match(sendCenter, /key: 'document'/);
-assert.match(sendCenter, /title: '계약서·링크'/);
+assert.match(sendCenter, /key: 'progress'/);
+assert.match(sendCenter, /title: '계약서 작성'/);
+assert.match(sendCenter, /title: '계약서 확인'/);
+assert.match(sendCenter, /title: '계약 진행'/);
 assert.doesNotMatch(sendCenter, /key: 'send'/);
-assert.doesNotMatch(sendCenter, /key: 'progress'/);
 assert.match(sendCenter, /mobileLayout="stack"/);
 assert.doesNotMatch(sendCenter, /mobileLayout="swap"/);
-assert.doesNotMatch(sendCenter, /paneRatio=\{2\}/);
+assert.match(sendCenter, /paneRatio=\{1\}/);
 assert.doesNotMatch(sendCenter, /listMaxWidth=\{360\}/);
 assert.doesNotMatch(sendCenter, /width: 360 \}/);
 assert.match(sendCenter, /isEsignUiAllowed/);
@@ -489,7 +598,7 @@ assert.match(panes, /발행 당시 동결값\(고객이 보는 순서\)/);
 assert.match(panes, /'승인 처리 중'/);
 // 번호는 스테퍼 하나 — 카드 안 ①② 금지
 assert.doesNotMatch(panes, /① A4 계약서 확인|② 모바일 미리보기·전달 링크 준비|① 발송 전 미리보기|② 계약 링크 복사·전달/);
-assert.match(panes, /'링크 만들기'/);
+assert.match(panes, /'고객 서명 링크 생성'/);
 assert.match(panes, /ESIGN_CENTER_STAGES\.map/);
 assert.match(panes, /journeyRows/);
 assert.doesNotMatch(panes, /ESIGN_STEPS/);
@@ -579,8 +688,9 @@ assert.doesNotMatch(esignCenter, /esignCenterBucket|EsignCenterBucket|'발송대
 assert.match(listRows, /stage: EsignCenterStage/);
 assert.match(listRows, /flagLabel \? <Badge tone="red" variant="solid">\{flagLabel\}<\/Badge> : null/);
 assert.match(sendCenter, /QUEUE_FILTERS/);
-assert.match(sendCenter, /listHeader=\{listHeader\}/);
-assert.match(sendCenter, /<EsignStageStepper current="작성" \/>/);
+assert.match(sendCenter, /listTools=\{\{/);
+assert.match(sendCenter, /title: '계약 진행 상태'/);
+assert.match(sendCenter, /onClear: \(\) => setQueueFilter\('all'\)/);
 assert.match(sendCenter, /attentionLabel="확인 필요"/);
 // 용어표: 위치 지시어·옛 이름 금지
 assert.doesNotMatch(sendCenter, /오른쪽 계약서·링크 패널|왼쪽 맨 위의|아래에서 A4/);

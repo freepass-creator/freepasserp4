@@ -36,6 +36,14 @@ function koreanAuthMsg(err: unknown, fallback: string): string {
   return (code && AUTH_MSG[code]) || (err as { message?: string })?.message || fallback;
 }
 
+/** Firebase에 보내기 전에 공백·대소문자를 정리하고, 명백히 잘못된 주소는 화면에서 막는다. */
+function normalizedEmail(value: string): string {
+  return value.trim().toLowerCase();
+}
+function hasEmailShape(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
 type Agree = { terms: boolean; privacy: boolean };
 
 /**
@@ -111,8 +119,11 @@ export default function LoginPage() {
 
   const doLogin = async (e: React.FormEvent) => {
     e.preventDefault(); if (busy) return;
+    const loginEmail = normalizedEmail(email);
+    if (!hasEmailShape(loginEmail)) { say('이메일 형식을 확인해주세요. 예: name@company.com', 'err'); return; }
+    if (!pw) { say('비밀번호를 입력해주세요.', 'err'); return; }
     setBusy(true); say('');
-    try { await login(email.trim(), pw); await waitForSession(); router.replace(loginDestination()); }
+    try { await login(loginEmail, pw); await waitForSession(); router.replace(loginDestination()); }
     catch (err) { console.error('[login]', err); say(koreanAuthMsg(err, '로그인 실패'), 'err'); setBusy(false); }
   };
 
@@ -137,13 +148,14 @@ export default function LoginPage() {
 
   const doSignup = async (e: React.FormEvent) => {
     e.preventDefault(); if (busy) return;
-    if (!su.email.trim() || !su.pw || su.pw.length < 6) { say('이메일·비밀번호(6자 이상) 필수', 'err'); return; }
+    const signupEmail = normalizedEmail(su.email);
+    if (!hasEmailShape(signupEmail) || !su.pw || su.pw.length < 6) { say('이메일 형식과 비밀번호(6자 이상)를 확인해주세요', 'err'); return; }
     if (su.pw !== su.pw2) { say('비밀번호가 일치하지 않습니다', 'err'); return; }
     if (!su.name.trim()) { say('이름을 입력해주세요', 'err'); return; }
     if (!agree.terms || !agree.privacy) { say('이용약관·개인정보 수집·이용에 모두 동의해야 가입할 수 있습니다', 'err'); return; }
     setBusy(true); say('');
     let authUser: User;
-    try { authUser = await signup(su.email.trim(), su.pw); }
+    try { authUser = await signup(signupEmail, su.pw); }
     catch (authErr) {
       const m = (authErr as { code?: string })?.code === 'auth/email-already-in-use'
         ? '이미 가입된 이메일입니다. 로그인해주세요.'
@@ -174,13 +186,14 @@ export default function LoginPage() {
 
   const doReset = async (e: React.FormEvent) => {
     e.preventDefault(); if (busy) return;
-    if (!rpEmail.trim()) { say('이메일을 입력해주세요', 'err'); return; }
+    const resetEmail = normalizedEmail(rpEmail);
+    if (!hasEmailShape(resetEmail)) { say('이메일 형식을 확인해주세요. 예: name@company.com', 'err'); return; }
     setBusy(true); say('전송 중…', 'muted');
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
       // 진 쪽 타이머를 안 끄면 15초 뒤 처리되지 않은 reject 가 남는다.
       const timeout = new Promise((_, rej) => { timer = setTimeout(() => rej(new Error('요청 시간 초과 — 잠시 후 다시 시도해주세요')), 15000); });
-      await Promise.race([resetPassword(rpEmail.trim()), timeout]);
+      await Promise.race([resetPassword(resetEmail), timeout]);
       say('재설정 메일 전송됨. 이메일(스팸함 포함)을 확인하세요. 안 오면 몇 분 뒤 다시 보내주세요.', 'ok');
     } catch (err) { console.error('[reset]', err); say(koreanAuthMsg(err, '전송 실패'), 'err'); }
     finally {

@@ -6,6 +6,12 @@ const base = {
     customer_phone: '010-0000-0000',
     rent_amount: '650,000원',
   },
+  consentProfile: {
+    requiredKeys: ['rental_terms', 'privacy'],
+    atoms: [
+      { key: 'privacy', label: '개인정보 수집·이용 및 계약 이행 동의' },
+    ],
+  },
 };
 const privateSubmission = {
   customer_name: '홍길동',
@@ -17,6 +23,7 @@ const privateSubmission = {
   emergency_name: '홍가족',
   emergency_phone: '010-0000-0001',
   submittedAt: Date.UTC(2026, 7, 21, 3, 4),
+  consentTimes: { rental_terms: Date.UTC(2026, 7, 21, 3, 3), privacy: Date.UTC(2026, 7, 21, 3, 3) },
   supporting_documents: [{ key: 'customer_insurance_certificate', sha256: 'abcdef1234567890abcdef1234567890' }],
   customer_insurance_evidence: { sha256: 'abcdef1234567890abcdef1234567890', verifiedAt: Date.UTC(2026, 7, 21, 4, 0) },
   additional_drivers: [
@@ -40,7 +47,7 @@ const expected: Record<string, string> = {
   drv1_relation: '배우자',
   drv1_phone: '010-1111-2222',
   rent_amount: '650,000원',
-  esign_consent_status: '필수 동의·계약조건 확인 완료',
+  esign_consent_status: '2건 필수 동의·계약조건 확인 완료',
   esign_supporting_document_count: '1',
   customer_insurance_evidence: '가입증명서 제출·관리자 확인 (abcdef123456)',
 };

@@ -2,8 +2,7 @@
 
 import { LayoutGrid, List, SlidersHorizontal, Sheet } from 'lucide-react';
 import { InterestTriggers, type InterestTab } from '@/components/InterestRail';
-import { Btn, C, FS, FW, IconSeg, NUM, SearchInput, Select, ICON } from '@/components/ui';
-import { FINDER_SORTS } from './filter-state';
+import { Btn, C, FS, FW, IconSeg, NUM, SearchInput, ICON } from '@/components/ui';
 
 const VIEWS = [
   { key: 'card', label: '간단', Icon: LayoutGrid },
@@ -23,8 +22,6 @@ type Props = {
   filterBadge: number;
   filterSheetOpen: boolean;
   onToggleFilterSheet: () => void;
-  sort: string;
-  onSort: (value: string) => void;
   view: string;
   onView: (value: string) => void;
   recentCount: number;
@@ -63,18 +60,12 @@ export function FinderToolbar(props: Props) {
           style={{ flex: '1 1 auto', minWidth: 0 }}
           trailing={(
             <Btn
-              variant="ghost"
-              size="sm"
+              variant="bare"
               title={props.filterBadge > 0 ? `조건 ${props.filterBadge}개 · 필터` : '필터'}
               aria-label={props.filterBadge > 0 ? `조건 ${props.filterBadge}개 · 필터` : '필터'}
               aria-pressed={props.filterSheetOpen}
               onClick={props.onToggleFilterSheet}
-              style={{
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 3,
-                height: 36, padding: '0 6px', border: 'none', background: 'transparent',
-                color: on ? C.accent : C.mute, cursor: 'pointer',
-                WebkitTapHighlightColor: 'transparent',
-              }}
+              style={{ color: on ? C.accent : C.mute, gap: 3 }}
             >
               <SlidersHorizontal size={ICON.md} strokeWidth={on ? 2.4 : 2} />
               {props.filterBadge > 0 ? (
@@ -92,9 +83,6 @@ export function FinderToolbar(props: Props) {
       <div className="fp-finder-toolbar-main">
         <div className="fp-finder-search-group">
           {search}
-          <span className="fp-finder-sort">
-            <Select value={props.sort} onChange={props.onSort} placeholder="정렬" width={132} options={FINDER_SORTS} />
-          </span>
         </div>
         <div className="fp-finder-interest-group">
           <InterestTriggers recentN={props.recentCount} favN={props.favoriteCount} tab={props.interestTab} onTab={props.onInterestTab} />

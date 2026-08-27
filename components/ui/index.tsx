@@ -25,6 +25,7 @@ export * from './metrics';
 export * from './filters';
 export * from './detail-shell';
 export * from './form-grid';
+export * from './work-mode';
 export * from './copy-block';
 export * from './add-tile';
 export * from './dropzone';

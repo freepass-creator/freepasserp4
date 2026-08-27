@@ -7,20 +7,18 @@ import { seedIfEmpty } from '@/lib/seed';
 import { ENTITIES, type EntityRecord } from '@/lib/intake/entities';
 import { newId } from '@/lib/domain/ids';
 import { getRole, actor, type Role } from '@/lib/domain/deal';
-import { PaneHead, PaneBody, Btn, FormGrid, FormReadList, FormCard, C, FS, Loading, CenterNote, Page, FilterChips, FilterGroup, Message, PageActions, FeedRowSkeleton, PillTabs } from '@/components/ui';
+import { PaneHead, PaneBody, Btn, WorkFields, WorkModeBanner, WorkDock, workMode, Loading, CenterNote, Page, FilterChips, FilterGroup, Message, FeedRowSkeleton } from '@/components/ui';
 import { PolicyCreateRow, PolicyListRow } from '@/components/list-rows';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
 import { confirmDialog, toast } from '@/components/Toaster';
 import { matchPolicyQuery } from '@/lib/domain/search';
 import { haptic } from '@/lib/haptics';
-import { useIsMobile } from '@/lib/use-mobile';
 import { NAV_LABEL } from '@/lib/tabbar';
 import { canIssueContract, CONTRACT_LAYER, policyReadiness, type PolicyField, type PolicyReadinessStatus } from '@/lib/domain/policy-tier';
 import { FREEPASS_POLICY_PACK, POLICY_DEFAULTS, applyPolicyDefaults } from '@/lib/domain/policy-defaults';
 import { retainVisibleSelection } from '@/features/work-list-display';
 import { providerNameMap } from '@/lib/domain/identity';
 import { scopeManagedPolicies } from '@/lib/domain/policy-access';
-import { partnerManageUrl } from '@/lib/domain/policy-navigation';
 import { partnerTypeLabel } from '@/lib/domain/partner';
 import {
   ESIGN_POLICY_SELECTION_SESSION_KEY,
@@ -55,7 +53,7 @@ const POL_SCOPE: { key: PolScope; label: string }[] = [
   { key: 'shared', label: '공용' },
 ];
 
-// 정책관리 = [목록 | 기본·심사 | 계약조건 | 보험 | 전자계약] 5패널. 스키마 SSOT(ENTITIES.policy) + FormGrid.
+// 정책관리 = [목록 | 기본·심사 | 계약조건 | 보험 | 전자계약]. 스키마 SSOT(ENTITIES.policy) + WorkFields.
 // 공급사 = 자기 정책만 편집. 공용(provider_company_code 빈값)은 목록에 안 띄움(재고 Select에서만 연결).
 // 필드 그룹 SSOT — detailSections(심사/계약조건/보험)과 동일 골격. 미지정 필드는 보험 패널이 흡수(누락 방지).
 const G_BASIC = ['policy_code', 'policy_name', 'provider_company_code', 'policy_type', 'screening_criteria', 'disqualification_conditions', 'sales_notes', 'credit_grade', 'basic_driver_age', 'driver_age_lowering', 'driver_age_upper_limit', 'license_period', 'age_lowering_cost'];
@@ -114,7 +112,6 @@ const POLICY_INPUT_GROUPS: Record<PolicySection, PolicyInputGroup[]> = {
 
 export default function PolicyMgmt() {
   const co = getCompanyId();
-  const mobile = useIsMobile();
   const [launchKey, setLaunchKey] = useState<string | null>(null);
   const [rows, setRows] = useState<EntityRecord[] | null>(null);
   const [partnerRows, setPartnerRows] = useState<EntityRecord[]>([]);
@@ -463,30 +460,7 @@ export default function PolicyMgmt() {
   const scopeAlias = providerScope ? (providerAliases[providerScope] || providerScope) : '';
   const listEl = (
     <>
-      {providerScope ? (
-        <Message variant="info">
-          {scopeAlias} 정책만 보입니다 · 파트너사관리에서 공급사별로 등록·수정·삭제합니다.{' '}
-          <Btn size="sm" variant="ghost" href={partnerManageUrl(providerScope)}>← 파트너사관리로</Btn>
-        </Message>
-      ) : providerIssues.length > 0 ? (
-        <Message variant="warning">
-          정책 확인 필요 {providerIssues.length}개 업체 · {providerIssues.slice(0, 4).map((issue) => `${issue.name}(${issue.status})`).join(' · ')}
-          {providerIssues.length > 4 ? ` 외 ${providerIssues.length - 4}곳` : ''}
-        </Message>
-      ) : (
-        <Message variant="info">등록된 업체의 정책 입력이 완료되어 있습니다.</Message>
-      )}
-      {(providerScope ? [] : providerIssues.slice(0, 4)).map((issue) => (
-        <Btn
-          key={issue.code}
-          size="sm"
-          variant="ghost"
-          onClick={() => issue.policy ? selectP(issue.policy) : newP(issue.code)}
-        >
-          {issue.name} · {issue.status}{issue.policy ? ' 확인' : ' 등록'}
-        </Btn>
-      ))}
-      <PolicyCreateRow onClick={() => newP(providerScope)} />
+      <PolicyCreateRow selected={creating} onClick={() => newP(providerScope)} />
       {shown.length === 0
         ? <CenterNote>{q || scope !== 'all' ? '검색 결과 없음.' : providerScope ? `${scopeAlias}의 정책이 없습니다. 위 「정책 등록」으로 추가하세요.` : '등록된 정책이 없습니다. 파트너사 관리에서 회사별 정책을 추가하세요.'}</CenterNote>
         : <div>{shown.map((p) => {
@@ -542,25 +516,32 @@ export default function PolicyMgmt() {
       : `전자계약 발송 불가 — ${esignGate.missing.length}개 항목이 비어 있습니다: ${esignGate.missing.map((m: PolicyField) => m.label).join(' · ')}`;
 
   const canEdit = creating || editing;
+  const mode = workMode(creating, editing);
   const policyDefaultState = applyPolicyDefaults(form);
   // 공급사가 확인할 빈칸을 채워도 프리패스가 제공한 확정 기본값 개수는 달라지지 않는다.
   const decidedDefaultCount = POLICY_DEFAULTS.filter((item) => item.value !== null).length;
   const pendingDefaultLabels = policyDefaultState.pending.map((item) => item.label);
-  const modeBanner = creating ? (
-    <Message variant="info">
-      프리패스 기본정책 {decidedDefaultCount}개 자동 입력 · {FREEPASS_POLICY_PACK}
-    </Message>
-  ) : editing ? (
-    <Message variant="warning">수정 중 · 저장해야 반영됩니다</Message>
-  ) : null;
+  const modeBanner = (
+    <WorkModeBanner
+      mode={mode}
+      create={`프리패스 기본정책 ${decidedDefaultCount}개 자동 입력 · ${FREEPASS_POLICY_PACK}`}
+    />
+  );
   // 하단바 = 편집 컨텍스트만(수정·삭제 / 취소·저장). 등록은 상단 툴바(listTools.action).
-  const dockActions = creating || editing ? (
-    <PageActions cancel={{ onClick: cancelEdit }} save={{ onClick: save, disabled: !dirty }} />
-  ) : sel ? (
-    <PageActions edit={{ onClick: startEdit }} remove={{ onClick: removeP }} />
-  ) : undefined;
+  const dockActions = (
+    <WorkDock
+      mode={mode}
+      selected={!!sel}
+      dirty={dirty}
+      onCancel={cancelEdit}
+      onSave={save}
+      onEdit={startEdit}
+      onRemove={removeP}
+    />
+  );
 
-  const editPane = (sectionKey: PolicySection, title: string, fields: typeof ENTITIES.policy.fields, hint?: string, lead?: string) => {
+  const paneCount = creating ? '신규 입력' : editing ? '수정 중' : sel ? '조회' : undefined;
+  const editPane = (sectionKey: PolicySection, title: string, fields: typeof ENTITIES.policy.fields, hint?: string) => {
     const formFields = title === '전자계약'
       ? fields.filter((field) => field.key !== 'esign_required_documents')
       : fields;
@@ -578,62 +559,48 @@ export default function PolicyMgmt() {
         fields: remainingFields,
       });
     }
+    const firstPane = sectionKey === 'basic';
     return (
     <>
-      <PaneHead title={title} />
+      <PaneHead title={title} count={paneCount} />
       <PaneBody pad>
-        <div className="fp-policy-form-frame">
         {sel ? (
           <>
-            {modeBanner}
-            {launchRequest?.returnToEsign ? (
+            {firstPane ? modeBanner : null}
+            {firstPane && launchRequest?.returnToEsign ? (
               <Message variant="info">저장하거나 취소하면 작성 중인 전자계약으로 돌아갑니다.</Message>
             ) : null}
-            {canEdit && pendingDefaultLabels.length > 0 ? (
+            {firstPane && canEdit && pendingDefaultLabels.length > 0 ? (
               <Message variant="warning">
                 공급사 확인 필요 {pendingDefaultLabels.length}개 · {pendingDefaultLabels.slice(0, 4).join(' · ')}
                 {pendingDefaultLabels.length > 4 ? ` 외 ${pendingDefaultLabels.length - 4}개` : ''}
                 {' '}— 계약회사별 실제 보험증권·탁송 조건을 확인해 입력하세요.
               </Message>
             ) : null}
-            {/*
-              «이 패널이 무엇이고 누가 쓰는가»를 먼저 말한다.
-              정책은 한 번 정해 두고 계속 쓰는 값이라 이 화면에 자주 오지 않는다.
-              다음에 왔을 때 「여기가 뭐였더라」가 되면 아예 안 채우고, 안 채운 칸은
-              계약서에서 빈칸이 되어 약관 조문이 공중에 뜬다.
-            */}
-            {lead && (
-              <p style={{ margin: '0 0 10px', fontSize: FS.sub, lineHeight: 1.6, color: C.mute }}>{lead}</p>
-            )}
-            {sectionKey === 'basic' ? (
-              <Message variant="info">
-                ERP에는 정책 전체를 보관합니다. 판매 시트에는 차량 선택에 필요한 연령·면허·주행·분납·지역·탁송 조건만 노출하고, 내부 심사·신용등급·수수료 환수와 계약 약관 상세는 내보내지 않습니다.
-              </Message>
-            ) : null}
-            {/*
-              표준값 채우기는 «전자계약 패널에서만». 빈칸을 하나씩 채우는 것은 오래 걸리고,
-              그러다 안 채운 칸이 남으면 계약서가 빈칸으로 나간다.
-              값은 지금 나가는 계약서에서 뽑은 것이라 «새로 정하는 것»이 아니다.
-            */}
-            {title === '전자계약' && canEdit && (
-              <div style={{ marginBottom: 10 }}>
+            {title === '전자계약' && canEdit ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 <Btn title="프리패스 표준값 채우기" size="sm" variant="ghost" onClick={fillDefaults}>
                   프리패스 표준값 채우기
                 </Btn>
               </div>
-            )}
-            <div style={{ display: 'grid', gap: 16 }}>
-              {inputGroups.map((group) => (
-                <FormCard key={group.title} title={group.title} hint={group.hint}>
-                  {mobile && !canEdit ? (
-                    <FormReadList fields={group.fields} form={form} selectOptions={policySelectOptions} />
-                  ) : (
-                    <FormGrid fields={group.fields} form={form} onChange={onChange} cols={2} disabled={!canEdit} showNotes selectOptions={policySelectOptions} />
-                  )}
-                </FormCard>
-              ))}
-            </div>
-            {hint ? <p style={{ margin: '10px 0 0', fontSize: FS.cap, lineHeight: 1.5, color: C.faint }}>{hint}</p> : null}
+            ) : null}
+            {inputGroups.map((group, index) => {
+              const accent = sectionKey === 'basic' ? 'main' as const : 'sub' as const;
+              return (
+                <WorkFields
+                  key={group.title}
+                  mode={mode}
+                  title={group.title}
+                  hint={index === 0 && hint ? hint : group.hint}
+                  accent={accent}
+                  fields={group.fields}
+                  form={form}
+                  onChange={onChange}
+                  cols={2}
+                  selectOptions={policySelectOptions}
+                />
+              );
+            })}
             {title === '전자계약' ? (
               <PolicyRequiredDocumentsEditor
                 value={form.esign_required_documents}
@@ -645,86 +612,73 @@ export default function PolicyMgmt() {
         ) : (
           <CenterNote>정책을 선택하세요.</CenterNote>
         )}
-        </div>
       </PaneBody>
     </>
     );
   };
-  /*
-   * 패널 안내 — 세 층(상품·영업·계약)을 화면 말로 옮긴 것.
-   * 설계 근거: `docs/POLICY-LAYERS.md`
-   */
-  const sectionPanes: WorkPane[] = [
+  const panes: WorkPane[] = [
     {
       key: 'basic',
       title: '기본·심사',
-      node: editPane('basic', '기본·심사', fieldsIn(G_BASIC), '정책 신원·심사 기준',
-        '심사기준·신용등급은 내부용 — 손님에게 안 나갑니다.'),
+      node: editPane('basic', '기본·심사', fieldsIn(G_BASIC), '정책 신원·심사 기준'),
     },
     {
       key: 'terms',
       title: '계약조건',
-      node: editPane('terms', '계약조건', fieldsIn(G_TERMS), '운행·납부·특약',
-        '영업 상담용 가격표. 여기서 정해진 결과만 계약서에 실립니다.'),
+      node: editPane('terms', '계약조건', fieldsIn(G_TERMS), '운행·납부·특약'),
     },
     {
       key: 'ins',
       title: '보험',
-      node: editPane('ins', '보험', insFields, '보험·부가 조건',
-        '계약서 보험 항목 · 약관 제11조에 그대로 실립니다.'),
+      node: editPane('ins', '보험', insFields, '보험·부가 조건'),
     },
     {
       key: 'esign',
       title: '전자계약',
-      node: editPane('esign', '전자계약', fieldsIn(G_ESIGN), esignHint,
-        '계약서 사용 여부는 파트너사에서 정하고, 여기에는 회사별 계약조건과 제출서류를 입력합니다.'),
+      node: editPane('esign', '전자계약', fieldsIn(G_ESIGN), esignHint),
     },
   ];
-  const activeSection = sectionPanes.find((pane) => pane.key === section) || sectionPanes[0];
-  const panes: WorkPane[] = [{
-    key: 'policy',
-    title: activeSection.title,
-    node: (
-      <div style={{ height: '100%', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-        <div className="fp-policy-tabs">
-          <PillTabs
-            size="sm"
-            value={section}
-            onChange={setSection}
-            tabs={sectionPanes.map((pane) => ({ key: pane.key as PolicySection, label: pane.title }))}
-          />
-        </div>
-        <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          {activeSection.node}
-        </div>
-      </div>
-    ),
-  }];
   return (
     <>
       <WorkPage title={providerScope ? `${scopeAlias} 정책관리` : NAV_LABEL.policy} listCount={rows === null ? null : shown.length} list={rows === null ? <FeedRowSkeleton /> : listEl} panes={panes} selected={!!sel} onBack={clearSel}
-        paneRatio={!mobile ? 3 : undefined}
-        listMaxWidth={!mobile ? 360 : undefined}
+        attentionLabel="확인 필요"
+        attentionCount={providerScope ? 0 : providerIssues.length}
+        mobileSwapKey={section}
+        onMobileSwapKeyChange={(key) => setSection(key as PolicySection)}
         contextTitle={sel ? (creating ? '신규 정책' : String(form.policy_name || form.policy_code || '')) : undefined}
         actions={dockActions}
         listTools={{
           search: { value: q, onChange: setQ, placeholder: '정책명·코드·심사·지역…' },
           // 등록은 목록 맨 위 PolicyCreateRow 하나로 — 헤더 우측 버튼과 두 갈래로 두지 않는다.
-          sort: { value: sort, onChange: (v) => setSort(v as PolSort | ''), options: POL_SORTS, defaultValue: 'name' },
           filter: {
-            count: scope === 'all' ? 0 : 1,
+            count: (scope === 'all' ? 0 : 1) + (sort !== 'name' ? 1 : 0),
             title: '조건 검색',
-            onClear: () => setScope('all'),
+            onClear: () => { setScope('all'); setSort('name'); },
             body: (
-              <FilterGroup
-                title="귀속"
-                count={scope === 'all' ? 0 : 1}
-                defaultOpen
-                first={!mobile}
-                onClear={() => setScope('all')}
-              >
-                <FilterChips value={scope} onChange={setScope} options={POL_SCOPE} />
-              </FilterGroup>
+              <>
+                <FilterGroup
+                  title="정렬"
+                  count={sort !== 'name' ? 1 : 0}
+                  defaultOpen
+                  first
+                  onClear={() => setSort('name')}
+                >
+                  <FilterChips
+                    value={sort || 'name'}
+                    onChange={(value) => setSort(value)}
+                    options={POL_SORTS.map((option) => ({ key: option.value, label: option.label }))}
+                    clearKey="name"
+                  />
+                </FilterGroup>
+                <FilterGroup
+                  title="귀속"
+                  count={scope === 'all' ? 0 : 1}
+                  defaultOpen
+                  onClear={() => setScope('all')}
+                >
+                  <FilterChips value={scope} onChange={setScope} options={POL_SCOPE} />
+                </FilterGroup>
+              </>
             ),
           },
           hints: [

@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import { StarOff, Trash2 } from 'lucide-react';
-import { Page, Btn, ButtonLabel, C, FilterChips, FS, ICON } from '@/components/ui';
+import { Page, Btn, ButtonLabel, CenterNote, FilterChips, ICON } from '@/components/ui';
 import { InterestSummaryCard, useInterestLists } from '@/components/InterestRail';
 import { useAuthReady } from '@/lib/auth-context';
 import { useIsMobile } from '@/lib/use-mobile';
@@ -67,44 +67,39 @@ export default function InterestPage() {
 
   return (
     <Page title="내가본상품" meta={items.length} countSuffix="대">
-      {/* 상단 12 = 모바일 섹션 리듬 공통규격(사장님 2026-08-22). */}
-      <div style={{ maxWidth: 560, width: '100%', margin: '0 auto', boxSizing: 'border-box', padding: '12px 0' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-          <FilterChips
-            value={tab}
-            onChange={(k) => switchTab(k as PageTab)}
-            options={[
-              { key: 'recent', label: `최근 본 ${recentList.length}` },
-              { key: 'fav', label: `관심 ${favList.length}` },
-            ]}
-          />
-          <span style={{ flex: 1 }} />
-          {tab === 'recent' && recentList.length > 0 ? (
-            <Btn title="최근 본 상품 비우기" size="sm" variant="ghost" haptic="impact" onClick={clearRecent}>
-              <ButtonLabel icon={<Trash2 size={ICON.md} aria-hidden />}>비우기</ButtonLabel>
-            </Btn>
-          ) : null}
-          {tab === 'fav' && favList.length > 0 ? (
-            <Btn title="관심 상품 비우기" size="sm" variant="ghost" haptic="impact" onClick={clearFavs}>
-              <ButtonLabel icon={<StarOff size={ICON.md} aria-hidden />}>비우기</ButtonLabel>
-            </Btn>
-          ) : null}
-        </div>
-        {items.length === 0 ? (
-          <div style={{ fontSize: FS.sub, color: C.faint, padding: '18px 0', textAlign: 'center', lineHeight: 1.6 }}>
-            {tab === 'recent' ? '아직 본 상품이 없습니다.' : '관심 상품이 없습니다.'}
-            <br />
-            {tab === 'recent' ? '상품찾기에서 상세를 열면 여기에 쌓입니다.' : '상품 상세의 별표(☆)로 담을 수 있습니다.'}
-          </div>
-        ) : (
-          /* 모바일 = 라인 목록(카드가 스스로 hairline) · 웹 = 카드 사이만 벌린다. */
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: mobile ? 0 : 8 }}>
-            {items.map((s) => (
-              <InterestSummaryCard key={s.code} live={stockedByCode.get(s.code)} snap={s} tab={tab} />
-            ))}
-          </div>
-        )}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+        <FilterChips
+          value={tab}
+          onChange={(k) => switchTab(k as PageTab)}
+          options={[
+            { key: 'recent', label: `최근 본 ${recentList.length}` },
+            { key: 'fav', label: `관심 ${favList.length}` },
+          ]}
+        />
+        <span style={{ flex: 1 }} />
+        {tab === 'recent' && recentList.length > 0 ? (
+          <Btn title="최근 본 상품 비우기" size="sm" variant="ghost" haptic="impact" onClick={clearRecent}>
+            <ButtonLabel icon={<Trash2 size={ICON.md} aria-hidden />}>비우기</ButtonLabel>
+          </Btn>
+        ) : null}
+        {tab === 'fav' && favList.length > 0 ? (
+          <Btn title="관심 상품 비우기" size="sm" variant="ghost" haptic="impact" onClick={clearFavs}>
+            <ButtonLabel icon={<StarOff size={ICON.md} aria-hidden />}>비우기</ButtonLabel>
+          </Btn>
+        ) : null}
       </div>
+      {items.length === 0 ? (
+        <CenterNote minHeight={120}>
+          {tab === 'recent' ? '아직 본 상품이 없습니다. 상품찾기에서 상세를 열면 여기에 쌓입니다.' : '관심 상품이 없습니다. 상품 상세의 별표(☆)로 담을 수 있습니다.'}
+        </CenterNote>
+      ) : (
+        /* 모바일 = 라인 목록(카드가 스스로 hairline) · 웹 = 카드 사이만 벌린다. */
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: mobile ? 0 : 8 }}>
+          {items.map((s) => (
+            <InterestSummaryCard key={s.code} live={stockedByCode.get(s.code)} snap={s} tab={tab} />
+          ))}
+        </div>
+      )}
     </Page>
   );
 }

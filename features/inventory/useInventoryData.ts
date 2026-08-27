@@ -66,7 +66,6 @@ type InventoryAccessOptions = {
   setPolicies: (policies: EntityRecord[]) => void;
   setAccess: (access: boolean) => void;
   setGateMessage: (message: string) => void;
-  loadMaster: () => Promise<unknown>;
   clearSelection: () => void;
 };
 
@@ -76,14 +75,11 @@ export function useInventoryAccessEffects({
   setPolicies,
   setAccess,
   setGateMessage,
-  loadMaster,
   clearSelection,
 }: InventoryAccessOptions) {
   const clearSelectionRef = useRef(clearSelection);
-  const loadMasterRef = useRef(loadMaster);
   const accessEpochRef = useRef(0);
   clearSelectionRef.current = clearSelection;
-  loadMasterRef.current = loadMaster;
 
   useEffect(() => {
     const epoch = ++accessEpochRef.current;
@@ -107,7 +103,6 @@ export function useInventoryAccessEffects({
         ]);
         if (epoch !== accessEpochRef.current) return;
         setPolicies(scopeInventoryPolicies(loadedPolicies, role, role === 'provider' ? actor('provider').code : ''));
-        void loadMasterRef.current().catch(() => {});
         // 업무 목록 공통 규격: 화면 진입은 목록부터 시작하고, 사용자가 행을 선택해야 상세를 연다.
         clearSelectionRef.current();
       } catch (error) {

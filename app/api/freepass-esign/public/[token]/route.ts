@@ -176,22 +176,29 @@ function validateSubmission(payload: EsignRecord, snapshot: EsignRecord) {
   ] as const) {
     if (S(payload[key]).length > limit) throw new Error('입력값이 너무 깁니다.');
   }
+  const corporate = S(record(snapshot.templateState).ct) === '법인';
+  const soleProprietor = S(record(snapshot.templateState).tax) === '사업자';
   const customerId = S(payload.customer_id).replace(/\D/g, '');
   if (customerId.length !== 13) throw new Error('주민등록번호 13자리를 정확히 입력해 주세요.');
-  const resident = residentIdInfo(customerId);
-  if (!resident) throw new Error('주민등록번호의 생년월일을 확인해 주세요.');
   const templateFields = record(snapshot.templateFields);
-  const ageRange = driverAgeRange(templateFields.driver_age);
-  const customerAge = residentAgeOn(customerId, templateFields.contract_start);
-  if (customerAge == null) throw new Error('주민등록번호의 생년월일을 확인해 주세요.');
-  if (ageRange.min != null && customerAge < ageRange.min) {
-    throw new Error(`이 계약은 만 ${ageRange.min}세 이상만 운전할 수 있습니다.`);
+  if (corporate) {
+    if (S(payload.driver_license_no).replace(/\D/g, '').length !== 10) throw new Error('사업자등록번호 10자리를 정확히 입력해 주세요.');
+  } else {
+    const resident = residentIdInfo(customerId);
+    if (!resident) throw new Error('주민등록번호의 생년월일을 확인해 주세요.');
+    const ageRange = driverAgeRange(templateFields.driver_age);
+    const customerAge = residentAgeOn(customerId, templateFields.contract_start);
+    if (customerAge == null) throw new Error('주민등록번호의 생년월일을 확인해 주세요.');
+    if (ageRange.min != null && customerAge < ageRange.min) throw new Error(`이 계약은 만 ${ageRange.min}세 이상만 운전할 수 있습니다.`);
+    if (ageRange.max != null && customerAge > ageRange.max) throw new Error(`이 계약은 만 ${ageRange.max}세 이하만 운전할 수 있습니다.`);
+    if (!S(payload.driver_license_no)) throw new Error('운전면허번호를 입력해 주세요.');
   }
-  if (ageRange.max != null && customerAge > ageRange.max) {
-    throw new Error(`이 계약은 만 ${ageRange.max}세 이하만 운전할 수 있습니다.`);
-  }
-  if (!S(payload.driver_license_no)) throw new Error('운전면허번호를 입력해 주세요.');
   if (!S(payload.customer_address)) throw new Error('계약서에 기재할 주소를 입력해 주세요.');
+  const business = {
+    name: S(payload.tax_biz_name), no: S(payload.tax_biz_no).replace(/\D/g, ''), ceo: S(payload.tax_ceo),
+    typeItem: S(payload.tax_biz_type_item), email: S(payload.tax_email), address: S(payload.tax_biz_address),
+  };
+  if (soleProprietor && (!business.name || business.name.length > 120 || business.no.length !== 10 || !business.ceo || business.ceo.length > 80 || !business.typeItem || business.typeItem.length > 160 || !/^\S+@\S+\.\S+$/.test(business.email) || business.email.length > 160 || !business.address || business.address.length > 200)) throw new Error('세금계산서 사업자 정보를 확인해 주세요.');
   const emergencyRelation = S(payload.emergency_relation);
   const emergencyName = S(payload.emergency_name);
   const emergencyPhone = S(payload.emergency_phone).replace(/\D/g, '');
@@ -225,7 +232,7 @@ function validateSubmission(payload: EsignRecord, snapshot: EsignRecord) {
   });
   return {
     name, phone, signature, consents, confirmations, additionalDrivers,
-    emergencyRelation, emergencyName, emergencyPhone,
+    emergencyRelation, emergencyName, emergencyPhone, business,
   };
 }
 
@@ -509,6 +516,11 @@ export async function POST(
       emergency_relation: parsed.emergencyRelation,
       emergency_name: parsed.emergencyName,
       emergency_phone: parsed.emergencyPhone,
+      ...(S(record(record(claimedSession.snapshot).templateState).tax) === '사업자' ? {
+        tax_biz_name: parsed.business.name, tax_biz_no: parsed.business.no, tax_ceo: parsed.business.ceo,
+        tax_biz_type_item: parsed.business.typeItem, tax_email: parsed.business.email, tax_biz_address: parsed.business.address,
+        tax_issue_type: '개인사업자 (사업자등록번호 발행)',
+      } : {}),
       additional_drivers: parsed.additionalDrivers.map((driver, index) => ({
         ...driver,
         licensePath: additionalDriverAssets[index].path,

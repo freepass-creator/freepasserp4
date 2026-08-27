@@ -13,7 +13,7 @@ import { guestShareUrl, formatProductForCopy } from '@/lib/domain/product-share'
 import { sanitizeProductForGuest } from '@/lib/domain/public-catalog';
 import { copyText } from '@/lib/clipboard';
 import { toast } from '@/components/Toaster';
-import { Btn, C, CenterNote, FS, FW, ICON, IconBtn, Loading, R } from '@/components/ui';
+import { Btn, C, CenterNote, FS, FW, ICON, IconBtn, Loading, Message } from '@/components/ui';
 import { COLOR_INK } from '@/lib/domain/color-master';
 import { MASTER_CATEGORY_COLORS } from '@/lib/domain/category-colors';
 import {
@@ -822,16 +822,17 @@ export function SheetView({
 
   if (error) {
     return pane('error',
-      <div role="alert" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: 20, textAlign: 'center' }}>
-        <span style={{ fontSize: FS.body, color: C.ink }}>{error}</span>
-        {detail ? <span style={{ fontSize: FS.cap, color: C.faint, maxWidth: 560, wordBreak: 'break-word' }}>{detail}</span> : null}
+      <Message variant="danger">
+        {error}
+        {detail ? <> {detail}</> : null}
+        {' '}
         <Btn
           type="button"
           variant="ghost"
+          size="sm"
           onClick={() => { setGrid(null); refreshAllTabs(); }}
-          style={{ height: 30, padding: '0 12px', borderRadius: R, border: `1px solid ${C.line}`, background: C.taupeBg, color: C.ink, fontSize: FS.cap, fontWeight: FW.label, cursor: 'pointer', fontFamily: 'inherit' }}
         >다시 불러오기</Btn>
-      </div>,
+      </Message>,
     );
   }
   if (!grid) return pane('loading', <Loading label={authReady ? '시트를 불러오는 중…' : '로그인 상태를 확인하는 중…'} />);

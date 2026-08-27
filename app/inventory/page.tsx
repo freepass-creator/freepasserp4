@@ -4,7 +4,7 @@ import { getCompanyId } from '@/lib/tenant';
 import { PRODUCT_TYPES, type EntityRecord } from '@/lib/intake/entities';
 import { getRole } from '@/lib/domain/deal';
 import { VEHICLE_DISPLAY_STATUSES, canonProductType, normalizeVehicleDisplayStatus, vehicleName } from '@/lib/domain/product';
-import { PaneHead, PaneBody, Btn, C, Loading, CenterNote, Page, ToggleChips, FilterGroup, PageActions, FW, FS, FeedRowSkeleton } from '@/components/ui';
+import { PaneHead, PaneBody, Btn, C, Loading, CenterNote, Message, Page, ToggleChips, FilterChips, FilterGroup, WorkDock, workMode, FW, FS, FeedRowSkeleton } from '@/components/ui';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
 import { useResolvedLinkPhotos } from '@/components/use-product-photos';
 import dynamic from 'next/dynamic';
@@ -99,14 +99,11 @@ export default function Inventory() {
   const [editing, setEditing] = useState(false);
   const supplierPhotos = useResolvedLinkPhotos(form);
   const {
-    loadMaster,
     selectProduct: selectP,
     runOcr,
     ocrBusy,
     ocrInputRef: ocrRef,
   } = useInventoryVehicleTools({
-    form,
-    selectedCode: sel,
     setSelectedCode: setSel,
     setForm,
     setDirty,
@@ -152,7 +149,6 @@ export default function Inventory() {
     setPolicies,
     setAccess: setOk,
     setGateMessage: setGateMsg,
-    loadMaster,
     clearSelection: clearSel,
   });
 
@@ -293,28 +289,33 @@ export default function Inventory() {
     <>
       <PaneHead title="연동 안내" />
       <PaneBody pad>
-        <div style={{ fontSize: FS.cap, fontWeight: FW.strong, color: C.ink, lineHeight: 1.55 }}>
-          공급사 원본은 참고·자료 제출용입니다.
-        </div>
-        <div style={{ marginTop: 6, fontSize: FS.cap, color: C.mute, lineHeight: 1.55 }}>
-          관리자가 상품마스터를 확인한 뒤 ERP에 일괄 반영합니다. 공급사 원본은 비교·갱신 자료이며 ERP 재고를 직접 덮어쓰지 않습니다.
-        </div>
+        <Message variant="info">
+          공급사 원본은 참고·자료 제출용입니다. 관리자가 상품마스터를 확인한 뒤 ERP에 일괄 반영합니다. 공급사 원본은 비교·갱신 자료이며 ERP 재고를 직접 덮어쓰지 않습니다.
+        </Message>
       </PaneBody>
     </>
   );
 
   // 목록을 포함한 4번째 프레임이 연동·반영이다. 모바일은 해당 페인을 제외한다.
   const panes: WorkPane[] = [
-    { key: 'fixed', title: '기본', node: fixedPane },
-    { key: 'var', title: '운영', node: varPane },
+    { key: 'fixed', title: '기본 정보', node: fixedPane },
+    { key: 'var', title: '운영 조건', node: varPane },
     ...(mobile ? [] : [{ key: 'sync', title: '연동·반영', node: syncPane }]),
   ];
   // 하단바 = 편집 컨텍스트만(수정·삭제 / 취소·저장). 등록 = 목록 맨 위 행(InventoryCreateRow).
-  const dockActions = creating || editing ? (
-    <PageActions cancel={{ onClick: cancelEdit, disabled: saving }} save={{ onClick: save, disabled: !dirty || saving, label: saving ? '저장 중…' : undefined }} />
-  ) : selectedIsVisible ? (
-    <PageActions edit={{ onClick: startEdit }} remove={{ onClick: removeP }} />
-  ) : undefined;
+  const dockActions = (
+    <WorkDock
+      mode={workMode(creating, editing)}
+      selected={selectedIsVisible}
+      saving={saving}
+      dirty={dirty}
+      onCancel={cancelEdit}
+      onSave={save}
+      onEdit={startEdit}
+      onRemove={removeP}
+      saveLabel={saving ? '저장 중…' : undefined}
+    />
+  );
   const fltCount = (stFlt.size ? 1 : 0) + (typeFlt.size ? 1 : 0);
   return (
     <>
@@ -329,9 +330,8 @@ export default function Inventory() {
         actions={dockActions}
         listTools={{
           search: { value: q, onChange: setQ, placeholder: '차번·차명·옵션·공급사·메모…' },
-          sort: { value: sort, onChange: (v) => setSort(v as InvSort | ''), options: INV_SORTS, defaultValue: 'status' },
           filter: {
-            count: fltCount,
+            count: fltCount + (sort !== 'status' ? 1 : 0),
             title: '조건 검색',
             previewCount: draftPreviewCount,
             previewUnit: '대',
@@ -349,6 +349,7 @@ export default function Inventory() {
               setTypeFlt(new Set(draftTypeFlt));
             },
             onClear: () => {
+              setSort('status');
               if (mobile) {
                 setDraftStFlt(new Set());
                 setDraftTypeFlt(new Set());
@@ -362,10 +363,23 @@ export default function Inventory() {
                 <CenterNote minHeight={120}>재고와 필터를 불러오는 중…</CenterNote>
               ) : <>
                 <FilterGroup
+                  title="정렬"
+                  count={sort !== 'status' ? 1 : 0}
+                  defaultOpen
+                  first
+                  onClear={() => setSort('status')}
+                >
+                  <FilterChips
+                    value={sort || 'status'}
+                    onChange={(value) => setSort(value)}
+                    options={INV_SORTS.map((option) => ({ key: option.value, label: option.label }))}
+                    clearKey="status"
+                  />
+                </FilterGroup>
+                <FilterGroup
                   title="상품상태"
                   count={(mobile ? draftStFlt : stFlt).size}
                   defaultOpen
-                  first={!mobile}
                   onClear={() => mobile ? setDraftStFlt(new Set()) : setStFlt(new Set())}
                 >
                   <ToggleChips

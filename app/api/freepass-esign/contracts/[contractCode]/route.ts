@@ -30,7 +30,7 @@ import {
 import { newId } from '@/lib/domain/ids';
 import { snapshotWithPrivateSubmission } from '@/lib/domain/esign-signed-snapshot';
 import { createAndStoreFreepassPdf } from '@/lib/server/freepass-esign-document';
-import { isEsignTemplateAllowed } from '@/lib/domain/esign-templates';
+import { isEsignTemplateAllowed, isManualOfferTemplateAllowed } from '@/lib/domain/esign-templates';
 import { esignIssueBlockers, esignProductAvailabilityBlocker, isIndependentEsignSource } from '@/lib/domain/esign-center';
 
 export const dynamic = 'force-dynamic';
@@ -478,7 +478,10 @@ export async function POST(
       if (activeSession(currentSession)
         && hasFrozenFreepassTemplateState(currentSession)
         && hasFrozenFreepassConsentProfile(currentSession)) {
-        if (!isEsignTemplateAllowed(process.env.VERCEL_ENV, frozenSessionTemplateId(currentSession))) {
+        const reusableTemplateAllowed = S(contract.manual_offer_id)
+          ? isManualOfferTemplateAllowed(process.env.VERCEL_ENV, frozenSessionTemplateId(currentSession))
+          : isEsignTemplateAllowed(process.env.VERCEL_ENV, frozenSessionTemplateId(currentSession));
+        if (!reusableTemplateAllowed) {
           return json({ error: '표준계약서 최종 승인 전이라 운영 발행이 잠겨 있습니다.' }, 503);
         }
         try { await privatizeLegacySignUrl(bundle, contractCode, refreshedHash, contract.esign_sign_url); }
@@ -490,7 +493,10 @@ export async function POST(
       const refreshedSources = await issueSourcesFor(bundle, contractCode, body);
       if (!refreshedSources.sources) return json({ error: refreshedSources.error }, 409);
       const sources = refreshedSources.sources;
-      if (!isEsignTemplateAllowed(process.env.VERCEL_ENV, sources.standardTemplateId)) {
+      const issueTemplateAllowed = S(sources.contract.manual_offer_id)
+        ? isManualOfferTemplateAllowed(process.env.VERCEL_ENV, sources.standardTemplateId)
+        : isEsignTemplateAllowed(process.env.VERCEL_ENV, sources.standardTemplateId);
+      if (!issueTemplateAllowed) {
         return json({ error: '표준계약서 최종 승인 전이라 운영 발행이 잠겨 있습니다.' }, 503);
       }
       const refreshedBlocked = issueBlockersFor(

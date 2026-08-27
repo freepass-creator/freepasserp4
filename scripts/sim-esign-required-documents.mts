@@ -44,7 +44,8 @@ const handoverRoute = read('app/api/freepass-esign/contracts/[contractCode]/hand
 const customerPage = read('app/sign/[token]/page.tsx');
 const policyPage = read('app/policy/page.tsx');
 
-assert.match(server, /const requiredDocuments = freepassEsignRequiredDocuments\(args\.policy, template\.insuranceSide\)/);
+assert.match(server, /const requiredDocuments = \[\.\.\.freepassEsignRequiredDocuments\(args\.policy, template\.insuranceSide\), \.\.\.partyDocuments\]/);
+assert.match(server, /계약자 유형별 필수 증빙을 동결하지 못했습니다/);
 assert.match(uploadRoute, /MAX_SUPPORTING_DOCUMENT_BYTES = 5_000_000/);
 assert.match(uploadRoute, /사진\(JPG·PNG·WEBP·HEIC\) 또는 PDF/);
 assert.match(uploadRoute, /supportingUploads/);

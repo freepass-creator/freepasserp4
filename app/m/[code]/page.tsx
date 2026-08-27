@@ -7,7 +7,7 @@ import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { isOfferableProduct, isStockedProduct, vehicleName } from '@/lib/domain/product';
-import { Btn, BottomNav, Loading, CenterNote, C, FS, R } from '@/components/ui';
+import { Btn, BottomNav, Loading, CenterNote, Message } from '@/components/ui';
 import { ProductDetail } from '@/components/ProductDetail';
 import { SimpleInquiry } from '@/components/SimpleInquiry';
 import { ReportButton } from '@/components/ReportButton';
@@ -205,9 +205,9 @@ export default function Detail() {
             : '0 0 calc(var(--fp-bar-h) + var(--fp-tabbar-h, 0px) + var(--fp-dock-safe, env(safe-area-inset-bottom)) + 20px)',
         }}>
           {!offerable ? (
-            <div role="status" style={{ marginBottom: 12, padding: '11px 14px', border: `1px solid ${C.warn}`, borderRadius: R, color: C.warn, background: C.warnBg, fontSize: FS.sub }}>
+            <Message variant="warning">
               대여료 미입력 상품입니다. 재고·차량 정보는 확인할 수 있지만 손님 안내·계약은 요금 입력 후 가능합니다.
-            </div>
+            </Message>
           ) : null}
           <ProductDetail p={p} />
           {/* 간단문의는 **딜을 진행하지 않는 사람**(손님·공급사)에게만. 영업자·관리자에게는

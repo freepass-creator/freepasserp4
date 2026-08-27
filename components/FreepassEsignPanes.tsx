@@ -4,7 +4,7 @@
  * 계약서관리(전자계약) — 저장된 계약 한 건의 작업면 두 칸.
  *
  * 정본: docs/ESIGN_SEND_CENTER_REDESIGN_2026-08-19.md + 사장님 2026-08-19 «4칸» 배치
- *   목록(1) | 계약 진행(2·3 — 넓게: 스테퍼·발송 전 확인·현재 단계·요약·이력) | 계약서·링크(4 — A4·링크·PDF)
+ *   목록 | 계약 진행(스테퍼·발송 전 확인·현재 단계·요약·이력) | 계약서·링크(A4·링크·PDF)
  *   · 단계 축 하나(작성 → 발송 전 → 고객 작성 중 → 검토 대기 → 완료) — 스테퍼·카드·이력이 같은 이름
  *   · 상태는 한 번만 읽는다(useFreepassEsign) — 두 칸이 같은 값을 본다
  *   · 플래그(확인 필요·만료·해지·보완 요청됨)는 단계와 섞지 않는다
@@ -37,7 +37,7 @@ import { copyText } from '@/lib/clipboard';
 import { toast } from '@/components/Toaster';
 import {
   Badge, Btn, ButtonLabel, C, CenterNote, Checkbox, DetailRow, FS, FW, ICON,
-  Input, ListGroup, R, SectionLabel, Textarea,
+  Input, ListGroup, Message, R, SectionLabel, Textarea,
 } from '@/components/ui';
 import { CheckCircle2, Copy, ExternalLink, FileDown, FileText, Link2Off, RefreshCw, XCircle } from 'lucide-react';
 import { EsignCustomerWalkthroughButton } from '@/components/EsignCustomerWalkthrough';
@@ -682,9 +682,11 @@ export function FreepassEsignStagePane({
         description="본인확인 자료와 서명을 눈으로 확인합니다. 승인하는 순간 PDF가 만들어지고 봉인됩니다."
       >
         {!canReview ? (
-          <div style={{ fontSize: FS.cap, color: C.faint }}>관리자가 본인확인 자료와 서명을 검토합니다.</div>
+          <CenterNote minHeight={0}>관리자가 본인확인 자료와 서명을 검토합니다.</CenterNote>
         ) : !submission ? (
-          <div style={{ fontSize: FS.cap, color: C.faint }}>{loadError ? '제출물을 불러오지 못했습니다.' : '제출물을 불러오는 중입니다.'}</div>
+          loadError
+            ? <Message variant="danger">제출물을 불러오지 못했습니다.</Message>
+            : <CenterNote minHeight={0}>제출물을 불러오는 중입니다.</CenterNote>
         ) : (
           <>
             <ListGroup header="제출자">
@@ -764,7 +766,8 @@ export function FreepassEsignStagePane({
                 </div>
                 <Textarea value={reason} onChange={setReason} placeholder="보완 사유 (예: 운전면허증 글자가 흐려 확인이 어렵습니다)" full />
                 {customerInsuranceEvidenceRequired ? (
-                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '10px 12px', border: `1px solid ${C.warn}`, borderRadius: R, background: C.warnBg, fontSize: FS.cap, color: C.ink, lineHeight: 1.5 }}>
+                  <Message variant="warning">
+                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
                     <Checkbox
                       checked={customerInsuranceEvidenceConfirmed}
                       onChange={setCustomerInsuranceEvidenceConfirmed}
@@ -772,7 +775,8 @@ export function FreepassEsignStagePane({
                       style={{ marginTop: 2 }}
                     />
                     <span><b>자동차보험 가입증명서에서 회사 질권 설정을 확인했습니다.</b><br />확인 후 승인하면 파일의 해시와 확인시각만 봉인되며, 보험증권 원본은 비공개로 보관됩니다.</span>
-                  </label>
+                    </label>
+                  </Message>
                 ) : null}
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                   <Btn title="본인확인 및 전자서명 승인 — PDF 생성·봉인" disabled={busy || (customerInsuranceEvidenceRequired && !customerInsuranceEvidenceConfirmed)} onClick={() => void run({ action: 'approve', ...(customerInsuranceEvidenceRequired ? { customerInsuranceEvidenceConfirmed } : {}) }, '승인하고 봉인했습니다.')}>
@@ -806,22 +810,22 @@ export function FreepassEsignStagePane({
           <DetailRow label="봉인 해시" value={S(current.esign_seal_hash) ? `${S(current.esign_seal_hash).slice(0, 16)}…` : '—'} />
         </ListGroup>
         {canReview && legacyCompletedSession ? (
-          <div style={{ padding: '10px 12px', border: `1px solid ${C.warn}`, borderRadius: R, background: C.warnBg, fontSize: FS.cap, lineHeight: 1.55 }}>
+          <Message variant="warning">
             구 동의 기준 회차는 인도일을 확정할 수 없습니다. 봉인 PDF만 보관하고, 현행 동의 기준으로 새 전자계약을 만들어 진행하세요.
-          </div>
+          </Message>
         ) : canReview ? (
           <>
             <SectionLabel>인도일 확정</SectionLabel>
             {savedDate ? (
-              <div style={{ fontSize: FS.cap, fontWeight: FW.strong }}>
-                인도일 {savedDate}
-                {savedHandover?.contract_start ? ` · ${S(savedHandover.contract_start)} ~ ${S(savedHandover.contract_end)}` : ''}
-              </div>
-            ) : <div style={{ fontSize: FS.cap, color: C.faint }}>아직 인도일 없음</div>}
+              <DetailRow
+                label="인도일"
+                value={`${savedDate}${savedHandover?.contract_start ? ` · ${S(savedHandover.contract_start)} ~ ${S(savedHandover.contract_end)}` : ''}`}
+              />
+            ) : <CenterNote minHeight={0}>아직 인도일 없음</CenterNote>}
             {cmsRequiredBeforeHandover ? (
-              <div style={{ padding: '10px 12px', border: `1px solid ${C.warn}`, borderRadius: R, background: C.warnBg, fontSize: FS.cap, lineHeight: 1.55 }}>
+              <Message variant="warning">
                 CMS 출금동의·예금주 인증은 별도 등록 절차입니다. 현재 전자계약에는 실제 CMS 등록 기능이 없으므로, 등록 증빙이 연동되기 전까지 인도일을 확정할 수 없습니다.
-              </div>
+              </Message>
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 220px) auto', gap: 6, alignItems: 'center' }}>
                 <Input type="date" value={handoverDate} onChange={setHandoverDate} ariaLabel="차량 인도일" full />
@@ -848,7 +852,7 @@ export function FreepassEsignStagePane({
           </Btn>
         ) : null}
       </div>
-      {loadError ? <div style={{ fontSize: FS.cap, color: C.danger, lineHeight: 1.5, whiteSpace: 'normal' }}>{loadError}</div> : null}
+      {loadError ? <Message variant="danger">{loadError}</Message> : null}
       {stage !== '완료' ? (
         <EsignProblemList
           problems={problems}
@@ -945,7 +949,7 @@ export function FreepassEsignDocumentPane({
   ) : null;
   const linkBlock = (
     <div style={{ display: 'grid', gap: 5 }}>
-      <div style={{ fontSize: FS.cap, color: C.mute }}>고객 링크 · 유효기한 {linkExpiresAt ? stamp(linkExpiresAt) : '—'}</div>
+      <Message variant="info">고객 링크 · 유효기한 {linkExpiresAt ? stamp(linkExpiresAt) : '—'}</Message>
       <Input value={link} onChange={() => {}} ariaLabel="고객 링크" type="url" full readOnly style={{ minWidth: 0 }} />
       <Btn full title="링크 복사" disabled={!link} onClick={copyLink}>
         <ButtonLabel icon={<Copy size={ICON.md} aria-hidden />}>링크 복사</ButtonLabel>
@@ -1028,11 +1032,9 @@ export function FreepassEsignDocumentPane({
           disabled={busy || !!selectionError || blocked.length > 0}
           onClick={() => void issue('링크를 만들었습니다. 링크를 복사해 고객에게 전달하세요.')}
         >
-          {busy ? '링크 만드는 중…' : blocked.length ? `링크 만들기 · 확인 ${blocked.length}건` : '링크 만들기'}
+          {busy ? '링크 만드는 중…' : blocked.length ? `고객 서명 링크 생성 · 확인 ${blocked.length}건` : '고객 서명 링크 생성'}
         </Btn>
-        <div style={{ fontSize: FS.cap, color: C.faint, lineHeight: 1.6 }}>
-          수신자를 미리 지정하지 않는 링크입니다. 최초 제출자가 계약자로 접수됩니다.
-        </div>
+        <Message variant="info">수신자를 미리 지정하지 않는 링크입니다. 최초 제출자가 계약자로 접수됩니다.</Message>
       </EsignStageCard>
     );
   } else if (stage === '발송 전' || stage === '고객 작성 중') {

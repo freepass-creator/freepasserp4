@@ -11,7 +11,7 @@ const S = (value: unknown) => String(value ?? '').trim();
 
 export const FREEPASS_DIRECT_MANUAL_TERM_KEYS = [
   'deposit_installment', 'deposit_round_1', 'deposit_round_2', 'deposit_round_3',
-  'auto_debit_date', 'buyback_price', 'driver_scope', 'maintenance_product',
+  'auto_debit_date', 'buyback_option', 'buyback_price', 'driver_scope', 'maintenance_product',
   'special_terms', 'special_terms_choice', 'additional_driver',
   'drv1_name', 'drv1_relation', 'drv1_phone', 'drv2_name', 'drv2_relation', 'drv2_phone',
   'drv3_name', 'drv3_relation', 'drv3_phone', 'emergency_contact', 'emergency_relation',

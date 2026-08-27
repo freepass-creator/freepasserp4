@@ -1,6 +1,6 @@
 /**
  * 국산 마스터 트림 — 등급어는 한글, 제조사 라틴 고유명은 라틴 정본.
- * H-PICK · N Line · X Line · GT Line. 홀로 선 N 은 고성능 라인이라 건드리지 않는다.
+ * H-PICK · N Line · X Line · GT-Line. 홀로 선 N 은 고성능 라인이라 건드리지 않는다.
  */
 import fs from 'fs';
 
@@ -16,8 +16,8 @@ const REPLACERS: [RegExp, string][] = [
   [/엔\s*라인/g, 'N Line'],
   [/\bX[\s\-]*Line\b/gi, 'X Line'],
   [/X[\s\-]*라인/g, 'X Line'],
-  [/\bGT[\s\-]*Line\b/gi, 'GT Line'],
-  [/GT[\s\-]*라인/g, 'GT Line'],
+  [/\bGT[\s\-]*Line\b/gi, 'GT-Line'],
+  [/GT[\s\-]*라인/g, 'GT-Line'],
 ];
 
 function fixTrim(s: string): string {

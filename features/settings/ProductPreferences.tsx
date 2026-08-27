@@ -6,7 +6,7 @@ import { clearFavs, clearRecent } from '@/lib/product-interest';
 import { clearHidden, unhideProduct } from '@/lib/product-hide';
 import { clearPassed, unpassProduct } from '@/lib/product-pass';
 import { toast } from '@/components/Toaster';
-import { Btn, ButtonLabel, C, DetailGrid, FS, ListGroup, ListRow, NUM, SectionLabel, ICON } from '@/components/ui';
+import { Btn, ButtonLabel, CenterNote, DetailGrid, ListGroup, ListRow, NUM, SectionLabel, ICON } from '@/components/ui';
 import { History, RotateCcw, StarOff, Trash2 } from 'lucide-react';
 
 function ManagedProducts({ title, emptyText, rows, action, actionLabel, clear, clearLabel }: {
@@ -22,7 +22,7 @@ function ManagedProducts({ title, emptyText, rows, action, actionLabel, clear, c
     <div>
       <SectionLabel mt={0}>{title}{rows.length ? ` · ${rows.length}` : ''}</SectionLabel>
       {!rows.length ? (
-        <div style={{ padding: '10px 0 4px', fontSize: FS.sub, color: C.faint, lineHeight: 1.45 }}>{emptyText}</div>
+        <CenterNote minHeight={48}>{emptyText}</CenterNote>
       ) : (
         <>
           {rows.map((row) => (

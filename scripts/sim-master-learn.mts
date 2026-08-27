@@ -88,6 +88,7 @@ check('세대코드는 트림이 아니다 — 「WK2」', normalizeTrim('WK2') 
 check('숫자 세대명은 트림이 아니다 — 파나메라 「970」', normalizeTrim('970') === '');
 check('그래도 진짜 트림은 남는다', normalizeTrim('오버랜드') === '오버랜드');
 check('「GT Line」과 「GT라인」은 같다', foldTrim('GT Line') === foldTrim('GT라인'));
+check('「GT-Line」과 「GT라인」은 같다', foldTrim('GT-Line') === foldTrim('GT라인'));
 check('「인스퍼레이션 N Line」과 「… N라인」도 같다',
   foldTrim('인스퍼레이션 N Line') === foldTrim('인스퍼레이션 N라인'));
 

@@ -84,7 +84,9 @@ if (spi < 0) throw new Error(`「${tabTitle}」 머리행에 차량번호가 없
 // 이미 붙어 있던 블록(원본 이름·표시 이름 둘 다)과 — 기본 모드면 — 우리 공통 대여료 블록을 걷어 낸다(재실행 멱등)
 const isBlockCol = (h: string) => BLOCK.some((b) => normHead(b) === normHead(h)) || LABEL.some((b) => normHead(b) === normHead(h)) || (!!LEAD && normHead(LEAD.name) === normHead(h));
 const isStdCol = (h: string) => (STANDARD_MONEY_COLUMNS as readonly string[]).some((c) => normHead(c) === normHead(h));
-const removed = (h: string) => isBlockCol(h) || (!KEEP_STANDARD && isStdCol(h));
+// 갈래 탭(손오공구독·픽업구독·오플구독)에선 그 공급사가 안 쓰는 빈 칸을 뺀다 — 상품리스트엔 남긴다(사장님 2026-08-27 「6개월 어정쩡한 거 날려줘」).
+const 갈래빈칸 = ['6개월'];
+const removed = (h: string) => isBlockCol(h) || (!KEEP_STANDARD && isStdCol(h)) || 갈래빈칸.some((c) => normHead(c) === normHead(h));
 const firstRemoved = shdr0.findIndex(removed);
 const keepIdx = shdr0.map((h, i) => (removed(h) ? -1 : i)).filter((i) => i >= 0);
 const shdr = keepIdx.map((i) => shdr0[i]);

@@ -470,6 +470,13 @@ export type EsignDraftInput = {
   driverAge?: string;
   driverScope?: string;
   maintenanceProduct?: string;
+  maintenanceExclusions?: string;
+  insuranceDeductible?: string;
+  insuranceCoverage?: string;
+  overMileageRate?: string;
+  earlyTerminationTerms?: string;
+  returnDeliveryFee?: string;
+  serviceItems?: string;
   emergencyContact?: string;
   emergencyRelation?: string;
   specialTerms?: string;
@@ -536,6 +543,13 @@ export function emptyEsignDraftInput(source: 'excel' | 'direct', date: string): 
     driverAge: '',
     driverScope: '',
     maintenanceProduct: '',
+    maintenanceExclusions: '',
+    insuranceDeductible: '',
+    insuranceCoverage: '',
+    overMileageRate: '',
+    earlyTerminationTerms: '',
+    returnDeliveryFee: '',
+    serviceItems: '',
     emergencyContact: '',
     emergencyRelation: '',
     specialTerms: '',

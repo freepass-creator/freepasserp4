@@ -7,5 +7,5 @@
 import { EsignSendCenter } from '@/components/EsignSendCenter';
 
 export default function EsignPage() {
-  return <EsignSendCenter />;
+  return <EsignSendCenter quickEntry />;
 }

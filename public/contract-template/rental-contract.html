@@ -512,7 +512,7 @@
         <div class="csv" data-cover-field="car_number">—</div>
       </div>
       <div class="cs">
-        <div class="csl">월 대여료</div>
+        <div class="csl" data-sub-label="fee">월 대여료</div>
         <div class="csv" data-cover-field="rent_amount" data-cover-unit="원">—</div>
       </div>
       <div class="cs">
@@ -520,7 +520,7 @@
         <div class="csv" data-cover-field="deposit_amount" data-cover-unit="원">—</div>
       </div>
       <div class="cs">
-        <div class="csl">대여기간</div>
+        <div class="csl" data-sub-label="period">대여기간</div>
         <div class="csv" data-cover-field="rent_month">—</div>
       </div>
     </div>
@@ -614,7 +614,7 @@
 
       <div class="kv">
         <div class="k">상품 유형</div><div class="v strong span2" data-field="product_label">렌트 선택형</div>
-        <div class="k key">월 대여료</div><div class="v strong key"><span data-field="rent_amount">0</span> 원 <span class="dim" style="color:var(--mute);font-weight:500">(VAT 포함)</span><span class="dim" data-ins="sep" style="display:none;color:var(--mute);font-weight:500"> · 보험료 제외</span></div>
+        <div class="k key" data-sub-label="fee">월 대여료</div><div class="v strong key"><span data-field="rent_amount">0</span> 원 <span class="dim" style="color:var(--mute);font-weight:500">(VAT 포함)</span><span class="dim" data-ins="sep" style="display:none;color:var(--mute);font-weight:500"> · 보험료 제외</span></div>
         <!--
           「보험」 줄을 여기서 뺐다(2026-08-10) — 04 자동차 보험 「보험 조건」이
           「보험료 포함 (월 대여료에 포함)」으로 같은 말을 이미 하고 있었다.
@@ -623,7 +623,7 @@
           여기 남는 것은 월 대여료 옆의 «보험료 제외» 꼬리표뿐이다(요금 구성 표시).
         -->
         <div class="k key">보증금</div><div class="v strong key"><span data-field="deposit_amount">0</span> 원</div>
-        <div class="k key">대여 기간</div><div class="v one-line tight key" data-field="rent_month">차량 인도일로부터 00개월</div>
+        <div class="k key" data-sub-label="period">대여기간</div><div class="v one-line tight key" data-field="rent_month">차량 인도일로부터 00개월</div>
         <div class="k">보증금 납부</div><div class="v one-line" data-field="deposit_installment">일시납</div>
         <!-- 시작·종료를 한 줄에서 비교한다. -->
         <div class="k key">차량 인도일</div><div class="v one-line key" data-field="contract_start">차량 인도 시 확정</div>
@@ -1924,6 +1924,17 @@
     if(k==='color_exterior'||k==='color_interior') syncVehicleColor();
     syncCoverSummary(k);
   }
+  /* 손오공 구독 봉인본은 약관 본문을 재작성하지 않고, 표지·요약·쪽머리의 계약 종류 표기만
+     구독 약정서 용어로 맞춘다. */
+  function applySubscriptionLabels(isSubscription){
+    document.querySelectorAll('[data-sub-label="fee"]').forEach(function(el){ el.textContent=isSubscription?'월 구독료':'월 대여료'; });
+    document.querySelectorAll('[data-sub-label="period"]').forEach(function(el){ el.textContent=isSubscription?'구독기간':'대여기간'; });
+    document.querySelectorAll('.pagefoot').forEach(function(el){
+      Array.prototype.slice.call(el.childNodes).forEach(function(node){
+        if(node.nodeType===3 && node.nodeValue.indexOf('자동차 장기대여 계약서')>=0) node.nodeValue=node.nodeValue.replace(/자동차 장기대여 계약서/g,isSubscription?'자동차 구독 계약서':'자동차 장기대여 계약서');
+      });
+    });
+  }
   /*
    * 표지 요지는 본문 필드의 값을 복제해 보여 줄 뿐, 계약 데이터의 또 다른 원본이 아니다.
    * `data-field`를 늘리면 기본값·봉인본 순회 범위가 바뀌므로 전용 표기 속성만 사용한다.
@@ -2090,6 +2101,7 @@
     setDom('product_label', p.label);
     setDom('doc_title', p.sub ? '자동차 구독 계약서' : '자동차 장기대여 계약서');
     setDom('doc_kicker', p.sub ? 'AUTOMOBILE SUBSCRIPTION AGREEMENT' : 'LONG-TERM VEHICLE RENTAL AGREEMENT');
+    applySubscriptionLabels(p.sub);
     if(!DATA.buyback_option) setDom('buyback_option', p.take ? '만기 시 인수 (인수형)' : '만기 반납 · 인수 별도 협의');
     if(!p.take && !DATA.buyback_price) setDom('buyback_price', '만기 협의');
     if(!DATA.annual_mileage) setDom('annual_mileage', p.sub ? '20,000 km' : '30,000 km');
@@ -2347,6 +2359,10 @@
       var S = window.__SEALED__ || {};
       try{
         if(S.state) Object.keys(S.state).forEach(function(k){ if(k in state) state[k]=S.state[k]; });
+        if(/손오공/.test(String((S.fields||{}).company_name||''))){
+          S.fields=S.fields||{};
+          if(!S.fields.company_logo) S.fields.company_logo='assets/logo-sonogong.webp';
+        }
         if(S.fields) window.Contract.setData(S.fields);
         /*
          * 값이 «아예 오지 않은» 칸까지 비운다. setData 는 온 것만 훑으므로,
