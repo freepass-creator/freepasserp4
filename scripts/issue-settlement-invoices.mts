@@ -115,6 +115,12 @@ mkdirSync(OUT, { recursive: true });
 
 const made: string[] = [];
 const missing = new Set<string>();
+/**
+ * ★**이 달 장부** — 받을 돈 · 줄 돈 · 남는 것.
+ *   장을 15장 뽑아 놓고 «이 달에 얼마 남나»를 어디서도 못 봤다.
+ *   장부는 한 줄이면 되는데 그 한 줄이 없어서 매번 계산기를 두드렸다.
+ */
+const book = { 받을: 0, 줄: 0, 막힌장: 0, 막힌돈: 0 };
 
 for (const axis of (['영업채널', '공급사'] as const)) {
   if (ONLY && ONLY !== axis) continue;
@@ -143,11 +149,28 @@ for (const axis of (['영업채널', '공급사'] as const)) {
     made.push(`${base}.html`);
     for (const m of inv.missing) missing.add(`${party} — ${m}`);
 
+    if (axis === '공급사') { book.받을 += inv.total; if (gate.length) { book.막힌장++; book.막힌돈 += inv.total; } }
+    else book.줄 += inv.total;
+
     console.log(`   ${gate.length ? '⛔' : '○'} ${party.padEnd(10)} ${String(inv.lines.length).padStart(2)}줄 ${won(inv.total).padStart(12)}원  ${inv.receiver.name}${tag}`);
     for (const g of gate) console.log(`        ${g.channel} (${g.lines}건) — ${g.why}`);
   }
   console.log();
 }
+
+const pad = (n: number) => won(n).padStart(14);
+console.log(`■ ${MONTH} 장부`);
+console.log(`   받을 돈  공급사 청구 ${pad(book.받을)}`);
+console.log(`   줄 돈   영업채널 지급 ${pad(book.줄)}`);
+console.log(`   ${'─'.repeat(34)}`);
+console.log(`   남는 것            ${pad(book.받을 - book.줄)}   ${
+  book.받을 ? ((book.받을 - book.줄) / book.받을 * 100).toFixed(1) : '0'
+}%`);
+if (book.막힌장) {
+  console.log(`   ⛔ 그 중 ${book.막힌장}장 ${won(book.막힌돈)}원은 «아직 못 보냅니다»`);
+  console.log(`      영업자 실적 확인이 끝나야 나갑니다.`);
+}
+console.log();
 
 console.log(`■ ${made.length * 2}개 파일 → ${OUT}/`);
 if (missing.size) {
