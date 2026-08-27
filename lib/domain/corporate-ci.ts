@@ -31,6 +31,11 @@ export const CORP = {
   addr: '서울시 강서구 양천로 53길 30, 서서울모터리움 1004호',
   phone: '02-6956-8835',
   web: 'freepassmobility.com',
+  /**
+   * 문의 메일 — 홈페이지 푸터에서 확인(2026-08-26 `freepassmobility.com`).
+   * ⚠ 대표 개인 메일이다. **정산 전용 주소가 생기면 여기를 바꾼다** — 문서마다 고치지 말 것.
+   */
+  email: 'pyh@teamjpk.com',
 } as const;
 
 /**
