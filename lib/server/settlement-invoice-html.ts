@@ -470,9 +470,12 @@ export const INVOICE_CSS = `
     display:flex; justify-content:space-between; align-items:flex-end; gap:10mm; }
   .ft b { color:#e8ecf2; font-weight:700; }
   .ft .nm { font-size:12px; color:#fff; font-weight:700; letter-spacing:-.2px; }
-  .ft .site { text-align:right; color:#8e9aab; line-height:1.7; white-space:nowrap; }
-  .ft .pg { display:block; margin-top:3px; color:#6b7688; }
-  .ft .pg { white-space:nowrap; }
+  .ft .site { text-align:right; color:#8e9aab; line-height:1.75; white-space:nowrap; }
+  .ft .site .u { display:block; }
+  /* 쪽 번호는 «줄을 새로 만들지 않는다» — 주소 뒤에 붙는다.
+     오른쪽이 세 줄이 되면 꼬리가 그만큼 두꺼워지고 좌우 높이가 어긋난다
+     (사장님 2026-08-27 「하단에 3줄까지 막 우겨넣지 말고 밸런스 맞춰야지」). */
+  .ft .pg { margin-left:9px; padding-left:9px; border-left:1px solid #333c48; color:#6b7688; }
 `;
 
 /**
@@ -557,12 +560,16 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
       <span class="nm">${esc(CORP.name)}</span>  사업자등록번호 <b>${esc(CORP.bizNo)}</b>  ·  대표 <b>${esc(CORP.ceo)}</b><br>
       ${esc(CORP.addr)}
     </div>
-    <!-- ★홈페이지·ERP 는 «오른쪽 아래»로. 왼쪽만 세 줄이고 오른쪽이 비어 한쪽으로 쏠렸다
-         (사장님 2026-08-27 「하단 아래쪽에 넣어서 약간 밸런스 맞춰줘」).
-         띠 우측의 ERP 브랜드와 세로로 맞물려 종이 오른쪽이 위아래로 닫힌다. -->
+    <!-- ★홈페이지·ERP 는 «오른쪽 아래»로. 띠 우측의 ERP 브랜드와 세로로 맞물려
+         종이 오른쪽이 위아래로 닫힌다 (사장님 2026-08-27 「하단 아래쪽에 넣어서 약간 밸런스 맞춰줘」).
+         ★★**좌우 두 줄씩.** 왼쪽이 상호·주소 두 줄이니 오른쪽도 두 줄이다.
+         쪽 번호는 셋째 줄을 만들지 않고 ERP 주소 뒤에 붙는다 —
+         (사장님 2026-08-27 「하단에 3줄까지 막 우겨넣지 말고 밸런스 맞춰야지」). -->
     <div class="site">
-      ${esc(CORP.web)}<br>${esc(CORP.erp)}
-      ${pages.length > 1 ? `<span class="pg">${page + 1} / ${pages.length}</span>` : ''}
+      <span class="u">${esc(CORP.web)}</span>
+      <span class="u">${esc(CORP.erp)}${
+    pages.length > 1 ? `<span class="pg">${page + 1} / ${pages.length}</span>` : ''
+  }</span>
     </div>
   </div>`;
 
