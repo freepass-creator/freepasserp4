@@ -3,9 +3,10 @@
 import type { EntityRecord } from '@/lib/intake/entities';
 import { canonProductType, type Audience } from '@/lib/domain/product';
 import { Badge, FS } from '@/components/ui';
+import { useIsMobile } from '@/lib/use-mobile';
 import { productTypeStyle } from '@/components/ui/badges';
 import {
-  badgeTip, badgeSpecs, type BadgeSpec, HEAD_BADGE_KEYS,
+  badgeTip, badgeSpecs, type BadgeSpec, LOWER_BADGE_KEYS, LOWER_BADGE_KEYS_MOBILE,
 } from '@/components/product-card-badges';
 
 export function CardKind({ p }: { p: EntityRecord }) {
@@ -30,9 +31,13 @@ export function CardRailBadges({ p, audience = 'agent', dense, align = 'start' }
   dense?: boolean;
   align?: 'start' | 'end';
 }) {
-  // 머리 뱃지 차례는 product-card-badges 가 정한다(HEAD_BADGE_KEYS) — 여기서 따로 적으면 또 갈린다.
-  const order = HEAD_BADGE_KEYS;
-  const byKey = new Map(badgeSpecs(p, true, false, audience).map((spec) => [spec.key, spec]));
+  /*
+   * 차례는 product-card-badges 가 정한다 — 여기서 따로 적으면 또 갈린다(전에 세 곳이 각각 적어 어긋났다).
+   * 목록 행은 **하단 뱃지** 규격이라 심사가 맨 앞이고, 모바일에서는 심사만 남는다.
+   */
+  const mobile = useIsMobile();
+  const order = mobile ? LOWER_BADGE_KEYS_MOBILE : LOWER_BADGE_KEYS;
+  const byKey = new Map(badgeSpecs(p, false, false, audience).map((spec) => [spec.key, spec]));
   const specs = order.map((key) => byKey.get(key)).filter(Boolean) as BadgeSpec[];
   if (!specs.length) return null;
   return (
