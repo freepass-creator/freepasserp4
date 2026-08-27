@@ -60,22 +60,55 @@ const recs: Rec[] = Object.values((await getDatabase().ref('v4/settlement_rows')
     } as unknown as SettlementRow,
   }));
 
+/**
+ * ★★★**지난 것과 지금 할 일을 가른다.**
+ *
+ * ★사장님 2026-08-27 「과거거는 다 처리는 된거라 인지만 하고 있어」.
+ *   원장에는 옛 흔적이 남아 있지만 실제로는 이미 정리된 건이다.
+ *   ⚠ 안 가르면 매일 70여 건이 뜨고, 그 속에 «오늘 생긴» 한 건이 묻힌다.
+ *     목록이 길면 사람은 목록을 안 본다 — 그게 목록이 죽는 방식이다.
+ *
+ * 가르는 자리 — **청구가 이미 나간 달인가.**
+ * ```
+ * 청구월이 이번 달보다 «이전»   지난 것 — 세기만 한다
+ * 청구월이 이번 달 이후          할 일
+ * 청구월이 «아직 없다»           할 일 — 인도가 안 됐다는 뜻이라 지금도 살아 있다
+ * ```
+ * ⚠ 지난 것도 «안 보여주는» 건 아니다. 몇 건인지는 늘 말한다 — 없던 일로 만들면 안 된다.
+ *   전부 보려면 `--all`.
+ */
+const ALL = process.argv.includes('--all');
+const THIS_MONTH = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+const isPast = (r: SettlementRow) => {
+  const m = billingMonth(r);
+  return !!m && m < THIS_MONTH;
+};
+
 const ctx = { issued: new Set<string>() };
 const withAlerts = recs.map((x) => ({ ...x, alerts: alertsOf(x.row, ctx) })).filter((x) => x.alerts.length);
 
 console.log(`\n${'═'.repeat(74)}`);
-console.log(`  지금 원장 기준 할 일 — ${recs.length}줄 중 손이 필요한 ${withAlerts.length}건`);
+console.log(`  지금 원장 기준 — ${recs.length}줄 중 ${ALL ? `손이 필요한 ${withAlerts.length}건 (지난 것 포함)` : `★지금 손댈 것 ${withAlerts.filter((x) => !isPast(x.row)).length}건`}`);
 console.log('═'.repeat(74));
 
-for (const c of countAlerts(withAlerts.map((x) => x.alerts))) {
+// ★세는 것도 «지금 할 일»만 — 머리 숫자와 아래 목록이 갈리면 사람이 뭘 믿을지 모른다.
+const nowOnly = withAlerts.filter((x) => ALL || !isPast(x.row));
+for (const c of countAlerts(nowOnly.map((x) => x.alerts))) {
   console.log(`   ${c.level === '급함' ? '⛔' : '·'} ${String(c.n).padStart(4)}건  ${c.kind}`);
 }
 
 /** 한 갈래를 펴서 보여 준다. **무엇을 해야 하는지**까지 적는다. */
 const show = (kind: Alert['kind'], title: string, todo: string) => {
-  const list = withAlerts.filter((x) => x.alerts.some((a) => a.kind === kind));
-  if (!list.length) return;
-  console.log(`\n■ ${title} — ${list.length}건`);
+  // ★지난 것은 접는다 — 이미 처리된 건이라 여기 뜨면 «오늘 생긴» 건이 묻힌다.
+  const list = withAlerts.filter((x) => x.alerts.some((a) => a.kind === kind) && (ALL || !isPast(x.row)));
+  const past = pastBy.get(kind) || 0;
+  if (!list.length) {
+    if (past && !ALL) console.log(`
+· ${title} — 지난 것 ${past}건 (이미 처리됨 · 인지만)`);
+    return;
+  }
+  console.log(`
+■ ${title} — ${list.length}건${past && !ALL ? ` (그 밖에 지난 것 ${past}건은 접었다)` : ''}`);
   console.log(`   할 일: ${todo}`);
   for (const x of list.slice(0, 30)) {
     const r = x.row;
@@ -86,6 +119,13 @@ const show = (kind: Alert['kind'], title: string, todo: string) => {
   }
   if (list.length > 30) console.log(`      … 외 ${list.length - 30}건`);
 };
+
+/** 지난 것이 몇 건인지 — 갈래별로 세어 둔다. */
+const pastBy = new Map<string, number>();
+for (const x of withAlerts) {
+  if (!isPast(x.row)) continue;
+  for (const a of x.alerts) pastBy.set(a.kind, (pastBy.get(a.kind) || 0) + 1);
+}
 
 console.log('\n\n──────── 사람이 «정해야» 하는 것 ────────');
 // ★날짜부터 본다 — 다른 판정이 다 날짜 위에 선다.
