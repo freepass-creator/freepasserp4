@@ -19,6 +19,7 @@ import {
 export const DEFAULT_SALES_INVENTORY_SHEET_ID = '1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs';
 export const DEFAULT_SALES_INVENTORY_TAB_PREFIX = '상품리스트';
 export const SALES_SONOGONG_TAB_PREFIX = '손오공구독';
+export const SALES_PICKUP_TAB_PREFIX = '픽업구독';
 export const SALES_AUTOPLUS_MAIN_TAB_PREFIX = '오플구독';
 export const SALES_AUTOPLUS_PROMO_TAB_PREFIX = '오플프로모션';
 
@@ -285,6 +286,8 @@ export function importSalesInventoryWorkbook(input: {
   autoplusMain: SalesInventoryWorkbookTab;
   /** 과거 호출 호환 전용. ERP 판매시트 경로에서는 전달하지 않는다. */
   autoplusPromo?: SalesInventoryWorkbookTab;
+  /** 손오공 픽업(T카) — RP012에 손오공구독과 합쳐 ERP에 반영한다(2026-08-27). */
+  pickup?: SalesInventoryWorkbookTab;
   partners: EntityRecord[];
   /** 하위호환 인자. 판매시트 직접 유입에서는 차종마스터를 읽지 않는다. */
   entries?: MasterEntry[];
@@ -323,7 +326,7 @@ export function importSalesInventoryWorkbook(input: {
     const allocator = allocatorFor('RP012', partner);
     const pendingOccurrence = pendingOccurrences.get('RP012') || new Map<string, number>();
     pendingOccurrences.set('RP012', pendingOccurrence);
-    const result = importSheetTable(normalizeSalesRows(input.sonogong.rows), {
+    const rp012Opts = {
       providerCode: 'RP012',
       entries: [],
       authoritativeRefinedRows: true,
@@ -333,29 +336,44 @@ export function importSalesInventoryWorkbook(input: {
       compactPriceCells: true,
       preserveCanonicalContractStatus: true,
       depositRule: 'months_per_year',
-    });
+    } as const;
+    const result = importSheetTable(normalizeSalesRows(input.sonogong.rows), { ...rp012Opts });
     for (const product of result.products) {
       product._sheet_price_scope = 'sales_all_periods';
       product.sheet_source_gid = input.sonogong.gid;
       product.sheet_source_tab = input.sonogong.title;
     }
+    // ★손오공 픽업(T카) — 같은 RP012. 손오공구독과 «합쳐» ERP에 함께 반영한다(2026-08-27).
+    //   구독(SON)·픽업(T카)은 서로 다른 차라 차번이 겹치지 않는다. 요금 블록만 반납형/인수형으로 같은 꼴.
+    const pickup = input.pickup
+      ? importSheetTable(normalizeSalesRows(input.pickup.rows), { ...rp012Opts })
+      : null;
+    if (pickup && input.pickup) {
+      for (const product of pickup.products) {
+        product._sheet_price_scope = 'sales_all_periods';
+        product.sheet_source_gid = input.pickup.gid;
+        product.sheet_source_tab = input.pickup.title;
+      }
+    }
+    const rp012Products = pickup ? [...result.products, ...pickup.products] : result.products;
+    const sum = (a: number, b: number | undefined) => a + (b || 0);
     fetchedLines.push({
       code: 'RP012',
       label: S(partner.name || partner.partner_name || '손오공'),
       ok: true,
-      sourceRowCount: result.total,
-      imported: result.imported,
-      excludedCount: result.excludedCount,
-      noPriceCount: result.noPriceCount,
-      noPriceSkippedCount: result.noPriceSkippedCount,
-      skippedCount: result.skipped,
-      duplicateCount: result.duplicateCount,
-      blockingDuplicateCount: result.duplicateCount,
-      invalidCount: result.invalidCount,
-      issueSamples: result.issueSamples,
-      plateAlloc: result.products.some((product) => product.is_pending_plate === true) ? allocator.snapshot() : undefined,
-      message: `✓ ${S(partner.name || partner.partner_name || '손오공')} [손오공구독] — ${result.imported}매물`,
-      products: result.products,
+      sourceRowCount: sum(result.total, pickup?.total),
+      imported: sum(result.imported, pickup?.imported),
+      excludedCount: sum(result.excludedCount, pickup?.excludedCount),
+      noPriceCount: sum(result.noPriceCount, pickup?.noPriceCount),
+      noPriceSkippedCount: sum(result.noPriceSkippedCount, pickup?.noPriceSkippedCount),
+      skippedCount: sum(result.skipped, pickup?.skipped),
+      duplicateCount: sum(result.duplicateCount, pickup?.duplicateCount),
+      blockingDuplicateCount: sum(result.duplicateCount, pickup?.duplicateCount),
+      invalidCount: sum(result.invalidCount, pickup?.invalidCount),
+      issueSamples: [...result.issueSamples, ...(pickup?.issueSamples || [])],
+      plateAlloc: rp012Products.some((product) => product.is_pending_plate === true) ? allocator.snapshot() : undefined,
+      message: `✓ ${S(partner.name || partner.partner_name || '손오공')} [손오공구독+픽업구독] — ${sum(result.imported, pickup?.imported)}매물`,
+      products: rp012Products,
     });
   }
 
