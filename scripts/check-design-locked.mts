@@ -65,8 +65,17 @@ must(/'픽업구독'/.test(entities),
   '상품구분 캐논에서 「픽업구독」이 빠졌습니다 — 338대가 「중고구독」으로 보이게 됩니다.',
   'lib/intake/entities.ts PRODUCT_TYPES');
 must(/const split = ret\.length > 0 && acq\.length > 0/.test(priceTable)
-  && /groupHead\('반납형'/.test(priceTable) && /groupHead\('인수형'/.test(priceTable),
-  '대여료표에서 반납형·인수형 갈래가 사라졌습니다.',
+  && /<tr key="g-acq">/.test(priceTable),
+  '대여료표에서 인수형 갈래 줄이 사라졌습니다.',
+  'components/ProductPriceTable.tsx');
+must(!/groupHead/.test(priceTable),
+  '반납형에까지 이름표를 붙이는 옛 구조가 돌아왔습니다. 반납형은 기본이라 이름표가 없습니다.',
+  'components/ProductPriceTable.tsx');
+must(/insLabel/.test(product) && /보험 포함|보험 별도/.test(product),
+  '대여료 조건 칸에서 보험 포함 여부가 사라졌습니다.',
+  'lib/domain/product.ts pricePlanList');
+must(/cheapest_ && !mobile/.test(priceTable),
+  '모바일에서 「최저」 칩이 다시 붙었습니다. 모바일은 배경 표시로 충분합니다.',
   'components/ProductPriceTable.tsx');
 must(!/condition === '만기인수'/.test(priceTable),
   '갈래를 조건 «글자»로 판정하고 있습니다. 표기가 바뀌면 무너집니다 — acquisition 플래그를 쓰세요.',

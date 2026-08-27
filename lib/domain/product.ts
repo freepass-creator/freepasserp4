@@ -358,6 +358,17 @@ export function pricePlanList(p: EntityRecord): PricePlan[] {
   const pol = (p._policy || {}) as Record<string, unknown>;
   /** 공급사가 요금에 주행거리를 안 붙였으면 정책 약정이 그 조건이다(없으면 조건 없음 — 지어내지 않는다). */
   const policyMileage = String(pol.annual_mileage ?? '').trim();
+  /**
+   * ★**조건 칸에 보험까지 적는다**(사장님 2026-08-28 「보험료 포함 여부 주행거리 이런 거 조건에 표시해 줘야지」).
+   *   보험 포함 여부는 «이 값에 무엇이 들어 있나»라 대여료를 비교할 때 주행 약정과 같은 무게다.
+   *   그동안 표 아래 「기준」 한 줄에만 있어서, 기간별로 훑는 눈에는 안 들어왔다.
+   *   판정은 전자계약과 같은 규칙(`/별도|개인/`)을 쓴다 — 두 곳이 갈리면 화면과 계약서가 어긋난다.
+   */
+  const insLabel = (() => {
+    const raw = String(pol.insurance_included ?? '').trim();
+    if (!raw) return '';
+    return /별도|개인|고객직접/.test(raw) ? '보험 별도' : '보험 포함';
+  })();
   const out: PricePlan[] = [];
   for (const [k, v] of Object.entries(price)) {
     const rawRent = num(v?.rent); if (rawRent <= 0) continue;
@@ -368,7 +379,13 @@ export function pricePlanList(p: EntityRecord): PricePlan[] {
     if (!isOperatedPeriod(m)) continue;
     const variant = bar >= 0 ? k.slice(bar + 1) : '';
     const km = /^[1-9]\d*만$/.test(variant) ? `연 ${variant}km` : '';
-    const condition = variant === ACQUISITION_VARIANT ? '만기인수' : (km || policyMileage);
+    /*
+     * 인수형도 조건은 **다른 줄과 똑같이** 주행·보험을 적는다.
+     * 예전엔 조건 칸에 「만기인수」라고 적었는데, 이제 표에서 **갈래 줄**이 그 말을 하므로
+     * 같은 말을 두 번 하게 된다(사장님 2026-08-28 「반납형은 그냥 기존과 동일하게 하고
+     * 인수형만 표현하면 되고」).
+     */
+    const condition = [km || policyMileage, insLabel].filter(Boolean).join(' · ');
     out.push({ m, condition, rent, deposit, standard: !variant || !!km, acquisition: variant === ACQUISITION_VARIANT });
   }
   // 기간 오름차순 → 같은 기간이면 싼 것 먼저(조건이 헐한 쪽이 위로).

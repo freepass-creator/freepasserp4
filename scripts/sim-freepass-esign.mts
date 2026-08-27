@@ -696,3 +696,8 @@ assert.match(sendCenter, /attentionLabel="확인 필요"/);
 assert.doesNotMatch(sendCenter, /오른쪽 계약서·링크 패널|왼쪽 맨 위의|아래에서 A4/);
 assert.doesNotMatch(sendCenter, /계약회사|회원사|렌터카사/);
 assert.doesNotMatch(panes, /프리패스 데이터 확인|직원 업무 순서|발송 후 진행 흐름/);
+
+const customerMobileSample = read('scripts/create-esign-customer-mobile-sample.mts');
+assert.match(customerMobileSample, /\/sign\/\$\{token\}/);
+assert.match(customerMobileSample, /is_test: true/);
+assert.match(customerMobileSample, /24 \* 60 \* 60 \* 1000/);

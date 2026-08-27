@@ -4,6 +4,7 @@ import { type EntityRecord } from '@/lib/intake/entities';
 import { cheapest, pricePlanList, type PricePlan } from '@/lib/domain/product';
 import { won, C, R, FW, FS, DetailTable, DT, type DetailTone } from '@/components/ui';
 import { sectionIcon } from '@/components/section-icons';
+import { useIsMobile } from '@/lib/use-mobile';
 
 /**
  * 기간별 대여료 표 — **가격 표기의 유일한 원자**.
@@ -33,8 +34,15 @@ export function ProductPriceTable({ p, title = '대여료조건', hint, tone }: 
   const caption = [pol.basic_driver_age, pol.annual_mileage, pol.insurance_included].filter(Boolean).join(' · ');
   // 선택 키 = `반납:36`·`인수:36`. 갈래가 달라도 «지금 고른 조건»은 하나뿐이다.
   const [pick, setPick] = useState<string | null>(null);
+  const mobile = useIsMobile();
   const cheapPlan = plans.filter((x) => x.standard).sort((a, b) => a.rent - b.rent)[0] || null;
-  const sel = pick ?? (cheapPlan ? `${cheapPlan.m}:${cheapPlan.condition}` : null);
+  /**
+   * 선택 키에 **갈래를 넣는다** — 조건 칸이 주행·보험으로 바뀌면서 36개월 반납형과 36개월 인수형이
+   * 같은 조건 글자를 갖게 됐다(2026-08-28). 갈래를 안 넣으면 한 줄을 고를 때 두 줄이 같이 켜진다.
+   */
+  const planKey = (x: { m: number; condition: string; acquisition: boolean }) =>
+    `${x.acquisition ? '인수' : '반납'}:${x.m}:${x.condition}`;
+  const sel = pick ?? (cheapPlan ? planKey(cheapPlan) : null);
 
   /**
    * ★**한 줄 = 기간 × 조건 × 대여료 × 보증금**(사장님 2026-08-23 「기간 조건 대여료 보증금 · 조건에
@@ -44,7 +52,7 @@ export function ProductPriceTable({ p, title = '대여료조건', hint, tone }: 
    *   같은 기간에 조건이 둘이면 **두 줄로 서면 그만**이고, 오플의 2만/3만도 저절로 담긴다.
    */
   const row = (pr: PricePlan, i: number, cheapest_: boolean) => {
-    const key = `${pr.m}:${pr.condition}`;
+    const key = planKey(pr);
     const on = sel === key;
     return (
       <tr
@@ -59,7 +67,9 @@ export function ProductPriceTable({ p, title = '대여료조건', hint, tone }: 
       >
         <th scope="row" style={{ ...DT.labelTh, width: undefined, color: on ? C.brand : C.ink, fontWeight: on ? FW.head : undefined }}>
           {pr.m}개월
-          {cheapest_ && (
+          {/* 「최저」 칩은 **웹에서만**(사장님 2026-08-28 「최저 표시 모바일에서는 그냥 배경 표시로만
+              충분함」). 좁은 줄에 칩이 붙으면 기간 글자가 밀리고, 어차피 그 줄은 선택 배경으로 이미 켜져 있다. */}
+          {cheapest_ && !mobile && (
             <span style={{
               marginLeft: 5, fontSize: FS.micro, fontWeight: FW.label, borderRadius: R, padding: '1px 5px',
               color: C.taupeBg, background: C.brand,
@@ -110,7 +120,7 @@ export function ProductPriceTable({ p, title = '대여료조건', hint, tone }: 
         const ret = plans.filter((x) => !x.acquisition);
         const acq = plans.filter((x) => x.acquisition);
         const split = ret.length > 0 && acq.length > 0;
-        const best = (pr: PricePlan) => !!cheapPlan && pr.m === cheapPlan.m && pr.condition === cheapPlan.condition;
+        const best = (pr: PricePlan) => !!cheapPlan && planKey(pr) === planKey(cheapPlan);
         if (!split) return plans.map((pr, i) => row(pr, i, best(pr)));
         /*
          * ★**두 갈래에 위계를 준다**(사장님 2026-08-28 「인수형을 좀 더 위계를 줘서 구분을 해 주면 어때」).
@@ -126,25 +136,27 @@ export function ProductPriceTable({ p, title = '대여료조건', hint, tone }: 
          *   ⚠ 이 섹션 머리띠는 이미 1단(반전)이고 선택 줄이 2단이다. 갈래 줄은 그 아래 단을 쓴다 —
          *     한 섹션에 같은 단이 두 번 오면 위계가 무너진다.
          */
-        const groupHead = (label: string, note: string, strong: boolean) => (
-          <tr key={`g-${label}`}>
+        /*
+         * ★**반납형은 표시하지 않는다. 인수형만 세운다**(사장님 2026-08-28 「반납형은 그냥 기존과
+         *   동일하게 하고 인수형만 표현하면 되고」).
+         *   반납형이 기본이라 이름표가 필요 없다 — 표 맨 위부터 그냥 반납형이다.
+         *   이름표를 둘 다 붙였더니 «기본»에까지 이름이 붙어 표가 무거워졌다.
+         *
+         *   문구는 **명사로**(사장님 같은 날 「반말로 만기 시 인수한다????」).
+         *   화면 글자는 설명문이 아니라 이름표다 — 「만기에 차를 인수한다」처럼 서술하지 않는다.
+         */
+        return [
+          ...ret.map((pr, i) => row(pr, i, best(pr))),
+          <tr key="g-acq">
             <th colSpan={4} scope="colgroup" style={{
               ...DT.labelTh, width: undefined, textAlign: 'left',
-              background: strong ? C.sunken : 'transparent',
-              color: strong ? C.ink : C.mute,
-              fontWeight: strong ? FW.head : FW.label,
-              borderTop: strong ? `2px solid ${C.lineStrong}` : `1px solid ${C.line2}`,
-              letterSpacing: strong ? '-0.01em' : undefined,
+              background: C.sunken, color: C.ink, fontWeight: FW.head,
+              borderTop: `2px solid ${C.lineStrong}`, letterSpacing: '-0.01em',
             }}>
-              {label}
-              <span style={{ marginLeft: 6, fontSize: FS.cap, fontWeight: FW.meta, color: C.mute }}>{note}</span>
+              인수형
+              <span style={{ marginLeft: 6, fontSize: FS.cap, fontWeight: FW.meta, color: C.mute }}>만기 인수 조건</span>
             </th>
-          </tr>
-        );
-        return [
-          groupHead('반납형', '만기에 차를 반납한다', false),
-          ...ret.map((pr, i) => row(pr, i, best(pr))),
-          groupHead('인수형', '만기에 차를 인수한다', true),
+          </tr>,
           ...acq.map((pr, i) => row(pr, i, false)),
         ];
       })()}
