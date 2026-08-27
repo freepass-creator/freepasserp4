@@ -13,7 +13,8 @@
 import { NextResponse } from 'next/server';
 import { getDatabase } from 'firebase-admin/database';
 import { firebaseAdminApp, verifyActiveBearer } from '@/lib/server/firebase-admin';
-import { iso, ledgerError, readLedger, sheetsToken } from '@/lib/server/settlement-ledger-read';
+import { iso } from '@/lib/server/settlement-ledger-read';
+import { listRows, storeError } from '@/lib/server/settlement-store';
 import { billingMonth } from '@/lib/domain/settlement-stage';
 import { nameKey } from '@/lib/domain/settlement-view';
 import { EMPTY_PARTY, buildInvoice, type InvoiceParty } from '@/lib/domain/settlement-invoice';
@@ -86,10 +87,16 @@ export async function GET(req: Request) {
   }
   if (!month || !party) return NextResponse.json({ ok: false, reason: '청구월과 상대를 지정해 주세요.' }, { status: 400 });
 
-  const token = await sheetsToken();
-  if (!token) return NextResponse.json({ ok: false, reason: ledgerError() || '원장을 못 읽었습니다.' }, { status: 503 });
-
-  const read = await readLedger(token);
+  /**
+   * ★★**정본에서 읽는다** — `listRows()` 다. 여기만 시트를 직접 읽고 있었다.
+   *   2026-08-26 에 정산 정본이 파이어베이스로 넘어갔는데(`settlement-store` `STORE`)
+   *   이 줄만 옛 길에 남아 있었다. 갈라짐 검사가 둘을 같게 지켜 줘서 티가 안 났을 뿐이다.
+   * ★★그리고 **시트에는 영업채널 «코드» 칸이 없다.** 시트를 읽는 한 관문은 이름으로만
+   *   붙는다 — 코드로 붙이자는 이야기(사장님 2026-08-27)가 여기서 도로 막힌다.
+   *   ⇒ 정본을 읽어야 코드가 따라온다.
+   */
+  const read = await listRows();
+  if (!read) return NextResponse.json({ ok: false, reason: storeError() || '원장을 못 읽었습니다.' }, { status: 503 });
   const key = nameKey(party);
   const isParty = (x: (typeof read)[number]) =>
     nameKey(axis === '공급사' ? x.row.supplier : x.extra.channel) === key;
@@ -135,7 +142,10 @@ export async function GET(req: Request) {
   if (axis === '공급사') {
     const confirms = ((await db.ref(CONFIRM_NODE).get().catch(() => null))?.val() || {}) as Record<string, Confirmation>;
     const ofMonth = Object.values(confirms).filter((c) => c.month === month);
-    gate = providerBillGate(rows.map((x) => ({ channel: x.extra.channel, agent: x.row.agent })), ofMonth)
+    // ★코드를 같이 넘긴다 — 관문은 코드가 있으면 코드로 붙는다(`sales-channel.ts`).
+    gate = providerBillGate(rows.map((x) => ({
+      channel: x.extra.channel, channelCode: x.extra.channelCode, agent: x.row.agent,
+    })), ofMonth)
       .map((item) => `${item.channel} (${item.lines}건) — ${item.why}`);
   }
 
@@ -235,15 +245,15 @@ export async function POST(req: Request) {
   const db = getDatabase(firebaseAdminApp());
   if (axis === '공급사') {
     // UI 경고가 아니라 서버에서 다시 원장을 읽어 막는다. 직접 API 호출로 우회할 수 없다.
-    const token = await sheetsToken();
-    if (!token) return NextResponse.json({ ok: false, reason: ledgerError() || '원장을 못 읽었습니다.' }, { status: 503 });
-    const read = await readLedger(token);
+    const read = await listRows();
+    if (!read) return NextResponse.json({ ok: false, reason: storeError() || '원장을 못 읽었습니다.' }, { status: 503 });
     const partyKey = nameKey(party);
     const rows = read.filter((x) => nameKey(x.row.supplier) === partyKey
       && !x.row.cancelled && billingMonth(x.row) === month);
     const confirms = ((await db.ref(CONFIRM_NODE).get().catch(() => null))?.val() || {}) as Record<string, Confirmation>;
-    const gate = providerBillGate(rows.map((x) => ({ channel: x.extra.channel, agent: x.row.agent })),
-      Object.values(confirms).filter((item) => item.month === month));
+    const gate = providerBillGate(rows.map((x) => ({
+      channel: x.extra.channel, channelCode: x.extra.channelCode, agent: x.row.agent,
+    })), Object.values(confirms).filter((item) => item.month === month));
     if (gate.length) {
       return NextResponse.json({
         ok: false,

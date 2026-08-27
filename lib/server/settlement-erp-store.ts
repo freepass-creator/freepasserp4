@@ -68,7 +68,8 @@ export const rowOf = (r: SettlementRecord): SettlementRow => ({
 
 /** 저장 기록 → 화면이 쓰던 곁값. */
 const extraOf = (r: SettlementRecord): LedgerExtra => ({
-  phone: S(r.phone), clawbackReason: S(r.clawbackReason), channel: S(r.channel),
+  phone: S(r.phone), clawbackReason: S(r.clawbackReason),
+  channel: S(r.channel), channelCode: S(r.channelCode),
   contractNo: S(r.contractNo), note: S(r.note),
 });
 

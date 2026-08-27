@@ -21,6 +21,13 @@ const conf = (who: string, state: Confirmation['state'], lines: number): Confirm
   month: '2026-08', axis: '영업채널', who, state, lines, amount: 0, at: Date.now(), by: 'test', note: '',
 });
 const rows = (...chs: string[]) => chs.map((channel) => ({ channel, agent: '' }));
+/** 코드가 박힌 줄 — 「이름:코드」로 적는다. 예) `codeRows('SMC:SP008')` */
+const codeRows = (...spec: string[]) => spec.map((t) => {
+  const [channel, channelCode] = t.split(':');
+  return { channel, channelCode: channelCode || '', agent: '' };
+});
+const codeConf = (who: string, whoCode: string, state: Confirmation['state'], lines: number): Confirmation =>
+  ({ ...conf(who, state, lines), whoCode });
 /** 그 채널이 막혔나 */
 const blocked = (g: ReturnType<typeof providerBillGate>, ch: string) => g.some((x) => x.channel === ch);
 
@@ -56,6 +63,36 @@ ok('★뭉뚱그린 확인 하나로 두 채널이 열리지 않는다',
 const cross = providerBillGate(rows('카핑'), [conf('카핑렌트카', '확인', 1)]);
 ok('★계정 이름이 더 길다고 아무 채널이나 붙지 않는다 — 유일할 때만',
   !blocked(cross, '카핑') || true);   // 이 경우는 유일하므로 붙는 게 맞다. 자리만 남긴다
+
+/**
+ * ★★**코드로 붙이기** — 사장님 2026-08-27 「원장과 코드로 해야지」 「코드를 넣어서 붙이면 되잖아」.
+ *   이름 규칙이 못 하던 것 둘을 여기서 본다 — «안 붙던 것»이 붙고, «잘못 붙던 것»이 안 붙는다.
+ * ⚠ 마지막 하나가 제일 중요하다: **코드를 달았다고 있던 확인이 깨지면 안 된다.**
+ */
+console.log('[★코드로 붙이기]');
+
+// 이름으로는 영원히 안 붙던 짝 — 원장 「SMC」 ↔ 파트너사 「에스엠씨(S.M.C)」. 한글과 영문이라서다.
+const smcName = providerBillGate(rows('SMC'), [conf('에스엠씨(S.M.C)', '확인', 1)]);
+ok('이름으로는 SMC ─ 에스엠씨(S.M.C) 가 안 붙는다 (그래서 코드가 필요했다)', blocked(smcName, 'SMC'));
+
+const smcCode = providerBillGate(codeRows('SMC:SP008'), [codeConf('에스엠씨(S.M.C)', 'SP008', '확인', 1)]);
+ok('★코드가 같으면 이름이 달라도 붙는다', !blocked(smcCode, 'SMC'));
+
+// 이름 규칙이 뚫리던 자리 — 코드가 다르면 이름이 비슷해도 안 붙는다.
+const wrongCode = providerBillGate(codeRows('오토원트:PT-0015'), [codeConf('오토디렉션', 'SP777', '확인', 1)]);
+ok('★코드가 다르면 안 붙는다', blocked(wrongCode, '오토원트'));
+
+// 코드로 붙어도 «건수»는 그대로 본다 — 확인 뒤에 늘면 다시 받아야 한다.
+const grew = providerBillGate(codeRows('SMC:SP008', 'SMC:SP008'), [codeConf('에스엠씨(S.M.C)', 'SP008', '확인', 1)]);
+ok('코드로 붙어도 건이 늘면 재확인', blocked(grew, 'SMC'));
+
+// 코드가 같으면 «한 덩이»로 센다 — 원장에 이름이 두 가지로 적혀 있어도.
+const merged = providerBillGate(codeRows('SMC:SP008', '에스엠씨:SP008'), [codeConf('에스엠씨(S.M.C)', 'SP008', '확인', 2)]);
+ok('★코드가 같으면 이름이 달라도 한 덩이로 센다', merged.length === 0);
+
+// ★★코드를 달았다고 «있던 확인»이 깨지면 안 된다. 옛 확인에는 코드가 없다.
+const legacy = providerBillGate(codeRows('하허호:SP001'), [conf('하허호무심사', '확인', 1)]);
+ok('★코드 없는 옛 확인도 이름으로 계속 붙는다', !blocked(legacy, '하허호'));
 
 console.log(fail.length ? `\n✕ ${fail.length}건 어긋남 — ${fail.join(' / ')}\n` : '\n○ 다 맞음\n');
 process.exit(fail.length ? 1 : 0);

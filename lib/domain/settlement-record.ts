@@ -31,6 +31,17 @@ export type SettlementRecord = {
   model: string;
   supplier: string;
   channel: string;
+  /**
+   * **영업채널 코드.** 사장님 2026-08-27 「원장과 코드로 해야지」.
+   *
+   * ★붙이는 것은 **이 칸**이지 위의 `channel`(이름)이 아니다.
+   *   이름으로 붙이다 세 번 뚫렸다 — 「오토」로 둘이 열리고, 「리더스렌트카」로 「리더스」가 열리고,
+   *   「SMC」는 「에스엠씨(S.M.C)」에 아예 안 붙었다. 자세한 것은 `lib/domain/sales-channel.ts`.
+   * ⚠ **빈칸일 수 있다.** 파트너로 등록 안 된 채널이 있다(실측 2026-08-27: 21곳 중 14곳).
+   *   빈칸이면 옛 방식(이름)으로 붙는다 — 「없다」가 아니라 「아직 모른다」다.
+   * ⚠ 채우는 것은 `scripts/backfill-channel-code.mts`. 손으로 넣지 않는다.
+   */
+  channelCode: string;
   agent: string;
   agentCode: string;
   agentPhone: string;
@@ -122,6 +133,9 @@ export function recordFromSheet(cell: (name: string) => string, opts?: { code?: 
     model: S(cell('모델명')),
     supplier: S(cell('공급사')),
     channel: S(cell('영업채널')),
+    // ★시트에는 코드 칸이 없다. 이름만 옮겨 담고 코드는 «명부를 아는 곳»에서 채운다
+    //   (`scripts/backfill-channel-code.mts`). 여기서 짐작해 넣으면 시트가 정본인 척하게 된다.
+    channelCode: S(cell('영업채널코드')),
     agent: S(cell('영업담당자')),
     agentCode: S(cell('영업자코드')),
     agentPhone: S(cell('영업자연락처')),
@@ -175,7 +189,8 @@ export function normalizeRecord(r: Partial<SettlementRecord>): SettlementRecord 
   const now = Date.now();
   return {
     code: S(r.code) || newId('settlement'),
-    plate: S(r.plate), model: S(r.model), supplier: S(r.supplier), channel: S(r.channel),
+    plate: S(r.plate), model: S(r.model), supplier: S(r.supplier),
+    channel: S(r.channel), channelCode: S(r.channelCode),
     agent: S(r.agent), agentCode: S(r.agentCode), agentPhone: S(r.agentPhone),
     customer: S(r.customer), phone: S(r.phone),
     product: S(r.product), rentKind: S(r.rentKind),

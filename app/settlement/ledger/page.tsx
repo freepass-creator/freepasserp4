@@ -47,6 +47,8 @@ import { Banknote, ClipboardList, ListChecks } from 'lucide-react';
 type Money = { claim: number; claimVat: number; claimTotal: number; pay: number; payVat: number; payTotal: number; margin: number; net: number };
 type Row = {
   plate: string; customer: string; supplier: string; agent: string; channel: string; product: string;
+  /** 영업채널 코드 — 관문이 «이것으로» 붙는다(사장님 2026-08-27 「원장과 코드로 해야지」). 빈칸이면 이름으로. */
+  channelCode: string;
   model: string; term: number; rent: number; price: number; deposit: number; payKind: string;
   receivedAt: string; deliveredAt: string; clawbackAt: string; clawbackAmount: number;
   paper: boolean; delivered: boolean; cancelled: boolean; clawback: boolean;
@@ -618,7 +620,7 @@ export default function SettlementLedgerPage() {
           )}
 
           {gate.map((g) => (
-            <div key={g.channel} style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+            <div key={g.code || g.channel} style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
               <span style={{ minWidth: 128, color: C.ink }}>{g.channel} <span style={{ color: C.mute }}>{g.lines}건</span></span>
               {memoFor === g.channel ? (
                 <>

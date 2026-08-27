@@ -139,7 +139,8 @@ for (const axis of (['영업채널', '공급사'] as const)) {
 
     // ★공급사 청구서는 영업자 실적 확인이 끝나야 나간다.
     const gate = axis === '공급사'
-      ? providerBillGate(mine.map((r) => ({ channel: r.channel, agent: r.agent })), confs)
+      // ★코드를 같이 넘긴다 — 관문은 코드가 있으면 코드로 붙는다(`lib/domain/sales-channel.ts`).
+      ? providerBillGate(mine.map((r) => ({ channel: r.channel, channelCode: r.channelCode, agent: r.agent })), confs)
       : [];
 
     const tag = gate.length ? ' (확인대기)' : '';

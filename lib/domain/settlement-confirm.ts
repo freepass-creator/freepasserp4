@@ -51,6 +51,15 @@ export type Confirmation = {
    *   채널로 두면 그 채널 사람 누구가 확인해도 그 문서가 확인된 것이 된다.
    */
   who: string;
+  /**
+   * **영업채널 코드.** 사장님 2026-08-27 「원장과 코드로 해야지」.
+   *
+   * ★있으면 **이것으로 붙인다.** 이름은 사람이 읽는 용도로만 남는다.
+   *   이름으로 붙이다 세 번 뚫렸다 — 자세한 것은 `lib/domain/sales-channel.ts`.
+   * ⚠ 빈칸일 수 있다. 코드를 달기 전에 남긴 확인, 그리고 파트너 등록이 없는 채널이 그렇다.
+   *   빈칸이면 옛 이름 규칙으로 붙는다 — 그래서 «있던 확인이 갑자기 안 붙는» 일은 없다.
+   */
+  whoCode?: string;
   role: 'agent' | 'provider';
   state: ConfirmState;
   /** 확인 시점의 건수 — 뒤에 건이 늘면 «다시 확인»을 받아야 한다 */
@@ -139,22 +148,31 @@ export function canBill(c: Confirmation | null, nowLines: number): { ok: boolean
  *   ⚠ 검사는 `scripts/check-provider-gate.mts` — «잘못 열리는» 경우 4개가 들어 있다.
  *     이 함수를 고치면 **그것부터 돌린다.**
  */
-export type ProviderBillGateRow = { channel?: unknown; agent?: unknown };
-export type ProviderBillGate = { channel: string; lines: number; why: string };
+export type ProviderBillGateRow = { channel?: unknown; channelCode?: unknown; agent?: unknown };
+export type ProviderBillGate = { channel: string; code: string; lines: number; why: string };
 
 export function providerBillGate(rows: ProviderBillGateRow[], confirmations: Confirmation[]): ProviderBillGate[] {
-  const byChannel = new Map<string, number>();
+  /**
+   * 채널별로 묶는다 — **코드가 있으면 코드로, 없으면 이름으로.**
+   * ★같은 회사가 코드 있는 줄과 없는 줄로 나뉘어 있으면 «두 덩이»가 된다.
+   *   그건 틀린 게 아니라 «아직 덜 채운» 것이다. 백필을 돌리면 하나로 합쳐진다.
+   */
+  const byChannel = new Map<string, { channel: string; code: string; lines: number }>();
   for (const row of rows) {
     // 확인은 채널 단위다. 담당자 이름으로 대신 붙이면 다른 채널 확인을 잘못 통과시킬 수 있다.
     const channel = S(row.channel) || '(영업채널 미기재)';
-    byChannel.set(channel, (byChannel.get(channel) || 0) + 1);
+    const code = S(row.channelCode);
+    const k = code || `이름:${nameKey(channel)}`;
+    const got = byChannel.get(k);
+    if (got) got.lines += 1;
+    else byChannel.set(k, { channel, code, lines: 1 });
   }
 
   const gate: ProviderBillGate[] = [];
-  const channels = [...byChannel.keys()];
-  for (const [channel, lines] of byChannel) {
-    const { ok, why } = canBill(pickConfirmation(channel, confirmations, channels), lines);
-    if (!ok) gate.push({ channel, lines, why });
+  const channels = [...byChannel.values()].map((v) => v.channel);
+  for (const v of byChannel.values()) {
+    const { ok, why } = canBill(pickConfirmation(v.channel, v.code, confirmations, channels), v.lines);
+    if (!ok) gate.push({ channel: v.channel, code: v.code, lines: v.lines, why });
   }
   return gate;
 }
@@ -178,7 +196,21 @@ export function providerBillGate(rows: ProviderBillGateRow[], confirmations: Con
  * ⚠ **유일성을 안 보면** 「리더스렌트카」 확인 하나로 「리더스」까지 열렸다.
  *   앞머리가 겹치는 상대가 실제로 있다(공급사 리더스 · 리더스렌트카).
  */
-function pickConfirmation(channel: string, confirmations: Confirmation[], allChannels: string[]): Confirmation | null {
+function pickConfirmation(
+  channel: string, code: string, confirmations: Confirmation[], allChannels: string[],
+): Confirmation | null {
+  /**
+   * ★★**코드가 먼저다.** 사장님 2026-08-27 「원장과 코드로 해야지」.
+   *   코드끼리 맞는 것이 있으면 이름은 아예 안 본다 — 이름 규칙이 뚫리던 자리가 여기다.
+   * ⚠ 코드가 안 맞았다고 «막지는» 않는다. 코드를 달기 전에 남긴 확인이 있어서다.
+   *   아래 이름 규칙으로 한 번 더 본다 — 그 규칙은 예전 그대로 «유일할 때만» 붙는다.
+   */
+  const byCode = S(code);
+  if (byCode) {
+    const hit = confirmations.find((c) => S(c.whoCode) === byCode);
+    if (hit) return hit;
+  }
+
   const want = nameKey(channel);
   if (!want) return null;
 

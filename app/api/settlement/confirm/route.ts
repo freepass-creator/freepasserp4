@@ -32,6 +32,7 @@ import { NextResponse } from 'next/server';
 import { getDatabase } from 'firebase-admin/database';
 import { firebaseAdminApp, verifyActiveBearer } from '@/lib/server/firebase-admin';
 import { ledgerError, readLedger, sheetsToken } from '@/lib/server/settlement-ledger-read';
+import { listRows, storeError } from '@/lib/server/settlement-store';
 import { billingMonth } from '@/lib/domain/settlement-stage';
 import { nameKey, scopeRows, type Viewer } from '@/lib/domain/settlement-view';
 import { confirmKey, type ConfirmState, type Confirmation } from '@/lib/domain/settlement-confirm';
@@ -105,15 +106,18 @@ async function myLines(month: string, viewer: Viewer): Promise<number> {
  * ★대리로 적을 수 있는 곳은 **여기 있는 이름까지**다 — 원장이 곧 명부다.
  * @returns 채널→건수. 원장을 못 읽으면 null
  */
-async function channelsOfMonth(month: string): Promise<Map<string, number> | null> {
-  const token = await sheetsToken();
-  if (!token) return null;
-  const read = await readLedger(token);
-  const out = new Map<string, number>();
+async function channelsOfMonth(month: string): Promise<Map<string, { code: string; lines: number }> | null> {
+  const read = await listRows();
+  if (!read) return null;
+  const out = new Map<string, { code: string; lines: number }>();
   for (const x of read) {
     if (x.row.cancelled || billingMonth(x.row) !== month) continue;
     const ch = S(x.extra.channel);
-    if (ch) out.set(ch, (out.get(ch) || 0) + 1);
+    if (!ch) continue;
+    const got = out.get(ch);
+    // ★코드는 «있는 것»을 남긴다. 같은 이름인데 어떤 줄만 코드가 차 있을 수 있다(백필 전).
+    if (got) { got.lines += 1; if (!got.code) got.code = S(x.extra.channelCode); }
+    else out.set(ch, { code: S(x.extra.channelCode), lines: 1 });
   }
   return out;
 }
@@ -136,7 +140,7 @@ async function writeProxy(
   }
 
   const chans = await channelsOfMonth(month);
-  if (!chans) return NextResponse.json({ ok: false, reason: ledgerError() || '원장을 못 읽었습니다.' }, { status: 503 });
+  if (!chans) return NextResponse.json({ ok: false, reason: storeError() || '원장을 못 읽었습니다.' }, { status: 503 });
   // ★원장에 있는 이름 그대로만 받는다. 오타는 «아무 문도 안 여는» 확인을 만든다.
   const hit = [...chans.keys()].find((c) => nameKey(c) === nameKey(who));
   if (!hit) {
@@ -152,7 +156,9 @@ async function writeProxy(
     key: confirmKey(month, hit),
     month, who: hit, role: 'agent',
     state,
-    lines: chans.get(hit) || 0,
+    // ★코드를 같이 박는다 — 이 확인이 다음부터 «코드로» 붙는다(사장님 2026-08-27).
+    whoCode: chans.get(hit)?.code || '',
+    lines: chans.get(hit)?.lines || 0,
     disputed: body.disputed.map(S).filter(Boolean).slice(0, 200),
     note: note.slice(0, 500),
     at: Date.now(),

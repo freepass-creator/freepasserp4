@@ -18,6 +18,7 @@ import { getDatabase } from 'firebase-admin/database';
 import { billingMonth, type SettlementRow } from '../lib/domain/settlement-stage';
 import { normalizeRecord, type SettlementRecord } from '../lib/domain/settlement-record';
 import { confirmKey, confirmLabel, providerBillGate, type Confirmation } from '../lib/domain/settlement-confirm';
+import { nameKey } from '../lib/domain/settlement-view';
 
 const MONTH = (process.argv.find((a) => /^\d{4}-\d{2}$/.test(a)) || '2026-08').trim();
 const S = (v: unknown) => String(v ?? '').trim();
@@ -41,8 +42,15 @@ const confs = (Object.values((await db.ref(NODE).get().catch(() => null))?.val()
 /** 공급사별로 관문을 세운다 — 정산서 뽑는 스크립트와 «같은 계산»이다. */
 const suppliers = [...new Set(live.map((r) => S(r.supplier)).filter(Boolean))];
 const gateOf = (cs: Confirmation[]) => suppliers.filter((sup) => providerBillGate(
-  live.filter((r) => S(r.supplier) === sup).map((r) => ({ channel: r.channel, agent: r.agent })), cs,
+  live.filter((r) => S(r.supplier) === sup).map((r) => ({ channel: r.channel, channelCode: r.channelCode, agent: r.agent })), cs,
 ).length > 0);
+
+/** 코드 → 파트너사 정식 상호. 이름이 어긋나는 짝을 고르는 데 쓴다. */
+const v4p = ((await db.ref('v4/partners').get()).val() || {}) as Record<string, Record<string, unknown>>;
+const legalOf = (code: string) => {
+  const p = v4p[code] || Object.values(v4p).find((x) => S(x.partner_code) === code) || {};
+  return S(p.name) || S(p.partner_name) || S(p.company_name) || code;
+};
 
 const blockedBefore = gateOf(confs);
 const channels = [...new Set(live.map((r) => S(r.channel)).filter(Boolean))];
@@ -84,6 +92,52 @@ try {
   const gone = (await db.ref(`${NODE}/${key}`).get()).val();
   if (gone) { bad++; console.log('  치우기          ⛔ 시험 기록이 안 지워졌습니다 — 손으로 지우세요'); }
   else console.log('  치우기          ○ 시험 기록 지움');
+}
+
+/**
+ * ★★**코드로만 열리는 경우** — 사장님 2026-08-27 「원장과 코드로 해야지」.
+ *
+ * 원장 「SMC」 ↔ 파트너사 「에스엠씨(S.M.C)」 는 이름 규칙으로 «영원히 안 붙는다».
+ * 그래서 상호를 그대로 적은 확인을 넣고, **코드가 없으면 안 열리고 코드가 있으면 열리는지**
+ * 둘 다 본다. 하나만 보면 「원래 열리는 것 아니냐」를 못 가른다.
+ */
+const codeCh = [...new Set(live.map((r) => S(r.channel)).filter(Boolean))]
+  .map((c) => ({ c, code: S(live.find((r) => S(r.channel) === c)?.channelCode), n: live.filter((r) => S(r.channel) === c).length }))
+  // ★«이름 규칙으로 못 붙는» 짝만 고른다. 앞머리로 붙는 짝(하허호 ─ 하허호무심사)을 고르면
+  //   코드 없이도 열려서 시험이 아무것도 안 가른다.
+  .filter((x) => {
+    const w = nameKey(x.c); const g = nameKey(legalOf(x.code));
+    return !!x.code && !!w && !!g && !w.startsWith(g) && !g.startsWith(w);
+  })
+  .sort((a, b) => b.n - a.n)[0];
+
+if (!codeCh) {
+  console.log('  코드 시험        — 건너뜀 (이름이 어긋나는 채널이 이 달에 없습니다)');
+} else {
+  const legal = legalOf(codeCh.code);
+  const ck = confirmKey(MONTH, `코드시험${codeCh.code}`);
+  const base = {
+    key: ck, month: MONTH, who: legal, role: 'agent' as const, state: '확인' as const,
+    lines: codeCh.n, disputed: [], note: '검사용 — 곧 지웁니다',
+    at: Date.now(), by: 'check-confirm-proxy', proxy: true, proxyBy: '검사',
+  };
+  /**
+   * ★**«이 채널이 관문에 남아 있나»로 본다.** 「공급사가 열렸나」로 보면 안 된다 —
+   *   한 공급사는 여러 채널이 막고 있어서, 한 곳을 풀어도 다른 곳이 계속 막는다.
+   *   실측 2026-08: SMC 를 풀어도 손오공·우리캐피탈은 하허호가 계속 막는다.
+   */
+  const stuck = (cs: Confirmation[]) => providerBillGate(
+    live.map((r) => ({ channel: r.channel, channelCode: r.channelCode, agent: r.agent })), cs,
+  ).some((g) => g.channel === codeCh.c);
+  // ① 코드 «없이» — 이름이 안 맞으니 그대로 막혀 있어야 한다
+  const noCode = stuck([...confs, base as Confirmation]);
+  // ② 코드 «있게» — 이름이 달라도 풀려야 한다
+  const stillStuck = stuck([...confs, { ...base, whoCode: codeCh.code } as Confirmation]);
+  console.log(`\n  코드 시험        「${codeCh.c}」 ↔ 「${legal}」 (${codeCh.code}) · ${codeCh.n}건`);
+  console.log(`   코드 없으면      ${noCode ? '○ 그대로 막힙니다 (이름이 안 맞으니 당연)' : '⛔ 이름으로 열렸습니다 — 시험이 뜻이 없습니다'}`);
+  if (!noCode) bad++;
+  console.log(`   코드 있으면      ${stillStuck ? '⛔ 코드가 있는데도 안 풀립니다' : '○ 풀립니다 — 이름이 달라도 코드로 붙었습니다'}`);
+  if (stillStuck) bad++;
 }
 
 const back2 = gateOf(confs);

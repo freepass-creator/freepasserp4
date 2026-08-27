@@ -76,7 +76,16 @@ export async function sheetsToken(): Promise<string> {
 }
 
 /** 원장에만 있고 판정에 안 쓰는 칸 — 관리자 화면이 그대로 보여 준다. */
-export type LedgerExtra = { phone: string; clawbackReason: string; channel: string; contractNo: string; note: string };
+/**
+ * 줄에 딸려 오는 것들 — 규칙이 안 쓰지만 사람이 보는 값.
+ * ★`channelCode` 는 **붙이는 데 쓴다**(사장님 2026-08-27 「원장과 코드로 해야지」).
+ *   이름(`channel`)은 사람이 읽는 용도다. 코드가 비면 옛 이름 규칙으로 붙는다.
+ */
+export type LedgerExtra = {
+  phone: string; clawbackReason: string;
+  channel: string; channelCode: string;
+  contractNo: string; note: string;
+};
 
 /**
  * 네 탭을 읽어 한 줄씩 타입으로 옮겨 담는다.
@@ -115,7 +124,10 @@ export async function readLedger(token: string): Promise<{ row: SettlementRow; t
         },
         extra: {
           phone: S(r[at('고객연락처')]), clawbackReason: S(r[at('환수사유')]),
-          channel: S(r[at('영업채널')]), contractNo: S(r[at('계약번호')]), note: S(r[at('비고')]),
+          // ⚠ 시트에는 코드 칸이 «아직 없다» — 있으면 읽고 없으면 빈칸이다.
+          //   비어도 관문은 이름으로 붙는다. 정본(ERP)에는 백필로 채워 둔다.
+          channel: S(r[at('영업채널')]), channelCode: S(r[at('영업채널코드')]),
+          contractNo: S(r[at('계약번호')]), note: S(r[at('비고')]),
         },
       });
     }
