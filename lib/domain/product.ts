@@ -1025,8 +1025,16 @@ export function detailSections(p: EntityRecord, audience: Audience = 'agent'): D
     otherRows.push(
       ['차령 · 차대', g([pv('vehicle_age_expiry_date') && `만료 ${ymdDisplay(pv('vehicle_age_expiry_date'))}`, pv('vin')])],
       ['등록증', g([pv('transmission'), pv('cert_car_name'), pv('type_number'), pv('engine_type')])],
+      /**
+       * ★**「상품」 줄은 없앴다**(사장님 2026-08-07 「상품 중복됐던 건 아예 정보가 없어도 되지 ·
+       *   위에 차량번호 같은 거 다 있는데」). product_code 는 대부분 `RP014_188호3065` 처럼
+       *   **공급사코드 + 차량번호를 붙인 것**이라, 위 차량스펙의 「차량번호」와 같은 말을 두 번 한다.
+       *   기계가 매물을 세는 열쇠지 사람이 읽는 값이 아니다 — 진단이 필요하면 URL·개발도구에 있다.
+       *
+       * 정책은 남긴다. 단 **관리자만** — 영업자·손님에겐 코드가 필요 없다(사장님 같은 날
+       * 「정책코드도 영업자나 손님은 볼 필요 없다」). 이 블록 전체가 `isAdmin` 안이라 이미 그렇다.
+       */
       ['정책', g([String(pol.policy_name ?? p.policy_name ?? ''), String(pol.policy_code ?? p.policy_code ?? ''), String(pol.policy_type ?? '')])],
-      ['상품', g([pv('product_code'), String(p._key ?? '')])],
     );
   }
 
