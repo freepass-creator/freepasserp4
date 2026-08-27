@@ -173,6 +173,12 @@ if (book.막힌장) {
 console.log();
 
 console.log(`■ ${made.length * 2}개 파일 → ${OUT}/`);
+// ★PDF 는 «나가는 종이»다. 여기서 같이 굽는다 — 따로 돌리게 두면 HTML 만 고치고 PDF 는 옛것이 남는다.
+//   ⚠ 브라우저를 띄우므로 몇 초 걸린다. 안 굽고 싶으면 --no-pdf.
+if (!process.argv.includes('--no-pdf')) {
+  const r = spawnSync('node', ['scripts/invoice-pdf.mjs', OUT], { stdio: 'inherit', shell: false });
+  if (r.status) console.log('⚠ PDF 굽기가 실패했습니다 — HTML 은 그대로 있습니다.');
+}
 if (missing.size) {
   console.log(`\n★발송 전 채워야 할 것 ${missing.size}가지`);
   for (const m of [...missing].sort()) console.log(`   ${m}`);
