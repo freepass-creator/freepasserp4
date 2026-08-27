@@ -5,7 +5,7 @@ import { Wallet, UserRound, Briefcase, ShieldCheck, Sparkles, Coins, FileCheck, 
 import { type EntityRecord } from '@/lib/intake/entities';
 import { benefitSignals, eventSignals } from '@/lib/domain/product';
 import { C, FW, FS, ICON } from '@/components/ui';
-import { toneText } from '@/components/ui/badges';
+import { toneText, CREDIT_TONE } from '@/components/ui/badges';
 import { benefitTip } from '@/components/product-card-badges';
 
 /**
@@ -37,9 +37,14 @@ function benefitIcon(key: string): LucideIcon {
  * 다섯 색이어도 면이 시끄러워지지 않는다.
  * (면·머리띠 색 규칙은 docs/DESIGN_COLOR_LADDER.md — 그쪽은 네이비 하나. 여기는 그림 틴트라 별개다.)
  */
-function benefitIconColor(key: string): string {
-  // 심사는 «혜택»이 아니라 «관문»이라 먹색 — 옆의 다섯 색과 섞이지 않게 색을 안 준다.
-  if (key === 'cd') return C.ink;
+function benefitIconColor(key: string, label?: string): string {
+  /*
+   * 심사도 **다른 우대조건과 똑같이** 아이콘에 색이 든다(사장님 2026-08-28 「심사조건도 동일하게
+   * 해야지 · 아이콘 텍스트 구조로」). 한 번 먹색으로 따로 세웠다가 되돌렸다 — 한 줄에 서는 값인데
+   * 혼자 흑백이면 «다른 종류»로 읽힌다.
+   * 색은 이미 있는 SSOT(CREDIT_TONE — 무심사 초록 · 그 밖 amber)를 쓴다. 여기서 새로 정하지 않는다.
+   */
+  if (key === 'cd') return toneText(CREDIT_TONE(String(label || '')));
   if (key === 'ins') return toneText('teal');
   if (key === 'nd') return toneText('purple');
   if (key === 'age') return toneText('blue');
@@ -121,7 +126,7 @@ export function CardBenefits({ p, dense, clamp, inline, withCredit }: {
           text={s.label}
           size={ICON.sm}
           strong
-          iconColor={benefitIconColor(s.key)}
+          iconColor={benefitIconColor(s.key, s.label)}
           title={benefitTip(s.key, s.label)}
         />
       ))}
@@ -145,7 +150,7 @@ export function CardEvents({ p, dense, clamp, inline }: {
           text={s.label}
           size={ico}
           strong
-          iconColor={benefitIconColor(s.key)}
+          iconColor={benefitIconColor(s.key, s.label)}
           title={`이벤트: ${s.label}`}
         />
       ))}
@@ -185,7 +190,7 @@ export function CardPerkLine({ p, dense, inline, withCredit }: {
           text={s.label}
           size={ICON.sm}
           strong
-          iconColor={benefitIconColor(s.key)}
+          iconColor={benefitIconColor(s.key, s.label)}
           title={benefitTip(s.key, s.label)}
         />
       ))}
