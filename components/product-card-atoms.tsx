@@ -13,12 +13,12 @@ import { kmDisplay } from '@/lib/format';
 import { fuelDisplay } from '@/lib/domain/vehicle-master-match';
 export { productOptions, OptionChips, OptionsInline } from '@/components/product-card-options';
 import {
-  badgeTip, badgeSpecs, photoMarkSpecs, LOWER_BADGE_KEYS, LOWER_BADGE_KEYS_MOBILE,
+  badgeTip, badgeSpecs, photoMarkSpecs, HEAD_BADGE_KEYS,
   type BadgeSpec,
 } from '@/components/product-card-badges';
 import { toneAccent, type BadgeTone } from '@/components/ui/badges';
 export {
-  CarGlyph, badgeTip, benefitTip, badgeSpecs, photoMarkSpecs, badges, BadgesClip, LOWER_BADGE_KEYS, LOWER_BADGE_KEYS_MOBILE,
+  CarGlyph, badgeTip, benefitTip, badgeSpecs, photoMarkSpecs, badges, BadgesClip, HEAD_BADGE_KEYS,
   type BadgeSpec,
 } from '@/components/product-card-badges';
 export { PriceMini, PriceFare } from '@/components/product-card-fares';
@@ -168,16 +168,11 @@ export function CardThumb({ p, audience = 'agent', fill, w, h, heart = false, ma
       borderRadius: R, background: C.placeholder, overflow: 'hidden',
     };
 
-  /*
-   * 사진 우하 바 = **하단 뱃지**. 차례는 `LOWER_BADGE_KEYS` 가 정한다 — 심사가 맨 앞이다.
-   * 모바일은 심사 하나만 세운다(상품구분·차량상태는 상세에서 본다).
-   * ⚠ `hideCredit` 을 켜면 심사 자체가 안 만들어진다 — 그래서 false 로 부른다.
-   */
+  // 간단 = CORE 3 동일 취급. 우하 가로(출고→상품→심사).
   const coreSpecs = coreBadges
     ? (() => {
-        const by = new Map(badgeSpecs(p, false, false, audience).map((s) => [s.key, s]));
-        const order = mobile ? LOWER_BADGE_KEYS_MOBILE : LOWER_BADGE_KEYS;
-        return order.map((k) => by.get(k)).filter(Boolean) as BadgeSpec[];
+        const by = new Map(badgeSpecs(p, true, false, audience).map((s) => [s.key, s]));
+        return HEAD_BADGE_KEYS.map((k) => by.get(k)).filter(Boolean) as BadgeSpec[];
       })()
     : [];
 
