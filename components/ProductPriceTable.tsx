@@ -154,7 +154,19 @@ export function ProductPriceTable({ p, title = '대여료조건', hint, tone }: 
               borderTop: `2px solid ${C.lineStrong}`, letterSpacing: '-0.01em',
             }}>
               인수형
-              <span style={{ marginLeft: 6, fontSize: FS.cap, fontWeight: FW.meta, color: C.mute }}>만기 인수 조건</span>
+              {/*
+                ★**인수형이 무엇인지 한 줄로 적는다**(사장님 2026-08-28 「인수형은 만기에 보증금만큼을
+                  입금하고 차를 가져가는 거야 · 보증금 상계 후 10% 추가결제 후 인수」).
+                  「만기 인수 조건」이라고만 쓰면 영업자가 «만기에 그냥 가져간다»로 읽는다 —
+                  실제로는 만기에 돈이 더 나간다. 그걸 안 말하면 손님과 다툼이 된다.
+
+                ⚠ 10% 는 지금 **코드에 박혀 있다.** 공급사마다 다르면 그때 정책 칸으로 옮긴다
+                  (`policy-tier` 에 인수 관련은 `buyout_notice_days` 뿐이고 요율 칸이 아직 없다).
+                  차마다 다른 값을 코드가 지어내면 그게 곧 거짓말이 된다 — 오플 주행 약정에서 겪었다.
+              */}
+              <span style={{ marginLeft: 6, fontSize: FS.cap, fontWeight: FW.meta, color: C.mute }}>
+                만기 시 보증금 상계 + 10% 추가결제 후 인수
+              </span>
             </th>
           </tr>,
           ...acq.map((pr, i) => row(pr, i, false)),

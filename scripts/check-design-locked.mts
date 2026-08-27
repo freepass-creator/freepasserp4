@@ -68,6 +68,9 @@ must(/const split = ret\.length > 0 && acq\.length > 0/.test(priceTable)
   && /<tr key="g-acq">/.test(priceTable),
   '대여료표에서 인수형 갈래 줄이 사라졌습니다.',
   'components/ProductPriceTable.tsx');
+must(/보증금 상계/.test(priceTable),
+  '인수형 설명이 사라졌습니다. 「만기 인수 조건」만 쓰면 만기에 돈이 더 나가는 것을 안 말하게 됩니다.',
+  'components/ProductPriceTable.tsx');
 must(!/groupHead/.test(priceTable),
   '반납형에까지 이름표를 붙이는 옛 구조가 돌아왔습니다. 반납형은 기본이라 이름표가 없습니다.',
   'components/ProductPriceTable.tsx');
