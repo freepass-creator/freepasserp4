@@ -7,7 +7,7 @@
  * ```
  * 말일    마감      그 달 인도분을 닫는다. 아직 안 끝난 달은 «누락»이 아니다
  * 3일     청구      다음 달 3일쯤 청구서가 나간다
- * 10일    입금      다음 달 10일까지 받는다  ← 종이에 찍히는 기한
+ * 10일    결제      다음 달 10일까지 받는다  ← 종이에 찍히는 날
  * ```
  *
  * ★**여기 말고 다른 데 날짜를 적지 마라.** 종이(정산서)와 알림(할 일)이 같은 숫자를
@@ -19,7 +19,7 @@
 
 /** 청구서가 나가는 날 — 다음 달 며칠 */
 export const BILL_DAY = 3;
-/** 입금 기한 — 다음 달 며칠 */
+/** 결제일 — 다음 달 며칠. ★「기한」이라 부르지 않는다 — 밀린 사람한테 쓰는 말이다. */
 export const DUE_DAY = 10;
 
 const YM = /^(\d{4})-(\d{2})$/;
@@ -30,7 +30,7 @@ export function billDate(month: string): Date | null {
   return x ? new Date(Number(x[1]), Number(x[2]), BILL_DAY) : null;
 }
 
-/** 정산월 `2026-08` → 입금 기한 `2026-09-10` */
+/** 정산월 `2026-08` → 결제일 `2026-09-10` */
 export function dueDate(month: string): Date | null {
   const x = YM.exec(String(month ?? '').trim());
   return x ? new Date(Number(x[1]), Number(x[2]), DUE_DAY) : null;

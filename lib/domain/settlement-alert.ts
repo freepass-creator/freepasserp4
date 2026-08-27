@@ -153,7 +153,7 @@ export function alertsOf(r: SettlementRow, ctx: AlertContext): Alert[] {
             ? `지난 달 인도분 — 청구일(${BILL_DAY}일)이 지났다`
             : `지난 달 인도분 — ${BILL_DAY}일에 청구한다`,
           todo: late
-            ? `영업자 확인을 받고 지금 발행하세요. 입금 기한은 ${DUE_DAY}일입니다.`
+            ? `영업자 확인을 받고 지금 발행하세요. 결제일은 ${DUE_DAY}일입니다.`
             : `영업자 확인을 미리 받아 두세요. ${BILL_DAY}일에 나갑니다.`,
         }
         : {

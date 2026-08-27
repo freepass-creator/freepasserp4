@@ -141,7 +141,7 @@ const period = (m: string) => {
 };
 
 /**
- * **입금 기한** — 날짜는 `settlement-cycle` 에서 온다. 여기서 정하지 않는다.
+ * **결제일** — 날짜는 `settlement-cycle` 에서 온다. 여기서 정하지 않는다.
  *
  * ★청구서인데 「언제까지 넣으세요」가 없었다. 받는 쪽이 제일 먼저 묻는 게 그건데
  *   종이가 답을 안 했다. 금액·계좌만 있고 기한이 없으면 «언젠가»가 된다.
@@ -193,10 +193,10 @@ const ico = (k: keyof typeof ICO | string) => `<svg class="i" viewBox="0 0 24 24
  *   그때마다 한 장에 들어가는 줄이 줄었다. 고치고 나면 «반드시» 넘침 검사를 돌린다.
  * ⚠ 간격·글자크기를 건드리면 이 숫자가 다 흔들린다. 반드시 넘침 검사를 다시 돌린다.
  */
-const CAP_SOLO = 9;
+const CAP_SOLO = 10;
 const CAP_FIRST = 14;
 const CAP_MID = 18;
-const CAP_LAST = 13;
+const CAP_LAST = 14;
 
 /**
  * 줄을 장으로 자른다.
@@ -367,21 +367,32 @@ export const INVOICE_CSS = `
      ⇒ 맞다. 가로 표는 «같은 종류»를 늘어놓을 때 쓰는 것이다(금액 셋, 차량 여섯 줄).
        계좌·담당·연락처는 종류가 제각각이라 가로로 세우면 머리글이 서로 상관없는 말이 된다.
        세로면 «칸이 늘어도» 표가 안 깨진다 — 나중에 문의 시간이든 뭐든 한 줄 더 붙이면 그만이다. */
-  .vtab { width:100%; border-collapse:separate; border-spacing:0; }
   /* ★가로 표를 «눕힌 것». 머리줄이 머리열이 될 뿐, 색·글자·여백은 위 표 그대로다.
-     (사장님 2026-08-27 「표 규격 위에랑 좀 맞춰라」) */
-  .vtab th, .vtab td { padding:var(--cell); text-align:left; border-bottom:1px solid #edf0f4; }
-  .vtab th { width:118px; background:var(--tl); color:#fff; font-size:10.5px; font-weight:700;
-    white-space:nowrap; border-bottom:0; }
-  .vtab tr:first-child th { background:var(--tl-d); border-top-left-radius:var(--r-box); }
+     (사장님 2026-08-27 「표 규격 위에랑 좀 맞춰라」)
+     ★한 줄에 «두 쌍»을 앉힌다 — 값이 짧아 한 쌍만 두면 오른쪽이 텅 빈다
+     (사장님 2026-08-27 「여기 많이 남잖아」). 줄도 여섯에서 셋으로 준다. */
+  .vtab { width:100%; border-collapse:separate; border-spacing:0; table-layout:fixed; }
+  .vtab th, .vtab td { padding:var(--cell); text-align:left; }
+  .vtab th { width:88px; background:var(--tl); color:#fff; font-size:10.5px; font-weight:700;
+    white-space:nowrap; }
   .vtab td { background:#fff; color:var(--ink); font-size:12px; font-weight:600;
-    border-right:1px solid var(--ln); }
-  .vtab tr:first-child td { border-top:1px solid var(--ln); border-top-right-radius:var(--r-box); }
-  .vtab tr:last-child th { border-bottom-left-radius:var(--r-box); }
-  .vtab tr:last-child td { border-bottom:1px solid var(--ln); border-bottom-right-radius:var(--r-box); }
+    border-right:1px solid var(--ln); border-bottom:1px solid #edf0f4; }
+  .vtab tr:first-child th { background:var(--tl-d); }
+  .vtab tr:first-child td { border-top:1px solid var(--ln); }
+  .vtab tr:last-child td { border-bottom:1px solid var(--ln); }
+  .vtab tr:first-child th:first-child { border-top-left-radius:var(--r-box); }
+  .vtab tr:first-child td:last-child { border-top-right-radius:var(--r-box); }
+  .vtab tr:last-child th:first-child { border-bottom-left-radius:var(--r-box); }
+  .vtab tr:last-child td:last-child { border-bottom-right-radius:var(--r-box); }
   .vtab td.mono { font-variant-numeric:tabular-nums; letter-spacing:-.1px; }
-  /* ★기한은 이 칸에서 제일 먼저 눈에 들어와야 한다 — 받는 쪽이 제일 먼저 찾는 값이다. */
+  /* ★결제일은 이 칸에서 제일 먼저 눈에 들어와야 한다 — 받는 쪽이 제일 먼저 찾는 값이다.
+     ⚠ 「기한」이라 부르지 않는다. 밀린 사람한테 쓰는 말이라 회원사에 보낼 종이엔 안 맞는다
+       (사장님 2026-08-27 「입금 기한 이라고 하면 좀 그러니까」 · 「부탁조로 해야지」). */
   .vtab td.due { color:var(--tl-d); font-size:13px; font-weight:800; letter-spacing:-.2px; }
+  .vtab td.due em { font-style:normal; color:var(--mut); font-size:10.5px; font-weight:500; margin-left:6px;
+    letter-spacing:0; }
+  /* 계산서 줄에 붙는 단서 — 꼬리에 두면 아무도 안 읽는다. */
+  .vtab td em.cav { font-style:normal; color:var(--faint); font-size:10px; font-weight:500; margin-left:10px; }
 
   /* 한 줄 짜리 — 회원사·계좌. 표로 만들 만큼의 내용이 아니다. */
   .ctab td { font-variant-numeric:tabular-nums; }
@@ -457,9 +468,12 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
 `;
 
   /**
-   * 꼬리 — **회사 정보만.** 사장님 2026-08-27 「하단은 그냥 회사 정보인거고」.
-   *   계좌·담당·연락처는 «이 건을 처리할 때 쓰는 정보»라 본문 섹션(입금·문의)에 있다.
-   *   여기는 «누가 발행했나» — 상호·사업자번호·대표·주소. 쓰임이 다르니 자리도 다르다.
+   * 꼬리 — **회사 정보 · 홈페이지 · ERP 주소만.** 사장님 2026-08-27
+   *   「하단은 그냥 회사정보, 홈피, erp주소만 있으면 되고」.
+   *   계좌·담당·연락처는 «이 건을 처리할 때 쓰는 정보»라 본문 「청구 안내」에 있다.
+   *   여기는 «누가 발행했나»와 «어디로 찾아오나». 쓰임이 다르니 자리도 다르다.
+   * ★안내 문구(「세금계산서를 대신하지 않습니다」)도 본문으로 올렸다 —
+   *   꼬리에 있으면 아무도 안 읽는다. 계산서 줄 «옆»에 붙어 있어야 뜻이 산다.
    * ⚠ 지급명세서면 본문 계좌가 «상대» 것이다. 꼬리(우리 정보)와 섞지 않는다.
    */
   const foot = (page: number) => `
@@ -467,7 +481,7 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
     <div>
       <span class="nm">${esc(CORP.name)}</span>  사업자등록번호 <b>${esc(CORP.bizNo)}</b>  ·  대표 <b>${esc(CORP.ceo)}</b><br>
       ${esc(CORP.addr)}<br>
-      본 정산서는 정산원장을 기준으로 산출되었으며 세금계산서를 대신하지 않습니다.
+      ${esc(CORP.web)}  ·  ${esc(CORP.erp)}
     </div>
     <div class="pg">${pages.length > 1 ? `${page + 1} / ${pages.length}` : ''}</div>
   </div>`;
@@ -542,19 +556,31 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
   <div class="sec">
     <div class="sec-h">${ico('계좌')}${claim ? '청구 안내' : '지급 안내'}</div>
     <table class="vtab">
+      <colgroup><col style="width:82px"><col style="width:34%"><col style="width:82px"><col></colgroup>
       <tbody>
-        <tr><th>${claim ? '입금 기한' : '지급 예정일'}</th><td class="mono due">${esc(dueDay(inv.month))}</td></tr>
-        <tr><th>${claim ? '입금 계좌' : '지급 계좌'}</th><td class="mono">${shown(accText)}</td></tr>
-        <!-- ★계산서를 «누가» 끊는지 종이가 말해야 한다.
-             우리가 받는 쪽(청구서)이면 용역을 준 게 우리라 우리가 끊는다.
-             우리가 주는 쪽(지급명세서)이면 상대가 끊어 줘야 우리가 지급한다 —
-             이 한 줄이 없으면 「계산서 언제 주냐」로 전화가 온다. -->
-        <tr><th>세금계산서</th><td>${
-    claim ? '위 금액으로 별도 발행해 드립니다' : '위 금액으로 발행해 주시기 바랍니다'
-  }</td></tr>
-        <tr><th>담당</th><td>${esc(CORP.staff)}</td></tr>
-        <tr><th>연락처</th><td class="mono">${esc(CORP.phone)}</td></tr>
-        <tr><th>이메일</th><td>${esc(CORP.email)}</td></tr>
+        <tr>
+          <th>${claim ? '입금 요청일' : '지급 예정일'}</th>
+          <td class="mono due">${esc(dueDay(inv.month))}<em>${claim ? '까지' : ''}</em></td>
+          <th>${claim ? '입금 계좌' : '지급 계좌'}</th><td class="mono">${shown(accText)}</td>
+        </tr>
+        <tr>
+          <th>담당</th><td>${esc(CORP.staff)}</td>
+          <th>연락처</th><td class="mono">${esc(S(CORP.staffPhone) || CORP.phone)}</td>
+        </tr>
+        <tr>
+          <th>이메일</th><td>${esc(CORP.email)}</td>
+          <th>팩스</th><td class="mono">${shown(CORP.fax)}</td>
+        </tr>
+        <tr>
+          <!-- ★계산서를 «누가» 끊는지 종이가 말해야 한다.
+               우리가 받는 쪽(청구서)이면 용역을 준 게 우리라 우리가 끊는다.
+               우리가 주는 쪽(지급명세서)이면 상대가 끊어 줘야 우리가 지급한다 —
+               이 한 줄이 없으면 「계산서 언제 주냐」로 전화가 온다. -->
+          <th>세금계산서</th>
+          <td colspan="3">${
+    claim ? '위 금액으로 별도 발행해 드립니다' : '위 금액으로 발행 부탁드립니다'
+  }<em class="cav">본 정산서는 정산원장을 기준으로 산출되었으며 세금계산서를 대신하지 않습니다</em></td>
+        </tr>
       </tbody>
     </table>
   </div>
