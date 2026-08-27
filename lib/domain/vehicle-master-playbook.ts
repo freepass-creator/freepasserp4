@@ -23,7 +23,7 @@ export const VEHICLE_MASTER_WRITE_ONLY = [
 /** 아무 AI나 호출해도 된다 — 값을 새로 만들지 않고 책을 읽는다. */
 export const VEHICLE_MASTER_READ_API = [
   'snapToMaster (lib/domain/vehicle-master-match.ts)',
-  'fill-supplier-ai-columns — 정제칸에 책 글자를 박는다(키를 안 만든다)',
+  'fill-supplier-from-encar-sheet — 엔카 작업 시트로 정제칸(키를 안 만든다)',
   'stamp-encar-codes-on-supplier — M/SM/T 만(이름과 같을 때)',
   'pickConfirmedMasterCode — 이미 있는 mf- 를 고른다',
   'check-vehicle-master-lock · verify-master-pass',

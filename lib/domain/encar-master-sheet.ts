@@ -19,6 +19,26 @@ export type EncarMasterPayload = { headers: string[]; values: (string | number)[
 const S = (v: unknown) => String(v ?? '').trim();
 const norm = (v: unknown) => S(v).replace(/\s+/g, '');
 
+export async function loadEncarWorkSheetGrids(
+  call: (url: string) => Promise<Record<string, unknown>>,
+): Promise<{ names: unknown[][]; specs: unknown[][]; batteries: unknown[][] }> {
+  assertNotLiveVehicleMasterWrite(ENCAR_MASTER_SHEET_ID, 'treat as live master');
+  const a1 = (tab: string) => `'${tab.replace(/'/g, "''")}'`;
+  const qs = [ENCAR_MASTER_TAB, ENCAR_SPEC_TAB, ENCAR_BATTERY_TAB]
+    .map((t) => `ranges=${encodeURIComponent(`${a1(t)}!A1:Z5000`)}`)
+    .join('&');
+  const got = await call(
+    `https://sheets.googleapis.com/v4/spreadsheets/${ENCAR_MASTER_SHEET_ID}/values:batchGet?${qs}&majorDimension=ROWS`,
+  ) as { valueRanges?: { values?: unknown[][] }[] };
+  const wr = got.valueRanges || [];
+  if (wr.length < 3) throw new Error(`엔카 작업 시트 탭을 못 읽음 (${wr.length})`);
+  return {
+    names: wr[0]?.values || [],
+    specs: wr[1]?.values || [],
+    batteries: wr[2]?.values || [],
+  };
+}
+
 export async function loadEncarMasterPayload(
   call: (url: string) => Promise<Record<string, unknown>>,
 ): Promise<EncarMasterPayload> {

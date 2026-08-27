@@ -11,7 +11,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { isLegacySheetId } from '../lib/domain/legacy-sheets';
-import { ENCAR_BATTERY_TAB, ENCAR_MASTER_SHEET_ID, ENCAR_MASTER_TAB, ENCAR_SPEC_TAB } from '../lib/domain/encar-master-sheet';
+import { loadEncarWorkSheetGrids } from '../lib/domain/encar-master-sheet';
 import { isMirrorSheet } from '../lib/domain/mirror-sources';
 import { VEHICLE_CLASS_VALUES } from '../lib/intake/entities';
 import { isOurNonInventoryTab, LEGACY_SHEET_PREFIX, supplierSheetLabel, SHEET_NAME_MATCH } from '../lib/domain/supplier-template-sheet';
@@ -55,17 +55,8 @@ const api = async (url: string, init?: RequestInit): Promise<Rec> => {
   }
 };
 
-const a1Range = (tab: string) => `'${tab.replace(/'/g, "''")}'`;
-const workQs = [ENCAR_MASTER_TAB, ENCAR_SPEC_TAB, ENCAR_BATTERY_TAB]
-  .map((t) => `ranges=${encodeURIComponent(`${a1Range(t)}!A1:Z5000`)}`)
-  .join('&');
-const workGot = await api(`https://sheets.googleapis.com/v4/spreadsheets/${ENCAR_MASTER_SHEET_ID}/values:batchGet?${workQs}&majorDimension=ROWS`);
-const workRanges = ((workGot.valueRanges || []) as Rec[]);
-const book = workBookFromTabs({
-  names: (workRanges[0]?.values || []) as unknown[][],
-  specs: (workRanges[1]?.values || []) as unknown[][],
-  batteries: (workRanges[2]?.values || []) as unknown[][],
-});
+const grids = await loadEncarWorkSheetGrids(api);
+const book = workBookFromTabs(grids);
 const checks = selfCheckEncarMatch(book);
 if (checks.length) {
   console.error('⛔ 매처 자가검증 실패 (구글 시트 정본)\n' + checks.map((x) => `  ${x}`).join('\n'));

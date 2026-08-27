@@ -2,7 +2,6 @@
  * 엔카 작업 시트(차종·제원·배터리)에 원문을 붙인다. 하나로 모일 때만. 추측 없음.
  * 라이브 ERP 원장·vehicle-master.json 을 읽지 않는다.
  */
-import { readFileSync, existsSync } from 'node:fs';
 import { applyLatinBrandTokens } from './vehicle-master-lock';
 import { canonMakerDisplay } from './maker-display';
 
@@ -14,7 +13,10 @@ export const ENCAR_FILL_COLUMNS = [
 ] as const;
 export type EncarFillColumn = (typeof ENCAR_FILL_COLUMNS)[number];
 
-export type NameRow = { origin: string; maker: string; model: string; sub: string; trim: string };
+export type NameRow = {
+  origin: string; maker: string; model: string; sub: string; trim: string;
+  start: string; end: string;
+};
 export type BatteryRow = { maker: string; model: string; sub: string; kwh: string; note: string };
 export type WorkBook = {
   names: NameRow[];
@@ -23,17 +25,6 @@ export type WorkBook = {
   drives: Set<string>;
   batteries: BatteryRow[];
 };
-
-const REPORTS = [
-  'C:/Users/admin/encar-market-survey/reports',
-  '../encar-market-survey/reports',
-  'C:/Users/admin/encar-market-survey/reports',
-];
-
-function reportsDir(): string {
-  for (const p of REPORTS) if (existsSync(`${p}/vehicle_name_master.json`)) return p;
-  throw new Error('엔카 작업 시트 json 없음 (vehicle_name_master.json)');
-}
 
 function hdrIndex(hdr: string[], ...cands: string[]): number {
   const n = (s: string) => s.replace(/\s+/g, '').toLowerCase();
@@ -66,7 +57,7 @@ export function workBookFromTabs(input: {
   if (!namesGrid.length) throw new Error('차종마스터 비어 있음');
 
   let nameStart = 0;
-  let originI = 0, makerI = 1, modelI = 2, subI = 3, trimI = 4;
+  let originI = 0, makerI = 1, modelI = 2, subI = 3, trimI = 4, startI = -1, endI = -1;
   if (looksLikeNameHeader(namesGrid[0])) {
     const hdr = namesGrid[0];
     originI = hdrIndex(hdr, '원산지');
@@ -74,17 +65,25 @@ export function workBookFromTabs(input: {
     modelI = hdrIndex(hdr, '모델');
     subI = hdrIndex(hdr, '세부모델');
     trimI = hdrIndex(hdr, '세부트림');
+    startI = hdrIndex(hdr, '생산시작');
+    endI = hdrIndex(hdr, '생산종료');
     if (makerI < 0 || modelI < 0 || subI < 0 || trimI < 0) {
       throw new Error(`차종마스터 헤더가 다름: ${hdr.join('|')}`);
     }
     nameStart = 1;
   } else {
     const sample = namesGrid.find((r) => S(r[4]));
-    if (sample && looksLikeYearMonth(sample[4])) trimI = 6;
+    if (sample && looksLikeYearMonth(sample[4])) {
+      trimI = 6;
+      startI = 4;
+      endI = 5;
+    }
   }
 
   const names: NameRow[] = namesGrid.slice(nameStart).map((r) => ({
     origin: S(r[originI]), maker: S(r[makerI]), model: S(r[modelI]), sub: S(r[subI]), trim: S(r[trimI]),
+    start: startI >= 0 ? S(r[startI]) : '',
+    end: endI >= 0 ? S(r[endI]) : '',
   })).filter((r) => r.maker && r.model);
   if (names.length < 50) throw new Error(`차종마스터 행이 너무 적음 (${names.length})`);
 
@@ -130,16 +129,9 @@ export function workBookFromTabs(input: {
   return { names, fuels, ccs, drives, batteries };
 }
 
+/** 폐기. 정본은 구글 작업 시트. 로컬 json 열 차례가 시트와 달라 트림이 생산시작이 된다. */
 export function loadEncarWorkBook(): WorkBook {
-  const dir = reportsDir();
-  const namesJson = JSON.parse(readFileSync(`${dir}/vehicle_name_master.json`, 'utf8')) as { values: string[][] };
-  const specJson = JSON.parse(readFileSync(`${dir}/spec_value_master.json`, 'utf8')) as { values: (string | number)[][] };
-  const batJson = JSON.parse(readFileSync(`${dir}/ev_battery_master.json`, 'utf8')) as { values: string[][] };
-  return workBookFromTabs({
-    names: namesJson.values || [],
-    specs: specJson.values || [],
-    batteries: batJson.values || [],
-  });
+  throw new Error('vehicle_name_master.json 폐기. 구글 작업 시트만 쓴다 (loadEncarWorkSheetGrids → workBookFromTabs)');
 }
 
 export function fold(v: unknown): string {

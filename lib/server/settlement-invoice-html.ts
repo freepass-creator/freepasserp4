@@ -322,15 +322,17 @@ export const INVOICE_CSS = `
      처음엔 셋이 15/10.5/10 이라 크기가 비슷해 어디를 봐야 할지가 없었다. */
   .titlerow .tr { text-align:right; }
   .titlerow .tr .k { font-size:10px; color:var(--faint); font-weight:600; letter-spacing:2px; }
-  .titlerow .tr .nm { margin-top:5px; font-size:19px; font-weight:700; letter-spacing:-.6px; color:var(--ink);
+  .titlerow .tr .lock > div { margin-top:5px; }
+  .titlerow .tr .nm { margin-top:0; font-size:19px; font-weight:700; letter-spacing:-.6px; color:var(--ink);
     line-height:1.2; }
-  /* 회원사 로고 — **신원 줄 앞**에 선다(사장님 2026-08-27
-     「주식회사 손오공렌터카 아래 사업자등록번호 있는 여기 앞에 CI 넣어주면 좋잖아」).
-     ★상호 앞이 아니라 여기가 맞다 — 상호는 19px 굵은 글씨라 이미 제 몫을 한다.
-       거기에 그림까지 붙이면 둘이 싸운다. 아래 줄은 옅어서 그림이 «신원 표»처럼 읽힌다.
-     ⚠ 크게 키우지 마라. 이 종이의 주인은 우리 CI 고, 이건 «받는 쪽 표시»다. */
-  .titlerow .tr .plogo { height:16px; max-width:84px; object-fit:contain; object-position:right center;
-    vertical-align:-3px; margin-right:9px; }
+  /* ★회원사 자물쇠 — 왼쪽 우리 락업과 «같은 짜임».
+     마크가 글자 두 줄을 나란히 잡는다(사장님 2026-08-27 「상호랑 사업자 번호를 같이 잡아줘야지」).
+     ⚠ 크게 키우지 마라. 이 종이의 주인은 우리 CI 고, 이건 «받는 쪽 표시»다.
+       높이는 상호(19)+신원(10.5) 두 줄에 맞춘 값이다 — 재서 맞춘다
+       (node scripts/measure-ci-lockup.mjs). */
+  .titlerow .tr .lock { display:flex; align-items:center; justify-content:flex-end; gap:12px; }
+  .titlerow .tr .plogo { height:43px; max-width:110px; flex:none;
+    object-fit:contain; object-position:right center; }
   .titlerow .tr .nm span { margin-left:8px; font-size:12px; font-weight:600; color:var(--mut); letter-spacing:0; }
   .titlerow .tr .id { margin-top:5px; font-size:10.5px; color:var(--faint); }
   .titlerow .tr .id b { color:var(--mut); font-weight:600; font-variant-numeric:tabular-nums; }
@@ -364,8 +366,12 @@ export const INVOICE_CSS = `
   .closing { margin-top:var(--sec-lg); font-size:11.5px; font-weight:700; color:var(--tl-d);
     display:flex; justify-content:space-between; align-items:baseline; }
   .closing span { color:var(--faint); font-weight:500; font-size:10.5px; }
-  /* 인사 한 줄 — 맺음말 «위». 옅게 둔다. 이 종이의 본론은 위의 숫자다. */
-  .closing .thx { font-size:11px; font-weight:500; color:var(--mut); margin-bottom:4px; }
+  /* 인사 — 맨 아래 «오른쪽». 크고 옅게. 본론(숫자)이 다 끝난 뒤에 오는 말이다.
+     ★서명 자리다 — 발행일 아래에 「…일동」이 오면 편지 끝맺음처럼 읽힌다
+       (사장님 2026-08-27 「우측 하단에 쓰면 되잖아 프리패스모빌리티 일동」). */
+  .thx { margin-top:26px; text-align:right; color:var(--faint); }
+  .thx > div:first-child { font-size:13px; font-weight:500; letter-spacing:-.2px; }
+  .thx .by { margin-top:5px; font-size:11.5px; font-weight:600; color:var(--mut); letter-spacing:.4px; }
   .pad { padding-top:var(--sec-lg); }
 
   /* ★칸은 «쪼개지지 않는다» — 소제목만 앞 장에 남고 표가 뒷장으로 넘어가면 못 읽는다.
@@ -572,10 +578,18 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
            「청구회사를 좀 정중하게」 · 2026-08-27 「위계를 잘줘서 멋있게」.
            ⚠ 로고는 안 넣는다. 파일도 없고, 남의 상표를 우리 청구서에 얹는 건 별개 문제다.
              우리가 모은 CI 는 «문자로 된 신원» — 정식 상호·사업자번호·대표다. -->
-      <div class="nm">${shown(inv.receiver.name)}<span>귀중</span></div>
-      <div class="id">${logoImg(inv.party)}사업자등록번호 <b>${
+      <!-- ★회원사 자물쇠 — CI 가 «상호와 사업자번호 두 줄»을 같이 잡는다
+           (사장님 2026-08-27 「상호랑 사업자 번호를 같이 잡아줘야지 CI가」).
+           왼쪽 우리 락업과 같은 짜임이다 — 마크 높이 = 글자 두 줄 높이. -->
+      <div class="lock">
+        ${logoImg(inv.party)}
+        <div>
+          <div class="nm">${shown(inv.receiver.name)}<span>귀중</span></div>
+          <div class="id">사업자등록번호 <b>${
     inv.receiver.bizNo ? esc(inv.receiver.bizNo) : miss
   }</b>${S(inv.receiver.ceo) ? `　대표 <b>${esc(inv.receiver.ceo)}</b>` : ''}</div>
+        </div>
+      </div>
     </div>
   </div>`;
 
@@ -662,16 +676,21 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
     </table>
   </div>
   <div class="closing">
-    <div>
-      <!-- ★한 달 치를 한 장으로 맺는 종이다. 숫자만 던지고 끝내지 않는다
-           (사장님 2026-08-27 「월정산이니까 이번 한달도 감사드립니다 이런거」).
-           ⚠ 길게 늘이지 마라. 한 줄이면 인사고, 세 줄이면 광고다. -->
-      <div class="thx">${
-    claim ? '이번 한 달도 함께해 주셔서 감사합니다.' : '이번 한 달도 애써 주셔서 감사합니다.'
-  }</div>
-      ${claim ? '위와 같이 청구합니다' : '위와 같이 지급합니다'}
-    </div>
+    ${claim ? '위와 같이 청구합니다' : '위와 같이 지급합니다'}
     <span>${esc(day(issued))}</span>
+  </div>
+  <!-- ★인사는 «맨 아래 가운데». 사장님 2026-08-27
+       「하단 중앙에 좀 크게 회색으로 프리패스모빌리티 일동 이렇게 써서 가야지
+         청구합니다 위에 쓰면 우짜냐」.
+       맞다. 「위와 같이 청구합니다」는 «문서의 맺음»이고 인사는 «사람의 말»이다.
+       맺음 앞에 끼우면 인사가 청구문의 머리말처럼 읽힌다. 뒤로 물러나 혼자 서야 인사가 된다.
+     ⚠ 길게 늘이지 마라. 두 줄이면 인사고, 넉 줄이면 광고다. -->
+  <div class="thx">
+    <div>${claim ? '이번 한 달도 함께해 주셔서 감사합니다.' : '이번 한 달도 애써 주셔서 감사합니다.'}</div>
+    <!-- ★「주식회사」를 붙이지 않는다 — 서명은 법인격이 아니라 «사람들»의 이름이다
+         (사장님 2026-08-27 「프리패스모빌리티 일동」).
+         법인격은 꼬리(발행인)에서 이미 밝혔다. -->
+    <div class="by">${esc(CORP.koMain + CORP.koSub)} 일동</div>
   </div>`;
 
   /**
