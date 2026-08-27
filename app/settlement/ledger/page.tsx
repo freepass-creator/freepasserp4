@@ -29,7 +29,7 @@
  * ⚠ **금액을 고치는 버튼은 두지 않는다.** 수수료는 요율표에서 나온다 —
  *   화면에서 손대기 시작하면 그날로 정본이 둘이 된다. 고칠 일은 시트에서 고친다.
  */
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { ledgerFetch } from '@/lib/firebase/ledger-client';
 import { BILL_STATES, BILL_TONE, BILL_WHY, type BillState } from '@/lib/domain/settlement-billstate';
 import { providerBillGate, type Confirmation } from '@/lib/domain/settlement-confirm';
@@ -285,6 +285,9 @@ export default function SettlementLedgerPage() {
   const [bill, setBill] = useState('전체');
   const [month, setMonth] = useState('');
   const [confirms, setConfirms] = useState<Confirmation[]>([]);
+  /** 지금 «대신 적는» 영업채널 하나 · 그 근거. 한 번에 한 곳만 연다. */
+  const [memoFor, setMemoFor] = useState('');
+  const [memoNote, setMemoNote] = useState('');
 
   const load = async () => {
     try {
@@ -322,16 +325,38 @@ export default function SettlementLedgerPage() {
     setMonth(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`);
   }, [rows, month]);
 
-  useEffect(() => {
-    if (!month) { setConfirms([]); return; }
-    (async () => {
-      try {
-        const res = await ledgerFetch(`/api/settlement/confirm?month=${encodeURIComponent(month)}`);
-        const body = await res.json() as { ok: boolean; list?: Confirmation[] };
-        setConfirms(body.ok ? (body.list || []) : []);
-      } catch { setConfirms([]); }
-    })();
-  }, [month]);
+  const loadConfirms = useCallback(async (m: string) => {
+    if (!m) { setConfirms([]); return; }
+    try {
+      const res = await ledgerFetch(`/api/settlement/confirm?month=${encodeURIComponent(m)}`);
+      const body = await res.json() as { ok: boolean; list?: Confirmation[] };
+      setConfirms(body.ok ? (body.list || []) : []);
+    } catch { setConfirms([]); }
+  }, []);
+  useEffect(() => { loadConfirms(month); }, [month, loadConfirms]);
+
+  /**
+   * **우리가 대신 적는다.** 사장님 2026-08-27
+   *   「erp화면에서 일단 계정없어도 그냥 우리가 메모하는거로 쓸거라니까」.
+   * ★근거를 «먼저» 받는다 — 서버도 막지만, 여기서 막아야 헛걸음을 안 한다.
+   * ★적고 나면 다시 읽는다. 화면이 옛 상태로 남으면 두 번 적게 된다.
+   */
+  const writeMemo = async (channel: string) => {
+    const why = memoNote.trim();
+    if (!why) { toast('어떻게 확인받았는지 적어 주세요 — 전화·카톡 등'); return; }
+    setBusy(true);
+    try {
+      const res = await ledgerFetch('/api/settlement/confirm', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ month, who: channel, state: '확인', note: why, proxy: true }),
+      });
+      const body = await res.json() as { ok: boolean; reason?: string; lines?: number };
+      if (!body.ok) { toast(body.reason || '적지 못했습니다'); return; }
+      toast(`${channel} ${body.lines}건 — 확인으로 적었습니다`);
+      setMemoFor(''); setMemoNote('');
+      await loadConfirms(month);
+    } finally { setBusy(false); }
+  };
 
   // 판마다 따로 거른다
   const shown = useMemo(() => rows.filter((r) => hit(r, q) && inStage(r, stage)), [rows, q, stage]);
@@ -371,6 +396,12 @@ export default function SettlementLedgerPage() {
   const tot = billable.reduce(
     (a, r) => ({ n: a.n + 1, claim: a.claim + r.money.claim, pay: a.pay + r.money.pay }),
     { n: 0, claim: 0, pay: 0 },
+  );
+
+  /** 우리가 «대신 적어 둔» 확인 — 본인이 누른 것과 섞어 보이지 않는다. */
+  const proxied = useMemo(
+    () => confirms.filter((c) => c.month === month && c.proxy).sort((a, b) => a.who.localeCompare(b.who, 'ko')),
+    [confirms, month],
   );
 
   /** 이 달 청구를 막고 있는 영업채널 — 서버 발행 관문과 같은 축이다. */
@@ -566,17 +597,55 @@ export default function SettlementLedgerPage() {
         {tot.n}건 · 청구 <b style={{ color: C.ink }}>{won(tot.claim)}</b> · 수익 <b style={{ color: C.ink }}>{won(tot.claim - tot.pay)}</b>
       </div>
 
+      {/*
+        **영업채널 실적 확인 — 막는 곳을 «누를 수 있게» 둔다.**
+
+        ★사장님 2026-08-27 「erp화면에서 일단 계정없어도 그냥 우리가 메모하는거로 쓸거라니까」
+          「영업채널 파트너사로만 만들어두면 돼」.
+          영업채널 사람들이 계정을 안 만들었는데 그동안 청구가 멈춰 있었다.
+          ⇒ 전화·카톡으로 받아서 **여기서 우리가 적는다.**
+        ⚠ 적는 순간 청구서가 나갈 수 있게 된다. 그래서 **근거를 받고** 「대신 적음」으로 남긴다.
+        ⚠ 이름을 손으로 치게 하지 않는다 — 원장에 뜬 채널만 누른다. 오타는 아무 문도 안 연다.
+      */}
       {month && (
         <div style={{ padding: '0 12px 8px', fontSize: FS.cap, lineHeight: 1.6 }}>
           <b>영업채널 실적 확인</b>{' '}
           {gate.length === 0
-            ? <span style={{ color: C.ok }}>막는 사람 없음 — 청구해도 됩니다</span>
-            : (
-              <span style={{ color: C.danger }}>
-                {gate.length}곳이 아직입니다 — {gate.slice(0, 4).map((g) => `${g.channel}(${g.lines}건)`).join(' · ')}
-                {gate.length > 4 ? ` 외 ${gate.length - 4}명` : ''}
-              </span>
-            )}
+            ? <span style={{ color: C.ok }}>막는 곳 없음 — 청구해도 됩니다</span>
+            : <span style={{ color: C.danger }}>{gate.length}곳이 아직입니다</span>}
+          {proxied.length > 0 && (
+            <span style={{ color: C.mute }}>{'  ·  '}우리가 적은 것 {proxied.length}곳</span>
+          )}
+
+          {gate.map((g) => (
+            <div key={g.channel} style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+              <span style={{ minWidth: 128, color: C.ink }}>{g.channel} <span style={{ color: C.mute }}>{g.lines}건</span></span>
+              {memoFor === g.channel ? (
+                <>
+                  <Input value={memoNote} autoFocus size="sm" style={{ flex: 1, minWidth: 0 }}
+                    placeholder="어떻게 확인받았나 — 전화·카톡 등"
+                    onChange={setMemoNote}
+                    onEnter={() => writeMemo(g.channel)}
+                    onKeyDown={(e) => { if (e.key === 'Escape') { setMemoFor(''); setMemoNote(''); } }} />
+                  <Btn size="sm" disabled={busy} onClick={() => writeMemo(g.channel)}>적기</Btn>
+                  <Btn size="sm" variant="ghost" onClick={() => { setMemoFor(''); setMemoNote(''); }}>취소</Btn>
+                </>
+              ) : (
+                <>
+                  <span style={{ flex: 1, minWidth: 0, color: C.mute }}>{g.why}</span>
+                  <Btn size="sm" variant="bare" disabled={busy}
+                    onClick={() => { setMemoFor(g.channel); setMemoNote(''); }}>대신 적기</Btn>
+                </>
+              )}
+            </div>
+          ))}
+
+          {proxied.map((c) => (
+            <div key={c.key} style={{ marginTop: 3, color: C.mute }}>
+              <span style={{ display: 'inline-block', minWidth: 128, color: C.ink }}>{c.who}</span>
+              대신 적음 · {c.proxyBy || '관리자'} · {c.note}
+            </div>
+          ))}
         </div>
       )}
 

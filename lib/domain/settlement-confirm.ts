@@ -67,6 +67,23 @@ export type Confirmation = {
   note: string;
   at: number;
   by: string;
+  /**
+   * ★**우리가 «대신 적은» 확인인가.** 사장님 2026-08-27
+   *   「erp화면에서 일단 계정없어도 그냥 우리가 메모하는거로 쓸거라니까」
+   *   「영업채널 파트너사로만 만들어두면 돼」.
+   *
+   *   본래 이 문은 «본인만» 열 수 있었다(관리자 POST 는 403). 그런데 영업채널 사람들이
+   *   아직 계정을 안 만들었고, 그때까지 청구가 멈춰 있을 수는 없다.
+   *   ⇒ **우리가 전화·카톡으로 받아서 대신 적는 길**을 연다. 단위는 «영업채널»이다.
+   *
+   * ⚠ **본인 확인과 «구분해서» 남긴다.** 섞어 두면 기록이 거짓말을 한다 —
+   *   나중에 「이건 누가 확인한 거냐」에 답하지 못하면 이 문은 있으나 마나다.
+   * ⚠ 대리로 적을 때는 **근거(`note`)를 반드시 받는다.** 근거 없는 메모는 메모가 아니다.
+   * ⚠ 영업자가 나중에 로그인해서 보면 「대신 적음」이 보인다 — 틀렸으면 이의를 걸 수 있어야 한다.
+   */
+  proxy?: boolean;
+  /** 대신 적은 사람 — `by`(uid) 말고 «읽을 수 있는 이름». 나중에 읽을 사람을 위해 둔다. */
+  proxyBy?: string;
 };
 
 const S = (v: unknown) => String(v ?? '').trim();
@@ -194,9 +211,10 @@ function pickConfirmation(channel: string, confirmations: Confirmation[], allCha
 /** 사람이 읽는 한마디 — 화면과 정산서가 같은 말을 써야 한다. */
 export function confirmLabel(c: Confirmation | null, nowLines: number): string {
   if (!c || c.state === '대기') return '확인 대기';
-  if (c.state === '이의') return '이의 제기';
+  if (c.state === '이의') return c.proxy ? '이의 제기 · 대신 적음' : '이의 제기';
   if (nowLines > c.lines) return '재확인 필요';
-  return '확인 완료';
+  // ★대리로 적은 것은 «그렇다고 말한다». 본인이 누른 것과 같은 말을 쓰면 기록이 거짓말을 한다.
+  return c.proxy ? '확인 완료 · 대신 적음' : '확인 완료';
 }
 
 export const confirmTone = (c: Confirmation | null, nowLines: number): 'gray' | 'green' | 'red' | 'amber' => {
