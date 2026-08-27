@@ -31,7 +31,8 @@ const dbT = (await new JWT({ email: sa.client_email, key: sa.private_key,
 const gT = (await new JWT({ email: sa.client_email, key: sa.private_key,
   scopes: ['https://www.googleapis.com/auth/drive'], subject: 'pyh@teamjpk.com' }).getAccessToken()).token;
 const api = async (url: string, init?: RequestInit): Promise<Rec> => {
-  const res = await fetch(url, { ...init, headers: { Authorization: `Bearer ${gT}`, ...(init?.headers || {}) } });
+  // 대용량 원본 한 장이 응답 없이 멈춰 전체 묶음이 멈추지 않도록 요청마다 상한을 둔다.
+  const res = await fetch(url, { ...init, signal: init?.signal || AbortSignal.timeout(60_000), headers: { Authorization: `Bearer ${gT}`, ...(init?.headers || {}) } });
   const body = await res.json().catch(() => ({})) as Rec;
   if (!res.ok) throw new Error(body?.error?.message || `HTTP ${res.status}`);
   return body;

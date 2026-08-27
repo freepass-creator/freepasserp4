@@ -614,7 +614,7 @@ export const supplierSheetNameParts = (name: string): { date: string; label: str
   return { date, label: supplierSheetLabel(n), kind: kind || '', status: status || '' };
 };
 
-export const VEHICLE_TABS = ['재고', '렌트재고', '구독재고'] as const;
+export const VEHICLE_TABS = ['재고', '렌트재고', '구독재고', '픽업재고'] as const;
 /**
  * 재고 탭인가.
  *

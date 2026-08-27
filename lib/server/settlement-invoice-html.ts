@@ -160,28 +160,65 @@ const ICO: Record<string, string> = {
 };
 const ico = (k: keyof typeof ICO | string) => `<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${ICO[k] || ''}</svg>`;
 
-/** 한 장에 담기는 표 줄. 첫 장은 헤더·요약이 자리를 먹는다. */
-const CAP_SOLO = 12;
-const CAP_FIRST = 17;
-const CAP_MID = 28;
+/**
+ * 한 장에 담기는 표 줄. 장마다 «표 밖»이 먹는 자리가 달라서 넷으로 나뉜다.
+ *
+ * ★짐작하지 말고 **잰 값에서 뽑는다** — scripts/check-invoice-overflow.mjs
+ *   2026-08-27 에 섹션 간격을 10→18 로 넓혔더니 두 장이 꼬리를 덮었다.
+ *   화면에선 안 보이고 인쇄해야 드러난다.
+ *
+ * ```
+ * 쓸 수 있는 높이            1057.8px   (A4 297mm 에서 꼬리 위까지)
+ * 표 한 줄                     44.3px
+ *
+ *            표 밖이 먹는 자리                     남는 줄
+ * 한장        띠·제목·요약·소제목·합계·청구안내·맺음말      10
+ * 첫장        띠·제목·요약·소제목                      14
+ * 가운데       띠·소제목                             18
+ * 끝장        띠·소제목·합계·청구안내·맺음말             14
+ * ```
+ * ⚠ 「청구 안내」를 가로 표에서 세로 표로 바꾸자 그 칸이 세 줄 높아져
+ *   한장·끝장이 각각 한 줄씩 줄었다. **칸 하나 고치면 상한이 흔들린다.**
+ * ⚠ 간격·글자크기를 건드리면 이 숫자가 다 흔들린다. 반드시 넘침 검사를 다시 돌린다.
+ */
+const CAP_SOLO = 10;
+const CAP_FIRST = 14;
+const CAP_MID = 18;
 const CAP_LAST = 14;
 
-/** 줄을 장으로 자른다. 마지막 장 몫을 «먼저» 떼어 둬야 꼬리가 안 잘린다. */
+/**
+ * 줄을 장으로 자른다.
+ *
+ * ★**장수를 먼저 정하고, 그 다음에 고르게 나눈다.**
+ *   앞 장부터 꽉꽉 채우면 마지막에 자투리가 남는다 — 2026-08-27 에 29줄이
+ *   14 / **1** / 14 로 갈려 가운데 장에 한 줄만 덩그러니 있었다.
+ *   장수는 어차피 3장으로 같은데 보기만 흉하다. 9 / 12 / 8 이 낫다.
+ *
+ * ⚠ 장마다 «표 밖»이 먹는 자리가 달라서 담을 수 있는 줄이 다르다.
+ *   그래서 그냥 n/장수 로 나누면 안 되고, 장별 상한에 «비례»해서 나눈다.
+ */
 function paginate<T>(lines: T[]): T[][] {
   const n = lines.length;
   if (n <= CAP_SOLO) return [lines.slice()];
-  if (n <= CAP_FIRST + CAP_LAST) {
-    const first = Math.min(CAP_FIRST, n - 1);
-    return [lines.slice(0, first), lines.slice(first)];
+
+  // ① 몇 장이면 담기나 — 가장 적은 장수를 찾는다
+  const capsFor = (p: number) => p === 1 ? [CAP_SOLO]
+    : [CAP_FIRST, ...Array<number>(Math.max(0, p - 2)).fill(CAP_MID), CAP_LAST];
+  let pages = 2;
+  while (capsFor(pages).reduce((a, c) => a + c, 0) < n) pages++;
+  const caps = capsFor(pages);
+
+  // ② 상한에 비례해 나눠 담고, 남는 줄은 여유 있는 장에 하나씩
+  const room = caps.reduce((a, c) => a + c, 0);
+  const take = caps.map((c) => Math.floor((n * c) / room));
+  let rest = n - take.reduce((a, c) => a + c, 0);
+  for (let i = 0; rest > 0; i = (i + 1) % pages) {
+    if (take[i] < caps[i]) { take[i]++; rest--; }
   }
-  const out: T[][] = [lines.slice(0, CAP_FIRST)];
-  let i = CAP_FIRST;
-  while (n - i > CAP_LAST) {
-    const take = Math.min(CAP_MID, n - i - CAP_LAST);
-    out.push(lines.slice(i, i + take));
-    i += take;
-  }
-  out.push(lines.slice(i));
+
+  const out: T[][] = [];
+  let i = 0;
+  for (const t of take) { out.push(lines.slice(i, i + t)); i += t; }
   return out;
 }
 
@@ -193,11 +230,17 @@ export const INVOICE_CSS = `
     --ln:#d5dae2; --bg:#eef2f8; --neg:#b03a2e;
     /* ★모서리·간격·칸 여백 — 여기 한 곳에서 정한다. 자리마다 다시 적지 않는다.
        ⚠ 2026-08-27 재 보니 셋이 맨숫자로 박혀 있었다(.pad 12 · .titlerow 14 · .closing 14).
-         값은 맞았지만 «규격 밖»이라 한 곳을 고쳐도 안 따라온다. 이름을 붙였다. */
+         값은 맞았지만 «규격 밖»이라 한 곳을 고쳐도 안 따라온다. 이름을 붙였다.
+
+       ★★★**소제목 «위»가 «아래»보다 넓어야 한다.**
+         처음엔 위 10 · 아래 8 로 거의 같아서 소제목이 어느 표 것인지 안 붙었다.
+         소제목과 그 표가 «한 덩이»로 보이려면 위가 아래의 세 배쯤 돼야 한다.
+             위 --sec 18   ↔   아래 --sec-h 6
+         ⚠ 간격을 늘릴 땐 «둘 다» 늘리지 마라. 늘리는 건 위뿐이다. */
     --r-box:7px;      /* 표·박스 모서리 — 네 귀퉁이 다 */
-    --sec:10px;       /* 칸 사이 */
-    --sec-lg:14px;    /* ★단락이 바뀌는 자리 — 띠 다음 첫 칸, 맺음말 앞 */
-    --band:12px;      /* 띠 아래 숨 */
+    --sec-h:6px;      /* 소제목 → «그 소제목이 이끄는» 내용 */
+    --sec:18px;       /* 칸 사이 — 소제목 «위» */
+    --sec-lg:24px;    /* 단락이 바뀌는 자리 — 띠 다음 첫 칸, 맺음말 앞 */
     --cell:5px 10px;  /* 표 칸 안 여백 */
   }
   * { box-sizing:border-box; margin:0; }
@@ -222,10 +265,14 @@ export const INVOICE_CSS = `
      「체크박스가 2줄이랑 거의 같아야 하고 영문CI 아래 한글 좌우폭이 영문CI랑 같아야 하고」
      · 마크 높이 = 워드마크(17 x 1.05) + 사이(2) + 한글(9.5 x 1.25) = 32px
      · 한글 폭  = 영문 폭 — 글자 사이를 벌려 맞춘다 (text-align-last:justify)
+     ★마크는 글자 «옆»에 선다. 위에 얹지 않는다 —
+       사장님 2026-08-27 「체크박스 가로로 놓으라니까 왜 위에 올려놔」.
      ⚠ 마크를 크게 키우지 마라. 2줄보다 크면 마크가 글자를 누른다.
-     ⚠ 한글에 letter-spacing 을 손으로 주지 마라 — 영문 폭이 바뀌면 다시 어긋난다.
-       text-align-last 가 «남는 만큼만» 벌려 준다.
-     ⚠ 이 자리는 CSS 문자열 «안»이다. JS 주석(/** */)이나 백틱을 쓰면 통째로 깨진다. */
+     ⚠⚠ 이 자리는 CSS 문자열 «안»이다. 백틱도, 별표+빗금도 쓰면 안 된다.
+       ★2026-08-27 에 바로 이 경고문이 CSS 를 깼다 — 경고를 적으면서
+       그 «별표 빗금»을 그대로 써 버렸고, 주석이 거기서 끝나
+       바로 아래 display:flex 한 줄이 통째로 먹혀 마크가 위로 올라갔다.
+       한 줄이 사라져도 나머지는 멀쩡히 그려져서 «왜 깨졌는지»가 안 보인다. */
   .hd .bl { display:flex; align-items:center; gap:9px; }
   .hd .bl .mk { width:32px; height:32px; border-radius:8px; background:#fff; padding:2px; flex:none; }
   .hd .bl .mk svg { width:100%; height:100%; display:block; }
@@ -233,7 +280,7 @@ export const INVOICE_CSS = `
 
   /* ★띠 아래 첫 칸 — 좌 문서 이름 / 우 회원사. 이 종이가 «무엇이고 누구 것인지»를 한 줄에. */
   .titlerow { display:flex; justify-content:space-between; align-items:flex-end; gap:14mm;
-    margin-top:var(--sec-lg); padding-bottom:var(--sec); border-bottom:2px solid var(--tl); }
+    padding-bottom:var(--sec-h); border-bottom:2px solid var(--tl); }
   .titlerow .ti { font-size:23px; font-weight:800; letter-spacing:-.5px; color:var(--ink); line-height:1.15; }
   .titlerow .pr { margin-top:4px; font-size:11px; color:var(--mut); font-weight:500; }
   .titlerow .tr { text-align:right; }
@@ -270,11 +317,11 @@ export const INVOICE_CSS = `
   .closing { margin-top:var(--sec-lg); font-size:11.5px; font-weight:700; color:var(--tl-d);
     display:flex; justify-content:space-between; align-items:baseline; }
   .closing span { color:var(--faint); font-weight:500; font-size:10.5px; }
-  .pad { padding-top:var(--band); }
+  .pad { padding-top:var(--sec-lg); }
 
   .sec { margin-top:var(--sec); }
   /* ★밑줄을 긋지 않는다. 아이콘 + 글자가 칸의 이름이고, 박스는 아래 «면»이 보여 준다. */
-  .sec-h { font-size:11.5px; font-weight:700; color:var(--tl-d); letter-spacing:-.1px; margin-bottom:6px;
+  .sec-h { font-size:11.5px; font-weight:700; color:var(--tl-d); letter-spacing:-.1px; margin-bottom:var(--sec-h);
     display:flex; align-items:center; gap:6px; }
   .sec-h .i { width:13px; height:13px; flex:none; opacity:.85; }
   .sec-h .muted { font-weight:500; color:var(--mut); font-size:10px; margin-left:auto; }
@@ -292,7 +339,7 @@ export const INVOICE_CSS = `
   .ctab tbody tr:last-child td:last-child { border-bottom-right-radius:var(--r-box); }
   .ctab .rl { text-align:left; background:#fafbfd; color:var(--mut); font-weight:600; white-space:nowrap; width:110px; }
   /* ★금액 가로 요약표 — 이 종이가 말하는 단 하나. 마지막 칸이 결론이다. */
-  .stab { width:100%; border-collapse:separate; border-spacing:0; margin-top:2px; }
+  .stab { width:100%; border-collapse:separate; border-spacing:0; }
   .stab th { background:var(--tl); color:#fff; font-size:10.5px; font-weight:700; padding:5px 12px; text-align:right; }
   .stab th:first-child { background:var(--tl-d); border-top-left-radius:var(--r-box); text-align:left; }
   .stab th:last-child { border-top-right-radius:var(--r-box); }
@@ -303,14 +350,24 @@ export const INVOICE_CSS = `
   .stab td.neg { color:var(--neg); }
   .stab td.k { background:var(--bg); color:var(--tl-d); font-size:20px; font-weight:800; letter-spacing:-.6px;
     border-bottom-right-radius:var(--r-box); }
-  /* ★글자 표 — 금액표와 같은 뼈대인데 숫자가 아니라 «말»이 든다.
-     사장님 2026-08-27 「담당자 연락처랑 그런거 표 별도로 있어야 한다고, 하단은 그냥 회사 정보인거고」.
-     ⇒ 계좌·담당은 «이 정산건을 처리할 때 쓰는 정보»라 본문 섹션이 맞고,
-       꼬리는 «누가 발행했나»만 말한다. 둘은 쓰임이 다르다. */
-  .stab.txt th, .stab.txt td { text-align:left; }
-  .stab.txt td { font-size:12px; font-weight:600; color:var(--ink); padding:8px 12px; }
-  .stab.txt td:first-child { font-size:12px; font-weight:700; color:var(--ink); }
-  .stab.txt td.mono { font-variant-numeric:tabular-nums; letter-spacing:-.1px; }
+  /* ★세로 표 — 라벨이 왼쪽 열, 값이 오른쪽. 사장님 2026-08-27
+     「가로로 나열하지말고 세로로 쓰는게 맞을거 같거든」.
+     ⇒ 맞다. 가로 표는 «같은 종류»를 늘어놓을 때 쓰는 것이다(금액 셋, 차량 여섯 줄).
+       계좌·담당·연락처는 종류가 제각각이라 가로로 세우면 머리글이 서로 상관없는 말이 된다.
+       세로면 «칸이 늘어도» 표가 안 깨진다 — 나중에 문의 시간이든 뭐든 한 줄 더 붙이면 그만이다. */
+  .vtab { width:100%; border-collapse:separate; border-spacing:0; }
+  /* ★가로 표를 «눕힌 것». 머리줄이 머리열이 될 뿐, 색·글자·여백은 위 표 그대로다.
+     (사장님 2026-08-27 「표 규격 위에랑 좀 맞춰라」) */
+  .vtab th, .vtab td { padding:var(--cell); text-align:left; border-bottom:1px solid #edf0f4; }
+  .vtab th { width:118px; background:var(--tl); color:#fff; font-size:10.5px; font-weight:700;
+    white-space:nowrap; border-bottom:0; }
+  .vtab tr:first-child th { background:var(--tl-d); border-top-left-radius:var(--r-box); }
+  .vtab td { background:#fff; color:var(--ink); font-size:12px; font-weight:600;
+    border-right:1px solid var(--ln); }
+  .vtab tr:first-child td { border-top:1px solid var(--ln); border-top-right-radius:var(--r-box); }
+  .vtab tr:last-child th { border-bottom-left-radius:var(--r-box); }
+  .vtab tr:last-child td { border-bottom:1px solid var(--ln); border-bottom-right-radius:var(--r-box); }
+  .vtab td.mono { font-variant-numeric:tabular-nums; letter-spacing:-.1px; }
 
   /* 한 줄 짜리 — 회원사·계좌. 표로 만들 만큼의 내용이 아니다. */
   .ctab td { font-variant-numeric:tabular-nums; }
@@ -469,20 +526,14 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
    */
   const payKv = `
   <div class="sec">
-    <div class="sec-h">${ico('계좌')}${claim ? '입금 · 문의' : '지급 · 문의'}<span class="muted">${
-      claim ? '아래 계좌로 입금해 주시기 바랍니다' : '아래 계좌로 입금해 드립니다'
-    }</span></div>
-    <table class="stab txt">
-      <thead><tr>
-        <th style="width:38%">${claim ? '입금 계좌' : '지급 계좌'}</th>
-        <th style="width:14%">담당</th><th style="width:22%">연락처</th><th>이메일</th>
-      </tr></thead>
-      <tbody><tr>
-        <td class="mono">${shown(accText)}</td>
-        <td>${esc(CORP.staff)}</td>
-        <td class="mono">${esc(CORP.phone)}</td>
-        <td>${esc(CORP.email)}</td>
-      </tr></tbody>
+    <div class="sec-h">${ico('계좌')}${claim ? '청구 안내' : '지급 안내'}</div>
+    <table class="vtab">
+      <tbody>
+        <tr><th>${claim ? '입금 계좌' : '지급 계좌'}</th><td class="mono">${shown(accText)}</td></tr>
+        <tr><th>담당</th><td>${esc(CORP.staff)}</td></tr>
+        <tr><th>연락처</th><td class="mono">${esc(CORP.phone)}</td></tr>
+        <tr><th>이메일</th><td>${esc(CORP.email)}</td></tr>
+      </tbody>
     </table>
   </div>
   <div class="closing">
@@ -505,7 +556,9 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
 
   return pages.map((chunk, page) => {
     const last = page === pages.length - 1;
-    const from = (page === 0 ? 0 : CAP_FIRST + pages.slice(1, page).reduce((s, c) => s + c.length, 0)) + 1;
+    // ★앞 장들에 «실제로» 몇 줄이 갔는지 세서 번호를 잇는다.
+    //   CAP_FIRST 를 그대로 더하면 안 된다 — 이제 첫 장이 상한까지 안 차기 때문이다.
+    const from = pages.slice(0, page).reduce((s, c) => s + c.length, 0) + 1;
     return `<div class="doc">
   ${head(page)}
   <div class="pad"></div>

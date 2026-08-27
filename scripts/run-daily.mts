@@ -80,12 +80,16 @@ if (rs.ok && APPLY && rs.picked.some((l) => /✓ 결정 [1-9]/.test(l))) {
 const p1 = run('④ 상품리스트 발행', ['scripts/publish-origin-tab.mts', ...A, ...(FORCE ? ['--force-shrink'] : [])], /우리 시트 |출고불가 .*안 싣는다|금액 빠진|「-」|정본\(|반영 완료|못 읽은|Error|중단|force-shrink/);
 report.push(`④ 상품리스트 ${p1.ok ? '✓' : '✗'} ${p1.picked.find((l) => /반영 완료|우리 시트 /.test(l)) || ''}`);
 if (!p1.ok) stop('상품리스트 발행 실패(가드에 걸렸으면 확인 후 --force-shrink)');
-// ★탭 3개(사장님 2026-08-19 「상품리스트 · 손오공구독(반납/인수) · 오플구독 탭 3개로 회귀」): 같은 발행기로 갈래 탭을 찍고 원본 요금 블록을 덧붙인다.
+// ★탭 4개(2026-08-27 픽업구독 추가): 상품리스트 · 손오공구독 · 픽업구독 · 오플구독. 같은 발행기로 갈래 탭을 찍고 원본 요금 블록을 덧붙인다.
 const p2 = run('④ 손오공구독 발행', ['scripts/publish-origin-tab.mts', '--only=RP012:구독', '--tab=손오공구독', '--at=1', ...A, ...(FORCE ? ['--force-shrink'] : [])], /우리 시트 |반영 완료|Error|중단/);
 report.push(`④ 손오공구독 ${p2.ok ? '✓' : '✗'} ${p2.picked.find((l) => /반영 완료|우리 시트 /.test(l)) || ''}`); if (!p2.ok) stop('손오공구독 탭 발행 실패');
 const p2b = run('④ 손오공구독 + 인수형 블록', ['scripts/publish-sonogong-tab.mts', ...A], /실을 차|사진링크|반영 완료|Error/);
 report.push(`④ 인수형 블록 ${p2b.ok ? '✓' : '✗'} ${p2b.picked.find((l) => /반영 완료|실을 차/.test(l)) || ''}`); if (!p2b.ok) stop('손오공구독 인수형 블록 실패');
-const p3 = run('④ 오플구독 발행', ['scripts/publish-origin-tab.mts', '--only=RP023', '--tab=오플구독', '--at=2', ...A, ...(FORCE ? ['--force-shrink'] : [])], /우리 시트 |반영 완료|Error|중단/);
+const p2c = run('④ 픽업구독 발행', ['scripts/publish-origin-tab.mts', '--only=RP012:픽업', '--tab=픽업구독', '--at=2', ...A, ...(FORCE ? ['--force-shrink'] : [])], /우리 시트 |반영 완료|Error|중단/);
+report.push(`④ 픽업구독 ${p2c.ok ? '✓' : '✗'} ${p2c.picked.find((l) => /반영 완료|우리 시트 /.test(l)) || ''}`); if (!p2c.ok) stop('픽업구독 탭 발행 실패');
+const p2d = run('④ 픽업구독 + 인수형 블록', ['scripts/publish-sonogong-tab.mts', '--tab=픽업구독', ...A], /실을 차|사진링크|반영 완료|Error/);
+report.push(`④ 픽업 블록 ${p2d.ok ? '✓' : '✗'} ${p2d.picked.find((l) => /반영 완료|실을 차/.test(l)) || ''}`); if (!p2d.ok) stop('픽업구독 인수형 블록 실패');
+const p3 = run('④ 오플구독 발행', ['scripts/publish-origin-tab.mts', '--only=RP023', '--tab=오플구독', '--at=3', ...A, ...(FORCE ? ['--force-shrink'] : [])], /우리 시트 |반영 완료|Error|중단/);
 report.push(`④ 오플구독 ${p3.ok ? '✓' : '✗'} ${p3.picked.find((l) => /반영 완료|우리 시트 /.test(l)) || ''}`); if (!p3.ok) stop('오플구독 탭 발행 실패');
 const p3b = run('④ 오플구독 + 오플 요금 블록', ['scripts/publish-sonogong-tab.mts', '--tab=오플구독', ...A], /실을 차|사진링크|반영 완료|Error/);
 report.push(`④ 오플 블록 ${p3b.ok ? '✓' : '✗'} ${p3b.picked.find((l) => /반영 완료|실을 차/.test(l)) || ''}`); if (!p3b.ok) stop('오플구독 요금 블록 실패');

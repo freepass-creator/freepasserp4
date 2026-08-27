@@ -42,7 +42,17 @@ export type InvoiceLine = {
   product: string;
   term: number;
   /** 수수료를 낸 기준값 — 대여료×기간 또는 차량가액. 「왜 이 금액인가」가 보여야 한다. */
+  /**
+   * **이 수수료가 어떻게 나왔나** — 기준값 한 줄.
+   * 「대여료 550,000 × 36개월」 또는 「차량가액 30,000,000」.
+   */
   base: string;
+  /**
+   * 적용 요율. **1 이상이면 요율이 아니라 «건당 고정액»이다**(오플구독 100만·재렌트 50만).
+   * ★사장님 2026-08-27 「각 수수료가 어떻게 나왔는지」 — 종이가 그걸 말해야 한다.
+   * ⚠ 곱하면 조 단위가 나온다. 화면에 찍을 때도 «%»를 붙이지 마라 — `feeShow` 가 가른다.
+   */
+  rate?: number;
   amount: number;
   vat: number;
   total: number;
@@ -73,6 +83,16 @@ const S = (v: unknown) => String(v ?? '').trim();
 const won = (n: number) => Math.round(n).toLocaleString('ko-KR');
 
 /** 기준값을 사람 말로 — 「왜 이 금액인가」가 안 보이면 공급사가 못 믿는다. */
+/**
+ * **요율을 사람이 읽는 말로.** 1 이상이면 요율이 아니라 건당 고정액이다.
+ * ★그대로 「300%」라고 찍으면 종이가 거짓말을 한다 — 실제로 그렇게 틀린 적이 있다.
+ */
+export function feeShow(rate: unknown): string {
+  const v = Number(rate) || 0;
+  if (!v) return '';
+  return v >= 1 ? `건당 ${won(v)}` : `${Number((v * 100).toFixed(2))}%`;
+}
+
 export function baseOf(r: SettlementRow): string {
   if (/선출고|견적출고/.test(r.product || '')) return r.price ? `차량가액 ${won(r.price)}` : '차량가액 없음';
   if (r.rent && r.term) return `대여료 ${won(r.rent)} × ${r.term}개월`;
@@ -101,6 +121,8 @@ export function buildInvoice(opts: {
     return {
       plate: S(r.plate), model: S(r.model), customer: S(r.customer), product: S(r.product),
       term: Number(r.term) || 0, base: baseOf(r),
+      // ★청구서는 공급사 요율, 지급명세서는 영업자 요율. 축을 따라간다.
+      rate: Number(claim ? r.supplierRate : r.agentRate) || 0,
       amount, vat, total: amount + vat,
     };
   });

@@ -43,12 +43,13 @@ export function assertVehicleMasterJsonDiscarded(raw: unknown): void {
 
 /**
  * 세부모델 이름 — **엔카와 동일**(개수 1:1 · 이름도 엔카).
- * 예외: 기아만 엔카 `N세대` → 개발코드(`K5 3세대` → `K5 DL3`).
+ * 예외는 둘만: 기아 `N세대` → 개발코드(`K5 3세대` → `K5 DL3`),
+ * 우리 시트만 제네시스 1세대 `G80 DH`(엔카는 `G80`).
+ * FL 분할·티볼리 X100·다른 비기아 개발코드는 예외가 아니다.
  * 괄호 코드는 괄호만 뗀다(`G80 (RG3)` → `G80 RG3`).
- * ⚠ `티볼리 아머 X100`처럼 엔카에 없는 코드를 붙여 새로 만들지 않는다.
  * ⚠ 개발코드가 엔카 이름에 있으면 떼지 않는다.
  */
-export const SUBMODEL_NAME_RULE = 'encar-identical+kia-gen-code';
+export const SUBMODEL_NAME_RULE = 'encar-identical+kia-gen-code+g80-dh';
 
 /**
  * 세부트림·세부모델의 **제조사 공식 라틴 고유명** — 한글화 금지.

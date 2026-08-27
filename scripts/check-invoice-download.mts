@@ -12,7 +12,7 @@
 import { writeFileSync } from 'node:fs';
 import * as XLSX from 'xlsx';
 import { EMPTY_PARTY, buildInvoice } from '../lib/domain/settlement-invoice';
-import { invoiceDocHtml, invoicePageHtml } from '../lib/server/settlement-invoice-html';
+import { INVOICE_CSS, invoiceDocHtml, invoicePageHtml } from '../lib/server/settlement-invoice-html';
 import { invoiceXlsx, invoiceFileName } from '../lib/server/settlement-invoice-xlsx';
 import type { SettlementRow } from '../lib/domain/settlement-stage';
 
@@ -79,16 +79,36 @@ ok('금액이 가로 요약표다', /class="stab"/.test(html));
 // ★모서리·간격은 한 곳에서 정한다 — 자리마다 다시 적으면 어디는 각지고 어디는 둥글어진다.
 // ⚠ 마크(.mk)의 라운드는 CI 아이콘 «자체 모양»이라 표 규격을 따르지 않는다 — 세지 않는다.
 const boxCss = html.replace(/\.hd \.bl \.mk \{[^}]*\}/g, '');
-ok('모서리·간격이 공통 규격이다', html.includes('--r-box:7px') && html.includes('--sec:10px')
+// ★소제목 «위»가 «아래»보다 넓어야 소제목이 그 표에 붙어 보인다 (--sec 18 ↔ --sec-h 6).
+ok('모서리·간격이 공통 규격이다', html.includes('--r-box:7px')
+  && html.includes('--sec:18px') && html.includes('--sec-h:6px')
   && !/border-radius:\d/.test(boxCss.slice(boxCss.indexOf('.doc {'))));
-// ★청구서의 입금계좌는 «우리 정보»라 꼬리에 있다 — 본문에 칸을 따로 두지 않는다.
-//   (2026-08-27 「회사 정보에 담당자 안내랑 이메일 넣으면 계좌 정보도 넣으면 되잖아」)
 // ★계좌·담당은 «이 건을 처리할 때 쓰는 정보»라 본문 섹션에 있고,
 //   꼬리는 «누가 발행했나»만 말한다 (2026-08-27 「하단은 그냥 회사 정보인거고」).
-ok('입금·문의 섹션이 선다', /입금 · 문의[\s\S]{0,400}class="stab txt"/.test(html));
-ok('담당·연락처·메일이 그 표에 있다', /class="stab txt"[\s\S]{0,600}@/.test(html));
+// ★이름은 「청구 안내 / 지급 안내」 — 위 「청구 금액 / 지급 금액」과 말이 짝을 이룬다.
+//   계좌 말고 담당·연락처가 더 들어가도 이름이 안 틀린다.
+ok('청구 안내 섹션이 선다', /청구 안내[\s\S]{0,400}class="vtab"/.test(html));
+// ★세로 표다 — 종류가 제각각인 값을 가로로 세우면 머리글이 서로 상관없는 말이 된다.
+//   (2026-08-27 「가로로 나열하지말고 세로로 쓰는게 맞을거 같거든」)
+ok('세로 표다', /class="vtab"[\s\S]{0,700}<th>담당<\/th>[\s\S]{0,200}<th>연락처<\/th>/.test(html));
+ok('담당·연락처·메일이 그 표에 있다', /class="vtab"[\s\S]{0,700}@/.test(html));
 ok('꼬리는 회사 정보만이다', /class="ft">[\s\S]{0,500}?<div class="pg">/.test(html)
   && !/class="ft">[\s\S]{0,500}?(?:@|입금계좌)/.test(html));
+// ★★★CSS 문자열 안의 주석 짝이 맞아야 한다.
+//   2026-08-27 에 주석 «안»에 별표+빗금을 써서 주석이 거기서 끝났고,
+//   바로 아래 display:flex 한 줄이 통째로 먹혀 CI 마크가 위로 올라갔다.
+//   나머지는 멀쩡히 그려져서 «왜 깨졌는지»가 안 보였다. 그래서 여기서 잡는다.
+{
+  let depth = 0;
+  let broken = 0;
+  for (let i = 0; i < INVOICE_CSS.length - 1; i++) {
+    const two = INVOICE_CSS.slice(i, i + 2);
+    if (two === '/*' && !depth) { depth = 1; i++; }
+    else if (two === '*/') { if (depth) depth = 0; else broken++; i++; }
+  }
+  ok('CSS 주석 짝이 맞는다', broken === 0 && depth === 0);
+}
+
 // ★CI 한글 상호는 낱자로 나눠 flex 가 고르게 벌린다 — justify 로 두 번 실패했다.
 ok('한글 상호가 낱자로 나뉜다', /class="ko">(?:<i[^>]*>[^<]<\/i>){12}<\/div>/.test(html));
 ok('「주식회사」 앞에 한 칸이 있다', /class="ko">[\s\S]{0,300}?<i class="w">주<\/i>/.test(html));

@@ -44,7 +44,7 @@ import { mergeAll, carName, type PlateEntry, type PlateInput } from '../lib/doma
 const APPLY = process.argv.includes('--apply');
 const NODE = 'v4/plate_registry';
 /** ★앞머리로 찾는다 — 탭 이름 뒤에 날짜·대수가 붙는다. */
-const TAB_HEADS = ['상품리스트', '손오공구독', '오플구독'];
+const TAB_HEADS = ['상품리스트', '손오공구독', '픽업구독', '오플구독'];
 
 const S = (v: unknown) => String(v ?? '').trim();
 const today = (() => {
