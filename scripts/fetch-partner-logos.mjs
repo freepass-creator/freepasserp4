@@ -7,6 +7,13 @@
  *
  * ⚠ 남의 상표다. 허락받은 회사만 돌린다.
  *
+ * ⛔⛔ **이름이 겹치는 회사를 조심한다.** 사장님 2026-08-27
+ *   「손오공은 손오공주식회사 로고있어 완구회사」 —
+ *   우리 거래처는 «주식회사 손오공렌터카»(882-87-00650 · 차현일)고,
+ *   「손오공주식회사」는 완구 회사로 전혀 다른 법인이다.
+ *   이름만 보고 고르면 완구 회사 상표가 렌터카 청구서에 찍힌다.
+ *   ★고를 땐 «사업자번호와 대표»로 확인한다. 이름은 증거가 아니다.
+ *
  *   node scripts/fetch-partner-logos.mjs            아는 홈페이지 전부
  *   node scripts/fetch-partner-logos.mjs 손오공 웰릭스   골라서
  */
@@ -15,7 +22,8 @@ import { mkdirSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 const SITES = [
-  ['손오공', 'https://automgt.co.kr'],
+  // ★sokrc.com — 「손오공 Agent」. automgt.co.kr 은 2026-08-27 에 주소가 안 풀렸다.
+  ['손오공', 'https://sokrc.com'],
   ['오토플러스', 'https://autoplus.co.kr'],
   ['웰릭스', 'https://welrixmobility.com'],
   ['아이카', 'https://icar.or.kr'],
@@ -82,6 +90,8 @@ await b.close();
 
 console.log('');
 console.log('  ★긁어 온 것은 «후보»입니다. 아직 종이에 안 붙습니다.');
+console.log('  ⛔ 고르기 전에 «그 회사가 맞는지» 사업자번호·대표로 확인하세요 —');
+console.log('     이름이 같은 다른 회사가 있습니다 (손오공렌터카 ↔ 손오공주식회사·완구).');
 console.log('  1) 후보를 눈으로 보고 고른다');
 console.log('  2) assets/partner-logo/<별칭>.png 로 옮긴다');
 console.log('  3) npx tsx scripts/embed-partner-logos.mts');
