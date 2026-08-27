@@ -86,6 +86,9 @@ must(!/condition === '만기인수'/.test(priceTable),
 must(!/\['차명',/.test(product),
   '상세 「차명」 줄이 되살아났습니다. 맨 위 제목이 이미 같은 이름을 듭니다(중복).',
   'lib/domain/product.ts detailSections');
+must(/\['차종구분',/.test(product),
+  '상세의 「차종구분」이 「차종」으로 되돌아갔습니다. 판매시트 열 이름과 같아야 합니다.',
+  'lib/domain/product.ts detailSections');
 must(!/\['상품', /.test(product),
   '상세 「상품」 줄이 되살아났습니다. 차량번호와 같은 말을 두 번 합니다.',
   'lib/domain/product.ts detailSections');
