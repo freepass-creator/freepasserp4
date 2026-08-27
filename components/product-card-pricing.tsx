@@ -280,7 +280,8 @@ export function PeriodPerkBand({ p, dense, gap = 6 }: {
     return () => ro.disconnect();
   }, [all.map((x) => x.m).join(','), mobile]);
 
-  const perk = <CardPerkLine p={p} dense={dense} inline={!mobile && yieldSlot} />;
+  // 우대조건 줄 맨 앞에 심사조건(사장님 2026-08-28) — 목록 카드·간단보기 둘 다 같은 줄을 쓴다.
+  const perk = <CardPerkLine p={p} dense={dense} inline={!mobile && yieldSlot} withCredit />;
 
   // 모바일 = 앵커 가격(PriceAmounts)만 위에 두고, 여기선 조건만
   if (mobile) {

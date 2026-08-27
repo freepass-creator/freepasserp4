@@ -35,8 +35,11 @@ const vehicle = sections[0];
 assert.equal(vehicle.kind, 'kv');
 if (vehicle.kind === 'kv') {
   const labels = vehicle.rows.map(([label]) => label);
-  // 「차량」 → 「차명」 으로 이름이 바뀐 뒤(2026-08-22) 이 줄이 오래 깨져 있었다.
-  assert.ok(labels.includes('차명'));
+  /*
+   * 「차명」 줄은 2026-08-28 에 없앴다 — 맨 위 제목이 같은 이름(정제 세부모델+세부트림)을 이미 든다.
+   * 그래서 «있어야 한다»가 아니라 **«없어야 한다»**를 지킨다(사장님 「중복 반복 안 되게」).
+   */
+  assert.ok(!labels.includes('차명'), '차명이 제목과 겹쳐 두 번 나옵니다.');
   assert.ok(labels.includes('연식 · 주행'));
   assert.ok(labels.includes('동력'));
   assert.ok(labels.includes('색상'));

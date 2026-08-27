@@ -66,7 +66,7 @@ function PerkPeriodRow({ p }: { p: EntityRecord }) {
       gap: 8, minWidth: 0, width: '100%',
     }}>
       <div style={{ flex: '1 1 96px', minWidth: 0 }}>
-        <CardPerkLine p={p} dense={false} />
+        <CardPerkLine p={p} dense={false} withCredit />
       </div>
       <div style={{ flex: '2 1 168px', minWidth: 0, maxWidth: '100%' }}>
         <PeriodChips align="end" clamp />
@@ -200,7 +200,7 @@ function MobileRow({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) 
           </div>
 
           {/* 4 우대 */}
-          <CardPerkLine p={p} inline />
+          <CardPerkLine p={p} inline withCredit />
         </PricePeekRoot>
       </Link>
       {/* ⋮메뉴 없음(사장님 2026-08-22 「모바일 상품목록에서 우측 세로점 빼자, 필요없다」) — 숨김·넘김은 웹 목록에서. */}

@@ -475,9 +475,26 @@ export function shortExperience(p: EntityRecord): boolean {
  */
 export type ProductSignal = { key: string; label: string; kind: 'program' | 'status' | 'trust' | 'benefit' | 'event' | 'spec' };
 
-export function benefitSignals(p: EntityRecord): ProductSignal[] {
+export function benefitSignals(p: EntityRecord, opts?: { withCredit?: boolean }): ProductSignal[] {
   // 비필수 혜택 — 상세카드 좌하단. 분납·무보증·연령·경력·무사고.
   const out: ProductSignal[] = [];
+  /**
+   * ★**심사조건은 우대조건 줄 맨 앞**(사장님 2026-08-28 「목록 카드에 아래 분납가능 21세 ·
+   *   이 맨 앞에 심사조건 넣자고」 — 목록 카드와 상품 간단보기 둘 다).
+   *
+   *   목록을 훑는 사람이 제일 먼저 거르는 값이 「살 수 있는 손님인가」다. 무심사냐 소득확인이냐에
+   *   따라 아예 못 파는 손님이 갈리는데, 분납·연령보다 뒤에 있으면 안 된다.
+   *
+   *   ⚠ **뱃지가 아니다.** 우대조건 줄은 아이콘+글자다(사장님 2026-08-20 「우대조건은 아이콘+텍스트지」).
+   *     한 번 이걸 카드 «뱃지»로 읽고 목록 뱃지 줄을 건드렸다가 배열을 흔들어 되돌렸다(08-28).
+   *
+   *   ⚠ **옵션인 이유** — 상세 머리에서도 같은 줄(CardBenefits)을 쓰는데, 거기엔 아래 「계약조건」
+   *     섹션이 이미 「심사」 줄을 들고 있다. 기본으로 켜면 한 화면에 같은 값이 두 번 선다.
+   */
+  if (opts?.withCredit) {
+    const credit = creditDisplay(p);
+    if (credit) out.push({ key: 'cd', label: credit, kind: 'benefit' });
+  }
   if (installmentOk(p)) out.push({ key: 'ins', label: '분납가능', kind: 'benefit' });
   if (noDeposit(p)) out.push({ key: 'nd', label: '무보증', kind: 'benefit' });
   const age = minAge(p);
@@ -860,7 +877,17 @@ export function detailSections(p: EntityRecord, audience: Audience = 'agent'): D
      *   제조사는 뺀다 — 바로 위 제목 줄이 이미 들고 있고, 정제칸이 축을 갈라 둔 뒤로는
      *   «차명»이라 부르는 것이 곧 이 두 축이다(배기량·연료 같은 제원은 아래 부가정보 줄이 든다).
      */
-    ['차명', vehicleNameOf({ kind: 'product', product: p }, { tier: 'full', omitMaker: true }) || '미입력'],
+    /*
+     * ★**「차명」 줄은 없앴다**(사장님 2026-08-28 「차종도 세부모델 세부트림을 정제한 거 활용해서
+     *   맨 위에 적고 · 상세페이지도 기존에 활용하던 게 있어 · 중복 반복 안 되게 하자고 했고」).
+     *
+     *   맨 위 제목이 이미 «제조사 + 세부모델 + 세부트림»(vehicle-name SSOT, 정제칸)을 든다.
+     *   이 줄은 거기서 제조사만 뺀 같은 글자라, 한 화면에서 같은 이름을 두 번 읽게 했다.
+     *   한 번 「제목이 한 줄로 잘리니 전문을 펴는 자리」라며 살려 뒀는데, 잘림은 제목 쪽에서
+     *   풀 문제지 같은 값을 한 번 더 찍어서 풀 문제가 아니다(제목에 title 속성이 붙어 있다).
+     *
+     *   공급사 원문 이름은 아래 「기타사항 › 공급사 차명」이 따로 든다 — 그건 다른 값이라 남긴다.
+     */
     // 차량번호는 손님에게도 보인다 — 공유 견적서에서 «어느 차인지»를 특정하는 유일한 값이다.
     //  (없는 매물이 있다: 재렌트·재구독은 공급사 시트에 번호판을 안 적는 경우가 있어
     //   빈 줄을 만들지 않도록 값이 있을 때만 넣는다. 나머지 행의 `-` 규칙과 다른 이유다.)

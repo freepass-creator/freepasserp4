@@ -1,7 +1,7 @@
 'use client';
 
 import type { CSSProperties } from 'react';
-import { Wallet, UserRound, Briefcase, ShieldCheck, Sparkles, Coins, type LucideIcon } from 'lucide-react';
+import { Wallet, UserRound, Briefcase, ShieldCheck, Sparkles, Coins, FileCheck, type LucideIcon } from 'lucide-react';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { benefitSignals, eventSignals } from '@/lib/domain/product';
 import { C, FW, FS, ICON } from '@/components/ui';
@@ -16,6 +16,8 @@ import { benefitTip } from '@/components/product-card-badges';
  *   뒤엉켜 무엇이 상태고 무엇이 혜택인지 안 잡혔다. 그림은 그대로, 색만 하나(글자색)로 둔다.
  */
 function benefitIcon(key: string): LucideIcon {
+  // 심사 = 서류를 보나 안 보나. 우대조건 줄 맨 앞에 선다.
+  if (key === 'cd') return FileCheck;
   if (key === 'ins') return Coins;
   if (key === 'nd') return Wallet;
   if (key === 'age') return UserRound;
@@ -36,6 +38,8 @@ function benefitIcon(key: string): LucideIcon {
  * (면·머리띠 색 규칙은 docs/DESIGN_COLOR_LADDER.md — 그쪽은 네이비 하나. 여기는 그림 틴트라 별개다.)
  */
 function benefitIconColor(key: string): string {
+  // 심사는 «혜택»이 아니라 «관문»이라 먹색 — 옆의 다섯 색과 섞이지 않게 색을 안 준다.
+  if (key === 'cd') return C.ink;
   if (key === 'ins') return toneText('teal');
   if (key === 'nd') return toneText('purple');
   if (key === 'age') return toneText('blue');
@@ -89,10 +93,10 @@ function metaRow(dense: boolean, _mobile: boolean, strong?: boolean, clamp?: boo
  *
  * clamp=한 줄 말줄임 · inline=상태 뱃지 뒤에 이어붙임(width 100% 금지).
  */
-export function CardBenefits({ p, dense, clamp, inline }: {
-  p: EntityRecord; dense?: boolean; clamp?: boolean; inline?: boolean;
+export function CardBenefits({ p, dense, clamp, inline, withCredit }: {
+  p: EntityRecord; dense?: boolean; clamp?: boolean; inline?: boolean; withCredit?: boolean;
 }) {
-  const items = benefitSignals(p);
+  const items = benefitSignals(p, { withCredit });
   const row: CSSProperties = {
     display: 'flex', alignItems: 'center', gap: dense ? 8 : 10,
     flexWrap: clamp || inline ? 'nowrap' : 'wrap',
@@ -152,10 +156,10 @@ export function CardEvents({ p, dense, clamp, inline }: {
 /** 상세 4행 좌 · 간단 기간옆 — 조건. 없으면 조건없음.
  *  inline = 기간칩과 같은 wrap 흐름(width 100% 금지 → 60개월 옆으로 붙음).
  */
-export function CardPerkLine({ p, dense, inline }: {
-  p: EntityRecord; dense?: boolean; inline?: boolean;
+export function CardPerkLine({ p, dense, inline, withCredit }: {
+  p: EntityRecord; dense?: boolean; inline?: boolean; withCredit?: boolean;
 }) {
-  const bens = benefitSignals(p);
+  const bens = benefitSignals(p, { withCredit });
   const fs = FS.cap;
   if (!bens.length) {
     return (
