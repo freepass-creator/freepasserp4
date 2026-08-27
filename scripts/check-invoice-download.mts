@@ -58,7 +58,15 @@ ok('우리 주소는 푸터에 있다', html.includes('1004호'));
 //   (2026-08-27 「CI랑 회사명은 맨 상단 밴드형 상단바에 원래처럼」)
 ok('밴드에 우리 CI 가 선다', /class="hd">[\s\S]{0,400}class="co"><b>freepass/.test(html));
 ok('문서 이름이 띠 아래 첫 칸 좌측', /class="titlerow">[\s\S]{0,200}class="ti">영업수수료 정산서/.test(html));
-ok('그 우측이 회원사다', /class="titlerow">[\s\S]{0,600}회원사[\s\S]{0,300}주식회사 손오공렌터카/.test(html));
+// ★로고가 붙으면 data URI 가 통째로 끼어들어 사이가 수만 자 벌어진다 — 태그를 걷고 본다.
+{
+  const tr = /<div class="tr">([\s\S]*?)<\/div>\s*<\/div>\s*<\/div>/.exec(html)?.[1] ?? '';
+  const txt = tr.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ');
+  ok('그 우측이 회원사다', /회원사[\s\S]{0,80}주식회사 손오공렌터카[\s\S]{0,40}귀중/.test(txt));
+  // ★CI 는 상호와 사업자번호 «두 줄»을 같이 잡는다 (2026-08-27 「같이 잡아줘야지 CI가」).
+  ok('CI 가 두 줄을 같이 잡는다', /<div class="lock">[\s\S]{0,200}<div>\s*<div class="nm">/.test(tr)
+    || /<div class="lock">\s*<div>\s*<div class="nm">/.test(tr.replace(/<img[^>]*>/g, '')));
+}
 // ★맺음말은 «아래»에 둔다 — 내역을 보여 준 다음에 맺는다.
 ok('맺음말이 아래에 있다', html.includes('위와 같이 청구합니다') || html.includes('위와 같이 지급합니다'));
 ok('위에서 예고하지 않는다', !html.includes('아래와 같이 청구합니다'));
