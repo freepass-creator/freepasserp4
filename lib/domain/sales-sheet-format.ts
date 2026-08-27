@@ -464,7 +464,8 @@ export function buildSalesFormatRequests(input: FormatInput): Record<string, unk
       fields: 'userEnteredFormat.textFormat.link',
     } });
     input.body.forEach((r, i) => {
-      const uri = String(r[iph] ?? '').trim();
+      // 「사진」 칸이 여러 장(콤마·줄바꿈)이면 차번 셀 링크는 «첫 장»만 건다 — 전체를 href로 넣으면 깨진 링크가 된다.
+      const uri = String(r[iph] ?? '').split(/\s*[\n,]\s*/)[0].trim();
       const plate = String(r[ipl] ?? '').trim();
       if (!plate || !/^https?:\/\//i.test(uri)) return;
       out.push({ updateCells: {

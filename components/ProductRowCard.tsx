@@ -180,7 +180,10 @@ function MobileRow({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) 
               fontSize: FS.title, fontWeight: FW.title, color: C.ink, lineHeight: 1.2,
               minWidth: 0, flex: '0 1 auto', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             }}>{listName(p)}</div>
-            <CardRailBadges p={p} dense />
+            {/* ★모바일 목록에는 출고상태·상품구분을 세우지 않는다(사장님 2026-08-28 「모바일에서
+                출고가능 중고구독은 목록에서는 빼자고 했어 · 상세에만 넣고」).
+                좁은 줄에 신호가 붙으면 차명이 밀려 잘린다. 상세에서 확인한다.
+                ⚠ 웹 목록 행(위쪽 분기)은 폭이 있어 그대로 세운다 — 같은 컴포넌트라도 자리가 다르다. */}
           </div>
 
           {/* 2 차량번호 · 연식 */}

@@ -328,6 +328,12 @@ export type PricePlan = {
   deposit: number;
   /** 표준(반납형)인가 — 최저가 표시는 표준만 대상으로 한다. */
   standard: boolean;
+  /**
+   * 만기 **인수형**인가 — 화면에서 반납형과 갈라 세우는 근거(사장님 2026-08-28
+   * 「반납형 기본하고 인수형 정보가 있으면 구분해서 써주기로 했잖아 · 구분되게」).
+   * ⚠ 조건 **글자**(「만기인수」)로 판정하지 않는다 — 표기가 바뀌면 갈래가 통째로 무너진다.
+   */
+  acquisition: boolean;
 };
 
 /**
@@ -363,7 +369,7 @@ export function pricePlanList(p: EntityRecord): PricePlan[] {
     const variant = bar >= 0 ? k.slice(bar + 1) : '';
     const km = /^[1-9]\d*만$/.test(variant) ? `연 ${variant}km` : '';
     const condition = variant === ACQUISITION_VARIANT ? '만기인수' : (km || policyMileage);
-    out.push({ m, condition, rent, deposit, standard: !variant || !!km });
+    out.push({ m, condition, rent, deposit, standard: !variant || !!km, acquisition: variant === ACQUISITION_VARIANT });
   }
   // 기간 오름차순 → 같은 기간이면 싼 것 먼저(조건이 헐한 쪽이 위로).
   out.sort((a, b) => a.m - b.m || a.rent - b.rent);

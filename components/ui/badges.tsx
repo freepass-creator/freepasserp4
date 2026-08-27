@@ -188,6 +188,8 @@ export function SevTag({ high }: { high: boolean }) {
 
 export const PRODUCT_TYPE_TONE: Record<string, BadgeTone> = {
   '신차렌트': 'blue', '신차구독': 'blue', '중고렌트': 'gray', '중고구독': 'gray',
+  // 픽업구독(손오공 T카) = 중고구독과 다른 갈래라 색도 가른다(2026-08-28).
+  '픽업구독': 'teal',
   '신차': 'blue', '중고': 'gray',
 };
 

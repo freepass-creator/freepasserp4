@@ -86,7 +86,18 @@ export const PROMO_BADGES = [...PROMO_BADGES_ACTIVE, ...PROMO_BADGES_PLANNED] as
 export const MAX_PROMO_BADGES = 2;
 /** 구표기 → 현재 뱃지 (저장·필터 호환). */
 export const PROMO_BADGE_LEGACY: Record<string, string> = { 추가수수료면제: '수수료+' };
-export const PRODUCT_TYPES = ['신차렌트', '중고렌트', '신차구독', '중고구독'] as const; // 렌트/구독 × 신차/중고
+/**
+ * 상품구분 캐논 — 렌트/구독 × 신차/중고, 그리고 **픽업구독**.
+ *
+ * ★**픽업구독은 중고구독이 아니다**(사장님 2026-08-28 「중고구독이 아니고 손오공 픽업구독은
+ *   상품구분에 픽업구독으로 해야 한다고」). 손오공 T카 재고에서 오는 별개 갈래이고
+ *   판매시트도 「픽업구독」 탭을 따로 낸다(sales-published-tabs).
+ *
+ * ⚠ 여기 빠져 있으면 `canonProductType` 의 마지막 그물 `s.includes('구독') → '중고구독'` 에 걸린다.
+ *   실제로 매물 **338대**의 `product_type` 이 「픽업구독」으로 잘 들어와 있는데 화면에서만
+ *   「중고구독」으로 바뀌어 보이고 있었다(실측 2026-08-28). 데이터가 아니라 캐논이 문제였다.
+ */
+export const PRODUCT_TYPES = ['신차렌트', '중고렌트', '신차구독', '중고구독', '픽업구독'] as const;
 import { VEHICLE_CLASS_LABELS } from '@/lib/domain/vehicle-class-catalog';
 
 /** 차종분류(vehicle_class) 표시·필터 순서 SSOT. 한 칸 = 세그먼트+차형(준대형 세단). */
@@ -95,6 +106,7 @@ export const VEHICLE_CLASS_VALUES = [...VEHICLE_CLASS_LABELS, '경형', '소형'
 export const PRODUCT_TYPE_LEGACY: Record<string, typeof PRODUCT_TYPES[number]> = {
   재렌트: '중고렌트', 중고렌트: '중고렌트',
   재구독: '중고구독', 중고구독: '중고구독',
+  픽업구독: '픽업구독',
   신차렌트: '신차렌트', 신차구독: '신차구독',
 };
 export const FUEL_TYPES = ['가솔린', '디젤', 'LPG', '하이브리드', '전기', '수소'] as const;

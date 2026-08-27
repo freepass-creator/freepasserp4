@@ -58,10 +58,41 @@ function cardEngineCc(product: EntityRecord): string {
   return `${value.toLocaleString()}cc`;
 }
 
+/**
+ * ★**차량번호 옆 원자 차례 — 연식 · 주행거리 · 연료 · 배기량(전기는 배터리용량) · 구동방식**
+ *   (사장님 2026-08-28 「차량번호 옆으로 연식 주행거리 연료 배기량 이런 거 · 배터리용량이나
+ *    구동방식 순서대로 · **있는 거라도**」).
+ *
+ *   ⚠ **있는 것만 쓴다.** 빈 칸은 구분자째 뺀다 — `-` 를 고정으로 찍으면 모든 줄이 「· -」로 끝나고
+ *     그 폭 때문에 앞의 주행거리가 잘린다. 대시 폴백은 표(DetailGrid·KV)에서만 쓴다.
+ *
+ *   ⚠ **배기량 자리는 전기차에서 배터리 용량이 든다.** 전기차에 `engine_cc` 가 비는 건 정상이라
+ *     그동안 이 자리가 늘 비어 있었다. 상세 「동력」 줄과 같은 규칙이다(product.ts `ccLabel`) —
+ *     두 곳이 다른 규칙을 쓰면 같은 차가 화면마다 다른 제원을 보인다.
+ *
+ *   차례를 여기 한 곳에서 정한다. 부르는 쪽(목록·카드·상세 머리)이 각자 적으면 화면마다 갈린다 —
+ *   실제로 연료가 목록에서만 빠져 있던 적이 있다(2026-08-19 → 08-20 되살림).
+ */
+export function specAtoms(product: EntityRecord): string[] {
+  const kwh = Number(product.battery_capacity) || 0;
+  const cc = Number(product.engine_cc) || fuelEmbeddedCc(product.fuel_type);
+  const power = kwh > 0 ? `${kwh}kWh` : (cc > 0 ? `${cc.toLocaleString()}cc` : '');
+  return [
+    yearDisplay(product.year),
+    kmDisplay(product.mileage),
+    fuelDisplay(product.fuel_type) || String(product.fuel_type || '').trim(),
+    power,
+    String(product.drive_type || '').trim(),
+  ].filter(Boolean).map(String);
+}
+
+/** 위 차례를 한 줄로. 목록·카드·차번 옆이 전부 이걸 쓴다. */
+export function specAtomsLine(product: EntityRecord): string {
+  return specAtoms(product).join(' · ');
+}
+
 export function specLineCard(product: EntityRecord): string {
-  // 값 없는 칸은 구분자째 뺀다. '-'를 고정 출력하면 모든 행이 '· -'로 끝나고
-  //  그 폭 때문에 앞의 주행거리가 잘린다. 대시 폴백은 표(DetailGrid·KV)에서만 쓴다.
-  return [cardYear(product), cardFuel(product), cardMileage(product), cardEngineCc(product)].join(' · ');
+  return specAtomsLine(product);
 }
 
 export function cardTitle(product: EntityRecord, mobileNarrow = false): string {
@@ -70,10 +101,7 @@ export function cardTitle(product: EntityRecord, mobileNarrow = false): string {
   return [idMain, idExt].filter(Boolean).join(' ');
 }
 
-/**
- * **차번 옆 한 줄 — 연식 · 주행 · 연료**(사장님 2026-08-20 「차량번호에 26년 주행거리 연료까지는 넣어주자 ·
- * 지금 주행거리만 나오는데」). 카드 표기(`specLineCard`)와 같은 함수를 써서 화면마다 표기가 갈리지 않게 한다.
- */
+/** 차번 옆 한 줄 — 차례는 `specAtoms` 가 정한다(연식 · 주행 · 연료 · 배기량 · 구동). */
 export function plateSpecLine(product: EntityRecord): string {
-  return [cardYear(product), cardMileage(product), cardFuel(product)].filter(Boolean).join(' · ');
+  return specAtomsLine(product);
 }

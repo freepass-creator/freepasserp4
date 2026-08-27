@@ -95,7 +95,42 @@ export function ProductPriceTable({ p, title = '대여료조건', hint, tone }: 
     >
       {plans.length === 0 ? (
         <tr><td colSpan={4} style={{ ...DT.td, textAlign: 'center', color: C.faint }}>가격 문의</td></tr>
-      ) : plans.map((pr, i) => row(pr, i, !!cheapPlan && pr.m === cheapPlan.m && pr.condition === cheapPlan.condition))}
+      ) : (() => {
+        /*
+         * ★**반납형과 인수형을 갈라 세운다**(사장님 2026-08-28 「반납형 기본하고 인수형 정보가
+         *   있으면 구분해서 써주기로 했잖아 · 구분되게」).
+         *
+         *   전에는 기간 오름차순으로 섞여, 36개월 반납형 바로 밑에 36개월 인수형이 붙었다.
+         *   금액이 비슷하니 조건 칸의 「만기인수」 넉 자를 못 보면 **같은 상품의 다른 줄**로 읽힌다.
+         *   손오공 구독은 403대 중 386대가 인수형을 들고 있어, 그 오독이 그대로 견적이 된다.
+         *
+         *   ⚠ 탭으로 감추지 않는다 — 영업자는 둘을 **나란히 놓고** 손님에게 고르게 한다.
+         *   ⚠ 인수형이 없는 차는 갈래 줄도 안 세운다. 하나뿐인 갈래에 이름표는 군더더기다.
+         */
+        const ret = plans.filter((x) => !x.acquisition);
+        const acq = plans.filter((x) => x.acquisition);
+        const split = ret.length > 0 && acq.length > 0;
+        const best = (pr: PricePlan) => !!cheapPlan && pr.m === cheapPlan.m && pr.condition === cheapPlan.condition;
+        if (!split) return plans.map((pr, i) => row(pr, i, best(pr)));
+        const groupHead = (label: string, note: string) => (
+          <tr key={`g-${label}`}>
+            <th colSpan={4} scope="colgroup" style={{
+              ...DT.labelTh, width: undefined, textAlign: 'left',
+              background: C.sunken, color: C.ink, fontWeight: FW.head,
+              borderTop: `1px solid ${C.line}`,
+            }}>
+              {label}
+              <span style={{ marginLeft: 6, fontSize: FS.cap, fontWeight: FW.meta, color: C.mute }}>{note}</span>
+            </th>
+          </tr>
+        );
+        return [
+          groupHead('반납형', '만기에 차를 반납한다'),
+          ...ret.map((pr, i) => row(pr, i, best(pr))),
+          groupHead('인수형', '만기에 차를 인수한다'),
+          ...acq.map((pr, i) => row(pr, i, false)),
+        ];
+      })()}
 
       {caption ? (
         <tr style={DT.tr(1)}>

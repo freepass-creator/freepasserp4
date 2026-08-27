@@ -98,11 +98,13 @@ export function CardSpecs({ p, dense, audience = 'agent', plateYear, listing }: 
    * (사장님 2026-08-20 「주행거리 뒤에 연료 안 나온다」 — `listing` 변형이 2026-08-19 들어오면서 잘렸다).
    * 연료는 차를 고를 때 «주행거리 다음»으로 먼저 걸러 보는 값이라 한 줄에 같이 있어야 한다.
    */
-  const body = plateYear
-    ? [year, kmDisplay(p.mileage), fuelDisplay(p.fuel_type) || String(p.fuel_type || '').trim()].filter(Boolean).join(' · ')
-    : listing
-      ? [year, kmDisplay(p.mileage), fuelDisplay(p.fuel_type) || String(p.fuel_type || '').trim()].filter(Boolean).join(' · ')
-      : specLineCard(p);
+  /*
+   * ★차례는 `specAtoms` 한 곳에서만 정한다 — 연식 · 주행 · 연료 · 배기량(전기=배터리) · 구동
+   *   (사장님 2026-08-28 「차량번호 옆으로 … 순서대로 · 있는 거라도」).
+   *   예전엔 plateYear·listing·기본 세 갈래가 각자 차례를 적어, 연료가 목록에서만 빠진 적이 있다.
+   *   이제 셋이 같은 줄을 쓴다 — 값 없는 칸은 구분자째 빠지므로 차마다 길이가 다른 것은 정상이다.
+   */
+  const body = specLineCard(p);
   const tip = [
     showPlateSlot && plate ? plate : '',
     plateYear || listing ? body : specLine(p),
