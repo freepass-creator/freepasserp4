@@ -9,6 +9,7 @@ import {
   uploadPrivateEsignFile,
   type EsignRecord,
 } from '@/lib/server/freepass-esign';
+import { encryptRrn } from '@/lib/server/rrn-crypto';
 import { hasMeaningfulFreepassSignature } from '@/lib/server/freepass-esign-signature';
 import { driverAgeRange, residentAgeOn, residentIdInfo } from '@/lib/domain/esign-resident-id';
 import { normalizeEsignRequiredDocuments } from '@/lib/domain/esign-required-documents';
@@ -165,10 +166,16 @@ function validateSubmission(payload: EsignRecord, snapshot: EsignRecord) {
   const groups = Array.isArray(snapshot.consentGroups) ? snapshot.consentGroups : [];
   const missing = groups
     .map((group) => S(record(group).key))
-    .filter((key) => key && !Number(confirmations[key] || 0));
+    // 본인정보는 별도 본인확인 단계(progress.identity)에서 이미 서버에 기록한다.
+    // 모바일에서 실제로 보여준 계약조건 페이지(차량·대여·결제…)만 여기서 다시 확인한다.
+    .filter((key) => key && key !== 'identity' && !Number(confirmations[key] || 0));
   if (missing.length) throw new Error('확인하지 않은 계약 조건이 있습니다.');
   if (!Number(payload.summaryConfirmedAt || 0)) throw new Error('계약 요약을 먼저 확인해 주세요.');
   if (!Number(payload.agreementReadAt || 0)) throw new Error('약관을 끝까지 읽고 동의해 주세요.');
+  const documentSourceViewedAt = Number(payload.documentPreviewedAt || 0);
+  if (!Number.isFinite(documentSourceViewedAt) || documentSourceViewedAt <= 0 || documentSourceViewedAt > Date.now() + 5 * 60_000) {
+    throw new Error('실제 계약서 원본을 열람한 뒤 동의해 주세요.');
+  }
   for (const [key, limit] of [
     ['customer_id', 30], ['customer_address', 200],
     ['driver_license_no', 30],
@@ -232,7 +239,7 @@ function validateSubmission(payload: EsignRecord, snapshot: EsignRecord) {
   });
   return {
     name, phone, signature, consents, confirmations, additionalDrivers,
-    emergencyRelation, emergencyName, emergencyPhone, business,
+    emergencyRelation, emergencyName, emergencyPhone, business, documentSourceViewedAt,
   };
 }
 
@@ -510,7 +517,7 @@ export async function POST(
       submittedAt: now,
       customer_name: parsed.name,
       customer_phone: parsed.phone,
-      customer_id: S(payload.customer_id),
+      customer_id: encryptRrn(payload.customer_id),
       customer_address: S(payload.customer_address),
       driver_license_no: S(payload.driver_license_no),
       emergency_relation: parsed.emergencyRelation,
@@ -532,6 +539,7 @@ export async function POST(
       signatureSha256: sha256(parsed.signature),
       consentTimes,
       clientConfirmations: parsed.confirmations,
+      documentSourceViewedAt: parsed.documentSourceViewedAt,
       evidence: requestEvidence(request, hash),
       idCardPath: idAsset.path,
       idCardSha256: idAsset.sha256,

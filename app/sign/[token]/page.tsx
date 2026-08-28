@@ -277,6 +277,20 @@ export default function SignPage() {
     emergency_relation: '', emergency_name: '', emergency_phone: '',
   });
   const [consents, setConsents] = useState<Set<string>>(new Set());
+  /*
+   * ★작성 중 창을 닫으면 그때까지 쓴 게 사라진다 — 중간 저장이 없다(메모리 상태뿐).
+   *   전화 한 통 받고 나가면 신분증·셀카부터 다시 찍어야 한다.
+   *   ⚠ localStorage 에 담지 않는다: 주민번호·면허번호가 손님 폰에 평문으로 남고,
+   *      공용 기기면 다음 사람이 본다. 제대로 된 답은 «서버 부분 저장»이고 별건이다
+   *      (docs/ESIGN-MANUAL.md Q5). 여기서는 실수로 닫는 것만 막는다.
+   */
+  const hasTyped = Object.values(form).some((value) => S(value) !== '');
+  useEffect(() => {
+    if (!hasTyped) return;
+    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ''; };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [hasTyped]);
   const [confirmations, setConfirmations] = useState<Record<string, number>>({});
   const [readThrough, setReadThrough] = useState<Record<string, boolean>>({});
   const [summaryConfirmedAt, setSummaryConfirmedAt] = useState(0);

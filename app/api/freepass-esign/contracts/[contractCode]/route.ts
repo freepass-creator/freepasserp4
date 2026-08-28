@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { decryptRrn } from '@/lib/server/rrn-crypto';
 import { BearerTokenError, verifyActiveBearer } from '@/lib/server/firebase-admin';
 import {
   FREEPASS_ESIGN_CONSENT_VERSION,
@@ -415,6 +416,11 @@ export async function POST(
   let contract = bundle.contract;
   if (!canAccessFreepassEsignContract(actor, contract)) return json({ error: '계약을 찾을 수 없습니다.' }, 404);
   if (isInactiveFreepassContract(contract)) return json({ error: '취소 또는 폐기된 계약은 전자계약을 진행할 수 없습니다.' }, 409);
+  // 고객 모바일 화면 점검용 레코드는 공개 화면만 확인한다. 이 경로에서 발행·승인·PDF·인도 같은
+  // 운영 후속 처리가 이어지면 안 된다. 실제 계약과 같은 화면을 보되, 업무 데이터로 승격하지 않는다.
+  if (contract.is_test === true || S(contract.is_test) === 'true') {
+    return json({ error: '모바일 화면 점검용 계약은 발행·승인·인도 처리할 수 없습니다.' }, 409);
+  }
 
   if (action === 'issue') {
     /**
@@ -898,7 +904,12 @@ export async function POST(
     const signedSubmission = customerInsuranceEvidence
       ? { ...submission, customer_insurance_evidence: customerInsuranceEvidence }
       : submission;
-    const signedSnapshot = snapshotWithPrivateSubmission(issueSnapshot, signedSubmission);
+    /* 봉인본에는 주민등록번호 원문이 들어간다 — 여기서만 푼다.
+       저장은 암호문이고, 이 한 줄 밖으로는 원문이 나가지 않는다. */
+    const signedSnapshot = snapshotWithPrivateSubmission(issueSnapshot, {
+      ...signedSubmission,
+      customer_id: decryptRrn((signedSubmission as Record<string, unknown>).customer_id),
+    });
     const sealedSupportingDocuments = rawSupportingDocuments
       .map((document) => {
         return { key: S(document.key), sha256: S(document.sha256) };
