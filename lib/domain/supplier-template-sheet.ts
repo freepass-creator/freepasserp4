@@ -602,6 +602,8 @@ export const supplierSheetName = (label: string, opts: { kind?: SupplierSheetKin
 /** 「0818 아이카 프리패스 재고 [정제] [연동중]」 → 「아이카」. 옛 이름(「프리패스 재고 · 아이카」·「아이카 프리패스 재고」)도 같은 답. */
 export const supplierSheetLabel = (name: string) => String(name ?? '')
   .replace(`${SHEET_NAME_MATCH} · `, '')          // 옛 이름
+  .replace(/\s*[\[(（]\s*F\d+(?:\s+사용중)?\s*[\])）]\s*/gi, ' ')  // ★F-코드 문서표식 「[F50 사용중]」(2026-08-28)
+  .replace(/\s*[\[(（]사용중[\])）]\s*/g, ' ')      // 「[사용중]」
   .replace(/\s*[\[(（](제공|정제|연동중)[\])）]\s*/g, ' ')  // 종류·상태 표식
   .replace(new RegExp(`\s*${SHEET_NAME_MATCH}\s*`), ' ')   // 규격 이름
   .replace(/^\s*\d{4}\s+/, '')                     // 앞 날짜(MMDD)
