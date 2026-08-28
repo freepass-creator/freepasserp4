@@ -830,6 +830,9 @@ export function agentPanelRows(p: EntityRecord, audience: Audience = 'agent'): K
     // 계약이 «안 되는» 조건 — 상담 초반에 손님을 거르는 값이라 심사 바로 뒤에 둔다.
     //  시트의 불가조건 1~4 는 `policy-sheet-to-erp` 가 「·」로 이어 한 칸으로 만든다.
     ['불가조건', s('disqualification_conditions')],
+    /* 1인당 계약 대수 — 불가조건 바로 뒤. 「이 사람에게 팔 수 있나」를 가르는 값이라 상담 초반에 본다.
+       불가조건과 다른 자리다: 불가조건은 처음부터 안 되는 것이고, 이건 «첫 대는 되고 둘째 대가 막히는» 것이다. */
+    ['1인당 계약 대수', s('contracts_per_customer_limit')],
     ['영업 특이사항', s('sales_notes')],
     ['보증금 분납', s('deposit_installment')],
     // ★두 칸 다 「불가」 아니면 수수료율이 적힌다(2026-08-21) — 값을 그대로 보인다.

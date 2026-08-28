@@ -112,6 +112,7 @@ export const SALES_LAYER: PolicyField[] = [
   { key: 'credit_grade', label: '신용등급', layer: 'sales', exposure: 'internal', decides: '계약 승인 여부', why: '⚠ 위와 같음' },
 
   // ⑤ 상담 안내 — 결정도 적용도 아닌 것
+  { key: 'contracts_per_customer_limit', label: '1인당 계약 대수', layer: 'sales', exposure: 'sales', decides: '둘째 대 계약 가능 여부', why: '첫 대는 되고 둘째 대가 막히는 자리라 상담 초반에 걸러야 한다. 계약서 조항이 아니라 영업 기준이다' },
   { key: 'rental_region', label: '대여지역', layer: 'sales', exposure: 'sales', why: '상품 안내. 이 계약의 조건이 아니라 계약서에 싣지 않는다' },
   { key: 'commission_clawback_condition', label: '수수료 환수조건', layer: 'sales', exposure: 'internal', why: '⚠ 우리와 공급사 사이의 약정. 손님과 무관하다' },
 ];

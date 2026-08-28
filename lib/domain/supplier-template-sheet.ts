@@ -107,6 +107,8 @@ const POLICY_COLUMNS: { name: string; note: string; field?: string; values?: str
   { name: '초과주행 수입(1km당)', note: '계약서 제23조 · 예: 400', field: 'over_mileage_rate_imported', values: ['400', '300', '500'] },
   { name: '정비', note: '', field: 'maintenance_service', values: ['협의', '불포함', '포함'] },
   { name: '대여지역', note: '', field: 'rental_region', values: ['전국', '제주도불가', '협의'] },
+  // 1인당 계약 대수(사장님 2026-08-28 「계약자 1명당 1대」) — 한 사람이 동시에 몇 대까지.
+  { name: '1인당 계약 대수', note: '한 사람이 동시에 몇 대까지 — 「1대」', field: 'contracts_per_customer_limit', values: ['1대', '2대', '3대', '제한없음'] },
   /**
    * ★**카드결제 두 칸 — 한 칸에 「불가」 아니면 수수료율**(사장님 2026-08-21).
    *   대여료와 보증금은 카드 가부가 다르다. 「결제방식」(CMS/카드/이체)은 셋 중 «하나»를 고르는 칸이라

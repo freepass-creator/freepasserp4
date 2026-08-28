@@ -104,6 +104,7 @@ export const POLICY_VALUE_RULES: PolicyValueRule[] = [
   { name: '추가운전 요금', kind: 'money_or_rate', rateLabel: '대여료의 ', allowed: ['불가', '무료', ...MONEY_OR_RATE_LIST], format: '1인당 월 — 정액 「5만원」 또는 정률 「대여료의 5%」. 무료면 「무료」, 안 받으면 「불가」', examples: ['5만원', '대여료의 5%', '무료'] },
   // 사장님 2026-08-19 — 「3 5 7 10 15 20만원 정액 / 대여료의 3 5 7 10 20%」
   { name: '추가주행 금액', kind: 'money_or_rate', rateLabel: '대여료의 ', allowed: [...MONEY_OR_RATE_LIST, '불가', '협의'], format: '1만km 더 탈 때 붙는 월 금액 — 정액 「10만원」 또는 정률 「대여료의 10%」. 둘 중 하나만', examples: ['10만원', '대여료의 10%'] },
+  { name: '1인당 계약 대수', kind: 'enum', openEnum: true, allowed: ['1대', '2대', '3대', '제한없음'], format: '「1대」 · 제한이 없으면 「제한없음」', examples: ['1대'], synonyms: { '1건': '1대', '1대까지': '1대', '한대': '1대', '무제한': '제한없음', '제한 없음': '제한없음' } },
   { name: '대여지역', kind: 'enum', openEnum: true, allowed: ['전국', '제주도 불가', '협의'], format: '「전국 / 제주도 불가 / 협의」', examples: ['전국'], synonyms: { '제주도불가': '제주도 불가', '제주불가': '제주도 불가', '제주제외': '제주도 불가' } },
   // 사장님 2026-08-19 — 「전액지원 / 일부지원 / 고객부담」
   // 제주는 원래 전부 제외(사장님 2026-08-19)라 「무료(제주 제외)」=전액지원. 따로 적지 않는다.

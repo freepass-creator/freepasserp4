@@ -336,6 +336,14 @@ export const ENTITIES: Record<string, Entity> = {
         range: [3, 3],
         note: '약관 제7조 · 사고일 기준 직전 1년, 해당 사고 포함 과실 50% 이상 총 3회',
       },
+      /**
+       * ★**1인당 계약 대수**(사장님 2026-08-28 「계약자 1명당 1대 · 1대」).
+       *   칸 이름에 숫자를 박지 않는다 — 「최대 계약 1건」으로 두면 2대를 허용하는 공급사가 생길 때
+       *   칸 이름 자체가 거짓말이 된다. 다른 칸과 같은 문법으로 **이름은 축, 값은 수**다
+       *   (「기본 운전자 연령」 = 「만 26세 이상」처럼).
+       *   세는 단위는 **대**다 — 우리가 세는 것은 계약 건수가 아니라 차다(사장님 「1대」).
+       */
+      { key: 'contracts_per_customer_limit', label: '1인당 계약 대수', type: 'text', manual: true, note: '한 사람이 동시에 몇 대까지 — 「1대」. 영업 상담 기준이라 계약서엔 안 실림 · 시트 「1인당 계약 대수」' },
       { key: 'rental_region', label: '대여지역', type: 'select', options: sheetOpts('대여지역'), manual: true, note: '안내용 · 계약서엔 안 실림 · 제주는 항상 탁송 제외 · 시트 「대여지역」' },
       { key: 'delivery_fee', label: '탁송비', type: 'select', options: sheetOpts('탁송비'), manual: true, note: '전액지원 / 일부지원 / 고객부담(사장님 2026-08-19) · 시트 「탁송비」' },
       { key: 'deposit_installment', label: '보증금 분납', type: 'select', options: sheetOpts('보증금분납'), manual: true, note: '정책은 가능 여부·최대 회차 · 실제 회차는 계약서 만들 때 고른다 · 시트 「보증금분납」' },
