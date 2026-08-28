@@ -2,7 +2,8 @@
 
 import { LayoutGrid, List, SlidersHorizontal, Sheet } from 'lucide-react';
 import { InterestTriggers, type InterestTab } from '@/components/InterestRail';
-import { Btn, C, FS, FW, IconSeg, NUM, SearchInput, ICON } from '@/components/ui';
+import { Btn, C, FS, FW, IconSeg, NUM, SearchInput, Select, ICON } from '@/components/ui';
+import { FINDER_SORTS } from './filter-state';
 
 const VIEWS = [
   { key: 'card', label: '간단', Icon: LayoutGrid },
@@ -28,6 +29,8 @@ type Props = {
   favoriteCount: number;
   interestTab: InterestTab | null;
   onInterestTab: (tab: InterestTab | null) => void;
+  sort: string;
+  onSort: (value: string) => void;
 };
 
 export function FinderToolbar(props: Props) {
@@ -83,6 +86,9 @@ export function FinderToolbar(props: Props) {
       <div className="fp-finder-toolbar-main">
         <div className="fp-finder-search-group">
           {search}
+          <span className="fp-finder-sort">
+            <Select value={props.sort} onChange={props.onSort} placeholder="정렬" width={132} options={FINDER_SORTS} />
+          </span>
         </div>
         <div className="fp-finder-interest-group">
           <InterestTriggers recentN={props.recentCount} favN={props.favoriteCount} tab={props.interestTab} onTab={props.onInterestTab} />

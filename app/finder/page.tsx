@@ -481,6 +481,8 @@ export default function Finder() {
           favoriteCount={interestFavs.length}
           interestTab={interestTab}
           onInterestTab={setInterestTab}
+          sort={sort}
+          onSort={setSort}
         />
         {/* 퀵필터 한 줄 — 웹만. 모바일은 검색창+필터 버튼만 깔끔하게(사장님 2026-08-22 「모바일은 퀵필터 넣지 말자」). */}
         {!mobile ? (
