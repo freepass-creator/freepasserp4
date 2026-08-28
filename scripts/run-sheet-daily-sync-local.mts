@@ -36,5 +36,6 @@ for (const p of ((res.providers || []) as Record<string, unknown>[]).slice(0, 30
   console.log(`   ${String(p.code).padEnd(8)} ${String(p.label || '').padEnd(14)} 원본 ${String(c.sourceRows).padStart(3)} · 신규 ${String(c.created).padStart(3)} · 갱신 ${String(c.updated).padStart(3)}${p.status === 'blocked' ? '  ⛔ ' + String(p.blockReason || '') : ''}`);
 }
 if ((res as { notes?: string[] }).notes?.length) console.log('   ' + (res as { notes: string[] }).notes.join('\n   '));
+if (res.blockReason) console.log(`   ⛔ 사유: ${String(res.blockReason)}`);
 const failed = res.ok === false || res.status === 'failed' || res.status === 'blocked';
 process.exit(failed ? 1 : 0);

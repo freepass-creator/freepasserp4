@@ -201,6 +201,9 @@ const targets: { code: string; name: string; id: string }[] = [];
     const nm = S(f.name);
     const who = companyAlias(supplierSheetLabel(nm)) || supplierSheetLabel(nm);
     if (nm.startsWith(LEGACY_SHEET_PREFIX) || /구버전/.test(nm) || isLegacySheetId(S(f.id))) continue;
+    // ★손오공(RP012)은 «자기 정제(손오공-정제.mjs=②)»가 정본 — fill 이 손대면 정제칸(모델·세부모델)을
+    //   더 나쁜 매칭으로 덮어써 지운다(2026-08-28 실측: 픽업 모델 135/341 소실). fill 은 영영 손오공을 건드리지 않는다.
+    if (S(f.id) === '1WIFn5ObK_nCVGLTjj6rO96i6vxub1QzJmiVW0BpJLcA' || /손오공/.test(who)) continue;
     if (ONLY.size && ![...supplierNameKeys(who)].some((k) => ONLY.has(k))) continue;
     if (!INCLUDE_MIRROR && isMirrorSheet(S(f.id))) continue;   // 정제시트는 사장님·제미나이 몫(2026-08-18) — --include-mirror 로만
     targets.push({ code: '', name: who, id: S(f.id) });
