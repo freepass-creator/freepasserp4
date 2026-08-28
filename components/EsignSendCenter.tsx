@@ -404,7 +404,22 @@ export function EsignSendCenter({
     // product 를 넘겨야 출고가능 판정이 된다 — 안 넘기면 «연결된 ERP 차량을 찾을 수 없습니다» BLOCK 이 상시 붙는다.
     const checks = validateEsignCenterContract(draftInputRecord(draft), draftPartner, draftPolicy, draftProduct);
     const selectionChecks: EsignCheck[] = [];
-    if (!draft.productCode) selectionChecks.push({ key: 'erp_product', label: '차량 선택', level: 'BLOCK', message: '출고가능 차량을 선택해 주세요' });
+    /*
+     * ★필수값 — 「비어 있음」과 「없음」은 다르다.
+     *   빈칸은 «직원이 안 채웠다»로 읽히고, 0원·「없음」은 «그렇게 합의했다»로 읽힌다.
+     *   그래서 보증금 0원 계약도 «0» 을 명시로 받는다 — 빈칸으로는 못 나간다.
+     *
+     * 차량 쪽 필수는 차명·차량번호 둘뿐이다(사장님 2026-08-21). 연식·연료·배기량·구동방식·
+     * 승차정원·색상·옵션·차량가액·비고는 없어도 발송을 막지 않는다.
+     * ⚠ 신차는 차량번호 없이 계약하므로, 빈칸 대신 「미정」이라고 적으면 통과시킨다.
+     *    안 그러면 신차 계약을 아예 못 보낸다.
+     */
+    if (!draft.productCode && !S(draft.vehicleName)) selectionChecks.push({ key: 'vehicle_name', label: '차명', level: 'BLOCK', message: '차명을 입력해 주세요' });
+    if (!draft.productCode && !S(draft.carNumber)) selectionChecks.push({ key: 'car_number', label: '차량번호', level: 'BLOCK', message: '차량번호를 입력해 주세요 — 신차라 아직 없으면 「미정」이라고 적어 주세요' });
+    if (!S(draft.rentMonths)) selectionChecks.push({ key: 'rent_months', label: '대여기간', level: 'BLOCK', message: '대여기간을 입력해 주세요' });
+    if (!S(draft.rentAmount)) selectionChecks.push({ key: 'rent_amount', label: '월 대여료', level: 'BLOCK', message: '월 대여료를 입력해 주세요 — 없으면 0 이라고 적어 주세요' });
+    if (!S(draft.depositAmount)) selectionChecks.push({ key: 'deposit_amount', label: '보증금', level: 'BLOCK', message: '보증금을 입력해 주세요 — 없으면 0 이라고 적어 주세요' });
+    if (!draft.productCode && !S(draft.vehicleName)) selectionChecks.push({ key: 'erp_product', label: '차량 선택', level: 'BLOCK', message: '출고가능 차량을 선택하거나 차량을 직접 입력해 주세요' });
     if (!draft.driverAge) selectionChecks.push({ key: 'selected_driver_age', label: '운전자 연령 선택', level: 'BLOCK', message: '운전자 연령을 선택해 주세요' });
     if (!draft.annualMileage) selectionChecks.push({ key: 'annual_mileage_snapshot', label: '약정주행거리', level: 'BLOCK', message: '기간에 맞는 약정주행거리와 가격근거를 선택해 주세요' });
     if (!draft.specialTermsChoice) selectionChecks.push({ key: 'special_terms_choice', label: '특약 확인', level: 'BLOCK', message: '특약사항 없음 또는 있음 여부를 확인해 주세요' });
@@ -922,10 +937,16 @@ export function EsignSendCenter({
             </> : null}
           </WorkTable>
 
-          {!draftProduct ? <WorkTable title="차량 직접입력">
-            <WorkRow label="차량번호"><WorkInput value={draft.carNumber || ''} onChange={(v) => setDraftValue('carNumber', v)} placeholder="차량번호" full /></WorkRow>
-            <WorkRow label="차종"><WorkInput value={draft.vehicleName} onChange={(v) => setDraftValue('vehicleName', v)} placeholder="차종(모델·트림)" full /></WorkRow>
-          </WorkTable> : null}
+          {/*
+            ★ERP 차량을 골랐어도 차량번호·차종은 «고칠 수 있어야» 한다(사장님 2026-08-21).
+              값이 있으면 ERP 에서 끌어오고, 없거나 다르면 그 자리에서 덮어쓴다.
+              신차는 재고에 없는 차를 계약하고, 재고 값이 옛것일 수도 있다 — 골랐다고 잠그면
+              직원이 계약서를 못 고치고 재고부터 바꾸러 가야 했다.
+          */}
+          <WorkTable title={draftProduct ? '차량 정보 — ERP 값, 고칠 수 있습니다' : '차량 직접입력'}>
+            <WorkRow label="차량번호"><WorkInput value={draft.carNumber || ''} onChange={(v) => setDraftValue('carNumber', v)} placeholder="신차라 아직 없으면 「미정」" full /></WorkRow>
+            <WorkRow label="차종"><WorkInput value={draft.vehicleName} onChange={(v) => setDraftValue('vehicleName', v)} placeholder="차종" full /></WorkRow>
+          </WorkTable>
           <WorkTable title={quickIsPickup ? '차량 인수 확인' : '계약조건'}>
             {quickIsPickup ? <>
               <WorkRow label="인수일">차량 인도 때 확정</WorkRow>
