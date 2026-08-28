@@ -184,11 +184,20 @@ export function validateEsignCenterContract(
   else add('rent_month', '계약기간', 'PASS', '계약기간 확인');
 
   const depositChoice = S(contractDraft.deposit_installment);
+  /*
+   * ★빈칸을 0 으로 삼키지 않는다(사장님 2026-08-21 「없으면 없는 걸로 입력해야 함」).
+   *   빈칸은 «직원이 안 채웠다»로 읽히고, 0원은 «그렇게 합의했다»로 읽힌다.
+   *   예전엔 `rawDeposit === '' ? 0` 이라 안 적어도 PASS 였고, 보증금 얘기가 없는 계약서가 나갔다.
+   */
   const rawDeposit = row.deposit_amount_snapshot;
-  const depositAmount = rawDeposit == null || rawDeposit === '' ? 0 : Number(rawDeposit);
-  if (!Number.isFinite(depositAmount) || depositAmount < 0) {
-    add('deposit_amount', '보증금', 'BLOCK', '보증금은 0원 이상으로 입력해 주세요');
-  } else add('deposit_amount', '보증금', 'PASS', '보증금 확인');
+  if (rawDeposit == null || S(rawDeposit) === '') {
+    add('deposit_amount', '보증금', 'BLOCK', '보증금을 입력해 주세요 — 없으면 0 이라고 적어 주세요');
+  } else {
+    const depositAmount = Number(rawDeposit);
+    if (!Number.isFinite(depositAmount) || depositAmount < 0) {
+      add('deposit_amount', '보증금', 'BLOCK', '보증금은 0원 이상으로 입력해 주세요');
+    } else add('deposit_amount', '보증금', 'PASS', '보증금 확인');
+  }
   if (isIndependentEsignSource(row)) {
     // 정책의 「N회까지」는 영업 말이다. 계약서엔 «이 계약은 일시납/N회»가 굳어야 한다 — 비면 빈칸 계약서가 나간다.
     if (N(rawDeposit) > 0 && !depositChoice) add('deposit_installment', '보증금 납부', 'BLOCK', '일시납 또는 분납 회차를 선택해 주세요');
@@ -300,6 +309,11 @@ export function validateEsignCenterContract(
   );
   if (!vehicleName) add('vehicle', '차량', 'BLOCK', '차량명을 확인해 주세요');
   else add('vehicle', '차량', 'PASS', '차량 확인');
+  /* 차량번호도 필수다. 다만 신차는 차량번호 없이 계약하므로 빈칸 대신 「미정」이라고
+     적으면 통과시킨다 — 안 그러면 신차 계약을 아예 못 보낸다. */
+  const plate = S(row.car_number_snapshot || row.car_number);
+  if (!plate) add('car_number', '차량번호', 'BLOCK', '차량번호를 입력해 주세요 — 신차라 아직 없으면 「미정」이라고 적어 주세요');
+  else add('car_number', '차량번호', 'PASS', '차량번호 확인');
 
   const additionalDriverText = S(row.additional_driver || contractDraft.additional_driver);
   const drivers = [1, 2, 3].map((slot) => [
