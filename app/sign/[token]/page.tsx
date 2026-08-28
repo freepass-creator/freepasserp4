@@ -2,13 +2,13 @@
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, Check, Eraser, Eye, FileDown, FileText, ImagePlus, Plus, Send, Trash2 } from 'lucide-react';
+import { ArrowLeft, CalendarDays, CarFront, CircleDollarSign, Eraser, Eye, FileDown, FileText, ImagePlus, Minus, Plus, Send, Trash2, WalletCards } from 'lucide-react';
 import {
-  Badge, Btn, ButtonLabel, C, DetailRow, Dropzone, fmtPhone, FS, FW, ICON, Input,
-  ListGroup, Loading, Message, R,
+  Badge, Btn, ButtonLabel, C, Checkbox, Disclosure, Dropzone, FormCard, fmtPhone, FS, FW, ICON,
+  FlowActions, Loading, Message, Modal, NUM, R, R_CARD, SectionLabel, SummaryStats, THUMB_W, WorkInput, WorkRow, WorkTable,
 } from '@/components/ui';
 import { toast } from '@/components/Toaster';
-import styles from './sign.module.css';
+import { GUEST_W } from '@/lib/guest-layout';
 
 const CLIENT_IMAGE_BYTES = 1_350_000;
 const S = (value: unknown) => String(value ?? '').trim();
@@ -221,47 +221,45 @@ function FileThumb({ file }: { file: File | null }) {
     return () => URL.revokeObjectURL(next);
   }, [file]);
   if (!url) return null;
-  return <img className={styles.thumb} src={url} alt="" />;
+  return <img src={url} alt="" style={{ width: '100%', maxHeight: THUMB_W, objectFit: 'cover', borderRadius: R, display: 'block' }} />;
 }
 
-function ConditionRow({ label, value, article }: { label: string; value: string; article?: string }) {
-  const policyValue = value || '—';
-  const isLongValue = policyValue.length > 32;
+function conditionValue(value: string, article?: string) {
   return (
-    <div className={styles.conditionRow}>
-      <div className={styles.conditionLabel}>{label}</div>
-      <div className={styles.conditionValue}>
-        {isLongValue ? (
-          <details className={styles.policyDetail}>
-            <summary>
-              <span className={styles.policyPreview} title={policyValue}>{policyValue}</span>
-              <span className={styles.policyToggle} aria-hidden>전문 보기 ▾</span>
-            </summary>
-            <div className={styles.policyBody}>{policyValue}</div>
-          </details>
-        ) : <span>{policyValue}</span>}
-        {article ? <span className={styles.articleRef}>관련 약관 {article}</span> : null}
-      </div>
-    </div>
+    <>
+      {value || '—'}
+      {article ? <div style={{ fontSize: FS.cap, color: C.mute, marginTop: 3 }}>관련 약관 {article}</div> : null}
+    </>
   );
 }
 
-function ConsentChoice({
-  consentKey,
+/** 긴 동의 문구는 표의 좁은 라벨 칸이 아니라 값 칸 전체에서 읽는다. */
+function ConsentRow({
   label,
   checked,
-  onToggle,
+  onChange,
+  disabled = false,
 }: {
-  consentKey: string;
   label: string;
   checked: boolean;
-  onToggle: () => void;
+  onChange: () => void;
+  disabled?: boolean;
 }) {
   return (
-    <Btn full title={label} variant={checked ? 'solid' : 'ghost'} onClick={onToggle} style={{ justifyContent: 'flex-start' }}>
-      <span style={{ width: 18 }}>{checked ? <Check size={ICON.sm} aria-hidden /> : null}</span>
-      {label} (필수)
-    </Btn>
+    <WorkRow label="동의 항목" valueStyle={{ padding: '10px 12px' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, minWidth: 0 }}>
+        <Checkbox
+          checked={checked}
+          onChange={onChange}
+          disabled={disabled}
+          ariaLabel={label}
+          style={{ width: 18, height: 18, margin: 0, flex: '0 0 auto' }}
+        />
+        <span style={{ minWidth: 0, fontSize: FS.body, fontWeight: FW.label, lineHeight: 1.45 }}>
+          {label}
+        </span>
+      </div>
+    </WorkRow>
   );
 }
 
@@ -287,6 +285,9 @@ export default function SignPage() {
   const [supportingFiles, setSupportingFiles] = useState<Record<string, File | null>>({});
   const [busy, setBusy] = useState(false);
   const [preparingImage, setPreparingImage] = useState(false);
+  const [documentPreviewOpen, setDocumentPreviewOpen] = useState(false);
+  const [documentPreviewedAt, setDocumentPreviewedAt] = useState(0);
+  const [documentZoom, setDocumentZoom] = useState(1);
   // 관리자 미리보기(?preview=1) — 서버는 peek 로 읽기만 하고, 화면은 입력 검증·진행 기록·제출을 하지 않는다.
   const [preview, setPreview] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -295,6 +296,8 @@ export default function SignPage() {
   const additionalDriverLicenseRefs = useRef<Array<HTMLInputElement | null>>([]);
   const supportingFileRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const readRef = useRef<HTMLDivElement>(null);
+  const stepBodyRef = useRef<HTMLDivElement>(null);
+  const agreementEndRef = useRef<HTMLDivElement>(null);
   const drawing = useRef(false);
   const inked = useRef(false);
   const signatureMetrics = useRef({ points: 0, pathLength: 0, last: null as { x: number; y: number } | null });
@@ -353,7 +356,7 @@ export default function SignPage() {
   const requiredConsents = [...new Set((consentProfile.requiredKeys || []).map(S).filter(Boolean))];
   const upfrontConsents = requiredConsents.filter((key) => key !== 'rental_terms');
   const consentLabel = (key: string) => key === 'rental_terms'
-    ? '자동차 대여계약 및 약관'
+    ? '계약서 원본 및 자동차 대여약관'
     : S(consentAtoms.find((atom) => S(atom.key) === key)?.label) || '필수 동의';
   const requiredDocuments = snapshot.requiredDocuments || [];
   const uploadedSupportingDocumentKeys = new Set(view?.uploadedSupportingDocumentKeys || []);
@@ -418,6 +421,20 @@ export default function SignPage() {
     });
     return () => window.cancelAnimationFrame(frame);
   }, [step?.key]);
+
+  useEffect(() => {
+    if (step?.kind !== 'agreement') return undefined;
+    const root = stepBodyRef.current;
+    const end = agreementEndRef.current;
+    if (!root || !end) return undefined;
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
+        setReadThrough((prev) => ({ ...prev, agreement: true }));
+      }
+    }, { root, threshold: 0 });
+    io.observe(end);
+    return () => io.disconnect();
+  }, [step?.kind]);
 
   const pos = (event: PointerEvent) => {
     const canvas = canvasRef.current!;
@@ -620,8 +637,9 @@ export default function SignPage() {
       if (step.page?.requireReadThrough && !readThrough[step.key]) return toast('아래까지 모두 확인해 주세요.', 'error');
     }
     if (step.kind === 'agreement') {
+      if (!documentPreviewedAt) return toast('실제 계약서 원본을 열람한 뒤 동의해 주세요.', 'error');
       if (!readThrough.agreement) return toast('약관을 끝까지 읽어 주세요.', 'error');
-      if (!consents.has('rental_terms')) return toast('자동차 대여계약 및 약관에 동의해 주세요.', 'error');
+      if (!consents.has('rental_terms')) return toast('계약서 원본 및 약관에 동의해 주세요.', 'error');
     }
     setBusy(true);
     try {
@@ -663,6 +681,7 @@ export default function SignPage() {
         sectionConfirmations: confirmations,
         summaryConfirmedAt,
         agreementReadAt,
+        documentPreviewedAt,
       }));
       payload.set('idCard', idCard);
       payload.set('selfie', selfie);
@@ -683,25 +702,29 @@ export default function SignPage() {
     }
   };
 
+  const shell: CSSProperties = {
+    height: '100dvh', padding: 16, background: C.bg, color: C.ink,
+    display: 'flex', flexDirection: 'column', boxSizing: 'border-box', overflow: 'hidden',
+  };
+  const frame: CSSProperties = {
+    width: '100%', maxWidth: GUEST_W, margin: '0 auto', minWidth: 0, minHeight: 0, flex: 1,
+    display: 'flex', flexDirection: 'column', gap: 12, overflow: 'hidden',
+  };
+
   if (view === undefined) return <Loading />;
   if (!view || view.error) return (
-    <main className={styles.shell}>
-      <div className={styles.frame}>
-        <div className={styles.statusCard}>
-          <h1 style={{ fontSize: FS.page, fontWeight: FW.head, margin: '0 0 8px' }}>지금은 열 수 없는 링크입니다</h1>
+    <main style={shell}>
+      <div style={frame}>
+        <FormCard title="지금은 열 수 없는 링크입니다">
           <Message variant="warning">{view?.error || '이미 제출을 마쳤거나 링크가 만료되었습니다.'}</Message>
-        </div>
+        </FormCard>
       </div>
     </main>
   );
   if (view.status === '검토대기' || view.status === '서명완료') return (
-    <main className={styles.shell}>
-      <div className={styles.frame}>
-        <div className={styles.statusCard}>
-          <div style={{ color: C.ok, display: 'flex', justifyContent: 'center' }}><Check size={40} aria-hidden /></div>
-          <h1 style={{ fontSize: FS.page, fontWeight: FW.head, margin: '10px 0 6px' }}>
-            {view.status === '서명완료' ? '전자계약이 완료되었습니다' : '제출이 접수되었습니다'}
-          </h1>
+    <main style={shell}>
+      <div style={frame}>
+        <FormCard title={view.status === '서명완료' ? '전자계약이 완료되었습니다' : '제출이 접수되었습니다'}>
           <Message variant="success">
             {view.status === '서명완료' ? '관리자 확인과 문서 봉인이 완료되었습니다.' : '담당자가 본인확인 자료·추가서류·서명을 확인한 뒤 계약을 확정합니다.'}
           </Message>
@@ -718,7 +741,7 @@ export default function SignPage() {
               </Message>
             </div>
           ) : null}
-        </div>
+        </FormCard>
       </div>
     </main>
   );
@@ -729,8 +752,6 @@ export default function SignPage() {
     ? '미정 (신차)'
     : S(contract.car_number_snapshot) || '—';
   const vehicleModel = compactVehicleModel(contract, snapshot.templateFields);
-  const label: CSSProperties = { fontSize: FS.sub, color: C.mute, fontWeight: FW.strong };
-  const inputStyle: CSSProperties = { display: 'block', marginTop: 4 };
   const upfrontDone = upfrontConsents.every((key) => consents.has(key));
   const stepNo = Math.min(stepIndex + 1, steps.length);
   const bundle = bundleOf(step?.kind || 'summary');
@@ -744,30 +765,32 @@ export default function SignPage() {
   const periodLabel = isSonogongSubscription ? '구독기간' : '대여기간';
 
   return (
-    <main className={styles.shell}>
-      <div className={styles.frame}>
-      <header className={styles.header}>
-        <nav className={styles.stepper} aria-label="진행 묶음">
+    <main style={shell}>
+      <div style={frame}>
+      <header style={{ flex: '0 0 auto', background: C.bg, display: 'grid', gap: 8, paddingBottom: 8, minWidth: 0 }}>
+        <nav style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }} aria-label="진행 묶음">
           {BUNDLES.map((item, index) => (
-            <div key={item.name} className={`${styles.stepperItem} ${bundle === item.id ? styles.stepperItemOn : ''}`} aria-current={bundle === item.id ? 'step' : undefined} style={{ flex: index === BUNDLES.length - 1 ? 'none' : 1 }}>
-              <span className={`${styles.stepperDot} ${bundle === item.id ? styles.stepperDotOn : ''}`}>{index + 1}</span>
-              <span className={styles.stepperName}>{item.name}</span>
-              {index < BUNDLES.length - 1 ? <span className={styles.stepperLine} /> : null}
-            </div>
+            <Badge
+              key={item.name}
+              tone={bundle === item.id ? 'blue' : bundle > item.id ? 'green' : 'gray'}
+              variant={bundle === item.id ? 'solid' : bundle > item.id ? 'fill' : 'line'}
+            >
+              {index + 1}. {item.name}
+            </Badge>
           ))}
         </nav>
-        <div className={styles.headerMeta}>
-          <h1 style={{ fontSize: FS.title, fontWeight: FW.head, margin: 0, letterSpacing: '-0.02em' }}>{step?.title || '전자계약'}</h1>
-          <span style={{ flex: 1 }} />
-          <div style={{ fontSize: FS.cap, color: C.mute, fontWeight: FW.meta, fontVariantNumeric: 'tabular-nums' }}>{stepNo} / {steps.length}{preview ? ' · 미리보기' : ''}</div>
-        </div>
-        <div className={styles.progressTrack} style={{ marginTop: 10 }}>
-          <div className={styles.progressValue} style={{ width: `${(stepNo / Math.max(steps.length, 1)) * 100}%` }} />
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+          <div style={{ flex: 1, minWidth: 0 }}><SectionLabel mt={0} mb={0}>{step?.title || '전자계약'}</SectionLabel></div>
+          <div style={{ fontSize: FS.cap, color: C.mute, fontWeight: FW.meta, fontFamily: NUM }}>{stepNo} / {steps.length}{preview ? ' · 미리보기' : ''}</div>
         </div>
       </header>
 
-      <section className={styles.content}>
-      <p className={styles.guide}>{stepGuide(step)}</p>
+      <section ref={stepBodyRef} style={{ flex: 1, minHeight: 0, minWidth: 0, overflowX: 'hidden', overflowY: 'auto', display: 'grid', gap: 12, alignContent: 'start' }}>
+      {/* 단계 안내는 «가이드»지 알림이 아니다 — 파란 박스로 세우면 진짜 알릴 것(보완 요청·오류)과
+          위계가 같아진다. 제목 밑 설명 줄로 둔다(사장님 2026-08-21). */}
+      {stepGuide(step) ? (
+        <div style={{ fontSize: FS.sub, color: C.mute, lineHeight: 1.5, marginTop: -4 }}>{stepGuide(step)}</div>
+      ) : null}
       {view.rejectReason ? (
         <Message variant="warning">
           보완 요청: {view.rejectReason}
@@ -777,93 +800,82 @@ export default function SignPage() {
 
       {step?.kind === 'summary' ? (
         <>
-          <div className={styles.summaryQuad}>
-            <div className={styles.summaryCell}>
-              <div className={styles.summaryLabel}>{feeLabel}</div>
-              <div className={styles.summaryValue}>{rentWon}</div>
-            </div>
-            <div className={styles.summaryCell}>
-              <div className={styles.summaryLabel}>보증금</div>
-              <div className={styles.summaryValue}>{depositWon}</div>
-            </div>
-            <div className={styles.summaryCell}>
-              <div className={styles.summaryLabel}>{periodLabel}</div>
-              <div className={styles.summaryValue}>{periodText}</div>
-            </div>
-            <div className={styles.summaryCell}>
-              <div className={styles.summaryLabel}>차량</div>
-              <div className={styles.summaryValue}>{vehicleNumber}</div>
-            </div>
+          <SummaryStats items={[
+            { label: '차량', value: vehicleNumber, icon: CarFront },
+            { label: feeLabel, value: rentWon, icon: CircleDollarSign },
+            { label: '보증금', value: depositWon, icon: WalletCards },
+            { label: periodLabel, value: periodText, icon: CalendarDays },
+          ]} />
+          {/* 파란 안내 박스를 잇달아 쌓지 않는다 — 위 stepGuide 가 이미 같은 말을 한다.
+              여기서는 아래 표를 가리키는 제목 한 줄로만 둔다(사장님 2026-08-21). */}
+          <div style={{ fontSize: FS.sub, fontWeight: FW.title, color: C.ink, margin: '2px 0 -2px' }}>
+            {S(form.customer_name) ? `${S(form.customer_name)}님, 아래 계약이 맞습니까?` : '아래 계약 내용을 확인해 주세요.'}
           </div>
-          <div style={{ fontSize: FS.title, fontWeight: FW.head, marginBottom: 10, letterSpacing: '-0.015em' }}>
-            {S(form.customer_name) ? `${S(form.customer_name)}님, 아래 계약이 맞습니까?` : '아래 계약 내용을 먼저 확인해 주세요.'}
-          </div>
-          <ListGroup header={S(snapshot.contractKind?.title) || S(snapshot.template?.label) || '자동차 대여 계약서'}>
-            <DetailRow label="임대인 회사명" value={S(snapshot.landlord?.companyName) || S(snapshot.templateFields?.company_name) || '—'} />
-            <DetailRow label="차량" value={`${vehicleNumber} · ${vehicleModel}`} />
-            <DetailRow label={periodLabel} value={periodText} />
-            <DetailRow label={feeLabel} value={rentWon} />
-            <DetailRow label="보증금" value={depositWon} />
-            <DetailRow label="계약번호" value={S(contract.contract_code) || '—'} />
-          </ListGroup>
-          {isSonogongSubscription ? <ListGroup header="구독 계약 중요 확인">
-            <DetailRow label="확인 항목" value="구독료·구독기간 · 만기 반납/인수 · 보험료 포함/별도 · 정비서비스 · 중도해지·반납 조건" stacked />
-          </ListGroup> : null}
-          <Message variant="info">
-            계약서와 아래 모바일 화면은 개인정보 입력이나 동의 없이 먼저 볼 수 있습니다. 미리보기만으로 동의·서명 처리되지 않습니다.
-          </Message>
-          {view.previewDocumentUrl ? (
-            <div style={{ marginTop: 10 }}>
-              <Btn full title="계약서 미리보기" onClick={() => window.open(view.previewDocumentUrl, '_blank', 'noreferrer')}>
-                <ButtonLabel icon={<Eye size={ICON.md} aria-hidden />}>계약서 미리보기</ButtonLabel>
-              </Btn>
+          <WorkTable accent="main" title={S(snapshot.contractKind?.title) || S(snapshot.template?.label) || '자동차 대여 계약서'}>
+            <WorkRow label="임대인 회사명">{S(snapshot.landlord?.companyName) || S(snapshot.templateFields?.company_name) || '—'}</WorkRow>
+            <WorkRow label="차량">{`${vehicleNumber} · ${vehicleModel}`}</WorkRow>
+            <WorkRow label={periodLabel}>{periodText}</WorkRow>
+            <WorkRow label={feeLabel}>{rentWon}</WorkRow>
+            <WorkRow label="보증금">{depositWon}</WorkRow>
+            <WorkRow label="계약번호">{S(contract.contract_code) || '—'}</WorkRow>
+          </WorkTable>
+          {/* 한 줄짜리를 표로 세우지 않는다(사장님 2026-08-21) — 「확인 항목」이라는 라벨도 빈말이다.
+              위 계약서 요약에 딸린 부가 설명이므로 표 밑 한 줄로 둔다. */}
+          {isSonogongSubscription ? (
+            <div style={{ fontSize: FS.cap, color: C.mute, lineHeight: 1.5, marginTop: -4 }}>
+              ※ 구독료·구독기간, 만기 반납/인수, 보험료 포함 여부, 정비서비스, 중도해지·반납 조건을 함께 확인해 주세요.
             </div>
           ) : null}
-          <details style={{ marginTop: 10 }}>
-            <summary style={{ cursor: 'pointer', fontSize: FS.body, fontWeight: FW.strong, color: C.ink, padding: '10px 0' }}>
-              모바일 계약서 전체보기
-            </summary>
+          {/* 미리보기 버튼에 딸린 각주다 — 박스로 세우면 앞의 안내와 위계가 같아진다. */}
+          <div style={{ fontSize: FS.cap, color: C.faint, lineHeight: 1.5 }}>
+            미리보기는 개인정보 입력·동의 없이 볼 수 있고, 보는 것만으로 동의·서명되지 않습니다.
+          </div>
+          {view.previewDocumentUrl ? (
+            <Btn full title="계약서 미리보기" onClick={() => setDocumentPreviewOpen(true)} aria-haspopup="dialog" aria-expanded={documentPreviewOpen}>
+              <ButtonLabel icon={<Eye size={ICON.md} aria-hidden />}>계약서 미리보기</ButtonLabel>
+            </Btn>
+          ) : null}
+          <Disclosure title="모바일 계약서 전체보기">
             <div style={{ display: 'grid', gap: 12 }}>
               {pages.map((page) => (
-                <ListGroup key={page.key} header={page.title || '계약 조건'}>
+                <WorkTable key={page.key} title={page.title || '계약 조건'}>
                   {(page.rows || []).map((row, index) => (
-                    <DetailRow key={`${page.key}-${row.label}-${index}`} label={row.label || '항목'} value={row.value || '—'} stacked />
+                    <WorkRow key={`${page.key}-${row.label}-${index}`} label={row.label || '항목'}>{row.value || '—'}</WorkRow>
                   ))}
-                </ListGroup>
+                </WorkTable>
               ))}
-              <details>
-                <summary style={{ cursor: 'pointer', fontSize: FS.sub, fontWeight: FW.strong, color: C.ink, padding: '8px 0' }}>
-                  자동차 대여 약관 보기
-                </summary>
-                <div style={{ display: 'grid', gap: 12, paddingTop: 6 }}>
-                  {(snapshot.agreement?.sections || []).map((section, index) => (
-                    <section key={`${section.t}-${index}`}>
-                      <div style={{ fontSize: FS.sub, fontWeight: FW.strong, marginBottom: 4 }}>{section.t}</div>
-                      <div style={{ fontSize: FS.cap, lineHeight: 1.7, color: C.mute }}>{section.b}</div>
-                    </section>
-                  ))}
-                </div>
-              </details>
+              <Disclosure title="자동차 대여 약관 보기">
+                {(snapshot.agreement?.sections || []).map((section, index) => (
+                  <FormCard key={`${section.t}-${index}`} title={section.t}>
+                    <div style={{ overflowWrap: 'anywhere', fontSize: FS.body, color: C.ink }}>{section.b}</div>
+                  </FormCard>
+                ))}
+              </Disclosure>
             </div>
-          </details>
+          </Disclosure>
         </>
       ) : null}
 
       {step?.kind === 'privacy' ? (
         <>
           {consentAtoms.map((atom) => (
-            <ListGroup key={atom.key} header={atom.label}>
-              <DetailRow label="수집·이용 항목" value={(atom.items || []).join(', ') || '—'} stacked />
-              <DetailRow label="목적" value={atom.purpose || '—'} stacked />
-              <DetailRow label="보유기간" value={atom.retention || '—'} stacked />
-              <DetailRow label="동의 거부 시" value={atom.refusalNote || '—'} stacked />
-            </ListGroup>
+            <WorkTable key={atom.key} title={atom.label}>
+              <WorkRow label="수집·이용 항목">{(atom.items || []).join(', ') || '—'}</WorkRow>
+              <WorkRow label="목적">{atom.purpose || '—'}</WorkRow>
+              <WorkRow label="보유기간">{atom.retention || '—'}</WorkRow>
+              <WorkRow label="동의 거부 시">{atom.refusalNote || '—'}</WorkRow>
+            </WorkTable>
           ))}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <WorkTable accent="main" title="필수 동의">
             {upfrontConsents.map((key) => (
-              <ConsentChoice key={key} consentKey={key} label={consentLabel(key)} checked={consents.has(key)} onToggle={() => toggleConsent(key)} />
+              <ConsentRow
+                key={key}
+                label={consentLabel(key)}
+                checked={consents.has(key)}
+                onChange={() => toggleConsent(key)}
+              />
             ))}
-          </div>
+          </WorkTable>
           {!upfrontDone ? <Message variant="warning">모든 필수 항목을 선택해야 계속할 수 있습니다.</Message> : null}
           {consentProfile.cmsRequiredBeforeHandover ? (
             <Message variant="info">
@@ -876,58 +888,30 @@ export default function SignPage() {
       {step?.kind === 'identity' ? (
         <>
           {(() => { const corporate = view?.snapshot?.templateState?.ct === '법인'; const soleProprietor = view?.snapshot?.templateState?.tax === '사업자'; return <>
-          <ListGroup header="계약자 정보">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '10px 12px 12px' }}>
-              <label>
-                <div className={styles.fieldLabel}>{corporate ? '법인명' : '성명'} <ReqTag /></div>
-                <Input value={form.customer_name} onChange={(value) => set('customer_name', value)} full style={inputStyle} />
-              </label>
-              <label>
-                <div className={styles.fieldLabel}>연락처 <ReqTag /></div>
-                <Input value={form.customer_phone} onChange={(value) => set('customer_phone', fmtPhone(value))} inputMode="tel" full style={inputStyle} />
-              </label>
-              <label>
-                <div className={styles.fieldLabel}>{corporate ? '법인등록번호' : '주민등록번호'} <ReqTag /></div>
-                <Input value={form.customer_id} onChange={(value) => set('customer_id', value)} inputMode="numeric" placeholder="계약·매출증빙용" full style={inputStyle} />
-              </label>
-              <label>
-                <div className={styles.fieldLabel}>{corporate ? '사업자등록번호' : '운전면허번호'} <ReqTag /></div>
-                <Input value={form.driver_license_no} onChange={(value) => set('driver_license_no', value)} placeholder={corporate ? '사업자등록증에 표시된 번호' : '면허증에 표시된 번호'} full style={inputStyle} />
-              </label>
-              <label>
-                <div className={styles.fieldLabel}>주소 <ReqTag /></div>
-                <Input value={form.customer_address} onChange={(value) => set('customer_address', value)} full style={inputStyle} />
-              </label>
-            </div>
-          </ListGroup>
-          {soleProprietor ? <ListGroup header="세금계산서 사업자 정보">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '10px 12px 12px' }}>
-              <label><div className={styles.fieldLabel}>상호 <ReqTag /></div><Input value={form.tax_biz_name} onChange={(value) => set('tax_biz_name', value)} full style={inputStyle} /></label>
-              <label><div className={styles.fieldLabel}>사업자등록번호 <ReqTag /></div><Input value={form.tax_biz_no} onChange={(value) => set('tax_biz_no', value)} inputMode="numeric" full style={inputStyle} /></label>
-              <label><div className={styles.fieldLabel}>대표자 <ReqTag /></div><Input value={form.tax_ceo} onChange={(value) => set('tax_ceo', value)} full style={inputStyle} /></label>
-              <label><div className={styles.fieldLabel}>업태·종목 <ReqTag /></div><Input value={form.tax_biz_type_item} onChange={(value) => set('tax_biz_type_item', value)} full style={inputStyle} /></label>
-              <label><div className={styles.fieldLabel}>세금계산서 이메일 <ReqTag /></div><Input value={form.tax_email} onChange={(value) => set('tax_email', value)} inputMode="email" full style={inputStyle} /></label>
-              <label><div className={styles.fieldLabel}>사업장 주소 <ReqTag /></div><Input value={form.tax_biz_address} onChange={(value) => set('tax_biz_address', value)} full style={inputStyle} /></label>
-            </div>
-          </ListGroup> : null}
-          <ListGroup header={corporate ? '담당자 연락처' : '비상 연락처'}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '10px 12px 12px' }}>
-              <label>
-                <div className={styles.fieldLabel}>{corporate ? '직책·관계' : '관계'} <ReqTag /></div>
-                <Input value={form.emergency_relation} onChange={(value) => set('emergency_relation', value)} placeholder="예: 모, 배우자, 형제자매" full style={inputStyle} />
-              </label>
-              <label>
-                <div className={styles.fieldLabel}>성명 <ReqTag /></div>
-                <Input value={form.emergency_name} onChange={(value) => set('emergency_name', value)} placeholder="예: 홍길순" full style={inputStyle} />
-              </label>
-              <label>
-                <div className={styles.fieldLabel}>비상연락처 <ReqTag /></div>
-                <Input value={form.emergency_phone} onChange={(value) => set('emergency_phone', fmtPhone(value))} inputMode="tel" full style={inputStyle} />
-              </label>
-            </div>
-          </ListGroup>
-          <ListGroup header={corporate ? '담당자 본인확인 자료' : '본인확인 자료'}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8, padding: '10px 12px 12px' }}>
+          <WorkTable accent="main" title="계약자 정보">
+            <WorkRow label={<>{corporate ? '법인명' : '성명'} <ReqTag /></>}><WorkInput value={form.customer_name} onChange={(value) => set('customer_name', value)} full /></WorkRow>
+            <WorkRow label={<>연락처 <ReqTag /></>}><WorkInput value={form.customer_phone} onChange={(value) => set('customer_phone', fmtPhone(value))} inputMode="tel" full /></WorkRow>
+            <WorkRow label={<>{corporate ? '법인등록번호' : '주민등록번호'} <ReqTag /></>}><WorkInput value={form.customer_id} onChange={(value) => set('customer_id', value)} inputMode="numeric" placeholder="계약·매출증빙용" full /></WorkRow>
+            <WorkRow label={<>{corporate ? '사업자등록번호' : '운전면허번호'} <ReqTag /></>}><WorkInput value={form.driver_license_no} onChange={(value) => set('driver_license_no', value)} placeholder={corporate ? '사업자등록증에 표시된 번호' : '면허증에 표시된 번호'} full /></WorkRow>
+            <WorkRow label={<>주소 <ReqTag /></>}><WorkInput value={form.customer_address} onChange={(value) => set('customer_address', value)} full /></WorkRow>
+          </WorkTable>
+          {soleProprietor ? (
+            <WorkTable title="세금계산서 사업자 정보">
+              <WorkRow label={<>상호 <ReqTag /></>}><WorkInput value={form.tax_biz_name} onChange={(value) => set('tax_biz_name', value)} full /></WorkRow>
+              <WorkRow label={<>사업자등록번호 <ReqTag /></>}><WorkInput value={form.tax_biz_no} onChange={(value) => set('tax_biz_no', value)} inputMode="numeric" full /></WorkRow>
+              <WorkRow label={<>대표자 <ReqTag /></>}><WorkInput value={form.tax_ceo} onChange={(value) => set('tax_ceo', value)} full /></WorkRow>
+              <WorkRow label={<>업태·종목 <ReqTag /></>}><WorkInput value={form.tax_biz_type_item} onChange={(value) => set('tax_biz_type_item', value)} full /></WorkRow>
+              <WorkRow label={<>세금계산서 이메일 <ReqTag /></>}><WorkInput value={form.tax_email} onChange={(value) => set('tax_email', value)} inputMode="email" full /></WorkRow>
+              <WorkRow label={<>사업장 주소 <ReqTag /></>}><WorkInput value={form.tax_biz_address} onChange={(value) => set('tax_biz_address', value)} full /></WorkRow>
+            </WorkTable>
+          ) : null}
+          <WorkTable title={corporate ? '담당자 연락처' : '비상 연락처'}>
+            <WorkRow label={<>{corporate ? '직책·관계' : '관계'} <ReqTag /></>}><WorkInput value={form.emergency_relation} onChange={(value) => set('emergency_relation', value)} placeholder="예: 모, 배우자, 형제자매" full /></WorkRow>
+            <WorkRow label={<>성명 <ReqTag /></>}><WorkInput value={form.emergency_name} onChange={(value) => set('emergency_name', value)} placeholder="예: 홍길순" full /></WorkRow>
+            <WorkRow label={<>비상연락처 <ReqTag /></>}><WorkInput value={form.emergency_phone} onChange={(value) => set('emergency_phone', fmtPhone(value))} inputMode="tel" full /></WorkRow>
+          </WorkTable>
+          <FormCard title={corporate ? '담당자 본인확인 자료' : '본인확인 자료'}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8 }}>
             <Dropzone variant="photo" active={!!idCard} onClick={() => idRef.current?.click()} title="운전면허증 사진 첨부">
               <FileThumb file={idCard} />
               <ImagePlus size={ICON.md} color={idCard ? C.ok : C.faint} />
@@ -945,29 +929,38 @@ export default function SignPage() {
               <input ref={selfieRef} type="file" accept="image/*" capture="user" style={{ display: 'none' }} onClick={(event) => event.stopPropagation()} onChange={(event) => { void chooseImage(event.target.files?.[0] || null, '본인 셀카', setSelfie); event.currentTarget.value = ''; }} />
             </Dropzone>
             </div>
-          </ListGroup></>; })()}
+          </FormCard></>; })()}
         </>
       ) : null}
 
       {step?.kind === 'additional-driver' ? (
         <>
-          <ListGroup>
-            <DetailRow label="운전 가능 범위" value={S(snapshot.additionalDriverPolicy?.driverScope) || '계약서 기재 운전자'} stacked />
-            <DetailRow label="추가운전자 비용" value={additionalDriverCost} stacked />
-          </ListGroup>
+          <WorkTable title="추가 운전자">
+            <WorkRow label="운전 가능 범위">{S(snapshot.additionalDriverPolicy?.driverScope) || '계약서 기재 운전자'}</WorkRow>
+            <WorkRow label="추가운전자 비용">{additionalDriverCost}</WorkRow>
+          </WorkTable>
 
           {additionalDrivers.map((driver, index) => (
-            <div key={index} style={{ display: 'grid', gap: 10, marginTop: 16, paddingTop: 16, borderTop: `1px solid ${C.line}` }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ flex: 1, fontSize: FS.title, fontWeight: FW.strong }}>추가 운전자 {index + 1}</div>
-                <Btn title={`추가 운전자 ${index + 1} 삭제`} size="sm" variant="ghost" onClick={() => removeAdditionalDriver(index)}>
-                  <ButtonLabel icon={<Trash2 size={ICON.sm} aria-hidden />}>삭제</ButtonLabel>
-                </Btn>
-              </div>
-              <label style={label}><span className={styles.fieldLabel}>성명 <ReqTag /></span><Input value={driver.name} onChange={(value) => updateAdditionalDriver(index, 'name', value)} full style={inputStyle} /></label>
-              <label style={label}><span className={styles.fieldLabel}>관계 <ReqTag /></span><Input value={driver.relation} onChange={(value) => updateAdditionalDriver(index, 'relation', value)} placeholder="예: 배우자, 가족" full style={inputStyle} /></label>
-              <label style={label}><span className={styles.fieldLabel}>연락처 <ReqTag /></span><Input value={driver.phone} onChange={(value) => updateAdditionalDriver(index, 'phone', fmtPhone(value))} inputMode="tel" full style={inputStyle} /></label>
-              <label style={label}><span className={styles.fieldLabel}>운전면허번호 <ReqTag /></span><Input value={driver.driverLicenseNo} onChange={(value) => updateAdditionalDriver(index, 'driverLicenseNo', value)} placeholder="면허증에 표시된 번호" full style={inputStyle} /></label>
+            <div key={index} style={{ display: 'grid', gap: 10 }}>
+            <WorkTable
+              title={`추가 운전자 ${index + 1}`}
+              hint={<Btn title={`추가 운전자 ${index + 1} 삭제`} size="sm" variant="ghost" onClick={() => removeAdditionalDriver(index)}>
+                <ButtonLabel icon={<Trash2 size={ICON.sm} aria-hidden />}>삭제</ButtonLabel>
+              </Btn>}
+            >
+              <WorkRow label={<>성명 <ReqTag /></>}><WorkInput value={driver.name} onChange={(value) => updateAdditionalDriver(index, 'name', value)} full /></WorkRow>
+              <WorkRow label={<>관계 <ReqTag /></>}><WorkInput value={driver.relation} onChange={(value) => updateAdditionalDriver(index, 'relation', value)} placeholder="예: 배우자, 가족" full /></WorkRow>
+              <WorkRow label={<>연락처 <ReqTag /></>}><WorkInput value={driver.phone} onChange={(value) => updateAdditionalDriver(index, 'phone', fmtPhone(value))} inputMode="tel" full /></WorkRow>
+              <WorkRow label={<>운전면허번호 <ReqTag /></>}><WorkInput value={driver.driverLicenseNo} onChange={(value) => updateAdditionalDriver(index, 'driverLicenseNo', value)} placeholder="면허증에 표시된 번호" full /></WorkRow>
+              <WorkRow label={<>동의 <ReqTag /></>}>
+                <Checkbox
+                  checked={!!driver.consent}
+                  onChange={(checked) => updateAdditionalDriver(index, 'consent', checked)}
+                  ariaLabel="추가 운전자 개인정보 제공·면허증 제출 동의"
+                />
+              </WorkRow>
+            </WorkTable>
+              <FormCard title="운전면허증">
               <Dropzone
                 variant="photo"
                 active={!!additionalDriverLicenses[index]}
@@ -994,16 +987,7 @@ export default function SignPage() {
                   }}
                 />
               </Dropzone>
-              <Btn
-                full
-                title={`추가 운전자 개인정보 제공·면허증 제출${additionalDriverCost === '—' ? '' : ` 및 ${additionalDriverCost} 적용`} 동의`}
-                variant={driver.consent ? 'solid' : 'ghost'}
-                onClick={() => updateAdditionalDriver(index, 'consent', !driver.consent)}
-                style={{ justifyContent: 'flex-start' }}
-              >
-                <span style={{ width: 18 }}>{driver.consent ? <Check size={ICON.sm} aria-hidden /> : null}</span>
-                본인이 직접 입력했으며 개인정보 제공과 면허증 제출에 동의합니다 (필수)
-              </Btn>
+              </FormCard>
             </div>
           ))}
 
@@ -1030,6 +1014,7 @@ export default function SignPage() {
 
       {step?.kind === 'documents' ? (
         <>
+          <FormCard title="요청 서류">
           <div style={{ display: 'grid', gap: 10 }}>
             {requiredDocuments.map((document) => {
               const file = supportingFiles[document.key];
@@ -1063,11 +1048,12 @@ export default function SignPage() {
                       }}
                     />
                   </Dropzone>
-                  {document.note ? <div style={{ fontSize: FS.cap, color: C.mute, lineHeight: 1.5 }}>{document.note}</div> : null}
+                  {document.note ? <Message variant="info">{document.note}</Message> : null}
                 </div>
               );
             })}
           </div>
+          </FormCard>
           <Message variant="info">
             첨부 원본은 계약 검토 관리자만 확인할 수 있으며 공개 계약정보에는 노출되지 않습니다.
           </Message>
@@ -1079,67 +1065,73 @@ export default function SignPage() {
           <div
             ref={readRef}
             onScroll={onRead}
-            style={{ maxHeight: 420, overflow: 'auto', border: `1px solid ${C.line}`, borderRadius: R }}
+            aria-label={`${step.title} 계약조건 전체 내용`}
+            style={{ maxHeight: 420, overflow: 'auto' }}
           >
-            <ListGroup>
+            <WorkTable title={step.title || '계약 조건'}>
               {(step.page.rows || []).map((row, index) => (
-                <ConditionRow key={`${row.label}-${index}`} label={row.label || '항목'} value={row.value || '—'} article={row.article} />
+                <WorkRow key={`${row.label}-${index}`} label={row.label || '항목'}>
+                  {conditionValue(row.value || '—', row.article)}
+                </WorkRow>
               ))}
-            </ListGroup>
+            </WorkTable>
           </div>
-          {step.page.requireReadThrough && !readThrough[step.key] ? <Message variant="warning">아래까지 모두 확인하면 다음으로 갈 수 있습니다.</Message> : null}
+          {step.page.requireReadThrough && !readThrough[step.key] ? <Message variant="warning">위 계약조건 영역을 끝까지 스크롤해 전체 내용을 확인하면 다음으로 갈 수 있습니다.</Message> : null}
         </>
       ) : null}
 
       {step?.kind === 'agreement' ? (
         <>
-          <div
-            ref={readRef}
-            onScroll={onRead}
-            style={{ height: 420, overflow: 'auto', border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg, padding: 12 }}
-          >
+          <Message variant={documentPreviewedAt ? 'success' : 'info'}>
+            {documentPreviewedAt ? '계약서 원본을 열람했습니다. 아래 약관을 끝까지 읽고 동의해 주세요.' : '아래 동의 전에 실제로 서명할 계약서 원본을 열람해 주세요.'}
+          </Message>
+          {view.previewDocumentUrl ? (
+            <div style={{ marginTop: 10 }}>
+              <Btn full variant="ghost" onClick={() => setDocumentPreviewOpen(true)}>
+                <ButtonLabel icon={<Eye size={ICON.md} aria-hidden />}>계약서 원본 열람 · 확대해서 보기</ButtonLabel>
+              </Btn>
+            </div>
+          ) : null}
+          <div style={{ display: 'grid', gap: 12, minWidth: 0 }}>
             {(snapshot.agreement?.sections || []).map((section, index) => (
-              <section key={`${section.t}-${index}`} style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: FS.sub, fontWeight: FW.title, color: C.ink, marginBottom: 4 }}>{section.t}</div>
-                <div style={{ fontSize: FS.cap, lineHeight: 1.75, color: C.mute }}>{section.b}</div>
-              </section>
+              <FormCard key={`${section.t}-${index}`} title={section.t}>
+                <div style={{ overflowWrap: 'anywhere', fontSize: FS.body, color: C.ink }}>{section.b}</div>
+              </FormCard>
             ))}
-            <div style={{ textAlign: 'center', color: C.faint, fontSize: FS.cap }}>— 약관 끝 —</div>
+            <div ref={agreementEndRef}>
+              <Message variant="info">— 약관 끝 —</Message>
+            </div>
           </div>
           {!readThrough.agreement ? <Message variant="warning">약관을 끝까지 내려 읽어 주세요.</Message> : null}
-          <div style={{ marginTop: 10 }}>
-            <ConsentChoice
-              consentKey="rental_terms"
+          <WorkTable accent="main" title="필수 동의">
+            <ConsentRow
               label={consentLabel('rental_terms')}
               checked={consents.has('rental_terms')}
-              onToggle={() => toggleConsent('rental_terms')}
+              onChange={() => { if (documentPreviewedAt) toggleConsent('rental_terms'); }}
+              disabled={!documentPreviewedAt}
             />
-          </div>
+          </WorkTable>
+          {!documentPreviewedAt ? <Message variant="warning">계약서 원본을 먼저 열람해 주세요.</Message> : null}
         </>
       ) : null}
 
       {step?.kind === 'signature' ? (
         <>
-          <div style={{ fontSize: FS.title, fontWeight: FW.head }}>무엇에 서명하나</div>
-          <Message variant="info">아래 서명은 위 계약서·확인한 모든 조건·약관에 대한 전자서명입니다.</Message>
-          <ListGroup>
-            <DetailRow label="계약서" value={S(snapshot.contractKind?.title) || S(snapshot.template?.label) || '자동차 대여 계약서'} />
-            <DetailRow label="약관" value={`${S(snapshot.agreement?.title) || '자동차 대여 약관'} · ${S(snapshot.agreement?.version) || '—'}`} stacked />
-            <DetailRow label="계약 조건 확인" value={`${Object.keys(confirmations).length} / ${pages.length} 섹션`} />
-            <DetailRow label="필수 동의" value={`${requiredConsents.filter((key) => consents.has(key)).length} / ${requiredConsents.length}건`} />
-            <DetailRow label="본인확인 자료" value={idCard && selfie ? '운전면허증·셀카 첨부' : '누락'} />
+          <WorkTable title="무엇에 서명하나">
+            <WorkRow label="계약서">{S(snapshot.contractKind?.title) || S(snapshot.template?.label) || '자동차 대여 계약서'}</WorkRow>
+            <WorkRow label="약관">{`${S(snapshot.agreement?.title) || '자동차 대여 약관'} · ${S(snapshot.agreement?.version) || '—'}`}</WorkRow>
+            <WorkRow label="계약 조건 확인">{`${Object.keys(confirmations).length} / ${pages.length} 섹션`}</WorkRow>
+            <WorkRow label="필수 동의">{`${requiredConsents.filter((key) => consents.has(key)).length} / ${requiredConsents.length}건`}</WorkRow>
+            <WorkRow label="본인확인 자료">{idCard && selfie ? '운전면허증·셀카 첨부' : '누락'}</WorkRow>
             {requiredDocuments.length ? (
-              <DetailRow
-                label="추가 제출서류"
-                value={`${requiredDocuments.filter((document) => uploadedSupportingDocumentKeys.has(document.key)).length} / ${requiredDocuments.length}건 제출`}
-              />
+              <WorkRow label="추가 제출서류">
+                {`${requiredDocuments.filter((document) => uploadedSupportingDocumentKeys.has(document.key)).length} / ${requiredDocuments.length}건 제출`}
+              </WorkRow>
             ) : null}
-            {additionalDrivers.length ? <DetailRow label="추가 운전자" value={`${additionalDrivers.length}명 · ${additionalDriverCost}`} stacked /> : null}
-          </ListGroup>
-          <div style={{ fontSize: FS.title, fontWeight: FW.head, margin: '24px 0 10px', display: 'flex', alignItems: 'center' }}>
-            전자서명 <span style={{ flex: 1 }} />
-            <Btn title="서명 지우기" size="sm" variant="ghost" onClick={clearSignature}><ButtonLabel icon={<Eraser size={ICON.md} aria-hidden />}>지우기</ButtonLabel></Btn>
-          </div>
+            {additionalDrivers.length ? <WorkRow label="추가 운전자">{`${additionalDrivers.length}명 · ${additionalDriverCost}`}</WorkRow> : null}
+          </WorkTable>
+          <Message variant="info">아래 서명은 위 계약서·확인한 모든 조건·약관에 대한 전자서명입니다.</Message>
+          <FormCard title="전자서명" hint={<Btn title="서명 지우기" size="sm" variant="ghost" onClick={clearSignature}><ButtonLabel icon={<Eraser size={ICON.md} aria-hidden />}>지우기</ButtonLabel></Btn>}>
           <Dropzone variant="sign" style={{ background: C.taupeBg, width: '100%', padding: 0, overflow: 'hidden' }}>
             <canvas
               ref={canvasRef}
@@ -1153,29 +1145,70 @@ export default function SignPage() {
               style={{ width: '100%', aspectRatio: '600 / 180', display: 'block', color: C.ink, touchAction: 'none', cursor: 'crosshair' }}
             />
           </Dropzone>
+          </FormCard>
           <Message variant="info">서명시각과 단계별 확인시각이 기록되며, 관리자 확정 후에는 내용을 바꿀 수 없습니다.</Message>
         </>
       ) : null}
       </section>
 
-      <div className={styles.navigation}>
-        <div className={styles.navPrev}>
-        <Btn full title="이전" variant="ghost" disabled={stepIndex <= 0 || busy} onClick={() => setStepIndex((index) => Math.max(0, index - 1))}>
-          <ButtonLabel icon={<ArrowLeft size={ICON.md} aria-hidden />}>이전</ButtonLabel>
-        </Btn>
-        </div>
-        <div className={styles.navNext}>
-        {step?.kind === 'signature' ? (
-          <Btn full title="본인확인 자료와 전자서명 제출" disabled={busy || preparingImage} onClick={() => void submit()}>
-            <ButtonLabel icon={<Send size={ICON.md} aria-hidden />}>{busy ? '안전하게 제출 중…' : '확인하고 전자서명 제출'}</ButtonLabel>
-          </Btn>
-        ) : (
-          <Btn full title="다음" disabled={busy || preparingImage} onClick={() => void next()}>
-            {busy ? '확인 기록 중…' : step?.kind === 'summary' ? '개인정보 입력 단계로 이동' : step?.kind === 'section' ? (step.page?.confirmLabel || '확인하고 다음') : step?.kind === 'agreement' ? (snapshot.agreement?.confirmLabel || '동의하고 서명으로') : '다음'}
-          </Btn>
-        )}
-        </div>
-      </div>
+      {view.previewDocumentUrl ? (
+        <Modal
+          open={documentPreviewOpen}
+          title="계약서 미리보기"
+          meta="실제 서명 대상 원본 · 확대·축소 가능"
+          onClose={() => setDocumentPreviewOpen(false)}
+          width={940}
+          footer={<>
+            <Btn variant="ghost" onClick={() => window.open(view.previewDocumentUrl, '_blank', 'noreferrer')}>
+              <ButtonLabel icon={<FileText size={ICON.md} aria-hidden />}>PDF로 열기</ButtonLabel>
+            </Btn>
+            <Btn onClick={() => setDocumentPreviewOpen(false)}>계약 작성으로 돌아가기</Btn>
+          </>}
+        >
+          <div style={{ display: 'grid', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }} aria-label="계약서 확대 제어">
+              <Btn size="sm" variant="ghost" title="축소" disabled={documentZoom <= 0.8} onClick={() => setDocumentZoom((value) => Math.max(0.8, Number((value - 0.2).toFixed(1))))}>
+                <ButtonLabel icon={<Minus size={ICON.md} aria-hidden />}>축소</ButtonLabel>
+              </Btn>
+              <span style={{ minWidth: 48, color: C.mute, fontSize: FS.cap, fontVariantNumeric: 'tabular-nums', textAlign: 'center' }} aria-live="polite">{Math.round(documentZoom * 100)}%</span>
+              <Btn size="sm" variant="ghost" title="확대" disabled={documentZoom >= 2} onClick={() => setDocumentZoom((value) => Math.min(2, Number((value + 0.2).toFixed(1))))}>
+                <ButtonLabel icon={<Plus size={ICON.md} aria-hidden />}>확대</ButtonLabel>
+              </Btn>
+              {documentZoom !== 1 ? <Btn size="sm" variant="ghost" title="원본 크기" onClick={() => setDocumentZoom(1)}>원본</Btn> : null}
+            </div>
+            <iframe
+              title="계약서 PDF 미리보기"
+              src={view.previewDocumentUrl}
+              style={{ width: '100%', height: 'min(72dvh, 860px)', display: 'block', border: `1px solid ${C.line}`, borderRadius: R_CARD, background: C.bg, zoom: documentZoom }}
+              onLoad={() => setDocumentPreviewedAt((value) => value || Date.now())}
+            />
+            <Message variant="info">실제 서명 대상 계약서 원본입니다. 확대해서 읽고, 닫으면 작성하던 단계로 돌아갑니다.</Message>
+          </div>
+        </Modal>
+      ) : null}
+
+      <FlowActions
+        secondary={stepIndex > 0 ? {
+          label: '이전',
+          title: '이전',
+          disabled: busy,
+          onClick: () => setStepIndex((index) => Math.max(0, index - 1)),
+          children: <ButtonLabel icon={<ArrowLeft size={ICON.md} aria-hidden />}>이전</ButtonLabel>,
+        } : undefined}
+        primary={step?.kind === 'signature'
+          ? {
+            title: '본인확인 자료와 전자서명 제출',
+            disabled: busy || preparingImage,
+            onClick: () => void submit(),
+            label: <ButtonLabel icon={<Send size={ICON.md} aria-hidden />}>{busy ? '안전하게 제출 중…' : '확인하고 전자서명 제출'}</ButtonLabel>,
+          }
+          : {
+            title: '다음',
+            disabled: busy || preparingImage,
+            onClick: () => void next(),
+            label: busy ? '확인 기록 중…' : step?.kind === 'summary' ? '개인정보 입력 단계로 이동' : step?.kind === 'section' ? (step.page?.confirmLabel || '확인하고 다음') : step?.kind === 'agreement' ? (snapshot.agreement?.confirmLabel || '동의하고 서명으로') : '다음',
+          }}
+      />
       </div>
     </main>
   );
