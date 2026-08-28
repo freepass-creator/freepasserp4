@@ -564,6 +564,11 @@ export function EsignSendCenter({
     return entry.stage === queueFilter;
   }), [queueFilter, queueMap, sendRows]);
 
+  /** 안 적으면 ERP 값이 그대로 나간다 — 그 값을 자리표시로 보여 준다(빈칸을 «없음»으로 오해하지 않게). */
+  const erpHint = (value: unknown, fallback: string) => {
+    const v = value == null ? '' : String(value).trim();
+    return v ? `ERP: ${v}` : fallback;
+  };
   const setDraftValue = (key: string, value: string) => {
     if (key === 'policyCode') {
       // 정책만 바꾼다 — 차는 그대로 둔다(차가 정책을 데려오는 순서라 되돌아가지 않는다).
@@ -996,9 +1001,9 @@ export function EsignSendCenter({
               <WorkRow label="정비 제외 항목"><WorkInput value={draft.maintenanceExclusions || ''} onChange={(v) => setDraftValue('maintenanceExclusions', v)} placeholder="정비 제외 항목" full /></WorkRow>
               {quickContractType !== 'sonogong-subscription' ? <WorkRow label="납부 주기"><WorkSelect value={draft.paymentTiming} onChange={(v) => setDraftValue('paymentTiming', v)} full placeholder="납부 주기" options={[{ value: '선불', label: '선불' }, { value: '후불', label: '후불' }]} /></WorkRow> : null}
               <WorkRow label="자동이체일"><WorkInput value={draft.paymentDueDate || ''} onChange={(v) => setDraftValue('paymentDueDate', v)} placeholder="자동이체일" full /></WorkRow>
-              <WorkRow label="연료"><WorkInput value={draft.fuel || ''} onChange={(v) => setDraftValue('fuel', v)} placeholder="연료" full /></WorkRow>
+              <WorkRow label="연료"><WorkInput value={draft.fuel || ''} onChange={(v) => setDraftValue('fuel', v)} placeholder={erpHint(draftProduct?.fuel_type, '연료')} full /></WorkRow>
               <WorkRow label="현재 주행거리"><WorkInput value={draft.currentMileage || ''} onChange={(v) => setDraftValue('currentMileage', v)} placeholder="현재 주행거리(km)" inputMode="numeric" full /></WorkRow>
-              <WorkRow label="옵션"><WorkInput value={draft.options || ''} onChange={(v) => setDraftValue('options', v)} placeholder="옵션" full /></WorkRow>
+              <WorkRow label="옵션"><WorkInput value={draft.options || ''} onChange={(v) => setDraftValue('options', v)} placeholder={erpHint(draftProduct?.options, '옵션')} full /></WorkRow>
               {/* 차량가액은 재고 원가가 아니라 «계약서에 적을 값»이라 여기서 직접 받는다. */}
               <WorkRow label="차량가액"><WorkInput value={draft.vehiclePrice || ''} onChange={(v) => setDraftValue('vehiclePrice', v)} placeholder="예: 34,900,000" full /></WorkRow>
               <WorkRow label="차량 비고"><WorkInput value={draft.vehicleRemark || ''} onChange={(v) => setDraftValue('vehicleRemark', v)} placeholder="차에 붙는 특이사항 한 줄" full /></WorkRow>
