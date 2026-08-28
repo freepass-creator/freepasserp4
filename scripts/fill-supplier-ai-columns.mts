@@ -411,10 +411,10 @@ for (const t of targets) {
          *   마스터는 전기차에 `engine_cc` 를 안 준다(undefined) — 그래야 빈칸이 된다.
          *   「전기차는 빈칸이 정상」이라는 규격(supplier-template-sheet)이 그 뜻이다.
          */
-        '배기량(정제)': ok ? S(snap!.engine_cc) : '',
-        '연료(정제)': ok ? (fuelDisplay(snap!.fuel_type) || '') : '',
-        '배터리용량(정제)': ok ? S(snap!.battery_kwh) : '',
-        '구동방식': ok ? S(snap!.drive_type) : '',
+        '배기량(정제)': softOk ? S(snap!.engine_cc) : '',
+        '연료(정제)': softOk ? (fuelDisplay(snap!.fuel_type) || '') : '',
+        '배터리용량(정제)': softOk ? S(snap!.battery_kwh) : '',
+        '구동방식': softOk ? S(snap!.drive_type) : '',
         // 색은 마스터와 무관하다 — 차명을 못 알아봐도, 왼쪽 원문만 있으면 규격색으로 정제한다.
         // ⚠ 판매시트 별칭(외장=외장색상 먼저)으로 읽으면 빈 정제칸을 원문으로 착각한다. 왼쪽 칸만 본다.
         '외장색상': snapColorOrEtc(exactCell('외부색상') || exactCell('외장색') || exactCell('색상'), 'ext'),
