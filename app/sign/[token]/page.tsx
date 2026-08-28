@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import { ArrowLeft, CalendarDays, CarFront, CircleDollarSign, Eraser, Eye, FileDown, FileText, ImagePlus, Minus, Plus, Send, Trash2, WalletCards } from 'lucide-react';
 import {
   Badge, Btn, ButtonLabel, C, Checkbox, Disclosure, Dropzone, FormCard, fmtPhone, FS, FW, ICON,
-  FlowActions, Loading, Message, Modal, NUM, R, R_CARD, SectionLabel, SummaryStats, THUMB_W, WorkInput, WorkRow, WorkTable,
+  FlowActions, Loading, Message, Modal, NUM, R_CARD, SectionLabel, SummaryStats, THUMB_W, WorkInput, WorkRow, WorkTable,
 } from '@/components/ui';
 import { toast } from '@/components/Toaster';
 import { GUEST_W } from '@/lib/guest-layout';
@@ -224,7 +224,7 @@ function FileThumb({ file }: { file: File | null }) {
     return () => URL.revokeObjectURL(next);
   }, [file]);
   if (!url) return null;
-  return <img src={url} alt="" style={{ width: '100%', maxHeight: THUMB_W, objectFit: 'cover', borderRadius: R, display: 'block' }} />;
+  return <img src={url} alt="" style={{ width: '100%', maxHeight: THUMB_W, objectFit: 'cover', borderRadius: R_CARD, display: 'block' }} />;
 }
 
 function conditionValue(value: string, article?: string) {
@@ -250,7 +250,7 @@ function ConsentRow({
 }) {
   return (
     <WorkRow label="동의 항목" valueStyle={{ padding: '10px 12px' }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, minWidth: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, minWidth: 0 }}>
         <Checkbox
           checked={checked}
           onChange={onChange}
@@ -944,7 +944,7 @@ export default function SignPage() {
           </WorkTable>
 
           {additionalDrivers.map((driver, index) => (
-            <div key={index} style={{ display: 'grid', gap: 10 }}>
+            <div key={index} style={{ display: 'grid', gap: 12 }}>
             <WorkTable
               title={`추가 운전자 ${index + 1}`}
               hint={<Btn title={`추가 운전자 ${index + 1} 삭제`} size="sm" variant="ghost" onClick={() => removeAdditionalDriver(index)}>
@@ -1019,12 +1019,12 @@ export default function SignPage() {
       {step?.kind === 'documents' ? (
         <>
           <FormCard title="요청 서류">
-          <div style={{ display: 'grid', gap: 10 }}>
+          <div style={{ display: 'grid', gap: 12 }}>
             {requiredDocuments.map((document) => {
               const file = supportingFiles[document.key];
               const uploaded = uploadedSupportingDocumentKeys.has(document.key);
               return (
-                <div key={document.key} style={{ display: 'grid', gap: 5 }}>
+                <div key={document.key} style={{ display: 'grid', gap: 6 }}>
                   <Dropzone
                     variant="photo"
                     active={!!file || uploaded}
@@ -1169,7 +1169,7 @@ export default function SignPage() {
             <Btn onClick={() => setDocumentPreviewOpen(false)}>계약 작성으로 돌아가기</Btn>
           </>}
         >
-          <div style={{ display: 'grid', gap: 10 }}>
+          <div style={{ display: 'grid', gap: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }} aria-label="계약서 확대 제어">
               <Btn size="sm" variant="ghost" title="축소" disabled={documentZoom <= 0.8} onClick={() => setDocumentZoom((value) => Math.max(0.8, Number((value - 0.2).toFixed(1))))}>
                 <ButtonLabel icon={<Minus size={ICON.md} aria-hidden />}>축소</ButtonLabel>
