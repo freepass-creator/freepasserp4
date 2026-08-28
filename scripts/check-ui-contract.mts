@@ -44,7 +44,6 @@ const RADIUS_ISLANDS = new Set([
   'app/global-error.tsx',
   'app/login/page.tsx',
   'app/m/page.tsx',
-  'app/sign/[token]/page.tsx',
 ]);
 
 const hits: string[] = [];

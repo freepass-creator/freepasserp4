@@ -271,6 +271,7 @@ assert.match(publicRoute, /ageRange\.max/);
 assert.match(publicRoute, /additionalDriverLicense\$\{index \+ 1\}/);
 assert.match(publicRoute, /additional_drivers: parsed\.additionalDrivers/);
 assert.match(publicRoute, /추가 운전자는 최대/);
+assert.match(publicRoute, /key !== 'identity' && !Number\(confirmations\[key\] \|\| 0\)/);
 assert.match(publicRoute, /customer_name: parsed\.name/);
 assert.match(publicRoute, /customer_phone: parsed\.phone/);
 assert.match(publicRoute, /snapshot\/landlord/);
@@ -282,6 +283,8 @@ assert.match(publicRoute, /freepassEsignEventUpdates\(contractCode, 'opened'/);
 assert.match(esignServer, /esign_events\/\$\{contractCode\}\/\$\{key\}/);
 assert.match(publicRoute, /previewDocumentUrl/);
 assert.match(publicRoute, /downloadUrl/);
+assert.match(publicRoute, /documentPreviewedAt/);
+assert.match(publicRoute, /documentSourceViewedAt: parsed\.documentSourceViewedAt/);
 assert.doesNotMatch(publicRoute, /progressTx/);
 assert.doesNotMatch(publicRoute, /getStore\(\)/);
 
@@ -292,6 +295,10 @@ assert.match(publicPage, /snapshot\.landlord\?\.companyName/);
 assert.match(publicPage, /snapshot\.templateState\?\.car === '신차'/);
 assert.match(publicPage, /'미정 \(신차\)'/);
 assert.match(publicPage, /model_snapshot/);
+assert.match(publicPage, /계약서 원본 열람 · 확대해서 보기/);
+assert.match(publicPage, /실제 서명 대상 원본 · 확대·축소 가능/);
+assert.match(publicPage, /documentPreviewedAt/);
+assert.match(publicPage, /계약서 원본 및 자동차 대여약관/);
 // 필수 표시는 별표가 아니라 시각 태그다. 추가 운전자 입력값·검증 키는 그대로 유지한다.
 assert.match(publicPage, /function ReqTag\(\)/);
 assert.match(publicPage, /<ReqTag \/>/);
@@ -346,6 +353,7 @@ assert.doesNotMatch(publicPage, /면허번호는 별도로 입력하지 않습�
 assert.match(signedSnapshot, /driver_or_biz_no: driverLicenseNo/);
 assert.match(signedSnapshot, /drv\$\{slot\}_name/);
 assert.match(contractTemplate, /if\(ageSel && !SEALED\)/);
+assert.match(contractTemplate, /var targetHeight=Math\.min\(colCapacity-12, totalHeight\/allCols\.length\+64\);/);
 assert.doesNotMatch(publicPage, /contract-sign-public|@\/lib\/domain\/sign/);
 assert.match(esignPage, /return <EsignSendCenter quickEntry \/>/);
 // 검토용 샘플도 정적 PDF 사본이 아니라 실제 봉인 HTML/PDF 경로를 재사용해야 한다.

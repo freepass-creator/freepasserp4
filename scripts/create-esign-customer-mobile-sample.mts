@@ -18,7 +18,7 @@ const base = S(process.env.FREEPASS_ESIGN_PUBLIC_BASE_URL || 'https://freepasser
   .replace(/\/$/, '').replace(/\/sign$/, '');
 
 const now = Date.now();
-const contractCode = `CT-MOBILE-SAMPLE-${new Date(now).toISOString().slice(0, 10).replace(/-/g, '')}`;
+const contractCode = `CT-MOBILE-SAMPLE-${new Date(now).toISOString().replace(/[-:TZ.]/g, '').slice(0, 14)}`;
 const contract: EsignRecord = {
   contract_code: contractCode,
   contract_number: contractCode,
@@ -102,7 +102,7 @@ if (!apply) process.exit(0);
 
 const db = firebaseAdminDatabase();
 const existing = await db.ref(`v4/contracts/${contractCode}`).get();
-if (existing.exists()) throw new Error(`오늘의 점검 계약이 이미 있습니다: ${contractCode}`);
+if (existing.exists()) throw new Error(`같은 시각의 점검 계약이 이미 있습니다: ${contractCode}`);
 await db.ref('v4').update({
   [`contracts/${contractCode}`]: { ...contract, esign_session_hash: hash, sign_expires_at: expiresAt },
   [`esign_sessions/${hash}`]: {
