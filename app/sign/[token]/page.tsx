@@ -785,16 +785,35 @@ export default function SignPage() {
     <main style={shell}>
       <div style={frame}>
       <header style={{ flex: '0 0 auto', background: C.bg, display: 'grid', gap: 8, paddingBottom: 8, minWidth: 0 }}>
-        <nav style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }} aria-label="진행 묶음">
-          {BUNDLES.map((item, index) => (
-            <Badge
-              key={item.name}
-              tone={bundle === item.id ? 'blue' : bundle > item.id ? 'green' : 'gray'}
-              variant={bundle === item.id ? 'solid' : bundle > item.id ? 'fill' : 'line'}
-            >
-              {index + 1}. {item.name}
-            </Badge>
-          ))}
+        {/*
+          진행 표시는 «뱃지»가 아니라 «막대»다(착한거래 app/globals.css .steps 와 같은 문법).
+          뱃지 셋을 나란히 두면 «칩 세 개»로 보이지 «어디까지 왔나»로 안 읽힌다.
+            · 폭을 균등하게 나눠 가져 진행률이 눈에 들어온다(뱃지는 글자 길이대로 제각각)
+            · 지난 단계를 초록으로 칠하지 않는다 — 초록은 「정상·완료」 상태색이라 뜻이 겹친다.
+              여기서는 그냥 «지나온 길»이므로 주색(네이비) 한 가지로 채운다.
+            · 높이 4px — 머리에서 자리를 뺏지 않는다.
+        */}
+        <nav style={{ display: 'flex', gap: 8 }} aria-label="진행 단계">
+          {BUNDLES.map((item, index) => {
+            const passed = bundle >= item.id;
+            const here = bundle === item.id;
+            return (
+              <div key={item.name} style={{ flex: 1, minWidth: 0, display: 'grid', gap: 6 }}
+                   aria-current={here ? 'step' : undefined}>
+                <span style={{
+                  height: 4, borderRadius: 2,
+                  background: passed ? C.brand : C.line,
+                  boxShadow: here ? `0 0 0 1px color-mix(in srgb, ${C.brand} 25%, transparent)` : undefined,
+                }} />
+                <span style={{
+                  fontSize: FS.cap, lineHeight: 1.2, whiteSpace: 'nowrap',
+                  overflow: 'hidden', textOverflow: 'ellipsis',
+                  color: passed ? C.brand : C.faint,
+                  fontWeight: here ? FW.head : FW.label,
+                }}>{index + 1}. {item.name}</span>
+              </div>
+            );
+          })}
         </nav>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
           <div style={{ flex: 1, minWidth: 0 }}><SectionLabel mt={0} mb={0}>{step?.title || '전자계약'}</SectionLabel></div>
@@ -806,7 +825,7 @@ export default function SignPage() {
       {/* 단계 안내는 «가이드»지 알림이 아니다 — 파란 박스로 세우면 진짜 알릴 것(보완 요청·오류)과
           위계가 같아진다. 제목 밑 설명 줄로 둔다(사장님 2026-08-21). */}
       {stepGuide(step) ? (
-        <div style={{ fontSize: FS.sub, color: C.mute, lineHeight: 1.5, marginTop: -4 }}>{stepGuide(step)}</div>
+        <div style={{ fontSize: FS.sub, color: C.mute, lineHeight: 1.5, marginTop: -8 }}>{stepGuide(step)}</div>
       ) : null}
       {view.rejectReason ? (
         <Message variant="warning">
@@ -824,8 +843,9 @@ export default function SignPage() {
             { label: periodLabel, value: periodText, icon: CalendarDays },
           ]} />
           {/* 파란 안내 박스를 잇달아 쌓지 않는다 — 위 stepGuide 가 이미 같은 말을 한다.
-              여기서는 아래 표를 가리키는 제목 한 줄로만 둔다(사장님 2026-08-21). */}
-          <div style={{ fontSize: FS.sub, fontWeight: FW.title, color: C.ink, margin: '2px 0 -2px' }}>
+              여기서는 아래 표를 가리키는 제목 한 줄로만 둔다(사장님 2026-08-21).
+              marginBottom:-8 은 컨테이너 gap(12)을 4 로 줄이는 보정이다 — 제목은 그 표에 딸린 것이다. */}
+          <div style={{ fontSize: FS.sub, fontWeight: FW.title, color: C.ink, marginBottom: -8 }}>
             {S(form.customer_name) ? `${S(form.customer_name)}님, 아래 계약이 맞습니까?` : '아래 계약 내용을 확인해 주세요.'}
           </div>
           <WorkTable accent="main" title={S(snapshot.contractKind?.title) || S(snapshot.template?.label) || '자동차 대여 계약서'}>
@@ -839,12 +859,13 @@ export default function SignPage() {
           {/* 한 줄짜리를 표로 세우지 않는다(사장님 2026-08-21) — 「확인 항목」이라는 라벨도 빈말이다.
               위 계약서 요약에 딸린 부가 설명이므로 표 밑 한 줄로 둔다. */}
           {isSonogongSubscription ? (
-            <div style={{ fontSize: FS.cap, color: C.mute, lineHeight: 1.5, marginTop: -4 }}>
+            <div style={{ fontSize: FS.cap, color: C.mute, lineHeight: 1.5, marginTop: -8 }}>
               ※ 구독료·구독기간, 만기 반납/인수, 보험료 포함 여부, 정비서비스, 중도해지·반납 조건을 함께 확인해 주세요.
             </div>
           ) : null}
-          {/* 미리보기 버튼에 딸린 각주다 — 박스로 세우면 앞의 안내와 위계가 같아진다. */}
-          <div style={{ fontSize: FS.cap, color: C.faint, lineHeight: 1.5 }}>
+          {/* 미리보기 버튼에 딸린 각주다 — 박스로 세우면 앞의 안내와 위계가 같아진다.
+              앞 ※ 와 한 무리라 -8 로 붙인다. */}
+          <div style={{ fontSize: FS.cap, color: C.faint, lineHeight: 1.5, marginTop: -8 }}>
             미리보기는 개인정보 입력·동의 없이 볼 수 있고, 보는 것만으로 동의·서명되지 않습니다.
           </div>
           {view.previewDocumentUrl ? (
