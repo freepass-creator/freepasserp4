@@ -15,6 +15,8 @@ const RULES: Record<string, (raw: string) => string | null> = {
   engine_control_overdue_days: (r) => { const m = r.match(/(\d+)/); return m ? `${m[1]}일` : null; },
   auto_terminate_overdue_days: (r) => { const m = r.match(/(\d+)/); return m ? `${m[1]}일` : null; },
   deposit_return_days: (r) => { const m = r.match(/(\d+)/); return m ? `${m[1]}일` : null; },
+  // 추가운전 인원 — 드롭다운 규격 「N인까지」(사장님 「드롭다운으로」 2026-08-28). 「1」·「1인」 → 「1인까지」.
+  additional_driver_allowance_count: (r) => { if (/제한없음|불가|무제한/.test(r)) return null; const m = r.match(/(\d+)/); return m ? `${m[1]}인까지` : null; },
 };
 const updates: Record<string, string> = {}; const backup: Record<string, string> = {}; const rows: string[] = [];
 for (const node of ['v4/policies', 'policies']) {
