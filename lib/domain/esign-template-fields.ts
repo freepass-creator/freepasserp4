@@ -45,6 +45,19 @@ export function isFrozenTemplateState(value: unknown): value is FrozenTemplateSt
 
 const text = (value: unknown): string => String(value ?? '').trim();
 
+/**
+ * 사고 누적 해지 횟수는 숫자만 두면 “두 번이면 해지인가?”처럼 읽히기 쉽다.
+ * 계약서 표에는 현재 사고를 포함한 최근 1년의 총 횟수를 문장으로 고정해 보여 준다.
+ */
+function accidentTerminationText(value: unknown): string {
+  const raw = text(value);
+  if (!raw || raw === '없음') return raw || '해당 없음';
+  const count = raw.match(/\d+/)?.[0];
+  return count
+    ? `각 사고 발생일 기준 직전 1년 내 과실 50% 이상 사고 총 ${count}회 (현재 사고 포함)`
+    : raw;
+}
+
 function productStateOf(contract: Row, product: Row | null | undefined): FrozenTemplateState['pd'] {
   const spec = findContractKind(text(contract.esign_contract_kind || contract.contract_kind));
   if (spec) {
@@ -264,7 +277,15 @@ export function buildTemplateFieldsFromRecords(args: {
     color_exterior: text(product?.ext_color),
     color_interior: text(product?.int_color),
     odometer_delivery: mileageCell(product?.mileage),
-    vehicle_classification: canonProductType(product?.product_type),
+    /*
+     * 상품구분 칸은 「신차 · 렌터카」처럼 두 값을 나란히 적는다.
+     * product_type 이 이미 둘을 붙여 갖고 있으므로(신차렌트·중고구독·픽업구독…) 거기서 가른다.
+     * 픽업구독은 «중고구독이 아닌» 별도 상품이지만, 차의 상태는 중고차이고 빌리는 방식은 구독이다.
+     */
+    vehicle_condition_type: /신차/.test(canonProductType(product?.product_type)) ? '신차' : '중고차',
+    vehicle_classification: /구독/.test(canonProductType(product?.product_type)) ? '구독서비스' : '렌터카',
+    drive_type: text(product?.drive_type),
+    seats: product?.seats ? `${product.seats}인승` : '',
     customer_name: text(contract.customer_name),
     customer_phone: text(contract.customer_phone),
     customer_address: text(contract.customer_address),
@@ -287,7 +308,8 @@ export function buildTemplateFieldsFromRecords(args: {
     additional_driver_cost: additionalDriverCostLabel(pol.additional_driver_cost),
     annual_mileage: text(contract.annual_mileage_snapshot || pol.annual_mileage),
     over_mileage_rate: overMileageRate ? `1km당 ${overMileageRate.toLocaleString()}원` : '',
-    accident_termination_count: text(pol.accident_termination_count),
+    accident_termination_count: accidentTerminationText(pol.accident_termination_count),
+    accident_termination_total_count: text(pol.accident_termination_count),
     maintenance_product: text(pol.maintenance_service),
     maintenance_replacement: text(pol.replacement_car_policy) || '미제공',
     designated_garage: text(pol.designated_garage) || '회사 지정 또는 사전 승인 정비공장',

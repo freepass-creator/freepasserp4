@@ -74,6 +74,7 @@ export const FIELD_MAP: FieldMap[] = [
   /* ── 전자서명 봉인 기록(완료본 전용) ── */
   { field: 'deposit_installments', label: '보증금 분납 횟수', from: '수기', note: '완납은 1회. 상한 없음 — 회차별 칸을 두지 않는 이유' },
   { field: 'deposit_split_method', label: '보증금 분납 방식', from: '수기', note: '1회면 「일시납」, 2회 이상이면 「매회 분납비율대로 분할」' },
+  { field: 'accident_termination_total_count', label: '사고다발 계약해지 총 횟수', from: '수기', note: '약관 제7조 제1항 제7호 기준(직전 1년·과실 50% 이상)' },
   { field: 'vehicle_remark', label: '차량 비고', from: '수기', note: '차량에만 붙는 한 줄(색상 특이·옵션 예외 등). 조건 관련은 약정 비고로' },
   { field: 'drive_type', label: '구동방식', from: '재고', note: '2WD·FWD·RWD·AWD·4WD — 부가 사양' },
   { field: 'seats', label: '승차정원', from: '재고', note: '자동차등록증 표기. 「인승」은 값에 붙는 말이라 항목명으로 쓰지 않는다' },

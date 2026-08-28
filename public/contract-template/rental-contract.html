@@ -79,6 +79,14 @@
   --table-row-line:var(--line2);
     --ok:#0e9f6e; --danger:#e02424; --warn-bg:#fff7ed; --warn-ink:#b45309;
   }
+  /* 손오공 구독 약정서는 원본 약정서에 삽입된 CI 로고의 청록(#2EA299)을 사용한다.
+     전자계약 봉인 state의 co 값으로만 켜지므로 다른 공급사·프리패스 표준계약서에는 영향이 없다. */
+  :root[data-contract-brand="sonogong"]{
+    --accent:#2ea299;
+    --accent-ink:#1d706a;
+    --accent-bg:#e4f5f2;
+    --tint:#f1faf8;
+  }
   *{margin:0;padding:0;box-sizing:border-box;word-break:keep-all;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   body{font-family:"Pretendard",-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
        background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;
@@ -151,7 +159,6 @@
   .rhead .rh-meta b{color:var(--ink2)}
   /* 약관은 2단 조판 전용이다. 본문을 줄이거나 푸터 안전선을 침범하지 않고,
      문서 헤더 아래의 장식 여백만 줄여 다음 조문이 같은 페이지에 들어가게 한다. */
-  .terms-layout .rhead{margin-bottom:2mm}
   .terms-layout .pbody{padding-bottom:0}
 
   /* 섹션 */
@@ -159,7 +166,11 @@
      위 24px / 아래 12px 비대칭 — 같은 여백이면 섹션이 붙어 보인다. */
   /* ★세로 리듬도 한 벌이다 — 장마다 섹션 간격을 달리 주면 같은 문서가 장마다 다른 밀도로 읽힌다.
      조밀 장이 쓰던 값(4mm/3mm)을 기본으로 내렸다. 한 장에 안 들어가면 간격이 아니라 글을 줄인다. */
-  .section{margin-top:4mm;margin-bottom:3mm}
+  /* ★세로 간격은 «가까울수록 한 무리»라는 한 가지 규칙으로만 준다(사장님 2026-08-21).
+     머리띠→표 0 · 표→그 표의 ※ 1.2mm · 블록→블록 5mm · 섹션→섹션 8mm.
+     예전엔 섹션 사이가 4mm 로 블록 사이(5mm)보다 «좁아» 큰 경계가 작은 경계보다 가까웠다
+     — 그래서 어디까지가 한 섹션인지 눈으로 안 잡혔다. */
+  .section{margin-top:8mm;margin-bottom:0}
   .rhead + .section{margin-top:0}
   /* ★섹션 머리띠 = ERP4 매물 상세와 «같은 모양»이다(사장님 2026-08-21).
      진한 네이비 바탕 + 흰 굵은 제목 + 흰 아이콘/번호칩. 부제만 흰색을 낮춰 쓴다.
@@ -190,7 +201,7 @@
   .sec-h + .prose-block,.sec-h + .note{margin-top:2mm}
   .sec-h + .subhead{margin-top:2.5mm}
   /* ★하위 표 머리띠 — 폭은 상위 표와 맞추고, 중성 면과 좌측 네이비 레일로만 위계를 남긴다. */
-  .subhead{font-size:var(--fs-label);font-weight:600;color:var(--ink);margin:3mm 0 0;padding:4px 10px 4px 9px;
+  .subhead{font-size:var(--fs-label);font-weight:600;color:var(--ink);margin:5mm 0 0;padding:4px 10px 4px 9px;
            background:var(--th);box-shadow:inset 3px 0 0 var(--accent),inset 0 0 0 1px var(--line);
            border-radius:var(--radius-card) var(--radius-card) 0 0;
            display:flex;align-items:center;gap:7px}
@@ -296,7 +307,8 @@
             font-variant-numeric:tabular-nums}
   /* 모든 일반 표의 머리·행 라벨은 .kv 라벨 셀과 같은 중성 면을 쓴다. */
   table.tbl th{background:var(--th);color:var(--mute);font-weight:500;font-size:var(--fs-label);padding:var(--table-cell-y) var(--table-cell-x);text-align:left;vertical-align:top;line-height:var(--table-label-lh);border-bottom:var(--hair) solid var(--table-row-line)}
-  table.tbl tbody th{background:var(--th);color:var(--ink);font-size:var(--fs-body);font-weight:600;line-height:var(--table-value-lh)}
+  /* 행 머리 = 항목 이름 = .kv .k 와 같은 것. 크기·굵기·색을 라벨 규격으로 맞춘다. */
+  table.tbl tbody th{background:var(--th);color:var(--mute);font-size:var(--fs-label);font-weight:550;line-height:var(--table-value-lh)}
   table.tbl td{padding:var(--table-cell-y) var(--table-cell-x);border-bottom:var(--hair) solid var(--table-row-line);color:var(--ink);font-size:var(--fs-body);font-weight:400;line-height:var(--table-value-lh);letter-spacing:-.012em;vertical-align:top;font-variant-numeric:tabular-nums}
   /* ERP 상세표처럼 행선만 남긴다. 다열 표도 열 너비와 정렬로 읽고, 격자선은 줄이지 않는다. */
   table.tbl thead tr > * + *,table.tbl tbody tr > * + *{border-left:0}
@@ -305,13 +317,18 @@
   /* 보험 보장표는 04번 섹션 안의 매트릭스다. 독립 카드처럼 뜨지 않도록 한 단계 들여쓰고,
      헤더·첫 열만 표 역할로 고정한다. 일반 표와 셀 여백·행선은 그대로 공유한다. */
   table.tbl.coverage-matrix thead th{background:var(--th)}
-  table.tbl.coverage-matrix tbody th{background:var(--th);color:var(--ink);font-weight:600}
+  table.tbl.coverage-matrix tbody th{background:var(--th);color:var(--mute);font-weight:550}
   table.keyterms td.kt{font-size:var(--fs-name);font-weight:700;padding:7px 8px;color:var(--ink)}
 
   /* 특약/안내 박스 */
   .note{font-size:var(--fs-note);color:var(--mute);line-height:1.5;margin-top:2mm}
   /* 표·키값 직후 유의사항(※)은 설명 대상에 붙도록 일정 간격 통일 */
-  table.tbl + .note, .kv + .note{margin-top:1.8mm}
+  /* 표 바로 밑 ※ 는 그 표에 딸린 설명이다 — 다음 무리(5mm)보다 훨씬 가깝게 붙인다.
+     ※ 끼리도 같은 무리라 같은 간격을 쓴다. */
+  /* 표 밑에 붙는 안내(※·callout)는 «앞의 표에 딸린 것»이다 — 서로 이어질 때도 같은 무리라
+     같은 간격을 쓴다. 한 줄로 묶어 두지 않으면 .note 뒤 .callout 처럼 조합마다 빠진다. */
+  .kv + .note, table.tbl + .note, .note + .note, .callout + .note,
+  .kv + .callout, table.tbl + .callout, .note + .callout, .callout + .callout{margin-top:1.2mm}
   .note .em{color:var(--danger);font-weight:700}
   /* 칸 안 괄호 설명·※ 주석 — 값은 본문, 보조만 한 단계 작게 */
   /* ★부연은 클래스로 표시한다 — 예전엔 [style*="color:var(--mute)"] 로 «인라인에 회색을 쓴 모든 것»을
@@ -458,7 +475,13 @@
         요지가 위쪽 1/3 에 붙는다 — 실제로 두 번 그렇게 됐다. auto 는 이 한 곳에만 둔다. */
   .cover-sum{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:auto;margin-bottom:auto}
   .cover-sum .cs{border:1px solid var(--line);border-radius:var(--radius-card);padding:10px 13px;background:var(--tint)}
-  .cover-sum .cs .csl{font-size:var(--fs-label);color:var(--mute);font-weight:500;margin-bottom:4px;letter-spacing:.02em}
+  /* 표지 요지 4칸 머리 그림 — lucide(ERP 와 같은 아이콘 집합).
+     차량번호는 정면에서 본 차(car-front), 대여료는 지폐, 보증금은 지갑, 기간은 달력.
+     선 두께·둥근 끝은 문서의 다른 아이콘과 같은 값을 쓴다. */
+  .cover-sum .cs .csl{font-size:var(--fs-label);color:var(--mute);font-weight:500;margin-bottom:4px;letter-spacing:.02em;
+                      display:flex;align-items:center;gap:5px}
+  .cover-sum .cs .csl svg{flex:0 0 auto;width:13px;height:13px;fill:none;stroke:currentColor;
+                          stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
   .cover-sum .cs .csv{font-size:var(--fs-lead);font-weight:700;letter-spacing:-.02em;line-height:1.2;font-variant-numeric:tabular-nums}
   .cover-sum .cs .cssub{font-size:var(--fs-note);color:var(--faint);margin-top:2px;font-weight:600}
   .cover-foot{margin-top:9mm;padding-top:7mm;border-top:1px solid var(--line);
@@ -520,19 +543,19 @@
     <!-- 계약 요지 4칸 — 기존 값만 읽어 와 표지에서 크게 보여 준다. -->
     <div class="cover-sum" aria-label="계약 정보">
       <div class="cs">
-        <div class="csl">차량</div>
+        <div class="csl"><svg viewBox="0 0 24 24" aria-hidden><path d="m21 8-2 2-1.5-3.7A2 2 0 0 0 15.646 5H8.4a2 2 0 0 0-1.903 1.257L5 10 3 8"/><rect width="18" height="8" x="3" y="10" rx="2"/><path d="M7 14h.01M17 14h.01M5 18v2M19 18v2"/></svg>차량</div>
         <div class="csv" data-cover-field="car_number">—</div>
       </div>
       <div class="cs">
-        <div class="csl" data-sub-label="fee">월 대여료</div>
+        <div class="csl"><svg viewBox="0 0 24 24" aria-hidden><rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg><span data-sub-label="fee">월 대여료</span></div>
         <div class="csv" data-cover-field="rent_amount" data-cover-unit="원">—</div>
       </div>
       <div class="cs">
-        <div class="csl">보증금</div>
+        <div class="csl"><svg viewBox="0 0 24 24" aria-hidden><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg>보증금</div>
         <div class="csv" data-cover-field="deposit_amount" data-cover-unit="원">—</div>
       </div>
       <div class="cs">
-        <div class="csl" data-sub-label="period">대여기간</div>
+        <div class="csl"><svg viewBox="0 0 24 24" aria-hidden><path d="M8 2v4M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01"/></svg><span data-sub-label="period">대여기간</span></div>
         <div class="csv" data-cover-field="rent_month">—</div>
       </div>
     </div>
@@ -773,8 +796,8 @@
         <div class="k">자차 처리 제외</div><div class="v span2" data-field="self_damage_exclusions"><b>단독사고 · 가해자 불명(보유불명) 사고</b> · 휠/타이어 단독 손상 · 전손 · 고의·관리 소홀 등 — 가입 공제·보험 상품 및 회원사 정책에 따라 자차 처리가 제한·제외될 수 있습니다.</div>
       </div>
       <!-- 면책금을 «안 내면» 벌어지는 일 — 금액 옆이 아니라 표 아래에서 한 번에 말한다. -->
-      <div class="note">※ 면책금·자기부담금은 보험·공제 또는 자차손해면책 처리 결과에 따라 확정됩니다. 미납 시 계약서의 연체·정산 절차가 적용되며, <b>미납만으로 보험접수가 당연히 취소되는 것은 아닙니다.</b></div>
-      <div class="note">※ <b>자차(자기차량손해)의 면책·처리 제외 기준은 회원사(가입 공제·보험 상품)별로 상이</b>합니다. 위 「자차 처리 제외」 기재가 우선하며, 적용 기준은 계약 시 별도 안내합니다.</div>
+      <div class="note">※ 면책금은 보험·공제 처리 결과에 따라 확정되며, <b>미납만으로 보험접수가 취소되지는 않습니다.</b></div>
+      <div class="note">※ 자차 면책·제외 기준은 가입 상품별로 다르며, <b>위 「자차 처리 제외」 기재가 우선</b>합니다.</div>
 
       <!-- 사고 처리 · 대차 (공통) -->
       <div class="subhead"><span class="sh-ic"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 1-5.4 5.4L5 16l3 3 4.3-4.3a4 4 0 0 1 5.4-5.4z"/></svg></span>사고 처리 · 대차</div>
@@ -785,7 +808,7 @@
           이 칸이 비면 그 호는 적용되지 않는다 — 없는 기준으로 해지할 수 없다.
           차를 잃는 조건이므로 약관 8천 자에 묻어 두지 않고 계약서에 숫자로 세운다.
         -->
-        <div class="k">사고 다발 시 계약해지 기준</div><div class="v span2" data-field="accident_termination_count">-</div>
+        <div class="k">사고 다발 계약해지</div><div class="v span2" data-field="accident_termination_count">각 사고 발생일 기준 직전 1년 내 과실 50% 이상 사고 총 3회 (현재 사고 포함) 시 계약 해지 가능</div>
         <div class="k">사고 대차</div><div class="v span2"><b>가입자 한정</b> · 8시간 이상 수리로 운행 불가 시 동급 차량 1영업일 이내 제공 <span class="dim" style="color:var(--mute)">(불가 시 수리기간 대여료 차감)</span> · 임대인·지정 협력사 차량만 이용(외부 렌터카 임의 이용 시 대차료 청구 제한) · <span data-field="replacement_car_policy">미가입 시 미제공</span></div>
         <!-- 「사고 발생 시 절차」와 「보험 제한 사유」를 표 밖 블록에서 표 행으로 들였다
              (사장님 2026-08-21 「표가 쓸데없이 많고 경고박스는 규격이 안 맞는다」).
@@ -1006,7 +1029,7 @@
   <p class="t-sub">4. 차량을 무단 양도·전대·담보제공·점유이전하거나 차량관리장치를 훼손·차단한 경우</p>
   <p class="t-sub">5. 압류·강제집행·파산·회생·폐업·지급불능 등 계약유지가 현저히 곤란한 경우</p>
   <p class="t-sub">6. 운전자격 상실, 무면허·음주·약물운전, 고의사고·보험사기 등 중대한 계약위반이 발생한 경우</p>
-  <p class="t-sub">7. 각 사고 발생일을 기준으로 직전 1년 이내에 해당 사고를 포함하여 임차인 또는 등록 운전자의 과실비율 50% 이상 사고가 3회 발생한 경우</p>
+  <p class="t-sub">7. 각 사고 발생일을 기준으로 직전 1년 이내에 해당 사고를 포함하여 임차인 또는 등록 운전자의 과실비율 50% 이상 사고가 <span data-field="accident_termination_total_count">3회</span> 발생한 경우</p>
   <p class="t-sub">8. 그 밖에 임차인의 귀책으로 계약을 유지하기 어려운 중대한 사유가 있는 경우</p>
   <p>② 차량 안전·소유권 또는 채권보전을 위해 긴급한 필요가 있거나 시정이 불가능한 중대한 위반은 즉시 해지할 수 있다.</p>
   <p>③ 해지 후 차량회수는 제24조에 따르고, 중도해지수수료와 손해 정산은 제8조 및 제16조에 따른다.</p>
@@ -1151,6 +1174,7 @@
         <label class="agree-item" data-consent-key="rental_terms"><input type="checkbox" class="agchk" disabled><span><b>자동차 임대차 계약 약관</b> 전문을 수령·확인하고 이에 동의합니다.</span></label>
         <label class="agree-item" data-consent-key="privacy"><input type="checkbox" class="agchk" disabled><span><b>개인정보 수집·이용 및 계약 이행에 필요한 제3자 제공</b>에 동의합니다. <span class="dim" style="color:var(--mute)">(계약 체결·이행·세금계산서 발행 목적 / 보유기간 계약 종료 후 5년 / 약관 제27조 및 서명 전 개인정보 처리 안내)</span></span></label>
         <label class="agree-item" data-consent-key="gps"><input type="checkbox" class="agchk" disabled><span><b>차량 위치정보(GPS) 수집·이용</b>에 동의합니다. <span class="dim" style="color:var(--mute)">(도난방지·사고대응·계약위반 시 차량보호·회수 목적 / 약관 제24조 및 서명 전 위치정보 처리 안내)</span></span></label>
+        <label class="agree-item" data-consent-key="recovery_procedure"><input type="checkbox" class="agchk" disabled><span><b>차량 보호·회수 절차</b>를 확인합니다. <span class="dim" style="color:var(--mute)">(계약 해지·반환 사유 시 사전 통지 후 법령이 허용하는 범위에서 위치 확인·평온한 회수 조치를 할 수 있으며, 무단침입·물리력 행사는 하지 않습니다.)</span></span></label>
         <label class="agree-item" data-consent-key="supporting_documents_consent" style="display:none"><input type="checkbox" class="agchk" disabled><span><b>추가 제출서류 수집·이용 및 임대인 제공</b>에 동의합니다. <span class="dim" style="color:var(--mute)">(요청된 계약 심사·체결·이행 서류에 한함)</span></span></label>
         <label class="agree-item" data-main-exclude><input type="checkbox" class="agopt" disabled><span><b>[선택] 개인신용정보 수집·이용 및 제공·조회</b>에 동의합니다. <span class="dim" style="color:var(--mute)">(실제 신용정보 조회 계약에만 별도 적용하며 필수 전체동의에 포함되지 않음)</span></span></label>
       </div>
@@ -1165,7 +1189,7 @@
           <span>⑤ 차량 인수증 <span class="dim" style="color:var(--mute)">(부속서류 1)</span></span>
           <span>⑥ 연대보증 약정서 <span class="dim" style="color:var(--mute)">(해당 시)</span></span>
         </div>
-        <div class="annex-note">위 목록 중 <b>실제로 본 계약에 첨부되고 별도 확인 또는 서명이 완료된 서류만</b> 본 계약의 일부가 됩니다. 첨부되지 않은 서류는 교부·동의된 것으로 보지 않습니다.</div>
+        <div class="annex-note">위 목록 중 <b>실제로 본 계약에 첨부되고 별도 확인 또는 서명이 완료된 서류만</b> 본 계약의 일부가 됩니다. 첨부되지 않은 서류는 교부·동의된 것으로 보지 않습니다. <b>인도 전에는 차량 인수증·계약사실확인서를 본 완료본에서 제외하고, 인도 시 계약번호로 연결된 별도 확인서로 작성합니다.</b></div>
       </div>
 
       <div class="esign">
@@ -1199,7 +1223,7 @@
 </section>
 
 <!-- ============== 부속서류 1 · 차량 인수증 ============== -->
-<section class="page">
+<section class="page" data-appendix="handover">
   <div class="pbody">
     <div class="rhead">
       <div class="rh-doc">차량 인수증 <span class="dim" style="font-size:var(--fs-note);color:var(--mute);font-weight:600;margin-left:5px">부속서류 1</span></div>
@@ -1254,7 +1278,7 @@
 </section>
 
 <!-- ============== 부속서류 2 · 임대차 계약 사실확인서 ============== -->
-<section class="page">
+<section class="page" data-appendix="rental-fact">
   <div class="pbody">
     <div class="rhead">
       <div class="rh-doc">임대차 계약 사실확인서 <span class="dim" style="font-size:var(--fs-note);color:var(--mute);font-weight:600;margin-left:5px">부속서류 2</span></div>
@@ -1404,7 +1428,7 @@
 </section>
 
 <!-- ============== 부속서류 5 · 개인신용정보 수집·이용·제공·조회 동의서 ============== -->
-<section class="page">
+<section class="page" data-appendix="credit">
   <div class="pbody">
     <div class="rhead">
       <div class="rh-doc">개인신용정보 수집·이용·제공·조회 동의서 <span class="dim" style="font-size:var(--fs-note);color:var(--mute);font-weight:600;margin-left:5px">부속서류 5</span></div>
@@ -1449,7 +1473,7 @@
 </section>
 
 <!-- ============== 부속서류 6 · 위치정보 수집·이용 동의서 ============== -->
-<section class="page">
+<section class="page" data-appendix="gps">
   <div class="pbody">
     <div class="rhead">
       <div class="rh-doc">위치정보 수집·이용 동의서 <span class="dim" style="font-size:var(--fs-note);color:var(--mute);font-weight:600;margin-left:5px">부속서류 6</span></div>
@@ -1484,7 +1508,7 @@
 </section>
 
 <!-- ============== 부속서류 7 · 자동이체(CMS) 출금 신청서 ============== -->
-<section class="page">
+<section class="page" data-appendix="cms">
   <div class="pbody">
     <div class="rhead">
       <div class="rh-doc">자동이체(CMS) 출금 신청서 <span class="dim" style="font-size:var(--fs-note);color:var(--mute);font-weight:600;margin-left:5px">부속서류 7</span></div>
@@ -1528,7 +1552,7 @@
 </section>
 
 <!-- ============== 별도 계약 · 연대보증 약정서 ============== -->
-<section class="page">
+<section class="page" data-appendix="guarantor">
   <div class="pbody">
     <div class="rhead">
       <div class="rh-doc">연대보증 약정서 <span class="dim" style="font-size:var(--fs-note);color:var(--mute);font-weight:600;margin-left:5px">별도 계약</span></div>
@@ -2191,6 +2215,8 @@
   }
 
   function render(){
+    /* 실제 발행본도 서버가 봉인한 공급사 상태로만 문서 테마를 바꾼다. */
+    document.documentElement.dataset.contractBrand = state.co==='sonogong' ? 'sonogong' : 'standard';
     /*
      * ⚠ 봉인본은 «주입된 회사»만 쓴다.
      *   프리셋(state.co)은 단독 실행용 하네스의 편의 기능인데, 기본값이 'sonogong' 이라
@@ -2221,9 +2247,15 @@
 
     /* 상품 */
     var p=PRODUCTS[state.pd];
-    setDom('product_label', p.label);
-    setDom('doc_title', p.sub ? '자동차 구독 계약서' : '자동차 장기대여 계약서');
-    setDom('doc_kicker', p.sub ? 'AUTOMOBILE SUBSCRIPTION AGREEMENT' : 'LONG-TERM VEHICLE RENTAL AGREEMENT');
+    var sonogongSubscription = state.co==='sonogong' && p.sub;
+    var insuranceSeparate = state.ins==='별도';
+    setDom('product_label', sonogongSubscription
+      ? '손오공 자동차 구독 · 보험료 '+(insuranceSeparate?'별도형':'포함형')
+      : p.label);
+    setDom('doc_title', sonogongSubscription ? '손오공 자동차 구독 약정서' : (p.sub ? '자동차 구독 계약서' : '자동차 장기대여 계약서'));
+    setDom('doc_kicker', sonogongSubscription
+      ? 'SONOKONG VEHICLE SUBSCRIPTION AGREEMENT · '+(insuranceSeparate?'INSURANCE SEPARATE':'INSURANCE INCLUDED')
+      : (p.sub ? 'AUTOMOBILE SUBSCRIPTION AGREEMENT' : 'LONG-TERM VEHICLE RENTAL AGREEMENT'));
     applySubscriptionLabels(p.sub);
     if(!DATA.buyback_option) setDom('buyback_option', p.take ? '만기 시 인수 (인수형)' : '만기 반납 · 인수 별도 협의');
     if(!p.take && !DATA.buyback_price) setDom('buyback_price', '만기 협의');
@@ -2549,6 +2581,27 @@
       var hasOptionalPartyPage=hasDriver||hasGuarantor||hasSpecial;
       document.querySelectorAll('[data-empty-optional-summary]').forEach(function(el){ el.style.display=hasOptionalPartyPage?'none':''; });
       document.querySelectorAll('[data-contract-page="special-parties"]').forEach(function(el){ el.style.display=hasOptionalPartyPage?'':'none'; });
+
+      /* 실제로 작성·서명되지 않은 부속서류는 완료본에 빈 양식으로 넣지 않는다.
+       * 인수증/계약사실확인서는 인도 시 별도 봉인하고, CMS·신용은 전용 절차가
+       * 완료된 경우에만 따로 붙인다. */
+      var handoverReady=String(sealedFields.handover_datetime||'').trim()!=='';
+      var gpsReady=String(sealedFields.gps_installed||'').trim()==='장착';
+      var cmsReady=String(sealedFields.payment_method||'').trim()==='CMS 자동이체'
+        && String(sealedFields.cms_bank||'').trim()!==''
+        && String(sealedFields.cms_account_no||'').trim()!=='';
+      var appendixVisible={
+        handover:handoverReady,
+        'rental-fact':handoverReady,
+        credit:false,
+        gps:gpsReady,
+        cms:cmsReady,
+        guarantor:hasGuarantor,
+      };
+      document.querySelectorAll('[data-appendix]').forEach(function(el){
+        var key=el.getAttribute('data-appendix')||'';
+        el.style.display=appendixVisible[key]?'':'none';
+      });
 
       if(window.__numberContractPages) window.__numberContractPages();
 
