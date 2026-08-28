@@ -322,6 +322,10 @@ for (const t of targets) {
         engine_cc: nameCc || undefined,
       } as EntityRecord, MASTER) : null;
       let ok = !!snap && snap.confidence === 'high';
+      // ★medium 도 «이름칸»(제조사·모델·세부모델·세부트림)은 채운다(2026-08-28 마음카 싼타페 프레스티지).
+      //   snap.trim_name 은 이미 마스터 풀에서 검증된 값이고, medium 은 대개 «세대 겹침»(싼타페 TM/더 뉴 싼타페 TM)
+      //   때문이지 트림이 틀려서가 아니다. 차종코드(「절대 안 틀린다」)는 아래서 high 만 유지 — 이름칸만 완화.
+      const softOk = !!snap && snap.confidence !== 'low';
       const ccMismatch = false;
       if (!ok && rawName) { low++; if (lowList.length < 40) lowList.push(`${t.name} ${plate} 「${rawName.slice(0, 40)}」`); }
 
@@ -391,11 +395,11 @@ for (const t of targets) {
         '차종코드': pick.code,
         // ★제조사 표기 규격(maker-display) — 마스터의 르노코리아·KG모빌리티도 시트엔 르노·KGM(사장님 2026-08-18)
         // 마스터에서 온 이름은 그대로 옮긴다(위 fromCode 주석) — 제조사 표기 규격만 맞춘다.
-        '제조사(정제)': ok ? canonMakerDisplay(S(snap!.maker)) : '',
-        '모델': ok ? S(snap!.model) : '',
-        '세부모델': ok ? S(snap!.sub_model) : '',
+        '제조사(정제)': softOk ? canonMakerDisplay(S(snap!.maker)) : '',
+        '모델': softOk ? S(snap!.model) : '',
+        '세부모델': softOk ? S(snap!.sub_model) : '',
         // 「파워트레인」 정제칸은 뺐다(2026-08-18) — 열이 남아 있는 시트가 있어도 더 채우지 않는다.
-        '세부트림': ok ? applyLatinBrandTokens(canonSalesTrim(canonMakerDisplay(S(snap!.maker)), S(snap!.model), S(snap!.sub_model), S(snap!.trim_name))) : '',
+        '세부트림': softOk ? applyLatinBrandTokens(canonSalesTrim(canonMakerDisplay(S(snap!.maker)), S(snap!.model), S(snap!.sub_model), S(snap!.trim_name))) : '',
         /**
          * ★배기량은 **마스터가 돌려준 `engine_cc` 를 그대로** 쓴다.
          * ⚠ 파워트레인 «글자»에서 숫자를 긁지 마라. 그렇게 했다가 배터리 용량과 구동축 숫자를
