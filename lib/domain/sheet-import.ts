@@ -661,7 +661,8 @@ export function parsePriceColumns(
     const pm = /^월렌트$|^월세$|^월대여료?$/.test(t)
       ? { period: '1', variant: '' }
       : (() => {
-          const month = /^(\d+)개월(?:([1-9]\d*만)|[（(]?(인수형|반납형)[)）]?)?$/.exec(t);
+          // 주행 변형은 「2만」·「2만km」(오플 헤더가 km를 붙인다) 둘 다 읽는다 — km를 안 받으면 오플 요금이 통째로 0이 됐다(2026-08-28).
+          const month = /^(\d+)개월(?:([1-9]\d*만)(?:[kK][mM])?|[（(]?(인수형|반납형)[)）]?)?$/.exec(t);
           if (month) {
             return {
               period: month[1],
