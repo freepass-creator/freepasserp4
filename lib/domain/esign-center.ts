@@ -454,6 +454,11 @@ export type EsignDraftInput = {
   modelYear?: string;
   fuel?: string;
   options?: string;
+  /** 계약서 02 「차량가액」 — 재고의 vehicle_price(관리자 전용 원가)와 다른 값이다.
+   *  신차는 출고가, 중고는 취득가액. 지금은 영업이 직접 넣고, 신차견적기와 붙으면 그때 자동으로 받는다. */
+  vehiclePrice?: string;
+  /** 계약서 02 「비고」 — 차에만 붙는 특이사항 한 줄. */
+  vehicleRemark?: string;
   colorExterior?: string;
   currentMileage?: string;
   rentMonths: string;
@@ -527,6 +532,8 @@ export function emptyEsignDraftInput(source: 'excel' | 'direct', date: string): 
     modelYear: '',
     fuel: '',
     options: '',
+    vehiclePrice: '',
+    vehicleRemark: '',
     colorExterior: '',
     currentMileage: '',
     rentMonths: '',
@@ -622,6 +629,8 @@ export function draftTemplateFields(form: EsignDraftInput): Record<string, strin
     fuel: S(form.fuel),
     model_year: S(form.modelYear),
     options: S(form.options),
+    contract_vehicle_price: S(form.vehiclePrice),
+    vehicle_remark: S(form.vehicleRemark),
     color_exterior: S(form.colorExterior),
     odometer_delivery: S(form.currentMileage),
     auto_debit_date: S(form.paymentDueDate),

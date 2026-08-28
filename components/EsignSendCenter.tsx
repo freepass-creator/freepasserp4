@@ -978,6 +978,9 @@ export function EsignSendCenter({
               <WorkRow label="연료"><WorkInput value={draft.fuel || ''} onChange={(v) => setDraftValue('fuel', v)} placeholder="연료" full /></WorkRow>
               <WorkRow label="현재 주행거리"><WorkInput value={draft.currentMileage || ''} onChange={(v) => setDraftValue('currentMileage', v)} placeholder="현재 주행거리(km)" inputMode="numeric" full /></WorkRow>
               <WorkRow label="옵션"><WorkInput value={draft.options || ''} onChange={(v) => setDraftValue('options', v)} placeholder="옵션" full /></WorkRow>
+              {/* 차량가액은 재고 원가가 아니라 «계약서에 적을 값»이라 여기서 직접 받는다. */}
+              <WorkRow label="차량가액"><WorkInput value={draft.vehiclePrice || ''} onChange={(v) => setDraftValue('vehiclePrice', v)} placeholder="예: 34,900,000" full /></WorkRow>
+              <WorkRow label="차량 비고"><WorkInput value={draft.vehicleRemark || ''} onChange={(v) => setDraftValue('vehicleRemark', v)} placeholder="차에 붙는 특이사항 한 줄" full /></WorkRow>
               <WorkRow label="반납 탁송료"><WorkInput value={draft.returnDeliveryFee || ''} onChange={(v) => setDraftValue('returnDeliveryFee', v)} placeholder="반납 탁송료(원)" inputMode="numeric" full /></WorkRow>
               <WorkRow label="제공 서비스"><WorkInput value={draft.serviceItems || ''} onChange={(v) => setDraftValue('serviceItems', v)} placeholder="제공 서비스" /></WorkRow>
             </> : null}

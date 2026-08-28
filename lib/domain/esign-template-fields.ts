@@ -187,7 +187,8 @@ export function isDirectEditableField(from: AtomSource | string | null | undefin
 // 원자를 여기서 다시 덮으면 RTDB에 직접 만든 초안 한 건으로 봉인 PDF의 사실관계가 바뀐다.
 // 아래는 본 계약에 적어도 무방한 계약별 입력만 허용하고, 나머지는 authoritative record에서만 만든다.
 const ISSUE_INPUT_FIELDS = new Set([
-  'deposit_installment', 'deposit_round_1', 'deposit_round_2', 'deposit_round_3',
+  'deposit_installment',
+  'contract_vehicle_price', 'vehicle_remark',
   'auto_debit_date', 'buyback_option', 'buyback_price', 'driver_scope', 'maintenance_product',
   'special_terms', 'special_terms_choice',
   'additional_driver',
