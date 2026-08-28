@@ -36,8 +36,8 @@ import type { EsignTemplate } from '@/lib/domain/esign-templates';
 import { copyText } from '@/lib/clipboard';
 import { toast } from '@/components/Toaster';
 import {
-  Badge, Btn, ButtonLabel, C, CenterNote, Checkbox, DetailRow, FS, FW, ICON,
-  Input, ListGroup, Message, R, SectionLabel, Textarea,
+  Badge, Btn, ButtonLabel, C, CenterNote, Checkbox, FormCard, FS, ICON,
+  Input, Message, WorkInput, WorkRow, WorkTable, WorkTextarea,
 } from '@/components/ui';
 import { CheckCircle2, Copy, ExternalLink, FileDown, FileText, Link2Off, RefreshCw, XCircle } from 'lucide-react';
 import { EsignCustomerWalkthroughButton } from '@/components/EsignCustomerWalkthrough';
@@ -293,7 +293,7 @@ export function EsignStageStepper({
   );
 }
 
-/** 단계 카드 — 제목 + 한 줄 설명 + 내용. 카드 안에는 번호를 쓰지 않는다(번호는 스테퍼 하나). */
+/** 표가 아닌 단계 묶음(다음 할 일·버튼). 라벨|값 섹션은 WorkTable을 직접 붙인다 — FormCard로 감싸지 않는다. */
 export function EsignStageCard({
   title,
   description,
@@ -305,15 +305,11 @@ export function EsignStageCard({
   tone?: 'active' | 'flag' | 'quiet';
   children?: ReactNode;
 }) {
-  const border = tone === 'flag' ? C.danger : tone === 'active' ? C.brand : C.line;
   return (
-    <section style={{ border: `1px solid ${border}`, borderRadius: R, background: C.bg, overflow: 'visible' }}>
-      <div style={{ padding: '10px 13px', background: tone === 'quiet' ? C.taupeBg : C.head, borderBottom: children ? `1px solid ${C.line}` : 'none' }}>
-        <div style={{ fontSize: FS.title, fontWeight: FW.title, color: C.ink }}>{title}</div>
-        {description ? <div style={{ marginTop: 2, fontSize: FS.sub, color: C.mute, lineHeight: 1.5 }}>{description}</div> : null}
-      </div>
-      {children ? <div style={{ padding: 13, display: 'grid', gap: 10 }}>{children}</div> : null}
-    </section>
+    <FormCard title={title} hint={tone === 'flag' ? undefined : description}>
+      {tone === 'flag' && description ? <Message variant="danger">{description}</Message> : null}
+      {children}
+    </FormCard>
   );
 }
 
@@ -348,16 +344,16 @@ export function EsignProblemList({
     || (partnerProblems.length ? `공급사 정보(${partnerProblems.map((check) => check.label).join('·')})를 확인해 주세요.` : undefined);
   return (
     <>
-      <ListGroup header={header} footer={resolvedFooter}>
+      <WorkTable title={header} hint={resolvedFooter}>
         {problems.map((check) => (
-          <DetailRow
+          <WorkRow
             key={check.key}
             label={check.label}
-            value={<Badge tone={check.level === 'BLOCK' ? 'red' : 'amber'} variant={check.level === 'BLOCK' ? 'solid' : 'fill'}>{check.message}</Badge>}
-            stacked
-          />
+          >
+            <Badge tone={check.level === 'BLOCK' ? 'red' : 'amber'} variant={check.level === 'BLOCK' ? 'solid' : 'fill'}>{check.message}</Badge>
+          </WorkRow>
         ))}
-      </ListGroup>
+      </WorkTable>
       {onFixPolicy || (onFixPartner && partnerProblems.length) ? (
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {onFixPartner && partnerProblems.length ? (
@@ -394,30 +390,30 @@ export function EsignContractContentPane({
   const contractFields = ALL_POLICY_FIELDS.filter((field) => field.exposure === 'contract');
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 12, minWidth: 0, overflowWrap: 'anywhere' }}>
-      <ListGroup header="계약내용 확인 · 요약">
-        {summary.map((row) => <DetailRow key={row.label} label={row.label} value={row.value} stacked={row.stacked} />)}
-        {template ? <DetailRow label="보험" value={template.insuranceSide === '고객직접' ? '보험별도 · 고객이 직접 가입' : '보험포함 · 공급사 가입'} stacked /> : null}
-      </ListGroup>
-      <ListGroup header="공급사(임대인) 정보 — 계약서에 그대로 실림" footer="비어 있는 값은 파트너사관리에서 입력합니다. 다 채워야 링크를 만들 수 있습니다.">
-        <DetailRow label="상호" value={val(partner?.name || partner?.partner_name)} stacked />
-        <DetailRow label="사업자등록번호" value={val(partner?.business_number || partner?.business_no)} stacked />
-        <DetailRow label="대표자 · 대표번호" value={S(partner?.ceo || partner?.ceo_name) ? [partner?.ceo || partner?.ceo_name, partner?.phone].filter(Boolean).join(' · ') : missing} stacked />
-        <DetailRow label="주소" value={val(partner?.address)} stacked />
-        <DetailRow label="입금계좌" value={S(partner?.bank_account) ? [partner?.bank_name, partner?.bank_account, partner?.bank_holder].filter(Boolean).join(' · ') : missing} stacked />
-      </ListGroup>
-      <ListGroup
-        header={`계약정책 조건 · ${S(policy?.policy_name || policy?.policy_code) || '정책 미선택'}`}
-        footer="계약서·약관에 실리는 값입니다. 정책관리에서만 변경합니다."
+      <WorkTable title="계약내용 확인 · 요약">
+        {summary.map((row) => <WorkRow key={row.label} label={row.label}>{row.value}</WorkRow>)}
+        {template ? <WorkRow label="보험">{template.insuranceSide === '고객직접' ? '보험별도 · 고객이 직접 가입' : '보험포함 · 공급사 가입'}</WorkRow> : null}
+      </WorkTable>
+      <WorkTable title="공급사(임대인) 정보 — 계약서에 그대로 실림" hint="비어 있는 값은 파트너사관리에서 입력합니다. 다 채워야 링크를 만들 수 있습니다.">
+        <WorkRow label="상호">{val(partner?.name || partner?.partner_name)}</WorkRow>
+        <WorkRow label="사업자등록번호">{val(partner?.business_number || partner?.business_no)}</WorkRow>
+        <WorkRow label="대표자 · 대표번호">{S(partner?.ceo || partner?.ceo_name) ? [partner?.ceo || partner?.ceo_name, partner?.phone].filter(Boolean).join(' · ') : missing}</WorkRow>
+        <WorkRow label="주소">{val(partner?.address)}</WorkRow>
+        <WorkRow label="입금계좌">{S(partner?.bank_account) ? [partner?.bank_name, partner?.bank_account, partner?.bank_holder].filter(Boolean).join(' · ') : missing}</WorkRow>
+      </WorkTable>
+      <WorkTable
+        title={`계약정책 조건 · ${S(policy?.policy_name || policy?.policy_code) || '정책 미선택'}`}
+        hint="계약서·약관에 실리는 값입니다. 정책관리에서만 변경합니다."
       >
         {policy ? contractFields.map((field) => (
-          <DetailRow
+          <WorkRow
             key={field.key}
             label={field.article ? `${field.label} · ${field.article}` : field.label}
-            value={S(policy[field.key]) ? S(policy[field.key]) : (missingKeys.has(field.key) ? missing : '—')}
-            stacked
-          />
-        )) : <DetailRow label="계약정책" value="공급사와 계약서 종류를 고르면 정책 조건이 여기 펼쳐집니다" stacked />}
-      </ListGroup>
+          >
+            {S(policy[field.key]) ? S(policy[field.key]) : (missingKeys.has(field.key) ? missing : '—')}
+          </WorkRow>
+        )) : <WorkRow label="계약정책">공급사와 계약서 종류를 고르면 정책 조건이 여기 펼쳐집니다</WorkRow>}
+      </WorkTable>
     </div>
   );
 }
@@ -450,31 +446,23 @@ export function EsignContractSummary({
   const additionalDriverLimit = esignAdditionalDriverLimit(policy);
   const specialTerms = specialTermsOf(contract);
   return (
-    <ListGroup header="계약 요약">
-      <DetailRow label="공급사" value={providerName || S(contract.provider_company_code) || '—'} />
-      <DetailRow label="계약서" value={template.label} stacked />
-      <DetailRow label="계약정책" value={S(policy?.policy_name || contract.policy_code) || '—'} stacked />
-      <DetailRow label="고객" value={[contract.customer_name, contract.customer_phone].filter(Boolean).join(' · ') || '미지정 · 링크를 받은 사람이 직접 입력'} stacked />
-      <DetailRow label="차량" value={[contract.car_number_snapshot || '차량번호 미정', contract.vehicle_name_snapshot].filter(Boolean).join(' · ') || '—'} stacked />
-      <DetailRow
-        label="대여조건"
-        value={[
+    <WorkTable title="계약 요약">
+      <WorkRow label="공급사">{providerName || S(contract.provider_company_code) || '—'}</WorkRow>
+      <WorkRow label="계약서">{template.label}</WorkRow>
+      <WorkRow label="계약정책">{S(policy?.policy_name || contract.policy_code) || '—'}</WorkRow>
+      <WorkRow label="고객">{[contract.customer_name, contract.customer_phone].filter(Boolean).join(' · ') || '미지정 · 링크를 받은 사람이 직접 입력'}</WorkRow>
+      <WorkRow label="차량">{[contract.car_number_snapshot || '차량번호 미정', contract.vehicle_name_snapshot].filter(Boolean).join(' · ') || '—'}</WorkRow>
+      <WorkRow label="대여조건">{[
           N(contract.rent_month_snapshot) ? `${N(contract.rent_month_snapshot)}개월` : '',
           `월 ${won(contract.rent_amount_snapshot)}`,
           `보증금 ${won(contract.deposit_amount_snapshot)}`,
           depositInstallmentOf(contract) && depositInstallmentOf(contract) !== '무보증' ? depositInstallmentOf(contract) : '',
           S(contract.payment_timing_snapshot),
           S(contract.driver_age_snapshot),
-        ].filter(Boolean).join(' · ')}
-        stacked
-      />
-      <DetailRow
-        label="추가 운전자"
-        value={additionalDriverLimit ? `고객이 링크에서 입력 (최대 ${additionalDriverLimit}명)` : '해당 없음'}
-        stacked
-      />
-      <DetailRow label="특약" value={specialTerms || '없음'} stacked />
-    </ListGroup>
+        ].filter(Boolean).join(' · ')}</WorkRow>
+      <WorkRow label="추가 운전자">{additionalDriverLimit ? `고객이 링크에서 입력 (최대 ${additionalDriverLimit}명)` : '해당 없음'}</WorkRow>
+      <WorkRow label="특약">{specialTerms || '없음'}</WorkRow>
+    </WorkTable>
   );
 }
 
@@ -633,54 +621,45 @@ export function FreepassEsignStagePane({
     );
   } else if (stage === '발송 전') {
     stageCard = (
-      <EsignStageCard
+      <WorkTable
         title="링크를 고객에게 전달할 차례"
-        description="「계약서·링크」에서 링크를 복사해 전달하세요. 고객이 열면 「고객 작성 중」으로 넘어갑니다."
+        hint="「계약서·링크」에서 링크를 복사해 전달하세요. 고객이 열면 「고객 작성 중」으로 넘어갑니다."
       >
-        <ListGroup>
-          <DetailRow label="링크 만든 시각" value={stamp(times['발송 전'])} />
-          <DetailRow label="유효기한" value={stamp(state?.session?.expiresAt || current.sign_expires_at)} />
-        </ListGroup>
-      </EsignStageCard>
+        <WorkRow label="링크 만든 시각">{stamp(times['발송 전'])}</WorkRow>
+        <WorkRow label="유효기한">{stamp(state?.session?.expiresAt || current.sign_expires_at)}</WorkRow>
+      </WorkTable>
     );
   } else if (stage === '고객 작성 중') {
     stageCard = (
-      <EsignStageCard
-        title="고객이 작성 중입니다"
-        description={flags.rejected
-          ? `보완 요청 ${supplementCount}회 · 고객이 같은 링크에서 다시 제출하면 「검토 대기」로 돌아옵니다.`
-          : '고객이 제출하면 「검토 대기」로 넘어옵니다. 여기서 할 일은 없습니다.'}
-      >
+      <>
+        <Message variant={flags.rejected ? 'warning' : 'info'}>
+          {flags.rejected
+            ? `보완 요청 ${supplementCount}회 · 고객이 같은 링크에서 다시 제출하면 「검토 대기」로 돌아옵니다.`
+            : '고객이 제출하면 「검토 대기」로 넘어옵니다. 여기서 할 일은 없습니다.'}
+        </Message>
         {flags.rejected && lastSupplement ? (
-          <ListGroup header="보완 요청 내용">
-            <DetailRow label="요청 항목" value={(lastSupplement.items || []).map((key) => SUPPLEMENT_LABEL[key] || key).join(' · ') || '—'} />
-            <DetailRow label="사유" value={S(lastSupplement.reason) || '—'} stacked />
-            <DetailRow label="요청 시각" value={stamp(lastSupplement.requestedAt)} />
-          </ListGroup>
+          <WorkTable title="보완 요청 내용">
+            <WorkRow label="요청 항목">{(lastSupplement.items || []).map((key) => SUPPLEMENT_LABEL[key] || key).join(' · ') || '—'}</WorkRow>
+            <WorkRow label="사유">{S(lastSupplement.reason) || '—'}</WorkRow>
+            <WorkRow label="요청 시각">{stamp(lastSupplement.requestedAt)}</WorkRow>
+          </WorkTable>
         ) : null}
-        <ListGroup header="고객 진행">
+        <WorkTable title="고객 진행">
           {journey.map((row, index) => {
             const at = N(progress[row.key]);
             const here = !at && index === firstOpenIndex;
             return (
-              <DetailRow
-                key={row.key}
-                label={row.label}
-                value={at ? `완료 · ${shortStamp(at)}` : here ? '지금' : '—'}
-                valueColor={at ? C.ok : here ? C.warn : C.faint}
-              />
+              <WorkRow key={row.key} label={row.label} valueStyle={{ color: at ? C.ok : here ? C.warn : C.faint }}>{at ? `완료 · ${shortStamp(at)}` : here ? '지금' : '—'}</WorkRow>
             );
           })}
-        </ListGroup>
-      </EsignStageCard>
+        </WorkTable>
+      </>
     );
   } else if (stage === '검토 대기') {
     const submission = state?.submission;
     stageCard = (
-      <EsignStageCard
-        title="제출물 확인 → 승인 또는 보완 요청"
-        description="본인확인 자료와 서명을 눈으로 확인합니다. 승인하는 순간 PDF가 만들어지고 봉인됩니다."
-      >
+      <>
+        <Message variant="info">본인확인 자료와 서명을 눈으로 확인합니다. 승인하는 순간 PDF가 만들어지고 봉인됩니다.</Message>
         {!canReview ? (
           <CenterNote minHeight={0}>관리자가 본인확인 자료와 서명을 검토합니다.</CenterNote>
         ) : !submission ? (
@@ -689,34 +668,28 @@ export function FreepassEsignStagePane({
             : <CenterNote minHeight={0}>제출물을 불러오는 중입니다.</CenterNote>
         ) : (
           <>
-            <ListGroup header="제출자">
-              <DetailRow label="이름 · 연락처" value={[submission.customerName, submission.customerPhone].filter(Boolean).join(' · ') || '—'} />
-              <DetailRow label="운전면허번호" value={submission.driverLicenseNo ? '접수' : '누락'} valueColor={submission.driverLicenseNo ? C.ok : C.danger} />
-              <DetailRow label="운전면허증" value={submission.idCard ? '접수' : '누락'} valueColor={submission.idCard ? C.ok : C.danger} />
-              <DetailRow label="본인 셀카" value={submission.selfie ? '접수' : '누락'} valueColor={submission.selfie ? C.ok : C.danger} />
-            </ListGroup>
+            <WorkTable title="제출자">
+              <WorkRow label="이름 · 연락처">{[submission.customerName, submission.customerPhone].filter(Boolean).join(' · ') || '—'}</WorkRow>
+              <WorkRow label="운전면허번호" valueStyle={{ color: submission.driverLicenseNo ? C.ok : C.danger }}>{submission.driverLicenseNo ? '접수' : '누락'}</WorkRow>
+              <WorkRow label="운전면허증" valueStyle={{ color: submission.idCard ? C.ok : C.danger }}>{submission.idCard ? '접수' : '누락'}</WorkRow>
+              <WorkRow label="본인 셀카" valueStyle={{ color: submission.selfie ? C.ok : C.danger }}>{submission.selfie ? '접수' : '누락'}</WorkRow>
+            </WorkTable>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {submission.assetUrls?.idCard ? <Btn title="운전면허증 확인" variant="ghost" onClick={() => void openAsset(submission.assetUrls!.idCard!)}>운전면허증 확인</Btn> : null}
               {submission.assetUrls?.selfie ? <Btn title="본인 셀카 확인" variant="ghost" onClick={() => void openAsset(submission.assetUrls!.selfie!)}>본인 셀카 확인</Btn> : null}
             </div>
             {(submission.additionalDrivers || []).length ? (
               <>
-                <ListGroup header="추가 운전자">
+                <WorkTable title="추가 운전자">
                   {(submission.additionalDrivers || []).map((driver, index) => (
-                    <DetailRow
-                      key={`${driver.name}-${index}`}
-                      label={`추가 운전자 ${index + 1}`}
-                      value={[
+                    <WorkRow key={`${driver.name}-${index}`} label={`추가 운전자 ${index + 1}`} valueStyle={{ color: driver.driverLicenseNo && driver.license ? C.ok : C.danger }}>{[
                         driver.name,
                         driver.relation,
                         driver.phone,
                         driver.driverLicenseNo && driver.license ? '면허자료 접수' : '면허자료 누락',
-                      ].filter(Boolean).join(' · ')}
-                      valueColor={driver.driverLicenseNo && driver.license ? C.ok : C.danger}
-                      stacked
-                    />
+                      ].filter(Boolean).join(' · ')}</WorkRow>
                   ))}
-                </ListGroup>
+                </WorkTable>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                   {(submission.additionalDrivers || []).map((driver, index) => driver.assetUrl ? (
                     <Btn key={driver.assetUrl} title={`추가 운전자 ${index + 1} 면허증 확인`} variant="ghost" onClick={() => void openAsset(driver.assetUrl!)}>
@@ -728,17 +701,11 @@ export function FreepassEsignStagePane({
             ) : null}
             {(submission.supportingDocuments || []).length ? (
               <>
-                <ListGroup header="공급사 요청서류">
+                <WorkTable title="공급사 요청서류">
                   {(submission.supportingDocuments || []).map((document, index) => (
-                    <DetailRow
-                      key={document.key || index}
-                      label={document.label || `추가서류 ${index + 1}`}
-                      value={[document.required ? '필수' : '선택', document.originalName || '파일명 없음'].join(' · ')}
-                      valueColor={document.submitted ? C.ok : C.danger}
-                      stacked
-                    />
+                    <WorkRow key={document.key || index} label={document.label || `추가서류 ${index + 1}`} valueStyle={{ color: document.submitted ? C.ok : C.danger }}>{[document.required ? '필수' : '선택', document.originalName || '파일명 없음'].join(' · ')}</WorkRow>
                   ))}
-                </ListGroup>
+                </WorkTable>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                   {(submission.supportingDocuments || []).map((document, index) => document.assetUrl ? (
                     <Btn key={document.assetUrl} title={`${document.label || `추가서류 ${index + 1}`} 확인`} variant="ghost" onClick={() => void openAsset(document.assetUrl!)}>
@@ -749,22 +716,26 @@ export function FreepassEsignStagePane({
               </>
             ) : null}
             {submission.signature ? (
-              <div style={{ padding: 8, border: `1px solid ${C.line}`, borderRadius: R, background: C.inverse }}>
-                <div style={{ fontSize: FS.cap, color: C.mute, marginBottom: 4 }}>고객 서명</div>
+              <FormCard title="고객 서명">
                 <img src={submission.signature} alt="고객 전자서명" style={{ display: 'block', maxWidth: '100%', maxHeight: 120 }} />
-              </div>
+              </FormCard>
             ) : null}
             {sessionStatus === 'pending_review' ? (
               <>
-                <SectionLabel>보완 요청 항목</SectionLabel>
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                  {SUPPLEMENT_ITEMS.map((item) => (
-                    <Btn key={item.key} title={item.label} size="sm" variant={supplementItems.has(item.key) ? 'solid' : 'ghost'} onClick={() => toggleSupplement(item.key)}>
-                      {item.label}
-                    </Btn>
-                  ))}
-                </div>
-                <Textarea value={reason} onChange={setReason} placeholder="보완 사유 (예: 운전면허증 글자가 흐려 확인이 어렵습니다)" full />
+                <FormCard title="보완 요청 항목">
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {SUPPLEMENT_ITEMS.map((item) => (
+                      <Btn key={item.key} title={item.label} size="sm" variant={supplementItems.has(item.key) ? 'solid' : 'ghost'} onClick={() => toggleSupplement(item.key)}>
+                        {item.label}
+                      </Btn>
+                    ))}
+                  </div>
+                </FormCard>
+                <WorkTable title="보완 사유">
+                  <WorkRow label="사유">
+                    <WorkTextarea value={reason} onChange={setReason} placeholder="보완 사유 (예: 운전면허증 글자가 흐려 확인이 어렵습니다)" full />
+                  </WorkRow>
+                </WorkTable>
                 {customerInsuranceEvidenceRequired ? (
                   <Message variant="warning">
                     <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
@@ -792,51 +763,53 @@ export function FreepassEsignStagePane({
             )}
           </>
         )}
-      </EsignStageCard>
+      </>
     );
   } else if (stage === '완료') {
     stageCard = (
-      <EsignStageCard
-        title="완료 — 봉인된 계약서"
-        description={legacyCompletedSession
-          ? '구 동의 기준으로 완료된 회차입니다. 봉인 PDF 열람은 유지하지만 인도·차량잠금·정산은 현행 전자계약으로 새로 진행해야 합니다.'
-          : cmsRequiredBeforeHandover
-          ? '승인 시점의 데이터·서명·타임스탬프로 봉인됐습니다. CMS 별도 등록이 끝나기 전에는 인도일을 확정할 수 없습니다.'
-          : '승인 시점의 데이터·서명·타임스탬프로 봉인됐습니다. PDF는 「계약서·링크」에서 엽니다. 인도일을 확정하면 계약 시작·종료일이 정해집니다.'}
-        tone="quiet"
-      >
-        <ListGroup>
-          <DetailRow label="승인·봉인" value={stamp(times['완료'])} />
-          <DetailRow label="봉인 해시" value={S(current.esign_seal_hash) ? `${S(current.esign_seal_hash).slice(0, 16)}…` : '—'} />
-        </ListGroup>
+      <>
+        <Message variant="info">
+          {legacyCompletedSession
+            ? '구 동의 기준으로 완료된 회차입니다. 봉인 PDF 열람은 유지하지만 인도·차량잠금·정산은 현행 전자계약으로 새로 진행해야 합니다.'
+            : cmsRequiredBeforeHandover
+            ? '승인 시점의 데이터·서명·타임스탬프로 봉인됐습니다. CMS 별도 등록이 끝나기 전에는 인도일을 확정할 수 없습니다.'
+            : '승인 시점의 데이터·서명·타임스탬프로 봉인됐습니다. PDF는 「계약서·링크」에서 엽니다. 인도일을 확정하면 계약 시작·종료일이 정해집니다.'}
+        </Message>
+        <WorkTable title="봉인">
+          <WorkRow label="승인·봉인">{stamp(times['완료'])}</WorkRow>
+          <WorkRow label="봉인 해시">{S(current.esign_seal_hash) ? `${S(current.esign_seal_hash).slice(0, 16)}…` : '—'}</WorkRow>
+        </WorkTable>
         {canReview && legacyCompletedSession ? (
           <Message variant="warning">
             구 동의 기준 회차는 인도일을 확정할 수 없습니다. 봉인 PDF만 보관하고, 현행 동의 기준으로 새 전자계약을 만들어 진행하세요.
           </Message>
         ) : canReview ? (
           <>
-            <SectionLabel>인도일 확정</SectionLabel>
-            {savedDate ? (
-              <DetailRow
-                label="인도일"
-                value={`${savedDate}${savedHandover?.contract_start ? ` · ${S(savedHandover.contract_start)} ~ ${S(savedHandover.contract_end)}` : ''}`}
-              />
-            ) : <CenterNote minHeight={0}>아직 인도일 없음</CenterNote>}
+            <WorkTable title="인도일 확정">
+              <WorkRow label="인도일">
+                {savedDate
+                  ? `${savedDate}${savedHandover?.contract_start ? ` · ${S(savedHandover.contract_start)} ~ ${S(savedHandover.contract_end)}` : ''}`
+                  : '아직 인도일 없음'}
+              </WorkRow>
+              {cmsRequiredBeforeHandover ? null : (
+                <WorkRow label="확정">
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <WorkInput type="date" value={handoverDate} onChange={setHandoverDate} ariaLabel="차량 인도일" full />
+                    <Btn title={savedDate ? '인도일 다시 확정' : '인도일 확정'} disabled={busy || !/^\d{4}-\d{2}-\d{2}$/.test(handoverDate)} onClick={() => void saveHandover()}>
+                      {busy ? '저장 중…' : savedDate ? '인도일 다시 확정' : '인도일 확정'}
+                    </Btn>
+                  </div>
+                </WorkRow>
+              )}
+            </WorkTable>
             {cmsRequiredBeforeHandover ? (
               <Message variant="warning">
                 CMS 출금동의·예금주 인증은 별도 등록 절차입니다. 현재 전자계약에는 실제 CMS 등록 기능이 없으므로, 등록 증빙이 연동되기 전까지 인도일을 확정할 수 없습니다.
               </Message>
-            ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 220px) auto', gap: 6, alignItems: 'center' }}>
-                <Input type="date" value={handoverDate} onChange={setHandoverDate} ariaLabel="차량 인도일" full />
-                <Btn title={savedDate ? '인도일 다시 확정' : '인도일 확정'} disabled={busy || !/^\d{4}-\d{2}-\d{2}$/.test(handoverDate)} onClick={() => void saveHandover()}>
-                  {busy ? '저장 중…' : savedDate ? '인도일 다시 확정' : '인도일 확정'}
-                </Btn>
-              </div>
-            )}
+            ) : null}
           </>
         ) : null}
-      </EsignStageCard>
+      </>
     );
   }
 
@@ -864,15 +837,11 @@ export function FreepassEsignStagePane({
       {stageCard}
       <EsignContractSummary contract={current} policy={policy} providerName={providerName} />
       {issued ? (
-        <ListGroup header="이력" footer="운전면허증·셀카 원본과 서명은 공개 계약 데이터가 아니라 서버 전용 저장소에 보관됩니다.">
+        <WorkTable title="이력" hint="운전면허증·셀카 원본과 서명은 공개 계약 데이터가 아니라 서버 전용 저장소에 보관됩니다.">
           {events.length ? events.map((event, index) => (
-            <DetailRow
-              key={`${event.type}-${event.at}-${index}`}
-              label={EVENT_LABEL[S(event.type)] || S(event.type)}
-              value={[stamp(event.at), event.handoverDate, ...(event.items || []).map((key) => SUPPLEMENT_LABEL[key] || key)].filter(Boolean).join(' · ')}
-            />
-          )) : <DetailRow label="진행 이력" value="—" />}
-        </ListGroup>
+            <WorkRow key={`${event.type}-${event.at}-${index}`} label={EVENT_LABEL[S(event.type)] || S(event.type)}>{[stamp(event.at), event.handoverDate, ...(event.items || []).map((key) => SUPPLEMENT_LABEL[key] || key)].filter(Boolean).join(' · ')}</WorkRow>
+          )) : <WorkRow label="진행 이력">—</WorkRow>}
+        </WorkTable>
       ) : null}
     </div>
   );
@@ -1018,13 +987,16 @@ export function FreepassEsignDocumentPane({
     );
   } else if (stage === '발송 전' && !issued) {
     card = (
-      <EsignStageCard title="A4 확인 → 링크 만들기" description="링크는 자동 발송되지 않습니다. 만든 뒤 복사해서 고객에게 전달합니다.">
+      <>
         {selectionError ? <Badge tone="red" variant="solid">{selectionError}</Badge> : null}
-        <ListGroup>
-          <DetailRow label="계약서" value={tpl.label} stacked />
-          <DetailRow label="보험" value={tpl.insuranceSide === '고객직접' ? '보험별도' : '보험포함'} />
-          <DetailRow label="만기" value={S(current.contract_draft).includes('buyback_price') ? '인수옵션 · 계약서 기재값' : '반납'} />
-        </ListGroup>
+        <WorkTable
+          title="A4 확인 → 링크 만들기"
+          hint="링크는 자동 발송되지 않습니다. 만든 뒤 복사해서 고객에게 전달합니다."
+        >
+          <WorkRow label="계약서">{tpl.label}</WorkRow>
+          <WorkRow label="보험">{tpl.insuranceSide === '고객직접' ? '보험별도' : '보험포함'}</WorkRow>
+          <WorkRow label="만기">{S(current.contract_draft).includes('buyback_price') ? '인수옵션 · 계약서 기재값' : '반납'}</WorkRow>
+        </WorkTable>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>{a4Button}</div>
         <Btn
           full
@@ -1032,10 +1004,10 @@ export function FreepassEsignDocumentPane({
           disabled={busy || !!selectionError || blocked.length > 0}
           onClick={() => void issue('링크를 만들었습니다. 링크를 복사해 고객에게 전달하세요.')}
         >
-          {busy ? '링크 만드는 중…' : blocked.length ? `고객 서명 링크 생성 · 확인 ${blocked.length}건` : '고객 서명 링크 생성'}
+          {busy ? '링크 만드는 중…' : blocked.length ? `링크 만들기 · 확인 ${blocked.length}건` : '링크 만들기'}
         </Btn>
         <Message variant="info">수신자를 미리 지정하지 않는 링크입니다. 최초 제출자가 계약자로 접수됩니다.</Message>
-      </EsignStageCard>
+      </>
     );
   } else if (stage === '발송 전' || stage === '고객 작성 중') {
     card = (
@@ -1085,13 +1057,12 @@ export function FreepassEsignDocumentPane({
       {consentPages.length ? (
         <>
           {/* 발행 뒤에는 발행 당시 동결값이 계약내용이다 — 접지 않고 쭉 펼친다(고객이 보는 섹션 순서 그대로). */}
-          <SectionLabel>계약내용 확인 · 발행 당시 동결값(고객이 보는 순서)</SectionLabel>
           {consentPages.map((page) => (
-            <ListGroup key={page.key || page.title} header={page.title} footer={page.note}>
+            <WorkTable key={page.key || page.title} title={page.title} hint={page.note}>
               {(page.rows || []).map((row, index) => (
-                <DetailRow key={`${row.label}-${index}`} label={row.label || '항목'} value={row.value || '—'} stacked />
+                <WorkRow key={`${row.label}-${index}`} label={row.label || '항목'}>{row.value || '—'}</WorkRow>
               ))}
-            </ListGroup>
+            </WorkTable>
           ))}
         </>
       ) : (
