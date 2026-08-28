@@ -112,7 +112,12 @@ export function readPolicyTab(rows: string[][]): PolicyBook {
 }
 
 /** 정책을 어떻게 골랐나 — 조용히 틀린 값이 나가지 않게 밖에서 셀 수 있어야 한다. */
-export type PolicyPick = { p: Map<string, string>; how: '코드' | '유일' | '기본' | '없음' };
+export type PolicyPick = {
+  p: Map<string, string>;
+  how: '코드' | '유일' | '기본' | '없음';
+  /** 고른 정책의 **코드**. 판매시트가 이걸 실어야 ERP 가 정책을 찾는다(못 정했으면 빈칸). */
+  code: string;
+};
 
 /**
  * 그 차에 적용될 정책.
@@ -125,12 +130,13 @@ export type PolicyPick = { p: Map<string, string>; how: '코드' | '유일' | '�
  */
 export function pickPolicy(book: PolicyBook, code: string): PolicyPick {
   const c = S(code);
-  if (c && book.has(c)) return { p: book.get(c)!, how: '코드' };
+  if (c && book.has(c)) return { p: book.get(c)!, how: '코드', code: c };
   const own = [...book.entries()].filter(([k]) => k);
-  if (!c && own.length === 1) return { p: own[0][1], how: '유일' };
+  if (!c && own.length === 1) return { p: own[0][1], how: '유일', code: own[0][0] };
   const base = book.get('');
-  if (base) return { p: base, how: '기본' };
-  return { p: new Map(), how: '없음' };
+  // 프리패스 기본 줄은 그 공급사 정책이 아니다 — 코드를 딸려 보내지 않는다(남의 조건이 붙는다).
+  if (base) return { p: base, how: '기본', code: '' };
+  return { p: new Map(), how: '없음', code: '' };
 }
 
 /** 값만 필요할 때. 어떻게 골랐는지도 봐야 하면 `pickPolicy` 를 쓴다. */

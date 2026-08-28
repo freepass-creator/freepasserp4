@@ -18,7 +18,9 @@
  */
 
 /** [판매시트 열, 공급사시트 열 이름 후보]. **이 차례가 곧 판매시트 열 차례다.** */
-export const SALES_MAPPING: [string, string[]][] = [
+import { SALES_COLUMN_ORDER } from '@/lib/domain/sales-column-order';
+
+const SALES_MAPPING_BY_NAME: [string, string[]][] = [
   ['배차상태', ['배차상태', '판매상태', '상태', '차량상태']],
   ['구분', ['구분', '분류', '상품구분']],
   ['차량번호', ['차량번호', '차번']],
@@ -247,8 +249,26 @@ export const SALES_MAPPING: [string, string[]][] = [
   ['공급사', []],
 ];
 
-/** 판매시트 열 차례. */
-export const SALES_COLUMNS = SALES_MAPPING.map(([name]) => name);
+/**
+ * 판매시트 열 차례.
+ *
+ * ★**차례는 `sales-column-order` 한 곳에서만 정한다**(2026-08-28).
+ *   예전엔 이 파일의 `SALES_MAPPING` 적힌 순서가 곧 열 차례였다. 그래서 차례를 바꾸려면
+ *   두 파일을 같이 고쳐야 했고, 한쪽만 고치면 `check:columns` 가 «35번째부터 갈렸다»고 멈췄다.
+ *   이제 이름·별칭은 여기가 들고, **차례는 저기가 든다.**
+ *   `SALES_COLUMN_ORDER` 에 없는 이름은 뒤에 그대로 남긴다 — 조용히 사라지면 그 값이 ERP 에 안 간다.
+ */
+const ORDER_INDEX = new Map(SALES_COLUMN_ORDER.map((name, i) => [name, i]));
+const orderOf = (name: string) => ORDER_INDEX.get(name) ?? Number.MAX_SAFE_INTEGER;
+
+/**
+ * 이름·별칭은 위 목록이 들고, **차례는 `sales-column-order` 가 든다.**
+ * ⚠ 여기서 정렬해야 한다 — 「AI 인계」 @매핑 표를 찍는 발행기가 이 배열의 차례를 그대로 쓴다.
+ *   `SALES_COLUMNS` 만 정렬했더니 시트 표는 옛 차례 그대로였다(실측 2026-08-28).
+ */
+export const SALES_MAPPING: [string, string[]][] = [...SALES_MAPPING_BY_NAME]
+  .sort((a, b) => orderOf(a[0]) - orderOf(b[0]));
+
 
 /**
  * ★**뺀 열** — 시트 「AI 인계」 @매핑에 사람이 남겨 두었더라도 발행기·인계탭 발행기가 이 이름은 세우지 않는다.
@@ -306,6 +326,15 @@ export const SALES_RETIRED_COLUMNS: string[] = [
   '추가운전자', '추가운전자 요금', '초과주행 국산', '초과주행 수입',
   '자차 자기부담률', '가입 보험사', '지정 정비점', '추가주행 방식',
 ];
+
+// ⚠ 이 줄은 `SALES_RETIRED_COLUMNS` **뒤에** 있어야 한다 — 앞에 두면 초기화 전 참조로 죽는다(2026-08-28).
+/**
+ * 판매시트 열 차례 — **뺀 열은 빠진다.**
+ * 별칭은 위 목록에 남겨 둔다(옛 시트를 읽을 때 쓴다). 세우지 않을 뿐이다.
+ */
+export const SALES_COLUMNS = SALES_MAPPING
+  .map(([name]) => name)
+  .filter((name) => !SALES_RETIRED_COLUMNS.includes(name));
 
 /** 열 이름 → 공급사 열 후보. */
 export const SALES_ALIAS: Record<string, string[]> = Object.fromEntries(
