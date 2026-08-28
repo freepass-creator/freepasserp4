@@ -33,6 +33,7 @@ const conditional = buildFreepassConsentProfile({
   requiredDocuments: [{ key: 'resident_register', label: '주민등록등본', note: '', required: true }],
 });
 check('GPS 장착 계약에만 위치정보 동의가 추가됨', conditional.requiredKeys.includes('gps'));
+check('GPS 장착 계약에는 회수 절차 확인도 추가됨', conditional.requiredKeys.includes('recovery_procedure'));
 check('추가서류 계약에만 서류 동의가 추가됨', conditional.requiredKeys.includes('supporting_documents_consent'));
 check('계좌이체 계약은 별도 수납위임 없이 진행 가능함', !conditional.requiresExternalPaymentAuthorization && !freepassConsentOperationalBlocker(conditional));
 check('조건부 profile이 유효함', isFrozenFreepassConsentProfile(conditional));
@@ -65,8 +66,8 @@ const signed = snapshotWithPrivateSubmission({
 });
 const signedFields = signed.templateFields as Record<string, string>;
 check('완료본에 실제 동의 키가 봉인됨', signedFields.esign_consent_keys === conditional.requiredKeys.join(','));
-check('완료본에 동의 수가 명시됨', signedFields.esign_consent_status === '4건 필수 동의·계약조건 확인 완료');
-check('완료본에 동의 항목명이 명시됨', /위치정보/.test(signedFields.esign_consent_summary) && /추가 제출서류/.test(signedFields.esign_consent_summary));
+check('완료본에 동의 수가 명시됨', signedFields.esign_consent_status === '5건 필수 동의·계약조건 확인 완료');
+check('완료본에 동의 항목명이 명시됨', /위치정보/.test(signedFields.esign_consent_summary) && /차량 보호·회수/.test(signedFields.esign_consent_summary) && /추가 제출서류/.test(signedFields.esign_consent_summary));
 
 const incomplete = snapshotWithPrivateSubmission({ templateFields: {}, consentProfile: conditional }, {
   submittedAt: 1_785_000_000_000,
@@ -83,6 +84,10 @@ check('고객 제출은 frozen consent profile을 검증함', /hasFrozenFreepass
 check('인도일 확정도 현재 동의 profile을 다시 검증함', /hasFrozenFreepassConsentProfile\(session\)/.test(handoverRoute));
 check('CMS 미등록 계약은 인도일 확정을 막음', /cmsRequiredBeforeHandover === true/.test(handoverRoute));
 check('CMS 미연동 상품은 발행 단계에서 먼저 막음', /freepassConsentOperationalBlocker\(consentProfile\)/.test(issueBuilder));
-check('완료 PDF는 profile별 동의 행만 표시함', /data-consent-key="supporting_documents_consent"/.test(template) && /esign_consent_keys/.test(template));
+check('완료 PDF는 profile별 동의 행만 표시함', /data-consent-key="supporting_documents_consent"/.test(template) && /data-consent-key="recovery_procedure"/.test(template) && /esign_consent_keys/.test(template));
+check('작성되지 않은 CMS·신용·인수 부속서류를 완료본에서 제외함', /data-appendix="cms"/.test(template) && /data-appendix="credit"/.test(template) && /data-appendix="handover"/.test(template) && /appendixVisible/.test(template));
+check('부속서류 조건이 실제 문서 종류와 일치함', /부속서류 5 · 개인신용정보[\s\S]*?<section class="page" data-appendix="credit"/.test(template)
+  && /부속서류 6 · 위치정보[\s\S]*?<section class="page" data-appendix="gps"/.test(template)
+  && /부속서류 7 · 자동이체\(CMS\)[\s\S]*?<section class="page" data-appendix="cms"/.test(template));
 
 console.log(`PASS: Freepass consent profile ${pass}/${pass}`);

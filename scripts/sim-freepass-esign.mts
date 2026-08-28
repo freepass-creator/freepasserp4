@@ -305,11 +305,11 @@ assert.match(publicPage, /<ReqTag \/>/);
 assert.doesNotMatch(publicPage, /운전면허번호 \*/);
 assert.doesNotMatch(publicPage, /성명 \*/);
 assert.doesNotMatch(publicPage, /연락처 \*/);
-// 조건값은 축약본을 새로 만들지 않는다. 긴 정책값은 접힘 안에 같은 원문을 두고,
+// 조건값은 축약본을 새로 만들지 않는다. 현재 공통 WorkTable 값 칸에 원문을 두고,
 // article은 조문 참조로만 표시한다.
-assert.match(publicPage, /function ConditionRow\(\{ label, value, article \}/);
-assert.match(publicPage, /<details className=\{styles\.policyDetail\}>/);
-assert.match(publicPage, /<div className=\{styles\.policyBody\}>\{policyValue\}<\/div>/);
+assert.match(publicPage, /function conditionValue\(value: string, article\?: string\)/);
+assert.match(publicPage, /<WorkTable title=\{step\.title \|\| '계약 조건'\}>/);
+assert.match(publicPage, /\{conditionValue\(row\.value \|\| '—', row\.article\)\}/);
 assert.match(publicPage, /관련 약관 \{article\}/);
 assert.match(publicPage, /const formatDeposit = \(value: unknown\)/);
 assert.match(publicPage, /Number\(digits\) === 0 \? '무보증'/);
@@ -327,7 +327,7 @@ assert.match(publicPage, /추가 운전자 등록/);
 assert.match(publicPage, /additionalDriverCost/);
 assert.match(publicPage, /추가 운전자 개인정보 제공·면허증 제출/);
 assert.match(publicPage, /운전면허증 사진/);
-assert.match(publicPage, /본인이 직접 입력했으며 개인정보 제공과 면허증 제출에 동의/);
+assert.match(publicPage, /ariaLabel="추가 운전자 개인정보 제공·면허증 제출 동의"/);
 assert.match(publicPage, /모바일 계약서 전체보기/);
 assert.match(publicPage, /계약서 미리보기/);
 assert.doesNotMatch(publicPage, /A4 계약서 미리보기/);
@@ -353,7 +353,10 @@ assert.doesNotMatch(publicPage, /면허번호는 별도로 입력하지 않습�
 assert.match(signedSnapshot, /driver_or_biz_no: driverLicenseNo/);
 assert.match(signedSnapshot, /drv\$\{slot\}_name/);
 assert.match(contractTemplate, /if\(ageSel && !SEALED\)/);
-assert.match(contractTemplate, /var targetHeight=Math\.min\(colCapacity-12, totalHeight\/allCols\.length\+64\);/);
+// 약관 조판은 각 칼럼을 안전 높이 안에서만 채우고, 넘침은 다음 칼럼/페이지로 보낸다.
+assert.match(contractTemplate, /var targetHeight=colCapacity-12;/);
+assert.match(contractTemplate, /contentHeight\(col\)>targetHeight/);
+assert.match(contractTemplate, /colOverflow\(col,col\.closest\('\.page'\)\)/);
 assert.doesNotMatch(publicPage, /contract-sign-public|@\/lib\/domain\/sign/);
 assert.match(esignPage, /return <EsignSendCenter quickEntry \/>/);
 // 검토용 샘플도 정적 PDF 사본이 아니라 실제 봉인 HTML/PDF 경로를 재사용해야 한다.

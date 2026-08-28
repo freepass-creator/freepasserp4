@@ -472,6 +472,7 @@ const ensure = (src: string) => {
 };
 const badCars: { src: string; who: string; plate: string; bits: string[] }[] = [];
 const nameGrouped = new Map<string, number>();
+const whoTally: Record<string, Record<CarV, number>> = {};
 
 for (const [, list] of byCar) {
   const src = list[0].src;
@@ -481,6 +482,11 @@ for (const [, list] of byCar) {
   else if (names.some((h) => h.v === '못정함')) v = '못정함';
   else if (names.find((h) => h.col === '모델')?.v === '빈칸' && names.find((h) => h.col === '세부모델')?.v === '빈칸') v = '빈칸';
   ensure(src)[v]++;
+  if (src === '공급사재고') {
+    const w = list[0].who;
+    whoTally[w] ||= { 맞음: 0, 틀림: 0, 못정함: 0, 빈칸: 0 };
+    whoTally[w][v]++;
+  }
   if (v === '틀림') {
     const bits = list.filter((h) => NAME_COLS.has(h.col) && h.v === '틀림').map((h) => `${h.col}=${h.now}${h.want ? `←${h.want}` : ''} (${h.note})`);
     badCars.push({ src, who: list[0].who, plate: list[0].plate, bits });
@@ -503,6 +509,12 @@ for (const src of ['공급사재고', '공급사상품시트', '판매시트']) 
   const t = carTally[src] || { 맞음: 0, 틀림: 0, 못정함: 0, 빈칸: 0 };
   const tot = t.맞음 + t.틀림 + t.못정함 + t.빈칸;
   console.log(`  ${src}  ${tot}대  맞음 ${t.맞음}  틀림 ${t.틀림}  못정함 ${t.못정함}  빈칸 ${t.빈칸}`);
+}
+console.log('\n■ 공급사 재고 정제칸 (이름 축)');
+for (const who of Object.keys(whoTally).sort((a, b) => a.localeCompare(b, 'ko'))) {
+  const t = whoTally[who];
+  const tot = t.맞음 + t.틀림 + t.못정함 + t.빈칸;
+  console.log(`  ${who.padEnd(14)} ${String(tot).padStart(4)}대  맞음 ${String(t.맞음).padStart(4)}  틀림 ${String(t.틀림).padStart(3)}  못정함 ${String(t.못정함).padStart(3)}  빈칸 ${String(t.빈칸).padStart(3)}`);
 }
 
 console.log('\n■ 이름 틀림 (같은 결손끼리)');
@@ -535,6 +547,7 @@ writeFileSync('tmp/audit-encar-work-vs-sheets.json', JSON.stringify({
   at: new Date().toISOString(),
   book: { names: book.names.length, fuels: [...book.fuels], ccs: [...book.ccs].sort((a, b) => a - b), drives: [...book.drives], batteries: book.batteries.length },
   cars: carTally,
+  whoTally,
   carsBySrc: Object.fromEntries(carsBySrc),
   nameGrouped: [...nameGrouped].sort((a, b) => b[1] - a[1]),
   specGrouped: [...specGrouped].sort((a, b) => b[1] - a[1]),

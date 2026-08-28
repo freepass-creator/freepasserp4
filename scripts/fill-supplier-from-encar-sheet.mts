@@ -16,6 +16,7 @@ import { isMirrorSheet } from '../lib/domain/mirror-sources';
 import { VEHICLE_CLASS_VALUES } from '../lib/intake/entities';
 import { isOurNonInventoryTab, LEGACY_SHEET_PREFIX, supplierSheetLabel, SHEET_NAME_MATCH } from '../lib/domain/supplier-template-sheet';
 import { companyAlias, supplierNameKeys } from '../lib/domain/identity';
+import { LATIN_BRAND_TRIM_CANON } from '../lib/domain/vehicle-master-lock';
 import {
   ENCAR_FILL_COLUMNS,
   attachFromEncarSheet,
@@ -100,6 +101,21 @@ const samplesUnmatched: string[] = [];
 
 const CLASS = new Set(VEHICLE_CLASS_VALUES.map((c) => c.replace(/\s+/g, '').toLowerCase()));
 
+/** 정확 cc(1969)를 표시리터(2000)로 덮지 않는다. 검수 sameLiter·encar-spec-fill 과 같음. */
+function sameLiterCc(now: string, want: string): boolean {
+  const n = Number(now.replace(/,/g, ''));
+  const w = Number(want.replace(/,/g, ''));
+  if (!Number.isFinite(n) || !Number.isFinite(w) || n < 800 || w < 800 || n === w) return false;
+  return Number((n / 1000).toFixed(1)) === Number((w / 1000).toFixed(1));
+}
+
+/** 이미 있는 N Line·GT-Line 등을 마스터 짧은 등급으로 깎지 않는다. */
+function droppedLatinTrim(now: string, want: string): boolean {
+  const nf = fold(now);
+  const wf = fold(want);
+  return LATIN_BRAND_TRIM_CANON.some((t) => nf.includes(fold(t)) && !wf.includes(fold(t)));
+}
+
 for (const t of targets) {
   let meta: Rec;
   try {
@@ -159,6 +175,15 @@ for (const t of targets) {
         samplesUnmatched.push(`${t.name} ${plate} 「${[carKind, carName].filter(Boolean).join(' ').slice(0, 50)}」`);
       }
       const raw = [exact(row, '제조사'), carKind, carName].filter(Boolean).join(' ');
+      const makerCi = at.get('제조사') ?? -1;
+      const leftMaker = exact(row, '제조사');
+      const wantMaker = S(attached['제조사(정제)']);
+      if (makerCi >= 0 && !leftMaker && wantMaker) {
+        filled++;
+        byColFill['제조사'] = (byColFill['제조사'] || 0) + 1;
+        if (would.length < 120) would.push({ who: t.name, plate, col: '제조사', now: '', want: wantMaker, raw: raw.slice(0, 60) });
+        updates.push({ range: `${a1Tab(title)}!${colA1(makerCi)}${r + 1}`, values: [[wantMaker]] });
+      }
       for (const name of ENCAR_FILL_COLUMNS) {
         const ci = tailAt.get(name as EncarFillColumn) ?? -1;
         if (ci < 0) continue;
@@ -167,6 +192,18 @@ for (const t of targets) {
         if (!v) continue;
         const hit: CellHit = { who: t.name, plate, col: name, now, want: v, raw: raw.slice(0, 60) };
         if (now === v) {
+          kept++;
+          byColSame[name] = (byColSame[name] || 0) + 1;
+          if (same.length < 8) same.push(hit);
+          continue;
+        }
+        if (now && name === '배기량(정제)' && sameLiterCc(now, v)) {
+          kept++;
+          byColSame[name] = (byColSame[name] || 0) + 1;
+          if (same.length < 8) same.push(hit);
+          continue;
+        }
+        if (now && name === '세부트림' && droppedLatinTrim(now, v)) {
           kept++;
           byColSame[name] = (byColSame[name] || 0) + 1;
           if (same.length < 8) same.push(hit);
