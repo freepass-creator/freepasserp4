@@ -206,7 +206,10 @@ function stepGuide(step: JourneyStep | undefined): string {
 }
 
 function ReqTag() {
-  return <Badge tone="red" variant="solid" size={9}>필수</Badge>;
+  /* 「필수」는 «오류»가 아니라 «안내»다(사장님 2026-08-21 「손님한테 나가는 건데」).
+     빨간 solid 는 뭔가 잘못됐다는 신호라 손님이 겁먹는다. 브랜드 계열 옅은 틴트로 낮춘다.
+     진짜 빨강은 미선택으로 «막혔을 때»만 쓴다(아래 경고 문구). */
+  return <Badge tone="blue" variant="solid">필수</Badge>;
 }
 
 function FileThumb({ file }: { file: File | null }) {
@@ -918,7 +921,7 @@ export default function SignPage() {
               <span style={{ fontSize: FS.sub, fontWeight: FW.strong }}>{idCard?.name || '운전면허증 사진'}</span>
               <ReqTag />
               <span style={{ fontSize: FS.micro, color: C.faint }}>{preparingImage ? '사진 준비 중' : '큰 파일은 자동 압축'}</span>
-              <input ref={idRef} type="file" accept="image/*" style={{ display: 'none' }} onClick={(event) => event.stopPropagation()} onChange={(event) => { void chooseImage(event.target.files?.[0] || null, '운전면허증', setIdCard); event.currentTarget.value = ''; }} />
+              <input ref={idRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onClick={(event) => event.stopPropagation()} onChange={(event) => { void chooseImage(event.target.files?.[0] || null, '운전면허증', setIdCard); event.currentTarget.value = ''; }} />
             </Dropzone>
             <Dropzone variant="photo" active={!!selfie} onClick={() => selfieRef.current?.click()} title="본인 셀카 첨부">
               <FileThumb file={selfie} />
@@ -975,6 +978,7 @@ export default function SignPage() {
                   ref={(element) => { additionalDriverLicenseRefs.current[index] = element; }}
                   type="file"
                   accept="image/*"
+                  capture="environment"
                   style={{ display: 'none' }}
                   onClick={(event) => event.stopPropagation()}
                   onChange={(event) => {
