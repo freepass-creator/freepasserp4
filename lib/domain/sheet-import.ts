@@ -585,8 +585,27 @@ export function parseDepositRule(value: unknown): DepositRule {
   throw new Error(`보증금 규칙 설정 오류 — ${rule}`);
 }
 
+/**
+ * ★**`months_per_year` 는 3개월치가 상한이다**(사장님 2026-08-27 재고시트 · 2026-08-28 「손오공 규칙임」).
+ *
+ *   상한이 없으면 48개월 = 4개월치, 60개월 = 5개월치가 된다. 실측 2026-08-28 —
+ *   손오공 요금 줄 4,006개 중 **1,640개가 3개월치를 넘고 있었다**:
+ *     101부8761 · 60개월 · 대여료 684,000 → 보증금 3,420,000 (5개월치)
+ *
+ *   재고시트에는 이미 「연수×대여료(**최대 ×3**)」라고 적혀 있는데 ERP 계산에만 상한이 빠져 있었다.
+ *   시트는 3개월치라고 말하고 화면은 5개월치를 보이는 상태였다 — 영업자가 손님에게 더 큰 돈을 부른다.
+ *
+ *   ⚠ 이 상한은 **`months_per_year` 규칙에만** 붙는다. 지금 그 규칙을 쓰는 곳은 손오공(RP012)뿐이고
+ *     (RTDB partner 에 `deposit_rule` 을 쓴 공급사는 없다), 다른 공급사가 이 규칙을 쓰게 되면
+ *     그때는 상한도 공급사 설정으로 빼야 한다. 규칙은 공급사마다 다르다.
+ */
+const MONTHS_PER_YEAR_DEPOSIT_CAP = 3;
+
 function depositByRule(rule: DepositRule, rent: number, period: number, importMult: number): number {
-  if (rule === 'months_per_year') return rent * Math.max(1, Math.round(period / 12));
+  if (rule === 'months_per_year') {
+    const months = Math.max(1, Math.round(period / 12));
+    return rent * Math.min(months, MONTHS_PER_YEAR_DEPOSIT_CAP);
+  }
   if (rule === 'rent_multiple') return rent * importMult;
   return 0;
 }
