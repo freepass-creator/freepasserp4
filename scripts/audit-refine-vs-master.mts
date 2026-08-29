@@ -33,13 +33,14 @@ import {
   type NameRow,
   type WorkBook,
 } from '../lib/domain/encar-work-sheet-match';
+import { resolveSubmodelToF03, selfCheckSubNorm, SUB_NORM_RULE, type SubNormResult } from '../lib/domain/submodel-normalize-f03';
 
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
 const arg = (k: string) => (process.argv.find((a) => a.startsWith(`--${k}=`)) || '').slice(k.length + 3);
 const ONLY = new Set(arg('only').split(',').map(S).filter(Boolean));
 const sleep = (ms: number) => new Promise((ok) => setTimeout(ok, ms));
-const RULE_VERSION = 'f03-7col+spec-tab-2026-08-29';
+const RULE_VERSION = `f03-7col+${SUB_NORM_RULE}`;
 const CLASS = new Set(VEHICLE_CLASS_VALUES.map((c) => c.replace(/\s+/g, '').toLowerCase()));
 const sha16 = (s: string) => createHash('sha256').update(s).digest('hex').slice(0, 16);
 const a1Tab = (t: string) => `'${t.replace(/'/g, "''")}'`;
@@ -184,6 +185,7 @@ type RowOut = {
   raw: { 차명: string; 연식: string; 연료: string; 배기량: string; 구동: string };
   filled: { 제조사: string; 모델: string; 세부모델: string; 세부트림: string; 연료: string; 배기량: string; 구동: string; 배터리: string; 원산지: string };
   attached: { 모델: string; 세부모델: string; 세부트림: string };
+  round4?: { tag: string; from: string; picked: string; note: string };
   reasons: string[];
   sourceHash: string;
 };
@@ -194,6 +196,11 @@ const book = workBookFromTabs(grids);
 const checks = selfCheckEncarMatch(book);
 if (checks.length) {
   console.error('⛔ 매처 자가검증 실패 (F03)\n' + checks.map((x) => `  ${x}`).join('\n'));
+  process.exit(1);
+}
+const normChecks = selfCheckSubNorm();
+if (normChecks.length) {
+  console.error('⛔ 세부모델 정규화 자가검증 실패\n' + normChecks.map((x) => `  ${x}`).join('\n'));
   process.exit(1);
 }
 const nameAt = hdrRow(grids.names, '제조사', '세부모델', '세부트림');
@@ -239,6 +246,7 @@ const issues: Issue[] = [];
 const readFails: ReadFail[] = [];
 const perSupplier = new Map<string, { cars: number; auto: number; review: number }>();
 let blankCore = 0;
+const round4Pool: { plate: string; supplier: string; from: string; r: SubNormResult }[] = [];
 
 function failRead(supplier: string, id: string, tab: string, error: string) {
   readFails.push({ supplier, id, tab, error });
@@ -303,7 +311,7 @@ for (const t of targets) {
       const carName = g(row, '차명(세부모델+트림)', '차명');
       const carKindRaw = g(row, '차종', '모델명');
       const carKind = CLASS.has(carKindRaw.replace(/\s+/g, '').toLowerCase()) ? '' : carKindRaw;
-      const year = g(row, '연식');
+      const year = g(row, '연식') || g(row, '최초등록일', '최초등록');
       const srcFuel = g(row, '연료');
       const srcCc = g(row, '배기량');
       const srcDrive = g(row, '구동', '구동방식');
@@ -329,12 +337,29 @@ for (const t of targets) {
       }, book);
       const reasons: string[] = [];
       const makerSheet = sheetMakerOf(filledMaker, book);
-      const sub = filledSub || S(attached.세부모델);
+      let sub = filledSub || S(attached.세부모델);
       const model = filledModel || S(attached.모델);
+      let round4: RowOut['round4'];
       if (!carName && !carKind && !filledMaker) reasons.push('원문 차명·제조사 없음');
       if (!sub) reasons.push('세부모델 없음(원문도 하나로 안 모임)');
-      const nameRows = sub ? pickRows(idx, sub, makerSheet, model) : [];
-      if (sub && !nameRows.length) {
+      let nameRows = sub ? pickRows(idx, sub, makerSheet, model) : [];
+      if (filledSub && !nameRows.length) {
+        const nrm = resolveSubmodelToF03({
+          raw: filledSub, year, maker: makerSheet, model, names: book.names,
+        });
+        round4Pool.push({ plate, supplier: t.name, from: filledSub, r: nrm });
+        round4 = { tag: nrm.tag, from: filledSub, picked: nrm.picked, note: nrm.note };
+        if (nrm.tag === '매칭' && nrm.picked) {
+          sub = nrm.picked;
+          nameRows = pickRows(idx, sub, makerSheet, model);
+        } else if (nrm.tag === '오매칭의심') {
+          reasons.push(`세대 오매칭 의심 ${nrm.note}`);
+        } else {
+          const anySub = idx.bySub.get(fold(filledSub)) || [];
+          if (!anySub.length) reasons.push(`차종마스터에 없는 세부모델 「${filledSub}」`);
+          else reasons.push(`세부모델 「${filledSub}」는 있으나 제조사·모델과 안 맞음`);
+        }
+      } else if (sub && !nameRows.length) {
         const anySub = idx.bySub.get(fold(sub)) || [];
         if (!anySub.length) reasons.push(`차종마스터에 없는 세부모델 「${sub}」`);
         else reasons.push(`세부모델 「${sub}」는 있으나 제조사·모델과 안 맞음`);
@@ -387,6 +412,7 @@ for (const t of targets) {
         raw: { 차명: carName, 연식: year, 연료: srcFuel, 배기량: srcCc, 구동: srcDrive },
         filled: { 제조사: filledMaker, 모델: filledModel, 세부모델: filledSub, 세부트림: filledTrim, 연료: filledFuel, 배기량: filledCc, 구동: filledDrive, 배터리: filledBat, 원산지: filledOrigin },
         attached: { 모델: S(attached.모델), 세부모델: S(attached.세부모델), 세부트림: S(attached.세부트림) },
+        round4,
         reasons,
         sourceHash: sha16(src),
       });
@@ -422,6 +448,22 @@ for (const i of issues) {
   byReason.set(k, (byReason.get(k) || 0) + 1);
 }
 console.log(`  ── 검수대기 이유 ${issues.length}건 — ${[...byReason].sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`).join(' · ')}`);
+const r4Match = round4Pool.filter((x) => x.r.tag === '매칭');
+const r4Suspect = round4Pool.filter((x) => x.r.tag === '오매칭의심');
+const r4Wait = round4Pool.filter((x) => x.r.tag === '검수대기');
+console.log(`\n  ── 라운드4 세부모델 정규화 (풀=F03에 없던 채움 세부모델 ${round4Pool.length})`);
+console.log(`     매칭 ${r4Match.length} · 오매칭의심 ${r4Suspect.length} · 검수대기 ${r4Wait.length}  (규칙 ${SUB_NORM_RULE})`);
+console.log('     매칭 예');
+for (const x of r4Match.slice(0, 15)) {
+  console.log(`      ${x.supplier.slice(0, 10).padEnd(11)} ${x.plate.padEnd(10)} 「${x.from}」→「${x.r.picked}」`);
+}
+if (r4Match.length > 15) console.log(`      … 그 밖 ${r4Match.length - 15}`);
+if (r4Suspect.length) {
+  console.log('     오매칭의심');
+  for (const x of r4Suspect.slice(0, 12)) {
+    console.log(`      ${x.supplier.slice(0, 10).padEnd(11)} ${x.plate.padEnd(10)} ${x.r.note.slice(0, 70)}`);
+  }
+}
 console.log('\n  ── 검수대기 예');
 for (const r of review.slice(0, 25)) {
   console.log(`   ${r.supplier.slice(0, 10).padEnd(11)} ${r.plate.padEnd(10)} ${r.reasons.join(' · ').slice(0, 80)}`);
@@ -451,6 +493,17 @@ const report = {
   cars, named, blankCore,
   buckets: { 자동후보: auto.length, 검수대기: review.length, 읽기실패: readFails.length },
   bucketsSellable: { cars: live.length, 자동후보: liveAuto.length, 검수대기: liveReview.length, 읽기실패: readFails.length },
+  round4: {
+    rule: SUB_NORM_RULE,
+    pool: round4Pool.length,
+    매칭: r4Match.length,
+    오매칭의심: r4Suspect.length,
+    검수대기: r4Wait.length,
+    samples: {
+      매칭: r4Match.slice(0, 40).map((x) => ({ supplier: x.supplier, plate: x.plate, from: x.from, picked: x.r.picked, note: x.r.note, yearOk: x.r.yearOk })),
+      오매칭의심: r4Suspect.map((x) => ({ supplier: x.supplier, plate: x.plate, from: x.from, picked: x.r.picked, note: x.r.note })),
+    },
+  },
   readFails,
   issues,
   rows,
