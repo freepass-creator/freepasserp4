@@ -154,6 +154,7 @@ for (const t of targets) {
       const row = grid[r] || [];
       const plate = S(row[plateAt]);
       if (!plate) continue;
+      if (SKIP_PLATES.has(plate)) continue;
       cars++;
       const carName = exact(row, '차명(세부모델+트림)') || exact(row, '차명');
       const carKindRaw = exact(row, '차종') || exact(row, '모델명');

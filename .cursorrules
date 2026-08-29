@@ -2,6 +2,8 @@
 
 작업 전 반드시 `AGENTS.md`(공통 작업원칙·역할) · `CURSOR.md`(업무지시서) · `DESIGN.md`(디자인 일관성 규격) · `CLAUDE.md`(규격 SSOT)를 읽는다.
 
+★**공급사시트·정제·연동·발행·차종마스터 작업이면 반드시 `C:\dev\aiops\docs\연동지도.md`(파이프라인 정본: 원문→정제→판매→ERP→천이) + `START.md` 「이 차례로 읽는다」 + `supplier-sheet-spec.md`(공급사시트 규격·통일도구)를 먼저 읽는다.** 새로 세지 말고 읽는다 — 지도가 틀렸으면 «그 지도를 고쳐서» 최신으로 둔다(딴 데 새로 만들지 말 것). 지금 정제 작업 = `freepasserp4/docs/JEONGJE-LOOP.md` 규약대로 코덱스와 상호보완.
+
 ## 디자인 토큰 — 숫자·색을 직접 쓰지 않는다
 - 색: `C.*` (`C.ink` `C.mute` `C.faint` `C.line` `C.taupeBg` `C.selected` `C.ok/warn/danger/brand`) — **HEX·rgba 직접 금지**(`#fff` 포함)
 - 콘텐츠 글자: `FS.*` 6단계만 (`page18` `title14.5` `body13` `sub12` `cap11` `micro10`) — **`fontSize: 11.5` 같은 숫자 금지**
