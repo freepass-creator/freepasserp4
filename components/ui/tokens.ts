@@ -90,17 +90,17 @@ export const FW = {
  * 컨트롤 높이·폰트 SSOT — 페이지/컴포넌트는 height 숫자 금지, size·헬퍼만.
  *
  *  웹  md=32 / sm=28
- *  모바일 md=sm=36 — B2B 밀도. size와 무관하게 한 높이로 수렴(화면마다 36/40이 섞이던 문제 제거).
+ *  모바일 md=40 / sm=36 — 터치 40(검색·툴바·md 버튼). sm은 표 안 보조만.
  *  입력·독 컨트롤 폰트 모바일=16 고정(검색·정렬·필터 동일 · iOS 줌 방지)
- *  칩 = 웹 sm(28) · 모바일 36
+ *  칩 = 웹 sm(28) · 모바일 40(md)
  *
  *  바 높이 = CSS --fp-bar-h
- *    웹 32+12×2=56 · 모바일 36+10×2=56 (바 높이는 56 유지)
+ *    웹 32+12×2=56 · 모바일 40+8×2=56 (바 높이는 56 유지)
  */
 export type CtrlSize = 'md' | 'sm';
 
 export const CTRL = {
-  md: { web: 32, mobile: 36, fsWeb: 12.5, fsMobile: 16 },
+  md: { web: 32, mobile: 40, fsWeb: 12.5, fsMobile: 16 },
   sm: { web: 28, mobile: 36, fsWeb: 12, fsMobile: 16 },
 } as const;
 
@@ -150,7 +150,7 @@ export function ctrlInputFs(mobile: boolean, size: CtrlSize = 'md'): number {
   return size === 'sm' ? 12.5 : 13;
 }
 
-/** 필터칩 높이 — 웹 sm · 모바일 36 (옆 Btn/Search와 맞춤) */
+/** 필터칩 높이 — 웹 sm · 모바일 md(옆 Btn/Search와 맞춤) */
 export function ctrlChipH(mobile: boolean): number {
   return mobile ? CTRL.md.mobile : CTRL.sm.web;
 }

@@ -790,9 +790,9 @@ html[data-fp-filter="0"] .fp-finder > .fp-sidebar { display: none; }
   }
   .fp-agent-workflow-actions > * { flex: 1 1 0; }
   :root {
-    /* 컨트롤 36 = tokens.ts CTRL 모바일과 동일(md·sm 수렴). 바 높이는 56 유지(36+10×2). */
-    --fp-ctrl-h: 36px;
-    --fp-bar-pad-y: 10px;
+    /* 컨트롤 40 = tokens.ts CTRL.md 모바일(터치 40). 바 높이 56(40+8×2). */
+    --fp-ctrl-h: 40px;
+    --fp-bar-pad-y: 8px;
     --fp-bar-pad-x: 12px;
   }
   /* 모바일 = 스크롤바 거터 예약 끄기(우측만 넓어져 검색·필터 좌우 여백이 갈라짐) */

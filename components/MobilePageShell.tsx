@@ -223,7 +223,7 @@ export function MobilePageShell({
             active={sheet === 'filter'}
             onClick={() => { if (sheet === 'filter') discardFilter(); else openFilter(); }}
           >
-            <SlidersHorizontal size={ICON.lg} />
+            <SlidersHorizontal size={ICON.xl} />
           </IconBtn>
           {filterBadge > 0 ? (
             <span className="fp-icon-count">

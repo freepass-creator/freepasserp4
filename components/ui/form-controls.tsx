@@ -3,7 +3,7 @@
 import React from 'react';
 import { Search, X } from 'lucide-react';
 import { useIsMobile } from '@/lib/use-mobile';
-import { C, R, ctrlH, ctrlInputFs, ctrlPadX } from './tokens';
+import { C, R, ctrlH, ctrlInputFs, ctrlPadX, ICON } from './tokens';
 
 type Option = string | { value: string; label: string };
 
@@ -122,15 +122,15 @@ export function SearchInput({ value, onChange, placeholder = '검색', width, fu
   }, [autoFocus]);
   return (
     <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', ...(full ? { flex: '1 1 auto', width: '100%' } : width ? { width } : {}), ...style }}>
-      <Search aria-hidden size={mobile ? 16 : 14} style={{ position: 'absolute', left: mobile ? 12 : 9, color: focus ? C.accent : C.faint, pointerEvents: 'none' }} />
+      <Search aria-hidden size={mobile ? ICON.xl : ICON.sm} style={{ position: 'absolute', left: mobile ? 12 : 9, color: focus ? C.accent : C.faint, pointerEvents: 'none' }} />
       <input ref={ref} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} aria-label={placeholder || '검색'} inputMode="search" autoFocus={autoFocus}
         onFocus={() => setFocus(true)} onBlur={() => setFocus(false)}
-        style={{ width: '100%', height: h, boxSizing: 'border-box', padding: mobile ? '0 40px 0 36px' : '0 28px 0 28px', border: `1px solid ${focus ? C.accent : C.line}`, borderRadius: R, fontSize: ctrlInputFs(mobile), background: C.taupeBg, color: C.ink, outline: 'none', boxShadow: focus ? `0 0 0 3px ${C.focusRing}` : 'none', transition: 'border-color .12s, box-shadow .12s, background-color .12s', ...inputStyle }} />
+        style={{ width: '100%', height: h, boxSizing: 'border-box', padding: mobile ? `0 ${h}px 0 ${h}px` : '0 28px 0 28px', border: `1px solid ${focus ? C.accent : C.line}`, borderRadius: R, fontSize: ctrlInputFs(mobile), background: C.taupeBg, color: C.ink, outline: 'none', boxShadow: focus ? `0 0 0 3px ${C.focusRing}` : 'none', transition: 'border-color .12s, box-shadow .12s, background-color .12s', ...inputStyle }} />
       {value && (
         <button type="button" aria-label="검색어 지우기" onMouseDown={(e) => e.preventDefault()} onClick={() => onChange('')}
-          style={{ position: 'absolute', right: mobile ? 4 : 7, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: mobile ? 36 : 17, height: mobile ? 36 : 17, padding: 0, borderRadius: '50%', border: 'none', background: mobile ? 'transparent' : C.line2, color: C.mute, cursor: 'pointer' }}>
+          style={{ position: 'absolute', right: mobile ? 4 : 7, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: mobile ? h : 17, height: mobile ? h : 17, padding: 0, borderRadius: '50%', border: 'none', background: mobile ? 'transparent' : C.line2, color: C.mute, cursor: 'pointer' }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: mobile ? 22 : 17, height: mobile ? 22 : 17, borderRadius: '50%', background: C.line2 }}>
-            <X size={mobile ? 14 : 11} />
+            <X size={mobile ? ICON.sm : 11} />
           </span>
         </button>
       )}

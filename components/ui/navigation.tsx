@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ChevronLeft, List, X } from 'lucide-react';
 import { useIsMobile } from '@/lib/use-mobile';
 import { Btn, IconBtn } from './buttons';
-import { C, SH } from './tokens';
+import { C, SH, ICON } from './tokens';
 
 export type NavBackKind = 'history' | 'list' | 'cancel';
 
@@ -35,10 +35,10 @@ export function NavBack({
   };
   const label = kind === 'list' ? '목록' : kind === 'cancel' ? '취소' : '이전';
   const icon = kind === 'list'
-    ? <List size={mobile ? 18 : 16} strokeWidth={2.25} aria-hidden />
+    ? <List size={mobile ? ICON.xl : ICON.md} strokeWidth={2.25} aria-hidden />
     : kind === 'cancel'
-    ? <X size={mobile ? 18 : 16} strokeWidth={2.25} aria-hidden />
-    : <ChevronLeft size={mobile ? 18 : 16} strokeWidth={2.25} aria-hidden />;
+    ? <X size={mobile ? ICON.xl : ICON.md} strokeWidth={2.25} aria-hidden />
+    : <ChevronLeft size={mobile ? ICON.xl : ICON.md} strokeWidth={2.25} aria-hidden />;
   // 목록·취소는 모바일서 항상 아이콘+라벨(호출부 backShowLabel 의존 제거 → 전 페이지 자동 통일).
   // 이전(history)은 범용 back이라 아이콘only 유지(showLabel 주면 라벨).
   if (mobile && !showLabel && kind === 'history') {

@@ -51,7 +51,7 @@ export function FinderToolbar(props: Props) {
             active={props.filterSheetOpen}
             onClick={props.onToggleFilterSheet}
           >
-            <SlidersHorizontal size={ICON.md} />
+            <SlidersHorizontal size={ICON.xl} />
           </IconBtn>
           {props.filterBadge > 0 && <span className="fp-icon-count"><CountPill n={props.filterBadge} tone="accent" /></span>}
         </span>

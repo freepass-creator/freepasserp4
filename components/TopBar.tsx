@@ -284,7 +284,7 @@ function NavMenu({ mobile, open: openProp, setOpen: setOpenProp }: {
           ? { border: 'none', background: open ? C.hover : 'transparent', color: ink }
           : { background: open ? C.hover : C.taupeBg, color: ink, border: `1px solid ${line}` }}
       >
-        {open ? <X size={mobile ? 20 : ICON.lg} /> : <Menu size={mobile ? 20 : ICON.lg} />}
+        {open ? <X size={mobile ? ICON.xl : ICON.lg} /> : <Menu size={mobile ? ICON.xl : ICON.lg} />}
       </IconBtn>
       {open && (<>
         {!mobile && <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 74 }} />}
