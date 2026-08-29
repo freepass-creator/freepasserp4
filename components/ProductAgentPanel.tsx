@@ -230,13 +230,13 @@ export function ProductAgentPanel({ p, audience, pinnedShare }: {
       </div>
       ) : null}
 
-      {/* ② 영업 정보 — 반전 머리띠 + 앰버 본문(손님에게 보여주지 않는 칸). */}
+      {/* ② 영업 정보 — 본문과 같은 회색 머리띠. 우측 칼럼만 tone=agent(좌측 네이비 바). */}
       <DetailTable
         title="영업 정보"
         hint="상담용"
         icon={sectionIcon('영업 정보')}
-        tone="agent"
-        headTone="invert"
+        tone={sideCol ? 'agent' : 'main'}
+        headTone="plain"
         span={2}
         widths={['44%', undefined]}
         label="영업자 상담용 정보"
@@ -258,8 +258,8 @@ export function ProductAgentPanel({ p, audience, pinnedShare }: {
           title="계약 조건"
           hint="계약 단계"
           icon={sectionIcon('계약 조건')}
-          tone="agent"
-          headTone="invert"
+          tone={sideCol ? 'agent' : 'main'}
+          headTone="plain"
           span={2}
           widths={['44%', undefined]}
           label="계약 단계 정책"
