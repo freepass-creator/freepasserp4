@@ -716,7 +716,10 @@ html[data-fp-filter="0"] .fp-finder > .fp-sidebar { display: none; }
   overflow: visible;
 }
 /* 모바일 퀵필터 한 줄 — 가로 스크롤, 칩 4개(사장님 2026-08-22). 팝오버가 잘리지 않게 overflow 는 세로만 숨김 없이. */
-.fp-quick-filter-bar.is-mobile { padding: 4px 10px; gap: 6px; overflow-x: auto; overflow-y: visible; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+/* ★좌우는 --fp-bar-pad-x(모바일 12) — 생숫자 10 이 박혀 있었다(2026-08-29).
+     위(검색 바)와 아래(목록 행)가 12 인데 이 줄만 10 이라 스크롤할 때 왼쪽 선이 2px 흔들렸다.
+     세로만 촘촘하게 두고(4px) 좌우는 프레임과 같은 값을 쓴다. */
+.fp-quick-filter-bar.is-mobile { padding: 4px var(--fp-bar-pad-x); gap: 6px; overflow-x: auto; overflow-y: visible; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
 .fp-quick-filter-bar.is-mobile::-webkit-scrollbar { display: none; }
 .fp-quick-filter-wrap { position: relative; flex: 0 0 auto; }
 .fp-quick-filter-wrap > button { position: relative; }
@@ -1336,7 +1339,8 @@ button, a, [role="button"], .fp-press, .fp-chip {
 
 @media (max-width: 760px) {
   .fp-finder-main.is-sheet-view .fp-finder-body.is-excel { display: flex; flex-direction: column; overflow: hidden; padding: 0 0 var(--fp-finder-dock-h); }
-  .fp-sheet-view__toolbar { gap: 8px; padding: 0 8px; }
+  /* 좌우는 프레임과 같은 --fp-bar-pad-x(모바일 12). 8 이 박혀 있어 시트보기만 왼쪽으로 4px 밀려 있었다. */
+  .fp-sheet-view__toolbar { gap: 8px; padding: 0 var(--fp-bar-pad-x); }
   .fp-sheet-view__result-count { display: none; }
   .fp-sheet-view__tab-meta { display: none; }
 }
