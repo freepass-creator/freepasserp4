@@ -352,6 +352,7 @@ export function ProductDetail({ p, audience, layout = 'brochure' }: {
               hint={sec.hint}
               icon={sectionIcon(sec.title)}
               tone={sec.tier}
+              headTone={sec.title === '차량스펙' ? 'invert' : 'plain'}
               span={2}
               mark={sec.tier === 'agent' ? '영업자 전용' : undefined}
               widths={[KV_LABEL_W, undefined]}

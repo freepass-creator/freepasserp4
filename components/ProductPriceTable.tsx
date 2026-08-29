@@ -72,6 +72,7 @@ export function ProductPriceTable({ p, title = '대여료조건', hint, tone }: 
       hint={hint}
       icon={typeof title === 'string' ? sectionIcon(title) : undefined}
       tone={tone}
+      headTone="invert"
       span={3}
       label="기간별 대여료와 보증금"
       widths={['32%', '34%', '34%']}
