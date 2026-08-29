@@ -55,7 +55,7 @@ function PerkPeriodRow({ p }: { p: EntityRecord }) {
       gap: 8, minWidth: 0, width: '100%',
     }}>
       <div style={{ flex: '1 1 96px', minWidth: 0 }}>
-        <CardPerkLine p={p} dense={false} withCredit />
+        <CardPerkLine p={p} dense={false} />
       </div>
       <div style={{ flex: '2 1 168px', minWidth: 0, maxWidth: '100%' }}>
         <PeriodChips align="end" clamp />
@@ -152,7 +152,7 @@ function MobileRow({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) 
         </div>
 
         {/* 4 심사기준 우선 · 우대 — 모바일 영업 스캔 순서 */}
-        <CardPerkLine p={p} inline withCredit />
+        <CardPerkLine p={p} inline creditFirst />
       </PricePeekRoot>
     </Link>
   );
