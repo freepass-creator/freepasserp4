@@ -35,6 +35,7 @@ import { additionalDriverCostLabel, productMatchesTemplate } from '@/lib/domain/
 import { ESIGN_DOCUMENT_PRESETS, freepassEsignRequiredDocuments } from '@/lib/domain/esign-required-documents';
 import { isUsableInsurerName } from '@/lib/domain/policy-tier';
 import { isContractCancelled } from '@/lib/domain/contract';
+import { assertA4WebContractAlignment } from '@/lib/domain/esign-a4-web-alignment';
 import {
   canonicalFreepassDirectManualTerms,
   canonicalFreepassDirectManualTermsDraft,
@@ -306,14 +307,17 @@ export async function verifyFreepassDirectContractCompletion(input: {
   const handover = asEsignRecord(handoverSnap?.val());
   const snapshot = asEsignRecord(session?.snapshot);
   const consentProfile = asEsignRecord(snapshot?.consentProfile);
+  const corporateCustomer = S(asEsignRecord(snapshot?.templateState)?.ct) === '법인';
   const documentHash = S(contract.esign_document_sha256);
   const customerName = S(submission?.customer_name);
   const hasApprovedAssets = /^[a-f0-9]{64}$/i.test(S(submission?.signatureSha256))
-    && /^[a-f0-9]{64}$/i.test(S(submission?.idCardSha256))
-    && /^[a-f0-9]{64}$/i.test(S(submission?.selfieSha256))
+    && (corporateCustomer || (
+      /^[a-f0-9]{64}$/i.test(S(submission?.idCardSha256))
+      && /^[a-f0-9]{64}$/i.test(S(submission?.selfieSha256))
+      && !!S(submission?.idCardPath)
+      && !!S(submission?.selfiePath)
+    ))
     && /^[a-f0-9]{64}$/i.test(S(submission?.pdfSha256))
-    && !!S(submission?.idCardPath)
-    && !!S(submission?.selfiePath)
     && !!S(submission?.pdfPath)
     && S(submission?.pdfSha256) === documentHash;
   const insuranceEvidence = asEsignRecord(submission?.customer_insurance_evidence);
@@ -328,8 +332,18 @@ export async function verifyFreepassDirectContractCompletion(input: {
       && S(insuranceEvidence?.lienholder) === landlord
       && S(verificationInsuranceEvidence?.sha256) === S(insuranceEvidence?.sha256)
       && S(verificationInsuranceEvidence?.lienholder) === landlord);
+  const cmsDebit = asEsignRecord(submission?.cms_debit);
+  const cmsComplete = consentProfile?.cmsRequiredBeforeHandover !== true || (
+    !!S(cmsDebit?.holderName)
+    && !!S(cmsDebit?.holderRelation)
+    && /^\d{10,11}$/.test(S(cmsDebit?.holderPhone))
+    && !!S(cmsDebit?.bank)
+    && S(cmsDebit?.accountNoEncrypted).startsWith('enc.private.v1.')
+    && S(cmsDebit?.holderIdentifierEncrypted).startsWith('enc.private.v1.')
+    && Number(cmsDebit?.consentedAt || 0) > 0
+  );
   const handoverComplete = !input.requireHandover || (
-    consentProfile?.cmsRequiredBeforeHandover !== true
+    cmsComplete
     && S(handover?.provider) === 'freepass'
     && S(handover?.contractCode) === contractCode
     && S(handover?.sessionHash) === hash
@@ -647,6 +661,13 @@ export function buildFreepassIssueSnapshot(args: {
     throw new Error('보험포함 계약서의 보험사명은 정책에 확정한 실제 가입 보험사·공제조합과 일치해야 합니다.');
   }
   const consentGroups = buildConsentGroups(contract, args.policy, template.insuranceSide);
+  // A4 정본과 웹 전자계약은 같은 동결값을 다른 읽기 방식으로 보여 준다.
+  // 웹에서 핵심 섹션이 빠지거나 보증 약정이 주계약에 섞이면 링크를 만들지 않는다.
+  assertA4WebContractAlignment({
+    consentGroups,
+    agreementSectionCount: SAMPLE_AGREEMENT.sections.length,
+    contract,
+  });
   const landlordCompanyName = S(
     args.partner?.company_name || args.partner?.name || args.partner?.partner_name,
   );
@@ -666,7 +687,7 @@ export function buildFreepassIssueSnapshot(args: {
   // 고객 업로드/관리자 검토 기준이 갈라지지 않게 한다.
   const requiredDocuments = [...freepassEsignRequiredDocuments(args.policy, template.insuranceSide), ...partyDocuments]
     .filter((document, index, rows) => rows.findIndex((candidate) => candidate.key === document.key) === index);
-  const partyKeys = partyDocuments.map((document) => document.key);
+  const partyKeys = partyDocuments.filter((document) => document.required).map((document) => document.key);
   if (partyKeys.some((key) => !requiredDocuments.some((document) => document.required && document.key === key))) {
     throw new Error('계약자 유형별 필수 증빙을 동결하지 못했습니다. 승인 기본조건을 확인해 주세요.');
   }
@@ -678,6 +699,7 @@ export function buildFreepassIssueSnapshot(args: {
     paymentMethod: args.policy?.payment_method,
     screeningCriteria: args.policy?.screening_criteria,
     requiredDocuments,
+    customerType,
   });
   // CMS 출금동의·예금주 인증을 보관·검증하는 별도 흐름은 아직 연결되지 않았다.
   // 링크만 먼저 발행하면 고객 서명 후 인도·완료 단계에서 영구적으로 멈추므로 발행 전에 막는다.

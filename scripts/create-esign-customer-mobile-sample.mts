@@ -14,6 +14,7 @@ import { firebaseAdminDatabase } from '@/lib/server/firebase-admin';
 
 const S = (value: unknown) => String(value ?? '').trim();
 const apply = process.argv.includes('--apply');
+const corporate = process.argv.includes('--corporate');
 const sonogongSubscription = process.argv.includes('--sonogong-subscription');
 const insuranceSeparate = sonogongSubscription && process.argv.includes('--insurance-separate');
 const templateId = sonogongSubscription
@@ -24,7 +25,7 @@ const base = S(process.env.FREEPASS_ESIGN_PUBLIC_BASE_URL || 'https://freepasser
   .replace(/\/$/, '').replace(/\/sign$/, '');
 
 const now = Date.now();
-const contractCode = `${sonogongSubscription ? 'CT-SONOGONG-SAMPLE' : 'CT-MOBILE-SAMPLE'}-${new Date(now).toISOString().replace(/[-:TZ.]/g, '').slice(0, 14)}`;
+const contractCode = `${corporate ? 'CT-CORPORATE-SAMPLE' : sonogongSubscription ? 'CT-SONOGONG-SAMPLE' : 'CT-MOBILE-SAMPLE'}-${new Date(now).toISOString().replace(/[-:TZ.]/g, '').slice(0, 14)}`;
 const contract: EsignRecord = {
   contract_code: contractCode,
   contract_number: contractCode,
@@ -56,7 +57,7 @@ const contract: EsignRecord = {
   esign_maturity: '반납형',
   esign_insurance_side: insuranceSide,
   standard_template_id: templateId,
-  customer_type: '개인',
+  customer_type: corporate ? '법인' : '개인',
 };
 
 const product: EsignRecord = {
@@ -101,7 +102,7 @@ const token = makeFreepassSignToken();
 const hash = hashFreepassSignToken(token);
 const expiresAt = now + 24 * 60 * 60 * 1000;
 
-console.log(`${sonogongSubscription ? '손오공 구독' : '고객 모바일'} 화면 점검 링크 (${apply ? '생성' : 'dry-run'})`);
+console.log(`${corporate ? '법인 고객 모바일' : sonogongSubscription ? '손오공 구독' : '고객 모바일'} 화면 점검 링크 (${apply ? '생성' : 'dry-run'})`);
 console.log(`${base}/sign/${token}`);
 console.log(`만료: ${new Date(expiresAt).toLocaleString('ko-KR')}`);
 if (!apply) process.exit(0);

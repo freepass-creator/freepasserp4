@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>자동차 장기대여 계약서</title>
+<title>손오공 자동차 구독 약정서</title>
 <style>
   /* 계약서 서체 = Pretendard. ERP와 같고, 문서에서도 가장 무난하다.
      경로는 템플릿 기준 상대경로. PDF는 inlineContractPdfFonts 가 data URL 로 치환한다. */
@@ -12,21 +12,20 @@
   @font-face{font-family:"Pretendard";font-weight:600;font-style:normal;font-display:block;src:url("../fonts/Pretendard-SemiBold.woff2") format("woff2")}
   @font-face{font-family:"Pretendard";font-weight:700;font-style:normal;font-display:block;src:url("../fonts/Pretendard-Bold.woff2") format("woff2")}
   /* ============================================================
-     자동차 장기대여 계약서 — ERP형(데이터필드 채움) · 모던 디자인
+     손오공 자동차 구독 약정서 — 손오공 전용 ERP형(데이터필드 채움) · 모던 디자인
      · [data-field="키"] 텍스트를 ERP가 주입 (freepasserp3 호환 스키마)
      · 약관: #termsSource(hidden) → JS 2단 자동 페이지네이션
      · 모던 톤: 넓은 여백 · 부드러운 카드(8px) · 정제된 단일 액센트
      ============================================================ */
   :root{
     /* ============================================================
-       ★ 회사별 테마 설정 — 회사 계약서를 만들 때 이 블록만 교체하면 됨
-       (예: 프리패스 = 딥틸 #0e3a52 / 손오공 = 블루 #1d4ed8)
+       ★ 손오공 구독 약정서 전용 CI 설정
        ============================================================ */
-    /* ERP SSOT와 같은 네이비·중성 단계. 계약서만 다른 팔레트로 보이지 않게 둔다. */
-    --accent:#1B2A4A;        /* ERP brand */
-    --accent-ink:#0F1B35;    /* ERP brand deep */
-    --accent-bg:#e6ecf5;     /* ERP brand background */
-    --tint:#f7f8fb;          /* ERP 표 머리·라벨 셀 */
+    /* 손오공 원본 구독 약정서에 삽입된 CI 로고의 청록(#2EA299)을 사용한다. */
+    --accent:#2ea299;
+    --accent-ink:#1d706a;
+    --accent-bg:#e4f5f2;
+    --tint:#f1faf8;
     /* 화면 표준 4/8에서 문서만 4/6으로 한 단계만 각지게: 과하게 둥글지도, 딱딱하지도 않게. */
     --radius:4px;
     --radius-card:6px;
@@ -78,14 +77,6 @@
   --table-value-lh:1.45;
   --table-row-line:var(--line2);
     --ok:#0e9f6e; --danger:#e02424; --warn-bg:#fff7ed; --warn-ink:#b45309;
-  }
-  /* 손오공 구독 약정서는 원본 약정서에 삽입된 CI 로고의 청록(#2EA299)을 사용한다.
-     전자계약 봉인 state의 co 값으로만 켜지므로 다른 공급사·프리패스 표준계약서에는 영향이 없다. */
-  :root[data-contract-brand="sonogong"]{
-    --accent:#2ea299;
-    --accent-ink:#1d706a;
-    --accent-bg:#e4f5f2;
-    --tint:#f1faf8;
   }
   *{margin:0;padding:0;box-sizing:border-box;word-break:keep-all;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   body{font-family:"Pretendard",-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
@@ -145,36 +136,6 @@
      조밀하게 만들 곳은 아래 .section·칸 패딩이다. */
   .page-conditions .rhead + .section{margin-top:0}
   .pagefoot .pf-co{font-weight:700;color:var(--mute)}
-
-  /* 고객 모바일 열람 전용. 인쇄 매체에는 적용하지 않아 A4/PDF 조판을 바꾸지 않는다. */
-  @media screen{
-    /* ★흐름 모드의 여백은 «얇게». 이 문서는 대개 iframe 안에 들어가는데,
-       바깥 틀이 이미 여백을 갖고 있어 여기서 또 16px 을 주면 «여백 두 벌»이 된다.
-       346px 틀 안에서 제목이 세 줄로 꺾였다(2026-08-29 실측). */
-    body.contract-flow{padding:0;background:#f8fafc}
-    body.contract-flow .builder{display:none}
-    body.contract-flow .page{width:auto;height:auto;min-height:0;overflow:visible;margin:0 0 16px;
-      padding:16px 13px;background:var(--card);box-shadow:none}
-    body.contract-flow .pbody{overflow:visible;min-height:0;padding-bottom:0}
-    body.contract-flow .pagefoot,body.contract-flow .rhead{display:none!important}
-    body.contract-flow [data-main-exclude]{display:none!important}
-    body.contract-flow #termsPages .page{font-size:var(--fs-terms);line-height:1.65}
-    body.contract-flow #termsPages .t-art{margin-top:22px}
-    /* ★표지 요지는 A4 에서 4칸이지만 폰 폭(390)에서는 4칸이 안 들어간다 — 실측 489px 로 넘쳤다.
-       흐름에서만 2칸으로 접는다. A4·인쇄는 그대로 4칸이다(2026-08-29). */
-    body.contract-flow .cover-sum{grid-template-columns:repeat(2,minmax(0,1fr))}
-    /* 흐름에서는 어떤 것도 화면 밖으로 나가지 않는다 — 긴 값·표는 스스로 줄바꿈한다. */
-    body.contract-flow .page,body.contract-flow .pbody{max-width:100%}
-    body.contract-flow .cover-sum .cs{min-width:0}
-    body.contract-flow .kv{grid-template-columns:minmax(0,26mm) minmax(0,1fr)}
-    body.contract-flow .kv .span2{grid-column:span 1}
-    /* ★표는 접을 수 없다 — 열이 6~7개짜리 요율표는 폰 폭에 못 들어간다.
-       접으면 «어느 값이 어느 열인지»가 사라진다. 그래서 표만 «스스로» 가로로 밀리게 둔다.
-       ⚠ 화면(body)이 가로로 밀리면 안 된다 — 표 안에서만 민다. */
-    body.contract-flow .tbl-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
-    body.contract-flow table.tbl{min-width:520px}
-    body.contract-flow{overflow-x:hidden}
-  }
 
   /* 문서 헤더(런닝) */
   /* ★머리띠는 «한 줄»로 고정한다 — 오른쪽 메타를 두 줄로 쓰면 그 장만 머리가 4mm 높아져
@@ -555,7 +516,7 @@
           로고 파일이 없으면 «깨진 이미지 아이콘 + alt 글자»가 뜬다. 계약서 첫 장에 그게 있으면 안 된다.
           onerror 로 스스로 숨기고 회사명만 남긴다.
         -->
-        <img class="co-logo" data-field="company_logo" src="assets/logo-sonogong.webp" alt=""
+        <img class="co-logo" data-field="company_logo" src="assets/logo-sonogong.png" alt="손오공렌터카"
              onerror="this.style.display='none'">
         <div class="co-name">
           <div class="co-t" data-field="company_name">주식회사 손오공렌터카</div>
@@ -637,8 +598,6 @@
         <div class="k">연락처</div><div class="v span2" data-field="customer_phone">010-0000-0000</div>
         <div class="k">주소</div><div class="v span2" data-field="customer_address">주소를 입력하세요</div>
         <div class="k" data-field="label_emergency">비상 연락처</div><div class="v span2" data-field="emergency_contact">관계 · 010-0000-0000</div>
-        <div class="k" data-corp="1">서명자 성명</div><div class="v" data-corp="1" data-field="signer_name">—</div>
-        <div class="k" data-corp="1">법인과의 관계</div><div class="v" data-corp="1" data-field="signer_role">—</div>
       </div>
       <div class="note" data-note="corp" style="display:none">※ <b>법인 계약</b>: 위 계약자 정보는 법인명·법인등록번호·사업자등록번호·대표자·사업장 기준으로 기재됩니다.</div>
     </div>
@@ -1633,24 +1592,6 @@
 <script>
 /* ===== 약관 2단 자동 페이지네이션 ===== */
 (function(){
-  /* ★흐름 모드는 «세 가지» 방법으로 켠다 — 서식이 어디에 놓이든 켜져야 하기 때문이다.
-       ① ?flow=1        브라우저로 직접 열 때
-       ② window.__FLOW__ 서버가 HTML 을 지을 때 심어 줄 때
-       ③ <html data-flow> 같은 이유
-     ⚠ location.search 하나만 보면, 미리보기 HTML 을 iframe srcdoc 으로 넣었을 때 켜지지 않는다 —
-       srcdoc 에는 질의가 없다. 그러면 폰에서 A4 가 그대로 나온다(2026-08-29). */
-  var CONTRACT_FLOW=/(?:[?&]flow=1(?:&|$))/.test(location.search)
-    || window.__FLOW__===true
-    || document.documentElement.hasAttribute('data-flow');
-  if(CONTRACT_FLOW) document.body.classList.add('contract-flow');
-  /* 표는 흐름에서 «표 안에서만» 가로로 밀린다. A4 에서는 감싸지 않는다 — 조판이 바뀐다. */
-  if(CONTRACT_FLOW){
-    document.querySelectorAll('table.tbl').forEach(function(t){
-      if(t.parentElement && t.parentElement.classList.contains('tbl-scroll')) return;
-      var w=document.createElement('div'); w.className='tbl-scroll';
-      t.parentNode.insertBefore(w,t); w.appendChild(t);
-    });
-  }
   function field(name, fb){ var el=document.querySelector('[data-field="'+name+'"]'); return el? (el.textContent||fb) : fb; }
   var lastSig='';
   function build(force){
@@ -1662,19 +1603,6 @@
     var tt=field('terms_title','자동차 장기대여 약관');
     var sig=co+'|'+tt;
     if(!force && sig===lastSig && out.children.length) return;  /* 동일 내용 재생성 방지(깜빡임 X) */
-    /* 모바일 계약 열람은 A4 높이를 전제로 한 2단 조판·재균형을 절대 수행하지 않는다.
-       약관 원문을 한 흐름으로 복제해, 화면 폭과 길이에 따라 자연스럽게 이어 읽는다. */
-    if(CONTRACT_FLOW){
-      var flowPage=document.createElement('section');
-      flowPage.className='page page-conditions terms-flow-page';
-      var flowBody=document.createElement('div'); flowBody.className='pbody terms-flow-body';
-      Array.prototype.forEach.call(src.children,function(node){ flowBody.appendChild(node.cloneNode(true)); });
-      flowPage.appendChild(flowBody);
-      out.innerHTML=''; out.appendChild(flowPage);
-      lastSig=sig;
-      document.body.classList.remove('cloak');
-      return;
-    }
     /*
       긴 항을 하나의 박스로만 옮기면 칼럼 하단에 큰 공백이 생긴다.
       원문 DOM은 그대로 두고 인쇄용 복제본만 문장 경계에서 나눈다.
@@ -2077,7 +2005,7 @@
 /* ===== ERP 선택 미리보기: 회사 · 상품 · 구독보험 · 계약유형 ===== */
 (function(){
   var COMPANIES={
-    sonogong:{logo:'assets/logo-sonogong.webp', name:'주식회사 손오공렌터카', ceo:'조규진', title:'대표이사', biz:'000-00-00000', phone:'-', bank:'-', acct:'-'},
+    sonogong:{logo:'assets/logo-sonogong.png', name:'주식회사 손오공렌터카', ceo:'조규진', title:'대표이사', biz:'000-00-00000', phone:'-', bank:'-', acct:'-'},
     switchplan:{logo:'', name:'스위치플랜 주식회사', ceo:'박영현', title:'사내이사', biz:'000-00-00000', phone:'-', bank:'-', acct:'-'},
     gyeongjinka:{logo:'assets/logo-jpk.png', name:'경진카 주식회사', ceo:'유진수 · 유희주', title:'대표이사', biz:'725-81-02483', phone:'1544-3871', bank:'-', acct:'-', driverScope:'계약자 1인', depositInstallment:'일시납', showName:true},
     gyeongjirentka:{logo:'assets/logo-jpk.png', name:'경진렌트카 주식회사', ceo:'유진수 · 유희정', title:'대표이사', biz:'129-86-87637', phone:'1544-3871', bank:'-', acct:'-', driverScope:'계약자와 배우자 및 직계가족', depositInstallment:'2회 분납', showName:true},
@@ -2097,12 +2025,12 @@
     '렌트선택형':{label:'렌트 반납형 (인수 선택 가능)', sub:false, take:false}
   };
   var TYPES={
-    '개인':{type:'개인', name:'성명', id:'주민등록번호', driver:'운전면허번호', residence:'거주 형태', emergency:'비상 연락처', corp:false},
+    '개인':{type:'개인', name:'성명', id:'생년월일', driver:'운전면허번호', residence:'거주 형태', emergency:'비상 연락처', corp:false},
     '법인':{type:'법인', name:'법인명', id:'법인등록번호', driver:'사업자등록번호', residence:'사업장 형태', emergency:'담당자', corp:true}
   };
   /* 운전자 연령 (상품별) — 회사별 정책은 추후 freepasserp3 연동 */
   var AGES={ sub:['만 21세 이상','만 24세 이상','만 26세 이상','만 30세 이상','만 35세 이상'], rent:['만 21세 이상','만 26세 이상'] };
-  var state={co:'sonogong', pd:'렌트선택형', ins:'포함', ct:'개인', car:'등록완료', tax:'개인'};
+  var state={co:'sonogong', pd:'구독선택형', ins:'포함', ct:'개인', car:'등록완료', tax:'개인'};
 
   /* ── 데이터 모델: 템플릿 기본값(defaults) + 입력값(DATA) ── */
   var defaults={}, DATA={};
@@ -2251,7 +2179,7 @@
 
   /* ── 저장/복원/초기화 (localStorage) — 새로고침해도 계약 유지 ── */
   var LSKEY='jpk_rental_contract_draft';
-  var INIT_STATE={co:'sonogong', pd:'렌트선택형', ins:'포함', ct:'개인', car:'등록완료', tax:'개인'};
+  var INIT_STATE={co:'sonogong', pd:'구독선택형', ins:'포함', ct:'개인', car:'등록완료', tax:'개인'};
   var _saveT;
   /*
    * ⚠ 봉인본(SEALED)에서는 localStorage 를 «읽지도 쓰지도» 않는다.
@@ -2278,8 +2206,6 @@
   }
 
   function render(){
-    /* 실제 발행본도 서버가 봉인한 공급사 상태로만 문서 테마를 바꾼다. */
-    document.documentElement.dataset.contractBrand = state.co==='sonogong' ? 'sonogong' : 'standard';
     /*
      * ⚠ 봉인본은 «주입된 회사»만 쓴다.
      *   프리셋(state.co)은 단독 실행용 하네스의 편의 기능인데, 기본값이 'sonogong' 이라
@@ -2310,15 +2236,10 @@
 
     /* 상품 */
     var p=PRODUCTS[state.pd];
-    var sonogongSubscription = state.co==='sonogong' && p.sub;
     var insuranceSeparate = state.ins==='별도';
-    setDom('product_label', sonogongSubscription
-      ? '손오공 자동차 구독 · 보험료 '+(insuranceSeparate?'별도형':'포함형')
-      : p.label);
-    setDom('doc_title', sonogongSubscription ? '손오공 자동차 구독 약정서' : (p.sub ? '자동차 구독 계약서' : '자동차 장기대여 계약서'));
-    setDom('doc_kicker', sonogongSubscription
-      ? 'SONOKONG VEHICLE SUBSCRIPTION AGREEMENT · '+(insuranceSeparate?'INSURANCE SEPARATE':'INSURANCE INCLUDED')
-      : (p.sub ? 'AUTOMOBILE SUBSCRIPTION AGREEMENT' : 'LONG-TERM VEHICLE RENTAL AGREEMENT'));
+    setDom('product_label', '손오공 자동차 구독 · 보험료 '+(insuranceSeparate?'별도형':'포함형'));
+    setDom('doc_title', '손오공 자동차 구독 약정서');
+    setDom('doc_kicker', 'SONOKONG VEHICLE SUBSCRIPTION AGREEMENT · '+(insuranceSeparate?'INSURANCE SEPARATE':'INSURANCE INCLUDED'));
     applySubscriptionLabels(p.sub);
     if(!DATA.buyback_option) setDom('buyback_option', p.take ? '만기 시 인수 (인수형)' : '만기 반납 · 인수 별도 협의');
     if(!p.take && !DATA.buyback_price) setDom('buyback_price', '만기 협의');
@@ -2350,7 +2271,6 @@
     setDom('label_name', t.name); setDom('label_id', t.id); setDom('label_driver', t.driver);
     setDom('label_emergency', t.emergency);
     document.querySelectorAll('[data-note="corp"]').forEach(function(n){ n.style.display = t.corp?'':'none'; });
-    document.querySelectorAll('[data-corp]').forEach(function(n){ n.style.display = t.corp?'':'none'; });
 
     /* 법인 = 세금계산서 발행처 = 계약자(법인) 동일 → 입력/표 숨김 */
     var taxForm=document.querySelector('.bd-sec[data-group="세금계산서 발행처"]');
@@ -2387,14 +2307,13 @@
 
   /* ── 좌측 입력 폼(하네스) ── */
   var SELECTS=[
-    {k:'co', label:'회사', opts:[['sonogong','주식회사 손오공렌터카'],['switchplan','스위치플랜 주식회사'],['gyeongjinka','경진카 주식회사'],['gyeongjirentka','경진렌트카 주식회사'],['ironrentcar','주식회사 아이언렌트카'],['starssky','주식회사 스타스카이'],['sky','주식회사 스카이'],['leaders','주식회사 리더스렌트카'],['khrentcar','㈜케이에이치(KH) 렌트카'],['centro','㈜센트로렌트카'],['woori','우리캐피탈렌터카 ㈜'],['auto','공급사 자동 (재고 기준)']]},
-    {k:'pd', label:'상품', opts:[['구독인수형','구독 인수형'],['구독선택형','구독 선택형(반납)'],['렌트인수형','렌트 인수형'],['렌트선택형','렌트 선택형(반납)']]},
+    /* 이 원본은 손오공 구독 전용이다. 회사·렌트 상품을 고르는 공통 하네스를 노출하지 않는다. */
     {k:'ins', label:'구독 보험', opts:[['포함','포함형'],['별도','별도형']]},
     {k:'ct', label:'계약 유형', opts:[['개인','개인'],['법인','법인']]},
     {k:'car', label:'차량 상태', opts:[['등록완료','등록완료'],['신차','신차(출고 전)']]}
   ];
   var GROUPS=[
-    {t:'계약자', f:[['customer_name','성명/법인명'],['customer_id','주민/법인등록번호'],['driver_or_biz_no','면허/사업자번호'],['customer_phone','연락처'],['customer_email','이메일'],['customer_address','주소',2],['emergency_contact','비상 연락처',2]]},
+    {t:'계약자', f:[['customer_name','성명/법인명'],['customer_birth','생년월일'],['customer_id','법인등록번호'],['driver_or_biz_no','면허/사업자번호'],['customer_phone','연락처'],['customer_email','이메일'],['customer_address','주소',2],['emergency_contact','비상 연락처',2]]},
     {t:'세금계산서 발행처', f:[['tax_issue_type','발행 구분'],['tax_biz_name','상호'],['tax_biz_no','사업자등록번호'],['tax_ceo','대표자'],['tax_biz_type_item','업태/종목'],['tax_email','세금계산서 이메일'],['tax_biz_address','사업장 주소']]},
     {t:'대여 차량', f:[['vehicle_name','차명(전체) ★필수',2],['options','선택 옵션',2],['vehicle_classification','대여 상품'],['car_number','차량번호'],['vin','차대번호'],['model_year','연식'],['fuel','연료'],['engine_cc','배기량'],['odometer_delivery','출고 시 주행거리'],['color_exterior','외장 색상'],['color_interior','내장 색상']]},
     {t:'대여 조건', f:[['rent_month','대여기간'],['contract_start','차량 인도일'],['contract_end','대여 종료일'],['rent_amount','월 대여료'],['deposit_amount','보증금'],['deposit_installment','보증금 분납'],['driver_age','운전자 연령'],['driver_scope','운전 가능 범위'],['buyback_price','만기 인수가'],['special_terms','특약사항 (예외·추가 합의만)',2]]},
@@ -2580,7 +2499,7 @@
         if(S.state) Object.keys(S.state).forEach(function(k){ if(k in state) state[k]=S.state[k]; });
         if(/손오공/.test(String((S.fields||{}).company_name||''))){
           S.fields=S.fields||{};
-          if(!S.fields.company_logo) S.fields.company_logo='assets/logo-sonogong.webp';
+          if(!S.fields.company_logo) S.fields.company_logo='assets/logo-sonogong.png';
         }
         if(S.fields) window.Contract.setData(S.fields);
         /*

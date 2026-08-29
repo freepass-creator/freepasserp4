@@ -13,7 +13,7 @@ const S = (value: unknown): string => String(value ?? '').trim();
  */
 // v2는 정책 원문의 표기 차이를 정규화한 뒤, 실제로 받은 동의와 수납 방식까지
 // 함께 동결한다. v1/무버전 링크는 완료 PDF 열람만 보존하고 새 인도·정산에는 쓰지 않는다.
-export const FREEPASS_CONSENT_PROFILE_VERSION = 'freepass-consent-v2';
+export const FREEPASS_CONSENT_PROFILE_VERSION = 'freepass-consent-v4';
 export const FREEPASS_PAYMENT_METHODS = ['CMS 자동이체', '카드 자동결제', '계좌이체'] as const;
 export const FREEPASS_SUPPORTED_PAYMENT_METHOD = '계좌이체';
 
@@ -33,13 +33,8 @@ export type FreepassConsentProfile = {
   cmsRequiredBeforeHandover: boolean;
 };
 
-/**
- * CMS 출금동의·예금주 인증은 본계약과 별도 법정/금융 절차다. 아직 그 절차를
- * 보관·검증하는 흐름이 없으므로 고객 서명 뒤 인도에서 멈추게 하지 않고, 링크
- * 발행 전에 명시적으로 막는다.
- */
 export function freepassConsentOperationalBlocker(profile: FreepassConsentProfile): string {
-  if (!profile.requiresExternalPaymentAuthorization && profile.paymentMethod === FREEPASS_SUPPORTED_PAYMENT_METHOD) return '';
+  if (profile.paymentMethod === FREEPASS_SUPPORTED_PAYMENT_METHOD || profile.paymentMethod === 'CMS 자동이체') return '';
   const method = S(profile.paymentMethod) || '자동수납';
   return `${method} 상품은 수납 위임·본인인증 절차를 연결한 뒤 전자계약을 발행할 수 있습니다. 현재는 계좌이체 정책만 사용해 주세요.`;
 }
@@ -66,22 +61,27 @@ function normalizedSensitivePolicyEnum(
   return result.value;
 }
 
-function privacyAtom(landlordCompanyName: string): ConsentAtom {
+function privacyAtom(landlordCompanyName: string, customerType: string): ConsentAtom {
+  const corporate = customerType === '법인';
   return {
     key: 'privacy',
     label: '개인정보 수집·이용 및 계약 이행에 필요한 제공 동의',
     group: 'customer',
     required: true,
-    items: [
-      '성명', '주민등록번호', '연락처', '주소', '운전면허번호',
-      '비상연락처', '운전면허증 사진', '본인 셀카',
-    ],
-    purpose: '자동차 임대차계약 체결·이행, 본인확인, 운전자격 확인, 대여료 청구 및 세금계산서 발행',
+    items: corporate
+      ? ['법인명', '법인등록번호', '사업자등록번호', '담당자 연락처', '서명자 성명·관계', '제출 법인서류']
+      /* ★주민등록번호를 다시 받는다(사장님 2026-08-29). 저신용 대상이라 채권 추심에 필요하고,
+         기존 계약도 계약서로 받아 왔다. 저장은 암호화(rrn-crypto), 화면에는 생년월일만 보인다.
+         ⚠ 법령 근거는 지금 매출증빙(소득세법)뿐이다 — 신용조회 동의를 붙이는 것이 다음 숙제(ESIGN-MANUAL §2). */
+      : ['성명', '주민등록번호', '연락처', '주소', '운전면허번호', '비상연락처', '주민등록번호 뒷자리를 가린 운전면허증 사본', '본인 얼굴 사진'],
+    purpose: '자동차 임대차계약 체결·이행, 본인·운전자격 또는 법인 서명권 확인, 대여료 청구 및 매출증빙 발행',
     retention: '계약 종료 후 5년 및 관계 법령상 보존기간',
     recipients: landlordCompanyName ? [{
       name: landlordCompanyName,
       purpose: '자동차 임대차계약 심사·체결·이행 및 차량 인도 관리',
-      items: ['성명', '연락처', '주소', '운전면허번호', '계약 차량·조건'],
+      items: corporate
+        ? ['법인명', '사업자등록번호', '담당자 연락처', '서명자 성명·관계', '계약 차량·조건']
+        : ['성명', '주민등록번호', '연락처', '주소', '운전면허번호', '계약 차량·조건'],
     }] : [],
     refusalNote: '필수 개인정보 처리 동의를 거부하면 자동차 임대차계약의 체결 및 이행이 불가능합니다.',
   };
@@ -97,6 +97,19 @@ function gpsAtom(): ConsentAtom {
     purpose: '차량 도난·분실 방지, 사고 대응, 계약 이행 확인 및 연체·연락두절 시 차량 보호·회수',
     retention: '계약 기간 동안 수집하며 계약 종료 후 지체 없이 파기합니다. 다만 분쟁·채권 관련 자료는 해당 절차 종료 시까지 보관합니다.',
     refusalNote: '위치정보 수집 동의를 거부하면 GPS 장착 차량의 계약 체결이 제한될 수 있습니다.',
+  };
+}
+
+function cmsAtom(landlordCompanyName: string): ConsentAtom {
+  return {
+    key: 'cms_debit',
+    label: '자동이체 출금 동의 및 계좌정보 수집·이용 동의',
+    group: 'customer', required: true,
+    items: ['예금주 성명·계약자와의 관계·연락처', '은행명·계좌번호', '예금주 생년월일 또는 사업자등록번호'],
+    purpose: '계약서상 대여료의 자동이체 출금 등록 및 출금 관련 본인·예금주 확인',
+    retention: '계약 종료 후 관계 법령 및 금융거래 보존기간',
+    recipients: landlordCompanyName ? [{ name: landlordCompanyName, purpose: '대여료 자동이체 등록·청구 및 계약 이행', items: ['예금주 정보', '은행명·계좌번호', '계약 차량·대여료'] }] : [],
+    refusalNote: '자동이체 출금 동의를 거부하면 CMS 자동이체 방식으로 계약을 진행할 수 없습니다.',
   };
 }
 
@@ -128,6 +141,7 @@ export function buildFreepassConsentProfile(input: {
   paymentMethod: unknown;
   screeningCriteria: unknown;
   requiredDocuments: EsignRequiredDocument[];
+  customerType?: unknown;
 }): FreepassConsentProfile {
   const screeningCriteria = normalizedSensitivePolicyEnum(
     '심사조건', input.screeningCriteria, ['무심사', '소득확인', '신용조회'], '심사조건',
@@ -145,7 +159,8 @@ export function buildFreepassConsentProfile(input: {
   }
 
   const landlordCompanyName = S(input.landlordCompanyName);
-  const atoms: ConsentAtom[] = [privacyAtom(landlordCompanyName)];
+  const atoms: ConsentAtom[] = [privacyAtom(landlordCompanyName, S(input.customerType))];
+  if (paymentMethod === 'CMS 자동이체') atoms.push(cmsAtom(landlordCompanyName));
   if (gpsInstalled === '장착') atoms.push(gpsAtom());
   const documents = supportingDocumentsAtom(input.requiredDocuments, landlordCompanyName);
   if (documents) atoms.push(documents);
@@ -170,8 +185,10 @@ export function isFrozenFreepassConsentProfile(value: unknown): value is Freepas
   if (S(row.version) !== FREEPASS_CONSENT_PROFILE_VERSION) return false;
   if (!['무심사', '소득확인'].includes(S(row.screeningCriteria))) return false;
   if (!['장착', '미장착'].includes(S(row.gpsInstalled))) return false;
-  if (S(row.paymentMethod) !== FREEPASS_SUPPORTED_PAYMENT_METHOD) return false;
-  if (row.requiresExternalPaymentAuthorization !== false) return false;
+  if (![FREEPASS_SUPPORTED_PAYMENT_METHOD, 'CMS 자동이체'].includes(S(row.paymentMethod))) return false;
+  if (S(row.paymentMethod) === 'CMS 자동이체' && row.cmsRequiredBeforeHandover !== true) return false;
+  if (S(row.paymentMethod) === 'CMS 자동이체' && !keys.includes('cms_debit')) return false;
+  if (S(row.paymentMethod) === FREEPASS_SUPPORTED_PAYMENT_METHOD && row.requiresExternalPaymentAuthorization !== false) return false;
   if (!keys.includes('rental_terms') || !keys.includes('privacy')) return false;
   if ((S(row.gpsInstalled) === '장착') !== keys.includes('gps')) return false;
   const allowed = new Set(['rental_terms', ...atoms.map((atom) => S((atom as Record<string, unknown>)?.key)).filter(Boolean)]);

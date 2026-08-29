@@ -66,8 +66,10 @@ export const FIELD_MAP: FieldMap[] = [
   { field: 'customer_name', label: '성명', from: '계약', atom: 'customer_name' },
   { field: 'customer_phone', label: '전화번호', from: '계약', atom: 'customer_phone' },
   { field: 'customer_address', label: '주소', from: '계약', atom: 'customer_address' },
-  { field: 'customer_birth', label: '생년월일', from: '본인확인', note: '주민등록번호에서 완료본 생성 시 파생' },
-  { field: 'customer_id', label: '주민등록번호', from: '본인확인', note: '계약·세금계산서 발행에 필요한 범위에서 확인' },
+  { field: 'customer_birth', label: '생년월일', from: '본인확인', note: '개인 계약에서 직접 입력' },
+  { field: 'customer_id', label: '법인등록번호', from: '본인확인', note: '법인 계약에서만 수집' },
+  { field: 'signer_name', label: '법인 서명자 성명', from: '본인확인', note: '법인 계약에서만 수집' },
+  { field: 'signer_role', label: '법인과의 관계', from: '본인확인', note: '대표이사 또는 위임받은 임직원' },
   { field: 'driver_license_no', label: '면허번호', from: '본인확인', note: '면허증 첨부자료에서 확인' },
   { field: 'customer_insurance_evidence', label: '개인보험 가입증명서 확인', from: '본인확인', note: '보험별도형에서 고객 제출 증명서의 해시로 확인' },
 

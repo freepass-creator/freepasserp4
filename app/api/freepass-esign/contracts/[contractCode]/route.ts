@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { decryptRrn } from '@/lib/server/rrn-crypto';
 import { BearerTokenError, verifyActiveBearer } from '@/lib/server/firebase-admin';
 import {
   FREEPASS_ESIGN_CONSENT_VERSION,
@@ -29,6 +28,7 @@ import {
   type EsignRecord,
 } from '@/lib/server/freepass-esign';
 import { newId } from '@/lib/domain/ids';
+import { decryptRrn } from '@/lib/server/rrn-crypto';
 import { snapshotWithPrivateSubmission } from '@/lib/domain/esign-signed-snapshot';
 import { createAndStoreFreepassPdf } from '@/lib/server/freepass-esign-document';
 import { isEsignTemplateAllowed, isManualOfferTemplateAllowed } from '@/lib/domain/esign-templates';
@@ -49,6 +49,9 @@ const PRIVATE_HEADERS = {
   'X-Robots-Tag': 'noindex, nofollow, noarchive',
 };
 const S = (value: unknown) => String(value ?? '').trim();
+const record = (value: unknown): EsignRecord => value && typeof value === 'object' && !Array.isArray(value)
+  ? value as EsignRecord
+  : {};
 
 function json(body: Record<string, unknown>, status = 200) {
   return NextResponse.json(body, { status, headers: PRIVATE_HEADERS });
@@ -784,8 +787,9 @@ export async function POST(
     if ((S(session.status) !== 'pending_review' && !staleApproval) || !submission || !S(submission.signature)) {
       return json({ error: '검토대기 서명과 본인확인 자료가 모두 있어야 승인할 수 있습니다.' }, 409);
     }
-    if (!S(submission.idCardPath) || !S(submission.selfiePath)) {
-      return json({ error: '운전면허증 또는 셀카가 누락되었습니다.' }, 409);
+    const corporateCustomer = S(record(record(session.snapshot).templateState).ct) === '법인';
+    if (!corporateCustomer && (!S(submission.idCardPath) || !S(submission.selfiePath))) {
+      return json({ error: '운전면허증 또는 얼굴 사진이 누락되었습니다.' }, 409);
     }
     const approvalClaimId = hashFreepassSignToken(makeFreepassSignToken());
     const approvalClaim = await bundle.db.ref(`v4/esign_sessions/${hash}`).transaction((current) => {
@@ -904,10 +908,13 @@ export async function POST(
     const signedSubmission = customerInsuranceEvidence
       ? { ...submission, customer_insurance_evidence: customerInsuranceEvidence }
       : submission;
-    /* 봉인본에는 주민등록번호 원문이 들어간다 — 여기서만 푼다.
-       저장은 암호문이고, 이 한 줄 밖으로는 원문이 나가지 않는다. */
+    // 주민번호는 계약자 식별값으로 수집하지 않는다. 매출증빙을 위해 선택한 RRN
+    // 암호문은 private 제출자료에만 남고 PDF/봉인 스냅샷에는 절대 합성하지 않는다.
+    /* ★봉인본에만 주민등록번호 원문이 들어간다 — 여기서만 푼다.
+       저장은 암호문이고, 이 한 줄 밖으로는 원문이 나가지 않는다.
+       암호문이 아니면(법인등록번호·암호화 이전 계약) 그대로 돌려준다. */
     const signedSnapshot = snapshotWithPrivateSubmission(issueSnapshot, {
-      ...signedSubmission,
+      ...(signedSubmission as Record<string, unknown>),
       customer_id: decryptRrn((signedSubmission as Record<string, unknown>).customer_id),
     });
     const sealedSupportingDocuments = rawSupportingDocuments

@@ -18,6 +18,7 @@ import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 
 /** 저장된 값 앞에 붙는 표식. 13자리 평문과 겹치지 않아 «이미 암호화됐나»를 바로 안다. */
 const PREFIX = 'enc.v1.';
+const PRIVATE_PREFIX = 'enc.private.v1.';
 
 function key(): Buffer {
   const raw = String(process.env.FREEPASS_RRN_KEY || '').trim();
@@ -47,6 +48,18 @@ export function encryptRrn(value: unknown): string {
   const cipher = createCipheriv('aes-256-gcm', key(), iv);
   const ct = Buffer.concat([cipher.update(plain, 'utf8'), cipher.final()]);
   return PREFIX + [iv, cipher.getAuthTag(), ct].map((b) => b.toString('base64')).join('.');
+}
+
+/** 계좌번호처럼 공개 계약·PDF에 절대 남기지 않을 값의 서버 전용 암호화. */
+export function encryptPrivateValue(value: unknown, purpose: string): string {
+  const plain = String(value ?? '').trim();
+  if (!plain) return '';
+  if (plain.startsWith(PRIVATE_PREFIX)) return plain;
+  const iv = randomBytes(12);
+  const cipher = createCipheriv('aes-256-gcm', key(), iv);
+  cipher.setAAD(Buffer.from(`freepass:${purpose}`, 'utf8'));
+  const ct = Buffer.concat([cipher.update(plain, 'utf8'), cipher.final()]);
+  return PRIVATE_PREFIX + [iv, cipher.getAuthTag(), ct].map((b) => b.toString('base64')).join('.');
 }
 
 /**

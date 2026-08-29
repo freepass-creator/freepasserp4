@@ -1,4 +1,3 @@
-import { residentIdInfo } from '@/lib/domain/esign-resident-id';
 
 export type SignedSnapshotRecord = Record<string, unknown>;
 
@@ -53,7 +52,6 @@ export function snapshotWithPrivateSubmission(
   if (!submission) return snapshot;
   const currentFields = record(snapshot.templateFields) || {};
   const driverLicenseNo = S(submission.driver_license_no);
-  const resident = residentIdInfo(submission.customer_id);
   const additionalDrivers = Array.isArray(submission.additional_drivers)
     ? submission.additional_drivers.map(record).filter((row): row is SignedSnapshotRecord => !!row).slice(0, 3)
     : [];
@@ -63,14 +61,18 @@ export function snapshotWithPrivateSubmission(
   const confirmedFields: SignedSnapshotRecord = {
     customer_name: S(submission.customer_name),
     customer_phone: S(submission.customer_phone),
-    customer_id: S(submission.customer_id),
+    customer_id: S(submission.customer_id) || S(submission.customer_birth),
     customer_address: S(submission.customer_address),
-    customer_birth: resident?.birthDate || '',
+    // 개인 계약은 주민번호가 아니라 생년월일만 받는다. RRN은 매출증빙을 위해
+    // 고객이 명시적으로 선택한 경우에만 private node에 암호문으로 남고 PDF에는 싣지 않는다.
+    customer_birth: S(submission.customer_birth),
     driver_license_no: driverLicenseNo,
     driver_or_biz_no: driverLicenseNo,
     tax_biz_name: S(submission.tax_biz_name), tax_biz_no: S(submission.tax_biz_no), tax_ceo: S(submission.tax_ceo),
     tax_biz_type_item: S(submission.tax_biz_type_item), tax_email: S(submission.tax_email), tax_biz_address: S(submission.tax_biz_address),
     tax_issue_type: S(submission.tax_issue_type),
+    signer_name: S(submission.signer_name),
+    signer_role: S(submission.signer_role),
     emergency_contact: [S(submission.emergency_relation), S(submission.emergency_name), S(submission.emergency_phone)]
       .filter(Boolean)
       .join(' · '),

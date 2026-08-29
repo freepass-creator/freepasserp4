@@ -59,9 +59,34 @@ export const ESIGN_DOCUMENT_PRESETS: Array<{
       { key: 'business_registration', label: '사업자등록증', note: '현재 법인 정보가 보이는 사본을 첨부해 주세요.', required: true },
       { key: 'corporate_registry', label: '법인등기부등본', note: '최근 3개월 이내 발급본을 첨부해 주세요.', required: true },
       { key: 'corporate_seal', label: '법인인감증명서', note: '최근 3개월 이내 발급본을 첨부해 주세요.', required: true },
+      { key: 'delegation_letter', label: '위임장', note: '위임받은 임직원이 서명하는 경우 첨부해 주세요.', required: false },
+      { key: 'employment_certificate', label: '재직증명서', note: '위임받은 임직원이 서명하는 경우 첨부해 주세요.', required: false },
     ],
   },
 ];
+
+/** 법인 임차인은 계약당사자, 서명자는 대표자 또는 위임받은 임직원이다. */
+export const SIGNER_ROLES = ['대표이사', '위임받은 임직원'] as const;
+export const DELEGATED_SIGNER_ROLE = '위임받은 임직원';
+
+/**
+ * 발행 시에는 위임 여부를 알 수 없으므로 선택 서류로 동결한다. 고객이 위임받은
+ * 임직원을 고르면 제출 직전에만 두 서류를 필수로 올린다.
+ */
+export function applySignerRoleToDocuments(
+  documents: EsignRequiredDocument[],
+  signerRole: unknown,
+): EsignRequiredDocument[] {
+  const delegated = S(signerRole) === DELEGATED_SIGNER_ROLE;
+  const required = (key: string) => delegated && (key === 'delegation_letter' || key === 'employment_certificate');
+  const base = documents.map((document) => ({ ...document, required: document.required || required(document.key) }));
+  if (!delegated) return base;
+  const additions: EsignRequiredDocument[] = [
+    { key: 'delegation_letter', label: '위임장', note: '법인 명의의 서명 권한 위임장을 첨부해 주세요.', required: true },
+    { key: 'employment_certificate', label: '재직증명서', note: '서명자의 재직을 확인할 수 있는 서류를 첨부해 주세요.', required: true },
+  ];
+  return mergeEsignRequiredDocuments(base, additions);
+}
 
 function safeKey(value: unknown, index: number, used: Set<string>): string {
   const base = S(value).toLowerCase().replace(/[^a-z0-9_-]/g, '_').replace(/^_+|_+$/g, '')

@@ -198,7 +198,7 @@ const EVENT_LABEL: Record<string, string> = {
   handover_confirmed: '인도일 확정',
 };
 const SUPPLEMENT_ITEMS = [
-  { key: 'identity', label: '운전면허증·셀카' },
+  { key: 'identity', label: '운전면허증·얼굴 사진' },
   { key: 'documents', label: '추가 제출서류' },
   { key: 'contract', label: '계약정보' },
   { key: 'agreement', label: '약관확인' },
@@ -672,11 +672,11 @@ export function FreepassEsignStagePane({
               <WorkRow label="이름 · 연락처">{[submission.customerName, submission.customerPhone].filter(Boolean).join(' · ') || '—'}</WorkRow>
               <WorkRow label="운전면허번호" valueStyle={{ color: submission.driverLicenseNo ? C.ok : C.danger }}>{submission.driverLicenseNo ? '접수' : '누락'}</WorkRow>
               <WorkRow label="운전면허증" valueStyle={{ color: submission.idCard ? C.ok : C.danger }}>{submission.idCard ? '접수' : '누락'}</WorkRow>
-              <WorkRow label="본인 셀카" valueStyle={{ color: submission.selfie ? C.ok : C.danger }}>{submission.selfie ? '접수' : '누락'}</WorkRow>
+              <WorkRow label="본인 얼굴 사진" valueStyle={{ color: submission.selfie ? C.ok : C.danger }}>{submission.selfie ? '접수' : '누락'}</WorkRow>
             </WorkTable>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {submission.assetUrls?.idCard ? <Btn title="운전면허증 확인" variant="ghost" onClick={() => void openAsset(submission.assetUrls!.idCard!)}>운전면허증 확인</Btn> : null}
-              {submission.assetUrls?.selfie ? <Btn title="본인 셀카 확인" variant="ghost" onClick={() => void openAsset(submission.assetUrls!.selfie!)}>본인 셀카 확인</Btn> : null}
+              {submission.assetUrls?.selfie ? <Btn title="본인 얼굴 사진 확인" variant="ghost" onClick={() => void openAsset(submission.assetUrls!.selfie!)}>본인 얼굴 사진 확인</Btn> : null}
             </div>
             {(submission.additionalDrivers || []).length ? (
               <>
@@ -837,7 +837,7 @@ export function FreepassEsignStagePane({
       {stageCard}
       <EsignContractSummary contract={current} policy={policy} providerName={providerName} />
       {issued ? (
-        <WorkTable title="이력" hint="운전면허증·셀카 원본과 서명은 공개 계약 데이터가 아니라 서버 전용 저장소에 보관됩니다.">
+        <WorkTable title="이력" hint="운전면허증·얼굴 사진 원본과 서명은 공개 계약 데이터가 아니라 서버 전용 저장소에 보관됩니다.">
           {events.length ? events.map((event, index) => (
             <WorkRow key={`${event.type}-${event.at}-${index}`} label={EVENT_LABEL[S(event.type)] || S(event.type)}>{[stamp(event.at), event.handoverDate, ...(event.items || []).map((key) => SUPPLEMENT_LABEL[key] || key)].filter(Boolean).join(' · ')}</WorkRow>
           )) : <WorkRow label="진행 이력">—</WorkRow>}
