@@ -1,15 +1,17 @@
 // UI 토큰 SSOT(리프 — ui 다른 파일은 이걸 import, 순환 없음). globals.css 변수 브릿지.
 export const C = {
   ink: 'var(--text-main)', mute: 'var(--text-sub)', sub: 'var(--text-sub)', faint: 'var(--text-weak)',
-  line: 'var(--border)', line2: 'var(--border-soft)',
+  line: 'var(--border)', line2: 'var(--border-soft)', lineStrong: 'var(--border-strong)',
   bg: 'var(--bg-page)', zebra: 'var(--bg-stripe)', head: 'var(--bg-header)', hover: 'var(--bg-hover)',
   danger: 'var(--red-text)', ok: 'var(--green-text)', warn: 'var(--orange-text)', accent: 'var(--text-link)',
   brand: 'var(--brand)', brandDeep: 'var(--brand-h)', taupe: 'var(--text-sub)', taupeBg: 'var(--bg-card)', taupeLine: 'var(--border)',
   placeholder: 'var(--bg-placeholder)', // 사진/빈 서피스 배경
+  sunken: 'var(--bg-sunken)',           // 한 겹 내려앉은 바닥 — 그 위에 흰 카드가 얹힌다(영업자 칼럼 등)
   selected: 'var(--bg-selected)',       // 선택 행/항목 강조 배경
   warnBg: 'var(--orange-bg)',           // 수기입력·주의 앰버 틴트 배경(=#fff7ed)
   warnLine: 'var(--orange-border)',     // 앰버 면(面)의 테두리. C.warn(글자색)을 테두리로 쓰면 알림 배너만큼 시끄럽다
   okBg: 'var(--green-bg)',              // 완료 스텝·성공 틴트
+  dangerBg: 'var(--red-bg)',            // 취소·반려 틴트 배경. 다크에서도 같이 뒤집힌다(생 hex 로 쓰면 안 뒤집힌다)
   inverse: 'var(--text-inverse)',       // 대비 글자(흰/검정 — 테마 따라)
   focusRing: 'var(--focus-ring)',       // 포커스 링 틴트
 };
@@ -129,7 +131,7 @@ export const KV_LABEL_W = 116;
 
 /**
  * 컨트롤이 들어가는 행의 세로 패딩 SSOT.
- * 모바일은 CTRL.md=CTRL.sm=36 이라 행 높이(ctrlH)와 버튼 높이가 같아진다 —
+ * 모바일 md 버튼은 40이라 행 구분선에 0px로 붙지 않게 세로 패딩이 필요하다 —
  * 세로 패딩이 없으면 버튼 테두리가 행 구분선에 0px로 맞닿아 "표 안에 끼인" 것처럼 보인다.
  * 웹은 행 32 vs 버튼 28 이라 이미 상하 2px가 남으므로 0(현행 렌더 보존).
  * 값 8 = 스택형 DetailRow·FeedListRow·MetricRow가 이미 쓰는 세로 패딩과 동일.
