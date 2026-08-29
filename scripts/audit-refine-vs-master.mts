@@ -1,186 +1,464 @@
 /**
- * **정제칸 ↔ 「차종마스터 신규」 시트 전수 대조(읽기 전용).**
+ * **정제칸 ↔ F03 차종마스터(7열) + 제원마스터(별도 탭) 전수 대조(읽기 전용).**
  *
- * ★사장님 2026-08-21 「정제시트 정제칸에 차종마스터 신규로 다 채워넣었어… 검증해봐」
- *   → 「차종마스터 신규 파일 있거든?」 + 링크.
+ * 정본 = `[F03 사용중] 차종마스터 신규` (`ENCAR_MASTER_SHEET_ID`).
+ *   · 차종마스터 탭 = 이름 7열(원산지·제조사·모델·세부모델·세부트림·생산시작·생산종료)
+ *   · 제원마스터 탭 = 구분·값 허용목록(연료·배기량(cc)·구동방식). 차종 행과 cc로 안 쪼갠다.
+ *   · 전기 kWh = 전기차배터리마스터(세부모델 키). 인승·차종크기/구분은 제원탭에 없음 → 대조 안 함.
  *
- * ★★사전이 무엇인지부터 시트에 물어야 한다 — 내가 두 번 틀린 자리다.
- *   그 시트 「안내」 탭이 스스로 이렇게 적고 있다:
- *     · 「프리패스 ERP 원장 「차종마스터」(mf-…)는 보지 않는다. **이 시트가 차명·제원 사전이다.**」
- *     · 「이 시트가 정본. 연식·연료·배기량·구동·**차종크기·차종구분은 이 시트 칸.**」
- *     · 「이 시트(엔카) = 르노코리아 · KG모빌리티. **공급사 칸 = 르노 · KGM.
- *        제조사(정제)에는 공급사 표기를 넣는다.**」
- *   1차 감사는 `public/data/vehicle-master.json` 을 사전으로 삼고 제조사도 시트 표기로 견줘서
- *   **「제조사 어긋남 55건」을 지어냈다** — 규칙대로 맞게 들어간 값이었다. `canonMakerDisplay` 로 접는다.
- *   ⇒ **도구를 돌리기 전에 그 도구가 무엇을 정본으로 읽는지 먼저 확인한다.**
+ * 대상 = 드라이브 「프리패스 재고」 [제공]·[정제] 전 재고 탭(F01 프록시 아님).
+ * 산출 버킷 = 자동후보 / 검수대기 / 읽기실패.
+ *   ★읽기실패를 0건으로 숨기지 않는다. 한 공급사라도 못 읽으면 이 실행은 실패(exit 1).
  *
- * ★무엇을 보나 — 팔 수 있는 줄(출고불가 아님)마다
- *   ① 채웠나        핵심 6칸(제조사(정제)·모델·세부모델·연료(정제)·차종크기·차종구분)
- *   ② 이름이 있나    세부모델이 시트에 있는가
- *   ③ 값이 맞나      제조사(접은 이름)·1차모델·원산지가 시트와 같은가
- *   ④ 갈래가 맞나    연료·배기량이 그 세부모델의 원자(U) 안에 있는가
- *   ⑤ 차급이 맞나    차종크기·차종구분이 시트 칸과 같은가  ← 이게 정본이다
- *   ⑥ 합친 게 맞나   차종분류 = 차종크기 + 차종구분
- *
- * ★아무것도 안 고친다. 목록은 tmp/refine-vs-master.json.
+ * 시트·정제칸 쓰기 없음. 라이브 mf- 안 봄. high/자동후보 ≠ 확정.
  *
  *   npx tsx scripts/audit-refine-vs-master.mts
  *   npx tsx scripts/audit-refine-vs-master.mts --only=아이카,오토플러스
  */
-import { readFileSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
-import { SHEET_NAME_MATCH, isOurNonInventoryTab, supplierSheetLabel } from '../lib/domain/supplier-template-sheet';
-import { MIRROR_SOURCES } from '../lib/domain/mirror-sources';
-import { ENCAR_MASTER_SHEET_ID } from '../lib/domain/legacy-sheets';
+import { SHEET_NAME_MATCH, isOurNonInventoryTab, isVehicleTab, LEGACY_SHEET_PREFIX, supplierSheetLabel, supplierSheetNameParts } from '../lib/domain/supplier-template-sheet';
+import { isMirrorSheet } from '../lib/domain/mirror-sources';
+import { ENCAR_MASTER_SHEET_ID, ENCAR_NAME_COLUMNS, ENCAR_SPEC_TAB, loadEncarWorkSheetGrids } from '../lib/domain/encar-master-sheet';
+import { isLegacySheetId } from '../lib/domain/legacy-sheets';
 import { canonMakerDisplay } from '../lib/domain/maker-display';
+import { VEHICLE_CLASS_VALUES } from '../lib/intake/entities';
+import { companyAlias, supplierNameKeys } from '../lib/domain/identity';
+import {
+  attachFromEncarSheet,
+  fold,
+  selfCheckEncarMatch,
+  workBookFromTabs,
+  type NameRow,
+  type WorkBook,
+} from '../lib/domain/encar-work-sheet-match';
 
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
-const norm = (v: unknown) => S(v).replace(/\s+/g, '');
-const key = (v: unknown) => norm(v).toLowerCase().replace(/[()（）\-_.·,/]/g, '');
 const arg = (k: string) => (process.argv.find((a) => a.startsWith(`--${k}=`)) || '').slice(k.length + 3);
 const ONLY = new Set(arg('only').split(',').map(S).filter(Boolean));
 const sleep = (ms: number) => new Promise((ok) => setTimeout(ok, ms));
+const RULE_VERSION = 'f03-7col+spec-tab-2026-08-29';
+const CLASS = new Set(VEHICLE_CLASS_VALUES.map((c) => c.replace(/\s+/g, '').toLowerCase()));
+const sha16 = (s: string) => createHash('sha256').update(s).digest('hex').slice(0, 16);
+const a1Tab = (t: string) => `'${t.replace(/'/g, "''")}'`;
 
-// ── 인증
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
-const jwt = new JWT({ email: sa.client_email, key: sa.private_key, subject: 'pyh@teamjpk.com', scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'] });
+const jwt = new JWT({
+  email: sa.client_email, key: sa.private_key, subject: 'pyh@teamjpk.com',
+  scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'],
+});
 const call = async (u: string): Promise<Rec> => {
   for (let n = 0; ; n++) {
     const t = (await jwt.getAccessToken()).token;
     const r = await fetch(u, { headers: { Authorization: `Bearer ${t}` } });
     const x = await r.text();
     if (r.ok) return x ? JSON.parse(x) : {};
-    if ((r.status === 429 || r.status >= 500) && n < 6) { await sleep(20_000 * (n + 1)); continue; }
-    throw new Error(`${r.status} ${x.slice(0, 120)}`);
+    if ((r.status === 429 || r.status >= 500) && n < 6) { await sleep(Math.min(60_000, 5_000 * 2 ** n)); continue; }
+    throw new Error(`${r.status} ${x.slice(0, 180)}`);
   }
 };
 
-// ── 사전 = 「차종마스터 신규」 시트 「차종마스터」 탭. 한 줄이 원자(U) 하나다.
-type Atom = { fuel: string; cc: number; liter: number; drive: string };
-type Spec = { maker: string; model: string; origin: string; size: string; kind: string; atoms: Atom[] };
-const SPEC = new Map<string, Spec>();          // 세부모델 이름 → 규격
-{
-  const rows = ((await call(`https://sheets.googleapis.com/v4/spreadsheets/${ENCAR_MASTER_SHEET_ID}/values/${encodeURIComponent('차종마스터!A1:AB5000')}`)).values || []) as string[][];
-  const h = (rows[0] || []).map(norm);
-  const at = (n: string) => h.indexOf(norm(n));
-  const [ci, oi, mi, mo, si, fi, cc, li, di, zi, ki] = ['세부모델', '원산지', '제조사', '1차모델', '세부모델', '연료', '정확배기량(cc)', '표시배기량(L)', '구동방식', '차종크기', '차종구분'].map(at);
-  if (ci < 0 || zi < 0 || ki < 0) throw new Error(`「차종마스터」 탭 머리행이 낯설다: ${h.filter(Boolean).slice(0, 10).join('·')}`);
-  for (const r of rows.slice(1)) {
-    const sub = S(r[si]); if (!sub) continue;
-    const k = key(sub);
-    const cur = SPEC.get(k) || { maker: canonMakerDisplay(S(r[mi])), model: S(r[mo]), origin: S(r[oi]), size: S(r[zi]), kind: S(r[ki]), atoms: [] };
-    cur.atoms.push({ fuel: S(r[fi]), cc: Number(S(r[cc]).replace(/[^0-9]/g, '')) || 0, liter: Number(S(r[li])) || 0, drive: S(r[di]) });
-    // ★차급은 그 세부모델 안에서 갈리지 않아야 정상이다. 갈리면 첫 줄을 쓰고 아래에서 「시트가 갈림」으로 센다.
-    if (!cur.size && S(r[zi])) cur.size = S(r[zi]);
-    if (!cur.kind && S(r[ki])) cur.kind = S(r[ki]);
-    SPEC.set(k, cur);
-  }
-  console.log(`■ 사전 — 「차종마스터 신규」 시트 「차종마스터」 탭 ${rows.length - 1}줄 → 세부모델 ${SPEC.size}종`);
+function hdrRow(grid: unknown[][], ...need: string[]): number {
+  const n = (s: string) => S(s).replace(/\s+/g, '');
+  const want = need.map(n);
+  return (grid || []).slice(0, 8).findIndex((r) => want.every((w) => (r || []).some((c) => n(S(c)) === w)));
 }
 
-const MIRROR = new Set(MIRROR_SOURCES.map((m) => m.name));
-const q = `name contains '${SHEET_NAME_MATCH}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`;
-const books = (((await call(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)&pageSize=100&includeItemsFromAllDrives=true&supportsAllDrives=true`)).files || []) as Rec[])
-  .map((f) => ({ id: S(f.id), label: supplierSheetLabel(S(f.name)) })).sort((a, b) => a.label.localeCompare(b.label));
+type SpecContract = { headers: string[]; kinds: Record<string, string[]>; fuels: string[]; ccs: number[]; drives: string[] };
+function specContractFromGrid(specGrid: unknown[][], book: WorkBook): SpecContract {
+  const grid = (specGrid || []).map((r) => (r || []).map(S));
+  const at = hdrRow(grid, '구분', '값');
+  if (at < 0) throw new Error(`제원마스터 머리글을 못 찾음: ${(grid[0] || []).join('|')}`);
+  const headers = grid[at];
+  const ki = headers.findIndex((h) => h.replace(/\s+/g, '') === '구분');
+  const vi = headers.findIndex((h) => h.replace(/\s+/g, '') === '값');
+  const kinds = new Map<string, string[]>();
+  for (const r of grid.slice(at + 1)) {
+    const k = S(r[ki]); const v = S(r[vi]);
+    if (!k || !v) continue;
+    (kinds.get(k) || kinds.set(k, []).get(k)!).push(v);
+  }
+  const kindObj = Object.fromEntries([...kinds.entries()]);
+  const expected = ['연료', '배기량(cc)', '구동방식'];
+  const extra = [...kinds.keys()].filter((k) => !expected.includes(k) && k !== '배기량');
+  if (!kinds.has('연료') || !kinds.has('구동방식')) {
+    throw new Error(`제원마스터 계약이 다름(구분=${[...kinds.keys()].join('·')}): ${headers.join('|')}`);
+  }
+  if (extra.length) {
+    throw new Error(`제원마스터에 예상 밖 구분 ${extra.join('·')} — 계약을 확인하고 감사기를 맞춰라`);
+  }
+  return { headers, kinds: kindObj, fuels: [...book.fuels], ccs: [...book.ccs].sort((a, b) => a - b), drives: [...book.drives] };
+}
 
-const CORE = ['제조사(정제)', '모델', '세부모델', '연료(정제)', '차종크기', '차종구분'];
+function fuelInSpec(raw: string, allowed: Set<string>): string {
+  const f = fold(raw);
+  if (!f || /phev|플러그인/.test(f)) return '';
+  const map: Record<string, string> = {
+    가솔린: '가솔린', 휘발유: '가솔린', gasoline: '가솔린',
+    디젤: '디젤', 경유: '디젤', diesel: '디젤',
+    lpg: 'LPG', lpi: 'LPG', 엘피지: 'LPG',
+    하이브리드: '하이브리드', hev: '하이브리드',
+    전기: '전기', ev: '전기',
+    수소: '수소',
+  };
+  const hit = map[f] || [...allowed].find((x) => fold(x) === f) || '';
+  return hit && allowed.has(hit) ? hit : '';
+}
+
+function driveInSpec(raw: string, allowed: Set<string>): string {
+  const s = S(raw);
+  if (!s) return '';
+  const u = s.toUpperCase();
+  if (s === '2WD' || s === 'RWD' || s === 'AWD') return allowed.has(s) ? s : '';
+  // 4WD·4륜은 제원 허용값에 없음 → 자동후보로 접지 않음(AWD 갈림은 사람)
+  if (/\b4WD\b/.test(u) || /4륜|사륜/.test(s)) return '';
+  if (/(4MATIC|XDRIVE|QUATTRO|HTRAC)/i.test(s) || /\bAWD\b/.test(u)) return allowed.has('AWD') ? 'AWD' : '';
+  if (/\bRWD\b/.test(u) || /후륜/.test(s)) return allowed.has('RWD') ? 'RWD' : '';
+  if (/\bFWD\b/.test(u) || /전륜|2륜/.test(s) || /\b2WD\b/.test(u)) return allowed.has('2WD') ? '2WD' : '';
+  return '';
+}
+
+function ccInSpec(raw: string, allowed: Set<number>): number | undefined {
+  const s = S(raw).replace(/(\d),(\d{3})(?!\d)/g, '$1$2');
+  const m = /(\d{3,5})/.exec(s);
+  if (!m) return undefined;
+  const n = Number(m[1]);
+  if (n < 800 || n > 8000) return undefined;
+  if (allowed.has(n)) return n;
+  const liter = Number((n / 1000).toFixed(1));
+  const hit = [...allowed].filter((c) => Number((c / 1000).toFixed(1)) === liter);
+  return hit.length === 1 ? hit[0] : undefined;
+}
+
+type NameIdx = {
+  bySub: Map<string, NameRow[]>;
+  trims: Map<string, Set<string>>;
+  origins: Map<string, Set<string>>;
+  batBySub: Map<string, Set<string>>;
+};
+function buildIdx(book: WorkBook): NameIdx {
+  const idx: NameIdx = { bySub: new Map(), trims: new Map(), origins: new Map(), batBySub: new Map() };
+  const add = (m: Map<string, Set<string>>, k: string, v: string) => {
+    if (!v) return;
+    (m.get(k) || m.set(k, new Set()).get(k)!).add(v);
+  };
+  for (const r of book.names) {
+    const sk = fold(r.sub);
+    (idx.bySub.get(sk) || idx.bySub.set(sk, []).get(sk)!).push(r);
+    add(idx.trims, `${fold(r.maker)}|${fold(r.model)}|${sk}`, r.trim);
+    add(idx.origins, fold(r.maker), r.origin);
+  }
+  for (const b of book.batteries) add(idx.batBySub, `${fold(b.maker)}|${fold(b.model)}|${fold(b.sub)}`, b.kwh);
+  return idx;
+}
+
+function inSet(set: Set<string> | undefined, val: string): boolean {
+  if (!set || !val) return false;
+  const f = fold(val);
+  for (const x of set) if (fold(x) === f) return true;
+  return false;
+}
+
+function sheetMakerOf(raw: string, book: WorkBook): string {
+  const disp = canonMakerDisplay(raw) || S(raw);
+  if (!disp) return '';
+  const exact = book.names.find((r) => r.maker === disp || r.maker === raw)?.maker;
+  if (exact) return exact;
+  return book.names.find((r) => canonMakerDisplay(r.maker) === disp)?.maker || '';
+}
+
+function pickRows(idx: NameIdx, sub: string, makerSheet: string, model: string): NameRow[] {
+  let rows = idx.bySub.get(fold(sub)) || [];
+  if (makerSheet) rows = rows.filter((r) => fold(r.maker) === fold(makerSheet) || canonMakerDisplay(r.maker) === canonMakerDisplay(makerSheet));
+  if (model) rows = rows.filter((r) => fold(r.model) === fold(model));
+  return rows;
+}
+
+type Bucket = '자동후보' | '검수대기' | '읽기실패';
 type Issue = { supplier: string; mirror: boolean; plate: string; kind: string; detail: string };
+type RowOut = {
+  bucket: Bucket;
+  supplier: string; kind: string; tab: string; plate: string; status: string;
+  raw: { 차명: string; 연식: string; 연료: string; 배기량: string; 구동: string };
+  filled: { 제조사: string; 모델: string; 세부모델: string; 세부트림: string; 연료: string; 배기량: string; 구동: string; 배터리: string; 원산지: string };
+  attached: { 모델: string; 세부모델: string; 세부트림: string };
+  reasons: string[];
+  sourceHash: string;
+};
+type ReadFail = { supplier: string; id: string; tab: string; error: string };
+
+const grids = await loadEncarWorkSheetGrids(call);
+const book = workBookFromTabs(grids);
+const checks = selfCheckEncarMatch(book);
+if (checks.length) {
+  console.error('⛔ 매처 자가검증 실패 (F03)\n' + checks.map((x) => `  ${x}`).join('\n'));
+  process.exit(1);
+}
+const nameAt = hdrRow(grids.names, '제조사', '세부모델', '세부트림');
+if (nameAt < 0) throw new Error(`차종마스터 머리글을 못 찾음: ${(grids.names[0] || []).join('|')}`);
+const nameHdr = (grids.names[nameAt] || []).map(S);
+const missingName = ENCAR_NAME_COLUMNS.filter((c) => !nameHdr.some((h) => h.replace(/\s+/g, '') === c.replace(/\s+/g, '')));
+if (missingName.length) throw new Error(`차종마스터 7열 계약이 다름(없음 ${missingName.join('·')}): ${nameHdr.join('|')}`);
+const spec = specContractFromGrid(grids.specs, book);
+const idx = buildIdx(book);
+const f03Meta = await call(`https://www.googleapis.com/drive/v3/files/${ENCAR_MASTER_SHEET_ID}?fields=id,name,modifiedTime,version&supportsAllDrives=true`);
+const f03NameHash = sha16(book.names.map((r) => [r.origin, r.maker, r.model, r.sub, r.trim, r.start, r.end].join('|')).join('\n'));
+const f03SpecHash = sha16(JSON.stringify(spec.kinds));
+console.log(`■ F03 사전 — 차종마스터 ${book.names.length}행 7열(${nameHdr.join('·')})`);
+console.log(`  제원마스터 계약 ${ENCAR_SPEC_TAB} 머리 ${spec.headers.join('·')} · 구분 ${Object.keys(spec.kinds).join('·')}`);
+console.log(`  연료 ${spec.fuels.join('/')} · 구동 ${spec.drives.join('/')} · cc ${spec.ccs.length} · 배터리 ${book.batteries.length}`);
+console.log(`  제원탭에 없는 축(대조 안 함): 인승 · 차종크기 · 차종구분`);
+console.log(`  규칙 ${RULE_VERSION} · 수정시각 ${S(f03Meta.modifiedTime)} · 이름해시 ${f03NameHash} · 제원해시 ${f03SpecHash}`);
+
+const targets: { name: string; id: string; sheetKind: string; sheetName: string }[] = [];
+{
+  const q = `name contains '${SHEET_NAME_MATCH}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`;
+  let page = '';
+  for (;;) {
+    const u = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=nextPageToken,files(id,name)&pageSize=100&includeItemsFromAllDrives=true&supportsAllDrives=true${page ? `&pageToken=${encodeURIComponent(page)}` : ''}`;
+    const got = await call(u);
+    for (const f of ((got.files || []) as Rec[])) {
+      const nm = S(f.name);
+      const who = companyAlias(supplierSheetLabel(nm)) || supplierSheetLabel(nm);
+      if (nm.startsWith(LEGACY_SHEET_PREFIX) || /구버전/.test(nm) || isLegacySheetId(S(f.id))) continue;
+      if (ONLY.size && ![...supplierNameKeys(who)].some((k) => ONLY.has(k))) continue;
+      const parts = supplierSheetNameParts(nm);
+      targets.push({ name: who, id: S(f.id), sheetKind: parts.kind || (isMirrorSheet(S(f.id)) ? '정제' : ''), sheetName: nm });
+    }
+    if (!got.nextPageToken) break;
+    page = S(got.nextPageToken);
+  }
+  targets.sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+}
+if (!targets.length) throw new Error('프리패스 재고 시트를 한 장도 못 찾았다 — 0건으로 넘기지 않음');
+
+const rows: RowOut[] = [];
 const issues: Issue[] = [];
-let cars = 0, blankCore = 0, named = 0;
-const perSupplier = new Map<string, { cars: number; blank: number; bad: number }>();
+const readFails: ReadFail[] = [];
+const perSupplier = new Map<string, { cars: number; auto: number; review: number }>();
+let blankCore = 0;
 
-for (const b of books) {
-  if (ONLY.size && !ONLY.has(b.label)) continue;
-  const meta = await call(`https://sheets.googleapis.com/v4/spreadsheets/${b.id}?fields=sheets.properties(title,hidden)`);
-  for (const p of ((meta.sheets || []) as Rec[]).map((s) => s.properties as Rec)) {
-    const tab = S(p.title);
-    if (p.hidden || isOurNonInventoryTab(tab) || !/재고/.test(tab) || /상품시트/.test(tab)) continue;
-    let rows: string[][];
-    try {
-      rows = (((await call(`https://sheets.googleapis.com/v4/spreadsheets/${b.id}/values/${encodeURIComponent(`${tab}!A1:CZ700`)}`)).values || []) as string[][]);
-    } catch { continue; }
-    const hi = rows.findIndex((r) => r.some((c) => norm(c) === '차량번호'));
-    if (hi < 0) continue;
-    const h = rows[hi].map(norm);
-    const at = (name: string) => h.indexOf(norm(name));
-    const pi = at('차량번호'), si = at('상태');
-    for (const r of rows.slice(hi + 1)) {
-      const plate = norm(r[pi]);
+function failRead(supplier: string, id: string, tab: string, error: string) {
+  readFails.push({ supplier, id, tab, error });
+  console.log(`  ✗ 읽기실패 ${supplier}${tab ? ` / ${tab}` : ''} — ${error.slice(0, 120)}`);
+}
+
+for (const t of targets) {
+  let meta: Rec;
+  try {
+    meta = await call(`https://sheets.googleapis.com/v4/spreadsheets/${t.id}?fields=sheets.properties(title,hidden)`);
+  } catch (e) {
+    failRead(t.name, t.id, '', `시트를 못 열었다: ${String((e as Error).message)}`);
+    continue;
+  }
+  const tabTitles = ((meta.sheets || []) as Rec[])
+    .map((s) => s.properties as Rec)
+    .filter((p) => !p.hidden && !isOurNonInventoryTab(S(p.title)) && isVehicleTab(S(p.title)))
+    .map((p) => S(p.title));
+  if (!tabTitles.length) {
+    failRead(t.name, t.id, '', '재고 탭 없음');
+    continue;
+  }
+  let got: Rec;
+  try {
+    const qs = tabTitles.map((x) => `ranges=${encodeURIComponent(a1Tab(x))}`).join('&');
+    got = await call(`https://sheets.googleapis.com/v4/spreadsheets/${t.id}/values:batchGet?${qs}&majorDimension=ROWS`);
+  } catch (e) {
+    failRead(t.name, t.id, '', `값을 못 읽었다: ${String((e as Error).message)}`);
+    continue;
+  }
+  const ranges = (got.valueRanges || []) as Rec[];
+  if (ranges.length !== tabTitles.length) {
+    failRead(t.name, t.id, '', `탭 ${tabTitles.length} vs 값범위 ${ranges.length}`);
+    continue;
+  }
+  const st = perSupplier.get(t.name) || { cars: 0, auto: 0, review: 0 };
+  const mirror = isMirrorSheet(t.id) || t.sheetKind === '정제';
+  let tabOk = 0;
+  for (let ti = 0; ti < tabTitles.length; ti++) {
+    const title = tabTitles[ti];
+    const grid = ((ranges[ti].values || []) as string[][]).map((r) => (r || []).map(S));
+    const hi = grid.findIndex((r) => r.some((c) => S(c) === '차량번호'));
+    if (hi < 0) {
+      failRead(t.name, t.id, title, '차량번호 머리글 없음');
+      continue;
+    }
+    tabOk++;
+    const hdr = grid[hi];
+    const at = new Map<string, number>();
+    hdr.forEach((h, i) => { if (h && !at.has(h)) at.set(h, i); });
+    const g = (row: string[], ...names: string[]) => {
+      for (const n of names) {
+        const i = at.get(n);
+        if (i !== undefined) return S(row[i]);
+      }
+      return '';
+    };
+    for (const row of grid.slice(hi + 1)) {
+      const plate = g(row, '차량번호');
       if (!plate) continue;
-      if (/출고불가|판매완료|말소/.test(si >= 0 ? S(r[si]) : '')) continue;   // 팔 수 있는 줄만 본다
-      cars++;
-      const st = perSupplier.get(b.label) || { cars: 0, blank: 0, bad: 0 };
-      st.cars++; perSupplier.set(b.label, st);
-      const g = (name: string) => { const i = at(name); return i >= 0 ? S(r[i]) : ''; };
-      const mirror = MIRROR.has(b.label);
-      const add = (kind: string, detail: string) => { issues.push({ supplier: b.label, mirror, plate, kind, detail }); st.bad++; };
-
-      // ① 채웠나
-      const missing = CORE.filter((c) => !g(c));
-      if (missing.length) { blankCore++; st.blank++; add('안 채움', `빈 칸 ${missing.length}: ${missing.join(' · ')}`); continue; }
-
-      // ② 이름이 있나
-      const sub = g('세부모델');
-      const e = SPEC.get(key(sub));
-      if (!e) {
-        const near = [...SPEC.keys()].filter((x) => x.includes(key(sub).slice(0, 4))).slice(0, 2)
-          .map((x) => [...SPEC.entries()].find(([kk]) => kk === x)?.[0] || x);
-        add('시트에 없는 세부모델', `「${sub}」${near.length ? ` — 비슷한 것: ${near.join(' · ')}` : ''}`);
-        continue;
+      st.cars++;
+      const carName = g(row, '차명(세부모델+트림)', '차명');
+      const carKindRaw = g(row, '차종', '모델명');
+      const carKind = CLASS.has(carKindRaw.replace(/\s+/g, '').toLowerCase()) ? '' : carKindRaw;
+      const year = g(row, '연식');
+      const srcFuel = g(row, '연료');
+      const srcCc = g(row, '배기량');
+      const srcDrive = g(row, '구동', '구동방식');
+      const filledMaker = g(row, '제조사(정제)', '제조사');
+      const filledModel = g(row, '모델');
+      const filledSub = g(row, '세부모델');
+      const filledTrim = g(row, '세부트림');
+      const filledFuel = g(row, '연료(정제)');
+      const filledCc = g(row, '배기량(정제)');
+      const filledDrive = g(row, '구동방식');
+      const filledBat = g(row, '배터리용량(정제)');
+      const filledOrigin = g(row, '원산지');
+      const status = g(row, '상태');
+      const attached = attachFromEncarSheet({
+        maker: g(row, '제조사') || filledMaker,
+        kind: carKind,
+        carName,
+        fuel: srcFuel,
+        cc: srcCc,
+        drive: srcDrive,
+        seats: g(row, '승차인원', '인승'),
+        year,
+      }, book);
+      const reasons: string[] = [];
+      const makerSheet = sheetMakerOf(filledMaker, book);
+      const sub = filledSub || S(attached.세부모델);
+      const model = filledModel || S(attached.모델);
+      if (!carName && !carKind && !filledMaker) reasons.push('원문 차명·제조사 없음');
+      if (!sub) reasons.push('세부모델 없음(원문도 하나로 안 모임)');
+      const nameRows = sub ? pickRows(idx, sub, makerSheet, model) : [];
+      if (sub && !nameRows.length) {
+        const anySub = idx.bySub.get(fold(sub)) || [];
+        if (!anySub.length) reasons.push(`차종마스터에 없는 세부모델 「${sub}」`);
+        else reasons.push(`세부모델 「${sub}」는 있으나 제조사·모델과 안 맞음`);
       }
-      named++;
-
-      // ③ 값이 맞나 — 제조사는 **공급사 표기로 접어서** 견준다(안내: 「제조사(정제)에는 공급사 표기를 넣는다」)
-      if (key(canonMakerDisplay(g('제조사(정제)'))) !== key(e.maker)) add('제조사 어긋남', `정제칸 「${g('제조사(정제)')}」 ↔ 시트 「${e.maker}」 (${sub})`);
-      if (key(g('모델')) !== key(e.model)) add('모델 어긋남', `정제칸 「${g('모델')}」 ↔ 시트 「${e.model}」 (${sub})`);
-      const origin = g('원산지');
-      if (origin && e.origin && key(origin) !== key(e.origin)) add('원산지 어긋남', `정제칸 「${origin}」 ↔ 시트 「${e.origin}」 (${sub})`);
-
-      // ④ 갈래가 맞나
-      const fuel = g('연료(정제)');
-      const fuels = [...new Set(e.atoms.map((a) => a.fuel).filter(Boolean))];
-      if (fuel && fuels.length && !fuels.some((f) => key(f) === key(fuel))) {
-        add('연료 어긋남', `정제칸 「${fuel}」 ↔ 시트 ${fuels.join('/')} (${sub})`);
+      if (filledMaker && !makerSheet) reasons.push(`제조사 「${filledMaker}」 F03 밖`);
+      if (filledModel && nameRows.length && !nameRows.some((r) => fold(r.model) === fold(filledModel))) {
+        reasons.push(`모델 어긋남 「${filledModel}」`);
       }
-      const disp = g('배기량(정제)').replace(/[^0-9.]/g, '');
-      if (disp) {
-        const n = Number(disp);
-        const ccs = [...new Set(e.atoms.map((a) => a.cc).filter(Boolean))];
-        const ls = [...new Set(e.atoms.map((a) => a.liter).filter(Boolean))];
-        const okCc = n > 100 && ccs.some((c) => Math.abs(c - n) <= 3);
-        const okL = ls.some((l) => Math.abs(l - (n > 100 ? n / 1000 : n)) < 0.06);
-        if (ccs.length + ls.length && !okCc && !okL) {
-          add('배기량 어긋남', `정제칸 「${g('배기량(정제)')}」 ↔ 시트 ${(ccs.length ? ccs.slice(0, 4).join('/') + 'cc' : ls.join('/') + 'L')} (${sub})`);
+      if (filledOrigin && makerSheet) {
+        const origins = idx.origins.get(fold(makerSheet));
+        if (origins && !inSet(origins, filledOrigin)) reasons.push(`원산지 어긋남 「${filledOrigin}」`);
+      }
+      if (filledTrim && nameRows.length) {
+        const sample = nameRows[0];
+        const trims = idx.trims.get(`${fold(sample.maker)}|${fold(sample.model)}|${fold(sample.sub)}`);
+        if (trims && !inSet(trims, filledTrim)) reasons.push(`세부트림 「${filledTrim}」이 그 세부모델에 없음`);
+      }
+      if (filledFuel) {
+        const ok = fuelInSpec(filledFuel, book.fuels);
+        if (!ok) reasons.push(`연료 「${filledFuel}」 제원마스터에 없음`);
+      }
+      if (filledCc) {
+        if (ccInSpec(filledCc, book.ccs) === undefined) reasons.push(`배기량 「${filledCc}」 제원마스터에 없음`);
+      }
+      if (filledDrive) {
+        if (!driveInSpec(filledDrive, book.drives)) reasons.push(`구동 「${filledDrive}」 제원마스터에 없음`);
+      }
+      if (filledBat) {
+        if (!sub || !nameRows.length) reasons.push('세부모델 없이 kWh 대조 불가');
+        else {
+          const sample = nameRows[0];
+          const allowed = idx.batBySub.get(`${fold(sample.maker)}|${fold(sample.model)}|${fold(sample.sub)}`);
+          const kwh = (filledBat.match(/(\d+(?:\.\d+)?)/) || [])[1] || filledBat;
+          const ok = allowed && [...allowed].some((x) => fold(x) === fold(kwh) || Number(x) === Number(kwh));
+          if (!ok) reasons.push(`배터리 「${filledBat}」 그 세부모델 배터리마스터에 없음`);
         }
       }
-
-      // ⑤ 차급이 맞나 — **시트 칸이 정본이다**
-      const size = g('차종크기'), kind = g('차종구분');
-      if (e.size && key(size) !== key(e.size)) add('차종크기 어긋남', `정제칸 「${size}」 ↔ 시트 「${e.size}」 (${sub})`);
-      if (e.kind && key(kind) !== key(e.kind)) add('차종구분 어긋남', `정제칸 「${kind}」 ↔ 시트 「${e.kind}」 (${sub})`);
-
-      // ⑥ 합친 게 맞나
-      const cls = g('차종분류');
-      const want = `${size} ${kind}`.trim();
-      if (cls && norm(cls) !== norm(want)) add('차종분류 어긋남', `「${cls}」 ↔ 차종크기+차종구분 「${want}」 — ${sub}`);
+      const nameOk = !!sub && nameRows.length > 0;
+      const bucket: Bucket = reasons.length === 0 && nameOk ? '자동후보' : '검수대기';
+      if (!filledSub && !S(attached.세부모델)) blankCore++;
+      if (bucket === '자동후보') st.auto++;
+      else {
+        st.review++;
+        const kind = reasons[0]?.split('「')[0].trim() || '검수대기';
+        issues.push({ supplier: t.name, mirror, plate, kind, detail: reasons.join(' · ') || '이유 없음' });
+      }
+      const src = [t.name, title, plate, carName, year, filledMaker, filledModel, filledSub, filledTrim, filledFuel, filledCc, filledDrive, filledBat].join('|');
+      rows.push({
+        bucket, supplier: t.name, kind: t.sheetKind || (mirror ? '정제' : '제공'), tab: title, plate, status,
+        raw: { 차명: carName, 연식: year, 연료: srcFuel, 배기량: srcCc, 구동: srcDrive },
+        filled: { 제조사: filledMaker, 모델: filledModel, 세부모델: filledSub, 세부트림: filledTrim, 연료: filledFuel, 배기량: filledCc, 구동: filledDrive, 배터리: filledBat, 원산지: filledOrigin },
+        attached: { 모델: S(attached.모델), 세부모델: S(attached.세부모델), 세부트림: S(attached.세부트림) },
+        reasons,
+        sourceHash: sha16(src),
+      });
     }
   }
+  if (!tabOk) continue;
+  perSupplier.set(t.name, st);
 }
 
-const byKind = new Map<string, number>();
-for (const i of issues) byKind.set(i.kind, (byKind.get(i.kind) || 0) + 1);
-console.log(`\n■ 정제칸 ↔ 「차종마스터 신규」 — 팔 수 있는 차 ${cars}대 (이름이 시트에 있는 ${named}대 · 핵심칸 빈 ${blankCore}대)`);
-console.log(`  어긋난 건 ${issues.length}건 — ${[...byKind].sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`).join(' · ')}\n`);
+const auto = rows.filter((r) => r.bucket === '자동후보');
+const review = rows.filter((r) => r.bucket === '검수대기');
+const cars = rows.length;
+const named = auto.length;
+const SOLD = /출고불가|판매완료|말소/;
+const live = rows.filter((r) => !SOLD.test(r.status));
+const liveAuto = live.filter((r) => r.bucket === '자동후보');
+const liveReview = live.filter((r) => r.bucket === '검수대기');
 
+console.log(`\n■ 원본·제공 정제시트 ↔ F03 — 같은 실행 스냅샷`);
+console.log(`  대상 시트 ${targets.length}곳 · 차량번호 있는 전 행 ${cars}대 · 자동후보 ${auto.length} · 검수대기 ${review.length} · 읽기실패 ${readFails.length}`);
+console.log(`  출고불가 등 제외 ${live.length}대 · 자동후보 ${liveAuto.length} · 검수대기 ${liveReview.length}  (F01 711은 하류 근사 · 이번 정본은 제공·정제시트)`);
+if (readFails.length) {
+  console.log('  ── 읽기실패 (0건으로 취급하지 않음)');
+  for (const f of readFails) console.log(`   ${f.supplier.padEnd(12)} ${f.tab || '-'}  ${f.error}`);
+}
 console.log('  ── 공급사별');
-for (const [name, st] of [...perSupplier].sort((a, b) => b[1].bad - a[1].bad)) {
-  const tag = MIRROR.has(name) ? '정제시트' : '        ';
-  const rate = st.cars ? Math.round(((st.cars - st.blank) / st.cars) * 100) : 0;
-  console.log(`   ${tag} ${name.slice(0, 12).padEnd(13)} 차 ${String(st.cars).padStart(3)}대 · 채움 ${String(rate).padStart(3)}% · 어긋남 ${st.bad}`);
+for (const [name, st] of [...perSupplier].sort((a, b) => b.cars - a.cars)) {
+  console.log(`   ${name.slice(0, 12).padEnd(13)} 차 ${String(st.cars).padStart(3)} · 자동후보 ${String(st.auto).padStart(3)} · 검수대기 ${String(st.review).padStart(3)}`);
 }
+const byReason = new Map<string, number>();
+for (const i of issues) {
+  const k = i.kind.slice(0, 24);
+  byReason.set(k, (byReason.get(k) || 0) + 1);
+}
+console.log(`  ── 검수대기 이유 ${issues.length}건 — ${[...byReason].sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`).join(' · ')}`);
+console.log('\n  ── 검수대기 예');
+for (const r of review.slice(0, 25)) {
+  console.log(`   ${r.supplier.slice(0, 10).padEnd(11)} ${r.plate.padEnd(10)} ${r.reasons.join(' · ').slice(0, 80)}`);
+}
+if (review.length > 25) console.log(`   … 그 밖 ${review.length - 25}대`);
 
-console.log('\n  ── 어긋난 줄');
-for (const i of issues) console.log(`   ${(i.mirror ? '★' : ' ')}${i.supplier.slice(0, 10).padEnd(11)} ${i.plate.padEnd(10)} ${i.kind.padEnd(16)} ${i.detail}`);
-writeFileSync('tmp/refine-vs-master.json', JSON.stringify({ cars, named, blankCore, issues }, null, 2));
-console.log('\n  목록 tmp/refine-vs-master.json — 아무것도 고치지 않았다.\n');
+mkdirSync('tmp', { recursive: true });
+const report = {
+  at: new Date().toISOString(),
+  ruleVersion: RULE_VERSION,
+  readOnly: true,
+  wroteSheets: false,
+  f03: {
+    id: ENCAR_MASTER_SHEET_ID,
+    name: S(f03Meta.name),
+    modifiedTime: S(f03Meta.modifiedTime),
+    version: S(f03Meta.version),
+    nameRows: book.names.length,
+    nameHeaders: nameHdr,
+    specHeaders: spec.headers,
+    specKinds: spec.kinds,
+    nameHash: f03NameHash,
+    specHash: f03SpecHash,
+    batteries: book.batteries.length,
+  },
+  targets: targets.map((t) => ({ name: t.name, id: t.id, kind: t.sheetKind, sheetName: t.sheetName })),
+  cars, named, blankCore,
+  buckets: { 자동후보: auto.length, 검수대기: review.length, 읽기실패: readFails.length },
+  bucketsSellable: { cars: live.length, 자동후보: liveAuto.length, 검수대기: liveReview.length, 읽기실패: readFails.length },
+  readFails,
+  issues,
+  rows,
+};
+writeFileSync('tmp/refine-vs-master.json', JSON.stringify(report, null, 2));
+console.log('\n  산출 tmp/refine-vs-master.json — 정제칸·시트에 쓰지 않았다.');
+if (readFails.length) {
+  console.error(`\n⛔ 읽기실패 ${readFails.length} — 이 실행은 실패. 빈 결과로 넘기지 않음.`);
+  process.exit(1);
+}
+console.log('');
