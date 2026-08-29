@@ -99,9 +99,19 @@ export const FW = {
  *  바 높이 = CSS --fp-bar-h
  *    웹 32+12×2=56 · 모바일 40+8×2=56 (바 높이는 56 유지)
  */
-export type CtrlSize = 'md' | 'sm';
+export type CtrlSize = 'lg' | 'md' | 'sm';
 
+/**
+ * ★lg(웹 44 / 모바일 48) — **인증·손님 폼 한 장짜리 화면**만 쓴다.
+ *   업무동은 고밀도가 규격이라 md 가 맞다. 여기에 lg 를 쓰면 콕핏이 헐거워진다.
+ *
+ *   왜 만들었나: 현관(`/login`)이 v3 에서 온 44/48 CSS 섬이라 원자를 못 쓰고 있었다
+ *   (「원자 높이(32/40)와 충돌 → raw 유지」— 그 한 파일이 남은 임기응변의 1/3이었다).
+ *   숫자는 그 CSS 값 그대로 옮긴 것이라 갈아끼워도 보이는 것은 바뀌지 않는다.
+ *   사장님 2026-08-30 「원자 규격을 통일해서 그게 달라지면 거길 바꾸면 되니까」
+ */
 export const CTRL = {
+  lg: { web: 44, mobile: 48, fsWeb: 13, fsMobile: 16 },
   md: { web: 32, mobile: 40, fsWeb: 12.5, fsMobile: 16 },
   sm: { web: 28, mobile: 36, fsWeb: 12, fsMobile: 16 },
 } as const;
@@ -115,7 +125,8 @@ export const ICON = { sm: 14, md: 16, lg: 18, xl: 20 } as const;
 
 /** 컨트롤 좌우 패딩 SSOT — 전 요소 12(모바일). 바·독·툴바·목록행과 좌측 정렬 일치. */
 export function ctrlPadX(mobile: boolean, size: CtrlSize = 'md'): number {
-  if (mobile) return 12;
+  if (mobile) return size === 'lg' ? 16 : 12; // lg 모바일 16 = v3 로그인 칸 좌우 여백 그대로
+  if (size === 'lg') return 12;
   return size === 'sm' ? 8 : 10;
 }
 
@@ -143,10 +154,10 @@ export function rowPadY(mobile: boolean): number {
 /** 버튼·칩·탭 글자 — 모바일은 검색/입력과 같이 16 (독·필터 통일) */
 export function ctrlFs(mobile: boolean, size: CtrlSize = 'md'): number {
   if (mobile) return 16;
-  return size === 'sm' ? CTRL.sm.fsWeb : CTRL.md.fsWeb;
+  return CTRL[size].fsWeb;
 }
 
-/** Input/Select/Search — 모바일 16 고정 · 웹 md=13 / sm=12.5 */
+/** Input/Select/Search — 모바일 16 고정 · 웹 lg·md=13 / sm=12.5 */
 export function ctrlInputFs(mobile: boolean, size: CtrlSize = 'md'): number {
   if (mobile) return 16;
   return size === 'sm' ? 12.5 : 13;

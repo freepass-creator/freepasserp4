@@ -46,3 +46,6 @@ scripts/ruleprobe/firebase.current-local.json
 
 # 파이썬 캐시
 __pycache__/
+
+# 오더 가드 시작 도장 (세션 로컬)
+scripts/.order-base/

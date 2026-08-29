@@ -31,7 +31,7 @@ export function Btn({ children, mobileIcon, onClick, variant = 'solid', size = '
   mobileIcon?: React.ReactNode;
   onClick?: () => void;
   variant?: 'solid' | 'ghost' | 'danger' | 'bare';
-  size?: 'sm' | 'md';
+  size?: 'sm' | 'md' | 'lg';
   disabled?: boolean;
   href?: string;
   style?: React.CSSProperties;

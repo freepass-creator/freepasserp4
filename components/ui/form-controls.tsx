@@ -15,7 +15,7 @@ export function Select({ value, onChange, options, groups, placeholder, ariaLabe
   groups?: { label: string; options: Option[] }[];
   placeholder?: string;
   ariaLabel?: string;
-  size?: 'sm' | 'md';
+  size?: 'sm' | 'md' | 'lg';
   width?: number;
   full?: boolean;
   disabled?: boolean;
@@ -46,12 +46,12 @@ export function Select({ value, onChange, options, groups, placeholder, ariaLabe
   );
 }
 
-export function Input({ value, onChange, placeholder, ariaLabel, size = 'md', type = 'text', inputMode, width, full, style, onEnter, onKeyDown, onFocus, onBlur, autoFocus, disabled, readOnly, noAutofill, enterKeyHint, list }: {
+export function Input({ value, onChange, placeholder, ariaLabel, size = 'md', type = 'text', inputMode, width, full, style, onEnter, onKeyDown, onFocus, onBlur, autoFocus, disabled, readOnly, noAutofill, autoComplete, enterKeyHint, list }: {
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
   ariaLabel?: string;
-  size?: 'sm' | 'md';
+  size?: 'sm' | 'md' | 'lg';
   type?: string;
   inputMode?: 'text' | 'search' | 'numeric' | 'tel' | 'email' | 'url' | 'decimal';
   width?: number;
@@ -66,6 +66,12 @@ export function Input({ value, onChange, placeholder, ariaLabel, size = 'md', ty
   readOnly?: boolean;
   /** 자동완성 차단 — 브라우저·비밀번호관리자가 키보드 위에 열쇠·카드·주소 툴바를 띄우는 것 방지(채팅 등 자유입력). */
   noAutofill?: boolean;
+  /**
+   * 자동완성 «허용» — 인증 폼은 반대로 켜야 한다(`username`·`current-password`·`new-password`).
+   * 비밀번호 관리자가 이 값으로 저장·채우기를 판단하므로, 빠지면 저장된 비밀번호가 안 뜬다.
+   * `noAutofill` 과 같이 주면 `noAutofill` 이 이긴다(차단이 더 강한 뜻).
+   */
+  autoComplete?: string;
   /** 모바일 키보드 확인키 라벨(채팅=send). */
   enterKeyHint?: 'enter' | 'done' | 'go' | 'next' | 'previous' | 'search' | 'send';
   /** catalog datalist 연결. 자유 입력은 막지 않는다. */
@@ -78,7 +84,7 @@ export function Input({ value, onChange, placeholder, ariaLabel, size = 'md', ty
     {...(noAutofill ? {
       autoComplete: 'off', autoCorrect: 'off', autoCapitalize: 'none', spellCheck: false,
       name: 'fp-freetext', 'data-lpignore': 'true', 'data-1p-ignore': '', 'data-form-type': 'other',
-    } : null)}
+    } : autoComplete ? { autoComplete } : null)}
     onKeyDown={(e) => { onKeyDown?.(e); if (onEnter && e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); onEnter(); } }}
     style={{ height: ctrlH(mobile, size), boxSizing: 'border-box', padding: `0 ${ctrlPadX(mobile, size)}px`, border: `1px solid ${C.line}`, borderRadius: R, fontSize: ctrlInputFs(mobile, size), background: disabled || readOnly ? C.head : C.taupeBg, color: C.ink, opacity: disabled ? 0.7 : 1, cursor: disabled ? 'default' : undefined, ...(full ? { width: '100%' } : width ? { width } : {}), ...style }} />;
 }
@@ -109,7 +115,7 @@ export function Textarea({ value, onChange, onBlur, placeholder, ariaLabel, size
   onBlur?: () => void;
   placeholder?: string;
   ariaLabel?: string;
-  size?: 'sm' | 'md';
+  size?: 'sm' | 'md' | 'lg';
   rows?: number;
   full?: boolean;
   style?: React.CSSProperties;
