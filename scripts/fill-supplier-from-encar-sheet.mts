@@ -6,6 +6,10 @@
  *
  *   npx tsx scripts/fill-supplier-from-encar-sheet.mts
  *   npx tsx scripts/fill-supplier-from-encar-sheet.mts --who=손오공
+ *   npx tsx scripts/fill-supplier-from-encar-sheet.mts --only-blank
+ *   npx tsx scripts/fill-supplier-from-encar-sheet.mts --only=세부모델
+ *   npx tsx scripts/fill-supplier-from-encar-sheet.mts --skip-plate=125호1238
+ *   npx tsx scripts/fill-supplier-from-encar-sheet.mts --fill-source-maker
  *   npx tsx scripts/fill-supplier-from-encar-sheet.mts --apply
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -14,9 +18,10 @@ import { isLegacySheetId } from '../lib/domain/legacy-sheets';
 import { loadEncarWorkSheetGrids } from '../lib/domain/encar-master-sheet';
 import { isMirrorSheet } from '../lib/domain/mirror-sources';
 import { VEHICLE_CLASS_VALUES } from '../lib/intake/entities';
-import { isOurNonInventoryTab, LEGACY_SHEET_PREFIX, supplierSheetLabel, SHEET_NAME_MATCH } from '../lib/domain/supplier-template-sheet';
+import { isOurNonInventoryTab, isVehicleTab, LEGACY_SHEET_PREFIX, supplierSheetLabel, SHEET_NAME_MATCH } from '../lib/domain/supplier-template-sheet';
 import { companyAlias, supplierNameKeys } from '../lib/domain/identity';
 import { LATIN_BRAND_TRIM_CANON } from '../lib/domain/vehicle-master-lock';
+import { canonMakerDisplay } from '../lib/domain/maker-display';
 import {
   ENCAR_FILL_COLUMNS,
   attachFromEncarSheet,
@@ -31,8 +36,14 @@ type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
 const APPLY = process.argv.includes('--apply');
 const SKIP_MIRROR = process.argv.includes('--no-mirror');
+const ONLY_BLANK = process.argv.includes('--only-blank');
+const FILL_SOURCE_MAKER = process.argv.includes('--fill-source-maker');
+const FILL_MAKER_REFINE = process.argv.includes('--fill-maker-refine');
 const arg = (k: string, d = '') => (process.argv.find((a) => a.startsWith(`--${k}=`)) || '').slice(k.length + 3) || d;
 const ONLY = new Set(arg('who').split(/[,\s]+/).map(S).filter(Boolean));
+const ONLY_COLS = new Set(arg('only').split(/[,\s]+/).map(S).filter(Boolean));
+const SKIP_PLATES = new Set(arg('skip-plate').split(/[,\s]+/).map(S).filter(Boolean));
+const colWanted = (name: string) => !ONLY_COLS.size || ONLY_COLS.has(name);
 
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 const jwt = new JWT({
@@ -64,6 +75,16 @@ if (checks.length) {
   process.exit(1);
 }
 console.log(`  엔카 작업 시트 차종 ${book.names.length}행 · 제원 연료 ${book.fuels.size} · cc ${book.ccs.size} · 구동 ${book.drives.size} · 배터리 ${book.batteries.length} · 자가검증 통과`);
+const makerDrift = [...new Set(book.names.map((r) => r.maker).filter(Boolean))]
+  .filter((m) => canonMakerDisplay(m) !== m)
+  .sort((a, b) => a.localeCompare(b, 'ko'));
+if (makerDrift.length) {
+  console.log(`  ⚠ G1 제조사 표기 변환 ${makerDrift.length}: ${makerDrift.join(' · ')} — 제조사(정제) 적용 보류(--fill-maker-refine 로만)`);
+}
+if (ONLY_BLANK) console.log('  모드  --only-blank (빈 칸만)');
+if (ONLY_COLS.size) console.log(`  모드  --only=${[...ONLY_COLS].join(',')}`);
+if (SKIP_PLATES.size) console.log(`  모드  --skip-plate=${[...SKIP_PLATES].join(',')}`);
+if (FILL_SOURCE_MAKER) console.log('  모드  --fill-source-maker (왼쪽 제조사 원문 칸)');
 
 const colA1 = (i: number) => { let s = ''; for (let n = i + 1; n > 0;) { const r = (n - 1) % 26; s = String.fromCharCode(65 + r) + s; n = Math.floor((n - 1) / 26); } return s; };
 const a1Tab = (t: string) => `'${t.replace(/'/g, "''")}'`;
@@ -86,6 +107,7 @@ for (const t of targets) console.log(`  → ${t.name}  ${t.id}${isMirrorSheet(t.
 console.log(`\n■ 엔카 작업 시트 → 정제칸 ${APPLY ? '(반영)' : '(dry-run — 아직 안 쓴다)'} · 대상 ${targets.length}곳 · 빈 칸 채움 · 잘못이면 바로잡음\n`);
 
 type CellHit = { who: string; plate: string; col: string; now: string; want: string; raw: string };
+type SnapCell = { who: string; tab: string; range: string; prev: string; next: string; plate: string; col: string };
 const would: CellHit[] = [];
 const spelling: CellHit[] = [];
 const conflict: CellHit[] = [];
@@ -94,6 +116,10 @@ const byColFill: Record<string, number> = {};
 const byColSpell: Record<string, number> = {};
 const byColConflict: Record<string, number> = {};
 const byColSame: Record<string, number> = {};
+const skipMakerRefine = makerDrift.length > 0 && !FILL_MAKER_REFINE;
+const snapDir = 'tmp/encar-fill-snap';
+mkdirSync(snapDir, { recursive: true });
+const stamp = new Date().toISOString().replace(/[:.]/g, '-');
 let totCars = 0;
 let noName = 0;
 const noTail: string[] = [];
@@ -124,6 +150,8 @@ for (const t of targets) {
   const tabTitles = ((meta.sheets || []) as Rec[])
     .filter((s) => !s.properties?.hidden && !isOurNonInventoryTab(S(s.properties?.title)))
     .map((s) => S(s.properties?.title)).filter(Boolean);
+  const notStock = tabTitles.filter((x) => !isVehicleTab(x));
+  console.log(`    탭 ${tabTitles.join(' · ') || '(없음)'}${notStock.length ? `  ⚠재고아님 ${notStock.join(',')}` : ''}`);
   if (!tabTitles.length) continue;
   let got: Rec;
   try {
@@ -132,7 +160,9 @@ for (const t of targets) {
   } catch (e) { console.log(`  ✗ ${t.name} — 값을 못 읽었다: ${String((e as Error).message).slice(0, 80)}`); continue; }
 
   const updates: { range: string; values: string[][] }[] = [];
+  const snaps: SnapCell[] = [];
   let cars = 0, filled = 0, kept = 0, diffs = 0, spelled = 0, sawTail = false;
+  const dupHeads: string[] = [];
 
   ((got.valueRanges || []) as Rec[]).forEach((vr, ti) => {
     const title = tabTitles[ti];
@@ -141,8 +171,14 @@ for (const t of targets) {
     const hRow = grid.findIndex((r) => r.some((c) => S(c) === '차량번호'));
     if (hRow < 0) return;
     const hdr = (grid[hRow] || []).map(S);
+    const seenHead = new Set<string>();
     const at = new Map<string, number>();
-    hdr.forEach((h, i) => { if (h && !at.has(h)) at.set(h, i); });
+    hdr.forEach((h, i) => {
+      if (!h) return;
+      if (seenHead.has(h) && (ENCAR_FILL_COLUMNS as readonly string[]).includes(h)) dupHeads.push(`${title}:${h}`);
+      seenHead.add(h);
+      if (!at.has(h)) at.set(h, i);
+    });
     const tailAt = new Map(ENCAR_FILL_COLUMNS.map((c) => [c, at.has(c) ? at.get(c)! : -1]));
     if ([...tailAt.values()].every((i) => i < 0)) return;
     sawTail = true;
@@ -154,6 +190,7 @@ for (const t of targets) {
       const row = grid[r] || [];
       const plate = S(row[plateAt]);
       if (!plate) continue;
+      if (SKIP_PLATES.has(plate)) continue;
       cars++;
       const carName = exact(row, '차명(세부모델+트림)') || exact(row, '차명');
       const carKindRaw = exact(row, '차종') || exact(row, '모델명');
@@ -178,19 +215,28 @@ for (const t of targets) {
       const makerCi = at.get('제조사') ?? -1;
       const leftMaker = exact(row, '제조사');
       const wantMaker = S(attached['제조사(정제)']);
-      if (makerCi >= 0 && !leftMaker && wantMaker) {
+      if (FILL_SOURCE_MAKER && colWanted('제조사') && makerCi >= 0 && !leftMaker && wantMaker) {
         filled++;
         byColFill['제조사'] = (byColFill['제조사'] || 0) + 1;
-        if (would.length < 120) would.push({ who: t.name, plate, col: '제조사', now: '', want: wantMaker, raw: raw.slice(0, 60) });
-        updates.push({ range: `${a1Tab(title)}!${colA1(makerCi)}${r + 1}`, values: [[wantMaker]] });
+        would.push({ who: t.name, plate, col: '제조사', now: '', want: wantMaker, raw: raw.slice(0, 60) });
+        const range = `${a1Tab(title)}!${colA1(makerCi)}${r + 1}`;
+        updates.push({ range, values: [[wantMaker]] });
+        snaps.push({ who: t.name, tab: title, range, prev: '', next: wantMaker, plate, col: '제조사' });
       }
       for (const name of ENCAR_FILL_COLUMNS) {
+        if (!colWanted(name)) continue;
+        if (name === '제조사(정제)' && skipMakerRefine) continue;
         const ci = tailAt.get(name as EncarFillColumn) ?? -1;
         if (ci < 0) continue;
         const now = S(row[ci]);
         const v = S(attached[name as EncarFillColumn]);
         if (!v) continue;
         const hit: CellHit = { who: t.name, plate, col: name, now, want: v, raw: raw.slice(0, 60) };
+        const range = `${a1Tab(title)}!${colA1(ci)}${r + 1}`;
+        const pushWrite = () => {
+          updates.push({ range, values: [[v]] });
+          snaps.push({ who: t.name, tab: title, range, prev: now, next: v, plate, col: name });
+        };
         if (now === v) {
           kept++;
           byColSame[name] = (byColSame[name] || 0) + 1;
@@ -210,23 +256,25 @@ for (const t of targets) {
           continue;
         }
         if (now && fold(now) === fold(v)) {
+          if (ONLY_BLANK) continue;
           spelled++;
           byColSpell[name] = (byColSpell[name] || 0) + 1;
-          if (spelling.length < 80) spelling.push(hit);
-          updates.push({ range: `${a1Tab(title)}!${colA1(ci)}${r + 1}`, values: [[v]] });
+          spelling.push(hit);
+          pushWrite();
           continue;
         }
         if (now) {
+          if (ONLY_BLANK) continue;
           diffs++;
           byColConflict[name] = (byColConflict[name] || 0) + 1;
-          if (conflict.length < 80) conflict.push(hit);
-          updates.push({ range: `${a1Tab(title)}!${colA1(ci)}${r + 1}`, values: [[v]] });
+          conflict.push(hit);
+          pushWrite();
           continue;
         }
         filled++;
         byColFill[name] = (byColFill[name] || 0) + 1;
-        if (would.length < 120) would.push(hit);
-        updates.push({ range: `${a1Tab(title)}!${colA1(ci)}${r + 1}`, values: [[v]] });
+        would.push(hit);
+        pushWrite();
       }
     }
   });
@@ -236,6 +284,10 @@ for (const t of targets) {
   const pad = (s: string, n: number) => s + ' '.repeat(Math.max(0, n - [...s].reduce((a, c) => a + (c.charCodeAt(0) > 127 ? 2 : 1), 0)));
   console.log(`  ${pad(t.name, 14)}${String(cars).padStart(4)}대   채움 ${String(filled).padStart(5)}칸   표기 ${String(spelled).padStart(4)}   같음 ${String(kept).padStart(5)}   바로잡음 ${String(diffs).padStart(5)}`);
 
+  if (dupHeads.length) console.log(`    ⚠ G3 정제칸 머리글 중복 ${[...new Set(dupHeads)].join(' · ')}`);
+  if (snaps.length) {
+    writeFileSync(`${snapDir}/${t.name}-${stamp}.json`, JSON.stringify({ who: t.name, id: t.id, apply: APPLY, cells: snaps }, null, 2), 'utf8');
+  }
   if (APPLY && updates.length) {
     for (let i = 0; i < updates.length; i += 500) {
       await api(`https://sheets.googleapis.com/v4/spreadsheets/${t.id}/values:batchUpdate`, {
@@ -254,7 +306,7 @@ const sameSum = Object.values(byColSame).reduce((a, b) => a + b, 0);
 console.log(`\n  ${'─'.repeat(58)}`);
 console.log(`  모두 ${totCars}대 · 빈 칸 ${fillSum} · 표기맞춤 ${spellSum} · 이미 같음 ${sameSum} · 바로잡음 ${confSum}`);
 console.log('\n  칸별');
-for (const c of ENCAR_FILL_COLUMNS) {
+for (const c of ['제조사', ...ENCAR_FILL_COLUMNS]) {
   console.log(`    ${c.padEnd(14)} 빈칸 ${String(byColFill[c] || 0).padStart(4)}  · 표기 ${String(byColSpell[c] || 0).padStart(4)}  · 같음 ${String(byColSame[c] || 0).padStart(4)}  · 바로잡음 ${String(byColConflict[c] || 0).padStart(4)}`);
 }
 if (noTail.length) console.log(`\n  ▲ 정제칸 없는 시트 ${noTail.length} — ${noTail.join(' · ')}`);
@@ -289,13 +341,12 @@ const report = {
   same: byColSame,
   conflict: byColConflict,
   fillSum, spellSum, sameSum, confSum,
-  would: would.slice(0, 200),
-  spelling: spelling.slice(0, 200),
-  conflictSamples: conflict.slice(0, 200),
+  would,
+  spelling,
+  conflictSamples: conflict,
   unmatched: samplesUnmatched,
 };
 writeFileSync('tmp/encar-sheet-fill-dryrun.json', JSON.stringify(report, null, 2), 'utf8');
 console.log('\n  저장 tmp/encar-sheet-fill-dryrun.json');
-if (!APPLY) console.log('※ dry-run. 반영은 --apply (빈 칸 채움 · 잘못이면 바로잡음 · 안 모이면 그대로)');
-else console.log('※ 반영함. 빈 칸 채움 · 잘못이면 바로잡음 · 안 모이면 그대로.');
-
+if (!APPLY) console.log('※ dry-run. 반영은 --apply (기본=빈칸+바로잡음 · --only-blank 은 빈 칸만 · 왼쪽 제조사는 --fill-source-maker)');
+else console.log('※ 반영함. 스냅샷 tmp/encar-fill-snap/');

@@ -12,6 +12,7 @@ import {
   ENCAR_MASTER_TAB,
   ENCAR_MASTER_URL,
   ENCAR_NAME_COLUMNS,
+  ENCAR_REVIEW_COLUMNS,
   ENCAR_SPEC_TAB,
   loadEncarWorkSheetGrids,
 } from '../lib/domain/encar-master-sheet';
@@ -120,6 +121,8 @@ if (book.fuels.size < 4) issues.push('제원 연료가 너무 적음');
 {
   const missing = ENCAR_NAME_COLUMNS.filter((c) => !nameHdr.some((h) => h.replace(/\s+/g, '') === c.replace(/\s+/g, '')));
   if (missing.length) issues.push(`머리글 없음 ${missing.join(' · ')}`);
+  const missingReview = ENCAR_REVIEW_COLUMNS.filter((c) => !nameHdr.some((h) => h === c));
+  if (missingReview.length) issues.push(`검수칸 없음 ${missingReview.join(' · ')}`);
   const trimAt = nameHdr.findIndex((h) => h.replace(/\s+/g, '') === '세부트림');
   const startAt = nameHdr.findIndex((h) => h.replace(/\s+/g, '') === '생산시작');
   if (trimAt >= 0 && startAt >= 0 && startAt < trimAt) issues.push('생산시작이 세부트림보다 앞');

@@ -12,9 +12,28 @@ export const ENCAR_SPEC_TAB = '제원마스터';
 export const ENCAR_BATTERY_TAB = '전기차배터리마스터';
 /** 필수 칸 이름. 자리는 머리글로 찾고, 규격 통일로 밀려도 된다. 생산시작·종료는 세부트림 뒤가 맞다. */
 export const ENCAR_NAME_COLUMNS = ['원산지', '제조사', '모델', '세부모델', '세부트림', '생산시작', '생산종료'] as const;
+/** 이름 7열 오른쪽. 지식=매뉴얼 규칙, 엔카=iNav 원문. 이름·기간은 여기 적지 않는다. */
+export const ENCAR_REVIEW_COLUMNS = [
+  '클로드 지식검토', '클로드 엔카대조',
+  '커서 지식검토', '커서 엔카대조',
+  '코덱스/제미나이 지식검토', '코덱스/제미나이 엔카대조',
+] as const;
+export const ENCAR_REVIEW_STATUS = ['대기', '합의', '갈림', '사람', '확정'] as const;
+export const ENCAR_REVIEW_VERDICTS = ['맞음', '틀림', '못정함'] as const;
+export const ENCAR_REVIEW_WHO_ALIAS: Record<string, (typeof ENCAR_REVIEW_COLUMNS)[number]> = {
+  클로드: '클로드 지식검토', claude: '클로드 지식검토',
+  '클로드 지식': '클로드 지식검토', '클로드 지식검토': '클로드 지식검토',
+  커서: '커서 지식검토', cursor: '커서 지식검토',
+  '커서 지식': '커서 지식검토', '커서 지식검토': '커서 지식검토',
+  코덱스: '코덱스/제미나이 지식검토', 제미나이: '코덱스/제미나이 지식검토',
+  '코덱스/제미나이 지식검토': '코덱스/제미나이 지식검토',
+  '클로드 엔카': '클로드 엔카대조', '클로드 엔카대조': '클로드 엔카대조',
+  '커서 엔카': '커서 엔카대조', '커서 엔카대조': '커서 엔카대조',
+  '코덱스 엔카': '코덱스/제미나이 엔카대조', '코덱스/제미나이 엔카대조': '코덱스/제미나이 엔카대조',
+};
 export const ENCAR_MASTER_URL = `https://docs.google.com/spreadsheets/d/${ENCAR_MASTER_SHEET_ID}/edit`;
-/** 공급사 사본 탭 A1 에 넣는 연동 수식. 원본이 바뀌면 같이 바뀐다. */
-export const ENCAR_MASTER_IMPORT_FORMULA = `=IMPORTRANGE("${ENCAR_MASTER_URL}","${ENCAR_MASTER_TAB}!A:AB")`;
+/** 공급사 사본은 이름 7열만. 검수 칸은 F03 원본에만 둔다. */
+export const ENCAR_MASTER_IMPORT_FORMULA = `=IMPORTRANGE("${ENCAR_MASTER_URL}","${ENCAR_MASTER_TAB}!A:G")`;
 
 export type EncarMasterPayload = { headers: string[]; values: (string | number)[][] };
 

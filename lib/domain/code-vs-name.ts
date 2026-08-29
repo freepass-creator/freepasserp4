@@ -11,11 +11,11 @@ export const normText = (v: unknown) => S(v).toLowerCase().replace(/[\s\-_./()�
 
 /** 코드 모델 이름이 원문에 다르게 적히는 것 — 최소 별칭(영문·오타·숫자 표기) */
 export const MODEL_ALIAS: Record<string, string[]> = {
-  그랜저: ['grandeur', '그랜져'], 쏘나타: ['sonata'], 아반떼: ['avante', '아반테'], 싼타페: ['santafe', '산타페'], 스포티지: ['sportage', '스포티'], 쏘렌토: ['sorento', '소렌토'],
+  그랜저: ['grandeur', '그랜져', '그랜저ig', '더뉴그랜저ig'], 쏘나타: ['sonata'], 아반떼: ['avante', '아반테'], 싼타페: ['santafe', '산타페'], 스포티지: ['sportage', '스포티'], 쏘렌토: ['sorento', '소렌토'],
   카니발: ['carnival'], 팰리세이드: ['palisade', '팰리'], 셀토스: ['seltos'], 투싼: ['tucson'], K5: ['k5'], K8: ['k8'], K7: ['k7'], K3: ['k3'], K9: ['k9'], 모닝: ['morning'],
-  레이: ['ray'], 니로: ['niro'], 아이오닉5: ['ioniq5', '아이오닉 5'], 아이오닉6: ['ioniq6', '아이오닉 6'], GV70: ['gv70'], GV80: ['gv80'], G80: ['g80'], G70: ['g70'], G90: ['g90'],
+  레이: ['ray', 'the new ray'], 니로: ['niro'], 아이오닉5: ['ioniq5', '아이오닉 5'], 아이오닉6: ['ioniq6', '아이오닉 6'], GV70: ['gv70'], GV80: ['gv80'], G80: ['g80'], G70: ['g70'], G90: ['g90'],
   스타리아: ['staria'], 캐스퍼: ['casper'], 코나: ['kona'], 베뉴: ['venue'], 토레스: ['torres'], 티볼리: ['tivoli'], 렉스턴: ['rexton'], 코란도: ['korando'], QM6: ['qm6'], SM6: ['sm6'], XM3: ['xm3'],
-  아르카나: ['arkana'], 트랙스: ['trax'], 트레일블레이저: ['trailblazer'], 말리부: ['malibu'], 스파크: ['spark'], '볼트 EUV': ['bolteuv', '볼트euv'], '볼트 EV': ['boltev', '볼트ev'],
+  아르카나: ['arkana'], 트랙스: ['trax'], 트레일블레이저: ['trailblazer'], 말리부: ['malibu'], 스파크: ['spark'], '볼트 EUV': ['bolteuv', '볼트euv'], '볼트 EV': ['boltev', '볼트ev', '볼트'],
   '1시리즈': ['1series', '118', '120', '1 시리즈'], '3시리즈': ['3series', '320', '330', '3 시리즈'], '5시리즈': ['5series', '520', '530', '5 시리즈'], '7시리즈': ['7series', '740', '7 시리즈'],
   'E-클래스': ['e-class', 'e200', 'e220', 'e300', 'e클래스', 'e 클래스'], 'S-클래스': ['s-class', 's350', 's450', 's500', 's클래스'], 'C-클래스': ['c-class', 'c200', 'c220', 'c클래스'],
   A6: ['a6'], A4: ['a4'], 모델3: ['model3', '모델 3'], 모델Y: ['modely', '모델 y'], X5: ['x5'], X3: ['x3'], GLC: ['glc'], GLE: ['gle'],

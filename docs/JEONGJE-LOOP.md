@@ -47,3 +47,31 @@
 ## 검증 0 — (코덱스가 여기부터 append)
 
 ## 구현 1 — (커서가 여기부터 append)
+
+## ★설계 전환 2026-08-29 저녁 — «판별기 합의»로 (사장님 지시)
+
+**과제가 바뀌었다.** softOk 통째 완화(추정) 대신 → **4개 독립 판별기 합의**로 확정한다.
+정본 = `DERIVER-PROTOCOL.md` + `CONSENSUS-CONFIRM-MANUAL.md` (Codex NO-GO 5개 반영).
+
+**커서 자동 과제**:
+1. `scripts/derive-cursor.mts` 저작 — 원문→차종코드(플레이북 규칙 경로). 입력은 원문만, 자기 열에만 write.
+2. `confirm-lock.mts` → «집계기»로 개편 — ③‴판별·③⁗집계·③⁵확정. 확정 쓰기=백업·실행ID·재읽기(NO-GO #3).
+3. 선행: `npm run check:sync` 통과(F01 4탭·68열 드리프트, NO-GO #4).
+
+**코덱스 자동 과제**:
+1. `scripts/derive-codex.mts` 저작 — 독립 파서, **애매하면 null**(적대적 반대표).
+2. 집계 후 A/B/C 전수검증 → `docs/crosscheck/` append. **확정 쓰기 금지**(verify-only).
+
+**멈춤 조건**: derive-cursor·derive-codex·derive-claude 3개가 «같은 코드» 낸 차만 확정후보. <3 = 검수대기(사람/라이브 2단계). Codex A(오매칭0)·C(중복0·차번집합정합) PASS 2연속 → 수렴.
+
+## 검증 0 → 구현(Claude 게이트 통과분) 2026-08-29
+
+**★게이트 닫힘 (상품마스터 write 안전)**: `PRODUCT_MASTER_LIVE_WRITE_COLUMNS`(product-master-live-sync 18행) = 차량상태·정책코드·가격·최종갱신·원천뿐. **차종코드·검증상태·적용값은 sync가 안 건드림** → 확정행 보존. 차번 dedup(masterByPlate)로 중복 0.
+
+**확정 액션 = 작동·검증**(`scripts/confirm-lock.mts`): 정제칸 → pickConfirmedMasterCode → **유일코드만** 상품마스터에 «검증상태=확정·차종코드» 박음. 애매(후보 여럿)는 «안 박고 사람 큐». 실측 마음카: 투싼·그랜저 2대 확정 append(1089→1091), 싼타페(후보2)는 제외.
+
+**남은 것 (Cursor·Codex 루프)**:
+- ① **confirm-lock 전 공급사 확대** — 지금은 마음카만 시험. 전 공급사 유일코드 차 확정(대량=Cursor).
+- ② **softOk 좁히기(안전-medium)** — 애매 차(후보 여럿)는 정제칸을 «후보들이 동일한 필드만» 채우고 나머지 비운다(운영매뉴얼 추정 금지). ← Codex 반례로 검증.
+- ③ 애매 차 «사람 확정 큐»(검증상태=검수필요 활용).
+- 판정: Codex 전수검증 A(오매칭0)·B(구멍)·C(중복0·차번집합정합) → OK까지.

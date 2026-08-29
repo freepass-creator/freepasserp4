@@ -33,7 +33,7 @@ import {
   type NameRow,
   type WorkBook,
 } from '../lib/domain/encar-work-sheet-match';
-import { resolveSubmodelToF03, selfCheckSubNorm, SUB_NORM_RULE, type SubNormResult } from '../lib/domain/submodel-normalize-f03';
+import { makersAlign, resolveSubmodelToF03, selfCheckSubNorm, SUB_NORM_RULE, type SubNormResult } from '../lib/domain/submodel-normalize-f03';
 
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
@@ -172,7 +172,7 @@ function sheetMakerOf(raw: string, book: WorkBook): string {
 
 function pickRows(idx: NameIdx, sub: string, makerSheet: string, model: string): NameRow[] {
   let rows = idx.bySub.get(fold(sub)) || [];
-  if (makerSheet) rows = rows.filter((r) => fold(r.maker) === fold(makerSheet) || canonMakerDisplay(r.maker) === canonMakerDisplay(makerSheet));
+  if (makerSheet) rows = rows.filter((r) => makersAlign(r.maker, makerSheet));
   if (model) rows = rows.filter((r) => fold(r.model) === fold(model));
   return rows;
 }
@@ -186,7 +186,7 @@ type RowOut = {
   raw: { 차명: string; 연식: string; 연료: string; 배기량: string; 구동: string };
   filled: { 제조사: string; 모델: string; 세부모델: string; 세부트림: string; 연료: string; 배기량: string; 구동: string; 배터리: string; 원산지: string };
   attached: { 모델: string; 세부모델: string; 세부트림: string };
-  round5?: { tag: string; source: string; filledSub: string; picked: string; note: string };
+  round5?: { tag: string; source: string; filledSub: string; picked: string; model: string; trim: string; maker: string; note: string };
   reasons: string[];
   sourceHash: string;
 };
@@ -356,7 +356,7 @@ for (const t of targets) {
       const filledBat = g(row, '배터리용량(정제)');
       const filledOrigin = g(row, '원산지');
       const status = g(row, '상태');
-      const srcMaker = g(row, '제조사') || filledMaker;
+      const srcMaker = g(row, '제조사');
       const attached = attachFromEncarSheet({
         maker: srcMaker,
         kind: carKind,
@@ -367,49 +367,58 @@ for (const t of targets) {
         seats: g(row, '승차인원', '인승'),
         year,
       }, confirmedBook);
-      const reasons: string[] = [];
       const makerSheet = sheetMakerOf(srcMaker, confirmedBook);
-      const model = S(attached.모델) || filledModel;
       const source = carName || carKind;
       const nrm = resolveSubmodelToF03({
-        source, year, maker: makerSheet, model, names: confirmedBook.names,
+        source, year, maker: makerSheet || srcMaker, model: '',
+        names: confirmedBook.names,
+        modelCatalog: book.names,
       });
       round5Pool.push({ plate, supplier: t.name, source, filledSub, r: nrm });
-      const round5: RowOut['round5'] = { tag: nrm.tag, source, filledSub, picked: nrm.picked, note: nrm.note };
+      const round5: RowOut['round5'] = { tag: nrm.tag, source, filledSub, picked: nrm.picked, model: nrm.model, trim: nrm.trim, maker: nrm.maker, note: nrm.note };
       let sub = (nrm.tag === '원문직접근거' && nrm.picked) ? nrm.picked : '';
-      if (!source && !srcMaker) reasons.push('원문 차명·제조사 없음');
-      if (nrm.tag === '오매칭의심') reasons.push(`세대 오매칭 의심 ${nrm.note}`);
-      else if (nrm.tag !== '원문직접근거') reasons.push(nrm.note || '원문에서 확정 원자로 안 모임');
-      else if (nrm.yearOk !== true) reasons.push(`연식↔생산기간 교차 못 가름 ${nrm.note}`);
-      let nameRows = sub ? pickRows(idx, sub, makerSheet, model) : [];
+      const gate: string[] = [];
+      const spec2: string[] = [];
+      if (!source && !srcMaker) gate.push('원문 차명·제조사 없음');
+      if (nrm.tag !== '원문직접근거') gate.push(nrm.note || '원문에서 확정 원자로 안 모임');
+      else if (nrm.yearOk !== true) gate.push(`연식↔생산기간 교차 못 가름 ${nrm.note}`);
+      const matchModel = nrm.model;
+      let nameRows = sub ? pickRows(idx, sub, makerSheet, matchModel) : [];
+      if (sub && !nameRows.length) nameRows = pickRows(idx, sub, '', matchModel);
+      if (sub && !nameRows.length) nameRows = pickRows(idx, sub, '', '');
       if (sub && !nameRows.length) {
         const anySub = idx.bySub.get(fold(sub)) || [];
-        if (!anySub.length) reasons.push(`확정 원자에 없는 세부모델 「${sub}」`);
-        else reasons.push(`세부모델 「${sub}」는 있으나 제조사·모델과 안 맞음`);
+        if (!anySub.length) gate.push(`확정 원자에 없는 세부모델 「${sub}」`);
+        else gate.push(`세부모델 「${sub}」는 있으나 제조사·모델과 안 맞음`);
       }
-      if (!makerSheet && (srcMaker || filledMaker)) reasons.push(`제조사 「${srcMaker || filledMaker}」 F03 밖`);
+      if (!makerSheet && (srcMaker || filledMaker)) gate.push(`제조사 「${srcMaker || filledMaker}」 F03 밖`);
+      const trim = nrm.trim || '';
+      const trimPool = nameRows.map((r) => r.trim).filter(Boolean);
+      const trimOk = !sub || trim === '기본형' || trimPool.some((t) => fold(t) === fold(trim));
+      if (sub && trim && !trimOk) gate.push(`트림 「${trim}」 그 세부모델 풀에 없음`);
       if (filledFuel) {
         const ok = fuelInSpec(filledFuel, book.fuels);
-        if (!ok) reasons.push(`연료 「${filledFuel}」 제원마스터에 없음`);
+        if (!ok) spec2.push(`연료 「${filledFuel}」 제원마스터에 없음`);
       }
       if (filledCc) {
-        if (ccInSpec(filledCc, book.ccs) === undefined) reasons.push(`배기량 「${filledCc}」 제원마스터에 없음`);
+        if (ccInSpec(filledCc, book.ccs) === undefined) spec2.push(`배기량 「${filledCc}」 제원마스터에 없음`);
       }
       if (filledDrive) {
-        if (!driveInSpec(filledDrive, book.drives)) reasons.push(`구동 「${filledDrive}」 제원마스터에 없음`);
+        if (!driveInSpec(filledDrive, book.drives)) spec2.push(`구동 「${filledDrive}」 제원마스터에 없음`);
       }
       if (filledBat) {
-        if (!sub || !nameRows.length) reasons.push('세부모델 없이 kWh 대조 불가');
+        if (!sub || !nameRows.length) spec2.push('세부모델 없이 kWh 대조 불가');
         else {
           const sample = nameRows[0];
           const allowed = idx.batBySub.get(`${fold(sample.maker)}|${fold(sample.model)}|${fold(sample.sub)}`);
           const kwh = (filledBat.match(/(\d+(?:\.\d+)?)/) || [])[1] || filledBat;
           const ok = allowed && [...allowed].some((x) => fold(x) === fold(kwh) || Number(x) === Number(kwh));
-          if (!ok) reasons.push(`배터리 「${filledBat}」 그 세부모델 배터리마스터에 없음`);
+          if (!ok) spec2.push(`배터리 「${filledBat}」 그 세부모델 배터리마스터에 없음`);
         }
       }
-      const nameOk = !!sub && nameRows.length > 0;
-      const bucket: Bucket = reasons.length === 0 && nameOk ? '자동후보' : '검수대기';
+      const nameOk = !!sub && nameRows.length > 0 && nrm.yearOk === true && trimOk;
+      const bucket: Bucket = gate.length === 0 && nameOk ? '자동후보' : '검수대기';
+      const reasons = bucket === '자동후보' ? spec2.map((s) => `2차 ${s}`) : [...gate, ...spec2];
       if (!filledSub && !S(attached.세부모델)) blankCore++;
       if (bucket === '자동후보') st.auto++;
       else {
@@ -446,6 +455,7 @@ const liveReview = live.filter((r) => r.bucket === '검수대기');
 console.log(`\n■ 원본·제공 정제시트 ↔ F03 — 같은 실행 스냅샷`);
 console.log(`  대상 시트 ${targets.length}곳 · 차량번호 있는 전 행 ${cars}대 · 자동후보 ${auto.length} · 검수대기 ${review.length} · 읽기실패 ${readFails.length}`);
 console.log(`  출고불가 등 제외 ${live.length}대 · 자동후보 ${liveAuto.length} · 검수대기 ${liveReview.length}  (F01 711은 하류 근사 · 이번 정본은 제공·정제시트)`);
+console.log(`  1차 세부모델(모델+연식·원문코드→F03 확정) ${auto.length + rows.filter((r) => r.round5?.tag === '원문직접근거' && r.bucket === '검수대기').length}채움 · 2차(트림·제원·연식충돌·F03없음) ${review.length}`);
 if (readFails.length) {
   console.log('  ── 읽기실패 (0건으로 취급하지 않음)');
   for (const f of readFails) console.log(`   ${f.supplier.padEnd(12)} ${f.tab || '-'}  ${f.error}`);

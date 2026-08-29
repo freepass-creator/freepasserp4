@@ -135,23 +135,18 @@ const MAKER_TO_SHEET: Record<string, string> = {
   쉐보레: '쉐보레', 한국gm: '쉐보레', gm대우: '쉐보레',
 };
 
-/** 기아만 N세대 → 개발코드. 시트 세부모델과 같음. */
+/** 기아 N세대→개발코드. 엔카에 세대명이 있을 때만. 단일세대(K8) 코드 추측 금지. */
 const KIA_GEN: Record<string, Record<number, string>> = {
   K5: { 1: 'TF', 2: 'JF', 3: 'DL3' },
   K3: { 2: 'BD', 3: 'BC' },
   K7: { 1: 'VG', 2: 'YG' },
-  K8: { 1: 'GL3' },
   K9: { 1: 'KH', 2: 'RJ' },
   카니발: { 3: 'YP', 4: 'KA4' },
   쏘렌토: { 3: 'UM', 4: 'MQ4' },
   스포티지: { 4: 'QL', 5: 'NQ5' },
   셀토스: { 1: 'SP2', 2: 'SP2' },
   모닝: { 3: 'JA' },
-  레이: { 1: 'TAM' },
   니로: { 1: 'DE', 2: 'SG2' },
-  EV6: { 1: 'CV' },
-  EV9: { 1: 'MV' },
-  EV3: { 1: 'SV' },
 };
 
 const GRADE_EN: [string, string][] = [
@@ -444,7 +439,7 @@ export function selfCheckEncarMatch(book: WorkBook): string[] {
     { 모델: 'K5' }, 'K5 세대없음');
   chk({ maker: '기아', kind: '스포티지', carName: '디 올뉴 스포티지', fuel: '디젤', cc: '1,998', drive: '', seats: '', year: '' },
     { '배기량(정제)': '1998' }, '콤마배기량');
-  chk({ maker: '기아', kind: 'K8', carName: '더 뉴 K8 1.6 터보 하이브리드 / 노블레스', fuel: 'HEV', cc: '', drive: '', seats: '', year: '' },
+  chk({ maker: '기아', kind: 'K8', carName: '더 뉴 K8 1.6 터보 하이브리드', fuel: 'HEV', cc: '', drive: '', seats: '', year: '' },
     { '연료(정제)': '하이브리드' }, 'HEV≠전기');
   const k5bare = attachFromEncarSheet({ maker: '기아', kind: 'K5', carName: 'K5 시그니처', fuel: '', cc: '', drive: '', seats: '', year: '' }, book);
   if (k5bare['세부모델']) bad.push(`K5 세대없이 세부모델 ${k5bare['세부모델']}`);
