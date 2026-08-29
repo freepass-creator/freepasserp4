@@ -109,6 +109,8 @@ export function ProductAgentPanel({ p, audience, pinnedShare }: {
   const acquisition = acquisitionPriceList(p);
   const cheap = cheapest(p);
   const plate = String(p.car_number || '').trim();
+  /** 우측 칼럼이 없으면 본문 「기간별 대여료」와 같은 표가 바로 위에 있다. 그때는 패널 대여료표를 두지 않는다. */
+  const sideCol = useAgentColumn();
 
   const savePhotos = async () => {
     if (zipping || !photos.length) return;
@@ -182,7 +184,9 @@ export function ProductAgentPanel({ p, audience, pinnedShare }: {
         }}>손님 화면엔 없음</span>
       </div>
 
-      {/* ① 대여료 — 전 기간 목록(반전). 패널이 늘 떠 있으니 본문 위로 올라가지 않아도 «얼마»가 보인다. */}
+      {/* ① 대여료 — 전 기간 목록(반전). 패널이 늘 떠 있으니 본문 위로 올라가지 않아도 «얼마»가 보인다.
+          모바일·좁은 화면은 본문 표와 중복이라 뺀다(사장님 2026-08-22). */}
+      {sideCol ? (
       <div style={{ background: C.brand, color: C.inverse, borderRadius: R, overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, padding: '9px 10px' }}>
           <span style={{ fontSize: FS.body, fontWeight: FW.title, minWidth: 0, overflowWrap: 'anywhere' }}>{vehicleName(p)}</span>
@@ -224,6 +228,7 @@ export function ProductAgentPanel({ p, audience, pinnedShare }: {
           </div>
         )}
       </div>
+      ) : null}
 
       {/* ② 영업 정보 — 반전 머리띠 + 앰버 본문(손님에게 보여주지 않는 칸). */}
       <DetailTable
