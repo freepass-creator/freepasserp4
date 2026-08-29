@@ -276,7 +276,7 @@ export function PeriodPerkBand({ p, dense, gap = 6 }: {
     return () => ro.disconnect();
   }, [all.map((x) => x.m).join(','), mobile]);
 
-  const perk = <CardPerkLine p={p} dense={dense} inline={!mobile && yieldSlot} />;
+  const perk = <CardPerkLine p={p} dense={dense} inline={!mobile && yieldSlot} withCredit />;
 
   // 모바일 = 앵커 가격(PriceAmounts)만 위에 두고, 여기선 조건만
   if (mobile) {

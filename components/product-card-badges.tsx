@@ -70,8 +70,6 @@ export type BadgeSpec = {
   label: string;
   tone: BadgeTone;
   variant?: 'line' | 'solid' | 'quiet' | 'perk';
-  /** 알약=상태(변하는 것) · 사각=분류(안 변하는 것). 색을 안 보고도 종류가 잡히게. */
-  shape?: 'pill' | 'rect';
   pulse?: boolean;
 };
 
@@ -80,37 +78,61 @@ export function badgeSpecs(product: EntityRecord, hideCredit = false, short = fa
   const credit = creditDisplay(product);
   const rawProductType = String(product.product_type || '');
   const productType = canonProductType(rawProductType) || rawProductType;
+  /**
+   * ★**세 갈래를 «모양»으로 가른다**(사장님 2026-08-22 「뱃지가 계약중처럼 각 3가지 구분이 각각에 따라 좀 달라야 하는데
+   *   지금 다 동일하지 — 개선해줘」). 전에는 셋 다 테두리(line)라 색만 달랐고, 색은 톤이 비슷하면 한 덩어리로 읽힌다.
+   *
+   *   ① 출고상태(st) = **채운 면(solid)** — 지금 살 수 있나. 셋 중 제일 먼저 봐야 하는 값이라 제일 세게.
+   *   ② 상품구분(pt) = **테두리(line)** — 어떤 상품인가. 분류라 중간 세기.
+   *   ③ 심사(cd)     = **연한 면(quiet)** — 조건. 참고값이라 제일 약하게.
+   *
+   * 세기가 «급함»의 차례와 같아서, 색을 못 가려도 모양만으로 어느 갈래인지 알 수 있다.
+   * 계약중만 pulse 를 유지한다 — 그건 «지금 움직이는 건»이라 상태 안에서 한 번 더 갈린다.
+   */
   const specs: BadgeSpec[] = [];
   if (status && audience !== 'customer') {
     specs.push({
       key: 'st',
       label: short ? (STATUS_SHORT[status] ?? status) : status,
       tone: vehicleTone(status) as BadgeTone,
-      variant: status === '계약중' ? 'solid' : undefined,
+      variant: 'solid',
       pulse: status === '계약중',
     });
   }
   if (productType) {
-    const style = productTypeStyle(productType);
     specs.push({
       key: 'pt',
       label: short ? (PRODUCT_TYPE_SHORT[productType] ?? productType) : productType,
-      tone: style.tone,
-      variant: style.variant,
+      // 구독을 solid 로 세우던 규칙은 뺐다 — solid 는 이제 «상태»의 문법이다. 구독은 톤(색)으로 갈린다.
+      tone: productTypeStyle(productType).tone,
+      variant: 'line',
     });
   }
-  if (!hideCredit && credit) specs.push({ key: 'cd', label: credit, tone: CREDIT_TONE(credit) });
+  if (!hideCredit && credit) specs.push({ key: 'cd', label: credit, tone: CREDIT_TONE(credit), variant: 'quiet' });
   return specs;
 }
 
+/**
+ * ★**머리에 서는 뱃지는 「출고상태 + 상품구분」 둘뿐**
+ *   (사장님 2026-08-23 「무심사/소득확인 이거는 아래 하단에 조건으로 보내자 — 계약조건이니까.
+ *    위에는 출고상태랑 상품구분 뱃지만 두자」).
+ *
+ *   심사(cd = 무심사·소득확인)는 «지금 살 수 있나»가 아니라 «어떤 조건인가»다. 상세 「계약조건」 섹션이 든다.
+ *   그동안 목록 카드·상세 머리·요약줄 **세 곳이 각각** `['st','pt','cd']` 를 적고 있어서
+ *   한 곳만 고치면 나머지가 그대로 남았다(2026-08-23 실측: 상세만 고쳤더니 목록에 그대로 떴다).
+ *   그래서 차례를 여기 한 곳에서 정한다 — 쓰는 쪽은 이 상수를 읽는다.
+ */
+export const HEAD_BADGE_KEYS = ['st', 'pt'] as const;
+
 export function photoMarkSpecs(product: EntityRecord, audience: Audience = 'agent'): BadgeSpec[] {
-  return badgeSpecs(product, false, true, audience).filter((spec) => spec.key === 'st' || spec.key === 'cd');
+  // 사진 위 마크도 같은 규칙 — 심사는 안 올린다.
+  return badgeSpecs(product, true, true, audience).filter((spec) => spec.key === 'st');
 }
 
 /** hideStatus = 차량상태를 다른 곳(작업화면 상단 요약바)이 이미 들고 있을 때. 같은 배지를 두 번 찍지 않는다. */
 export function badges(product: EntityRecord, overlay = false, hideCredit = false, short = false, audience: Audience = 'agent', opts?: { hideStatus?: boolean }): ReactNode {
   return (<>{badgeSpecs(product, hideCredit, short, audience).filter((spec) => !(opts?.hideStatus && spec.key === 'st')).map((spec) => (
-    <Badge key={spec.key} tone={spec.tone} variant={spec.variant || 'line'} shape={spec.shape} overlay={overlay} pulse={spec.pulse} title={badgeTip(spec.key, spec.label)}>{spec.label}</Badge>
+    <Badge key={spec.key} tone={spec.tone} variant={spec.variant || 'line'} overlay={overlay} pulse={spec.pulse} title={badgeTip(spec.key, spec.label)}>{spec.label}</Badge>
   ))}</>);
 }
 
@@ -120,7 +142,7 @@ export function BadgesClip({ p, max = 3 }: { p: EntityRecord; max?: number }) {
   const remaining = specs.length - shown.length;
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, flex: '0 0 auto' }}>
-      {shown.map((spec) => <Badge key={spec.key} tone={spec.tone} variant={spec.variant || 'line'} shape={spec.shape} pulse={spec.pulse} title={badgeTip(spec.key, spec.label)}>{spec.label}</Badge>)}
+      {shown.map((spec) => <Badge key={spec.key} tone={spec.tone} variant={spec.variant || 'line'} pulse={spec.pulse} title={badgeTip(spec.key, spec.label)}>{spec.label}</Badge>)}
       {remaining > 0 && <Badge tone="gray">+{remaining}</Badge>}
     </span>
   );

@@ -381,9 +381,13 @@ export function shortExperience(p: EntityRecord): boolean {
  */
 export type ProductSignal = { key: string; label: string; kind: 'program' | 'status' | 'trust' | 'benefit' | 'event' | 'spec' };
 
-export function benefitSignals(p: EntityRecord): ProductSignal[] {
+export function benefitSignals(p: EntityRecord, opts?: { withCredit?: boolean }): ProductSignal[] {
   // 비필수 혜택 — 상세카드 좌하단. 분납·무보증·연령·경력·무사고.
   const out: ProductSignal[] = [];
+  if (opts?.withCredit) {
+    const credit = creditDisplay(p);
+    if (credit) out.push({ key: 'cd', label: credit, kind: 'benefit' });
+  }
   if (installmentOk(p)) out.push({ key: 'ins', label: '분납가능', kind: 'benefit' });
   if (noDeposit(p)) out.push({ key: 'nd', label: '무보증', kind: 'benefit' });
   const age = minAge(p);
