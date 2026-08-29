@@ -182,10 +182,11 @@ type Issue = { supplier: string; mirror: boolean; plate: string; kind: string; d
 type RowOut = {
   bucket: Bucket;
   supplier: string; kind: string; tab: string; plate: string; status: string;
+  sheetId: string;
   raw: { 차명: string; 연식: string; 연료: string; 배기량: string; 구동: string };
   filled: { 제조사: string; 모델: string; 세부모델: string; 세부트림: string; 연료: string; 배기량: string; 구동: string; 배터리: string; 원산지: string };
   attached: { 모델: string; 세부모델: string; 세부트림: string };
-  round4?: { tag: string; from: string; picked: string; note: string };
+  round5?: { tag: string; source: string; filledSub: string; picked: string; note: string };
   reasons: string[];
   sourceHash: string;
 };
@@ -209,7 +210,36 @@ const nameHdr = (grids.names[nameAt] || []).map(S);
 const missingName = ENCAR_NAME_COLUMNS.filter((c) => !nameHdr.some((h) => h.replace(/\s+/g, '') === c.replace(/\s+/g, '')));
 if (missingName.length) throw new Error(`차종마스터 7열 계약이 다름(없음 ${missingName.join('·')}): ${nameHdr.join('|')}`);
 const spec = specContractFromGrid(grids.specs, book);
-const idx = buildIdx(book);
+const nameHdrFold = (h: string) => h.replace(/\s+/g, '');
+const colOf = (n: string) => nameHdr.findIndex((h) => nameHdrFold(h) === nameHdrFold(n));
+const verdictI = colOf('종합판정');
+if (verdictI < 0) throw new Error(`차종마스터 종합판정 칸 없음: ${nameHdr.join('|')}`);
+const makerI = colOf('제조사');
+const modelI = colOf('모델');
+const subI = colOf('세부모델');
+const trimI = colOf('세부트림');
+const confirmedKey = (maker: string, model: string, sub: string, trim: string) =>
+  `${fold(maker)}|${fold(model)}|${fold(sub)}|${fold(trim)}`;
+const confirmedKeys = new Set<string>();
+let confirmedN = 0;
+let reviewN = 0;
+for (const raw of grids.names.slice(nameAt + 1)) {
+  const row = (raw || []).map(S);
+  if (!row[makerI] || !row[modelI]) continue;
+  const verdict = row[verdictI] || '';
+  if (/^확정/.test(verdict)) {
+    confirmedN++;
+    confirmedKeys.add(confirmedKey(row[makerI], row[modelI], row[subI], row[trimI]));
+  } else {
+    reviewN++;
+  }
+}
+const confirmedBook: WorkBook = {
+  ...book,
+  names: book.names.filter((r) => confirmedKeys.has(confirmedKey(r.maker, r.model, r.sub, r.trim))),
+};
+if (!confirmedBook.names.length) throw new Error('확정 원자가 0행 — 매칭을 빈 사전으로 안 돌림');
+const idx = buildIdx(confirmedBook);
 const f03Meta = await call(`https://www.googleapis.com/drive/v3/files/${ENCAR_MASTER_SHEET_ID}?fields=id,name,modifiedTime,version&supportsAllDrives=true`);
 const f03NameHash = sha16(book.names.map((r) => [r.origin, r.maker, r.model, r.sub, r.trim, r.start, r.end].join('|')).join('\n'));
 const f03SpecHash = sha16(JSON.stringify(spec.kinds));
@@ -218,6 +248,7 @@ console.log(`  제원마스터 계약 ${ENCAR_SPEC_TAB} 머리 ${spec.headers.jo
 console.log(`  연료 ${spec.fuels.join('/')} · 구동 ${spec.drives.join('/')} · cc ${spec.ccs.length} · 배터리 ${book.batteries.length}`);
 console.log(`  제원탭에 없는 축(대조 안 함): 인승 · 차종크기 · 차종구분`);
 console.log(`  규칙 ${RULE_VERSION} · 수정시각 ${S(f03Meta.modifiedTime)} · 이름해시 ${f03NameHash} · 제원해시 ${f03SpecHash}`);
+console.log(`  종합판정 확정원자 ${confirmedBook.names.length}행 (시트 ${confirmedN}) · 검수 ${reviewN} · 매칭 대상=확정만`);
 
 const targets: { name: string; id: string; sheetKind: string; sheetName: string }[] = [];
 {
@@ -246,7 +277,7 @@ const issues: Issue[] = [];
 const readFails: ReadFail[] = [];
 const perSupplier = new Map<string, { cars: number; auto: number; review: number }>();
 let blankCore = 0;
-const round4Pool: { plate: string; supplier: string; from: string; r: SubNormResult }[] = [];
+const round5Pool: { plate: string; supplier: string; source: string; filledSub: string; r: SubNormResult }[] = [];
 
 function failRead(supplier: string, id: string, tab: string, error: string) {
   readFails.push({ supplier, id, tab, error });
@@ -325,8 +356,9 @@ for (const t of targets) {
       const filledBat = g(row, '배터리용량(정제)');
       const filledOrigin = g(row, '원산지');
       const status = g(row, '상태');
+      const srcMaker = g(row, '제조사') || filledMaker;
       const attached = attachFromEncarSheet({
-        maker: g(row, '제조사') || filledMaker,
+        maker: srcMaker,
         kind: carKind,
         carName,
         fuel: srcFuel,
@@ -334,49 +366,28 @@ for (const t of targets) {
         drive: srcDrive,
         seats: g(row, '승차인원', '인승'),
         year,
-      }, book);
+      }, confirmedBook);
       const reasons: string[] = [];
-      const makerSheet = sheetMakerOf(filledMaker, book);
-      let sub = filledSub || S(attached.세부모델);
-      const model = filledModel || S(attached.모델);
-      let round4: RowOut['round4'];
-      if (!carName && !carKind && !filledMaker) reasons.push('원문 차명·제조사 없음');
-      if (!sub) reasons.push('세부모델 없음(원문도 하나로 안 모임)');
+      const makerSheet = sheetMakerOf(srcMaker, confirmedBook);
+      const model = S(attached.모델) || filledModel;
+      const source = carName || carKind;
+      const nrm = resolveSubmodelToF03({
+        source, year, maker: makerSheet, model, names: confirmedBook.names,
+      });
+      round5Pool.push({ plate, supplier: t.name, source, filledSub, r: nrm });
+      const round5: RowOut['round5'] = { tag: nrm.tag, source, filledSub, picked: nrm.picked, note: nrm.note };
+      let sub = (nrm.tag === '원문직접근거' && nrm.picked) ? nrm.picked : '';
+      if (!source && !srcMaker) reasons.push('원문 차명·제조사 없음');
+      if (nrm.tag === '오매칭의심') reasons.push(`세대 오매칭 의심 ${nrm.note}`);
+      else if (nrm.tag !== '원문직접근거') reasons.push(nrm.note || '원문에서 확정 원자로 안 모임');
+      else if (nrm.yearOk !== true) reasons.push(`연식↔생산기간 교차 못 가름 ${nrm.note}`);
       let nameRows = sub ? pickRows(idx, sub, makerSheet, model) : [];
-      if (filledSub && !nameRows.length) {
-        const nrm = resolveSubmodelToF03({
-          raw: filledSub, year, maker: makerSheet, model, names: book.names,
-        });
-        round4Pool.push({ plate, supplier: t.name, from: filledSub, r: nrm });
-        round4 = { tag: nrm.tag, from: filledSub, picked: nrm.picked, note: nrm.note };
-        if (nrm.tag === '매칭' && nrm.picked) {
-          sub = nrm.picked;
-          nameRows = pickRows(idx, sub, makerSheet, model);
-        } else if (nrm.tag === '오매칭의심') {
-          reasons.push(`세대 오매칭 의심 ${nrm.note}`);
-        } else {
-          const anySub = idx.bySub.get(fold(filledSub)) || [];
-          if (!anySub.length) reasons.push(`차종마스터에 없는 세부모델 「${filledSub}」`);
-          else reasons.push(`세부모델 「${filledSub}」는 있으나 제조사·모델과 안 맞음`);
-        }
-      } else if (sub && !nameRows.length) {
+      if (sub && !nameRows.length) {
         const anySub = idx.bySub.get(fold(sub)) || [];
-        if (!anySub.length) reasons.push(`차종마스터에 없는 세부모델 「${sub}」`);
+        if (!anySub.length) reasons.push(`확정 원자에 없는 세부모델 「${sub}」`);
         else reasons.push(`세부모델 「${sub}」는 있으나 제조사·모델과 안 맞음`);
       }
-      if (filledMaker && !makerSheet) reasons.push(`제조사 「${filledMaker}」 F03 밖`);
-      if (filledModel && nameRows.length && !nameRows.some((r) => fold(r.model) === fold(filledModel))) {
-        reasons.push(`모델 어긋남 「${filledModel}」`);
-      }
-      if (filledOrigin && makerSheet) {
-        const origins = idx.origins.get(fold(makerSheet));
-        if (origins && !inSet(origins, filledOrigin)) reasons.push(`원산지 어긋남 「${filledOrigin}」`);
-      }
-      if (filledTrim && nameRows.length) {
-        const sample = nameRows[0];
-        const trims = idx.trims.get(`${fold(sample.maker)}|${fold(sample.model)}|${fold(sample.sub)}`);
-        if (trims && !inSet(trims, filledTrim)) reasons.push(`세부트림 「${filledTrim}」이 그 세부모델에 없음`);
-      }
+      if (!makerSheet && (srcMaker || filledMaker)) reasons.push(`제조사 「${srcMaker || filledMaker}」 F03 밖`);
       if (filledFuel) {
         const ok = fuelInSpec(filledFuel, book.fuels);
         if (!ok) reasons.push(`연료 「${filledFuel}」 제원마스터에 없음`);
@@ -409,10 +420,11 @@ for (const t of targets) {
       const src = [t.name, title, plate, carName, year, filledMaker, filledModel, filledSub, filledTrim, filledFuel, filledCc, filledDrive, filledBat].join('|');
       rows.push({
         bucket, supplier: t.name, kind: t.sheetKind || (mirror ? '정제' : '제공'), tab: title, plate, status,
+        sheetId: t.id,
         raw: { 차명: carName, 연식: year, 연료: srcFuel, 배기량: srcCc, 구동: srcDrive },
         filled: { 제조사: filledMaker, 모델: filledModel, 세부모델: filledSub, 세부트림: filledTrim, 연료: filledFuel, 배기량: filledCc, 구동: filledDrive, 배터리: filledBat, 원산지: filledOrigin },
         attached: { 모델: S(attached.모델), 세부모델: S(attached.세부모델), 세부트림: S(attached.세부트림) },
-        round4,
+        round5,
         reasons,
         sourceHash: sha16(src),
       });
@@ -448,19 +460,19 @@ for (const i of issues) {
   byReason.set(k, (byReason.get(k) || 0) + 1);
 }
 console.log(`  ── 검수대기 이유 ${issues.length}건 — ${[...byReason].sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`).join(' · ')}`);
-const r4Match = round4Pool.filter((x) => x.r.tag === '매칭');
-const r4Suspect = round4Pool.filter((x) => x.r.tag === '오매칭의심');
-const r4Wait = round4Pool.filter((x) => x.r.tag === '검수대기');
-console.log(`\n  ── 라운드4 세부모델 정규화 (풀=F03에 없던 채움 세부모델 ${round4Pool.length})`);
-console.log(`     매칭 ${r4Match.length} · 오매칭의심 ${r4Suspect.length} · 검수대기 ${r4Wait.length}  (규칙 ${SUB_NORM_RULE})`);
-console.log('     매칭 예');
-for (const x of r4Match.slice(0, 15)) {
-  console.log(`      ${x.supplier.slice(0, 10).padEnd(11)} ${x.plate.padEnd(10)} 「${x.from}」→「${x.r.picked}」`);
+const r5Direct = round5Pool.filter((x) => x.r.tag === '원문직접근거');
+const r5Suspect = round5Pool.filter((x) => x.r.tag === '오매칭의심');
+const r5Wait = round5Pool.filter((x) => x.r.tag === '검수대기' || x.r.tag === '기존정제재검증');
+console.log(`\n  ── 라운드5 원문→확정원자 (전 행 ${round5Pool.length} · 규칙 ${SUB_NORM_RULE})`);
+console.log(`     원문직접근거 ${r5Direct.length} · 오매칭의심 ${r5Suspect.length} · 그 밖 검수 ${r5Wait.length}`);
+console.log('     원문직접근거 예');
+for (const x of r5Direct.slice(0, 15)) {
+  console.log(`      ${x.supplier.slice(0, 10).padEnd(11)} ${x.plate.padEnd(10)} 「${x.source}」→「${x.r.picked}」`);
 }
-if (r4Match.length > 15) console.log(`      … 그 밖 ${r4Match.length - 15}`);
-if (r4Suspect.length) {
+if (r5Direct.length > 15) console.log(`      … 그 밖 ${r5Direct.length - 15}`);
+if (r5Suspect.length) {
   console.log('     오매칭의심');
-  for (const x of r4Suspect.slice(0, 12)) {
+  for (const x of r5Suspect.slice(0, 12)) {
     console.log(`      ${x.supplier.slice(0, 10).padEnd(11)} ${x.plate.padEnd(10)} ${x.r.note.slice(0, 70)}`);
   }
 }
@@ -481,7 +493,10 @@ const report = {
     name: S(f03Meta.name),
     modifiedTime: S(f03Meta.modifiedTime),
     version: S(f03Meta.version),
-    nameRows: book.names.length,
+    nameRows: confirmedBook.names.length,
+    nameRowsAll: book.names.length,
+    confirmedAtoms: confirmedN,
+    reviewAtoms: reviewN,
     nameHeaders: nameHdr,
     specHeaders: spec.headers,
     specKinds: spec.kinds,
@@ -493,15 +508,15 @@ const report = {
   cars, named, blankCore,
   buckets: { 자동후보: auto.length, 검수대기: review.length, 읽기실패: readFails.length },
   bucketsSellable: { cars: live.length, 자동후보: liveAuto.length, 검수대기: liveReview.length, 읽기실패: readFails.length },
-  round4: {
+  round5: {
     rule: SUB_NORM_RULE,
-    pool: round4Pool.length,
-    매칭: r4Match.length,
-    오매칭의심: r4Suspect.length,
-    검수대기: r4Wait.length,
+    pool: round5Pool.length,
+    원문직접근거: r5Direct.length,
+    오매칭의심: r5Suspect.length,
+    검수대기: r5Wait.length,
     samples: {
-      매칭: r4Match.slice(0, 40).map((x) => ({ supplier: x.supplier, plate: x.plate, from: x.from, picked: x.r.picked, note: x.r.note, yearOk: x.r.yearOk })),
-      오매칭의심: r4Suspect.map((x) => ({ supplier: x.supplier, plate: x.plate, from: x.from, picked: x.r.picked, note: x.r.note })),
+      원문직접근거: r5Direct.slice(0, 40).map((x) => ({ supplier: x.supplier, plate: x.plate, source: x.source, picked: x.r.picked, note: x.r.note, yearOk: x.r.yearOk })),
+      오매칭의심: r5Suspect.map((x) => ({ supplier: x.supplier, plate: x.plate, source: x.source, picked: x.r.picked, note: x.r.note })),
     },
   },
   readFails,

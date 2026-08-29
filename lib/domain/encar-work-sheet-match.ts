@@ -145,7 +145,7 @@ const KIA_GEN: Record<string, Record<number, string>> = {
   카니발: { 3: 'YP', 4: 'KA4' },
   쏘렌토: { 3: 'UM', 4: 'MQ4' },
   스포티지: { 4: 'QL', 5: 'NQ5' },
-  셀토스: { 1: 'SP2' },
+  셀토스: { 1: 'SP2', 2: 'SP2' },
   모닝: { 3: 'JA' },
   레이: { 1: 'TAM' },
   니로: { 1: 'DE', 2: 'SG2' },
