@@ -2,7 +2,7 @@ import type { EntityRecord } from '@/lib/intake/entities';
 import { kmDisplay } from '@/lib/format';
 import { vehicleNameOf, vehicleNameParts } from '@/lib/domain/vehicle-name';
 import {
-  fuelDisplay, fuelEmbeddedCc, yearDisplay, makerDisplay, isNoTrimLabel,
+  fuelDisplay, fuelEmbeddedCc, yearDisplay,
 } from '@/lib/domain/vehicle-master-match';
 
 /** 카드 2줄 표기 — 굵은 줄(제조사+모델) + 회색 보조줄(파워트레인·트림·추가표기). 조립은 vehicle-name.ts SSOT. */
@@ -95,10 +95,8 @@ export function specLineCard(product: EntityRecord): string {
   return specAtomsLine(product);
 }
 
-export function cardTitle(product: EntityRecord, mobileNarrow = false): string {
-  if (mobileNarrow) return idMobile(product);
-  const { idMain, idExt } = idParts(product);
-  return [idMain, idExt].filter(Boolean).join(' ');
+export function cardTitle(product: EntityRecord, _mobileNarrow = false): string {
+  return vehicleNameOf({ kind: 'product', product }, { tier: 'short', omitMaker: true, fallback: 'plate' });
 }
 
 /** 차번 옆 한 줄 — 차례는 `specAtoms` 가 정한다(연식 · 주행 · 연료 · 배기량 · 구동). */

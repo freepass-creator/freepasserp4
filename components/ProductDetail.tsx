@@ -8,7 +8,7 @@ import { Badge, C, R, NUM, FW, FS, ICON, CloseBtn, IconBtn, SCRIM, DetailTable, 
 import { toast } from '@/components/Toaster';
 import { downloadSinglePhoto } from '@/lib/client/download-photo-zip';
 import {
-  SignalMarks, Plate, idParts, CardBenefits, CardEvents, OptionChips, plateSpecLine,
+  badges, Plate, idParts, CardBenefits, CardEvents, OptionChips,
 } from '@/components/product-card-atoms';
 import { FavHeart } from '@/components/FavHeart';
 import { ProductStateMarks } from '@/components/ProductStateMarks';
@@ -146,11 +146,8 @@ export function ProductDetail({ p, audience, layout = 'brochure' }: {
           marginTop: work ? 0 : 8, rowGap: 6,
         }}>
           {aud !== 'customer' && !work && <Plate p={p} />}
-          {!work && plateSpecLine(p) && (
-            <span style={{ fontSize: FS.sub, color: C.mute, fontVariantNumeric: 'tabular-nums' }}>{plateSpecLine(p)}</span>
-          )}
-          {/* 상자 대신 아이콘+글자. 심사는 우대조건 줄. */}
-          <SignalMarks p={p} audience={aud} hideStatus={work} />
+          {/* work = 차번·상태를 요약바가 이미 들고 있다. 같은 값을 두 번 찍지 않는다. */}
+          {badges(p, false, false, false, aud, { hideStatus: work })}
           <CardBenefits p={p} inline />
           <CardEvents p={p} inline />
           {/* 사진 없음도 매물의 성질이다 — 별도 줄을 잡아먹지 않게 칩으로 붙인다.

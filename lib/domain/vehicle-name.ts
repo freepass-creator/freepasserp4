@@ -181,13 +181,25 @@ function partsOfRecord(p: EntityRecord, tier: NameTier, omitMaker: boolean): Omi
     && typeof p._review_identity === 'object')
     ? p._review_identity as EntityRecord
     : null;
+  /**
+   * ★**ERP 값이 이긴다 — 사람 결정은 «빈칸만» 채운다**(사장님 2026-08-23 「있는 걸 그대로 갖고 오는 거잖아」).
+   *
+   * ⚠ 전에는 `_review_identity` 가 **ERP 값을 덮었다.** 그래서 시트·ERP 는 「싼타페 MX5」인데
+   *   화면만 「디 올 뉴 싼타페 MX5」로 나갔다(실측 2026-08-23: 39대 — 「쏘나타 디 엣지」▶「쏘나타 DN8 디 엣지」,
+   *   「GV80 JX1 FL」▶「GV80 부분변경 JX1」도 같은 경로). 사장님이 「아직도 현대 디 올뉴 이렇게 나오는데」로
+   *   짚으신 것이 이것이다 — 정제칸을 고쳐도 화면이 안 바뀌던 이유.
+   *
+   *   `_review_identity` 는 정제칸이 정본이 되기 전, 코드 없는 차를 사람이 3축으로 정하던 자리다.
+   *   지금은 정제칸 ▶ 판매시트 ▶ ERP 가 그 역할을 하므로 **ERP 에 값이 있으면 그것이 이름**이고,
+   *   ERP 가 빈 축만 옛 결정으로 메운다(이름이 없는 것보다는 낫다).
+   */
   const display = review
     ? {
       ...p,
-      maker: S(review.maker) || p.maker,
-      model: S(review.model) || p.model,
-      sub_model: S(review.sub_model) || p.sub_model,
-      trim_name: S(review.trim_name) || p.trim_name,
+      maker: S(p.maker) || S(review.maker),
+      model: S(p.model) || S(review.model),
+      sub_model: S(p.sub_model) || S(review.sub_model),
+      trim_name: S(p.trim_name) || S(review.trim_name),
     }
     : p;
   const rawMaker = S(display.maker);
@@ -209,13 +221,22 @@ function partsOfRecord(p: EntityRecord, tier: NameTier, omitMaker: boolean): Omi
 
   const makerAliases = [rawMaker, maker];
   /**
-   * ★**이름은 「제조사 + 차명(세부모델+트림)」이다**(사장님 2026-08-20 「차명을 써야 한다니까 모델만 쓰면 우짜냐 ·
-   *   제조사+차명(세부모델+세부트림) 여기를 써야지」). 공급사가 적어 준 차명(`supplier_vehicle_name`)이 있으면
-   *   **그것이 이름**이다 — 우리가 세부모델·트림을 짐작해 조립한 이름은 틀리면 그대로 거짓말이 된다
-   *   (실측 2026-08-20: 빌린카 29부7772 아반떼MD 를 「더 뉴 아반떼 CN7 스마트」로 부르고 있었다).
-   *   차명이 없을 때만 예전처럼 `sub_model ‖ model` 로 만든다.
+   * ★★**이름 = 세부모델 + 세부트림**(사장님 2026-08-23 「보여 달라고 할 때 모델명=아반떼 ·
+   *   세부모델=아반떼 CN7 · 세부모델+세부트림=아반떼 CN7 인스퍼레이션 · 요청하는 대로 거기에 노출해 줘야 해」).
+   *
+   *   ⚠ **공급사 원문(`supplier_vehicle_name`)을 이름으로 쓰지 마라.** 2026-08-20 에 그렇게 정했었는데
+   *     (그때는 우리가 조립한 이름이 틀렸다 — 아반떼MD 를 「더 뉴 아반떼 CN7 스마트」로 불렀다),
+   *     그 뒤 **정제칸이 정본**이 되면서 전제가 바뀌었다. 원문을 이름으로 쓰면 엔진·구동·인승·판매문구가
+   *     이름에 섞여 나온다 — 실측 2026-08-23:
+   *       「HEV 그랜저 GN7 런칭 자가용 하이브리드 1.6T 2WD 익스클루시브」
+   *       「더 뉴싼타페 가솔린 2.5 터보 2WD 5인승 프리미엄 초이스」
+   *     연식·연료·배기량·구동·인승은 **원자로 따로 갖고 있다가 있는 것만 골라 쓴다**(사장님 같은 날).
+   *     이름에 섞으면 같은 값이 두 번 나오고, 차마다 이름 길이가 제각각이 된다.
+   *
+   *   공급사 원문은 **상세 「기타」에 참고용**으로 따로 선다(「2중 보관」) — 버리는 게 아니라 자리를 옮긴 것이다.
+   *   정제칸이 통째로 빈 차만 마지막 수단으로 원문을 쓴다(이름이 없는 것보다는 낫다).
    */
-  const rawMain = text(S((display as Record<string, unknown>).supplier_vehicle_name) || sub || model);
+  const rawMain = text(sub || model || S((display as Record<string, unknown>).supplier_vehicle_name));
   let main = removeKnownPhrases(rawMain, makerAliases);
   // 실데이터: maker=테슬라, 차종 공란, variant=EV RWD, trim="테슬라 모델Y RWD".
   // 제조사가 들어간 완성형 trim에 한해서만 제원 토큰을 걷어 모델명을 복원한다.

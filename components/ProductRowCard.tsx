@@ -11,10 +11,10 @@ import { vehicleNameOf } from '@/lib/domain/vehicle-name';
 /**
  * 모바일 목록 1행 이름 = **세부모델 + 세부트림**(제조사 뺌 · 사장님 2026-08-22).
  * `omitMaker` 는 «상위 UI 가 제조사를 확정한 자리»에서만 쓰는 옵션인데, 목록은 사진이 그 역할을 한다.
- * tier full 이라야 트림까지 붙는다(short 는 세부모델까지).
+ * short = 세부모델 + 세부트림. full 은 파워트레인·원문 조각이 붙는다.
  */
 const listName = (p: EntityRecord): string =>
-  vehicleNameOf({ kind: 'product', product: p }, { tier: 'full', omitMaker: true, fallback: 'plate' });
+  vehicleNameOf({ kind: 'product', product: p }, { tier: 'short', omitMaker: true, fallback: 'plate' });
 import {
   CardTitle, CardSpecs, CardPerkLine, CardThumb, CardRailBadges,
   PricePeekRoot, PriceAmounts, PeriodChips, PeriodRange, OptionChips,
