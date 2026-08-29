@@ -1,9 +1,8 @@
 'use client';
 
-import type { ReactNode } from 'react';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { creditDisplay, vehicleTone, canonProductType, type Audience } from '@/lib/domain/product';
-import { C, Badge } from '@/components/ui';
+import { C } from '@/components/ui';
 import { CREDIT_TONE, productTypeStyle, type BadgeTone } from '@/components/ui/badges';
 
 export function CarGlyph({ size = 30 }: { size?: number }) {
@@ -129,21 +128,8 @@ export function photoMarkSpecs(product: EntityRecord, audience: Audience = 'agen
   return badgeSpecs(product, true, true, audience).filter((spec) => spec.key === 'st');
 }
 
-/** hideStatus = 차량상태를 다른 곳(작업화면 상단 요약바)이 이미 들고 있을 때. 같은 배지를 두 번 찍지 않는다. */
-export function badges(product: EntityRecord, overlay = false, hideCredit = false, short = false, audience: Audience = 'agent', opts?: { hideStatus?: boolean }): ReactNode {
-  return (<>{badgeSpecs(product, hideCredit, short, audience).filter((spec) => !(opts?.hideStatus && spec.key === 'st')).map((spec) => (
-    <Badge key={spec.key} tone={spec.tone} variant={spec.variant || 'line'} overlay={overlay} pulse={spec.pulse} title={badgeTip(spec.key, spec.label)}>{spec.label}</Badge>
-  ))}</>);
-}
-
-export function BadgesClip({ p, max = 3 }: { p: EntityRecord; max?: number }) {
-  const specs = badgeSpecs(p, true, true);
-  const shown = specs.slice(0, max);
-  const remaining = specs.length - shown.length;
-  return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, flex: '0 0 auto' }}>
-      {shown.map((spec) => <Badge key={spec.key} tone={spec.tone} variant={spec.variant || 'line'} pulse={spec.pulse} title={badgeTip(spec.key, spec.label)}>{spec.label}</Badge>)}
-      {remaining > 0 && <Badge tone="gray">+{remaining}</Badge>}
-    </span>
-  );
-}
+/*
+ * ★`badges()` · `BadgesClip`(상자 렌더러)은 지웠다(2026-08-28).
+ *   아무도 안 쓰는데 남겨 두면 다음 화면이 그걸 집어 또 상자가 생긴다 — CardKind 를 지운 이유와 같다.
+ *   차량상태·상품구분·심사조건을 그리는 것은 `SignalMark` 하나뿐이다.
+ */

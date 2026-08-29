@@ -9,7 +9,7 @@ import {
   listRecent, listFavs, clearRecent, clearFavs, removeRecent, removeFav, subscribeInterest,
   type InterestSnap,
 } from '@/lib/product-interest';
-import { man } from '@/lib/format';
+import { man, wonText } from '@/lib/format';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { haptic } from '@/lib/haptics';
 
@@ -186,7 +186,7 @@ export function InterestSummaryCard({ live, snap, tab }: {
             <>
               <span style={{ color: C.faint }}>{focus.m}개월</span>
               {' · '}
-              <span style={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums', fontWeight: FW.head, color: C.brand }}>{man(focus.rent)}</span>
+              <span style={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums', fontWeight: FW.head, color: C.brand }}>{wonText(focus.rent)}</span>
               {' · '}
               {focus.deposit > 0 ? (
                 <span style={{ color: C.mute }}>

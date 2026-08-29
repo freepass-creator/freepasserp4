@@ -437,6 +437,25 @@ export function vehicleName(p: EntityRecord): string {
 export const CREDIT_UNSET = '미입력';
 
 /**
+ * ★**정책이 붙었나** — 우대조건을 «없다»고 말해도 되는가를 가르는 값.
+ *
+ * 정책이 안 붙은 매물은 분납·연령·경력을 «알 수 없는» 것이지 «없는» 것이 아니다.
+ * 실측 2026-08-28: 868대 중 정책이 붙은 차는 187대뿐이라, 나머지 681대가 전부
+ * 「조건없음」으로 떴다 — 손오공은 보증금 분납이 정책에 «가능»으로 있는데도 그랬다.
+ * 「없다」고 적으면 영업자가 손님에게 «분납 안 됩니다»라고 말한다. 그게 빈칸보다 나쁘다.
+ */
+export function hasPolicy(p: EntityRecord): boolean {
+  const pol = policyOf(p) as unknown as Record<string, unknown>;
+  return !!pol && Object.keys(pol).length > 0;
+}
+
+/** 우대조건 줄이 비었을 때의 글자 — 정책을 아는데 조건이 없으면 «조건없음», 모르면 «미입력». */
+export const PERK_NONE = '조건없음';
+export function perkEmptyLabel(p: EntityRecord): string {
+  return hasPolicy(p) ? PERK_NONE : CREDIT_UNSET;
+}
+
+/**
  * 심사표기 — 무심사 / 소득확인 / 신용조회 (뱃지 SSOT. 정책 screening_criteria 우선 · 사장님 2026-08-19 셋으로 확정)
  *
  * ★신호가 없으면 «무심사»가 아니라 `미입력` 이다(2026-08-06).

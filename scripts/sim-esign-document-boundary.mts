@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { stripDetachedEsignAppendices } from '../lib/domain/esign-document-boundary';
+import { CONTRACT_DOCUMENT_TEMPLATES, findTemplate } from '../lib/domain/esign-templates';
 
 const template = readFileSync('public/contract-template/rental-contract.html', 'utf8');
 const mainContract = stripDetachedEsignAppendices(template);
@@ -47,7 +48,35 @@ assert.match(documentBuilder, /inlineContractPdfFonts/);
 assert.match(documentBuilder, /document\.fonts\.ready/);
 assert.match(documentBuilder, /__rebuildTerms/);
 assert.match(documentBuilder, /buildFreepassContractHtml/);
-assert.match(sharedHtmlBuilder, /rental-contract\.html/);
+/*
+ * ★계약서 «파일 경로»를 발행 데이터가 고를 수 없어야 한다 — 이 가드의 원래 뜻이다.
+ *   예전에는 파일명이 빌더 안에 문자열로 박혀 있어 `/rental-contract\.html/` 하나로 확인했다.
+ *   이제 파일명은 허용목록(CONTRACT_DOCUMENT_TEMPLATES)으로 옮겼으므로, 같은 성질을 셋으로 나눠 본다.
+ *   (2026-08-28 — 레지스트리 리팩터로 옛 문자열이 사라져 이 가드가 깨져 있었다.)
+ */
+// ① 빌더는 반드시 허용목록을 거친다. templateId 로 경로를 «짓지» 않는다.
+assert.match(sharedHtmlBuilder, /CONTRACT_DOCUMENT_TEMPLATES/);
+assert.match(sharedHtmlBuilder, /findTemplate/);
+// ①' 그리고 «실제로 돌려서» 확인한다 — 정규식은 안전한 코드까지 잡거나 위험한 코드를 놓친다.
+//    발행 데이터가 무엇을 넣든 허용목록 밖 파일로 못 나가야 한다.
+for (const injected of ['../../../etc/passwd', '/etc/passwd', 'rental-contract.html', 'freepass-standard/../x', '', null, undefined]) {
+  const picked = findTemplate(injected);
+  const file = CONTRACT_DOCUMENT_TEMPLATES[picked?.documentTemplate || 'freepass-standard'].file;
+  assert.ok(
+    Object.values(CONTRACT_DOCUMENT_TEMPLATES).some((entry) => entry.file === file),
+    `허용목록 밖 서식이 골라졌습니다: ${String(injected)} → ${file}`,
+  );
+  assert.doesNotMatch(file, /[\/]|\.\./, `서식 파일명에 경로가 섞였습니다: ${file}`);
+}
+// ② 기본값은 언제나 표준 계약서다. 여기가 바뀌면 아무 지시 없는 계약이 남의 서식으로 나간다.
+assert.equal(CONTRACT_DOCUMENT_TEMPLATES['freepass-standard'].file, 'rental-contract.html');
+// ③ 등록된 서식은 실제로 있어야 한다. 없으면 그 상품 계약이 발행 시점에 터진다.
+for (const [key, entry] of Object.entries(CONTRACT_DOCUMENT_TEMPLATES)) {
+  assert.ok(
+    existsSync(`public/contract-template/${entry.file}`),
+    `계약서 서식 파일이 없습니다: ${key} → ${entry.file}`,
+  );
+}
 assert.match(sharedHtmlBuilder, /stripDetachedEsignAppendices/);
 assert.match(sharedHtmlBuilder, /\[data-main-exclude=""\]\{display:none!important\}/);
 assert.match(template, /class="section" data-contract-option="guarantor"/);

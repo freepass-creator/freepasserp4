@@ -7,7 +7,7 @@
  *   npx tsx scripts/check-vehicle-master-lock.mts
  */
 import { readFileSync } from 'node:fs';
-import { FILL_OWNED_COLUMNS, VEHICLE_CODE_REGISTRY, VEHICLE_NAME_DICTIONARY, VEHICLE_MASTER_OWNER } from '../lib/domain/vehicle-master-lock';
+import { FILL_OWNED_COLUMNS, VEHICLE_CODE_REGISTRY, VEHICLE_NAME_DICTIONARY, VEHICLE_MASTER_OWNER, ENCAR_NAME_ABSOLUTE } from '../lib/domain/vehicle-master-lock';
 import { classifyVehicleClass, composeRefinedVehicleName } from '../lib/domain/vehicle-class';
 import { vehicleClassCodeFromLabel } from '../lib/domain/vehicle-class-catalog';
 import { stripModelCode } from '../lib/domain/submodel-code';
@@ -117,6 +117,22 @@ check('차명 조합', composeRefinedVehicleName('아반떼', '아반떼 CN8', '
   check('차종마스터 쓰기 담당', VEHICLE_MASTER_OWNER === '커서' && lock.includes('VEHICLE_MASTER_OWNER'), `담당 ${VEHICLE_MASTER_OWNER}`);
   const manual = readFileSync('lib/domain/ai-operating-manual.ts', 'utf8');
   check('매뉴얼 0″ 요령', manual.includes('VEHICLE_MASTER_MATCH_PLAYBOOK') && manual.includes('0″'), 'vehicle-master-playbook → AI 운영 매뉴얼');
+{
+  const must = [
+    'AGENTS.md', 'CLAUDE.md', 'CURSOR.md', '.cursorrules',
+    '.cursor/rules/vehicle-master.mdc',
+    'docs/차종마스터-엔카작업시트-매뉴얼.md',
+    'docs/AI_COLLABORATION.md',
+    'lib/domain/ai-operating-manual.ts',
+    'lib/domain/vehicle-master-playbook.ts',
+    'lib/domain/vehicle-master-lock.ts',
+    'docs/AI_OPERATING_MANUAL.md',
+  ];
+  for (const f of must) {
+    const t = readFileSync(f, 'utf8');
+    check(`엔카절대 ${f}`, t.includes(ENCAR_NAME_ABSOLUTE), t.includes(ENCAR_NAME_ABSOLUTE) ? '경고 있음' : '⛔ 경고 문구 없음');
+  }
+}
   check('fill이 코드떨기 사전을 막음', fill.includes('substFromAiRefineRows'), 'ai-refine-guard');
   check('발행기가 코드떨기 사전을 막음', pub.includes('substFromAiRefineRows'), 'publish-origin-tab');
   check('K5 DL3→K5 매핑 거부', isForbiddenSubmodelStrip('K5 DL3', 'K5'), 'ai-refine-guard');

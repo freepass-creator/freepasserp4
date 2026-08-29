@@ -9,10 +9,11 @@ import {
   uploadPrivateEsignFile,
   type EsignRecord,
 } from '@/lib/server/freepass-esign';
-import { encryptRrn } from '@/lib/server/rrn-crypto';
+import { applySignerRoleToDocuments, SIGNER_ROLES } from '@/lib/domain/esign-required-documents';
 import { hasMeaningfulFreepassSignature } from '@/lib/server/freepass-esign-signature';
-import { driverAgeRange, residentAgeOn, residentIdInfo } from '@/lib/domain/esign-resident-id';
+import { driverAgeRange, residentIdInfo } from '@/lib/domain/esign-resident-id';
 import { normalizeEsignRequiredDocuments } from '@/lib/domain/esign-required-documents';
+import { encryptRrn } from '@/lib/server/rrn-crypto';
 
 const SUBMISSION_CLAIM_TTL_MS = 90_000;
 const PRIVATE_UPLOAD_TIMEOUT_MS = 45_000;
@@ -52,9 +53,22 @@ const PUBLIC_HEADERS = {
 // 두 장과 서명 데이터를 합쳐 일반 서버리스 요청 제한 안에 머물도록 한다.
 const MAX_IMAGE_BYTES = 1_500_000;
 const S = (value: unknown) => String(value ?? '').trim();
+/**
+ * 손님 화면이 «지나온 단계»로 기록할 수 있는 키.
+ *
+ * ★여기 없는 키를 화면이 보내면 400 이 나고 손님이 그 화면에 갇힌다.
+ *   화면에서 단계를 쪼개거나 새로 만들면 **반드시 여기에도 넣는다.**
+ *   실제로 그래서 개인 계약이 「매출증빙」에서 막혀 있었다(2026-08-28).
+ *   어긋나면 `sim-esign-progress-keys` 가 잡는다 — 사람 눈으로 맞추지 않는다.
+ */
 const PROGRESS_KEYS = new Set([
-  'summary', 'privacy', 'identity', 'vehicle', 'rental', 'payment', 'driver',
-  'additional_driver', 'documents', 'insurance', 'accident', 'service', 'agreement', 'signature',
+  'summary', 'privacy', 'identity',
+  // 본인확인을 쪼갠 화면들 — 한 화면에 다 넣으면 폰에서 스크롤이 길어져 갈랐다
+  'sales_proof', 'signer', 'tax_invoice', 'emergency', 'id_photo', 'selfie',
+  // 계약조건 낱장(스냅샷의 consentPages 에서 온다) + 그 밖
+  'vehicle', 'rental', 'payment', 'driver',
+  'additional_driver', 'contract', 'documents', 'insurance', 'accident', 'service',
+  'agreement', 'signature',
 ]);
 
 function json(body: Record<string, unknown>, status = 200) {
@@ -114,6 +128,25 @@ function requestEvidence(request: Request, sessionHash: string) {
     ipHash: sha256(`${sessionHash}:${ip}`),
     userAgent: S(request.headers.get('user-agent')).slice(0, 300),
   };
+}
+
+function birthDate(value: unknown): string | null {
+  const result = S(value);
+  const parsed = new Date(`${result}T00:00:00.000Z`);
+  return /^\d{4}-\d{2}-\d{2}$/.test(result)
+    && !Number.isNaN(parsed.getTime())
+    && parsed.toISOString().slice(0, 10) === result
+    && parsed <= new Date()
+    ? result : null;
+}
+
+function ageOnBirthDate(birth: string, reference: unknown): number | null {
+  const at = birthDate(reference);
+  if (!at) return null;
+  const [by, bm, bd] = birth.split('-').map(Number);
+  const [ay, am, ad] = at.split('-').map(Number);
+  if (![by, bm, bd, ay, am, ad].every(Number.isFinite)) return null;
+  return ay - by - (am < bm || (am === bm && ad < bd) ? 1 : 0);
 }
 
 function progressCount(progress: EsignRecord) {
@@ -179,33 +212,74 @@ function validateSubmission(payload: EsignRecord, snapshot: EsignRecord) {
   for (const [key, limit] of [
     ['customer_id', 30], ['customer_address', 200],
     ['driver_license_no', 30],
+    ['sales_proof_value', 30],
     ['emergency_relation', 30], ['emergency_name', 40], ['emergency_phone', 30],
+    ['signer_name', 40], ['signer_role', 30],
   ] as const) {
     if (S(payload[key]).length > limit) throw new Error('입력값이 너무 깁니다.');
   }
   const corporate = S(record(snapshot.templateState).ct) === '법인';
   const soleProprietor = S(record(snapshot.templateState).tax) === '사업자';
   const customerId = S(payload.customer_id).replace(/\D/g, '');
-  if (customerId.length !== 13) throw new Error('주민등록번호 13자리를 정확히 입력해 주세요.');
+  const customerBirth = corporate ? '' : birthDate(payload.customer_id);
+  if (corporate && customerId.length !== 13) throw new Error('법인등록번호 13자리를 정확히 입력해 주세요.');
+  if (!corporate && !customerBirth) throw new Error('생년월일을 YYYY-MM-DD 형식으로 입력해 주세요.');
   const templateFields = record(snapshot.templateFields);
   if (corporate) {
     if (S(payload.driver_license_no).replace(/\D/g, '').length !== 10) throw new Error('사업자등록번호 10자리를 정확히 입력해 주세요.');
+    /*
+     * ★법인은 «임차인»과 «서명하는 사람»이 다르다. 위의 customer_* 는 전부 법인 값이라,
+     *   서명자를 따로 받지 않으면 «누가 서명했는가»가 어디에도 남지 않는다.
+     *   그런데도 신분증·얼굴 사진은 받고 있었다 — 대조할 기준이 없는 사진이었다.
+     * ⚠ 대표이사의 서명은 «위임»이 아니라 «대표권»이다(위임장 불요).
+     *   위임장이 필요한 건 대표이사가 아닌 임직원이 서명할 때뿐이라, 관계를 값으로 받는다.
+     */
+    if (!S(payload.signer_name)) throw new Error('서명하시는 분의 성명을 입력해 주세요.');
+    if (!(SIGNER_ROLES as readonly string[]).includes(S(payload.signer_role))) throw new Error('법인과의 관계를 선택해 주세요.');
   } else {
-    const resident = residentIdInfo(customerId);
-    if (!resident) throw new Error('주민등록번호의 생년월일을 확인해 주세요.');
     const ageRange = driverAgeRange(templateFields.driver_age);
-    const customerAge = residentAgeOn(customerId, templateFields.contract_start);
-    if (customerAge == null) throw new Error('주민등록번호의 생년월일을 확인해 주세요.');
+    // 인도일은 나중에 확정될 수 있으므로, 아직 비어 있으면 계약일을 연령 기준일로 쓴다.
+    const ageReference = S(templateFields.contract_start) || S(templateFields.contract_date);
+    const customerAge = ageOnBirthDate(customerBirth || '', ageReference);
+    if (customerAge == null) throw new Error('계약일과 생년월일을 확인해 주세요.');
     if (ageRange.min != null && customerAge < ageRange.min) throw new Error(`이 계약은 만 ${ageRange.min}세 이상만 운전할 수 있습니다.`);
     if (ageRange.max != null && customerAge > ageRange.max) throw new Error(`이 계약은 만 ${ageRange.max}세 이하만 운전할 수 있습니다.`);
     if (!S(payload.driver_license_no)) throw new Error('운전면허번호를 입력해 주세요.');
+    if (payload.id_card_rrn_masked_confirmed !== true) throw new Error('운전면허증의 주민번호를 가린 사본만 제출해 주세요.');
   }
   if (!S(payload.customer_address)) throw new Error('계약서에 기재할 주소를 입력해 주세요.');
   const business = {
     name: S(payload.tax_biz_name), no: S(payload.tax_biz_no).replace(/\D/g, ''), ceo: S(payload.tax_ceo),
     typeItem: S(payload.tax_biz_type_item), email: S(payload.tax_email), address: S(payload.tax_biz_address),
   };
-  if (soleProprietor && (!business.name || business.name.length > 120 || business.no.length !== 10 || !business.ceo || business.ceo.length > 80 || !business.typeItem || business.typeItem.length > 160 || !/^\S+@\S+\.\S+$/.test(business.email) || business.email.length > 160 || !business.address || business.address.length > 200)) throw new Error('세금계산서 사업자 정보를 확인해 주세요.');
+  const businessTouched = !!(business.name || business.no || business.ceo || business.typeItem || business.email || business.address);
+  const businessReady = !!(
+    business.name && business.name.length <= 120
+    && business.no.length === 10
+    && business.ceo && business.ceo.length <= 80
+    && business.typeItem && business.typeItem.length <= 160
+    && /^\S+@\S+\.\S+$/.test(business.email) && business.email.length <= 160
+    && business.address && business.address.length <= 200
+  );
+  if ((soleProprietor || businessTouched) && !businessReady) throw new Error('세금계산서 사업자 정보를 확인해 주세요.');
+  const salesProofMethod = S(payload.sales_proof_method);
+  const salesProofValue = S(payload.sales_proof_value);
+  let salesProof: { method: 'phone' | 'rrn'; phone?: string; residentIdEncrypted?: string; consentAt?: number } | null = null;
+  if (!corporate && !soleProprietor && !businessTouched) {
+    if (salesProofMethod === 'phone') {
+      const phone = salesProofValue.replace(/\D/g, '');
+      if (phone.length < 10 || phone.length > 11) throw new Error('현금영수증을 받을 휴대전화번호를 정확히 입력해 주세요.');
+      salesProof = { method: 'phone', phone };
+    } else if (salesProofMethod === 'rrn') {
+      const resident = residentIdInfo(salesProofValue);
+      if (!resident) throw new Error('현금영수증용 주민등록번호를 정확히 입력해 주세요.');
+      if (payload.sales_proof_rrn_consent !== true) throw new Error('현금영수증 발행용 주민등록번호 암호화 처리 동의가 필요합니다.');
+      // 계약·PDF·공개 노드에는 절대 넣지 않고, 현금영수증 발행용 private submission에만 암호문을 둔다.
+      salesProof = { method: 'rrn', residentIdEncrypted: encryptRrn(resident.digits), consentAt: Date.now() };
+    } else {
+      throw new Error('현금영수증 발행 수단을 선택해 주세요.');
+    }
+  }
   const emergencyRelation = S(payload.emergency_relation);
   const emergencyName = S(payload.emergency_name);
   const emergencyPhone = S(payload.emergency_phone).replace(/\D/g, '');
@@ -228,24 +302,35 @@ function validateSubmission(payload: EsignRecord, snapshot: EsignRecord) {
     if (!relation || relation.length > 30) throw new Error(`추가 운전자 ${index + 1}의 관계를 확인해 주세요.`);
     if (driverPhone.length < 10 || driverPhone.length > 11) throw new Error(`추가 운전자 ${index + 1}의 연락처를 확인해 주세요.`);
     if (!driverLicenseNo || driverLicenseNo.length > 30) throw new Error(`추가 운전자 ${index + 1}의 면허번호를 확인해 주세요.`);
+    if (driver.license_rrn_masked_confirmed !== true) throw new Error(`추가 운전자 ${index + 1}의 면허증 주민번호를 가린 사본만 제출해 주세요.`);
     if (!Number(driver.consentAt || 0)) throw new Error(`추가 운전자 ${index + 1}의 개인정보 제공 동의가 필요합니다.`);
     return {
       name: driverName,
       relation,
       phone: driverPhone,
       driver_license_no: driverLicenseNo,
+      license_rrn_masked_confirmed: true,
       consentAt: Number(driver.consentAt),
     };
   });
   return {
-    name, phone, signature, consents, confirmations, additionalDrivers,
-    emergencyRelation, emergencyName, emergencyPhone, business, documentSourceViewedAt,
+    name, phone, signature, consents, confirmations, additionalDrivers, customerBirth,
+    emergencyRelation, emergencyName, emergencyPhone, business, salesProof, documentSourceViewedAt,
+    /* 법인 여부와 서명자는 «여기서 이미 검증한 것»을 그대로 들고 간다.
+       저장 자리에서 templateState 를 다시 읽으면 판정이 두 벌이 되고, 한쪽만 고치는 사고가 난다. */
+    corporate,
+    signer: corporate ? {
+      name: S(payload.signer_name),
+      role: S(payload.signer_role),
+    } : null,
   };
 }
 
-function supportingDocumentsFor(session: EsignRecord): EsignRecord[] {
+function supportingDocumentsFor(session: EsignRecord, signerRole?: unknown): EsignRecord[] {
   const snapshot = record(session.snapshot);
-  const requested = normalizeEsignRequiredDocuments(snapshot.requiredDocuments);
+  /* 위임 서류는 «해당 시»로 굳어 있다 — 서명자가 대표이사가 아니면 여기서 필수로 승격된다.
+     손님 화면도 같은 함수를 쓴다(esign-required-documents.applySignerRoleToDocuments). */
+  const requested = applySignerRoleToDocuments(normalizeEsignRequiredDocuments(snapshot.requiredDocuments), signerRole);
   const uploads = record(session.supportingUploads);
   const missing = requested.filter((document) => document.required && !S(record(uploads[document.key]).path));
   if (missing.length) {
@@ -284,6 +369,9 @@ export async function GET(
   const status = S(session.status);
   if (status === 'revoked' || Number(session.revokedAt || 0)) {
     return json({ status: '해지', error: '해지된 전자계약 링크입니다.' }, 410);
+  }
+  if (status === 'signed' && Number(session.customerCopyExpiresAt || 0) > 0 && Number(session.customerCopyExpiresAt) <= now) {
+    return json({ status: '만료', error: '고객 계약서 열람 링크가 만료되었습니다. 담당자에게 새 사본을 요청해 주세요.' }, 410);
   }
   if (Number(session.expiresAt || 0) <= now && !['pending_review', 'approving', 'rejecting', 'signed'].includes(status)) {
     return json({ status: '만료', error: '만료된 전자계약 링크입니다.' }, 410);
@@ -441,21 +529,26 @@ export async function POST(
   }
 
   let payload: EsignRecord;
-  let idCard: File;
-  let selfie: File;
+  let idCard: File | null = null;
+  let selfie: File | null = null;
   let additionalDriverLicenses: File[];
   let supportingDocuments: EsignRecord[];
   try {
     const form = await request.formData();
     payload = JSON.parse(S(form.get('payload'))) as EsignRecord;
-    idCard = imageFile(form.get('idCard'), '운전면허증');
-    selfie = imageFile(form.get('selfie'), '본인 셀카');
     const parsed = validateSubmission(payload, record(session.snapshot));
+    // 법인은 법인등기·인감과 대표권/위임 서류로 계약권한을 확인한다. 법인 대표자나
+    // 위임 임직원의 주민번호·면허증·얼굴 사진을 일괄 수집하지 않는다.
+    if (!parsed.corporate) {
+      idCard = imageFile(form.get('idCard'), '운전면허증');
+      selfie = imageFile(form.get('selfie'), '본인 얼굴 사진');
+    }
     additionalDriverLicenses = parsed.additionalDrivers.map((_, index) => imageFile(
       form.get(`additionalDriverLicense${index + 1}`),
       `추가 운전자 ${index + 1} 운전면허증`,
     ));
-    supportingDocuments = supportingDocumentsFor(session);
+    /* 검증에서 확정한 서명자 관계를 그대로 넘긴다 — payload 를 여기서 다시 읽으면 판정이 두 벌이 된다. */
+    supportingDocuments = supportingDocumentsFor(session, parsed.signer?.role);
     validateServerProgress(session);
   } catch (error) {
     return json({ error: error instanceof Error ? error.message : '제출 내용을 확인해 주세요.' }, 400);
@@ -481,14 +574,14 @@ export async function POST(
 
   try {
     const [idBytes, selfieBytes, additionalDriverLicenseBytes] = await Promise.all([
-      idCard.arrayBuffer().then((value) => new Uint8Array(value)),
-      selfie.arrayBuffer().then((value) => new Uint8Array(value)),
+      idCard ? idCard.arrayBuffer().then((value) => new Uint8Array(value)) : Promise.resolve(null),
+      selfie ? selfie.arrayBuffer().then((value) => new Uint8Array(value)) : Promise.resolve(null),
       Promise.all(additionalDriverLicenses.map((file) => file.arrayBuffer().then((value) => new Uint8Array(value)))),
     ]);
     const root = `esign-private/${contractCode}/${hash}`;
     const [idAsset, selfieAsset, additionalDriverAssets] = await withTimeout(Promise.all([
-      uploadPrivateEsignFile(`${root}/id-card.${extension(idCard)}`, idBytes, idCard.type),
-      uploadPrivateEsignFile(`${root}/selfie.${extension(selfie)}`, selfieBytes, selfie.type),
+      idCard && idBytes ? uploadPrivateEsignFile(`${root}/id-card.${extension(idCard)}`, idBytes, idCard.type) : Promise.resolve(null),
+      selfie && selfieBytes ? uploadPrivateEsignFile(`${root}/selfie.${extension(selfie)}`, selfieBytes, selfie.type) : Promise.resolve(null),
       Promise.all(additionalDriverLicenses.map((file, index) => uploadPrivateEsignFile(
         `${root}/additional-driver-${index + 1}-license.${extension(file)}`,
         additionalDriverLicenseBytes[index],
@@ -517,17 +610,27 @@ export async function POST(
       submittedAt: now,
       customer_name: parsed.name,
       customer_phone: parsed.phone,
-      customer_id: encryptRrn(payload.customer_id),
+      // 개인은 생년월일, 법인은 법인등록번호를 같은 계약서 식별 칸에만 기록한다.
+      // 어느 경우에도 주민등록번호는 받거나 저장하지 않는다.
+      customer_id: S(payload.customer_id),
+      ...(parsed.customerBirth ? { customer_birth: parsed.customerBirth } : {}),
       customer_address: S(payload.customer_address),
       driver_license_no: S(payload.driver_license_no),
+      /* 법인일 때만 싣는다 — 개인 계약에서는 서명자가 곧 계약자라 같은 값을 두 번 두지 않는다.
+         권한은 법인등기·인감·위임 서류로 확인하므로 서명자 고유식별번호는 받지 않는다. */
+      ...(parsed.signer ? {
+        signer_name: parsed.signer.name,
+        signer_role: parsed.signer.role,
+      } : {}),
       emergency_relation: parsed.emergencyRelation,
       emergency_name: parsed.emergencyName,
       emergency_phone: parsed.emergencyPhone,
-      ...(S(record(record(claimedSession.snapshot).templateState).tax) === '사업자' ? {
+      ...(parsed.business.no.length === 10 ? {
         tax_biz_name: parsed.business.name, tax_biz_no: parsed.business.no, tax_ceo: parsed.business.ceo,
         tax_biz_type_item: parsed.business.typeItem, tax_email: parsed.business.email, tax_biz_address: parsed.business.address,
         tax_issue_type: '개인사업자 (사업자등록번호 발행)',
       } : {}),
+      ...(parsed.salesProof ? { sales_proof: parsed.salesProof } : {}),
       additional_drivers: parsed.additionalDrivers.map((driver, index) => ({
         ...driver,
         licensePath: additionalDriverAssets[index].path,
@@ -541,12 +644,17 @@ export async function POST(
       clientConfirmations: parsed.confirmations,
       documentSourceViewedAt: parsed.documentSourceViewedAt,
       evidence: requestEvidence(request, hash),
-      idCardPath: idAsset.path,
-      idCardSha256: idAsset.sha256,
-      idCardContentType: idAsset.contentType,
-      selfiePath: selfieAsset.path,
-      selfieSha256: selfieAsset.sha256,
-      selfieContentType: selfieAsset.contentType,
+      ...(idAsset ? {
+        idCardPath: idAsset.path,
+        idCardSha256: idAsset.sha256,
+        idCardContentType: idAsset.contentType,
+        idCardRrnMaskedConfirmed: true,
+      } : {}),
+      ...(selfieAsset ? {
+        selfiePath: selfieAsset.path,
+        selfieSha256: selfieAsset.sha256,
+        selfieContentType: selfieAsset.contentType,
+      } : {}),
     };
     const sessionUpdate: EsignRecord = {
         status: 'pending_review', submittedAt: now, submittingAt: null,
@@ -562,8 +670,8 @@ export async function POST(
         sign_rejected_at: null,
         sign_reject_reason: null,
         esign_documents: [
-          { key: 'driver_license', label: '운전면허증', submittedAt: now, sha256: idAsset.sha256 },
-          { key: 'selfie', label: '본인 셀카', submittedAt: now, sha256: selfieAsset.sha256 },
+          ...(idAsset ? [{ key: 'driver_license', label: '운전면허증', submittedAt: now, sha256: idAsset.sha256 }] : []),
+          ...(selfieAsset ? [{ key: 'selfie', label: '본인 얼굴 사진', submittedAt: now, sha256: selfieAsset.sha256 }] : []),
           ...additionalDriverAssets.map((asset, index) => ({
             key: `additional_driver_license_${index + 1}`,
             label: `추가 운전자 ${index + 1} 운전면허증`,
@@ -577,12 +685,12 @@ export async function POST(
             sha256: S(document.sha256),
           })),
         ],
-        esign_identity: {
+        ...(idAsset && selfieAsset ? { esign_identity: {
           idCardSha256: idAsset.sha256,
           selfieSha256: selfieAsset.sha256,
           submittedAt: now,
           verifiedAt: 0,
-        },
+        } } : {}),
     };
     // 고객 제출자료·검토상태·목록표시는 하나의 상태이므로 부분 완료가 생기지 않게 원자적으로 저장한다.
     await bundle.db.ref('v4').update({

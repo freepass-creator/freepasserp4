@@ -1,5 +1,7 @@
 # freepasserp4 규격 (SSOT) — 손대기 전 필독. 이거 어기면 매번 틀어진다.
 
+> ⛔차종이름=엔카 1:1. 예외 둘만: 기아 N세대→개발코드, 우리 시트만 G80 DH. 세 번째 예외 금지.
+
 저신용·무심사 렌터카 3자 마켓 ERP (공급사·영업자·관리자 + 손님). Next.js 15 App Router + TS, dev :4004.
 
 ## ★영업자 구글시트 일이면 먼저 읽어라 — `docs/영업자시트-매뉴얼.md`
@@ -14,7 +16,7 @@
 - 그래서 세션 시작 때 나는: 노가다 성격이면 "커서로 이렇게 시키세요" **오더를 제안**하고 나는 설계·게이트에 집중해 토큰을 아낀다.
 
 ## 절대원칙
-1. **페이지 = 공용 원자·껍데기 배열만.** 페이지 전용 규격 금지. 로직·스타일 손롤 금지. 있는 원자 안 쓰고 raw `<button>/<input>/<select>/<div style>` 새로 짜는 순간 규격 붕괴. 새 UI가 필요하면 페이지가 아니라 **원자를 고치거나 만든다**(SSOT). 한 화면만 쓰더라도 그건 공용 규격이다.
+1. **페이지 = 공용 원자·껍데기 배열만.** 페이지 전용 규격 금지. **표준 페이지 템플릿을 씌우지 않는다** — `WorkPage`는 업무 4패널용이고, 손님 서명·미리보기에는 표·버튼·안내 원자만 붙인다. 로직·스타일 손롤 금지. 있는 원자 안 쓰고 raw `<button>/<input>/<select>/<div style>` 새로 짜는 순간 규격 붕괴. 새 UI가 필요하면 페이지가 아니라 **원자를 고치거나 만든다**(SSOT). 한 화면만 쓰더라도 그건 공용 규격이다.
 2. **데이터·상태·디자인 = 단일출처.** 저장은 `getStore()`, 상태동기화는 엔진(`settlement-engine`) 경유. 페이지가 직접 `vehicle_status` 등 바꾸지 말 것.
 3. **웹·모바일 양립 + 모바일다움.** 신규/변경 기능은 웹·모바일 양쪽 동작. 모바일은 반응형 축소가 아니라 **네이티브 앱**.
 
@@ -37,8 +39,8 @@
 | 목록 | `FeedListRow` + `list-rows`(정본=`/esign`) · 등록 `CreateListRow` · 더보기 `ListMoreBar` · 단순 행 `ListRow` | 손 목록행 |
 | 상태·라벨 | `Badge`·`CompanyBadge`·`CountPill` · 톤맵(`productTypeStyle`·`CREDIT_TONE`·`VEHICLE_STATUS_TONE`·`SETTLEMENT_STATUS_TONE`·`ACTOR_TONE`) (`badges.tsx`) | 로컬 색맵 |
 | 로딩·빈·알림 | `Loading`·`CenterNote`·`Message` · `toast`/`Toaster` | "불러오는 중" 손롤 |
-| 껍데기 | `Page`·`MobilePageShell`(모바일 4단 SSOT)·`WorkPage`·`BottomNav`·`TopBar`·`PaneHead`·`PaneBody`·`SectionLabel` | 손 레이아웃 |
-| 상세·폼 | `Section`·`DetailGrid`·`FormCard` | |
+| 껍데기 | `Page`·`MobilePageShell`(모바일 4단 SSOT)·`WorkPage`·`BottomNav`·`TopBar`·`PaneHead`·`PaneBody`·`SectionLabel`(표 밖 먹색 소제목) | 손 레이아웃 |
+| 상세·폼 | `DetailTable`/`DtRow`/`WorkTable`(머리띠=섹션 타이틀 · `accent=main` 남색 반전)·`FormCard`(표 아닌 묶음) | 남색 섹션제목 손롤 · 표 위+띠 이중 제목 |
 | 카드 슬롯 | `CardThumb`·`CardTitle`·`CardKind`·`CardRailBadges`·`CardSpecs`·`CardBenefits`/`CardPerkLine`·`CardEvents`·`OptionChips`·`Plate`·`badges()`/`badgeSpecs`·`FavHeart` | 카드 표기 손롤 |
 | 가격 슬롯 | `PricePeekRoot`·`PriceAmounts`·`PeriodChips`·`PriceHero` | 요금 손롤 |
 | 카드 복합 | `ProductRowCard`(상세 4×2 SSOT)·`ProductCard`(간단 세로 파생) | 페이지에서 슬롯 재조립 |

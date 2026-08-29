@@ -227,6 +227,33 @@ function sheetMaker(raw: string, book: WorkBook): string {
   return byDisp || '';
 }
 
+/** 제조사 칸이 비어도 차종·차명에서 하나로 모일 때만. 여럿이면 빈칸. */
+export function inferSheetMaker(kind: string, carName: string, book: WorkBook): string {
+  const hay = fold([kind, carName].filter(Boolean).join(' '));
+  if (!hay) return '';
+  const makers = [...new Set(book.names.map((r) => r.maker).filter(Boolean))];
+  const named = makers.filter((m) => {
+    const mf = fold(m);
+    const df = fold(canonMakerDisplay(m));
+    return (mf && hay.includes(mf)) || (df && hay.includes(df));
+  });
+  const uNamed = [...new Set(named)];
+  if (uNamed.length === 1) return uNamed[0];
+  if (uNamed.length > 1) return '';
+
+  const model = uniqueLongest([...new Set(book.names.map((r) => r.model).filter(Boolean))], hay);
+  if (model) {
+    const um = [...new Set(book.names.filter((r) => r.model === model).map((r) => r.maker))];
+    if (um.length === 1) return um[0];
+  }
+  const sub = uniqueLongest([...new Set(book.names.map((r) => r.sub).filter(Boolean))], hay);
+  if (sub) {
+    const um = [...new Set(book.names.filter((r) => r.sub === sub).map((r) => r.maker))];
+    if (um.length === 1) return um[0];
+  }
+  return '';
+}
+
 function peelEngine(text: string): string {
   let s = S(text);
   s = s.replace(/\b(?:2WD|4WD|AWD|FWD|RWD|HTRAC|4MATIC|xDrive|quattro)\b/gi, '');
@@ -256,9 +283,26 @@ function trimInHay(trim: string, hay: string, hayRaw: string): boolean {
   const lat = fold(applyLatinBrandTokens(trim));
   if (lat && hay.includes(lat)) return true;
   for (const [en, ko] of GRADE_EN) {
-    if (fold(trim) === fold(ko) && (hay.includes(en) || fold(hayRaw).includes(en))) return true;
+    const hasEn = hay.includes(en) || fold(hayRaw).includes(en);
+    const hasKo = hay.includes(fold(ko));
+    if (!hasEn && !hasKo) continue;
+    if (t === fold(ko) || t === fold(en)) return true;
   }
   return false;
+}
+
+/** Prestige·프레스티지가 같이 맞으면 한글 마스터 표기를 남긴다. */
+function collapseGradeHits(hits: string[]): string[] {
+  const byKey = new Map<string, string>();
+  for (const h of hits) {
+    let key = fold(h);
+    const grade = GRADE_EN.find(([en, ko]) => key === fold(en) || key === fold(ko));
+    if (grade) key = fold(grade[1]);
+    const prev = byKey.get(key);
+    if (!prev) { byKey.set(key, h); continue; }
+    if (grade && fold(h) === fold(grade[1])) byKey.set(key, h);
+  }
+  return [...byKey.values()];
 }
 
 function canonFuel(blob: string, allowed: Set<string>): string {
@@ -365,20 +409,16 @@ export function attachFromEncarSheet(src: Source, book: WorkBook): Attach {
   const carName = S(src.carName);
   const kind = S(src.kind);
   const left = [kind, carName, S(src.fuel), S(src.cc), S(src.drive), S(src.seats)].filter(Boolean).join(' ');
-  const maker = sheetMaker(src.maker, book);
+  const maker = sheetMaker(src.maker, book) || inferSheetMaker(kind, carName, book);
   if (!maker) return {};
 
   const ofMaker = book.names.filter((r) => r.maker === maker);
-  const models = [...new Set(ofMaker.map((r) => r.model))];
-  const hayModel = fold([kind, carName].filter(Boolean).join(' '));
-  const model = uniqueLongest(models, hayModel);
+  const model = uniqueLongest([...new Set(ofMaker.map((r) => r.model))], fold([kind, carName].filter(Boolean).join(' ')));
   if (!model) return { '제조사(정제)': canonMakerDisplay(maker), 원산지: ofMaker[0]?.origin || '' };
 
   const ofModel = ofMaker.filter((r) => r.model === model);
   const expanded = expandKia(model, carName);
-  const haySub = fold([kind, expanded].filter(Boolean).join(' '));
-  const subs = [...new Set(ofModel.map((r) => r.sub).filter(Boolean))];
-  const sub = uniqueLongest(subs, haySub);
+  const sub = uniqueLongest([...new Set(ofModel.map((r) => r.sub).filter(Boolean))], fold([kind, expanded].filter(Boolean).join(' ')));
 
   const origin = ofModel[0]?.origin || '';
   const out: Attach = {
@@ -386,41 +426,47 @@ export function attachFromEncarSheet(src: Source, book: WorkBook): Attach {
     '제조사(정제)': canonMakerDisplay(maker),
     모델: model,
   };
-  if (sub) out['세부모델'] = sub;
-
-  if (sub) {
-    const trims = [...new Set(ofModel.filter((r) => r.sub === sub).map((r) => r.trim).filter(Boolean))];
-    const hayTrim = fold(expanded);
-    const NOT_TRIM = new Set(['d', 'gdi', 'tgdi', 't-gdi', 'e']);
-    const hits = trims.filter((t) => {
-      if (NOT_TRIM.has(fold(t))) return false;
-      return trimInHay(t, hayTrim, expanded);
-    });
-    const trim = uniqueLongestHits(hits);
-    if (trim) out['세부트림'] = applyLatinBrandTokens(trim);
-    else if (trims.length === 1 && trims[0] === '기본형') out['세부트림'] = '기본형';
+  if (!sub) {
+    attachSpecs(out, src, carName, kind, book, '');
+    return out;
   }
 
-  const fuelBlob = [S(src.fuel), carName].filter(Boolean).join(' ');
-  const fuel = canonFuel(fuelBlob, book.fuels);
-  if (fuel) out['연료(정제)'] = fuel;
+  const ofSub = ofModel.filter((r) => r.sub === sub);
+  out['세부모델'] = sub;
+  const trims = [...new Set(ofSub.map((r) => r.trim).filter(Boolean))];
+  const hayRaw = [kind, expanded].filter(Boolean).join(' ');
+  const hayTrim = fold(hayRaw);
+  const NOT_TRIM = new Set(['d', 'gdi', 'tgdi', 't-gdi', 'e']);
+  const hits = collapseGradeHits(trims.filter((t) => {
+    if (NOT_TRIM.has(fold(t))) return false;
+    return trimInHay(t, hayTrim, hayRaw);
+  }));
+  const trim = uniqueLongestHits(hits);
+  if (trim) out['세부트림'] = applyLatinBrandTokens(trim);
+  else if (trims.length === 1 && trims[0] === '기본형') out['세부트림'] = '기본형';
 
-  const cc = canonCc(S(src.cc), carName, book.ccs, fuel);
-  if (cc) out['배기량(정제)'] = cc;
-
-  const drive = canonDrive([S(src.drive), carName, kind].join(' '), book.drives);
-  if (drive) out['구동방식'] = drive;
-
-  const seats = canonSeats([S(src.seats), carName, kind].join(' '));
-  if (seats) out['인승'] = seats;
-
-  if (sub) {
-    const kwh = packKwh(book, maker, model, sub, left, fuel);
-    if (kwh) out['배터리용량(정제)'] = kwh;
-  }
-
+  attachSpecs(out, src, carName, kind, book, fuelHint(src, carName));
+  const fuel = S(out['연료(정제)']);
+  const kwh = packKwh(book, maker, model, sub, left, fuel);
+  if (kwh) out['배터리용량(정제)'] = kwh;
   void peelEngine;
   return out;
+}
+
+function fuelHint(src: Source, carName: string): string {
+  return [S(src.fuel), carName].filter(Boolean).join(' ');
+}
+
+function attachSpecs(out: Attach, src: Source, carName: string, kind: string, book: WorkBook, fuelBlob: string) {
+  const blob = fuelBlob || [S(src.fuel), carName].filter(Boolean).join(' ');
+  const fuel = canonFuel(blob, book.fuels);
+  if (fuel) out['연료(정제)'] = fuel;
+  const cc = canonCc(S(src.cc), carName, book.ccs, fuel);
+  if (cc) out['배기량(정제)'] = cc;
+  const drive = canonDrive([S(src.drive), carName, kind].join(' '), book.drives);
+  if (drive) out['구동방식'] = drive;
+  const seats = canonSeats([S(src.seats), carName, kind].join(' '));
+  if (seats) out['인승'] = seats;
 }
 
 export function selfCheckEncarMatch(book: WorkBook): string[] {
@@ -430,7 +476,18 @@ export function selfCheckEncarMatch(book: WorkBook): string[] {
     for (const [k, v] of Object.entries(want) as [EncarFillColumn, string][]) {
       if (S(got[k]) !== v) bad.push(`${label} ${k}: ${JSON.stringify(got[k])} ≠ ${JSON.stringify(v)}`);
     }
-    if (want['세부트림'] === undefined && got['세부트림']) bad.push(`${label} 트림을 지어냄 ${got['세부트림']}`);
+    if (got['세부모델'] && !got['모델']) bad.push(`${label} 모델 없이 세부모델 ${got['세부모델']}`);
+    if (got['세부트림'] && !got['세부모델']) bad.push(`${label} 세부모델 없이 트림 ${got['세부트림']}`);
+    const makerDisp = S(got['제조사(정제)']);
+    const model = S(got['모델']);
+    const sub = S(got['세부모델']);
+    const trim = S(got['세부트림']);
+    const rows = book.names.filter((r) => canonMakerDisplay(r.maker) === makerDisp || r.maker === makerDisp);
+    if (model && !rows.some((r) => r.model === model)) bad.push(`${label} 모델 ${model} 이 제조사 ${makerDisp} 안에 없음`);
+    if (sub && !rows.some((r) => r.model === model && r.sub === sub)) bad.push(`${label} 세부모델 ${sub} 이 모델 ${model} 안에 없음`);
+    if (trim && !rows.some((r) => r.model === model && r.sub === sub && r.trim === trim)) {
+      bad.push(`${label} 트림 ${trim} 이 세부모델 ${sub} 안에 없음`);
+    }
   };
   chk({ maker: '기아', kind: 'K5', carName: 'K5 3세대 시그니처', fuel: '가솔린', cc: '', drive: '', seats: '', year: '' },
     { 모델: 'K5', 세부모델: 'K5 DL3', 세부트림: '시그니처' }, 'K5 3세대');
@@ -446,8 +503,22 @@ export function selfCheckEncarMatch(book: WorkBook): string[] {
     { '배기량(정제)': '1998' }, '콤마배기량');
   chk({ maker: '기아', kind: 'K8', carName: '더 뉴 K8 1.6 터보 하이브리드 / 노블레스', fuel: 'HEV', cc: '', drive: '', seats: '', year: '' },
     { '연료(정제)': '하이브리드' }, 'HEV≠전기');
+  chk({ maker: '', kind: 'EV6', carName: 'EV6', fuel: '', cc: '', drive: '', seats: '', year: '' },
+    { '제조사(정제)': '기아', 원산지: '국산', 모델: 'EV6' }, '제조사빈 EV6');
+  chk({ maker: '', kind: 'G80', carName: '더 올뉴G80', fuel: '', cc: '', drive: '', seats: '', year: '' },
+    { '제조사(정제)': '제네시스', 원산지: '국산', 모델: 'G80' }, '제조사빈 G80');
+  chk({ maker: '현대', kind: '싼타페', carName: '싼타페 TM 가솔린 2.5 2WD Prestige', fuel: '', cc: '', drive: '', seats: '', year: '' },
+    { 세부모델: '싼타페 TM', 세부트림: '프레스티지' }, '싼타페 TM Prestige');
+  chk({ maker: '현대', kind: '싼타페', carName: '산타페 TM 가솔린 2.5 2WD Prestige', fuel: '', cc: '', drive: '', seats: '', year: '' },
+    {}, '산타페오타 Prestige');
+  chk({ maker: '기아', kind: '셀토스', carName: '셀토스 1.6 가솔린 2WD Prestige', fuel: '', cc: '', drive: '', seats: '', year: '' },
+    { 세부트림: '프레스티지' }, '셀토스 Prestige');
+  const santaTypo = attachFromEncarSheet({ maker: '현대', kind: '싼타페', carName: '산타페 TM 가솔린 2.5 2WD Prestige', fuel: '', cc: '', drive: '', seats: '', year: '' }, book);
+  if (santaTypo['세부모델']) bad.push(`산타페오타 세부모델 지어냄 ${santaTypo['세부모델']}`);
+  if (santaTypo['세부트림']) bad.push(`산타페오타 세부모델 없이 트림 ${santaTypo['세부트림']}`);
   const k5bare = attachFromEncarSheet({ maker: '기아', kind: 'K5', carName: 'K5 시그니처', fuel: '', cc: '', drive: '', seats: '', year: '' }, book);
   if (k5bare['세부모델']) bad.push(`K5 세대없이 세부모델 ${k5bare['세부모델']}`);
+  if (k5bare['세부트림']) bad.push(`K5 세대없이 트림 ${k5bare['세부트림']}`);
   const nTrim = attachFromEncarSheet({ maker: '현대', kind: '아반떼', carName: '아반떼 CN7 자가용 가솔린 1.6 법인전용', fuel: '가솔린', cc: '', drive: '', seats: '', year: '' }, book);
   if (nTrim['세부트림'] === 'N') bad.push('CN7 안에서 트림 N');
   if (nTrim['배기량(정제)']) bad.push(`1.6을 cc로 찍음 ${nTrim['배기량(정제)']}`);

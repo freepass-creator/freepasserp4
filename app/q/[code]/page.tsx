@@ -4,7 +4,7 @@ import { loadGuestQuote } from '@/lib/server/guest-quote';
 import { vehicleNameOf } from '@/lib/domain/vehicle-name';
 import { cheapest } from '@/lib/domain/product';
 import { fuelDisplay, yearDisplay } from '@/lib/domain/vehicle-master-match';
-import { kmDisplay, man } from '@/lib/format';
+import { kmDisplay, man, wonText } from '@/lib/format';
 
 /**
  * 손님 대면 **상품 안내**(화이트라벨) — 이 파일은 «서버 껍데기»다. 화면은 `QuoteView`(클라이언트)가 그린다.
@@ -64,7 +64,7 @@ export async function generateMetadata({ params, searchParams }: Params): Promis
     ].filter(Boolean).join(' · ');
     const best = cheapest(product);
     const priceLine = best && best.rent > 0
-      ? [`${best.m}개월`, `월 ${man(best.rent)}`, best.deposit > 0 ? `보증 ${man(best.deposit)}` : '무보증'].join(' · ')
+      ? [`${best.m}개월`, `월 ${wonText(best.rent)}`, best.deposit > 0 ? `보증 ${man(best.deposit)}` : '무보증'].join(' · ')
       : '';
     const desc = [specLine, priceLine].filter(Boolean).join('\n') || '차량 상품 안내입니다.';
     // 사이트 이름 자리 = 담당자. 우리 브랜드(BRAND)는 손님 화면에 어디에도 쓰지 않는다.

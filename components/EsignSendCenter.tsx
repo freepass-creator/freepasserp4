@@ -292,6 +292,9 @@ export function EsignSendCenter({
   const [selectedCode, setSelectedCode] = useState('');
   const [draft, setDraft] = useState<EsignDraftInput | null>(null);
   const [busy, setBusy] = useState(false);
+  // 토스트는 짧게 사라지므로, 발행 자체가 막힌 경우에는 작성 화면에도 원인을 남긴다.
+  // 특히 승인 기본조건이 아직 없는 운영 환경에서 버튼이 무반응처럼 보이지 않게 한다.
+  const [createError, setCreateError] = useState('');
   const policyReturnApplied = useRef(false);
   const linkedProductApplied = useRef(false);
   const erp5DraftApplied = useRef(false);
@@ -731,6 +734,7 @@ export function EsignSendCenter({
 
   const beginDirect = () => {
     setSelectedCode('');
+    setCreateError('');
     setVehicleQuery('');
     setVehiclePickerOpen(false);
     setDraft({
@@ -751,6 +755,7 @@ export function EsignSendCenter({
 
   const createDraft = async () => {
     if (!draft || busy) return;
+    setCreateError('');
     const offerDraft = quickEntry;
     if (!offerDraft && (draftTemplateError || !draftTemplate || !draftContractKind)) {
       toast(draftTemplateError || '계약서 종류와 만기를 확인해 주세요.', 'error');
@@ -822,7 +827,9 @@ export function EsignSendCenter({
       directCreateRequest.current = null;
       toast('계약서를 만들었습니다. 계약서를 확인하고 링크를 만드세요.', 'ok');
     } catch (error) {
-      toast(error instanceof Error ? error.message : '계약서를 만들지 못했습니다.', 'error');
+      const message = error instanceof Error ? error.message : '계약서를 만들지 못했습니다.';
+      setCreateError(message);
+      toast(message, 'error');
     } finally { setBusy(false); }
   };
 
@@ -1017,6 +1024,7 @@ export function EsignSendCenter({
             <Btn full disabled={busy || quickIsPickup || (!quickOfferReady && (quickTemplatePreviewOnly || !draftReachedReview || draftBlocks.length > 0 || !!draftTemplateError))} onClick={() => void createDraft()}>
               <ButtonLabel icon={<FileText size={ICON.md} aria-hidden />}>{quickIsPickup ? '손오공 픽업 확인서 준비 중' : quickOfferReady ? (busy ? '계약서 만드는 중…' : '계약서 만들기') : quickTemplatePreviewOnly ? '차량정보를 입력하세요' : busy ? '계약서 만드는 중…' : '계약서 만들기'}</ButtonLabel>
             </Btn>
+            {createError ? <Message variant="danger">{createError}</Message> : null}
             {draftProblems.length ? <Message variant="warning">계약서를 만들기 전에 필수 계약조건을 확인해 주세요.</Message> : null}
           </div>
         </div>

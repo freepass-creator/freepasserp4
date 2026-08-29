@@ -3,7 +3,7 @@
 import { createContext, useContext, useState, useRef, useEffect, type CSSProperties, type ReactNode } from 'react';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { priceList, cheapest, priceAt } from '@/lib/domain/product';
-import { man } from '@/lib/format';
+import { man, rentMan, wonText } from '@/lib/format';
 import { C, R, NUM, FW, FS } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { CardPerkLine } from '@/components/product-card-perks';
@@ -102,7 +102,7 @@ export function PriceRentDep({ align = 'end' }: { align?: 'start' | 'end' }) {
           // 그러면 훑는 동안에는 카드가 전부 무채라 결론이 어디인지 안 잡혔다.
           // 기간칩을 짚는 중(peeking)에는 한 단계 더 진하게 가서 «지금 보는 값»이라는 신호를 남긴다.
           color: peeking ? C.brandDeep : C.brand, transition: 'color 0.12s ease',
-        }}>{man(focus.rent)}</span>
+        }}>{wonText(focus.rent)}</span>
       </span>
       <span style={{
         fontSize: FS.cap, fontWeight: FW.meta,
@@ -149,7 +149,7 @@ export function PriceAmounts({ align = 'start' }: {
           // 모바일: 기간칩 없을 때 큰 금액 ascent 보정(웹 Cell은 기본 lh 유지). 칩 있는 행은 MobileRow marginTop=-1
           ...(mobile ? { lineHeight: 1.05 } : null),
           color: peeking ? C.brand : C.ink, transition: 'color 0.12s ease',
-        }}>{man(focus.rent)}</span>
+        }}>{mobile ? rentMan(focus.rent) : wonText(focus.rent)}</span>
       </span>
       <span style={{
         fontSize: FS.cap, fontWeight: FW.meta,
@@ -188,7 +188,7 @@ export function PeriodRange() {
   const tip = (m: number) => {
     const pr = all.find((x) => x.m === m);
     if (!pr) return `${m}개월`;
-    return `${pr.m}개월 · 월 ${man(pr.rent)} · ${pr.deposit > 0 ? `보증 ${man(pr.deposit)}` : '무보증'}`;
+    return `${pr.m}개월 · 월 ${wonText(pr.rent)} · ${pr.deposit > 0 ? `보증 ${man(pr.deposit)}` : '무보증'}`;
   };
   // 색·칩 없이 연한 텍스트 — 계약가능 기간범위(언제~언제)만 표시.
   const txt = { fontSize: FS.cap, fontWeight: FW.meta, color: C.faint, lineHeight: 1, flex: '0 0 auto' } as const;
@@ -231,7 +231,7 @@ export function PeriodChips({ align = 'start', clamp, after }: {
             key={pr.m}
             data-period-chip
             onMouseEnter={() => { if (!mobile) setPeekM(pr.m); }}
-            title={`${pr.m}개월 · 월 ${man(pr.rent)} · ${pr.deposit > 0 ? `보증 ${man(pr.deposit)}` : '무보증'}`}
+            title={`${pr.m}개월 · 월 ${wonText(pr.rent)} · ${pr.deposit > 0 ? `보증 ${man(pr.deposit)}` : '무보증'}`}
             style={{ ...periodChipStyle(on), cursor: mobile ? undefined : 'pointer' }}
           >{pr.m}개월</span>
         );

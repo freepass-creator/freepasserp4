@@ -4,7 +4,7 @@ import type { EntityRecord } from '@/lib/intake/entities';
 import { type Audience } from '@/lib/domain/product';
 import { ICON } from '@/components/ui';
 import { CircleCheck, Clock, CircleSlash, CircleDot, Tag, FileCheck, type LucideIcon } from 'lucide-react';
-import { toneText } from '@/components/ui/badges';
+import { toneText, type BadgeTone } from '@/components/ui/badges';
 import { MetaIcon } from '@/components/product-card-perks';
 import {
   badgeTip, badgeSpecs, type BadgeSpec, HEAD_BADGE_KEYS,
@@ -23,14 +23,38 @@ import {
  *   ⚠ 아이콘은 «값»이 아니라 «갈래»를 가리킨다. 출고상태만 상태에 따라 그림이 갈린다
  *     (살 수 있나 / 기다려야 하나 / 안 되나) — 글자를 못 읽어도 그림으로 먼저 걸러진다.
  */
-const SIGNAL_ICON = (key: string, label: string): LucideIcon => {
+export function signalIcon(key: string, label: string): LucideIcon {
   if (key === 'pt') return Tag;
   if (key === 'cd') return FileCheck;
   if (key !== 'st') return CircleDot;
   if (/출고가능|즉시출고/.test(label)) return CircleCheck;
   if (/불가|종료|말소/.test(label)) return CircleSlash;
   return Clock; // 계약중·상품화중·출고협의 = 기다려야 하는 상태
-};
+}
+
+/**
+ * SignalMark — 차량 신호 **한 값**(차량상태·상품구분·심사조건).
+ *
+ * 카드 밖(표 칸·재고 행·채팅 행·사진 위)에서도 같은 문법을 쓰라고 낱개로 낸다.
+ * 부르는 쪽이 아이콘을 고르면 또 갈린다 — 그림은 `signalIcon` 이 정한다.
+ *   color/iconColor = 사진 위처럼 «먹색이면 안 보이는» 자리에서만 준다.
+ */
+export function SignalMark({ signalKey, label, tone = 'gray', size = ICON.sm, color, iconColor, title }: {
+  signalKey: string; label: string; tone?: BadgeTone; size?: number;
+  color?: string; iconColor?: string; title?: string;
+}) {
+  return (
+    <MetaIcon
+      icon={signalIcon(signalKey, label)}
+      text={label}
+      size={size}
+      strong
+      color={color}
+      iconColor={iconColor ?? toneText(tone)}
+      title={title ?? badgeTip(signalKey, label)}
+    />
+  );
+}
 
 export function SignalMarks({ p, audience = 'agent', keys, hideStatus, dense }: {
   p: EntityRecord;
@@ -52,15 +76,7 @@ export function SignalMarks({ p, audience = 'agent', keys, hideStatus, dense }: 
       flexWrap: 'nowrap', overflow: 'hidden', minWidth: 0, flex: '0 1 auto', lineHeight: 1.35,
     }}>
       {specs.map((spec) => (
-        <MetaIcon
-          key={spec.key}
-          icon={SIGNAL_ICON(spec.key, spec.label)}
-          text={spec.label}
-          size={ICON.sm}
-          strong
-          iconColor={toneText(spec.tone)}
-          title={badgeTip(spec.key, spec.label)}
-        />
+        <SignalMark key={spec.key} signalKey={spec.key} label={spec.label} tone={spec.tone} />
       ))}
     </div>
   );

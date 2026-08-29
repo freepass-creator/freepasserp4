@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { stripDetachedEsignAppendices } from '@/lib/domain/esign-document-boundary';
+import { CONTRACT_DOCUMENT_TEMPLATES, findTemplate } from '@/lib/domain/esign-templates';
 
 export type FreepassContractSealedData = {
   state: unknown;
@@ -8,6 +9,15 @@ export type FreepassContractSealedData = {
   signature?: string;
   sealHash?: string;
 };
+
+/**
+ * 회사·상품별 문서 원본은 공통 HTML의 테마 변형이 아니라 별도 파일로 관리한다.
+ * 키를 허용 목록으로만 해석해 발행 데이터가 파일 경로를 고를 수 없게 한다.
+ */
+function contractTemplateFile(templateId: unknown): string {
+  const template = findTemplate(String(templateId ?? '').trim());
+  return CONTRACT_DOCUMENT_TEMPLATES[template?.documentTemplate || 'freepass-standard'].file;
+}
 
 function safeJson(value: unknown) {
   return JSON.stringify(value).replace(/</g, '\\u003c').replace(/-->/g, '--\\u003e');
@@ -19,10 +29,10 @@ function safeJson(value: unknown) {
  */
 export async function buildFreepassContractHtml(
   sealed: FreepassContractSealedData,
-  options: { includePrintButton?: boolean; root?: string } = {},
+  options: { includePrintButton?: boolean; root?: string; templateId?: string } = {},
 ) {
   const root = options.root || process.cwd();
-  const templatePath = path.join(root, 'public', 'contract-template', 'rental-contract.html');
+  const templatePath = path.join(root, 'public', 'contract-template', contractTemplateFile(options.templateId));
   let html = stripDetachedEsignAppendices(await readFile(templatePath, 'utf8'));
   html = html.replace('</head>', `<script>window.__SEALED__=${safeJson(sealed)};</script></head>`);
 

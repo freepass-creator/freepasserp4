@@ -38,7 +38,7 @@ const api = async (url: string, init?: RequestInit): Promise<Rec> => {
   return body;
 };
 const ls = async (id: string) => ((await api(
-  `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(`'${id}' in parents and trashed=false`)}&pageSize=200&fields=files(id,name,mimeType)&orderBy=name&includeItemsFromAllDrives=true&supportsAllDrives=true`,
+  `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(`'${id}' in parents and trashed=false`)}&pageSize=200&fields=files(id,name,mimeType,appProperties)&orderBy=name&includeItemsFromAllDrives=true&supportsAllDrives=true`,
 )).files || []) as Rec[];
 
 // ── 어느 차인가 ─────────────────────────────────────────────────────────────
@@ -74,8 +74,21 @@ let carDir = kids.find((f) => S(f.mimeType).includes('folder') && norm(f.name).s
 console.log(`  넣을 곳  freepasspics / ${S(supplierDir.name)} / ${carDir ? S(carDir.name) : `${folderName}  ★새로 만듦`}`);
 if (carDir) console.log(`  사진링크  https://drive.google.com/drive/folders/${S(carDir.id)}`);
 
-const existing = carDir ? new Set((await ls(S(carDir.id))).map((f) => S(f.name))) : new Set<string>();
-const todo = files.filter((f) => !existing.has(f));
+const existing = carDir ? await ls(S(carDir.id)) : [];
+// Drive 파일명은 차량번호·모델명·순번으로 통일한다. 원본 카카오 파일명은 appProperties에
+// 남겨 같은 묶음을 재실행해도 번호가 밀리거나 중복되지 않게 한다.
+const sourceKey = (f: Rec) => S(f.appProperties?.freepass_source);
+// 2026-08-28 이전 파일은 원본명이 Drive 이름이므로 그것도 소스 키로 인식한다.
+const doneSources = new Set(existing.map((f) => sourceKey(f) || S(f.name)).filter(Boolean));
+const namePrefix = `${PLATE}_${modelName}_`;
+const sequence = existing.reduce((max, f) => {
+  const hit = S(f.name).match(new RegExp(`^${namePrefix.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')}(\\d+)\\.[^.]+$`));
+  return Math.max(max, hit ? Number(hit[1]) : 0);
+}, 0);
+const todo = files.filter((f) => !doneSources.has(f)).map((source, index) => ({
+  source,
+  target: `${namePrefix}${String(sequence + index + 1).padStart(2, '0')}${source.slice(source.lastIndexOf('.'))}`,
+}));
 console.log(`  올릴 사진 ${todo.length}장${files.length - todo.length ? ` (이미 있는 ${files.length - todo.length}장 건너뜀)` : ''}`);
 if (!APPLY) { console.log('\n※ dry-run. 실제 업로드는 --apply\n'); process.exit(0); }
 
@@ -87,9 +100,9 @@ if (!carDir) {
   console.log(`  폴더 만듦 「${S(carDir!.name)}」`);
 }
 let done = 0;
-for (const f of todo) {
-  const bytes = readFileSync(join(dir, f));
-  const meta = JSON.stringify({ name: f, parents: [S(carDir!.id)] });
+for (const { source, target } of todo) {
+  const bytes = readFileSync(join(dir, source));
+  const meta = JSON.stringify({ name: target, parents: [S(carDir!.id)], appProperties: { freepass_source: source } });
   const boundary = 'fp4boundary';
   const head = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${meta}\r\n--${boundary}\r\nContent-Type: image/jpeg\r\n\r\n`;
   const body = Buffer.concat([Buffer.from(head, 'utf8'), bytes, Buffer.from(`\r\n--${boundary}--`, 'utf8')]);

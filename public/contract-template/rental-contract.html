@@ -79,14 +79,6 @@
   --table-row-line:var(--line2);
     --ok:#0e9f6e; --danger:#e02424; --warn-bg:#fff7ed; --warn-ink:#b45309;
   }
-  /* 손오공 구독 약정서는 원본 약정서에 삽입된 CI 로고의 청록(#2EA299)을 사용한다.
-     전자계약 봉인 state의 co 값으로만 켜지므로 다른 공급사·프리패스 표준계약서에는 영향이 없다. */
-  :root[data-contract-brand="sonogong"]{
-    --accent:#2ea299;
-    --accent-ink:#1d706a;
-    --accent-bg:#e4f5f2;
-    --tint:#f1faf8;
-  }
   *{margin:0;padding:0;box-sizing:border-box;word-break:keep-all;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   body{font-family:"Pretendard",-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
        background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;
@@ -263,6 +255,14 @@
                  border-bottom:1px dotted var(--line);min-width:22mm}
   .kv .span2{grid-column:span 3}     /* 값이 라벨1+값3 폭 차지 */
   .kv .full{grid-column:1 / -1}
+  /* ★한 표 안을 «두 주체»로 가르는 줄 — 01 의 임차인(법인)과 서명자(대표자)처럼,
+     같은 표에 있어야 하지만 «누구의 정보인가»는 갈려야 할 때만 쓴다.
+     표를 둘로 쪼개면 「머리띠 + 카드」가 두 벌 서서 01 이 두 섹션처럼 보인다.
+     생김새는 표머리(.k)와 같은 면·같은 선이다 — 새 시각언어를 만들지 않는다. */
+  .kv .band{grid-column:1 / -1;background:var(--th);padding:3px var(--table-cell-x);
+            font-size:var(--fs-label);font-weight:700;color:var(--ink2);letter-spacing:-.01em;
+            border-top:var(--table-rule) solid var(--table-row-line);
+            border-bottom:var(--hair) solid var(--table-row-line)}
   /* 긴 설명 셀은 일반 텍스트 흐름 — flex가 inline <b>/<span>을 조각내 줄바꿈 깨지는 것 방지 */
   .kv .v.span2,.kv .v.full{display:block;line-height:1.55}
   .kv .v.span2 b,.kv .v.full b{font-weight:700}
@@ -608,7 +608,7 @@
         <div class="k">주소</div><div class="v span2" data-field="customer_address">주소를 입력하세요</div>
         <div class="k" data-field="label_emergency">비상 연락처</div><div class="v span2" data-field="emergency_contact">관계 · 010-0000-0000</div>
       </div>
-      <div class="note" data-note="corp" style="display:none">※ <b>법인 계약</b>: 위 계약자 정보는 법인명·법인등록번호·사업자등록번호·대표자·사업장 기준으로 기재됩니다.</div>
+      <div class="note" data-note="corp" style="display:none">※ <b>법인 계약</b>: 임차인은 <b>법인</b>이며, 서명은 법인을 대표하는 <b>서명자</b>가 합니다. 서명자 정보는 <b>서명란</b>에 기재됩니다.</div>
     </div>
 
     <!-- 02 차량 -->
@@ -1188,10 +1188,29 @@
           <span>④ 자동이체(CMS) 출금 신청서</span>
           <span>⑤ 차량 인수증 <span class="dim" style="color:var(--mute)">(부속서류 1)</span></span>
           <span>⑥ 연대보증 약정서 <span class="dim" style="color:var(--mute)">(해당 시)</span></span>
+          <span data-corp="1" style="display:none">⑦ 위임장·재직증명서 <span class="dim" style="color:var(--mute)">(대표이사 아닌 서명자)</span></span>
         </div>
         <div class="annex-note">위 목록 중 <b>실제로 본 계약에 첨부되고 별도 확인 또는 서명이 완료된 서류만</b> 본 계약의 일부가 됩니다. 첨부되지 않은 서류는 교부·동의된 것으로 보지 않습니다. <b>인도 전에는 차량 인수증·계약사실확인서를 본 완료본에서 제외하고, 인도 시 계약번호로 연결된 별도 확인서로 작성합니다.</b></div>
       </div>
 
+      <!--
+        ★법인은 «임차인»과 «서명하는 사람»이 다르다(사장님 2026-08-28).
+          임차인 = 법인. 서명하는 손은 대표자 개인이다.
+        전에는 이 자리가 없어서, 법인 계약이면 01 이 통째로 법인 값으로 바뀌고
+        «누가 서명했는가»가 계약서 어디에도 남지 않았다. 그 상태로 신분증·얼굴 사진을 받았다 —
+        누구의 얼굴인지 대조할 기준이 없는 사진이었다.
+        ⚠ 자리는 01 이 아니라 «여기»다. 01 은 남는 자리가 12mm 인데 이 표가 25mm 다(실측 2026-08-28).
+          그리고 뜻으로도 여기가 맞다 — 서명하는 손의 신원은 서명란에 붙어 있어야 한다.
+        ⚠ 대표이사가 서명하는 것은 «위임»이 아니라 «대표권»이다(위임장 불요).
+          위임장이 필요한 건 대표이사가 아닌 임직원이 서명할 때뿐이라, 관계를 값으로 남긴다.
+        연락처는 넣지 않는다 — 01 의 「담당자 연락처」가 그 자리다. 같은 값을 두 번 싣지 않는다.
+      -->
+      <div class="kv" data-corp="1" style="display:none">
+        <div class="band">서명자 — 법인을 대표하여 서명하는 사람</div>
+        <div class="k">성명</div><div class="v strong" data-field="signer_name">○ ○ ○</div>
+        <div class="k">법인과의 관계</div><div class="v" data-field="signer_role">대표이사</div>
+        <div class="k">서명권한 확인</div><div class="v">법인등기·인감 또는 위임장·재직증명서</div>
+      </div>
       <div class="esign">
         <div class="esign-date" data-field="contract_date">2026. 00. 00.</div>
         <div class="esign-row">
@@ -1199,6 +1218,8 @@
             <div class="esign-lbl">임차인 서명·날인</div>
             <div class="esign-pad" data-sign="customer"><span>자필서명·기명날인 또는 전자서명</span></div>
             <div class="esign-nm" data-field="customer_name">○ ○ ○</div>
+            <!-- 임대인 쪽 「대표이사 ○○○」와 같은 자리·같은 규격. 서명한 손이 누구인지 서명란에서 바로 읽혀야 한다. -->
+            <div class="esign-sub" data-corp="1" style="display:none"><span data-field="signer_role">대표이사</span> <span data-field="signer_name">○ ○ ○</span> 서명</div>
           </div>
           <div>
             <div class="esign-lbl">임대인</div>
@@ -2034,7 +2055,7 @@
     '렌트선택형':{label:'렌트 반납형 (인수 선택 가능)', sub:false, take:false}
   };
   var TYPES={
-    '개인':{type:'개인', name:'성명', id:'주민등록번호', driver:'운전면허번호', residence:'거주 형태', emergency:'비상 연락처', corp:false},
+    '개인':{type:'개인', name:'성명', id:'생년월일', driver:'운전면허번호', residence:'거주 형태', emergency:'비상 연락처', corp:false},
     '법인':{type:'법인', name:'법인명', id:'법인등록번호', driver:'사업자등록번호', residence:'사업장 형태', emergency:'담당자', corp:true}
   };
   /* 운전자 연령 (상품별) — 회사별 정책은 추후 freepasserp3 연동 */
@@ -2215,8 +2236,6 @@
   }
 
   function render(){
-    /* 실제 발행본도 서버가 봉인한 공급사 상태로만 문서 테마를 바꾼다. */
-    document.documentElement.dataset.contractBrand = state.co==='sonogong' ? 'sonogong' : 'standard';
     /*
      * ⚠ 봉인본은 «주입된 회사»만 쓴다.
      *   프리셋(state.co)은 단독 실행용 하네스의 편의 기능인데, 기본값이 'sonogong' 이라
@@ -2247,15 +2266,9 @@
 
     /* 상품 */
     var p=PRODUCTS[state.pd];
-    var sonogongSubscription = state.co==='sonogong' && p.sub;
-    var insuranceSeparate = state.ins==='별도';
-    setDom('product_label', sonogongSubscription
-      ? '손오공 자동차 구독 · 보험료 '+(insuranceSeparate?'별도형':'포함형')
-      : p.label);
-    setDom('doc_title', sonogongSubscription ? '손오공 자동차 구독 약정서' : (p.sub ? '자동차 구독 계약서' : '자동차 장기대여 계약서'));
-    setDom('doc_kicker', sonogongSubscription
-      ? 'SONOKONG VEHICLE SUBSCRIPTION AGREEMENT · '+(insuranceSeparate?'INSURANCE SEPARATE':'INSURANCE INCLUDED')
-      : (p.sub ? 'AUTOMOBILE SUBSCRIPTION AGREEMENT' : 'LONG-TERM VEHICLE RENTAL AGREEMENT'));
+    setDom('product_label', p.label);
+    setDom('doc_title', p.sub ? '자동차 구독 계약서' : '자동차 장기대여 계약서');
+    setDom('doc_kicker', p.sub ? 'AUTOMOBILE SUBSCRIPTION AGREEMENT' : 'LONG-TERM VEHICLE RENTAL AGREEMENT');
     applySubscriptionLabels(p.sub);
     if(!DATA.buyback_option) setDom('buyback_option', p.take ? '만기 시 인수 (인수형)' : '만기 반납 · 인수 별도 협의');
     if(!p.take && !DATA.buyback_price) setDom('buyback_price', '만기 협의');
@@ -2287,6 +2300,8 @@
     setDom('label_name', t.name); setDom('label_id', t.id); setDom('label_driver', t.driver);
     setDom('label_emergency', t.emergency);
     document.querySelectorAll('[data-note="corp"]').forEach(function(n){ n.style.display = t.corp?'':'none'; });
+    /* 서명자 블록은 법인일 때만 선다. style.display='' 로 되돌리면 각자의 클래스 규격(.k/.v 는 flex)이 다시 산다. */
+    document.querySelectorAll('[data-corp]').forEach(function(n){ n.style.display = t.corp?'':'none'; });
 
     /* 법인 = 세금계산서 발행처 = 계약자(법인) 동일 → 입력/표 숨김 */
     var taxForm=document.querySelector('.bd-sec[data-group="세금계산서 발행처"]');
@@ -2330,7 +2345,7 @@
     {k:'car', label:'차량 상태', opts:[['등록완료','등록완료'],['신차','신차(출고 전)']]}
   ];
   var GROUPS=[
-    {t:'계약자', f:[['customer_name','성명/법인명'],['customer_id','주민/법인등록번호'],['driver_or_biz_no','면허/사업자번호'],['customer_phone','연락처'],['customer_email','이메일'],['customer_address','주소',2],['emergency_contact','비상 연락처',2]]},
+    {t:'계약자', f:[['customer_name','성명/법인명'],['customer_birth','생년월일'],['customer_id','법인등록번호'],['driver_or_biz_no','면허/사업자번호'],['customer_phone','연락처'],['customer_email','이메일'],['customer_address','주소',2],['emergency_contact','비상 연락처',2]]},
     {t:'세금계산서 발행처', f:[['tax_issue_type','발행 구분'],['tax_biz_name','상호'],['tax_biz_no','사업자등록번호'],['tax_ceo','대표자'],['tax_biz_type_item','업태/종목'],['tax_email','세금계산서 이메일'],['tax_biz_address','사업장 주소']]},
     {t:'대여 차량', f:[['vehicle_name','차명(전체) ★필수',2],['options','선택 옵션',2],['vehicle_classification','대여 상품'],['car_number','차량번호'],['vin','차대번호'],['model_year','연식'],['fuel','연료'],['engine_cc','배기량'],['odometer_delivery','출고 시 주행거리'],['color_exterior','외장 색상'],['color_interior','내장 색상']]},
     {t:'대여 조건', f:[['rent_month','대여기간'],['contract_start','차량 인도일'],['contract_end','대여 종료일'],['rent_amount','월 대여료'],['deposit_amount','보증금'],['deposit_installment','보증금 분납'],['driver_age','운전자 연령'],['driver_scope','운전 가능 범위'],['buyback_price','만기 인수가'],['special_terms','특약사항 (예외·추가 합의만)',2]]},

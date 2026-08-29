@@ -7,7 +7,7 @@ import { getAuthClient } from '@/lib/firebase/client';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { initAuth } from '@/lib/firebase/auth';
 import { isEsignUiAllowed } from '@/lib/auth-gate';
-import { Btn, ButtonLabel, C, CenterNote, FS, FW, ICON, Loading, Message, R, SH } from '@/components/ui';
+import { Btn, ButtonLabel, C, CenterNote, FS, ICON, Loading, Message, R, SectionLabel } from '@/components/ui';
 
 type PreviewState = {
   contract?: Record<string, unknown>;
@@ -99,7 +99,7 @@ export default function EsignPreviewPage() {
             <ButtonLabel icon={<ArrowLeft size={ICON.md} aria-hidden />}>계약서관리</ButtonLabel>
           </Btn>
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ fontSize: FS.body, fontWeight: FW.title }}>{customer} 고객 전달 화면</div>
+            <SectionLabel mt={0} mb={0}>{customer} 고객 전달 화면</SectionLabel>
             <div style={{ fontSize: FS.cap, color: C.mute }}>{S(contract.contract_code) || contractCode}</div>
           </div>
           {customerUrl ? (
@@ -134,11 +134,9 @@ export default function EsignPreviewPage() {
           </Message>
         </div>
       ) : mode === 'mobile' ? (
-        <section style={{ padding: '24px 12px 48px', display: 'flex', justifyContent: 'center' }}>
+        <section style={{ height: 'calc(100dvh - 126px)', padding: 12 }}>
           {customerUrl ? (
-            <div style={{ width: 'min(390px, 100%)', height: 'min(844px, calc(100dvh - 170px))', minHeight: 560, border: `1px solid ${C.line}`, borderRadius: R, padding: 8, background: C.ink, boxShadow: SH.modal }}>
-              <iframe title="고객 모바일 전자계약 화면(미리보기 · 열람 기록 없음)" src={previewCustomerUrl} style={{ width: '100%', height: '100%', border: 0, borderRadius: R, background: C.inverse }} />
-            </div>
+            <iframe title="고객 모바일 전자계약 화면(미리보기 · 열람 기록 없음)" src={previewCustomerUrl} style={{ width: '100%', height: '100%', border: `1px solid ${C.line}`, borderRadius: R, background: C.inverse }} />
           ) : (
             <CenterNote minHeight={160}>전자계약 링크를 발행하면 고객에게 전달되는 모바일 화면이 여기에 표시됩니다.</CenterNote>
           )}

@@ -3,18 +3,20 @@
 import { useMemo, useRef, type CSSProperties, type MouseEvent } from 'react';
 import type { EntityRecord } from '@/lib/intake/entities';
 import {
-  priceList, creditDisplay, vehicleTone, excelCondSignals, canonProductType,
+  priceList, creditDisplay, vehicleTone, excelCondSignals, canonProductType, perkEmptyLabel,
 } from '@/lib/domain/product';
 import { yearDisplay, makerDisplay } from '@/lib/domain/vehicle-master-match';
 import { productOptions, OptionChips } from '@/components/product-card-atoms';
+import { SignalMark } from '@/components/product-card-badge-view';
+import { MetaIcon, benefitIcon, benefitIconColor } from '@/components/product-card-perks';
 import {
-  C, NUM, FW, FS, Badge, CountPill, productTypeStyle, CREDIT_TONE,
+  C, NUM, FW, FS, CountPill, productTypeStyle, CREDIT_TONE, ICON, type BadgeTone,
   thX, thXR, thXC, tdX, tdXR, tdXC, colLock, colLockChars, colChars, colOpts, clipN, cellClamp2,
   EXCEL_W, EXCEL_MAX,
   excelPriceW, excelPadX, excelPadY, excelColMode,
   excelMakerChars, excelSubChars, excelNameChars, excelColorChars,
 } from '@/components/ui';
-import { man } from '@/lib/format';
+import { man, wonText } from '@/lib/format';
 import { useIsMobile } from '@/lib/use-mobile';
 import {
   excelColumnMatches,
@@ -26,6 +28,12 @@ import { ExcelFilterPopover } from './ExcelFilterPopover';
 import { isHiddenVehicleAxis } from '@/lib/domain/vehicle-detail-axes';
 
 const DASH = <span style={{ color: C.faint }}>—</span>;
+
+/** 표 칸 안 아이콘+글자 — 가운데 정렬 · 한 줄 고정(칸 폭은 EXCEL_W 가 잡는다). */
+const excelMarkCell: CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+  width: '100%', minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden',
+};
 
 export type ExcelOpenCol = { field: string; x: number; y: number } | null;
 
@@ -183,8 +191,10 @@ export function ExcelResultsTable({
             style={{ cursor: 'pointer', background: bg }}
           >
             <td style={{ ...tdXC, ...cellPad, ...colLock(EXCEL_MAX.plate, padX), background: bg, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', fontWeight: FW.strong }} title={String(p.car_number || '') || undefined}>{String(p.car_number || '') || DASH}</td>
-            {show('vehicle_status') && <td style={{ ...tdXC, ...cellPad, ...colLock(EXCEL_W.status) }}>{st ? <Badge tone={vehicleTone(st)} variant={st === '계약중' ? 'solid' : 'line'} pulse={st === '계약중'}>{st}</Badge> : DASH}</td>}
-            {show('product_type') && <td style={{ ...tdXC, ...cellPad, ...colLock(EXCEL_W.ptype) }}>{pt ? (() => { const c = canonProductType(pt) || pt; const s = productTypeStyle(c); return <Badge tone={s.tone} variant={s.variant}>{c}</Badge>; })() : DASH}</td>}
+            {/* ★차량상태·상품구분·심사 = 상자 아님. 카드·상세와 같은 아이콘+글자(사장님 2026-08-28 「모든 곳에서」).
+                표라고 상자를 남기면 같은 값이 화면마다 두 문법으로 서서 눈이 매번 다시 맞춘다. */}
+            {show('vehicle_status') && <td style={{ ...tdXC, ...cellPad, ...colLock(EXCEL_W.status) }}><span style={excelMarkCell}>{st ? <SignalMark signalKey="st" label={st} tone={vehicleTone(st) as BadgeTone} /> : DASH}</span></td>}
+            {show('product_type') && <td style={{ ...tdXC, ...cellPad, ...colLock(EXCEL_W.ptype) }}><span style={excelMarkCell}>{pt ? (() => { const c = canonProductType(pt) || pt; return <SignalMark signalKey="pt" label={c} tone={productTypeStyle(c).tone} />; })() : DASH}</span></td>}
             {show('maker') && <td style={{ ...tdX, ...cellPad, ...colLockChars(makerChars, true, padX) }}>{clipMax(makerDisplay(p.maker) || p.maker, makerChars)}</td>}
             {show('model') && <td style={{ ...tdX, ...cellPad, ...colLockChars(makerChars, true, padX) }}>{clipMax(p.model, makerChars)}</td>}
             {show('sub_model') && <td style={{ ...tdX, ...cellPad, ...colChars(subChars, nameSqueeze, true, padX) }}>{clamp2(p.sub_model)}</td>}
@@ -202,11 +212,18 @@ export function ExcelResultsTable({
               </td>
             )}
             {showProv && <td style={{ ...tdX, ...cellPad, ...colLockChars(EXCEL_MAX.provider, true, padX) }}>{clipMax(p.provider_name || p.provider_company_code, EXCEL_MAX.provider)}</td>}
-            {showCredit && <td style={{ ...tdXC, ...cellPad, ...colLock(EXCEL_W.credit) }}>{(() => { const c = creditDisplay(p); return c ? <Badge tone={CREDIT_TONE(c)}>{c}</Badge> : DASH; })()}</td>}
+            {showCredit && <td style={{ ...tdXC, ...cellPad, ...colLock(EXCEL_W.credit) }}><span style={excelMarkCell}>{(() => { const c = creditDisplay(p); return c ? <SignalMark signalKey="cd" label={c} tone={CREDIT_TONE(c)} /> : DASH; })()}</span></td>}
             {showCond && (
             <td style={{ ...tdX, ...cellPad, ...colLock(EXCEL_W.cond), whiteSpace: 'normal', overflow: 'hidden' }}>
-              {conds.length ? clamp2(conds.map((c) => c.label).join(' · ')) : (
-                <span style={{ color: C.faint, fontSize: FS.sub }}>조건없음</span>
+              {/* 우대조건도 카드와 같은 손 — 아이콘에만 색, 글자는 먹색. 2줄까지. */}
+              {conds.length ? (
+                <span style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '3px 8px', maxHeight: 40, overflow: 'hidden' }} title={conds.map((c) => c.label).join(' · ')}>
+                  {conds.map((c) => (
+                    <MetaIcon key={c.key} icon={benefitIcon(c.key)} text={c.label} size={ICON.sm} strong iconColor={benefitIconColor(c.key, c.label)} />
+                  ))}
+                </span>
+              ) : (
+                <span style={{ color: C.faint, fontSize: FS.sub }}>{perkEmptyLabel(p)}</span>
               )}
             </td>
             )}
@@ -215,7 +232,7 @@ export function ExcelResultsTable({
                     {/* 빈 칸도 값 칸과 같은 2줄 골격으로 — DASH만 홀로 놓으면 세로 가운데로 내려앉아
                         열을 세로로 훑을 때 첫 줄 기준선이 어긋난다. */}
                     {e
-                      ? <><div style={{ color: C.brand, fontWeight: FW.head, whiteSpace: 'nowrap' }}>{man(e.rent)}</div><div style={{ color: C.faint, fontWeight: FW.body, whiteSpace: 'nowrap' }}>{e.deposit ? man(e.deposit) : '0'}</div></>
+                      ? <><div style={{ color: C.brand, fontWeight: FW.head, whiteSpace: 'nowrap' }}>{wonText(e.rent)}</div><div style={{ color: C.faint, fontWeight: FW.body, whiteSpace: 'nowrap' }}>{man(e.deposit)}</div></>
                       : <><div style={{ color: C.faint, whiteSpace: 'nowrap' }}>{DASH}</div><div aria-hidden>&nbsp;</div></>}
               </td>
             ); })}

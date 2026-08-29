@@ -1,5 +1,3 @@
-import { residentIdInfo } from '@/lib/domain/esign-resident-id';
-
 export type SignedSnapshotRecord = Record<string, unknown>;
 
 const S = (value: unknown) => String(value ?? '').trim();
@@ -53,7 +51,6 @@ export function snapshotWithPrivateSubmission(
   if (!submission) return snapshot;
   const currentFields = record(snapshot.templateFields) || {};
   const driverLicenseNo = S(submission.driver_license_no);
-  const resident = residentIdInfo(submission.customer_id);
   const additionalDrivers = Array.isArray(submission.additional_drivers)
     ? submission.additional_drivers.map(record).filter((row): row is SignedSnapshotRecord => !!row).slice(0, 3)
     : [];
@@ -63,14 +60,19 @@ export function snapshotWithPrivateSubmission(
   const confirmedFields: SignedSnapshotRecord = {
     customer_name: S(submission.customer_name),
     customer_phone: S(submission.customer_phone),
+    // 개인은 주민등록번호를 받지 않고 생년월일만, 법인은 법인등록번호만 계약서에 넣는다.
     customer_id: S(submission.customer_id),
     customer_address: S(submission.customer_address),
-    customer_birth: resident?.birthDate || '',
+    customer_birth: S(submission.customer_birth),
     driver_license_no: driverLicenseNo,
     driver_or_biz_no: driverLicenseNo,
     tax_biz_name: S(submission.tax_biz_name), tax_biz_no: S(submission.tax_biz_no), tax_ceo: S(submission.tax_ceo),
     tax_biz_type_item: S(submission.tax_biz_type_item), tax_email: S(submission.tax_email), tax_biz_address: S(submission.tax_biz_address),
     tax_issue_type: S(submission.tax_issue_type),
+    /* 법인 서명자 — 임차인(법인)과 «서명하는 사람»이 다르다(ESIGN-MANUAL §8).
+       권한은 법인등기·인감·위임 서류로 확인하고, 서명자의 주민번호·면허번호는 받지 않는다. */
+    signer_name: S(submission.signer_name),
+    signer_role: S(submission.signer_role),
     emergency_contact: [S(submission.emergency_relation), S(submission.emergency_name), S(submission.emergency_phone)]
       .filter(Boolean)
       .join(' · '),

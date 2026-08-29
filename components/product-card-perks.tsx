@@ -3,7 +3,7 @@
 import type { CSSProperties } from 'react';
 import { Wallet, UserRound, Briefcase, ShieldCheck, Sparkles, Coins, FileCheck, type LucideIcon } from 'lucide-react';
 import { type EntityRecord } from '@/lib/intake/entities';
-import { benefitSignals, eventSignals } from '@/lib/domain/product';
+import { benefitSignals, eventSignals, perkEmptyLabel } from '@/lib/domain/product';
 import { C, FW, FS, ICON } from '@/components/ui';
 import { toneText, CREDIT_TONE } from '@/components/ui/badges';
 import { benefitTip } from '@/components/product-card-badges';
@@ -15,7 +15,7 @@ import { benefitTip } from '@/components/product-card-badges';
  * ⚠ **색은 안 되돌린다.** 예전엔 키마다 다른 색(teal·purple·green) 5가지였는데, CORE 뱃지 3개와
  *   뒤엉켜 무엇이 상태고 무엇이 혜택인지 안 잡혔다. 그림은 그대로, 색만 하나(글자색)로 둔다.
  */
-function benefitIcon(key: string): LucideIcon {
+export function benefitIcon(key: string): LucideIcon {
   // 심사 = 서류를 보나 안 보나. 우대조건 줄 맨 앞에 선다.
   if (key === 'cd') return FileCheck;
   if (key === 'ins') return Coins;
@@ -37,7 +37,7 @@ function benefitIcon(key: string): LucideIcon {
  * 다섯 색이어도 면이 시끄러워지지 않는다.
  * (면·머리띠 색 규칙은 docs/DESIGN_COLOR_LADDER.md — 그쪽은 네이비 하나. 여기는 그림 틴트라 별개다.)
  */
-function benefitIconColor(key: string, label?: string): string {
+export function benefitIconColor(key: string, label?: string): string {
   /*
    * 심사도 **다른 우대조건과 똑같이** 아이콘에 색이 든다(사장님 2026-08-28 「심사조건도 동일하게
    * 해야지 · 아이콘 텍스트 구조로」). 한 번 먹색으로 따로 세웠다가 되돌렸다 — 한 줄에 서는 값인데
@@ -53,16 +53,17 @@ function benefitIconColor(key: string, label?: string): string {
   return C.brand;
 }
 
-/** MetaIcon — 혜택용. iconColor로 아이콘만 색(혜택 신호). */
-export function MetaIcon({ icon: Icon, text, size = ICON.sm, strong, iconColor, title }: {
-  icon: LucideIcon; text: string; size?: number; strong?: boolean; iconColor?: string; title?: string;
+/** MetaIcon — 혜택용. iconColor로 아이콘만 색(혜택 신호).
+ *  color = 글자색 덮어쓰기. 사진 위처럼 «먹색이면 안 보이는» 자리에서만 준다. */
+export function MetaIcon({ icon: Icon, text, size = ICON.sm, strong, iconColor, color, title }: {
+  icon: LucideIcon; text: string; size?: number; strong?: boolean; iconColor?: string; color?: string; title?: string;
 }) {
   return (
     <span
       title={title}
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 3, flex: '0 0 auto', whiteSpace: 'nowrap',
-        fontWeight: strong ? FW.strong : FW.body, color: strong ? C.ink : undefined,
+        fontWeight: strong ? FW.strong : FW.body, color: color ?? (strong ? C.ink : undefined),
         cursor: title ? 'help' : undefined,
       }}
     >
@@ -114,7 +115,7 @@ export function CardBenefits({ p, dense, clamp, inline, withCredit }: {
   };
   if (!items.length) {
     return (
-      <div style={{ ...row, fontSize: FS.cap, color: C.faint, whiteSpace: inline ? 'nowrap' : undefined }}>조건없음</div>
+      <div style={{ ...row, fontSize: FS.cap, color: C.faint, whiteSpace: inline ? 'nowrap' : undefined }}>{perkEmptyLabel(p)}</div>
     );
   }
   return (
@@ -158,7 +159,7 @@ export function CardEvents({ p, dense, clamp, inline }: {
   );
 }
 
-/** 상세 4행 좌 · 간단 기간옆 — 조건. 없으면 조건없음.
+/** 상세 4행 좌 · 간단 기간옆 — 조건. 비면 «조건없음»(정책을 아는데 조건이 없다) 또는 «미입력»(정책이 안 붙었다).
  *  inline = 기간칩과 같은 wrap 흐름(width 100% 금지 → 60개월 옆으로 붙음).
  */
 export function CardPerkLine({ p, dense, inline, withCredit }: {
@@ -174,7 +175,7 @@ export function CardPerkLine({ p, dense, inline, withCredit }: {
         width: inline ? undefined : '100%',
         flex: inline ? '0 0 auto' : undefined,
         whiteSpace: inline ? 'nowrap' : undefined,
-      }}>조건없음</div>
+      }}>{perkEmptyLabel(p)}</div>
     );
   }
   return (

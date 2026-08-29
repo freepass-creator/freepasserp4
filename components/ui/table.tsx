@@ -276,25 +276,29 @@ export function clipN(raw: unknown, n: number): string {
   return `${chars.slice(0, n).join('')}…`;
 }
 
-/** 뱃지·가격 등 px 고정값 — 전부 tight. */
+/** 신호·가격 등 px 고정값 — 전부 tight.
+ *  ★상태·상품·심사 칸은 **상자가 아니라 아이콘+글자**다(2026-08-28). 상자를 걷은 대신
+ *    그림 폭(ICON.sm 14 + 간격 3)이 들어가므로 옛 뱃지 폭에 +18 씩 얹었다. */
 export const EXCEL_W = {
-  /** 즉시출고 등 4글자 Badge — 잘림 없이, 옆 상품뱃지와 간격 과하지 않게 */
-  status: 66,
-  /** 중고렌트 등 4글자 상품 Badge — 58은 좁아 제조사에 붙었음(→ status와 맞춰 여유). */
-  ptype: 70,
-  /** 조건 — 뱃지 박스 2개 가로(+ gap). 3번째는 다음 줄(옵션칩 lines=2와 동일). 필터 닫힘(full)만 표시. */
-  cond: 118,
-  /** 소득확인(4글자) Badge — 48이면 칸에서 잘려 조건열로 밀림. status와 동일 여유. */
-  credit: 66,
+  /** 즉시출고 등 4글자 + 상태그림 — 잘림 없이, 옆 상품칸과 간격 과하지 않게 */
+  status: 84,
+  /** 중고렌트 등 4글자 + 상품그림 — 좁으면 제조사에 붙는다(→ status와 맞춰 여유). */
+  ptype: 88,
+  /** 조건 — 아이콘+글자 2개 가로(+ gap). 3번째는 다음 줄(옵션칩 lines=2와 동일). 필터 닫힘(full)만 표시. */
+  cond: 140,
+  /** 소득확인(4글자) + 심사그림 — 좁으면 칸에서 잘려 조건열로 밀린다. status와 동일 여유. */
+  credit: 84,
   /** 옵션칸 — 세부모델·파워·트림 10자 고정 양보. min 축소(구 240). */
   opts: { min: 240, prefer: 240, empty: 40 },
 } as const;
 
 /**
- * 대여료 열 폭 SSOT — 헤더(60개월)·본문(999만) 중 넓은 쪽에 딱맞춤.
+ * 대여료 열 폭 SSOT — 헤더(60개월)·본문(9,999,000원) 중 넓은 쪽에 딱맞춤.
  * filter는 패딩 양보분만 폭에서 차감(글자 샘플 동일).
  */
-export const EXCEL_PRICE_MAX = '999만';
+/** ★대여료는 축약하지 않는다(2026-08-28 「그냥 655,000원으로」) — 폭 표본도 원 단위로.
+ *  아랫줄 보증금은 만원 축약(「1,000만」)이라 폭을 안 넘는다. 실측 대여료 최대 4,988,000. */
+export const EXCEL_PRICE_MAX = '9,999,000원';
 export const EXCEL_PRICE_COL = '60개월';
 function sampleWPx(sample: string, padX: number = EXCEL_PAD_X): number {
   let em = 0;

@@ -16,6 +16,9 @@ import { WorkPage, type WorkPane } from '@/components/WorkPage';
 import { CHAT_NOTICE_BODY, CHAT_NOTICE_CONTACTS, CHAT_NOTICE_TITLE, showChatNotice } from '@/lib/domain/chat-notice';
 import { haptic } from '@/lib/haptics';
 import { ChatRoomRow } from '@/components/list-rows';
+import { SignalMark } from '@/components/product-card-badge-view';
+import { vehicleTone } from '@/lib/domain/product';
+import type { BadgeTone } from '@/components/ui/badges';
 import { NAV_LABEL } from '@/lib/tabbar';
 import { getSession } from '@/lib/auth-session';
 import { canAccessOwnedRecord, organizationRole } from '@/lib/domain/authorization';
@@ -122,7 +125,8 @@ function AdminVehicleSummary({
           title={<FeedTitle>{title || '차량명 미확인'}</FeedTitle>}
           meta={(
             <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
-              {status ? <Badge tone={status === '출고불가' ? 'red' : 'gray'}>{status}</Badge> : null}
+              {/* 차량상태 = 상자 아님. 카드·상세와 같은 아이콘+글자(2026-08-28). 색은 vehicleTone SSOT. */}
+              {status ? <SignalMark signalKey="st" label={status} tone={vehicleTone(status) as BadgeTone} /> : null}
               <Badge tone={photos.length ? 'blue' : 'gray'}>
                 {photos.length ? `차량사진 ${photos.length}` : pending ? '사진 확인 중' : '차량사진 없음'}
               </Badge>

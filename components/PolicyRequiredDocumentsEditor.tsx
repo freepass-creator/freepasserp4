@@ -38,7 +38,7 @@ export function PolicyRequiredDocumentsEditor({
   return (
     <WorkTable
       title="고객 추가 제출서류"
-      hint="이 정책으로 계약할 때 고객에게 실제로 받을 서류만 정합니다. 운전면허증과 본인 셀카는 별도로 항상 받습니다."
+      hint="이 정책으로 계약할 때 고객에게 실제로 받을 서류만 정합니다. 운전면허증과 본인 얼굴 사진는 별도로 항상 받습니다."
     >
       {!disabled ? (
         <WorkRow label="묶음 적용">

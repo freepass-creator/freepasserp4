@@ -39,7 +39,7 @@ export function sectionIcon(title: string): ReactNode {
  *   조건·규칙              = 무채     — 보험조건 · 계약조건
  *   식별값                 = 흐린 무채 — 기타사항
  *
- * 영업자 패널의 표들은 반전 머리띠(headTone='invert')를 쓰므로 여기 색을 타지 않는다.
+ * 영업자 패널의 표는 `accent='agent'` — 머리띠 칠은 본문 부가 섹션과 같은 회색(DESIGN.md §6.1).
  */
 const SECTION_ACCENT: Record<string, SectionAccent> = {
   차량스펙: 'main',

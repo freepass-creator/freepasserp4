@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { displayNumber, newId } from '@/lib/domain/ids';
 import { approvedFreepassManualOffer } from '@/lib/domain/freepass-manual-offer';
-import { isManualOfferTemplateAllowed, contractKindFor, findTemplate, standardTemplateSelectionError } from '@/lib/domain/esign-templates';
+import { isManualOfferTemplateAllowed, contractKindFor, findTemplate, standardTemplateSelectionError, templateProviderSelectionError } from '@/lib/domain/esign-templates';
 import { policyUsableBy } from '@/lib/domain/policy-access';
 import { canIssueContract } from '@/lib/domain/policy-tier';
 import { contractVehicleSnapshot, isContractAvailableVehicle, productMatchesTemplate } from '@/lib/domain/esign-vehicle-selection';
@@ -121,6 +121,8 @@ export async function POST(request: Request) {
     if (!policy || !partner || !policyUsableBy(policy, offer.providerCompanyCode)) throw new InputError('수기 오퍼의 공급사·계약정책 기준을 확인할 수 없습니다.');
     const templateRow = findTemplate(offer.templateId);
     if (!templateRow || !productMatchesTemplate({ product_type: offer.productType } as never, templateRow)) throw new InputError('수기 오퍼의 차량 상품구분과 계약서 양식이 맞지 않습니다.');
+    const providerTemplateError = templateProviderSelectionError(templateRow, offer.providerCompanyCode);
+    if (providerTemplateError) throw new InputError(providerTemplateError);
     if (product) {
       if (S(product.provider_company_code) !== offer.providerCompanyCode) throw new InputError('선택한 차량과 계약서 기본조건의 공급사가 일치하지 않습니다.');
       if (!isStockedProduct(product) || !isContractAvailableVehicle(product)) throw new InputError('선택한 차량은 더 이상 계약 가능한 재고가 아닙니다.');

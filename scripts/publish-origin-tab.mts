@@ -477,6 +477,16 @@ for (const [code, p] of [...byCode].sort()) {
       .map((h, i) => ({ name: S(h).replace(/\s+/g, ''), i }))
       .filter(({ name, i }) => name && !claimed.has(i) && FEE_HEADER.test(name));
     const first = (c: string) => (idx.get(c) || [])[0] ?? -1;
+    /**
+     * ★**정책코드는 «출력 열»이 아니라 원본 머리글에서 직접 찾는다**(2026-08-28).
+     *
+     *   `idx` 는 판매시트로 나갈 열(`COLUMNS`)만 담는다. 그런데 나가는 이름은 「정책UID」이고
+     *   공급사 시트에 적힌 이름은 「정책코드」라, `cell('정책코드')` 가 **늘 빈 값**이었다.
+     *   그래서 코드를 아무리 채워도 `pickPolicy` 는 언제나 «코드 없음»으로 들어갔고,
+     *   정책이 하나뿐인 공급사만 «유일»로 우연히 붙었다. 여럿인 곳은 통째로 프리패스 기본으로 떨어졌다.
+     *   실측 2026-08-28: 손오공 픽업 338대 — 시트에 POL-0020 을 다 채웠는데도 한 대도 안 붙었다.
+     */
+    const policyCodeAt = hdr.findIndex((h) => norm(h) === '정책코드');
     if (first('차량번호') < 0) continue;
     for (const r of t.table.slice(1)) {
       const plate = norm(r[first('차량번호')]);
@@ -509,7 +519,7 @@ for (const [code, p] of [...byCode].sort()) {
        * ⚠ 여럿인데 비면 «못 정했다»로 세어 화면에 알린다 — 짐작해 붙이면 그게 우리 오류다.
        *   예전엔 곧장 「프리패스 기본」으로 떨어져 205대(57%)가 남의 조건을 달고 나갔다.
        */
-      const picked = pickPolicy(book, cell('정책코드'));
+      const picked = pickPolicy(book, policyCodeAt >= 0 ? S(r[policyCodeAt]) : '');
       const pol = picked.p;
       if (picked.how === '기본' && [...book.keys()].filter(Boolean).length > 1) {
         ambiguous.push(`${who} ${S(r[first('차량번호')])}`);

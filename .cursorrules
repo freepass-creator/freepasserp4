@@ -1,5 +1,7 @@
 # freepasserp4 — 커서 작업 규칙 (자동 적용)
 
+> ⛔차종이름=엔카 1:1. 예외 둘만: 기아 N세대→개발코드, 우리 시트만 G80 DH. 세 번째 예외 금지.
+
 작업 전 반드시 `AGENTS.md`(공통 작업원칙·역할) · `CURSOR.md`(업무지시서) · `DESIGN.md`(디자인 일관성 규격) · `CLAUDE.md`(규격 SSOT)를 읽는다.
 
 ## 디자인 토큰 — 숫자·색을 직접 쓰지 않는다
@@ -25,15 +27,17 @@
     재고관리: 목록·기본정보·운영정보·업로드 / 정책관리: 목록·기본심사·계약조건·보험 /
     회원관리: 목록·기본정보·소속권한(또는 정산운영)·영업설정(또는 데이터연동))
    필드 표 SSOT = `WorkFields`/`WorkTable`/`WorkRow`/`WorkInput`/`WorkSelect`/`WorkDock` (`components/ui/work-mode.tsx`). 정본=재고관리.
+   상세 섹션 제목 = `DetailTable` 머리띠(`accent=main` → 남색 반전 `C.brand`). 표 위 `SectionLabel`·남색 손롤 금지. 표 밖 소제목만 `SectionLabel`(먹색).
    매물 고르기 = `ProductRowCard`/`ProductCard`(공용 카드 규격. `/finder`만 쓴다고 페이지 규격이 되지 않는다).
    **페이지 전용 규격 금지.** 공용 원자를 만들어 두고 페이지는 갖다 쓴다.
 4. **v3(운영 중) 노드에 write 금지.** 쓰기는 `v4/` 오버레이로만. `database.rules.json` 수정·배포 금지.
 5. **엔진 우회 금지.** 계약 단계·취소는 `applyStepCheck`/`cancelContract`, 저장·삭제는 `getStore()`.
    차량 상태는 엔진이 단일 writer — 페이지에서 직접 바꾸지 않는다.
 6. 잘 돌아가던 기능·정책·UI는 **명시 요청 없이 변경 금지.** 버그 발견 시 고치지 말고 보고.
-7. **차종마스터.** 이름=`public/data/vehicle-master.json`. 코드=`data/vehicle-trim-key-registry.json`.
+   **`/erp5` UI 보류**(2026-08-28). 테스트하다 멈춤·폐기 예정. 고치거나 공용 원자로 맞추지 말 것. `docs/MEMO-ERP5-보류-2026-08-28.md`.
+7. **차종마스터.** 이름 정본 = 엔카 작업 시트. `vehicle-master.json` 폐기. 코드=`data/vehicle-trim-key-registry.json`.
    라이브 「차종마스터」 탭 쓰기 금지. stamp는 엔카 M/SM/T만. fill이 정제칸 글자.
-   코드 재사용·의미 변경 금지. 마스터에 없으면 빈칸. `check-vehicle-master-lock` · `verify-master-pass`.
+   예외 둘만(기아 N세대→개발코드, G80 DH). 세 번째 예외 금지. 마스터에 없으면 빈칸. `check-vehicle-master-lock` · `verify-master-pass`.
 
 ## 반드시
 - 모바일 입력 **16px**(미만이면 iOS 확대 = 버그), 터치 타깃 **40px**. 크기 하드코딩 말고 `ctrlH()`/`ctrlInputFs()`/`useIsMobile()`.

@@ -9,7 +9,7 @@
  *   트림행키(mf-) 책 = `data/vehicle-trim-key-registry.json` (원천대장 「차종마스터」 탭은 **읽기만**)
  *   엔카 원자 시트 = 중고 시세 행키(M/SM/T)만. 정제칸 이름을 쓰지 않는다.
  *
- * ★쓰기(이름·mf- 의미) = 커서만. 다른 AI는 snap/fill/stamp 로 가져다 쓴다.
+ * ⛔차종이름=엔카 1:1. 예외 둘만: 기아 N세대→개발코드, 우리 시트만 G80 DH. 세 번째 예외 금지.
  *   요령 = `lib/domain/vehicle-master-playbook.ts` (운영 매뉴얼 0″장).
  *
  * 검사: `npx tsx scripts/check-vehicle-master-lock.mts`
@@ -31,7 +31,7 @@ export const VEHICLE_NAME_DICTIONARY = 'public/data/vehicle-trim-master.json';
 export const VEHICLE_CODE_REGISTRY = 'data/vehicle-trim-key-registry.json';
 export const LIVE_VEHICLE_MASTER_SHEET_ID = MASTER_SHEET_ID;
 export const LIVE_VEHICLE_MASTER_TAB = '차종마스터';
-export { VEHICLE_MASTER_OWNER, VEHICLE_MASTER_WRITE_ONLY, VEHICLE_MASTER_READ_API, VEHICLE_MASTER_MATCH_PLAYBOOK } from './vehicle-master-playbook';
+export { VEHICLE_MASTER_OWNER, VEHICLE_MASTER_WRITE_ONLY, VEHICLE_MASTER_READ_API, VEHICLE_MASTER_MATCH_PLAYBOOK, ENCAR_NAME_ABSOLUTE } from './vehicle-master-playbook';
 
 /** 옛 json 스텁이 폐기 표시인지 — 내용이 다시 차면 잠금 실패. */
 export function assertVehicleMasterJsonDiscarded(raw: unknown): void {
@@ -45,7 +45,7 @@ export function assertVehicleMasterJsonDiscarded(raw: unknown): void {
  * 세부모델 이름 — **엔카와 동일**(개수 1:1 · 이름도 엔카).
  * 예외는 둘만: 기아 `N세대` → 개발코드(`K5 3세대` → `K5 DL3`),
  * 우리 시트만 제네시스 1세대 `G80 DH`(엔카는 `G80`).
- * FL 분할·티볼리 X100·다른 비기아 개발코드는 예외가 아니다.
+ * 그 밖은 엔카 그대로. 티볼리 X100·제네시스 FL 분할·다른 비기아 개발코드는 예외가 아니다.
  * 괄호 코드는 괄호만 뗀다(`G80 (RG3)` → `G80 RG3`).
  * ⚠ 개발코드가 엔카 이름에 있으면 떼지 않는다.
  */

@@ -29,6 +29,18 @@ export type StandardTemplateKey =
   | 'sonogong-subscription-insurance-separate'
   | 'sonogong-pickup-confirmation';
 
+/**
+ * PDF로 봉인하는 계약서 원본의 서버 허용 목록이다.
+ * 업체 자체 양식은 반드시 별도 파일과 이 레지스트리 항목을 함께 추가한다. 요청/DB 값으로
+ * 파일 경로를 선택하지 않으며, 전용 원본은 소유 공급사 코드가 맞을 때만 발행할 수 있다.
+ */
+export const CONTRACT_DOCUMENT_TEMPLATES = {
+  'freepass-standard': { file: 'rental-contract.html' },
+  'sonogong-subscription': { file: 'sonogong-subscription-contract.html', providerCompanyCode: 'RP012' },
+} as const;
+
+export type ContractDocumentTemplateKey = keyof typeof CONTRACT_DOCUMENT_TEMPLATES;
+
 /** 모든 파생 계약서의 모체. 배열 순서가 바뀌어도 신규 계약의 기본값은 변하지 않는다. */
 export const DEFAULT_STANDARD_TEMPLATE_ID: StandardTemplateKey = 'freepass-rent-standard';
 
@@ -42,6 +54,8 @@ export type EsignTemplate = {
   insuranceSide: InsuranceSide;
   title: string;
   note: string;
+  /** 실제 A4/PDF 원본. 회사·상품별 전용 문서는 여기서만 선택한다. */
+  documentTemplate: ContractDocumentTemplateKey;
 };
 
 export const STANDARD_CONTRACT_TEMPLATES: EsignTemplate[] = [
@@ -54,6 +68,7 @@ export const STANDARD_CONTRACT_TEMPLATES: EsignTemplate[] = [
     insuranceSide: '회사포함',
     title: '자동차 장기대여 계약서',
     note: '프리패스모빌리티 기본 정본입니다. 기본은 만기 반납이며, 인수가를 적은 경우 인수옵션 조항이 적용됩니다.',
+    documentTemplate: 'freepass-standard',
   },
   {
     id: 'freepass-subscription-insurance-included',
@@ -64,6 +79,7 @@ export const STANDARD_CONTRACT_TEMPLATES: EsignTemplate[] = [
     insuranceSide: '회사포함',
     title: '자동차 구독 계약서',
     note: '회사가 보험을 가입합니다. 기본은 만기 반납이며 인수조건이 있을 때만 인수옵션을 기재합니다.',
+    documentTemplate: 'freepass-standard',
   },
   {
     id: 'freepass-subscription-insurance-separate',
@@ -74,6 +90,7 @@ export const STANDARD_CONTRACT_TEMPLATES: EsignTemplate[] = [
     insuranceSide: '고객직접',
     title: '자동차 구독 계약서',
     note: '고객이 보험을 별도로 가입합니다. 기본은 만기 반납이며 인수조건이 있을 때만 인수옵션을 기재합니다.',
+    documentTemplate: 'freepass-standard',
   },
   {
     id: 'sonogong-rent-draft',
@@ -84,6 +101,7 @@ export const STANDARD_CONTRACT_TEMPLATES: EsignTemplate[] = [
     insuranceSide: '회사포함',
     title: '자동차 장기대여 계약서',
     note: '손오공 렌트 계약서 검토 양식입니다. 전자발행 승인 전까지 발송할 수 없습니다.',
+    documentTemplate: 'freepass-standard',
   },
   {
     id: 'sonogong-subscription-insurance-included',
@@ -94,6 +112,7 @@ export const STANDARD_CONTRACT_TEMPLATES: EsignTemplate[] = [
     insuranceSide: '회사포함',
     title: '자동차 구독 계약서',
     note: '손오공 구독 약정서 기반 검토 양식입니다. 전자발행 승인 전까지 발송할 수 없습니다.',
+    documentTemplate: 'sonogong-subscription',
   },
   {
     id: 'sonogong-subscription-insurance-separate',
@@ -104,6 +123,7 @@ export const STANDARD_CONTRACT_TEMPLATES: EsignTemplate[] = [
     insuranceSide: '고객직접',
     title: '자동차 구독 계약서',
     note: '손오공 구독 약정서 기반 검토 양식입니다. 전자발행 승인 전까지 발송할 수 없습니다.',
+    documentTemplate: 'sonogong-subscription',
   },
   {
     id: 'sonogong-pickup-confirmation',
@@ -115,6 +135,7 @@ export const STANDARD_CONTRACT_TEMPLATES: EsignTemplate[] = [
     insuranceSide: '회사포함',
     title: '차량 픽업 확인서',
     note: '차량 인수·상태 확인용 검토 양식입니다. 계약 금액이나 고객 서명 링크를 만들 수 없습니다.',
+    documentTemplate: 'freepass-standard',
   },
 ];
 
@@ -148,6 +169,17 @@ export function isManualOfferTemplateAllowed(environment: string | undefined, te
 
 export function findTemplate(id: unknown): EsignTemplate | null {
   return STANDARD_CONTRACT_TEMPLATES.find((template) => template.id === S(id)) || null;
+}
+
+/** 공급사 전용 원본을 다른 공급사 계약에 재사용하지 않는다. */
+export function templateProviderSelectionError(template: EsignTemplate, providerCodeValue: unknown): string {
+  const document = CONTRACT_DOCUMENT_TEMPLATES[template.documentTemplate];
+  const requiredProvider = 'providerCompanyCode' in document ? document.providerCompanyCode : '';
+  if (!requiredProvider) return '';
+  const providerCode = S(providerCodeValue).toUpperCase();
+  return providerCode === requiredProvider
+    ? ''
+    : `${template.label}는 ${requiredProvider} 공급사 전용 계약서입니다.`;
 }
 
 export function defaultStandardTemplate(): EsignTemplate {

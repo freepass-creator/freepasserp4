@@ -32,6 +32,7 @@ import { partnerTypeLabel } from '@/lib/domain/partner';
 import { memberAccountState, memberTypeLabel } from '@/features/members/member-filter';
 import { joinMetaText } from '@/features/work-list-display';
 import { plateSpecLine } from '@/components/product-card-identity';
+import { SignalMark } from '@/components/product-card-badge-view';
 import {
   SETTLEMENT_RATE_WARNING,
   SETTLEMENT_RENT_WARNING,
@@ -255,7 +256,8 @@ export const InventoryListRow = memo(function InventoryListRow({
             <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
               {p._needs_master_review ? <Badge tone="amber" variant="solid">검수</Badge>
                 : p._snapped ? <Badge tone="blue" variant="quiet">변환</Badge> : null}
-              {pts ? <Badge tone={pts.tone} variant={pts.variant}>{ptCanon}</Badge> : null}
+              {/* 상품구분 = 상자 아님. 카드·상세와 같은 아이콘+글자(2026-08-28) — 검수·변환은 «표식»이라 상자로 남는다. */}
+              {pts ? <SignalMark signalKey="pt" label={ptCanon} tone={pts.tone} /> : null}
             </span>
           )}
         />,

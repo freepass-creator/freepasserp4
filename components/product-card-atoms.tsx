@@ -2,7 +2,7 @@
 import { type CSSProperties } from 'react';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { eventSignals, type Audience } from '@/lib/domain/product';
-import { C, R, NUM, Badge, FW, FS, ICON, SCRIM } from '@/components/ui';
+import { C, R, NUM, FW, FS, ICON, SCRIM } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { useFirstPhoto } from '@/components/use-product-photos';
 import { FavHeart } from '@/components/FavHeart';
@@ -13,12 +13,13 @@ import { kmDisplay } from '@/lib/format';
 import { fuelDisplay } from '@/lib/domain/vehicle-master-match';
 export { productOptions, OptionChips, OptionsInline } from '@/components/product-card-options';
 import {
-  badgeTip, badgeSpecs, photoMarkSpecs, HEAD_BADGE_KEYS,
+  badgeSpecs, photoMarkSpecs, HEAD_BADGE_KEYS,
   type BadgeSpec,
 } from '@/components/product-card-badges';
 import { toneAccent, type BadgeTone } from '@/components/ui/badges';
+import { SignalMark } from '@/components/product-card-badge-view';
 export {
-  CarGlyph, badgeTip, benefitTip, badgeSpecs, photoMarkSpecs, badges, BadgesClip, HEAD_BADGE_KEYS,
+  CarGlyph, badgeTip, benefitTip, badgeSpecs, photoMarkSpecs, HEAD_BADGE_KEYS,
   type BadgeSpec,
 } from '@/components/product-card-badges';
 export { PriceMini, PriceFare } from '@/components/product-card-fares';
@@ -48,12 +49,12 @@ export { CardRailBadges, SignalMarks } from '@/components/product-card-badge-vie
  *
  * 공통 원칙
  *  · CORE(없을 수 없는 필터) = 항상 자리 / OPT(있을 수도) = 해당 시만
- *  · Badge = 상품구분·출고·심사 / 스펙 = 텍스트 / 혜택·이벤트 = MetaIcon
+ *  · 신호(상품구분·출고·심사) = SignalMark / 스펙 = 텍스트 / 혜택·이벤트 = MetaIcon — 셋 다 아이콘+글자
  *  · 전기간 요금표 = /m 만 · 카드 스펙 = 차번·연식·연료·주행·배기(없으면 -)
  *  · 가격 표기순 = 기간 → 대여료 → 보증금
  *  · 웹 상세(가로) = PeriodChips로 기간 나열(hover peek) · 웹 간단 = 칩+조건
  *  · 모바일 = 기간칩 나열 금지. 앵커 + PeriodRange(`[최단] ~ [최장]` 칩). 전기간=/m
- *  · 카드 폰트·Badge·기간칩 = 웹/모바일 동일 치수
+ *  · 카드 폰트·신호·기간칩 = 웹/모바일 동일 치수
  *
  * ────────────────────────────────────────────────────────────
  * ★ 상세카드 ProductRowCard — PRIMARY SSOT
@@ -143,7 +144,7 @@ export function CardFacts({ p, dense }: { p: EntityRecord; audience?: Audience; 
 /**
  * CardThumb — 썸네일 뱃지 SSOT.
  *  · 기본: 좌측 한 줄 최대 2(프로모 우선 → marks 출고·심사)
- *  · coreBadges(간단카드): 우하 가로 출고·상품·심사 = 상세와 동일 Badge + frosted 반투명
+ *  · coreBadges(간단카드): 우하 가로 출고·상품 = 상세와 동일 SignalMark(흰 글자·accent 그림)
  *  · heart — 웹 목록 빠른 찜. 모바일 목록은 숨김(상세 FavHeart만).
  */
 export function CardThumb({ p, audience = 'agent', fill, w, h, heart = false, marks = true, coreBadges = false }: {
@@ -229,7 +230,7 @@ export function CardThumb({ p, audience = 'agent', fill, w, h, heart = false, ma
         style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }}
       />
 
-      {/* frosted Badge 가독용 — 옅은 하단만 */}
+      {/* 사진 위 흰 글자 가독용 — 옅은 하단만 */}
       {hasCore && (
         <div aria-hidden style={{
           position: 'absolute', left: 0, right: 0, bottom: 0, height: '28%', zIndex: 1,
@@ -239,43 +240,36 @@ export function CardThumb({ p, audience = 'agent', fill, w, h, heart = false, ma
       )}
 
       {/*
-        CORE 3(출고·상품·심사) = **한 덩어리 다크 글래스 바**.
-        흰 뱃지 세 장을 사진 위에 띄우면 스티커 붙인 것처럼 보인다(사장님 2026-08-20 「좀 촌스럽지 않게」).
-        떠 있는 물체를 3개에서 1개로 줄이고, 값 사이는 얇은 세로선으로만 나눈다 —
-        사진 위 글자는 «어두운 유리 + 흰 글자»가 가장 조용하고 어떤 차 색에도 안 묻는다.
-        색 정보는 버리지 않는다: 차량상태만 앞에 **작은 색점**으로 남긴다(초록=출고가능·주황=계약중…).
+        ★사진 위도 **다른 화면과 같은 규격** — 아이콘 + 글자
+          (사장님 2026-08-28 「상품찾기 카드목록에도 이 부분 동일하게 · 페이지별로 쓰지 말고 공통규격으로」).
+
+        전에는 여기만 «다크 글래스 바 + 색점»이라는 자기만의 문법이었다. 같은 값(출고상태·상품구분)이
+        표·목록·상세에서는 아이콘+글자인데 사진 위에서만 상자였고, 그래서 화면을 옮길 때마다
+        눈이 같은 값을 다시 찾아야 했다. 그리는 것은 `SignalMark` 하나가 맡는다 — 여기서 따로 그리지 않는다.
+
+        ⚠ 사진 위라 «색·대비»만 자리 사정을 탄다: 글자는 흰색, 그림은 accent(사진에서도 뜨는 톤),
+          바닥 그라데이션 + 글자 그림자로 밝은 사진에서도 읽힌다. 상자를 씌워 대비를 벌지 않는다.
       */}
       {hasCore && (
         <div
           className={coreSpecs.some((x) => x.pulse) ? 'fp-badge-pulse' : undefined}
           style={{
             position: 'absolute', bottom: pad, right: pad, zIndex: 2,
-            display: 'inline-flex', alignItems: 'center', height: 22,
-            padding: '0 8px', borderRadius: R, maxWidth: '92%', overflow: 'hidden',
-            background: listThumb ? SCRIM.heavy : SCRIM.light,
-            border: `1px solid color-mix(in srgb, ${C.inverse} 16%, transparent)`,
-            backdropFilter: listThumb ? undefined : 'blur(8px)',
-            WebkitBackdropFilter: listThumb ? undefined : 'blur(8px)',
-            color: C.inverse, fontSize: FS.micro, fontWeight: FW.strong,
-            letterSpacing: '-0.01em', whiteSpace: 'nowrap', lineHeight: 1,
+            display: 'inline-flex', alignItems: 'center', gap: 10,
+            maxWidth: '92%', overflow: 'hidden',
+            fontSize: FS.cap, lineHeight: 1.2,
+            textShadow: `0 1px 3px ${SCRIM.black}`,
           }}
         >
-          {coreSpecs.map((s, i) => (
-            <span key={s.key} title={badgeTip(s.key, s.label)} style={{ display: 'inline-flex', alignItems: 'center' }}>
-              {i > 0 && (
-                <span aria-hidden style={{
-                  width: 1, height: 9, margin: '0 7px', flex: '0 0 auto',
-                  background: `color-mix(in srgb, ${C.inverse} 30%, transparent)`,
-                }} />
-              )}
-              {s.key === 'st' && (
-                <span aria-hidden style={{
-                  width: 5, height: 5, borderRadius: '50%', marginRight: 5, flex: '0 0 auto',
-                  background: toneAccent(s.tone),
-                }} />
-              )}
-              {s.label}
-            </span>
+          {coreSpecs.map((s) => (
+            <SignalMark
+              key={s.key}
+              signalKey={s.key}
+              label={s.label}
+              tone={s.tone}
+              color={C.inverse}
+              iconColor={toneAccent(s.tone)}
+            />
           ))}
         </div>
       )}
@@ -290,7 +284,10 @@ export function CardThumb({ p, audience = 'agent', fill, w, h, heart = false, ma
           {left.map((m) => m.kind === 'promo' ? (
             promoChip(m.label, m.key)
           ) : (
-            <Badge key={m.key} tone={m.tone || 'gray'} variant={m.variant || 'line'} frosted title={badgeTip(m.key, m.label)}>{m.label}</Badge>
+            /* 차량상태 = 사진 위에서도 상자 아님. CORE 와 같은 손. */
+            <span key={m.key} style={{ fontSize: FS.cap, lineHeight: 1.2, textShadow: `0 1px 3px ${SCRIM.black}` }}>
+              <SignalMark signalKey={m.key} label={m.label} tone={m.tone || 'gray'} color={C.inverse} iconColor={toneAccent(m.tone || 'gray')} />
+            </span>
           ))}
         </div>
       )}

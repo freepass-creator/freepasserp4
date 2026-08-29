@@ -38,9 +38,10 @@
     ".next-dev/types/**/*.ts",
     ".next-erp5/types/**/*.ts",
     ".next-qa/types/**/*.ts",
+    ".next-ui-qa/types/**/*.ts",
     ".next/types/**/*.ts",
     "next-env.d.ts",
-    ".next-ui-qa/types/**/*.ts"
+    ".next-mobile-price-qa/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",

@@ -56,8 +56,25 @@ for (const b of books) {
   const byBrand = new Map<string, { code: string; name: string }[]>();
   for (const p of props) {
     const tab = S(p.title); if (!POLICY_TAB_ALIASES.some((a: string) => tab.includes(a))) continue;
-    const rows = (((await call(`https://sheets.googleapis.com/v4/spreadsheets/${b.id}/values/${encodeURIComponent(`${tab}!A1:B60`)}`)).values || []) as string[][]);
-    const list = rows.slice(1).map((r) => ({ code: S(r[0]), name: S(r[1]) })).filter((x) => x.code && !/프리패스 기본/.test(x.code));
+    const rows = (((await call(`https://sheets.googleapis.com/v4/spreadsheets/${b.id}/values/${encodeURIComponent(`${tab}!A1:Z60`)}`)).values || []) as string[][]);
+    /**
+     * ★**이름으로 읽는다 — 자리로 읽지 않는다**(2026-08-28).
+     *   2026-08-21 에 정책 탭 맨 앞으로 「정책UID」가 들어오면서 「정책코드」가 둘째 칸으로 밀렸다.
+     *   여기가 A=코드·B=이름으로 자리를 박아 두고 있어서, 그 뒤로 **코드 자리에서 UID 를 읽고
+     *   이름 자리에서 코드를 읽었다.** 그래서
+     *     · 「(프리패스 기본)」을 후보에서 빼는 규칙이 안 걸렸고(그 글자가 이름 칸에 있으니),
+     *     · 구독/렌트로 좁히는 규칙도 안 걸렸다(이름 자리에 「POL-0020」이 들어와 글자가 없다).
+     *   결과: 손오공 380대(픽업 338·구독 42)가 «후보 셋»으로 남아 한 대도 안 채워졌다.
+     *   (같은 사고 이력 — build-refine-sheet · build-vehicle-db · normalize-policy-values 주석)
+     */
+    const hdr = (rows[0] || []).map(norm);
+    const codeAt = hdr.indexOf('정책코드') >= 0 ? hdr.indexOf('정책코드') : 0;
+    const nameAt = hdr.indexOf('정책명') >= 0 ? hdr.indexOf('정책명') : 1;
+    const list = rows.slice(1)
+      .map((r) => ({ code: S(r[codeAt]), name: S(r[nameAt]) }))
+      // 코드가 없는 줄 = 아직 안 만든 정책(이름만 적어 둔 줄)이다. 후보가 아니다.
+      // 「(프리패스 기본)」은 우리 표준값이지 그 집 조건이 아니다 — 코드·이름 어느 쪽에 적혀도 뺀다.
+      .filter((x) => x.code && !/프리패스 *기본|프리패스 *표준/.test(`${x.code} ${x.name}`));
     if (list.length) byBrand.set(brandOf(tab), list);
   }
   if (!byBrand.size) continue;

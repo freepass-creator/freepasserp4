@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { decryptRrn } from '@/lib/server/rrn-crypto';
 import { BearerTokenError, verifyActiveBearer } from '@/lib/server/firebase-admin';
 import {
   FREEPASS_ESIGN_CONSENT_VERSION,
@@ -13,6 +12,7 @@ import {
   freepassSignTokenFromUrl,
   hashFreepassSignToken,
   freepassEsignEventUpdates,
+  freepassSignedCopyExpiresAt,
   freepassDirectSealMatchesContract,
   hasFrozenFreepassConsentProfile,
   hasFrozenFreepassTemplateState,
@@ -785,7 +785,7 @@ export async function POST(
       return json({ error: '검토대기 서명과 본인확인 자료가 모두 있어야 승인할 수 있습니다.' }, 409);
     }
     if (!S(submission.idCardPath) || !S(submission.selfiePath)) {
-      return json({ error: '운전면허증 또는 셀카가 누락되었습니다.' }, 409);
+      return json({ error: '운전면허증 또는 얼굴 사진가 누락되었습니다.' }, 409);
     }
     const approvalClaimId = hashFreepassSignToken(makeFreepassSignToken());
     const approvalClaim = await bundle.db.ref(`v4/esign_sessions/${hash}`).transaction((current) => {
@@ -904,12 +904,9 @@ export async function POST(
     const signedSubmission = customerInsuranceEvidence
       ? { ...submission, customer_insurance_evidence: customerInsuranceEvidence }
       : submission;
-    /* 봉인본에는 주민등록번호 원문이 들어간다 — 여기서만 푼다.
-       저장은 암호문이고, 이 한 줄 밖으로는 원문이 나가지 않는다. */
-    const signedSnapshot = snapshotWithPrivateSubmission(issueSnapshot, {
-      ...signedSubmission,
-      customer_id: decryptRrn((signedSubmission as Record<string, unknown>).customer_id),
-    });
+    // 개인은 생년월일만, 법인은 법인 식별정보만 계약서에 넣는다. 서명권한은
+    // 법인등기·인감·위임 서류로 확인하며 주민등록번호는 전자계약에서 받지 않는다.
+    const signedSnapshot = snapshotWithPrivateSubmission(issueSnapshot, signedSubmission);
     const sealedSupportingDocuments = rawSupportingDocuments
       .map((document) => {
         return { key: S(document.key), sha256: S(document.sha256) };
@@ -942,6 +939,7 @@ export async function POST(
     }
     const sessionUpdate: EsignRecord = {
         status: 'signed', approvedAt: now, sealHash, supplementItems: null,
+        customerCopyExpiresAt: freepassSignedCopyExpiresAt(now),
         approvingAt: null, approvingBy: null, approvalClaimId: null,
     };
     const privateUpdate: EsignRecord = {

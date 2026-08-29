@@ -18,6 +18,12 @@ function fieldsOf(value: unknown): Record<string, string> {
   return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([key, item]) => [key, String(item ?? '').trim()]));
 }
 
+function templateIdOf(snapshot: EsignRecord): string {
+  const template = snapshot.template;
+  if (!template || typeof template !== 'object' || Array.isArray(template)) return '';
+  return String((template as EsignRecord).id ?? '').trim();
+}
+
 export async function buildFrozenFreepassHtml(
   snapshot: EsignRecord,
   signature: string,
@@ -42,7 +48,10 @@ export async function buildFrozenFreepassHtml(
   };
   // 출력·다운로드 동작은 통합 A4 미리보기의 PDF 뷰어에서만 제공한다.
   // 원본 HTML 안에 별도 출력 버튼을 중복 삽입하지 않는다.
-  return buildFreepassContractHtml(sealed, { includePrintButton: false });
+  return buildFreepassContractHtml(sealed, {
+    includePrintButton: false,
+    templateId: templateIdOf(snapshot),
+  });
 }
 
 function localChromeExecutable() {

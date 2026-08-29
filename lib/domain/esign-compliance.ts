@@ -126,7 +126,7 @@ export const COMPLIANCE_ITEMS: ComplianceItem[] = [
     requirement: '누가 서명했는지 확인할 수 있어야 한다.',
     level: '필수',
     risk: '서명의 진정성을 다투면 방어가 어렵다.',
-    coveredBy: '운전면허증·셀카 제출 + 관리자 대조 + auditTrail.identity',
+    coveredBy: '운전면허증·얼굴 사진 제출 + 관리자 대조 + auditTrail.identity',
   },
   {
     key: 'sign_intent',

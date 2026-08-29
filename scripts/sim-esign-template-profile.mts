@@ -8,7 +8,7 @@ import {
   providerContractIdentity,
   resolveContractTemplateProfile,
 } from '../lib/domain/esign-template-profile';
-import { RENT_STANDARD_VERSION, findTemplate } from '../lib/domain/esign-templates';
+import { RENT_STANDARD_VERSION, findTemplate, templateProviderSelectionError } from '../lib/domain/esign-templates';
 
 let pass = 0;
 let fail = 0;
@@ -48,6 +48,14 @@ const untouched = resolveContractTemplateProfile(
   subscriptionIncluded, 'external-sub-included-v1', 'RP012', overrides,
 );
 check('같은 업체라도 커스텀하지 않은 다른 기준서식은 표준판', untouched.mode === 'standard');
+
+const sonogongSubscription = findTemplate('sonogong-subscription-insurance-included')!;
+check('손오공 전용 원본은 RP012 공급사에만 연결',
+  templateProviderSelectionError(sonogongSubscription, 'RP012') === '');
+check('다른 공급사가 손오공 전용 원본을 선택하면 발행 전 차단',
+  /전용 계약서/.test(templateProviderSelectionError(sonogongSubscription, 'RP999')));
+check('프리패스 표준 원본은 공급사 정책별로 공통 사용 가능',
+  templateProviderSelectionError(rent, 'RP999') === '');
 
 let staleBlocked = false;
 try {

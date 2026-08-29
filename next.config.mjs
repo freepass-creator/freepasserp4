@@ -20,6 +20,8 @@ const nextConfig = (phase) => ({
     '/api/freepass-esign/**/*': [
       './node_modules/@sparticuz/chromium/bin/**/*',
       './public/contract-template/rental-contract.html',
+      './public/contract-template/sonogong-subscription-contract.html',
+      './public/contract-template/assets/logo-sonogong.png',
       './public/fonts/*.woff2',
     ],
   },
@@ -48,6 +50,19 @@ const nextConfig = (phase) => ({
       source: '/:section(q|sign)/:rest*',
       headers: [
         { key: 'X-Robots-Tag', value: 'noindex, nofollow, noarchive, nosnippet' },
+      ],
+    }, {
+      // 주민번호·면허증·얼굴 사진·서명이 입력되는 고객 전자계약 화면은 외부 문서에
+      // 끼워 넣거나, 제3자 스크립트/연결로 값을 보내지 못하게 브라우저 단계에서도 닫는다.
+      // 계약서 PDF 미리보기와 서명 이미지(data/blob)는 동일 출처 안에서만 허용한다.
+      source: '/sign/:path*',
+      headers: [
+        { key: 'Content-Security-Policy', value: "default-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; frame-src 'self' blob:; media-src 'none'; worker-src 'self' blob:" },
+        { key: 'X-Frame-Options', value: 'DENY' },
+        { key: 'Referrer-Policy', value: 'no-referrer' },
+        { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
+        { key: 'Cross-Origin-Resource-Policy', value: 'same-origin' },
+        { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=(), clipboard-read=()' },
       ],
     }, {
       source: '/:path*',

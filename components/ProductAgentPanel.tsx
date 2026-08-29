@@ -27,8 +27,8 @@ import { won, Btn, C, R, NUM, FW, FS, ICON, CenterNote, DetailTable, DT, R_CARD,
  *   ③ 손님 전달 — 링크 복사·텍스트 복사(보내는 것)
  *   ④ 손님 화면 보기(내가 확인하는 것) · 사진 내려받기(파일 받는 것) — **성격이 다르니 따로 세운다**
  *
- * ★**반전(남색) 머리띠 = 이 패널의 문법**(사장님 「반전 표로 잘 꾸며봐」).
- *   상세 본문 표는 회색 머리띠(`DT.band`), 패널 표는 반전 머리띠 — 색 하나로 «본문이냐 패널이냐»가 갈린다.
+ * ★**남색 머리띠 = 본문 중요 섹션의 문법**(차량스펙·대여료조건). 이 패널 표는 회색 띠.
+ *   모바일 경계 바·웹 대여료 차명 줄만 같은 `DT.bandInvert` 를 쓴다(손그린 C.brand 면 금지).
  *
  * ★손님 화면(`/q`)에는 이 패널이 **붙지 않는다.** 「모드 토글」로 가리지 않는 이유는,
  *   손님과 화면을 같이 보다가 잘못 눌러 공급사·원가가 새기 때문이다. 붙이지 않으면 샐 수가 없다.
@@ -156,8 +156,8 @@ export function ProductAgentPanel({ p, audience, pinnedShare, mobile }: {
       {/*
         ⓪ 패널 머리 — **이 칼럼이 무엇인지 맨 위에서 말한다**(사장님 2026-08-20 「영업자 전용 패널이라고 왜 상단에 안해주냐고」).
            표식은 **글자 한 줄**로 끝낸다. 면을 칠하거나(앰버) 좌측 바를 두르면 블록을 감싸는 인용문처럼 읽힌다
-           (사장님 2026-08-20 「좌측에 바로 감싸는 느낌, 별로」). 소속은 이미 «우측 칼럼에 있다»는 위치와
-           아래 표들의 반전 머리띠가 말하고 있다.
+           (사장님 2026-08-20 「좌측에 바로 감싸는 느낌, 별로」).            소속은 이미 «우측 칼럼에 있다»는 위치와
+           모바일 경계 바(`DT.bandInvert`)가 말하고 있다.
            손님 화면엔 이 칼럼이 통째로 안 붙으므로, 그 사실은 칸마다가 아니라 **여기 한 번**만 적는다.
       */}
       {mobile ? (
@@ -166,9 +166,9 @@ export function ProductAgentPanel({ p, audience, pinnedShare, mobile }: {
            반전은 패널의 문법(웹 대여료 머리띠와 같은 색) — 본문 표의 회색 머리띠와 확실히 갈린다. */
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
-          background: C.brand, color: C.inverse, borderRadius: R, padding: '8px 12px',
+          ...DT.bandInvert, borderRadius: R,
         }}>
-          <span style={{ fontSize: FS.body, fontWeight: FW.title }}>영업자 전용 패널</span>
+          <span style={{ fontSize: FS.sub, fontWeight: FW.title }}>영업자 전용 패널</span>
           <span style={{
             flex: '0 0 auto', fontSize: FS.micro, fontWeight: FW.label,
             border: `1px solid ${INV.line}`, background: INV.soft, borderRadius: R,
@@ -204,10 +204,10 @@ export function ProductAgentPanel({ p, audience, pinnedShare, mobile }: {
       {mobile ? null : (
       <div style={{ background: C.taupeBg, borderRadius: R_CARD, overflow: 'hidden' }}>
         <div style={{
-          display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, padding: '9px 10px',
-          background: C.brand, color: C.inverse,
+          display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8,
+          ...DT.bandInvert,
         }}>
-          <span style={{ fontSize: FS.body, fontWeight: FW.title, minWidth: 0, overflowWrap: 'anywhere' }}>{vehicleName(p)}</span>
+          <span style={{ fontSize: FS.sub, fontWeight: FW.title, minWidth: 0, overflowWrap: 'anywhere' }}>{vehicleName(p)}</span>
           {plate ? (
             <span style={{
               flex: '0 0 auto', fontFamily: NUM, fontSize: FS.cap, fontWeight: FW.strong,
@@ -246,7 +246,7 @@ export function ProductAgentPanel({ p, audience, pinnedShare, mobile }: {
       </div>
       )}
 
-      {/* ② 영업 정보 — 머리띠는 스카이. 본문(네이비 반전)과 구역이 갈리되 더 세지는 않다. */}
+      {/* ② 영업 정보 — 머리띠는 회색(accent=agent). 본문 중요 섹션(남색)보다 세지 않다. */}
       <DetailTable
         title="영업 정보"
         hint="상담용"

@@ -55,6 +55,12 @@ type Row = {
   paper: boolean; delivered: boolean; cancelled: boolean; clawback: boolean;
   stage: string; bucket: string; billingMonth: string | null; money: Money; nextRound: string;
   billState: BillState; phone: string;
+  /**
+   * ★서버는 이 칸들을 **이미 주고 있었다**(`/api/settlement/ledger` 가 줄을 통째로 편다).
+   *   선언이 없어서 화면이 «없는 값»처럼 다뤘을 뿐이다 — 그래서 이 칸들을 고치려면
+   *   시트로 가야 했다(사장님 2026-08-28 「현재 시트로 하고 있는거 erp로 작업할수 있게끔」).
+   */
+  note: string; paidRounds: number; clawbackReason: string; agentPhone: string; agentCode: string;
 };
 type Payload = { ok: boolean; reason?: string; count: number; readAt: string; ledgerUrl: string; rows: Row[] };
 
@@ -80,21 +86,24 @@ type AgentOpt = { code: string; name: string; channel: string; label: string };
  *
  * ```
  * 언제        접수일                                    ← 오늘로 채워 둔다
- * 어떤 차를    차량번호* · 공급사 · 모델명                  ← 차를 고르면 뒤 둘이 따라온다
+ * 어떤 차를    차량번호* · 공급사 · 모델명                  ← 셋 다 직접 적는다(대장 자동채움 걷어냄)
  * 누가        영업채널 · 영업담당자 · 영업자 연락처          ← 채널을 고르면 담당자가 좁혀진다
  * 누구한테     고객명 · 고객연락처
  * 어떤 조건     상품구분 · 계약기간 · 렌탈료* · 보증금 · 차량가액
  * 어떤 방식     분납여부
- * 어떤 상태     계약서 · 인도완료 · 인도일
+ * (어떤 상태)   ★접수 폼에 «없다» — 목록에서 체크로 켠다(계약서 · 인도완료 · 취소)
  * ```
  *
  * ★★**채널을 «먼저» 고른다.** 실측 2026-08-26 — 영업채널 20곳, 채널당 평균 2.9명.
  *   이름만 있는 56명짜리 목록을 뒤지는 대신 채널로 3명까지 좁힌다.
  *   동명이인(이승호 — 렌트야·카핑)도 그 자리에서 갈린다.
  *
- * ★★**상태값을 접수에서 받는다.** 실측 — 접수 42줄 중 계약서 95%·인도완료 76%가
- *   이미 켜져 있었다. 안 받으면 접수하자마자 상세로 다시 들어가 켜야 한다(두 번 일).
- *   ⚠ 인도완료를 켜면 **인도일이 같이** 가야 한다. 날짜가 없으면 청구월이 안 선다(서버가 막는다).
+ * ★★**상태는 접수에서 안 받는다**(사장님 2026-08-27 「접수는 말그대로 접수 단계잖아 ·
+ *   간단하게 빠르게 접수만 하면 되는거고 · 시트처럼 체크할건 체크하게끔해」).
+ *   한때 접수 폼이 계약서·인도완료·인도일까지 물었다 — 실측상 이미 켜져 있는 줄이 많다는 이유였는데,
+ *   접수하는 사람은 그 시점에 그걸 모른다. 물어봐야 「아니오」를 고르게 되고 칸만 셋 늘어 접수가 느려졌다.
+ *   ⇒ 상태는 목록 체크(`CHECKS`)로 켠다.
+ *   ⚠ 인도완료를 켜면 **인도일이 같이** 간다(`toggleCheck`). 날짜가 없으면 청구월이 안 선다(서버가 막는다).
  */
 const YN = ['예', '아니오'];
 
@@ -102,8 +111,10 @@ const YN = ['예', '아니오'];
 const CAR_FIELDS: Field[] = [
   { key: 'receivedAt', label: '접수일', type: 'date', required: true, note: '오늘로 채워 뒀습니다 — 밀려 적을 때만 고치세요' },
   { key: 'plate', label: '차량번호', type: 'text', required: true },
-  { key: 'supplier', label: '공급사', type: 'text', note: '차를 고르면 따라옵니다' },
-  { key: 'model', label: '모델명', type: 'text', note: '차를 고르면 따라옵니다' },
+  // ★직접 적는다(사장님 2026-08-28 「그냥 직접 입력하는거로 얼마 힘들지 않으니까」).
+  //   차량대장 자동 채움은 걷어냈다 — 대장에 없는 차가 92%라 «자동인데 안 도는 자동»이었다.
+  { key: 'supplier', label: '공급사', type: 'text' },
+  { key: 'model', label: '모델명', type: 'text' },
 ];
 /** 누가 — 영업자. ★채널이 먼저다. */
 const SELLER_FIELDS: Field[] = [
@@ -175,15 +186,33 @@ const VIEW_CONTRACT: Field[] = [
  */
 const EDIT_COLUMN: Record<string, string> = {
   supplier: '공급사', model: '모델명', customer: '고객명', phone: '고객연락처',
-  agent: '영업담당자', channel: '영업채널',
+  agent: '영업담당자', channel: '영업채널', agentPhone: '영업자연락처',
+  /**
+   * ★**조건도 여기서 고친다**(사장님 2026-08-28 「현재 시트로 하고 있는거 erp로 작업할수 있게끔」).
+   *   서버(`settlement-store` EDITABLE_FIELDS)는 진작 열어 두었는데 화면만 «보기»였다.
+   *   그래서 렌탈료 오타 하나 고치려고 시트를 열어야 했고, 시트를 열면 정본이 둘이 된다.
+   * ⚠ 없는 것에 뜻이 있다 — 판매수수료·출고수수료·요율·청구금액·지급액은 **여전히 못 고친다.**
+   *   그건 요율표에서 나오는 값이다. 여기서 열면 돈 계산이 두 벌이 된다.
+   */
+  product: '상품구분', term: '계약기간', rent: '렌탈료', deposit: '보증금',
+  price: '차량가액', payKind: '분납여부', note: '비고', paidRounds: '납입회차',
+  // 환수는 켤 때 셋이 같이 가지만, 켠 뒤 사유만 고치는 일이 있다.
+  clawbackReason: '환수사유',
 };
-const VIEW_TERMS: Field[] = [
-  { key: 'product', label: '상품구분', type: 'text' },
-  { key: 'term', label: '계약기간', type: 'text' },
-  { key: 'rent', label: '렌탈료', type: 'text' },
-  { key: 'deposit', label: '보증금', type: 'text' },
-  { key: 'price', label: '차량가액', type: 'text' },
-  { key: 'payKind', label: '분납여부', type: 'text' },
+/**
+ * 조건 — 접수 폼과 **같은 차례·같은 칸**이다(사장님 문장: 어떤 조건으로 · 어떤 방식으로).
+ * 접수 때 잘못 적었거나 조건이 바뀌면 여기서 고친다. 시트로 가지 않는다.
+ */
+const EDIT_TERMS: Field[] = [
+  { key: 'product', label: '상품구분', type: 'select', options: PRODUCT_OPTS },
+  { key: 'term', label: '계약기간(개월)', type: 'number' },
+  { key: 'rent', label: '렌탈료', type: 'number' },
+  { key: 'deposit', label: '보증금', type: 'number' },
+  { key: 'price', label: '차량가액', type: 'number', note: '선출고·견적출고면 반드시 — 비면 수수료가 0원이 됩니다' },
+  { key: 'payKind', label: '분납여부', type: 'select', options: PAY_KIND_OPTS },
+  // ★부러졌을 때 그 회차에서 멈춰 세우는 칸. 비면 기간 비례로 계산된다.
+  { key: 'paidRounds', label: '납입회차', type: 'number', note: '비우면 기간 비례로 셉니다' },
+  { key: 'note', label: '비고', type: 'text' },
 ];
 
 /** 접수 입력은 페이지와 상태를 나눈다 — 한 글자마다 목록·실적·청구를 다시 그리지 않게. */
@@ -281,6 +310,10 @@ export default function SettlementLedgerPage() {
   const [agentList, setAgentList] = useState<AgentOpt[]>([]);
   /** 인도일 — 체크만 켜면 청구월이 안 서니 날짜를 같이 받는다. */
   const [deliverOn, setDeliverOn] = useState('');
+  /** 환수 셋 — 켤 때 날짜·금액·사유를 같이 받는다(청구에서 빼는 값이라 셋이 한 벌이다). */
+  const [clawOn, setClawOn] = useState('');
+  const [clawAmt, setClawAmt] = useState('');
+  const [clawWhy, setClawWhy] = useState('');
 
   // ③ 실적상태 — 자기 검색·필터
   const [pQ, setPQ] = useState('');
@@ -298,6 +331,47 @@ export default function SettlementLedgerPage() {
   /** 지금 «대신 적는» 영업채널 하나 · 그 근거. 한 번에 한 곳만 연다. */
   const [memoFor, setMemoFor] = useState('');
   const [memoNote, setMemoNote] = useState('');
+
+  /**
+   * **시트에서 가져오기** — 직원이 정산원장 시트에 적은 것을 파이어베이스로 올린다.
+   *
+   * ★사장님 2026-08-28 「직원들이 시트에 입력하고 있잖아 · 파이어베이스에 올려서 처리하는걸
+   *   만들어야해」 · 「ERP 화면에 단추를 달자」.
+   * ★★**먼저 세어 보여 주고, 사람이 확인해야 올린다.** 누르자마자 올리면 무엇이 들어왔는지
+   *   아무도 안 본다 — 원장은 «모르고 늘어난 줄»이 제일 무섭다.
+   * ⚠ 새 줄만 올린다. 값이 다른 칸은 세어서 알려만 준다(덮으려면 명령줄에서 --overwrite).
+   *   ERP 에서 고친 줄은 어느 쪽으로도 안 덮는다 — 서버가 막는다.
+   */
+  const importFromSheet = async () => {
+    setBusy(true);
+    try {
+      const res = await ledgerFetch('/api/settlement/ledger/import');
+      const plan = await res.json() as {
+        ok: boolean; reason?: string; sheetRows: number; fresh: number;
+        diffs: number; lockedDiffs: number; onlyErp: number; unread: string[];
+      };
+      if (!plan.ok) { toast(plan.reason || '시트를 못 읽었습니다', 'error'); return; }
+      if (plan.unread?.length) { toast(`시트를 못 읽은 탭이 있습니다 — ${plan.unread.join(' · ')}`, 'error'); return; }
+      if (!plan.fresh) {
+        toast(plan.diffs ? `올릴 새 줄은 없습니다 (값이 다른 칸 ${plan.diffs})` : '올릴 것이 없습니다 — 시트와 같습니다');
+        return;
+      }
+      const ask = [
+        `시트 ${plan.sheetRows}줄 중 새 줄 ${plan.fresh}줄을 올립니다.`,
+        plan.diffs ? `값이 다른 칸 ${plan.diffs}개는 «올리지 않습니다»${plan.lockedDiffs ? ` (그중 ERP 에서 고친 줄 ${plan.lockedDiffs})` : ''}.` : '',
+        plan.onlyErp ? `ERP 에만 있는 ${plan.onlyErp}줄은 그대로 둡니다.` : '',
+        '올릴까요?',
+      ].filter(Boolean).join(String.fromCharCode(10));
+      if (!window.confirm(ask)) return;
+      const put = await ledgerFetch('/api/settlement/ledger/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      const out = await put.json() as { ok: boolean; reason?: string; added: number };
+      if (!out.ok) { toast(out.reason || '올리지 못했습니다', 'error'); return; }
+      toast(`${out.added}줄 올렸습니다`);
+      await load();
+    } catch (e) {
+      toast((e as Error)?.message || '올리지 못했습니다', 'error');
+    } finally { setBusy(false); }
+  };
 
   const load = async () => {
     try {
@@ -522,6 +596,25 @@ export default function SettlementLedgerPage() {
         }}
         onChange={(k, v) => { if (EDIT_COLUMN[k]) setEdit((e) => ({ ...e, [k]: v })); }}
       />
+      {/* 조건 — 계약 패널과 «같은 edit 상태»를 쓴다. 저장 단추도 하나다(아래 PageActions). */}
+      <WorkFields
+        mode="edit"
+        title="조건"
+        accent="sub"
+        fields={EDIT_TERMS}
+        form={{
+          product: edit.product ?? picked.product,
+          // ★고치는 칸은 «날것»으로 보여 준다 — 「690,000원」을 지우고 다시 적게 하면 오타가 는다.
+          term: edit.term ?? (picked.term ? String(picked.term) : ''),
+          rent: edit.rent ?? (picked.rent ? String(picked.rent) : ''),
+          deposit: edit.deposit ?? (picked.deposit ? String(picked.deposit) : ''),
+          price: edit.price ?? (picked.price ? String(picked.price) : ''),
+          payKind: edit.payKind ?? picked.payKind,
+          paidRounds: edit.paidRounds ?? (picked.paidRounds ? String(picked.paidRounds) : ''),
+          note: edit.note ?? picked.note,
+        }}
+        onChange={(k, v) => { if (EDIT_COLUMN[k]) setEdit((e) => ({ ...e, [k]: v })); }}
+      />
       {Object.keys(edit).length > 0 && (
         <PageActions
           cancel={{ onClick: () => setEdit({}), disabled: busy, label: '되돌리기' }}
@@ -543,23 +636,9 @@ export default function SettlementLedgerPage() {
         />
       )}
 
-      <WorkFields
-        mode="view"
-        title="조건"
-        accent="sub"
-        fields={VIEW_TERMS}
-        form={{
-          product: picked.product,
-          term: picked.term ? `${picked.term}개월` : '',
-          rent: picked.rent ? won(picked.rent) : '',
-          deposit: picked.deposit ? won(picked.deposit) : '',
-          price: picked.price ? won(picked.price) : '',
-          payKind: picked.payKind,
-        }}
-      />
       <DetailTable
         title="상태"
-        hint="원장의 체크 넷입니다. 여기서 바꾸면 시트에 그대로 갑니다."
+        hint="여기서 바꾸면 그 자리에서 정본(ERP)에 적힙니다. 시트를 열 필요가 없습니다."
         accent="sub"
         span={2}
         widths={[KV_LABEL_W, undefined]}
@@ -586,9 +665,33 @@ export default function SettlementLedgerPage() {
           <Switch checked={picked.cancelled} disabled={busy}
             onChange={(next) => patchRow(picked, { 계약취소: next ? 'TRUE' : 'FALSE' })} />
         </DtRow>
+        {/*
+          ★**환수에는 «날짜와 금액»이 딸려 온다.** 청구에서 그만큼 빼는 값이라서다.
+            인도완료와 같은 손 — 켤 때 같이 받고, 끄면 같이 지운다.
+            전에는 스위치만 있어서 켜 놓고 날짜·금액은 시트에서 적어야 했다.
+        */}
         <DtRow i={5} label="환수">
-          <Switch checked={picked.clawback} disabled={busy}
-            onChange={(next) => patchRow(picked, { 환수: next ? 'TRUE' : 'FALSE' })} />
+          {picked.clawback ? (
+            <Switch checked disabled={busy}
+              onChange={() => patchRow(picked, { 환수: 'FALSE', 환수일: '', 환수금액: '', 환수사유: '' })} />
+          ) : (
+            <span style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <WorkInput value={clawOn} onChange={setClawOn} placeholder="환수일" />
+              <WorkInput value={clawAmt} onChange={setClawAmt} placeholder="환수금액" />
+              <Btn size="sm" disabled={busy || !clawOn.trim() || !clawAmt.trim()}
+                onClick={() => patchRow(picked, {
+                  환수: 'TRUE', 환수일: clawOn.trim(), 환수금액: clawAmt.trim(), 환수사유: clawWhy.trim(),
+                })}>켜기</Btn>
+            </span>
+          )}
+        </DtRow>
+        <DtRow i={6} label="환수일">{picked.clawbackAt || '—'}</DtRow>
+        <DtRow i={7} label="환수금액">{picked.clawbackAmount ? won(picked.clawbackAmount) : '—'}</DtRow>
+        <DtRow i={8} label="환수사유">
+          {picked.clawback ? (
+            <WorkInput value={edit.clawbackReason ?? picked.clawbackReason}
+              onChange={(v) => setEdit((e) => ({ ...e, clawbackReason: v }))} placeholder="—" />
+          ) : <WorkInput value={clawWhy} onChange={setClawWhy} placeholder="켤 때 같이 적습니다" />}
         </DtRow>
       </DetailTable>
     </>
@@ -801,6 +904,7 @@ export default function SettlementLedgerPage() {
       contextTitle={creating ? '계약접수' : picked?.plate}
       listTools={{
         search: { value: q, onChange: setQ, placeholder: '차번·고객·공급사·영업자…' },
+        action: { label: busy ? '가져오는 중…' : '시트에서 가져오기', onClick: importFromSheet, disabled: busy },
         filter: {
           count: stage === '진행중' ? 0 : 1,
           title: '접수상태',

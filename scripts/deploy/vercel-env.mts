@@ -22,6 +22,14 @@ const TARGETS = ['production', 'preview', 'development'] as const;
 type Target = (typeof TARGETS)[number];
 const WORK_DIR = 'tmp/deploy/env';
 
+/**
+ * Vercel 이 «민감」으로 표시한 값은 되읽을 수 없다 — pull 하면 이 표식이 대신 온다.
+ * ★그걸 모르면 실제로 같은 값인데도 «영원히 ≠prod» 라고 헛경보한다(2026-08-28 실제로 겪음).
+ *   헛경보가 상시로 켜져 있으면 진짜 어긋남이 났을 때 아무도 안 본다.
+ */
+const SENSITIVE_PLACEHOLDER = '[SENSITIVE]';
+const isRedacted = (value: string | undefined) => (value ?? '').replace(/^["']|["']$/g, '') === SENSITIVE_PLACEHOLDER;
+
 /** 로컬 전용이라 Vercel 에 없는 게 정상인 키 — 없다고 경고하면 매번 거짓 경보가 된다. */
 const LOCAL_ONLY = new Set([
   // 서버리스에는 파일이 없다. 그래서 배포본은 같은 자격증명을 FIREBASE_SERVICE_ACCOUNT_JSON 로 받는다.
@@ -95,12 +103,18 @@ async function main() {
   console.log(`  ${'─'.repeat(head.length)}`);
 
   const gaps: string[] = [];
+  const sealed: string[] = [];
   for (const key of allKeys) {
     const mark = (t: Target) => (byTarget.get(t)!.has(key) ? '  ✔  ' : '  ·  ');
     const inLocal = local.has(key);
     const prodValue = byTarget.get('production')!.get(key);
-    // 값 자체는 절대 찍지 않는다. 로컬과 프로덕션이 갈라졌는지만 말한다.
-    const localMark = !inLocal ? '  ·  ' : prodValue !== undefined && prodValue !== local.get(key) ? ' ≠prod' : '  ✔  ';
+    /* 값 자체는 절대 찍지 않는다. 로컬과 프로덕션이 갈라졌는지만 말한다.
+       민감 표시된 값은 «다르다»가 아니라 «못 본다»(?)로 적는다 — 실제로 같아도 되읽을 수 없기 때문이다. */
+    const localMark = !inLocal ? '  ·  '
+      : prodValue === undefined ? '  ✔  '
+      : isRedacted(prodValue) ? '  ?  '
+      : prodValue !== local.get(key) ? ' ≠prod' : '  ✔  ';
+    if (isRedacted(prodValue)) sealed.push(key);
     console.log(`  ${key.padEnd(42)}${mark('production')}${mark('preview')}${mark('development')}${localMark}`);
     if (byTarget.get('production')!.has(key) && !byTarget.get('preview')!.has(key)) {
       gaps.push(key);
@@ -111,6 +125,13 @@ async function main() {
     console.log(`\n  ⚠ Production 에만 있고 Preview 에 없는 키 ${gaps.length}개`);
     console.log('    프리뷰 배포에서 이 값들은 undefined 다 — 프리뷰로 한 확인이 프로덕션과 달라진다.');
     for (const key of gaps) console.log(`      ${key}`);
+  }
+
+  if (sealed.length) {
+    console.log(`
+  ? 민감으로 표시돼 «되읽을 수 없는» 키 ${sealed.length}개 — 값이 같은지 여기서는 확인할 수 없다`);
+    console.log('    Vercel 이 일부러 막는 것이라 정상이다. 갈렸는지 보려면 실제 환경에서 동작으로 확인한다.');
+    for (const key of sealed) console.log(`      ${key}`);
   }
 
   const missingLocal = allKeys.filter((key) => byTarget.get('development')!.has(key) && !local.has(key));

@@ -66,9 +66,19 @@ export const FIELD_MAP: FieldMap[] = [
   { field: 'customer_name', label: '성명', from: '계약', atom: 'customer_name' },
   { field: 'customer_phone', label: '전화번호', from: '계약', atom: 'customer_phone' },
   { field: 'customer_address', label: '주소', from: '계약', atom: 'customer_address' },
-  { field: 'customer_birth', label: '생년월일', from: '본인확인', note: '주민등록번호에서 완료본 생성 시 파생' },
-  { field: 'customer_id', label: '주민등록번호', from: '본인확인', note: '계약·세금계산서 발행에 필요한 범위에서 확인' },
+  { field: 'customer_birth', label: '생년월일', from: '본인확인', note: '개인 계약자의 운전자격 확인용 직접 입력값' },
+  { field: 'customer_id', label: '법인등록번호', from: '본인확인', note: '법인 계약에서만 확인하며 개인 계약에서는 사용하지 않음' },
   { field: 'driver_license_no', label: '면허번호', from: '본인확인', note: '면허증 첨부자료에서 확인' },
+
+  /* ── 서명자(법인 계약) ──
+     ★법인은 «임차인»과 «서명하는 사람»이 다르다. 임차인은 법인, 서명하는 손은 대표자 개인이다.
+     전에는 이 칸이 없어서 법인 계약이면 customer_* 가 통째로 법인 값이 되고,
+     «누가 서명했는가»가 계약서 어디에도 남지 않았다. 그 상태로 신분증·얼굴 사진을 받았다.
+     ⚠ 대표이사가 서명하는 것은 «위임»이 아니라 «대표권»이다(위임장 불요).
+       위임장이 필요한 건 대표이사가 아닌 임직원이 서명할 때뿐이라 관계를 값으로 남긴다. */
+  { field: 'signer_name', label: '서명자 성명', from: '본인확인', note: '법인 계약에서 법인을 대표해 서명하는 사람. 개인 계약은 계약자와 같아 쓰지 않는다' },
+  { field: 'signer_role', label: '서명자의 법인과의 관계', from: '본인확인', note: '「대표이사」 또는 「위임받은 임직원」 — 후자면 위임장·재직증명서가 필요하다' },
+
   { field: 'customer_insurance_evidence', label: '개인보험 가입증명서 확인', from: '본인확인', note: '보험별도형에서 고객 제출 증명서의 해시로 확인' },
 
   /* ── 전자서명 봉인 기록(완료본 전용) ── */
@@ -93,9 +103,14 @@ export const FIELD_MAP: FieldMap[] = [
   { field: 'tax_biz_name', label: '상호', from: '입력', atom: 'biz_name', conditional: '개인사업자' },
   { field: 'tax_biz_no', label: '사업자등록번호', from: '입력', atom: 'biz_number', conditional: '개인사업자' },
   { field: 'tax_biz_address', label: '사업장 소재지', from: '입력', atom: 'biz_address', conditional: '개인사업자' },
-  { field: 'tax_ceo', label: '대표자', from: '미정', conditional: '개인사업자' },
-  { field: 'tax_email', label: '계산서 이메일', from: '미정', conditional: '개인사업자' },
-  { field: 'tax_biz_type_item', label: '업태·종목', from: '미정', conditional: '개인사업자' },
+  /* ★셋 다 손님이 「세금계산서」 화면에서 직접 적고, 봉인 스냅샷까지 실려 나간다
+     (esign-signed-snapshot 의 confirmedFields). 「미정」으로 적혀 있어
+     audit-contract-fields 가 «못 채우는 칸»으로 3개를 헛경보했다(2026-08-28 확인).
+   ⚠ 여기 `from:` 은 «메타데이터»다 — 실제 배선을 증명하지 못한다.
+     배선 자체는 sim 이 흘려보며 확인한다(sim-esign-corporate-signer 참고). */
+  { field: 'tax_ceo', label: '대표자', from: '본인확인', conditional: '개인사업자' },
+  { field: 'tax_email', label: '계산서 이메일', from: '본인확인', conditional: '개인사업자' },
+  { field: 'tax_biz_type_item', label: '업태·종목', from: '본인확인', conditional: '개인사업자' },
   { field: 'tax_issue_type', label: '계산서 발행구분', from: '고정' },
   { field: 'invoice_type', label: '계산서 종류', from: '고정' },
   { field: 'invoice_cycle', label: '계산서 발행주기', from: '고정', note: '익월 10일 이내' },

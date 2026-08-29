@@ -3,7 +3,7 @@ import { canonProductType, creditDisplay, excelCondSignals, priceList } from '@/
 import { fuelDisplay, makerDisplay, parseYear, yearDisplay } from '@/lib/domain/vehicle-master-match';
 import { excelColFilterMatch } from '@/lib/domain/excel-col-filter';
 import { productOptions } from '@/components/product-card-atoms';
-import { kmDisplay, man } from '@/lib/format';
+import { kmDisplay, wonText } from '@/lib/format';
 
 export type ColSort = { field: string; dir: 'asc' | 'desc' } | null;
 
@@ -33,7 +33,7 @@ export function excelColumnValue(product: EntityRecord, key: string): string {
   if (key.startsWith('price:')) {
     const month = Number(key.slice(6));
     const price = priceList(product).find((entry) => entry.m === month);
-    return price && price.rent > 0 ? man(price.rent) : '';
+    return price && price.rent > 0 ? wonText(price.rent) : '';
   }
   const value = (product as Record<string, unknown>)[key];
   return value == null ? '' : String(value).trim();

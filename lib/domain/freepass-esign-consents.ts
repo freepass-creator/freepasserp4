@@ -13,7 +13,7 @@ const S = (value: unknown): string => String(value ?? '').trim();
  */
 // v2는 정책 원문의 표기 차이를 정규화한 뒤, 실제로 받은 동의와 수납 방식까지
 // 함께 동결한다. v1/무버전 링크는 완료 PDF 열람만 보존하고 새 인도·정산에는 쓰지 않는다.
-export const FREEPASS_CONSENT_PROFILE_VERSION = 'freepass-consent-v2';
+export const FREEPASS_CONSENT_PROFILE_VERSION = 'freepass-consent-v3';
 export const FREEPASS_PAYMENT_METHODS = ['CMS 자동이체', '카드 자동결제', '계좌이체'] as const;
 export const FREEPASS_SUPPORTED_PAYMENT_METHOD = '계좌이체';
 
@@ -66,16 +66,16 @@ function normalizedSensitivePolicyEnum(
   return result.value;
 }
 
-function privacyAtom(landlordCompanyName: string): ConsentAtom {
+function privacyAtom(landlordCompanyName: string, customerType: string): ConsentAtom {
+  const corporate = customerType === '법인';
   return {
     key: 'privacy',
     label: '개인정보 수집·이용 및 계약 이행에 필요한 제공 동의',
     group: 'customer',
     required: true,
-    items: [
-      '성명', '주민등록번호', '연락처', '주소', '운전면허번호',
-      '비상연락처', '운전면허증 사진', '본인 셀카',
-    ],
+    items: corporate
+      ? ['법인명', '법인등록번호', '사업자등록번호', '사업장 주소', '담당자 연락처', '서명자 성명·관계', '법인등기·인감·위임 관련 서류']
+      : ['성명', '생년월일', '연락처', '주소', '운전면허번호', '비상연락처', '주민번호를 가린 운전면허증 사본', '본인 얼굴 사진'],
     purpose: '자동차 임대차계약 체결·이행, 본인확인, 운전자격 확인, 대여료 청구 및 세금계산서 발행',
     retention: '계약 종료 후 5년 및 관계 법령상 보존기간',
     recipients: landlordCompanyName ? [{
@@ -97,6 +97,24 @@ function gpsAtom(): ConsentAtom {
     purpose: '차량 도난·분실 방지, 사고 대응, 계약 이행 확인 및 연체·연락두절 시 차량 보호·회수',
     retention: '계약 기간 동안 수집하며 계약 종료 후 지체 없이 파기합니다. 다만 분쟁·채권 관련 자료는 해당 절차 종료 시까지 보관합니다.',
     refusalNote: '위치정보 수집 동의를 거부하면 GPS 장착 차량의 계약 체결이 제한될 수 있습니다.',
+  };
+}
+
+/**
+ * 손오공 원본의 별도 회수 동의를 전자계약에서는 과도한 포괄 동의로 옮기지 않는다.
+ * 계약 해지·반환 사유가 생겼을 때에도 사전 통지와 적법·평온한 절차라는 약관의
+ * 경계를 함께 확인시켜, GPS 동의와 차량 회수 권한을 혼동하지 않게 한다.
+ */
+function recoveryProcedureAtom(): ConsentAtom {
+  return {
+    key: 'recovery_procedure',
+    label: '차량 보호·회수 절차 확인',
+    group: 'customer',
+    required: true,
+    items: ['계약 해지·반환 사유 발생 시 차량 위치 확인, 운행제한 및 차량 회수 절차'],
+    purpose: '계약상 차량 보호·반환 이행 및 분쟁 예방',
+    retention: '계약 종료 후 분쟁 해결 및 관계 법령상 보존기간까지',
+    refusalNote: 'GPS 장착 차량의 보호·반환 절차를 확인하지 않으면 계약 진행이 제한될 수 있습니다.',
   };
 }
 
@@ -124,6 +142,7 @@ function supportingDocumentsAtom(
 
 export function buildFreepassConsentProfile(input: {
   landlordCompanyName: unknown;
+  customerType: unknown;
   gpsInstalled: unknown;
   paymentMethod: unknown;
   screeningCriteria: unknown;
@@ -145,8 +164,8 @@ export function buildFreepassConsentProfile(input: {
   }
 
   const landlordCompanyName = S(input.landlordCompanyName);
-  const atoms: ConsentAtom[] = [privacyAtom(landlordCompanyName)];
-  if (gpsInstalled === '장착') atoms.push(gpsAtom());
+  const atoms: ConsentAtom[] = [privacyAtom(landlordCompanyName, S(input.customerType))];
+  if (gpsInstalled === '장착') atoms.push(gpsAtom(), recoveryProcedureAtom());
   const documents = supportingDocumentsAtom(input.requiredDocuments, landlordCompanyName);
   if (documents) atoms.push(documents);
 
@@ -167,7 +186,9 @@ export function isFrozenFreepassConsentProfile(value: unknown): value is Freepas
   const row = value as Record<string, unknown>;
   const keys = Array.isArray(row.requiredKeys) ? row.requiredKeys.map(S).filter(Boolean) : [];
   const atoms = Array.isArray(row.atoms) ? row.atoms : [];
-  if (S(row.version) !== FREEPASS_CONSENT_PROFILE_VERSION) return false;
+  // 이미 고객에게 발행된 v2 링크는 새 고지 문구로 바뀌었다는 이유만으로 막지 않는다.
+  // 새 발행은 v3로 동결하며, 구 링크는 그 시점의 동의 원문을 그대로 보존한다.
+  if (!['freepass-consent-v2', FREEPASS_CONSENT_PROFILE_VERSION].includes(S(row.version))) return false;
   if (!['무심사', '소득확인'].includes(S(row.screeningCriteria))) return false;
   if (!['장착', '미장착'].includes(S(row.gpsInstalled))) return false;
   if (S(row.paymentMethod) !== FREEPASS_SUPPORTED_PAYMENT_METHOD) return false;

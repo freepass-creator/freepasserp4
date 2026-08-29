@@ -16,6 +16,7 @@ import { findContractKind } from '@/lib/domain/esign-contract-kind';
 import {
   findTemplate,
   standardTemplateSelectionError,
+  templateProviderSelectionError,
 } from '@/lib/domain/esign-templates';
 import {
   buildTemplateFieldsFromRecords,
@@ -77,6 +78,13 @@ export type FreepassDirectContractSeal = {
 
 export const FREEPASS_ESIGN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 export const FREEPASS_ESIGN_CONSENT_VERSION = FREEPASS_CONSENT_PROFILE_VERSION;
+
+/** 완료 계약서는 장기 보관하되, 고객에게 보낸 bearer 링크는 기본 30일만 유효하다. */
+export function freepassSignedCopyExpiresAt(now = Date.now()): number {
+  const configuredDays = Number(process.env.FREEPASS_ESIGN_SIGNED_COPY_TTL_DAYS || 30);
+  const days = Number.isFinite(configuredDays) ? Math.min(90, Math.max(1, Math.floor(configuredDays))) : 30;
+  return now + days * 24 * 60 * 60 * 1000;
+}
 
 const S = (value: unknown) => String(value ?? '').trim();
 
@@ -606,6 +614,8 @@ export function buildFreepassIssueSnapshot(args: {
   }
   const selectionError = standardTemplateSelectionError(template, spec, args.policy);
   if (selectionError) throw new Error(selectionError);
+  const providerTemplateError = templateProviderSelectionError(template, args.contract.provider_company_code);
+  if (providerTemplateError) throw new Error(providerTemplateError);
   const customerTypeError = customerTypeIssueError(args.contract);
   if (customerTypeError) throw new Error(customerTypeError);
   const vehicleStateError = freepassVehicleStateIssueError(args.contract, args.product);
@@ -666,12 +676,15 @@ export function buildFreepassIssueSnapshot(args: {
   // 고객 업로드/관리자 검토 기준이 갈라지지 않게 한다.
   const requiredDocuments = [...freepassEsignRequiredDocuments(args.policy, template.insuranceSide), ...partyDocuments]
     .filter((document, index, rows) => rows.findIndex((candidate) => candidate.key === document.key) === index);
-  const partyKeys = partyDocuments.map((document) => document.key);
+  /* 「해당 시」 서류(위임장·재직증명서)는 발행 시점에 필수가 아니다 — 필수인 것만 동결을 확인한다.
+     이걸 빼먹으면 법인 계약이 아예 발행되지 않는다. */
+  const partyKeys = partyDocuments.filter((document) => document.required).map((document) => document.key);
   if (partyKeys.some((key) => !requiredDocuments.some((document) => document.required && document.key === key))) {
     throw new Error('계약자 유형별 필수 증빙을 동결하지 못했습니다. 승인 기본조건을 확인해 주세요.');
   }
   const consentProfile = buildFreepassConsentProfile({
     landlordCompanyName,
+    customerType,
     gpsInstalled: templateSnapshot.fields.gps_installed,
     // template field의 CMS 기본값으로 정책 빈칸을 감추지 않는다. 결제방식은 실제
     // 정책에 확정된 값이어야 별도 CMS 인도 게이트도 계약 사실대로 동작한다.

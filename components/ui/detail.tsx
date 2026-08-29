@@ -81,12 +81,17 @@ export const DT = {
   table: {
     width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: FS.body,
   } as React.CSSProperties,
-  /** 섹션 이름을 인 머리띠 — 모든 섹션이 이 회색 띠로 시작한다(카드가 달라도 시작선이 같다). */
+  /** 섹션 이름을 인 머리띠 — 부가 섹션은 이 회색 띠로 시작한다(카드가 달라도 시작선이 같다). */
   band: {
     /* C.head는 흰 카드와 붙어 띠가 사라졌고, --border도 폰에서는 「아직 배경이랑 거의 동일」
        (사장님 2026-08-22 두 번 지적) — 한 단계 더 올려 --border-strong. 무채 유지, 글자는 C.ink 그대로. */
     padding: '7px 10px', textAlign: 'left', background: 'var(--border-strong)',
     /* 밑줄 없음(2026-08-21 사장님 「굳이 라인 없어도 되는 곳에 라인」) — 띠 배경이 이미 경계다. */
+    fontWeight: FW.body,
+  } as React.CSSProperties,
+  /** 중요 섹션 타이틀 — 반전 남색. 페이지가 C.brand 면을 손그리지 말고 이걸 쓴다. */
+  bandInvert: {
+    padding: '7px 10px', textAlign: 'left' as const, background: C.brand, color: C.inverse,
     fontWeight: FW.body,
   } as React.CSSProperties,
   /** 값 칸이 여러 개인 표만 쓰는 열이름 줄(기간·월대여료·보증금 / 보장한도·면책금). */
@@ -146,35 +151,12 @@ export type DetailTone = 'main' | 'sub' | 'agent';
  *   제일 센 표현은 제일 많이 보는 곳 — 손님과 함께 보는 본문 — 이 가져가는 게 맞다.
  *   영업자 패널은 «참고하는 곳»이라 무채로 내려갔다(「강조할 곳은 아니니까」).
  *
+ * ★2026-08-22 이후 **칠은 둘뿐**: `main` → `DT.bandInvert`(남색) · 나머지 → `DT.band`(회색).
+ *   `trace`/`agent`는 이름·아이콘용. 스카이 면을 다시 켜지 않는다. 정본 = DESIGN.md §6.1.
+ *
  * ⚠ 몸통은 칠하지 않는다. 면을 통째로 물들이면 섹션마다 카드 색이 달라져 «같은 규격»이 깨진다.
  */
 export type SectionAccent = 'main' | 'sub' | 'trace' | 'agent';
-const ACCENT: Record<SectionAccent, { bg: string; line: string; ink: string }> = {
-  // main 은 아래에서 반전으로 그린다 — 이 값은 폴백(반전이 꺼진 경우)일 뿐이다.
-  main: { bg: 'var(--brand-bg)', line: 'var(--brand)', ink: C.brand },
-  /*
-   * sub 는 «부가»지 «없는 것»이 아니다 — 보험·계약은 상담 중에 실제로 읽는 구간이다.
-   * 두 번 올렸다: C.head(#eef1f6) → --bg-sunken(#e2e6ec) → **--border(#d5dae2)**.
-   * 앞 둘은 흰 카드와 붙어 띠가 사라졌다(사장님 2026-08-20 「너무 맹하다, 너무 연해」).
-   * 테두리 밝기를 «면»으로 쓰는 게 어색해 보이지만, 무채 계열에서 반전(1단) 바로 아래 칸을 채우려면
-   * 이 밝기가 필요하다. 글자를 C.ink 로 올려 대비도 같이 확보한다.
-   */
-  sub: { bg: 'var(--border)', line: 'var(--border-strong)', ink: C.ink },
-  /** trace 만 한 단 연하다 — 기타사항은 대조용 식별값이라 «있는 줄만 알면» 된다. */
-  trace: { bg: C.sunken, line: C.line, ink: C.mute },
-  /**
-   * 영업자 패널 — **스카이**(사장님 2026-08-20 「영업자용 거를 조금 다른 색깔로」).
-   * 새 색을 들이지 않는다: `--sky` 는 네이비와 짝으로 이미 팔레트에 있는 우리 색이다.
-   * 본문(네이비 반전)보다 약하고 부가 섹션(무채)과는 확실히 다르다 — «다른 구역인데 더 세지는 않다».
-   */
-  agent: {
-    bg: 'var(--sky-bg)',
-    // --sky(#9EC5F3) 를 그대로 선에 쓰면 띠가 또렷해져 본문보다 눈에 먼저 든다.
-    // 한 겹 죽여 «구역은 갈리되 부르지는 않게» 둔다(사장님 2026-08-20 「영업자용은 약간 연하게」).
-    line: 'color-mix(in srgb, var(--sky) 55%, transparent)',
-    ink: 'color-mix(in srgb, var(--brand) 72%, transparent)',
-  },
-};
 export function DetailTable({ title, hint, mark, icon, tone = 'main', headTone = 'plain', accent = 'sub', span, cols, widths, label, children }: {
   title: React.ReactNode;
   hint?: React.ReactNode;
@@ -188,13 +170,11 @@ export function DetailTable({ title, hint, mark, icon, tone = 'main', headTone =
   icon?: React.ReactNode;
   tone?: DetailTone;
   /**
-   * 머리띠 색.
-   *   plain  = 회색(C.head) — **상세 본문**의 문법
-   *   invert = 반전 남색     — **우측 영업자 패널**의 문법
-   * 둘을 갈라 두면 «본문이냐 패널이냐»가 색 하나로 읽힌다(사장님 2026-08-20 「반전 표로 꾸며봐」).
+   * 머리띠 강제 반전. `accent='main'` 과 같이 남색 띠가 된다.
+   * 본문 중요 섹션은 accent 로 주고, 이 플래그는 예외(손그린 남색 바를 표에 붙일 때)만.
    */
   headTone?: 'plain' | 'invert';
-  /** 머리띠 성질색 — 섹션이 무엇을 말하는 구간인지(SectionAccent 주석 참고). invert 일 때는 무시된다. */
+  /** 머리띠 무게 — DESIGN.md §6.1. main=남색 반전, 나머지=회색 띠. */
   accent?: SectionAccent;
   /** 열 수 — 머리띠가 가로지를 칸 수. */
   span: number;
@@ -220,17 +200,13 @@ export function DetailTable({ title, hint, mark, icon, tone = 'main', headTone =
       ? { border: `1px solid ${C.line2}`, background: C.taupeBg }
       : { border: `1px solid ${C.line}`, background: C.taupeBg };
   const inverted = headTone === 'invert' || accent === 'main';
-  const ac = ACCENT[accent] || ACCENT.sub;
   return (
     <div style={{ ...box, borderRadius: R_CARD, overflow: 'hidden', flexShrink: 0 }}>
       <table aria-label={label || (typeof title === 'string' ? title : undefined)} style={DT.table}>
         {widths ? <colgroup>{widths.map((w, i) => <col key={i} style={w == null ? undefined : { width: w }} />)}</colgroup> : null}
         <thead>
           <tr>
-            <th scope="col" colSpan={span} style={inverted
-              ? { ...DT.band, background: C.brand }
-              /* 색 밴드(ACCENT) 되돌림(사장님 2026-08-22 「색깔도 그렇고 원래 상태랑 봐봐」) — 섹션 머리띠는 원래 회색 하나다. */
-              : DT.band}>
+            <th scope="col" colSpan={span} style={inverted ? DT.bandInvert : DT.band}>
               <span style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                 {icon ? (
                   <span aria-hidden style={{ display: 'inline-flex', color: inverted ? C.inverse : C.mute, opacity: inverted ? 0.85 : 1 }}>{icon}</span>

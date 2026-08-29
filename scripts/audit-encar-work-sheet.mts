@@ -86,6 +86,7 @@ const g80plain = book.names.filter((r) => r.maker === '제네시스' && r.sub ==
 const k5dl3 = book.names.filter((r) => r.sub === 'K5 DL3');
 const gtLine = [...new Set(book.names.filter((r) => /GT[- ]Line/i.test(r.trim)).map((r) => r.trim))];
 const latin = [...new Set(book.names.filter((r) => /N Line|X Line|H-PICK|GT Line|GT-Line/i.test(r.trim)).map((r) => `${r.maker} ${r.sub} ${r.trim}`))];
+const genesisFl = [...new Set(book.names.filter((r) => r.maker === '제네시스' && /(?:^|\s)FL(?:\s|$)/i.test(r.sub)).map((r) => r.sub))];
 
 const subKeys = new Set(book.names.map((r) => `${r.maker}|${r.model}|${r.sub}`));
 const batOrphan = book.batteries.filter((b) => !subKeys.has(`${b.maker}|${b.model}|${b.sub}`));
@@ -110,6 +111,7 @@ if (missingReq.length) issues.push(`필수값 빈칸 ${missingReq.length}`);
 if (dups.length) issues.push(`이름 중복 ${dups.length}`);
 if (parens.length) issues.push(`괄호 ${parens.length}`);
 if (kiaGen.length) issues.push(`기아 N세대 잔존 ${kiaGen.length}`);
+if (genesisFl.length) issues.push(`제네시스 세부모델 FL(엔카 없음) ${genesisFl.length}: ${genesisFl.join(' · ')}`);
 if (emptyPeriod.length) issues.push(`생산기간 빈칸 ${emptyPeriod.length}`);
 if (weirdPeriod.length) issues.push(`생산기간 형식 ${weirdPeriod.length}`);
 if (!g80dh.length) issues.push('G80 DH 없음');
@@ -141,7 +143,7 @@ const report = {
   },
   origins: Object.fromEntries(origins),
   makers: Object.fromEntries([...makers.entries()].sort((a, b) => b[1] - a[1])),
-  exceptions: { g80dh: g80dh.length, g80plain: g80plain.length, k5dl3: k5dl3.length, kiaGen, gtLine },
+  exceptions: { g80dh: g80dh.length, g80plain: g80plain.length, k5dl3: k5dl3.length, kiaGen, gtLine, genesisFl },
   latinSample: latin.slice(0, 20),
   holdPeriod,
   emptyPeriod: [...new Set(emptyPeriod)].slice(0, 40),
@@ -167,7 +169,7 @@ console.log(`배터리 시트 ${batAllRows.length}행 · 파싱 ${book.batteries
 console.log(`예외  G80 DH ${g80dh.length}행 · 제네시스 G80 ${g80plain.length}행 · K5 DL3 ${k5dl3.length}행`);
 console.log(`트림  GT*Line 표기: ${gtLine.join(' · ') || '(없음)'}`);
 console.log(`기간  빈칸 ${emptyPeriod.length} · 보류묶음 ${holdPeriod.length} (${holdPeriod.reduce((a, b) => a + b.n, 0)}행) · 형식오류 ${weirdPeriod.length}`);
-console.log(`구조  필수빈칸 ${missingReq.length} · 중복 ${dups.length} · 괄호 ${parens.length} · 기아N세대 ${kiaGen.length} · 배터리고아 ${batOrphan.length}`);
+console.log(`구조  필수빈칸 ${missingReq.length} · 중복 ${dups.length} · 괄호 ${parens.length} · 기아N세대 ${kiaGen.length} · 제네시스FL ${genesisFl.length} · 배터리고아 ${batOrphan.length}`);
 console.log(`매처  ${checks.length ? `실패\n${checks.map((x) => '  ' + x).join('\n')}` : '자가검증 통과'}`);
 if (holdPeriod.length) {
   console.log('\n보류 생산기간');

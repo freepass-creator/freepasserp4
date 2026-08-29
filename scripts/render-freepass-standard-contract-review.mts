@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { chromium } from 'playwright';
 import { inlineContractPdfFonts } from '../lib/server/contract-pdf-assets';
@@ -12,10 +12,16 @@ const withGuarantor = process.argv.includes('--with-guarantor');
 const insuranceSeparate = process.argv.includes('--insurance-separate');
 const outerColorOnly = process.argv.includes('--outer-color-only');
 const noColor = process.argv.includes('--no-color');
+const withAllAppendices = process.argv.includes('--with-all-appendices');
+if (actualMode && withAllAppendices) {
+  throw new Error('부속서류 전체본은 공급사 검토용 초안으로만 만들 수 있습니다. 실제 완료본에는 작성·서명된 부속서류만 별도로 봉인합니다.');
+}
 const outputPath = path.join(
   outputDir,
   noColor
     ? 'freepass-standard-rental-contract-v1-no-color-review.pdf'
+    : withAllAppendices
+    ? 'freepass-standard-rental-contract-v1-full-appendices-review.pdf'
     : insuranceSeparate
     ? 'freepass-standard-rental-contract-v1-insurance-separate-review.pdf'
     : outerColorOnly
@@ -174,10 +180,16 @@ const sealed = {
 };
 
 await mkdir(outputDir, { recursive: true });
-let html = await inlineContractPdfFonts(await buildFreepassContractHtml(sealed, {
-  includePrintButton: false,
-  root,
-}), root);
+const sourceHtml = withAllAppendices
+  ? (await readFile(path.join(root, 'public', 'contract-template', 'rental-contract.html'), 'utf8'))
+    .replace('</head>', `<script>window.__SEALED__=${JSON.stringify(sealed).replace(/</g, '\\u003c')}</script></head>`)
+  : await buildFreepassContractHtml(sealed, { includePrintButton: false, root });
+let html = await inlineContractPdfFonts(sourceHtml, root);
+if (withAllAppendices) {
+  // 공급사 검토본은 실제 작성·서명 전의 부속 양식을 빠짐없이 검토하도록만 펼친다.
+  // 발행 완료본에서 이 동작을 쓰면 빈 부속서류가 계약에 섞이므로 위에서 명시적으로 막는다.
+  html = html.replace('</body>', `<script>window.addEventListener('load', function(){ document.querySelectorAll('[data-appendix]').forEach(function(el){ el.style.display=''; }); if(window.__numberContractPages) window.__numberContractPages(); });</script></body>`);
+}
 if (!actualMode) {
   html = html.replace(/<body([^>]*)>/i, `<body$1><div class="fp-review-banner">렌터카회사 검토용 초안 · 서명 및 실계약 사용 금지</div>`);
   html = html.replace('</style>', `
@@ -279,7 +291,9 @@ try {
     };
   });
   const expectedColor = noColor ? '—' : outerColorOnly ? '아틀라스 화이트' : '아틀라스 화이트 / 블랙';
-  if (colorState.shown !== expectedColor) {
+  // 전체 부속서류 검토본은 원본 DOM을 그대로 사용한다. 원본의 부속 양식에는 색상 요약
+  // 마커가 없을 수 있어, 본계약 봉인본 전용 검증을 이 모드에 적용하지 않는다.
+  if (!withAllAppendices && colorState.shown !== expectedColor) {
     throw new Error(`색상 한 칸 봉인 출력 불일치: ${JSON.stringify(colorState)}`);
   }
   console.log(`color-state=${JSON.stringify(colorState)}`);
@@ -288,7 +302,7 @@ try {
     fragments: document.querySelectorAll('.terms-cols .t-flow-fragment').length,
     layout: (window as Window & { __termsLayoutDebug?: unknown }).__termsLayoutDebug,
   }));
-  if (flowFragments.grouped || flowFragments.fragments) {
+  if (!withAllAppendices && (flowFragments.grouped || flowFragments.fragments)) {
     throw new Error(`약관 자동분할 조각 병합 누락: ${JSON.stringify(flowFragments)}`);
   }
   console.log(`terms-layout=${JSON.stringify(flowFragments.layout)}`);
@@ -321,15 +335,15 @@ try {
   // 약관은 읽고 동의하는 본문이라 10.5px/1.32로 조판한다. 같은 조 안의 문장 리듬을 조금 풀되, 세 페이지에서 자연스럽게 읽히도록 한다.
   // 작은 글씨로 세 페이지에 억지로 압축하는 회귀를 막는다.
   const expectedTermsPages = 3;
-  if (termsPageFrames.length !== expectedTermsPages || termsPageFrames.some((frame) => !frame.headVisible || frame.headTop < 0 || frame.bodyBottom > frame.sheetHeight)) {
+  if (!withAllAppendices && (termsPageFrames.length !== expectedTermsPages || termsPageFrames.some((frame) => !frame.headVisible || frame.headTop < 0 || frame.bodyBottom > frame.sheetHeight))) {
     throw new Error(`약관 A4 페이지 프레임 이탈: ${JSON.stringify(termsPageFrames)}`);
   }
-  if (!termsMetrics.length || termsMetrics.some((metric) => metric.overflow)) {
+  if (!withAllAppendices && (!termsMetrics.length || termsMetrics.some((metric) => metric.overflow))) {
     throw new Error(`약관 A4 단 넘침: ${JSON.stringify(termsMetrics)}`);
   }
   const fillRatios = termsMetrics.map((metric) => metric.used / metric.available);
   const usedHeights = termsMetrics.map((metric) => metric.used);
-  if (Math.min(...fillRatios) < 0.89 || Math.max(...usedHeights) - Math.min(...usedHeights) > 45) {
+  if (!withAllAppendices && (Math.min(...fillRatios) < 0.89 || Math.max(...usedHeights) - Math.min(...usedHeights) > 45)) {
     throw new Error(`약관 A4 단 균형 이탈: ${JSON.stringify(termsMetrics)}`);
   }
   console.log(`terms-metrics=${JSON.stringify(termsMetrics)}`);

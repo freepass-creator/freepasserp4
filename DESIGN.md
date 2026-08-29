@@ -8,8 +8,11 @@
 ## 0. 절대 원칙
 
 **페이지가 규격을 가지면 안 된다.** 공용 규격을 만들어 두고 페이지는 그걸 갖다 쓴다.
+**표준 페이지 템플릿을 씌우지 않는다.** `WorkPage`는 업무 4패널용 껍데기일 뿐, 손님 서명·미리보기를 WorkPage로 바꾸라는 뜻이 아니다. 표는 `WorkTable`/`DetailTable`, 버튼은 `Btn`, 안내는 `Message` — 각 페이지에 붙인다.
 지금 그 화면만 쓰는 규격이어도 「그 페이지 규격」이 아니다. **아직 다른 화면이 안 쓰는 공용 규격**이다.
 새 UI가 필요하면 페이지에 짜지 말고 **원자를 만들고** 페이지는 배열만 한다.
+
+`/erp5` 는 실험하다 멈춘 화면이다(2026-08-28 보류·폐기 예정). **디자인 정본이 아니다.** 손대지 않는다. `docs/MEMO-ERP5-보류-2026-08-28.md`.
 
 ---
 
@@ -84,8 +87,9 @@ ctrlChipH(mobile)         // 필터칩 높이
 | 업무 페이지 골격 | `WorkPage` + `panes`(4패널) |
 | 빈 화면 | `CenterNote` |
 | 로딩 | `Loading` |
-| 필터칩·섹션라벨 | `FilterChips` / `SectionLabel` |
+| 필터칩·섹션라벨 | `FilterChips` / `SectionLabel`(표 밖 먹색 글자만) |
 | 폼 | `WorkFields`(업무 표) / `FormCard`(표가 아닌 묶음) |
+| 상세·업무 섹션 표 | `DetailTable` / `WorkTable` — 제목은 표 **머리띠** |
 
 🚫 `<input> <textarea> <select> <button>` 직접 작성 금지 (숨김 `type="file"`만 예외).
 🚫 **공용 원자를 자체 컴포넌트로 교체 금지.** 필요하면 보고.
@@ -170,6 +174,35 @@ ctrlChipH(mobile)         // 필터칩 높이
 
 **껍데기는 페이지가 정하지 않는다.** 업무 목록 정본=`/esign`(행=`FeedListRow` 2줄, 등록=`CreateListRow`, 도구=검색+필터). 매물 목록 정본=`ProductRowCard`/`ProductCard`. 긴 목록만 `ListMoreBar`. 목록 위 배너·큐 칩·페이지 전용 행/푸터를 두지 않는다.
 
+### 6.1 상세·업무 섹션 타이틀 — 남색은 표 머리띠다
+
+라벨|값 묶음의 제목은 **표 위 글자가 아니라 표 안 머리띠**다. 코드 정본 = `components/ui/detail.tsx` `DetailTable` + `DT`. 업무 페이지는 `WorkFields`/`WorkTable`이 같은 원자를 탄다.
+
+**제목 원자 둘만. 섞지 않는다.**
+
+| 자리 | 원자 | 보이는 것 |
+|---|---|---|
+| 라벨\|값 섹션 | `DetailTable` / `WorkTable` 머리띠 | 띠 안에 섹션 이름. 아이콘은 띠에만(`sectionIcon`) |
+| 표가 아닌 묶음 | `SectionLabel` | 먹색(`C.ink`) 글자만. 면·남색 없음 |
+| 사진·칩만 | `FormCard` | 제목은 `SectionLabel`. 안쪽은 표가 아님 |
+
+박스형 `Section`(mute h2 + 테두리 상자)은 상세·업무에 쓰지 않는다. 인쇄 A4 남색(`A4_NAVY`)은 화면 토큰이 아니다.
+
+**머리띠 색 — 중요도만 말한다. 주제별 무지개 금지.** (사장님 2026-08-20 「중요한 섹션은 메인 컬러, 부가적인 건 좀 다르게」 · 2026-08-22 색 밴드 되돌림)
+
+지금 화면에 실제로 칠하는 것은 **두 가지**다.
+
+| `accent` | 머리띠 | 뜻 | 쓰는 곳 |
+|---|---|---|---|
+| `main` | **반전 남색** `DT.bandInvert` (`C.brand` + `C.inverse`) | 차를 고르는 데 필요한 것 | 상품상세 **차량스펙 · 대여료조건** (`sectionAccent`) |
+| `sub` / `trace` / `agent` | 무채 `DT.band` (`--border-strong`) | 조건·식별·영업 참고 | 보험·계약·기타 · 업무표 기본 · 영업자 패널 표 |
+
+`sectionAccent()`가 `trace`·`agent`를 나눠 주는 것은 **이름·아이콘용**이다. 08-22 이후 머리띠 칠은 남색/무채 둘뿐이다. 스카이·연한 무채를 페이지에서 다시 켜지 않는다.
+
+몸통은 칠하지 않는다. 제목을 표 위 `SectionLabel`과 머리띠에 둘 다 두지 않는다. 페이지가 `background: C.brand`로 섹션 제목을 손그리지 않는다 — 남색이 필요하면 `accent="main"`(또는 이미 있는 `DT.bandInvert`).
+
+상품상세 맵(본문): 차량스펙·대여료조건 = `main`(남색) · 보험조건·계약조건 = `sub` · 기타사항 = `trace`. 업무표(`WorkTable`) 기본은 `sub`(회색) — 차를 고르는 화면이 아니다.
+
 ---
 
 ## 7. 작업 후 자가점검
@@ -180,3 +213,4 @@ ctrlChipH(mobile)         // 필터칩 높이
 4. `<input>/<button>`을 직접 만들었는가? → 원자로 교체
 5. 공용 원자를 바꾸거나 지웠는가? → 되돌리고 보고
 6. 모바일에서 입력 16px·터치 40px 유지되는가?
+7. 라벨\|값 섹션 제목을 남색으로 손그렸는가? → `DetailTable`/`WorkTable` `accent="main"`

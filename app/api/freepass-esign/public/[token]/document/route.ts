@@ -3,6 +3,8 @@ import {
   hasFrozenFreepassConsentProfile,
   hasFrozenFreepassTemplateState,
   loadFreepassSessionByToken,
+  freepassEsignEventUpdates,
+  sha256,
   type EsignRecord,
 } from '@/lib/server/freepass-esign';
 import { firebaseAdminDatabase } from '@/lib/server/firebase-admin';
@@ -50,6 +52,9 @@ export async function GET(
   if (status === 'revoked' || Number(session.revokedAt || 0)) {
     return json({ error: '해지된 전자계약 링크입니다.' }, 410);
   }
+  if (status === 'signed' && Number(session.customerCopyExpiresAt || 0) > 0 && Number(session.customerCopyExpiresAt) <= Date.now()) {
+    return json({ error: '고객 계약서 열람 링크가 만료되었습니다. 담당자에게 새 사본을 요청해 주세요.' }, 410);
+  }
 
   const contractCode = S(session.contractCode);
   if (!contractCode) return json({ error: '계약 연결정보가 없습니다.' }, 409);
@@ -92,6 +97,11 @@ export async function GET(
   try {
     const pdf = await readStoredFreepassPdf(submission.pdfPath, submission.pdfSha256);
     if (!pdf) return json({ error: '완료 계약서 무결성을 확인하지 못했습니다.' }, 503);
+    await firebaseAdminDatabase().ref('v4').update(freepassEsignEventUpdates(contractCode, 'customer_document_accessed', {
+      sessionHash: hash,
+      mode: download ? 'download' : 'view',
+      userAgentHash: sha256(S(request.headers.get('user-agent'))).slice(0, 32),
+    })).catch(() => {});
     return new NextResponse(pdf, {
       status: 200,
       headers: {

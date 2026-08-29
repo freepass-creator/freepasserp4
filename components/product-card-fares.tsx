@@ -2,7 +2,7 @@
 
 import type { EntityRecord } from '@/lib/intake/entities';
 import { cheapest, priceAt, priceList } from '@/lib/domain/product';
-import { man } from '@/lib/format';
+import { man, wonText } from '@/lib/format';
 import { C, R, NUM, FW, FS } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 
@@ -14,7 +14,7 @@ export function PriceMini({ m, rent, deposit = 0, on = false }: {
   compact?: boolean;
 }) {
   const mobile = useIsMobile();
-  const tip = `${m}개월 · 월 ${man(rent)} · ${deposit > 0 ? `보증 ${man(deposit)}` : '무보증'}`;
+  const tip = `${m}개월 · 월 ${wonText(rent)} · ${deposit > 0 ? `보증 ${man(deposit)}` : '무보증'}`;
   return (
     <div
       title={tip}
@@ -34,7 +34,7 @@ export function PriceMini({ m, rent, deposit = 0, on = false }: {
         color: on ? C.brand : C.ink,
       }}>
         <span style={{ fontSize: FS.micro, fontFamily: 'inherit', fontWeight: FW.strong, color: C.faint }}>월 </span>
-        {man(rent)}
+        {wonText(rent)}
       </span>
       <span style={{ fontSize: FS.micro, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', fontWeight: FW.strong, color: C.faint, lineHeight: 1.1 }}>
         보증 {deposit > 0 ? man(deposit) : '없음'}

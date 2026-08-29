@@ -29,6 +29,7 @@ const HEX_WHITELIST = new Set([
   'app/manifest.ts',      // PWA 팔레트
   'app/m/page.tsx',       // 모바일 프로모 섬
   'app/sign/[token]/page.tsx', // 서명 잉크·지면(PDF 동일)
+  'components/sign/atoms.tsx', // ERP 밖 손님 전자서명 원자 — 이식 가능한 CSS 변수 폴백
   'app/error.tsx',
   'app/not-found.tsx',
   // 차량 도색 계열은 브랜드 토큰이 아니라 실제 데이터 표현용 swatch palette다.

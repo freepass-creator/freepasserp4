@@ -5,12 +5,13 @@
  *   이 파일이 정본이고, 모든 시트의 「AI 운영 매뉴얼」 탭과 docs/AI_OPERATING_MANUAL.md 는 여기서 찍은 사본이다(`scripts/publish-ai-manual-tab.mts --apply`).
  *   탭을 손으로 고치지 말고 이 파일을 고쳐 다시 찍는다 — 그래야 20여 장이 갈리지 않는다.
  * ★글은 개조식·짧게. 근거가 되는 코드 파일과 명령을 같이 적는다 — «어디를 열어 보면 되는지»가 매뉴얼의 값어치다.
+ * ⛔차종이름=엔카 1:1. 예외 둘만: 기아 N세대→개발코드, 우리 시트만 G80 DH. 세 번째 예외 금지.
  */
 import { AI_TOUCH_RULES } from './ai-touch-rules';
 import { SHEET_READING_RULES } from './sheet-reading-rules';
 import { VEHICLE_REFINE_FLOW } from './vehicle-refine-flow';
 import { MIRROR_SOURCES } from './mirror-sources';
-import { VEHICLE_MASTER_MATCH_PLAYBOOK } from './vehicle-master-playbook';
+import { VEHICLE_MASTER_MATCH_PLAYBOOK, ENCAR_NAME_ABSOLUTE } from './vehicle-master-playbook';
 import { SHEET_ERP_PARITY_RULES, SHEET_ERP_PARITY_SUMMARY, SHEET_ERP_PARITY_VERSION } from './sheet-erp-parity';
 
 export type ManualRow = [string, string, string];
@@ -26,24 +27,25 @@ const IDS = {
 const url = (id: string, gid?: number) => `https://docs.google.com/spreadsheets/d/${id}/edit${gid !== undefined ? `#gid=${gid}` : ''}`;
 
 export const AI_MANUAL_TITLE = 'AI 운영 매뉴얼';
-export const AI_MANUAL_VERSION = '2026-08-27 v27';
+export const AI_MANUAL_VERSION = '2026-08-28 v30';
 
 export function buildAiOperatingManual(): ManualSection[] {
   return [
     { title: '0. 이 문서', rows: [
+      ['⛔경고', ENCAR_NAME_ABSOLUTE, 'docs/차종마스터-엔카작업시트-매뉴얼.md · AGENTS.md · CLAUDE.md'],
       ['무엇', '프리패스 재고·차종·판매시트 운영을 «어떤 AI가 와도 같은 방식으로» 하기 위한 운영 매뉴얼. 정본은 리포 `lib/domain/ai-operating-manual.ts`, 이 탭은 그 사본(모든 시트에 같은 글).', `버전 ${AI_MANUAL_VERSION}`],
       ['먼저 할 일', '① 이 탭을 끝까지 읽는다 ② 원천대장 「시트 지도」·리포 IMPLEMENTATION_LOG.md 최근 날짜를 읽는다 ③ 손댈 시트의 안내 탭(「작성 안내」/「정제시트 안내」)을 읽는다 ④ 무엇이든 쓰기 전에 dry-run 을 먼저 본다.', 'C:\\dev\\freepasserp4 · 자격증명 tmp/firebase-auth/sa.json(pyh@teamjpk.com 위임)'],
       ['원칙 3', '값은 한 곳에만 산다(정본이 이긴다) · 지어내지 않는다(모르면 빈칸·목록) · 쓰기 도구는 전부 dry-run 기본, `--apply` 로만 쓰고 되돌릴 로그를 남긴다.', ''],
     ] },
     { title: '0′. ★확정 규칙(2026-08-21) — 오류 없이 굳힌 것. 어기면 버그다', rows: [
-      ['순서', '신규 차종은 **엔카 작업 시트에 먼저** → 승인 후 정제시트 정제칸 → 상품시트. 라이브 ERP 원장·mf- 는 확정 전 안 씀. 마스터에 없으면 비슷한 차로 안 붙이고 빈칸.', 'docs/차종마스터-엔카작업시트-매뉴얼.md · fill 은 아직 안 함'],
+      ['순서', '신규 차종은 **엔카 작업 시트에 먼저** → 승인 후 정제시트 정제칸 → 상품시트. 라이브 ERP 원장·mf- 는 확정 전 안 씀. 마스터에 없으면 비슷한 차로 안 붙이고 빈칸.', 'docs/차종마스터-엔카작업시트-매뉴얼.md · fill-supplier-from-encar-sheet'],
       ['사전', '이름·제원 작업 정본 = 엔카 작업 시트(차종·제원·배터리). vehicle-master.json 으로 이름을 지어내지 않는다. 엔카에 없는 수입차를 비슷한 차로 안 박는다. 라이브 「차종마스터」 탭에 아직 쓰지 않는다.', url(IDS.엔카마스터)],
       ['★라틴 고유명', '등급어만 한글화(Premium→프리미엄). 제조사 공식 라틴은 정본: **H-PICK** · 기아 **X Line** · 현대 **N Line** · **GT-Line**. 아반떼 N·아이오닉5 N 의 **N** 은 고성능 라인 — N Line 과 합치지 않음. N라인·X라인·H-픽·GT라인은 별칭.', 'vehicle-master-lock LATIN_BRAND_TRIM_CANON · canonMasterTrim'],
       ['공급사 정보', '공급사는 **차량번호 왼쪽 칸**으로 정보를 준다(제조사·차종·차명(세부모델+트림)·연료·연식). 그 글자를 마스터에 건다. 배기량 칸 숫자가 차명(3.5 · LPG 3.0)과 달라도 차명이 이긴다 — 공급사가 잘못 올린 것이 아니다.', '실측 손오공 281노9792 그랜저 IG LPG 3.0 PREMIUM · 스타 101호5187 카니발 KA4 가솔린 3.5 노블레스'],
       ['같은 세대 다른 엔진', '아반떼 CN7 1.6과 2.0은 같은 세대의 변형이다. 스냅이 다른 배기를 집었다고 「세대 오류」로 한 칸도 안 채우지 않는다. 맞는 변형을 고른다.', ''],
       ['누가 어느 칸', 'fill = 모델·세부모델·세부트림 + 연료(정제)·배기량(정제)·구동방식·인승·배터리용량(정제). 칸마다 따로, 하나로 모일 때만. 정제시트 fill = 엔카 작업 시트(빈 칸 + 같은 차 표기). stamp = 엔카 행키 M/SM/T 만.', 'fill-supplier-from-encar-sheet · stamp-encar-codes-on-supplier'],
       ['코드', '트림행키(mf-…)는 영구. 삭제·재사용·의미 변경 금지. 책 = `data/vehicle-trim-key-registry.json`. 원천대장 「차종마스터」 탭은 **읽기만**. 새 차종은 **엔카 작업 시트**에 넣고, 코드는 레지스트리에 없는 키만 붙인다. `vehicle-master.json` 으로 이름을 만들지 않는다.', 'lib/domain/vehicle-master-lock.ts · check-vehicle-master-lock · verify-master-pass'],
-      ['세대 이름', '세부모델 = 엔카 이름 1:1. 예외 둘만: **기아** N세대→개발코드(`K5 3세대`→`K5 DL3`), **우리 시트만** 제네시스 1세대 `G80 DH`(엔카는 `G80`). FL 분할은 예외 아님. 괄호 없음(`G80 (RG3)`→`G80 RG3`). NF처럼 연식종료 2019 이전은 넣지 않는다.', 'docs/차종마스터-엔카작업시트-매뉴얼.md'],
+      ['세대 이름', '세부모델 = 엔카 이름 1:1. 예외 둘만: **기아** N세대→개발코드(`K5 3세대`→`K5 DL3`), **우리 시트만** 제네시스 1세대 `G80 DH`(엔카는 `G80`). 그 밖은 엔카 그대로. 괄호 없음(`G80 (RG3)`→`G80 RG3`). NF처럼 연식종료 2019 이전은 넣지 않는다.', 'docs/차종마스터-엔카작업시트-매뉴얼.md'],
       ['★개발코드는 안 뗀다', '정제칸·손님 화면에서 DL3·MX5·GN7·CN8 을 깎지 않는다. 「손님이 읽기 어렵다」는 이유로 떼면 `K5 DL3`가 `K5`가 되어 **세대를 못 가른다**(JF·TF·DL3가 한 이름이 된다). 광고 접두(`디 올 뉴`)만 별칭으로 뺀다. `add-submodel-code-strip-rules`·`normalize-erp-submodel-codes` 는 **폐기(거부)**. fill·발행기는 그런 「AI 정제」 줄을 **무시**한다.', '실측 2026-08-23 「AI 정제」 186줄 K5 DL3→K5 · ai-refine-guard'],
     ] },
     { title: '0″. ★차종마스터·코드 — 커서가 쓰고, 다른 AI는 가져다 쓴다(2026-08-23)', rows: VEHICLE_MASTER_MATCH_PLAYBOOK },
@@ -54,7 +56,7 @@ export function buildAiOperatingManual(): ManualSection[] {
       ['판매시트 「프리패스 상품리스트」', '영업자가 보는 표 — 기계가 찍는 사본, 손으로 고치지 않는다. **발행 단계는 공급사 시트의 완성된 정제칸을 그대로 4개 판매 탭으로 옮길 뿐, 상품마스터를 거치거나 값을 다시 정제하지 않는다.** ★탭 4개: 「상품리스트 …」(21곳 − 오플 − 손오공 구독/픽업, 출고불가 제외) · 「손오공구독 …」(구독재고=SON_NO_KONG) · 「픽업구독 …」(픽업재고=TCAR/T카, 2026-08-27) · 「오플구독 …」. 손오공구독·픽업구독은 반납형·인수형 기간별 금액을 모두 보존한다. 오플은 연 2만km가 기본이며 **12개월만 3만km**다(12개월 2만km 없음). 폐기된 오플프로모션 탭은 ERP가 읽지 않는다. 같은 차는 한 탭에만. 표준 칸은 별칭으로 되찾는다(sales-published-tabs.ts). [숨김] AI 인계(@매핑=열 구성 정본·@제외) · AI 정제(치환 사전) · 이 시트는.', url(IDS.판매시트)],
       ['영업채널 카드시트(천이시트 갈래)', '정제/제공시트는 세 갈래로 나간다: 중앙 판매시트→ERP, 중앙 판매시트→공급사 「상품시트」(1대=1행·열은 판매시트 「AI 인계」 @매핑과 동일), 손오공·웰릭스 원천→천이시트(7행×13열=한 대). 세 출력은 병렬 사본이며 셀 주소를 서로 복사하지 않는다. 천이카드는 머리글 이름→buildCard 매핑으로 변환하고 J:L에는 최저가 한 벌만 표시한다. 실을 차 기준은 판매시트와 같다(**출고불가만 제외** · 출고가능이 아니면 차량번호 아래에 상태를 적는다). 차명=정제칸 세부모델 그대로 · 등급=세부트림 · 조건 칸은 「운영정책」. 검수는 상품시트의 행 전체와 천이 카드 91셀을 따로 비교한다(audit-pipeline-destinations). 정본 `lib/domain/channel-card-sheet.ts` · 매뉴얼 `docs/영업채널-카드시트-매뉴얼.md`.', 'npx tsx scripts/publish-channel-cards.mts --apply · npx tsx scripts/audit-pipeline-destinations.mts'],
       ['원천대장 「ERP4 차종마스터 원천대장」', '라이브 ERP 차종코드(mf-)·규격채택·상품마스터·시트 지도. **이름·제원 작업 정본이 아님**(아직 안 바꿈). 색상마스터는 여기.', url(IDS.원천대장)],
-      ['엔카 작업 시트', '이름·제원 작업 정본. 탭: 안내 · 차종마스터(원산지·제조사·모델·세부모델·세부트림·생산시작·생산종료) · 제원마스터(연료·cc·구동) · 전기차배터리마스터. 트림은 배기량 합집합. 정제시트 fill은 아직. 라이브 원장과 다른 문서.', url(IDS.엔카마스터)],
+      ['엔카 작업 시트', '이름·제원 작업 정본. 탭: 안내 · 차종마스터(원산지·제조사·모델·세부모델·세부트림·생산시작·생산종료) · 제원마스터(연료·cc·구동) · 전기차배터리마스터. 트림은 배기량 합집합. 정제칸 fill = `fill-supplier-from-encar-sheet`. 라이브 원장과 다른 문서.', url(IDS.엔카마스터)],
       ['리포 파일', 'data/product-vehicle-review-decisions.json(3축 결정) · public/data/vehicle-trim-master.json(artifact) · lib/domain/mirror-sources.ts(정제시트 원본표) · lib/domain/supplier-template-sheet.ts(공급사 시트 표준) · lib/domain/sales-sheet-mapping.ts(판매시트 열·별칭·제외) · lib/domain/product-master-sheet.ts(상품마스터 열).', 'C:\\dev\\freepasserp4'],
       ['정제시트 원본표', MIRROR_SOURCES.map((m) => `${m.name}(${m.code}) ← ${m.kind === 'iron' ? 'ironrentcar.com' : `시트 ${m.from}`}`).join(' · '), '수식 연동을 켜면 그 공급사를 표에서 뺀다(둘이 서로 덮는다)'],
     ] },

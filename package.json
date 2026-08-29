@@ -13,6 +13,8 @@
     "settlement:sheet": "tsx scripts/run-settlement-sheet.mts",
     "settlement:sheet:apply": "tsx scripts/run-settlement-sheet.mts --apply",
     "settlement:drift": "tsx scripts/check-settlement-drift.mts",
+    "settlement:import": "tsx scripts/import-settlement-from-sheet.mts",
+    "settlement:import:apply": "tsx scripts/import-settlement-from-sheet.mts --apply",
     "settlement:worklist": "tsx scripts/settlement-worklist.mts",
     "settlement:invoices": "tsx scripts/issue-settlement-invoices.mts",
     "settlement:pdf": "node scripts/invoice-pdf.mjs",
