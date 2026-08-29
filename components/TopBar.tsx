@@ -309,8 +309,9 @@ function NavMenu({ mobile, open: openProp, setOpen: setOpenProp }: {
         title={open ? (mobile ? '더보기 닫기' : '전체메뉴 닫기') : (mobile ? '더보기' : '전체메뉴')}
         onClick={() => { haptic.nav(); setOpen((o) => !o); }}
         /* 모바일 = **박스 없는 맨 아이콘**(사장님 2026-08-22 「상단에는 아이콘에 박스가 없이 그냥 아이콘만」— 회색 칩은 하루 만에 회귀).
-           글리프는 검색줄 필터 버튼과 같은 ICON.md(「밑에 필터랑 크기가 같던가」). 버튼(36) 안에서 잉크가 10px 안으로 들어가므로
-           marginRight -10 으로 잉크 우측 끝을 12px 기준선에 앉힌다 — 터치 영역은 36 그대로다.
+           글리프는 하단 탭·검색줄과 같은 ICON.xl(20px).
+           버튼(40) 안에서 잉크가 10px 안으로 들어가므로
+           marginRight -10 으로 잉크 우측 끝을 12px 기준선에 앉힌다 — 터치 영역은 40 그대로다.
 
            ★**모바일 모양은 CSS 가 준다**(사장님 2026-08-23 「상단 아이콘 위치가 틀어지는 거 같은데 · 새로고침 하면 괜찮아지고」).
              여기 인라인은 **데스크톱 기준**만 적는다. 전에는 `mobile ? … : …` 로 갈랐는데 그 `mobile` 은
@@ -320,7 +321,7 @@ function NavMenu({ mobile, open: openProp, setOpen: setOpenProp }: {
         className="fp-topbar__menu"
         style={{ background: open ? C.hover : C.taupeBg, color: ink, border: `1px solid ${line}` }}
       >
-        {open ? <X size={ICON.lg} strokeWidth={2.25} /> : <Menu size={ICON.lg} strokeWidth={2.25} />}
+        {open ? <X size={ICON.xl} strokeWidth={2.25} /> : <Menu size={ICON.xl} strokeWidth={2.25} />}
       </IconBtn>
       {open && (<>
         {!mobile && <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 74 }} />}
@@ -391,8 +392,8 @@ export default function TopBar() {
   if (path === '/' || path === '/erp5' || path.startsWith('/erp5/') || path === '/login' || path === '/m' || path.startsWith('/q/') || path.startsWith('/catalog') || path.startsWith('/sign/')) return null;
   const backLabel = backKind === 'list' ? '목록' : '이전';
   const backIcon = backKind === 'list'
-    ? <List size={mobile ? 18 : 16} strokeWidth={2.25} />
-    : <ChevronLeft size={mobile ? 18 : 16} strokeWidth={2.25} />;
+    ? <List size={mobile ? ICON.xl : ICON.md} strokeWidth={2.25} />
+    : <ChevronLeft size={mobile ? ICON.xl : ICON.md} strokeWidth={2.25} />;
   const backBtn = back ? (
     mobile ? (
       <IconBtn title={backLabel} haptic="back" onClick={() => { back(); }}>{backIcon}</IconBtn>

@@ -3,7 +3,7 @@
 import React from 'react';
 import { Search, X } from 'lucide-react';
 import { useIsMobile } from '@/lib/use-mobile';
-import { C, R, ctrlH, ctrlInputFs, ctrlPadX } from './tokens';
+import { C, R, ctrlH, ctrlInputFs, ctrlPadX, ICON } from './tokens';
 
 type Option = string | { value: string; label: string };
 
@@ -152,34 +152,36 @@ export function SearchInput({ value, onChange, placeholder = '검색', ariaLabel
     const t = window.setTimeout(() => ref.current?.focus(), 60);
     return () => window.clearTimeout(t);
   }, [autoFocus]);
-  const slotW = mobile ? ctrlH(mobile) : 20;
+  const slotW = mobile ? h : 20;
   // 오른쪽 슬롯 총 폭 — X 자리는 값이 없어도 비워 둔다(지울 때 글자가 튀지 않게).
   const rightPad = trailing ? slotW * 2 + 12 : (mobile ? 40 : 28);
+  const iconLeft = mobile ? ctrlPadX(mobile) : 9;
   return (
-    <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', ...(full ? { flex: '1 1 auto', width: '100%' } : width ? { width } : {}), ...style }}>
-      <Search aria-hidden size={mobile ? 16 : 14} style={{ position: 'absolute', left: mobile ? 12 : 9, color: focus ? C.accent : C.faint, pointerEvents: 'none' }} />
+    <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', overflow: 'visible', ...(full ? { flex: '1 1 auto', width: '100%' } : width ? { width } : {}), ...style }}>
+      <Search aria-hidden size={mobile ? ICON.xl : ICON.sm} style={{ position: 'absolute', left: iconLeft, color: focus ? C.accent : C.faint, pointerEvents: 'none' }} />
       <input ref={ref} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} aria-label={ariaLabel || placeholder || '검색'} inputMode="search" autoFocus={autoFocus}
         onFocus={() => setFocus(true)} onBlur={() => setFocus(false)}
         /* 알약형은 하루 만에 되돌림(사장님 2026-08-22 「둥글게 검색창 한 적 없고 딱 깔끔하게」) — 원래의 각진 입력칸 그대로. */
-        style={{ width: '100%', height: h, boxSizing: 'border-box', padding: `0 ${rightPad}px 0 ${mobile ? 36 : 28}px`, border: `1px solid ${focus ? C.accent : C.line}`, borderRadius: R, fontSize: ctrlInputFs(mobile), background: C.taupeBg, color: C.ink, outline: 'none', boxShadow: focus ? `0 0 0 3px ${C.focusRing}` : 'none', transition: 'border-color .12s, box-shadow .12s, background-color .12s', ...inputStyle }} />
-      {/* 입력칸 안 우측 슬롯 — 판은 클릭을 통과시키고(pointerEvents none) 버튼만 받는다. */}
+        style={{ width: '100%', height: h, boxSizing: 'border-box', padding: `0 ${rightPad}px 0 ${mobile ? h : 28}px`, border: `1px solid ${focus ? C.accent : C.line}`, borderRadius: R, fontSize: ctrlInputFs(mobile), background: C.taupeBg, color: C.ink, outline: 'none', boxShadow: focus ? `0 0 0 3px ${C.focusRing}` : 'none', transition: 'border-color .12s, box-shadow .12s, background-color .12s', ...inputStyle }} />
+      {/* 입력칸 안 우측 슬롯 — 판은 클릭을 통과시키고(pointerEvents none) 버튼만 받는다.
+          trailing 칸 = 입력 높이와 같은 정사각(모바일 검색·필터가 다른 크기로 보이던 원인). */}
       <div style={{
-        position: 'absolute', right: trailing ? (mobile ? 3 : 4) : (mobile ? 4 : 7), top: 0, bottom: 0,
+        position: 'absolute', right: trailing ? (mobile ? 0 : 4) : (mobile ? 4 : 7), top: 0, bottom: 0,
         display: 'inline-flex', alignItems: 'center', gap: trailing ? 2 : 0, pointerEvents: 'none',
       }}>
         {value ? (
           <button type="button" aria-label="검색어 지우기" onMouseDown={(e) => e.preventDefault()} onClick={() => onChange('')}
-            style={{ pointerEvents: 'auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: slotW, height: mobile ? ctrlH(mobile) : 17, padding: 0, borderRadius: '50%', border: 'none', background: 'transparent', color: C.mute, cursor: 'pointer' }}>
+            style={{ pointerEvents: 'auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: slotW, height: mobile ? h : 17, padding: 0, borderRadius: '50%', border: 'none', background: 'transparent', color: C.mute, cursor: 'pointer' }}>
             <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: mobile ? 22 : 17, height: mobile ? 22 : 17, borderRadius: '50%', background: C.line2 }}>
-              <X size={mobile ? 14 : 11} />
+              <X size={mobile ? ICON.sm : 11} />
             </span>
           </button>
-        ) : trailing ? <span style={{ width: slotW }} /> : null}
+        ) : trailing ? <span style={{ width: slotW, height: slotW, flex: '0 0 auto' }} /> : null}
         {trailing ? (
           <>
             {/* 얇은 세로선 — 검색(글자)과 필터(조건)는 다른 일이라는 표시. 없으면 X 와 한 덩어리로 읽힌다. */}
-            <span aria-hidden style={{ width: 1, height: 16, background: C.line, flex: '0 0 auto' }} />
-            <span style={{ pointerEvents: 'auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{trailing}</span>
+            <span aria-hidden style={{ width: 1, height: ICON.xl, background: C.line, flex: '0 0 auto' }} />
+            <span style={{ pointerEvents: 'auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: slotW, height: slotW, flex: '0 0 auto' }}>{trailing}</span>
           </>
         ) : null}
       </div>

@@ -420,14 +420,14 @@ button, input, select, textarea { font-family: inherit; }
   .fp-topbar { padding: 0 12px !important; }
 
   /* ★햄버거 = **박스 없는 맨 아이콘**(사장님 2026-08-22). 잉크 우측 끝을 12px 기준선에 앉히려 -10 당긴다 —
-     터치 영역(36)은 그대로다. 글리프는 검색줄 필터와 같은 16px(ICON.md).
+     터치 영역(40)은 그대로다. 글리프는 하단 탭과 같은 모바일 주 탐색 규격 ICON.xl(20px).
      ⚠ 인라인 스타일을 이겨야 하므로 !important 다. 인라인은 데스크톱 기준만 적는다(TopBar). */
   .fp-topbar__menu {
     border: none !important;
     background: transparent !important;
     margin-right: -10px !important;
   }
-  .fp-topbar__menu svg { width: 16px !important; height: 16px !important; }
+  .fp-topbar__menu svg { width: 20px !important; height: 20px !important; }
 
   /* 상단 상태가 우선 보이고 우측 도구는 필요한 폭만 사용한다. */
   .fp-topbar__main,
@@ -440,6 +440,7 @@ button, input, select, textarea { font-family: inherit; }
 /* 웹=사이드·목록 각자 스크롤(메인패드로 휠 전달 금지). 모바일=본문만 메인패드 스크롤.
  * 파인더 메인에는 스크롤 없음 → gutter 끔. 본문(.fp-finder-body)만 stable gutter + 툴바 오른쪽을 --fp-pane-sb로 맞춤. */
 .fp-main-pad:has(.fp-finder) { overflow: hidden; scrollbar-gutter: auto; }
+.fp-main-pad:has(.sign-root) { overflow: hidden; scrollbar-gutter: auto; }
 .fp-finder {
   /* 필터 사이드바 : 결과 = 비율(고정폭 강제 없음). 화면 폭 따라 함께 신축. */
   display: grid; grid-template-columns: 1fr 4fr; grid-template-rows: auto 1fr;
@@ -856,10 +857,9 @@ html[data-fp-filter="0"] .fp-finder > .fp-sidebar { display: none; }
   }
   .fp-agent-workflow-actions > * { flex: 1 1 0; }
   :root {
-    /* 컨트롤 36 = tokens.ts CTRL 모바일과 동일(md·sm 수렴). 바 높이 48(36+6×2) — 모바일 여백 최소·가독 유지
-       (사장님 2026-08-22 「각각의 여백을 최소화하되 가독성에는 문제 없게」). 상단바·검색줄·하단 탭바가 같은 48 규격. */
-    --fp-ctrl-h: 36px;
-    --fp-bar-pad-y: 6px;
+    /* 컨트롤 40 = tokens.ts CTRL.md 모바일(터치 40). 바 높이 56(40+8×2) — 웹과 동일, CLAUDE.md 바 56. */
+    --fp-ctrl-h: 40px;
+    --fp-bar-pad-y: 8px;
     --fp-bar-pad-x: 12px;
   }
   /* 모바일 = 스크롤바 거터 예약 끄기(우측만 넓어져 검색·필터 좌우 여백이 갈라짐) */

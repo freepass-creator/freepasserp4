@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState, useRef, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
-import { BottomNav, SearchInput, IconBtn, CountPill, Btn, ButtonLabel, Select, FilterGroup, C, NUM, FS, ICON } from '@/components/ui';
+import { BottomNav, SearchInput, CountPill, Btn, ButtonLabel, Select, FilterGroup, C, NUM, FS, ICON } from '@/components/ui';
 import { PageToolBar, type PageToolItem } from '@/components/PageToolBar';
 import { MobileListDock } from '@/components/MobileListDock';
 import { BottomSheet, SheetTitle } from '@/components/BottomSheet';
@@ -217,16 +217,16 @@ export function MobilePageShell({
    *   새로 만들지 않고 그걸 쓴다 — 한 칸이 되니 여백 문제가 자리째 사라진다.
    */
   const filterBtn = filterCfg ? (
-    <span style={{ position: 'relative', display: 'inline-flex' }}>
-      <IconBtn
+    <span style={{ position: 'relative', display: 'inline-flex', width: '100%', height: '100%' }}>
+      <Btn
+        variant="bare"
         title={filterBadge > 0 ? `필터 ${filterBadge}` : (filterCfg.label || '필터')}
-        active={sheet === 'filter'}
+        aria-pressed={sheet === 'filter'}
         onClick={() => { if (sheet === 'filter') discardFilter(); else openFilter(); }}
-        // 입력칸 «안»에 앉으므로 테두리를 지운다 — 칸 안에 칸이 있는 것처럼 보이지 않게.
-        style={{ border: 'none', background: 'transparent', width: 30, height: 30 }}
+        style={{ width: '100%', height: '100%', color: (sheet === 'filter' || filterBadge > 0) ? C.accent : C.mute }}
       >
-        <SlidersHorizontal size={ICON.md} />
-      </IconBtn>
+        <SlidersHorizontal size={ICON.xl} />
+      </Btn>
       {filterBadge > 0 ? (
         <span className="fp-icon-count">
           <CountPill n={filterBadge} tone="accent" />

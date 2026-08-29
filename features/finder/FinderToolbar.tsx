@@ -2,7 +2,7 @@
 
 import { LayoutGrid, List, SlidersHorizontal, Sheet } from 'lucide-react';
 import { InterestTriggers, type InterestTab } from '@/components/InterestRail';
-import { Btn, C, FS, FW, IconSeg, NUM, SearchInput, Select, ICON } from '@/components/ui';
+import { Btn, C, CountPill, IconSeg, SearchInput, Select, ICON } from '@/components/ui';
 import { FINDER_SORTS } from './filter-state';
 
 const VIEWS = [
@@ -49,7 +49,8 @@ export function FinderToolbar(props: Props) {
     /**
      * 모바일 = **검색창 한 줄이 화면 끝까지, 필터는 그 «안» 우측**(사장님 2026-08-22).
      * 박스(IconBtn 테두리·바탕) 없이 아이콘만 — 입력칸이 이미 테두리를 가졌는데 그 안에 또 상자를 두면 겹친다.
-     * 켜짐(시트 열림)·조건 개수는 색(accent)과 옆 숫자로 말한다 — 좁은 슬롯에 뱃지를 겹치면 테두리에 잘린다.
+     * 필터 칸 = 검색칸과 같은 높이(ctrlH). 글리프는 돋보기·하단탭과 같은 ICON.xl.
+     * 조건 개수는 옆 숫자가 아니라 CountPill(탭·메뉴와 같은 자리).
      */
     const on = props.filterSheetOpen || props.filterBadge > 0;
     return (
@@ -62,19 +63,23 @@ export function FinderToolbar(props: Props) {
           full
           style={{ flex: '1 1 auto', minWidth: 0 }}
           trailing={(
-            <Btn
-              variant="bare"
-              title={props.filterBadge > 0 ? `조건 ${props.filterBadge}개 · 필터` : '필터'}
-              aria-label={props.filterBadge > 0 ? `조건 ${props.filterBadge}개 · 필터` : '필터'}
-              aria-pressed={props.filterSheetOpen}
-              onClick={props.onToggleFilterSheet}
-              style={{ color: on ? C.accent : C.mute, gap: 3 }}
-            >
-              <SlidersHorizontal size={ICON.md} strokeWidth={on ? 2.4 : 2} />
+            <span style={{ position: 'relative', display: 'inline-flex', width: '100%', height: '100%' }}>
+              <Btn
+                variant="bare"
+                title={props.filterBadge > 0 ? `조건 ${props.filterBadge}개 · 필터` : '필터'}
+                aria-label={props.filterBadge > 0 ? `조건 ${props.filterBadge}개 · 필터` : '필터'}
+                aria-pressed={props.filterSheetOpen}
+                onClick={props.onToggleFilterSheet}
+                style={{ width: '100%', height: '100%', color: on ? C.accent : C.mute }}
+              >
+                <SlidersHorizontal size={ICON.xl} strokeWidth={on ? 2.4 : 2} />
+              </Btn>
               {props.filterBadge > 0 ? (
-                <span style={{ fontSize: FS.cap, fontWeight: FW.title, fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{props.filterBadge}</span>
+                <span className="fp-icon-count">
+                  <CountPill n={props.filterBadge} tone="accent" />
+                </span>
               ) : null}
-            </Btn>
+            </span>
           )}
         />
       </div>
