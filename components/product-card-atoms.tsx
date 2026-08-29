@@ -8,17 +8,14 @@ import { useFirstPhoto } from '@/components/use-product-photos';
 import { FavHeart } from '@/components/FavHeart';
 import { ProductStateMarks } from '@/components/ProductStateMarks';
 import { ProductPhotoImage } from '@/components/ProductPhoto';
-import { yearDisplay } from '@/lib/domain/vehicle-master-match';
-import { kmDisplay } from '@/lib/format';
-import { fuelDisplay } from '@/lib/domain/vehicle-master-match';
 export { productOptions, OptionChips, OptionsInline } from '@/components/product-card-options';
 import {
-  badgeTip, badgeSpecs, photoMarkSpecs, HEAD_BADGE_KEYS,
+  badgeTip, badgeSpecs, photoMarkSpecs,
   type BadgeSpec,
 } from '@/components/product-card-badges';
-import { toneAccent, type BadgeTone } from '@/components/ui/badges';
+import type { BadgeTone } from '@/components/ui/badges';
 export {
-  CarGlyph, badgeTip, benefitTip, badgeSpecs, photoMarkSpecs, badges, BadgesClip, HEAD_BADGE_KEYS,
+  CarGlyph, badgeTip, benefitTip, badgeSpecs, photoMarkSpecs, badges, BadgesClip,
   type BadgeSpec,
 } from '@/components/product-card-badges';
 export { PriceMini, PriceFare } from '@/components/product-card-fares';
@@ -34,10 +31,9 @@ import {
   specLine, specLineCard,
 } from '@/components/product-card-identity';
 export {
-  idParts, idMobile, specLine, specLineCard, cardTitle, plateSpecLine,
+  idParts, idMobile, specLine, specLineCard, cardTitle,
 } from '@/components/product-card-identity';
 export { Plate, CardTitle } from '@/components/product-card-identity-view';
-// CardKind(상자 뱃지)는 지웠다 — 아무도 안 쓰는데 남겨 두면 다시 상자가 생긴다(2026-08-28).
 export { CardRailBadges, SignalMarks } from '@/components/product-card-badge-view';
 
 /**
@@ -76,14 +72,8 @@ export { CardRailBadges, SignalMarks } from '@/components/product-card-badge-vie
  *  Thumb → Title → Options → Specs → Amounts → PeriodPerkBand
  */
 
-function fmtCardYear(p: EntityRecord): string {
-  return yearDisplay(p.year) || '';
-}
-
 /** CardSpecs — 객관 스펙 한 줄.
- *  기본 = 차량번호 · 연식 · 연료 · 주행 · 배기량. 없으면 `-`.
- *  plateYear = 모바일 목록용 — **차번 · 연식 · 주행 · 연료**(사장님 2026-08-22 「상품목록에 차량번호 연식
- *    주행거리 연료까지는 보여줘야 한다고, 지금 연식만 있잖아」. 1행에서 세부트림을 뺀 만큼 이 줄이 차를 설명한다).
+ *  plateYear/listing = 목록 — 연식 · 주행 · 연료 · 배기량 · 구동(`specAtoms`).
  *  차번 = 운영자만(손님 숨김). 텍스트만 · 살짝 두껍게.
  */
 export function CardSpecs({ p, dense, audience = 'agent', plateYear, listing }: {
@@ -91,19 +81,7 @@ export function CardSpecs({ p, dense, audience = 'agent', plateYear, listing }: 
 }) {
   const showPlateSlot = audience !== 'customer';
   const plate = String(p.car_number || '').trim();
-  const year = fmtCardYear(p);
   const fs = FS.cap;
-  /**
-   * 목록 줄 = 연식 · 주행 · **연료**. 연료가 빠져 있던 것을 되살린다
-   * (사장님 2026-08-20 「주행거리 뒤에 연료 안 나온다」 — `listing` 변형이 2026-08-19 들어오면서 잘렸다).
-   * 연료는 차를 고를 때 «주행거리 다음»으로 먼저 걸러 보는 값이라 한 줄에 같이 있어야 한다.
-   */
-  /*
-   * ★차례는 `specAtoms` 한 곳에서만 정한다 — 연식 · 주행 · 연료 · 배기량(전기=배터리) · 구동
-   *   (사장님 2026-08-28 「차량번호 옆으로 … 순서대로 · 있는 거라도」).
-   *   예전엔 plateYear·listing·기본 세 갈래가 각자 차례를 적어, 연료가 목록에서만 빠진 적이 있다.
-   *   이제 셋이 같은 줄을 쓴다 — 값 없는 칸은 구분자째 빠지므로 차마다 길이가 다른 것은 정상이다.
-   */
   const body = specLineCard(p);
   const tip = [
     showPlateSlot && plate ? plate : '',
@@ -174,8 +152,8 @@ export function CardThumb({ p, audience = 'agent', fill, w, h, heart = false, ma
   // 간단 = CORE 3 동일 취급. 우하 가로(출고→상품→심사).
   const coreSpecs = coreBadges
     ? (() => {
-        const by = new Map(badgeSpecs(p, true, false, audience).map((s) => [s.key, s]));
-        return HEAD_BADGE_KEYS.map((k) => by.get(k)).filter(Boolean) as BadgeSpec[];
+        const by = new Map(badgeSpecs(p, false, false, audience).map((s) => [s.key, s]));
+        return (['st', 'pt', 'cd'] as const).map((k) => by.get(k)).filter(Boolean) as BadgeSpec[];
       })()
     : [];
 
@@ -238,44 +216,21 @@ export function CardThumb({ p, audience = 'agent', fill, w, h, heart = false, ma
         }} />
       )}
 
-      {/*
-        CORE 3(출고·상품·심사) = **한 덩어리 다크 글래스 바**.
-        흰 뱃지 세 장을 사진 위에 띄우면 스티커 붙인 것처럼 보인다(사장님 2026-08-20 「좀 촌스럽지 않게」).
-        떠 있는 물체를 3개에서 1개로 줄이고, 값 사이는 얇은 세로선으로만 나눈다 —
-        사진 위 글자는 «어두운 유리 + 흰 글자»가 가장 조용하고 어떤 차 색에도 안 묻는다.
-        색 정보는 버리지 않는다: 차량상태만 앞에 **작은 색점**으로 남긴다(초록=출고가능·주황=계약중…).
-      */}
       {hasCore && (
-        <div
-          className={coreSpecs.some((x) => x.pulse) ? 'fp-badge-pulse' : undefined}
-          style={{
-            position: 'absolute', bottom: pad, right: pad, zIndex: 2,
-            display: 'inline-flex', alignItems: 'center', height: 22,
-            padding: '0 8px', borderRadius: R, maxWidth: '92%', overflow: 'hidden',
-            background: listThumb ? SCRIM.heavy : SCRIM.light,
-            border: `1px solid color-mix(in srgb, ${C.inverse} 16%, transparent)`,
-            backdropFilter: listThumb ? undefined : 'blur(8px)',
-            WebkitBackdropFilter: listThumb ? undefined : 'blur(8px)',
-            color: C.inverse, fontSize: FS.micro, fontWeight: FW.strong,
-            letterSpacing: '-0.01em', whiteSpace: 'nowrap', lineHeight: 1,
-          }}
-        >
-          {coreSpecs.map((s, i) => (
-            <span key={s.key} title={badgeTip(s.key, s.label)} style={{ display: 'inline-flex', alignItems: 'center' }}>
-              {i > 0 && (
-                <span aria-hidden style={{
-                  width: 1, height: 9, margin: '0 7px', flex: '0 0 auto',
-                  background: `color-mix(in srgb, ${C.inverse} 30%, transparent)`,
-                }} />
-              )}
-              {s.key === 'st' && (
-                <span aria-hidden style={{
-                  width: 5, height: 5, borderRadius: '50%', marginRight: 5, flex: '0 0 auto',
-                  background: toneAccent(s.tone),
-                }} />
-              )}
-              {s.label}
-            </span>
+        <div style={{
+          position: 'absolute', bottom: pad, right: pad, zIndex: 2,
+          display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 3,
+          maxWidth: '92%', overflow: 'hidden',
+        }}>
+          {coreSpecs.map((s) => (
+            <Badge
+              key={s.key}
+              tone={s.tone}
+              variant={s.variant || 'line'}
+              frosted
+              pulse={s.pulse}
+              title={badgeTip(s.key, s.label)}
+            >{s.label}</Badge>
           ))}
         </div>
       )}

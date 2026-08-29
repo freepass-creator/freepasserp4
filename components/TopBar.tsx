@@ -1,17 +1,16 @@
 'use client';
 import Link from 'next/link';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useState, useEffect, type CSSProperties, type ReactNode } from 'react';
-import { Menu, X, Search, FileSignature, Settings, ChevronLeft, List, History, Users, Wrench, HelpCircle, Sparkles, RefreshCw, type LucideIcon } from 'lucide-react';
+import { usePathname, useSearchParams } from 'next/navigation';
+import { useState, useEffect, useCallback, type CSSProperties, type ReactNode } from 'react';
+import { Menu, X, Search, FileText, FileSignature, Settings, ChevronLeft, List, History, Users, Wrench, HelpCircle, Sparkles, RefreshCw, type LucideIcon } from 'lucide-react';
 import { useAppBarSlots } from '@/lib/appbar';
 import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
 import { getRole, actor, type Role } from '@/lib/domain/deal';
 import { useSession } from '@/lib/auth-context';
-import { menuItemBadge } from '@/lib/domain/menu-badges';
-import { useMenuBadges } from '@/lib/menu-badge-store';
+import { loadMenuBadges, menuItemBadge, type MenuBadgeMap } from '@/lib/domain/menu-badges';
 import { C, R, CountPill, NUM, ctrlH, ctrlFs, FW, FS, Btn, IconBtn, BottomNav, SH, ICON } from '@/components/ui';
-import { NAV_ICON, NAV_LABEL, appTabsFor } from '@/lib/tabbar';
+import { NAV_ICON, NAV_LABEL } from '@/lib/tabbar';
 import { refreshCurrentPage } from '@/lib/page-refresh';
 import { PageStatus, statusIconFor } from '@/components/PageStatus';
 import { getStore, peekList } from '@/lib/store';
@@ -20,7 +19,7 @@ import { BRAND, VERSION, BUILD } from '@/lib/brand';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { companyAlias } from '@/lib/domain/identity';
 
-// 상단바 = 상태창(어디·몇 건). 웹 메뉴=좌측 · **모바일은 메뉴(햄버거) 없음**(2026-08-22 — 하단탭 4개가 전부, 관리자 화면은 설정 › 관리).
+// 상단바 = 상태창(어디·몇 건). 웹 메뉴=좌측 · 모바일 메뉴=우측.
 // 웹 우측 = 오늘·소속·이름·직책. 주탭 아이콘·워딩 = NAV_ICON / NAV_LABEL SSOT.
 const ALL_ROLES: Role[] = ['agent', 'provider', 'admin'];
 const GROUPS: { title: string; items: { href?: string; label: string; icon: LucideIcon; soon?: boolean; roles?: Role[]; hideMobile?: boolean }[] }[] = [
@@ -31,8 +30,6 @@ const GROUPS: { title: string; items: { href?: string; label: string; icon: Luci
     { href: '/chat', label: NAV_LABEL.chat, icon: NAV_ICON.chat, roles: ALL_ROLES },
     { href: '/contract', label: NAV_LABEL.contract, icon: NAV_ICON.contract, roles: ['agent', 'provider', 'admin'] },
     { href: '/esign', label: NAV_LABEL.esign, icon: FileSignature, roles: ['admin'] },
-    // 계약서관리 바로 밑 — 계약서를 보낸 그다음이 인도·청구다(사장님 2026-08-26).
-    { href: '/settlement/ledger', label: NAV_LABEL.ledger, icon: NAV_ICON.ledger, roles: ['admin'] },
   ] },
   { title: '견적·구독', items: [
     { href: '/sonogong', label: '중고 픽업구독', icon: RefreshCw, roles: ALL_ROLES },
@@ -43,9 +40,7 @@ const GROUPS: { title: string; items: { href?: string; label: string; icon: Luci
     { href: '/members?tab=partner', label: NAV_LABEL.partners, icon: Users, roles: ['admin'] },
   ] },
   { title: '관리자', items: [
-    // ⚠ 월별정산(RTDB)은 메뉴에서 뺐다(사장님 2026-08-26 「월별정산?? 이거는 필요없지 이제」).
-    //   정산은 원장(정산관리)으로 모았다. 페이지는 남아 있다 — 계약 책상이 만든 옛 RTDB 정산 기록이
-    //   아직 거기에만 보이기 때문이다. 그 기록까지 정리되면 그때 페이지도 걷는다.
+    { href: '/settlement', label: NAV_LABEL.settlement, icon: FileText, roles: ['admin'] },
     { href: '/members?tab=user', label: NAV_LABEL.members, icon: Users, roles: ['admin'] },
     { href: '/audit', label: NAV_LABEL.audit, icon: History, roles: ['admin'] },
     { href: '/data-check', label: NAV_LABEL.dataCheck, icon: Search, roles: ['admin'] },
@@ -66,16 +61,8 @@ const SIMPLE_GROUPS: typeof GROUPS = [{
   title: '',
   items: [
     { href: '/finder', label: '상품찾기', icon: NAV_ICON.product, roles: ALL_ROLES },
-    // ★사장님 2026-08-26 「계약 정산확인 한개매뉴로」 — 영업자·공급사에게 계약진행과 정산확인은
-    //   같은 질문의 앞뒤다(「내 계약이 어떻게 되나」 → 「그래서 몇 건이냐」). 입구를 둘로 두면 매번 헤맨다.
-    //   관리자는 들어가면 기존 계약 책상, 영업자·공급사는 원장에서 «내 것만»(금액 없음).
-    // ★화면을 갈랐다(사장님 2026-08-26 「관리자랑 영업자 공급사가 보는 페이지가 달랐으면」).
-    //   여기는 «가지고 가는» 곳 — 영업자·공급사가 내 계약과 내 실적 건수를 본다. 금액은 안 온다.
-    //   «만드는» 곳은 정산관리(/settlement/ledger)이고 관리자만 본다.
-    // 준비중 — 눌러 보고 비어 있으면 「고장났나」로 읽힌다. 이름에 적어 둔다(사장님 2026-08-26).
-    { href: '/contract', label: '계약·정산확인 (준비중)', icon: NAV_ICON.contract, roles: ['agent', 'provider'] },
-    // 관리자 월별정산(RTDB) — 원장과 축이 달라 따로 둔다.
-    // 월별정산(RTDB)은 뺐다 — 정산은 정산관리(원장) 하나로 본다.
+    { href: '/contract', label: '계약진행', icon: NAV_ICON.contract, roles: ALL_ROLES },
+    { href: '/settlement', label: '정산확인', icon: FileText, roles: ['admin'] },
     { href: '/inventory', label: '재고관리', icon: NAV_ICON.inventory, roles: ['provider', 'admin'] },
     // 정책관리(/policy)는 메뉴에서 뺐다(사장님 2026-08-19 「이제 필요 없고, 파트너사관리에서 공급사별로 등록·수정·삭제」).
     //  /policy 는 파트너사관리 › 계약정책에서 여는 편집 화면으로만 산다(provider=코드 스코프 · return=partner). 공급사 정책 입력은 제공시트 「운영정책」 탭.
@@ -85,10 +72,6 @@ const SIMPLE_GROUPS: typeof GROUPS = [{
   items: [
     // 관리자 전용 — 페이지(/members)는 하나, 탭 쿼리로 파트너사·회원을 가른다(사장님 2026-08-19: 메뉴에 있어야 함).
     { href: '/esign', label: NAV_LABEL.esign, icon: NAV_ICON.esign, roles: ['admin'] },
-    // 계약서관리 바로 밑 — 계약서를 보낸 그다음이 인도·청구다(사장님 2026-08-26).
-    //   정산관리(/settlement/ledger) = 접수를 만들고 인도·청구를 굴리는 곳.
-    //   정산확인(/settlement) = 관리자가 만들어 놓은 정산을 «확인»하는 곳. 축이 다르다.
-    { href: '/settlement/ledger', label: NAV_LABEL.ledger, icon: NAV_ICON.ledger, roles: ['admin'] },
     { href: '/members?tab=partner', label: NAV_LABEL.partners, icon: Users, roles: ['admin'] },
     { href: '/members?tab=user', label: NAV_LABEL.members, icon: Users, roles: ['admin'] },
   ],
@@ -99,16 +82,12 @@ function statusFromPath(path: string): ReactNode {
   if (path === '/finder') return <PageStatus icon={NAV_ICON.product} label={NAV_LABEL.product} />;
   if (path.startsWith('/m/')) return <PageStatus icon={NAV_ICON.product} label="상품 상세" />;
   if (path.startsWith('/chat')) return <PageStatus icon={NAV_ICON.chat} label="문의 미확인" />;
-  if (path.startsWith('/contract')) return <PageStatus icon={NAV_ICON.contract} label={NAV_LABEL.contract} />;
+  if (path.startsWith('/contract')) return <PageStatus icon={NAV_ICON.contract} label="계약진행" />;
   if (path.startsWith('/inventory')) return <PageStatus icon={NAV_ICON.inventory} label={NAV_LABEL.inventory} />;
   if (path.startsWith('/sonogong')) return <PageStatus icon={RefreshCw} label="중고차 렌트구독 견적기" />;
   if (path.startsWith('/welrix')) return <PageStatus icon={Sparkles} label="신차장기렌터카 견적기" />;
   if (path.startsWith('/policy')) return <PageStatus icon={statusIconFor('정책')} label={NAV_LABEL.policy} />;
   if (path.startsWith('/esign')) return <PageStatus icon={FileSignature} label={NAV_LABEL.esign} />;
-  // ⚠ **긴 경로를 먼저 본다.** `/settlement` 가 `/settlement/ledger` 를 먼저 잡아채면
-  //   정산관리에 들어가도 상단바에 「월별정산」이 뜬다(실측 2026-08-26).
-  if (path.startsWith('/settlement/ledger')) return <PageStatus icon={NAV_ICON.ledger} label={NAV_LABEL.ledger} />;
-  if (path.startsWith('/settlement/invoice')) return <PageStatus icon={NAV_ICON.ledger} label="정산서" />;
   if (path.startsWith('/settlement')) return <PageStatus icon={statusIconFor('정산')} label={NAV_LABEL.settlement} />;
   if (path.startsWith('/members')) return <PageStatus icon={statusIconFor('회원')} label={NAV_LABEL.members} />;
   if (path.startsWith('/audit')) return <PageStatus icon={statusIconFor('감사')} label={NAV_LABEL.audit} />;
@@ -228,7 +207,12 @@ function NavMenu({ mobile, open: openProp, setOpen: setOpenProp }: {
   const setOpen = setOpenProp ?? setOpenLocal;
   // SSR·첫 클라 동일 — getRole()은 마운트 후(hydration mismatch 방지).
   const [role, setRole] = useState<Role>('agent');
-  const { badges, refresh: refreshBadges } = useMenuBadges(role, `${session?.uid || ''}:${session?.rawRole || ''}:${session?.company_code || ''}`);
+  const [badges, setBadges] = useState<MenuBadgeMap>({});
+  const refreshBadges = useCallback((r: Role) => {
+    let alive = true;
+    loadMenuBadges(r).then((m) => { if (alive) setBadges(m); }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
   useEffect(() => {
     setRole(getRole());
     const onRole = (e: Event) => setRole((e as CustomEvent).detail as Role);
@@ -241,9 +225,27 @@ function NavMenu({ mobile, open: openProp, setOpen: setOpenProp }: {
     };
   }, [session]);
   useEffect(() => {
-    if (open) refreshBadges();
+    // 앞선 요청은 취소하고 다시 — 취소자를 버리면 언마운트 뒤 늦은 응답이 setState 한다.
+    let cancel = refreshBadges(role);
+    const run = () => { cancel(); cancel = refreshBadges(role); };
+    // 보이는 동안만 주기 갱신 — 상대가 보낸 새 문의는 이쪽에 알릴 계기가 없다(QA SYNC-1).
+    //  focus 만으로는 모바일에서 앱 전환 복귀가 안 잡혀 visibilitychange 도 같이 듣는다.
+    const tick = () => { if (document.visibilityState === 'visible') run(); };
+    const id = window.setInterval(tick, 30_000);
+    window.addEventListener('focus', run);
+    document.addEventListener('visibilitychange', tick);
+    window.addEventListener('fp:unread', run);
+    return () => {
+      cancel();
+      window.clearInterval(id);
+      window.removeEventListener('focus', run);
+      document.removeEventListener('visibilitychange', tick);
+      window.removeEventListener('fp:unread', run);
+    };
+  }, [role, refreshBadges]);
+  useEffect(() => {
+    if (open) refreshBadges(role);
   }, [open, role, refreshBadges]);
-  const router = useRouter();
   const path = usePathname();
   const searchParams = useSearchParams();
   // 메뉴 href 가 쿼리(`/members?tab=partner`)를 가질 수 있다 — 경로는 pathname, 쿼리는 searchParams 로 각각 대조.
@@ -261,38 +263,10 @@ function NavMenu({ mobile, open: openProp, setOpen: setOpenProp }: {
     : role;
   // 관리자는 역할 게이트를 통과한다 — 모든 메뉴가 보인다(항목마다 roles 에 admin 을 넣지 않아도 되게 여기서 규칙화).
   const seesAll = menuRole === 'admin';
-  /**
-   * 모바일 = **하단탭에 있는 항목은 메뉴에서 뺀다** — 다만 2026-08-22 저녁 확정으로 모바일 NavMenu 는
-   * TopBar 에서 아예 렌더되지 않는다(사장님 「햄버거 안 없어짐」 — 관리자까지 전부 제거,
-   * 관리자 전용 화면은 설정 › 관리 ListRow 로). 이 필터는 웹엔 영향 없고, 모바일을 되살릴 때의 규칙으로 남긴다.
-   */
-  const tabHrefs = mobile ? new Set(appTabsFor(menuRole).map((t) => t.href)) : null;
   const groups = SIMPLE_GROUPS.map((g) => ({
     ...g,
-    items: g.items.filter((it) => (seesAll || !it.roles || it.roles.includes(menuRole))
-      && !(mobile && it.hideMobile)
-      && !(tabHrefs && tabHrefs.has((it.href || '').split('?')[0]))),
+    items: g.items.filter((it) => (seesAll || !it.roles || it.roles.includes(menuRole)) && !(mobile && it.hideMobile)),
   })).filter((g) => g.items.length);
-  // 전체메뉴는 사용자가 다음 화면을 고르는 순간이다. 실제로 보이는 소수의 route shell만
-  // 유휴 시간에 미리 받아 두면 메뉴에서 누른 뒤 멈춘 듯한 전환을 줄일 수 있다.
-  // 수백 개 상품 상세나 soon 항목은 이 범위에 넣지 않는다.
-  useEffect(() => {
-    if (!open) return;
-    const preload = () => {
-      for (const group of groups) {
-        for (const item of group.items) if (item.href && !item.soon && !isActive(item.href)) router.prefetch(item.href);
-      }
-    };
-    const idle = typeof window.requestIdleCallback === 'function'
-      ? window.requestIdleCallback(preload, { timeout: 1_200 })
-      : window.setTimeout(preload, 220);
-    return () => {
-      if (typeof window.cancelIdleCallback === 'function' && typeof idle === 'number') window.cancelIdleCallback(idle);
-      else window.clearTimeout(idle as number);
-    };
-  // groups is derived from role/session and re-created every render; its primitive visibility inputs are enough.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, menuRole, path, searchParams, router]);
   const line = C.line, ink = C.ink, mute = C.mute, weak = C.faint;
   // 웹=좌측 드롭다운 · 모바일=풀스크린
   const panel: CSSProperties = mobile
@@ -301,27 +275,16 @@ function NavMenu({ mobile, open: openProp, setOpen: setOpenProp }: {
   const iPad = mobile ? '14px 20px' : '10px 12px';
   const iFont = mobile ? 16 : FS.body;
   const iSize = mobile ? 20 : 15;
-  // 모바일에서 탭 중복을 걷어내고 남는 항목이 없으면 버튼째 숨긴다(위 주석). 훅은 전부 위에서 이미 돌았다.
-  if (mobile && !groups.length) return null;
   return (
     <div style={{ position: 'relative', flex: '0 0 auto' }}>
       <IconBtn
         title={open ? (mobile ? '더보기 닫기' : '전체메뉴 닫기') : (mobile ? '더보기' : '전체메뉴')}
         onClick={() => { haptic.nav(); setOpen((o) => !o); }}
-        /* 모바일 = **박스 없는 맨 아이콘**(사장님 2026-08-22 「상단에는 아이콘에 박스가 없이 그냥 아이콘만」— 회색 칩은 하루 만에 회귀).
-           글리프는 하단 탭·검색줄과 같은 ICON.xl(20px).
-           버튼(40) 안에서 잉크가 10px 안으로 들어가므로
-           marginRight -10 으로 잉크 우측 끝을 12px 기준선에 앉힌다 — 터치 영역은 40 그대로다.
-
-           ★**모바일 모양은 CSS 가 준다**(사장님 2026-08-23 「상단 아이콘 위치가 틀어지는 거 같은데 · 새로고침 하면 괜찮아지고」).
-             여기 인라인은 **데스크톱 기준**만 적는다. 전에는 `mobile ? … : …` 로 갈랐는데 그 `mobile` 은
-             `useIsMobile()` = JS 판정이라, 쿠키 `fp_m` 이 없는 첫 방문에서 하이드레이션이 «데스크톱»으로 잡히고
-             테두리 있는 박스가 marginRight 없이 그려져 **아이콘이 12px 밀렸다.** 새로고침하면 쿠키가 생겨 멀쩡해 보였다.
-             CSS 미디어쿼리는 첫 페인트부터 맞으므로 `.fp-topbar__menu` 규칙(globals.css)이 모양을 정한다. */
-        className="fp-topbar__menu"
-        style={{ background: open ? C.hover : C.taupeBg, color: ink, border: `1px solid ${line}` }}
+        style={mobile
+          ? { border: 'none', background: open ? C.hover : 'transparent', color: ink }
+          : { background: open ? C.hover : C.taupeBg, color: ink, border: `1px solid ${line}` }}
       >
-        {open ? <X size={ICON.xl} strokeWidth={2.25} /> : <Menu size={ICON.xl} strokeWidth={2.25} />}
+        {open ? <X size={mobile ? ICON.xl : ICON.lg} /> : <Menu size={mobile ? ICON.xl : ICON.lg} />}
       </IconBtn>
       {open && (<>
         {!mobile && <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 74 }} />}
@@ -392,8 +355,8 @@ export default function TopBar() {
   if (path === '/' || path === '/erp5' || path.startsWith('/erp5/') || path === '/login' || path === '/m' || path.startsWith('/q/') || path.startsWith('/catalog') || path.startsWith('/sign/')) return null;
   const backLabel = backKind === 'list' ? '목록' : '이전';
   const backIcon = backKind === 'list'
-    ? <List size={mobile ? ICON.xl : ICON.md} strokeWidth={2.25} />
-    : <ChevronLeft size={mobile ? ICON.xl : ICON.md} strokeWidth={2.25} />;
+    ? <List size={mobile ? 18 : 16} strokeWidth={2.25} />
+    : <ChevronLeft size={mobile ? 18 : 16} strokeWidth={2.25} />;
   const backBtn = back ? (
     mobile ? (
       <IconBtn title={backLabel} haptic="back" onClick={() => { back(); }}>{backIcon}</IconBtn>
@@ -424,8 +387,7 @@ export default function TopBar() {
       {/* 왼쪽 여백은 **본문 칼럼을 따라간다**(--fp-col-l, lib/content-column) — 햄버거와 하단 「이전」이
           같은 세로선에 서야 한다. 본문이 화면 중앙이 아닐 때(옆에 보조 칼럼) 화면 기준으로는 못 맞춘다.
           변수를 안 쓰는 페이지는 0 → max() 가 기본값 14 를 지킨다. 우측(로그인 정보)은 화면 끝 그대로. */}
-      {/* 상단바 = 하단 라인 «하나만» — 그림자 없음. 모바일 좌우 12px = 검색줄·목록과 같은 세로선(사장님 2026-08-22 「좌우 여백·배열」). */}
-      <header className="fp-topbar" style={{ position: 'sticky', top: 0, zIndex: 70, height: 'var(--topbar-h)', display: 'flex', alignItems: 'center', gap: 8, padding: '0 14px', paddingLeft: 'max(14px, var(--fp-col-l, 0px))', background: C.taupeBg, borderBottom: `1px solid ${line}`, boxSizing: 'border-box' }}>
+      <header className="fp-topbar" style={{ position: 'sticky', top: 0, zIndex: 70, height: 'var(--topbar-h)', display: 'flex', alignItems: 'center', gap: 8, padding: '0 12px 0 14px', paddingLeft: mobile ? undefined : 'max(14px, var(--fp-col-l, 0px))', background: C.taupeBg, borderBottom: `1px solid ${line}`, boxSizing: 'border-box', boxShadow: 'var(--shadow-sm)' }}>
         {/* 웹=메뉴 좌측 · 모바일=우측 */}
         {!mobile && <NavMenu mobile={false} open={menuOpen} setOpen={setMenuOpen} />}
         {/* 좌·중앙 = 상태 — 탭하면 이 페이지 새로 온 느낌(스크롤↑·목록·시트닫기) */}
@@ -462,8 +424,6 @@ export default function TopBar() {
           </span>
         )}
         {!mobile && <WebSessionMeta />}
-        {/* 모바일 햄버거 = **탭에 없는 메뉴가 남는 역할(관리자)만**(사장님 2026-08-22 밤 「관리자 햄버거 ㅇㅋ, 다른 거 할 것도 있으니까」
-            — 전부 뺐다가 되돌림). 영업자·공급사는 메뉴가 탭과 완전 중복이라 NavMenu 가 스스로 안 그린다(빈 메뉴 → null). */}
         {mobile && <NavMenu mobile open={menuOpen} setOpen={setMenuOpen} />}
       </header>
       {/* 모바일 이전만 하단독 — 우측 액션은 상단(위)으로. 액션 중복 금지. */}
