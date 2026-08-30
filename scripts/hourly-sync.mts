@@ -186,7 +186,7 @@ heartbeat.unref();
 const out: string[] = [`■ 시간별 동기화 ${APPLY ? '반영' : '미리보기'} ${kst()} KST`];
 const line: string[] = [];
 /** 상태로그 뼈대 — 연동지도가 요구하는 «단계별·커버리지·경고». 코덱스가 이걸 읽는다. */
-const steps: Array<{ 단계: string; ok: boolean; 신호?: string; 요약?: string }> = [];
+const steps: Array<{ 단계: string; ok: boolean; 초?: number; 신호?: string; 요약?: string }> = [];
 const warnings: string[] = [];
 let coverage: { 총: number; 매칭: number; 모델없음: number; 트림실패: number; 매칭율: number } | null = null;
 /** 한 단계라도 실패하면 false — 성공으로 «기록»하지 않기 위해서다. */
@@ -218,6 +218,7 @@ const sleep = (ms: number) => { Atomics.wait(new Int32Array(new SharedArrayBuffe
 const run = (label: string, args: string[], pick: RegExp, runner: 'npx' | 'node' = 'npx', signal2ok = false): { ok: boolean; picked: string[] } => {
   const bin = runner === 'node' ? 'node' : (process.platform === 'win32' ? 'npx.cmd' : 'npx');
   const argv = runner === 'node' ? args : ['tsx', ...args];
+  const stepStarted = Date.now();
   for (let attempt = 1; ; attempt += 1) {
     touchLock();   // 시작 «전»에도 만진다 — 자식이 도는 동안은 못 만지므로 공백을 절반으로 줄인다
     /* 잠금을 뺏겼으면 **여기서 물러난다.** 뒤늦게 깨어난 쪽이 시트·ERP 를 같이 쓰면 안 된다. */
@@ -246,7 +247,15 @@ const run = (label: string, args: string[], pick: RegExp, runner: 'npx' | 'node'
     /* ★단계 결과를 남긴다. 「경고로 넘긴 단계」도 상태로그에서는 성공이 아니다.
        (코덱스 2026-08-30: 「⑩ 이 실패해도 ok:true 로 기록해 천이가 조용히 낡을 수 있다」) */
     touchLock();   // 「나 아직 살아 있다」 — 단계마다 심장박동(코덱스 2026-08-30 2차)
-    steps.push({ 단계: label, ok, ...(신호 ? { 신호: '어긋남 있음' } : null), ...(picked.length ? { 요약: picked.slice(0, 3).join(' | ').slice(0, 300) } : null) });
+    /* ★단계마다 «몇 초 걸렸나»를 남긴다. 2026-08-30 18시 회차가 37분(평소 12분)이었는데
+       단계별 시간이 없어 «어디가 느렸는지» 끝내 못 좁혔다. 결과값은 멀쩡했다 — 시간만 셋이 됐다.
+       느려지는 것은 대개 «무엇이 무너지기 전»의 첫 신호다. 그걸 보려면 재 두어야 한다. */
+    const 초 = Math.round((Date.now() - stepStarted) / 1000);
+    steps.push({ 단계: label, ok, 초, ...(신호 ? { 신호: '어긋남 있음' } : null), ...(picked.length ? { 요약: picked.slice(0, 3).join(' | ').slice(0, 300) } : null) });
+    if (초 >= 300) {   // 5분 넘게 걸린 단계는 눈에 띄게 남긴다
+      const w = `${label} 이 ${Math.round(초 / 60)}분 걸렸다(평소보다 오래)`;
+      warnings.push(w); console.log(`   ⏱ ${w}`);
+    }
     if (신호) warnings.push(`${label} — 어긋남 있음(신호)`);
     else if (!ok) { allOk = false; warnings.push(`${label} 실패`); }
     return { ok, picked };
