@@ -231,7 +231,12 @@ export function ProductDetail({ p, audience, layout = 'brochure' }: {
             )}
             <span style={{ position: 'absolute', right: 8, bottom: 8, background: SCRIM.heavy, color: C.inverse, fontSize: FS.cap, fontWeight: FW.strong, padding: '2px 8px', borderRadius: R, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', pointerEvents: 'none' }}>{mainIdx + 1} / {photos.length}</span>
           </div>
-          {photos.length > 1 && (
+          {/* ★세로 썸네일 칸 = **웹 전용**(사장님 2026-08-30 「모바일에선 그거 필요없어, 그냥 바로 눌러서 볼 거기 때문에」).
+              폰에서는 사진을 «고르지» 않는다 — 큰 사진을 좌우로 밀거나 눌러서 크게 본다.
+              그 위에 72px 칸이 붙으면 큰 사진이 그만큼 좁아지는데, 정작 그 칸으로 고르는 사람이 없다.
+              넘김 수단은 그대로 남는다: 스와이프 · ‹ › · 우하단 「N / M」 · 눌러서 전체화면.
+              ⚠ 썸네일 스크롤 효과들(thumbRef)은 ref 가 null 이면 스스로 물러나므로 여기만 막으면 된다. */}
+          {!mobile && photos.length > 1 && (
             <div style={{ flex: `0 0 ${THUMB_COL_W}px`, position: 'relative' }}>
               {thumbOverflow && (
                 <IconBtn
