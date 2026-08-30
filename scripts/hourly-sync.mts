@@ -27,6 +27,7 @@
  */
 import { appendFileSync, existsSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
+import { Worker } from 'node:worker_threads';
 
 const APPLY = process.argv.includes('--apply');
 const A = APPLY ? ['--apply'] : [];
@@ -42,11 +43,11 @@ const started = Date.now();
  */
 const LOCK = 'tmp/hourly-sync.lock';
 /**
- * 심장박동 — 살아 있는 실행은 **단계마다 lock 을 만진다**(`touchLock`).
- * 한 단계가 이보다 오래 걸릴 일은 없다(실측 최장 ⑥ 발행 ~5분). 이 시간이 지나도록
- * 안 만져졌으면 그 실행은 죽었거나 멎은 것이다.
+ * 심장박동 — 살아 있는 실행은 **30초마다** lock 을 만진다(아래 일꾼 스레드).
+ * 이 시간(5분)이 지나도록 안 만져졌으면 그 실행은 죽었다.
+ * ★단계가 아무리 길어도 심장은 계속 뛰므로, 「긴 단계 = 죽은 것」으로 오해하지 않는다.
  */
-const HEARTBEAT_STALE_MS = 45 * 60_000;
+const HEARTBEAT_STALE_MS = 5 * 60_000;
 /**
  * 겹침 잠금 — **PID 생존 + 심장박동** 둘 다 봐야 한다.
  *
@@ -91,6 +92,33 @@ const touchLock = () => {
   if (owner !== null && owner !== process.pid) { lockLost = true; return; }
   try { writeLock(); } catch { /* 지워졌으면 다음 단계에서 다시 쓴다 */ }
 };
+/**
+ * ★심장은 «단계 사이»가 아니라 **쉬지 않고** 뛰어야 한다.
+ *
+ *   코덱스 4차: 「touchLock 은 spawnSync 전후에서만 뛴다. 한 단계가 창을 넘기면 B 가 lock 을 가져가고,
+ *   A 가 그걸 아는 건 그 단계가 끝난 뒤다 — 그때는 이미 시트에 썼다. 창을 45분으로 늘린 건
+ *   확률을 낮출 뿐 구멍을 닫지 못한다.」 맞다.
+ *
+ *   그래서 **일꾼 스레드**가 30초마다 lock 을 만진다. 메인 스레드가 spawnSync 로 막혀 있어도
+ *   스레드는 따로 돈다. 프로세스가 죽으면 스레드도 같이 죽으니 «죽으면 안 뛴다»도 그대로다.
+ *   덕분에 창을 5분으로 «좁힐» 수 있다 — 좁을수록 죽은 실행이 빨리 풀린다.
+ *   ⚠ 일꾼도 주인을 확인한다. 뺏겼으면 만지지 않는다(되뺏지 않는다).
+ */
+const heartbeat = new Worker(`
+  const { parentPort, workerData } = require('node:worker_threads');
+  const { readFileSync, writeFileSync } = require('node:fs');
+  const { lock, pid } = workerData;
+  setInterval(() => {
+    try {
+      const owner = JSON.parse(readFileSync(lock, 'utf8')).pid;
+      if (owner !== pid) return;                 // 뺏겼다 — 되뺏지 않는다
+      writeFileSync(lock, JSON.stringify({ pid, heartbeat: new Date().toISOString() }));
+    } catch { /* 지워졌거나 읽는 중 — 다음 박동에 다시 */ }
+    /* ⚠ 이 타이머에 unref 를 걸면 일꾼의 할 일이 없어져 **스레드가 즉시 죽는다.**
+       처음에 그렇게 짰다가 실측(tmp 시험)에서 「5초 막힘 · 0초 갱신」으로 잡았다. */
+  }, 30_000);
+`, { eval: true, workerData: { lock: LOCK, pid: process.pid } });
+heartbeat.unref();
 /** 내 lock 일 때만 지운다 — 남의 실행 lock 을 지우면 그 실행이 무방비가 된다. */
 const releaseLock = () => {
   try {
@@ -244,7 +272,8 @@ const stop = (why: string) => {
   writeFileSync('tmp/hourly-sync-last.txt', out.join('\n'));
   appendFileSync('tmp/hourly-sync-log.txt', `${kst()} ${APPLY ? '반영' : '미리'} ${Math.round((Date.now() - started) / 1000)}초 · ${line.join(' · ')}\n`);
   writeStatus(false, why);
-  if (!lockLost) releaseLock();   // 뺏긴 lock 은 남의 것이다 — 지우면 그 실행이 무방비가 된다
+  if (!lockLost) releaseLock();
+  void heartbeat.terminate();   // 뺏긴 lock 은 남의 것이다 — 지우면 그 실행이 무방비가 된다
   console.log(`⛔ 중단 — ${why}`);
   if (APPLY) alertFail(why);
   process.exit(1);
@@ -454,6 +483,7 @@ writeFileSync('tmp/hourly-sync-last.txt', out.join('\n'));
 appendFileSync('tmp/hourly-sync-log.txt', `${kst()} ${APPLY ? '반영' : '미리'} ${seconds}초 · ${allOk ? '' : '⚠일부실패 · '}${line.join(' · ')}\n`);
 writeStatus(allOk);
 releaseLock();
+void heartbeat.terminate();
 /**
  * ★실패가 하나라도 있으면 «성공으로 끝내지 않는다».
  *   전에는 ⑦~⑪ 이 실패해도 ok:true 로 적고 exit 0 이라 천이가 조용히 낡아도 아무도 몰랐다
