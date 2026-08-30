@@ -32,12 +32,46 @@ const APPLY = process.argv.includes('--apply');
 const A = APPLY ? ['--apply'] : [];
 const kst = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 16).replace('T', ' ');
 const started = Date.now();
+/**
+ * 겹침 잠금 — **PID 로 살아 있는지 본다.** 시각으로만 재면 30분 넘는 실행이 겹친다.
+ *
+ * ★코덱스 2026-08-30 지적: 「30분이 지나면 기존 실행이 살아 있어도 새 실행이 lock 을 덮어쓴다.
+ *   먼저 끝난 실행이 lock 을 지우면 뒤 실행의 lock 도 함께 사라진다.」 — 실제로 이 전 구간은
+ *   손오공 pull 까지 붙어 30분을 넘길 수 있다(2026-08-30 dry-run 이 15분에도 안 끝났다).
+ * 그래서 «시간»이 아니라 «그 PID 가 살아 있나»로 판정하고, lock 은 **내가 쓴 것일 때만** 지운다.
+ */
 const LOCK = 'tmp/hourly-sync.lock';
-if (existsSync(LOCK) && Date.now() - statSync(LOCK).mtimeMs < 30 * 60_000) { console.log('앞의 실행이 아직 돈다(lock) — 이번은 건너뛴다'); process.exit(0); }
-writeFileSync(LOCK, kst());
+const LEGACY_STALE_MS = 6 * 60 * 60_000; // PID 없는 옛 lock 만 시간으로 판정한다
+function lockHeldByLiveRun(): boolean {
+  if (!existsSync(LOCK)) return false;
+  try {
+    const held = JSON.parse(readFileSync(LOCK, 'utf8')) as { pid?: number };
+    if (Number.isInteger(held.pid) && Number(held.pid) > 0) {
+      process.kill(Number(held.pid), 0); // 살아 있으면 예외가 안 난다
+      return true;
+    }
+  } catch { /* 옛 형식(시각 문자열)이거나 이미 끝난 PID */ }
+  return Date.now() - statSync(LOCK).mtimeMs < LEGACY_STALE_MS;
+}
+if (lockHeldByLiveRun()) { console.log('앞의 실행이 아직 돈다(lock) — 이번은 건너뛴다'); process.exit(0); }
+writeFileSync(LOCK, JSON.stringify({ pid: process.pid, startedAt: kst() }));
+/** 내 lock 일 때만 지운다 — 남의 실행 lock 을 지우면 그 실행이 무방비가 된다. */
+const releaseLock = () => {
+  try {
+    const held = JSON.parse(readFileSync(LOCK, 'utf8')) as { pid?: number };
+    if (held.pid !== process.pid) return;
+  } catch { /* 형식이 깨졌으면 내 것으로 본다 */ }
+  rmSync(LOCK, { force: true });
+};
 
 const out: string[] = [`■ 시간별 동기화 ${APPLY ? '반영' : '미리보기'} ${kst()} KST`];
 const line: string[] = [];
+/** 상태로그 뼈대 — 연동지도가 요구하는 «단계별·커버리지·경고». 코덱스가 이걸 읽는다. */
+const steps: Array<{ 단계: string; ok: boolean; 요약?: string }> = [];
+const warnings: string[] = [];
+let coverage: { 총: number; 매칭: number; 매칭율: number } | null = null;
+/** 한 단계라도 실패하면 false — 성공으로 «기록»하지 않기 위해서다. */
+let allOk = true;
 /**
  * runner = 'npx' (tsx 스크립트) · 'node' (손오공 .mjs — tsx 를 거칠 이유가 없다)
  *
@@ -47,7 +81,12 @@ const line: string[] = [];
  *   (run-sales-erp-hourly.mts 에 있던 장치를 정본 오케스트레이터로 옮겨 왔다 — 2026-08-30)
  */
 const RATE_LIMIT = /\b429\b|rate.?limit|quota|RESOURCE_EXHAUSTED/i;
-const sleep = (ms: number) => { const until = Date.now() + ms; while (Date.now() < until) { /* 동기 대기 — 단계는 순서대로만 돈다 */ } };
+/**
+ * 동기 대기 — `Atomics.wait` 로 **잠든다**. 바쁜 대기(while 루프)로 짰다가 코덱스에게 잡혔다:
+ * 30초×2회면 1분을 코어 하나 100% 로 태운다. 이 스크립트는 단계가 순서대로만 도는
+ * 동기 오케스트레이터라 async 로 바꿀 필요 없이 «진짜로 자는» 방법만 있으면 된다.
+ */
+const sleep = (ms: number) => { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); };
 const run = (label: string, args: string[], pick: RegExp, runner: 'npx' | 'node' = 'npx'): { ok: boolean; picked: string[] } => {
   const bin = runner === 'node' ? 'node' : (process.platform === 'win32' ? 'npx.cmd' : 'npx');
   const argv = runner === 'node' ? args : ['tsx', ...args];
@@ -66,6 +105,10 @@ const run = (label: string, args: string[], pick: RegExp, runner: 'npx' | 'node'
     out.push(`\n── ${label} ${ok ? '✓' : '✗'}${attempt > 1 ? ` (${attempt}회)` : ''}`, ...lines.slice(-40).map((l) => `   ${l.slice(0, 300)}`));
     console.log(`── ${label} ${ok ? '✓' : '✗'}${attempt > 1 ? ` (${attempt}회)` : ''}`);
     for (const l of picked.slice(0, 6)) console.log(`   ${l.slice(0, 220)}`);
+    /* ★단계 결과를 남긴다. 「경고로 넘긴 단계」도 상태로그에서는 성공이 아니다.
+       (코덱스 2026-08-30: 「⑩ 이 실패해도 ok:true 로 기록해 천이가 조용히 낡을 수 있다」) */
+    steps.push({ 단계: label, ok, ...(picked.length ? { 요약: picked.slice(0, 3).join(' | ').slice(0, 300) } : null) });
+    if (!ok) { allOk = false; warnings.push(`${label} 실패`); }
     return { ok, picked };
   }
 };
@@ -131,15 +174,26 @@ const alertRecovered = () => {
     [`${st.failingSince} 부터 ${st.count || 0}번 멈춰 있던 자동동기가 ${kst()} KST 에 다시 끝까지 돌았습니다.`, '', line.join(' · ')].join('\n'),
   );
 };
+/**
+ * 상태로그 — 연동지도 「매 실행 상태로그 → 코덱스 검증」. **사람이 아니라 검사기가 읽는 자리**다.
+ * 그래서 요약 문장이 아니라 «단계별·커버리지·경고»를 구조로 남긴다
+ * (코덱스 2026-08-30: 「요약뿐이라 검증에 충분하지 않다」).
+ */
+function writeStatus(ok: boolean, 중단?: string) {
+  writeFileSync('tmp/자동동기-상태.json', JSON.stringify({
+    시각: kst(), 반영: APPLY, 초: Math.round((Date.now() - started) / 1000),
+    ok, ...(중단 ? { 중단 } : null),
+    단계: steps, 커버리지: coverage, 경고: warnings, 요약: line,
+  }, null, 2));
+}
+
 const stop = (why: string) => {
   out.push(`\n⛔ 중단 — ${why}`); line.push(`중단(${why})`);
+  warnings.push(`중단 — ${why}`);
   writeFileSync('tmp/hourly-sync-last.txt', out.join('\n'));
   appendFileSync('tmp/hourly-sync-log.txt', `${kst()} ${APPLY ? '반영' : '미리'} ${Math.round((Date.now() - started) / 1000)}초 · ${line.join(' · ')}\n`);
-  /* 상태로그 — 실패도 남긴다. 코덱스가 이 파일을 읽어 검증한다(연동지도 「매 실행 상태로그」). */
-  writeFileSync('tmp/자동동기-상태.json', JSON.stringify({
-    시각: kst(), 반영: APPLY, 초: Math.round((Date.now() - started) / 1000), ok: false, 중단: why, 요약: line,
-  }, null, 2));
-  rmSync(LOCK, { force: true });
+  writeStatus(false, why);
+  releaseLock();
   console.log(`⛔ 중단 — ${why}`);
   if (APPLY) alertFail(why);
   process.exit(1);
@@ -164,15 +218,34 @@ if (existsSync(손오공계정)) {
   const cov = /총 (\d+)대 · 매칭 (\d+)/.exec(k2.picked.join(' ') || '');
   if (cov) {
     const rate = Math.round((Number(cov[2]) / Number(cov[1])) * 100);
+    coverage = { 총: Number(cov[1]), 매칭: Number(cov[2]), 매칭율: rate };
     line.push(`손오공 정제 ${rate}%(${cov[2]}/${cov[1]})`);
-    if (rate < 85) out.push(`\n⚠ 손오공 정제 매칭율 ${rate}% (<85%) — 차종마스터 시트 보강 필요`);
+    if (rate < 85) {
+      const w = `손오공 정제 매칭율 ${rate}% (<85%) — 차종마스터 시트 보강 필요`;
+      out.push(`\n⚠ ${w}`); warnings.push(w);
+    }
   } else line.push('손오공 정제 ok');
   const k3 = run('⓪ 손오공 재고시트', ['sonokong/scripts/손오공-재고시트.mjs', ...(APPLY ? ['--쓰기'] : [])], /재고 ←|실패|Error/, 'node');
   if (!k3.ok) stop('손오공 재고시트 실패');
+} else if (APPLY) {
+  /**
+   * ★계정이 없는데 `--apply` 로 도는 것은 **안전한 완주가 아니다**(코덱스 2026-08-30).
+   *   ⓪ 을 건너뛴 채 ⑥ 에서 손오공구독·픽업구독을 다시 발행하면 «낡은 재고»가 새 발행처럼 찍힌다.
+   *   GitHub Actions 에 손오공 시크릿을 붙이기 전에는 여기서 큰 소리로 멈추는 게 맞다 —
+   *   조용히 도는 것보다 「시크릿을 넣어라」고 실패하는 편이 낫다.
+   *   정말 손오공 없이 돌려야 하면 `--손오공없이` 를 명시한다(그때는 손오공 탭을 발행하지 않는다).
+   */
+  if (!process.argv.includes('--손오공없이')) {
+    stop('손오공 계정 없음 — sonokong/lib/wonja/.손오공계정.json (정말 없이 돌리려면 --손오공없이)');
+  }
+  line.push('손오공 건너뜀(계정 없음 · 명시)');
+  warnings.push('손오공 없이 진행 — 손오공구독·픽업구독은 발행하지 않는다');
 } else {
-  line.push('손오공 건너뜀(계정 없음)');
+  line.push('손오공 건너뜀(계정 없음 · 미리보기)');
   console.log('· ⓪ 손오공 — 계정 파일이 없어 건너뜁니다(sonokong/lib/wonja/.손오공계정.json)');
 }
+/** 손오공을 못 돌렸으면 손오공 탭은 «건드리지 않는다» — 낡은 값을 새로 발행하지 않기 위해. */
+const 손오공탭발행 = existsSync(손오공계정);
 
 // ① 정제시트(원본이 자체시트·홈페이지인 4곳) — 새 차 추가 · 사라진 차 출고불가 · 요금/상태 갱신
 const s1 = run('① 정제시트 갱신', ['scripts/sync-mirror-all.mts', ...A], /새 차|사라진|갱신할|끝|실패|✓|✗/);
@@ -204,15 +277,20 @@ if (!s5.ok) stop('차량번호 링크 실패'); line.push(s5.picked[0]?.replace(
 const p1 = run('⑥ 상품리스트', ['scripts/publish-origin-tab.mts', ...A], /우리 시트 |반영 완료|중단|Error/);
 if (!p1.ok) stop('상품리스트 발행 실패(공급사 0대 가드면 확인 후 --force-shrink)');
 line.push(p1.picked.find((l) => /반영 완료/.test(l))?.replace('반영 완료 — 탭 ', '') || '상품리스트 ok');
-const p2 = run('⑥ 손오공구독', ['scripts/publish-origin-tab.mts', '--only=RP012:구독', '--tab=손오공구독', '--at=1', ...A], /반영 완료|중단|Error/);
-if (!p2.ok) stop('손오공구독 발행 실패');
-const p2b = run('⑥ 손오공 요금블록', ['scripts/publish-sonogong-tab.mts', ...A], /반영 완료|Error/);
-if (!p2b.ok) stop('손오공 요금블록 실패');
-/* 픽업구독(손오공 픽업 = 티카) — 연동지도 「판매 4탭」의 하나. 빠져 있어 픽업이 판매시트에 안 실렸다. */
-const p2c = run('⑥ 픽업구독', ['scripts/publish-origin-tab.mts', '--only=RP012:픽업', '--tab=픽업구독', '--at=2', ...A], /반영 완료|중단|Error/);
-if (!p2c.ok) stop('픽업구독 발행 실패');
-const p2d = run('⑥ 픽업 요금블록', ['scripts/publish-sonogong-tab.mts', '--tab=픽업구독', ...A], /반영 완료|Error/);
-if (!p2d.ok) stop('픽업 요금블록 실패');
+/* 손오공 탭 셋은 ⓪ 이 돌았을 때만 발행한다 — 안 돌았으면 낡은 값을 새 발행으로 찍게 된다. */
+if (손오공탭발행) {
+  const p2 = run('⑥ 손오공구독', ['scripts/publish-origin-tab.mts', '--only=RP012:구독', '--tab=손오공구독', '--at=1', ...A], /반영 완료|중단|Error/);
+  if (!p2.ok) stop('손오공구독 발행 실패');
+  const p2b = run('⑥ 손오공 요금블록', ['scripts/publish-sonogong-tab.mts', ...A], /반영 완료|Error/);
+  if (!p2b.ok) stop('손오공 요금블록 실패');
+  /* 픽업구독(손오공 픽업 = 티카) — 연동지도 「판매 4탭」의 하나. 빠져 있어 픽업이 판매시트에 안 실렸다. */
+  const p2c = run('⑥ 픽업구독', ['scripts/publish-origin-tab.mts', '--only=RP012:픽업', '--tab=픽업구독', '--at=2', ...A], /반영 완료|중단|Error/);
+  if (!p2c.ok) stop('픽업구독 발행 실패');
+  const p2d = run('⑥ 픽업 요금블록', ['scripts/publish-sonogong-tab.mts', '--tab=픽업구독', ...A], /반영 완료|Error/);
+  if (!p2d.ok) stop('픽업 요금블록 실패');
+} else {
+  line.push('손오공·픽업 탭 발행 건너뜀');
+}
 const p3 = run('⑥ 오플구독', ['scripts/publish-origin-tab.mts', '--only=RP023', '--tab=오플구독', '--at=3', ...A], /반영 완료|중단|Error/);
 if (!p3.ok) stop('오플구독 발행 실패');
 const p3b = run('⑥ 오플 요금블록', ['scripts/publish-sonogong-tab.mts', '--tab=오플구독', ...A], /반영 완료|Error/);
@@ -295,13 +373,20 @@ line.push(feeN ? `요금검수 ${feeN[1]}대` : '요금검수 ok');
 if (feeN && Number(feeN[1]) > 6) out.push(`\n⚠ 요금검수 — 판매엔 있는데 ERP 요금 0인 차 ${feeN[1]}대(>6). 원산지·정제칸 구멍 의심`);
 
 const seconds = Math.round((Date.now() - started) / 1000);
-out.push(`\n■ 끝 ${kst()} KST · ${seconds}초`);
+out.push(`\n■ ${allOk ? '끝' : '끝(일부 실패)'} ${kst()} KST · ${seconds}초`);
 writeFileSync('tmp/hourly-sync-last.txt', out.join('\n'));
-appendFileSync('tmp/hourly-sync-log.txt', `${kst()} ${APPLY ? '반영' : '미리'} ${seconds}초 · ${line.join(' · ')}\n`);
-/* 상태로그 — 연동지도 「매 실행 상태로그 → 코덱스 검증」. 사람이 아니라 검사기가 읽는 자리다. */
-writeFileSync('tmp/자동동기-상태.json', JSON.stringify({
-  시각: kst(), 반영: APPLY, 초: seconds, ok: true, 요약: line,
-}, null, 2));
-rmSync(LOCK, { force: true });
+appendFileSync('tmp/hourly-sync-log.txt', `${kst()} ${APPLY ? '반영' : '미리'} ${seconds}초 · ${allOk ? '' : '⚠일부실패 · '}${line.join(' · ')}\n`);
+writeStatus(allOk);
+releaseLock();
+/**
+ * ★실패가 하나라도 있으면 «성공으로 끝내지 않는다».
+ *   전에는 ⑦~⑪ 이 실패해도 ok:true 로 적고 exit 0 이라 천이가 조용히 낡아도 아무도 몰랐다
+ *   (코덱스 2026-08-30). aiops 도 즉시 중단은 안 하지만 마지막에 exit 1 을 낸다 — 그 규격을 따른다.
+ */
+if (!allOk) {
+  console.log(`■ 끝(일부 실패) — ${seconds}초 · ${warnings.join(' · ')}`);
+  if (APPLY) alertFail(warnings.join(' · '));
+  process.exit(1);
+}
 if (APPLY) alertRecovered();   // 멈춰 있었다면 「복구됨」을 한 번 보낸다
 console.log(`■ 끝 — ${seconds}초 · 기록 tmp/hourly-sync-log.txt · 상태 tmp/자동동기-상태.json`);
