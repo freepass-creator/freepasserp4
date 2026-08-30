@@ -41,20 +41,40 @@ const started = Date.now();
  * 그래서 «시간»이 아니라 «그 PID 가 살아 있나»로 판정하고, lock 은 **내가 쓴 것일 때만** 지운다.
  */
 const LOCK = 'tmp/hourly-sync.lock';
-const LEGACY_STALE_MS = 6 * 60 * 60_000; // PID 없는 옛 lock 만 시간으로 판정한다
+/**
+ * 심장박동 — 살아 있는 실행은 **단계마다 lock 을 만진다**(`touchLock`).
+ * 한 단계가 이보다 오래 걸릴 일은 없다(실측 최장 ⑥ 발행 ~5분). 이 시간이 지나도록
+ * 안 만져졌으면 그 실행은 죽었거나 멎은 것이다.
+ */
+const HEARTBEAT_STALE_MS = 15 * 60_000;
+/**
+ * 겹침 잠금 — **PID 생존 + 심장박동** 둘 다 봐야 한다.
+ *
+ * ★코덱스 2026-08-30 1차: 「시각으로만 재면 30분 넘는 실행이 겹친다」 → PID 를 봤다.
+ * ★코덱스 2026-08-30 2차, 내가 못 본 두 가지:
+ *   ① **죽은 PID 가 최대 6시간 잠근다** — 비정상 종료(PC 재부팅·크래시) 뒤 자동동기가 여섯 시간 멎는다.
+ *   ② **PID 재사용** — OS 가 같은 번호를 딴 프로세스에 주면 「자동동기가 돌고 있다」고 오인해 영영 안 돈다.
+ *   둘 다 «PID 만 보기» 때문이다. 심장박동을 같이 보면 한 번에 풀린다 —
+ *   죽었으면 안 만져지고, 남의 프로세스는 애초에 안 만진다.
+ */
 function lockHeldByLiveRun(): boolean {
   if (!existsSync(LOCK)) return false;
+  const quiet = Date.now() - statSync(LOCK).mtimeMs;
+  if (quiet >= HEARTBEAT_STALE_MS) return false;  // 심장이 멎었다 — 죽은 PID·재사용 PID 둘 다 여기서 풀린다
   try {
     const held = JSON.parse(readFileSync(LOCK, 'utf8')) as { pid?: number };
     if (Number.isInteger(held.pid) && Number(held.pid) > 0) {
       process.kill(Number(held.pid), 0); // 살아 있으면 예외가 안 난다
-      return true;
+      return true;                       // 살아 있고 + 방금 만졌다 = 진짜 도는 중
     }
-  } catch { /* 옛 형식(시각 문자열)이거나 이미 끝난 PID */ }
-  return Date.now() - statSync(LOCK).mtimeMs < LEGACY_STALE_MS;
+  } catch { /* 옛 형식(시각 문자열)이거나 이미 끝난 PID — 아래 시간 판정으로 */ }
+  return true; // 형식은 몰라도 «방금 만져진» lock 이면 존중한다
 }
 if (lockHeldByLiveRun()) { console.log('앞의 실행이 아직 돈다(lock) — 이번은 건너뛴다'); process.exit(0); }
-writeFileSync(LOCK, JSON.stringify({ pid: process.pid, startedAt: kst() }));
+const writeLock = () => writeFileSync(LOCK, JSON.stringify({ pid: process.pid, startedAt: kst(), heartbeat: kst() }));
+writeLock();
+/** 단계마다 부른다 — 「나 아직 살아 있다」. */
+const touchLock = () => { try { writeLock(); } catch { /* 지워졌으면 다음 단계에서 다시 쓴다 */ } };
 /** 내 lock 일 때만 지운다 — 남의 실행 lock 을 지우면 그 실행이 무방비가 된다. */
 const releaseLock = () => {
   try {
@@ -69,7 +89,7 @@ const line: string[] = [];
 /** 상태로그 뼈대 — 연동지도가 요구하는 «단계별·커버리지·경고». 코덱스가 이걸 읽는다. */
 const steps: Array<{ 단계: string; ok: boolean; 신호?: string; 요약?: string }> = [];
 const warnings: string[] = [];
-let coverage: { 총: number; 매칭: number; 매칭율: number } | null = null;
+let coverage: { 총: number; 매칭: number; 모델없음: number; 트림실패: number; 매칭율: number } | null = null;
 /** 한 단계라도 실패하면 false — 성공으로 «기록»하지 않기 위해서다. */
 let allOk = true;
 /**
@@ -117,6 +137,7 @@ const run = (label: string, args: string[], pick: RegExp, runner: 'npx' | 'node'
     for (const l of picked.slice(0, 6)) console.log(`   ${l.slice(0, 220)}`);
     /* ★단계 결과를 남긴다. 「경고로 넘긴 단계」도 상태로그에서는 성공이 아니다.
        (코덱스 2026-08-30: 「⑩ 이 실패해도 ok:true 로 기록해 천이가 조용히 낡을 수 있다」) */
+    touchLock();   // 「나 아직 살아 있다」 — 단계마다 심장박동(코덱스 2026-08-30 2차)
     steps.push({ 단계: label, ok, ...(신호 ? { 신호: '어긋남 있음' } : null), ...(picked.length ? { 요약: picked.slice(0, 3).join(' | ').slice(0, 300) } : null) });
     if (신호) warnings.push(`${label} — 어긋남 있음(신호)`);
     else if (!ok) { allOk = false; warnings.push(`${label} 실패`); }
@@ -226,10 +247,14 @@ if (existsSync(손오공계정)) {
   const k2 = run('⓪ 손오공 정제(차종마스터 매칭)', ['sonokong/scripts/손오공-정제.mjs', '--json'], /총 \d+대|실패/, 'node');
   if (!k2.ok) stop('손오공 정제 실패');
   // 커버리지 — 「총 N대 · 매칭 N · 모델 시트에 없음 N · 트림/연식 매칭실패 N」. 85% 밑이면 차종마스터를 보강해야 한다.
-  const cov = /총 (\d+)대 · 매칭 (\d+)/.exec(k2.picked.join(' ') || '');
+  /* 연동지도 규격 = {총,매칭,모델없음,트림실패,매칭율} 다섯 칸. 셋만 적어 코덱스에게 잡혔다(2026-08-30 2차). */
+  const cov = /총 (\d+)대 · 매칭 (\d+) · 모델 시트에 없음 (\d+) · 트림\/연식 매칭실패 (\d+)/.exec(k2.picked.join(' ') || '');
   if (cov) {
     const rate = Math.round((Number(cov[2]) / Number(cov[1])) * 100);
-    coverage = { 총: Number(cov[1]), 매칭: Number(cov[2]), 매칭율: rate };
+    coverage = {
+      총: Number(cov[1]), 매칭: Number(cov[2]),
+      모델없음: Number(cov[3]), 트림실패: Number(cov[4]), 매칭율: rate,
+    };
     line.push(`손오공 정제 ${rate}%(${cov[2]}/${cov[1]})`);
     if (rate < 85) {
       const w = `손오공 정제 매칭율 ${rate}% (<85%) — 차종마스터 시트 보강 필요`;
@@ -247,10 +272,14 @@ if (existsSync(손오공계정)) {
    *   정말 손오공 없이 돌려야 하면 `--손오공없이` 를 명시한다(그때는 손오공 탭을 발행하지 않는다).
    */
   if (!process.argv.includes('--손오공없이')) {
+    /* 중단도 «단계»로 남긴다 — run() 을 안 거치면 steps[] 가 비어 코덱스가 못 읽는다(2026-08-30 2차). */
+    steps.push({ 단계: '⓪ 손오공', ok: false, 요약: '계정 파일 없음' });
+    allOk = false;
     stop('손오공 계정 없음 — sonokong/lib/wonja/.손오공계정.json (정말 없이 돌리려면 --손오공없이)');
   }
   line.push('손오공 건너뜀(계정 없음 · 명시)');
-  warnings.push('손오공 없이 진행 — 손오공구독·픽업구독은 발행하지 않는다');
+  warnings.push('손오공 없이 진행 — 손오공구독·픽업구독 발행과 ⑩ 천이를 건너뛴다');
+  warnings.push('⚠ ⑦ ERP 동기는 그대로 돈다 — 판매시트의 «낡은 손오공 탭»이 ERP 로 다시 반영될 수 있다');
 } else {
   line.push('손오공 건너뜀(계정 없음 · 미리보기)');
   console.log('· ⓪ 손오공 — 계정 파일이 없어 건너뜁니다(sonokong/lib/wonja/.손오공계정.json)');
@@ -371,8 +400,20 @@ line.push(driftSummary || '상태 갈림 검사 실패');
  *   ⚠ 담당 GitHub Actions 가 main 에 없어 크론이 영영 안 돌아 천이가 3일 묵어 있었다(2026-08-28).
  *      그래서 매시간 도는 이 잡에 붙여 둔다.
  */
-const ch = run('⑩ 천이 카드시트', ['scripts/publish-channel-cards.mts', '--channel=천이컴퍼니', ...A], /반영 완료|Error/);
-line.push(ch.ok ? '천이 ok' : '천이 실패');
+/**
+ * ★손오공을 못 돌린 회차에는 **천이를 찍지 않는다**(코덱스 2026-08-30 2차).
+ *   천이 카드는 «손오공 정제칸만» 먹는다. 손오공이 낡은 채로 다시 찍으면
+ *   「방금 갱신된 카드」로 보이는 낡은 값이 채널에 나간다 — 안 찍는 편이 낫다.
+ *   ⑦ ERP 동기는 전 공급사가 걸려 있어 멈출 수 없다. 대신 경고를 크게 남긴다.
+ */
+if (손오공탭발행) {
+  const ch = run('⑩ 천이 카드시트', ['scripts/publish-channel-cards.mts', '--channel=천이컴퍼니', ...A], /반영 완료|Error/);
+  line.push(ch.ok ? '천이 ok' : '천이 실패');
+} else {
+  const w = '천이 건너뜀 — 손오공을 못 돌린 회차라 낡은 카드를 새로 찍지 않는다';
+  line.push('천이 건너뜀'); warnings.push(w); out.push(`
+⚠ ${w}`);
+}
 
 /**
  * ⑪ 자기검수 — 판매↔ERP 요금 정합. 「판매엔 있는데 ERP 요금 0」인 차 수를 남긴다.
