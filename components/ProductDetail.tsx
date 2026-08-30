@@ -407,7 +407,12 @@ export function ProductDetail({ p, audience, layout = 'brochure' }: {
           <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: 880, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
             {photos.map((ph, i) => (
               <div key={i} style={{ position: 'relative' }}>
-                {(
+                {/* ★사진 «한 장» 내려받기 = 웹 전용(사장님 2026-08-30 「모바일에서는 그 사진 개별 다운받는
+                    버튼 없애자, 아예 기능 자체가 필요 없어」).
+                    폰에는 이미 OS 가 그 일을 한다 — 사진을 길게 누르면 저장된다. 그 위에 우리 버튼을 겹치면
+                    사진 우상단을 가리기만 하고, 손가락으로 넘기다 잘못 눌러 받아지기도 한다.
+                    영업자가 파일이 필요한 경우는 웹에서 우측 패널의 「사진 N장 내려받기」(묶음)로 받는다. */}
+                {!mobile && (
                   <IconBtn
                     title={`사진 ${i + 1} 한 장 받기`}
                     onClick={(e) => { e.stopPropagation(); void downloadOnePhoto(ph, i); }}
