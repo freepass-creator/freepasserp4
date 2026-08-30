@@ -25,7 +25,7 @@
  *   npx tsx scripts/hourly-sync.mts --apply
  * ⚠ 겹쳐 돌지 않는다 — tmp/hourly-sync.lock 이 있으면(30분 안) 그냥 끝낸다(작업 스케줄러가 겹쳐 부르는 것 대비).
  */
-import { appendFileSync, existsSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { appendFileSync, closeSync, existsSync, openSync, readFileSync, renameSync, rmSync, statSync, writeFileSync, writeSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { Worker } from 'node:worker_threads';
 
@@ -49,84 +49,80 @@ const LOCK = 'tmp/hourly-sync.lock';
  */
 const HEARTBEAT_STALE_MS = 5 * 60_000;
 /**
- * 겹침 잠금 — **PID 생존 + 심장박동** 둘 다 봐야 한다.
- *
- * ★코덱스 2026-08-30 1차: 「시각으로만 재면 30분 넘는 실행이 겹친다」 → PID 를 봤다.
- * ★코덱스 2026-08-30 2차, 내가 못 본 두 가지:
- *   ① **죽은 PID 가 최대 6시간 잠근다** — 비정상 종료(PC 재부팅·크래시) 뒤 자동동기가 여섯 시간 멎는다.
- *   ② **PID 재사용** — OS 가 같은 번호를 딴 프로세스에 주면 「자동동기가 돌고 있다」고 오인해 영영 안 돈다.
- *   둘 다 «PID 만 보기» 때문이다. 심장박동을 같이 보면 한 번에 풀린다 —
- *   죽었으면 안 만져지고, 남의 프로세스는 애초에 안 만진다.
+ * ★**실행 표딱지(runId)** — PID 가 아니라 이걸로 주인을 가린다.
+ *   PID 는 OS 가 재사용한다. 표딱지는 안 겹친다(pid + 시작시각 + 난수).
  */
-function lockHeldByLiveRun(): boolean {
-  if (!existsSync(LOCK)) return false;
-  const quiet = Date.now() - statSync(LOCK).mtimeMs;
-  if (quiet >= HEARTBEAT_STALE_MS) return false;  // 심장이 멎었다 — 죽은 PID·재사용 PID 둘 다 여기서 풀린다
-  try {
-    const held = JSON.parse(readFileSync(LOCK, 'utf8')) as { pid?: number };
-    if (Number.isInteger(held.pid) && Number(held.pid) > 0) {
-      process.kill(Number(held.pid), 0); // 살아 있으면 예외가 안 난다
-      return true;                       // 살아 있고 + 방금 만졌다 = 진짜 도는 중
-    }
-  } catch { /* 옛 형식(시각 문자열)이거나 이미 끝난 PID — 아래 시간 판정으로 */ }
-  return true; // 형식은 몰라도 «방금 만져진» lock 이면 존중한다
-}
-if (lockHeldByLiveRun()) { console.log('앞의 실행이 아직 돈다(lock) — 이번은 건너뛴다'); process.exit(0); }
-const writeLock = () => writeFileSync(LOCK, JSON.stringify({ pid: process.pid, startedAt: kst(), heartbeat: kst() }));
-writeLock();
-/**
- * 단계마다 부른다 — 「나 아직 살아 있다」. **다만 먼저 «내 lock 이 맞나»를 본다.**
- *
- * ★코덱스 2026-08-30 3차: 「A 의 한 단계가 창을 넘기면 B 가 lock 을 가져가고,
- *   그 뒤 A 가 touchLock 으로 B 의 lock 을 «자기 것으로 덮어써» 둘이 같이 돈다.」
- *   그래서 덮어쓰기 전에 주인을 확인하고, **뺏겼으면 내가 멈춘다** — 뺏어오지 않는다.
- *   (뒤늦게 깨어난 쪽이 물러나는 게 맞다. 새 실행은 처음부터 다시 도니 잃는 것도 없다.)
- */
-const lockOwner = (): number | null => {
-  try { return (JSON.parse(readFileSync(LOCK, 'utf8')) as { pid?: number }).pid ?? null; } catch { return null; }
+const RUN_ID = `${process.pid}-${started}-${Math.random().toString(36).slice(2, 8)}`;
+type LockFile = { runId?: string; pid?: number; startedAt?: string; heartbeat?: string };
+const readLock = (): LockFile | null => {
+  try { return JSON.parse(readFileSync(LOCK, 'utf8')) as LockFile; } catch { return null; }
 };
+/**
+ * 잠금 «획득» — **원자적으로** 한 놈만 이긴다.
+ *
+ * ★코덱스 2026-08-30 5차: 「있나 보고 → 쓰기」 사이가 벌어져 있어, 둘이 동시에 「없네」를 보면
+ *   둘 다 자기 것으로 덮어쓰고 같이 돈다. 심장박동은 «획득한 뒤»의 생존만 보장할 뿐 이 경쟁은 못 막는다.
+ *
+ * 그래서 둘 다 OS 의 원자적 연산으로 바꿨다.
+ *   ① 새로 잡기   `open(..., 'wx')` — 파일이 이미 있으면 실패한다. 만드는 것과 «내가 만들었다»가 한 번에 일어난다.
+ *   ② 죽은 것 뺏기 `rename(LOCK, LOCK.claim-내표딱지)` — 이름 바꾸기도 원자적이라 **한 놈만 성공**한다.
+ *      진 쪽은 ENOENT 를 받고 조용히 물러난다. 「죽었네」를 둘이 동시에 봐도 뺏는 건 하나뿐이다.
+ */
+function acquireLock(): boolean {
+  const write = () => {
+    const fd = openSync(LOCK, 'wx');   // 이미 있으면 여기서 예외 — 이게 원자성이다
+    try { writeSync(fd, JSON.stringify({ runId: RUN_ID, pid: process.pid, startedAt: kst(), heartbeat: kst() })); }
+    finally { closeSync(fd); }
+  };
+  try { write(); return true; } catch { /* 이미 있다 — 아래에서 살았나 본다 */ }
+
+  const quiet = existsSync(LOCK) ? Date.now() - statSync(LOCK).mtimeMs : Infinity;
+  if (quiet < HEARTBEAT_STALE_MS) return false;   // 심장이 뛰고 있다 — 남의 실행이 살아 있다
+
+  const claim = `${LOCK}.claim-${RUN_ID}`;
+  try { renameSync(LOCK, claim); } catch { return false; }   // 뺏기 경쟁에서 졌다
+  rmSync(claim, { force: true });
+  try { write(); return true; } catch { return false; }
+}
+if (!acquireLock()) { console.log('앞의 실행이 아직 돈다(lock) — 이번은 건너뛴다'); process.exit(0); }
+const writeLock = () => writeFileSync(LOCK, JSON.stringify({ ...readLock(), runId: RUN_ID, pid: process.pid, heartbeat: kst() }));
+/**
+ * 단계마다 부른다 — 「나 아직 살아 있다」. **먼저 «내 표딱지가 맞나»를 본다.**
+ * 뺏겼으면 되뺏지 않고 물러난다(코덱스 3차). 새 실행은 처음부터 다시 도니 잃는 것도 없다.
+ */
 let lockLost = false;
 const touchLock = () => {
   if (lockLost) return;
-  const owner = lockOwner();
-  if (owner !== null && owner !== process.pid) { lockLost = true; return; }
+  const held = readLock();
+  if (held && held.runId && held.runId !== RUN_ID) { lockLost = true; return; }
   try { writeLock(); } catch { /* 지워졌으면 다음 단계에서 다시 쓴다 */ }
 };
 /**
  * ★심장은 «단계 사이»가 아니라 **쉬지 않고** 뛰어야 한다.
- *
- *   코덱스 4차: 「touchLock 은 spawnSync 전후에서만 뛴다. 한 단계가 창을 넘기면 B 가 lock 을 가져가고,
- *   A 가 그걸 아는 건 그 단계가 끝난 뒤다 — 그때는 이미 시트에 썼다. 창을 45분으로 늘린 건
- *   확률을 낮출 뿐 구멍을 닫지 못한다.」 맞다.
- *
- *   그래서 **일꾼 스레드**가 30초마다 lock 을 만진다. 메인 스레드가 spawnSync 로 막혀 있어도
- *   스레드는 따로 돈다. 프로세스가 죽으면 스레드도 같이 죽으니 «죽으면 안 뛴다»도 그대로다.
- *   덕분에 창을 5분으로 «좁힐» 수 있다 — 좁을수록 죽은 실행이 빨리 풀린다.
- *   ⚠ 일꾼도 주인을 확인한다. 뺏겼으면 만지지 않는다(되뺏지 않는다).
+ *   코덱스 4차: touchLock 은 spawnSync 전후에서만 뛴다 → 긴 단계 중엔 심장이 멎은 것처럼 보인다.
+ *   일꾼 스레드가 30초마다 만진다. 메인이 막혀 있어도 스레드는 따로 돈다.
+ *   프로세스가 죽으면 스레드도 죽으니 「죽으면 안 뛴다」는 그대로다.
  */
 const heartbeat = new Worker(`
-  const { parentPort, workerData } = require('node:worker_threads');
+  const { workerData } = require('node:worker_threads');
   const { readFileSync, writeFileSync } = require('node:fs');
-  const { lock, pid } = workerData;
+  const { lock, runId } = workerData;
   setInterval(() => {
     try {
       const held = JSON.parse(readFileSync(lock, 'utf8'));
-      if (held.pid !== pid) return;              // 뺏겼다 — 되뺏지 않는다
-      /* ★있던 칸을 지우지 않는다 — 메인은 {pid,startedAt,heartbeat} 로 쓴다.
-         일꾼이 {pid,heartbeat} 로만 덮으면 startedAt 이 사라져 형식이 갈린다. */
-      writeFileSync(lock, JSON.stringify({ ...held, pid, heartbeat: new Date().toISOString() }));
+      if (held.runId !== runId) return;          // 뺏겼다 — 되뺏지 않는다
+      /* 있던 칸을 지우지 않는다 — startedAt 이 사라지면 형식이 갈린다. */
+      writeFileSync(lock, JSON.stringify({ ...held, heartbeat: new Date().toISOString() }));
     } catch { /* 지워졌거나 읽는 중 — 다음 박동에 다시 */ }
     /* ⚠ 이 타이머에 unref 를 걸면 일꾼의 할 일이 없어져 **스레드가 즉시 죽는다.**
-       처음에 그렇게 짰다가 실측(tmp 시험)에서 「5초 막힘 · 0초 갱신」으로 잡았다. */
+       처음에 그렇게 짰다가 실측으로 잡았다(메인 5초 막힘 · lock 0초 갱신). */
   }, 30_000);
-`, { eval: true, workerData: { lock: LOCK, pid: process.pid } });
+`, { eval: true, workerData: { lock: LOCK, runId: RUN_ID } });
 heartbeat.unref();
-/** 내 lock 일 때만 지운다 — 남의 실행 lock 을 지우면 그 실행이 무방비가 된다. */
+/** 내 표딱지일 때만 지운다 — 남의 실행 lock 을 지우면 그 실행이 무방비가 된다. */
 const releaseLock = () => {
-  try {
-    const held = JSON.parse(readFileSync(LOCK, 'utf8')) as { pid?: number };
-    if (held.pid !== process.pid) return;
-  } catch { /* 형식이 깨졌으면 내 것으로 본다 */ }
+  const held = readLock();
+  if (held && held.runId && held.runId !== RUN_ID) return;
   rmSync(LOCK, { force: true });
 };
 
