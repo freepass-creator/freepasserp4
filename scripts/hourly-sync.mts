@@ -85,7 +85,20 @@ function acquireLock(): boolean {
   try { write(); return true; } catch { return false; }
 }
 if (!acquireLock()) { console.log('앞의 실행이 아직 돈다(lock) — 이번은 건너뛴다'); process.exit(0); }
-const writeLock = () => writeFileSync(LOCK, JSON.stringify({ ...readLock(), runId: RUN_ID, pid: process.pid, heartbeat: kst() }));
+/**
+ * 심장박동 쓰기 — **쓴 뒤에 되읽어 주인을 다시 본다.**
+ *
+ * ★코덱스 6차: 「읽어서 내 것임을 확인 → 쓰기」 사이가 안 묶여 있다. A 의 심장이 멎어 B 가 뺏어간 뒤,
+ *   그 전에 이미 «내 것»을 확인해 둔 A 가 쓰면 **B 의 lock 을 A 이름으로 덮어쓴다.** 그러면 둘 다 주인이 된다.
+ *   파일 하나로 진짜 CAS 를 만들 수는 없다. 대신 **애매하면 둘 다 물러난다** — 안전을 살림보다 앞에 둔다.
+ *   (A 는 되읽기에서, B 는 다음 박동에서 각각 「내 것이 아니다」를 보고 물러난다.
+ *    둘 다 죽어도 잃는 건 한 회차뿐이고, 스케줄러가 한 시간 뒤 다시 부른다.)
+ */
+const writeLock = (): boolean => {
+  writeFileSync(LOCK, JSON.stringify({ ...readLock(), runId: RUN_ID, pid: process.pid, heartbeat: kst() }));
+  const back = readLock();               // 되읽기 — 그사이 남이 가져갔나
+  return !!back && back.runId === RUN_ID;
+};
 /**
  * 단계마다 부른다 — 「나 아직 살아 있다」. **먼저 «내 표딱지가 맞나»를 본다.**
  * 뺏겼으면 되뺏지 않고 물러난다(코덱스 3차). 새 실행은 처음부터 다시 도니 잃는 것도 없다.
@@ -95,7 +108,7 @@ const touchLock = () => {
   if (lockLost) return;
   const held = readLock();
   if (held && held.runId && held.runId !== RUN_ID) { lockLost = true; return; }
-  try { writeLock(); } catch { /* 지워졌으면 다음 단계에서 다시 쓴다 */ }
+  try { if (!writeLock()) lockLost = true; } catch { /* 지워졌으면 다음 단계에서 다시 쓴다 */ }
 };
 /**
  * ★심장은 «단계 사이»가 아니라 **쉬지 않고** 뛰어야 한다.
@@ -107,22 +120,29 @@ const heartbeat = new Worker(`
   const { workerData } = require('node:worker_threads');
   const { readFileSync, writeFileSync } = require('node:fs');
   const { lock, runId } = workerData;
-  setInterval(() => {
+  const beat = setInterval(() => {
     try {
       const held = JSON.parse(readFileSync(lock, 'utf8'));
       if (held.runId !== runId) return;          // 뺏겼다 — 되뺏지 않는다
       /* 있던 칸을 지우지 않는다 — startedAt 이 사라지면 형식이 갈린다. */
       writeFileSync(lock, JSON.stringify({ ...held, heartbeat: new Date().toISOString() }));
+      /* ★쓴 뒤 되읽어 다시 본다. 그사이 남이 가져갔으면 내가 덮어쓴 것이므로 **더는 만지지 않는다**
+         (코덱스 6차 — 뺏긴 뒤의 덮어쓰기로 둘 다 주인이 되던 자리). */
+      if (JSON.parse(readFileSync(lock, 'utf8')).runId !== runId) { clearInterval(beat); return; }
     } catch { /* 지워졌거나 읽는 중 — 다음 박동에 다시 */ }
     /* ⚠ 이 타이머에 unref 를 걸면 일꾼의 할 일이 없어져 **스레드가 즉시 죽는다.**
        처음에 그렇게 짰다가 실측으로 잡았다(메인 5초 막힘 · lock 0초 갱신). */
   }, 30_000);
 `, { eval: true, workerData: { lock: LOCK, runId: RUN_ID } });
 heartbeat.unref();
-/** 내 표딱지일 때만 지운다 — 남의 실행 lock 을 지우면 그 실행이 무방비가 된다. */
+/**
+ * 내 표딱지일 때 «만» 지운다.
+ * ★코덱스 6차: 읽기가 실패해 `null` 이 되면 주인을 «모르는» 것인데도 지우고 있었다 —
+ *   쓰는 중인 남의 lock 을 반쯤 읽으면 그 실행이 무방비가 된다. **모르면 안 지운다.**
+ */
 const releaseLock = () => {
   const held = readLock();
-  if (held && held.runId && held.runId !== RUN_ID) return;
+  if (!held || held.runId !== RUN_ID) return;   // 모르거나 남의 것이면 손대지 않는다
   rmSync(LOCK, { force: true });
 };
 
