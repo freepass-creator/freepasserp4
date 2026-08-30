@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
@@ -34,20 +34,28 @@ export function NavBack({
     else router.push('/');
   };
   const label = kind === 'list' ? '목록' : kind === 'cancel' ? '취소' : '이전';
-  const icon = kind === 'list'
-    ? <List size={mobile ? ICON.xl : ICON.md} strokeWidth={2.25} aria-hidden />
-    : kind === 'cancel'
-    ? <X size={mobile ? ICON.xl : ICON.md} strokeWidth={2.25} aria-hidden />
-    : <ChevronLeft size={mobile ? ICON.xl : ICON.md} strokeWidth={2.25} aria-hidden />;
+  const Glyph = kind === 'list' ? List : kind === 'cancel' ? X : ChevronLeft;
   // 목록·취소는 모바일서 항상 아이콘+라벨(호출부 backShowLabel 의존 제거 → 전 페이지 자동 통일).
   // 이전(history)은 범용 back이라 아이콘only 유지(showLabel 주면 라벨).
   if (mobile && !showLabel && kind === 'history') {
-    return <IconBtn haptic="back" title={label} onClick={go}>{icon}</IconBtn>;
+    // 맨 글리프 = 크게(ICON.xl). 옆에 글자가 없으니 이게 곧 표적이다.
+    return (
+      <IconBtn haptic="back" title={label} onClick={go}>
+        <Glyph size={mobile ? ICON.xl : ICON.md} strokeWidth={2.25} aria-hidden />
+      </IconBtn>
+    );
   }
+  /**
+   * ★라벨형은 **md** 다 — 같은 줄에 서는 컨트롤은 같은 size(CLAUDE.md 컨트롤 규격).
+   *   전에는 sm(모바일 36)이라 옆의 「공유하기」(md 40)와 4px 어긋났고, 글리프도 20 대 16 이라
+   *   같은 독 안에서 버튼 둘이 다른 규격으로 보였다(사장님 2026-08-30 「이전하고 공유하기 이런 버튼이
+   *   좀 다른데? 크기가」). 하단독은 바(56)라 md(40)가 제 치수다.
+   *   글리프도 옆 버튼과 같은 ICON.md 로 맞춘다 — 라벨이 있는 버튼의 아이콘은 «글자 옆 표식»이지 표적이 아니다.
+   */
   return (
-    <Btn variant="ghost" size="sm" title={label} haptic="back" onClick={go}>
+    <Btn variant="ghost" title={label} haptic="back" onClick={go}>
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-        {icon}
+        <Glyph size={ICON.md} strokeWidth={2.25} aria-hidden />
         {label}
       </span>
     </Btn>
