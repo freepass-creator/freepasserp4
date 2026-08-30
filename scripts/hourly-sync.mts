@@ -72,10 +72,16 @@ const MODEL_NORMALIZE = process.argv.includes('--모델명통일');
  *     한 번 사람이 목록을 보고 켠 뒤에는 기본으로 돌려도 된다.
  */
 const MIRROR_ERP = process.argv.includes('--비추기');
-const skip = (label: string) => {
-  line.push(`${label} 건너뜀(같은범위)`);
-  console.log(`── ${label} — 건너뜀(--같은범위)`);
-  steps.push({ 단계: label, ok: true, 신호: 'aiops 범위 밖이라 건너뜀' });
+/**
+ * 건너뛴 단계를 «왜» 건너뛰었는지까지 적는다.
+ * ★전에는 이유가 무엇이든 「건너뜀(--같은범위)」이라고 찍었다 — 15:00 자동회차는 그 플래그 없이
+ *   돌았는데도 로그가 그렇게 남아, 나중에 보는 사람이 「같은범위로 돌렸구나」로 잘못 읽는다.
+ *   **로그가 거짓말하면 그 로그는 안 보게 된다.**
+ */
+const skip = (label: string, why: string) => {
+  line.push(`${label} 건너뜀(${why})`);
+  console.log(`── ${label} — 건너뜀 · ${why}`);
+  steps.push({ 단계: label, ok: true, 신호: `건너뜀 — ${why}` });
 };
 const A = APPLY ? ['--apply'] : [];
 const kst = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 16).replace('T', ' ');
@@ -408,19 +414,19 @@ if (!s1b.ok) stop('정제칸 채움 실패');
 line.push('정제칸 ok');
 
 // ② 차명 중복 정리 → ③ 모델명 통일(엔카 기준)
-if (SAME_SCOPE) skip('② 차명 중복 정리');
+if (SAME_SCOPE) skip('② 차명 중복 정리', 'aiops 범위 밖(--같은범위)');
 else {
   const s2 = run('② 차명 중복 정리', ['scripts/tidy-vehicle-names.mts', ...A], /합계/);
   if (!s2.ok) stop('차명 정리 실패'); line.push(s2.picked[0]?.replace('■ ', '차명 ') || '차명 0');
 }
-if (SAME_SCOPE || !MODEL_NORMALIZE) skip('③ 모델명 통일');   // 기본 끔 — ①′ 와 같은 칸을 다툰다
+if (SAME_SCOPE || !MODEL_NORMALIZE) skip('③ 모델명 통일', SAME_SCOPE ? 'aiops 범위 밖(--같은범위)' : '기본 꺼짐 — ①′ 와 같은 칸(모델명)을 다툰다. --모델명통일 로만 켠다');
 else {
   const s3 = run('③ 모델명 통일', ['scripts/normalize-model-names.mts', ...A], /합계/);
   if (!s3.ok) stop('모델명 통일 실패'); line.push(s3.picked[0]?.replace('■ ', '모델명 ') || '모델명 0');
 }
 
 // ④ 입고일자(처음 올라온 날) → ⑤ 차량번호 셀 사진링크
-if (SAME_SCOPE) { skip('④ 입고일자'); skip('⑤ 차량번호 링크'); } else {
+if (SAME_SCOPE) { skip('④ 입고일자', 'aiops 범위 밖(--같은범위)'); skip('⑤ 차량번호 링크', 'aiops 범위 밖(--같은범위)'); } else {
   const s4 = run('④ 입고일자', ['scripts/fill-intake-date.mts', ...A], /반영 끝|dry-run|쓸 칸/);
   if (!s4.ok) stop('입고일자 실패'); line.push('입고일자 ok');
   const s5 = run('⑤ 차량번호 링크', ['scripts/publish-plate-links.mts', ...A], /합계/);
@@ -485,7 +491,9 @@ line.push(erp.ok ? (erp.picked.find((l) => /원본 /.test(l))?.slice(0, 60) || '
  *   실패해도 멈추지 않는다 — ⑧ 대조가 어긋남을 그대로 보여 준다.
  */
 if (SAME_SCOPE || !MIRROR_ERP) {
-  skip('⑦′ 사진 시트대로'); skip('⑦′ 이름 시트대로'); skip('⑦′ 시트에 없는 차 출고불가');
+  const why = SAME_SCOPE ? 'aiops 범위 밖(--같은범위)'
+    : '기본 꺼짐 — 밀린 것이 한꺼번에 쏟아진다(이름 425대·출고불가 145대). --비추기 로만 켠다';
+  skip('⑦′ 사진 시트대로', why); skip('⑦′ 이름 시트대로', why); skip('⑦′ 시트에 없는 차 출고불가', why);
 } else {
 const mp = run("⑦′ 사진 시트대로", ['scripts/mirror-sales-photos.mts', ...A], /고칠 차|끝 —/);
 const mn = run("⑦′ 이름 시트대로", ['scripts/mirror-sales-vehicle-name.mts', ...A], /고칠 차|끝 —/);
