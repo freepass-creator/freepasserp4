@@ -45,6 +45,19 @@ const APPLY = process.argv.includes('--apply');
  *   밀린 것은 F03 작업과의 충돌을 확인한 뒤 따로 켠다.
  */
 const SAME_SCOPE = process.argv.includes('--같은범위');
+/**
+ * ★③ 모델명 통일은 **기본으로 끈다. 켜려면 `--모델명통일`.**
+ *
+ *   ①′ `fill-supplier-ai-columns` 가 차종마스터로 「모델명」을 채우는데,
+ *   ③ `normalize-model-names` 도 **같은 칸을 엔카 기준으로 다시 쓴다.**
+ *   둘 다 매시간 돌면 서로를 덮어써 값이 시간마다 흔들린다.
+ *
+ *   ③ 이 2026-08-28 부터 안 돈 것은 우연이 아니라 ①′ 가 그 역할을 대체했기 때문으로 보인다
+ *   (aiops 차례에도 ③ 이 없다). 그래서 «끄는 것»을 기본으로 두고, 정말 필요하면 명시해서 켠다.
+ *   ⚠ 켜기 전에 F03 정제 작업(커서·코덱스)과 같은 칸을 두고 다투지 않는지 먼저 확인할 것.
+ *   dry-run 기준 312칸이 바뀐다 — 작은 변화가 아니다.
+ */
+const MODEL_NORMALIZE = process.argv.includes('--모델명통일');
 const skip = (label: string) => {
   line.push(`${label} 건너뜀(같은범위)`);
   console.log(`── ${label} — 건너뜀(--같은범위)`);
@@ -381,9 +394,13 @@ if (!s1b.ok) stop('정제칸 채움 실패');
 line.push('정제칸 ok');
 
 // ② 차명 중복 정리 → ③ 모델명 통일(엔카 기준)
-if (SAME_SCOPE) { skip('② 차명 중복 정리'); skip('③ 모델명 통일'); } else {
+if (SAME_SCOPE) skip('② 차명 중복 정리');
+else {
   const s2 = run('② 차명 중복 정리', ['scripts/tidy-vehicle-names.mts', ...A], /합계/);
   if (!s2.ok) stop('차명 정리 실패'); line.push(s2.picked[0]?.replace('■ ', '차명 ') || '차명 0');
+}
+if (SAME_SCOPE || !MODEL_NORMALIZE) skip('③ 모델명 통일');   // 기본 끔 — ①′ 와 같은 칸을 다툰다
+else {
   const s3 = run('③ 모델명 통일', ['scripts/normalize-model-names.mts', ...A], /합계/);
   if (!s3.ok) stop('모델명 통일 실패'); line.push(s3.picked[0]?.replace('■ ', '모델명 ') || '모델명 0');
 }
