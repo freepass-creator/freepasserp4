@@ -152,7 +152,7 @@ function MobileRow({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) 
         </div>
 
         {/* 4 심사기준 우선 · 우대 — 모바일 영업 스캔 순서 */}
-        <CardPerkLine p={p} inline creditFirst />
+        <CardPerkLine p={p} inline withCredit />
       </PricePeekRoot>
     </Link>
   );

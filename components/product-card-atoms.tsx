@@ -31,7 +31,7 @@ import {
   specLine, specLineCard,
 } from '@/components/product-card-identity';
 export {
-  idParts, idMobile, specLine, specLineCard, cardTitle,
+  idParts, idMobile, specLine, specLineCard, cardTitle, plateSpecLine,
 } from '@/components/product-card-identity';
 export { Plate, CardTitle } from '@/components/product-card-identity-view';
 export { CardRailBadges, SignalMarks } from '@/components/product-card-badge-view';

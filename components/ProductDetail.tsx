@@ -5,10 +5,11 @@ import { detailSections, type Audience } from '@/lib/domain/product';
 import { useProductPhotoState } from '@/components/use-product-photos';
 import { getRole } from '@/lib/domain/deal';
 import { Badge, C, R, NUM, FW, FS, ICON, CloseBtn, IconBtn, SCRIM, DetailTable, DT, KV_LABEL_W } from '@/components/ui';
+import { ImageOff } from 'lucide-react';
 import { toast } from '@/components/Toaster';
 import { downloadSinglePhoto } from '@/lib/client/download-photo-zip';
 import {
-  badges, Plate, idParts, CardBenefits, CardEvents, OptionChips,
+  SignalMarks, MetaIcon, Plate, idParts, CardBenefits, CardEvents, OptionChips, plateSpecLine,
 } from '@/components/product-card-atoms';
 import { FavHeart } from '@/components/FavHeart';
 import { ProductStateMarks } from '@/components/ProductStateMarks';
@@ -146,13 +147,16 @@ export function ProductDetail({ p, audience, layout = 'brochure' }: {
           marginTop: work ? 0 : 8, rowGap: 6,
         }}>
           {aud !== 'customer' && !work && <Plate p={p} />}
-          {/* work = 차번·상태를 요약바가 이미 들고 있다. 같은 값을 두 번 찍지 않는다. */}
-          {badges(p, false, false, false, aud, { hideStatus: work })}
+          {!work && plateSpecLine(p) && (
+            <span style={{ fontSize: FS.sub, color: C.mute, fontVariantNumeric: 'tabular-nums' }}>{plateSpecLine(p)}</span>
+          )}
+          {/* 상자 대신 아이콘+글자. 심사는 우대조건 줄. (사장님 2026-08-30 「08-28 게 맞다」) */}
+          <SignalMarks p={p} audience={aud} hideStatus={work} />
           <CardBenefits p={p} inline />
           <CardEvents p={p} inline />
           {/* 사진 없음도 매물의 성질이다 — 별도 줄을 잡아먹지 않게 칩으로 붙인다.
               (안 그리면 «없는 건지 안 뜬 건지»를 모른다. 사진 없는 차가 절반 가까이다.) */}
-          {work && photos.length === 0 && !pending && <Badge tone="gray" variant="quiet" title="등록된 사진이 없습니다">사진없음</Badge>}
+          {work && photos.length === 0 && !pending && <MetaIcon icon={ImageOff} text="사진없음" size={ICON.sm} strong iconColor={C.mute} title="등록된 사진이 없습니다" />}
           {work && aud !== 'customer' && <ProductStateMarks p={p} />}
           {work && aud !== 'customer' && <FavHeart p={p} compact />}
         </div>
