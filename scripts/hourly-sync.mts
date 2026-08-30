@@ -25,7 +25,7 @@
  *   npx tsx scripts/hourly-sync.mts --apply
  * ⚠ 겹쳐 돌지 않는다 — tmp/hourly-sync.lock 이 있으면(30분 안) 그냥 끝낸다(작업 스케줄러가 겹쳐 부르는 것 대비).
  */
-import { appendFileSync, closeSync, existsSync, openSync, readFileSync, renameSync, rmSync, statSync, writeFileSync, writeSync } from 'node:fs';
+import { appendFileSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { Worker } from 'node:worker_threads';
 
@@ -41,110 +41,86 @@ const started = Date.now();
  *   손오공 pull 까지 붙어 30분을 넘길 수 있다(2026-08-30 dry-run 이 15분에도 안 끝났다).
  * 그래서 «시간»이 아니라 «그 PID 가 살아 있나»로 판정하고, lock 은 **내가 쓴 것일 때만** 지운다.
  */
-const LOCK = 'tmp/hourly-sync.lock';
 /**
- * 심장박동 — 살아 있는 실행은 **30초마다** lock 을 만진다(아래 일꾼 스레드).
- * 이 시간(5분)이 지나도록 안 만져졌으면 그 실행은 죽었다.
- * ★단계가 아무리 길어도 심장은 계속 뛰므로, 「긴 단계 = 죽은 것」으로 오해하지 않는다.
+ * ══ 겹침 잠금 — «주인 자리»는 한 번만 만들어지고, 뺏긴 실행은 되살릴 수 없다 ══
+ *
+ * ★코덱스 7차: 「쓴 뒤 되읽기」는 **마지막에 쓴 놈을 못 막는다.** A 가 나중에 쓰면
+ *   A 는 자기 이름을 되읽고 계속 간다 — 둘 다 쓰기 단계로 갈 길이 남는다. 맞다.
+ *   파일 «내용»으로 주인을 적는 한 이 문제는 안 닫힌다. 덮어쓰면 그만이기 때문이다.
+ *
+ * 그래서 주인을 «내용»이 아니라 **«파일의 존재»**로 바꿨다.
+ *
+ *   tmp/hourly-sync.lock/                 ← 잠금 = 디렉터리. mkdir 은 원자적이라 하나만 만든다
+ *   tmp/hourly-sync.lock/owner-<표딱지>    ← 주인 자리. 이 파일이 있는 실행이 주인이다
+ *
+ *   · 심장박동 = 제 owner 파일의 **시각만 갱신**한다(`utimes`). **새로 만들지 않는다.**
+ *   · 뺏기 = 디렉터리째 `rename` (원자적) → 한 놈만 성공하고, 그 안의 owner 파일도 같이 사라진다.
+ *   · 그래서 **뺏긴 실행이 심장을 뛰려 하면 «파일이 없다»(ENOENT)** — 되살릴 방법이 없다.
+ *     A 가 아무리 나중에 손대도 B 의 주인 자리를 빼앗지 못한다. 7차가 지적한 인터리빙이 여기서 닫힌다.
  */
+const LOCKDIR = 'tmp/hourly-sync.lock';
 const HEARTBEAT_STALE_MS = 5 * 60_000;
-/**
- * ★**실행 표딱지(runId)** — PID 가 아니라 이걸로 주인을 가린다.
- *   PID 는 OS 가 재사용한다. 표딱지는 안 겹친다(pid + 시작시각 + 난수).
- */
+/** 실행 표딱지 — PID 는 OS 가 재사용하지만 이건 안 겹친다. */
 const RUN_ID = `${process.pid}-${started}-${Math.random().toString(36).slice(2, 8)}`;
-type LockFile = { runId?: string; pid?: number; startedAt?: string; heartbeat?: string };
-const readLock = (): LockFile | null => {
-  try { return JSON.parse(readFileSync(LOCK, 'utf8')) as LockFile; } catch { return null; }
-};
-/**
- * 잠금 «획득» — **원자적으로** 한 놈만 이긴다.
- *
- * ★코덱스 2026-08-30 5차: 「있나 보고 → 쓰기」 사이가 벌어져 있어, 둘이 동시에 「없네」를 보면
- *   둘 다 자기 것으로 덮어쓰고 같이 돈다. 심장박동은 «획득한 뒤»의 생존만 보장할 뿐 이 경쟁은 못 막는다.
- *
- * 그래서 둘 다 OS 의 원자적 연산으로 바꿨다.
- *   ① 새로 잡기   `open(..., 'wx')` — 파일이 이미 있으면 실패한다. 만드는 것과 «내가 만들었다»가 한 번에 일어난다.
- *   ② 죽은 것 뺏기 `rename(LOCK, LOCK.claim-내표딱지)` — 이름 바꾸기도 원자적이라 **한 놈만 성공**한다.
- *      진 쪽은 ENOENT 를 받고 조용히 물러난다. 「죽었네」를 둘이 동시에 봐도 뺏는 건 하나뿐이다.
- */
+const OWNER = `${LOCKDIR}/owner-${RUN_ID}`;
+
+/** 잠금 안의 주인 자리들 — 정상이면 하나뿐이다. 가장 최근 박동을 살아있음으로 본다. */
+function ownerQuietMs(): number {
+  try {
+    const files = readdirSync(LOCKDIR).filter((f) => f.startsWith('owner-'));
+    if (!files.length) return Infinity;
+    const newest = Math.max(...files.map((f) => statSync(`${LOCKDIR}/${f}`).mtimeMs));
+    return Date.now() - newest;
+  } catch { return Infinity; }
+}
+/** 주인 자리를 «만든다». mkdir 이 원자적이라 한 놈만 이긴다. */
+function claimOwnership(): boolean {
+  try { mkdirSync(LOCKDIR); } catch { return false; }   // 이미 있으면 진 것
+  try { closeSync(openSync(OWNER, 'wx')); writeFileSync(`${LOCKDIR}/info.json`, JSON.stringify({ runId: RUN_ID, pid: process.pid, startedAt: kst() })); return true; }
+  catch { return false; }
+}
 function acquireLock(): boolean {
-  const write = () => {
-    const fd = openSync(LOCK, 'wx');   // 이미 있으면 여기서 예외 — 이게 원자성이다
-    try { writeSync(fd, JSON.stringify({ runId: RUN_ID, pid: process.pid, startedAt: kst(), heartbeat: kst() })); }
-    finally { closeSync(fd); }
-  };
-  try { write(); return true; } catch { /* 이미 있다 — 아래에서 살았나 본다 */ }
-
-  const quiet = existsSync(LOCK) ? Date.now() - statSync(LOCK).mtimeMs : Infinity;
-  if (quiet < HEARTBEAT_STALE_MS) return false;   // 심장이 뛰고 있다 — 남의 실행이 살아 있다
-
-  const claim = `${LOCK}.claim-${RUN_ID}`;
-  try { renameSync(LOCK, claim); } catch { return false; }   // 뺏기 경쟁에서 졌다
-  rmSync(claim, { force: true });
-  try { write(); return true; } catch { return false; }
+  mkdirSync('tmp', { recursive: true });
+  if (claimOwnership()) return true;
+  if (ownerQuietMs() < HEARTBEAT_STALE_MS) return false;   // 심장이 뛴다 — 남의 실행이 살아 있다
+  /* 죽었다 — 디렉터리째 원자적으로 치우고 새로 만든다. rename 은 한 놈만 성공한다. */
+  const claim = `${LOCKDIR}.claim-${RUN_ID}`;
+  try { renameSync(LOCKDIR, claim); } catch { return false; }
+  rmSync(claim, { recursive: true, force: true });
+  return claimOwnership();
 }
 if (!acquireLock()) { console.log('앞의 실행이 아직 돈다(lock) — 이번은 건너뛴다'); process.exit(0); }
-/**
- * 심장박동 쓰기 — **쓴 뒤에 되읽어 주인을 다시 본다.**
- *
- * ★코덱스 6차: 「읽어서 내 것임을 확인 → 쓰기」 사이가 안 묶여 있다. A 의 심장이 멎어 B 가 뺏어간 뒤,
- *   그 전에 이미 «내 것»을 확인해 둔 A 가 쓰면 **B 의 lock 을 A 이름으로 덮어쓴다.** 그러면 둘 다 주인이 된다.
- *   파일 하나로 진짜 CAS 를 만들 수는 없다. 대신 **애매하면 둘 다 물러난다** — 안전을 살림보다 앞에 둔다.
- *   (A 는 되읽기에서, B 는 다음 박동에서 각각 「내 것이 아니다」를 보고 물러난다.
- *    둘 다 죽어도 잃는 건 한 회차뿐이고, 스케줄러가 한 시간 뒤 다시 부른다.)
- */
-const writeLock = (): boolean => {
-  writeFileSync(LOCK, JSON.stringify({ ...readLock(), runId: RUN_ID, pid: process.pid, heartbeat: kst() }));
-  const back = readLock();               // 되읽기 — 그사이 남이 가져갔나
-  return !!back && back.runId === RUN_ID;
-};
-/**
- * 단계마다 부른다 — 「나 아직 살아 있다」. **먼저 «내 표딱지가 맞나»를 본다.**
- * 뺏겼으면 되뺏지 않고 물러난다(코덱스 3차). 새 실행은 처음부터 다시 도니 잃는 것도 없다.
- */
+
 let lockLost = false;
+/**
+ * 심장박동 — **내 owner 파일의 시각만 갱신한다. 만들지 않는다.**
+ * 뺏겼으면 그 파일이 없으므로 여기서 ENOENT 가 나고, 그게 「내가 졌다」는 신호다.
+ */
 const touchLock = () => {
   if (lockLost) return;
-  const held = readLock();
-  if (held && held.runId && held.runId !== RUN_ID) { lockLost = true; return; }
-  try { if (!writeLock()) lockLost = true; } catch { /* 지워졌으면 다음 단계에서 다시 쓴다 */ }
+  try { const now = new Date(); utimesSync(OWNER, now, now); }
+  catch { lockLost = true; }
+};
+/** 내 주인 자리가 아직 있을 때만 치운다 — 남의 실행 잠금을 지우지 않는다. */
+const releaseLock = () => {
+  if (lockLost || !existsSync(OWNER)) return;
+  rmSync(LOCKDIR, { recursive: true, force: true });
 };
 /**
- * ★심장은 «단계 사이»가 아니라 **쉬지 않고** 뛰어야 한다.
- *   코덱스 4차: touchLock 은 spawnSync 전후에서만 뛴다 → 긴 단계 중엔 심장이 멎은 것처럼 보인다.
- *   일꾼 스레드가 30초마다 만진다. 메인이 막혀 있어도 스레드는 따로 돈다.
- *   프로세스가 죽으면 스레드도 죽으니 「죽으면 안 뛴다」는 그대로다.
+ * 일꾼 스레드가 30초마다 뛴다 — 메인이 `spawnSync` 로 막혀 있어도 따로 돈다.
+ * 파일이 사라졌으면(뺏겼으면) 박동을 멈춘다. **다시 만들지 않는다.**
  */
 const heartbeat = new Worker(`
   const { workerData } = require('node:worker_threads');
-  const { readFileSync, writeFileSync } = require('node:fs');
-  const { lock, runId } = workerData;
+  const { utimesSync } = require('node:fs');
+  const { owner } = workerData;
   const beat = setInterval(() => {
-    try {
-      const held = JSON.parse(readFileSync(lock, 'utf8'));
-      if (held.runId !== runId) return;          // 뺏겼다 — 되뺏지 않는다
-      /* 있던 칸을 지우지 않는다 — startedAt 이 사라지면 형식이 갈린다. */
-      writeFileSync(lock, JSON.stringify({ ...held, heartbeat: new Date().toISOString() }));
-      /* ★쓴 뒤 되읽어 다시 본다. 그사이 남이 가져갔으면 내가 덮어쓴 것이므로 **더는 만지지 않는다**
-         (코덱스 6차 — 뺏긴 뒤의 덮어쓰기로 둘 다 주인이 되던 자리). */
-      if (JSON.parse(readFileSync(lock, 'utf8')).runId !== runId) { clearInterval(beat); return; }
-    } catch { /* 지워졌거나 읽는 중 — 다음 박동에 다시 */ }
-    /* ⚠ 이 타이머에 unref 를 걸면 일꾼의 할 일이 없어져 **스레드가 즉시 죽는다.**
-       처음에 그렇게 짰다가 실측으로 잡았다(메인 5초 막힘 · lock 0초 갱신). */
+    try { const now = new Date(); utimesSync(owner, now, now); }
+    catch { clearInterval(beat); }   // 내 자리가 없다 = 뺏겼다. 되살리지 않는다
+    /* ⚠ 이 타이머에 unref 를 걸면 일꾼의 할 일이 없어져 스레드가 즉시 죽는다(2026-08-30 실측). */
   }, 30_000);
-`, { eval: true, workerData: { lock: LOCK, runId: RUN_ID } });
+`, { eval: true, workerData: { owner: OWNER } });
 heartbeat.unref();
-/**
- * 내 표딱지일 때 «만» 지운다.
- * ★코덱스 6차: 읽기가 실패해 `null` 이 되면 주인을 «모르는» 것인데도 지우고 있었다 —
- *   쓰는 중인 남의 lock 을 반쯤 읽으면 그 실행이 무방비가 된다. **모르면 안 지운다.**
- */
-const releaseLock = () => {
-  const held = readLock();
-  if (!held || held.runId !== RUN_ID) return;   // 모르거나 남의 것이면 손대지 않는다
-  rmSync(LOCK, { force: true });
-};
 
 const out: string[] = [`■ 시간별 동기화 ${APPLY ? '반영' : '미리보기'} ${kst()} KST`];
 const line: string[] = [];
