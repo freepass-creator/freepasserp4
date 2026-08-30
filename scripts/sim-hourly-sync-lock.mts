@@ -14,7 +14,7 @@ import { Worker } from 'node:worker_threads';
 import {
   mkdirSync, openSync, closeSync, readdirSync, statSync, renameSync, rmSync, utimesSync, existsSync,
 } from 'node:fs';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 
 const LONG = process.argv.includes('--long');
 const DIR = 'tmp/sim-lock.test';
@@ -57,20 +57,65 @@ const check = (label: string, ok: boolean, detail = '') => {
   if (!ok) bad += 1;
 };
 
-// ── ① 동시에 달려들면 하나만 이긴다 ────────────────────────────────────────
-reset();
-{
-  const won: string[] = [];
-  for (let i = 0; i < 10; i += 1) if (acquire(`새로${i}`)) won.push(`새로${i}`);
-  check('새로 잡기 — 10개가 달려들어도 하나만', won.length === 1, `이긴 것 ${won.length}개`);
+/**
+ * ── ①② **진짜 병렬**로 달려든다 ────────────────────────────────────────
+ *
+ * ★코덱스 8차: 「`for` 루프 안 순차 호출이라 OS 스케줄 경쟁의 실측이 아니다.」 맞다.
+ *   그래서 **자식 프로세스 여럿을 한꺼번에 띄워** 같은 잠금에 달려들게 한다.
+ *   이긴 자식만 `won-<id>` 파일을 남기므로, 그 개수가 곧 «몇이 이겼나»다.
+ */
+const RACER = `
+  const { mkdirSync, openSync, closeSync, readdirSync, statSync, renameSync, rmSync, writeFileSync } = require('node:fs');
+  const dir = process.env.LOCK_DIR, id = process.env.RACER_ID, staleMs = Number(process.env.STALE_MS);
+  const claim = () => { try { mkdirSync(dir); } catch { return false; }
+    try { closeSync(openSync(dir + '/owner-' + id, 'wx')); return true; } catch { return false; } };
+  const quiet = () => { try { const f = readdirSync(dir).filter((x) => x.startsWith('owner-'));
+    if (!f.length) return Infinity;
+    return Date.now() - Math.max(...f.map((x) => statSync(dir + '/' + x).mtimeMs)); } catch { return Infinity; } };
+  let got = claim();
+  if (!got && quiet() >= staleMs) {
+    const c = dir + '.claim-' + id;
+    try { renameSync(dir, c); rmSync(c, { recursive: true, force: true }); got = claim(); } catch { got = false; }
+  }
+  if (got) writeFileSync(process.env.WON_DIR + '/won-' + id, '');
+`;
+const ARENA = 'tmp/sim-lock-arena';
+/**
+ * ★`spawnSync` 는 **동기**라 루프로 부르면 하나씩 끝나고 만다 — 병렬이 아니다.
+ *   `spawn` 으로 한꺼번에 띄우고 다 끝날 때까지 기다려야 «동시에 달려든» 것이 된다.
+ *   (처음에 spawnSync 로 짰다가 이긴 것 0개가 나와서 잡았다 — 시험 자체가 틀렸던 것)
+ */
+async function raceInParallel(label: string, howMany: number, prepare: () => void): Promise<number> {
+  rmSync(ARENA, { recursive: true, force: true });
+  mkdirSync(ARENA, { recursive: true });
+  prepare();
+  await Promise.all(Array.from({ length: howMany }, (_, i) => new Promise<void>((done) => {
+    const kid = spawn(process.execPath, ['-e', RACER], {
+      env: { ...process.env, LOCK_DIR: `${ARENA}/lock`, WON_DIR: ARENA, RACER_ID: `${label}${i}`, STALE_MS: String(STALE_MS) },
+      stdio: 'ignore',
+    });
+    kid.on('exit', () => done());
+    kid.on('error', () => done());
+  })));
+  const won = readdirSync(ARENA).filter((f) => f.startsWith('won-'));
+  rmSync(ARENA, { recursive: true, force: true });
+  return won.length;
 }
 
-// ── ② 심장이 멎은 잠금은 «한 놈만» 뺏는다 ──────────────────────────────────
 {
-  stale('새로0');
-  const won: string[] = [];
-  for (let i = 0; i < 8; i += 1) if (acquire(`뺏기${i}`)) won.push(`뺏기${i}`);
-  check('죽은 잠금 뺏기 — 8개가 달려들어도 하나만', won.length === 1, `이긴 것 ${won.length}개 · 주인 [${owners().join(',')}]`);
+  // ① 빈 자리에 10개가 «동시에» 달려든다
+  const n = await raceInParallel('새로', 10, () => { /* 빈 상태에서 시작 */ });
+  check('새로 잡기 — 자식 10개가 «동시에» 달려들어도 하나만', n === 1, `이긴 것 ${n}개`);
+}
+{
+  // ② 심장이 멎은 잠금에 8개가 «동시에» 달려든다
+  const n = await raceInParallel('뺏기', 8, () => {
+    mkdirSync(`${ARENA}/lock`, { recursive: true });
+    closeSync(openSync(`${ARENA}/lock/owner-죽은실행`, 'wx'));
+    const old = new Date(Date.now() - 6 * 60_000);
+    utimesSync(`${ARENA}/lock/owner-죽은실행`, old, old);
+  });
+  check('죽은 잠금 뺏기 — 자식 8개가 «동시에» 달려들어도 하나만', n === 1, `이긴 것 ${n}개`);
 }
 
 // ── ③ ★뺏긴 실행이 «뒤늦게» 심장을 뛰어도 소유권을 못 되살린다 ─────────────

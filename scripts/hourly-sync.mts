@@ -111,15 +111,23 @@ const releaseLock = () => {
  * 파일이 사라졌으면(뺏겼으면) 박동을 멈춘다. **다시 만들지 않는다.**
  */
 const heartbeat = new Worker(`
-  const { workerData } = require('node:worker_threads');
+  const { workerData, parentPort } = require('node:worker_threads');
   const { utimesSync } = require('node:fs');
   const { owner } = workerData;
   const beat = setInterval(() => {
     try { const now = new Date(); utimesSync(owner, now, now); }
-    catch { clearInterval(beat); }   // 내 자리가 없다 = 뺏겼다. 되살리지 않는다
+    catch (e) {
+      /* ★«자리가 없다»(ENOENT = 뺏겼다)와 «잠깐 실패했다»(EBUSY·EPERM 등)를 **가른다.**
+         전에는 둘 다 멈췄다 — 그러면 일시적 오류 한 번에 심장이 조용히 멎고,
+         메인은 그걸 모른 채 계속 돌다가 남에게 잠금을 뺏긴다(코덱스 8차 시나리오).
+         잠깐 실패는 다음 박동에 다시 해 본다. */
+      if (e && e.code === 'ENOENT') { clearInterval(beat); parentPort.postMessage('lost'); }
+    }
     /* ⚠ 이 타이머에 unref 를 걸면 일꾼의 할 일이 없어져 스레드가 즉시 죽는다(2026-08-30 실측). */
   }, 30_000);
 `, { eval: true, workerData: { owner: OWNER } });
+/* 일꾼이 「뺏겼다」를 알리면 메인도 바로 안다 — 자식 단계가 끝날 때까지 기다리지 않는다. */
+heartbeat.on('message', (msg) => { if (msg === 'lost') lockLost = true; });
 heartbeat.unref();
 
 const out: string[] = [`■ 시간별 동기화 ${APPLY ? '반영' : '미리보기'} ${kst()} KST`];
@@ -161,7 +169,13 @@ const run = (label: string, args: string[], pick: RegExp, runner: 'npx' | 'node'
     touchLock();   // 시작 «전»에도 만진다 — 자식이 도는 동안은 못 만지므로 공백을 절반으로 줄인다
     /* 잠금을 뺏겼으면 **여기서 물러난다.** 뒤늦게 깨어난 쪽이 시트·ERP 를 같이 쓰면 안 된다. */
     if (lockLost) stop('잠금을 다른 실행이 가져갔다 — 이 회차는 물러난다(겹쳐 쓰지 않기 위해)');
-    const r = spawnSync(bin, argv, { encoding: 'utf8', shell: process.platform === 'win32', env: process.env, maxBuffer: 64 * 1024 * 1024 });
+    /* ★한 단계에 시간 상한을 둔다(30분). 전에는 상한이 없어 네트워크 재시도로 자식이 60분 넘게
+       매달릴 수 있었고, 그 사이 잠금이 stale 로 보여 남이 가져갔다(코덱스 8차 시나리오 1단계).
+       실측 최장 단계는 몇 분이라 30분이면 넉넉하다. 넘으면 그 회차는 실패로 끝난다. */
+    const r = spawnSync(bin, argv, {
+      encoding: 'utf8', shell: process.platform === 'win32', env: process.env,
+      maxBuffer: 64 * 1024 * 1024, timeout: 30 * 60_000,
+    });
     const raw = `${r.stdout || ''}\n${r.stderr || ''}`;
     const lines = raw.split(/\r?\n/).map((l) => l.trimEnd()).filter((l) => l && !/DEP0190|trace-deprecation|Assertion/.test(l));
     const picked = lines.filter((l) => pick.test(l)).map((l) => l.trim());
