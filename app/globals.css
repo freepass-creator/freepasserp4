@@ -413,6 +413,13 @@ button, input, select, textarea { font-family: inherit; }
   .fp-action-dock__actions { gap: 6px !important; overflow: hidden; }
   .fp-action-dock__actions > .fp-press[data-variant="solid"] { flex: 1 1 auto; min-width: 104px; }
   .fp-action-dock__actions > .fp-press[data-variant="ghost"] { flex: 0 0 auto; }
+  /* ★모바일 하단독 = **꽉 채운 두 칸** — 전자계약 `.c-footer.wiz` 와 같은 짜임
+     (사장님 2026-08-30 「하단에 버튼을 좀 꽉 채워서 주요 버튼 · 비주요 버튼 두 개만 … 착한거래 하단 버튼처럼」).
+       비주요(이전) = 고정폭 92 · 주요(공유 등) = 나머지 전부(위 solid 규칙의 flex:1).
+     92 는 `.sign-root .btn-prev{min-width:92px}` 와 같은 값이다 — 손님 화면과 우리 화면의 «돌아가기»가 같은 폭이다.
+     ⚠ `[data-variant="ghost"]` 로 좁힌다: 라벨 없는 아이콘형 이전(IconBtn)은 data-variant 가 없어
+       여기 안 걸린다 — 정사각 40 표적이 92 로 늘어나면 안 된다. */
+  .fp-action-dock__row > .fp-press[data-variant="ghost"] { flex: 0 0 auto; min-width: 92px; }
 
   /* ★상단바 좌우 여백은 **CSS 가 정한다**(사장님 2026-08-23 「상품찾기 상단 아이콘 위치가 틀어지는 거 같은데 ·
      새로고침 하면 괜찮아지고」).

@@ -169,8 +169,14 @@ export default function Detail() {
    * 「텍스트복사 빼자, 링크 공유하기 버튼만 · 바로 공유할 수 있게끔 · 웹도 링크 공유로」.
    * 누르면 바로 OS 공유시트(카톡·문자), 없으면 링크 복사(ProductAgentShareActions).
    */
+  /**
+   * ★감싸개는 `display:contents` — 자기는 상자를 만들지 않고 자식을 독의 «직계»로 내보낸다.
+   *   독의 폭 규칙(`.fp-action-dock__actions > .fp-press[...]`)은 «직계»에만 걸리는데,
+   *   전에는 이 span 이 사이에 끼어 있어 공유 버튼이 그 규칙을 못 받고 제 글자폭만 차지했다.
+   *   그래서 「꽉 채우기」가 안 먹었다(2026-08-30).
+   */
   const dockActions = canUseAssist ? (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+    <span style={{ display: 'contents' }}>
       <ProductAgentShareActions p={p} />
       {/* 검수 요청은 넓은 화면 독에만 — 모바일은 뺀다(사장님 2026-08-22 「요청보내기 버튼 없애 주고」). */}
       {canDeal && assistShown ? <ReportButton p={p} /> : null}
