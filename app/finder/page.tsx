@@ -10,7 +10,6 @@ import { activeCount, EMPTY_VEHICLE_FILTER, normalizeVehicleFilter, type Vehicle
 import { isStockedProduct } from '@/lib/domain/product';
 import { InterestPanel, useInterestLists, useInterestTab, useInterestTabGuard } from '@/components/InterestRail';
 import { toast } from '@/components/Toaster';
-import { StartGuide, useStartGuide } from '@/components/StartGuide';
 import { C, R, FS, CenterNote, ContextMenu, useContextMenu, FW, ICON, SearchInput } from '@/components/ui';
 import { useAuthReady, useSession } from '@/lib/auth-context';
 import { useAppBar } from '@/lib/appbar';
@@ -296,13 +295,6 @@ export default function Finder() {
       document.documentElement.dataset.fpFilter = '0';
     }
   }, []);
-
-  // 로그인 후 최초 1회 — 이 화면(상품 목록) 보는 법.
-  //  역할별 업무 흐름이었으나, 로그인 직후 처음 만나는 것은 이 목록이고 기본이 엑셀(표)이라
-  //  «이게 뭔지·어떻게 바꾸는지»가 먼저다. 업무 흐름은 「자주 묻는 질문」이 다룬다.
-  //  내용 SSOT = lib/domain/onboarding.ts
-  const guideReady = authReady && !!session;
-  const startGuide = useStartGuide(guideReady);
 
   const {
     state: s, aggregate: agg, months, present, cascadeProducts,
@@ -606,8 +598,10 @@ export default function Finder() {
         </BottomSheet>
       )}
 
-      {/* 시작안내 — 웹·모바일 같은 내용(Modal 이 모바일에서 시트로 뜬다). */}
-      <StartGuide open={startGuide.open} onClose={startGuide.close} />
+      {/* ★들어오자마자 뜨는 «시작안내» 팝업은 없앴다(사장님 2026-08-30 「웹이든 모바일이든 들어갔을 때
+          그 팝업 뜨면서 '다음에 안 열게' 이런 거 하지 말자」).
+          화면을 열자마자 덮개가 뜨면 매번 «닫기»부터 눌러야 한다 — 일하러 온 사람에게는 그게 문턱이다.
+          화면 설명이 필요하면 「업무안내·QNA」(/faq)로 «찾아가서» 본다. */}
     </div>
   );
 }
