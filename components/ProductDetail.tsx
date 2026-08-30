@@ -7,7 +7,6 @@ import { getRole } from '@/lib/domain/deal';
 import { Badge, C, R, NUM, FW, FS, ICON, CloseBtn, IconBtn, SCRIM, DetailTable, DT, KV_LABEL_W } from '@/components/ui';
 import { ImageOff } from 'lucide-react';
 import { toast } from '@/components/Toaster';
-import { downloadSinglePhoto } from '@/lib/client/download-photo-zip';
 import {
   SignalMarks, MetaIcon, Plate, idParts, CardBenefits, CardEvents, OptionChips, plateSpecLine,
 } from '@/components/product-card-atoms';
@@ -16,7 +15,7 @@ import { ProductStateMarks } from '@/components/ProductStateMarks';
 import { ProductPhotoImage, ProductPhotoPlaceholder } from '@/components/ProductPhoto';
 import { ProductPriceTable } from '@/components/ProductPriceTable';
 import { useIsMobile } from '@/lib/use-mobile';
-import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Download } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from 'lucide-react';
 import { sectionIcon } from '@/components/section-icons';
 
 /**
@@ -118,15 +117,6 @@ export function ProductDetail({ p, audience, layout = 'brochure' }: {
   };
   const secs = detailSections(p, aud);
   const { idMain, idExt } = idParts(p);
-  const photoFileName = String(p.car_number || p.vehicle_no || p.plate_no || p.product_code || idMain || '차량사진');
-  const downloadOnePhoto = async (url: string, index: number) => {
-    try {
-      await downloadSinglePhoto(url, index, photoFileName);
-      toast(`사진 ${index + 1} 저장 완료`, 'ok');
-    } catch (error) {
-      toast(String((error as Error)?.message || '사진 다운로드 실패'), 'error');
-    }
-  };
   /** work = 차량번호를 요약바가 이미 들고 있다. 세부표에서 한 번 더 찍지 않는다(같은 값 세 번 → 표가 길어 보인다). */
   const kvRows = (rows: [string, string][]) => (work ? rows.filter(([k]) => k !== '차량번호') : rows);
 
@@ -167,8 +157,8 @@ export function ProductDetail({ p, audience, layout = 'brochure' }: {
       <div>
       {(photos.length ? (
         <div style={work ? { maxWidth: WORK_PHOTO_W, marginBottom: 4 } : undefined}>
-          {/* 「전체받기」는 우측 영업자 패널의 「사진 N장 내려받기」가 맡는다 — 같은 동작을 두 곳에 두지 않는다
-              (사장님 2026-08-20). 여기는 이름표만 남긴다. */}
+          {/* ★사진 «받기»는 이 화면에 없다(사장님 2026-08-30 「다 삭제해 버리고 싶으니까」) —
+              사진은 파일로 주고받지 않고 링크로 보낸다. 여기는 이름표만 남긴다. */}
           {!mobile ? (
             <div style={{ fontSize: FS.title, fontWeight: FW.title, color: C.ink, marginBottom: 4 }}>차량사진</div>
           ) : null}
@@ -407,20 +397,6 @@ export function ProductDetail({ p, audience, layout = 'brochure' }: {
           <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: 880, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
             {photos.map((ph, i) => (
               <div key={i} style={{ position: 'relative' }}>
-                {/* ★사진 «한 장» 내려받기 = 웹 전용(사장님 2026-08-30 「모바일에서는 그 사진 개별 다운받는
-                    버튼 없애자, 아예 기능 자체가 필요 없어」).
-                    폰에는 이미 OS 가 그 일을 한다 — 사진을 길게 누르면 저장된다. 그 위에 우리 버튼을 겹치면
-                    사진 우상단을 가리기만 하고, 손가락으로 넘기다 잘못 눌러 받아지기도 한다.
-                    영업자가 파일이 필요한 경우는 웹에서 우측 패널의 「사진 N장 내려받기」(묶음)로 받는다. */}
-                {!mobile && (
-                  <IconBtn
-                    title={`사진 ${i + 1} 한 장 받기`}
-                    onClick={(e) => { e.stopPropagation(); void downloadOnePhoto(ph, i); }}
-                    style={{ position: 'absolute', top: 10, right: 10, zIndex: 1, background: SCRIM.heavy, color: C.inverse, border: 'none' }}
-                  >
-                    <Download size={ICON.md} aria-hidden />
-                  </IconBtn>
-                )}
                 <ProductPhotoImage
                   src={ph}
                   alt=""

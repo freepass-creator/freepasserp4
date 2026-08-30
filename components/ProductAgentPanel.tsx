@@ -1,12 +1,11 @@
 ﻿'use client';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import { Download, Link2, LoaderCircle } from 'lucide-react';
+import { Link2 } from 'lucide-react';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { acquisitionPriceList, agentContractRows, agentPanelRows, cheapest, priceList, vehicleName, type Audience } from '@/lib/domain/product';
 import { actor, getRole } from '@/lib/domain/deal';
 import { guestShareUrl } from '@/lib/domain/product-share';
 import { useProductPhotoState } from '@/components/use-product-photos';
-import { downloadPhotoZip } from '@/lib/client/download-photo-zip';
 import { CustomerPreviewButton } from '@/components/CustomerPreviewModal';
 import { sectionIcon } from '@/components/section-icons';
 import { copyText } from '@/lib/clipboard';
@@ -19,13 +18,13 @@ import { won, Btn, C, R, PILL_R, NUM, FW, FS, ICON, DetailTable, DT, R_CARD } fr
  *
  * ★이 칼럼은 **영업자가 보는 것만** 둔다(사장님 「영업자가 보는거 위주로 가자」).
  *   계약진행·대화·문의는 여기서 뺐다 — 상담 문의는 아직 운영하지 않는다(사장님 2026-08-20).
- *   지금 여기서 할 수 있는 일은 셋뿐이다: **링크 공유 · 사진 다운로드 · 손님 화면 보기**.
+ *   지금 여기서 할 수 있는 일은 둘뿐이다: **링크 공유 · 손님 화면 보기**.
  *
  * 구성
  *   ① 대여료 — 기간·월대여료·보증금 **전 기간 목록**(본문을 스크롤해 올라가지 않게)
  *   ② 영업 정보 — 심사·보증금 분납·카드결제·위약금·주행초과·승계(`agentPanelRows`)
  *   ③ 손님 전달 — 링크 복사·텍스트 복사(보내는 것)
- *   ④ 손님 화면 보기(내가 확인하는 것) · 사진 내려받기(파일 받는 것) — **성격이 다르니 따로 세운다**
+ *   ④ 손님 화면 보기(내가 «확인»하는 것) — 손님에게 «보내는» 버튼과 모양을 달리 세운다
  *
  * ★**반전(남색) 머리띠 = 이 패널의 문법**(사장님 「반전 표로 잘 꾸며봐」).
  *   상세 본문 표는 회색 머리띠(`DT.band`), 패널 표는 반전 머리띠 — 색 하나로 «본문이냐 패널이냐»가 갈린다.
@@ -105,25 +104,12 @@ export function ProductAgentPanel({ p, audience, pinnedShare }: {
   const rows = agentPanelRows(p, aud);
   const contractRows = agentContractRows(p, aud);
   const { photos } = useProductPhotoState(p);
-  const [zipping, setZipping] = useState(false);
   const prices = priceList(p);
   const acquisition = acquisitionPriceList(p);
   const cheap = cheapest(p);
   const plate = String(p.car_number || '').trim();
   /** 우측 칼럼이 없으면 본문 「기간별 대여료」와 같은 표가 바로 위에 있다. 그때는 패널 대여료표를 두지 않는다. */
   const sideCol = useAgentColumn();
-
-  const savePhotos = async () => {
-    if (zipping || !photos.length) return;
-    setZipping(true);
-    try {
-      const name = String(p.car_number || p.product_code || vehicleName(p) || '차량사진');
-      const r = await downloadPhotoZip(photos, name);
-      toast(r.failed ? `사진 ${r.saved}장 저장 · ${r.failed}장 실패` : `사진 ${r.saved}장 저장 완료`, r.failed ? 'info' : 'ok');
-    } catch (e) {
-      toast(String((e as Error)?.message || '사진 다운로드 실패'), 'error');
-    } finally { setZipping(false); }
-  };
 
   /* 반전 표 칸 규격 — 본문 표(DT)와 같은 리듬, 색만 반전. */
   /**
@@ -274,22 +260,9 @@ export function ProductAgentPanel({ p, audience, pinnedShare }: {
         </DetailTable>
       ) : null}
 
-      {/* ③ 내가 하는 일 — 확인(테두리 버튼) · 파일 받기(회색 채움). 손님에게 «보내는» 버튼과 모양이 다르다. */}
+      {/* ③ 내가 하는 일 — 손님 화면 «확인» 하나. 파일 받기는 걷었다(사장님 2026-08-30) —
+          사진은 링크로 보내지 파일로 주고받지 않는다. */}
       <CustomerPreviewButton p={p} full />
-      <Btn
-        full
-        variant="ghost"
-        style={{ background: C.head }}
-        title={photos.length ? '이 차량 사진 전체를 ZIP으로 저장합니다' : '등록된 사진이 없습니다'}
-        disabled={zipping || !photos.length}
-        onClick={savePhotos}
-      >
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          {zipping ? <LoaderCircle size={ICON.md} className="fp-spin" aria-hidden /> : <Download size={ICON.md} aria-hidden />}
-          {zipping ? '사진 묶는 중' : photos.length ? `사진 ${photos.length}장 내려받기` : '사진 없음'}
-        </span>
-      </Btn>
-
       {/* 좁은 화면 = 고정할 칼럼이 없다 → 공유 버튼도 흐름 끝에 그대로 선다. */}
       {!pinnedShare ? <ProductAgentShareActions p={p} /> : null}
     </div>

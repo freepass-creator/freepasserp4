@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useMemo } from 'react';
 import {
@@ -7,7 +7,7 @@ import {
 import { toggleInSet } from '@/lib/set';
 import { Badge, Btn, C, CountPill, FilterChips, FS, FW, ToggleChips } from '@/components/ui';
 import { FINDER_DEFAULT_SORT, FINDER_SORTS } from './filter-state';
-import type { FinderFilterPanelModel } from './FinderFilterPanel';
+import { chipOpts, type FinderFilterPanelModel } from './FinderFilterPanel';
 
 /**
  * ★모바일 빠른필터 — 하단 「검색」 탭이 여는 시트의 몸통.
@@ -43,8 +43,16 @@ export function FinderMobileFilters({ model }: { model: FinderFilterPanelModel }
     vehicle: { ...EMPTY_VEHICLE_FILTER, maker: vsel.maker, model: v ? [v] : [] } satisfies VehicleFilter,
   });
 
-  const yearOpts = (aggregate.year || []).map(([key]) => ({ key, label: key }));
+  /** ★모든 칩은 chipOpts 를 통과한다 — 고른 값이 모수에서 빠져도 칩이 남아야 «숨은 필터»가 안 생긴다. */
   const yearSel = value.dyn.year || new Set<string>();
+  const yearOpts = chipOpts((aggregate.year || []).map(([key]) => ({ key, label: key })), yearSel);
+  const popularOpts = chipOpts(popularModels, value.models);
+  const rentOpts = chipOpts(present.rent, value.rent);
+  const depOpts = chipOpts(present.dep, value.dep);
+  const mileOpts = chipOpts(present.mile, value.mile);
+  const fuelOpts = chipOpts(present.fuel, value.fuel);
+  const creditOpts = chipOpts(present.credit, value.credit);
+  const perksOpts = chipOpts(present.perks, value.perks);
 
   // 제조사 = 국산/수입 묶음을 펼쳐 대수순 한 줄로. 폰에서는 묶음 제목이 줄만 늘린다.
   const makerOpts = tree.makers.flatMap((g) => g.options).map((o) => ({ key: o.value, label: o.value }));
@@ -52,11 +60,11 @@ export function FinderMobileFilters({ model }: { model: FinderFilterPanelModel }
 
   return (
     <div>
-      <Row title={<>인기차종 <Badge tone="amber" variant="solid">BEST</Badge></>} count={value.models.size} onClear={() => update({ models: new Set() })} show={popularModels.length > 0}>
+      <Row title={<>인기차종 <Badge tone="amber" variant="solid">BEST</Badge></>} count={value.models.size} onClear={() => update({ models: new Set() })} show={popularOpts.length > 0}>
         <ToggleChips
           selected={value.models}
           onToggle={(key) => update((cur) => ({ ...cur, models: toggleInSet(cur.models, key) }))}
-          options={popularModels.map((o) => ({ key: o.key, label: o.label }))}
+          options={popularOpts}
         />
       </Row>
 
@@ -68,14 +76,14 @@ export function FinderMobileFilters({ model }: { model: FinderFilterPanelModel }
         <FilterChips value={carModel} onChange={pickModel} options={modelOpts} clearKey="" />
       </Row>
 
-      <Row title="월대여료" count={value.rent.size} onClear={() => update({ rent: new Set() })} show={present.rent.length > 0}>
-        <ToggleChips selected={value.rent} onToggle={(key) => update((cur) => ({ ...cur, rent: toggleInSet(cur.rent, key) }))} options={present.rent} />
+      <Row title="월대여료" count={value.rent.size} onClear={() => update({ rent: new Set() })} show={rentOpts.length > 0}>
+        <ToggleChips selected={value.rent} onToggle={(key) => update((cur) => ({ ...cur, rent: toggleInSet(cur.rent, key) }))} options={rentOpts} />
       </Row>
-      <Row title="보증금" count={value.dep.size} onClear={() => update({ dep: new Set() })} show={present.dep.length > 0}>
-        <ToggleChips selected={value.dep} onToggle={(key) => update((cur) => ({ ...cur, dep: toggleInSet(cur.dep, key) }))} options={present.dep} />
+      <Row title="보증금" count={value.dep.size} onClear={() => update({ dep: new Set() })} show={depOpts.length > 0}>
+        <ToggleChips selected={value.dep} onToggle={(key) => update((cur) => ({ ...cur, dep: toggleInSet(cur.dep, key) }))} options={depOpts} />
       </Row>
-      <Row title="주행거리" count={value.mile.size} onClear={() => update({ mile: new Set() })} show={present.mile.length > 0}>
-        <ToggleChips selected={value.mile} onToggle={(key) => update((cur) => ({ ...cur, mile: toggleInSet(cur.mile, key) }))} options={present.mile} />
+      <Row title="주행거리" count={value.mile.size} onClear={() => update({ mile: new Set() })} show={mileOpts.length > 0}>
+        <ToggleChips selected={value.mile} onToggle={(key) => update((cur) => ({ ...cur, mile: toggleInSet(cur.mile, key) }))} options={mileOpts} />
       </Row>
       <Row title="연식" count={yearSel.size} onClear={() => update((cur) => ({ ...cur, dyn: { ...cur.dyn, year: new Set() } }))} show={yearOpts.length > 0}>
         <ToggleChips
@@ -84,15 +92,15 @@ export function FinderMobileFilters({ model }: { model: FinderFilterPanelModel }
           options={yearOpts}
         />
       </Row>
-      <Row title="연료" count={value.fuel.size} onClear={() => update({ fuel: new Set() })} show={present.fuel.length > 0}>
-        <ToggleChips selected={value.fuel} onToggle={(key) => update((cur) => ({ ...cur, fuel: toggleInSet(cur.fuel, key) }))} options={present.fuel} />
+      <Row title="연료" count={value.fuel.size} onClear={() => update({ fuel: new Set() })} show={fuelOpts.length > 0}>
+        <ToggleChips selected={value.fuel} onToggle={(key) => update((cur) => ({ ...cur, fuel: toggleInSet(cur.fuel, key) }))} options={fuelOpts} />
       </Row>
 
-      <Row title="심사" count={value.credit.size} onClear={() => update({ credit: new Set() })} show={present.credit.length > 0}>
-        <ToggleChips selected={value.credit} onToggle={(key) => update((cur) => ({ ...cur, credit: toggleInSet(cur.credit, key) }))} options={present.credit} />
+      <Row title="심사" count={value.credit.size} onClear={() => update({ credit: new Set() })} show={creditOpts.length > 0}>
+        <ToggleChips selected={value.credit} onToggle={(key) => update((cur) => ({ ...cur, credit: toggleInSet(cur.credit, key) }))} options={creditOpts} />
       </Row>
-      <Row title="우대조건" count={value.perks.size} onClear={() => update({ perks: new Set() })} show={present.perks.length > 0}>
-        <ToggleChips selected={value.perks} onToggle={(key) => update((cur) => ({ ...cur, perks: toggleInSet(cur.perks, key) }))} options={present.perks} />
+      <Row title="우대조건" count={value.perks.size} onClear={() => update({ perks: new Set() })} show={perksOpts.length > 0}>
+        <ToggleChips selected={value.perks} onToggle={(key) => update((cur) => ({ ...cur, perks: toggleInSet(cur.perks, key) }))} options={perksOpts} />
       </Row>
 
       {/* 정렬은 조건이 아니지만 여기 둔다 — 폰에 정렬 자리가 여기밖에 없다(툴바를 없앴다). */}

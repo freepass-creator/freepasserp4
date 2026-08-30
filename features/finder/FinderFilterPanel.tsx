@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import type { EntityRecord } from '@/lib/intake/entities';
 import {
@@ -14,8 +14,13 @@ import type { FilterBag } from './filter-state';
 
 type FilterUpdate = Partial<FilterBag> | ((current: FilterBag) => FilterBag);
 
-/** 칩 옵션 — 대상 대수 없이, 선택 중인 값은 모수에 없어도 유지 표시. */
-function chipOpts(
+/**
+ * 칩 옵션 — 대상 대수 없이, **선택 중인 값은 모수에 없어도 유지 표시**.
+ * 이게 없으면 다른 축을 좁혀 그 값이 모수에서 빠지는 순간 칩이 사라진다 —
+ * 필터는 걸려 있는데 화면에 안 보이는 «숨은 필터»가 되어 「왜 3대밖에 안 나오지」가 된다.
+ * ⚠ 모바일 빠른필터(FinderMobileFilters)도 **반드시 이걸 통과시킨다**.
+ */
+export function chipOpts(
   present: { key: string; label: string }[],
   selected: Set<string>,
   labelOf?: (key: string) => string,
