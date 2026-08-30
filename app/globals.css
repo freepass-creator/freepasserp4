@@ -438,43 +438,6 @@ button, input, select, textarea { font-family: inherit; }
   .fp-topbar__status { min-width: 0; }
   .fp-topbar__actions { flex-shrink: 0 !important; }
   .fp-topbar__actions > * { flex: 0 0 auto; }
-
-  /* ═══ 모바일 상단바 = 전자계약 머리(착한거래 FlowHeader compact)와 «같은 형태» ═══
-     사장님 2026-08-30 「상단 바를 그 전자계약 착한거래 형태로 한번 바꿔보자」.
-
-       [아이콘] 상품찾기 1,234대
-
-     띠(면)는 전자계약 머리(`components/sign/sign.css` .c-head)와 «같은 색·같은 짜임»이다.
-     ★다만 **브랜드 표식은 없다** — 마크도 워드마크도 안 세운다(사장님 2026-08-30 「프리패스는 빼자,
-       노브랜드로 아무것도 안 보여야 되는 거니까」). 공급사·영업자가 같이 쓰는 판이라 우리 이름이 서면 안 된다.
-     themeColor 도 #1B2A4A 라 폰 상태바가 이 띠에 붙는다(전엔 흰 띠가 끼어 있었다).
-
-     ★색을 원자에 «칠하지» 않는다 — 띠 안쪽(.fp-onbar)에서 «토큰만» 뒤집으면
-       C.* 를 쓰는 원자(PageStatus·Btn·CountPill·페이지 액션)가 전부 알아서 따라온다.
-     ★JS(useIsMobile)가 아니라 미디어쿼리로 칠한다 — 첫 방문엔 쿠키(fp_m)가 없어 SSR 이
-       데스크톱으로 잡히므로, JS 로 칠하면 흰 띠가 한 번 번쩍이고 네이비로 바뀐다. */
-  .fp-topbar {
-    background: var(--fp-bar-navy) !important;
-    border-bottom-color: transparent !important;
-  }
-  /* 띠 위 토큰 반전 — 여기 없는 색은 쓰지 않는다(하드코딩 금지).
-     투명도 값은 .c-head-sub(.72)·.c-head-div(.28)와 같은 계열로 맞춘다. */
-  .fp-topbar .fp-onbar {
-    --brand: #ffffff;
-    --brand-h: rgba(255, 255, 255, 0.86);
-    --bg-card: var(--fp-bar-navy);   /* ghost 버튼 면 = 띠와 같은 면 · solid 버튼 글자색 */
-    --bg-header: rgba(255, 255, 255, 0.12);
-    --bg-hover: rgba(255, 255, 255, 0.16);
-    --bg-selected: rgba(255, 255, 255, 0.20);
-    --text-main: #ffffff;
-    --text-sub: rgba(255, 255, 255, 0.74);
-    --text-weak: rgba(255, 255, 255, 0.52);
-    --text-inverse: var(--fp-bar-navy);
-    --text-link: #cfe0fb;
-    --border: rgba(255, 255, 255, 0.28);
-    --border-soft: rgba(255, 255, 255, 0.16);
-    --border-strong: rgba(255, 255, 255, 0.36);
-  }
 }
 
 /* ── 파인더: 웹=좌측 사이드바 필터 / 모바일=숨김(필터 버튼) ── 각지게(저 radius) ── */
@@ -1080,6 +1043,42 @@ html[data-fp-filter="0"] .fp-finder > .fp-sidebar { display: none; }
   .fp-search-tb { max-width: none; }
 }
 .fp-filter-apply { display: none; }
+
+/* ═══ 상단바 = 남색 띠(전자계약 머리와 같은 면) — 웹·모바일 «동일» ═══════════════
+   사장님 2026-08-30 「웹도 상단 헤더 똑같이 남색의 반전으로 하자 · 모바일이랑 동일하게」.
+
+     [아이콘] 상품찾기 1,234대                        (좌: 메뉴 · 우: 오늘·소속·이름)
+
+   띠(면)는 전자계약 머리(`components/sign/sign.css` .c-head)와 같은 색·같은 짜임이다.
+   ★**브랜드 표식은 안 세운다** — 마크도 워드마크도 없다(2026-08-30 「노브랜드로 아무것도 안 보여야」).
+   themeColor 도 #1B2A4A 라 폰에서는 상태바가 이 띠에 그대로 붙는다.
+
+   ★색을 원자에 «칠하지» 않는다 — 띠 안쪽(.fp-onbar)에서 «토큰만» 뒤집으면
+     C.* 를 쓰는 원자(PageStatus·Btn·IconBtn·CountPill·페이지 액션·세션정보)가 전부 알아서 따라온다.
+     ⚠ 전체메뉴 «패널»은 .fp-onbar 밖(NavMenu 버튼에만 걸었다)이라 흰 종이 그대로다 —
+       패널까지 뒤집히면 메뉴 글자가 남색 위 남색이 된다.
+   ★칠하는 주체는 CSS 다(JS useIsMobile 아님) — 첫 방문엔 쿠키(fp_m)가 없어 SSR 이 데스크톱으로
+     잡히므로, JS 로 칠하면 흰 띠가 한 번 번쩍이고 남색으로 바뀐다. */
+.fp-topbar {
+  background: var(--fp-bar-navy) !important;
+  border-bottom-color: transparent !important;
+}
+.fp-topbar .fp-onbar {
+  --brand: #ffffff;
+  --brand-h: rgba(255, 255, 255, 0.86);
+  --bg-card: var(--fp-bar-navy);   /* ghost 버튼 면 = 띠와 같은 면 · solid 버튼 글자색 */
+  --bg-header: rgba(255, 255, 255, 0.12);
+  --bg-hover: rgba(255, 255, 255, 0.16);
+  --bg-selected: rgba(255, 255, 255, 0.20);
+  --text-main: #ffffff;
+  --text-sub: rgba(255, 255, 255, 0.74);
+  --text-weak: rgba(255, 255, 255, 0.52);
+  --text-inverse: var(--fp-bar-navy);
+  --text-link: #cfe0fb;
+  --border: rgba(255, 255, 255, 0.28);
+  --border-soft: rgba(255, 255, 255, 0.16);
+  --border-strong: rgba(255, 255, 255, 0.36);
+}
 
 /* 모바일 하단 슬라이딩 탭 스트립 — 스크롤바 숨김(터치로 좌우 슬라이드). */
 .fp-tabstrip { scrollbar-width: none; -ms-overflow-style: none; }

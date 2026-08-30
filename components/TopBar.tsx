@@ -165,6 +165,7 @@ function WebSessionMeta() {
 
   return (
     <Link
+      className="fp-onbar"
       href="/settings"
       onClick={() => haptic.nav()}
       title="설정"
@@ -280,6 +281,9 @@ function NavMenu({ mobile, open: openProp, setOpen: setOpenProp }: {
   return (
     <div style={{ position: 'relative', flex: '0 0 auto' }}>
       <IconBtn
+        /* ★버튼«만» 띠 스코프에 넣는다 — 아래 패널은 형제라 흰 종이 그대로 남는다.
+           패널까지 뒤집히면 메뉴 글자가 남색 위 남색이 된다. */
+        className="fp-onbar"
         title={open ? (mobile ? '더보기 닫기' : '전체메뉴 닫기') : (mobile ? '더보기' : '전체메뉴')}
         onClick={() => { haptic.nav(); setOpen((o) => !o); }}
         style={mobile
@@ -390,11 +394,11 @@ export default function TopBar() {
           같은 세로선에 서야 한다. 본문이 화면 중앙이 아닐 때(옆에 보조 칼럼) 화면 기준으로는 못 맞춘다.
           변수를 안 쓰는 페이지는 0 → max() 가 기본값 14 를 지킨다. 우측(로그인 정보)은 화면 끝 그대로. */}
       <header className="fp-topbar" style={{ position: 'sticky', top: 0, zIndex: 70, height: 'var(--topbar-h)', display: 'flex', alignItems: 'center', gap: 8, padding: '0 12px 0 14px', paddingLeft: mobile ? undefined : 'max(14px, var(--fp-col-l, 0px))', background: C.taupeBg, borderBottom: `1px solid ${line}`, boxSizing: 'border-box', boxShadow: mobile ? 'none' : 'var(--shadow-sm)' }}>
-        {/* 모바일 = 네이비 띠(전자계약 머리와 «같은 면») — 바탕·선은 globals.css 미디어쿼리가 칠한다(첫 페인트 번쩍임 방지).
+        {/* 웹·모바일 «동일» = 네이비 띠(전자계약 머리와 같은 면) — 바탕·선은 globals.css 가 칠한다(첫 페인트 번쩍임 방지).
+            사장님 2026-08-30 「웹도 상단 헤더 똑같이 남색의 반전으로 · 모바일이랑 동일하게」.
             ★띠 위에 **브랜드 표식은 없다** — 마크도 워드마크도 안 세운다(사장님 2026-08-30 「노브랜드로 아무것도
               안 보여야 되는 거니까」). 이 ERP 는 공급사·영업자가 같이 쓰는 판이라 우리 이름이 서면 안 된다.
-              남는 건 «어디에 있나»(페이지 아이콘 + 이름 + 건수)뿐이다.
-            웹 콕핏은 흰 바탕 + 경계선 그대로 — 격자라 선이 있어야 칸이 선다. */}
+              남는 건 «어디에 있나»(페이지 아이콘 + 이름 + 건수)뿐이다. */}
         {/* 웹=메뉴 좌측 · 모바일=우측 */}
         {!mobile && <NavMenu mobile={false} open={menuOpen} setOpen={setMenuOpen} />}
         {/* 좌·중앙 = 상태 — 탭하면 이 페이지 새로 온 느낌(스크롤↑·목록·시트닫기) */}
