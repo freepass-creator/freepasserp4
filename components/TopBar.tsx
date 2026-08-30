@@ -9,13 +9,13 @@ import { haptic } from '@/lib/haptics';
 import { getRole, actor, type Role } from '@/lib/domain/deal';
 import { useSession } from '@/lib/auth-context';
 import { loadMenuBadges, menuItemBadge, type MenuBadgeMap } from '@/lib/domain/menu-badges';
-import { C, R, CountPill, NUM, ctrlH, ctrlFs, FW, FS, Btn, IconBtn, BottomNav, SH, ICON } from '@/components/ui';
+import { C, R, CountPill, NUM, ctrlH, ctrlFs, FW, FS, Btn, IconBtn, BottomNav, BrandMark, SH, ICON } from '@/components/ui';
 import { NAV_ICON, NAV_LABEL } from '@/lib/tabbar';
 import { refreshCurrentPage } from '@/lib/page-refresh';
 import { PageStatus, statusIconFor } from '@/components/PageStatus';
 import { getStore, peekList } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
-import { BRAND, VERSION, BUILD } from '@/lib/brand';
+import { BRAND, BRAND_MAIN, VERSION, BUILD } from '@/lib/brand';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { companyAlias } from '@/lib/domain/identity';
 
@@ -387,13 +387,22 @@ export default function TopBar() {
       {/* 왼쪽 여백은 **본문 칼럼을 따라간다**(--fp-col-l, lib/content-column) — 햄버거와 하단 「이전」이
           같은 세로선에 서야 한다. 본문이 화면 중앙이 아닐 때(옆에 보조 칼럼) 화면 기준으로는 못 맞춘다.
           변수를 안 쓰는 페이지는 0 → max() 가 기본값 14 를 지킨다. 우측(로그인 정보)은 화면 끝 그대로. */}
-      <header className="fp-topbar" style={{ position: 'sticky', top: 0, zIndex: 70, height: 'var(--topbar-h)', display: 'flex', alignItems: 'center', gap: 8, padding: '0 12px 0 14px', paddingLeft: mobile ? undefined : 'max(14px, var(--fp-col-l, 0px))', background: C.taupeBg, borderBottom: `1px solid ${mobile ? 'transparent' : line}`, boxSizing: 'border-box', boxShadow: mobile ? 'none' : 'var(--shadow-sm)' }}>
-        {/* 모바일 = 선·그림자 없음(당근 구성) — 상단바와 목록이 «한 면»으로 이어진다.
-            웹 콕핏은 격자라 경계선이 있어야 칸이 선다 — 그대로 둔다. */}
+      <header className="fp-topbar" style={{ position: 'sticky', top: 0, zIndex: 70, height: 'var(--topbar-h)', display: 'flex', alignItems: 'center', gap: 8, padding: '0 12px 0 14px', paddingLeft: mobile ? undefined : 'max(14px, var(--fp-col-l, 0px))', background: C.taupeBg, borderBottom: `1px solid ${line}`, boxSizing: 'border-box', boxShadow: mobile ? 'none' : 'var(--shadow-sm)' }}>
+        {/* 모바일 = 네이비 띠(전자계약 머리) — 바탕·선은 globals.css 미디어쿼리가 칠한다(첫 페인트 번쩍임 방지).
+            웹 콕핏은 흰 바탕 + 경계선 그대로 — 격자라 선이 있어야 칸이 선다. */}
         {/* 웹=메뉴 좌측 · 모바일=우측 */}
         {!mobile && <NavMenu mobile={false} open={menuOpen} setOpen={setMenuOpen} />}
+        {/* ★모바일 띠의 머리 = 전자계약과 «같은 문법» — [마크] freepass │ 이 페이지.
+            보내는 사람(우리 앱)과 받는 사람(손님 계약서)이 한 얼굴로 읽힌다.
+            웹에서는 CSS 가 감춘다(display:none) — 좌측 자리는 전체메뉴 버튼이 갖는다.
+            JS(mobile)로 분기하지 않는 이유는 globals.css 「모바일 상단바」 주석 참조(첫 페인트 번쩍임). */}
+        <span className="fp-topbar__brand fp-onbar">
+          <BrandMark size={20} ink="var(--fp-bar-navy)" />
+          <b style={{ fontSize: FS.body, fontWeight: FW.strong, letterSpacing: '-0.02em', color: C.ink }}>{BRAND_MAIN}</b>
+          <span className="fp-topbar__brand-div" aria-hidden />
+        </span>
         {/* 좌·중앙 = 상태 — 탭하면 이 페이지 새로 온 느낌(스크롤↑·목록·시트닫기) */}
-        <div className="fp-topbar__main" style={{
+        <div className="fp-topbar__main fp-onbar" style={{
           flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8,
         }}>
           {!mobile && backBtn}
@@ -421,7 +430,7 @@ export default function TopBar() {
         </div>
         {/* 페이지별 우측 액션 — erp3 m-topbar-actions. 웹·모바일 공통(메뉴 왼쪽). */}
         {actions != null && (
-          <span className="fp-topbar__actions" style={{ flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', gap: 4, minWidth: 0 }}>
+          <span className="fp-topbar__actions fp-onbar" style={{ flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', gap: 4, minWidth: 0 }}>
             {actions}
           </span>
         )}

@@ -36,6 +36,9 @@
   /* --brand-soft = 엑셀 머리띠. 흰색에 가까우면 머리가 본문에 묻힌다. */
   --brand: #1B2A4A;   --brand-h: #0F1B35;   --brand-bg: #e6ecf5;   --brand-soft: #eaeff7;
   --sky: #9EC5F3;     --sky-bg: #eef5fe;
+  /* 모바일 상단바 띠 — 전자계약 머리(.sign-root .c-head)와 «같은 면». themeColor(#1B2A4A)와도 같다.
+     ⚠ --brand 를 그대로 쓰지 않는다: 다크에서 --brand 는 «밝은 하늘색»이라 띠로 쓰면 글자가 죽는다. */
+  --fp-bar-navy: #1B2A4A;  --fp-bar-paper: #ffffff;
   --focus-ring: rgba(27, 42, 74, 0.18);
 
   /* Accent palette (soft bg + saturated text) */
@@ -130,6 +133,7 @@ html[data-theme="dark"] {
 
   --brand: #9EC5F3;   --brand-h: #b8d7f7;   --brand-bg: #1a2740;   --brand-soft: #141c28;
   --sky: #9EC5F3;     --sky-bg: #1a2740;
+  --fp-bar-navy: #16202f;  --fp-bar-paper: #ffffff;  /* 띠가 다크에서도 남색이라 마크 네모는 흰색 그대로 */
   --focus-ring: rgba(158, 197, 243, 0.22);
 
   --red-bg: #2a1515;    --red-text: #fca5a5;    --red-border: #7f1d1d;
@@ -434,6 +438,48 @@ button, input, select, textarea { font-family: inherit; }
   .fp-topbar__status { min-width: 0; }
   .fp-topbar__actions { flex-shrink: 0 !important; }
   .fp-topbar__actions > * { flex: 0 0 auto; }
+
+  /* ═══ 모바일 상단바 = 전자계약 머리(착한거래 FlowHeader compact)와 «같은 형태» ═══
+     사장님 2026-08-30 「상단 바를 그 전자계약 착한거래 형태로 한번 바꿔보자」.
+
+       [▣✓] freepass │ 상품찾기 1,234대
+
+     손님이 받는 전자계약(`components/sign/sign.css` .c-head)과 «같은 얼굴»이 된다 —
+     보내는 사람 화면과 받는 사람 화면이 한 브랜드로 읽힌다.
+     themeColor 도 #1B2A4A 라 폰 상태바가 이 띠에 붙는다(전엔 흰 띠가 끼어 있었다).
+
+     ★색을 원자에 «칠하지» 않는다 — 띠 안쪽(.fp-onbar)에서 «토큰만» 뒤집으면
+       C.* 를 쓰는 원자(PageStatus·Btn·CountPill·페이지 액션)가 전부 알아서 따라온다.
+     ★JS(useIsMobile)가 아니라 미디어쿼리로 칠한다 — 첫 방문엔 쿠키(fp_m)가 없어 SSR 이
+       데스크톱으로 잡히므로, JS 로 칠하면 흰 띠가 한 번 번쩍이고 네이비로 바뀐다. */
+  .fp-topbar {
+    background: var(--fp-bar-navy) !important;
+    border-bottom-color: transparent !important;
+  }
+  /* 아래 기본 규칙(display:none)이 파일에서 «뒤»에 오므로 선택자를 한 단 더 잡아 이긴다. */
+  .fp-topbar .fp-topbar__brand { display: inline-flex; }
+  /* 페이지 아이콘은 뺀다 — 왼쪽 자리는 CI 마크가 가진다(글리프 둘이 나란히 서면 머리가 시끄럽다).
+     전자계약 머리에도 페이지별 아이콘은 없다. */
+  .fp-topbar .fp-pagestatus-icon { display: none !important; }
+
+  /* 띠 위 토큰 반전 — 여기 없는 색은 쓰지 않는다(하드코딩 금지).
+     투명도 값은 .c-head-sub(.72)·.c-head-div(.28)와 같은 계열로 맞춘다. */
+  .fp-topbar .fp-onbar {
+    --brand: #ffffff;
+    --brand-h: rgba(255, 255, 255, 0.86);
+    --bg-card: var(--fp-bar-navy);   /* ghost 버튼 면 = 띠와 같은 면 · solid 버튼 글자색 */
+    --bg-header: rgba(255, 255, 255, 0.12);
+    --bg-hover: rgba(255, 255, 255, 0.16);
+    --bg-selected: rgba(255, 255, 255, 0.20);
+    --text-main: #ffffff;
+    --text-sub: rgba(255, 255, 255, 0.74);
+    --text-weak: rgba(255, 255, 255, 0.52);
+    --text-inverse: var(--fp-bar-navy);
+    --text-link: #cfe0fb;
+    --border: rgba(255, 255, 255, 0.28);
+    --border-soft: rgba(255, 255, 255, 0.16);
+    --border-strong: rgba(255, 255, 255, 0.36);
+  }
 }
 
 /* ── 파인더: 웹=좌측 사이드바 필터 / 모바일=숨김(필터 버튼) ── 각지게(저 radius) ── */
@@ -1039,6 +1085,15 @@ html[data-fp-filter="0"] .fp-finder > .fp-sidebar { display: none; }
   .fp-search-tb { max-width: none; }
 }
 .fp-filter-apply { display: none; }
+
+/* 워드마크는 모바일 띠에서만 선다(웹 콕핏 좌측은 전체메뉴 버튼 자리). */
+.fp-topbar__brand { display: none; align-items: center; gap: 7px; flex: 0 0 auto; min-width: 0; }
+/* 마크·워드마크와 페이지 이름 사이의 얇은 세로선 — 전자계약 `.c-head-div` 와 같은 치수(1×12).
+   페이지가 아니라 여기(CSS)에 둔다: 인라인 height 는 «하드코딩 높이»로 세어진다(check:building). */
+.fp-topbar__brand-div {
+  width: 1px; height: 12px; flex: 0 0 auto; margin-left: 1px;
+  background: var(--border);
+}
 
 /* 모바일 하단 슬라이딩 탭 스트립 — 스크롤바 숨김(터치로 좌우 슬라이드). */
 .fp-tabstrip { scrollbar-width: none; -ms-overflow-style: none; }
