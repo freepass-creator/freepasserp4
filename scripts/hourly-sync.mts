@@ -67,7 +67,7 @@ const releaseLock = () => {
 const out: string[] = [`■ 시간별 동기화 ${APPLY ? '반영' : '미리보기'} ${kst()} KST`];
 const line: string[] = [];
 /** 상태로그 뼈대 — 연동지도가 요구하는 «단계별·커버리지·경고». 코덱스가 이걸 읽는다. */
-const steps: Array<{ 단계: string; ok: boolean; 요약?: string }> = [];
+const steps: Array<{ 단계: string; ok: boolean; 신호?: string; 요약?: string }> = [];
 const warnings: string[] = [];
 let coverage: { 총: number; 매칭: number; 매칭율: number } | null = null;
 /** 한 단계라도 실패하면 false — 성공으로 «기록»하지 않기 위해서다. */
@@ -87,7 +87,16 @@ const RATE_LIMIT = /\b429\b|rate.?limit|quota|RESOURCE_EXHAUSTED/i;
  * 동기 오케스트레이터라 async 로 바꿀 필요 없이 «진짜로 자는» 방법만 있으면 된다.
  */
 const sleep = (ms: number) => { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); };
-const run = (label: string, args: string[], pick: RegExp, runner: 'npx' | 'node' = 'npx'): { ok: boolean; picked: string[] } => {
+/**
+ * ★`signal2ok` — **종료코드 2 를 «실패»가 아니라 «어긋남을 찾았다»로 읽는다.**
+ *
+ *   ⑧ 대조·⑨ 상태갈림·⑪ 요금검수는 «재는 자»다. 어긋남을 찾으면 exit 2 를 낸다 — 그게 정상 동작이고,
+ *   특히 dry-run 에서는 ①~⑦ 이 아무것도 안 썼으니 **항상** 어긋난다.
+ *   이걸 실패로 세면 매 실행이 실패로 끝나고 3시간마다 메일이 간다 → 아무도 그 메일을 안 믿게 된다.
+ *   (2026-08-30 내가 allOk 를 넣으면서 실제로 이 병을 만들었다. 실측 exit=2 · 22단계 중 2건이 그것이었다.)
+ *   exit 2 «말고» 다른 실패(1·크래시)는 그대로 실패다 — 재는 자 자체가 죽은 것이므로.
+ */
+const run = (label: string, args: string[], pick: RegExp, runner: 'npx' | 'node' = 'npx', signal2ok = false): { ok: boolean; picked: string[] } => {
   const bin = runner === 'node' ? 'node' : (process.platform === 'win32' ? 'npx.cmd' : 'npx');
   const argv = runner === 'node' ? args : ['tsx', ...args];
   for (let attempt = 1; ; attempt += 1) {
@@ -95,7 +104,8 @@ const run = (label: string, args: string[], pick: RegExp, runner: 'npx' | 'node'
     const raw = `${r.stdout || ''}\n${r.stderr || ''}`;
     const lines = raw.split(/\r?\n/).map((l) => l.trimEnd()).filter((l) => l && !/DEP0190|trace-deprecation|Assertion/.test(l));
     const picked = lines.filter((l) => pick.test(l)).map((l) => l.trim());
-    const ok = r.status === 0;
+    const 신호 = signal2ok && r.status === 2;   // 어긋남을 «찾았다» — 재는 자가 죽은 게 아니다
+    const ok = r.status === 0 || 신호;
     if (!ok && attempt < 3 && RATE_LIMIT.test(raw)) {
       console.log(`── ${label} ⏳ 구글 요청한도 — 30초 쉬고 다시 (${attempt}/3)`);
       out.push(`\n── ${label} ⏳ 요청한도 재시도 ${attempt}`);
@@ -107,8 +117,9 @@ const run = (label: string, args: string[], pick: RegExp, runner: 'npx' | 'node'
     for (const l of picked.slice(0, 6)) console.log(`   ${l.slice(0, 220)}`);
     /* ★단계 결과를 남긴다. 「경고로 넘긴 단계」도 상태로그에서는 성공이 아니다.
        (코덱스 2026-08-30: 「⑩ 이 실패해도 ok:true 로 기록해 천이가 조용히 낡을 수 있다」) */
-    steps.push({ 단계: label, ok, ...(picked.length ? { 요약: picked.slice(0, 3).join(' | ').slice(0, 300) } : null) });
-    if (!ok) { allOk = false; warnings.push(`${label} 실패`); }
+    steps.push({ 단계: label, ok, ...(신호 ? { 신호: '어긋남 있음' } : null), ...(picked.length ? { 요약: picked.slice(0, 3).join(' | ').slice(0, 300) } : null) });
+    if (신호) warnings.push(`${label} — 어긋남 있음(신호)`);
+    else if (!ok) { allOk = false; warnings.push(`${label} 실패`); }
     return { ok, picked };
   }
 };
@@ -340,7 +351,7 @@ line.push([
 ].join(' · '));
 
 // ⑧ 대조 — 판매시트 ↔ ERP 가 실제로 같은지 매 시간 확인해 기록에 남긴다(규칙 정본 lib/domain/sheet-erp-parity.ts).
-const chk = run('⑧ 시트↔ERP 대조', ['scripts/audit-sheet-erp-parity.mts'], /판매시트 |안 뜨는 차|없는 차/);
+const chk = run('⑧ 시트↔ERP 대조', ['scripts/audit-sheet-erp-parity.mts'], /판매시트 |안 뜨는 차|없는 차/, 'npx', true);
 line.push(chk.picked.find((l) => /안 뜨는 차/.test(l))?.replace('■ ', '') || '대조 ok');
 
 /**
@@ -348,7 +359,7 @@ line.push(chk.picked.find((l) => /안 뜨는 차/.test(l))?.replace('■ ', '') 
  *   출고불가가 된 건지, 다른 데는 시트에서 출고불가가 된 건지 정제시트랑 원본시트랑 다 확인해야지」).
  *   고치지 않는다 — 자동으로 되돌리면 사람이 내린 판단을 지운다. 기록에 「상태 갈림 N대」로 남긴다.
  */
-const drift = run('⑨ 상태 갈림 신호', ['scripts/audit-status-drift.mts'], /상태가 다른 차|★/);
+const drift = run('⑨ 상태 갈림 신호', ['scripts/audit-status-drift.mts'], /상태가 다른 차|★/, 'npx', true);
 // 미확인(동일 차번 상태 충돌 등)은 감사가 읽어 낸 유의미한 신호다. 이때 exit=2가
 // 나도 요약을 버리고 «0»이나 단순 실패로 적지 않는다. 요약 자체가 없을 때만 실패다.
 const driftSummary = drift.picked.find((l) => /상태가 다른 차/.test(l))?.replace('■ ', '');
@@ -367,7 +378,7 @@ line.push(ch.ok ? '천이 ok' : '천이 실패');
  * ⑪ 자기검수 — 판매↔ERP 요금 정합. 「판매엔 있는데 ERP 요금 0」인 차 수를 남긴다.
  *   정상 기준선 3대(협의·더미 차번). 갑자기 늘면 원산지·정제칸 구멍이다.
  */
-const fee = run('⑪ 요금 검수(판매↔ERP)', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/audit-sales-vs-erp.mts'], /없는 차 \d+대|유효가격 0|살아있음 \d+/);
+const fee = run('⑪ 요금 검수(판매↔ERP)', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/audit-sales-vs-erp.mts'], /없는 차 \d+대|유효가격 0|살아있음 \d+/, 'npx', true);
 const feeN = /ERP 목록에 없는 차 (\d+)대/.exec(fee.picked.join(' ') || '');
 line.push(feeN ? `요금검수 ${feeN[1]}대` : '요금검수 ok');
 if (feeN && Number(feeN[1]) > 6) out.push(`\n⚠ 요금검수 — 판매엔 있는데 ERP 요금 0인 차 ${feeN[1]}대(>6). 원산지·정제칸 구멍 의심`);
