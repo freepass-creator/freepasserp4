@@ -38,7 +38,7 @@
   --sky: #9EC5F3;     --sky-bg: #eef5fe;
   /* 모바일 상단바 띠 — 전자계약 머리(.sign-root .c-head)와 «같은 면». themeColor(#1B2A4A)와도 같다.
      ⚠ --brand 를 그대로 쓰지 않는다: 다크에서 --brand 는 «밝은 하늘색»이라 띠로 쓰면 글자가 죽는다. */
-  --fp-bar-navy: #1B2A4A;  --fp-bar-paper: #ffffff;
+  --fp-bar-navy: #1B2A4A;
   --focus-ring: rgba(27, 42, 74, 0.18);
 
   /* Accent palette (soft bg + saturated text) */
@@ -133,7 +133,7 @@ html[data-theme="dark"] {
 
   --brand: #9EC5F3;   --brand-h: #b8d7f7;   --brand-bg: #1a2740;   --brand-soft: #141c28;
   --sky: #9EC5F3;     --sky-bg: #1a2740;
-  --fp-bar-navy: #16202f;  --fp-bar-paper: #ffffff;  /* 띠가 다크에서도 남색이라 마크 네모는 흰색 그대로 */
+  --fp-bar-navy: #16202f;
   --focus-ring: rgba(158, 197, 243, 0.22);
 
   --red-bg: #2a1515;    --red-text: #fca5a5;    --red-border: #7f1d1d;
@@ -442,10 +442,11 @@ button, input, select, textarea { font-family: inherit; }
   /* ═══ 모바일 상단바 = 전자계약 머리(착한거래 FlowHeader compact)와 «같은 형태» ═══
      사장님 2026-08-30 「상단 바를 그 전자계약 착한거래 형태로 한번 바꿔보자」.
 
-       [▣✓] freepass │ 상품찾기 1,234대
+       [아이콘] 상품찾기 1,234대
 
-     손님이 받는 전자계약(`components/sign/sign.css` .c-head)과 «같은 얼굴»이 된다 —
-     보내는 사람 화면과 받는 사람 화면이 한 브랜드로 읽힌다.
+     띠(면)는 전자계약 머리(`components/sign/sign.css` .c-head)와 «같은 색·같은 짜임»이다.
+     ★다만 **브랜드 표식은 없다** — 마크도 워드마크도 안 세운다(사장님 2026-08-30 「프리패스는 빼자,
+       노브랜드로 아무것도 안 보여야 되는 거니까」). 공급사·영업자가 같이 쓰는 판이라 우리 이름이 서면 안 된다.
      themeColor 도 #1B2A4A 라 폰 상태바가 이 띠에 붙는다(전엔 흰 띠가 끼어 있었다).
 
      ★색을 원자에 «칠하지» 않는다 — 띠 안쪽(.fp-onbar)에서 «토큰만» 뒤집으면
@@ -456,12 +457,6 @@ button, input, select, textarea { font-family: inherit; }
     background: var(--fp-bar-navy) !important;
     border-bottom-color: transparent !important;
   }
-  /* 아래 기본 규칙(display:none)이 파일에서 «뒤»에 오므로 선택자를 한 단 더 잡아 이긴다. */
-  .fp-topbar .fp-topbar__brand { display: inline-flex; }
-  /* 페이지 아이콘은 뺀다 — 왼쪽 자리는 CI 마크가 가진다(글리프 둘이 나란히 서면 머리가 시끄럽다).
-     전자계약 머리에도 페이지별 아이콘은 없다. */
-  .fp-topbar .fp-pagestatus-icon { display: none !important; }
-
   /* 띠 위 토큰 반전 — 여기 없는 색은 쓰지 않는다(하드코딩 금지).
      투명도 값은 .c-head-sub(.72)·.c-head-div(.28)와 같은 계열로 맞춘다. */
   .fp-topbar .fp-onbar {
@@ -1085,15 +1080,6 @@ html[data-fp-filter="0"] .fp-finder > .fp-sidebar { display: none; }
   .fp-search-tb { max-width: none; }
 }
 .fp-filter-apply { display: none; }
-
-/* 워드마크는 모바일 띠에서만 선다(웹 콕핏 좌측은 전체메뉴 버튼 자리). */
-.fp-topbar__brand { display: none; align-items: center; gap: 7px; flex: 0 0 auto; min-width: 0; }
-/* 마크·워드마크와 페이지 이름 사이의 얇은 세로선 — 전자계약 `.c-head-div` 와 같은 치수(1×12).
-   페이지가 아니라 여기(CSS)에 둔다: 인라인 height 는 «하드코딩 높이»로 세어진다(check:building). */
-.fp-topbar__brand-div {
-  width: 1px; height: 12px; flex: 0 0 auto; margin-left: 1px;
-  background: var(--border);
-}
 
 /* 모바일 하단 슬라이딩 탭 스트립 — 스크롤바 숨김(터치로 좌우 슬라이드). */
 .fp-tabstrip { scrollbar-width: none; -ms-overflow-style: none; }

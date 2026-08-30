@@ -30,7 +30,6 @@ export * from './copy-block';
 export * from './add-tile';
 export * from './dropzone';
 export * from './close-btn';
-export * from './brand-mark';
 export * from './formatters';
 export * from './flow-actions';
 export * from './summary-stats';

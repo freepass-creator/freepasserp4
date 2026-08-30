@@ -39,8 +39,7 @@ export function PageStatus({
       {/* 모바일 = **박스 없는 맨 아이콘**(사장님 2026-08-22 「좌측 상단 아이콘도 박스에 들어가 있으면 안 되는데」)
           — 우측 햄버거와 같은 문법·같은 글리프 크기(ICON.md). 잉크가 곧 왼쪽 12px 기준선이 된다.
           웹은 회색 칩 유지(좌측 전체메뉴 버튼이 테두리를 가져 둘이 짝을 이룬다). */}
-      {/* 모바일 네이비 띠 위에서는 CSS 가 이 아이콘을 감춘다(그 자리는 CI 마크) — globals.css .fp-pagestatus-icon */}
-      <span className="fp-pagestatus-icon" style={{
+      <span style={{
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
         flex: '0 0 auto', color: C.mute,
         ...(mobile ? null : { width: chip, height: chip, borderRadius: R, background: C.head }),
