@@ -30,5 +30,8 @@ jobs:
           test -n "$SA" || { echo '::error::GOOGLE_SA_JSON 시크릿이 없습니다.'; exit 1; }
           mkdir -p tmp/firebase-auth
           printf '%s' "$SA" > tmp/firebase-auth/sa.json
-      - name: 정제완료본 → 판매·천이·ERP
-        run: npx tsx scripts/run-sales-erp-hourly.mts --apply
+      # ★오케스트레이터는 하나다 — 로컬 작업 스케줄러도 같은 파일을 부른다(scripts/hourly-sync.cmd).
+      #   전에는 여기만 run-sales-erp-hourly.mts 를 불러 단계가 갈렸다(픽업구독·천이·요금검수가 빠져 있었다).
+      #   ⓪ 손오공은 계정 파일이 없으면 스스로 건너뛴다 — GHA 에 손오공 시크릿을 붙이기 전까지는 ①부터 돈다.
+      - name: 연동지도 전 구간 (정제시트 → 판매 4탭 → 천이 → ERP)
+        run: npx tsx scripts/hourly-sync.mts --apply

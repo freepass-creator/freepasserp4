@@ -2,17 +2,24 @@
  * **한 시간마다 도는 시트 동기화 한 방** — 사장님 2026-08-19 「내가 말 안 해도 공급사시트 반영해서 한 시간에 한 번씩 새로운 차나 없어진 거 출고불가나 이런 거 작업해 줄 수 있나 · 알아서 돌아가는 시스템」.
  *
  * 차례(한 단계가 실패하면 거기서 멈추고 기록에 남긴다 — 낡은 값을 발행하지 않기 위해):
+ *   ⓪ 손오공(D경로) pull → 차종마스터 매칭 정제 → 재고시트   ★2026-08-30 aiops 에서 옮겨옴
  *   ① 정제시트 갱신(아이카·오토플러스·이안카·아이언 = 원본에서 새 차·사라진 차(출고불가)·요금·상태를 가져온다)
+ *   ①′ 공급사 정제칸 채움(차종마스터 매칭 — 원산지가 비면 보증금 계산이 막혀 요금이 통째로 사라진다)
  *   ② 차명 중복 정리(「쏘나타 쏘나타 DN8」 → 「쏘나타 DN8」)
  *   ③ 모델명 통일(엔카 기준: 벤츠 E200 → E-클래스 · BMW 520i → 5시리즈)
  *   ④ 입고일자 채움(그 차량번호가 우리 쪽에 처음 올라온 날)
  *   ⑤ 차량번호 셀에 사진링크 걸기
- *   ⑥ 판매시트 발행(상품리스트 · 손오공구독 · 오플구독)
+ *   ⑥ 판매시트 «4탭» 발행(상품리스트 · 손오공구독 · 픽업구독 · 오플구독) + 요금블록
  *   ⑥′ (건너뜀) 상품마스터는 이제 안 거친다 — ERP 가 판매시트를 그대로 읽는다. `--with-product-master` 로만 켠다
  *   ⑦ ERP 일일 동기(sheet/sync-daily) — 실패해도 밤 02:00 크론이 다시 돈다(경고만)
  *   ⑦′ ERP 를 시트 그대로 비춤 — 사진링크 · 모델/차명 · 시트에 없는 차 출고불가(일일 동기가 안 옮기는 것들)
  *   ⑧ 시트↔ERP 대조(audit-sheet-erp-parity) — 매시 기록에 「안 뜨는 차 N대」로 남긴다
  *   ⑨ 상태 갈림 신호(audit-status-drift) — 원본→정제시트→판매시트→ERP 중 «어디서 갈렸나». 고치지 않고 신호만
+ *   ⑩ 천이 카드시트(손오공 정제칸만)   ⑪ 요금 검수(판매↔ERP)
+ *
+ * ★규격 = `C:/dev/aiops/docs/연동지도.md`. 원본 4곳은 **우리가 못 만진다** — 정제시트로 가져와
+ *   정제칸을 채우고 · 판매 4탭을 만들고 · 천이를 만들고 · 상품리스트 기준으로 ERP 에 반영한다.
+ *   사장님 2026-08-30 「프리패스는 AIOps 를 쓰지 않아. 프리패스 자체적으로 자동으로 하게 만들 거야.」
  *
  * 기본 dry-run(무엇이 바뀌는지만), 실제 반영은 --apply. 기록은 tmp/hourly-sync-log.txt(줄마다 한 번의 실행) · 자세한 출력은 tmp/hourly-sync-last.txt.
  *   npx tsx scripts/hourly-sync.mts --apply
@@ -31,13 +38,36 @@ writeFileSync(LOCK, kst());
 
 const out: string[] = [`■ 시간별 동기화 ${APPLY ? '반영' : '미리보기'} ${kst()} KST`];
 const line: string[] = [];
-const run = (label: string, args: string[], pick: RegExp): { ok: boolean; picked: string[] } => {
-  const r = spawnSync(process.platform === 'win32' ? 'npx.cmd' : 'npx', ['tsx', ...args], { encoding: 'utf8', shell: process.platform === 'win32', env: process.env, maxBuffer: 64 * 1024 * 1024 });
-  const lines = `${r.stdout || ''}\n${r.stderr || ''}`.split(/\r?\n/).map((l) => l.trimEnd()).filter((l) => l && !/DEP0190|trace-deprecation|Assertion/.test(l));
-  const picked = lines.filter((l) => pick.test(l)).map((l) => l.trim());
-  out.push(`\n── ${label} ${r.status === 0 ? '✓' : '✗'}`, ...lines.slice(-40).map((l) => `   ${l.slice(0, 300)}`));
-  console.log(`── ${label} ${r.status === 0 ? '✓' : '✗'}`); for (const l of picked.slice(0, 6)) console.log(`   ${l.slice(0, 220)}`);
-  return { ok: r.status === 0, picked };
+/**
+ * runner = 'npx' (tsx 스크립트) · 'node' (손오공 .mjs — tsx 를 거칠 이유가 없다)
+ *
+ * ★구글 API 요청한도(429)는 **재시도한다** — 탭을 여럿 연달아 쓰면 흔히 걸린다.
+ *   한도 때문에 한 탭이 실패하면 그 뒤 단계가 통째로 멈추고, 그건 「데이터가 틀린 것」이 아니라
+ *   「잠깐 밀린 것」이다. 30초 쉬고 세 번까지 다시 해 본다.
+ *   (run-sales-erp-hourly.mts 에 있던 장치를 정본 오케스트레이터로 옮겨 왔다 — 2026-08-30)
+ */
+const RATE_LIMIT = /\b429\b|rate.?limit|quota|RESOURCE_EXHAUSTED/i;
+const sleep = (ms: number) => { const until = Date.now() + ms; while (Date.now() < until) { /* 동기 대기 — 단계는 순서대로만 돈다 */ } };
+const run = (label: string, args: string[], pick: RegExp, runner: 'npx' | 'node' = 'npx'): { ok: boolean; picked: string[] } => {
+  const bin = runner === 'node' ? 'node' : (process.platform === 'win32' ? 'npx.cmd' : 'npx');
+  const argv = runner === 'node' ? args : ['tsx', ...args];
+  for (let attempt = 1; ; attempt += 1) {
+    const r = spawnSync(bin, argv, { encoding: 'utf8', shell: process.platform === 'win32', env: process.env, maxBuffer: 64 * 1024 * 1024 });
+    const raw = `${r.stdout || ''}\n${r.stderr || ''}`;
+    const lines = raw.split(/\r?\n/).map((l) => l.trimEnd()).filter((l) => l && !/DEP0190|trace-deprecation|Assertion/.test(l));
+    const picked = lines.filter((l) => pick.test(l)).map((l) => l.trim());
+    const ok = r.status === 0;
+    if (!ok && attempt < 3 && RATE_LIMIT.test(raw)) {
+      console.log(`── ${label} ⏳ 구글 요청한도 — 30초 쉬고 다시 (${attempt}/3)`);
+      out.push(`\n── ${label} ⏳ 요청한도 재시도 ${attempt}`);
+      sleep(30_000);
+      continue;
+    }
+    out.push(`\n── ${label} ${ok ? '✓' : '✗'}${attempt > 1 ? ` (${attempt}회)` : ''}`, ...lines.slice(-40).map((l) => `   ${l.slice(0, 300)}`));
+    console.log(`── ${label} ${ok ? '✓' : '✗'}${attempt > 1 ? ` (${attempt}회)` : ''}`);
+    for (const l of picked.slice(0, 6)) console.log(`   ${l.slice(0, 220)}`);
+    return { ok, picked };
+  }
 };
 /**
  * ★**멈추면 메일로 알린다**(사장님 2026-08-20 「동기가 멈추면 메일로」).
@@ -105,16 +135,58 @@ const stop = (why: string) => {
   out.push(`\n⛔ 중단 — ${why}`); line.push(`중단(${why})`);
   writeFileSync('tmp/hourly-sync-last.txt', out.join('\n'));
   appendFileSync('tmp/hourly-sync-log.txt', `${kst()} ${APPLY ? '반영' : '미리'} ${Math.round((Date.now() - started) / 1000)}초 · ${line.join(' · ')}\n`);
+  /* 상태로그 — 실패도 남긴다. 코덱스가 이 파일을 읽어 검증한다(연동지도 「매 실행 상태로그」). */
+  writeFileSync('tmp/자동동기-상태.json', JSON.stringify({
+    시각: kst(), 반영: APPLY, 초: Math.round((Date.now() - started) / 1000), ok: false, 중단: why, 요약: line,
+  }, null, 2));
   rmSync(LOCK, { force: true });
   console.log(`⛔ 중단 — ${why}`);
   if (APPLY) alertFail(why);
   process.exit(1);
 };
 
+/**
+ * ⓪ 손오공(D경로) — API pull → 차종마스터 매칭 정제 → 재고시트.
+ *
+ * ★2026-08-30 aiops 에서 옮겨왔다(사장님 「프리패스는 AIOps 를 쓰지 않아. 프리패스 자체적으로」).
+ *   전에는 `C:/dev/aiops/scripts/손오공-매일.mjs` 가 이 셋을 돌리고 나머지는 여기 스크립트를 불렀다 —
+ *   즉 심장만 남의 집에 있었다. 이제 한 집에서 다 돈다.
+ * ★계정 파일이 없으면 «건너뛴다». GitHub Actions 처럼 자격증명이 없는 데서 전 구간이 죽지 않게.
+ *   (`sonokong/lib/wonja/.손오공계정.json` — git 에 올리지 않는다)
+ */
+const 손오공계정 = 'sonokong/lib/wonja/.손오공계정.json';
+if (existsSync(손오공계정)) {
+  const k1 = run('⓪ 손오공 pull', ['sonokong/scripts/손오공.mjs', '--조용'], /완료|실패/, 'node');
+  if (!k1.ok) stop('손오공 pull 실패');
+  const k2 = run('⓪ 손오공 정제(차종마스터 매칭)', ['sonokong/scripts/손오공-정제.mjs', '--json'], /총 \d+대|실패/, 'node');
+  if (!k2.ok) stop('손오공 정제 실패');
+  // 커버리지 — 「총 N대 · 매칭 N · 모델 시트에 없음 N · 트림/연식 매칭실패 N」. 85% 밑이면 차종마스터를 보강해야 한다.
+  const cov = /총 (\d+)대 · 매칭 (\d+)/.exec(k2.picked.join(' ') || '');
+  if (cov) {
+    const rate = Math.round((Number(cov[2]) / Number(cov[1])) * 100);
+    line.push(`손오공 정제 ${rate}%(${cov[2]}/${cov[1]})`);
+    if (rate < 85) out.push(`\n⚠ 손오공 정제 매칭율 ${rate}% (<85%) — 차종마스터 시트 보강 필요`);
+  } else line.push('손오공 정제 ok');
+  const k3 = run('⓪ 손오공 재고시트', ['sonokong/scripts/손오공-재고시트.mjs', ...(APPLY ? ['--쓰기'] : [])], /재고 ←|실패|Error/, 'node');
+  if (!k3.ok) stop('손오공 재고시트 실패');
+} else {
+  line.push('손오공 건너뜀(계정 없음)');
+  console.log('· ⓪ 손오공 — 계정 파일이 없어 건너뜁니다(sonokong/lib/wonja/.손오공계정.json)');
+}
+
 // ① 정제시트(원본이 자체시트·홈페이지인 4곳) — 새 차 추가 · 사라진 차 출고불가 · 요금/상태 갱신
 const s1 = run('① 정제시트 갱신', ['scripts/sync-mirror-all.mts', ...A], /새 차|사라진|갱신할|끝|실패|✓|✗/);
 if (!s1.ok) stop('정제시트 갱신 실패');
 line.push(`정제시트 ${s1.picked.find((l) => /새 차/.test(l))?.replace(/\s+/g, ' ').slice(0, 60) || 'ok'}`);
+
+/**
+ * ①′ 공급사 정제칸 채움 — 미러로 받아온 원문의 제조사·모델·원산지를 차종마스터로 매칭해 채운다.
+ * ★미러(①)만 하고 이걸 빠뜨리면 «원산지 없음 → 보증금 계산 불가 → 요금 통째 소실»이 난다
+ *   (2026-08-28 오플에서 실측). RTDB 를 쓰므로 server-only 심이 필요하다.
+ */
+const s1b = run('①′ 정제칸 채움', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/fill-supplier-ai-columns.mts', '--include-mirror', ...A], /차량번호 정본|채움|모두 |바로잡|Error/);
+if (!s1b.ok) stop('정제칸 채움 실패');
+line.push('정제칸 ok');
 
 // ② 차명 중복 정리 → ③ 모델명 통일(엔카 기준)
 const s2 = run('② 차명 중복 정리', ['scripts/tidy-vehicle-names.mts', ...A], /합계/);
@@ -123,7 +195,7 @@ const s3 = run('③ 모델명 통일', ['scripts/normalize-model-names.mts', ...
 if (!s3.ok) stop('모델명 통일 실패'); line.push(s3.picked[0]?.replace('■ ', '모델명 ') || '모델명 0');
 
 // ④ 입고일자(처음 올라온 날) → ⑤ 차량번호 셀 사진링크
-const s4 = run('④ 입고일자', ['tmp/fill-intake-date.mts', ...A], /반영 끝|dry-run|쓸 칸/);
+const s4 = run('④ 입고일자', ['scripts/fill-intake-date.mts', ...A], /반영 끝|dry-run|쓸 칸/);
 if (!s4.ok) stop('입고일자 실패'); line.push('입고일자 ok');
 const s5 = run('⑤ 차량번호 링크', ['scripts/publish-plate-links.mts', ...A], /합계/);
 if (!s5.ok) stop('차량번호 링크 실패'); line.push(s5.picked[0]?.replace('■ 합계 — ', '') || '링크 0');
@@ -136,7 +208,12 @@ const p2 = run('⑥ 손오공구독', ['scripts/publish-origin-tab.mts', '--only
 if (!p2.ok) stop('손오공구독 발행 실패');
 const p2b = run('⑥ 손오공 요금블록', ['scripts/publish-sonogong-tab.mts', ...A], /반영 완료|Error/);
 if (!p2b.ok) stop('손오공 요금블록 실패');
-const p3 = run('⑥ 오플구독', ['scripts/publish-origin-tab.mts', '--only=RP023', '--tab=오플구독', '--at=2', ...A], /반영 완료|중단|Error/);
+/* 픽업구독(손오공 픽업 = 티카) — 연동지도 「판매 4탭」의 하나. 빠져 있어 픽업이 판매시트에 안 실렸다. */
+const p2c = run('⑥ 픽업구독', ['scripts/publish-origin-tab.mts', '--only=RP012:픽업', '--tab=픽업구독', '--at=2', ...A], /반영 완료|중단|Error/);
+if (!p2c.ok) stop('픽업구독 발행 실패');
+const p2d = run('⑥ 픽업 요금블록', ['scripts/publish-sonogong-tab.mts', '--tab=픽업구독', ...A], /반영 완료|Error/);
+if (!p2d.ok) stop('픽업 요금블록 실패');
+const p3 = run('⑥ 오플구독', ['scripts/publish-origin-tab.mts', '--only=RP023', '--tab=오플구독', '--at=3', ...A], /반영 완료|중단|Error/);
 if (!p3.ok) stop('오플구독 발행 실패');
 const p3b = run('⑥ 오플 요금블록', ['scripts/publish-sonogong-tab.mts', '--tab=오플구독', ...A], /반영 완료|Error/);
 if (!p3b.ok) stop('오플 요금블록 실패');
@@ -162,7 +239,7 @@ if (process.argv.includes('--with-product-master')) {
 // ⑦ ERP 일일 동기 — 로컬 코드로 돈다(배포본과 같은 함수). 실패는 경고(밤 02:00 크론이 다시 돈다).
 //    ★2026-08-20 — ERP 원본이 «영업자 상품리스트»로 바뀌었다(lib/domain/sheet-erp-parity 규칙 ①).
 //      배포 전에는 배포본 API 가 옛 경로(상품마스터)라, 로컬 스크립트로 돌려야 시트와 ERP 가 같아진다.
-const erp = run('⑦ ERP 일일 동기', ['--require', './tmp/codex-server-only-shim.cjs', 'scripts/run-sheet-daily-sync-local.mts', ...A], /반영|미리보기|원본 |✗/);
+const erp = run('⑦ ERP 일일 동기', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/run-sheet-daily-sync-local.mts', ...A], /반영|미리보기|원본 |✗/);
 line.push(erp.ok ? (erp.picked.find((l) => /원본 /.test(l))?.slice(0, 60) || 'ERP ok') : 'ERP 실패');
 
 /**
@@ -199,9 +276,32 @@ const drift = run('⑨ 상태 갈림 신호', ['scripts/audit-status-drift.mts']
 const driftSummary = drift.picked.find((l) => /상태가 다른 차/.test(l))?.replace('■ ', '');
 line.push(driftSummary || '상태 갈림 검사 실패');
 
-out.push(`\n■ 끝 ${kst()} KST · ${Math.round((Date.now() - started) / 1000)}초`);
+/**
+ * ⑩ 천이컴퍼니 영업채널 카드시트 — 연동지도 「천이 채널 ← 손오공만」.
+ *   손오공 정제칸 + 대여료만 받아 최저가 카드로 만든다. 판매시트·공급사에서는 안 땡긴다.
+ *   ⚠ 담당 GitHub Actions 가 main 에 없어 크론이 영영 안 돌아 천이가 3일 묵어 있었다(2026-08-28).
+ *      그래서 매시간 도는 이 잡에 붙여 둔다.
+ */
+const ch = run('⑩ 천이 카드시트', ['scripts/publish-channel-cards.mts', '--channel=천이컴퍼니', ...A], /반영 완료|Error/);
+line.push(ch.ok ? '천이 ok' : '천이 실패');
+
+/**
+ * ⑪ 자기검수 — 판매↔ERP 요금 정합. 「판매엔 있는데 ERP 요금 0」인 차 수를 남긴다.
+ *   정상 기준선 3대(협의·더미 차번). 갑자기 늘면 원산지·정제칸 구멍이다.
+ */
+const fee = run('⑪ 요금 검수(판매↔ERP)', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/audit-sales-vs-erp.mts'], /없는 차 \d+대|유효가격 0|살아있음 \d+/);
+const feeN = /ERP 목록에 없는 차 (\d+)대/.exec(fee.picked.join(' ') || '');
+line.push(feeN ? `요금검수 ${feeN[1]}대` : '요금검수 ok');
+if (feeN && Number(feeN[1]) > 6) out.push(`\n⚠ 요금검수 — 판매엔 있는데 ERP 요금 0인 차 ${feeN[1]}대(>6). 원산지·정제칸 구멍 의심`);
+
+const seconds = Math.round((Date.now() - started) / 1000);
+out.push(`\n■ 끝 ${kst()} KST · ${seconds}초`);
 writeFileSync('tmp/hourly-sync-last.txt', out.join('\n'));
-appendFileSync('tmp/hourly-sync-log.txt', `${kst()} ${APPLY ? '반영' : '미리'} ${Math.round((Date.now() - started) / 1000)}초 · ${line.join(' · ')}\n`);
+appendFileSync('tmp/hourly-sync-log.txt', `${kst()} ${APPLY ? '반영' : '미리'} ${seconds}초 · ${line.join(' · ')}\n`);
+/* 상태로그 — 연동지도 「매 실행 상태로그 → 코덱스 검증」. 사람이 아니라 검사기가 읽는 자리다. */
+writeFileSync('tmp/자동동기-상태.json', JSON.stringify({
+  시각: kst(), 반영: APPLY, 초: seconds, ok: true, 요약: line,
+}, null, 2));
 rmSync(LOCK, { force: true });
 if (APPLY) alertRecovered();   // 멈춰 있었다면 「복구됨」을 한 번 보낸다
-console.log(`■ 끝 — ${Math.round((Date.now() - started) / 1000)}초 · 기록 tmp/hourly-sync-log.txt`);
+console.log(`■ 끝 — ${seconds}초 · 기록 tmp/hourly-sync-log.txt · 상태 tmp/자동동기-상태.json`);

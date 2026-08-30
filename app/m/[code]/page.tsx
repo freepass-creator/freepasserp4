@@ -220,7 +220,7 @@ export default function Detail() {
           {/* 좁은 화면 = 칼럼이 없으니 상세 끝에 그대로 쌓는다. 항목은 웹과 같다(폭만 다르다). */}
           {/* 모바일 패널: 대여료표 없이(본문 대여료 표와 중복) 경계 바+섹션표, 공유는 하단독이 갖는다(pinnedShare — 중복 금지).
               marginTop 12 = 섹션 사이 공통 간격(사장님 2026-08-22 「섹션칸끼리 공통규격」). */}
-          {!assistShown && canUseAssist ? <div style={{ marginTop: 12 }}><ProductAgentPanel p={p} mobile pinnedShare /></div> : null}
+          {!assistShown && canUseAssist ? <div style={{ marginTop: 12 }}><ProductAgentPanel p={p} pinnedShare /></div> : null}
           {assistShown ? <BottomNav sticky gapTop={14} maxWidth={920} padX={16} backShowLabel actions={dockActions} /> : null}
         </main>
         {/* 우측은 **영업자가 보는 것만**(대여료 목록·영업 정보·전달·사진). 계약·대화는 여기 없다 —

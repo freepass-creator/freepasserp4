@@ -49,3 +49,6 @@ __pycache__/
 
 # 오더 가드 시작 도장 (세션 로컬)
 scripts/.order-base/
+
+# 손오공 자격증명·토큰·원문 덤프 (절대 커밋 금지)
+sonokong/lib/wonja/
