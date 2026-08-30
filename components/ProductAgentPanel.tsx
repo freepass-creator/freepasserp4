@@ -1,10 +1,10 @@
-'use client';
+﻿'use client';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import { Copy, Download, Link2, LoaderCircle } from 'lucide-react';
+import { Download, Link2, LoaderCircle } from 'lucide-react';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { acquisitionPriceList, agentContractRows, agentPanelRows, cheapest, priceList, vehicleName, type Audience } from '@/lib/domain/product';
 import { actor, getRole } from '@/lib/domain/deal';
-import { formatProductForCopy, guestShareUrl } from '@/lib/domain/product-share';
+import { guestShareUrl } from '@/lib/domain/product-share';
 import { useProductPhotoState } from '@/components/use-product-photos';
 import { downloadPhotoZip } from '@/lib/client/download-photo-zip';
 import { CustomerPreviewButton } from '@/components/CustomerPreviewModal';
@@ -64,6 +64,18 @@ const INV = {
  * (사장님 2026-08-20 「링크랑 텍스트 복사는 고정해서 밑에서 보이게 · 버튼도 좌우로」).
  * 「손님 전달」 같은 이름표는 붙이지 않는다 — 버튼 글자가 이미 무슨 일인지 말한다.
  */
+/**
+ * 손님에게 보내기 = **링크 공유하기 «하나»**.
+ *
+ * 사장님 2026-08-22 「텍스트복사 빼자, 링크 공유하기 버튼만 · 바로 공유할 수 있게끔 · 웹도 링크 공유로」 —
+ * 2026-08-30 재확인 「텍스트 복사는 빼고 링크 공유하기만 넣을 거야」.
+ *
+ *   누르면 곧장 OS 공유시트(카톡·문자)가 뜬다. 공유시트가 없는 브라우저에서만 링크를 복사한다.
+ *
+ * ★버튼을 둘로 나누면 «무엇을 보내는지»를 매번 고르게 된다 — 보내는 것은 항상 이 매물 링크 하나다.
+ *   차명·대여료를 «글»로 붙여넣는 길은 없어지지 않았다: 목록 우클릭·더보기 메뉴(ProductMoreMenu ·
+ *   features/finder/product-context)에 그대로 있다. 손님에게 보내는 자리에서만 뺀 것이다.
+ */
 export function ProductAgentShareActions({ p }: { p: EntityRecord }) {
   const role = getRole();
   const sendLink = async () => {
@@ -73,23 +85,12 @@ export function ProductAgentShareActions({ p }: { p: EntityRecord }) {
     if (await copyText(url)) toast('손님용 매물 링크 복사됨', 'ok');
     else prompt('링크', url);
   };
-  const copySummary = async () => {
-    if (await copyText(formatProductForCopy(p))) toast('상품 텍스트가 복사되었습니다', 'ok');
-    else toast('상품 텍스트를 복사하지 못했습니다', 'error');
-  };
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-      <Btn full title="손님용 매물 링크를 복사합니다" onClick={sendLink}>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-          <Link2 size={ICON.md} aria-hidden />링크 복사
-        </span>
-      </Btn>
-      <Btn full title="차명·대여료·보증금을 카톡에 붙여넣을 글로 복사합니다" onClick={copySummary}>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-          <Copy size={ICON.md} aria-hidden />텍스트 복사
-        </span>
-      </Btn>
-    </div>
+    <Btn full title="손님에게 이 매물 링크를 보냅니다" onClick={sendLink}>
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+        <Link2 size={ICON.md} aria-hidden />링크 공유하기
+      </span>
+    </Btn>
   );
 }
 
