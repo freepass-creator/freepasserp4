@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useState, useEffect, useCallback, type CSSProperties, type ReactNode } from 'react';
@@ -387,7 +387,9 @@ export default function TopBar() {
       {/* 왼쪽 여백은 **본문 칼럼을 따라간다**(--fp-col-l, lib/content-column) — 햄버거와 하단 「이전」이
           같은 세로선에 서야 한다. 본문이 화면 중앙이 아닐 때(옆에 보조 칼럼) 화면 기준으로는 못 맞춘다.
           변수를 안 쓰는 페이지는 0 → max() 가 기본값 14 를 지킨다. 우측(로그인 정보)은 화면 끝 그대로. */}
-      <header className="fp-topbar" style={{ position: 'sticky', top: 0, zIndex: 70, height: 'var(--topbar-h)', display: 'flex', alignItems: 'center', gap: 8, padding: '0 12px 0 14px', paddingLeft: mobile ? undefined : 'max(14px, var(--fp-col-l, 0px))', background: C.taupeBg, borderBottom: `1px solid ${line}`, boxSizing: 'border-box', boxShadow: 'var(--shadow-sm)' }}>
+      <header className="fp-topbar" style={{ position: 'sticky', top: 0, zIndex: 70, height: 'var(--topbar-h)', display: 'flex', alignItems: 'center', gap: 8, padding: '0 12px 0 14px', paddingLeft: mobile ? undefined : 'max(14px, var(--fp-col-l, 0px))', background: C.taupeBg, borderBottom: `1px solid ${mobile ? 'transparent' : line}`, boxSizing: 'border-box', boxShadow: mobile ? 'none' : 'var(--shadow-sm)' }}>
+        {/* 모바일 = 선·그림자 없음(당근 구성) — 상단바와 목록이 «한 면»으로 이어진다.
+            웹 콕핏은 격자라 경계선이 있어야 칸이 선다 — 그대로 둔다. */}
         {/* 웹=메뉴 좌측 · 모바일=우측 */}
         {!mobile && <NavMenu mobile={false} open={menuOpen} setOpen={setMenuOpen} />}
         {/* 좌·중앙 = 상태 — 탭하면 이 페이지 새로 온 느낌(스크롤↑·목록·시트닫기) */}
@@ -424,7 +426,11 @@ export default function TopBar() {
           </span>
         )}
         {!mobile && <WebSessionMeta />}
-        {mobile && <NavMenu mobile open={menuOpen} setOpen={setMenuOpen} />}
+        {/* ★모바일 상단바 = **상태 표시만**(사장님 2026-08-30 「상단은 그냥 상태 표시만 해주는거지」).
+            누르는 것은 전부 하단 홈바로 내려갔다 — 홈 · 검색 · 설정(lib/tabbar appTabsFor).
+            폰에서 하는 일이 「찾아서 보내기」뿐이라 전체메뉴(햄버거)가 열 곳이 없다.
+            ⚠ 그래서 **계약진행·재고관리·계약문의는 폰에서 안 열린다**(설계대로 — 데스크톱에서 한다).
+            검색 슬롯(search)은 TopBar 가 아니라 AppTabBar 가 읽는다. */}
       </header>
       {/* 모바일 이전만 하단독 — 우측 액션은 상단(위)으로. 액션 중복 금지. */}
       {mobile && back && (

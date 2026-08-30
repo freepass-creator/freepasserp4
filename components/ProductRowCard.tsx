@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { memo } from 'react';
 import Link from 'next/link';
 import type { CSSProperties, ReactNode } from 'react';
@@ -114,20 +114,24 @@ function WebRow({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) {
 function MobileRow({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) {
   const href = `/m/${encodeURIComponent(String(p.product_code || p._key))}`;
   return (
+    /* ★리듬은 당근 목록과 같다(사장님 2026-08-30 「상품카드목록은 느낌만 다듬고」) —
+         **큰 썸네일 · 좌우 16 · 줄 사이 숨통**. 줄 구성(4줄)과 담는 내용은 그대로다.
+         전에는 썸네일 56 · 여백 10/12 라 «표의 한 줄»처럼 빽빽했다. 폰에서 차를 «고르는» 화면은
+         사진이 먼저 읽혀야 한다 — 56 은 무슨 차인지 분간이 안 되는 크기였다. */
     <Link href={href} onClick={() => haptic.nav()} className="fp-card fp-card-row" style={{
-      display: 'flex', gap: 12, alignItems: 'stretch',
+      display: 'flex', gap: 14, alignItems: 'stretch',
       borderRadius: 0,
-      padding: '10px 12px',
+      padding: '14px 16px',
       borderBottom: `1px solid ${C.line2}`,
       textDecoration: 'none', color: 'inherit',
     } satisfies CSSProperties}>
       {/* 모바일 목록 = 찜 없음(썸네일 버튼은 상세에서만). 웹 가로카드는 heart 유지. */}
-      <CardThumb p={p} w={56} marks={false} />
+      <CardThumb p={p} w={88} marks={false} />
 
       <PricePeekRoot p={p} focusMonth={focusMonth} style={{
         display: 'flex',
         flexDirection: 'column',
-        gap: 5,
+        gap: 6,
         flex: '1 1 auto',
         minWidth: 0,
         alignSelf: 'stretch',

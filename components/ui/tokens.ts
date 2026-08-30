@@ -121,7 +121,11 @@ export const CTRL = {
  * 같은 동작이 화면마다 13/14/16/17/18/20으로 갈리던 문제 방지.
  *   sm=목록 행 안 보조 · md=버튼·행 기본 · lg=독·툴바·네비 · xl=상세 히어로
  */
-export const ICON = { sm: 14, md: 16, lg: 18, xl: 20 } as const;
+/**
+ * 글리프 크기 SSOT. `tab` = 모바일 하단 홈바 전용 — 엄지로 누르는 주 탐색이라 한 단 크다
+ * (당근 하단바와 같은 비율: 큰 아이콘 + 작은 라벨). 다른 곳에 tab 을 쓰지 않는다.
+ */
+export const ICON = { sm: 14, md: 16, lg: 18, xl: 20, tab: 24 } as const;
 
 /** 컨트롤 좌우 패딩 SSOT — 전 요소 12(모바일). 바·독·툴바·목록행과 좌측 정렬 일치. */
 export function ctrlPadX(mobile: boolean, size: CtrlSize = 'md'): number {

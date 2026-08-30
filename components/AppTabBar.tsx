@@ -1,7 +1,7 @@
-'use client';
+﻿'use client';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useIsMobile } from '@/lib/use-mobile';
 import { useKeyboardOpen } from '@/lib/use-keyboard';
 import { haptic } from '@/lib/haptics';
@@ -9,16 +9,32 @@ import { Btn, C, CountPill, FS, FW, SH, ICON } from '@/components/ui';
 import { getRole, type Role } from '@/lib/domain/deal';
 import { useSession } from '@/lib/auth-context';
 import { useMenuBadges } from '@/lib/menu-badge-store';
-import { appTabsFor, isTabRoute, useTabBarHidden } from '@/lib/tabbar';
+import { appTabsFor, isTabRoute, useTabBarHidden, type AppTab } from '@/lib/tabbar';
+import { useAppBarSlots } from '@/lib/appbar';
 import { refreshCurrentPage } from '@/lib/page-refresh';
 import { toast } from '@/components/Toaster';
 
 /**
- * 모바일 하단 탭 — 역할 무관 4개 고정(사장님 2026-08-22).
- *   영업자: 상품찾기 · 계약진행 · 내가본상품 · 설정
- *   공급사·관리자: 상품찾기 · 계약진행 · 재고관리 · 설정
- * 라벨 = NAV_LABEL SSOT · 아이콘 = NAV_ICON SSOT (상단 메뉴와 동일)
+ * 모바일 하단 홈바 — **홈 · 검색 · 설정 셋**(항목 = lib/tabbar appTabsFor SSOT).
+ * 폰에서 하는 일은 「상품 찾아서 손님한테 보내기」뿐이라, 하단바에도 그 일에 쓰는 것만 둔다.
+ *
+ * ★**검색 탭은 라우트가 아니라 행동**이다 — 지금 페이지가 `lib/appbar` 의 search 슬롯에 등록해 둔
+ *   시트를 하단에서 연다. 등록이 없는 페이지(설정 등)에서는 찾는 곳(/finder)으로 데려간다.
+ *   그래서 «어디서 눌러도 검색이 되는» 버튼이 되고, 탭 수는 어느 화면에서나 셋으로 고정된다.
+ *
+ * ★생김새는 당근 하단바 규격 — **큰 글리프(ICON.tab 24) + 작은 라벨(FS.cap)**, 흰 바탕에 윗선 하나.
+ *   꺼진 탭은 «흐리게»가 아니라 «회색»이다(opacity 를 겹쳐 깎으면 글리프 획이 물에 빠진 것처럼 뭉갠다).
  */
+/** 탭 한 칸 — 세 갈래(검색 버튼·준비중·이동)가 «같은 칸»이어야 줄이 안 흔들린다. */
+const TAB_CELL: React.CSSProperties = {
+  position: 'relative', flex: '1 1 0', minWidth: 0,
+  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+  gap: 5, paddingTop: 2, border: 'none', background: 'transparent',
+  textDecoration: 'none', fontWeight: FW.strong, fontSize: FS.cap,
+  letterSpacing: '-0.02em', lineHeight: 1,
+  WebkitTapHighlightColor: 'transparent',
+};
+
 function setTabCss(on: boolean) {
   const root = document.documentElement;
   if (on) {
@@ -37,6 +53,8 @@ export default function AppTabBar() {
   const hidden = useTabBarHidden();
   const session = useSession();
   const kb = useKeyboardOpen();
+  // 검색 탭이 열 시트 — 지금 페이지가 등록해 둔 것(없으면 /finder 로 보낸다).
+  const { search: searchSlot } = useAppBarSlots();
   // null = 역할 미확정(첫 페인트). agent 가정으로 탭 수 점프 금지.
   const [role, setRole] = useState<Role | null>(null);
 
@@ -101,9 +119,12 @@ export default function AppTabBar() {
 
   if (!show) return null;
 
-  const active = (href: string) => {
-    if (href === '/finder') return path === '/finder' || path.startsWith('/m/');
-    return path === href || path.startsWith(href + '/');
+  const active = (t: AppTab) => {
+    // 검색은 «가는 곳»이 아니라 «여는 것» — 현재 위치로 불이 들어오면 안 된다.
+    // 대신 검색어·조건이 걸려 있을 때(slot.active) 켠다.
+    if (t.action === 'search') return !!searchSlot?.active;
+    if (t.href === '/finder') return path === '/finder' || path.startsWith('/m/');
+    return path === t.href || path.startsWith(t.href + '/');
   };
 
   return (
@@ -125,27 +146,43 @@ export default function AppTabBar() {
         boxSizing: 'border-box',
       }}>
         {tabs.map((t) => {
-          const on = active(t.href);
+          const on = active(t);
           const n = t.badgeKey ? badges[t.badgeKey] : 0;
+          if (t.action === 'search') {
+            // 하단에서 «튀어나오는» 검색 — 이 페이지에 시트가 있으면 열고, 없으면 찾는 곳으로 간다.
+            return (
+              <Btn
+                key="search"
+                type="button"
+                /* ★bare 필수 — 기본값 solid 는 height(40)·테두리·그림자를 얹는다.
+                   옆 칸(Link)은 바 높이(56)를 꽉 채우므로 그 순간 아이콘 줄이 어긋난다(2026-08-30 실측). */
+                variant="bare"
+                haptic={false}
+                onClick={() => {
+                  haptic.nav();
+                  if (searchSlot) searchSlot.onOpen();
+                  else router.push(t.href);
+                }}
+                style={{ ...TAB_CELL, color: on ? C.brand : C.faint }}
+              >
+                <t.icon size={ICON.tab} strokeWidth={2.1} />
+                <span style={{ whiteSpace: 'nowrap' }}>{t.label}</span>
+              </Btn>
+            );
+          }
           if (t.soon) {
             // 준비중 — 자리만 보여주고 이동하지 않는다(햄버거 soon 과 같은 규칙).
             return (
               <Btn
                 key={t.href}
                 type="button"
+                variant="bare"
                 aria-disabled
                 haptic={false}
                 onClick={() => { haptic.tap(); toast(`${t.label}은 준비중입니다`, 'info'); }}
-                style={{
-                  position: 'relative', flex: '1 1 0', minWidth: 0,
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                  gap: 5, paddingTop: 2, border: 'none', background: 'transparent',
-                  color: C.faint, opacity: 0.4, fontWeight: FW.strong, fontSize: FS.cap,
-                  letterSpacing: '-0.02em', lineHeight: 1, cursor: 'default',
-                  WebkitTapHighlightColor: 'transparent',
-                }}
+                style={{ ...TAB_CELL, color: C.faint, opacity: 0.4, cursor: 'default' }}
               >
-                <t.icon size={ICON.xl} strokeWidth={2.2} />
+                <t.icon size={ICON.tab} strokeWidth={2.1} />
                 <span style={{ whiteSpace: 'nowrap' }}>{t.label}</span>
               </Btn>
             );
@@ -164,23 +201,9 @@ export default function AppTabBar() {
                 haptic.nav();
               }}
               aria-current={on ? 'page' : undefined}
-              style={{
-                position: 'relative',
-                flex: '1 1 0', minWidth: 0,
-                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                gap: 5,
-                paddingTop: 2,
-                textDecoration: 'none',
-                color: on ? C.brand : C.faint,
-                opacity: on ? 1 : 0.72,
-                fontWeight: FW.strong,
-                fontSize: FS.cap,
-                letterSpacing: '-0.02em',
-                lineHeight: 1,
-                WebkitTapHighlightColor: 'transparent',
-              }}
+              style={{ ...TAB_CELL, color: on ? C.brand : C.faint }}
             >
-              <t.icon size={ICON.xl} strokeWidth={2.2} />
+              <t.icon size={ICON.tab} strokeWidth={2.1} />
               {/* 라벨이 4글자(계약문의 등) — 좁은 화면에서 줄바꿈되면 탭 높이가 깨지므로 한 줄 고정. */}
               <span style={{ whiteSpace: 'nowrap' }}>{t.label}</span>
               {n != null && n > 0 ? (

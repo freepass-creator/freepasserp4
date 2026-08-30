@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import type { LucideIcon } from 'lucide-react';
 import { FileText, ScrollText, Users, History, Search, Wrench } from 'lucide-react';
 import { C, NUM, FW, FS, R, ICON, ctrlH } from '@/components/ui';
@@ -46,17 +46,33 @@ export function PageStatus({
       }}>
         <Icon size={mobile ? ICON.md : ICON.sm} strokeWidth={2.25} />
       </span>
+      {/* ★모바일 = **한 줄이 한 크기**(FS.title) — 굵기·색으로만 위계를 준다.
+             제목 18 / 보조 13 처럼 섞으면 한 줄 안에서 글자가 두 번 꺾여 «크기가 안 맞는» 걸로 보인다
+             (사장님 2026-08-30 「위에 글씨 크기 … 제대로 해서」).
+          ⚠ **키우지 않는다.** 한때 FS.page(18)로 올렸다가 되돌렸다 —
+             사장님 2026-08-30 「상단 텍스트 크기만 좀 일괄적으로, **완전 B2C 플랫폼은 아니니까**」.
+             소비자 앱 머리처럼 큰 제목은 이 도구의 격에 안 맞는다. 크기는 웹과 같은 단(FS.title)에 두고
+             «모바일다움»은 크기가 아니라 짜임(제목=잉크 굵게 / 대수·보조=회색)으로 낸다.
+          웹은 반대다(라벨 회색 · 숫자 잉크) — 고밀도 격자에서는 숫자가 먼저 읽혀야 한다. */}
       <div style={{
-        display: 'flex', alignItems: 'baseline', gap: 6,
+        display: 'flex', alignItems: 'baseline', gap: mobile ? 5 : 6,
         minWidth: 0, flex: '1 1 auto',
         whiteSpace: 'nowrap', overflow: 'hidden',
         fontSize: FS.title, fontWeight: FW.head, letterSpacing: '-0.02em', color: C.ink,
       }}>
-        <span style={{ color: C.mute, fontWeight: FW.strong, fontSize: FS.body }}>{label}</span>
+        <span style={mobile
+          ? { color: C.ink, fontWeight: FW.head }
+          : { color: C.mute, fontWeight: FW.strong, fontSize: FS.body }}>{label}</span>
         {n != null ? (
-          <span style={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>
+          <span style={{
+            fontFamily: NUM, fontVariantNumeric: 'tabular-nums',
+            ...(mobile ? { color: C.mute, fontWeight: FW.strong } : null),
+          }}>
             {typeof n === 'number' ? n.toLocaleString() : n}
-            <span style={{ marginLeft: 1, fontSize: FS.sub, fontWeight: FW.strong, color: C.mute }}>{unit}</span>
+            <span style={{
+              marginLeft: 1, fontWeight: FW.strong, color: C.mute,
+              ...(mobile ? null : { fontSize: FS.sub }),
+            }}>{unit}</span>
           </span>
         ) : null}
         {secondaryLabel ? (
@@ -65,7 +81,7 @@ export function PageStatus({
             <span style={{
               color: sn != null ? C.brand : C.ink,
               fontWeight: FW.strong,
-              fontSize: FS.body,
+              ...(mobile ? null : { fontSize: FS.body }),
               overflow: 'hidden',
               textOverflow: 'ellipsis',
             }}>{secondaryLabel}</span>
@@ -74,7 +90,7 @@ export function PageStatus({
                 fontFamily: NUM, fontVariantNumeric: 'tabular-nums', color: C.brand,
               }}>
                 {typeof sn === 'number' ? sn.toLocaleString() : sn}
-                <span style={{ marginLeft: 1, fontSize: FS.sub, fontWeight: FW.strong }}>{sUnit}</span>
+                <span style={{ marginLeft: 1, fontWeight: FW.strong, ...(mobile ? null : { fontSize: FS.sub }) }}>{sUnit}</span>
               </span>
             ) : null}
           </>

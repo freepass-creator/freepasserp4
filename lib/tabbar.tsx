@@ -1,7 +1,8 @@
-'use client';
+﻿'use client';
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import {
   CarFront, MessageCircleMore, FileText, FileSignature, Box, Settings, Star, type LucideIcon, Banknote,
+  Search as SearchIcon,
 } from 'lucide-react';
 import type { Role } from '@/lib/domain/deal';
 
@@ -103,29 +104,33 @@ export type AppTab = {
   roles?: Role[];
   /** 준비중 — 자리만 보여주고 이동하지 않는다(햄버거 `soon` 과 같은 뜻). */
   soon?: boolean;
+  /**
+   * 라우트가 아니라 **행동**인 탭. `search` = 이 페이지의 검색 시트를 하단에서 연다
+   * (자리는 `lib/appbar` search 슬롯 — 페이지가 「나는 검색이 있다」고 등록해 둔 것).
+   * 검색이 없는 페이지에서 누르면 `href`(상품찾기)로 간다 — 찾는 일은 거기서 한다.
+   */
+  action?: 'search';
 };
 
 /**
- * 하단 탭 항목 — 햄버거(TopBar SIMPLE_GROUPS)와 같은 규칙.
- *   · 계약진행(/contract) = 목록 + 그 계약이 어디까지 왔는지(5단계) 보는 곳(사장님 2026-08-19).
- *   · 계약서관리(/esign)는 관리자 메뉴로 갔다 — 하단탭엔 없다.
- *   · **역할 무관 4탭 고정**(사장님 2026-08-22 「하단 버튼이 4개잖아 — 상품찾기·계약진행·재고관리/내가본상품·설정」):
- *     3번 칸만 갈린다 — 영업자=내가본상품(관심·최근) · 공급사/관리자=재고관리.
- *     정산확인은 탭에서 뺐다(햄버거 관리 메뉴에 그대로) — 모바일에서 매일 여는 화면이 아니다.
+ * ★하단 홈바 = **폰에서 실제로 하는 일만**(사장님 2026-08-30
+ *   「모바일에서는 그냥 상품 찾고 손님한테 공유하는 것만 하기로 했어 … 하단바를 실제로 쓰는 것만 넣자는 거야」).
+ *
+ *     홈(상품목록) · 검색(하단에서 튀어나오는 검색·조건) · 설정(로그아웃)
+ *
+ *   · 계약진행·재고관리·계약문의는 **뺐다** — 폰에서 하는 일이 아니다(데스크톱에서 한다).
+ *   · **손님 공유는 여기 없다.** 공유는 「이 차」를 보내는 일이라 목록이 아니라 상세에 붙는다 —
+ *     `/m/[code]` 하단독의 「링크 공유하기」가 그 자리다(2026-08-22). 목록에 또 두면 무엇을 보내는지가 없다.
+ *   · 검색은 라우트가 아니라 행동이라 `action: 'search'` 다(위 AppTab 주석).
  */
-export function appTabsFor(role: Role): AppTab[] {
-  const tabs: AppTab[] = [
+export function appTabsFor(_role: Role): AppTab[] {
+  // 역할과 무관하게 셋 — 폰에서 하는 일이 역할마다 다르지 않다(찾아서 보낸다).
+  return [
     // '/' 는 공개 안내 페이지(상품시트 입장)가 됐다 — 내부 매물 화면은 /finder 다(2026-08-15).
     { href: '/finder', label: tabLabel('product'), icon: NAV_ICON.product },
-    { href: '/contract', label: tabLabel('contract'), icon: NAV_ICON.contract, badgeKey: '/contract' },
+    { href: '/finder', label: '검색', icon: SearchIcon, action: 'search' },
+    { href: '/settings', label: tabLabel('settings'), icon: NAV_ICON.settings },
   ];
-  if (role === 'provider' || role === 'admin') {
-    tabs.push({ href: '/inventory', label: tabLabel('inventory'), icon: NAV_ICON.inventory });
-  } else {
-    tabs.push({ href: '/interest', label: tabLabel('interest'), icon: NAV_ICON.interest });
-  }
-  tabs.push({ href: '/settings', label: tabLabel('settings'), icon: NAV_ICON.settings });
-  return tabs;
 }
 
 export function isTabRoute(path: string, role?: Role): boolean {

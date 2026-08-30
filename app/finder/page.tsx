@@ -11,7 +11,7 @@ import { isStockedProduct } from '@/lib/domain/product';
 import { InterestPanel, useInterestLists, useInterestTab, useInterestTabGuard } from '@/components/InterestRail';
 import { toast } from '@/components/Toaster';
 import { StartGuide, useStartGuide } from '@/components/StartGuide';
-import { C, R, FS, CenterNote, ContextMenu, useContextMenu, FW, ICON } from '@/components/ui';
+import { C, R, FS, CenterNote, ContextMenu, useContextMenu, FW, ICON, SearchInput } from '@/components/ui';
 import { useAuthReady, useSession } from '@/lib/auth-context';
 import { useAppBar } from '@/lib/appbar';
 import { FINDER_RESET_LIMIT } from '@/lib/finder-session';
@@ -32,6 +32,7 @@ import {
 } from '@/features/finder/filter-state';
 import type { ColSort } from '@/features/finder/excel-columns';
 import { FinderFilterPanel, type FinderFilterPanelModel } from '@/features/finder/FinderFilterPanel';
+import { FinderMobileFilters } from '@/features/finder/FinderMobileFilters';
 import { useFinderData } from '@/features/finder/useFinderData';
 import { finderDataScope } from '@/features/finder/finder-data-store';
 import { useFinderResults } from '@/features/finder/useFinderResults';
@@ -142,6 +143,15 @@ export default function Finder() {
     if (homeTool === 'filter') discardFilterDraft();
     else openFilterDraft();
   }, [homeTool, discardFilterDraft, openFilterDraft]);
+
+  /**
+   * 상단 돋보기 = **열기만 한다**(닫기는 시트 자신의 취소·백드롭).
+   * 토글로 두면 시트가 덮고 있는 상단바를 눌러 닫는 셈이라, 열자마자 닫히는 오작동으로 읽힌다.
+   */
+  const openSearchSheet = useCallback(() => {
+    haptic.select();
+    if (homeTool !== 'filter') openFilterDraft();
+  }, [homeTool, openFilterDraft]);
 
   const applyFilterDraft = useCallback(() => {
     if (filterDraft) applyBag(filterDraft);
@@ -338,34 +348,6 @@ export default function Finder() {
     })
     .filter((href): href is string => !!href), [list]);
 
-  // 상단바 상태창 = PageStatus SSOT (웹·모바일 동일)
-  const headerCount = sheetOnly ? sheetVisibleCount : (rows == null ? null : totalVisible);
-  useAppBar({
-    title: (
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-        {/*
-          상단바 이름은 **어느 뷰에서나 「상품찾기 N대」로 같다**(사장님 2026-08-21
-          「우측 상단에 동일하게 상품찾기 0000대 하고 그 뒤에다가 시트 아이콘 넣고 프리패스 상품리스트」).
-          시트 뷰라고 이름을 통째로 바꿔 버리면 «다른 화면에 왔나» 싶고, 뒤로 갔을 때 이름이 또 바뀐다.
-          «지금 무엇을 보고 있는지»는 이름을 갈아치우는 대신 **뒤에 딱지 하나**로 덧붙인다.
-        */}
-        <FinderStatus
-          total={headerCount}
-          found={sheetOnly ? undefined : foundCount}
-          searching={sheetOnly ? false : searching}
-        />
-        {sheetOnly ? (
-          <span style={{
-            display: 'inline-flex', alignItems: 'center', gap: 5, flex: '0 0 auto',
-            fontSize: FS.cap, fontWeight: FW.label, color: C.mute,
-            border: `1px solid ${C.line}`, borderRadius: R, padding: '2px 8px', whiteSpace: 'nowrap',
-          }}>
-            <Sheet size={ICON.sm} aria-hidden />프리패스 상품리스트
-          </span>
-        ) : null}
-      </span>
-    ),
-  }, [foundCount, headerCount, searching, sheetOnly]);
 
   // 기간 필터 1개만 = 카드 앵커 가격. 복수/전체 = 최저가.
   const focusMonth = periods.size === 1 ? [...periods][0] : undefined;
@@ -425,6 +407,37 @@ export default function Finder() {
     setQInput(''); setQ(''); setPeriods(new Set()); setRent(new Set()); setDep(new Set()); setMile(new Set()); setFuel(new Set()); setPtype(new Set()); setCredit(new Set()); setPerks(new Set()); setPromo(new Set()); setDyn({}); setVehicle({ ...EMPTY_VEHICLE_FILTER }); setSort(FINDER_DEFAULT_SORT); setModels(new Set()); setInterestFlt(new Set());
   }, []);
   const filterBadge = activeCount(s) + models.size + interestFlt.size + (sort !== FINDER_DEFAULT_SORT ? 1 : 0) + colFilterN;
+
+  // 상단바 상태창 = PageStatus SSOT (웹·모바일 동일)
+  const headerCount = sheetOnly ? sheetVisibleCount : (rows == null ? null : totalVisible);
+  useAppBar({
+    title: (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+        {/*
+          상단바 이름은 **어느 뷰에서나 「상품찾기 N대」로 같다**(사장님 2026-08-21
+          「우측 상단에 동일하게 상품찾기 0000대 하고 그 뒤에다가 시트 아이콘 넣고 프리패스 상품리스트」).
+          시트 뷰라고 이름을 통째로 바꿔 버리면 «다른 화면에 왔나» 싶고, 뒤로 갔을 때 이름이 또 바뀐다.
+          «지금 무엇을 보고 있는지»는 이름을 갈아치우는 대신 **뒤에 딱지 하나**로 덧붙인다.
+        */}
+        <FinderStatus
+          total={headerCount}
+          found={sheetOnly ? undefined : foundCount}
+          searching={sheetOnly ? false : searching}
+        />
+        {sheetOnly ? (
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', gap: 5, flex: '0 0 auto',
+            fontSize: FS.cap, fontWeight: FW.label, color: C.mute,
+            border: `1px solid ${C.line}`, borderRadius: R, padding: '2px 8px', whiteSpace: 'nowrap',
+          }}>
+            <Sheet size={ICON.sm} aria-hidden />프리패스 상품리스트
+          </span>
+        ) : null}
+      </span>
+    ),
+    /* 모바일 검색 = 상단 돋보기 하나(당근 구성). 누르면 「검색·조건」 시트가 열린다 — 목록 위 검색줄은 없앴다. */
+    search: { onOpen: openSearchSheet, active: !!qInput.trim() || filterBadge > 0, label: '검색·조건' },
+  }, [foundCount, headerCount, searching, sheetOnly, openSearchSheet, qInput, filterBadge]);
   // 더보기 = 지금 보고 있는 목록 기준(엑셀=헤더필터·정렬 반영분). 100개 미만이면 버튼 없음.
   const activeList = renderView === 'excel' ? excelRows : list;
   const shown = useMemo(() => activeList.slice(0, limit), [activeList, limit]);
@@ -567,15 +580,28 @@ export default function Finder() {
           dirty={filterDirty}
           footer="commit"
           fixedHeight
-          topInset="calc(var(--topbar-h) + var(--fp-bar-h))"
-          title={<SheetTitle label="조건 검색" count={draftPreviewCount} unit="대" />}
-          maxHeight="min(68vh, 560px)"
+          /* 목록 위 검색줄이 없어졌으니 시트가 상단바 바로 밑까지 올라온다(전엔 툴바 한 줄만큼 더 내려와 있었다). */
+          topInset="var(--topbar-h)"
+          title={<SheetTitle label="검색·조건" count={draftPreviewCount} unit="대" />}
+          maxHeight="min(74vh, 620px)"
           clearLabel="초기화"
           onClear={(filterDraft ? sidebarAc : filterBadge) > 0 ? () => { haptic.select(); reset(); } : undefined}
           pad={false}
         >
           <div className="fp-bottom-sheet-body" style={{ padding: 0 }}>
-            {homeTool === 'filter' ? <FinderFilterPanel model={filterPanelModel} /> : null}
+            {/* ★검색어가 «맨 위»다 — 돋보기를 눌러 들어온 사람은 먼저 «칠» 생각으로 온다.
+                조건(아래 패널)은 그 다음이다. 검색은 즉시(디바운스) 반영되고, 조건만 적용/취소를 탄다. */}
+            <div style={{ padding: '4px 16px 10px', borderBottom: `1px solid ${C.line}` }}>
+              <SearchInput
+                value={qInput}
+                onChange={setQInput}
+                placeholder="예: 21세 그랜저, 무보증 쏘나타"
+                ariaLabel="차량과 조건 통합검색"
+                full
+              />
+            </div>
+            {/* 폰은 «빠른필터»(접이식 아님·축 축소) — 웹 사이드바 패널과 규격이 다르다. FinderMobileFilters 주석 참조. */}
+            {homeTool === 'filter' ? <FinderMobileFilters model={filterPanelModel} /> : null}
           </div>
         </BottomSheet>
       )}
