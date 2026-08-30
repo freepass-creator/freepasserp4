@@ -30,6 +30,26 @@ import { spawnSync } from 'node:child_process';
 import { Worker } from 'node:worker_threads';
 
 const APPLY = process.argv.includes('--apply');
+/**
+ * ★`--같은범위` — **aiops 가 하는 단계만** 돈다(첫 대조용).
+ *
+ *   우리 파이프라인은 aiops 가 안 하는 단계를 더 한다 — 차명 정리·모델명 통일·입고일자·
+ *   차번 사진링크·ERP 비추기. 이것들은 2026-08-28 이후 한 번도 안 돌아 **밀려 있고**,
+ *   dry-run 기준 모델명 312칸·차번 링크 413개를 한꺼번에 쏟는다.
+ *
+ *   ⚠ 그리고 「모델명 통일(엔카 기준)」은 오늘 커서·코덱스가 한 「정제칸을 F03 확정 원자에
+ *     맞추는 작업」과 **같은 칸을 건드릴 수 있다.** 부딪히는지 아무도 확인하지 않았다.
+ *
+ *   한 번에 두 가지를 바꾸면 시트가 이상해졌을 때 «오케스트레이터 이관» 탓인지
+ *   «밀린 정제» 탓인지 못 가린다. 그래서 첫 대조는 이 플래그로 **같은 범위만** 돌린다.
+ *   밀린 것은 F03 작업과의 충돌을 확인한 뒤 따로 켠다.
+ */
+const SAME_SCOPE = process.argv.includes('--같은범위');
+const skip = (label: string) => {
+  line.push(`${label} 건너뜀(같은범위)`);
+  console.log(`── ${label} — 건너뜀(--같은범위)`);
+  steps.push({ 단계: label, ok: true, 신호: 'aiops 범위 밖이라 건너뜀' });
+};
 const A = APPLY ? ['--apply'] : [];
 const kst = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 16).replace('T', ' ');
 const started = Date.now();
@@ -361,16 +381,20 @@ if (!s1b.ok) stop('정제칸 채움 실패');
 line.push('정제칸 ok');
 
 // ② 차명 중복 정리 → ③ 모델명 통일(엔카 기준)
-const s2 = run('② 차명 중복 정리', ['scripts/tidy-vehicle-names.mts', ...A], /합계/);
-if (!s2.ok) stop('차명 정리 실패'); line.push(s2.picked[0]?.replace('■ ', '차명 ') || '차명 0');
-const s3 = run('③ 모델명 통일', ['scripts/normalize-model-names.mts', ...A], /합계/);
-if (!s3.ok) stop('모델명 통일 실패'); line.push(s3.picked[0]?.replace('■ ', '모델명 ') || '모델명 0');
+if (SAME_SCOPE) { skip('② 차명 중복 정리'); skip('③ 모델명 통일'); } else {
+  const s2 = run('② 차명 중복 정리', ['scripts/tidy-vehicle-names.mts', ...A], /합계/);
+  if (!s2.ok) stop('차명 정리 실패'); line.push(s2.picked[0]?.replace('■ ', '차명 ') || '차명 0');
+  const s3 = run('③ 모델명 통일', ['scripts/normalize-model-names.mts', ...A], /합계/);
+  if (!s3.ok) stop('모델명 통일 실패'); line.push(s3.picked[0]?.replace('■ ', '모델명 ') || '모델명 0');
+}
 
 // ④ 입고일자(처음 올라온 날) → ⑤ 차량번호 셀 사진링크
-const s4 = run('④ 입고일자', ['scripts/fill-intake-date.mts', ...A], /반영 끝|dry-run|쓸 칸/);
-if (!s4.ok) stop('입고일자 실패'); line.push('입고일자 ok');
-const s5 = run('⑤ 차량번호 링크', ['scripts/publish-plate-links.mts', ...A], /합계/);
-if (!s5.ok) stop('차량번호 링크 실패'); line.push(s5.picked[0]?.replace('■ 합계 — ', '') || '링크 0');
+if (SAME_SCOPE) { skip('④ 입고일자'); skip('⑤ 차량번호 링크'); } else {
+  const s4 = run('④ 입고일자', ['scripts/fill-intake-date.mts', ...A], /반영 끝|dry-run|쓸 칸/);
+  if (!s4.ok) stop('입고일자 실패'); line.push('입고일자 ok');
+  const s5 = run('⑤ 차량번호 링크', ['scripts/publish-plate-links.mts', ...A], /합계/);
+  if (!s5.ok) stop('차량번호 링크 실패'); line.push(s5.picked[0]?.replace('■ 합계 — ', '') || '링크 0');
+}
 
 // ⑥ 판매시트 3탭
 const p1 = run('⑥ 상품리스트', ['scripts/publish-origin-tab.mts', ...A], /우리 시트 |반영 완료|중단|Error/);
@@ -429,6 +453,9 @@ line.push(erp.ok ? (erp.picked.find((l) => /원본 /.test(l))?.slice(0, 60) || '
  *   셋 다 **판매시트가 정본**이고, 시트에 없으면 ERP 도 비운다(남의 차 사진·남의 차 이름보다 «없음»이 낫다).
  *   실패해도 멈추지 않는다 — ⑧ 대조가 어긋남을 그대로 보여 준다.
  */
+if (SAME_SCOPE) {
+  skip('⑦′ 사진 시트대로'); skip('⑦′ 이름 시트대로'); skip('⑦′ 시트에 없는 차 출고불가');
+} else {
 const mp = run("⑦′ 사진 시트대로", ['scripts/mirror-sales-photos.mts', ...A], /고칠 차|끝 —/);
 const mn = run("⑦′ 이름 시트대로", ['scripts/mirror-sales-vehicle-name.mts', ...A], /고칠 차|끝 —/);
 const ma = run("⑦′ 시트에 없는 차 출고불가", ['scripts/mirror-sales-absent.mts', ...A], /뜨는 차|끝 —/);
@@ -437,6 +464,7 @@ line.push([
   mn.ok ? (mn.picked.find((l) => /고칠 차/.test(l))?.replace('■ 이름 ', '') || '이름 ok') : '이름 실패',
   ma.ok ? (ma.picked.find((l) => /뜨는 차/.test(l))?.replace('■ 판매시트에 없는데 상품찾기에 ', '') || '부재 ok') : '부재 실패',
 ].join(' · '));
+}
 
 // ⑧ 대조 — 판매시트 ↔ ERP 가 실제로 같은지 매 시간 확인해 기록에 남긴다(규칙 정본 lib/domain/sheet-erp-parity.ts).
 const chk = run('⑧ 시트↔ERP 대조', ['scripts/audit-sheet-erp-parity.mts'], /판매시트 |안 뜨는 차|없는 차/, 'npx', true);
