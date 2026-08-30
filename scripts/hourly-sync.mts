@@ -46,7 +46,7 @@ const LOCK = 'tmp/hourly-sync.lock';
  * 한 단계가 이보다 오래 걸릴 일은 없다(실측 최장 ⑥ 발행 ~5분). 이 시간이 지나도록
  * 안 만져졌으면 그 실행은 죽었거나 멎은 것이다.
  */
-const HEARTBEAT_STALE_MS = 15 * 60_000;
+const HEARTBEAT_STALE_MS = 45 * 60_000;
 /**
  * 겹침 잠금 — **PID 생존 + 심장박동** 둘 다 봐야 한다.
  *
@@ -73,8 +73,24 @@ function lockHeldByLiveRun(): boolean {
 if (lockHeldByLiveRun()) { console.log('앞의 실행이 아직 돈다(lock) — 이번은 건너뛴다'); process.exit(0); }
 const writeLock = () => writeFileSync(LOCK, JSON.stringify({ pid: process.pid, startedAt: kst(), heartbeat: kst() }));
 writeLock();
-/** 단계마다 부른다 — 「나 아직 살아 있다」. */
-const touchLock = () => { try { writeLock(); } catch { /* 지워졌으면 다음 단계에서 다시 쓴다 */ } };
+/**
+ * 단계마다 부른다 — 「나 아직 살아 있다」. **다만 먼저 «내 lock 이 맞나»를 본다.**
+ *
+ * ★코덱스 2026-08-30 3차: 「A 의 한 단계가 창을 넘기면 B 가 lock 을 가져가고,
+ *   그 뒤 A 가 touchLock 으로 B 의 lock 을 «자기 것으로 덮어써» 둘이 같이 돈다.」
+ *   그래서 덮어쓰기 전에 주인을 확인하고, **뺏겼으면 내가 멈춘다** — 뺏어오지 않는다.
+ *   (뒤늦게 깨어난 쪽이 물러나는 게 맞다. 새 실행은 처음부터 다시 도니 잃는 것도 없다.)
+ */
+const lockOwner = (): number | null => {
+  try { return (JSON.parse(readFileSync(LOCK, 'utf8')) as { pid?: number }).pid ?? null; } catch { return null; }
+};
+let lockLost = false;
+const touchLock = () => {
+  if (lockLost) return;
+  const owner = lockOwner();
+  if (owner !== null && owner !== process.pid) { lockLost = true; return; }
+  try { writeLock(); } catch { /* 지워졌으면 다음 단계에서 다시 쓴다 */ }
+};
 /** 내 lock 일 때만 지운다 — 남의 실행 lock 을 지우면 그 실행이 무방비가 된다. */
 const releaseLock = () => {
   try {
@@ -120,6 +136,9 @@ const run = (label: string, args: string[], pick: RegExp, runner: 'npx' | 'node'
   const bin = runner === 'node' ? 'node' : (process.platform === 'win32' ? 'npx.cmd' : 'npx');
   const argv = runner === 'node' ? args : ['tsx', ...args];
   for (let attempt = 1; ; attempt += 1) {
+    touchLock();   // 시작 «전»에도 만진다 — 자식이 도는 동안은 못 만지므로 공백을 절반으로 줄인다
+    /* 잠금을 뺏겼으면 **여기서 물러난다.** 뒤늦게 깨어난 쪽이 시트·ERP 를 같이 쓰면 안 된다. */
+    if (lockLost) stop('잠금을 다른 실행이 가져갔다 — 이 회차는 물러난다(겹쳐 쓰지 않기 위해)');
     const r = spawnSync(bin, argv, { encoding: 'utf8', shell: process.platform === 'win32', env: process.env, maxBuffer: 64 * 1024 * 1024 });
     const raw = `${r.stdout || ''}\n${r.stderr || ''}`;
     const lines = raw.split(/\r?\n/).map((l) => l.trimEnd()).filter((l) => l && !/DEP0190|trace-deprecation|Assertion/.test(l));
@@ -225,7 +244,7 @@ const stop = (why: string) => {
   writeFileSync('tmp/hourly-sync-last.txt', out.join('\n'));
   appendFileSync('tmp/hourly-sync-log.txt', `${kst()} ${APPLY ? '반영' : '미리'} ${Math.round((Date.now() - started) / 1000)}초 · ${line.join(' · ')}\n`);
   writeStatus(false, why);
-  releaseLock();
+  if (!lockLost) releaseLock();   // 뺏긴 lock 은 남의 것이다 — 지우면 그 실행이 무방비가 된다
   console.log(`⛔ 중단 — ${why}`);
   if (APPLY) alertFail(why);
   process.exit(1);
@@ -280,6 +299,9 @@ if (existsSync(손오공계정)) {
   line.push('손오공 건너뜀(계정 없음 · 명시)');
   warnings.push('손오공 없이 진행 — 손오공구독·픽업구독 발행과 ⑩ 천이를 건너뛴다');
   warnings.push('⚠ ⑦ ERP 동기는 그대로 돈다 — 판매시트의 «낡은 손오공 탭»이 ERP 로 다시 반영될 수 있다');
+  /* ★이 회차는 «온전한 실행»이 아니다. 경고만 남기면 ok:true·exit 0 으로 끝나 아무도 모른다(코덱스 3차).
+     낡은 값이 ERP 로 흘러갈 수 있는 회차이므로 반드시 실패로 표시한다. */
+  allOk = false;
 } else {
   line.push('손오공 건너뜀(계정 없음 · 미리보기)');
   console.log('· ⓪ 손오공 — 계정 파일이 없어 건너뜁니다(sonokong/lib/wonja/.손오공계정.json)');
@@ -388,7 +410,9 @@ line.push(chk.picked.find((l) => /안 뜨는 차/.test(l))?.replace('■ ', '') 
  *   출고불가가 된 건지, 다른 데는 시트에서 출고불가가 된 건지 정제시트랑 원본시트랑 다 확인해야지」).
  *   고치지 않는다 — 자동으로 되돌리면 사람이 내린 판단을 지운다. 기록에 「상태 갈림 N대」로 남긴다.
  */
-const drift = run('⑨ 상태 갈림 신호', ['scripts/audit-status-drift.mts'], /상태가 다른 차|★/, 'npx', true);
+/* ★⑨ 의 exit 2 는 「갈림을 찾았다」가 아니라 **「감사를 온전히 못 했다」**(globalErrors·unknownRows)다.
+   신호로 넘기면 «못 본 것»을 «본 것»으로 적게 된다 — 코덱스 3차 지적. 실패로 둔다. */
+const drift = run('⑨ 상태 갈림 신호', ['scripts/audit-status-drift.mts'], /상태가 다른 차|★/);
 // 미확인(동일 차번 상태 충돌 등)은 감사가 읽어 낸 유의미한 신호다. 이때 exit=2가
 // 나도 요약을 버리고 «0»이나 단순 실패로 적지 않는다. 요약 자체가 없을 때만 실패다.
 const driftSummary = drift.picked.find((l) => /상태가 다른 차/.test(l))?.replace('■ ', '');
@@ -419,7 +443,7 @@ if (손오공탭발행) {
  * ⑪ 자기검수 — 판매↔ERP 요금 정합. 「판매엔 있는데 ERP 요금 0」인 차 수를 남긴다.
  *   정상 기준선 3대(협의·더미 차번). 갑자기 늘면 원산지·정제칸 구멍이다.
  */
-const fee = run('⑪ 요금 검수(판매↔ERP)', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/audit-sales-vs-erp.mts'], /없는 차 \d+대|유효가격 0|살아있음 \d+/, 'npx', true);
+const fee = run('⑪ 요금 검수(판매↔ERP)', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/audit-sales-vs-erp.mts'], /없는 차 \d+대|유효가격 0|살아있음 \d+/);   /* ⑪ 는 어긋나도 exit 0 이라 signal2ok 이 무의미하다(코덱스 3차) */
 const feeN = /ERP 목록에 없는 차 (\d+)대/.exec(fee.picked.join(' ') || '');
 line.push(feeN ? `요금검수 ${feeN[1]}대` : '요금검수 ok');
 if (feeN && Number(feeN[1]) > 6) out.push(`\n⚠ 요금검수 — 판매엔 있는데 ERP 요금 0인 차 ${feeN[1]}대(>6). 원산지·정제칸 구멍 의심`);
