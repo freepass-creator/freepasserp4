@@ -110,9 +110,11 @@ const heartbeat = new Worker(`
   const { lock, pid } = workerData;
   setInterval(() => {
     try {
-      const owner = JSON.parse(readFileSync(lock, 'utf8')).pid;
-      if (owner !== pid) return;                 // 뺏겼다 — 되뺏지 않는다
-      writeFileSync(lock, JSON.stringify({ pid, heartbeat: new Date().toISOString() }));
+      const held = JSON.parse(readFileSync(lock, 'utf8'));
+      if (held.pid !== pid) return;              // 뺏겼다 — 되뺏지 않는다
+      /* ★있던 칸을 지우지 않는다 — 메인은 {pid,startedAt,heartbeat} 로 쓴다.
+         일꾼이 {pid,heartbeat} 로만 덮으면 startedAt 이 사라져 형식이 갈린다. */
+      writeFileSync(lock, JSON.stringify({ ...held, pid, heartbeat: new Date().toISOString() }));
     } catch { /* 지워졌거나 읽는 중 — 다음 박동에 다시 */ }
     /* ⚠ 이 타이머에 unref 를 걸면 일꾼의 할 일이 없어져 **스레드가 즉시 죽는다.**
        처음에 그렇게 짰다가 실측(tmp 시험)에서 「5초 막힘 · 0초 갱신」으로 잡았다. */
