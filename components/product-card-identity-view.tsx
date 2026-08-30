@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import type { EntityRecord } from '@/lib/intake/entities';
 import { C, NUM, FW, FS } from '@/components/ui';
@@ -24,16 +24,18 @@ export function Plate({ p }: { p: EntityRecord }) {
   );
 }
 
-export function CardTitle({ p, narrow, size }: {
+export function CardTitle({ p, narrow, size, weight }: {
   p: EntityRecord;
   narrow?: boolean;
   size?: number;
+  /** 행의 «머리»로 세울 때만 올린다(모바일 목록). 기본은 표·격자용 FW.title. */
+  weight?: number;
 }) {
   const fontSize = size ?? FS.title;
   const text = cardTitle(p, !!narrow);
   return (
     <div title={text} style={{
-      fontSize, fontWeight: FW.title, color: C.ink, lineHeight: 1.2,
+      fontSize, fontWeight: weight ?? FW.title, color: C.ink, lineHeight: 1.2,
       minWidth: 0, width: '100%',
       overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
     }}>{text}</div>

@@ -134,7 +134,7 @@ export function CardThumb({ p, audience = 'agent', fill, w, h, heart = false, ma
   const showHeart = heart && audience !== 'customer';
   const pad = fill ? 6 : 5;
   const promoFs = fill ? (mobile ? FS.cap : FS.micro) : FS.micro;
-  // 모바일 목록 피드 썸네일(w=88, !fill) = 긴 스크롤. blur는 스크롤 합성비용이 커서 반투명 단색으로 대체.
+  // 모바일 목록 피드 썸네일(w=68, !fill) = 긴 스크롤. blur는 스크롤 합성비용이 커서 반투명 단색으로 대체.
   // 상세(웹 가로카드)·간단(fill) 카드는 blur 유지.
   const listThumb = mobile && !fill;
 
