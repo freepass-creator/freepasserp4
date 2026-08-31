@@ -55,7 +55,10 @@ function PerkPeriodRow({ p }: { p: EntityRecord }) {
       gap: 8, minWidth: 0, width: '100%',
     }}>
       <div style={{ flex: '1 1 96px', minWidth: 0 }}>
-        <CardPerkLine p={p} dense={false} />
+        {/* withCredit = 「무심사」도 이 줄에 선다(모바일 행과 같은 규칙). 심사는 «지금 살 수 있나»가 아니라
+            «어떤 조건인가»라 머리가 아니라 조건 줄이 든다(사장님 2026-08-23). 전에는 웹만 꺼져 있어
+            같은 값이 폰에는 보이고 웹에는 안 보였다. */}
+        <CardPerkLine p={p} dense={false} withCredit />
       </div>
       <div style={{ flex: '2 1 168px', minWidth: 0, maxWidth: '100%' }}>
         <PeriodChips align="end" clamp />

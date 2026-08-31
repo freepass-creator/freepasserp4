@@ -44,7 +44,8 @@ export { CardRailBadges, SignalMarks } from '@/components/product-card-badge-vie
  *
  * 공통 원칙
  *  · CORE(없을 수 없는 필터) = 항상 자리 / OPT(있을 수도) = 해당 시만
- *  · Badge = 상품구분·출고·심사 / 스펙 = 텍스트 / 혜택·이벤트 = MetaIcon
+ *  · 상품구분·출고·심사 = **MetaIcon(아이콘+글자)** — SignalMarks 가 든다 / 스펙 = 텍스트 / 혜택·이벤트 = MetaIcon
+ *    (사진 위 좌상단 마크만 Badge frosted — 바탕이 사진이라 상자가 있어야 읽힌다)
  *  · 전기간 요금표 = /m 만 · 카드 스펙 = 차번·연식·연료·주행·배기(없으면 -)
  *  · 가격 표기순 = 기간 → 대여료 → 보증금
  *  · 웹 상세(가로) = PeriodChips로 기간 나열(hover peek) · 웹 간단 = 칩+조건
@@ -121,12 +122,12 @@ export function CardFacts({ p, dense }: { p: EntityRecord; audience?: Audience; 
 /**
  * CardThumb — 썸네일 뱃지 SSOT.
  *  · 기본: 좌측 한 줄 최대 2(프로모 우선 → marks 출고·심사)
- *  · coreBadges(간단카드): 우하 가로 출고·상품·심사 = 상세와 동일 Badge + frosted 반투명
+ *  · CORE 셋(출고·상품·심사)은 **사진 위에 안 올린다** — 카드 본문의 SignalMarks(아이콘+글자)가 든다(2026-08-30).
  *  · heart — 웹 목록 빠른 찜. 모바일 목록은 숨김(상세 FavHeart만).
  */
-export function CardThumb({ p, audience = 'agent', fill, w, h, heart = false, marks = true, coreBadges = false }: {
+export function CardThumb({ p, audience = 'agent', fill, w, h, heart = false, marks = true }: {
   p: EntityRecord; audience?: Audience; fill?: boolean; w?: number; h?: number;
-  heart?: boolean; marks?: boolean; coreBadges?: boolean;
+  heart?: boolean; marks?: boolean;
 }) {
   const mobile = useIsMobile();
   const photo = useFirstPhoto(p, 480);
@@ -149,17 +150,10 @@ export function CardThumb({ p, audience = 'agent', fill, w, h, heart = false, ma
       borderRadius: R, background: C.placeholder, overflow: 'hidden',
     };
 
-  // 간단 = CORE 3 동일 취급. 우하 가로(출고→상품→심사).
-  const coreSpecs = coreBadges
-    ? (() => {
-        const by = new Map(badgeSpecs(p, false, false, audience).map((s) => [s.key, s]));
-        return (['st', 'pt', 'cd'] as const).map((k) => by.get(k)).filter(Boolean) as BadgeSpec[];
-      })()
-    : [];
-
   type Mark = { key: string; label: string; kind: 'promo' | 'mark'; tone?: BadgeTone; variant?: BadgeSpec['variant'] };
+  // 사진 위 표시는 좌상단 둘까지 — 프로모 먼저, 남으면 출고상태 마크.
   const left: Mark[] = [];
-  if (!coreBadges) {
+  {
     const head = marks ? photoMarkSpecs(p, audience) : [];
     for (const e of promos) {
       if (left.length >= 2) break;
@@ -170,9 +164,6 @@ export function CardThumb({ p, audience = 'agent', fill, w, h, heart = false, ma
       left.push({ key: s.key, label: s.label, kind: 'mark', tone: s.tone, variant: s.variant });
     }
   }
-
-  const promoRight = coreBadges ? promos.slice(0, 2) : [];
-  const hasCore = coreSpecs.length > 0;
 
   const promoChip = (label: string, key: string) => (
     <span
@@ -207,34 +198,6 @@ export function CardThumb({ p, audience = 'agent', fill, w, h, heart = false, ma
         style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }}
       />
 
-      {/* frosted Badge 가독용 — 옅은 하단만 */}
-      {hasCore && (
-        <div aria-hidden style={{
-          position: 'absolute', left: 0, right: 0, bottom: 0, height: '28%', zIndex: 1,
-          background: `linear-gradient(to top, ${SCRIM.light} 0%, transparent 100%)`,
-          pointerEvents: 'none',
-        }} />
-      )}
-
-      {hasCore && (
-        <div style={{
-          position: 'absolute', bottom: pad, right: pad, zIndex: 2,
-          display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 3,
-          maxWidth: '92%', overflow: 'hidden',
-        }}>
-          {coreSpecs.map((s) => (
-            <Badge
-              key={s.key}
-              tone={s.tone}
-              variant={s.variant || 'line'}
-              frosted
-              pulse={s.pulse}
-              title={badgeTip(s.key, s.label)}
-            >{s.label}</Badge>
-          ))}
-        </div>
-      )}
-
       {left.length > 0 && (
         <div style={{
           position: 'absolute', top: pad, left: pad, zIndex: 2,
@@ -247,16 +210,6 @@ export function CardThumb({ p, audience = 'agent', fill, w, h, heart = false, ma
           ) : (
             <Badge key={m.key} tone={m.tone || 'gray'} variant={m.variant || 'line'} frosted title={badgeTip(m.key, m.label)}>{m.label}</Badge>
           ))}
-        </div>
-      )}
-
-      {promoRight.length > 0 && (
-        <div style={{
-          position: 'absolute', top: pad, right: showHeart ? (fill ? 36 : 32) : pad, zIndex: 2,
-          display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3,
-          maxWidth: '42%',
-        }}>
-          {promoRight.map((e) => promoChip(e.label, e.key))}
         </div>
       )}
 
