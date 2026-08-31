@@ -6,9 +6,9 @@ import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
 import { C, R_CARD, SH } from '@/components/ui';
 import {
-  CardTitle, CardSpecs, CardThumb, CardPerkLine,
+  CardTitle, CardSpecs, CardThumb,
   OptionChips,
-  PricePeekRoot, PriceAmounts, PeriodRange,
+  PricePeekRoot, PriceAmounts, PeriodPerkBand,
 } from '@/components/product-card-atoms';
 import { type Audience } from '@/lib/domain/product';
 
@@ -56,16 +56,8 @@ export const ProductCard = memo(function ProductCard({ p, audience = 'agent', hr
           display: 'flex', flexDirection: 'column', alignItems: 'stretch',
           gap, minWidth: 0, width: '100%', flex: '0 0 auto',
         }}>
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 8, lineHeight: 1.2,
-            minWidth: 0, width: '100%', overflow: 'hidden',
-          }}>
-            <div style={{ flex: '1 1 auto', minWidth: 0, overflow: 'hidden' }}>
-              <PriceAmounts align="start" />
-            </div>
-            <PeriodRange />
-          </div>
-          <CardPerkLine p={p} dense />
+          <PriceAmounts align="start" />
+          <PeriodPerkBand p={p} dense gap={gap} />
         </PricePeekRoot>
       </div>
     </Link>
