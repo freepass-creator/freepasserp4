@@ -7,7 +7,7 @@ import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
 import { C, R, SH } from '@/components/ui';
 import {
-  CardTitle, CardSpecs, CardPerkLine, CardThumb, CardRailBadges,
+  CardTitle, CardSpecs, CardPerkLine, CardThumb,
   PricePeekRoot, PriceAmounts, PeriodChips, PeriodRange, OptionChips,
 } from '@/components/product-card-atoms';
 
@@ -15,7 +15,7 @@ import {
  * 상세카드 SSOT
  *
  * 웹 4×2:
- *   1 차명              | 뱃지
+ *   1 차명              | (빈 슬롯)  — 출고·상품·심사는 썸네일 우하
  *   2 옵션/옵션미입력   | (빈 슬롯)
  *   3 스펙(+차번)       | 기간·대여료·보증금
  *   4 조건              | 기간칩
@@ -75,7 +75,7 @@ function WebRow({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) {
       boxShadow: SH.cardRest,
       textDecoration: 'none', color: 'inherit',
     } satisfies CSSProperties}>
-      <CardThumb p={p} w={88} marks={false} heart />
+      <CardThumb p={p} w={88} marks={false} heart coreBadges />
 
       <PricePeekRoot p={p} focusMonth={focusMonth} style={{
         display: 'grid',
@@ -93,7 +93,7 @@ function WebRow({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) {
             <CardTitle p={p} />
           </div>
         </Cell>
-        <Cell right><CardRailBadges p={p} /></Cell>
+        <Cell right />
 
         <Cell><OptionChips p={p} clamp /></Cell>
         <Cell right />
