@@ -154,10 +154,12 @@ function 행빌드(header, 기존, c, 분류) {
   const pi = header.indexOf('사진링크');
   if (pi >= 0) {
     const cur = String(row[pi] ?? '');
+    const 우리드라이브사진 = /drive\.google\.com\/drive\/folders\/[\w-]{15,}/i.test(cur);
     const 사진들 = (Array.isArray(c.사진들) ? c.사진들 : []).map((u) => String(u).trim()).filter((u) => /^https?:\/\//.test(u)).slice(0, 10);
     const 이미지 = 사진들.join(', ');
     const 쓸모없음 = !cur.trim() || cur.includes('\n') || /tcar\.lotterentacar\.net\/cr\//.test(cur);
-    if (이미지) row[pi] = 이미지;           // 사진들 있으면 항상 전체(콤마) — 갤러리 여러 장
+    if (우리드라이브사진) { /* 우리 보관본은 API 링크로 되돌리지 않는다 */ }
+    else if (이미지) row[pi] = 이미지;       // 사진들 있으면 항상 전체(콤마) — 갤러리 여러 장
     else if (쓸모없음) row[pi] = '';         // 사진 없고 옛 값이 HTML/빈/여러줄이면 비움(HTML 남기면 깨진 이미지)
     // else: 기존 단일 이미지 링크(드라이브 등) 보존
   }

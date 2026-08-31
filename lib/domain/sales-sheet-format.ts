@@ -364,6 +364,9 @@ export function buildSalesFormatRequests(input: FormatInput): Record<string, unk
     }
   };
   byValue('구분', GUBUN_INK);
+  // 손오공 구독과 T카 픽업구독은 같은 공급사여도 서로 다른 매물 갈래다.
+  // 상태 색(green·amber·blue·orange·red)과 겹치지 않게 보라/자홍으로 가른다.
+  byValue('분류', [['중고구독', '7E57C2'], ['픽업구독', 'C2185B']]);
   byValue('배차상태', STATE_INK);
   byValue('상태', STATE_INK);
   // ★구분되는 값은 눈에 확 오게(사장님 2026-08-19 「제조사 색깔 넣기로 했었고 · 세단 SUV 색깔 다르게 · 차량 색상 텍스트에 색깔」)
