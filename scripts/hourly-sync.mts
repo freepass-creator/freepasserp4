@@ -9,6 +9,7 @@
  *   ③ 모델명 통일(엔카 기준: 벤츠 E200 → E-클래스 · BMW 520i → 5시리즈)
  *   ④ 입고일자 채움(그 차량번호가 우리 쪽에 처음 올라온 날)
  *   ⑤ 차량번호 셀에 사진링크 걸기
+ *   ⑤′ 정산원장 최신 상태 반영(계약중 · 인도완료=출고불가)
  *   ⑥ 판매시트 «4탭» 발행(상품리스트 · 손오공구독 · 픽업구독 · 오플구독) + 요금블록
  *   ⑥′ (건너뜀) 상품마스터는 이제 안 거친다 — ERP 가 판매시트를 그대로 읽는다. `--with-product-master` 로만 켠다
  *   ⑦ ERP 일일 동기(sheet/sync-daily) — 실패해도 밤 02:00 크론이 다시 돈다(경고만)
@@ -441,6 +442,17 @@ if (SAME_SCOPE) { skip('④ 입고일자', 'aiops 범위 밖(--같은범위)'); 
   const s5 = run('⑤ 차량번호 링크', ['scripts/publish-plate-links.mts', ...A], /합계/);
   if (!s5.ok) stop('차량번호 링크 실패'); line.push(s5.picked[0]?.replace('■ 합계 — ', '') || '링크 0');
 }
+
+/**
+ * ⑤′ 정산원장이 계약 상태의 정본이다.
+ * 손오공 API는 재고·가격·사진을 갱신할 뿐, 인도완료를 알 수 없다. 따라서
+ * 공급사 원본을 모두 갱신한 뒤, 판매시트 발행 전에 원장 최신 행으로
+ * 계약중/출고불가를 세운다. 출고불가를 계약중으로 풀지 않는 보호 규칙은
+ * mark-contract-in-listings가 소유한다.
+ */
+const contractStatus = run('⑤′ 정산원장 계약상태', ['scripts/mark-contract-in-listings.mts', ...A], /세울 차|고칠 칸|끝|Error/);
+if (!contractStatus.ok) stop('정산원장 계약상태 반영 실패');
+line.push(contractStatus.picked.find((l) => /고칠 칸/.test(l))?.replace(/\s+/g, ' ').trim() || '정산 상태 ok');
 
 // ⑥ 판매시트 3탭
 const p1 = run('⑥ 상품리스트', ['scripts/publish-origin-tab.mts', ...A], /우리 시트 |반영 완료|중단|Error/);

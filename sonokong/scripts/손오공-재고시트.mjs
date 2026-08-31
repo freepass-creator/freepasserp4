@@ -14,7 +14,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { sheet, colL } from '../lib/sheet.mjs';
 import { withLease } from '../lib/lease.mjs';
 
@@ -55,6 +55,19 @@ function 연료정규(f) {
   return s;
 }
 
+/**
+ * 손오공 목록의 노출값은 VISIBLE만 쓰이지 않는다. 실제 목록에는 EXPOSED도
+ * 계약가능=Y·계약중=false인 판매 가능 재고로 내려온다. 계약·인도 상태는
+ * 정산원장이 뒤 단계에서 덮으므로, 여기서는 API가 «현재 목록에 있다»는
+ * 사실에 맞는 기본 상태만 만든다.
+ */
+export function 손오공기본상태(c) {
+  if (c.계약중) return '계약중';
+  return ['VISIBLE', 'EXPOSED'].includes(String(c.노출 || '').trim().toUpperCase())
+    ? '출고가능'
+    : '출고불가';
+}
+
 // 대상 버킷 → (탭, 분류)
 const 대상 = [
   { 버킷: 'SON_NO_KONG', 탭: '구독재고', 분류: '중고구독' },
@@ -79,7 +92,7 @@ function 값맵(c, 분류) {
   const B = c.저신용월납?.SUBSCRIBE_BUYOUT || c.저신용월납?.RENT_BUYOUT || {};
   const L = c.정제 || {}; // T카 롯데 정제값(SON은 {})
   const dep = c.보증금 || {};
-  const 상태 = c.계약중 ? '계약중' : (c.노출 === 'VISIBLE' ? '출고가능' : '출고불가');
+  const 상태 = 손오공기본상태(c);
   // 정제값 — 모델·세부모델·세부트림·원산지 = 차종마스터 시트 매칭(정제맵). 제원(배기량·연료·외장·구동·인승·차종·내장) = 팩트.
   const isT = c.버킷 === 'TCAR_EXTERNAL';
   const M = 정제맵.get(씻(c.차번)) || {}; // 차종마스터 시트 규격(없으면 {} → 그 칸 빈칸)
@@ -226,4 +239,6 @@ async function main() {
   });
 }
 
-main().catch((e) => { console.error('실패:', e.message); process.exit(1); });
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((e) => { console.error('실패:', e.message); process.exit(1); });
+}
