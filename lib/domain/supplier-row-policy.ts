@@ -141,6 +141,7 @@ export function policyTabRowFrom(fields: Rec): Record<string, string> {
   put('자차보상한도', fields.own_damage_compensation === '차량가 기준' ? '차량가액' : fields.own_damage_compensation === '시세 기준' ? '시세' : '');
   put('기본주행', fields.annual_mileage);
   put('추가주행 금액', fields.mileage_upcharge_per_10000km);
+  put('기본운전자연령', fields.basic_driver_age);
   put('연령인하', fields.driver_age_lowering);
   put('연령 하향 요금', fields.age_lowering_cost);
   put('보증금분납', fields.deposit_installment);
