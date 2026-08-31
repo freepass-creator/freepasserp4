@@ -550,7 +550,8 @@ const plateHits = searchContractVehicles([
   { product_code: 'plate-b', provider_company_code: 'B', car_number: '34나7890', model: '테스트B', vehicle_status: '출고가능', price: { 12: { rent: 600000, deposit: 1000000 } } },
 ] as never, '', null, '345');
 assert.deepEqual(plateHits.map((row) => String(row.product_code)), ['plate-a']);
-assert.match(sendCenter, /quickEntry \? '' : \(draft\?\.providerCompanyCode \|\| ''\)/);
+assert.match(sendCenter, /S\(deferredVehicleQuery\) \? '' : \(quickEntry \? '' : \(draft\?\.providerCompanyCode \|\| ''\)\)/);
+assert.match(sendCenter, /onChange=\{setVehicleNumber\}/);
 assert.match(sendCenter, /const offerDraft = quickEntry;/);
 assert.match(sendCenter, /productCode: S\(draft\.productCode\),\s*rentMonths: Number\(draft\.rentMonths\)/);
 assert.match(sendCenter, /const quickOfferReady = manualOfferReady \|\| productOfferReady;/);

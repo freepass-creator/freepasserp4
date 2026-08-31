@@ -40,6 +40,9 @@ const policy = {
 assert.deepEqual(searchContractVehicles([product, subscription, otherProvider], 'RP012', rentTemplate, '').map((row) => row.product_code), ['RP012_12가3456']);
 assert.deepEqual(searchContractVehicles([product, subscription, otherProvider], '', null, '3456').map((row) => row.product_code), ['RP012_12가3456', 'RP004_12가3456', 'RP012_34나5678']);
 assert.deepEqual(searchContractVehicles([product, subscription, otherProvider], 'RP012', rentTemplate, '345').map((row) => row.product_code), ['RP012_12가3456']);
+// 차량번호를 입력하기 시작하면 UI는 공급사 필터를 제거한다. 따라서 검색 함수도 전체 출고가능 재고에서
+// 번호 일부를 찾을 수 있어야 하며, 선택 시에만 해당 차량 공급사·정책을 이어받는다.
+assert.deepEqual(searchContractVehicles([product, subscription, otherProvider], '', null, '5678').map((row) => row.product_code), ['RP012_34나5678']);
 assert.deepEqual(searchContractVehicles([product, subscription, otherProvider], 'RP012', rentTemplate, '아반떼').map((row) => row.product_code), ['RP012_12가3456']);
 assert.deepEqual(searchContractVehicles([product, subscription], 'RP012', subscriptionTemplate, '5678').map((row) => row.product_code), ['RP012_34나5678']);
 assert.deepEqual(searchContractVehicles([product, noPrice], 'RP012', rentTemplate, '').map((row) => row.product_code), ['RP012_12가3456', 'RP012_56다7890']);

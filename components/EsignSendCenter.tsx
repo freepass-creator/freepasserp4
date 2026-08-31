@@ -482,9 +482,10 @@ export function EsignSendCenter({
   // 차량 후보는 «회사만» 정해지면 열린다 — 계약서 종류는 고른 차가 정한다.
   const vehicleResults = useMemo(() => searchContractVehicles(
     products,
-    // 빠른 작성의 차량번호 자동완성은 기존 선택 차량의 공급사에 갇히지 않는다.
-    // 몇 자리 번호만 입력해도 전체 출고가능 재고에서 바로 찾는다.
-    quickEntry ? '' : (draft?.providerCompanyCode || ''),
+    // 번호·차종을 입력하는 순간에는 공급사로 가두지 않는다.
+    // 직원은 번호 몇 자리만으로 어느 공급사 재고든 찾아 고른 뒤, 그 차량의 공급사·정책을 이어받는다.
+    // 빈 검색창만 현재 선택한 공급사 재고로 유지해 최초 선택 목록이 불필요하게 커지지 않게 한다.
+    S(deferredVehicleQuery) ? '' : (quickEntry ? '' : (draft?.providerCompanyCode || '')),
     null,
     deferredVehicleQuery,
   ), [deferredVehicleQuery, draft?.providerCompanyCode, products, quickEntry]);
@@ -1106,10 +1107,7 @@ export function EsignSendCenter({
                 >
                   <SearchInput
                     value={vehicleQuery}
-                    onChange={(value) => {
-                      setVehicleQuery(value);
-                      setVehiclePickerOpen(true);
-                    }}
+                    onChange={setVehicleNumber}
                     placeholder={draftProduct ? '다른 출고가능 차량을 검색하거나 눌러서 변경' : '출고가능 차량번호·차종 검색 또는 눌러서 선택'}
                     full
                   />
