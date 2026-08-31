@@ -127,7 +127,7 @@ function forbiddenInput(body: EsignRecord) {
     'providerCompanyCode', 'productType', 'rentAmount', 'depositAmount', 'mileageSurcharge', 'ageSurcharge',
     'standardTemplateId', 'contractKind', 'templateFields', 'contractDraft', 'contract_code', 'agent_uid',
     'signStatus', 'sign_status', 'customerName', 'customerPhone', 'customerAddress', 'insurerName',
-    'vehicleName', 'carNumber', 'modelYear', 'fuel', 'feeRate', 'payoutRate',
+    'feeRate', 'payoutRate',
   ];
   const key = forbidden.find((candidate) => Object.hasOwn(body, candidate));
   if (key) throw new CreateInputError('계약서 생성 요청에는 차량·금액·보험·당사자 기준값을 직접 넣을 수 없습니다.');
@@ -144,6 +144,24 @@ function manualTerms(body: EsignRecord, depositInstallment: string, specialTerms
   if (driverScope) terms.driver_scope = driverScope;
   if (maintenanceProduct) terms.maintenance_product = maintenanceProduct;
   return terms;
+}
+
+/**
+ * 재고 자체(product_code·VIN·가격표)는 서버가 고정한다. 다만 영업자는 계약을 보내기 전에
+ * 계약서에 인쇄되는 차량 표기값을 보완할 수 있다. 이 값은 아래 seal과 request hash에 함께 남긴다.
+ */
+function vehiclePresentation(body: EsignRecord) {
+  return {
+    carNumber: requiredText(body.carNumber, '차량번호', 40),
+    vehicleName: requiredText(body.vehicleName, '차종', 160),
+    modelYear: optionalText(body.modelYear, '연식', 30),
+    fuel: optionalText(body.fuel, '유종', 60),
+    options: optionalText(body.options, '옵션', 500),
+    colorExterior: optionalText(body.colorExterior, '외장색상', 80),
+    currentMileage: optionalText(body.currentMileage, '출고 시 주행거리', 40),
+    vehiclePrice: optionalText(body.vehiclePrice, '차량가액', 40),
+    vehicleRemark: optionalText(body.vehicleRemark, '차량 비고', 500, true),
+  };
 }
 
 /** 서버가 만든 직접계약만 이 node에 seal을 갖는다. client create/legacy unsealed record는 issue에서 닫힌다. */
@@ -182,6 +200,12 @@ export async function POST(request: Request) {
     const depositInstallment = S(body.depositInstallment);
     const buyoutPrice = won(body.buyoutPrice, '만기 인수가');
     const terms = manualTerms(body, depositInstallment, specialTerms);
+    const vehicle = vehiclePresentation(body);
+    terms.options = vehicle.options;
+    terms.color_exterior = vehicle.colorExterior;
+    terms.odometer_delivery = vehicle.currentMileage;
+    terms.contract_vehicle_price = vehicle.vehiclePrice;
+    terms.vehicle_remark = vehicle.vehicleRemark;
     if (buyoutPrice != null) terms.buyback_price = String(buyoutPrice);
     const canonicalTerms = canonicalFreepassDirectManualTerms(terms);
     const canonicalDraft = canonicalFreepassDirectManualTermsDraft(canonicalTerms);
@@ -190,6 +214,7 @@ export async function POST(request: Request) {
       actorUid: actor.uid, productCode, policyCode, contractDate, rentMonths, annualMileage, priceVariantKey,
       driverAge, maturity, depositInstallment, paymentTiming, specialTermsChoice, specialTerms, buyoutPrice,
       driverScope: terms.driver_scope || '', maintenanceProduct: terms.maintenance_product || '',
+      vehicle,
     }));
     const db = firebaseAdminDatabase();
     const now = Date.now();
@@ -272,7 +297,7 @@ export async function POST(request: Request) {
         product,
       });
       const createdAt = Number(claimed?.createdAt) || now;
-      const vehicle = contractVehicleSnapshot(product);
+      const productVehicle = contractVehicleSnapshot(product);
       const contract: EsignRecord = {
         contract_code: contractCode,
         contract_number: displayNumber('contract', contractCode, contractDate),
@@ -289,10 +314,10 @@ export async function POST(request: Request) {
         esign_contract_kind: kind.key,
         esign_maturity: kind.maturity,
         esign_insurance_side: template.insuranceSide,
-        car_number_snapshot: vehicle.carNumber,
-        vehicle_name_snapshot: vehicle.vehicleName,
-        year_snapshot: vehicle.modelYear,
-        fuel_type_snapshot: vehicle.fuel,
+        car_number_snapshot: vehicle.carNumber || productVehicle.carNumber,
+        vehicle_name_snapshot: vehicle.vehicleName || productVehicle.vehicleName,
+        year_snapshot: vehicle.modelYear || productVehicle.modelYear,
+        fuel_type_snapshot: vehicle.fuel || productVehicle.fuel,
         rent_month_snapshot: rentMonths,
         rent_amount_snapshot: price.rent,
         deposit_amount_snapshot: price.deposit,

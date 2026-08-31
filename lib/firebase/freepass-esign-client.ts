@@ -19,6 +19,16 @@ export type CreateFreepassDirectContractInput = {
   buyoutPrice?: string;
   driverScope?: string;
   maintenanceProduct?: string;
+  /** 선택 재고는 그대로 두고, 이번 계약서에 인쇄할 차량 표기값만 보완한다. */
+  carNumber: string;
+  vehicleName: string;
+  modelYear?: string;
+  fuel?: string;
+  options?: string;
+  colorExterior?: string;
+  currentMileage?: string;
+  vehiclePrice?: string;
+  vehicleRemark?: string;
 };
 
 /**
@@ -37,6 +47,11 @@ export type CreateFreepassManualOfferContractInput = {
   vehicleName?: string;
   modelYear?: string;
   fuel?: string;
+  options?: string;
+  colorExterior?: string;
+  currentMileage?: string;
+  vehiclePrice?: string;
+  vehicleRemark?: string;
 };
 
 /**
